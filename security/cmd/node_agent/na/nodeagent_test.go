@@ -19,61 +19,54 @@ import (
 	"fmt"
 	"testing"
 	"time"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/security/pkg/caclient"
 	mockclient "istio.io/istio/security/pkg/caclient/grpc/mock"
 	"istio.io/istio/security/pkg/platform"
 	mockpc "istio.io/istio/security/pkg/platform/mock"
+	"istio.io/istio/security/pkg/util"
 	mockutil "istio.io/istio/security/pkg/util/mock"
 	"istio.io/istio/security/pkg/workload"
 	pb "istio.io/istio/security/proto"
 )
 
-type FakeCertUtil struct {
-	duration time.Duration
-	err      error
-}
-
-func (f FakeCertUtil) GetWaitTime(certBytes []byte, now time.Time, gracePeriodPercentage int) (time.Duration, error) {
-	if f.err != nil {
-		return time.Duration(0), f.err
-	}
-	return f.duration, nil
-}
-
 func TestStartWithArgs(t *testing.T) {
 	generalConfig := Config{
-		IstioCAAddress:     "ca_addr",
-		ServiceIdentityOrg: "Google Inc.",
-		RSAKeySize:         512,
-		Env:                "onprem",
-		CSRInitialRetrialInterval: time.Millisecond,
-		CSRMaxRetries:             3,
-		CSRGracePeriodPercentage:  50,
-		LoggingOptions:            log.NewOptions(),
-		RootCertFile:              "ca_file",
-		KeyFile:                   "pkey",
-		CertChainFile:             "cert_file",
+		CAClientConfig: caclient.Config{
+			CAAddress:  "ca_addr",
+			Org:        "Google Inc.",
+			RSAKeySize: 512,
+			Env:        "onprem",
+			CSRInitialRetrialInterval: time.Millisecond,
+			CSRMaxRetries:             3,
+			CSRGracePeriodPercentage:  50,
+			RootCertFile:              "ca_file",
+			KeyFile:                   "pkey",
+			CertChainFile:             "cert_file",
+		},
+		LoggingOptions: log.DefaultOptions(),
 	}
+	signedCert := []byte(`TESTCERT`)
+	certChain := []byte(`CERTCHAIN`)
 	testCases := map[string]struct {
 		config      *Config
 		pc          platform.Client
 		cAClient    *mockclient.FakeCAClient
-		certUtil    FakeCertUtil
+		certUtil    util.CertUtil
 		expectedErr string
 		sendTimes   int
 		fileContent []byte
 	}{
 		"Success": {
-			config:      &generalConfig,
-			pc:          mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
-			cAClient:    &mockclient.FakeCAClient{0, &pb.CsrResponse{IsApproved: true, SignedCertChain: []byte(`TESTCERT`)}, nil},
-			certUtil:    FakeCertUtil{time.Duration(0), nil},
+			config: &generalConfig,
+			pc:     mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
+			cAClient: &mockclient.FakeCAClient{
+				0, &pb.CsrResponse{IsApproved: true, SignedCert: signedCert, CertChain: certChain}, nil},
+			certUtil:    mockutil.FakeCertUtil{time.Duration(0), nil},
 			expectedErr: "node agent can't get the CSR approved from Istio CA after max number of retries (3)",
 			sendTimes:   12,
-			fileContent: []byte(`TESTCERT`),
+			fileContent: append(signedCert, certChain...),
 		},
 		"Config Nil error": {
 			pc:          mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
@@ -92,17 +85,19 @@ func TestStartWithArgs(t *testing.T) {
 			// 128 is too small for a RSA private key. GenCSR will return error.
 
 			config: &Config{
-				IstioCAAddress:     "ca_addr",
-				ServiceIdentityOrg: "Google Inc.",
-				RSAKeySize:         128,
-				Env:                "onprem",
-				CSRInitialRetrialInterval: time.Millisecond,
-				CSRMaxRetries:             3,
-				CSRGracePeriodPercentage:  50,
-				RootCertFile:              "ca_file",
-				KeyFile:                   "pkey",
-				CertChainFile:             "cert_file",
-				LoggingOptions:            log.NewOptions(),
+				CAClientConfig: caclient.Config{
+					CAAddress:  "ca_addr",
+					Org:        "Google Inc.",
+					RSAKeySize: 128,
+					Env:        "onprem",
+					CSRInitialRetrialInterval: time.Millisecond,
+					CSRMaxRetries:             3,
+					CSRGracePeriodPercentage:  50,
+					RootCertFile:              "ca_file",
+					KeyFile:                   "pkey",
+					CertChainFile:             "cert_file",
+				},
+				LoggingOptions: log.DefaultOptions(),
 			},
 			pc:          mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
 			cAClient:    &mockclient.FakeCAClient{0, nil, nil},
@@ -138,10 +133,11 @@ func TestStartWithArgs(t *testing.T) {
 			sendTimes:   4,
 		},
 		"SendCSR parsing error": {
-			config:      &generalConfig,
-			pc:          mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
-			cAClient:    &mockclient.FakeCAClient{0, &pb.CsrResponse{IsApproved: true, SignedCertChain: []byte(`TESTCERT`)}, nil},
-			certUtil:    FakeCertUtil{time.Duration(0), fmt.Errorf("cert parsing error")},
+			config: &generalConfig,
+			pc:     mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
+			cAClient: &mockclient.FakeCAClient{
+				0, &pb.CsrResponse{IsApproved: true, SignedCert: signedCert, CertChain: []byte{}}, nil},
+			certUtil:    mockutil.FakeCertUtil{time.Duration(0), fmt.Errorf("cert parsing error")},
 			expectedErr: "node agent can't get the CSR approved from Istio CA after max number of retries (3)",
 			sendTimes:   4,
 		},

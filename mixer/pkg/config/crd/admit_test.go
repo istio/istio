@@ -24,6 +24,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"os"
 	"testing"
 	"time"
 
@@ -496,6 +497,9 @@ func makeClient(t *testing.T) kubernetes.Interface {
 }
 
 func TestGetAPIServerExtensionCACert(t *testing.T) {
+	if os.Getenv("RACE_TEST") == "true" {
+		t.Skip("Exclude racetest due to accessing API server")
+	}
 	cl := makeClient(t)
 	if _, err := getAPIServerExtensionCACert(cl); err != nil {
 		t.Errorf("GetAPIServerExtensionCACert() failed: %v", err)

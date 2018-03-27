@@ -18,8 +18,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
+
 	multierror "github.com/hashicorp/go-multierror"
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -46,7 +45,7 @@ func convertIngress(ingress v1beta1.Ingress, domainSuffix string) []model.Config
 	}
 
 	if ingress.Spec.Backend != nil {
-		name := encodeIngressRuleName(ingress.Name, 0, 0)
+		name := EncodeIngressRuleName(ingress.Name, 0, 0)
 		ingressRule := createIngressRule(name, "", "", domainSuffix, ingress, *ingress.Spec.Backend, tls)
 		out = append(out, ingressRule)
 	}
@@ -57,7 +56,7 @@ func convertIngress(ingress v1beta1.Ingress, domainSuffix string) []model.Config
 			continue
 		}
 		for j, path := range rule.HTTP.Paths {
-			name := encodeIngressRuleName(ingress.Name, i+1, j+1)
+			name := EncodeIngressRuleName(ingress.Name, i+1, j+1)
 			ingressRule := createIngressRule(name, rule.Host, path.Path,
 				domainSuffix, ingress, path.Backend, tls)
 			out = append(out, ingressRule)
@@ -128,14 +127,14 @@ func createIngressRule(name, host, path, domainSuffix string,
 	}
 }
 
-// encodeIngressRuleName encodes an ingress rule name for a given ingress resource name,
+// EncodeIngressRuleName encodes an ingress rule name for a given ingress resource name,
 // as well as the position of the rule and path specified within it, counting from 1.
 // ruleNum == pathNum == 0 indicates the default backend specified for an ingress.
-func encodeIngressRuleName(ingressName string, ruleNum, pathNum int) string {
+func EncodeIngressRuleName(ingressName string, ruleNum, pathNum int) string {
 	return fmt.Sprintf("%s-%d-%d", ingressName, ruleNum, pathNum)
 }
 
-// decodeIngressRuleName decodes an ingress rule name previously encoded with encodeIngressRuleName.
+// decodeIngressRuleName decodes an ingress rule name previously encoded with EncodeIngressRuleName.
 func decodeIngressRuleName(name string) (ingressName string, ruleNum, pathNum int, err error) {
 	parts := strings.Split(name, "-")
 	if len(parts) < 3 {

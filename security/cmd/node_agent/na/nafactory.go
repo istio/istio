@@ -18,8 +18,6 @@ import (
 	"fmt"
 	"os"
 
-	"cloud.google.com/go/compute/metadata"
-
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/caclient/grpc"
 	"istio.io/istio/security/pkg/platform"
@@ -40,12 +38,11 @@ func NewNodeAgent(cfg *Config) (NodeAgent, error) {
 	}
 	na := &nodeAgentInternal{
 		config:   cfg,
-		certUtil: util.CertUtilImpl{},
+		certUtil: util.NewCertUtil(cfg.CAClientConfig.CSRGracePeriodPercentage),
 	}
 
-	env := determinePlatform(cfg)
-	pc, err := platform.NewClient(env, cfg.RootCertFile, cfg.KeyFile,
-		cfg.CertChainFile, cfg.IstioCAAddress)
+	pc, err := platform.NewClient(cfg.CAClientConfig.Env, cfg.CAClientConfig.RootCertFile, cfg.CAClientConfig.KeyFile,
+		cfg.CAClientConfig.CertChainFile, cfg.CAClientConfig.CAAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -56,23 +53,11 @@ func NewNodeAgent(cfg *Config) (NodeAgent, error) {
 
 	// TODO: Specify files for service identity cert/key instead of node agent files.
 	secretServer, err := workload.NewSecretServer(
-		workload.NewSecretFileServerConfig(cfg.CertChainFile, cfg.KeyFile))
+		workload.NewSecretFileServerConfig(cfg.CAClientConfig.CertChainFile, cfg.CAClientConfig.KeyFile))
 	if err != nil {
 		log.Errorf("Workload IO creation error: %v", err)
 		os.Exit(-1)
 	}
 	na.secretServer = secretServer
 	return na, nil
-}
-
-// determinePlatform choose the right platform. If the env is specified in cfg.Env,
-// then we will use it. Otherwise nodeagent will detect the platform for you.
-func determinePlatform(cfg *Config) string {
-	if cfg.Env != "unspecified" {
-		return cfg.Env
-	}
-	if metadata.OnGCE() {
-		return "gcp"
-	}
-	return "onprem"
 }

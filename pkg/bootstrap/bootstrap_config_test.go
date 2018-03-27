@@ -23,6 +23,11 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
+// Generate configs for the default configs used by istio.
+// If the template is updated, copy the new golden files from out:
+// cp $TOP/out/linux_amd64/release/bootstrap/all/envoy-rev0.json pkg/bootstrap/testdata/all_golden.json
+// cp $TOP/out/linux_amd64/release/bootstrap/auth/envoy-rev0.json pkg/bootstrap/testdata/auth_golden.json
+// cp $TOP/out/linux_amd64/release/bootstrap/default/envoy-rev0.json pkg/bootstrap/testdata/default_golden.json
 func TestGolden(t *testing.T) {
 	cases := []struct {
 		base string
@@ -51,7 +56,7 @@ func TestGolden(t *testing.T) {
 				t.Fatal(err)
 			}
 			fn, err := WriteBootstrap(cfg, 0, []string{
-				"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"})
+				"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"}, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -91,4 +96,93 @@ func loadProxyConfig(base, out string, t *testing.T) (*meshconfig.ProxyConfig, e
 	}
 	cfg.CustomConfigFile = gobase + "/tools/deb/envoy_bootstrap_tmpl.json"
 	return cfg, nil
+}
+
+func TestGetHostPort(t *testing.T) {
+	var testCases = []struct {
+		name         string
+		addr         string
+		expectedHost string
+		expectedPort string
+		errStr       string
+	}{
+		{
+			name:         "Valid IPv4 host/port",
+			addr:         "127.0.0.1:5000",
+			expectedHost: "127.0.0.1",
+			expectedPort: "5000",
+			errStr:       "",
+		},
+		{
+			name:         "Valid IPv6 host/port",
+			addr:         "[2001:db8::100]:5000",
+			expectedHost: "2001:db8::100",
+			expectedPort: "5000",
+			errStr:       "",
+		},
+		{
+			name:         "Valid host/port",
+			addr:         "istio-pilot:15005",
+			expectedHost: "istio-pilot",
+			expectedPort: "15005",
+			errStr:       "",
+		},
+		{
+			name:         "No port specified",
+			addr:         "127.0.0.1:",
+			expectedHost: "127.0.0.1",
+			expectedPort: "",
+			errStr:       "",
+		},
+		{
+			name:         "Missing port",
+			addr:         "127.0.0.1",
+			expectedHost: "",
+			expectedPort: "",
+			errStr:       "unable to parse test address \"127.0.0.1\": address 127.0.0.1: missing port in address",
+		},
+		{
+			name:         "Missing brackets for IPv6",
+			addr:         "2001:db8::100:5000",
+			expectedHost: "",
+			expectedPort: "",
+			errStr:       "unable to parse test address \"2001:db8::100:5000\": address 2001:db8::100:5000: too many colons in address",
+		},
+		{
+			name:         "No address provided",
+			addr:         "",
+			expectedHost: "",
+			expectedPort: "",
+			errStr:       "unable to parse test address \"\": missing port in address",
+		},
+	}
+	for _, tc := range testCases {
+		h, p, err := GetHostPort("test", tc.addr)
+		if err == nil {
+			if tc.errStr != "" {
+				t.Errorf("[%s] expected error %q, but no error seen", tc.name, tc.errStr)
+			} else if h != tc.expectedHost || p != tc.expectedPort {
+				t.Errorf("[%s] expected %s:%s, got %s:%s", tc.name, tc.expectedHost, tc.expectedPort, h, p)
+			}
+		} else {
+			if tc.errStr == "" {
+				t.Errorf("[%s] expected no error but got %q", tc.name, err.Error())
+			} else if err.Error() != tc.errStr {
+				t.Errorf("[%s] expected error message %q, got %v", tc.name, tc.errStr, err)
+			}
+		}
+	}
+}
+
+func TestStoreHostPort(t *testing.T) {
+	opts := map[string]interface{}{}
+	StoreHostPort("istio-pilot", "15005", "foo", opts)
+	actual, ok := opts["foo"]
+	if !ok {
+		t.Fatalf("expected to have map entry foo populated")
+	}
+	expected := "{\"address\": \"istio-pilot\", \"port_value\": 15005}"
+	if actual != expected {
+		t.Errorf("expected value %q, got %q", expected, actual)
+	}
 }

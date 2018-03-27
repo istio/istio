@@ -14,6 +14,9 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+WD=$(dirname $0)
+WD=$(cd $WD; pwd)
+
 # Print commands
 set -x
 
@@ -33,17 +36,7 @@ make mixs
 MIXER_BINARY=$(make where-is-out)/mixs
 ENVOY_BINARY=$(make where-is-out)/envoy
 
-PROXY_TAG=$(grep envoy-debug pilot/docker/Dockerfile.proxy_debug  |cut -d: -f2)
-# Download Proxy Repo
-cd ..
-ls proxy || git clone https://github.com/istio/proxy
-cd proxy
-git pull
-
-git reset ${PROXY_TAG} --hard
-#ENVOY_BINARY=$(pwd)/usr/local/bin/envoy
-START_ENVOY=$(pwd)/src/envoy/mixer/start_envoy
-cd ../istio
+START_ENVOY=${WD}/../component/proxy/start_envoy
 
 # Install Fortio
 ( cd vendor/istio.io/fortio ; go install . )
@@ -52,6 +45,15 @@ cd ../istio
 TESTSPATH='tests/integration/example/tests'
 TOTAL_FAILURE=0
 SUMMARY='Tests Summary'
+
+printf "Envoy date:"
+ls -l ${ENVOY_BINARY}
+
+printf "Mixer date:"
+ls -l ${MIXER_BINARY}
+
+printf "Envoy hash:"
+md5sum ${ENVOY_BINARY}
 
 TESTARG=(-envoy_binary ${ENVOY_BINARY} -envoy_start_script ${START_ENVOY} -mixer_binary ${MIXER_BINARY} -fortio_binary fortio)
 

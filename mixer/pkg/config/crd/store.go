@@ -52,10 +52,6 @@ const (
 	crdRetryTimeout = time.Second * 30
 )
 
-// The interval to wait between the attempt to initialize caches. This is not const
-// to allow changing the value for unittests.
-var retryInterval = time.Second / 2
-
 // readinessCheckInterval is the interval to check its internal status and
 // update its readiness.
 var readinessCheckInterval = time.Second
@@ -95,10 +91,14 @@ type Store struct {
 	listerWatcherBuilder func(conf *rest.Config) (listerWatcherBuilderInterface, error)
 
 	*probe.Probe
+
+	// The interval to wait between the attempt to initialize caches. This is not const
+	// to allow changing the value for unittests.
+	retryInterval time.Duration
 }
 
-var _ store.Backend = &Store{}
-var _ probe.SupportsProbe = &Store{}
+var _ store.Backend = new(Store)
+var _ probe.SupportsProbe = new(Store)
 
 func (s *Store) getReadiness() error {
 	var errs error
@@ -186,7 +186,7 @@ loop:
 				}
 				log.Debugf("Retrying to fetch config: %+v", remainingKeys)
 			}
-			time.Sleep(retryInterval)
+			time.Sleep(s.retryInterval)
 		}
 		retryCount++
 		resources, err := d.ServerResourcesForGroupVersion(apiGroupVersion)
@@ -237,6 +237,7 @@ func (s *Store) Init(kinds []string) error {
 	go s.checkReadiness()
 	timeout := time.After(s.retryTimeout)
 	timeoutdone := make(chan struct{})
+	s.retryInterval = time.Second / 2
 	go func() {
 		<-timeout
 		close(timeoutdone)

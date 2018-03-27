@@ -5,7 +5,7 @@ To play with this demo, you need to:
 - Deploy the node agent as DaemonSet by
 
 ```shell
-kubectl apply -f nodeagent_test.yaml
+kubectl apply -f nodeagent.yaml
 ```
 
 - Make sure the node agent is up and running
@@ -22,7 +22,7 @@ nodeagent-qt6z6                   1/1       Running       0          3m
 
 - Deploy the workload pod.
 ```shell
-kubectl apply -f workload/workload.yaml
+kubectl apply -f workload_app/workload.yaml
 ```
 
 - Make sure the workload is up and running, and then check the log of node agent.

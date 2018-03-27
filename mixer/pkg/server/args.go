@@ -20,8 +20,7 @@ import (
 
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
-	"istio.io/istio/mixer/pkg/il/evaluator"
-	mixerRuntime "istio.io/istio/mixer/pkg/runtime"
+	"istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
@@ -47,9 +46,6 @@ type Args struct {
 
 	// Maximum number of goroutines in the adapter worker pool
 	AdapterWorkerPoolSize int
-
-	// Maximum number of entries in the expression cache
-	ExpressionEvalCacheSize int
 
 	// URL of the config store. Use k8s://path_to_kubeconfig or fs:// for file system. If path_to_kubeconfig is empty, in-cluster kubeconfig is used.")
 	// If this is empty (and ConfigStore isn't specified), "k8s://" will be used.
@@ -93,9 +89,6 @@ type Args struct {
 	// Enable profiling via web interface host:port/debug/pprof
 	EnableProfiling bool
 
-	// Enables use of pkg/runtime2, instead of pkg/runtime.
-	UseNewRuntime bool
-
 	// Enables gRPC-level tracing
 	EnableGRPCTracing bool
 
@@ -103,8 +96,8 @@ type Args struct {
 	SingleThreaded bool
 }
 
-// NewArgs allocates an Args struct initialized with Mixer's default configuration.
-func NewArgs() *Args {
+// DefaultArgs allocates an Args struct initialized with Mixer's default configuration.
+func DefaultArgs() *Args {
 	return &Args{
 		APIPort:                       9091,
 		MonitoringPort:                9093,
@@ -112,15 +105,14 @@ func NewArgs() *Args {
 		MaxConcurrentStreams:          1024,
 		APIWorkerPoolSize:             1024,
 		AdapterWorkerPoolSize:         1024,
-		ExpressionEvalCacheSize:       evaluator.DefaultCacheSize,
-		ConfigDefaultNamespace:        mixerRuntime.DefaultConfigNamespace,
+		ConfigDefaultNamespace:        runtime.DefaultConfigNamespace,
 		ConfigIdentityAttribute:       "destination.service",
 		ConfigIdentityAttributeDomain: "svc.cluster.local",
-		UseNewRuntime:                 true,
-		LoggingOptions:                log.NewOptions(),
-		TracingOptions:                tracing.NewOptions(),
+		LoggingOptions:                log.DefaultOptions(),
+		TracingOptions:                tracing.DefaultOptions(),
 		LivenessProbeOptions:          &probe.Options{},
 		ReadinessProbeOptions:         &probe.Options{},
+		EnableProfiling:               true,
 	}
 }
 
@@ -133,32 +125,27 @@ func (a *Args) validate() error {
 		return fmt.Errorf("adapter worker pool size must be >= 0 and <= 2^31-1, got pool size %d", a.AdapterWorkerPoolSize)
 	}
 
-	if a.ExpressionEvalCacheSize <= 0 {
-		return fmt.Errorf("expressiion evaluation cache size must be >= 0 and <= 2^31-1, got cache size %d", a.ExpressionEvalCacheSize)
-	}
-
 	return nil
 }
 
 // String produces a stringified version of the arguments for debugging.
 func (a *Args) String() string {
-	var b bytes.Buffer
+	buf := &bytes.Buffer{}
 
-	b.WriteString(fmt.Sprint("MaxMessageSize: ", a.MaxMessageSize, "\n"))
-	b.WriteString(fmt.Sprint("MaxConcurrentStreams: ", a.MaxConcurrentStreams, "\n"))
-	b.WriteString(fmt.Sprint("APIWorkerPoolSize: ", a.APIWorkerPoolSize, "\n"))
-	b.WriteString(fmt.Sprint("AdapterWorkerPoolSize: ", a.AdapterWorkerPoolSize, "\n"))
-	b.WriteString(fmt.Sprint("ExpressionEvalCacheSize: ", a.ExpressionEvalCacheSize, "\n"))
-	b.WriteString(fmt.Sprint("APIPort: ", a.APIPort, "\n"))
-	b.WriteString(fmt.Sprint("MonitoringPort: ", a.MonitoringPort, "\n"))
-	b.WriteString(fmt.Sprint("EnableProfiling: ", a.EnableProfiling, "\n"))
-	b.WriteString(fmt.Sprint("SingleThreaded: ", a.SingleThreaded, "\n"))
-	b.WriteString(fmt.Sprint("ConfigStoreURL: ", a.ConfigStoreURL, "\n"))
-	b.WriteString(fmt.Sprint("ConfigDefaultNamespace: ", a.ConfigDefaultNamespace, "\n"))
-	b.WriteString(fmt.Sprint("ConfigIdentityAttribute: ", a.ConfigIdentityAttribute, "\n"))
-	b.WriteString(fmt.Sprint("ConfigIdentityAttributeDomain: ", a.ConfigIdentityAttributeDomain, "\n"))
-	b.WriteString(fmt.Sprint("UseNewRuntime: ", a.UseNewRuntime, "\n"))
-	b.WriteString(fmt.Sprintf("LoggingOptions: %#v\n", *a.LoggingOptions))
-	b.WriteString(fmt.Sprintf("TracingOptions: %#v\n", *a.TracingOptions))
-	return b.String()
+	fmt.Fprint(buf, "MaxMessageSize: ", a.MaxMessageSize, "\n")
+	fmt.Fprint(buf, "MaxConcurrentStreams: ", a.MaxConcurrentStreams, "\n")
+	fmt.Fprint(buf, "APIWorkerPoolSize: ", a.APIWorkerPoolSize, "\n")
+	fmt.Fprint(buf, "AdapterWorkerPoolSize: ", a.AdapterWorkerPoolSize, "\n")
+	fmt.Fprint(buf, "APIPort: ", a.APIPort, "\n")
+	fmt.Fprint(buf, "MonitoringPort: ", a.MonitoringPort, "\n")
+	fmt.Fprint(buf, "EnableProfiling: ", a.EnableProfiling, "\n")
+	fmt.Fprint(buf, "SingleThreaded: ", a.SingleThreaded, "\n")
+	fmt.Fprint(buf, "ConfigStoreURL: ", a.ConfigStoreURL, "\n")
+	fmt.Fprint(buf, "ConfigDefaultNamespace: ", a.ConfigDefaultNamespace, "\n")
+	fmt.Fprint(buf, "ConfigIdentityAttribute: ", a.ConfigIdentityAttribute, "\n")
+	fmt.Fprint(buf, "ConfigIdentityAttributeDomain: ", a.ConfigIdentityAttributeDomain, "\n")
+	fmt.Fprintf(buf, "LoggingOptions: %#v\n", *a.LoggingOptions)
+	fmt.Fprintf(buf, "TracingOptions: %#v\n", *a.TracingOptions)
+
+	return buf.String()
 }

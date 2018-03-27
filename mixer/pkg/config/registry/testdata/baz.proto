@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+package baz;
+
+import "mixer/adapter/model/v1beta1/extensions.proto";
+
+option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_REPORT;
+option (istio.mixer.adapter.model.v1beta1.template_name) = "baz";

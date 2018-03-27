@@ -28,7 +28,7 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/pool"
-	"istio.io/istio/mixer/pkg/runtime"
+	"istio.io/istio/mixer/pkg/runtime/dispatcher"
 	"istio.io/istio/mixer/pkg/status"
 )
 
@@ -122,7 +122,7 @@ func (bs *benchState) Report(_ context.Context, _ attribute.Bag) error {
 }
 
 func (bs *benchState) Quota(ctx context.Context, requestBag attribute.Bag,
-	qma *runtime.QuotaMethodArgs) (*adapter.QuotaResult, error) {
+	qma *dispatcher.QuotaMethodArgs) (*adapter.QuotaResult, error) {
 
 	qr := &adapter.QuotaResult{
 		Status: status.OK,
@@ -226,8 +226,8 @@ func getGlobalDict() []string {
 		"response.time",
 		"source.namespace",
 		"source.uid",
-		"target.namespace",
-		"target.uid",
+		"destination.namespace",
+		"destination.uid",
 	}
 }
 
@@ -260,6 +260,6 @@ func setRequestAttrs(bag *attribute.MutableBag, uuid []byte) {
 	bag.Set("response.time", time.Now())
 	bag.Set("source.namespace", "XYZ11")
 	bag.Set("source.uid", "POD11")
-	bag.Set("target.namespace", "XYZ222")
-	bag.Set("target.uid", "POD222")
+	bag.Set("destination.namespace", "XYZ222")
+	bag.Set("destination.uid", "POD222")
 }

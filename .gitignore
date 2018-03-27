@@ -36,8 +36,9 @@ install/kubernetes/addons/prometheus.yaml
 install/kubernetes/addons/servicegraph.yaml
 install/kubernetes/addons/zipkin-to-stackdriver.yaml
 install/kubernetes/addons/zipkin.yaml
-install/kubernetes/helm/istio/values.yaml
 install/kubernetes/istio-auth.yaml
+install/kubernetes/istio-mixer-with-health-check.yaml
+install/kubernetes/istio-mixer-validator.yaml
 install/kubernetes/istio-ca-plugin-certs.yaml
 install/kubernetes/istio-ca-with-health-check.yaml
 install/kubernetes/istio-one-namespace-auth.yaml
@@ -48,4 +49,11 @@ install/kubernetes/istio-sidecar-injector.yaml
 install/kubernetes/istio.yaml
 samples/bookinfo/consul/bookinfo.sidecars.yaml
 samples/bookinfo/eureka/bookinfo.sidecars.yaml
+# Avoid accidental vendor changes
+Gopkg.lock
+Gopkg.toml
+vendor
+# Avoid accidental istio.VERSION changes
 istio.VERSION
+# Proxy generated proxy config in integration test
+tests/integration/component/proxy/envoy.conf

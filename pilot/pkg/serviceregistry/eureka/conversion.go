@@ -16,8 +16,6 @@ package eureka
 
 import (
 	"fmt"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
@@ -49,6 +47,8 @@ func convertServices(apps []*application, hostnames map[string]bool) map[string]
 					Address:      "",
 					Ports:        make(model.PortList, 0),
 					ExternalName: "",
+					MeshExternal: false,
+					Resolution:   model.ClientSideLB,
 				}
 				services[instance.Hostname] = service
 			}

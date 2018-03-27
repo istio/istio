@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-mixer-validator
+  namespace: {ISTIO_NAMESPACE}
+  labels:
+    istio: mixer-validator
+spec:
+  ports:
+  - name: webhook
+    port: 443
+  selector:
+    istio: mixer-validator
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-mixer-validator-service-account
+  namespace: {ISTIO_NAMESPACE}
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-mixer-validator
+  namespace: {ISTIO_NAMESPACE}
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        istio: mixer-validator
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: istio-mixer-validator-service-account
+      containers:
+      - name: validator
+        image: {MIXER_HUB}/mixer:{MIXER_TAG}
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 443
+        command:
+        - /usr/local/bin/mixs
+        - validator
+        - --webhook-name=istio-mixer-validator
+        - --namespace={ISTIO_NAMESPACE}
+        - --port=443
+        - --secret-name=istio-mixer-validator
+        - --configStoreURL=k8s://
+---

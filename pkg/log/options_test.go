@@ -217,11 +217,71 @@ func TestOpts(t *testing.T) {
 			RotationMaxBackups: 1234,
 			LogGrpc:            true,
 		}},
+
+		// legacy, has no effect
+		{"--v 2", Options{
+			OutputPaths:        []string{defaultOutputPath},
+			ErrorOutputPaths:   []string{defaultErrorOutputPath},
+			outputLevel:        string(defaultOutputLevel),
+			stackTraceLevel:    string(defaultStackTraceLevel),
+			RotationMaxAge:     defaultRotationMaxAge,
+			RotationMaxSize:    defaultRotationMaxSize,
+			RotationMaxBackups: defaultRotationMaxBackups,
+			LogGrpc:            true,
+		}},
+
+		// legacy, has no effect
+		{"-v 2", Options{
+			OutputPaths:        []string{defaultOutputPath},
+			ErrorOutputPaths:   []string{defaultErrorOutputPath},
+			outputLevel:        string(defaultOutputLevel),
+			stackTraceLevel:    string(defaultStackTraceLevel),
+			RotationMaxAge:     defaultRotationMaxAge,
+			RotationMaxSize:    defaultRotationMaxSize,
+			RotationMaxBackups: defaultRotationMaxBackups,
+			LogGrpc:            true,
+		}},
+
+		// legacy, has no effect
+		{"--stderrthreshold 2", Options{
+			OutputPaths:        []string{defaultOutputPath},
+			ErrorOutputPaths:   []string{defaultErrorOutputPath},
+			outputLevel:        string(defaultOutputLevel),
+			stackTraceLevel:    string(defaultStackTraceLevel),
+			RotationMaxAge:     defaultRotationMaxAge,
+			RotationMaxSize:    defaultRotationMaxSize,
+			RotationMaxBackups: defaultRotationMaxBackups,
+			LogGrpc:            true,
+		}},
+
+		// legacy, has no effect
+		{"--logtostderr", Options{
+			OutputPaths:        []string{defaultOutputPath},
+			ErrorOutputPaths:   []string{defaultErrorOutputPath},
+			outputLevel:        string(defaultOutputLevel),
+			stackTraceLevel:    string(defaultStackTraceLevel),
+			RotationMaxAge:     defaultRotationMaxAge,
+			RotationMaxSize:    defaultRotationMaxSize,
+			RotationMaxBackups: defaultRotationMaxBackups,
+			LogGrpc:            true,
+		}},
+
+		// legacy, has no effect
+		{"--alsologtostderr", Options{
+			OutputPaths:        []string{defaultOutputPath},
+			ErrorOutputPaths:   []string{defaultErrorOutputPath},
+			outputLevel:        string(defaultOutputLevel),
+			stackTraceLevel:    string(defaultStackTraceLevel),
+			RotationMaxAge:     defaultRotationMaxAge,
+			RotationMaxSize:    defaultRotationMaxSize,
+			RotationMaxBackups: defaultRotationMaxBackups,
+			LogGrpc:            true,
+		}},
 	}
 
 	for i, c := range cases {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			o := NewOptions()
+			o := DefaultOptions()
 			cmd := &cobra.Command{}
 			o.AttachCobraFlags(cmd)
 			cmd.SetArgs(strings.Split(c.cmdLine, " "))
@@ -253,7 +313,7 @@ func TestLevel(t *testing.T) {
 
 	for i, c := range cases {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			o := NewOptions()
+			o := DefaultOptions()
 
 			oldLevel, _ := o.GetOutputLevel()
 			err := o.SetOutputLevel(c.outputLevel)
@@ -271,14 +331,14 @@ func TestLevel(t *testing.T) {
 
 	// Now test setting the underlying field directly. This simulates what would
 	// happen if an invalid CLI flag was provided.
-	o := NewOptions()
+	o := DefaultOptions()
 	o.outputLevel = "foobar"
 	_, err := o.GetOutputLevel()
 	if err == nil {
 		t.Errorf("Got nil, expecting error")
 	}
 
-	o = NewOptions()
+	o = DefaultOptions()
 	o.stackTraceLevel = "foobar"
 	_, err = o.GetStackTraceLevel()
 	if err == nil {

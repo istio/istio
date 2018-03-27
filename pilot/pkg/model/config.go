@@ -22,9 +22,10 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
+	authn "istio.io/api/authentication/v1alpha1"
 	mccpb "istio.io/api/mixer/v1/config/client"
+	networking "istio.io/api/networking/v1alpha3"
 	routing "istio.io/api/routing/v1alpha1"
-	routingv2 "istio.io/api/routing/v1alpha2"
 	"istio.io/istio/pilot/pkg/model/test"
 )
 
@@ -200,6 +201,9 @@ type ProtoSchema struct {
 	// MessageName refers to the protobuf message type name corresponding to the type
 	MessageName string
 
+	// Gogo is true for gogo protobuf messages
+	Gogo bool
+
 	// Validate configuration as a protobuf message assuming the object is an
 	// instance of the expected message type
 	Validate func(config proto.Message) error
@@ -264,6 +268,9 @@ type IstioConfigStore interface {
 	// Name can be short name or FQDN.
 	DestinationRule(name, domain string) *Config
 
+	// SubsetToLabels returns the labels associated with a subset of a given service.
+	SubsetToLabels(subsetName, hostname, domain string) LabelsCollection
+
 	// HTTPAPISpecByDestination selects Mixerclient HTTP API Specs
 	// associated with destination service instances.
 	HTTPAPISpecByDestination(instance *ServiceInstance) []Config
@@ -276,6 +283,14 @@ type IstioConfigStore interface {
 	// Mixerclient end user authn policy specifications associated
 	// with destination service instances.
 	EndUserAuthenticationPolicySpecByDestination(instance *ServiceInstance) []Config
+
+	// AuthenticationPolicyByDestination selects authentication policy associated
+	// with a service + port. Hostname must be FQDN.
+	// If there are more than one policies at different scopes (global, namespace, service)
+	// the one with the most specific scope will be selected. If there are more than
+	// one with the same scope, the first one seen will be used (later, we should
+	// have validation at submitting time to prevent this scenario from happening)
+	AuthenticationPolicyByDestination(hostname string, port *Port) *Config
 }
 
 const (
@@ -307,8 +322,8 @@ var (
 	MockConfig = ProtoSchema{
 		Type:        "mock-config",
 		Plural:      "mock-configs",
-		Group:       "config",
-		Version:     istioAPIVersion,
+		Group:       "test",
+		Version:     "v1",
 		MessageName: "test.MockConfig",
 		Validate: func(config proto.Message) error {
 			if config.(*test.MockConfig).Key == "" {
@@ -328,23 +343,25 @@ var (
 		Validate:    ValidateRouteRule,
 	}
 
-	// V1alpha2RouteRule describes v1alpha2 route rules
-	V1alpha2RouteRule = ProtoSchema{
-		Type:        "v1alpha2-route-rule",
-		Plural:      "v1alpha2-route-rules",
-		Group:       "config",
-		Version:     istioAPIVersion,
-		MessageName: "istio.routing.v1alpha2.RouteRule",
-		Validate:    ValidateRouteRuleV2,
+	// VirtualService describes v1alpha3 route rules
+	VirtualService = ProtoSchema{
+		Type:        "virtual-service",
+		Plural:      "virtual-services",
+		Group:       "networking",
+		Version:     "v1alpha3",
+		MessageName: "istio.networking.v1alpha3.VirtualService",
+		Gogo:        true,
+		Validate:    ValidateVirtualService,
 	}
 
 	// Gateway describes a gateway (how a proxy is exposed on the network)
 	Gateway = ProtoSchema{
 		Type:        "gateway",
 		Plural:      "gateways",
-		Group:       "config",
-		Version:     istioAPIVersion,
-		MessageName: "istio.routing.v1alpha2.Gateway",
+		Group:       "networking",
+		Version:     "v1alpha3",
+		MessageName: "istio.networking.v1alpha3.Gateway",
+		Gogo:        true,
 		Validate:    ValidateGateway,
 	}
 
@@ -372,9 +389,10 @@ var (
 	ExternalService = ProtoSchema{
 		Type:        "external-service",
 		Plural:      "external-services",
-		Group:       "config",
-		Version:     istioAPIVersion,
-		MessageName: "istio.routing.v1alpha2.ExternalService",
+		Group:       "networking",
+		Version:     "v1alpha3",
+		MessageName: "istio.networking.v1alpha3.ExternalService",
+		Gogo:        true,
 		Validate:    ValidateExternalService,
 	}
 
@@ -392,9 +410,9 @@ var (
 	DestinationRule = ProtoSchema{
 		Type:        "destination-rule",
 		Plural:      "destination-rules",
-		Group:       "config",
-		Version:     istioAPIVersion,
-		MessageName: "istio.routing.v1alpha2.DestinationRule",
+		Group:       "networking",
+		Version:     "v1alpha3",
+		MessageName: "istio.networking.v1alpha3.DestinationRule",
 		Validate:    ValidateDestinationRule,
 	}
 
@@ -438,6 +456,16 @@ var (
 		Validate:    ValidateQuotaSpecBinding,
 	}
 
+	// AuthenticationPolicy describes an authentication policy.
+	AuthenticationPolicy = ProtoSchema{
+		Type:        "policy",
+		Plural:      "policies",
+		Group:       "authentication",
+		Version:     "v1alpha1",
+		MessageName: "istio.authentication.v1alpha1.Policy",
+		Validate:    ValidateAuthenticationPolicy,
+	}
+
 	// EndUserAuthenticationPolicySpec describes an end-user authentication policy.
 	EndUserAuthenticationPolicySpec = ProtoSchema{
 		Type:        "end-user-authentication-policy-spec",
@@ -458,10 +486,30 @@ var (
 		Validate:    ValidateEndUserAuthenticationPolicySpecBinding,
 	}
 
+	// ServiceRole describes an RBAC service role.
+	ServiceRole = ProtoSchema{
+		Type:        "service-role",
+		Plural:      "service-roles",
+		Group:       "config",
+		Version:     istioAPIVersion,
+		MessageName: "istio.rbac.v1alpha1.ServiceRole",
+		Validate:    ValidateServiceRole,
+	}
+
+	// ServiceRoleBinding describes an RBAC service role.
+	ServiceRoleBinding = ProtoSchema{
+		Type:        "service-role-binding",
+		Plural:      "service-role-bindings",
+		Group:       "config",
+		Version:     istioAPIVersion,
+		MessageName: "istio.rbac.v1alpha1.ServiceRoleBinding",
+		Validate:    ValidateServiceRoleBinding,
+	}
+
 	// IstioConfigTypes lists all Istio config types with schemas and validation
 	IstioConfigTypes = ConfigDescriptor{
 		RouteRule,
-		V1alpha2RouteRule,
+		VirtualService,
 		IngressRule,
 		Gateway,
 		EgressRule,
@@ -474,6 +522,9 @@ var (
 		QuotaSpecBinding,
 		EndUserAuthenticationPolicySpec,
 		EndUserAuthenticationPolicySpecBinding,
+		AuthenticationPolicy,
+		ServiceRole,
+		ServiceRoleBinding,
 	}
 )
 
@@ -507,12 +558,16 @@ func ResolveHostname(meta ConfigMeta, svc *routing.IstioService) string {
 // non-empty the FQDN is built by concatenating the host and domain with a dot. Otherwise host is assumed to be a
 // FQDN and is returned unchanged.
 func ResolveFQDN(host, domain string) string {
-	if strings.Count(host, ".") == 0 { // host is a shortname
-		if len(domain) > 0 {
-			return fmt.Sprintf("%s.%s", host, domain)
-		}
+	if len(domain) > 0 && strings.Count(host, ".") == 0 { // host is a shortname
+		return fmt.Sprintf("%s.%s", host, domain)
 	}
 	return host
+}
+
+// resolveFQDNFromAuthNTarget returns FQDN for AuthenticationPolicy target selector,
+// in namespace and domain defines by config meta.
+func resolveFQDNFromAuthNTarget(meta ConfigMeta, target *authn.TargetSelector) string {
+	return ResolveFQDN(target.Name, meta.Namespace+".svc."+meta.Domain)
 }
 
 // istioConfigStore provides a simple adapter for Istio configuration types
@@ -597,13 +652,13 @@ func (store *istioConfigStore) routeRules(instances []*ServiceInstance, destinat
 
 func (store *istioConfigStore) routeRulesV2(domain, destination string) []Config {
 	out := make([]Config, 0)
-	configs, err := store.List(V1alpha2RouteRule.Type, NamespaceAll)
+	configs, err := store.List(VirtualService.Type, NamespaceAll)
 	if err != nil {
 		return nil
 	}
 
 	for _, config := range configs {
-		rule := config.Spec.(*routingv2.RouteRule)
+		rule := config.Spec.(*networking.VirtualService)
 		for _, host := range rule.Hosts {
 			if ResolveFQDN(host, domain) == destination {
 				out = append(out, config)
@@ -615,6 +670,10 @@ func (store *istioConfigStore) routeRulesV2(domain, destination string) []Config
 	return out
 }
 
+// TODO: This is wrong per V1alpha3. We need RouteRulesBySource (which is the function below)
+// and a RouteRulesByDestination which scans the entire rule for destinations (in route, redirect, mirror blocks)
+// and matches these destinations against the input destination. The rules that match should be considered
+// for BuildInboundRoutesV2
 func (store *istioConfigStore) RouteRulesByDestination(instances []*ServiceInstance, domain string) []Config {
 	configs := store.routeRulesByDestination(instances)
 	configs = append(configs, store.routeRulesByDestinationV2(instances, domain)...)
@@ -645,13 +704,13 @@ func (store *istioConfigStore) routeRulesByDestination(instances []*ServiceInsta
 // This logic assumes there is at most one route rule for a given host.
 // If there is more than one the output may be non-deterministic.
 func (store *istioConfigStore) routeRulesByDestinationV2(instances []*ServiceInstance, domain string) []Config {
-	configs, err := store.List(V1alpha2RouteRule.Type, NamespaceAll)
+	configs, err := store.List(VirtualService.Type, NamespaceAll)
 	if err != nil {
 		return nil
 	}
 
 	for _, config := range configs {
-		rule := config.Spec.(*routingv2.RouteRule)
+		rule := config.Spec.(*networking.VirtualService)
 		for _, host := range rule.Hosts {
 			for _, instance := range instances {
 				if ResolveFQDN(host, domain) == instance.Service.Hostname {
@@ -726,9 +785,30 @@ func (store *istioConfigStore) DestinationRule(name, domain string) *Config {
 
 	target := ResolveFQDN(name, domain)
 	for _, config := range configs {
-		rule := config.Spec.(*routingv2.DestinationRule)
+		rule := config.Spec.(*networking.DestinationRule)
 		if ResolveFQDN(rule.Name, domain) == target {
 			return &config
+		}
+	}
+
+	return nil
+}
+
+func (store *istioConfigStore) SubsetToLabels(subsetName, hostname, domain string) LabelsCollection {
+	// empty subset
+	if subsetName == "" {
+		return nil
+	}
+
+	config := store.DestinationRule(hostname, domain)
+	if config == nil {
+		return nil
+	}
+
+	rule := config.Spec.(*networking.DestinationRule)
+	for _, subset := range rule.Subsets {
+		if subset.Name == subsetName {
+			return []Labels{subset.Labels}
 		}
 	}
 
@@ -829,6 +909,71 @@ func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance)
 	return out
 }
 
+func (store *istioConfigStore) AuthenticationPolicyByDestination(hostname string, port *Port) *Config {
+	// Hostname should be FQDN, so namespace can be extracted by parsing hostname.
+	parts := strings.Split(hostname, ".")
+	if len(parts) < 2 {
+		// Bad hostname, return no policy.
+		return nil
+	}
+	namespace := parts[1]
+	// TODO(diemtvu): check for 'global' policy first, when available.
+	// Tracking issue https://github.com/istio/istio/issues/4027
+	specs, err := store.List(AuthenticationPolicy.Type, namespace)
+	if err != nil {
+		return nil
+	}
+	var out Config
+	currentMatchLevel := 0
+	for _, spec := range specs {
+		policy := spec.Spec.(*authn.Policy)
+		// Indicate if a policy matched to target destination:
+		// 0 - not match.
+		// 1 - global / cluster scope.
+		// 2 - namespace scope.
+		// 3 - workload (service).
+		matchLevel := 0
+		if len(policy.Targets) > 0 {
+			for _, dest := range policy.Targets {
+
+				if hostname != resolveFQDNFromAuthNTarget(spec.ConfigMeta, dest) {
+					continue
+				}
+				// If destination port is defined, it must match.
+				if len(dest.Ports) > 0 {
+					portMatched := false
+					for _, portSelector := range dest.Ports {
+						if port.Match(portSelector) {
+							portMatched = true
+							break
+						}
+					}
+					if !portMatched {
+						// Port does not match with any of port selector, skip to next target selector.
+						continue
+					}
+				}
+
+				matchLevel = 3
+				break
+			}
+		} else {
+			// Match on namespace level.
+			matchLevel = 2
+		}
+		// Swap output policy that is match in more specific scope.
+		if matchLevel > currentMatchLevel {
+			currentMatchLevel = matchLevel
+			out = spec
+		}
+	}
+	// Zero-currentMatchLevel implies no config matching the destination found.
+	if currentMatchLevel == 0 {
+		return nil
+	}
+	return &out
+}
+
 // EndUserAuthenticationPolicySpecByDestination selects Mixerclient quota specifications
 // associated with destination service instances.
 func (store *istioConfigStore) EndUserAuthenticationPolicySpecByDestination(instance *ServiceInstance) []Config {
@@ -865,7 +1010,6 @@ func (store *istioConfigStore) EndUserAuthenticationPolicySpecByDestination(inst
 			out = append(out, spec)
 		}
 	}
-
 	return out
 }
 

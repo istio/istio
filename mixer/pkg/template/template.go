@@ -20,15 +20,13 @@ import (
 	"net"
 
 	"github.com/gogo/protobuf/proto"
-	multierror "github.com/hashicorp/go-multierror"
 
-	"istio.io/api/mixer/v1/config"
-	pb "istio.io/api/mixer/v1/config/descriptor"
-	adptTmpl "istio.io/api/mixer/v1/template"
+	adptTmpl "istio.io/api/mixer/adapter/model/v1beta1"
+	pb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/expr"
-	"istio.io/istio/mixer/pkg/il/compiled"
+	"istio.io/istio/mixer/pkg/lang/ast"
+	"istio.io/istio/mixer/pkg/lang/compiled"
 )
 
 type (
@@ -43,22 +41,6 @@ type (
 	InferTypeFn func(proto.Message, TypeEvalFn) (proto.Message, error)
 	// SetTypeFn dispatches the inferred types to handlers
 	SetTypeFn func(types map[string]proto.Message, builder adapter.HandlerBuilder)
-
-	// ProcessCheckFn instantiates the instance object and dispatches them to the handler.
-	ProcessCheckFn func(ctx context.Context, instName string, instCfg proto.Message, attrs attribute.Bag,
-		mapper expr.Evaluator, handler adapter.Handler) (adapter.CheckResult, error)
-
-	// ProcessQuotaFn instantiates the instance object and dispatches them to the handler.
-	ProcessQuotaFn func(ctx context.Context, quotaName string, quotaCfg proto.Message, attrs attribute.Bag,
-		mapper expr.Evaluator, handler adapter.Handler, args adapter.QuotaArgs) (adapter.QuotaResult, error)
-
-	// ProcessReportFn instantiates the instance object and dispatches them to the handler.
-	ProcessReportFn func(ctx context.Context, instCfg map[string]proto.Message, attrs attribute.Bag,
-		mapper expr.Evaluator, handler adapter.Handler) error
-
-	// ProcessGenerateAttributesFn instantiates the instance object and dispatches them to the attribute generating handler.
-	ProcessGenerateAttributesFn func(ctx context.Context, instName string, instCfg proto.Message, attrs attribute.Bag,
-		mapper expr.Evaluator, handler adapter.Handler) (*attribute.MutableBag, error)
 
 	// BuilderSupportsTemplateFn check if the handlerBuilder supports template.
 	BuilderSupportsTemplateFn func(hndlrBuilder adapter.HandlerBuilder) bool
@@ -143,7 +125,7 @@ type (
 	// CreateOutputExpressionsFn builds and returns a map of attribute names to the expression for calculating them.
 	//
 	//  // A CreateOutputExpressionsFn implementation:
-	//  func(instanceParam interface{}, finder expr.AttributeDescriptorFinder, builder *compiled.ExpressionBuilder) (map[string]compiled.Expression, error) {
+	//  func(instanceParam interface{}, finder ast.AttributeDescriptorFinder, builder *compiled.ExpressionBuilder) (map[string]compiled.Expression, error) {
 	//
 	//    // Convert the generic instanceParam to its specialized type.
 	//     param := instanceParam.(*myInstanceParam)
@@ -159,7 +141,7 @@ type (
 	//
 	CreateOutputExpressionsFn func(
 		instanceParam proto.Message,
-		finder expr.AttributeDescriptorFinder,
+		finder ast.AttributeDescriptorFinder,
 		expb *compiled.ExpressionBuilder) (map[string]compiled.Expression, error)
 
 	// OutputMapperFn maps the results of an APA output bag, with "$out"s, by processing it through
@@ -190,12 +172,8 @@ type (
 		SetType                 SetTypeFn
 		BuilderSupportsTemplate BuilderSupportsTemplateFn
 		HandlerSupportsTemplate HandlerSupportsTemplateFn
-		ProcessReport           ProcessReportFn
-		ProcessCheck            ProcessCheckFn
-		ProcessQuota            ProcessQuotaFn
-		ProcessGenAttrs         ProcessGenerateAttributesFn
 
-		AttributeManifests []*config.AttributeManifest
+		AttributeManifests []*pb.AttributeManifest
 
 		DispatchReport   DispatchReportFn
 		DispatchCheck    DispatchCheckFn
@@ -254,21 +232,6 @@ func (t repo) SupportsTemplate(hndlrBuilder adapter.HandlerBuilder, tmpl string)
 	}
 
 	return true, ""
-}
-
-// EvalAll evaluates the value of the expression map using the passed in attributes.
-func EvalAll(expressions map[string]string, attrs attribute.Bag, eval expr.Evaluator) (map[string]interface{}, error) {
-	result := &multierror.Error{}
-	labels := make(map[string]interface{}, len(expressions))
-	for label, texpr := range expressions {
-		val, err := eval.Eval(texpr, attrs)
-		if err != nil {
-			result = multierror.Append(result, fmt.Errorf("failed to construct value for label '%s': %v", label, err))
-			continue
-		}
-		labels[label] = val
-	}
-	return labels, result.ErrorOrNil()
 }
 
 // NewOutputMapperFn creates and returns a function that creates new attributes, based on the supplied expression set.

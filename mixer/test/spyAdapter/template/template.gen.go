@@ -18,20 +18,18 @@ package template
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
 
-	istio_mixer_v1_config "istio.io/api/mixer/v1/config"
-	istio_mixer_v1_config_descriptor "istio.io/api/mixer/v1/config/descriptor"
-	adptTmpl "istio.io/api/mixer/v1/template"
+	istio_adapter_model_v1beta1 "istio.io/api/mixer/adapter/model/v1beta1"
+	istio_policy_v1beta1 "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/expr"
-	"istio.io/istio/mixer/pkg/il/compiled"
+	"istio.io/istio/mixer/pkg/lang/ast"
+	"istio.io/istio/mixer/pkg/lang/compiled"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
 
@@ -46,7 +44,7 @@ import (
 // below codegen.
 var (
 	_ net.IP
-	_ istio_mixer_v1_config.AttributeManifest
+	_ istio_policy_v1beta1.AttributeManifest
 	_ = strings.Reader{}
 )
 
@@ -87,9 +85,9 @@ func (w *wrapperAttr) Done() {
 	w.done()
 }
 
-// DebugString provides a dump of an attribute Bag that avoids affecting the
+// String provides a dump of an attribute Bag that avoids affecting the
 // calculation of referenced attributes.
-func (w *wrapperAttr) DebugString() string {
+func (w *wrapperAttr) String() string {
 	return w.debugString()
 }
 
@@ -100,7 +98,7 @@ var (
 			Name:               sampleapa.TemplateName,
 			Impl:               "sampleapa",
 			CtrCfg:             &sampleapa.InstanceParam{},
-			Variety:            adptTmpl.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR,
+			Variety:            istio_adapter_model_v1beta1.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR,
 			BldrInterfaceName:  sampleapa.TemplateName + "." + "HandlerBuilder",
 			HndlrInterfaceName: sampleapa.TemplateName + "." + "Handler",
 			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
@@ -128,38 +126,38 @@ var (
 					var err error = nil
 
 					if param.Int64Primitive != "" {
-						if t, e := tEvalFn(param.Int64Primitive); e != nil || t != istio_mixer_v1_config_descriptor.INT64 {
+						if t, e := tEvalFn(param.Int64Primitive); e != nil || t != istio_policy_v1beta1.INT64 {
 							if e != nil {
 								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"Int64Primitive", e)
 							}
-							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"Int64Primitive", t, istio_mixer_v1_config_descriptor.INT64)
+							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"Int64Primitive", t, istio_policy_v1beta1.INT64)
 						}
 					}
 
 					if param.BoolPrimitive != "" {
-						if t, e := tEvalFn(param.BoolPrimitive); e != nil || t != istio_mixer_v1_config_descriptor.BOOL {
+						if t, e := tEvalFn(param.BoolPrimitive); e != nil || t != istio_policy_v1beta1.BOOL {
 							if e != nil {
 								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"BoolPrimitive", e)
 							}
-							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"BoolPrimitive", t, istio_mixer_v1_config_descriptor.BOOL)
+							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"BoolPrimitive", t, istio_policy_v1beta1.BOOL)
 						}
 					}
 
 					if param.DoublePrimitive != "" {
-						if t, e := tEvalFn(param.DoublePrimitive); e != nil || t != istio_mixer_v1_config_descriptor.DOUBLE {
+						if t, e := tEvalFn(param.DoublePrimitive); e != nil || t != istio_policy_v1beta1.DOUBLE {
 							if e != nil {
 								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"DoublePrimitive", e)
 							}
-							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"DoublePrimitive", t, istio_mixer_v1_config_descriptor.DOUBLE)
+							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"DoublePrimitive", t, istio_policy_v1beta1.DOUBLE)
 						}
 					}
 
 					if param.StringPrimitive != "" {
-						if t, e := tEvalFn(param.StringPrimitive); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
+						if t, e := tEvalFn(param.StringPrimitive); e != nil || t != istio_policy_v1beta1.STRING {
 							if e != nil {
 								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"StringPrimitive", e)
 							}
-							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"StringPrimitive", t, istio_mixer_v1_config_descriptor.STRING)
+							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"StringPrimitive", t, istio_policy_v1beta1.STRING)
 						}
 					}
 
@@ -190,199 +188,32 @@ var (
 				return BuildTemplate(instParam, "")
 			},
 
-			AttributeManifests: []*istio_mixer_v1_config.AttributeManifest{
+			AttributeManifests: []*istio_policy_v1beta1.AttributeManifest{
 				{
-					Attributes: map[string]*istio_mixer_v1_config.AttributeManifest_AttributeInfo{
+					Attributes: map[string]*istio_policy_v1beta1.AttributeManifest_AttributeInfo{
 
 						"sampleapa.output.int64Primitive": {
-							ValueType: istio_mixer_v1_config_descriptor.INT64,
+							ValueType: istio_policy_v1beta1.INT64,
 						},
 
 						"sampleapa.output.boolPrimitive": {
-							ValueType: istio_mixer_v1_config_descriptor.BOOL,
+							ValueType: istio_policy_v1beta1.BOOL,
 						},
 
 						"sampleapa.output.doublePrimitive": {
-							ValueType: istio_mixer_v1_config_descriptor.DOUBLE,
+							ValueType: istio_policy_v1beta1.DOUBLE,
 						},
 
 						"sampleapa.output.stringPrimitive": {
-							ValueType: istio_mixer_v1_config_descriptor.STRING,
+							ValueType: istio_policy_v1beta1.STRING,
 						},
 
 						"sampleapa.output.stringMap": {
-							ValueType: istio_mixer_v1_config_descriptor.STRING_MAP,
+							ValueType: istio_policy_v1beta1.STRING_MAP,
 						},
 					},
 				},
 			},
-
-			ProcessGenAttrs: func(ctx context.Context, instName string, inst proto.Message, attrs attribute.Bag,
-				mapper expr.Evaluator, handler adapter.Handler) (*attribute.MutableBag, error) {
-
-				var BuildTemplate func(instName string,
-					param *sampleapa.InstanceParam, path string) (
-					*sampleapa.Instance, error)
-				_ = BuildTemplate
-
-				BuildTemplate = func(instName string,
-					param *sampleapa.InstanceParam, path string) (
-					*sampleapa.Instance, error) {
-					if param == nil {
-						return nil, nil
-					}
-					var err error
-					_ = err
-
-					var Int64PrimitiveInterface interface{}
-					var Int64Primitive int64
-					if param.Int64Primitive != "" {
-						if Int64PrimitiveInterface, err = mapper.Eval(param.Int64Primitive, attrs); err == nil {
-							Int64Primitive = Int64PrimitiveInterface.(int64)
-						}
-					}
-
-					if err != nil {
-						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Int64Primitive", instName, err)
-						log.Error(msg)
-						return nil, errors.New(msg)
-					}
-
-					var BoolPrimitiveInterface interface{}
-					var BoolPrimitive bool
-					if param.BoolPrimitive != "" {
-						if BoolPrimitiveInterface, err = mapper.Eval(param.BoolPrimitive, attrs); err == nil {
-							BoolPrimitive = BoolPrimitiveInterface.(bool)
-						}
-					}
-
-					if err != nil {
-						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"BoolPrimitive", instName, err)
-						log.Error(msg)
-						return nil, errors.New(msg)
-					}
-
-					var DoublePrimitiveInterface interface{}
-					var DoublePrimitive float64
-					if param.DoublePrimitive != "" {
-						if DoublePrimitiveInterface, err = mapper.Eval(param.DoublePrimitive, attrs); err == nil {
-							DoublePrimitive = DoublePrimitiveInterface.(float64)
-						}
-					}
-
-					if err != nil {
-						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"DoublePrimitive", instName, err)
-						log.Error(msg)
-						return nil, errors.New(msg)
-					}
-
-					var StringPrimitiveInterface interface{}
-					var StringPrimitive string
-					if param.StringPrimitive != "" {
-						if StringPrimitiveInterface, err = mapper.Eval(param.StringPrimitive, attrs); err == nil {
-							StringPrimitive = StringPrimitiveInterface.(string)
-						}
-					}
-
-					if err != nil {
-						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"StringPrimitive", instName, err)
-						log.Error(msg)
-						return nil, errors.New(msg)
-					}
-
-					_ = param
-					return &sampleapa.Instance{
-
-						Name: instName,
-
-						Int64Primitive: Int64Primitive,
-
-						BoolPrimitive: BoolPrimitive,
-
-						DoublePrimitive: DoublePrimitive,
-
-						StringPrimitive: StringPrimitive,
-					}, nil
-				}
-
-				instParam := inst.(*sampleapa.InstanceParam)
-				instance, err := BuildTemplate(instName, instParam, "")
-				if err != nil {
-					return nil, err
-
-				}
-
-				out, err := handler.(sampleapa.Handler).GenerateSampleApaAttributes(ctx, instance)
-				if err != nil {
-					return nil, err
-				}
-				abag := attrs
-				const fullOutName = "sampleapa.output."
-				if out == nil {
-					log.Debugf("Preprocess adapter returned nil output for instance name '%s'", instName)
-				} else {
-					abag = newWrapperAttrBag(
-						func(name string) (value interface{}, found bool) {
-							field := strings.TrimPrefix(name, fullOutName)
-							if len(field) != len(name) && out.WasSet(field) {
-								switch field {
-
-								case "int64Primitive":
-
-									return out.Int64Primitive, true
-
-								case "boolPrimitive":
-
-									return out.BoolPrimitive, true
-
-								case "doublePrimitive":
-
-									return out.DoublePrimitive, true
-
-								case "stringPrimitive":
-
-									return out.StringPrimitive, true
-
-								case "stringMap":
-
-									return out.StringMap, true
-
-								default:
-									return nil, false
-								}
-							}
-							return attrs.Get(name)
-						},
-						func() []string { return attrs.Names() },
-						func() { attrs.Done() },
-						func() string { return attrs.DebugString() },
-					)
-				}
-				resultBag := attribute.GetMutableBag(nil)
-				for attrName, outExpr := range instParam.AttributeBindings {
-					ex := strings.Replace(outExpr, "$out.", fullOutName, -1)
-					val, err := mapper.Eval(ex, abag)
-					if err != nil {
-						return nil, err
-					}
-					switch v := val.(type) {
-					case net.IP:
-						// conversion to []byte necessary based on current IP_ADDRESS handling within Mixer
-						// TODO: remove
-						if v4 := v.To4(); v4 != nil {
-							resultBag.Set(attrName, []byte(v4))
-							continue
-						}
-						resultBag.Set(attrName, []byte(v.To16()))
-					default:
-						resultBag.Set(attrName, val)
-					}
-				}
-				return resultBag, nil
-
-			},
-
-			/* runtime2 bindings */
 
 			// DispathGenAttrs dispatches the instance to the attribute producing handler.
 			DispatchGenAttrs: func(ctx context.Context, handler adapter.Handler, inst interface{}, attrs attribute.Bag,
@@ -434,7 +265,7 @@ var (
 					},
 					func() []string { return attrs.Names() },
 					func() { attrs.Done() },
-					func() string { return attrs.DebugString() },
+					func() string { return attrs.String() },
 				)
 
 				// Mapper will map back $out values in the outBag into ambient attribute names, and return
@@ -482,10 +313,10 @@ var (
 			// See template.CreateOutputExpressionsFn for more details.
 			CreateOutputExpressions: func(
 				instanceParam proto.Message,
-				finder expr.AttributeDescriptorFinder,
+				finder ast.AttributeDescriptorFinder,
 				expb *compiled.ExpressionBuilder) (map[string]compiled.Expression, error) {
 				var err error
-				var expType istio_mixer_v1_config_descriptor.ValueType
+				var expType istio_policy_v1beta1.ValueType
 
 				// Convert the generic instanceParam to its specialized type.
 				param := instanceParam.(*sampleapa.InstanceParam)
@@ -521,7 +352,7 @@ var (
 			Name:               samplecheck.TemplateName,
 			Impl:               "samplecheck",
 			CtrCfg:             &samplecheck.InstanceParam{},
-			Variety:            adptTmpl.TEMPLATE_VARIETY_CHECK,
+			Variety:            istio_adapter_model_v1beta1.TEMPLATE_VARIETY_CHECK,
 			BldrInterfaceName:  samplecheck.TemplateName + "." + "HandlerBuilder",
 			HndlrInterfaceName: samplecheck.TemplateName + "." + "Handler",
 			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
@@ -551,11 +382,11 @@ var (
 					var err error = nil
 
 					if param.StringPrimitive != "" {
-						if t, e := tEvalFn(param.StringPrimitive); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
+						if t, e := tEvalFn(param.StringPrimitive); e != nil || t != istio_policy_v1beta1.STRING {
 							if e != nil {
 								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"StringPrimitive", e)
 							}
-							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"StringPrimitive", t, istio_mixer_v1_config_descriptor.STRING)
+							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"StringPrimitive", t, istio_policy_v1beta1.STRING)
 						}
 					}
 
@@ -579,59 +410,6 @@ var (
 				}
 				castedBuilder.SetSampleCheckTypes(castedTypes)
 			},
-
-			ProcessCheck: func(ctx context.Context, instName string, inst proto.Message, attrs attribute.Bag,
-				mapper expr.Evaluator, handler adapter.Handler) (adapter.CheckResult, error) {
-
-				var BuildTemplate func(instName string,
-					param *samplecheck.InstanceParam, path string) (
-					*samplecheck.Instance, error)
-				_ = BuildTemplate
-
-				BuildTemplate = func(instName string,
-					param *samplecheck.InstanceParam, path string) (
-					*samplecheck.Instance, error) {
-					if param == nil {
-						return nil, nil
-					}
-					var err error
-					_ = err
-
-					var StringPrimitiveInterface interface{}
-					var StringPrimitive string
-					if param.StringPrimitive != "" {
-						if StringPrimitiveInterface, err = mapper.Eval(param.StringPrimitive, attrs); err == nil {
-							StringPrimitive = StringPrimitiveInterface.(string)
-						}
-					}
-
-					if err != nil {
-						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"StringPrimitive", instName, err)
-						log.Error(msg)
-						return nil, errors.New(msg)
-					}
-
-					_ = param
-					return &samplecheck.Instance{
-
-						Name: instName,
-
-						StringPrimitive: StringPrimitive,
-					}, nil
-				}
-
-				instParam := inst.(*samplecheck.InstanceParam)
-				instance, err := BuildTemplate(instName, instParam, "")
-				if err != nil {
-
-					return adapter.CheckResult{}, err
-
-				}
-				return handler.(samplecheck.Handler).HandleSampleCheck(ctx, instance)
-
-			},
-
-			/* runtime2 bindings */
 
 			// DispatchCheck dispatches the instance to the handler.
 			DispatchCheck: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, error) {
@@ -683,7 +461,7 @@ var (
 			Name:               samplereport.TemplateName,
 			Impl:               "samplereport",
 			CtrCfg:             &samplereport.InstanceParam{},
-			Variety:            adptTmpl.TEMPLATE_VARIETY_REPORT,
+			Variety:            istio_adapter_model_v1beta1.TEMPLATE_VARIETY_REPORT,
 			BldrInterfaceName:  samplereport.TemplateName + "." + "HandlerBuilder",
 			HndlrInterfaceName: samplereport.TemplateName + "." + "Handler",
 			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
@@ -713,12 +491,12 @@ var (
 					var err error = nil
 
 					if param.Value == "" {
-						infrdType.Value = istio_mixer_v1_config_descriptor.VALUE_TYPE_UNSPECIFIED
+						infrdType.Value = istio_policy_v1beta1.VALUE_TYPE_UNSPECIFIED
 					} else if infrdType.Value, err = tEvalFn(param.Value); err != nil {
 						return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+"Value", err)
 					}
 
-					infrdType.Dimensions = make(map[string]istio_mixer_v1_config_descriptor.ValueType, len(param.Dimensions))
+					infrdType.Dimensions = make(map[string]istio_policy_v1beta1.ValueType, len(param.Dimensions))
 
 					for k, v := range param.Dimensions {
 
@@ -748,69 +526,6 @@ var (
 				}
 				castedBuilder.SetSampleReportTypes(castedTypes)
 			},
-
-			ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
-
-				var BuildTemplate func(instName string,
-					param *samplereport.InstanceParam, path string) (
-					*samplereport.Instance, error)
-				_ = BuildTemplate
-
-				BuildTemplate = func(instName string,
-					param *samplereport.InstanceParam, path string) (
-					*samplereport.Instance, error) {
-					if param == nil {
-						return nil, nil
-					}
-					var err error
-					_ = err
-
-					var Value interface{}
-					if param.Value != "" {
-						Value, err = mapper.Eval(param.Value, attrs)
-					}
-
-					if err != nil {
-						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Value", instName, err)
-						log.Error(msg)
-						return nil, errors.New(msg)
-					}
-
-					Dimensions, err := template.EvalAll(param.Dimensions, attrs, mapper)
-
-					if err != nil {
-						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Dimensions", instName, err)
-						log.Error(msg)
-						return nil, errors.New(msg)
-					}
-
-					_ = param
-					return &samplereport.Instance{
-
-						Name: instName,
-
-						Value: Value,
-
-						Dimensions: Dimensions,
-					}, nil
-				}
-
-				var instances []*samplereport.Instance
-				for instName, inst := range insts {
-					instance, err := BuildTemplate(instName, inst.(*samplereport.InstanceParam), "")
-					if err != nil {
-						return err
-					}
-					instances = append(instances, instance)
-				}
-
-				if err := handler.(samplereport.Handler).HandleSampleReport(ctx, instances); err != nil {
-					return fmt.Errorf("failed to report all values: %v", err)
-				}
-				return nil
-			},
-
-			/* runtime2 bindings */
 
 			// DispatchReport dispatches the instances to the handler.
 			DispatchReport: func(ctx context.Context, handler adapter.Handler, inst []interface{}) error {
@@ -906,7 +621,7 @@ func newBuilder_sampleapa_Template(
 	_ = err
 	var errp template.ErrorPath
 	_ = errp
-	var expType istio_mixer_v1_config_descriptor.ValueType
+	var expType istio_policy_v1beta1.ValueType
 	_ = expType
 
 	if param.Int64Primitive == "" {
@@ -917,8 +632,8 @@ func newBuilder_sampleapa_Template(
 			return nil, template.NewErrorPath("Int64Primitive", err)
 		}
 
-		if expType != istio_mixer_v1_config_descriptor.INT64 {
-			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.INT64, expType, param.Int64Primitive)
+		if expType != istio_policy_v1beta1.INT64 {
+			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_policy_v1beta1.INT64, expType, param.Int64Primitive)
 			return nil, template.NewErrorPath("Int64Primitive", err)
 		}
 
@@ -932,8 +647,8 @@ func newBuilder_sampleapa_Template(
 			return nil, template.NewErrorPath("BoolPrimitive", err)
 		}
 
-		if expType != istio_mixer_v1_config_descriptor.BOOL {
-			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.BOOL, expType, param.BoolPrimitive)
+		if expType != istio_policy_v1beta1.BOOL {
+			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_policy_v1beta1.BOOL, expType, param.BoolPrimitive)
 			return nil, template.NewErrorPath("BoolPrimitive", err)
 		}
 
@@ -947,8 +662,8 @@ func newBuilder_sampleapa_Template(
 			return nil, template.NewErrorPath("DoublePrimitive", err)
 		}
 
-		if expType != istio_mixer_v1_config_descriptor.DOUBLE {
-			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.DOUBLE, expType, param.DoublePrimitive)
+		if expType != istio_policy_v1beta1.DOUBLE {
+			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_policy_v1beta1.DOUBLE, expType, param.DoublePrimitive)
 			return nil, template.NewErrorPath("DoublePrimitive", err)
 		}
 
@@ -962,8 +677,8 @@ func newBuilder_sampleapa_Template(
 			return nil, template.NewErrorPath("StringPrimitive", err)
 		}
 
-		if expType != istio_mixer_v1_config_descriptor.STRING {
-			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.StringPrimitive)
+		if expType != istio_policy_v1beta1.STRING {
+			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_policy_v1beta1.STRING, expType, param.StringPrimitive)
 			return nil, template.NewErrorPath("StringPrimitive", err)
 		}
 
@@ -1066,7 +781,7 @@ func newBuilder_samplecheck_Template(
 	_ = err
 	var errp template.ErrorPath
 	_ = errp
-	var expType istio_mixer_v1_config_descriptor.ValueType
+	var expType istio_policy_v1beta1.ValueType
 	_ = expType
 
 	if param.StringPrimitive == "" {
@@ -1077,8 +792,8 @@ func newBuilder_samplecheck_Template(
 			return nil, template.NewErrorPath("StringPrimitive", err)
 		}
 
-		if expType != istio_mixer_v1_config_descriptor.STRING {
-			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.StringPrimitive)
+		if expType != istio_policy_v1beta1.STRING {
+			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_policy_v1beta1.STRING, expType, param.StringPrimitive)
 			return nil, template.NewErrorPath("StringPrimitive", err)
 		}
 
@@ -1128,11 +843,11 @@ func (b *builder_samplecheck_Template) build(
 // builder struct for constructing an instance of Template.
 type builder_samplereport_Template struct {
 
-	// builder for field value: istio_mixer_v1_config_descriptor.ValueType.
+	// builder for field value: interface{}.
 
 	bldValue compiled.Expression
 
-	// builder for field dimensions: map[string]istio_mixer_v1_config_descriptor.ValueType.
+	// builder for field dimensions: map[string]interface{}.
 
 	bldDimensions map[string]compiled.Expression
 } // builder_samplereport_Template
@@ -1155,7 +870,7 @@ func newBuilder_samplereport_Template(
 	_ = err
 	var errp template.ErrorPath
 	_ = errp
-	var expType istio_mixer_v1_config_descriptor.ValueType
+	var expType istio_policy_v1beta1.ValueType
 	_ = expType
 
 	if param.Value == "" {

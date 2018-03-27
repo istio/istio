@@ -22,7 +22,7 @@ import (
 )
 
 type grpc struct {
-	*tutil.Infra
+	*tutil.Environment
 	logs *accessLogs
 }
 
@@ -42,7 +42,7 @@ func (t *grpc) Run() error {
 	if err := t.makeRequests(); err != nil {
 		return err
 	}
-	return t.logs.check(t.Infra)
+	return t.logs.check(t.Environment)
 }
 
 func (t *grpc) makeRequests() error {
@@ -61,7 +61,7 @@ func (t *grpc) makeRequests() error {
 	for _, src := range srcPods {
 		for _, dst := range dstPods {
 			for _, port := range []string{":70", ":7070"} {
-				for _, domain := range []string{"", "." + t.Namespace} {
+				for _, domain := range []string{"", "." + t.Config.Namespace} {
 					name := fmt.Sprintf("GRPC request from %s to %s%s%s", src, dst, domain, port)
 					funcs[name] = (func(src, dst, port, domain string) func() tutil.Status {
 						url := fmt.Sprintf("grpc://%s%s%s", dst, domain, port)
@@ -82,7 +82,7 @@ func (t *grpc) makeRequests() error {
 									}
 								}
 								// mixer filter is invoked on the server side, that is when dst is not "t"
-								if t.Mixer && dst != "t" {
+								if t.Config.Mixer && dst != "t" {
 									t.logs.add("mixer", id, name)
 								}
 								return nil

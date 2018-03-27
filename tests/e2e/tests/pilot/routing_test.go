@@ -30,7 +30,7 @@ import (
 )
 
 type routing struct {
-	*tutil.Infra
+	*tutil.Environment
 }
 
 func (t *routing) String() string {
@@ -44,17 +44,18 @@ func (t *routing) Setup() error {
 // TODO: test negatives
 func (t *routing) Run() error {
 	versions := make([]string, 0)
-	if t.V1alpha1 {
+	if t.Config.V1alpha1 {
 		versions = append(versions, "v1alpha1")
 	}
-	if t.V1alpha2 {
-		versions = append(versions, "v1alpha2")
+	if t.Config.V1alpha3 {
+		versions = append(versions, "v1alpha3")
 	}
 
 	cases := []struct {
 		description string
 		config      string
 		check       func() error
+		onFailure   func()
 	}{
 		{
 			// First test default routing
@@ -83,6 +84,15 @@ func (t *routing) Run() error {
 			config:      "rule-regex-route.yaml.tmpl",
 			check: func() error {
 				return t.verifyRouting("http", "a", "c", "foo", "bar", 100, map[string]int{"v1": 0, "v2": 100}, "")
+			},
+			onFailure: func() {
+				op, err := t.Routes("a")
+				log.Infof("error: %v\n%s", err, op)
+				cfg, err := t.DumpConfig("destinationrules.networking.istio.io",
+					"virtualservices.networking.istio.io", "externalservices.networking.istio.io",
+					"policies.authentication.istio.io")
+
+				log.Infof("config: %v\n%s", err, cfg)
 			},
 		},
 		{
@@ -137,8 +147,8 @@ func (t *routing) Run() error {
 
 	var errs error
 	for _, version := range versions {
-		if version == "v1alpha2" {
-			if err := t.ApplyConfig("v1alpha2/destination-rule-c.yaml.tmpl", nil); err != nil {
+		if version == "v1alpha3" {
+			if err := t.ApplyConfig("v1alpha3/destination-rule-c.yaml.tmpl", nil); err != nil {
 				errs = multierror.Append(errs, err)
 				continue
 			}
@@ -151,6 +161,7 @@ func (t *routing) Run() error {
 
 			if err := tutil.Repeat(cs.check, 5, time.Second); err != nil {
 				log.Infof("Failed the test with %v", err)
+				cs.onFailure()
 				errs = multierror.Append(errs, multierror.Prefix(err, version+" "+cs.description))
 			} else {
 				log.Info("Success!")
@@ -205,13 +216,13 @@ func (t *routing) verifyRouting(scheme, src, dst, headerKey, headerVal string,
 
 // verify that the traces were picked up by Zipkin and decorator has been applied
 func (t *routing) verifyDecorator(operation string) error {
-	if !t.Zipkin {
+	if !t.Config.Zipkin {
 		return nil
 	}
 
-	response := t.Infra.ClientRequest(
+	response := t.Environment.ClientRequest(
 		"t",
-		fmt.Sprintf("http://zipkin.%s:9411/api/v1/traces", t.IstioNamespace),
+		fmt.Sprintf("http://zipkin.%s:9411/api/v1/traces", t.Config.IstioNamespace),
 		1, "",
 	)
 

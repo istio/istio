@@ -85,8 +85,12 @@ func VerifyCertificate(privPem []byte, certChainPem []byte, rootCertPem []byte,
 
 	if strings.HasPrefix(host, "spiffe") {
 		matchHost := false
-		for _, e := range cert.Extensions {
-			if strings.HasSuffix(string(e.Value[:]), host) {
+		ids, err := ExtractIDs(cert.Extensions)
+		if err != nil {
+			return err
+		}
+		for _, id := range ids {
+			if strings.HasSuffix(id, host) {
 				matchHost = true
 				break
 			}

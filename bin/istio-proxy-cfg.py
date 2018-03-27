@@ -1,12 +1,19 @@
 #!/usr/bin/env python
 
-import requests
-import json
-import subprocess
-import collections
-import argparse
-import yaml
+import os
 import sys
+
+import argparse
+import collections
+import json
+import logging
+import random
+import requests
+import subprocess
+import yaml
+import time
+
+logging.basicConfig(format="%(message)s")
 
 POD = collections.namedtuple('Pod', ['name', 'namespace', 'ip', 'labels'])
 
@@ -16,10 +23,17 @@ POD = collections.namedtuple('Pod', ['name', 'namespace', 'ip', 'labels'])
     The information is in XDS V1 format.
 """
 
+PILOT_SVC = "istio-pilot"
+ISTIO_NS = "istio-system"
+CLUSTER = "istio-proxy"
+ENVOY_PORT = 15000
+LOCAL_PORT_START = 50000
+LOCAL_PORT_STOP = 60000
+
 
 class XDS(object):
 
-    def __init__(self, url, ns="istio-system", cluster="istio-proxy", headers=None):
+    def __init__(self, url, ns=ISTIO_NS, cluster=CLUSTER, headers=None):
         self.url = url
         self.ns = ns
         self.cluster = cluster
@@ -37,17 +51,21 @@ class XDS(object):
         return "{role}~{pod.ip}~{pod.name}.{pod.namespace}~{pod.namespace}.svc.cluster.local".format(
             role=role, pod=pod)
 
-    def query(self, path):
-        print path
+    def query(self, path, post=False):
+        url = self.url + path
+        logging.info(url)
         try:
-            return requests.get(self.url + "/v1" + path, headers=self.headers).json()
+            if post:
+                return requests.post(url, headers=self.headers)
+            else:
+                return requests.get(url, headers=self.headers).json()
         except Exception as ex:
-            print ex
-            print "Is pilot accessible at ", self.url, " ?"
+            logging.error(ex)
+            logging.error("Is pilot accessible at %s?" % url)
             sys.exit(-1)
 
     def lds(self, pod, hydrate=False):
-        data = self.query("/listeners/{cluster}/{key}".format(
+        data = self.query("/v1/listeners/{cluster}/{key}".format(
             cluster=self.cluster, key=self.key(pod)))
         if not hydrate:
             return data
@@ -69,10 +87,11 @@ class XDS(object):
                 f['config']['route_config'] = self.rds(pod, rn, hydrate)
                 f['config']['route_config']['name'] = rn
 
+        data["clusters"] = self.cds_info
         return data
 
     def rds(self, pod, route="80", hydrate=False):
-        data = self.query("/routes/{route}/{cluster}/{key}".format(
+        data = self.query("/v1/routes/{route}/{cluster}/{key}".format(
             route=route, cluster=self.cluster, key=self.key(pod)))
         if not hydrate:
             return data
@@ -92,7 +111,7 @@ class XDS(object):
     def cds(self, pod, cn, hydrate=False):
         pk = self.key(pod)
         if pk not in self.cds_info:
-            data = self.query("/clusters/{cluster}/{key}".format(
+            data = self.query("/v1/clusters/{cluster}/{key}".format(
                 cluster=self.cluster, key=self.key(pod)))
             self.cds_info[pk] = {c['name']: c for c in data['clusters']}
 
@@ -107,8 +126,14 @@ class XDS(object):
     def sds(self, service_key):
         if service_key not in self.sds_info:
             self.sds_info[service_key] = self.query(
-                "/registration/{service_key}".format(service_key=service_key))
+                "/v1/registration/{service_key}".format(service_key=service_key))
         return self.sds_info[service_key]
+
+    def cache_stats(self):
+        return self.query("/cache_stats")
+
+    def clear_cache_stats(self):
+        return self.query("/cache_stats_delete", post=True)
 
 # Class XDS end
 
@@ -121,92 +146,232 @@ class XDS(object):
 
 class Proxy(object):
 
-    def __init__(self, pod):
-        self.pod = pod
+    def __init__(self, envoy_url):
+        self.envoy_url = envoy_url
 
-    def query(self, path):
-        if not path.startswith("/"):
-            path = "/" + path
-
-        cname = "istio-proxy"
-        if "ingress" in self.pod.name:
-            cname = "istio-ingress"
-
-        cmd = "kubectl -n {pod.namespace} exec -i -t {pod.name} -c {cname} -- curl http://localhost:15000{path}".format(
-            pod=self.pod,
-            path=path,
-            cname=cname
-        )
-        print cmd
-        # The result is returned as a list of json objects.
-        # { "a": "b"
-        # }
-        # { "c": "d"
-        # }
-        # Note the lack of "," between objects
-        # Convert it into an array of objects
-        s = subprocess.check_output(cmd.split())
-        s = s.replace('}\r\n{', '},\r\n{')
-        s = s.replace('}\n{', '},\n{')
-        return json.loads("[" + s + "]")
+    def query(self, path, use_json=True):
+        url = self.envoy_url + path
+        logging.info(url)
+        try:
+            s = requests.post(url)
+        except Exception as ex:
+            logging.error(ex)
+            logging.error("Is envoy accessible at %s?" % url)
+            sys.exit(-1)
+        if use_json:
+            return s.json()
+        else:
+            return s.text
 
     def routes(self):
         return self.query("/routes")
+
+    def clusters(self):
+        return self.query("/clusters", use_json=False)
+
+    def listeners(self):
+        return self.query("/listeners")
 
 
 def pod_info():
     op = subprocess.check_output(
         "kubectl get pod --all-namespaces -o json".split())
     o = json.loads(op)
-    return {i['metadata']['name'] + "." + i['metadata']['namespace']:
+    return {i['metadata']['name']:
             POD(i['metadata']['name'], i['metadata']['namespace'],
                 i['status']['podIP'], i['metadata']['labels']) for i in o['items']}
 
 
 def searchpod(pi, searchstr):
-    if "," in searchstr:
-        si = searchstr.split(',')
-        if len(si) != 3:
-            print "Use podname,podnamespace,podip format to skip contacting kube api server"
+    podname = podns = podip = ""
+    if "." in searchstr:
+        si = searchstr.split('.')
+        if len(si) != 3 and len(si) != 2:
+            logging.warning(
+                "podname must be either name.namespace.podip or name.namespace or any string that's a pod's label or a prefix of a pod's name")
             return None
 
-        return POD(si[0], si[1], si[2], None)
+        podname = si[0]
+        podns = si[1]
+        if len(si) == 3:
+            podip = si[2]
 
+    pods = []
     for pn, pod in pi.items():
-        if pn == searchstr:
-            return pod
-        if searchstr == pod.name:
-            return pod
-        if searchstr in pod.labels.values():
-            return pod
+        if podname and podns:
+            if podip:
+                if podname == pod.name and podns == pod.namespace and podip == pod.ip:
+                    pods.append(pod)
+                    return pods
+            elif podname == pod.name and podns == pod.namespace:
+                pods.append(pod)
+                return pods
+        elif searchstr in pod.labels.values():
+            pods.append(pod)
+        elif pn.startswith(searchstr):
+            pods.append(pod)
 
-    return None
+    return pods
+
+
+def start_port_forward(pod_name, namespace, remote_port):
+    local_port = random.randrange(LOCAL_PORT_START, LOCAL_PORT_STOP)
+    port_forward_pid = ""
+    url = ""
+    try:
+        port_forward_pid = subprocess.Popen("kubectl --namespace={namespace} port-forward {pod_name} {local_port}:{remote_port}".format(
+            pod_name=pod_name, namespace=namespace, local_port=local_port, remote_port=remote_port).split(), stdout=open(os.devnull, "wb")).pid
+    except:
+        logging.error("Failed to create port-forward for pod %s.%s with remote port %s" %
+                      (pod_name, namespace, remote_port))
+        raise
+    else:
+        url = "http://localhost:{port}".format(port=local_port)
+        # wait until the port-forward process is fully up
+        while True:
+            try:
+                requests.get(url)
+            except:
+                time.sleep(.1)
+            else:
+                break
+    return url, port_forward_pid
+
+
+def find_pilot_url():
+    try:
+        pilot_svc = subprocess.check_output(
+            "kubectl get svc {svc} -n {ns} -o json".format(svc=PILOT_SVC, ns=ISTIO_NS).split())
+    except:
+        pilot_svc = {}
+    pilot_url = ""
+    pilot_port = ""
+    port_forward_pid = ""
+    if pilot_svc:
+        pilot_spec = json.loads(pilot_svc)['spec']
+        disovery_port = ""
+        legacy_discovery_port = ""
+        for port in pilot_spec['ports']:
+            if port['name'] == 'http-legacy-discovery':
+                legacy_discovery_port = port['port']
+            elif port['name'] == 'http-discovery':
+                discovery_port = port['port']
+        if legacy_discovery_port:
+            pilot_port = legacy_discovery_port
+        else:
+            pilot_port = discovery_port
+        pilot_url = "http://{ip}:{port}".format(
+            ip=pilot_spec['clusterIP'], port=pilot_port)
+
+        try:
+            requests.get(pilot_url, timeout=2)
+        except:
+            logging.warning(
+                "It seems that you are running outside the k8s cluster")
+            logging.warning(
+                "Let's try to create a port-forward to access pilot")
+            cmd = "kubectl --namespace=%s get -l istio=pilot pod -o=jsonpath={.items[0].metadata.name}" % (
+                ISTIO_NS)
+            pod_name = subprocess.check_output(cmd.split())
+            pilot_url, port_forward_pid = start_port_forward(
+                pod_name, ISTIO_NS, pilot_port)
+
+    return pilot_url, port_forward_pid
 
 
 def main(args):
-    pod = searchpod(pod_info(), args.podname)
-    if pod is None:
-        print "Cound not find pod ", args.podname
+    pods = searchpod(pod_info(), args.podname)
+
+    if not pods:
+        logging.error("Cound not find pod %s" % args.podname)
         return -1
 
-    if args.pilot_url:
-        print "Fetching from Pilot"
-        src = "pilot"
-        xds = XDS(url=args.pilot_url)
-        data = xds.lds(pod, True)
-    else:
-        print "Fetching from Envoy admin port via kubectl"
-        src = "proxy"
-        pr = Proxy(pod)
-        data = pr.routes()
+    if len(pods) > 1:
+        podnames = ["%s.%s" % (pod.name, pod.namespace) for pod in pods]
+        logging.error("More than one pod is found: %s" % ", ".join(podnames))
+        return -1
+
+    pod = pods[0]
 
     if args.output is None:
-        args.output = pod.name + "_" + src + "_xds.yaml"
+        output_dir = "/tmp/" + pod.name
+    else:
+        output_dir = args.output + "/" + pod.name
 
-    op = open(args.output, "wt")
-    yaml.safe_dump(data, op, default_flow_style=False,
-                   allow_unicode=False, indent=2)
-    print "Wrote ", args.output
+    try:
+        os.makedirs(output_dir)
+    except OSError:
+        if not os.path.isdir(output_dir):
+            raise
+
+    if not args.skip_pilot:
+        pilot_url = args.pilot_url
+        pilot_port_forward_pid = ""
+        if pilot_url:
+            if not pilot_url.startswith("http://") and not pilot_url.startswith("https://"):
+                pilot_url = "http://" + pilot_url
+        else:
+            pilot_url, pilot_port_forward_pid = find_pilot_url()
+
+        output_file = output_dir + "/" + "pilot_xds.yaml"
+        op = open(output_file, "wt")
+        logging.info("Fetching from Pilot for pod %s in %s namespace" %
+                     (pod.name, pod.namespace))
+        xds = XDS(url=pilot_url)
+        data = xds.lds(pod, True)
+        yaml.safe_dump(data, op, default_flow_style=False,
+                       allow_unicode=False, indent=2)
+        print "Wrote ", output_file
+
+        if args.cache_stats:
+            output_file = output_dir + "/" + "stats_xds.yaml"
+            op = open(output_file, "wt")
+            data = xds.cache_stats()
+            logging.info("Fetching Pilot cache stats")
+            yaml.safe_dump(data, op, default_flow_style=False,
+                           allow_unicode=False, indent=2)
+            print "Wrote ", output_file
+
+            if args.show_ssl_summary:
+                for l in data["listeners"]:
+                    state = "SSL" if "ssl_context" in l else "PLAINTEXT"
+                    logging.info(
+                        "Listener {0:30s} : {1:10s}".format(l["name"], state))
+
+        if args.clear_cache_stats:
+            xds.clear_cache_stats()
+
+        if pilot_port_forward_pid:
+            subprocess.call(["kill", "%s" % pilot_port_forward_pid])
+
+    if not args.skip_envoy:
+        envoy_url, envoy_port_forward_pid = start_port_forward(
+            pod.name, pod.namespace, ENVOY_PORT)
+        logging.info("Fetching from Envoy for pod %s in %s namespace" %
+                     (pod.name, pod.namespace))
+        pr = Proxy(envoy_url)
+        output_file = output_dir + "/" + "proxy_routes.yaml"
+        op = open(output_file, "wt")
+        data = pr.routes()
+        yaml.safe_dump(data, op, default_flow_style=False,
+                       allow_unicode=False, indent=2)
+        print "Wrote ", output_file
+
+        output_file = output_dir + "/" + "proxy_listeners.yaml"
+        op = open(output_file, "wt")
+        data = pr.listeners()
+        yaml.safe_dump(data, op, default_flow_style=False,
+                       allow_unicode=False, indent=2)
+        print "Wrote ", output_file
+
+        output_file = output_dir + "/" + "proxy_clusters.yaml"
+        op = open(output_file, "wt")
+        data = pr.clusters()
+        op.write(data)
+        print "Wrote ", output_file
+
+        if envoy_port_forward_pid:
+            subprocess.call(["kill", "%s" % envoy_port_forward_pid])
 
     return 0
 
@@ -215,12 +380,24 @@ if __name__ == "__main__":
         description="Fetch routes from Envoy or Pilot for a given pod")
 
     parser.add_argument("--pilot_url",
-                        help="Often this is localhost:8080 or 15003 through a port-forward."
-                        " \n\nkubectl --namespace=istio-system port-forward $(kubectl --namespace=istio-system get -l istio=pilot pod -o=jsonpath='{.items[0].metadata.name}') 8080:8080"
+                        help="Often this is localhost:8080 or 15005 (https) or 15007 (http) through a port-forward."
+                        " \n\nkubectl --namespace=istio-system port-forward $(kubectl --namespace=istio-system get -l istio=pilot pod -o=jsonpath='{.items[0].metadata.name}') 8080:8080."
+                        "\n\nIf not provided, attempt will be made to find it out."
                         )
-    parser.add_argument("podname", help="podname or a label value to search. ingress, mixer, istio-ca all work."
-                        " If podname,podnamespace,podip is provided, kubectl is not used to search for the pod")
+    parser.add_argument("podname", help="podname must be either name.namespace.podip or name.namespace or any string that is a pod's label or a prefix of a pod's name. ingress, mixer, istio-ca, product-page all work")
     parser.add_argument(
-        "--output", help="where to write output. default is podname.yaml")
+        "--output", help="A directory where output files are saved. default is the /tmp directory")
+    parser.add_argument(
+        "--skip_envoy", action='store_true', help="Fetch Envoy configuration from a pod")
+    parser.add_argument(
+        "--skip_pilot", action='store_true', help="Fetch from pilot Proxy configuration for a pod")
+    parser.add_argument(
+        "--show_ssl_summary",
+        action="store_true",
+        help="If set, show summary for ssl context for listeners that have it")
+    parser.add_argument(
+        "--cache_stats", action='store_true', help="Fetch Pilot cache stats")
+    parser.add_argument(
+        "--clear_cache_stats", action='store_true', help="Clear Pilot cache stats")
     args = parser.parse_args()
     sys.exit(main(args))

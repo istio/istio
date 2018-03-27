@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build !race
-
 package cache
 
 import (
@@ -42,15 +40,13 @@ func TestLRUEvicter(t *testing.T) {
 }
 
 func TestLRUEvictExpired(t *testing.T) {
-	lru := NewLRU(5*time.Second, 0, 500)
+	lru := NewLRU(5*time.Second, 0, 500).(*lruCache)
 	testCacheEvictExpired(lru, t)
 }
 
 func TestLRUFinalizer(t *testing.T) {
-	c := NewLRU(5*time.Second, 1*time.Millisecond, 500).(*lruWrapper)
-	gate := &c.evicterTerminated
-
-	testCacheFinalizer(gate, t)
+	lru := NewLRU(5*time.Second, 1*time.Millisecond, 500).(*lruWrapper)
+	testCacheFinalizer(&lru.evicterTerminated, t)
 }
 
 func TestLRUBehavior(t *testing.T) {

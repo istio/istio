@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"net/http/pprof"
 	"os"
@@ -30,7 +29,6 @@ import (
 	"time"
 
 	restful "github.com/emicklei/go-restful"
-	_ "github.com/golang/glog" // TODO(nmittler): Remove this
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -119,6 +117,10 @@ var (
 	clearCacheTimerSet bool
 	clearCacheMutex    sync.Mutex
 	clearCacheTime     = 1
+
+	// V2ClearCache is a function to be called when the v1 cache is cleared. This is used to
+	// avoid adding a circular dependency from v1 to v2.
+	V2ClearCache func()
 )
 
 func init() {
@@ -141,7 +143,7 @@ func init() {
 // DiscoveryService publishes services, clusters, and routes for all proxies
 type DiscoveryService struct {
 	model.Environment
-	server          *http.Server
+
 	webhookClient   *http.Client
 	webhookEndpoint string
 	// TODO Profile and optimize cache eviction policy to avoid
@@ -154,6 +156,8 @@ type DiscoveryService struct {
 	cdsCache *discoveryCache
 	rdsCache *discoveryCache
 	ldsCache *discoveryCache
+
+	RestContainer *restful.Container
 }
 
 type discoveryCacheStatEntry struct {
@@ -312,6 +316,7 @@ const (
 // service instance.
 type DiscoveryServiceOptions struct {
 	Port            int
+	GrpcAddr        string
 	MonitoringPort  int
 	EnableProfiling bool
 	EnableCaching   bool
@@ -340,8 +345,7 @@ func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCach
 	out.Register(container)
 
 	out.webhookEndpoint, out.webhookClient = util.NewWebHookClient(o.WebhookEndpoint)
-
-	out.server = &http.Server{Addr: ":" + strconv.Itoa(o.Port), Handler: container}
+	out.RestContainer = container
 
 	// Flush cached discovery responses whenever services, service
 	// instances, or routing configuration changes.
@@ -378,7 +382,7 @@ func (ds *DiscoveryService) Register(container *restful.Container) {
 		Doc("Services in SDS"))
 
 	// This route makes discovery act as an Envoy Service discovery service (SDS).
-	// See https://envoyproxy.github.io/envoy/intro/arch_overview/service_discovery.html#service-discovery-service-sds
+	// See https://www.envoyproxy.io/docs/envoy/latest/api-v1/cluster_manager/sds
 	ws.Route(ws.
 		GET(fmt.Sprintf("/v1/registration/{%s}", ServiceKey)).
 		To(ds.ListEndpoints).
@@ -386,7 +390,7 @@ func (ds *DiscoveryService) Register(container *restful.Container) {
 		Param(ws.PathParameter(ServiceKey, "tuple of service name and tag name").DataType("string")))
 
 	// This route makes discovery act as an Envoy Cluster discovery service (CDS).
-	// See https://envoyproxy.github.io/envoy/configuration/cluster_manager/cds.html#config-cluster-manager-cds
+	// See https://www.envoyproxy.io/docs/envoy/latest/api-v1/cluster_manager/cds
 	ws.Route(ws.
 		GET(fmt.Sprintf("/v1/clusters/{%s}/{%s}", ServiceCluster, ServiceNode)).
 		To(ds.ListClusters).
@@ -395,7 +399,7 @@ func (ds *DiscoveryService) Register(container *restful.Container) {
 		Param(ws.PathParameter(ServiceNode, "client proxy service node").DataType("string")))
 
 	// This route makes discovery act as an Envoy Route discovery service (RDS).
-	// See https://lyft.github.io/envoy/docs/configuration/http_conn_man/rds.html
+	// See https://www.envoyproxy.io/docs/envoy/latest/api-v1/route_config/rds
 	ws.Route(ws.
 		GET(fmt.Sprintf("/v1/routes/{%s}/{%s}/{%s}", RouteConfigName, ServiceCluster, ServiceNode)).
 		To(ds.ListRoutes).
@@ -405,7 +409,7 @@ func (ds *DiscoveryService) Register(container *restful.Container) {
 		Param(ws.PathParameter(ServiceNode, "client proxy service node").DataType("string")))
 
 	// This route responds to LDS requests
-	// See https://lyft.github.io/envoy/docs/configuration/listeners/lds.html
+	// See https://www.envoyproxy.io/docs/envoy/latest/api-v1/listeners/lds
 	ws.Route(ws.
 		GET(fmt.Sprintf("/v1/listeners/{%s}/{%s}", ServiceCluster, ServiceNode)).
 		To(ds.ListListeners).
@@ -433,39 +437,6 @@ func (ds *DiscoveryService) Register(container *restful.Container) {
 		Doc("Clear discovery service cache stats"))
 
 	container.Add(ws)
-}
-
-// Start starts the Pilot discovery service on the port specified in DiscoveryServiceOptions. If Port == 0, a
-// port number is automatically chosen. This method returns the address on which the server is listening for incoming
-// connections. Content serving is started by this method, but is executed asynchronously. Serving can be cancelled
-// at any time by closing the provided stop channel.
-func (ds *DiscoveryService) Start(stop chan struct{}) (net.Addr, error) {
-	addr := ds.server.Addr
-	if addr == "" {
-		addr = ":http"
-	}
-	listener, err := net.Listen("tcp", addr)
-	if err != nil {
-		return nil, err
-	}
-
-	go func() {
-		go func() {
-			if err := ds.server.Serve(listener); err != nil {
-				log.Warna(err)
-			}
-		}()
-
-		// Wait for the stop notification and shutdown the server.
-		<-stop
-		err := ds.server.Close()
-		if err != nil {
-			log.Warna(err)
-		}
-	}()
-
-	log.Infof("Discovery service started at %s", listener.Addr().String())
-	return listener.Addr(), nil
 }
 
 // GetCacheStats returns the statistics for cached discovery responses.
@@ -519,6 +490,9 @@ func (ds *DiscoveryService) clearCache() {
 	ds.cdsCache.clear()
 	ds.rdsCache.clear()
 	ds.ldsCache.clear()
+	if V2ClearCache != nil {
+		V2ClearCache()
+	}
 }
 
 // ListAllEndpoints responds with all Services and is not restricted to a single service-key
@@ -587,10 +561,10 @@ func (ds *DiscoveryService) ListEndpoints(request *restful.Request, response *re
 	key := request.Request.URL.String()
 	out, resourceCount, cached := ds.sdsCache.cachedDiscoveryResponse(key)
 	if !cached {
-		hostname, ports, tags := model.ParseServiceKey(request.PathParameter(ServiceKey))
+		hostname, ports, labels := model.ParseServiceKey(request.PathParameter(ServiceKey))
 		// envoy expects an empty array if no hosts are available
 		hostArray := make([]*host, 0)
-		endpoints, err := ds.Instances(hostname, ports.GetNames(), tags)
+		endpoints, err := ds.Instances(hostname, ports.GetNames(), labels)
 		if err != nil {
 			// If client experiences an error, 503 error will tell envoy to keep its current
 			// cache and try again later
@@ -598,9 +572,15 @@ func (ds *DiscoveryService) ListEndpoints(request *restful.Request, response *re
 			return
 		}
 		for _, ep := range endpoints {
+			// Only set tags if theres an AZ to set, ensures nil tags when there isnt
+			var t *tags
+			if ep.AvailabilityZone != "" {
+				t = &tags{AZ: ep.AvailabilityZone}
+			}
 			hostArray = append(hostArray, &host{
 				Address: ep.Endpoint.Address,
 				Port:    ep.Endpoint.Port,
+				Tags:    t,
 			})
 		}
 		if out, err = json.MarshalIndent(hosts{Hosts: hostArray}, " ", " "); err != nil {
@@ -757,8 +737,8 @@ func (ds *DiscoveryService) ListRoutes(request *restful.Request, response *restf
 		}
 
 		routeConfigName := request.PathParameter(RouteConfigName)
-		routeConfig, err := buildRDSRoute(ds.Mesh, svcNode, routeConfigName,
-			ds.ServiceDiscovery, ds.IstioConfigStore)
+		routeConfig, err := BuildRDSRoute(ds.Mesh, svcNode, routeConfigName,
+			ds.ServiceDiscovery, ds.IstioConfigStore, false)
 		if err != nil {
 			// If client experiences an error, 503 error will tell envoy to keep its current
 			// cache and try again later

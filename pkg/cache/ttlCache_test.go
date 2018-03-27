@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build !race
-
 package cache
 
 import (
@@ -42,14 +40,13 @@ func TestTTLEvicter(t *testing.T) {
 }
 
 func TestTTLEvictExpired(t *testing.T) {
-	ttl := NewTTL(5*time.Second, 0)
+	ttl := NewTTL(5*time.Second, 0).(*ttlCache)
 	testCacheEvictExpired(ttl, t)
 }
 
 func TestTTLFinalizer(t *testing.T) {
-	c := NewTTL(5*time.Second, 1*time.Millisecond).(*ttlWrapper)
-	gate := &c.evicterTerminated
-	testCacheFinalizer(gate, t)
+	ttl := NewTTL(5*time.Second, 1*time.Millisecond).(*ttlWrapper)
+	testCacheFinalizer(&ttl.evicterTerminated, t)
 }
 
 func BenchmarkTTLGet(b *testing.B) {

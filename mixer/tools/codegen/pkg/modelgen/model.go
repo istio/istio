@@ -23,40 +23,50 @@ import (
 	proto "github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 
-	tmpl "istio.io/api/mixer/v1/template"
+	tmpl "istio.io/api/mixer/adapter/model/v1beta1"
 )
 
-const fullProtoNameOfValueTypeEnum = "istio.mixer.v1.config.descriptor.ValueType"
-const fullGoNameOfValueTypeEnum = "istio_mixer_v1_config_descriptor.ValueType"
-const fullProtoNameOfValueMsg = "istio.mixer.v1.template.Value"
+const fullProtoNameOfValueMsg = "istio.mixer.adapter.model.v1beta1.Value"
+const customTypeImport = "mixer/adapter/model/v1beta1/type.proto"
 
 type typeMetadata struct {
-	goName   string
-	goImport string
+	goName      string
+	goImport    string
+	protoImport string
 }
 
 // Hardcoded proto->go type mapping along with imports for the
 // generated code.
 var customMessageTypeMetadata = map[string]typeMetadata{
-	".istio.mixer.v1.template.Duration": {
-		goName:   "time.Duration",
-		goImport: "time",
+	".istio.mixer.adapter.model.v1beta1.Duration": {
+		goName:      "time.Duration",
+		goImport:    "time",
+		protoImport: customTypeImport,
 	},
-	".istio.mixer.v1.template.TimeStamp": {
-		goName:   "time.Time",
-		goImport: "time",
+	".istio.mixer.adapter.model.v1beta1.TimeStamp": {
+		goName:      "time.Time",
+		goImport:    "time",
+		protoImport: customTypeImport,
 	},
-	".istio.mixer.v1.template.IPAddress": {
-		goName: "net.IP",
+	".istio.mixer.adapter.model.v1beta1.IPAddress": {
+		goName:      "net.IP",
+		protoImport: customTypeImport,
 	},
-	".istio.mixer.v1.template.DNSName": {
-		goName: "adapter.DNSName",
+	".istio.mixer.adapter.model.v1beta1.DNSName": {
+		goName:      "adapter.DNSName",
+		protoImport: customTypeImport,
 	},
-	".istio.mixer.v1.template.EmailAddress": {
-		goName: "adapter.EmailAddress",
+	".istio.mixer.adapter.model.v1beta1.EmailAddress": {
+		goName:      "adapter.EmailAddress",
+		protoImport: customTypeImport,
 	},
-	".istio.mixer.v1.template.Uri": {
-		goName: "adapter.URI",
+	".istio.mixer.adapter.model.v1beta1.Uri": {
+		goName:      "adapter.URI",
+		protoImport: customTypeImport,
+	},
+	".istio.mixer.adapter.model.v1beta1.Value": {
+		goName:      "interface{}",
+		protoImport: customTypeImport,
 	},
 }
 
@@ -118,9 +128,9 @@ type (
 )
 
 // Last segment of package name after the '.' must match the following regex
-const pkgLaskSeg = "^[a-zA-Z]+$"
+const tmplNameRegex = "^[a-zA-Z]+$"
 
-var pkgLaskSegRegex = regexp.MustCompile(pkgLaskSeg)
+var tmplNameRegexCompiled = regexp.MustCompile(tmplNameRegex)
 
 // Create creates a Model object.
 func Create(parser *FileDescriptorSetParser) (*Model, error) {
@@ -286,7 +296,7 @@ func getTmplFileDesc(fds []*FileDescriptor) (*FileDescriptor, []diag) {
 		if templateDescriptorProto != nil {
 			diags = append(diags, createError(fd.GetName(), unknownLine,
 				"Proto files %s and %s, both have the option %s. Only one proto file is allowed with this options",
-				fd.GetName(), templateDescriptorProto.Name, tmpl.E_TemplateVariety.Name))
+				fd.GetName(), templateDescriptorProto.GetName(), tmpl.E_TemplateVariety.Name))
 			continue
 		}
 
@@ -312,10 +322,9 @@ func (m *Model) addTopLevelFields(fd *FileDescriptor) {
 	}
 
 	if fd.Package != nil {
-		m.PackageName = strings.ToLower(strings.TrimSpace(*fd.Package))
+		m.PackageName = strings.ToLower(strings.TrimSpace(fd.GetPackage()))
 		m.GoPackageName = goPackageName(m.PackageName)
-
-		if lastSeg, err := getLastSegment(strings.TrimSpace(*fd.Package)); err != nil {
+		if lastSeg, err := getLastSegment(strings.TrimSpace(fd.GetPackage())); err != nil {
 			m.addError(fd.GetName(), fd.getLineNumber(packagePath), err.Error())
 		} else {
 			// capitalize the first character since this string is used to create function names.
@@ -326,12 +335,20 @@ func (m *Model) addTopLevelFields(fd *FileDescriptor) {
 		m.addError(fd.GetName(), unknownLine, "package name missing")
 	}
 
+	// if explicit name is provided, use it.
+	if tmplName, err := proto.GetExtension(fd.GetOptions(), tmpl.E_TemplateName); err == nil {
+		tmplNameHint := *(tmplName.(*string))
+		if !tmplNameRegexCompiled.MatchString(tmplNameHint) {
+			m.addError(fd.GetName(), unknownLine, "the template_name option '%s' must match the regex '%s'",
+				tmplNameHint, tmplNameRegex)
+		} else {
+			m.InterfaceName = strings.Title(tmplNameHint)
+			m.TemplateName = strings.ToLower(tmplNameHint)
+		}
+	}
+
 	if tmplVariety, err := proto.GetExtension(fd.GetOptions(), tmpl.E_TemplateVariety); err == nil {
 		m.VarietyName = (*(tmplVariety.(*tmpl.TemplateVariety))).String()
-	} else {
-		// This func should only get called for FileDescriptor that has this attribute,
-		// therefore it is impossible to get to this state.
-		m.addError(fd.GetName(), unknownLine, "file option %s is required", tmpl.E_TemplateVariety.Name)
 	}
 
 	// For file level comments, comments from multiple locations are composed.
@@ -341,10 +358,10 @@ func (m *Model) addTopLevelFields(fd *FileDescriptor) {
 func getLastSegment(pkg string) (string, error) {
 	segs := strings.Split(pkg, ".")
 	last := segs[len(segs)-1]
-	if pkgLaskSegRegex.MatchString(last) {
+	if tmplNameRegexCompiled.MatchString(last) {
 		return last, nil
 	}
-	return "", fmt.Errorf("the last segment of package name '%s' must match the reges '%s'", pkg, pkgLaskSeg)
+	return "", fmt.Errorf("the last segment of package name '%s' must match the regex '%s'", pkg, tmplNameRegex)
 }
 
 func getMsg(fdp *FileDescriptor, msgName string) (*Descriptor, bool) {
@@ -362,7 +379,7 @@ func getMsg(fdp *FileDescriptor, msgName string) (*Descriptor, bool) {
 func createInvalidTypeError(field string, valueTypeAllowed bool, extraErr error) error {
 	var supTypes []string
 	if valueTypeAllowed {
-		supTypes = append([]string{fullProtoNameOfValueTypeEnum}, simpleTypes...)
+		supTypes = append([]string{fullProtoNameOfValueMsg}, simpleTypes...)
 	} else {
 		supTypes = simpleTypes
 	}
@@ -417,49 +434,50 @@ func getTypeNameRec(g *FileDescriptorSetParser, field *descriptor.FieldDescripto
 	case descriptor.FieldDescriptorProto_TYPE_BOOL:
 		return TypeInfo{Name: "bool"}, TypeInfo{Name: sBOOL}, nil
 	case descriptor.FieldDescriptorProto_TYPE_MESSAGE:
-		if valueTypeAllowed && field.GetTypeName()[1:] == fullProtoNameOfValueMsg {
-			return TypeInfo{Name: fullProtoNameOfValueTypeEnum, IsValueType: true}, TypeInfo{Name: fullGoNameOfValueTypeEnum, IsValueType: true}, nil
-		}
 		if v, ok := customMessageTypeMetadata[field.GetTypeName()]; ok {
-			return TypeInfo{Name: field.GetTypeName()[1:]},
-				TypeInfo{Name: v.goName, Import: v.goImport},
-				nil
+			pType := TypeInfo{Name: field.GetTypeName()[1:], Import: v.protoImport}
+			gType := TypeInfo{Name: v.goName, Import: v.goImport}
+			if field.GetTypeName()[1:] == fullProtoNameOfValueMsg {
+				pType.IsValueType = true
+				gType.IsValueType = true
+				if !valueTypeAllowed {
+					return TypeInfo{}, TypeInfo{}, createInvalidTypeError(field.GetName(), valueTypeAllowed, nil)
+				}
+			}
+			return pType, gType, nil
 		}
 		desc := g.ObjectNamed(field.GetTypeName())
 		if d, ok := desc.(*Descriptor); ok && d.GetOptions().GetMapEntry() {
 			keyField, valField := d.Field[0], d.Field[1]
 
 			protoKeyType, goKeyType, err := getTypeNameRec(g, keyField, valueTypeAllowed)
-			if err != nil {
+			if err != nil || protoKeyType.Name != "string" {
 				return TypeInfo{}, TypeInfo{}, createInvalidTypeError(field.GetName(), valueTypeAllowed, err)
 			}
+
 			protoValType, goValType, err := getTypeNameRec(g, valField, valueTypeAllowed)
 			if err != nil {
 				return TypeInfo{}, TypeInfo{}, createInvalidTypeError(field.GetName(), valueTypeAllowed, err)
 			}
 
-			if protoKeyType.Name == "string" {
-				return TypeInfo{
-						Name:     fmt.Sprintf("map<%s, %s>", protoKeyType.Name, protoValType.Name),
-						IsMap:    true,
-						MapKey:   &protoKeyType,
-						MapValue: &protoValType,
-						Import:   protoValType.Import,
-					},
-					TypeInfo{
-						Name:     fmt.Sprintf("map[%s]%s", goKeyType.Name, goValType.Name),
-						IsMap:    true,
-						MapKey:   &goKeyType,
-						MapValue: &goValType,
-						Import:   goValType.Import,
-					},
-					nil
-			}
-		} else {
-			return TypeInfo{Name: field.GetTypeName()[1:], IsResourceMessage: true}, TypeInfo{Name: "*" + g.TypeName(desc), IsResourceMessage: true}, nil
+			return TypeInfo{
+					Name:     fmt.Sprintf("map<%s, %s>", protoKeyType.Name, protoValType.Name),
+					IsMap:    true,
+					MapKey:   &protoKeyType,
+					MapValue: &protoValType,
+					Import:   protoValType.Import,
+				},
+				TypeInfo{
+					Name:     fmt.Sprintf("map[%s]%s", goKeyType.Name, goValType.Name),
+					IsMap:    true,
+					MapKey:   &goKeyType,
+					MapValue: &goValType,
+					Import:   goValType.Import,
+				},
+				nil
 		}
-	default:
-		return TypeInfo{}, TypeInfo{}, createInvalidTypeError(field.GetName(), valueTypeAllowed, nil)
+		return TypeInfo{Name: field.GetTypeName()[1:], IsResourceMessage: true}, TypeInfo{Name: "*" + g.TypeName(desc), IsResourceMessage: true}, nil
+
 	}
 	return TypeInfo{}, TypeInfo{}, createInvalidTypeError(field.GetName(), valueTypeAllowed, nil)
 }

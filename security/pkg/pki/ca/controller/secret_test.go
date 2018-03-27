@@ -19,60 +19,26 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
 
+	mockca "istio.io/istio/security/pkg/pki/ca/mock"
 	"istio.io/istio/security/pkg/pki/util"
+	mockutil "istio.io/istio/security/pkg/pki/util/mock"
 )
 
 const (
-	defaultTTL              = time.Hour
-	defaultGracePeriodRatio = 0.5
-	defaultMinGracePeriod   = 10 * time.Minute
+	defaultTTL                = time.Hour
+	defaultGracePeriodRatio   = 0.5
+	defaultMinGracePeriod     = 10 * time.Minute
+	sidecarInjectorSvcAccount = "istio-sidecar-injector-service-account"
+	sidecarInjectorSvc        = "istio-sidecar-injector"
 )
-
-type fakeCa struct{}
-
-func (ca *fakeCa) Sign([]byte, time.Duration, bool) ([]byte, error) {
-	return []byte("fake cert chain"), nil
-}
-
-func (ca *fakeCa) GetRootCertificate() []byte {
-	return []byte("fake root cert")
-}
-
-func createSecret(saName, scrtName, namespace string) *v1.Secret {
-	return &v1.Secret{
-		Data: map[string][]byte{
-			CertChainID:  []byte("fake cert chain"),
-			PrivateKeyID: []byte("fake key"),
-			RootCertID:   []byte("fake root cert"),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Annotations: map[string]string{"istio.io/service-account.name": saName},
-			Name:        scrtName,
-			Namespace:   namespace,
-		},
-		Type: IstioSecretType,
-	}
-}
-
-func createServiceAccount(name, namespace string) *v1.ServiceAccount {
-	return &v1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-	}
-}
-
-type updatedSas struct {
-	curSa *v1.ServiceAccount
-	oldSa *v1.ServiceAccount
-}
 
 func TestSecretController(t *testing.T) {
 	gvr := schema.GroupVersionResource{
@@ -85,6 +51,7 @@ func TestSecretController(t *testing.T) {
 		saToDelete      *v1.ServiceAccount
 		sasToUpdate     *updatedSas
 		expectedActions []ktesting.Action
+		injectFailure   bool
 	}{
 		"adding service account creates new secret": {
 			saToAdd: createServiceAccount("test", "test-ns"),
@@ -120,12 +87,46 @@ func TestSecretController(t *testing.T) {
 			saToAdd:         createServiceAccount("test", "test-ns"),
 			expectedActions: []ktesting.Action{},
 		},
+		"adding service account retries when failed": {
+			saToAdd: createServiceAccount("test", "test-ns"),
+			expectedActions: []ktesting.Action{
+				ktesting.NewCreateAction(gvr, "test-ns", createSecret("test", "istio.test", "test-ns")),
+				ktesting.NewCreateAction(gvr, "test-ns", createSecret("test", "istio.test", "test-ns")),
+				ktesting.NewCreateAction(gvr, "test-ns", createSecret("test", "istio.test", "test-ns")),
+			},
+			injectFailure: true,
+		},
+		"adding webhook service account": {
+			saToAdd: createServiceAccount(sidecarInjectorSvcAccount, "test-ns"),
+			expectedActions: []ktesting.Action{
+				ktesting.NewCreateAction(gvr, "test-ns", createSecret("test", sidecarInjectorSvcAccount, "test-ns")),
+			},
+		},
 	}
 
 	for k, tc := range testCases {
 		client := fake.NewSimpleClientset()
-		controller, err := NewSecretController(&fakeCa{}, defaultTTL, defaultGracePeriodRatio, defaultMinGracePeriod,
-			client.CoreV1(), metav1.NamespaceAll)
+
+		if tc.injectFailure {
+			callCount := 0
+			// PrependReactor to ensure action handled by our handler.
+			client.Fake.PrependReactor("*", "*", func(a ktesting.Action) (bool, runtime.Object, error) {
+				callCount++
+				if callCount < secretCreationRetry {
+					return true, nil, errors.New("failed to create secret deliberately")
+				}
+				return true, nil, nil
+			})
+		}
+
+		webhooks := map[string]DNSNameEntry{
+			sidecarInjectorSvcAccount: {
+				ServiceName: sidecarInjectorSvc,
+				Namespace:   "test-ns",
+			},
+		}
+		controller, err := NewSecretController(createFakeCA(), defaultTTL, defaultGracePeriodRatio, defaultMinGracePeriod,
+			client.CoreV1(), metav1.NamespaceAll, webhooks)
 		if err != nil {
 			t.Errorf("failed to create secret controller: %v", err)
 		}
@@ -153,23 +154,58 @@ func TestSecretController(t *testing.T) {
 	}
 }
 
-func TestRecoverFromDeletedIstioSecret(t *testing.T) {
+func TestDeletedIstioSecret(t *testing.T) {
 	client := fake.NewSimpleClientset()
-	controller, err := NewSecretController(&fakeCa{}, defaultTTL, defaultGracePeriodRatio, defaultMinGracePeriod,
-		client.CoreV1(), metav1.NamespaceAll)
+	controller, err := NewSecretController(createFakeCA(), defaultTTL, defaultGracePeriodRatio, defaultMinGracePeriod,
+		client.CoreV1(), metav1.NamespaceAll, nil)
 	if err != nil {
 		t.Errorf("failed to create secret controller: %v", err)
 	}
-	scrt := createSecret("test", "istio.test", "test-ns")
-	controller.scrtDeleted(scrt)
+	sa := createServiceAccount("test-sa", "test-ns")
+	if _, err := client.CoreV1().ServiceAccounts("test-ns").Create(sa); err != nil {
+		t.Error(err)
+	}
 
-	gvr := schema.GroupVersionResource{
+	saGvr := schema.GroupVersionResource{
+		Resource: "serviceaccounts",
+		Version:  "v1",
+	}
+	scrtGvr := schema.GroupVersionResource{
 		Resource: "secrets",
 		Version:  "v1",
 	}
-	expectedActions := []ktesting.Action{ktesting.NewCreateAction(gvr, "test-ns", scrt)}
-	if err := checkActions(client.Actions(), expectedActions); err != nil {
-		t.Error(err)
+
+	testCases := map[string]struct {
+		secret          *v1.Secret
+		expectedActions []ktesting.Action
+	}{
+		"Recover secret for existing service account": {
+			secret: createSecret("test-sa", "istio.test-sa", "test-ns"),
+			expectedActions: []ktesting.Action{
+				ktesting.NewGetAction(saGvr, "test-ns", "test-sa"),
+				ktesting.NewCreateAction(scrtGvr, "test-ns", createSecret("test-sa", "istio.test-sa", "test-ns")),
+			},
+		},
+		"Do not recover secret for non-existing service account in the same namespace": {
+			secret: createSecret("test-sa2", "istio.test-sa2", "test-ns"),
+			expectedActions: []ktesting.Action{
+				ktesting.NewGetAction(saGvr, "test-ns", "test-sa2"),
+			},
+		},
+		"Do not recover secret for service account in different namespace": {
+			secret: createSecret("test-sa", "istio.test-sa", "test-ns2"),
+			expectedActions: []ktesting.Action{
+				ktesting.NewGetAction(saGvr, "test-ns2", "test-sa"),
+			},
+		},
+	}
+
+	for k, tc := range testCases {
+		client.ClearActions()
+		controller.scrtDeleted(tc.secret)
+		if err := checkActions(client.Actions(), tc.expectedActions); err != nil {
+			t.Errorf("Failure in test case %s: %v", k, err)
+		}
 	}
 }
 
@@ -188,23 +224,23 @@ func TestUpdateSecret(t *testing.T) {
 		"Does not update non-expiring secret": {
 			expectedActions:  []ktesting.Action{},
 			ttl:              time.Hour,
-			gracePeriodRatio: defaultGracePeriodRatio,
-			minGracePeriod:   defaultMinGracePeriod,
+			gracePeriodRatio: 0.5,
+			minGracePeriod:   10 * time.Minute,
 		},
 		"Update secret in grace period": {
 			expectedActions: []ktesting.Action{
 				ktesting.NewUpdateAction(gvr, "test-ns", createSecret("test", "istio.test", "test-ns")),
 			},
-			ttl:              defaultTTL,
+			ttl:              time.Hour,
 			gracePeriodRatio: 1, // Always in grace period
-			minGracePeriod:   defaultMinGracePeriod,
+			minGracePeriod:   10 * time.Minute,
 		},
 		"Update secret in min grace period": {
 			expectedActions: []ktesting.Action{
 				ktesting.NewUpdateAction(gvr, "test-ns", createSecret("test", "istio.test", "test-ns")),
 			},
 			ttl:              10 * time.Minute,
-			gracePeriodRatio: defaultGracePeriodRatio,
+			gracePeriodRatio: 0.5,
 			minGracePeriod:   time.Hour, // ttl is always in minGracePeriod
 		},
 		"Update expired secret": {
@@ -212,24 +248,24 @@ func TestUpdateSecret(t *testing.T) {
 				ktesting.NewUpdateAction(gvr, "test-ns", createSecret("test", "istio.test", "test-ns")),
 			},
 			ttl:              -time.Second,
-			gracePeriodRatio: defaultGracePeriodRatio,
-			minGracePeriod:   defaultMinGracePeriod,
+			gracePeriodRatio: 0.5,
+			minGracePeriod:   10 * time.Minute,
 		},
 		"Update secret with different root cert": {
 			expectedActions: []ktesting.Action{
 				ktesting.NewUpdateAction(gvr, "test-ns", createSecret("test", "istio.test", "test-ns")),
 			},
-			ttl:              defaultTTL,
-			gracePeriodRatio: defaultGracePeriodRatio,
-			minGracePeriod:   defaultMinGracePeriod,
+			ttl:              time.Hour,
+			gracePeriodRatio: 0.5,
+			minGracePeriod:   10 * time.Minute,
 			rootCert:         []byte("Outdated root cert"),
 		},
 	}
 
 	for k, tc := range testCases {
 		client := fake.NewSimpleClientset()
-		controller, err := NewSecretController(&fakeCa{}, time.Hour, tc.gracePeriodRatio, tc.minGracePeriod,
-			client.CoreV1(), metav1.NamespaceAll)
+		controller, err := NewSecretController(createFakeCA(), time.Hour, tc.gracePeriodRatio, tc.minGracePeriod,
+			client.CoreV1(), metav1.NamespaceAll, nil)
 		if err != nil {
 			t.Errorf("failed to create secret controller: %v", err)
 		}
@@ -273,4 +309,47 @@ func checkActions(actual, expected []ktesting.Action) error {
 	}
 
 	return nil
+}
+
+func createFakeCA() *mockca.FakeCA {
+	return &mockca.FakeCA{
+		SignedCert: []byte("fake signed cert"),
+		SignErr:    nil,
+		KeyCertBundle: &mockutil.FakeKeyCertBundle{
+			CertBytes:      []byte("fake CA cert"),
+			PrivKeyBytes:   []byte("fake private key"),
+			CertChainBytes: []byte("fake cert chain"),
+			RootCertBytes:  []byte("fake root cert"),
+		},
+	}
+}
+
+func createSecret(saName, scrtName, namespace string) *v1.Secret {
+	return &v1.Secret{
+		Data: map[string][]byte{
+			CertChainID:  []byte("fake cert chain"),
+			PrivateKeyID: []byte("fake key"),
+			RootCertID:   []byte("fake root cert"),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{"istio.io/service-account.name": saName},
+			Name:        scrtName,
+			Namespace:   namespace,
+		},
+		Type: IstioSecretType,
+	}
+}
+
+func createServiceAccount(name, namespace string) *v1.ServiceAccount {
+	return &v1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+	}
+}
+
+type updatedSas struct {
+	curSa *v1.ServiceAccount
+	oldSa *v1.ServiceAccount
 }

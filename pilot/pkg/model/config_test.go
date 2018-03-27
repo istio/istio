@@ -22,8 +22,9 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/protobuf/proto"
 
+	authn "istio.io/api/authentication/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 	routing "istio.io/api/routing/v1alpha1"
-	routingv2 "istio.io/api/routing/v1alpha2"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
@@ -170,6 +171,48 @@ func TestServiceKey(t *testing.T) {
 		got := model.ServiceKey(svc.Hostname, c.port, c.labels)
 		if !reflect.DeepEqual(got, c.want) {
 			t.Errorf("Failed: got %q want %q", got, c.want)
+		}
+	}
+}
+
+func TestSubsetKey(t *testing.T) {
+	hostname := "hostname"
+	cases := []struct {
+		hostname string
+		subset   string
+		port     *model.Port
+		want     string
+	}{
+		{
+			hostname: "hostname",
+			subset:   "subset",
+			port:     &model.Port{Name: "http", Port: 80, Protocol: model.ProtocolHTTP},
+			want:     "outbound|http|subset|hostname",
+		},
+		{
+			hostname: "hostname",
+			subset:   "subset",
+			port:     &model.Port{Port: 80, Protocol: model.ProtocolHTTP},
+			want:     "outbound||subset|hostname",
+		},
+		{
+			hostname: "hostname",
+			subset:   "",
+			port:     &model.Port{Name: "http", Port: 80, Protocol: model.ProtocolHTTP},
+			want:     "outbound|http||hostname",
+		},
+	}
+
+	for _, c := range cases {
+		got := model.BuildSubsetKey(model.TrafficDirectionOutbound, c.subset, hostname, c.port)
+		if got != c.want {
+			t.Errorf("Failed: got %q want %q", got, c.want)
+		}
+
+		// test parse subset key. ParseSubsetKey is the inverse of BuildSubsetKey
+		_, s, h, p := model.ParseSubsetKey(got)
+		if s != c.subset || h != c.hostname || p.Name != c.port.Name {
+			t.Errorf("Failed: got %s,%s,%s want %s,%s,%s", s, h, p.Name, c.subset, c.hostname, c.port.Name)
 		}
 	}
 }
@@ -413,12 +456,17 @@ func TestRouteRules(t *testing.T) {
 			},
 		},
 		{
-			configType: model.V1alpha2RouteRule.Type,
-			spec: &routingv2.RouteRule{
+			configType: model.VirtualService.Type,
+			spec: &networking.VirtualService{
 				Hosts: []string{"world"},
-				Http: []*routingv2.HTTPRoute{
+				Http: []*networking.HTTPRoute{
 					{
-						Match: []*routingv2.HTTPMatchRequest{
+						Route: []*networking.DestinationWeight{{
+							Destination: &networking.Destination{
+								Name: "world",
+							},
+						}},
+						Match: []*networking.HTTPMatchRequest{
 							{
 								SourceLabels: instance.Labels,
 							},
@@ -520,7 +568,7 @@ func TestEgressRules(t *testing.T) {
 	}
 }
 
-func TestPolicy(t *testing.T) {
+func TestDestinationPolicy(t *testing.T) {
 	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
 	labels := map[string]string{"version": "v1"}
 	instances := []*model.ServiceInstance{mock.MakeInstance(mock.HelloService, mock.GetPortHTTP(mock.HelloService), 0, "")}
@@ -566,5 +614,103 @@ func TestPolicy(t *testing.T) {
 	// erroring out list
 	if out := model.MakeIstioStore(errorStore{}).Policy(instances, mock.WorldService.Hostname, labels); out != nil {
 		t.Errorf("Policy() => expected nil but got %v", out)
+	}
+}
+
+func TestAuthenticationPolicyConfig(t *testing.T) {
+	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
+
+	authNPolicies := map[string]*authn.Policy{
+		"all": {},
+		"hello": {
+			Targets: []*authn.TargetSelector{{
+				Name: "hello",
+			}},
+			Peers: []*authn.PeerAuthenticationMethod{{
+				Params: &authn.PeerAuthenticationMethod_Mtls{},
+			}},
+		},
+		"world": {
+			Targets: []*authn.TargetSelector{{
+				Name: "world",
+				Ports: []*authn.PortSelector{
+					{
+						Port: &authn.PortSelector_Number{
+							Number: 80,
+						},
+					},
+				},
+			}},
+			Origins: []*authn.OriginAuthenticationMethod{
+				{
+					Jwt: &authn.Jwt{
+						Issuer:  "abc.xzy",
+						JwksUri: "https://secure.isio.io",
+					},
+				},
+			},
+			PrincipalBinding: authn.PrincipalBinding_USE_ORIGIN,
+		},
+	}
+	for key, value := range authNPolicies {
+		config := model.Config{
+			ConfigMeta: model.ConfigMeta{
+				Type:      model.AuthenticationPolicy.Type,
+				Name:      key,
+				Group:     "authentication",
+				Version:   "v1alpha2",
+				Namespace: "default",
+				Domain:    "cluster.local",
+			},
+			Spec: value,
+		}
+		if _, err := store.Create(config); err != nil {
+			t.Error(err)
+		}
+	}
+
+	cases := []struct {
+		hostname string
+		port     int
+		expected string
+	}{
+		{
+			hostname: "hello.default.svc.cluster.local",
+			port:     80,
+			expected: "hello",
+		},
+		{
+			hostname: "world.default.svc.cluster.local",
+			port:     80,
+			expected: "world",
+		},
+		{
+			hostname: "world.default.svc.cluster.local",
+			port:     8080,
+			expected: "all",
+		},
+		{
+			hostname: "world.another-galaxy.svc.cluster.local",
+			port:     8080,
+			expected: "",
+		},
+	}
+
+	for _, testCase := range cases {
+		port := &model.Port{Port: testCase.port}
+		expected := authNPolicies[testCase.expected]
+		out := store.AuthenticationPolicyByDestination(testCase.hostname, port)
+		if out == nil {
+			if expected != nil {
+				t.Errorf("AutheticationPolicy(%s:%d) => expected %#v but got nil",
+					testCase.hostname, testCase.port, expected)
+			}
+		} else {
+			policy := out.Spec.(*authn.Policy)
+			if !reflect.DeepEqual(expected, policy) {
+				t.Errorf("AutheticationPolicy(%s:%d) => expected %#v but got %#v",
+					testCase.hostname, testCase.port, expected, out)
+			}
+		}
 	}
 }

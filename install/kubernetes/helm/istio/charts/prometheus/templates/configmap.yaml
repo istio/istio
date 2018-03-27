@@ -1,10 +1,9 @@
-{{- $namespace := .Release.Namespace }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ template "prometheus.fullname" . }}
+  name: prometheus
   labels:
-    app: {{ template "prometheus.name" . }}
+    app: prometheus
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
@@ -24,7 +23,7 @@ data:
       relabel_configs:
       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: {{ .Release.Namespace }};{{ .Release.Name }}-mixer;prometheus
+        regex: {{ .Release.Namespace }};istio-telemetry;prometheus
 
     - job_name: 'envoy'
       # Override the global default and scrape targets from this job every 5 seconds.
@@ -38,9 +37,9 @@ data:
       relabel_configs:
       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: {{ .Release.Namespace }};{{ .Release.Name }}-mixer;statsd-prom
+        regex: {{ .Release.Namespace }};istio-statsd-prom-bridge;statsd-prom
 
-    - job_name: 'mixer'
+    - job_name: 'mixer-check'
       # Override the global default and scrape targets from this job every 5 seconds.
       scrape_interval: 5s
       # metrics_path defaults to '/metrics'
@@ -52,7 +51,21 @@ data:
       relabel_configs:
       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: {{ .Release.Namespace }};{{ .Release.Name }}-mixer;http-monitoring
+        regex: {{ .Release.Namespace }};istio-policy;http-monitoring
+
+    - job_name: 'mixer-report'
+      # Override the global default and scrape targets from this job every 5 seconds.
+      scrape_interval: 5s
+      # metrics_path defaults to '/metrics'
+      # scheme defaults to 'http'.
+
+      kubernetes_sd_configs:
+      - role: endpoints
+
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: {{ .Release.Namespace }};istio-telemetry;http-monitoring
 
     - job_name: 'pilot'
       # Override the global default and scrape targets from this job every 5 seconds.
@@ -66,7 +79,7 @@ data:
       relabel_configs:
       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: {{ .Release.Namespace }};{{ .Release.Name }}-pilot;http-monitoring
+        regex: {{ .Release.Namespace }};istio-pilot;http-monitoring
 
     # scrape config for API servers
     - job_name: 'kubernetes-apiservers'

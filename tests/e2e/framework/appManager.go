@@ -17,8 +17,6 @@ package framework
 import (
 	"flag"
 	"path/filepath"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/util"
@@ -107,7 +105,7 @@ func (am *AppManager) Setup() error {
 			return err
 		}
 	}
-	return nil
+	return util.CheckDeployments(am.namespace, maxDeploymentRolloutTime)
 }
 
 // Teardown currently does nothing, only to satisfied cleanable{}

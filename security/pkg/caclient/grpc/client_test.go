@@ -21,11 +21,11 @@ import (
 	"testing"
 	"time"
 
+	rpc "github.com/gogo/googleapis/google/rpc"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
-	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
 	mockpc "istio.io/istio/security/pkg/platform/mock"
@@ -33,9 +33,10 @@ import (
 )
 
 type FakeIstioCAGrpcServer struct {
-	IsApproved      bool
-	Status          *rpc.Status
-	SignedCertChain []byte
+	IsApproved bool
+	Status     *rpc.Status
+	SignedCert []byte
+	CertChain  []byte
 
 	response *pb.CsrResponse
 	errorMsg string
@@ -78,9 +79,10 @@ func TestSendCSRAgainstLocalInstance(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	defaultServerResponse := pb.CsrResponse{
-		IsApproved:      true,
-		Status:          &rpc.Status{Code: int32(rpc.OK), Message: "OK"},
-		SignedCertChain: nil,
+		IsApproved: true,
+		Status:     &rpc.Status{Code: int32(rpc.OK), Message: "OK"},
+		SignedCert: nil,
+		CertChain:  nil,
 	}
 
 	testCases := map[string]struct {
