@@ -29,18 +29,18 @@ import (
 	"istio.io/istio/galley/pkg/testing/mock"
 )
 
-func TestGet_Error(t *testing.T) {
+func TestGetAll_Error(t *testing.T) {
 	getCustomResourceDefinitionsInterface = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
 		return nil, errors.New("newForConfig error")
 	}
 
-	_, err := Get(&rest.Config{})
+	_, err := GetAll(&rest.Config{})
 	if err == nil || err.Error() != "newForConfig error" {
 		t.Fatal("Expected error not found")
 	}
 }
 
-func TestGet_Simple(t *testing.T) {
+func TestGetAll_Simple(t *testing.T) {
 	i := mock.NewInterface()
 	defer i.Close()
 	getCustomResourceDefinitionsInterface = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
@@ -56,7 +56,7 @@ func TestGet_Simple(t *testing.T) {
 		Items: items,
 	}, nil)
 
-	crds, err := Get(&rest.Config{})
+	crds, err := GetAll(&rest.Config{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -66,7 +66,7 @@ func TestGet_Simple(t *testing.T) {
 	}
 }
 
-func TestGet_Empty(t *testing.T) {
+func TestGetAll_Empty(t *testing.T) {
 	i := mock.NewInterface()
 	defer i.Close()
 	getCustomResourceDefinitionsInterface = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
@@ -75,7 +75,7 @@ func TestGet_Empty(t *testing.T) {
 
 	i.AddListResponse(&apiext.CustomResourceDefinitionList{}, nil)
 
-	crds, err := Get(&rest.Config{})
+	crds, err := GetAll(&rest.Config{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -85,7 +85,7 @@ func TestGet_Empty(t *testing.T) {
 	}
 }
 
-func TestGet_ListError(t *testing.T) {
+func TestGetAll_ListError(t *testing.T) {
 	i := mock.NewInterface()
 	defer i.Close()
 	getCustomResourceDefinitionsInterface = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
@@ -94,13 +94,13 @@ func TestGet_ListError(t *testing.T) {
 
 	i.AddListResponse(nil, errors.New("some list error"))
 
-	_, err := Get(&rest.Config{})
+	_, err := GetAll(&rest.Config{})
 	if err == nil || err.Error() != "some list error" {
 		t.Fatalf("error mismatch: %v", err)
 	}
 }
 
-func TestGet_Continuation(t *testing.T) {
+func TestGetAll_Continuation(t *testing.T) {
 	i := mock.NewInterface()
 	defer i.Close()
 	getCustomResourceDefinitionsInterface = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
@@ -125,7 +125,7 @@ func TestGet_Continuation(t *testing.T) {
 		Items: items2,
 	}, nil)
 
-	crds, err := Get(&rest.Config{})
+	crds, err := GetAll(&rest.Config{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

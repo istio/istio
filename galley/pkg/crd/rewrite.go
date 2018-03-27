@@ -24,10 +24,7 @@ import (
 )
 
 // rewrite the given source CRD as a destination CRD with the given group/version.
-func rewrite(
-	source *ext.CustomResourceDefinition,
-	group string,
-	version string) *ext.CustomResourceDefinition {
+func rewrite(source *ext.CustomResourceDefinition, group, version string) *ext.CustomResourceDefinition {
 
 	modified := source.DeepCopy()
 

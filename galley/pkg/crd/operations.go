@@ -23,12 +23,11 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-// Get returns all known CRDs
-func Get(config *rest.Config) ([]apiext.CustomResourceDefinition, error) {
+// GetAll returns all known CRDs
+func GetAll(config *rest.Config) ([]apiext.CustomResourceDefinition, error) {
 
-	var err error
-	var crdi v1beta1.CustomResourceDefinitionInterface
-	if crdi, err = getCustomResourceDefinitionsInterface(config); err != nil {
+	crdi, err := getCustomResourceDefinitionsInterface(config)
+	if err != nil {
 		return nil, err
 	}
 

@@ -31,25 +31,22 @@ type Mapping struct {
 }
 
 // NewMapping returns a new mapping based on the provided input GroupVersion map.
-func NewMapping(forward map[schema.GroupVersion]schema.GroupVersion) (m Mapping, err error) {
+func NewMapping(forward map[schema.GroupVersion]schema.GroupVersion) (Mapping, error) {
 	f := make(map[string]string, len(forward))
 	r := make(map[string]string, len(forward))
 	vr := make(map[string]string)
 
 	for k, v := range forward {
 		if k.Group == v.Group {
-			err = fmt.Errorf("cycling mapping not allowed: %v", k.Group)
-			return
+			return Mapping{}, fmt.Errorf("cycling mapping not allowed: %v", k.Group)
 		}
 
 		var found bool
 		if _, found = f[k.Group]; found {
-			err = fmt.Errorf("mapping already exists: %s", k.Group)
-			return
+			return Mapping{}, fmt.Errorf("mapping already exists: %s", k.Group)
 		}
 		if _, found = r[v.Group]; found {
-			err = fmt.Errorf("reverse mapping is not unique: %s", v.Group)
-			return
+			return Mapping{}, fmt.Errorf("reverse mapping is not unique: %s", v.Group)
 		}
 
 		f[k.Group] = v.Group
@@ -58,17 +55,16 @@ func NewMapping(forward map[schema.GroupVersion]schema.GroupVersion) (m Mapping,
 		vr[k.Group] = k.Version
 	}
 
-	m = Mapping{
+	return Mapping{
 		forward:  f,
 		reverse:  r,
 		versions: vr,
-	}
-	return
+	}, nil
 }
 
 // GetGroupVersion returns the GroupVersion mapping pairs for a given APIGroup.
 func (m Mapping) GetGroupVersion(
-	group string) (source schema.GroupVersion, destination schema.GroupVersion, found bool) {
+	group string) (source, destination schema.GroupVersion, found bool) {
 
 	var sourceGroup string
 	var destinationGroup string

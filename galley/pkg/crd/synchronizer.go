@@ -57,6 +57,9 @@ type Synchronizer struct {
 	// stopCh is used to quiesce the background activity during shutdown.
 	stopCh chan struct{}
 
+	// wait until the background process task is completed.
+	waitForProcess sync.WaitGroup
+
 	// queue is used to schedule work in a single background go-process.
 	queue workqueue.RateLimitingInterface
 
@@ -78,7 +81,7 @@ type SyncListener struct {
 
 // NewSynchronizer returns a new instance of a Synchronizer. The returned Synchronizer is not started: this
 // needs to be done explicitly using start()/Stop() methods.
-func NewSynchronizer(config *rest.Config, mapping Mapping, resyncPeriod time.Duration, listener SyncListener) (s *Synchronizer, err error) {
+func NewSynchronizer(config *rest.Config, mapping Mapping, resyncPeriod time.Duration, listener SyncListener) (*Synchronizer, error) {
 	return newSynchronizer(config, mapping, resyncPeriod, listener, nil, getCustomResourceDefinitionsInterface)
 }
 
@@ -87,22 +90,20 @@ type eventHookFn func(e interface{})
 // NewSynchronizer returns a new instance of a Synchronizer. The returned Synchronizer is not started: this
 // needs to be done explicitly using start()/Stop() methods.
 func newSynchronizer(config *rest.Config, mapping Mapping, resyncPeriod time.Duration, listener SyncListener,
-	eventHook eventHookFn, crdiFn getCrdiFn) (s *Synchronizer, err error) {
+	eventHook eventHookFn, crdiFn getCrdiFn) (*Synchronizer, error) {
 
-	var crdi v1beta1.CustomResourceDefinitionInterface
-	if crdi, err = crdiFn(config); err != nil {
+	crdi, err := crdiFn(config)
+	if err != nil {
 		return nil, err
 	}
 
-	s = &Synchronizer{
+	return &Synchronizer{
 		mapping:      mapping,
 		resyncPeriod: resyncPeriod,
 		listener:     listener,
 		crdi:         crdi,
 		eventHook:    eventHook,
-	}
-
-	return
+	}, nil
 }
 
 // Start commences synchronizing CRDs.
@@ -137,8 +138,8 @@ func (s *Synchronizer) Start() error {
 			newCrd := new.(*apiext.CustomResourceDefinition)
 			oldCrd := old.(*apiext.CustomResourceDefinition)
 			if newCrd.ResourceVersion == oldCrd.ResourceVersion {
-				// Periodic resync will send update events for all known Deployments.
-				// Two different versions of the same Deployment will always have different RVs.
+				// Periodic resync will send update events for all known crds.
+				// Two different versions of the same crds will always have different RVs.
 				return
 			}
 			s.handleEvent(change.Update, new)
@@ -155,6 +156,7 @@ func (s *Synchronizer) Start() error {
 	}
 	log.Debugf("Completed CRD cache sync and starting processing.")
 
+	s.waitForProcess.Add(1)
 	go s.process()
 
 	return nil
@@ -176,6 +178,8 @@ func (s *Synchronizer) Stop() {
 
 	close(s.stopCh)
 	s.stopCh = nil
+
+	s.waitForProcess.Wait()
 }
 
 // transform the incoming object into a change.Info and enqueue it in the work queue.
@@ -226,6 +230,8 @@ func (s *Synchronizer) process() {
 		}
 		log.Debugf("marked item as done: %v", item)
 	}
+
+	s.waitForProcess.Done()
 }
 
 // processQueueItem is a panic-protected processor of work items.
