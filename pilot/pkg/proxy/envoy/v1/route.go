@@ -25,6 +25,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes/duration"
 
+	authn "istio.io/api/authentication/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -40,12 +41,17 @@ const (
 )
 
 // buildListenerSSLContext returns an SSLContext struct.
-func buildListenerSSLContext(certsDir string) *SSLContext {
+func buildListenerSSLContext(certsDir string, mtlsParams *authn.MutualTls) *SSLContext {
+	requireClientCert := true
+	if mtlsParams != nil && mtlsParams.AllowTls {
+		requireClientCert = false
+	}
+
 	return &SSLContext{
 		CertChainFile:            path.Join(certsDir, model.CertChainFilename),
 		PrivateKeyFile:           path.Join(certsDir, model.KeyFilename),
 		CaCertFile:               path.Join(certsDir, model.RootCertFilename),
-		RequireClientCertificate: true,
+		RequireClientCertificate: requireClientCert,
 	}
 }
 
