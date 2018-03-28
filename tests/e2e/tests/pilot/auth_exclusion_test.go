@@ -37,10 +37,6 @@ func (r *authExclusion) Setup() error {
 func (r *authExclusion) Teardown() {}
 
 func (r *authExclusion) Run() error {
-	if !r.Config.Auth {
-		return nil
-	}
-
 	return r.makeRequests()
 }
 
