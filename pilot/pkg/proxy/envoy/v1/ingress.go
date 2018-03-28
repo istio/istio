@@ -70,6 +70,14 @@ func BuildIngressRoutes(mesh *meshconfig.MeshConfig, node model.Proxy,
 	proxyInstances []*model.ServiceInstance,
 	discovery model.ServiceDiscovery,
 	config model.IstioConfigStore) (HTTPRouteConfigs, string) {
+	return buildIngressRoutes(mesh, node, proxyInstances, discovery, config, false)
+}
+
+// buildIngressRoutes is the internal implementation, generating different rules for v2.
+func buildIngressRoutes(mesh *meshconfig.MeshConfig, node model.Proxy,
+	proxyInstances []*model.ServiceInstance,
+	discovery model.ServiceDiscovery,
+	config model.IstioConfigStore, envoyv2 bool) (HTTPRouteConfigs, string) {
 	// build vhosts
 	vhosts := make(map[string][]*HTTPRoute)
 	vhostsTLS := make(map[string][]*HTTPRoute)
@@ -77,7 +85,7 @@ func BuildIngressRoutes(mesh *meshconfig.MeshConfig, node model.Proxy,
 
 	rules, _ := config.List(model.IngressRule.Type, model.NamespaceAll)
 	for _, rule := range rules {
-		routes, tls, err := buildIngressRoute(mesh, node, proxyInstances, rule, discovery, config)
+		routes, tls, err := buildIngressRoute(mesh, node, proxyInstances, rule, discovery, config, envoyv2)
 		if err != nil {
 			log.Warnf("Error constructing Envoy route from ingress rule: %v", err)
 			continue
@@ -152,7 +160,7 @@ func buildIngressVhostDomains(vhost string, port int) []string {
 func buildIngressRoute(mesh *meshconfig.MeshConfig, node model.Proxy,
 	proxyInstances []*model.ServiceInstance, rule model.Config,
 	discovery model.ServiceDiscovery,
-	config model.IstioConfigStore) ([]*HTTPRoute, string, error) {
+	config model.IstioConfigStore, envoyv2 bool) ([]*HTTPRoute, string, error) {
 	ingress := rule.Spec.(*routing.IngressRule)
 	destination := model.ResolveHostname(rule.ConfigMeta, ingress.Destination)
 	service, err := discovery.GetService(destination)
@@ -172,7 +180,7 @@ func buildIngressRoute(mesh *meshconfig.MeshConfig, node model.Proxy,
 	}
 
 	// unfold the rules for the destination port
-	routes := buildDestinationHTTPRoutes(node, service, servicePort, proxyInstances, config, false, BuildOutboundCluster)
+	routes := buildDestinationHTTPRoutes(node, service, servicePort, proxyInstances, config, envoyv2, BuildOutboundCluster)
 
 	// filter by path, prefix from the ingress
 	ingressRoute := buildHTTPRouteMatch(ingress.Match)

@@ -17,12 +17,14 @@ package v1alpha3
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
@@ -32,8 +34,6 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/util"
 
 	google_protobuf "github.com/gogo/protobuf/types"
-
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -62,6 +62,12 @@ const (
 
 	// LocalhostAddress for local binding
 	LocalhostAddress = "127.0.0.1"
+)
+
+var (
+	// Very verbose output in the logs - full LDS response logged for each sidecar.
+	// Use /debug/ldsz instead.
+	verboseDebug = os.Getenv("PILOT_DUMP_ALPHA3") != ""
 )
 
 // ListenersALPNProtocols denotes the the list of ALPN protocols that the listener
@@ -581,9 +587,10 @@ func buildHTTPConnectionManager(opts buildListenerOpts) *http_conn.HttpConnectio
 		connectionManager.GenerateRequestId = &google_protobuf.BoolValue{true}
 	}
 
-	connectionManagerJSON, _ := json.MarshalIndent(connectionManager, "  ", "  ")
-	log.Infof("LDS: %s \n", string(connectionManagerJSON))
-
+	if verboseDebug {
+		connectionManagerJSON, _ := json.MarshalIndent(connectionManager, "  ", "  ")
+		log.Infof("LDS: %s \n", string(connectionManagerJSON))
+	}
 	return connectionManager
 }
 

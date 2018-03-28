@@ -739,8 +739,13 @@ func (ds *DiscoveryService) ListRoutes(request *restful.Request, response *restf
 		}
 
 		routeConfigName := request.PathParameter(RouteConfigName)
+		envoyV2 := false
+		if routeConfigName[0] == ':' {
+			routeConfigName = routeConfigName[1:]
+			envoyV2 = true
+		}
 		routeConfig, err := BuildRDSRoute(ds.Mesh, svcNode, routeConfigName,
-			ds.ServiceDiscovery, ds.IstioConfigStore, false)
+			ds.ServiceDiscovery, ds.IstioConfigStore, envoyV2)
 		if err != nil {
 			// If client experiences an error, 503 error will tell envoy to keep its current
 			// cache and try again later
@@ -751,7 +756,6 @@ func (ds *DiscoveryService) ListRoutes(request *restful.Request, response *restf
 			errorResponse(methodName, response, http.StatusInternalServerError, "RDS "+err.Error())
 			return
 		}
-
 		transformedOutput, err = ds.invokeWebhook(request.Request.URL.Path, out, "webhook"+methodName)
 		if err != nil {
 			// Use whatever we generated.
