@@ -71,11 +71,9 @@ func BuildListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener
 	switch node.Type {
 	case model.Sidecar:
 		return buildSidecarListeners(env, node)
-	case model.Router:
+	case model.Router, model.Ingress:
 		// TODO: add listeners for other protocols too
-		return buildGatewayHTTPListeners(env, node)
-	case model.Ingress:
-		return buildLegacyIngressListeners(env, node)
+		return buildGatewayListeners(env, node)
 	}
 	return nil, nil
 }
@@ -213,7 +211,7 @@ func buildSidecarInboundListeners(env model.Environment, node model.Proxy,
 				env:              env,
 				proxy:            node,
 				proxyInstances:   proxyInstances,
-				routeConfig:      buildInboundHTTPRouteConfig(instance),
+				routeConfig:      buildSidecarInboundHTTPRouteConfig(instance),
 				ip:               endpoint.Address,
 				port:             endpoint.Port,
 				rds:              "",
@@ -282,9 +280,8 @@ func buildSidecarOutboundListeners(env model.Environment, node model.Proxy,
 
 			switch servicePort.Protocol {
 			case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
-				if service.Resolution == model.Passthrough || node.Type == model.Router {
+				if service.Resolution == model.Passthrough {
 					// ensure only one wildcard listener is created per port if its headless service
-					// or if its for a Router (where there is one wildcard TCP listener per port)
 					// or if this is in environment where services don't get a dummy load balancer IP.
 					if wildcardListenerPorts[servicePort.Port] {
 						log.Debugf("Multiple definitions for port %d", servicePort.Port)
@@ -485,6 +482,7 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 		UseRemoteAddress: &google_protobuf.BoolValue{opts.useRemoteAddress},
 	}
 
+	// not enabled yet
 	if opts.rds != "" {
 		rds := &http_conn.HttpConnectionManager_Rds{
 			Rds: &http_conn.Rds{
@@ -590,9 +588,9 @@ func buildDefaultHTTPRoute(clusterName string) *route.Route {
 	}
 }
 
-// buildInboundHTTPRouteConfig builds the route config with a single wildcard virtual host on the inbound path
+// buildSidecarInboundHTTPRouteConfig builds the route config with a single wildcard virtual host on the inbound path
 // TODO: enable mixer configuration, websockets, trace decorators
-func buildInboundHTTPRouteConfig(instance *model.ServiceInstance) *xdsapi.RouteConfiguration {
+func buildSidecarInboundHTTPRouteConfig(instance *model.ServiceInstance) *xdsapi.RouteConfiguration {
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "",
 		instance.Service.Hostname, instance.Endpoint.ServicePort)
 	defaultRoute := buildDefaultHTTPRoute(clusterName)

@@ -16,161 +16,129 @@ package v1alpha3
 
 import (
 	"fmt"
-	"path"
-	"strconv"
-	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"go.uber.org/zap"
 
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	deprecated "istio.io/istio/pilot/pkg/proxy/envoy/v1"
 	"istio.io/istio/pkg/log"
 )
 
-func buildGatewayHTTPListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
+func buildGatewayListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
 
 	config := env.IstioConfigStore
 
-	gateways, err := config.List(model.Gateway.Type, model.NamespaceAll)
+	// collect workload labels
+	workloadInstances, err := env.GetProxyServiceInstances(node)
 	if err != nil {
-		return nil, fmt.Errorf("listing gateways: %s", err)
+		log.Error("Failed to get gateway instances for router ", zap.String("node", node.ID), zap.Error(err))
+		return nil, err
 	}
+
+	var workloadLabels model.LabelsCollection
+	for _, w := range workloadInstances {
+		workloadLabels = append(workloadLabels, w.Labels)
+	}
+
+	gateways := config.Gateways(workloadLabels)
 
 	if len(gateways) == 0 {
 		log.Debug("no gateways for router", zap.String("node", node.ID))
 		return []*xdsapi.Listener{}, nil
 	}
 
-	gateway := &networking.Gateway{}
-	for _, spec := range gateways {
-		err := model.MergeGateways(gateway, spec.Spec.(*networking.Gateway))
-		if err != nil {
-			return nil, fmt.Errorf("merge gateways: %s", err)
-		}
+	// TODO: merging makes code simpler but we lose gateway names that are needed to determine
+	// the virtual services pinned to each gateway
+	//gateway := &networking.Gateway{}
+	//for _, spec := range gateways {
+	//	err := model.MergeGateways(gateway, spec.Spec.(*networking.Gateway))
+	//	if err != nil {
+	//		log.Errorf("Failed to merge gateway %s for router %s", spec.Name, node.ID)
+	//		return nil, fmt.Errorf("merge gateways: %s", err)
+	//	}
+	//}
+
+	// HACK for the above case
+	if len(gateways) > 1 {
+		log.Debug("Currently, Istio cannot bind multiple gateways to the same workload")
+		return []*xdsapi.Listener{}, nil
 	}
+
+	name := gateways[0].Name
+	gateway := gateways[0].Spec.(*networking.Gateway)
 
 	listeners := make([]*xdsapi.Listener, 0, len(gateway.Servers))
+	listenerPortMap := make(map[uint32]bool)
 	for _, server := range gateway.Servers {
-		// TODO: TCP
 
-		// build physical listener
-		physicalListener := buildGatewayListener(env, node, server)
-		if physicalListener == nil {
-			continue // TODO: add support for all protocols
+		// TODO: this does not handle the case where there are two servers on same port
+		if listenerPortMap[server.Port.Number] {
+			log.Warnf("Multiple servers on same port is not supported yet, port %d", server.Port.Number)
+			continue
 		}
+		switch model.Protocol(server.Port.Protocol) {
+		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC, model.ProtocolHTTPS:
+			opts := buildHTTPListenerOpts{
+				env:              env,
+				proxy:            node,
+				proxyInstances:   nil, // only required to support deprecated mixerclient behavior
+				routeConfig:      buildGatewayInboundHTTPRouteConfig(env, node, name, server),
+				ip:               WildcardAddress,
+				port:             int(server.Port.Number),
+				rds:              "",
+				useRemoteAddress: true,
+				direction:        http_conn.EGRESS, // viewed as from gateway to internal
+			}
 
-		listeners = append(listeners, physicalListener)
-	}
-
-	return normalizeListeners(listeners), nil
-}
-
-func buildGatewayListener(
-	env model.Environment,
-	node model.Proxy,
-	server *networking.Server,
-) *xdsapi.Listener {
-
-	opts := buildHTTPListenerOpts{
-		env:              env,
-		proxy:            node,
-		proxyInstances:   nil, // only required to support deprecated mixerclient behavior
-		routeConfig:      nil,
-		ip:               WildcardAddress,
-		port:             int(server.Port.Number),
-		rds:              strconv.Itoa(int(server.Port.Number)),
-		useRemoteAddress: true,
-		direction:        http_conn.INGRESS,
-	}
-
-	switch strings.ToUpper(server.Port.Protocol) {
-	case "HTTPS":
-		listener := buildHTTPListener(opts)
-		// TODO(mostrowski) listener.SSLContext = tlsToSSLContext(server.Tls, server.Port.Protocol)
-		return listener
-	case "HTTP", "GRPC", "HTTP2":
-		listener := buildHTTPListener(opts)
-		//if server.Tls != nil {
-		// TODO(mostrowski)	listener.SSLContext = tlsToSSLContext(server.Tls, server.Port.Protocol)
-		//}
-		return listener
-	case "TCP":
-		log.Warnf("TCP protocol support for Gateways is not yet implemented")
-		return nil
-	case "MONGO":
-		log.Warnf("Mongo protocol support for Gateways is not yet implemented")
-		return nil
-	default:
-		log.Warnf("Gateway with invalid protocol: %q; %v", server.Port.Protocol, server)
-		return nil
-	}
-}
-
-func buildLegacyIngressListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
-
-	proxyInstances, err := env.GetProxyServiceInstances(node)
-	if err != nil {
-		return nil, err
-	}
-
-	mesh := env.Mesh
-	config := env.IstioConfigStore
-
-	opts := buildHTTPListenerOpts{
-		env:              env,
-		proxy:            node,
-		proxyInstances:   proxyInstances,
-		routeConfig:      nil,
-		ip:               WildcardAddress,
-		port:             80,
-		rds:              "80",
-		useRemoteAddress: true,
-		direction:        http_conn.EGRESS,
-	}
-
-	listeners := []*xdsapi.Listener{buildHTTPListener(opts)}
-
-	// TODO: SNI
-	// TODO: Get rid of this v1 reference
-	// lack of SNI in Envoy implies that TLS secrets are attached to listeners
-	// therefore, we should first check that TLS endpoint is needed before shipping TLS listener
-	_, secret := deprecated.BuildIngressRoutes(mesh, node, proxyInstances, env.ServiceDiscovery, config)
-	if secret != "" {
-		opts.port = 443
-		opts.rds = "443"
-
-		l := buildHTTPListener(opts)
-		// there is going to be only one filter chain
-		// Get the reference, append TLS context
-		filterChain := l.FilterChains[0]
-
-		filterChain.TlsContext = &auth.DownstreamTlsContext{
-			CommonTlsContext: &auth.CommonTlsContext{
-				AlpnProtocols: ListenersALPNProtocols,
-				TlsCertificates: []*auth.TlsCertificate{
-					{
-						CertificateChain: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: path.Join(model.IngressCertsPath, model.IngressCertFilename),
-							},
-						},
-						PrivateKey: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: path.Join(model.IngressCertsPath, model.IngressKeyFilename),
-							},
-						},
-					},
-				},
-			},
+			l := buildHTTPListener(opts)
+			if server.Tls != nil {
+				applyGatewayTLSContext(l, server)
+			}
+			listeners = append(listeners, l)
+		case model.ProtocolTCP, model.ProtocolMongo:
+			// TODO
+			// Look at virtual service specs, and identity destinations,
+			// call buildOutboundNetworkFilters.. and then construct TCPListener
+			//buildTCPListener(buildOutboundNetworkFilters(clusterName, addresses, servicePort),
+			//	listenAddress, uint32(servicePort.Port), servicePort.Protocol)
 		}
-
-		listeners = append(listeners, l)
 	}
 
 	return listeners, nil
+}
+
+func applyGatewayTLSContext(listener *xdsapi.Listener, server *networking.Server) {
+	// TODO
+	return
+}
+
+func buildGatewayInboundHTTPRouteConfig(env model.Environment, node model.Proxy,
+	gatewayName string, server *networking.Server) *xdsapi.RouteConfiguration {
+	// TODO WE DO NOT SUPPORT two gateways on same workload binding to same virtual service
+	virtualServices := env.VirtualServices([]string{gatewayName})
+
+	virtualHosts := make([]route.VirtualHost, 0)
+	// TODO: Need to trim output based on source label/gateway match
+	for _, v := range virtualServices {
+		guardedRoute := TranslateRoutes(v, nil)
+		var routes []route.Route
+		for _, g := range guardedRoute {
+			routes = append(routes, g.Route)
+		}
+		domains := v.Spec.(*networking.VirtualService).Hosts
+
+		virtualHosts = append(virtualHosts, route.VirtualHost{
+			Name:    fmt.Sprintf("%s:%d", v.Name, server.Port.Number),
+			Domains: domains,
+			Routes:  routes,
+		})
+	}
+
+	return &xdsapi.RouteConfiguration{
+		Name:         fmt.Sprintf("%d", server.Port.Number),
+		VirtualHosts: virtualHosts,
+	}
 }
