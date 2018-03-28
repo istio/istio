@@ -43,7 +43,10 @@ spec:
       containers:
       - name: app
         image: {{.Values.testHub}}/app:{{.Values.testTag}}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
+        env:
+          - name: ENVTAG
+            value: "{{ .Values.envTag }}"
         args:
         - --port
         - "80"
