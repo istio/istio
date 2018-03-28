@@ -1,7 +1,8 @@
 node('docker') {
   properties([disableConcurrentBuilds()])
 
-  wkdir = "src/istio.io/istio"
+  wkdir = "go/src/istio.io/istio"
+  build_tag = "${env.BUILD_TAG}".toLowerCase()
 
   stage('Checkout') {
     checkout scm
@@ -19,9 +20,9 @@ node('docker') {
   }
 
   k8sImage = docker.build(
-    "k8s-${env.BUILD_TAG}",
-    "-f $wkdir/.jenkins/Dockerfile.minikube " +
-    "$wkdir/.jenkins/"
+    "k8s-${build_tag}",
+    "-f .jenkins/Dockerfile.minikube " +
+    ".jenkins"
   )
   k8sImage.withRun('--privileged') { k8s ->
     stage('Get kubeconfig') {
@@ -37,16 +38,16 @@ node('docker') {
     }
 
     builder = docker.build(
-      "istio-builder-${env.BUILD_TAG}",
-      "-f $wkdir/.jenkins/Dockerfile.jenkins-build " +
+      "istio-builder-${build_tag}",
+      "-f .jenkins/Dockerfile.jenkins-build " +
         "--build-arg UID=`id -u` --build-arg GID=`id -g` " +
-        "$wkdir/.jenkins",
+        ".jenkins",
     )
 
     builder.inside(
-      "-e GOPATH=${pwd()} " +
+      "-e GOPATH=${pwd()}/go " +
       "-e HOME=${pwd()} " +
-      "-e PATH=${pwd()}/bin:\$PATH " +
+      "-e PATH=${pwd()}/go/bin:\$PATH " +
       "-e KUBECONFIG=${pwd()}/kubeconfig " +
       "-e DOCKER_HOST=\"tcp://kubernetes:2375\" " +
       "--link ${k8s.id}:kubernetes"
@@ -61,9 +62,9 @@ node('docker') {
 
       stage('Initialize Working Directory') {
         // DO NOT call make sync. This tries to merge from master which is wrong.
-        // Replicat the rest of that target here
-        sh "cd $wkdir && make submodule-sync init"
+        // Rely on jenkins to get submodules
         sh "mkdir -p out/logs"
+        sh "mkdir -p go/src/istio.io && ln -sf `pwd` $wkdir"
       }
 
       stage('Build') {
