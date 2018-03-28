@@ -131,7 +131,7 @@ func buildLegacyIngressListeners(env model.Environment, node model.Proxy) ([]*xd
 		rds:              ":80",
 		useRemoteAddress: true,
 		direction:        http_conn.EGRESS,
-		bindToPort: true,
+		bindToPort:       true,
 	}
 
 	listeners := []*xdsapi.Listener{buildHTTPListener(opts)}

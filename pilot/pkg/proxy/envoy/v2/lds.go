@@ -186,7 +186,7 @@ func ldsPushAll() {
 // LDSz implements a status and debug interface for LDS.
 // It is mapped to /debug/ldsz on the monitor port (9093).
 func LDSz(w http.ResponseWriter, req *http.Request) {
-	req.ParseForm()
+	_ = req.ParseForm()
 	if req.Form.Get("debug") != "" {
 		ldsDebug = req.Form.Get("debug") == "1"
 		return
@@ -207,7 +207,7 @@ func LDSz(w http.ResponseWriter, req *http.Request) {
 	comma2 := false
 	for _, c := range ldsClients {
 		if comma2 {
-			w.Write([]byte(",\n"))
+			fmt.Fprint(w, ",\n")
 		} else {
 			comma2 = true
 		}
@@ -215,13 +215,15 @@ func LDSz(w http.ResponseWriter, req *http.Request) {
 		comma1 := false
 		for _, ls := range c.HTTPListeners {
 			if comma1 {
-				w.Write([]byte(",\n"))
+				fmt.Fprint(w, ",\n")
 			} else {
 				comma1 = true
 			}
 			jsonm := &jsonpb.Marshaler{}
 			dbgString, _ := jsonm.MarshalToString(ls)
-			w.Write([]byte(dbgString))
+			if _, err := w.Write([]byte(dbgString)); err != nil {
+				return
+			}
 		}
 		fmt.Fprint(w, "]}\n")
 	}

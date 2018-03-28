@@ -400,13 +400,13 @@ func applyInboundAuth(authenticationPolicy *authn.Policy, listener *xdsapi.Liste
 
 // options required to build an HTTPListener
 type buildHTTPListenerOpts struct { // nolint: maligned
-	env              model.Environment
-	proxy            model.Proxy
-	proxyInstances   []*model.ServiceInstance
-	services         []*model.Service
-	routeConfig      *xdsapi.RouteConfiguration
-	ip               string
-	port             int
+	env            model.Environment
+	proxy          model.Proxy
+	proxyInstances []*model.ServiceInstance
+	services       []*model.Service
+	routeConfig    *xdsapi.RouteConfiguration
+	ip             string
+	port           int
 	// bindToPort (default to false) should be set for ingress / gateway
 	bindToPort       bool
 	rds              string

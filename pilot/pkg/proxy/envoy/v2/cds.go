@@ -200,7 +200,7 @@ func cdsPushAll() {
 // Cdsz implements a status and debug interface for CDS.
 // It is mapped to /debug/cdsz on the monitor port (9093).
 func Cdsz(w http.ResponseWriter, req *http.Request) {
-	req.ParseForm()
+	_ = req.ParseForm()
 	if req.Form.Get("debug") != "" {
 		cdsDebug = req.Form.Get("debug") == "1"
 		return

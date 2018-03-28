@@ -414,7 +414,7 @@ func edsPushAll() {
 // EDSz implements a status and debug interface for EDS.
 // It is mapped to /debug/edsz on the monitor port (9093).
 func EDSz(w http.ResponseWriter, req *http.Request) {
-	req.ParseForm()
+	_ = req.ParseForm()
 	if req.Form.Get("debug") != "" {
 		edsDebug = req.Form.Get("debug") == "1"
 		return
