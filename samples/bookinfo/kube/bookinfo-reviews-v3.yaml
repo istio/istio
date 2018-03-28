@@ -1,0 +1,35 @@
+##################################################################################################
+# Reviews-v3 multicluster service example
+##################################################################################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: reviews
+  labels:
+    app: reviews
+spec:
+  ports:
+  - port: 9080
+    name: http
+  selector:
+    app: reviews
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: reviews-v3
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: reviews
+        version: v3
+    spec:
+      containers:
+      - name: reviews
+        image: istio/examples-bookinfo-reviews-v3:1.5.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9080
+---
