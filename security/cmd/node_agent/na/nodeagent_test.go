@@ -15,7 +15,6 @@
 package na
 
 import (
-	"bytes"
 	"fmt"
 	"testing"
 	"time"
@@ -27,7 +26,6 @@ import (
 	mockpc "istio.io/istio/security/pkg/platform/mock"
 	"istio.io/istio/security/pkg/util"
 	mockutil "istio.io/istio/security/pkg/util/mock"
-	"istio.io/istio/security/pkg/workload"
 	pb "istio.io/istio/security/proto"
 )
 
@@ -145,19 +143,7 @@ func TestStartWithArgs(t *testing.T) {
 
 	for id, c := range testCases {
 		log.Errorf("Start to test %s", id)
-		fakeFileUtil := mockutil.FakeFileUtil{
-			ReadContent:  make(map[string][]byte),
-			WriteContent: make(map[string][]byte),
-		}
-		fakeWorkloadIO, _ := workload.NewSecretServer(
-			workload.Config{
-				Mode:                          workload.SecretFile,
-				FileUtil:                      fakeFileUtil,
-				ServiceIdentityCertFile:       "cert_file",
-				ServiceIdentityPrivateKeyFile: "key_file",
-			},
-		)
-		na := nodeAgentInternal{c.config, c.pc, c.cAClient, "service1", fakeWorkloadIO, c.certUtil}
+		na := nodeAgentInternal{c.config, c.pc, c.cAClient, "service1", c.certUtil}
 		err := na.Start()
 		if err.Error() != c.expectedErr {
 			t.Errorf("Test case [%s]: incorrect error message: %s VS (expected) %s", id, err.Error(), c.expectedErr)
@@ -166,9 +152,6 @@ func TestStartWithArgs(t *testing.T) {
 			t.Errorf("Test case [%s]: sendCSR is called incorrect times: %d VS (expected) %d",
 				id, c.cAClient.Counter, c.sendTimes)
 		}
-		if c.fileContent != nil && !bytes.Equal(fakeFileUtil.WriteContent["cert_file"], c.fileContent) {
-			t.Errorf("Test case [%s]: cert file content incorrect: %s VS (expected) %s",
-				id, fakeFileUtil.WriteContent["cert_file"], c.fileContent)
-		}
+		// TODO(incfly): add check to compare fileContent equals to the saved secrets after we can read from SecretServer.
 	}
 }
