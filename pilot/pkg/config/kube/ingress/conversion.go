@@ -25,10 +25,12 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	routing "istio.io/api/routing/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
+	"path"
 )
 
 func convertIngress(ingress v1beta1.Ingress, domainSuffix string) []model.Config {
@@ -156,6 +158,80 @@ func decodeIngressRuleName(name string) (ingressName string, ruleNum, pathNum in
 	return
 }
 
+func convertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) (model.Config, model.Config) {
+
+	gateway := &networking.Gateway{
+		Servers:  nil,
+		Selector: model.IstioIngressWorkloadLabels,
+	}
+
+	for _, tls := range ingress.Spec.TLS {
+		gateway.Servers = append(gateway.Servers, &networking.Server{
+			Port: &networking.Port{
+				Number:   443,
+				Protocol: string(model.ProtocolHTTP),
+				Name:     "http-ingress-443",
+			},
+			Hosts: tls.Hosts,
+			Tls: &networking.Server_TLSOptions{
+				HttpsRedirect:     false,
+				Mode:              networking.Server_TLSOptions_SIMPLE,
+				ServerCertificate: path.Join(model.IngressCertsPath, ingress.Namespace, tls.SecretName, model.IngressCertFilename),
+				CaCertificates:    path.Join(model.IngressCertsPath, ingress.Namespace, tls.SecretName, model.IngressKeyFilename),
+			},
+		})
+	}
+
+	gateway.Servers = append(gateway.Servers, &networking.Server{
+		Port: &networking.Port{
+			Number:   80,
+			Protocol: string(model.ProtocolHTTP),
+			Name:     "http-ingress-80",
+		},
+	})
+
+
+	gatewayConfig := &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:            model.Gateway.Type,
+			Group:           model.Gateway.Group,
+			Version:         model.Gateway.Version,
+			Name:            model.IstioIngressGatewayName,
+			Namespace:       model.IstioIngressNamespace,
+			Domain:domainSuffix,
+		},
+		Spec:gateway,
+	}
+
+	virtualService := &networking.VirtualService{
+		Hosts:    nil,
+		Gateways: []string{model.IstioIngressGatewayName},
+		Http:     nil,
+		Tcp:      nil,
+	}
+
+	if ingress.Spec.Backend != nil {
+		backend := *ingress.Spec.Backend
+		backend.
+		ingressRule := createIngressRule(name, "", "", domainSuffix, ingress, *ingress.Spec.Backend, tls)
+		out = append(out, ingressRule)
+	}
+
+	for i, rule := range ingress.Spec.Rules {
+		if rule.HTTP == nil {
+			log.Warnf("invalid ingress rule for host %q, no paths defined", rule.Host)
+			continue
+		}
+		for j, path := range rule.HTTP.Paths {
+			name := EncodeIngressRuleName(ingress.Name, i+1, j+1)
+			ingressRule := createIngressRule(name, rule.Host, path.Path,
+				domainSuffix, ingress, path.Backend, tls)
+			out = append(out, ingressRule)
+		}
+	}
+	return out
+
+}
 // shouldProcessIngress determines whether the given ingress resource should be processed
 // by the controller, based on its ingress class annotation.
 // See https://github.com/kubernetes/ingress/blob/master/examples/PREREQUISITES.md#ingress-class
