@@ -138,7 +138,7 @@ func (c *controller) ConfigDescriptor() model.ConfigDescriptor {
 }
 
 func (c *controller) Get(typ, name, namespace string) (*model.Config, bool) {
-	if typ != model.IngressRule.Type {
+	if typ != model.IngressRule.Type && typ != model.Gateway.Type && typ != model.VirtualService.Type {
 		return nil, false
 	}
 
@@ -158,17 +158,25 @@ func (c *controller) Get(typ, name, namespace string) (*model.Config, bool) {
 		return nil, false
 	}
 
-	rules := convertIngress(*ingress, c.domainSuffix)
-	for _, rule := range rules {
-		if rule.Name == name {
-			return &rule, true
+	switch typ {
+	case model.VirtualService.Type:
+		return nil, false
+	case model.Gateway.Type:
+		return nil, false
+	case model.IngressRule.Type:
+		rules := convertIngress(*ingress, c.domainSuffix)
+		for _, rule := range rules {
+			if rule.Name == name {
+				return &rule, true
+			}
 		}
 	}
+
 	return nil, false
 }
 
 func (c *controller) List(typ, namespace string) ([]model.Config, error) {
-	if typ != model.IngressRule.Type {
+	if typ != model.IngressRule.Type && typ != model.Gateway.Type && typ != model.VirtualService.Type {
 		return nil, errUnsupportedOp
 	}
 
@@ -183,8 +191,17 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 			continue
 		}
 
-		rules := convertIngress(*ingress, c.domainSuffix)
-		out = append(out, rules...)
+		switch typ {
+		case model.VirtualService.Type:
+			_, virualServices := ConvertIngressV1alpha3(*ingress, namespace)
+			out = append(out, virualServices)
+		case model.Gateway.Type:
+			gateways, _ := ConvertIngressV1alpha3(*ingress, namespace)
+			out = append(out, gateways)
+		case model.IngressRule.Type:
+			rules := convertIngress(*ingress, c.domainSuffix)
+			out = append(out, rules...)
+		}
 	}
 
 	return out, nil
