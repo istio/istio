@@ -64,6 +64,7 @@ deb/fpm:
 		--config-files /var/lib/istio/envoy/envoy_bootstrap_tmpl.json \
 		--config-files /var/lib/istio/envoy/sidecar.env \
 		--description "Istio" \
+		--depends iptables \
 		$(SIDECAR_FILES)
 
 .PHONY: deb/docker

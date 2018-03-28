@@ -198,6 +198,7 @@ for uid in ${PROXY_UID}; do
   # Avoid infinite loops. Don't redirect Envoy traffic directly back to
   # Envoy for non-loopback traffic.
   iptables -t nat -A ISTIO_OUTPUT -m owner --uid-owner ${uid} -j RETURN
+  iptables -t nat -A ISTIO_OUTPUT -m owner --gid-owner ${uid} -j RETURN
 done
 
 # Skip redirection for Envoy-aware applications and
