@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 # Copyright 2018 Istio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,7 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Python script generates a JWT signed by a Google service account"""
+"""Python script generates a JWT signed by a Google service account
+
+Example:
+./sa-jwt.py  --iss example-issuer --aud foo,bar --claims=email:foo@google.com,dead:beef key.json 
+"""
 import argparse
 import time
 
@@ -29,9 +35,6 @@ def main(args):
         # expire in one hour.
         "exp": now + 3600,
         "iat": now,
-        # Add any custom claims here.
-        # e.g.,
-        # "email": alice@yahoo.com
     }
     if args.iss:
         payload["iss"] = args.iss
@@ -42,7 +45,15 @@ def main(args):
         payload["sub"] = args.iss
 
     if args.aud:
-        payload["aud"] = args.aud
+        if "," in args.aud:
+            payload["aud"] = args.aud.split(",")
+        else:
+            payload["aud"] = args.aud
+
+    if args.claims:
+        for item in args.claims.split(","):
+            k, v = item.split(':')
+            payload[k] = v
 
     signed_jwt = google.auth.jwt.encode(signer, payload)
     return signed_jwt
@@ -60,7 +71,9 @@ if __name__ == '__main__':
     parser.add_argument("-iss", "--iss",
                         help="iss claim. This should be your service account email.")
     parser.add_argument("-aud", "--aud",
-                        help="aud claim")
+                        help="aud claim. This is comma-separated-list of audiences")
     parser.add_argument("-sub", "--sub",
                         help="sub claim. If not provided, it is set to the same as iss claim.")
+    parser.add_argument("-claims", "--claims",
+                         help="Other claims in format name1:value1,name2:value2 etc. Only string values are supported.")
     print main(parser.parse_args())
