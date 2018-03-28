@@ -614,9 +614,9 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 		return nil // error
 	}
 
-	var deprecated_v1 *xdsapi.Listener_DeprecatedV1
+	var deprecatedV1 *xdsapi.Listener_DeprecatedV1
 	if !opts.bindToPort {
-		deprecated_v1 = &xdsapi.Listener_DeprecatedV1{
+		deprecatedV1 = &xdsapi.Listener_DeprecatedV1{
 			BindToPort: &google_protobuf.BoolValue{
 				Value: false,
 			},
@@ -632,7 +632,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 				Filters:          filters,
 			},
 		},
-		DeprecatedV1: deprecated_v1,
+		DeprecatedV1: deprecatedV1,
 	}
 }
 
