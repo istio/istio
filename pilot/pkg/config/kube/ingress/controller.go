@@ -158,12 +158,7 @@ func (c *controller) Get(typ, name, namespace string) (*model.Config, bool) {
 		return nil, false
 	}
 
-	switch typ {
-	case model.VirtualService.Type:
-		return nil, false
-	case model.Gateway.Type:
-		return nil, false
-	case model.IngressRule.Type:
+	if typ == model.IngressRule.Type {
 		rules := convertIngress(*ingress, c.domainSuffix)
 		for _, rule := range rules {
 			if rule.Name == name {
@@ -193,8 +188,8 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 
 		switch typ {
 		case model.VirtualService.Type:
-			_, virualServices := ConvertIngressV1alpha3(*ingress, namespace)
-			out = append(out, virualServices)
+			_, virtualServices := ConvertIngressV1alpha3(*ingress, namespace)
+			out = append(out, virtualServices)
 		case model.Gateway.Type:
 			gateways, _ := ConvertIngressV1alpha3(*ingress, namespace)
 			out = append(out, gateways)

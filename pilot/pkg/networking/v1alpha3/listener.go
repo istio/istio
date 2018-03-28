@@ -88,7 +88,6 @@ func BuildListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener
 
 // buildSidecarListeners produces a list of listeners for sidecar proxies
 func buildSidecarListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
-
 	mesh := env.Mesh
 	managementPorts := env.ManagementPorts(node.IPAddress)
 
@@ -595,7 +594,6 @@ func buildHTTPConnectionManager(opts buildListenerOpts) *http_conn.HttpConnectio
 }
 
 func buildListener(opts buildListenerOpts) *xdsapi.Listener {
-
 	var filterChainMatch *listener.FilterChainMatch
 	if len(opts.sniHosts) > 0 {
 		filterChainMatch = &listener.FilterChainMatch{

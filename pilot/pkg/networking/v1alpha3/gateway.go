@@ -19,10 +19,7 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	"go.uber.org/zap"
-
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
@@ -33,13 +30,12 @@ import (
 )
 
 func buildGatewayListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
-
 	config := env.IstioConfigStore
 
 	// collect workload labels
 	workloadInstances, err := env.GetProxyServiceInstances(node)
 	if err != nil {
-		log.Error("Failed to get gateway instances for router ", zap.String("node", node.ID), zap.Error(err))
+		log.Errora("Failed to get gateway instances for router ", node.ID, err)
 		return nil, err
 	}
 
@@ -51,7 +47,7 @@ func buildGatewayListeners(env model.Environment, node model.Proxy) ([]*xdsapi.L
 	gateways := config.Gateways(workloadLabels)
 
 	if len(gateways) == 0 {
-		log.Debug("no gateways for router", zap.String("node", node.ID))
+		log.Debuga("no gateways for router", node.ID)
 		return []*xdsapi.Listener{}, nil
 	}
 
