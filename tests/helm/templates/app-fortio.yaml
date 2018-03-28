@@ -59,10 +59,6 @@ spec:
       containers:
       - name: echosrv
         image: {{ .Values.fortioImage }}
-        imagePullPolicy: Always
-        env:
-          - name: ENVTAG
-            value: "{{ .Values.envTag }}"
         ports:
          - containerPort: 8080
          - containerPort: 8079

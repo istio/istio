@@ -29,8 +29,5 @@ spec:
       - name: fortio-noistio
         # That image runs the servers (so it will run forever) but has the
         # /usr/local/bin/fortio client
-        imagePullPolicy: Always
-        env:
-          - name: ENVTAG
-            value: "{{ .Values.envTag }}"
         image: {{ .Values.fortioImage }}
+        imagePullPolicy: Always
