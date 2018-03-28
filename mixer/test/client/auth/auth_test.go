@@ -113,7 +113,7 @@ const reportAttributes = `
   "target.namespace": "XYZ222",
   "connection.mtls": false,
   "check.cache_hit": false,
-	"quota.cache_hit": false,
+  "quota.cache_hit": false,
   "request.headers": {
      ":method": "GET",
      ":path": "/echo",

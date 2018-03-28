@@ -55,50 +55,51 @@ const checkAttributesOkGet = `
 }
 `
 
-// Report attributes from a good GET request
-var reportAttributesOkGet = [...]string{`
-  {
-    "context.protocol": "http",
-    "mesh1.ip": "[1 1 1 1]",
-    "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
-    "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
-    "request.host": "*",
-    "request.path": "/echo",
-    "request.time": "*",
-    "request.useragent": "Go-http-client/1.1",
-    "request.method": "GET",
-		"request.scheme": "http",
-		"source.uid": "POD11",
-		"source.namespace": "XYZ11",
-		"source.ip": "[127 0 0 1]",
-		"source.port": "*",
-		"target.name": "target-name",
-		"target.user": "target-user",
-		"target.uid": "POD222",
-		"target.namespace": "XYZ222",
-		"connection.mtls": false,
-		"check.cache_hit": false,
-		"quota.cache_hit": false,
-		"request.headers": {
-			 ":method": "GET",
-			 ":path": "/echo",
-			 ":authority": "*",
-			 "x-forwarded-proto": "http",
-			 "x-istio-attributes": "-",
-			 "x-request-id": "*"
-		},
-		"request.size": 0,
-		"response.time": "*",
-		"response.size": 0,
-		"response.duration": "*",
-		"response.code": 200,
-		"response.headers": {
-			 "date": "*",
-			 "content-length": "0",
-			 ":status": "200",
-			 "server": "envoy"
-		}
-	}`,
+// Report attributes from a good GET request.
+// In reportAttributesOkGet[0], check.cache_hit and quota.cache_hit are false.
+// In reportAttributesOkGet[1], check.cache_hit and quota.cache_hit are true.
+var reportAttributesOkGet = [...]string{`{
+  "context.protocol": "http",
+  "mesh1.ip": "[1 1 1 1]",
+  "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
+  "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
+  "request.host": "*",
+  "request.path": "/echo",
+  "request.time": "*",
+  "request.useragent": "Go-http-client/1.1",
+  "request.method": "GET",
+  "request.scheme": "http",
+  "source.uid": "POD11",
+  "source.namespace": "XYZ11",
+  "source.ip": "[127 0 0 1]",
+  "source.port": "*",
+  "target.name": "target-name",
+  "target.user": "target-user",
+  "target.uid": "POD222",
+  "target.namespace": "XYZ222",
+  "connection.mtls": false,
+  "check.cache_hit": false,
+  "quota.cache_hit": false,
+  "request.headers": {
+    ":method": "GET",
+    ":path": "/echo",
+    ":authority": "*",
+    "x-forwarded-proto": "http",
+    "x-istio-attributes": "-",
+    "x-request-id": "*"
+  },
+  "request.size": 0,
+  "response.time": "*",
+  "response.size": 0,
+  "response.duration": "*",
+  "response.code": 200,
+  "response.headers": {
+    "date": "*",
+    "content-length": "0",
+    ":status": "200",
+    "server": "envoy"
+  }
+}`,
 	`{
   "context.protocol": "http",
   "mesh1.ip": "[1 1 1 1]",
@@ -122,12 +123,12 @@ var reportAttributesOkGet = [...]string{`
 	"check.cache_hit": true,
 	"quota.cache_hit": true,
   "request.headers": {
-     ":method": "GET",
-     ":path": "/echo",
-     ":authority": "*",
-     "x-forwarded-proto": "http",
-     "x-istio-attributes": "-",
-     "x-request-id": "*"
+    ":method": "GET",
+    ":path": "/echo",
+    ":authority": "*",
+    "x-forwarded-proto": "http",
+    "x-istio-attributes": "-",
+    "x-request-id": "*"
   },
   "request.size": 0,
   "response.time": "*",
@@ -135,10 +136,10 @@ var reportAttributesOkGet = [...]string{`
   "response.duration": "*",
   "response.code": 200,
   "response.headers": {
-     "date": "*",
-     "content-length": "0",
-     ":status": "200",
-     "server": "envoy"
+    "date": "*",
+    "content-length": "0",
+    ":status": "200",
+    "server": "envoy"
   }
 }`}
 

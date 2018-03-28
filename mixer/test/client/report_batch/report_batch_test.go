@@ -43,8 +43,8 @@ const reportAttributesOkGet = `
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
-	"check.cache_hit": false,
-	"quota.cache_hit": false,
+  "check.cache_hit": false,
+  "quota.cache_hit": false,
   "request.headers": {
      ":method": "GET",
      ":path": "/echo",
@@ -90,7 +90,7 @@ const reportAttributesOkPost1 = `
   "target.namespace": "XYZ222",
   "connection.mtls": false,
   "check.cache_hit": false,
-	"quota.cache_hit": false,
+  "quota.cache_hit": false,
   "request.headers": {
      ":method": "POST",
      ":path": "/echo",
@@ -137,7 +137,7 @@ const reportAttributesOkPost2 = `
   "target.namespace": "XYZ222",
   "connection.mtls": false,
   "check.cache_hit": false,
-	"quota.cache_hit": false,
+  "quota.cache_hit": false,
   "request.headers": {
      ":method": "POST",
      ":path": "/echo",
