@@ -792,6 +792,35 @@ func TestGlobalList(t *testing.T) {
 	t.Error("Did not find destination.service")
 }
 
+func TestParentRoundTrip(t *testing.T) {
+	parent := GetMutableBag(nil)
+	child := GetMutableBag(parent)
+
+	parent.Set("parent", true)
+	child.Set("child", true)
+
+	var pb mixerpb.CompressedAttributes
+	child.ToProto(&pb, nil, 0)
+
+	mb, err := GetBagFromProto(&pb, nil)
+	if err != nil {
+		t.Errorf("failed to get bag from protobuf: %v", err)
+	}
+	names := mb.Names()
+
+	if len(names) != len(child.Names()) {
+		t.Errorf("missing attributes after round-trip. Got %v, expected %v", names, child.Names())
+	}
+
+	for _, k := range names {
+		pre, _ := child.Get(k)
+		post, _ := mb.Get(k)
+		if !reflect.DeepEqual(post, pre) {
+			t.Errorf("Got %v, expected %v for attribute %s", post, pre, k)
+		}
+	}
+}
+
 func init() {
 	// bump up the log level so log-only logic runs during the tests, for correctness and coverage.
 	o := log.DefaultOptions()
