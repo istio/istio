@@ -23,6 +23,10 @@ import (
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/gogo/protobuf/types"
+
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
@@ -64,7 +68,7 @@ func buildGatewayListeners(env model.Environment, node model.Proxy) ([]*xdsapi.L
 
 	// HACK for the above case
 	if len(gateways) > 1 {
-		log.Debug("Currently, Istio cannot bind multiple gateways to the same workload")
+		log.Warn("Currently, Istio cannot bind multiple gateways to the same workload")
 		return []*xdsapi.Listener{}, nil
 	}
 
@@ -82,22 +86,24 @@ func buildGatewayListeners(env model.Environment, node model.Proxy) ([]*xdsapi.L
 		}
 		switch model.Protocol(server.Port.Protocol) {
 		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC, model.ProtocolHTTPS:
-			opts := buildHTTPListenerOpts{
-				env:              env,
-				proxy:            node,
-				proxyInstances:   nil, // only required to support deprecated mixerclient behavior
-				routeConfig:      buildGatewayInboundHTTPRouteConfig(env, name, server),
-				ip:               WildcardAddress,
-				port:             int(server.Port.Number),
-				rds:              "",
-				useRemoteAddress: true,
-				direction:        http_conn.EGRESS, // viewed as from gateway to internal
+			opts := buildListenerOpts{
+				env:            env,
+				proxy:          node,
+				proxyInstances: nil, // only required to support deprecated mixerclient behavior
+				ip:             WildcardAddress,
+				port:           int(server.Port.Number),
+				protocol:       model.ProtocolHTTP,
+				sniHosts:       server.Hosts,
+				tlsContext:     buildGatewayListenerTLSContext(server),
+				httpOpts: &httpListenerOpts{
+					routeConfig:      buildGatewayInboundHTTPRouteConfig(env, name, server),
+					rds:              "",
+					useRemoteAddress: true,
+					direction:        http_conn.EGRESS, // viewed as from gateway to internal
+				},
 			}
 
-			l := buildHTTPListener(opts)
-			if server.Tls != nil {
-				applyGatewayTLSContext(l, server)
-			}
+			l := buildListener(opts)
 			listeners = append(listeners, l)
 		case model.ProtocolTCP, model.ProtocolMongo:
 			// TODO
@@ -111,8 +117,41 @@ func buildGatewayListeners(env model.Environment, node model.Proxy) ([]*xdsapi.L
 	return listeners, nil
 }
 
-func applyGatewayTLSContext(_ *xdsapi.Listener, _ *networking.Server) {
-	// TODO
+func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamTlsContext {
+	if server.Tls == nil {
+		return nil
+	}
+
+	return &auth.DownstreamTlsContext{
+		CommonTlsContext: &auth.CommonTlsContext{
+			TlsCertificates: []*auth.TlsCertificate{
+				{
+					CertificateChain: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: server.Tls.ServerCertificate,
+						},
+					},
+					PrivateKey: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: server.Tls.PrivateKey,
+						},
+					},
+				},
+			},
+			ValidationContext: &auth.CertificateValidationContext{
+				TrustedCa: &core.DataSource{
+					Specifier: &core.DataSource_Filename{
+						Filename: server.Tls.CaCertificates,
+					},
+				},
+				VerifySubjectAltName: server.Tls.SubjectAltNames,
+			},
+			AlpnProtocols: ListenersALPNProtocols,
+		},
+		RequireSni: &types.BoolValue{
+			Value: true, // is that OKAY?
+		},
+	}
 }
 
 func buildGatewayInboundHTTPRouteConfig(env model.Environment, gatewayName string,

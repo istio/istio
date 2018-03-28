@@ -16,14 +16,13 @@ package ingress
 
 import (
 	"fmt"
+	"path"
 	"strconv"
 	"strings"
 
 	multierror "github.com/hashicorp/go-multierror"
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-
-	"path"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -170,10 +169,12 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) (model
 		gateway.Servers = append(gateway.Servers, &networking.Server{
 			Port: &networking.Port{
 				Number:   443,
-				Protocol: string(model.ProtocolHTTP),
-				Name:     "http-ingress-443",
+				Protocol: string(model.ProtocolHTTPS),
+				Name:     "https-ingress-443",
 			},
 			Hosts: tls.Hosts,
+			// While we accept multiple certs, we expect them to be mounted in
+			// /etc/istio/certs/namespace/secretname/tls.crt|tls.key
 			Tls: &networking.Server_TLSOptions{
 				HttpsRedirect:     false,
 				Mode:              networking.Server_TLSOptions_SIMPLE,
@@ -199,7 +200,7 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) (model
 	var httpRoutes []*networking.HTTPRoute
 	for _, rule := range ingress.Spec.Rules {
 		if rule.HTTP == nil {
-			log.Warnf("invalid ingress rule for host %q, no paths defined", rule.Host)
+			log.Infof("invalid ingress rule for host %q, no paths defined", rule.Host)
 			continue
 		}
 
@@ -219,7 +220,7 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) (model
 
 			httpRoute := ingressBackendToHTTPRoute(&path.Backend)
 			if httpRoute == nil {
-				log.Warnf("invalid ingress rule for host %q, no backend defined for path", rule.Host)
+				log.Infof("invalid ingress rule for host %q, no backend defined for path", rule.Host)
 				continue
 			}
 			httpRoute.Match = []*networking.HTTPMatchRequest{httpMatch}
