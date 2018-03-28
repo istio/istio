@@ -23,7 +23,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/.."
 cd ${ROOT}
 
 # just run the old version
-${ROOT}/install/updateVersion_orig.sh "$*"
+${ROOT}/install/updateVersion_orig.sh "$@"
 
 
 function gen_file() {
