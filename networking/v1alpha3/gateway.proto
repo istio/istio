@@ -41,6 +41,7 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //       - port:
 //           number: 80
 //           name: http
+//           protocol: HTTP
 //         hosts:
 //         - uk.bookinfo.com
 //         - eu.bookinfo.com
@@ -49,20 +50,22 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //       - port:
 //           number: 443
 //           name: https
+//           protocol: HTTPS
 //         hosts:
 //         - uk.bookinfo.com
 //         - eu.bookinfo.com
 //         tls:
-//           mode: simple #enables HTTPS on this port
+//           mode: SIMPLE #enables HTTPS on this port
 //           serverCertificate: /etc/certs/servercert.pem
 //           privateKey: /etc/certs/privatekey.pem
 //       - port:
 //           number: 9080
 //           name: http-wildcard
+//           protocol: HTTP
 //         # no hosts implies wildcard match
 //       - port:
 //           number: 2379 #to expose internal service via external port 2379
-//           name: Mongo
+//           name: mongo
 //           protocol: MONGO
 //
 // The gateway specification above describes the L4-L6 properties of a load
@@ -126,7 +129,7 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //       name: bookinfo-Mongo
 //     spec:
 //       hosts:
-//       - Mongosvr #name of Mongo service
+//       - mongosvr #name of Mongo service
 //       gateways:
 //       - my-gateway
 //       tcp:
@@ -162,6 +165,7 @@ message Gateway {
 //       servers:
 //       - port:
 //           number: 80
+//           name: http2
 //           protocol: HTTP2
 //
 // Another example
@@ -176,6 +180,7 @@ message Gateway {
 //       servers:
 //       - port:
 //           number: 27018
+//           name: mongo
 //           protocol: MONGO
 //
 // The following is an example of TLS configuration for port 443
@@ -190,9 +195,10 @@ message Gateway {
 //       servers:
 //       - port:
 //           number: 443
-//           protocol: HTTP
+//           name: https
+//           protocol: HTTPS
 //         tls:
-//           mode: simple
+//           mode: SIMPLE
 //           serverCertificate: /etc/certs/server.pem
 //           privateKey: /etc/certs/privatekey.pem
 //
@@ -219,16 +225,16 @@ message Server {
 
     // TLS modes enforced by the proxy
     enum TLSmode {
-      // If set to "passthrough", the proxy will forward the connection
+      // If set to "PASSTHROUGH", the proxy will forward the connection
       // to the upstream server selected based on the SNI string presented
       // by the client.
       PASSTHROUGH = 0;
 
-      // If set to "simple", the proxy will secure connections with
+      // If set to "SIMPLE", the proxy will secure connections with
       // standard TLS semantics.
       SIMPLE = 1;
 
-      // If set to "mutual", the proxy will secure connections to the
+      // If set to "MUTUAL", the proxy will secure connections to the
       // upstream using mutual TLS by presenting client certificates for
       // authentication.
       MUTUAL = 2;
@@ -239,15 +245,15 @@ message Server {
     // enforced.  
     TLSmode mode = 2;
 
-    // REQUIRED if mode is "simple" or "mutual". The path to the file
+    // REQUIRED if mode is "SIMPLE" or "MUTUAL". The path to the file
     // holding the server-side TLS certificate to use.
     string server_certificate = 3;
 
-    // REQUIRED if mode is "simple" or "mutual". The path to the file
+    // REQUIRED if mode is "SIMPLE" or "MUTUAL". The path to the file
     // holding the server's private key.
     string private_key = 4;
 
-    // REQUIRED if mode is "mutual". The path to a file containing
+    // REQUIRED if mode is "MUTUAL". The path to a file containing
     // certificate authority certificates to use in verifying a presented
     // client side certificate.
     string ca_certificates = 5;
@@ -268,7 +274,7 @@ message Port {
   // REQUIRED: A valid non-negative integer port number.
   uint32 number = 1;
 
-  // The protocol exposed on the port.
+  // REQUIRED: The protocol exposed on the port.
   // MUST BE one of HTTP|HTTPS|GRPC|HTTP2|MONGO|TCP.
   string protocol = 2;
 

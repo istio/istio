@@ -18,14 +18,14 @@ var _ = math.Inf
 type Server_TLSOptions_TLSmode int32
 
 const (
-	// If set to "passthrough", the proxy will forward the connection
+	// If set to "PASSTHROUGH", the proxy will forward the connection
 	// to the upstream server selected based on the SNI string presented
 	// by the client.
 	Server_TLSOptions_PASSTHROUGH Server_TLSOptions_TLSmode = 0
-	// If set to "simple", the proxy will secure connections with
+	// If set to "SIMPLE", the proxy will secure connections with
 	// standard TLS semantics.
 	Server_TLSOptions_SIMPLE Server_TLSOptions_TLSmode = 1
-	// If set to "mutual", the proxy will secure connections to the
+	// If set to "MUTUAL", the proxy will secure connections to the
 	// upstream using mutual TLS by presenting client certificates for
 	// authentication.
 	Server_TLSOptions_MUTUAL Server_TLSOptions_TLSmode = 2
@@ -72,6 +72,7 @@ func (Server_TLSOptions_TLSmode) EnumDescriptor() ([]byte, []int) {
 //       - port:
 //           number: 80
 //           name: http
+//           protocol: HTTP
 //         hosts:
 //         - uk.bookinfo.com
 //         - eu.bookinfo.com
@@ -80,20 +81,22 @@ func (Server_TLSOptions_TLSmode) EnumDescriptor() ([]byte, []int) {
 //       - port:
 //           number: 443
 //           name: https
+//           protocol: HTTPS
 //         hosts:
 //         - uk.bookinfo.com
 //         - eu.bookinfo.com
 //         tls:
-//           mode: simple #enables HTTPS on this port
+//           mode: SIMPLE #enables HTTPS on this port
 //           serverCertificate: /etc/certs/servercert.pem
 //           privateKey: /etc/certs/privatekey.pem
 //       - port:
 //           number: 9080
 //           name: http-wildcard
+//           protocol: HTTP
 //         # no hosts implies wildcard match
 //       - port:
 //           number: 2379 #to expose internal service via external port 2379
-//           name: Mongo
+//           name: mongo
 //           protocol: MONGO
 //
 // The gateway specification above describes the L4-L6 properties of a load
@@ -157,7 +160,7 @@ func (Server_TLSOptions_TLSmode) EnumDescriptor() ([]byte, []int) {
 //       name: bookinfo-Mongo
 //     spec:
 //       hosts:
-//       - Mongosvr #name of Mongo service
+//       - mongosvr #name of Mongo service
 //       gateways:
 //       - my-gateway
 //       tcp:
@@ -211,6 +214,7 @@ func (m *Gateway) GetSelector() map[string]string {
 //       servers:
 //       - port:
 //           number: 80
+//           name: http2
 //           protocol: HTTP2
 //
 // Another example
@@ -225,6 +229,7 @@ func (m *Gateway) GetSelector() map[string]string {
 //       servers:
 //       - port:
 //           number: 27018
+//           name: mongo
 //           protocol: MONGO
 //
 // The following is an example of TLS configuration for port 443
@@ -239,9 +244,10 @@ func (m *Gateway) GetSelector() map[string]string {
 //       servers:
 //       - port:
 //           number: 443
-//           protocol: HTTP
+//           name: https
+//           protocol: HTTPS
 //         tls:
-//           mode: simple
+//           mode: SIMPLE
 //           serverCertificate: /etc/certs/server.pem
 //           privateKey: /etc/certs/privatekey.pem
 //
@@ -299,13 +305,13 @@ type Server_TLSOptions struct {
 	// secured using TLS. The value of this field determines how TLS is
 	// enforced.
 	Mode Server_TLSOptions_TLSmode `protobuf:"varint,2,opt,name=mode,proto3,enum=istio.networking.v1alpha3.Server_TLSOptions_TLSmode" json:"mode,omitempty"`
-	// REQUIRED if mode is "simple" or "mutual". The path to the file
+	// REQUIRED if mode is "SIMPLE" or "MUTUAL". The path to the file
 	// holding the server-side TLS certificate to use.
 	ServerCertificate string `protobuf:"bytes,3,opt,name=server_certificate,json=serverCertificate,proto3" json:"server_certificate,omitempty"`
-	// REQUIRED if mode is "simple" or "mutual". The path to the file
+	// REQUIRED if mode is "SIMPLE" or "MUTUAL". The path to the file
 	// holding the server's private key.
 	PrivateKey string `protobuf:"bytes,4,opt,name=private_key,json=privateKey,proto3" json:"private_key,omitempty"`
-	// REQUIRED if mode is "mutual". The path to a file containing
+	// REQUIRED if mode is "MUTUAL". The path to a file containing
 	// certificate authority certificates to use in verifying a presented
 	// client side certificate.
 	CaCertificates string `protobuf:"bytes,5,opt,name=ca_certificates,json=caCertificates,proto3" json:"ca_certificates,omitempty"`
@@ -365,7 +371,7 @@ func (m *Server_TLSOptions) GetSubjectAltNames() []string {
 type Port struct {
 	// REQUIRED: A valid non-negative integer port number.
 	Number uint32 `protobuf:"varint,1,opt,name=number,proto3" json:"number,omitempty"`
-	// The protocol exposed on the port.
+	// REQUIRED: The protocol exposed on the port.
 	// MUST BE one of HTTP|HTTPS|GRPC|HTTP2|MONGO|TCP.
 	Protocol string `protobuf:"bytes,2,opt,name=protocol,proto3" json:"protocol,omitempty"`
 	// Label assigned to the port.

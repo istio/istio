@@ -945,6 +945,7 @@ spec:
   - port:
       number: 80
       name: http
+      protocol: HTTP
     hosts:
     - uk.bookinfo.com
     - eu.bookinfo.com
@@ -953,20 +954,22 @@ spec:
   - port:
       number: 443
       name: https
+      protocol: HTTPS
     hosts:
     - uk.bookinfo.com
     - eu.bookinfo.com
     tls:
-      mode: simple #enables HTTPS on this port
+      mode: SIMPLE #enables HTTPS on this port
       serverCertificate: /etc/certs/servercert.pem
       privateKey: /etc/certs/privatekey.pem
   - port:
       number: 9080
       name: http-wildcard
+      protocol: HTTP
     # no hosts implies wildcard match
   - port:
       number: 2379 #to expose internal service via external port 2379
-      name: Mongo
+      name: mongo
       protocol: MONGO
 </code></pre>
 
@@ -1032,7 +1035,7 @@ metadata:
   name: bookinfo-Mongo
 spec:
   hosts:
-  - Mongosvr #name of Mongo service
+  - mongosvr #name of Mongo service
   gateways:
   - my-gateway
   tcp:
@@ -2028,7 +2031,7 @@ service that can be ejected. Defaults to 10%.</p>
 <td><code>protocol</code></td>
 <td><code>string</code></td>
 <td>
-<p>The protocol exposed on the port.
+<p>REQUIRED: The protocol exposed on the port.
 MUST BE one of HTTP|HTTPS|GRPC|HTTP2|MONGO|TCP.</p>
 
 </td>
@@ -2092,6 +2095,7 @@ spec:
   servers:
   - port:
       number: 80
+      name: http2
       protocol: HTTP2
 </code></pre>
 
@@ -2107,6 +2111,7 @@ spec:
   servers:
   - port:
       number: 27018
+      name: mongo
       protocol: MONGO
 </code></pre>
 
@@ -2122,9 +2127,10 @@ spec:
   servers:
   - port:
       number: 443
-      protocol: HTTP
+      name: https
+      protocol: HTTPS
     tls:
-      mode: simple
+      mode: SIMPLE
       serverCertificate: /etc/certs/server.pem
       privateKey: /etc/certs/privatekey.pem
 </code></pre>
@@ -2210,7 +2216,7 @@ enforced.</p>
 <td><code>serverCertificate</code></td>
 <td><code>string</code></td>
 <td>
-<p>REQUIRED if mode is &ldquo;simple&rdquo; or &ldquo;mutual&rdquo;. The path to the file
+<p>REQUIRED if mode is &ldquo;SIMPLE&rdquo; or &ldquo;MUTUAL&rdquo;. The path to the file
 holding the server-side TLS certificate to use.</p>
 
 </td>
@@ -2219,7 +2225,7 @@ holding the server-side TLS certificate to use.</p>
 <td><code>privateKey</code></td>
 <td><code>string</code></td>
 <td>
-<p>REQUIRED if mode is &ldquo;simple&rdquo; or &ldquo;mutual&rdquo;. The path to the file
+<p>REQUIRED if mode is &ldquo;SIMPLE&rdquo; or &ldquo;MUTUAL&rdquo;. The path to the file
 holding the server&rsquo;s private key.</p>
 
 </td>
@@ -2228,7 +2234,7 @@ holding the server&rsquo;s private key.</p>
 <td><code>caCertificates</code></td>
 <td><code>string</code></td>
 <td>
-<p>REQUIRED if mode is &ldquo;mutual&rdquo;. The path to a file containing
+<p>REQUIRED if mode is &ldquo;MUTUAL&rdquo;. The path to a file containing
 certificate authority certificates to use in verifying a presented
 client side certificate.</p>
 
@@ -2261,7 +2267,7 @@ certificate presented by the client.</p>
 <tr id="Server.TLSOptions.TLSmode.PASSTHROUGH">
 <td><code>PASSTHROUGH</code></td>
 <td>
-<p>If set to &ldquo;passthrough&rdquo;, the proxy will forward the connection
+<p>If set to &ldquo;PASSTHROUGH&rdquo;, the proxy will forward the connection
 to the upstream server selected based on the SNI string presented
 by the client.</p>
 
@@ -2270,7 +2276,7 @@ by the client.</p>
 <tr id="Server.TLSOptions.TLSmode.SIMPLE">
 <td><code>SIMPLE</code></td>
 <td>
-<p>If set to &ldquo;simple&rdquo;, the proxy will secure connections with
+<p>If set to &ldquo;SIMPLE&rdquo;, the proxy will secure connections with
 standard TLS semantics.</p>
 
 </td>
@@ -2278,7 +2284,7 @@ standard TLS semantics.</p>
 <tr id="Server.TLSOptions.TLSmode.MUTUAL">
 <td><code>MUTUAL</code></td>
 <td>
-<p>If set to &ldquo;mutual&rdquo;, the proxy will secure connections to the
+<p>If set to &ldquo;MUTUAL&rdquo;, the proxy will secure connections to the
 upstream using mutual TLS by presenting client certificates for
 authentication.</p>
 
