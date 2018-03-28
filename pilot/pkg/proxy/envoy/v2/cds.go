@@ -137,12 +137,8 @@ func (s *DiscoveryServer) StreamClusters(stream xdsapi.ClusterDiscoveryService_S
 			if err != nil {
 				return err
 			}
-			node := model.Proxy{
-				ID:   discReq.Node.Id,
-				Type: nt.Type,
-			}
 
-			con.modelNode = &node
+			con.modelNode = &nt
 
 			// Given that Pilot holds an eventually consistent data model, Pilot ignores any acknowledgements
 			// from Envoy, whether they indicate ack success or ack failure of Pilot's previous responses.

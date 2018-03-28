@@ -29,18 +29,18 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-// convertAddressListToCidrList converts a list of IP addresses with cidr prefixes into envoy CIDR proto
-func convertAddressListToCidrList(addresses []string) []*core.CidrRange {
-	if addresses == nil {
-		return nil
-	}
-
-	cidrList := make([]*core.CidrRange, 0)
-	for _, addr := range addresses {
-		cidrList = append(cidrList, convertAddressToCidr(addr))
-	}
-	return cidrList
-}
+//// convertAddressListToCidrList converts a list of IP addresses with cidr prefixes into envoy CIDR proto
+//func convertAddressListToCidrList(addresses []string) []*core.CidrRange {
+//	if addresses == nil {
+//		return nil
+//	}
+//
+//	cidrList := make([]*core.CidrRange, 0)
+//	for _, addr := range addresses {
+//		cidrList = append(cidrList, convertAddressToCidr(addr))
+//	}
+//	return cidrList
+//}
 
 func convertAddressToCidr(addr string) *core.CidrRange {
 	cidr := &core.CidrRange{
