@@ -46,7 +46,11 @@ global:
   # Default is 1 second
   refreshInterval: 10s
   
- 
+  # Enable multicluster operation.  Must be set to true if multicluster operation
+  # is desired.
+  multicluster:
+    enabled: false
+
 # Any customization for istio testing should be here
 istiotesting:
   oneNameSpace: false

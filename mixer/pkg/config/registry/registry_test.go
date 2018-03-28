@@ -31,7 +31,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 
 	adapter "istio.io/api/mixer/adapter/model/v1beta1"
 )

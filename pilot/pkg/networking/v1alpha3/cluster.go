@@ -22,6 +22,8 @@ import (
 	v2_cluster "github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
 	"github.com/gogo/protobuf/types"
 
+	"time"
+
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
@@ -32,6 +34,12 @@ const (
 	DefaultLbType = networking.LoadBalancerSettings_ROUND_ROBIN
 	// ManagementClusterHostname indicates the hostname used for building inbound clusters for management ports
 	ManagementClusterHostname = "mgmtCluster"
+
+	// CDSv2 validation requires ConnectTimeout to be > 0s. This is applied if no explicit policy is set.
+	defaultClusterConnectTimeout = 5 * time.Second
+
+	// Name used for the xds cluster.
+	xdsName = "xds-grpc"
 )
 
 // TODO: Need to do inheritance of DestRules based on domain suffix match
@@ -50,6 +58,12 @@ func BuildClusters(env model.Environment, proxy model.Proxy) []*v2.Cluster {
 	}
 
 	clusters = append(clusters, buildOutboundClusters(env, services)...)
+	for _, c := range clusters {
+		// Envoy requires a non-zero connect timeout
+		if c.ConnectTimeout == 0 {
+			c.ConnectTimeout = defaultClusterConnectTimeout
+		}
+	}
 	if proxy.Type == model.Sidecar {
 		instances, err := env.GetProxyServiceInstances(proxy)
 		if err != nil {
@@ -79,6 +93,7 @@ func buildOutboundClusters(env model.Environment, services []*model.Service) []*
 			// create default cluster
 			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port)
 			defaultCluster := buildDefaultCluster(env, clusterName, convertResolution(service.Resolution), hosts)
+			updateEds(env, defaultCluster, service.Hostname)
 			setUpstreamProtocol(defaultCluster, port)
 			clusters = append(clusters, defaultCluster)
 
@@ -89,6 +104,7 @@ func buildOutboundClusters(env model.Environment, services []*model.Service) []*
 				for _, subset := range destinationRule.Subsets {
 					subsetClusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port)
 					subsetCluster := buildDefaultCluster(env, subsetClusterName, convertResolution(service.Resolution), hosts)
+					updateEds(env, subsetCluster, service.Hostname)
 					setUpstreamProtocol(subsetCluster, port)
 					applyTrafficPolicy(subsetCluster, destinationRule.TrafficPolicy)
 					applyTrafficPolicy(subsetCluster, subset.TrafficPolicy)
@@ -99,6 +115,29 @@ func buildOutboundClusters(env model.Environment, services []*model.Service) []*
 	}
 
 	return clusters
+}
+
+func updateEds(env model.Environment, cluster *v2.Cluster, serviceName string) {
+	if cluster.Type != v2.Cluster_EDS {
+		return
+	}
+	refresh := time.Duration(env.Mesh.RdsRefreshDelay.Seconds) * time.Second
+	if refresh == 0 {
+		// envoy crashes if 0. Will go away once we move to v2
+		refresh = 5 * time.Second
+	}
+	cluster.EdsClusterConfig = &v2.Cluster_EdsClusterConfig{
+		ServiceName: cluster.Name,
+		EdsConfig: &core.ConfigSource{
+			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+				ApiConfigSource: &core.ApiConfigSource{
+					ApiType:      core.ApiConfigSource_GRPC,
+					ClusterNames: []string{xdsName},
+					RefreshDelay: &refresh,
+				},
+			},
+		},
+	}
 }
 
 func buildClusterHosts(env model.Environment, service *model.Service, port *model.Port) []*core.Address {
