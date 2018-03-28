@@ -163,11 +163,11 @@ test/minikube/noauth/e2e_v2: istioctl
 	kubectl create ns pilot-noauth || true
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -test.v -timeout 20m ./tests/e2e/tests/pilot -args \
 		-hub ${HUB} -tag ${TAG} \
-		--skip-cleanup --mixer=true \
+		--skip-cleanup --mixer=false \
 		-errorlogsdir=${OUT_DIR}/logs \
 		--use-sidecar-injector=false \
 		--auth_enable=false \
-		-v1alpha3=true -v1alpha1=false \
+		-v1alpha3=true -v1alpha1=false --ingress=false \
 		--core-files-dir=${OUT_DIR}/logs \
         	--ns pilot-noauth-system \
         	-n pilot-noauth \

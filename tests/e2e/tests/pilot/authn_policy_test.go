@@ -37,6 +37,10 @@ func (r *authnPolicy) Setup() error {
 func (r *authnPolicy) Teardown() {}
 
 func (r *authnPolicy) Run() error {
+	if !t.Config.Auth {
+		return nil
+	}
+
 	// This authentication policy will:
 	// - Enable mTLS for the whole namespace.
 	// - But disable mTLS for service c (all ports) and d port 80.
