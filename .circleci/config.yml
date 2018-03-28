@@ -291,6 +291,58 @@ jobs:
       - store_test_results:
           path: /go/out/tests
 
+  e2e-pilot-noauth-v1alpha3-v2:
+    <<: *integrationDefaults
+    environment:
+            - GOPATH: /go
+            - KUBECONFIG: /go/out/minikube.conf
+            - TEST_ENV: minikube-none
+            - HUB: docker.io/dnerepo
+            - TAG: dontpush
+            - SKIP_EGRESS: 1
+            - ISTIO_PROXY_IMAGE: proxyv2
+    steps:
+      - type: shell
+        name: Initialize Working Directory
+        pwd: /
+        command: |
+          sudo mkdir -p /go/src/istio.io/istio
+          sudo chown -R circleci /go
+          mkdir -p /home/circleci/logs
+      - checkout
+      - attach_workspace:
+          at:  /go
+      - run: make sync
+      - run: bin/testEnvRootMinikube.sh start
+      - run:
+          command: |
+            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
+              # Should only happen when re-running a job, and the workspace is gone
+              time make build test-bins
+            fi
+            make docker.all generate_yaml
+      - run: bin/testEnvRootMinikube.sh wait
+      - run: docker images
+      - run: make test/minikube/noauth/e2e_pilot HUB="${HUB}" TAG="${TAG}"
+      - run:
+          name: dumpsys
+          when: always
+          command: |
+            # TODO: move to a make target 'dumpsys'.
+            kubectl get all -o wide --all-namespaces
+            kubectl cluster-info dump > /go/out/logs/cluster-info.dump.txt
+            kubectl describe pods -n pilot-noauth-system > /go/out/logs/pods-system.txt
+            kubectl describe pods -n pilot-noauth > /go/out/logs/pods-test.txt
+            /go/bin/go-junit-report </go/out/tests/test-report-noauth-pilot.raw > /go/out/tests/test-report-noauth-v1alpha3-pilot.xml
+      - store_artifacts:
+          path: /go/out/tests
+      - store_artifacts:
+          path: /go/out/logs
+      - store_artifacts:
+          path: /tmp
+      - store_test_results:
+          path: /go/out/tests
+
   e2e-pilot-noauth-v1alpha1:
     <<: *integrationDefaults
     environment:
@@ -734,6 +786,9 @@ workflows:
           requires:
             - build
       - e2e-pilot-auth-v1alpha3:
+          requires:
+            - build
+      - e2e-pilot-auth-v1alpha3-v2:
           requires:
             - build
       - e2e-simple:
