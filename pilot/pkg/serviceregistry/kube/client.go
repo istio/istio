@@ -24,6 +24,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	"istio.io/istio/pkg/log"
 	// import GKE cluster authentication plugin
@@ -68,18 +69,48 @@ func ResolveConfig(kubeconfig string) (string, error) {
 	return kubeconfig, nil
 }
 
-// CreateInterface is a helper function to create Kubernetes interface
+// CreateInterface is a helper function to create Kubernetes interface from kubeconfig file
 func CreateInterface(kubeconfig string) (*rest.Config, kubernetes.Interface, error) {
 	kube, err := ResolveConfig(kubeconfig)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	config, err := clientcmd.BuildConfigFromFlags("", kube)
+	if kube == "" {
+		// Servicing InCLuster case
+		restConfig, err1 := rest.InClusterConfig()
+		if err1 == nil {
+			client, err2 := kubernetes.NewForConfig(restConfig)
+			if err2 == nil {
+				return restConfig, client, nil
+			}
+			return nil, nil, err2
+		}
+		return nil, nil, err1
+	}
+	clusterConfig, err := clientcmd.LoadFromFile(kube)
 	if err != nil {
 		return nil, nil, err
 	}
+	return createInterface(clusterConfig)
+}
 
-	client, err := kubernetes.NewForConfig(config)
-	return config, client, err
+// CreateInterfaceFromClusterConfig is a helper function to create Kubernetes interface from in memory cluster config struct
+func CreateInterfaceFromClusterConfig(clusterConfig *clientcmdapi.Config) (*rest.Config, kubernetes.Interface, error) {
+	return createInterface(clusterConfig)
+}
+
+// createInterface is new function which creates rest config and kubernetes interface
+// from passed cluster's config struct
+func createInterface(clusterConfig *clientcmdapi.Config) (*rest.Config, kubernetes.Interface, error) {
+	clientConfig := clientcmd.NewDefaultClientConfig(*clusterConfig, &clientcmd.ConfigOverrides{})
+	rest, err := clientConfig.ClientConfig()
+	if err != nil {
+		return nil, nil, err
+	}
+	client, err := kubernetes.NewForConfig(rest)
+	if err != nil {
+		return nil, nil, err
+	}
+	return rest, client, nil
 }
