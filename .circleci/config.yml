@@ -670,6 +670,7 @@ workflows:
              branches:
                only:
                  - master
+                 - v2dev
     jobs: #daisy chained steps ending with docker push
       - depupdate
       - build
@@ -703,7 +704,7 @@ workflows:
           requires:
             - test
             - build
-      # Nightly release
+      # Nightly release. TODO: incorporate the branch name into the image
       - nightly:
           context: org-global
           requires:
@@ -718,6 +719,7 @@ workflows:
              branches:
                only:
                  - master
+                 - v2dev
     jobs:
       - depupdate
       - build
