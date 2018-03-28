@@ -9,8 +9,6 @@ metadata:
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
     istio: sidecar-injector
-  annotations:
-    checksum/config-volume: {{ template "istio.configmap.checksum" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
   template:
@@ -59,8 +57,10 @@ spec:
                 - --interval=2s
             initialDelaySeconds: 4
             periodSeconds: 4
+    {{- if .Values.nodeSelector }}
           resources:
 {{ toYaml .Values.resources | indent 12 }}
+    {{- end }}
       volumes:
       - name: config-volume
         configMap:
