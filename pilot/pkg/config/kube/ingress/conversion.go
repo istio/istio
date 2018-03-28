@@ -23,7 +23,10 @@ import (
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"path"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
@@ -154,6 +157,139 @@ func decodeIngressRuleName(name string) (ingressName string, ruleNum, pathNum in
 	}
 
 	return
+}
+
+func convertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) (model.Config, model.Config) {
+
+	gateway := &networking.Gateway{
+		Selector: model.IstioIngressWorkloadLabels,
+	}
+
+	for _, tls := range ingress.Spec.TLS {
+		gateway.Servers = append(gateway.Servers, &networking.Server{
+			Port: &networking.Port{
+				Number:   443,
+				Protocol: string(model.ProtocolHTTP),
+				Name:     "http-ingress-443",
+			},
+			Hosts: tls.Hosts,
+			Tls: &networking.Server_TLSOptions{
+				HttpsRedirect:     false,
+				Mode:              networking.Server_TLSOptions_SIMPLE,
+				ServerCertificate: path.Join(model.IngressCertsPath, ingress.Namespace, tls.SecretName, model.IngressCertFilename),
+				CaCertificates:    path.Join(model.IngressCertsPath, ingress.Namespace, tls.SecretName, model.IngressKeyFilename),
+			},
+		})
+	}
+
+	gateway.Servers = append(gateway.Servers, &networking.Server{
+		Port: &networking.Port{
+			Number:   80,
+			Protocol: string(model.ProtocolHTTP),
+			Name:     "http-ingress-80",
+		},
+	})
+
+	virtualService := &networking.VirtualService{
+		Hosts:    []string{"*"},
+		Gateways: []string{model.IstioIngressGatewayName},
+	}
+
+	var httpRoutes []*networking.HTTPRoute
+	for _, rule := range ingress.Spec.Rules {
+		if rule.HTTP == nil {
+			log.Warnf("invalid ingress rule for host %q, no paths defined", rule.Host)
+			continue
+		}
+
+		for _, path := range rule.HTTP.Paths {
+			httpMatch := &networking.HTTPMatchRequest{
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Regex{
+						Regex: path.Path,
+					},
+				},
+				Authority: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Regex{
+						Regex: rule.Host,
+					},
+				},
+			}
+
+			httpRoute := ingressBackendToHTTPRoute(&path.Backend)
+			if httpRoute == nil {
+				log.Warnf("invalid ingress rule for host %q, no backend defined for path", rule.Host)
+				continue
+			}
+			httpRoute.Match = []*networking.HTTPMatchRequest{httpMatch}
+			httpRoutes = append(httpRoutes, httpRoute)
+		}
+	}
+
+	if ingress.Spec.Backend != nil {
+		httpRoutes = append(httpRoutes, ingressBackendToHTTPRoute(ingress.Spec.Backend))
+	}
+
+	virtualService.Http = httpRoutes
+
+	gatewayConfig := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      model.Gateway.Type,
+			Group:     model.Gateway.Group,
+			Version:   model.Gateway.Version,
+			Name:      model.IstioIngressGatewayName,
+			Namespace: model.IstioIngressNamespace,
+			Domain:    domainSuffix,
+		},
+		Spec: gateway,
+	}
+
+	virtualServiceConfig := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      model.VirtualService.Type,
+			Group:     model.VirtualService.Group,
+			Version:   model.VirtualService.Version,
+			Name:      model.IstioIngressGatewayName,
+			Namespace: model.IstioIngressNamespace,
+			Domain:    domainSuffix,
+		},
+		Spec: virtualService,
+	}
+
+	return gatewayConfig, virtualServiceConfig
+
+}
+
+func ingressBackendToHTTPRoute(backend *v1beta1.IngressBackend) *networking.HTTPRoute {
+	if backend == nil {
+		return nil
+	}
+
+	port := &networking.PortSelector{
+		Port: nil,
+	}
+
+	if backend.ServicePort.Type == intstr.Int {
+		port.Port = &networking.PortSelector_Number{
+			Number: uint32(backend.ServicePort.IntVal),
+		}
+	} else {
+		port.Port = &networking.PortSelector_Name{
+			Name: backend.ServicePort.StrVal,
+		}
+	}
+
+	return &networking.HTTPRoute{
+		Route: []*networking.DestinationWeight{
+			{
+				Destination: &networking.Destination{
+					Name: backend.ServiceName,
+					Port: port,
+				},
+				Weight: 100,
+			},
+		},
+	}
 }
 
 // shouldProcessIngress determines whether the given ingress resource should be processed
