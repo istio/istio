@@ -198,9 +198,11 @@ func (mb *MutableBag) Merge(bag *MutableBag) {
 // ToProto fills-in an Attributes proto based on the content of the bag.
 func (mb *MutableBag) ToProto(output *mixerpb.CompressedAttributes, globalDict map[string]int32, globalWordCount int) {
 	ds := newDictState(globalDict, globalWordCount)
+	keys := mb.Names()
 
-	for k, v := range mb.values {
+	for _, k := range keys {
 		index := ds.assignDictIndex(k)
+		v, _ := mb.Get(k) // if not found, nil return will be ignored by the switch below
 
 		switch t := v.(type) {
 		case string:
