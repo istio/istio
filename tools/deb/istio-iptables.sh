@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright 2017 Istio Authors. All Rights Reserved.
+# Copyright 2017, 2018 Istio Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,12 +19,14 @@
 # Initialization script responsible for setting up port forwarding for Istio sidecar.
 
 function usage() {
-  echo "${0} -p PORT -u UID [-b ports] [-d ports] [-i CIDR] [-x CIDR] [-h]"
+  echo "${0} -p PORT -u UID [-m mode] [-b ports] [-d ports] [-i CIDR] [-x CIDR] [-h]"
   echo ''
   echo '  -p: Specify the envoy port to which redirect all TCP traffic (default $ENVOY_PORT = 15001)'
   echo '  -u: Specify the UID of the user for which the redirection is not'
   echo '      applied. Typically, this is the UID of the proxy container'
   echo '      (default to uid of $ENVOY_USER, uid of istio_proxy, or 1337)'
+  echo '  -m: The mode used to redirect inbound connections to Envoy, either "REDIRECT" or "TPROXY"'
+  echo '      (default to $ISTIO_INBOUND_INTERCEPTION_MODE)'
   echo '  -b: Comma separated list of inbound ports for which traffic is to be redirected to Envoy (optional). The'
   echo '      wildcard character "*" can be used to configure redirection for all ports. An empty list will disable'
   echo '      all inbound redirection (default to $ISTIO_INBOUND_PORTS)'
@@ -60,18 +62,24 @@ fi
 
 PROXY_PORT=${ENVOY_PORT:-15001}
 PROXY_UID=
+INBOUND_INTERCEPTION_MODE=${ISTIO_INBOUND_INTERCEPTION_MODE}
+INBOUND_TPROXY_MARK=${ISTIO_INBOUND_TPROXY_MARK:-1337}
+INBOUND_TPROXY_ROUTE_TABLE=${ISTIO_INBOUND_TPROXY_ROUTE_TABLE:-133}
 INBOUND_PORTS_INCLUDE=${ISTIO_INBOUND_PORTS-}
 INBOUND_PORTS_EXCLUDE=${ISTIO_LOCAL_EXCLUDE_PORTS-}
 OUTBOUND_IP_RANGES_INCLUDE=${ISTIO_SERVICE_CIDR-}
 OUTBOUND_IP_RANGES_EXCLUDE=${ISTIO_SERVICE_EXCLUDE_CIDR-}
 
-while getopts ":p:u:b:d:i:x:h" opt; do
+while getopts ":p:u:m:b:d:i:x:h" opt; do
   case ${opt} in
     p)
       PROXY_PORT=${OPTARG}
       ;;
     u)
       PROXY_UID=${OPTARG}
+      ;;
+    m)
+      INBOUND_INTERCEPTION_MODE=${OPTARG}
       ;;
     b)
       INBOUND_PORTS_INCLUDE=${OPTARG}
@@ -113,13 +121,19 @@ fi
 iptables -t nat -D PREROUTING -p tcp -j ISTIO_INBOUND 2>/dev/null
 iptables -t nat -D OUTPUT -p tcp -j ISTIO_OUTPUT 2>/dev/null
 
-# Flush and delete the istio chains
+# Flush and delete the istio chains.
 iptables -t nat -F ISTIO_OUTPUT 2>/dev/null
 iptables -t nat -X ISTIO_OUTPUT 2>/dev/null
-iptables -t nat -F ISTIO_INBOUND 2>/dev/null
-iptables -t nat -X ISTIO_INBOUND 2>/dev/null
 iptables -t nat -F ISTIO_REDIRECT 2>/dev/null
 iptables -t nat -X ISTIO_REDIRECT 2>/dev/null
+iptables -t nat -F ISTIO_INBOUND 2>/dev/null
+iptables -t nat -X ISTIO_INBOUND 2>/dev/null
+iptables -t mangle -F ISTIO_INBOUND 2>/dev/null
+iptables -t mangle -X ISTIO_INBOUND 2>/dev/null
+iptables -t mangle -F ISTIO_DIVERT 2>/dev/null
+iptables -t mangle -X ISTIO_DIVERT 2>/dev/null
+iptables -t mangle -F ISTIO_TPROXY 2>/dev/null
+iptables -t mangle -X ISTIO_TPROXY 2>/dev/null
 
 if [ "${1:-}" = "clean" ]; then
   echo "Only cleaning, no new rules added"
@@ -130,6 +144,9 @@ fi
 echo "Environment:"
 echo "------------"
 echo "ENVOY_PORT=${ENVOY_PORT-}"
+echo "ISTIO_INBOUND_INTERCEPTION_MODE=${ISTIO_INBOUND_INTERCEPTION_MODE-}"
+echo "ISTIO_INBOUND_TPROXY_MARK=${ISTIO_INBOUND_TPROXY_MARK-}"
+echo "ISTIO_INBOUND_TPROXY_ROUTE_TABLE=${ISTIO_INBOUND_TPROXY_ROUTE_TABLE-}"
 echo "ISTIO_INBOUND_PORTS=${ISTIO_INBOUND_PORTS-}"
 echo "ISTIO_LOCAL_EXCLUDE_PORTS=${ISTIO_LOCAL_EXCLUDE_PORTS-}"
 echo "ISTIO_SERVICE_CIDR=${ISTIO_SERVICE_CIDR-}"
@@ -139,6 +156,9 @@ echo "Variables:"
 echo "----------"
 echo "PROXY_PORT=${PROXY_PORT}"
 echo "PROXY_UID=${PROXY_UID}"
+echo "INBOUND_INTERCEPTION_MODE=${INBOUND_INTERCEPTION_MODE}"
+echo "INBOUND_TPROXY_MARK=${INBOUND_TPROXY_MARK}"
+echo "INBOUND_TPROXY_ROUTE_TABLE=${INBOUND_TPROXY_ROUTE_TABLE}"
 echo "INBOUND_PORTS_INCLUDE=${INBOUND_PORTS_INCLUDE}"
 echo "INBOUND_PORTS_EXCLUDE=${INBOUND_PORTS_EXCLUDE}"
 echo "OUTBOUND_IP_RANGES_INCLUDE=${OUTBOUND_IP_RANGES_INCLUDE}"
@@ -150,33 +170,76 @@ set -o nounset
 set -o pipefail
 set -x # echo on
 
-# Create a new chain for redirecting inbound traffic to the common Envoy port.
-# In the ISTIO_INBOUND and ISTIO_OUTBOUND chains, '-j RETURN' bypasses Envoy
-# and '-j ISTIO_REDIRECT' redirects to Envoy.
+# Create a new chain for redirecting outbound traffic to the common Envoy port.
+# Use this chain also for redirecting inbound traffic to the common Envoy port
+# when not using TPROXY.
+# In both chains, '-j RETURN' bypasses Envoy and '-j ISTIO_REDIRECT'
+# redirects to Envoy.
 iptables -t nat -N ISTIO_REDIRECT
 iptables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-port ${PROXY_PORT}
 
 # Handling of inbound ports. Traffic will be redirected to Envoy, which will process and forward
 # to the local service. If not set, no inbound port will be intercepted by istio iptables.
 if [ -n "${INBOUND_PORTS_INCLUDE}" ]; then
-  iptables -t nat -N ISTIO_INBOUND
-  iptables -t nat -A PREROUTING -p tcp -j ISTIO_INBOUND
+  if [ "${INBOUND_INTERCEPTION_MODE}" = "TPROXY" ] ; then
+    # When using TPROXY, create a new chain for routing all inbound traffic to
+    # Envoy. Any packet entering this chain gets marked with the ${INBOUND_TPROXY_MARK} mark,
+    # so that they get routed to the loopback interface in order to get redirected to Envoy.
+    # In the ISTIO_INBOUND chain, '-j ISTIO_DIVERT' reroutes to the loopback
+    # interface.
+    # Mark all inbound packets.
+    iptables -t mangle -N ISTIO_DIVERT
+    iptables -t mangle -A ISTIO_DIVERT -j MARK --set-mark ${INBOUND_TPROXY_MARK}
+    iptables -t mangle -A ISTIO_DIVERT -j ACCEPT
+
+    # Route all packets marked in chain ISTIO_DIVERT using routing table ${INBOUND_TPROXY_ROUTE_TABLE}.
+    ip -f inet rule add fwmark ${INBOUND_TPROXY_MARK} lookup ${INBOUND_TPROXY_ROUTE_TABLE}
+    # In routing table ${INBOUND_TPROXY_ROUTE_TABLE}, create a single default rule to route all traffic to
+    # the loopback interface.
+    ip -f inet route add local default dev lo table ${INBOUND_TPROXY_ROUTE_TABLE}
+
+    # Create a new chain for redirecting inbound traffic to the common Envoy
+    # port.
+    # In the ISTIO_INBOUND chain, '-j RETURN' bypasses Envoy and
+    # '-j ISTIO_TPROXY' redirects to Envoy.
+    iptables -t mangle -N ISTIO_TPROXY
+    iptables -t mangle -A ISTIO_TPROXY ! -d 127.0.0.1/32 -p tcp -j TPROXY --tproxy-mark ${INBOUND_TPROXY_MARK}/0xffffffff --on-port ${PROXY_PORT}
+
+    table=mangle
+  else
+    table=nat
+  fi
+  iptables -t ${table} -N ISTIO_INBOUND
+  iptables -t ${table} -A PREROUTING -p tcp -j ISTIO_INBOUND
 
   if [ "${INBOUND_PORTS_INCLUDE}" == "*" ]; then
     # Makes sure SSH is not redirected
-    iptables -t nat -A ISTIO_INBOUND -p tcp --dport 22 -j RETURN
+    iptables -t ${table} -A ISTIO_INBOUND -p tcp --dport 22 -j RETURN
     # Apply any user-specified port exclusions.
     if [ -n "${INBOUND_PORTS_EXCLUDE}" ]; then
       for port in ${INBOUND_PORTS_EXCLUDE}; do
-        iptables -t nat -A ISTIO_INBOUND -p tcp --dport ${port} -j RETURN
+        iptables -t ${table} -A ISTIO_INBOUND -p tcp --dport ${port} -j RETURN
       done
     fi
     # Redirect remaining inbound traffic to Envoy.
-    iptables -t nat -A ISTIO_INBOUND -p tcp -j ISTIO_REDIRECT
+    if [ "${INBOUND_INTERCEPTION_MODE}" = "TPROXY" ]; then
+      # If an inbound packet belongs to an established socket, route it to the
+      # loopback interface.
+      iptables -t mangle -A ISTIO_INBOUND -p tcp -m socket -j ISTIO_DIVERT
+      # Otherwise, it's a new connection. Redirect it using TPROXY.
+      iptables -t mangle -A ISTIO_INBOUND -p tcp -j ISTIO_TPROXY
+    else
+      iptables -t nat -A ISTIO_INBOUND -p tcp -j ISTIO_REDIRECT
+    fi
   else
     # User has specified a non-empty list of ports to be redirected to Envoy.
     for port in ${INBOUND_PORTS_INCLUDE}; do
-      iptables -t nat -A ISTIO_INBOUND -p tcp --dport ${port} -j ISTIO_REDIRECT
+      if [ "${INBOUND_INTERCEPTION_MODE}" = "TPROXY" ]; then
+        iptables -t mangle -A ISTIO_INBOUND -p tcp --dport ${port} -m socket -j ISTIO_DIVERT
+        iptables -t mangle -A ISTIO_INBOUND -p tcp --dport ${port} -j ISTIO_TPROXY
+      else
+        iptables -t nat -A ISTIO_INBOUND -p tcp --dport ${port} -j ISTIO_REDIRECT
+      fi
     done
   fi
 fi
