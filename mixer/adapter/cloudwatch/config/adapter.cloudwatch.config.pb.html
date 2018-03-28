@@ -1,0 +1,76 @@
+---
+title: CloudWatch
+overview: Adapter for cloudwatch metrics.
+location: https://istio.io/docs/reference/config/adapters/cloudwatch.html
+layout: protoc-gen-docs
+number_of_entries: 2
+---
+<p>The <code>cloudwatch</code> adapter enables Istio to deliver metrics to
+<a href="https://aws.amazon.com/cloudwatch/">Amazon CloudWatch</a>.</p>
+
+<h2 id="Params">Params</h2>
+<section>
+<p>Configuration for the <code>cloudwatch</code> adapter.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.namespace">
+<td><code>namespace</code></td>
+<td><code>string</code></td>
+<td>
+<p>CloudWatch metric namespace.</p>
+
+</td>
+</tr>
+<tr id="Params.metric_info">
+<td><code>metricInfo</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#Params.MetricDatum">Params.MetricDatum</a>&gt;</code></td>
+<td>
+<p>A map of Istio metric name to CloudWatch metric info.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params.MetricDatum">Params.MetricDatum</h2>
+<section>
+<p>CloudWatch metric format.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.MetricDatum.storageResolution">
+<td><code>storageResolution</code></td>
+<td><code>int64</code></td>
+<td>
+<p>The second resolution of the metric. Valid values are 1 and 60.
+https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_MetricDatum.html</p>
+
+</td>
+</tr>
+<tr id="Params.MetricDatum.unit">
+<td><code>unit</code></td>
+<td><code>string</code></td>
+<td>
+<p>The unit of the metric. Must be valid cloudwatch unit value.
+https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_MetricDatum.html</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>

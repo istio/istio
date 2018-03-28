@@ -1,0 +1,44 @@
+// Copyright 2017 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY Type, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+// $title: CloudWatch
+// $overview: Adapter for cloudwatch metrics.
+// $location: https://istio.io/docs/reference/config/adapters/cloudwatch.html
+
+// The `cloudwatch` adapter enables Istio to deliver metrics to
+// [Amazon CloudWatch](https://aws.amazon.com/cloudwatch/).
+package adapter.cloudwatch.config;
+
+option go_package="config";
+
+// Configuration for the `cloudwatch` adapter.
+message Params {
+    // CloudWatch metric namespace.
+    string namespace = 1;
+    // A map of Istio metric name to CloudWatch metric info.
+    map<string, MetricDatum> metric_info = 2;
+
+
+    // CloudWatch metric format.
+    message MetricDatum {
+        // The second resolution of the metric. Valid values are 1 and 60.
+        // https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_MetricDatum.html
+        int64 storageResolution = 3;
+        // The unit of the metric. Must be valid cloudwatch unit value.
+        // https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_MetricDatum.html
+        string unit = 4;
+    }
+}
