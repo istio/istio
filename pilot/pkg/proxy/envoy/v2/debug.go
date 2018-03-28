@@ -207,6 +207,7 @@ func (sd *MemServiceDiscovery) GetIstioServiceAccounts(hostname string, ports []
 // registryz providees debug support for registry - adding and listing model items.
 // Can be combined with the push debug interface to reproduce changes.
 func (s *DiscoveryServer) registryz(w http.ResponseWriter, req *http.Request) {
+	req.ParseForm()
 	svcName := req.Form.Get("svc")
 	epName := req.Form.Get("ep")
 	if svcName != "" {

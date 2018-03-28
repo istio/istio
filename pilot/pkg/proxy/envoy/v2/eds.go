@@ -349,6 +349,9 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 			// from Envoy, whether they indicate ack success or ack failure of Pilot's previous responses.
 			if initialRequestReceived {
 				// TODO: once the deps are updated, log the ErrorCode if set (missing in current version)
+				if discReq.ErrorDetail != nil {
+					log.Warnf("EDS: ACK ERROR %v %s %v", peerAddr, node, discReq.String())
+				}
 				if edsDebug {
 					log.Infof("EDS: ACK %s %s %s %s", node, discReq.VersionInfo, con.Clusters, discReq.String())
 				}
@@ -411,6 +414,7 @@ func edsPushAll() {
 // EDSz implements a status and debug interface for EDS.
 // It is mapped to /debug/edsz on the monitor port (9093).
 func EDSz(w http.ResponseWriter, req *http.Request) {
+	req.ParseForm()
 	if req.Form.Get("debug") != "" {
 		edsDebug = req.Form.Get("debug") == "1"
 		return
