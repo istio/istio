@@ -51,18 +51,20 @@ func buildOutboundNetworkFilters(clusterName string, addresses []string, port *m
 
 	// destination port is unnecessary with use_original_dst since
 	// the listener address already contains the port
-	route := &tcp_proxy.TcpProxy_DeprecatedV1_TCPRoute{Cluster: clusterName}
-
-	if len(addresses) > 0 {
-		sort.Sort(sort.StringSlice(addresses))
-		route.DestinationIpList = append(route.DestinationIpList, convertAddressListToCidrList(addresses)...)
-	}
+	//route := &tcp_proxy.TcpProxy_DeprecatedV1_TCPRoute{Cluster: clusterName}
+	//
+	//if len(addresses) > 0 {
+	//	sort.Sort(sort.StringSlice(addresses))
+	//	route.DestinationIpList = append(route.DestinationIpList, convertAddressListToCidrList(addresses)...)
+	//}
 
 	config := &tcp_proxy.TcpProxy{
 		StatPrefix: fmt.Sprintf("%s|tcp|%d", model.TrafficDirectionOutbound, port.Port),
-		DeprecatedV1: &tcp_proxy.TcpProxy_DeprecatedV1{
-			Routes: []*tcp_proxy.TcpProxy_DeprecatedV1_TCPRoute{route},
-		},
+		Cluster: clusterName,
+
+		//DeprecatedV1: &tcp_proxy.TcpProxy_DeprecatedV1{
+		//	Routes: []*tcp_proxy.TcpProxy_DeprecatedV1_TCPRoute{route},
+		//},
 	}
 
 	tcpFilter := listener.Filter{

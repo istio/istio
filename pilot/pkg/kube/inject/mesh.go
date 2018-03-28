@@ -63,6 +63,8 @@ containers:
   args:
   - proxy
   - sidecar
+  - --bootstrapv2
+  - true
   - --configPath
   - {{ .ProxyConfig.ConfigPath }}
   - --binaryPath

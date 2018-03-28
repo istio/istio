@@ -112,6 +112,13 @@ func TestPilot(t *testing.T) {
 		t.Skip("TAG not specified. Skipping tests")
 	}
 
+	if config.V1alpha1 {
+		return // skip v1alpha1 tests
+	}
+
+	config.Mixer = false
+	config.Auth = false
+
 	env := tutil.NewEnvironment(*config)
 	defer teardown(env)
 	setup(env, t)
@@ -121,13 +128,13 @@ func TestPilot(t *testing.T) {
 		&grpc{Environment: env},
 		&tcp{Environment: env},
 		&headless{Environment: env},
-		&ingress{Environment: env},
-		&egressRules{Environment: env},
+		//&ingress{Environment: env},
+		//&egressRules{Environment: env},
 		&routing{Environment: env},
-		&routingToEgress{Environment: env},
+		//&routingToEgress{Environment: env},
 		&zipkin{Environment: env},
 		&authExclusion{Environment: env},
-		&kubernetesExternalNameServices{Environment: env},
+		//&kubernetesExternalNameServices{Environment: env},
 		&authnPolicy{Environment: env},
 		&istioRBAC{Environment: env},
 	}

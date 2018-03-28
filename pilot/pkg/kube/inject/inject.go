@@ -108,9 +108,9 @@ func InitImageName(hub string, tag string, _ bool) string {
 // proxy image given a docker hub and tag and whether to use debug or not.
 func ProxyImageName(hub string, tag string, debug bool) string {
 	if debug {
-		return hub + "/proxy_debug:" + tag
+		return hub + "/proxyv2:" + tag
 	}
-	return hub + "/proxy:" + tag
+	return hub + "/proxyv2:" + tag
 }
 
 // Params describes configurable parameters for injecting istio proxy
