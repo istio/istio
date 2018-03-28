@@ -69,7 +69,7 @@ data:
       proxyAdminPort: 15000
       #
       # Zipkin trace collector
-      zipkinAddress: istio-zipkin.{{ .Release.Namespace }}:9411
+      zipkinAddress: zipkin.{{ .Release.Namespace }}:9411
       #
       # Statsd metrics collector converts statsd metrics into Prometheus metrics.
       statsdUdpAddress: istio-statsd-prom-bridge.{{ .Release.Namespace }}:9125
