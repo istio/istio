@@ -28,7 +28,7 @@ ${ROOT}/install/updateVersion_orig.sh "$*"
 
 function gen_file() {
     fl=$1
-    cp -f install/kubernetes/$fl install/kubernetes/orig_$fl
+    cp -f install/kubernetes/$fl ${ISTIO_OUT:-.}/orig_$fl
     make $1
 }
 
