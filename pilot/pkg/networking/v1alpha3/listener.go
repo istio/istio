@@ -33,6 +33,8 @@ import (
 
 	google_protobuf "github.com/gogo/protobuf/types"
 
+	"os"
+
 	authn "istio.io/api/authentication/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
@@ -60,6 +62,12 @@ const (
 
 	// LocalhostAddress for local binding
 	LocalhostAddress = "127.0.0.1"
+)
+
+var (
+	// Very verbose output in the logs - full LDS response logged for each sidecar.
+	// Use /debug/ldsz instead.
+	verboseDebug = os.Getenv("PILOT_DUMP_ALPHA3") != ""
 )
 
 // ListenersALPNProtocols denotes the the list of ALPN protocols that the listener
@@ -392,13 +400,14 @@ func applyInboundAuth(authenticationPolicy *authn.Policy, listener *xdsapi.Liste
 
 // options required to build an HTTPListener
 type buildHTTPListenerOpts struct { // nolint: maligned
-	env              model.Environment
-	proxy            model.Proxy
-	proxyInstances   []*model.ServiceInstance
-	services         []*model.Service
-	routeConfig      *xdsapi.RouteConfiguration
-	ip               string
-	port             int
+	env            model.Environment
+	proxy          model.Proxy
+	proxyInstances []*model.ServiceInstance
+	services       []*model.Service
+	routeConfig    *xdsapi.RouteConfiguration
+	ip             string
+	port           int
+	// bindToPort (default to false) should be set for ingress / gateway
 	bindToPort       bool
 	rds              string
 	useRemoteAddress bool
@@ -531,10 +540,11 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 		connectionManager.GenerateRequestId = &google_protobuf.BoolValue{true}
 	}
 
-	connectionManagerJSON, _ := json.MarshalIndent(connectionManager, "  ", "  ")
-	log.Infof("LDS: %s \n", string(connectionManagerJSON))
-
-	return &xdsapi.Listener{
+	if verboseDebug {
+		connectionManagerJSON, _ := json.MarshalIndent(connectionManager, "  ", "  ")
+		log.Infof("LDS: %s \n", string(connectionManagerJSON))
+	}
+	l := &xdsapi.Listener{
 		Name:    fmt.Sprintf("http_%s_%d", opts.ip, opts.port),
 		Address: buildAddress(opts.ip, uint32(opts.port)),
 		FilterChains: []listener.FilterChain{
@@ -547,12 +557,16 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 				},
 			},
 		},
-		DeprecatedV1: &xdsapi.Listener_DeprecatedV1{
+	}
+
+	if !opts.bindToPort {
+		l.DeprecatedV1 = &xdsapi.Listener_DeprecatedV1{
 			BindToPort: &google_protobuf.BoolValue{
 				Value: opts.bindToPort,
 			},
-		},
+		}
 	}
+	return l
 }
 
 // buildTCPListener constructs a listener for the TCP proxy

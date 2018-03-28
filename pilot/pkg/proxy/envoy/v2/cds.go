@@ -144,6 +144,9 @@ func (s *DiscoveryServer) StreamClusters(stream xdsapi.ClusterDiscoveryService_S
 			// from Envoy, whether they indicate ack success or ack failure of Pilot's previous responses.
 			if initialRequestReceived {
 				// TODO: once the deps are updated, log the ErrorCode if set (missing in current version)
+				if discReq.ErrorDetail != nil {
+					log.Warnf("CDS: ACK ERROR %v %s %v", peerAddr, nt.ID, discReq.String())
+				}
 				if cdsDebug {
 					log.Infof("CDS: ACK %v", discReq.String())
 				}
@@ -193,6 +196,7 @@ func cdsPushAll() {
 // Cdsz implements a status and debug interface for CDS.
 // It is mapped to /debug/cdsz on the monitor port (9093).
 func Cdsz(w http.ResponseWriter, req *http.Request) {
+	_ = req.ParseForm()
 	if req.Form.Get("debug") != "" {
 		cdsDebug = req.Form.Get("debug") == "1"
 		return
