@@ -160,7 +160,16 @@ const (
 
 	// DiscoveryPlainAddress discovery IP address:port with plain text
 	DiscoveryPlainAddress = "istio-pilot:15007"
+
+	// IstioIngressGatewayName is the internal gateway name assigned to ingress
+	IstioIngressGatewayName = "istio-k8s-ingress-gateway"
+
+	// IstioIngressNamespace is the namespace where Istio ingress controller is deployed
+	IstioIngressNamespace = "istio-system"
 )
+
+// IstioIngressWorkloadLabels is the label assigned to Istio ingress pods
+var IstioIngressWorkloadLabels = map[string]string{"istio": "ingress"}
 
 // DefaultProxyConfig for individual proxies
 func DefaultProxyConfig() meshconfig.ProxyConfig {
