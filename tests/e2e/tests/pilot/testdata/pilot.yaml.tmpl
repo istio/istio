@@ -97,8 +97,8 @@ spec:
 {{if .UseAdmissionWebhook}}
         - --admission-service={{.AdmissionServiceName}}
 {{end}}
-        - --rdsv2
-        - "{{.RDSv2}}"
+        - --xdsv2
+        - "{{.XDSv2}}"
         ports:
         - containerPort: 8080
 {{if .DebugPort}}

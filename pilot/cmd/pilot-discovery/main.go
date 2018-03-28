@@ -72,7 +72,7 @@ var (
 )
 
 func init() {
-	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.RDSv2, "rdsv2", false, "Enable RDS v2")
+	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.XDSv2, "xdsv2", false, "Enable xDS v2")
 
 	discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.Service.Registries, "registries",
 		[]string{string(bootstrap.KubernetesRegistry)},

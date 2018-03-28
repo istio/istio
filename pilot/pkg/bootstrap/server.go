@@ -180,7 +180,7 @@ type PilotArgs struct {
 	Config           ConfigArgs
 	Service          ServiceArgs
 	Admission        AdmissionArgs
-	RDSv2            bool
+	XDSv2            bool
 }
 
 // Server contains the runtime configuration for the Pilot discovery service.
@@ -753,6 +753,12 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 	s.addStartFunc(func(stop chan struct{}) error {
 		log.Infof("Discovery service started at http=%s grpc=%s", listener.Addr().String(), grpcListener.Addr().String())
+		if args.XDSv2 {
+			log.Info("xDS: enabling config cache")
+			cache := envoyv2.NewConfigCache(s.ServiceController, s.configController)
+			cache.Register(s.GRPCServer)
+			cache.RegisterInput(s.ServiceController, s.configController)
+		}
 
 		go func() {
 			if err = s.HTTPServer.Serve(listener); err != nil {
@@ -773,13 +779,6 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 			}
 			s.EnvoyXdsServer.GrpcServer.Stop()
 		}()
-
-		if args.RDSv2 {
-			log.Info("xDS: enabling RDS")
-			cache := envoyv2.NewConfigCache(s.ServiceController, s.configController)
-			cache.Register(s.GRPCServer)
-			cache.RegisterInput(s.ServiceController, s.configController)
-		}
 
 		return err
 	})

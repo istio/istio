@@ -20,6 +20,7 @@ kubedns
 # pilot
 pilot/pkg/kube/config
 pilot/pkg/proxy/envoy/envoy
+pilot/docker/pilot-discovery
 # lint
 lintconfig.gen.json
 .istiorc
