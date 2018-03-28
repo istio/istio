@@ -41,7 +41,7 @@ spec:
           - --serviceCluster
           - istio-ingress
           - --zipkinAddress
-          - istio-zipkin:9411
+          - zipkin:9411
           - --statsdUdpAddress
           - istio-statsd-prom-bridge:9125
           - --proxyAdminPort

@@ -213,8 +213,6 @@ if [[ -n "${GCS_SOURCE}" ]]; then
   if [[ "${DO_GCS}" == "true" ]]; then
     mkdir -p "${UPLOAD_DIR}/deb/"
     gsutil -m cp "gs://${GCS_SOURCE}/deb/istio*.deb" "${UPLOAD_DIR}/deb/"
-    mkdir -p "${UPLOAD_DIR}/istioctl/"
-    gsutil -m cp "gs://${GCS_SOURCE}/istioctl/istioctl-*"  "${UPLOAD_DIR}/istioctl/"
   fi
   if [[ "${DO_GITHUB_TAG}" == "true" || "${DO_GITHUB_REL}" == "true" ]]; then
     gsutil -m cp "gs://${GCS_SOURCE}/manifest.xml" "${UPLOAD_DIR}/"
@@ -235,7 +233,6 @@ fi
 if [[ "${DO_GCS}" == "true" ]]; then
   echo "Copying to GCS destination ${GCS_DEST}"
   gsutil -m cp "${UPLOAD_DIR}/deb/istio*.deb" "gs://${GCS_DEST}/deb/"
-  gsutil -m cp "${UPLOAD_DIR}/istioctl/istioctl-*" "gs://${GCS_DEST}/istioctl/"
   echo "Done copying to GCS destination"
 fi
 
