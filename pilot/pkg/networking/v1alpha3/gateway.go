@@ -95,6 +95,7 @@ func buildGatewayListeners(env model.Environment, node model.Proxy) ([]*xdsapi.L
 				protocol:       model.ProtocolHTTP,
 				sniHosts:       server.Hosts,
 				tlsContext:     buildGatewayListenerTLSContext(server),
+				bindToPort:     true,
 				httpOpts: &httpListenerOpts{
 					routeConfig:      buildGatewayInboundHTTPRouteConfig(env, name, server),
 					rds:              "",

@@ -609,6 +609,14 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 		return nil // error
 	}
 
+	var deprecated_v1 *xdsapi.Listener_DeprecatedV1
+	if !opts.bindToPort {
+		deprecated_v1 = &xdsapi.Listener_DeprecatedV1{
+			BindToPort: &google_protobuf.BoolValue{
+				Value: false,
+			},
+		}
+	}
 	return &xdsapi.Listener{
 		Name:    fmt.Sprintf("%s_%s_%d", opts.protocol, opts.ip, opts.port),
 		Address: buildAddress(opts.ip, uint32(opts.port)),
@@ -619,11 +627,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 				Filters:          filters,
 			},
 		},
-		DeprecatedV1: &xdsapi.Listener_DeprecatedV1{
-			BindToPort: &google_protobuf.BoolValue{
-				Value: opts.bindToPort,
-			},
-		},
+		DeprecatedV1: deprecated_v1,
 	}
 }
 
