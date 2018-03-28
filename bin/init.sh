@@ -63,12 +63,6 @@ export GOOS=${GOOS:-${LOCAL_OS}}
 # test scripts seem to like to run this script directly rather than use make
 export ISTIO_OUT=${ISTIO_OUT:-${ISTIO_BIN}}
 
-# Ensure expected GOPATH setup
-if [ ${ROOT} != "${GO_TOP:-$HOME/go}/src/istio.io/istio" ]; then
-       echo "Istio not found in GOPATH/src/istio.io/"
-       exit 1
-fi
-
 # Download Envoy debug and release binaries for Linux x86_64. They will be included in the
 # docker images created by Dockerfile.proxy and Dockerfile.proxy_debug.
 
@@ -116,6 +110,7 @@ ISTIO_ENVOY_RELEASE_DIR=${ISTIO_ENVOY_RELEASE_DIR:-"${OUT_DIR}/${GOOS}_${GOARCH}
 ISTIO_ENVOY_RELEASE_NAME=${ISTIO_ENVOY_RELEASE_NAME:-"envoy-$ISTIO_ENVOY_VERSION"}
 ISTIO_ENVOY_RELEASE_PATH=${ISTIO_ENVOY_RELEASE_PATH:-"$ISTIO_ENVOY_RELEASE_DIR/$ISTIO_ENVOY_RELEASE_NAME"}
 
+
 # Save envoy in $ISTIO_ENVOY_DIR
 if [ ! -f "$ISTIO_ENVOY_DEBUG_PATH" ] || [ ! -f "$ISTIO_ENVOY_RELEASE_PATH" ] ; then
     # Clear out any old versions of Envoy.
@@ -150,14 +145,7 @@ if [ ! -f ${ISTIO_OUT}/envoy ] ; then
     cp ${ISTIO_ENVOY_DEBUG_PATH} ${ISTIO_OUT}/envoy
 fi
 
-if [ ! -f /usr/local/bin/helm -a ! -f ${ISTIO_OUT}/helm ] ; then
-    # Install helm. Please keep it in sync with .circleci
-    cd /tmp && \
-        curl -Lo /tmp/helm.tgz https://storage.googleapis.com/kubernetes-helm/helm-${HELM_VER}-linux-amd64.tar.gz && \
-        tar xfz helm.tgz && \
-        mv linux-amd64/helm ${ISTIO_OUT}/helm && \
-        rm -rf helm.tgz linux-amd64
-fi
+${ROOT}/bin/init_helm.sh
 
 # TODO(nmittler): Remove once tests no longer use the envoy binary directly.
 # circleCI expects this in the bin directory

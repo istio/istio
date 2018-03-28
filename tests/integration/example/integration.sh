@@ -14,6 +14,9 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+WD=$(dirname $0)
+WD=$(cd $WD; pwd)
+
 # Print commands
 set -x
 
@@ -33,17 +36,7 @@ make mixs
 MIXER_BINARY=$(make where-is-out)/mixs
 ENVOY_BINARY=$(make where-is-out)/envoy
 
-# Download Proxy Repo
-cd ..
-ls proxy || git clone https://github.com/istio/proxy
-cd proxy
-git pull
-
-# A default value for ISTIO_ENVOY_VERSION is set by init.sh
-git reset ${ISTIO_ENVOY_VERSION} --hard
-#ENVOY_BINARY=$(pwd)/usr/local/bin/envoy
-START_ENVOY=$(pwd)/src/envoy/http/mixer/start_envoy
-cd ../istio
+START_ENVOY=${WD}/../component/proxy/start_envoy
 
 # Install Fortio
 ( cd vendor/istio.io/fortio ; go install . )

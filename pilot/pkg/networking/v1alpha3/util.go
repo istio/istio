@@ -16,6 +16,8 @@ package v1alpha3
 
 import (
 	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -26,6 +28,36 @@ import (
 
 	"istio.io/istio/pkg/log"
 )
+
+//// convertAddressListToCidrList converts a list of IP addresses with cidr prefixes into envoy CIDR proto
+//func convertAddressListToCidrList(addresses []string) []*core.CidrRange {
+//	if addresses == nil {
+//		return nil
+//	}
+//
+//	cidrList := make([]*core.CidrRange, 0)
+//	for _, addr := range addresses {
+//		cidrList = append(cidrList, convertAddressToCidr(addr))
+//	}
+//	return cidrList
+//}
+
+func convertAddressToCidr(addr string) *core.CidrRange {
+	cidr := &core.CidrRange{
+		AddressPrefix: addr,
+		PrefixLen: &types.UInt32Value{
+			Value: 32,
+		},
+	}
+
+	if strings.Contains(addr, "/") {
+		parts := strings.Split(addr, "/")
+		cidr.AddressPrefix = parts[0]
+		prefix, _ := strconv.Atoi(parts[1])
+		cidr.PrefixLen.Value = uint32(prefix)
+	}
+	return cidr
+}
 
 // normalizeListeners sorts and de-duplicates listeners by address
 func normalizeListeners(listeners []*xdsapi.Listener) []*xdsapi.Listener {
@@ -66,6 +98,34 @@ func getByAddress(listeners []*xdsapi.Listener, addr string) *xdsapi.Listener {
 	return nil
 }
 
+//// protoDurationToTimeDuration converts d to time.Duration format.
+//func protoDurationToTimeDuration(d *types.Duration) time.Duration { //nolint
+//	return time.Duration(d.Nanos) + time.Second*time.Duration(d.Seconds)
+//}
+//
+//// google_protobufToProto converts d to google protobuf Duration format.
+//func durationToProto(d time.Duration) *types.Duration { // nolint
+//	nanos := d.Nanoseconds()
+//	secs := nanos / 1e9
+//	nanos -= secs * 1e9
+//	return &types.Duration{
+//		Seconds: secs,
+//		Nanos:   int32(nanos),
+//	}
+//}
+
+//func buildProtoStruct(name, value string) *types.Struct {
+//	return &types.Struct{
+//		Fields: map[string]*types.Value{
+//			name: {
+//				Kind: &types.Value_StringValue{
+//					StringValue: value,
+//				},
+//			},
+//		},
+//	}
+//}
+
 func messageToStruct(msg proto.Message) *types.Struct {
 	s, err := util.MessageToStruct(msg)
 	if err != nil {
@@ -75,7 +135,7 @@ func messageToStruct(msg proto.Message) *types.Struct {
 	return s
 }
 
-func convertDurationGogo(d *types.Duration) time.Duration {
+func convertGogoDurationToDuration(d *types.Duration) time.Duration {
 	if d == nil {
 		return 0
 	}

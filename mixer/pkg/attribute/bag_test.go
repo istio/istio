@@ -779,6 +779,19 @@ func TestFakeMutableBag(t *testing.T) {
 	}
 }
 
+func TestGlobalList(t *testing.T) {
+	l := GlobalList()
+
+	// check that there's a known string in there...
+	for _, s := range l {
+		if s == "destination.service" {
+			return
+		}
+	}
+
+	t.Error("Did not find destination.service")
+}
+
 func init() {
 	// bump up the log level so log-only logic runs during the tests, for correctness and coverage.
 	o := log.DefaultOptions()

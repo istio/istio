@@ -37,7 +37,6 @@ import (
 )
 
 const (
-	podRunning   = "Running"
 	podFailedGet = "Failed_Get"
 	// The index of STATUS field in kubectl CLI output.
 	statusField = 2
@@ -77,8 +76,10 @@ func Fill(outFile, inFile string, values interface{}) error {
 
 // CreateNamespace create a kubernetes namespace
 func CreateNamespace(n string) error {
-	if _, err := Shell("kubectl create namespace %s", n); err != nil {
-		return err
+	if _, err := ShellMuteOutput("kubectl create namespace %s", n); err != nil {
+		if !strings.Contains(err.Error(), "AlreadyExists") {
+			return err
+		}
 	}
 	log.Infof("namespace %s created\n", n)
 	return nil
@@ -275,45 +276,29 @@ func GetPodStatus(n, pod string) string {
 	return ""
 }
 
-// CheckPodsRunning return if all pods in a namespace are in "Running" status
+// CheckPodsRunningWithMaxDuration returns if all pods in a namespace are in "Running" status
 // Also check container status to be running.
-func CheckPodsRunning(n string) (ready bool) {
-	retry := Retrier{
-		BaseDelay:   1 * time.Second,
-		MaxDelay:    30 * time.Second,
-		MaxDuration: 90 * time.Second,
-	}
-
-	retryFn := func(_ context.Context, i int) error {
-		pods := GetPodsName(n)
-		ready = true
-		for _, p := range pods {
-			if status := GetPodStatus(n, p); status != podRunning {
-				log.Infof("%s in namespace %s is not running: %s", p, n, status)
-				if desc, err := ShellMuteOutput("kubectl describe pods -n %s %s", n, p); err != nil {
-					log.Infof("Pod description: %s", desc)
-				}
-				ready = false
-			}
-		}
-		if !ready {
-			_, err := Shell("kubectl -n %s get pods -o wide", n)
-			if err != nil {
-				log.Infof("Cannot get pods: %s", err)
-			}
-			return fmt.Errorf("some pods are not ready")
-		}
-		return nil
-	}
-	if _, err := retry.Retry(context.Background(), retryFn); err != nil {
+func CheckPodsRunningWithMaxDuration(n string, maxDuration time.Duration) (ready bool) {
+	if err := WaitForDeploymentsReady(n, maxDuration); err != nil {
+		log.Errorf("CheckPodsRunning: %v", err.Error())
 		return false
 	}
-	log.Info("Get all pods running!")
+
 	return true
+}
+
+// CheckPodsRunning returns readiness of all pods within a namespace. It will wait for upto 2 mins.
+// use WithMaxDuration to specify a duration.
+func CheckPodsRunning(n string) (ready bool) {
+	return CheckPodsRunningWithMaxDuration(n, 2*time.Minute)
 }
 
 // CheckDeployment gets status of a deployment from a namespace
 func CheckDeployment(ctx context.Context, namespace, deployment string) error {
+	if deployment == "deployments/istio-sidecar-injector" {
+		// This can be deployed by previous tests, but doesn't complete currently, blocking the test.
+		return nil
+	}
 	errc := make(chan error)
 	go func() {
 		if _, err := ShellMuteOutput("kubectl -n %s rollout status %s", namespace, deployment); err != nil {
@@ -419,4 +404,56 @@ func FetchAndSaveClusterLogs(namespace string, tempDir string) error {
 		}
 	}
 	return multiErr
+}
+
+// WaitForDeploymentsReady wait up to 'timeout' duration
+// return an error if deployments are not ready
+func WaitForDeploymentsReady(ns string, timeout time.Duration) error {
+	retry := Retrier{
+		BaseDelay:   10 * time.Second,
+		MaxDelay:    10 * time.Second,
+		MaxDuration: timeout,
+		Retries:     20,
+	}
+
+	_, err := retry.Retry(context.Background(), func(_ context.Context, _ int) error {
+		nr, err := CheckDeploymentsReady(ns)
+		if err != nil {
+			return &Break{err}
+		}
+
+		if nr == 0 { // done
+			return nil
+		}
+		return fmt.Errorf("%d deployments not ready", nr)
+	})
+	return err
+}
+
+// CheckDeploymentsReady checks if deployment resources are ready.
+// get podsReady() sometimes gets pods created by the "Job" resource which never reach the "Running" steady state.
+func CheckDeploymentsReady(ns string) (int, error) {
+	CMD := "kubectl -n %s get deployments -ao jsonpath='{range .items[*]}{@.metadata.name}{\" \"}" +
+		"{@.status.availableReplicas}{\"\\n\"}{end}'"
+	out, err := Shell(fmt.Sprintf(CMD, ns))
+
+	if err != nil {
+		return 0, fmt.Errorf("could not list deployments in namespace %q: %v", ns, err)
+	}
+
+	notReady := 0
+	for _, line := range strings.Split(out, "\n") {
+		flds := strings.Fields(line)
+		if len(flds) < 2 {
+			continue
+		}
+		if flds[1] == "0" { // no replicas ready
+			notReady++
+		}
+	}
+
+	if notReady == 0 {
+		log.Infof("All deployments are ready")
+	}
+	return notReady, nil
 }

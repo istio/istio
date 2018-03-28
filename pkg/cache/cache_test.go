@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build !race
-
 package cache
 
 import (
@@ -168,7 +166,6 @@ func testCacheConcurrent(c Cache, t *testing.T) {
 
 // WARNING: This test expects the cache to have been created with a long expiration time.
 func testCacheExpiration(c ExpiringCache, evictExpired func(time.Time), t *testing.T) {
-	t.Skip("issue https://github.com/istio/istio/issues/4304")
 	now := time.Now()
 
 	c.SetWithExpiration("EARLY", "123", 10*time.Millisecond)
@@ -227,11 +224,7 @@ func testCacheExpiration(c ExpiringCache, evictExpired func(time.Time), t *testi
 }
 
 func testCacheEvictExpired(c ExpiringCache, t *testing.T) {
-	t.Skip("issue https://github.com/istio/istio/issues/4304")
 	c.SetWithExpiration("A", "A", 1*time.Millisecond)
-
-	// this is racy, but we're being generous enough that it should be fine
-	time.Sleep(50 * time.Millisecond)
 
 	_, ok := c.Get("A")
 	if !ok {
@@ -247,30 +240,23 @@ func testCacheEvictExpired(c ExpiringCache, t *testing.T) {
 }
 
 func testCacheEvicter(c ExpiringCache, t *testing.T) {
-	t.Skip("issue https://github.com/istio/istio/issues/4304")
 	c.SetWithExpiration("A", "A", 1*time.Millisecond)
 
-	// this is racy, but we're being generous enough that it should be fine
-	time.Sleep(10 * time.Millisecond)
+	// loop until eviction happens. If eviction doesn't happen, this loop will get stuck forever which is fine
+	for {
+		time.Sleep(10 * time.Millisecond)
 
-	_, ok := c.Get("A")
-	if ok {
-		t.Error("Got entry, expecting it to have been evicted")
+		_, ok := c.Get("A")
+		if !ok {
+			// item disappeared, we're done
+			return
+		}
 	}
 }
 
-func testCacheFinalizer(gate *bool, t *testing.T) {
-	t.Skip("issue https://github.com/istio/istio/issues/4304")
-	for i := 0; i < 100; i++ {
-		runtime.GC()
-		if *gate {
-			return
-		}
-
-		time.Sleep(10 * time.Millisecond)
-	}
-
-	t.Errorf("Expecting eviction loop to have been terminated")
+func testCacheFinalizer(gate *sync.WaitGroup, t *testing.T) {
+	runtime.GC()
+	gate.Wait()
 }
 
 func benchmarkCacheGet(c Cache, b *testing.B) {

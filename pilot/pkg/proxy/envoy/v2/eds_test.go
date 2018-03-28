@@ -31,10 +31,12 @@ import (
 
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
 
+	"fmt"
+
 	"istio.io/istio/tests/util"
 )
 
-func connect(server *bootstrap.Server, t *testing.T) xdsapi.EndpointDiscoveryService_StreamEndpointsClient {
+func connect(t *testing.T) xdsapi.EndpointDiscoveryService_StreamEndpointsClient {
 	conn, err := grpc.Dial(util.MockPilotGrpcAddr, grpc.WithInsecure())
 	if err != nil {
 		t.Fatal("Connection failed", err)
@@ -56,17 +58,54 @@ func connect(server *bootstrap.Server, t *testing.T) xdsapi.EndpointDiscoverySer
 	return edsstr
 }
 
+func reconnect(server *bootstrap.Server, res *xdsapi.DiscoveryResponse, t *testing.T) xdsapi.EndpointDiscoveryService_StreamEndpointsClient {
+	conn, err := grpc.Dial(util.MockPilotGrpcAddr, grpc.WithInsecure())
+	if err != nil {
+		t.Fatal("Connection failed", err)
+	}
+
+	xds := xdsapi.NewEndpointDiscoveryServiceClient(conn)
+	edsstr, err := xds.StreamEndpoints(context.Background())
+	if err != nil {
+		t.Fatal("Rpc failed", err)
+	}
+	err = edsstr.Send(&xdsapi.DiscoveryRequest{
+		Node: &envoy_api_v2_core1.Node{
+			Id: "sidecar~a~b~c",
+		},
+		VersionInfo:   res.VersionInfo,
+		ResponseNonce: res.Nonce,
+		ResourceNames: []string{"hello.default.svc.cluster.local|http"}})
+	if err != nil {
+		t.Fatal("Send failed", err)
+	}
+	return edsstr
+}
+
+// Regression for envoy restart and overlapping connections
+func TestReconnectWithNonce(t *testing.T) {
+	server := initLocalPilotTestEnv()
+	edsstr := connect(t)
+	res, _ := edsstr.Recv()
+
+	// closes old process
+	_ = edsstr.CloseSend()
+
+	edsstr = reconnect(server, res, t)
+	res, _ = edsstr.Recv()
+	_ = edsstr.CloseSend()
+
+	t.Log("Received ", res)
+}
+
 // Regression for envoy restart and overlapping connections
 func TestReconnect(t *testing.T) {
-	server := util.EnsureTestServer()
-
-	server.MemoryServiceDiscovery.AddService("hello.default.svc.cluster.local",
-		mock.MakeService("hello.default.svc.cluster.local", "10.1.0.0"))
-	edsstr := connect(server, t)
+	initLocalPilotTestEnv()
+	edsstr := connect(t)
 	_, _ = edsstr.Recv()
 
 	// envoy restarts and reconnects
-	edsstr2 := connect(server, t)
+	edsstr2 := connect(t)
 	_, _ = edsstr2.Recv()
 
 	// closes old process
@@ -75,7 +114,7 @@ func TestReconnect(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	// event happens
-	v2.EdsPushAll()
+	v2.PushAll()
 	// will trigger recompute and push (we may need to make a change once diff is implemented
 
 	done := make(chan struct{}, 1)
@@ -96,12 +135,11 @@ func TestReconnect(t *testing.T) {
 		t.Fatal("Recv failed", err)
 	}
 	t.Log("Received ", m)
-
 }
 
 // Make a direct EDS grpc request to pilot, verify the result is as expected.
 func directRequest(server *bootstrap.Server, t *testing.T) {
-	edsstr := connect(server, t)
+	edsstr := connect(t)
 
 	res1, err := edsstr.Recv()
 	if err != nil {
@@ -137,7 +175,7 @@ func directRequest(server *bootstrap.Server, t *testing.T) {
 	server.MemoryServiceDiscovery.AddService("hello2.default.svc.cluster.local",
 		mock.MakeService("hello2.default.svc.cluster.local", "10.1.0.1"))
 
-	v2.EdsPushAll() // will trigger recompute and push
+	v2.PushAll() // will trigger recompute and push
 	// This should happen in 15 seconds, for the periodic refresh
 	// TODO: verify push works
 	res1, err = edsstr.Recv()
@@ -154,15 +192,16 @@ func directRequest(server *bootstrap.Server, t *testing.T) {
 }
 
 func TestEds(t *testing.T) {
+	initEnvoyTestEnv(t)
 	server := util.EnsureTestServer()
 
-	server.MemoryServiceDiscovery.AddService("hello.default.svc.cluster.local",
-		mock.MakeService("hello.default.svc.cluster.local", "10.1.0.0"))
+	server.MemoryServiceDiscovery.AddService("hello2.default.svc.cluster.local",
+		mock.MakeService("hello2.default.svc.cluster.local", "10.12.0.0"))
 
 	// Verify services are set
 	srv, err := server.ServiceController.Services()
 	if err != nil {
-		t.Fatal("Starting pilot", err)
+		t.Fatal("Listing services", err)
 	}
 	log.Println(srv)
 
@@ -177,16 +216,13 @@ func TestEds(t *testing.T) {
 
 }
 
-var (
-	edszURL = "http://localhost:9093/debug/edsz"
-)
-
 // Verify the endpoint debug interface is installed and returns some string.
 // TODO: parse response, check if data captured matches what we expect.
 // TODO: use this in integration tests.
 // TODO: refine the output
 // TODO: dump the ServiceInstances as well
 func testEdsz(t *testing.T) {
+	edszURL := fmt.Sprintf("http://localhost:%d/debug/edsz", testEnv.Ports().PilotHTTPPort)
 	res, err := http.Get(edszURL)
 	if err != nil {
 		t.Fatalf("Failed to fetch /edsz")

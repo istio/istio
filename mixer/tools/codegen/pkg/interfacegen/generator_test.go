@@ -12,6 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// nolint
+//go:generate protoc --include_imports --include_source_info testdata/apa/template.proto -otestdata/apa/template.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate protoc --include_imports --include_source_info testdata/check/template.proto -otestdata/check/template.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api  -I.
+//go:generate protoc --include_imports --include_source_info testdata/report/template.proto -otestdata/report/template.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api  -I.
+//go:generate protoc --include_imports --include_source_info testdata/quota/template.proto -otestdata/quota/template.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api  -I.
+//go:generate protoc --include_imports --include_source_info testdata/error/template.proto -otestdata/error/template.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api  -I.
 package interfacegen
 
 import (
@@ -42,16 +48,16 @@ func TestGenerator_Generate(t *testing.T) {
 	tests := []struct {
 		name, descriptor, wantIntFace, wantProto string
 	}{
-		{"Report", "testdata/report/template_proto.descriptor_set",
+		{"Report", "testdata/report/template.descriptor",
 			"testdata/report/template_handler.gen.go.golden",
 			"testdata/report/template_instance.proto.golden"},
-		{"Quota", "testdata/quota/template_proto.descriptor_set",
+		{"Quota", "testdata/quota/template.descriptor",
 			"testdata/quota/template_handler.gen.go.golden",
 			"testdata/quota/template_instance.proto.golden"},
-		{"Check", "testdata/check/template_proto.descriptor_set",
+		{"Check", "testdata/check/template.descriptor",
 			"testdata/check/template_handler.gen.go.golden",
 			"testdata/check/template_instance.proto.golden"},
-		{"APA", "testdata/apa/template_proto.descriptor_set",
+		{"APA", "testdata/apa/template.descriptor",
 			"testdata/apa/template_handler.gen.go.golden",
 			"testdata/apa/template_instance.proto.golden"},
 	}
@@ -108,9 +114,9 @@ func TestGenerator_GenerateErrors(t *testing.T) {
 	}()
 
 	g := Generator{OutInterfacePath: file.Name()}
-	err = g.Generate("testdata/error/template_proto.descriptor_set")
+	err = g.Generate("testdata/error/template.descriptor")
 	if err == nil {
-		t.Fatalf("Generate(%s) should have produced an error", "testdata/error/template_proto.descriptor_set")
+		t.Fatalf("Generate(%s) should have produced an error", "testdata/error/template.descriptor")
 	}
 	b, fileErr := ioutil.ReadFile("testdata/error/template.baseline")
 	if fileErr != nil {
@@ -119,7 +125,7 @@ func TestGenerator_GenerateErrors(t *testing.T) {
 	want := fmt.Sprintf("%s", b)
 	got := err.Error()
 	if got != want {
-		t.Fatalf("Generate(%s) => '%s'\nwanted: '%s'", "testdata/error/template_proto.descriptor_set", got, want)
+		t.Fatalf("Generate(%s) => '%s'\nwanted: '%s'", "testdata/error/template.descriptor", got, want)
 	}
 }
 
@@ -137,27 +143,27 @@ func TestGeneratorWithBadFds(t *testing.T) {
 
 func TestGeneratorBadInterfaceTmpl(t *testing.T) {
 	g := Generator{}
-	err := g.generateInternal("testdata/report/template_proto.descriptor_set", "{{foo}} bad tmpl", tmpl.AugmentedProtoTmpl)
+	err := g.generateInternal("testdata/report/template.descriptor", "{{foo}} bad tmpl", tmpl.AugmentedProtoTmpl)
 	validateHasError(t, err, "cannot load template")
 }
 
 func TestGeneratorBadAugmentedProtoTmpl(t *testing.T) {
 	g := Generator{}
-	err := g.generateInternal("testdata/report/template_proto.descriptor_set", tmpl.InterfaceTemplate, "{{foo}} bad tmpl")
+	err := g.generateInternal("testdata/report/template.descriptor", tmpl.InterfaceTemplate, "{{foo}} bad tmpl")
 	validateHasError(t, err, "cannot load template")
 }
 
 func TestGeneratorBadOutputAugProto(t *testing.T) {
 	g := Generator{OutInterfacePath: "out1", OAugmentedTmplPath: ""}
 	defer func() { os.Remove("out1") }()
-	err := g.Generate("testdata/report/template_proto.descriptor_set")
+	err := g.Generate("testdata/report/template.descriptor")
 	validateHasError(t, err, "no such file")
 }
 
 func TestGeneratorBadOutputInstanceInterface(t *testing.T) {
 	g := Generator{OutInterfacePath: "", OAugmentedTmplPath: "out1"}
 	defer func() { os.Remove("out1") }()
-	err := g.Generate("testdata/report/template_proto.descriptor_set")
+	err := g.Generate("testdata/report/template.descriptor")
 	validateHasError(t, err, "no such file")
 }
 
@@ -175,13 +181,13 @@ func TestGeneratorAugmentedProtoBadModel(t *testing.T) {
 
 func TestGeneratorCannotFormat(t *testing.T) {
 	g := Generator{}
-	err := g.generateInternal("testdata/report/template_proto.descriptor_set", ".. bad format", tmpl.AugmentedProtoTmpl)
+	err := g.generateInternal("testdata/report/template.descriptor", ".. bad format", tmpl.AugmentedProtoTmpl)
 	validateHasError(t, err, "could not format")
 }
 
 func TestGeneratorCannotFixImport(t *testing.T) {
 	g := Generator{}
-	err := g.generateInternal("testdata/report/template_proto.descriptor_set", "badtmpl_cannot_fix_import", tmpl.AugmentedProtoTmpl)
+	err := g.generateInternal("testdata/report/template.descriptor", "badtmpl_cannot_fix_import", tmpl.AugmentedProtoTmpl)
 	validateHasError(t, err, "could not fix imports")
 }
 

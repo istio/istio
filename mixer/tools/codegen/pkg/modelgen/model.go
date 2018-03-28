@@ -128,9 +128,9 @@ type (
 )
 
 // Last segment of package name after the '.' must match the following regex
-const pkgLaskSeg = "^[a-zA-Z]+$"
+const tmplNameRegex = "^[a-zA-Z]+$"
 
-var pkgLaskSegRegex = regexp.MustCompile(pkgLaskSeg)
+var tmplNameRegexCompiled = regexp.MustCompile(tmplNameRegex)
 
 // Create creates a Model object.
 func Create(parser *FileDescriptorSetParser) (*Model, error) {
@@ -296,7 +296,7 @@ func getTmplFileDesc(fds []*FileDescriptor) (*FileDescriptor, []diag) {
 		if templateDescriptorProto != nil {
 			diags = append(diags, createError(fd.GetName(), unknownLine,
 				"Proto files %s and %s, both have the option %s. Only one proto file is allowed with this options",
-				fd.GetName(), templateDescriptorProto.Name, tmpl.E_TemplateVariety.Name))
+				fd.GetName(), templateDescriptorProto.GetName(), tmpl.E_TemplateVariety.Name))
 			continue
 		}
 
@@ -322,10 +322,9 @@ func (m *Model) addTopLevelFields(fd *FileDescriptor) {
 	}
 
 	if fd.Package != nil {
-		m.PackageName = strings.ToLower(strings.TrimSpace(*fd.Package))
+		m.PackageName = strings.ToLower(strings.TrimSpace(fd.GetPackage()))
 		m.GoPackageName = goPackageName(m.PackageName)
-
-		if lastSeg, err := getLastSegment(strings.TrimSpace(*fd.Package)); err != nil {
+		if lastSeg, err := getLastSegment(strings.TrimSpace(fd.GetPackage())); err != nil {
 			m.addError(fd.GetName(), fd.getLineNumber(packagePath), err.Error())
 		} else {
 			// capitalize the first character since this string is used to create function names.
@@ -336,12 +335,20 @@ func (m *Model) addTopLevelFields(fd *FileDescriptor) {
 		m.addError(fd.GetName(), unknownLine, "package name missing")
 	}
 
+	// if explicit name is provided, use it.
+	if tmplName, err := proto.GetExtension(fd.GetOptions(), tmpl.E_TemplateName); err == nil {
+		tmplNameHint := *(tmplName.(*string))
+		if !tmplNameRegexCompiled.MatchString(tmplNameHint) {
+			m.addError(fd.GetName(), unknownLine, "the template_name option '%s' must match the regex '%s'",
+				tmplNameHint, tmplNameRegex)
+		} else {
+			m.InterfaceName = strings.Title(tmplNameHint)
+			m.TemplateName = strings.ToLower(tmplNameHint)
+		}
+	}
+
 	if tmplVariety, err := proto.GetExtension(fd.GetOptions(), tmpl.E_TemplateVariety); err == nil {
 		m.VarietyName = (*(tmplVariety.(*tmpl.TemplateVariety))).String()
-	} else {
-		// This func should only get called for FileDescriptor that has this attribute,
-		// therefore it is impossible to get to this state.
-		m.addError(fd.GetName(), unknownLine, "file option %s is required", tmpl.E_TemplateVariety.Name)
 	}
 
 	// For file level comments, comments from multiple locations are composed.
@@ -351,10 +358,10 @@ func (m *Model) addTopLevelFields(fd *FileDescriptor) {
 func getLastSegment(pkg string) (string, error) {
 	segs := strings.Split(pkg, ".")
 	last := segs[len(segs)-1]
-	if pkgLaskSegRegex.MatchString(last) {
+	if tmplNameRegexCompiled.MatchString(last) {
 		return last, nil
 	}
-	return "", fmt.Errorf("the last segment of package name '%s' must match the reges '%s'", pkg, pkgLaskSeg)
+	return "", fmt.Errorf("the last segment of package name '%s' must match the regex '%s'", pkg, tmplNameRegex)
 }
 
 func getMsg(fdp *FileDescriptor, msgName string) (*Descriptor, bool) {
@@ -444,36 +451,33 @@ func getTypeNameRec(g *FileDescriptorSetParser, field *descriptor.FieldDescripto
 			keyField, valField := d.Field[0], d.Field[1]
 
 			protoKeyType, goKeyType, err := getTypeNameRec(g, keyField, valueTypeAllowed)
-			if err != nil {
+			if err != nil || protoKeyType.Name != "string" {
 				return TypeInfo{}, TypeInfo{}, createInvalidTypeError(field.GetName(), valueTypeAllowed, err)
 			}
+
 			protoValType, goValType, err := getTypeNameRec(g, valField, valueTypeAllowed)
 			if err != nil {
 				return TypeInfo{}, TypeInfo{}, createInvalidTypeError(field.GetName(), valueTypeAllowed, err)
 			}
 
-			if protoKeyType.Name == "string" {
-				return TypeInfo{
-						Name:     fmt.Sprintf("map<%s, %s>", protoKeyType.Name, protoValType.Name),
-						IsMap:    true,
-						MapKey:   &protoKeyType,
-						MapValue: &protoValType,
-						Import:   protoValType.Import,
-					},
-					TypeInfo{
-						Name:     fmt.Sprintf("map[%s]%s", goKeyType.Name, goValType.Name),
-						IsMap:    true,
-						MapKey:   &goKeyType,
-						MapValue: &goValType,
-						Import:   goValType.Import,
-					},
-					nil
-			}
-		} else {
-			return TypeInfo{Name: field.GetTypeName()[1:], IsResourceMessage: true}, TypeInfo{Name: "*" + g.TypeName(desc), IsResourceMessage: true}, nil
+			return TypeInfo{
+					Name:     fmt.Sprintf("map<%s, %s>", protoKeyType.Name, protoValType.Name),
+					IsMap:    true,
+					MapKey:   &protoKeyType,
+					MapValue: &protoValType,
+					Import:   protoValType.Import,
+				},
+				TypeInfo{
+					Name:     fmt.Sprintf("map[%s]%s", goKeyType.Name, goValType.Name),
+					IsMap:    true,
+					MapKey:   &goKeyType,
+					MapValue: &goValType,
+					Import:   goValType.Import,
+				},
+				nil
 		}
-	default:
-		return TypeInfo{}, TypeInfo{}, createInvalidTypeError(field.GetName(), valueTypeAllowed, nil)
+		return TypeInfo{Name: field.GetTypeName()[1:], IsResourceMessage: true}, TypeInfo{Name: "*" + g.TypeName(desc), IsResourceMessage: true}, nil
+
 	}
 	return TypeInfo{}, TypeInfo{}, createInvalidTypeError(field.GetName(), valueTypeAllowed, nil)
 }

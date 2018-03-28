@@ -203,6 +203,8 @@ type Server struct {
 	// An in-memory service discovery, enabled if 'mock' registry is added.
 	// Currently used for tests.
 	MemoryServiceDiscovery *mock.ServiceDiscovery
+
+	mux *http.ServeMux
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
@@ -220,9 +222,6 @@ func NewServer(args PilotArgs) (*Server, error) {
 	s := &Server{}
 
 	// Apply the arguments to the configuration.
-	if err := s.initMonitor(&args); err != nil {
-		return nil, err
-	}
 	if err := s.initClusterRegistries(&args); err != nil {
 		return nil, err
 	}
@@ -247,6 +246,10 @@ func NewServer(args PilotArgs) (*Server, error) {
 	if err := s.initDiscoveryService(&args); err != nil {
 		return nil, err
 	}
+	if err := s.initMonitor(&args); err != nil {
+		return nil, err
+	}
+
 	return s, nil
 }
 
@@ -271,7 +274,7 @@ type startFunc func(stop chan struct{}) error
 // initMonitor initializes the configuration for the pilot monitoring server.
 func (s *Server) initMonitor(args *PilotArgs) error {
 	s.addStartFunc(func(stop chan struct{}) error {
-		monitor, err := startMonitor(args.DiscoveryOptions.MonitoringPort)
+		monitor, err := startMonitor(args.DiscoveryOptions.MonitoringPort, s.mux)
 		if err != nil {
 			return err
 		}
@@ -671,7 +674,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 	return nil
 }
 func initMemoryRegistry(s *Server, serviceControllers *aggregate.Controller) {
-	// ServiceDiscovery implementation
+	// MemServiceDiscovery implementation
 	discovery1 := mock.NewDiscovery(
 		map[string]*model.Service{
 			//			mock.HelloService.Hostname: mock.HelloService,
@@ -722,10 +725,14 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	}
 	s.DiscoveryService = discovery
 
+	s.mux = s.DiscoveryService.RestContainer.ServeMux
+
 	// For now we create the gRPC server sourcing data from Pilot's older data model.
 	s.initGrpcServer()
-	envoy.V2ClearCache = envoyv2.EdsPushAll
-	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(discovery, s.GRPCServer, environment)
+	envoy.V2ClearCache = envoyv2.PushAll
+	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(s.GRPCServer, environment)
+
+	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController)
 
 	s.HTTPServer = &http.Server{
 		Addr:    ":" + strconv.Itoa(args.DiscoveryOptions.Port),

@@ -1,12 +1,12 @@
+{{ $mixers := list "policy" "telemetry" }}
+{{- range $idx, $mname := $mixers }}
 apiVersion: v1
 kind: Service
 metadata:
-  name: istio-mixer
+  name: istio-{{ $mname }}
   labels:
-    app: {{ template "mixer.name" . }}
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
+    chart: {{ $.Chart.Name }}-{{ $.Chart.Version | replace "+" "_" }}
+    release: {{ $.Release.Name }}
     istio: mixer
 spec:
   ports:
@@ -14,18 +14,14 @@ spec:
     port: 9091
   - name: tcp-mtls
     port: 15004
-  - name: http-health
+  - name: http-monitoring
     port: 9093
-  - name: configapi
-    port: 9094
-  - name: statsd-prom
-    port: 9102
-  - name: statsd-udp
-    port: 9125
-    protocol: UDP
+{{- if eq $mname "telemetry" }}
   - name: prometheus
     port: 42422
+{{- end }}
   selector:
-    app: istio-mixer
-    release: {{ .Release.Name }}
     istio: mixer
+    istio-mixer-type: {{ $mname }}
+---
+{{- end }}

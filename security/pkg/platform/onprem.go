@@ -23,6 +23,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
+	"os"
+
 	"istio.io/istio/security/pkg/pki/util"
 )
 
@@ -37,8 +39,17 @@ type OnPremClientImpl struct {
 }
 
 // NewOnPremClientImpl creates a new OnPremClientImpl.
-func NewOnPremClientImpl(rootCert, key, certChain string) *OnPremClientImpl {
-	return &OnPremClientImpl{rootCert, key, certChain}
+func NewOnPremClientImpl(rootCert, key, certChain string) (*OnPremClientImpl, error) {
+	if _, err := os.Stat(rootCert); err != nil {
+		return nil, fmt.Errorf("failed to create onprem client root cert file %v error %v", rootCert, err)
+	}
+	if _, err := os.Stat(key); err != nil {
+		return nil, fmt.Errorf("failed to create onprem client key file %v", err)
+	}
+	if _, err := os.Stat(certChain); err != nil {
+		return nil, fmt.Errorf("failed to create onprem client certChain file %v", err)
+	}
+	return &OnPremClientImpl{rootCert, key, certChain}, nil
 }
 
 // GetDialOptions returns the GRPC dial options to connect to the CA.

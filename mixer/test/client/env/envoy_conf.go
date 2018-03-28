@@ -38,6 +38,11 @@ type confParam struct {
 	AccessLog       string
 	MixerRouteFlags string
 	FaultFilter     string
+
+	// Ports contains the allocated ports.
+	Ports    *Ports
+	IstioSrc string
+	IstioOut string
 }
 
 const allAbortFaultFilter = `
@@ -53,6 +58,7 @@ const allAbortFaultFilter = `
                },
 `
 
+// TODO: convert to v2, real clients use bootstrap v2 and all configs are switching !!!
 // The envoy config template
 const envoyConfTempl = `
 {
@@ -238,15 +244,15 @@ const envoyConfTempl = `
 }
 `
 
-func (c *confParam) write(path string) error {
-	tmpl, err := template.New("test").Parse(envoyConfTempl)
+func (c *confParam) write(outPath, confTmpl string) error {
+	tmpl, err := template.New("test").Parse(confTmpl)
 	if err != nil {
 		return fmt.Errorf("failed to parse config template: %v", err)
 	}
 
-	f, err := os.Create(path)
+	f, err := os.Create(outPath)
 	if err != nil {
-		return fmt.Errorf("failed to create file %v: %v", path, err)
+		return fmt.Errorf("failed to create file %v: %v", outPath, err)
 	}
 	defer func() {
 		_ = f.Close()
@@ -255,7 +261,8 @@ func (c *confParam) write(path string) error {
 }
 
 // CreateEnvoyConf create envoy config.
-func CreateEnvoyConf(path string, stress, faultInject bool, v2 *V2Conf, ports *Ports) error {
+func (s *TestSetup) CreateEnvoyConf(path string, stress, faultInject bool, mfConfig *MixerFilterConf, ports *Ports,
+	confVersion string) error {
 	c := &confParam{
 		ClientPort:      ports.ClientProxyPort,
 		ServerPort:      ports.ServerProxyPort,
@@ -264,11 +271,15 @@ func CreateEnvoyConf(path string, stress, faultInject bool, v2 *V2Conf, ports *P
 		MixerServer:     fmt.Sprintf("localhost:%d", ports.MixerPort),
 		Backend:         fmt.Sprintf("localhost:%d", ports.BackendPort),
 		AccessLog:       "/dev/stdout",
-		ServerConfig:    getV2Config(v2.HTTPServerConf),
-		ClientConfig:    getV2Config(v2.HTTPClientConf),
-		TCPServerConfig: getV2Config(v2.TCPServerConf),
-		MixerRouteFlags: getPerRouteConfig(v2.PerRouteConf),
+		ServerConfig:    getConfig(mfConfig.HTTPServerConf, confVersion),
+		ClientConfig:    getConfig(mfConfig.HTTPClientConf, confVersion),
+		TCPServerConfig: getConfig(mfConfig.TCPServerConf, confVersion),
+		MixerRouteFlags: getPerRouteConfig(mfConfig.PerRouteConf),
+		Ports:           ports,
+		IstioSrc:        s.IstioSrc,
+		IstioOut:        s.IstioOut,
 	}
+	// TODO: use fields from s directly instead of copying
 
 	if stress {
 		c.AccessLog = "/dev/null"
@@ -277,18 +288,22 @@ func CreateEnvoyConf(path string, stress, faultInject bool, v2 *V2Conf, ports *P
 		c.FaultFilter = allAbortFaultFilter
 	}
 
-	return c.write(path)
+	confTmpl := envoyConfTempl
+	if s.EnvoyTemplate != "" {
+		confTmpl = s.EnvoyTemplate
+	}
+	return c.write(path, confTmpl)
 }
 
-func getV2Config(v2 proto.Message) string {
+func getConfig(mixerFilterConfig proto.Message, configVersion string) string {
 	m := jsonpb.Marshaler{
 		Indent: "  ",
 	}
-	str, err := m.MarshalToString(v2)
+	str, err := m.MarshalToString(mixerFilterConfig)
 	if err != nil {
 		return ""
 	}
-	return "\"v2\": " + str
+	return configVersion + str
 }
 
 func getPerRouteConfig(cfg proto.Message) string {
