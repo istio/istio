@@ -37,7 +37,7 @@ func (r *authnPolicy) Setup() error {
 func (r *authnPolicy) Teardown() {}
 
 func (r *authnPolicy) Run() error {
-	if !t.Config.Auth {
+	if !r.Config.Auth {
 		return nil
 	}
 

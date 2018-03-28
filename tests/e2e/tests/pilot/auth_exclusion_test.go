@@ -37,7 +37,7 @@ func (r *authExclusion) Setup() error {
 func (r *authExclusion) Teardown() {}
 
 func (r *authExclusion) Run() error {
-	if !t.Config.Auth {
+	if !r.Config.Auth {
 		return nil
 	}
 
