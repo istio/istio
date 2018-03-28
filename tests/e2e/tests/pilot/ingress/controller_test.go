@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
-	"istio.io/istio/pkg/test"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,6 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/test/mock"
+	"istio.io/istio/pkg/test"
 )
 
 const (
