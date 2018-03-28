@@ -39,3 +39,7 @@ istio:
 
   # Whether to delete resources that might exist from previous Istio installations
   delete_resources: false
+
+  # Whether or not the mutating webhook feature needed for automatic sidecar injection will be enabled or not
+  # Simply enabling this feature is not enough, Kubernetes and Istio versions must be valid as well
+  enable_mutating_webhook: true

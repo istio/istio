@@ -50,6 +50,6 @@
   when: cluster_flavour == 'ocp'
 - include_tasks: install_on_cluster.yml
 - include_tasks: enable_mutating_webhooks.yml
-  when: (istio_version_to_use >= minimum_istio_version_for_webhooks) and (cluster_version >= minimum_cluster_version_for_webhooks)
+  when: (istio_version_to_use >= minimum_istio_version_for_webhooks) and (cluster_version >= minimum_cluster_version_for_webhooks) and (enable_mutating_webhook == true)
 - include_tasks: install_samples.yml
   when: (istio.samples is iterable) and (istio.samples | length > 0)
