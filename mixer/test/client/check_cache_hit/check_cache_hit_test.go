@@ -120,8 +120,8 @@ var reportAttributesOkGet = [...]string{`{
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
-	"check.cache_hit": true,
-	"quota.cache_hit": true,
+  "check.cache_hit": true,
+  "quota.cache_hit": true,
   "request.headers": {
     ":method": "GET",
     ":path": "/echo",
