@@ -110,7 +110,7 @@ func ProxyImageName(hub string, tag string, debug bool) string {
 	// Allow overriding the proxy image.
 	image := os.Getenv("ISTIO_PROXY_IMAGE")
 	if image != "" {
-			return hub + "/" + image + ":" + tag
+		return hub + "/" + image + ":" + tag
 	}
 	if debug {
 		return hub + "/proxy_debug:" + tag
