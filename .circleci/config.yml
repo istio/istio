@@ -240,7 +240,7 @@ jobs:
       - store_test_results:
           path: /go/out/tests
 
-  e2e-pilot-noauth-v1alpha3:
+  e2e-pilot-noauth-v1alpha3-v1:
     <<: *integrationDefaults
     environment:
             - GOPATH: /go
@@ -394,7 +394,7 @@ jobs:
       - store_test_results:
           path: /go/out/tests
 
-  e2e-pilot-auth-v1alpha3:
+  e2e-pilot-auth-v1alpha3-v1:
     <<: *integrationDefaults
     environment:
             - GOPATH: /go
@@ -694,14 +694,14 @@ workflows:
           requires:
             - test
             - build
-      - e2e-pilot-noauth-v1alpha3:
-          requires:
-            - test
-            - build
-      - e2e-pilot-auth-v1alpha3:
-          requires:
-            - test
-            - build
+      # - e2e-pilot-noauth-v1alpha3-v1:
+      #     requires:
+      #       - test
+      #       - build
+      # - e2e-pilot-auth-v1alpha3-v1:
+      #     requires:
+      #       - test
+      #       - build
       - benchcheck:
           requires:
             - test
@@ -717,7 +717,7 @@ workflows:
           requires:
             - e2e-simple
             - e2e-pilot
-            - e2e-pilot-auth-v1alpha3
+            # - e2e-pilot-auth-v1alpha3-v1
 
   periodic:
     triggers:
@@ -737,7 +737,7 @@ workflows:
       - e2e-dashboard:
           requires:
             - build
-      - e2e-pilot-noauth-v1alpha3:
+      - e2e-pilot-noauth-v1alpha3-v1:
           requires:
             - build
       - e2e-pilot-noauth-v1alpha1:
@@ -785,10 +785,10 @@ workflows:
       - e2e-pilot: #auth+v1alpha1
           requires:
             - build
-      - e2e-pilot-auth-v1alpha3:
-          requires:
-            - build
-      - e2e-pilot-auth-v1alpha3-v2:
+      # - e2e-pilot-auth-v1alpha3-v1:
+      #     requires:
+      #       - build
+      - e2e-pilot-noauth-v1alpha3-v2:
           requires:
             - build
       - e2e-simple:
