@@ -694,14 +694,6 @@ workflows:
           requires:
             - test
             - build
-      # - e2e-pilot-noauth-v1alpha3-v1:
-      #     requires:
-      #       - test
-      #       - build
-      # - e2e-pilot-auth-v1alpha3-v1:
-      #     requires:
-      #       - test
-      #       - build
       - benchcheck:
           requires:
             - test
@@ -717,7 +709,6 @@ workflows:
           requires:
             - e2e-simple
             - e2e-pilot
-            # - e2e-pilot-auth-v1alpha3-v1
 
   periodic:
     triggers:
@@ -737,9 +728,6 @@ workflows:
       - e2e-dashboard:
           requires:
             - build
-      # - e2e-pilot-noauth-v1alpha3-v1:
-      #     requires:
-      #       - build
       - e2e-pilot-noauth-v1alpha1:
           requires:
             - build
@@ -770,6 +758,21 @@ workflows:
           requires:
             - build
 
+  envoyv2:
+    triggers:
+      - schedule:
+          filters:
+            branches:
+              only:
+                - /envoyv2-.*/
+    jobs:
+      - dependencies
+      - lint
+      - build
+      - test
+      - e2e-pilot-noauth-v1alpha3-v2:
+          requires:
+            - build
   all:
     jobs:
       - dependencies
@@ -783,12 +786,6 @@ workflows:
           requires:
             - build
       - e2e-pilot: #auth+v1alpha1
-          requires:
-            - build
-      # - e2e-pilot-auth-v1alpha3-v1:
-      #     requires:
-      #       - build
-      - e2e-pilot-noauth-v1alpha3-v2:
           requires:
             - build
       - e2e-simple:
