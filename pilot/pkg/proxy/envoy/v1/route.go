@@ -191,7 +191,7 @@ func BuildHTTPRoutes(store model.IstioConfigStore, config model.Config, service 
 
 	switch config.Spec.(type) {
 	case *routing.RouteRule:
-		return []*HTTPRoute{buildHTTPRouteV1(config, service, port)}
+		return []*HTTPRoute{buildHTTPRouteV1(config, service, port, envoyv2)}
 	case *networking.VirtualService:
 		return buildHTTPRoutesV3(store, config, service, port, proxyInstances, domain, envoyv2, buildCluster)
 	default:
@@ -199,7 +199,7 @@ func BuildHTTPRoutes(store model.IstioConfigStore, config model.Config, service 
 	}
 }
 
-func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.Port) *HTTPRoute {
+func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.Port, envoyv2 bool) *HTTPRoute {
 	rule := config.Spec.(*routing.RouteRule)
 	route := buildHTTPRouteMatch(rule.Match)
 
@@ -250,6 +250,12 @@ func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.P
 		// default route for the destination
 		cluster := BuildOutboundCluster(destination, port, nil, service.External())
 		route.Cluster = cluster.Name
+
+		v2clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", destination, port)
+		if envoyv2 {
+			route.Cluster = v2clusterName
+		}
+
 		route.Clusters = append(route.Clusters, cluster)
 	}
 
