@@ -759,20 +759,34 @@ workflows:
             - build
 
   envoyv2:
-    triggers:
-      - schedule:
+    jobs:
+      - dependencies:
           filters:
             branches:
               only:
                 - /envoyv2-.*/
-    jobs:
-      - dependencies
-      - lint
-      - build
-      - test
+      - lint:
+          filters:
+            branches:
+              only:
+                - /envoyv2-.*/
+      - build:
+          filters:
+            branches:
+              only:
+                - /envoyv2-.*/
+      - test:
+          filters:
+            branches:
+              only:
+                - /envoyv2-.*/              
       - e2e-pilot-noauth-v1alpha3-v2:
           requires:
             - build
+          filters:
+            branches:
+              only:
+                - /envoyv2-.*/
   all:
     jobs:
       - dependencies
