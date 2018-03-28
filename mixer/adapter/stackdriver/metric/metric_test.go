@@ -122,6 +122,38 @@ func TestFactory_NewMetricsAspect_Errs(t *testing.T) {
 	}
 }
 
+func TestMetricType(t *testing.T) {
+	cfg := &config.Params{
+		MetricInfo: map[string]*config.Params_MetricInfo{
+			"metric1": {
+				MetricType: "istio.io/metric1",
+			},
+			"metric2": {},
+		},
+	}
+	metrics := map[string]*metrict.Type{
+		"metric1": {},
+		"metric2": {},
+	}
+	b := &builder{createClient: clientFunc(nil)}
+	b.SetMetricTypes(metrics)
+	b.SetAdapterConfig(cfg)
+	env := test.NewEnv(t)
+	h, err := b.Build(context.Background(), env)
+	if err != nil {
+		t.Fatalf("Failed building metric handler: %v", err)
+	}
+
+	expected := map[string]bool{"istio.io/metric1": true, customMetricPrefix + "metric2": true}
+	got := make(map[string]bool)
+	for _, i := range h.(*handler).metricInfo {
+		got[i.ttype] = true
+	}
+	if !reflect.DeepEqual(expected, got) {
+		t.Errorf("Expected stackdriver metric types: %v, got %v", expected, got)
+	}
+}
+
 func TestRecord(t *testing.T) {
 	projectID := "pid"
 	resource := &monitoredres.MonitoredResource{
