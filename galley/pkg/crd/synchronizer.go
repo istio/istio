@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/util/workqueue"
 
 	"istio.io/istio/galley/pkg/change"
@@ -82,7 +83,7 @@ type SyncListener struct {
 // NewSynchronizer returns a new instance of a Synchronizer. The returned Synchronizer is not started: this
 // needs to be done explicitly using start()/Stop() methods.
 func NewSynchronizer(config *rest.Config, mapping Mapping, resyncPeriod time.Duration, listener SyncListener) (*Synchronizer, error) {
-	return newSynchronizer(config, mapping, resyncPeriod, listener, nil, getCustomResourceDefinitionsInterface)
+	return newSynchronizer(config, mapping, resyncPeriod, listener, nil, newCRDI)
 }
 
 type eventHookFn func(e interface{})
@@ -90,7 +91,7 @@ type eventHookFn func(e interface{})
 // NewSynchronizer returns a new instance of a Synchronizer. The returned Synchronizer is not started: this
 // needs to be done explicitly using start()/Stop() methods.
 func newSynchronizer(config *rest.Config, mapping Mapping, resyncPeriod time.Duration, listener SyncListener,
-	eventHook eventHookFn, crdiFn getCrdiFn) (*Synchronizer, error) {
+	eventHook eventHookFn, crdiFn newCRDIFn) (*Synchronizer, error) {
 
 	crdi, err := crdiFn(config)
 	if err != nil {
@@ -219,7 +220,9 @@ func (s *Synchronizer) process() {
 		}
 		log.Debugf("incoming item for processing: %v", item)
 
-		if s.processQueueItem(item) {
+		if info, ok := item.(*change.Info); !ok {
+			log.Errorf("Got a non-change item from the queue: %v", item)
+		} else if s.processChange(info) {
 			s.queue.Forget(item)
 			log.Debugf("item processing complete successfully: %v", item)
 		}
@@ -234,36 +237,12 @@ func (s *Synchronizer) process() {
 	s.waitForProcess.Done()
 }
 
-// processQueueItem is a panic-protected processor of work items.
-func (s *Synchronizer) processQueueItem(item interface{}) (result bool) {
-	reachedEnd := false
-	defer func() {
-		r := recover()
-		if !reachedEnd {
-			log.Errorf("panic in crd.Synchronizer.processChange: %v", r)
-			// TODO: This will cause the panic to keep recurring in a rate-limited way. This will cause many log
-			// entries, which would be helpful during initial dev cycle. Eventually we should  flip this to true,
-			// as we should not try to retry work that is causing the panic.
-			result = false
-		}
-	}()
-
-	if info, ok := item.(*change.Info); !ok {
-		log.Errorf("Got a non-change item from the queue: %v", item)
-		result = true
-	} else {
-		result = s.processChange(info)
-	}
-
-	reachedEnd = true
-	return
-}
-
 // processChange does the actual processing of a change notification. Returns true, if the rate-limiter should
 // forget the work and not reschedule again.
 func (s *Synchronizer) processChange(info *change.Info) (forget bool) {
 
-	sourceGv, destinationGv, found := s.mapping.GetGroupVersion(GroupOf(info.Name))
+	gr := schema.ParseGroupResource(info.Name)
+	sourceGv, destinationGv, found := s.mapping.GetGroupVersion(gr.Group)
 	if !found {
 		log.Debugf("skipping unrelated CRD change notification: '%v'", info.Name)
 		forget = true

@@ -12,6 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
+// Package change contains data structures for capturing resource state change related information.
 package change
 
 import (

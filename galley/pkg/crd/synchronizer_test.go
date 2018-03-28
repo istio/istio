@@ -36,7 +36,7 @@ import (
 )
 
 func TestSynchronizer_ClientSetError(t *testing.T) {
-	getCustomResourceDefinitionsInterface = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
+	newCRDI = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
 		return nil, errors.New("newForConfig error")
 	}
 
@@ -49,7 +49,7 @@ func TestSynchronizer_ClientSetError(t *testing.T) {
 func TestSynchronizer_DoubleStart(t *testing.T) {
 	iface := mock.NewInterface()
 	defer iface.Close()
-	getCustomResourceDefinitionsInterface = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
+	newCRDI = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
 		return iface, nil
 	}
 
@@ -78,7 +78,7 @@ func TestSynchronizer_DoubleStart(t *testing.T) {
 func TestSynchronizer_DoubleStop(t *testing.T) {
 	iface := mock.NewInterface()
 	defer iface.Close()
-	getCustomResourceDefinitionsInterface = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
+	newCRDI = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
 		return iface, nil
 	}
 
@@ -507,35 +507,6 @@ func TestSynchronizer_HandleEvent_Error(t *testing.T) {
 	expected := `
 LIST
 WATCH
-`
-	check(t, "Iface.Log", st.iface.String(), expected)
-
-	expected = `
-ADD: foos.g1, foo, foolist
-`
-	check(t, "Listener.Log", st.listener.String(), expected)
-}
-
-func TestSynchronizer_PanicInProcessorQueue(t *testing.T) {
-	st := newTestState(t)
-	defer st.Close()
-	setInitialDataAndStart(t, st)
-
-	i3 := i1Template.DeepCopy()
-	i3.ResourceVersion = "rv2"
-	i3.Labels = map[string]string{"foo": "bar"}
-
-	// First prime the interface to response with panic for the next call.
-	st.iface.AddPanicResponse("purple tigers!")
-
-	st.eventSync.Inc()
-	st.watch.Send(watch.Event{Type: watch.Deleted, Object: i3})
-	st.eventSync.wait()
-
-	expected := `
-LIST
-WATCH
-DELETE: foos.g2
 `
 	check(t, "Iface.Log", st.iface.String(), expected)
 

@@ -63,8 +63,7 @@ func NewMapping(forward map[schema.GroupVersion]schema.GroupVersion) (Mapping, e
 }
 
 // GetGroupVersion returns the GroupVersion mapping pairs for a given APIGroup.
-func (m Mapping) GetGroupVersion(
-	group string) (source, destination schema.GroupVersion, found bool) {
+func (m Mapping) GetGroupVersion(group string) (source, destination schema.GroupVersion, found bool) {
 
 	var sourceGroup string
 	var destinationGroup string

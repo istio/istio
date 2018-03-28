@@ -26,7 +26,7 @@ import (
 // GetAll returns all known CRDs
 func GetAll(config *rest.Config) ([]apiext.CustomResourceDefinition, error) {
 
-	crdi, err := getCustomResourceDefinitionsInterface(config)
+	crdi, err := newCRDI(config)
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +56,7 @@ func Purge(config *rest.Config, mapping Mapping) error {
 
 	var err error
 	var crdi v1beta1.CustomResourceDefinitionInterface
-	if crdi, err = getCustomResourceDefinitionsInterface(config); err != nil {
+	if crdi, err = newCRDI(config); err != nil {
 		return err
 	}
 

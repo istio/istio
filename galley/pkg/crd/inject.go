@@ -21,9 +21,9 @@ import (
 )
 
 // type for the getCustomResourceDefinitionInterface. Testable code uses this to inject mocks.
-type getCrdiFn func(config *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error)
+type newCRDIFn func(config *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error)
 
-var getCustomResourceDefinitionsInterface = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
+var newCRDI = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
 	c, err := clientset.NewForConfig(cfg)
 	if err != nil {
 		return nil, err

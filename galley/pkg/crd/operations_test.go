@@ -30,7 +30,7 @@ import (
 )
 
 func TestGetAll_Error(t *testing.T) {
-	getCustomResourceDefinitionsInterface = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
+	newCRDI = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
 		return nil, errors.New("newForConfig error")
 	}
 
@@ -43,7 +43,7 @@ func TestGetAll_Error(t *testing.T) {
 func TestGetAll_Simple(t *testing.T) {
 	i := mock.NewInterface()
 	defer i.Close()
-	getCustomResourceDefinitionsInterface = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
+	newCRDI = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
 		return i, nil
 	}
 
@@ -69,7 +69,7 @@ func TestGetAll_Simple(t *testing.T) {
 func TestGetAll_Empty(t *testing.T) {
 	i := mock.NewInterface()
 	defer i.Close()
-	getCustomResourceDefinitionsInterface = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
+	newCRDI = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
 		return i, nil
 	}
 
@@ -88,7 +88,7 @@ func TestGetAll_Empty(t *testing.T) {
 func TestGetAll_ListError(t *testing.T) {
 	i := mock.NewInterface()
 	defer i.Close()
-	getCustomResourceDefinitionsInterface = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
+	newCRDI = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
 		return i, nil
 	}
 
@@ -103,7 +103,7 @@ func TestGetAll_ListError(t *testing.T) {
 func TestGetAll_Continuation(t *testing.T) {
 	i := mock.NewInterface()
 	defer i.Close()
-	getCustomResourceDefinitionsInterface = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
+	newCRDI = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
 		return i, nil
 	}
 
@@ -138,7 +138,7 @@ func TestGetAll_Continuation(t *testing.T) {
 func TestPurge_ListError(t *testing.T) {
 	i := mock.NewInterface()
 	defer i.Close()
-	getCustomResourceDefinitionsInterface = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
+	newCRDI = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
 		return i, nil
 	}
 
@@ -151,7 +151,7 @@ func TestPurge_ListError(t *testing.T) {
 }
 
 func TestPurge_ClientError(t *testing.T) {
-	getCustomResourceDefinitionsInterface = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
+	newCRDI = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
 		return nil, errors.New("some error")
 	}
 
@@ -164,7 +164,7 @@ func TestPurge_ClientError(t *testing.T) {
 func TestPurge(t *testing.T) {
 	i := mock.NewInterface()
 	defer i.Close()
-	getCustomResourceDefinitionsInterface = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
+	newCRDI = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
 		return i, nil
 	}
 
@@ -202,7 +202,7 @@ DELETE: bar.g2`
 func TestPurge_DeleteError(t *testing.T) {
 	i := mock.NewInterface()
 	defer i.Close()
-	getCustomResourceDefinitionsInterface = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
+	newCRDI = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
 		return i, nil
 	}
 
@@ -231,7 +231,7 @@ func TestPurge_DeleteError(t *testing.T) {
 func TestPurge_Originals(t *testing.T) {
 	i := mock.NewInterface()
 	defer i.Close()
-	getCustomResourceDefinitionsInterface = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
+	newCRDI = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
 		return i, nil
 	}
 
