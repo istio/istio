@@ -41,7 +41,6 @@ func (r *fakeKeyCertRetriever) Retrieve(_ *pkiutil.CertOptions) (newCert, certCh
 }
 
 func TestNewKeyCertBundleRotator(t *testing.T) {
-
 	testCases := map[string]struct {
 		config      *Config
 		expectedErr string
@@ -52,6 +51,8 @@ func TestNewKeyCertBundleRotator(t *testing.T) {
 		},
 		"onprem env": {
 			config: &Config{
+				RootCertFile:  "../platform/testdata/cert-root-good.pem",
+				KeyFile:       "../platform/testdata/key-from-root-good.pem",
 				CertChainFile: "../platform/testdata/cert-chain-good.pem",
 				Env:           "onprem",
 			},
@@ -59,6 +60,8 @@ func TestNewKeyCertBundleRotator(t *testing.T) {
 		},
 		"unspecified env": {
 			config: &Config{
+				RootCertFile:  "../platform/testdata/cert-root-good.pem",
+				KeyFile:       "../platform/testdata/key-from-root-good.pem",
 				CertChainFile: "../platform/testdata/cert-chain-good.pem",
 				Env:           "unspecified",
 			},
