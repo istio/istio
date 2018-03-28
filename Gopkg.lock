@@ -264,7 +264,7 @@
     "pkg/server",
     "pkg/util"
   ]
-  revision = "aa344ee5f4fff239fadab634413ca6764025511c"
+  revision = "9fdf4bd79736a87c78b3d48b7baa84ea24be1c1a"
 
 [[projects]]
   name = "github.com/fluent/fluent-logger-golang"
@@ -1215,7 +1215,7 @@
     "rbac/v1alpha1",
     "routing/v1alpha1"
   ]
-  revision = "64e9770daf900edc2a50fc4c57793f370cfdaf75"
+  revision = "47ab2f5893cfec02da3c2ec9776406a875b63ab6"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1513,6 +1513,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "0998474db4d29e59a52fff3e808f5aeff315b986099e8738dfe38173c2340d4e"
+  inputs-digest = "6abb0fcd11142dab68f9b741450f03eba604f983f73387ec952e996c7ef6333a"
   solver-name = "gps-cdcl"
   solver-version = 1
