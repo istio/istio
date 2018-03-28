@@ -168,6 +168,7 @@ const (
 	IstioIngressNamespace = "istio-system"
 )
 
+// IstioIngressWorkloadLabels is the label assigned to Istio ingress pods
 var IstioIngressWorkloadLabels = map[string]string{"istio": "ingress"}
 
 // DefaultProxyConfig for individual proxies

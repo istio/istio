@@ -159,7 +159,8 @@ func decodeIngressRuleName(name string) (ingressName string, ruleNum, pathNum in
 	return
 }
 
-func convertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) (model.Config, model.Config) {
+// ConvertIngressV1alpha3 converts from ingress spec to Istio Gateway + VirtualServices
+func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) (model.Config, model.Config) {
 
 	gateway := &networking.Gateway{
 		Selector: model.IstioIngressWorkloadLabels,

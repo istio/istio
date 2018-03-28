@@ -86,7 +86,7 @@ func buildGatewayListeners(env model.Environment, node model.Proxy) ([]*xdsapi.L
 				env:              env,
 				proxy:            node,
 				proxyInstances:   nil, // only required to support deprecated mixerclient behavior
-				routeConfig:      buildGatewayInboundHTTPRouteConfig(env, node, name, server),
+				routeConfig:      buildGatewayInboundHTTPRouteConfig(env, name, server),
 				ip:               WildcardAddress,
 				port:             int(server.Port.Number),
 				rds:              "",
@@ -111,13 +111,12 @@ func buildGatewayListeners(env model.Environment, node model.Proxy) ([]*xdsapi.L
 	return listeners, nil
 }
 
-func applyGatewayTLSContext(listener *xdsapi.Listener, server *networking.Server) {
+func applyGatewayTLSContext(_ *xdsapi.Listener, _ *networking.Server) {
 	// TODO
-	return
 }
 
-func buildGatewayInboundHTTPRouteConfig(env model.Environment, node model.Proxy,
-	gatewayName string, server *networking.Server) *xdsapi.RouteConfiguration {
+func buildGatewayInboundHTTPRouteConfig(env model.Environment, gatewayName string,
+	server *networking.Server) *xdsapi.RouteConfiguration {
 	// TODO WE DO NOT SUPPORT two gateways on same workload binding to same virtual service
 	virtualServices := env.VirtualServices([]string{gatewayName})
 
