@@ -166,6 +166,12 @@ func (mb *MutableBag) Set(name string, value interface{}) {
 	mb.values[name] = value
 }
 
+// Delete removes a named item from the local state.
+// The item may still be present higher in the hierarchy
+func (mb *MutableBag) Delete(name string) {
+	delete(mb.values, name)
+}
+
 // Reset removes all local state.
 func (mb *MutableBag) Reset() {
 	mb.values = make(map[string]interface{})
