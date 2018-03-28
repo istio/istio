@@ -7,6 +7,25 @@
     - webhook-create-signed-cert.sh
     - webhook-patch-ca-bundle.sh
 
+- block:
+    - name: Replace kubectl with oc
+      replace:
+        path: "{{ istio_dir }}/install/kubernetes/{{ item }}"
+        regexp: kubectl
+        replace: oc
+      with_items:
+        - webhook-create-signed-cert.sh
+        - webhook-patch-ca-bundle.sh
+    - name: Replace oc certificate with oc adm certificate
+      replace:
+        path: "{{ istio_dir }}/install/kubernetes/{{ item }}"
+        regexp: oc certificate
+        replace: oc adm certificate
+      with_items:
+        - webhook-create-signed-cert.sh
+        - webhook-patch-ca-bundle.sh
+  when: cluster_flavour == 'ocp'
+
 - name: Create signed certificate
   shell: "{{ istio_dir }}/install/kubernetes/webhook-create-signed-cert.sh --service istio-sidecar-injector --namespace istio-system --secret sidecar-injector-certs"
 
