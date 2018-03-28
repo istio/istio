@@ -2,6 +2,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   name: destinationpolicies.config.istio.io
+  namespace: {{ .Release.Namespace }}
   labels:
     app: istio-pilot
 spec:
@@ -18,6 +19,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   name: egressrules.config.istio.io
+  namespace: {{ .Release.Namespace }}
   labels:
     app: istio-pilot
 spec:
@@ -34,6 +36,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   name: routerules.config.istio.io
+  namespace: {{ .Release.Namespace }}
   labels:
     app: istio-pilot
 spec:
@@ -50,6 +53,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   name: virtualservices.networking.istio.io
+  namespace: {{ .Release.Namespace }}
   labels:
     app: istio-pilot
 spec:
@@ -66,6 +70,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   name: destinationrules.networking.istio.io
+  namespace: {{ .Release.Namespace }}
   labels:
     app: istio-pilot
 spec:
@@ -82,6 +87,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   name: externalservices.networking.istio.io
+  namespace: {{ .Release.Namespace }}
   labels:
     app: istio-pilot
 spec:

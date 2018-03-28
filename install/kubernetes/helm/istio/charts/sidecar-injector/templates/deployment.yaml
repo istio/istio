@@ -2,6 +2,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: istio-sidecar-injector
+  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "sidecar-injector.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
