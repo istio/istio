@@ -119,6 +119,7 @@ func (s *DiscoveryServer) StreamListeners(stream xdsapi.ListenerDiscoveryService
 			if err != nil {
 				return err
 			}
+			node = nt
 			if initialRequestReceived {
 				if discReq.ErrorDetail != nil {
 					log.Warnf("LDS: ACK ERROR %v %s %v", peerAddr, nt.ID, discReq.String())
@@ -129,10 +130,6 @@ func (s *DiscoveryServer) StreamListeners(stream xdsapi.ListenerDiscoveryService
 				continue
 			}
 			initialRequestReceived = true
-			node.ID = discReq.Node.Id
-			node.Type = nt.Type
-			node.IPAddress = nt.IPAddress
-
 			nodeID = nt.ID
 			con.Node = nodeID
 			addLdsCon(nodeID, con)
