@@ -128,9 +128,10 @@ func buildLegacyIngressListeners(env model.Environment, node model.Proxy) ([]*xd
 		routeConfig:      nil,
 		ip:               WildcardAddress,
 		port:             80,
-		rds:              "80",
+		rds:              ":80",
 		useRemoteAddress: true,
 		direction:        http_conn.EGRESS,
+		bindToPort: true,
 	}
 
 	listeners := []*xdsapi.Listener{buildHTTPListener(opts)}
@@ -142,7 +143,7 @@ func buildLegacyIngressListeners(env model.Environment, node model.Proxy) ([]*xd
 	_, secret := deprecated.BuildIngressRoutes(mesh, node, proxyInstances, env.ServiceDiscovery, config)
 	if secret != "" {
 		opts.port = 443
-		opts.rds = "443"
+		opts.rds = ":443"
 
 		l := buildHTTPListener(opts)
 		// there is going to be only one filter chain
