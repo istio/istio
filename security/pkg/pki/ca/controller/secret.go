@@ -150,6 +150,11 @@ func (sc *SecretController) Run(stopCh chan struct{}) {
 	go sc.saController.Run(stopCh)
 }
 
+// GetSecretName returns the secret name for a given service account name.
+func GetSecretName(saName string) string {
+	return secretNamePrefix + saName
+}
+
 // Handles the event where a service account is added.
 func (sc *SecretController) saAdded(obj interface{}) {
 	acct := obj.(*v1.ServiceAccount)
@@ -353,8 +358,4 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 			log.Errorf("Failed to update secret %s/%s (error: %s)", namespace, name, err)
 		}
 	}
-}
-
-func GetSecretName(saName string) string {
-	return secretNamePrefix + saName
 }
