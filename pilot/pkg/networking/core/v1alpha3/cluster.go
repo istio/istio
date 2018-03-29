@@ -49,7 +49,7 @@ const (
 // For outbound: Cluster for each service/subset hostname or cidr with SNI set to service hostname
 // Cluster type based on resolution
 // For inbound (sidecar only): Cluster for each inbound endpoint port and for each service port
-func BuildClusters(env model.Environment, proxy model.Proxy) ([]*v2.Cluster, error) {
+func (_ *ConfigGeneratorImpl) BuildClusters(env model.Environment, proxy model.Proxy) ([]*v2.Cluster, error) {
 	clusters := make([]*v2.Cluster, 0)
 
 	services, err := env.Services()

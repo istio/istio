@@ -21,25 +21,22 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 )
 
-// Networking represents the interfaces to be implemented by code that generates xDS responses
-type Networking struct {
+// ConfigGenerator represents the interfaces to be implemented by code that generates xDS responses
+type ConfigGenerator interface {
 	// BuildListeners returns the list of listeners for the given proxy. This is the LDS output
 	// Internally, the computation will be optimized to ensure that listeners are computed only
 	// once and shared across multiple invocations of this function.
-	BuildListeners func(env model.Environment, node model.Proxy) ([]*v2.Listener, error)
+	BuildListeners(env model.Environment, node model.Proxy) ([]*v2.Listener, error)
 
 	// BuildClusters returns the list of clusters for the given proxy. This is the CDS output
-	BuildClusters func(env model.Environment, node model.Proxy) ([]*v2.Cluster, error)
+	BuildClusters(env model.Environment, node model.Proxy) ([]*v2.Cluster, error)
 
 	// BuildRoutes returns the list of routes for the given proxy. This is the RDS output
-	BuildRoutes func(env model.Environment, node model.Proxy, routeName string) ([]*v2.RouteConfiguration, error)
+	BuildRoutes(env model.Environment, node model.Proxy, routeName string) ([]*v2.RouteConfiguration, error)
 }
 
-
-// NewNetworkConfiguration creates a new instance of the dataplane configuration generator
-func NewNetworkConfiguration() *Networking {
-	return &Networking{
-		BuildListeners: v1alpha3.BuildListeners,
-		BuildClusters:  v1alpha3.BuildClusters,
-	}
+// NewConfigGenerator creates a new instance of the dataplane configuration generator
+func NewConfigGenerator() *ConfigGenerator {
+	foo := v1alpha3.NewConfigGenerator()
+	return foo
 }

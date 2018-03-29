@@ -65,4 +65,3 @@ func newAuthPlugin() *PluginCallbacks {
 		OnOutboundCluster: authn.HandleOutboundCluster,
 	}
 }
-
