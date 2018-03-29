@@ -1,4 +1,4 @@
-{{- define "mixer_containers" }}
+{{- define "policy_container" }}
     spec:
       serviceAccountName: istio-mixer-service-account
       volumes:
@@ -25,6 +25,8 @@
         resources:
 {{ toYaml $.Values.resources | indent 12 }}
       - name: istio-proxy
+        command:
+        - /usr/local/bin/mixer_bootstrap.sh
         image: "{{ $.Values.global.hub }}/{{ $.Values.global.proxy.image }}:{{ $.Values.global.tag }}"
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
@@ -36,13 +38,108 @@
         - --controlPlaneAuthPolicy
         - MUTUAL_TLS
         - --customConfigFile
-        - /etc/istio/proxy/envoy_mixer_auth.json
+        - /etc/istio/proxy/envoy_istio_policy_auth.json
       {{- else }}
         - --controlPlaneAuthPolicy
         - NONE
         - --customConfigFile
-        - /etc/istio/proxy/envoy_mixer.json
+        - /etc/istio/proxy/envoy_istio_policy.json
       {{- end }}
+        - --zipkinAddress
+        - zipkin.istio-system:9411
+        - --serviceCluster      
+        - istio-policy
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.podIP
+        resources:
+{{ toYaml $.Values.global.proxy.resources | indent 12 }}
+        volumeMounts:
+        - name: istio-certs
+          mountPath: /etc/certs
+          readOnly: true
+{{- end }}
+
+{{- define "telemetry_container" }}
+    spec:
+      serviceAccountName: istio-mixer-service-account
+      volumes:
+      - name: istio-certs
+        secret:
+          secretName: istio.istio-mixer-service-account
+          optional: true
+    {{- if $.Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml $.Values.nodeSelector | indent 8 }}
+    {{- end }}
+      containers:
+      - name: mixer
+        image: "{{ $.Values.global.hub }}/mixer:{{ $.Values.global.tag }}"
+        imagePullPolicy: {{ $.Values.imagePullPolicy }}
+        ports:
+        - containerPort: 9091
+        - containerPort: 9093
+        - containerPort: 42422
+        args:
+          - --configStoreURL=k8s://
+          - --configDefaultNamespace={{ $.Release.Namespace }}
+          - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
+        resources:
+{{ toYaml $.Values.resources | indent 12 }}
+      - name: istio-proxy
+        command:
+        - /usr/local/bin/mixer_bootstrap.sh
+        image: "{{ $.Values.global.hub }}/{{ $.Values.global.proxy.image }}:{{ $.Values.global.tag }}"
+        imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
+        ports:
+        - containerPort: 15004
+        args:
+        - proxy
+        - mixer
+      {{- if $.Values.global.controlPlaneSecurityEnabled }}
+        - --controlPlaneAuthPolicy
+        - MUTUAL_TLS
+        - --customConfigFile
+        - /etc/istio/proxy/envoy_istio_telemetry_auth.json
+      {{- else }}
+        - --controlPlaneAuthPolicy
+        - NONE
+        - --customConfigFile
+        - /etc/istio/proxy/envoy_istio_telemetry.json
+      {{- end }}
+        - --zipkinAddress
+        - zipkin.istio-system:9411
+        - --serviceCluster      
+        - istio-telemetry
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.podIP
         resources:
 {{ toYaml $.Values.global.proxy.resources | indent 12 }}
         volumeMounts:
@@ -52,7 +149,7 @@
 {{- end }}
 
 
-{{-  $mixers := list "policy" "telemetry" }}
+{{- $mixers := list "policy" "telemetry" }}
 {{- range $idx, $mname := $mixers }}
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -72,7 +169,11 @@ spec:
         istio-mixer-type: {{ $mname }}
       annotations:
         sidecar.istio.io/inject: "false"
-{{- template "mixer_containers" $ }}
+{{- if eq $mname "policy"}}
+{{- template "policy_container" $ }}
+{{- else }}
+{{- template "telemetry_container" $ }}
+{{- end }}
 
 ---
 {{- end }} {{/* range */}}
