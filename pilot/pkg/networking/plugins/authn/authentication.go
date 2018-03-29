@@ -22,8 +22,8 @@ import (
 
 	authn "istio.io/api/authentication/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/networking/plugins"
 )
 
 const (
@@ -34,8 +34,8 @@ const (
 )
 
 // NewPlugin initializes the plugin
-func NewPlugin() *networking.PluginCallbacks {
-	return &networking.PluginCallbacks{
+func NewPlugin() *plugins.PluginCallbacks {
+	return &plugins.PluginCallbacks{
 		OnOutboundCluster: HandleOutboundCluster,
 	}
 }

@@ -33,7 +33,7 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/gogo/protobuf/types"
 
-	"istio.io/istio/pilot/pkg/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pkg/log"
 )
 

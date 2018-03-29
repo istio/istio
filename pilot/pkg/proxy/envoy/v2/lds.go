@@ -33,7 +33,7 @@ import (
 	"fmt"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pkg/log"
 )
 
