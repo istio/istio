@@ -39,6 +39,9 @@ type (
 		Instances map[string]*Instance
 		Rules     []*Rule
 
+		Templates2 map[string]*TemplateMetadata
+		Adapters2  map[string]*AdapterMetadata
+
 		// Perf Counters relevant to configuration.
 		Counters Counters
 	}

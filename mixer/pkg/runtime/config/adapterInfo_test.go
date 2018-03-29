@@ -21,7 +21,7 @@
 //go:generate protoc testdata/reqOptionTmplNameNotFound.proto -otestdata/reqOptionTmplNameNotFound.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
 //go:generate protoc testdata/foo.proto testdata/bar.proto -otestdata/badfoobar.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
 
-package registry
+package config
 
 import (
 	"bytes"
@@ -44,16 +44,16 @@ type testdata struct {
 	wantTmpls []string
 }
 
-func TestNew(t *testing.T) {
+var fooTmpl = getFileDescSetBase64("testdata/foo.descriptor")
+var barTmpl = getFileDescSetBase64("testdata/bar.descriptor")
+var bazTmpl = getFileDescSetBase64("testdata/baz.descriptor")
+var badfoobarTmpl = getFileDescSetBase64("testdata/badfoobar.descriptor")
+var unsupportedPkgNameTmpl = getFileDescSetBase64("testdata/unsupportedPkgName.descriptor")
+var reqOptionTmplNameNotFoundTmpl = getFileDescSetBase64("testdata/reqOptionTmplNameNotFound.descriptor")
+var reqOptionNotFoundTmpl = getFileDescSetBase64("testdata/reqOptionNotFound.descriptor")
+var notFileDescriptorSet = getFileDescSetBase64("testdata/foo.proto")
 
-	fooTmpl := getFileDescSetBase64("testdata/foo.descriptor")
-	barTmpl := getFileDescSetBase64("testdata/bar.descriptor")
-	bazTmplStr := getFileDescSetBase64("testdata/baz.descriptor")
-	badfoobarTmpl := getFileDescSetBase64("testdata/badfoobar.descriptor")
-	unsupportedPkgNameTmpl := getFileDescSetBase64("testdata/unsupportedPkgName.descriptor")
-	reqOptionTmplNameNotFoundTmpl := getFileDescSetBase64("testdata/reqOptionTmplNameNotFound.descriptor")
-	reqOptionNotFoundTmpl := getFileDescSetBase64("testdata/reqOptionNotFound.descriptor")
-	notFileDescriptorSet := getFileDescSetBase64("testdata/foo.proto")
+func TestNew(t *testing.T) {
 
 	for _, td := range []testdata{
 		{
@@ -65,7 +65,7 @@ func TestNew(t *testing.T) {
 				},
 				{
 					Name:      "a2",
-					Templates: []string{bazTmplStr},
+					Templates: []string{bazTmpl},
 				},
 				{
 					Name:      "a3",
@@ -99,7 +99,7 @@ func TestNew(t *testing.T) {
 				},
 				{
 					Name:      "",
-					Templates: []string{bazTmplStr},
+					Templates: []string{bazTmpl},
 				},
 			},
 			wantTmpls: []string{"foo", "bar", "baz"},
@@ -223,8 +223,12 @@ func TestNew(t *testing.T) {
 		},
 	} {
 		t.Run(td.name, func(t *testing.T) {
-			reg, err := New(td.infos)
-			r := reg.(*registry)
+			infos := make([]*adapter.Info, len(td.infos))
+			for i, info := range td.infos {
+				infoCpy := info
+				infos[i] = &infoCpy
+			}
+			reg, err := NewAdapterInfoRegistry(infos)
 			if len(td.wantErrs) == 0 {
 				if err != nil {
 					t.Fatalf("want no error got '%v;", err)
@@ -249,26 +253,26 @@ func TestNew(t *testing.T) {
 			}
 
 			// Ensure infos match
-			if len(r.adapters) != len(td.wantInfos) {
-				t.Errorf("want %d infos with names '%v'; got %d as '%v'",
-					len(td.wantInfos), td.wantInfos, len(r.adapters), r.adapters)
+			if len(reg.adapters) != len(td.wantInfos) {
+				t.Fatalf("want %d infos with names '%v'; got %d as '%v'",
+					len(td.wantInfos), td.wantInfos, len(reg.adapters), reg.adapters)
 			}
 			for k, wantSupTmpls := range td.wantInfos {
-				if adptMeta, ok := r.adapters[k]; !ok {
-					t.Errorf("want info '%s' to be present; got '%v'", k, r.adapters)
+				if adptMeta, ok := reg.adapters[k]; !ok {
+					t.Errorf("want info '%s' to be present; got '%v'", k, reg.adapters)
 				} else if !reflect.DeepEqual(wantSupTmpls, adptMeta.SupportedTemplates) {
 					t.Errorf("want supported templates for info '%s' to be '%v'; got '%v'", k, wantSupTmpls, adptMeta.SupportedTemplates)
 				}
 			}
 
 			// Ensure templates match
-			if len(r.templates) != len(td.wantTmpls) {
-				t.Errorf("want %d templates with names '%v'; got %d as '%v'",
-					len(td.wantTmpls), td.wantTmpls, len(r.templates), r.templates)
+			if len(reg.templates) != len(td.wantTmpls) {
+				t.Fatalf("want %d templates with names '%v'; got %d as '%v'",
+					len(td.wantTmpls), td.wantTmpls, len(reg.templates), reg.templates)
 			}
 			for _, wantTmpl := range td.wantTmpls {
-				if _, ok := r.templates[wantTmpl]; !ok {
-					t.Errorf("want template '%s' to be present; got '%v'", wantTmpl, r.templates)
+				if _, ok := reg.templates[wantTmpl]; !ok {
+					t.Errorf("want template '%s' to be present; got '%v'", wantTmpl, reg.templates)
 				}
 			}
 		})

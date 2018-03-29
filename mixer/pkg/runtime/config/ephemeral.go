@@ -15,6 +15,7 @@
 package config
 
 import (
+	"istio.io/api/mixer/adapter/model/v1beta1"
 	config "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
@@ -109,12 +110,16 @@ func (e *Ephemeral) BuildSnapshot() *Snapshot {
 
 	instances := e.processInstanceConfigs(counters)
 
+	adapterInfos := e.processAdapterInfoConfigs(counters)
+
 	rules := e.processRuleConfigs(handlers, instances, counters)
 
 	s := &Snapshot{
 		ID:         id,
 		Templates:  e.templates,
 		Adapters:   e.adapters,
+		Templates2: adapterInfos.templates,
+		Adapters2:  adapterInfos.adapters,
 		Attributes: ast.NewFinder(attributes),
 		Handlers:   handlers,
 		Instances:  instances,
@@ -227,6 +232,33 @@ func (e *Ephemeral) processInstanceConfigs(counters Counters) map[string]*Instan
 
 	counters.instanceConfig.Add(float64(len(instances)))
 	return instances
+}
+
+func (e *Ephemeral) processAdapterInfoConfigs(counters Counters) *adapterInfoRegistry {
+
+	log.Debug("Begin processing adapter info configurations.")
+
+	var adapterInfos []*v1beta1.Info
+
+	for adapterInfoKey, resource := range e.entries {
+		if adapterInfoKey.Kind != AdapterKind {
+			continue
+		}
+		counters.adapterInfoConfig.Add(1)
+		cfg := resource.Spec.(*v1beta1.Info)
+		log.Debugf("Processing incoming adapter info: name='%s'\n%s", adapterInfoKey.String(), cfg)
+		adapterInfos = append(adapterInfos, cfg)
+	}
+
+	log.Debugf("Total received adapter info: count=%d, value='%v'", len(adapterInfos), adapterInfos)
+	reg, err := NewAdapterInfoRegistry(adapterInfos)
+	if err != nil {
+		log.Errorf("Error when reading adapter info='%v'", err)
+		counters.adapterInfoConfigError.Inc()
+	}
+	log.Debugf("Total successfully ingested templates: count=%d, value='%v'", len(reg.templates), reg.templates)
+	log.Debugf("Total successfully ingested adapters: count=%d, value='%v'", len(reg.adapters), reg.adapters)
+	return reg
 }
 
 func (e *Ephemeral) processRuleConfigs(

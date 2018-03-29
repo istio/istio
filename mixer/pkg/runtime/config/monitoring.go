@@ -59,7 +59,21 @@ var (
 		Namespace: "mixer",
 		Subsystem: "config",
 		Name:      "rule_config_error_count",
-		Help:      "The number of errors encountered during processing of the rule configuration.",
+		Help:      "The number of errors encountered during processing of the adapter info configuration.",
+	}, standardConfigLabels)
+
+	adapterInfoConfigCount = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "mixer",
+		Subsystem: "config",
+		Name:      "adapter_info_config_count",
+		Help:      "The number of known instances in the current config.",
+	}, standardConfigLabels)
+
+	adapterInfoConfigErrorCount = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "mixer",
+		Subsystem: "config",
+		Name:      "adapter_info_config_error_count",
+		Help:      "The number of errors encountered during processing of the adapter info configuration.",
 	}, standardConfigLabels)
 
 	matchErrorCount = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -83,6 +97,8 @@ func init() {
 	prometheus.MustRegister(instanceConfigCount)
 	prometheus.MustRegister(ruleConfigCount)
 	prometheus.MustRegister(ruleConfigErrorCount)
+	prometheus.MustRegister(adapterInfoConfigCount)
+	prometheus.MustRegister(adapterInfoConfigErrorCount)
 	prometheus.MustRegister(matchErrorCount)
 	prometheus.MustRegister(unsatisfiedActionHandlerCount)
 }
@@ -90,11 +106,13 @@ func init() {
 // Counters is the configuration related performance Counters. Other parts of the code can depend
 // on some of the Counters here as well.
 type Counters struct {
-	attributes      prometheus.Counter
-	handlerConfig   prometheus.Counter
-	instanceConfig  prometheus.Counter
-	ruleConfig      prometheus.Counter
-	ruleConfigError prometheus.Counter
+	attributes             prometheus.Counter
+	handlerConfig          prometheus.Counter
+	instanceConfig         prometheus.Counter
+	ruleConfig             prometheus.Counter
+	ruleConfigError        prometheus.Counter
+	adapterInfoConfig      prometheus.Counter
+	adapterInfoConfigError prometheus.Counter
 
 	// Externally visible counters
 	MatchErrors               prometheus.Counter
@@ -106,12 +124,13 @@ func newCounters(id int64) Counters {
 		configID: strconv.FormatInt(id, 10),
 	}
 	return Counters{
-		attributes:      attributeCount.With(labels),
-		handlerConfig:   handlerConfigCount.With(labels),
-		instanceConfig:  instanceConfigCount.With(labels),
-		ruleConfig:      ruleConfigCount.With(labels),
-		ruleConfigError: ruleConfigErrorCount.With(labels),
-
+		attributes:                attributeCount.With(labels),
+		handlerConfig:             handlerConfigCount.With(labels),
+		instanceConfig:            instanceConfigCount.With(labels),
+		ruleConfig:                ruleConfigCount.With(labels),
+		ruleConfigError:           ruleConfigErrorCount.With(labels),
+		adapterInfoConfig:         adapterInfoConfigCount.With(labels),
+		adapterInfoConfigError:    adapterInfoConfigErrorCount.With(labels),
 		MatchErrors:               matchErrorCount.With(labels),
 		UnsatisfiedActionHandlers: unsatisfiedActionHandlerCount.With(labels),
 	}

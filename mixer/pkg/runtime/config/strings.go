@@ -52,6 +52,17 @@ func (s *Snapshot) String() string {
 	fmt.Fprintln(b, "Rules:")
 	writeRules(b, s.Rules)
 
+	if len(s.Adapters2) != 0 {
+		fmt.Fprintln(b, "AdapterMetadata:")
+		writeAdapterMetadatas(b, s.Adapters2)
+
+	}
+
+	if len(s.Templates2) != 0 {
+		fmt.Fprintln(b, "TemplateMetadata:")
+		writeTemplateMetadatas(b, s.Templates2)
+	}
+
 	fmt.Fprintf(b, "%v", s.Attributes)
 
 	str := b.String()
@@ -159,6 +170,39 @@ func writeRules(w io.Writer, rules []*Rule) {
 
 		fmt.Fprintln(w, "  Actions:")
 		writeActions(w, r.Actions)
+	}
+}
+
+func writeAdapterMetadatas(w io.Writer, adapters map[string]*AdapterMetadata) {
+	names := make([]string, 0, len(adapters))
+	for k := range adapters {
+		names = append(names, k)
+	}
+	sort.Strings(names)
+
+	for _, n := range names {
+		a := adapters[n]
+
+		fmt.Fprintf(w, "  Name:      %s", a.Info.Name)
+		fmt.Fprintln(w)
+
+		fmt.Fprintf(w, "  Templates: %s", a.SupportedTemplates)
+		fmt.Fprintln(w)
+	}
+}
+
+func writeTemplateMetadatas(w io.Writer, templates map[string]*TemplateMetadata) {
+	names := make([]string, 0, len(templates))
+	for k := range templates {
+		names = append(names, k)
+	}
+	sort.Strings(names)
+
+	for _, n := range names {
+		a := templates[n]
+
+		fmt.Fprintf(w, "  Name:      %s", a.Name)
+		fmt.Fprintln(w)
 	}
 }
 

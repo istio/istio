@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package registry
+package config
 
 import (
 	"fmt"
@@ -44,23 +44,23 @@ type AdapterMetadata struct {
 	SupportedTemplates []string
 }
 
-// Registry to find metadata about templates and adapters
-type Registry interface {
+// AdapterInfoRegistry to find metadata about templates and adapters
+type AdapterInfoRegistry interface {
 	GetAdapter(name string) *AdapterMetadata
 	GetTemplate(name string) *TemplateMetadata
 }
 
-// registry to ingest templates and adapters. It is single threaded.
-type registry struct {
+// adapterInfoRegistry to ingest templates and adapters. It is single threaded.
+type adapterInfoRegistry struct {
 	adapters  map[string]*AdapterMetadata
 	templates map[string]*TemplateMetadata
 }
 
-// New creates a `Registry` from given adapter infos.
+// New creates a `AdapterInfoRegistry` from given adapter infos.
 // Note: For adding built-in templates that are not associated with any adapters, supply the `Info` object with
 // only `templates`, leaving other fields to default empty.
-func New(infos []adapter.Info) (Registry, error) {
-	r := &registry{make(map[string]*AdapterMetadata), make(map[string]*TemplateMetadata)}
+func NewAdapterInfoRegistry(infos []*adapter.Info) (*adapterInfoRegistry, error) {
+	r := &adapterInfoRegistry{make(map[string]*AdapterMetadata), make(map[string]*TemplateMetadata)}
 	var resultErr error
 	log.Debugf("registering %#v", infos)
 
@@ -80,7 +80,7 @@ func New(infos []adapter.Info) (Registry, error) {
 
 		// empty adapter name means just the template needs to be ingested.
 		if info.Name != "" {
-			r.adapters[info.Name] = &AdapterMetadata{Info: &info, SupportedTemplates: tmplNames}
+			r.adapters[info.Name] = &AdapterMetadata{Info: info, SupportedTemplates: tmplNames}
 		}
 	}
 
@@ -92,7 +92,7 @@ func New(infos []adapter.Info) (Registry, error) {
 }
 
 // GetAdapterInfo returns a AdapterMetadata for a adapter with the given name.
-func (r *registry) GetAdapter(name string) *AdapterMetadata {
+func (r *adapterInfoRegistry) GetAdapter(name string) *AdapterMetadata {
 	if bi, found := r.adapters[name]; found {
 		return bi
 	}
@@ -100,7 +100,7 @@ func (r *registry) GetAdapter(name string) *AdapterMetadata {
 }
 
 // GetTemplate returns a TemplateMetadata for a template with the given name.
-func (r *registry) GetTemplate(name string) *TemplateMetadata {
+func (r *adapterInfoRegistry) GetTemplate(name string) *TemplateMetadata {
 	if bi, found := r.templates[name]; found {
 		return bi
 	}
@@ -108,7 +108,7 @@ func (r *registry) GetTemplate(name string) *TemplateMetadata {
 	return nil
 }
 
-func (r *registry) ingestTemplates(tmpls []string) ([]string, error) {
+func (r *adapterInfoRegistry) ingestTemplates(tmpls []string) ([]string, error) {
 	var resultErr error
 	templates := make([]*TemplateMetadata, 0, len(tmpls))
 	for _, tmpl := range tmpls {
@@ -133,7 +133,7 @@ func (r *registry) ingestTemplates(tmpls []string) ([]string, error) {
 	return tmplNames, resultErr
 }
 
-func (r *registry) createTemplateMetadata(base64Tmpl string) (*TemplateMetadata, error) {
+func (r *adapterInfoRegistry) createTemplateMetadata(base64Tmpl string) (*TemplateMetadata, error) {
 	var bytes []byte
 	var err error
 
