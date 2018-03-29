@@ -8,7 +8,6 @@
           optional: true
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
-    {{- end }}
       containers:
       - name: mixer
         image: "{{ $.Values.global.hub }}/mixer:{{ $.Values.global.tag }}"
