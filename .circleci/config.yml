@@ -644,7 +644,7 @@ jobs:
             fi
       - run: make istio-archive
       - store_artifacts:
-          path: /go/archive
+          path: /go/out/linux_amd64/release/archive
 
   goxbuild:
     <<: *defaults
