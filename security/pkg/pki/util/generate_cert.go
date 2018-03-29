@@ -135,6 +135,11 @@ func LoadSignerCredsFromFiles(signerCertFile string, signerPrivFile string) (*x5
 	return cert, key, nil
 }
 
+// GenSubjectName returns the formatted subject name for the certificate (SPIFFEE format for now).
+func GenSubjectName(ns, serviceAccount string) string {
+	return fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/%s", ns, serviceAccount)
+}
+
 // genCertTemplateFromCSR generates a certificate template with the given CSR.
 // The NotBefore value of the cert is set to current time.
 func genCertTemplateFromCSR(csr *x509.CertificateRequest, ttl time.Duration, isCA bool) (*x509.Certificate, error) {

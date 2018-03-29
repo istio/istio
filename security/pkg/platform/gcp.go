@@ -24,6 +24,7 @@ import (
 
 	"istio.io/istio/pkg/log"
 	cred "istio.io/istio/security/pkg/credential"
+	"istio.io/istio/security/pkg/pki/util"
 )
 
 const (
@@ -93,11 +94,7 @@ func (ci *GcpClientImpl) GetServiceIdentity() (string, error) {
 		log.Errorf("Failed to get service account with error: %v", err)
 		return "", err
 	}
-
-	// Note: this is a temporary format, which might change.
-	serviceIdentity := fmt.Sprintf("spiffe://cluster.local/ns/default/sa/%s",
-		serviceAccount)
-	return serviceIdentity, nil
+	return util.GenSubjectName("default", serviceAccount), nil
 }
 
 // GetAgentCredential returns the GCP JWT for the serivce account.

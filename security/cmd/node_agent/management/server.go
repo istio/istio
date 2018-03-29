@@ -150,12 +150,9 @@ func (s *Server) WorkloadAdded(ctx context.Context, request *pb.WorkloadInfo) (*
 		return fmt.Errorf(msg)
 	}
 
-	// Sends CSR request to CA.
-	// TODO(inclfy): extract the SPIFFE formatting out into somewhere else.
-	id := fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/%s", ns, sa)
-
+	// Sends CSR request to CA. .
 	priv, csrReq, err := s.caClient.CreateCSRRequest(&pkiutil.CertOptions{
-		Host:       id,
+		Host:       pkiutil.GenSubjectName(ns, sa),
 		Org:        s.config.CAClientConfig.Org,
 		RSAKeySize: s.config.CAClientConfig.RSAKeySize,
 		TTL:        s.config.CAClientConfig.RequestedCertTTL,
