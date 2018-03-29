@@ -195,7 +195,7 @@ func ExtractIDs(exts []pkix.Extension) ([]string, error) {
 	return ids, nil
 }
 
-// GenSubjectName returns the formatted uri(SPIFFEE format for now) for the certificate.
+// GenSanURI returns the formatted uri(SPIFFEE format for now) for the certificate.
 func GenSanURI(ns, serviceAccount string) string {
 	return fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/%s", ns, serviceAccount)
 }
