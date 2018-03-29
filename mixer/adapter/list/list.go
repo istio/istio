@@ -245,6 +245,14 @@ func (h *handler) purgeList() {
 	h.lock.Unlock()
 }
 
+func (h *handler) isPurged() bool {
+	h.lock.Lock()
+	result := h.list == nil
+	h.lock.Unlock()
+
+	return result
+}
+
 ///////////////// Bootstrap ///////////////
 
 // GetInfo returns the Info associated with this adapter implementation.

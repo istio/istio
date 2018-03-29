@@ -21,13 +21,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/ghodss/yaml"
-	rpc "github.com/gogo/googleapis/google/rpc"
+	"github.com/gogo/googleapis/google/rpc"
 
 	"istio.io/istio/mixer/adapter/list/config"
 	"istio.io/istio/mixer/pkg/adapter/test"
@@ -472,32 +471,17 @@ func TestRegexErrors(t *testing.T) {
 }
 
 func TestRefreshAndPurge(t *testing.T) {
-	listToServe := "ABC"
-	var h *handler
-	var err error
-
-	wg := sync.WaitGroup{}
-	wg.Add(1)
 	var failServe int32
-	purgeDetected := false
 
+	// web server that returns valid data, until failServe is incremented at which point it
+	// returns errors
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
 		if atomic.LoadInt32(&failServe) > 0 {
 			w.WriteHeader(http.StatusMovedPermanently)
-
-			if h.list == nil {
-				// the list was purged
-				if !purgeDetected {
-					purgeDetected = true
-					wg.Done()
-				}
-			}
-
 			return
 		}
 
-		if _, err = w.Write([]byte(listToServe)); err != nil {
+		if _, err := w.Write([]byte("ABC")); err != nil {
 			t.Errorf("w.Write failed: %v", err)
 		}
 	}))
@@ -509,11 +493,13 @@ func TestRefreshAndPurge(t *testing.T) {
 		Ttl:             2 * time.Millisecond,
 		EntryType:       config.STRINGS,
 	}
-	h, err = buildHandler(t, &cfg)
+
+	h, err := buildHandler(t, &cfg)
 	if err != nil {
 		t.Fatalf("Got error %v, expecting success", err)
 	}
 
+	// make sure everything is working OK
 	_, err = h.HandleListEntry(context.Background(), &listentry.Instance{Value: "ABC"})
 	if err != nil {
 		t.Errorf("Got error %v, expecting success", err)
@@ -523,8 +509,15 @@ func TestRefreshAndPurge(t *testing.T) {
 	atomic.AddInt32(&failServe, 1)
 
 	// wait for the list to have been purged
-	wg.Wait()
+	for {
+		time.Sleep(1 * time.Millisecond)
+		if h.isPurged() {
+			// list has been purged
+			break
+		}
+	}
 
+	// ensure we get an error now that the list has been purged
 	_, err = h.HandleListEntry(context.Background(), &listentry.Instance{Value: "ABC"})
 	if err == nil {
 		t.Error("Got success, expected error")
