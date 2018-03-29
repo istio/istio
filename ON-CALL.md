@@ -27,6 +27,7 @@ and is performed during regular working hours for your time zone.
   The issue must contain a link to the failed test log.
   Add a comment in GitHub cc-ing the assignees and explaining this must be fixed or reverted with highest priority. Nag people when needed.
   * Help PRs be merged: merge PRs that fail tests with known failures, but document the failure with link to the known issue: "Failure in e2e-... test is due to unrelated issue #"
+    * View the [Submit-Queue](http://35.197.104.17:8080/#/queue) to see what current pull-request is queued for merging and [Submit Queue Info](http://35.197.104.17:8080/#/info) for details on prioritizing test-failure fixes
 * Slack: monitor #oncall channel; Update the topic of the channel, so that everyone can see who is on-call.
 * Istio-users mailing list: monitor, and reply or dispatch to the subject matter experts or to the leads.
 * Help with creating the release when needed.
