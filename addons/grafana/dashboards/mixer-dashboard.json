@@ -108,72 +108,72 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "process_virtual_memory_bytes{job=\"mixer\"}",
+          "expr": "sum(process_virtual_memory_bytes{job=~\"mixer-.*\"}) by (job)",
           "format": "time_series",
           "instant": false,
           "intervalFactor": 2,
-          "legendFormat": "Virtual Memory",
+          "legendFormat": "Virtual Memory ({{ job }})",
           "refId": "I"
         },
         {
-          "expr": "process_resident_memory_bytes{job=\"mixer\"}",
+          "expr": "sum(process_resident_memory_bytes{job=~\"mixer-.*\"}) by (job)",
           "format": "time_series",
           "intervalFactor": 2,
-          "legendFormat": "Resident Memory",
+          "legendFormat": "Resident Memory ({{ job }})",
           "refId": "H"
         },
         {
-          "expr": "go_memstats_heap_sys_bytes{job=\"mixer\"}",
+          "expr": "sum(go_memstats_heap_sys_bytes{job=~\"mixer-.*\"}) by (job)",
           "format": "time_series",
           "hide": true,
           "intervalFactor": 2,
-          "legendFormat": "heap sys",
+          "legendFormat": "heap sys ({{ job }})",
           "refId": "A"
         },
         {
-          "expr": "go_memstats_heap_alloc_bytes{job=\"mixer\"}",
+          "expr": "sum(go_memstats_heap_alloc_bytes{job=~\"mixer-.*\"}) by (job)",
           "format": "time_series",
           "hide": true,
           "intervalFactor": 2,
-          "legendFormat": "heap alloc",
+          "legendFormat": "heap alloc ({{ job }})",
           "refId": "D"
         },
         {
-          "expr": "go_memstats_alloc_bytes{job=\"mixer\"}",
+          "expr": "sum(go_memstats_alloc_bytes{job=~\"mixer-.*\"}) by (job)",
           "format": "time_series",
           "intervalFactor": 2,
-          "legendFormat": "Alloc",
+          "legendFormat": "Alloc ({{ job }})",
           "refId": "F"
         },
         {
-          "expr": "go_memstats_heap_inuse_bytes{job=\"mixer\"}",
+          "expr": "sum(go_memstats_heap_inuse_bytes{job=~\"mixer-.*\"}) by (job)",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
-          "legendFormat": "Heap in-use",
+          "legendFormat": "Heap in-use ({{ job }})",
           "refId": "E"
         },
         {
-          "expr": "go_memstats_stack_inuse_bytes{job=\"mixer\"}",
+          "expr": "sum(go_memstats_stack_inuse_bytes{job=~\"mixer-.*\"}) by (job)",
           "format": "time_series",
           "intervalFactor": 2,
-          "legendFormat": "Stack in-use",
+          "legendFormat": "Stack in-use ({{ job }})",
           "refId": "G"
         },
         {
-          "expr": "sum(container_memory_usage_bytes{container_name=~\"mixer|statsd-to-prometheus|istio-proxy\", pod_name=~\"istio-mixer-.*\"})",
+          "expr": "sum(label_replace(container_memory_usage_bytes{container_name=~\"mixer|istio-proxy\", pod_name=~\"istio-telemetry-.*|istio-policy-.*\"}, \"service\", \"$1\" , \"pod_name\", \"(istio-telemetry|istio-policy)-.*\")) by (service)",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
-          "legendFormat": "Total (k8s)",
+          "legendFormat": "{{ service }} total (k8s)",
           "refId": "C"
         },
         {
-          "expr": "container_memory_usage_bytes{container_name=~\"mixer|statsd-to-prometheus|istio-proxy\", pod_name=~\"istio-mixer-.*\"}",
+          "expr": "sum(label_replace(container_memory_usage_bytes{container_name=~\"mixer|istio-proxy\", pod_name=~\"istio-telemetry-.*|istio-policy-.*\"}, \"service\", \"$1\" , \"pod_name\", \"(istio-telemetry|istio-policy)-.*\")) by (container_name, service)",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
-          "legendFormat": "{{ container_name }} (k8s)",
+          "legendFormat": "{{ service }} - {{ container_name }} (k8s)",
           "refId": "B"
         }
       ],
@@ -250,27 +250,27 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(rate(container_cpu_usage_seconds_total{container_name=~\"mixer|statsd-to-prometheus|istio-proxy\", pod_name=~\"istio-mixer-.*\"}[1m]))",
+          "expr": "sum(label_replace(container_cpu_usage_seconds_total{container_name=~\"mixer|istio-proxy\", pod_name=~\"istio-telemetry-.*|istio-policy-.*\"}, \"service\", \"$1\" , \"pod_name\", \"(istio-telemetry|istio-policy)-.*\")) by (service)",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
-          "legendFormat": "Total (k8s)",
+          "legendFormat": "{{ service }} total (k8s)",
           "refId": "A"
         },
         {
-          "expr": "sum(rate(container_cpu_usage_seconds_total{container_name=~\"mixer|statsd-to-prometheus|istio-proxy\", pod_name=~\"istio-mixer-.*\"}[1m])) by (container_name)",
+          "expr": "sum(label_replace(container_cpu_usage_seconds_total{container_name=~\"mixer|istio-proxy\", pod_name=~\"istio-telemetry-.*|istio-policy-.*\"}, \"service\", \"$1\" , \"pod_name\", \"(istio-telemetry|istio-policy)-.*\")) by (container_name, service)",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
-          "legendFormat": "{{ container_name }} (k8s)",
+          "legendFormat": "{{ service }} - {{ container_name }} (k8s)",
           "refId": "B"
         },
         {
-          "expr": "irate(process_cpu_seconds_total{job=\"mixer\"}[1m])",
+          "expr": "sum(irate(process_cpu_seconds_total{job=~\"mixer-.*\"}[1m])) by (job)",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
-          "legendFormat": "mixer (self-reported)",
+          "legendFormat": "{{ job }} (self-reported)",
           "refId": "C"
         }
       ],
@@ -347,20 +347,20 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "process_open_fds{job=\"mixer\"}",
+          "expr": "sum(process_open_fds{job=~\"mixer-.*\"}) by (job)",
           "format": "time_series",
           "hide": true,
           "instant": false,
           "interval": "",
           "intervalFactor": 2,
-          "legendFormat": "Open FDs (mixer)",
+          "legendFormat": "Open FDs ({{ job }})",
           "refId": "A"
         },
         {
-          "expr": "container_fs_usage_bytes{container_name=~\"mixer|statsd-to-prometheus|istio-proxy\", pod_name=~\"istio-mixer-.*\"}",
+          "expr": "sum(label_replace(container_fs_usage_bytes{container_name=~\"mixer|istio-proxy\", pod_name=~\"istio-telemetry-.*|istio-policy-.*\"}, \"service\", \"$1\" , \"pod_name\", \"(istio-telemetry|istio-policy)-.*\")) by (container_name, service)",
           "format": "time_series",
           "intervalFactor": 2,
-          "legendFormat": "{{ container_name }}",
+          "legendFormat": "{{ service }} - {{ container_name }}",
           "refId": "B"
         }
       ],
@@ -438,10 +438,10 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "go_goroutines{job=\"mixer\"}",
+          "expr": "sum(go_goroutines{job=~\"mixer-.*\"}) by (job)",
           "format": "time_series",
           "intervalFactor": 2,
-          "legendFormat": "Number of Goroutines",
+          "legendFormat": "Number of Goroutines ({{ job }})",
           "refId": "A"
         }
       ],
