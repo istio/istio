@@ -23,6 +23,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 
 	"bytes"
 	"runtime"
@@ -134,7 +135,7 @@ func setup() error {
 		Service: bootstrap.ServiceArgs{
 			// Using the Mock service registry, which provides the hello and world services.
 			Registries: []string{
-				string(bootstrap.MockRegistry)},
+				string(serviceregistry.MockRegistry)},
 		},
 	}
 	// Static testdata, should include all configs we want to test.
