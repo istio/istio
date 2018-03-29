@@ -48,9 +48,6 @@ const (
 // ServiceByName claims a service entry from the registry using a host name.
 type ServiceByName func(host string, contextNamespace string) *model.Service
 
-// SubsetSelector resolves a subset to labels.
-type SubsetSelector func(service *model.Service, subset string) map[string]string
-
 // GuardedHost is a context-dependent virtual host entry with guarded routes.
 type GuardedHost struct {
 	// Port is the capture port (e.g. service port)
@@ -83,16 +80,15 @@ func TranslateServiceHostname(services map[string]*model.Service, clusterDomain 
 // Services are indexed by FQDN hostnames.
 // Cluster domain is used to resolve short service names (e.g. "svc.cluster.local").
 func TranslateVirtualHosts(
-	serviceConfigs []model.Config,
+	virtualServices []model.Config,
 	services map[string]*model.Service,
-	subsetSelector SubsetSelector,
 	clusterDomain string) []GuardedHost {
 	out := make([]GuardedHost, 0)
 	serviceByName := TranslateServiceHostname(services, clusterDomain)
 
 	// translate all virtual service configs
-	for _, config := range serviceConfigs {
-		out = append(out, TranslateVirtualHost(config, serviceByName, subsetSelector)...)
+	for _, config := range virtualServices {
+		out = append(out, TranslateVirtualHost(config, serviceByName)...)
 	}
 
 	// compute services missing service configs
@@ -150,7 +146,7 @@ func MatchServiceHosts(in model.Config, serviceByName ServiceByName) ([]string, 
 }
 
 // TranslateVirtualHost creates virtual hosts corresponding to a virtual service.
-func TranslateVirtualHost(in model.Config, serviceByName ServiceByName, subsetSelector SubsetSelector) []GuardedHost {
+func TranslateVirtualHost(in model.Config, serviceByName ServiceByName) []GuardedHost {
 	hosts, services := MatchServiceHosts(in, serviceByName)
 	serviceByPort := make(map[int][]*model.Service)
 	for _, svc := range services {
@@ -169,7 +165,7 @@ func TranslateVirtualHost(in model.Config, serviceByName ServiceByName, subsetSe
 
 	out := make([]GuardedHost, len(serviceByPort))
 	for port, services := range serviceByPort {
-		clusterNaming := TranslateDestination(serviceByName, subsetSelector, in.ConfigMeta.Namespace, port)
+		clusterNaming := TranslateDestination(serviceByName, in.ConfigMeta.Namespace, port)
 		routes := TranslateRoutes(in, clusterNaming)
 		out = append(out, GuardedHost{
 			Port:     port,
@@ -183,9 +179,9 @@ func TranslateVirtualHost(in model.Config, serviceByName ServiceByName, subsetSe
 }
 
 // TranslateDestination produces a cluster naming function using the config context.
+// This function depends on the service declaration to produce the correct cluster name.
 func TranslateDestination(
 	serviceByName ServiceByName,
-	subsetSelector SubsetSelector,
 	contextNamespace string,
 	defaultPort int) ClusterNaming {
 	return func(destination *networking.Destination) string {

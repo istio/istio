@@ -24,10 +24,13 @@ import (
 	"google.golang.org/grpc"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/v1alpha3"
 )
 
 // ConfigCache for xDS resources
 type ConfigCache struct {
+	serviceSuffix string
+
 	services model.ServiceDiscovery
 	configs  model.ConfigStore
 
@@ -36,30 +39,31 @@ type ConfigCache struct {
 }
 
 // NewConfigCache spins up a new config cache
-func NewConfigCache(services model.ServiceDiscovery, configs model.ConfigStore) *ConfigCache {
+func NewConfigCache(services model.ServiceDiscovery, configs model.ConfigStore, domainSuffix string) *ConfigCache {
 	out := &ConfigCache{
-		services: services,
-		configs:  configs,
+		serviceSuffix: "svc." + domainSuffix,
+		services:      services,
+		configs:       configs,
 	}
-	out.snapshots = cache.NewSnapshotCache(false, out, nil)
+	out.snapshots = cache.NewSnapshotCache(false /* non-ADS mode */, out, nil)
 	out.server = server.NewServer(out.snapshots, out)
 	return out
 }
 
-// Register with gRPC server
-func (cache *ConfigCache) Register(grpcServer *grpc.Server) {
+// RegisterOutput registers with a gRPC server
+func (cache *ConfigCache) RegisterOutput(grpcServer *grpc.Server) {
 	v2.RegisterRouteDiscoveryServiceServer(grpcServer, cache.server)
-	// v2.RegisterClusterDiscoveryServiceServer(grpcServer, cache.server)
-	// v2.RegisterListenerDiscoveryServiceServer(grpcServer, cache.server)
 }
 
 // RegisterInput connects with the controllers
+// The route generation code needs to subscribe to:
+// - collection of services
+// - collection of virtual services
 func (cache *ConfigCache) RegisterInput(services model.Controller, configs model.ConfigStoreCache) {
 	if err := services.AppendServiceHandler(cache.OnServiceEvent); err != nil {
 		log.Fatal(err)
 	}
 	configs.RegisterEventHandler(model.VirtualService.Type, cache.OnConfigEvent)
-	configs.RegisterEventHandler(model.DestinationRule.Type, cache.OnConfigEvent)
 }
 
 // ID ...
@@ -69,12 +73,20 @@ func (cache *ConfigCache) ID(node *core.Node) string {
 
 // OnServiceEvent ...
 func (cache *ConfigCache) OnServiceEvent(svc *model.Service, event model.Event) {
-	// TODO
+	cache.update()
 }
 
 // OnConfigEvent ...
 func (cache *ConfigCache) OnConfigEvent(svc model.Config, event model.Event) {
-	// TODO
+	cache.update()
+}
+
+// non-incremental update
+// TODO make this more incremental
+func (cache *ConfigCache) update() {
+	virtualServices, _ := cache.configs.List(model.VirtualService.Type, model.NamespaceAll)
+	hosts := v1alpha3.TranslateVirtualHosts(virtualServices, nil, cache.serviceSuffix)
+	_ = hosts
 }
 
 // OnStreamOpen ...
