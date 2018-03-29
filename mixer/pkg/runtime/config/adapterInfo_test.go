@@ -228,7 +228,7 @@ func TestNew(t *testing.T) {
 				infoCpy := info
 				infos[i] = &infoCpy
 			}
-			reg, err := NewAdapterInfoRegistry(infos)
+			reg, err := newAdapterInfoRegistry(infos)
 			if len(td.wantErrs) == 0 {
 				if err != nil {
 					t.Fatalf("want no error got '%v;", err)

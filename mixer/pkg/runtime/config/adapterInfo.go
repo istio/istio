@@ -56,10 +56,10 @@ type adapterInfoRegistry struct {
 	templates map[string]*TemplateMetadata
 }
 
-// New creates a `AdapterInfoRegistry` from given adapter infos.
+// newAdapterInfoRegistry creates a `AdapterInfoRegistry` from given adapter infos.
 // Note: For adding built-in templates that are not associated with any adapters, supply the `Info` object with
 // only `templates`, leaving other fields to default empty.
-func NewAdapterInfoRegistry(infos []*adapter.Info) (*adapterInfoRegistry, error) {
+func newAdapterInfoRegistry(infos []*adapter.Info) (*adapterInfoRegistry, error) {
 	r := &adapterInfoRegistry{make(map[string]*AdapterMetadata), make(map[string]*TemplateMetadata)}
 	var resultErr error
 	log.Debugf("registering %#v", infos)

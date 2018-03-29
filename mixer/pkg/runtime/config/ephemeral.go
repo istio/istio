@@ -251,7 +251,7 @@ func (e *Ephemeral) processAdapterInfoConfigs(counters Counters) *adapterInfoReg
 	}
 
 	log.Debugf("Total received adapter info: count=%d, value='%v'", len(adapterInfos), adapterInfos)
-	reg, err := NewAdapterInfoRegistry(adapterInfos)
+	reg, err := newAdapterInfoRegistry(adapterInfos)
 	if err != nil {
 		log.Errorf("Error when reading adapter info='%v'", err)
 		counters.adapterInfoConfigError.Inc()
