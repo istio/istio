@@ -245,9 +245,9 @@ func (h *handler) purgeList() {
 	h.lock.Unlock()
 }
 
-func (h *handler) isPurged() bool {
+func (h *handler) hasData() bool {
 	h.lock.Lock()
-	result := h.list == nil
+	result := h.list != nil
 	h.lock.Unlock()
 
 	return result

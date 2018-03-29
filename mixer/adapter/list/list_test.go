@@ -499,6 +499,15 @@ func TestRefreshAndPurge(t *testing.T) {
 		t.Fatalf("Got error %v, expecting success", err)
 	}
 
+	// wait for the list to have been populated
+	for {
+		time.Sleep(1 * time.Millisecond)
+		if h.hasData() {
+			// list has been populated
+			break
+		}
+	}
+
 	// make sure everything is working OK
 	_, err = h.HandleListEntry(context.Background(), &listentry.Instance{Value: "ABC"})
 	if err != nil {
@@ -511,7 +520,7 @@ func TestRefreshAndPurge(t *testing.T) {
 	// wait for the list to have been purged
 	for {
 		time.Sleep(1 * time.Millisecond)
-		if h.isPurged() {
+		if !h.hasData() {
 			// list has been purged
 			break
 		}
