@@ -42,14 +42,9 @@
     ],
     "circuit_breakers": {
       "default": {
-        "max_connections": "100000",
-        "max_pending_requests": "100000",
-        "max_requests": "100000"
-      },
-      "high": {
-        "max_connections": "100000",
-        "max_pending_requests": "100000",
-        "max_requests": "100000"
+        "max_connections": 100000,
+        "max_pending_requests": 100000,
+        "max_requests": 100000
       }
     }
   }
