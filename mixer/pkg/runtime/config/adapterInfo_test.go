@@ -14,6 +14,7 @@
 
 // nolint
 //go:generate protoc testdata/foo.proto -otestdata/foo.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate protoc testdata/adptCfg.proto -otestdata/adptCfg.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
 //go:generate protoc testdata/bar.proto -otestdata/bar.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
 //go:generate protoc testdata/baz.proto -otestdata/baz.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
 //go:generate protoc testdata/unsupportedPkgName.proto -otestdata/unsupportedPkgName.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
@@ -45,6 +46,7 @@ type testdata struct {
 }
 
 var fooTmpl = getFileDescSetBase64("testdata/foo.descriptor")
+var adptCfg = getFileDescSetBase64("testdata/adptCfg.descriptor")
 var barTmpl = getFileDescSetBase64("testdata/bar.descriptor")
 var bazTmpl = getFileDescSetBase64("testdata/baz.descriptor")
 var badfoobarTmpl = getFileDescSetBase64("testdata/badfoobar.descriptor")
@@ -221,6 +223,40 @@ func TestNew(t *testing.T) {
 			wantTmpls: []string{"foo", "bar"},
 			wantErrs:  []string{"Only one proto file is allowed with this options"},
 		},
+		{
+			name: "valid adapter config",
+			infos: []adapter.Info{
+				{
+					Name:      "a1",
+					Templates: []string{fooTmpl},
+					Config:    adptCfg,
+				},
+			},
+			wantInfos: map[string][]string{"a1": {"foo"}},
+			wantTmpls: []string{"foo"},
+		},
+		{
+			name: "error adapter config without Param message",
+			infos: []adapter.Info{
+				{
+					Name:      "a1",
+					Templates: []string{fooTmpl},
+					Config:    fooTmpl, // does not contain "Param" msg
+				},
+			},
+			wantErrs: []string{"cannot find message named 'Param' in the adapter configuration descriptor"},
+		},
+		{
+			name: "error bad adapter config",
+			infos: []adapter.Info{
+				{
+					Name:      "a1",
+					Templates: []string{fooTmpl},
+					Config:    notFileDescriptorSet, // bogus
+				},
+			},
+			wantErrs: []string{"can't skip unknown wire type 7 for descriptor.FileDescriptorSet"},
+		},
 	} {
 		t.Run(td.name, func(t *testing.T) {
 			infos := make([]*adapter.Info, len(td.infos))
@@ -257,11 +293,11 @@ func TestNew(t *testing.T) {
 				t.Fatalf("want %d infos with names '%v'; got %d as '%v'",
 					len(td.wantInfos), td.wantInfos, len(reg.adapters), reg.adapters)
 			}
-			for k, wantSupTmpls := range td.wantInfos {
+			for k, wantInfo := range td.wantInfos {
 				if adptMeta, ok := reg.adapters[k]; !ok {
 					t.Errorf("want info '%s' to be present; got '%v'", k, reg.adapters)
-				} else if !reflect.DeepEqual(wantSupTmpls, adptMeta.SupportedTemplates) {
-					t.Errorf("want supported templates for info '%s' to be '%v'; got '%v'", k, wantSupTmpls, adptMeta.SupportedTemplates)
+				} else if !reflect.DeepEqual(wantInfo, adptMeta.SupportedTemplates) {
+					t.Errorf("want supported templates for info '%s' to be '%v'; got '%v'", k, wantInfo, adptMeta.SupportedTemplates)
 				}
 			}
 

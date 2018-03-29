@@ -183,7 +183,7 @@ func writeAdapterMetadatas(w io.Writer, adapters map[string]*AdapterMetadata) {
 	for _, n := range names {
 		a := adapters[n]
 
-		fmt.Fprintf(w, "  Name:      %s", a.Info.Name)
+		fmt.Fprintf(w, "  Name:      %s", a.Name)
 		fmt.Fprintln(w)
 
 		fmt.Fprintf(w, "  Templates: %s", a.SupportedTemplates)

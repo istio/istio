@@ -40,7 +40,9 @@ type TemplateMetadata struct {
 
 // AdapterMetadata contains info about an adapter
 type AdapterMetadata struct {
-	Info               *adapter.Info
+	Name               string
+	ConfigDescSet      *descriptor.FileDescriptorSet
+	ConfigDescProto    *descriptor.FileDescriptorProto
 	SupportedTemplates []string
 }
 
@@ -55,6 +57,8 @@ type adapterInfoRegistry struct {
 	adapters  map[string]*AdapterMetadata
 	templates map[string]*TemplateMetadata
 }
+
+const adapterCfgMsgName = "Param"
 
 // newAdapterInfoRegistry creates a `AdapterInfoRegistry` from given adapter infos.
 // Note: For adding built-in templates that are not associated with any adapters, supply the `Info` object with
@@ -72,7 +76,14 @@ func newAdapterInfoRegistry(infos []*adapter.Info) (*adapterInfoRegistry, error)
 			continue
 		}
 
-		tmplNames, err := r.ingestTemplates(info.Templates)
+		cfgFds, cfgProto, err := getAdapterCfgDescriptor(info.Config)
+		if err != nil {
+			resultErr = multierror.Append(resultErr, err)
+			continue
+		}
+
+		var tmplNames []string
+		tmplNames, err = r.ingestTemplates(info.Templates)
 		if err != nil {
 			resultErr = multierror.Append(resultErr, err)
 			continue
@@ -80,7 +91,8 @@ func newAdapterInfoRegistry(infos []*adapter.Info) (*adapterInfoRegistry, error)
 
 		// empty adapter name means just the template needs to be ingested.
 		if info.Name != "" {
-			r.adapters[info.Name] = &AdapterMetadata{Info: info, SupportedTemplates: tmplNames}
+			r.adapters[info.Name] = &AdapterMetadata{SupportedTemplates: tmplNames, Name: info.Name, ConfigDescSet: cfgFds, ConfigDescProto: cfgProto}
+
 		}
 	}
 
@@ -133,11 +145,11 @@ func (r *adapterInfoRegistry) ingestTemplates(tmpls []string) ([]string, error) 
 	return tmplNames, resultErr
 }
 
-func (r *adapterInfoRegistry) createTemplateMetadata(base64Tmpl string) (*TemplateMetadata, error) {
-	var bytes []byte
+func decodeFds(base64Fds string) (*descriptor.FileDescriptorSet, error) {
 	var err error
+	var bytes []byte
 
-	reader := strings.NewReader(base64Tmpl)
+	reader := strings.NewReader(base64Fds)
 	decoder := base64.NewDecoder(base64.StdEncoding, reader)
 
 	if bytes, err = ioutil.ReadAll(decoder); err != nil {
@@ -148,6 +160,35 @@ func (r *adapterInfoRegistry) createTemplateMetadata(base64Tmpl string) (*Templa
 	if err = proto.Unmarshal(bytes, fds); err != nil {
 		return nil, err
 	}
+
+	return fds, nil
+}
+
+func getAdapterCfgDescriptor(base64Tmpl string) (*descriptor.FileDescriptorSet, *descriptor.FileDescriptorProto, error) {
+	if base64Tmpl == "" {
+		// no cfg is allowed
+		return nil, nil, nil
+	}
+
+	fds, err := decodeFds(base64Tmpl)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var tmplDesc *descriptor.FileDescriptorProto
+	if tmplDesc = getAdapterConfigFileDesc(fds.File); tmplDesc == nil {
+		return nil, nil, fmt.Errorf("cannot find message named '%s' in the adapter configuration descriptor", adapterCfgMsgName)
+	}
+
+	return fds, tmplDesc, nil
+}
+
+func (r *adapterInfoRegistry) createTemplateMetadata(base64Tmpl string) (*TemplateMetadata, error) {
+	fds, err := decodeFds(base64Tmpl)
+	if err != nil {
+		return nil, err
+	}
+
 	var tmplDesc *descriptor.FileDescriptorProto
 	var tmplName string
 	if tmplName, tmplDesc, err = getTmplFileDesc(fds.File); err != nil {
@@ -163,6 +204,19 @@ func (r *adapterInfoRegistry) createTemplateMetadata(base64Tmpl string) (*Templa
 	return &TemplateMetadata{Name: tmplName,
 		FileDescProto: tmplDesc,
 		FileDescSet:   fds}, nil
+}
+
+// find the file that has the "Param" message
+func getAdapterConfigFileDesc(fds []*descriptor.FileDescriptorProto) *descriptor.FileDescriptorProto {
+	for _, fd := range fds {
+		for _, msg := range fd.GetMessageType() {
+			if msg.GetName() == adapterCfgMsgName {
+				return fd
+			}
+		}
+	}
+
+	return nil
 }
 
 // Find the file that has the options TemplateVariety. There should only be one such file.
