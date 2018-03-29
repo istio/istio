@@ -285,6 +285,11 @@ func (sd *ServiceDiscovery) GetProxyServiceInstances(node model.Proxy) ([]*model
 	return out, sd.GetProxyServiceInstancesError
 }
 
+// GetProxyLabels ...
+func (sd *ServiceDiscovery) GetProxyLabels(model.Proxy) model.Labels {
+	return nil
+}
+
 // ManagementPorts implements discovery interface
 func (sd *ServiceDiscovery) ManagementPorts(addr string) model.PortList {
 	return model.PortList{{

@@ -304,6 +304,10 @@ type ServiceDiscovery interface {
 	// determine the intended destination of a connection without a Host header on the request.
 	GetProxyServiceInstances(Proxy) ([]*ServiceInstance, error)
 
+	// GetProxyLabels retrieves labels attached to the sidecar used to selectively
+	// apply configuration.
+	GetProxyLabels(Proxy) Labels
+
 	// ManagementPorts lists set of management ports associated with an IPv4 address.
 	// These management ports are typically used by the platform for out of band management
 	// tasks such as health checks, etc. In a scenario where the proxy functions in the

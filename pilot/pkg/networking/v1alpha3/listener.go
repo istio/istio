@@ -588,33 +588,23 @@ func buildTCPListener(filters []listener.Filter, ip string, port uint32, protoco
 	}
 }
 
-// TODO: find a proper home for these http related functions
-// buildDefaultHTTPRoute builds a default route.
-func buildDefaultHTTPRoute(clusterName string) *route.Route {
-	return &route.Route{
-		Match: route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}},
-		Decorator: &route.Decorator{
-			Operation: DefaultOperation,
-		},
-		Action: &route.Route_Route{
-			Route: &route.RouteAction{
-				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
-			},
-		},
-	}
-}
-
 // buildInboundHTTPRouteConfig builds the route config with a single wildcard virtual host on the inbound path
 // TODO: enable mixer configuration, websockets, trace decorators
 func buildInboundHTTPRouteConfig(instance *model.ServiceInstance) *v2.RouteConfiguration {
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "",
 		instance.Service.Hostname, instance.Endpoint.ServicePort)
-	defaultRoute := buildDefaultHTTPRoute(clusterName)
-
 	inboundVHost := route.VirtualHost{
 		Name:    fmt.Sprintf("%s|http|%d", model.TrafficDirectionInbound, instance.Endpoint.ServicePort.Port),
 		Domains: []string{"*"},
-		Routes:  []route.Route{*defaultRoute},
+		Routes: []route.Route{{
+			Match:     TranslateRouteMatch(nil),
+			Decorator: &route.Decorator{Operation: DefaultOperation},
+			Action: &route.Route_Route{
+				Route: &route.RouteAction{
+					ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
+				},
+			},
+		}},
 	}
 
 	// TODO: mixer disabled for now as its configuration is still in old format

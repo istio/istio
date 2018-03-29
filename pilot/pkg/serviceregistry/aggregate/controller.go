@@ -145,6 +145,17 @@ func (c *Controller) GetProxyServiceInstances(node model.Proxy) ([]*model.Servic
 	return out, errs
 }
 
+// GetProxyLabels ...
+func (c *Controller) GetProxyLabels(node model.Proxy) model.Labels {
+	for _, r := range c.registries {
+		labels := r.GetProxyLabels(node)
+		if len(labels) > 0 {
+			return labels
+		}
+	}
+	return nil
+}
+
 // Run starts all the controllers
 func (c *Controller) Run(stop <-chan struct{}) {
 

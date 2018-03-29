@@ -104,6 +104,17 @@ func (pc *PodCache) getPodByIP(addr string) (*v1.Pod, bool) {
 	return item.(*v1.Pod), true
 }
 
+func (pc *PodCache) labelsByKey(key string) model.Labels {
+	pc.rwMu.RLock()
+	defer pc.rwMu.RUnlock()
+
+	item, exists, err := pc.informer.GetStore().GetByKey(key)
+	if !exists || err != nil {
+		return nil
+	}
+	return convertLabels(item.(*v1.Pod).ObjectMeta)
+}
+
 // labelsByIP returns pod labels or nil if pod not found or an error occurred
 func (pc *PodCache) labelsByIP(addr string) (model.Labels, bool) {
 	pod, exists := pc.getPodByIP(addr)

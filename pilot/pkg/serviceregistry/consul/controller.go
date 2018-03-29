@@ -172,6 +172,11 @@ func (c *Controller) GetProxyServiceInstances(node model.Proxy) ([]*model.Servic
 	return out, nil
 }
 
+// GetProxyLabels ...
+func (c *Controller) GetProxyLabels(model.Proxy) model.Labels {
+	return nil
+}
+
 // Run all controllers until a signal is received
 func (c *Controller) Run(stop <-chan struct{}) {
 	c.monitor.Start(stop)
