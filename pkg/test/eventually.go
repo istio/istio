@@ -63,16 +63,12 @@ func (e EventualOpts) Eventually(t *testing.T, name string, cond Condition) {
 
 	// We didn't get a happy fast-path, so set up timers and wait.
 	// The backoff's ticker will close the channel after MaxElapsedTime, so we don't need to worry about a timeout.
-	cont := true
 	poll := backoff.NewTicker(e.strategy).C
 	for {
-		select {
-		case _, cont = <-poll:
-			if cond() {
-				return
-			}
-		}
-		if !cont {
+		_, cont := <-poll
+		if cond() {
+			return
+		} else if !cont {
 			t.Fatalf("timed out waiting for condition %q to complete", name)
 		}
 	}
