@@ -37,7 +37,6 @@ import (
 
 	authn "istio.io/api/authentication/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	plugin_authn "istio.io/istio/pilot/pkg/networking/plugins/authn"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
 )
@@ -525,9 +524,10 @@ func buildHTTPConnectionManager(opts buildListenerOpts) *http_conn.HttpConnectio
 		refresh = 5 * time.Second
 	}
 
-	if filter := plugin_authn.BuildJwtFilter(opts.httpOpts.authnPolicy); filter != nil {
-		filters = append([]*http_conn.HttpFilter{filter}, filters...)
-	}
+	// TODO this has been explicitly disabled until the plugin stuff is implemented
+	//if filter := plugin_authn.BuildJwtFilter(opts.httpOpts.authnPolicy); filter != nil {
+	//	filters = append([]*http_conn.HttpFilter{filter}, filters...)
+	//}
 
 	connectionManager := &http_conn.HttpConnectionManager{
 		CodecType: http_conn.AUTO,
