@@ -37,6 +37,7 @@ import (
 
 	authn "istio.io/api/authentication/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
 	"istio.io/istio/pkg/log"
 )
 
@@ -236,22 +237,12 @@ func buildSidecarInboundListeners(env model.Environment, node model.Proxy,
 		case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
 			listenerOpts.networkFilters = buildInboundNetworkFilters(instance)
 
-			// TODO: set server-side mixer filter config
-			//if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
-			//	// config := v1.BuildTCPMixerFilterConfig(mesh, node, instance)
-			//	l.FilterChains = append(l.FilterChains, listener.FilterChain{
-			//		Filters: []listener.Filter{
-			//			{
-			//				// TODO(mostrowski): need proto version of mixer config.
-			//				// Config: messageToStruct(&config),
-			//			},
-			//		},
-			//	})
-			//}
-
 		default:
 			log.Debugf("Unsupported inbound protocol %v for port %#v", protocol, instance.Endpoint.ServicePort)
 		}
+
+		listenerOpts.networkFilters = append(listenerOpts.networkFilters,
+			buildMixerFilter(env, node, proxyInstances, protocol, false))
 
 		l = buildListener(listenerOpts)
 		if l != nil {
@@ -297,7 +288,8 @@ func buildSidecarOutboundListeners(env model.Environment, node model.Proxy,
 				port:           servicePort.Port,
 				protocol:       servicePort.Protocol,
 			}
-			switch servicePort.Protocol {
+			protocol := servicePort.Protocol
+			switch protocol {
 			case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
 				if service.Resolution == model.Passthrough {
 					// ensure only one wildcard listener is created per port if its headless service
@@ -315,6 +307,8 @@ func buildSidecarOutboundListeners(env model.Environment, node model.Proxy,
 				}
 				listenerOpts.ip = listenAddress
 				listenerOpts.networkFilters = buildOutboundNetworkFilters(clusterName, addresses, servicePort)
+				listenerOpts.networkFilters = append(listenerOpts.networkFilters,
+					buildMixerFilter(env, node, proxyInstances, protocol, true))
 				tcpListeners = append(tcpListeners, buildListener(listenerOpts))
 				// TODO: Set SNI for HTTPS
 			case model.ProtocolHTTP2, model.ProtocolHTTP, model.ProtocolGRPC:
@@ -336,6 +330,8 @@ func buildSidecarOutboundListeners(env model.Environment, node model.Proxy,
 					direction:        operation,
 					authnPolicy:      nil, /* authn policy is not needed for outbound listener */
 				}
+				listenerOpts.networkFilters = append(listenerOpts.networkFilters,
+					buildMixerFilter(env, node, proxyInstances, protocol, true))
 				httpListeners = append(httpListeners, buildListener(listenerOpts))
 			}
 		}
@@ -394,6 +390,33 @@ func buildMgmtPortListeners(managementPorts model.PortList, managementIP string)
 	}
 
 	return listeners
+}
+
+// buildMixerFilter builds a filter with a v1 mixer config encapsulated as JSON in a proto.Struct for v2 consumption.
+func buildMixerFilter(env model.Environment, node model.Proxy,
+	proxyInstances []*model.ServiceInstance, protocol model.Protocol, outbound bool /*instance *model.ServiceInstance*/) listener.Filter {
+	mesh := env.Mesh
+	config := env.IstioConfigStore
+	if mesh.MixerCheckServer == "" && mesh.MixerReportServer == "" {
+		return listener.Filter{}
+	}
+
+	mixerFilter := listener.Filter{}
+	switch protocol {
+	case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC:
+		config := v1.BuildHTTPMixerFilterConfig(mesh, node, proxyInstances, outbound, config)
+		mixerFilter = listener.Filter{
+			Config: buildProtoStruct(*config),
+		}
+	case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
+		/*
+			config := v1.BuildTCPMixerFilterConfig(mesh, node, instance)
+			mixerFilter = listener.Filter{
+				Config: buildProtoStruct(*config),
+			}
+		*/
+	}
+	return mixerFilter
 }
 
 // TODO: move to plugins
