@@ -27,6 +27,7 @@ const (
 	CheckCacheTest uint16 = iota
 	CheckCacheHitTest
 	CheckReportAttributesTest
+	CheckReportLargePostRequestTest
 	CheckReportDisableTest
 	DisableCheckCacheTest
 	DisableTCPCheckCallsTest
