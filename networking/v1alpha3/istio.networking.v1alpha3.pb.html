@@ -3,7 +3,7 @@ title: Route Rules Alpha 3
 overview: Configuration affecting traffic routing
 location: https://istio.io/docs/reference/config/istio.networking.v1alpha3.html
 layout: protoc-gen-docs
-number_of_entries: 36
+number_of_entries: 37
 ---
 <p>Configuration affecting traffic routing. Here are a few terms useful to define
 in the context of traffic routing.</p>
@@ -50,7 +50,7 @@ kind: DestinationRule
 metadata:
   name: bookinfo-redis
 spec:
-  name: myredissrv
+  host: myredissrv
   trafficPolicy:
     connectionPool:
       tcp:
@@ -189,7 +189,7 @@ spec:
   http:
   - route:
     - destination:
-        name: ratings
+        host: ratings
         subset: v1
     corsPolicy:
       allowOrigin:
@@ -320,11 +320,11 @@ spec:
       uri: &quot;/newcatalog&quot;
     route:
     - destination:
-        name: reviews
+        host: reviews
         subset: v2
   - route:
     - destination:
-        name: reviews
+        host: reviews
         subset: v1
 </code></pre>
 
@@ -335,7 +335,7 @@ kind: DestinationRule
 metadata:
   name: reviews-destination
 spec:
-  name: reviews
+  host: reviews
   subsets:
   - name: v1
     labels:
@@ -362,7 +362,7 @@ spec:
   - timeout: 5s
     route:
     - destination:
-        name: productpage.prod
+        host: productpage.prod
 </code></pre>
 
 <p>The following sets a timeout of 5s for all calls to the external
@@ -379,7 +379,7 @@ spec:
   - timeout: 5s
     route:
     - destination:
-        name: wikipedia.org
+        host: wikipedia.org
 </code></pre>
 
 <table class="message-fields">
@@ -391,11 +391,11 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="Destination.name">
-<td><code>name</code></td>
+<tr id="Destination.host">
+<td><code>host</code></td>
 <td><code>string</code></td>
 <td>
-<p>REQUIRED. The name can be a short name or a fully qualified domain
+<p>REQUIRED. The host can be a short name or a fully qualified domain
 name from the service registry, a resolvable DNS name, or an IP
 address.</p>
 
@@ -454,7 +454,7 @@ kind: DestinationRule
 metadata:
   name: bookinfo-ratings
 spec:
-  name: ratings
+  host: ratings
   trafficPolicy:
     loadBalancer:
       simple: LEAST_CONN
@@ -471,7 +471,7 @@ kind: DestinationRule
 metadata:
   name: bookinfo-ratings
 spec:
-  name: ratings
+  host: ratings
   trafficPolicy:
     loadBalancer:
       simple: LEAST_CONN
@@ -496,8 +496,8 @@ a route rule explicitly sends traffic to this subset.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="DestinationRule.name">
-<td><code>name</code></td>
+<tr id="DestinationRule.host">
+<td><code>host</code></td>
 <td><code>string</code></td>
 <td>
 <p>REQUIRED. The destination address for traffic captured by this
@@ -507,7 +507,7 @@ instead of a FQDN (i.e. has no dots in the name). In such a scenario,
 the FQDN of the host would be derived based on the underlying
 platform.</p>
 
-<p>For example on Kubernetes, when hosts contains a short name, Istio will
+<p>For example on Kubernetes, when host contains a short name, Istio will
 interpret the short name based on the namespace of the rule.  Thus, when a
 client applies a rule in the &ldquo;default&rdquo; namespace, containing a name
 &ldquo;reviews&rdquo;, Istio will setup routes to the
@@ -516,7 +516,7 @@ such as &ldquo;reviews.sales&rdquo; is used, it would be treated as a FQDN durin
 virtual host matching.  In Consul, a plain service name would be resolved to
 the FQDN &ldquo;reviews.service.consul&rdquo;.</p>
 
-<p>Note that the hosts field applies to both HTTP and TCP
+<p>Note that the host field applies to both HTTP and TCP
 services. Service inside the mesh, i.e. those found in the service
 registry, must always be referred to using their alphanumeric
 names. IP addresses or CIDR prefixes are allowed only for services
@@ -564,11 +564,11 @@ spec:
   http:
   - route:
     - destination:
-        name: reviews
+        host: reviews
         subset: v2
       weight: 25
     - destination:
-        name: reviews
+        host: reviews
         subset: v1
       weight: 75
 </code></pre>
@@ -580,7 +580,7 @@ kind: DestinationRule
 metadata:
   name: reviews-destination
 spec:
-  name: reviews
+  host: reviews
   subsets:
   - name: v1
     labels:
@@ -1079,6 +1079,47 @@ the default istio-ingress controller.</p>
 </tbody>
 </table>
 </section>
+<h2 id="HTTPFaultInjection">HTTPFaultInjection</h2>
+<section>
+<p>HTTPFaultInjection can be used to specify one or more faults to inject
+while forwarding http requests to the destination specified in a route.
+Fault specification is part of a VirtualService rule. Faults include
+aborting the Http request from downstream service, and/or delaying
+proxying of requests. A fault rule MUST HAVE delay or abort or both.</p>
+
+<p><em>Note:</em> Delay and abort faults are independent of one another, even if
+both are specified simultaneously.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="HTTPFaultInjection.delay">
+<td><code>delay</code></td>
+<td><code><a href="#HTTPFaultInjection.Delay">HTTPFaultInjection.Delay</a></code></td>
+<td>
+<p>Delay requests before forwarding, emulating various failures such as
+network issues, overloaded upstream service, etc.</p>
+
+</td>
+</tr>
+<tr id="HTTPFaultInjection.abort">
+<td><code>abort</code></td>
+<td><code><a href="#HTTPFaultInjection.Abort">HTTPFaultInjection.Abort</a></code></td>
+<td>
+<p>Abort Http request attempts and return error codes back to downstream
+service, giving the impression that the upstream service is faulty.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
 <h2 id="HTTPFaultInjection.Abort">HTTPFaultInjection.Abort</h2>
 <section>
 <p>Abort specification is used to prematurely abort a request with a
@@ -1095,7 +1136,7 @@ spec:
   http:
   - route:
     - destination:
-        name: ratings
+        host: ratings
         subset: v1
     fault:
       abort:
@@ -1172,7 +1213,7 @@ spec:
         env: prod
     route:
     - destination:
-        name: reviews
+        host: reviews
         subset: v1
     fault:
       delay:
@@ -1248,7 +1289,7 @@ spec:
           prefix: &quot;/ratings/v2/&quot;
     route: 
     - destination:
-        name: ratings
+        host: ratings
 </code></pre>
 
 <p>HTTPMatchRequest CANNOT be empty.</p>
@@ -1452,7 +1493,7 @@ spec:
   http:
   - route:
     - destination:
-        name: ratings
+        host: ratings
         subset: v1
     retries:
       attempts: 3
@@ -1512,7 +1553,7 @@ spec:
       uri: /v1/bookRatings
     route:
     - destination:
-        name: ratings
+        host: ratings
         subset: v1
 </code></pre>
 
@@ -1629,6 +1670,14 @@ subject to further routing rules based on the protocol selected.</p>
 <td><code><a href="#HTTPRetry">HTTPRetry</a></code></td>
 <td>
 <p>Retry policy for HTTP requests.</p>
+
+</td>
+</tr>
+<tr id="HTTPRoute.fault">
+<td><code>fault</code></td>
+<td><code><a href="#HTTPFaultInjection">HTTPFaultInjection</a></code></td>
+<td>
+<p>Fault injection policy to apply on HTTP traffic.</p>
 
 </td>
 </tr>
@@ -1755,7 +1804,7 @@ kind: DestinationRule
 metadata:
   name: bookinfo-ratings
 spec:
-  name: ratings
+  host: ratings
   trafficPolicy:
     loadBalancer:
       simple: ROUND_ROBIN
@@ -1769,7 +1818,7 @@ kind: DestinationRule
 metadata:
   name: bookinfo-ratings
 spec:
-  name: ratings
+  host: ratings
   trafficPolicy:
     loadBalancer:
       consistentHash:
@@ -1916,7 +1965,7 @@ kind: DestinationRule
 metadata:
   name: reviews-cb-policy
 spec:
-  name: reviews
+  host: reviews
   trafficPolicy:
     connectionPool:
       tcp:
@@ -2350,7 +2399,7 @@ kind: DestinationRule
 metadata:
   name: bookinfo-ratings
 spec:
-  name: ratings
+  host: ratings
   trafficPolicy:
     loadBalancer:
       simple: LEAST_CONN
@@ -2427,7 +2476,7 @@ spec:
       sourceSubnet: &quot;172.17.16.0/24&quot;
     route:
     - destination:
-        name: mongo.prod
+        host: mongo.prod
 </code></pre>
 
 <table class="message-fields">
@@ -2478,7 +2527,7 @@ kind: DestinationRule
 metadata:
   name: db-mtls
 spec:
-  name: mydbserver
+  host: mydbserver
   trafficPolicy:
     tls:
       mode: MUTUAL
@@ -2494,7 +2543,7 @@ kind: DestinationRule
 metadata:
   name: tls-foo
 spec:
-  name: &quot;*.foo.com&quot;
+  host: &quot;*.foo.com&quot;
   trafficPolicy:
     tls:
       mode: SIMPLE
@@ -2694,11 +2743,11 @@ spec:
       uri: &quot;/newcatalog&quot;
     route:
     - destination:
-        name: reviews
+        host: reviews
         subset: v2
   - route:
     - destination:
-        name: reviews
+        host: reviews
         subset: v1
 </code></pre>
 
@@ -2711,7 +2760,7 @@ kind: DestinationRule
 metadata:
   name: reviews-destination
 spec:
-  name: reviews
+  host: reviews
   subsets:
   - name: v1
     labels:

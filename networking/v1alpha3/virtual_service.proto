@@ -89,11 +89,11 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //           uri: "/newcatalog"
 //         route:
 //         - destination:
-//             name: reviews
+//             host: reviews
 //             subset: v2
 //       - route:
 //         - destination:
-//             name: reviews
+//             host: reviews
 //             subset: v1
 //
 // A subset/version of a route destination is identified with a reference
@@ -105,7 +105,7 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //     metadata:
 //       name: reviews-destination
 //     spec:
-//       name: reviews
+//       host: reviews
 //       subsets:
 //       - name: v1
 //         labels:
@@ -207,11 +207,11 @@ message VirtualService {
 //           uri: "/newcatalog"
 //         route:
 //         - destination:
-//             name: reviews
+//             host: reviews
 //             subset: v2
 //       - route:
 //         - destination:
-//             name: reviews
+//             host: reviews
 //             subset: v1
 //
 // And the associated DestinationRule
@@ -221,7 +221,7 @@ message VirtualService {
 //     metadata:
 //       name: reviews-destination
 //     spec:
-//       name: reviews
+//       host: reviews
 //       subsets:
 //       - name: v1
 //         labels:
@@ -247,7 +247,7 @@ message VirtualService {
 //       - timeout: 5s
 //         route:
 //         - destination:
-//             name: productpage.prod
+//             host: productpage.prod
 //
 // The following sets a timeout of 5s for all calls to the external
 // service wikipedia.org, as there is no internal service of that name.
@@ -263,10 +263,10 @@ message VirtualService {
 //       - timeout: 5s
 //         route:
 //         - destination:
-//             name: wikipedia.org
+//             host: wikipedia.org
 //
 message Destination {
-  // REQUIRED. The name can be a short name or a fully qualified domain
+  // REQUIRED. The host can be a short name or a fully qualified domain
   // name from the service registry, a resolvable DNS name, or an IP
   // address.
   //
@@ -279,7 +279,7 @@ message Destination {
   // fails, "reviews" is treated as an external service, such that the sidecar
   // will dynamically resolve the DNS of the service name and route the request
   // to the IP addresses returned by the DNS.
-  string name = 1;
+  string host = 1;
 
   // The name of a subset within the service. Applicable only to services
   // within the mesh. The subset must be defined in a corresponding
@@ -338,7 +338,6 @@ message HTTPRoute {
   // Retry policy for HTTP requests.
   HTTPRetry retries = 7;
 
-  // $hide_from_docs
   //Fault injection policy to apply on HTTP traffic.
   HTTPFaultInjection fault = 8;
 
@@ -378,7 +377,7 @@ message HTTPRoute {
 //           sourceSubnet: "172.17.16.0/24"
 //         route:
 //         - destination:
-//             name: mongo.prod
+//             host: mongo.prod
 //
 message TCPRoute {
   // Match conditions to be satisfied for the rule to be
@@ -416,7 +415,7 @@ message TCPRoute {
 //               prefix: "/ratings/v2/"
 //         route: 
 //         - destination:
-//             name: ratings
+//             host: ratings
 //
 // HTTPMatchRequest CANNOT be empty.
 message HTTPMatchRequest {
@@ -517,11 +516,11 @@ message HTTPMatchRequest {
 //       http:
 //       - route:
 //         - destination:
-//             name: reviews
+//             host: reviews
 //             subset: v2
 //           weight: 25
 //         - destination:
-//             name: reviews
+//             host: reviews
 //             subset: v1
 //           weight: 75
 //
@@ -532,7 +531,7 @@ message HTTPMatchRequest {
 //     metadata:
 //       name: reviews-destination
 //     spec:
-//       name: reviews
+//       host: reviews
 //       subsets:
 //       - name: v1
 //         labels:
@@ -642,7 +641,7 @@ message HTTPRedirect {
 //           uri: /v1/bookRatings
 //         route:
 //         - destination:
-//             name: ratings
+//             host: ratings
 //             subset: v1
 //
 message HTTPRewrite {
@@ -685,7 +684,7 @@ message StringMatch {
 //       http:
 //       - route:
 //         - destination:
-//             name: ratings
+//             host: ratings
 //             subset: v1
 //         retries:
 //           attempts: 3
@@ -720,7 +719,7 @@ message HTTPRetry {
 //       http:
 //       - route:
 //         - destination:
-//             name: ratings
+//             host: ratings
 //             subset: v1
 //         corsPolicy:
 //           allowOrigin:
@@ -761,7 +760,6 @@ message CorsPolicy {
   google.protobuf.BoolValue allow_credentials = 6;
 }
 
-// $hide_from_docs
 // HTTPFaultInjection can be used to specify one or more faults to inject
 // while forwarding http requests to the destination specified in a route.
 // Fault specification is part of a VirtualService rule. Faults include
@@ -797,7 +795,7 @@ message HTTPFaultInjection {
   //             env: prod
   //         route:
   //         - destination:
-  //             name: reviews
+  //             host: reviews
   //             subset: v1
   //         fault:
   //           delay:
@@ -838,7 +836,7 @@ message HTTPFaultInjection {
   //       http:
   //       - route:
   //         - destination:
-  //             name: ratings
+  //             host: ratings
   //             subset: v1
   //         fault:
   //           abort:
