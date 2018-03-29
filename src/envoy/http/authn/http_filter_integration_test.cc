@@ -169,6 +169,7 @@ TEST_P(AuthenticationFilterIntegrationTest, CheckAuthnResultIsExpected) {
               ],
               "presenter": "",
               "claims": {
+               "aud": "bookstore-esp-echo.cloudendpointsapis.com",
                "iss": "628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com",
                "sub": "628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com"
               }

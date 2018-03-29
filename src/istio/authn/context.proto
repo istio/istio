@@ -33,7 +33,7 @@ message JwtPayload {
   // id. Example 123456789012.my-svc.com
   string presenter = 3;
 
-  // Raw JWT claims.
+  // Only raw JWT string claims are kept.
   map<string, string> claims = 5;
 }
 

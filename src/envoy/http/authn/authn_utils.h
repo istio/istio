@@ -29,6 +29,8 @@ namespace AuthN {
 class AuthnUtils : public Logger::Loggable<Logger::Id::filter> {
  public:
   // Retrieve the JWT payload from the HTTP header into the output payload map
+  // Return true if parsing the header payload key succeeds.
+  // Otherwise, return false.
   static bool GetJWTPayloadFromHeaders(const HeaderMap& headers,
                                        const LowerCaseString& jwt_payload_key,
                                        istio::authn::JwtPayload* payload);

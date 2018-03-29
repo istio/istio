@@ -14,6 +14,7 @@
  */
 
 #include "src/envoy/http/authn/authenticator_base.h"
+#include "common/common/base64.h"
 #include "common/protobuf/protobuf.h"
 #include "gmock/gmock.h"
 #include "src/envoy/http/authn/test_utils.h"
@@ -35,12 +36,15 @@ namespace {
 
 const std::string kSecIstioAuthUserInfoHeaderKey = "sec-istio-auth-userinfo";
 const std::string kSecIstioAuthUserinfoHeaderValue =
-    "eyJpc3MiOiI2Mjg2NDU3NDE4ODEtbm9hYml1MjNmNWE4bThvdmQ4dWN2Njk4bGo3OH"
-    "Z2MGxAZGV2ZWxvcGVyLmdzZXJ2aWNlYWNjb3VudC5jb20iLCJzdWIiOiI2Mjg2NDU3"
-    "NDE4ODEtbm9hYml1MjNmNWE4bThvdmQ4dWN2Njk4bGo3OHZ2MGxAZGV2ZWxvcGVyLm"
-    "dzZXJ2aWNlYWNjb3VudC5jb20iLCJhdWQiOiJib29rc3RvcmUtZXNwLWVjaG8uY2xv"
-    "dWRlbmRwb2ludHNhcGlzLmNvbSIsImlhdCI6MTUxMjc1NDIwNSwiZXhwIjo1MTEyNz"
-    "U0MjA1fQ==";
+    R"(
+     {
+       "iss": "issuer@foo.com",
+       "sub": "sub@foo.com",
+       "aud": "aud1",
+       "non-string-will-be-ignored": 1512754205,
+       "some-other-string-claims": "some-claims-kept"
+     }
+   )";
 
 class MockAuthenticatorBase : public AuthenticatorBase {
  public:
@@ -141,10 +145,20 @@ TEST_F(AuthenticatorBaseTest, ValidateJwtWithNoJwtInHeader) {
   });
 }
 
+Http::TestHeaderMapImpl CreateTestHeaderMap(const std::string& header_key,
+                                            const std::string& header_value) {
+  // The base64 encoding is done through Base64::encode().
+  // If the test input has special chars, may need to use the counterpart of
+  // Base64UrlDecode().
+  std::string value_base64 =
+      Base64::encode(header_value.c_str(), header_value.size());
+  return Http::TestHeaderMapImpl{{header_key, value_base64}};
+}
+
 TEST_F(AuthenticatorBaseTest, ValidateJwtWithJwtInHeader) {
   iaapi::Jwt jwt;
-  Http::TestHeaderMapImpl request_headers_with_jwt{
-      {kSecIstioAuthUserInfoHeaderKey, kSecIstioAuthUserinfoHeaderValue}};
+  Http::TestHeaderMapImpl request_headers_with_jwt = CreateTestHeaderMap(
+      kSecIstioAuthUserInfoHeaderKey, kSecIstioAuthUserinfoHeaderValue);
   FilterContext filter_context{&request_headers_with_jwt, &connection_};
   MockAuthenticatorBase authenticator{&filter_context};
   Payload expected_payload;
@@ -152,18 +166,19 @@ TEST_F(AuthenticatorBaseTest, ValidateJwtWithJwtInHeader) {
   JsonStringToMessage(
       R"({
              "jwt": {
-               "user": "628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com/628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com",
-               "audiences": ["bookstore-esp-echo.cloudendpointsapis.com"],
+               "user": "issuer@foo.com/sub@foo.com",
+               "audiences": ["aud1"],
                "presenter": "",
                "claims": {
-                 "iss": "628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com",
-                 "sub": "628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com"
+                 "aud": "aud1",
+                 "iss": "issuer@foo.com",
+                 "sub": "sub@foo.com",
+                 "some-other-string-claims": "some-claims-kept"
                }
              }
            }
         )",
       &expected_payload, options);
-
   authenticator.validateJwt(
       jwt, [&expected_payload](const Payload* payload, bool success) {
         // When there is a verified JWT in the HTTP header, validateJwt()

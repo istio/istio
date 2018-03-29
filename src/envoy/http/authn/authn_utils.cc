@@ -22,51 +22,35 @@ namespace Http {
 namespace Istio {
 namespace AuthN {
 namespace {
-class JsonIterCallback : public Logger::Loggable<Logger::Id::filter> {
- public:
-  // The json iterator callback function
-  static bool JsonIteratorCallback(const std::string&,
-                                   const Envoy::Json::Object&,
-                                   istio::authn::JwtPayload* payload);
-};
+// The JWT audience key name
+static const std::string kJwtAudienceKey = "aud";
 
-bool JsonIterCallback::JsonIteratorCallback(const std::string& key,
-                                            const Envoy::Json::Object& obj,
-                                            istio::authn::JwtPayload* payload) {
-  ENVOY_LOG(debug, "{}: key is {}", __FUNCTION__, key);
-  ::google::protobuf::Map< ::std::string, ::std::string>* claims =
-      payload->mutable_claims();
-  try {
-    if (key == "aud") {
-      // "aud" can be either string array or string.
-      // Try as string array, read it as empty array if doesn't exist.
-      std::vector<std::string> aud_vector;
-      try {
-        aud_vector = obj.getStringArray(key, true);
-      } catch (Json::Exception& e) {
-        // Try as string
-        try {
-          auto audience = obj.asString();
-          aud_vector.push_back(audience);
-        } catch (Json::Exception& e) {
-          ENVOY_LOG(error, "aud field type is not string or string array");
-        }
-      }
-      for (size_t i = 0; i < aud_vector.size(); i++) {
-        payload->add_audiences(aud_vector[i]);
-      }
-    } else {
-      // will throw execption if value type is not string.
-      // In current implementation, only string objects are extracted into
-      // claims.
-      (*claims)[key] = obj.asString();
-    }
-  } catch (...) {
+// Extract JWT audience into the JwtPayload.
+// This function should to be called after the claims are extracted.
+void ExtractJwtAudience(
+    const Envoy::Json::Object& obj,
+    const ::google::protobuf::Map< ::std::string, ::std::string>& claims,
+    istio::authn::JwtPayload* payload) {
+  const std::string& key = kJwtAudienceKey;
+  // "aud" can be either string array or string.
+  // First, try as string
+  if (claims.count(key) > 0) {
+    payload->add_audiences(claims.at(key));
+    return;
   }
-  return true;
+  // Next, try as string array
+  try {
+    std::vector<std::string> aud_vector = obj.getStringArray(key);
+    for (const std::string aud : aud_vector) {
+      payload->add_audiences(aud);
+    }
+  } catch (Json::Exception& e) {
+    // Not convertable to string array
+  }
 }
 };  // namespace
 
+// Retrieve the JwtPayload from the HTTP headers with the key
 bool AuthnUtils::GetJWTPayloadFromHeaders(
     const HeaderMap& headers, const LowerCaseString& jwt_payload_key,
     istio::authn::JwtPayload* payload) {
@@ -87,25 +71,33 @@ bool AuthnUtils::GetJWTPayloadFromHeaders(
   }
   ::google::protobuf::Map< ::std::string, ::std::string>* claims =
       payload->mutable_claims();
+  Envoy::Json::ObjectSharedPtr json_obj;
   try {
-    auto json_obj = Json::Factory::loadFromString(payload_str);
+    json_obj = Json::Factory::loadFromString(payload_str);
     ENVOY_LOG(debug, "{}: json object is {}", __FUNCTION__,
               json_obj->asJsonString());
-    json_obj->iterate(
-        [payload](const std::string& key, const Json::Object& obj) -> bool {
-          return JsonIterCallback::JsonIteratorCallback(key, obj, payload);
-        });
-
   } catch (...) {
-    ENVOY_LOG(error, "Invalid {} header, invalid json: {}",
-              jwt_payload_key.get(), payload_str);
     return false;
   }
 
-  if (payload->claims().empty()) {
-    ENVOY_LOG(error, "{}: there is no JWT claims.", __func__);
-    return false;
-  }
+  // Extract claims
+  json_obj->iterate(
+      [payload](const std::string& key, const Json::Object& obj) -> bool {
+        ::google::protobuf::Map< ::std::string, ::std::string>* claims =
+            payload->mutable_claims();
+        // In current implementation, only string objects are extracted into
+        // claims. If call obj.asJsonString(), will get "panic: not reached"
+        // from json_loader.cc.
+        try {
+          // Try as string, will throw execption if object type is not string.
+          (*claims)[key] = obj.asString();
+        } catch (Json::Exception& e) {
+        }
+        return true;
+      });
+  // Extract audience
+  // ExtractJwtAudience() should be called after claims are extracted.
+  ExtractJwtAudience(*json_obj, payload->claims(), payload);
   // Build user
   if (claims->count("iss") > 0 && claims->count("sub") > 0) {
     payload->set_user((*claims)["iss"] + "/" + (*claims)["sub"]);
