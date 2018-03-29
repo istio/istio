@@ -18,6 +18,8 @@ package serviceregistry
 type ServiceRegistry string
 
 const (
+	// MockRegistry environment flag
+	MockRegistry ServiceRegistry = "Mock"
 	// KubernetesRegistry environment flag
 	KubernetesRegistry ServiceRegistry = "Kubernetes"
 	// ConsulRegistry environment flag
