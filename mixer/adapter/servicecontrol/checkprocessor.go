@@ -105,9 +105,9 @@ func (c *checkImpl) doCheck(consumerID, operationName string, timestamp time.Tim
 		},
 	}
 
-	if c.env.Logger().VerbosityLevel(logDebug) {
+	if c.env.Logger().DebugEnabled() {
 		if requestDetail, err := toFormattedJSON(request); err == nil {
-			c.env.Logger().Infof("request: %v", requestDetail)
+			c.env.Logger().Debugf("request: %v", requestDetail)
 		}
 	}
 
@@ -116,9 +116,9 @@ func (c *checkImpl) doCheck(consumerID, operationName string, timestamp time.Tim
 		return nil, err
 	}
 
-	if c.env.Logger().VerbosityLevel(logDebug) {
+	if c.env.Logger().DebugEnabled() {
 		if responseDetail, err := toFormattedJSON(response); err == nil {
-			c.env.Logger().Infof("response: %v", responseDetail)
+			c.env.Logger().Debugf("response: %v", responseDetail)
 		}
 	}
 
