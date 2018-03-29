@@ -82,22 +82,23 @@ func legacyAuthenticationPolicyToPolicy(legacy meshconfig.AuthenticationPolicy) 
 	return nil
 }
 
-// RequireTLS returns true if the policy use mTLS for (peer) authentication.
-func RequireTLS(policy *authn.Policy) bool {
+// RequireTLS returns true and pointer to mTLS params if the policy use mTLS for (peer) authentication.
+// (note that mTLS params can still be nil). Otherwise, return (false, nil).
+func RequireTLS(policy *authn.Policy) (bool, *authn.MutualTls) {
 	if policy == nil {
-		return false
+		return false, nil
 	}
 	if len(policy.Peers) > 0 {
 		for _, method := range policy.Peers {
 			switch method.GetParams().(type) {
 			case *authn.PeerAuthenticationMethod_Mtls:
-				return true
+				return true, method.GetMtls()
 			default:
 				continue
 			}
 		}
 	}
-	return false
+	return false, nil
 }
 
 // ParseJwksURI parses the input URI and returns the corresponding hostname, port, and whether SSL is used.

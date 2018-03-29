@@ -401,7 +401,7 @@ func buildMgmtPortListeners(managementPorts model.PortList, managementIP string)
 // TODO: move to plugins
 // buildInboundAuth adds TLS to the listener if the policy requires one.
 func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy) *auth.DownstreamTlsContext {
-	if model.RequireTLS(authenticationPolicy) {
+	if requireTLS, mTLSParams := model.RequireTLS(authenticationPolicy); requireTLS {
 		return &auth.DownstreamTlsContext{
 			CommonTlsContext: &auth.CommonTlsContext{
 				TlsCertificates: []*auth.TlsCertificate{
@@ -428,7 +428,7 @@ func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy) *auth.Do
 				AlpnProtocols: ListenersALPNProtocols,
 			},
 			RequireClientCertificate: &google_protobuf.BoolValue{
-				Value: true,
+				Value: !mTLSParams.AllowTls,
 			},
 		}
 	}
