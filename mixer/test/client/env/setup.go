@@ -24,6 +24,7 @@ import (
 	rpc "github.com/gogo/googleapis/google/rpc"
 
 	mixerpb "istio.io/api/mixer/v1"
+	"istio.io/istio/pkg/test"
 )
 
 // TestSetup store data for a test.
@@ -119,6 +120,16 @@ func (s *TestSetup) GetMixerQuotaCount() int {
 	return s.mixer.quota.Count()
 }
 
+// GetMixerCheckCount get the number of Check calls.
+func (s *TestSetup) GetMixerCheckCount() int {
+	return s.mixer.check.count
+}
+
+// GetMixerReportCount get the number of Report calls.
+func (s *TestSetup) GetMixerReportCount() int {
+	return s.mixer.report.count
+}
+
 // SetStress set the stress flag
 func (s *TestSetup) SetStress(stress bool) {
 	s.stress = stress
@@ -188,18 +199,16 @@ func (s *TestSetup) ReStartEnvoy() {
 
 // VerifyCheckCount verifies the number of Check calls.
 func (s *TestSetup) VerifyCheckCount(tag string, expected int) {
-	if s.mixer.check.Count() != expected {
-		s.t.Fatalf("%s check count doesn't match: %v\n, expected: %+v",
-			tag, s.mixer.check.Count(), expected)
-	}
+	test.Eventually(s.t, "VerifyCheckCount", func() bool {
+		return s.mixer.check.count == expected
+	})
 }
 
 // VerifyReportCount verifies the number of Report calls.
 func (s *TestSetup) VerifyReportCount(tag string, expected int) {
-	if s.mixer.report.Count() != expected {
-		s.t.Fatalf("%s report count doesn't match: %v\n, expected: %+v",
-			tag, s.mixer.report.Count(), expected)
-	}
+	test.Eventually(s.t, "VerifyReportCount", func() bool {
+		return s.mixer.report.count == expected
+	})
 }
 
 // VerifyCheck verifies Check request data.
