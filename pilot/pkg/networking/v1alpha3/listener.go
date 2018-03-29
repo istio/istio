@@ -31,12 +31,14 @@ import (
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
-	"github.com/envoyproxy/go-control-plane/pkg/util"
+	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 
 	google_protobuf "github.com/gogo/protobuf/types"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
+	plugin_authn "istio.io/istio/pilot/pkg/networking/plugins/authn"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
 )
 
@@ -123,7 +125,7 @@ func buildSidecarListeners(env model.Environment, node model.Proxy) ([]*xdsapi.L
 		// non overlapping listeners only.
 		for i := range mgmtListeners {
 			m := mgmtListeners[i]
-			l := getByAddress(listeners, m.Address.String())
+			l := util.GetByAddress(listeners, m.Address.String())
 			if l != nil {
 				log.Warnf("Omitting listener for management address %s (%s) due to collision with service listener %s (%s)",
 					m.Name, m.Address, l.Name, l.Address)
@@ -142,14 +144,14 @@ func buildSidecarListeners(env model.Environment, node model.Proxy) ([]*xdsapi.L
 		// add an extra listener that binds to the port that is the recipient of the iptables redirect
 		listeners = append(listeners, &xdsapi.Listener{
 			Name:           VirtualListenerName,
-			Address:        buildAddress(WildcardAddress, uint32(mesh.ProxyListenPort)),
+			Address:        util.BuildAddress(WildcardAddress, uint32(mesh.ProxyListenPort)),
 			UseOriginalDst: &google_protobuf.BoolValue{true},
 			FilterChains: []listener.FilterChain{
 				{
 					Filters: []listener.Filter{
 						{
-							Name:   util.TCPProxy,
-							Config: messageToStruct(dummyTCPProxy),
+							Name:   xdsutil.TCPProxy,
+							Config: util.MessageToStruct(dummyTCPProxy),
 						},
 					},
 				},
@@ -186,7 +188,7 @@ func buildSidecarListeners(env model.Environment, node model.Proxy) ([]*xdsapi.L
 		// TODO: need inbound listeners in HTTP_PROXY case, with dedicated ingress listener.
 	}
 
-	return normalizeListeners(listeners), nil
+	return util.NormalizeListeners(listeners), nil
 }
 
 // buildSidecarInboundListeners creates listeners for the server-side (inbound)
@@ -243,7 +245,7 @@ func buildSidecarInboundListeners(env model.Environment, node model.Proxy,
 			//		Filters: []listener.Filter{
 			//			{
 			//				// TODO(mostrowski): need proto version of mixer config.
-			//				// Config: messageToStruct(&config),
+			//				// Config: MessageToStruct(&config),
 			//			},
 			//		},
 			//	})
@@ -470,12 +472,12 @@ func buildDeprecatedHTTPListener(opts buildListenerOpts) *xdsapi.Listener {
 		routeConfigDeprecated := string(rcBytes)
 		return &xdsapi.Listener{
 			Name:    fmt.Sprintf("http_%s_%d", opts.ip, opts.port),
-			Address: buildAddress(opts.ip, uint32(opts.port)),
+			Address: BuildAddress(opts.ip, uint32(opts.port)),
 			FilterChains: []listener.FilterChain{
 				{
 					Filters: []listener.Filter{
 						{
-							Name: util.HTTPConnectionManager,
+							Name: xdsutil.HTTPConnectionManager,
 							DeprecatedV1: &listener.Filter_DeprecatedV1{
 								Type: routeConfigDeprecated,
 							},
@@ -499,12 +501,12 @@ func buildHTTPConnectionManager(opts buildListenerOpts) *http_conn.HttpConnectio
 	filters := []*http_conn.HttpFilter{}
 
 	filters = append(filters, &http_conn.HttpFilter{
-		Name: util.CORS,
+		Name: xdsutil.CORS,
 	})
 	// TODO: need alphav3 fault filters.
 	// filters = append(filters, buildFaultFilters(opts.config, opts.env, opts.proxy)...)
 	filters = append(filters, &http_conn.HttpFilter{
-		Name: util.Router,
+		Name: xdsutil.Router,
 	})
 
 	/*	TODO(mostrowski): need to port internal build functions for mixer.
@@ -512,7 +514,7 @@ func buildHTTPConnectionManager(opts buildListenerOpts) *http_conn.HttpConnectio
 			mixerConfig := v1.BuildHTTPMixerFilterConfig(opts.mesh, opts.proxy, opts.proxyInstances, opts.outboundListener, opts.store)
 		filter := &http_conn.HttpFilter{
 			Name: v1.MixerFilter,
-			Config:messageToStruct(mixerConfig),
+			Config:MessageToStruct(mixerConfig),
 		}
 			filters = append([]*http_conn.HttpFilter{filter}, filters...)
 		}
@@ -523,7 +525,7 @@ func buildHTTPConnectionManager(opts buildListenerOpts) *http_conn.HttpConnectio
 		refresh = 5 * time.Second
 	}
 
-	if filter := buildJwtFilter(opts.httpOpts.authnPolicy); filter != nil {
+	if filter := plugin_authn.BuildJwtFilter(opts.httpOpts.authnPolicy); filter != nil {
 		filters = append([]*http_conn.HttpFilter{filter}, filters...)
 	}
 
@@ -573,7 +575,7 @@ func buildHTTPConnectionManager(opts buildListenerOpts) *http_conn.HttpConnectio
 
 		connectionManager.AccessLog = []*accesslog.AccessLog{
 			{
-				Config: messageToStruct(fl),
+				Config: util.MessageToStruct(fl),
 				Name:   fileAccessLog,
 			},
 		}
@@ -606,7 +608,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 		connectionManager := buildHTTPConnectionManager(opts)
 		filters = append(filters, listener.Filter{
 			Name:   envoyHTTPConnectionManager,
-			Config: messageToStruct(connectionManager),
+			Config: util.MessageToStruct(connectionManager),
 		})
 	} else if len(opts.networkFilters) > 0 {
 		filters = opts.networkFilters
@@ -624,7 +626,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	}
 	return &xdsapi.Listener{
 		Name:    fmt.Sprintf("%s_%s_%d", opts.protocol, opts.ip, opts.port),
-		Address: buildAddress(opts.ip, uint32(opts.port)),
+		Address: util.BuildAddress(opts.ip, uint32(opts.port)),
 		FilterChains: []listener.FilterChain{
 			{
 				FilterChainMatch: filterChainMatch,
@@ -735,7 +737,7 @@ func buildSidecarOutboundHTTPRouteConfig(env model.Environment, node model.Proxy
 			domains := generateAltVirtualHosts(svc.Hostname, guardedHost.Port)
 			if len(svc.Address) > 0 {
 				// add a vhost match for the IP (if its non CIDR)
-				cidr := convertAddressToCidr(svc.Address)
+				cidr := util.ConvertAddressToCidr(svc.Address)
 				if cidr.PrefixLen.Value == 32 {
 					domains = append(domains, svc.Address)
 					domains = append(domains, fmt.Sprintf("%s:%d", svc.Address, guardedHost.Port))
