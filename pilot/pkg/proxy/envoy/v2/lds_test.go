@@ -73,24 +73,24 @@ func TestLDS(t *testing.T) {
 	})
 
 	// TODO need mock ingress resource or gateway resource to test this.
-	//t.Run("ingress", func(t *testing.T) {
-	//	ldsr := connectLDS(util.MockPilotGrpcAddr, ingressId(), t)
-	//
-	//	res, err := ldsr.Recv()
-	//	if err != nil {
-	//		t.Fatal("Failed to receive LDS", err)
-	//		return
-	//	}
-	//
-	//	strResponse, _ := model.ToJSONWithIndent(res, " ")
-	//
-	//	_ = ioutil.WriteFile(util.IstioOut+"/ldsv2_ingress.json", []byte(strResponse), 0644)
-	//
-	//	t.Log("LDS response ingress", strResponse)
-	//	if len(res.Resources) == 0 {
-	//		t.Fatal("No response")
-	//	}
-	//})
+	t.Run("ingress", func(t *testing.T) {
+		ldsr := connectLDS(util.MockPilotGrpcAddr, ingressId(ingressIP), t)
+
+		res, err := ldsr.Recv()
+		if err != nil {
+			t.Fatal("Failed to receive LDS", err)
+			return
+		}
+
+		strResponse, _ := model.ToJSONWithIndent(res, " ")
+
+		_ = ioutil.WriteFile(util.IstioOut+"/ldsv2_ingress.json", []byte(strResponse), 0644)
+
+		t.Log("LDS response ingress", strResponse)
+		if len(res.Resources) == 0 {
+			t.Fatal("No response")
+		}
+	})
 
 	// TODO: compare with some golden once it's stable
 	// check that each mocked service and destination rule has a corresponding resource

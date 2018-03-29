@@ -47,7 +47,8 @@ var (
 	// service1 and service2 are used by mixer tests. Use 'service3' and 'app3' for pilot
 	// local tests.
 
-	app3Ip = "10.2.0.1"
+	app3Ip    = "10.2.0.1"
+	ingressIP = "10.3.0.1"
 )
 
 // Common code for the xds testing.
@@ -93,10 +94,10 @@ func sidecarId(ip, deployment string) string {
 	return fmt.Sprintf("sidecar~%s~%s-644fc65469-96dza.testns~testns.svc.cluster.local", ip, deployment)
 }
 
-//func ingressId() string {
-//	return fmt.Sprintf("ingress~~istio-ingress-644fc65469-96dzt.istio-system~istio-system.svc.cluster.local")
-//}
-//
+func ingressId(ip string) string {
+	return fmt.Sprintf("ingress~%s~istio-ingress-644fc65469-96dzt.istio-system~istio-system.svc.cluster.local", ip)
+}
+
 // initLocalPilotTestEnv creates a local, in process Pilot with XDSv2 support and a set
 // of common test configs. This is a singleton.
 func initLocalPilotTestEnv() *bootstrap.Server {
@@ -140,6 +141,20 @@ func initLocalPilotTestEnv() *bootstrap.Server {
 			},
 		},
 		Labels:           map[string]string{"version": "1"},
+		AvailabilityZone: "az",
+	})
+	server.EnvoyXdsServer.MemRegistry.AddInstance("service3", "app3", &model.ServiceInstance{
+		Endpoint: model.NetworkEndpoint{
+			Address: ingressIP,
+			Port:    2080,
+			ServicePort: &model.Port{
+				Name:                 "http-main",
+				Port:                 1080,
+				Protocol:             model.ProtocolHTTP,
+				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+			},
+		},
+		Labels:           map[string]string{"version": "1", "app": "my-gateway-controller"},
 		AvailabilityZone: "az",
 	})
 
