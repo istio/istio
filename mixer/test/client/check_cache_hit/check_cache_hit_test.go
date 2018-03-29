@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors. All Rights Reserved.
+// Copyright 2018 Istio Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,23 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package failedRequest
+package checkCache
 
 import (
 	"fmt"
 	"testing"
 
-	rpc "github.com/gogo/googleapis/google/rpc"
-
+	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/test/client/env"
 )
 
-const (
-	mixerAuthFailMessage = "Unauthenticated by mixer."
-)
-
-// Check attributes from a fail GET request from mixer
-const checkAttributesMixerFail = `
+// Check attributes from a good GET request
+const checkAttributesOkGet = `
 {
   "context.protocol": "http",
   "mesh1.ip": "[1 1 1 1]",
@@ -50,68 +45,20 @@ const checkAttributesMixerFail = `
   "target.namespace": "XYZ222",
   "connection.mtls": false,
   "request.headers": {
-     ":method": "GET",
-     ":path": "/echo",
-     ":authority": "*",
-     "x-forwarded-proto": "http",
-     "x-istio-attributes": "-",
-     "x-request-id": "*"
+    ":method": "GET",
+    ":path": "/echo",
+    ":authority": "*",
+    "x-forwarded-proto": "http",
+    "x-istio-attributes": "-",
+    "x-request-id": "*"
   }
 }
 `
 
-// Report attributes from a fail GET request from mixer
-const reportAttributesMixerFail = `
-{
-  "check.error_code": 16,
-  "check.error_message": "UNAUTHENTICATED:Unauthenticated by mixer.",
-  "context.protocol": "http",
-  "mesh1.ip": "[1 1 1 1]",
-  "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
-  "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
-  "request.host": "*",
-  "request.path": "/echo",
-  "request.time": "*",
-  "request.useragent": "Go-http-client/1.1",
-  "request.method": "GET",
-  "request.scheme": "http",
-  "source.uid": "POD11",
-  "source.namespace": "XYZ11",
-  "source.ip": "[127 0 0 1]",
-  "source.port": "*",
-  "target.name": "target-name",
-  "target.user": "target-user",
-  "target.uid": "POD222",
-  "target.namespace": "XYZ222",
-  "connection.mtls": false,
-  "check.cache_hit": false,
-  "quota.cache_hit": false,
-  "request.headers": {
-     ":method": "GET",
-     ":path": "/echo",
-     ":authority": "*",
-     "x-forwarded-proto": "http",
-     "x-istio-attributes": "-",
-     "x-request-id": "*"
-  },
-  "request.size": 0,
-  "response.time": "*",
-  "response.size": 41,
-  "response.duration": "*",
-  "response.code": 401,
-  "response.headers": {
-     "date": "*",
-     "content-type": "text/plain",
-     "content-length": "41",
-     ":status": "401",
-     "server": "envoy"
-  }
-}
-`
-
-// Report attributes from a fail GET request from backend
-const reportAttributesBackendFail = `
-{
+// Report attributes from a good GET request.
+// In reportAttributesOkGet[0], check.cache_hit and quota.cache_hit are false.
+// In reportAttributesOkGet[1], check.cache_hit and quota.cache_hit are true.
+var reportAttributesOkGet = [...]string{`{
   "context.protocol": "http",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
@@ -134,29 +81,71 @@ const reportAttributesBackendFail = `
   "check.cache_hit": false,
   "quota.cache_hit": false,
   "request.headers": {
-     ":method": "GET",
-     ":path": "/echo",
-     ":authority": "*",
-     "x-forwarded-proto": "http",
-     "x-istio-attributes": "-",
-     "x-request-id": "*"
+    ":method": "GET",
+    ":path": "/echo",
+    ":authority": "*",
+    "x-forwarded-proto": "http",
+    "x-istio-attributes": "-",
+    "x-request-id": "*"
   },
   "request.size": 0,
   "response.time": "*",
-  "response.size": 25,
+  "response.size": 0,
   "response.duration": "*",
-  "response.code": 400,
+  "response.code": 200,
   "response.headers": {
-     "date": "*",
-     "content-length": "25",
-     ":status": "400",
-     "server": "envoy"
+    "date": "*",
+    "content-length": "0",
+    ":status": "200",
+    "server": "envoy"
   }
-}
-`
+}`,
+	`{
+  "context.protocol": "http",
+  "mesh1.ip": "[1 1 1 1]",
+  "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
+  "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
+  "request.host": "*",
+  "request.path": "/echo",
+  "request.time": "*",
+  "request.useragent": "Go-http-client/1.1",
+  "request.method": "GET",
+  "request.scheme": "http",
+  "source.uid": "POD11",
+  "source.namespace": "XYZ11",
+  "source.ip": "[127 0 0 1]",
+  "source.port": "*",
+  "target.name": "target-name",
+  "target.user": "target-user",
+  "target.uid": "POD222",
+  "target.namespace": "XYZ222",
+  "connection.mtls": false,
+  "check.cache_hit": true,
+  "quota.cache_hit": true,
+  "request.headers": {
+    ":method": "GET",
+    ":path": "/echo",
+    ":authority": "*",
+    "x-forwarded-proto": "http",
+    "x-istio-attributes": "-",
+    "x-request-id": "*"
+  },
+  "request.size": 0,
+  "response.time": "*",
+  "response.size": 0,
+  "response.duration": "*",
+  "response.code": 200,
+  "response.headers": {
+    "date": "*",
+    "content-length": "0",
+    ":status": "200",
+    "server": "envoy"
+  }
+}`}
 
-func TestFailedRequest(t *testing.T) {
-	s := env.NewTestSetup(env.FailedRequestTest, t)
+func TestCheckCacheHit(t *testing.T) {
+	s := env.NewTestSetup(env.CheckCacheHitTest, t)
+	env.SetStatsUpdateInterval(s.MfConfig(), 1)
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
@@ -164,41 +153,31 @@ func TestFailedRequest(t *testing.T) {
 
 	url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().ClientProxyPort)
 
-	tag := "MixerFail"
-	s.SetMixerCheckStatus(rpc.Status{
-		Code:    int32(rpc.UNAUTHENTICATED),
-		Message: mixerAuthFailMessage,
-	})
-	code, respBody, err := env.HTTPGet(url)
-	// Make sure to restore r_status for next request.
-	s.SetMixerCheckStatus(rpc.Status{})
-	if err != nil {
-		t.Errorf("Failed in request %s: %v", tag, err)
+	// Need to override mixer test server Referenced field in the check response.
+	// Its default is all fields in the request which could not be used fo test check cache.
+	output := mixerpb.ReferencedAttributes{
+		AttributeMatches: make([]mixerpb.ReferencedAttributes_AttributeMatch, 1),
 	}
-	if code != 401 {
-		t.Errorf("Status code 401 is expected, got %d.", code)
+	output.AttributeMatches[0] = mixerpb.ReferencedAttributes_AttributeMatch{
+		// Assume "target.name" is in the request attributes, and it is used for Check.
+		Name:      10,
+		Condition: mixerpb.EXACT,
 	}
-	if respBody != "UNAUTHENTICATED:"+mixerAuthFailMessage {
-		t.Errorf("Error response body is not expected, got: '%s'.", respBody)
-	}
-	s.VerifyCheck(tag, checkAttributesMixerFail)
-	s.VerifyReport(tag, reportAttributesMixerFail)
+	s.SetMixerCheckReferenced(&output)
 
-	// Issues a failed request caused by backend
-	tag = "BackendFail"
-	headers := map[string]string{}
-	headers[env.FailHeader] = "Yes"
-	code, respBody, err = env.HTTPGetWithHeaders(url, headers)
-	if err != nil {
-		t.Errorf("Failed in request %s: %v", tag, err)
+	// Issues a GET echo request with 0 size body
+	tag := "OKGet"
+	for i := 0; i < 3; i++ {
+		if _, _, err := env.HTTPGet(url); err != nil {
+			t.Errorf("Failed in request %s: %v", tag, err)
+		}
+		if i == 0 {
+			s.VerifyCheck(tag, checkAttributesOkGet)
+			s.VerifyReport(tag, reportAttributesOkGet[0])
+		} else {
+			s.VerifyReport(tag, reportAttributesOkGet[1])
+		}
 	}
-	if code != 400 {
-		t.Errorf("Status code 400 is expected, got %d.", code)
-	}
-	if respBody != env.FailBody {
-		t.Errorf("Error response body is not expected, got '%s'.", respBody)
-	}
-	// Same Check attributes as the first one.
-	s.VerifyCheck(tag, checkAttributesMixerFail)
-	s.VerifyReport(tag, reportAttributesBackendFail)
+	// Only the first check is called.
+	s.VerifyCheckCount(tag, 1)
 }
