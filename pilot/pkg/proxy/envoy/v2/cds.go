@@ -161,7 +161,7 @@ func (s *DiscoveryServer) StreamClusters(stream xdsapi.ClusterDiscoveryService_S
 		case <-con.pushChannel:
 		}
 
-		rawClusters := v1alpha3.BuildClusters(s.env, *con.modelNode)
+		rawClusters, _ := v1alpha3.BuildClusters(s.env, *con.modelNode)
 
 		response := con.clusters(rawClusters)
 		err := stream.Send(response)

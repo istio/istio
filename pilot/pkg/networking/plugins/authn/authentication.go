@@ -33,7 +33,8 @@ const (
 	jwtFilterName = "jwt-auth"
 )
 
-func NewAuthnPlugin() *networking.PluginCallbacks {
+// NewPlugin initializes the plugin
+func NewPlugin() *networking.PluginCallbacks {
 	return &networking.PluginCallbacks{
 		OnOutboundCluster: HandleOutboundCluster,
 	}
@@ -51,8 +52,8 @@ func BuildJwtFilter(policy *authn.Policy) *http_conn.HttpFilter {
 	}
 }
 
-// ApplyOutboundIstioAuth adds mTLS authN settings for outbound clusters
-func HandleOutboundCluster(env model.Environment, node *model.Proxy, service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
+// HandleOutboundCluster adds mTLS authN settings for outbound clusters
+func HandleOutboundCluster(env model.Environment, _ model.Proxy, service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
 
 	mesh := env.Mesh
 	config := env.IstioConfigStore

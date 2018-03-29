@@ -49,13 +49,13 @@ const (
 // For outbound: Cluster for each service/subset hostname or cidr with SNI set to service hostname
 // Cluster type based on resolution
 // For inbound (sidecar only): Cluster for each inbound endpoint port and for each service port
-func BuildClusters(env model.Environment, proxy model.Proxy) []*v2.Cluster {
+func BuildClusters(env model.Environment, proxy model.Proxy) ([]*v2.Cluster, error) {
 	clusters := make([]*v2.Cluster, 0)
 
 	services, err := env.Services()
 	if err != nil {
 		log.Errorf("Failed for retrieve services: %v", err)
-		return nil
+		return nil, err
 	}
 
 	clusters = append(clusters, buildOutboundClusters(env, services)...)
@@ -69,14 +69,14 @@ func BuildClusters(env model.Environment, proxy model.Proxy) []*v2.Cluster {
 		instances, err := env.GetProxyServiceInstances(proxy)
 		if err != nil {
 			log.Errorf("failed to get service proxy service instances: %v", err)
-			return nil
+			return nil, err
 		}
 
 		managementPorts := env.ManagementPorts(proxy.IPAddress)
 		clusters = append(clusters, buildInboundClusters(env, instances, managementPorts)...)
 	}
 
-	return clusters // TODO: normalize/dedup/order
+	return clusters, nil // TODO: normalize/dedup/order
 }
 
 func buildOutboundClusters(env model.Environment, services []*model.Service) []*v2.Cluster {
