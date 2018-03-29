@@ -186,7 +186,7 @@ func TranslateVirtualHosts(
 			if port.Protocol.IsHTTP() {
 				cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port)
 				out = append(out, GuardedHost{
-					Name:     fmt.Sprintf("service|%s", svc.Hostname),
+					Name:     fmt.Sprintf("service|%d.%s", port.Port, svc.Hostname),
 					Port:     port.Port,
 					Services: []*model.Service{svc},
 					Routes: []GuardedRoute{{
