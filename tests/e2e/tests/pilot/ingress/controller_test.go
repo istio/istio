@@ -207,7 +207,7 @@ func TestIngressController(t *testing.T) {
 		return numNotifications.Load() == expectedRuleCount
 	})
 	var rules []model.Config
-	test.Eventually(t, "successfuly got objects for every CRD event", func() bool {
+	test.Eventually(t, "successfully got objects for every CRD event", func() bool {
 		var err error
 		rules, err = ctl.List(model.IngressRule.Type, namespace)
 		if err != nil {
