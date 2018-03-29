@@ -42,16 +42,11 @@ const (
 
 // buildListenerSSLContext returns an SSLContext struct.
 func buildListenerSSLContext(certsDir string, mtlsParams *authn.MutualTls) *SSLContext {
-	requireClientCert := true
-	if mtlsParams != nil && mtlsParams.AllowTls {
-		requireClientCert = false
-	}
-
 	return &SSLContext{
 		CertChainFile:            path.Join(certsDir, model.CertChainFilename),
 		PrivateKeyFile:           path.Join(certsDir, model.KeyFilename),
 		CaCertFile:               path.Join(certsDir, model.RootCertFilename),
-		RequireClientCertificate: requireClientCert,
+		RequireClientCertificate: !(mtlsParams != nil && mtlsParams.AllowTls),
 	}
 }
 
