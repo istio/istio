@@ -111,6 +111,11 @@ func (sd *ServiceDiscovery) GetProxyServiceInstances(proxy model.Proxy) ([]*mode
 	return nil, nil
 }
 
+// GetProxyLabels ...
+func (sd *ServiceDiscovery) GetProxyLabels(model.Proxy) model.Labels {
+	return nil
+}
+
 // ManagementPorts is not currently implemented for Cloud Foundry
 func (sd *ServiceDiscovery) ManagementPorts(addr string) model.PortList {
 	return nil

@@ -21,8 +21,10 @@ import (
 	"strings"
 	"time"
 
+	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	"github.com/envoyproxy/go-control-plane/pkg/cache"
 	"github.com/gogo/protobuf/types"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -38,6 +40,9 @@ const (
 )
 
 const (
+	// MeshGateway is a special name for the sidecar
+	MeshGateway = "mesh"
+
 	// UnresolvedCluster for destinations pointing to unknown clusters.
 	UnresolvedCluster = "unresolved-cluster"
 
@@ -48,11 +53,11 @@ const (
 // ServiceByName claims a service entry from the registry using a host name.
 type ServiceByName func(host string, contextNamespace string) *model.Service
 
-// SubsetSelector resolves a subset to labels.
-type SubsetSelector func(service *model.Service, subset string) map[string]string
-
 // GuardedHost is a context-dependent virtual host entry with guarded routes.
 type GuardedHost struct {
+	// Name should be unique among the guarded hosts
+	Name string
+
 	// Port is the capture port (e.g. service port)
 	Port int
 
@@ -67,6 +72,66 @@ type GuardedHost struct {
 	Routes []GuardedRoute
 }
 
+// MatchGateway detects whether a route is applicable to a gateway
+func MatchGateway(gateways []string, gateway string) bool {
+	if len(gateways) == 0 && gateway == MeshGateway {
+		return true
+	}
+	for _, item := range gateways {
+		if item == gateway {
+			return true
+		}
+	}
+	return false
+}
+
+// SpecializeGuardedHosts translates generic routes to concrete routes for a proxy
+func SpecializeGuardedHosts(
+	hosts []GuardedHost,
+	proxyDomain string,
+	labels model.Labels,
+	gateway string) []cache.Resource {
+
+	portVirtualHosts := make(map[int][]route.VirtualHost)
+	for _, host := range hosts {
+		routes := make([]route.Route, 0, len(host.Routes))
+		for _, route := range host.Routes {
+			if MatchGateway(route.Gateways, gateway) && route.SourceLabels.SubsetOf(labels) {
+				routes = append(routes, route.Route)
+			}
+		}
+		if len(routes) == 0 {
+			continue
+		}
+
+		// copy hosts verbatim
+		domains := append([]string(nil), host.Hosts...)
+
+		// generate short names for the services
+		for _, service := range host.Services {
+			domains = AppendServiceNameVariants(domains, service, host.Port, proxyDomain)
+		}
+
+		portVirtualHosts[host.Port] = append(portVirtualHosts[host.Port], route.VirtualHost{
+			Name:    host.Name,
+			Domains: domains,
+			Routes:  routes,
+		})
+	}
+
+	out := make([]cache.Resource, len(portVirtualHosts))
+	for port, vhosts := range portVirtualHosts {
+		out = append(out, &v2.RouteConfiguration{
+			Name:         fmt.Sprintf("%d", port),
+			VirtualHosts: vhosts,
+			// since clusters are not verified, we cannot be sure that CDS pushes them
+			ValidateClusters: &types.BoolValue{Value: false},
+		})
+	}
+
+	return out
+}
+
 // TranslateServiceHostname matches a host against a model service.
 // This cannot be externalized to core model until the registries understand namespaces.
 func TranslateServiceHostname(services map[string]*model.Service, clusterDomain string) ServiceByName {
@@ -79,20 +144,28 @@ func TranslateServiceHostname(services map[string]*model.Service, clusterDomain 
 	}
 }
 
+// IndexServices indexes services by FQDN
+func IndexServices(services []*model.Service) map[string]*model.Service {
+	nameToServiceMap := make(map[string]*model.Service)
+	for _, svc := range services {
+		nameToServiceMap[svc.Hostname] = svc
+	}
+	return nameToServiceMap
+}
+
 // TranslateVirtualHosts creates the entire routing table for Istio v1alpha3 configs.
 // Services are indexed by FQDN hostnames.
 // Cluster domain is used to resolve short service names (e.g. "svc.cluster.local").
 func TranslateVirtualHosts(
-	serviceConfigs []model.Config,
+	virtualServices []model.Config,
 	services map[string]*model.Service,
-	subsetSelector SubsetSelector,
 	clusterDomain string) []GuardedHost {
 	out := make([]GuardedHost, 0)
 	serviceByName := TranslateServiceHostname(services, clusterDomain)
 
 	// translate all virtual service configs
-	for _, config := range serviceConfigs {
-		out = append(out, TranslateVirtualHost(config, serviceByName, subsetSelector)...)
+	for _, config := range virtualServices {
+		out = append(out, TranslateVirtualHost(config, serviceByName)...)
 	}
 
 	// compute services missing service configs
@@ -113,6 +186,7 @@ func TranslateVirtualHosts(
 			if port.Protocol.IsHTTP() {
 				cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port)
 				out = append(out, GuardedHost{
+					Name:     fmt.Sprintf("service|%d.%s", port.Port, svc.Hostname),
 					Port:     port.Port,
 					Services: []*model.Service{svc},
 					Routes: []GuardedRoute{{
@@ -150,7 +224,7 @@ func MatchServiceHosts(in model.Config, serviceByName ServiceByName) ([]string, 
 }
 
 // TranslateVirtualHost creates virtual hosts corresponding to a virtual service.
-func TranslateVirtualHost(in model.Config, serviceByName ServiceByName, subsetSelector SubsetSelector) []GuardedHost {
+func TranslateVirtualHost(in model.Config, serviceByName ServiceByName) []GuardedHost {
 	hosts, services := MatchServiceHosts(in, serviceByName)
 	serviceByPort := make(map[int][]*model.Service)
 	for _, svc := range services {
@@ -169,9 +243,10 @@ func TranslateVirtualHost(in model.Config, serviceByName ServiceByName, subsetSe
 
 	out := make([]GuardedHost, len(serviceByPort))
 	for port, services := range serviceByPort {
-		clusterNaming := TranslateDestination(serviceByName, subsetSelector, in.ConfigMeta.Namespace, port)
+		clusterNaming := TranslateDestination(serviceByName, in.ConfigMeta.Namespace, port)
 		routes := TranslateRoutes(in, clusterNaming)
 		out = append(out, GuardedHost{
+			Name:     fmt.Sprintf("virtual|%d.%s.%s", port, in.ConfigMeta.Name, in.ConfigMeta.Namespace),
 			Port:     port,
 			Services: services,
 			Hosts:    hosts,
@@ -183,9 +258,9 @@ func TranslateVirtualHost(in model.Config, serviceByName ServiceByName, subsetSe
 }
 
 // TranslateDestination produces a cluster naming function using the config context.
+// This function depends on the service declaration to produce the correct cluster name.
 func TranslateDestination(
 	serviceByName ServiceByName,
-	subsetSelector SubsetSelector,
 	contextNamespace string,
 	defaultPort int) ClusterNaming {
 	return func(destination *networking.Destination) string {
@@ -225,7 +300,7 @@ type GuardedRoute struct {
 	route.Route
 
 	// SourceLabels guarding the route
-	SourceLabels map[string]string
+	SourceLabels model.Labels
 
 	// Gateways pre-condition
 	Gateways []string
@@ -451,4 +526,85 @@ func TranslateTime(in *types.Duration) *time.Duration {
 		log.Warnf("error converting duration %#v, using 0: %v", in, err)
 	}
 	return &out
+}
+
+// AppendServiceNameVariants constructs domains for a destination service.
+// The unique name for a virtual host is a combination of the destination service and the port, e.g.
+// "svc.ns.svc.cluster.local:http".
+// Suffix provides the proxy context information - it is the shared sub-domain between co-located
+// service instances (e.g. "namespace.svc.cluster.local")
+func AppendServiceNameVariants(domains []string, svc *model.Service, port int, proxyDomain string) []string {
+	hosts := make([]string, 0)
+	suffix := strings.Split(proxyDomain, ".")
+	parts := strings.Split(svc.Hostname, ".")
+	shared := sharedHost(suffix, parts)
+
+	// if shared is "svc.cluster.local", then we can add "name.namespace", "name.namespace.svc", etc
+	host := strings.Join(parts[0:len(parts)-len(shared)], ".")
+	if len(host) > 0 {
+		hosts = append(hosts, host)
+	}
+
+	for _, part := range shared {
+		if len(host) > 0 {
+			host = host + "."
+		}
+		host = host + part
+		hosts = append(hosts, host)
+	}
+
+	// add service cluster IP domain name
+	if len(svc.Address) > 0 {
+		hosts = append(hosts, svc.Address)
+	}
+
+	// add ports
+	for _, host := range hosts {
+		domains = append(domains, fmt.Sprintf("%s:%d", host, port))
+
+		// since the port on the TCP listener address matches the service port,
+		// the colon suffix is optional and is inferred.
+		// (see https://tools.ietf.org/html/rfc7230#section-5.5)
+		domains = append(domains, host)
+	}
+
+	return domains
+}
+
+// sharedHost computes the shared host name suffix for instances.
+// Each host name is split into its domains.
+func sharedHost(parts ...[]string) []string {
+	switch len(parts) {
+	case 0:
+		return nil
+	case 1:
+		return parts[0]
+	default:
+		// longest common suffix
+		out := make([]string, 0)
+		for i := 1; i <= len(parts[0]); i++ {
+			part := ""
+			all := true
+			for j, host := range parts {
+				hostpart := host[len(host)-i]
+				if j == 0 {
+					part = hostpart
+				} else if part != hostpart {
+					all = false
+					break
+				}
+			}
+			if all {
+				out = append(out, part)
+			} else {
+				break
+			}
+		}
+
+		// reverse
+		for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {
+			out[i], out[j] = out[j], out[i]
+		}
+		return out
+	}
 }

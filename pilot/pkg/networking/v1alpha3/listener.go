@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
@@ -33,7 +33,7 @@ import (
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/util"
 
-	google_protobuf "github.com/gogo/protobuf/types"
+	"github.com/gogo/protobuf/types"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -75,7 +75,7 @@ var (
 var ListenersALPNProtocols = []string{"h2", "http/1.1"}
 
 // BuildListeners produces a list of listeners and referenced clusters for all proxies
-func BuildListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
+func BuildListeners(env model.Environment, node model.Proxy) ([]*v2.Listener, error) {
 	switch node.Type {
 	case model.Sidecar:
 		return buildSidecarListeners(env, node)
@@ -87,7 +87,7 @@ func BuildListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener
 }
 
 // buildSidecarListeners produces a list of listeners for sidecar proxies
-func buildSidecarListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
+func buildSidecarListeners(env model.Environment, node model.Proxy) ([]*v2.Listener, error) {
 	mesh := env.Mesh
 	managementPorts := env.ManagementPorts(node.IPAddress)
 
@@ -104,7 +104,7 @@ func buildSidecarListeners(env model.Environment, node model.Proxy) ([]*xdsapi.L
 	// ensure services are ordered to simplify generation logic
 	sort.Slice(services, func(i, j int) bool { return services[i].Hostname < services[j].Hostname })
 
-	listeners := make([]*xdsapi.Listener, 0)
+	listeners := make([]*v2.Listener, 0)
 
 	//if node.Type == model.Router {
 	//	outbound := buildSidecarOutboundListeners(mesh, node, proxyInstances, services, config)
@@ -140,10 +140,10 @@ func buildSidecarListeners(env model.Environment, node model.Proxy) ([]*xdsapi.L
 		}
 
 		// add an extra listener that binds to the port that is the recipient of the iptables redirect
-		listeners = append(listeners, &xdsapi.Listener{
+		listeners = append(listeners, &v2.Listener{
 			Name:           VirtualListenerName,
 			Address:        buildAddress(WildcardAddress, uint32(mesh.ProxyListenPort)),
-			UseOriginalDst: &google_protobuf.BoolValue{true},
+			UseOriginalDst: &types.BoolValue{Value: true},
 			FilterChains: []listener.FilterChain{
 				{
 					Filters: []listener.Filter{
@@ -192,8 +192,8 @@ func buildSidecarListeners(env model.Environment, node model.Proxy) ([]*xdsapi.L
 // buildSidecarInboundListeners creates listeners for the server-side (inbound)
 // configuration for co-located service proxyInstances.
 func buildSidecarInboundListeners(env model.Environment, node model.Proxy,
-	proxyInstances []*model.ServiceInstance) []*xdsapi.Listener {
-	listeners := make([]*xdsapi.Listener, 0, len(proxyInstances))
+	proxyInstances []*model.ServiceInstance) []*v2.Listener {
+	listeners := make([]*v2.Listener, 0, len(proxyInstances))
 
 	mesh := env.Mesh
 	config := env.IstioConfigStore
@@ -203,7 +203,7 @@ func buildSidecarInboundListeners(env model.Environment, node model.Proxy,
 		endpoint := instance.Endpoint
 		protocol := endpoint.ServicePort.Protocol
 
-		var l *xdsapi.Listener
+		var l *v2.Listener
 		authenticationPolicy := model.GetConsolidateAuthenticationPolicy(mesh,
 			config, instance.Service.Hostname, instance.Endpoint.ServicePort)
 
@@ -277,9 +277,9 @@ func buildSidecarInboundListeners(env model.Environment, node model.Proxy,
 // the connection's original destination. This avoids costly queries of instance
 // IPs and ports, but requires that ports of non-load balanced service be unique.
 func buildSidecarOutboundListeners(env model.Environment, node model.Proxy,
-	proxyInstances []*model.ServiceInstance, services []*model.Service) []*xdsapi.Listener {
+	proxyInstances []*model.ServiceInstance, services []*model.Service) []*v2.Listener {
 
-	var tcpListeners, httpListeners []*xdsapi.Listener
+	var tcpListeners, httpListeners []*v2.Listener
 
 	wildcardListenerPorts := make(map[int]bool)
 	for _, service := range services {
@@ -357,8 +357,8 @@ func buildSidecarOutboundListeners(env model.Environment, node model.Proxy,
 // the pod.
 // So, if a user wants to use kubernetes probes with Istio, she should ensure
 // that the health check ports are distinct from the service ports.
-func buildMgmtPortListeners(managementPorts model.PortList, managementIP string) []*xdsapi.Listener {
-	listeners := make([]*xdsapi.Listener, 0, len(managementPorts))
+func buildMgmtPortListeners(managementPorts model.PortList, managementIP string) []*v2.Listener {
+	listeners := make([]*v2.Listener, 0, len(managementPorts))
 
 	if managementIP == "" {
 		managementIP = "127.0.0.1"
@@ -425,7 +425,7 @@ func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy) *auth.Do
 				},
 				AlpnProtocols: ListenersALPNProtocols,
 			},
-			RequireClientCertificate: &google_protobuf.BoolValue{
+			RequireClientCertificate: &types.BoolValue{
 				Value: true,
 			},
 		}
@@ -435,7 +435,7 @@ func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy) *auth.Do
 
 // http specific listener options
 type httpListenerOpts struct { //nolint: maligned
-	routeConfig      *xdsapi.RouteConfiguration
+	routeConfig      *v2.RouteConfiguration
 	rds              string
 	useRemoteAddress bool
 	direction        http_conn.HttpConnectionManager_Tracing_OperationName
@@ -461,14 +461,14 @@ type buildListenerOpts struct { // nolint: maligned
 }
 
 /* // Enable only to compare with RDSv1 responses
-func buildDeprecatedHTTPListener(opts buildListenerOpts) *xdsapi.Listener {
+func buildDeprecatedHTTPListener(opts buildHTTPListenerOpts) *v2.Listener {
 	if opts.rds != "" {
 		// Fetch V1 RDS response and stick it into the LDS response
 		rc, _ := v1.BuildRDSRoute(opts.env.Mesh, opts.proxy, opts.rds,
 			opts.env.ServiceDiscovery, opts.env.IstioConfigStore, true)
 		rcBytes, _ := json.Marshal(rc)
 		routeConfigDeprecated := string(rcBytes)
-		return &xdsapi.Listener{
+		return &v2.Listener{
 			Name:    fmt.Sprintf("http_%s_%d", opts.ip, opts.port),
 			Address: buildAddress(opts.ip, uint32(opts.port)),
 			FilterChains: []listener.FilterChain{
@@ -483,8 +483,8 @@ func buildDeprecatedHTTPListener(opts buildListenerOpts) *xdsapi.Listener {
 					},
 				},
 			},
-			DeprecatedV1: &xdsapi.Listener_DeprecatedV1{
-				BindToPort: &google_protobuf.BoolValue{
+			DeprecatedV1: &v2.Listener_DeprecatedV1{
+				BindToPort: &types.BoolValue{
 					Value: opts.bindToPort,
 				},
 			},
@@ -536,7 +536,7 @@ func buildHTTPConnectionManager(opts buildListenerOpts) *http_conn.HttpConnectio
 		},
 		HttpFilters:      filters,
 		StatPrefix:       HTTPStatPrefix,
-		UseRemoteAddress: &google_protobuf.BoolValue{opts.httpOpts.useRemoteAddress},
+		UseRemoteAddress: &types.BoolValue{Value: opts.httpOpts.useRemoteAddress},
 	}
 
 	// not enabled yet
@@ -583,7 +583,7 @@ func buildHTTPConnectionManager(opts buildListenerOpts) *http_conn.HttpConnectio
 		connectionManager.Tracing = &http_conn.HttpConnectionManager_Tracing{
 			OperationName: opts.httpOpts.direction,
 		}
-		connectionManager.GenerateRequestId = &google_protobuf.BoolValue{true}
+		connectionManager.GenerateRequestId = &types.BoolValue{Value: true}
 	}
 
 	if verboseDebug {
@@ -593,7 +593,7 @@ func buildHTTPConnectionManager(opts buildListenerOpts) *http_conn.HttpConnectio
 	return connectionManager
 }
 
-func buildListener(opts buildListenerOpts) *xdsapi.Listener {
+func buildListener(opts buildListenerOpts) *v2.Listener {
 	var filterChainMatch *listener.FilterChainMatch
 	if len(opts.sniHosts) > 0 {
 		filterChainMatch = &listener.FilterChainMatch{
@@ -614,15 +614,15 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 		return nil // error
 	}
 
-	var deprecatedV1 *xdsapi.Listener_DeprecatedV1
+	var deprecatedV1 *v2.Listener_DeprecatedV1
 	if !opts.bindToPort {
-		deprecatedV1 = &xdsapi.Listener_DeprecatedV1{
-			BindToPort: &google_protobuf.BoolValue{
+		deprecatedV1 = &v2.Listener_DeprecatedV1{
+			BindToPort: &types.BoolValue{
 				Value: false,
 			},
 		}
 	}
-	return &xdsapi.Listener{
+	return &v2.Listener{
 		Name:    fmt.Sprintf("%s_%s_%d", opts.protocol, opts.ip, opts.port),
 		Address: buildAddress(opts.ip, uint32(opts.port)),
 		FilterChains: []listener.FilterChain{
@@ -636,33 +636,23 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	}
 }
 
-// TODO: find a proper home for these http related functions
-// buildDefaultHTTPRoute builds a default route.
-func buildDefaultHTTPRoute(clusterName string) *route.Route {
-	return &route.Route{
-		Match: route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}},
-		Decorator: &route.Decorator{
-			Operation: DefaultOperation,
-		},
-		Action: &route.Route_Route{
-			Route: &route.RouteAction{
-				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
-			},
-		},
-	}
-}
-
 // buildSidecarInboundHTTPRouteConfig builds the route config with a single wildcard virtual host on the inbound path
 // TODO: enable mixer configuration, websockets, trace decorators
-func buildSidecarInboundHTTPRouteConfig(instance *model.ServiceInstance) *xdsapi.RouteConfiguration {
+func buildSidecarInboundHTTPRouteConfig(instance *model.ServiceInstance) *v2.RouteConfiguration {
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "",
 		instance.Service.Hostname, instance.Endpoint.ServicePort)
-	defaultRoute := buildDefaultHTTPRoute(clusterName)
-
 	inboundVHost := route.VirtualHost{
 		Name:    fmt.Sprintf("%s|http|%d", model.TrafficDirectionInbound, instance.Endpoint.ServicePort.Port),
 		Domains: []string{"*"},
-		Routes:  []route.Route{*defaultRoute},
+		Routes: []route.Route{{
+			Match:     TranslateRouteMatch(nil),
+			Decorator: &route.Decorator{Operation: DefaultOperation},
+			Action: &route.Route_Route{
+				Route: &route.RouteAction{
+					ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
+				},
+			},
+		}},
 	}
 
 	// TODO: mixer disabled for now as its configuration is still in old format
@@ -671,17 +661,15 @@ func buildSidecarInboundHTTPRouteConfig(instance *model.ServiceInstance) *xdsapi
 	//	defaultRoute.OpaqueConfig = v1.BuildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false, instance.Service.Hostname)
 	//}
 
-	return &xdsapi.RouteConfiguration{
-		Name:         clusterName,
-		VirtualHosts: []route.VirtualHost{inboundVHost},
-		ValidateClusters: &google_protobuf.BoolValue{
-			Value: false,
-		},
+	return &v2.RouteConfiguration{
+		Name:             clusterName,
+		VirtualHosts:     []route.VirtualHost{inboundVHost},
+		ValidateClusters: &types.BoolValue{Value: false},
 	}
 }
 
 func buildSidecarOutboundHTTPRouteConfig(env model.Environment, node model.Proxy, _ []*model.ServiceInstance,
-	services []*model.Service, routeName string) *xdsapi.RouteConfiguration {
+	services []*model.Service, routeName string) *v2.RouteConfiguration {
 
 	port := 0
 	if routeName != RDSHttpProxy {
@@ -711,7 +699,7 @@ func buildSidecarOutboundHTTPRouteConfig(env model.Environment, node model.Proxy
 	virtualServices := env.VirtualServices([]string{model.IstioMeshGateway})
 	// TODO: Need to trim output based on source label/gateway match
 	guardedHosts := TranslateVirtualHosts(virtualServices,
-		nameToServiceMap, nil, node.Domain)
+		nameToServiceMap, node.Domain)
 	vHostPortMap := make(map[int][]route.VirtualHost)
 
 	// there should be only one guarded host in the return val since we supplied services with just one port
@@ -758,12 +746,11 @@ func buildSidecarOutboundHTTPRouteConfig(env model.Environment, node model.Proxy
 		virtualHosts = vHostPortMap[port]
 	}
 
-	out := &xdsapi.RouteConfiguration{
+	out := &v2.RouteConfiguration{
 		Name:         fmt.Sprintf("%d", port),
 		VirtualHosts: virtualHosts,
-		ValidateClusters: &google_protobuf.BoolValue{
-			Value: false, // until we have rds
-		},
+		// until we have rds
+		ValidateClusters: &types.BoolValue{Value: false},
 	}
 	return out
 

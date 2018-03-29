@@ -180,6 +180,11 @@ func (sd *MemServiceDiscovery) GetProxyServiceInstances(node model.Proxy) ([]*mo
 	return out, sd.GetProxyServiceInstancesError
 }
 
+// GetProxyLabels ...
+func (sd *MemServiceDiscovery) GetProxyLabels(model.Proxy) model.Labels {
+	return nil
+}
+
 // ManagementPorts implements discovery interface
 func (sd *MemServiceDiscovery) ManagementPorts(addr string) model.PortList {
 	return model.PortList{{

@@ -127,3 +127,8 @@ func (d *externalDiscovery) GetProxyServiceInstances(node model.Proxy) ([]*model
 	// (which does not exist in the cluster).
 	return []*model.ServiceInstance{}, nil
 }
+
+// GetProxyLabels ...
+func (d *externalDiscovery) GetProxyLabels(model.Proxy) model.Labels {
+	return nil
+}

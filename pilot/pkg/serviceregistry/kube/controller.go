@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"k8s.io/api/core/v1"
@@ -351,6 +352,17 @@ func (c *Controller) Instances(hostname string, ports []string,
 		}
 	}
 	return nil, nil
+}
+
+// GetProxyLabels returns proxy labels.
+func (c *Controller) GetProxyLabels(proxy model.Proxy) model.Labels {
+	// ID should be set to POD_NAME.POD_NAMESPACE
+	parts := strings.Split(proxy.ID, ".")
+	if len(parts) != 2 {
+		return nil
+	}
+	name, namespace := parts[0], parts[1]
+	return c.pods.labelsByKey(KeyFunc(name, namespace))
 }
 
 // GetProxyServiceInstances returns service instances co-located with a given proxy
