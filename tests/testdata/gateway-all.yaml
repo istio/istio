@@ -4,11 +4,12 @@ metadata:
   name: all
 spec:
   selector:
-    app: my-gatweway-controller
+    app: my-gateway-controller
   servers:
   - port:
       number: 80
       name: http
+      protocol: HTTP
     hosts:
     - uk.bookinfo.com
     - eu.bookinfo.com
@@ -17,11 +18,12 @@ spec:
   - port:
       number: 443
       name: https
+      protocol: HTTPS
     hosts:
     - uk.bookinfo.com
     - eu.bookinfo.com
     tls:
-      mode: simple #enables HTTPS on this port
+      mode: SIMPLE #enables HTTPS on this port
       serverCertificate: /etc/certs/servercert.pem
       privateKey: /etc/certs/privatekey.pem
 #  - port:

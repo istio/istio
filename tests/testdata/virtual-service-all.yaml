@@ -14,14 +14,14 @@ spec:
   - match:
     - headers:
         cookie:
-          user: dev-123
+          regex: "^(.*?;)?(user=dev-123)(;.*)?"
     route:
     - destination:
         port:
           number: 7777
         name: reviews.qa
   - match:
-      uri:
+    - uri:
         prefix: /reviews/
     route:
     - destination:
