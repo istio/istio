@@ -1,5 +1,3 @@
-.PHONY: deb/build-in-docker sidecar.deb deb
-
 # Make the deb image using the CI/CD image and docker, for users who don't have 'fpm' installed.
 # TODO: use 'which fpm' to detect if fpm is installed on host, consolidate under one target ('deb')
 deb/build-in-docker:
@@ -68,17 +66,24 @@ deb/fpm:
 		--depends iptables \
 		$(SIDECAR_FILES)
 
-.PHONY: deb/docker
-
 # Install the deb in a docker image, for testing.
-deb/docker:
+deb/docker: ${ISTIO_OUT}/istio-sidecar.deb
 	mkdir -p ${ISTIO_OUT}/deb
 	cp tools/deb/Dockerfile ${ISTIO_OUT}/deb
 	cp ${ISTIO_OUT}/istio-sidecar.deb ${ISTIO_OUT}/deb/istio.deb
 	docker build -t istio_deb -f ${ISTIO_OUT}/deb/Dockerfile ${ISTIO_OUT}/deb/
 
-deb/test: deb-docker tools/deb/deb_test.sh
+deb/test: deb/docker tools/deb/deb_test.sh
 	docker run --cap-add=NET_ADMIN --rm -v ${ISTIO_GO}/tools/deb/deb_test.sh:/tmp/deb_test.sh istio_deb /tmp/deb_test.sh
 
-deb/docker-run: deb-docker  tools/deb/deb_test.sh
+deb/docker-run: deb/docker tools/deb/deb_test.sh
 	docker run --cap-add=NET_ADMIN --rm -v ${ISTIO_GO}/tools/deb/deb_test.sh:/tmp/deb_test.sh -it istio_deb /bin/bash
+
+.PHONY: \
+	deb \
+	deb/build-in-docker \
+	deb/docker \
+	deb/docker-run \
+	deb/fpm \
+	deb/test \
+	sidecar.deb
