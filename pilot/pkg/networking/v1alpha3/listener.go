@@ -234,15 +234,16 @@ func buildSidecarInboundListeners(env model.Environment, node model.Proxy,
 				direction:        http_conn.INGRESS,
 				authnPolicy:      authenticationPolicy,
 			}
+			listenerOpts.hTTPFilters = append(listenerOpts.hTTPFilters,
+				buildMixerHTTPFilter(env, node, proxyInstances, false))
 		case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
 			listenerOpts.networkFilters = buildInboundNetworkFilters(instance)
+			listenerOpts.networkFilters = append(listenerOpts.networkFilters,
+				buildMixerInboundTCPFilter(env, node, instance))
 
 		default:
 			log.Debugf("Unsupported inbound protocol %v for port %#v", protocol, instance.Endpoint.ServicePort)
 		}
-
-		listenerOpts.networkFilters = append(listenerOpts.networkFilters,
-			buildMixerFilter(env, node, proxyInstances, protocol, false))
 
 		l = buildListener(listenerOpts)
 		if l != nil {
@@ -307,8 +308,10 @@ func buildSidecarOutboundListeners(env model.Environment, node model.Proxy,
 				}
 				listenerOpts.ip = listenAddress
 				listenerOpts.networkFilters = buildOutboundNetworkFilters(clusterName, addresses, servicePort)
-				listenerOpts.networkFilters = append(listenerOpts.networkFilters,
-					buildMixerFilter(env, node, proxyInstances, protocol, true))
+				if service.MeshExternal {
+					listenerOpts.networkFilters = append(listenerOpts.networkFilters,
+						buildMixerOutboundTCPFilter(env, node))
+				}
 				tcpListeners = append(tcpListeners, buildListener(listenerOpts))
 				// TODO: Set SNI for HTTPS
 			case model.ProtocolHTTP2, model.ProtocolHTTP, model.ProtocolGRPC:
@@ -330,8 +333,10 @@ func buildSidecarOutboundListeners(env model.Environment, node model.Proxy,
 					direction:        operation,
 					authnPolicy:      nil, /* authn policy is not needed for outbound listener */
 				}
-				listenerOpts.networkFilters = append(listenerOpts.networkFilters,
-					buildMixerFilter(env, node, proxyInstances, protocol, true))
+				if service.MeshExternal {
+					listenerOpts.hTTPFilters = append(listenerOpts.hTTPFilters,
+						buildMixerHTTPFilter(env, node, proxyInstances, true))
+				}
 				httpListeners = append(httpListeners, buildListener(listenerOpts))
 			}
 		}
@@ -392,31 +397,39 @@ func buildMgmtPortListeners(managementPorts model.PortList, managementIP string)
 	return listeners
 }
 
-// buildMixerFilter builds a filter with a v1 mixer config encapsulated as JSON in a proto.Struct for v2 consumption.
-func buildMixerFilter(env model.Environment, node model.Proxy,
-	proxyInstances []*model.ServiceInstance, protocol model.Protocol, outbound bool /*instance *model.ServiceInstance*/) listener.Filter {
+// buildMixerHTTPFilter builds a filter with a v1 mixer config encapsulated as JSON in a proto.Struct for v2 consumption.
+func buildMixerHTTPFilter(env model.Environment, node model.Proxy,
+	proxyInstances []*model.ServiceInstance, outbound bool) *http_conn.HttpFilter {
 	mesh := env.Mesh
 	config := env.IstioConfigStore
+	if mesh.MixerCheckServer == "" && mesh.MixerReportServer == "" {
+		return &http_conn.HttpFilter{}
+	}
+
+	c := v1.BuildHTTPMixerFilterConfig(mesh, node, proxyInstances, outbound, config)
+	return &http_conn.HttpFilter{
+		Name:   v1.MixerFilter,
+		Config: buildProtoStruct(*c),
+	}
+}
+
+// buildMixerInboundTCPFilter builds a filter with a v1 mixer config encapsulated as JSON in a proto.Struct for v2 consumption.
+func buildMixerInboundTCPFilter(env model.Environment, node model.Proxy, instance *model.ServiceInstance) listener.Filter {
+	mesh := env.Mesh
 	if mesh.MixerCheckServer == "" && mesh.MixerReportServer == "" {
 		return listener.Filter{}
 	}
 
-	mixerFilter := listener.Filter{}
-	switch protocol {
-	case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC:
-		config := v1.BuildHTTPMixerFilterConfig(mesh, node, proxyInstances, outbound, config)
-		mixerFilter = listener.Filter{
-			Config: buildProtoStruct(*config),
-		}
-	case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
-		/*
-			config := v1.BuildTCPMixerFilterConfig(mesh, node, instance)
-			mixerFilter = listener.Filter{
-				Config: buildProtoStruct(*config),
-			}
-		*/
+	c := v1.BuildTCPMixerFilterConfig(mesh, node, instance)
+	return listener.Filter{
+		Config: buildProtoStruct(*c),
 	}
-	return mixerFilter
+}
+
+// buildMixerOutboundTCPFilter builds a filter with a v1 mixer config encapsulated as JSON in a proto.Struct for v2 consumption.
+func buildMixerOutboundTCPFilter(env model.Environment, node model.Proxy) listener.Filter {
+	// TODO(mostrowski): implementation
+	return listener.Filter{}
 }
 
 // TODO: move to plugins
@@ -481,6 +494,8 @@ type buildListenerOpts struct { // nolint: maligned
 	httpOpts *httpListenerOpts
 	// network filter stuff
 	networkFilters []listener.Filter
+	// HTTP filters
+	hTTPFilters []*http_conn.HttpFilter
 }
 
 /* // Enable only to compare with RDSv1 responses
@@ -519,7 +534,7 @@ func buildDeprecatedHTTPListener(opts buildListenerOpts) *xdsapi.Listener {
 
 func buildHTTPConnectionManager(opts buildListenerOpts) *http_conn.HttpConnectionManager {
 	mesh := opts.env.Mesh
-	filters := []*http_conn.HttpFilter{}
+	var filters []*http_conn.HttpFilter
 
 	filters = append(filters, &http_conn.HttpFilter{
 		Name: util.CORS,
@@ -530,16 +545,8 @@ func buildHTTPConnectionManager(opts buildListenerOpts) *http_conn.HttpConnectio
 		Name: util.Router,
 	})
 
-	/*	TODO(mostrowski): need to port internal build functions for mixer.
-		if opts.mesh.MixerCheckServer != "" || opts.mesh.MixerReportServer != "" {
-			mixerConfig := v1.BuildHTTPMixerFilterConfig(opts.mesh, opts.proxy, opts.proxyInstances, opts.outboundListener, opts.store)
-		filter := &http_conn.HttpFilter{
-			Name: v1.MixerFilter,
-			Config:messageToStruct(mixerConfig),
-		}
-			filters = append([]*http_conn.HttpFilter{filter}, filters...)
-		}
-	*/
+	filters = append(filters, opts.hTTPFilters...)
+
 	refresh := time.Duration(mesh.RdsRefreshDelay.Seconds) * time.Second
 	if refresh == 0 {
 		// envoy crashes if 0. Will go away once we move to v2
