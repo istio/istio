@@ -44,7 +44,7 @@ TEST_F(AuthenticationTest, SaveEmptyResult) {
   EXPECT_TRUE(Authentication::HasResultInHeader(request_headers_));
   const auto entry = request_headers_.get(GetHeaderLocation());
   EXPECT_TRUE(entry != nullptr);
-  EXPECT_EQ("", entry->value().getString());
+  EXPECT_EQ("", entry->value().getStringView());
 }
 
 TEST_F(AuthenticationTest, SaveSomeResult) {
@@ -52,7 +52,7 @@ TEST_F(AuthenticationTest, SaveSomeResult) {
       Authentication::SaveResultToHeader(test_result_, &request_headers_));
   const auto entry = request_headers_.get(GetHeaderLocation());
   EXPECT_TRUE(entry != nullptr);
-  EXPECT_EQ("CgNmb28SA2Jhcg==", entry->value().getString());
+  EXPECT_EQ("CgNmb28SA2Jhcg==", entry->value().getStringView());
 }
 
 TEST_F(AuthenticationTest, ResultAlreadyExist) {
@@ -62,7 +62,7 @@ TEST_F(AuthenticationTest, ResultAlreadyExist) {
   EXPECT_TRUE(Authentication::HasResultInHeader(request_headers_));
   const auto entry = request_headers_.get(GetHeaderLocation());
   EXPECT_TRUE(entry != nullptr);
-  EXPECT_EQ("somedata", entry->value().getString());
+  EXPECT_EQ("somedata", entry->value().getStringView());
 }
 
 TEST_F(AuthenticationTest, FetchResultNotExit) {

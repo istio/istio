@@ -34,11 +34,11 @@ bind(
 git_repository(
     name = "com_github_grpc_grpc",
     remote = "https://github.com/grpc/grpc.git",
-    commit = "f001d67d4e1e45101b51ca05e5150dc5d75b2575",  # Mar 16, 2018
+    commit = "c50405364a194a0e4931153cbe329662d90530bc",  # Mar 28, 2018
 )
 
 # When updating envoy sha manually please update the sha in istio.deps file also
-ENVOY_SHA = "4dd49d8809f7aaa580538b3c228dd99a2fae92a4"
+ENVOY_SHA = "5fcc829e7800a77ea2703a1ead3f25915aae6d61"
 
 http_archive(
     name = "envoy",
