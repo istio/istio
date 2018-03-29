@@ -117,10 +117,11 @@ docker.proxy_debug: pilot/docker/Dockerfile.proxy_debug
 docker.proxyv2: tools/deb/envoy_bootstrap_v2.json ${PROXY_JSON_FILES}
 docker.proxyv2: ${ISTIO_ENVOY_RELEASE_PATH}
 docker.proxyv2: $(ISTIO_OUT)/pilot-agent
+docker.proxyv2: pilot/docker/mixer_bootstrap.sh
 docker.proxyv2: pilot/docker/Dockerfile.proxy pilot/docker/Dockerfile.proxy_debug
 	mkdir -p $(DOCKER_BUILD_TOP)/proxyv2
 	# Not using $^ to avoid 2 copies of envoy
-	cp ${PROXY_JSON_FILES} $(ISTIO_OUT)/pilot-agent \
+	cp ${PROXY_JSON_FILES} pilot/docker/mixer_bootstrap.sh $(ISTIO_OUT)/pilot-agent \
 		pilot/docker/Dockerfile.proxy_debug $(DOCKER_BUILD_TOP)/proxyv2/
 	cp ${ISTIO_ENVOY_RELEASE_PATH} $(DOCKER_BUILD_TOP)/proxyv2/envoy
 	# Use v2 as default
