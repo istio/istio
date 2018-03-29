@@ -127,7 +127,7 @@ func (xds *ConfigCache) updateID(id string) {
 		// continue
 	}
 	labels := xds.services.GetProxyLabels(proxy)
-	routes := v1alpha3.SpecializeGuardedHosts(xds.hosts, domain, labels, v1alpha3.MeshGateway)
+	routes := v1alpha3.SpecializeGuardedHosts(xds.hosts, proxy.Domain, labels, v1alpha3.MeshGateway)
 	xds.snapshots.SetSnapshot(id, cache.Snapshot{
 		Routes: cache.NewResources(fmt.Sprintf("%d", xds.version), routes),
 	})
