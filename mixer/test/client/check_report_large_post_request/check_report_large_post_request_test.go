@@ -27,15 +27,12 @@ const checkAttributesOkPost = `
   "context.protocol": "http",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
-  "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
   "request.host": "*",
   "request.path": "/echo",
   "request.time": "*",
   "request.useragent": "Go-http-client/1.1",
   "request.method": "POST",
   "request.scheme": "http",
-  "source.uid": "POD11",
-  "source.namespace": "XYZ11",
   "source.ip": "[127 0 0 1]",
   "source.port": "*",
   "target.name": "target-name",
@@ -60,15 +57,12 @@ const reportAttributesOkPost = `
   "context.protocol": "http",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
-  "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
   "request.host": "*",
   "request.path": "/echo",
   "request.time": "*",
   "request.useragent": "Go-http-client/1.1",
   "request.method": "POST",
   "request.scheme": "http",
-  "source.uid": "POD11",
-  "source.namespace": "XYZ11",
   "source.ip": "[127 0 0 1]",
   "source.port": "*",
   "target.name": "target-name",
@@ -109,11 +103,11 @@ func TestCheckReportLargePostRequest(t *testing.T) {
 	}
 	defer s.TearDown()
 
+	// Issues a POST request with 10 MB request body. This request is sent to ServerProxyPort
+	// directly. This verifies that the Mixer filter at ingress Envoy could handle large request.
 	url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().ServerProxyPort)
-
-	// Issues a POST request with 10 MB request body.
 	tag := "OKPost"
-	byteArray := make([]byte, 10 * 1024 * 1024)
+	byteArray := make([]byte, 10*1024*1024)
 	for i := range byteArray {
 		byteArray[i] = 'x'
 	}
