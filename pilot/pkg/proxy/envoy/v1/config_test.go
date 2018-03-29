@@ -587,7 +587,9 @@ func makeMeshConfig() meshconfig.MeshConfig {
 	mesh.MixerCheckServer = "istio-mixer.istio-system:9091"
 	mesh.MixerReportServer = mesh.MixerCheckServer
 	mesh.RdsRefreshDelay = ptypes.DurationProto(10 * time.Millisecond)
-	mesh.OutboundTrafficPolicy.Mode = meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY
+	mesh.OutboundTrafficPolicy = &meshconfig.MeshConfig_OutboundTrafficPolicy{
+		Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY,
+	}
 	return mesh
 }
 
