@@ -32,6 +32,12 @@ const (
 	jwtFilterName = "jwt-auth"
 )
 
+type AuthenticationPlugin struct{}
+
+func NewPluginInstance() *AuthenticationPlugin {
+	return &AuthenticationPlugin{}
+}
+
 // BuildJwtFilter returns a Jwt filter for all Jwt specs in the policy.
 func BuildJwtFilter(policy *authn.Policy) *http_conn.HttpFilter {
 	filterConfigProto := model.ConvertPolicyToJwtConfig(policy)
@@ -44,8 +50,39 @@ func BuildJwtFilter(policy *authn.Policy) *http_conn.HttpFilter {
 	}
 }
 
+// OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service
+// Can be used to add additional filters on the outbound path
+func (*AuthenticationPlugin) OnOutboundListener(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port, listener *xdsapi.Listener) {
+}
+
+// OnInboundListener is called whenever a new listener is added to the LDS output for a given service
+// Can be used to add additional filters (e.g., mixer filter) or add more stuff to the HTTP connection manager
+// on the inbound path
+func (*AuthenticationPlugin) OnInboundListener(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port, listener *xdsapi.Listener) {
+}
+
+// OnOutboundCluster is called whenever a new cluster is added to the CDS output
+// Typically used by AuthN plugin to add mTLS settings
+func (*AuthenticationPlugin) OnOutboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
+}
+
+// OnInboundCluster is called whenever a new cluster is added to the CDS output
+// Not used typically
+func (*AuthenticationPlugin) OnInboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
+}
+
+// OnOutboundHttpRoute is called whenever a new set of virtual hosts (a set of virtual hosts with routes) is added to
+// RDS in the outbound path. Can be used to add route specific metadata or additional headers to forward
+func (*AuthenticationPlugin) OnOutboundRoute(env model.Environment, node model.Proxy, service model.Service, servicePort *model.Port, route *xdsapi.RouteConfiguration) {
+}
+
+// OnInboundRoute is called whenever a new set of virtual hosts are added to the inbound path.
+// Can be used to enable route specific stuff like Lua filters or other metadata.
+func (*AuthenticationPlugin) OnInboundRoute(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port, route *xdsapi.RouteConfiguration) {
+}
+
 // HandleOutboundCluster adds mTLS authN settings for outbound clusters
-func HandleOutboundCluster(env model.Environment, _ model.Proxy, service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
+func (*AuthenticationPlugin) HandleOutboundCluster(env model.Environment, _ model.Proxy, service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
 
 	mesh := env.Mesh
 	config := env.IstioConfigStore

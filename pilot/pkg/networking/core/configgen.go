@@ -19,6 +19,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
+	"istio.io/istio/pilot/pkg/networking/plugins"
 )
 
 // ConfigGenerator represents the interfaces to be implemented by code that generates xDS responses
@@ -36,7 +37,6 @@ type ConfigGenerator interface {
 }
 
 // NewConfigGenerator creates a new instance of the dataplane configuration generator
-func NewConfigGenerator() *ConfigGenerator {
-	foo := v1alpha3.NewConfigGenerator()
-	return foo
+func NewConfigGenerator() ConfigGenerator {
+	return v1alpha3.NewConfigGenerator(plugins.NewPlugins())
 }
