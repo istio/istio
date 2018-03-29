@@ -27,8 +27,10 @@ $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 
 PROXY_JSON_FILES:=pilot/docker/envoy_pilot.json \
                   pilot/docker/envoy_pilot_auth.json \
-                  pilot/docker/envoy_mixer.json \
-                  pilot/docker/envoy_mixer_auth.json
+                  pilot/docker/envoy_istio_policy.json \
+                  pilot/docker/envoy_istio_policy_auth.json \
+                  pilot/docker/envoy_istio_telemetry.json \
+                  pilot/docker/envoy_istio_telemetry_auth.json
 
 NODE_AGENT_TEST_FILES:=security/docker/start_app.sh \
                        security/docker/app.js

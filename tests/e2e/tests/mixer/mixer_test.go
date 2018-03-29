@@ -749,8 +749,8 @@ func TestMixerReportingToMixer(t *testing.T) {
 	log.Info("Successfully sent request(s) to productpage app through ingress.")
 	allowPrometheusSync()
 
-	t.Logf("Validating metrics with 'istio_mixer' have been generated... ")
-	query := fmt.Sprintf("sum(istio_request_count{%s=\"%s\"}) by (%s)", destLabel, fqdn("istio-mixer"), srcLabel)
+	t.Logf("Validating metrics with 'istio-policy' have been generated... ")
+	query := fmt.Sprintf("sum(istio_request_count{%s=\"%s\"}) by (%s)", destLabel, fqdn("istio-policy"), srcLabel)
 	t.Logf("Prometheus query: %s", query)
 	value, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
@@ -763,19 +763,36 @@ func TestMixerReportingToMixer(t *testing.T) {
 
 	if vec := value.(model.Vector); len(vec) < 2 {
 		t.Logf("Values for istio_request_count:\n%s", promDump(promAPI, "istio_request_count"))
-		t.Errorf("Expected at least two metrics with 'istio-mixer' as the destination (srcs: istio-ingress, productpage), got %d", len(vec))
+		t.Errorf("Expected at least two metrics with 'istio-policy' as the destination (srcs: istio-ingress, productpage), got %d", len(vec))
 	}
 
-	mixerPod, err := podID("istio=mixer")
+	t.Logf("Validating metrics with 'istio-telemetry' have been generated... ")
+	query = fmt.Sprintf("sum(istio_request_count{%s=\"%s\"}) by (%s)", destLabel, fqdn("istio-telemetry"), srcLabel)
+	t.Logf("Prometheus query: %s", query)
+	value, err = promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
-		t.Fatalf("Could not retrieve Mixer pod: %v", err)
+		t.Fatalf("Could not get metrics from prometheus: %v", err)
+	}
+
+	if value.Type() != model.ValVector {
+		t.Fatalf("Expected ValVector from prometheus, got %T", value)
+	}
+
+	if vec := value.(model.Vector); len(vec) < 2 {
+		t.Logf("Values for istio_request_count:\n%s", promDump(promAPI, "istio_request_count"))
+		t.Errorf("Expected at least two metrics with 'istio-telemetry' as the destination (srcs: istio-ingress, productpage), got %d", len(vec))
+	}
+
+	mixerPod, err := podID("istio-mixer-type=telemetry")
+	if err != nil {
+		t.Fatalf("Could not retrieve istio-telemetry pod: %v", err)
 	}
 
 	t.Logf("Validating Mixer access logs show Check() and Report() calls...")
 
 	logs, err := util.Shell(`kubectl -n %s logs %s -c mixer --tail 100 | grep -e "%s" -e "%s"`, tc.Kube.Namespace, mixerPod, checkPath, reportPath)
 	if err != nil {
-		t.Fatalf("Error retrieving Mixer logs: %v", err)
+		t.Fatalf("Error retrieving istio-telemetry logs: %v", err)
 	}
 	gotLines := strings.Count(logs, "\n")
 	if gotLines < 4 {

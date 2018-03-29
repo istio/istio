@@ -23,25 +23,11 @@
                ],
                "routes": [
                  {
-                   "prefix": "/istio.mixer.v1.Mixer/Check",
-                   "cluster": "mixer_server",
-                   "timeout_ms": 0,
-                   "opaque_config": {
-                     "destination.service": "istio-mixer.${POD_NAMESPACE}.svc.cluster.local",
-                     "mixer_check": "off",
-                     "mixer_forward": "off",
-                     "mixer_report": "on"
-                   },
-                   "decorator": {
-                     "operation": "Check"
-                   }
-                 },
-                 {
                    "prefix": "/istio.mixer.v1.Mixer/Report",
                    "cluster": "mixer_server",
                    "timeout_ms": 0,
                    "opaque_config": {
-                     "destination.service": "istio-mixer.${POD_NAMESPACE}.svc.cluster.local",
+                     "destination.service": "istio-telemetry.${POD_NAMESPACE}.svc.cluster.local",
                      "mixer_check": "off",
                      "mixer_forward": "off",
                      "mixer_report": "on"
@@ -60,7 +46,7 @@
              "name": "mixer",
              "config": {
                "v2": {
-                 "defaultDestinationService": "istio-mixer.${POD_NAMESPACE}.svc.cluster.local",
+                 "defaultDestinationService": "istio-telemetry.${POD_NAMESPACE}.svc.cluster.local",
                  "mixerAttributes": {
                    "attributes": {
                      "destination.uid": {
@@ -69,13 +55,13 @@
                    }
                  },
                  "serviceConfigs": {
-                   "istio-mixer.${POD_NAMESPACE}.svc.cluster.local": {
+                   "istio-telemetry.${POD_NAMESPACE}.svc.cluster.local": {
                      "disableCheckCalls": true,
                      "disableReportCalls": false,
                      "mixerAttributes": {
                        "attributes": {
                          "destination.service": {
-                           "stringValue": "istio-mixer.${POD_NAMESPACE}.svc.cluster.local"
+                           "stringValue": "istio-telemetry.${POD_NAMESPACE}.svc.cluster.local"
                          },
                          "destination.uid": {
                            "stringValue" : "kubernetes://${POD_NAME}.${POD_NAMESPACE}"

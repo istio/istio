@@ -1,0 +1,178 @@
+{
+  "listeners": [
+   {
+    "address": "tcp://0.0.0.0:15004",
+    "name": "tcp_0.0.0.0_15004",
+    "filters": [
+     {
+       "type": "read",
+       "name": "http_connection_manager",
+       "config": {
+         "codec_type": "http2",
+         "stat_prefix": "grpc",
+         "generate_request_id": false,
+         "tracing": {
+           "operation_name": "egress"
+         },
+         "route_config": {
+           "virtual_hosts":[
+             {
+               "name": "in|9091",
+               "domains": [
+                 "*"
+               ],
+               "routes": [
+                 {
+                   "prefix": "/istio.mixer.v1.Mixer/Check",
+                   "cluster": "mixer_check_server",
+                   "timeout_ms": 0,
+                   "opaque_config": {
+                     "destination.service": "istio-policy.${POD_NAMESPACE}.svc.cluster.local",
+                     "mixer_check": "off",
+                     "mixer_forward": "off",
+                     "mixer_report": "on"
+                   },
+                   "decorator": {
+                     "operation": "Check"
+                   }
+                 }
+               ]
+             }
+           ]
+         },
+         "filters": [
+           {
+             "type": "decoder",
+             "name": "mixer",
+             "config": {
+               "v2": {
+                 "defaultDestinationService": "istio-policy.${POD_NAMESPACE}.svc.cluster.local",
+                 "mixerAttributes": {
+                   "attributes": {
+                     "destination.uid": {
+                       "stringValue" : "kubernetes://${POD_NAME}.${POD_NAMESPACE}"
+                     }
+                   }
+                 },
+                 "serviceConfigs": {
+                   "istio-policy.${POD_NAMESPACE}.svc.cluster.local": {
+                     "disableCheckCalls": true,
+                     "disableReportCalls": false,
+                     "mixerAttributes": {
+                       "attributes": {
+                         "destination.service": {
+                           "stringValue": "istio-policy.${POD_NAMESPACE}.svc.cluster.local"
+                         },
+                         "destination.uid": {
+                           "stringValue" : "kubernetes://${POD_NAME}.${POD_NAMESPACE}"
+                         }
+                       }
+                     }
+                   }
+                 },
+                 "transport": {
+                   "reportCluster": "mixer_report_server"
+                 }
+               }
+             }
+           },
+           {
+             "type": "",
+             "name": "cors",
+             "config": {}
+           },
+           {
+             "type": "decoder",
+             "name": "router",
+             "config": {}
+           }
+         ],
+         "access_log": [
+           {
+             "path": "/etc/istio/proxy/envoy_access_log.txt"
+           }
+         ]
+       }
+     }
+    ],
+    "bind_to_port": true
+   }
+  ],
+  "admin": {
+    "access_log_path": "/dev/stdout",
+    "address": "tcp://127.0.0.1:15000"
+  },
+  "cluster_manager": {
+    "clusters": [
+      {
+        "name": "in.9091",
+        "connect_timeout_ms": 1000,
+        "type": "static",
+        "lb_type": "round_robin",
+        "hosts": [
+          {
+            "url": "tcp://127.0.0.1:9091"
+          }
+        ]
+      },
+      {
+        "name": "mixer_check_server",
+        "connect_timeout_ms": 5000,
+        "type": "strict_dns",
+        "circuit_breakers": {
+          "default": {
+            "max_pending_requests": 10000,
+            "max_requests": 10000
+          }
+        },
+        "lb_type": "round_robin",
+        "features": "http2",
+        "hosts": [
+          {
+            "url": "tcp://127.0.0.1:9091"
+          }
+        ]
+      },
+      {
+        "name": "mixer_report_server",
+        "connect_timeout_ms": 5000,
+        "type": "strict_dns",
+        "circuit_breakers": {
+          "default": {
+            "max_pending_requests": 10000,
+            "max_requests": 10000
+          }
+        },
+        "lb_type": "round_robin",
+        "features": "http2",
+        "hosts": [
+          {
+            "url": "tcp://istio-telemetry.${POD_NAMESPACE}:9091"
+          }
+        ]
+      },
+      {
+        "name": "zipkin",
+        "connect_timeout_ms": 1000,
+        "type": "strict_dns",
+        "lb_type": "round_robin",
+        "hosts": [
+          {
+            "url": "tcp://zipkin.${POD_NAMESPACE}:9411"
+          }
+        ]
+      }
+    ]
+  },
+  "tracing": {
+    "http": {
+      "driver": {
+        "type": "zipkin",
+        "config": {
+          "collector_cluster": "zipkin",
+          "collector_endpoint": "/api/v1/spans"
+        }
+      }
+    }
+  }
+}

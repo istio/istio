@@ -11,8 +11,10 @@ RUN chmod 755 /usr/local/bin/mixer_bootstrap.sh
 
 COPY envoy_pilot.json      /etc/istio/proxy/envoy_pilot.json
 COPY envoy_pilot_auth.json /etc/istio/proxy/envoy_pilot_auth.json
-COPY envoy_mixer.json      /etc/istio/proxy/envoy_mixer.json
-COPY envoy_mixer_auth.json /etc/istio/proxy/envoy_mixer_auth.json
+COPY envoy_istio_policy.json      /etc/istio/proxy/envoy_istio_policy.json
+COPY envoy_istio_policy_auth.json /etc/istio/proxy/envoy_istio_policy_auth.json
+COPY envoy_istio_telemetry.json      /etc/istio/proxy/envoy_istio_telemetry.json
+COPY envoy_istio_telemetry_auth.json /etc/istio/proxy/envoy_istio_telemetry_auth.json
 COPY envoy_bootstrap_tmpl.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
 
 # Allow non-root user to run envoy.
