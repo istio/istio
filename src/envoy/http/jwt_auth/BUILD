@@ -97,6 +97,7 @@ envoy_cc_test(
     srcs = [":integration_test/http_filter_integration_test.cc"],
     data = [
         "integration_test/envoy.conf.jwk",
+        "integration_test/envoy_allow_missing_or_failed_jwt.conf.jwk",
     ],
     repository = "@envoy",
     deps = [

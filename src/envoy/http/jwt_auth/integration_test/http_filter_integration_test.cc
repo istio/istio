@@ -18,6 +18,17 @@
 
 namespace Envoy {
 
+namespace {
+// The HTTP header key for the JWT verification result
+const Http::LowerCaseString kJwtVerificationResultHeaderKey(
+    "sec-istio-auth-userinfo");
+// {"iss":"https://example.com","sub":"test@example.com","aud":"example_service","exp":2001001001}
+const std::string kJwtVerificationResult =
+    "eyJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tIiwic3ViIjoidGVz"
+    "dEBleGFtcGxlLmNvbSIsImF1ZCI6ImV4YW1wbGVfc2VydmljZSIs"
+    "ImV4cCI6MjAwMTAwMTAwMX0";
+}  // namespace
+
 // Base class JWT filter integration tests.
 class JwtVerificationFilterIntegrationTest
     : public HttpIntegrationTest,
@@ -329,6 +340,57 @@ TEST_P(JwtVerificationFilterIntegrationTestWithJwks, Fail1) {
   TestVerification(createHeaders(token), "", createIssuerHeaders(), pubkey,
                    false, Http::TestHeaderMapImpl{{":status", "401"}},
                    "JWT_BAD_FORMAT");
+}
+
+class JwtVerificationFilterIntegrationTestWithInjectedJwtResult
+    : public JwtVerificationFilterIntegrationTestWithJwks {
+  // With allow_missing_or_failed option being true, a request without JWT
+  // will reach the backend. This is to test the injected JWT result.
+  std::string ConfigPath() override {
+    return "src/envoy/http/jwt_auth/integration_test/"
+           "envoy_allow_missing_or_failed_jwt.conf.jwk";
+  }
+};
+
+INSTANTIATE_TEST_CASE_P(
+    IpVersions, JwtVerificationFilterIntegrationTestWithInjectedJwtResult,
+    testing::ValuesIn(TestEnvironment::getIpVersionsForTest()));
+
+TEST_P(JwtVerificationFilterIntegrationTestWithInjectedJwtResult,
+       InjectedJwtResultSanitized) {
+  // Issuer is not called by passing empty pubkey.
+  std::string pubkey = "";
+  // Create a request without JWT.
+  // With allow_missing_or_failed option being true, a request without JWT
+  // will reach the backend. This is to test the injected JWT result.
+  auto headers = BaseRequestHeaders();
+  // Inject a header of JWT verification result
+  headers.addCopy(kJwtVerificationResultHeaderKey, kJwtVerificationResult);
+
+  IntegrationCodecClientPtr codec_client;
+  FakeHttpConnectionPtr fake_upstream_connection_backend;
+  IntegrationStreamDecoderPtr response(
+      new IntegrationStreamDecoder(*dispatcher_));
+  FakeStreamPtr request_stream_backend;
+  codec_client = makeHttpConnection(lookupPort("http"));
+  // Send a request to Envoy.
+  codec_client->makeHeaderOnlyRequest(headers, *response);
+  fake_upstream_connection_backend =
+      fake_upstreams_[0]->waitForHttpConnection(*dispatcher_);
+  request_stream_backend =
+      fake_upstream_connection_backend->waitForNewStream(*dispatcher_);
+  request_stream_backend->waitForEndStream(*dispatcher_);
+  EXPECT_TRUE(request_stream_backend->complete());
+
+  // With sanitization, the headers received by the backend should not
+  // contain the injected JWT verification header.
+  EXPECT_TRUE(request_stream_backend->headers().get(
+                  kJwtVerificationResultHeaderKey) == nullptr);
+
+  response->waitForEndStream();
+  codec_client->close();
+  fake_upstream_connection_backend->close();
+  fake_upstream_connection_backend->waitForDisconnect();
 }
 
 }  // namespace Envoy
