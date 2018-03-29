@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v1alpha3
+package authn
 
 import (
 	"time"
@@ -28,6 +28,7 @@ import (
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
 )
 
@@ -38,21 +39,21 @@ const (
 	jwtFilterName = "jwt-auth"
 )
 
-// buildJwtFilter returns a Jwt filter for all Jwt specs in the policy.
-func buildJwtFilter(policy *authn.Policy) *http_conn.HttpFilter {
+// BuildJwtFilter returns a Jwt filter for all Jwt specs in the policy.
+func BuildJwtFilter(policy *authn.Policy) *http_conn.HttpFilter {
 	filterConfigProto := model.ConvertPolicyToJwtConfig(policy)
 	if filterConfigProto == nil {
 		return nil
 	}
 	return &http_conn.HttpFilter{
 		Name:   jwtFilterName,
-		Config: messageToStruct(filterConfigProto),
+		Config: util.MessageToStruct(filterConfigProto),
 	}
 }
 
-// buildJwksURIClustersForProxyInstances checks the authentication policy for the
+// BuildJwksURIClustersForProxyInstances checks the authentication policy for the
 // input proxyInstances, and generates (outbound) clusters for all JwksURIs.
-func buildJwksURIClustersForProxyInstances(mesh *meshconfig.MeshConfig,
+func BuildJwksURIClustersForProxyInstances(mesh *meshconfig.MeshConfig,
 	store model.IstioConfigStore, proxyInstances []*model.ServiceInstance) []*v2.Cluster {
 	if len(proxyInstances) == 0 {
 		return nil

@@ -15,23 +15,22 @@
 package v1alpha3
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
 
 	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/types"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	mongo_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mongo_proxy/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
-	"github.com/envoyproxy/go-control-plane/pkg/util"
-	"github.com/gogo/protobuf/types"
+	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 
 	"istio.io/istio/pilot/pkg/model"
-
-	"bytes"
-
-	"k8s.io/apimachinery/pkg/util/json"
+	"istio.io/istio/pilot/pkg/networking/util"
 )
 
 // buildInboundNetworkFilters generates a TCP proxy network filter on the inbound path
@@ -45,8 +44,8 @@ func buildInboundNetworkFilters(instance *model.ServiceInstance) []listener.Filt
 
 	return []listener.Filter{
 		{
-			Name:   util.TCPProxy,
-			Config: messageToStruct(config),
+			Name:   xdsutil.TCPProxy,
+			Config: util.MessageToStruct(config),
 		},
 	}
 
@@ -114,7 +113,7 @@ func buildOutboundNetworkFilters(clusterName string, addresses []string, port *m
 
 	// FIXME
 	tcpFilter := listener.Filter{
-		Name: util.TCPProxy,
+		Name: xdsutil.TCPProxy,
 		Config: &types.Struct{Fields: map[string]*types.Value{
 			"deprecated_v1": &trueValue,
 			"value":         &structValue,
@@ -144,8 +143,8 @@ func buildOutboundMongoFilter() listener.Filter {
 	}
 
 	return listener.Filter{
-		Name:   util.MongoProxy,
-		Config: messageToStruct(config),
+		Name:   xdsutil.MongoProxy,
+		Config: util.MessageToStruct(config),
 	}
 }
 

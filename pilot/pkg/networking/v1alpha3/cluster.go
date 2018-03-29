@@ -26,6 +26,8 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/plugins/authn"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
 )
 
@@ -76,7 +78,7 @@ func BuildClusters(env model.Environment, proxy model.Proxy) []*v2.Cluster {
 
 		// TODO: Bug? why only for sidecars?
 		// append cluster for JwksUri (for Jwt authentication) if necessary.
-		clusters = append(clusters, buildJwksURIClustersForProxyInstances(
+		clusters = append(clusters, authn.BuildJwksURIClustersForProxyInstances(
 			env.Mesh, env.IstioConfigStore, instances)...)
 	}
 
@@ -154,7 +156,7 @@ func buildClusterHosts(env model.Environment, service *model.Service, port *mode
 
 	hosts := make([]*core.Address, 0)
 	for _, instance := range instances {
-		host := buildAddress(instance.Endpoint.Address, uint32(instance.Endpoint.Port))
+		host := util.BuildAddress(instance.Endpoint.Address, uint32(instance.Endpoint.Port))
 		hosts = append(hosts, &host)
 	}
 
@@ -166,7 +168,7 @@ func buildInboundClusters(env model.Environment, instances []*model.ServiceInsta
 	for _, instance := range instances {
 		// This cluster name is mainly for stats.
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", instance.Service.Hostname, instance.Endpoint.ServicePort)
-		address := buildAddress("127.0.0.1", uint32(instance.Endpoint.Port))
+		address := util.BuildAddress("127.0.0.1", uint32(instance.Endpoint.Port))
 		localCluster := buildDefaultCluster(env, clusterName, v2.Cluster_STATIC, []*core.Address{&address})
 		setUpstreamProtocol(localCluster, instance.Endpoint.ServicePort)
 		clusters = append(clusters, localCluster)
@@ -175,7 +177,7 @@ func buildInboundClusters(env model.Environment, instances []*model.ServiceInsta
 	// Add a passthrough cluster for traffic to management ports (health check ports)
 	for _, port := range managementPorts {
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", ManagementClusterHostname, port)
-		address := buildAddress("127.0.0.1", uint32(port.Port))
+		address := util.BuildAddress("127.0.0.1", uint32(port.Port))
 		mgmtCluster := buildDefaultCluster(env, clusterName, v2.Cluster_STATIC, []*core.Address{&address})
 		setUpstreamProtocol(mgmtCluster, port)
 		clusters = append(clusters, mgmtCluster)
@@ -236,7 +238,7 @@ func applyConnectionPool(cluster *v2.Cluster, settings *networking.ConnectionPoo
 
 	if settings.Tcp != nil {
 		if settings.Tcp.ConnectTimeout != nil {
-			cluster.ConnectTimeout = convertGogoDurationToDuration(settings.Tcp.ConnectTimeout)
+			cluster.ConnectTimeout = util.ConvertGogoDurationToDuration(settings.Tcp.ConnectTimeout)
 		}
 
 		if settings.Tcp.MaxConnections > 0 {
