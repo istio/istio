@@ -347,7 +347,7 @@ func ExamineSecret(secret *v1.Secret) error {
 		}
 	}
 
-	expectedID := util.GenSubjectName(secret.GetName(), "default")
+	expectedID := util.GenSanURI(secret.GetName(), "default")
 	verifyFields := &util.VerifyFields{
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
 		KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,

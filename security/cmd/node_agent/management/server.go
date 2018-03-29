@@ -152,7 +152,7 @@ func (s *Server) WorkloadAdded(ctx context.Context, request *pb.WorkloadInfo) (*
 
 	// Sends CSR request to CA. .
 	priv, csrReq, err := s.caClient.CreateCSRRequest(&pkiutil.CertOptions{
-		Host:       pkiutil.GenSubjectName(ns, sa),
+		Host:       pkiutil.GenSanURI(ns, sa),
 		Org:        s.config.CAClientConfig.Org,
 		RSAKeySize: s.config.CAClientConfig.RSAKeySize,
 		TTL:        s.config.CAClientConfig.RequestedCertTTL,

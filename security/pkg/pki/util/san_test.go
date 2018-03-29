@@ -227,3 +227,10 @@ func TestExtractIDs(t *testing.T) {
 		}
 	}
 }
+
+func TestGenSanURI(t *testing.T) {
+	got := GenSanURI("namespace-bar", "service-foo")
+	if expected := "spiffe://cluster.local/ns/namespace-bar/sa/service-foo"; got != expected {
+		t.Errorf("unexpected subject name, want %v, got %v", expected, got)
+	}
+}

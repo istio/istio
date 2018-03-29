@@ -339,10 +339,3 @@ func TestLoadSignerCredsFromFiles(t *testing.T) {
 		}
 	}
 }
-
-func TestGenSubjectName(t *testing.T) {
-	got := GenSubjectName("namespace-bar", "service-foo")
-	if expected := "spiffe://cluster.local/ns/namespace-bar/sa/service-foo"; got != expected {
-		t.Errorf("unexpected subject name, want %v, got %v", expected, got)
-	}
-}
