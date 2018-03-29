@@ -135,7 +135,10 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 	}
 
 	// Generate csr and credential
-	pc := platform.NewOnPremClientImpl(testRoot.Name(), testKey.Name(), testCert.Name())
+	pc, err := platform.NewOnPremClientImpl(testRoot.Name(), testKey.Name(), testCert.Name())
+	if err != nil {
+		return err
+	}
 
 	csr, _, err := util.GenCSR(util.CertOptions{
 		Host:       LivenessProbeClientIdentity,

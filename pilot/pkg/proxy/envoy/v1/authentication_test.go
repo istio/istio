@@ -18,69 +18,187 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/golang/protobuf/ptypes/duration"
+
 	authn "istio.io/api/authentication/v1alpha1"
-	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/model"
 )
 
-func TestRequireTls(t *testing.T) {
+func TestBuildJwksFilter(t *testing.T) {
 	cases := []struct {
-		in       authn.Policy
-		expected bool
+		in       *authn.Policy
+		expected *HTTPFilter
 	}{
 		{
-			in:       authn.Policy{},
-			expected: false,
+			in:       nil,
+			expected: nil,
 		},
 		{
-			in: authn.Policy{
-				Peers: []*authn.PeerAuthenticationMethod{{
-					Params: &authn.PeerAuthenticationMethod_Mtls{},
-				}},
-			},
-			expected: true,
+			in:       nil,
+			expected: nil,
 		},
 		{
-			in: authn.Policy{
-				Peers: []*authn.PeerAuthenticationMethod{{
-					Params: &authn.PeerAuthenticationMethod_Jwt{},
-				},
+			in: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
 					{
-						Params: &authn.PeerAuthenticationMethod_Mtls{},
+						Params: &authn.PeerAuthenticationMethod_Jwt{
+							Jwt: &authn.Jwt{
+								JwksUri: "http://abc.com",
+							},
+						},
 					},
 				},
 			},
-			expected: true,
+			expected: &HTTPFilter{
+				Type: "decoder",
+				Name: "jwt-auth",
+				Config: map[string]interface{}{
+					"jwts": []interface{}{
+						map[string]interface{}{
+							"jwksUri":                "http://abc.com",
+							"forwardJwt":             true,
+							"publicKeyCacheDuration": "300.000s",
+							"jwksUriEnvoyCluster":    "jwks.abc.com|http",
+						},
+					},
+				},
+			},
 		},
 	}
+
 	for _, c := range cases {
-		if got := requireTLS(&c.in); got != c.expected {
-			t.Errorf("requireTLS(%v): got(%v) != want(%v)\n", c.in, got, c.expected)
+		if got := buildJwtFilter(c.in); !reflect.DeepEqual(c.expected, got) {
+			t.Errorf("buildJwtFilter(%#v), got:\n%#v\nwanted:\n%#v\n", c.in, got, c.expected)
 		}
 	}
 }
 
-func TestLegacyAuthenticationPolicyToPolicy(t *testing.T) {
+func makeGoldenCluster(mode int) *Cluster {
+	var name, host, serviceName, hostname string
+	var port *model.Port
+	var ssl interface{}
+
+	if mode == 0 {
+		name = "jwks.abc.com|http"
+		serviceName = "abc.com|http"
+		host = "tcp://abc.com:80"
+		hostname = "abc.com"
+		port = &model.Port{
+			Name: "http",
+			Port: 80,
+		}
+	} else {
+		name = "jwks.xyz.com|https"
+		serviceName = "xyz.com|https"
+		host = "tcp://xyz.com:443"
+		hostname = "xyz.com"
+		port = &model.Port{
+			Name: "https",
+			Port: 443,
+		}
+		ssl = &SSLContextExternal{CaCertFile: ""}
+	}
+
+	return &Cluster{
+		Name:             name,
+		ServiceName:      serviceName,
+		ConnectTimeoutMs: 42000,
+		Type:             "strict_dns",
+		LbType:           "round_robin",
+		MaxRequestsPerConnection: 0,
+		Hosts: []Host{
+			{URL: host},
+		},
+		SSLContext: ssl,
+		Features:   "",
+		CircuitBreaker: &CircuitBreaker{
+			Default: DefaultCBPriority{
+				MaxConnections:     0,
+				MaxPendingRequests: 10000,
+				MaxRequests:        10000,
+				MaxRetries:         0,
+			},
+		},
+		OutlierDetection: nil,
+		outbound:         false,
+		Hostname:         hostname,
+		Port:             port,
+		labels:           nil,
+	}
+}
+
+func TestBuildJwksURIClusters(t *testing.T) {
 	cases := []struct {
-		in       meshconfig.AuthenticationPolicy
-		expected *authn.Policy
+		name     string
+		in       []*authn.Jwt
+		expected map[string]*Cluster
 	}{
 		{
-			in: meshconfig.AuthenticationPolicy_MUTUAL_TLS,
-			expected: &authn.Policy{
-				Peers: []*authn.PeerAuthenticationMethod{{
-					Params: &authn.PeerAuthenticationMethod_Mtls{},
-				}},
+			name:     "nil list",
+			in:       nil,
+			expected: map[string]*Cluster{},
+		},
+		{
+			name:     "empty list",
+			in:       []*authn.Jwt{},
+			expected: map[string]*Cluster{},
+		},
+		{
+			name: "one jwt policy",
+			in: []*authn.Jwt{
+				{
+					JwksUri: "http://abc.com",
+				},
+			},
+			expected: map[string]*Cluster{
+				"jwks.abc.com|http": makeGoldenCluster(0),
 			},
 		},
 		{
-			in:       meshconfig.AuthenticationPolicy_NONE,
-			expected: nil,
+			name: "two jwt policy",
+			in: []*authn.Jwt{
+				{
+					JwksUri: "http://abc.com",
+				},
+				{
+					JwksUri: "https://xyz.com",
+				},
+			},
+			expected: map[string]*Cluster{
+				"jwks.abc.com|http":  makeGoldenCluster(0),
+				"jwks.xyz.com|https": makeGoldenCluster(1),
+			},
+		},
+		{
+			name: "duplicate jwt policy",
+			in: []*authn.Jwt{
+				{
+					JwksUri: "http://abc.com",
+				},
+				{
+					JwksUri: "https://xyz.com",
+				},
+				{
+					JwksUri: "http://abc.com",
+				},
+			},
+			expected: map[string]*Cluster{
+				"jwks.abc.com|http":  makeGoldenCluster(0),
+				"jwks.xyz.com|https": makeGoldenCluster(1),
+			},
 		},
 	}
-
 	for _, c := range cases {
-		if got := legacyAuthenticationPolicyToPolicy(c.in); !reflect.DeepEqual(got, c.expected) {
-			t.Errorf("legacyAuthenticationPolicyToPolicy(%v): got(%#v) != want(%#v)\n", c.in, got, c.expected)
+		got := buildJwksURIClusters(c.in, &duration.Duration{Seconds: 42})
+		if len(got) != len(c.expected) {
+			t.Errorf("collectJwtSpecs(%#v): return (%d) != want(%d)\n", c.in, len(got), len(c.expected))
+		}
+		for _, cluster := range got {
+			expectedCluster := c.expected[cluster.Name]
+			if !reflect.DeepEqual(expectedCluster, cluster) {
+				t.Errorf("Test case %s: expected\n%#v\n, got\n%#v", c.name, expectedCluster, cluster)
+
+			}
 		}
 	}
 }

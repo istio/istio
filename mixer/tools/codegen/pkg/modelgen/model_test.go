@@ -12,6 +12,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// nolint
+//go:generate protoc --include_imports --include_source_info testdata/BasicTopLevelFields.proto -otestdata/BasicTopLevelFields.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate protoc --include_imports --include_source_info testdata/ExplicitTemplateName.proto -otestdata/ExplicitTemplateName.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate protoc --include_imports --include_source_info testdata/BadExplicitTemplateName.proto -otestdata/BadExplicitTemplateName.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate protoc testdata/Proto2BadSyntax.proto -otestdata/noSourceInfoNoImportsBadProto.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate protoc --include_imports --include_source_info  testdata/multiFileOne.proto testdata/multiFileTwo.proto -otestdata/multiFile.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate protoc --include_imports --include_source_info testdata/MissingBothRequiredExt.proto -otestdata/MissingBothRequiredExt.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate protoc --include_imports --include_source_info testdata/MissingPackageName.proto -otestdata/MissingPackageName.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate protoc --include_imports --include_source_info testdata/MissingTemplateMessage.proto -otestdata/MissingTemplateMessage.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate protoc --include_imports --include_source_info testdata/MissingTemplateVarietyExt.proto -otestdata/MissingTemplateVarietyExt.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate protoc --include_imports --include_source_info testdata/Proto2BadSyntax.proto -otestdata/Proto2BadSyntax.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate protoc --include_imports --include_source_info testdata/ReservedFieldInTemplate.proto -otestdata/ReservedFieldInTemplate.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate protoc --include_imports --include_source_info testdata/SimpleApaTemplate.proto -otestdata/SimpleApaTemplate.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate protoc --include_imports --include_source_info testdata/SimpleTemplate.proto -otestdata/SimpleTemplate.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate protoc --include_imports --include_source_info testdata/UnsupportedMapVal.proto -otestdata/UnsupportedMapVal.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate protoc --include_imports --include_source_info testdata/UnsupportedMapKey.proto -otestdata/UnsupportedMapKey.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate protoc --include_imports --include_source_info testdata/UnsupportedFieldTypeEnum.proto -otestdata/UnsupportedFieldTypeEnum.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate protoc --include_imports --include_source_info testdata/UnsupportedFieldTypeMessage.proto -otestdata/UnsupportedFieldTypeMessage.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate protoc --include_imports --include_source_info testdata/UnsupportedFieldTypePrimitive.proto -otestdata/UnsupportedFieldTypePrimitive.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate protoc --include_imports --include_source_info testdata/UnsupportedValueTypeInAPA.proto -otestdata/UnsupportedValueTypeInAPA.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate protoc --include_imports --include_source_info testdata/WrongPkgName.proto -otestdata/WrongPkgName.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate protoc --include_imports --include_source_info testdata/UnsupportedTypeInAPAOutTemplate.proto -otestdata/UnsupportedTypeInAPAOutTemplate.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate protoc --include_imports --include_source_info testdata/BasicTopLevelFields.proto testdata/SimpleTemplate.proto -otestdata/twoTemplatesError.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+
 package modelgen
 
 import (
@@ -30,24 +54,34 @@ func TestErrorInTemplate(t *testing.T) {
 		src           string
 		expectedError []string
 	}{
-		{"testdata/MissingPackageName_proto.descriptor_set", []string{"package name missing"}},
-		{"testdata/MissingBothRequiredExt_proto.descriptor_set", []string{"There has to be one proto file that has the " +
+		{"testdata/MissingPackageName.descriptor", []string{"package name missing"}},
+		{"testdata/MissingBothRequiredExt.descriptor", []string{"There has to be one proto file that has the " +
 			"extension istio.mixer.adapter.model.v1beta1.template_variety"}},
-		{"testdata/MissingTemplateMessage_proto.descriptor_set", []string{"message 'Template' not defined"}},
-		{"testdata/ReservedFieldInTemplate_proto.descriptor_set", []string{"proto:14: Template message " +
+		{"testdata/MissingTemplateMessage.descriptor", []string{"message 'Template' not defined"}},
+		{"testdata/ReservedFieldInTemplate.descriptor", []string{"proto:14: Template message " +
 			"must not contain the reserved field name 'Name'"}},
-		{"testdata/Proto2BadSyntax_proto.descriptor_set", []string{"Proto2BadSyntax.proto:3: Only proto3 template files are allowed."}},
-		{"testdata/UnsupportedFieldTypePrimitive_proto.descriptor_set", []string{"unsupported type for field 'o'. " +
+		{"testdata/Proto2BadSyntax.descriptor", []string{"Proto2BadSyntax.proto:3: Only proto3 template files are allowed."}},
+		{"testdata/UnsupportedFieldTypePrimitive.descriptor", []string{"unsupported type for field 'o'. " +
 			"Supported types are 'istio.mixer.adapter.model.v1beta1.Value, string, int64, double, bool, other messages " +
 			"defined within the same package, map<string, any of the listed supported types>"}},
-		{"testdata/UnsupportedFieldTypeAsMap_proto.descriptor_set", []string{"unsupported type for field 'o'."}},
-		{"testdata/UnsupportedFieldTypeEnum_proto.descriptor_set", []string{"unsupported type for field 'o'."}},
-		{"testdata/WrongPkgName_proto.descriptor_set", []string{"WrongPkgName.proto:2: the last segment of package " +
-			"name 'foo.badStrNumbersNotAllowed123' must match the reges '^[a-zA-Z]+$'"}},
-		{"testdata/UnsupportedValueTypeInAPA_proto.descriptor_set", []string{"testdata/UnsupportedValueTypeInAPA.proto:12: " +
+		{"testdata/UnsupportedMapKey.descriptor", []string{"unsupported type for field 'o'."}},
+		{"testdata/UnsupportedMapVal.descriptor", []string{"unsupported type for field 'o'."}},
+		{"testdata/UnsupportedFieldTypeEnum.descriptor", []string{"unsupported type for field 'o'."}},
+		{"testdata/WrongPkgName.descriptor", []string{"WrongPkgName.proto:2: the last segment of package " +
+			"name 'foo.badStrNumbersNotAllowed123' must match the regex '^[a-zA-Z]+$'"}},
+		{"testdata/UnsupportedValueTypeInAPA.descriptor", []string{"testdata/UnsupportedValueTypeInAPA.proto:12: " +
 			"unsupported type for field 'o'. Supported types are 'string, int64, double, bool, other messages defined " +
 			"within the same package, map<string, any of the listed supported types>'.",
 			"testdata/UnsupportedValueTypeInAPA.proto: message 'OutputTemplate' not defined."}},
+		{"testdata/UnsupportedTypeInAPAOutTemplate.descriptor", []string{"message 'OutputTemplate' " +
+			"field 's' is of type 'foo.bar.submsg'. Only supported types in OutputTemplate message are : [string, int64," +
+			" double, bool, google.protobuf.Duration, google.protobuf.TimeStamp, map<string, string>]"}},
+		{"testdata/twoTemplatesError.descriptor", []string{"Proto files testdata/SimpleTemplate.proto" +
+			" and testdata/BasicTopLevelFields.proto, both have the option "}},
+		{"testdata/noSourceInfoNoImportsBadProto.descriptor", []string{"testdata/Proto2BadSyntax.proto:" +
+			" Only proto3 template files are allowed."}},
+		{"testdata/BadExplicitTemplateName.descriptor", []string{"BadExplicitTemplateName.proto: the" +
+			" template_name option 'bad123' must match the regex '^[a-zA-Z]+$'"}},
 	}
 
 	for idx, tt := range tests {
@@ -70,7 +104,7 @@ func TestErrorInTemplate(t *testing.T) {
 }
 
 func TestBasicTopLevelFields(t *testing.T) {
-	testFilename := "testdata/BasicTopLevelFields_proto.descriptor_set"
+	testFilename := "testdata/BasicTopLevelFields.descriptor"
 	model, err := createTestModel(t,
 		testFilename)
 	if err != nil {
@@ -97,9 +131,47 @@ func TestBasicTopLevelFields(t *testing.T) {
 	}
 }
 
+func TestExplicitTmplName(t *testing.T) {
+	testFilename := "testdata/ExplicitTemplateName.descriptor"
+	model, err := createTestModel(t,
+		testFilename)
+	if err != nil {
+		t.Fatalf("model creation failed %v", err)
+	}
+	if model.GoPackageName != "foo_listchecker" {
+		t.Errorf("CreateModel(%s).PackageName = %v, wanted %s", testFilename, model.GoPackageName, "foo_listchecker")
+	}
+	if model.InterfaceName != "ExplicitListChecker" {
+		t.Errorf("CreateModel(%s).InterfaceName = %v, wanted %s", testFilename, model.InterfaceName, "ListChecker")
+	}
+	if model.TemplateName != "explicitlistchecker" {
+		t.Errorf("CreateModel(%s).TemplateName = %v, wanted %s", testFilename, model.TemplateName, "listchecker")
+	}
+	if model.VarietyName != "TEMPLATE_VARIETY_CHECK" {
+		t.Errorf("CreateModel(%s).VarietyName = %v, wanted %s", testFilename, model.VarietyName, "TEMPLATE_VARIETY_CHECK")
+	}
+}
+
 func TestTypeFields(t *testing.T) {
 	model, err := createTestModel(t,
-		"testdata/SimpleTemplate_proto.descriptor_set")
+		"testdata/SimpleTemplate.descriptor")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	testSimpleTemplateFields(model.TemplateMessage, t)
+	var res3MsgInfo MessageInfo
+	for _, j := range model.ResourceMessages {
+		if j.Name == "Resource3" {
+			res3MsgInfo = j
+		}
+	}
+	testSimpleTemplateFields(res3MsgInfo, t)
+}
+
+func TestTypeFieldsMultiFile(t *testing.T) {
+	model, err := createTestModel(t,
+		"testdata/multiFile.descriptor")
 
 	if err != nil {
 		t.Fatal(err)
@@ -116,7 +188,7 @@ func TestTypeFields(t *testing.T) {
 
 func TestApaFields(t *testing.T) {
 	model, _ := createTestModel(t,
-		"testdata/SimpleApaTemplate_proto.descriptor_set")
+		"testdata/SimpleApaTemplate.descriptor")
 
 	testApaSimpleTemplateFields(model.TemplateMessage, t)
 	testApaSimpleTemplateFields(model.OutputTemplateMessage, t)
@@ -151,21 +223,22 @@ func testSimpleTemplateFields(msgInfo MessageInfo, t *testing.T) {
 		"FieldDouble", TypeInfo{Name: "float64"}, "")
 	testField(t, testFileName, msgInfo,
 		"val",
-		TypeInfo{Name: "istio.policy.v1beta1.ValueType", IsValueType: true}, "Val",
-		TypeInfo{Name: "istio_policy_v1beta1.ValueType", IsValueType: true}, "single line block comment")
+		TypeInfo{Name: "istio.mixer.adapter.model.v1beta1.Value", IsValueType: true, Import: "mixer/adapter/model/v1beta1/type.proto"}, "Val",
+		TypeInfo{Name: "interface{}", IsValueType: true}, "single line block comment")
 	testField(t, testFileName, msgInfo,
 		"dimensions",
-		TypeInfo{Name: "map<string, istio.policy.v1beta1.ValueType>",
+		TypeInfo{Name: "map<string, istio.mixer.adapter.model.v1beta1.Value>",
 			IsMap:    true,
+			Import:   "mixer/adapter/model/v1beta1/type.proto",
 			MapKey:   &TypeInfo{Name: "string"},
-			MapValue: &TypeInfo{Name: "istio.policy.v1beta1.ValueType", IsValueType: true},
+			MapValue: &TypeInfo{Name: "istio.mixer.adapter.model.v1beta1.Value", IsValueType: true, Import: "mixer/adapter/model/v1beta1/type.proto"},
 		},
 		"Dimensions",
 		TypeInfo{
-			Name:     "map[string]istio_policy_v1beta1.ValueType",
+			Name:     "map[string]interface{}",
 			IsMap:    true,
 			MapKey:   &TypeInfo{Name: "string"},
-			MapValue: &TypeInfo{Name: "istio_policy_v1beta1.ValueType", IsValueType: true},
+			MapValue: &TypeInfo{Name: "interface{}", IsValueType: true},
 		}, "single line comment")
 	testField(t, testFileName, msgInfo,
 		"dimensionsConstInt64Val",

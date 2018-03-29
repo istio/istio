@@ -14,11 +14,17 @@
   "dynamic_resources": {
     "lds_config": {
       "api_config_source": {
+{{- if .ldsv2 }}
+        "api_type": "GRPC",
+        "refresh_delay": {{ .refresh_delay }},
+        "cluster_names": [
+          "xds-grpc"
+        ]{{ else }}
         "api_type": "REST_LEGACY",
         "refresh_delay": {{ .refresh_delay }},
         "cluster_names": [
           "rds"
-        ]
+        ]{{ end }}
       }
     },
     "cds_config": {

@@ -64,7 +64,6 @@ var (
 	withMixerValidator  = flag.Bool("with_mixer_validator", false, "Set up mixer validator")
 
 	addons = []string{
-		"prometheus",
 		"zipkin",
 	}
 )
@@ -329,6 +328,12 @@ func (k *KubeInfo) deployIstio() error {
 		log.Errorf("Generating yaml %s failed", testIstioYaml)
 		return err
 	}
+
+	if err := util.CreateNamespace(k.Namespace); err != nil {
+		log.Errorf("Unable to create namespace %s: %s", k.Namespace, err.Error())
+		return err
+	}
+
 	if err := util.KubeApply(k.Namespace, testIstioYaml); err != nil {
 		log.Errorf("Istio core %s deployment failed", testIstioYaml)
 		return err
@@ -336,14 +341,20 @@ func (k *KubeInfo) deployIstio() error {
 
 	if *withMixerValidator {
 		baseMixerValidatorYaml := filepath.Join(k.ReleaseDir, istioInstallDir, mixerValidatorFile)
-		testMixerValidatorYaml := filepath.Join(k.TmpDir, "yaml", mixerValidatorFile)
-		if err := k.generateIstio(baseMixerValidatorYaml, testMixerValidatorYaml); err != nil {
-			log.Errorf("Generating yaml %s failed", testMixerValidatorYaml)
-			return err
-		}
-		if err := util.KubeApply(k.Namespace, testMixerValidatorYaml); err != nil {
-			log.Errorf("Istio mixer validator %s deployment failed", testMixerValidatorYaml)
-			return err
+		_, err := os.Stat(baseMixerValidatorYaml)
+		if err != nil && os.IsNotExist(err) {
+			// Some old version may not have this file.
+			log.Warnf("%s does not exist in install dir %s", mixerValidatorFile, istioInstallDir)
+		} else {
+			testMixerValidatorYaml := filepath.Join(k.TmpDir, "yaml", mixerValidatorFile)
+			if err := k.generateIstio(baseMixerValidatorYaml, testMixerValidatorYaml); err != nil {
+				log.Errorf("Generating yaml %s failed", testMixerValidatorYaml)
+				return err
+			}
+			if err := util.KubeApply(k.Namespace, testMixerValidatorYaml); err != nil {
+				log.Errorf("Istio mixer validator %s deployment failed", testMixerValidatorYaml)
+				return err
+			}
 		}
 	}
 

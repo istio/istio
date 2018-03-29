@@ -20,6 +20,9 @@ ingress:
     - externalPort: 9999
       portName: http-9999
 
+# Any customization for istio testing should be here
+istiotesting:
+  oneNameSpace: false
 
 prometheus:
   enabled: true

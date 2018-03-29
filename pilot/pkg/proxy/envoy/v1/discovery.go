@@ -382,7 +382,7 @@ func (ds *DiscoveryService) Register(container *restful.Container) {
 		Doc("Services in SDS"))
 
 	// This route makes discovery act as an Envoy Service discovery service (SDS).
-	// See https://envoyproxy.github.io/envoy/intro/arch_overview/service_discovery.html#service-discovery-service-sds
+	// See https://www.envoyproxy.io/docs/envoy/latest/api-v1/cluster_manager/sds
 	ws.Route(ws.
 		GET(fmt.Sprintf("/v1/registration/{%s}", ServiceKey)).
 		To(ds.ListEndpoints).
@@ -390,7 +390,7 @@ func (ds *DiscoveryService) Register(container *restful.Container) {
 		Param(ws.PathParameter(ServiceKey, "tuple of service name and tag name").DataType("string")))
 
 	// This route makes discovery act as an Envoy Cluster discovery service (CDS).
-	// See https://envoyproxy.github.io/envoy/configuration/cluster_manager/cds.html#config-cluster-manager-cds
+	// See https://www.envoyproxy.io/docs/envoy/latest/api-v1/cluster_manager/cds
 	ws.Route(ws.
 		GET(fmt.Sprintf("/v1/clusters/{%s}/{%s}", ServiceCluster, ServiceNode)).
 		To(ds.ListClusters).
@@ -399,7 +399,7 @@ func (ds *DiscoveryService) Register(container *restful.Container) {
 		Param(ws.PathParameter(ServiceNode, "client proxy service node").DataType("string")))
 
 	// This route makes discovery act as an Envoy Route discovery service (RDS).
-	// See https://lyft.github.io/envoy/docs/configuration/http_conn_man/rds.html
+	// See https://www.envoyproxy.io/docs/envoy/latest/api-v1/route_config/rds
 	ws.Route(ws.
 		GET(fmt.Sprintf("/v1/routes/{%s}/{%s}/{%s}", RouteConfigName, ServiceCluster, ServiceNode)).
 		To(ds.ListRoutes).
@@ -409,7 +409,7 @@ func (ds *DiscoveryService) Register(container *restful.Container) {
 		Param(ws.PathParameter(ServiceNode, "client proxy service node").DataType("string")))
 
 	// This route responds to LDS requests
-	// See https://lyft.github.io/envoy/docs/configuration/listeners/lds.html
+	// See https://www.envoyproxy.io/docs/envoy/latest/api-v1/listeners/lds
 	ws.Route(ws.
 		GET(fmt.Sprintf("/v1/listeners/{%s}/{%s}", ServiceCluster, ServiceNode)).
 		To(ds.ListListeners).
@@ -477,7 +477,9 @@ func (ds *DiscoveryService) clearCache() {
 		if !clearCacheTimerSet {
 			clearCacheTimerSet = true
 			time.AfterFunc(time.Duration(clearCacheTime)*time.Second, func() {
+				clearCacheMutex.Lock()
 				clearCacheTimerSet = false
+				clearCacheMutex.Unlock()
 				ds.clearCache() // it's after time - so will clear the cache
 			})
 		}
@@ -746,8 +748,13 @@ func (ds *DiscoveryService) ListRoutes(request *restful.Request, response *restf
 		}
 
 		routeConfigName := request.PathParameter(RouteConfigName)
-		routeConfig, err := buildRDSRoute(ds.Mesh, svcNode, routeConfigName,
-			ds.ServiceDiscovery, ds.IstioConfigStore)
+		envoyV2 := false
+		if routeConfigName[0] == ':' {
+			routeConfigName = routeConfigName[1:]
+			envoyV2 = true
+		}
+		routeConfig, err := BuildRDSRoute(ds.Mesh, svcNode, routeConfigName,
+			ds.ServiceDiscovery, ds.IstioConfigStore, envoyV2)
 		if err != nil {
 			// If client experiences an error, 503 error will tell envoy to keep its current
 			// cache and try again later
@@ -758,7 +765,6 @@ func (ds *DiscoveryService) ListRoutes(request *restful.Request, response *restf
 			errorResponse(methodName, response, http.StatusInternalServerError, "RDS "+err.Error())
 			return
 		}
-
 		transformedOutput, err = ds.invokeWebhook(request.Request.URL.Path, out, "webhook"+methodName)
 		if err != nil {
 			// Use whatever we generated.

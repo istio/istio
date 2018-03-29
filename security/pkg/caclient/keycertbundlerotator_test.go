@@ -20,12 +20,77 @@ import (
 	"testing"
 	"time"
 
-	caclientmock "istio.io/istio/security/pkg/caclient/mock"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	pkimock "istio.io/istio/security/pkg/pki/util/mock"
 	"istio.io/istio/security/pkg/util"
 	utilmock "istio.io/istio/security/pkg/util/mock"
 )
+
+type fakeKeyCertRetriever struct {
+	NewCert    []byte
+	CertChain  []byte
+	PrivateKey []byte
+	Err        error
+}
+
+func (r *fakeKeyCertRetriever) Retrieve(_ *pkiutil.CertOptions) (newCert, certChain, privateKey []byte, err error) {
+	if r.Err != nil {
+		return nil, nil, nil, r.Err
+	}
+	return r.NewCert, r.CertChain, r.PrivateKey, nil
+}
+
+func TestNewKeyCertBundleRotator(t *testing.T) {
+	testCases := map[string]struct {
+		config      *Config
+		expectedErr string
+	}{
+		"null config": {
+			config:      nil,
+			expectedErr: "nil configuration passed",
+		},
+		"onprem env": {
+			config: &Config{
+				RootCertFile:  "../platform/testdata/cert-root-good.pem",
+				KeyFile:       "../platform/testdata/key-from-root-good.pem",
+				CertChainFile: "../platform/testdata/cert-chain-good.pem",
+				Env:           "onprem",
+			},
+			expectedErr: "",
+		},
+		"unspecified env": {
+			config: &Config{
+				RootCertFile:  "../platform/testdata/cert-root-good.pem",
+				KeyFile:       "../platform/testdata/key-from-root-good.pem",
+				CertChainFile: "../platform/testdata/cert-chain-good.pem",
+				Env:           "unspecified",
+			},
+			expectedErr: "",
+		},
+		"Unsupported env": {
+			config: &Config{
+				CertChainFile: "../platform/testdata/cert-chain-good.pem",
+				Env:           "somethig-else",
+			},
+			expectedErr: "invalid env somethig-else specified",
+		},
+	}
+
+	for id, c := range testCases {
+		_, err := NewKeyCertBundleRotator(c.config, &pkimock.FakeKeyCertBundle{})
+
+		if len(c.expectedErr) > 0 {
+			if err == nil {
+				t.Errorf("%s: succeeded, error expected: %v", id, err)
+			} else if err.Error() != c.expectedErr {
+				t.Errorf("%s: incorrect error message: %s VS %s",
+					id, err.Error(), c.expectedErr)
+			}
+		} else if err != nil {
+			t.Errorf("%s: unexpected error: %v", id, err)
+		}
+	}
+}
 
 func TestKeyCertBundleRotator(t *testing.T) {
 	oldCert, oldKey, oldCertChain, oldRootCert :=
@@ -33,20 +98,20 @@ func TestKeyCertBundleRotator(t *testing.T) {
 	newCert, newCertChain, newKey := []byte("new_cert"), []byte("new_certchain"), []byte("new_key")
 
 	testCases := map[string]struct {
-		client      CAClient
+		retriever   KeyCertRetriever
 		certutil    util.CertUtil
-		bundle      pkiutil.KeyCertBundle
+		keycert     pkiutil.KeyCertBundle
 		updated     bool
 		expectedErr string
 	}{
 		"Successful update after wait": {
-			client: &caclientmock.FakeClient{
+			retriever: &fakeKeyCertRetriever{
 				NewCert:    newCert,
 				CertChain:  newCertChain,
 				PrivateKey: newKey,
 			},
 			certutil: &utilmock.FakeCertUtil{Duration: time.Duration(time.Millisecond * 300)},
-			bundle: &pkimock.FakeKeyCertBundle{
+			keycert: &pkimock.FakeKeyCertBundle{
 				CertBytes:      oldCert,
 				PrivKeyBytes:   oldKey,
 				CertChainBytes: oldCertChain,
@@ -56,24 +121,24 @@ func TestKeyCertBundleRotator(t *testing.T) {
 			expectedErr: "",
 		},
 		"Successful update when cert empty": {
-			client: &caclientmock.FakeClient{
+			retriever: &fakeKeyCertRetriever{
 				NewCert:    newCert,
 				CertChain:  newCertChain,
 				PrivateKey: newKey,
 			},
 			certutil:    &utilmock.FakeCertUtil{Duration: time.Duration(time.Millisecond * 300)},
-			bundle:      &pkimock.FakeKeyCertBundle{RootCertBytes: oldRootCert},
+			keycert:     &pkimock.FakeKeyCertBundle{RootCertBytes: oldRootCert},
 			updated:     true,
 			expectedErr: "",
 		},
 		"Wait update": {
-			client: &caclientmock.FakeClient{
+			retriever: &fakeKeyCertRetriever{
 				NewCert:    newCert,
 				CertChain:  newCertChain,
 				PrivateKey: newKey,
 			},
 			certutil: &utilmock.FakeCertUtil{Duration: time.Duration(time.Hour)},
-			bundle: &pkimock.FakeKeyCertBundle{
+			keycert: &pkimock.FakeKeyCertBundle{
 				CertBytes:      oldCert,
 				PrivKeyBytes:   oldKey,
 				CertChainBytes: oldCertChain,
@@ -83,9 +148,9 @@ func TestKeyCertBundleRotator(t *testing.T) {
 			expectedErr: "",
 		},
 		"CA Client error": {
-			client:   &caclientmock.FakeClient{Err: fmt.Errorf("error1")},
-			certutil: &utilmock.FakeCertUtil{Duration: time.Duration(0)},
-			bundle: &pkimock.FakeKeyCertBundle{
+			retriever: &fakeKeyCertRetriever{Err: fmt.Errorf("error1")},
+			certutil:  &utilmock.FakeCertUtil{Duration: time.Duration(0)},
+			keycert: &pkimock.FakeKeyCertBundle{
 				CertBytes:      oldCert,
 				PrivKeyBytes:   oldKey,
 				CertChainBytes: oldCertChain,
@@ -95,13 +160,13 @@ func TestKeyCertBundleRotator(t *testing.T) {
 			expectedErr: "error retrieving the key and cert: error1, abort auto rotation",
 		},
 		"Key/cert verification error": {
-			client: &caclientmock.FakeClient{
+			retriever: &fakeKeyCertRetriever{
 				NewCert:    newCert,
 				CertChain:  newCertChain,
 				PrivateKey: newKey,
 			},
 			certutil: &utilmock.FakeCertUtil{Duration: time.Duration(0)},
-			bundle: &pkimock.FakeKeyCertBundle{
+			keycert: &pkimock.FakeKeyCertBundle{
 				CertBytes:      oldCert,
 				PrivKeyBytes:   oldKey,
 				CertChainBytes: oldCertChain,
@@ -114,7 +179,13 @@ func TestKeyCertBundleRotator(t *testing.T) {
 	}
 
 	for id, tc := range testCases {
-		rotator := NewKeyCertBundleRotator(tc.bundle, tc.certutil, tc.client)
+		rotator := KeyCertBundleRotator{
+			certUtil:  tc.certutil,
+			retriever: tc.retriever,
+			keycert:   tc.keycert,
+			stopCh:    make(chan bool, 1),
+			stopped:   true,
+		}
 		errCh := make(chan error)
 		go rotator.Start(errCh)
 
@@ -131,7 +202,7 @@ func TestKeyCertBundleRotator(t *testing.T) {
 		}
 		rotator.Stop() // Stop the KeyCertBundleRotator anyway.
 
-		certBytes, keyBytes, certchainBytes, rootcertBytes := tc.bundle.GetAllPem()
+		certBytes, keyBytes, certchainBytes, rootcertBytes := tc.keycert.GetAllPem()
 		if tc.updated {
 			if !bytes.Equal(certBytes, newCert) {
 				t.Errorf("Test case [%s]: Cert bytes are different from expected value: %v VS %v.",

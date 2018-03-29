@@ -54,6 +54,7 @@ func init() {
 	flag.BoolVar(&config.Mixer, "mixer", config.Mixer, "Enable / disable mixer.")
 	flag.BoolVar(&config.V1alpha1, "v1alpha1", config.V1alpha1, "Enable / disable v1alpha1 routing rules.")
 	flag.BoolVar(&config.V1alpha3, "v1alpha3", config.V1alpha3, "Enable / disable v1alpha3 routing rules.")
+	flag.BoolVar(&config.Ingress, "ingress", config.Ingress, "Enable / disable Ingress tests.")
 	flag.BoolVar(&config.RDSv2, "rdsv2", false, "Enable RDSv2 for v1alpha3")
 	flag.BoolVar(&config.NoRBAC, "norbac", false, "Disable RBAC YAML")
 	flag.StringVar(&config.ErrorLogsDir, "errorlogsdir", config.ErrorLogsDir,
@@ -129,6 +130,7 @@ func TestPilot(t *testing.T) {
 		&authExclusion{Environment: env},
 		&kubernetesExternalNameServices{Environment: env},
 		&authnPolicy{Environment: env},
+		&istioRBAC{Environment: env},
 	}
 
 	for _, test := range tests {

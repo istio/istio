@@ -17,9 +17,11 @@ and is performed during regular working hours for your time zone.
 * Join the `oncall` Slack channel
 
 ## Responsibilities
+* At the begining of your on-call make sure https://goo.gl/9wjRdg is updated with current snapshot numbers (of issues, PRs, etc...)
+* Check the schedule sheet to make sure the next on call is defined.
 * Build cop: monitor the builds, the presubmit automated tests, the postsubmit automated tests:
   * Familiarize yourself with the current [open issues affecting automated tests](https://github.com/istio/istio/issues?q=is%3Aopen+is%3Aissue+label%3Akind%2Ftest-failure).
-  * Monitor the [dashboard](http://k8s-testgrid.appspot.com/istio#Summary)
+  * Monitor the [dashboard](http://k8s-testgrid.appspot.com/istio#Summary) and [daily build status](https://prow.istio.io/?author=istio-release-robot)
   * If there are new failures, open issues and label them with kind/test-failure, with the appropriate area label, with "prow" or "circleci" label,
   and assign them either directly to an engineer or to the area lead.
   The issue must contain a link to the failed test log.
@@ -27,14 +29,12 @@ and is performed during regular working hours for your time zone.
   * Help PRs be merged: merge PRs that fail tests with known failures, but document the failure with link to the known issue: "Failure in e2e-... test is due to unrelated issue #"
 * Slack: monitor #oncall channel; Update the topic of the channel, so that everyone can see who is on-call.
 * Istio-users mailing list: monitor, and reply or dispatch to the subject matter experts or to the leads.
-* Use this on-call time to learn something new about Istio. Work with the subject matter experts and contribute to the troubleshooting guides on [istio.io](https://istio.io/help/troubleshooting.html).
 * Help with creating the release when needed.
-* Check the schedule sheet to make sure the next on call is defined.
+* Use this on-call time to learn something new about Istio. Work with the subject matter experts and contribute to the troubleshooting guides on [istio.io](https://istio.io/help/troubleshooting.html).
 * On Friday, notify the next on-call.
-* On Tuesday, at the end of the on-call, handoff to next on-call and send a summary to istio-oncall and istio-dev. Include the stats below, that can be obtained by querying [GitHub with dates ranges:](https://help.github.com/articles/searching-issues-and-pull-requests/)
-
-* At the begining of your on-call make sure https://goo.gl/9wjRdg is updated with current snapshot numbers (of issues, PRs, etc...)
-* At the end of your on-call, update https://goo.gl/9wjRdg - the deltas will be calculated for you (bold columns) please send an email summary
+* On Tuesday, at the end of your on-call
+  * Update "blue" columns in https://goo.gl/9wjRdg - the deltas will be calculated for you (bold columns) and send an email summary
+  * Handoff to next on-call and send a summary to istio-oncall and istio-dev. Include the stats below, that can be obtained by querying [GitHub with dates ranges:](https://help.github.com/articles/searching-issues-and-pull-requests/)
 
 ```bash
 #Issues affecting automated tests:

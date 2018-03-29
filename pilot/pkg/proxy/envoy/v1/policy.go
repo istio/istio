@@ -54,7 +54,7 @@ func ApplyClusterPolicy(cluster *Cluster,
 	// where Istio auth does not apply.
 	if cluster.Type != ClusterTypeOriginalDST {
 		if !isDestinationExcludedForMTLS(cluster.ServiceName, mesh.MtlsExcludedServices) &&
-			requireTLS(getConsolidateAuthenticationPolicy(mesh, config, cluster.Hostname, cluster.Port)) {
+			model.RequireTLS(model.GetConsolidateAuthenticationPolicy(mesh, config, cluster.Hostname, cluster.Port)) {
 			// apply auth policies
 			ports := model.PortList{cluster.Port}.GetNames()
 			serviceAccounts := accounts.GetIstioServiceAccounts(cluster.Hostname, ports)

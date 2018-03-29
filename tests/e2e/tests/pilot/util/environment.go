@@ -35,6 +35,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/ghodss/yaml"
+	"github.com/pkg/errors"
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -440,7 +441,7 @@ func (e *Environment) Teardown() {
 	if filledYaml, err := e.Fill("rbac-beta.yaml.tmpl", e.ToTemplateData()); err != nil {
 		log.Infof("RBAC template could could not be processed, please delete stale ClusterRoleBindings: %v",
 			err)
-	} else if err = e.kubeDelete(filledYaml, e.Config.IstioNamespace); err != nil {
+	} else if err = e.KubeDelete(filledYaml, e.Config.IstioNamespace); err != nil {
 		log.Infof("RBAC config could could not be deleted: %v", err)
 	}
 
@@ -514,7 +515,8 @@ func (e *Environment) KubeApply(yaml, namespace string) error {
 		e.Config.KubeConfig, namespace), yaml)
 }
 
-func (e *Environment) kubeDelete(yaml, namespace string) error {
+// KubeDelete runs kubectl delete with the given yaml and namespace.
+func (e *Environment) KubeDelete(yaml, namespace string) error {
 	return util.RunInput(fmt.Sprintf("kubectl delete --kubeconfig %s -n %s -f -",
 		e.Config.KubeConfig, namespace), yaml)
 }
@@ -547,6 +549,35 @@ var (
 	codeRex    = regexp.MustCompile("StatusCode=(.*)")
 )
 
+// DumpConfig configuration in effect during test
+func (e *Environment) DumpConfig(names ...string) (string, error) {
+	cmd := fmt.Sprintf("kubectl --kubeconfig %s get %s --all-namespaces -o yaml",
+		e.Config.KubeConfig, strings.Join(names, ","))
+
+	return util.Shell(cmd)
+}
+
+// Routes gets routes from the pod or returns error
+func (e *Environment) Routes(app string) (string, error) {
+	if len(e.Apps[app]) == 0 {
+		return "", errors.Errorf("missing pod names for app %q", app)
+	}
+
+	pod := e.Apps[app][0]
+
+	routesURL := "http://localhost:15000/routes"
+	cmd := fmt.Sprintf("kubectl exec %s --kubeconfig %s -n %s -c app -- client -url %s",
+		pod, e.Config.KubeConfig, e.Config.Namespace, routesURL)
+
+	routes, err := util.Shell(cmd)
+
+	if err != nil {
+		return "", errors.WithMessage(err, "failed to get routes")
+	}
+
+	return routes, nil
+}
+
 // ClientRequest makes the given request from within the k8s environment.
 func (e *Environment) ClientRequest(app, url string, count int, extra string) Response {
 	out := Response{}
@@ -556,6 +587,7 @@ func (e *Environment) ClientRequest(app, url string, count int, extra string) Re
 	}
 
 	pod := e.Apps[app][0]
+
 	cmd := fmt.Sprintf("kubectl exec %s --kubeconfig %s -n %s -c app -- client -url %s -count %d %s",
 		pod, e.Config.KubeConfig, e.Config.Namespace, url, count, extra)
 	request, err := util.Shell(cmd)
@@ -812,7 +844,7 @@ func (e *Environment) deleteSidecarInjector() {
 	if filledYaml, err := e.Fill("sidecar-injector.yaml.tmpl", e.ToTemplateData()); err != nil {
 		log.Infof("Sidecar injector template could not be processed, please delete stale injector webhook: %v",
 			err)
-	} else if err = e.kubeDelete(filledYaml, e.Config.IstioNamespace); err != nil {
+	} else if err = e.KubeDelete(filledYaml, e.Config.IstioNamespace); err != nil {
 		log.Infof("Sidecar injector could not be deleted: %v", err)
 	}
 }

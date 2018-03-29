@@ -28,8 +28,8 @@ import (
 	"sort"
 	"strings"
 
+	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
 )
 
 // Service describes an Istio service (e.g., catalog.mystore.com:8080)
@@ -56,6 +56,7 @@ type Service struct {
 	// ExternalName is only set for external services and holds the external
 	// service DNS name.  External services are name-based solution to represent
 	// external service instances as a service inside the cluster.
+	// Deprecated : made obsolete by the MeshExternal and Resolution flags.
 	ExternalName string `json:"external"`
 
 	// ServiceAccounts specifies the service accounts that run the service.
@@ -66,6 +67,7 @@ type Service struct {
 	MeshExternal bool
 
 	// LoadBalancingDisabled indicates that no load balancing should be done for this service.
+	// Deprecated : made obsolete by the MeshExternal and Resolution flags.
 	LoadBalancingDisabled bool `json:"-"`
 
 	// Resolution indicates how the service instances need to be resolved before routing
@@ -140,6 +142,16 @@ const (
 	ProtocolRedis Protocol = "Redis"
 	// ProtocolUnsupported - value to signify that the protocol is unsupported
 	ProtocolUnsupported Protocol = "UnsupportedProtocol"
+)
+
+// TrafficDirection defines whether traffic exists a service instance or enters a service instance
+type TrafficDirection string
+
+const (
+	// TrafficDirectionInbound indicates inbound traffic
+	TrafficDirectionInbound TrafficDirection = "inbound"
+	// TrafficDirectionOutbound indicates outbound traffic
+	TrafficDirectionOutbound TrafficDirection = "outbound"
 )
 
 // ConvertCaseInsensitiveStringToProtocol converts a case-insensitive protocol to Protocol
@@ -343,15 +355,29 @@ func (labels LabelsCollection) HasSubsetOf(that Labels) bool {
 	return false
 }
 
-// Match returns true if port matches with port selector criteria.
-func (port Port) Match(portSelector *networking.PortSelector) bool {
+// IsSupersetOf returns true if the input labels are a subset set of any set of labels in a
+// collection
+func (labels LabelsCollection) IsSupersetOf(that Labels) bool {
+	if len(labels) == 0 {
+		return false
+	}
+	for _, label := range labels {
+		if that.SubsetOf(label) {
+			return true
+		}
+	}
+	return false
+}
+
+// Match returns true if port matches with authentication port selector criteria.
+func (port Port) Match(portSelector *authn.PortSelector) bool {
 	if portSelector == nil {
 		return true
 	}
 	switch portSelector.Port.(type) {
-	case *networking.PortSelector_Name:
+	case *authn.PortSelector_Name:
 		return portSelector.GetName() == port.Name
-	case *networking.PortSelector_Number:
+	case *authn.PortSelector_Number:
 		return portSelector.GetNumber() == uint32(port.Port)
 	default:
 		return false
@@ -395,12 +421,14 @@ func (s *Service) External() bool {
 // Key generates a unique string referencing service instances for a given port and labels.
 // The separator character must be exclusive to the regular expressions allowed in the
 // service declaration.
+// Deprecated
 func (s *Service) Key(port *Port, labels Labels) string {
 	// TODO: check port is non nil and membership of port in service
 	return ServiceKey(s.Hostname, PortList{port}, LabelsCollection{labels})
 }
 
 // ServiceKey generates a service key for a collection of ports and labels
+// Deprecated
 func ServiceKey(hostname string, servicePorts PortList, labelsList LabelsCollection) string {
 	// example: name.namespace|http|env=prod;env=test,version=my-v1
 	var buffer bytes.Buffer
@@ -452,6 +480,7 @@ func ServiceKey(hostname string, servicePorts PortList, labelsList LabelsCollect
 }
 
 // ParseServiceKey is the inverse of the Service.String() method
+// Deprecated
 func ParseServiceKey(s string) (hostname string, ports PortList, labels LabelsCollection) {
 	parts := strings.Split(s, "|")
 	hostname = parts[0]
@@ -472,6 +501,23 @@ func ParseServiceKey(s string) (hostname string, ports PortList, labels LabelsCo
 			labels = append(labels, ParseLabelsString(tag))
 		}
 	}
+	return
+}
+
+// BuildSubsetKey generates a unique string referencing service instances for a given service name, a subset and a port.
+// The proxy queries Pilot with this key to obtain the list of instances in a subset.
+func BuildSubsetKey(direction TrafficDirection, subsetName, hostname string, port *Port) string {
+	return fmt.Sprintf("%s|%s|%s|%s", direction, port.Name, subsetName, hostname)
+}
+
+// ParseSubsetKey is the inverse of the BuildSubsetKey method
+func ParseSubsetKey(s string) (direction TrafficDirection, subsetName, hostname string, port *Port) {
+	parts := strings.Split(s, "|")
+	// we ignore direction since its typically not used by the consuming functions
+	port = &Port{Name: parts[1]}
+	subsetName = parts[2]
+	hostname = parts[3]
+
 	return
 }
 

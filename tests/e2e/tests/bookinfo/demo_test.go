@@ -37,22 +37,28 @@ import (
 const (
 	u1                                 = "normal-user"
 	u2                                 = "test-user"
-	bookinfoYaml                       = "samples/bookinfo/kube/bookinfo.yaml"
-	bookinfoRatingsv2Yaml              = "samples/bookinfo/kube/bookinfo-ratings-v2.yaml"
-	bookinfoRatingsMysqlYaml           = "samples/bookinfo/kube/bookinfo-ratings-v2-mysql.yaml"
-	bookinfoDbYaml                     = "samples/bookinfo/kube/bookinfo-db.yaml"
-	bookinfoMysqlYaml                  = "samples/bookinfo/kube/bookinfo-mysql.yaml"
-	bookinfoDetailsExternalServiceYaml = "samples/bookinfo/kube/bookinfo-details-v2.yaml"
+	bookinfoSampleDir                  = "samples/bookinfo"
+	yamlExtension                      = "yaml"
+	deploymentDir                      = "kube"
+	routeRulesDir                      = "kube"
+	tutorialDir                        = "istio.io_tutorial"
+	bookinfoYaml                       = "bookinfo"
+	bookinfoRatingsv2Yaml              = "bookinfo-ratings-v2"
+	bookinfoRatingsMysqlYaml           = "bookinfo-ratings-v2-mysql"
+	bookinfoDbYaml                     = "bookinfo-db"
+	bookinfoMysqlYaml                  = "bookinfo-mysql"
+	bookinfoDetailsExternalServiceYaml = "bookinfo-details-v2"
 	modelDir                           = "tests/apps/bookinfo/output"
-	rulesDir                           = "samples/bookinfo/kube"
-	allRule                            = "route-rule-all-v1.yaml"
-	delayRule                          = "route-rule-ratings-test-delay.yaml"
-	fiftyRule                          = "route-rule-reviews-50-v3.yaml"
-	testRule                           = "route-rule-reviews-test-v2.yaml"
-	testDbRule                         = "route-rule-ratings-db.yaml"
-	testMysqlRule                      = "route-rule-ratings-mysql.yaml"
-	detailsExternalServiceRouteRule    = "route-rule-details-v2.yaml"
-	detailsExternalServiceEgressRule   = "egress-rule-google-apis.yaml"
+	allRule                            = routeRulesDir + "/" + "route-rule-all-v1"
+	delayRule                          = routeRulesDir + "/" + "route-rule-ratings-test-delay"
+	tenRule                            = tutorialDir + "/" + "/route-rule-reviews-90-10"
+	twentyRule                         = tutorialDir + "/" + "route-rule-reviews-80-20"
+	fiftyRule                          = routeRulesDir + "/" + "route-rule-reviews-50-v3"
+	testRule                           = routeRulesDir + "/" + "route-rule-reviews-test-v2"
+	testDbRule                         = routeRulesDir + "/" + "route-rule-ratings-db"
+	testMysqlRule                      = routeRulesDir + "/" + "route-rule-ratings-mysql"
+	detailsExternalServiceRouteRule    = routeRulesDir + "/" + "route-rule-details-v2"
+	detailsExternalServiceEgressRule   = routeRulesDir + "/" + "egress-rule-google-apis"
 )
 
 var (
@@ -90,10 +96,10 @@ func closeResponseBody(r *http.Response) {
 
 func (t *testConfig) Setup() error {
 	//generate rule yaml files, replace "jason" with actual user
-	for _, rule := range []string{allRule, delayRule, fiftyRule, testRule, testDbRule, testMysqlRule,
-		detailsExternalServiceRouteRule, detailsExternalServiceEgressRule} {
-		src := util.GetResourcePath(filepath.Join(rulesDir, rule))
-		dest := filepath.Join(t.rulesDir, rule)
+	for _, rule := range []string{allRule, delayRule, tenRule, twentyRule, fiftyRule, testRule,
+		testDbRule, testMysqlRule, detailsExternalServiceRouteRule, detailsExternalServiceEgressRule} {
+		src := util.GetResourcePath(filepath.Join(bookinfoSampleDir, rule+"."+yamlExtension))
+		dest := filepath.Join(t.rulesDir, rule+"."+yamlExtension)
 		ori, err := ioutil.ReadFile(src)
 		if err != nil {
 			log.Errorf("Failed to read original rule file %s", src)
@@ -101,6 +107,13 @@ func (t *testConfig) Setup() error {
 		}
 		content := string(ori)
 		content = strings.Replace(content, "jason", u2, -1)
+
+		err = os.MkdirAll(filepath.Dir(dest), 0700)
+		if err != nil {
+			log.Errorf("Failed to create the directory %s", filepath.Dir(dest))
+			return err
+		}
+
 		err = ioutil.WriteFile(dest, []byte(content), 0600)
 		if err != nil {
 			log.Errorf("Failed to write into new rule file %s", dest)
@@ -250,7 +263,7 @@ func checkHTTPResponse(user, gateway, expr string, count int) (int, error) {
 func deleteRules(ruleKeys []string) error {
 	var err error
 	for _, ruleKey := range ruleKeys {
-		rule := filepath.Join(tc.rulesDir, ruleKey)
+		rule := filepath.Join(tc.rulesDir, ruleKey+"."+yamlExtension)
 		if e := util.KubeDelete(tc.Kube.Namespace, rule); e != nil {
 			err = multierror.Append(err, e)
 		}
@@ -262,7 +275,7 @@ func deleteRules(ruleKeys []string) error {
 
 func applyRules(ruleKeys []string) error {
 	for _, ruleKey := range ruleKeys {
-		rule := filepath.Join(tc.rulesDir, ruleKey)
+		rule := filepath.Join(tc.rulesDir, ruleKey+"."+yamlExtension)
 		if err := util.KubeApply(tc.Kube.Namespace, rule); err != nil {
 			//log.Errorf("Kubectl apply %s failed", rule)
 			return err
@@ -273,25 +286,57 @@ func applyRules(ruleKeys []string) error {
 	return nil
 }
 
+type userVersion struct {
+	user    string
+	version string
+	model   string
+}
+
+type versionRoutingRule struct {
+	key          string
+	userVersions []userVersion
+}
+
 func TestVersionRouting(t *testing.T) {
-	var err error
-	var rules = []string{testRule}
-	inspect(applyRules(rules), "failed to apply rules", "", t)
+	v1Model := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v1.html"))
+	v2TestModel := util.GetResourcePath(filepath.Join(modelDir, "productpage-test-user-v2.html"))
+
+	var rules = []versionRoutingRule{
+		{key: testRule,
+			userVersions: []userVersion{
+				{
+					user:    u1,
+					version: "v1",
+					model:   v1Model,
+				},
+				{
+					user:    u2,
+					version: "v2",
+					model:   v2TestModel,
+				},
+			},
+		},
+	}
+
+	for _, rule := range rules {
+		doTestVersionRouting(t, rule)
+	}
+}
+
+func doTestVersionRouting(t *testing.T, rule versionRoutingRule) {
+	inspect(applyRules([]string{rule.key}), "failed to apply rules", "", t)
 	defer func() {
-		inspect(deleteRules(rules), "failed to delete rules", "", t)
+		inspect(deleteRules([]string{rule.key}), fmt.Sprintf("failed to delete rules"), "", t)
 	}()
 
-	v1File := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v1.html"))
-	v2File := util.GetResourcePath(filepath.Join(modelDir, "productpage-test-user-v2.html"))
-
-	_, err = checkRoutingResponse(u1, "v1", tc.Kube.IngressOrFail(t), v1File)
-	inspect(
-		err, fmt.Sprintf("Failed version routing! %s in v1", u1),
-		fmt.Sprintf("Success! Response matches with expected! %s in v1", u1), t)
-	_, err = checkRoutingResponse(u2, "v2", tc.Kube.IngressOrFail(t), v2File)
-	inspect(
-		err, fmt.Sprintf("Failed version routing! %s in v2", u2),
-		fmt.Sprintf("Success! Response matches with expected! %s in v2", u2), t)
+	for _, userVersion := range rule.userVersions {
+		_, err := checkRoutingResponse(userVersion.user, userVersion.version, tc.Kube.IngressOrFail(t),
+			userVersion.model)
+		inspect(
+			err, fmt.Sprintf("Failed version routing! %s in %s", userVersion.user, userVersion.version),
+			fmt.Sprintf("Success! Response matches with expected! %s in %s", userVersion.user,
+				userVersion.version), t)
+	}
 }
 
 func TestFaultDelay(t *testing.T) {
@@ -326,20 +371,47 @@ func TestFaultDelay(t *testing.T) {
 	}
 }
 
-func TestVersionMigration(t *testing.T) {
-	var rules = []string{fiftyRule}
-	inspect(applyRules(rules), "failed to apply rules", "", t)
-	defer func() {
-		inspect(deleteRules(rules), fmt.Sprintf("failed to delete rules"), "", t)
-	}()
+type migrationRule struct {
+	key            string
+	rate           float64
+	modelToMigrate string
+}
 
-	// Percentage moved to new version
-	migrationRate := 0.5
-	tolerance := 0.05
-	totalShot := 100
-	modelV1 := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v1.html"))
+func TestVersionMigration(t *testing.T) {
+	modelV2 := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v2.html"))
 	modelV3 := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v3.html"))
 
+	var rules = []migrationRule{
+		{
+			key:            fiftyRule,
+			modelToMigrate: modelV3,
+			rate:           0.5,
+		},
+		{
+			key:            twentyRule,
+			modelToMigrate: modelV2,
+			rate:           0.2,
+		},
+		{
+			key:            tenRule,
+			modelToMigrate: modelV2,
+			rate:           0.1,
+		},
+	}
+
+	for _, rule := range rules {
+		doTestVersionMigration(t, rule)
+	}
+}
+
+func doTestVersionMigration(t *testing.T, rule migrationRule) {
+	inspect(applyRules([]string{rule.key}), "failed to apply rules", "", t)
+	defer func() {
+		inspect(deleteRules([]string{rule.key}), fmt.Sprintf("failed to delete rules"), "", t)
+	}()
+	modelV1 := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v1.html"))
+	tolerance := 0.05
+	totalShot := 100
 	cookies := []http.Cookie{
 		{
 			Name:  "foo",
@@ -352,7 +424,7 @@ func TestVersionMigration(t *testing.T) {
 	}
 
 	for i := 0; i < testRetryTimes; i++ {
-		c1, c3 := 0, 0
+		c1, cVersionToMigrate := 0, 0
 		for c := 0; c < totalShot; c++ {
 			resp, err := getWithCookie(fmt.Sprintf("%s/productpage", tc.Kube.IngressOrFail(t)), cookies)
 			inspect(err, "Failed to record", "", t)
@@ -367,25 +439,36 @@ func TestVersionMigration(t *testing.T) {
 			}
 			if err = util.CompareToFile(body, modelV1); err == nil {
 				c1++
-			} else if err = util.CompareToFile(body, modelV3); err == nil {
-				c3++
+			} else if err = util.CompareToFile(body, rule.modelToMigrate); err == nil {
+				cVersionToMigrate++
 			}
 			closeResponseBody(resp)
 		}
-		c1Percent := int((migrationRate + tolerance) * float64(totalShot))
-		c3Percent := int((migrationRate - tolerance) * float64(totalShot))
-		if (c1 <= c1Percent) && (c3 >= c3Percent) {
+
+		if isWithinPercentage(c1, totalShot, 1.0-rule.rate, tolerance) &&
+			isWithinPercentage(cVersionToMigrate, totalShot, rule.rate, tolerance) {
 			log.Infof(
 				"Success! Version migration acts as expected, "+
-					"old version hit %d, new version hit %d", c1, c3)
+					"old version hit %d, new version hit %d", c1, cVersionToMigrate)
 			break
 		}
 
 		if i == testRetryTimes-1 {
 			t.Errorf("Failed version migration test, "+
-				"old version hit %d, new version hit %d", c1, c3)
+				"old version hit %d, new version hit %d", c1, cVersionToMigrate)
 		}
 	}
+}
+
+func getBookinfoResourcePath(resource string) string {
+	return util.GetResourcePath(filepath.Join(bookinfoSampleDir, deploymentDir,
+		resource+"."+yamlExtension))
+}
+
+func isWithinPercentage(count int, total int, rate float64, tolerance float64) bool {
+	minimum := int((rate - tolerance) * float64(total))
+	maximum := int((rate + tolerance) * float64(total))
+	return count >= minimum && count <= maximum
 }
 
 func setTestConfig() error {
@@ -399,22 +482,22 @@ func setTestConfig() error {
 	if err != nil {
 		return err
 	}
-	demoApps := []framework.App{{AppYaml: util.GetResourcePath(bookinfoYaml),
+	demoApps := []framework.App{{AppYaml: getBookinfoResourcePath(bookinfoYaml),
 		KubeInject: true,
 	},
-		{AppYaml: util.GetResourcePath(bookinfoRatingsv2Yaml),
+		{AppYaml: getBookinfoResourcePath(bookinfoRatingsv2Yaml),
 			KubeInject: true,
 		},
-		{AppYaml: util.GetResourcePath(bookinfoRatingsMysqlYaml),
+		{AppYaml: getBookinfoResourcePath(bookinfoRatingsMysqlYaml),
 			KubeInject: true,
 		},
-		{AppYaml: util.GetResourcePath(bookinfoDbYaml),
+		{AppYaml: getBookinfoResourcePath(bookinfoDbYaml),
 			KubeInject: true,
 		},
-		{AppYaml: util.GetResourcePath(bookinfoMysqlYaml),
+		{AppYaml: getBookinfoResourcePath(bookinfoMysqlYaml),
 			KubeInject: true,
 		},
-		{AppYaml: util.GetResourcePath(bookinfoDetailsExternalServiceYaml),
+		{AppYaml: getBookinfoResourcePath(bookinfoDetailsExternalServiceYaml),
 			KubeInject: true,
 		},
 	}

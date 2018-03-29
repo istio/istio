@@ -29,6 +29,14 @@ spec:
           - "discovery"
           - "--admission-service"
           - "istio-pilot"
+{{- if $.Values.global.oneNamespace }}
+          - "-a"
+          - {{ .Release.Namespace }}
+{{- end }}
+{{- if .Values.global.multicluster.enabled }}
+          - "--clusterRegistriesDir"
+          - "/etc/istio/multicluster"
+{{- end }}
           ports:
           - containerPort: 8080
           - containerPort: 15010
@@ -60,6 +68,10 @@ spec:
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
+{{- if .Values.global.multicluster.enabled }}
+          - name: multicluster-volume
+            mountPath: /etc/istio/multicluster
+{{- end }}
         - name: istio-proxy
           image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.global.proxy.imagePullPolicy }}
@@ -72,10 +84,17 @@ spec:
           - pilot
           - --discoveryAddress
           - localhost:8080
+        {{- if $.Values.global.controlPlaneSecurityEnabled}}
           - --controlPlaneAuthPolicy
-          - NONE #--controlPlaneAuthPolicy
+          - MUTUAL_TLS
+          - --customConfigFile
+          - /etc/istio/proxy/envoy_pilot_auth.json
+        {{- else }}
+          - --controlPlaneAuthPolicy
+          - NONE
           - --customConfigFile
           - /etc/istio/proxy/envoy_pilot.json
+        {{- end }}
           resources:
 {{ toYaml .Values.global.proxy.resources | indent 12 }}
           volumeMounts:
@@ -86,6 +105,11 @@ spec:
       - name: config-volume
         configMap:
           name: istio
+{{- if .Values.global.multicluster.enabled }}
+      - name: multicluster-volume
+        configMap:
+          name: multicluster
+{{- end }}
       - name: istio-certs
         secret:
           secretName: "istio.istio-pilot-service-account"

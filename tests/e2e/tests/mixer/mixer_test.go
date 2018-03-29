@@ -18,7 +18,6 @@ package mixer
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -47,6 +46,7 @@ const (
 	bookinfoYaml             = "samples/bookinfo/kube/bookinfo.yaml"
 	bookinfoRatingsv2Yaml    = "samples/bookinfo/kube/bookinfo-ratings-v2.yaml"
 	bookinfoDbYaml           = "samples/bookinfo/kube/bookinfo-db.yaml"
+	sleepYaml                = "samples/sleep/sleep.yaml"
 	rulesDir                 = "samples/bookinfo/kube"
 	rateLimitRule            = "mixer-rule-ratings-ratelimit.yaml"
 	denialRule               = "mixer-rule-ratings-denial.yaml"
@@ -107,8 +107,8 @@ func (t *testConfig) Setup() (err error) {
 
 	err = createDefaultRoutingRules()
 
-	if !util.CheckPodsRunning(tc.Kube.Namespace) {
-		return fmt.Errorf("can't get all pods running")
+	if err = util.WaitForDeploymentsReady(tc.Kube.Namespace, time.Minute*2); err != nil {
+		return fmt.Errorf("pods not ready: %v", err)
 	}
 
 	// pre-warm the system. we don't care about what happens with this
@@ -220,15 +220,15 @@ func (p *promProxy) portForward(labelSelector string, localPort string, remotePo
 func (p *promProxy) Setup() error {
 	var err error
 
-	if !util.CheckPodsRunning(tc.Kube.Namespace) {
-		return errors.New("could not establish prometheus proxy: pods not running")
+	if err = util.WaitForDeploymentsReady(tc.Kube.Namespace, time.Minute*2); err != nil {
+		return fmt.Errorf("could not establish prometheus proxy: pods not ready: %v", err)
 	}
 
 	if err = p.portForward("app=prometheus", prometheusPort, prometheusPort); err != nil {
 		return err
 	}
 
-	if err = p.portForward("istio=mixer", mixerMetricsPort, mixerMetricsPort); err != nil {
+	if err = p.portForward("istio-mixer-type=telemetry", mixerMetricsPort, mixerMetricsPort); err != nil {
 		return err
 	}
 
@@ -479,7 +479,99 @@ func testDenials(t *testing.T, rule string) {
 	if err := visitProductPage(productPageTimeout, http.StatusOK, &header{"x-user", "testuser"}); err != nil {
 		fatalf(t, "product page was not denied: %v", err)
 	}
+}
 
+// TestIngressCheckCache tests that check cache works in Ingress.
+func TestIngressCheckCache(t *testing.T) {
+	// Apply denial rule to istio-ingress, so that only request with ["x-user"] could go through.
+	// This is to make the test focus on ingress check cache.
+	t.Logf("block request through ingress if x-user header is missing")
+	if err := applyMixerRule(ingressDenialRule); err != nil {
+		fatalf(t, "could not create required mixer rule: %v", err)
+	}
+	defer func() {
+		if err := deleteMixerRule(ingressDenialRule); err != nil {
+			t.Logf("could not clear rule: %v", err)
+		}
+	}()
+	allowRuleSync()
+
+	// Visit product page through ingress should all be denied.
+	visit := func() error {
+		url := fmt.Sprintf("%s/productpage", tc.Kube.IngressOrFail(t))
+		// Send 100 requests in a relative short time to make sure check cache will be used.
+		opts := fhttp.HTTPRunnerOptions{
+			RunnerOptions: periodic.RunnerOptions{
+				QPS:        10,
+				Exactly:    100,       // will make exactly 100 calls, so run for about 10 seconds
+				NumThreads: 5,         // get the same number of calls per connection (100/5=20)
+				Out:        os.Stderr, // only needed because of log capture issue
+			},
+			HTTPOptions: fhttp.HTTPOptions{
+				URL: url,
+			},
+		}
+
+		_, err := fhttp.RunHTTPTest(&opts)
+		if err != nil {
+			return fmt.Errorf("generating traffic via fortio failed: %v", err)
+		}
+		return nil
+	}
+	testCheckCache(t, visit)
+}
+
+// TestCheckCache tests that check cache works within the mesh.
+func TestCheckCache(t *testing.T) {
+	// Get pod id of sleep app.
+	pod, err := podID("app=sleep")
+	if err != nil {
+		fatalf(t, "fail getting pod id of sleep %v", err)
+	}
+	url := fmt.Sprintf("http://productpage.%s:9080/health", tc.Kube.Namespace)
+
+	// visit calls product page health handler with sleep app.
+	visit := func() error {
+		return visitWithApp(url, pod, "sleep", 100)
+	}
+	testCheckCache(t, visit)
+}
+
+// testCheckCache verifies check cache is used when calling the given visit function
+// by comparing the check call metric.
+func testCheckCache(t *testing.T, visit func() error) {
+	promAPI, err := promAPI()
+	if err != nil {
+		fatalf(t, "Could not build prometheus API client: %v", err)
+	}
+
+	// Get check cache hit baseline.
+	t.Log("Query prometheus to get baseline cache hits...")
+	prior, err := getCheckCacheHits(promAPI)
+	if err != nil {
+		fatalf(t, "Unable to retrieve valid cached hit number: %v", err)
+	}
+
+	t.Logf("Baseline cache hits: %v", prior)
+	t.Log("Start to call visit function...")
+	if err = visit(); err != nil {
+		fatalf(t, "%v", err)
+	}
+
+	allowPrometheusSync()
+	t.Log("Query promethus to get new cache hits number...")
+	// Get new check cache hit.
+	got, err := getCheckCacheHits(promAPI)
+	if err != nil {
+		fatalf(t, "Unable to retrieve valid cached hit number: %v", err)
+	}
+	t.Logf("New cache hits: %v", got)
+
+	// At least 1 call should be cache hit.
+	want := float64(1)
+	if (got - prior) < want {
+		errorf(t, "Check cache hit: %v is less than expected: %v", got-prior, want)
+	}
 }
 
 func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
@@ -779,6 +871,56 @@ func visitProductPage(timeout time.Duration, wantStatus int, headers ...*header)
 	}
 }
 
+// visitWithApp visits the given url by curl in the given container.
+func visitWithApp(url string, pod string, container string, num int) error {
+	cmd := fmt.Sprintf("kubectl exec %s -n %s -c %s -- bash -c 'for ((i=0; i<%d; i++)); do curl -m 0.1 -i -s %s; done'",
+		pod, tc.Kube.Namespace, container, num, url)
+	log.Infof("Visit %s for %d times with the following command: %v", url, num, cmd)
+	_, err := util.ShellMuteOutput(cmd)
+	if err != nil {
+		return fmt.Errorf("error excuting command: %s error: %v", cmd, err)
+	}
+	return nil
+}
+
+// getCheckCacheHits returned the total number of check cache hits in this cluster.
+func getCheckCacheHits(promAPI v1.API) (float64, error) {
+	log.Info("Get number of cached check calls")
+	query := fmt.Sprintf("envoy_http_mixer_filter_total_check_calls")
+	log.Infof("prometheus query: %s", query)
+	value, err := promAPI.Query(context.Background(), query, time.Now())
+	if err != nil {
+		log.Infof("Could not get remote check calls metric from prometheus: %v", err)
+		return 0, nil
+	}
+	totalCheck, err := vectorValue(value, map[string]string{})
+	if err != nil {
+		log.Infof("error getting total check, using 0 as value (msg: %v)", err)
+		totalCheck = 0
+	}
+
+	query = fmt.Sprintf("envoy_http_mixer_filter_total_remote_check_calls")
+	log.Infof("prometheus query: %s", query)
+	value, err = promAPI.Query(context.Background(), query, time.Now())
+	if err != nil {
+		log.Infof("Could not get remote check calls metric from prometheus: %v", err)
+		return 0, nil
+	}
+	remoteCheck, err := vectorValue(value, map[string]string{})
+	if err != nil {
+		log.Infof("error getting total check, using 0 as value (msg: %v)", err)
+		remoteCheck = 0
+	}
+
+	if remoteCheck > totalCheck {
+		// Remote check calls should always be less than or equal to total check calls.
+		return 0, fmt.Errorf("check call metric is invalid: remote check call %v is more than total check call %v", remoteCheck, totalCheck)
+	}
+	log.Infof("Total check call is %v and remote check call is %v", totalCheck, remoteCheck)
+	// number of cached check call is the gap between total check calls and remote check calls.
+	return totalCheck - remoteCheck, nil
+}
+
 func fqdn(service string) string {
 	return fmt.Sprintf("%s.%s.svc.cluster.local", service, tc.Kube.Namespace)
 }
@@ -849,6 +991,10 @@ func setTestConfig() error {
 		},
 		{
 			AppYaml:    util.GetResourcePath(bookinfoDbYaml),
+			KubeInject: true,
+		},
+		{
+			AppYaml:    util.GetResourcePath(sleepYaml),
 			KubeInject: true,
 		},
 	}

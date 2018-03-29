@@ -15,6 +15,7 @@
 package redisquota
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -234,6 +235,9 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 }
 
 func TestFixedWindowAlgorithm(t *testing.T) {
+	if os.Getenv("RACE_TEST") == "true" {
+		t.Skip("Test fails in race testing, being fixed in issue #3789")
+	}
 	runServerWithSelectedAlgorithm(t, "ROLLING_WINDOW")
 }
 

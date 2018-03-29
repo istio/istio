@@ -1102,13 +1102,14 @@ func validateTrafficPolicy(policy *networking.TrafficPolicy) error {
 	if policy == nil {
 		return nil
 	}
-	if policy.OutlierDetection == nil && policy.ConnectionPool == nil && policy.LoadBalancer == nil {
+	if policy.OutlierDetection == nil && policy.ConnectionPool == nil && policy.LoadBalancer == nil && policy.Tls == nil {
 		return fmt.Errorf("traffic policy must have at least one field")
 	}
 
 	return appendErrors(validateOutlierDetection(policy.OutlierDetection),
 		validateConnectionPool(policy.ConnectionPool),
-		validateLoadBalancer(policy.LoadBalancer))
+		validateLoadBalancer(policy.LoadBalancer),
+		validateTLS(policy.Tls))
 }
 
 func validateOutlierDetection(outlier *networking.OutlierDetection) (errs error) {
@@ -1180,6 +1181,23 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings) (errs error
 	return
 }
 
+func validateTLS(settings *networking.TLSSettings) (errs error) {
+	if settings == nil {
+		return
+	}
+
+	if settings.Mode == networking.TLSSettings_MUTUAL {
+		if settings.ClientCertificate == "" {
+			errs = appendErrors(errs, fmt.Errorf("client certificate required for mutual tls"))
+		}
+		if settings.PrivateKey == "" {
+			errs = appendErrors(errs, fmt.Errorf("private key required for mutual tls"))
+		}
+	}
+
+	return
+}
+
 func validateSubset(subset *networking.Subset) error {
 	return appendErrors(validateSubsetName(subset.Name),
 		Labels(subset.Labels).Validate(),
@@ -1223,22 +1241,21 @@ func ValidateDestinationPolicy(msg proto.Message) error {
 
 // ValidateProxyAddress checks that a network address is well-formed
 func ValidateProxyAddress(hostAddr string) error {
-	colon := strings.Index(hostAddr, ":")
-	if colon < 0 {
-		return fmt.Errorf("':' separator not found in %q, host address must be of the form <DNS name>:<port> or <IP>:<port>",
-			hostAddr)
-	}
-	port, err := strconv.Atoi(hostAddr[colon+1:])
+	host, p, err := net.SplitHostPort(hostAddr)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to split %q: %v", hostAddr, err)
+	}
+	port, err := strconv.Atoi(p)
+	if err != nil {
+		return fmt.Errorf("port (%s) is not a number: %v", p, err)
 	}
 	if err = ValidatePort(port); err != nil {
 		return err
 	}
-	host := hostAddr[:colon]
 	if err = ValidateFQDN(host); err != nil {
-		if err = ValidateIPv4Address(host); err != nil {
-			return fmt.Errorf("%q is not a valid hostname or an IPv4 address", host)
+		ip := net.ParseIP(host)
+		if ip == nil {
+			return fmt.Errorf("%q is not a valid hostname or an IP address", host)
 		}
 	}
 
@@ -1441,7 +1458,7 @@ func ValidateProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 
 	if config.StatsdUdpAddress != "" {
 		if err := ValidateProxyAddress(config.StatsdUdpAddress); err != nil {
-			errs = multierror.Append(errs, multierror.Prefix(err, "invalid statsd udp address:"))
+			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid statsd udp address %q:", config.StatsdUdpAddress)))
 		}
 	}
 
@@ -1674,25 +1691,30 @@ func ValidateAuthenticationPolicy(msg proto.Message) error {
 	}
 	var errs error
 
-	for _, dest := range in.Destinations {
-		errs = appendErrors(errs, validateDestination(dest))
+	for _, target := range in.Targets {
+		errs = appendErrors(errs, validateAuthNPolicyTarget(target))
 	}
 
+	jwtIssuers := make(map[string]bool)
 	for _, method := range in.Peers {
-		errs = appendErrors(errs, validateJwt(method.GetJwt()))
+		if jwt := method.GetJwt(); jwt != nil {
+			if _, jwtExist := jwtIssuers[jwt.Issuer]; jwtExist {
+				errs = appendErrors(errs, fmt.Errorf("jwt with issuer %q already defined", jwt.Issuer))
+			} else {
+				jwtIssuers[jwt.Issuer] = true
+			}
+			errs = appendErrors(errs, validateJwt(jwt))
+		}
+	}
+	for _, method := range in.Origins {
+		if _, jwtExist := jwtIssuers[method.Jwt.Issuer]; jwtExist {
+			errs = appendErrors(errs, fmt.Errorf("jwt with issuer %q already defined", method.Jwt.Issuer))
+		} else {
+			jwtIssuers[method.Jwt.Issuer] = true
+		}
+		errs = appendErrors(errs, validateJwt(method.Jwt))
 	}
 
-	for _, rule := range in.CredentialRules {
-		if rule.Binding == authn.CredentialRule_USE_ORIGIN {
-			if len(rule.Origins) == 0 {
-				errs = multierror.Append(
-					errs, errors.New("credential use origin must define at least one method"))
-			}
-		}
-		for _, method := range rule.Origins {
-			errs = appendErrors(errs, validateJwt(method.Jwt))
-		}
-	}
 	return errs
 }
 
@@ -1770,11 +1792,8 @@ func validateJwt(jwt *authn.Jwt) (errs error) {
 	if jwt.JwksUri == "" {
 		errs = multierror.Append(errs, errors.New("jwks_uri must be set"))
 	}
-	if !strings.HasPrefix(jwt.JwksUri, "http://") && !strings.HasPrefix(jwt.JwksUri, "https://") {
-		errs = multierror.Append(errs, errors.New("jwks_uri must have http:// or https:// scheme"))
-	}
-	if _, err := url.Parse(jwt.JwksUri); err != nil {
-		errs = multierror.Append(errs, fmt.Errorf("%q is not a valid url: %v", jwt.JwksUri, err))
+	if _, _, _, err := ParseJwksURI(jwt.JwksUri); err != nil {
+		errs = multierror.Append(errs, err)
 	}
 
 	for _, location := range jwt.JwtHeaders {
@@ -1788,6 +1807,26 @@ func validateJwt(jwt *authn.Jwt) (errs error) {
 			errs = multierror.Append(errs, errors.New("location query must be non-empty string"))
 		}
 	}
+	return
+}
+
+func validateAuthNPolicyTarget(target *authn.TargetSelector) (errs error) {
+	if target == nil {
+		return
+	}
+
+	// AuthN policy target (host)name must be a shortname
+	if !IsDNS1123Label(target.Name) {
+		errs = multierror.Append(errs, fmt.Errorf("taget name %q must be a valid label", target.Name))
+	}
+
+	if target.Subset != "" {
+		errs = appendErrors(errs, validateSubsetName(target.Subset))
+	}
+	for _, port := range target.Ports {
+		errs = appendErrors(errs, validateAuthNPortSelector(port))
+	}
+
 	return
 }
 
@@ -2091,6 +2130,23 @@ func validateSubsetName(name string) error {
 }
 
 func validatePortSelector(selector *networking.PortSelector) error {
+	if selector == nil {
+		return nil
+	}
+
+	// port selector is either a name or a number
+	name := selector.GetName()
+	number := int(selector.GetNumber())
+	if name == "" && number == 0 {
+		// an unset value is indistinguishable from a zero value, so return both errors
+		return appendErrors(validateSubsetName(name), ValidatePort(number))
+	} else if number != 0 {
+		return ValidatePort(number)
+	}
+	return validateSubsetName(name)
+}
+
+func validateAuthNPortSelector(selector *authn.PortSelector) error {
 	if selector == nil {
 		return nil
 	}

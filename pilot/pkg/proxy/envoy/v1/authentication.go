@@ -17,7 +17,7 @@
 package v1
 
 import (
-	"fmt"
+	"github.com/golang/protobuf/ptypes/duration"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -25,69 +25,85 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-// getConsolidateAuthenticationPolicy returns the authentication policy for
-// service specified by hostname and port, if defined.
-// If not, it generates and output a policy that is equivalent to the legacy flag
-// and/or service annotation. Once these legacy flags/config deprecated,
-// this function can be placed by a call to store.AuthenticationPolicyByDestination
-// directly.
-func getConsolidateAuthenticationPolicy(mesh *meshconfig.MeshConfig, store model.IstioConfigStore, hostname string, port *model.Port) *authn.Policy {
-	config := store.AuthenticationPolicyByDestination(hostname, port)
-	if config == nil {
-		legacyPolicy := consolidateAuthPolicy(mesh, port.AuthenticationPolicy)
-		log.Debugf("No authentication policy found for  %s:%d. Fallback to legacy authentication mode %v\n",
-			hostname, port.Port, legacyPolicy)
-		return legacyAuthenticationPolicyToPolicy(legacyPolicy)
-	}
+const (
+	// jwtFilterName is the name for the Jwt filter. This should be the same
+	// as the name defined in
+	// https://github.com/istio/proxy/blob/master/src/envoy/http/jwt_auth/http_filter_factory.cc#L50
+	jwtFilterName = "jwt-auth"
+)
 
-	return config.Spec.(*authn.Policy)
-}
-
-// consolidateAuthPolicy returns service auth policy, if it's not INHERIT. Else,
-// returns mesh policy.
-func consolidateAuthPolicy(mesh *meshconfig.MeshConfig,
-	serviceAuthPolicy meshconfig.AuthenticationPolicy) meshconfig.AuthenticationPolicy {
-	if serviceAuthPolicy != meshconfig.AuthenticationPolicy_INHERIT {
-		return serviceAuthPolicy
+// BuildJwtFilter returns a Jwt filter for all Jwt specs in the policy.
+func buildJwtFilter(policy *authn.Policy) *HTTPFilter {
+	filterConfigProto := model.ConvertPolicyToJwtConfig(policy)
+	if filterConfigProto == nil {
+		return nil
 	}
-	// TODO: use AuthenticationPolicy for mesh policy and remove this conversion
-	switch mesh.AuthPolicy {
-	case meshconfig.MeshConfig_MUTUAL_TLS:
-		return meshconfig.AuthenticationPolicy_MUTUAL_TLS
-	case meshconfig.MeshConfig_NONE:
-		return meshconfig.AuthenticationPolicy_NONE
-	default:
-		// Never get here, there are no other enum value for mesh.AuthPolicy.
-		panic(fmt.Sprintf("Unknown mesh auth policy: %v\n", mesh.AuthPolicy))
+	config, err := model.ToJSONMap(filterConfigProto)
+	if err != nil {
+		log.Errorf("Unable to convert Jwt filter config proto: %v", err)
+		return nil
+	}
+	return &HTTPFilter{
+		Type:   decoder,
+		Name:   jwtFilterName,
+		Config: config,
 	}
 }
 
-// If input legacy is AuthenticationPolicy_MUTUAL_TLS, return a authentication policy equivalent
-// to it. Else, returns nil (implies no authentication is used)
-func legacyAuthenticationPolicyToPolicy(legacy meshconfig.AuthenticationPolicy) *authn.Policy {
-	if legacy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
-		return &authn.Policy{
-			Peers: []*authn.PeerAuthenticationMethod{{
-				Params: &authn.PeerAuthenticationMethod_Mtls{}}},
+// buildJwksURIClustersForProxyInstances checks the authentication policy for the
+// input proxyInstances, and generates (outbound) clusters for all JwksURIs.
+func buildJwksURIClustersForProxyInstances(mesh *meshconfig.MeshConfig,
+	store model.IstioConfigStore, proxyInstances []*model.ServiceInstance) Clusters {
+	if len(proxyInstances) == 0 {
+		return nil
+	}
+	var jwtSpecs []*authn.Jwt
+	for _, instance := range proxyInstances {
+		authnPolicy := model.GetConsolidateAuthenticationPolicy(mesh, store, instance.Service.Hostname, instance.Endpoint.ServicePort)
+		jwtSpecs = append(jwtSpecs, model.CollectJwtSpecs(authnPolicy)...)
+	}
+
+	return buildJwksURIClusters(jwtSpecs, mesh.ConnectTimeout)
+}
+
+// buildJwksURIClusters returns a list of clusters for each unique JwksUri from
+// the input list of Jwt specs. This function is to support
+// buildJwksURIClustersForProxyInstances above.
+func buildJwksURIClusters(jwtSpecs []*authn.Jwt, timeout *duration.Duration) Clusters {
+	type jwksCluster struct {
+		hostname string
+		port     *model.Port
+		useSSL   bool
+	}
+	jwksClusters := map[string]jwksCluster{}
+	for _, jwt := range jwtSpecs {
+		if _, exist := jwksClusters[jwt.JwksUri]; exist {
+			continue
+		}
+		if hostname, port, ssl, err := model.ParseJwksURI(jwt.JwksUri); err != nil {
+			log.Warnf("Could not build envoy cluster and address from jwks_uri %q: %v",
+				jwt.JwksUri, err)
+		} else {
+			jwksClusters[jwt.JwksUri] = jwksCluster{hostname, port, ssl}
 		}
 	}
-	return nil
-}
 
-// requireTLS returns true if the policy use mTLS for (peer) authentication.
-func requireTLS(policy *authn.Policy) bool {
-	if policy == nil {
-		return false
-	}
-	if len(policy.Peers) > 0 {
-		for _, method := range policy.Peers {
-			switch method.GetParams().(type) {
-			case *authn.PeerAuthenticationMethod_Mtls:
-				return true
-			default:
-				continue
-			}
+	var clusters Clusters
+	for _, auth := range jwksClusters {
+		cluster := BuildOutboundCluster(auth.hostname, auth.port, nil /* labels */, true /* external */)
+		cluster.Name = model.JwksURIClusterName(auth.hostname, auth.port)
+		cluster.CircuitBreaker = &CircuitBreaker{
+			Default: DefaultCBPriority{
+				MaxPendingRequests: 10000,
+				MaxRequests:        10000,
+			},
 		}
+		cluster.ConnectTimeoutMs = timeout.GetSeconds() * 1000
+		if auth.useSSL {
+			cluster.SSLContext = &SSLContextExternal{}
+		}
+
+		clusters = append(clusters, cluster)
 	}
-	return false
+	return clusters
 }

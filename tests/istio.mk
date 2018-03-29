@@ -59,6 +59,14 @@ DEFAULT_EXTRA_E2E_ARGS += --ca_hub ${HUB}
 
 EXTRA_E2E_ARGS ?= ${DEFAULT_EXTRA_E2E_ARGS}
 
+# These arguments are only needed by upgrade test.
+DEFAULT_UPGRADE_E2E_ARGS =
+LAST_RELEASE := $(shell curl -L -s https://api.github.com/repos/istio/istio/releases/latest \
+	| grep tag_name | sed "s/ *\"tag_name\": *\"\(.*\)\",*/\1/")
+DEFAULT_UPGRADE_E2E_ARGS += --base_version=${LAST_RELEASE}
+DEFAULT_UPGRADE_E2E_ARGS += --target_version=""
+UPGRADE_E2E_ARGS ?= ${DEFAULT_UPGRADE_E2E_ARGS}
+
 # Simple e2e test using fortio, approx 2 min
 e2e_simple: istioctl generate_yaml
 	go test -v -timeout 20m ./tests/e2e/tests/simple -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
@@ -76,14 +84,18 @@ e2e_bookinfo: istioctl generate_yaml
 	go test -v -timeout 60m ./tests/e2e/tests/bookinfo -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
 
 e2e_upgrade: istioctl generate_yaml
-	go test -v -timeout 20m ./tests/e2e/tests/upgrade -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
+	go test -v -timeout 20m ./tests/e2e/tests/upgrade -args ${E2E_ARGS} ${EXTRA_E2E_ARGS} ${UPGRADE_E2E_ARGS}
+
+e2e_version_skew: istioctl generate_yaml
+	go test -v -timeout 20m ./tests/e2e/tests/upgrade -args --smooth_check=true ${E2E_ARGS} ${EXTRA_E2E_ARGS} ${UPGRADE_E2E_ARGS}
+
+e2e_all:
+	$(MAKE) --keep-going e2e_simple e2e_mixer e2e_bookinfo e2e_dashboard e2e_upgrade
 
 JUNIT_E2E_XML ?= $(ISTIO_OUT)/junit_e2e-all.xml
-e2e_all: | $(JUNIT_REPORT)
+e2e_all_junit_report: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_E2E_XML))
-	set -o pipefail; \
-	$(MAKE) --keep-going e2e_simple e2e_mixer e2e_bookinfo e2e_dashboard \
-	|& tee >($(JUNIT_REPORT) > $(JUNIT_E2E_XML))
+	set -o pipefail; $(MAKE) e2e_all 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_E2E_XML))
 
 # Run the e2e tests, with auth enabled. A separate target is used for non-auth.
 e2e_pilot: istioctl generate_yaml
@@ -142,8 +154,28 @@ test/minikube/noauth/e2e_pilot_alpha1: istioctl
         -n pilot-test \
            ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-noauth-pilot-v1.raw
 
+# Target for running e2e pilot in a minikube env. Used by CI or for local (minikube) testing
+test/minikube/noauth/e2e_v2: istioctl
+	mkdir -p ${OUT_DIR}/logs
+	mkdir -p ${OUT_DIR}/tests
+	# istio-system and pilot system are not compatible. Once we merge the setup it should work.
+	kubectl create ns pilot-noauth-system || true
+	kubectl create ns pilot-noauth || true
+	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -test.v -timeout 20m ./tests/e2e/tests/pilot -args \
+		-hub ${HUB} -tag ${TAG} \
+		--skip-cleanup --mixer=false \
+		-errorlogsdir=${OUT_DIR}/logs \
+		--use-sidecar-injector=false \
+		--auth_enable=false \
+		-v1alpha3=true -v1alpha1=false --ingress=false \
+		--core-files-dir=${OUT_DIR}/logs \
+        	--ns pilot-noauth-system \
+        	-n pilot-noauth \
+           ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-noauth-pilot.raw
+
 
 # Target for running e2e pilot in a minikube env. Used by CI
+# @Deprecated: alpha3 will switch to v2
 test/minikube/noauth/e2e_pilot: istioctl
 	mkdir -p ${OUT_DIR}/logs
 	mkdir -p ${OUT_DIR}/tests
@@ -180,22 +212,3 @@ test/minikube/auth/e2e_pilot_alpha1: istioctl
         --ns pilot-auth-system \
         -n pilot-test \
            ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-auth-pilot-v1.raw
-
-# Target for running e2e pilot in a minikube env. Used by CI
-test/minikube/noauth/e2e_pilot_alpha1: istioctl
-	mkdir -p ${OUT_DIR}/logs
-	mkdir -p ${OUT_DIR}/tests
-	# istio-system and pilot system are not compatible. Once we merge the setup it should work.
-	kubectl create ns pilot-auth-system || true
-	kubectl create ns pilot-test || true
-	set -o pipefail; go test -test.v -timeout 20m ./tests/e2e/tests/pilot -args \
-		-hub ${HUB} -tag ${TAG} \
-		--skip-cleanup --mixer=true \
-		-errorlogsdir=${OUT_DIR}/logs \
-		--use-sidecar-injector=false \
-		--auth_enable=false \
-		-v1alpha3=false -v1alpha1=true \
-		--core-files-dir=${OUT_DIR}/logs \
-        --ns pilot-auth-system \
-        -n pilot-test \
-           ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-noauth-pilot-v1.raw

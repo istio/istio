@@ -14,25 +14,25 @@
   "dynamic_resources": {
     "lds_config": {
       "api_config_source": {
-        "api_type": "REST_LEGACY",
+        "api_type": "GRPC",
         "refresh_delay": {
           "seconds": 30,
           "nanos": 0
         },
         "cluster_names": [
-          "rds"
+          "xds-grpc"
         ]
       }
     },
     "cds_config": {
       "api_config_source": {
-        "api_type": "REST_LEGACY",
+        "api_type": "GRPC",
         "refresh_delay": {
           "seconds": 30,
           "nanos": 0
         },
         "cluster_names": [
-          "rds"
+          "xds-grpc"
         ]
       }
     },
@@ -53,6 +53,47 @@
   },
   "static_resources": {
     "listeners": [
+      {
+        "name": "http_0.0.0.0_9999",
+        "address": {
+          "socket_address": {
+            "address": "0.0.0.0",
+            "port_value": 99999
+          }
+        },
+        "filter_chains": [
+          {
+            "filters": [
+              {
+                "name": "envoy.http_connection_manager",
+                "config": {
+                  "stat_prefix": "http",
+                  "route_config": {
+                    "virtual_hosts": [
+                      {
+                        "name": "backend",
+                        "domains": [
+                          "*"
+                        ],
+                        "routes": [
+                          {
+                            "match": {
+                              "prefix": "/"
+                            },
+                            "route": {
+                              "cluster": "service1"
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
       {
         "name": "legacy15003",
         "address": {

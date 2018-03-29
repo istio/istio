@@ -34,4 +34,4 @@ spec:
         - name: tmp-configmap-mixer
           configMap:
             name: istio-mixer-custom-resources
-      restartPolicy: Never # CRD might take some time till they are available to comsume
+      restartPolicy: Never # CRD might take some time till they are available to consume
