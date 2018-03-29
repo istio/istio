@@ -23,7 +23,6 @@ import (
 	authn "istio.io/api/authentication/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/networking/plugins"
 )
 
 const (
@@ -32,13 +31,6 @@ const (
 	// https://github.com/istio/proxy/blob/master/src/envoy/http/jwt_auth/http_filter_factory.cc#L50
 	jwtFilterName = "jwt-auth"
 )
-
-// NewPlugin initializes the plugin
-func NewPlugin() *plugins.PluginCallbacks {
-	return &plugins.PluginCallbacks{
-		OnOutboundCluster: HandleOutboundCluster,
-	}
-}
 
 // BuildJwtFilter returns a Jwt filter for all Jwt specs in the policy.
 func BuildJwtFilter(policy *authn.Policy) *http_conn.HttpFilter {

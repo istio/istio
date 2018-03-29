@@ -54,8 +54,15 @@ type PluginCallbacks struct {
 // NewPlugins returns a list of plugin instance handles. Each plugin implements the PluginCallbacks interfaces
 func NewPlugins() []*PluginCallbacks {
 	plugins := make([]*PluginCallbacks, 0)
-	plugins = append(plugins, authn.NewPlugin())
+	plugins = append(plugins, newAuthPlugin())
 	// plugins = append(plugins, mixer.NewPlugin())
 	// plugins = append(plugins, apim.NewPlugin())
 	return plugins
 }
+
+func newAuthPlugin() *PluginCallbacks {
+	return &PluginCallbacks{
+		OnOutboundCluster: authn.HandleOutboundCluster,
+	}
+}
+
