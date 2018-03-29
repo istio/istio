@@ -3,6 +3,7 @@
     url: https://raw.githubusercontent.com/istio/istio/master/install/kubernetes/{{ item }}
     dest: "{{ istio_dir }}/install/kubernetes/"
     mode: 0755
+  when: istio_version_to_use < minimum_istio_version_for_webhook_certificates
   with_items:
     - webhook-create-signed-cert.sh
     - webhook-patch-ca-bundle.sh
@@ -24,16 +25,30 @@
       with_items:
         - webhook-create-signed-cert.sh
         - webhook-patch-ca-bundle.sh
-  when: cluster_flavour == 'ocp'
+  when:
+    - cluster_flavour == 'ocp'
+    - istio_version_to_use < minimum_istio_version_for_webhook_certificates
 
-- name: Create signed certificate
-  shell: "{{ istio_dir }}/install/kubernetes/webhook-create-signed-cert.sh --service istio-sidecar-injector --namespace istio-system --secret sidecar-injector-certs"
 
-- name: Install the sidecar injection configmap
-  shell: "{{ cmd_path }} apply -f {{ istio_dir }}/install/kubernetes/istio-sidecar-injector-configmap-release.yaml"
+- block:
+    - name: Create signed certificate
+      shell: "{{ istio_dir }}/install/kubernetes/webhook-create-signed-cert.sh --service istio-sidecar-injector --namespace istio-system --secret sidecar-injector-certs"
 
-- name: Set caBundle in the webhook install YAML
-  shell: "cat {{ istio_dir }}/install/kubernetes/istio-sidecar-injector.yaml | {{ istio_dir }}/install/kubernetes/webhook-patch-ca-bundle.sh > {{ istio_dir }}/install/kubernetes/istio-sidecar-injector-with-ca-bundle.yaml"
+    - name: Install the sidecar injection configmap
+      shell: "{{ cmd_path }} apply -f {{ istio_dir }}/install/kubernetes/istio-sidecar-injector-configmap-release.yaml"
 
-- name: Install the sidecar injector webhook
-  shell: "{{ cmd_path }} apply -f {{ istio_dir }}/install/kubernetes/istio-sidecar-injector-with-ca-bundle.yaml"
+    - name: Set caBundle in the webhook install YAML
+      shell: "cat {{ istio_dir }}/install/kubernetes/istio-sidecar-injector.yaml | {{ istio_dir }}/install/kubernetes/webhook-patch-ca-bundle.sh > {{ istio_dir }}/install/kubernetes/istio-sidecar-injector-with-ca-bundle.yaml"
+
+    - name: Install the sidecar injector webhook
+      shell: "{{ cmd_path }} apply -f {{ istio_dir }}/install/kubernetes/istio-sidecar-injector-with-ca-bundle.yaml"
+  when: istio_version_to_use < minimum_istio_version_for_webhook_certificates
+
+- block:
+    - name: Install the sidecar injection configmap
+      shell: "{{ cmd_path }} apply -f {{ istio_dir }}/install/kubernetes/istio-sidecar-injector-configmap-release.yaml"
+
+    - name: Install the sidecar injector webhook
+      shell: "{{ cmd_path }} apply -f {{ istio_dir }}/install/kubernetes/istio-sidecar.yaml"
+  when: istio_version_to_use >= minimum_istio_version_for_webhook_certificates
+
