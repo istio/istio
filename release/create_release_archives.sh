@@ -107,8 +107,10 @@ function create_windows_archive() {
   rm "${istioctl_path}"
 }
 
-pushd "${OUTPUT_PATH}"
-${CP} istio.VERSION LICENSE README.md "${COMMON_FILES_DIR}"/
+# Not sure why it was used before - but the files are in source, not out
+# pushd "${OUTPUT_PATH}"
+
+${CP} LICENSE README.md istio.VERSION "${COMMON_FILES_DIR}"/
 find samples install -type f \( \
   -name "*.yaml" \
   -o -name "cleanup*" \
@@ -123,7 +125,7 @@ find samples install -type f \( \
   -exec ${CP} --parents {} "${COMMON_FILES_DIR}" \;
 find install/tools -type f -exec ${CP} --parents {} "${COMMON_FILES_DIR}" \;
 find tools -type f -not -name "githubContrib*" -not -name ".*" -exec ${CP} --parents {} "${COMMON_FILES_DIR}" \;
-popd
+#popd
 
 # Changing dir such that tar and zip files are
 # created with right hiereachy
