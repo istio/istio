@@ -833,6 +833,18 @@ func (s *Server) initGrpcServer() {
 
 	grpcOptions = append(grpcOptions, grpc.UnaryInterceptor(middleware.ChainUnaryServer(interceptors...)))
 
+	// Temp setting, default should be enough for most supported environments. Can be used for testing
+	// envoy with lower values.
+	var maxStreams int
+	maxStreamsEnv := os.Getenv("ISTIO_GPRC_MAXSTREAMS")
+	if len(maxStreamsEnv) > 0 {
+		maxStreams, _ = strconv.Atoi(maxStreamsEnv)
+	}
+	if maxStreams == 0 {
+		maxStreams = 100000
+	}
+	grpcOptions = append(grpcOptions, grpc.MaxConcurrentStreams(uint32(maxStreams)))
+
 	// get the grpc server wired up
 	grpc.EnableTracing = true
 
