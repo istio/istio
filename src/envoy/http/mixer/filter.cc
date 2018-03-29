@@ -133,7 +133,7 @@ FilterDataStatus Filter::decodeData(Buffer::Instance& data, bool end_stream) {
   ENVOY_LOG(debug, "Called Mixer::Filter : {} ({}, {})", __func__,
             data.length(), end_stream);
   if (state_ == Calling) {
-    return FilterDataStatus::StopIterationAndBuffer;
+    return FilterDataStatus::StopIterationAndWatermark;
   }
   return FilterDataStatus::Continue;
 }

@@ -90,7 +90,7 @@ FilterDataStatus AuthenticationFilter::decodeData(Buffer::Instance&, bool) {
             "Called AuthenticationFilter : {} FilterDataStatus::Continue;",
             __FUNCTION__);
   if (state_ == State::PROCESSING) {
-    return FilterDataStatus::StopIterationAndBuffer;
+    return FilterDataStatus::StopIterationAndWatermark;
   }
   return FilterDataStatus::Continue;
 }

@@ -80,7 +80,7 @@ void JwtVerificationFilter::onDone(const JwtAuth::Status& status) {
 FilterDataStatus JwtVerificationFilter::decodeData(Buffer::Instance&, bool) {
   ENVOY_LOG(debug, "Called JwtVerificationFilter : {}", __func__);
   if (state_ == Calling) {
-    return FilterDataStatus::StopIterationAndBuffer;
+    return FilterDataStatus::StopIterationAndWatermark;
   }
   return FilterDataStatus::Continue;
 }
