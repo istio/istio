@@ -274,30 +274,35 @@ func buildSidecarListenersClusters(
 			listener.BindToPort = false
 		}
 
-		// add an extra listener that binds to the port that is the recipient of the iptables redirect
-		// Setup a default pass through cluster in this listener so that traffic for ports that do not match
-		// will be forwarded to their original destination as is.
-		// TODO: add mixer in this listener as well.
-		passthruCluster := BuildOriginalDSTCluster("default-passthrough", mesh.ConnectTimeout)
-		passthruTCPRouteConfig := &TCPRouteConfig{Routes: []*TCPRoute{BuildTCPRoute(passthruCluster, nil)}}
-		passthruTCPFilters := &NetworkFilter{
-			Type: read,
-			Name: TCPProxyFilter,
-			Config: &TCPProxyFilterConfig{
-				StatPrefix:  "tcp",
-				RouteConfig: passthruTCPRouteConfig,
-			},
+		filters := make([]*NetworkFilter, 0)
+
+		if mesh.GetOutboundTrafficPolicy().GetMode() == meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY {
+			// Setup a default pass through cluster in this listener so that traffic for ports that do not match
+			// will be forwarded to their original destination as is.
+			// TODO: add mixer in this listener as well.
+			passthruCluster := BuildOriginalDSTCluster("default-passthrough", mesh.ConnectTimeout)
+			passthruTCPRouteConfig := &TCPRouteConfig{Routes: []*TCPRoute{BuildTCPRoute(passthruCluster, nil)}}
+			passthruTCPFilters := &NetworkFilter{
+				Type: read,
+				Name: TCPProxyFilter,
+				Config: &TCPProxyFilterConfig{
+					StatPrefix:  "tcp",
+					RouteConfig: passthruTCPRouteConfig,
+				},
+			}
+			filters = append(filters, passthruTCPFilters)
+			clusters = append(clusters, passthruCluster)
 		}
 
+		// add an extra listener that binds to the port that is the recipient of the iptables redirect
 		listeners = append(listeners, &Listener{
 			Name:           VirtualListenerName,
 			Address:        fmt.Sprintf("tcp://%s:%d", WildcardAddress, mesh.ProxyListenPort),
 			BindToPort:     true,
 			UseOriginalDst: true,
-			Filters:        []*NetworkFilter{passthruTCPFilters},
+			Filters:        filters,
 		})
 
-		clusters = append(clusters, passthruCluster)
 	}
 
 	// enable HTTP PROXY port if necessary; this will add an RDS route for this port
