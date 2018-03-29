@@ -1,0 +1,34 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: all
+spec:
+  hosts:
+  - reviews.prod
+  - uk.bookinfo.com
+  - eu.bookinfo.com
+  gateways:
+  - my-gateway
+  - mesh # applies to all the sidecars in the mesh
+  http:
+  - match:
+    - headers:
+        cookie:
+          user: dev-123
+    route:
+    - destination:
+        port:
+          number: 7777
+        name: reviews.qa
+  - match:
+      uri:
+        prefix: /reviews/
+    route:
+    - destination:
+        port:
+          number: 9080 # can be omitted if its the only port for reviews
+        name: reviews.prod
+      weight: 80
+    - destination:
+        name: reviews.qa
+      weight: 20
