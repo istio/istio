@@ -118,7 +118,19 @@
           {
             "url": "tcp://127.0.0.1:8080"
           }
-        ]
+        ],
+        "circuit_breakers": {
+          "default": {
+            "max_connections": "100000",
+            "max_pending_requests": "100000",
+            "max_requests": "100000"
+          },
+          "high": {
+            "max_connections": "100000",
+            "max_pending_requests": "100000",
+            "max_requests": "100000"
+          }
+        }
       },
       {
         "name": "in.15010",
@@ -129,7 +141,19 @@
           {
             "url": "tcp://127.0.0.1:15010"
           }
-        ]
+        ],
+        "circuit_breakers": {
+          "default": {
+            "max_connections": "100000",
+            "max_pending_requests": "100000",
+            "max_requests": "100000"
+          },
+          "high": {
+            "max_connections": "100000",
+            "max_pending_requests": "100000",
+            "max_requests": "100000"
+          }
+        }
       }
     ]
   }
