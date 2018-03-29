@@ -27,7 +27,7 @@ Type the following command to see the help message.
 
 It outputs the following:
 ```
-usage: sa-jwt.py [-h] [-iss ISS] [-aud AUD] [-sub SUB] service_account_file
+usage: sa-jwt.py [-h] [-iss ISS] [-aud AUD] [-sub SUB] [-claims CLAIMS] service_account_file
 
 Python script generates a JWT signed by a Google service account
 
@@ -38,18 +38,21 @@ positional arguments:
 optional arguments:
   -h, --help            show this help message and exit
   -iss ISS, --iss ISS   iss claim. This should be your service account email.
-  -aud AUD, --aud AUD   aud claim
+  -aud AUD, --aud AUD   aud claim. This is comma-separated-list of audiences.
   -sub SUB, --sub SUB   sub claim. If not provided, it is set to the same as
                         iss claim.
+  -claims CLAIMS, --claims CLAIMS
+                        Other claims in format name1:value1,name2:value2 etc.
+                        Only string values are supported.                        
 ```
-
-If you want to add custom claims to the JWT, you can edit sa-jwt.py, and add any claims to JWT payload
-(look for "Add any custom claims here" comment in the script).
 
 ## Example
 
 Here is an example of using sa-jwt.py to generate a JWT token.
 ```
-  python sa-jwt.py /path/to/service_account.json -iss <YOUR_SERVICE_ACCOUNT_EMAIL> -aud <YOUR_AUDIENCE>
+  sa-jwt.py /path/to/service_account.json -iss frod@gserviceaccount.com -aud foo,bar
 ```
 
+```
+  sa-jwt.py /path/to/service_account.json -iss frod@gserviceaccount.com -aud foo,bar -claims key1:value1,key2:value2
+```  
