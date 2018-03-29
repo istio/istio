@@ -19,10 +19,9 @@
 #include "common/protobuf/utility.h"
 #include "envoy/registry/registry.h"
 #include "envoy/server/transport_socket_config.h"
-#include "grpc/grpc_security.h"
-#include "src/core/tsi/alts/handshaker/alts_tsi_handshaker.h"
 #include "src/envoy/alts/alts_socket.pb.h"
 #include "src/envoy/alts/alts_socket.pb.validate.h"
+#include "src/envoy/alts/transport_security_interface_wrapper.h"
 #include "src/envoy/alts/tsi_handshaker.h"
 #include "src/envoy/alts/tsi_transport_socket.h"
 

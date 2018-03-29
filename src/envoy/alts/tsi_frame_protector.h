@@ -18,7 +18,7 @@
 #include "envoy/buffer/buffer.h"
 #include "envoy/event/dispatcher.h"
 
-#include "src/core/tsi/transport_security_interface.h"
+#include "src/envoy/alts/transport_security_interface_wrapper.h"
 
 namespace Envoy {
 namespace Security {

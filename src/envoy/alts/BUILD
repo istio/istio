@@ -31,6 +31,17 @@ api_proto_library(
     require_py = 0,
 )
 
+envoy_cc_library(
+    name = "grpc_tsi_wrapper",
+    repository = "@envoy",
+    visibility = ["//visibility:private"],
+    hdrs = [
+        "transport_security_interface_wrapper.h",
+    ],
+    external_deps = [
+        "grpc",
+    ],
+)
 
 envoy_cc_library(
     name = "tsi_handshaker",
@@ -43,10 +54,8 @@ envoy_cc_library(
         "tsi_handshaker.h",
     ],
     deps = [
+        ":grpc_tsi_wrapper",
         "@envoy//source/exe:envoy_common_lib",
-    ],
-    external_deps = [
-        "grpc",
     ],
 )
 
@@ -61,10 +70,8 @@ envoy_cc_library(
         "tsi_frame_protector.h",
     ],
     deps = [
+        ":grpc_tsi_wrapper",
         "@envoy//source/exe:envoy_common_lib",
-    ],
-    external_deps = [
-        "grpc",
     ],
 )
 
@@ -85,14 +92,10 @@ envoy_cc_library(
     ],
 )
 
-# envoy_cc_library uses -Werror=unused-variable and -Werror=old-style-cast which
-# is not compatible with some gRPC headers, use cc_library here.
-cc_library(
+envoy_cc_library(
     name = "alts_socket_factory",
+    repository = "@envoy",
     visibility = ["//visibility:public"],
-    copts = [
-        "-std=c++14",
-    ],
     srcs = [
         "alts_socket_factory.cc",
     ],
@@ -100,10 +103,9 @@ cc_library(
         "alts_socket_factory.h",
     ],
     deps = [
+        ":grpc_tsi_wrapper",
         ":tsi_transport_socket",
         ":alts_socket_proto_cc",
         "@envoy//source/exe:envoy_common_lib",
     ],
-    alwayslink = 1,
-    linkstatic = 1,
 )
