@@ -3,7 +3,6 @@ kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: rules.config.istio.io
-  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
     package: istio.io.mixer
@@ -22,7 +21,6 @@ kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: attributemanifests.config.istio.io
-  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
     package: istio.io.mixer
@@ -41,7 +39,6 @@ kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: circonuses.config.istio.io
-  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
     package: circonus
@@ -60,7 +57,6 @@ kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: deniers.config.istio.io
-  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
     package: denier
@@ -79,7 +75,6 @@ kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: fluentds.config.istio.io
-  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
     package: fluentd
@@ -98,7 +93,6 @@ kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: kubernetesenvs.config.istio.io
-  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
     package: kubernetesenv
@@ -117,7 +111,6 @@ kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: listcheckers.config.istio.io
-  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
     package: listchecker
@@ -136,7 +129,6 @@ kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: memquotas.config.istio.io
-  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
     package: memquota
@@ -155,7 +147,6 @@ kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: noops.config.istio.io
-  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
     package: noop
@@ -174,7 +165,6 @@ kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: opas.config.istio.io
-  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
     package: opa
@@ -193,7 +183,6 @@ kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: prometheuses.config.istio.io
-  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
     package: prometheus
@@ -212,7 +201,6 @@ kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: rbacs.config.istio.io
-  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
     package: rbac
@@ -231,7 +219,6 @@ kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: servicecontrols.config.istio.io
-  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
     package: servicecontrol
@@ -250,7 +237,6 @@ kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: solarwindses.config.istio.io
-  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
     package: solarwinds
@@ -269,7 +255,6 @@ kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: stackdrivers.config.istio.io
-  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
     package: stackdriver
@@ -288,7 +273,6 @@ kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: statsds.config.istio.io
-  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
     package: statsd
@@ -307,7 +291,6 @@ kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: stdios.config.istio.io
-  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
     package: stdio
@@ -326,7 +309,6 @@ kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: apikeys.config.istio.io
-  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
     package: apikey
@@ -345,7 +327,6 @@ kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: authorizations.config.istio.io
-  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
     package: authorization
@@ -364,7 +345,6 @@ kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: checknothings.config.istio.io
-  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
     package: checknothing
@@ -383,7 +363,6 @@ kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: kuberneteses.config.istio.io
-  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
     package: adapter.template.kubernetes
@@ -402,7 +381,6 @@ kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: listentries.config.istio.io
-  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
     package: listentry
@@ -421,7 +399,6 @@ kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: logentries.config.istio.io
-  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
     package: logentry
@@ -440,7 +417,6 @@ kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: metrics.config.istio.io
-  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
     package: metric
@@ -459,7 +435,6 @@ kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: quotas.config.istio.io
-  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
     package: quota
@@ -478,7 +453,6 @@ kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: reportnothings.config.istio.io
-  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
     package: reportnothing
@@ -497,7 +471,6 @@ kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: servicecontrolreports.config.istio.io
-  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
     package: servicecontrolreport
@@ -516,7 +489,6 @@ kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: tracespans.config.istio.io
-  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
     package: tracespan
@@ -535,7 +507,6 @@ kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: serviceroles.config.istio.io
-  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
     package: istio.io.mixer
@@ -554,7 +525,6 @@ kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: servicerolebindings.config.istio.io
-  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
     package: istio.io.mixer
