@@ -73,8 +73,8 @@ func (*AuthenticationPlugin) OnInboundCluster(env model.Environment, node model.
 
 // OnOutboundHttpRoute is called whenever a new set of virtual hosts (a set of virtual hosts with routes) is added to
 // RDS in the outbound path. Can be used to add route specific metadata or additional headers to forward
-func (*AuthenticationPlugin) OnOutboundRoute(env model.Environment, node model.Proxy, service model.Service,
-	servicePort *model.Port, route *xdsapi.RouteConfiguration) {
+func (*AuthenticationPlugin) OnOutboundRoute(env model.Environment, node model.Proxy,
+	route *xdsapi.RouteConfiguration) {
 }
 
 // OnInboundRoute is called whenever a new set of virtual hosts are added to the inbound path.

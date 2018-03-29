@@ -27,28 +27,33 @@ import (
 type PluginCallbacks interface {
 	// OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service
 	// Can be used to add additional filters on the outbound path
-	OnOutboundListener(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port, listener *xdsapi.Listener)
+	OnOutboundListener(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port,
+		listener *xdsapi.Listener)
 
 	// OnInboundListener is called whenever a new listener is added to the LDS output for a given service
 	// Can be used to add additional filters (e.g., mixer filter) or add more stuff to the HTTP connection manager
 	// on the inbound path
-	OnInboundListener(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port, listener *xdsapi.Listener)
+	OnInboundListener(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port,
+		listener *xdsapi.Listener)
 
 	// OnOutboundCluster is called whenever a new cluster is added to the CDS output
 	// Typically used by AuthN plugin to add mTLS settings
-	OnOutboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster)
+	OnOutboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port,
+		cluster *xdsapi.Cluster)
 
 	// OnInboundCluster is called whenever a new cluster is added to the CDS output
 	// Not used typically
-	OnInboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster)
+	OnInboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port,
+		cluster *xdsapi.Cluster)
 
-	// OnOutboundHttpRoute is called whenever a new set of virtual hosts (a set of virtual hosts with routes) is added to
-	// RDS in the outbound path. Can be used to add route specific metadata or additional headers to forward
-	OnOutboundRoute(env model.Environment, node model.Proxy, service model.Service, servicePort *model.Port, route *xdsapi.RouteConfiguration)
+	// OnOutboundHttpRoute is called whenever a new set of virtual hosts (a set of virtual hosts with routes) is
+	// added to RDS in the outbound path. Can be used to add route specific metadata or additional headers to forward
+	OnOutboundRoute(env model.Environment, node model.Proxy, route *xdsapi.RouteConfiguration)
 
 	// OnInboundRoute is called whenever a new set of virtual hosts are added to the inbound path.
 	// Can be used to enable route specific stuff like Lua filters or other metadata.
-	OnInboundRoute(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port, route *xdsapi.RouteConfiguration)
+	OnInboundRoute(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port,
+		route *xdsapi.RouteConfiguration)
 }
 
 // NewPlugins returns a list of plugin instance handles. Each plugin implements the PluginCallbacks interfaces

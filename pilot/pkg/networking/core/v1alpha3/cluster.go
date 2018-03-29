@@ -49,7 +49,7 @@ const (
 // For outbound: Cluster for each service/subset hostname or cidr with SNI set to service hostname
 // Cluster type based on resolution
 // For inbound (sidecar only): Cluster for each inbound endpoint port and for each service port
-func (*ConfigGeneratorImpl) BuildClusters(env model.Environment, proxy model.Proxy) ([]*v2.Cluster, error) {
+func (configgen *ConfigGeneratorImpl) BuildClusters(env model.Environment, proxy model.Proxy) ([]*v2.Cluster, error) {
 	clusters := make([]*v2.Cluster, 0)
 
 	services, err := env.Services()
@@ -58,7 +58,7 @@ func (*ConfigGeneratorImpl) BuildClusters(env model.Environment, proxy model.Pro
 		return nil, err
 	}
 
-	clusters = append(clusters, buildOutboundClusters(env, services)...)
+	clusters = append(clusters, configgen.buildOutboundClusters(env, proxy, services)...)
 	for _, c := range clusters {
 		// Envoy requires a non-zero connect timeout
 		if c.ConnectTimeout == 0 {
@@ -73,13 +73,14 @@ func (*ConfigGeneratorImpl) BuildClusters(env model.Environment, proxy model.Pro
 		}
 
 		managementPorts := env.ManagementPorts(proxy.IPAddress)
-		clusters = append(clusters, buildInboundClusters(env, instances, managementPorts)...)
+		clusters = append(clusters, configgen.buildInboundClusters(env, proxy, instances, managementPorts)...)
 	}
 
 	return clusters, nil // TODO: normalize/dedup/order
 }
 
-func buildOutboundClusters(env model.Environment, services []*model.Service) []*v2.Cluster {
+func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environment, proxy model.Proxy,
+	services []*model.Service) []*v2.Cluster {
 	clusters := make([]*v2.Cluster, 0)
 	for _, service := range services {
 		config := env.DestinationRule(service.Hostname, "")
@@ -91,6 +92,10 @@ func buildOutboundClusters(env model.Environment, services []*model.Service) []*
 			defaultCluster := buildDefaultCluster(env, clusterName, convertResolution(service.Resolution), hosts)
 			updateEds(env, defaultCluster, service.Hostname)
 			setUpstreamProtocol(defaultCluster, port)
+			// call plugins
+			for _, p := range configgen.Plugins {
+				p.OnOutboundCluster(env, proxy, service, port, defaultCluster)
+			}
 			clusters = append(clusters, defaultCluster)
 
 			if config != nil {
@@ -104,6 +109,10 @@ func buildOutboundClusters(env model.Environment, services []*model.Service) []*
 					setUpstreamProtocol(subsetCluster, port)
 					applyTrafficPolicy(subsetCluster, destinationRule.TrafficPolicy)
 					applyTrafficPolicy(subsetCluster, subset.TrafficPolicy)
+					// call plugins
+					for _, p := range configgen.Plugins {
+						p.OnOutboundCluster(env, proxy, service, port, subsetCluster)
+					}
 					clusters = append(clusters, subsetCluster)
 				}
 			}
@@ -157,7 +166,9 @@ func buildClusterHosts(env model.Environment, service *model.Service, port *mode
 	return hosts
 }
 
-func buildInboundClusters(env model.Environment, instances []*model.ServiceInstance, managementPorts []*model.Port) []*v2.Cluster {
+func (configgen *ConfigGeneratorImpl) buildInboundClusters(env model.Environment, proxy model.Proxy,
+	instances []*model.ServiceInstance,
+	managementPorts []*model.Port) []*v2.Cluster {
 	clusters := make([]*v2.Cluster, 0)
 	for _, instance := range instances {
 		// This cluster name is mainly for stats.
