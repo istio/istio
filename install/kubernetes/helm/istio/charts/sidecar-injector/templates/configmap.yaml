@@ -21,6 +21,8 @@ data:
         - {{ "[[ .MeshConfig.ProxyListenPort ]]" }}
         - "-u"
         - 1337
+        - "-m"
+        - {{ "[[ .ProxyConfig.InterceptionMode.String ]]" }}
         - "-i"
         {{ "[[ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeOutboundIPRanges\") -]]" }}
         {{ "- \"[[ index .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeOutboundIPRanges\"  ]]\"" }}
@@ -107,11 +109,19 @@ data:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
+        - name: ISTIO_META_INTERCEPTION_MODE
+          value: {{ "[[ .ProxyConfig.InterceptionMode.String ]]" }}
         imagePullPolicy: IfNotPresent
         securityContext:
             privileged: false
             readOnlyRootFilesystem: true
+            {{ "[[ if eq .ProxyConfig.InterceptionMode.String \"TPROXY\" -]]" }}
+            capabilities:
+              add:
+              - NET_ADMIN
+            {{ "[[ else -]]" }}
             runAsUser: 1337
+            {{ "[[ end -]]" }}
         restartPolicy: Always
         volumeMounts:
         - mountPath: /etc/istio/proxy
