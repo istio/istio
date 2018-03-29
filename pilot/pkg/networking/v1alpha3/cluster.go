@@ -26,9 +26,9 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/plugins/authn"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pilot/pkg/networking/plugins/authn"
 )
 
 const (
@@ -75,11 +75,6 @@ func BuildClusters(env model.Environment, proxy model.Proxy) []*v2.Cluster {
 
 		managementPorts := env.ManagementPorts(proxy.IPAddress)
 		clusters = append(clusters, buildInboundClusters(env, instances, managementPorts)...)
-
-		// TODO: Bug? why only for sidecars?
-		// append cluster for JwksUri (for Jwt authentication) if necessary.
-		clusters = append(clusters, authn.BuildJwksURIClustersForProxyInstances(
-			env.Mesh, env.IstioConfigStore, instances)...)
 	}
 
 	return clusters // TODO: normalize/dedup/order
@@ -295,7 +290,7 @@ func applyLoadBalancer(cluster *v2.Cluster, lb *networking.LoadBalancerSettings)
 
 func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) {
 	if tls == nil {
-		return
+		authn.ApplyOutboundIstioAuth(nil, nil )
 	}
 
 	switch tls.Mode {

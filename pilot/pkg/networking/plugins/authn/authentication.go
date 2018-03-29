@@ -15,21 +15,15 @@
 package authn
 
 import (
-	"time"
-
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	envoy_api_v2_auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	v2_cluster "github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/ptypes/duration"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 
 	authn "istio.io/api/authentication/v1alpha1"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/log"
+	"crypto/tls"
 )
 
 const (
@@ -51,76 +45,45 @@ func BuildJwtFilter(policy *authn.Policy) *http_conn.HttpFilter {
 	}
 }
 
-// BuildJwksURIClustersForProxyInstances checks the authentication policy for the
-// input proxyInstances, and generates (outbound) clusters for all JwksURIs.
-func BuildJwksURIClustersForProxyInstances(mesh *meshconfig.MeshConfig,
-	store model.IstioConfigStore, proxyInstances []*model.ServiceInstance) []*v2.Cluster {
-	if len(proxyInstances) == 0 {
-		return nil
-	}
-	var jwtSpecs []*authn.Jwt
-	for _, instance := range proxyInstances {
-		authnPolicy := model.GetConsolidateAuthenticationPolicy(mesh, store, instance.Service.Hostname, instance.Endpoint.ServicePort)
-		jwtSpecs = append(jwtSpecs, model.CollectJwtSpecs(authnPolicy)...)
-	}
+// ApplyOutboundIstioAuth adds mTLS authN settings for outbound clusters
+func ApplyOutboundIstioAuth(policy *authn.Policy, cluster *xdsapi.Cluster) {
 
-	return buildJwksURIClusters(jwtSpecs, mesh.ConnectTimeout)
-}
-
-// buildJwksURIClusters returns a list of clusters for each unique JwksUri from
-// the input list of Jwt specs. This function is to support
-// buildJwksURIClustersForProxyInstances above.
-func buildJwksURIClusters(jwtSpecs []*authn.Jwt, timeout *duration.Duration) []*v2.Cluster {
-	type jwksCluster struct {
-		hostname string
-		port     *model.Port
-		useSSL   bool
-	}
-	jwksClusters := map[string]jwksCluster{}
-	for _, jwt := range jwtSpecs {
-		if _, exist := jwksClusters[jwt.JwksUri]; exist {
-			continue
-		}
-		if hostname, port, ssl, err := model.ParseJwksURI(jwt.JwksUri); err != nil {
-			log.Warnf("Could not build envoy cluster and address from jwks_uri %q: %v",
-				jwt.JwksUri, err)
-		} else {
-			jwksClusters[jwt.JwksUri] = jwksCluster{hostname, port, ssl}
-		}
-	}
-
-	clusters := make([]*v2.Cluster, 0)
-	for _, auth := range jwksClusters {
-		host := &core.Address{Address: &core.Address_SocketAddress{
-			SocketAddress: &core.SocketAddress{
-				Address:  auth.hostname,
-				Protocol: core.TCP,
-				PortSpecifier: &core.SocketAddress_PortValue{
-					PortValue: uint32(auth.port.Port),
-				},
-			},
-		}}
-		cluster := &v2.Cluster{
-			Name:           model.JwksURIClusterName(auth.hostname, auth.port),
-			Type:           v2.Cluster_STRICT_DNS,
-			Hosts:          []*core.Address{host},
-			ConnectTimeout: time.Duration(timeout.Seconds) * time.Second,
-			CircuitBreakers: &v2_cluster.CircuitBreakers{
-				Thresholds: []*v2_cluster.CircuitBreakers_Thresholds{
-					{
-						MaxPendingRequests: &types.UInt32Value{Value: 10000},
-						MaxRequests:        &types.UInt32Value{Value: 10000},
-					},
-				},
-			},
-		}
-		if auth.useSSL {
-			cluster.TlsContext = &envoy_api_v2_auth.UpstreamTlsContext{
-				CommonTlsContext: &envoy_api_v2_auth.CommonTlsContext{},
-			}
-		}
-
-		clusters = append(clusters, cluster)
-	}
-	return clusters
+	// Original DST cluster are used to route to services outside the mesh
+	// where Istio auth does not apply.
+	//if cluster.Type == xdsapi.Cluster_ORIGINAL_DST { return }
+	//	if !isDestinationExcludedForMTLS(cluster.ServiceName, mesh.MtlsExcludedServices) &&
+	//		model.RequireTLS(model.GetConsolidateAuthenticationPolicy(mesh, config, cluster.Hostname, cluster.Port)) {
+	//		// apply auth policies
+	//		ports := model.PortList{cluster.Port}.GetNames()
+	//		serviceAccounts := accounts.GetIstioServiceAccounts(cluster.Hostname, ports)
+	//		cluster.SSLContext = buildClusterSSLContext(model.AuthCertsPath, serviceAccounts)
+	//	}
+	//
+	//cluster.TlsContext = &auth.UpstreamTlsContext{
+	//	CommonTlsContext: &auth.CommonTlsContext{
+	//		TlsCertificates: []*auth.TlsCertificate{
+	//			{
+	//				CertificateChain: &core.DataSource{
+	//					Specifier: &core.DataSource_Filename{
+	//						Filename: tls.ClientCertificate,
+	//					},
+	//				},
+	//				PrivateKey: &core.DataSource{
+	//					Specifier: &core.DataSource_Filename{
+	//						Filename: tls.PrivateKey,
+	//					},
+	//				},
+	//			},
+	//		},
+	//		ValidationContext: &auth.CertificateValidationContext{
+	//			TrustedCa: &core.DataSource{
+	//				Specifier: &core.DataSource_Filename{
+	//					Filename: tls.CaCertificates,
+	//				},
+	//			},
+	//			VerifySubjectAltName: tls.SubjectAltNames,
+	//		},
+	//	},
+	//	Sni: tls.Sni,
+	//}
 }
