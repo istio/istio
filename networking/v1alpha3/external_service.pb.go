@@ -19,18 +19,18 @@ var _ = math.Inf
 type ExternalService_Discovery int32
 
 const (
-	// If set to "none", the proxy will assume that incoming connections
+	// If set to "NONE", the proxy will assume that incoming connections
 	// have already been resolved (to a specific destination IP
 	// address). Such connections are typically routed via the proxy using
 	// mechanisms such as IP table REDIRECT/ eBPF. After performing any
 	// routing related transformations, the proxy will forward the
 	// connection to the IP address to which the connection was bound.
 	ExternalService_NONE ExternalService_Discovery = 0
-	// If set to "static", the proxy will use the IP addresses specified in
+	// If set to "STATIC", the proxy will use the IP addresses specified in
 	// endpoints (See below) as the backing nodes associated with the
 	// external service.
 	ExternalService_STATIC ExternalService_Discovery = 1
-	// If set to "dns", the proxy will attempt to resolve the DNS address
+	// If set to "DNS", the proxy will attempt to resolve the DNS address
 	// during request processing. If no endpoints are specified, the proxy
 	// will resolve the DNS address specified in the hosts field, if
 	// wildcards are not used. If endpoints are specified, the DNS
@@ -76,7 +76,7 @@ func (ExternalService_Discovery) EnumDescriptor() ([]byte, []int) {
 //       ports:
 //       - number: 443
 //         name: example-http
-//         protocol: http # not HTTPS.
+//         protocol: HTTP # not HTTPS.
 //       discovery: DNS
 //
 // and a destination rule to initiate TLS connections to the external service.
@@ -105,7 +105,7 @@ func (ExternalService_Discovery) EnumDescriptor() ([]byte, []int) {
 //       ports:
 //       - number: 27018
 //         name: mongodb
-//         protocol: mongo
+//         protocol: MONGO
 //       discovery: STATIC
 //       endpoints:
 //       - address: 2.2.2.2
@@ -141,7 +141,7 @@ func (ExternalService_Discovery) EnumDescriptor() ([]byte, []int) {
 //       ports:
 //       - number: 80
 //         name: http
-//         protocol: http
+//         protocol: HTTP
 //       discovery: NONE
 //
 // For HTTP based services, it is possible to create a virtual service
@@ -162,7 +162,7 @@ func (ExternalService_Discovery) EnumDescriptor() ([]byte, []int) {
 //       ports:
 //       - number: 443
 //         name: https
-//         protocol: http
+//         protocol: HTTP
 //       discovery: DNS
 //       endpoints:
 //       - address: us.foo.bar.com

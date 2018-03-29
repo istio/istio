@@ -643,7 +643,7 @@ spec:
   ports:
   - number: 443
     name: example-http
-    protocol: http # not HTTPS.
+    protocol: HTTP # not HTTPS.
   discovery: DNS
 </code></pre>
 
@@ -674,7 +674,7 @@ spec:
   ports:
   - number: 27018
     name: mongodb
-    protocol: mongo
+    protocol: MONGO
   discovery: STATIC
   endpoints:
   - address: 2.2.2.2
@@ -712,7 +712,7 @@ spec:
   ports:
   - number: 80
     name: http
-    protocol: http
+    protocol: HTTP
   discovery: NONE
 </code></pre>
 
@@ -734,7 +734,7 @@ spec:
   ports:
   - number: 443
     name: https
-    protocol: http
+    protocol: HTTP
   discovery: DNS
   endpoints:
   - address: us.foo.bar.com
@@ -843,7 +843,7 @@ service.</p>
 <tr id="ExternalService.Discovery.NONE">
 <td><code>NONE</code></td>
 <td>
-<p>If set to &ldquo;none&rdquo;, the proxy will assume that incoming connections
+<p>If set to &ldquo;NONE&rdquo;, the proxy will assume that incoming connections
 have already been resolved (to a specific destination IP
 address). Such connections are typically routed via the proxy using
 mechanisms such as IP table REDIRECT/ eBPF. After performing any
@@ -855,7 +855,7 @@ connection to the IP address to which the connection was bound.</p>
 <tr id="ExternalService.Discovery.STATIC">
 <td><code>STATIC</code></td>
 <td>
-<p>If set to &ldquo;static&rdquo;, the proxy will use the IP addresses specified in
+<p>If set to &ldquo;STATIC&rdquo;, the proxy will use the IP addresses specified in
 endpoints (See below) as the backing nodes associated with the
 external service.</p>
 
@@ -864,7 +864,7 @@ external service.</p>
 <tr id="ExternalService.Discovery.DNS">
 <td><code>DNS</code></td>
 <td>
-<p>If set to &ldquo;dns&rdquo;, the proxy will attempt to resolve the DNS address
+<p>If set to &ldquo;DNS&rdquo;, the proxy will attempt to resolve the DNS address
 during request processing. If no endpoints are specified, the proxy
 will resolve the DNS address specified in the hosts field, if
 wildcards are not used. If endpoints are specified, the DNS
