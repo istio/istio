@@ -34,24 +34,19 @@ import (
 )
 
 const (
-	u1                       = "normal-user"
-	u2                       = "test-user"
-	bookinfoYaml             = "samples/bookinfo/kube/bookinfo.yaml"
-	bookinfoRatingsv2Yaml    = "samples/bookinfo/kube/bookinfo-ratings-v2.yaml"
-	bookinfoRatingsMysqlYaml = "samples/bookinfo/kube/bookinfo-ratings-v2-mysql.yaml"
-	bookinfoDbYaml           = "samples/bookinfo/kube/bookinfo-db.yaml"
-	bookinfoMysqlYaml        = "samples/bookinfo/kube/bookinfo-mysql.yaml"
-	modelDir                 = "tests/apps/bookinfo/output"
-	rulesDir                 = "samples/bookinfo/kube"
-	allRule                  = "route-rule-all-v1.yaml"
-	testRule                 = "route-rule-reviews-test-v2.yaml"
+	u1           = "normal-user"
+	u2           = "test-user"
+	bookinfoYaml = "samples/bookinfo/kube/bookinfo.yaml"
+	modelDir     = "tests/apps/bookinfo/output"
+	rulesDir     = "samples/bookinfo/kube"
+	allRule      = "route-rule-all-v1.yaml"
+	testRule     = "route-rule-reviews-test-v2.yaml"
 )
 
 var (
 	tc                *testConfig
 	baseConfig        *framework.CommonConfig
 	targetConfig      *framework.CommonConfig
-	testRetryTimes    = 5
 	defaultRules      = []string{allRule, testRule}
 	flagBaseVersion   = flag.String("base_version", "0.4.0", "Base version to upgrade from.")
 	flagTargetVersion = flag.String("target_version", "0.5.1", "Target version to upgrade to.")
@@ -146,36 +141,28 @@ func inspect(err error, fMsg, sMsg string, t *testing.T) {
 	}
 }
 
-func probeGateway() error {
+func probeGateway(retryTimes int, modelFile string) error {
 	standby := 0
-	for i := 0; i <= testRetryTimes; i++ {
+	v1File := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v1.html"))
+	for i := 0; i <= retryTimes; i++ {
 		time.Sleep(time.Duration(standby) * time.Second)
-		resp, err := http.Get(fmt.Sprintf("%s/productpage", tc.gateway))
-		if err != nil {
-			log.Infof("Error talking to productpage: %s", err)
-		} else {
-			log.Infof("Get from page: %d", resp.StatusCode)
-			if resp.StatusCode == http.StatusOK {
-				log.Info("Get response from product page!")
-				break
-			}
-			closeResponseBody(resp)
-		}
-		if i == testRetryTimes {
-			return errors.New("unable to set default route")
+		_, err := checkRoutingResponse(u1, "v1", tc.gateway, v1File)
+		if err == nil {
+			log.Infof("Successfully getting response from gateway.")
+			return nil
 		}
 		standby += 5
 		log.Warnf("Couldn't get to the bookinfo product page, trying again in %d second", standby)
 	}
-	log.Info("Success! Default route got expected response")
-	return nil
+	return errors.New("unable to get valid response from gateway")
 }
 
 func setUpDefaultRouting() error {
 	if err := applyRules(defaultRules); err != nil {
 		return fmt.Errorf("could not apply rule '%s': %v", allRule, err)
 	}
-	return probeGateway()
+	v1File := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v1.html"))
+	return probeGateway(5, v1File)
 }
 
 func checkRoutingResponse(user, version, gateway, modelFile string) (int, error) {
@@ -204,7 +191,6 @@ func checkRoutingResponse(user, version, gateway, modelFile string) (int, error)
 	}
 
 	if err = util.CompareToFile(body, modelFile); err != nil {
-		log.Errorf("Error: User %s in version %s didn't get expected response", user, version)
 		duration = -1
 	}
 	closeResponseBody(resp)
@@ -238,12 +224,12 @@ func applyRules(ruleKeys []string) error {
 }
 
 func checkTraffic(t *testing.T) {
-	// Check whether gateway is reachable
-	err := probeGateway()
-	inspect(err, "Failed to reach Gateway after upgrade", "", t)
-	// Check whether routes are correct.
 	v1File := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v1.html"))
 	v2File := util.GetResourcePath(filepath.Join(modelDir, "productpage-test-user-v2.html"))
+	// Check whether gateway is reachable
+	err := probeGateway(5, v1File)
+	inspect(err, "Failed to reach Gateway after upgrade", "", t)
+	// Check whether routes are correct.
 	_, err = checkRoutingResponse(u1, "v1", tc.gateway, v1File)
 	inspect(
 		err, fmt.Sprintf("Failed version routing! %s in v1", u1),
@@ -318,19 +304,9 @@ func setTestConfig() error {
 	if err != nil {
 		return err
 	}
-	demoApps := []framework.App{{AppYaml: util.GetResourcePath(bookinfoYaml),
-		KubeInject: true,
-	},
-		{AppYaml: util.GetResourcePath(bookinfoRatingsv2Yaml),
-			KubeInject: true,
-		},
-		{AppYaml: util.GetResourcePath(bookinfoRatingsMysqlYaml),
-			KubeInject: true,
-		},
-		{AppYaml: util.GetResourcePath(bookinfoDbYaml),
-			KubeInject: true,
-		},
-		{AppYaml: util.GetResourcePath(bookinfoMysqlYaml),
+	demoApps := []framework.App{
+		{
+			AppYaml:    util.GetResourcePath(bookinfoYaml),
 			KubeInject: true,
 		},
 	}

@@ -160,6 +160,12 @@
   version = "v3.1.1"
 
 [[projects]]
+  name = "github.com/cenkalti/backoff"
+  packages = ["."]
+  revision = "2ea60e5f094469f9e65adb9cd103795b73ae743e"
+  version = "v2.0.0"
+
+[[projects]]
   name = "github.com/circonus-labs/circonus-gometrics"
   packages = [
     ".",
@@ -1513,6 +1519,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "0998474db4d29e59a52fff3e808f5aeff315b986099e8738dfe38173c2340d4e"
+  inputs-digest = "1202ceb12906b81e13742fb6b417387f0797c64037f7e8570b06af46f39c355f"
   solver-name = "gps-cdcl"
   solver-version = 1
