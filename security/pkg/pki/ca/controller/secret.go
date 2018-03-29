@@ -45,11 +45,11 @@ const (
 	PrivateKeyID = "key.pem"
 	// The ID/name for the CA root certificate file.
 	RootCertID = "root-cert.pem"
+	// The key to specify corresponding service account in the annotation of K8s secrets.
+	ServiceAccountNameAnnotationKey = "istio.io/service-account.name"
 
 	secretNamePrefix   = "istio."
 	secretResyncPeriod = time.Minute
-
-	ServiceAccountNameAnnotationKey = "istio.io/service-account.name"
 
 	recommendedMinGracePeriodRatio = 0.2
 	recommendedMaxGracePeriodRatio = 0.8
