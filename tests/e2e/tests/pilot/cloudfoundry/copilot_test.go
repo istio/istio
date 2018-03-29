@@ -88,7 +88,7 @@ func TestWildcardHostEdgeRouterWithMockCopilot(t *testing.T) {
 	t.Logf("2nd backend is running on port %d", backendPort2)
 
 	copilotAddr := fmt.Sprintf("127.0.0.1:%d", copilotPort)
-	testState := newTestState(copilotAddr)
+	testState := newTestState(t, copilotAddr)
 	defer testState.tearDown()
 	copilotTLSConfig := testState.creds.ServerTLSConfig()
 
@@ -169,6 +169,8 @@ func TestWildcardHostEdgeRouterWithMockCopilot(t *testing.T) {
 }
 
 type testState struct {
+	t *testing.T
+
 	// generated credentials for copilot server and client
 	creds testhelpers.MTLSCredentials
 
@@ -190,10 +192,11 @@ func (testState *testState) addCleanupTask(task func()) {
 	testState.cleanupTasks = append(testState.cleanupTasks, task)
 }
 
-func newTestState(mockCopilotServerAddress string) *testState {
+func newTestState(t *testing.T, mockCopilotServerAddress string) *testState {
 	creds := testhelpers.GenerateMTLS()
 	clientTLSFiles := creds.CreateClientTLSFiles()
 	return &testState{
+		t:     t,
 		creds: creds,
 		copilotConfigFilePath: filepath.Join(creds.TempDir, "config.yaml"),
 		istioConfigDir:        testhelpers.TempDir(),
@@ -239,7 +242,7 @@ func (testState *testState) runEnvoy(discoveryAddr string) error {
 	go func() {
 		err := envoyProxy.Run(envoyConfig, 0, abortCh)
 		if err != nil && err != cleanupSignal {
-			panic(fmt.Sprintf("running envoy: %s", err))
+			testState.t.Fatalf("running envoy: %s", err)
 		}
 	}()
 
