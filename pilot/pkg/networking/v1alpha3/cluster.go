@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pilot/pkg/networking/plugins/authn"
 )
 
 const (
@@ -290,7 +289,7 @@ func applyLoadBalancer(cluster *v2.Cluster, lb *networking.LoadBalancerSettings)
 
 func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) {
 	if tls == nil {
-		authn.ApplyOutboundIstioAuth(nil, nil )
+		return
 	}
 
 	switch tls.Mode {
