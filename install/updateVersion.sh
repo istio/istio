@@ -28,7 +28,7 @@ ${ROOT}/install/updateVersion_orig.sh "$@"
 echo "$@"
 
 DEST_DIR=${ROOT}
-while getopts :n:d:a: arg; do
+while getopts :d:a: arg; do
   case ${arg} in
     d) DEST_DIR="${OPTARG}";;
     a) ALL_HUB_TAG="${OPTARG}";;       # Format: "<hub>,<tag>"
