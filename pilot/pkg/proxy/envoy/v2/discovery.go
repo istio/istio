@@ -24,6 +24,7 @@ import (
 	"sync"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pkg/log"
 )
 
@@ -62,11 +63,20 @@ type DiscoveryServer struct {
 
 	// MemRegistry is used for debug and load testing, allow adding services. Visible for testing.
 	MemRegistry *MemServiceDiscovery
+
+	// ConfigGenerator is responsible for generating data plane configuration using Istio networking
+	// APIs and service registry info
+	ConfigGenerator core.ConfigGenerator
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
 func NewDiscoveryServer(grpcServer *grpc.Server, env model.Environment) *DiscoveryServer {
-	out := &DiscoveryServer{GrpcServer: grpcServer, env: env}
+	out := &DiscoveryServer{
+		GrpcServer:      grpcServer,
+		env:             env,
+		ConfigGenerator: core.NewConfigGenerator(),
+	}
+
 	xdsapi.RegisterEndpointDiscoveryServiceServer(out.GrpcServer, out)
 	xdsapi.RegisterListenerDiscoveryServiceServer(out.GrpcServer, out)
 	xdsapi.RegisterClusterDiscoveryServiceServer(out.GrpcServer, out)
