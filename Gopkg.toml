@@ -40,10 +40,15 @@
   name = "k8s.io/client-go"
   branch = "release-6.0"
 
-# matching client-go 6 == 1.9 == v9 (!)
+# matching client-go 6 == k8s 1.9 == v9 (!)
 [[override]]
   name = "github.com/Azure/go-autorest"
   version = "v9.10.0"
+
+# our mock glog:
+[[override]]
+  name = "github.com/golang/glog"
+  source = "github.com/istio/glog"
 
 [[constraint]]
   name = "cloud.google.com/go"

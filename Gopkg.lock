@@ -378,7 +378,8 @@
   branch = "master"
   name = "github.com/golang/glog"
   packages = ["."]
-  revision = "23def4e6c14b4da8ac2ed8007337bc5eb5007998"
+  revision = "2cc4b790554d1a0c48fcc3aeb891e3de70cf8de0"
+  source = "github.com/istio/glog"
 
 [[projects]]
   branch = "master"
@@ -1501,6 +1502,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "2e83ae3c5d7ded29dd0efc06544c2963f705109fd6659abecac2f70718aa8416"
+  inputs-digest = "d728018fabf387f078ee21816e04fbc4eee12e5933e0f1972ed1e16815dd0bb3"
   solver-name = "gps-cdcl"
   solver-version = 1
