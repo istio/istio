@@ -16,12 +16,11 @@ package v2
 
 import (
 	"os"
+	"sync"
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"google.golang.org/grpc"
-
-	"sync"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
@@ -70,11 +69,11 @@ type DiscoveryServer struct {
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
-func NewDiscoveryServer(grpcServer *grpc.Server, env model.Environment) *DiscoveryServer {
+func NewDiscoveryServer(grpcServer *grpc.Server, env model.Environment, generator core.ConfigGenerator) *DiscoveryServer {
 	out := &DiscoveryServer{
 		GrpcServer:      grpcServer,
 		env:             env,
-		ConfigGenerator: core.NewConfigGenerator(),
+		ConfigGenerator: generator,
 	}
 
 	xdsapi.RegisterEndpointDiscoveryServiceServer(out.GrpcServer, out)
