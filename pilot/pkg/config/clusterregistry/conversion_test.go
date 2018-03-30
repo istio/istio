@@ -15,24 +15,32 @@
 package clusterregistry
 
 import (
-	"testing"
-	//"github.com/ghodss/yaml"
 	"bytes"
-	"fmt"
-	"io/ioutil"
-	"os"
-	"strconv"
+	"testing"
 	"text/template"
 
+	"io/ioutil"
+	"os"
+
+	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/fake"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	k8s_cr "k8s.io/cluster-registry/pkg/apis/clusterregistry/v1alpha1"
 
-	"istio.io/istio/pilot/pkg/serviceregistry"
+	"github.com/pborman/uuid"
 )
 
-type createCfgDataFilesFunc func(dir string, cData []clusterData) (err error)
+// type createCfgDataFilesFunc func(dir string, cData []clusterInfo) (err error)
 
 type env struct {
 	fsRoot string
+}
+
+var tmpl *template.Template
+
+func init() {
+	tmpl = template.Must(template.ParseFiles("clusterregistry.gotmpl", "clusterconfig.gotmpl"))
 }
 
 func (e *env) setup() error {
@@ -52,275 +60,199 @@ func createTempDir() string {
 	return dir
 }
 
-func createAccessCfgFiles(dir string, cData []clusterData) (err error) {
-	for _, cD := range cData {
-		if _, err = os.OpenFile(dir+"/"+cD.AccessConfig, os.O_RDONLY|os.O_CREATE, 0666); err != nil {
-			return err
-		}
-	}
-	return
+type clusterInfo struct {
+	Kind                  string
+	Name                  string
+	PilotIP               string
+	Platform              string
+	AccessConfigSecret    string
+	AccessConfigNamespace string
+	PilotCfgStore         bool
+	ServerEndpointIP      string
+	ClientCidr            string
 }
 
-var clusterTempl = `
----
-
-apiVersion: clusterregistry.k8s.io/v1alpha1
-kind: Cluster
-metadata:
-  name: {{.Name}}
-  annotations:
-    config.istio.io/pilotEndpoint: "{{.PilotIP}}:9080"
-    config.istio.io/platform: {{if .Platform}}{{.Platform}}{{else}}"Kubernetes"{{end}}
-    {{if .PilotCfgStore}}config.istio.io/pilotCfgStore: {{.PilotCfgStore}}
-    {{end -}}
-    config.istio.io/accessConfigFile: {{.AccessConfig}}
-spec:
-  kubernetesApiEndpoints:
-    serverEndpoints:
-      - clientCIDR: "{{.ClientCidr}}"
-        serverAddress: "{{.ServerEndpointIP}}"
-`
-
-type clusterData struct {
-	Name             string
-	PilotIP          string
-	Platform         string
-	AccessConfig     string
-	PilotCfgStore    bool
-	ServerEndpointIP string
-	ClientCidr       string
+type clusterConfig struct {
+	ClusterName              string
+	ClusterIP                string
+	CertificateAuthorityData string
+	ClusterUserName          string
+	ClientCertificateData    string
+	ClientKeyData            string
 }
 
-func compareParsedCluster(inData clusterData, cluster *k8s_cr.Cluster) error {
-	if inData.AccessConfig != GetClusterAccessConfig(cluster) {
-		return fmt.Errorf("AccessConfig mismatch for parsed cluster '%s'--"+
-			"in:'%s' v. out:'%s'",
-			GetClusterName(cluster), inData.AccessConfig, GetClusterAccessConfig(cluster))
-	}
-	inPilotEp := fmt.Sprintf("%s:9080", inData.PilotIP)
-	if inPilotEp != cluster.ObjectMeta.Annotations[ClusterPilotEndpoint] {
-		return fmt.Errorf("PilotEndpoint mismatch for parsed cluster '%s'--"+
-			"in:'%s' v. out:'%s'",
-			GetClusterName(cluster), inPilotEp, cluster.ObjectMeta.Annotations[ClusterPilotEndpoint])
-	}
-	cPilotCfgStore := false
-	if cluster.ObjectMeta.Annotations[ClusterPilotCfgStore] != "" {
-		var err error
-		cPilotCfgStore, err = strconv.ParseBool(cluster.ObjectMeta.Annotations[ClusterPilotCfgStore])
-		if err != nil {
-			return fmt.Errorf("conversion error for pilotCfgStore in parsed cluster '%s'-- value: '%s'",
-				cluster.Name,
-				cluster.ObjectMeta.Annotations[ClusterPilotCfgStore])
-		}
-	}
-	if inData.PilotCfgStore != cPilotCfgStore {
-		return fmt.Errorf("pilotCfgStore mismatch for parsed cluster '%s'--"+
-			"in:'%t' v. out:'%t'",
-			GetClusterName(cluster), inData.PilotCfgStore,
-			cPilotCfgStore)
-	}
-	plat := string(serviceregistry.KubernetesRegistry) // test template sets as default platform
-	if inData.Platform != "" {
-		plat = inData.Platform
-	}
-	if cluster.ObjectMeta.Annotations[ClusterPlatform] != plat {
-		return fmt.Errorf("platform type mismatch for parsed cluster '%s'--"+
-			"in:'%s' v. out:'%s'",
-			GetClusterName(cluster), plat, cluster.ObjectMeta.Annotations[ClusterPlatform])
-	}
+func TestGetPilotAccessConfig(t *testing.T) {
 
-	for _, kubeAPIEp := range cluster.Spec.KubernetesAPIEndpoints.ServerEndpoints {
-		if inData.ServerEndpointIP != kubeAPIEp.ServerAddress {
-			return fmt.Errorf("kubernetes API endpoint serverIP mismatch for parsed cluster '%s'--"+
-				"in:'%s' v. out:'%s'",
-				GetClusterName(cluster), inData.ServerEndpointIP, kubeAPIEp.ServerAddress)
-		}
-		if inData.ClientCidr != kubeAPIEp.ClientCIDR {
-			return fmt.Errorf("kubernetes API endpoint ClientCIDR mismatch for parsed cluster '%s'--"+
-				"in:'%s' v. out:'%s'",
-				GetClusterName(cluster), inData.ClientCidr, kubeAPIEp.ClientCIDR)
-		}
+	pilot := k8s_cr.Cluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "fakePilot",
+		},
 	}
-	return nil
-}
-
-func checkClusterDataInInput(inDataList []clusterData, cluster *k8s_cr.Cluster) error {
-	// Check that the cluster is matching with data from the test input data
-	found := false
-	for _, inData := range inDataList {
-		if inData.Name == GetClusterName(cluster) {
-			found = true
-			return compareParsedCluster(inData, cluster)
-		}
-	}
-	if !found {
-		return fmt.Errorf("cluster named '%s' not found in test input data",
-			GetClusterName(cluster))
-	}
-	return nil
-}
-
-func checkInputInClusterData(inData clusterData, clusters []*k8s_cr.Cluster) error {
-	// Check that the input data is in the clusters list
-	found := false
-	for _, cluster := range clusters {
-		if inData.Name == GetClusterName(cluster) {
-			found = true
-			return compareParsedCluster(inData, cluster)
-		}
-	}
-	if !found {
-		return fmt.Errorf("test input for cluster named '%s' not found in parsed result",
-			inData.Name)
-	}
-	return nil
-}
-
-func checkClusterData(t *testing.T, inDataList []clusterData, clusters []*k8s_cr.Cluster) (err error) {
-	// check each cluster is in the input data
-	for _, cluster := range clusters {
-		t.Logf("Parser built cluster: \"%s\", AccessConfig: \"%s\"",
-			GetClusterName(cluster),
-			GetClusterAccessConfig(cluster))
-		err = checkClusterDataInInput(inDataList, cluster)
-		if err != nil {
-			return err
-		}
-	}
-
-	// check the input data is in each cluster
-	for _, testData := range inDataList {
-		err = checkInputInClusterData(testData, clusters)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func checkClusterStore(inDataList []clusterData, cs ClusterStore) (err error) {
-	for _, cData := range inDataList {
-		if cData.PilotCfgStore {
-			pilotKubeConf := cs.GetPilotAccessConfig()
-			if cData.AccessConfig != pilotKubeConf {
-				return fmt.Errorf("mismatch PilotCfgStore AccessConfig in ClusterStore--"+
-					"in: '%t' ; clusterStore '%s'", cData.PilotCfgStore, pilotKubeConf)
-			}
-			clusters := cs.GetPilotClusters()
-			if len(clusters) == 0 {
-				return fmt.Errorf("no pilot cluster found, expected '%s'", cData.Name)
-			}
-			for _, cluster := range clusters {
-				if cluster.Name == cData.Name ||
-					cluster.ObjectMeta.Annotations[ClusterPilotEndpoint] !=
-						fmt.Sprintf("%s:9080", cData.PilotIP) {
-					return fmt.Errorf("mismatch PilotCfgStore cluster in ClusterStore--"+
-						"in: '%s' ; clusterStore '%s'", cData.Name, clusters[0].Name)
-				}
-			}
-			break
-		}
-	}
-	return nil
-}
-
-/* Create several files under a temp directory with clusterData */
-func createFilePerCluster(dir string, cData []clusterData) (err error) {
-	tmpl, err := template.New("test").Parse(clusterTempl)
-	if err != nil {
-		return err
-	}
-	for _, cD := range cData {
-		f, fileErr := os.Create(fmt.Sprintf("%s/%s.yaml", dir, cD.Name))
-		if fileErr != nil {
-			return fileErr
-		}
-		err = tmpl.Execute(f, cD)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-/* Create single files under a temp directory with clusterData */
-func createFileForAllClusters(dir string, cData []clusterData) (err error) {
-	tmpl, err := template.New("test").Parse(clusterTempl)
-	if err != nil {
-		return err
-	}
-	f, fileErr := os.Create(fmt.Sprintf("%s/allClusters.yaml", dir))
-	if fileErr != nil {
-		return fileErr
-	}
-	for _, cD := range cData {
-		err = tmpl.Execute(f, cD)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func testClusterReadDir(t *testing.T, crFunc createCfgDataFilesFunc,
-	dir string, cData []clusterData) {
-	_ = os.MkdirAll(dir, os.ModeDir|os.ModePerm)
-	defer os.RemoveAll(dir)
-	if err := createAccessCfgFiles(dir, cData); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := crFunc(dir, cData); err != nil {
-		t.Error(err)
-	}
-	cs, err := ReadClusters(dir)
-	if err != nil {
-		t.Error(err)
-	}
-	clusters := append(cs.clusters, cs.cfgStore)
-	err = checkClusterData(t, cData, clusters)
-	if err != nil {
-		t.Error(err)
-	}
-
-	if err = checkClusterStore(cData, *cs); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestReadClusters(t *testing.T) {
-	cData := []clusterData{
+	tests := []struct {
+		testName    string
+		cs          ClusterStore
+		expectError bool
+	}{
 		{
-			Name:             "clusA",
-			PilotIP:          "2.2.2.2",
-			AccessConfig:     "A_kubeconfig",
-			PilotCfgStore:    true,
-			ServerEndpointIP: "192.168.4.10",
-			ClientCidr:       "0.0.0.1/0",
+			testName:    "No pilot in the store",
+			cs:          ClusterStore{},
+			expectError: true,
 		},
 		{
-			Name:             "clusB",
-			PilotIP:          "2.2.2.2",
-			AccessConfig:     "B_kubeconfig",
-			PilotCfgStore:    false,
-			ServerEndpointIP: "192.168.5.10",
-			ClientCidr:       "0.0.0.0/0",
+			testName: "Pilot in the store",
+			cs: ClusterStore{
+				cfgStore:      &pilot,
+				clientConfigs: map[string]clientcmdapi.Config{"fakePilot": {}},
+			},
+			expectError: false,
+		},
+	}
+	for _, test := range tests {
+
+		if test.cs.GetPilotAccessConfig() == nil && !test.expectError {
+			t.Errorf("Test '%s' failed", test.testName)
+			continue
+		}
+	}
+}
+
+func TestGetPilotClusters(t *testing.T) {
+
+	pilot := k8s_cr.Cluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "fakePilot",
+			Annotations: map[string]string{ClusterPilotEndpoint: "192.168.1.1:9080"},
+		},
+	}
+	tests := []struct {
+		testName       string
+		cs             ClusterStore
+		numberOfPilots int
+	}{
+		{
+			testName:       "No pilots in the store",
+			cs:             ClusterStore{},
+			numberOfPilots: 0,
 		},
 		{
-			Name:             "clusC",
-			PilotIP:          "4.4.4.4",
-			AccessConfig:     "C_kubeconfig",
-			PilotCfgStore:    false,
-			ServerEndpointIP: "192.168.6.10",
-			ClientCidr:       "0.0.0.0/0",
+			testName: "2 out of 3 Pilot in the store",
+			cs: ClusterStore{
+				cfgStore: &pilot,
+				clusters: []*k8s_cr.Cluster{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:        "fakePilot2",
+							Annotations: map[string]string{ClusterPilotEndpoint: "192.168.1.1:9080"},
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:        "fakePilot3",
+							Annotations: map[string]string{ClusterPilotEndpoint: "192.168.1.1:9080"},
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:        "fakePilot4",
+							Annotations: map[string]string{ClusterPilotEndpoint: "192.168.2.1:9080"},
+						},
+					},
+				},
+				clientConfigs: map[string]clientcmdapi.Config{"fakePilot": {}},
+			},
+			numberOfPilots: 2,
 		},
 		{
-			Name:             "clusD",
-			PilotIP:          "5.5.5.5",
-			AccessConfig:     "D_kubeconfig",
-			PilotCfgStore:    false,
-			ServerEndpointIP: "192.168.7.10",
-			ClientCidr:       "0.0.0.0/0",
+			testName: "3 out of 3 Pilot in the store",
+			cs: ClusterStore{
+				cfgStore: &pilot,
+				clusters: []*k8s_cr.Cluster{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:        "fakePilot2",
+							Annotations: map[string]string{ClusterPilotEndpoint: "192.168.1.1:9080"},
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:        "fakePilot3",
+							Annotations: map[string]string{ClusterPilotEndpoint: "192.168.1.1:9080"},
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:        "fakePilot4",
+							Annotations: map[string]string{ClusterPilotEndpoint: "192.168.1.1:9080"},
+						},
+					},
+				},
+			},
+			numberOfPilots: 3,
+		},
+	}
+	for _, test := range tests {
+
+		numberOfPilots := len(test.cs.GetPilotClusters())
+		if numberOfPilots != test.numberOfPilots {
+			t.Errorf("Test '%s' failed, expected: %d number of Pilots, got: %d ", test.testName,
+				test.numberOfPilots, numberOfPilots)
+			continue
+		}
+	}
+}
+
+func TestGetClusterConfig(t *testing.T) {
+	tests := []struct {
+		testName      string
+		configMapName string
+		ci            []clusterInfo
+		cc            []clusterConfig
+		expectError   bool
+	}{
+		{
+			testName:      "Single node all good",
+			configMapName: "clusterregistry" + "-" + uuid.New(),
+			ci: []clusterInfo{
+				{
+					Kind:                  "Cluster",
+					Name:                  "clusA",
+					PilotIP:               "2.2.2.2",
+					AccessConfigSecret:    "clusA",
+					AccessConfigNamespace: "istio-system",
+					PilotCfgStore:         true,
+					ServerEndpointIP:      "192.168.4.10",
+					ClientCidr:            "0.0.0.1/0",
+				},
+			},
+			cc: []clusterConfig{
+				{
+					ClusterName:              "clusA",
+					ClusterIP:                "192.168.4.10",
+					CertificateAuthorityData: "blahblah",
+					ClusterUserName:          "admin",
+					ClientCertificateData:    "blahblah",
+					ClientKeyData:            "blahblah",
+				},
+			},
+			expectError: false,
+		},
+		{
+			testName:      "Invalid kind",
+			configMapName: "clusterregistry" + "-" + uuid.New(),
+			ci: []clusterInfo{
+				{
+					Kind:                  "Invalid",
+					Name:                  "clusA",
+					PilotIP:               "2.2.2.2",
+					AccessConfigSecret:    "clusA",
+					AccessConfigNamespace: "istio-system",
+					PilotCfgStore:         true,
+					ServerEndpointIP:      "192.168.4.10",
+					ClientCidr:            "0.0.0.1/0",
+				},
+			},
+			cc:          []clusterConfig{},
+			expectError: true,
 		},
 	}
 	e := env{}
@@ -330,164 +262,82 @@ func TestReadClusters(t *testing.T) {
 	}
 	defer e.teardown()
 
-	testClusterReadDir(t, createFilePerCluster, e.fsRoot+"/multi", cData)
-	testClusterReadDir(t, createFileForAllClusters, e.fsRoot+"/single", cData)
-}
+	client := fake.NewSimpleClientset()
 
-func TestReadClusters_nodir(t *testing.T) {
-	_, err := ReadClusters("/bogusdir")
-	if err == nil {
-		t.Errorf("lack of error for invalid cluster config dir")
-	} else {
-		t.Logf("error found for invalid dir: %v", err)
-	}
-}
-
-func TestParseClusters_templ(t *testing.T) {
-	clusData := []clusterData{
-		{
-			Name:             "clusA",
-			PilotIP:          "2.2.2.2",
-			AccessConfig:     "A_kubeconfig",
-			PilotCfgStore:    true,
-			ServerEndpointIP: "192.168.4.10",
-			ClientCidr:       "0.0.0.1/0",
-		},
-		{
-			Name:             "clusB",
-			PilotIP:          "3.3.3.3",
-			AccessConfig:     "B_kubeconfig",
-			PilotCfgStore:    false,
-			ServerEndpointIP: "192.168.5.10",
-			ClientCidr:       "0.0.0.0/0",
-		},
-		{
-			Name:             "clusC",
-			PilotIP:          "4.4.4.4",
-			AccessConfig:     "C_kubeconfig",
-			PilotCfgStore:    false,
-			ServerEndpointIP: "192.168.6.10",
-			ClientCidr:       "0.0.0.0/0",
-		},
-		{
-			Name:             "clusD",
-			PilotIP:          "5.5.5.5",
-			AccessConfig:     "D_AccessConfig",
-			PilotCfgStore:    false,
-			ServerEndpointIP: "192.168.7.10",
-			ClientCidr:       "0.0.0.0/0",
-		},
-	}
-	e := env{}
-	err := e.setup()
-	if err != nil {
-		t.Error(err)
-	}
-	defer e.teardown()
-	if err = createAccessCfgFiles(e.fsRoot, clusData); err != nil {
-		t.Fatal(err)
-	}
-
-	tmpl, err := template.New("test").Parse(clusterTempl)
-	if err != nil {
-		t.Error(err)
-	}
-	testDataBuf := new(bytes.Buffer)
-	for _, cD := range clusData {
-		err = tmpl.Execute(testDataBuf, cD)
-		if err != nil {
-			t.Error(err)
+	for _, test := range tests {
+		if err := buildConfigMap(client, test.ci, test.configMapName); err != nil {
+			t.Errorf("Failed to build configmap(s) with error: %v", err)
 		}
-	}
-
-	t.Logf("YAML to convert:\n%s\n", testDataBuf.String())
-
-	clusters, err := parseClusters(e.fsRoot, testDataBuf.Bytes())
-	if err != nil {
-		t.Error(err)
-	}
-	err = checkClusterData(t, clusData, clusters)
-	if err != nil {
-		t.Error(err)
-	}
-
-}
-
-func TestParseClusters_fail(t *testing.T) {
-	clusData := []clusterData{
-		{
-			Name:             "clusA",
-			PilotIP:          "2.2.2.2",
-			AccessConfig:     "A_kubeconfig",
-			PilotCfgStore:    true,
-			ServerEndpointIP: "192.168.4.10",
-			ClientCidr:       "0.0.0.1/0",
-		},
-	}
-	e := env{}
-	err := e.setup()
-	if err != nil {
-		t.Error(err)
-	}
-	defer e.teardown()
-	if err := createAccessCfgFiles(e.fsRoot, clusData); err != nil {
-		t.Fatal(err)
-	}
-
-	// Map of bad cluster registry input templates to test validity checks in parseClusters
-	testData := map[string]string{
-		"BadKind": `---
-
-apiVersion: clusterregistry.k8s.io/v1alpha1
-kind: InvalidKind
-metadata:
-  name: {{.Name}}
-  annotations:
-    config.istio.io/pilotEndpoint: "{{.PilotIP}}:9080"
-    config.istio.io/platform: {{if .Platform}}{{.Platform}}{{else}}"Kubernetes"{{end}}
-    {{if .PilotCfgStore}}config.istio.io/pilotCfgStore: {{.PilotCfgStore}}
-    {{end -}}
-    config.istio.io/accessConfigFile: {{.AccessConfig}}
-spec:
-  kubernetesApiEndpoints:
-    serverEndpoints:
-      - clientCIDR: "{{.ClientCidr}}"
-        serverAddress: "{{.ServerEndpointIP}}"
-`,
-		/*		"NoName":
-						`---
-
-				apiVersion: clusterregistry.k8s.io/v1alpha1
-				kind: Cluster
-				metadata:
-				  annotations:
-				    config.istio.io/pilotEndpoint: "1.1.1.1:9080"
-				    config.istio.io/platform: "k8s"
-				    config.istio.io/pilotCfgStore: true
-				    config.istio.io/accessConfigFile: c1-config
-				spec:
-				  kubernetesApiEndpoints:
-				    serverEndpoints:
-				      - clientCidr: "0.0.0.0/0"
-				        serverAddress: "192.168.1.1"
-				`,*/
-	}
-	for testType, testItem := range testData {
-		tmpl, err := template.New("test").Parse(testItem)
-		if err != nil {
-			t.Error(err)
+		if err := buildSecret(client, test.cc); err != nil {
+			t.Errorf("Failed to build secret(s) with error: %v", err)
 		}
-		testDataBuf := new(bytes.Buffer)
-		err = tmpl.Execute(testDataBuf, clusData[0])
-		if err != nil {
-			t.Error(err)
+		cs, err := getClustersConfigs(client, test.configMapName, "istio-system")
+		if err != nil && !test.expectError {
+			t.Errorf("Test '%s' failed, expected not to fail, but failed with error: %v", test.testName, err)
+			continue
 		}
-		clusters, err := parseClusters(e.fsRoot, testDataBuf.Bytes())
+		if err == nil && test.expectError {
+			t.Errorf("Test '%s' failed, expected to fail, but did not", test.testName)
+			continue
+		}
 		if err == nil {
-			t.Error(fmt.Errorf("bad input test '%s' not getting error code", testType))
-			if len(clusters) > 0 {
-				t.Errorf("cluster data was instantiated during bad input test '%s'", testType)
+			if cs == nil {
+				t.Errorf("Test '%s' failed, the number of retrieved cluster config cannot be 0", test.testName)
+				continue
 			}
 		}
+
 	}
+
+}
+
+func buildConfigMap(k8s *fake.Clientset, ci []clusterInfo, configMapName string) error {
+	configmap := &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      configMapName,
+			Namespace: "istio-system",
+		},
+	}
+
+	data := map[string]string{}
+	for _, c := range ci {
+		parsedConfig := new(bytes.Buffer)
+
+		if err := tmpl.ExecuteTemplate(parsedConfig, "clusterregistry.gotmpl", c); err != nil {
+			return err
+		}
+		data[c.Name+".yaml"] = parsedConfig.String()
+	}
+	configmap.Data = data
+
+	_, err := k8s.CoreV1().ConfigMaps("istio-system").Create(configmap)
+
+	return err
+}
+
+func buildSecret(k8s *fake.Clientset, cc []clusterConfig) error {
+
+	for _, c := range cc {
+		data := map[string][]byte{}
+		secret := &v1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      c.ClusterName,
+				Namespace: "istio-system",
+			},
+		}
+
+		parsedConfig := new(bytes.Buffer)
+		if err := tmpl.ExecuteTemplate(parsedConfig, "clusterconfig.gotmpl", c); err != nil {
+			return err
+		}
+		data[c.ClusterName+".yaml"] = parsedConfig.Bytes()
+		secret.Data = data
+		_, err := k8s.CoreV1().Secrets("istio-system").Create(secret)
+		if err != nil {
+			return err
+		}
+
+	}
+
+	return nil
 }

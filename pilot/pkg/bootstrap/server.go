@@ -19,7 +19,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"path"
 	"strconv"
 	"time"
 
@@ -101,11 +100,12 @@ type MeshArgs struct {
 // be monitored for CRD yaml files and will update the controller as those files change (This is used for testing
 // purposes). Otherwise, a CRD client is created based on the configuration.
 type ConfigArgs struct {
-	ClusterRegistriesDir string
-	KubeConfig           string
-	CFConfig             string
-	ControllerOptions    kube.ControllerOptions
-	FileDir              string
+	ClusterRegistriesConfigmap string
+	ClusterRegistriesNamespace string
+	KubeConfig                 string
+	CFConfig                   string
+	ControllerOptions          kube.ControllerOptions
+	FileDir                    string
 }
 
 // ConsulArgs provides configuration for the Consul service registry.
@@ -209,10 +209,13 @@ func NewServer(args PilotArgs) (*Server, error) {
 	s := &Server{}
 
 	// Apply the arguments to the configuration.
-	if err := s.initClusterRegistries(&args); err != nil {
+	if err := s.initMonitor(&args); err != nil {
 		return nil, err
 	}
 	if err := s.initKubeClient(&args); err != nil {
+		return nil, err
+	}
+	if err := s.initClusterRegistries(&args); err != nil {
 		return nil, err
 	}
 	if err := s.initMesh(&args); err != nil {
@@ -277,8 +280,10 @@ func (s *Server) initMonitor(args *PilotArgs) error {
 }
 
 func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
-	if args.Config.ClusterRegistriesDir != "" {
-		s.clusterStore, err = clusterregistry.ReadClusters(args.Config.ClusterRegistriesDir)
+	if args.Config.ClusterRegistriesConfigmap != "" {
+		s.clusterStore, err = clusterregistry.ReadClusters(s.kubeClient,
+			args.Config.ClusterRegistriesConfigmap,
+			args.Config.ClusterRegistriesNamespace)
 		if s.clusterStore != nil {
 			log.Infof("clusters configuration %s", spew.Sdump(s.clusterStore))
 		}
@@ -364,12 +369,6 @@ func (s *Server) initMixerSan(args *PilotArgs) error {
 }
 
 func (s *Server) getKubeCfgFile(args *PilotArgs) (kubeCfgFile string) {
-	// If the cluster store is configured, get pilot's kubeconfig from there
-	if s.clusterStore != nil {
-		if kubeCfgFile = s.clusterStore.GetPilotAccessConfig(); kubeCfgFile != "" {
-			kubeCfgFile = path.Join(args.Config.ClusterRegistriesDir, kubeCfgFile)
-		}
-	}
 	if kubeCfgFile == "" {
 		kubeCfgFile = args.Config.KubeConfig
 	}
@@ -524,13 +523,13 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 	// Add clusters under the same pilot
 	if s.clusterStore != nil {
 		clusters := s.clusterStore.GetPilotClusters()
+		clientAccessConfigs := s.clusterStore.GetClientAccessConfigs()
 		for _, cluster := range clusters {
-			kubeconfig := clusterregistry.GetClusterAccessConfig(cluster)
-			kubeCfgFile := path.Join(args.Config.ClusterRegistriesDir, kubeconfig)
-			log.Infof("Cluster name: %s, AccessConfigFile: %s", clusterregistry.GetClusterName(cluster), kubeCfgFile)
-			_, client, kuberr := kube.CreateInterface(kubeCfgFile)
+			log.Infof("Cluster name: %s, AccessConfigFile: %s", clusterregistry.GetClusterName(cluster))
+			clusterClient := clientAccessConfigs[cluster.ObjectMeta.Name]
+			_, client, kuberr := kube.CreateInterfaceFromClusterConfig(&clusterClient)
 			if kuberr != nil {
-				err = multierror.Append(err, multierror.Prefix(kuberr, fmt.Sprintf("failed to connect to Access API with accessconfig: %s", kubeCfgFile)))
+				err = multierror.Append(err, multierror.Prefix(kuberr, fmt.Sprintf("failed to connect to Access API with access config: %s", cluster.ObjectMeta.Name)))
 			}
 
 			kubectl := kube.NewController(client, args.Config.ControllerOptions)
