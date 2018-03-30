@@ -78,10 +78,9 @@ func TestMain(m *testing.M) {
 }
 
 func TestDashboards(t *testing.T) {
-
 	t.Log("Validating prometheus in ready-state...")
 	if err := waitForMetricsInPrometheus(t); err != nil {
-		logMixerMetrics(t, "istio-telemetry", 42422)
+		logMixerInfo(t, "istio-telemetry", 42422)
 		t.Fatalf("Sentinel metrics never appeared in Prometheus: %v", err)
 	}
 	t.Log("Sentinel metrics found in prometheus.")
@@ -158,7 +157,7 @@ func sendTrafficToCluster(gateway string) (*fhttp.HTTPRunnerResults, error) {
 
 func generateTCPInCluster() error {
 	ns := tc.Kube.Namespace
-	ncPods, err := getPodList(ns, "app=netcat-client")
+	ncPods, err := podList(ns, "app=netcat-client")
 	if err != nil {
 		return fmt.Errorf("could not get nc client pods: %v", err)
 	}
@@ -321,7 +320,12 @@ func (t *testConfig) Setup() (err error) {
 	t.promAPI = pAPI
 
 	if err = waitForMixerConfigResolution(); err != nil {
+		logMixerLogs(pkgLogger{})
 		return fmt.Errorf("mixer never received configuration: %v", err)
+	}
+
+	if err = waitForMixerProxyReadiness(); err != nil {
+		return fmt.Errorf("mixer's proxy never was ready to serve traffic: %v", err)
 	}
 
 	gateway, errGw := tc.Kube.Ingress()
@@ -406,7 +410,7 @@ type fortioTemplate struct {
 	FortioImage string
 }
 
-func getPodList(namespace string, selector string) ([]string, error) {
+func podList(namespace string, selector string) ([]string, error) {
 	pods, err := util.Shell("kubectl get pods -n %s -l %s -o jsonpath={.items[*].metadata.name}", namespace, selector)
 	if err != nil {
 		return nil, err
@@ -421,18 +425,45 @@ func allowPrometheusSync() {
 var waitDurations = []time.Duration{0, 5 * time.Second, 15 * time.Second, 30 * time.Second, time.Minute, 2 * time.Minute}
 
 func waitForMixerConfigResolution() error {
-	configQuery := `sum(mixer_config_handler_config_count)`
+	// we are looking for confirmation that 3 handlers were configured and that none of them had
+	// build failures
+	configQuery := `topk(1, mixer_config_handler_config_count - mixer_handler_handler_build_failure_count)`
 	handlers := 0.0
 	for _, duration := range waitDurations {
-		log.Infof("waiting for Mixer to be configured with correct handlers: %v", duration)
+		log.Infof("Waiting for Mixer to be configured with correct handlers: %v", duration)
 		time.Sleep(duration)
-		val, err := getMetricValue(configQuery)
+		val, err := metricValue(configQuery)
 		if err == nil && val >= 3.0 {
 			return nil
 		}
 		handlers = val
 	}
 	return fmt.Errorf("incorrect number of handlers known in Mixer; got %f, want >= 3.0", handlers)
+}
+
+func waitForMixerProxyReadiness() error {
+	mixerPods, err := podList(tc.Kube.Namespace, "istio-mixer-type=telemetry")
+	if err != nil {
+		return fmt.Errorf("could not find Mixer pod: %v", err)
+	}
+
+	for _, duration := range waitDurations {
+		log.Infof("Waiting for Mixer's proxy to be ready to dispatch traffic: %v", duration)
+		time.Sleep(duration)
+
+		for _, pod := range mixerPods {
+			logs, err := util.ShellMuteOutput(fmt.Sprintf("kubectl logs %s -n %s -c istio-proxy", pod, tc.Kube.Namespace))
+			if err != nil {
+				log.Infof("Failure retrieving logs for pod %s (container: istio-proxy): %v", pod, err)
+				continue
+			}
+			if strings.Contains(logs, "starting main dispatch loop") {
+				log.Infof("Envoy started main dispatch loop.")
+				return nil
+			}
+		}
+	}
+	return errors.New("proxy for mixer never started main dispatch loop")
 }
 
 func waitForMetricsInPrometheus(t *testing.T) error {
@@ -470,11 +501,11 @@ func waitForMetricsInPrometheus(t *testing.T) error {
 }
 
 func metricHasValue(query string) bool {
-	_, err := getMetricValue(query)
+	_, err := metricValue(query)
 	return err == nil
 }
 
-func getMetricValue(query string) (float64, error) {
+func metricValue(query string) (float64, error) {
 	value, err := tc.promAPI.Query(context.Background(), query, time.Now())
 	if err != nil || value == nil {
 		return 0, fmt.Errorf("could not retrieve a value for metric '%s': %v", query, err)
@@ -491,18 +522,48 @@ func getMetricValue(query string) (float64, error) {
 	return 0, fmt.Errorf("no known value for metric: '%s'", query)
 }
 
-func logMixerMetrics(t *testing.T, host string, port int) {
+func logMixerInfo(t *testing.T, service string, port int) {
+	logMixerMetrics(t, service, port)
+	logMixerLogs(t)
+}
+
+func logMixerMetrics(t *testing.T, service string, port int) {
 	ns := tc.Kube.Namespace
-	pods, err := getPodList(ns, "app=echosrv")
+	pods, err := podList(ns, "app=echosrv")
 	if err != nil || len(pods) < 1 {
-		t.Logf("Failure getting mixer metrics: %v", err)
+		t.Logf("Failure getting metrics for '%s:%d': %v", service, port, err)
 		return
 	}
-	resp, err := util.Shell("kubectl exec -n %s %s -c echosrv -- /usr/local/bin/fortio curl http://%s.%s:%d/metrics", ns, pods[0], host, ns, port)
+	resp, err := util.ShellMuteOutput("kubectl exec -n %s %s -c echosrv -- /usr/local/bin/fortio curl http://%s.%s:%d/metrics", ns, pods[0], service, ns, port)
 	if err != nil {
 		t.Logf("could not retrieve metrics: %v", err)
 		return
 	}
-	t.Logf("GET /metrics:\n%v", resp)
+	t.Logf("GET http://%s.%s:%d/metrics:\n%v", service, ns, port, resp)
+}
 
+type logger interface {
+	Logf(fmt string, args ...interface{})
+}
+
+type pkgLogger struct{}
+
+func (p pkgLogger) Logf(fmt string, args ...interface{}) {
+	log.Infof(fmt, args...)
+}
+
+func logMixerLogs(l logger) {
+	mixerPods, err := podList(tc.Kube.Namespace, "istio-mixer-type=telemetry")
+	if err != nil {
+		l.Logf("Could not retrieve Mixer logs: %v", err)
+		return
+	}
+	for _, pod := range mixerPods {
+		logs, err := util.ShellMuteOutput(fmt.Sprintf("kubectl logs %s -n %s -c mixer", pod, tc.Kube.Namespace))
+		if err != nil {
+			l.Logf("Failure retrieving logs for pod %s: %v", pod, err)
+			continue
+		}
+		l.Logf("Mixer Container Logs for pod %s: \n%s", pod, logs)
+	}
 }

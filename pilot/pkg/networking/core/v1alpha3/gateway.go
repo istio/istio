@@ -29,7 +29,8 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-func buildGatewayListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
+func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environment,
+	node model.Proxy) ([]*xdsapi.Listener, error) {
 	config := env.IstioConfigStore
 
 	// collect workload labels
