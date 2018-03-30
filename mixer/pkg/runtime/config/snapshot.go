@@ -39,7 +39,9 @@ type (
 		Instances map[string]*Instance
 		Rules     []*Rule
 
+		//  Templates2 contains template descriptors loaded from the store
 		Templates2 map[string]*TemplateMetadata
+		//  Adapters2 contains adapter metadata loaded from the store
 		Adapters2  map[string]*AdapterMetadata
 
 		// Perf Counters relevant to configuration.
