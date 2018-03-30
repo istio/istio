@@ -24,7 +24,7 @@
                  "routes": [
                    {
                      "prefix": "/istio.mixer.v1.Mixer/Check",
-                     "cluster": "mixer_check_server",
+                     "cluster": "in.9091",
                      "timeout_ms": 0,
                      "opaque_config": {
                        "destination.service": "istio-policy.${POD_NAMESPACE}.svc.cluster.local",
@@ -114,25 +114,8 @@
         "name": "in.9091",
         "connect_timeout_ms": 1000,
         "type": "static",
-        "lb_type": "round_robin",
-        "hosts": [
-          {
-            "url": "tcp://127.0.0.1:9091"
-          }
-        ]
-      },
-      {
-        "name": "mixer_check_server",
-        "connect_timeout_ms": 5000,
-        "type": "strict_dns",
-        "circuit_breakers": {
-          "default": {
-            "max_pending_requests": 10000,
-            "max_requests": 10000
-          }
-        },
-        "lb_type": "round_robin",
         "features": "http2",
+        "lb_type": "round_robin",
         "hosts": [
           {
             "url": "tcp://127.0.0.1:9091"
@@ -145,8 +128,9 @@
         "type": "strict_dns",
         "circuit_breakers": {
           "default": {
-            "max_pending_requests": 10000,
-            "max_requests": 10000
+            "max_connections": 100000,
+            "max_pending_requests": 100000,
+            "max_requests": 100000
           }
         },
         "lb_type": "round_robin",

@@ -46,7 +46,7 @@
         - /etc/istio/proxy/envoy_istio_policy.json
       {{- end }}
         - --zipkinAddress
-        - zipkin.istio-system:9411
+        - zipkin.{{ $.Release.Namespace }}:9411
         - --serviceCluster      
         - istio-policy
         env:
@@ -121,7 +121,7 @@
         - /etc/istio/proxy/envoy_istio_telemetry.json
       {{- end }}
         - --zipkinAddress
-        - zipkin.istio-system:9411
+        - zipkin.{{ $.Release.Namespace }}:9411
         - --serviceCluster      
         - istio-telemetry
         env:
