@@ -5,6 +5,7 @@ apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
   name: {{ template "grafana.fullname" . }}
+  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "grafana.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}

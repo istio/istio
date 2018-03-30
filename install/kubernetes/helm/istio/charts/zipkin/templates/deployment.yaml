@@ -2,6 +2,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: zipkin
+  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "zipkin.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
