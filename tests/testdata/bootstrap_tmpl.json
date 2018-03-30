@@ -1,4 +1,11 @@
 {
+  "node": {
+    "id": "{{ .Options.NodeID }}",
+    "cluster": "mycluster",
+    "metadata": {
+      "foo": "bar"
+    }
+  },
   "stats_config": {
     "use_all_default_tags": false
   },
@@ -13,11 +20,9 @@
   },
   "dynamic_resources": {
     "lds_config": {
+      "ads": {}
        {{/*
-       // Doesn't work - no node
-              "ads": {}
-       */}}
-      "api_config_source": {
+       "api_config_source": {
         "api_type": "GRPC",
         "refresh_delay": {
           "seconds": 30,
@@ -27,22 +32,10 @@
           "xds-grpc"
         ]
       }
-    },
+        */}}
+       },
     "cds_config": {
-       {{/*
-       // Doesn't work - no node
-              "ads": {}
-       */}}
-      "api_config_source": {
-        "api_type": "GRPC",
-        "refresh_delay": {
-          "seconds": 30,
-          "nanos": 0
-        },
-        "cluster_names": [
-          "xds-grpc"
-        ]
-      }
+      "ads": {}
     },
     "ads_config": {
       "api_type": "GRPC",

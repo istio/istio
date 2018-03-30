@@ -77,11 +77,15 @@ func initEnvoyTestEnv(t *testing.T) {
 		t.Fatal("Can't read bootstrap template", err)
 	}
 	testEnv.EnvoyTemplate = string(tmplB)
-	testEnv.EnvoyParams = []string{"--service-cluster", "serviceCluster", "--service-node", sidecarId(app3Ip, "app3"), "--v2-config-only"}
+	nodeId := sidecarId(app3Ip, "app3")
+	testEnv.EnvoyParams = []string{"--service-cluster", "serviceCluster", "--service-node", nodeId, "--v2-config-only"}
 	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
 	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)
 	testEnv.IstioSrc = util.IstioSrc
 	testEnv.IstioOut = util.IstioOut
+	testEnv.EnvoyConfigOpt = map[string]interface{} {
+		"NodeID": nodeId,
+	}
 
 	// Mixer will push stats every 1 sec
 	testenv.SetStatsUpdateInterval(testEnv.MfConfig(), 1)

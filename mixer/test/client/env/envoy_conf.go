@@ -43,6 +43,9 @@ type confParam struct {
 	Ports    *Ports
 	IstioSrc string
 	IstioOut string
+
+	// Options are additional config options for the template
+	Options map[string]interface{}
 }
 
 const allAbortFaultFilter = `
@@ -278,6 +281,7 @@ func (s *TestSetup) CreateEnvoyConf(path string, stress, faultInject bool, mfCon
 		Ports:           ports,
 		IstioSrc:        s.IstioSrc,
 		IstioOut:        s.IstioOut,
+		Options: s.EnvoyConfigOpt,
 	}
 	// TODO: use fields from s directly instead of copying
 

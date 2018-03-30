@@ -322,7 +322,7 @@ func (proxy envoy) Run(config interface{}, epoch int, abort <-chan error) error 
 		// there is a custom configuration. Don't write our own config - but keep watching the certs.
 		fname = proxy.config.CustomConfigFile
 	} else if proxy.v2 {
-		out, err := bootstrap.WriteBootstrap(&proxy.config, epoch, proxy.pilotSAN, proxy.opts)
+		out, err := bootstrap.WriteBootstrap(&proxy.config, proxy.node, epoch, proxy.pilotSAN, proxy.opts)
 		if err != nil {
 			log.Errora("Failed to generate bootstrap config", err)
 			os.Exit(1) // Prevent infinite loop attempting to write the file, let k8s/systemd report
