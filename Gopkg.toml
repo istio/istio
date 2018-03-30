@@ -1,6 +1,6 @@
 # Gopkg.toml example
 #
-# Refer to https://github.com/golang/dep/blob/master/docs/Gopkg.toml.md
+# Refer to https://golang.github.io/dep/docs/Gopkg.toml.html
 # for detailed Gopkg.toml documentation.
 #
 # required = ["github.com/user/thing/cmd/thing"]
@@ -16,31 +16,274 @@
 #   source = "github.com/myfork/project2"
 #
 # [[override]]
-#  name = "github.com/x/y"
-#  version = "2.4.0"
+#   name = "github.com/x/y"
+#   version = "2.4.0"
+#
+# [prune]
+#   non-go = false
+#   go-tests = true
+#   unused-packages = true
 
-# TODO: fork the repo to checkin artifacts, or find an alternative repo that has artifacts available.
-# This repo includes only istio-generated files.
 
+[[constraint]]
+  name = "cloud.google.com/go"
+  version = "0.20.0"
 
-required = [
-  ### BEGIN Mixer codegen deps
-  "github.com/gogo/protobuf/proto",
-  "github.com/gogo/protobuf/jsonpb",
-  "github.com/gogo/protobuf/protoc-gen-gogoslick",
-  "github.com/gogo/protobuf/gogoproto",
-  "github.com/istio/tools/protoc-gen-docs",
-  "github.com/gogo/protobuf/protoc-min-version",
-  ### END Mixer codegen deps
-  # fortio binary (main) is used by the testing framework and should not be
-  # pruned
-  "istio.io/fortio",
-]
+[[constraint]]
+  branch = "master"
+  name = "code.cloudfoundry.org/copilot"
 
-### Pruning settings
+[[constraint]]
+  name = "github.com/DataDog/datadog-go"
+  version = "2.0.0"
+
+[[constraint]]
+  name = "github.com/alicebob/miniredis"
+  version = "2.3.2"
+
+[[constraint]]
+  name = "github.com/aws/aws-sdk-go"
+  version = "1.13.24"
+
+[[constraint]]
+  name = "github.com/cactus/go-statsd-client"
+  version = "3.1.1"
+
+[[constraint]]
+  name = "github.com/cenkalti/backoff"
+  version = "2.0.0"
+
+[[constraint]]
+  name = "github.com/circonus-labs/circonus-gometrics"
+  version = "2.1.0"
+
+[[constraint]]
+  branch = "v2"
+  name = "github.com/coreos/go-oidc"
+
+[[constraint]]
+  name = "github.com/davecgh/go-spew"
+  version = "1.1.0"
+
+[[constraint]]
+  name = "github.com/envoyproxy/go-control-plane"
+  version = "0.1.0"
+
+[[constraint]]
+  name = "github.com/fluent/fluent-logger-golang"
+  version = "1.3.0"
+
+[[constraint]]
+  name = "github.com/ghodss/yaml"
+  version = "1.0.0"
+
+[[constraint]]
+  name = "github.com/go-redis/redis"
+  version = "6.10.2"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/gogo/googleapis"
+
+[[constraint]]
+  name = "github.com/gogo/protobuf"
+  version = "0.5.0"
+
+[[constraint]]
+  name = "github.com/golang/protobuf"
+  version = "1.0.0"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/golang/sync"
+
+[[constraint]]
+  name = "github.com/google/go-github"
+  version = "15.0.0"
+
+[[constraint]]
+  name = "github.com/google/uuid"
+  version = "0.2.0"
+
+[[constraint]]
+  name = "github.com/googleapis/gax-go"
+  version = "2.0.0"
+
+[[constraint]]
+  name = "github.com/gorilla/mux"
+  version = "1.6.1"
+
+[[constraint]]
+  name = "github.com/gorilla/websocket"
+  version = "1.2.0"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/grpc-ecosystem/go-grpc-middleware"
+
+[[constraint]]
+  name = "github.com/grpc-ecosystem/go-grpc-prometheus"
+  version = "1.1.0"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/grpc-ecosystem/grpc-opentracing"
+
+[[constraint]]
+  name = "github.com/hashicorp/consul"
+  version = "1.0.6"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/hashicorp/go-multierror"
+
+[[constraint]]
+  name = "github.com/howeyc/fsnotify"
+  version = "0.9.0"
+
+[[constraint]]
+  name = "github.com/natefinch/lumberjack"
+  version = "2.1.0"
+
+[[constraint]]
+  name = "github.com/onsi/gomega"
+  version = "1.3.0"
+
+[[constraint]]
+  name = "github.com/open-policy-agent/opa"
+  version = "0.7.1"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/openshift/api"
+
+[[constraint]]
+  name = "github.com/opentracing/opentracing-go"
+  version = "1.0.2"
+
+[[constraint]]
+  name = "github.com/pborman/uuid"
+  version = "1.1.0"
+
+[[constraint]]
+  name = "github.com/pmezard/go-difflib"
+  version = "1.0.0"
+
+[[constraint]]
+  name = "github.com/prometheus/client_golang"
+  version = "0.9.0-pre1"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/prometheus/client_model"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/prometheus/common"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/prometheus/prom2json"
+
+[[constraint]]
+  name = "github.com/satori/go.uuid"
+  version = "1.2.0"
+
+[[constraint]]
+  name = "github.com/spf13/cobra"
+  version = "0.0.2"
+
+[[constraint]]
+  name = "github.com/stretchr/testify"
+  version = "1.2.1"
+
+[[constraint]]
+  name = "github.com/uber/jaeger-client-go"
+  version = "2.12.0"
+
+[[constraint]]
+  name = "go.uber.org/atomic"
+  version = "1.2.0"
+
+[[constraint]]
+  name = "go.uber.org/multierr"
+  version = "1.1.0"
+
+[[constraint]]
+  name = "go.uber.org/zap"
+  version = "1.7.1"
+
+[[constraint]]
+  branch = "master"
+  name = "golang.org/x/net"
+
+[[constraint]]
+  branch = "master"
+  name = "golang.org/x/oauth2"
+
+[[constraint]]
+  branch = "master"
+  name = "golang.org/x/time"
+
+[[constraint]]
+  branch = "master"
+  name = "golang.org/x/tools"
+
+[[constraint]]
+  branch = "master"
+  name = "google.golang.org/api"
+
+[[constraint]]
+  branch = "master"
+  name = "google.golang.org/genproto"
+
+[[constraint]]
+  name = "google.golang.org/grpc"
+  version = "1.11.1"
+
+[[constraint]]
+  branch = "v2"
+  name = "gopkg.in/validator.v2"
+
+[[constraint]]
+  name = "gopkg.in/yaml.v2"
+  version = "2.2.1"
+
+[[constraint]]
+  branch = "master"
+  name = "istio.io/api"
+
+[[constraint]]
+  name = "istio.io/fortio"
+  version = "0.8.1"
+
+[[constraint]]
+  name = "k8s.io/api"
+  version = "kubernetes-1.9.1"
+
+[[constraint]]
+  branch = "release-1.10"
+  name = "k8s.io/apiextensions-apiserver"
+
+[[constraint]]
+  name = "k8s.io/cluster-registry"
+  version = "0.0.3"
+
+[[constraint]]
+  name = "k8s.io/helm"
+  version = "2.8.2"
+
+[[constraint]]
+  name = "k8s.io/ingress"
+  version = "0.9.6"
+
+[[constraint]]
+  name = "k8s.io/kubernetes"
+  version = "1.10.0"
+
 [prune]
-  unused-packages = true
   go-tests = true
+  unused-packages = true
   non-go = true
   [[prune.project]]
     name = "istio.io/fortio"
@@ -62,121 +305,4 @@ required = [
     name = "github.com/gogo/protobuf"
     non-go = false
     unused-packages = false
-###
 
-[[constraint]]
-  name = "google.golang.org/grpc"
-  version = "^1.8.2" # match istio/api
-
-
-# Lock mergo against kubernetes/client-go's version to fix merging related kubeconfig bugs
-# related to CertificateAuthorityData/certificate-authority-data failures
-# https://github.com/kubernetes/client-go/blob/7cd1d3291b7d9b1e2d54d4b69eb65995eaf8888e/tools/clientcmd/client_config.go#L160-L162
-[[override]]
-  name = "github.com/imdario/mergo"
-  revision = "6633656539c1639d9d78127b7d47c622b5d7b6dc"
-
-# When necessary, override transitive contraints that might be pinned
-# to older versions (e.g. ingress-nginx pinned to 1.8).
-#
-# kubernetes has a quarterly release cycle. For now the k8s
-# dependencies below follow this convention, but that could possibly
-# change in the future as repos are further decoupled from
-# kubernetes/kubernetes proper.
-#
-# client-go release-6.0 corresponds to k8s release-1.9 branch. See
-# https://github.com/kubernetes/client-go/tree/release-6.0#compatibility-matrix
-# for details.
-[[override]]
-  name = "k8s.io/client-go"
-  branch = "release-6.0"
-
-[[override]]
-  name = "k8s.io/apimachinery"
-  branch = "release-1.9"
-
-[[override]]
-  name = "k8s.io/api"
-  branch = "release-1.9"
-
-[[override]]
-  name = "github.com/Azure/go-autorest"
-  version = "v9.10.0"
-
-[[constraint]]
-  name = "k8s.io/apiextensions-apiserver"
-  branch = "release-1.9"
-
-[[override]]
-  name = "k8s.io/kubernetes"
-  branch = "release-1.9"
-
-# TODO(https://github.com/istio/istio/issues/2413). Keep
-# k8s.io/ingress-nginx pinned to an older version until istio ingress code
-# is refactored.
-#
-# istio.io/istio/pilot/pkg/config/kube/ingress uses the following nginx
-# controller packages from an older version of k8s.io/ingress which
-# have since been made internal and are no longer available.
-#
-#     "k8s.io/ingress-nginx/core/pkg/ingress/status"
-#     "k8s.io/ingress-nginx/core/pkg/ingress/store"
-#     "k8s.io/ingress-nginx/core/pkg/ingress/annotations/class"
-#[[constraint]]
-#  name = "k8s.io/ingress-nginx"
-#  revision = "0c6f15e372c831de52fcc393932540bb3a6d51b5"
-
-[[override]]
- name = "github.com/apache/thrift"
- version = ">=0.9.3, <0.11.0"
-
-# Default behavior of dep is to get the latest tagged version for fortio
-# which is what we want.
-
-[[constraint]]
-  name = "istio.io/api"
-  branch = "master"
-
-[[constraint]]
-  name = "github.com/envoyproxy/go-control-plane"
-  branch = "master"
-
-### Begin Mixer codegen dep pinning
-
-[[override]]
-  name = "github.com/gogo/protobuf"
-  version = "=0.5"
-
-# Api is pinning this to a version, needs to be fixed. Protobuf is supposed to have stable master.
-# The api constraint prevents dep update
-[[override]]
-  name = "github.com/golang/protobuf"
-  branch = "master"
-
-### End Mixer codegen dep pinning
-
-[[constraint]]
-  name = "github.com/open-policy-agent/opa"
-  version = "0.5.13"
-
-# To use reference package:
-#   vendor/k8s.io/kubernetes/pkg/util/parsers/parsers.go:36:16: undefined: reference.ParseNormalizedNamed
-[[override]]
-  name = "github.com/docker/distribution"
-  branch = "master"
-
-[[constraint]]
-  name = "code.cloudfoundry.org/copilot"
-  revision = "ac2922c9b5cfb46d70befdc91612343e6e382811"
-
-[[constraint]]
-  branch = "master"
-  name = "github.com/istio/tools"
-
-[[constraint]]
-  name = "github.com/openshift/api"
-  revision = "0d921e363e951d89f583292c60d013c318df64dc"
-
-[[override]]
-  name = "github.com/golang/glog"
-  source = "github.com/istio/glog"
