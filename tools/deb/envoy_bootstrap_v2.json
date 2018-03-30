@@ -2,6 +2,11 @@
   "node": {
     "id": "{{ .nodeID }}",
     "cluster": "{{ .cluster }}",
+{{ if .zone }}
+    "locality": {
+        "zone": "{{ .zone }}"
+    },
+{{ end }}
     "metadata": {
 {{- range $a, $s := .meta }}
           "{{$a}}": "{{$s}}",

@@ -2,6 +2,9 @@
   "node": {
     "id": "{{ .Options.NodeID }}",
     "cluster": "mycluster",
+    "locality": {
+      "zone": "testzone"
+    },
     "metadata": {
       "foo": "bar"
     }
