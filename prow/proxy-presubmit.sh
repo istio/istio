@@ -36,6 +36,9 @@ if [ "${CI:-}" == 'bootstrap' ]; then
   ROOT=${GOPATH}/src/istio.io/proxy
   cd ${GOPATH}/src/istio.io/proxy
 
+  # Setup bazel.rc
+  cp "${ROOT}/tools/bazel.rc.ci" "${HOME}/.bazelrc"
+
   # Use the provided pull head sha, from prow.
   GIT_SHA="${PULL_PULL_SHA}"
 else

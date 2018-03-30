@@ -35,6 +35,9 @@ if [ "${CI:-}" == 'bootstrap' ]; then
   ln -sf ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
   ROOT=${GOPATH}/src/istio.io/proxy
   cd ${GOPATH}/src/istio.io/proxy
+
+  # Setup bazel.rc
+  cp "${ROOT}/tools/bazel.rc.ci" "${HOME}/.bazelrc"
 fi
 
 GIT_SHA="$(git rev-parse --verify HEAD)"
