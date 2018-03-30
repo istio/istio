@@ -33,7 +33,6 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/gogo/protobuf/types"
 
-	"istio.io/istio/pilot/pkg/networking/v1alpha3"
 	"istio.io/istio/pkg/log"
 )
 
@@ -161,7 +160,7 @@ func (s *DiscoveryServer) StreamClusters(stream xdsapi.ClusterDiscoveryService_S
 		case <-con.pushChannel:
 		}
 
-		rawClusters := v1alpha3.BuildClusters(s.env, *con.modelNode)
+		rawClusters, _ := s.ConfigGenerator.BuildClusters(s.env, *con.modelNode)
 
 		response := con.clusters(rawClusters)
 		err := stream.Send(response)
