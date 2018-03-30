@@ -153,7 +153,13 @@ message Params {
         // This field will be ignored for non-distribution metric kinds.
         BucketsDefinition buckets = 3;
 
+        // Stackdriver metric type name, e.g.
+        // istio.io/service/server/request_count. If this is not provided, a
+        // concantenation of custom metric prefix (custom.googleapis.com/) and
+        // Istio metric name will be used.
+        string metric_type = 4;
     }
+
     // A map of Istio metric name to Stackdriver metric info.
     map<string, MetricInfo> metric_info = 8;
 
