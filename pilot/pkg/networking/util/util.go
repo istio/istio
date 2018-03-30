@@ -68,6 +68,13 @@ func NormalizeListeners(listeners []*xdsapi.Listener) []*xdsapi.Listener {
 		if !set[listener.Address.String()] {
 			set[listener.Address.String()] = true
 			out = append(out, listener)
+		} else {
+			// we already have a listener on this address.
+			// WE can merge the two listeners if and only if they are of the same type
+			// i.e. both HTTP or both TCP.
+			// for the moment, we handle HTTP only. Need to do TCP. or use filter chain match
+			//existingListener := set[listener.Address.String()]
+			//if listener.ListenerFilters[0].
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Address.String() < out[j].Address.String() })

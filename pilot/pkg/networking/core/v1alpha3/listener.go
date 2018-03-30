@@ -190,7 +190,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env model.Environmen
 		// TODO: need inbound listeners in HTTP_PROXY case, with dedicated ingress listener.
 	}
 
-	return util.NormalizeListeners(listeners), nil
+	return listeners, nil
+	//return util.NormalizeListeners(listeners), nil
 }
 
 // buildSidecarInboundListeners creates listeners for the server-side (inbound)
@@ -302,9 +303,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				env:            env,
 				proxy:          node,
 				proxyInstances: proxyInstances,
-				ip:             WildcardAddress,
-				port:           servicePort.Port,
-				protocol:       servicePort.Protocol,
+				// TODO: This will generate listener per service. And wont work well with wildcard addresses
+				ip:       WildcardAddress,
+				port:     servicePort.Port,
+				protocol: servicePort.Protocol,
 			}
 			var l *xdsapi.Listener
 			switch servicePort.Protocol {
@@ -342,7 +344,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				listenerOpts.httpOpts = &httpListenerOpts{
 					//rds:              fmt.Sprintf("%d", servicePort.Port),
 					routeConfig: configgen.buildSidecarOutboundHTTPRouteConfig(env, node, proxyInstances, services,
-						fmt.Sprintf("%d", servicePort.Port)),
+						fmt.Sprintf("%d", servicePort.Port)), // TODO: this name is incorrect as we dont merge vhosts.
 					useRemoteAddress: useRemoteAddress,
 					direction:        operation,
 					authnPolicy:      nil, /* authn policy is not needed for outbound listener */
