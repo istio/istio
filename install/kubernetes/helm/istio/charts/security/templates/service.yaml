@@ -4,6 +4,7 @@ metadata:
   # we use the normal name here (e.g. 'prometheus')
   # as grafana is configured to use this as a data source
   name: istio-ca
+  namespace: {{ .Release.Namespace }}
   labels:
     app: istio-ca
 spec:

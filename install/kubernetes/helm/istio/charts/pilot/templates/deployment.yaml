@@ -2,6 +2,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: istio-pilot
+  namespace: {{ .Release.Namespace }}
   # TODO: default tempate doesn't have this, which one is right ?
   labels:
     app: istio-pilot
