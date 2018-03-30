@@ -4,7 +4,7 @@ metadata:
   name: all
 spec:
   hosts:
-  - reviews.prod
+  - service3.default.svc.cluster.local
   - uk.bookinfo.com
   - eu.bookinfo.com
   gateways:
@@ -18,17 +18,19 @@ spec:
     route:
     - destination:
         port:
-          number: 7777
-        name: reviews.qa
+          number: 81
+        name: service3.default.svc.cluster.local
   - match:
     - uri:
         prefix: /reviews/
     route:
     - destination:
         port:
-          number: 9080 # can be omitted if its the only port for reviews
-        name: reviews.prod
+          number: 80
+        name: service3.default.svc.cluster.local
+        subset: v1
       weight: 80
     - destination:
-        name: reviews.qa
+        name: service3.default.svc.cluster.local
+        subset: v2
       weight: 20

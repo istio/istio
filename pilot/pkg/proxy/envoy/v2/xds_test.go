@@ -126,7 +126,7 @@ func initLocalPilotTestEnv() *bootstrap.Server {
 	// but easier to read.
 	server.EnvoyXdsServer.MemRegistry.AddService("service3", &model.Service{
 		Hostname: "service3.default.svc.cluster.local",
-		Address:  "10.1.0.1",
+		Address:  "10.10.0.1",
 		Ports:    testPorts(0),
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("service3", "app3", &model.ServiceInstance{
@@ -140,7 +140,7 @@ func initLocalPilotTestEnv() *bootstrap.Server {
 				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
 			},
 		},
-		Labels:           map[string]string{"version": "1"},
+		Labels:           map[string]string{"version": "v1"},
 		AvailabilityZone: "az",
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("service3", "app3", &model.ServiceInstance{
@@ -154,7 +154,7 @@ func initLocalPilotTestEnv() *bootstrap.Server {
 				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
 			},
 		},
-		Labels:           map[string]string{"version": "1", "app": "my-gateway-controller"},
+		Labels:           map[string]string{"version": "v2", "app": "my-gateway-controller"},
 		AvailabilityZone: "az",
 	})
 

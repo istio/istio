@@ -15,7 +15,6 @@
 package util
 
 import (
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -61,25 +60,25 @@ func ConvertAddressToCidr(addr string) *core.CidrRange {
 }
 
 // NormalizeListeners sorts and de-duplicates listeners by address
-func NormalizeListeners(listeners []*xdsapi.Listener) []*xdsapi.Listener {
-	out := make([]*xdsapi.Listener, 0, len(listeners))
-	set := make(map[string]bool)
-	for _, listener := range listeners {
-		if !set[listener.Address.String()] {
-			set[listener.Address.String()] = true
-			out = append(out, listener)
-		} else {
-			// we already have a listener on this address.
-			// WE can merge the two listeners if and only if they are of the same type
-			// i.e. both HTTP or both TCP.
-			// for the moment, we handle HTTP only. Need to do TCP. or use filter chain match
-			//existingListener := set[listener.Address.String()]
-			//if listener.ListenerFilters[0].
-		}
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Address.String() < out[j].Address.String() })
-	return out
-}
+//func NormalizeListeners(listeners []*xdsapi.Listener) []*xdsapi.Listener {
+//	out := make([]*xdsapi.Listener, 0, len(listeners))
+//	set := make(map[string]bool)
+//	for _, listener := range listeners {
+//		if !set[listener.Address.String()] {
+//			set[listener.Address.String()] = true
+//			out = append(out, listener)
+//		} else {
+//			// we already have a listener on this address.
+//			// WE can merge the two listeners if and only if they are of the same type
+//			// i.e. both HTTP or both TCP.
+//			// for the moment, we handle HTTP only. Need to do TCP. or use filter chain match
+//			//existingListener := set[listener.Address.String()]
+//			//if listener.ListenerFilters[0].
+//		}
+//	}
+//	sort.Slice(out, func(i, j int) bool { return out[i].Address.String() < out[j].Address.String() })
+//	return out
+//}
 
 // BuildAddress returns a SocketAddress with the given ip and port.
 func BuildAddress(ip string, port uint32) core.Address {
