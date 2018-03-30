@@ -40,6 +40,8 @@ class ReportData {
     int response_code;
   };
   virtual void GetReportInfo(ReportInfo* info) const = 0;
+
+  virtual bool GetDestinationIpPort(std::string* ip, int* port) const = 0;
 };
 
 }  // namespace http

@@ -28,6 +28,7 @@ class MockReportData : public ReportData {
  public:
   MOCK_CONST_METHOD0(GetResponseHeaders, std::map<std::string, std::string>());
   MOCK_CONST_METHOD1(GetReportInfo, void(ReportInfo* info));
+  MOCK_CONST_METHOD2(GetDestinationIpPort, bool(std::string* ip, int* port));
 };
 
 }  // namespace http

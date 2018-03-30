@@ -184,6 +184,18 @@ attributes {
   }
 }
 attributes {
+  key: "destination.ip"
+  value {
+    bytes_value: "1.2.3.4"
+  }
+}
+attributes {
+  key: "destination.port"
+  value {
+    int64_value: 8080
+  }
+}
+attributes {
   key: "response.headers"
   value {
     string_map_value {
@@ -218,6 +230,11 @@ void ClearContextTime(const std::string &name, RequestContext *request) {
   utils::AttributesBuilder builder(&request->attributes);
   std::chrono::time_point<std::chrono::system_clock> time0;
   builder.AddTimestamp(name, time0);
+}
+
+void SetDestinationIp(RequestContext *request, const std::string &ip) {
+  utils::AttributesBuilder builder(&request->attributes);
+  builder.AddBytes(AttributeName::kDestinationIp, ip);
 }
 
 TEST(AttributesBuilderTest, TestExtractForwardedAttributes) {
@@ -385,6 +402,12 @@ TEST(AttributesBuilderTest, TestCheckAttributesWithAuthNResult) {
 
 TEST(AttributesBuilderTest, TestReportAttributes) {
   ::testing::NiceMock<MockReportData> mock_data;
+  EXPECT_CALL(mock_data, GetDestinationIpPort(_, _))
+      .WillOnce(Invoke([](std::string *ip, int *port) -> bool {
+        *ip = "1.2.3.4";
+        *port = 8080;
+        return true;
+      }));
   EXPECT_CALL(mock_data, GetResponseHeaders())
       .WillOnce(Invoke([]() -> std::map<std::string, std::string> {
         std::map<std::string, std::string> map;
@@ -401,6 +424,47 @@ TEST(AttributesBuilderTest, TestReportAttributes) {
       }));
 
   RequestContext request;
+  AttributesBuilder builder(&request);
+  builder.ExtractReportAttributes(&mock_data);
+
+  ClearContextTime(AttributeName::kResponseTime, &request);
+
+  std::string out_str;
+  TextFormat::PrintToString(request.attributes, &out_str);
+  GOOGLE_LOG(INFO) << "===" << out_str << "===";
+
+  Attributes expected_attributes;
+  ASSERT_TRUE(
+      TextFormat::ParseFromString(kReportAttributes, &expected_attributes));
+  EXPECT_TRUE(
+      MessageDifferencer::Equals(request.attributes, expected_attributes));
+}
+
+TEST(AttributesBuilderTest, TestReportAttributesWithDestIP) {
+  ::testing::NiceMock<MockReportData> mock_data;
+  EXPECT_CALL(mock_data, GetDestinationIpPort(_, _))
+      .WillOnce(Invoke([](std::string *ip, int *port) -> bool {
+        *ip = "2.3.4.5";
+        *port = 8080;
+        return true;
+      }));
+  EXPECT_CALL(mock_data, GetResponseHeaders())
+      .WillOnce(Invoke([]() -> std::map<std::string, std::string> {
+        std::map<std::string, std::string> map;
+        map["content-length"] = "123456";
+        map["server"] = "my-server";
+        return map;
+      }));
+  EXPECT_CALL(mock_data, GetReportInfo(_))
+      .WillOnce(Invoke([](ReportData::ReportInfo *info) {
+        info->received_bytes = 100;
+        info->send_bytes = 200;
+        info->duration = std::chrono::nanoseconds(1);
+        info->response_code = 404;
+      }));
+
+  RequestContext request;
+  SetDestinationIp(&request, "1.2.3.4");
   AttributesBuilder builder(&request);
   builder.ExtractReportAttributes(&mock_data);
 

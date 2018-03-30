@@ -54,6 +54,14 @@ class ReportData : public ::istio::control::http::ReportData {
     // is rejected by Envoy. Set the response code for such requests as 500.
     data->response_code = info_.responseCode().value_or(500);
   }
+
+  bool GetDestinationIpPort(std::string *str_ip, int *port) const override {
+    if (info_.upstreamHost() && info_.upstreamHost()->address()) {
+      return Utils::GetIpPort(info_.upstreamHost()->address()->ip(), str_ip,
+                              port);
+    }
+    return false;
+  }
 };
 
 }  // namespace Mixer
