@@ -48,7 +48,7 @@ var (
 	// local tests.
 
 	app3Ip    = "10.2.0.1"
-	ingressIP = "10.3.0.1"
+	gatewayIP = "10.3.0.1"
 )
 
 // Common code for the xds testing.
@@ -94,8 +94,8 @@ func sidecarId(ip, deployment string) string {
 	return fmt.Sprintf("sidecar~%s~%s-644fc65469-96dza.testns~testns.svc.cluster.local", ip, deployment)
 }
 
-func ingressId(ip string) string {
-	return fmt.Sprintf("ingress~%s~istio-ingress-644fc65469-96dzt.istio-system~istio-system.svc.cluster.local", ip)
+func gatewayId(ip string) string {
+	return fmt.Sprintf("router~%s~istio-gateway-644fc65469-96dzt.istio-system~istio-system.svc.cluster.local", ip)
 }
 
 // initLocalPilotTestEnv creates a local, in process Pilot with XDSv2 support and a set
@@ -115,7 +115,7 @@ func initLocalPilotTestEnv() *bootstrap.Server {
 	// TODO: move me to discovery.go in istio/test/util
 	port := &model.Port{
 		Name:                 "h2port",
-		Port:                 6666,
+		Port:                 66,
 		Protocol:             model.ProtocolGRPC,
 		AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
 	}
@@ -126,8 +126,8 @@ func initLocalPilotTestEnv() *bootstrap.Server {
 	// but easier to read.
 	server.EnvoyXdsServer.MemRegistry.AddService("service3", &model.Service{
 		Hostname: "service3.default.svc.cluster.local",
-		Address:  "10.1.0.1",
-		Ports:    testPorts(1000),
+		Address:  "10.10.0.1",
+		Ports:    testPorts(0),
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("service3", "app3", &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
@@ -140,12 +140,12 @@ func initLocalPilotTestEnv() *bootstrap.Server {
 				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
 			},
 		},
-		Labels:           map[string]string{"version": "1"},
+		Labels:           map[string]string{"version": "v1"},
 		AvailabilityZone: "az",
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("service3", "app3", &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
-			Address: ingressIP,
+			Address: gatewayIP,
 			Port:    2080,
 			ServicePort: &model.Port{
 				Name:                 "http-main",
@@ -154,8 +154,22 @@ func initLocalPilotTestEnv() *bootstrap.Server {
 				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
 			},
 		},
-		Labels:           map[string]string{"version": "1", "app": "my-gateway-controller"},
+		Labels:           map[string]string{"version": "v2", "app": "my-gateway-controller"},
 		AvailabilityZone: "az",
+	})
+
+	// Service4 is using port 80, to test that we generate multiple clusters (regression)
+	server.EnvoyXdsServer.MemRegistry.AddService("service4", &model.Service{
+		Hostname: "service4.default.svc.cluster.local",
+		Address:  "10.1.0.4",
+		Ports: []*model.Port{
+			{
+				Name:                 "http-main",
+				Port:                 80,
+				Protocol:             model.ProtocolHTTP,
+				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+			},
+		},
 	})
 
 	return server
