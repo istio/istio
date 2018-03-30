@@ -111,7 +111,7 @@ func TestCloudFoundrySnapshot(t *testing.T) {
 				Route: []*networking.DestinationWeight{
 					{
 						Destination: &networking.Destination{
-							Host: matchHostname,
+							Name: matchHostname,
 						},
 					},
 				},
@@ -183,7 +183,7 @@ func TestCloudFoundrySnapshotVirtualServiceCache(t *testing.T) {
 			Route: []*networking.DestinationWeight{
 				{
 					Destination: &networking.Destination{
-						Host: "some-external-route.example.com",
+						Name: "some-external-route.example.com",
 					},
 				},
 			},

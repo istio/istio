@@ -284,7 +284,7 @@ func ingressBackendToHTTPRoute(backend *v1beta1.IngressBackend) *networking.HTTP
 		Route: []*networking.DestinationWeight{
 			{
 				Destination: &networking.Destination{
-					Host: backend.ServiceName,
+					Name: backend.ServiceName,
 					Port: port,
 				},
 				Weight: 100,

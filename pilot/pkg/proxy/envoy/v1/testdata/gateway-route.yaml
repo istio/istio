@@ -5,4 +5,4 @@ gateways:
 http:
 - route:
   - destination:
-      host: world
+      name: world

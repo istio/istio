@@ -5,10 +5,10 @@ gateways:
 http:
 - route:
   - destination:
-      host: world
+      name: world
       subset: v0
     weight: 75
   - destination:
-      host: world
+      name: world
       subset: v1
     weight: 25

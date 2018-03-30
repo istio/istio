@@ -463,7 +463,7 @@ func TestRouteRules(t *testing.T) {
 					{
 						Route: []*networking.DestinationWeight{{
 							Destination: &networking.Destination{
-								Host: "world",
+								Name: "world",
 							},
 						}},
 						Match: []*networking.HTTPMatchRequest{

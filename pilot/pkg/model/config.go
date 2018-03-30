@@ -851,7 +851,7 @@ func (store *istioConfigStore) DestinationRule(name, domain string) *Config {
 	target := ResolveFQDN(name, domain)
 	for _, config := range configs {
 		rule := config.Spec.(*networking.DestinationRule)
-		if ResolveFQDN(rule.Host, domain) == target {
+		if ResolveFQDN(rule.Name, domain) == target {
 			return &config
 		}
 	}

@@ -35,7 +35,7 @@ func DestinationPolicies(configs []model.Config) []model.Config {
 	for _, policy := range policies {
 		host := convertIstioService(policy.Destination)
 		if destinationRules[host] == nil {
-			destinationRules[host] = &v1alpha3.DestinationRule{Host: host}
+			destinationRules[host] = &v1alpha3.DestinationRule{Name: host}
 		}
 		destinationRule := destinationRules[host]
 		destinationRule.Subsets = append(destinationRule.Subsets, convertDestinationPolicy(policy))

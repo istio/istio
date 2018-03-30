@@ -1088,7 +1088,7 @@ func ValidateDestinationRule(msg proto.Message) (errs error) {
 	}
 
 	errs = appendErrors(errs,
-		validateHost(rule.Host),
+		validateHost(rule.Name),
 		validateTrafficPolicy(rule.TrafficPolicy))
 
 	for _, subset := range rule.Subsets {
@@ -2108,7 +2108,7 @@ func validateDestination(destination *networking.Destination) (errs error) {
 		return
 	}
 
-	errs = appendErrors(errs, validateHost(destination.Host))
+	errs = appendErrors(errs, validateHost(destination.Name))
 	if destination.Subset != "" {
 		errs = appendErrors(errs, validateSubsetName(destination.Subset))
 	}
