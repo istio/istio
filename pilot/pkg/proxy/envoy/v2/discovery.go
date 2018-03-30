@@ -16,17 +16,16 @@ package v2
 
 import (
 	"os"
+	"sync"
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"google.golang.org/grpc"
 
-	"sync"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
-	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/networking/plugin/registry"
 	"istio.io/istio/pkg/log"
 )
 
@@ -76,7 +75,7 @@ func NewDiscoveryServer(grpcServer *grpc.Server, env model.Environment) *Discove
 	out := &DiscoveryServer{
 		GrpcServer:      grpcServer,
 		env:             env,
-		ConfigGenerator: v1alpha3.NewConfigGenerator(plugin.New()),
+		ConfigGenerator: v1alpha3.NewConfigGenerator(registry.NewPlugins()),
 	}
 
 	xdsapi.RegisterEndpointDiscoveryServiceServer(out.GrpcServer, out)

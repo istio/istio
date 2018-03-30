@@ -12,15 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package plugin
+// Package registry represents a registry of plugins that can be used by a config generator.
+//
+// This lives in a subpackage and not in package `plugin` itself to avoid cyclic dependencies.
+package registry
 
 import (
+	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/plugin/authn"
 )
 
-// New returns a list of plugin instance handles. Each plugin implements the plugin.Callbacks interfaces
-func New() []Callbacks {
-	plugins := make([]Callbacks, 0)
+// NewPlugins returns a list of plugin instance handles. Each plugin implements the plugin.Callbacks interfaces
+func NewPlugins() []plugin.Callbacks {
+	plugins := make([]plugin.Callbacks, 0)
 	plugins = append(plugins, authn.NewPlugin())
 	// plugins = append(plugins, mixer.NewPlugin())
 	// plugins = append(plugins, apim.NewPlugin())
