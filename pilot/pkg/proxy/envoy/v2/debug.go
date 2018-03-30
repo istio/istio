@@ -32,7 +32,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	// For debugging and load testing v2 we add an memory registry.
 	s.MemRegistry = NewMemServiceDiscovery(
 		map[string]*model.Service{
-		//			mock.HelloService.Hostname: mock.HelloService,
+			//			mock.HelloService.Hostname: mock.HelloService,
 		}, 2)
 
 	sctl.AddRegistry(aggregate.Registry{
