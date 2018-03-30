@@ -62,8 +62,8 @@ ingress:
   enabled: true
   serviceAccountName: default
   imagePullPolicy: IfNotPresent
-  autoscaleMin: 2
-  autoscaleMax: 8
+  autoscaleMin: 1
+  autoscaleMax: 1
   resources: {}
 # limits:
 #  cpu: 100m
