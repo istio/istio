@@ -26,9 +26,7 @@ import (
 
 const (
 	traceHeader = "X-Client-Trace-Id"
-	numTraces   = 1
-	traceIdField = "\"traceId\""
-	mixerCheckOperation = "mixer/check"
+	numTraces   = 5
 )
 
 type zipkin struct {
@@ -98,15 +96,9 @@ func (t *zipkin) verifyTraces() error {
 				return tutil.ErrAgain
 			}
 
-			// Check that:
-			// a) The trace contains the id value (must occur more than once, as the response also contains the request URL with query parameter)
-			// b) Count the number of spans - should be 2, one for the invocation of service b, and the other for the mixer check
-			// c) Check that the trace data contains the mixer/check (part of the operation name)
-			// NOTE: We are also indirectly verifying that the mixer/check span is a child span of the service invocation, as
-			// the mixer/check span can only exist in this trace as a child span. If it wasn't a child span then it would be
-			// in a separate trace instance not retrieved by the query to zipkin (based on the single x-client-trace-id).
-
-			if strings.Count(response.Body, id) == 1 || strings.Count(response.Body, traceIdField) != 2 || !strings.Contains(response.Body, mixerCheckOperation) {
+			// Check that the trace contains the id value (must occur more than once, as the
+			//response also contains the request URL with query parameter).
+			if strings.Count(response.Body, id) == 1 {
 				return tutil.ErrAgain
 			}
 		}
