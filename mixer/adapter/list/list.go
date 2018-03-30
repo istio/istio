@@ -74,13 +74,12 @@ func (h *handler) HandleListEntry(_ context.Context, entry *listentry.Instance) 
 	h.lock.Unlock()
 
 	if l == nil {
-		// no valid list
-		return adapter.CheckResult{}, err
+		return adapter.CheckResult{}, fmt.Errorf("no valid list")
 	}
 
 	found, err := l.checkList(entry.Value)
 	code := rpc.OK
-	msg := ""
+	msg := fmt.Sprintf("%s is found", entry.Value)
 
 	if err != nil {
 		code = rpc.INVALID_ARGUMENT

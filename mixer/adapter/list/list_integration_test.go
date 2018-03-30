@@ -78,7 +78,9 @@ func TestReport(t *testing.T) {
             "Returns": [
              {
               "Check": {
-                "Status": {},
+                "Status": {
+			     "message": "src1 is found"
+			    },
                 "ValidDuration": 300000000000,
                 "ValidUseCount": 10000
               }

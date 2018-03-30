@@ -472,34 +472,28 @@ func TestRegexErrors(t *testing.T) {
 }
 
 func TestRefreshAndPurge(t *testing.T) {
-	listToServe := "ABC"
 	var h *handler
 	var err error
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	var failServe int32
-	purgeDetected := false
+	purgeDetected := make(chan bool)
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
 		if atomic.LoadInt32(&failServe) > 0 {
 			w.WriteHeader(http.StatusMovedPermanently)
 
 			if h.list == nil {
-				// the list was purged
-				if !purgeDetected {
-					purgeDetected = true
-					wg.Done()
-				}
+				purgeDetected <- true
 			}
-
 			return
 		}
 
-		if _, err = w.Write([]byte(listToServe)); err != nil {
+		if _, err = w.Write([]byte("ABC")); err != nil {
 			t.Errorf("w.Write failed: %v", err)
 		}
+		wg.Done()
 	}))
 	defer ts.Close()
 
@@ -519,12 +513,13 @@ func TestRefreshAndPurge(t *testing.T) {
 		t.Errorf("Got error %v, expecting success", err)
 	}
 
+	wg.Wait()
+
 	// cause the http server to start failing requests
 	atomic.AddInt32(&failServe, 1)
 
 	// wait for the list to have been purged
-	wg.Wait()
-
+	<-purgeDetected
 	_, err = h.HandleListEntry(context.Background(), &listentry.Instance{Value: "ABC"})
 	if err == nil {
 		t.Error("Got success, expected error")
