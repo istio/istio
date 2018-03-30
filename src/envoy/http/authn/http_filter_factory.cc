@@ -13,11 +13,13 @@
  * limitations under the License.
  */
 
-#include "authentication/v1alpha1/policy.pb.h"
+#include "envoy/config/filter/http/authn/v2alpha1/config.pb.h"
 #include "envoy/registry/registry.h"
 #include "google/protobuf/util/json_util.h"
 #include "src/envoy/http/authn/http_filter.h"
 #include "src/envoy/utils/utils.h"
+
+using istio::envoy::config::filter::http::authn::v2alpha1::FilterConfig;
 
 namespace Envoy {
 namespace Server {
@@ -37,7 +39,7 @@ class AuthnFilterConfig : public NamedHttpFilterConfigFactory,
     ENVOY_LOG(debug, "Called AuthnFilterConfig : {}", __func__);
 
     google::protobuf::util::Status status =
-        Utils::ParseJsonMessage(config.asJsonString(), &policy_);
+        Utils::ParseJsonMessage(config.asJsonString(), &filter_config_);
     ENVOY_LOG(debug, "Called AuthnFilterConfig : Utils::ParseJsonMessage()");
     if (status.ok()) {
       return createFilter();
@@ -54,14 +56,7 @@ class AuthnFilterConfig : public NamedHttpFilterConfigFactory,
   HttpFilterFactoryCb createFilterFactoryFromProto(
       const Protobuf::Message& proto_config, const std::string&,
       FactoryContext&) override {
-    ENVOY_LOG(debug, "Called AuthnFilterConfig : {}", __func__);
-
-    const istio::authentication::v1alpha1::Policy& policy =
-        dynamic_cast<const istio::authentication::v1alpha1::Policy&>(
-            proto_config);
-
-    policy_ = policy;
-
+    filter_config_ = dynamic_cast<const FilterConfig&>(proto_config);
     return createFilter();
   }
 
@@ -79,11 +74,12 @@ class AuthnFilterConfig : public NamedHttpFilterConfigFactory,
 
     return [&](Http::FilterChainFactoryCallbacks& callbacks) -> void {
       callbacks.addStreamDecoderFilter(
-          std::make_shared<Http::Istio::AuthN::AuthenticationFilter>(policy_));
+          std::make_shared<Http::Istio::AuthN::AuthenticationFilter>(
+              filter_config_));
     };
   }
 
-  istio::authentication::v1alpha1::Policy policy_;
+  FilterConfig filter_config_;
 };
 
 /**

@@ -14,11 +14,15 @@
  */
 
 #include "src/envoy/http/authn/http_filter.h"
+#include "authentication/v1alpha1/policy.pb.h"
 #include "common/http/utility.h"
+#include "envoy/config/filter/http/authn/v2alpha1/config.pb.h"
 #include "src/envoy/http/authn/origin_authenticator.h"
 #include "src/envoy/http/authn/peer_authenticator.h"
 #include "src/envoy/utils/authn.h"
 #include "src/envoy/utils/utils.h"
+
+using istio::envoy::config::filter::http::authn::v2alpha1::FilterConfig;
 
 namespace iaapi = istio::authentication::v1alpha1;
 
@@ -27,9 +31,8 @@ namespace Http {
 namespace Istio {
 namespace AuthN {
 
-AuthenticationFilter::AuthenticationFilter(
-    const istio::authentication::v1alpha1::Policy& policy)
-    : policy_(policy) {}
+AuthenticationFilter::AuthenticationFilter(const FilterConfig& filter_config)
+    : filter_config_(filter_config) {}
 
 AuthenticationFilter::~AuthenticationFilter() {}
 
@@ -135,7 +138,7 @@ AuthenticationFilter::createPeerAuthenticator(
     Istio::AuthN::FilterContext* filter_context,
     const Istio::AuthN::AuthenticatorBase::DoneCallback& done_callback) {
   return std::make_unique<Istio::AuthN::PeerAuthenticator>(
-      filter_context, done_callback, policy_);
+      filter_context, done_callback, filter_config_.policy());
 }
 
 std::unique_ptr<Istio::AuthN::AuthenticatorBase>
@@ -143,7 +146,7 @@ AuthenticationFilter::createOriginAuthenticator(
     Istio::AuthN::FilterContext* filter_context,
     const Istio::AuthN::AuthenticatorBase::DoneCallback& done_callback) {
   return std::make_unique<Istio::AuthN::OriginAuthenticator>(
-      filter_context, done_callback, policy_);
+      filter_context, done_callback, filter_config_.policy());
 }
 
 }  // namespace AuthN

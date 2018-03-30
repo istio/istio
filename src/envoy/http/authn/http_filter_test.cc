@@ -14,9 +14,9 @@
  */
 
 #include "src/envoy/http/authn/http_filter.h"
-#include "authentication/v1alpha1/policy.pb.h"
 #include "common/common/base64.h"
 #include "common/http/header_map_impl.h"
+#include "envoy/config/filter/http/authn/v2alpha1/config.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "src/envoy/http/authn/authenticator_base.h"
@@ -28,6 +28,7 @@
 using Envoy::Http::Istio::AuthN::AuthenticatorBase;
 using Envoy::Http::Istio::AuthN::FilterContext;
 using istio::authn::Result;
+using istio::envoy::config::filter::http::authn::v2alpha1::FilterConfig;
 using testing::Invoke;
 using testing::NiceMock;
 using testing::StrictMock;
@@ -77,10 +78,9 @@ std::unique_ptr<AuthenticatorBase> createAlwaysPassAuthenticator(
 class MockAuthenticationFilter : public AuthenticationFilter {
  public:
   // We'll use fake authenticator for test, so policy is not really needed. Use
-  // default policy for simplicity.
+  // default config for simplicity.
   MockAuthenticationFilter()
-      : AuthenticationFilter(
-            istio::authentication::v1alpha1::Policy::default_instance()) {}
+      : AuthenticationFilter(FilterConfig::default_instance()) {}
   ~MockAuthenticationFilter(){};
 
   MOCK_METHOD2(createPeerAuthenticator,

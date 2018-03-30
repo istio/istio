@@ -15,8 +15,8 @@
 
 #pragma once
 
-#include "authentication/v1alpha1/policy.pb.h"
 #include "common/common/logger.h"
+#include "envoy/config/filter/http/authn/v2alpha1/config.pb.h"
 #include "server/config/network/http_connection_manager.h"
 #include "src/envoy/http/authn/authenticator_base.h"
 #include "src/envoy/http/authn/filter_context.h"
@@ -30,7 +30,9 @@ namespace AuthN {
 class AuthenticationFilter : public StreamDecoderFilter,
                              public Logger::Loggable<Logger::Id::filter> {
  public:
-  AuthenticationFilter(const istio::authentication::v1alpha1::Policy& config);
+  AuthenticationFilter(
+      const istio::envoy::config::filter::http::authn::v2alpha1::FilterConfig&
+          config);
   ~AuthenticationFilter();
 
   // Http::StreamFilterBase
@@ -71,7 +73,8 @@ class AuthenticationFilter : public StreamDecoderFilter,
 
  private:
   // Store the config.
-  const istio::authentication::v1alpha1::Policy& policy_;
+  const istio::envoy::config::filter::http::authn::v2alpha1::FilterConfig&
+      filter_config_;
 
   StreamDecoderFilterCallbacks* decoder_callbacks_{};
 
