@@ -76,11 +76,11 @@ func (s *DiscoveryServer) StreamClusters(stream xdsapi.ClusterDiscoveryService_S
 	initialRequestReceived := false
 
 	con := &XdsConnection{
-		pushChannel: make(chan struct{}, 1),
-		PeerAddr:    peerAddr,
-		Connect:     time.Now(),
+		pushChannel:   make(chan struct{}, 1),
+		PeerAddr:      peerAddr,
+		Connect:       time.Now(),
 		HTTPListeners: []*xdsapi.Listener{},
-		stream: stream,
+		stream:        stream,
 	}
 	// node is the key used in the cluster map. It includes the pod name and an unique identifier,
 	// since multiple envoys may connect from the same pod.
@@ -210,4 +210,3 @@ func Cdsz(w http.ResponseWriter, req *http.Request) {
 func (s *DiscoveryServer) FetchClusters(ctx context.Context, req *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error) {
 	return nil, errors.New("not implemented")
 }
-

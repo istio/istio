@@ -57,7 +57,7 @@ func (s *DiscoveryServer) StreamListeners(stream xdsapi.ListenerDiscoveryService
 		PeerAddr:      peerAddr,
 		Connect:       time.Now(),
 		HTTPListeners: []*xdsapi.Listener{},
-		stream: stream,
+		stream:        stream,
 	}
 	go func() {
 		defer close(reqChannel)
@@ -115,7 +115,7 @@ func (s *DiscoveryServer) StreamListeners(stream xdsapi.ListenerDiscoveryService
 		if err != nil {
 			return err
 		}
-		}
+	}
 }
 
 func (s *DiscoveryServer) pushLds(node model.Proxy, con *XdsConnection) error {
@@ -141,7 +141,6 @@ func (s *DiscoveryServer) pushLds(node model.Proxy, con *XdsConnection) error {
 	return nil
 }
 
-
 // ldsPushAll implements old style invalidation, generated when any rule or endpoint changes.
 // Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
 // to the model ConfigStorageCache and Controller.
@@ -150,7 +149,7 @@ func ldsPushAll() {
 	// Create a temp map to avoid locking the add/remove
 	tmpMap := map[string]*XdsConnection{}
 	for k, v := range adsClients {
-		if (v.LDSWatch) {
+		if v.LDSWatch {
 			tmpMap[k] = v
 		}
 	}

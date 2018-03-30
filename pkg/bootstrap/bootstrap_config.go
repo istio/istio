@@ -28,8 +28,9 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"strings"
+
+	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 // Generate the envoy v2 bootstrap configuration, using template.
@@ -197,7 +198,7 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 
 	if len(config.AvailabilityZone) > 0 {
 		opts["az"] = config.AvailabilityZone
-		}
+	}
 
 	h, p, err := GetHostPort("Discovery", config.DiscoveryAddress)
 	if err != nil {

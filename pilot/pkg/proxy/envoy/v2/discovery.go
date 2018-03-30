@@ -18,8 +18,8 @@ import (
 	"os"
 	"time"
 
-	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 
 	"google.golang.org/grpc"
 
@@ -52,7 +52,7 @@ const (
 	endpointType = typePrefix + "ClusterLoadAssignment"
 	clusterType  = typePrefix + "Cluster"
 	listenerType = typePrefix + "Listener"
-	routeType = typePrefix + "Route"
+	routeType    = typePrefix + "Route"
 )
 
 // DiscoveryServer is Pilot's gRPC implementation for Envoy's v2 xds APIs

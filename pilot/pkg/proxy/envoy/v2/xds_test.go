@@ -83,7 +83,7 @@ func initEnvoyTestEnv(t *testing.T) {
 	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)
 	testEnv.IstioSrc = util.IstioSrc
 	testEnv.IstioOut = util.IstioOut
-	testEnv.EnvoyConfigOpt = map[string]interface{} {
+	testEnv.EnvoyConfigOpt = map[string]interface{}{
 		"NodeID": nodeId,
 	}
 
@@ -166,14 +166,14 @@ func initLocalPilotTestEnv() *bootstrap.Server {
 	server.EnvoyXdsServer.MemRegistry.AddService("service4", &model.Service{
 		Hostname: "service4.default.svc.cluster.local",
 		Address:  "10.1.0.4",
-		Ports:    []*model.Port{
+		Ports: []*model.Port{
 			{
 				Name:                 "http-main",
 				Port:                 80,
 				Protocol:             model.ProtocolHTTP,
 				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
 			},
-			},
+		},
 	})
 
 	return server

@@ -281,7 +281,7 @@ func (s *TestSetup) CreateEnvoyConf(path string, stress, faultInject bool, mfCon
 		Ports:           ports,
 		IstioSrc:        s.IstioSrc,
 		IstioOut:        s.IstioOut,
-		Options: s.EnvoyConfigOpt,
+		Options:         s.EnvoyConfigOpt,
 	}
 	// TODO: use fields from s directly instead of copying
 

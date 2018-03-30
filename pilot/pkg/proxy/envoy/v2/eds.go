@@ -282,7 +282,7 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 		PeerAddr:    peerAddr,
 		Clusters:    []string{},
 		Connect:     time.Now(),
-		stream: stream,
+		stream:      stream,
 	}
 	// node is the key used in the cluster map. It includes the pod name and an unique identifier,
 	// since multiple envoys may connect from the same pod.
