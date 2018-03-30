@@ -24,6 +24,11 @@
 #   go-tests = true
 #   unused-packages = true
 
+required = [
+  ### BEGIN Mixer codegen deps
+  "github.com/istio/tools/protoc-gen-docs",
+  ### END Mixer codegen deps
+]
 
 # To use reference package:
 #   vendor/k8s.io/kubernetes/pkg/util/parsers/parsers.go:36:16: undefined: reference.ParseNormalizedNamed
