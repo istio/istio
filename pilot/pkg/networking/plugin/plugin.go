@@ -20,7 +20,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
-// PluginCallbacks represents the interfaces implemented by code that modifies the default output of
+// Callbacks represents the interfaces implemented by code that modifies the default output of
 // networking. Examples include AuthenticationPlugin that sets up mTLS authentication on the inbound Listener
 // and outbound Cluster, the mixer plugin that sets up policy checks on the inbound listener, etc.
 type Callbacks interface {

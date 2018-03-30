@@ -18,8 +18,8 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin/authn"
 )
 
-// NewPlugins returns a list of plugin instance handles. Each plugin implements the plugins.Callbacks interfaces
-func NewPlugins() []Callbacks {
+// New returns a list of plugin instance handles. Each plugin implements the plugin.Callbacks interfaces
+func New() []Callbacks {
 	plugins := make([]Callbacks, 0)
 	plugins = append(plugins, authn.NewPlugin())
 	// plugins = append(plugins, mixer.NewPlugin())

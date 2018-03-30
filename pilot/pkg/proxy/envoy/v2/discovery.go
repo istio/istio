@@ -76,7 +76,7 @@ func NewDiscoveryServer(grpcServer *grpc.Server, env model.Environment) *Discove
 	out := &DiscoveryServer{
 		GrpcServer:      grpcServer,
 		env:             env,
-		ConfigGenerator: v1alpha3.NewConfigGenerator(plugin.NewPlugins()),
+		ConfigGenerator: v1alpha3.NewConfigGenerator(plugin.New()),
 	}
 
 	xdsapi.RegisterEndpointDiscoveryServiceServer(out.GrpcServer, out)
