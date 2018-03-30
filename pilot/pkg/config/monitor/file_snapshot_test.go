@@ -54,7 +54,7 @@ spec:
   http:
   - route:
     - destination:
-        name: some.example.internal
+        host: some.example.internal
 `
 
 func TestFileSnapshotNoFilter(t *testing.T) {
