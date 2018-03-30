@@ -134,13 +134,16 @@ func updateEds(env model.Environment, cluster *v2.Cluster, serviceName string) {
 	cluster.EdsClusterConfig = &v2.Cluster_EdsClusterConfig{
 		ServiceName: cluster.Name,
 		EdsConfig: &core.ConfigSource{
-			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-				ApiConfigSource: &core.ApiConfigSource{
-					ApiType:      core.ApiConfigSource_GRPC,
-					ClusterNames: []string{xdsName},
-					RefreshDelay: &refresh,
-				},
+			ConfigSourceSpecifier: &core.ConfigSource_Ads{
+				Ads: &core.AggregatedConfigSource{},
 			},
+			//ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+			//	ApiConfigSource: &core.ApiConfigSource{
+			//		ApiType:      core.ApiConfigSource_GRPC,
+			//		ClusterNames: []string{xdsName},
+			//		RefreshDelay: &refresh,
+			//	},
+			//},
 		},
 	}
 }

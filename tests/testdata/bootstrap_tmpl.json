@@ -13,6 +13,10 @@
   },
   "dynamic_resources": {
     "lds_config": {
+       {{/*
+       // Doesn't work - no node
+              "ads": {}
+       */}}
       "api_config_source": {
         "api_type": "GRPC",
         "refresh_delay": {
@@ -25,6 +29,10 @@
       }
     },
     "cds_config": {
+       {{/*
+       // Doesn't work - no node
+              "ads": {}
+       */}}
       "api_config_source": {
         "api_type": "GRPC",
         "refresh_delay": {
@@ -36,19 +44,15 @@
         ]
       }
     },
-    "deprecated_v1": {
-      "sds_config": {
-        "api_config_source": {
-          "api_type": "GRPC",
-          "refresh_delay": {
-            "seconds": 30,
-            "nanos": 0
-          },
-          "cluster_names": [
-            "xds-grpc"
-          ]
-        }
-      }
+    "ads_config": {
+      "api_type": "GRPC",
+      "refresh_delay": {
+        "seconds": 30,
+        "nanos": 0
+      },
+      "cluster_names": [
+        "xds-grpc"
+      ]
     }
   },
   "static_resources": {

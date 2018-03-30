@@ -17,20 +17,15 @@ package v2
 import (
 	"errors"
 	"io"
-	"net/http"
 	"os"
-	"sync"
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
-
-	"fmt"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
@@ -38,36 +33,10 @@ import (
 
 var (
 	ldsDebug = os.Getenv("PILOT_DEBUG_LDS") != "0"
-
-	ldsClientsMutex sync.RWMutex
-	ldsClients      = map[string]*LdsConnection{}
 )
 
-// LdsConnection is a listener connection type.
-type LdsConnection struct {
-	// PeerAddr is the address of the client envoy, from network layer
-	PeerAddr string
-
-	// Time of connection, for debugging
-	Connect time.Time
-
-	// Node is the name of the remote node
-	Node string
-
-	// Sending on this channel results in  push. We may also make it a channel of objects so
-	// same info can be sent to all clients, without recomputing.
-	pushChannel chan struct{}
-
-	// TODO: migrate other fields as needed from model.Proxy and replace it
-
-	//HttpConnectionManagers map[string]*http_conn.HttpConnectionManager
-
-	HTTPListeners []*xdsapi.Listener
-
-	// TODO: TcpListeners (may combine mongo/etc)
-}
-
-// StreamListeners implements the DiscoveryServer interface.
+// StreamListeners implements the DiscoveryServer interface. For connection tracking it is using
+// the same structure as ADS.
 func (s *DiscoveryServer) StreamListeners(stream xdsapi.ListenerDiscoveryService_StreamListenersServer) error {
 	peerInfo, ok := peer.FromContext(stream.Context())
 	peerAddr := unknownPeerAddressStr
@@ -83,15 +52,16 @@ func (s *DiscoveryServer) StreamListeners(stream xdsapi.ListenerDiscoveryService
 	// true if the stream received the initial discovery request.
 	initialRequestReceived := false
 
-	con := &LdsConnection{
+	con := &XdsConnection{
 		pushChannel:   make(chan struct{}, 1),
 		PeerAddr:      peerAddr,
 		Connect:       time.Now(),
 		HTTPListeners: []*xdsapi.Listener{},
+		stream: stream,
 	}
 	go func() {
 		defer close(reqChannel)
-		defer removeLdsCon(nodeID)
+		defer removeAdsCon(nodeID)
 		for {
 			req, err := stream.Recv()
 			if err != nil {
@@ -129,9 +99,11 @@ func (s *DiscoveryServer) StreamListeners(stream xdsapi.ListenerDiscoveryService
 				continue
 			}
 			initialRequestReceived = true
-			nodeID = nt.ID
+			nodeID = connectionID("LDS_" + nt.ID)
 			con.Node = nodeID
-			addLdsCon(nodeID, con)
+			con.LDSWatch = true
+			con.modelNode = &nt
+			addAdsCon(nodeID, con)
 
 			if ldsDebug {
 				log.Infof("LDS: REQ %v %s %s", peerAddr, nt.ID, discReq.String())
@@ -139,116 +111,54 @@ func (s *DiscoveryServer) StreamListeners(stream xdsapi.ListenerDiscoveryService
 		case <-con.pushChannel:
 		}
 
-		ls, err := s.ConfigGenerator.BuildListeners(s.env, node)
+		err := s.pushLds(node, con)
 		if err != nil {
-			log.Warnf("LDS: config failure, closing grpc %v", err)
 			return err
 		}
-		con.HTTPListeners = ls
-		response, err := ldsDiscoveryResponse(ls, node)
-		if err != nil {
-			log.Warnf("LDS: config failure, closing grpc %v", err)
-			return err
 		}
-		err = stream.Send(response)
-		if err != nil {
-			log.Warnf("LDS: Send failure, closing grpc %v", err)
-			return err
-		}
-		if ldsDebug {
-			log.Infof("LDS: PUSH for node:%s addr:%q listeners:%d", node, peerAddr, len(ls))
-		}
-
-	}
 }
+
+func (s *DiscoveryServer) pushLds(node model.Proxy, con *XdsConnection) error {
+	ls, err := s.ConfigGenerator.BuildListeners(s.env, node)
+	if err != nil {
+		log.Warnf("ADS: config failure, closing grpc %v", err)
+		return err
+	}
+	con.HTTPListeners = ls
+	response, err := ldsDiscoveryResponse(ls, node)
+	if err != nil {
+		log.Warnf("LDS: config failure, closing grpc %v", err)
+		return err
+	}
+	err = con.stream.Send(response)
+	if err != nil {
+		log.Warnf("LDS: Send failure, closing grpc %v", err)
+		return err
+	}
+	if ldsDebug {
+		log.Infof("LDS: PUSH for node:%s addr:%q listeners:%d", node, con.PeerAddr, len(ls))
+	}
+	return nil
+}
+
 
 // ldsPushAll implements old style invalidation, generated when any rule or endpoint changes.
 // Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
 // to the model ConfigStorageCache and Controller.
 func ldsPushAll() {
-	ldsClientsMutex.RLock()
+	adsClientsMutex.RLock()
 	// Create a temp map to avoid locking the add/remove
-	tmpMap := map[string]*LdsConnection{}
-	for k, v := range ldsClients {
-		tmpMap[k] = v
+	tmpMap := map[string]*XdsConnection{}
+	for k, v := range adsClients {
+		if (v.LDSWatch) {
+			tmpMap[k] = v
+		}
 	}
-	ldsClientsMutex.RUnlock()
+	adsClientsMutex.RUnlock()
 
 	for _, client := range tmpMap {
 		client.pushChannel <- struct{}{}
 	}
-}
-
-// LDSz implements a status and debug interface for LDS.
-// It is mapped to /debug/ldsz on the monitor port (9093).
-func LDSz(w http.ResponseWriter, req *http.Request) {
-	_ = req.ParseForm()
-	if req.Form.Get("debug") != "" {
-		ldsDebug = req.Form.Get("debug") == "1"
-		return
-	}
-	if req.Form.Get("push") != "" {
-		ldsPushAll()
-		fmt.Fprintf(w, "Pushed to %d servers", len(ldsClients))
-		return
-	}
-	ldsClientsMutex.RLock()
-
-	//data, err := json.Marshal(ldsClients)
-
-	// Dirty json generation - because standard json is dirty (struct madness)
-	// Unfortunately we must use the jsonbp to encode part of the json - I'm sure there are
-	// better ways, but this is mainly for debugging.
-	fmt.Fprint(w, "[\n")
-	comma2 := false
-	for _, c := range ldsClients {
-		if comma2 {
-			fmt.Fprint(w, ",\n")
-		} else {
-			comma2 = true
-		}
-		fmt.Fprintf(w, "\n\n  {\"node\": \"%s\", \"addr\": \"%s\", \"connect\": \"%v\",\"listeners\":[\n", c.Node, c.PeerAddr, c.Connect)
-		comma1 := false
-		for _, ls := range c.HTTPListeners {
-			if comma1 {
-				fmt.Fprint(w, ",\n")
-			} else {
-				comma1 = true
-			}
-			jsonm := &jsonpb.Marshaler{}
-			dbgString, _ := jsonm.MarshalToString(ls)
-			if _, err := w.Write([]byte(dbgString)); err != nil {
-				return
-			}
-		}
-		fmt.Fprint(w, "]}\n")
-	}
-	fmt.Fprint(w, "]\n")
-
-	ldsClientsMutex.RUnlock()
-
-	//if err != nil {
-	//	_, _ = w.Write([]byte(err.Error()))
-	//	return
-	//}
-	//
-	//_, _ = w.Write(data)
-}
-
-func addLdsCon(s string, connection *LdsConnection) {
-	ldsClientsMutex.Lock()
-	defer ldsClientsMutex.Unlock()
-	ldsClients[s] = connection
-}
-
-func removeLdsCon(s string) {
-	ldsClientsMutex.Lock()
-	defer ldsClientsMutex.Unlock()
-
-	if ldsClients[s] == nil {
-		log.Errorf("Removing LDS connection for non-existing node %s.", s)
-	}
-	delete(ldsClients, s)
 }
 
 // FetchListeners implements the DiscoveryServer interface.

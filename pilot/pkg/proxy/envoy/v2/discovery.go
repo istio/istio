@@ -18,7 +18,9 @@ import (
 	"os"
 	"time"
 
+	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+
 	"google.golang.org/grpc"
 
 	"sync"
@@ -50,6 +52,7 @@ const (
 	endpointType = typePrefix + "ClusterLoadAssignment"
 	clusterType  = typePrefix + "Cluster"
 	listenerType = typePrefix + "Listener"
+	routeType = typePrefix + "Route"
 )
 
 // DiscoveryServer is Pilot's gRPC implementation for Envoy's v2 xds APIs
@@ -58,8 +61,6 @@ type DiscoveryServer struct {
 	GrpcServer *grpc.Server
 	// env is the model environment.
 	env model.Environment
-
-	Connections map[string]*EdsConnection
 
 	// MemRegistry is used for debug and load testing, allow adding services. Visible for testing.
 	MemRegistry *MemServiceDiscovery
@@ -80,6 +81,7 @@ func NewDiscoveryServer(grpcServer *grpc.Server, env model.Environment) *Discove
 	xdsapi.RegisterEndpointDiscoveryServiceServer(out.GrpcServer, out)
 	xdsapi.RegisterListenerDiscoveryServiceServer(out.GrpcServer, out)
 	xdsapi.RegisterClusterDiscoveryServiceServer(out.GrpcServer, out)
+	ads.RegisterAggregatedDiscoveryServiceServer(out.GrpcServer, out)
 
 	if len(periodicRefreshDuration) > 0 {
 		periodicRefresh()

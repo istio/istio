@@ -21,7 +21,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"sync"
 	"time"
 
 	"google.golang.org/grpc/codes"
@@ -38,30 +37,10 @@ import (
 
 var (
 	cdsDebug = os.Getenv("PILOT_DEBUG_CDS") != "0"
-
-	cdsConnectionsMux sync.Mutex
-
-	// One connection for each Envoy connected to this pilot.
-	cdsConnections = map[string]*CdsConnection{}
 )
 
-// CdsConnection represents a streaming grpc connection from an envoy server.
-// This is primarily intended for supporting push, but also for debug and statusz.
-type CdsConnection struct {
-	PeerAddr string
-
-	// Time of connection, for debugging
-	Connect time.Time
-
-	modelNode *model.Proxy
-
-	// Sending on this channel results in  push. We may also make it a channel of objects so
-	// same info can be sent to all clients, without recomputing.
-	pushChannel chan bool
-}
-
 // clusters aggregate a DiscoveryResponse for pushing.
-func (con *CdsConnection) clusters(response []*xdsapi.Cluster) *xdsapi.DiscoveryResponse {
+func (con *XdsConnection) clusters(response []*xdsapi.Cluster) *xdsapi.DiscoveryResponse {
 	out := &xdsapi.DiscoveryResponse{
 		// All resources for CDS ought to be of the type ClusterLoadAssignment
 		TypeUrl: clusterType,
@@ -96,10 +75,12 @@ func (s *DiscoveryServer) StreamClusters(stream xdsapi.ClusterDiscoveryService_S
 	// true if the stream received the initial discovery request.
 	initialRequestReceived := false
 
-	con := &CdsConnection{
-		pushChannel: make(chan bool, 1),
+	con := &XdsConnection{
+		pushChannel: make(chan struct{}, 1),
 		PeerAddr:    peerAddr,
 		Connect:     time.Now(),
+		HTTPListeners: []*xdsapi.Listener{},
+		stream: stream,
 	}
 	// node is the key used in the cluster map. It includes the pod name and an unique identifier,
 	// since multiple envoys may connect from the same pod.
@@ -112,7 +93,7 @@ func (s *DiscoveryServer) StreamClusters(stream xdsapi.ClusterDiscoveryService_S
 				log.Errorf("CDS: close for client %s %q terminated with errors %v",
 					node, peerAddr, err)
 
-				s.removeCdsCon(node, con)
+				removeAdsCon(node)
 				if status.Code(err) == codes.Canceled || err == io.EOF {
 					return
 				}
@@ -137,6 +118,7 @@ func (s *DiscoveryServer) StreamClusters(stream xdsapi.ClusterDiscoveryService_S
 				return err
 			}
 
+			con.Node = node
 			con.modelNode = &nt
 
 			// Given that Pilot holds an eventually consistent data model, Pilot ignores any acknowledgements
@@ -151,6 +133,7 @@ func (s *DiscoveryServer) StreamClusters(stream xdsapi.ClusterDiscoveryService_S
 				}
 				continue
 			}
+			con.CDSWatch = true
 			initialRequestReceived = true
 			// Initial request
 			if cdsDebug {
@@ -160,35 +143,46 @@ func (s *DiscoveryServer) StreamClusters(stream xdsapi.ClusterDiscoveryService_S
 		case <-con.pushChannel:
 		}
 
-		rawClusters, _ := s.ConfigGenerator.BuildClusters(s.env, *con.modelNode)
-
-		response := con.clusters(rawClusters)
-		err := stream.Send(response)
+		err := s.pushCds(*con.modelNode, con)
 		if err != nil {
-			log.Warnf("CDS: Send failure, closing grpc %v", err)
 			return err
 		}
 
-		if cdsDebug {
-			// The response can't be easily read due to 'any' marshalling.
-			log.Infof("CDS: PUSH for %s %q, Response: \n%v\n",
-				node, peerAddr, rawClusters)
-		}
 	}
+}
+
+func (s *DiscoveryServer) pushCds(node model.Proxy, con *XdsConnection) error {
+	rawClusters, _ := s.ConfigGenerator.BuildClusters(s.env, *con.modelNode)
+
+	response := con.clusters(rawClusters)
+	err := con.stream.Send(response)
+	if err != nil {
+		log.Warnf("CDS: Send failure, closing grpc %v", err)
+		return err
+	}
+
+	if cdsDebug {
+		// The response can't be easily read due to 'any' marshalling.
+		log.Infof("CDS: PUSH for %s %q, Response: \n%v\n",
+			node, con.PeerAddr, rawClusters)
+	}
+	return nil
 }
 
 // cdsPushAll implements old style invalidation, generated when any rule or endpoint changes.
 func cdsPushAll() {
-	cdsConnectionsMux.Lock()
+	adsClientsMutex.RLock()
 	// Create a temp map to avoid locking the add/remove
-	tmpMap := map[string]*CdsConnection{}
-	for k, v := range cdsConnections {
-		tmpMap[k] = v
+	tmpMap := map[string]*XdsConnection{}
+	for k, v := range adsClients {
+		if v.CDSWatch {
+			tmpMap[k] = v
+		}
 	}
-	cdsConnectionsMux.Unlock()
+	adsClientsMutex.RUnlock()
 
 	for _, cdsCon := range tmpMap {
-		cdsCon.pushChannel <- true
+		cdsCon.pushChannel <- struct{}{}
 	}
 }
 
@@ -203,7 +197,7 @@ func Cdsz(w http.ResponseWriter, req *http.Request) {
 	if req.Form.Get("push") != "" {
 		cdsPushAll()
 	}
-	data, err := json.Marshal(cdsConnections)
+	data, err := json.Marshal(adsClients)
 	if err != nil {
 		_, _ = w.Write([]byte(err.Error()))
 		return
@@ -217,6 +211,3 @@ func (s *DiscoveryServer) FetchClusters(ctx context.Context, req *xdsapi.Discove
 	return nil, errors.New("not implemented")
 }
 
-func (s *DiscoveryServer) removeCdsCon(node string, connection *CdsConnection) {
-
-}

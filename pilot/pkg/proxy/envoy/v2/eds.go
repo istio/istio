@@ -83,13 +83,13 @@ type EdsCluster struct {
 	// mutex protects changes to this cluster
 	mutex sync.Mutex
 
-	// EdsClients keeps track of all nodes monitoring the cluster.
-	EdsClients map[string]*EdsConnection
-
 	LoadAssignment *xdsapi.ClusterLoadAssignment
 
 	// FirstUse is the time the cluster was first used, for debugging
 	FirstUse time.Time
+
+	// EdsClients keeps track of all nodes monitoring the cluster.
+	EdsClients map[string]*XdsConnection
 
 	// NonEmptyTime is the time the cluster first had a non-empty set of endpoints
 	NonEmptyTime time.Time
@@ -99,22 +99,6 @@ type EdsCluster struct {
 }
 
 // TODO: add prom metrics !
-
-// EdsConnection represents a streaming grpc connection from an envoy server.
-// This is primarily intended for supporting push, but also for debug and statusz.
-type EdsConnection struct {
-	PeerAddr string
-
-	// current list of clusters monitored by the client
-	Clusters []string
-
-	// Time of connection, for debugging
-	Connect time.Time
-
-	// Sending on this channel results in  push. We may also make it a channel of objects so
-	// same info can be sent to all clients, without recomputing.
-	pushChannel chan bool
-}
 
 // Endpoints aggregate a DiscoveryResponse for pushing.
 func (s *DiscoveryServer) endpoints(clusterNames []string) *xdsapi.DiscoveryResponse {
@@ -293,11 +277,12 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 
 	initialRequestReceived := false
 
-	con := &EdsConnection{
-		pushChannel: make(chan bool, 1),
+	con := &XdsConnection{
+		pushChannel: make(chan struct{}, 1),
 		PeerAddr:    peerAddr,
 		Clusters:    []string{},
 		Connect:     time.Now(),
+		stream: stream,
 	}
 	// node is the key used in the cluster map. It includes the pod name and an unique identifier,
 	// since multiple envoys may connect from the same pod.
@@ -363,6 +348,7 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 				log.Infof("EDS: REQ %s %v %v raw: %s ", node, con.Clusters, peerAddr, discReq.String())
 			}
 			con.Clusters = discReq.GetResourceNames()
+			con.Node = node
 			initialRequestReceived = true
 
 			for _, c := range con.Clusters {
@@ -372,24 +358,28 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 		case <-con.pushChannel:
 		}
 
-		if len(con.Clusters) == 0 {
-			// Corner case: push (update) received between the time the grpc connect and reading first
-			// packet.
-			continue
+		if len(con.Clusters) > 0 {
+			err := s.pushEds(con)
+			if err != nil {
+				return err
+			}
 		}
 
-		response := s.endpoints(con.Clusters)
-		err := stream.Send(response)
-		if err != nil {
-			log.Warnf("EDS: Send failure, closing grpc %v", err)
-			return err
-		}
-
-		if edsDebug {
-			log.Infof("EDS: PUSH for %s %q clusters %v, Response: \n%s\n",
-				node, peerAddr, con.Clusters, response.String())
-		}
 	}
+}
+func (s *DiscoveryServer) pushEds(con *XdsConnection) error {
+	response := s.endpoints(con.Clusters)
+	err := con.stream.Send(response)
+	if err != nil {
+		log.Warnf("EDS: Send failure, closing grpc %v", err)
+		return err
+	}
+
+	if edsDebug {
+		log.Infof("EDS: PUSH for %s %q clusters %v, Response: \n%s\n",
+			con.Node, con.PeerAddr, con.Clusters, response.String())
+	}
+	return nil
 }
 
 func edsPushAll() {
@@ -405,7 +395,7 @@ func edsPushAll() {
 		updateCluster(clusterName, edsCluster)
 		edsCluster.mutex.Lock()
 		for _, edsCon := range edsCluster.EdsClients {
-			edsCon.pushChannel <- true
+			edsCon.pushChannel <- struct{}{}
 		}
 		edsCluster.mutex.Unlock()
 	}
@@ -434,7 +424,7 @@ func EDSz(w http.ResponseWriter, req *http.Request) {
 }
 
 // addEdsCon will track the eds connection, for push and debug
-func (s *DiscoveryServer) addEdsCon(clusterName string, node string, connection *EdsConnection) {
+func (s *DiscoveryServer) addEdsCon(clusterName string, node string, connection *XdsConnection) {
 
 	c := s.getOrAddEdsCluster(clusterName)
 	c.mutex.Lock()
@@ -443,7 +433,7 @@ func (s *DiscoveryServer) addEdsCon(clusterName string, node string, connection 
 
 	// May replace an existing connection
 	if existing != nil {
-		existing.pushChannel <- false // force closing it
+		existing.pushChannel <- struct{}{} // force closing it
 	}
 	c.mutex.Lock()
 	c.EdsClients[node] = connection
@@ -465,7 +455,7 @@ func (s *DiscoveryServer) getOrAddEdsCluster(clusterName string) *EdsCluster {
 	c := edsClusters[clusterName]
 	if c == nil {
 		c = &EdsCluster{discovery: s,
-			EdsClients: map[string]*EdsConnection{},
+			EdsClients: map[string]*XdsConnection{},
 			FirstUse:   time.Now(),
 		}
 		edsClusters[clusterName] = c
@@ -475,7 +465,7 @@ func (s *DiscoveryServer) getOrAddEdsCluster(clusterName string) *EdsCluster {
 
 // removeEdsCon is called when a gRPC stream is closed, for each cluster that was watched by the
 // stream. As of 0.7 envoy watches a single cluster per gprc stream.
-func (s *DiscoveryServer) removeEdsCon(clusterName string, node string, connection *EdsConnection) {
+func (s *DiscoveryServer) removeEdsCon(clusterName string, node string, connection *XdsConnection) {
 	c := s.getEdsCluster(clusterName)
 	if c == nil {
 		log.Warnf("EDS: missing cluster %s", clusterName)
