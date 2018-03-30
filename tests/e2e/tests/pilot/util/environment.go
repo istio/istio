@@ -53,12 +53,11 @@ import (
 )
 
 const (
-	ingressSecretName      = "istio-ingress-certs"
-	sidecarInjectorService = "istio-sidecar-injector"
-	mixerConfigFile        = "/etc/istio/proxy/envoy_mixer.json"
-	mixerConfigAuthFile    = "/etc/istio/proxy/envoy_mixer_auth.json"
-	pilotConfigFile        = "/etc/istio/proxy/envoy_pilot.json"
-	pilotConfigAuthFile    = "/etc/istio/proxy/envoy_pilot_auth.json"
+	ingressSecretName   = "istio-ingress-certs"
+	mixerConfigFile     = "/etc/istio/proxy/envoy_mixer.json"
+	mixerConfigAuthFile = "/etc/istio/proxy/envoy_mixer_auth.json"
+	pilotConfigFile     = "/etc/istio/proxy/envoy_pilot.json"
+	pilotConfigAuthFile = "/etc/istio/proxy/envoy_pilot_auth.json"
 )
 
 // Environment defines the test configuration.
