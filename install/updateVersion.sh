@@ -23,18 +23,38 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/.."
 cd ${ROOT}
 
 # just run the old version
-${ROOT}/install/updateVersion_orig.sh "$*"
+${ROOT}/install/updateVersion_orig.sh "$@"
 
+echo "$@"
+
+DEST_DIR=${ROOT}
+while getopts :d:a: arg; do
+  case ${arg} in
+    d) DEST_DIR="${OPTARG}";;
+    a) ALL_HUB_TAG="${OPTARG}";;       # Format: "<hub>,<tag>"
+  esac
+done
+
+if [[ ! -z ${ALL_HUB_TAG} ]]; then
+    export HUB="$(echo ${ALL_HUB_TAG}|cut -f1 -d,)"
+    export TAG="$(echo ${ALL_HUB_TAG}|cut -f2 -d,)"
+fi
 
 function gen_file() {
     fl=$1
-    cp -f install/kubernetes/$fl ${ISTIO_OUT:-.}/orig_$fl
-    make $1
+    dest=$2
+    if [[ -f ${dest}/install/kubernetes/$fl ]];then
+      mv -f ${dest}/install/kubernetes/$fl ${dest}/install/kubernetes/orig_$fl
+    fi
+    make $1   # make always places the files in install/...
+    if [[ ! -f ${dest}/install/kubernetes/$fl ]]; then
+      cp -f install/kubernetes/$fl ${dest}/install/kubernetes/$fl
+    fi
 }
 
 
 for target in istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml;do
-    gen_file $target
+    gen_file $target ${DEST_DIR}
 done
 
 

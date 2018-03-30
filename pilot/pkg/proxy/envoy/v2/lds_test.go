@@ -72,8 +72,9 @@ func TestLDS(t *testing.T) {
 		}
 	})
 
+	// TODO need mock ingress resource or gateway resource to test this.
 	t.Run("ingress", func(t *testing.T) {
-		ldsr := connectLDS(util.MockPilotGrpcAddr, ingressId(), t)
+		ldsr := connectLDS(util.MockPilotGrpcAddr, ingressId(ingressIP), t)
 
 		res, err := ldsr.Recv()
 		if err != nil {

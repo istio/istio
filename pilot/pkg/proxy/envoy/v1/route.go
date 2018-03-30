@@ -25,6 +25,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes/duration"
 
+	authn "istio.io/api/authentication/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -40,12 +41,12 @@ const (
 )
 
 // buildListenerSSLContext returns an SSLContext struct.
-func buildListenerSSLContext(certsDir string) *SSLContext {
+func buildListenerSSLContext(certsDir string, mtlsParams *authn.MutualTls) *SSLContext {
 	return &SSLContext{
 		CertChainFile:            path.Join(certsDir, model.CertChainFilename),
 		PrivateKeyFile:           path.Join(certsDir, model.KeyFilename),
 		CaCertFile:               path.Join(certsDir, model.RootCertFilename),
-		RequireClientCertificate: true,
+		RequireClientCertificate: !(mtlsParams != nil && mtlsParams.AllowTls),
 	}
 }
 
@@ -191,7 +192,7 @@ func BuildHTTPRoutes(store model.IstioConfigStore, config model.Config, service 
 
 	switch config.Spec.(type) {
 	case *routing.RouteRule:
-		return []*HTTPRoute{buildHTTPRouteV1(config, service, port)}
+		return []*HTTPRoute{buildHTTPRouteV1(config, service, port, envoyv2)}
 	case *networking.VirtualService:
 		return buildHTTPRoutesV3(store, config, service, port, proxyInstances, domain, envoyv2, buildCluster)
 	default:
@@ -199,7 +200,7 @@ func BuildHTTPRoutes(store model.IstioConfigStore, config model.Config, service 
 	}
 }
 
-func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.Port) *HTTPRoute {
+func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.Port, envoyv2 bool) *HTTPRoute {
 	rule := config.Spec.(*routing.RouteRule)
 	route := buildHTTPRouteMatch(rule.Match)
 
@@ -250,6 +251,12 @@ func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.P
 		// default route for the destination
 		cluster := BuildOutboundCluster(destination, port, nil, service.External())
 		route.Cluster = cluster.Name
+
+		v2clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", destination, port)
+		if envoyv2 {
+			route.Cluster = v2clusterName
+		}
+
 		route.Clusters = append(route.Clusters, cluster)
 	}
 

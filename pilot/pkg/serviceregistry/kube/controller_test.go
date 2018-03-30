@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/tests/k8s"
 )
 
@@ -70,7 +71,7 @@ func TestServices(t *testing.T) {
 
 	var sds model.ServiceDiscovery = ctl
 	makeService(testService, ns, cl, t)
-	util.Eventually("successfully list services", func() bool {
+	test.Eventually(t, "successfully list services", func() bool {
 		out, clientErr := sds.Services()
 		if clientErr != nil {
 			return false
@@ -85,7 +86,7 @@ func TestServices(t *testing.T) {
 			}
 		}
 		return false
-	}, t)
+	})
 
 	svc, err := sds.GetService(hostname)
 	if err != nil {

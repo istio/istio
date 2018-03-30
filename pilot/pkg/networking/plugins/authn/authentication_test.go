@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v1alpha3
+package authn
 
 import (
 	"fmt"
@@ -98,7 +98,7 @@ func TestBuildJwtFilter(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if got := buildJwtFilter(c.in); !reflect.DeepEqual(c.expected, got) {
+		if got := BuildJwtFilter(c.in); !reflect.DeepEqual(c.expected, got) {
 			t.Errorf("buildJwtFilter(%#v), got:\n%#v\nwanted:\n%#v\n", c.in, got, c.expected)
 		}
 	}
