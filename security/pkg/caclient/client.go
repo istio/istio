@@ -24,17 +24,21 @@ import (
 	"istio.io/istio/security/pkg/caclient/grpc"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
+	rgrpc "google.golang.org/grpc"
 	"istio.io/istio/security/pkg/workload"
 	pb "istio.io/istio/security/proto"
+	"context"
 )
 
 // CAClient is a client to provision key and certificate from the upstream CA via CSR protocol.
 type CAClient struct {
 	platformClient         platform.Client
-	protocolClient         grpc.CAGrpcClient
+	//protocolClient         grpc.CAGrpcClient
 	istioCAAddress         string
 	maxRetries             int
 	initialRetrialInterval time.Duration
+	// TODO: replace this with protocolClient, do not submit before resolve.
+	grpcClient              pb.IstioCAServiceClient
 }
 
 // NewCAClient creates a new CAClient instance.
@@ -43,12 +47,25 @@ func NewCAClient(pltfmc platform.Client, ptclc grpc.CAGrpcClient, caAddr string,
 	if !pltfmc.IsProperPlatform() {
 		return nil, fmt.Errorf("CA client is not running on the right platform") // nolint
 	}
+	if caAddr == "" {
+		return nil, fmt.Errorf("istio CA address is empty")
+	}
+	dialOptions, err := pltfmc.GetDialOptions()
+	if err != nil {
+		return nil, err
+	}
+	conn, err := rgrpc.Dial(caAddr, dialOptions...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to dial %s: %v", caAddr, err)
+	}
+	client := pb.NewIstioCAServiceClient(conn)
 	return &CAClient{
 		platformClient:         pltfmc,
-		protocolClient:         ptclc,
+		//protocolClient:         ptclc,
 		istioCAAddress:         caAddr,
 		maxRetries:             maxRetries,
 		initialRetrialInterval: interval,
+		grpcClient: 						client,
 	}, nil
 }
 
@@ -65,7 +82,8 @@ func (c *CAClient) Retrieve(options *pkiutil.CertOptions) (newCert []byte, certC
 
 		log.Infof("Sending CSR (retrial #%d) ...", retries)
 
-		resp, err := c.protocolClient.SendCSR(req, c.platformClient, c.istioCAAddress)
+		//resp, err := c.protocolClient.SendCSR(req, c.platformClient, c.istioCAAddress)
+		resp, err := c.grpcClient.HandleCSR(context.Background(), req)
 		if err == nil && resp != nil && resp.IsApproved {
 			return resp.SignedCert, resp.CertChain, privateKey, nil
 		}

@@ -19,13 +19,44 @@ import (
 	"fmt"
 	"testing"
 	"time"
+	"net"
+
+	apirpc "github.com/gogo/googleapis/google/rpc"
 
 	mockclient "istio.io/istio/security/pkg/caclient/grpc/mock"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
 	mockpc "istio.io/istio/security/pkg/platform/mock"
 	pb "istio.io/istio/security/proto"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
+	"context"
 )
+
+
+type FakeIstioCAGrpcServer struct {
+	IsApproved bool
+	Status     *apirpc.Status
+	SignedCert []byte
+	CertChain  []byte
+
+	response *pb.CsrResponse
+	errorMsg string
+}
+
+func (s *FakeIstioCAGrpcServer) SetResponseAndError(response *pb.CsrResponse, errorMsg string) {
+	s.response = response
+	s.errorMsg = errorMsg
+}
+
+func (s *FakeIstioCAGrpcServer) HandleCSR(ctx context.Context, req *pb.CsrRequest) (*pb.CsrResponse, error) {
+	//if len(s.errorMsg) > 0 {
+	//	return nil, fmt.Errorf(s.errorMsg)
+	//}
+	//return s.response, nil
+	return &pb.CsrResponse{}, nil
+}
+
 
 func TestRetrieveNewKeyCert(t *testing.T) {
 	signedCert := []byte(`TESTCERT`)
@@ -43,7 +74,7 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 		sendTimes         int
 	}{
 		"Success": {
-			pltfmc: mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
+			pltfmc: mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", []byte{}, "", true},
 			ptclc: &mockclient.FakeCAClient{
 				0, &pb.CsrResponse{IsApproved: true, SignedCert: signedCert, CertChain: certChain}, nil},
 			keySize:           512,
@@ -56,7 +87,7 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 			sendTimes:         1,
 		},
 		"Create CSR error": {
-			pltfmc: mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
+			pltfmc: mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", []byte{}, "", true},
 			ptclc: &mockclient.FakeCAClient{
 				0, &pb.CsrResponse{IsApproved: true, SignedCert: signedCert, CertChain: certChain}, nil},
 			// 128 is too small for a RSA private key. GenCSR will return error.
@@ -68,7 +99,7 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 			sendTimes:   0,
 		},
 		"Getting platform credential error": {
-			pltfmc:      mockpc.FakeClient{nil, "", "service1", "", nil, "Err1", true},
+			pltfmc:      mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", nil, "Err1", true},
 			ptclc:       &mockclient.FakeCAClient{0, nil, nil},
 			keySize:     512,
 			ttl:         time.Hour,
@@ -78,7 +109,7 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 			sendTimes:   0,
 		},
 		"SendCSR empty response error": {
-			pltfmc:      mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
+			pltfmc:      mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", []byte{}, "", true},
 			ptclc:       &mockclient.FakeCAClient{0, nil, nil},
 			keySize:     512,
 			ttl:         time.Hour,
@@ -88,7 +119,7 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 			sendTimes:   3,
 		},
 		"SendCSR returns error": {
-			pltfmc:      mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
+			pltfmc:      mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", []byte{}, "", true},
 			ptclc:       &mockclient.FakeCAClient{0, nil, fmt.Errorf("error returned from CA")},
 			keySize:     512,
 			ttl:         time.Hour,
@@ -98,7 +129,7 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 			sendTimes:   2,
 		},
 		"SendCSR not approved": {
-			pltfmc:      mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
+			pltfmc:      mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", []byte{}, "", true},
 			ptclc:       &mockclient.FakeCAClient{0, &pb.CsrResponse{IsApproved: false}, nil},
 			keySize:     512,
 			ttl:         time.Hour,
@@ -110,8 +141,22 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 	}
 
 	for id, c := range testCases {
-		caAddr := "CA address"
-		client, err := NewCAClient(c.pltfmc, c.ptclc, caAddr, c.maxRetries, c.interval)
+		s := grpc.NewServer()
+		lis, err := net.Listen("tcp", "localhost:0")
+		if err != nil {
+			t.Errorf("failed to listen: %v", err)
+		}
+		go func() {
+			defer func() {
+				s.Stop()
+			}()
+			pb.RegisterIstioCAServiceServer(s, &FakeIstioCAGrpcServer{})
+			reflection.Register(s)
+			if err := s.Serve(lis); err != nil {
+				t.Errorf("failed to serve: %v", err)
+			}
+		}()
+		client, err := NewCAClient(c.pltfmc, c.ptclc, lis.Addr().String(), c.maxRetries, c.interval)
 		if err != nil {
 			t.Errorf("Test case [%s]: CA creation error: %v", id, err)
 		}
