@@ -57,5 +57,6 @@ for target in istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-name
     gen_file $target ${DEST_DIR}
 done
 
+
 # run something like
 # helm template install/kubernetes/helm/istio -x templates/namespace.yaml
