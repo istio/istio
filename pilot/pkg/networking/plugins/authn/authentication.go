@@ -71,7 +71,7 @@ func (*AuthenticationPlugin) OnInboundCluster(env model.Environment, node model.
 	servicePort *model.Port, cluster *xdsapi.Cluster) {
 }
 
-// OnOutboundHttpRoute is called whenever a new set of virtual hosts (a set of virtual hosts with routes) is added to
+// OnOutboundRoute is called whenever a new set of virtual hosts (a set of virtual hosts with routes) is added to
 // RDS in the outbound path. Can be used to add route specific metadata or additional headers to forward
 func (*AuthenticationPlugin) OnOutboundRoute(env model.Environment, node model.Proxy,
 	route *xdsapi.RouteConfiguration) {
@@ -96,8 +96,8 @@ func (*AuthenticationPlugin) OnOutboundCluster(env model.Environment, node model
 		return
 	}
 
-	if isDestinationExcludedForMTLS(service.Hostname, mesh.MtlsExcludedServices) &&
-		!model.RequireTLS(model.GetConsolidateAuthenticationPolicy(mesh, config, service.Hostname, servicePort)) {
+	required, _ := model.RequireTLS(model.GetConsolidateAuthenticationPolicy(mesh, config, service.Hostname, servicePort))
+	if isDestinationExcludedForMTLS(service.Hostname, mesh.MtlsExcludedServices) && !required {
 		return
 	}
 

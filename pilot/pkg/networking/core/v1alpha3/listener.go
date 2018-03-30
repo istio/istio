@@ -673,7 +673,9 @@ func buildDefaultHTTPRoute(clusterName string) *route.Route {
 
 // buildSidecarInboundHTTPRouteConfig builds the route config with a single wildcard virtual host on the inbound path
 // TODO: enable mixer configuration, websockets, trace decorators
-func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env model.Environment, node model.Proxy, instance *model.ServiceInstance) *xdsapi.RouteConfiguration {
+func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env model.Environment,
+	node model.Proxy, instance *model.ServiceInstance) *xdsapi.RouteConfiguration {
+
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "",
 		instance.Service.Hostname, instance.Endpoint.ServicePort)
 	defaultRoute := buildDefaultHTTPRoute(clusterName)
