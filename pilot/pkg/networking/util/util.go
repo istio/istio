@@ -68,7 +68,7 @@ func NormalizeListeners(listeners []*xdsapi.Listener) []*xdsapi.Listener {
 		if !set[listener.Address.String()] {
 			set[listener.Address.String()] = true
 			out = append(out, listener)
-		} else {
+		} else { // noolint megacheck
 			// we already have a listener on this address.
 			// WE can merge the two listeners if and only if they are of the same type
 			// i.e. both HTTP or both TCP.
