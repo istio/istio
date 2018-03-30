@@ -24,11 +24,11 @@ import (
 
 // All tests should be listed here to get their test ids
 const (
-	CheckCacheTest uint16 = iota
-	CheckCacheHitTest
+	CheckCacheHitTest uint16 = iota
+	CheckCacheTest
 	CheckReportAttributesTest
-	CheckReportLargePostRequestTest
 	CheckReportDisableTest
+	CheckReportLargePostRequestTest
 	DisableCheckCacheTest
 	DisableTCPCheckCallsTest
 	FailedRequestTest
@@ -36,11 +36,11 @@ const (
 	JWTAuthTest
 	MixerInternalFailTest
 	NetworkFailureTest
-	ReportBatchTest
-	TCPMixerFilterTest
 	QuotaCacheTest
 	QuotaCallTest
+	ReportBatchTest
 	TCPMixerFilterPeriodicalReportTest
+	TCPMixerFilterTest
 	TCPMixerFilterV1ConfigTest
 	XDSTest
 

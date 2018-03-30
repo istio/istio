@@ -105,7 +105,7 @@ func TestCheckReportLargePostRequest(t *testing.T) {
 
 	// Issues a POST request with 10 MB request body. This request is sent to ServerProxyPort
 	// directly. This verifies that the Mixer filter at ingress Envoy could handle large request.
-	// TODO: use ClientProxyPort after issuer envoyproxy/envoy#2929 is fixed.
+	// TODO(JimmyCYJ): use ClientProxyPort after issuer envoyproxy/envoy#2929 is fixed.
 	url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().ServerProxyPort)
 	tag := "OKPost"
 	byteArray := make([]byte, 10*1024*1024)
