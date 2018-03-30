@@ -58,6 +58,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: istio-{{ $mname }}
+  namespace: {{ $.Release.Namespace }}
   labels:
     chart: {{ $.Chart.Name }}-{{ $.Chart.Version | replace "+" "_" }}
     release: {{ $.Release.Name }}
