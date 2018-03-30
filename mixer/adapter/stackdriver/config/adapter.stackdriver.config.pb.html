@@ -3,7 +3,7 @@ title: Stackdriver
 overview: Adapter to deliver logs and metrics to Stackdriver
 location: https://istio.io/docs/reference/config/adapters/stackdriver.html
 layout: protoc-gen-docs
-number_of_entries: 10
+number_of_entries: 11
 ---
 <p>The <code>stackdriver</code> adapter enables Istio to deliver log and metric data to the
 <a href="https://cloud.google.com/stackdriver/">Stackdriver</a> logging and monitoring backend.</p>
@@ -135,6 +135,14 @@ variables named in the mapping to populate the fields of the request struct from
 
 </td>
 </tr>
+<tr id="Params.LogInfo.sink_info">
+<td><code>sinkInfo</code></td>
+<td><code><a href="#Params.LogInfo.SinkInfo">Params.LogInfo.SinkInfo</a></code></td>
+<td>
+<p>If SinkInfo is provided, Stackriver logs would be exported to that sink.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -197,6 +205,47 @@ See https://godoc.org/cloud.google.com/go/logging#HTTPRequest</p>
 <td><code>string</code></td>
 <td>
 <p>template variable name to map into HTTPRequest.RemoteIP</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params.LogInfo.SinkInfo">Params.LogInfo.SinkInfo</h2>
+<section>
+<p>Gets information about sink to export Stackdriver logs to.
+See https://godoc.org/cloud.google.com/go/logging/logadmin#Sink.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.LogInfo.SinkInfo.id">
+<td><code>id</code></td>
+<td><code>string</code></td>
+<td>
+<p>Client assigned sink identifier.</p>
+
+</td>
+</tr>
+<tr id="Params.LogInfo.SinkInfo.destination">
+<td><code>destination</code></td>
+<td><code>string</code></td>
+<td>
+<p>Export Destination.</p>
+
+</td>
+</tr>
+<tr id="Params.LogInfo.SinkInfo.filter">
+<td><code>filter</code></td>
+<td><code>string</code></td>
+<td>
+<p>Filter that specifies any filtering to be done on logs.</p>
 
 </td>
 </tr>
