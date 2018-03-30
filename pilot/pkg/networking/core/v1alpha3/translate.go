@@ -311,9 +311,13 @@ func TranslateRoute(in *networking.HTTPRoute,
 
 		weighted := make([]*route.WeightedCluster_ClusterWeight, len(in.Route))
 		for _, dst := range in.Route {
+			weight := &types.UInt32Value{Value: uint32(dst.Weight)}
+			if dst.Weight == 0 {
+				weight.Value = uint32(100)
+			}
 			weighted = append(weighted, &route.WeightedCluster_ClusterWeight{
 				Name:   name(dst.Destination),
-				Weight: &types.UInt32Value{Value: uint32(dst.Weight)},
+				Weight: weight,
 			})
 		}
 
