@@ -67,20 +67,20 @@ func (r *ResourceInterface) Delete(name string, opts *metav1.DeleteOptions) erro
 	return r.ErrorResult
 }
 
-// Get gets the resource with the specified name.
-func (r *ResourceInterface) Get(name string, opts metav1.GetOptions) (*unstructured.Unstructured, error) {
-	panic("Not Implemented: Get")
-
-}
-
 // Watch returns a watch.Interface that watches the resource.
 func (r *ResourceInterface) Watch(opts metav1.ListOptions) (watch.Interface, error) {
 	r.e.Append("Watch")
-	return r.WatchResult, r.ErrorResult
+	// TODO: Add support for returning an error. This is not done so, as Watch can be called from
+	// an go-routine that is different than the one setting it.
+	return r.WatchResult, nil
+}
+
+// Get gets the resource with the specified name.
+func (r *ResourceInterface) Get(name string, opts metav1.GetOptions) (*unstructured.Unstructured, error) {
+	panic("Not Implemented: Get")
 }
 
 // Patch patches the provided resource.
 func (r *ResourceInterface) Patch(name string, pt types.PatchType, data []byte) (*unstructured.Unstructured, error) {
 	panic("Not Implemented: Patch")
-
 }
