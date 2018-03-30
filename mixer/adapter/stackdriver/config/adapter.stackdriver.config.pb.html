@@ -244,7 +244,8 @@ This field will be ignored for non-distribution metric kinds.</p>
 <td><code>metricType</code></td>
 <td><code>string</code></td>
 <td>
-<p>Stackdriver metric type name. If this is not provided, a
+<p>Stackdriver metric type name, e.g.
+istio.io/service/server/request_count. If this is not provided, a
 concantenation of custom metric prefix (custom.googleapis.com/) and
 Istio metric name will be used.</p>
 

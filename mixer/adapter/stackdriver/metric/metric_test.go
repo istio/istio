@@ -123,34 +123,54 @@ func TestFactory_NewMetricsAspect_Errs(t *testing.T) {
 }
 
 func TestMetricType(t *testing.T) {
-	cfg := &config.Params{
-		MetricInfo: map[string]*config.Params_MetricInfo{
-			"metric1": {
-				MetricType: "istio.io/metric1",
+	tests := []struct {
+		name string
+		cfg  *config.Params
+		want string
+	}{
+		{
+			"custom metric",
+			&config.Params{
+				MetricInfo: map[string]*config.Params_MetricInfo{
+					"metric": {
+						MetricType: "istio.io/metric",
+					},
+				},
 			},
-			"metric2": {},
+			"istio.io/metric",
+		},
+		{
+			"metric type",
+			&config.Params{
+				MetricInfo: map[string]*config.Params_MetricInfo{
+					"metric": {},
+				},
+			},
+			customMetricPrefix + "metric",
 		},
 	}
-	metrics := map[string]*metrict.Type{
-		"metric1": {},
-		"metric2": {},
-	}
-	b := &builder{createClient: clientFunc(nil)}
-	b.SetMetricTypes(metrics)
-	b.SetAdapterConfig(cfg)
-	env := test.NewEnv(t)
-	h, err := b.Build(context.Background(), env)
-	if err != nil {
-		t.Fatalf("Failed building metric handler: %v", err)
-	}
 
-	expected := map[string]bool{"istio.io/metric1": true, customMetricPrefix + "metric2": true}
-	got := make(map[string]bool)
-	for _, i := range h.(*handler).metricInfo {
-		got[i.ttype] = true
-	}
-	if !reflect.DeepEqual(expected, got) {
-		t.Errorf("Expected stackdriver metric types: %v, got %v", expected, got)
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
+			metrics := map[string]*metrict.Type{"metric": {}}
+			b := &builder{createClient: clientFunc(nil)}
+			b.SetMetricTypes(metrics)
+			b.SetAdapterConfig(tt.cfg)
+			env := test.NewEnv(t)
+			h, err := b.Build(context.Background(), env)
+			if err != nil {
+				t.Fatalf("Failed building metric handler: %v", err)
+			}
+			info := h.(*handler).metricInfo
+			if _, found := info["metric"]; !found {
+				t.Fatalf("Failed find info for metric, got %v", info)
+			}
+
+			got := info["metric"].ttype
+			if tt.want != got {
+				t.Errorf("Bad metric type: Build(%v) => got %v, wanted %v", cfg, got, tt.want)
+			}
+		})
 	}
 }
 

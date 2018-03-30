@@ -217,7 +217,8 @@ type Params_MetricInfo struct {
 	// This field must be provided for metrics declared to be of type DISTRIBUTION.
 	// This field will be ignored for non-distribution metric kinds.
 	Buckets *Params_MetricInfo_BucketsDefinition `protobuf:"bytes,3,opt,name=buckets" json:"buckets,omitempty"`
-	// Stackdriver metric type name. If this is not provided, a
+	// Stackdriver metric type name, e.g.
+	// istio.io/service/server/request_count. If this is not provided, a
 	// concantenation of custom metric prefix (custom.googleapis.com/) and
 	// Istio metric name will be used.
 	MetricType string `protobuf:"bytes,4,opt,name=metric_type,json=metricType,proto3" json:"metric_type,omitempty"`
