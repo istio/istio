@@ -24,8 +24,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
-	"istio.io/istio/pilot/pkg/networking/plugin/registry"
 	"istio.io/istio/pkg/log"
 )
 
@@ -71,11 +69,11 @@ type DiscoveryServer struct {
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
-func NewDiscoveryServer(grpcServer *grpc.Server, env model.Environment) *DiscoveryServer {
+func NewDiscoveryServer(grpcServer *grpc.Server, env model.Environment, generator core.ConfigGenerator) *DiscoveryServer {
 	out := &DiscoveryServer{
 		GrpcServer:      grpcServer,
 		env:             env,
-		ConfigGenerator: v1alpha3.NewConfigGenerator(registry.NewPlugins()),
+		ConfigGenerator: generator,
 	}
 
 	xdsapi.RegisterEndpointDiscoveryServiceServer(out.GrpcServer, out)
