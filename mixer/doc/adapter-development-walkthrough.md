@@ -37,12 +37,13 @@ git clone https://github.com/istio/istio
 
 Install protoc (version 3.5.1 or higher) from [https://github.com/google/protobuf/releases](https://github.com/google/protobuf/releases) and add it to your PATH
 
-Set the MIXER_REPO variable to the path where the mixer repository is on the local machine. Example `export MIXER_REPO=$GOPATH/src/istio.io/istio/mixer`
+Set the MIXER_REPO variable to the path where the mixer repository is on the local machine. Example `export MIXER_REPO=$GOPATH/src/istio.io/istio/mixer`.
+Also, $ISTIO should point to $GOPATH/src/istio.io.
 
-Successfully build the repo.
+Successfully build the mixer repo.
 
 ```bash
-pushd $MIXER_REPO && go build ./...
+pushd $ISTIO/istio && make mixs
 ```
 
 # Step 1: Write basic adapter skeleton code
@@ -184,6 +185,8 @@ Just to ensure everything is good, let's generate the file and build the code
 go generate ./...
 go build ./...
 ```
+
+If nothing happends on go generate, make sure protoc is installed and is in path.
 
 # Step 3: Link adapter config with adapter code.
 
@@ -423,26 +426,11 @@ Now your adapter is plugged into Mixer and ready to receive data.
 
 To see if your adapter works, we will need a sample operator configuration. So, let's write a simple operator
 configuration that we will give to Mixer for it to dispatch data to your sample adapter. We will need instance, handler
-and rule configuration to be passed to the Mixers configuration server. First we copy a sample attributes config that
-configures Mixer with an attributes vocabulary. We can then use those attributes in the sample operator configuration.
+and rule configuration to be passed to the Mixers configuration server.
 
-Create a directory where we can put sample operator config
+Create a sample operator config file with name `mysampleadapter.yaml` inside the `$MIXER_REPO/testdata/config` directory with the following content:
 
-```bash
-mkdir sampleoperatorconfig
-```
-
-
-Copy the sample attribute vocabulary config
-
-```bash
-cp $MIXER_REPO/testdata/config/attributes.yaml sampleoperatorconfig
-```
-
-
-Create a sample operator config file with name `config.yaml` inside the `sampleoperatorconfig` directory with the following content:
-
-Add the following content to the file `sampleoperatorconfig/config.yaml.`
+Add the following content to the file `$MIXER_REPO/testdata/config/mysampleadapter.yaml.`
 
 ```yaml
 # instance configuration for template 'metric'
@@ -488,10 +476,12 @@ spec:
 
 # Step 7: Start Mixer and validate the adapter.
 
-Start the mixer pointing it to the sample operator configuration
+Start the mixer pointing it to the testdata operator configuration
 
 ```bash
-pushd $MIXER_REPO && go install ./... && mixs server --configStoreURL=fs://$MIXER_REPO/adapter/mysampleadapter/sampleoperatorconfig
+pushd $ISTIO/istio && make mixs
+// locate mixs binary, should be $GOPATH/out/linux_amd64/release/mixs
+$GOPATH/out/linux_amd64/release/mixs server --configStoreURL=fs://$(pwd)/mixer/testdata/config
 ```
 
 The terminal will have the following output and will be blocked waiting to serve requests
@@ -522,15 +512,14 @@ TracingOptions: tracing.Options{ZipkinURL:"", JaegerURL:"", LogTraceSpans:false}
 Now let's call 'report' using mixer client. This step should cause the mixer server to call your sample adapter with
 instance objects constructed using the operator configuration.
 
-Start a new terminal window and set the MIXER_REPO variable to the path where the mixer repository is on the local
-machine. Example ``export MIXER_REPO=$GOPATH/src/istio.io/istio/mixer``
+Start a new terminal window and make sure $ISTIO is set to $GOPATH/src/istio.io. Example ``export ISTIO=$GOPATH/src/istio.io`` eg. ~/go/src/istio.io.
+Also, MIXER_REPO variable to the path where the mixer repository is on the local machine. Example ``export MIXER_REPO=$GOPATH/src/istio.io/istio/mixer``
 
 In the new window call the following
 
 ```bash
-pushd $MIXER_REPO && go install ./... && mixc report -s="destination.service=svc.cluster.local"
+pushd $ISTIO/istio && make mixc && mixc report -s destination.service="svc.cluster.local" -t request.time="2017-02-01T10:12:14Z"
 ```
-
 
 Inspect the out.text file that your adapter would have printed. If you have followed the above steps, then the out.txt
 should be in your directory `$MIXER_REPO`
@@ -552,7 +541,7 @@ You can even try passing other attributes to mixer server and inspect your out.t
 the adapter changes. For example
 
 ```bash
-pushd $MIXER_REPO && go install ./... && mixc report -s="destination.service=svc.cluster.local,destination.service=mySrvc" -i="response.code=400" --stringmap_attributes="destination.labels=app:dummyapp"
+pushd $ISTIO/istio && make mixc && mixc report -s="destination.service=svc.cluster.local,destination.service=mySrvc" -i="response.code=400" --stringmap_attributes="destination.labels=app:dummyapp"
 ```
 
 **If you have reached this far, congratulate yourself !!**. You have successfully created a Mixer adapter. You can
@@ -669,7 +658,7 @@ tail $MIXER_REPO/adapter/mysampleadapter/out.txt
 
 # Step 9: Cleanup
 
-Delete the adapter/mysampleadapter` `directory and undo the edits made inside the adapter/inventory.yaml and adapter/inventory.gen.go files.
+Delete the adapter/mysampleadapter` `directory, testdata/config/mysampleadapter.yaml file and undo the edits made inside the adapter/inventory.yaml and adapter/inventory.gen.go files.
 
 # Step 10: Next
 
