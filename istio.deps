@@ -13,6 +13,6 @@
 		"repoName": "envoyproxy/envoy",
 		"prodBranch": "master",
 		"file": "WORKSPACE",
-		"lastStableSHA": "4dd49d8809f7aaa580538b3c228dd99a2fae92a4"
+		"lastStableSHA": "3b5fb0e6c8cbbaba1944cb8d74af3f35c471bde2"
 	}
 ]
