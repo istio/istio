@@ -36,7 +36,7 @@ gsutil stat "${DST}/${BINARY_NAME}" \
   || echo 'Building a new binary.'
 
 # Build the release binary
-bazel build --config=release //src/envoy:envoy_tar
+bazel --batch build --config=release //src/envoy:envoy_tar
 BAZEL_TARGET="bazel-bin/src/envoy/envoy_tar.tar.gz"
 cp -f "${BAZEL_TARGET}" "${BINARY_NAME}"
 sha256sum "${BINARY_NAME}" > "${SHA256_NAME}"
@@ -47,7 +47,7 @@ gsutil cp "${BINARY_NAME}" "${SHA256_NAME}" "${DST}/"
 
 BINARY_NAME="istio-proxy-${SHA}.deb"
 SHA256_NAME="istio-proxy-${SHA}.sha256"
-bazel build --config=release //tools/deb:istio-proxy
+bazel --batch build --config=release //tools/deb:istio-proxy
 BAZEL_TARGET="bazel-bin/tools/deb/istio-proxy.deb"
 cp -f "${BAZEL_TARGET}" "${BINARY_NAME}"
 sha256sum "${BINARY_NAME}" > "${SHA256_NAME}"
@@ -60,7 +60,7 @@ gsutil cp "${BINARY_NAME}" "${SHA256_NAME}" "${DST}/"
 # Build the debug binary
 BINARY_NAME="envoy-debug-${SHA}.tar.gz"
 SHA256_NAME="envoy-debug-${SHA}.sha256"
-bazel build -c dbg //src/envoy:envoy_tar
+bazel --batch build -c dbg //src/envoy:envoy_tar
 BAZEL_TARGET="bazel-bin/src/envoy/envoy_tar.tar.gz"
 cp -f "${BAZEL_TARGET}" "${BINARY_NAME}"
 sha256sum "${BINARY_NAME}" > "${SHA256_NAME}"
@@ -71,7 +71,7 @@ gsutil cp "${BINARY_NAME}" "${SHA256_NAME}" "${DST}/"
 
 BINARY_NAME="istio-proxy-debug-${SHA}.deb"
 SHA256_NAME="istio-proxy-debug${SHA}.sha256"
-bazel build -c dbg //tools/deb:istio-proxy
+bazel --batch build -c dbg //tools/deb:istio-proxy
 BAZEL_TARGET="bazel-bin/tools/deb/istio-proxy.deb"
 cp -f "${BAZEL_TARGET}" "${BINARY_NAME}"
 sha256sum "${BINARY_NAME}" > "${SHA256_NAME}"
