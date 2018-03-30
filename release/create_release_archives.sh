@@ -111,6 +111,9 @@ pushd "${OUTPUT_PATH}"
 ${CP} istio.VERSION LICENSE README.md "${COMMON_FILES_DIR}"/
 find samples install -type f \( \
   -name "*.yaml" \
+  -o -name "*.yml" \
+  -o -name "*.cfg" \
+  -o -name "*.j2" \
   -o -name "cleanup*" \
   -o -name "*.md" \
   -o -name "*.pem" \
@@ -122,7 +125,6 @@ find samples install -type f \( \
   \) \
   -exec ${CP} --parents {} "${COMMON_FILES_DIR}" \;
 find install/tools -type f -exec ${CP} --parents {} "${COMMON_FILES_DIR}" \;
-find install/ansible -type f -exec ${CP} --parents {} "${COMMON_FILES_DIR}" \;
 find tools -type f -not -name "githubContrib*" -not -name ".*" -exec ${CP} --parents {} "${COMMON_FILES_DIR}" \;
 popd
 
