@@ -25,6 +25,8 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
+	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pkg/log"
 )
 
@@ -74,7 +76,7 @@ func NewDiscoveryServer(grpcServer *grpc.Server, env model.Environment) *Discove
 	out := &DiscoveryServer{
 		GrpcServer:      grpcServer,
 		env:             env,
-		ConfigGenerator: core.NewConfigGenerator(),
+		ConfigGenerator: v1alpha3.NewConfigGenerator(plugin.NewPlugins()),
 	}
 
 	xdsapi.RegisterEndpointDiscoveryServiceServer(out.GrpcServer, out)

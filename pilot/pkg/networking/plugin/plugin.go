@@ -12,19 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package plugins
+package plugin
 
 import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/plugins/authn"
 )
 
 // PluginCallbacks represents the interfaces implemented by code that modifies the default output of
 // networking. Examples include AuthenticationPlugin that sets up mTLS authentication on the inbound Listener
 // and outbound Cluster, the mixer plugin that sets up policy checks on the inbound listener, etc.
-type PluginCallbacks interface {
+type Callbacks interface {
 	// OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service
 	// Can be used to add additional filters on the outbound path
 	OnOutboundListener(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port,
@@ -54,13 +53,4 @@ type PluginCallbacks interface {
 	// Can be used to enable route specific stuff like Lua filters or other metadata.
 	OnInboundRoute(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port,
 		route *xdsapi.RouteConfiguration)
-}
-
-// NewPlugins returns a list of plugin instance handles. Each plugin implements the PluginCallbacks interfaces
-func NewPlugins() []PluginCallbacks {
-	plugins := make([]PluginCallbacks, 0)
-	plugins = append(plugins, authn.NewPluginInstance())
-	// plugins = append(plugins, mixer.NewPlugin())
-	// plugins = append(plugins, apim.NewPlugin())
-	return plugins
 }
