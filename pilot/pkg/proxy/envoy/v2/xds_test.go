@@ -95,7 +95,7 @@ func sidecarId(ip, deployment string) string {
 }
 
 func gatewayId(ip string) string {
-	return fmt.Sprintf("gateway~%s~istio-gateway-644fc65469-96dzt.istio-system~istio-system.svc.cluster.local", ip)
+	return fmt.Sprintf("router~%s~istio-gateway-644fc65469-96dzt.istio-system~istio-system.svc.cluster.local", ip)
 }
 
 // initLocalPilotTestEnv creates a local, in process Pilot with XDSv2 support and a set
