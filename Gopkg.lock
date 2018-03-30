@@ -9,6 +9,7 @@
     "logging",
     "logging/apiv2",
     "logging/internal",
+    "logging/logadmin",
     "monitoring/apiv3"
   ]
   revision = "4b98a6370e36d7a85192e7bad08a4ebd82eac2a8"
@@ -1132,6 +1133,8 @@
     "googleapis/api/label",
     "googleapis/api/metric",
     "googleapis/api/monitoredres",
+    "googleapis/appengine/logging/v1",
+    "googleapis/cloud/audit",
     "googleapis/logging/type",
     "googleapis/logging/v2",
     "googleapis/monitoring/v3",
@@ -1217,7 +1220,6 @@
   version = "v2.2.1"
 
 [[projects]]
-  branch = "master"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
@@ -1231,7 +1233,7 @@
     "rbac/v1alpha1",
     "routing/v1alpha1"
   ]
-  revision = "3388c6e22df091cbacf63f012aef56b3120bf869"
+  revision = "1e6e1c99aab41d28aa59c2e48afa4c4dad2da2da"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1527,6 +1529,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "88b2904822dff763e7dce7e3e4ccf56b271a2323f16b214e5aa31fc091d32e1e"
+  inputs-digest = "1202ceb12906b81e13742fb6b417387f0797c64037f7e8570b06af46f39c355f"
   solver-name = "gps-cdcl"
   solver-version = 1
