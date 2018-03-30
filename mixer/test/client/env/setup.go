@@ -122,12 +122,12 @@ func (s *TestSetup) GetMixerQuotaCount() int {
 
 // GetMixerCheckCount get the number of Check calls.
 func (s *TestSetup) GetMixerCheckCount() int {
-	return s.mixer.check.count
+	return s.mixer.check.Count()
 }
 
 // GetMixerReportCount get the number of Report calls.
 func (s *TestSetup) GetMixerReportCount() int {
-	return s.mixer.report.count
+	return s.mixer.report.Count()
 }
 
 // SetStress set the stress flag
@@ -200,14 +200,14 @@ func (s *TestSetup) ReStartEnvoy() {
 // VerifyCheckCount verifies the number of Check calls.
 func (s *TestSetup) VerifyCheckCount(tag string, expected int) {
 	test.Eventually(s.t, "VerifyCheckCount", func() bool {
-		return s.mixer.check.count == expected
+		return s.mixer.check.Count() == expected
 	})
 }
 
 // VerifyReportCount verifies the number of Report calls.
 func (s *TestSetup) VerifyReportCount(tag string, expected int) {
 	test.Eventually(s.t, "VerifyReportCount", func() bool {
-		return s.mixer.report.count == expected
+		return s.mixer.report.Count() == expected
 	})
 }
 
