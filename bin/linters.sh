@@ -35,3 +35,7 @@ popd
 
 $gometalinter --config=./mixer/tools/adapterlinter/gometalinter.json ./mixer/adapter/...
 echo 'gometalinter on adapters OK'
+
+echo 'Checking Grafana dashboards'
+bin/check_dashboards.sh
+echo 'dashboards OK'
