@@ -279,13 +279,12 @@ required = [
   name = "gopkg.in/yaml.v2"
   version = "2.2.1"
 
+# TODO: switch back to master once pilot code is caught up
 [[constraint]]
-  branch = "master"
+  revision = "1e6e1c99aab41d28aa59c2e48afa4c4dad2da2da"
   name = "istio.io/api"
 
-[[constraint]]
-  name = "istio.io/fortio"
-  version = "0.8.1"
+# fortio is latest tagged by default
 
 [[constraint]]
   name = "k8s.io/api"
