@@ -97,7 +97,7 @@ func (*AuthenticationPlugin) OnOutboundCluster(env model.Environment, node model
 	}
 
 	required, _ := model.RequireTLS(model.GetConsolidateAuthenticationPolicy(mesh, config, service.Hostname, servicePort))
-	if isDestinationExcludedForMTLS(service.Hostname, mesh.MtlsExcludedServices) && !required {
+	if isDestinationExcludedForMTLS(service.Hostname, mesh.MtlsExcludedServices) || !required {
 		return
 	}
 
