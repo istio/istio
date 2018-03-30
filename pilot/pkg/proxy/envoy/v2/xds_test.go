@@ -158,6 +158,20 @@ func initLocalPilotTestEnv() *bootstrap.Server {
 		AvailabilityZone: "az",
 	})
 
+	// Service4 is using port 80, to test that we generate multiple clusters (regression)
+	server.EnvoyXdsServer.MemRegistry.AddService("service4", &model.Service{
+		Hostname: "service4.default.svc.cluster.local",
+		Address:  "10.1.0.4",
+		Ports:    []*model.Port{
+			{
+				Name:                 "http-main",
+				Port:                 80,
+				Protocol:             model.ProtocolHTTP,
+				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+			},
+			},
+	})
+
 	return server
 }
 
