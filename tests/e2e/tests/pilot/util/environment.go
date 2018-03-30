@@ -808,24 +808,8 @@ func (e *Environment) createSidecarInjector() error {
 		return err
 	}
 
-	// webhook certificates
-	ca, cert, key, err := createWebhookCerts(sidecarInjectorService, e.Config.IstioNamespace) // nolint: vetshadow
-	if err != nil {
-		return err
-	}
-	if _, err := e.KubeClient.CoreV1().Secrets(e.Config.IstioNamespace).Create(&v1.Secret{ // nolint: vetshadow
-		ObjectMeta: meta_v1.ObjectMeta{Name: "sidecar-injector-certs"},
-		Data: map[string][]byte{
-			"cert.pem": cert,
-			"key.pem":  key,
-		},
-		Type: v1.SecretTypeOpaque,
-	}); err != nil {
-		return err
-	}
-
 	// webhook deployment
-	e.CABundle = base64.StdEncoding.EncodeToString(ca)
+	e.CABundle = ""
 	if filledYaml, err := e.Fill("sidecar-injector.yaml.tmpl", e.ToTemplateData()); err != nil { // nolint: vetshadow
 		return err
 	} else if err = e.KubeApply(filledYaml, e.Config.IstioNamespace); err != nil {
