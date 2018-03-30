@@ -158,7 +158,7 @@ func convertRoutes(in *v1alpha1.RouteRule) []*v1alpha3.DestinationWeight {
 	if in.Redirect == nil && len(in.Route) == 0 {
 		out = append(out, &v1alpha3.DestinationWeight{
 			Destination: &v1alpha3.Destination{
-				Name:   host,
+				Host:   host,
 				Subset: "",
 				Port:   nil,
 			},
@@ -174,7 +174,7 @@ func convertRoutes(in *v1alpha1.RouteRule) []*v1alpha3.DestinationWeight {
 
 		out = append(out, &v1alpha3.DestinationWeight{
 			Destination: &v1alpha3.Destination{
-				Name:   name,
+				Host:   name,
 				Subset: labelsToSubsetName(route.Labels),
 				Port:   nil,
 			},
@@ -319,7 +319,7 @@ func convertMirror(in *v1alpha1.IstioService) *v1alpha3.Destination {
 	}
 
 	return &v1alpha3.Destination{
-		Name:   convertIstioService(in),
+		Host:   convertIstioService(in),
 		Subset: labelsToSubsetName(in.Labels),
 	}
 }

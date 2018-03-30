@@ -32,8 +32,8 @@
     "autorest/azure",
     "autorest/date"
   ]
-  revision = "ed4b7f5bf1ec0c9ede1fda2681d96771282f2862"
-  version = "v10.4.0"
+  revision = "fc3b03a2d2d1f43fad3007038bd16f044f870722"
+  version = "v9.10.0"
 
 [[projects]]
   name = "github.com/BurntSushi/toml"
@@ -221,13 +221,13 @@
   version = "v3.2.0"
 
 [[projects]]
+  branch = "master"
   name = "github.com/docker/distribution"
   packages = [
-    "digest",
+    "digestset",
     "reference"
   ]
-  revision = "48294d928ced5dd9b378f7fd7c6f5da3ff3f2c89"
-  version = "v2.6.2"
+  revision = "83389a148052d74ac602f5f1d62f86ff2f3c4aa5"
 
 [[projects]]
   branch = "master"
@@ -248,6 +248,7 @@
   version = "v2.6.0"
 
 [[projects]]
+  branch = "master"
   name = "github.com/envoyproxy/go-control-plane"
   packages = [
     "envoy/api/v2",
@@ -269,8 +270,7 @@
     "pkg/server",
     "pkg/util"
   ]
-  revision = "89abfa00ef3cae559f2739ce9e1f181ffc7caf92"
-  version = "v0.1"
+  revision = "9fdf4bd79736a87c78b3d48b7baa84ea24be1c1a"
 
 [[projects]]
   name = "github.com/fluent/fluent-logger-golang"
@@ -700,6 +700,12 @@
   ]
   revision = "688594c3786b0805d061a0de387f6a265a7fa9d0"
   version = "v0.7.1"
+
+[[projects]]
+  name = "github.com/opencontainers/go-digest"
+  packages = ["."]
+  revision = "279bed98673dd5bef374d3b6e4b09e2af76183bf"
+  version = "v1.0.0-rc1"
 
 [[projects]]
   branch = "master"
@@ -1255,7 +1261,7 @@
   version = "kubernetes-1.9.1"
 
 [[projects]]
-  branch = "release-1.10"
+  branch = "release-1.9"
   name = "k8s.io/apiextensions-apiserver"
   packages = [
     "pkg/apis/apiextensions",
@@ -1265,7 +1271,7 @@
     "pkg/client/clientset/clientset/typed/apiextensions/v1beta1",
     "pkg/features"
   ]
-  revision = "77e2b790e19935b0ba0c2308d513cfd1fcd7c865"
+  revision = "c958999085e1db202fb83549b3c0ff8abd3f5b94"
 
 [[projects]]
   name = "k8s.io/apimachinery"
@@ -1331,6 +1337,7 @@
   revision = "f4a9d31325865f18b8023622a564578f079d582b"
 
 [[projects]]
+  branch = "release-6.0"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
@@ -1429,8 +1436,7 @@
     "util/jsonpath",
     "util/workqueue"
   ]
-  revision = "78700dec6369ba22221b72770783300f143df150"
-  version = "v6.0.0"
+  revision = "90539b4e75a8daaf7f67c3874c6180bfb1a63936"
 
 [[projects]]
   name = "k8s.io/cluster-registry"
@@ -1478,6 +1484,7 @@
   revision = "50ae88d24ede7b8bad68e23c805b5d3da5c8abaf"
 
 [[projects]]
+  branch = "release-1.9"
   name = "k8s.io/kubernetes"
   packages = [
     "pkg/apis/autoscaling",
@@ -1489,12 +1496,11 @@
     "pkg/util/parsers",
     "pkg/util/pointer"
   ]
-  revision = "fc32d2f3698e36b93322a3465f63a14e9f0eaead"
-  version = "v1.10.0"
+  revision = "f947188850f4e8087459921129e8dce9b35325f1"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "868d5704a2d9362f67265a9e1b598b7d66e882e423d338aa5ee7d89ac9dd5795"
+  inputs-digest = "2e83ae3c5d7ded29dd0efc06544c2963f705109fd6659abecac2f70718aa8416"
   solver-name = "gps-cdcl"
   solver-version = 1

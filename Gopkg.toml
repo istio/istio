@@ -25,6 +25,26 @@
 #   unused-packages = true
 
 
+# To use reference package:
+#   vendor/k8s.io/kubernetes/pkg/util/parsers/parsers.go:36:16: undefined: reference.ParseNormalizedNamed
+[[override]]
+  name = "github.com/docker/distribution"
+  branch = "master"
+
+# TODO: switch to 1.10 and newer client-go
+
+# client-go release-6.0 corresponds to k8s release-1.9 branch. See
+# https://github.com/kubernetes/client-go/tree/release-6.0#compatibility-matrix
+# for details.
+[[override]]
+  name = "k8s.io/client-go"
+  branch = "release-6.0"
+
+# matching client-go 6 == 1.9 == v9 (!)
+[[override]]
+  name = "github.com/Azure/go-autorest"
+  version = "v9.10.0"
+
 [[constraint]]
   name = "cloud.google.com/go"
   version = "0.20.0"
@@ -67,7 +87,7 @@
 
 [[constraint]]
   name = "github.com/envoyproxy/go-control-plane"
-  version = "0.1.0"
+  branch = "master"
 
 [[constraint]]
   name = "github.com/fluent/fluent-logger-golang"
@@ -262,7 +282,7 @@
   version = "kubernetes-1.9.1"
 
 [[constraint]]
-  branch = "release-1.10"
+  branch = "release-1.9"
   name = "k8s.io/apiextensions-apiserver"
 
 [[constraint]]
@@ -279,7 +299,7 @@
 
 [[constraint]]
   name = "k8s.io/kubernetes"
-  version = "1.9.6"
+  branch = "release-1.9"
 
 [prune]
   go-tests = true
