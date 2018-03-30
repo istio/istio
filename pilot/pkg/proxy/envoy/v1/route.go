@@ -364,7 +364,7 @@ func buildHTTPRouteV3(store model.IstioConfigStore, config model.Config, service
 		clusters := make([]*WeightedClusterEntry, 0, len(http.Route))
 		for _, dst := range http.Route {
 
-			fqdn := model.ResolveFQDN(dst.Destination.Name, domain)
+			fqdn := model.ResolveFQDN(dst.Destination.Host, domain)
 			v2clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, dst.Destination.Subset, fqdn, port)
 			labels := fetchSubsetLabels(store, fqdn, dst.Destination.Subset, domain)
 			cluster := buildCluster(fqdn, port, labels, service.External()) // TODO: support Destination.Port
@@ -410,7 +410,7 @@ func buildHTTPRouteV3(store model.IstioConfigStore, config model.Config, service
 	}
 
 	if http.Mirror != nil {
-		fqdn := model.ResolveFQDN(http.Mirror.Name, domain)
+		fqdn := model.ResolveFQDN(http.Mirror.Host, domain)
 		labels := fetchSubsetLabels(store, fqdn, http.Mirror.Subset, domain)
 		v2clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, http.Mirror.Subset, fqdn, port)
 		cluster := buildCluster(fqdn, port, labels, false)

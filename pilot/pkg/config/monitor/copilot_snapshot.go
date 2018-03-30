@@ -98,7 +98,7 @@ func (c *CopilotSnapshot) ReadConfigFiles() ([]*model.Config, error) {
 						Route: []*networking.DestinationWeight{
 							{
 								Destination: &networking.Destination{
-									Name: hostname,
+									Host: hostname,
 								},
 							},
 						},
