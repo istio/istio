@@ -15,6 +15,7 @@
 package framework
 
 import (
+	"errors"
 	"flag"
 	"path/filepath"
 
@@ -34,6 +35,7 @@ type App struct {
 	AppYaml         string
 	KubeInject      bool
 	Template        interface{}
+	deployedYaml    string
 }
 
 // AppManager organize and deploy apps
@@ -42,6 +44,7 @@ type AppManager struct {
 	tmpDir    string
 	namespace string
 	istioctl  *Istioctl
+	active    bool
 }
 
 // NewAppManager create a new AppManager
@@ -84,7 +87,7 @@ func (am *AppManager) deploy(a *App) error {
 			return err
 		}
 		if err = am.istioctl.KubeInject(a.AppYaml, finalYaml); err != nil {
-			log.Errorf("KubeInject failed %v", err)
+			log.Errorf("KubeInject failed for yaml %s: %v", a.AppYaml, err)
 			return err
 		}
 	}
@@ -92,11 +95,13 @@ func (am *AppManager) deploy(a *App) error {
 		log.Errorf("Kubectl apply %s failed", finalYaml)
 		return err
 	}
+	a.deployedYaml = finalYaml
 	return nil
 }
 
 // Setup deploy apps
 func (am *AppManager) Setup() error {
+	am.active = true
 	log.Info("Setting up apps")
 	for _, a := range am.Apps {
 		log.Infof("Setup %v", a)
@@ -105,15 +110,48 @@ func (am *AppManager) Setup() error {
 			return err
 		}
 	}
-	return util.CheckDeployments(am.namespace, maxDeploymentRolloutTime)
+	return am.CheckDeployments()
 }
 
 // Teardown currently does nothing, only to satisfied cleanable{}
 func (am *AppManager) Teardown() error {
+	am.active = false
 	return nil
 }
 
-// AddApp for automated deployment. Must be done before Setup Call.
+// AddApp for automated deployment. Must be done before Setup call.
 func (am *AppManager) AddApp(a *App) {
 	am.Apps = append(am.Apps, a)
+}
+
+// DeployApp adds the app and deploys it to the system. Must be called after Setup call.
+func (am *AppManager) DeployApp(a *App) error {
+	if !am.active {
+		return errors.New("function DeployApp must be called after Setup")
+	}
+	am.AddApp(a)
+	return am.deploy(a)
+}
+
+// UndeployApp deletes the app from the system. Must be called after Setup call.
+func (am *AppManager) UndeployApp(a *App) error {
+	if !am.active {
+		return errors.New("function UndeployApp must be called after Setup")
+	}
+
+	if a.deployedYaml == "" {
+		// It wasn't deployed.
+		return nil
+	}
+
+	if err := util.KubeDelete(am.namespace, a.deployedYaml); err != nil {
+		log.Errorf("Kubectl delete %s failed", a.deployedYaml)
+		return err
+	}
+	return nil
+}
+
+// CheckDeployments waits for a period for the deployments to be started.
+func (am *AppManager) CheckDeployments() error {
+	return util.CheckDeployments(am.namespace, maxDeploymentRolloutTime)
 }
