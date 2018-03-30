@@ -88,7 +88,7 @@ const reportAttributesOkPost = `
   "response.headers": {
      "date": "*",
      "content-type": "text/plain",
-     "content-length": "*",
+     "content-length": "10485760",
      ":status": "200",
      "server": "envoy"
   }
