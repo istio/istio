@@ -28,6 +28,8 @@ required = [
   ### BEGIN Mixer codegen deps
   "github.com/istio/tools/protoc-gen-docs",
   ### END Mixer codegen deps
+  # fortio is built in vendor for the testing framework
+  "istio.io/fortio",
 ]
 
 # To use reference package:
