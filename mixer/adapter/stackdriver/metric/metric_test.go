@@ -168,7 +168,7 @@ func TestMetricType(t *testing.T) {
 
 			got := info["metric"].ttype
 			if tt.want != got {
-				t.Errorf("Bad metric type: Build(%v) => got %v, wanted %v", cfg, got, tt.want)
+				t.Errorf("Bad metric type: Build(%v) => got %v, wanted %v", tt.cfg, got, tt.want)
 			}
 		})
 	}
