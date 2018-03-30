@@ -37,7 +37,6 @@ import (
 
 	authn "istio.io/api/authentication/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	plugin_authn "istio.io/istio/pilot/pkg/networking/plugins/authn"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
 )
@@ -77,19 +76,21 @@ var (
 var ListenersALPNProtocols = []string{"h2", "http/1.1"}
 
 // BuildListeners produces a list of listeners and referenced clusters for all proxies
-func BuildListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
+func (configgen *ConfigGeneratorImpl) BuildListeners(env model.Environment,
+	node model.Proxy) ([]*xdsapi.Listener, error) {
 	switch node.Type {
 	case model.Sidecar:
-		return buildSidecarListeners(env, node)
+		return configgen.buildSidecarListeners(env, node)
 	case model.Router, model.Ingress:
 		// TODO: add listeners for other protocols too
-		return buildGatewayListeners(env, node)
+		return configgen.buildGatewayListeners(env, node)
 	}
 	return nil, nil
 }
 
 // buildSidecarListeners produces a list of listeners for sidecar proxies
-func buildSidecarListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
+func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env model.Environment,
+	node model.Proxy) ([]*xdsapi.Listener, error) {
 	mesh := env.Mesh
 	managementPorts := env.ManagementPorts(node.IPAddress)
 
@@ -113,8 +114,8 @@ func buildSidecarListeners(env model.Environment, node model.Proxy) ([]*xdsapi.L
 	//	listeners = append(listeners, outbound...)
 	//} else
 	if mesh.ProxyListenPort > 0 {
-		inbound := buildSidecarInboundListeners(env, node, proxyInstances)
-		outbound := buildSidecarOutboundListeners(env, node, proxyInstances, services)
+		inbound := configgen.buildSidecarInboundListeners(env, node, proxyInstances)
+		outbound := configgen.buildSidecarOutboundListeners(env, node, proxyInstances, services)
 
 		listeners = append(listeners, inbound...)
 		listeners = append(listeners, outbound...)
@@ -179,7 +180,8 @@ func buildSidecarListeners(env model.Environment, node model.Proxy) ([]*xdsapi.L
 			port:           int(mesh.ProxyHttpPort),
 			protocol:       model.ProtocolHTTP,
 			httpOpts: &httpListenerOpts{
-				routeConfig: buildSidecarOutboundHTTPRouteConfig(env, node, proxyInstances, services, RDSHttpProxy),
+				routeConfig: configgen.buildSidecarOutboundHTTPRouteConfig(env, node, proxyInstances,
+					services, RDSHttpProxy),
 				//rds:              RDSHttpProxy,
 				useRemoteAddress: useRemoteAddress,
 				direction:        traceOperation,
@@ -193,7 +195,7 @@ func buildSidecarListeners(env model.Environment, node model.Proxy) ([]*xdsapi.L
 
 // buildSidecarInboundListeners creates listeners for the server-side (inbound)
 // configuration for co-located service proxyInstances.
-func buildSidecarInboundListeners(env model.Environment, node model.Proxy,
+func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Environment, node model.Proxy,
 	proxyInstances []*model.ServiceInstance) []*xdsapi.Listener {
 	listeners := make([]*xdsapi.Listener, 0, len(proxyInstances))
 
@@ -229,7 +231,7 @@ func buildSidecarInboundListeners(env model.Environment, node model.Proxy,
 		switch protocol {
 		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC:
 			listenerOpts.httpOpts = &httpListenerOpts{
-				routeConfig:      buildSidecarInboundHTTPRouteConfig(instance),
+				routeConfig:      configgen.buildSidecarInboundHTTPRouteConfig(env, node, instance),
 				rds:              "",
 				useRemoteAddress: false,
 				direction:        http_conn.INGRESS,
@@ -257,6 +259,11 @@ func buildSidecarInboundListeners(env model.Environment, node model.Proxy,
 
 		l = buildListener(listenerOpts)
 		if l != nil {
+			// call plugins
+			for _, p := range configgen.Plugins {
+				p.OnInboundListener(env, node, instance.Service, instance.Endpoint.ServicePort, l)
+			}
+
 			listeners = append(listeners, l)
 		}
 	}
@@ -278,7 +285,7 @@ func buildSidecarInboundListeners(env model.Environment, node model.Proxy,
 // Connections to the ports of non-load balanced services are directed to
 // the connection's original destination. This avoids costly queries of instance
 // IPs and ports, but requires that ports of non-load balanced service be unique.
-func buildSidecarOutboundListeners(env model.Environment, node model.Proxy,
+func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.Environment, node model.Proxy,
 	proxyInstances []*model.ServiceInstance, services []*model.Service) []*xdsapi.Listener {
 
 	var tcpListeners, httpListeners []*xdsapi.Listener
@@ -299,6 +306,7 @@ func buildSidecarOutboundListeners(env model.Environment, node model.Proxy,
 				port:           servicePort.Port,
 				protocol:       servicePort.Protocol,
 			}
+			var l *xdsapi.Listener
 			switch servicePort.Protocol {
 			case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
 				if service.Resolution == model.Passthrough {
@@ -317,7 +325,8 @@ func buildSidecarOutboundListeners(env model.Environment, node model.Proxy,
 				}
 				listenerOpts.ip = listenAddress
 				listenerOpts.networkFilters = buildOutboundNetworkFilters(clusterName, addresses, servicePort)
-				tcpListeners = append(tcpListeners, buildListener(listenerOpts))
+				l = buildListener(listenerOpts)
+				tcpListeners = append(tcpListeners, l)
 				// TODO: Set SNI for HTTPS
 			case model.ProtocolHTTP2, model.ProtocolHTTP, model.ProtocolGRPC:
 				operation := http_conn.EGRESS
@@ -332,14 +341,21 @@ func buildSidecarOutboundListeners(env model.Environment, node model.Proxy,
 				listenerOpts.protocol = model.ProtocolHTTP
 				listenerOpts.httpOpts = &httpListenerOpts{
 					//rds:              fmt.Sprintf("%d", servicePort.Port),
-					routeConfig: buildSidecarOutboundHTTPRouteConfig(env, node, proxyInstances, services,
+					routeConfig: configgen.buildSidecarOutboundHTTPRouteConfig(env, node, proxyInstances, services,
 						fmt.Sprintf("%d", servicePort.Port)),
 					useRemoteAddress: useRemoteAddress,
 					direction:        operation,
 					authnPolicy:      nil, /* authn policy is not needed for outbound listener */
 				}
-				httpListeners = append(httpListeners, buildListener(listenerOpts))
+				l = buildListener(listenerOpts)
+				httpListeners = append(httpListeners, l)
 			}
+
+			// call plugins
+			for _, p := range configgen.Plugins {
+				p.OnOutboundListener(env, node, service, servicePort, l)
+			}
+
 		}
 	}
 
@@ -401,7 +417,7 @@ func buildMgmtPortListeners(managementPorts model.PortList, managementIP string)
 // TODO: move to plugins
 // buildInboundAuth adds TLS to the listener if the policy requires one.
 func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy) *auth.DownstreamTlsContext {
-	if model.RequireTLS(authenticationPolicy) {
+	if requireTLS, mTLSParams := model.RequireTLS(authenticationPolicy); requireTLS {
 		return &auth.DownstreamTlsContext{
 			CommonTlsContext: &auth.CommonTlsContext{
 				TlsCertificates: []*auth.TlsCertificate{
@@ -428,7 +444,7 @@ func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy) *auth.Do
 				AlpnProtocols: ListenersALPNProtocols,
 			},
 			RequireClientCertificate: &google_protobuf.BoolValue{
-				Value: true,
+				Value: !mTLSParams.AllowTls,
 			},
 		}
 	}
@@ -525,9 +541,10 @@ func buildHTTPConnectionManager(opts buildListenerOpts) *http_conn.HttpConnectio
 		refresh = 5 * time.Second
 	}
 
-	if filter := plugin_authn.BuildJwtFilter(opts.httpOpts.authnPolicy); filter != nil {
-		filters = append([]*http_conn.HttpFilter{filter}, filters...)
-	}
+	// TODO this has been explicitly disabled until the plugin stuff is implemented
+	//if filter := plugin_authn.BuildJwtFilter(opts.httpOpts.authnPolicy); filter != nil {
+	//	filters = append([]*http_conn.HttpFilter{filter}, filters...)
+	//}
 
 	connectionManager := &http_conn.HttpConnectionManager{
 		CodecType: http_conn.AUTO,
@@ -656,7 +673,9 @@ func buildDefaultHTTPRoute(clusterName string) *route.Route {
 
 // buildSidecarInboundHTTPRouteConfig builds the route config with a single wildcard virtual host on the inbound path
 // TODO: enable mixer configuration, websockets, trace decorators
-func buildSidecarInboundHTTPRouteConfig(instance *model.ServiceInstance) *xdsapi.RouteConfiguration {
+func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env model.Environment,
+	node model.Proxy, instance *model.ServiceInstance) *xdsapi.RouteConfiguration {
+
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "",
 		instance.Service.Hostname, instance.Endpoint.ServicePort)
 	defaultRoute := buildDefaultHTTPRoute(clusterName)
@@ -673,17 +692,23 @@ func buildSidecarInboundHTTPRouteConfig(instance *model.ServiceInstance) *xdsapi
 	//	defaultRoute.OpaqueConfig = v1.BuildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false, instance.Service.Hostname)
 	//}
 
-	return &xdsapi.RouteConfiguration{
+	r := &xdsapi.RouteConfiguration{
 		Name:         clusterName,
 		VirtualHosts: []route.VirtualHost{inboundVHost},
 		ValidateClusters: &google_protobuf.BoolValue{
 			Value: false,
 		},
 	}
+
+	// call plugins
+	for _, p := range configgen.Plugins {
+		p.OnInboundRoute(env, node, instance.Service, instance.Endpoint.ServicePort, r)
+	}
+	return r
 }
 
-func buildSidecarOutboundHTTPRouteConfig(env model.Environment, node model.Proxy, _ []*model.ServiceInstance,
-	services []*model.Service, routeName string) *xdsapi.RouteConfiguration {
+func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env model.Environment, node model.Proxy,
+	_ []*model.ServiceInstance, services []*model.Service, routeName string) *xdsapi.RouteConfiguration {
 
 	port := 0
 	if routeName != RDSHttpProxy {
@@ -767,8 +792,13 @@ func buildSidecarOutboundHTTPRouteConfig(env model.Environment, node model.Proxy
 			Value: false, // until we have rds
 		},
 	}
-	return out
 
+	// call plugins
+	for _, p := range configgen.Plugins {
+		p.OnOutboundRoute(env, node, out)
+	}
+
+	return out
 }
 
 // Given a service, and a port, this function generates all possible HTTP Host headers.

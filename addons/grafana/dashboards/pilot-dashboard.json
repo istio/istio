@@ -124,7 +124,7 @@
           "step": 2
         },
         {
-          "expr": "go_memstats_heap_sys_bytes{job=\"mixer\"}",
+          "expr": "go_memstats_heap_sys_bytes{job=\"pilot\"}",
           "format": "time_series",
           "hide": true,
           "intervalFactor": 2,
@@ -132,7 +132,7 @@
           "refId": "A"
         },
         {
-          "expr": "go_memstats_heap_alloc_bytes{job=\"mixer\"}",
+          "expr": "go_memstats_heap_alloc_bytes{job=\"pilot\"}",
           "format": "time_series",
           "hide": true,
           "intervalFactor": 2,
@@ -356,13 +356,13 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "process_open_fds{job=\"mixer\"}",
+          "expr": "process_open_fds{job=\"pilot\"}",
           "format": "time_series",
           "hide": true,
           "instant": false,
           "interval": "",
           "intervalFactor": 2,
-          "legendFormat": "Open FDs (mixer)",
+          "legendFormat": "Open FDs (pilot)",
           "refId": "A"
         },
         {

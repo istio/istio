@@ -33,7 +33,6 @@ import (
 	"fmt"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/v1alpha3"
 	"istio.io/istio/pkg/log"
 )
 
@@ -140,7 +139,7 @@ func (s *DiscoveryServer) StreamListeners(stream xdsapi.ListenerDiscoveryService
 		case <-con.pushChannel:
 		}
 
-		ls, err := v1alpha3.BuildListeners(s.env, node)
+		ls, err := s.ConfigGenerator.BuildListeners(s.env, node)
 		if err != nil {
 			log.Warnf("LDS: config failure, closing grpc %v", err)
 			return err
