@@ -5,7 +5,7 @@ metadata:
 spec:
   # DNS name, prefix wildcard, short name relative to context
   # IP or CIDR only for services in gateways
-  name: service3.default.svc.cluster.local
+  name: all
   trafficPolicy:
     loadBalancer:
       simple: ROUND_ROBIN

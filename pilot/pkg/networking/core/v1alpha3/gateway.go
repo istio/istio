@@ -101,6 +101,14 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 				},
 			}
 
+			// if https redirect is set, we need to enable requireTls field in all the virtual hosts
+			if server.Tls != nil && server.Tls.HttpsRedirect {
+				vhosts := opts.httpOpts.routeConfig.VirtualHosts
+				for _, v := range vhosts {
+					// TODO: should this be set to ALL ?
+					v.RequireTls = route.VirtualHost_EXTERNAL_ONLY
+				}
+			}
 			l := buildListener(opts)
 			listeners = append(listeners, l)
 		case model.ProtocolTCP, model.ProtocolMongo:
