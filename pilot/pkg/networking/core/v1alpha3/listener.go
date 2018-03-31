@@ -190,7 +190,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env model.Environmen
 		// TODO: need inbound listeners in HTTP_PROXY case, with dedicated ingress listener.
 	}
 
-	return util.NormalizeListeners(listeners), nil
+	return listeners, nil
+	//return util.NormalizeListeners(listeners), nil
 }
 
 // buildSidecarInboundListeners creates listeners for the server-side (inbound)
@@ -290,45 +291,47 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 
 	var tcpListeners, httpListeners []*xdsapi.Listener
 
-	wildcardListenerPorts := make(map[int]bool)
+	listenerMap := make(map[string]*xdsapi.Listener)
 	for _, service := range services {
 		for _, servicePort := range service.Ports {
 			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "",
 				service.Hostname, servicePort)
 
+			listenAddress := WildcardAddress
 			var addresses []string
-			var listenAddress string
+			var listenerMapKey string
 			listenerOpts := buildListenerOpts{
 				env:            env,
 				proxy:          node,
 				proxyInstances: proxyInstances,
-				ip:             WildcardAddress,
 				port:           servicePort.Port,
 				protocol:       servicePort.Protocol,
 			}
-			var l *xdsapi.Listener
+
 			switch servicePort.Protocol {
 			case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
-				if service.Resolution == model.Passthrough {
-					// ensure only one wildcard listener is created per port if its headless service
-					// or if this is in environment where services don't get a dummy load balancer IP.
-					if wildcardListenerPorts[servicePort.Port] {
-						log.Debugf("Multiple definitions for port %d", servicePort.Port)
-						continue
-					}
-					wildcardListenerPorts[servicePort.Port] = true
-					listenAddress = WildcardAddress
-					addresses = nil
-				} else {
+				if service.Resolution != model.Passthrough {
 					listenAddress = service.Address
 					addresses = []string{service.Address}
 				}
-				listenerOpts.ip = listenAddress
+
+				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
+				if _, exists := listenerMap[listenerMapKey]; exists {
+					log.Warnf("Multiple TCP listener definitions for %s", listenerMapKey)
+					continue
+				}
+
 				listenerOpts.networkFilters = buildOutboundNetworkFilters(clusterName, addresses, servicePort)
-				l = buildListener(listenerOpts)
-				tcpListeners = append(tcpListeners, l)
-				// TODO: Set SNI for HTTPS
 			case model.ProtocolHTTP2, model.ProtocolHTTP, model.ProtocolGRPC:
+				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
+				if l, exists := listenerMap[listenerMapKey]; exists {
+					if !strings.HasPrefix(l.Name, "http") {
+						log.Warnf("Conflicting listeners on %s: previous listener %s", listenerMapKey, l.Name)
+					}
+					// Skip building listener for the same http port
+					continue
+				}
+
 				operation := http_conn.EGRESS
 				useRemoteAddress := false
 
@@ -347,15 +350,25 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 					direction:        operation,
 					authnPolicy:      nil, /* authn policy is not needed for outbound listener */
 				}
-				l = buildListener(listenerOpts)
-				httpListeners = append(httpListeners, l)
 			}
+
+			listenerOpts.ip = listenAddress
+			listenerMap[listenerMapKey] = buildListener(listenerOpts)
+			// TODO: Set SNI for HTTPS
 
 			// call plugins
 			for _, p := range configgen.Plugins {
-				p.OnOutboundListener(env, node, service, servicePort, l)
+				p.OnOutboundListener(env, node, service, servicePort, listenerMap[listenerMapKey])
 			}
 
+		}
+	}
+
+	for name, l := range listenerMap {
+		if strings.HasPrefix(name, "tcp") {
+			tcpListeners = append(tcpListeners, l)
+		} else {
+			httpListeners = append(httpListeners, l)
 		}
 	}
 
@@ -641,8 +654,17 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 			},
 		}
 	}
+	var protoPrefix string
+	if opts.protocol.IsHTTP() {
+		protoPrefix = "http"
+	} else {
+		protoPrefix = "tcp"
+	}
+
 	return &xdsapi.Listener{
-		Name:    fmt.Sprintf("%s_%s_%d", opts.protocol, opts.ip, opts.port),
+		// protocol is either TCP or HTTP
+
+		Name:    fmt.Sprintf("%s_%s_%d", protoPrefix, opts.ip, opts.port),
 		Address: util.BuildAddress(opts.ip, uint32(opts.port)),
 		FilterChains: []listener.FilterChain{
 			{
@@ -741,7 +763,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env mo
 		nameToServiceMap, nil, node.Domain)
 	vHostPortMap := make(map[int][]route.VirtualHost)
 
-	// there should be only one guarded host in the return val since we supplied services with just one port
 	for _, guardedHost := range guardedHosts {
 		routes := make([]route.Route, 0)
 		for _, r := range guardedHost.Routes {
@@ -775,7 +796,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env mo
 			})
 		}
 
-		vHostPortMap[guardedHost.Port] = virtualHosts
+		vHostPortMap[guardedHost.Port] = append(vHostPortMap[guardedHost.Port], virtualHosts...)
 	}
 
 	var virtualHosts []route.VirtualHost
