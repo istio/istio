@@ -1,9 +1,9 @@
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: destination-rule-c
+  name: destination-rule-service3
 spec:
-  name: c
+  name: service3.default.svc.cluster.local
   subsets:
     - name: v1
       labels:

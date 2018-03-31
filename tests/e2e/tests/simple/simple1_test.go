@@ -39,8 +39,8 @@ import (
 )
 
 const (
-	servicesYaml         = "tests/e2e/tests/simple/servicesToBeInjected.yaml"
-	nonInjectedYaml      = "tests/e2e/tests/simple/servicesNotInjected.yaml"
+	servicesYaml         = "tests/e2e/tests/simple/testdata/servicesToBeInjected.yaml"
+	nonInjectedYaml      = "tests/e2e/tests/simple/testdata/servicesNotInjected.yaml"
 	timeToWaitForPods    = 20 * time.Second
 	timeToWaitForIngress = 100 * time.Second
 )

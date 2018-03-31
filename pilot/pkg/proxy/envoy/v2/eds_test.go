@@ -73,7 +73,7 @@ func directRequest(server *bootstrap.Server, t *testing.T) {
 	t.Log(cla.String(), res1.String())
 
 	server.MemoryServiceDiscovery.AddService("hello2.default.svc.cluster.local",
-		mock.MakeService("hello2.default.svc.cluster.local", "10.1.0.1"))
+		mock.MakeService("hello2.default.svc.cluster.local", "10.1.1.1"))
 
 	v2.PushAll() // will trigger recompute and push
 	// This should happen in 15 seconds, for the periodic refresh
