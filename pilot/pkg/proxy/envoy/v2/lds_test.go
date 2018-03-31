@@ -72,8 +72,8 @@ func TestLDS(t *testing.T) {
 		}
 	})
 
-	t.Run("ingress", func(t *testing.T) {
-		ldsr := connectLDS(util.MockPilotGrpcAddr, ingressId(), t)
+	t.Run("gateway", func(t *testing.T) {
+		ldsr := connectLDS(util.MockPilotGrpcAddr, gatewayId(gatewayIP), t)
 
 		res, err := ldsr.Recv()
 		if err != nil {
@@ -83,7 +83,7 @@ func TestLDS(t *testing.T) {
 
 		strResponse, _ := model.ToJSONWithIndent(res, " ")
 
-		_ = ioutil.WriteFile(util.IstioOut+"/ldsv2_ingress.json", []byte(strResponse), 0644)
+		_ = ioutil.WriteFile(util.IstioOut+"/ldsv2_gateway.json", []byte(strResponse), 0644)
 
 		t.Log("LDS response ingress", strResponse)
 		if len(res.Resources) == 0 {

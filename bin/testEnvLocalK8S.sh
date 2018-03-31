@@ -10,10 +10,12 @@ set -euo pipefail
 export TOP=$(cd $(dirname $0)/../../../..; pwd)
 export ISTIO_GO=${TOP}/src/istio.io/istio
 
+export GOOS_LOCAL=${GOOS_LOCAL:-linux}
+
 export GOPATH=${TOP}
 export PATH=${GOPATH}/bin:${PATH}
 export OUT=${TOP}/out
-export ISTIO_OUT=${ISTIO_OUT:-${TOP}/out/linux_amd64/release}
+export ISTIO_OUT=${ISTIO_OUT:-${TOP}/out/${GOOS_LOCAL}_amd64/release}
 
 # components used in the test (starting with circleci for consistency, eventually ci will use this)
 export K8S_VER=${K8S_VER:-v1.9.2}
@@ -67,7 +69,7 @@ function getDeps() {
      if [ -f /usr/local/bin/kubectl ] ; then
        ln -s /usr/local/bin/kubectl $TOP/bin/kubectl
      else
-       curl -Lo $TOP/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/${K8S_VER}/bin/linux/amd64/kubectl && chmod +x $TOP/bin/kubectl
+       curl -Lo $TOP/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/${K8S_VER}/bin/${GOOS_LOCAL}/amd64/kubectl && chmod +x $TOP/bin/kubectl
      fi
    fi
    if [ ! -f $TOP/bin/kube-apiserver ] ; then
@@ -76,14 +78,24 @@ function getDeps() {
      elif [ -f /tmp/apiserver/kube-apiserver ] ; then
        ln -s /tmp/apiserver/kube-apiserver $TOP/bin/
      else
-       curl -Lo ${TOP}/bin/kube-apiserver https://storage.googleapis.com/kubernetes-release/release/${K8S_VER}/bin/linux/amd64/kube-apiserver && chmod +x ${TOP}/bin/kube-apiserver
+       # bucket doesn't contain a kube-apiserver for darwin
+       curl -Lo ${TOP}/bin/kube-apiserver https://storage.googleapis.com/kubernetes-release/release/${K8S_VER}/bin/${GOOS_LOCAL}/amd64/kube-apiserver && chmod +x ${TOP}/bin/kube-apiserver
      fi
    fi
    if [ ! -f $TOP/bin/etcd ] ; then
      if [ -f /usr/local/bin/etcd ] ; then
         ln -s /usr/local/bin/etcd $TOP/bin/
      else
-       curl -L https://github.com/coreos/etcd/releases/download/${ETCD_VER}/etcd-${ETCD_VER}-linux-amd64.tar.gz | tar xz -O etcd-${ETCD_VER}-linux-amd64/etcd > ${TOP}/bin/etcd && chmod +x ${TOP}/bin/etcd
+       if [ "${GOOS_LOCAL}" == "darwin" ]; then
+	   # I tried using unzip -p <(curl) but curl is launched async and unzip doesn't wait
+           ETC_TEMP=$(mktemp)
+           curl -L https://github.com/coreos/etcd/releases/download/${ETCD_VER}/etcd-${ETCD_VER}-darwin-amd64.zip > ${ETC_TEMP}
+           unzip -p ${ETC_TEMP} etcd-${ETCD_VER}-darwin-amd64/etcd > ${TOP}/bin/etcd
+           chmod +x ${TOP}/bin/etcd
+           rm ${ETC_TEMP}
+       else
+	   curl -L https://github.com/coreos/etcd/releases/download/${ETCD_VER}/etcd-${ETCD_VER}-linux-amd64.tar.gz | tar xz -O etcd-${ETCD_VER}-linux-amd64/etcd > ${TOP}/bin/etcd && chmod +x ${TOP}/bin/etcd
+       fi
      fi
    fi
    if [ ! -f $TOP/bin/envoy ] ; then
@@ -101,6 +113,8 @@ function startLocalApiserver() {
     mkdir -p ${ETCD_DATADIR}
     ${TOP}/bin/etcd --data-dir ${ETCD_DATADIR} > ${LOG_DIR}/etcd.log 2>&1 &
     echo $! > $LOG_DIR/etcd.pid
+    # make sure etcd is actually alive
+    kill -0 $(cat $LOG_DIR/etcd.pid)
 
     ${TOP}/bin/kube-apiserver --etcd-servers http://127.0.0.1:2379 \
         --client-ca-file ${CERTDIR}/k8sca.crt \
@@ -111,6 +125,8 @@ function startLocalApiserver() {
         --port 8080 -v 2 --insecure-bind-address 0.0.0.0 \
         > ${LOG_DIR}/apiserver.log 2>&1 &
     echo $! > $LOG_DIR/apiserver.pid
+    # make sure apiserver is actually alive
+    kill -0 $(cat $LOG_DIR/apiserver.pid)
 
     echo "Started local etcd and apiserver !"
 }

@@ -819,6 +819,51 @@ func TestParentRoundTrip(t *testing.T) {
 			t.Errorf("Got %v, expected %v for attribute %s", post, pre, k)
 		}
 	}
+
+  func TestReset(t *testing.T) {
+	mb := GetMutableBag(nil)
+	defer mb.Done()
+
+	mb.Set("some", "value")
+	mb.Reset()
+
+	if len(mb.Names()) != 0 {
+		t.Errorf("Got %v, expected %v", mb.Names(), []string{})
+	}
+}
+
+func TestDelete(t *testing.T) {
+	parent := GetMutableBag(nil)
+	defer parent.Done()
+	child := GetMutableBag(parent)
+	defer child.Done()
+
+	parent.Set("parent", true)
+	child.Set("parent", false)
+
+	if len(child.Names()) != 1 {
+		t.Errorf("Got %v, expected %v", len(child.Names()), 1)
+	}
+
+	v, found := child.Get("parent")
+	if !found {
+		t.Error("Failed to retrieve attribute")
+	}
+	isParent, isBool := v.(bool)
+	if !isBool || isParent {
+		t.Error("Failed to retrieve bool attribute from child")
+	}
+
+	child.Delete("parent")
+
+	v, found = child.Get("parent")
+	if !found {
+		t.Error("Failed to retrieve attribute after Delete")
+	}
+	isParent, isBool = v.(bool)
+	if !isBool || !isParent {
+		t.Error("Failed to retrieve bool attribute from parent after Delete")
+	}
 }
 
 func init() {

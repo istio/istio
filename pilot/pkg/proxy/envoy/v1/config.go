@@ -331,7 +331,7 @@ func BuildRDSRoute(mesh *meshconfig.MeshConfig, node model.Proxy, routeName stri
 
 	switch node.Type {
 	case model.Ingress:
-		httpConfigs, _ = BuildIngressRoutes(mesh, node, nil, discovery, config)
+		httpConfigs, _ = buildIngressRoutes(mesh, node, nil, discovery, config, envoyV2)
 	case model.Sidecar:
 		proxyInstances, err := discovery.GetProxyServiceInstances(node)
 		if err != nil {
@@ -463,8 +463,8 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *Listener {
 
 // mayApplyInboundAuth adds ssl_context to the listener if the given authN policy require TLS.
 func mayApplyInboundAuth(listener *Listener, authenticationPolicy *authn.Policy) {
-	if model.RequireTLS(authenticationPolicy) {
-		listener.SSLContext = buildListenerSSLContext(model.AuthCertsPath)
+	if ok, mltsParams := model.RequireTLS(authenticationPolicy); ok {
+		listener.SSLContext = buildListenerSSLContext(model.AuthCertsPath, mltsParams)
 	}
 }
 

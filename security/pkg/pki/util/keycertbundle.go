@@ -110,6 +110,12 @@ func NewKeyCertBundleWithRootCertFromFile(rootCertFile string) (*KeyCertBundleIm
 	}, nil
 }
 
+// RetrieveID returns the service account from the KeyCertBundle.
+// TODO: implement this later as a KeyCertBundle's method.
+func RetrieveID(b KeyCertBundle) string {
+	return ""
+}
+
 // GetAllPem returns all key/cert PEMs in KeyCertBundle together. Getting all values together avoids inconsistency.
 func (b *KeyCertBundleImpl) GetAllPem() (certBytes, privKeyBytes, certChainBytes, rootCertBytes []byte) {
 	b.mutex.RLock()

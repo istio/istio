@@ -17,7 +17,6 @@ package checkReportDisable
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"istio.io/istio/mixer/test/client/env"
 )
@@ -39,9 +38,6 @@ func TestCheckReportDisable(t *testing.T) {
 	if _, _, err := env.HTTPGet(url); err != nil {
 		t.Errorf("Failed in request %s: %v", tag, err)
 	}
-	// Even report batch is disabled, but it is better to wait
-	// since sending batch is after request is completed.
-	time.Sleep(1 * time.Second)
 	// Send both check and report
 	s.VerifyCheckCount(tag, 1)
 	s.VerifyReportCount(tag, 1)
@@ -55,8 +51,6 @@ func TestCheckReportDisable(t *testing.T) {
 	if _, _, err := env.HTTPGet(url); err != nil {
 		t.Errorf("Failed in request %s: %v", tag, err)
 	}
-	// Wait for Check call
-	time.Sleep(1 * time.Second)
 	// Only send check, not report.
 	s.VerifyCheckCount(tag, 2)
 	s.VerifyReportCount(tag, 1)
@@ -71,8 +65,6 @@ func TestCheckReportDisable(t *testing.T) {
 	if _, _, err := env.HTTPGet(url); err != nil {
 		t.Errorf("Failed in request %s: %v", tag, err)
 	}
-	// Wait for Report
-	time.Sleep(1 * time.Second)
 	// Only send report, not check.
 	s.VerifyCheckCount(tag, 2)
 	s.VerifyReportCount(tag, 2)

@@ -18,10 +18,13 @@ import (
 	"fmt"
 	"time"
 
+	"io/ioutil"
+
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/caclient/grpc"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
+	"istio.io/istio/security/pkg/workload"
 	pb "istio.io/istio/security/proto"
 )
 
@@ -109,4 +112,13 @@ func (c *CAClient) CreateCSRRequest(opts *pkiutil.CertOptions) ([]byte, *pb.CsrR
 		RequestedTtlMinutes: int32(opts.TTL.Minutes()),
 		ForCA:               opts.IsCA,
 	}, nil
+}
+
+// SaveKeyCert stores the specified key/cert into file specified by the path.
+// TODO(incfly): move this into CAClient struct's own method later.
+func SaveKeyCert(keyFile, certFile string, privKey, cert []byte) error {
+	if err := ioutil.WriteFile(keyFile, privKey, workload.KeyFilePermission); err != nil {
+		return err
+	}
+	return ioutil.WriteFile(certFile, cert, workload.CertFilePermission)
 }

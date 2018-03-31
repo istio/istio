@@ -33,7 +33,6 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/gogo/protobuf/types"
 
-	"istio.io/istio/pilot/pkg/networking/v1alpha3"
 	"istio.io/istio/pkg/log"
 )
 
@@ -137,17 +136,16 @@ func (s *DiscoveryServer) StreamClusters(stream xdsapi.ClusterDiscoveryService_S
 			if err != nil {
 				return err
 			}
-			node := model.Proxy{
-				ID:   discReq.Node.Id,
-				Type: nt.Type,
-			}
 
-			con.modelNode = &node
+			con.modelNode = &nt
 
 			// Given that Pilot holds an eventually consistent data model, Pilot ignores any acknowledgements
 			// from Envoy, whether they indicate ack success or ack failure of Pilot's previous responses.
 			if initialRequestReceived {
 				// TODO: once the deps are updated, log the ErrorCode if set (missing in current version)
+				if discReq.ErrorDetail != nil {
+					log.Warnf("CDS: ACK ERROR %v %s %v", peerAddr, nt.ID, discReq.String())
+				}
 				if cdsDebug {
 					log.Infof("CDS: ACK %v", discReq.String())
 				}
@@ -162,7 +160,7 @@ func (s *DiscoveryServer) StreamClusters(stream xdsapi.ClusterDiscoveryService_S
 		case <-con.pushChannel:
 		}
 
-		rawClusters := v1alpha3.BuildClusters(s.env, *con.modelNode)
+		rawClusters, _ := s.ConfigGenerator.BuildClusters(s.env, *con.modelNode)
 
 		response := con.clusters(rawClusters)
 		err := stream.Send(response)
@@ -197,6 +195,7 @@ func cdsPushAll() {
 // Cdsz implements a status and debug interface for CDS.
 // It is mapped to /debug/cdsz on the monitor port (9093).
 func Cdsz(w http.ResponseWriter, req *http.Request) {
+	_ = req.ParseForm()
 	if req.Form.Get("debug") != "" {
 		cdsDebug = req.Form.Get("debug") == "1"
 		return

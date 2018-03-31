@@ -53,7 +53,13 @@ ifeq ($(GO),)
   $(error Could not find 'go' in path.  Please install go, or if already installed either add it to your path or set GO to point to its directory)
 endif
 
-export GOARCH ?= amd64
+LOCAL_ARCH := $(shell uname -m)
+ifeq ($(LOCAL_ARCH),x86_64)
+GOARCH_LOCAL := amd64
+else
+GOARCH_LOCAL := $(LOCAL_ARCH)
+endif
+export GOARCH ?= $(GOARCH_LOCAL)
 
 LOCAL_OS := $(shell uname)
 ifeq ($(LOCAL_OS),Linux)
@@ -62,7 +68,7 @@ else ifeq ($(LOCAL_OS),Darwin)
    export GOOS_LOCAL = darwin
 else
    $(error "This system's OS $(LOCAL_OS) isn't recognized/supported")
-   # export GOOS ?= windows
+   # export GOOS_LOCAL ?= windows
 endif
 
 export GOOS ?= $(GOOS_LOCAL)
@@ -282,7 +288,7 @@ vendor.check:
 .PHONY: vendor.check
 
 ${GEN_CERT}:
-	GOOS=$(GOOS_LOCAL) && unset GOARCH && CGO_ENABLED=1 bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/generate_cert
+	GOOS=$(GOOS_LOCAL) && GOARCH=$(GOARCH_LOCAL) && CGO_ENABLED=1 bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/generate_cert
 
 #-----------------------------------------------------------------------------
 # Target: precommit
@@ -429,7 +435,7 @@ JUNIT_REPORT := $(shell which go-junit-report 2> /dev/null || echo "${ISTIO_BIN}
 
 ${ISTIO_BIN}/go-junit-report:
 	@echo "go-junit-report not found. Installing it now..."
-	unset GOOS && CGO_ENABLED=1 go get -u github.com/jstemmer/go-junit-report
+	unset GOOS && unset GOARCH && CGO_ENABLED=1 go get -u github.com/jstemmer/go-junit-report
 
 # Run coverage tests
 JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit-tests.xml
@@ -606,24 +612,14 @@ $(HELM):
 # creates istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml
 # Ensure that values-$filename is present in install/kubernetes/helm/istio
 isti%.yaml: $(HELM)
+	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/$@
 	$(HELM) template --set global.tag=${TAG} \
 		  --namespace=istio-system \
                   --set global.hub=${HUB} \
 		  --values install/kubernetes/helm/istio/values-$@ \
-		  install/kubernetes/helm/istio > install/kubernetes/$@
+		  install/kubernetes/helm/istio >> install/kubernetes/$@
 
-deploy/all: $(HELM)
-	kubectl create ns istio-system > /dev/null || true
-	$(HELM) template --set global.tag=${TAG} \
-		          --namespace=istio-system \
-                  --set global.hub=${HUB} \
-		      	  --set sidecar-injector.enabled=true \
-		      	  --set ingress.enabled=true \
-                  --set servicegraph.enabled=true \
-                  --set zipkin.enabled=true \
-                  --set grafana.enabled=true \
-                  --set prometheus.enabled=true \
-            install/kubernetes/helm/istio > install/kubernetes/istio-all.yaml
+deploy/all: $(HELM) istio-all.yaml
 	kubectl apply -n istio-system -f install/kubernetes/istio-all.yaml
 
 
@@ -650,9 +646,6 @@ FILES_TO_CLEAN+=install/consul/istio.yaml \
                 install/kubernetes/istio-mixer-with-health-check.yaml \
                 install/kubernetes/istio-one-namespace-auth.yaml \
                 install/kubernetes/istio-one-namespace.yaml \
-                install/kubernetes/istio-sidecar-injector-configmap-debug.yaml \
-                install/kubernetes/istio-sidecar-injector-configmap-release.yaml \
-                install/kubernetes/istio-sidecar-injector.yaml \
                 install/kubernetes/istio.yaml \
                 samples/bookinfo/consul/bookinfo.sidecars.yaml \
                 samples/bookinfo/eureka/bookinfo.sidecars.yaml

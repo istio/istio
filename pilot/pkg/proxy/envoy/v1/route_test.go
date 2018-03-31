@@ -17,6 +17,8 @@ package v1
 import (
 	"strings"
 	"testing"
+
+	authn "istio.io/api/authentication/v1alpha1"
 )
 
 var (
@@ -52,9 +54,32 @@ func TestSharedHost(t *testing.T) {
 
 func TestBuildListenerSSLContext(t *testing.T) {
 	const dir = "/some/testing/dir"
-	context := buildListenerSSLContext(dir)
-	if !context.RequireClientCertificate {
-		t.Errorf("buildListenerSSLContext(%v) => Got RequireClientCertificate: %v, expected true.",
-			dir, context.RequireClientCertificate)
+	testCases := []struct {
+		mtlsParams                *authn.MutualTls
+		expectedRequireClientCert bool
+	}{
+		{
+			mtlsParams:                nil,
+			expectedRequireClientCert: true,
+		},
+		{
+			mtlsParams:                &authn.MutualTls{},
+			expectedRequireClientCert: true,
+		},
+		{
+			mtlsParams:                &authn.MutualTls{AllowTls: false},
+			expectedRequireClientCert: true,
+		},
+		{
+			mtlsParams:                &authn.MutualTls{AllowTls: true},
+			expectedRequireClientCert: false,
+		},
+	}
+	for _, test := range testCases {
+		context := buildListenerSSLContext(dir, test.mtlsParams)
+		if test.expectedRequireClientCert != context.RequireClientCertificate {
+			t.Errorf("buildListenerSSLContext(%v) => Got RequireClientCertificate: %v, expected %v.",
+				dir, context.RequireClientCertificate, test.expectedRequireClientCert)
+		}
 	}
 }

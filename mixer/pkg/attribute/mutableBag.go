@@ -166,12 +166,15 @@ func (mb *MutableBag) Set(name string, value interface{}) {
 	mb.values[name] = value
 }
 
+// Delete removes a named item from the local state.
+// The item may still be present higher in the hierarchy
+func (mb *MutableBag) Delete(name string) {
+	delete(mb.values, name)
+}
+
 // Reset removes all local state.
 func (mb *MutableBag) Reset() {
-	// my kingdom for a clear method on maps!
-	for k := range mb.values {
-		delete(mb.values, k)
-	}
+	mb.values = make(map[string]interface{})
 }
 
 // Merge combines an array of bags into the current bag. If the current bag already defines
