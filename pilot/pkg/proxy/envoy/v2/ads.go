@@ -79,7 +79,7 @@ type XdsConnection struct {
 	RDSWatch bool
 }
 
-// StreamListeners implements the DiscoveryServer interface.
+// StreamAggregatedResources implements the ADS interface.
 func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
 	peerInfo, ok := peer.FromContext(stream.Context())
 	peerAddr := unknownPeerAddressStr
