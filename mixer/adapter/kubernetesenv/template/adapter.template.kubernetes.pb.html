@@ -83,14 +83,6 @@ to assign values to the generated attributes using the <code>$out.&lt;field name
 
 </td>
 </tr>
-<tr id="OutputTemplate.source_service">
-<td><code>sourceService</code></td>
-<td><code>string</code></td>
-<td>
-<p>Refers to source service. attribute<em>bindings can refer to this field using $out.source</em>service</p>
-
-</td>
-</tr>
 <tr id="OutputTemplate.source_service_account_name">
 <td><code>sourceServiceAccountName</code></td>
 <td><code>string</code></td>
@@ -104,6 +96,38 @@ to assign values to the generated attributes using the <code>$out.&lt;field name
 <td><code><a href="#istio.policy.v1beta1.IPAddress">istio.policy.v1beta1.IPAddress</a></code></td>
 <td>
 <p>Refers to source pod host ip address. attribute<em>bindings can refer to this field using $out.source</em>host_ip</p>
+
+</td>
+</tr>
+<tr id="OutputTemplate.source_workload_uid">
+<td><code>sourceWorkloadUid</code></td>
+<td><code>string</code></td>
+<td>
+<p>Refers to the Istio workload identifier for the source pod. Attribute<em>bindings can refer to this field using $out.source</em>workload_uid</p>
+
+</td>
+</tr>
+<tr id="OutputTemplate.source_workload_name">
+<td><code>sourceWorkloadName</code></td>
+<td><code>string</code></td>
+<td>
+<p>Refers to the Istio workload name for the source pod. Attribute<em>bindings can refer to this field using $out.source</em>workload_name</p>
+
+</td>
+</tr>
+<tr id="OutputTemplate.source_workload_namespace">
+<td><code>sourceWorkloadNamespace</code></td>
+<td><code>string</code></td>
+<td>
+<p>Refers to the Istio workload namespace for the source pod. Attribute<em>bindings can refer to this field using $out.source</em>workload_namespace</p>
+
+</td>
+</tr>
+<tr id="OutputTemplate.source_owner">
+<td><code>sourceOwner</code></td>
+<td><code>string</code></td>
+<td>
+<p>Refers to the (controlling) owner of the source pod. Attribute<em>bindings can refer to this field using $out.source</em>owner</p>
 
 </td>
 </tr>
@@ -139,14 +163,6 @@ to assign values to the generated attributes using the <code>$out.&lt;field name
 
 </td>
 </tr>
-<tr id="OutputTemplate.destination_service">
-<td><code>destinationService</code></td>
-<td><code>string</code></td>
-<td>
-<p>Refers to destination service. attribute<em>bindings can refer to this field using $out.destination</em>service</p>
-
-</td>
-</tr>
 <tr id="OutputTemplate.destination_service_account_name">
 <td><code>destinationServiceAccountName</code></td>
 <td><code>string</code></td>
@@ -163,59 +179,35 @@ to assign values to the generated attributes using the <code>$out.&lt;field name
 
 </td>
 </tr>
-<tr id="OutputTemplate.origin_pod_ip">
-<td><code>originPodIp</code></td>
-<td><code><a href="#istio.policy.v1beta1.IPAddress">istio.policy.v1beta1.IPAddress</a></code></td>
-<td>
-<p>Refers to origin pod ip address. attribute<em>bindings can refer to this field using $out.origin</em>pod_ip</p>
-
-</td>
-</tr>
-<tr id="OutputTemplate.origin_pod_name">
-<td><code>originPodName</code></td>
+<tr id="OutputTemplate.destination_owner">
+<td><code>destinationOwner</code></td>
 <td><code>string</code></td>
 <td>
-<p>Refers to origin pod name. attribute<em>bindings can refer to this field using $out.origin</em>pod_name</p>
+<p>Refers to the (controlling) owner of the destination pod. Attribute<em>bindings can refer to this field using $out.destination</em>owner</p>
 
 </td>
 </tr>
-<tr id="OutputTemplate.origin_labels">
-<td><code>originLabels</code></td>
-<td><code>map&lt;string,&nbsp;string&gt;</code></td>
-<td>
-<p>Refers to origin pod labels. attribute<em>bindings can refer to this field using $out.origin</em>labels</p>
-
-</td>
-</tr>
-<tr id="OutputTemplate.origin_namespace">
-<td><code>originNamespace</code></td>
+<tr id="OutputTemplate.destination_workload_uid">
+<td><code>destinationWorkloadUid</code></td>
 <td><code>string</code></td>
 <td>
-<p>Refers to origin pod namespace. attribute<em>bindings can refer to this field using $out.origin</em>namespace</p>
+<p>Refers to the Istio workload identifier for the destination pod. Attribute<em>bindings can refer to this field using $out.destination</em>workload_uid</p>
 
 </td>
 </tr>
-<tr id="OutputTemplate.origin_service">
-<td><code>originService</code></td>
+<tr id="OutputTemplate.destination_workload_name">
+<td><code>destinationWorkloadName</code></td>
 <td><code>string</code></td>
 <td>
-<p>Refers to origin service. attribute<em>bindings can refer to this field using $out.origin</em>service</p>
+<p>Refers to the Istio workload name for the destination pod. Attribute<em>bindings can refer to this field using $out.destination</em>workload_name</p>
 
 </td>
 </tr>
-<tr id="OutputTemplate.origin_service_account_name">
-<td><code>originServiceAccountName</code></td>
+<tr id="OutputTemplate.destination_workload_namespace">
+<td><code>destinationWorkloadNamespace</code></td>
 <td><code>string</code></td>
 <td>
-<p>Refers to origin pod service account name. attribute<em>bindings can refer to this field using $out.origin</em>service<em>account</em>name</p>
-
-</td>
-</tr>
-<tr id="OutputTemplate.origin_host_ip">
-<td><code>originHostIp</code></td>
-<td><code><a href="#istio.policy.v1beta1.IPAddress">istio.policy.v1beta1.IPAddress</a></code></td>
-<td>
-<p>Refers to origin pod host ip address. attribute<em>bindings can refer to this field using $out.origin</em>host_ip</p>
+<p>Refers to the Istio workload name for the destination pod. Attribute<em>bindings can refer to this field using $out.destination</em>workload_namespace</p>
 
 </td>
 </tr>
@@ -267,22 +259,6 @@ generates values related to pod information.</p>
 <td><code><a href="#istio.policy.v1beta1.IPAddress">istio.policy.v1beta1.IPAddress</a></code></td>
 <td>
 <p>Destination pod&rsquo;s ip.</p>
-
-</td>
-</tr>
-<tr id="Template.origin_uid">
-<td><code>originUid</code></td>
-<td><code>string</code></td>
-<td>
-<p>Origin pod&rsquo;s uid. Must be of the form: &ldquo;kubernetes://pod.namespace&rdquo;</p>
-
-</td>
-</tr>
-<tr id="Template.origin_ip">
-<td><code>originIp</code></td>
-<td><code><a href="#istio.policy.v1beta1.IPAddress">istio.policy.v1beta1.IPAddress</a></code></td>
-<td>
-<p>Origin pod&rsquo;s ip.</p>
 
 </td>
 </tr>

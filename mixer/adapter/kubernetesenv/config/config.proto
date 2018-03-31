@@ -46,6 +46,9 @@ option (gogoproto.gostring_all) = false;
 // For all valid UIDs supplied, this adapter generates output
 // values containing information about the related pods.
 message Params {
+
+    reserved 3, 4, 5, 6;
+
     // File path to discover kubeconfig. For in-cluster configuration,
     // this should be left unset. For local configuration, this should
     // be set to the path of a kubeconfig file that can be used to
@@ -64,6 +67,7 @@ message Params {
     //
     // Default: 5 minutes
     google.protobuf.Duration cache_refresh_duration = 2 [(gogoproto.nullable)=false,(gogoproto.stdduration) = true];
+<<<<<<< HEAD
 
     // Configures the cluster domain name to use for service name normalization.
     //
@@ -94,4 +98,6 @@ message Params {
     //
     // Default: "ingress.istio-system.svc.cluster.local"
     string fully_qualified_istio_ingress_service_name = 7;
+=======
+>>>>>>> Refactor k8senv adapter to generate workload info.
 }

@@ -23,7 +23,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-func TestClusterInfoCache_GetPod(t *testing.T) {
+func TestClusterInfoCache_Pod(t *testing.T) {
 	clientset := fake.NewSimpleClientset(
 		&v1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
@@ -54,7 +54,7 @@ func TestClusterInfoCache_GetPod(t *testing.T) {
 				tt.Fatal("Failed to sync")
 			}
 
-			_, got := c.GetPod(v.key)
+			_, got := c.Pod(v.key)
 			if got != v.want {
 				tt.Errorf("GetPod() => (_, %t), wanted (_, %t)", got, v.want)
 			}
