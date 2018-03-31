@@ -39,10 +39,7 @@
     },
     "ads_config": {
       "api_type": "GRPC",
-      "refresh_delay": {
-        "seconds": 30,
-        "nanos": 0
-      },
+      "refresh_delay": {{ .refresh_delay }},
       "cluster_names": [
         "xds-grpc"
       ]
