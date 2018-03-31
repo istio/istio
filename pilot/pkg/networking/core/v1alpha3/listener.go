@@ -553,6 +553,8 @@ func buildHTTPConnectionManager(opts buildListenerOpts) *http_conn.HttpConnectio
 	mesh := opts.env.Mesh
 	var filters []*http_conn.HttpFilter
 
+	filters = append(filters, opts.hTTPFilters...)
+
 	filters = append(filters, &http_conn.HttpFilter{
 		Name: xdsutil.CORS,
 	})
@@ -561,8 +563,6 @@ func buildHTTPConnectionManager(opts buildListenerOpts) *http_conn.HttpConnectio
 	filters = append(filters, &http_conn.HttpFilter{
 		Name: xdsutil.Router,
 	})
-
-	filters = append(filters, opts.hTTPFilters...)
 
 	refresh := time.Duration(mesh.RdsRefreshDelay.Seconds) * time.Second
 	if refresh == 0 {

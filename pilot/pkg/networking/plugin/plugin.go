@@ -46,9 +46,6 @@ type CallbackListenerInputParams struct {
 	ProxyInstances []*model.ServiceInstance
 	// ServiceInstance is the service instance colocated with the listener (applies to sidecar).
 	ServiceInstance *model.ServiceInstance
-	// ServicePort is the port for the service
-	// TODO(mostrowski): can get from ServiceInstance?
-	ServicePort *model.Port
 }
 
 // CallbackListenerMutableObjects is a set of objects passed to On*Listener callbacks. Fields may be nil or empty.

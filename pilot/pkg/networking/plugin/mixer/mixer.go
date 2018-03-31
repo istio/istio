@@ -15,6 +15,8 @@
 package mixer
 
 import (
+	"errors"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
@@ -30,14 +32,16 @@ type Plugin struct{}
 
 // OnOutboundListener implements the Callbacks interface method.
 func (m *Plugin) OnOutboundListener(in *plugin.CallbackListenerInputParams, mutable *plugin.CallbackListenerMutableObjects) error {
-	env := in.Env
-	node := in.Node
-	service := in.ServiceInstance.Service
-	proxyInstances := in.ProxyInstances
-
-	if service.MeshExternal {
+	if in.ServiceInstance == nil || in.ServiceInstance.Service == nil {
+		return errors.New("mixer.Plugin#OnOutboundListener: in.ServiceInstance.Service must be non-nil")
+	}
+	if !in.ServiceInstance.Service.MeshExternal {
 		return nil
 	}
+
+	env := in.Env
+	node := in.Node
+	proxyInstances := in.ProxyInstances
 
 	switch in.ListenerType {
 	case plugin.ListenerTypeHTTP:
