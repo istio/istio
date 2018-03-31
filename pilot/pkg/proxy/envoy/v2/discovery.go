@@ -48,7 +48,7 @@ const (
 const (
 	typePrefix = "type.googleapis.com/envoy.api.v2."
 
-	// Constants used for
+	// Constants used for XDS
 	endpointType = typePrefix + "ClusterLoadAssignment"
 	clusterType  = typePrefix + "Cluster"
 	listenerType = typePrefix + "Listener"
