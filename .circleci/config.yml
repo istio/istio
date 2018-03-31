@@ -779,7 +779,7 @@ workflows:
           filters:
             branches:
               only:
-                - /envoyv2-.*/              
+                - /envoyv2-.*/
       - e2e-pilot-noauth-v1alpha3-v2:
           requires:
             - build
@@ -808,3 +808,7 @@ workflows:
       - racetest:
           requires:
             - test
+      - e2e-pilot-noauth-v1alpha3-v2:
+          requires:
+            - build
+            
