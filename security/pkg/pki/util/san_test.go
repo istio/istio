@@ -19,6 +19,7 @@ import (
 	"encoding/asn1"
 	"net"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -229,8 +230,30 @@ func TestExtractIDs(t *testing.T) {
 }
 
 func TestGenSanURI(t *testing.T) {
-	got := GenSanURI("namespace-bar", "service-foo")
-	if expected := "spiffe://cluster.local/ns/namespace-bar/sa/service-foo"; got != expected {
-		t.Errorf("unexpected subject name, want %v, got %v", expected, got)
+	testCases := []struct {
+		namespace      string
+		serviceAccount string
+		expectedError  string
+		expectedURI    string
+	}{
+		{"", "sa", "something", ""},
+		{"ns", "", "something", ""},
+		{"namespace-foo", "service-bar", "", "spiffe://cluster.local/ns/namespace-foo/sa/service-bar"},
+	}
+	for id, tc := range testCases {
+		got, err := GenSanURI(tc.namespace, tc.serviceAccount)
+		if tc.expectedError == "" && err != nil {
+			t.Errorf("teste case [%v] failed, error %v", id, tc)
+		}
+		if tc.expectedError != "" {
+			if err == nil {
+			} else if !strings.Contains(err.Error(), tc.expectedError) {
+			}
+			continue
+		}
+		if got != tc.expectedURI {
+			t.Errorf("unexpected subject name, want %v, got %v", tc.expectedURI, got)
+		}
+
 	}
 }
