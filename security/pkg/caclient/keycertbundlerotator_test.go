@@ -53,7 +53,7 @@ func TestNewKeyCertBundleRotator(t *testing.T) {
 			config: &Config{
 				RootCertFile:  "../platform/testdata/cert-root-good.pem",
 				KeyFile:       "../platform/testdata/key-from-root-good.pem",
-				CertChainFile: "../platform/testdata/cert-chain-good.pem",
+				CertChainFile: "../platform/testdata/cert-from-root-good.pem",
 				Env:           "onprem",
 			},
 			expectedErr: "",
@@ -62,14 +62,14 @@ func TestNewKeyCertBundleRotator(t *testing.T) {
 			config: &Config{
 				RootCertFile:  "../platform/testdata/cert-root-good.pem",
 				KeyFile:       "../platform/testdata/key-from-root-good.pem",
-				CertChainFile: "../platform/testdata/cert-chain-good.pem",
+				CertChainFile: "../platform/testdata/cert-from-root-good.pem",
 				Env:           "unspecified",
 			},
 			expectedErr: "",
 		},
 		"Unsupported env": {
 			config: &Config{
-				CertChainFile: "../platform/testdata/cert-chain-good.pem",
+				CertChainFile: "../platform/testdata/cert-from-root-good.pem",
 				Env:           "somethig-else",
 			},
 			expectedErr: "invalid env somethig-else specified",
@@ -77,6 +77,13 @@ func TestNewKeyCertBundleRotator(t *testing.T) {
 	}
 
 	for id, c := range testCases {
+		if c.config != nil {
+			addr, err := NewTestCAServer(&TestCAServerOptions{})
+			if err != nil {
+				t.Errorf("failed to create ca server for test %v", err)
+			}
+			c.config.CAAddress = addr
+		}
 		_, err := NewKeyCertBundleRotator(c.config, &pkimock.FakeKeyCertBundle{})
 
 		if len(c.expectedErr) > 0 {
