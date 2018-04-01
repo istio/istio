@@ -56,6 +56,7 @@ const (
 	fiftyRule                          = routeRulesDir + "/" + "route-rule-reviews-50-v3"
 	testRule                           = routeRulesDir + "/" + "route-rule-reviews-test-v2"
 	reviewsV2Rule                      = tutorialDir + "/" + "route-rule-reviews-v2"
+	shadowRule                         = tutorialDir + "/" + "route-rule-reviews-shadow-v2"
 	testDbRule                         = routeRulesDir + "/" + "route-rule-ratings-db"
 	testMysqlRule                      = routeRulesDir + "/" + "route-rule-ratings-mysql"
 	detailsExternalServiceRouteRule    = routeRulesDir + "/" + "route-rule-details-v2"
@@ -98,7 +99,7 @@ func closeResponseBody(r *http.Response) {
 func (t *testConfig) Setup() error {
 	//generate rule yaml files, replace "jason" with actual user
 	for _, rule := range []string{allRule, delayRule, tenRule, twentyRule, fiftyRule, reviewsV2Rule,
-		testRule, testDbRule, testMysqlRule, detailsExternalServiceRouteRule,
+		shadowRule, testRule, testDbRule, testMysqlRule, detailsExternalServiceRouteRule,
 		detailsExternalServiceEgressRule} {
 		src := util.GetResourcePath(filepath.Join(bookinfoSampleDir, rule+"."+yamlExtension))
 		dest := filepath.Join(t.rulesDir, rule+"."+yamlExtension)
@@ -330,6 +331,15 @@ func TestVersionRouting(t *testing.T) {
 					user:    u2,
 					version: "v2",
 					model:   v2TestModel,
+				},
+			},
+		},
+		{key: shadowRule,
+			userVersions: []userVersion{
+				{
+					user:    u1,
+					version: "v1",
+					model:   v1Model,
 				},
 			},
 		},
