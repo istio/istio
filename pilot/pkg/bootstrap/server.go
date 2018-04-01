@@ -44,7 +44,6 @@ import (
 	configmonitor "istio.io/istio/pilot/pkg/config/monitor"
 	"istio.io/istio/pilot/pkg/kube/admit"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core"
 	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v1"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
@@ -57,6 +56,8 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
+	"istio.io/istio/pilot/pkg/networking/plugin/registry"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 )
 
 const (
@@ -723,7 +724,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	// For now we create the gRPC server sourcing data from Pilot's older data model.
 	s.initGrpcServer()
 	envoy.V2ClearCache = envoyv2.PushAll
-	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(s.GRPCServer, environment, core.NewConfigGenerator())
+	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(s.GRPCServer, environment, v1alpha3.NewConfigGenerator(registry.NewPlugins()))
 
 	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController)
 
