@@ -72,8 +72,8 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 	}{
 		"Success": {
 			pltfmc: mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", []byte{}, "", true},
-			ptclc: &mockclient.FakeCAClient{
-				0, &pb.CsrResponse{IsApproved: true, SignedCert: signedCert, CertChain: certChain}, nil},
+			//ptclc: &mockclient.FakeCAClient{
+			//0, &pb.CsrResponse{IsApproved: true, SignedCert: signedCert, CertChain: certChain}, nil},
 			keySize: 512,
 			server: &FakeIstioCAGrpcServer{
 				response: &pb.CsrResponse{IsApproved: true, SignedCert: signedCert, CertChain: certChain},
@@ -88,8 +88,8 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 		},
 		"Create CSR error": {
 			pltfmc: mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", []byte{}, "", true},
-			ptclc: &mockclient.FakeCAClient{
-				0, &pb.CsrResponse{IsApproved: true, SignedCert: signedCert, CertChain: certChain}, nil},
+			//ptclc: &mockclient.FakeCAClient{
+			//0, &pb.CsrResponse{IsApproved: true, SignedCert: signedCert, CertChain: certChain}, nil},
 			server: &FakeIstioCAGrpcServer{
 				response: &pb.CsrResponse{IsApproved: true, SignedCert: signedCert, CertChain: certChain},
 			},
@@ -113,8 +113,8 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 			sendTimes:   0,
 		},
 		"SendCSR empty response error": {
-			pltfmc:      mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", []byte{}, "", true},
-			ptclc:       &mockclient.FakeCAClient{0, nil, nil},
+			pltfmc: mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", []byte{}, "", true},
+			//ptclc:       &mockclient.FakeCAClient{0, nil, nil},
 			server:      &FakeIstioCAGrpcServer{},
 			keySize:     512,
 			ttl:         time.Hour,
@@ -124,8 +124,8 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 			sendTimes:   3,
 		},
 		"SendCSR returns error": {
-			pltfmc:      mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", []byte{}, "", true},
-			ptclc:       &mockclient.FakeCAClient{0, nil, fmt.Errorf("error returned from CA")},
+			pltfmc: mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", []byte{}, "", true},
+			//ptclc:       &mockclient.FakeCAClient{0, nil, fmt.Errorf("error returned from CA")},
 			server:      &FakeIstioCAGrpcServer{errorMsg: "error returned from CA"},
 			keySize:     512,
 			ttl:         time.Hour,
@@ -136,7 +136,7 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 		},
 		"SendCSR not approved": {
 			pltfmc: mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", []byte{}, "", true},
-			ptclc:  &mockclient.FakeCAClient{0, &pb.CsrResponse{IsApproved: false}, nil},
+			//ptclc:  &mockclient.FakeCAClient{0, &pb.CsrResponse{IsApproved: false}, nil},
 			server: &FakeIstioCAGrpcServer{
 				response: &pb.CsrResponse{IsApproved: false},
 			},
