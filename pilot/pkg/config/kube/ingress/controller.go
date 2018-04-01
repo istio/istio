@@ -134,11 +134,11 @@ func (c *controller) Run(stop <-chan struct{}) {
 }
 
 func (c *controller) ConfigDescriptor() model.ConfigDescriptor {
-	return model.ConfigDescriptor{model.IngressRule}
+	return model.ConfigDescriptor{model.IngressRule, model.GatewayIngress, model.VirtualServiceIngress}
 }
 
 func (c *controller) Get(typ, name, namespace string) (*model.Config, bool) {
-	if typ != model.IngressRule.Type && typ != model.Gateway.Type && typ != model.VirtualService.Type {
+	if typ != model.IngressRule.Type && typ != model.GatewayIngress.Type && typ != model.VirtualServiceIngress.Type {
 		return nil, false
 	}
 
@@ -171,7 +171,7 @@ func (c *controller) Get(typ, name, namespace string) (*model.Config, bool) {
 }
 
 func (c *controller) List(typ, namespace string) ([]model.Config, error) {
-	if typ != model.IngressRule.Type && typ != model.Gateway.Type && typ != model.VirtualService.Type {
+	if typ != model.IngressRule.Type && typ != model.GatewayIngress.Type && typ != model.VirtualServiceIngress.Type {
 		return nil, errUnsupportedOp
 	}
 
@@ -187,10 +187,10 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 		}
 
 		switch typ {
-		case model.VirtualService.Type:
+		case model.VirtualServiceIngress.Type:
 			_, virtualServices := ConvertIngressV1alpha3(*ingress, namespace)
 			out = append(out, virtualServices)
-		case model.Gateway.Type:
+		case model.GatewayIngress.Type:
 			gateways, _ := ConvertIngressV1alpha3(*ingress, namespace)
 			out = append(out, gateways)
 		case model.IngressRule.Type:
