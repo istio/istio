@@ -51,7 +51,7 @@ const (
 	modelDir                           = "tests/apps/bookinfo/output"
 	allRule                            = routeRulesDir + "/" + "route-rule-all-v1"
 	delayRule                          = routeRulesDir + "/" + "route-rule-ratings-test-delay"
-	tenRule                            = tutorialDir + "/" + "/route-rule-reviews-90-10"
+	tenRule                            = tutorialDir + "/" + "route-rule-reviews-90-10"
 	twentyRule                         = tutorialDir + "/" + "route-rule-reviews-80-20"
 	fiftyRule                          = routeRulesDir + "/" + "route-rule-reviews-50-v3"
 	testRule                           = routeRulesDir + "/" + "route-rule-reviews-test-v2"
