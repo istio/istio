@@ -14,12 +14,7 @@
 package v2_test
 
 import (
-	"context"
 	"testing"
-
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"google.golang.org/grpc"
 
 	"io/ioutil"
 
@@ -27,34 +22,13 @@ import (
 	"istio.io/istio/tests/util"
 )
 
-func connectLDS(url, nodeID string, t *testing.T) xdsapi.ListenerDiscoveryService_StreamListenersClient {
-	conn, err := grpc.Dial(url, grpc.WithInsecure())
-	if err != nil {
-		t.Fatal("Connection failed", err)
-	}
-
-	xds := xdsapi.NewListenerDiscoveryServiceClient(conn)
-	ldsstr, err := xds.StreamListeners(context.Background())
-	if err != nil {
-		t.Fatal("Rpc failed", err)
-	}
-	err = ldsstr.Send(&xdsapi.DiscoveryRequest{
-		Node: &envoy_api_v2_core1.Node{
-			Id: nodeID,
-		},
-	})
-	if err != nil {
-		t.Fatal("Send failed", err)
-	}
-	return ldsstr
-}
-
 // TestLDS is running LDSv2 tests.
 func TestLDS(t *testing.T) {
-	initLocalPilotTestEnv()
+	initLocalPilotTestEnv(t)
 
 	t.Run("sidecar", func(t *testing.T) {
-		ldsr := connectLDS(util.MockPilotGrpcAddr, sidecarId(app3Ip, "app3"), t)
+		ldsr := connectADS(t, util.MockPilotGrpcAddr)
+		sendLDSReq(t, sidecarId(app3Ip, "app3"), ldsr)
 
 		res, err := ldsr.Recv()
 		if err != nil {
@@ -63,17 +37,17 @@ func TestLDS(t *testing.T) {
 		}
 
 		strResponse, _ := model.ToJSONWithIndent(res, " ")
-
 		_ = ioutil.WriteFile(util.IstioOut+"/ldsv2_sidecar.json", []byte(strResponse), 0644)
 
-		t.Log("LDS response", strResponse)
 		if len(res.Resources) == 0 {
 			t.Fatal("No response")
 		}
 	})
 
+	// 'router' or 'gateway' type of listener
 	t.Run("gateway", func(t *testing.T) {
-		ldsr := connectLDS(util.MockPilotGrpcAddr, gatewayId(gatewayIP), t)
+		ldsr := connectADS(t, util.MockPilotGrpcAddr)
+		sendLDSReq(t, gatewayId(gatewayIP), ldsr)
 
 		res, err := ldsr.Recv()
 		if err != nil {
@@ -85,12 +59,29 @@ func TestLDS(t *testing.T) {
 
 		_ = ioutil.WriteFile(util.IstioOut+"/ldsv2_gateway.json", []byte(strResponse), 0644)
 
-		t.Log("LDS response ingress", strResponse)
 		if len(res.Resources) == 0 {
 			t.Fatal("No response")
 		}
 	})
 
+	t.Run("ingress", func(t *testing.T) {
+		ldsr := connectADS(t, util.MockPilotGrpcAddr)
+		sendLDSReq(t, ingressId(gatewayIP), ldsr)
+
+		res, err := ldsr.Recv()
+		if err != nil {
+			t.Fatal("Failed to receive LDS", err)
+			return
+		}
+
+		strResponse, _ := model.ToJSONWithIndent(res, " ")
+
+		_ = ioutil.WriteFile(util.IstioOut+"/ads_lds_ingress.json", []byte(strResponse), 0644)
+
+		if len(res.Resources) == 0 {
+			t.Fatal("No response")
+		}
+	})
 	// TODO: compare with some golden once it's stable
 	// check that each mocked service and destination rule has a corresponding resource
 

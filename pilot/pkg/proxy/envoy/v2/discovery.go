@@ -25,8 +25,8 @@ import (
 	"google.golang.org/grpc"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 )
 
 var (
@@ -48,10 +48,10 @@ const (
 	typePrefix = "type.googleapis.com/envoy.api.v2."
 
 	// Constants used for XDS
-	endpointType = typePrefix + "ClusterLoadAssignment"
-	clusterType  = typePrefix + "Cluster"
-	listenerType = typePrefix + "Listener"
-	routeType    = typePrefix + "Route"
+	EndpointType = typePrefix + "ClusterLoadAssignment"
+	ClusterType  = typePrefix + "Cluster"
+	ListenerType = typePrefix + "Listener"
+	RouteType    = typePrefix + "Route"
 )
 
 // DiscoveryServer is Pilot's gRPC implementation for Envoy's v2 xds APIs
@@ -66,20 +66,20 @@ type DiscoveryServer struct {
 
 	// ConfigGenerator is responsible for generating data plane configuration using Istio networking
 	// APIs and service registry info
-	ConfigGenerator core.ConfigGenerator
+	ConfigGenerator *v1alpha3.ConfigGeneratorImpl
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
-func NewDiscoveryServer(grpcServer *grpc.Server, env model.Environment, generator core.ConfigGenerator) *DiscoveryServer {
+func NewDiscoveryServer(grpcServer *grpc.Server, env model.Environment, generator *v1alpha3.ConfigGeneratorImpl) *DiscoveryServer {
 	out := &DiscoveryServer{
 		GrpcServer:      grpcServer,
 		env:             env,
 		ConfigGenerator: generator,
 	}
 
+	// EDS must remain registered for 0.8, for smooth upgrade from 0.7
+	// 0.7 proxies will use this service.
 	xdsapi.RegisterEndpointDiscoveryServiceServer(out.GrpcServer, out)
-	xdsapi.RegisterListenerDiscoveryServiceServer(out.GrpcServer, out)
-	xdsapi.RegisterClusterDiscoveryServiceServer(out.GrpcServer, out)
 	ads.RegisterAggregatedDiscoveryServiceServer(out.GrpcServer, out)
 
 	if len(periodicRefreshDuration) > 0 {
@@ -115,12 +115,7 @@ func PushAll() {
 
 	log.Infoa("XDS: Registry event - pushing all configs")
 
-	cdsPushAll()
-
-	// TODO: rename to XdsLegacyPushAll
-	edsPushAll() // we want endpoints ready first
-
-	ldsPushAll()
+	adsPushAll()
 }
 
 func nonce() string {

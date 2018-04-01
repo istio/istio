@@ -104,7 +104,7 @@ type EdsCluster struct {
 func (s *DiscoveryServer) endpoints(clusterNames []string) *xdsapi.DiscoveryResponse {
 	out := &xdsapi.DiscoveryResponse{
 		// All resources for EDS ought to be of the type ClusterLoadAssignment
-		TypeUrl: endpointType,
+		TypeUrl: EndpointType,
 
 		// Pilot does not really care for versioning. It always supplies what's currently
 		// available to it, irrespective of whether Envoy chooses to accept or reject EDS
@@ -278,7 +278,7 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 	initialRequestReceived := false
 
 	con := &XdsConnection{
-		pushChannel: make(chan struct{}, 1),
+		pushChannel: make(chan *XdsEvent, 1),
 		PeerAddr:    peerAddr,
 		Clusters:    []string{},
 		Connect:     time.Now(),
@@ -286,17 +286,14 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 	}
 	// node is the key used in the cluster map. It includes the pod name and an unique identifier,
 	// since multiple envoys may connect from the same pod.
-	var node string
+	var conID string
 	go func() {
 		defer close(reqChannel)
 		for {
 			req, err := stream.Recv()
 			if err != nil {
 				log.Errorf("EDS: close for client %s %q terminated with errors %v",
-					node, peerAddr, err)
-				for _, c := range con.Clusters {
-					s.removeEdsCon(c, node, con)
-				}
+					conID, peerAddr, err)
 				if status.Code(err) == codes.Canceled || err == io.EOF {
 					return
 				}
@@ -316,8 +313,8 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 			}
 
 			// Should not change. A node monitors multiple clusters
-			if node == "" && discReq.Node != nil {
-				node = connectionID(discReq.Node.Id)
+			if conID == "" && discReq.Node != nil {
+				conID = connectionID(discReq.Node.Id)
 			}
 
 			clusters2 := discReq.GetResourceNames()
@@ -335,24 +332,34 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 			if initialRequestReceived {
 				// TODO: once the deps are updated, log the ErrorCode if set (missing in current version)
 				if discReq.ErrorDetail != nil {
-					log.Warnf("EDS: ACK ERROR %v %s %v", peerAddr, node, discReq.String())
+					log.Warnf("EDS: ACK ERROR %v %s %v", peerAddr, conID, discReq.String())
 				}
 				if edsDebug {
-					log.Infof("EDS: ACK %s %s %s %s", node, discReq.VersionInfo, con.Clusters, discReq.String())
+					log.Infof("EDS: ACK %s %s %s %s", conID, discReq.VersionInfo, con.Clusters, discReq.String())
 				}
 				if len(con.Clusters) > 0 {
 					continue
 				}
 			}
 			if edsDebug {
-				log.Infof("EDS: REQ %s %v %v raw: %s ", node, con.Clusters, peerAddr, discReq.String())
+				log.Infof("EDS: REQ %s %v %v raw: %s ", conID, con.Clusters, peerAddr, discReq.String())
 			}
 			con.Clusters = discReq.GetResourceNames()
-			con.Node = node
+			con.ConID = conID
 			initialRequestReceived = true
 
+			// In 0.7 EDS only listens for 1 cluster for each stream. In 0.8 EDS is no longer
+			// used.
 			for _, c := range con.Clusters {
-				s.addEdsCon(c, node, con)
+				s.addEdsCon(c, conID, con)
+			}
+
+			// Keep track of active EDS client. In 0.7 EDS push happened by pushing for all
+			// tracked clusters. In 0.8+ push happens by iterating active connections, in ADS.
+			if !con.added {
+				con.added = true
+				s.addCon(conID, con)
+				defer s.removeCon(conID, con)
 			}
 
 		case <-con.pushChannel:
@@ -376,8 +383,8 @@ func (s *DiscoveryServer) pushEds(con *XdsConnection) error {
 	}
 
 	if edsDebug {
-		log.Infof("EDS: PUSH for %s %q clusters %v, Response: \n%s\n",
-			con.Node, con.PeerAddr, con.Clusters, response.String())
+		log.Infof("EDS: PUSH for %s %q clusters %d",
+			con.ConID, con.PeerAddr, len(con.Clusters))
 	}
 	return nil
 }
@@ -395,7 +402,9 @@ func edsPushAll() {
 		updateCluster(clusterName, edsCluster)
 		edsCluster.mutex.Lock()
 		for _, edsCon := range edsCluster.EdsClients {
-			edsCon.pushChannel <- struct{}{}
+			edsCon.pushChannel <- &XdsEvent{
+				clusters: []string{clusterName},
+			}
 		}
 		edsCluster.mutex.Unlock()
 	}
@@ -423,7 +432,7 @@ func EDSz(w http.ResponseWriter, req *http.Request) {
 	_, _ = w.Write(data)
 }
 
-// addEdsCon will track the eds connection, for push and debug
+// addEdsCon will track the eds connection with clusters, for optimized event-based push and debug
 func (s *DiscoveryServer) addEdsCon(clusterName string, node string, connection *XdsConnection) {
 
 	c := s.getOrAddEdsCluster(clusterName)
@@ -433,7 +442,7 @@ func (s *DiscoveryServer) addEdsCon(clusterName string, node string, connection 
 
 	// May replace an existing connection
 	if existing != nil {
-		existing.pushChannel <- struct{}{} // force closing it
+		log.Warnf("Replacing existing connection %s %s old: %s", clusterName, node, existing.ConID)
 	}
 	c.mutex.Lock()
 	c.EdsClients[node] = connection
@@ -476,6 +485,10 @@ func (s *DiscoveryServer) removeEdsCon(clusterName string, node string, connecti
 	defer c.mutex.Unlock()
 
 	oldcon := c.EdsClients[node]
+	if oldcon == nil {
+		log.Warnf("EDS: Envoy restart %s %v, cleanup old connection missing %v", node, connection.PeerAddr, c.EdsClients)
+		return
+	}
 	if oldcon != connection {
 		if edsDebug {
 			log.Infof("EDS: Envoy restart %s %v, cleanup old connection %v", node, connection.PeerAddr, oldcon.PeerAddr)

@@ -16,19 +16,16 @@ package v2
 
 import (
 	"io"
-	"net/http"
 	"os"
 	"sync"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
-	"github.com/gogo/protobuf/jsonpb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
-
-	"fmt"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
@@ -37,8 +34,9 @@ import (
 var (
 	adsDebug = os.Getenv("PILOT_DEBUG_ADS") != "0"
 
-	adsClientsMutex sync.RWMutex
+	// adsClients reflect active gRPC channels, for both ADS and EDS.
 	adsClients      = map[string]*XdsConnection{}
+	adsClientsMutex sync.RWMutex
 )
 
 // XdsConnection is a listener connection type.
@@ -49,20 +47,22 @@ type XdsConnection struct {
 	// Time of connection, for debugging
 	Connect time.Time
 
-	// Node is the name of the remote node
-	Node string
+	// ConID is the connection identifier, used as a key in the connection table.
+	// Currently based on the node name and a counter.
+	ConID string
 
 	modelNode *model.Proxy
 
 	// Sending on this channel results in  push. We may also make it a channel of objects so
 	// same info can be sent to all clients, without recomputing.
-	pushChannel chan struct{}
+	pushChannel chan *XdsEvent
 
 	// TODO: migrate other fields as needed from model.Proxy and replace it
 
 	//HttpConnectionManagers map[string]*http_conn.HttpConnectionManager
 
 	HTTPListeners []*xdsapi.Listener
+	RouteConfigs map[string][]*xdsapi.RouteConfiguration
 
 	// current list of clusters monitored by the client
 	Clusters []string
@@ -75,45 +75,64 @@ type XdsConnection struct {
 	LDSWatch bool
 	// CDSWatch is set if the remote server is watching Clusters
 	CDSWatch bool
-	// RDSWatch is set if the remote server is watching Routes
-	RDSWatch bool
+
+	// Routes is the list of watched Routes.
+	Routes []string
+
+	// added will be true if at least one discovery request was received, and the connection
+	// is added to the map of active.
+	added bool
+}
+
+// XdsEvent represents a config or registry event that results in a push.
+type XdsEvent struct {
+
+	// If not empty, it is used to indicate the event is caused by a change in the clusters.
+	// Only EDS for the listed clusters will be sent.
+	clusters []string
 }
 
 // StreamAggregatedResources implements the ADS interface.
 func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
 	peerInfo, ok := peer.FromContext(stream.Context())
-	peerAddr := unknownPeerAddressStr
+	peerAddr := "0.0.0.0"
 	if ok {
 		peerAddr = peerInfo.Addr.String()
 	}
 	var discReq *xdsapi.DiscoveryRequest
 	var receiveError error
 	reqChannel := make(chan *xdsapi.DiscoveryRequest, 1)
-	var nodeID string
 
 	con := &XdsConnection{
-		pushChannel:   make(chan struct{}, 1),
+		pushChannel:   make(chan *XdsEvent, 1),
 		PeerAddr:      peerAddr,
 		Connect:       time.Now(),
 		HTTPListeners: []*xdsapi.Listener{},
+		RouteConfigs:  map[string][]*xdsapi.RouteConfiguration{},
 		Clusters:      []string{},
 		stream:        stream,
 	}
+	// Do not call: defer close(con.pushChannel) !
+	// the push channel will be garbage collected when the connection is no longer used.
+	// Closing the channel can cause subtle race conditions with push. According to the spec:
+	// "It's only necessary to close a channel when it is important to tell the receiving goroutines that all data
+	// have been sent."
+
+	// Reading from a stream is a blocking operation. Each connection needs to read
+	// discovery requests and wait for push commands on config change, so we add a
+	// go routine. If go grpc adds gochannel support for streams this will not be needed.
+	// This also detects close.
 	go func() {
-		defer close(reqChannel)
-		defer removeAdsCon(nodeID)
+		defer close(reqChannel) // indicates close of the remote side.
 		for {
 			req, err := stream.Recv()
 			if err != nil {
-				for _, c := range con.Clusters {
-					s.removeEdsCon(c, nodeID, con)
-				}
 				if status.Code(err) == codes.Canceled || err == io.EOF {
-					log.Infof("ADS: %q %s terminated %v", peerAddr, nodeID, err)
+					log.Infof("ADS: %q %s terminated %v", peerAddr, con.ConID, err)
 					return
 				}
 				receiveError = err
-				log.Errorf("ADS: %q %s terminated with errors %v", peerAddr, nodeID, err)
+				log.Errorf("ADS: %q %s terminated with errors %v", peerAddr, con.ConID, err)
 				return
 			}
 			reqChannel <- req
@@ -124,69 +143,97 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 		select {
 		case discReq, ok = <-reqChannel:
 			if !ok {
+				// Remote side closed connection.
 				return receiveError
 			}
-			if discReq.TypeUrl != endpointType {
-				// ADS appears to send an empty Node.Id
-				if discReq.Node.Id == "" {
-					log.Infof("Missing node id %s", discReq.String())
-					continue
-				}
-				nt, err := model.ParseServiceNode(discReq.Node.Id)
-				if err != nil {
-					return err
-				}
-				con.modelNode = &nt
+			if discReq.Node.Id == "" {
+				log.Infof("Missing node id %s", discReq.String())
+				continue
 			}
-			nodeID = connectionID(discReq.Node.Id)
+			nt, err := model.ParseServiceNode(discReq.Node.Id)
+			if err != nil {
+				return err
+			}
+			con.modelNode = &nt
+			if con.ConID == "" {
+				// first request
+				con.ConID = connectionID(discReq.Node.Id)
+			}
 
 			switch discReq.TypeUrl {
-			case clusterType:
+			case ClusterType:
 				if con.CDSWatch {
 					// Already received a cluster watch request, this is an ACK
 					if discReq.ErrorDetail != nil {
-						log.Warnf("CDS: ACK ERROR %v %s %v", peerAddr, nodeID, discReq.String())
+						log.Warnf("ADS:CDS: ACK ERROR %v %s %v", peerAddr, con.ConID, discReq.String())
 					}
-					if cdsDebug {
-						log.Infof("CDS: ACK %v", discReq.String())
+					if adsDebug {
+						log.Infof("ADS:CDS: ACK %v %v", peerAddr, discReq.String())
 					}
 					continue
 				}
+				if adsDebug {
+					log.Infof("ADS:CDS: REQ %s %v raw: %s ", con.ConID, peerAddr, discReq.String())
+				}
 				con.CDSWatch = true
+				err := s.pushCds(*con.modelNode, con)
+				if err != nil {
+					return err
+				}
 
-			case listenerType:
+			case ListenerType:
 				if con.LDSWatch {
 					// Already received a cluster watch request, this is an ACK
 					if discReq.ErrorDetail != nil {
-						log.Warnf("LDS: ACK ERROR %v %s %v", peerAddr, con.modelNode.ID, discReq.String())
+						log.Warnf("ADS:LDS: ACK ERROR %v %s %v", peerAddr, con.modelNode.ID, discReq.String())
 					}
-					if cdsDebug {
-						log.Infof("LDS: ACK %v", discReq.String())
+					if adsDebug {
+						log.Infof("ADS:LDS: ACK %v", discReq.String())
 					}
 					continue
+				}
+				if adsDebug {
+					log.Infof("ADS:LDS: REQ %s %v", con.ConID, peerAddr)
 				}
 				con.LDSWatch = true
-
-			case routeType:
-				if con.RDSWatch {
-					// Already received a cluster watch request, this is an ACK
-					if discReq.ErrorDetail != nil {
-						log.Warnf("RDS: ACK ERROR %v %s %v", peerAddr, con.modelNode.ID, discReq.String())
-					}
-					if cdsDebug {
-						log.Infof("RDS: ACK %v", discReq.String())
-					}
-					continue
+				err := s.pushLds(*con.modelNode, con)
+				if err != nil {
+					return err
 				}
-				con.RDSWatch = true
-			case endpointType:
+
+			case RouteType:
+				routes := discReq.GetResourceNames()
+				if len(routes) == len(con.Routes) || len(routes) == 0 {
+					if discReq.ErrorDetail != nil {
+						log.Warnf("ADS:RDS: ACK ERROR %v %s %v", peerAddr, con.ConID, discReq.String())
+					}
+					if adsDebug {
+						// Not logging full request, can be very long.
+						log.Infof("ADS:RDS: ACK %s %s %s %s", peerAddr, con.ConID, discReq.VersionInfo, discReq.ResponseNonce)
+					}
+					if len(con.Routes) > 0 {
+						// Already got a list of routes to watch and has same length as the request, this is an ack
+						continue
+					}
+				}
+				con.Routes = routes
+				if adsDebug {
+					log.Infof("ADS:RDS: REQ %s %s routes: %d", peerAddr, con.ConID, len(con.Routes))
+				}
+				err := s.pushRoute(con)
+				if err != nil {
+					return err
+				}
+
+			case EndpointType:
 				clusters := discReq.GetResourceNames()
 				if len(clusters) == len(con.Clusters) || len(clusters) == 0 {
 					if discReq.ErrorDetail != nil {
-						log.Warnf("EDS: ACK ERROR %v %s %v", peerAddr, nodeID, discReq.String())
+						log.Warnf("ADS:EDS: ACK ERROR %v %s %v", peerAddr, con.ConID, discReq.String())
 					}
 					if edsDebug {
-						log.Infof("EDS: ACK %s %s %s %s", nodeID, discReq.VersionInfo, con.Clusters, discReq.String())
+						// Not logging full request, can be very long.
+						log.Infof("ADS:EDS: ACK %s %s %s %s", peerAddr, con.ConID, discReq.VersionInfo, discReq.ResponseNonce)
 					}
 					if len(con.Clusters) > 0 {
 						// Already got a list of clusters to watch and has same length as the request, this is an ack
@@ -195,41 +242,52 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 				con.Clusters = clusters
 				for _, c := range con.Clusters {
-					s.addEdsCon(c, nodeID, con)
+					s.addEdsCon(c, con.ConID, con)
+				}
+				if adsDebug {
+					log.Infof("ADS:EDS: REQ %s %s clusters: %d", peerAddr, con.ConID, len(con.Clusters))
+				}
+				err := s.pushEds(con)
+				if err != nil {
+					return err
 				}
 
 			default:
 				log.Warnf("ADS: Unknown watched resources %s", discReq.String())
 			}
 
-			con.Node = nodeID
-			addAdsCon(nodeID, con)
-
-			if adsDebug {
-				log.Infof("ADS: REQ %v %s %s", peerAddr, con.modelNode.ID, discReq.String())
+			if !con.added {
+				con.added = true
+				s.addCon(con.ConID, con)
+				defer s.removeCon(con.ConID, con)
 			}
 		case <-con.pushChannel:
 			// It is called when config changes.
 			// This is not optimized yet - we should detect what changed based on event and only
 			// push resources that need to be pushed.
-		}
-
-		if con.CDSWatch {
-			err := s.pushCds(*con.modelNode, con)
-			if err != nil {
-				return err
+			if con.CDSWatch {
+				err := s.pushCds(*con.modelNode, con)
+				if err != nil {
+					return err
+				}
 			}
-		}
-		if len(con.Clusters) > 0 {
-			err := s.pushEds(con)
-			if err != nil {
-				return err
+			if len(con.Routes) > 0 {
+				err := s.pushRoute(con)
+				if err != nil {
+					return err
+				}
 			}
-		}
-		if con.LDSWatch {
-			err := s.pushLds(*con.modelNode, con)
-			if err != nil {
-				return err
+			if len(con.Clusters) > 0 {
+				err := s.pushEds(con)
+				if err != nil {
+					return err
+				}
+			}
+			if con.LDSWatch {
+				err := s.pushLds(*con.modelNode, con)
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -247,79 +305,74 @@ func adsPushAll() {
 	}
 	adsClientsMutex.RUnlock()
 
+	// This will trigger recomputing the config for each connected Envoy.
+	// It will include sending all configs that envoy is listening for, including EDS.
+	// TODO: get service, serviceinstances, configs once, to avoid repeated redundant calls.
+	// TODO: indicate the specific events, to only push what changed.
 	for _, client := range tmpMap {
-		client.pushChannel <- struct{}{}
+		client.pushChannel <- &XdsEvent{}
 	}
 }
 
-// LDSz implements a status and debug interface for ADS.
-// It is mapped to /debug/ldsz on the monitor port (9093).
-func LDSz(w http.ResponseWriter, req *http.Request) {
-	_ = req.ParseForm()
-	if req.Form.Get("debug") != "" {
-		ldsDebug = req.Form.Get("debug") == "1"
-		return
-	}
-	if req.Form.Get("push") != "" {
-		adsPushAll()
-		fmt.Fprintf(w, "Pushed to %d servers", len(adsClients))
-		return
-	}
-	adsClientsMutex.RLock()
-
-	//data, err := json.Marshal(ldsClients)
-
-	// Dirty json generation - because standard json is dirty (struct madness)
-	// Unfortunately we must use the jsonbp to encode part of the json - I'm sure there are
-	// better ways, but this is mainly for debugging.
-	fmt.Fprint(w, "[\n")
-	comma2 := false
-	for _, c := range adsClients {
-		if comma2 {
-			fmt.Fprint(w, ",\n")
-		} else {
-			comma2 = true
-		}
-		fmt.Fprintf(w, "\n\n  {\"node\": \"%s\", \"addr\": \"%s\", \"connect\": \"%v\",\"listeners\":[\n", c.Node, c.PeerAddr, c.Connect)
-		comma1 := false
-		for _, ls := range c.HTTPListeners {
-			if comma1 {
-				fmt.Fprint(w, ",\n")
-			} else {
-				comma1 = true
-			}
-			jsonm := &jsonpb.Marshaler{}
-			dbgString, _ := jsonm.MarshalToString(ls)
-			if _, err := w.Write([]byte(dbgString)); err != nil {
-				return
-			}
-		}
-		fmt.Fprint(w, "]}\n")
-	}
-	fmt.Fprint(w, "]\n")
-
-	adsClientsMutex.RUnlock()
-
-	//if err != nil {
-	//	_, _ = w.Write([]byte(err.Error()))
-	//	return
-	//}
-	//
-	//_, _ = w.Write(data)
-}
-
-func addAdsCon(s string, connection *XdsConnection) {
+func (s *DiscoveryServer) addCon(conID string, con *XdsConnection) {
 	adsClientsMutex.Lock()
 	defer adsClientsMutex.Unlock()
-	adsClients[s] = connection
+	adsClients[conID] = con
 }
 
-func removeAdsCon(s string) {
+func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 	adsClientsMutex.Lock()
 	defer adsClientsMutex.Unlock()
 
-	if adsClients[s] == nil {
-		log.Errorf("Removing ADS connection for non-existing node %s.", s)
+	for _, c := range con.Clusters {
+		s.removeEdsCon(c, conID, con)
 	}
-	delete(adsClients, s)
+
+	if adsClients[conID] == nil {
+		log.Errorf("ADS: Removing connection for non-existing node %s.", s)
+	}
+	delete(adsClients, conID)
+}
+
+func (s *DiscoveryServer) pushRoute(con *XdsConnection) error {
+	rc := [][]*xdsapi.RouteConfiguration{}
+	for _, rn := range con.Routes {
+		r, err := s.ConfigGenerator.BuildRoutes(s.env, *con.modelNode, rn)
+		if err != nil {
+			log.Warnf("ADS: config failure, closing grpc %v", err)
+			return err
+		}
+		rc = append(rc, r)
+		con.RouteConfigs[rn] = r
+	}
+	response, err := routeDiscoveryResponse(rc, *con.modelNode)
+	if err != nil {
+		log.Warnf("ADS: RDS: config failure, closing grpc %v", err)
+		return err
+	}
+	err = con.stream.Send(response)
+	if err != nil {
+		log.Warnf("ADS: RDS: Send failure, closing grpc %v", err)
+		return err
+	}
+	if adsDebug {
+		log.Infof("ADS: RDS: PUSH for addr:%s routes:%d", con.PeerAddr, len(rc))
+	}
+	return nil
+}
+
+func routeDiscoveryResponse(ls [][]*xdsapi.RouteConfiguration, node model.Proxy) (*xdsapi.DiscoveryResponse, error) {
+	resp := &xdsapi.DiscoveryResponse{
+		TypeUrl:     RouteType,
+		VersionInfo: versionInfo(),
+		Nonce:       nonce(),
+	}
+	for _, ll := range ls {
+		for _, rr := range ll {
+			lr, _ := types.MarshalAny(rr)
+			resp.Resources = append(resp.Resources, *lr)
+		}
+		}
+
+	return resp, nil
 }

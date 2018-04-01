@@ -60,6 +60,7 @@ var (
 // One set of pilot/mixer/envoy is used for all tests, similar with the larger integration
 // tests in real docker/k8s environments
 
+
 // Common test environment, including Mixer and Envoy. This is a singleton, the env will be
 // used for multiple tests, for local integration testing.
 func initEnvoyTestEnv(t *testing.T) {
@@ -69,9 +70,8 @@ func initEnvoyTestEnv(t *testing.T) {
 	if testEnv != nil {
 		return
 	}
-	initLocalPilotTestEnv()
+	initLocalPilotTestEnv(t)
 
-	testEnv = testenv.NewTestSetup(testenv.XDSTest, t)
 	tmplB, err := ioutil.ReadFile(util.IstioSrc + "/tests/testdata/bootstrap_tmpl.json")
 	if err != nil {
 		t.Fatal("Can't read bootstrap template", err)
@@ -79,10 +79,6 @@ func initEnvoyTestEnv(t *testing.T) {
 	testEnv.EnvoyTemplate = string(tmplB)
 	nodeId := sidecarId(app3Ip, "app3")
 	testEnv.EnvoyParams = []string{"--service-cluster", "serviceCluster", "--service-node", nodeId, "--v2-config-only"}
-	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
-	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)
-	testEnv.IstioSrc = util.IstioSrc
-	testEnv.IstioOut = util.IstioOut
 	testEnv.EnvoyConfigOpt = map[string]interface{}{
 		"NodeID": nodeId,
 	}
@@ -102,16 +98,30 @@ func gatewayId(ip string) string {
 	return fmt.Sprintf("router~%s~istio-gateway-644fc65469-96dzt.istio-system~istio-system.svc.cluster.local", ip)
 }
 
+func ingressId(ip string) string {
+	return fmt.Sprintf("ingress~~istio-ingress-7cd767fcb4-kl6gt.pilot-noauth-system~pilot-noauth-system.svc.cluster.local", ip)
+}
+
 // initLocalPilotTestEnv creates a local, in process Pilot with XDSv2 support and a set
-// of common test configs. This is a singleton.
-func initLocalPilotTestEnv() *bootstrap.Server {
+// of common test configs. This is a singleton server, reused for all tests in this package.
+//
+// The server will have a set of pre-defined instances and services, and read CRDs from the
+// common tests/testdata directory.
+func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 	initMutex.Lock()
 	defer initMutex.Unlock()
 	if pilotServer != nil {
 		return pilotServer
 	}
+	testEnv = testenv.NewTestSetup(testenv.XDSTest, t)
 	server := util.EnsureTestServer()
 	pilotServer = server
+
+	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
+	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)
+	testEnv.IstioSrc = util.IstioSrc
+	testEnv.IstioOut = util.IstioOut
+
 	hostname := "hello.default.svc.cluster.local"
 	svc := mock.MakeService(hostname, "10.1.0.0")
 	// The default service created by istio/test/util does not have a h2 port.
@@ -128,12 +138,12 @@ func initLocalPilotTestEnv() *bootstrap.Server {
 
 	// Explicit test service, in the v2 memory registry. Similar with mock.MakeService,
 	// but easier to read.
-	server.EnvoyXdsServer.MemRegistry.AddService("service3", &model.Service{
+	server.EnvoyXdsServer.MemRegistry.AddService("service3.default.svc.cluster.local", &model.Service{
 		Hostname: "service3.default.svc.cluster.local",
 		Address:  "10.10.0.1",
 		Ports:    testPorts(0),
 	})
-	server.EnvoyXdsServer.MemRegistry.AddInstance("service3", "app3", &model.ServiceInstance{
+	server.EnvoyXdsServer.MemRegistry.AddInstance("service3.default.svc.cluster.local", &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
 			Address: app3Ip,
 			Port:    2080,
@@ -147,7 +157,7 @@ func initLocalPilotTestEnv() *bootstrap.Server {
 		Labels:           map[string]string{"version": "v1"},
 		AvailabilityZone: "az",
 	})
-	server.EnvoyXdsServer.MemRegistry.AddInstance("service3", "app3", &model.ServiceInstance{
+	server.EnvoyXdsServer.MemRegistry.AddInstance("service3.default.svc.cluster.local", &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
 			Address: gatewayIP,
 			Port:    2080,
