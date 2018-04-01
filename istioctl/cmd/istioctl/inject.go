@@ -53,11 +53,11 @@ func getMeshConfigFromConfigMap(kubeconfig string) (*meshconfig.MeshConfig, erro
 	// values in the data are strings, while proto might use a
 	// different data type.  therefore, we have to get a value by a
 	// key
-	yaml, exists := config.Data[configMapKey]
+	configYaml, exists := config.Data[configMapKey]
 	if !exists {
 		return nil, fmt.Errorf("missing configuration map key %q", configMapKey)
 	}
-	return model.ApplyMeshConfigDefaults(yaml)
+	return model.ApplyMeshConfigDefaults(configYaml)
 }
 
 func getInjectConfigFromConfigMap(kubeconfig string) (string, error) {
@@ -89,16 +89,19 @@ func getInjectConfigFromConfigMap(kubeconfig string) (string, error) {
 }
 
 var (
-	hub             string
-	tag             string
-	sidecarProxyUID uint64
-	verbosity       int
-	versionStr      string // override build version
-	enableCoreDump  bool
-	imagePullPolicy string
-	includeIPRanges string
-	debugMode       bool
-	emitTemplate    bool
+	hub                 string
+	tag                 string
+	sidecarProxyUID     uint64
+	verbosity           int
+	versionStr          string // override build version
+	enableCoreDump      bool
+	imagePullPolicy     string
+	includeIPRanges     string
+	excludeIPRanges     string
+	includeInboundPorts string
+	excludeInboundPorts string
+	debugMode           bool
+	emitTemplate        bool
 
 	inFilename          string
 	outFilename         string
@@ -238,16 +241,19 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 				}
 			} else {
 				sidecarTemplate, err = inject.GenerateTemplateFromParams(&inject.Params{
-					InitImage:       inject.InitImageName(hub, tag, debugMode),
-					ProxyImage:      inject.ProxyImageName(hub, tag, debugMode),
-					Verbosity:       verbosity,
-					SidecarProxyUID: sidecarProxyUID,
-					Version:         versionStr,
-					EnableCoreDump:  enableCoreDump,
-					Mesh:            meshConfig,
-					ImagePullPolicy: imagePullPolicy,
-					IncludeIPRanges: includeIPRanges,
-					DebugMode:       debugMode,
+					InitImage:           inject.InitImageName(hub, tag, debugMode),
+					ProxyImage:          inject.ProxyImageName(hub, tag, debugMode),
+					Verbosity:           verbosity,
+					SidecarProxyUID:     sidecarProxyUID,
+					Version:             versionStr,
+					EnableCoreDump:      enableCoreDump,
+					Mesh:                meshConfig,
+					ImagePullPolicy:     imagePullPolicy,
+					IncludeIPRanges:     includeIPRanges,
+					ExcludeIPRanges:     excludeIPRanges,
+					IncludeInboundPorts: includeInboundPorts,
+					ExcludeInboundPorts: excludeInboundPorts,
+					DebugMode:           debugMode,
 				})
 			}
 
@@ -305,6 +311,15 @@ func init() {
 	injectCmd.PersistentFlags().StringVar(&includeIPRanges, "includeIPRanges", "",
 		"Comma separated list of IP ranges in CIDR form. If set, only redirect outbound "+
 			"traffic to Envoy for IP ranges. Otherwise all outbound traffic is redirected")
+	injectCmd.PersistentFlags().StringVar(&includeIPRanges, "excludeIPRanges", "",
+		"Comma separated list of IP ranges in CIDR form. If set, outbound traffic will not be"+
+			"redirected to Envoy for IP ranges. Only applies if redirecting all outbound traffic by default.")
+	injectCmd.PersistentFlags().StringVar(&includeInboundPorts, "includeInboundPorts", "",
+		"Comma separated list of inbound ports for which traffic is to be redirected to Envoy. "+
+			"If not specified, all inbound traffic will be redirected.")
+	injectCmd.PersistentFlags().StringVar(&excludeInboundPorts, "excludeInboundPorts", "",
+		"Comma separated list of inbound ports for which traffic should not be redirected to Envoy. "+
+			"Only applies if redirecting all inbound traffic by default.")
 	injectCmd.PersistentFlags().BoolVar(&debugMode, "debug", false, "Use debug images and settings for the sidecar")
 
 	injectCmd.PersistentFlags().StringVar(&meshConfigMapName, "meshConfigMapName", "istio",
