@@ -43,10 +43,11 @@ import (
 )
 
 const (
+	yamlExtension            = "yaml"
 	bookinfoYaml             = "samples/bookinfo/kube/bookinfo.yaml"
 	bookinfoRatingsv2Yaml    = "samples/bookinfo/kube/bookinfo-ratings-v2.yaml"
 	bookinfoDbYaml           = "samples/bookinfo/kube/bookinfo-db.yaml"
-	sleepYaml                = "samples/sleep/sleep.yaml"
+	sleepYaml                = "samples/sleep/sleep"
 	rulesDir                 = "samples/bookinfo/kube"
 	rateLimitRule            = "mixer-rule-ratings-ratelimit.yaml"
 	denialRule               = "mixer-rule-ratings-denial.yaml"
@@ -994,7 +995,7 @@ func setTestConfig() error {
 			KubeInject: true,
 		},
 		{
-			AppYaml:    util.GetResourcePath(sleepYaml),
+			AppYaml:    util.GetResourcePath(sleepYaml + "." + yamlExtension),
 			KubeInject: true,
 		},
 	}
