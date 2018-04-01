@@ -336,7 +336,7 @@ const (
   In 0.7, this was the biggest factor in scalability. Moving forward we will likely
   deprecate model, and do the conversion (hopefully more efficient) only once, when
   an object is first read.
- */
+*/
 
 var (
 	// MockConfig is used purely for testing
@@ -407,7 +407,6 @@ var (
 		Gogo:        true,
 		Validate:    ValidateGateway,
 	}
-
 
 	// IngressRule describes ingress rules
 	IngressRule = ProtoSchema{

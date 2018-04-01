@@ -20,9 +20,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
@@ -62,7 +62,7 @@ type XdsConnection struct {
 	//HttpConnectionManagers map[string]*http_conn.HttpConnectionManager
 
 	HTTPListeners []*xdsapi.Listener
-	RouteConfigs map[string][]*xdsapi.RouteConfiguration
+	RouteConfigs  map[string][]*xdsapi.RouteConfiguration
 
 	// current list of clusters monitored by the client
 	Clusters []string
@@ -372,7 +372,7 @@ func routeDiscoveryResponse(ls [][]*xdsapi.RouteConfiguration, node model.Proxy)
 			lr, _ := types.MarshalAny(rr)
 			resp.Resources = append(resp.Resources, *lr)
 		}
-		}
+	}
 
 	return resp, nil
 }

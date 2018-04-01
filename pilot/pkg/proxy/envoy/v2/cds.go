@@ -62,5 +62,3 @@ func (s *DiscoveryServer) pushCds(node model.Proxy, con *XdsConnection) error {
 	}
 	return nil
 }
-
-

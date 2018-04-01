@@ -60,7 +60,6 @@ var (
 // One set of pilot/mixer/envoy is used for all tests, similar with the larger integration
 // tests in real docker/k8s environments
 
-
 // Common test environment, including Mixer and Envoy. This is a singleton, the env will be
 // used for multiple tests, for local integration testing.
 func initEnvoyTestEnv(t *testing.T) {
@@ -98,8 +97,8 @@ func gatewayId(ip string) string {
 	return fmt.Sprintf("router~%s~istio-gateway-644fc65469-96dzt.istio-system~istio-system.svc.cluster.local", ip)
 }
 
-func ingressId(ip string) string {
-	return fmt.Sprintf("ingress~~istio-ingress-7cd767fcb4-kl6gt.pilot-noauth-system~pilot-noauth-system.svc.cluster.local", ip)
+func ingressId() string {
+	return "ingress~~istio-ingress-7cd767fcb4-kl6gt.pilot-noauth-system~pilot-noauth-system.svc.cluster.local"
 }
 
 // initLocalPilotTestEnv creates a local, in process Pilot with XDSv2 support and a set

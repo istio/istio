@@ -22,6 +22,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
@@ -195,7 +196,7 @@ func buildGatewayInboundHTTPRouteConfig(env model.Environment, gatewayName strin
 	virtualServices := env.VirtualServices([]string{gatewayName})
 
 	nameF := func(d *networking.Destination) string {
-		return model.BuildSubsetKey(model.TrafficDirectionOutbound, d.Subset, d.Name, &model.Port{ Name:d.Port.GetName()})
+		return model.BuildSubsetKey(model.TrafficDirectionOutbound, d.Subset, d.Name, &model.Port{Name: d.Port.GetName()})
 	}
 
 	virtualHosts := make([]route.VirtualHost, 0)

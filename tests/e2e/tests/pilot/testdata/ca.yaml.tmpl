@@ -23,7 +23,8 @@ spec:
         image: {{.Hub}}/istio-ca:{{.Tag}}
         imagePullPolicy: {{.ImagePullPolicy}}
         args:
-        - --istio-ca-storage-namespace={{.IstioNamespace}}
+        # If pilot tests are run alongsides istio-system, the 2 CAs get into an infinite loop.
+        - --istio-ca-storage-namespace=istio-system
         - --grpc-port=8060
         - --grpc-hostname=istio-ca
         - --append-dns-names=true

@@ -21,12 +21,14 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 
+	"fmt"
+
+	"github.com/gogo/protobuf/jsonpb"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
-	"fmt"
 	"istio.io/istio/pkg/log"
-	"github.com/gogo/protobuf/jsonpb"
 )
 
 // memregistry is based on mock/discovery - it is used for testing and debugging v2.
@@ -89,7 +91,7 @@ func (c *memServiceController) Run(<-chan struct{}) {}
 
 // MemServiceDiscovery is a mock discovery interface
 type MemServiceDiscovery struct {
-	services                      map[string]*model.Service
+	services map[string]*model.Service
 	// Endpoints table. Key is the fqdn of the service, ':', port
 	instances                     map[string][]*model.ServiceInstance
 	ip2instance                   map[string][]*model.ServiceInstance
@@ -189,7 +191,7 @@ func (sd *MemServiceDiscovery) Instances(hostname string, ports []string,
 	key := hostname + ":" + ports[0]
 	instances, ok := sd.instances[key]
 	if !ok {
-		return nil,nil
+		return nil, nil
 	}
 	return instances, nil
 }
@@ -287,7 +289,7 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 		svc, _ := s.env.ServiceDiscovery.Services()
 		for _, ss := range svc {
 			for _, p := range ss.Ports {
-				all, err := s.env.ServiceDiscovery.Instances(ss.Hostname, []string{p.Name},nil)
+				all, err := s.env.ServiceDiscovery.Instances(ss.Hostname, []string{p.Name}, nil)
 				if err != nil {
 					return
 				}
@@ -303,7 +305,7 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprint(w, "[\n")
 	for _, ss := range svc {
 		for _, p := range ss.Ports {
-			all, err := s.env.ServiceDiscovery.Instances(ss.Hostname, []string{p.Name},nil)
+			all, err := s.env.ServiceDiscovery.Instances(ss.Hostname, []string{p.Name}, nil)
 			if err != nil {
 				return
 			}
@@ -333,7 +335,7 @@ func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 				return
 			}
 			_, _ = w.Write(b)
-			fmt.Fprint(w,",\n")
+			fmt.Fprint(w, ",\n")
 		}
 	}
 	fmt.Fprint(w, "\n{}]")
@@ -398,4 +400,3 @@ func adsz(w http.ResponseWriter, req *http.Request) {
 	//
 	//_, _ = w.Write(data)
 }
-

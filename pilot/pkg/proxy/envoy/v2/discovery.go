@@ -25,8 +25,8 @@ import (
 	"google.golang.org/grpc"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
+	"istio.io/istio/pkg/log"
 )
 
 var (

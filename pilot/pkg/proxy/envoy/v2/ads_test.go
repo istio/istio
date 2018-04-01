@@ -20,16 +20,16 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"google.golang.org/grpc"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	"google.golang.org/grpc"
 
 	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
 
-	"istio.io/istio/tests/util"
 	"io/ioutil"
-	"istio.io/istio/pilot/pkg/model"
-)
 
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/tests/util"
+)
 
 func connectADS(t *testing.T, url string) ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient {
 	conn, err := grpc.Dial(url, grpc.WithInsecure())
@@ -50,7 +50,7 @@ func sendEDSReq(t *testing.T, clusters []string, edsstr ads.AggregatedDiscoveryS
 		Node: &envoy_api_v2_core1.Node{
 			Id: sidecarId(app3Ip, "app3"),
 		},
-		TypeUrl: v2.EndpointType,
+		TypeUrl:       v2.EndpointType,
 		ResourceNames: clusters})
 	if err != nil {
 		t.Fatal("Send failed", err)
@@ -65,9 +65,9 @@ func sendEDSReqReconnect(t *testing.T, clusters []string, edsstr ads.AggregatedD
 		Node: &envoy_api_v2_core1.Node{
 			Id: sidecarId(app3Ip, "app3"),
 		},
-		TypeUrl: v2.EndpointType,
+		TypeUrl:       v2.EndpointType,
 		ResponseNonce: res.Nonce,
-		VersionInfo: res.VersionInfo,
+		VersionInfo:   res.VersionInfo,
 		ResourceNames: clusters})
 	if err != nil {
 		t.Fatal("Send failed", err)
@@ -136,14 +136,14 @@ func TestAdsReconnect(t *testing.T) {
 	v2.PushAll()
 	// will trigger recompute and push (we may need to make a change once diff is implemented
 
-	m, err := adsReceive(edsstr2, 3 * time.Second)
+	m, err := adsReceive(edsstr2, 3*time.Second)
 	if err != nil {
 		t.Fatal("Recv failed", err)
 	}
 	t.Log("Received ", m)
 }
 
-func adsReceive(ads ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, to time.Duration) (*xdsapi.DiscoveryResponse, error){
+func adsReceive(ads ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, to time.Duration) (*xdsapi.DiscoveryResponse, error) {
 	done := make(chan struct{}, 1)
 	t := time.NewTimer(to)
 	defer t.Stop()
@@ -214,5 +214,3 @@ func TestAdsEds(t *testing.T) {
 
 	_ = edsstr.CloseSend()
 }
-
-

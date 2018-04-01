@@ -66,7 +66,7 @@ func TestLDS(t *testing.T) {
 
 	t.Run("ingress", func(t *testing.T) {
 		ldsr := connectADS(t, util.MockPilotGrpcAddr)
-		sendLDSReq(t, ingressId(gatewayIP), ldsr)
+		sendLDSReq(t, ingressId(), ldsr)
 
 		res, err := ldsr.Recv()
 		if err != nil {

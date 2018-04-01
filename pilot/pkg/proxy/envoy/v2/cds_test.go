@@ -16,7 +16,6 @@ package v2_test
 import (
 	"testing"
 
-
 	"io/ioutil"
 
 	"istio.io/istio/pilot/pkg/model"
