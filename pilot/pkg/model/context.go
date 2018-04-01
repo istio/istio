@@ -142,10 +142,10 @@ const (
 	RootCertFilename = "root-cert.pem"
 
 	// IngressCertFilename is the ingress cert file name
-	IngressCertFilename = "tls.crt"
+	IngressCertFilename = "cert.pem"
 
 	// IngressKeyFilename is the ingress private key file name
-	IngressKeyFilename = "tls.key"
+	IngressKeyFilename = "key.pem"
 
 	// ConfigPathDir config directory for storing envoy json config files.
 	// It also stores core files as per

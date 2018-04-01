@@ -326,6 +326,18 @@ const (
 	IstioMeshGateway = "mesh"
 )
 
+/*
+  This conversion of CRD (== yaml files with k8s metadata) is extremely inefficient.
+  The yaml is parsed (kubeyaml), converted to YAML again (FromJSONMap),
+  converted to JSON (YAMLToJSON) and finally UnmarshallString in proto is called.
+
+  The result is not cached in the model.
+
+  In 0.7, this was the biggest factor in scalability. Moving forward we will likely
+  deprecate model, and do the conversion (hopefully more efficient) only once, when
+  an object is first read.
+ */
+
 var (
 	// MockConfig is used purely for testing
 	MockConfig = ProtoSchema{
@@ -373,6 +385,29 @@ var (
 		Gogo:        true,
 		Validate:    ValidateGateway,
 	}
+
+	// VirtualService describes v1alpha3 route rules
+	VirtualServiceIngress = ProtoSchema{
+		Type:        "virtual-service-ingress",
+		Plural:      "virtual-services-ingresses",
+		Group:       "networking",
+		Version:     "v1alpha3",
+		MessageName: "istio.networking.v1alpha3.VirtualService",
+		Gogo:        true,
+		Validate:    ValidateVirtualService,
+	}
+
+	// Gateway describes a gateway (how a proxy is exposed on the network)
+	GatewayIngress = ProtoSchema{
+		Type:        "gateway-ingress",
+		Plural:      "gateways-ingresses",
+		Group:       "networking",
+		Version:     "v1alpha3",
+		MessageName: "istio.networking.v1alpha3.Gateway",
+		Gogo:        true,
+		Validate:    ValidateGateway,
+	}
+
 
 	// IngressRule describes ingress rules
 	IngressRule = ProtoSchema{
@@ -749,6 +784,13 @@ func (store *istioConfigStore) ExternalServices() []Config {
 }
 
 func (store *istioConfigStore) VirtualServices(gateways []string) []Config {
+	if len(gateways) == 1 && gateways[0] == IstioIngressGatewayName {
+		configs, err := store.List(VirtualServiceIngress.Type, NamespaceAll)
+		if err != nil {
+			return nil
+		}
+		return configs
+	}
 	configs, err := store.List(VirtualService.Type, NamespaceAll)
 	if err != nil {
 		return nil
