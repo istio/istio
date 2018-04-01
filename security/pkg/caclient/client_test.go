@@ -53,7 +53,10 @@ func (s *FakeIstioCAGrpcServer) HandleCSR(ctx context.Context, req *pb.CsrReques
 	if len(s.errorMsg) > 0 {
 		return nil, fmt.Errorf(s.errorMsg)
 	}
-	return s.response, nil
+	if s.response != nil {
+		return s.response, nil
+	}
+	return &pb.CsrResponse{}, nil
 }
 
 func TestRetrieveNewKeyCert(t *testing.T) {
@@ -114,16 +117,17 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 			expectedErr: "request creation fails on getting platform credential (Err1)",
 			sendTimes:   0,
 		},
-		//"SendCSR empty response error": {
-		//pltfmc:      mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", []byte{}, "", true},
-		//ptclc:       &mockclient.FakeCAClient{0, nil, nil},
-		//keySize:     512,
-		//ttl:         time.Hour,
-		//maxRetries:  2,
-		//interval:    time.Millisecond,
-		//expectedErr: "CA client cannot get the CSR approved from Istio CA after max number of retries (2)",
-		//sendTimes:   3,
-		//},
+		"SendCSR empty response error": {
+			pltfmc:      mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", []byte{}, "", true},
+			ptclc:       &mockclient.FakeCAClient{0, nil, nil},
+			server:      &FakeIstioCAGrpcServer{},
+			keySize:     512,
+			ttl:         time.Hour,
+			maxRetries:  2,
+			interval:    time.Millisecond,
+			expectedErr: "CA client cannot get the CSR approved from Istio CA after max number of retries (2)",
+			sendTimes:   3,
+		},
 		//"SendCSR returns error": {
 		//pltfmc:      mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", []byte{}, "", true},
 		//ptclc:       &mockclient.FakeCAClient{0, nil, fmt.Errorf("error returned from CA")},
