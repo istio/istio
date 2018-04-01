@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/cmd/node_agent/na"
 	"istio.io/istio/security/cmd/node_agent_k8s/workload/handler"
+	"istio.io/istio/security/pkg/caclient"
 	cagrpc "istio.io/istio/security/pkg/caclient/grpc"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
@@ -39,15 +40,19 @@ import (
 type Server struct {
 	// map from uid to workload handler instance.
 	handlerMap map[string]handler.WorkloadHandler
+
 	// makes mgmt-api server to stop
-	done     chan bool
-	config   *na.Config
-	pc       platform.Client
-	cAClient cagrpc.CAGrpcClient
+	done   chan bool
+	config *na.Config
+	// TODO(incfly): remove these two after they're merged into CAClient.
+	pc           platform.Client
+	caGrpcClient cagrpc.CAGrpcClient
+	caClient     *caclient.CAClient
 	// the workload identity running together with the NodeAgent, only used for vm mode.
+	// TODO(incfly): uses this once Server supports vm mode.
 	identity string // nolint
-	// ss manages the secrets associated for different workload.
-	ss workload.SecretServer
+	// secretServer manages the secrets associated for different workload.
+	secretServer workload.SecretServer
 }
 
 // New creates an NodeAgent server.
@@ -55,24 +60,31 @@ func New(cfg *na.Config) (*Server, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("unablet to create when config is nil")
 	}
-	env := na.DetermineEnv(cfg)
-	pc, err := platform.NewClient(env, cfg.CAClientConfig.RootCertFile, cfg.CAClientConfig.KeyFile,
+	pc, err := platform.NewClient(cfg.CAClientConfig.Env, cfg.CAClientConfig.RootCertFile, cfg.CAClientConfig.KeyFile,
 		cfg.CAClientConfig.CertChainFile, cfg.CAClientConfig.CAAddress)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init nodeagent due to pc init %v", err)
 	}
-	scfg := workload.NewSecretFileServerConfig(cfg.CAClientConfig.CertChainFile, cfg.CAClientConfig.KeyFile)
-	ss, err := workload.NewSecretServer(scfg)
+	ss, err := workload.NewSecretServer(&workload.Config{
+		Mode:            workload.SecretFile,
+		SecretDirectory: "/etc/certs", // TODO(incfly): put this into na.Config later.
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to init nodeagent due to secret server %v", err)
 	}
+	cac, err := caclient.NewCAClient(pc, &cagrpc.CAGrpcClientImpl{}, cfg.CAClientConfig.CAAddress,
+		cfg.CAClientConfig.CSRMaxRetries, cfg.CAClientConfig.CSRInitialRetrialInterval)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create caclient err %v", err)
+	}
 	return &Server{
-		done:       make(chan bool, 1),
-		handlerMap: make(map[string]handler.WorkloadHandler),
-		cAClient:   &cagrpc.CAGrpcClientImpl{},
-		config:     cfg,
-		pc:         pc,
-		ss:         ss,
+		done:         make(chan bool, 1),
+		handlerMap:   make(map[string]handler.WorkloadHandler),
+		caGrpcClient: &cagrpc.CAGrpcClientImpl{},
+		caClient:     cac,
+		config:       cfg,
+		pc:           pc,
+		secretServer: ss,
 	}, nil
 }
 
@@ -124,32 +136,44 @@ func (s *Server) WorkloadAdded(ctx context.Context, request *pb.WorkloadInfo) (*
 	uid := request.Attrs.Uid
 	sa := request.Attrs.Serviceaccount
 	ns := request.Attrs.Namespace
-	log.Infof("workload uid = %v, ns = %v, service account = %v added", uid, ns, sa)
+	wlstr := fmt.Sprintf("ns = %v, service account = %v, uid = %v", ns, sa, ns)
+	log.Infof("workload %v added", wlstr)
 	if _, ok := s.handlerMap[uid]; ok {
 		status := &rpc.Status{Code: int32(rpc.ALREADY_EXISTS), Message: "Already exists"}
 		log.Infof("workload %v already exists", request)
 		return &pb.NodeAgentMgmtResponse{Status: status}, nil
 	}
 
+	logReturn := func(tmpl string, err error) error {
+		msg := fmt.Sprintf("%v for %v error %v", tmpl, wlstr, err)
+		log.Errorf(msg)
+		return fmt.Errorf(msg)
+	}
+
 	// Sends CSR request to CA.
 	// TODO(inclfy): extract the SPIFFE formatting out into somewhere else.
 	id := fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/%s", ns, sa)
 
-	// TODO(incfly): uses caClient's own createRequest when it supports multiple identity.
-	priv, csrReq, err := s.createRequest(id)
+	priv, csrReq, err := s.caClient.CreateCSRRequest(&pkiutil.CertOptions{
+		Host:       id,
+		Org:        s.config.CAClientConfig.Org,
+		RSAKeySize: s.config.CAClientConfig.RSAKeySize,
+		TTL:        s.config.CAClientConfig.RequestedCertTTL,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create csr request for service %v %v", sa, err)
+		return nil, logReturn("failed to create csr", err)
 	}
-	resp, err := s.cAClient.SendCSR(csrReq, s.pc, s.config.CAClientConfig.CAAddress)
+	resp, err := s.caGrpcClient.SendCSR(csrReq, s.pc, s.config.CAClientConfig.CAAddress)
 	if err != nil {
-		return nil, fmt.Errorf("csr request failed for service %v %v", sa, err)
+		return nil, logReturn("csr request failed", err)
+	}
+	kb, err := pkiutil.NewVerifiedKeyCertBundleFromPem(resp.SignedCert, priv, resp.CertChain, nil)
+	if err != nil {
+		return nil, logReturn("failed to build key cert buhndle", err)
 	}
 
-	if err := s.ss.SetServiceIdentityPrivateKey(priv); err != nil {
-		return nil, fmt.Errorf("failed in set private key for service account %v, uid %v err %v", sa, uid, err)
-	}
-	if err := s.ss.SetServiceIdentityCert(resp.SignedCert); err != nil {
-		return nil, fmt.Errorf("failed in set cert for service account %v, uid %v err %v", sa, uid, err)
+	if err := s.secretServer.Save(kb); err != nil {
+		return nil, logReturn("failed to save key cert", err)
 	}
 
 	s.handlerMap[uid] = handler.NewHandler(request, s.config.WorkloadOpts)
@@ -184,28 +208,4 @@ func (s *Server) CloseAllWlds() {
 	for _, wld := range s.handlerMap {
 		wld.WaitDone()
 	}
-}
-
-func (s *Server) createRequest(identity string) ([]byte, *pb.CsrRequest, error) {
-	csr, privKey, err := pkiutil.GenCSR(pkiutil.CertOptions{
-		Host:       identity,
-		Org:        s.config.CAClientConfig.Org,
-		RSAKeySize: s.config.CAClientConfig.RSAKeySize,
-	})
-	if err != nil {
-		return nil, nil, err
-	}
-
-	cred, err := s.pc.GetAgentCredential()
-	if err != nil {
-		return nil, nil, fmt.Errorf("request creation fails on getting agent credential (%v)", err)
-	}
-
-	return privKey, &pb.CsrRequest{
-		CsrPem:              csr,
-		NodeAgentCredential: cred,
-		CredentialType:      s.pc.GetCredentialType(),
-		RequestedTtlMinutes: int32(s.config.CAClientConfig.RequestedCertTTL.Minutes()),
-		ForCA:               false,
-	}, nil
 }

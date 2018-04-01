@@ -3,6 +3,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: prometheus
+  namespace: {{ .Release.Namespace }}
   labels:
     app: prometheus
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}

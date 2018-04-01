@@ -21,6 +21,7 @@ import (
 	"time"
 
 	mockclient "istio.io/istio/security/pkg/caclient/grpc/mock"
+	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
 	mockpc "istio.io/istio/security/pkg/platform/mock"
 	pb "istio.io/istio/security/proto"
@@ -110,13 +111,15 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 
 	for id, c := range testCases {
 		caAddr := "CA address"
-		org := "Org"
-		forCA := true
-		client, err := NewCAClient(c.pltfmc, c.ptclc, caAddr, org, c.keySize, c.ttl, forCA, c.maxRetries, c.interval)
+		client, err := NewCAClient(c.pltfmc, c.ptclc, caAddr, c.maxRetries, c.interval)
 		if err != nil {
 			t.Errorf("Test case [%s]: CA creation error: %v", id, err)
 		}
-		cert, certChain, _, err := client.Retrieve()
+		cert, certChain, _, err := client.Retrieve(&util.CertOptions{
+			Org:        "Org",
+			IsCA:       true,
+			RSAKeySize: c.keySize,
+		})
 		if err == nil {
 			if len(c.expectedErr) != 0 {
 				t.Errorf("Test case [%s]: succeeded but expected error: %v", id, c.expectedErr)

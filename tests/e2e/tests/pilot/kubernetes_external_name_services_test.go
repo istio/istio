@@ -41,6 +41,11 @@ func (t *kubernetesExternalNameServices) Teardown() {
 }
 
 func (t *kubernetesExternalNameServices) Run() error {
+	// external name service tests are still using v1alpha1 route rules.
+	// TODO: need to migrate
+	if !t.Config.V1alpha1 {
+		return nil
+	}
 
 	// map of source pods to test, to boolean that is true if the pod has Istio proxy
 	srcPods := map[string]bool{"a": true, "b": true, "t": false}

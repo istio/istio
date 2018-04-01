@@ -18,6 +18,8 @@ import (
 	"crypto"
 	"crypto/x509"
 	"sync"
+
+	"istio.io/istio/security/pkg/pki/util"
 )
 
 // FakeKeyCertBundle is a mocked KeyCertBundle for testing.
@@ -60,4 +62,8 @@ func (b *FakeKeyCertBundle) VerifyAndSetAll(certBytes, privKeyBytes, certChainBy
 	b.CertChainBytes = certChainBytes
 	b.RootCertBytes = rootCertBytes
 	return nil
+}
+
+func (b *FakeKeyCertBundle) CertOptions() (*util.CertOptions, error) {
+	return nil, nil
 }

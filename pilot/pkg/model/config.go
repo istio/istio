@@ -22,7 +22,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
-	authn "istio.io/api/authentication/v1alpha2"
+	authn "istio.io/api/authentication/v1alpha1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	routing "istio.io/api/routing/v1alpha1"
@@ -268,6 +268,15 @@ type IstioConfigStore interface {
 	// Name can be short name or FQDN.
 	DestinationRule(name, domain string) *Config
 
+	// VirtualServices lists all virtual services bound to the specified gateways
+	VirtualServices(gateways []string) []Config
+
+	// Gateways lists all gateways bound to the specified workload labels
+	Gateways(workloadLabels LabelsCollection) []Config
+
+	// SubsetToLabels returns the labels associated with a subset of a given service.
+	SubsetToLabels(subsetName, hostname, domain string) LabelsCollection
+
 	// HTTPAPISpecByDestination selects Mixerclient HTTP API Specs
 	// associated with destination service instances.
 	HTTPAPISpecByDestination(instance *ServiceInstance) []Config
@@ -312,6 +321,9 @@ const (
 
 	// NamespaceAll is a designated symbol for listing across all namespaces
 	NamespaceAll = ""
+
+	// IstioMeshGateway is the built in gateway for all sidecars
+	IstioMeshGateway = "mesh"
 )
 
 var (
@@ -458,8 +470,8 @@ var (
 		Type:        "policy",
 		Plural:      "policies",
 		Group:       "authentication",
-		Version:     "v1alpha2",
-		MessageName: "istio.authentication.v1alpha2.Policy",
+		Version:     "v1alpha1",
+		MessageName: "istio.authentication.v1alpha1.Policy",
 		Validate:    ValidateAuthenticationPolicy,
 	}
 
@@ -736,6 +748,62 @@ func (store *istioConfigStore) ExternalServices() []Config {
 	return configs
 }
 
+func (store *istioConfigStore) VirtualServices(gateways []string) []Config {
+	configs, err := store.List(VirtualService.Type, NamespaceAll)
+	if err != nil {
+		return nil
+	}
+
+	// Trim the list to virtual services bound to the gateways specified
+
+	gatewayRequested := make(map[string]bool)
+	for _, gateway := range gateways {
+		gatewayRequested[gateway] = true
+	}
+
+	out := make([]Config, 0)
+	for _, config := range configs {
+		rule := config.Spec.(*networking.VirtualService)
+		if len(rule.Gateways) == 0 {
+			// This rule applies only to IstioMeshGateway
+			if gatewayRequested[IstioMeshGateway] {
+				out = append(out, config)
+			}
+		} else {
+			for _, ruleGateway := range rule.Gateways {
+				if gatewayRequested[ruleGateway] {
+					out = append(out, config)
+					break
+				}
+			}
+		}
+	}
+
+	return out
+}
+
+func (store *istioConfigStore) Gateways(workloadLabels LabelsCollection) []Config {
+	configs, err := store.List(Gateway.Type, NamespaceAll)
+	if err != nil {
+		return nil
+	}
+
+	out := make([]Config, 0)
+	for _, config := range configs {
+		gateway := config.Spec.(*networking.Gateway)
+		if gateway.GetSelector() == nil {
+			// no selector. Applies to all workloads asking for the gateway
+			out = append(out, config)
+		} else {
+			gatewaySelector := Labels(gateway.GetSelector())
+			if workloadLabels.IsSupersetOf(gatewaySelector) {
+				out = append(out, config)
+			}
+		}
+	}
+	return out
+}
+
 func (store *istioConfigStore) Policy(instances []*ServiceInstance, destination string, labels Labels) *Config {
 	configs, err := store.List(DestinationPolicy.Type, NamespaceAll)
 	if err != nil {
@@ -785,6 +853,27 @@ func (store *istioConfigStore) DestinationRule(name, domain string) *Config {
 		rule := config.Spec.(*networking.DestinationRule)
 		if ResolveFQDN(rule.Name, domain) == target {
 			return &config
+		}
+	}
+
+	return nil
+}
+
+func (store *istioConfigStore) SubsetToLabels(subsetName, hostname, domain string) LabelsCollection {
+	// empty subset
+	if subsetName == "" {
+		return nil
+	}
+
+	config := store.DestinationRule(hostname, domain)
+	if config == nil {
+		return nil
+	}
+
+	rule := config.Spec.(*networking.DestinationRule)
+	for _, subset := range rule.Subsets {
+		if subset.Name == subsetName {
+			return []Labels{subset.Labels}
 		}
 	}
 

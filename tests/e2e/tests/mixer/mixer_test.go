@@ -18,7 +18,6 @@ package mixer
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -108,8 +107,8 @@ func (t *testConfig) Setup() (err error) {
 
 	err = createDefaultRoutingRules()
 
-	if !util.CheckPodsRunning(tc.Kube.Namespace) {
-		return fmt.Errorf("can't get all pods running")
+	if err = util.WaitForDeploymentsReady(tc.Kube.Namespace, time.Minute*2); err != nil {
+		return fmt.Errorf("pods not ready: %v", err)
 	}
 
 	// pre-warm the system. we don't care about what happens with this
@@ -221,15 +220,15 @@ func (p *promProxy) portForward(labelSelector string, localPort string, remotePo
 func (p *promProxy) Setup() error {
 	var err error
 
-	if !util.CheckPodsRunning(tc.Kube.Namespace) {
-		return errors.New("could not establish prometheus proxy: pods not running")
+	if err = util.WaitForDeploymentsReady(tc.Kube.Namespace, time.Minute*2); err != nil {
+		return fmt.Errorf("could not establish prometheus proxy: pods not ready: %v", err)
 	}
 
 	if err = p.portForward("app=prometheus", prometheusPort, prometheusPort); err != nil {
 		return err
 	}
 
-	if err = p.portForward("istio=mixer", mixerMetricsPort, mixerMetricsPort); err != nil {
+	if err = p.portForward("istio-mixer-type=telemetry", mixerMetricsPort, mixerMetricsPort); err != nil {
 		return err
 	}
 
@@ -499,7 +498,25 @@ func TestIngressCheckCache(t *testing.T) {
 
 	// Visit product page through ingress should all be denied.
 	visit := func() error {
-		return visitProductPage(productPageTimeout, http.StatusForbidden)
+		url := fmt.Sprintf("%s/productpage", tc.Kube.IngressOrFail(t))
+		// Send 100 requests in a relative short time to make sure check cache will be used.
+		opts := fhttp.HTTPRunnerOptions{
+			RunnerOptions: periodic.RunnerOptions{
+				QPS:        10,
+				Exactly:    100,       // will make exactly 100 calls, so run for about 10 seconds
+				NumThreads: 5,         // get the same number of calls per connection (100/5=20)
+				Out:        os.Stderr, // only needed because of log capture issue
+			},
+			HTTPOptions: fhttp.HTTPOptions{
+				URL: url,
+			},
+		}
+
+		_, err := fhttp.RunHTTPTest(&opts)
+		if err != nil {
+			return fmt.Errorf("generating traffic via fortio failed: %v", err)
+		}
+		return nil
 	}
 	testCheckCache(t, visit)
 }
@@ -515,7 +532,7 @@ func TestCheckCache(t *testing.T) {
 
 	// visit calls product page health handler with sleep app.
 	visit := func() error {
-		return visitWithApp(url, pod, "sleep", http.StatusText(http.StatusOK))
+		return visitWithApp(url, pod, "sleep", 100)
 	}
 	testCheckCache(t, visit)
 }
@@ -536,12 +553,9 @@ func testCheckCache(t *testing.T, visit func() error) {
 	}
 
 	t.Logf("Baseline cache hits: %v", prior)
-	t.Log("Start to call visit function for 2 times...")
-	// Call visit for 2 times, which should check cache for 2 times.
-	for i := 0; i < 2; i++ {
-		if err = visit(); err != nil {
-			fatalf(t, "%v", err)
-		}
+	t.Log("Start to call visit function...")
+	if err = visit(); err != nil {
+		fatalf(t, "%v", err)
 	}
 
 	allowPrometheusSync()
@@ -858,17 +872,14 @@ func visitProductPage(timeout time.Duration, wantStatus int, headers ...*header)
 }
 
 // visitWithApp visits the given url by curl in the given container.
-func visitWithApp(url string, pod string, container string, code string) error {
-	cmd := fmt.Sprintf("kubectl exec %s -n %s -c %s -- curl -i -s %s", pod, tc.Kube.Namespace, container, url)
-	log.Infof("Visit %s with the following command: %v", url, cmd)
-	resp, err := util.Shell(cmd)
+func visitWithApp(url string, pod string, container string, num int) error {
+	cmd := fmt.Sprintf("kubectl exec %s -n %s -c %s -- bash -c 'for ((i=0; i<%d; i++)); do curl -m 0.1 -i -s %s; done'",
+		pod, tc.Kube.Namespace, container, num, url)
+	log.Infof("Visit %s for %d times with the following command: %v", url, num, cmd)
+	_, err := util.ShellMuteOutput(cmd)
 	if err != nil {
 		return fmt.Errorf("error excuting command: %s error: %v", cmd, err)
 	}
-	if !strings.Contains(resp, code) {
-		return fmt.Errorf("response: %v does not have wanted status code: %v", resp, code)
-	}
-	log.Infof("Response contains wanted status code %v.", code)
 	return nil
 }
 
@@ -905,7 +916,7 @@ func getCheckCacheHits(promAPI v1.API) (float64, error) {
 		// Remote check calls should always be less than or equal to total check calls.
 		return 0, fmt.Errorf("check call metric is invalid: remote check call %v is more than total check call %v", remoteCheck, totalCheck)
 	}
-
+	log.Infof("Total check call is %v and remote check call is %v", totalCheck, remoteCheck)
 	// number of cached check call is the gap between total check calls and remote check calls.
 	return totalCheck - remoteCheck, nil
 }

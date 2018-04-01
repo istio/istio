@@ -107,5 +107,5 @@ else
     time ISTIO_DOCKER_HUB=$HUB \
       E2E_ARGS="${E2E_ARGS[@]}" \
       JUNIT_E2E_XML="${ARTIFACTS_DIR}/junit_e2e-all.xml" \
-      make e2e_all
+      make e2e_all_junit_report
 fi

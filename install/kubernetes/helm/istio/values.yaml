@@ -45,6 +45,15 @@ global:
 
   # Default is 1 second
   refreshInterval: 10s
+  
+  # Enable multicluster operation.  Must be set to true if multicluster operation
+  # is desired.
+  multicluster:
+    enabled: false
+
+# Any customization for istio testing should be here
+istiotesting:
+  oneNameSpace: false
 
 #
 # ingress configuration
@@ -53,8 +62,8 @@ ingress:
   enabled: true
   serviceAccountName: default
   imagePullPolicy: IfNotPresent
-  autoscaleMin: 2
-  autoscaleMax: 8
+  autoscaleMin: 1
+  autoscaleMax: 1
   resources: {}
 # limits:
 #  cpu: 100m
@@ -282,3 +291,4 @@ zipkin:
     #  cpu: 100m
     #  memory: 128Mi
   nodeSelector: {}
+
