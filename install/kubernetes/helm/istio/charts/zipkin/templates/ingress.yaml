@@ -5,6 +5,7 @@ apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
   name: {{ template "zipkin.fullname" . }}
+  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "zipkin.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}

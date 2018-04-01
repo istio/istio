@@ -62,6 +62,7 @@ var (
 	sidecarInjectorFile = flag.String("sidecar_injector_file", defaultSidecarInjectorFile, "Sidecar injector yaml file")
 	clusterWide         = flag.Bool("cluster_wide", false, "Run cluster wide tests")
 	withMixerValidator  = flag.Bool("with_mixer_validator", false, "Set up mixer validator")
+	imagePullPolicy     = flag.String("image_pull_policy", "", "Specifies an override for the Docker image pull policy to be used")
 
 	addons = []string{
 		"zipkin",
@@ -92,6 +93,10 @@ type KubeInfo struct {
 	ReleaseDir string
 	// Use baseversion if not empty.
 	BaseVersion string
+
+	// A map of app label values to the pods for that app
+	appPods      map[string][]string
+	appPodsMutex sync.Mutex
 }
 
 // newKubeInfo create a new KubeInfo by given temp dir and runID
@@ -141,6 +146,14 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 	}, nil
 }
 
+// IstioSystemNamespace returns the namespace used for the Istio system components.
+func (k *KubeInfo) IstioSystemNamespace() string {
+	if *clusterWide {
+		return istioSystem
+	}
+	return k.Namespace
+}
+
 // Setup set up Kubernetes prerequest for tests
 func (k *KubeInfo) Setup() error {
 	log.Info("Setting up kubeInfo")
@@ -170,6 +183,31 @@ func (k *KubeInfo) Setup() error {
 
 	}
 	return nil
+}
+
+// PilotHub exposes the Docker hub used for the pilot image.
+func (k *KubeInfo) PilotHub() string {
+	return *pilotHub
+}
+
+// PilotTag exposes the Docker tag used for the pilot image.
+func (k *KubeInfo) PilotTag() string {
+	return *pilotTag
+}
+
+// ProxyHub exposes the Docker hub used for the proxy image.
+func (k *KubeInfo) ProxyHub() string {
+	return *proxyHub
+}
+
+// ProxyTag exposes the Docker tag used for the proxy image.
+func (k *KubeInfo) ProxyTag() string {
+	return *proxyTag
+}
+
+// ImagePullPolicy exposes the pull policy override used for Docker images. May be "".
+func (k *KubeInfo) ImagePullPolicy() string {
+	return *imagePullPolicy
 }
 
 // IngressOrFail lazily initialize ingress and fail test if not found.
@@ -277,6 +315,48 @@ func (k *KubeInfo) Teardown() error {
 	log.Infof("Namespace %s deletion status: %v", k.Namespace, namespaceDeleted)
 
 	return nil
+}
+
+// GetAppPods gets a map of app name to pods for that app. If pods are found, the results are cached.
+func (k *KubeInfo) GetAppPods() map[string][]string {
+	// Get a copy of the internal map.
+	newMap := k.getAppPods()
+
+	if len(newMap) == 0 {
+		var err error
+		if newMap, err = util.GetAppPods(k.Namespace); err != nil {
+			log.Errorf("Failed to get retrieve the app pods for namespace %s", k.Namespace)
+		} else {
+			// Copy the new results to the internal map.
+			log.Infof("Fetched pods with the `app` label: %v", newMap)
+			k.setAppPods(newMap)
+		}
+	}
+	return newMap
+}
+
+// getAppPods returns a copy of the appPods map. Should only be called by GetAppPods.
+func (k *KubeInfo) getAppPods() map[string][]string {
+	k.appPodsMutex.Lock()
+	defer k.appPodsMutex.Unlock()
+
+	return k.deepCopy(k.appPods)
+}
+
+// setAppPods sets the app pods with a copy of the given map. Should only be called by GetAppPods.
+func (k *KubeInfo) setAppPods(newMap map[string][]string) {
+	k.appPodsMutex.Lock()
+	defer k.appPodsMutex.Unlock()
+
+	k.appPods = k.deepCopy(newMap)
+}
+
+func (k *KubeInfo) deepCopy(src map[string][]string) map[string][]string {
+	newMap := make(map[string][]string, len(src))
+	for k, v := range src {
+		newMap[k] = v
+	}
+	return newMap
 }
 
 func (k *KubeInfo) deployAddons() error {
@@ -397,7 +477,7 @@ func (k *KubeInfo) generateSidecarInjector(src, dst string) error {
 	}
 
 	if *pilotHub != "" && *pilotTag != "" {
-		content = updateIstioYaml("sidecar_injector", *pilotHub, *pilotTag, content)
+		content = updateImage("sidecar_injector", *pilotHub, *pilotTag, content)
 		content = updateInjectVersion(*pilotTag, content)
 		content = updateInjectImage("initImage", "proxy_init", *proxyHub, *proxyTag, content)
 		content = updateInjectImage("proxyImage", "proxy", *proxyHub, *proxyTag, content)
@@ -445,20 +525,24 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 
 	if k.BaseVersion == "" {
 		if *mixerHub != "" && *mixerTag != "" {
-			content = updateIstioYaml("mixer", *mixerHub, *mixerTag, content)
+			content = updateImage("mixer", *mixerHub, *mixerTag, content)
 		}
 		if *pilotHub != "" && *pilotTag != "" {
-			content = updateIstioYaml("pilot", *pilotHub, *pilotTag, content)
+			content = updateImage("pilot", *pilotHub, *pilotTag, content)
 		}
 		if *proxyHub != "" && *proxyTag != "" {
 			//Need to be updated when the string "proxy" is changed as the default image name
-			content = updateIstioYaml("proxy", *proxyHub, *proxyTag, content)
+			content = updateImage("proxy", *proxyHub, *proxyTag, content)
 		}
 		if *caHub != "" && *caTag != "" {
 			//Need to be updated when the string "istio-ca" is changed
-			content = updateIstioYaml("istio-ca", *caHub, *caTag, content)
+			content = updateImage("istio-ca", *caHub, *caTag, content)
+		}
+		if *imagePullPolicy != "" {
+			content = updateImagePullPolicy(*imagePullPolicy, content)
 		}
 	}
+
 	if *localCluster {
 		content = []byte(strings.Replace(string(content), "LoadBalancer", "NodePort", 1))
 	}
@@ -470,8 +554,14 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 	return err
 }
 
-func updateIstioYaml(module, hub, tag string, content []byte) []byte {
+func updateImage(module, hub, tag string, content []byte) []byte {
 	image := []byte(fmt.Sprintf("image: %s/%s:%s", hub, module, tag))
 	r := regexp.MustCompile(fmt.Sprintf("image: .*(\\/%s):.*", module))
+	return r.ReplaceAllLiteral(content, image)
+}
+
+func updateImagePullPolicy(policy string, content []byte) []byte {
+	image := []byte(fmt.Sprintf("imagePullPolicy: %s", policy))
+	r := regexp.MustCompile("imagePullPolicy:.*")
 	return r.ReplaceAllLiteral(content, image)
 }

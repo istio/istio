@@ -39,7 +39,8 @@ import (
 const (
 	podFailedGet = "Failed_Get"
 	// The index of STATUS field in kubectl CLI output.
-	statusField = 2
+	statusField          = 2
+	defaultClusterSubnet = "24"
 )
 
 var (
@@ -72,6 +73,20 @@ func Fill(outFile, inFile string, values interface{}) error {
 	}
 	log.Infof("Created %s from template %s", outFile, inFile)
 	return nil
+}
+
+// CreateAndFill fills in the given yaml template with the values and generates a temp file for the completed yaml.
+func CreateAndFill(outDir, templateFile string, values interface{}) (string, error) {
+	outFile, err := CreateTempfile(outDir, filepath.Base(templateFile), "yaml")
+	if err != nil {
+		log.Errorf("Failed to generate yaml %s: %v", templateFile, err)
+		return "", err
+	}
+	if err := Fill(outFile, templateFile, values); err != nil {
+		log.Errorf("Failed to generate yaml for template %s", templateFile)
+		return "", err
+	}
+	return outFile, nil
 }
 
 // CreateNamespace create a kubernetes namespace
@@ -137,6 +152,27 @@ func removeFile(path string) {
 func KubeDelete(namespace, yamlFileName string) error {
 	_, err := Shell("kubectl delete -n %s -f %s", namespace, yamlFileName)
 	return err
+}
+
+// GetKubeMasterIP returns the IP address of the kubernetes master service.
+func GetKubeMasterIP() (string, error) {
+	return ShellSilent("kubectl get svc kubernetes -n default -o jsonpath='{.spec.clusterIP}'")
+}
+
+// GetClusterSubnet returns the subnet (in CIDR form, e.g. "24") for the nodes in the cluster.
+func GetClusterSubnet() (string, error) {
+	cidr, err := ShellSilent("kubectl get nodes -o jsonpath='{.items[0].spec.podCIDR}'")
+	if err != nil {
+		// This command should never fail. If the field isn't found, it will just return and empty string.
+		return "", err
+	}
+	parts := strings.Split(cidr, "/")
+	if len(parts) != 2 {
+		// TODO(nmittler): Need a way to get the subnet on minikube. For now, just return a default value.
+		log.Info("unable to identify cluster subnet. running on minikube?")
+		return defaultClusterSubnet, nil
+	}
+	return parts[1], nil
 }
 
 // GetIngress get istio ingress ip
@@ -246,8 +282,44 @@ func GetIngressPod(n string) (string, error) {
 	return ingress, err
 }
 
-// GetPodsName gets names of all pods in specific namespace and return in a slice
-func GetPodsName(n string) (pods []string) {
+// GetAppPods gets a map of app names to the pods for the app, for the given namespace
+func GetAppPods(n string) (map[string][]string, error) {
+	podLabels, err := GetPodLabelValues(n, "app")
+	if err != nil {
+		return nil, err
+	}
+
+	m := make(map[string][]string)
+	for podName, app := range podLabels {
+		m[app] = append(m[app], podName)
+	}
+	return m, nil
+}
+
+// GetPodLabelValues gets a map of pod name to label value for the given label and namespace
+func GetPodLabelValues(n, label string) (map[string]string, error) {
+	// This will return a table where c0=pod_name and c1=label_value.
+	// The columns are separated by a space and each result is on a separate line (separated by '\n').
+	res, err := Shell("kubectl -n %s -l=%s get pods -o=jsonpath='{range .items[*]}{.metadata.name}{\" \"}{.metadata.labels.%s}{\"\\n\"}{end}'", n, label, label)
+	if err != nil {
+		log.Infof("Failed to get pods by label %s in namespace %s: %s", label, n, err)
+		return nil, err
+	}
+
+	// Split the lines in the result
+	m := make(map[string]string)
+	for _, line := range strings.Split(res, "\n") {
+		f := strings.Fields(line)
+		if len(f) >= 2 {
+			m[f[0]] = f[1]
+		}
+	}
+
+	return m, nil
+}
+
+// GetPodNames gets names of all pods in specific namespace and return in a slice
+func GetPodNames(n string) (pods []string) {
 	res, err := Shell("kubectl -n %s get pods -o jsonpath='{.items[*].metadata.name}'", n)
 	if err != nil {
 		log.Infof("Failed to get pods name in namespace %s: %s", n, err)
@@ -274,6 +346,48 @@ func GetPodStatus(n, pod string) string {
 		return f[statusField]
 	}
 	return ""
+}
+
+// GetPodName gets the pod name for the given namespace and label selector
+func GetPodName(n, labelSelector string) (pod string, err error) {
+	pod, err = Shell("kubectl -n %s get pod -l %s -o jsonpath='{.items[0].metadata.name}'", n, labelSelector)
+	if err != nil {
+		log.Warnf("could not get %s pod: %v", labelSelector, err)
+		return
+	}
+	pod = strings.Trim(pod, "'")
+	log.Infof("%s pod name: %s", labelSelector, pod)
+	return
+}
+
+// GetPodLogsForLabel gets the logs for the given label selector and container
+func GetPodLogsForLabel(n, labelSelector string, container string, tail, alsoShowPreviousPodLogs bool) string {
+	pod, err := GetPodName(n, labelSelector)
+	if err != nil {
+		return ""
+	}
+	return GetPodLogs(n, pod, container, tail, alsoShowPreviousPodLogs)
+}
+
+// GetPodLogs retrieves the logs for the given namespace, pod and container.
+func GetPodLogs(n, pod, container string, tail, alsoShowPreviousPodLogs bool) string {
+	tailOption := ""
+	if tail {
+		tailOption = "--tail=40"
+	}
+	o1 := ""
+	if alsoShowPreviousPodLogs {
+		log.Info("Expect and ignore an error getting crash logs when there are no crash (-p invocation)")
+		o1, _ = Shell("kubectl --namespace %s logs %s -c %s %s -p", n, pod, container, tailOption)
+		o1 += "\n"
+	}
+	o2, _ := Shell("kubectl --namespace %s logs %s -c %s %s", n, pod, container, tailOption)
+	return o1 + o2
+}
+
+// PodExec runs the specified command on the container for the specified namespace and pod
+func PodExec(n, pod, container, command string) (string, error) {
+	return Shell("kubectl exec %s -n %s -c %s -- %s", pod, n, container, command)
 }
 
 // CheckPodsRunningWithMaxDuration returns if all pods in a namespace are in "Running" status
