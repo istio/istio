@@ -28,14 +28,10 @@
   },
   "dynamic_resources": {
     "lds_config": {
-      "api_config_source": {
         "ads": {}
-      }
     },
     "cds_config": {
-      "api_config_source": {
         "ads": {}
-      }
     },
     "ads_config": {
       "api_type": "GRPC",
