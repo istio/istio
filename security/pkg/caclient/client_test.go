@@ -44,11 +44,6 @@ type FakeIstioCAGrpcServer struct {
 	errorMsg string
 }
 
-//func (s *FakeIstioCAGrpcServer) SetResponseAndError(response *pb.CsrResponse, errorMsg string) {
-//s.response = response
-//s.errorMsg = errorMsg
-//}
-
 func (s *FakeIstioCAGrpcServer) HandleCSR(ctx context.Context, req *pb.CsrRequest) (*pb.CsrResponse, error) {
 	if len(s.errorMsg) > 0 {
 		return nil, fmt.Errorf(s.errorMsg)
@@ -128,26 +123,30 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 			expectedErr: "CA client cannot get the CSR approved from Istio CA after max number of retries (2)",
 			sendTimes:   3,
 		},
-		//"SendCSR returns error": {
-		//pltfmc:      mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", []byte{}, "", true},
-		//ptclc:       &mockclient.FakeCAClient{0, nil, fmt.Errorf("error returned from CA")},
-		//keySize:     512,
-		//ttl:         time.Hour,
-		//maxRetries:  1,
-		//interval:    time.Millisecond,
-		//expectedErr: "CA client cannot get the CSR approved from Istio CA after max number of retries (1)",
-		//sendTimes:   2,
-		//},
-		//"SendCSR not approved": {
-		//pltfmc:      mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", []byte{}, "", true},
-		//ptclc:       &mockclient.FakeCAClient{0, &pb.CsrResponse{IsApproved: false}, nil},
-		//keySize:     512,
-		//ttl:         time.Hour,
-		//maxRetries:  1,
-		//interval:    time.Millisecond,
-		//expectedErr: "CA client cannot get the CSR approved from Istio CA after max number of retries (1)",
-		//sendTimes:   2,
-		//},
+		"SendCSR returns error": {
+			pltfmc:      mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", []byte{}, "", true},
+			ptclc:       &mockclient.FakeCAClient{0, nil, fmt.Errorf("error returned from CA")},
+			server:      &FakeIstioCAGrpcServer{errorMsg: "error returned from CA"},
+			keySize:     512,
+			ttl:         time.Hour,
+			maxRetries:  1,
+			interval:    time.Millisecond,
+			expectedErr: "CA client cannot get the CSR approved from Istio CA after max number of retries (1)",
+			sendTimes:   2,
+		},
+		"SendCSR not approved": {
+			pltfmc: mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", []byte{}, "", true},
+			ptclc:  &mockclient.FakeCAClient{0, &pb.CsrResponse{IsApproved: false}, nil},
+			server: &FakeIstioCAGrpcServer{
+				response: &pb.CsrResponse{IsApproved: false},
+			},
+			keySize:     512,
+			ttl:         time.Hour,
+			maxRetries:  1,
+			interval:    time.Millisecond,
+			expectedErr: "CA client cannot get the CSR approved from Istio CA after max number of retries (1)",
+			sendTimes:   2,
+		},
 	}
 
 	for id, c := range testCases {
