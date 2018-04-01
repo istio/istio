@@ -16,29 +16,32 @@ package caclient
 
 import (
 	"fmt"
+	"net"
 	"time"
 
 	"io/ioutil"
 
+	"context"
+
+	rgrpc "google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/caclient/grpc"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
-	rgrpc "google.golang.org/grpc"
 	"istio.io/istio/security/pkg/workload"
 	pb "istio.io/istio/security/proto"
-	"context"
 )
 
 // CAClient is a client to provision key and certificate from the upstream CA via CSR protocol.
 type CAClient struct {
-	platformClient         platform.Client
+	platformClient platform.Client
 	//protocolClient         grpc.CAGrpcClient
 	istioCAAddress         string
 	maxRetries             int
 	initialRetrialInterval time.Duration
 	// TODO: replace this with protocolClient, do not submit before resolve.
-	grpcClient              pb.IstioCAServiceClient
+	grpcClient pb.IstioCAServiceClient
 }
 
 // NewCAClient creates a new CAClient instance.
@@ -60,13 +63,56 @@ func NewCAClient(pltfmc platform.Client, ptclc grpc.CAGrpcClient, caAddr string,
 	}
 	client := pb.NewIstioCAServiceClient(conn)
 	return &CAClient{
-		platformClient:         pltfmc,
+		platformClient: pltfmc,
 		//protocolClient:         ptclc,
 		istioCAAddress:         caAddr,
 		maxRetries:             maxRetries,
 		initialRetrialInterval: interval,
-		grpcClient: 						client,
+		grpcClient:             client,
 	}, nil
+}
+
+type fakeIstioCAServer struct {
+	response *pb.CsrResponse
+	errorMsg string
+}
+
+func (s *fakeIstioCAServer) HandleCSR(ctx context.Context, req *pb.CsrRequest) (*pb.CsrResponse, error) {
+	if len(s.errorMsg) > 0 {
+		return nil, fmt.Errorf(s.errorMsg)
+	}
+	if s.response != nil {
+		return s.response, nil
+	}
+	return &pb.CsrResponse{}, nil
+}
+
+type TestCAServerOptions struct {
+	Response *pb.CsrResponse
+	Error    string
+}
+
+func NewTestCAServer(opts *TestCAServerOptions) (addr string, err error) {
+	s := rgrpc.NewServer()
+	lis, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		return "", fmt.Errorf("failed to allocate address for server %v", err)
+	}
+	pb.RegisterIstioCAServiceServer(s, &fakeIstioCAServer{
+		response: opts.Response,
+		errorMsg: opts.Error,
+	})
+	reflection.Register(s)
+	go s.Serve(lis)
+	//go func() {
+	//defer func() {
+	//s.Stop()
+	//}()
+	//if err := s.Serve(lis); err != nil {
+	//t.Errorf("failed to serve: %v", err)
+	//}
+	//}()
+	return lis.Addr().String(), nil
 }
 
 // Retrieve sends the CSR to Istio CA with automatic retries. When successful, it returns the generated key
