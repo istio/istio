@@ -187,7 +187,7 @@ func Test_watcher_retrieveAZ(t *testing.T) {
 				&pilotStubHandler{States: tt.pilotStates},
 			)
 			stubURL, _ := url.Parse(pilotStub.URL)
-			config.DiscoveryAddress = stubURL.Host
+			pilotListenerAddress = stubURL.Host
 			w := NewWatcher(config, agent, node, nil, nil)
 			ctx, cancel := context.WithCancel(context.Background())
 
