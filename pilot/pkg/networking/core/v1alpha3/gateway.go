@@ -154,9 +154,10 @@ func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamT
 			},
 			AlpnProtocols: ListenersALPNProtocols,
 		},
-		RequireSni: &types.BoolValue{
-			Value: true, // is that OKAY?
-		},
+		// TODO: Need config option to enable SNI
+		//RequireSni: &types.BoolValue{
+		//	Value: true, // is that OKAY?
+		//},
 	}
 }
 
