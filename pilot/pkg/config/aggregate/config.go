@@ -76,7 +76,7 @@ func (cr *store) ConfigDescriptor() model.ConfigDescriptor {
 	return cr.descriptor
 }
 
-// Get returns the
+// Get the first config found in the stores.
 func (cr *store) Get(typ, name, namespace string) (*model.Config, bool) {
 	if len(cr.stores[typ]) == 0 {
 		return fmt.Errorf("missing type %q", typ)
@@ -90,6 +90,7 @@ func (cr *store) Get(typ, name, namespace string) (*model.Config, bool) {
 	return nil, false
 }
 
+// List all configs in the stores.
 func (cr *store) List(typ, namespace string) ([]model.Config, error) {
 	if len(cr.stores[typ]) == 0 {
 		return fmt.Errorf("missing type %q", typ)
