@@ -64,6 +64,8 @@ spec:
         imagePullPolicy: {{.ImagePullPolicy}}
         ports:
         - containerPort: 15004
+        command:
+        - /usr/local/bin/mixer_bootstrap.sh
         args:
         - proxy
         - mixer
