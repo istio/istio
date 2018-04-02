@@ -38,9 +38,6 @@ const (
 
 	// CDSv2 validation requires ConnectTimeout to be > 0s. This is applied if no explicit policy is set.
 	defaultClusterConnectTimeout = 5 * time.Second
-
-	// Name used for the xds cluster.
-	xdsName = "xds-grpc"
 )
 
 // TODO: Need to do inheritance of DestRules based on domain suffix match
@@ -126,20 +123,11 @@ func updateEds(env model.Environment, cluster *v2.Cluster, serviceName string) {
 	if cluster.Type != v2.Cluster_EDS {
 		return
 	}
-	refresh := time.Duration(env.Mesh.RdsRefreshDelay.Seconds) * time.Second
-	if refresh == 0 {
-		// envoy crashes if 0. Will go away once we move to v2
-		refresh = 5 * time.Second
-	}
 	cluster.EdsClusterConfig = &v2.Cluster_EdsClusterConfig{
 		ServiceName: cluster.Name,
 		EdsConfig: &core.ConfigSource{
-			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-				ApiConfigSource: &core.ApiConfigSource{
-					ApiType:      core.ApiConfigSource_GRPC,
-					ClusterNames: []string{xdsName},
-					RefreshDelay: &refresh,
-				},
+			ConfigSourceSpecifier: &core.ConfigSource_Ads{
+				Ads: &core.AggregatedConfigSource{},
 			},
 		},
 	}

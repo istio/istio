@@ -110,9 +110,11 @@ func (descriptor ConfigDescriptor) Validate() error {
 			errs = multierror.Append(errs, fmt.Errorf("duplicate type: %q", v.Type))
 		}
 		descriptorTypes[v.Type] = true
-		if _, exists := messages[v.MessageName]; exists {
-			errs = multierror.Append(errs, fmt.Errorf("duplicate message type: %q", v.MessageName))
-		}
+
+		// It is ok if a MessageName is defined multiple times. For example VirtualServer and
+		// Gateway messsages are generated in different places.
+		// ( _, exists := messages[v.MessageName];)
+
 		messages[v.MessageName] = true
 	}
 	return errs

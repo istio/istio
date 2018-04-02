@@ -22,7 +22,6 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	"github.com/gogo/protobuf/types"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -33,19 +32,37 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 	node model.Proxy) ([]*xdsapi.Listener, error) {
 	config := env.IstioConfigStore
 
-	// collect workload labels
-	workloadInstances, err := env.GetProxyServiceInstances(node)
-	if err != nil {
-		log.Errora("Failed to get gateway instances for router ", node.ID, err)
-		return nil, err
-	}
+	var gateways []model.Config
 
-	var workloadLabels model.LabelsCollection
-	for _, w := range workloadInstances {
-		workloadLabels = append(workloadLabels, w.Labels)
-	}
+	if node.Type == model.Ingress {
+		allg, err := config.List(model.GatewayIngress.Type, model.NamespaceAll)
+		if err != nil || len(allg) == 0 {
+			allg, err = config.List(model.Gateway.Type, model.NamespaceAll)
+			if err != nil {
+				return nil, err
+			}
+		}
+		for _, g := range allg {
+			if g.Name == model.IstioIngressGatewayName {
+				gateways = []model.Config{g}
+				break
+			}
+		}
+	} else {
+		// collect workload labels
+		workloadInstances, err := env.GetProxyServiceInstances(node)
+		if err != nil {
+			log.Errora("Failed to get gateway instances for router ", node.ID, err)
+			return nil, err
+		}
 
-	gateways := config.Gateways(workloadLabels)
+		var workloadLabels model.LabelsCollection
+		for _, w := range workloadInstances {
+			workloadLabels = append(workloadLabels, w.Labels)
+		}
+
+		gateways = config.Gateways(workloadLabels)
+	}
 
 	if len(gateways) == 0 {
 		log.Debuga("no gateways for router", node.ID)
@@ -80,6 +97,20 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 		if listenerPortMap[server.Port.Number] {
 			log.Warnf("Multiple servers on same port is not supported yet, port %d", server.Port.Number)
 			continue
+		}
+		if server.Tls != nil {
+			if server.Tls.Mode == networking.Server_TLSOptions_MUTUAL && server.Tls.CaCertificates == "" {
+				log.Warnf("Missing certificate %v", server)
+				continue
+			}
+			if server.Tls.PrivateKey == "" {
+				log.Warnf("Missing private key %v", server)
+				continue
+			}
+			if server.Tls.ServerCertificate == "" {
+				log.Warnf("Missing server certificate %v", server)
+				continue
+			}
 		}
 		switch model.Protocol(server.Port.Protocol) {
 		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC, model.ProtocolHTTPS:
@@ -154,9 +185,11 @@ func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamT
 			},
 			AlpnProtocols: ListenersALPNProtocols,
 		},
-		RequireSni: &types.BoolValue{
-			Value: true, // is that OKAY?
-		},
+		// For ingress, or if only one cert is defined we should not require SNI (would
+		// break compat with not-so-old devices, IoT, etc)
+		//RequireSni: &types.BoolValue{
+		//	Value: true, // is that OKAY?
+		//},
 	}
 }
 
@@ -165,10 +198,14 @@ func buildGatewayInboundHTTPRouteConfig(env model.Environment, gatewayName strin
 	// TODO WE DO NOT SUPPORT two gateways on same workload binding to same virtual service
 	virtualServices := env.VirtualServices([]string{gatewayName})
 
+	nameF := func(d *networking.Destination) string {
+		return model.BuildSubsetKey(model.TrafficDirectionOutbound, d.Subset, d.Name, &model.Port{Name: d.Port.GetName()})
+	}
+
 	virtualHosts := make([]route.VirtualHost, 0)
 	// TODO: Need to trim output based on source label/gateway match
 	for _, v := range virtualServices {
-		guardedRoute := TranslateRoutes(v, nil)
+		guardedRoute := TranslateRoutes(v, nameF)
 		var routes []route.Route
 		for _, g := range guardedRoute {
 			routes = append(routes, g.Route)

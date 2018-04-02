@@ -451,6 +451,10 @@ func buildMgmtPortListeners(managementPorts model.PortList, managementIP string)
 // buildInboundAuth adds TLS to the listener if the policy requires one.
 func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy) *auth.DownstreamTlsContext {
 	if requireTLS, mTLSParams := model.RequireTLS(authenticationPolicy); requireTLS {
+		if mTLSParams == nil {
+			log.Warnf("Invalid auth policy, requiresTLS=true and mTLSParam=nil, %v", authenticationPolicy.String())
+			return nil
+		}
 		return &auth.DownstreamTlsContext{
 			CommonTlsContext: &auth.CommonTlsContext{
 				TlsCertificates: []*auth.TlsCertificate{

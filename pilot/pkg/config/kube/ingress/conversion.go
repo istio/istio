@@ -177,8 +177,9 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) (model
 			Tls: &networking.Server_TLSOptions{
 				HttpsRedirect:     false,
 				Mode:              networking.Server_TLSOptions_SIMPLE,
+				PrivateKey:        path.Join(model.IngressCertsPath, ingress.Namespace, tls.SecretName, model.IngressKeyFilename),
 				ServerCertificate: path.Join(model.IngressCertsPath, ingress.Namespace, tls.SecretName, model.IngressCertFilename),
-				CaCertificates:    path.Join(model.IngressCertsPath, ingress.Namespace, tls.SecretName, model.IngressKeyFilename),
+				CaCertificates:    path.Join(model.IngressCertsPath, ingress.Namespace, tls.SecretName, model.RootCertFilename),
 			},
 		})
 	}
