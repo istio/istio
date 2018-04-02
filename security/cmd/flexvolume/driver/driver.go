@@ -58,6 +58,8 @@ const (
 
 var (
 	logWrt *syslog.Writer
+	// setup as var's so that we can test.
+	getExecCmd = exec.Command
 )
 
 // Init initialize the driver
@@ -102,7 +104,7 @@ func doMount(dstDir string, ninputs *pb.WorkloadInfo_WorkloadAttributes) error {
 
 	// Not really needed but attempt to workaround:
 	// https://github.com/kubernetes/kubernetes/blob/61ac9d46382884a8bd9e228da22bca5817f6d226/pkg/util/mount/mount_linux.go
-	cmdMount := exec.Command("/bin/mount", "-t", "tmpfs", "-o", "size=8K", "tmpfs", dstDir)
+	cmdMount := getExecCmd("/bin/mount", "-t", "tmpfs", "-o", "size=8K", "tmpfs", dstDir)
 	err = cmdMount.Run()
 	if err != nil {
 		_ = os.RemoveAll(newDir)
@@ -112,17 +114,17 @@ func doMount(dstDir string, ninputs *pb.WorkloadInfo_WorkloadAttributes) error {
 	newDstDir := dstDir + "/nodeagent"
 	err = os.MkdirAll(newDstDir, 0777)
 	if err != nil {
-		cmd := exec.Command("/bin/unmount", dstDir)
+		cmd := getExecCmd("/bin/unmount", dstDir)
 		_ = cmd.Run()
 		_ = os.RemoveAll(newDir)
 		return err
 	}
 
 	// Do a bind mount
-	cmd := exec.Command("/bin/mount", "--bind", newDir, newDstDir)
+	cmd := getExecCmd("/bin/mount", "--bind", newDir, newDstDir)
 	err = cmd.Run()
 	if err != nil {
-		cmd = exec.Command("/bin/umount", dstDir)
+		cmd = getExecCmd("/bin/umount", dstDir)
 		_ = cmd.Run()
 		_ = os.RemoveAll(newDir)
 		return err
@@ -133,7 +135,7 @@ func doMount(dstDir string, ninputs *pb.WorkloadInfo_WorkloadAttributes) error {
 
 // doUnmount perform the actual unmount work
 func doUnmount(dir string) error {
-	cmd := exec.Command("/bin/umount", dir)
+	cmd := getExecCmd("/bin/umount", dir)
 	return cmd.Run()
 }
 
