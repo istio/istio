@@ -78,9 +78,6 @@ func (cr *store) ConfigDescriptor() model.ConfigDescriptor {
 
 // Get the first config found in the stores.
 func (cr *store) Get(typ, name, namespace string) (*model.Config, bool) {
-	if len(cr.stores[typ]) == 0 {
-		return fmt.Errorf("missing type %q", typ)
-	}
 	for _, store := range cr.stores[typ] {
 		config, exists := store.Get(typ, name, namespace)
 		if exists {
@@ -93,7 +90,7 @@ func (cr *store) Get(typ, name, namespace string) (*model.Config, bool) {
 // List all configs in the stores.
 func (cr *store) List(typ, namespace string) ([]model.Config, error) {
 	if len(cr.stores[typ]) == 0 {
-		return fmt.Errorf("missing type %q", typ)
+		return nil, fmt.Errorf("missing type %q", typ)
 	}
 	var errs *multierror.Error
 	var configs []model.Config
@@ -102,7 +99,7 @@ func (cr *store) List(typ, namespace string) ([]model.Config, error) {
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		}
-		configs = append(configs, storeConfigs)
+		configs = append(configs, storeConfigs...)
 	}
 	return configs, errs.ErrorOrNil()
 }
@@ -112,11 +109,11 @@ func (cr *store) Delete(typ, name, namespace string) error {
 }
 
 func (cr *store) Create(config model.Config) (string, error) {
-	return errorUnsupported
+	return "", errorUnsupported
 }
 
 func (cr *store) Update(config model.Config) (string, error) {
-	return errorUnsupported
+	return "", errorUnsupported
 }
 
 type storeCache struct {
