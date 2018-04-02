@@ -39,6 +39,9 @@ func TestBasic(t *testing.T) {
 	}
 
 	b := info.NewBuilder().(*builder)
+	b.SetCheckNothingTypes(nil)
+	b.SetListEntryTypes(nil)
+	b.SetQuotaTypes(nil)
 	b.SetAdapterConfig(info.DefaultConfig)
 
 	if err := b.Validate(); err != nil {

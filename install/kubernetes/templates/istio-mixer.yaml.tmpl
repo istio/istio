@@ -22,8 +22,6 @@ spec:
     port: 15004
   - name: http-monitoring
     port: 9093
-  - name: configapi
-    port: 9094
   - name: statsd-prom
     port: 9102
   - name: statsd-udp
@@ -74,7 +72,6 @@ spec:
         ports:
         - containerPort: 9091
         - containerPort: 9093
-        - containerPort: 9094
         - containerPort: 42422
         args:
           - --configStoreURL=k8s://

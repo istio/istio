@@ -37,7 +37,14 @@
           {
             "url": "tcp://127.0.0.1:9091"
           }
-        ]
+        ],
+        "circuit_breakers": {
+          "default": {
+            "max_connections": 100000,
+            "max_pending_requests": 100000,
+            "max_requests": 100000
+          }
+        }
       }
     ]
   }

@@ -21,44 +21,75 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
-	authn "istio.io/api/authentication/v1alpha2"
+	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 )
 
 func TestRequireTls(t *testing.T) {
 	cases := []struct {
-		in       authn.Policy
-		expected bool
+		name           string
+		in             *authn.Policy
+		expected       bool
+		expectedParams *authn.MutualTls
 	}{
 		{
-			in:       authn.Policy{},
-			expected: false,
+			name:           "Null policy",
+			in:             nil,
+			expected:       false,
+			expectedParams: nil,
 		},
 		{
-			in: authn.Policy{
+			name:           "Empty policy",
+			in:             &authn.Policy{},
+			expected:       false,
+			expectedParams: nil,
+		},
+		{
+			name: "Policy with mTls",
+			in: &authn.Policy{
 				Peers: []*authn.PeerAuthenticationMethod{{
 					Params: &authn.PeerAuthenticationMethod_Mtls{},
 				}},
 			},
-			expected: true,
+			expected:       true,
+			expectedParams: nil,
 		},
 		{
-			in: authn.Policy{
-				Peers: []*authn.PeerAuthenticationMethod{{
-					Params: &authn.PeerAuthenticationMethod_Jwt{},
-				},
+			name: "Policy with mTls and Jwt",
+			in: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
 					{
-						Params: &authn.PeerAuthenticationMethod_Mtls{},
+						Params: &authn.PeerAuthenticationMethod_Jwt{},
+					},
+					{
+						Params: &authn.PeerAuthenticationMethod_Mtls{
+							Mtls: &authn.MutualTls{
+								AllowTls: true,
+							},
+						},
 					},
 				},
 			},
-			expected: true,
+			expected:       true,
+			expectedParams: &authn.MutualTls{AllowTls: true},
+		},
+		{
+			name: "Policy with just Jwt",
+			in: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Jwt{},
+					},
+				},
+			},
+			expected:       false,
+			expectedParams: nil,
 		},
 	}
 	for _, c := range cases {
-		if got := RequireTLS(&c.in); got != c.expected {
-			t.Errorf("requireTLS(%v): got(%v) != want(%v)\n", c.in, got, c.expected)
+		if got, params := RequireTLS(c.in); got != c.expected || !reflect.DeepEqual(c.expectedParams, params) {
+			t.Errorf("%s: requireTLS(%v): got(%v, %v) != want(%v, %v)\n", c.name, c.in, got, params, c.expected, c.expectedParams)
 		}
 	}
 }
@@ -73,11 +104,11 @@ func TestParseJwksURI(t *testing.T) {
 	}{
 		{
 			in:                   "foo.bar.com",
-			expectedErrorMessage: "URI scheme  is not supported",
+			expectedErrorMessage: `URI scheme "" is not supported`,
 		},
 		{
 			in:                   "tcp://foo.bar.com:abc",
-			expectedErrorMessage: "URI scheme tcp is not supported",
+			expectedErrorMessage: `URI scheme "tcp" is not supported`,
 		},
 		{
 			in:                   "http://foo.bar.com:abc",
@@ -100,6 +131,12 @@ func TestParseJwksURI(t *testing.T) {
 			expectedHostname: "foo.bar.com",
 			expectedPort:     &Port{Name: "http", Port: 1234},
 			expectedUseSSL:   false,
+		},
+		{
+			in:               "https://foo.bar.com:1234/secure/key",
+			expectedHostname: "foo.bar.com",
+			expectedPort:     &Port{Name: "https", Port: 1234},
+			expectedUseSSL:   true,
 		},
 	}
 	for _, c := range cases {

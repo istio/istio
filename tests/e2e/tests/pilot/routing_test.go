@@ -55,6 +55,7 @@ func (t *routing) Run() error {
 		description string
 		config      string
 		check       func() error
+		onFailure   func()
 	}{
 		{
 			// First test default routing
@@ -83,6 +84,15 @@ func (t *routing) Run() error {
 			config:      "rule-regex-route.yaml.tmpl",
 			check: func() error {
 				return t.verifyRouting("http", "a", "c", "foo", "bar", 100, map[string]int{"v1": 0, "v2": 100}, "")
+			},
+			onFailure: func() {
+				op, err := t.Routes("a")
+				log.Infof("error: %v\n%s", err, op)
+				cfg, err := t.DumpConfig("destinationrules.networking.istio.io",
+					"virtualservices.networking.istio.io", "externalservices.networking.istio.io",
+					"policies.authentication.istio.io")
+
+				log.Infof("config: %v\n%s", err, cfg)
 			},
 		},
 		{
@@ -151,6 +161,7 @@ func (t *routing) Run() error {
 
 			if err := tutil.Repeat(cs.check, 5, time.Second); err != nil {
 				log.Infof("Failed the test with %v", err)
+				cs.onFailure()
 				errs = multierror.Append(errs, multierror.Prefix(err, version+" "+cs.description))
 			} else {
 				log.Info("Success!")

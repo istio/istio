@@ -23,7 +23,7 @@ import (
 
 	descriptor "istio.io/api/policy/v1beta1"
 	pb "istio.io/api/policy/v1beta1"
-	"istio.io/istio/mixer/pkg/expr"
+	"istio.io/istio/mixer/pkg/lang/ast"
 )
 
 var duration19, _ = time.ParseDuration("19ms")
@@ -3054,7 +3054,7 @@ end
 			"as": "str1",
 		},
 		R: "1rts",
-		Fns: []expr.FunctionMetadata{
+		Fns: []ast.FunctionMetadata{
 			{Name: "reverse", Instance: false, ArgumentTypes: []descriptor.ValueType{descriptor.STRING}, ReturnType: descriptor.STRING},
 		},
 		Externs: map[string]interface{}{
@@ -3082,7 +3082,7 @@ end
 			"as": "str1",
 		},
 		R: "1rts",
-		Fns: []expr.FunctionMetadata{
+		Fns: []ast.FunctionMetadata{
 			{Name: "reverse", Instance: true, TargetType: descriptor.STRING, ReturnType: descriptor.STRING},
 		},
 		Externs: map[string]interface{}{
@@ -3343,7 +3343,7 @@ type TestInfo struct {
 	conf map[string]*pb.AttributeManifest_AttributeInfo
 
 	// Fns field holds any additional function metadata that needs to be involved in the test.
-	Fns []expr.FunctionMetadata
+	Fns []ast.FunctionMetadata
 
 	// Externs holds any additional externs that should be used during evaluation.
 	Externs map[string]interface{}

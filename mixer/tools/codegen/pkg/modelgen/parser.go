@@ -196,9 +196,6 @@ func (g *FileDescriptorSetParser) buildNestedDescriptors(descs []*Descriptor) {
 					desc.nested = append(desc.nested, nest)
 				}
 			}
-			if len(desc.nested) != len(desc.NestedType) {
-				g.fail("internal error: nesting failure for", desc.GetName())
-			}
 		}
 	}
 }
@@ -244,9 +241,6 @@ func (g *FileDescriptorSetParser) buildNestedEnums(descs []*Descriptor, enums []
 				if enum.parent == desc {
 					desc.enums = append(desc.enums, enum)
 				}
-			}
-			if len(desc.enums) != len(desc.EnumType) {
-				g.fail("internal error: enum nesting failure for", desc.GetName())
 			}
 		}
 	}

@@ -18,10 +18,10 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"os"
 	"os/exec"
 	"path"
-	"strings"
 	"text/template"
 	"time"
 
@@ -112,6 +112,22 @@ func RunProxy(config *meshconfig.ProxyConfig, node string, epoch int, configFnam
 	return cmd.Process, nil
 }
 
+// GetHostPort separates out the host and port portions of an address. The
+// host portion may be a name, IPv4 address, or IPv6 address (with square brackets).
+func GetHostPort(name, addr string) (host string, port string, err error) {
+	host, port, err = net.SplitHostPort(addr)
+	if err != nil {
+		return "", "", fmt.Errorf("unable to parse %s address %q: %v", name, addr, err)
+	}
+	return host, port, nil
+}
+
+// StoreHostPort encodes the host and port as key/value pair strings in
+// the provided map.
+func StoreHostPort(host, port, field string, opts map[string]interface{}) {
+	opts[field] = fmt.Sprintf("{\"address\": \"%s\", \"port_value\": %s}", host, port)
+}
+
 // WriteBootstrap generates an envoy config based on config and epoch, and returns the filename.
 // TODO: in v2 some of the LDS ports (port, http_port) should be configured in the bootstrap.
 func WriteBootstrap(config *meshconfig.ProxyConfig, epoch int, pilotSAN []string, opts map[string]interface{}) (string, error) {
@@ -153,37 +169,47 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, epoch int, pilotSAN []string
 	opts["refresh_delay"] = fmt.Sprintf("{\"seconds\": %d, \"nanos\": %d}", config.DiscoveryRefreshDelay.Seconds, config.DiscoveryRefreshDelay.Nanos)
 	opts["connect_timeout"] = fmt.Sprintf("{\"seconds\": %d, \"nanos\": %d}", config.ConnectTimeout.Seconds, config.ConnectTimeout.Nanos)
 
-	addPort := strings.Split(config.DiscoveryAddress, ":")
-	pilotHost := addPort[0]
-	pilotPort := addPort[1]
-	opts["pilot_address"] = fmt.Sprintf("{\"address\": \"%s\", \"port_value\": %s}", pilotHost, pilotPort)
-
-	grpcAddress := opts["pilot_grpc"]
-	// Default values for the grpc address.
-	grpcPort := "15010"
-	grpcHost := pilotHost
-	// Default value
-	if grpcAddress != nil {
-		addPort = strings.Split(grpcAddress.(string), ":")
-		grpcHost = addPort[0]
-		grpcPort = addPort[1]
-	}
-	opts["pilot_grpc_address"] = fmt.Sprintf("{\"address\": \"%s\", \"port_value\": %s}", grpcHost, grpcPort)
-
 	// Failsafe for EDSv2. In case of bugs of problems, the injection template can be modified to
 	// add this env variable. This is short lived, EDSv1 will be deprecated/removed.
 	if os.Getenv("USE_EDS_V1") == "1" {
 		opts["edsv1"] = "1"
 	}
 
+	h, p, err := GetHostPort("Discovery", config.DiscoveryAddress)
+	if err != nil {
+		return "", err
+	}
+	StoreHostPort(h, p, "pilot_address", opts)
+
+	grpcAddress := opts["pilot_grpc"]
+	// Default values for the grpc address.
+	grpcPort := "15010"
+	grpcHost := h // Use pilot host
+	// Default value
+	if grpcAddress != nil {
+		grpcHost, grpcPort, err = GetHostPort("gRPC", grpcAddress.(string))
+		if err != nil {
+			return "", err
+		}
+	}
+	StoreHostPort(grpcHost, grpcPort, "pilot_grpc_address", opts)
+
 	if config.ZipkinAddress != "" {
-		addPort = strings.Split(config.ZipkinAddress, ":")
-		opts["zipkin"] = fmt.Sprintf("{\"address\": \"%s\", \"port_value\": %s}", addPort[0], addPort[1])
+		h, p, err = GetHostPort("Zipkin", config.ZipkinAddress)
+		if err != nil {
+			return "", err
+		}
+		StoreHostPort(h, p, "zipkin", opts)
 	}
+
 	if config.StatsdUdpAddress != "" {
-		addPort = strings.Split(config.StatsdUdpAddress, ":")
-		opts["statsd"] = fmt.Sprintf("{\"address\": \"%s\", \"port_value\": %s}", addPort[0], addPort[1])
+		h, p, err = GetHostPort("statsd UDP", config.StatsdUdpAddress)
+		if err != nil {
+			return "", err
+		}
+		StoreHostPort(h, p, "statsd", opts)
 	}
+
 	fout, err := os.Create(fname)
 	if err != nil {
 		return "", err

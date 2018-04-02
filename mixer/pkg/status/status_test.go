@@ -70,4 +70,21 @@ func TestStatus(t *testing.T) {
 	if s.Code != int32(rpc.DEADLINE_EXCEEDED) || s.Message != "Aborted!" {
 		t.Errorf("Got %v %v, expected rpc.DEADLINE_EXCEEDED Aborted!", s.Code, s.Message)
 	}
+
+	msg := String(s)
+	if msg == "" {
+		t.Errorf("Expecting valid string, got nothing")
+	}
+
+	s = rpc.Status{Code: -123}
+	msg = String(s)
+	if msg == "" {
+		t.Errorf("Expecting valid string, got nothing")
+	}
+
+	s = OK
+	msg = String(s)
+	if msg == "" {
+		t.Errorf("Expecting valid string, got nothing")
+	}
 }

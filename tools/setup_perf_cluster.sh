@@ -14,6 +14,7 @@
 #
 # The script must be run/sourced from the parent of the tools/ directory
 #
+
 PROJECT=${PROJECT:-$(gcloud config list --format 'value(core.project)' 2>/dev/null)}
 ZONE=${ZONE:-us-east4-b}
 CLUSTER_NAME=${CLUSTER_NAME:-istio-perf}
@@ -70,6 +71,7 @@ function ExecuteEval() {
 
 function create_cluster() {
   Execute gcloud container clusters create $CLUSTER_NAME $GCP_OPTS --machine-type=$MACHINE_TYPE --num-nodes=$NUM_NODES --no-enable-legacy-authorization
+  Execute gcloud container clusters get-credentials $CLUSTER_NAME $GCP_OPTS
 }
 
 function delete_cluster() {
@@ -169,6 +171,12 @@ function install_istio_cache_busting_rule() {
 
 function get_fortio_k8s_ip() {
   FORTIO_K8S_IP=$(kubectl -n $FORTIO_NAMESPACE get svc -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
+  while [[ -z "${FORTIO_K8S_IP}" ]]
+  do
+    echo sleeping to get FORTIO_K8S_IP $FORTIO_K8S_IP
+    sleep 5
+    FORTIO_K8S_IP=$(kubectl -n $FORTIO_NAMESPACE get svc -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
+  done
   echo "+++ In k8s fortio external ip: http://$FORTIO_K8S_IP:8080/fortio/"
 }
 
@@ -210,12 +218,26 @@ _EOF_
 
 function get_non_istio_ingress_ip() {
   K8S_INGRESS_IP=$(kubectl -n $FORTIO_NAMESPACE get ingress -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
+  while [[ -z "${K8S_INGRESS_IP}" ]]
+  do
+    echo sleeping to get K8S_INGRESS_IP ${K8S_INGRESS_IP}
+    sleep 5
+    K8S_INGRESS_IP=$(kubectl -n $FORTIO_NAMESPACE get ingress -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
+  done
+
 #  echo "+++ In k8s non istio ingress: http://$K8S_INGRESS_IP/fortio1/fortio/ and fortio2"
   echo "+++ In k8s non istio ingress: http://$K8S_INGRESS_IP/fortio/"
 }
 
 function get_istio_ingress_ip() {
   ISTIO_INGRESS_IP=$(kubectl -n $ISTIO_NAMESPACE get ingress -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
+  while [[ -z "${ISTIO_INGRESS_IP}" ]]
+  do
+    echo sleeping to get ISTIO_INGRESS_IP ${ISTIO_INGRESS_IP}
+    sleep 5
+    ISTIO_INGRESS_IP=$(kubectl -n $ISTIO_NAMESPACE get ingress -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
+  done
+
   echo "+++ In k8s istio ingress: http://$ISTIO_INGRESS_IP/fortio1/fortio/ and fortio2"
 }
 

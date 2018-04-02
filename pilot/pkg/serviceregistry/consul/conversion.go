@@ -81,7 +81,7 @@ func convertService(endpoints []*api.CatalogService) *model.Service {
 		if endpoint.NodeMeta[externalTagName] != "" {
 			externalName = endpoint.NodeMeta[externalTagName]
 			meshExternal = true
-			resolution = model.DNSLB
+			resolution = model.Passthrough
 		}
 	}
 

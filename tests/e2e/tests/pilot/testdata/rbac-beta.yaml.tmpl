@@ -84,11 +84,14 @@ rules:
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
-  name: istio-sidecar-sidecar-injector-{{.IstioNamespace}}
+  name: istio-sidecar-injector-{{.IstioNamespace}}
 rules:
 - apiGroups: ["*"]
   resources: ["configmaps"]
   verbs: ["get", "list", "watch"]
+- apiGroups: ["admissionregistration.k8s.io"]
+  resources: ["mutatingwebhookconfigurations"]
+  verbs: ["get", "list", "watch", "patch"]
 ---
 # Grant permissions to the Pilot/discovery.
 kind: ClusterRoleBinding
@@ -149,13 +152,13 @@ roleRef:
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
-  name: istio-sidecar-sidecar-injector-admin-role-binding-{{.IstioNamespace}}
+  name: istio-sidecar-injector-admin-role-binding-{{.IstioNamespace}}
 subjects:
 - kind: ServiceAccount
-  name: istio-sidecar-sidecar-injector-service-account
+  name: istio-sidecar-injector-service-account
   namespace: {{.IstioNamespace}}
 roleRef:
   kind: ClusterRole
-  name: istio-sidecar-sidecar-injector-{{.IstioNamespace}}
+  name: istio-sidecar-injector-{{.IstioNamespace}}
   apiGroup: rbac.authorization.k8s.io
 ---

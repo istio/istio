@@ -129,8 +129,8 @@ func (d *dummyListerWatcherBuilder) delete(key store.Key) {
 }
 
 func getTempClient() (*Store, string, *dummyListerWatcherBuilder) {
-	retryInterval = 0
 	ns := "istio-mixer-testing"
+
 	lw := &dummyListerWatcherBuilder{
 		data:     map[store.Key]*unstructured.Unstructured{},
 		watchers: map[string]*watch.RaceFreeFakeWatcher{},
@@ -143,7 +143,8 @@ func getTempClient() (*Store, string, *dummyListerWatcherBuilder) {
 		listerWatcherBuilder: func(*rest.Config) (listerWatcherBuilderInterface, error) {
 			return lw, nil
 		},
-		Probe: probe.NewProbe(),
+		Probe:         probe.NewProbe(),
+		retryInterval: 0,
 	}
 	return client, ns, lw
 }

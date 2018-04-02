@@ -22,7 +22,7 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
-	authn "istio.io/api/authentication/v1alpha2"
+	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	"istio.io/istio/pkg/log"
@@ -82,22 +82,23 @@ func legacyAuthenticationPolicyToPolicy(legacy meshconfig.AuthenticationPolicy) 
 	return nil
 }
 
-// RequireTLS returns true if the policy use mTLS for (peer) authentication.
-func RequireTLS(policy *authn.Policy) bool {
+// RequireTLS returns true and pointer to mTLS params if the policy use mTLS for (peer) authentication.
+// (note that mTLS params can still be nil). Otherwise, return (false, nil).
+func RequireTLS(policy *authn.Policy) (bool, *authn.MutualTls) {
 	if policy == nil {
-		return false
+		return false, nil
 	}
 	if len(policy.Peers) > 0 {
 		for _, method := range policy.Peers {
 			switch method.GetParams().(type) {
 			case *authn.PeerAuthenticationMethod_Mtls:
-				return true
+				return true, method.GetMtls()
 			default:
 				continue
 			}
 		}
 	}
-	return false
+	return false, nil
 }
 
 // ParseJwksURI parses the input URI and returns the corresponding hostname, port, and whether SSL is used.
@@ -113,7 +114,6 @@ func ParseJwksURI(jwksURI string) (string, *Port, bool, error) {
 	if err != nil {
 		return "", nil, false, err
 	}
-
 	var useSSL bool
 	var portNumber int
 	switch u.Scheme {
@@ -124,7 +124,7 @@ func ParseJwksURI(jwksURI string) (string, *Port, bool, error) {
 		useSSL = true
 		portNumber = 443
 	default:
-		return "", nil, false, fmt.Errorf("URI scheme %s is not supported", u.Scheme)
+		return "", nil, false, fmt.Errorf("URI scheme %q is not supported", u.Scheme)
 	}
 
 	if u.Port() != "" {
