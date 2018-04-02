@@ -269,3 +269,45 @@ func TestParsePemEncodedKey(t *testing.T) {
 		}
 	}
 }
+func TestGetRSAKeySize(t *testing.T) {
+	testCases := map[string]struct {
+		pem    string
+		size   int
+		errMsg string
+	}{
+		"Success with RSA key": {
+			pem:    keyRSA,
+			size:   2048,
+			errMsg: "",
+		},
+		"Success with PKCS8RSA key": {
+			pem:    keyPKCS8RSA,
+			size:   2048,
+			errMsg: "",
+		},
+		"Failure with non-RSA key": {
+			pem:    keyECDSA,
+			size:   0,
+			errMsg: "Key type is not RSA key: *ecdsa.PrivateKey",
+		},
+	}
+
+	for id, c := range testCases {
+		key, err := ParsePemEncodedKey([]byte(c.pem))
+		if err != nil {
+			t.Errorf("%s: failed to parse the Pem key.", id)
+		}
+		size, err := GetRSAKeySize(key)
+		if c.errMsg != "" {
+			if err == nil {
+				t.Errorf("%s: no error is returned", id)
+			} else if c.errMsg != err.Error() {
+				t.Errorf(`%s: Unexpected error message: want "%s" but got "%s"`, id, c.errMsg, err.Error())
+			}
+		} else if err != nil {
+			t.Errorf(`%s: Unexpected error: "%s"`, id, err)
+		} else if size != c.size {
+			t.Errorf("%s: Unmatched key size: expected %v but got %v", id, c.size, size)
+		}
+	}
+}

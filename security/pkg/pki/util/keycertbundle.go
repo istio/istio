@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"sync"
+
+	"istio.io/istio/pkg/log"
 )
 
 // KeyCertBundle stores the cert, private key, cert chain and root cert for an entity. It is thread safe.
@@ -171,11 +173,17 @@ func (b *KeyCertBundleImpl) CertOptions() (*CertOptions, error) {
 	if len(ids) != 1 {
 		return nil, fmt.Errorf("expect single id from the cert, found %v", ids)
 	}
+	size, err := GetRSAKeySize(b.privKey)
+	if err != nil {
+		size = 0
+		log.Warna(err)
+	}
 	return &CertOptions{
-		Host: ids[0],
-		Org:  b.cert.Issuer.Organization[0],
-		IsCA: b.cert.IsCA,
-		TTL:  b.cert.NotAfter.Sub(b.cert.NotBefore),
+		Host:       ids[0],
+		Org:        b.cert.Issuer.Organization[0],
+		IsCA:       b.cert.IsCA,
+		TTL:        b.cert.NotAfter.Sub(b.cert.NotBefore),
+		RSAKeySize: size,
 	}, nil
 }
 
