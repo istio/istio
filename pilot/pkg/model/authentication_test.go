@@ -21,9 +21,10 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	jwtfilter "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha"
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	mccpb "istio.io/api/mixer/v1/config/client"
 )
 
 func TestRequireTls(t *testing.T) {
@@ -306,7 +307,7 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 	cases := []struct {
 		name     string
 		in       authn.Policy
-		expected *mccpb.EndUserAuthenticationPolicySpec
+		expected *jwtfilter.JwtAuthentication
 	}{
 		{
 			name:     "empty policy",
@@ -341,25 +342,34 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 					},
 				},
 			},
-			expected: &mccpb.EndUserAuthenticationPolicySpec{
-				Jwts: []*mccpb.JWT{
+			expected: &jwtfilter.JwtAuthentication{
+				Rules: []*jwtfilter.JwtRule{
 					{
-						Issuer:                 "foo",
-						Audiences:              []string{"dead", "beef"},
-						JwksUri:                "http://abc.com",
-						JwksUriEnvoyCluster:    "jwks.abc.com|http",
-						ForwardJwt:             true,
-						PublicKeyCacheDuration: &types.Duration{Seconds: 300},
-						Locations: []*mccpb.JWT_Location{
+						Issuer:    "foo",
+						Audiences: []string{"dead", "beef"},
+						JwksSourceSpecifier: &jwtfilter.JwtRule_RemoteJwks{
+							RemoteJwks: &jwtfilter.RemoteJwks{
+								HttpUri: &core.HttpUri{
+									Uri: "http://abc.com",
+									HttpUpstreamType: &core.HttpUri_Cluster{
+										Cluster: "jwks.abc.com|http",
+									},
+								},
+								CacheDuration: &types.Duration{Seconds: 300},
+							},
+						},
+						Forward: true,
+						FromHeaders: []*jwtfilter.JwtHeader{
 							{
-								Scheme: &mccpb.JWT_Location_Header{Header: "x-jwt-foo"},
+								Name: "x-jwt-foo",
 							},
 							{
-								Scheme: &mccpb.JWT_Location_Header{Header: "x-jwt-foo-another"},
+								Name: "x-jwt-foo-another",
 							},
 						},
 					},
 				},
+				AllowMissingOrFailed: true,
 			},
 		},
 		{
@@ -390,38 +400,50 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 					},
 				},
 			},
-			expected: &mccpb.EndUserAuthenticationPolicySpec{
-				Jwts: []*mccpb.JWT{
+			expected: &jwtfilter.JwtAuthentication{
+				Rules: []*jwtfilter.JwtRule{
 					{
-						Issuer:                 "foo",
-						Audiences:              []string{"dead", "beef"},
-						JwksUri:                "http://abc.com",
-						JwksUriEnvoyCluster:    "jwks.abc.com|http",
-						ForwardJwt:             true,
-						PublicKeyCacheDuration: &types.Duration{Seconds: 300},
-						Locations: []*mccpb.JWT_Location{
+						Issuer:    "foo",
+						Audiences: []string{"dead", "beef"},
+						JwksSourceSpecifier: &jwtfilter.JwtRule_RemoteJwks{
+							RemoteJwks: &jwtfilter.RemoteJwks{
+								HttpUri: &core.HttpUri{
+									Uri: "http://abc.com",
+									HttpUpstreamType: &core.HttpUri_Cluster{
+										Cluster: "jwks.abc.com|http",
+									},
+								},
+								CacheDuration: &types.Duration{Seconds: 300},
+							},
+						},
+						Forward: true,
+						FromHeaders: []*jwtfilter.JwtHeader{
 							{
-								Scheme: &mccpb.JWT_Location_Header{Header: "x-jwt-foo"},
+								Name: "x-jwt-foo",
 							},
 							{
-								Scheme: &mccpb.JWT_Location_Header{Header: "x-jwt-foo-another"},
+								Name: "x-jwt-foo-another",
 							},
 						},
 					},
 					{
-						Issuer:                 "bar",
-						Audiences:              nil,
-						JwksUri:                "https://xyz.com",
-						JwksUriEnvoyCluster:    "jwks.xyz.com|https",
-						ForwardJwt:             true,
-						PublicKeyCacheDuration: &types.Duration{Seconds: 300},
-						Locations: []*mccpb.JWT_Location{
-							{
-								Scheme: &mccpb.JWT_Location_Query{Query: "x-jwt-bar"},
+						Issuer: "bar",
+						JwksSourceSpecifier: &jwtfilter.JwtRule_RemoteJwks{
+							RemoteJwks: &jwtfilter.RemoteJwks{
+								HttpUri: &core.HttpUri{
+									Uri: "https://xyz.com",
+									HttpUpstreamType: &core.HttpUri_Cluster{
+										Cluster: "jwks.xyz.com|https",
+									},
+								},
+								CacheDuration: &types.Duration{Seconds: 300},
 							},
 						},
+						Forward:    true,
+						FromParams: []string{"x-jwt-bar"},
 					},
 				},
+				AllowMissingOrFailed: true,
 			},
 		},
 		{
@@ -451,27 +473,52 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 					},
 				},
 			},
-			expected: &mccpb.EndUserAuthenticationPolicySpec{
-				Jwts: []*mccpb.JWT{
+			expected: &jwtfilter.JwtAuthentication{
+				Rules: []*jwtfilter.JwtRule{
 					{
-						JwksUri:                "http://abc.com",
-						JwksUriEnvoyCluster:    "jwks.abc.com|http",
-						ForwardJwt:             true,
-						PublicKeyCacheDuration: &types.Duration{Seconds: 300},
+						JwksSourceSpecifier: &jwtfilter.JwtRule_RemoteJwks{
+							RemoteJwks: &jwtfilter.RemoteJwks{
+								HttpUri: &core.HttpUri{
+									Uri: "http://abc.com",
+									HttpUpstreamType: &core.HttpUri_Cluster{
+										Cluster: "jwks.abc.com|http",
+									},
+								},
+								CacheDuration: &types.Duration{Seconds: 300},
+							},
+						},
+						Forward: true,
 					},
 					{
-						JwksUri:                "https://xyz.com",
-						JwksUriEnvoyCluster:    "jwks.xyz.com|https",
-						ForwardJwt:             true,
-						PublicKeyCacheDuration: &types.Duration{Seconds: 300},
+						JwksSourceSpecifier: &jwtfilter.JwtRule_RemoteJwks{
+							RemoteJwks: &jwtfilter.RemoteJwks{
+								HttpUri: &core.HttpUri{
+									Uri: "https://xyz.com",
+									HttpUpstreamType: &core.HttpUri_Cluster{
+										Cluster: "jwks.xyz.com|https",
+									},
+								},
+								CacheDuration: &types.Duration{Seconds: 300},
+							},
+						},
+						Forward: true,
 					},
 					{
-						JwksUri:                "http://abc.com",
-						JwksUriEnvoyCluster:    "jwks.abc.com|http",
-						ForwardJwt:             true,
-						PublicKeyCacheDuration: &types.Duration{Seconds: 300},
+						JwksSourceSpecifier: &jwtfilter.JwtRule_RemoteJwks{
+							RemoteJwks: &jwtfilter.RemoteJwks{
+								HttpUri: &core.HttpUri{
+									Uri: "http://abc.com",
+									HttpUpstreamType: &core.HttpUri_Cluster{
+										Cluster: "jwks.abc.com|http",
+									},
+								},
+								CacheDuration: &types.Duration{Seconds: 300},
+							},
+						},
+						Forward: true,
 					},
 				},
+				AllowMissingOrFailed: true,
 			},
 		},
 	}
