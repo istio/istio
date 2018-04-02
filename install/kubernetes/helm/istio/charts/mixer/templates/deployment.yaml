@@ -6,10 +6,8 @@
         secret:
           secretName: istio.istio-mixer-service-account
           optional: true
-    {{- if $.Values.nodeSelector }}
-      nodeSelector:
-{{ toYaml $.Values.nodeSelector | indent 8 }}
-    {{- end }}
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}
       containers:
       - name: mixer
         image: "{{ $.Values.global.hub }}/mixer:{{ $.Values.global.tag }}"
@@ -58,6 +56,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: istio-{{ $mname }}
+  namespace: {{ $.Release.Namespace }}
   labels:
     chart: {{ $.Chart.Name }}-{{ $.Chart.Version | replace "+" "_" }}
     release: {{ $.Release.Name }}

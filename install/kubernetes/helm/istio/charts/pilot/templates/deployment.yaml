@@ -2,6 +2,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: istio-pilot
+  namespace: {{ .Release.Namespace }}
   # TODO: default tempate doesn't have this, which one is right ?
   labels:
     app: istio-pilot
@@ -114,7 +115,5 @@ spec:
         secret:
           secretName: "istio.istio-pilot-service-account"
           optional: true
-    {{- if .Values.nodeSelector }}
-      nodeSelector:
-{{ toYaml .Values.nodeSelector | indent 8 }}
-    {{- end }}
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}

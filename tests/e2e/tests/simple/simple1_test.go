@@ -41,13 +41,12 @@ import (
 )
 
 const (
-	servicesYaml       = "tests/e2e/tests/simple/servicesToBeInjected.yaml"
-	nonInjectedYaml    = "tests/e2e/tests/simple/servicesNotInjected.yaml"
+	servicesYaml       = "tests/e2e/tests/simple/testdata/servicesToBeInjected.yaml"
+	nonInjectedYaml    = "tests/e2e/tests/simple/testdata/servicesNotInjected.yaml"
 	defaultRouteYaml   = "tests/e2e/tests/simple/default-route.yaml"
 	weightedRoute1Yaml = "tests/e2e/tests/simple/weighted-route1.yaml"
 	weightedRoute2Yaml = "tests/e2e/tests/simple/weighted-route2.yaml"
-	routingRNPYaml     = "tests/e2e/tests/simple/routingruleNoPods.yaml"
-
+	//routingRNPYaml     = "tests/e2e/tests/simple/routingruleNoPods.yaml"
 	timeToWaitForPods    = 20 * time.Second
 	timeToWaitForIngress = 100 * time.Second
 )

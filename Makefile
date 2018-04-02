@@ -612,24 +612,14 @@ $(HELM):
 # creates istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml
 # Ensure that values-$filename is present in install/kubernetes/helm/istio
 isti%.yaml: $(HELM)
+	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/$@
 	$(HELM) template --set global.tag=${TAG} \
 		  --namespace=istio-system \
                   --set global.hub=${HUB} \
 		  --values install/kubernetes/helm/istio/values-$@ \
-		  install/kubernetes/helm/istio > install/kubernetes/$@
+		  install/kubernetes/helm/istio >> install/kubernetes/$@
 
-deploy/all: $(HELM)
-	kubectl create ns istio-system > /dev/null || true
-	$(HELM) template --set global.tag=${TAG} \
-		          --namespace=istio-system \
-                  --set global.hub=${HUB} \
-		      	  --set sidecar-injector.enabled=true \
-		      	  --set ingress.enabled=true \
-                  --set servicegraph.enabled=true \
-                  --set zipkin.enabled=true \
-                  --set grafana.enabled=true \
-                  --set prometheus.enabled=true \
-            install/kubernetes/helm/istio > install/kubernetes/istio-all.yaml
+deploy/all: $(HELM) istio-all.yaml
 	kubectl apply -n istio-system -f install/kubernetes/istio-all.yaml
 
 
@@ -656,9 +646,6 @@ FILES_TO_CLEAN+=install/consul/istio.yaml \
                 install/kubernetes/istio-mixer-with-health-check.yaml \
                 install/kubernetes/istio-one-namespace-auth.yaml \
                 install/kubernetes/istio-one-namespace.yaml \
-                install/kubernetes/istio-sidecar-injector-configmap-debug.yaml \
-                install/kubernetes/istio-sidecar-injector-configmap-release.yaml \
-                install/kubernetes/istio-sidecar-injector.yaml \
                 install/kubernetes/istio.yaml \
                 samples/bookinfo/consul/bookinfo.sidecars.yaml \
                 samples/bookinfo/eureka/bookinfo.sidecars.yaml

@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/atomic"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,8 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/test/mock"
-	"istio.io/istio/pilot/test/util"
-	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/test"
 )
 
 const (
@@ -175,7 +175,7 @@ func TestConfig(t *testing.T) {
 		t.Errorf("Delete should not be allowed")
 	}
 
-	util.Eventually("HasSynced", ctl.HasSynced, t)
+	test.Eventually(t, "HasSynced", ctl.HasSynced)
 }
 
 func TestIngressController(t *testing.T) {
@@ -188,11 +188,9 @@ func TestIngressController(t *testing.T) {
 
 	// Append an ingress notification handler that just counts number of notifications
 	stop := make(chan struct{})
-	count := make(chan bool)
-	defer close(count)
-
+	numNotifications := atomic.NewInt64(0)
 	ctl.RegisterEventHandler(model.IngressRule.Type, func(config model.Config, ev model.Event) {
-		count <- true
+		numNotifications.Inc()
 	})
 	go ctl.Run(stop)
 
@@ -205,28 +203,18 @@ func TestIngressController(t *testing.T) {
 	}
 
 	const expectedRuleCount = 5
-	timeout := time.After(3 * time.Second)
-	actual := 0
-	for {
-		select {
-		case <-count:
-			actual++
-		case <-timeout:
-			t.Fatalf("timeout waiting to receive expected rule count %d, actually received %d",
-				expectedRuleCount, actual)
+	test.Eventually(t, "notified for all CRD events", func() bool {
+		return numNotifications.Load() == expectedRuleCount
+	})
+	var rules []model.Config
+	test.Eventually(t, "successfully got objects for every CRD event", func() bool {
+		var err error
+		rules, err = ctl.List(model.IngressRule.Type, namespace)
+		if err != nil {
+			t.Errorf("ctl.List(model.IngressRule, %s) => error: %v", namespace, err)
 		}
-		if actual == expectedRuleCount {
-			break
-		}
-	}
-
-	rules, err := ctl.List(model.IngressRule.Type, namespace)
-	if err != nil {
-		t.Errorf("ctl.List(model.IngressRule, %s) => error: %v", namespace, err)
-	}
-	if len(rules) != expectedRuleCount {
-		t.Errorf("expected %d IngressRule objects to be created, found %d", expectedRuleCount, len(rules))
-	}
+		return len(rules) == expectedRuleCount
+	})
 
 	for _, listMsg := range rules {
 		getMsg, exists := ctl.Get(model.IngressRule.Type, listMsg.Name, listMsg.Namespace)
@@ -321,30 +309,22 @@ func TestSyncer(t *testing.T) {
 	}
 
 	stop := make(chan struct{})
-	if syncer, err := crd.NewStatusSyncer(&mesh, client, namespace, kube.ControllerOptions{
+	defer close(stop)
+	opts := kube.ControllerOptions{
 		WatchedNamespace: namespace,
 		ResyncPeriod:     resync,
-	}); err != nil {
+	}
+	if syncer, err := crd.NewStatusSyncer(&mesh, client, namespace, opts); err != nil {
 		t.Fatal(err)
 	} else {
 		go syncer.Run(stop)
 	}
 
-	count := 0
-	for {
-		if count > 60 {
-			t.Fatalf("did not set ingress status after one minute")
-		}
-		<-time.After(time.Second)
+	test.Eventually(t, "set ingress status with correct ip", func() bool {
 		out, err := client.Extensions().Ingresses(namespace).Get(ig.Name, metav1.GetOptions{})
 		if err != nil {
-			continue
+			t.Fatalf("failed to load ingress with err: %v", err)
 		}
-		ips := out.Status.LoadBalancer.Ingress
-		log.Infoa(ips)
-		if len(ips) > 0 && ips[0].IP == ip {
-			close(stop)
-			break
-		}
-	}
+		return len(out.Status.LoadBalancer.Ingress) > 0 && out.Status.LoadBalancer.Ingress[0].IP != ip
+	})
 }

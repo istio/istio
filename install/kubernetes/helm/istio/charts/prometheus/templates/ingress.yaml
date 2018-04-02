@@ -3,6 +3,7 @@ apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
   name: prometheus
+  namespace: {{ .Release.Namespace }}
   labels:
     app: prometheus
   annotations:
