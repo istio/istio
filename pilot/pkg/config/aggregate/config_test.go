@@ -14,14 +14,14 @@
 
 package aggregate_test
 
-import (
-	"testing"
-
-	"istio.io/istio/pilot/pkg/config/aggregate"
-	"istio.io/istio/pilot/pkg/config/memory"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/test/mock"
-)
+//import (
+//	"testing"
+//
+//	"istio.io/istio/pilot/pkg/config/aggregate"
+//	"istio.io/istio/pilot/pkg/config/memory"
+//	"istio.io/istio/pilot/pkg/model"
+//	"istio.io/istio/pilot/test/mock"
+//)
 
 const (
 	// TestNamespace for testing
@@ -33,25 +33,24 @@ const (
 //	store, _ := makeCache(t)
 //	mock.CheckMapInvariant(store, t, "", 10)
 //}
-
-func makeCache(t *testing.T) (model.ConfigStore, model.ConfigStoreCache) {
-	mockStore := memory.Make(mock.Types)
-	mockStoreCache := memory.NewController(mockStore)
-	istioStore := memory.Make(model.IstioConfigTypes)
-	istioStoreCache := memory.NewController(istioStore)
-
-	store, err := aggregate.Make([]model.ConfigStore{mockStore, istioStore})
-	if err != nil {
-		t.Fatalf("unexpected error %v", err)
-	}
-	ctl, err := aggregate.MakeCache([]model.ConfigStoreCache{mockStoreCache, istioStoreCache})
-	if err != nil {
-		t.Fatalf("unexpected error %v", err)
-	}
-	return store, ctl
-}
-
-// FIXME: these tests do not work on a read-only store
+//
+//func makeCache(t *testing.T) (model.ConfigStore, model.ConfigStoreCache) {
+//	mockStore := memory.Make(mock.Types)
+//	mockStoreCache := memory.NewController(mockStore)
+//	istioStore := memory.Make(model.IstioConfigTypes)
+//	istioStoreCache := memory.NewController(istioStore)
+//
+//	store, err := aggregate.Make([]model.ConfigStore{mockStore, istioStore})
+//	if err != nil {
+//		t.Fatalf("unexpected error %v", err)
+//	}
+//	ctl, err := aggregate.MakeCache([]model.ConfigStoreCache{mockStoreCache, istioStoreCache})
+//	if err != nil {
+//		t.Fatalf("unexpected error %v", err)
+//	}
+//	return store, ctl
+//}
+//
 //func TestControllerCacheFreshness(t *testing.T) {
 //	_, ctl := makeCache(t)
 //	mock.CheckCacheFreshness(ctl, TestNamespace, t)
