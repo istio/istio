@@ -431,8 +431,8 @@ func buildHTTPRouteV3(store model.IstioConfigStore, config model.Config, service
 					Weight: int(dst.Weight),
 				})
 
+			fqdn := model.ResolveFQDN(dst.Destination.Name, domain)
 			if includeSubsets == false || service.External() {
-				fqdn := model.ResolveFQDN(dst.Destination.Name, domain)
 				v2clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, dst.Destination.Subset, fqdn, port)
 				labels := fetchSubsetLabels(store, fqdn, dst.Destination.Subset, domain)
 				cluster := buildCluster(fqdn, port, labels, service.External()) // TODO: support Destination.Port

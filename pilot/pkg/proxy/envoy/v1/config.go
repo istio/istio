@@ -558,7 +558,7 @@ func buildOutboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy, proxy
 	clusters = append(clusters, externalServiceTCPClusters...)
 
 	// note that outbound HTTP routes are supplied through RDS
-	httpOutbound := buildOutboundHTTPRoutes(node, proxyInstances, services, config, false)
+	httpOutbound := buildOutboundHTTPRoutes(node, proxyInstances, services, config, false, false)
 	httpOutbound = BuildEgressHTTPRoutes(mesh, node, proxyInstances, config, httpOutbound)
 	httpOutbound = BuildExternalServiceHTTPRoutes(mesh, node, proxyInstances, config, httpOutbound)
 
@@ -628,26 +628,21 @@ func buildDestinationHTTPRoutes(node model.Proxy, service *model.Service,
 			// "catchAll" flag indicating if the route that was built was a catch all route.
 			// When such a route is encountered, we stop building further routes for the
 			// destination and we will not add the default route after the for loop.
-			for _, httpRoute := range httpRoutes {
-				if httpRoute.CatchAll() {
-					useDefaultRoute = false
-					break
-				}
-			}
-		}
-
-		if useDefaultRoute {
-			// default route for the destination is always the lowest priority route
-			cluster := buildCluster(service.Hostname, servicePort, nil, service.External())
-			if envoyv2 {
-				cluster.Name = model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, servicePort)
-			}
-			routes = append(routes, BuildDefaultRoute(cluster))
+			/*
+				for _, httpRoute := range httpRoutes {
+					if httpRoute.CatchAll() {
+						useDefaultRoute = false
+						break
+					}
+				}*/
 		}
 
 		//if useDefaultRoute {
 		// default route for the destination is always the lowest priority route
 		cluster := buildCluster(service.Hostname, servicePort, nil, service.External())
+		if envoyv2 {
+			cluster.Name = model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, servicePort)
+		}
 		routes = append(routes, BuildDefaultRoute(cluster))
 		//}
 
