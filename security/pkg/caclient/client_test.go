@@ -21,7 +21,6 @@ import (
 
 	"google.golang.org/grpc"
 
-	mockclient "istio.io/istio/security/pkg/caclient/grpc/mock"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
 	mockpc "istio.io/istio/security/pkg/platform/mock"
@@ -33,7 +32,6 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 	certChain := []byte(`CERTCHAIN`)
 	testCases := map[string]struct {
 		pltfmc            platform.Client
-		ptclc             *mockclient.FakeCAClient
 		caOptions         *TestCAServerOptions
 		keySize           int
 		ttl               time.Duration
@@ -45,9 +43,7 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 		sendTimes         int
 	}{
 		"Success": {
-			pltfmc: mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", []byte{}, "", true},
-			//ptclc: &mockclient.FakeCAClient{
-			//0, &pb.CsrResponse{IsApproved: true, SignedCert: signedCert, CertChain: certChain}, nil},
+			pltfmc:  mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", []byte{}, "", true},
 			keySize: 512,
 			caOptions: &TestCAServerOptions{
 				Response: &pb.CsrResponse{IsApproved: true, SignedCert: signedCert, CertChain: certChain},
@@ -62,8 +58,6 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 		},
 		"Create CSR error": {
 			pltfmc: mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", []byte{}, "", true},
-			//ptclc: &mockclient.FakeCAClient{
-			//0, &pb.CsrResponse{IsApproved: true, SignedCert: signedCert, CertChain: certChain}, nil},
 			caOptions: &TestCAServerOptions{
 				Response: &pb.CsrResponse{IsApproved: true, SignedCert: signedCert, CertChain: certChain},
 			},
@@ -78,7 +72,6 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 		"Getting platform credential error": {
 			pltfmc:      mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", nil, "Err1", true},
 			caOptions:   &TestCAServerOptions{},
-			ptclc:       &mockclient.FakeCAClient{0, nil, nil},
 			keySize:     512,
 			ttl:         time.Hour,
 			maxRetries:  0,
@@ -125,7 +118,7 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 		if err != nil {
 			t.Errorf("failed to setup test ca server %v", err)
 		}
-		client, err := NewCAClient(c.pltfmc, c.ptclc, addr, c.maxRetries, c.interval)
+		client, err := NewCAClient(c.pltfmc, addr, c.maxRetries, c.interval)
 		if err != nil {
 			t.Errorf("Test case [%s]: CA creation error: %v", id, err)
 		}
@@ -152,9 +145,8 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 			t.Errorf("Test case [%s]: cert chain content incorrect: %s VS (expected) %s",
 				id, certChain, c.expectedCertChain)
 		}
-		if ca.InvokeTimes() != c.sendTimes {
-			t.Errorf("Test case [%s]: sendCSR is called incorrect times: %d VS (expected) %d",
-				id, c.ptclc.Counter, c.sendTimes)
+		if invoke := ca.InvokeTimes(); invoke != c.sendTimes {
+			t.Errorf("Test case [%s]: sendCSR is called incorrect times: %d VS (expected) %d", id, invoke, c.sendTimes)
 		}
 	}
 }

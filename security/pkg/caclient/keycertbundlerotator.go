@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/security/pkg/caclient/grpc"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
 	"istio.io/istio/security/pkg/util"
@@ -36,8 +35,7 @@ func NewKeyCertBundleRotator(cfg *Config, bundle pkiutil.KeyCertBundle) (*KeyCer
 	if err != nil {
 		return nil, err
 	}
-	cAClient, err := NewCAClient(pc, &grpc.CAGrpcClientImpl{}, cfg.CAAddress,
-		cfg.CSRMaxRetries, cfg.CSRInitialRetrialInterval)
+	cAClient, err := NewCAClient(pc, cfg.CAAddress, cfg.CSRMaxRetries, cfg.CSRInitialRetrialInterval)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize CAClient: %v", err)
 	}

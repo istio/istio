@@ -27,7 +27,6 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/security/pkg/caclient/grpc"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
 	"istio.io/istio/security/pkg/workload"
@@ -36,18 +35,14 @@ import (
 
 // CAClient is a client to provision key and certificate from the upstream CA via CSR protocol.
 type CAClient struct {
-	platformClient platform.Client
-	//protocolClient         grpc.CAGrpcClient
-	istioCAAddress         string
+	platformClient         platform.Client
 	maxRetries             int
 	initialRetrialInterval time.Duration
-	// TODO: replace this with protocolClient, do not submit before resolve.
-	grpcClient pb.IstioCAServiceClient
+	grpcClient             pb.IstioCAServiceClient
 }
 
 // NewCAClient creates a new CAClient instance.
-func NewCAClient(pltfmc platform.Client, ptclc grpc.CAGrpcClient, caAddr string,
-	maxRetries int, interval time.Duration) (*CAClient, error) {
+func NewCAClient(pltfmc platform.Client, caAddr string, maxRetries int, interval time.Duration) (*CAClient, error) {
 	if !pltfmc.IsProperPlatform() {
 		return nil, fmt.Errorf("CA client is not running on the right platform") // nolint
 	}
@@ -64,9 +59,7 @@ func NewCAClient(pltfmc platform.Client, ptclc grpc.CAGrpcClient, caAddr string,
 	}
 	client := pb.NewIstioCAServiceClient(conn)
 	return &CAClient{
-		platformClient: pltfmc,
-		//protocolClient:         ptclc,
-		istioCAAddress:         caAddr,
+		platformClient:         pltfmc,
 		maxRetries:             maxRetries,
 		initialRetrialInterval: interval,
 		grpcClient:             client,
@@ -125,10 +118,8 @@ func (c *CAClient) Retrieve(options *pkiutil.CertOptions) (newCert []byte, certC
 		if reqErr != nil {
 			return nil, nil, nil, reqErr
 		}
-
 		log.Infof("Sending CSR (retrial #%d) ...", retries)
 
-		//resp, err := c.protocolClient.SendCSR(req, c.platformClient, c.istioCAAddress)
 		resp, err := c.grpcClient.HandleCSR(context.Background(), req)
 		if err == nil && resp != nil && resp.IsApproved {
 			return resp.SignedCert, resp.CertChain, privateKey, nil
