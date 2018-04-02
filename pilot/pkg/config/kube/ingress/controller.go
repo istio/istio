@@ -112,6 +112,8 @@ func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model
 			return nil
 		}
 
+		// FIXME: handle gateways + virtual services
+
 		// TODO: This works well for Add and Delete events, but not so for Update:
 		// An updated ingress may also trigger an Add or Delete for one of its constituent sub-rules.
 		rules := convertIngress(*ingress, c.domainSuffix)
