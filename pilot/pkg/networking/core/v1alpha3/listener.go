@@ -37,6 +37,7 @@ import (
 
 	authn "istio.io/api/authentication/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
 )
@@ -208,7 +209,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 		endpoint := instance.Endpoint
 		protocol := endpoint.ServicePort.Protocol
 
-		var l *xdsapi.Listener
 		authenticationPolicy := model.GetConsolidateAuthenticationPolicy(mesh,
 			config, instance.Service.Hostname, instance.Endpoint.ServicePort)
 
@@ -258,14 +258,22 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 			log.Debugf("Unsupported inbound protocol %v for port %#v", protocol, instance.Endpoint.ServicePort)
 		}
 
-		l = buildListener(listenerOpts)
-		if l != nil {
-			// call plugins
-			for _, p := range configgen.Plugins {
-				p.OnInboundListener(env, node, instance.Service, instance.Endpoint.ServicePort, l)
+		// call plugins
+		for _, p := range configgen.Plugins {
+			params := &plugin.CallbackListenerInputParams{
+				Env:             &env,
+				Node:            &node,
+				ServiceInstance: instance,
+			}
+			mutable := &plugin.CallbackListenerMutableObjects{
+				TCPFilters:  listenerOpts.networkFilters,
+				HTTPFilters: listenerOpts.hTTPFilters,
+			}
+			if err := p.OnInboundListener(params, mutable); err != nil {
+				log.Error(err.Error())
 			}
 
-			listeners = append(listeners, l)
+			listeners = append(listeners, buildListener(listenerOpts))
 		}
 	}
 
@@ -304,6 +312,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				env:            env,
 				proxy:          node,
 				proxyInstances: proxyInstances,
+				ip:             WildcardAddress,
 				port:           servicePort.Port,
 				protocol:       servicePort.Protocol,
 			}
@@ -322,6 +331,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				}
 
 				listenerOpts.networkFilters = buildOutboundNetworkFilters(clusterName, addresses, servicePort)
+				// TODO: Set SNI for HTTPS
 			case model.ProtocolHTTP2, model.ProtocolHTTP, model.ProtocolGRPC:
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
 				if l, exists := listenerMap[listenerMapKey]; exists {
@@ -352,15 +362,25 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				}
 			}
 
+			// call plugins
+
+			params := &plugin.CallbackListenerInputParams{
+				Env:  &env,
+				Node: &node,
+			}
+			mutable := &plugin.CallbackListenerMutableObjects{
+				TCPFilters:  listenerOpts.networkFilters,
+				HTTPFilters: listenerOpts.hTTPFilters,
+			}
+			for _, p := range configgen.Plugins {
+				if err := p.OnOutboundListener(params, mutable); err != nil {
+					log.Error(err.Error())
+				}
+			}
+
 			listenerOpts.ip = listenAddress
 			listenerMap[listenerMapKey] = buildListener(listenerOpts)
 			// TODO: Set SNI for HTTPS
-
-			// call plugins
-			for _, p := range configgen.Plugins {
-				p.OnOutboundListener(env, node, service, servicePort, listenerMap[listenerMapKey])
-			}
-
 		}
 	}
 
@@ -465,7 +485,8 @@ func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy) *auth.Do
 }
 
 // http specific listener options
-type httpListenerOpts struct { //nolint: maligned
+type httpListenerOpts struct {
+	//nolint: maligned
 	routeConfig      *xdsapi.RouteConfiguration
 	rds              string
 	useRemoteAddress bool
@@ -474,7 +495,8 @@ type httpListenerOpts struct { //nolint: maligned
 }
 
 // options required to build a Listener
-type buildListenerOpts struct { // nolint: maligned
+type buildListenerOpts struct {
+	// nolint: maligned
 	env            model.Environment
 	proxy          model.Proxy
 	proxyInstances []*model.ServiceInstance
@@ -489,6 +511,8 @@ type buildListenerOpts struct { // nolint: maligned
 	httpOpts *httpListenerOpts
 	// network filter stuff
 	networkFilters []listener.Filter
+	// HTTP filters
+	hTTPFilters []*http_conn.HttpFilter
 }
 
 /* // Enable only to compare with RDSv1 responses
@@ -527,7 +551,9 @@ func buildDeprecatedHTTPListener(opts buildListenerOpts) *xdsapi.Listener {
 
 func buildHTTPConnectionManager(opts buildListenerOpts) *http_conn.HttpConnectionManager {
 	mesh := opts.env.Mesh
-	filters := []*http_conn.HttpFilter{}
+	var filters []*http_conn.HttpFilter
+
+	filters = append(filters, opts.hTTPFilters...)
 
 	filters = append(filters, &http_conn.HttpFilter{
 		Name: xdsutil.CORS,
@@ -538,16 +564,6 @@ func buildHTTPConnectionManager(opts buildListenerOpts) *http_conn.HttpConnectio
 		Name: xdsutil.Router,
 	})
 
-	/*	TODO(mostrowski): need to port internal build functions for mixer.
-		if opts.mesh.MixerCheckServer != "" || opts.mesh.MixerReportServer != "" {
-			mixerConfig := v1.BuildHTTPMixerFilterConfig(opts.mesh, opts.proxy, opts.proxyInstances, opts.outboundListener, opts.store)
-		filter := &http_conn.HttpFilter{
-			Name: v1.MixerFilter,
-			Config:MessageToStruct(mixerConfig),
-		}
-			filters = append([]*http_conn.HttpFilter{filter}, filters...)
-		}
-	*/
 	refresh := time.Duration(mesh.RdsRefreshDelay.Seconds) * time.Second
 	if refresh == 0 {
 		// envoy crashes if 0. Will go away once we move to v2
@@ -759,8 +775,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env mo
 	// Get list of virtual services bound to the mesh gateway
 	virtualServices := env.VirtualServices([]string{model.IstioMeshGateway})
 	// TODO: Need to trim output based on source label/gateway match
-	guardedHosts := TranslateVirtualHosts(virtualServices,
-		nameToServiceMap, nil, node.Domain)
+	guardedHosts := TranslateVirtualHosts(virtualServices, nameToServiceMap)
 	vHostPortMap := make(map[int][]route.VirtualHost)
 
 	for _, guardedHost := range guardedHosts {

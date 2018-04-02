@@ -12,29 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package aggregate implements a type-aggregator for config stores.  The
-// aggregate config store multiplexes requests to a configuration store based
-// on the type of the configuration objects. The aggregate config store cache
-// performs the reverse, by aggregating events from the multiplexed stores and
-// dispatching them back to event handlers.
+// Package aggregate implements a read-only aggregator for config stores.
 package aggregate
 
 import (
 	"errors"
 	"fmt"
 
+	"github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/pilot/pkg/model"
 )
+
+var errorUnsupported = errors.New("unsupported operation: the config aggregator is read-only")
 
 // Make creates an aggregate config store from several config stores and
 // unifies their descriptors
 func Make(stores []model.ConfigStore) (model.ConfigStore, error) {
 	union := model.ConfigDescriptor{}
-	storeTypes := make(map[string]model.ConfigStore)
+	storeTypes := make(map[string][]model.ConfigStore)
 	for _, store := range stores {
 		for _, descriptor := range store.ConfigDescriptor() {
-			union = append(union, descriptor)
-			storeTypes[descriptor.Type] = store
+			if len(storeTypes[descriptor.Type]) == 0 {
+				union = append(union, descriptor)
+			}
+			storeTypes[descriptor.Type] = append(storeTypes[descriptor.Type], store)
 		}
 	}
 	if err := union.Validate(); err != nil {
@@ -58,8 +60,8 @@ func MakeCache(caches []model.ConfigStoreCache) (model.ConfigStoreCache, error) 
 		return nil, err
 	}
 	return &storeCache{
-		store:  store,
-		caches: caches,
+		ConfigStore: store,
+		caches:      caches,
 	}, nil
 }
 
@@ -68,80 +70,56 @@ type store struct {
 	descriptor model.ConfigDescriptor
 
 	// stores is a mapping from config type to a store
-	stores map[string]model.ConfigStore
+	stores map[string][]model.ConfigStore
 }
 
 func (cr *store) ConfigDescriptor() model.ConfigDescriptor {
 	return cr.descriptor
 }
 
+// Get the first config found in the stores.
 func (cr *store) Get(typ, name, namespace string) (*model.Config, bool) {
-	store, exists := cr.stores[typ]
-	if !exists {
-		return nil, false
+	for _, store := range cr.stores[typ] {
+		config, exists := store.Get(typ, name, namespace)
+		if exists {
+			return config, exists
+		}
 	}
-	return store.Get(typ, name, namespace)
+	return nil, false
 }
 
+// List all configs in the stores.
 func (cr *store) List(typ, namespace string) ([]model.Config, error) {
-	store, exists := cr.stores[typ]
-	if !exists {
-		return nil, nil
+	if len(cr.stores[typ]) == 0 {
+		return nil, fmt.Errorf("missing type %q", typ)
 	}
-	return store.List(typ, namespace)
+	var errs *multierror.Error
+	var configs []model.Config
+	for _, store := range cr.stores[typ] {
+		storeConfigs, err := store.List(typ, namespace)
+		if err != nil {
+			errs = multierror.Append(errs, err)
+		}
+		configs = append(configs, storeConfigs...)
+	}
+	return configs, errs.ErrorOrNil()
 }
 
 func (cr *store) Delete(typ, name, namespace string) error {
-	store, exists := cr.stores[typ]
-	if !exists {
-		return fmt.Errorf("missing type %q", typ)
-	}
-	return store.Delete(typ, name, namespace)
+	return errorUnsupported
 }
 
 func (cr *store) Create(config model.Config) (string, error) {
-	store, exists := cr.stores[config.Type]
-	if !exists {
-		return "", errors.New("missing type")
-	}
-	return store.Create(config)
+	return "", errorUnsupported
 }
 
 func (cr *store) Update(config model.Config) (string, error) {
-	store, exists := cr.stores[config.Type]
-	if !exists {
-		return "", errors.New("missing type")
-	}
-	return store.Update(config)
+	return "", errorUnsupported
 }
 
 type storeCache struct {
-	store  model.ConfigStore
+	model.ConfigStore
 	caches []model.ConfigStoreCache
-}
-
-func (cr *storeCache) ConfigDescriptor() model.ConfigDescriptor {
-	return cr.store.ConfigDescriptor()
-}
-
-func (cr *storeCache) Get(typ, name, namespace string) (config *model.Config, exists bool) {
-	return cr.store.Get(typ, name, namespace)
-}
-
-func (cr *storeCache) List(typ, namespace string) ([]model.Config, error) {
-	return cr.store.List(typ, namespace)
-}
-
-func (cr *storeCache) Create(config model.Config) (string, error) {
-	return cr.store.Create(config)
-}
-
-func (cr *storeCache) Update(config model.Config) (string, error) {
-	return cr.store.Update(config)
-}
-
-func (cr *storeCache) Delete(typ, name, namespace string) error {
-	return cr.store.Delete(typ, name, namespace)
 }
 
 func (cr *storeCache) HasSynced() bool {
@@ -157,7 +135,6 @@ func (cr *storeCache) RegisterEventHandler(typ string, handler func(model.Config
 	for _, cache := range cr.caches {
 		if _, exists := cache.ConfigDescriptor().GetByType(typ); exists {
 			cache.RegisterEventHandler(typ, handler)
-			return
 		}
 	}
 }
