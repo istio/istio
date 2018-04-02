@@ -69,6 +69,7 @@ type GuardedHost struct {
 
 // TranslateServiceHostname matches a host against a model service.
 // This cannot be externalized to core model until the registries understand namespaces.
+// TODO: run a validation pass and add FQDNs apriori
 func TranslateServiceHostname(services map[string]*model.Service, clusterDomain string) ServiceByName {
 	return func(host string, contextNamespace string) *model.Service {
 		if strings.Contains(host, ".") {
@@ -84,15 +85,12 @@ func TranslateServiceHostname(services map[string]*model.Service, clusterDomain 
 // Cluster domain is used to resolve short service names (e.g. "svc.cluster.local").
 func TranslateVirtualHosts(
 	serviceConfigs []model.Config,
-	services map[string]*model.Service,
-	subsetSelector SubsetSelector,
-	clusterDomain string) []GuardedHost {
+	services map[string]*model.Service) []GuardedHost {
 	out := make([]GuardedHost, 0)
-	serviceByName := TranslateServiceHostname(services, clusterDomain)
 
 	// translate all virtual service configs
 	for _, config := range serviceConfigs {
-		out = append(out, TranslateVirtualHost(config, serviceByName, subsetSelector)...)
+		out = append(out, TranslateVirtualHost(config, services)...)
 	}
 
 	// compute services missing service configs
@@ -135,12 +133,12 @@ func TranslateVirtualHosts(
 }
 
 // MatchServiceHosts splits the virtual service hosts into services and literal hosts
-func MatchServiceHosts(in model.Config, serviceByName ServiceByName) ([]string, []*model.Service) {
+func MatchServiceHosts(in model.Config, serviceIndex map[string]*model.Service) ([]string, []*model.Service) {
 	rule := in.Spec.(*networking.VirtualService)
 	hosts := make([]string, 0)
 	services := make([]*model.Service, 0)
 	for _, host := range rule.Hosts {
-		if svc := serviceByName(host, in.ConfigMeta.Namespace); svc != nil {
+		if svc := serviceIndex[host]; svc != nil {
 			services = append(services, svc)
 		} else {
 			hosts = append(hosts, host)
@@ -150,8 +148,8 @@ func MatchServiceHosts(in model.Config, serviceByName ServiceByName) ([]string, 
 }
 
 // TranslateVirtualHost creates virtual hosts corresponding to a virtual service.
-func TranslateVirtualHost(in model.Config, serviceByName ServiceByName, subsetSelector SubsetSelector) []GuardedHost {
-	hosts, services := MatchServiceHosts(in, serviceByName)
+func TranslateVirtualHost(in model.Config, serviceIndex map[string]*model.Service) []GuardedHost {
+	hosts, services := MatchServiceHosts(in, serviceIndex)
 	serviceByPort := make(map[int][]*model.Service)
 	for _, svc := range services {
 		for _, port := range svc.Ports {
@@ -169,7 +167,7 @@ func TranslateVirtualHost(in model.Config, serviceByName ServiceByName, subsetSe
 
 	out := make([]GuardedHost, len(serviceByPort))
 	for port, services := range serviceByPort {
-		clusterNaming := TranslateDestination(serviceByName, subsetSelector, in.ConfigMeta.Namespace, port)
+		clusterNaming := TranslateDestination(serviceIndex, port)
 		routes := TranslateRoutes(in, clusterNaming)
 		out = append(out, GuardedHost{
 			Port:     port,
@@ -184,13 +182,11 @@ func TranslateVirtualHost(in model.Config, serviceByName ServiceByName, subsetSe
 
 // TranslateDestination produces a cluster naming function using the config context.
 func TranslateDestination(
-	serviceByName ServiceByName,
-	subsetSelector SubsetSelector,
-	contextNamespace string,
+	serviceIndex map[string]*model.Service,
 	defaultPort int) ClusterNaming {
 	return func(destination *networking.Destination) string {
 		// detect if it is a service
-		svc := serviceByName(destination.Name, contextNamespace)
+		svc := serviceIndex[destination.Name]
 
 		// TODO: create clusters for non-service hostnames/IPs
 		if svc == nil {
