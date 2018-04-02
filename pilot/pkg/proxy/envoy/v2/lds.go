@@ -129,7 +129,9 @@ func (s *DiscoveryServer) StreamListeners(stream xdsapi.ListenerDiscoveryService
 				continue
 			}
 			initialRequestReceived = true
-			nodeID = nt.ID
+			if nodeID == "" && discReq.Node != nil {
+				nodeID = connectionID(discReq.Node.Id)
+			}
 			con.Node = nodeID
 			addLdsCon(nodeID, con)
 
