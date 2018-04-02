@@ -60,7 +60,9 @@ func sendEDSReq(t *testing.T, clusters []string, edsstr ads.AggregatedDiscoveryS
 // If pilot is reset, envoy will connect with a nonce/version info set on the previous
 // connection to pilot. In HA case this may be a different pilot. This is a regression test for
 // reconnect problems.
-func sendEDSReqReconnect(t *testing.T, clusters []string, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, res *xdsapi.DiscoveryResponse) {
+func sendEDSReqReconnect(t *testing.T, clusters []string,
+	edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient,
+	res *xdsapi.DiscoveryResponse) {
 	err := edsstr.Send(&xdsapi.DiscoveryRequest{
 		Node: &envoy_api_v2_core1.Node{
 			Id: sidecarId(app3Ip, "app3"),

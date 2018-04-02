@@ -41,16 +41,17 @@ var (
 )
 
 const (
-	unknownPeerAddressStr = "Unknown peer address"
-)
-
-const (
 	typePrefix = "type.googleapis.com/envoy.api.v2."
 
 	// Constants used for XDS
-	EndpointType = typePrefix + "ClusterLoadAssignment"
+
+	// ClusterType is used for cluster discovery. Typically first request received
 	ClusterType  = typePrefix + "Cluster"
+	// EndpointType is used for EDS and ADS endpoint discovery. Typically second request.
+	EndpointType = typePrefix + "ClusterLoadAssignment"
+	// ListenerType is sent after clusters and endpoints.
 	ListenerType = typePrefix + "Listener"
+	// RouteType is sent after listeners.
 	RouteType    = typePrefix + "Route"
 )
 

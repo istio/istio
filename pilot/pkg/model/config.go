@@ -386,7 +386,7 @@ var (
 		Validate:    ValidateGateway,
 	}
 
-	// VirtualService describes v1alpha3 route rules
+	// VirtualServiceIngress describes v1alpha3 route rules, mapped from ingress rules.
 	VirtualServiceIngress = ProtoSchema{
 		Type:        "virtual-service-ingress",
 		Plural:      "virtual-services-ingresses",
@@ -397,7 +397,7 @@ var (
 		Validate:    ValidateVirtualService,
 	}
 
-	// Gateway describes a gateway (how a proxy is exposed on the network)
+	// GatewayIngress describes a gateway created by translating k8s ingress (how a proxy is exposed on the network)
 	GatewayIngress = ProtoSchema{
 		Type:        "gateway-ingress",
 		Plural:      "gateways-ingresses",
@@ -782,11 +782,30 @@ func (store *istioConfigStore) ExternalServices() []Config {
 	return configs
 }
 
+// TODO: move the logic to v2, read all VirtualServices once at startup and per
+// change event and pass them to the config generator. Model calls to List are
+// extremely expensive - and for larger number of services it doesn't make sense
+// to just convert again and again, for each listener times endpoints.
 func (store *istioConfigStore) VirtualServices(gateways []string) []Config {
 	if len(gateways) == 1 && gateways[0] == IstioIngressGatewayName {
 		configs, err := store.List(VirtualServiceIngress.Type, NamespaceAll)
 		if err != nil {
 			return nil
+		}
+		configs3, err := store.List(VirtualService.Type, NamespaceAll)
+		if err != nil {
+			return nil
+		}
+		for _, config := range configs3 {
+			rule := config.Spec.(*networking.VirtualService)
+			if len(rule.Gateways) > 0 {
+				for _, ruleGateway := range rule.Gateways {
+					if ruleGateway == IstioIngressGatewayName {
+						configs = append(configs, config)
+						break
+					}
+				}
+			}
 		}
 		return configs
 	}

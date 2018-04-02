@@ -71,13 +71,13 @@ type XdsConnection struct {
 
 	stream ads.AggregatedDiscoveryService_StreamAggregatedResourcesServer
 
+	// Routes is the list of watched Routes.
+	Routes []string
+
 	// LDSWatch is set if the remote server is watching Listeners
 	LDSWatch bool
 	// CDSWatch is set if the remote server is watching Clusters
 	CDSWatch bool
-
-	// Routes is the list of watched Routes.
-	Routes []string
 
 	// added will be true if at least one discovery request was received, and the connection
 	// is added to the map of active.
@@ -329,7 +329,7 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 	}
 
 	if adsClients[conID] == nil {
-		log.Errorf("ADS: Removing connection for non-existing node %s.", s)
+		log.Errorf("ADS: Removing connection for non-existing node %v.", s)
 	}
 	delete(adsClients, conID)
 }

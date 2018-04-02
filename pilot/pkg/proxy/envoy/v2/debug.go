@@ -294,7 +294,9 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 					return
 				}
 				for _, svc := range all {
-					fmt.Fprintf(w, "%s:%s %s:%d %v %v %s\n", ss.Hostname, p.Name, svc.Endpoint.Address, svc.Endpoint.Port, svc.Labels, svc.AvailabilityZone, svc.ServiceAccount)
+					fmt.Fprintf(w, "%s:%s %s:%d %v %v %s\n", ss.Hostname,
+						p.Name, svc.Endpoint.Address, svc.Endpoint.Port, svc.Labels,
+						svc.AvailabilityZone, svc.ServiceAccount)
 				}
 			}
 		}
