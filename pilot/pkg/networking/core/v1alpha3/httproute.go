@@ -80,7 +80,7 @@ type GuardedHost struct {
 //		return services[fmt.Sprintf("%s.%s.%s", host, contextNamespace, clusterDomain)]
 //	}
 //}
-//
+
 // TranslateVirtualHosts creates the entire routing table for Istio v1alpha3 configs.
 // Services are indexed by FQDN hostnames.
 // Cluster domain is used to resolve short service names (e.g. "svc.cluster.local").
