@@ -313,7 +313,7 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 					log.Warnf("EDS: ACK ERROR %v %s %v", peerAddr, conID, discReq.String())
 				}
 				if edsDebug {
-					log.Infof("EDS: ACK %s %s %s %s", conID, discReq.VersionInfo, con.Clusters, discReq.String())
+					log.Infof("EDS: ACK %s %s %s", conID, discReq.VersionInfo, con.Clusters)
 				}
 				if len(con.Clusters) > 0 {
 					continue
@@ -354,10 +354,10 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 }
 
 func (s *DiscoveryServer) pushEds(con *XdsConnection) error {
-	epList := []*xdsapi.ClusterLoadAssignment{}
 	resAny := []types.Any{}
 
 	emptyClusters := 0
+	endpoints := 0
 	empty := []string{}
 
 	for _, clusterName := range con.Clusters {
@@ -367,11 +367,11 @@ func (s *DiscoveryServer) pushEds(con *XdsConnection) error {
 			updateCluster(clusterName, c)
 			l = loadAssignment(c)
 		}
+		endpoints += len(l.Endpoints)
 		if len(l.Endpoints) == 0 {
 			emptyClusters++
 			empty = append(empty, clusterName)
 		}
-		epList = append(epList, l)
 
 		// Previously computed load assignments. They are re-computed on cache invalidation or
 		// event, but don't have to be recomputed once for each sidecar.
@@ -387,8 +387,8 @@ func (s *DiscoveryServer) pushEds(con *XdsConnection) error {
 	}
 
 	if edsDebug {
-		log.Infof("EDS: PUSH for %s %q clusters %d empty %d %v",
-			con.ConID, con.PeerAddr, len(con.Clusters), emptyClusters, empty)
+		log.Infof("EDS: PUSH for %s %q clusters %d endpoints %d empty %d %v",
+			con.ConID, con.PeerAddr, len(con.Clusters), endpoints, emptyClusters, empty)
 	}
 	return nil
 }
