@@ -72,7 +72,7 @@ $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
 # 	cp $$< $$(@D))
 
 # tell make which files are copied from the source tree
-DOCKER_FILES_FROM_SOURCE:=pilot/docker/prepare_proxy.sh docker/ca-certificates.tgz tools/deb/envoy_bootstrap_tmpl.json \
+DOCKER_FILES_FROM_SOURCE:=tools/deb/istio-iptables.sh docker/ca-certificates.tgz tools/deb/envoy_bootstrap_tmpl.json \
                           $(PROXY_JSON_FILES) $(NODE_AGENT_TEST_FILES) $(FLEXVOLUMEDRIVER_FILES) $(GRAFANA_FILES) \
                           pilot/docker/certs/cert.crt pilot/docker/certs/cert.key
 $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
@@ -81,7 +81,7 @@ $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
 # pilot docker imagesDOCKER_BUILD_TOP
 
 docker.eurekamirror: $(ISTIO_DOCKER)/pilot-test-eurekamirror
-docker.proxy_init: $(ISTIO_DOCKER)/prepare_proxy.sh
+docker.proxy_init: $(ISTIO_DOCKER)/istio-iptables.sh
 docker.sidecar_injector: $(ISTIO_DOCKER)/sidecar-injector
 
 docker.proxy: tools/deb/envoy_bootstrap_tmpl.json

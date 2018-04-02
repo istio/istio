@@ -74,7 +74,5 @@ spec:
           items:
           - key: config
             path: config
-    {{- if .Values.nodeSelector }}
-      nodeSelector:
-{{ toYaml .Values.nodeSelector | indent 8 }}
-    {{- end }}
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}
