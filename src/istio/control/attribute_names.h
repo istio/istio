@@ -72,7 +72,6 @@ struct AttributeName {
 
   // Authentication attributes
   static const char kRequestAuthPrincipal[];
-  static const char kRequestAuthUser[];
   static const char kRequestAuthAudiences[];
   static const char kRequestAuthPresenter[];
   static const char kRequestAuthClaims[];

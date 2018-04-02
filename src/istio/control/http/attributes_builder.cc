@@ -71,9 +71,6 @@ void AttributesBuilder::ExtractAuthAttributes(CheckData *check_data) {
     }
     if (authn_result.has_origin()) {
       const auto &origin = authn_result.origin();
-      if (!origin.user().empty()) {
-        builder.AddString(AttributeName::kRequestAuthUser, origin.user());
-      }
       if (!origin.audiences().empty()) {
         // TODO(diemtvu): this should be send as repeated field once mixer
         // support string_list (https://github.com/istio/istio/issues/2802) For
