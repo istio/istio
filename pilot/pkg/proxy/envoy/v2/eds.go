@@ -101,7 +101,7 @@ type EdsCluster struct {
 // TODO: add prom metrics !
 
 // Endpoints aggregate a DiscoveryResponse for pushing.
-func (s *DiscoveryServer) endpoints(clusterNames []string) *xdsapi.DiscoveryResponse {
+func (s *DiscoveryServer) endpoints(clusterNames []string, outRes []types.Any) *xdsapi.DiscoveryResponse {
 	out := &xdsapi.DiscoveryResponse{
 		// All resources for EDS ought to be of the type ClusterLoadAssignment
 		TypeUrl: EndpointType,
@@ -112,32 +112,10 @@ func (s *DiscoveryServer) endpoints(clusterNames []string) *xdsapi.DiscoveryResp
 		// will begin seeing results it deems to be good.
 		VersionInfo: versionInfo(),
 		Nonce:       nonce(),
-	}
-
-	out.Resources = make([]types.Any, 0, len(clusterNames))
-	for _, clusterName := range clusterNames {
-		clAssignmentRes := s.clusterEndpoints(clusterName)
-		if clAssignmentRes != nil {
-			out.Resources = append(out.Resources, *clAssignmentRes)
-		}
+		Resources:   outRes,
 	}
 
 	return out
-}
-
-// Get the ClusterLoadAssignment for a cluster.
-func (s *DiscoveryServer) clusterEndpoints(clusterName string) *types.Any {
-	c := s.getOrAddEdsCluster(clusterName)
-	l := loadAssignment(c)
-	if l == nil { // fresh cluster
-		updateCluster(clusterName, c)
-		l = loadAssignment(c)
-	}
-
-	// Previously computed load assignments. They are re-computed on cache invalidation or
-	// event, but don't have to be recomputed once for each sidecar.
-	clAssignmentRes, _ := types.MarshalAny(l)
-	return clAssignmentRes
 }
 
 // Return the load assignment. The field can be updated by another routine.
@@ -374,8 +352,34 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 
 	}
 }
+
 func (s *DiscoveryServer) pushEds(con *XdsConnection) error {
-	response := s.endpoints(con.Clusters)
+	epList := []*xdsapi.ClusterLoadAssignment{}
+	resAny := []types.Any{}
+
+	emptyClusters := 0
+	empty := []string{}
+
+	for _, clusterName := range con.Clusters {
+		c := s.getOrAddEdsCluster(clusterName)
+		l := loadAssignment(c)
+		if l == nil { // fresh cluster
+			updateCluster(clusterName, c)
+			l = loadAssignment(c)
+		}
+		if len(l.Endpoints) == 0 {
+			emptyClusters++
+			empty = append(empty, clusterName)
+		}
+		epList = append(epList, l)
+
+		// Previously computed load assignments. They are re-computed on cache invalidation or
+		// event, but don't have to be recomputed once for each sidecar.
+		clAssignmentRes, _ := types.MarshalAny(l)
+		resAny = append(resAny, *clAssignmentRes)
+	}
+
+	response := s.endpoints(con.Clusters, resAny)
 	err := con.stream.Send(response)
 	if err != nil {
 		log.Warnf("EDS: Send failure, closing grpc %v", err)
@@ -383,8 +387,8 @@ func (s *DiscoveryServer) pushEds(con *XdsConnection) error {
 	}
 
 	if edsDebug {
-		log.Infof("EDS: PUSH for %s %q clusters %d",
-			con.ConID, con.PeerAddr, len(con.Clusters))
+		log.Infof("EDS: PUSH for %s %q clusters %d empty %d %v",
+			con.ConID, con.PeerAddr, len(con.Clusters), emptyClusters, empty)
 	}
 	return nil
 }
