@@ -31,6 +31,9 @@ import (
 	"istio.io/istio/security/pkg/platform"
 	"istio.io/istio/security/pkg/workload"
 	pb "istio.io/istio/security/proto"
+	"crypto/x509"
+	"crypto/tls"
+	"google.golang.org/grpc/credentials"
 )
 
 // CAClient is a client to provision key and certificate from the upstream CA via CSR protocol.
@@ -90,10 +93,11 @@ func (s *TestCAServer) InvokeTimes() int {
 type TestCAServerOptions struct {
 	Response *pb.CsrResponse
 	Error    string
+	RootCert []byte
+	Certficiate []tls.Certificate
 }
 
 func NewTestCAServer(opts *TestCAServerOptions) (server *TestCAServer, addr string, err error) {
-	s := rgrpc.NewServer()
 	lis, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to allocate address for server %v", err)
@@ -102,6 +106,17 @@ func NewTestCAServer(opts *TestCAServerOptions) (server *TestCAServer, addr stri
 		response: opts.Response,
 		errorMsg: opts.Error,
 	}
+
+	cp := x509.NewCertPool()
+	cp.AppendCertsFromPEM(opts.RootCert)
+	config := &tls.Config{
+		ClientCAs:  cp,
+		ClientAuth: tls.VerifyClientCertIfGiven,
+		Certificates: opts.Certficiate,
+	}
+	srvOptions := rgrpc.Creds(credentials.NewTLS(config))
+	s := rgrpc.NewServer(srvOptions)
+
 	pb.RegisterIstioCAServiceServer(s, ca)
 	reflection.Register(s)
 	go s.Serve(lis)

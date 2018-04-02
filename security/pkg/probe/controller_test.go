@@ -24,10 +24,12 @@ import (
 
 	"istio.io/istio/pkg/probe"
 	caclient "istio.io/istio/security/pkg/caclient/grpc"
+	cac "istio.io/istio/security/pkg/caclient"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
 	pb "istio.io/istio/security/proto"
+	"crypto/tls"
 )
 
 type FakeCAGrpcClientImpl struct {
@@ -94,6 +96,18 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 			err:  c.err,
 		}
 
+		certBytes, privKeyBytes, _, rootCert := istioCA.GetCAKeyCertBundle().GetAllPem()
+		cert, err := tls.X509KeyPair(certBytes, privKeyBytes)
+		_, addr, err := cac.NewTestCAServer(&cac.TestCAServerOptions{
+			Response: c.resp,
+			RootCert: rootCert,
+			Certficiate: []tls.Certificate{cert},
+		})
+		if err != nil {
+			t.Errorf("jianfeih failed to create testing ca err %v", err)
+		}
+
+
 		var g interface{} = &mockClient
 		client, ok := g.(caclient.CAGrpcClient)
 		if !ok {
@@ -103,6 +117,7 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 		// test liveness probe check controller
 		controller, err := NewLivenessCheckController(
 			time.Minute,
+			addr,
 			"localhost",
 			1234,
 			istioCA,

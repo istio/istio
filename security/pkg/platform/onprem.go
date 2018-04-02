@@ -56,6 +56,7 @@ func NewOnPremClientImpl(rootCert, key, certChain string) (*OnPremClientImpl, er
 func (ci *OnPremClientImpl) GetDialOptions() ([]grpc.DialOption, error) {
 	transportCreds, err := getTLSCredentials(ci.rootCertFile,
 		ci.keyFile, ci.certChainFile)
+	fmt.Println("jianfeih debug onprem client impl ", transportCreds)
 	if err != nil {
 		return nil, err
 	}

@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
+	"fmt"
 )
 
 const (
@@ -43,6 +44,7 @@ type LivenessCheckController struct {
 	grpcPort           int
 	serviceIdentityOrg string
 	rsaKeySize         int
+	caAddress string
 	ca                 *ca.IstioCA
 	livenessProbe      *probe.Probe
 	client             grpc.CAGrpcClient
@@ -51,6 +53,7 @@ type LivenessCheckController struct {
 
 // NewLivenessCheckController creates the liveness check controller instance
 func NewLivenessCheckController(probeCheckInterval time.Duration,
+	caAddr string,
 	grpcHostname string, grpcPort int, ca *ca.IstioCA, livenessProbeOptions *probe.Options,
 	client grpc.CAGrpcClient) (*LivenessCheckController, error) {
 
@@ -64,6 +67,7 @@ func NewLivenessCheckController(probeCheckInterval time.Duration,
 
 	return &LivenessCheckController{
 		interval:      probeCheckInterval,
+		caAddress: caAddr,
 		grpcHostname:  grpcHostname,
 		grpcPort:      grpcPort,
 		rsaKeySize:    2048,
@@ -139,16 +143,21 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 	if err != nil {
 		return err
 	}
-	caclient, err := caclient.NewCAClient(pc, c.grpcHostname, 1, time.Second)
+	//addr := fmt.Sprintf("%v:%v", c.grpcHostname, c.grpcPort)
+	addr := c.caAddress
+	fmt.Println("jianfeih debug ca address ", addr)
+	cac, err := caclient.NewCAClient(pc, addr, 1, time.Second)
 	if err != nil {
 		return err
 	}
-	_, _, _, err = caclient.Retrieve(&util.CertOptions{
+	_, _, _, err = cac.Retrieve(&util.CertOptions{
 		Host:       LivenessProbeClientIdentity,
 		Org:        c.serviceIdentityOrg,
 		RSAKeySize: c.rsaKeySize,
 		TTL:        probeCheckRequestedTTLMinutes,
 	})
+	fmt.Println("jianfeih debug retrieve result ", err)
+
 	//csr, _, err := util.GenCSR(util.CertOptions{
 	//Host:       LivenessProbeClientIdentity,
 	//Org:        c.serviceIdentityOrg,
