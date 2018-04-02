@@ -78,7 +78,7 @@ func TestNewKeyCertBundleRotator(t *testing.T) {
 
 	for id, c := range testCases {
 		if c.config != nil {
-			addr, err := NewTestCAServer(&TestCAServerOptions{})
+			_, addr, err := NewTestCAServer(&TestCAServerOptions{})
 			if err != nil {
 				t.Errorf("failed to create ca server for test %v", err)
 			}

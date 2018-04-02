@@ -73,12 +73,14 @@ func NewCAClient(pltfmc platform.Client, ptclc grpc.CAGrpcClient, caAddr string,
 	}, nil
 }
 
-type fakeIstioCAServer struct {
+type TestCAServer struct {
 	response *pb.CsrResponse
 	errorMsg string
+	counter  int
 }
 
-func (s *fakeIstioCAServer) HandleCSR(ctx context.Context, req *pb.CsrRequest) (*pb.CsrResponse, error) {
+func (s *TestCAServer) HandleCSR(ctx context.Context, req *pb.CsrRequest) (*pb.CsrResponse, error) {
+	s.counter++
 	if len(s.errorMsg) > 0 {
 		return nil, fmt.Errorf(s.errorMsg)
 	}
@@ -88,32 +90,29 @@ func (s *fakeIstioCAServer) HandleCSR(ctx context.Context, req *pb.CsrRequest) (
 	return &pb.CsrResponse{}, nil
 }
 
+func (s *TestCAServer) InvokeTimes() int {
+	return s.counter
+}
+
 type TestCAServerOptions struct {
 	Response *pb.CsrResponse
 	Error    string
 }
 
-func NewTestCAServer(opts *TestCAServerOptions) (addr string, err error) {
+func NewTestCAServer(opts *TestCAServerOptions) (server *TestCAServer, addr string, err error) {
 	s := rgrpc.NewServer()
 	lis, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
-		return "", fmt.Errorf("failed to allocate address for server %v", err)
+		return nil, "", fmt.Errorf("failed to allocate address for server %v", err)
 	}
-	pb.RegisterIstioCAServiceServer(s, &fakeIstioCAServer{
+	ca := &TestCAServer{
 		response: opts.Response,
 		errorMsg: opts.Error,
-	})
+	}
+	pb.RegisterIstioCAServiceServer(s, ca)
 	reflection.Register(s)
 	go s.Serve(lis)
-	//go func() {
-	//defer func() {
-	//s.Stop()
-	//}()
-	//if err := s.Serve(lis); err != nil {
-	//t.Errorf("failed to serve: %v", err)
-	//}
-	//}()
-	return lis.Addr().String(), nil
+	return ca, lis.Addr().String(), nil
 }
 
 // Retrieve sends the CSR to Istio CA with automatic retries. When successful, it returns the generated key

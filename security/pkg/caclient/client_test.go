@@ -121,7 +121,7 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 	}
 
 	for id, c := range testCases {
-		addr, err := NewTestCAServer(c.caOptions)
+		ca, addr, err := NewTestCAServer(c.caOptions)
 		if err != nil {
 			t.Errorf("failed to setup test ca server %v", err)
 		}
@@ -152,10 +152,9 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 			t.Errorf("Test case [%s]: cert chain content incorrect: %s VS (expected) %s",
 				id, certChain, c.expectedCertChain)
 		}
-		// TODO: only test state, not interactions, having different retry and different server state to achieve this.
-		//if c.ptclc.Counter != c.sendTimes {
-		//t.Errorf("Test case [%s]: sendCSR is called incorrect times: %d VS (expected) %d",
-		//id, c.ptclc.Counter, c.sendTimes)
-		//}
+		if ca.InvokeTimes() != c.sendTimes {
+			t.Errorf("Test case [%s]: sendCSR is called incorrect times: %d VS (expected) %d",
+				id, c.ptclc.Counter, c.sendTimes)
+		}
 	}
 }
