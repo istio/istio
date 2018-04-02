@@ -13,11 +13,13 @@
  * limitations under the License.
  */
 
+#include "envoy/config/filter/http/jwt_authn/v2alpha/config.pb.validate.h"
 #include "envoy/registry/registry.h"
 #include "google/protobuf/util/json_util.h"
 #include "src/envoy/http/jwt_auth/auth_store.h"
-#include "src/envoy/http/jwt_auth/config.pb.validate.h"
 #include "src/envoy/http/jwt_auth/http_filter.h"
+
+using ::envoy::config::filter::http::jwt_authn::v2alpha::JwtAuthentication;
 
 namespace Envoy {
 namespace Server {
@@ -28,7 +30,7 @@ class JwtVerificationFilterConfig : public NamedHttpFilterConfigFactory {
   HttpFilterFactoryCb createFilterFactory(const Json::Object& config,
                                           const std::string&,
                                           FactoryContext& context) override {
-    Http::JwtAuth::Config::AuthFilterConfig proto_config;
+    JwtAuthentication proto_config;
     MessageUtil::loadFromJson(config.asJsonString(), proto_config);
     return createFilter(proto_config, context);
   }
@@ -37,22 +39,20 @@ class JwtVerificationFilterConfig : public NamedHttpFilterConfigFactory {
       const Protobuf::Message& proto_config, const std::string&,
       FactoryContext& context) override {
     return createFilter(
-        MessageUtil::downcastAndValidate<
-            const Http::JwtAuth::Config::AuthFilterConfig&>(proto_config),
+        MessageUtil::downcastAndValidate<const JwtAuthentication&>(
+            proto_config),
         context);
   }
 
   ProtobufTypes::MessagePtr createEmptyConfigProto() override {
-    return ProtobufTypes::MessagePtr{
-        new Http::JwtAuth::Config::AuthFilterConfig};
+    return ProtobufTypes::MessagePtr{new JwtAuthentication};
   }
 
   std::string name() override { return "jwt-auth"; }
 
  private:
-  HttpFilterFactoryCb createFilter(
-      const Http::JwtAuth::Config::AuthFilterConfig& proto_config,
-      FactoryContext& context) {
+  HttpFilterFactoryCb createFilter(const JwtAuthentication& proto_config,
+                                   FactoryContext& context) {
     auto store_factory = std::make_shared<Http::JwtAuth::JwtAuthStoreFactory>(
         proto_config, context);
     Upstream::ClusterManager& cm = context.clusterManager();

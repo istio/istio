@@ -23,26 +23,17 @@ load(
     "envoy_cc_library",
     "envoy_cc_test",
 )
-load(
-    "@envoy_api//bazel:api_build_system.bzl",
-    "api_proto_library",
-)
-
-api_proto_library(
-    name = "config_proto",
-    srcs = [":config.proto"],
-    require_py = 0,
-    visibility = ["//visibility:public"],
-)
 
 envoy_cc_library(
     name = "jwt_lib",
     srcs = ["jwt.cc"],
     hdrs = ["jwt.h"],
+    external_deps = [
+        "rapidjson",
+        "ssl",
+    ],
     repository = "@envoy",
     deps = [
-        "//external:rapidjson",
-        "//external:ssl",
         "@envoy//source/exe:envoy_common_lib",
     ],
 )
@@ -61,8 +52,8 @@ envoy_cc_library(
     ],
     repository = "@envoy",
     deps = [
-        ":config_proto_cc",
         ":jwt_lib",
+        "@envoy_api//envoy/config/filter/http/jwt_authn/v2alpha:jwt_authn_cc",
         "@envoy//source/exe:envoy_common_lib",
     ],
 )

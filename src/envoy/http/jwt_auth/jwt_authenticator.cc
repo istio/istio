@@ -120,7 +120,7 @@ void JwtAuthenticator::Verify(HeaderMap& headers,
 }
 
 void JwtAuthenticator::FetchPubkey(PubkeyCacheItem* issuer) {
-  uri_ = issuer->jwt_config().jwks_uri();
+  uri_ = issuer->jwt_config().remote_jwks().http_uri().uri();
   std::string host, path;
   ExtractUriHostPath(uri_, &host, &path);
 
@@ -130,7 +130,7 @@ void JwtAuthenticator::FetchPubkey(PubkeyCacheItem* issuer) {
   message->headers().insertPath().value(path);
   message->headers().insertHost().value(host);
 
-  const auto& cluster = issuer->jwt_config().jwks_uri_envoy_cluster();
+  const auto& cluster = issuer->jwt_config().remote_jwks().http_uri().cluster();
   if (cm_.get(cluster) == nullptr) {
     DoneWithStatus(Status::FAILED_FETCH_PUBKEY);
     return;
@@ -195,9 +195,10 @@ void JwtAuthenticator::VerifyKey(const PubkeyCacheItem& issuer_item) {
     return;
   }
 
+  // TODO: check forward_payload_header.
   headers_->addReferenceKey(kJwtPayloadKey, jwt_->PayloadStrBase64Url());
 
-  if (!issuer_item.jwt_config().forward_jwt()) {
+  if (!issuer_item.jwt_config().forward()) {
     // Remove JWT from headers.
     token_->Remove(headers_);
   }
@@ -206,21 +207,11 @@ void JwtAuthenticator::VerifyKey(const PubkeyCacheItem& issuer_item) {
 }
 
 bool JwtAuthenticator::OkToBypass() {
-  for (const auto& bypass : store_.config().bypass_jwt()) {
-    if (headers_->Method() && headers_->Path() &&
-        // Http method should always match
-        bypass.http_method() == headers_->Method()->value().c_str()) {
-      if (!bypass.path_exact().empty() &&
-          bypass.path_exact() == headers_->Path()->value().c_str()) {
-        return true;
-      }
-      if (!bypass.path_prefix().empty() &&
-          StringUtil::startsWith(headers_->Path()->value().c_str(),
-                                 bypass.path_prefix())) {
-        return true;
-      }
-    }
+  if (store_.config().allow_missing_or_failed()) {
+    return true;
   }
+
+  // TODO: use bypass field
   return false;
 }
 

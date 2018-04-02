@@ -43,6 +43,7 @@ envoy_cc_library(
         "//src/envoy/utils:authn_lib",
         "//src/envoy/utils:utils_lib",
         "//src/istio/control/http:control_lib",
+        "@envoy_api//envoy/config/filter/http/jwt_authn/v2alpha:jwt_authn_cc",
         "@envoy//source/exe:envoy_common_lib",
     ],
 )

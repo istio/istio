@@ -17,6 +17,8 @@
 #include "common/common/utility.h"
 #include "common/http/utility.h"
 
+using ::envoy::config::filter::http::jwt_authn::v2alpha::JwtAuthentication;
+
 namespace Envoy {
 namespace Http {
 namespace JwtAuth {
@@ -30,19 +32,19 @@ const std::string kParamAccessToken = "access_token";
 
 }  // namespace
 
-JwtTokenExtractor::JwtTokenExtractor(const Config::AuthFilterConfig& config) {
-  for (const auto& jwt : config.jwts()) {
+JwtTokenExtractor::JwtTokenExtractor(const JwtAuthentication& config) {
+  for (const auto& jwt : config.rules()) {
     bool use_default = true;
-    if (jwt.jwt_headers_size() > 0) {
+    if (jwt.from_headers_size() > 0) {
       use_default = false;
-      for (const std::string& header : jwt.jwt_headers()) {
-        auto& issuers = header_maps_[LowerCaseString(header)];
+      for (const auto& header : jwt.from_headers()) {
+        auto& issuers = header_maps_[LowerCaseString(header.name())];
         issuers.insert(jwt.issuer());
       }
     }
-    if (jwt.jwt_params_size() > 0) {
+    if (jwt.from_params_size() > 0) {
       use_default = false;
-      for (const std::string& param : jwt.jwt_params()) {
+      for (const std::string& param : jwt.from_params()) {
         auto& issuers = param_maps_[param];
         issuers.insert(jwt.issuer());
       }

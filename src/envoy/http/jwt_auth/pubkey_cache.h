@@ -18,7 +18,7 @@
 #include <chrono>
 #include <unordered_map>
 
-#include "src/envoy/http/jwt_auth/config.pb.h"
+#include "envoy/config/filter/http/jwt_authn/v2alpha/config.pb.h"
 #include "src/envoy/http/jwt_auth/jwt.h"
 
 namespace Envoy {
@@ -38,7 +38,10 @@ const std::string kHTTPSSchemePrefix("https://");
 // Struct to hold an issuer cache item.
 class PubkeyCacheItem {
  public:
-  PubkeyCacheItem(const Config::JWT& jwt_config) : jwt_config_(jwt_config) {
+  PubkeyCacheItem(
+      const ::envoy::config::filter::http::jwt_authn::v2alpha::JwtRule&
+          jwt_config)
+      : jwt_config_(jwt_config) {
     // Convert proto repeated fields to std::set.
     for (const auto& aud : jwt_config_.audiences()) {
       audiences_.insert(SanitizeAudience(aud));
@@ -51,7 +54,10 @@ class PubkeyCacheItem {
   }
 
   // Get the JWT config.
-  const Config::JWT& jwt_config() const { return jwt_config_; }
+  const ::envoy::config::filter::http::jwt_authn::v2alpha::JwtRule& jwt_config()
+      const {
+    return jwt_config_;
+  }
 
   // Get the pubkey object.
   const Pubkeys* pubkey() const { return pubkey_.get(); }
@@ -78,8 +84,8 @@ class PubkeyCacheItem {
     pubkey_ = std::move(pubkey);
 
     expiration_time_ = std::chrono::steady_clock::now();
-    if (jwt_config_.has_public_key_cache_duration()) {
-      const auto& duration = jwt_config_.public_key_cache_duration();
+    if (jwt_config_.remote_jwks().has_cache_duration()) {
+      const auto& duration = jwt_config_.remote_jwks().cache_duration();
       expiration_time_ += std::chrono::seconds(duration.seconds()) +
                           std::chrono::nanoseconds(duration.nanos());
     } else {
@@ -116,7 +122,7 @@ class PubkeyCacheItem {
   }
 
   // The issuer config
-  const Config::JWT& jwt_config_;
+  const ::envoy::config::filter::http::jwt_authn::v2alpha::JwtRule& jwt_config_;
   // Use set for fast lookup
   std::set<std::string> audiences_;
   // The generated pubkey object.
@@ -129,8 +135,9 @@ class PubkeyCacheItem {
 class PubkeyCache {
  public:
   // Load the config from envoy config.
-  PubkeyCache(const Config::AuthFilterConfig& config) {
-    for (const auto& jwt : config.jwts()) {
+  PubkeyCache(const ::envoy::config::filter::http::jwt_authn::v2alpha::
+                  JwtAuthentication& config) {
+    for (const auto& jwt : config.rules()) {
       pubkey_cache_map_.emplace(jwt.issuer(), jwt);
     }
   }

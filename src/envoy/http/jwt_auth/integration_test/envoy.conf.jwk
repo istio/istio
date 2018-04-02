@@ -34,17 +34,21 @@
                 "type": "decoder",
                 "name": "jwt-auth",
                 "config": {
-                   "jwts": [
+                   "rules": [
                      {
                         "issuer": "https://example.com",
                         "audiences": [
                            "example_service"
                          ],
-                        "jwks_uri": "http://example.com/foobar_cert",
-                        "jwks_uri_envoy_cluster": "example_issuer"
-                     }
+                         "remote_jwks": {
+                           "http_uri": {
+                             "uri": "http://example.com/foobar_cert",
+                             "cluster": "example_issuer"
+                          }
+                        }
+                      }
                    ]
-                }
+                 }
               },
               {
                 "type": "decoder",

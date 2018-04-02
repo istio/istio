@@ -17,6 +17,7 @@
 #include "gtest/gtest.h"
 #include "test/test_common/utility.h"
 
+using ::envoy::config::filter::http::jwt_authn::v2alpha::JwtAuthentication;
 using ::testing::Invoke;
 using ::testing::NiceMock;
 using ::testing::_;
@@ -28,32 +29,32 @@ namespace {
 
 const char kExampleConfig[] = R"(
 {
-   "jwts": [
+   "rules": [
       {
-         "issuer": "issuer1",
-         "jwks_uri": "uri1"
+         "issuer": "issuer1"
       },
       {
          "issuer": "issuer2",
-         "jwks_uri": "uri2",
-         "jwt_headers": [
-             "token-header"
+         "from_headers": [
+             {
+                "name": "token-header"
+             }
          ]
       },
       {
          "issuer": "issuer3",
-         "jwks_uri": "uri3",
-         "jwt_params": [
+         "from_params": [
              "token_param"
          ]
       },
       {
          "issuer": "issuer4",
-         "jwks_uri": "uri1",
-         "jwt_headers": [
-             "token-header"
+         "from_headers": [
+             {
+                 "name": "token-header"
+             }
          ],
-         "jwt_params": [
+         "from_params": [
              "token_param"
          ]
       }
@@ -74,7 +75,7 @@ class JwtTokenExtractorTest : public ::testing::Test {
     extractor_.reset(new JwtTokenExtractor(config_));
   }
 
-  Config::AuthFilterConfig config_;
+  JwtAuthentication config_;
   std::unique_ptr<JwtTokenExtractor> extractor_;
 };
 
