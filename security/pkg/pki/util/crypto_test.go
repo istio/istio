@@ -288,7 +288,7 @@ func TestGetRSAKeySize(t *testing.T) {
 		"Failure with non-RSA key": {
 			pem:    keyECDSA,
 			size:   0,
-			errMsg: "Key type is not RSA key: *ecdsa.PrivateKey",
+			errMsg: "key type is not RSA: *ecdsa.PrivateKey",
 		},
 	}
 
