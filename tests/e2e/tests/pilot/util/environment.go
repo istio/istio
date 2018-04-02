@@ -54,8 +54,8 @@ import (
 
 const (
 	ingressSecretName   = "istio-ingress-certs"
-	mixerConfigFile     = "/etc/istio/proxy/envoy_mixer.json"
-	mixerConfigAuthFile = "/etc/istio/proxy/envoy_mixer_auth.json"
+	mixerConfigFile     = "/etc/istio/proxy/envoy_istio_policy.json"
+	mixerConfigAuthFile = "/etc/istio/proxy/envoy_istio_policy_auth.json"
 	pilotConfigFile     = "/etc/istio/proxy/envoy_pilot.json"
 	pilotConfigAuthFile = "/etc/istio/proxy/envoy_pilot_auth.json"
 )
