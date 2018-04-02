@@ -294,7 +294,7 @@ func TranslateRoute(in *networking.HTTPRoute,
 		}
 
 		if len(in.AppendHeaders) > 0 {
-			action.RequestHeadersToAdd = make([]*core.HeaderValueOption, len(in.AppendHeaders))
+			action.RequestHeadersToAdd = make([]*core.HeaderValueOption, 0)
 			for key, value := range in.AppendHeaders {
 				action.RequestHeadersToAdd = append(action.RequestHeadersToAdd, &core.HeaderValueOption{
 					Header: &core.HeaderValue{
@@ -309,11 +309,15 @@ func TranslateRoute(in *networking.HTTPRoute,
 			action.RequestMirrorPolicy = &route.RouteAction_RequestMirrorPolicy{Cluster: name(in.Mirror)}
 		}
 
-		weighted := make([]*route.WeightedCluster_ClusterWeight, len(in.Route))
+		weighted := make([]*route.WeightedCluster_ClusterWeight, 0)
 		for _, dst := range in.Route {
+			weight := &types.UInt32Value{Value: uint32(dst.Weight)}
+			if dst.Weight == 0 {
+				weight.Value = uint32(100)
+			}
 			weighted = append(weighted, &route.WeightedCluster_ClusterWeight{
 				Name:   name(dst.Destination),
-				Weight: &types.UInt32Value{Value: uint32(dst.Weight)},
+				Weight: weight,
 			})
 		}
 
