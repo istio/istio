@@ -53,31 +53,31 @@ func TestBuildJwtFilter(t *testing.T) {
 				Name: "jwt-auth",
 				Config: &types.Struct{
 					Fields: map[string]*types.Value{
-						"allow_missing_or_failed": &types.Value{Kind: &types.Value_BoolValue{BoolValue: true}},
-						"rules": &types.Value{
+						"allow_missing_or_failed": {Kind: &types.Value_BoolValue{BoolValue: true}},
+						"rules": {
 							Kind: &types.Value_ListValue{
 								ListValue: &types.ListValue{
 									Values: []*types.Value{
-										&types.Value{
+										{
 											Kind: &types.Value_StructValue{
 												StructValue: &types.Struct{
 													Fields: map[string]*types.Value{
-														"forward": &types.Value{Kind: &types.Value_BoolValue{BoolValue: true}},
-														"remote_jwks": &types.Value{
+														"forward": {Kind: &types.Value_BoolValue{BoolValue: true}},
+														"remote_jwks": {
 															Kind: &types.Value_StructValue{
 																StructValue: &types.Struct{
 																	Fields: map[string]*types.Value{
-																		"cache_duration": &types.Value{
+																		"cache_duration": {
 																			Kind: &types.Value_StringValue{StringValue: "300.000s"},
 																		},
-																		"http_uri": &types.Value{
+																		"http_uri": {
 																			Kind: &types.Value_StructValue{
 																				StructValue: &types.Struct{
 																					Fields: map[string]*types.Value{
-																						"cluster": &types.Value{
+																						"cluster": {
 																							Kind: &types.Value_StringValue{StringValue: "jwks.abc.com|http"},
 																						},
-																						"uri": &types.Value{
+																						"uri": {
 																							Kind: &types.Value_StringValue{StringValue: "http://abc.com"},
 																						},
 																					},
