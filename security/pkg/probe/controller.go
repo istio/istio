@@ -15,7 +15,6 @@
 package probe
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -24,11 +23,11 @@ import (
 	"google.golang.org/grpc/balancer"
 
 	"istio.io/istio/pkg/probe"
+	"istio.io/istio/security/pkg/caclient"
 	"istio.io/istio/security/pkg/caclient/grpc"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
-	pb "istio.io/istio/security/proto"
 )
 
 const (
@@ -47,6 +46,7 @@ type LivenessCheckController struct {
 	ca                 *ca.IstioCA
 	livenessProbe      *probe.Probe
 	client             grpc.CAGrpcClient
+	// caclient           *caclient.Client
 }
 
 // NewLivenessCheckController creates the liveness check controller instance
@@ -139,30 +139,39 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 	if err != nil {
 		return err
 	}
-
-	csr, _, err := util.GenCSR(util.CertOptions{
+	caclient, err := caclient.NewCAClient(pc, c.grpcHostname, 1, time.Second)
+	if err != nil {
+		return err
+	}
+	_, _, _, err = caclient.Retrieve(&util.CertOptions{
 		Host:       LivenessProbeClientIdentity,
 		Org:        c.serviceIdentityOrg,
 		RSAKeySize: c.rsaKeySize,
+		TTL:        probeCheckRequestedTTLMinutes,
 	})
+	//csr, _, err := util.GenCSR(util.CertOptions{
+	//Host:       LivenessProbeClientIdentity,
+	//Org:        c.serviceIdentityOrg,
+	//RSAKeySize: c.rsaKeySize,
+	//})
 
-	if err != nil {
-		return err
-	}
+	//if err != nil {
+	//return err
+	//}
 
-	cred, err := pc.GetAgentCredential()
-	if err != nil {
-		return err
-	}
+	//cred, err := pc.GetAgentCredential()
+	//if err != nil {
+	//return err
+	//}
 
-	req := &pb.CsrRequest{
-		CsrPem:              csr,
-		NodeAgentCredential: cred,
-		CredentialType:      pc.GetCredentialType(),
-		RequestedTtlMinutes: probeCheckRequestedTTLMinutes,
-	}
+	//req := &pb.CsrRequest{
+	//CsrPem:              csr,
+	//NodeAgentCredential: cred,
+	//CredentialType:      pc.GetCredentialType(),
+	//RequestedTtlMinutes: probeCheckRequestedTTLMinutes,
+	//}
 
-	_, err = c.client.SendCSR(req, pc, fmt.Sprintf("%v:%v", c.grpcHostname, c.grpcPort))
+	//_, err = c.client.SendCSR(req, pc, fmt.Sprintf("%v:%v", c.grpcHostname, c.grpcPort))
 	if err != nil && strings.Contains(err.Error(), balancer.ErrTransientFailure.Error()) {
 		return nil
 	}
