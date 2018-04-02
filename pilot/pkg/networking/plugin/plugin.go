@@ -62,10 +62,10 @@ type CallbackListenerMutableObjects struct {
 	Listener *xdsapi.Listener
 }
 
-// ListenerPlugin is a plugin called during the construction of a xdsapi.Listener which may alter the Listener in any
+// Plugin is called during the construction of a xdsapi.Listener which may alter the Listener in any
 // way. Examples include AuthenticationPlugin that sets up mTLS authentication on the inbound Listener
 // and outbound Cluster, the mixer plugin that sets up policy checks on the inbound listener, etc.
-type ListenerPlugin interface {
+type Plugin interface {
 	// OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service
 	// Can be used to add additional filters on the outbound path.
 	OnOutboundListener(in *CallbackListenerInputParams, mutable *CallbackListenerMutableObjects) error
