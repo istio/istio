@@ -3,7 +3,7 @@ title: Policy and Telemetry Rules
 overview: Describes the rules used to configure Mixer's policy and telemetry features.
 location: https://istio.io/docs/reference/config/istio.policy.v1beta1.html
 layout: protoc-gen-docs
-number_of_entries: 8
+number_of_entries: 9
 ---
 <p>Describes the rules used to configure Mixer&rsquo;s policy and telemetry features.</p>
 
@@ -179,17 +179,82 @@ encoding scheme will be decided later.</p>
 </tbody>
 </table>
 </section>
+<h2 id="Connection">Connection</h2>
+<section>
+<p>Connection allows the operator to specify the endpoint for out-of-process infrastructure backend.
+Connection is part of the handler custom resource and is specified alongside adapter specific configuration.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Connection.address">
+<td><code>address</code></td>
+<td><code>string</code></td>
+<td>
+<p>The address of the backend.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
 <h2 id="Handler">Handler</h2>
 <section>
 <p>Handler allows the operator to configure a specific adapter implementation.
 Each adapter implementation defines its own <code>params</code> proto.</p>
 
-<p>In the following example we define a <code>metrics</code> handler using the Mixer&rsquo;s prepackaged
-prometheus adapter. This handler doesn&rsquo;t require any parameters.</p>
+<p>In the following example we define a <code>metrics</code> handler for the <code>prometheus</code> adapter.
+The example is in the form of a kubernetes resource:
+* The <code>metadata.name</code> is the name of the handler
+* The <code>kind</code> refers to the adapter name
+* The <code>spec</code> block represents adapter-specific configuration as well as the connection information</p>
 
-<pre><code class="language-yaml">name: prometheus-handler
-adapter: prometheus
-params:
+<pre><code class="language-yaml">### Sample-1: No connection specified (for compiled in adapters)
+### Note: if connection information is not specified, the adapter configuration is directly inside
+### `spec` block. This is going to be DEPRECATED in favor of Sample-2
+apiVersion: &quot;config.istio.io/v1alpha2&quot;
+kind: prometheus
+metadata:
+  name: handler
+  namespace: istio-system
+spec:
+  metrics:
+  - name: request_count
+    instance_name: requestcount.metric.istio-system
+    kind: COUNTER
+    label_names:
+    - source_service
+    - source_version
+    - destination_service
+    - destination_version
+---
+### Sample-2: With connection information (for out-of-process adapters)
+### Note: Unlike sample-1, the adapter configuration is parallel to `connection` and is nested inside `param` block.
+apiVersion: &quot;config.istio.io/v1alpha2&quot;
+kind: prometheus
+metadata:
+  name: handler
+  namespace: istio-system
+spec:
+  param:
+    metrics:
+    - name: request_count
+      instance_name: requestcount.metric.istio-system
+      kind: COUNTER
+      label_names:
+      - source_service
+      - source_version
+      - destination_service
+      - destination_version
+  connection:
+    address: localhost:8090
+---
 </code></pre>
 
 <table class="message-fields">
@@ -225,6 +290,15 @@ implementation name is typically a constant in its code.</p>
 <td>
 <p>Optional. Depends on adapter implementation. Struct representation of a
 proto defined by the adapter implementation; this varies depending on the value of field <code>adapter</code>.</p>
+
+</td>
+</tr>
+<tr id="Handler.connection">
+<td><code>connection</code></td>
+<td><code><a href="#Connection">Connection</a></code></td>
+<td>
+<p>Optional. Information on how to connect to the out-of-process adapter.
+This is used if the adapter is not compiled into Mixer binary and is running as a separate process.</p>
 
 </td>
 </tr>

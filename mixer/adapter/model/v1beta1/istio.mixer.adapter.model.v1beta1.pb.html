@@ -285,6 +285,26 @@ example: mycompany-denier</p>
 
 </td>
 </tr>
+<tr id="Info.session_based">
+<td><code>sessionBased</code></td>
+<td><code>bool</code></td>
+<td>
+<p>True if backend has implemented the
+<a href="https://github.com/istio/api/blob/master/mixer/adapter/model/v1beta1/infrastructure_backend.proto">InfrastructureBackend</a>
+service; false otherwise.</p>
+
+<p>If true, during configuration time, Mixer calls the <code>InfrastructureBackend</code>&rsquo; rpcs
+to validate and pass the handler configuration. And during request-time, Mixer does not pass the handler
+configuration, and only passes the template-specific Instance payload using the template-specific handle service (Example
+<a href="https://github.com/istio/istio/blob/master/mixer/template/metric/template_handler_service.proto">HandlerMetricService</a>,
+<a href="https://github.com/istio/istio/blob/master/mixer/template/logentry/template_handler_service.proto">HandlerListEntryService</a>,
+<a href="https://github.com/istio/istio/blob/master/mixer/template/quota/template_handler_service.proto">HandleQuotaService</a> and more).
+If <code>session_based</code> is false, Mixer does not expect backend to implement <code>InfrastructureBackend</code> service, and
+only communicates with the backends during request-time through the template-specific handle service. Without
+<code>InfrastructureBackend</code> service, Mixer passes the handler configuration on each call during request-time.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>

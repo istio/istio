@@ -21,7 +21,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='policy/v1beta1/cfg.proto',
   package='istio.policy.v1beta1',
   syntax='proto3',
-  serialized_pb=_b('\n\x18policy/v1beta1/cfg.proto\x12\x14istio.policy.v1beta1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fpolicy/v1beta1/value_type.proto\"\xc5\x02\n\x11\x41ttributeManifest\x12\x10\n\x08revision\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12K\n\nattributes\x18\x03 \x03(\x0b\x32\x37.istio.policy.v1beta1.AttributeManifest.AttributesEntry\x1aY\n\rAttributeInfo\x12\x13\n\x0b\x64\x65scription\x18\x01 \x01(\t\x12\x33\n\nvalue_type\x18\x02 \x01(\x0e\x32\x1f.istio.policy.v1beta1.ValueType\x1ah\n\x0f\x41ttributesEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x44\n\x05value\x18\x02 \x01(\x0b\x32\x35.istio.policy.v1beta1.AttributeManifest.AttributeInfo:\x02\x38\x01\"D\n\x04Rule\x12\r\n\x05match\x18\x01 \x01(\t\x12-\n\x07\x61\x63tions\x18\x02 \x03(\x0b\x32\x1c.istio.policy.v1beta1.Action\",\n\x06\x41\x63tion\x12\x0f\n\x07handler\x18\x02 \x01(\t\x12\x11\n\tinstances\x18\x03 \x03(\t\"S\n\x08Instance\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x10\n\x08template\x18\x02 \x01(\t\x12\'\n\x06params\x18\x03 \x01(\x0b\x32\x17.google.protobuf.Struct\"Q\n\x07Handler\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07\x61\x64\x61pter\x18\x02 \x01(\t\x12\'\n\x06params\x18\x03 \x01(\x0b\x32\x17.google.protobuf.StructB\x1dZ\x1bistio.io/api/policy/v1beta1b\x06proto3')
+  serialized_pb=_b('\n\x18policy/v1beta1/cfg.proto\x12\x14istio.policy.v1beta1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fpolicy/v1beta1/value_type.proto\"\xc5\x02\n\x11\x41ttributeManifest\x12\x10\n\x08revision\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12K\n\nattributes\x18\x03 \x03(\x0b\x32\x37.istio.policy.v1beta1.AttributeManifest.AttributesEntry\x1aY\n\rAttributeInfo\x12\x13\n\x0b\x64\x65scription\x18\x01 \x01(\t\x12\x33\n\nvalue_type\x18\x02 \x01(\x0e\x32\x1f.istio.policy.v1beta1.ValueType\x1ah\n\x0f\x41ttributesEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x44\n\x05value\x18\x02 \x01(\x0b\x32\x35.istio.policy.v1beta1.AttributeManifest.AttributeInfo:\x02\x38\x01\"D\n\x04Rule\x12\r\n\x05match\x18\x01 \x01(\t\x12-\n\x07\x61\x63tions\x18\x02 \x03(\x0b\x32\x1c.istio.policy.v1beta1.Action\",\n\x06\x41\x63tion\x12\x0f\n\x07handler\x18\x02 \x01(\t\x12\x11\n\tinstances\x18\x03 \x03(\t\"S\n\x08Instance\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x10\n\x08template\x18\x02 \x01(\t\x12\'\n\x06params\x18\x03 \x01(\x0b\x32\x17.google.protobuf.Struct\"\x87\x01\n\x07Handler\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07\x61\x64\x61pter\x18\x02 \x01(\t\x12\'\n\x06params\x18\x03 \x01(\x0b\x32\x17.google.protobuf.Struct\x12\x34\n\nconnection\x18\x04 \x01(\x0b\x32 .istio.policy.v1beta1.Connection\"\x1d\n\nConnection\x12\x0f\n\x07\x61\x64\x64ress\x18\x02 \x01(\tB\x1dZ\x1bistio.io/api/policy/v1beta1b\x06proto3')
   ,
   dependencies=[google_dot_protobuf_dot_struct__pb2.DESCRIPTOR,policy_dot_v1beta1_dot_value__type__pb2.DESCRIPTOR,])
 
@@ -296,6 +296,13 @@ _HANDLER = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='connection', full_name='istio.policy.v1beta1.Handler.connection', index=3,
+      number=4, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
@@ -308,8 +315,39 @@ _HANDLER = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=642,
-  serialized_end=723,
+  serialized_start=643,
+  serialized_end=778,
+)
+
+
+_CONNECTION = _descriptor.Descriptor(
+  name='Connection',
+  full_name='istio.policy.v1beta1.Connection',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='address', full_name='istio.policy.v1beta1.Connection.address', index=0,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=780,
+  serialized_end=809,
 )
 
 _ATTRIBUTEMANIFEST_ATTRIBUTEINFO.fields_by_name['value_type'].enum_type = policy_dot_v1beta1_dot_value__type__pb2._VALUETYPE
@@ -320,11 +358,13 @@ _ATTRIBUTEMANIFEST.fields_by_name['attributes'].message_type = _ATTRIBUTEMANIFES
 _RULE.fields_by_name['actions'].message_type = _ACTION
 _INSTANCE.fields_by_name['params'].message_type = google_dot_protobuf_dot_struct__pb2._STRUCT
 _HANDLER.fields_by_name['params'].message_type = google_dot_protobuf_dot_struct__pb2._STRUCT
+_HANDLER.fields_by_name['connection'].message_type = _CONNECTION
 DESCRIPTOR.message_types_by_name['AttributeManifest'] = _ATTRIBUTEMANIFEST
 DESCRIPTOR.message_types_by_name['Rule'] = _RULE
 DESCRIPTOR.message_types_by_name['Action'] = _ACTION
 DESCRIPTOR.message_types_by_name['Instance'] = _INSTANCE
 DESCRIPTOR.message_types_by_name['Handler'] = _HANDLER
+DESCRIPTOR.message_types_by_name['Connection'] = _CONNECTION
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 AttributeManifest = _reflection.GeneratedProtocolMessageType('AttributeManifest', (_message.Message,), dict(
@@ -377,6 +417,13 @@ Handler = _reflection.GeneratedProtocolMessageType('Handler', (_message.Message,
   # @@protoc_insertion_point(class_scope:istio.policy.v1beta1.Handler)
   ))
 _sym_db.RegisterMessage(Handler)
+
+Connection = _reflection.GeneratedProtocolMessageType('Connection', (_message.Message,), dict(
+  DESCRIPTOR = _CONNECTION,
+  __module__ = 'policy.v1beta1.cfg_pb2'
+  # @@protoc_insertion_point(class_scope:istio.policy.v1beta1.Connection)
+  ))
+_sym_db.RegisterMessage(Connection)
 
 
 DESCRIPTOR.has_options = True

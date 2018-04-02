@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='mixer/adapter/model/v1beta1/info.proto',
   package='istio.mixer.adapter.model.v1beta1',
   syntax='proto3',
-  serialized_pb=_b('\n&mixer/adapter/model/v1beta1/info.proto\x12!istio.mixer.adapter.model.v1beta1\"L\n\x04Info\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x02 \x01(\t\x12\x11\n\ttemplates\x18\x03 \x03(\t\x12\x0e\n\x06\x63onfig\x18\x04 \x01(\tB*Z(istio.io/api/mixer/adapter/model/v1beta1b\x06proto3')
+  serialized_pb=_b('\n&mixer/adapter/model/v1beta1/info.proto\x12!istio.mixer.adapter.model.v1beta1\"c\n\x04Info\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x02 \x01(\t\x12\x11\n\ttemplates\x18\x03 \x03(\t\x12\x0e\n\x06\x63onfig\x18\x04 \x01(\t\x12\x15\n\rsession_based\x18\x05 \x01(\x08\x42*Z(istio.io/api/mixer/adapter/model/v1beta1b\x06proto3')
 )
 
 
@@ -60,6 +60,13 @@ _INFO = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='session_based', full_name='istio.mixer.adapter.model.v1beta1.Info.session_based', index=4,
+      number=5, type=8, cpp_type=7, label=1,
+      has_default_value=False, default_value=False,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
@@ -73,7 +80,7 @@ _INFO = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=77,
-  serialized_end=153,
+  serialized_end=176,
 )
 
 DESCRIPTOR.message_types_by_name['Info'] = _INFO

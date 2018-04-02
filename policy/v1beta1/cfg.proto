@@ -192,13 +192,53 @@ message Instance {
 // Handler allows the operator to configure a specific adapter implementation.
 // Each adapter implementation defines its own `params` proto.
 //
-// In the following example we define a `metrics` handler using the Mixer's prepackaged
-// prometheus adapter. This handler doesn't require any parameters.
+// In the following example we define a `metrics` handler for the `prometheus` adapter.
+// The example is in the form of a kubernetes resource:
+// * The `metadata.name` is the name of the handler
+// * The `kind` refers to the adapter name
+// * The `spec` block represents adapter-specific configuration as well as the connection information
 //
 // ```yaml
-// name: prometheus-handler
-// adapter: prometheus
-// params:
+// # Sample-1: No connection specified (for compiled in adapters)
+// # Note: if connection information is not specified, the adapter configuration is directly inside
+// # `spec` block. This is going to be DEPRECATED in favor of Sample-2
+// apiVersion: "config.istio.io/v1alpha2"
+// kind: prometheus
+// metadata:
+//   name: handler
+//   namespace: istio-system
+// spec:
+//   metrics:
+//   - name: request_count
+//     instance_name: requestcount.metric.istio-system
+//     kind: COUNTER
+//     label_names:
+//     - source_service
+//     - source_version
+//     - destination_service
+//     - destination_version
+// ---
+// # Sample-2: With connection information (for out-of-process adapters)
+// # Note: Unlike sample-1, the adapter configuration is parallel to `connection` and is nested inside `param` block.
+// apiVersion: "config.istio.io/v1alpha2"
+// kind: prometheus
+// metadata:
+//   name: handler
+//   namespace: istio-system
+// spec:
+//   param:
+//     metrics:
+//     - name: request_count
+//       instance_name: requestcount.metric.istio-system
+//       kind: COUNTER
+//       label_names:
+//       - source_service
+//       - source_version
+//       - destination_service
+//       - destination_version
+//   connection:
+//     address: localhost:8090
+// ---
 // ```
 message Handler {
   // Required. Must be unique in the entire mixer configuration. Used by [Actions][istio.policy.v1beta1.Action.handler]
@@ -210,4 +250,16 @@ message Handler {
   // Optional. Depends on adapter implementation. Struct representation of a
   // proto defined by the adapter implementation; this varies depending on the value of field `adapter`.
   google.protobuf.Struct params = 3;
+  // Optional. Information on how to connect to the out-of-process adapter.
+  // This is used if the adapter is not compiled into Mixer binary and is running as a separate process.
+  Connection connection = 4;
+}
+
+// Connection allows the operator to specify the endpoint for out-of-process infrastructure backend.
+// Connection is part of the handler custom resource and is specified alongside adapter specific configuration.
+message Connection {
+  // The address of the backend.
+  string address = 2;
+
+  // TODO: Add auth related fields.
 }
