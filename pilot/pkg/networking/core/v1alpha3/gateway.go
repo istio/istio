@@ -36,8 +36,11 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 
 	if node.Type == model.Ingress {
 		allg, err := config.List(model.GatewayIngress.Type, model.NamespaceAll)
-		if err != nil {
-			return nil, err
+		if err != nil || len(allg) == 0 {
+			allg, err = config.List(model.Gateway.Type, model.NamespaceAll)
+			if err != nil {
+				return nil, err
+			}
 		}
 		for _, g := range allg {
 			if g.Name == model.IstioIngressGatewayName {
