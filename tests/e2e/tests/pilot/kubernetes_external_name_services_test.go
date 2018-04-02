@@ -16,67 +16,81 @@ package pilot
 
 import (
 	"fmt"
-
-	"istio.io/istio/pkg/log"
-	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
+	"testing"
 )
 
-type kubernetesExternalNameServices struct {
-	*tutil.Environment
-}
-
-func (t *kubernetesExternalNameServices) String() string {
-	return "kubernetes-external-name-services"
-}
-
-func (t *kubernetesExternalNameServices) Setup() error {
-	return t.ApplyConfig("v1alpha1/rule-rewrite-authority-externalbin.yaml.tmpl", nil)
-}
-
-func (t *kubernetesExternalNameServices) Teardown() {
-	log.Info("Cleaning up route rules...")
-	if err := t.DeleteAllConfigs(); err != nil {
-		log.Warna(err)
-	}
-}
-
-func (t *kubernetesExternalNameServices) Run() error {
+func TestRewriteExternalService(t *testing.T) {
 	// external name service tests are still using v1alpha1 route rules.
 	// TODO: need to migrate
-	if !t.Config.V1alpha1 {
-		return nil
+	if !tc.Egress {
+		t.Skipf("Skipping %s: egress=false", t.Name())
+	}
+	// egress rules are v1alpha1
+	if !tc.V1alpha1 {
+		t.Skipf("Skipping %s: v1alpha1=false", t.Name())
 	}
 
-	// map of source pods to test, to boolean that is true if the pod has Istio proxy
-	srcPods := map[string]bool{"a": true, "b": true, "t": false}
-
-	// map of destination external name services to their external hosts
-	dstServices := map[string]string{
-		"externalwikipedia": "wikipedia.org",
-		"externalbin":       "httpbin.org",
+	// Apply the rule
+	cfgs := &deployableConfig{
+		Namespace: tc.Kube.Namespace,
+		YamlFiles: []string{"testdata/v1alpha1/rule-rewrite-authority-externalbin.yaml"},
 	}
 
-	funcs := make(map[string]func() tutil.Status)
-	for src, withIstioProxy := range srcPods {
-		for dst, externalHost := range dstServices {
-			for _, domain := range []string{"", "." + t.Config.Namespace} {
-				name := fmt.Sprintf("HTTP connection from %s to %s%s", src, dst, domain)
-				funcs[name] = (func(src, dst, domain string) func() tutil.Status {
-					url := fmt.Sprintf("http://%s%s", dst, domain)
-					extra := ""
-					if !withIstioProxy {
-						extra = "-key Host -val " + externalHost
+	if err := cfgs.Setup(); err != nil {
+		t.Fatal(err)
+	}
+	defer cfgs.Teardown()
+
+	srcPods := []struct {
+		pod            string
+		withIstioProxy bool
+	}{
+		{
+			pod:            "a",
+			withIstioProxy: true,
+		},
+		{
+			pod:            "b",
+			withIstioProxy: true,
+		},
+		{
+			pod:            "t",
+			withIstioProxy: false,
+		},
+	}
+
+	dstServices := []struct {
+		service      string
+		externalHost string
+	}{
+		{
+			service:      "externalwikipedia",
+			externalHost: "wikipedia.org",
+		},
+		{
+			service:      "externalbin",
+			externalHost: "httpbin.org",
+		},
+	}
+
+	for _, src := range srcPods {
+		for _, dst := range dstServices {
+			for _, domain := range []string{"", "." + tc.Kube.Namespace} {
+				reqURL := fmt.Sprintf("http://%s%s", dst.service, domain)
+				extra := ""
+				if !src.withIstioProxy {
+					extra = "-key Host -val " + dst.externalHost
+				}
+
+				testName := fmt.Sprintf("%s->%s%s", src.pod, dst.service, domain)
+				runRetriableTest(t, testName, defaultRetryBudget, func() error {
+					resp := ClientRequest(src.pod, reqURL, 1, extra)
+					if resp.IsHTTPOk() {
+						return nil
 					}
-					return func() tutil.Status {
-						resp := t.ClientRequest(src, url, 1, extra)
-						if resp.IsHTTPOk() {
-							return nil
-						}
-						return tutil.ErrAgain
-					}
-				})(src, dst, domain)
+					return errAgain
+				})
 			}
 		}
 	}
-	return tutil.Parallel(funcs)
 }
