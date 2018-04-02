@@ -52,8 +52,8 @@ istioctl proxy-config productpage-v1-bb8d5cbc7-k7qbm
 # Retrieve cluster config for productpage-v1-bb8d5cbc7-k7qbm pod
 istioctl proxy-config productpage-v1-bb8d5cbc7-k7qbm clusters
 
-# Retrieve static config for productpage-v1-bb8d5cbc7-k7qbm pod
-istioctl proxy-config productpage-v1-bb8d5cbc7-k7qbm static`,
+# Retrieve static config for productpage-v1-bb8d5cbc7-k7qbm pod in the application namespace
+istioctl proxy-config -n application productpage-v1-bb8d5cbc7-k7qbm static`,
 		Aliases: []string{"pc"},
 		Args:    cobra.MinimumNArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
