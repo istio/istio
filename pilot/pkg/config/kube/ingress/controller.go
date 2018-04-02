@@ -121,10 +121,10 @@ func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model
 				f(rule, event)
 			}
 		case model.Gateway.Type:
-			config, _ := ConvertIngressV1alpha3(ingress, c.domainSuffix)
+			config, _ := ConvertIngressV1alpha3(*ingress, c.domainSuffix)
 			f(config, event)
 		case model.VirtualService.Type:
-			_, config := ConvertIngressV1alpha3(ingress, c.domainSuffix)
+			_, config := ConvertIngressV1alpha3(*ingress, c.domainSuffix)
 			f(config, event)
 		}
 
