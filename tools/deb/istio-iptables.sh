@@ -104,8 +104,7 @@ if [ -z "${PROXY_UID}" ]; then
   # Default to the UID of ENVOY_USER and root
   PROXY_UID=$(id -u ${ENVOY_USER:-istio-proxy})
   if [ $? -ne 0 ]; then
-     echo "Invalid istio user $PROXY_UID $ENVOY_USER"
-     exit 1
+     PROXY_UID="1337"
   fi
   # If ENVOY_UID is not explicitly defined (as it would be in k8s env), we add root to the list,
   # for ca agent.
