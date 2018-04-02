@@ -37,7 +37,7 @@ const (
 	appYamlTmpl        = "tests/e2e/tests/simple/testdata/nginx/app.yaml.tmpl"
 	httpOK             = "200"
 	nginxServiceName   = "ingress-nginx"
-	defaultRetryBudget = 90
+	defaultRetryBudget = 10
 	retryDelay         = time.Second
 )
 
