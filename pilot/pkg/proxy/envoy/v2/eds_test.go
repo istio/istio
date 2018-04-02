@@ -32,8 +32,8 @@ import (
 
 	"fmt"
 
-	"istio.io/istio/tests/util"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/tests/util"
 )
 
 func connect(t *testing.T) xdsapi.EndpointDiscoveryService_StreamEndpointsClient {
