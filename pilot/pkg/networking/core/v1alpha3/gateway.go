@@ -187,6 +187,7 @@ func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamT
 		},
 		// For ingress, or if only one cert is defined we should not require SNI (would
 		// break compat with not-so-old devices, IoT, etc)
+		// TODO: Need config option to enable SNI
 		//RequireSni: &types.BoolValue{
 		//	Value: true, // is that OKAY?
 		//},
