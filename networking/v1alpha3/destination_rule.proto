@@ -92,6 +92,10 @@ message DestinationRule {
   // One or more named sets that represent individual versions of a
   // service. Traffic policies can be overridden at subset level.
   repeated Subset subsets = 3;
+
+  // DEPRECATED: Use `host` instead. Adding `name` back to prevent backward incompatibility with existing code inside
+  // istio.io/istio.
+  string name = 4;
 }
 
 // Traffic policies to apply for a specific destination. See

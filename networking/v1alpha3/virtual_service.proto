@@ -297,7 +297,7 @@ message Destination {
   // label>.
   PortSelector port = 3;
 
-  // DEPRECATED: Use `host` instead. Adding `name` back to prevent backward compatibility with existing code inside
+  // DEPRECATED: Use `host` instead. Adding `name` back to prevent backward incompatibility with existing code inside
   // istio.io/istio.
   string name = 4;
 }

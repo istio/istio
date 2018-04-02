@@ -287,7 +287,7 @@ type Destination struct {
 	// the same protocol the names should be of the form <protocol-name>-<DNS
 	// label>.
 	Port *PortSelector `protobuf:"bytes,3,opt,name=port" json:"port,omitempty"`
-	// DEPRECATED: Use `host` instead. Adding `name` back to prevent backward compatibility with existing code inside
+	// DEPRECATED: Use `host` instead. Adding `name` back to prevent backward incompatibility with existing code inside
 	// istio.io/istio.
 	Name string `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
 }
