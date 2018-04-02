@@ -296,6 +296,10 @@ message Destination {
   // the same protocol the names should be of the form <protocol-name>-<DNS
   // label>.
   PortSelector port = 3;
+
+  // DEPRECATED: Use `host` instead. Adding `name` back to prevent backward compatibility with existing code inside
+  // istio.io/istio.
+  string name = 4;
 }
 
 // Describes match conditions and actions for routing HTTP/1.1, HTTP2, and
