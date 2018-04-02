@@ -30,6 +30,7 @@ const (
 // Config defines the configuration for the test environment.
 type Config struct {
 	KubeConfig            string
+	ClusterRegistriesDir  string
 	Hub                   string
 	Tag                   string
 	ImagePullPolicy       string

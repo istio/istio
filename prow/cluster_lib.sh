@@ -30,7 +30,7 @@ CLUSTER_NAME=
 IFS=';' VERSIONS=($(gcloud container get-server-config --project=${PROJECT_NAME} --zone=${ZONE} --format='value(validMasterVersions)'))
 CLUSTER_VERSION="${VERSIONS[0]}"
 
-KUBE_USER="istio-prow-test-job@istio-testing.iam.gserviceaccount.com"
+KUBE_USER="${KUBE_USER:-istio-prow-test-job@istio-testing.iam.gserviceaccount.com}"
 CLUSTER_CREATED=false
 
 function delete_cluster () {

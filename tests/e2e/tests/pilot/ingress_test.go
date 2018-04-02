@@ -50,7 +50,7 @@ func (t *ingress) Setup() error {
 	// parse and send yamls
 	if yaml, err := t.Fill("ingress.yaml.tmpl", t.ToTemplateData()); err != nil {
 		return err
-	} else if err = t.KubeApply(yaml, t.Config.Namespace); err != nil {
+	} else if err = t.KubeApply(yaml, t.Config.Namespace, false); err != nil {
 		return err
 	}
 
