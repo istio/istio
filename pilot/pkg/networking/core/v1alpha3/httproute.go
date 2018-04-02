@@ -67,19 +67,20 @@ type GuardedHost struct {
 	Routes []GuardedRoute
 }
 
-// TranslateServiceHostname matches a host against a model service.
-// This cannot be externalized to core model until the registries understand namespaces.
-// TODO: run a validation pass and add FQDNs apriori
-func TranslateServiceHostname(services map[string]*model.Service, clusterDomain string) ServiceByName {
-	return func(host string, contextNamespace string) *model.Service {
-		if strings.Contains(host, ".") {
-			return services[host]
-		}
-
-		return services[fmt.Sprintf("%s.%s.%s", host, contextNamespace, clusterDomain)]
-	}
-}
-
+// TODO: Move to model validation
+//// TranslateServiceHostname matches a host against a model service.
+//// This cannot be externalized to core model until the registries understand namespaces.
+//// TODO: run a validation pass and add FQDNs apriori
+//func TranslateServiceHostname(services map[string]*model.Service, clusterDomain string) ServiceByName {
+//	return func(host string, contextNamespace string) *model.Service {
+//		if strings.Contains(host, ".") {
+//			return services[host]
+//		}
+//
+//		return services[fmt.Sprintf("%s.%s.%s", host, contextNamespace, clusterDomain)]
+//	}
+//}
+//
 // TranslateVirtualHosts creates the entire routing table for Istio v1alpha3 configs.
 // Services are indexed by FQDN hostnames.
 // Cluster domain is used to resolve short service names (e.g. "svc.cluster.local").
