@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
 	"istio.io/istio/pkg/version"
-	caclient "istio.io/istio/security/pkg/caclient/grpc"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/ca/controller"
@@ -340,16 +339,13 @@ func createCA(core corev1.SecretsGetter) ca.CertificateAuthority {
 	}
 
 	if opts.LivenessProbeOptions.IsValid() {
-		var g interface{} = &caclient.CAGrpcClientImpl{}
-		if client, ok := g.(caclient.CAGrpcClient); ok {
-			livenessProbeChecker, err := probecontroller.NewLivenessCheckController(
-				opts.probeCheckInterval, opts.grpcHostname, opts.grpcPort, istioCA,
-				opts.LivenessProbeOptions, client)
-			if err != nil {
-				log.Errorf("failed to create an liveness probe check controller (error: %v)", err)
-			} else {
-				livenessProbeChecker.Run()
-			}
+		livenessProbeChecker, err := probecontroller.NewLivenessCheckController(
+			opts.probeCheckInterval, fmt.Sprintf("%v:%v", opts.grpcHostname, opts.grpcPort), istioCA,
+			opts.LivenessProbeOptions, probecontroller.DefaultClientProvider)
+		if err != nil {
+			log.Errorf("failed to create an liveness probe check controller (error: %v)", err)
+		} else {
+			livenessProbeChecker.Run()
 		}
 	}
 

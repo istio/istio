@@ -102,16 +102,23 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 			resp: c.resp,
 			err:  c.err,
 		}
+		provider := func(_ string, _ *ca.IstioCA, _ *util.CertOptions, _ time.Duration) (*CAChecker, error) {
+			return &CAChecker{
+				client:  mockClient,
+				cleanup: func() {},
+			}, nil
+		}
 
 		// test liveness probe check controller
 		controller, err := NewLivenessCheckController(
 			time.Minute,
+			"",
 			istioCA,
 			&probe.Options{
 				Path:           "/tmp/test.key",
 				UpdateInterval: time.Minute,
 			},
-			mockClient,
+			provider,
 		)
 		if err != nil {
 			t.Errorf("%v: Expecting an error but an Istio CA is wrongly instantiated", id)
@@ -127,4 +134,8 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestDefaultClientProvider(t *testing.T) {
+
 }
