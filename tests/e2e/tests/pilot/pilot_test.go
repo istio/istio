@@ -47,10 +47,10 @@ const (
 
 var (
 	tc = &testConfig{
-		V1alpha1: true,
+		V1alpha1: false,
 		V1alpha3: true,
-		Ingress:  true,
-		Egress:   true,
+		Ingress:  false,
+		Egress:   false,
 	}
 
 	errAgain     = errors.New("try again")

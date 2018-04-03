@@ -20,6 +20,10 @@ import (
 )
 
 func TestAuthNPolicy(t *testing.T) {
+	if !tc.Kube.AuthEnabled {
+		t.Skipf("Skipping %s: auth_enabled=false", t.Name())
+	}
+
 	cfgs := &deployableConfig{
 		Namespace: tc.Kube.Namespace,
 		YamlFiles: []string{"testdata/v1alpha1/authn-policy.yaml.tmpl"},

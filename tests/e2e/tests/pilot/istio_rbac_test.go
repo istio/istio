@@ -28,6 +28,9 @@ const (
 )
 
 func TestRBAC(t *testing.T) {
+	if !tc.Kube.AuthEnabled {
+		t.Skipf("Skipping %s: auth_enabled=false", t.Name())
+	}
 	// Fill out the templates.
 	params := map[string]string{
 		"IstioNamespace": tc.Kube.IstioSystemNamespace(),
