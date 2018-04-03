@@ -60,7 +60,7 @@ var (
 				Route: []*networking.DestinationWeight{
 					{
 						Destination: &networking.Destination{
-							Name: "job",
+							Host: "job",
 						},
 						Weight: 80,
 					},
@@ -89,7 +89,7 @@ var (
 
 	// ExampleDestinationRule is an example destination rule
 	ExampleDestinationRule = &networking.DestinationRule{
-		Name: "ratings",
+		Host: "ratings",
 		TrafficPolicy: &networking.TrafficPolicy{
 			LoadBalancer: &networking.LoadBalancerSettings{
 				new(networking.LoadBalancerSettings_Simple),
