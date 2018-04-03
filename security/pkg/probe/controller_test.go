@@ -20,38 +20,22 @@ import (
 	"testing"
 	"time"
 
-	rpc "github.com/gogo/googleapis/google/rpc"
-	grpc "google.golang.org/grpc"
+	"github.com/gogo/googleapis/google/rpc"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/balancer"
 
 	"istio.io/istio/pkg/probe"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/util"
-	"istio.io/istio/security/pkg/platform"
 	pb "istio.io/istio/security/proto"
 )
 
-type FakeCAGrpcClientImpl struct {
+type fakeCAGrpcClient struct {
 	resp *pb.CsrResponse
 	err  error
 }
 
-func (c *FakeCAGrpcClientImpl) SetResponse(resp *pb.CsrResponse, err error) {
-	c.resp = resp
-	c.err = err
-}
-
-// SendCSR
-func (c *FakeCAGrpcClientImpl) SendCSR(req *pb.CsrRequest, pc platform.Client, caAddress string) (*pb.CsrResponse, error) {
-	return c.resp, c.err
-}
-
-type FakeCAGrpcClient struct {
-	resp *pb.CsrResponse
-	err  error
-}
-
-func (c *FakeCAGrpcClient) HandleCSR(_ context.Context, req *pb.CsrRequest, opts ...grpc.CallOption) (*pb.CsrResponse, error) {
+func (c *fakeCAGrpcClient) HandleCSR(_ context.Context, req *pb.CsrRequest, opts ...grpc.CallOption) (*pb.CsrResponse, error) {
 	return c.resp, c.err
 }
 
@@ -98,12 +82,12 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 	}
 
 	for id, c := range testCases {
-		mockClient := &FakeCAGrpcClient{
+		mockClient := &fakeCAGrpcClient{
 			resp: c.resp,
 			err:  c.err,
 		}
-		provider := func(_ string, _ *ca.IstioCA, _ *util.CertOptions, _ time.Duration) (*CAChecker, error) {
-			return &CAChecker{
+		provider := func(_ string, _ *ca.IstioCA, _ *util.CertOptions, _ time.Duration) (*caChecker, error) {
+			return &caChecker{
 				client:  mockClient,
 				cleanup: func() {},
 			}, nil
@@ -137,5 +121,4 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 }
 
 func TestDefaultClientProvider(t *testing.T) {
-
 }

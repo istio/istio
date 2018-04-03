@@ -38,16 +38,69 @@ const (
 	probeCheckRequestedTTLMinutes = 60
 )
 
-type CAChecker struct {
+type caChecker struct {
 	request *pb.CsrRequest
 	client  pb.IstioCAServiceClient
 	cleanup func()
 }
 
-type CheckProvider func(addr string, ca *ca.IstioCA, certOpts *util.CertOptions, ttl time.Duration) (*CAChecker, error)
+type CheckProvider func(addr string, ca *ca.IstioCA, certOpts *util.CertOptions, ttl time.Duration) (*caChecker, error)
+
+// LivenessCheckController updates the availability of the liveness probe of the CA instance
+type LivenessCheckController struct {
+	interval           time.Duration
+	serviceIdentityOrg string
+	rsaKeySize         int
+	caAddress          string
+	ca                 *ca.IstioCA
+	livenessProbe      *probe.Probe
+	grpcClient         pb.IstioCAServiceClient
+	clientProvider     CheckProvider
+}
+
+// NewLivenessCheckController creates the liveness check controller instance
+func NewLivenessCheckController(probeCheckInterval time.Duration, caAddr string,
+	ca *ca.IstioCA, livenessProbeOptions *probe.Options,
+	provider CheckProvider) (*LivenessCheckController, error) {
+	livenessProbe := probe.NewProbe()
+	livenessProbeController := probe.NewFileController(livenessProbeOptions)
+	livenessProbe.RegisterProbe(livenessProbeController, "liveness")
+	livenessProbeController.Start()
+
+	// set initial status to good
+	livenessProbe.SetAvailable(nil)
+
+	return &LivenessCheckController{
+		interval:       probeCheckInterval,
+		rsaKeySize:     2048,
+		livenessProbe:  livenessProbe,
+		ca:             ca,
+		caAddress:      caAddr,
+		clientProvider: provider,
+	}, nil
+}
+
+func (c *LivenessCheckController) checkGrpcServer() error {
+	checker, err := c.clientProvider(c.caAddress, c.ca, &util.CertOptions{
+		Host:       LivenessProbeClientIdentity,
+		Org:        c.serviceIdentityOrg,
+		RSAKeySize: c.rsaKeySize,
+	}, c.interval)
+	if err != nil {
+		return err
+	}
+	defer checker.cleanup()
+	_, err = checker.client.HandleCSR(context.Background(), checker.request)
+
+	// TODO(incfly): remove connectivity error once we always expose istio-ca into dns server.
+	if err != nil && strings.Contains(err.Error(), balancer.ErrTransientFailure.Error()) {
+		return nil
+	}
+	return err
+}
 
 // DefaultClientProvider returns a onprem client and IstioCAClient.
-func DefaultClientProvider(addr string, ca *ca.IstioCA, certOpts *util.CertOptions, ttl time.Duration) (*CAChecker, error) {
+func DefaultClientProvider(addr string, ca *ca.IstioCA, certOpts *util.CertOptions, ttl time.Duration) (*caChecker, error) {
 	// generates certificate and private key for test
 	opts := util.CertOptions{
 		Host:       LivenessProbeClientIdentity,
@@ -123,7 +176,7 @@ func DefaultClientProvider(addr string, ca *ca.IstioCA, certOpts *util.CertOptio
 		return nil, err
 	}
 
-	return &CAChecker{
+	return &caChecker{
 		request: &pb.CsrRequest{
 			CsrPem:              csr,
 			NodeAgentCredential: cred,
@@ -135,121 +188,6 @@ func DefaultClientProvider(addr string, ca *ca.IstioCA, certOpts *util.CertOptio
 			_ = os.RemoveAll(tempDir)
 		},
 	}, nil
-}
-
-// LivenessCheckController updates the availability of the liveness probe of the CA instance
-type LivenessCheckController struct {
-	interval           time.Duration
-	serviceIdentityOrg string
-	rsaKeySize         int
-	caAddress          string
-	ca                 *ca.IstioCA
-	livenessProbe      *probe.Probe
-	grpcClient         pb.IstioCAServiceClient
-	clientProvider     CheckProvider
-}
-
-// NewLivenessCheckController creates the liveness check controller instance
-func NewLivenessCheckController(probeCheckInterval time.Duration, caAddr string,
-	ca *ca.IstioCA, livenessProbeOptions *probe.Options,
-	provider CheckProvider) (*LivenessCheckController, error) {
-	livenessProbe := probe.NewProbe()
-	livenessProbeController := probe.NewFileController(livenessProbeOptions)
-	livenessProbe.RegisterProbe(livenessProbeController, "liveness")
-	livenessProbeController.Start()
-
-	// set initial status to good
-	livenessProbe.SetAvailable(nil)
-
-	return &LivenessCheckController{
-		interval:       probeCheckInterval,
-		rsaKeySize:     2048,
-		livenessProbe:  livenessProbe,
-		ca:             ca,
-		caAddress:      caAddr,
-		clientProvider: provider,
-	}, nil
-}
-
-func (c *LivenessCheckController) checkGrpcServer() error {
-	// generates certificate and private key for test
-	//opts := util.CertOptions{
-	//	Host:       LivenessProbeClientIdentity,
-	//	RSAKeySize: 2048,
-	//}
-	//
-	//csrPEM, privPEM, err := util.GenCSR(opts)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//certPEM, err := c.ca.Sign(csrPEM, c.interval, false)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//// Store certificate chain and private key to generate CSR
-	//tempDir, err := ioutil.TempDir("/tmp", "caprobe")
-	//if err != nil {
-	//	return err
-	//}
-	//defer func() {
-	//	_ = os.RemoveAll(tempDir)
-	//}()
-	//
-	//testRoot, err := ioutil.TempFile(tempDir, "root")
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//testCert, err := ioutil.TempFile(tempDir, "cert")
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//testKey, err := ioutil.TempFile(tempDir, "priv")
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//err = ioutil.WriteFile(testCert.Name(), certPEM, 0644)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//_, _, _, rootCertBytes := c.ca.GetCAKeyCertBundle().GetAll()
-	//err = ioutil.WriteFile(testRoot.Name(), rootCertBytes, 0644)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//err = ioutil.WriteFile(testKey.Name(), privPEM, 0644)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//// Generate csr and credential
-	//pc, err := platform.NewOnPremClientImpl(testRoot.Name(), testKey.Name(), testCert.Name())
-	//if err != nil {
-	//	return err
-	//}
-	checker, err := c.clientProvider(c.caAddress, c.ca, &util.CertOptions{
-		Host:       LivenessProbeClientIdentity,
-		Org:        c.serviceIdentityOrg,
-		RSAKeySize: c.rsaKeySize,
-	}, c.interval)
-	if err != nil {
-		return err
-	}
-	defer checker.cleanup()
-	_, err = checker.client.HandleCSR(context.Background(), checker.request)
-
-	// TODO(incfly): remove connectivity error once we always expose istio-ca into dns server.
-	if err != nil && strings.Contains(err.Error(), balancer.ErrTransientFailure.Error()) {
-		return nil
-	}
-
-	return err
 }
 
 // Run starts the check routine
