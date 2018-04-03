@@ -10,7 +10,7 @@
        "config": {
          "codec_type": "http2",
          "stat_prefix": "grpc",
-         "generate_request_id": false,
+         "generate_request_id": true,
          "tracing": {
            "operation_name": "egress"
          },
