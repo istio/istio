@@ -150,9 +150,13 @@ func (s *Server) WorkloadAdded(ctx context.Context, request *pb.WorkloadInfo) (*
 		return fmt.Errorf(msg)
 	}
 
-	// Sends CSR request to CA. .
+	// Sends CSR request to CA.
+	host, err := pkiutil.GenSanURI(ns, sa)
+	if err != nil {
+		return nil, logReturn("failed to generate san uri", err)
+	}
 	priv, csrReq, err := s.caClient.CreateCSRRequest(&pkiutil.CertOptions{
-		Host:       pkiutil.GenSanURI(ns, sa),
+		Host: 			host,
 		Org:        s.config.CAClientConfig.Org,
 		RSAKeySize: s.config.CAClientConfig.RSAKeySize,
 		TTL:        s.config.CAClientConfig.RequestedCertTTL,
