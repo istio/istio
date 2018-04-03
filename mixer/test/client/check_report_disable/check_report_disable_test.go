@@ -17,7 +17,6 @@ package checkReportDisable
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"istio.io/istio/mixer/test/client/env"
 )
@@ -26,7 +25,7 @@ func TestCheckReportDisable(t *testing.T) {
 	s := env.NewTestSetup(env.CheckReportDisableTest, t)
 
 	// Disable both Check and Report cache.
-	env.DisableHTTPClientCache(s.V2().HTTPServerConf, true, true, true)
+	env.DisableHTTPClientCache(s.MfConfig().HTTPServerConf, true, true, true)
 
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
@@ -39,38 +38,33 @@ func TestCheckReportDisable(t *testing.T) {
 	if _, _, err := env.HTTPGet(url); err != nil {
 		t.Errorf("Failed in request %s: %v", tag, err)
 	}
-	// Even report batch is disabled, but it is better to wait
-	// since sending batch is after request is completed.
-	time.Sleep(1 * time.Second)
 	// Send both check and report
 	s.VerifyCheckCount(tag, 1)
 	s.VerifyReportCount(tag, 1)
 
 	// Check enabled, Report disabled
-	env.DisableHTTPCheckReport(s.V2(), false, true)
+	env.DisableHTTPCheckReport(s.MfConfig(), false, true)
 	s.ReStartEnvoy()
 
 	tag = "Check Only"
+	url = fmt.Sprintf("http://localhost:%d/echo", s.Ports().ClientProxyPort)
 	if _, _, err := env.HTTPGet(url); err != nil {
 		t.Errorf("Failed in request %s: %v", tag, err)
 	}
-	// Wait for Check call
-	time.Sleep(1 * time.Second)
 	// Only send check, not report.
 	s.VerifyCheckCount(tag, 2)
 	s.VerifyReportCount(tag, 1)
 
 	// Check disabled, Report enabled
-	env.DisableHTTPCheckReport(s.V2(), true, false)
+	env.DisableHTTPCheckReport(s.MfConfig(), true, false)
 	s.ReStartEnvoy()
 
 	// wait for 2 second to wait for envoy to come up
 	tag = "Report Only"
+	url = fmt.Sprintf("http://localhost:%d/echo", s.Ports().ClientProxyPort)
 	if _, _, err := env.HTTPGet(url); err != nil {
 		t.Errorf("Failed in request %s: %v", tag, err)
 	}
-	// Wait for Report
-	time.Sleep(1 * time.Second)
 	// Only send report, not check.
 	s.VerifyCheckCount(tag, 2)
 	s.VerifyReportCount(tag, 2)

@@ -17,6 +17,7 @@ package memory
 
 import (
 	"errors"
+	"sync"
 	"time"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -31,17 +32,17 @@ var (
 func Make(descriptor model.ConfigDescriptor) model.ConfigStore {
 	out := store{
 		descriptor: descriptor,
-		data:       make(map[string]map[string]map[string]model.Config),
+		data:       make(map[string]map[string]*sync.Map),
 	}
 	for _, typ := range descriptor.Types() {
-		out.data[typ] = make(map[string]map[string]model.Config)
+		out.data[typ] = make(map[string]*sync.Map)
 	}
 	return &out
 }
 
 type store struct {
 	descriptor model.ConfigDescriptor
-	data       map[string]map[string]map[string]model.Config
+	data       map[string]map[string]*sync.Map
 }
 
 func (cr *store) ConfigDescriptor() model.ConfigDescriptor {
@@ -59,12 +60,13 @@ func (cr *store) Get(typ, name, namespace string) (*model.Config, bool) {
 		return nil, false
 	}
 
-	out, exists := ns[name]
+	out, exists := ns.Load(name)
 	if !exists {
 		return nil, false
 	}
+	config := out.(model.Config)
 
-	return &out, true
+	return &config, true
 }
 
 func (cr *store) List(typ, namespace string) ([]model.Config, error) {
@@ -75,14 +77,20 @@ func (cr *store) List(typ, namespace string) ([]model.Config, error) {
 	out := make([]model.Config, 0, len(cr.data[typ]))
 	if namespace == "" {
 		for _, ns := range data {
-			for _, elt := range ns {
-				out = append(out, elt)
-			}
+			ns.Range(func(key, value interface{}) bool {
+				out = append(out, value.(model.Config))
+				return true
+			})
 		}
 	} else {
-		for _, elt := range data[namespace] {
-			out = append(out, elt)
+		ns, exists := data[namespace]
+		if !exists {
+			return nil, nil
 		}
+		ns.Range(func(key, value interface{}) bool {
+			out = append(out, value.(model.Config))
+			return true
+		})
 	}
 	return out, nil
 }
@@ -97,12 +105,12 @@ func (cr *store) Delete(typ, name, namespace string) error {
 		return errNotFound
 	}
 
-	_, exists = ns[name]
+	_, exists = ns.Load(name)
 	if !exists {
 		return errNotFound
 	}
 
-	delete(ns, name)
+	ns.Delete(name)
 	return nil
 }
 
@@ -117,15 +125,15 @@ func (cr *store) Create(config model.Config) (string, error) {
 	}
 	ns, exists := cr.data[typ][config.Namespace]
 	if !exists {
-		ns = make(map[string]model.Config)
+		ns = new(sync.Map)
 		cr.data[typ][config.Namespace] = ns
 	}
 
-	_, exists = ns[config.Name]
+	_, exists = ns.Load(config.Name)
 
 	if !exists {
 		config.ResourceVersion = time.Now().String()
-		ns[config.Name] = config
+		ns.Store(config.Name, config)
 		return config.ResourceVersion, nil
 	}
 	return "", errAlreadyExists
@@ -146,17 +154,17 @@ func (cr *store) Update(config model.Config) (string, error) {
 		return "", errNotFound
 	}
 
-	oldConfig, exists := ns[config.Name]
+	oldConfig, exists := ns.Load(config.Name)
 	if !exists {
 		return "", errNotFound
 	}
 
-	if config.ResourceVersion != oldConfig.ResourceVersion {
+	if config.ResourceVersion != oldConfig.(model.Config).ResourceVersion {
 		return "", errors.New("old revision")
 	}
 
 	rev := time.Now().String()
 	config.ResourceVersion = rev
-	ns[config.Name] = config
+	ns.Store(config.Name, config)
 	return rev, nil
 }

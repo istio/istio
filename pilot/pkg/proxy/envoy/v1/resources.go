@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 
@@ -161,8 +162,22 @@ func convertDuration(d *duration.Duration) time.Duration {
 	return dur
 }
 
+func convertDurationGogo(d *types.Duration) time.Duration {
+	if d == nil {
+		return 0
+	}
+	dur, err := types.DurationFromProto(d)
+	if err != nil {
+		log.Warnf("error converting duration %#v, using 0: %v", d, err)
+	}
+	return dur
+}
 func protoDurationToMS(dur *duration.Duration) int64 {
 	return int64(convertDuration(dur) / time.Millisecond)
+}
+
+func protoDurationToMSGogo(dur *types.Duration) int64 {
+	return int64(convertDurationGogo(dur) / time.Millisecond)
 }
 
 // Config defines the schema for Envoy JSON configuration format
@@ -357,7 +372,7 @@ type CORSPolicy struct {
 	AllowMethods     string   `json:"allow_methods,omitempty"`
 	AllowHeaders     string   `json:"allow_headers,omitempty"`
 	ExposeHeaders    string   `json:"expose_headers,omitempty"`
-	MaxAge           string   `json:"max_age,omitempty"`
+	MaxAge           int      `json:"max_age,string,omitempty"`
 	AllowOrigin      []string `json:"allow_origin,omitempty"`
 }
 
@@ -406,7 +421,8 @@ func (host *VirtualHost) clusters() Clusters {
 
 // HTTPRouteConfig definition
 type HTTPRouteConfig struct {
-	VirtualHosts []*VirtualHost `json:"virtual_hosts"`
+	ValidateClusters bool           `json:"validate_clusters"`
+	VirtualHosts     []*VirtualHost `json:"virtual_hosts"`
 }
 
 // HTTPRouteConfigs is a map from the port number to the route config
@@ -416,7 +432,7 @@ type HTTPRouteConfigs map[int]*HTTPRouteConfig
 func (routes HTTPRouteConfigs) EnsurePort(port int) *HTTPRouteConfig {
 	config, ok := routes[port]
 	if !ok {
-		config = &HTTPRouteConfig{}
+		config = &HTTPRouteConfig{ValidateClusters: ValidateClusters}
 		routes[port] = config
 	}
 	return config
@@ -447,7 +463,7 @@ func (routes HTTPRouteConfigs) Normalize() HTTPRouteConfigs {
 // note that the virtual hosts without an explicit port suffix (IP:PORT) are stripped
 // for all routes except the route for port 80.
 func (routes HTTPRouteConfigs) Combine() *HTTPRouteConfig {
-	out := &HTTPRouteConfig{}
+	out := &HTTPRouteConfig{ValidateClusters: ValidateClusters}
 	for port, config := range routes {
 		for _, host := range config.VirtualHosts {
 			vhost := &VirtualHost{
@@ -493,7 +509,7 @@ func (rc *HTTPRouteConfig) Normalize() *HTTPRouteConfig {
 	hosts := make([]*VirtualHost, len(rc.VirtualHosts))
 	copy(hosts, rc.VirtualHosts)
 	sort.Slice(hosts, func(i, j int) bool { return hosts[i].Name < hosts[j].Name })
-	return &HTTPRouteConfig{VirtualHosts: hosts}
+	return &HTTPRouteConfig{ValidateClusters: ValidateClusters, VirtualHosts: hosts}
 }
 
 // AccessLog definition.

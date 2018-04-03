@@ -24,9 +24,11 @@ import (
 
 // All tests should be listed here to get their test ids
 const (
-	CheckCacheTest uint16 = iota
+	CheckCacheHitTest uint16 = iota
+	CheckCacheTest
 	CheckReportAttributesTest
 	CheckReportDisableTest
+	CheckReportLargePostRequestTest
 	DisableCheckCacheTest
 	DisableTCPCheckCallsTest
 	FailedRequestTest
@@ -34,12 +36,13 @@ const (
 	JWTAuthTest
 	MixerInternalFailTest
 	NetworkFailureTest
-	ReportBatchTest
-	StressEnvoyTest
-	TCPMixerFilterTest
 	QuotaCacheTest
 	QuotaCallTest
+	ReportBatchTest
 	TCPMixerFilterPeriodicalReportTest
+	TCPMixerFilterTest
+	TCPMixerFilterV1ConfigTest
+	XDSTest
 
 	// The number of total tests. has to be the last one.
 	maxTestNum
@@ -49,6 +52,8 @@ const (
 	portBase uint16 = 20000
 	// Maximum number of ports used in each test.
 	portNum uint16 = 6
+	// Number of ports used by Envoy in each test.
+	envoyPortNum uint16 = 4
 )
 
 // Ports stores all used ports
@@ -56,15 +61,19 @@ type Ports struct {
 	ClientProxyPort uint16
 	ServerProxyPort uint16
 	TCPProxyPort    uint16
+	AdminPort       uint16
 	MixerPort       uint16
 	BackendPort     uint16
-	AdminPort       uint16
+
+	// Pilot ports, used when testing mixer-pilot integration.
+	PilotGrpcPort uint16
+	PilotHTTPPort uint16
 }
 
 func allocPortBase(name uint16) uint16 {
 	base := portBase + name*portNum
 	for i := 0; i < 10; i++ {
-		if allPortFree(base) {
+		if allPortFree(base, portNum) {
 			return base
 		}
 		base += maxTestNum * portNum
@@ -73,8 +82,20 @@ func allocPortBase(name uint16) uint16 {
 	return base
 }
 
-func allPortFree(base uint16) bool {
-	for port := base; port < base+portNum; port++ {
+func allocEnvoyPortBase(name uint16) uint16 {
+	base := portBase + name*portNum
+	for i := 0; i < 10; i++ {
+		if allPortFree(base, envoyPortNum) {
+			return base
+		}
+		base += maxTestNum * portNum
+	}
+	log.Println("could not find free ports, continue the test...")
+	return base
+}
+
+func allPortFree(base uint16, ports uint16) bool {
+	for port := base; port < base+ports; port++ {
 		if IsPortUsed(port) {
 			log.Println("port is used ", port)
 			return false
@@ -90,8 +111,21 @@ func NewPorts(name uint16) *Ports {
 		ClientProxyPort: base,
 		ServerProxyPort: base + 1,
 		TCPProxyPort:    base + 2,
-		MixerPort:       base + 3,
-		BackendPort:     base + 4,
-		AdminPort:       base + 5,
+		AdminPort:       base + 3,
+		MixerPort:       base + 4,
+		BackendPort:     base + 5,
+	}
+}
+
+// NewEnvoyPorts allocate ports for Envoy
+func NewEnvoyPorts(ports *Ports, name uint16) *Ports {
+	base := allocEnvoyPortBase(name)
+	return &Ports{
+		ClientProxyPort: base,
+		ServerProxyPort: base + 1,
+		TCPProxyPort:    base + 2,
+		AdminPort:       base + 3,
+		MixerPort:       ports.MixerPort,
+		BackendPort:     ports.BackendPort,
 	}
 }

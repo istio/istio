@@ -1,0 +1,10 @@
+hosts:
+  - "*.google.com"
+http:
+  - route:
+    - destination:
+        name: "*.google.com"
+    timeout: 30s
+    retries:
+      attempts: 1
+      perTryTimeout: 5s

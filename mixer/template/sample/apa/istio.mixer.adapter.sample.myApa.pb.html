@@ -1,7 +1,7 @@
 ---
 title: istio.mixer.adapter.sample.myApa
 layout: protoc-gen-docs
-number_of_entries: 5
+number_of_entries: 9
 ---
 <h2 id="OutputTemplate">OutputTemplate</h2>
 <section>
@@ -40,25 +40,25 @@ number_of_entries: 5
 </tr>
 <tr id="OutputTemplate.timeStamp">
 <td><code>timeStamp</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/mixer/istio.mixer.adapter.model.v1beta1.html#TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</a></code></td>
+<td><code><a href="#istio.mixer.adapter.model.v1beta1.TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</a></code></td>
 <td>
 </td>
 </tr>
 <tr id="OutputTemplate.duration">
 <td><code>duration</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/mixer/istio.mixer.adapter.model.v1beta1.html#Duration">istio.mixer.adapter.model.v1beta1.Duration</a></code></td>
+<td><code><a href="#istio.mixer.adapter.model.v1beta1.Duration">istio.mixer.adapter.model.v1beta1.Duration</a></code></td>
 <td>
 </td>
 </tr>
 <tr id="OutputTemplate.email">
 <td><code>email</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/mixer/istio.mixer.adapter.model.v1beta1.html#EmailAddress">istio.mixer.adapter.model.v1beta1.EmailAddress</a></code></td>
+<td><code><a href="#istio.mixer.adapter.model.v1beta1.EmailAddress">istio.mixer.adapter.model.v1beta1.EmailAddress</a></code></td>
 <td>
 </td>
 </tr>
 <tr id="OutputTemplate.out_ip">
 <td><code>outIp</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/mixer/istio.mixer.adapter.model.v1beta1.html#IPAddress">istio.mixer.adapter.model.v1beta1.IPAddress</a></code></td>
+<td><code><a href="#istio.mixer.adapter.model.v1beta1.IPAddress">istio.mixer.adapter.model.v1beta1.IPAddress</a></code></td>
 <td>
 </td>
 </tr>
@@ -180,13 +180,13 @@ number_of_entries: 5
 </tr>
 <tr id="Resource3.timeStamp">
 <td><code>timeStamp</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/mixer/istio.mixer.adapter.model.v1beta1.html#TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</a></code></td>
+<td><code><a href="#istio.mixer.adapter.model.v1beta1.TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</a></code></td>
 <td>
 </td>
 </tr>
 <tr id="Resource3.duration">
 <td><code>duration</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/mixer/istio.mixer.adapter.model.v1beta1.html#Duration">istio.mixer.adapter.model.v1beta1.Duration</a></code></td>
+<td><code><a href="#istio.mixer.adapter.model.v1beta1.Duration">istio.mixer.adapter.model.v1beta1.Duration</a></code></td>
 <td>
 </td>
 </tr>
@@ -238,13 +238,13 @@ number_of_entries: 5
 </tr>
 <tr id="Template.timeStamp">
 <td><code>timeStamp</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/mixer/istio.mixer.adapter.model.v1beta1.html#TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</a></code></td>
+<td><code><a href="#istio.mixer.adapter.model.v1beta1.TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</a></code></td>
 <td>
 </td>
 </tr>
 <tr id="Template.duration">
 <td><code>duration</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/mixer/istio.mixer.adapter.model.v1beta1.html#Duration">istio.mixer.adapter.model.v1beta1.Duration</a></code></td>
+<td><code><a href="#istio.mixer.adapter.model.v1beta1.Duration">istio.mixer.adapter.model.v1beta1.Duration</a></code></td>
 <td>
 </td>
 </tr>
@@ -256,16 +256,37 @@ number_of_entries: 5
 </tr>
 <tr id="Template.optionalIP">
 <td><code>optionalIP</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/mixer/istio.mixer.adapter.model.v1beta1.html#IPAddress">istio.mixer.adapter.model.v1beta1.IPAddress</a></code></td>
+<td><code><a href="#istio.mixer.adapter.model.v1beta1.IPAddress">istio.mixer.adapter.model.v1beta1.IPAddress</a></code></td>
 <td>
 </td>
 </tr>
 <tr id="Template.email">
 <td><code>email</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/mixer/istio.mixer.adapter.model.v1beta1.html#EmailAddress">istio.mixer.adapter.model.v1beta1.EmailAddress</a></code></td>
+<td><code><a href="#istio.mixer.adapter.model.v1beta1.EmailAddress">istio.mixer.adapter.model.v1beta1.EmailAddress</a></code></td>
 <td>
 </td>
 </tr>
 </tbody>
 </table>
+</section>
+<h2 id="istio.mixer.adapter.model.v1beta1.Duration">istio.mixer.adapter.model.v1beta1.Duration</h2>
+<section>
+<p>Duration is used inside templates for fields that are of ValueType &ldquo;DURATION&rdquo;</p>
+
+</section>
+<h2 id="istio.mixer.adapter.model.v1beta1.EmailAddress">istio.mixer.adapter.model.v1beta1.EmailAddress</h2>
+<section>
+<p>EmailAddress is used inside templates for fields that are of ValueType &ldquo;EMAIL_ADDRESS&rdquo;
+DO NOT USE !! Under Development</p>
+
+</section>
+<h2 id="istio.mixer.adapter.model.v1beta1.IPAddress">istio.mixer.adapter.model.v1beta1.IPAddress</h2>
+<section>
+<p>IPAddress is used inside templates for fields that are of ValueType &ldquo;IP_ADDRESS&rdquo;</p>
+
+</section>
+<h2 id="istio.mixer.adapter.model.v1beta1.TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</h2>
+<section>
+<p>TimeStamp is used inside templates for fields that are of ValueType &ldquo;TIMESTAMP&rdquo;</p>
+
 </section>

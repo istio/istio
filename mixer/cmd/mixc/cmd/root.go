@@ -120,6 +120,9 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 	addAttributeFlags(cc, rootArgs)
 	addAttributeFlags(rc, rootArgs)
 
+	rootArgs.tracingOptions.AttachCobraFlags(cc)
+	rootArgs.tracingOptions.AttachCobraFlags(rc)
+
 	rootCmd.AddCommand(cc)
 	rootCmd.AddCommand(rc)
 	rootCmd.AddCommand(version.CobraCommand())
@@ -128,8 +131,6 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 		Section: "mixc CLI",
 		Manual:  "Istio Mixer Client",
 	}))
-
-	rootArgs.tracingOptions.AttachCobraFlags(rootCmd)
 
 	return rootCmd
 }

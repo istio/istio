@@ -2,6 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio-sidecar-injector
+  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "sidecar-injector.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
@@ -23,6 +24,18 @@ data:
         {{ if .Values.includeIPRanges -}}
         - "-i"
         - {{ .Values.includeIPRanges | quote }}
+        {{ end -}}
+        {{ if .Values.excludeIPRanges -}}
+        - "-x"
+        - {{ .Values.excludeIPRanges | quote }}
+        {{ end -}}
+        {{ if .Values.includeInboundPorts -}}
+        - "-b"
+        - {{ .Values.includeInboundPorts | quote }}
+        {{ end -}}
+        {{ if .Values.excludeInboundPorts -}}
+        - "-d"
+        - {{ .Values.excludeInboundPorts | quote }}
         {{ end -}}
         imagePullPolicy: IfNotPresent
         securityContext:

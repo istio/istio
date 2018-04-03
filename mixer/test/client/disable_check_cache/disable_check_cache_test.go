@@ -35,10 +35,10 @@ var expectedStats = map[string]int{
 
 func TestDisableCheckCache(t *testing.T) {
 	s := env.NewTestSetup(env.DisableCheckCacheTest, t)
-	env.SetStatsUpdateInterval(s.V2(), 1)
+	env.SetStatsUpdateInterval(s.MfConfig(), 1)
 
 	// Disable check cache.
-	env.DisableHTTPClientCache(s.V2().HTTPServerConf, true, false, false)
+	env.DisableHTTPClientCache(s.MfConfig().HTTPServerConf, true, false, false)
 
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)

@@ -248,6 +248,7 @@
         "operation_name": "ingress"
        },
        "route_config": {
+        "validate_clusters": true,
         "virtual_hosts": [
          {
           "name": "inbound|1081",
@@ -407,6 +408,7 @@
         "operation_name": "ingress"
        },
        "route_config": {
+        "validate_clusters": true,
         "virtual_hosts": [
          {
           "name": "inbound|80",

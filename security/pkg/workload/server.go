@@ -18,40 +18,53 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"sync"
+	"time"
 
 	api "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/security/pkg/pki/util"
 )
 
 // SDSServer implements api.SecretDiscoveryServiceServer that listens on a
 // list of Unix Domain Sockets.
 type SDSServer struct {
-	// Specifies a list of Unix Domain Socket paths the server listens on.
+	// Stores the certificated chain in the memory protected by certificateChainGuard
+	certificateChain []byte
+
+	// Stores the private key in the memory protected by privateKeyGuard
+	privateKey []byte
+
+	// Read/Write mutex for certificateChain
+	certificateChainGuard sync.RWMutex
+
+	// Read/Write mutex for privateKey
+	privateKeyGuard sync.RWMutex
+
+	// Specifies a map of Unix Domain Socket paths and the server listens on.
 	// Each UDS path identifies the identity for which the workload will
 	// request X.509 key/cert from this server. This path should only be
 	// accessible by such workload.
-	// TODO: describe more details how this path identifies the workload
-	// identity once the UDS path format is settled down.
-	udsPaths []string
+	udsServerMap map[string]*grpc.Server
 
-	// The grpc server that listens on the above udsPaths.
-	grpcServer *grpc.Server
+	// Mutex for udsServerMap
+	udsServerMapGuard sync.Mutex
+
+	// current certificate chain and private key version number
+	version string
 }
 
 const (
-	// key for UDS path in gRPC context metadata map.
-	udsPathKey = ":authority"
-
 	// SecretTypeURL defines the type URL for Envoy secret proto.
 	SecretTypeURL = "type.googleapis.com/envoy.api.v2.auth.Secret"
 
@@ -59,33 +72,64 @@ const (
 	SecretName = "SPKI"
 )
 
+// SetServiceIdentityCert sets the service identity certificate into the memory.
+func (s *SDSServer) SetServiceIdentityCert(content []byte) error {
+	s.certificateChainGuard.Lock()
+	s.certificateChain = content
+	s.version = fmt.Sprintf("%v", time.Now().UnixNano()/int64(time.Millisecond))
+	s.certificateChainGuard.Unlock()
+	return nil
+}
+
+// SetServiceIdentityPrivateKey sets the service identity private key into the memory.
+func (s *SDSServer) SetServiceIdentityPrivateKey(content []byte) error {
+	s.privateKeyGuard.Lock()
+	s.privateKey = content
+	s.version = fmt.Sprintf("%v", time.Now().UnixNano()/int64(time.Millisecond))
+	s.privateKeyGuard.Unlock()
+	return nil
+}
+
+// Save saves the specified key cert.
+func (s *SDSServer) Save(b util.KeyCertBundle) error {
+	return nil
+}
+
 // GetTLSCertificate generates the X.509 key/cert for the workload identity
 // derived from udsPath, which is where the FetchSecrets grpc request is
 // received.
-func (s *SDSServer) GetTLSCertificate(udsPath string) *auth.TlsCertificate {
-	// TODO: Add implementation. Consider define an interface to support
-	// different implementations that can get certificate from different CA
-	// systems including Istio CA and other CAs.
-	return &auth.TlsCertificate{}
+// SecretServer implementations could have different implementation
+func (s *SDSServer) GetTLSCertificate() (*auth.TlsCertificate, error) {
+	s.certificateChainGuard.RLock()
+	s.privateKeyGuard.RLock()
+
+	tlsSecret := &auth.TlsCertificate{
+		CertificateChain: &core.DataSource{
+			Specifier: &core.DataSource_InlineBytes{s.certificateChain},
+		},
+		PrivateKey: &core.DataSource{
+			Specifier: &core.DataSource_InlineBytes{s.privateKey},
+		},
+	}
+
+	s.certificateChainGuard.RUnlock()
+	s.privateKeyGuard.RUnlock()
+	return tlsSecret, nil
 }
 
 // FetchSecrets fetches the X.509 key/cert for a given workload whose identity
 // can be derived from the UDS path where this call is received.
 func (s *SDSServer) FetchSecrets(ctx context.Context, request *api.DiscoveryRequest) (*api.DiscoveryResponse, error) {
-	// Get the uds path where this call is received.
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok || len(md[udsPathKey]) == 0 {
-		errMessage := "unknown UDS path."
-		log.Error(errMessage)
-		return nil, status.Errorf(codes.Internal, errMessage)
+	tlsCertificate, err := s.GetTLSCertificate()
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to read TLS certificate (%v)", err)
 	}
 
-	udsPath := md[udsPathKey][0]
 	resources := make([]types.Any, 1)
 	secret := &auth.Secret{
 		Name: SecretName,
 		Type: &auth.Secret_TlsCertificate{
-			TlsCertificate: s.GetTLSCertificate(udsPath),
+			TlsCertificate: tlsCertificate,
 		},
 	}
 	data, err := proto.Marshal(secret)
@@ -98,10 +142,12 @@ func (s *SDSServer) FetchSecrets(ctx context.Context, request *api.DiscoveryRequ
 		TypeUrl: SecretTypeURL,
 		Value:   data,
 	}
-	// TODO: Set VersionInfo.
+
+	// TODO(jaebong) for now we are using timestamp in miliseconds. It needs to be updated once we have a new design
 	response := &api.DiscoveryResponse{
-		Resources: resources,
-		TypeUrl:   SecretTypeURL,
+		Resources:   resources,
+		TypeUrl:     SecretTypeURL,
+		VersionInfo: s.version,
 	}
 
 	return response, nil
@@ -117,20 +163,20 @@ func (s *SDSServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecret
 // NewSDSServer creates the SDSServer that registers
 // SecretDiscoveryServiceServer, a gRPC server.
 func NewSDSServer() *SDSServer {
-	var opts []grpc.ServerOption
-	grpcServer := grpc.NewServer(opts...)
 	s := &SDSServer{
-		grpcServer: grpcServer,
+		udsServerMap: map[string]*grpc.Server{},
+		version:      fmt.Sprintf("%v", time.Now().UnixNano()/int64(time.Millisecond)),
 	}
 
-	sds.RegisterSecretDiscoveryServiceServer(grpcServer, s)
 	return s
 }
 
 // RegisterUdsPath registers a path for Unix Domain Socket and has
 // SDSServer's gRPC server listen on it.
 func (s *SDSServer) RegisterUdsPath(udsPath string) error {
-	s.udsPaths = append(s.udsPaths, udsPath)
+	s.udsServerMapGuard.Lock()
+	defer s.udsServerMapGuard.Unlock()
+
 	_, err := os.Stat(udsPath)
 	if err == nil {
 		return fmt.Errorf("UDS path %v already exists", udsPath)
@@ -140,11 +186,15 @@ func (s *SDSServer) RegisterUdsPath(udsPath string) error {
 		return fmt.Errorf("failed to listen on %v", err)
 	}
 
+	var opts []grpc.ServerOption
+	udsServer := grpc.NewServer(opts...)
+	sds.RegisterSecretDiscoveryServiceServer(udsServer, s)
+	s.udsServerMap[udsPath] = udsServer
+
 	// grpcServer.Serve() is a blocking call, so run it in a goroutine.
 	go func() {
-		log.Infof("Starting GRPC server on UDS path", udsPath)
-
-		err := s.grpcServer.Serve(listener)
+		log.Infof("Starting GRPC server on UDS path: %s", udsPath)
+		err := udsServer.Serve(listener)
 		// grpcServer.Serve() always returns a non-nil error.
 		log.Warnf("GRPC server returns an error: %v", err)
 	}()
@@ -152,4 +202,19 @@ func (s *SDSServer) RegisterUdsPath(udsPath string) error {
 	return nil
 }
 
-// TODO: add methods to unregister the deleted UDS paths and the listeners.
+// DeregisterUdsPath closes and removes the grpcServer instance serving UDS
+func (s *SDSServer) DeregisterUdsPath(udsPath string) error {
+	s.udsServerMapGuard.Lock()
+	defer s.udsServerMapGuard.Unlock()
+
+	udsServer, ok := s.udsServerMap[udsPath]
+	if !ok {
+		return fmt.Errorf("udsPath is not registred: %s", udsPath)
+	}
+
+	udsServer.GracefulStop()
+	delete(s.udsServerMap, udsPath)
+	log.Infof("Stopped the GRPC server on UDS path: %s", udsPath)
+
+	return nil
+}

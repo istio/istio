@@ -81,6 +81,9 @@ type Webhook struct {
 	meshFile   string
 	configFile string
 	watcher    *fsnotify.Watcher
+	certFile   string
+	keyFile    string
+	cert       *tls.Certificate
 }
 
 func loadConfig(injectFile, meshFile string) (*Config, *meshconfig.MeshConfig, error) {
@@ -149,7 +152,7 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	}
 	// watch the parent directory of the target files so we can catch
 	// symlink updates of k8s ConfigMaps volumes.
-	for _, file := range []string{p.ConfigFile, p.MeshFile} {
+	for _, file := range []string{p.ConfigFile, p.MeshFile, p.CertFile, p.KeyFile} {
 		watchDir, _ := filepath.Split(file)
 		if err := watcher.Watch(watchDir); err != nil {
 			return nil, fmt.Errorf("could not watch %v: %v", file, err)
@@ -158,9 +161,7 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 
 	wh := &Webhook{
 		server: &http.Server{
-			Addr:      fmt.Sprintf(":%v", p.Port),
-			TLSConfig: &tls.Config{Certificates: []tls.Certificate{pair}},
-			// mtls disabled because apiserver webhook cert usage is still TBD.
+			Addr: fmt.Sprintf(":%v", p.Port),
 		},
 		sidecarConfig:          sidecarConfig,
 		sidecarTemplateVersion: sidecarTemplateVersionHash(sidecarConfig.Template),
@@ -170,7 +171,12 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		watcher:                watcher,
 		healthCheckInterval:    p.HealthCheckInterval,
 		healthCheckFile:        p.HealthCheckFile,
+		certFile:               p.CertFile,
+		keyFile:                p.KeyFile,
+		cert:                   &pair,
 	}
+	// mtls disabled because apiserver webhook cert usage is still TBD.
+	wh.server.TLSConfig = &tls.Config{GetCertificate: wh.getCert}
 	h := http.NewServeMux()
 	h.HandleFunc("/inject", wh.serveInject)
 	wh.server.Handler = h
@@ -206,11 +212,16 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 			}
 
 			version := sidecarTemplateVersionHash(sidecarConfig.Template)
-
+			pair, err := tls.LoadX509KeyPair(wh.certFile, wh.keyFile)
+			if err != nil {
+				log.Errorf("reload cert error: %v", err)
+				break
+			}
 			wh.mu.Lock()
 			wh.sidecarConfig = sidecarConfig
 			wh.sidecarTemplateVersion = version
 			wh.meshConfig = meshConfig
+			wh.cert = &pair
 			wh.mu.Unlock()
 		case event := <-wh.watcher.Event:
 			// use a timer to debounce configuration updates
@@ -228,6 +239,12 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 			return
 		}
 	}
+}
+
+func (wh *Webhook) getCert(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+	wh.mu.Lock()
+	defer wh.mu.Unlock()
+	return wh.cert, nil
 }
 
 // TODO(https://github.com/kubernetes/kubernetes/issues/57982)

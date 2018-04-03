@@ -15,6 +15,7 @@
 package controller
 
 import (
+	"bytes"
 	"fmt"
 	"testing"
 	"time"
@@ -33,9 +34,19 @@ import (
 )
 
 const (
-	defaultTTL              = time.Hour
-	defaultGracePeriodRatio = 0.5
-	defaultMinGracePeriod   = 10 * time.Minute
+	defaultTTL                = time.Hour
+	defaultGracePeriodRatio   = 0.5
+	defaultMinGracePeriod     = 10 * time.Minute
+	sidecarInjectorSvcAccount = "istio-sidecar-injector-service-account"
+	sidecarInjectorSvc        = "istio-sidecar-injector"
+)
+
+var (
+	caCert     = []byte("fake CA cert")
+	caKey      = []byte("fake private key")
+	certChain  = []byte("fake cert chain")
+	rootCert   = []byte("fake root cert")
+	signedCert = []byte("fake signed cert")
 )
 
 func TestSecretController(t *testing.T) {
@@ -94,6 +105,12 @@ func TestSecretController(t *testing.T) {
 			},
 			injectFailure: true,
 		},
+		"adding webhook service account": {
+			saToAdd: createServiceAccount(sidecarInjectorSvcAccount, "test-ns"),
+			expectedActions: []ktesting.Action{
+				ktesting.NewCreateAction(gvr, "test-ns", createSecret("test", sidecarInjectorSvcAccount, "test-ns")),
+			},
+		},
 	}
 
 	for k, tc := range testCases {
@@ -111,8 +128,14 @@ func TestSecretController(t *testing.T) {
 			})
 		}
 
+		webhooks := map[string]DNSNameEntry{
+			sidecarInjectorSvcAccount: {
+				ServiceName: sidecarInjectorSvc,
+				Namespace:   "test-ns",
+			},
+		}
 		controller, err := NewSecretController(createFakeCA(), defaultTTL, defaultGracePeriodRatio, defaultMinGracePeriod,
-			client.CoreV1(), metav1.NamespaceAll)
+			client.CoreV1(), metav1.NamespaceAll, webhooks)
 		if err != nil {
 			t.Errorf("failed to create secret controller: %v", err)
 		}
@@ -140,23 +163,88 @@ func TestSecretController(t *testing.T) {
 	}
 }
 
-func TestRecoverFromDeletedIstioSecret(t *testing.T) {
+func TestSecretContent(t *testing.T) {
+	saName := "test-serviceaccount"
+	saNamespace := "test-namespace"
 	client := fake.NewSimpleClientset()
 	controller, err := NewSecretController(createFakeCA(), defaultTTL, defaultGracePeriodRatio, defaultMinGracePeriod,
-		client.CoreV1(), metav1.NamespaceAll)
+		client.CoreV1(), metav1.NamespaceAll, map[string]DNSNameEntry{})
+	if err != nil {
+		t.Errorf("Failed to create secret controller: %v", err)
+	}
+	controller.saAdded(createServiceAccount(saName, saNamespace))
+
+	secret := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{ServiceAccountNameAnnotationKey: saName},
+			Name:        GetSecretName(saName),
+			Namespace:   saNamespace,
+		},
+		Type: IstioSecretType,
+	}
+	secret, err = client.CoreV1().Secrets(saNamespace).Get(GetSecretName(saName), metav1.GetOptions{})
+	if err != nil {
+		t.Errorf("Failed to retrieve secret: %v", err)
+	}
+	if !bytes.Equal(rootCert, secret.Data[RootCertID]) {
+		t.Errorf("Root cert verification error: expected %v but got %v", rootCert, secret.Data[RootCertID])
+	}
+	if !bytes.Equal(append(signedCert, certChain...), secret.Data[CertChainID]) {
+		t.Errorf("Cert chain verification error: expected %v but got %v", certChain, secret.Data[CertChainID])
+	}
+}
+func TestDeletedIstioSecret(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	controller, err := NewSecretController(createFakeCA(), defaultTTL, defaultGracePeriodRatio, defaultMinGracePeriod,
+		client.CoreV1(), metav1.NamespaceAll, nil)
 	if err != nil {
 		t.Errorf("failed to create secret controller: %v", err)
 	}
-	scrt := createSecret("test", "istio.test", "test-ns")
-	controller.scrtDeleted(scrt)
+	sa := createServiceAccount("test-sa", "test-ns")
+	if _, err := client.CoreV1().ServiceAccounts("test-ns").Create(sa); err != nil {
+		t.Error(err)
+	}
 
-	gvr := schema.GroupVersionResource{
+	saGvr := schema.GroupVersionResource{
+		Resource: "serviceaccounts",
+		Version:  "v1",
+	}
+	scrtGvr := schema.GroupVersionResource{
 		Resource: "secrets",
 		Version:  "v1",
 	}
-	expectedActions := []ktesting.Action{ktesting.NewCreateAction(gvr, "test-ns", scrt)}
-	if err := checkActions(client.Actions(), expectedActions); err != nil {
-		t.Error(err)
+
+	testCases := map[string]struct {
+		secret          *v1.Secret
+		expectedActions []ktesting.Action
+	}{
+		"Recover secret for existing service account": {
+			secret: createSecret("test-sa", "istio.test-sa", "test-ns"),
+			expectedActions: []ktesting.Action{
+				ktesting.NewGetAction(saGvr, "test-ns", "test-sa"),
+				ktesting.NewCreateAction(scrtGvr, "test-ns", createSecret("test-sa", "istio.test-sa", "test-ns")),
+			},
+		},
+		"Do not recover secret for non-existing service account in the same namespace": {
+			secret: createSecret("test-sa2", "istio.test-sa2", "test-ns"),
+			expectedActions: []ktesting.Action{
+				ktesting.NewGetAction(saGvr, "test-ns", "test-sa2"),
+			},
+		},
+		"Do not recover secret for service account in different namespace": {
+			secret: createSecret("test-sa", "istio.test-sa", "test-ns2"),
+			expectedActions: []ktesting.Action{
+				ktesting.NewGetAction(saGvr, "test-ns2", "test-sa"),
+			},
+		},
+	}
+
+	for k, tc := range testCases {
+		client.ClearActions()
+		controller.scrtDeleted(tc.secret)
+		if err := checkActions(client.Actions(), tc.expectedActions); err != nil {
+			t.Errorf("Failure in test case %s: %v", k, err)
+		}
 	}
 }
 
@@ -216,7 +304,7 @@ func TestUpdateSecret(t *testing.T) {
 	for k, tc := range testCases {
 		client := fake.NewSimpleClientset()
 		controller, err := NewSecretController(createFakeCA(), time.Hour, tc.gracePeriodRatio, tc.minGracePeriod,
-			client.CoreV1(), metav1.NamespaceAll)
+			client.CoreV1(), metav1.NamespaceAll, nil)
 		if err != nil {
 			t.Errorf("failed to create secret controller: %v", err)
 		}
@@ -264,13 +352,13 @@ func checkActions(actual, expected []ktesting.Action) error {
 
 func createFakeCA() *mockca.FakeCA {
 	return &mockca.FakeCA{
-		SignedCert: []byte("fake signed cert"),
+		SignedCert: signedCert,
 		SignErr:    nil,
 		KeyCertBundle: &mockutil.FakeKeyCertBundle{
-			CertBytes:      []byte("fake CA cert"),
-			PrivKeyBytes:   []byte("fake private key"),
-			CertChainBytes: []byte("fake cert chain"),
-			RootCertBytes:  []byte("fake root cert"),
+			CertBytes:      caCert,
+			PrivKeyBytes:   caKey,
+			CertChainBytes: certChain,
+			RootCertBytes:  rootCert,
 		},
 	}
 }

@@ -17,7 +17,7 @@ package adapter
 import (
 	"time"
 
-	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
+	rpc "github.com/gogo/googleapis/google/rpc"
 )
 
 type (

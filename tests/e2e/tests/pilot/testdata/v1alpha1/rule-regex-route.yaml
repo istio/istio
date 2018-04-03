@@ -1,0 +1,20 @@
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: content-route
+spec:
+  destination:
+    name: c
+  precedence: 4
+  match:
+    source:
+      name: a
+      labels:
+        version: v1
+    request:
+      headers:
+        foo:
+          regex: "b.*"
+  route:
+    - labels:
+         version: v2

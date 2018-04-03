@@ -47,9 +47,9 @@ import (
 )
 
 const (
-	secretServerKey  = "server-key.pem"
-	secretServerCert = "server-cert.pem"
-	secretCACert     = "ca-cert.pem"
+	secretServerKey  = "key.pem"
+	secretServerCert = "cert.pem"
+	caCertPath       = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 )
 
 // ControllerOptions contains the configuration for the Istio Pilot validation
@@ -140,11 +140,13 @@ func makeTLSConfig(serverCert, serverKey, caCert []byte) (*tls.Config, error) {
 	return &tls.Config{
 		Certificates: []tls.Certificate{cert},
 		ClientCAs:    caCertPool,
-		ClientAuth:   tls.RequireAndVerifyClientCert,
+		// mTLS is not supported for webhooks currently.
+		// See https://github.com/kubernetes/kubernetes/blob/release-1.9/test/images/webhook/config.go#L48
+		ClientAuth: tls.NoClientCert,
 	}, nil
 }
 
-func getKeyCertsFromSecret(client kubernetes.Interface, name, namespace string) (serverKey, serverCert, caCert []byte, err error) { // nolint: lll
+func getKeyCertsFromSecret(client kubernetes.Interface, name, namespace string) (serverKey, serverCert []byte, err error) { // nolint: lll
 	listWatch := cache.NewListWatchFromClient(client.CoreV1().RESTClient(),
 		"secrets", namespace, fields.OneTermEqualSelector("metadata.name", name))
 	var secret *v1.Secret
@@ -163,15 +165,12 @@ func getKeyCertsFromSecret(client kubernetes.Interface, name, namespace string) 
 
 	var ok bool
 	if serverKey, ok = secret.Data[secretServerKey]; !ok {
-		return nil, nil, nil, errors.New("server key missing")
+		return nil, nil, errors.New("server key missing")
 	}
 	if serverCert, ok = secret.Data[secretServerCert]; !ok {
-		return nil, nil, nil, errors.New("server cert missing")
+		return nil, nil, errors.New("server cert missing")
 	}
-	if caCert, ok = secret.Data[secretCACert]; !ok {
-		return nil, nil, nil, errors.New("ca cert missing")
-	}
-	return serverKey, serverCert, caCert, nil
+	return serverKey, serverCert, nil
 }
 
 // NewController creates a new instance of the admission webhook controller.
@@ -187,7 +186,11 @@ func setup(client kubernetes.Interface, options *ControllerOptions) (*tls.Config
 	if err != nil {
 		return nil, nil, err
 	}
-	serverKey, serverCert, caCert, err := getKeyCertsFromSecret(
+	caCert, err := ioutil.ReadFile(caCertPath)
+	if err != nil {
+		return nil, nil, err
+	}
+	serverKey, serverCert, err := getKeyCertsFromSecret(
 		client, options.SecretName, options.ServiceNamespace)
 	if err != nil {
 		return nil, nil, err
@@ -221,7 +224,7 @@ func (ac *AdmissionController) Run(stop <-chan struct{}) {
 		TLSConfig: tlsConfig,
 	}
 
-	log.Infoa("Found certificates for validation admission webhook. Delaying registration for %v",
+	log.Infof("Found certificates for validation admission webhook. Delaying registration for %v",
 		ac.options.RegistrationDelay)
 
 	select {

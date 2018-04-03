@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -43,6 +44,23 @@ Y29tL25hbWVzcGFjZS9ucy9zZXJ2aWNlYWNjb3VudC9zYTANBgkqhkiG9w0BAQsF
 AAOBgQCw9dL6xRQSjdYKt7exqlTJliuNEhw/xDVGlNUbDZnT0uL3zXI//Z8tsejn
 8IFzrDtm0Z2j4BmBzNMvYBKL/4JPZ8DFywOyQqTYnGtHIkt41CNjGfqJRk8pIqVC
 hKldzzeCKNgztEvsUKVqltFZ3ZYnkj/8/Cg8zUtTkOhHOjvuig==
+-----END CERTIFICATE REQUEST-----`
+
+const badSanCsr = `
+MIICdzCCAV8CAQAwCzEJMAcGA1UEChMAMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A
+MIIBCgKCAQEAr8uTt9MSXAHugljyfxCS1BE3X0U5YQnN8Cgj1qn5cnu43LDdwA/x
+Zgsd7ZfkuA+fpxBW2x4yR4LOSEwZAav6z45f9dxoZea0/wTPUHXam2tHIuhz1F1F
+LlZX0EbZErBcjiPs6Y/FUaVROZZftOkq+sfNExTiXR7q5fAyYP/9L57OHOEx6RA3
+kNEFBaa190j4ITvuS8fqsMT3lsRqLQ7fTCd5Ygw8rGZWOT6GSpLm1YJvSXhDUdxL
+hYvoMoDgJ+SRpXWvG/YlzP6nMvJN45flTcIGXSMFvqaFGs5HhYxIviX8dE1Vso+/
+1GV5MNPksTuGh/QqCjjcKvzZ6cMRuUeziQIDAQABoCcwJQYJKoZIhvcNAQkOMRgw
+FjAUBgNVHREEDTALgglsb2NhbGhvc3QwDQYJKoZIhvcNAQELBQADggEBAEHIduLz
+5oei9NHapvYsDDe6A+Q2nUm9uvWn/mMBujbstY9ZmLc73gWS0A8maXFFCjtMf7+n
+u8naR7rmw0MjbVJPL2gbbqWjlNqvfm/upiYT2o8UtXyi0ZIQwfxL/iLqHZOVfm//
+GGpTOohc7joR0EUnBa5piK3XXc4U5aCWMwlnmENMBAtNlRBuAzYJsMydv0Be72ga
+gCojNs0xyJ77JA80HLY7iR4J6BRYsZQ/5UB/pYR55e4TGFDbI+C/6NBqLkzEfyX0
+5KLq/6IJesVZLnKoxOt07OYriZS+U4b+Lx3++vWVnI8z2iOdGPUuJj7ys57zKJZ3
+1sT/u25qExkefck=
 -----END CERTIFICATE REQUEST-----`
 
 type mockCA struct {
@@ -105,6 +123,12 @@ func TestSign(t *testing.T) {
 		certChain      string
 		code           codes.Code
 	}{
+		"No authenticator": {
+			authenticators: nil,
+			code:           codes.Unauthenticated,
+			authorizer:     &mockAuthorizer{},
+			ca:             &mockca.FakeCA{SignErr: fmt.Errorf("cannot sign")},
+		},
 		"Unauthenticated request": {
 			authenticators: []authenticator{&mockAuthenticator{
 				errMsg: "Not authorized",
@@ -112,6 +136,20 @@ func TestSign(t *testing.T) {
 			code:       codes.Unauthenticated,
 			authorizer: &mockAuthorizer{},
 			ca:         &mockca.FakeCA{SignErr: fmt.Errorf("cannot sign")},
+		},
+		"Corrupted CSR": {
+			authorizer:     &mockAuthorizer{},
+			authenticators: []authenticator{&mockAuthenticator{}},
+			ca:             &mockca.FakeCA{SignErr: fmt.Errorf("cannot sign")},
+			csr:            "deadbeef",
+			code:           codes.InvalidArgument,
+		},
+		"Invalid SAN CSR": {
+			authorizer:     &mockAuthorizer{},
+			authenticators: []authenticator{&mockAuthenticator{}},
+			ca:             &mockca.FakeCA{SignErr: fmt.Errorf("cannot sign")},
+			csr:            badSanCsr,
+			code:           codes.InvalidArgument,
 		},
 		"Failed to sign": {
 			authorizer:     &mockAuthorizer{},
@@ -148,7 +186,7 @@ func TestSign(t *testing.T) {
 		s, _ := status.FromError(err)
 		code := s.Code()
 		if c.code != code {
-			t.Errorf("Case %s: expecting code to be (%d) but got (%d)", id, c.code, code)
+			t.Errorf("Case %s: expecting code to be (%d) but got (%d: %s)", id, c.code, code, s.Message())
 		} else if c.code == codes.OK {
 			if !bytes.Equal(response.SignedCert, []byte(c.cert)) {
 				t.Errorf("Case %s: expecting cert to be (%s) but got (%s)", id, c.cert, response.SignedCert)
@@ -213,7 +251,15 @@ func TestRun(t *testing.T) {
 			port:        -1,
 			expectedErr: "cannot listen on port -1 (error: listen tcp: address -1: invalid port)",
 		},
-		"Random listening port number": {
+		"CA sign error": {
+			ca:                          &mockca.FakeCA{SignErr: errors.New("mock CA cannot sign")},
+			hostname:                    "localhost",
+			port:                        0,
+			expectedErr:                 "",
+			expectedAuthenticatorsLen:   2,
+			applyServerCertificateError: "mock CA cannot sign",
+		},
+		"Bad signed cert": {
 			ca:                        &mockca.FakeCA{SignedCert: []byte(csr)},
 			hostname:                  "localhost",
 			port:                      0,

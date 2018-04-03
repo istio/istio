@@ -14,7 +14,9 @@
 
 .PHONY: docker
 
-docker: docker.all
+# Docker target will build the go binaries and package the docker for local testing.
+# It does not upload to a registry.
+docker: build test-bins docker.all
 
 $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 	mkdir -p $@
@@ -25,8 +27,10 @@ $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 
 PROXY_JSON_FILES:=pilot/docker/envoy_pilot.json \
                   pilot/docker/envoy_pilot_auth.json \
-                  pilot/docker/envoy_mixer.json \
-                  pilot/docker/envoy_mixer_auth.json
+                  pilot/docker/envoy_istio_policy.json \
+                  pilot/docker/envoy_istio_policy_auth.json \
+                  pilot/docker/envoy_istio_telemetry.json \
+                  pilot/docker/envoy_istio_telemetry_auth.json
 
 NODE_AGENT_TEST_FILES:=security/docker/start_app.sh \
                        security/docker/app.js
@@ -70,32 +74,84 @@ $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
 # 	cp $$< $$(@D))
 
 # tell make which files are copied from the source tree
-DOCKER_FILES_FROM_SOURCE:=pilot/docker/prepare_proxy.sh docker/ca-certificates.tgz tools/deb/envoy_bootstrap_tmpl.json \
+DOCKER_FILES_FROM_SOURCE:=tools/deb/istio-iptables.sh docker/ca-certificates.tgz tools/deb/envoy_bootstrap_tmpl.json \
                           $(PROXY_JSON_FILES) $(NODE_AGENT_TEST_FILES) $(FLEXVOLUMEDRIVER_FILES) $(GRAFANA_FILES) \
-                          pilot/docker/certs/cert.crt pilot/docker/certs/cert.key
+                          pilot/docker/certs/cert.crt pilot/docker/certs/cert.key pilot/docker/mixer_bootstrap.sh
 $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
         $(eval $(ISTIO_DOCKER)/$(notdir $(FILE)): $(FILE) | $(ISTIO_DOCKER); cp $(FILE) $$(@D)))
 
-# Copy the envoy images, but use standard file names (without the version) in docker
-$(ISTIO_DOCKER)/envoy: ${ISTIO_ENVOY_RELEASE_PATH} | $(ISTIO_DOCKER); cp ${ISTIO_ENVOY_RELEASE_PATH} $(ISTIO_DOCKER)/envoy
-$(ISTIO_DOCKER)/envoy-debug: ${ISTIO_ENVOY_DEBUG_PATH} | $(ISTIO_DOCKER); cp ${ISTIO_ENVOY_DEBUG_PATH} $(ISTIO_DOCKER)/envoy-debug
+# pilot docker imagesDOCKER_BUILD_TOP
 
-# pilot docker images
-
-docker.app: $(ISTIO_DOCKER)/pilot-test-client $(ISTIO_DOCKER)/pilot-test-server \
-            $(ISTIO_DOCKER)/cert.crt $(ISTIO_DOCKER)/cert.key
 docker.eurekamirror: $(ISTIO_DOCKER)/pilot-test-eurekamirror
-docker.pilot:        $(ISTIO_DOCKER)/pilot-discovery
-docker.proxy docker.proxy_debug: $(ISTIO_DOCKER)/pilot-agent
-docker.proxy: $(ISTIO_DOCKER)/envoy
-docker.proxy_debug: $(ISTIO_DOCKER)/envoy-debug
-$(foreach FILE,$(PROXY_JSON_FILES),$(eval docker.proxy docker.proxy_debug: $(ISTIO_DOCKER)/$(notdir $(FILE))))
-docker.proxy docker.proxy_debug: $(ISTIO_DOCKER)/envoy_bootstrap_tmpl.json
-docker.proxy_init: $(ISTIO_DOCKER)/prepare_proxy.sh
+docker.proxy_init: $(ISTIO_DOCKER)/istio-iptables.sh
 docker.sidecar_injector: $(ISTIO_DOCKER)/sidecar-injector
 
-PILOT_DOCKER:=docker.app docker.eurekamirror docker.pilot docker.proxy \
-              docker.proxy_debug docker.proxy_init docker.sidecar_injector
+docker.proxy: tools/deb/envoy_bootstrap_tmpl.json
+docker.proxy: ${ISTIO_ENVOY_RELEASE_PATH}
+docker.proxy: $(ISTIO_OUT)/pilot-agent ${PROXY_JSON_FILES}
+docker.proxy: pilot/docker/${DOCKER_PROXY_CFG}
+docker.proxy: pilot/docker/mixer_bootstrap.sh
+	mkdir -p $(DOCKER_BUILD_TOP)/proxy
+	# Not using $^ to avoid 2 copies of envoy
+	cp tools/deb/envoy_bootstrap_tmpl.json $(ISTIO_OUT)/pilot-agent ${PROXY_JSON_FILES} pilot/docker/mixer_bootstrap.sh pilot/docker/${DOCKER_PROXY_CFG} $(DOCKER_BUILD_TOP)/proxy/
+	cp ${ISTIO_ENVOY_RELEASE_PATH} $(DOCKER_BUILD_TOP)/proxy/envoy
+	time (cd $(DOCKER_BUILD_TOP)/proxy && \
+		docker build -t $(HUB)/proxy:$(TAG) -f ${DOCKER_PROXY_CFG} .)
+
+docker.proxy_debug: tools/deb/envoy_bootstrap_tmpl.json
+docker.proxy_debug: ${ISTIO_ENVOY_DEBUG_PATH}
+docker.proxy_debug: $(ISTIO_OUT)/pilot-agent ${PROXY_JSON_FILES}
+docker.proxy_debug: pilot/docker/mixer_bootstrap.sh
+docker.proxy_debug: pilot/docker/Dockerfile.proxy_debug
+	mkdir -p $(DOCKER_BUILD_TOP)/proxyd
+	cp ${ISTIO_ENVOY_DEBUG_PATH} $(DOCKER_BUILD_TOP)/proxyd/envoy
+	# Not using $^ to avoid 2 copies of envoy
+	cp tools/deb/envoy_bootstrap_tmpl.json $(ISTIO_OUT)/pilot-agent ${PROXY_JSON_FILES} pilot/docker/mixer_bootstrap.sh pilot/docker/Dockerfile.proxy_debug $(DOCKER_BUILD_TOP)/proxyd/
+	time (cd $(DOCKER_BUILD_TOP)/proxyd && \
+		docker build -t $(HUB)/proxy_debug:$(TAG) -f Dockerfile.proxy_debug .)
+
+# Target to build a proxy image with v2 interfaces enabled. Partial implementation, but
+# will scale better and have v2-specific features. Not built automatically until it passes
+# all tests. Developers working on v2 are currently expected to call this manually as
+# make docker.proxyv2; docker push ${HUB}/proxy:${TAG}
+docker.proxyv2: tools/deb/envoy_bootstrap_v2.json ${PROXY_JSON_FILES}
+docker.proxyv2: ${ISTIO_ENVOY_RELEASE_PATH}
+docker.proxyv2: $(ISTIO_OUT)/pilot-agent
+docker.proxyv2: pilot/docker/mixer_bootstrap.sh
+docker.proxyv2: pilot/docker/Dockerfile.proxy pilot/docker/Dockerfile.proxy_debug
+	mkdir -p $(DOCKER_BUILD_TOP)/proxyv2
+	# Not using $^ to avoid 2 copies of envoy
+	cp ${PROXY_JSON_FILES} pilot/docker/mixer_bootstrap.sh $(ISTIO_OUT)/pilot-agent \
+		pilot/docker/Dockerfile.proxy_debug $(DOCKER_BUILD_TOP)/proxyv2/
+	cp ${ISTIO_ENVOY_RELEASE_PATH} $(DOCKER_BUILD_TOP)/proxyv2/envoy
+	# Use v2 as default
+	cp tools/deb/envoy_bootstrap_v2.json $(DOCKER_BUILD_TOP)/proxyv2/envoy_bootstrap_tmpl.json
+	time (cd $(DOCKER_BUILD_TOP)/proxyv2 && \
+		docker build -t $(HUB)/proxyv2:$(TAG) -f Dockerfile.proxy_debug .)
+
+docker.pilot: $(ISTIO_OUT)/pilot-discovery pilot/docker/Dockerfile.pilot
+	mkdir -p $(ISTIO_DOCKER)/pilot
+	cp $^ $(ISTIO_DOCKER)/pilot/
+	time (cd $(ISTIO_DOCKER)/pilot && \
+		docker build -t $(HUB)/pilot:$(TAG) -f Dockerfile.pilot .)
+
+# Test app for pilot integration
+docker.app: $(ISTIO_OUT)/pilot-test-client $(ISTIO_OUT)/pilot-test-server \
+			pilot/docker/certs/cert.crt pilot/docker/certs/cert.key pilot/docker/Dockerfile.app
+	mkdir -p $(ISTIO_DOCKER)/pilotapp
+	cp $^ $(ISTIO_DOCKER)/pilotapp
+ifeq ($(DEBUG_IMAGE),1)
+	# It is extremely helpful to debug from the test app. The savings in size are not worth the
+	# developer pain
+	cp $(ISTIO_DOCKER)/pilotapp/Dockerfile.app $(ISTIO_DOCKER)/pilotapp/Dockerfile.appdbg
+	sed -e "s,FROM scratch,FROM $(HUB)/proxy_debug:$(TAG)," $(ISTIO_DOCKER)/pilotapp/Dockerfile.appdbg > $(ISTIO_DOCKER)/pilotapp/Dockerfile.appd
+endif
+	time (cd $(ISTIO_DOCKER)/pilotapp && \
+		docker build -t $(HUB)/app:$(TAG) -f Dockerfile.app .)
+
+
+PILOT_DOCKER:=docker.eurekamirror \
+              docker.proxy_init docker.sidecar_injector
 $(PILOT_DOCKER): pilot/docker/Dockerfile$$(suffix $$@) | $(ISTIO_DOCKER)
 	$(DOCKER_RULE)
 
@@ -135,11 +191,13 @@ $(foreach FILE,$(GRAFANA_FILES),$(eval docker.grafana: $(ISTIO_DOCKER)/$(notdir 
 docker.grafana: addons/grafana/Dockerfile$$(suffix $$@) $(GRAFANA_FILES) $(ISTIO_DOCKER)/dashboards
 	$(DOCKER_RULE)
 
-DOCKER_TARGETS:=$(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER) docker.grafana
+DOCKER_TARGETS:=docker.pilot docker.proxy docker.proxy_debug docker.proxyv2 docker.app $(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER) docker.grafana
 
 DOCKER_RULE=time (cp $< $(ISTIO_DOCKER)/ && cd $(ISTIO_DOCKER) && \
             docker build -t $(HUB)/$(subst docker.,,$@):$(TAG) -f Dockerfile$(suffix $@) .)
 
+# This target will package all docker images used in test and release, without re-building
+# go binaries. It is intended for CI/CD systems where the build is done in separate job.
 docker.all: $(DOCKER_TARGETS)
 
 # for each docker.XXX target create a tar.docker.XXX target that says how
@@ -179,3 +237,12 @@ docker.tag: docker
 
 # Will build and push docker images.
 docker.push: $(DOCKER_PUSH_TARGETS)
+
+# Base image for 'debug' containers.
+# You can run it first to use local changes (or guarantee it is built from scratch)
+docker.basedebug:
+	docker build -t istionightly/base_debug -f docker/Dockerfile.xenial_debug docker/
+
+# Job run from the nightly cron to publish an up-to-date xenial with the debug tools.
+docker.push.basedebug: docker.basedebug
+	docker push istionightly/base_debug:latest

@@ -1,7 +1,7 @@
 ---
 title: traceSpan
 layout: protoc-gen-docs
-number_of_entries: 1
+number_of_entries: 3
 ---
 <h2 id="Template">Template</h2>
 <section>
@@ -99,7 +99,7 @@ This makes it easier to correlate spans in different traces.</p>
 </tr>
 <tr id="Template.start_time">
 <td><code>startTime</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/mixer/istio.mixer.adapter.model.v1beta1.html#TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</a></code></td>
+<td><code><a href="#istio.mixer.adapter.model.v1beta1.TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</a></code></td>
 <td>
 <p>The start time of the span.</p>
 
@@ -109,7 +109,7 @@ This makes it easier to correlate spans in different traces.</p>
 </tr>
 <tr id="Template.end_time">
 <td><code>endTime</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/mixer/istio.mixer.adapter.model.v1beta1.html#TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</a></code></td>
+<td><code><a href="#istio.mixer.adapter.model.v1beta1.TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</a></code></td>
 <td>
 <p>The end time of the span.</p>
 
@@ -119,7 +119,7 @@ This makes it easier to correlate spans in different traces.</p>
 </tr>
 <tr id="Template.span_tags">
 <td><code>spanTags</code></td>
-<td><code>map&lt;string,&nbsp;<a href="https://istio.io/docs/reference/config/mixer/istio.mixer.adapter.model.v1beta1.html#Value">istio.mixer.adapter.model.v1beta1.Value</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#istio.mixer.adapter.model.v1beta1.Value">istio.mixer.adapter.model.v1beta1.Value</a>&gt;</code></td>
 <td>
 <p>Span tags are a set of <key, value> pairs that provide metadata for the
 entire span. The values can be specified in the form of expressions.</p>
@@ -130,4 +130,15 @@ entire span. The values can be specified in the form of expressions.</p>
 </tr>
 </tbody>
 </table>
+</section>
+<h2 id="istio.mixer.adapter.model.v1beta1.TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</h2>
+<section>
+<p>TimeStamp is used inside templates for fields that are of ValueType &ldquo;TIMESTAMP&rdquo;</p>
+
+</section>
+<h2 id="istio.mixer.adapter.model.v1beta1.Value">istio.mixer.adapter.model.v1beta1.Value</h2>
+<section>
+<p>Value is used inside templates for fields that have dynamic types. The actual datatype
+of the field depends on the datatype of the expression used in the operator configuration.</p>
+
 </section>

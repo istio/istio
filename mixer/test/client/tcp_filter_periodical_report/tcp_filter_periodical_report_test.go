@@ -34,6 +34,8 @@ const deltaReportAttributesOkPost = `
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
   "connection.mtls": false,
+  "check.cache_hit": false,
+  "quota.cache_hit": false,
   "connection.received.bytes": 191,
   "connection.received.bytes_total": 191,
   "connection.sent.bytes": 0,
@@ -53,6 +55,8 @@ const finalReportAttributesOkPost = `
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
   "connection.mtls": false,
+  "check.cache_hit": false,
+  "quota.cache_hit": false,
   "connection.received.bytes": 0,
   "connection.received.bytes_total": 191,
   "connection.sent.bytes": 138,
@@ -76,14 +80,17 @@ var expectedStats = map[string]int{
 
 func TestTCPMixerFilterPeriodicalReport(t *testing.T) {
 	s := env.NewTestSetup(env.TCPMixerFilterPeriodicalReportTest, t)
-	env.SetTCPReportInterval(s.V2().TCPServerConf, 2)
-	env.SetStatsUpdateInterval(s.V2(), 1)
+	env.SetTCPReportInterval(s.MfConfig().TCPServerConf, 2)
+	env.SetStatsUpdateInterval(s.MfConfig(), 1)
 	// Disable check cache.
-	env.DisableTCPClientCache(s.V2().TCPServerConf, true, true, true)
+	env.DisableTCPClientCache(s.MfConfig().TCPServerConf, true, true, true)
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
 	defer s.TearDown()
+
+	// Make sure tcp port is ready before starting the test.
+	env.WaitForPort(s.Ports().TCPProxyPort)
 
 	// Sends a request with parameter delay=3, so that server sleeps 3 seconds and sends response.
 	// Mixerclient sends a delta report after 2 seconds, and sends a final report after another 1

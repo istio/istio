@@ -18,9 +18,11 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"errors"
 	"reflect"
 	"testing"
 
+	oidc "github.com/coreos/go-oidc"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
@@ -29,8 +31,15 @@ import (
 	"istio.io/istio/security/pkg/pki/util"
 )
 
-// TODO: Test the error messages.
-func TestAuthenticate(t *testing.T) {
+type mockAuthInfo struct {
+	authType string
+}
+
+func (ai mockAuthInfo) AuthType() string {
+	return ai.authType
+}
+
+func TestAuthenticate_clientCertAuthenticator(t *testing.T) {
 	callerID := "test.identity"
 	ids := []util.Identity{
 		{Type: util.TypeURI, Value: []byte(callerID)},
@@ -44,16 +53,33 @@ func TestAuthenticate(t *testing.T) {
 		certChain          [][]*x509.Certificate
 		caller             *caller
 		authenticateErrMsg string
+		fakeAuthInfo       *mockAuthInfo
 	}{
-		"no client certificate": {
+		"No client certificate": {
 			certChain:          nil,
 			caller:             nil,
 			authenticateErrMsg: "no client certificate is presented",
+		},
+		"Unsupported auth type": {
+			certChain:          nil,
+			caller:             nil,
+			authenticateErrMsg: "unsupported auth type: \"not-tls\"",
+			fakeAuthInfo:       &mockAuthInfo{"not-tls"},
 		},
 		"Empty cert chain": {
 			certChain:          [][]*x509.Certificate{},
 			caller:             nil,
 			authenticateErrMsg: "no verified chain is found",
+		},
+		"Certificate has no SAN": {
+			certChain: [][]*x509.Certificate{
+				{
+					{
+						Version: 1,
+					},
+				},
+			},
+			authenticateErrMsg: "the SAN extension does not exist",
 		},
 		"With client certificate": {
 			certChain: [][]*x509.Certificate{
@@ -78,22 +104,98 @@ func TestAuthenticate(t *testing.T) {
 			p := &peer.Peer{AuthInfo: tlsInfo}
 			ctx = peer.NewContext(ctx, p)
 		}
+		if tc.fakeAuthInfo != nil {
+			ctx = peer.NewContext(ctx, &peer.Peer{AuthInfo: tc.fakeAuthInfo})
+		}
 
 		result, err := auth.authenticate(ctx)
 		if len(tc.authenticateErrMsg) > 0 {
 			if err == nil {
-				t.Errorf("%s: Succeeded. Error expected: %v", id, err)
+				t.Errorf("Case %s: Succeeded. Error expected: %v", id, err)
 			} else if err.Error() != tc.authenticateErrMsg {
-				t.Errorf("%s: incorrect error message: %s VS %s",
-					id, err.Error(), tc.authenticateErrMsg)
+				t.Errorf("Case %s: Incorrect error message: want %s but got %s",
+					id, tc.authenticateErrMsg, err.Error())
 			}
 			continue
 		} else if err != nil {
-			t.Fatalf("%s: Unexpected Error: %v", id, err)
+			t.Fatalf("Case %s: Unexpected Error: %v", id, err)
 		}
 
 		if !reflect.DeepEqual(tc.caller, result) {
-			t.Errorf("Case %q: Unexpected authentication result: want %v but got %v", id, tc.caller, result)
+			t.Errorf("Case %q: Unexpected authentication result: want %v but got %v",
+				id, tc.caller, result)
+		}
+	}
+}
+
+type mockKeySet struct {
+	err     error
+	payload []byte
+}
+
+func (ks *mockKeySet) VerifySignature(ctx context.Context, jwt string) (payload []byte, err error) {
+	return ks.payload, ks.err
+}
+
+func TestAuthenticate_idTokenAuthenticator(t *testing.T) {
+	payload := `{"iss":"https://foo", "email":"test@foo"}`
+	signedPayload := "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJpc3MiOiJodHRwczovL2ZvbyIsICJlbWFpbCI" +
+		"6InRlc3RAZm9vIn0.BzP-QWpGleJ9CmsIOahyuw1A-O5qmv5yKrfehHh2ubcT_Ug3RHXDyt3sunU14_NAmdtIhE7EO5ywS" +
+		"v1j8BEa1dZjJf3U8CICKj_MIe3EV_Ks2yzkgJr0UQ5xIa1IGaSITtARQUas7qzhArcECobDeINkMUaCup4nmQkWxg0rkjH3"
+
+	testCases := map[string]struct {
+		metadata       metadata.MD
+		verifyError    error
+		expectedErrMsg string
+		expectedCaller *caller
+	}{
+		"No ID token": {
+			expectedErrMsg: "ID token extraction error: no metadata is attached",
+		},
+		"ID token with invalid signature": {
+			metadata:       metadata.MD{"authorization": []string{signedPayload}},
+			verifyError:    errors.New("invalid signature"),
+			expectedErrMsg: "failed to verify the ID token (error failed to verify signature: invalid signature)",
+		},
+		"ID token with correct signature": {
+			metadata: metadata.MD{"authorization": []string{signedPayload}},
+			expectedCaller: &caller{
+				authSource: authSourceIDToken,
+				identities: []string{"test@foo"},
+			},
+		},
+	}
+
+	for id, tc := range testCases {
+		ctx := context.Background()
+		if tc.metadata != nil {
+			ctx = metadata.NewIncomingContext(ctx, tc.metadata)
+		}
+
+		auth := &idTokenAuthenticator{
+			verifier: oidc.NewVerifier(
+				"https://foo",
+				&mockKeySet{
+					err:     tc.verifyError,
+					payload: []byte(payload)},
+				&oidc.Config{
+					SkipClientIDCheck: true,
+					SkipExpiryCheck:   true,
+				})}
+		actual, err := auth.authenticate(ctx)
+		if len(tc.expectedErrMsg) > 0 {
+			if err == nil {
+				t.Errorf("Case %s: Succeeded. Error expected: %v", id, err)
+			} else if err.Error() != tc.expectedErrMsg {
+				t.Errorf("Case %s: Incorrect error message: want %s but got %s", id, tc.expectedErrMsg, err.Error())
+			}
+		} else if err != nil {
+			t.Fatalf("Case %s: Unexpected Error: %v", id, err)
+		}
+		if tc.expectedCaller != nil {
+			if !reflect.DeepEqual(tc.expectedCaller, actual) {
+				t.Errorf("Case %s: Unexpected caller: want %v but got %v", id, tc.expectedCaller, actual)
+			}
 		}
 	}
 }
@@ -146,18 +248,18 @@ func TestExtractBearerToken(t *testing.T) {
 		actual, err := extractBearerToken(ctx)
 		if len(tc.extractBearerTokenErrMsg) > 0 {
 			if err == nil {
-				t.Errorf("%s: Succeeded. Error expected: %v", id, err)
+				t.Errorf("Case %s: Succeeded. Error expected: %v", id, err)
 			} else if err.Error() != tc.extractBearerTokenErrMsg {
-				t.Errorf("%s: incorrect error message: %s VS %s",
+				t.Errorf("Case %s: Incorrect error message: %s VS %s",
 					id, err.Error(), tc.extractBearerTokenErrMsg)
 			}
 			continue
 		} else if err != nil {
-			t.Fatalf("%s: Unexpected Error: %v", id, err)
+			t.Fatalf("Case %s: Unexpected Error: %v", id, err)
 		}
 
 		if actual != tc.expectedToken {
-			t.Errorf("Case %q: unexpected token: want %s but got %s", id, tc.expectedToken, actual)
+			t.Errorf("Case %q: Unexpected token: want %s but got %s", id, tc.expectedToken, actual)
 		}
 	}
 }

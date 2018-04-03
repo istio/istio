@@ -6,11 +6,14 @@ import sys
 import argparse
 import collections
 import json
+import logging
 import random
 import requests
 import subprocess
 import yaml
 import time
+
+logging.basicConfig(format="%(message)s")
 
 POD = collections.namedtuple('Pod', ['name', 'namespace', 'ip', 'labels'])
 
@@ -26,6 +29,7 @@ CLUSTER = "istio-proxy"
 ENVOY_PORT = 15000
 LOCAL_PORT_START = 50000
 LOCAL_PORT_STOP = 60000
+
 
 class XDS(object):
 
@@ -49,15 +53,15 @@ class XDS(object):
 
     def query(self, path, post=False):
         url = self.url + path
-        print url
+        logging.info(url)
         try:
             if post:
                 return requests.post(url, headers=self.headers)
             else:
                 return requests.get(url, headers=self.headers).json()
         except Exception as ex:
-            print ex
-            print "Is pilot accessible at %s?" % url
+            logging.error(ex)
+            logging.error("Is pilot accessible at %s?" % url)
             sys.exit(-1)
 
     def lds(self, pod, hydrate=False):
@@ -83,6 +87,7 @@ class XDS(object):
                 f['config']['route_config'] = self.rds(pod, rn, hydrate)
                 f['config']['route_config']['name'] = rn
 
+        data["clusters"] = self.cds_info
         return data
 
     def rds(self, pod, route="80", hydrate=False):
@@ -146,12 +151,12 @@ class Proxy(object):
 
     def query(self, path, use_json=True):
         url = self.envoy_url + path
-        print url
+        logging.info(url)
         try:
             s = requests.post(url)
         except Exception as ex:
-            print ex
-            print "Is envoy accessible at %s?" % url
+            logging.error(ex)
+            logging.error("Is envoy accessible at %s?" % url)
             sys.exit(-1)
         if use_json:
             return s.json()
@@ -182,7 +187,8 @@ def searchpod(pi, searchstr):
     if "." in searchstr:
         si = searchstr.split('.')
         if len(si) != 3 and len(si) != 2:
-            print "podname must be either name.namespace.podip or name.namespace or any string that's a pod's label or a prefix of a pod's name"
+            logging.warning(
+                "podname must be either name.namespace.podip or name.namespace or any string that's a pod's label or a prefix of a pod's name")
             return None
 
         podname = si[0]
@@ -213,9 +219,11 @@ def start_port_forward(pod_name, namespace, remote_port):
     port_forward_pid = ""
     url = ""
     try:
-        port_forward_pid = subprocess.Popen("kubectl --namespace={namespace} port-forward {pod_name} {local_port}:{remote_port}".format(pod_name=pod_name, namespace=namespace, local_port=local_port, remote_port=remote_port).split()).pid
+        port_forward_pid = subprocess.Popen("kubectl --namespace={namespace} port-forward {pod_name} {local_port}:{remote_port}".format(
+            pod_name=pod_name, namespace=namespace, local_port=local_port, remote_port=remote_port).split(), stdout=open(os.devnull, "wb")).pid
     except:
-        print("Failed to create port-forward for pod %s.%s with remote port %s" % (pod_name, namespace, remote_port))
+        logging.error("Failed to create port-forward for pod %s.%s with remote port %s" %
+                      (pod_name, namespace, remote_port))
         raise
     else:
         url = "http://localhost:{port}".format(port=local_port)
@@ -252,16 +260,21 @@ def find_pilot_url():
             pilot_port = legacy_discovery_port
         else:
             pilot_port = discovery_port
-        pilot_url = "http://{ip}:{port}".format(ip=pilot_spec['clusterIP'], port=pilot_port)
+        pilot_url = "http://{ip}:{port}".format(
+            ip=pilot_spec['clusterIP'], port=pilot_port)
 
         try:
             requests.get(pilot_url, timeout=2)
         except:
-            print "It seems that you are running outside the k8s cluster"
-            print "Let's try to create a port-forward to access pilot"
-            cmd = "kubectl --namespace=%s get -l istio=pilot pod -o=jsonpath={.items[0].metadata.name}" % (ISTIO_NS)
+            logging.warning(
+                "It seems that you are running outside the k8s cluster")
+            logging.warning(
+                "Let's try to create a port-forward to access pilot")
+            cmd = "kubectl --namespace=%s get -l istio=pilot pod -o=jsonpath={.items[0].metadata.name}" % (
+                ISTIO_NS)
             pod_name = subprocess.check_output(cmd.split())
-            pilot_url, port_forward_pid = start_port_forward(pod_name, ISTIO_NS, pilot_port)
+            pilot_url, port_forward_pid = start_port_forward(
+                pod_name, ISTIO_NS, pilot_port)
 
     return pilot_url, port_forward_pid
 
@@ -270,18 +283,18 @@ def main(args):
     pods = searchpod(pod_info(), args.podname)
 
     if not pods:
-        print "Cound not find pod ", args.podname
+        logging.error("Cound not find pod %s" % args.podname)
         return -1
 
     if len(pods) > 1:
         podnames = ["%s.%s" % (pod.name, pod.namespace) for pod in pods]
-        print "More than one pod is found: %s" % ", ".join(podnames)
+        logging.error("More than one pod is found: %s" % ", ".join(podnames))
         return -1
 
     pod = pods[0]
 
     if args.output is None:
-        output_dir = "./" + pod.name
+        output_dir = "/tmp/" + pod.name
     else:
         output_dir = args.output + "/" + pod.name
 
@@ -300,9 +313,10 @@ def main(args):
         else:
             pilot_url, pilot_port_forward_pid = find_pilot_url()
 
-        output_file = output_dir + "/" + "pilot_xds.json"
+        output_file = output_dir + "/" + "pilot_xds.yaml"
         op = open(output_file, "wt")
-        print "Fetching from Pilot for pod %s in %s namespace" % (pod.name, pod.namespace)
+        logging.info("Fetching from Pilot for pod %s in %s namespace" %
+                     (pod.name, pod.namespace))
         xds = XDS(url=pilot_url)
         data = xds.lds(pod, True)
         yaml.safe_dump(data, op, default_flow_style=False,
@@ -310,13 +324,19 @@ def main(args):
         print "Wrote ", output_file
 
         if args.cache_stats:
-            output_file = output_dir + "/" + "stats_xds.json"
+            output_file = output_dir + "/" + "stats_xds.yaml"
             op = open(output_file, "wt")
             data = xds.cache_stats()
-            print("Fetching Pilot cache stats")
+            logging.info("Fetching Pilot cache stats")
             yaml.safe_dump(data, op, default_flow_style=False,
                            allow_unicode=False, indent=2)
             print "Wrote ", output_file
+
+            if args.show_ssl_summary:
+                for l in data["listeners"]:
+                    state = "SSL" if "ssl_context" in l else "PLAINTEXT"
+                    logging.info(
+                        "Listener {0:30s} : {1:10s}".format(l["name"], state))
 
         if args.clear_cache_stats:
             xds.clear_cache_stats()
@@ -324,26 +344,27 @@ def main(args):
         if pilot_port_forward_pid:
             subprocess.call(["kill", "%s" % pilot_port_forward_pid])
 
-
     if not args.skip_envoy:
-        envoy_url, envoy_port_forward_pid = start_port_forward(pod.name, pod.namespace, ENVOY_PORT)
-        print("Fetching from Envoy for pod %s in %s namespace" % (pod.name, pod.namespace))
+        envoy_url, envoy_port_forward_pid = start_port_forward(
+            pod.name, pod.namespace, ENVOY_PORT)
+        logging.info("Fetching from Envoy for pod %s in %s namespace" %
+                     (pod.name, pod.namespace))
         pr = Proxy(envoy_url)
-        output_file = output_dir + "/" + "proxy_routes.json"
+        output_file = output_dir + "/" + "proxy_routes.yaml"
         op = open(output_file, "wt")
         data = pr.routes()
         yaml.safe_dump(data, op, default_flow_style=False,
                        allow_unicode=False, indent=2)
         print "Wrote ", output_file
 
-        output_file = output_dir + "/" + "proxy_listeners.json"
+        output_file = output_dir + "/" + "proxy_listeners.yaml"
         op = open(output_file, "wt")
         data = pr.listeners()
         yaml.safe_dump(data, op, default_flow_style=False,
                        allow_unicode=False, indent=2)
         print "Wrote ", output_file
 
-        output_file = output_dir + "/" + "proxy_clusters.json"
+        output_file = output_dir + "/" + "proxy_clusters.yaml"
         op = open(output_file, "wt")
         data = pr.clusters()
         op.write(data)
@@ -365,11 +386,15 @@ if __name__ == "__main__":
                         )
     parser.add_argument("podname", help="podname must be either name.namespace.podip or name.namespace or any string that is a pod's label or a prefix of a pod's name. ingress, mixer, istio-ca, product-page all work")
     parser.add_argument(
-        "--output", help="A directory where output files are saved. default is the current directory")
+        "--output", help="A directory where output files are saved. default is the /tmp directory")
     parser.add_argument(
         "--skip_envoy", action='store_true', help="Fetch Envoy configuration from a pod")
     parser.add_argument(
         "--skip_pilot", action='store_true', help="Fetch from pilot Proxy configuration for a pod")
+    parser.add_argument(
+        "--show_ssl_summary",
+        action="store_true",
+        help="If set, show summary for ssl context for listeners that have it")
     parser.add_argument(
         "--cache_stats", action='store_true', help="Fetch Pilot cache stats")
     parser.add_argument(

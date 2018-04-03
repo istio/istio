@@ -86,9 +86,9 @@ func buildDelayConfig(delayRule *routing.HTTPFaultInjection_Delay) *DelayFilter 
 	}
 }
 
-func buildHTTPFaultFilterV2(cluster string, faultRule *networking.HTTPFaultInjection, headers Headers) *HTTPFilter {
-	abort := buildAbortConfigV2(faultRule.Abort)
-	delay := buildDelayConfigV2(faultRule.Delay)
+func buildHTTPFaultFilterV3(cluster string, faultRule *networking.HTTPFaultInjection, headers Headers) *HTTPFilter {
+	abort := buildAbortConfigV3(faultRule.Abort)
+	delay := buildDelayConfigV3(faultRule.Delay)
 	if abort == nil && delay == nil {
 		return nil
 	}
@@ -105,7 +105,7 @@ func buildHTTPFaultFilterV2(cluster string, faultRule *networking.HTTPFaultInjec
 	}
 }
 
-func buildAbortConfigV2(abortRule *networking.HTTPFaultInjection_Abort) *AbortFilter {
+func buildAbortConfigV3(abortRule *networking.HTTPFaultInjection_Abort) *AbortFilter {
 	if abortRule == nil || abortRule.GetHttpStatus() == 0 {
 		return nil
 	}
@@ -121,12 +121,12 @@ func buildAbortConfigV2(abortRule *networking.HTTPFaultInjection_Abort) *AbortFi
 	}
 }
 
-func buildDelayConfigV2(delayRule *networking.HTTPFaultInjection_Delay) *DelayFilter {
+func buildDelayConfigV3(delayRule *networking.HTTPFaultInjection_Delay) *DelayFilter {
 	if delayRule == nil {
 		return nil
 	}
 
-	ms := protoDurationToMS(delayRule.GetFixedDelay())
+	ms := protoDurationToMSGogo(delayRule.GetFixedDelay())
 	if ms == 0 {
 		return nil
 	}

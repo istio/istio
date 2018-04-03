@@ -16,7 +16,7 @@ package istio_v1_auth
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import google_rpc "istio.io/gogo-genproto/googleapis/google/rpc"
+import google_rpc "github.com/gogo/googleapis/google/rpc"
 
 import strings "strings"
 import reflect "reflect"

@@ -455,10 +455,10 @@ spec:
  value: "1"
  dimensions:
    source: source.labels["app"] | "unknown"
-   target: target.service | "unknown"
-   service: target.labels["app"] | "unknown"
+   target: destination.service | "unknown"
+   service: destination.labels["app"] | "unknown"
    method: request.path | "unknown"
-   version: target.labels["version"] | "unknown"
+   version: destination.labels["version"] | "unknown"
    response_code: response.code | 200
  monitored_resource_type: '"UNSPECIFIED"'
 ---
@@ -552,7 +552,7 @@ You can even try passing other attributes to mixer server and inspect your out.t
 the adapter changes. For example
 
 ```bash
-pushd $MIXER_REPO && go install ./... && mixc report -s="destination.service=svc.cluster.local,target.service=mySrvc" -i="response.code=400" --stringmap_attributes="target.labels=app:dummyapp"
+pushd $MIXER_REPO && go install ./... && mixc report -s="destination.service=svc.cluster.local,destination.service=mySrvc" -i="response.code=400" --stringmap_attributes="destination.labels=app:dummyapp"
 ```
 
 **If you have reached this far, congratulate yourself !!**. You have successfully created a Mixer adapter. You can

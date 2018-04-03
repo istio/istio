@@ -17,7 +17,6 @@ package util
 import (
 	"fmt"
 	"strings"
-	"testing"
 	"time"
 
 	"k8s.io/api/core/v1"
@@ -209,18 +208,4 @@ func FetchLogs(cl kubernetes.Interface, name, namespace string, container string
 		}
 	}
 	return string(raw)
-}
-
-// Eventually retries until f() returns true, or it times out in error
-func Eventually(f func() bool, t *testing.T) {
-	interval := 64 * time.Millisecond
-	for i := 0; i < 10; i++ {
-		if f() {
-			return
-		}
-		log.Infof("Sleeping %v", interval)
-		time.Sleep(interval)
-		interval = 2 * interval
-	}
-	t.Errorf("Failed to satisfy function")
 }

@@ -7,7 +7,7 @@ Also check [Troubleshooting](DEV-TROUBLESHOOTING.md).
 
 - [Prerequisites](#prerequisites)
   - [Setting up Go](#setting-up-go)
-  - [Dependency management](#setting-up-dep)
+  - [Dependency management](#other-dependencies)
   - [Setting up Kubernetes](#setting-up-kubernetes)
     - [IBM Cloud Container Service](#ibm-cloud-container-service)
     - [Google Kubernetes Engine](#google-kubernetes-engine)
@@ -69,16 +69,9 @@ To leverage that you will need:
 
 - **Docker Hub ID:** If you do not yet have a Docker ID account you can follow [these steps](https://docs.docker.com/docker-id/) to create one. This ID will be used in a later step when setting up the environment variables.
 
-### Setting up dep
+### Other Dependencies
 
-Istio uses [dep](https://github.com/golang/dep) as the dependency
-management tool for its Go codebase. Dep will be automatically installed as
-part of the build. However, if you wish to install `dep` yourself, use the
-following command:
-
-```bash
-go get -u github.com/golang/dep/cmd/dep
-```
+Istio vendors dependencies in a sub-module. The submodule is handled automatically by the Makefile. But see https://github.com/istio/istio/wiki/Vendor-FAQ for any vendor/dependencies question.
 
 ### Setting up Kubernetes
 
@@ -116,6 +109,15 @@ from
 [minikube release page](https://github.com/kubernetes/minikube/releases)
 for your platform.
 
+If you are using kubernetes with version >= v1.8.0 for kubeadm, the
+extra-config and RBAC flags will be enabled by default. Explicitly
+enabling them will actually cause errors. Please run:
+```bash
+minikube start --bootstrapper kubeadm
+```
+
+If you are using kubernetes with version < v1.8.0, you need to specify
+the extra-config and RBAC flags explicitly. Please run:
 ```bash
 minikube start \
     --extra-config=apiserver.Admission.PluginNames="Initializers,NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,GenericAdmissionWebhook,ResourceQuota" \
@@ -377,22 +379,9 @@ make racetest
 
 ### Adding dependencies
 
-It will occasionally be necessary to add a new external dependency to the
-system. If the dependent Go package does not have to be pinned to a
-specific version, run `dep ensure` to update the Gopkg.lock files and
-commit them along with your code. If the dependency has to be pinned to a
-specific version, run
+First, don't add more dependencies, unless you have a very good reason :-) 
 
-```bash
-dep ensure -add github.com/foo/bar
-```
-
-The command above adds a version constraint to Gopkg.toml and updates
-Gopkg.lock. Inspect Gopkg.toml to ensure that the package is pinned to the
-correct SHA. _Please pin to COMMIT SHAs instead of branches or tags._
-
-You will need to commit the vendor/ change through a separate PR, please see
-https://github.com/istio/istio/wiki/Vendor-FAQ#how-do-i-add--change-a-dependency
+Please see https://github.com/istio/istio/wiki/Vendor-FAQ#how-do-i-add--change-a-dependency
 
 ### About testing
 

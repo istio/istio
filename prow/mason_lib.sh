@@ -18,7 +18,7 @@ MASON_CLIENT_PID=-1
 
 function mason_cleanup() {
   if [[ ${MASON_CLIENT_PID} != -1 ]]; then
-    kill -SIGINT ${MASON_CLIENT_PID}
+    kill -SIGINT ${MASON_CLIENT_PID} || echo "failed to kill mason client"
     wait
   fi
 }
@@ -41,7 +41,7 @@ function get_resource() {
   MASON_CLIENT_PID=$!
 
   local ready
-  local fail
+  local exited
 
   # Wait up to 10 mn by increment of 10 seconds unit ready or failure
   for i in {1..60}; do
@@ -50,13 +50,15 @@ function get_resource() {
       cat "${info_path}"
       return 0
     fi
-    kill -s 0 ${MASON_CLIENT_PID} && fail=false || fail=true
-    if [[ ${fail} == true ]]; then
+    kill -s 0 ${MASON_CLIENT_PID} && exited=false || exited=true
+    if [[ ${exited} == true ]]; then
       cat "${file_log}"
+      echo "Failed to get a Boskos resource"
       return 1
     fi
     sleep 10
   done
+  echo 'failed to get a Boskos resource'
   return 1
 }
 
