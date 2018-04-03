@@ -446,7 +446,7 @@ func buildDefaultHTTPRoute(clusterName string) *route.Route {
 }
 
 // buildSidecarInboundHTTPRouteConfig builds the route config with a single wildcard virtual host on the inbound path
-// TODO: enable mixer configuration, websockets, trace decorators
+// TODO: enable websockets, trace decorators
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env model.Environment,
 	node model.Proxy, instance *model.ServiceInstance) *xdsapi.RouteConfiguration {
 
@@ -459,12 +459,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env mod
 		Domains: []string{"*"},
 		Routes:  []route.Route{*defaultRoute},
 	}
-
-	// TODO: mixer disabled for now as its configuration is still in old format
-	// set server-side mixer filter config for inbound HTTP routes
-	//if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
-	//	defaultRoute.OpaqueConfig = v1.BuildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false, instance.Service.Hostname)
-	//}
 
 	r := &xdsapi.RouteConfiguration{
 		Name:             clusterName,
@@ -513,13 +507,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env mo
 	vHostPortMap := make(map[int][]route.VirtualHost)
 
 	for _, guardedHost := range guardedHosts {
-		routes := make([]route.Route, 0)
+		routes := make([]route.Route, 0, len(guardedHost.Routes))
 		for _, r := range guardedHost.Routes {
 			routes = append(routes, r.Route)
 		}
 
-		virtualHosts := make([]route.VirtualHost, 0)
-
+		virtualHosts := make([]route.VirtualHost, 0, len(guardedHost.Hosts)+len(guardedHost.Services))
 		for _, host := range guardedHost.Hosts {
 			virtualHosts = append(virtualHosts, route.VirtualHost{
 				Name:    fmt.Sprintf("%s:%d", host, guardedHost.Port),
