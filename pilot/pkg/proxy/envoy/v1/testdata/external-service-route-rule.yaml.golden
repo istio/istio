@@ -3,12 +3,12 @@ hosts:
 http:
   - route:
     - destination:
-        name: "*.google.com"
+        host: "*.google.com"
       weight: 50
     - destination:
-        name: "*.google.com"
+        host: "*.google.com"
         subset: foobar
       weight: 25
     - destination:
-        name: "hello"
+        host: "hello"
       weight: 25

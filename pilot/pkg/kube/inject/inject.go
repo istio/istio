@@ -134,6 +134,16 @@ type Params struct {
 	// redirect outbound traffic to Envoy for these IP
 	// ranges. Otherwise all outbound traffic is redirected to Envoy.
 	IncludeIPRanges string `json:"includeIPRanges"`
+	// Comma separated list of IP ranges in CIDR form. If set, outbound
+	// traffic will not be redirected for these IP ranges.
+	ExcludeIPRanges string `json:"excludeIPRanges"`
+	// Comma separated list of inbound ports for which traffic is to
+	// be redirected to Envoy. All ports can be redirected with the wildcard
+	// character "*".
+	IncludeInboundPorts string `json:"includeInboundPorts"`
+	// Comma separated list of inbound ports for which traffic should not
+	// be redirected to Envoy.
+	ExcludeInboundPorts string `json:"excludeInboundPorts"`
 }
 
 // Config specifies the sidecar injection configuration This includes

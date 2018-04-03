@@ -3,7 +3,7 @@ kind: DestinationRule
 metadata:
   name: drprefix
 spec:
-  name: "h.webinf.info"
+  host: "h.webinf.info"
   trafficPolicy:
     loadBalancer:
       simple: RANDOM

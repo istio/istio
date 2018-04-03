@@ -3,7 +3,7 @@ hosts:
 http:
   - route:
     - destination:
-        name: world
+        host: world
     corsPolicy:
       allowOrigin:
         - http://foo.example

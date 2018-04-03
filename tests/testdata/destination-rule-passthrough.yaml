@@ -3,7 +3,7 @@ kind: DestinationRule
 metadata:
   name: drpassthrough
 spec:
-  name: "*.foo.com"
+  host: "*.foo.com"
   trafficPolicy:
     loadBalancer:
       simple: PASSTHROUGH

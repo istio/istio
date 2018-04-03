@@ -3,7 +3,7 @@ kind: DestinationRule
 metadata:
   name: fqdn
 spec:
-  name: www.webinf.info
+  host: www.webinf.info
   trafficPolicy:
     loadBalancer:
       simple: LEAST_CONN

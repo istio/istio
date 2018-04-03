@@ -175,10 +175,12 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) (model
 			// While we accept multiple certs, we expect them to be mounted in
 			// /etc/istio/certs/namespace/secretname/tls.crt|tls.key
 			Tls: &networking.Server_TLSOptions{
-				HttpsRedirect:     false,
+				HttpsRedirect:     true,
 				Mode:              networking.Server_TLSOptions_SIMPLE,
+				PrivateKey:        path.Join(model.IngressCertsPath, ingress.Namespace, tls.SecretName, model.IngressKeyFilename),
 				ServerCertificate: path.Join(model.IngressCertsPath, ingress.Namespace, tls.SecretName, model.IngressCertFilename),
-				CaCertificates:    path.Join(model.IngressCertsPath, ingress.Namespace, tls.SecretName, model.IngressKeyFilename),
+				// TODO: make sure this is mounted
+				CaCertificates: path.Join(model.IngressCertsPath, ingress.Namespace, tls.SecretName, model.RootCertFilename),
 			},
 		})
 	}
@@ -284,7 +286,7 @@ func ingressBackendToHTTPRoute(backend *v1beta1.IngressBackend) *networking.HTTP
 		Route: []*networking.DestinationWeight{
 			{
 				Destination: &networking.Destination{
-					Name: backend.ServiceName,
+					Host: backend.ServiceName,
 					Port: port,
 				},
 				Weight: 100,
