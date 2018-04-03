@@ -16,7 +16,6 @@ package v2_test
 import (
 	"context"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"strings"
 	"testing"
@@ -29,10 +28,11 @@ import (
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
 
-	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 
 	"fmt"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/tests/util"
 )
 
@@ -172,8 +172,20 @@ func directRequest(server *bootstrap.Server, t *testing.T) {
 	}
 	t.Log(cla.String(), res1.String())
 
-	server.MemoryServiceDiscovery.AddService("hello2.default.svc.cluster.local",
-		mock.MakeService("hello2.default.svc.cluster.local", "10.1.0.1"))
+	server.EnvoyXdsServer.MemRegistry.AddInstance("dynamic1.default.svc.cluster.local", &model.ServiceInstance{
+		Endpoint: model.NetworkEndpoint{
+			Address: "10.5.0.1",
+			Port:    2080,
+			ServicePort: &model.Port{
+				Name:                 "http-main",
+				Port:                 1080,
+				Protocol:             model.ProtocolHTTP,
+				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+			},
+		},
+		Labels:           map[string]string{"version": "v1"},
+		AvailabilityZone: "az",
+	})
 
 	v2.PushAll() // will trigger recompute and push
 	// This should happen in 15 seconds, for the periodic refresh
@@ -194,21 +206,6 @@ func directRequest(server *bootstrap.Server, t *testing.T) {
 func TestEds(t *testing.T) {
 	initLocalPilotTestEnv(t)
 	server := util.EnsureTestServer()
-
-	server.MemoryServiceDiscovery.AddService("hello2.default.svc.cluster.local",
-		mock.MakeService("hello2.default.svc.cluster.local", "10.12.0.0"))
-
-	// Verify services are set
-	srv, err := server.ServiceController.Services()
-	if err != nil {
-		t.Fatal("Listing services", err)
-	}
-	log.Println(srv)
-
-	//err := util.RunEnvoy("xds", "tests/testdata/envoy_local.json")
-	//if err != nil {
-	//	t.Error("Failed to start envoy", err)
-	//}
 
 	t.Run("DirectRequest", func(t *testing.T) {
 		directRequest(server, t)

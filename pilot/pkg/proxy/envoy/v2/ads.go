@@ -293,10 +293,26 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	}
 }
 
-// ldsPushAll implements old style invalidation, generated when any rule or endpoint changes.
+// adsPushAll implements old style invalidation, generated when any rule or endpoint changes.
 // Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
 // to the model ConfigStorageCache and Controller.
 func adsPushAll() {
+	// First update all cluster load assignments. This is computed for each cluster once per config change
+	// instead of once per endpoint.
+	edsClusterMutex.Lock()
+	// Create a temp map to avoid locking the add/remove
+	cMap := map[string]*EdsCluster{}
+	for k, v := range edsClusters {
+		cMap[k] = v
+	}
+	edsClusterMutex.Unlock()
+
+	for clusterName, edsCluster := range cMap {
+		updateCluster(clusterName, edsCluster)
+	}
+
+	// Push config changes, iterating over connected envoys. This cover ADS and EDS(0.7), both share
+	// the same connection table
 	adsClientsMutex.RLock()
 	// Create a temp map to avoid locking the add/remove
 	tmpMap := map[string]*XdsConnection{}

@@ -114,9 +114,18 @@ func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model
 
 		// TODO: This works well for Add and Delete events, but not so for Update:
 		// An updated ingress may also trigger an Add or Delete for one of its constituent sub-rules.
-		rules := convertIngress(*ingress, c.domainSuffix)
-		for _, rule := range rules {
-			f(rule, event)
+		switch typ {
+		case model.IngressRule.Type:
+			rules := convertIngress(*ingress, c.domainSuffix)
+			for _, rule := range rules {
+				f(rule, event)
+			}
+		case model.Gateway.Type:
+			config, _ := ConvertIngressV1alpha3(*ingress, c.domainSuffix)
+			f(config, event)
+		case model.VirtualService.Type:
+			_, config := ConvertIngressV1alpha3(*ingress, c.domainSuffix)
+			f(config, event)
 		}
 
 		return nil
@@ -134,11 +143,11 @@ func (c *controller) Run(stop <-chan struct{}) {
 }
 
 func (c *controller) ConfigDescriptor() model.ConfigDescriptor {
-	return model.ConfigDescriptor{model.IngressRule, model.GatewayIngress, model.VirtualServiceIngress}
+	return model.ConfigDescriptor{model.IngressRule}
 }
 
 func (c *controller) Get(typ, name, namespace string) (*model.Config, bool) {
-	if typ != model.IngressRule.Type && typ != model.GatewayIngress.Type && typ != model.VirtualServiceIngress.Type {
+	if typ != model.IngressRule.Type && typ != model.Gateway.Type && typ != model.VirtualService.Type {
 		return nil, false
 	}
 
@@ -171,7 +180,7 @@ func (c *controller) Get(typ, name, namespace string) (*model.Config, bool) {
 }
 
 func (c *controller) List(typ, namespace string) ([]model.Config, error) {
-	if typ != model.IngressRule.Type && typ != model.GatewayIngress.Type && typ != model.VirtualServiceIngress.Type {
+	if typ != model.IngressRule.Type && typ != model.Gateway.Type && typ != model.VirtualService.Type {
 		return nil, errUnsupportedOp
 	}
 
@@ -187,10 +196,10 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 		}
 
 		switch typ {
-		case model.VirtualServiceIngress.Type:
+		case model.VirtualService.Type:
 			_, virtualServices := ConvertIngressV1alpha3(*ingress, namespace)
 			out = append(out, virtualServices)
-		case model.GatewayIngress.Type:
+		case model.Gateway.Type:
 			gateways, _ := ConvertIngressV1alpha3(*ingress, namespace)
 			out = append(out, gateways)
 		case model.IngressRule.Type:
