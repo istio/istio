@@ -65,6 +65,8 @@ const reportAttributesOkPost = `
   "request.scheme": "http",
   "source.ip": "[127 0 0 1]",
   "source.port": "*",
+  "destination.ip": "[127 0 0 1]",
+  "destination.port": "*",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
