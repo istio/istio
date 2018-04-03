@@ -25,6 +25,18 @@ data:
         - "-i"
         - {{ .Values.includeIPRanges | quote }}
         {{ end -}}
+        {{ if .Values.excludeIPRanges -}}
+        - "-x"
+        - {{ .Values.excludeIPRanges | quote }}
+        {{ end -}}
+        {{ if .Values.includeInboundPorts -}}
+        - "-b"
+        - {{ .Values.includeInboundPorts | quote }}
+        {{ end -}}
+        {{ if .Values.excludeInboundPorts -}}
+        - "-d"
+        - {{ .Values.excludeInboundPorts | quote }}
+        {{ end -}}
         imagePullPolicy: IfNotPresent
         securityContext:
           capabilities:

@@ -17,6 +17,7 @@ package inject
 import (
 	"bytes"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -179,45 +180,48 @@ func TestIntoResourceFile(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		mesh := model.DefaultMeshConfig()
-		if c.enableAuth {
-			mesh.AuthPolicy = meshconfig.MeshConfig_MUTUAL_TLS
-		}
-		if c.duration != 0 {
-			mesh.DefaultConfig.DrainDuration = ptypes.DurationProto(c.duration)
-			mesh.DefaultConfig.ParentShutdownDuration = ptypes.DurationProto(c.duration)
-			mesh.DefaultConfig.DiscoveryRefreshDelay = ptypes.DurationProto(c.duration)
-			mesh.DefaultConfig.ConnectTimeout = ptypes.DurationProto(c.duration)
-		}
+		testName := strings.Replace(c.in, "testdata/", "", -1)
+		t.Run(testName, func(t *testing.T) {
+			mesh := model.DefaultMeshConfig()
+			if c.enableAuth {
+				mesh.AuthPolicy = meshconfig.MeshConfig_MUTUAL_TLS
+			}
+			if c.duration != 0 {
+				mesh.DefaultConfig.DrainDuration = ptypes.DurationProto(c.duration)
+				mesh.DefaultConfig.ParentShutdownDuration = ptypes.DurationProto(c.duration)
+				mesh.DefaultConfig.DiscoveryRefreshDelay = ptypes.DurationProto(c.duration)
+				mesh.DefaultConfig.ConnectTimeout = ptypes.DurationProto(c.duration)
+			}
 
-		params := &Params{
-			InitImage:       InitImageName(unitTestHub, unitTestTag, c.debugMode),
-			ProxyImage:      ProxyImageName(unitTestHub, unitTestTag, c.debugMode),
-			ImagePullPolicy: "IfNotPresent",
-			Verbosity:       DefaultVerbosity,
-			SidecarProxyUID: DefaultSidecarProxyUID,
-			Version:         "12345678",
-			EnableCoreDump:  c.enableCoreDump,
-			Mesh:            &mesh,
-			DebugMode:       c.debugMode,
-		}
-		if c.imagePullPolicy != "" {
-			params.ImagePullPolicy = c.imagePullPolicy
-		}
-		sidecarTemplate, err := GenerateTemplateFromParams(params)
-		if err != nil {
-			t.Fatalf("GenerateTemplateFromParams(%v) failed: %v", params, err)
-		}
-		in, err := os.Open(c.in)
-		if err != nil {
-			t.Fatalf("Failed to open %q: %v", c.in, err)
-		}
-		defer func() { _ = in.Close() }()
-		var got bytes.Buffer
-		if err = IntoResourceFile(sidecarTemplate, &mesh, in, &got); err != nil {
-			t.Fatalf("IntoResourceFile(%v) returned an error: %v", c.in, err)
-		}
+			params := &Params{
+				InitImage:       InitImageName(unitTestHub, unitTestTag, c.debugMode),
+				ProxyImage:      ProxyImageName(unitTestHub, unitTestTag, c.debugMode),
+				ImagePullPolicy: "IfNotPresent",
+				Verbosity:       DefaultVerbosity,
+				SidecarProxyUID: DefaultSidecarProxyUID,
+				Version:         "12345678",
+				EnableCoreDump:  c.enableCoreDump,
+				Mesh:            &mesh,
+				DebugMode:       c.debugMode,
+			}
+			if c.imagePullPolicy != "" {
+				params.ImagePullPolicy = c.imagePullPolicy
+			}
+			sidecarTemplate, err := GenerateTemplateFromParams(params)
+			if err != nil {
+				t.Fatalf("GenerateTemplateFromParams(%v) failed: %v", params, err)
+			}
+			in, err := os.Open(c.in)
+			if err != nil {
+				t.Fatalf("Failed to open %q: %v", c.in, err)
+			}
+			defer func() { _ = in.Close() }()
+			var got bytes.Buffer
+			if err = IntoResourceFile(sidecarTemplate, &mesh, in, &got); err != nil {
+				t.Fatalf("IntoResourceFile(%v) returned an error: %v", c.in, err)
+			}
 
-		util.CompareContent(got.Bytes(), c.want, t)
+			util.CompareContent(got.Bytes(), c.want, t)
+		})
 	}
 }

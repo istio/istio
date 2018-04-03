@@ -23,8 +23,8 @@ import (
 )
 
 // NewPlugins returns a list of plugin instance handles. Each plugin implements the plugin.Callbacks interfaces
-func NewPlugins() []plugin.Callbacks {
-	plugins := make([]plugin.Callbacks, 0)
+func NewPlugins() []plugin.Plugin {
+	plugins := make([]plugin.Plugin, 0)
 	plugins = append(plugins, authn.NewPlugin())
 	// plugins = append(plugins, mixer.NewPlugin())
 	// plugins = append(plugins, apim.NewPlugin())
