@@ -187,7 +187,7 @@ func TranslateDestination(
 	defaultPort int) ClusterNaming {
 	return func(destination *networking.Destination) string {
 		// detect if it is a service
-		svc := serviceIndex[destination.Name]
+		svc := serviceIndex[destination.Host]
 
 		// TODO: create clusters for non-service hostnames/IPs
 		if svc == nil {

@@ -9,8 +9,8 @@ spec:
   - c
   http:
   - mirror:
-      name: b
+      host: b
     route:
     - destination:
-        name: c
+        host: c
       weight: 100
