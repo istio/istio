@@ -12,6 +12,6 @@ spec:
             exact: enabled
       route:
       - destination:
-          name: c
+          host: c
           subset: v1
       websocketUpgrade: true

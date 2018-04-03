@@ -14,7 +14,7 @@ spec:
           version: v1
       route:
       - destination:
-          name: c
+          host: c
           subset: v2
         weight: 100
       fault:
