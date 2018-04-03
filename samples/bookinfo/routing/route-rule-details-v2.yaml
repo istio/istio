@@ -1,11 +1,12 @@
-apiVersion: config.istio.io/v1alpha2
-kind: RouteRule
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
 metadata:
-  name: details-v2
+  name: details
 spec:
-  destination:
-    name: details
-  precedence: 2
-  route:
-  - labels:
-      version: v2
+  hosts:
+  - details
+  http:
+  - route:
+    - destination:
+        name: details
+        subset: v2

@@ -1,20 +1,20 @@
-apiVersion: config.istio.io/v1alpha2
-kind: RouteRule
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
 metadata:
-  name: ratings-test-abort
+  name: ratings
 spec:
-  destination:
-    name: ratings
-  precedence: 2
-  match:
-    request:
-      headers:
+  hosts:
+  - ratings
+  http:
+  - match:
+    - headers:
         cookie:
           regex: "^(.*?;)?(user=jason)(;.*)?$"
-  route:
-  - labels:
-      version: v1
-  httpFault:
-    abort:
-      percent: 100
-      httpStatus: 500 
+    fault:
+      abort:
+        percent: 100
+        httpStatus: 500
+  - route:
+    - destination:
+        name: ratings
+        subset: v1

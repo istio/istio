@@ -1,12 +1,12 @@
-apiVersion: config.istio.io/v1alpha2
-kind: RouteRule
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
 metadata:
-  name: reviews-default
+  name: reviews
 spec:
-  destination:
-    name: reviews
-  precedence: 1
-  route:
-  - labels:
-      version: v3
-    weight: 100
+  hosts:
+    - reviews
+  http:
+  - route:
+    - destination:
+        name: reviews
+        subset: v3

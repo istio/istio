@@ -1,23 +1,26 @@
-apiVersion: config.istio.io/v1alpha2
-kind: RouteRule
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
 metadata:
-  name: ratings-test-v2-mysql-vm
+  name: reviews
 spec:
-  destination:
-    name: ratings
-  precedence: 4
-  route:
-  - labels:
-      version: v2-mysql-vm
+  hosts:
+  - reviews
+  http:
+  - route:
+    - destination:
+        name: reviews
+        subset: v3
 ---
-apiVersion: config.istio.io/v1alpha2
-kind: RouteRule
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
 metadata:
-  name: reviews-test-ratings-v2-vm
+  name: ratings
 spec:
-  destination:
-    name: reviews
-  precedence: 2
-  route:
-  - labels:
-      version: v3
+  hosts:
+  - ratings
+  http:
+  - route:
+    - destination:
+        name: ratings
+        subset: v2-mysql-vm
+---
