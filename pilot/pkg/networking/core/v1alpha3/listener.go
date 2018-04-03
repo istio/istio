@@ -199,8 +199,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env model.Environmen
 // configuration for co-located service proxyInstances.
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Environment, node model.Proxy,
 	proxyInstances []*model.ServiceInstance) []*xdsapi.Listener {
-	listeners := make([]*xdsapi.Listener, 0, len(proxyInstances))
 
+	var listeners []*xdsapi.Listener
 	mesh := env.Mesh
 	config := env.IstioConfigStore
 	// inbound connections/requests are redirected to the endpoint address but appear to be sent
