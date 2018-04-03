@@ -24,14 +24,15 @@ import (
 
 // FakeKeyCertBundle is a mocked KeyCertBundle for testing.
 type FakeKeyCertBundle struct {
-	CertBytes      []byte
-	Cert           *x509.Certificate
-	PrivKeyBytes   []byte
-	PrivKey        *crypto.PrivateKey
-	CertChainBytes []byte
-	RootCertBytes  []byte
-	ReturnErr      error
-	mutex          sync.Mutex
+	CertBytes       []byte
+	Cert            *x509.Certificate
+	PrivKeyBytes    []byte
+	PrivKey         *crypto.PrivateKey
+	CertChainBytes  []byte
+	RootCertBytes   []byte
+	VerificationErr error
+	CertOptionsErr  error
+	mutex           sync.Mutex
 }
 
 // GetAllPem returns all key/cert PEMs in KeyCertBundle together. Getting all values together avoids inconsistancy.
@@ -49,11 +50,10 @@ func (b *FakeKeyCertBundle) GetAll() (cert *x509.Certificate, privKey *crypto.Pr
 	return b.Cert, b.PrivKey, b.CertChainBytes, b.RootCertBytes
 }
 
-// VerifyAndSetAll verifies the key/certs, and sets all key/certs in KeyCertBundle together.
-// Setting all values together avoids inconsistancy.
+// VerifyAndSetAll returns VerificationErr if it is not nil. Otherwise, it returns all the key/certs in the bundle.
 func (b *FakeKeyCertBundle) VerifyAndSetAll(certBytes, privKeyBytes, certChainBytes, rootCertBytes []byte) error {
-	if b.ReturnErr != nil {
-		return b.ReturnErr
+	if b.VerificationErr != nil {
+		return b.VerificationErr
 	}
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
@@ -64,6 +64,10 @@ func (b *FakeKeyCertBundle) VerifyAndSetAll(certBytes, privKeyBytes, certChainBy
 	return nil
 }
 
+// CertOptions returns CertOptionsErr if it is not nil. Otherwise it returns an empty CertOptions.
 func (b *FakeKeyCertBundle) CertOptions() (*util.CertOptions, error) {
-	return nil, nil
+	if b.CertOptionsErr != nil {
+		return nil, b.CertOptionsErr
+	}
+	return &util.CertOptions{}, nil
 }
