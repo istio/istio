@@ -44,6 +44,7 @@ type caChecker struct {
 	cleanup func()
 }
 
+// CheckProvider returns a struct containing the CsrRequest and the grpc client.
 type CheckProvider func(addr string, ca *ca.IstioCA, certOpts *util.CertOptions, ttl time.Duration) (*caChecker, error)
 
 // LivenessCheckController updates the availability of the liveness probe of the CA instance
@@ -99,7 +100,7 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 	return err
 }
 
-// DefaultClientProvider returns a onprem client and IstioCAClient.
+// DefaultClientProvider returns a onprem client and grpc IstioCA client.
 func DefaultClientProvider(addr string, ca *ca.IstioCA, certOpts *util.CertOptions, ttl time.Duration) (*caChecker, error) {
 	// generates certificate and private key for test
 	opts := util.CertOptions{
