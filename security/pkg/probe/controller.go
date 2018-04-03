@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
 	pb "istio.io/istio/security/proto"
+	"istio.io/istio/security/pkg/workload"
 )
 
 const (
@@ -138,18 +139,18 @@ func DefaultClientProvider(addr string, ca *ca.IstioCA, certOpts *util.CertOptio
 		return nil, err
 	}
 
-	err = ioutil.WriteFile(testCert.Name(), certPEM, 0644)
+	err = ioutil.WriteFile(testCert.Name(), certPEM, workload.CertFilePermission)
 	if err != nil {
 		return nil, err
 	}
 
 	_, _, _, rootCertBytes := ca.GetCAKeyCertBundle().GetAll()
-	err = ioutil.WriteFile(testRoot.Name(), rootCertBytes, 0644)
+	err = ioutil.WriteFile(testRoot.Name(), rootCertBytes, workload.CertFilePermission)
 	if err != nil {
 		return nil, err
 	}
 
-	err = ioutil.WriteFile(testKey.Name(), privPEM, 0644)
+	err = ioutil.WriteFile(testKey.Name(), privPEM, workload.CertFilePermission)
 	if err != nil {
 		return nil, err
 	}

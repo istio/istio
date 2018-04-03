@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package testserver provides a simple ca server for testing.
+// package testserver provides a simple ca server for testing.
 package testserver
 
 import (
@@ -50,15 +50,23 @@ func (s *CAServer) InvokeTimes() int {
 	return s.counter
 }
 
+// Options specifies how to create a testing ca server.
+type Options struct {
+	// Response is the response returned by the test server.
+	Response *pb.CsrResponse
+	// Error is the error message returned by test server, ignores if empty.
+	Error    string
+}
+
 // New creates a test server, returns the server, its address.
-func New(response *pb.CsrResponse, errmsg string) (server *CAServer, addr string, err error) {
+func New(opts *Options) (server *CAServer, addr string, err error) {
 	lis, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to allocate address for server %v", err)
 	}
 	ca := &CAServer{
-		response: response,
-		errorMsg: errmsg,
+		response: opts.Response,
+		errorMsg: opts.Error,
 	}
 	s := grpc.NewServer()
 	pb.RegisterIstioCAServiceServer(s, ca)
