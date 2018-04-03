@@ -139,6 +139,7 @@ var (
 )
 
 func TestConfig(t *testing.T) {
+	t.Skipf("Skipping %s", t.Name())
 	cl := fake.NewSimpleClientset()
 	mesh := model.DefaultMeshConfig()
 	ctl := crd.NewController(cl, &mesh, kube.ControllerOptions{
@@ -179,6 +180,7 @@ func TestConfig(t *testing.T) {
 }
 
 func TestIngressController(t *testing.T) {
+	t.Skipf("Skipping %s", t.Name())
 	cl := fake.NewSimpleClientset()
 	mesh := model.DefaultMeshConfig()
 	ctl := crd.NewController(cl, &mesh, kube.ControllerOptions{
@@ -262,6 +264,7 @@ func TestIngressController(t *testing.T) {
 }
 
 func TestSyncer(t *testing.T) {
+	t.Skipf("Skipping %s", t.Name())
 	client := fake.NewSimpleClientset()
 	ip := "64.233.191.200"
 	svc := v1.Service{
