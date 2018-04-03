@@ -8,6 +8,6 @@ spec:
   http:
     - route:
       - destination:
-          name: c
+          host: c
       mirror:
         name: b

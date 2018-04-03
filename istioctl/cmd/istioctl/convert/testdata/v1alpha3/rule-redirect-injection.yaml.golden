@@ -17,6 +17,6 @@ spec:
       uri: /new/path
   - route:
     - destination:
-        name: c
+        host: c
         subset: version-v1
       weight: 100
