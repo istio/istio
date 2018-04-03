@@ -304,7 +304,7 @@ jobs:
           # Run the test even if previous failed
           when: always
           command: |
-                make e2e_pilot E2E_ARGS="--skip_cleanup --auth_enable=true --egress=false"
+                make e2e_pilot E2E_ARGS="--skip_cleanup --auth_enable=false --egress=false"
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
