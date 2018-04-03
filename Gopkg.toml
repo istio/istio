@@ -281,10 +281,9 @@ required = [
   name = "gopkg.in/yaml.v2"
   version = "2.2.1"
 
-# TODO: switch back to master once pilot code is caught up
 [[constraint]]
-  revision = "432cb7dc95157dc097ff000a9bb464138edfdfa7"
   name = "istio.io/api"
+  branch = "master"
 
 # fortio is latest tagged by default
 
