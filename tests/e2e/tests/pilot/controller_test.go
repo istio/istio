@@ -19,7 +19,6 @@ import (
 	"testing"
 	"time"
 
-	"fmt"
 	"log"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
@@ -39,15 +38,11 @@ func makeClient(t *testing.T, desc model.ConfigDescriptor) (*crd.Client, error) 
 		return nil, err
 	}
 
-	log.Print("CLIENT CREATED XXXXXXXXXXXXXXXXXX")
-	fmt.Print("CLIENT DONE !!!")
-
 	err = cl.RegisterResources()
 	if err != nil {
 		return nil, err
 	}
 	log.Print("RESOURCES CREATED XXXXXXXXXXXXXXXXXX")
-	fmt.Print("RESOURCES DONE !!!")
 
 	// TODO(kuat) initial watch always fails, takes time to register, keep
 	// around as a work-around
@@ -81,6 +76,7 @@ func TestStoreInvariant(t *testing.T) {
 	client, ns, cleanup := makeTempClient(t)
 	defer cleanup()
 	mock.CheckMapInvariant(client, t, ns, 5)
+	log.Println("Check Map Invariant done")
 }
 
 func TestIstioConfig(t *testing.T) {
