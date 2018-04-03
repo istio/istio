@@ -556,7 +556,7 @@ func ResolveHostname(meta ConfigMeta, svc *routing.IstioService) string {
 		if svc.Domain != "" {
 			out = out + "." + svc.Domain
 		} else if meta.Domain != "" {
-			out = out + meta.Domain
+			out = out + "." + meta.Domain
 		}
 	}
 
@@ -575,7 +575,7 @@ func ResolveShortnameToFQDN(host string, meta ConfigMeta) string {
 		}
 
 		if meta.Domain != "" {
-			out = out + meta.Domain
+			out = out + "." + meta.Domain
 		}
 	}
 
