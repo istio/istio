@@ -16,6 +16,7 @@ package bootstrap
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -38,13 +39,12 @@ import (
 
 // Default constants
 const (
-	AdminPort        = 15000
-	ZipkinAddress    = "zipkin" // should be resolvable in the same namespace DNS
 	ZipkinCluster    = "zipkin"
-	ZipkinPort       = 9411
 	TelemetryCluster = "mixer_report_server"
 	TelemetryAddress = "istio-telemetry"
 	TelemetryPort    = 9091
+	PolicyAddress    = "istio-policy"
+	PolicyPort       = 9091
 )
 
 // CircuitBreakers settings
@@ -58,43 +58,70 @@ var CircuitBreakers = &cluster.CircuitBreakers{
 	}},
 }
 
-// mixer:
-// 9091, true, 15004
-// "istio-policy.${POD_NAMESPACE}.svc.cluster.local",
-// "kubernetes://${POD_NAME}.${POD_NAMESPACE}"
-// Check
-// "url": "tcp://istio-telemetry.${POD_NAMESPACE}:9091"
-
-// pilot:
-// 8080, false
-// 15010, true
-
 // BuildBootstrap creates a static config for the sidecar HTTP proxy.
 func BuildBootstrap(
 	upstreams []Upstream,
-	telemetry *Upstream, // set to one of the upstreams to route it localy
-) bootstrap.Bootstrap {
-
-	clusters := append(BuildClusters(upstreams),
-		v2.Cluster{
-			Name:           ZipkinCluster,
-			ConnectTimeout: 1 * time.Second,
-			Type:           v2.Cluster_STRICT_DNS,
-			LbPolicy:       v2.Cluster_ROUND_ROBIN,
-			Hosts: []*core.Address{{
+	telemetry *Upstream, // set to one of the upstreams to route telemetry locally
+	zipkin string, // set to non-empty host:port zipkin address
+	adminPort int32,
+) (*bootstrap.Bootstrap, error) {
+	out := bootstrap.Bootstrap{
+		Admin: bootstrap.Admin{
+			AccessLogPath: "/dev/stdout",
+			Address: core.Address{
 				Address: &core.Address_SocketAddress{
 					SocketAddress: &core.SocketAddress{
-						Address:       ZipkinAddress,
-						PortSpecifier: &core.SocketAddress_PortValue{PortValue: ZipkinPort},
+						Address:       "127.0.0.1",
+						PortSpecifier: &core.SocketAddress_PortValue{PortValue: uint32(adminPort)},
 					},
 				},
-			}},
-		})
+			},
+		},
+		StaticResources: &bootstrap.Bootstrap_StaticResources{
+			Clusters: BuildClusters(upstreams),
+		},
+	}
+
+	if zipkin != "" {
+		host, portStr, err := GetHostPort("zipkin", zipkin)
+		if err != nil {
+			return nil, err
+		}
+		port, err := strconv.Atoi(portStr)
+		if err != nil {
+			return nil, err
+		}
+
+		out.StaticResources.Clusters = append(out.StaticResources.Clusters,
+			v2.Cluster{
+				Name:           ZipkinCluster,
+				ConnectTimeout: 1 * time.Second,
+				Type:           v2.Cluster_STRICT_DNS,
+				LbPolicy:       v2.Cluster_ROUND_ROBIN,
+				Hosts: []*core.Address{{
+					Address: &core.Address_SocketAddress{
+						SocketAddress: &core.SocketAddress{
+							Address:       host,
+							PortSpecifier: &core.SocketAddress_PortValue{PortValue: uint32(port)},
+						},
+					},
+				}},
+			})
+		out.Tracing = &trace.Tracing{
+			Http: &trace.Tracing_Http{
+				Name: util.Zipkin,
+				Config: toStruct(&trace.ZipkinConfig{
+					CollectorCluster:  ZipkinCluster,
+					CollectorEndpoint: "/api/v1/spans",
+				}),
+			},
+		}
+	}
 
 	// telemetry bootstrap should route telemetry directly to the local upstream
 	telemetryCluster := TelemetryCluster
 	if telemetry == nil {
-		clusters = append(clusters, v2.Cluster{
+		out.StaticResources.Clusters = append(out.StaticResources.Clusters, v2.Cluster{
 			Name:           TelemetryCluster,
 			ConnectTimeout: 1 * time.Second,
 			Type:           v2.Cluster_STRICT_DNS,
@@ -114,32 +141,9 @@ func BuildBootstrap(
 		telemetryCluster = clusterName(*telemetry)
 	}
 
-	return bootstrap.Bootstrap{
-		Admin: bootstrap.Admin{
-			AccessLogPath: "/dev/stdout",
-			Address: core.Address{
-				Address: &core.Address_SocketAddress{
-					SocketAddress: &core.SocketAddress{
-						Address:       "127.0.0.1",
-						PortSpecifier: &core.SocketAddress_PortValue{PortValue: AdminPort},
-					},
-				},
-			},
-		},
-		StaticResources: &bootstrap.Bootstrap_StaticResources{
-			Listeners: BuildListeners(upstreams, telemetryCluster),
-			Clusters:  clusters,
-		},
-		Tracing: &trace.Tracing{
-			Http: &trace.Tracing_Http{
-				Name: util.Zipkin,
-				Config: toStruct(&trace.ZipkinConfig{
-					CollectorCluster:  ZipkinCluster,
-					CollectorEndpoint: "/api/v1/spans",
-				}),
-			},
-		},
-	}
+	out.StaticResources.Listeners = BuildListeners(upstreams, telemetryCluster)
+
+	return &out, nil
 }
 
 func toStruct(msg proto.Message) *types.Struct {
@@ -150,7 +154,7 @@ func toStruct(msg proto.Message) *types.Struct {
 	return out
 }
 
-// Upstream declaration for a localhost service instance.
+// Upstream declaration for a local HTTP service instance.
 type Upstream struct {
 	ListenPort   uint32
 	UpstreamPort uint32

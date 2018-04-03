@@ -17,10 +17,12 @@ package main
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/spf13/cobra"
@@ -32,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/proxy"
 	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v1"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
@@ -59,6 +62,7 @@ var (
 	proxyLogLevel          string
 	concurrency            int
 	bootstrapv2            bool
+	staticProfile          string
 
 	loggingOptions = log.DefaultOptions()
 
@@ -196,6 +200,50 @@ var (
 
 			log.Infof("Monitored certs: %#v", certs)
 
+			if role.Type == model.Static && proxyConfig.CustomConfigFile == "" {
+				var upstreams []bootstrap.Upstream
+				var telemetry *bootstrap.Upstream
+				switch staticProfile {
+				case "telemetry":
+					telemetry = &bootstrap.Upstream{
+						ListenPort:   15004,
+						UpstreamPort: 9091,
+						GRPC:         true,
+						Auth:         proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS,
+						Service:      fmt.Sprintf("%s.%s", bootstrap.TelemetryAddress, role.Domain),
+						UID:          fmt.Sprintf("kubernetes://%s", role.ID),
+						Operation:    "Check",
+					}
+					upstreams = []bootstrap.Upstream{*telemetry}
+				case "policy":
+					upstreams = []bootstrap.Upstream{{
+						ListenPort:   15004,
+						UpstreamPort: 9091,
+						GRPC:         true,
+						Auth:         proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS,
+						Service:      fmt.Sprintf("%s.%s", bootstrap.PolicyAddress, role.Domain),
+						UID:          fmt.Sprintf("kubernetes://%s", role.ID),
+						Operation:    "Report",
+					}}
+				}
+
+				config, err := bootstrap.BuildBootstrap(upstreams, telemetry, proxyConfig.ZipkinAddress, proxyConfig.ProxyAdminPort)
+				if err != nil {
+					return err
+				}
+				marshaler := jsonpb.Marshaler{OrigName: true, Indent: "  "}
+				out, err := marshaler.MarshalToString(config)
+				if err != nil {
+					return err
+				}
+				log.Infof("Static config:\n%s", out)
+				proxyConfig.CustomConfigFile = proxyConfig.ConfigPath + "/envoy.json"
+				err = ioutil.WriteFile(proxyConfig.CustomConfigFile, []byte(out), 0644)
+				if err != nil {
+					return err
+				}
+			}
+
 			var envoyProxy proxy.Proxy
 			if bootstrapv2 {
 				// Using a different constructor - the code will likely be refactored / split from the v1,
@@ -272,7 +320,7 @@ func init() {
 	proxyCmd.PersistentFlags().StringVar(&controlPlaneAuthPolicy, "controlPlaneAuthPolicy",
 		values.ControlPlaneAuthPolicy.String(), "Control Plane Authentication Policy")
 	proxyCmd.PersistentFlags().StringVar(&customConfigFile, "customConfigFile", values.CustomConfigFile,
-		"Path to the generated configuration file directory")
+		"Path to the custom configuration file")
 	// Log levels are provided by the library https://github.com/gabime/spdlog, used by Envoy.
 	proxyCmd.PersistentFlags().StringVar(&proxyLogLevel, "proxyLogLevel", "info",
 		fmt.Sprintf("The log level used to start the Envoy proxy (choose from {%s, %s, %s, %s, %s, %s, %s})",
@@ -281,6 +329,8 @@ func init() {
 		"number of worker threads to run")
 	proxyCmd.PersistentFlags().BoolVar(&bootstrapv2, "bootstrapv2", true,
 		"Use bootstrap v2")
+	proxyCmd.PersistentFlags().StringVar(&staticProfile, "staticProfile", "",
+		"Static bootstrap profile (values are telemetry, policy)")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
