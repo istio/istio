@@ -67,7 +67,7 @@ func ApplyClusterPolicy(cluster *Cluster,
 
 	// if no policy is configured apply destination rule if one exists
 	if policyConfig == nil {
-		applyDestinationRule(config, cluster, domain)
+		//applyDestinationRule(config, cluster, domain)
 		return
 	}
 

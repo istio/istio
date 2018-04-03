@@ -848,21 +848,21 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 							host.Routes = append(host.Routes, route)
 						}
 					case *networking.VirtualService:
-						rule := config.Spec.(*networking.VirtualService)
+						//rule := config.Spec.(*networking.VirtualService)
 
 						// if no routes are returned, it is a TCP RouteRule
-						routes := BuildInboundRoutesV3(proxyInstances, config, rule, cluster)
-						for _, route := range routes {
-							// set server-side mixer filter config for inbound HTTP routes
-							// Note: websocket routes do not call the filter chain. Will be
-							// resolved in future.
-							if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
-								route.OpaqueConfig = BuildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false,
-									instance.Service.Hostname)
-							}
-						}
-
-						host.Routes = append(host.Routes, routes...)
+						//routes := BuildInboundRoutesV3(proxyInstances, config, rule, cluster)
+						//for _, route := range routes {
+						//	// set server-side mixer filter config for inbound HTTP routes
+						//	// Note: websocket routes do not call the filter chain. Will be
+						//	// resolved in future.
+						//	if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
+						//		route.OpaqueConfig = BuildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false,
+						//			instance.Service.Hostname)
+						//	}
+						//}
+						//
+						//host.Routes = append(host.Routes, routes...)
 					default:
 						panic("unsupported rule")
 					}
