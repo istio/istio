@@ -15,12 +15,15 @@
 package mixer
 
 import (
-	"errors"
-
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 
+	"fmt"
+
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	mpb "istio.io/api/mixer/v1"
+	mccpb "istio.io/api/mixer/v1/config/client"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -30,13 +33,15 @@ import (
 // Plugin is a mixer plugin.
 type Plugin struct{}
 
+// NewPlugin returns an ptr to an initialized mixer.Plugin.
+func NewPlugin() *Plugin {
+	return &Plugin{}
+}
+
 // OnOutboundListener implements the Callbacks interface method.
-func (m *Plugin) OnOutboundListener(in *plugin.CallbackListenerInputParams, mutable *plugin.CallbackListenerMutableObjects) error {
-	if in.ServiceInstance == nil || in.ServiceInstance.Service == nil {
-		return errors.New("mixer.Plugin#OnOutboundListener: in.ServiceInstance.Service must be non-nil")
-	}
-	if !in.ServiceInstance.Service.MeshExternal {
-		return nil
+func (*Plugin) OnOutboundListener(in *plugin.CallbackListenerInputParams, _ *xdsapi.Listener) ([]listener.Filter, []*http_conn.HttpFilter, error) {
+	if in.Service == nil || !in.Service.MeshExternal {
+		return nil, nil, nil
 	}
 
 	env := in.Env
@@ -45,16 +50,16 @@ func (m *Plugin) OnOutboundListener(in *plugin.CallbackListenerInputParams, muta
 
 	switch in.ListenerType {
 	case plugin.ListenerTypeHTTP:
-		mutable.HTTPFilters = append(mutable.HTTPFilters, buildMixerHTTPFilter(env, node, proxyInstances, true))
+		return nil, []*http_conn.HttpFilter{buildMixerHTTPFilter(env, node, proxyInstances, true)}, nil
 	case plugin.ListenerTypeTCP:
-		mutable.TCPFilters = append(mutable.TCPFilters, buildMixerOutboundTCPFilter(env, node))
+		return []listener.Filter{buildMixerOutboundTCPFilter(env, node)}, nil, nil
 	}
 
-	return nil
+	return nil, nil, fmt.Errorf("unknown listener type %v in mixer.OnOutboundListener", in.ListenerType)
 }
 
 // OnInboundListener implements the Callbacks interface method.
-func (m *Plugin) OnInboundListener(in *plugin.CallbackListenerInputParams, mutable *plugin.CallbackListenerMutableObjects) error {
+func (*Plugin) OnInboundListener(in *plugin.CallbackListenerInputParams, _ *xdsapi.Listener) ([]listener.Filter, []*http_conn.HttpFilter, error) {
 	env := in.Env
 	node := in.Node
 	proxyInstances := in.ProxyInstances
@@ -62,29 +67,29 @@ func (m *Plugin) OnInboundListener(in *plugin.CallbackListenerInputParams, mutab
 
 	switch in.ListenerType {
 	case plugin.ListenerTypeHTTP:
-		mutable.HTTPFilters = append(mutable.HTTPFilters, buildMixerHTTPFilter(env, node, proxyInstances, false))
+		return nil, []*http_conn.HttpFilter{buildMixerHTTPFilter(env, node, proxyInstances, false)}, nil
 
 	case plugin.ListenerTypeTCP:
-		mutable.TCPFilters = append(mutable.TCPFilters, buildMixerInboundTCPFilter(env, node, instance))
+		return []listener.Filter{buildMixerInboundTCPFilter(env, node, instance)}, nil, nil
 	}
 
-	return nil
+	return nil, nil, fmt.Errorf("unknown listener type %v in mixer.OnOutboundListener", in.ListenerType)
 }
 
 // OnOutboundCluster implements the Callbacks interface method.
-func (m *Plugin) OnOutboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
+func (*Plugin) OnOutboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
 }
 
 // OnInboundCluster implements the Callbacks interface method.
-func (m *Plugin) OnInboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
+func (*Plugin) OnInboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
 }
 
 // OnOutboundRoute implements the Callbacks interface method.
-func (m *Plugin) OnOutboundRoute(env model.Environment, node model.Proxy, route *xdsapi.RouteConfiguration) {
+func (*Plugin) OnOutboundRoute(env model.Environment, node model.Proxy, route *xdsapi.RouteConfiguration) {
 }
 
 // OnInboundRoute implements the Callbacks interface method.
-func (m *Plugin) OnInboundRoute(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port,
+func (*Plugin) OnInboundRoute(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port,
 	route *xdsapi.RouteConfiguration) {
 }
 
@@ -97,10 +102,10 @@ func buildMixerHTTPFilter(env *model.Environment, node *model.Proxy,
 		return &http_conn.HttpFilter{}
 	}
 
-	c := v1.BuildHTTPMixerFilterConfig(mesh, *node, proxyInstances, outbound, config)
+	c := buildHTTPMixerFilterConfig(mesh, *node, proxyInstances, outbound, config)
 	return &http_conn.HttpFilter{
 		Name:   v1.MixerFilter,
-		Config: util.BuildProtoStruct(*c),
+		Config: util.MessageToStruct(c),
 	}
 }
 
@@ -111,9 +116,10 @@ func buildMixerInboundTCPFilter(env *model.Environment, node *model.Proxy, insta
 		return listener.Filter{}
 	}
 
-	c := v1.BuildTCPMixerFilterConfig(mesh, *node, instance)
+	c := buildTCPMixerFilterConfig(mesh, *node, instance)
 	return listener.Filter{
-		Config: util.BuildProtoStruct(*c),
+		Name:   v1.MixerFilter,
+		Config: util.MessageToStruct(c),
 	}
 }
 
@@ -121,4 +127,70 @@ func buildMixerInboundTCPFilter(env *model.Environment, node *model.Proxy, insta
 func buildMixerOutboundTCPFilter(env *model.Environment, node *model.Proxy) listener.Filter {
 	// TODO(mostrowski): implementation
 	return listener.Filter{}
+}
+
+// buildHTTPMixerFilterConfig builds a mixer HTTP filter config. Mixer filter uses outbound configuration by default
+// (forward attributes, but not invoke check calls)  ServiceInstances belong to the Node.
+func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, nodeInstances []*model.ServiceInstance, outboundRoute bool, config model.IstioConfigStore) *mccpb.HttpClientConfig { // nolint: lll
+	transport := &mccpb.TransportConfig{
+		CheckCluster:  v1.MixerCheckClusterName,
+		ReportCluster: v1.MixerReportClusterName,
+	}
+
+	mxConfig := &mccpb.HttpClientConfig{
+		MixerAttributes: &mpb.Attributes{
+			Attributes: map[string]*mpb.Attributes_AttributeValue{},
+		},
+		ServiceConfigs: map[string]*mccpb.ServiceConfig{},
+		Transport:      transport,
+	}
+
+	var labels map[string]string
+	// Note: instances are all running on mode.Node named 'role'
+	// So instance labels are the workload / Node labels.
+	if len(nodeInstances) > 0 {
+		labels = nodeInstances[0].Labels
+		mxConfig.DefaultDestinationService = nodeInstances[0].Service.Hostname
+	}
+
+	if !outboundRoute {
+		// for outboundRoutes there are no default MixerAttributes
+		// specific MixerAttributes are in per route configuration.
+		v1.AddStandardNodeAttributes(mxConfig.MixerAttributes.Attributes, v1.AttrDestinationPrefix, role.IPAddress, role.ID, labels)
+	}
+
+	if role.Type == model.Sidecar && !outboundRoute {
+		// Don't forward mixer attributes to the app from inbound sidecar routes
+	} else {
+		mxConfig.ForwardAttributes = &mpb.Attributes{
+			Attributes: map[string]*mpb.Attributes_AttributeValue{},
+		}
+		v1.AddStandardNodeAttributes(mxConfig.ForwardAttributes.Attributes, v1.AttrSourcePrefix, role.IPAddress, role.ID, labels)
+	}
+
+	for _, instance := range nodeInstances {
+		mxConfig.ServiceConfigs[instance.Service.Hostname] = v1.ServiceConfig(instance.Service.Hostname, instance, config,
+			outboundRoute || mesh.DisablePolicyChecks, outboundRoute)
+	}
+
+	return mxConfig
+}
+
+// buildTCPMixerFilterConfig builds a TCP filter config for inbound requests.
+func buildTCPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, instance *model.ServiceInstance) *mccpb.TcpClientConfig {
+	attrs := v1.StandardNodeAttributes(v1.AttrDestinationPrefix, role.IPAddress, role.ID, nil)
+	attrs[v1.AttrDestinationService] = &mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_StringValue{instance.Service.Hostname}}
+
+	mxConfig := &mccpb.TcpClientConfig{
+		MixerAttributes: &mpb.Attributes{
+			Attributes: attrs,
+		},
+		Transport: &mccpb.TransportConfig{
+			CheckCluster:  v1.MixerCheckClusterName,
+			ReportCluster: v1.MixerReportClusterName,
+		},
+		DisableCheckCalls: mesh.DisablePolicyChecks,
+	}
+
+	return mxConfig
 }
