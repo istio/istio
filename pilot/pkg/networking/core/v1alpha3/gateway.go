@@ -33,33 +33,20 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 	config := env.IstioConfigStore
 
 	var gateways []model.Config
-
-	if node.Type == model.Ingress {
-		allg, err := config.List(model.Gateway.Type, model.NamespaceAll)
-		if err != nil {
-			return nil, err
-		}
-		for _, g := range allg {
-			if g.Name == model.IstioIngressGatewayName {
-				gateways = []model.Config{g}
-				break
-			}
-		}
-	} else {
-		// collect workload labels
-		workloadInstances, err := env.GetProxyServiceInstances(node)
-		if err != nil {
-			log.Errora("Failed to get gateway instances for router ", node.ID, err)
-			return nil, err
-		}
-
-		var workloadLabels model.LabelsCollection
-		for _, w := range workloadInstances {
-			workloadLabels = append(workloadLabels, w.Labels)
-		}
-
-		gateways = config.Gateways(workloadLabels)
+	
+	// collect workload labels
+	workloadInstances, err := env.GetProxyServiceInstances(node)
+	if err != nil {
+		log.Errora("Failed to get gateway instances for router ", node.ID, err)
+		return nil, err
 	}
+
+	var workloadLabels model.LabelsCollection
+	for _, w := range workloadInstances {
+		workloadLabels = append(workloadLabels, w.Labels)
+	}
+
+	gateways = config.Gateways(workloadLabels)
 
 	if len(gateways) == 0 {
 		log.Debuga("no gateways for router", node.ID)
