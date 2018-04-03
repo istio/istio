@@ -16,7 +16,6 @@ package caclient
 
 import (
 	"fmt"
-	"net"
 	"time"
 
 	"io/ioutil"
@@ -24,9 +23,6 @@ import (
 	"context"
 
 	rgrpc "google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
-
-	"crypto/tls"
 
 	"istio.io/istio/pkg/log"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
@@ -66,57 +62,6 @@ func NewCAClient(pltfmc platform.Client, caAddr string, maxRetries int, interval
 		initialRetrialInterval: interval,
 		grpcClient:             client,
 	}, nil
-}
-
-type TestCAServer struct {
-	response *pb.CsrResponse
-	errorMsg string
-	counter  int
-	err      error
-}
-
-func (s *TestCAServer) HandleCSR(ctx context.Context, req *pb.CsrRequest) (*pb.CsrResponse, error) {
-	s.counter++
-	if s.err != nil {
-		return &pb.CsrResponse{}, s.err
-	}
-	if len(s.errorMsg) > 0 {
-		return nil, fmt.Errorf(s.errorMsg)
-	}
-	if s.response != nil {
-		return s.response, nil
-	}
-	return &pb.CsrResponse{}, nil
-}
-
-func (s *TestCAServer) InvokeTimes() int {
-	return s.counter
-}
-
-type TestCAServerOptions struct {
-	Response    *pb.CsrResponse
-	Error       string
-	RootCert    []byte
-	SignCert    []byte
-	Certficiate []tls.Certificate
-	Err         error
-}
-
-func NewTestCAServer(opts *TestCAServerOptions) (server *TestCAServer, addr string, err error) {
-	lis, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to allocate address for server %v", err)
-	}
-	ca := &TestCAServer{
-		response: opts.Response,
-		errorMsg: opts.Error,
-		err:      opts.Err,
-	}
-	s := rgrpc.NewServer()
-	pb.RegisterIstioCAServiceServer(s, ca)
-	reflection.Register(s)
-	go s.Serve(lis)
-	return ca, lis.Addr().String(), nil
 }
 
 // Retrieve sends the CSR to Istio CA with automatic retries. When successful, it returns the generated key

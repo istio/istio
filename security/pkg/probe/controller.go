@@ -24,7 +24,6 @@ import (
 	"google.golang.org/grpc/balancer"
 
 	"istio.io/istio/pkg/probe"
-	"istio.io/istio/security/pkg/caclient/grpc"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
@@ -40,24 +39,18 @@ const (
 // LivenessCheckController updates the availability of the liveness probe of the CA instance
 type LivenessCheckController struct {
 	interval           time.Duration
-	grpcHostname       string
-	grpcPort           int
 	serviceIdentityOrg string
 	rsaKeySize         int
 	caAddress          string
 	ca                 *ca.IstioCA
 	livenessProbe      *probe.Probe
 	grpcClient         pb.IstioCAServiceClient
-	client             grpc.CAGrpcClient
-	// caclient           *caclient.Client
 }
 
 // NewLivenessCheckController creates the liveness check controller instance
 func NewLivenessCheckController(probeCheckInterval time.Duration,
-	caAddr string,
-	grpcHostname string, grpcPort int, ca *ca.IstioCA, livenessProbeOptions *probe.Options,
-	client grpc.CAGrpcClient, grpcClient pb.IstioCAServiceClient) (*LivenessCheckController, error) {
-
+	ca *ca.IstioCA, livenessProbeOptions *probe.Options,
+	grpcClient pb.IstioCAServiceClient) (*LivenessCheckController, error) {
 	livenessProbe := probe.NewProbe()
 	livenessProbeController := probe.NewFileController(livenessProbeOptions)
 	livenessProbe.RegisterProbe(livenessProbeController, "liveness")
@@ -68,22 +61,14 @@ func NewLivenessCheckController(probeCheckInterval time.Duration,
 
 	return &LivenessCheckController{
 		interval:      probeCheckInterval,
-		caAddress:     caAddr,
-		grpcHostname:  grpcHostname,
-		grpcPort:      grpcPort,
 		rsaKeySize:    2048,
 		livenessProbe: livenessProbe,
 		ca:            ca,
-		client:        client,
 		grpcClient:    grpcClient,
 	}, nil
 }
 
 func (c *LivenessCheckController) checkGrpcServer() error {
-	if c.grpcPort <= 0 {
-		return nil
-	}
-
 	// generates certificate and private key for test
 	opts := util.CertOptions{
 		Host:       LivenessProbeClientIdentity,
@@ -145,21 +130,6 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 	if err != nil {
 		return err
 	}
-	//addr := fmt.Sprintf("%v:%v", c.grpcHostname, c.grpcPort)
-	//addr := c.caAddress
-	//fmt.Println("jianfeih debug ca address ", addr)
-	//cac, err := caclient.NewCAClient(pc, addr, 1, time.Second)
-	//if err != nil {
-	//return err
-	//}
-	//_, _, _, err = cac.Retrieve(&util.CertOptions{
-	//Host:       LivenessProbeClientIdentity,
-	//Org:        c.serviceIdentityOrg,
-	//RSAKeySize: c.rsaKeySize,
-	//TTL:        probeCheckRequestedTTLMinutes,
-	//})
-	// fmt.Println("jianfeih debug retrieve result ", err)
-
 	csr, _, err := util.GenCSR(util.CertOptions{
 		Host:       LivenessProbeClientIdentity,
 		Org:        c.serviceIdentityOrg,

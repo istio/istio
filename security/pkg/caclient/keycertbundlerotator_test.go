@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/security/pkg/caclient/testserver"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	pkimock "istio.io/istio/security/pkg/pki/util/mock"
 	"istio.io/istio/security/pkg/util"
@@ -78,7 +79,7 @@ func TestNewKeyCertBundleRotator(t *testing.T) {
 
 	for id, c := range testCases {
 		if c.config != nil {
-			_, addr, err := NewTestCAServer(&TestCAServerOptions{})
+			_, addr, err := testserver.New(&testserver.Options{})
 			if err != nil {
 				t.Errorf("failed to create ca server for test %v", err)
 			}

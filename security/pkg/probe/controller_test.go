@@ -24,12 +24,7 @@ import (
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/balancer"
 
-	"crypto/tls"
-	"strings"
-
 	"istio.io/istio/pkg/probe"
-	cac "istio.io/istio/security/pkg/caclient"
-	caclient "istio.io/istio/security/pkg/caclient/grpc"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
@@ -103,49 +98,20 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 	}
 
 	for id, c := range testCases {
-		// override mock client
-		mockClient := FakeCAGrpcClientImpl{
+		mockClient := &FakeCAGrpcClient{
 			resp: c.resp,
 			err:  c.err,
-		}
-		mgc := &FakeCAGrpcClient{
-			resp: c.resp,
-			err:  c.err,
-		}
-
-		certBytes, privKeyBytes, _, rootCert := istioCA.GetCAKeyCertBundle().GetAllPem()
-		cert, err := tls.X509KeyPair(certBytes, privKeyBytes)
-		_, addr, err := cac.NewTestCAServer(&cac.TestCAServerOptions{
-			Response:    c.resp,
-			RootCert:    rootCert,
-			SignCert:    certBytes,
-			Certficiate: []tls.Certificate{cert},
-			Err:         c.err,
-		})
-		if err != nil {
-			t.Errorf("jianfeih failed to create testing ca err %v", err)
-		}
-		ind := strings.Index(addr, ":")
-
-		var g interface{} = &mockClient
-		client, ok := g.(caclient.CAGrpcClient)
-		if !ok {
-			t.Fatalf("%v: Failed to create a client", id)
 		}
 
 		// test liveness probe check controller
 		controller, err := NewLivenessCheckController(
 			time.Minute,
-			"localhost"+addr[ind:],
-			"localhost",
-			1234,
 			istioCA,
 			&probe.Options{
 				Path:           "/tmp/test.key",
 				UpdateInterval: time.Minute,
 			},
-			client,
-			mgc,
+			mockClient,
 		)
 		if err != nil {
 			t.Errorf("%v: Expecting an error but an Istio CA is wrongly instantiated", id)
