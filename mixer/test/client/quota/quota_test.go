@@ -35,7 +35,6 @@ var expectedStats = map[string]int{
 	"http_mixer_filter.total_quota_calls":                 2,
 	"http_mixer_filter.total_remote_check_calls":          2,
 	"http_mixer_filter.total_remote_quota_calls":          2,
-	"http_mixer_filter.total_remote_report_calls":         1,
 	"http_mixer_filter.total_report_calls":                2,
 }
 
