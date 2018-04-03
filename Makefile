@@ -604,10 +604,8 @@ installgen:
 generate_yaml:
 	./install/updateVersion.sh -a ${HUB},${TAG} 
 
-
 $(HELM):
 	bin/init_helm.sh
-
 
 # creates istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml
 # Ensure that values-$filename is present in install/kubernetes/helm/istio
@@ -621,7 +619,6 @@ isti%.yaml: $(HELM)
 
 deploy/all: $(HELM) istio-all.yaml
 	kubectl apply -n istio-system -f install/kubernetes/istio-all.yaml
-
 
 # Generate the install files, using istioctl.
 # TODO: make sure they match, pass all tests.

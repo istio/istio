@@ -101,9 +101,11 @@ e2e_all_junit_report: | $(JUNIT_REPORT)
 e2e_pilot: istioctl generate_yaml
 	go test -v -timeout 20m ./tests/e2e/tests/pilot ${E2E_ARGS} ${EXTRA_E2E_ARGS}
 
+## Targets for fast local development and staged CI.
+
 test/minikube/auth/e2e_simple:
 	set -o pipefail; go test -v -timeout 20m ./tests/e2e/tests/simple -args --auth_enable=true \
-	  --skip_cleanup  -use_local_cluster -cluster_wide -test.v \
+	  --skip_cleanup  -use_local_cluster -cluster_wide \
 	  ${E2E_ARGS} ${EXTRA_E2E_ARGS} \
            ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-auth-simple.raw
 
@@ -113,3 +115,28 @@ test/minikube/noauth/e2e_simple:
 	  --skip_cleanup  -use_local_cluster -cluster_wide -test.v \
 	  ${E2E_ARGS} ${EXTRA_E2E_ARGS} \
            ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-noauth-simple.raw
+
+# V1 test with MTLS
+# Test runs in istio-system, using istio.yaml generated config.
+# This will only (re)run the test - call "make docker istio.yaml" (or "make pilot docker.pilot" if
+# you only changed pilot) to build.
+#
+test/local/auth/e2e_pilot:
+	set -o pipefail; go test -v -timeout 20m ./tests/e2e/tests/pilot \
+ 	--skip_cleanup --auth_enable=true --egress=false --v1alpha3=false \
+	${E2E_ARGS} ${EXTRA_E2E_ARGS} ${T} \
+		| tee ${OUT_DIR}/tests/test-report.raw
+
+# V3 test without MTLS (not implemented yet). Still in progress, for tracking
+test/local/noauth/e2e_pilot_alpha3:
+	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 20m ./tests/e2e/tests/pilot \
+ 	--skip_cleanup --auth_enable=false --egress=false --v1alpha3=false \
+	${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} \
+		| tee ${OUT_DIR}/tests/test-report.raw
+
+# V3 test without MTLS (not implemented yet). Still in progress, for tracking
+test/local/noauth/e2e_simple_alpha3:
+	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 20m ./tests/e2e/tests/simple \
+	--skip_cleanup --auth_enable=false \
+    	  ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} \
+		| tee ${OUT_DIR}/tests/test-report.raw

@@ -170,7 +170,7 @@ func (k *KubeInfo) IstioIngressService() string {
 
 // Setup set up Kubernetes prerequest for tests
 func (k *KubeInfo) Setup() error {
-	log.Info("Setting up kubeInfo")
+	log.Infoa("Setting up kubeInfo setupSkip=", *skipSetup)
 	var err error
 	if err = os.Mkdir(k.yamlDir, os.ModeDir|os.ModePerm); err != nil {
 		return err
@@ -186,23 +186,22 @@ func (k *KubeInfo) Setup() error {
 			log.Error("Failed to deploy istio addons")
 			return err
 		}
-	}
-
-	// Create the ingress secret.
-	certDir := util.GetResourcePath("./tests/testdata/certs")
-	certFile := filepath.Join(certDir, "cert.crt")
-	keyFile := filepath.Join(certDir, "cert.key")
-	if _, err = util.CreateTLSSecret(ingressCertsName, k.IstioSystemNamespace(), keyFile, certFile); err != nil {
-		return err
-	}
-
-	if *withMixerValidator {
-		// Run the script to set up the certificate.
-		certGenerator := util.GetResourcePath("./install/kubernetes/webhook-create-signed-cert.sh")
-		if _, err = util.Shell("%s --service istio-mixer-validator --secret istio-mixer-validator --namespace %s", certGenerator, k.Namespace); err != nil {
-			return err
+		// Create the ingress secret.
+		certDir := util.GetResourcePath("./tests/testdata/certs")
+		certFile := filepath.Join(certDir, "cert.crt")
+		keyFile := filepath.Join(certDir, "cert.key")
+		if _, err = util.CreateTLSSecret(ingressCertsName, k.IstioSystemNamespace(), keyFile, certFile); err != nil {
+			log.Warn("Secret already exists")
+		}
+		if *withMixerValidator {
+			// Run the script to set up the certificate.
+			certGenerator := util.GetResourcePath("./install/kubernetes/webhook-create-signed-cert.sh")
+			if _, err = util.Shell("%s --service istio-mixer-validator --secret istio-mixer-validator --namespace %s", certGenerator, k.Namespace); err != nil {
+				return err
+			}
 		}
 	}
+
 	return nil
 }
 

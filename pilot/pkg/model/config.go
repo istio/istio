@@ -386,29 +386,7 @@ var (
 		Validate:    ValidateGateway,
 	}
 
-	// VirtualServiceIngress describes v1alpha3 route rules, mapped from ingress rules.
-	VirtualServiceIngress = ProtoSchema{
-		Type:        "virtual-service-ingress",
-		Plural:      "virtual-services-ingresses",
-		Group:       "networking",
-		Version:     "v1alpha3",
-		MessageName: "istio.networking.v1alpha3.VirtualService",
-		Gogo:        true,
-		Validate:    ValidateVirtualService,
-	}
-
-	// GatewayIngress describes a gateway created by translating k8s ingress (how a proxy is exposed on the network)
-	GatewayIngress = ProtoSchema{
-		Type:        "gateway-ingress",
-		Plural:      "gateways-ingresses",
-		Group:       "networking",
-		Version:     "v1alpha3",
-		MessageName: "istio.networking.v1alpha3.Gateway",
-		Gogo:        true,
-		Validate:    ValidateGateway,
-	}
-
-	// IngressRule describes ingress rules
+	// IngressdeRule describes ingress rules
 	IngressRule = ProtoSchema{
 		Type:        "ingress-rule",
 		Plural:      "ingress-rules",
@@ -788,10 +766,7 @@ func (store *istioConfigStore) ExternalServices() []Config {
 // to just convert again and again, for each listener times endpoints.
 func (store *istioConfigStore) VirtualServices(gateways []string) []Config {
 	if len(gateways) == 1 && gateways[0] == IstioIngressGatewayName {
-		configs, err := store.List(VirtualServiceIngress.Type, NamespaceAll)
-		if err != nil {
-			return nil
-		}
+		configs := []Config{}
 		configs3, err := store.List(VirtualService.Type, NamespaceAll)
 		if err != nil {
 			return nil
