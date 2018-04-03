@@ -170,15 +170,15 @@ func BuildServiceConfig(service, uid, telemetryCluster string) *client.HttpClien
 	return &client.HttpClientConfig{
 		DefaultDestinationService: service,
 		ServiceConfigs: map[string]*client.ServiceConfig{
-			service: &client.ServiceConfig{
+			service: {
 				DisableCheckCalls:  true,
 				DisableReportCalls: false,
 				MixerAttributes: &v1.Attributes{
 					Attributes: map[string]*v1.Attributes_AttributeValue{
-						"destination.service": &v1.Attributes_AttributeValue{Value: &v1.Attributes_AttributeValue_StringValue{
+						"destination.service": {Value: &v1.Attributes_AttributeValue_StringValue{
 							StringValue: service,
 						}},
-						"destination.uid": &v1.Attributes_AttributeValue{Value: &v1.Attributes_AttributeValue_StringValue{
+						"destination.uid": {Value: &v1.Attributes_AttributeValue_StringValue{
 							StringValue: uid,
 						}},
 					},
@@ -210,11 +210,11 @@ func BuildListeners(upstreams []Upstream, telemetryCluster string) []v2.Listener
 				OperationName: hcm.INGRESS,
 			},
 			HttpFilters: []*hcm.HttpFilter{
-				&hcm.HttpFilter{
+				{
 					Name:   "mixer",
 					Config: toStruct(BuildServiceConfig(upstream.Service, upstream.UID, telemetryCluster)),
 				},
-				&hcm.HttpFilter{
+				{
 					Name: util.Router,
 				},
 			},
