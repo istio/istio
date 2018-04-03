@@ -169,18 +169,6 @@ func TestRoutes(t *testing.T) {
 			expectedCount: map[string]int{"v1": 100, "v2": 0},
 			operation:     "default-route",
 		},
-		{
-			testName:      "a->c[v1=50,v2=50]_shadow_policy",
-			description:   "routing all traffic to c with shadow policy",
-			config:        "rule-default-route-mirrored.yaml",
-			scheme:        "http",
-			src:           "a",
-			dst:           "c",
-			headerKey:     "",
-			headerVal:     "",
-			expectedCount: map[string]int{"v1": 50, "v2": 50},
-			operation:     "default-route",
-		},
 	}
 
 	for _, version := range configVersions() {
@@ -336,5 +324,44 @@ func TestRouteRedirectInjection(t *testing.T) {
 				return nil
 			})
 		}()
+	}
+}
+
+func TestRouteMirroring(t *testing.T) {
+	for _, version := range configVersions() {
+		logs := newAccessLogs()
+		// Invoke a function to scope the lifecycle of the deployed configs.
+		func() {
+			// Push the rule config.
+			ruleYaml := fmt.Sprintf("testdata/%s/rule-default-route-mirrored.yaml", version)
+			cfgs := &deployableConfig{
+				Namespace: tc.Kube.Namespace,
+				YamlFiles: []string{ruleYaml},
+			}
+			if err := cfgs.Setup(); err != nil {
+				t.Fatal(err)
+			}
+			defer cfgs.Teardown()
+
+			runRetriableTest(t, version, 5, func() error {
+				reqURL := "http://c/a"
+				for i := 1; i <= 100; i++ {
+					resp := ClientRequest("a", reqURL, 1, fmt.Sprintf("-key X-Request-Id -val %d", i))
+					logEntry := fmt.Sprintf("HTTP request from a to c.istio-system.svc.cluster.local:80")
+					if len(resp.ID) > 0 {
+						id := resp.ID[0]
+						logs.add("b", id, logEntry)
+					}
+				}
+				return nil
+			})
+		}()
+
+		// After all requests complete, run the check logs tests.
+		if len(logs.logs) > 0 {
+			t.Run("check", func(t *testing.T) {
+				logs.checkLogs(t)
+			})
+		}
 	}
 }
