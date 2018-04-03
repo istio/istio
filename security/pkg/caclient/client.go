@@ -26,14 +26,13 @@ import (
 	rgrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
+	"crypto/tls"
+
 	"istio.io/istio/pkg/log"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
 	"istio.io/istio/security/pkg/workload"
 	pb "istio.io/istio/security/proto"
-	"crypto/x509"
-	"crypto/tls"
-	"google.golang.org/grpc/credentials"
 )
 
 // CAClient is a client to provision key and certificate from the upstream CA via CSR protocol.
@@ -73,7 +72,7 @@ type TestCAServer struct {
 	response *pb.CsrResponse
 	errorMsg string
 	counter  int
-	err error
+	err      error
 }
 
 func (s *TestCAServer) HandleCSR(ctx context.Context, req *pb.CsrRequest) (*pb.CsrResponse, error) {
@@ -95,12 +94,12 @@ func (s *TestCAServer) InvokeTimes() int {
 }
 
 type TestCAServerOptions struct {
-	Response *pb.CsrResponse
-	Error    string
-	RootCert []byte
-	SignCert []byte
+	Response    *pb.CsrResponse
+	Error       string
+	RootCert    []byte
+	SignCert    []byte
 	Certficiate []tls.Certificate
-	Err error
+	Err         error
 }
 
 func NewTestCAServer(opts *TestCAServerOptions) (server *TestCAServer, addr string, err error) {
@@ -113,19 +112,7 @@ func NewTestCAServer(opts *TestCAServerOptions) (server *TestCAServer, addr stri
 		errorMsg: opts.Error,
 		err:      opts.Err,
 	}
-	cp := x509.NewCertPool()
-	ok := cp.AppendCertsFromPEM(opts.RootCert)
-	fmt.Println("jianfeih debug ok append ", ok)
-	ok = cp.AppendCertsFromPEM(opts.SignCert)
-	fmt.Println("jianfeih debug ok append 2 ", ok)
-	config := &tls.Config{
-		ClientCAs:  cp,
-		ClientAuth: tls.VerifyClientCertIfGiven,
-		Certificates: opts.Certficiate,
-	}
-	srvOptions := rgrpc.Creds(credentials.NewTLS(config))
-	s := rgrpc.NewServer(srvOptions)
-
+	s := rgrpc.NewServer()
 	pb.RegisterIstioCAServiceServer(s, ca)
 	reflection.Register(s)
 	go s.Serve(lis)
