@@ -22,8 +22,7 @@ import (
 
 	"context"
 
-	rgrpc "google.golang.org/grpc"
-
+	"google.golang.org/grpc"
 	"istio.io/istio/pkg/log"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
@@ -51,7 +50,7 @@ func NewCAClient(pltfmc platform.Client, caAddr string, maxRetries int, interval
 	if err != nil {
 		return nil, fmt.Errorf("can't get platform dial options, %v", err)
 	}
-	conn, err := rgrpc.Dial(caAddr, dialOptions...)
+	conn, err := grpc.Dial(caAddr, dialOptions...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to dial %s: %v", caAddr, err)
 	}
