@@ -15,6 +15,7 @@
 package probe
 
 import (
+	"context"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -23,12 +24,11 @@ import (
 	"google.golang.org/grpc/balancer"
 
 	"istio.io/istio/pkg/probe"
-	"istio.io/istio/security/pkg/caclient"
 	"istio.io/istio/security/pkg/caclient/grpc"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
-	"fmt"
+	pb "istio.io/istio/security/proto"
 )
 
 const (
@@ -44,9 +44,10 @@ type LivenessCheckController struct {
 	grpcPort           int
 	serviceIdentityOrg string
 	rsaKeySize         int
-	caAddress string
+	caAddress          string
 	ca                 *ca.IstioCA
 	livenessProbe      *probe.Probe
+	grpcClient         pb.IstioCAServiceClient
 	client             grpc.CAGrpcClient
 	// caclient           *caclient.Client
 }
@@ -55,7 +56,7 @@ type LivenessCheckController struct {
 func NewLivenessCheckController(probeCheckInterval time.Duration,
 	caAddr string,
 	grpcHostname string, grpcPort int, ca *ca.IstioCA, livenessProbeOptions *probe.Options,
-	client grpc.CAGrpcClient) (*LivenessCheckController, error) {
+	client grpc.CAGrpcClient, grpcClient pb.IstioCAServiceClient) (*LivenessCheckController, error) {
 
 	livenessProbe := probe.NewProbe()
 	livenessProbeController := probe.NewFileController(livenessProbeOptions)
@@ -67,13 +68,14 @@ func NewLivenessCheckController(probeCheckInterval time.Duration,
 
 	return &LivenessCheckController{
 		interval:      probeCheckInterval,
-		caAddress: caAddr,
+		caAddress:     caAddr,
 		grpcHostname:  grpcHostname,
 		grpcPort:      grpcPort,
 		rsaKeySize:    2048,
 		livenessProbe: livenessProbe,
 		ca:            ca,
 		client:        client,
+		grpcClient:    grpcClient,
 	}, nil
 }
 
@@ -144,43 +146,43 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 		return err
 	}
 	//addr := fmt.Sprintf("%v:%v", c.grpcHostname, c.grpcPort)
-	addr := c.caAddress
-	fmt.Println("jianfeih debug ca address ", addr)
-	cac, err := caclient.NewCAClient(pc, addr, 1, time.Second)
-	if err != nil {
-		return err
-	}
-	_, _, _, err = cac.Retrieve(&util.CertOptions{
-		Host:       LivenessProbeClientIdentity,
-		Org:        c.serviceIdentityOrg,
-		RSAKeySize: c.rsaKeySize,
-		TTL:        probeCheckRequestedTTLMinutes,
-	})
-	fmt.Println("jianfeih debug retrieve result ", err)
-
-	//csr, _, err := util.GenCSR(util.CertOptions{
+	//addr := c.caAddress
+	//fmt.Println("jianfeih debug ca address ", addr)
+	//cac, err := caclient.NewCAClient(pc, addr, 1, time.Second)
+	//if err != nil {
+	//return err
+	//}
+	//_, _, _, err = cac.Retrieve(&util.CertOptions{
 	//Host:       LivenessProbeClientIdentity,
 	//Org:        c.serviceIdentityOrg,
 	//RSAKeySize: c.rsaKeySize,
+	//TTL:        probeCheckRequestedTTLMinutes,
 	//})
+	// fmt.Println("jianfeih debug retrieve result ", err)
 
-	//if err != nil {
-	//return err
-	//}
+	csr, _, err := util.GenCSR(util.CertOptions{
+		Host:       LivenessProbeClientIdentity,
+		Org:        c.serviceIdentityOrg,
+		RSAKeySize: c.rsaKeySize,
+	})
 
-	//cred, err := pc.GetAgentCredential()
-	//if err != nil {
-	//return err
-	//}
+	if err != nil {
+		return err
+	}
 
-	//req := &pb.CsrRequest{
-	//CsrPem:              csr,
-	//NodeAgentCredential: cred,
-	//CredentialType:      pc.GetCredentialType(),
-	//RequestedTtlMinutes: probeCheckRequestedTTLMinutes,
-	//}
+	cred, err := pc.GetAgentCredential()
+	if err != nil {
+		return err
+	}
 
-	//_, err = c.client.SendCSR(req, pc, fmt.Sprintf("%v:%v", c.grpcHostname, c.grpcPort))
+	req := &pb.CsrRequest{
+		CsrPem:              csr,
+		NodeAgentCredential: cred,
+		CredentialType:      pc.GetCredentialType(),
+		RequestedTtlMinutes: probeCheckRequestedTTLMinutes,
+	}
+
+	_, err = c.grpcClient.HandleCSR(context.Background(), req)
 	if err != nil && strings.Contains(err.Error(), balancer.ErrTransientFailure.Error()) {
 		return nil
 	}

@@ -15,11 +15,13 @@
 package probe
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
 
 	rpc "github.com/gogo/googleapis/google/rpc"
+	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/balancer"
 
 	"crypto/tls"
@@ -46,6 +48,15 @@ func (c *FakeCAGrpcClientImpl) SetResponse(resp *pb.CsrResponse, err error) {
 
 // SendCSR
 func (c *FakeCAGrpcClientImpl) SendCSR(req *pb.CsrRequest, pc platform.Client, caAddress string) (*pb.CsrResponse, error) {
+	return c.resp, c.err
+}
+
+type FakeCAGrpcClient struct {
+	resp *pb.CsrResponse
+	err  error
+}
+
+func (c *FakeCAGrpcClient) HandleCSR(_ context.Context, req *pb.CsrRequest, opts ...grpc.CallOption) (*pb.CsrResponse, error) {
 	return c.resp, c.err
 }
 
@@ -97,6 +108,10 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 			resp: c.resp,
 			err:  c.err,
 		}
+		mgc := &FakeCAGrpcClient{
+			resp: c.resp,
+			err:  c.err,
+		}
 
 		certBytes, privKeyBytes, _, rootCert := istioCA.GetCAKeyCertBundle().GetAllPem()
 		cert, err := tls.X509KeyPair(certBytes, privKeyBytes)
@@ -130,6 +145,7 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 				UpdateInterval: time.Minute,
 			},
 			client,
+			mgc,
 		)
 		if err != nil {
 			t.Errorf("%v: Expecting an error but an Istio CA is wrongly instantiated", id)
