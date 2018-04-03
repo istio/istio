@@ -53,13 +53,13 @@ var (
 
 // Fill complete a template with given values and generate a new output file
 func Fill(outFile, inFile string, values interface{}) error {
-	var bytes bytes.Buffer
-	w := bufio.NewWriter(&bytes)
 	tmpl, err := template.ParseFiles(inFile)
 	if err != nil {
 		return err
 	}
 
+	var filled bytes.Buffer
+	w := bufio.NewWriter(&filled)
 	if err := tmpl.Execute(w, values); err != nil {
 		return err
 	}
@@ -68,7 +68,7 @@ func Fill(outFile, inFile string, values interface{}) error {
 		return err
 	}
 
-	if err := ioutil.WriteFile(outFile, bytes.Bytes(), 0644); err != nil {
+	if err := ioutil.WriteFile(outFile, filled.Bytes(), 0644); err != nil {
 		return err
 	}
 	log.Infof("Created %s from template %s", outFile, inFile)
@@ -282,6 +282,16 @@ func GetIngressPod(n string) (string, error) {
 	return ingress, err
 }
 
+// GetIngressPodNames get the pod names for the Istio ingress deployment.
+func GetIngressPodNames(n string) ([]string, error) {
+	res, err := Shell("kubectl get pod -l istio=ingress -n %s -o jsonpath='{.items[*].metadata.name}'", n)
+	if err != nil {
+		return nil, err
+	}
+	res = strings.Trim(res, "'")
+	return strings.Split(res, " "), nil
+}
+
 // GetAppPods gets a map of app names to the pods for the app, for the given namespace
 func GetAppPods(n string) (map[string][]string, error) {
 	podLabels, err := GetPodLabelValues(n, "app")
@@ -385,9 +395,22 @@ func GetPodLogs(n, pod, container string, tail, alsoShowPreviousPodLogs bool) st
 	return o1 + o2
 }
 
+// GetConfigs retrieves the configurations for the list of resources.
+func GetConfigs(names ...string) (string, error) {
+	cmd := fmt.Sprintf("kubectl get %s --all-namespaces -o yaml", strings.Join(names, ","))
+	return Shell(cmd)
+}
+
 // PodExec runs the specified command on the container for the specified namespace and pod
 func PodExec(n, pod, container, command string) (string, error) {
 	return Shell("kubectl exec %s -n %s -c %s -- %s", pod, n, container, command)
+}
+
+// CreateTLSSecret creates a secret from the provided cert and key files
+func CreateTLSSecret(secretName, n, keyFile, certFile string) (string, error) {
+	//cmd := fmt.Sprintf("kubectl create secret tls %s -n %s --key %s --cert %s", secretName, n, keyFile, certFile)
+	//return Shell(cmd)
+	return Shell("kubectl create secret tls %s -n %s --key %s --cert %s", secretName, n, keyFile, certFile)
 }
 
 // CheckPodsRunningWithMaxDuration returns if all pods in a namespace are in "Running" status

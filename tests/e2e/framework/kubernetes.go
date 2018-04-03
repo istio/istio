@@ -27,6 +27,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/util"
 )
@@ -40,24 +42,28 @@ const (
 	nonAuthInstallFileNamespace = "istio-one-namespace.yaml"
 	authInstallFileNamespace    = "istio-one-namespace-auth.yaml"
 	istioSystem                 = "istio-system"
+	istioIngressServiceName     = "istio-ingress"
 	defaultSidecarInjectorFile  = "istio-sidecar-injector.yaml"
 	mixerValidatorFile          = "istio-mixer-validator.yaml"
+	ingressCertsName            = "istio-ingress-certs"
 
-	maxDeploymentRolloutTime = 120 * time.Second
+	maxDeploymentRolloutTime    = 120 * time.Second
+	mtlsExcludedServicesPattern = "mtlsExcludedServices:\\s*\\[(.*)\\]"
 )
 
 var (
-	namespace           = flag.String("namespace", "", "Namespace to use for testing (empty to create/delete temporary one)")
-	mixerHub            = flag.String("mixer_hub", os.Getenv("HUB"), "Mixer hub")
-	mixerTag            = flag.String("mixer_tag", os.Getenv("TAG"), "Mixer tag")
-	pilotHub            = flag.String("pilot_hub", os.Getenv("HUB"), "Pilot hub")
-	pilotTag            = flag.String("pilot_tag", os.Getenv("TAG"), "Pilot tag")
-	proxyHub            = flag.String("proxy_hub", os.Getenv("HUB"), "Proxy hub")
-	proxyTag            = flag.String("proxy_tag", os.Getenv("TAG"), "Proxy tag")
-	caHub               = flag.String("ca_hub", os.Getenv("HUB"), "Ca hub")
-	caTag               = flag.String("ca_tag", os.Getenv("TAG"), "Ca tag")
-	authEnable          = flag.Bool("auth_enable", false, "Enable auth")
-	localCluster        = flag.Bool("use_local_cluster", false, "Whether the cluster is local or not")
+	namespace    = flag.String("namespace", "", "Namespace to use for testing (empty to create/delete temporary one)")
+	mixerHub     = flag.String("mixer_hub", os.Getenv("HUB"), "Mixer hub")
+	mixerTag     = flag.String("mixer_tag", os.Getenv("TAG"), "Mixer tag")
+	pilotHub     = flag.String("pilot_hub", os.Getenv("HUB"), "Pilot hub")
+	pilotTag     = flag.String("pilot_tag", os.Getenv("TAG"), "Pilot tag")
+	proxyHub     = flag.String("proxy_hub", os.Getenv("HUB"), "Proxy hub")
+	proxyTag     = flag.String("proxy_tag", os.Getenv("TAG"), "Proxy tag")
+	caHub        = flag.String("ca_hub", os.Getenv("HUB"), "Ca hub")
+	caTag        = flag.String("ca_tag", os.Getenv("TAG"), "Ca tag")
+	authEnable   = flag.Bool("auth_enable", false, "Enable auth")
+	localCluster = flag.Bool("use_local_cluster", false,
+		"Whether the cluster is local or not (i.e. the test is running within the cluster). If running on minikube, this should be set to true.")
 	skipSetup           = flag.Bool("skip_setup", false, "Skip namespace creation and istio cluster setup")
 	sidecarInjectorFile = flag.String("sidecar_injector_file", defaultSidecarInjectorFile, "Sidecar injector yaml file")
 	clusterWide         = flag.Bool("cluster_wide", false, "Run cluster wide tests")
@@ -83,6 +89,9 @@ type KubeInfo struct {
 	localCluster     bool
 	namespaceCreated bool
 	AuthEnabled      bool
+
+	// Extra services to be excluded from MTLS
+	MTLSExcludedServices []string
 
 	// Istioctl installation
 	Istioctl *Istioctl
@@ -154,6 +163,11 @@ func (k *KubeInfo) IstioSystemNamespace() string {
 	return k.Namespace
 }
 
+// IstioIngressService returns the service name for the ingress service
+func (k *KubeInfo) IstioIngressService() string {
+	return istioIngressServiceName
+}
+
 // Setup set up Kubernetes prerequest for tests
 func (k *KubeInfo) Setup() error {
 	log.Info("Setting up kubeInfo")
@@ -174,13 +188,20 @@ func (k *KubeInfo) Setup() error {
 		}
 	}
 
+	// Create the ingress secret.
+	certDir := util.GetResourcePath("./tests/testdata/certs")
+	certFile := filepath.Join(certDir, "cert.crt")
+	keyFile := filepath.Join(certDir, "cert.key")
+	if _, err = util.CreateTLSSecret(ingressCertsName, k.IstioSystemNamespace(), keyFile, certFile); err != nil {
+		return err
+	}
+
 	if *withMixerValidator {
 		// Run the script to set up the certificate.
 		certGenerator := util.GetResourcePath("./install/kubernetes/webhook-create-signed-cert.sh")
 		if _, err = util.Shell("%s --service istio-mixer-validator --secret istio-mixer-validator --namespace %s", certGenerator, k.Namespace); err != nil {
 			return err
 		}
-
 	}
 	return nil
 }
@@ -335,6 +356,24 @@ func (k *KubeInfo) GetAppPods() map[string][]string {
 	return newMap
 }
 
+// GetRoutes gets routes from the pod or returns error
+func (k *KubeInfo) GetRoutes(app string) (string, error) {
+	appPods := k.GetAppPods()
+	if len(appPods[app]) == 0 {
+		return "", errors.Errorf("missing pod names for app %q", app)
+	}
+
+	pod := appPods[app][0]
+
+	routesURL := "http://localhost:15000/routes"
+	routes, err := util.PodExec(k.Namespace, pod, "app", fmt.Sprintf("client -url %s", routesURL))
+	if err != nil {
+		return "", errors.WithMessage(err, "failed to get routes")
+	}
+
+	return routes, nil
+}
+
 // getAppPods returns a copy of the appPods map. Should only be called by GetAppPods.
 func (k *KubeInfo) getAppPods() map[string][]string {
 	k.appPodsMutex.Lock()
@@ -370,7 +409,7 @@ func (k *KubeInfo) deployAddons() error {
 		}
 
 		if !*clusterWide {
-			content = replacePattern(k, content, istioSystem, k.Namespace)
+			content = replacePattern(content, istioSystem, k.Namespace)
 		}
 
 		yamlFile := filepath.Join(k.TmpDir, "yaml", addon+".yaml")
@@ -473,7 +512,7 @@ func (k *KubeInfo) generateSidecarInjector(src, dst string) error {
 	}
 
 	if !*clusterWide {
-		content = replacePattern(k, content, istioSystem, k.Namespace)
+		content = replacePattern(content, istioSystem, k.Namespace)
 	}
 
 	if *pilotHub != "" && *pilotTag != "" {
@@ -490,11 +529,32 @@ func (k *KubeInfo) generateSidecarInjector(src, dst string) error {
 	return err
 }
 
-func replacePattern(k *KubeInfo, content []byte, src, dest string) []byte {
+func replacePattern(content []byte, src, dest string) []byte {
 	r := []byte(dest)
 	p := regexp.MustCompile(src)
 	content = p.ReplaceAllLiteral(content, r)
 	return content
+}
+
+func (k *KubeInfo) appendMtlsExcludedServices(content []byte) ([]byte, error) {
+	if !k.AuthEnabled || len(k.MTLSExcludedServices) == 0 {
+		// Nothing to do.
+		return content, nil
+	}
+
+	re := regexp.MustCompile(mtlsExcludedServicesPattern)
+	match := re.FindStringSubmatch(string(content))
+	if len(match) == 0 {
+		return nil, fmt.Errorf("failed to locate the mtlsExcludedServices section of the mesh config")
+	}
+
+	values := strings.Split(match[1], ",")
+	for _, v := range k.MTLSExcludedServices {
+		// Add surrounding quotes to the values.
+		values = append(values, fmt.Sprintf("\"%s\"", v))
+	}
+	newValue := fmt.Sprintf("mtlsExcludedServices: [%s]", strings.Join(values, ","))
+	return re.ReplaceAll(content, []byte(newValue)), nil
 }
 
 func (k *KubeInfo) generateIstio(src, dst string) error {
@@ -505,23 +565,30 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 	}
 
 	if !*clusterWide {
-		content = replacePattern(k, content, istioSystem, k.Namespace)
+		content = replacePattern(content, istioSystem, k.Namespace)
 		// Customize mixer's configStoreURL to limit watching resources in the testing namespace.
 		vs := url.Values{}
 		vs.Add("ns", *namespace)
-		content = replacePattern(k, content, "--configStoreURL=k8s://", "--configStoreURL=k8s://?"+vs.Encode())
+		content = replacePattern(content, "--configStoreURL=k8s://", "--configStoreURL=k8s://?"+vs.Encode())
+	}
+
+	// If mtlsExcludedServices is specified, replace it with the updated value
+	content, err = k.appendMtlsExcludedServices(content)
+	if err != nil {
+		log.Errorf("Failed to replace mtlsExcludedServices: %v", err)
+		return err
 	}
 
 	// Replace long refresh delays with short ones for the sake of tests.
-	content = replacePattern(k, content, "connectTimeout: 10s", "connectTimeout: 1s")
-	content = replacePattern(k, content, "drainDuration: 45s", "drainDuration: 2s")
-	content = replacePattern(k, content, "parentShutdownDuration: 1m0s", "parentShutdownDuration: 3s")
+	content = replacePattern(content, "connectTimeout: 10s", "connectTimeout: 1s")
+	content = replacePattern(content, "drainDuration: 45s", "drainDuration: 2s")
+	content = replacePattern(content, "parentShutdownDuration: 1m0s", "parentShutdownDuration: 3s")
 
 	// A very flimsy and unreliable regexp to replace delays in ingress pod Spec
-	content = replacePattern(k, content, "'30s' #discoveryRefreshDelay", "'1s' #discoveryRefreshDelay")
-	content = replacePattern(k, content, "'10s' #connectTimeout", "'1s' #connectTimeout")
-	content = replacePattern(k, content, "'45s' #drainDuration", "'2s' #drainDuration")
-	content = replacePattern(k, content, "'1m0s' #parentShutdownDuration", "'3s' #parentShutdownDuration")
+	content = replacePattern(content, "'30s' #discoveryRefreshDelay", "'1s' #discoveryRefreshDelay")
+	content = replacePattern(content, "'10s' #connectTimeout", "'1s' #connectTimeout")
+	content = replacePattern(content, "'45s' #drainDuration", "'2s' #drainDuration")
+	content = replacePattern(content, "'1m0s' #parentShutdownDuration", "'3s' #parentShutdownDuration")
 
 	if k.BaseVersion == "" {
 		if *mixerHub != "" && *mixerTag != "" {
