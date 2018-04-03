@@ -199,7 +199,7 @@ func ExtractIDs(exts []pkix.Extension) ([]string, error) {
 func GenSanURI(ns, serviceAccount string) (string, error) {
 	if ns == "" || serviceAccount == "" {
 		return "", fmt.Errorf(
-			"invalid namespace or service account, can't be empty %v %v", ns, serviceAccount)
+			"namespace or service account can't be empty ns=%v serviceAccount=%v", ns, serviceAccount)
 	}
 	return fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/%s", ns, serviceAccount), nil
 }
