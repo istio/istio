@@ -1,5 +1,5 @@
 {{/*
-Pilot test apply httpbin.org, *.httpbin.org, nghttp2.org
+Pilot test apply httpbin.org, *.httpbin.org, google.com
 However this interferes with other rules, test is not hermetic.
 Need new domains to fault.
 Also need to conver to a range
