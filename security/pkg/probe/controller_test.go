@@ -86,8 +86,8 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 			resp: c.resp,
 			err:  c.err,
 		}
-		provider := func(_ string, _ *ca.IstioCA, _ *util.CertOptions, _ time.Duration) (*caChecker, error) {
-			return &caChecker{
+		provider := func(_ string, _ *ca.IstioCA, _ *util.CertOptions, _ time.Duration) (*CAChecker, error) {
+			return &CAChecker{
 				client:  mockClient,
 				cleanup: func() {},
 			}, nil

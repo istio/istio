@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// package testserver provides a simple ca server for testing.
+// Package testserver provides a simple ca server for testing.
 package testserver
 
 import (
@@ -55,7 +55,7 @@ type Options struct {
 	// Response is the response returned by the test server.
 	Response *pb.CsrResponse
 	// Error is the error message returned by test server, ignores if empty.
-	Error    string
+	Error string
 }
 
 // New creates a test server, returns the server, its address.
@@ -71,6 +71,10 @@ func New(opts *Options) (server *CAServer, addr string, err error) {
 	s := grpc.NewServer()
 	pb.RegisterIstioCAServiceServer(s, ca)
 	reflection.Register(s)
-	go s.Serve(lis)
+	go func() {
+		if err := s.Serve(lis); err != nil {
+			return
+		}
+	}()
 	return ca, lis.Addr().String(), nil
 }

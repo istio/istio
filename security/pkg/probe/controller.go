@@ -29,8 +29,8 @@ import (
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
-	pb "istio.io/istio/security/proto"
 	"istio.io/istio/security/pkg/workload"
+	pb "istio.io/istio/security/proto"
 )
 
 const (
@@ -39,14 +39,15 @@ const (
 	probeCheckRequestedTTLMinutes = 60
 )
 
-type caChecker struct {
+// CAChecker contains informations for prober to talk to Istio CA server.
+type CAChecker struct {
 	request *pb.CsrRequest
 	client  pb.IstioCAServiceClient
 	cleanup func()
 }
 
 // CheckProvider returns a struct containing the CsrRequest and the grpc client.
-type CheckProvider func(addr string, ca *ca.IstioCA, certOpts *util.CertOptions, ttl time.Duration) (*caChecker, error)
+type CheckProvider func(addr string, ca *ca.IstioCA, certOpts *util.CertOptions, ttl time.Duration) (*CAChecker, error)
 
 // LivenessCheckController updates the availability of the liveness probe of the CA instance
 type LivenessCheckController struct {
@@ -56,7 +57,6 @@ type LivenessCheckController struct {
 	caAddress          string
 	ca                 *ca.IstioCA
 	livenessProbe      *probe.Probe
-	grpcClient         pb.IstioCAServiceClient
 	clientProvider     CheckProvider
 }
 
@@ -102,7 +102,7 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 }
 
 // DefaultClientProvider returns a onprem client and grpc IstioCA client.
-func DefaultClientProvider(addr string, ca *ca.IstioCA, certOpts *util.CertOptions, ttl time.Duration) (*caChecker, error) {
+func DefaultClientProvider(addr string, ca *ca.IstioCA, certOpts *util.CertOptions, ttl time.Duration) (*CAChecker, error) {
 	// generates certificate and private key for test
 	opts := util.CertOptions{
 		Host:       LivenessProbeClientIdentity,
@@ -178,7 +178,7 @@ func DefaultClientProvider(addr string, ca *ca.IstioCA, certOpts *util.CertOptio
 		return nil, err
 	}
 
-	return &caChecker{
+	return &CAChecker{
 		request: &pb.CsrRequest{
 			CsrPem:              csr,
 			NodeAgentCredential: cred,
