@@ -176,7 +176,7 @@ func TestParsePemEncodedCertificate(t *testing.T) {
 			if err == nil {
 				t.Errorf("%s: no error is returned", id)
 			} else if c.errMsg != err.Error() {
-				t.Errorf("%s: Unexpected error message: want %s but got %s", id, c.errMsg, err.Error())
+				t.Errorf(`%s: Unexpected error message: expected "%s" but got "%s"`, id, c.errMsg, err.Error())
 			}
 		} else if cert.PublicKeyAlgorithm != c.publicKeyAlgo {
 			t.Errorf("%s: Unexpected public key algorithm: want %d but got %d", id, c.publicKeyAlgo, cert.PublicKeyAlgorithm)
@@ -208,10 +208,12 @@ func TestParsePemEncodedCSR(t *testing.T) {
 		_, err := ParsePemEncodedCSR([]byte(c.pem))
 		if c.errMsg != "" {
 			if err == nil {
-				t.Errorf("%s: no error is returned", id)
+				t.Errorf(`%s: no error is returned, expected "%s"`, id, c.errMsg)
 			} else if c.errMsg != err.Error() {
-				t.Errorf("%s: Unexpected error message: want %s but got %s", id, c.errMsg, err.Error())
+				t.Errorf(`%s: Unexpected error message: want "%s" but got "%s"`, id, c.errMsg, err.Error())
 			}
+		} else if err != nil {
+			t.Errorf(`%s: Unexpected error: "%s"`, id, err)
 		}
 	}
 }
@@ -260,12 +262,53 @@ func TestParsePemEncodedKey(t *testing.T) {
 		key, err := ParsePemEncodedKey([]byte(c.pem))
 		if c.errMsg != "" {
 			if err == nil {
-				t.Errorf("%s: no error is returned", id)
+				t.Errorf(`%s: no error is returned, expected "%s"`, id, c.errMsg)
 			} else if c.errMsg != err.Error() {
-				t.Errorf(`%s: Unexpected error message: want "%s" but got "%s"`, id, c.errMsg, err.Error())
+				t.Errorf(`%s: Unexpected error message: expected "%s" but got "%s"`, id, c.errMsg, err.Error())
 			}
+		} else if err != nil {
+			t.Errorf(`%s: Unexpected error: "%s"`, id, err)
 		} else if keyType := reflect.TypeOf(key); keyType != c.keyType {
-			t.Errorf("%s: Unmatched key type: expected %v but got %v", id, c.keyType, keyType)
+			t.Errorf(`%s: Unmatched key type: expected "%v" but got "%v"`, id, c.keyType, keyType)
+		}
+	}
+}
+func TestGetRSAKeySize(t *testing.T) {
+	testCases := map[string]struct {
+		pem    string
+		size   int
+		errMsg string
+	}{
+		"Success with RSA key": {
+			pem:  keyRSA,
+			size: 2048,
+		},
+		"Success with PKCS8RSA key": {
+			pem:  keyPKCS8RSA,
+			size: 2048,
+		},
+		"Failure with non-RSA key": {
+			pem:    keyECDSA,
+			errMsg: "key type is not RSA: *ecdsa.PrivateKey",
+		},
+	}
+
+	for id, c := range testCases {
+		key, err := ParsePemEncodedKey([]byte(c.pem))
+		if err != nil {
+			t.Errorf("%s: failed to parse the Pem key.", id)
+		}
+		size, err := GetRSAKeySize(key)
+		if c.errMsg != "" {
+			if err == nil {
+				t.Errorf(`%s: no error is returned, expected error: "%s"`, id, c.errMsg)
+			} else if c.errMsg != err.Error() {
+				t.Errorf(`%s: Unexpected error message: expected "%s" but got "%s"`, id, c.errMsg, err.Error())
+			}
+		} else if err != nil {
+			t.Errorf(`%s: Unexpected error: "%s"`, id, err)
+		} else if size != c.size {
+			t.Errorf(`%s: Unmatched key size: expected %v but got "%v"`, id, c.size, size)
 		}
 	}
 }
