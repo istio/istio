@@ -49,7 +49,7 @@ var (
 	tc = &testConfig{
 		V1alpha1: false,
 		V1alpha3: true,
-		Ingress:  false,
+		Ingress:  true,
 		Egress:   false,
 	}
 
