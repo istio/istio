@@ -109,10 +109,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env model.Environmen
 
 	listeners := make([]*xdsapi.Listener, 0)
 
-	//if node.Type == model.Router {
-	//	outbound := buildSidecarOutboundListeners(mesh, node, proxyInstances, services, config)
-	//	listeners = append(listeners, outbound...)
-	//} else
 	if mesh.ProxyListenPort > 0 {
 		inbound := configgen.buildSidecarInboundListeners(env, node, proxyInstances)
 		outbound := configgen.buildSidecarOutboundListeners(env, node, proxyInstances, services)
@@ -191,7 +187,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env model.Environmen
 	}
 
 	return listeners, nil
-	//return util.NormalizeListeners(listeners), nil
 }
 
 // buildSidecarInboundListeners creates listeners for the server-side (inbound)
@@ -239,19 +234,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 			}
 		case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
 			listenerOpts.networkFilters = buildInboundNetworkFilters(instance)
-
-			// TODO: set server-side mixer filter config
-			//if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
-			//	// config := v1.BuildTCPMixerFilterConfig(mesh, node, instance)
-			//	l.FilterChains = append(l.FilterChains, listener.FilterChain{
-			//		Filters: []listener.Filter{
-			//			{
-			//				// TODO(mostrowski): need proto version of mixer config.
-			//				// Config: MessageToStruct(&config),
-			//			},
-			//		},
-			//	})
-			//}
 
 		default:
 			log.Debugf("Unsupported inbound protocol %v for port %#v", protocol, instance.Endpoint.ServicePort)
@@ -514,40 +496,6 @@ type buildListenerOpts struct {
 	hTTPFilters []*http_conn.HttpFilter
 }
 
-/* // Enable only to compare with RDSv1 responses
-func buildDeprecatedHTTPListener(opts buildListenerOpts) *xdsapi.Listener {
-	if opts.rds != "" {
-		// Fetch V1 RDS response and stick it into the LDS response
-		rc, _ := v1.BuildRDSRoute(opts.env.Mesh, opts.proxy, opts.rds,
-			opts.env.ServiceDiscovery, opts.env.IstioConfigStore, true)
-		rcBytes, _ := json.Marshal(rc)
-		routeConfigDeprecated := string(rcBytes)
-		return &xdsapi.Listener{
-			Name:    fmt.Sprintf("http_%s_%d", opts.ip, opts.port),
-			Address: BuildAddress(opts.ip, uint32(opts.port)),
-			FilterChains: []listener.FilterChain{
-				{
-					Filters: []listener.Filter{
-						{
-							Name: xdsutil.HTTPConnectionManager,
-							DeprecatedV1: &listener.Filter_DeprecatedV1{
-								Type: routeConfigDeprecated,
-							},
-						},
-					},
-				},
-			},
-			DeprecatedV1: &xdsapi.Listener_DeprecatedV1{
-				BindToPort: &google_protobuf.BoolValue{
-					Value: opts.bindToPort,
-				},
-			},
-		}
-	}
-	return nil
-}
-*/
-
 func buildHTTPConnectionManager(opts buildListenerOpts) *http_conn.HttpConnectionManager {
 	mesh := opts.env.Mesh
 	var filters []*http_conn.HttpFilter
@@ -568,11 +516,6 @@ func buildHTTPConnectionManager(opts buildListenerOpts) *http_conn.HttpConnectio
 		// envoy crashes if 0. Will go away once we move to v2
 		refresh = 5 * time.Second
 	}
-
-	// TODO this has been explicitly disabled until the plugin stuff is implemented
-	//if filter := plugin_authn.BuildJwtFilter(opts.httpOpts.authnPolicy); filter != nil {
-	//	filters = append([]*http_conn.HttpFilter{filter}, filters...)
-	//}
 
 	connectionManager := &http_conn.HttpConnectionManager{
 		CodecType: http_conn.AUTO,

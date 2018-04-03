@@ -48,12 +48,6 @@ const (
 	DefaultRoute = "default-route"
 )
 
-// ServiceByName claims a service entry from the registry using a host name.
-type ServiceByName func(host string, contextNamespace string) *model.Service
-
-// SubsetSelector resolves a subset to labels.
-type SubsetSelector func(service *model.Service, subset string) map[string]string
-
 // GuardedHost is a context-dependent virtual host entry with guarded routes.
 type GuardedHost struct {
 	// Port is the capture port (e.g. service port)
@@ -168,7 +162,7 @@ func TranslateDestination(
 	defaultPort int) ClusterNaming {
 	return func(destination *networking.Destination) string {
 		// detect if it is a service
-		svc := serviceIndex[destination.Name]
+		svc := serviceIndex[destination.Host]
 
 		// TODO: create clusters for non-service hostnames/IPs
 		if svc == nil {

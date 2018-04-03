@@ -556,7 +556,7 @@ func ResolveHostname(meta ConfigMeta, svc *routing.IstioService) string {
 		if svc.Domain != "" {
 			out = out + "." + svc.Domain
 		} else if meta.Domain != "" {
-			out = out + "." + meta.Domain
+			out = out + ".svc." + meta.Domain
 		}
 	}
 
@@ -574,8 +574,9 @@ func ResolveShortnameToFQDN(host string, meta ConfigMeta) string {
 			out = out + "." + meta.Namespace
 		}
 
+		// FIXME this is a gross hack to hardcode a service's domain name in kubernetes
 		if meta.Domain != "" {
-			out = out + "." + meta.Domain
+			out = out + ".svc." + meta.Domain
 		}
 	}
 
