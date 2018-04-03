@@ -725,5 +725,4 @@ workflows:
           context: quay-ci
           requires:
             - test
-            - e2e-pilot
             - e2e-simple

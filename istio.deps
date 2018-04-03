@@ -9,9 +9,9 @@
 	},
 	{
 		"name": "PROXY_REPO_SHA",
-		"repoName": "proxy",
+		"repoName": "proxy-private",
 		"prodBranch": "master",
 		"file": "",
-		"lastStableSHA": "0a539af8a637d42679c6a014f62f9b45c1a9eafa"
+		"lastStableSHA": "841d07ed652efabbf2ff2c34ab9d42d6e421ef6a"
 	}
 ]
