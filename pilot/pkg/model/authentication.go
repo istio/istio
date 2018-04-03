@@ -20,11 +20,12 @@ import (
 	"net/url"
 	"strconv"
 
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	jwtfilter "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha"
 	"github.com/gogo/protobuf/types"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	mccpb "istio.io/api/mixer/v1/config/client"
 	"istio.io/istio/pkg/log"
 )
 
@@ -182,37 +183,44 @@ func CollectJwtSpecs(policy *authn.Policy) []*authn.Jwt {
 // (https://github.com/envoyproxy/data-plane-api/pull/530/files).
 // The output of this function should use the Envoy data-plane-api proto once
 // this migration finished.
-func ConvertPolicyToJwtConfig(policy *authn.Policy) *mccpb.EndUserAuthenticationPolicySpec {
+func ConvertPolicyToJwtConfig(policy *authn.Policy) *jwtfilter.JwtAuthentication {
 	policyJwts := CollectJwtSpecs(policy)
 	if len(policyJwts) == 0 {
 		return nil
 	}
-	ret := &mccpb.EndUserAuthenticationPolicySpec{}
+	ret := &jwtfilter.JwtAuthentication{
+		AllowMissingOrFailed: true,
+	}
 	for _, policyJwt := range policyJwts {
 		hostname, port, _, err := ParseJwksURI(policyJwt.JwksUri)
 		if err != nil {
 			log.Errorf("Cannot parse jwks_uri %q: %v", policyJwt.JwksUri, err)
 			continue
 		}
-		jwt := &mccpb.JWT{
-			Issuer:                 policyJwt.Issuer,
-			Audiences:              policyJwt.Audiences,
-			JwksUri:                policyJwt.JwksUri,
-			ForwardJwt:             true,
-			PublicKeyCacheDuration: &types.Duration{Seconds: jwtPublicKeyCacheSeconds},
-			JwksUriEnvoyCluster:    JwksURIClusterName(hostname, port),
+
+		jwt := &jwtfilter.JwtRule{
+			Issuer:    policyJwt.Issuer,
+			Audiences: policyJwt.Audiences,
+			JwksSourceSpecifier: &jwtfilter.JwtRule_RemoteJwks{
+				RemoteJwks: &jwtfilter.RemoteJwks{
+					HttpUri: &core.HttpUri{
+						Uri: policyJwt.JwksUri,
+						HttpUpstreamType: &core.HttpUri_Cluster{
+							Cluster: JwksURIClusterName(hostname, port),
+						},
+					},
+					CacheDuration: &types.Duration{Seconds: jwtPublicKeyCacheSeconds},
+				},
+			},
+			Forward: true,
 		}
 		for _, location := range policyJwt.JwtHeaders {
-			jwt.Locations = append(jwt.Locations, &mccpb.JWT_Location{
-				Scheme: &mccpb.JWT_Location_Header{Header: location},
+			jwt.FromHeaders = append(jwt.FromHeaders, &jwtfilter.JwtHeader{
+				Name: location,
 			})
 		}
-		for _, location := range policyJwt.JwtParams {
-			jwt.Locations = append(jwt.Locations, &mccpb.JWT_Location{
-				Scheme: &mccpb.JWT_Location_Query{Query: location},
-			})
-		}
-		ret.Jwts = append(ret.Jwts, jwt)
+		jwt.FromParams = policyJwt.JwtParams
+		ret.Rules = append(ret.Rules, jwt)
 	}
 	return ret
 }

@@ -12,9 +12,9 @@ spec:
           regex: "^(.*?;)?(user=jason)(;.*)?$"
     route:
     - destination:
-        name: reviews
+        host: reviews
         subset: v2
   - route:
     - destination:
-        name: reviews
+        host: reviews
         subset: v1

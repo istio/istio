@@ -106,19 +106,25 @@ func (c *KeyCertBundleRotator) Start(errCh chan<- error) {
 			}
 		}
 		log.Infof("Retrieve new key and certs.")
-		co, err := c.keycert.CertOptions()
-		if err != nil {
-			errCh <- fmt.Errorf("failed to extact CertOptions from bundle %v", err)
+		co, coErr := c.keycert.CertOptions()
+		if coErr != nil {
+			err := fmt.Errorf("failed to extact CertOptions from bundle: %v, abort auto rotation", coErr)
+			log.Errora(err)
+			errCh <- err
 			return
 		}
-		certBytes, certChainBytes, privKeyBytes, err := c.retriever.Retrieve(co)
-		if err != nil {
-			errCh <- fmt.Errorf("error retrieving the key and cert: %v, abort auto rotation", err)
+		certBytes, certChainBytes, privKeyBytes, rErr := c.retriever.Retrieve(co)
+		if rErr != nil {
+			err := fmt.Errorf("error retrieving the key and cert: %v, abort auto rotation", rErr)
+			log.Errora(err)
+			errCh <- err
 			return
 		}
 		_, _, _, rootCertBytes := c.keycert.GetAllPem()
-		if err = c.keycert.VerifyAndSetAll(certBytes, privKeyBytes, certChainBytes, rootCertBytes); err != nil {
-			errCh <- fmt.Errorf("cannot verify the retrieved key and cert: %v, abort auto rotation", err)
+		if vErr := c.keycert.VerifyAndSetAll(certBytes, privKeyBytes, certChainBytes, rootCertBytes); vErr != nil {
+			err := fmt.Errorf("cannot verify the retrieved key and cert: %v, abort auto rotation", vErr)
+			log.Errora(err)
+			errCh <- err
 			return
 		}
 		log.Infof("Successfully retrieved new key and certs.")
