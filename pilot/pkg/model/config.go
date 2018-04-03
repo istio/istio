@@ -765,25 +765,6 @@ func (store *istioConfigStore) ExternalServices() []Config {
 // extremely expensive - and for larger number of services it doesn't make sense
 // to just convert again and again, for each listener times endpoints.
 func (store *istioConfigStore) VirtualServices(gateways []string) []Config {
-	if len(gateways) == 1 && gateways[0] == IstioIngressGatewayName {
-		configs := []Config{}
-		configs3, err := store.List(VirtualService.Type, NamespaceAll)
-		if err != nil {
-			return nil
-		}
-		for _, config := range configs3 {
-			rule := config.Spec.(*networking.VirtualService)
-			if len(rule.Gateways) > 0 {
-				for _, ruleGateway := range rule.Gateways {
-					if ruleGateway == IstioIngressGatewayName {
-						configs = append(configs, config)
-						break
-					}
-				}
-			}
-		}
-		return configs
-	}
 	configs, err := store.List(VirtualService.Type, NamespaceAll)
 	if err != nil {
 		return nil
