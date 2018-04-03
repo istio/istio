@@ -33,7 +33,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 	config := env.IstioConfigStore
 
 	var gateways []model.Config
-	
+
 	// collect workload labels
 	workloadInstances, err := env.GetProxyServiceInstances(node)
 	if err != nil {
