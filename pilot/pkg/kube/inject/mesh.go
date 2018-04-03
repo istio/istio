@@ -26,9 +26,25 @@ initContainers:
   - {{ .MeshConfig.ProxyListenPort }}
   - "-u"
   - [[ .SidecarProxyUID ]]
-  [[ if ne .IncludeIPRanges "" -]]
   - "-i"
+  [[ if ne .IncludeIPRanges "" -]]
   - [[ .IncludeIPRanges ]]
+  [[ else -]]
+  - "*"
+  [[ end -]]
+  [[ if ne .ExcludeIPRanges "" -]]
+  - "-x"
+  - [[ .ExcludeIPRanges ]]
+  [[ end -]]
+  - "-b"
+  [[ if ne .IncludeInboundPorts "" -]]
+  - [[ .IncludeInboundPorts ]]
+  [[ else -]]
+  - "*"
+  [[ end -]]
+  [[ if ne .ExcludeInboundPorts "" -]]
+  - "-d"
+  - [[ .ExcludeInboundPorts ]]
   [[ end -]]
   [[ if eq .ImagePullPolicy "" -]]
   imagePullPolicy: IfNotPresent
