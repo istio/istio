@@ -301,12 +301,15 @@ func adsPushAll() {
 	// instead of once per endpoint.
 	edsClusterMutex.Lock()
 	// Create a temp map to avoid locking the add/remove
-	cMap := map[string]*EdsCluster{}
+	tmpMap := make(map[string]*XdsConnection, len(edsClusters))
 	for k, v := range edsClusters {
 		cMap[k] = v
 	}
 	edsClusterMutex.Unlock()
 
+	// UpdateCluster udates the cluster with a mutex, this code is safe ( but computing
+	// the update may be duplicated if multiple goroutines compute at the same time).
+	// In general this code is called from the 'event' callback that is throttled.
 	for clusterName, edsCluster := range cMap {
 		updateCluster(clusterName, edsCluster)
 	}
@@ -315,7 +318,7 @@ func adsPushAll() {
 	// the same connection table
 	adsClientsMutex.RLock()
 	// Create a temp map to avoid locking the add/remove
-	tmpMap := map[string]*XdsConnection{}
+	tmpMap := make(map[string]*XdsConnection, len(edsClusters))
 	for k, v := range adsClients {
 		tmpMap[k] = v
 	}

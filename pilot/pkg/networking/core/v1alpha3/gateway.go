@@ -95,20 +95,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 			log.Warnf("Multiple servers on same port is not supported yet, port %d", server.Port.Number)
 			continue
 		}
-		if server.Tls != nil {
-			if server.Tls.Mode == networking.Server_TLSOptions_MUTUAL && server.Tls.CaCertificates == "" {
-				log.Warnf("Missing certificate %v", server)
-				continue
-			}
-			if server.Tls.PrivateKey == "" {
-				log.Warnf("Missing private key %v", server)
-				continue
-			}
-			if server.Tls.ServerCertificate == "" {
-				log.Warnf("Missing server certificate %v", server)
-				continue
-			}
-		}
 		switch model.Protocol(server.Port.Protocol) {
 		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC, model.ProtocolHTTPS:
 			opts := buildListenerOpts{
