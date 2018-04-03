@@ -106,14 +106,14 @@ e2e_pilot: istioctl generate_yaml
 test/minikube/auth/e2e_simple:
 	set -o pipefail; go test -v -timeout 20m ./tests/e2e/tests/simple -args --auth_enable=true \
 	  --skip_cleanup  -use_local_cluster -cluster_wide \
-	  ${E2E_ARGS} ${EXTRA_E2E_ARGS} \
+	  ${E2E_ARGS} ${EXTRA_E2E_ARGS}  ${T}\
            ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-auth-simple.raw
 
 test/minikube/noauth/e2e_simple:
 	mkdir -p ${OUT_DIR}/tests
 	set -o pipefail; go test -v -timeout 20m ./tests/e2e/tests/simple -args --auth_enable=false \
 	  --skip_cleanup  -use_local_cluster -cluster_wide -test.v \
-	  ${E2E_ARGS} ${EXTRA_E2E_ARGS} \
+	  ${E2E_ARGS} ${EXTRA_E2E_ARGS}  ${T} \
            ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-noauth-simple.raw
 
 # V1 test with MTLS
@@ -132,12 +132,12 @@ test/local/auth/e2e_pilot:
 test/local/noauth/e2e_pilot_alpha3:
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 20m ./tests/e2e/tests/pilot \
  	--skip_cleanup --auth_enable=false --egress=false --v1alpha3=false \
-	${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} \
+	${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS}  ${T} \
 		| tee ${OUT_DIR}/tests/test-report.raw
 
 # V3 test without MTLS (not implemented yet). Still in progress, for tracking
 test/local/noauth/e2e_simple_alpha3:
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 20m ./tests/e2e/tests/simple \
 	--skip_cleanup --auth_enable=false \
-    	  ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} \
+    	  ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${T} \
 		| tee ${OUT_DIR}/tests/test-report.raw
