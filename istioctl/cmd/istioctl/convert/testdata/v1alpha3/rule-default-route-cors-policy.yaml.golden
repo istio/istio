@@ -23,6 +23,6 @@ spec:
       maxAge: 300.000s
     route:
     - destination:
-        name: c
+        host: c
         subset: version-v1
       weight: 100

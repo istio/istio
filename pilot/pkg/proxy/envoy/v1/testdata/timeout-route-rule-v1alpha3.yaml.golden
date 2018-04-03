@@ -3,7 +3,7 @@ hosts:
 http:
   - route:
     - destination:
-        name: world
+        host: world
     timeout: 30s
     retries:
       attempts: 1
