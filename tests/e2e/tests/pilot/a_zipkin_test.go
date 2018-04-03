@@ -30,6 +30,8 @@ const (
 )
 
 func TestZipkin(t *testing.T) {
+	t.Skipf("Skipping %s", t.Name())
+
 	for i := 0; i < numTraces; i++ {
 		testName := fmt.Sprintf("index_%d", i)
 		traceSent := false
