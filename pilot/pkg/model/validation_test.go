@@ -2451,7 +2451,7 @@ func TestValidateDestinationRule(t *testing.T) {
 		valid bool
 	}{
 		{name: "simple destination rule", in: &networking.DestinationRule{
-			Name: "reviews",
+			Host: "reviews",
 			Subsets: []*networking.Subset{
 				{Name: "v1", Labels: map[string]string{"version": "v1"}},
 				{Name: "v2", Labels: map[string]string{"version": "v2"}},
@@ -2459,7 +2459,7 @@ func TestValidateDestinationRule(t *testing.T) {
 		}, valid: true},
 
 		{name: "missing destination name", in: &networking.DestinationRule{
-			Name: "",
+			Host: "",
 			Subsets: []*networking.Subset{
 				{Name: "v1", Labels: map[string]string{"version": "v1"}},
 				{Name: "v2", Labels: map[string]string{"version": "v2"}},
@@ -2467,7 +2467,7 @@ func TestValidateDestinationRule(t *testing.T) {
 		}, valid: false},
 
 		{name: "missing subset name", in: &networking.DestinationRule{
-			Name: "reviews",
+			Host: "reviews",
 			Subsets: []*networking.Subset{
 				{Name: "", Labels: map[string]string{"version": "v1"}},
 				{Name: "v2", Labels: map[string]string{"version": "v2"}},
@@ -2475,7 +2475,7 @@ func TestValidateDestinationRule(t *testing.T) {
 		}, valid: false},
 
 		{name: "valid traffic policy, top level", in: &networking.DestinationRule{
-			Name: "reviews",
+			Host: "reviews",
 			TrafficPolicy: &networking.TrafficPolicy{
 				LoadBalancer: &networking.LoadBalancerSettings{
 					LbPolicy: &networking.LoadBalancerSettings_Simple{
@@ -2497,7 +2497,7 @@ func TestValidateDestinationRule(t *testing.T) {
 		}, valid: true},
 
 		{name: "invalid traffic policy, top level", in: &networking.DestinationRule{
-			Name: "reviews",
+			Host: "reviews",
 			TrafficPolicy: &networking.TrafficPolicy{
 				LoadBalancer: &networking.LoadBalancerSettings{
 					LbPolicy: &networking.LoadBalancerSettings_Simple{
@@ -2516,7 +2516,7 @@ func TestValidateDestinationRule(t *testing.T) {
 		}, valid: false},
 
 		{name: "valid traffic policy, subset level", in: &networking.DestinationRule{
-			Name: "reviews",
+			Host: "reviews",
 			Subsets: []*networking.Subset{
 				{Name: "v1", Labels: map[string]string{"version": "v1"},
 					TrafficPolicy: &networking.TrafficPolicy{
@@ -2539,7 +2539,7 @@ func TestValidateDestinationRule(t *testing.T) {
 		}, valid: true},
 
 		{name: "invalid traffic policy, subset level", in: &networking.DestinationRule{
-			Name: "reviews",
+			Host: "reviews",
 			Subsets: []*networking.Subset{
 				{Name: "v1", Labels: map[string]string{"version": "v1"},
 					TrafficPolicy: &networking.TrafficPolicy{
@@ -2559,7 +2559,7 @@ func TestValidateDestinationRule(t *testing.T) {
 		}, valid: false},
 
 		{name: "valid traffic policy, both levels", in: &networking.DestinationRule{
-			Name: "reviews",
+			Host: "reviews",
 			TrafficPolicy: &networking.TrafficPolicy{
 				LoadBalancer: &networking.LoadBalancerSettings{
 					LbPolicy: &networking.LoadBalancerSettings_Simple{

@@ -1,4 +1,4 @@
-name: "*.google.com"
+host: "*.google.com"
 subsets:
   - name: foobar
     labels:

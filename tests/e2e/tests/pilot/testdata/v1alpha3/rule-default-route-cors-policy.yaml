@@ -8,7 +8,7 @@ spec:
   http:
     - route:
       - destination:
-          name: c
+          host: c
           subset: v1
         weight: 100
       corsPolicy:
