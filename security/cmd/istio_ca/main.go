@@ -43,9 +43,9 @@ import (
 const (
 	defaultSelfSignedCACertTTL = 365 * 24 * time.Hour
 
-	defaultMaxWorkloadCertTTL = 7 * 24 * time.Hour
+	defaultMaxWorkloadCertTTL = 60 * 24 * time.Hour
 
-	defaultWorkloadCertTTL = 19 * time.Hour
+	defaultWorkloadCertTTL = 30 * 24 * time.Hour
 
 	// The default length of certificate rotation grace period, configured as
 	// the ratio of the certificate TTL.
