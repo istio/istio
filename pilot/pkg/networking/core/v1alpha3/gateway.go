@@ -31,8 +31,7 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environment,
-	node model.Proxy) ([]*xdsapi.Listener, error) {
+func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
 	config := env.IstioConfigStore
 
 	var gateways []model.Config
@@ -88,7 +87,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 		var opts buildListenerOpts
 		var listenerType plugin.ListenerType
 		var networkFilters []listener.Filter
-		var hTTPFilters []*http_conn.HttpFilter
 		switch model.Protocol(server.Port.Protocol) {
 		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC, model.ProtocolHTTPS:
 			listenerType = plugin.ListenerTypeHTTP
@@ -120,15 +118,22 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 			}
 		case model.ProtocolTCP, model.ProtocolMongo:
 			listenerType = plugin.ListenerTypeTCP
-			// TODO
-			// Look at virtual service specs, and identity destinations,
-			// call buildOutboundNetworkFilters.. and then construct TCPListener
-			//buildTCPListener(buildOutboundNetworkFilters(clusterName, addresses, servicePort),
-			//	listenAddress, uint32(servicePort.Port), servicePort.Protocol)
+			opts = buildListenerOpts{
+				env:        env,
+				proxy:      node,
+				ip:         WildcardAddress,
+				port:       int(server.Port.Number),
+				protocol:   model.ProtocolTCP,
+				sniHosts:   server.Hosts,
+				tlsContext: buildGatewayListenerTLSContext(server),
+				bindToPort: true,
+			}
+			networkFilters = buildGatewayInboundNetworkFilters(env, server)
 		}
 
 		newListener := buildListener(opts)
 
+		var httpFilters []*http_conn.HttpFilter
 		for _, p := range configgen.Plugins {
 			params := &plugin.InputParams{
 				ListenerType: listenerType,
@@ -137,8 +142,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 			}
 			mutable := &plugin.MutableObjects{
 				Listener:    newListener,
-				TCPFilters:  &networkFilters,
-				HTTPFilters: &hTTPFilters,
+				TCPFilters:  networkFilters,
+				HTTPFilters: httpFilters,
 			}
 			if err := p.OnOutboundListener(params, mutable); err != nil {
 				log.Warn(err.Error())
@@ -146,7 +151,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 		}
 
 		// Filters are serialized one time into an opaque struct once we have the complete list.
-		if err := marshalFilters(newListener, opts, networkFilters, hTTPFilters); err != nil {
+		if err := marshalFilters(newListener, opts, networkFilters, httpFilters); err != nil {
 			log.Warn(err.Error())
 		}
 
@@ -196,8 +201,7 @@ func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamT
 	}
 }
 
-func buildGatewayInboundHTTPRouteConfig(env model.Environment, gatewayName string,
-	server *networking.Server) *xdsapi.RouteConfiguration {
+func buildGatewayInboundHTTPRouteConfig(env model.Environment, gatewayName string, server *networking.Server) *xdsapi.RouteConfiguration {
 	// TODO WE DO NOT SUPPORT two gateways on same workload binding to same virtual service
 	virtualServices := env.VirtualServices([]string{gatewayName})
 
@@ -230,4 +234,25 @@ func buildGatewayInboundHTTPRouteConfig(env model.Environment, gatewayName strin
 		Name:         fmt.Sprintf("%d", server.Port.Number),
 		VirtualHosts: virtualHosts,
 	}
+}
+
+func buildGatewayInboundNetworkFilters(env model.Environment, server *networking.Server) []listener.Filter {
+	filters := make([]listener.Filter, 0, len(server.Hosts))
+	for _, host := range server.Hosts {
+		svc, err := env.GetService(host)
+		if err != nil {
+			log.Debugf("no service for host %q, skipping at ingress: %v", err)
+			continue
+		}
+		names := svc.Ports.GetNames()
+		instances, err := env.Instances(host, names, model.LabelsCollection{})
+		if err != nil {
+			log.Debugf("failed to retrieve instances of %s:%v with err: %v", host, names, err)
+			continue
+		}
+		for _, instance := range instances {
+			filters = append(filters, buildInboundNetworkFilter(instance))
+		}
+	}
+	return filters
 }

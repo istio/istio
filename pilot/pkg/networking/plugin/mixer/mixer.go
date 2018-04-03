@@ -19,32 +19,28 @@ import (
 	"net"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	"github.com/gogo/protobuf/types"
-	"github.com/prometheus/common/log"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/plugin"
+	p "istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
 )
 
-// Plugin is a mixer plugin.
-type Plugin struct{}
+// plugin generates Mixer listeners.
+type plugin struct{}
 
 // NewPlugin returns an ptr to an initialized mixer.Plugin.
-func NewPlugin() plugin.Plugin {
-	return Plugin{}
+func NewPlugin() p.Plugin {
+	return plugin{}
 }
 
 // OnOutboundListener implements the Callbacks interface method.
-func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+func (plugin) OnOutboundListener(in *p.InputParams, mutable *p.MutableObjects) error {
 	if in.Service == nil || !in.Service.MeshExternal {
 		return nil
 	}
@@ -54,11 +50,11 @@ func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mutable
 	proxyInstances := in.ProxyInstances
 
 	switch in.ListenerType {
-	case plugin.ListenerTypeHTTP:
-		*mutable.HTTPFilters = append(*mutable.HTTPFilters, buildMixerHTTPFilter(env, node, proxyInstances, true))
+	case p.ListenerTypeHTTP:
+		mutable.HTTPFilters = append(mutable.HTTPFilters, buildMixerHTTPFilter(env, node, proxyInstances, true))
 		return nil
-	case plugin.ListenerTypeTCP:
-		*mutable.TCPFilters = append(*mutable.TCPFilters, buildMixerOutboundTCPFilter(env, node))
+	case p.ListenerTypeTCP:
+		mutable.TCPFilters = append(mutable.TCPFilters, buildMixerOutboundTCPFilter(env, node))
 		return nil
 	}
 
@@ -66,75 +62,38 @@ func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mutable
 }
 
 // OnInboundListener implements the Callbacks interface method.
-func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+func (plugin) OnInboundListener(in *p.InputParams, mutable *p.MutableObjects) error {
 	env := in.Env
 	node := in.Node
 	proxyInstances := in.ProxyInstances
 	instance := in.ServiceInstance
 
 	switch in.ListenerType {
-	case plugin.ListenerTypeHTTP:
-		*mutable.HTTPFilters = append(*mutable.HTTPFilters, buildMixerHTTPFilter(env, node, proxyInstances, false))
+	case p.ListenerTypeHTTP:
+		mutable.HTTPFilters = append(mutable.HTTPFilters, buildMixerHTTPFilter(env, node, proxyInstances, false))
 		return nil
-	case plugin.ListenerTypeTCP:
-		*mutable.TCPFilters = append(*mutable.TCPFilters, buildMixerInboundTCPFilter(env, node, instance))
+	case p.ListenerTypeTCP:
+		mutable.TCPFilters = append(mutable.TCPFilters, buildMixerInboundTCPFilter(env, node, instance))
 		return nil
 	}
 
 	return fmt.Errorf("unknown listener type %v in mixer.OnOutboundListener", in.ListenerType)
 }
 
-// OnOutboundCluster implements the Plugin interface method.
-func (Plugin) OnOutboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
+// OnOutboundCluster implements the Callbacks interface method.
+func (plugin) OnOutboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
 }
 
-// OnInboundCluster implements the Plugin interface method.
-func (Plugin) OnInboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
+// OnInboundCluster implements the Callbacks interface method.
+func (plugin) OnInboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
 }
 
-// OnOutboundRouteConfiguration implements the Plugin interface method.
-func (Plugin) OnOutboundRouteConfiguration(in *plugin.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
+// OnOutboundRoute implements the Callbacks interface method.
+func (plugin) OnOutboundRouteConfiguration(in *p.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
 }
 
-// oc := BuildMixerConfig(node, serviceName, dest, proxyInstances, config, mesh.DisablePolicyChecks, false)
-// func BuildMixerConfig(source model.Proxy, destName string, dest *model.Service, instances []*model.ServiceInstance, config model.IstioConfigStore,
-
-// OnInboundRouteConfiguration implements the Plugin interface method.
-func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
-	forward := false
-	if in.Node.Type == model.Ingress {
-		forward = true
-	}
-
-	switch in.ListenerType {
-	case plugin.ListenerTypeHTTP:
-		var nvhs []route.VirtualHost
-		for _, vh := range routeConfiguration.VirtualHosts {
-			nvh := vh
-			var nrs []route.Route
-			for _, r := range vh.Routes {
-				nr := r
-				if nr.Metadata == nil {
-					nr.Metadata = &core.Metadata{}
-				}
-				if nr.Metadata.FilterMetadata == nil {
-					nr.Metadata.FilterMetadata = make(map[string]*types.Struct)
-				}
-				nr.Metadata.FilterMetadata[v1.MixerFilter] =
-					util.BuildProtoStruct(v1.BuildMixerOpaqueConfig(!in.Env.Mesh.DisablePolicyChecks, forward, in.ServiceInstance.Service.Hostname))
-				nrs = append(nrs, nr)
-			}
-			nvh.Routes = nrs
-			nvhs = append(nvhs, nvh)
-		}
-		routeConfiguration.VirtualHosts = nvhs
-
-	case plugin.ListenerTypeTCP:
-		// TODO: implement
-	default:
-		log.Warn("Unknown listener type in mixer#OnOutboundRouteConfiguration")
-	}
-
+// OnInboundRoute implements the Callbacks interface method.
+func (plugin) OnInboundRouteConfiguration(in *p.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
 }
 
 // buildMixerHTTPFilter builds a filter with a v1 mixer config encapsulated as JSON in a proto.Struct for v2 consumption.
