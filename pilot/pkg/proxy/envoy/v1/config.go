@@ -908,8 +908,6 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 		}
 
 		if listener != nil {
-			authenticationPolicy := model.GetConsolidateAuthenticationPolicy(mesh,
-				config, instance.Service.Hostname, endpoint.ServicePort)
 			mayApplyInboundAuth(listener, authenticationPolicy)
 			listeners = append(listeners, listener)
 		}
