@@ -72,7 +72,7 @@ func New(cfg *na.Config) (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to init nodeagent due to secret server %v", err)
 	}
-	cac, err := caclient.NewCAClient(pc, &cagrpc.CAGrpcClientImpl{}, cfg.CAClientConfig.CAAddress,
+	cac, err := caclient.NewCAClient(pc, cfg.CAClientConfig.CAAddress,
 		cfg.CAClientConfig.CSRMaxRetries, cfg.CAClientConfig.CSRInitialRetrialInterval)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create caclient err %v", err)
@@ -154,20 +154,16 @@ func (s *Server) WorkloadAdded(ctx context.Context, request *pb.WorkloadInfo) (*
 	// TODO(inclfy): extract the SPIFFE formatting out into somewhere else.
 	id := fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/%s", ns, sa)
 
-	priv, csrReq, err := s.caClient.CreateCSRRequest(&pkiutil.CertOptions{
+	cert, chain, priv, err := s.caClient.Retrieve(&pkiutil.CertOptions{
 		Host:       id,
 		Org:        s.config.CAClientConfig.Org,
 		RSAKeySize: s.config.CAClientConfig.RSAKeySize,
 		TTL:        s.config.CAClientConfig.RequestedCertTTL,
 	})
 	if err != nil {
-		return nil, logReturn("failed to create csr", err)
-	}
-	resp, err := s.caGrpcClient.SendCSR(csrReq, s.pc, s.config.CAClientConfig.CAAddress)
-	if err != nil {
 		return nil, logReturn("csr request failed", err)
 	}
-	kb, err := pkiutil.NewVerifiedKeyCertBundleFromPem(resp.SignedCert, priv, resp.CertChain, nil)
+	kb, err := pkiutil.NewVerifiedKeyCertBundleFromPem(cert, priv, chain, nil)
 	if err != nil {
 		return nil, logReturn("failed to build key cert buhndle", err)
 	}
