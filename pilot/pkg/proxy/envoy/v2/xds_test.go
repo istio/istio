@@ -44,6 +44,7 @@ var (
 	initMutex      sync.Mutex
 	initEnvoyMutex sync.Mutex
 
+	envoyStarted = false
 	// service1 and service2 are used by mixer tests. Use 'service3' and 'app3' for pilot
 	// local tests.
 
@@ -62,14 +63,13 @@ var (
 
 // Common test environment, including Mixer and Envoy. This is a singleton, the env will be
 // used for multiple tests, for local integration testing.
-func initEnvoyTestEnv(t *testing.T) {
+func startEnvoy(t *testing.T) {
 	initEnvoyMutex.Lock()
 	defer initEnvoyMutex.Unlock()
 
-	if testEnv != nil {
+	if envoyStarted {
 		return
 	}
-	initLocalPilotTestEnv(t)
 
 	tmplB, err := ioutil.ReadFile(util.IstioSrc + "/tests/testdata/bootstrap_tmpl.json")
 	if err != nil {
@@ -87,6 +87,7 @@ func initEnvoyTestEnv(t *testing.T) {
 	if err := testEnv.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
+	envoyStarted = true
 }
 
 func sidecarId(ip, deployment string) string {
@@ -226,7 +227,8 @@ func testPorts(base int) []*model.Port {
 
 // Test XDS with real envoy and with mixer.
 func TestEnvoy(t *testing.T) {
-	initEnvoyTestEnv(t)
+	initLocalPilotTestEnv(t)
+	startEnvoy(t)
 	// Make sure tcp port is ready before starting the test.
 	testenv.WaitForPort(testEnv.Ports().TCPProxyPort)
 

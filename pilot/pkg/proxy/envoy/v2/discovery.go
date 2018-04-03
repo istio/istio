@@ -46,13 +46,13 @@ const (
 	// Constants used for XDS
 
 	// ClusterType is used for cluster discovery. Typically first request received
-	ClusterType  = typePrefix + "Cluster"
+	ClusterType = typePrefix + "Cluster"
 	// EndpointType is used for EDS and ADS endpoint discovery. Typically second request.
 	EndpointType = typePrefix + "ClusterLoadAssignment"
 	// ListenerType is sent after clusters and endpoints.
 	ListenerType = typePrefix + "Listener"
 	// RouteType is sent after listeners.
-	RouteType    = typePrefix + "Route"
+	RouteType = typePrefix + "Route"
 )
 
 // DiscoveryServer is Pilot's gRPC implementation for Envoy's v2 xds APIs
