@@ -26,7 +26,11 @@ spec:
 {{ end }}
       containers:
         - name: prometheus
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+      {{- if eq $.Values.global.platform "ppc64le" }}
+          image: "{{ .Values.image.repository_ppc64le }}:{{ .Values.image.tag }}"
+      {{- else }}
+          image: "{{ .Values.image.repository_amd64 }}:{{ .Values.image.tag }}"
+      {{- end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
             - '--storage.tsdb.retention=6h'

@@ -50,7 +50,11 @@ spec:
     {{- end }}
       containers:
       - name: {{ $statsdname }}
-        image: "{{ $.Values.prometheusStatsdExporter.repository }}:{{ $.Values.prometheusStatsdExporter.tag}}"
+    {{- if eq $.Values.global.platform "amd64" }}
+        image: "{{ $.Values.prometheusStatsdExporter.repository_ppc64le }}:{{ $.Values.prometheusStatsdExporter.tag}}"
+    {{- else }}
+        image: "{{ $.Values.prometheusStatsdExporter.repository_amd64 }}:{{ $.Values.prometheusStatsdExporter.tag}}"
+    {{- end }}
         imagePullPolicy: {{ $.Values.prometheusStatsdExporter.imagePullPolicy }}
         ports:
         - containerPort: 9102
