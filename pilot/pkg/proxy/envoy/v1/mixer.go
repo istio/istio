@@ -171,16 +171,16 @@ func BuildMixerClusters(mesh *meshconfig.MeshConfig, role model.Proxy, mixerSAN 
 // with destination of Service `dest` and `destName` as the service name
 func BuildMixerConfig(source model.Proxy, destName string, dest *model.Service, instances []*model.ServiceInstance, config model.IstioConfigStore,
 	disableCheck bool, disableReport bool) map[string]string {
-	sc := serviceConfig(destName, &model.ServiceInstance{Service: dest}, config, disableCheck, disableReport)
+	sc := ServiceConfig(destName, &model.ServiceInstance{Service: dest}, config, disableCheck, disableReport)
 	var labels map[string]string
 	// Note: instances are all running on mode.Node named 'role'
 	// So instance labels are the workload / Node labels.
 	if len(instances) > 0 {
 		labels = instances[0].Labels
 	}
-	addStandardNodeAttributes(sc.MixerAttributes.Attributes, AttrSourcePrefix, source.IPAddress, source.ID, labels)
+	AddStandardNodeAttributes(sc.MixerAttributes.Attributes, AttrSourcePrefix, source.IPAddress, source.ID, labels)
 
-	addStandardNodeAttributes(sc.MixerAttributes.Attributes, AttrDestinationPrefix, "", destName, nil)
+	AddStandardNodeAttributes(sc.MixerAttributes.Attributes, AttrDestinationPrefix, "", destName, nil)
 
 	oc := map[string]string{
 		AttrDestinationService: destName,
@@ -241,7 +241,7 @@ func BuildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 	if !outboundRoute {
 		// for outboundRoutes there are no default MixerAttributes
 		// specific MixerAttributes are in per route configuration.
-		addStandardNodeAttributes(v2.MixerAttributes.Attributes, AttrDestinationPrefix, role.IPAddress, role.ID, labels)
+		AddStandardNodeAttributes(v2.MixerAttributes.Attributes, AttrDestinationPrefix, role.IPAddress, role.ID, labels)
 	}
 
 	if role.Type == model.Sidecar && !outboundRoute {
@@ -250,11 +250,11 @@ func BuildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 		v2.ForwardAttributes = &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{},
 		}
-		addStandardNodeAttributes(v2.ForwardAttributes.Attributes, AttrSourcePrefix, role.IPAddress, role.ID, labels)
+		AddStandardNodeAttributes(v2.ForwardAttributes.Attributes, AttrSourcePrefix, role.IPAddress, role.ID, labels)
 	}
 
 	for _, instance := range nodeInstances {
-		v2.ServiceConfigs[instance.Service.Hostname] = serviceConfig(instance.Service.Hostname, instance, config,
+		v2.ServiceConfigs[instance.Service.Hostname] = ServiceConfig(instance.Service.Hostname, instance, config,
 			outboundRoute || mesh.DisablePolicyChecks, outboundRoute)
 	}
 
@@ -266,8 +266,8 @@ func BuildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 	return filter
 }
 
-// addStandardNodeAttributes add standard node attributes with the given prefix
-func addStandardNodeAttributes(attr map[string]*mpb.Attributes_AttributeValue, prefix string, IPAddress string, ID string, labels map[string]string) {
+// AddStandardNodeAttributes add standard node attributes with the given prefix
+func AddStandardNodeAttributes(attr map[string]*mpb.Attributes_AttributeValue, prefix string, IPAddress string, ID string, labels map[string]string) {
 	if len(IPAddress) > 0 {
 		attr[prefix+"."+AttrIPSuffix] = &mpb.Attributes_AttributeValue{
 			Value: &mpb.Attributes_AttributeValue_BytesValue{net.ParseIP(IPAddress)},
@@ -287,14 +287,15 @@ func addStandardNodeAttributes(attr map[string]*mpb.Attributes_AttributeValue, p
 	}
 }
 
-func standardNodeAttributes(prefix string, IPAddress string, ID string, labels map[string]string) map[string]*mpb.Attributes_AttributeValue {
+// StandardNodeAttributes populates and returns a map of attributes with the provided parameters.
+func StandardNodeAttributes(prefix string, IPAddress string, ID string, labels map[string]string) map[string]*mpb.Attributes_AttributeValue {
 	attrs := make(map[string]*mpb.Attributes_AttributeValue)
-	addStandardNodeAttributes(attrs, prefix, IPAddress, ID, labels)
+	AddStandardNodeAttributes(attrs, prefix, IPAddress, ID, labels)
 	return attrs
 }
 
-// generate serviceConfig for a given instance
-func serviceConfig(serviceName string, dest *model.ServiceInstance, config model.IstioConfigStore, disableCheck, disableReport bool) *mccpb.ServiceConfig {
+// ServiceConfig generates a ServiceConfig for a given instance
+func ServiceConfig(serviceName string, dest *model.ServiceInstance, config model.IstioConfigStore, disableCheck, disableReport bool) *mccpb.ServiceConfig {
 	sc := &mccpb.ServiceConfig{
 		MixerAttributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
@@ -364,7 +365,7 @@ func BuildTCPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, in
 		},
 	}
 
-	attrs := standardNodeAttributes(AttrDestinationPrefix, role.IPAddress, role.ID, nil)
+	attrs := StandardNodeAttributes(AttrDestinationPrefix, role.IPAddress, role.ID, nil)
 	attrs[AttrDestinationService] = &mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_StringValue{instance.Service.Hostname}}
 
 	v2 := &mccpb.TcpClientConfig{

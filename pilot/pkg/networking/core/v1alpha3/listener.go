@@ -193,6 +193,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env model.Environmen
 // configuration for co-located service proxyInstances.
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Environment, node model.Proxy,
 	proxyInstances []*model.ServiceInstance) []*xdsapi.Listener {
+
 	listeners := make([]*xdsapi.Listener, 0, len(proxyInstances))
 
 	mesh := env.Mesh
@@ -223,8 +224,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 			// TODO move to plugin
 			tlsContext: buildSidecarListenerTLSContext(authenticationPolicy),
 		}
+		var listenerType plugin.ListenerType
 		switch protocol {
 		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC:
+			listenerType = plugin.ListenerTypeHTTP
 			listenerOpts.httpOpts = &httpListenerOpts{
 				routeConfig:      configgen.buildSidecarInboundHTTPRouteConfig(env, node, instance),
 				rds:              "",
@@ -233,6 +236,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 				authnPolicy:      authenticationPolicy,
 			}
 		case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
+			listenerType = plugin.ListenerTypeTCP
 			listenerOpts.networkFilters = buildInboundNetworkFilters(instance)
 
 		default:
@@ -242,17 +246,19 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 		// call plugins
 		for _, p := range configgen.Plugins {
 			params := &plugin.CallbackListenerInputParams{
+				ListenerType:    listenerType,
 				Env:             &env,
 				Node:            &node,
 				ServiceInstance: instance,
 			}
-			mutable := &plugin.CallbackListenerMutableObjects{
-				TCPFilters:  listenerOpts.networkFilters,
-				HTTPFilters: listenerOpts.hTTPFilters,
-			}
-			if err := p.OnInboundListener(params, mutable); err != nil {
+
+			nf, hf, err := p.OnInboundListener(params, nil)
+			if err != nil {
 				log.Error(err.Error())
 			}
+
+			listenerOpts.networkFilters = append(listenerOpts.networkFilters, nf...)
+			listenerOpts.hTTPFilters = append(listenerOpts.hTTPFilters, hf...)
 
 			listeners = append(listeners, buildListener(listenerOpts))
 		}
@@ -298,8 +304,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				protocol:       servicePort.Protocol,
 			}
 
+			var listenerType plugin.ListenerType
 			switch servicePort.Protocol {
 			case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
+				listenerType = plugin.ListenerTypeTCP
 				if service.Resolution != model.Passthrough {
 					listenAddress = service.Address
 					addresses = []string{service.Address}
@@ -314,6 +322,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				listenerOpts.networkFilters = buildOutboundNetworkFilters(clusterName, addresses, servicePort)
 				// TODO: Set SNI for HTTPS
 			case model.ProtocolHTTP2, model.ProtocolHTTP, model.ProtocolGRPC:
+				listenerType = plugin.ListenerTypeHTTP
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
 				if l, exists := listenerMap[listenerMapKey]; exists {
 					if !strings.HasPrefix(l.Name, "http") {
@@ -346,17 +355,18 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 			// call plugins
 
 			params := &plugin.CallbackListenerInputParams{
-				Env:  &env,
-				Node: &node,
-			}
-			mutable := &plugin.CallbackListenerMutableObjects{
-				TCPFilters:  listenerOpts.networkFilters,
-				HTTPFilters: listenerOpts.hTTPFilters,
+				ListenerType: listenerType,
+				Env:          &env,
+				Node:         &node,
+				Service:      service,
 			}
 			for _, p := range configgen.Plugins {
-				if err := p.OnOutboundListener(params, mutable); err != nil {
+				nf, hf, err := p.OnOutboundListener(params, nil)
+				if err != nil {
 					log.Error(err.Error())
 				}
+				listenerOpts.networkFilters = append(listenerOpts.networkFilters, nf...)
+				listenerOpts.hTTPFilters = append(listenerOpts.hTTPFilters, hf...)
 			}
 
 			listenerOpts.ip = listenAddress
@@ -498,9 +508,7 @@ type buildListenerOpts struct {
 
 func buildHTTPConnectionManager(opts buildListenerOpts) *http_conn.HttpConnectionManager {
 	mesh := opts.env.Mesh
-	var filters []*http_conn.HttpFilter
-
-	filters = append(filters, opts.hTTPFilters...)
+	filters := opts.hTTPFilters
 
 	filters = append(filters, &http_conn.HttpFilter{
 		Name: xdsutil.CORS,

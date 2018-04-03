@@ -18,6 +18,7 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 
 	authn "istio.io/api/authentication/v1alpha1"
@@ -55,15 +56,15 @@ func BuildJwtFilter(policy *authn.Policy) *http_conn.HttpFilter {
 
 // OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service
 // Can be used to add additional filters on the outbound path
-func (*Plugin) OnOutboundListener(in *plugin.CallbackListenerInputParams, mutable *plugin.CallbackListenerMutableObjects) error {
-	return nil
+func (*Plugin) OnOutboundListener(in *plugin.CallbackListenerInputParams, listener *xdsapi.Listener) ([]listener.Filter, []*http_conn.HttpFilter, error) {
+	return nil, nil, nil
 }
 
 // OnInboundListener is called whenever a new listener is added to the LDS output for a given service
 // Can be used to add additional filters (e.g., mixer filter) or add more stuff to the HTTP connection manager
 // on the inbound path
-func (*Plugin) OnInboundListener(in *plugin.CallbackListenerInputParams, mutable *plugin.CallbackListenerMutableObjects) error {
-	return nil
+func (*Plugin) OnInboundListener(in *plugin.CallbackListenerInputParams, listener *xdsapi.Listener) ([]listener.Filter, []*http_conn.HttpFilter, error) {
+	return nil, nil, nil
 }
 
 // OnInboundCluster is called whenever a new cluster is added to the CDS output

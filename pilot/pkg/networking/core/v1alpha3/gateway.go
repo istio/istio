@@ -25,6 +25,8 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/networking/plugin/registry"
 	"istio.io/istio/pkg/log"
 )
 
@@ -80,9 +82,10 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 			log.Warnf("Multiple servers on same port is not supported yet, port %d", server.Port.Number)
 			continue
 		}
+		var opts buildListenerOpts
 		switch model.Protocol(server.Port.Protocol) {
 		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC, model.ProtocolHTTPS:
-			opts := buildListenerOpts{
+			opts = buildListenerOpts{
 				env:            env,
 				proxy:          node,
 				proxyInstances: nil, // only required to support deprecated mixerclient behavior
@@ -108,8 +111,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 					v.RequireTls = route.VirtualHost_EXTERNAL_ONLY
 				}
 			}
-			l := buildListener(opts)
-			listeners = append(listeners, l)
 		case model.ProtocolTCP, model.ProtocolMongo:
 			// TODO
 			// Look at virtual service specs, and identity destinations,
@@ -117,6 +118,20 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 			//buildTCPListener(buildOutboundNetworkFilters(clusterName, addresses, servicePort),
 			//	listenAddress, uint32(servicePort.Port), servicePort.Protocol)
 		}
+
+		for _, p := range registry.NewPlugins(registry.MixerPlugin) {
+			params := &plugin.CallbackListenerInputParams{
+				Env:  &env,
+				Node: &node,
+			}
+			nf, hf, err := p.OnInboundListener(params, nil)
+			if err != nil {
+				log.Error(err.Error())
+			}
+			opts.networkFilters = append(opts.networkFilters, nf...)
+			opts.hTTPFilters = append(opts.hTTPFilters, hf...)
+		}
+		listeners = append(listeners, buildListener(opts))
 	}
 
 	return listeners, nil
