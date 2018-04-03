@@ -1217,6 +1217,7 @@
   version = "v2.2.1"
 
 [[projects]]
+  branch = "master"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
@@ -1230,7 +1231,7 @@
     "rbac/v1alpha1",
     "routing/v1alpha1"
   ]
-  revision = "1e6e1c99aab41d28aa59c2e48afa4c4dad2da2da"
+  revision = "3388c6e22df091cbacf63f012aef56b3120bf869"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1526,6 +1527,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "62024f0a7ac9b9eb574b6bd9af2ce90e0f6717966381c83656b9698bbaf6a2ed"
+  inputs-digest = "88b2904822dff763e7dce7e3e4ccf56b271a2323f16b214e5aa31fc091d32e1e"
   solver-name = "gps-cdcl"
   solver-version = 1
