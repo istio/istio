@@ -3,7 +3,7 @@ kind: DestinationRule
 metadata:
   name: destination-rule-c
 spec:
-  host: c
+  host: c.istio-system.svc.cluster.local
   subsets:
     - name: v1
       labels:

@@ -4,14 +4,14 @@ metadata:
   name: default-route
 spec:
   hosts:
-    - c
+    - c.istio-system.svc.cluster.local
   http:
     - route:
       - destination:
-          host: c
+          host: c.istio-system.svc.cluster.local
           subset: v1
         weight: 75
       - destination:
-          host: c
+          host: c.istio-system.svc.cluster.local
           subset: v2
         weight: 25

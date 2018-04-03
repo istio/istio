@@ -4,7 +4,7 @@ metadata:
   name: default-route
 spec:
   hosts:
-    - c
+    - c.istio-system.svc.cluster.local
   http:
     - match:
       - headers:
@@ -14,7 +14,7 @@ spec:
           version: v1
       route:
       - destination:
-          host: c
+          host: c.istio-system.svc.cluster.local
           subset: v2
         weight: 100
       fault:

@@ -4,7 +4,7 @@ metadata:
   name: default-route
 spec:
   hosts:
-    - c
+    - c.istio-system.svc.cluster.local
   http:
     - match:
       - headers:
