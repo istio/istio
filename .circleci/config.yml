@@ -202,7 +202,7 @@ jobs:
         command: |
           sudo mkdir -p /go/src/istio.io/istio
           sudo chown -R circleci /go
-          mkdir -p /go/out
+          mkdir -p /go/out/logs
           mkdir -p /home/circleci/logs
       - checkout
       - attach_workspace:
@@ -223,7 +223,19 @@ jobs:
           # Run the test even if previous failed
           when: always
           command: |
-                make e2e_pilot E2E_ARGS="--skip_cleanup --auth_enable=true --egress=false --v1alpha3=false"
+                make test/local/auth/e2e_pilot
+      - run:
+          name: dumpsys
+          when: always
+          command: |
+            mkdir -p /go/out/logs
+            # TODO: move to a make target 'dumpsys'.
+            kubectl get all -o wide --all-namespaces
+            kubectl cluster-info dump > /go/out/logs/cluster-info.dump.txt
+            kubectl describe pods -n istio-system > /go/out/logs/pods-system.txt
+            /go/bin/go-junit-report </go/out/tests/test-report.raw > /go/out/tests/test-report-noauth-simple.xml
+      - store_test_results:
+          path: /go/out/tests
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:

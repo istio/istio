@@ -122,6 +122,7 @@ test/minikube/noauth/e2e_simple:
 # you only changed pilot) to build.
 #
 test/local/auth/e2e_pilot:
+	@mkdir -p /go/out/tests
 	set -o pipefail; go test -v -timeout 20m ./tests/e2e/tests/pilot \
  	--skip_cleanup --auth_enable=true --egress=false --v1alpha3=false \
 	${E2E_ARGS} ${EXTRA_E2E_ARGS} ${T} \

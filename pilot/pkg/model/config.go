@@ -386,7 +386,7 @@ var (
 		Validate:    ValidateGateway,
 	}
 
-	// IngressdeRule describes ingress rules
+	// IngressRule describes ingress rules
 	IngressRule = ProtoSchema{
 		Type:        "ingress-rule",
 		Plural:      "ingress-rules",
