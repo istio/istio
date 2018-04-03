@@ -341,7 +341,7 @@ func createCA(core corev1.SecretsGetter) ca.CertificateAuthority {
 	if opts.LivenessProbeOptions.IsValid() {
 		livenessProbeChecker, err := probecontroller.NewLivenessCheckController(
 			opts.probeCheckInterval, fmt.Sprintf("%v:%v", opts.grpcHostname, opts.grpcPort), istioCA,
-			opts.LivenessProbeOptions, probecontroller.DefaultClientProvider)
+			opts.LivenessProbeOptions, probecontroller.DefaultCheckProvider)
 		if err != nil {
 			log.Errorf("failed to create an liveness probe check controller (error: %v)", err)
 		} else {

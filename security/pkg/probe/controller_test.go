@@ -120,5 +120,6 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 	}
 }
 
-func TestDefaultClientProvider(t *testing.T) {
+// TODO(incfly): add test for this
+func TestDefaultCheckProvider(t *testing.T) {
 }

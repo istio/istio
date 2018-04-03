@@ -101,8 +101,8 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 	return err
 }
 
-// DefaultClientProvider returns a onprem client and grpc IstioCA client.
-func DefaultClientProvider(addr string, ca *ca.IstioCA, certOpts *util.CertOptions, ttl time.Duration) (*CAChecker, error) {
+// DefaultCheckProvider returns a CAChecker for prober to invoke.
+func DefaultCheckProvider(addr string, ca *ca.IstioCA, certOpts *util.CertOptions, ttl time.Duration) (*CAChecker, error) {
 	// generates certificate and private key for test
 	opts := util.CertOptions{
 		Host:       LivenessProbeClientIdentity,
