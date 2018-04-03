@@ -368,6 +368,7 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 								Name: "x-jwt-foo-another",
 							},
 						},
+						ForwardPayloadHeader: "istio-sec-0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33",
 					},
 				},
 				AllowMissingOrFailed: true,
@@ -426,6 +427,7 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 								Name: "x-jwt-foo-another",
 							},
 						},
+						ForwardPayloadHeader: "istio-sec-0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33",
 					},
 					{
 						Issuer: "bar",
@@ -440,8 +442,9 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 								CacheDuration: &types.Duration{Seconds: 300},
 							},
 						},
-						Forward:    true,
-						FromParams: []string{"x-jwt-bar"},
+						Forward:              true,
+						FromParams:           []string{"x-jwt-bar"},
+						ForwardPayloadHeader: "istio-sec-62cdb7020ff920e5aa642c3d4066950dd1f01f4d",
 					},
 				},
 				AllowMissingOrFailed: true,
@@ -488,7 +491,8 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 								CacheDuration: &types.Duration{Seconds: 300},
 							},
 						},
-						Forward: true,
+						Forward:              true,
+						ForwardPayloadHeader: "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709",
 					},
 					{
 						JwksSourceSpecifier: &jwtfilter.JwtRule_RemoteJwks{
@@ -502,7 +506,8 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 								CacheDuration: &types.Duration{Seconds: 300},
 							},
 						},
-						Forward: true,
+						Forward:              true,
+						ForwardPayloadHeader: "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709",
 					},
 					{
 						JwksSourceSpecifier: &jwtfilter.JwtRule_RemoteJwks{
@@ -516,7 +521,8 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 								CacheDuration: &types.Duration{Seconds: 300},
 							},
 						},
-						Forward: true,
+						Forward:              true,
+						ForwardPayloadHeader: "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709",
 					},
 				},
 				AllowMissingOrFailed: true,

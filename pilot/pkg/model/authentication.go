@@ -175,14 +175,15 @@ func CollectJwtSpecs(policy *authn.Policy) []*authn.Jwt {
 	return ret
 }
 
-// ConvertPolicyToJwtConfig converts policy into Jwt filter config for envoy. The
-// config is still incomplete though: the jwks_uri_envoy_cluster has not been set
-// yet; it should be filled by pilot, accordingly how those clusters are added.
-// Also note,  the Jwt filter implementation is in Istio proxy, but it is under
-// upstreamming process
-// (https://github.com/envoyproxy/data-plane-api/pull/530/files).
-// The output of this function should use the Envoy data-plane-api proto once
-// this migration finished.
+// OutputLocationForJwtIssuer returns the header location that should be used to output payload if
+// authentication succeeds.
+func OutputLocationForJwtIssuer(issuer string) string {
+	const locationPrefix = "istio-sec-"
+	sum := sha1.Sum([]byte(issuer))
+	return locationPrefix + fmt.Sprintf("%x", sum)
+}
+
+// ConvertPolicyToJwtConfig converts policy into Jwt filter config for envoy.
 func ConvertPolicyToJwtConfig(policy *authn.Policy) *jwtfilter.JwtAuthentication {
 	policyJwts := CollectJwtSpecs(policy)
 	if len(policyJwts) == 0 {
@@ -212,7 +213,8 @@ func ConvertPolicyToJwtConfig(policy *authn.Policy) *jwtfilter.JwtAuthentication
 					CacheDuration: &types.Duration{Seconds: jwtPublicKeyCacheSeconds},
 				},
 			},
-			Forward: true,
+			ForwardPayloadHeader: OutputLocationForJwtIssuer(policyJwt.Issuer),
+			Forward:              true,
 		}
 		for _, location := range policyJwt.JwtHeaders {
 			jwt.FromHeaders = append(jwt.FromHeaders, &jwtfilter.JwtHeader{
