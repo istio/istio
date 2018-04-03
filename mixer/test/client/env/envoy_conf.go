@@ -255,7 +255,8 @@ func (c *confParam) write(path string) error {
 }
 
 // CreateEnvoyConf create envoy config.
-func CreateEnvoyConf(path string, stress, faultInject bool, v2 *V2Conf, ports *Ports) error {
+func CreateEnvoyConf(path string, stress, faultInject bool, mfConfig *MixerFilterConf, ports *Ports,
+	confVersion string) error {
 	c := &confParam{
 		ClientPort:      ports.ClientProxyPort,
 		ServerPort:      ports.ServerProxyPort,
@@ -264,10 +265,10 @@ func CreateEnvoyConf(path string, stress, faultInject bool, v2 *V2Conf, ports *P
 		MixerServer:     fmt.Sprintf("localhost:%d", ports.MixerPort),
 		Backend:         fmt.Sprintf("localhost:%d", ports.BackendPort),
 		AccessLog:       "/dev/stdout",
-		ServerConfig:    getV2Config(v2.HTTPServerConf),
-		ClientConfig:    getV2Config(v2.HTTPClientConf),
-		TCPServerConfig: getV2Config(v2.TCPServerConf),
-		MixerRouteFlags: getPerRouteConfig(v2.PerRouteConf),
+		ServerConfig:    getConfig(mfConfig.HTTPServerConf, confVersion),
+		ClientConfig:    getConfig(mfConfig.HTTPClientConf, confVersion),
+		TCPServerConfig: getConfig(mfConfig.TCPServerConf, confVersion),
+		MixerRouteFlags: getPerRouteConfig(mfConfig.PerRouteConf),
 	}
 
 	if stress {
@@ -280,15 +281,15 @@ func CreateEnvoyConf(path string, stress, faultInject bool, v2 *V2Conf, ports *P
 	return c.write(path)
 }
 
-func getV2Config(v2 proto.Message) string {
+func getConfig(mixerFilterConfig proto.Message, configVersion string) string {
 	m := jsonpb.Marshaler{
 		Indent: "  ",
 	}
-	str, err := m.MarshalToString(v2)
+	str, err := m.MarshalToString(mixerFilterConfig)
 	if err != nil {
 		return ""
 	}
-	return "\"v2\": " + str
+	return configVersion + str
 }
 
 func getPerRouteConfig(cfg proto.Message) string {

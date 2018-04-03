@@ -63,12 +63,6 @@ export GOOS=${GOOS:-${LOCAL_OS}}
 # test scripts seem to like to run this script directly rather than use make
 export ISTIO_OUT=${ISTIO_OUT:-${ISTIO_BIN}}
 
-# Ensure expected GOPATH setup
-if [ ${ROOT} != "${GO_TOP:-$HOME/go}/src/istio.io/istio" ]; then
-       echo "Istio not found in GOPATH/src/istio.io/"
-       exit 1
-fi
-
 # Download Envoy debug and release binaries for Linux x86_64. They will be included in the
 # docker images created by Dockerfile.proxy and Dockerfile.proxy_debug.
 

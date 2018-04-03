@@ -129,6 +129,7 @@ func TestPilot(t *testing.T) {
 		&authExclusion{Environment: env},
 		&kubernetesExternalNameServices{Environment: env},
 		&authnPolicy{Environment: env},
+		&istioRBAC{Environment: env},
 	}
 
 	for _, test := range tests {

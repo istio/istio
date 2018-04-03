@@ -27,7 +27,6 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
 	"istio.io/istio/pkg/log"
 )
 
@@ -112,8 +111,7 @@ func TranslateVirtualHosts(
 		svc := services[fqdn]
 		for _, port := range svc.Ports {
 			if port.Protocol.IsHTTP() {
-				key := svc.Key(port, nil)
-				cluster := v1.TruncateClusterName(v1.OutboundClusterPrefix + key)
+				cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port)
 				out = append(out, GuardedHost{
 					Port:     port.Port,
 					Services: []*model.Service{svc},
@@ -215,9 +213,7 @@ func TranslateDestination(
 		}
 
 		// use subsets if it is a service
-		labels := subsetSelector(svc, destination.Subset)
-		key := svc.Key(svcPort, labels)
-		return v1.TruncateClusterName(v1.OutboundClusterPrefix + key)
+		return model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, svc.Hostname, svcPort)
 	}
 }
 

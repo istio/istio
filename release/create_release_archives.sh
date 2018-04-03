@@ -113,6 +113,7 @@ find samples install -type f \( \
   -name "*.yaml" \
   -o -name "cleanup*" \
   -o -name "*.md" \
+  -o -name "*.pem" \
   -o -name "kubeconfig" \
   -o -name "*.jinja*" \
   -o -name "webhook-create-signed-cert.sh" \

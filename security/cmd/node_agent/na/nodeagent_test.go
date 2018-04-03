@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/security/pkg/caclient"
 	mockclient "istio.io/istio/security/pkg/caclient/grpc/mock"
 	"istio.io/istio/security/pkg/platform"
 	mockpc "istio.io/istio/security/pkg/platform/mock"
@@ -32,17 +33,19 @@ import (
 
 func TestStartWithArgs(t *testing.T) {
 	generalConfig := Config{
-		IstioCAAddress:     "ca_addr",
-		ServiceIdentityOrg: "Google Inc.",
-		RSAKeySize:         512,
-		Env:                "onprem",
-		CSRInitialRetrialInterval: time.Millisecond,
-		CSRMaxRetries:             3,
-		CSRGracePeriodPercentage:  50,
-		LoggingOptions:            log.DefaultOptions(),
-		RootCertFile:              "ca_file",
-		KeyFile:                   "pkey",
-		CertChainFile:             "cert_file",
+		CAClientConfig: caclient.Config{
+			CAAddress:  "ca_addr",
+			Org:        "Google Inc.",
+			RSAKeySize: 512,
+			Env:        "onprem",
+			CSRInitialRetrialInterval: time.Millisecond,
+			CSRMaxRetries:             3,
+			CSRGracePeriodPercentage:  50,
+			RootCertFile:              "ca_file",
+			KeyFile:                   "pkey",
+			CertChainFile:             "cert_file",
+		},
+		LoggingOptions: log.DefaultOptions(),
 	}
 	signedCert := []byte(`TESTCERT`)
 	certChain := []byte(`CERTCHAIN`)
@@ -82,17 +85,19 @@ func TestStartWithArgs(t *testing.T) {
 			// 128 is too small for a RSA private key. GenCSR will return error.
 
 			config: &Config{
-				IstioCAAddress:     "ca_addr",
-				ServiceIdentityOrg: "Google Inc.",
-				RSAKeySize:         128,
-				Env:                "onprem",
-				CSRInitialRetrialInterval: time.Millisecond,
-				CSRMaxRetries:             3,
-				CSRGracePeriodPercentage:  50,
-				RootCertFile:              "ca_file",
-				KeyFile:                   "pkey",
-				CertChainFile:             "cert_file",
-				LoggingOptions:            log.DefaultOptions(),
+				CAClientConfig: caclient.Config{
+					CAAddress:  "ca_addr",
+					Org:        "Google Inc.",
+					RSAKeySize: 128,
+					Env:        "onprem",
+					CSRInitialRetrialInterval: time.Millisecond,
+					CSRMaxRetries:             3,
+					CSRGracePeriodPercentage:  50,
+					RootCertFile:              "ca_file",
+					KeyFile:                   "pkey",
+					CertChainFile:             "cert_file",
+				},
+				LoggingOptions: log.DefaultOptions(),
 			},
 			pc:          mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
 			cAClient:    &mockclient.FakeCAClient{0, nil, nil},

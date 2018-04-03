@@ -76,10 +76,10 @@ var expectedStats = map[string]int{
 
 func TestTCPMixerFilterPeriodicalReport(t *testing.T) {
 	s := env.NewTestSetup(env.TCPMixerFilterPeriodicalReportTest, t)
-	env.SetTCPReportInterval(s.V2().TCPServerConf, 2)
-	env.SetStatsUpdateInterval(s.V2(), 1)
+	env.SetTCPReportInterval(s.MfConfig().TCPServerConf, 2)
+	env.SetStatsUpdateInterval(s.MfConfig(), 1)
 	// Disable check cache.
-	env.DisableTCPClientCache(s.V2().TCPServerConf, true, true, true)
+	env.DisableTCPClientCache(s.MfConfig().TCPServerConf, true, true, true)
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}

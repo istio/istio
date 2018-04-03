@@ -239,7 +239,7 @@ var (
 
 	// ExampleAuthenticationPolicy is an example authentication Policy
 	ExampleAuthenticationPolicy = &authn.Policy{
-		Destinations: []*networking.Destination{{
+		Targets: []*authn.TargetSelector{{
 			Name: "hello",
 		}},
 		Peers: []*authn.PeerAuthenticationMethod{{

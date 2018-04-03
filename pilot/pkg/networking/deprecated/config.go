@@ -41,11 +41,6 @@ import (
 )
 
 const (
-	// names for filters taken from envoy v2 API.
-	filterNameRouter            = util.Router
-	filterNameCors              = util.CORS
-	filterHTTPConnectionManager = util.HTTPConnectionManager
-
 	// TODO: move to go-control-plane
 	fileAccessLog = "envoy.file_access_log"
 
@@ -142,14 +137,32 @@ func buildSidecarListenersClusters(
 			clusters = append(clusters, c)
 		}
 
-		// BindToPort is deprecated in v2, always true.
+		// set bind to port values for port redirection
+		for _, listener := range listeners {
+			listener.DeprecatedV1 = &xdsapi.Listener_DeprecatedV1{
+				BindToPort: &google_protobuf.BoolValue{false},
+			}
+		}
 
+		tc := &tcp_proxy.TcpProxy{
+			Cluster:    "orig-dst-cluster-tcp",
+			StatPrefix: "tcp",
+		}
 		// add an extra listener that binds to the port that is the recipient of the iptables redirect
 		listeners = append(listeners, &xdsapi.Listener{
 			Name:           v1.VirtualListenerName,
 			Address:        buildAddress(v1.WildcardAddress, uint32(mesh.ProxyListenPort)),
 			UseOriginalDst: &google_protobuf.BoolValue{true},
-			FilterChains:   make([]listener.FilterChain, 0),
+			FilterChains: []listener.FilterChain{
+				{
+					Filters: []listener.Filter{
+						{
+							Name:   util.TCPProxy,
+							Config: messageToStruct(tc),
+						},
+					},
+				},
+			},
 		})
 	}
 
@@ -209,11 +222,11 @@ type buildHTTPListenerOpts struct { // nolint: maligned
 func buildHTTPConnectionManager(opts buildHTTPListenerOpts) *http_conn.HttpConnectionManager {
 	filters := []*http_conn.HttpFilter{}
 	filters = append(filters, &http_conn.HttpFilter{
-		Name: filterNameCors,
+		Name: util.CORS,
 	})
 	filters = append(filters, buildFaultFilters(opts.config, opts.env, opts.proxy)...)
 	filters = append(filters, &http_conn.HttpFilter{
-		Name: filterNameRouter,
+		Name: util.Router,
 	})
 
 	/*	TODO(mostrowski): need to port internal build functions for mixer.
@@ -236,7 +249,8 @@ func buildHTTPConnectionManager(opts buildHTTPListenerOpts) *http_conn.HttpConne
 				ConfigSource: core.ConfigSource{
 					ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 						ApiConfigSource: &core.ApiConfigSource{
-							ApiType:      core.ApiConfigSource_GRPC,
+							// TODO(mostrowski): change this when RDS is ready.
+							ApiType:      core.ApiConfigSource_REST_LEGACY,
 							ClusterNames: []string{v1.RDSName},
 							RefreshDelay: &refresh,
 						},
@@ -294,11 +308,14 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *xdsapi.Listener {
 	return &xdsapi.Listener{
 		Address: buildAddress(opts.ip, uint32(opts.port)),
 		Name:    fmt.Sprintf("http_%s_%d", opts.ip, opts.port),
+		DeprecatedV1: &xdsapi.Listener_DeprecatedV1{
+			BindToPort: &google_protobuf.BoolValue{true},
+		},
 		FilterChains: []listener.FilterChain{
 			{
 				Filters: []listener.Filter{
 					{
-						Name:   filterHTTPConnectionManager,
+						Name:   util.HTTPConnectionManager,
 						Config: messageToStruct(manager),
 					},
 				},
@@ -339,13 +356,13 @@ func mayApplyInboundAuth(listener *xdsapi.Listener, mesh *meshconfig.MeshConfig,
 // in addition, it enables mongo proxy filter based on the protocol
 // TODO: The TCP listeners setup so far will not work as we are not setting up tcp routes properly
 func buildTCPListener(tcpConfig *v1.TCPRouteConfig, ip string, port uint32, protocol model.Protocol) *xdsapi.Listener {
-	config := tcp_proxy.TcpProxy{
+	config := &tcp_proxy.TcpProxy{
 		StatPrefix: "tcp",
 		// TODO: add tcp routes using deprecated v1 config as filter chain match is incomplete
 	}
 	baseTCPProxy := listener.Filter{
-		Name:   v1.TCPProxyFilter,
-		Config: buildProtoStruct(v1.TCPProxyFilter, config.String()),
+		Name:   util.TCPProxy,
+		Config: messageToStruct(config),
 	}
 
 	// Use Envoy's TCP proxy for TCP and Redis protocols. Currently, Envoy does not support CDS clusters
@@ -369,8 +386,8 @@ func buildTCPListener(tcpConfig *v1.TCPRouteConfig, ip string, port uint32, prot
 				{
 					Filters: []listener.Filter{
 						{
-							Name:   v1.MongoProxyFilter,
-							Config: buildProtoStruct(v1.MongoProxyFilter, config.String()),
+							Name:   util.MongoProxy,
+							Config: messageToStruct(config),
 						},
 						baseTCPProxy,
 					},
@@ -403,8 +420,8 @@ func buildTCPListener(tcpConfig *v1.TCPRouteConfig, ip string, port uint32, prot
 					{
 						Filters: []listener.Filter{
 							{
-								Name:   v1.RedisProxyFilter,
-								Config: buildProtoStruct(v1.RedisProxyFilter, config.String()),
+								Name:   util.RedisProxy,
+								Config: messageToStruct(config),
 							},
 							baseTCPProxy,
 						},

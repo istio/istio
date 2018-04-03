@@ -13,7 +13,7 @@ github_api_token: ""
 istio:
 
   # Could be a tag "0.2.12, 0.3.0, 0.4.0" version or be empty "", then in this case, the latest release will be downloaded
-  release_tag_name: "0.4.0"
+  release_tag_name: ""
 
   # Folder where you want to install the distro on your machine. By default, we will install it here ~/.istio
   dest: "~/.istio"

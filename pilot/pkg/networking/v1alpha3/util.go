@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"sort"
+	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -72,4 +73,15 @@ func messageToStruct(msg proto.Message) *types.Struct {
 		return &types.Struct{}
 	}
 	return s
+}
+
+func convertDurationGogo(d *types.Duration) time.Duration {
+	if d == nil {
+		return 0
+	}
+	dur, err := types.DurationFromProto(d)
+	if err != nil {
+		log.Warnf("error converting duration %#v, using 0: %v", d, err)
+	}
+	return dur
 }

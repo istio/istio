@@ -107,9 +107,9 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		return nil, err
 	}
 
-	eval, err := p.newILEvaluator(a.ExpressionEvalCacheSize)
+	eval, err := p.newILEvaluator(evaluator.DefaultCacheSize)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create IL expression evaluator with cache size %d: %v", a.ExpressionEvalCacheSize, err)
+		return nil, fmt.Errorf("failed to create IL expression evaluator with cache size %d: %v", evaluator.DefaultCacheSize, err)
 	}
 
 	apiPoolSize := a.APIWorkerPoolSize

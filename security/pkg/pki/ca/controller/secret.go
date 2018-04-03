@@ -61,6 +61,12 @@ const (
 	secretCreationRetry = 3
 )
 
+// DNSNameEntry stores the service name and namespace to construct the DNS id.
+type DNSNameEntry struct {
+	ServiceName string
+	Namespace   string
+}
+
 // SecretController manages the service accounts' secrets that contains Istio keys and certificates.
 type SecretController struct {
 	ca      ca.CertificateAuthority
@@ -69,6 +75,9 @@ type SecretController struct {
 	// Length of the grace period for the certificate rotation.
 	gracePeriodRatio float32
 	minGracePeriod   time.Duration
+
+	// DNS-enabled service account/service pair
+	dnsNames map[string]DNSNameEntry
 
 	// Controller and store for service account objects.
 	saController cache.Controller
@@ -81,7 +90,7 @@ type SecretController struct {
 
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
 func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, gracePeriodRatio float32, minGracePeriod time.Duration,
-	core corev1.CoreV1Interface, namespace string) (*SecretController, error) {
+	core corev1.CoreV1Interface, namespace string, dnsNames map[string]DNSNameEntry) (*SecretController, error) {
 
 	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
 		return nil, fmt.Errorf("grace period ratio %f should be within [0, 1]", gracePeriodRatio)
@@ -97,6 +106,7 @@ func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, grac
 		gracePeriodRatio: gracePeriodRatio,
 		minGracePeriod:   minGracePeriod,
 		core:             core,
+		dnsNames:         dnsNames,
 	}
 
 	saLW := &cache.ListWatch{
@@ -259,6 +269,13 @@ func (sc *SecretController) scrtDeleted(obj interface{}) {
 
 func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string) ([]byte, []byte, error) {
 	id := fmt.Sprintf("%s://cluster.local/ns/%s/sa/%s", util.URIScheme, saNamespace, saName)
+	if sc.dnsNames != nil {
+		if e, ok := sc.dnsNames[saName]; ok {
+			if e.Namespace == saNamespace {
+				id += "," + fmt.Sprintf("%s.%s.svc", e.ServiceName, e.Namespace)
+			}
+		}
+	}
 	options := util.CertOptions{
 		Host:       id,
 		RSAKeySize: keySize,

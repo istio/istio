@@ -70,7 +70,7 @@ func TestFaultInject(t *testing.T) {
 	// fault injection filer is before mixer filter.
 	// If a request is rejected, per-route service config could not
 	// be used, has to use default service_configs map to send Report.
-	env.SetDefaultServiceConfigMap(s.V2())
+	env.SetDefaultServiceConfigMap(s.MfConfig())
 
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)

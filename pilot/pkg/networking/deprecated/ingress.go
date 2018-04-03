@@ -21,6 +21,7 @@ import (
 	envoy_api_v2_auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	"github.com/envoyproxy/go-control-plane/pkg/util"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 
@@ -50,7 +51,7 @@ func buildIngressListeners(mesh *meshconfig.MeshConfig, proxyInstances []*model.
 	}
 
 	manager := buildHTTPConnectionManager(opts)
-	l := newHTTPListener(opts.ip, opts.port, filterHTTPConnectionManager, messageToStruct(manager))
+	l := newHTTPListener(opts.ip, opts.port, util.HTTPConnectionManager, messageToStruct(manager))
 
 	listeners := []*xdsapi.Listener{l}
 
@@ -61,7 +62,7 @@ func buildIngressListeners(mesh *meshconfig.MeshConfig, proxyInstances []*model.
 		opts.port = 443
 		opts.rds = "443"
 		manager := buildHTTPConnectionManager(opts)
-		l := newHTTPListener(opts.ip, opts.port, filterHTTPConnectionManager, messageToStruct(manager))
+		l := newHTTPListener(opts.ip, opts.port, util.HTTPConnectionManager, messageToStruct(manager))
 
 		l.FilterChains = []listener.FilterChain{
 			{
@@ -86,7 +87,7 @@ func buildIngressListeners(mesh *meshconfig.MeshConfig, proxyInstances []*model.
 				},
 				Filters: []listener.Filter{
 					{
-						Name:   filterHTTPConnectionManager,
+						Name:   util.HTTPConnectionManager,
 						Config: messageToStruct(manager),
 					},
 				},

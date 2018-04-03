@@ -268,6 +268,9 @@ type IstioConfigStore interface {
 	// Name can be short name or FQDN.
 	DestinationRule(name, domain string) *Config
 
+	// SubsetToLabels returns the labels associated with a subset of a given service.
+	SubsetToLabels(subsetName, hostname, domain string) LabelsCollection
+
 	// HTTPAPISpecByDestination selects Mixerclient HTTP API Specs
 	// associated with destination service instances.
 	HTTPAPISpecByDestination(instance *ServiceInstance) []Config
@@ -561,9 +564,10 @@ func ResolveFQDN(host, domain string) string {
 	return host
 }
 
-// ResolveFQDNFromDestination returns FQDN for destination, in namespace and domain defines by config meta.
-func ResolveFQDNFromDestination(meta ConfigMeta, destination *networking.Destination) string {
-	return ResolveFQDN(destination.Name, meta.Namespace+".svc."+meta.Domain)
+// resolveFQDNFromAuthNTarget returns FQDN for AuthenticationPolicy target selector,
+// in namespace and domain defines by config meta.
+func resolveFQDNFromAuthNTarget(meta ConfigMeta, target *authn.TargetSelector) string {
+	return ResolveFQDN(target.Name, meta.Namespace+".svc."+meta.Domain)
 }
 
 // istioConfigStore provides a simple adapter for Istio configuration types
@@ -790,6 +794,27 @@ func (store *istioConfigStore) DestinationRule(name, domain string) *Config {
 	return nil
 }
 
+func (store *istioConfigStore) SubsetToLabels(subsetName, hostname, domain string) LabelsCollection {
+	// empty subset
+	if subsetName == "" {
+		return nil
+	}
+
+	config := store.DestinationRule(hostname, domain)
+	if config == nil {
+		return nil
+	}
+
+	rule := config.Spec.(*networking.DestinationRule)
+	for _, subset := range rule.Subsets {
+		if subset.Name == subsetName {
+			return []Labels{subset.Labels}
+		}
+	}
+
+	return nil
+}
+
 // `istio.mixer.v1.config.client.IstioService` and
 // `istio.routing.v1alpha1.IstioService` are logically
 // equivalent. Convert from mixer-to-proxy representation so we can
@@ -908,16 +933,27 @@ func (store *istioConfigStore) AuthenticationPolicyByDestination(hostname string
 		// 2 - namespace scope.
 		// 3 - workload (service).
 		matchLevel := 0
-		if len(policy.Destinations) > 0 {
-			for _, dest := range policy.Destinations {
+		if len(policy.Targets) > 0 {
+			for _, dest := range policy.Targets {
 
-				if hostname != ResolveFQDNFromDestination(spec.ConfigMeta, dest) {
+				if hostname != resolveFQDNFromAuthNTarget(spec.ConfigMeta, dest) {
 					continue
 				}
 				// If destination port is defined, it must match.
-				if !port.Match(dest.GetPort()) {
-					continue
+				if len(dest.Ports) > 0 {
+					portMatched := false
+					for _, portSelector := range dest.Ports {
+						if port.Match(portSelector) {
+							portMatched = true
+							break
+						}
+					}
+					if !portMatched {
+						// Port does not match with any of port selector, skip to next target selector.
+						continue
+					}
 				}
+
 				matchLevel = 3
 				break
 			}

@@ -169,7 +169,7 @@ var expectedStats = map[string]int{
 
 func TestReportBatch(t *testing.T) {
 	s := env.NewTestSetup(env.ReportBatchTest, t)
-	env.SetStatsUpdateInterval(s.V2(), 1)
+	env.SetStatsUpdateInterval(s.MfConfig(), 1)
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}

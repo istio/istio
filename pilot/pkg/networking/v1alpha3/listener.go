@@ -34,7 +34,7 @@ func BuildListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener
 		if err != nil {
 			return nil, err
 		}
-		listeners, _ := buildSidecarListenersClusters(env.Mesh, proxyInstances,
+		listeners := buildSidecarListeners(env.Mesh, proxyInstances,
 			services, env.ManagementPorts(node.IPAddress), node, env.IstioConfigStore)
 		return listeners, nil
 	case model.Router:

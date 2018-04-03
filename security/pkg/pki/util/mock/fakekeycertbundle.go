@@ -17,6 +17,7 @@ package mock
 import (
 	"crypto"
 	"crypto/x509"
+	"sync"
 )
 
 // FakeKeyCertBundle is a mocked KeyCertBundle for testing.
@@ -28,16 +29,21 @@ type FakeKeyCertBundle struct {
 	CertChainBytes []byte
 	RootCertBytes  []byte
 	ReturnErr      error
+	mutex          sync.Mutex
 }
 
 // GetAllPem returns all key/cert PEMs in KeyCertBundle together. Getting all values together avoids inconsistancy.
 func (b *FakeKeyCertBundle) GetAllPem() (certBytes, privKeyBytes, certChainBytes, rootCertBytes []byte) {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 	return b.CertBytes, b.PrivKeyBytes, b.CertChainBytes, b.RootCertBytes
 }
 
 // GetAll returns all key/cert in KeyCertBundle together. Getting all values together avoids inconsistancy.
 func (b *FakeKeyCertBundle) GetAll() (cert *x509.Certificate, privKey *crypto.PrivateKey, certChainBytes,
 	rootCertBytes []byte) {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 	return b.Cert, b.PrivKey, b.CertChainBytes, b.RootCertBytes
 }
 
@@ -47,6 +53,8 @@ func (b *FakeKeyCertBundle) VerifyAndSetAll(certBytes, privKeyBytes, certChainBy
 	if b.ReturnErr != nil {
 		return b.ReturnErr
 	}
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 	b.CertBytes = certBytes
 	b.PrivKeyBytes = privKeyBytes
 	b.CertChainBytes = certChainBytes

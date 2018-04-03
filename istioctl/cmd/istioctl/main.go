@@ -37,6 +37,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	// import all known client auth plugins
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -664,6 +666,8 @@ func newClient() (*crd.Client, error) {
 		model.EndUserAuthenticationPolicySpec,
 		model.EndUserAuthenticationPolicySpecBinding,
 		model.AuthenticationPolicy,
+		model.ServiceRole,
+		model.ServiceRoleBinding,
 	}, "")
 }
 
