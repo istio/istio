@@ -21,17 +21,21 @@ data:
         - {{ "{{ .MeshConfig.ProxyListenPort }}" }}
         - "-u"
         - 1337
-        {{ if .Values.includeIPRanges -}}
         - "-i"
+        {{ if .Values.includeIPRanges -}}
         - {{ .Values.includeIPRanges | quote }}
+        {{ else -}}
+        - "*"
         {{ end -}}
         {{ if .Values.excludeIPRanges -}}
         - "-x"
         - {{ .Values.excludeIPRanges | quote }}
         {{ end -}}
-        {{ if .Values.includeInboundPorts -}}
         - "-b"
+        {{ if .Values.includeInboundPorts -}}
         - {{ .Values.includeInboundPorts | quote }}
+        {{ else -}}
+        - "*"
         {{ end -}}
         {{ if .Values.excludeInboundPorts -}}
         - "-d"
