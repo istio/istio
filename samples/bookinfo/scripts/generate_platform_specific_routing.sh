@@ -19,18 +19,18 @@ set -o errexit
 function generate_routing {
     platform=$1
     dns_domain=$2
+    routing_dir=platforms/$platform/routing/v1alpha2
+    mkdir -p $routing_dir
 
-    mkdir -p platforms/$platform/routing
-
-    pushd routing
-    for routing_spec in *; do
-        cp  $routing_spec ../platforms/$platform/routing/$routing_spec
+    for routing_spec_path in routing/v1alpha2/*; do
+        routing_spec=$(basename $routing_spec_path)
+        cp  $routing_spec_path $routing_dir/$routing_spec
+        echo cp  $routing_spec_path $routing_dir/$routing_spec
         for service in ratings reviews productpage details; do
-            sed -i.bak "s/name: $service$/service: $service$dns_domain/g" ../platforms/$platform/routing/$routing_spec
+            sed -i.bak "s/name: $service$/service: $service$dns_domain/g" $routing_dir/$routing_spec
         done
-        rm ../platforms/$platform/routing/${routing_spec}.bak
+        rm -f $routing_dir/${routing_spec}.bak
     done
-    popd
 }
 
 generate_routing eureka ''
