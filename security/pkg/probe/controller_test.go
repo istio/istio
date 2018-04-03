@@ -22,14 +22,16 @@ import (
 	rpc "github.com/gogo/googleapis/google/rpc"
 	"google.golang.org/grpc/balancer"
 
+	"crypto/tls"
+	"strings"
+
 	"istio.io/istio/pkg/probe"
-	caclient "istio.io/istio/security/pkg/caclient/grpc"
 	cac "istio.io/istio/security/pkg/caclient"
+	caclient "istio.io/istio/security/pkg/caclient/grpc"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
 	pb "istio.io/istio/security/proto"
-	"crypto/tls"
 )
 
 type FakeCAGrpcClientImpl struct {
@@ -99,14 +101,16 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 		certBytes, privKeyBytes, _, rootCert := istioCA.GetCAKeyCertBundle().GetAllPem()
 		cert, err := tls.X509KeyPair(certBytes, privKeyBytes)
 		_, addr, err := cac.NewTestCAServer(&cac.TestCAServerOptions{
-			Response: c.resp,
-			RootCert: rootCert,
+			Response:    c.resp,
+			RootCert:    rootCert,
+			SignCert:    certBytes,
 			Certficiate: []tls.Certificate{cert},
+			Err:         c.err,
 		})
 		if err != nil {
 			t.Errorf("jianfeih failed to create testing ca err %v", err)
 		}
-
+		ind := strings.Index(addr, ":")
 
 		var g interface{} = &mockClient
 		client, ok := g.(caclient.CAGrpcClient)
@@ -117,7 +121,7 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 		// test liveness probe check controller
 		controller, err := NewLivenessCheckController(
 			time.Minute,
-			addr,
+			"localhost"+addr[ind:],
 			"localhost",
 			1234,
 			istioCA,
@@ -130,7 +134,6 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 		if err != nil {
 			t.Errorf("%v: Expecting an error but an Istio CA is wrongly instantiated", id)
 		}
-
 		err = controller.checkGrpcServer()
 		if len(c.expected) == 0 {
 			if err != nil {

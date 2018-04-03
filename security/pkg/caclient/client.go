@@ -73,10 +73,14 @@ type TestCAServer struct {
 	response *pb.CsrResponse
 	errorMsg string
 	counter  int
+	err error
 }
 
 func (s *TestCAServer) HandleCSR(ctx context.Context, req *pb.CsrRequest) (*pb.CsrResponse, error) {
 	s.counter++
+	if s.err != nil {
+		return &pb.CsrResponse{}, s.err
+	}
 	if len(s.errorMsg) > 0 {
 		return nil, fmt.Errorf(s.errorMsg)
 	}
@@ -94,7 +98,9 @@ type TestCAServerOptions struct {
 	Response *pb.CsrResponse
 	Error    string
 	RootCert []byte
+	SignCert []byte
 	Certficiate []tls.Certificate
+	Err error
 }
 
 func NewTestCAServer(opts *TestCAServerOptions) (server *TestCAServer, addr string, err error) {
@@ -105,10 +111,13 @@ func NewTestCAServer(opts *TestCAServerOptions) (server *TestCAServer, addr stri
 	ca := &TestCAServer{
 		response: opts.Response,
 		errorMsg: opts.Error,
+		err:      opts.Err,
 	}
-
 	cp := x509.NewCertPool()
-	cp.AppendCertsFromPEM(opts.RootCert)
+	ok := cp.AppendCertsFromPEM(opts.RootCert)
+	fmt.Println("jianfeih debug ok append ", ok)
+	ok = cp.AppendCertsFromPEM(opts.SignCert)
+	fmt.Println("jianfeih debug ok append 2 ", ok)
 	config := &tls.Config{
 		ClientCAs:  cp,
 		ClientAuth: tls.VerifyClientCertIfGiven,
