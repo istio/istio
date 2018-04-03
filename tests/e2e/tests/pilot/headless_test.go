@@ -16,52 +16,36 @@ package pilot
 
 import (
 	"fmt"
-
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
+	"testing"
 )
 
-type headless struct {
-	*tutil.Environment
-}
-
-func (t *headless) String() string {
-	return "tcp-headless-reachability"
-}
-
-func (t *headless) Setup() error {
-	return nil
-}
-
-func (t *headless) Teardown() {
-}
-
-func (t *headless) Run() error {
-	if t.Auth == meshconfig.MeshConfig_MUTUAL_TLS {
-		return nil // TODO: mTLS
+func TestHeadless(t *testing.T) {
+	if tc.Kube.AuthEnabled {
+		t.Skipf("Skipping %s: auth_enabled=false", t.Name())
 	}
 
 	srcPods := []string{"a", "b", "t"}
 	dstPods := []string{"headless"}
-	funcs := make(map[string]func() tutil.Status)
-	for _, src := range srcPods {
-		for _, dst := range dstPods {
-			for _, port := range []string{":10090", ":19090"} {
-				for _, domain := range []string{"", "." + t.Config.Namespace} {
-					name := fmt.Sprintf("TCP connection from %s to %s%s%s", src, dst, domain, port)
-					funcs[name] = (func(src, dst, port, domain string) func() tutil.Status {
-						url := fmt.Sprintf("http://%s%s%s/%s", dst, domain, port, src)
-						return func() tutil.Status {
-							resp := t.ClientRequest(src, url, 1, "")
+	ports := []string{"10090", "19090"}
+
+	// Run all request tests.
+	t.Run("request", func(t *testing.T) {
+		for _, src := range srcPods {
+			for _, dst := range dstPods {
+				for _, port := range ports {
+					for _, domain := range []string{"", "." + tc.Kube.Namespace} {
+						testName := fmt.Sprintf("%s->%s%s_%s", src, dst, domain, port)
+						runRetriableTest(t, testName, defaultRetryBudget, func() error {
+							reqURL := fmt.Sprintf("http://%s%s:%s/%s", dst, domain, port, src)
+							resp := ClientRequest(src, reqURL, 1, "")
 							if resp.IsHTTPOk() {
 								return nil
 							}
-							return tutil.ErrAgain
-						}
-					})(src, dst, port, domain)
+							return errAgain
+						})
+					}
 				}
 			}
 		}
-	}
-	return tutil.Parallel(funcs)
+	})
 }
