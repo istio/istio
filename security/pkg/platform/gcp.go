@@ -94,7 +94,7 @@ func (ci *GcpClientImpl) GetServiceIdentity() (string, error) {
 		log.Errorf("Failed to get service account with error: %v", err)
 		return "", err
 	}
-	return util.GenSanURI("default", serviceAccount), nil
+	return util.GenSanURI("default", serviceAccount)
 }
 
 // GetAgentCredential returns the GCP JWT for the serivce account.
