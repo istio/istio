@@ -301,7 +301,7 @@ func adsPushAll() {
 	// instead of once per endpoint.
 	edsClusterMutex.Lock()
 	// Create a temp map to avoid locking the add/remove
-	tmpMap := make(map[string]*XdsConnection, len(edsClusters))
+	cMap := make(map[string]*EdsCluster, len(edsClusters))
 	for k, v := range edsClusters {
 		cMap[k] = v
 	}
@@ -318,7 +318,7 @@ func adsPushAll() {
 	// the same connection table
 	adsClientsMutex.RLock()
 	// Create a temp map to avoid locking the add/remove
-	tmpMap := make(map[string]*XdsConnection, len(edsClusters))
+	tmpMap := make(map[string]*XdsConnection, len(adsClients))
 	for k, v := range adsClients {
 		tmpMap[k] = v
 	}

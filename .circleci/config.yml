@@ -225,19 +225,13 @@ jobs:
           command: |
                 make test/local/auth/e2e_pilot
       - run:
-          name: dumpsys
           when: always
           command: |
-            mkdir -p /go/out/logs
-            # TODO: move to a make target 'dumpsys'.
-            kubectl get all -o wide --all-namespaces
-            kubectl cluster-info dump > /go/out/logs/cluster-info.dump.txt
-            kubectl describe pods -n istio-system > /go/out/logs/pods-system.txt
-            /go/bin/go-junit-report </go/out/tests/test-report.raw > /go/out/tests/test-report-noauth-simple.xml
+            make dumpsys
       - store_test_results:
           path: /go/out/tests
       - store_artifacts:
-          path: /home/circleci/logs
+          path: /go/out/logs
       - store_artifacts:
           path: /tmp
 
@@ -316,9 +310,15 @@ jobs:
           # Run the test even if previous failed
           when: always
           command: |
-                make e2e_pilot E2E_ARGS="--skip_cleanup --auth_enable=false --egress=false"
+                make test/local/noauth/e2e_pilot2
+      - run:
+          when: always
+          command: |
+            make dumpsys
+      - store_test_results:
+          path: /go/out/tests
       - store_artifacts:
-          path: /home/circleci/logs
+          path: /go/out/logs
       - store_artifacts:
           path: /tmp
 
@@ -504,7 +504,7 @@ jobs:
             make localTestEnv
             cd /go/src/istio.io/istio
             # Not failing if coverage number changes - integration tests are still not counted,
-            MAXPROCS=6 bin/codecov.sh || true
+            MAXPROCS=6 bin/cocodecovdecov.sh || true
       - run:
           name: Uploading code coverage to codecov.io
           when: always
