@@ -12,6 +12,6 @@ spec:
       istio-custom-header: user-defined-value
     route:
     - destination:
-        name: c
+        host: c
         subset: version-v1
       weight: 100

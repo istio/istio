@@ -23,6 +23,9 @@ package config
 // RulesKind defines the config kind Name of mixer Rules.
 const RulesKind = "rule"
 
+// AdapterKind defines the config kind Name of adapter infos (name, templates is consumes, its own configuration).
+const AdapterKind = "adapter"
+
 // AttributeManifestKind define the config kind Name of attribute manifests.
 const AttributeManifestKind = "attributemanifest"
 

@@ -20,6 +20,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
+	"istio.io/api/mixer/adapter/model/v1beta1"
 	cpb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/template"
@@ -44,6 +45,7 @@ func TestKindMap(t *testing.T) {
 		"a1":                  &cpb.Handler{},
 		RulesKind:             &cpb.Rule{},
 		AttributeManifestKind: &cpb.AttributeManifest{},
+		AdapterKind:           &v1beta1.Info{},
 	}
 
 	if !reflect.DeepEqual(km, want) {

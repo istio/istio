@@ -20,7 +20,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes/wrappers"
 
-	istio_mixer_v1_template "istio.io/api/mixer/adapter/model/v1beta1"
+	adapter_model "istio.io/api/mixer/adapter/model/v1beta1"
 	configpb "istio.io/api/policy/v1beta1"
 	descriptorpb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -1354,6 +1354,172 @@ Attributes:
   template.attr: BOOL
 `,
 	},
+	{
+		Name: "adapter info with templates",
+		Events1: []*store.Event{
+			{
+				Key: store.Key{
+					Name:      "adapterinfo1",
+					Namespace: "ns",
+					Kind:      "adapter",
+				},
+				Type: store.Update,
+				Value: &store.Resource{
+					Spec: &adapter_model.Info{
+						Name:      "adapter1",
+						Templates: []string{fooTmpl, barTmpl},
+					},
+				},
+			},
+		},
+		E: `
+ID: 1
+Templates:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+Adapters:
+  Name: adapter1
+  Name: adapter2
+Handlers:
+Instances:
+Rules:
+AdapterMetadata:
+  Name:      adapter1
+  Templates: [foo bar]
+TemplateMetadata:
+  Name:      bar
+  Name:      foo
+Attributes:
+  template.attr: BOOL
+`,
+	},
+	{
+		Name: "adapter info no templates",
+		Events1: []*store.Event{
+			{
+				Key: store.Key{
+					Name:      "adapterinfo1",
+					Namespace: "ns",
+					Kind:      "adapter",
+				},
+				Type: store.Update,
+				Value: &store.Resource{
+					Spec: &adapter_model.Info{
+						Name: "adapter1",
+					},
+				},
+			},
+		},
+		E: `
+ID: 1
+Templates:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+Adapters:
+  Name: adapter1
+  Name: adapter2
+Handlers:
+Instances:
+Rules:
+AdapterMetadata:
+  Name:      adapter1
+  Templates: []
+Attributes:
+  template.attr: BOOL
+`,
+	},
+	{
+		Name: "adapter info only templates",
+		Events1: []*store.Event{
+			{
+				Key: store.Key{
+					Name:      "adapterinfo1",
+					Namespace: "ns",
+					Kind:      "adapter",
+				},
+				Type: store.Update,
+				Value: &store.Resource{
+					Spec: &adapter_model.Info{
+						Name:      "",
+						Templates: []string{fooTmpl, barTmpl},
+					},
+				},
+			},
+			{
+				Key: store.Key{
+					Name:      "adapterinfo2",
+					Namespace: "ns",
+					Kind:      "adapter",
+				},
+				Type: store.Update,
+				Value: &store.Resource{
+					Spec: &adapter_model.Info{
+						Name:      "",
+						Templates: []string{bazTmpl},
+					},
+				},
+			},
+		},
+		E: `
+ID: 1
+Templates:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+Adapters:
+  Name: adapter1
+  Name: adapter2
+Handlers:
+Instances:
+Rules:
+TemplateMetadata:
+  Name:      bar
+  Name:      baz
+  Name:      foo
+Attributes:
+  template.attr: BOOL
+`,
+	},
+	{
+		Name: "adapter info bad templates",
+		Events1: []*store.Event{
+			{
+				Key: store.Key{
+					Name:      "adapterinfo1",
+					Namespace: "ns",
+					Kind:      "adapter",
+				},
+				Type: store.Update,
+				Value: &store.Resource{
+					Spec: &adapter_model.Info{
+						Name:      "adapter1",
+						Templates: []string{"bad template descriptor"},
+					},
+				},
+			},
+		},
+		E: `
+ID: 1
+Templates:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+Adapters:
+  Name: adapter1
+  Name: adapter2
+Handlers:
+Instances:
+Rules:
+Attributes:
+  template.attr: BOOL
+`,
+	},
 }
 
 var noTemplates = make(map[string]*template.Info)
@@ -1372,19 +1538,19 @@ var stdAdapters = map[string]*adapter.Info{
 var stdTemplates = map[string]*template.Info{
 	"quota": {
 		Name:    "quota",
-		Variety: istio_mixer_v1_template.TEMPLATE_VARIETY_QUOTA,
+		Variety: adapter_model.TEMPLATE_VARIETY_QUOTA,
 	},
 	"check": {
 		Name:    "check",
-		Variety: istio_mixer_v1_template.TEMPLATE_VARIETY_CHECK,
+		Variety: adapter_model.TEMPLATE_VARIETY_CHECK,
 	},
 	"report": {
 		Name:    "report",
-		Variety: istio_mixer_v1_template.TEMPLATE_VARIETY_REPORT,
+		Variety: adapter_model.TEMPLATE_VARIETY_REPORT,
 	},
 	"apa": {
 		Name:    "apa",
-		Variety: istio_mixer_v1_template.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR,
+		Variety: adapter_model.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR,
 		AttributeManifests: []*configpb.AttributeManifest{
 			{
 				Attributes: map[string]*configpb.AttributeManifest_AttributeInfo{
