@@ -727,7 +727,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	// For now we create the gRPC server sourcing data from Pilot's older data model.
 	s.initGrpcServer()
 	envoy.V2ClearCache = envoyv2.PushAll
-	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(s.GRPCServer, environment, v1alpha3.NewConfigGenerator(registry.NewPlugins()))
+	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(s.GRPCServer, environment, v1alpha3.NewConfigGenerator(registry.NewDefaultPlugins()))
 
 	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController)
 

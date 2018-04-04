@@ -52,19 +52,31 @@ type CallbackListenerInputParams struct {
 	Service *model.Service
 }
 
+// CallbackListenerMutableObjects is a set of objects passed to On*Listener callbacks. Fields may be nil or empty.
+// Any lists should not be overridden, but rather only appended to.
+// Non-list fields may be mutated; however it's not recommended to do this since it can affect other plugins in the
+// chain in unpredictable ways.
+type CallbackListenerMutableObjects struct {
+	// HTTPFilters is the slice of HTTP filters for the Listener. Append to only.
+	HTTPFilters *[]*http_conn.HttpFilter
+	// TCPFilters is the slice of TCP filters for the Listener. Append to only.
+	TCPFilters *[]listener.Filter
+	// Listener is the listener being built. Any field may be modified, but changing other than appending to slices
+	// is discouraged.
+	Listener *xdsapi.Listener
+}
+
 // Plugin is called during the construction of a xdsapi.Listener which may alter the Listener in any
 // way. Examples include AuthenticationPlugin that sets up mTLS authentication on the inbound Listener
 // and outbound Cluster, the mixer plugin that sets up policy checks on the inbound listener, etc.
 type Plugin interface {
 	// OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service.
-	// It returns a slice of network or HTTP filters that should be appended to the listener filter list.
 	// Can be used to add additional filters on the outbound path.
-	OnOutboundListener(in *CallbackListenerInputParams, listener *xdsapi.Listener) ([]listener.Filter, []*http_conn.HttpFilter, error)
+	OnOutboundListener(in *CallbackListenerInputParams, mutable *CallbackListenerMutableObjects) error
 
 	// OnInboundListener is called whenever a new listener is added to the LDS output for a given service
-	// It returns a slice of network or HTTP filters that should be appended to the listener filter list.
 	// Can be used to add additional filters.
-	OnInboundListener(in *CallbackListenerInputParams, listener *xdsapi.Listener) ([]listener.Filter, []*http_conn.HttpFilter, error)
+	OnInboundListener(in *CallbackListenerInputParams, mutable *CallbackListenerMutableObjects) error
 
 	// OnOutboundCluster is called whenever a new cluster is added to the CDS output
 	// Typically used by AuthN plugin to add mTLS settings

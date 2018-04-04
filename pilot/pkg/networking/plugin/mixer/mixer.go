@@ -15,11 +15,12 @@
 package mixer
 
 import (
+	"fmt"
+	"net"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-
-	"fmt"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
@@ -39,9 +40,9 @@ func NewPlugin() *Plugin {
 }
 
 // OnOutboundListener implements the Callbacks interface method.
-func (*Plugin) OnOutboundListener(in *plugin.CallbackListenerInputParams, _ *xdsapi.Listener) ([]listener.Filter, []*http_conn.HttpFilter, error) {
+func (*Plugin) OnOutboundListener(in *plugin.CallbackListenerInputParams, mutable *plugin.CallbackListenerMutableObjects) error {
 	if in.Service == nil || !in.Service.MeshExternal {
-		return nil, nil, nil
+		return nil
 	}
 
 	env := in.Env
@@ -50,16 +51,18 @@ func (*Plugin) OnOutboundListener(in *plugin.CallbackListenerInputParams, _ *xds
 
 	switch in.ListenerType {
 	case plugin.ListenerTypeHTTP:
-		return nil, []*http_conn.HttpFilter{buildMixerHTTPFilter(env, node, proxyInstances, true)}, nil
+		*mutable.HTTPFilters = append(*mutable.HTTPFilters, buildMixerHTTPFilter(env, node, proxyInstances, true))
+		return nil
 	case plugin.ListenerTypeTCP:
-		return []listener.Filter{buildMixerOutboundTCPFilter(env, node)}, nil, nil
+		*mutable.TCPFilters = append(*mutable.TCPFilters, buildMixerOutboundTCPFilter(env, node))
+		return nil
 	}
 
-	return nil, nil, fmt.Errorf("unknown listener type %v in mixer.OnOutboundListener", in.ListenerType)
+	return fmt.Errorf("unknown listener type %v in mixer.OnOutboundListener", in.ListenerType)
 }
 
 // OnInboundListener implements the Callbacks interface method.
-func (*Plugin) OnInboundListener(in *plugin.CallbackListenerInputParams, _ *xdsapi.Listener) ([]listener.Filter, []*http_conn.HttpFilter, error) {
+func (*Plugin) OnInboundListener(in *plugin.CallbackListenerInputParams, mutable *plugin.CallbackListenerMutableObjects) error {
 	env := in.Env
 	node := in.Node
 	proxyInstances := in.ProxyInstances
@@ -67,13 +70,14 @@ func (*Plugin) OnInboundListener(in *plugin.CallbackListenerInputParams, _ *xdsa
 
 	switch in.ListenerType {
 	case plugin.ListenerTypeHTTP:
-		return nil, []*http_conn.HttpFilter{buildMixerHTTPFilter(env, node, proxyInstances, false)}, nil
-
+		*mutable.HTTPFilters = append(*mutable.HTTPFilters, buildMixerHTTPFilter(env, node, proxyInstances, false))
+		return nil
 	case plugin.ListenerTypeTCP:
-		return []listener.Filter{buildMixerInboundTCPFilter(env, node, instance)}, nil, nil
+		*mutable.TCPFilters = append(*mutable.TCPFilters, buildMixerInboundTCPFilter(env, node, instance))
+		return nil
 	}
 
-	return nil, nil, fmt.Errorf("unknown listener type %v in mixer.OnOutboundListener", in.ListenerType)
+	return fmt.Errorf("unknown listener type %v in mixer.OnOutboundListener", in.ListenerType)
 }
 
 // OnOutboundCluster implements the Callbacks interface method.
@@ -165,7 +169,7 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 		mxConfig.ForwardAttributes = &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{},
 		}
-		v1.AddStandardNodeAttributes(mxConfig.ForwardAttributes.Attributes, v1.AttrSourcePrefix, role.IPAddress, role.ID, labels)
+		addStandardNodeAttributes(mxConfig.ForwardAttributes.Attributes, v1.AttrSourcePrefix, role.IPAddress, role.ID, labels)
 	}
 
 	for _, instance := range nodeInstances {
@@ -193,4 +197,25 @@ func buildTCPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, in
 	}
 
 	return mxConfig
+}
+
+// addStandardNodeAttributes add standard node attributes with the given prefix
+func addStandardNodeAttributes(attr map[string]*mpb.Attributes_AttributeValue, prefix string, IPAddress string, ID string, labels map[string]string) {
+	if len(IPAddress) > 0 {
+		attr[prefix+"."+v1.AttrIPSuffix] = &mpb.Attributes_AttributeValue{
+			Value: &mpb.Attributes_AttributeValue_BytesValue{net.ParseIP(IPAddress)},
+		}
+	}
+
+	attr[prefix+"."+v1.AttrUIDSuffix] = &mpb.Attributes_AttributeValue{
+		Value: &mpb.Attributes_AttributeValue_StringValue{"kubernetes://" + ID},
+	}
+
+	if len(labels) > 0 {
+		attr[prefix+"."+v1.AttrLabelsSuffix] = &mpb.Attributes_AttributeValue{
+			Value: &mpb.Attributes_AttributeValue_StringMapValue{
+				StringMapValue: &mpb.Attributes_StringMap{Entries: labels},
+			},
+		}
+	}
 }

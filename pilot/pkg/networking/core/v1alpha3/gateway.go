@@ -20,6 +20,7 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 
@@ -85,8 +86,12 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 		}
 		var opts buildListenerOpts
 		var listenerType plugin.ListenerType
+		var networkFilters []listener.Filter
+		var hTTPFilters []*http_conn.HttpFilter
+		newListener := buildListener(opts)
 		switch model.Protocol(server.Port.Protocol) {
 		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC, model.ProtocolHTTPS:
+			listenerType = plugin.ListenerTypeHTTP
 			opts = buildListenerOpts{
 				env:            env,
 				proxy:          node,
@@ -114,6 +119,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 				}
 			}
 		case model.ProtocolTCP, model.ProtocolMongo:
+			listenerType = plugin.ListenerTypeTCP
 			// TODO
 			// Look at virtual service specs, and identity destinations,
 			// call buildOutboundNetworkFilters.. and then construct TCPListener
@@ -121,20 +127,28 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 			//	listenAddress, uint32(servicePort.Port), servicePort.Protocol)
 		}
 
+		params := &plugin.CallbackListenerInputParams{
+			ListenerType: listenerType,
+			Env:          &env,
+			Node:         &node,
+		}
+		mutable := &plugin.CallbackListenerMutableObjects{
+			Listener:    newListener,
+			TCPFilters:  &networkFilters,
+			HTTPFilters: &hTTPFilters,
+		}
 		for _, p := range configgen.Plugins {
-			params := &plugin.CallbackListenerInputParams{
-				ListenerType: listenerType,
-				Env:          &env,
-				Node:         &node,
-			}
-			nf, hf, err := p.OnInboundListener(params, nil)
-			if err != nil {
+			if err := p.OnOutboundListener(params, mutable); err != nil {
 				log.Error(err.Error())
 			}
-			opts.networkFilters = append(opts.networkFilters, nf...)
-			opts.hTTPFilters = append(opts.hTTPFilters, hf...)
 		}
-		listeners = append(listeners, buildListener(opts))
+
+		// Filters are serialized one time into an opaque struct once we have the complete list.
+		if err := marshalFilters(newListener, opts, networkFilters, hTTPFilters); err != nil {
+			log.Error(err.Error())
+		}
+
+		listeners = append(listeners, newListener)
 	}
 
 	return listeners, nil
