@@ -18,8 +18,6 @@
 #
 # Initialization script responsible for setting up port forwarding for Istio sidecar.
 
-set -x # echo on
-
 function usage() {
   echo "${0} -p PORT -u UID [-b ports] [-d ports] [-i CIDR] [-x CIDR] [-h]"
   echo ''
@@ -29,12 +27,12 @@ function usage() {
   echo '      (default to uid of $ENVOY_USER, uid of istio_proxy, or 1337)'
   echo '  -b: Comma separated list of inbound ports for which traffic is to be redirected to Envoy (optional). The'
   echo '      wildcard character "*" can be used to configure redirection for all ports. An empty list will disable'
-  echo '      all inbound redirection (default to $ISTIO_INBOUND_PORTS or "*")'
+  echo '      all inbound redirection (default to $ISTIO_INBOUND_PORTS)'
   echo '  -d: Comma separated list of inbound ports to be excluded from redirection to Envoy (optional). Only applies'
   echo '      when all inbound traffic (i.e. "*") is being redirected (default to $ISTIO_LOCAL_EXCLUDE_PORTS)'
   echo '  -i: Comma separated list of IP ranges in CIDR form to redirect to envoy (optional). The wildcard'
   echo '      character "*" can be used to redirect all outbound traffic. An empty list will disable all outbound'
-  echo '      redirection (default to $ISTIO_SERVICE_CIDR or "*")'
+  echo '      redirection (default to $ISTIO_SERVICE_CIDR)'
   echo '  -x: Comma separated list of IP ranges in CIDR form to be excluded from redirection. Only applies when all '
   echo '      outbound traffic (i.e. "*") is being redirected (default to $ISTIO_SERVICE_EXCLUDE_CIDR).'
   echo ''
@@ -62,9 +60,9 @@ fi
 
 PROXY_PORT=${ENVOY_PORT:-15001}
 PROXY_UID=
-INBOUND_PORTS_INCLUDE=${ISTIO_INBOUND_PORTS-"*"}
+INBOUND_PORTS_INCLUDE=${ISTIO_INBOUND_PORTS-}
 INBOUND_PORTS_EXCLUDE=${ISTIO_LOCAL_EXCLUDE_PORTS-}
-OUTBOUND_IP_RANGES_INCLUDE=${ISTIO_SERVICE_CIDR-"*"}
+OUTBOUND_IP_RANGES_INCLUDE=${ISTIO_SERVICE_CIDR-}
 OUTBOUND_IP_RANGES_EXCLUDE=${ISTIO_SERVICE_EXCLUDE_CIDR-}
 
 while getopts ":p:u:b:d:i:x:h" opt; do
@@ -113,25 +111,45 @@ if [ -z "${PROXY_UID}" ]; then
 fi
 
 # Remove the old chains, to generate new configs.
-iptables -t nat -D PREROUTING -p tcp -j ISTIO_INBOUND
-iptables -t nat -D OUTPUT -p tcp -j ISTIO_OUTPUT
+iptables -t nat -D PREROUTING -p tcp -j ISTIO_INBOUND 2>/dev/null
+iptables -t nat -D OUTPUT -p tcp -j ISTIO_OUTPUT 2>/dev/null
 
 # Flush and delete the istio chains
-iptables -t nat -F ISTIO_OUTPUT
-iptables -t nat -X ISTIO_OUTPUT
-iptables -t nat -F ISTIO_INBOUND
-iptables -t nat -X ISTIO_INBOUND
-iptables -t nat -F ISTIO_REDIRECT
-iptables -t nat -X ISTIO_REDIRECT
+iptables -t nat -F ISTIO_OUTPUT 2>/dev/null
+iptables -t nat -X ISTIO_OUTPUT 2>/dev/null
+iptables -t nat -F ISTIO_INBOUND 2>/dev/null
+iptables -t nat -X ISTIO_INBOUND 2>/dev/null
+iptables -t nat -F ISTIO_REDIRECT 2>/dev/null
+iptables -t nat -X ISTIO_REDIRECT 2>/dev/null
 
 if [ "${1:-}" = "clean" ]; then
-  # Only cleanup, don't add new rules.
+  echo "Only cleaning, no new rules added"
   exit 0
 fi
+
+# Dump out our environment for debugging purposes.
+echo "Environment:"
+echo "------------"
+echo "ENVOY_PORT=${ENVOY_PORT-}"
+echo "ISTIO_INBOUND_PORTS=${ISTIO_INBOUND_PORTS-}"
+echo "ISTIO_LOCAL_EXCLUDE_PORTS=${ISTIO_LOCAL_EXCLUDE_PORTS-}"
+echo "ISTIO_SERVICE_CIDR=${ISTIO_SERVICE_CIDR-}"
+echo "ISTIO_SERVICE_EXCLUDE_CIDR=${ISTIO_SERVICE_EXCLUDE_CIDR-}"
+echo
+echo "Variables:"
+echo "----------"
+echo "PROXY_PORT=${PROXY_PORT}"
+echo "PROXY_UID=${PROXY_UID}"
+echo "INBOUND_PORTS_INCLUDE=${INBOUND_PORTS_INCLUDE}"
+echo "INBOUND_PORTS_EXCLUDE=${INBOUND_PORTS_EXCLUDE}"
+echo "OUTBOUND_IP_RANGES_INCLUDE=${OUTBOUND_IP_RANGES_INCLUDE}"
+echo "OUTBOUND_IP_RANGES_EXCLUDE=${OUTBOUND_IP_RANGES_EXCLUDE}"
+echo
 
 set -o errexit
 set -o nounset
 set -o pipefail
+set -x # echo on
 
 # Create a new chain for redirecting inbound traffic to the common Envoy port.
 # In the ISTIO_INBOUND and ISTIO_OUTBOUND chains, '-j RETURN' bypasses Envoy

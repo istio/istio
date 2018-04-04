@@ -292,7 +292,7 @@ func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string
 	}
 
 	_, _, certChainPEM, _ := sc.ca.GetCAKeyCertBundle().GetAll()
-	certPEM, err := sc.ca.Sign(csrPEM, sc.certTTL, false)
+	certPEM, err := sc.ca.Sign(csrPEM, sc.certTTL)
 	if err != nil {
 		return nil, nil, err
 	}

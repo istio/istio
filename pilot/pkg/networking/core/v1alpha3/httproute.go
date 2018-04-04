@@ -18,15 +18,18 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"github.com/gogo/protobuf/types"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
 )
 
@@ -41,15 +44,9 @@ const (
 	// UnresolvedCluster for destinations pointing to unknown clusters.
 	UnresolvedCluster = "unresolved-cluster"
 
-	// DefaultOperation is the default decorator
-	DefaultOperation = "default-operation"
+	// DefaultRoute is the default decorator
+	DefaultRoute = "default-route"
 )
-
-// ServiceByName claims a service entry from the registry using a host name.
-type ServiceByName func(host string, contextNamespace string) *model.Service
-
-// SubsetSelector resolves a subset to labels.
-type SubsetSelector func(service *model.Service, subset string) map[string]string
 
 // GuardedHost is a context-dependent virtual host entry with guarded routes.
 type GuardedHost struct {
@@ -66,20 +63,6 @@ type GuardedHost struct {
 	// Routes in the virtual host
 	Routes []GuardedRoute
 }
-
-// TODO: Move to model validation
-//// TranslateServiceHostname matches a host against a model service.
-//// This cannot be externalized to core model until the registries understand namespaces.
-//// TODO: run a validation pass and add FQDNs apriori
-//func TranslateServiceHostname(services map[string]*model.Service, clusterDomain string) ServiceByName {
-//	return func(host string, contextNamespace string) *model.Service {
-//		if strings.Contains(host, ".") {
-//			return services[host]
-//		}
-//
-//		return services[fmt.Sprintf("%s.%s.%s", host, contextNamespace, clusterDomain)]
-//	}
-//}
 
 // TranslateVirtualHosts creates the entire routing table for Istio v1alpha3 configs.
 // Services are indexed by FQDN hostnames.
@@ -115,15 +98,7 @@ func TranslateVirtualHosts(
 					Port:     port.Port,
 					Services: []*model.Service{svc},
 					Routes: []GuardedRoute{{
-						Route: route.Route{
-							Match:     TranslateRouteMatch(nil),
-							Decorator: &route.Decorator{Operation: DefaultOperation},
-							Action: &route.Route_Route{
-								Route: &route.RouteAction{
-									ClusterSpecifier: &route.RouteAction_Cluster{Cluster: cluster},
-								},
-							},
-						},
+						Route: *buildDefaultHTTPRoute(cluster),
 					}},
 				})
 			}
@@ -452,4 +427,179 @@ func TranslateTime(in *types.Duration) *time.Duration {
 		log.Warnf("error converting duration %#v, using 0: %v", in, err)
 	}
 	return &out
+}
+
+// TODO: find a proper home for these http related functions
+// buildDefaultHTTPRoute builds a default route.
+func buildDefaultHTTPRoute(clusterName string) *route.Route {
+	return &route.Route{
+		Match: TranslateRouteMatch(nil),
+		Decorator: &route.Decorator{
+			Operation: DefaultRoute,
+		},
+		Action: &route.Route_Route{
+			Route: &route.RouteAction{
+				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
+			},
+		},
+	}
+}
+
+// buildSidecarInboundHTTPRouteConfig builds the route config with a single wildcard virtual host on the inbound path
+// TODO: enable websockets, trace decorators
+func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env model.Environment,
+	node model.Proxy, instance *model.ServiceInstance) *xdsapi.RouteConfiguration {
+
+	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "",
+		instance.Service.Hostname, instance.Endpoint.ServicePort)
+	defaultRoute := buildDefaultHTTPRoute(clusterName)
+
+	inboundVHost := route.VirtualHost{
+		Name:    fmt.Sprintf("%s|http|%d", model.TrafficDirectionInbound, instance.Endpoint.ServicePort.Port),
+		Domains: []string{"*"},
+		Routes:  []route.Route{*defaultRoute},
+	}
+
+	r := &xdsapi.RouteConfiguration{
+		Name:             clusterName,
+		VirtualHosts:     []route.VirtualHost{inboundVHost},
+		ValidateClusters: &types.BoolValue{Value: false},
+	}
+
+	// call plugins
+	for _, p := range configgen.Plugins {
+		p.OnInboundRoute(env, node, instance.Service, instance.Endpoint.ServicePort, r)
+	}
+	return r
+}
+
+func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env model.Environment, node model.Proxy,
+	_ []*model.ServiceInstance, services []*model.Service, routeName string) *xdsapi.RouteConfiguration {
+
+	port := 0
+	if routeName != RDSHttpProxy {
+		var err error
+		port, err = strconv.Atoi(routeName)
+		if err != nil {
+			return nil
+		}
+	}
+
+	nameToServiceMap := make(map[string]*model.Service)
+	for _, svc := range services {
+		if port == 0 {
+			nameToServiceMap[svc.Hostname] = svc
+		} else {
+			if svcPort, exists := svc.Ports.GetByPort(port); exists {
+				nameToServiceMap[svc.Hostname] = &model.Service{
+					Hostname: svc.Hostname,
+					Address:  svc.Address,
+					Ports:    []*model.Port{svcPort},
+				}
+			}
+		}
+	}
+
+	// Get list of virtual services bound to the mesh gateway
+	virtualServices := env.VirtualServices([]string{model.IstioMeshGateway})
+	// TODO: Need to trim output based on source label/gateway match
+	guardedHosts := TranslateVirtualHosts(virtualServices, nameToServiceMap)
+	vHostPortMap := make(map[int][]route.VirtualHost)
+
+	for _, guardedHost := range guardedHosts {
+		routes := make([]route.Route, 0, len(guardedHost.Routes))
+		for _, r := range guardedHost.Routes {
+			routes = append(routes, r.Route)
+		}
+
+		virtualHosts := make([]route.VirtualHost, 0, len(guardedHost.Hosts)+len(guardedHost.Services))
+		for _, host := range guardedHost.Hosts {
+			virtualHosts = append(virtualHosts, route.VirtualHost{
+				Name:    fmt.Sprintf("%s:%d", host, guardedHost.Port),
+				Domains: []string{host},
+				Routes:  routes,
+			})
+		}
+
+		for _, svc := range guardedHost.Services {
+			domains := generateAltVirtualHosts(svc.Hostname, guardedHost.Port)
+			if len(svc.Address) > 0 {
+				// add a vhost match for the IP (if its non CIDR)
+				cidr := util.ConvertAddressToCidr(svc.Address)
+				if cidr.PrefixLen.Value == 32 {
+					domains = append(domains, svc.Address)
+					domains = append(domains, fmt.Sprintf("%s:%d", svc.Address, guardedHost.Port))
+				}
+			}
+			virtualHosts = append(virtualHosts, route.VirtualHost{
+				Name:    fmt.Sprintf("%s:%d", svc.Hostname, guardedHost.Port),
+				Domains: domains,
+				Routes:  routes,
+			})
+		}
+
+		vHostPortMap[guardedHost.Port] = append(vHostPortMap[guardedHost.Port], virtualHosts...)
+	}
+
+	var virtualHosts []route.VirtualHost
+	if routeName == RDSHttpProxy {
+		virtualHosts = mergeAllVirtualHosts(vHostPortMap)
+	} else {
+		virtualHosts = vHostPortMap[port]
+	}
+
+	out := &xdsapi.RouteConfiguration{
+		Name:             fmt.Sprintf("%d", port),
+		VirtualHosts:     virtualHosts,
+		ValidateClusters: &types.BoolValue{Value: false},
+	}
+
+	// call plugins
+	for _, p := range configgen.Plugins {
+		p.OnOutboundRoute(env, node, out)
+	}
+
+	return out
+}
+
+// Given a service, and a port, this function generates all possible HTTP Host headers.
+// For example, a service of the form foo.local.campus.net on port 80 could be accessed as
+// http://foo:80 within the .local network, as http://foo.local:80 (by other clients in the campus.net domain),
+// as http://foo.local.campus:80, etc.
+func generateAltVirtualHosts(hostname string, port int) []string {
+	vhosts := []string{hostname, fmt.Sprintf("%s:%d", hostname, port)}
+	for i := len(hostname) - 1; i >= 0; i-- {
+		if hostname[i] == '.' {
+			variant := hostname[:i]
+			variantWithPort := fmt.Sprintf("%s:%d", variant, port)
+			vhosts = append(vhosts, variant)
+			vhosts = append(vhosts, variantWithPort)
+		}
+	}
+	return vhosts
+}
+
+// mergeAllVirtualHosts across all ports. On routes for ports other than port 80,
+// virtual hosts without an explicit port suffix (IP:PORT) should be stripped
+func mergeAllVirtualHosts(vHostPortMap map[int][]route.VirtualHost) []route.VirtualHost {
+	var virtualHosts []route.VirtualHost
+	for p, vhosts := range vHostPortMap {
+		if p == 80 {
+			virtualHosts = append(virtualHosts, vhosts...)
+		} else {
+			for _, vhost := range vhosts {
+				var newDomains []string
+				for _, domain := range vhost.Domains {
+					if strings.Contains(domain, ":") {
+						newDomains = append(newDomains, domain)
+					}
+				}
+				if len(newDomains) > 0 {
+					vhost.Domains = newDomains
+					virtualHosts = append(virtualHosts, vhost)
+				}
+			}
+		}
+	}
+	return virtualHosts
 }
