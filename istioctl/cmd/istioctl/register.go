@@ -51,7 +51,7 @@ var (
 			if err != nil {
 				return err
 			}
-			ns, err := handleNamespaces(namespace)
+			ns, _ := handleNamespaces(namespace)
 			return kube.RegisterEndpoint(client, ns, svcName, ip, portsList, labels, annotations)
 		},
 	}

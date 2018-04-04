@@ -35,7 +35,7 @@ var (
 			if err != nil {
 				return err
 			}
-			ns, err := handleNamespaces(namespace)
+			ns, _ := handleNamespaces(namespace)
 			return kube.DeRegisterEndpoint(client, ns, svcName, ip)
 		},
 	}
