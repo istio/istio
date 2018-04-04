@@ -88,7 +88,7 @@ if [ "${BUILD_DOCKER}" == "true" ]; then
 fi
 
 if [[ -n "${TEST_DOCKER_HUB}" ]]; then
-  VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${TEST_DOCKER_HUB} HUB=${TEST_DOCKER_HUB} VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION ISTIO_GCS=$TEST_PATH ISTIO_GCS_ISTIOCTL=istioctl-stage make istio-archive
+  VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${TEST_DOCKER_HUB} HUB=${TEST_DOCKER_HUB} VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION ISTIO_GCS=$TEST_PATH make istio-archive
   cp ${ISTIO_OUT}/archive/istio-*z* ${OUTPUT_PATH}/
   mkdir -p "${OUTPUT_PATH}/gcr.io"
   cp ${ISTIO_OUT}/archive/istio-*z* ${OUTPUT_PATH}/gcr.io/
