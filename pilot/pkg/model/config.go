@@ -253,20 +253,19 @@ type IstioConfigStore interface {
 	// destination service.  A rule must match at least one of the input service
 	// instances since the proxy does not distinguish between source instances in
 	// the request.
-	RouteRules(source []*ServiceInstance, destination string, domain string) []Config
+	RouteRules(source []*ServiceInstance, destination string) []Config
 
 	// RouteRulesByDestination selects routing rules associated with destination
 	// service instances.  A rule must match at least one of the input
 	// destination instances.
-	RouteRulesByDestination(destination []*ServiceInstance, domain string) []Config
+	RouteRulesByDestination(destination []*ServiceInstance) []Config
 
 	// Policy returns a policy for a service version that match at least one of
 	// the source instances.  The labels must match precisely in the policy.
 	Policy(source []*ServiceInstance, destination string, labels Labels) *Config
 
 	// DestinationRule returns a destination rule for a service name in a given domain.
-	// Name can be short name or FQDN.
-	DestinationRule(name, domain string) *Config
+	DestinationRule(hostname string) *Config
 
 	// VirtualServices lists all virtual services bound to the specified gateways
 	VirtualServices(gateways []string) []Config
@@ -275,7 +274,7 @@ type IstioConfigStore interface {
 	Gateways(workloadLabels LabelsCollection) []Config
 
 	// SubsetToLabels returns the labels associated with a subset of a given service.
-	SubsetToLabels(subsetName, hostname, domain string) LabelsCollection
+	SubsetToLabels(subsetName, hostname string) LabelsCollection
 
 	// HTTPAPISpecByDestination selects Mixerclient HTTP API Specs
 	// associated with destination service instances.
@@ -597,10 +596,10 @@ func ResolveShortnameToFQDN(host string, meta ConfigMeta) string {
 	return out
 }
 
-// FIXME: remove!!
 // ResolveFQDN ensures a host is a FQDN. If the host is a short name (i.e. has no dots in the name) and the domain is
 // non-empty the FQDN is built by concatenating the host and domain with a dot. Otherwise host is assumed to be a
 // FQDN and is returned unchanged.
+// FIXME: remove obsolete function
 func ResolveFQDN(host, domain string) string {
 	if len(domain) > 0 && strings.Count(host, ".") == 0 { // host is a shortname
 		return fmt.Sprintf("%s.%s", host, domain)
@@ -611,6 +610,7 @@ func ResolveFQDN(host, domain string) string {
 // resolveFQDNFromAuthNTarget returns FQDN for AuthenticationPolicy target selector,
 // in namespace and domain defines by config meta.
 func resolveFQDNFromAuthNTarget(meta ConfigMeta, target *authn.TargetSelector) string {
+	// return target.Name + "." + meta.Namespace + ".svc." + meta.Domain
 	return ResolveFQDN(target.Name, meta.Namespace+".svc."+meta.Domain)
 }
 
@@ -660,8 +660,7 @@ func SortRouteRules(rules []Config) {
 	})
 }
 
-// FIXME: remove domain
-func (store *istioConfigStore) RouteRules(instances []*ServiceInstance, destination string, domain string) []Config {
+func (store *istioConfigStore) RouteRules(instances []*ServiceInstance, destination string) []Config {
 	out := make([]Config, 0)
 	configs, err := store.List(RouteRule.Type, NamespaceAll)
 	if err != nil {
@@ -688,8 +687,7 @@ func (store *istioConfigStore) RouteRules(instances []*ServiceInstance, destinat
 	return out
 }
 
-// FIXME: remove domain
-func (store *istioConfigStore) RouteRulesByDestination(instances []*ServiceInstance, domain string) []Config {
+func (store *istioConfigStore) RouteRulesByDestination(instances []*ServiceInstance) []Config {
 	out := make([]Config, 0)
 	configs, err := store.List(RouteRule.Type, NamespaceAll)
 	if err != nil {
@@ -848,20 +846,15 @@ func (store *istioConfigStore) Policy(instances []*ServiceInstance, destination 
 	return &out
 }
 
-func (store *istioConfigStore) DestinationRule(name, domain string) *Config {
+func (store *istioConfigStore) DestinationRule(hostname string) *Config {
 	configs, err := store.List(DestinationRule.Type, NamespaceAll)
 	if err != nil {
 		return nil
 	}
 
-	target := ResolveFQDN(name, domain)
 	for _, config := range configs {
 		rule := config.Spec.(*networking.DestinationRule)
-		if ResolveFQDN(rule.Host, domain) == target {
-			return &config
-		}
-		// from shortname destination to FQDN using the rule's namespace
-		if ResolveShortnameToFQDN(rule.Host, config.ConfigMeta) == target {
+		if ResolveShortnameToFQDN(rule.Host, config.ConfigMeta) == hostname {
 			return &config
 		}
 	}
@@ -869,13 +862,13 @@ func (store *istioConfigStore) DestinationRule(name, domain string) *Config {
 	return nil
 }
 
-func (store *istioConfigStore) SubsetToLabels(subsetName, hostname, domain string) LabelsCollection {
+func (store *istioConfigStore) SubsetToLabels(subsetName, hostname string) LabelsCollection {
 	// empty subset
 	if subsetName == "" {
 		return nil
 	}
 
-	config := store.DestinationRule(hostname, domain)
+	config := store.DestinationRule(hostname)
 	if config == nil {
 		return nil
 	}
@@ -1010,7 +1003,6 @@ func (store *istioConfigStore) AuthenticationPolicyByDestination(hostname string
 		matchLevel := 0
 		if len(policy.Targets) > 0 {
 			for _, dest := range policy.Targets {
-
 				if hostname != resolveFQDNFromAuthNTarget(spec.ConfigMeta, dest) {
 					continue
 				}

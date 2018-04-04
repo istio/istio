@@ -80,7 +80,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environmen
 	services []*model.Service) []*v2.Cluster {
 	clusters := make([]*v2.Cluster, 0)
 	for _, service := range services {
-		config := env.DestinationRule(service.Hostname, "")
+		config := env.DestinationRule(service.Hostname)
 		for _, port := range service.Ports {
 			hosts := buildClusterHosts(env, service, port)
 

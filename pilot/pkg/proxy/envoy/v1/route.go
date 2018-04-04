@@ -140,15 +140,8 @@ func BuildOutboundCluster(hostname string, port *model.Port, labels model.Labels
 	return cluster
 }
 
-// BuildHTTPRoutes translates a route rule to an Envoy route
-// FIXME: refactor to remove unnecessary args
-func BuildHTTPRoutes(store model.IstioConfigStore, config model.Config, service *model.Service,
-	port *model.Port, proxyInstances []*model.ServiceInstance, domain string, envoyv2 bool, buildCluster BuildClusterFunc) []*HTTPRoute {
-
-	return []*HTTPRoute{buildHTTPRouteV1(config, service, port, envoyv2)}
-}
-
-func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.Port, envoyv2 bool) *HTTPRoute {
+// BuildHTTPRoute translates a route rule to an Envoy route
+func BuildHTTPRoute(config model.Config, service *model.Service, port *model.Port, envoyv2 bool) *HTTPRoute {
 	rule := config.Spec.(*routing.RouteRule)
 	route := buildHTTPRouteMatch(rule.Match)
 

@@ -168,7 +168,7 @@ func updateCluster(clusterName string, edsCluster *EdsCluster) {
 		_, subsetName, hostname, p = model.ParseSubsetKey(clusterName)
 		ports = []*model.Port{p}
 		portName = p.Name
-		labels = edsCluster.discovery.env.IstioConfigStore.SubsetToLabels(subsetName, hostname, "")
+		labels = edsCluster.discovery.env.IstioConfigStore.SubsetToLabels(subsetName, hostname)
 	} else {
 		hostname, ports, labels = model.ParseServiceKey(clusterName)
 		if len(ports) > 0 {

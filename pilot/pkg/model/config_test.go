@@ -426,32 +426,32 @@ func TestRouteRules(t *testing.T) {
 	if _, err := store.Create(config); err != nil {
 		t.Error(err)
 	}
-	if out := store.RouteRules([]*model.ServiceInstance{instance}, mock.WorldService.Hostname, mock.HelloProxyV0.Domain); len(out) != 1 ||
+	if out := store.RouteRules([]*model.ServiceInstance{instance}, mock.WorldService.Hostname); len(out) != 1 ||
 		!reflect.DeepEqual(config.Spec, out[0].Spec) {
 		t.Errorf("RouteRules() => expected %#v but got %#v", config.Spec, out)
 	}
-	if out := store.RouteRules([]*model.ServiceInstance{instance}, mock.HelloService.Hostname, mock.HelloProxyV0.Domain); len(out) != 0 {
+	if out := store.RouteRules([]*model.ServiceInstance{instance}, mock.HelloService.Hostname); len(out) != 0 {
 		t.Error("RouteRules() => expected no match for destination-matched rules")
 	}
-	if out := store.RouteRules(nil, mock.WorldService.Hostname, "DNE"); len(out) != 0 {
+	if out := store.RouteRules(nil, mock.WorldService.Hostname); len(out) != 0 {
 		t.Error("RouteRules() => expected no match for source-matched rules")
 	}
 
 	world := mock.MakeInstance(mock.WorldService, mock.GetPortHTTP(mock.WorldService), 0, "")
-	if out := store.RouteRulesByDestination([]*model.ServiceInstance{world}, mock.HelloProxyV0.Domain); len(out) != 1 ||
+	if out := store.RouteRulesByDestination([]*model.ServiceInstance{world}); len(out) != 1 ||
 		!reflect.DeepEqual(config.Spec, out[0].Spec) {
 		t.Errorf("RouteRulesByDestination() => got %#v, want %#v", out, config.Spec)
 	}
-	if out := store.RouteRulesByDestination([]*model.ServiceInstance{instance}, mock.HelloProxyV0.Domain); len(out) != 0 {
+	if out := store.RouteRulesByDestination([]*model.ServiceInstance{instance}); len(out) != 0 {
 		t.Error("RouteRulesByDestination() => expected no match")
 	}
 
 	// erroring out list
 	if out := model.MakeIstioStore(errorStore{}).RouteRules([]*model.ServiceInstance{instance},
-		mock.WorldService.Hostname, mock.HelloProxyV0.Domain); len(out) != 0 {
+		mock.WorldService.Hostname); len(out) != 0 {
 		t.Errorf("RouteRules() => expected nil but got %v", out)
 	}
-	if out := model.MakeIstioStore(errorStore{}).RouteRulesByDestination([]*model.ServiceInstance{world}, mock.HelloProxyV0.Domain); len(out) != 0 {
+	if out := model.MakeIstioStore(errorStore{}).RouteRulesByDestination([]*model.ServiceInstance{world}); len(out) != 0 {
 		t.Errorf("RouteRulesByDestination() => expected nil but got %v", out)
 	}
 }
