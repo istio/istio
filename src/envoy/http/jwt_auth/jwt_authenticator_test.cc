@@ -106,7 +106,33 @@ const char kExampleConfig[] = R"(
             "cache_duration": {
               "seconds": 600
             }
-         }
+         },
+         "forward_payload_header": "sec-istio-auth-userinfo"
+      }
+   ]
+}
+)";
+
+// A JSON config without forward_payload_header configured.
+const char kExampleConfigWithoutForwardPayloadHeader[] = R"(
+{
+   "rules": [
+      {
+         "issuer": "https://example.com",
+         "audiences": [
+            "example_service",
+            "http://example_service1",
+            "https://example_service2/"
+          ],
+          "remote_jwks": {
+            "http_uri": {
+              "uri": "https://pubkey_server/pubkey_path",
+              "cluster": "pubkey_cluster"
+            },
+            "cache_duration": {
+              "seconds": 600
+            }
+         },
       }
    ]
 }
@@ -729,6 +755,24 @@ TEST_F(JwtAuthenticatorTest, TestOnDestroy) {
 
   // Destroy the authenticating process.
   auth_->onDestroy();
+}
+
+TEST_F(JwtAuthenticatorTest, TestNoForwardPayloadHeader) {
+  // In this config, there is no forward_payload_header
+  SetupConfig(kExampleConfigWithoutForwardPayloadHeader);
+  MockUpstream mock_pubkey(mock_cm_, kPublicKey);
+  auto headers = TestHeaderMapImpl{{"Authorization", "Bearer " + kGoodToken}};
+  MockJwtAuthenticatorCallbacks mock_cb;
+  EXPECT_CALL(mock_cb, onDone(_)).WillOnce(Invoke([](const Status &status) {
+    ASSERT_EQ(status, Status::OK);
+  }));
+  auth_->Verify(headers, &mock_cb);
+
+  // Test when forward_payload_header is not set, the output should still
+  // contain the sec-istio-auth-userinfo header for backward compatibility.
+  EXPECT_TRUE(headers.has("sec-istio-auth-userinfo"));
+  // In addition, the sec-istio-auth-userinfo header should be the only header
+  EXPECT_EQ(headers.size(), 1);
 }
 
 }  // namespace JwtAuth

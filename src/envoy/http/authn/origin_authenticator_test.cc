@@ -122,7 +122,9 @@ class OriginAuthenticatorTest : public testing::TestWithParam<bool> {
   std::unique_ptr<StrictMock<MockOriginAuthenticator>> authenticator_;
   StrictMock<MockFunction<void(bool)>> on_done_callback_;
   Http::TestHeaderMapImpl request_headers_;
-  FilterContext filter_context_{&request_headers_, nullptr};
+  FilterContext filter_context_{&request_headers_, nullptr,
+                                istio::envoy::config::filter::http::authn::
+                                    v2alpha1::FilterConfig::default_instance()};
   iaapi::Policy policy_;
 
   // Mock response payload.

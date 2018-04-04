@@ -14,10 +14,7 @@
  */
 
 #include "src/envoy/http/authn/filter_context.h"
-#include "gmock/gmock.h"
-#include "gtest/gtest.h"
 #include "src/envoy/http/authn/test_utils.h"
-#include "src/istio/authn/context.pb.h"
 #include "test/test_common/utility.h"
 
 using istio::authn::Payload;
@@ -37,7 +34,10 @@ class FilterContextTest : public testing::Test {
 
   // This test suit does not use headers nor connection, so ok to use null for
   // them.
-  StrictMock<FilterContext> filter_context_{nullptr, nullptr};
+  FilterContext filter_context_{nullptr, nullptr,
+                                istio::envoy::config::filter::http::authn::
+                                    v2alpha1::FilterConfig::default_instance()};
+
   Payload x509_payload_{TestUtilities::CreateX509Payload("foo")};
   Payload jwt_payload_{TestUtilities::CreateJwtPayload("bar", "istio.io")};
 };

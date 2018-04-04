@@ -45,8 +45,9 @@
                              "uri": "http://example.com/foobar_cert",
                              "cluster": "example_issuer"
                           }
-                        }
-                      }
+                        },
+                        "forward_payload_header": "sec-istio-auth-userinfo"
+                     }
                    ]
                  }
               },

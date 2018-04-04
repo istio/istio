@@ -90,8 +90,8 @@ TEST_P(AuthenticationFilterIntegrationTest, SourceMTlsFail) {
   EXPECT_TRUE(response_->complete());
   EXPECT_STREQ("401", response_->headers().Status()->value().c_str());
 }
-//
-//// TODO (diemtvu/lei-tang): add test for MTls success.
+
+// TODO (diemtvu/lei-tang): add test for MTls success.
 
 TEST_P(AuthenticationFilterIntegrationTest, OriginJwtRequiredHeaderNoJwtFail) {
   createTestServer(

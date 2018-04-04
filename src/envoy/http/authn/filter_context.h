@@ -17,6 +17,7 @@
 
 #include "authentication/v1alpha1/policy.pb.h"
 #include "common/common/logger.h"
+#include "envoy/config/filter/http/authn/v2alpha1/config.pb.h"
 #include "server/config/network/http_connection_manager.h"
 #include "src/istio/authn/context.pb.h"
 
@@ -29,8 +30,13 @@ namespace AuthN {
 // result data for authentication process.
 class FilterContext : public Logger::Loggable<Logger::Id::filter> {
  public:
-  FilterContext(HeaderMap* headers, const Network::Connection* connection)
-      : headers_(headers), connection_(connection) {}
+  FilterContext(
+      HeaderMap* headers, const Network::Connection* connection,
+      const istio::envoy::config::filter::http::authn::v2alpha1::FilterConfig&
+          filter_config)
+      : headers_(headers),
+        connection_(connection),
+        filter_config_(filter_config) {}
   virtual ~FilterContext() {}
 
   // Sets peer result based on authenticated payload. Input payload can be null,
@@ -53,6 +59,11 @@ class FilterContext : public Logger::Loggable<Logger::Id::filter> {
   HeaderMap* headers() { return headers_; }
   // Accessor to connection
   const Network::Connection* connection() { return connection_; }
+  // Accessor to the filter config
+  const istio::envoy::config::filter::http::authn::v2alpha1::FilterConfig&
+  filter_config() const {
+    return filter_config_;
+  }
 
  private:
   // Pointer to the headers of the request.
@@ -63,6 +74,10 @@ class FilterContext : public Logger::Loggable<Logger::Id::filter> {
 
   // Holds authentication attribute outputs.
   istio::authn::Result result_;
+
+  // Store the Istio authn filter config.
+  const istio::envoy::config::filter::http::authn::v2alpha1::FilterConfig&
+      filter_config_;
 };
 
 }  // namespace AuthN

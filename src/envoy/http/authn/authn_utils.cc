@@ -56,8 +56,7 @@ bool AuthnUtils::GetJWTPayloadFromHeaders(
     istio::authn::JwtPayload* payload) {
   const HeaderEntry* entry = headers.get(jwt_payload_key);
   if (!entry) {
-    ENVOY_LOG(debug, "No JwtPayloadKey entry {} in the header",
-              jwt_payload_key.get());
+    ENVOY_LOG(debug, "No JWT payload {} in the header", jwt_payload_key.get());
     return false;
   }
   std::string value(entry->value().c_str(), entry->value().size());

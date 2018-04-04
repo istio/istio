@@ -25,14 +25,6 @@ namespace Envoy {
 namespace Http {
 namespace Istio {
 namespace AuthN {
-namespace {
-// The HTTP header from which to get the verified Jwt result.
-// It is currently hard-coded. After jwt-auth has a
-// parameter for this header, the hardcoded parameter will
-// be removed.
-const LowerCaseString kJwtHeaderKey("sec-istio-auth-userinfo");
-
-}  // namespace
 
 AuthenticatorBase::AuthenticatorBase(
     FilterContext* filter_context,
@@ -70,22 +62,30 @@ void AuthenticatorBase::validateX509(
 }
 
 void AuthenticatorBase::validateJwt(
-    const iaapi::Jwt&,
+    const iaapi::Jwt& jwt,
     const AuthenticatorBase::MethodDoneCallback& done_callback) {
   Payload payload;
   Envoy::Http::HeaderMap& header = *filter_context()->headers();
-  ENVOY_LOG(debug, "{} the number of headers is {}", __func__, header.size());
 
-  bool ret = AuthnUtils::GetJWTPayloadFromHeaders(header, kJwtHeaderKey,
+  auto iter =
+      filter_context()->filter_config().jwt_output_payload_locations().find(
+          jwt.issuer());
+  if (iter ==
+      filter_context()->filter_config().jwt_output_payload_locations().end()) {
+    ENVOY_LOG(error,
+              "No JWT payload header location is found for the issuer {}",
+              jwt.issuer());
+    done_callback(nullptr, false);
+    return;
+  }
+  LowerCaseString header_key(iter->second);
+  bool ret = AuthnUtils::GetJWTPayloadFromHeaders(header, header_key,
                                                   payload.mutable_jwt());
   if (!ret) {
-    ENVOY_LOG(debug,
-              "AuthenticatorBase: {} GetJWTPayloadFromHeaders() returns false.",
-              __func__);
+    ENVOY_LOG(debug, "GetJWTPayloadFromHeaders() returns false.");
     done_callback(nullptr, false);
   } else {
-    ENVOY_LOG(debug, "AuthenticatorBase: {}(): a valid JWT is found.",
-              __func__);
+    ENVOY_LOG(debug, "A valid JWT is found.");
     // payload is a stack variable, done_callback should treat it only as a
     // temporary variable
     done_callback(&payload, true);
