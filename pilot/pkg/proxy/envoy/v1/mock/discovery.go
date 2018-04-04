@@ -62,6 +62,7 @@ var (
 		ID:        "ingress.default",
 		Domain:    "default.svc.cluster.local",
 	}
+	// TODO: remove?
 	Router = model.Proxy{
 		Type:      model.Router,
 		IPAddress: "10.3.3.5",
@@ -115,6 +116,7 @@ func MakeService(hostname, address string) *model.Service {
 }
 
 // MakeExternalHTTPService creates mock external service
+// TODO: remove?
 func MakeExternalHTTPService(hostname, external string, address string) *model.Service {
 	return &model.Service{
 		Hostname:     hostname,
@@ -130,6 +132,7 @@ func MakeExternalHTTPService(hostname, external string, address string) *model.S
 }
 
 // MakeExternalHTTPSService creates mock external service
+// TODO: remove?
 func MakeExternalHTTPSService(hostname, external string, address string) *model.Service {
 	return &model.Service{
 		Hostname:     hostname,

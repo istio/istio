@@ -597,6 +597,7 @@ func ResolveShortnameToFQDN(host string, meta ConfigMeta) string {
 	return out
 }
 
+// FIXME: remove!!
 // ResolveFQDN ensures a host is a FQDN. If the host is a short name (i.e. has no dots in the name) and the domain is
 // non-empty the FQDN is built by concatenating the host and domain with a dot. Otherwise host is assumed to be a
 // FQDN and is returned unchanged.
@@ -647,7 +648,6 @@ func MatchSource(meta ConfigMeta, source *routing.IstioService, instances []*Ser
 }
 
 // SortRouteRules sorts a slice of v1alpha1 rules by precedence in a stable manner.
-// non-v1alpha1 rules are sorted low without a guaranteed relative ordering.
 func SortRouteRules(rules []Config) {
 	// sort by high precedence first, key string second (keys are unique)
 	sort.Slice(rules, func(i, j int) bool {
@@ -660,13 +660,8 @@ func SortRouteRules(rules []Config) {
 	})
 }
 
+// FIXME: remove domain
 func (store *istioConfigStore) RouteRules(instances []*ServiceInstance, destination string, domain string) []Config {
-	configs := store.routeRules(instances, destination)
-	configs = append(configs, store.routeRulesV2(domain, destination)...)
-	return configs
-}
-
-func (store *istioConfigStore) routeRules(instances []*ServiceInstance, destination string) []Config {
 	out := make([]Config, 0)
 	configs, err := store.List(RouteRule.Type, NamespaceAll)
 	if err != nil {
@@ -693,37 +688,8 @@ func (store *istioConfigStore) routeRules(instances []*ServiceInstance, destinat
 	return out
 }
 
-func (store *istioConfigStore) routeRulesV2(domain, destination string) []Config {
-	out := make([]Config, 0)
-	configs, err := store.List(VirtualService.Type, NamespaceAll)
-	if err != nil {
-		return nil
-	}
-
-	for _, config := range configs {
-		rule := config.Spec.(*networking.VirtualService)
-		for _, host := range rule.Hosts {
-			if ResolveFQDN(host, domain) == destination {
-				out = append(out, config)
-				break
-			}
-		}
-	}
-
-	return out
-}
-
-// TODO: This is wrong per V1alpha3. We need RouteRulesBySource (which is the function below)
-// and a RouteRulesByDestination which scans the entire rule for destinations (in route, redirect, mirror blocks)
-// and matches these destinations against the input destination. The rules that match should be considered
-// for BuildInboundRoutesV2
+// FIXME: remove domain
 func (store *istioConfigStore) RouteRulesByDestination(instances []*ServiceInstance, domain string) []Config {
-	configs := store.routeRulesByDestination(instances)
-	configs = append(configs, store.routeRulesByDestinationV2(instances, domain)...)
-	return configs
-}
-
-func (store *istioConfigStore) routeRulesByDestination(instances []*ServiceInstance) []Config {
 	out := make([]Config, 0)
 	configs, err := store.List(RouteRule.Type, NamespaceAll)
 	if err != nil {
@@ -742,28 +708,6 @@ func (store *istioConfigStore) routeRulesByDestination(instances []*ServiceInsta
 	}
 
 	return out
-}
-
-// This logic assumes there is at most one route rule for a given host.
-// If there is more than one the output may be non-deterministic.
-func (store *istioConfigStore) routeRulesByDestinationV2(instances []*ServiceInstance, domain string) []Config {
-	configs, err := store.List(VirtualService.Type, NamespaceAll)
-	if err != nil {
-		return nil
-	}
-
-	for _, config := range configs {
-		rule := config.Spec.(*networking.VirtualService)
-		for _, host := range rule.Hosts {
-			for _, instance := range instances {
-				if ResolveFQDN(host, domain) == instance.Service.Hostname {
-					return []Config{config}
-				}
-			}
-		}
-	}
-
-	return nil
 }
 
 func (store *istioConfigStore) EgressRules() []Config {
