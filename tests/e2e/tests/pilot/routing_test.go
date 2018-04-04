@@ -187,6 +187,11 @@ func TestRoutes(t *testing.T) {
 			}
 
 			for _, c := range cases {
+				if strings.Contains(c.testName, "websocket") && version == "v1alpha3" {
+					log.Infof("Skipping Websocket tests in v1alpha3 as they are not implemented yet")
+					continue
+				}
+
 				// Run each case in a function to scope the configuration's lifecycle.
 				func() {
 					ruleYaml := fmt.Sprintf("testdata/%s/%s", version, c.config)
