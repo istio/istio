@@ -28,7 +28,6 @@ import (
 	"google.golang.org/grpc/status"
 
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/registry"
 	pb "istio.io/istio/security/proto"
@@ -36,13 +35,20 @@ import (
 
 const certExpirationBuffer = time.Minute
 
+// istioCA contains methods to be supported by a CA.
+type istioCA interface {
+	Sign(csrPEM []byte, ttl time.Duration) ([]byte, error)
+	SignCAServerCert(csrPEM []byte, ttl time.Duration) ([]byte, error)
+	GetCAKeyCertBundle() util.KeyCertBundle
+}
+
 // Server implements pb.IstioCAService and provides the service on the
 // specified port.
 type Server struct {
 	authenticators []authenticator
 	authorizer     authorizer
 	serverCertTTL  time.Duration
-	ca             ca.CertificateAuthority
+	ca             istioCA
 	certificate    *tls.Certificate
 	hostname       string
 	port           int
@@ -72,7 +78,7 @@ func (s *Server) HandleCSR(ctx context.Context, request *pb.CsrRequest) (*pb.Csr
 	}
 
 	_, _, certChainBytes, _ := s.ca.GetCAKeyCertBundle().GetAll()
-	cert, err := s.ca.Sign(request.CsrPem, time.Duration(request.RequestedTtlMinutes)*time.Minute, request.ForCA)
+	cert, err := s.ca.Sign(request.CsrPem, time.Duration(request.RequestedTtlMinutes)*time.Minute)
 	if err != nil {
 		log.Errorf("CSR signing error (%v)", err)
 		return nil, status.Errorf(codes.Internal, "CSR signing error (%v)", err)
@@ -114,7 +120,7 @@ func (s *Server) Run() error {
 }
 
 // New creates a new instance of `IstioCAServiceServer`.
-func New(ca ca.CertificateAuthority, ttl time.Duration, hostname string, port int) *Server {
+func New(ca istioCA, ttl time.Duration, hostname string, port int) *Server {
 	// Notice that the order of authenticators matters, since at runtime
 	// authenticators are actived sequentially and the first successful attempt
 	// is used as the authentication result.
@@ -170,7 +176,7 @@ func (s *Server) applyServerCertificate() (*tls.Certificate, error) {
 		return nil, err
 	}
 
-	certPEM, err := s.ca.Sign(csrPEM, s.serverCertTTL, false)
+	certPEM, err := s.ca.SignCAServerCert(csrPEM, s.serverCertTTL)
 	if err != nil {
 		return nil, err
 	}
