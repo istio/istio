@@ -457,7 +457,7 @@ func TestBuildJwtFilter(t *testing.T) {
 			expected: nil,
 		},
 		{
-			in:       nil,
+			in:       &authn.Policy{},
 			expected: nil,
 		},
 		{
@@ -661,6 +661,103 @@ func TestConvertPolicyToAuthNFilterConfig(t *testing.T) {
 	for _, c := range cases {
 		if got := ConvertPolicyToAuthNFilterConfig(c.in); !reflect.DeepEqual(c.expected, got) {
 			t.Errorf("Test case %s: expected\n%#v\n, got\n%#v", c.name, c.expected.String(), got.String())
+		}
+	}
+}
+
+func TestBuildAuthNFilter(t *testing.T) {
+	cases := []struct {
+		in       *authn.Policy
+		expected *http_conn.HttpFilter
+	}{
+		{
+			in: nil,
+			expected: &http_conn.HttpFilter{
+				Name: "istio_authn",
+				Config: &types.Struct{
+					Fields: map[string]*types.Value{
+						"policy": &types.Value{
+							Kind: &types.Value_StructValue{
+								StructValue: &types.Struct{Fields: map[string]*types.Value{}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			in: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Jwt{
+							Jwt: &authn.Jwt{
+								JwksUri: "http://abc.com",
+							},
+						},
+					},
+				},
+			},
+			expected: &http_conn.HttpFilter{
+				Name: "istio_authn",
+				Config: &types.Struct{
+					Fields: map[string]*types.Value{
+						"jwt_output_payload_locations": &types.Value{
+							Kind: &types.Value_StructValue{
+								StructValue: &types.Struct{
+									Fields: map[string]*types.Value{
+										"": &types.Value{
+											Kind: &types.Value_StringValue{
+												StringValue: "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709",
+											},
+										},
+									},
+								},
+							},
+						},
+						"policy": &types.Value{
+							Kind: &types.Value_StructValue{
+								StructValue: &types.Struct{
+									Fields: map[string]*types.Value{
+										"peers": &types.Value{
+											Kind: &types.Value_ListValue{
+												ListValue: &types.ListValue{
+													Values: []*types.Value{
+														&types.Value{
+															Kind: &types.Value_StructValue{
+																StructValue: &types.Struct{
+																	Fields: map[string]*types.Value{
+																		"jwt": &types.Value{
+																			Kind: &types.Value_StructValue{
+																				StructValue: &types.Struct{
+																					Fields: map[string]*types.Value{
+																						"jwks_uri": &types.Value{
+																							Kind: &types.Value_StringValue{StringValue: "http://abc.com"},
+																						},
+																					},
+																				},
+																			},
+																		},
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, c := range cases {
+		if got := BuildAuthNFilter(c.in); !reflect.DeepEqual(c.expected, got) {
+			t.Errorf("BuildAuthNFilter(%#v), got:\n%#v\nwanted:\n%#v\n", c.in, got, c.expected)
 		}
 	}
 }
