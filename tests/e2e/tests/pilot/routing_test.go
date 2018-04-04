@@ -331,8 +331,9 @@ func TestRouteRedirectInjection(t *testing.T) {
 	}
 }
 
+// TODO this is not implemented properly at the moment.
 func TestRouteMirroring(t *testing.T) {
-	t.Skipf("Skipping %s", t.Name())
+	t.Skipf("Skipping %s due to incomplete implementation", t.Name())
 	for _, version := range configVersions() {
 		logs := newAccessLogs()
 		// Invoke a function to scope the lifecycle of the deployed configs.
