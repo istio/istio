@@ -43,11 +43,14 @@ type TestSetup struct {
 	noMixer       bool
 	mfConfVersion string
 
-	//EnvoyTemplate is the bootstrap config used by envoy.
+	// EnvoyTemplate is the bootstrap config used by envoy.
 	EnvoyTemplate string
 
-	//EnvoyParams contain extra envoy parameters (cluster, node)
+	// EnvoyParams contain extra envoy parameters to pass in the CLI (cluster, node)
 	EnvoyParams []string
+
+	// EnvoyConfigOpt allows passing additional parameters to the EnvoyTemplate
+	EnvoyConfigOpt map[string]interface{}
 
 	// IstioSrc is the base directory of istio sources. May be set for finding testdata or
 	// other files in the source tree

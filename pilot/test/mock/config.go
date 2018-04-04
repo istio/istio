@@ -318,12 +318,14 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 	if !contains {
 		t.Error("expected config mock types")
 	}
+	log.Info("Created mock descriptor")
 
 	// create configuration objects
 	elts := make(map[int]model.Config)
 	for i := 0; i < n; i++ {
 		elts[i] = Make(namespace, i)
 	}
+	log.Info("Make mock objects")
 
 	// post all elements
 	for _, elt := range elts {
@@ -331,6 +333,7 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 			t.Error(err)
 		}
 	}
+	log.Info("Created mock objects")
 
 	revs := make(map[int]string)
 
@@ -343,6 +346,8 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 			revs[i] = v1.ResourceVersion
 		}
 	}
+
+	log.Info("Got stored elements")
 
 	if _, err := r.Create(elts[0]); err == nil {
 		t.Error("expected error posting twice")
@@ -459,6 +464,7 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 			t.Error(err)
 		}
 	}
+	log.Info("Delete elements")
 
 	l, err = r.List(model.MockConfig.Type, namespace)
 	if err != nil {
@@ -467,6 +473,7 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 	if len(l) != 0 {
 		t.Errorf("wanted 0 element(s), got %d in %v", len(l), l)
 	}
+	log.Info("Test done, deleting namespace")
 }
 
 // CheckIstioConfigTypes validates that an empty store can ingest Istio config objects

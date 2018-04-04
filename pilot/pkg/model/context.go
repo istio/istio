@@ -162,7 +162,7 @@ const (
 	DiscoveryPlainAddress = "istio-pilot:15007"
 
 	// IstioIngressGatewayName is the internal gateway name assigned to ingress
-	IstioIngressGatewayName = "istio-k8s-ingress-gateway"
+	IstioIngressGatewayName = "istio-ingress"
 
 	// IstioIngressNamespace is the namespace where Istio ingress controller is deployed
 	IstioIngressNamespace = "istio-system"
