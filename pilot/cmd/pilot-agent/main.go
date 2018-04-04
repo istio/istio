@@ -202,6 +202,9 @@ var (
 			log.Infof("Monitored certs: %#v", certs)
 
 			if role.Type == model.Static && proxyConfig.CustomConfigFile == "" {
+				name := os.Getenv("POD_NAME")
+				namespace := os.Getenv("POD_NAMESPACE")
+				telemetrySAN := fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/istio-mixer-service-account", namespace)
 				var upstreams []bootstrap.Upstream
 				var telemetry *bootstrap.Upstream
 				switch staticProfile {
@@ -210,9 +213,8 @@ var (
 						ListenPort:   15004,
 						UpstreamPort: 9091,
 						GRPC:         true,
-						Auth:         proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS,
-						Service:      fmt.Sprintf("%s.%s", bootstrap.TelemetryAddress, role.Domain),
-						UID:          fmt.Sprintf("kubernetes://%s", role.ID),
+						Service:      fmt.Sprintf("istio-telemetry.%s.svc.cluster.local", namespace),
+						UID:          fmt.Sprintf("kubernetes://%s.%s", name, namespace),
 						Operation:    "Check",
 					}
 					upstreams = []bootstrap.Upstream{*telemetry}
@@ -221,18 +223,23 @@ var (
 						ListenPort:   15004,
 						UpstreamPort: 9091,
 						GRPC:         true,
-						Auth:         proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS,
-						Service:      fmt.Sprintf("%s.%s", bootstrap.PolicyAddress, role.Domain),
-						UID:          fmt.Sprintf("kubernetes://%s", role.ID),
+						Service:      fmt.Sprintf("istio-policy.%s.svc.cluster.local", namespace),
+						UID:          fmt.Sprintf("kubernetes://%s.%s", name, namespace),
 						Operation:    "Report",
 					}}
 				}
 
-				config, err := bootstrap.BuildBootstrap(upstreams, telemetry, proxyConfig.ZipkinAddress, proxyConfig.ProxyAdminPort)
+				config, err := bootstrap.BuildBootstrap(
+					upstreams,
+					telemetry,
+					"istio-telemetry:15004", telemetrySAN,
+					proxyConfig.ZipkinAddress,
+					proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS,
+					proxyConfig.ProxyAdminPort)
 				if err != nil {
 					return err
 				}
-				marshaler := jsonpb.Marshaler{OrigName: true, Indent: "  "}
+				marshaler := jsonpb.Marshaler{OrigName: true}
 				out, err := marshaler.MarshalToString(config)
 				if err != nil {
 					return err

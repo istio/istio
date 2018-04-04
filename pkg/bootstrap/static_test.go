@@ -28,7 +28,6 @@ func TestBuildBootstrap(t *testing.T) {
 		UpstreamPort: 9091,
 		GRPC:         true,
 		Service:      "istio-telemetry",
-		Auth:         false,
 		UID:          "pod1.ns2",
 		Operation:    "Report",
 	}
@@ -37,7 +36,6 @@ func TestBuildBootstrap(t *testing.T) {
 		UpstreamPort: 9091,
 		GRPC:         true,
 		Service:      "istio-policy.ns4",
-		Auth:         true,
 		UID:          "pod2.ns2",
 		Operation:    "Check",
 	}
@@ -46,12 +44,17 @@ func TestBuildBootstrap(t *testing.T) {
 		UpstreamPort: 8080,
 		GRPC:         false,
 		Service:      "istio-pilot",
-		Auth:         true,
 		UID:          "pod4.ns5",
 		Operation:    "Discovery",
 	}
 
-	b1, berr := bootstrap.BuildBootstrap([]bootstrap.Upstream{telemetry}, &telemetry, zipkin, 15000)
+	b1, berr := bootstrap.BuildBootstrap(
+		[]bootstrap.Upstream{telemetry},
+		&telemetry,
+		"istio-telemetry:15004", "spiffe://cluster.local/ns/istio-system/sa/istio-mixer-service-account",
+		zipkin,
+		false,
+		15000)
 	if berr != nil {
 		t.Error(berr)
 	}
@@ -59,7 +62,12 @@ func TestBuildBootstrap(t *testing.T) {
 		t.Errorf("invalid bootstrap %v: %#v", err, b1)
 	}
 
-	b2, berr := bootstrap.BuildBootstrap([]bootstrap.Upstream{policy}, nil, "", 15000)
+	b2, berr := bootstrap.BuildBootstrap([]bootstrap.Upstream{policy},
+		nil,
+		"istio-telemetry:15004", "spiffe://cluster.local/ns/istio-system/sa/istio-mixer-service-account",
+		"",
+		true,
+		15000)
 	if berr != nil {
 		t.Error(berr)
 	}
@@ -67,19 +75,16 @@ func TestBuildBootstrap(t *testing.T) {
 		t.Errorf("invalid bootstrap %v: %#v", err, b2)
 	}
 
-	b3, berr := bootstrap.BuildBootstrap([]bootstrap.Upstream{discovery}, nil, "", 15000)
+	b3, berr := bootstrap.BuildBootstrap([]bootstrap.Upstream{discovery},
+		nil,
+		"istio-telemetry:15004", "spiffe://cluster.local/ns/istio-system/sa/istio-mixer-service-account",
+		"",
+		true,
+		15000)
 	if berr != nil {
 		t.Error(berr)
 	}
 	if err := b3.Validate(); err != nil {
 		t.Errorf("invalid bootstrap %v: %#v", err, b3)
-	}
-
-	b4, berr := bootstrap.BuildBootstrap(nil, nil, "", 15000)
-	if berr != nil {
-		t.Error(berr)
-	}
-	if err := b4.Validate(); err != nil {
-		t.Errorf("invalid bootstrap %v: %#v", err, b4)
 	}
 }

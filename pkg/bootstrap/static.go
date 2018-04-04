@@ -16,6 +16,7 @@ package bootstrap
 
 import (
 	"fmt"
+	"net"
 	"strconv"
 	"time"
 
@@ -41,28 +42,27 @@ import (
 const (
 	ZipkinCluster    = "zipkin"
 	TelemetryCluster = "mixer_report_server"
-	TelemetryAddress = "istio-telemetry"
-	TelemetryPort    = 9091
-	PolicyAddress    = "istio-policy"
-	PolicyPort       = 9091
 )
 
-// CircuitBreakers settings
-var CircuitBreakers = &cluster.CircuitBreakers{
-	Thresholds: []*cluster.CircuitBreakers_Thresholds{{
-		Priority:           core.RoutingPriority_DEFAULT,
-		MaxConnections:     &types.UInt32Value{Value: 100000},
-		MaxPendingRequests: &types.UInt32Value{Value: 100000},
-		MaxRequests:        &types.UInt32Value{Value: 100000},
-		MaxRetries:         &types.UInt32Value{Value: 3},
-	}},
-}
+var (
+	circuitBreakers = &cluster.CircuitBreakers{
+		Thresholds: []*cluster.CircuitBreakers_Thresholds{{
+			Priority:           core.RoutingPriority_DEFAULT,
+			MaxConnections:     &types.UInt32Value{Value: 100000},
+			MaxPendingRequests: &types.UInt32Value{Value: 100000},
+			MaxRequests:        &types.UInt32Value{Value: 100000},
+			MaxRetries:         &types.UInt32Value{Value: 3},
+		}},
+	}
+)
 
 // BuildBootstrap creates a static config for the sidecar HTTP proxy.
 func BuildBootstrap(
-	upstreams []Upstream,
-	telemetry *Upstream, // set to one of the upstreams to route telemetry locally
-	zipkin string, // set to non-empty host:port zipkin address
+	upstreams []Upstream, // list of upstreams behind the proxy
+	telemetryUpstream *Upstream, // set to one of the upstreams to route telemetry locally
+	telemetry, telemetrySAN string, // set to telemetry DNS address and SAN, e.g. istio-telemetry:15004
+	zipkin string, // set to non-empty DNS zipkin address, e.g. zipkin:9411
+	controlPlaneAuth bool, // set to enable control plane authentication
 	adminPort int32,
 ) (*bootstrap.Bootstrap, error) {
 	out := bootstrap.Bootstrap{
@@ -83,29 +83,17 @@ func BuildBootstrap(
 	}
 
 	if zipkin != "" {
-		host, portStr, err := GetHostPort("zipkin", zipkin)
+		zipkinAddress, err := toAddress(zipkin)
 		if err != nil {
 			return nil, err
 		}
-		port, err := strconv.Atoi(portStr)
-		if err != nil {
-			return nil, err
-		}
-
 		out.StaticResources.Clusters = append(out.StaticResources.Clusters,
 			v2.Cluster{
 				Name:           ZipkinCluster,
 				ConnectTimeout: 1 * time.Second,
 				Type:           v2.Cluster_STRICT_DNS,
 				LbPolicy:       v2.Cluster_ROUND_ROBIN,
-				Hosts: []*core.Address{{
-					Address: &core.Address_SocketAddress{
-						SocketAddress: &core.SocketAddress{
-							Address:       host,
-							PortSpecifier: &core.SocketAddress_PortValue{PortValue: uint32(port)},
-						},
-					},
-				}},
+				Hosts:          []*core.Address{zipkinAddress},
 			})
 		out.Tracing = &trace.Tracing{
 			Http: &trace.Tracing_Http{
@@ -120,30 +108,71 @@ func BuildBootstrap(
 
 	// telemetry bootstrap should route telemetry directly to the local upstream
 	telemetryCluster := TelemetryCluster
-	if telemetry == nil {
-		out.StaticResources.Clusters = append(out.StaticResources.Clusters, v2.Cluster{
-			Name:           TelemetryCluster,
-			ConnectTimeout: 1 * time.Second,
-			Type:           v2.Cluster_STRICT_DNS,
-			LbPolicy:       v2.Cluster_ROUND_ROBIN,
-			Hosts: []*core.Address{{
-				Address: &core.Address_SocketAddress{
-					SocketAddress: &core.SocketAddress{
-						Address:       TelemetryAddress,
-						PortSpecifier: &core.SocketAddress_PortValue{PortValue: TelemetryPort},
-					},
-				},
-			}},
-			CircuitBreakers:      CircuitBreakers,
+	if telemetryUpstream == nil {
+		telemetryAddress, err := toAddress(telemetry)
+		if err != nil {
+			return nil, err
+		}
+		cluster := v2.Cluster{
+			Name:                 TelemetryCluster,
+			ConnectTimeout:       1 * time.Second,
+			Type:                 v2.Cluster_STRICT_DNS,
+			LbPolicy:             v2.Cluster_ROUND_ROBIN,
+			Hosts:                []*core.Address{telemetryAddress},
+			CircuitBreakers:      circuitBreakers,
 			Http2ProtocolOptions: &core.Http2ProtocolOptions{},
-		})
+		}
+		if controlPlaneAuth {
+			cluster.TlsContext = &auth.UpstreamTlsContext{
+				CommonTlsContext: commonTLSContext([]string{telemetrySAN}),
+			}
+		}
+		out.StaticResources.Clusters = append(out.StaticResources.Clusters, cluster)
 	} else {
-		telemetryCluster = clusterName(*telemetry)
+		telemetryCluster = clusterName(*telemetryUpstream)
 	}
 
-	out.StaticResources.Listeners = BuildListeners(upstreams, telemetryCluster)
+	out.StaticResources.Listeners = BuildListeners(upstreams, telemetryCluster, controlPlaneAuth)
 
 	return &out, nil
+}
+
+func commonTLSContext(altNames []string) *auth.CommonTlsContext {
+	return &auth.CommonTlsContext{
+		TlsCertificates: []*auth.TlsCertificate{{
+			CertificateChain: &core.DataSource{
+				Specifier: &core.DataSource_Filename{Filename: "/etc/certs/cert-chain.pem"},
+			},
+			PrivateKey: &core.DataSource{
+				Specifier: &core.DataSource_Filename{Filename: "/etc/certs/key.pem"},
+			},
+		}},
+		ValidationContext: &auth.CertificateValidationContext{
+			TrustedCa: &core.DataSource{
+				Specifier: &core.DataSource_Filename{Filename: "/etc/certs/root-cert.pem"},
+			},
+			VerifySubjectAltName: altNames,
+		},
+	}
+}
+
+func toAddress(address string) (*core.Address, error) {
+	host, portStr, err := net.SplitHostPort(address)
+	if err != nil {
+		return nil, err
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return nil, err
+	}
+	return &core.Address{
+		Address: &core.Address_SocketAddress{
+			SocketAddress: &core.SocketAddress{
+				Address:       host,
+				PortSpecifier: &core.SocketAddress_PortValue{PortValue: uint32(port)},
+			},
+		},
+	}, nil
 }
 
 func toStruct(msg proto.Message) *types.Struct {
@@ -159,7 +188,6 @@ type Upstream struct {
 	ListenPort   uint32
 	UpstreamPort uint32
 	GRPC         bool
-	Auth         bool
 	Service      string
 	UID          string
 	Operation    string
@@ -193,7 +221,7 @@ func BuildServiceConfig(service, uid, telemetryCluster string) *mixerclient.Http
 }
 
 // BuildListeners generates HTTP listeners from upstreams
-func BuildListeners(upstreams []Upstream, telemetryCluster string) []v2.Listener {
+func BuildListeners(upstreams []Upstream, telemetryCluster string, controlPlaneAuth bool) []v2.Listener {
 	out := make([]v2.Listener, 0, len(upstreams))
 	for _, upstream := range upstreams {
 		config := &hcm.HttpConnectionManager{
@@ -258,25 +286,9 @@ func BuildListeners(upstreams []Upstream, telemetryCluster string) []v2.Listener
 				}},
 			}},
 		}
-		if upstream.Auth {
+		if controlPlaneAuth {
 			ctx := &auth.DownstreamTlsContext{
-				CommonTlsContext: &auth.CommonTlsContext{
-					TlsCertificates: []*auth.TlsCertificate{
-						{
-							CertificateChain: &core.DataSource{
-								Specifier: &core.DataSource_Filename{Filename: "/etc/certs/cert-chain.pem"},
-							},
-							PrivateKey: &core.DataSource{
-								Specifier: &core.DataSource_Filename{Filename: "/etc/certs/key.pem"},
-							},
-						},
-					},
-					ValidationContext: &auth.CertificateValidationContext{
-						TrustedCa: &core.DataSource{
-							Specifier: &core.DataSource_Filename{Filename: "/etc/certs/root-cert.pem"},
-						},
-					},
-				},
+				CommonTlsContext:         commonTLSContext(nil),
 				RequireClientCertificate: &types.BoolValue{Value: true},
 			}
 			if upstream.GRPC {
@@ -312,7 +324,7 @@ func BuildClusters(upstreams []Upstream) []v2.Cluster {
 					},
 				},
 			}},
-			CircuitBreakers: CircuitBreakers,
+			CircuitBreakers: circuitBreakers,
 		}
 		if upstream.GRPC {
 			cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{}
