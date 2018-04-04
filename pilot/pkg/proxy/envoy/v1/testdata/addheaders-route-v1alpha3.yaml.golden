@@ -3,6 +3,6 @@ hosts:
 http:
   - route:
     - destination:
-        name: world
+        host: world
     appendHeaders:
       appendedname: appendedValue

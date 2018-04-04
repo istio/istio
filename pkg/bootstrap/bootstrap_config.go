@@ -28,6 +28,8 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 
+	"strings"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
@@ -130,7 +132,7 @@ func StoreHostPort(host, port, field string, opts map[string]interface{}) {
 
 // WriteBootstrap generates an envoy config based on config and epoch, and returns the filename.
 // TODO: in v2 some of the LDS ports (port, http_port) should be configured in the bootstrap.
-func WriteBootstrap(config *meshconfig.ProxyConfig, epoch int, pilotSAN []string, opts map[string]interface{}) (string, error) {
+func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilotSAN []string, opts map[string]interface{}) (string, error) {
 	if opts == nil {
 		opts = map[string]interface{}{}
 	}
@@ -174,6 +176,29 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, epoch int, pilotSAN []string
 	if os.Getenv("USE_EDS_V1") == "1" {
 		opts["edsv1"] = "1"
 	}
+	opts["cluster"] = config.ServiceCluster
+	opts["nodeID"] = node
+
+	// Support passing extra info from node environment as metadata
+	meta := map[string]string{}
+	for _, env := range os.Environ() {
+		if strings.HasPrefix(env, "ISTIO_META_") {
+			v := env[len("ISTIO_META"):]
+			parts := strings.SplitN(v, "=", 2)
+			if len(parts) == 2 {
+				meta[parts[0]] = parts[1]
+			}
+		}
+	}
+	opts["meta"] = meta
+
+	// TODO: allow reading a file with additional metadata (for example if created with
+	// 'envref'. This will allow Istio to generate the right config even if the pod info
+	// is not available (in particular in some multi-cluster cases)
+
+	if len(config.AvailabilityZone) > 0 {
+		opts["az"] = config.AvailabilityZone
+	}
 
 	h, p, err := GetHostPort("Discovery", config.DiscoveryAddress)
 	if err != nil {
@@ -181,11 +206,17 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, epoch int, pilotSAN []string
 	}
 	StoreHostPort(h, p, "pilot_address", opts)
 
-	grpcAddress := opts["pilot_grpc"]
 	// Default values for the grpc address.
-	grpcPort := "15010"
-	grpcHost := h // Use pilot host
+	// TODO: take over the DiscoveryAddress or add a separate mesh config option
 	// Default value
+	grpcPort := "15010"
+	// TODO: enable mtls for grpc
+	//if config.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
+	//	grpcPort = "15011"
+	//}
+	grpcHost := h // Use pilot host
+
+	grpcAddress := opts["pilot_grpc"]
 	if grpcAddress != nil {
 		grpcHost, grpcPort, err = GetHostPort("gRPC", grpcAddress.(string))
 		if err != nil {
