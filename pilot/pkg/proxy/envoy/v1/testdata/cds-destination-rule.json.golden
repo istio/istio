@@ -78,64 +78,6 @@
     ]
    },
    {
-    "name": "out.*.google.com|external-HTTP-80",
-    "service_name": "*.google.com",
-    "connect_timeout_ms": 1000,
-    "type": "sds",
-    "lb_type": "round_robin"
-   },
-   {
-    "name": "out.*.google.com|external-HTTP-8080",
-    "service_name": "*.google.com",
-    "connect_timeout_ms": 1000,
-    "type": "sds",
-    "lb_type": "round_robin"
-   },
-   {
-    "name": "out.*.google.com|external-HTTP-8080|foo=bar",
-    "service_name": "*.google.com",
-    "connect_timeout_ms": 1000,
-    "type": "sds",
-    "lb_type": "random",
-    "max_requests_per_connection": 500,
-    "circuit_breakers": {
-     "default": {
-      "max_connections": 100,
-      "max_pending_requests": 50,
-      "max_requests": 200,
-      "max_retries": 5
-     }
-    },
-    "outlier_detection": {
-     "consecutive_5xx": 10,
-     "interval_ms": 30000,
-     "base_ejection_time_ms": 15500,
-     "max_ejection_percent": 100
-    }
-   },
-   {
-    "name": "out.*.google.com|external-HTTP-80|foo=bar",
-    "service_name": "*.google.com",
-    "connect_timeout_ms": 1000,
-    "type": "sds",
-    "lb_type": "random",
-    "max_requests_per_connection": 500,
-    "circuit_breakers": {
-     "default": {
-      "max_connections": 100,
-      "max_pending_requests": 50,
-      "max_requests": 200,
-      "max_retries": 5
-     }
-    },
-    "outlier_detection": {
-     "consecutive_5xx": 10,
-     "interval_ms": 30000,
-     "base_ejection_time_ms": 15500,
-     "max_ejection_percent": 100
-    }
-   },
-   {
     "name": "out.hello.default.svc.cluster.local|custom",
     "service_name": "hello.default.svc.cluster.local|custom",
     "connect_timeout_ms": 1000,
@@ -211,6 +153,34 @@
    {
     "name": "out.world.default.svc.cluster.local|http-status",
     "service_name": "world.default.svc.cluster.local|http-status",
+    "connect_timeout_ms": 1000,
+    "type": "sds",
+    "lb_type": "round_robin"
+   },
+   {
+    "name": "out.world.default.svc.cluster.local|http-status|version=v0",
+    "service_name": "world.default.svc.cluster.local|http-status|version=v0",
+    "connect_timeout_ms": 1000,
+    "type": "sds",
+    "lb_type": "round_robin"
+   },
+   {
+    "name": "out.world.default.svc.cluster.local|http-status|version=v1",
+    "service_name": "world.default.svc.cluster.local|http-status|version=v1",
+    "connect_timeout_ms": 1000,
+    "type": "sds",
+    "lb_type": "round_robin"
+   },
+   {
+    "name": "out.world.default.svc.cluster.local|http|version=v0",
+    "service_name": "world.default.svc.cluster.local|http|version=v0",
+    "connect_timeout_ms": 1000,
+    "type": "sds",
+    "lb_type": "round_robin"
+   },
+   {
+    "name": "out.world.default.svc.cluster.local|http|version=v1",
+    "service_name": "world.default.svc.cluster.local|http|version=v1",
     "connect_timeout_ms": 1000,
     "type": "sds",
     "lb_type": "round_robin"

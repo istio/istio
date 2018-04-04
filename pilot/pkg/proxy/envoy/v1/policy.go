@@ -21,7 +21,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	routing "istio.io/api/routing/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
+	model "istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
 
@@ -248,4 +248,63 @@ func applyDestinationRule(config model.IstioConfigStore, cluster *Cluster, domai
 			}
 		}
 	}
+}
+
+func BuildClustersForSubsets(env model.Environment, domain string) (Clusters, error) {
+
+	mesh := env.Mesh
+	store := env.IstioConfigStore
+	configs, err := store.List(model.DestinationRule.Type, model.NamespaceAll)
+	if err != nil {
+		return nil, err
+	}
+
+	clusters := make(Clusters, 0)
+	for _, config := range configs {
+		destinationRule := config.Spec.(*networking.DestinationRule)
+
+		// TODO update when https://github.com/istio/api/issues/421 is fixed
+		serviceName := destinationRule.Name
+
+		service, err := env.GetService(serviceName)
+		if err != nil || service == nil {
+			continue
+		}
+		fqdn := model.ResolveFQDN(service.Hostname, domain)
+		for _, subset := range destinationRule.Subsets {
+
+			for _, port := range service.Ports {
+				cluster := BuildOutboundClusterForSubset(subset, service, fqdn, port,
+					mesh.ConnectTimeout)
+				applyTrafficPolicy(cluster, subset.TrafficPolicy)
+
+				clusters = append(clusters, cluster)
+			}
+		}
+	}
+
+	return clusters, nil
+}
+
+func GetSubset(name string, store model.IstioConfigStore) (*networking.Subset, error) {
+
+	if name == "" {
+		return nil, nil
+	}
+	//TODO need to add the Subset to the store for faster retrieval
+	configs, err := store.List(model.DestinationRule.Type, model.NamespaceAll)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, config := range configs {
+		destinationRule := config.Spec.(*networking.DestinationRule)
+		for _, subset := range destinationRule.Subsets {
+			if subset.Name == name {
+				return subset, nil
+			}
+		}
+	}
+
+	return nil, nil
 }

@@ -186,15 +186,67 @@ func BuildOutboundCluster(hostname string, port *model.Port, labels model.Labels
 	return cluster
 }
 
+// BuildOutboundCluster builds an outbound cluster.
+func BuildOutboundClusterForSubset(subset *networking.Subset,
+	service *model.Service, hostname string, port *model.Port, timeout *duration.Duration) *Cluster {
+
+	var labels map[string]string
+	var name string
+	if subset == nil {
+		name = service.Key(port, nil)
+	} else {
+		//TODO change to subset DNS name
+		labels = subset.GetLabels()
+		name = hostname + "|" + port.Name
+
+		for label, value := range subset.GetLabels() {
+			name += "|"
+			name += label + "=" + value
+		}
+	}
+
+	name = TruncateClusterName(OutboundClusterPrefix + name)
+
+	clusterType := ClusterTypeSDS
+	if service.External() {
+		clusterType = ClusterTypeStrictDNS
+	}
+
+	hosts := []Host{}
+	if service.External() {
+		hosts = []Host{{URL: fmt.Sprintf("tcp://%s:%d", hostname, port.Port)}}
+	}
+
+	cluster := &Cluster{
+		Name:             name,
+		ServiceName:      service.Hostname,
+		Type:             clusterType,
+		LbType:           DefaultLbType,
+		Hosts:            hosts,
+		outbound:         !service.External(), // outbound means outbound-in-mesh. The name to be refactored later.
+		Hostname:         hostname,
+		Port:             port,
+		labels:           labels,
+		ConnectTimeoutMs: protoDurationToMS(timeout),
+	}
+
+	if port.Protocol == model.ProtocolGRPC || port.Protocol == model.ProtocolHTTP2 {
+		cluster.Features = ClusterFeatureHTTP2
+	}
+	return cluster
+}
+
 // BuildHTTPRoutes translates a route rule to an Envoy route
 func BuildHTTPRoutes(store model.IstioConfigStore, config model.Config, service *model.Service,
-	port *model.Port, proxyInstances []*model.ServiceInstance, domain string, envoyv2 bool, buildCluster BuildClusterFunc) []*HTTPRoute {
+	port *model.Port, proxyInstances []*model.ServiceInstance, domain string, envoyv2 bool,
+	buildCluster BuildClusterFunc, includeSubsets bool) []*HTTPRoute {
 
 	switch config.Spec.(type) {
 	case *routing.RouteRule:
 		return []*HTTPRoute{buildHTTPRouteV1(config, service, port, envoyv2)}
 	case *networking.VirtualService:
-		return buildHTTPRoutesV3(store, config, service, port, proxyInstances, domain, envoyv2, buildCluster)
+		return buildHTTPRoutesV3(store, config, service, port, proxyInstances, domain, envoyv2, buildCluster,
+			includeSubsets)
 	default:
 		panic("unsupported rule")
 	}
@@ -331,19 +383,22 @@ func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.P
 }
 
 func buildHTTPRoutesV3(store model.IstioConfigStore, config model.Config, service *model.Service, port *model.Port,
-	proxyInstances []*model.ServiceInstance, domain string, envoyv2 bool, buildCluster BuildClusterFunc) []*HTTPRoute {
+	proxyInstances []*model.ServiceInstance, domain string, envoyv2 bool, buildCluster BuildClusterFunc,
+	includeSubsets bool) []*HTTPRoute {
 
 	rule := config.Spec.(*networking.VirtualService)
 	routes := make([]*HTTPRoute, 0)
 
 	for _, http := range rule.Http {
 		if len(http.Match) == 0 {
-			routes = append(routes, buildHTTPRouteV3(store, config, service, port, http, nil, domain, envoyv2, buildCluster))
+			routes = append(routes, buildHTTPRouteV3(store, config, service, port, http, nil, domain, envoyv2,
+				buildCluster, includeSubsets))
 		}
 		for _, match := range http.Match {
 			for _, instance := range proxyInstances {
 				if model.Labels(match.SourceLabels).SubsetOf(instance.Labels) {
-					routes = append(routes, buildHTTPRouteV3(store, config, service, port, http, match, domain, envoyv2, buildCluster))
+					routes = append(routes, buildHTTPRouteV3(store, config, service, port, http, match, domain, envoyv2,
+						buildCluster, includeSubsets))
 					break
 				}
 			}
@@ -354,7 +409,8 @@ func buildHTTPRoutesV3(store model.IstioConfigStore, config model.Config, servic
 }
 
 func buildHTTPRouteV3(store model.IstioConfigStore, config model.Config, service *model.Service, port *model.Port,
-	http *networking.HTTPRoute, match *networking.HTTPMatchRequest, domain string, envoyv2 bool, buildCluster BuildClusterFunc) *HTTPRoute {
+	http *networking.HTTPRoute, match *networking.HTTPMatchRequest, domain string, envoyv2 bool,
+	buildCluster BuildClusterFunc, includeSubsets bool) *HTTPRoute {
 
 	route := buildHTTPRouteMatchV3(match)
 	if http.Redirect != nil {
@@ -363,22 +419,36 @@ func buildHTTPRouteV3(store model.IstioConfigStore, config model.Config, service
 	} else {
 		clusters := make([]*WeightedClusterEntry, 0, len(http.Route))
 		for _, dst := range http.Route {
+			if dst.Destination == nil || dst.Destination.Name == "" {
+				log.Warnf("Nil Destination")
+				continue
+			}
 
 			fqdn := model.ResolveFQDN(dst.Destination.Host, domain)
-			v2clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, dst.Destination.Subset, fqdn, port)
-			labels := fetchSubsetLabels(store, fqdn, dst.Destination.Subset, domain)
-			cluster := buildCluster(fqdn, port, labels, service.External()) // TODO: support Destination.Port
-			if envoyv2 {
-				cluster.Name = v2clusterName
-			}
-			route.Clusters = append(route.Clusters, cluster)
-			clusters = append(clusters,
-				&WeightedClusterEntry{
-					Name:   cluster.Name,
-					Weight: int(dst.Weight),
-				})
-		}
 
+			var cluster *Cluster
+			if includeSubsets == false || service.External() {
+				v2clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, dst.Destination.Subset, fqdn, port)
+				labels := fetchSubsetLabels(store, fqdn, dst.Destination.Subset, domain)
+				cluster := buildCluster(fqdn, port, labels, service.External()) // TODO: support Destination.Port
+				if envoyv2 {
+					cluster.Name = v2clusterName
+				}
+			} else {
+				subset, _ := GetSubset(dst.Destination.Subset, store)
+				cluster = BuildOutboundClusterForSubset(subset, service, fqdn, port,
+					&duration.Duration{Seconds: 1})
+			}
+			if cluster != nil {
+				route.Clusters = append(route.Clusters, cluster)
+				clusters = append(clusters,
+					&WeightedClusterEntry{
+						Name:   cluster.Name,
+						Weight: int(dst.Weight),
+					})
+			}
+
+		}
 		if len(clusters) == 1 {
 			route.Cluster = clusters[0].Name
 		} else {

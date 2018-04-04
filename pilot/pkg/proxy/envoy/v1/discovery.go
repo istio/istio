@@ -561,6 +561,9 @@ func (ds *DiscoveryService) ListEndpoints(request *restful.Request, response *re
 	incCalls(methodName)
 
 	key := request.Request.URL.String()
+
+	log.Infof(methodName + " URL: " + key)
+
 	out, resourceCount, cached := ds.sdsCache.cachedDiscoveryResponse(key)
 	if !cached {
 		hostname, ports, labels := model.ParseServiceKey(request.PathParameter(ServiceKey))
@@ -636,6 +639,9 @@ func (ds *DiscoveryService) ListClusters(request *restful.Request, response *res
 	incCalls(methodName)
 
 	key := request.Request.URL.String()
+
+	log.Infof(methodName + " URL: " + key)
+
 	out, resourceCount, cached := ds.cdsCache.cachedDiscoveryResponse(key)
 	transformedOutput := out
 	if !cached {
@@ -681,6 +687,9 @@ func (ds *DiscoveryService) ListListeners(request *restful.Request, response *re
 	incCalls(methodName)
 
 	key := request.Request.URL.String()
+
+	log.Infof(methodName + " URL: " + key)
+
 	out, resourceCount, cached := ds.ldsCache.cachedDiscoveryResponse(key)
 	transformedOutput := out
 	if !cached {
