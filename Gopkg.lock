@@ -260,6 +260,7 @@
     "envoy/api/v2/route",
     "envoy/config/filter/accesslog/v2",
     "envoy/config/filter/fault/v2",
+    "envoy/config/filter/http/jwt_authn/v2alpha",
     "envoy/config/filter/network/http_connection_manager/v2",
     "envoy/config/filter/network/mongo_proxy/v2",
     "envoy/config/filter/network/tcp_proxy/v2",
@@ -1247,8 +1248,8 @@
     "ui",
     "version"
   ]
-  revision = "0e1347b31d9eb6d190f29b81b2ee710697b6c6c3"
-  version = "v0.8.1"
+  revision = "e50943e8e525197f36f9b4f81464615c063a0a65"
+  version = "v0.9.0"
 
 [[projects]]
   name = "k8s.io/api"
@@ -1527,6 +1528,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "88b2904822dff763e7dce7e3e4ccf56b271a2323f16b214e5aa31fc091d32e1e"
+  inputs-digest = "40d1d69954dfec356114c9b22857c398344d80df06c2ea92f26ce0d2ad8bcaa3"
   solver-name = "gps-cdcl"
   solver-version = 1
