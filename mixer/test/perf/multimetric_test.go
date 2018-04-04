@@ -66,7 +66,6 @@ func Benchmark_Multi_Metric_R2(b *testing.B) {
 	settings.RunMode = perf.InProcessBypassGrpc
 
 	setup := baseMultiMetricSetup
-	setup.Config.UseRuntime2 = true
 
 	perf.Run(b, &setup, settings)
 }

@@ -48,7 +48,7 @@ kind: Deployment
 metadata:
   name: echosrv-deployment
 spec:
-  replicas: 2
+  replicas: 1
   template:
     metadata:
       labels:

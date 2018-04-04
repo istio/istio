@@ -18,65 +18,47 @@ import (
 	"fmt"
 	"time"
 
+	"io/ioutil"
+
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/caclient/grpc"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
+	"istio.io/istio/security/pkg/workload"
 	pb "istio.io/istio/security/proto"
 )
 
-// CAClient is a client to provision key and certificate from the upstream server.
-type CAClient interface {
-	RetrieveNewKeyCert() (newCert []byte, certChain []byte, privateKey []byte, err error)
-}
-
-// The cAClientImpl wraps details of the CSR protocol.
-type cAClientImpl struct {
-	platformClient platform.Client
-	protocolClient grpc.CAGrpcClient
-	istioCAAddress string
-
-	identity    string
-	identityOrg string
-	rSAKeySize  int
-	ttl         time.Duration
-	forCA       bool
-
+// CAClient is a client to provision key and certificate from the upstream CA via CSR protocol.
+type CAClient struct {
+	platformClient         platform.Client
+	protocolClient         grpc.CAGrpcClient
+	istioCAAddress         string
 	maxRetries             int
 	initialRetrialInterval time.Duration
 }
 
 // NewCAClient creates a new CAClient instance.
-func NewCAClient(pltfmc platform.Client, ptclc grpc.CAGrpcClient, cAAddr string, org string, keySize int, ttl time.Duration,
-	forCA bool, maxRetries int, interval time.Duration) (CAClient, error) {
+func NewCAClient(pltfmc platform.Client, ptclc grpc.CAGrpcClient, caAddr string,
+	maxRetries int, interval time.Duration) (*CAClient, error) {
 	if !pltfmc.IsProperPlatform() {
 		return nil, fmt.Errorf("CA client is not running on the right platform") // nolint
 	}
-	id, err := pltfmc.GetServiceIdentity()
-	if err != nil {
-		return nil, err
-	}
-	return &cAClientImpl{
+	return &CAClient{
 		platformClient:         pltfmc,
 		protocolClient:         ptclc,
-		istioCAAddress:         cAAddr,
-		identity:               id,
-		identityOrg:            org,
-		rSAKeySize:             keySize,
-		ttl:                    ttl,
-		forCA:                  forCA,
+		istioCAAddress:         caAddr,
 		maxRetries:             maxRetries,
 		initialRetrialInterval: interval,
 	}, nil
 }
 
-// RetrieveNewKeyCert sends the CSR to Istio CA with automatic retries. When successful, it returns the generated key
+// Retrieve sends the CSR to Istio CA with automatic retries. When successful, it returns the generated key
 // and cert, otherwise, it returns error. This is a blocking function.
-func (c *cAClientImpl) RetrieveNewKeyCert() (newCert []byte, certChain []byte, privateKey []byte, err error) {
+func (c *CAClient) Retrieve(options *pkiutil.CertOptions) (newCert []byte, certChain []byte, privateKey []byte, err error) {
 	retries := 0
 	retrialInterval := c.initialRetrialInterval
 	for {
-		privateKey, req, reqErr := c.createRequest()
+		privateKey, req, reqErr := c.CreateCSRRequest(options)
 		if reqErr != nil {
 			return nil, nil, nil, reqErr
 		}
@@ -109,12 +91,10 @@ func (c *cAClientImpl) RetrieveNewKeyCert() (newCert []byte, certChain []byte, p
 	}
 }
 
-func (c *cAClientImpl) createRequest() ([]byte, *pb.CsrRequest, error) {
-	csr, privKey, err := pkiutil.GenCSR(pkiutil.CertOptions{
-		Host:       c.identity,
-		Org:        c.identityOrg,
-		RSAKeySize: c.rSAKeySize,
-	})
+// CreateCSRRequest returns a CsrRequest based on the specified CertOptions.
+// TODO(incfly): add SendCSR method directly to CAClient.
+func (c *CAClient) CreateCSRRequest(opts *pkiutil.CertOptions) ([]byte, *pb.CsrRequest, error) {
+	csr, privKey, err := pkiutil.GenCSR(*opts)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -128,7 +108,17 @@ func (c *cAClientImpl) createRequest() ([]byte, *pb.CsrRequest, error) {
 		CsrPem:              csr,
 		NodeAgentCredential: cred,
 		CredentialType:      c.platformClient.GetCredentialType(),
-		RequestedTtlMinutes: int32(c.ttl.Minutes()),
-		ForCA:               c.forCA,
+		// TODO(inclfy): verify current value matches default value.
+		RequestedTtlMinutes: int32(opts.TTL.Minutes()),
+		ForCA:               opts.IsCA,
 	}, nil
+}
+
+// SaveKeyCert stores the specified key/cert into file specified by the path.
+// TODO(incfly): move this into CAClient struct's own method later.
+func SaveKeyCert(keyFile, certFile string, privKey, cert []byte) error {
+	if err := ioutil.WriteFile(keyFile, privKey, workload.KeyFilePermission); err != nil {
+		return err
+	}
+	return ioutil.WriteFile(certFile, cert, workload.CertFilePermission)
 }

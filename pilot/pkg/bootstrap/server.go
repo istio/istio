@@ -44,6 +44,8 @@ import (
 	configmonitor "istio.io/istio/pilot/pkg/config/monitor"
 	"istio.io/istio/pilot/pkg/kube/admit"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
+	"istio.io/istio/pilot/pkg/networking/plugin/registry"
 	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v1"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
@@ -58,20 +60,7 @@ import (
 	"istio.io/istio/pkg/version"
 )
 
-// ServiceRegistry is an expansion of the platform.ServiceRegistry enum that adds a mock registry.
-type ServiceRegistry string
-
 const (
-	// MockRegistry environment flag
-	MockRegistry ServiceRegistry = "Mock"
-	// KubernetesRegistry environment flag
-	KubernetesRegistry ServiceRegistry = "Kubernetes"
-	// ConsulRegistry environment flag
-	ConsulRegistry ServiceRegistry = "Consul"
-	// EurekaRegistry environment flag
-	EurekaRegistry ServiceRegistry = "Eureka"
-	// CloudFoundryRegistry environment flag
-	CloudFoundryRegistry ServiceRegistry = "CloudFoundry"
 	// ConfigMapKey should match the expected MeshConfig file name
 	ConfigMapKey = "mesh"
 	// CopilotTimeout when to cancel remote gRPC call to copilot
@@ -203,6 +192,8 @@ type Server struct {
 	// An in-memory service discovery, enabled if 'mock' registry is added.
 	// Currently used for tests.
 	MemoryServiceDiscovery *mock.ServiceDiscovery
+
+	mux *http.ServeMux
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
@@ -220,9 +211,6 @@ func NewServer(args PilotArgs) (*Server, error) {
 	s := &Server{}
 
 	// Apply the arguments to the configuration.
-	if err := s.initMonitor(&args); err != nil {
-		return nil, err
-	}
 	if err := s.initClusterRegistries(&args); err != nil {
 		return nil, err
 	}
@@ -247,6 +235,10 @@ func NewServer(args PilotArgs) (*Server, error) {
 	if err := s.initDiscoveryService(&args); err != nil {
 		return nil, err
 	}
+	if err := s.initMonitor(&args); err != nil {
+		return nil, err
+	}
+
 	return s, nil
 }
 
@@ -271,7 +263,7 @@ type startFunc func(stop chan struct{}) error
 // initMonitor initializes the configuration for the pilot monitoring server.
 func (s *Server) initMonitor(args *PilotArgs) error {
 	s.addStartFunc(func(stop chan struct{}) error {
-		monitor, err := startMonitor(args.DiscoveryOptions.MonitoringPort)
+		monitor, err := startMonitor(args.DiscoveryOptions.MonitoringPort, s.mux)
 		if err != nil {
 			return err
 		}
@@ -390,13 +382,18 @@ func (s *Server) getKubeCfgFile(args *PilotArgs) (kubeCfgFile string) {
 func (s *Server) initKubeClient(args *PilotArgs) error {
 	needToCreateClient := false
 	for _, r := range args.Service.Registries {
-		switch ServiceRegistry(r) {
-		case KubernetesRegistry:
+		switch serviceregistry.ServiceRegistry(r) {
+		case serviceregistry.KubernetesRegistry:
 			needToCreateClient = true
-		case ConsulRegistry:
+		case serviceregistry.ConsulRegistry:
 			needToCreateClient = true
-		case EurekaRegistry:
+		case serviceregistry.EurekaRegistry:
 			needToCreateClient = true
+		case serviceregistry.CloudFoundryRegistry:
+			needToCreateClient = true
+		}
+		if needToCreateClient {
+			break
 		}
 	}
 
@@ -520,7 +517,7 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 	kubectl := kube.NewController(s.kubeClient, args.Config.ControllerOptions)
 	serviceControllers.AddRegistry(
 		aggregate.Registry{
-			Name:             serviceregistry.ServiceRegistry(KubernetesRegistry),
+			Name:             serviceregistry.KubernetesRegistry,
 			ServiceDiscovery: kubectl,
 			ServiceAccounts:  kubectl,
 			Controller:       kubectl,
@@ -541,7 +538,7 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 			kubectl := kube.NewController(client, args.Config.ControllerOptions)
 			serviceControllers.AddRegistry(
 				aggregate.Registry{
-					Name:             serviceregistry.ServiceRegistry(KubernetesRegistry),
+					Name:             serviceregistry.KubernetesRegistry,
 					ClusterName:      clusterregistry.GetClusterName(cluster),
 					ServiceDiscovery: kubectl,
 					ServiceAccounts:  kubectl,
@@ -555,9 +552,9 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 // initServiceControllers creates and initializes the service controllers
 func (s *Server) initServiceControllers(args *PilotArgs) error {
 	serviceControllers := aggregate.NewController()
-	registered := make(map[ServiceRegistry]bool)
+	registered := make(map[serviceregistry.ServiceRegistry]bool)
 	for _, r := range args.Service.Registries {
-		serviceRegistry := ServiceRegistry(r)
+		serviceRegistry := serviceregistry.ServiceRegistry(r)
 		if _, exists := registered[serviceRegistry]; exists {
 			log.Warnf("%s registry specified multiple times.", r)
 			continue
@@ -565,9 +562,9 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		registered[serviceRegistry] = true
 		log.Infof("Adding %s registry adapter", serviceRegistry)
 		switch serviceRegistry {
-		case MockRegistry:
+		case serviceregistry.MockRegistry:
 			initMemoryRegistry(s, serviceControllers)
-		case KubernetesRegistry:
+		case serviceregistry.KubernetesRegistry:
 			if err := s.createK8sServiceControllers(serviceControllers, args); err != nil {
 				return err
 			}
@@ -594,7 +591,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 					})
 				}
 			}
-		case ConsulRegistry:
+		case serviceregistry.ConsulRegistry:
 			log.Infof("Consul url: %v", args.Service.Consul.ServerURL)
 			conctl, conerr := consul.NewController(
 				args.Service.Consul.ServerURL, args.Service.Consul.Interval)
@@ -603,23 +600,23 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			}
 			serviceControllers.AddRegistry(
 				aggregate.Registry{
-					Name:             serviceregistry.ServiceRegistry(r),
+					Name:             serviceRegistry,
 					ServiceDiscovery: conctl,
 					ServiceAccounts:  conctl,
 					Controller:       conctl,
 				})
-		case EurekaRegistry:
+		case serviceregistry.EurekaRegistry:
 			log.Infof("Eureka url: %v", args.Service.Eureka.ServerURL)
 			eurekaClient := eureka.NewClient(args.Service.Eureka.ServerURL)
 			serviceControllers.AddRegistry(
 				aggregate.Registry{
-					Name:             serviceregistry.ServiceRegistry(r),
+					Name:             serviceRegistry,
 					Controller:       eureka.NewController(eurekaClient, args.Service.Eureka.Interval),
 					ServiceDiscovery: eureka.NewServiceDiscovery(eurekaClient),
 					ServiceAccounts:  eureka.NewServiceAccounts(),
 				})
 
-		case CloudFoundryRegistry:
+		case serviceregistry.CloudFoundryRegistry:
 			cfConfig, err := cloudfoundry.LoadConfig(args.Config.CFConfig)
 			if err != nil {
 				return multierror.Prefix(err, "loading cloud foundry config")
@@ -633,7 +630,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 				return multierror.Prefix(err, "creating cloud foundry client")
 			}
 			serviceControllers.AddRegistry(aggregate.Registry{
-				Name: serviceregistry.ServiceRegistry(r),
+				Name: serviceRegistry,
 				Controller: &cloudfoundry.Controller{
 					Ticker: cloudfoundry.NewTicker(cfConfig.Copilot.PollInterval),
 					Client: client,
@@ -671,7 +668,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 	return nil
 }
 func initMemoryRegistry(s *Server, serviceControllers *aggregate.Controller) {
-	// ServiceDiscovery implementation
+	// MemServiceDiscovery implementation
 	discovery1 := mock.NewDiscovery(
 		map[string]*model.Service{
 			//			mock.HelloService.Hostname: mock.HelloService,
@@ -722,10 +719,14 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	}
 	s.DiscoveryService = discovery
 
+	s.mux = s.DiscoveryService.RestContainer.ServeMux
+
 	// For now we create the gRPC server sourcing data from Pilot's older data model.
 	s.initGrpcServer()
-	envoy.V2ClearCache = envoyv2.EdsPushAll
-	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(discovery, s.GRPCServer, environment)
+	envoy.V2ClearCache = envoyv2.PushAll
+	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(s.GRPCServer, environment, v1alpha3.NewConfigGenerator(registry.NewPlugins()))
+
+	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController)
 
 	s.HTTPServer = &http.Server{
 		Addr:    ":" + strconv.Itoa(args.DiscoveryOptions.Port),
@@ -832,6 +833,18 @@ func (s *Server) initGrpcServer() {
 	prometheus.EnableHandlingTimeHistogram()
 
 	grpcOptions = append(grpcOptions, grpc.UnaryInterceptor(middleware.ChainUnaryServer(interceptors...)))
+
+	// Temp setting, default should be enough for most supported environments. Can be used for testing
+	// envoy with lower values.
+	var maxStreams int
+	maxStreamsEnv := os.Getenv("ISTIO_GPRC_MAXSTREAMS")
+	if len(maxStreamsEnv) > 0 {
+		maxStreams, _ = strconv.Atoi(maxStreamsEnv)
+	}
+	if maxStreams == 0 {
+		maxStreams = 100000
+	}
+	grpcOptions = append(grpcOptions, grpc.MaxConcurrentStreams(uint32(maxStreams)))
 
 	// get the grpc server wired up
 	grpc.EnableTracing = true

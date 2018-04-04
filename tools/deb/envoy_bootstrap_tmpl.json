@@ -104,6 +104,21 @@
     "socket_address": {{ .pilot_grpc_address }}
     }
     ],
+    "circuit_breakers": {
+        "thresholds": [
+      {
+        "priority": "default",
+        "max_connections": "100000",
+        "max_pending_requests": "100000",
+        "max_requests": "100000"
+      },
+      {
+        "priority": "high",
+        "max_connections": "100000",
+        "max_pending_requests": "100000",
+        "max_requests": "100000"
+      }]
+    },
     "http2_protocol_options": { }
     }
 

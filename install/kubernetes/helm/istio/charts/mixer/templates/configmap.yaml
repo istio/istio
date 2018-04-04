@@ -1,9 +1,10 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: istio-mixer
+  name: istio-statsd-prom-bridge
+  namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-mixer
+    app: istio-statsd-prom-bridge
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
@@ -15,6 +16,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio-mixer-custom-resources
+  namespace: {{ .Release.Namespace }}
   labels:
     app: istio-mixer
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}

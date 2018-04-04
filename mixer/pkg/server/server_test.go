@@ -27,15 +27,8 @@ import (
 	"google.golang.org/grpc"
 
 	mixerpb "istio.io/api/mixer/v1"
-	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/config/storetest"
-	"istio.io/istio/mixer/pkg/expr"
-	"istio.io/istio/mixer/pkg/il/evaluator"
-	"istio.io/istio/mixer/pkg/pool"
-	mixerRuntime "istio.io/istio/mixer/pkg/runtime"
-	mixerRuntime2 "istio.io/istio/mixer/pkg/runtime2"
-	"istio.io/istio/mixer/pkg/template"
+	"istio.io/istio/mixer/pkg/runtime"
 	generatedTmplRepo "istio.io/istio/mixer/template"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/tracing"
@@ -115,9 +108,8 @@ func createClient(addr net.Addr) (mixerpb.MixerClient, error) {
 	return mixerpb.NewMixerClient(conn), nil
 }
 
-func newTestServer(globalCfg, serviceCfg string, useNewRuntime bool) (*Server, error) {
+func newTestServer(globalCfg, serviceCfg string) (*Server, error) {
 	a := DefaultArgs()
-	a.UseNewRuntime = useNewRuntime
 	a.APIPort = 0
 	a.MonitoringPort = 0
 	a.LoggingOptions.LogGrpc = false // Avoid introducing a race to the server tests.
@@ -127,44 +119,34 @@ func newTestServer(globalCfg, serviceCfg string, useNewRuntime bool) (*Server, e
 	a.LivenessProbeOptions.UpdateInterval = 2
 	a.ReadinessProbeOptions.Path = "def"
 	a.ReadinessProbeOptions.UpdateInterval = 3
+
 	var err error
 	if a.ConfigStore, err = storetest.SetupStoreForTest(globalCfg, serviceCfg); err != nil {
 		return nil, err
 	}
+
 	return New(a)
 }
 
 func TestBasic(t *testing.T) {
-	runtimes := []struct {
-		name         string
-		useNewRutime bool
-	}{
-		{"old runtime", false},
-		{"new runtime", true},
+	s, err := newTestServer(globalCfg, serviceCfg)
+	if err != nil {
+		t.Fatalf("Unable to create server: %v", err)
 	}
 
-	for _, runtime := range runtimes {
-		t.Run(runtime.name, func(t *testing.T) {
-			s, err := newTestServer(globalCfg, serviceCfg, runtime.useNewRutime)
-			if err != nil {
-				t.Fatalf("Unable to create server: %v", err)
-			}
+	d := s.Dispatcher()
+	if d != s.dispatcher {
+		t.Fatalf("returned dispatcher is incorrect")
+	}
 
-			d := s.Dispatcher()
-			if d != s.dispatcher {
-				t.Fatalf("returned dispatcher is incorrect")
-			}
-
-			err = s.Close()
-			if err != nil {
-				t.Errorf("Got error during Close: %v", err)
-			}
-		})
+	err = s.Close()
+	if err != nil {
+		t.Errorf("Got error during Close: %v", err)
 	}
 }
 
 func TestClient(t *testing.T) {
-	s, err := newTestServer(globalCfg, serviceCfg, true)
+	s, err := newTestServer(globalCfg, serviceCfg)
 	if err != nil {
 		t.Fatalf("Unable to create server: %v", err)
 	}
@@ -210,7 +192,6 @@ func TestErrors(t *testing.T) {
 	}
 
 	a = DefaultArgs()
-	a.UseNewRuntime = false
 	a.APIPort = 0
 	a.MonitoringPort = 0
 	a.TracingOptions.LogTraceSpans = true
@@ -228,23 +209,12 @@ func TestErrors(t *testing.T) {
 			a.ConfigStoreURL = ""
 			pt := newPatchTable()
 			switch i {
-			case 0:
-				pt.newILEvaluator = func(cacheSize int) (*evaluator.IL, error) {
-					return nil, errors.New("BAD")
-				}
 			case 1:
-				// TODO: Runtime2 does not return error on the new path. Once we switch over, we can remove this case.
-				pt.newRuntime = func(eval expr.Evaluator, typeChecker expr.TypeChecker, vocab mixerRuntime.VocabularyChangeListener, gp *pool.GoroutinePool,
-					handlerPool *pool.GoroutinePool,
-					identityAttribute string, defaultConfigNamespace string, s store.Store, adapterInfo map[string]*adapter.Info,
-					templateInfo map[string]template.Info) (mixerRuntime.Dispatcher, error) {
-					return nil, errors.New("BAD")
-				}
+				a.ConfigStore = nil
+				a.ConfigStoreURL = ""
 			case 2:
 				a.ConfigStore = nil
-				pt.newStore = func(reg *store.Registry, configURL string) (store.Store, error) {
-					return nil, errors.New("BAD")
-				}
+				a.ConfigStoreURL = "DEADBEEF"
 			case 3:
 				pt.configTracing = func(_ string, _ *tracing.Options) (io.Closer, error) {
 					return nil, errors.New("BAD")
@@ -278,8 +248,7 @@ func TestErrors(t *testing.T) {
 					return errors.New("BAD")
 				}
 			case 9:
-				a.UseNewRuntime = true
-				pt.runtimeListen = func(rt *mixerRuntime2.Runtime) error {
+				pt.runtimeListen = func(rt *runtime.Runtime) error {
 					return errors.New("BAD")
 				}
 			default:

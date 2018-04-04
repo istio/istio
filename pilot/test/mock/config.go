@@ -23,8 +23,9 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/proto"
+	"go.uber.org/atomic"
 
-	authn "istio.io/api/authentication/v1alpha2"
+	authn "istio.io/api/authentication/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
@@ -32,8 +33,8 @@ import (
 	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
-	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/log"
+	pkgtest "istio.io/istio/pkg/test"
 )
 
 var (
@@ -59,7 +60,7 @@ var (
 				Route: []*networking.DestinationWeight{
 					{
 						Destination: &networking.Destination{
-							Name: "job",
+							Host: "job",
 						},
 						Weight: 80,
 					},
@@ -88,7 +89,7 @@ var (
 
 	// ExampleDestinationRule is an example destination rule
 	ExampleDestinationRule = &networking.DestinationRule{
-		Name: "ratings",
+		Host: "ratings",
 		TrafficPolicy: &networking.TrafficPolicy{
 			LoadBalancer: &networking.LoadBalancerSettings{
 				new(networking.LoadBalancerSettings_Simple),
@@ -317,12 +318,14 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 	if !contains {
 		t.Error("expected config mock types")
 	}
+	log.Info("Created mock descriptor")
 
 	// create configuration objects
 	elts := make(map[int]model.Config)
 	for i := 0; i < n; i++ {
 		elts[i] = Make(namespace, i)
 	}
+	log.Info("Make mock objects")
 
 	// post all elements
 	for _, elt := range elts {
@@ -330,6 +333,7 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 			t.Error(err)
 		}
 	}
+	log.Info("Created mock objects")
 
 	revs := make(map[int]string)
 
@@ -342,6 +346,8 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 			revs[i] = v1.ResourceVersion
 		}
 	}
+
+	log.Info("Got stored elements")
 
 	if _, err := r.Create(elts[0]); err == nil {
 		t.Error("expected error posting twice")
@@ -458,6 +464,7 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 			t.Error(err)
 		}
 	}
+	log.Info("Delete elements")
 
 	l, err = r.List(model.MockConfig.Type, namespace)
 	if err != nil {
@@ -466,6 +473,7 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 	if len(l) != 0 {
 		t.Errorf("wanted 0 element(s), got %d in %v", len(l), l)
 	}
+	log.Info("Test done, deleting namespace")
 }
 
 // CheckIstioConfigTypes validates that an empty store can ingest Istio config objects
@@ -516,28 +524,24 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 
 // CheckCacheEvents validates operational invariants of a cache
 func CheckCacheEvents(store model.ConfigStore, cache model.ConfigStoreCache, namespace string, n int, t *testing.T) {
+	n64 := int64(n)
 	stop := make(chan struct{})
 	defer close(stop)
-	ach, dch := make(chan bool, n), make(chan bool, n)
-	defer close(ach)
-	defer close(dch)
-	sad, sdd := 0, 0
+	added, deleted := atomic.NewInt64(0), atomic.NewInt64(0)
 	cache.RegisterEventHandler(model.MockConfig.Type, func(c model.Config, ev model.Event) {
 		switch ev {
 		case model.EventAdd:
-			if sdd != 0 {
+			if deleted.Load() != 0 {
 				t.Errorf("Events are not serialized (add)")
 			}
-			sad++
-			ach <- true
+			added.Inc()
 		case model.EventDelete:
-			if sad != n {
+			if added.Load() != n64 {
 				t.Errorf("Events are not serialized (delete)")
 			}
-			sdd++
-			dch <- true
+			deleted.Inc()
 		}
-		log.Infof("Added %d, deleted %d", sad, sdd)
+		log.Infof("Added %d, deleted %d", added.Load(), deleted.Load())
 	})
 	go cache.Run(stop)
 
@@ -545,23 +549,9 @@ func CheckCacheEvents(store model.ConfigStore, cache model.ConfigStoreCache, nam
 	CheckMapInvariant(store, t, namespace, n)
 
 	log.Infof("Waiting till all events are received")
-	timeout := time.After(60 * time.Second)
-	added, deleted := 0, 0
-	for {
-		select {
-		case <-timeout:
-			t.Fatalf("timeout waiting to receive expected events. actual added %d deleted %d. expected %d",
-				added, deleted, n)
-		case <-ach:
-			added++
-		case <-dch:
-			deleted++
-		default:
-			if added == n && deleted == n {
-				return
-			}
-		}
-	}
+	pkgtest.NewEventualOpts(500*time.Millisecond, 60*time.Second).Eventually(t, "receive events", func() bool {
+		return added.Load() == n64 && deleted.Load() == n64
+	})
 }
 
 // CheckCacheFreshness validates operational invariants of a cache
@@ -649,7 +639,7 @@ func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreCache, names
 	stop := make(chan struct{})
 	defer close(stop)
 	go cache.Run(stop)
-	util.Eventually("HasSynced", cache.HasSynced, t)
+	pkgtest.Eventually(t, "HasSynced", cache.HasSynced)
 	os, _ := cache.List(model.MockConfig.Type, namespace)
 	if len(os) != n {
 		t.Errorf("cache.List => Got %d, expected %d", len(os), n)
@@ -663,11 +653,11 @@ func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreCache, names
 	}
 
 	// check again in the controller cache
-	util.Eventually("no elements in cache", func() bool {
+	pkgtest.Eventually(t, "no elements in cache", func() bool {
 		os, _ = cache.List(model.MockConfig.Type, namespace)
 		log.Infof("cache.List => Got %d, expected %d", len(os), 0)
 		return len(os) == 0
-	}, t)
+	})
 
 	// now add through the controller
 	for i := 0; i < n; i++ {
@@ -677,13 +667,13 @@ func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreCache, names
 	}
 
 	// check directly through the client
-	util.Eventually("cache and backing store match", func() bool {
+	pkgtest.Eventually(t, "cache and backing store match", func() bool {
 		cs, _ := cache.List(model.MockConfig.Type, namespace)
 		os, _ := store.List(model.MockConfig.Type, namespace)
 		log.Infof("cache.List => Got %d, expected %d", len(cs), n)
 		log.Infof("store.List => Got %d, expected %d", len(os), n)
 		return len(os) == n && len(cs) == n
-	}, t)
+	})
 
 	// remove elements directly through the client
 	for i := 0; i < n; i++ {

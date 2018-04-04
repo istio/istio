@@ -33,6 +33,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/security/pkg/pki/util"
 )
 
 // SDSServer implements api.SecretDiscoveryServiceServer that listens on a
@@ -86,6 +87,11 @@ func (s *SDSServer) SetServiceIdentityPrivateKey(content []byte) error {
 	s.privateKey = content
 	s.version = fmt.Sprintf("%v", time.Now().UnixNano()/int64(time.Millisecond))
 	s.privateKeyGuard.Unlock()
+	return nil
+}
+
+// Save saves the specified key cert.
+func (s *SDSServer) Save(b util.KeyCertBundle) error {
 	return nil
 }
 

@@ -35,7 +35,7 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/gogo/protobuf/types"
 
-	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
+	"strings"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
@@ -67,11 +67,11 @@ import (
 var (
 	// It doesn't appear the logging framework has support for per-component logging, yet
 	// we need to be able to debug EDS2.
-	edsDebug = len(os.Getenv("PILOT_DEBUG_EDS")) == 0
+	// Default is enabled (not set: "" != "0")
+	edsDebug = os.Getenv("PILOT_DEBUG_EDS") != "0"
 
 	edsClusterMutex sync.Mutex
 	edsClusters     = map[string]*EdsCluster{}
-	version         = 1
 
 	// Tracks connections, increment on each new connection.
 	connectionNumber = int64(0)
@@ -83,13 +83,13 @@ type EdsCluster struct {
 	// mutex protects changes to this cluster
 	mutex sync.Mutex
 
-	// EdsClients keeps track of all nodes monitoring the cluster.
-	EdsClients map[string]*EdsConnection
-
 	LoadAssignment *xdsapi.ClusterLoadAssignment
 
 	// FirstUse is the time the cluster was first used, for debugging
 	FirstUse time.Time
+
+	// EdsClients keeps track of all nodes monitoring the cluster.
+	EdsClients map[string]*XdsConnection
 
 	// NonEmptyTime is the time the cluster first had a non-empty set of endpoints
 	NonEmptyTime time.Time
@@ -100,65 +100,29 @@ type EdsCluster struct {
 
 // TODO: add prom metrics !
 
-// EdsConnection represents a streaming grpc connection from an envoy server.
-// This is primarily intended for supporting push, but also for debug and statusz.
-type EdsConnection struct {
-	PeerAddr string
-
-	// current list of clusters monitored by the client
-	Clusters []string
-
-	// Time of connection, for debugging
-	Connect time.Time
-
-	// Sending on this channel results in  push. We may also make it a channel of objects so
-	// same info can be sent to all clients, without recomputing.
-	pushChannel chan bool
-}
-
 // Endpoints aggregate a DiscoveryResponse for pushing.
-func (s *DiscoveryServer) endpoints(ds *v1.DiscoveryService, clusterNames []string) *xdsapi.DiscoveryResponse {
-	// Not using incCounters/observeResources: grpc has an interceptor for prometheus.
-	version := strconv.Itoa(version)
-	clAssignment := &xdsapi.ClusterLoadAssignment{}
-	clAssignmentRes, _ := types.MarshalAny(clAssignment)
+func (s *DiscoveryServer) endpoints(clusterNames []string, outRes []types.Any) *xdsapi.DiscoveryResponse {
 	out := &xdsapi.DiscoveryResponse{
 		// All resources for EDS ought to be of the type ClusterLoadAssignment
-		TypeUrl: clAssignmentRes.GetTypeUrl(),
+		TypeUrl: EndpointType,
 
 		// Pilot does not really care for versioning. It always supplies what's currently
 		// available to it, irrespective of whether Envoy chooses to accept or reject EDS
 		// responses. Pilot believes in eventual consistency and that at some point, Envoy
 		// will begin seeing results it deems to be good.
-		VersionInfo: version,
-		Nonce:       version + "-" + time.Now().String(),
-	}
-
-	out.Resources = make([]types.Any, 0, len(clusterNames))
-	for _, clusterName := range clusterNames {
-		clAssignmentRes := s.clusterEndpoints(ds, clusterName)
-		if clAssignmentRes != nil {
-			out.Resources = append(out.Resources, *clAssignmentRes)
-		}
+		VersionInfo: versionInfo(),
+		Nonce:       nonce(),
+		Resources:   outRes,
 	}
 
 	return out
 }
 
-// Get the ClusterLoadAssignment for a cluster.
-func (s *DiscoveryServer) clusterEndpoints(ds *v1.DiscoveryService, clusterName string) *types.Any {
-	c := s.getOrAddEdsCluster(clusterName)
-	if c.LoadAssignment == nil { // fresh cluster
-		updateCluster(clusterName, c)
-	}
-
+// Return the load assignment. The field can be updated by another routine.
+func loadAssignment(c *EdsCluster) *xdsapi.ClusterLoadAssignment {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	// Previously computed load assignments. They are re-computed on cache invalidation or
-	// event, but don't have to be recomputed once for each sidecar.
-	clAssignmentRes, _ := types.MarshalAny(c.LoadAssignment)
-	return clAssignmentRes
-
+	return c.LoadAssignment
 }
 
 func newEndpoint(address string, port uint32) (*endpoint.LbEndpoint, error) {
@@ -191,15 +155,35 @@ func newEndpoint(address string, port uint32) (*endpoint.LbEndpoint, error) {
 // the endpoints for the cluster.
 func updateCluster(clusterName string, edsCluster *EdsCluster) {
 	// TODO: should we lock this as well ? Once we move to event-based it may not matter.
-	hostname, ports, labels := model.ParseServiceKey(clusterName)
-	instances, err := edsCluster.discovery.mesh.Instances(hostname, ports.GetNames(), labels)
+	var hostname string
+	var ports model.PortList
+	var labels model.LabelsCollection
+	// Single port
+	var portName string
+
+	// This is a gross hack but Costin will insist on supporting everything from ancient Greece
+	if strings.Index(clusterName, "outbound") == 0 { //new style cluster names
+		var p *model.Port
+		var subsetName string
+		_, subsetName, hostname, p = model.ParseSubsetKey(clusterName)
+		ports = []*model.Port{p}
+		portName = p.Name
+		labels = edsCluster.discovery.env.IstioConfigStore.SubsetToLabels(subsetName, hostname, "")
+	} else {
+		hostname, ports, labels = model.ParseServiceKey(clusterName)
+		if len(ports) > 0 {
+			portName = ports.GetNames()[0]
+		}
+	}
+
+	instances, err := edsCluster.discovery.env.ServiceDiscovery.Instances(hostname, ports.GetNames(), labels)
 	if err != nil {
 		log.Warnf("endpoints for service cluster %q returned error %q", clusterName, err)
 		return
 	}
 	locEps := localityLbEndpointsFromInstances(instances)
 	if len(instances) == 0 && edsDebug {
-		log.Infoa("EDS: no instances ", clusterName, hostname, ports, labels)
+		log.Infof("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, portName, labels)
 	}
 	// There is a chance multiple goroutines will update the cluster at the same time.
 	// This could be prevented by a lock - but because the update may be slow, it may be
@@ -268,25 +252,26 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 	var discReq *xdsapi.DiscoveryRequest
 	var receiveError error
 	reqChannel := make(chan *xdsapi.DiscoveryRequest, 1)
-	con := &EdsConnection{
-		pushChannel: make(chan bool, 1),
+
+	initialRequestReceived := false
+
+	con := &XdsConnection{
+		pushChannel: make(chan *XdsEvent, 1),
 		PeerAddr:    peerAddr,
 		Clusters:    []string{},
 		Connect:     time.Now(),
+		stream:      stream,
 	}
 	// node is the key used in the cluster map. It includes the pod name and an unique identifier,
 	// since multiple envoys may connect from the same pod.
-	var node string
+	var conID string
 	go func() {
 		defer close(reqChannel)
 		for {
 			req, err := stream.Recv()
 			if err != nil {
-				log.Errorf("EDS close for client %s %q terminated with errors %v",
-					node, peerAddr, err)
-				for _, c := range con.Clusters {
-					s.removeEdsCon(c, node, con)
-				}
+				log.Errorf("EDS: close for client %s %q terminated with errors %v",
+					conID, peerAddr, err)
 				if status.Code(err) == codes.Canceled || err == io.EOF {
 					return
 				}
@@ -296,6 +281,7 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 			reqChannel <- req
 		}
 	}()
+
 	for {
 		// Block until either a request is received or the ticker ticks
 		select {
@@ -303,116 +289,126 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 			if !ok {
 				return receiveError
 			}
-			/* Example:
-			 node:<id:"ingress~~istio-ingress-6796c456f4-7zqtm.istio-system~istio-system.svc.cluster.local"
-				cluster:"istio-ingress"
-				build_version:"0/1.6.0-dev//RELEASE" >
-				resource_names:"echosrv.istio-system.svc.cluster.local|http-echo"
-				type_url:"type.googleapis.com/envoy.api.v2.ClusterLoadAssignment"
-			*/
+
+			// Should not change. A node monitors multiple clusters
+			if conID == "" && discReq.Node != nil {
+				conID = connectionID(discReq.Node.Id)
+			}
 
 			clusters2 := discReq.GetResourceNames()
-			// Should not change. A node monitors multiple clusters
-			if node == "" && discReq.Node != nil {
-				node = connectionID(discReq.Node.Id)
-
+			if initialRequestReceived {
+				if len(clusters2) > len(con.Clusters) {
+					// This doesn't happen with current envoy - but should happen in future, there is no reason
+					// to keep so many open grpc streams (one per cluster, for each envoy)
+					log.Infof("EDS: Multiple clusters monitoring %v -> %v %s", con.Clusters, clusters2, discReq.String())
+					initialRequestReceived = false // treat this as an initial request (updates monitoring state)
+				}
 			}
 
-			if node == "" {
-				log.Infoa("Missing node ", discReq.String())
-				return errors.New("Missing node " + discReq.String())
-			}
-
-			// This doesn't seem to happen - add a log just in case. Typical requests from envoy
-			// have a single cluster, and
-			if len(con.Clusters) > 0 && len(clusters2) > 0 && con.Clusters[0] != clusters2[0] {
-				log.Infof("EDS: Clusters override %v -> %v %s", con.Clusters, clusters2, discReq.String())
-			}
-			// Doesn't seem to happen - logging in case something changes in envoy
-			if len(clusters2) > 1 {
-				log.Infof("EDS: Batch clusters %v %s", clusters2, discReq.String())
-			}
 			// Given that Pilot holds an eventually consistent data model, Pilot ignores any acknowledgements
 			// from Envoy, whether they indicate ack success or ack failure of Pilot's previous responses.
-			if discReq.ResponseNonce != "" {
+			if initialRequestReceived {
 				// TODO: once the deps are updated, log the ErrorCode if set (missing in current version)
-				if edsDebug {
-					log.Infof("EDS: ACK %s %s %s", node, discReq.VersionInfo, con.Clusters)
+				if discReq.ErrorDetail != nil {
+					log.Warnf("EDS: ACK ERROR %v %s %v", peerAddr, conID, discReq.String())
 				}
-				continue
+				if edsDebug {
+					log.Infof("EDS: ACK %s %s %s", conID, discReq.VersionInfo, con.Clusters)
+				}
+				if len(con.Clusters) > 0 {
+					continue
+				}
 			}
-			if len(con.Clusters) > 0 {
-				// Should not happen
-				log.Infof("EDS REQ repeated %s %v/%v %v raw: %s ",
-					node, clusters2, con.Clusters, peerAddr, discReq.String())
-			}
-			// Initial request
 			if edsDebug {
-				log.Infof("EDS REQ %s %v %v raw: %s ",
-					node, clusters2, peerAddr, discReq.String())
+				log.Infof("EDS: REQ %s %v %v raw: %s ", conID, con.Clusters, peerAddr, discReq.String())
 			}
+			con.Clusters = discReq.GetResourceNames()
+			con.ConID = conID
+			initialRequestReceived = true
 
-			if len(clusters2) > 0 {
-				con.Clusters = clusters2
-			}
-
+			// In 0.7 EDS only listens for 1 cluster for each stream. In 0.8 EDS is no longer
+			// used.
 			for _, c := range con.Clusters {
-				s.addEdsCon(c, node, con)
+				s.addEdsCon(c, conID, con)
+			}
+
+			// Keep track of active EDS client. In 0.7 EDS push happened by pushing for all
+			// tracked clusters. In 0.8+ push happens by iterating active connections, in ADS.
+			if !con.added {
+				con.added = true
+				s.addCon(conID, con)
+				defer s.removeCon(conID, con)
 			}
 
 		case <-con.pushChannel:
-			if len(con.Clusters) == 0 {
-				continue
-			}
 		}
 
 		if len(con.Clusters) > 0 {
-			response := s.endpoints(s.mesh, con.Clusters)
-			err := stream.Send(response)
+			err := s.pushEds(con)
 			if err != nil {
 				return err
 			}
-
-			if edsDebug {
-				log.Infof("EDS RES for %s %q clusters %v, Response: \n%s\n",
-					node, peerAddr, con.Clusters, response.String())
-			}
-		} else {
-			if edsDebug {
-				log.Infof("EDS empty clusters %v \n", peerAddr)
-			}
 		}
+
 	}
 }
 
-// EdsPushAll implements old style invalidation, generated when any rule or endpoint changes.
-// Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
-// to the model ConfigStorageCache and Controller.
-func EdsPushAll() {
-	// TODO: rename to XdsLegacyPushAll
-	edsPushAll() // we want endpoints ready first
+func (s *DiscoveryServer) pushEds(con *XdsConnection) error {
+	resAny := []types.Any{}
 
-	ldsPushAll()
+	emptyClusters := 0
+	endpoints := 0
+	empty := []string{}
+
+	for _, clusterName := range con.Clusters {
+		c := s.getOrAddEdsCluster(clusterName)
+		l := loadAssignment(c)
+		if l == nil { // fresh cluster
+			updateCluster(clusterName, c)
+			l = loadAssignment(c)
+		}
+		endpoints += len(l.Endpoints)
+		if len(l.Endpoints) == 0 {
+			emptyClusters++
+			empty = append(empty, clusterName)
+		}
+
+		// Previously computed load assignments. They are re-computed on cache invalidation or
+		// event, but don't have to be recomputed once for each sidecar.
+		clAssignmentRes, _ := types.MarshalAny(l)
+		resAny = append(resAny, *clAssignmentRes)
+	}
+
+	response := s.endpoints(con.Clusters, resAny)
+	err := con.stream.Send(response)
+	if err != nil {
+		log.Warnf("EDS: Send failure, closing grpc %v", err)
+		return err
+	}
+
+	if edsDebug {
+		log.Infof("EDS: PUSH for %s %q clusters %d endpoints %d empty %d %v",
+			con.ConID, con.PeerAddr, len(con.Clusters), endpoints, emptyClusters, empty)
+	}
+	return nil
 }
 
 func edsPushAll() {
-	if edsDebug {
-		log.Infoa("EDS cache reset")
-	}
 	edsClusterMutex.Lock()
 	// Create a temp map to avoid locking the add/remove
 	tmpMap := map[string]*EdsCluster{}
 	for k, v := range edsClusters {
 		tmpMap[k] = v
 	}
-	version++
 	edsClusterMutex.Unlock()
 
 	for clusterName, edsCluster := range tmpMap {
 		updateCluster(clusterName, edsCluster)
 		edsCluster.mutex.Lock()
 		for _, edsCon := range edsCluster.EdsClients {
-			edsCon.pushChannel <- true
+			edsCon.pushChannel <- &XdsEvent{
+				clusters: []string{clusterName},
+			}
 		}
 		edsCluster.mutex.Unlock()
 	}
@@ -421,6 +417,7 @@ func edsPushAll() {
 // EDSz implements a status and debug interface for EDS.
 // It is mapped to /debug/edsz on the monitor port (9093).
 func EDSz(w http.ResponseWriter, req *http.Request) {
+	_ = req.ParseForm()
 	if req.Form.Get("debug") != "" {
 		edsDebug = req.Form.Get("debug") == "1"
 		return
@@ -439,8 +436,8 @@ func EDSz(w http.ResponseWriter, req *http.Request) {
 	_, _ = w.Write(data)
 }
 
-// addEdsCon will track the eds connection, for push and debug
-func (s *DiscoveryServer) addEdsCon(clusterName string, node string, connection *EdsConnection) {
+// addEdsCon will track the eds connection with clusters, for optimized event-based push and debug
+func (s *DiscoveryServer) addEdsCon(clusterName string, node string, connection *XdsConnection) {
 
 	c := s.getOrAddEdsCluster(clusterName)
 	c.mutex.Lock()
@@ -449,7 +446,7 @@ func (s *DiscoveryServer) addEdsCon(clusterName string, node string, connection 
 
 	// May replace an existing connection
 	if existing != nil {
-		existing.pushChannel <- false // force closing it
+		log.Warnf("Replacing existing connection %s %s old: %s", clusterName, node, existing.ConID)
 	}
 	c.mutex.Lock()
 	c.EdsClients[node] = connection
@@ -471,7 +468,7 @@ func (s *DiscoveryServer) getOrAddEdsCluster(clusterName string) *EdsCluster {
 	c := edsClusters[clusterName]
 	if c == nil {
 		c = &EdsCluster{discovery: s,
-			EdsClients: map[string]*EdsConnection{},
+			EdsClients: map[string]*XdsConnection{},
 			FirstUse:   time.Now(),
 		}
 		edsClusters[clusterName] = c
@@ -481,7 +478,7 @@ func (s *DiscoveryServer) getOrAddEdsCluster(clusterName string) *EdsCluster {
 
 // removeEdsCon is called when a gRPC stream is closed, for each cluster that was watched by the
 // stream. As of 0.7 envoy watches a single cluster per gprc stream.
-func (s *DiscoveryServer) removeEdsCon(clusterName string, node string, connection *EdsConnection) {
+func (s *DiscoveryServer) removeEdsCon(clusterName string, node string, connection *XdsConnection) {
 	c := s.getEdsCluster(clusterName)
 	if c == nil {
 		log.Warnf("EDS: missing cluster %s", clusterName)
@@ -492,6 +489,10 @@ func (s *DiscoveryServer) removeEdsCon(clusterName string, node string, connecti
 	defer c.mutex.Unlock()
 
 	oldcon := c.EdsClients[node]
+	if oldcon == nil {
+		log.Warnf("EDS: Envoy restart %s %v, cleanup old connection missing %v", node, connection.PeerAddr, c.EdsClients)
+		return
+	}
 	if oldcon != connection {
 		if edsDebug {
 			log.Infof("EDS: Envoy restart %s %v, cleanup old connection %v", node, connection.PeerAddr, oldcon.PeerAddr)

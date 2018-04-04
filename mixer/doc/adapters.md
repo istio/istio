@@ -118,7 +118,7 @@ request time. Adapters must implement one Handler interface per supported templa
 
 * *Type* struct: If the datatype of a field in the `Instance` Go struct is dynamic (`interface{}`), the datatype of the value it will
 hold during request time is determined based on operator-supplied configuration. The type struct expresses
-the datatype of dynamic fields using the [ValueType enum](https://github.com/istio/api/blob/master/mixer/v1/config/descriptor/value_type.proto),
+the datatype of dynamic fields using the [ValueType enum](https://github.com/istio/api/blob/master/policy/v1beta1/value_type.proto),
 which has 1:1 mapping between Go data types and its enum values.
 
 * *HandlerBuilder* interface: This defines the methods that Mixer uses to pass the `Types`

@@ -51,6 +51,8 @@ const reportAttributesOkPost = `
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
   "connection.mtls": false,
+  "check.cache_hit": false,
+  "quota.cache_hit": false,
   "connection.received.bytes": 178,
   "connection.received.bytes_total": 178,
   "connection.sent.bytes": 133,
@@ -71,6 +73,8 @@ const reportAttributesFailPost = `
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
+  "check.cache_hit": false,
+  "quota.cache_hit": false,
   "connection.received.bytes": 178,
   "connection.received.bytes_total": 178,
   "destination.ip": "[127 0 0 1]",
@@ -98,7 +102,7 @@ var expectedStats = map[string]int{
 
 func TestTCPMixerFilter(t *testing.T) {
 	s := env.NewTestSetup(env.TCPMixerFilterTest, t)
-	env.SetStatsUpdateInterval(s.V2(), 1)
+	env.SetStatsUpdateInterval(s.MfConfig(), 1)
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}

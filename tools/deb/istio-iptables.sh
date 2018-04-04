@@ -18,31 +18,28 @@
 #
 # Initialization script responsible for setting up port forwarding for Istio sidecar.
 
-# Based on pilot/docker/prepare_proxy.sh - but instead of capturing all traffic, only capture
-# configured ranges.
-# Compared to the K8S docker sidecar:
-# - use config files - manual or pushed by an config system.
-# - fine grain control over what inbound ports are captured
-# - more control over what outbound traffic is captured
-# - can be run multiple times, will cleanup previous rules
-# - the "clean" option will remove all rules it previously added.
-
-# After more testing, the goal is to replace and unify the script in K8S - by generating
-# the sidecar image using the .deb file created by proxy.
-
 function usage() {
-  echo "${0} -p PORT -u UID [-h]"
+  echo "${0} -p PORT -u UID [-b ports] [-d ports] [-i CIDR] [-x CIDR] [-h]"
   echo ''
-  echo '  -p: Specify the envoy port to which redirect all TCP traffic (default $ENVOY_PORT = 150001)'
+  echo '  -p: Specify the envoy port to which redirect all TCP traffic (default $ENVOY_PORT = 15001)'
   echo '  -u: Specify the UID of the user for which the redirection is not'
-  echo '      applied. Typically, this is the UID of the proxy container (default to uid of $ENVOY_USER, uid of istio_proxy, or 1337)'
-  echo '  -i: Comma separated list of IP ranges in CIDR form to redirect to envoy (optional)'
+  echo '      applied. Typically, this is the UID of the proxy container'
+  echo '      (default to uid of $ENVOY_USER, uid of istio_proxy, or 1337)'
+  echo '  -b: Comma separated list of inbound ports for which traffic is to be redirected to Envoy (optional). The'
+  echo '      wildcard character "*" can be used to configure redirection for all ports. An empty list will disable'
+  echo '      all inbound redirection (default to $ISTIO_INBOUND_PORTS)'
+  echo '  -d: Comma separated list of inbound ports to be excluded from redirection to Envoy (optional). Only applies'
+  echo '      when all inbound traffic (i.e. "*") is being redirected (default to $ISTIO_LOCAL_EXCLUDE_PORTS)'
+  echo '  -i: Comma separated list of IP ranges in CIDR form to redirect to envoy (optional). The wildcard'
+  echo '      character "*" can be used to redirect all outbound traffic. An empty list will disable all outbound'
+  echo '      redirection (default to $ISTIO_SERVICE_CIDR)'
+  echo '  -x: Comma separated list of IP ranges in CIDR form to be excluded from redirection. Only applies when all '
+  echo '      outbound traffic (i.e. "*") is being redirected (default to $ISTIO_SERVICE_EXCLUDE_CIDR).'
   echo ''
   echo 'Using environment variables in $ISTIO_SIDECAR_CONFIG (default: /var/lib/istio/envoy/sidecar.env)'
 }
 
-set -o nounset
-set -o pipefail
+# Use a comma as the separator for multi-value arguments.
 IFS=,
 
 # The cluster env can be used for common cluster settings, pushed to all VMs in the cluster.
@@ -61,18 +58,32 @@ fi
 # TODO: load all files from a directory, similar with ufw, to make it easier for automated install scripts
 # Ideally we should generate ufw (and similar) configs as well, in case user already has an iptables solution.
 
-IP_RANGES_INCLUDE=${ISTIO_SERVICE_CIDR:-}
+PROXY_PORT=${ENVOY_PORT:-15001}
+PROXY_UID=
+INBOUND_PORTS_INCLUDE=${ISTIO_INBOUND_PORTS-}
+INBOUND_PORTS_EXCLUDE=${ISTIO_LOCAL_EXCLUDE_PORTS-}
+OUTBOUND_IP_RANGES_INCLUDE=${ISTIO_SERVICE_CIDR-}
+OUTBOUND_IP_RANGES_EXCLUDE=${ISTIO_SERVICE_EXCLUDE_CIDR-}
 
-while getopts ":p:u:e:i:h" opt; do
+while getopts ":p:u:b:d:i:x:h" opt; do
   case ${opt} in
     p)
-      ENVOY_PORT=${OPTARG}
+      PROXY_PORT=${OPTARG}
       ;;
     u)
-      ENVOY_UID=${OPTARG}
+      PROXY_UID=${OPTARG}
+      ;;
+    b)
+      INBOUND_PORTS_INCLUDE=${OPTARG}
+      ;;
+    d)
+      INBOUND_PORTS_EXCLUDE=${OPTARG}
       ;;
     i)
-      IP_RANGES_INCLUDE=${OPTARG}
+      OUTBOUND_IP_RANGES_INCLUDE=${OPTARG}
+      ;;
+    x)
+      OUTBOUND_IP_RANGES_EXCLUDE=${OPTARG}
       ;;
     h)
       usage
@@ -86,19 +97,17 @@ while getopts ":p:u:e:i:h" opt; do
   esac
 done
 
-
-# TODO: more flexibility - maybe a whitelist of users to be captured for output instead of
-# a blacklist.
-if [ -z "${ENVOY_UID:-}" ]; then
+# TODO: more flexibility - maybe a whitelist of users to be captured for output instead of a blacklist.
+if [ -z "${PROXY_UID}" ]; then
   # Default to the UID of ENVOY_USER and root
-  ENVOY_UID=$(id -u ${ENVOY_USER:-istio-proxy})
+  PROXY_UID=$(id -u ${ENVOY_USER:-istio-proxy})
   if [ $? -ne 0 ]; then
-     echo "Invalid istio user $ENVOY_UID $ENVOY_USER"
+     echo "Invalid istio user $PROXY_UID $ENVOY_USER"
      exit 1
   fi
   # If ENVOY_UID is not explicitly defined (as it would be in k8s env), we add root to the list,
   # for ca agent.
-  ENVOY_UID=${ENVOY_UID},0
+  PROXY_UID=${PROXY_UID},0
 fi
 
 # Remove the old chains, to generate new configs.
@@ -114,34 +123,62 @@ iptables -t nat -F ISTIO_REDIRECT 2>/dev/null
 iptables -t nat -X ISTIO_REDIRECT 2>/dev/null
 
 if [ "${1:-}" = "clean" ]; then
-  # Only cleanup, don't add new rules.
+  echo "Only cleaning, no new rules added"
   exit 0
 fi
+
+# Dump out our environment for debugging purposes.
+echo "Environment:"
+echo "------------"
+echo "ENVOY_PORT=${ENVOY_PORT-}"
+echo "ISTIO_INBOUND_PORTS=${ISTIO_INBOUND_PORTS-}"
+echo "ISTIO_LOCAL_EXCLUDE_PORTS=${ISTIO_LOCAL_EXCLUDE_PORTS-}"
+echo "ISTIO_SERVICE_CIDR=${ISTIO_SERVICE_CIDR-}"
+echo "ISTIO_SERVICE_EXCLUDE_CIDR=${ISTIO_SERVICE_EXCLUDE_CIDR-}"
+echo
+echo "Variables:"
+echo "----------"
+echo "PROXY_PORT=${PROXY_PORT}"
+echo "PROXY_UID=${PROXY_UID}"
+echo "INBOUND_PORTS_INCLUDE=${INBOUND_PORTS_INCLUDE}"
+echo "INBOUND_PORTS_EXCLUDE=${INBOUND_PORTS_EXCLUDE}"
+echo "OUTBOUND_IP_RANGES_INCLUDE=${OUTBOUND_IP_RANGES_INCLUDE}"
+echo "OUTBOUND_IP_RANGES_EXCLUDE=${OUTBOUND_IP_RANGES_EXCLUDE}"
+echo
+
+set -o errexit
+set -o nounset
+set -o pipefail
+set -x # echo on
 
 # Create a new chain for redirecting inbound traffic to the common Envoy port.
 # In the ISTIO_INBOUND and ISTIO_OUTBOUND chains, '-j RETURN' bypasses Envoy
 # and '-j ISTIO_REDIRECT' redirects to Envoy.
 iptables -t nat -N ISTIO_REDIRECT
-iptables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-port ${ENVOY_PORT:-15001}
+iptables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-port ${PROXY_PORT}
 
 # Handling of inbound ports. Traffic will be redirected to Envoy, which will process and forward
 # to the local service. If not set, no inbound port will be intercepted by istio iptables.
-if [ -n "${ISTIO_INBOUND_PORTS:-}" ]; then
+if [ -n "${INBOUND_PORTS_INCLUDE}" ]; then
   iptables -t nat -N ISTIO_INBOUND
   iptables -t nat -A PREROUTING -p tcp -j ISTIO_INBOUND
 
-  # Makes sure SSH is not redirectred
-  iptables -t nat -A ISTIO_INBOUND -p tcp --dport 22 -j RETURN
-
-  if [ "${ISTIO_INBOUND_PORTS:-}" == "*" ]; then
-       for port in ${ISTIO_LOCAL_EXCLUDE_PORTS:-}; do
-          iptables -t nat -A ISTIO_INBOUND -p tcp --dport ${port} -j RETURN
-       done
-       iptables -t nat -A ISTIO_INBOUND -p tcp -j ISTIO_REDIRECT
-  else
-      for port in ${ISTIO_INBOUND_PORTS}; do
-          iptables -t nat -A ISTIO_INBOUND -p tcp --dport ${port} -j ISTIO_REDIRECT
+  if [ "${INBOUND_PORTS_INCLUDE}" == "*" ]; then
+    # Makes sure SSH is not redirected
+    iptables -t nat -A ISTIO_INBOUND -p tcp --dport 22 -j RETURN
+    # Apply any user-specified port exclusions.
+    if [ -n "${INBOUND_PORTS_EXCLUDE}" ]; then
+      for port in ${INBOUND_PORTS_EXCLUDE}; do
+        iptables -t nat -A ISTIO_INBOUND -p tcp --dport ${port} -j RETURN
       done
+    fi
+    # Redirect remaining inbound traffic to Envoy.
+    iptables -t nat -A ISTIO_INBOUND -p tcp -j ISTIO_REDIRECT
+  else
+    # User has specified a non-empty list of ports to be redirected to Envoy.
+    for port in ${INBOUND_PORTS_INCLUDE}; do
+      iptables -t nat -A ISTIO_INBOUND -p tcp --dport ${port} -j ISTIO_REDIRECT
+    done
   fi
 fi
 
@@ -158,7 +195,7 @@ iptables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT
 # address, e.g. appN => Envoy (client) => Envoy (server) => appN.
 iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -j ISTIO_REDIRECT
 
-for uid in ${ENVOY_UID}; do
+for uid in ${PROXY_UID}; do
   # Avoid infinite loops. Don't redirect Envoy traffic directly back to
   # Envoy for non-loopback traffic.
   iptables -t nat -A ISTIO_OUTPUT -m owner --uid-owner ${uid} -j RETURN
@@ -169,13 +206,22 @@ done
 # localhost.
 iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN
 
-IFS=,
-if [ -n "${IP_RANGES_INCLUDE:-}" ]; then
-    for cidr in ${IP_RANGES_INCLUDE}; do
-        iptables -t nat -A ISTIO_OUTPUT -d ${cidr} -j ISTIO_REDIRECT
-    done
-    iptables -t nat -A ISTIO_OUTPUT -j RETURN
-else
+if [ -n "${OUTBOUND_IP_RANGES_INCLUDE}" ]; then
+  if [ "${OUTBOUND_IP_RANGES_INCLUDE}" == "*" ]; then
+    # Redirect exclusions must be applied before inclusions.
+    if [ -n "${OUTBOUND_IP_RANGES_EXCLUDE}" ]; then
+      for cidr in ${OUTBOUND_IP_RANGES_EXCLUDE}; do
+        iptables -t nat -A ISTIO_OUTPUT -d ${cidr} -j RETURN
+      done
+    fi
+    # Redirect remaining outbound traffic to Envoy
     iptables -t nat -A ISTIO_OUTPUT -j ISTIO_REDIRECT
+  else
+    # User has specified a non-empty list of cidrs to be redirected to Envoy.
+    for cidr in ${OUTBOUND_IP_RANGES_INCLUDE}; do
+      iptables -t nat -A ISTIO_OUTPUT -d ${cidr} -j ISTIO_REDIRECT
+    done
+    # All other traffic is not redirected.
+    iptables -t nat -A ISTIO_OUTPUT -j RETURN
+  fi
 fi
-

@@ -22,7 +22,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
-	authn "istio.io/api/authentication/v1alpha2"
+	authn "istio.io/api/authentication/v1alpha1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	routing "istio.io/api/routing/v1alpha1"
@@ -268,6 +268,15 @@ type IstioConfigStore interface {
 	// Name can be short name or FQDN.
 	DestinationRule(name, domain string) *Config
 
+	// VirtualServices lists all virtual services bound to the specified gateways
+	VirtualServices(gateways []string) []Config
+
+	// Gateways lists all gateways bound to the specified workload labels
+	Gateways(workloadLabels LabelsCollection) []Config
+
+	// SubsetToLabels returns the labels associated with a subset of a given service.
+	SubsetToLabels(subsetName, hostname, domain string) LabelsCollection
+
 	// HTTPAPISpecByDestination selects Mixerclient HTTP API Specs
 	// associated with destination service instances.
 	HTTPAPISpecByDestination(instance *ServiceInstance) []Config
@@ -312,7 +321,22 @@ const (
 
 	// NamespaceAll is a designated symbol for listing across all namespaces
 	NamespaceAll = ""
+
+	// IstioMeshGateway is the built in gateway for all sidecars
+	IstioMeshGateway = "mesh"
 )
+
+/*
+  This conversion of CRD (== yaml files with k8s metadata) is extremely inefficient.
+  The yaml is parsed (kubeyaml), converted to YAML again (FromJSONMap),
+  converted to JSON (YAMLToJSON) and finally UnmarshallString in proto is called.
+
+  The result is not cached in the model.
+
+  In 0.7, this was the biggest factor in scalability. Moving forward we will likely
+  deprecate model, and do the conversion (hopefully more efficient) only once, when
+  an object is first read.
+*/
 
 var (
 	// MockConfig is used purely for testing
@@ -458,8 +482,8 @@ var (
 		Type:        "policy",
 		Plural:      "policies",
 		Group:       "authentication",
-		Version:     "v1alpha2",
-		MessageName: "istio.authentication.v1alpha2.Policy",
+		Version:     "v1alpha1",
+		MessageName: "istio.authentication.v1alpha1.Policy",
 		Validate:    ValidateAuthenticationPolicy,
 	}
 
@@ -544,6 +568,28 @@ func ResolveHostname(meta ConfigMeta, svc *routing.IstioService) string {
 		if svc.Domain != "" {
 			out = out + "." + svc.Domain
 		} else if meta.Domain != "" {
+			out = out + ".svc." + meta.Domain
+		}
+	}
+
+	return out
+}
+
+// ResolveShortnameToFQDN uses metadata information to resolve a reference
+// to shortname of the service to FQDN
+func ResolveShortnameToFQDN(host string, meta ConfigMeta) string {
+	out := host
+
+	// if FQDN is specified, do not append domain or namespace to hostname
+	if !strings.Contains(host, ".") {
+		if meta.Namespace != "" {
+			out = out + "." + meta.Namespace
+		}
+
+		// FIXME this is a gross hack to hardcode a service's domain name in kubernetes
+		// BUG this will break non kubernetes environments if they use shortnames in the
+		// rules.
+		if meta.Domain != "" {
 			out = out + ".svc." + meta.Domain
 		}
 	}
@@ -736,6 +782,90 @@ func (store *istioConfigStore) ExternalServices() []Config {
 	return configs
 }
 
+// TODO: move the logic to v2, read all VirtualServices once at startup and per
+// change event and pass them to the config generator. Model calls to List are
+// extremely expensive - and for larger number of services it doesn't make sense
+// to just convert again and again, for each listener times endpoints.
+func (store *istioConfigStore) VirtualServices(gateways []string) []Config {
+	configs, err := store.List(VirtualService.Type, NamespaceAll)
+	if err != nil {
+		return nil
+	}
+
+	// Trim the list to virtual services bound to the gateways specified
+
+	gatewayRequested := make(map[string]bool)
+	for _, gateway := range gateways {
+		gatewayRequested[gateway] = true
+	}
+
+	out := make([]Config, 0)
+	for _, config := range configs {
+		rule := config.Spec.(*networking.VirtualService)
+		if len(rule.Gateways) == 0 {
+			// This rule applies only to IstioMeshGateway
+			if gatewayRequested[IstioMeshGateway] {
+				out = append(out, config)
+			}
+		} else {
+			for _, ruleGateway := range rule.Gateways {
+				if gatewayRequested[ruleGateway] {
+					out = append(out, config)
+					break
+				}
+			}
+		}
+	}
+
+	// Need to parse each rule and convert the shortname to FQDN
+	for _, r := range out {
+		rule := r.Spec.(*networking.VirtualService)
+		// resolve top level hosts
+		for i, h := range rule.Hosts {
+			rule.Hosts[i] = ResolveShortnameToFQDN(h, r.ConfigMeta)
+		}
+		// resolve host in http route.destination, route.mirror
+		for _, d := range rule.Http {
+			for _, w := range d.Route {
+				w.Destination.Host = ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta)
+			}
+			if d.Mirror != nil {
+				d.Mirror.Host = ResolveShortnameToFQDN(d.Mirror.Host, r.ConfigMeta)
+			}
+		}
+		//resolve host in tcp route.destination
+		for _, d := range rule.Tcp {
+			for _, w := range d.Route {
+				w.Destination.Host = ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta)
+			}
+		}
+	}
+
+	return out
+}
+
+func (store *istioConfigStore) Gateways(workloadLabels LabelsCollection) []Config {
+	configs, err := store.List(Gateway.Type, NamespaceAll)
+	if err != nil {
+		return nil
+	}
+
+	out := make([]Config, 0)
+	for _, config := range configs {
+		gateway := config.Spec.(*networking.Gateway)
+		if gateway.GetSelector() == nil {
+			// no selector. Applies to all workloads asking for the gateway
+			out = append(out, config)
+		} else {
+			gatewaySelector := Labels(gateway.GetSelector())
+			if workloadLabels.IsSupersetOf(gatewaySelector) {
+				out = append(out, config)
+			}
+		}
+	}
+	return out
+}
+
 func (store *istioConfigStore) Policy(instances []*ServiceInstance, destination string, labels Labels) *Config {
 	configs, err := store.List(DestinationPolicy.Type, NamespaceAll)
 	if err != nil {
@@ -783,8 +913,33 @@ func (store *istioConfigStore) DestinationRule(name, domain string) *Config {
 	target := ResolveFQDN(name, domain)
 	for _, config := range configs {
 		rule := config.Spec.(*networking.DestinationRule)
-		if ResolveFQDN(rule.Name, domain) == target {
+		if ResolveFQDN(rule.Host, domain) == target {
 			return &config
+		}
+		// from shortname destination to FQDN using the rule's namespace
+		if ResolveShortnameToFQDN(rule.Host, config.ConfigMeta) == target {
+			return &config
+		}
+	}
+
+	return nil
+}
+
+func (store *istioConfigStore) SubsetToLabels(subsetName, hostname, domain string) LabelsCollection {
+	// empty subset
+	if subsetName == "" {
+		return nil
+	}
+
+	config := store.DestinationRule(hostname, domain)
+	if config == nil {
+		return nil
+	}
+
+	rule := config.Spec.(*networking.DestinationRule)
+	for _, subset := range rule.Subsets {
+		if subset.Name == subsetName {
+			return []Labels{subset.Labels}
 		}
 	}
 

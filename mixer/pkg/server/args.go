@@ -20,8 +20,7 @@ import (
 
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
-	"istio.io/istio/mixer/pkg/il/evaluator"
-	mixerRuntime "istio.io/istio/mixer/pkg/runtime"
+	"istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
@@ -47,9 +46,6 @@ type Args struct {
 
 	// Maximum number of goroutines in the adapter worker pool
 	AdapterWorkerPoolSize int
-
-	// Maximum number of entries in the expression cache
-	ExpressionEvalCacheSize int
 
 	// URL of the config store. Use k8s://path_to_kubeconfig or fs:// for file system. If path_to_kubeconfig is empty, in-cluster kubeconfig is used.")
 	// If this is empty (and ConfigStore isn't specified), "k8s://" will be used.
@@ -93,9 +89,6 @@ type Args struct {
 	// Enable profiling via web interface host:port/debug/pprof
 	EnableProfiling bool
 
-	// Enables use of pkg/runtime2, instead of pkg/runtime.
-	UseNewRuntime bool
-
 	// Enables gRPC-level tracing
 	EnableGRPCTracing bool
 
@@ -112,11 +105,9 @@ func DefaultArgs() *Args {
 		MaxConcurrentStreams:          1024,
 		APIWorkerPoolSize:             1024,
 		AdapterWorkerPoolSize:         1024,
-		ExpressionEvalCacheSize:       evaluator.DefaultCacheSize,
-		ConfigDefaultNamespace:        mixerRuntime.DefaultConfigNamespace,
+		ConfigDefaultNamespace:        runtime.DefaultConfigNamespace,
 		ConfigIdentityAttribute:       "destination.service",
 		ConfigIdentityAttributeDomain: "svc.cluster.local",
-		UseNewRuntime:                 true,
 		LoggingOptions:                log.DefaultOptions(),
 		TracingOptions:                tracing.DefaultOptions(),
 		LivenessProbeOptions:          &probe.Options{},
@@ -134,10 +125,6 @@ func (a *Args) validate() error {
 		return fmt.Errorf("adapter worker pool size must be >= 0 and <= 2^31-1, got pool size %d", a.AdapterWorkerPoolSize)
 	}
 
-	if a.ExpressionEvalCacheSize <= 0 {
-		return fmt.Errorf("expressiion evaluation cache size must be >= 0 and <= 2^31-1, got cache size %d", a.ExpressionEvalCacheSize)
-	}
-
 	return nil
 }
 
@@ -149,7 +136,6 @@ func (a *Args) String() string {
 	fmt.Fprint(buf, "MaxConcurrentStreams: ", a.MaxConcurrentStreams, "\n")
 	fmt.Fprint(buf, "APIWorkerPoolSize: ", a.APIWorkerPoolSize, "\n")
 	fmt.Fprint(buf, "AdapterWorkerPoolSize: ", a.AdapterWorkerPoolSize, "\n")
-	fmt.Fprint(buf, "ExpressionEvalCacheSize: ", a.ExpressionEvalCacheSize, "\n")
 	fmt.Fprint(buf, "APIPort: ", a.APIPort, "\n")
 	fmt.Fprint(buf, "MonitoringPort: ", a.MonitoringPort, "\n")
 	fmt.Fprint(buf, "EnableProfiling: ", a.EnableProfiling, "\n")
@@ -158,7 +144,6 @@ func (a *Args) String() string {
 	fmt.Fprint(buf, "ConfigDefaultNamespace: ", a.ConfigDefaultNamespace, "\n")
 	fmt.Fprint(buf, "ConfigIdentityAttribute: ", a.ConfigIdentityAttribute, "\n")
 	fmt.Fprint(buf, "ConfigIdentityAttributeDomain: ", a.ConfigIdentityAttributeDomain, "\n")
-	fmt.Fprint(buf, "UseNewRuntime: ", a.UseNewRuntime, "\n")
 	fmt.Fprintf(buf, "LoggingOptions: %#v\n", *a.LoggingOptions)
 	fmt.Fprintf(buf, "TracingOptions: %#v\n", *a.TracingOptions)
 

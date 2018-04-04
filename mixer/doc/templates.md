@@ -190,7 +190,7 @@ There is currently no support for nested messages, enums, `oneof`, and `repeated
 
 The type `istio.mixer.adapter.model.v1beta1.Value` has a special meaning. Use of this type
 tells Mixer that the associated value can be any of the supported attribute
-types which are defined by the [ValueType](https://github.com/istio/api/blob/master/mixer/v1/config/descriptor/value_type.proto)
+types which are defined by the [ValueType](https://github.com/istio/api/blob/master/policy/v1beta1/value_type.proto)
 enum. The specific type that will be used at runtime depends on the configuration the operator writes.
 Adapters are told what these types are at [configuration time](./adapters.md##adapter-lifecycle) so they can prepare
 themselves accordingly.
@@ -199,7 +199,7 @@ There is currently no support for nested messages, enums, `oneof`, and `repeated
 
 The type `istio.mixer.adapter.model.v1beta1.Value` has a special meaning. Use of this type
 tells Mixer that the associated value can be any of the supported attribute
-types which are defined by the [ValueType](https://github.com/istio/api/blob/master/mixer/v1/config/descriptor/value_type.proto)
+types which are defined by the [ValueType](https://github.com/istio/api/blob/master/policy/v1beta1/value_type.proto)
 enum. The specific type that will be used at runtime depends on the configuration the operator writes.
 Adapters are told what these types are at [configuration time](./adapters.md##adapter-lifecycle) so they can prepare
 themselves accordingly.

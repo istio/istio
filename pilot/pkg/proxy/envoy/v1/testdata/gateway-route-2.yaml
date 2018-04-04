@@ -7,4 +7,4 @@ gateways:
 http:
 - route:
   - destination:
-      name: world
+      host: world

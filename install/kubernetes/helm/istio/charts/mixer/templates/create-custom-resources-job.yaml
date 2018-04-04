@@ -2,6 +2,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: istio-mixer-create-cr
+  namespace: {{ .Release.Namespace }}
   annotations:
     "helm.sh/hook": post-install
     "helm.sh/hook-delete-policy": hook-succeeded
@@ -34,4 +35,4 @@ spec:
         - name: tmp-configmap-mixer
           configMap:
             name: istio-mixer-custom-resources
-      restartPolicy: Never # CRD might take some time till they are available to comsume
+      restartPolicy: Never # CRD might take some time till they are available to consume

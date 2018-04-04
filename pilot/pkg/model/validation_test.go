@@ -26,7 +26,7 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 	multierror "github.com/hashicorp/go-multierror"
 
-	authn "istio.io/api/authentication/v1alpha2"
+	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
@@ -2451,7 +2451,7 @@ func TestValidateDestinationRule(t *testing.T) {
 		valid bool
 	}{
 		{name: "simple destination rule", in: &networking.DestinationRule{
-			Name: "reviews",
+			Host: "reviews",
 			Subsets: []*networking.Subset{
 				{Name: "v1", Labels: map[string]string{"version": "v1"}},
 				{Name: "v2", Labels: map[string]string{"version": "v2"}},
@@ -2459,7 +2459,7 @@ func TestValidateDestinationRule(t *testing.T) {
 		}, valid: true},
 
 		{name: "missing destination name", in: &networking.DestinationRule{
-			Name: "",
+			Host: "",
 			Subsets: []*networking.Subset{
 				{Name: "v1", Labels: map[string]string{"version": "v1"}},
 				{Name: "v2", Labels: map[string]string{"version": "v2"}},
@@ -2467,7 +2467,7 @@ func TestValidateDestinationRule(t *testing.T) {
 		}, valid: false},
 
 		{name: "missing subset name", in: &networking.DestinationRule{
-			Name: "reviews",
+			Host: "reviews",
 			Subsets: []*networking.Subset{
 				{Name: "", Labels: map[string]string{"version": "v1"}},
 				{Name: "v2", Labels: map[string]string{"version": "v2"}},
@@ -2475,7 +2475,7 @@ func TestValidateDestinationRule(t *testing.T) {
 		}, valid: false},
 
 		{name: "valid traffic policy, top level", in: &networking.DestinationRule{
-			Name: "reviews",
+			Host: "reviews",
 			TrafficPolicy: &networking.TrafficPolicy{
 				LoadBalancer: &networking.LoadBalancerSettings{
 					LbPolicy: &networking.LoadBalancerSettings_Simple{
@@ -2497,7 +2497,7 @@ func TestValidateDestinationRule(t *testing.T) {
 		}, valid: true},
 
 		{name: "invalid traffic policy, top level", in: &networking.DestinationRule{
-			Name: "reviews",
+			Host: "reviews",
 			TrafficPolicy: &networking.TrafficPolicy{
 				LoadBalancer: &networking.LoadBalancerSettings{
 					LbPolicy: &networking.LoadBalancerSettings_Simple{
@@ -2516,7 +2516,7 @@ func TestValidateDestinationRule(t *testing.T) {
 		}, valid: false},
 
 		{name: "valid traffic policy, subset level", in: &networking.DestinationRule{
-			Name: "reviews",
+			Host: "reviews",
 			Subsets: []*networking.Subset{
 				{Name: "v1", Labels: map[string]string{"version": "v1"},
 					TrafficPolicy: &networking.TrafficPolicy{
@@ -2539,7 +2539,7 @@ func TestValidateDestinationRule(t *testing.T) {
 		}, valid: true},
 
 		{name: "invalid traffic policy, subset level", in: &networking.DestinationRule{
-			Name: "reviews",
+			Host: "reviews",
 			Subsets: []*networking.Subset{
 				{Name: "v1", Labels: map[string]string{"version": "v1"},
 					TrafficPolicy: &networking.TrafficPolicy{
@@ -2559,7 +2559,7 @@ func TestValidateDestinationRule(t *testing.T) {
 		}, valid: false},
 
 		{name: "valid traffic policy, both levels", in: &networking.DestinationRule{
-			Name: "reviews",
+			Host: "reviews",
 			TrafficPolicy: &networking.TrafficPolicy{
 				LoadBalancer: &networking.LoadBalancerSettings{
 					LbPolicy: &networking.LoadBalancerSettings_Simple{
@@ -3058,9 +3058,85 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 			valid: true,
 		},
 		{
+			name: "Bad JkwsURI",
+			in: &authn.Policy{
+				Origins: []*authn.OriginAuthenticationMethod{
+					{
+						Jwt: &authn.Jwt{
+							Issuer:     "istio.io",
+							JwksUri:    "secure.istio.io/oauth/v1/certs",
+							JwtHeaders: []string{"x-goog-iap-jwt-assertion"},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "Bad JkwsURI Port",
+			in: &authn.Policy{
+				Origins: []*authn.OriginAuthenticationMethod{
+					{
+						Jwt: &authn.Jwt{
+							Issuer:     "istio.io",
+							JwksUri:    "https://secure.istio.io:not-a-number/oauth/v1/certs",
+							JwtHeaders: []string{"x-goog-iap-jwt-assertion"},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "Duplicate Jwt issuers",
+			in: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{{
+					Params: &authn.PeerAuthenticationMethod_Jwt{
+						Jwt: &authn.Jwt{
+							Issuer:     "istio.io",
+							JwksUri:    "https://secure.istio.io/oauth/v1/certs",
+							JwtHeaders: []string{"x-goog-iap-jwt-assertion"},
+						},
+					},
+				}},
+				Origins: []*authn.OriginAuthenticationMethod{
+					{
+						Jwt: &authn.Jwt{
+							Issuer:     "istio.io",
+							JwksUri:    "https://secure.istio.io/oauth/v1/certs",
+							JwtHeaders: []string{"x-goog-iap-jwt-assertion"},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
 			name: "Just binding",
 			in: &authn.Policy{
 				PrincipalBinding: authn.PrincipalBinding_USE_ORIGIN,
+			},
+			valid: true,
+		},
+		{
+			name: "Bad target name",
+			in: &authn.Policy{
+				Targets: []*authn.TargetSelector{
+					{
+						Name: "foo.bar",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "Good target name",
+			in: &authn.Policy{
+				Targets: []*authn.TargetSelector{
+					{
+						Name: "good-service-name",
+					},
+				},
 			},
 			valid: true,
 		},

@@ -28,7 +28,7 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 
-	authn "istio.io/api/authentication/v1alpha2"
+	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	routing "istio.io/api/routing/v1alpha1"
@@ -214,6 +214,10 @@ func buildClusters(env model.Environment, node model.Proxy) (Clusters, error) {
 		clusters = append(clusters, BuildMixerAuthFilterClusters(env.IstioConfigStore, env.Mesh, proxyInstances)...)
 	}
 
+	// append cluster for JwksUri (for Jwt authentication) if necessary.
+	clusters = append(clusters, buildJwksURIClustersForProxyInstances(
+		env.Mesh, env.IstioConfigStore, proxyInstances)...)
+
 	return clusters, nil
 }
 
@@ -293,7 +297,7 @@ func buildSidecarListenersClusters(
 		}
 
 		// only HTTP outbound clusters are needed
-		httpOutbound := buildOutboundHTTPRoutes(node, proxyInstances, services, config)
+		httpOutbound := buildOutboundHTTPRoutes(node, proxyInstances, services, config, false)
 		httpOutbound = BuildEgressHTTPRoutes(mesh, node, proxyInstances, config, httpOutbound)
 		httpOutbound = BuildExternalServiceHTTPRoutes(mesh, node, proxyInstances, config, httpOutbound)
 		clusters = append(clusters, httpOutbound.Clusters()...)
@@ -309,6 +313,7 @@ func buildSidecarListenersClusters(
 			direction:        traceOperation,
 			outboundListener: true,
 			store:            config,
+			authnPolicy:      nil, /* authN policy is not needed for outbound listener */
 		}))
 		// TODO: need inbound listeners in HTTP_PROXY case, with dedicated ingress listener.
 	}
@@ -316,17 +321,17 @@ func buildSidecarListenersClusters(
 	return listeners.normalize(), clusters.Normalize()
 }
 
-// buildRDSRoutes supplies RDS-enabled HTTP routes
+// BuildRDSRoute supplies RDS-enabled HTTP routes
 // The route name is assumed to be the port number used by the route in the
 // listener, or the special value for _all routes_.
 // TODO: this can be optimized by querying for a specific HTTP port in the table
-func buildRDSRoute(mesh *meshconfig.MeshConfig, node model.Proxy, routeName string,
-	discovery model.ServiceDiscovery, config model.IstioConfigStore) (*HTTPRouteConfig, error) {
+func BuildRDSRoute(mesh *meshconfig.MeshConfig, node model.Proxy, routeName string,
+	discovery model.ServiceDiscovery, config model.IstioConfigStore, envoyV2 bool) (*HTTPRouteConfig, error) {
 	var httpConfigs HTTPRouteConfigs
 
 	switch node.Type {
 	case model.Ingress:
-		httpConfigs, _ = BuildIngressRoutes(mesh, node, nil, discovery, config)
+		httpConfigs, _ = buildIngressRoutes(mesh, node, nil, discovery, config, envoyV2)
 	case model.Sidecar:
 		proxyInstances, err := discovery.GetProxyServiceInstances(node)
 		if err != nil {
@@ -336,9 +341,11 @@ func buildRDSRoute(mesh *meshconfig.MeshConfig, node model.Proxy, routeName stri
 		if err != nil {
 			return nil, err
 		}
-		httpConfigs = buildOutboundHTTPRoutes(node, proxyInstances, services, config)
-		httpConfigs = BuildEgressHTTPRoutes(mesh, node, proxyInstances, config, httpConfigs)
-		httpConfigs = BuildExternalServiceHTTPRoutes(mesh, node, proxyInstances, config, httpConfigs)
+		httpConfigs = buildOutboundHTTPRoutes(node, proxyInstances, services, config, envoyV2)
+		if !envoyV2 {
+			httpConfigs = BuildEgressHTTPRoutes(mesh, node, proxyInstances, config, httpConfigs)
+			httpConfigs = BuildExternalServiceHTTPRoutes(mesh, node, proxyInstances, config, httpConfigs)
+		}
 	case model.Router:
 		listenerPort, err := strconv.Atoi(routeName)
 		if err != nil {
@@ -378,6 +385,7 @@ type buildHTTPListenerOpts struct { // nolint: maligned
 	direction        string
 	outboundListener bool
 	store            model.IstioConfigStore
+	authnPolicy      *authn.Policy
 }
 
 // buildHTTPListener constructs a listener for the network interface address and port.
@@ -405,6 +413,10 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *Listener {
 			Config: mixerConfig,
 		}
 		filters = append([]HTTPFilter{filter}, filters...)
+	}
+
+	if filter := buildJwtFilter(opts.authnPolicy); filter != nil {
+		filters = append([]HTTPFilter{*filter}, filters...)
 	}
 
 	config := &HTTPFilterConfig{
@@ -451,8 +463,8 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *Listener {
 
 // mayApplyInboundAuth adds ssl_context to the listener if the given authN policy require TLS.
 func mayApplyInboundAuth(listener *Listener, authenticationPolicy *authn.Policy) {
-	if model.RequireTLS(authenticationPolicy) {
-		listener.SSLContext = buildListenerSSLContext(model.AuthCertsPath)
+	if ok, mltsParams := model.RequireTLS(authenticationPolicy); ok {
+		listener.SSLContext = buildListenerSSLContext(model.AuthCertsPath, mltsParams)
 	}
 }
 
@@ -543,7 +555,7 @@ func buildOutboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy, proxy
 	clusters = append(clusters, externalServiceTCPClusters...)
 
 	// note that outbound HTTP routes are supplied through RDS
-	httpOutbound := buildOutboundHTTPRoutes(node, proxyInstances, services, config)
+	httpOutbound := buildOutboundHTTPRoutes(node, proxyInstances, services, config, false)
 	httpOutbound = BuildEgressHTTPRoutes(mesh, node, proxyInstances, config, httpOutbound)
 	httpOutbound = BuildExternalServiceHTTPRoutes(mesh, node, proxyInstances, config, httpOutbound)
 
@@ -569,6 +581,7 @@ func buildOutboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy, proxy
 			direction:        operation,
 			outboundListener: true,
 			store:            config,
+			authnPolicy:      nil, /* authn policy is not needed for outbound listener */
 		}))
 		clusters = append(clusters, routeConfig.Clusters()...)
 	}
@@ -584,6 +597,7 @@ func buildDestinationHTTPRoutes(node model.Proxy, service *model.Service,
 	servicePort *model.Port,
 	proxyInstances []*model.ServiceInstance,
 	config model.IstioConfigStore,
+	envoyv2 bool,
 	buildCluster BuildClusterFunc,
 ) []*HTTPRoute {
 	protocol := servicePort.Protocol
@@ -600,7 +614,7 @@ func buildDestinationHTTPRoutes(node model.Proxy, service *model.Service,
 		model.SortRouteRules(rules)
 
 		for _, rule := range rules {
-			httpRoutes := BuildHTTPRoutes(config, rule, service, servicePort, proxyInstances, node.Domain, buildCluster)
+			httpRoutes := BuildHTTPRoutes(config, rule, service, servicePort, proxyInstances, node.Domain, envoyv2, buildCluster)
 			routes = append(routes, httpRoutes...)
 
 			// User can provide timeout/retry policies without any match condition,
@@ -625,6 +639,9 @@ func buildDestinationHTTPRoutes(node model.Proxy, service *model.Service,
 		if useDefaultRoute {
 			// default route for the destination is always the lowest priority route
 			cluster := buildCluster(service.Hostname, servicePort, nil, service.External())
+			if envoyv2 {
+				cluster.Name = model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, servicePort)
+			}
 			routes = append(routes, BuildDefaultRoute(cluster))
 		}
 
@@ -650,7 +667,8 @@ func buildDestinationHTTPRoutes(node model.Proxy, service *model.Service,
 // buildOutboundHTTPRoutes creates HTTP route configs indexed by ports for the
 // traffic outbound from the proxy instance
 func buildOutboundHTTPRoutes(node model.Proxy,
-	proxyInstances []*model.ServiceInstance, services []*model.Service, config model.IstioConfigStore) HTTPRouteConfigs {
+	proxyInstances []*model.ServiceInstance, services []*model.Service,
+	config model.IstioConfigStore, envoyv2 bool) HTTPRouteConfigs {
 	httpConfigs := make(HTTPRouteConfigs)
 	suffix := strings.Split(node.Domain, ".")
 
@@ -658,7 +676,8 @@ func buildOutboundHTTPRoutes(node model.Proxy,
 	// map for each service port to define filters
 	for _, service := range services {
 		for _, servicePort := range service.Ports {
-			routes := buildDestinationHTTPRoutes(node, service, servicePort, proxyInstances, config, BuildOutboundCluster)
+			routes := buildDestinationHTTPRoutes(node, service, servicePort, proxyInstances,
+				config, envoyv2, BuildOutboundCluster)
 
 			if len(routes) > 0 {
 				host := BuildVirtualHost(service, servicePort, suffix, routes)
@@ -776,6 +795,8 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 		protocol := servicePort.Protocol
 		cluster := BuildInboundCluster(endpoint.Port, protocol, mesh.ConnectTimeout)
 		clusters = append(clusters, cluster)
+		authenticationPolicy := model.GetConsolidateAuthenticationPolicy(mesh,
+			config, instance.Service.Hostname, endpoint.ServicePort)
 
 		var listener *Listener
 
@@ -863,6 +884,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 				direction:        IngressTraceOperation,
 				outboundListener: false,
 				store:            config,
+				authnPolicy:      authenticationPolicy,
 			})
 
 		case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
@@ -950,7 +972,7 @@ func buildEgressVirtualHost(serviceName string, destination string,
 	}
 
 	dest := &model.Service{Hostname: destination}
-	routes := buildDestinationHTTPRoutes(node, dest, port, proxyInstances, config, BuildOutboundCluster)
+	routes := buildDestinationHTTPRoutes(node, dest, port, proxyInstances, config, false, BuildOutboundCluster)
 	// reset the protocol to the original value
 	port.Protocol = protocolToHandle
 

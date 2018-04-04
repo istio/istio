@@ -47,6 +47,9 @@ rules:
 - apiGroups: ["*"]
   resources: ["configmaps"]
   verbs: ["get", "list", "watch"]
+- apiGroups: ["admissionregistration.k8s.io"]
+  resources: ["mutatingwebhookconfigurations"]
+  verbs: ["get", "list", "watch", "patch"]
 ---
 # Mixer CRD needs to watch and list CRDs
 # It also uses discovery API to discover Kinds of config.istio.io

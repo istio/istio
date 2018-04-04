@@ -45,6 +45,25 @@ global:
 
   # Default is 1 second
   refreshInterval: 10s
+  
+  # Enable multicluster operation.  Must be set to true if multicluster operation
+  # is desired.
+  multicluster:
+    enabled: false
+  
+  # Specify pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
+  #   0 - Never scheduled
+  #   1 - Least preferred
+  #   2 - No preference
+  #   3 - Most preferred
+  arch:
+    amd64: 2
+    s390x: 2
+    ppc64le: 2
+
+# Any customization for istio testing should be here
+istiotesting:
+  oneNameSpace: false
 
 #
 # ingress configuration
@@ -53,8 +72,8 @@ ingress:
   enabled: true
   serviceAccountName: default
   imagePullPolicy: IfNotPresent
-  autoscaleMin: 2
-  autoscaleMax: 8
+  autoscaleMin: 1
+  autoscaleMax: 1
   resources: {}
 # limits:
 #  cpu: 100m
@@ -62,7 +81,6 @@ ingress:
 # requests:
 #  cpu: 100m
 #  memory: 128Mi
-  nodeSelector: {}
   service:
     nodePort:
       enabled: false
@@ -83,7 +101,6 @@ sidecar-injector:
   # requests:
   #  cpu: 100m
   #  memory: 128Mi
-  nodeSelector: {}
 
   # istio egress capture whitelist
   # https://istio.io/docs/tasks/traffic-management/egress.html#calling-external-services-directly
@@ -107,7 +124,6 @@ mixer:
   # requests:
   #  cpu: 100m
   #  memory: 128Mi
-  nodeSelector: {}
 
   prometheusStatsdExporter:
     repository: prom/statsd-exporter
@@ -130,7 +146,6 @@ pilot:
   # requests:
   #  cpu: 100m
   #  memory: 128Mi
-  nodeSelector: {}
 
 #
 # security configuration
@@ -146,7 +161,6 @@ security:
   # requests:
   #  cpu: 100m
   #  memory: 128Mi
-  nodeSelector: {}
 
 #
 # addons configuration
@@ -181,7 +195,6 @@ grafana:
     # requests:
     #  cpu: 100m
     #  memory: 128Mi
-  nodeSelector: {}
 
 prometheus:
   enabled: false
@@ -210,7 +223,6 @@ prometheus:
     # requests:
     #  cpu: 100m
     #  memory: 128Mi
-  nodeSelector: {}
   service:
     nodePort:
       enabled: false
@@ -245,7 +257,6 @@ servicegraph:
     # requests:
     #  cpu: 100m
     #  memory: 128Mi
-  nodeSelector: {}
   # prometheus addres
   prometheusAddr: http://prometheus:9090
 
@@ -281,4 +292,3 @@ zipkin:
     # requests:
     #  cpu: 100m
     #  memory: 128Mi
-  nodeSelector: {}

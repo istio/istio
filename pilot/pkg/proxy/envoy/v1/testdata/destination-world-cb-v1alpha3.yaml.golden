@@ -1,4 +1,4 @@
-name: world
+host: world
 subsets:
   - name: v0
     labels:

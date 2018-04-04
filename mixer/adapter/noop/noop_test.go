@@ -53,6 +53,14 @@ func TestBasic(t *testing.T) {
 
 	cfg := info.DefaultConfig
 	b := info.NewBuilder().(*builder)
+	b.SetCheckNothingTypes(nil)
+	b.SetAuthorizationTypes(nil)
+	b.SetReportNothingTypes(nil)
+	b.SetListEntryTypes(nil)
+	b.SetLogEntryTypes(nil)
+	b.SetMetricTypes(nil)
+	b.SetQuotaTypes(nil)
+	b.SetTraceSpanTypes(nil)
 	b.SetAdapterConfig(cfg)
 
 	if err := b.Validate(); err != nil {

@@ -166,12 +166,15 @@ func (mb *MutableBag) Set(name string, value interface{}) {
 	mb.values[name] = value
 }
 
+// Delete removes a named item from the local state.
+// The item may still be present higher in the hierarchy
+func (mb *MutableBag) Delete(name string) {
+	delete(mb.values, name)
+}
+
 // Reset removes all local state.
 func (mb *MutableBag) Reset() {
-	// my kingdom for a clear method on maps!
-	for k := range mb.values {
-		delete(mb.values, k)
-	}
+	mb.values = make(map[string]interface{})
 }
 
 // Merge combines an array of bags into the current bag. If the current bag already defines
@@ -273,6 +276,20 @@ func GetBagFromProto(attrs *mixerpb.CompressedAttributes, globalWordList []strin
 	return mb, nil
 }
 
+// add an attribute to the bag, guarding against duplicate names
+func (mb *MutableBag) insertProtoAttr(name string, value interface{},
+	seen map[string]struct{}, lg func(string, ...interface{})) error {
+
+	lg("    %s -> '%v'", name, value)
+	if _, duplicate := seen[name]; duplicate {
+		previous := mb.values[name]
+		return fmt.Errorf("duplicate attribute %s (type %T, was %T)", name, value, previous)
+	}
+	seen[name] = struct{}{}
+	mb.values[name] = value
+	return nil
+}
+
 // UpdateBagFromProto refreshes the bag based on the content of the attribute proto.
 //
 // Note that in the case of semantic errors in the supplied proto which leads to
@@ -283,7 +300,8 @@ func (mb *MutableBag) UpdateBagFromProto(attrs *mixerpb.CompressedAttributes, gl
 	var name string
 	var value string
 
-	// TODO: fail if the proto carries multiple attributes by the same name (but different types)
+	// fail if the proto carries multiple attributes by the same name (but different types)
+	seen := make(map[string]struct{})
 
 	var buf *bytes.Buffer
 	lg := func(format string, args ...interface{}) {}
@@ -294,6 +312,13 @@ func (mb *MutableBag) UpdateBagFromProto(attrs *mixerpb.CompressedAttributes, gl
 			fmt.Fprintf(buf, format, args...)
 			buf.WriteString("\n")
 		}
+
+		defer func() {
+			if buf != nil {
+				log.Debug(buf.String())
+				pool.PutBuffer(buf)
+			}
+		}()
 	}
 
 	lg("Updating bag from wire attributes:")
@@ -302,56 +327,62 @@ func (mb *MutableBag) UpdateBagFromProto(attrs *mixerpb.CompressedAttributes, gl
 	for k, v := range attrs.Strings {
 		name, e = lookup(k, e, globalWordList, messageWordList)
 		value, e = lookup(v, e, globalWordList, messageWordList)
-		lg("    %s -> '%s'", name, value)
-		mb.values[name] = value
+		if err := mb.insertProtoAttr(name, value, seen, lg); err != nil {
+			return err
+		}
 	}
 
 	lg("  setting int64 attributes:")
 	for k, v := range attrs.Int64S {
 		name, e = lookup(k, e, globalWordList, messageWordList)
-		lg("    %s -> '%d'", name, v)
-		mb.values[name] = v
+		if err := mb.insertProtoAttr(name, v, seen, lg); err != nil {
+			return err
+		}
 	}
 
 	lg("  setting double attributes:")
 	for k, v := range attrs.Doubles {
 		name, e = lookup(k, e, globalWordList, messageWordList)
-		lg("    %s -> '%f'", name, v)
-		mb.values[name] = v
+		if err := mb.insertProtoAttr(name, v, seen, lg); err != nil {
+			return err
+		}
 	}
 
 	lg("  setting bool attributes:")
 	for k, v := range attrs.Bools {
 		name, e = lookup(k, e, globalWordList, messageWordList)
-		lg("    %s -> '%t'", name, v)
-		mb.values[name] = v
+		if err := mb.insertProtoAttr(name, v, seen, lg); err != nil {
+			return err
+		}
 	}
 
 	lg("  setting timestamp attributes:")
 	for k, v := range attrs.Timestamps {
 		name, e = lookup(k, e, globalWordList, messageWordList)
-		lg("    %s -> '%v'", name, v)
-		mb.values[name] = v
+		if err := mb.insertProtoAttr(name, v, seen, lg); err != nil {
+			return err
+		}
 	}
 
 	lg("  setting duration attributes:")
 	for k, v := range attrs.Durations {
 		name, e = lookup(k, e, globalWordList, messageWordList)
-		lg("    %s -> '%v'", name, v)
-		mb.values[name] = v
+		if err := mb.insertProtoAttr(name, v, seen, lg); err != nil {
+			return err
+		}
 	}
 
 	lg("  setting bytes attributes:")
 	for k, v := range attrs.Bytes {
 		name, e = lookup(k, e, globalWordList, messageWordList)
-		lg("    %s -> '%s'", name, v)
-		mb.values[name] = v
+		if err := mb.insertProtoAttr(name, v, seen, lg); err != nil {
+			return err
+		}
 	}
 
 	lg("  setting string map attributes:")
 	for k, v := range attrs.StringMaps {
 		name, e = lookup(k, e, globalWordList, messageWordList)
-		lg("  %s", name)
 
 		sm := make(map[string]string, len(v.Entries))
 		for k2, v2 := range v.Entries {
@@ -359,17 +390,13 @@ func (mb *MutableBag) UpdateBagFromProto(attrs *mixerpb.CompressedAttributes, gl
 			var value2 string
 			name2, e = lookup(k2, e, globalWordList, messageWordList)
 			value2, e = lookup(v2, e, globalWordList, messageWordList)
-			lg("    %s -> '%v'", name2, value2)
 			sm[name2] = value2
 		}
-		mb.values[name] = sm
-	}
 
-	if buf != nil {
-		log.Debug(buf.String())
-		pool.PutBuffer(buf)
+		if err := mb.insertProtoAttr(name, sm, seen, lg); err != nil {
+			return err
+		}
 	}
-
 	return e
 }
 
