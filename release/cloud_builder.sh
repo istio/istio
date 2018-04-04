@@ -72,8 +72,6 @@ fi
 # switch to the root of the istio repo
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd $ROOT
-git status
-git log -n 5
 
 export GOPATH="$(cd "$ROOT/../../.." && pwd)"
 echo gopath is $GOPATH
@@ -119,7 +117,3 @@ fi
 
 # log where git thinks the build might be dirty
 git status
-echo   ${ISTIO_OUT}/
-ls -lR ${ISTIO_OUT}/
-echo   ${OUTPUT_PATH}/
-ls -lR ${OUTPUT_PATH}/
