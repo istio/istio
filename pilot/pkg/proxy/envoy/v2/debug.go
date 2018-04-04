@@ -19,9 +19,16 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
+
+	"fmt"
+
+	"github.com/gogo/protobuf/jsonpb"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pkg/log"
 )
 
 // memregistry is based on mock/discovery - it is used for testing and debugging v2.
@@ -44,11 +51,11 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 
 	mux.HandleFunc("/debug/edsz", EDSz)
 
-	mux.HandleFunc("/debug/cdsz", Cdsz)
-
-	mux.HandleFunc("/debug/ldsz", LDSz)
+	mux.HandleFunc("/debug/adsz", adsz)
 
 	mux.HandleFunc("/debug/registryz", s.registryz)
+	mux.HandleFunc("/debug/endpointz", s.endpointz)
+	mux.HandleFunc("/debug/configz", s.configz)
 }
 
 // NewMemServiceDiscovery builds an in-memory MemServiceDiscovery
@@ -84,7 +91,8 @@ func (c *memServiceController) Run(<-chan struct{}) {}
 
 // MemServiceDiscovery is a mock discovery interface
 type MemServiceDiscovery struct {
-	services                      map[string]*model.Service
+	services map[string]*model.Service
+	// Endpoints table. Key is the fqdn of the service, ':', port
 	instances                     map[string][]*model.ServiceInstance
 	ip2instance                   map[string][]*model.ServiceInstance
 	versions                      int
@@ -111,7 +119,7 @@ func (sd *MemServiceDiscovery) AddService(name string, svc *model.Service) {
 }
 
 // AddInstance adds an in-memory instance.
-func (sd *MemServiceDiscovery) AddInstance(service string, instanceName string, instance *model.ServiceInstance) {
+func (sd *MemServiceDiscovery) AddInstance(service string, instance *model.ServiceInstance) {
 	// WIP: add enough code to allow tests and load tests to work
 	svc := sd.services[service]
 	if svc == nil {
@@ -120,13 +128,32 @@ func (sd *MemServiceDiscovery) AddInstance(service string, instanceName string, 
 	instance.Service = svc
 	sd.ip2instance[instance.Endpoint.Address] = []*model.ServiceInstance{instance}
 
-	instanceList := sd.instances[service]
+	key := fmt.Sprintf("%s:%s", service, instance.Endpoint.ServicePort.Name)
+	instanceList := sd.instances[key]
 	if instanceList == nil {
 		instanceList = []*model.ServiceInstance{instance}
-		sd.instances[service] = instanceList
+		sd.instances[key] = instanceList
 		return
 	}
-	sd.instances[service] = append(instanceList, instance)
+	sd.instances[key] = append(instanceList, instance)
+}
+
+// AddEndpoint adds an endpoint to a service.
+func (sd *MemServiceDiscovery) AddEndpoint(service, servicePortName string, servicePort int, address string, port int) *model.ServiceInstance {
+	instance := &model.ServiceInstance{
+		Endpoint: model.NetworkEndpoint{
+			Address: address,
+			Port:    port,
+			ServicePort: &model.Port{
+				Name:                 servicePortName,
+				Port:                 servicePort,
+				Protocol:             model.ProtocolHTTP,
+				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+			},
+		},
+	}
+	sd.AddInstance(service, instance)
+	return instance
 }
 
 // Services implements discovery interface
@@ -150,17 +177,23 @@ func (sd *MemServiceDiscovery) GetService(hostname string) (*model.Service, erro
 	return val, sd.GetServiceError
 }
 
-// Instances filters the service instances by labels
+// Instances filters the service instances by labels. This assumes single port, as is
+// used by EDS/ADS.
 func (sd *MemServiceDiscovery) Instances(hostname string, ports []string,
 	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	if sd.InstancesError != nil {
 		return nil, sd.InstancesError
 	}
-	instances, ok := sd.instances[hostname]
-	if !ok {
-		return nil, sd.InstancesError
+	if len(ports) != 1 {
+		log.Warna("Unexpected ports ", ports)
+		return nil, nil
 	}
-	return instances, sd.InstancesError
+	key := hostname + ":" + ports[0]
+	instances, ok := sd.instances[key]
+	if !ok {
+		return nil, nil
+	}
+	return instances, nil
 }
 
 // GetProxyServiceInstances returns service instances associated with a node, resulting in
@@ -209,27 +242,17 @@ func (sd *MemServiceDiscovery) GetIstioServiceAccounts(hostname string, ports []
 func (s *DiscoveryServer) registryz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
 	svcName := req.Form.Get("svc")
-	epName := req.Form.Get("ep")
 	if svcName != "" {
 		data, err := ioutil.ReadAll(req.Body)
 		if err != nil {
 			return
 		}
-		if epName == "" {
-			svc := &model.Service{}
-			err = json.Unmarshal(data, svc)
-			if err != nil {
-				return
-			}
-			s.MemRegistry.AddService(svcName, svc)
-		} else {
-			svc := &model.ServiceInstance{}
-			err = json.Unmarshal(data, svc)
-			if err != nil {
-				return
-			}
-			s.MemRegistry.AddInstance(svcName, epName, svc)
+		svc := &model.Service{}
+		err = json.Unmarshal(data, svc)
+		if err != nil {
+			return
 		}
+		s.MemRegistry.AddService(svcName, svc)
 	}
 
 	all, err := s.env.ServiceDiscovery.Services()
@@ -243,4 +266,139 @@ func (s *DiscoveryServer) registryz(w http.ResponseWriter, req *http.Request) {
 		}
 		_, _ = w.Write(b)
 	}
+}
+
+// Endpoint debugging
+func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
+	_ = req.ParseForm()
+	svcName := req.Form.Get("svc")
+	if svcName != "" {
+		data, err := ioutil.ReadAll(req.Body)
+		if err != nil {
+			return
+		}
+		svc := &model.ServiceInstance{}
+		err = json.Unmarshal(data, svc)
+		if err != nil {
+			return
+		}
+		s.MemRegistry.AddInstance(svcName, svc)
+	}
+	brief := req.Form.Get("brief")
+	if brief != "" {
+		svc, _ := s.env.ServiceDiscovery.Services()
+		for _, ss := range svc {
+			for _, p := range ss.Ports {
+				all, err := s.env.ServiceDiscovery.Instances(ss.Hostname, []string{p.Name}, nil)
+				if err != nil {
+					return
+				}
+				for _, svc := range all {
+					fmt.Fprintf(w, "%s:%s %s:%d %v %v %s\n", ss.Hostname,
+						p.Name, svc.Endpoint.Address, svc.Endpoint.Port, svc.Labels,
+						svc.AvailabilityZone, svc.ServiceAccount)
+				}
+			}
+		}
+		return
+	}
+
+	svc, _ := s.env.ServiceDiscovery.Services()
+	fmt.Fprint(w, "[\n")
+	for _, ss := range svc {
+		for _, p := range ss.Ports {
+			all, err := s.env.ServiceDiscovery.Instances(ss.Hostname, []string{p.Name}, nil)
+			if err != nil {
+				return
+			}
+			fmt.Fprintf(w, "\n{\"svc\": \"%s:%s\", \"ep\": [\n", ss.Hostname, p.Name)
+			for _, svc := range all {
+				b, err := json.MarshalIndent(svc, "  ", "  ")
+				if err != nil {
+					return
+				}
+				_, _ = w.Write(b)
+				fmt.Fprint(w, ",\n")
+			}
+			fmt.Fprint(w, "\n{}],")
+		}
+	}
+	fmt.Fprint(w, "\n{}]\n")
+}
+
+// Config debugging.
+func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
+	fmt.Fprintf(w, "\n[\n")
+	for _, typ := range s.env.IstioConfigStore.ConfigDescriptor() {
+		cfg, _ := s.env.IstioConfigStore.List(typ.Type, "")
+		for _, c := range cfg {
+			b, err := json.MarshalIndent(c, "  ", "  ")
+			if err != nil {
+				return
+			}
+			_, _ = w.Write(b)
+			fmt.Fprint(w, ",\n")
+		}
+	}
+	fmt.Fprint(w, "\n{}]")
+}
+
+// adsz implements a status and debug interface for ADS.
+// It is mapped to /debug/adsz
+func adsz(w http.ResponseWriter, req *http.Request) {
+	_ = req.ParseForm()
+	if req.Form.Get("debug") != "" {
+		adsDebug = req.Form.Get("debug") == "1"
+		return
+	}
+	if req.Form.Get("push") != "" {
+		adsPushAll()
+		fmt.Fprintf(w, "Pushed to %d servers", len(adsClients))
+		return
+	}
+	adsClientsMutex.RLock()
+
+	//data, err := json.Marshal(ldsClients)
+
+	// Dirty json generation - because standard json is dirty (struct madness)
+	// Unfortunately we must use the jsonbp to encode part of the json - I'm sure there are
+	// better ways, but this is mainly for debugging.
+	fmt.Fprint(w, "[\n")
+	comma2 := false
+	for _, c := range adsClients {
+		if comma2 {
+			fmt.Fprint(w, ",\n")
+		} else {
+			comma2 = true
+		}
+		fmt.Fprintf(w, "\n\n  {\"node\": \"%s\", \"addr\": \"%s\", \"connect\": \"%v\",\"listeners\":[\n", c.ConID, c.PeerAddr, c.Connect)
+		comma1 := false
+		for _, ls := range c.HTTPListeners {
+			if ls == nil {
+				log.Errorf("INVALID LISTENER NIL")
+				continue
+			}
+			if comma1 {
+				fmt.Fprint(w, ",\n")
+			} else {
+				comma1 = true
+			}
+			jsonm := &jsonpb.Marshaler{Indent: "  "}
+			dbgString, _ := jsonm.MarshalToString(ls)
+			if _, err := w.Write([]byte(dbgString)); err != nil {
+				return
+			}
+		}
+		fmt.Fprint(w, "]}\n")
+	}
+	fmt.Fprint(w, "]\n")
+
+	adsClientsMutex.RUnlock()
+
+	//if err != nil {
+	//	_, _ = w.Write([]byte(err.Error()))
+	//	return
+	//}
+	//
+	//_, _ = w.Write(data)
 }
