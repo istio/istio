@@ -87,10 +87,12 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	defaultCertTTL := 30 * time.Minute
 	maxCertTTL := time.Hour
 	org := "test.ca.org"
+	multicluster := false
 	caNamespace := "default"
 	client := fake.NewSimpleClientset()
 
-	caopts, err := NewSelfSignedIstioCAOptions(caCertTTL, defaultCertTTL, maxCertTTL, org, caNamespace, client.CoreV1())
+	caopts, err := NewSelfSignedIstioCAOptions(caCertTTL, defaultCertTTL, maxCertTTL, multicluster, org, caNamespace,
+		client.CoreV1())
 	if err != nil {
 		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
 	}
@@ -157,10 +159,12 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	caCertTTL := time.Hour
 	certTTL := 30 * time.Minute
 	maxCertTTL := time.Hour
+	multicluster := false
 	org := "test.ca.org"
 	caNamespace := "default"
 
-	caopts, err := NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL, org, caNamespace, client.CoreV1())
+	caopts, err := NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL, multicluster, org, caNamespace,
+		client.CoreV1())
 	if err != nil {
 		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
 	}
@@ -201,9 +205,10 @@ func TestCreatePluggedCertCA(t *testing.T) {
 
 	defaultWorkloadCertTTL := 30 * time.Minute
 	maxWorkloadCertTTL := time.Hour
+	multicluster := false
 
 	caopts, err := NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile, rootCertFile,
-		defaultWorkloadCertTTL, maxWorkloadCertTTL)
+		defaultWorkloadCertTTL, maxWorkloadCertTTL, multicluster)
 	if err != nil {
 		t.Fatalf("Failed to create a plugged-cert CA Options: %v", err)
 	}
@@ -244,13 +249,13 @@ func TestSignCSRForWorkload(t *testing.T) {
 		t.Error(err)
 	}
 
-	ca, err := createCA(time.Hour)
+	ca, err := createCA(time.Hour, false)
 	if err != nil {
 		t.Error(err)
 	}
 
 	requestedTTL := 30 * time.Minute
-	certPEM, err := ca.Sign(csrPEM, requestedTTL, false)
+	certPEM, err := ca.Sign(csrPEM, requestedTTL)
 	if err != nil {
 		t.Error(err)
 	}
@@ -300,13 +305,13 @@ func TestSignCSRForCA(t *testing.T) {
 		t.Error(err)
 	}
 
-	ca, err := createCA(365 * 24 * time.Hour)
+	ca, err := createCA(365*24*time.Hour, true)
 	if err != nil {
 		t.Error(err)
 	}
 
 	requestedTTL := 30 * 24 * time.Hour
-	certPEM, err := ca.Sign(csrPEM, requestedTTL, true)
+	certPEM, err := ca.Sign(csrPEM, requestedTTL)
 	if err != nil {
 		t.Error(err)
 	}
@@ -354,14 +359,14 @@ func TestSignCSRTTLError(t *testing.T) {
 		t.Error(err)
 	}
 
-	ca, err := createCA(2 * time.Hour)
+	ca, err := createCA(2*time.Hour, false)
 	if err != nil {
 		t.Error(err)
 	}
 
 	ttl := 3 * time.Hour
 
-	cert, err := ca.Sign(csrPEM, ttl, false)
+	cert, err := ca.Sign(csrPEM, ttl)
 	if cert != nil {
 		t.Errorf("Expected null cert be obtained a non-null cert.")
 	}
@@ -371,7 +376,7 @@ func TestSignCSRTTLError(t *testing.T) {
 	}
 }
 
-func createCA(maxTTL time.Duration) (CertificateAuthority, error) {
+func createCA(maxTTL time.Duration, multicluster bool) (CertificateAuthority, error) {
 	// Generate root CA key and cert.
 	rootCAOpts := util.CertOptions{
 		IsCA:         true,
@@ -418,6 +423,7 @@ func createCA(maxTTL time.Duration) (CertificateAuthority, error) {
 		CertTTL:       time.Hour,
 		MaxCertTTL:    maxTTL,
 		KeyCertBundle: bundle,
+		multicluster:  multicluster,
 	}
 
 	return NewIstioCA(caOpts)

@@ -29,7 +29,15 @@ type FakeCA struct {
 }
 
 // Sign returns the SignErr if SignErr is not nil, otherwise, it returns SignedCert.
-func (ca *FakeCA) Sign([]byte, time.Duration, bool) ([]byte, error) {
+func (ca *FakeCA) Sign([]byte, time.Duration) ([]byte, error) {
+	if ca.SignErr != nil {
+		return nil, ca.SignErr
+	}
+	return ca.SignedCert, nil
+}
+
+// SignCAServerCert returns the SignErr if SignErr is not nil, otherwise, it returns SignedCert.
+func (ca *FakeCA) SignCAServerCert([]byte, time.Duration) ([]byte, error) {
 	if ca.SignErr != nil {
 		return nil, ca.SignErr
 	}
