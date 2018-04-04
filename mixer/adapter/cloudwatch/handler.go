@@ -149,8 +149,25 @@ func getNumericValue(h *Handler, inst *metric.Instance) (float64, error) {
 		return float64(v), nil
 	case float64:
 		return v, nil
+	case time.Duration:
+		return getDurationNumericValue(h, inst, v)
 	default:
 		return 0, h.env.Logger().Errorf("Unsupported value type %T. Only strings and numeric values are accepted", v)
+	}
+}
+
+func getDurationNumericValue(h *Handler, inst *metric.Instance, v time.Duration) (float64, error) {
+	unit := h.cfg.GetMetricInfo()[inst.Name].GetUnit()
+
+	switch unit {
+	case "Seconds":
+		return float64(v / time.Second), nil
+	case "Microseconds":
+		return float64(v / time.Microsecond), nil
+	case "Milliseconds":
+		return float64(v / time.Millisecond), nil
+	default:
+		return 0, h.env.Logger().Errorf("Supported dimensions for duration are Seconds, Microseconds, and Milliseconds. %v is not supported", unit)
 	}
 }
 
