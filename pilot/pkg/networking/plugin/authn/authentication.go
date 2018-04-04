@@ -194,7 +194,7 @@ func ConvertPolicyToAuthNFilterConfig(policy *authn.Policy) *authn_filter.Filter
 
 // BuildJwtFilter returns a Jwt filter for all Jwt specs in the policy.
 func BuildJwtFilter(policy *authn.Policy) *http_conn.HttpFilter {
-	filterConfigProto := ConvertPolicyToJwtConfig(policy)
+	filterConfigProto := model.ConvertPolicyToJwtConfig(policy)
 	if filterConfigProto == nil {
 		return nil
 	}

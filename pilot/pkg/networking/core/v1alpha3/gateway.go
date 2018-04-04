@@ -26,7 +26,6 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	"istio.io/istio/pilot/pkg/networking/plugin/registry"
 	"istio.io/istio/pkg/log"
 )
 
@@ -122,7 +121,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 			//	listenAddress, uint32(servicePort.Port), servicePort.Protocol)
 		}
 
-		for _, p := range registry.NewPlugins(registry.MixerPlugin) {
+		for _, p := range configgen.Plugins {
 			params := &plugin.CallbackListenerInputParams{
 				ListenerType: listenerType,
 				Env:          &env,
