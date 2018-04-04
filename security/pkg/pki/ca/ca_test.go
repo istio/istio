@@ -89,8 +89,9 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	org := "test.ca.org"
 	caNamespace := "default"
 	client := fake.NewSimpleClientset()
+	k8SCertFile := "../testdata/multilevelpki/k8s-ca-cert.pem"
 
-	caopts, err := NewSelfSignedIstioCAOptions(caCertTTL, defaultCertTTL, maxCertTTL, org, caNamespace, client.CoreV1())
+	caopts, err := NewSelfSignedIstioCAOptions(caCertTTL, defaultCertTTL, maxCertTTL, org, caNamespace, client.CoreV1(), k8SCertFile)
 	if err != nil {
 		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
 	}
@@ -104,7 +105,11 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	}
 
 	signingCert, _, certChainBytes, rootCertBytes := ca.GetCAKeyCertBundle().GetAll()
-	rootCert, err := util.ParsePemEncodedCertificate(rootCertBytes)
+	pemRootCerts := bytes.SplitAfter(rootCertBytes, []byte("-----END CERTIFICATE-----"))
+	if len(pemRootCerts) < 2 {
+		t.Error("Number of root certs does not match.")
+	}
+	rootCert, err := util.ParsePemEncodedCertificate(pemRootCerts[0])
 	if err != nil {
 		t.Error(err)
 	}
@@ -139,6 +144,15 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	if !signingCertFromSecret.Equal(signingCert) {
 		t.Error("CA signing cert does not match the K8s secret")
 	}
+
+	// Check K8s root cert.
+	k8sRootCert, err := util.ParsePemEncodedCertificate(pemRootCerts[1])
+	if err != nil {
+		t.Errorf("Failed to parse kubernetes root cert (%v)", err)
+	}
+	if !compareCert(k8sRootCert, k8SCertFile) {
+		t.Errorf("Failed to verify loading of kubernetes root cert pem.")
+	}
 }
 
 func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
@@ -160,7 +174,7 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	org := "test.ca.org"
 	caNamespace := "default"
 
-	caopts, err := NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL, org, caNamespace, client.CoreV1())
+	caopts, err := NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL, org, caNamespace, client.CoreV1(), "")
 	if err != nil {
 		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
 	}
@@ -198,12 +212,13 @@ func TestCreatePluggedCertCA(t *testing.T) {
 	certChainFile := "../testdata/multilevelpki/int2-cert-chain.pem"
 	signingCertFile := "../testdata/multilevelpki/int2-cert.pem"
 	signingKeyFile := "../testdata/multilevelpki/int2-key.pem"
+	k8SCertFile := "../testdata/multilevelpki/k8s-ca-cert.pem"
 
 	defaultWorkloadCertTTL := 30 * time.Minute
 	maxWorkloadCertTTL := time.Hour
 
 	caopts, err := NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile, rootCertFile,
-		defaultWorkloadCertTTL, maxWorkloadCertTTL)
+		defaultWorkloadCertTTL, maxWorkloadCertTTL, k8SCertFile)
 	if err != nil {
 		t.Fatalf("Failed to create a plugged-cert CA Options: %v", err)
 	}
@@ -217,6 +232,14 @@ func TestCreatePluggedCertCA(t *testing.T) {
 	}
 
 	signingCertBytes, signingKeyBytes, certChainBytes, rootCertBytes := ca.GetCAKeyCertBundle().GetAllPem()
+	pemRootCerts := bytes.SplitAfter(rootCertBytes, []byte("-----END CERTIFICATE-----"))
+	if len(pemRootCerts) < 2 {
+		t.Error("Number of root certs does not match.")
+	}
+	rootCert, err := util.ParsePemEncodedCertificate(pemRootCerts[0])
+	if err != nil {
+		t.Errorf("Failed to parse root cert (%v)", err)
+	}
 	if !comparePem(signingCertBytes, signingCertFile) {
 		t.Errorf("Failed to verify loading of signing cert pem.")
 	}
@@ -226,8 +249,17 @@ func TestCreatePluggedCertCA(t *testing.T) {
 	if !comparePem(certChainBytes, certChainFile) {
 		t.Errorf("Failed to verify loading of cert chain pem.")
 	}
-	if !comparePem(rootCertBytes, rootCertFile) {
+	if !compareCert(rootCert, rootCertFile) {
 		t.Errorf("Failed to verify loading of root cert pem.")
+	}
+
+	// Check k8s root cert.
+	k8sRootCert, err := util.ParsePemEncodedCertificate(pemRootCerts[1])
+	if err != nil {
+		t.Errorf("Failed to parse kubernetes root cert (%v)", err)
+	}
+	if !compareCert(k8sRootCert, k8SCertFile) {
+		t.Errorf("Failed to verify loading of kubernetes root cert pem.")
 	}
 }
 
@@ -447,4 +479,16 @@ func comparePem(expectedBytes []byte, file string) bool {
 		return false
 	}
 	return true
+}
+
+func compareCert(expectCert *x509.Certificate, file string) bool {
+	fileBytes, err := ioutil.ReadFile(file)
+	if err != nil {
+		return false
+	}
+	certFromFile, err := util.ParsePemEncodedCertificate(fileBytes)
+	if err != nil {
+		return false
+	}
+	return expectCert.Equal(certFromFile)
 }

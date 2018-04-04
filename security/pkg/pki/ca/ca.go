@@ -17,6 +17,7 @@ package ca
 import (
 	"encoding/pem"
 	"fmt"
+	"io/ioutil"
 	"time"
 
 	apiv1 "k8s.io/api/core/v1"
@@ -92,7 +93,7 @@ type IstioCA struct {
 
 // NewSelfSignedIstioCAOptions returns a new IstioCAOptions instance using self-signed certificate.
 func NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL time.Duration, org string, namespace string,
-	core corev1.SecretsGetter) (caOpts *IstioCAOptions, err error) {
+	core corev1.SecretsGetter, kubernetesCACertPath string) (caOpts *IstioCAOptions, err error) {
 	// For the first time the CA is up, it generates a self-signed key/cert pair and write it to
 	// cASecret. For subsequent restart, CA will reads key/cert from cASecret.
 	caSecret, scrtErr := core.Secrets(namespace).Get(cASecret, metav1.GetOptions{})
@@ -114,6 +115,13 @@ func NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL time.Duration, o
 		pemCert, pemKey, ckErr := util.GenCertKeyFromOptions(options)
 		if ckErr != nil {
 			return nil, fmt.Errorf("unable to generate CA cert and key for self-signed CA (%v)", ckErr)
+		}
+
+		k8sPemCert, k8sErr := ioutil.ReadFile(kubernetesCACertPath)
+		if k8sErr != nil {
+			log.Errorf("Failed to get Kubernetes CA cert (%v)", err)
+		} else {
+			pemCert = append(pemCert, k8sPemCert...)
 		}
 
 		if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(pemCert, pemKey, nil, pemCert); err != nil {
@@ -147,7 +155,7 @@ func NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL time.Duration, o
 
 // NewPluggedCertIstioCAOptions returns a new IstioCAOptions instance using given certificate.
 func NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile, rootCertFile string,
-	certTTL, maxCertTTL time.Duration) (caOpts *IstioCAOptions, err error) {
+	certTTL, maxCertTTL time.Duration, kubernetesCACertPath string) (caOpts *IstioCAOptions, err error) {
 	caOpts = &IstioCAOptions{
 		CAType:     pluggedCertCA,
 		CertTTL:    certTTL,
@@ -157,12 +165,22 @@ func NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile
 		signingCertFile, signingKeyFile, certChainFile, rootCertFile); err != nil {
 		return nil, fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
 	}
+	k8sPemCert, err := ioutil.ReadFile(kubernetesCACertPath)
+	if err != nil {
+		log.Errorf("Failed to get Kubernetes CA cert (%v)", err)
+	} else {
+		certBytes, privKeyBytes, certChainBytes, rootCertBytes := caOpts.KeyCertBundle.GetAllPem()
+		rootCertBytes = append(rootCertBytes, k8sPemCert...)
+		if err = caOpts.KeyCertBundle.VerifyAndSetAll(certBytes, privKeyBytes, certChainBytes, rootCertBytes); err != nil {
+			log.Errorf("Failed to add Kubernetes CA cert to CA KeyCertBundle (%v)", err)
+		}
+	}
 	return caOpts, nil
 }
 
 // NewIntegratedIstioCAOptions returns a new IstioCAOptions instance with upstream CA configuration.
 func NewIntegratedIstioCAOptions(upstreamCAAddress, upstreamCACertFile, upstreamAuth string,
-	workloadCertTTL, maxWorkloadCertTTL time.Duration) (caOpts *IstioCAOptions, err error) {
+	workloadCertTTL, maxWorkloadCertTTL time.Duration, kubernetesCACertPath string) (caOpts *IstioCAOptions, err error) {
 	caOpts = &IstioCAOptions{
 		CAType:            integratedCA,
 		CertTTL:           workloadCertTTL,
@@ -173,6 +191,17 @@ func NewIntegratedIstioCAOptions(upstreamCAAddress, upstreamCACertFile, upstream
 	if caOpts.KeyCertBundle, err = util.NewKeyCertBundleWithRootCertFromFile(upstreamCACertFile); err != nil {
 		return nil, fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
 	}
+	k8sPemCert, err := ioutil.ReadFile(kubernetesCACertPath)
+	if err != nil {
+		log.Errorf("Failed to get Kubernetes CA cert (%v)", err)
+	} else {
+		certBytes, privKeyBytes, certChainBytes, rootCertBytes := caOpts.KeyCertBundle.GetAllPem()
+		rootCertBytes = append(rootCertBytes, k8sPemCert...)
+		if err = caOpts.KeyCertBundle.VerifyAndSetAll(certBytes, privKeyBytes, certChainBytes, rootCertBytes); err != nil {
+			log.Errorf("Failed to add Kubernetes CA cert to CA KeyCertBundle (%v)", err)
+		}
+	}
+
 	return caOpts, nil
 }
 
