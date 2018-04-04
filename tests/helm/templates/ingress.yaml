@@ -1,35 +1,12 @@
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
-  name: secured-ingress
+  name: ingress
   annotations:
-    kubernetes.io/ingress.class: istio
+    kubernetes.io/ingress.class: "istio"
 spec:
   tls:
     - secretName: istio-ingress-certs
-  rules:
-  - http:
-      paths:
-      - path: /http
-        backend:
-          serviceName: a
-          servicePort: http
-      - path: /pasta
-        backend:
-          serviceName: b
-          servicePort: 8080
-      - path: /.*
-        backend:
-          serviceName: a
-          servicePort: grpc
----
-apiVersion: extensions/v1beta1
-kind: Ingress
-metadata:
-  name: regular-ingress
-  annotations:
-    kubernetes.io/ingress.class: istio
-spec:
   rules:
   - http:
       paths:
@@ -53,6 +30,18 @@ spec:
         backend:
           serviceName: c
           servicePort: http
+      - path: /http
+        backend:
+          serviceName: a
+          servicePort: http
+      - path: /pasta
+        backend:
+          serviceName: b
+          servicePort: 8080
+      - path: /.*
+        backend:
+          serviceName: a
+          servicePort: grpc
   - host: foo.bar.com
     http:
       paths:
