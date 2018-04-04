@@ -238,16 +238,16 @@ func TestGenSanURI(t *testing.T) {
 	}{
 		{
 			serviceAccount: "sa",
+			expectedError:  "namespace or service account can't be empty",
+		},
+		{
+			namespace:     "ns",
 			expectedError: "namespace or service account can't be empty",
 		},
 		{
-			namespace:"ns",
-			expectedError: "namespace or service account can't be empty",
-			},
-		{
-			namespace: "namespace-foo",
+			namespace:      "namespace-foo",
 			serviceAccount: "service-bar",
-			expectedURI: "spiffe://cluster.local/ns/namespace-foo/sa/service-bar",
+			expectedURI:    "spiffe://cluster.local/ns/namespace-foo/sa/service-bar",
 		},
 	}
 	for id, tc := range testCases {
