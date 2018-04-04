@@ -43,19 +43,22 @@ import (
 )
 
 const (
-	bookinfoYaml             = "samples/bookinfo/kube/bookinfo.yaml"
-	bookinfoRatingsv2Yaml    = "samples/bookinfo/kube/bookinfo-ratings-v2.yaml"
-	bookinfoDbYaml           = "samples/bookinfo/kube/bookinfo-db.yaml"
-	sleepYaml                = "samples/sleep/sleep.yaml"
-	rulesDir                 = "samples/bookinfo/kube"
-	rateLimitRule            = "mixer-rule-ratings-ratelimit.yaml"
-	denialRule               = "mixer-rule-ratings-denial.yaml"
-	ingressDenialRule        = "mixer-rule-ingress-denial.yaml"
-	newTelemetryRule         = "mixer-rule-additional-telemetry.yaml"
-	routeAllRule             = "route-rule-all-v1.yaml"
-	routeReviewsVersionsRule = "route-rule-reviews-v2-v3.yaml"
-	routeReviewsV3Rule       = "route-rule-reviews-v3.yaml"
-	tcpDbRule                = "route-rule-ratings-db.yaml"
+	bookinfoSampleDir        = "samples/bookinfo"
+	yamlExtension            = "yaml"
+	deploymentDir            = "kube"
+	rulesDir                 = "kube"
+	bookinfoYaml             = "bookinfo"
+	bookinfoRatingsv2Yaml    = "bookinfo-ratings-v2"
+	bookinfoDbYaml           = "bookinfo-db"
+	sleepYaml                = "samples/sleep/sleep"
+	rateLimitRule            = rulesDir + "/" + "mixer-rule-ratings-ratelimit"
+	denialRule               = rulesDir + "/" + "mixer-rule-ratings-denial"
+	ingressDenialRule        = rulesDir + "/" + "mixer-rule-ingress-denial"
+	newTelemetryRule         = rulesDir + "/" + "mixer-rule-additional-telemetry"
+	routeAllRule             = rulesDir + "/" + "route-rule-all-v1"
+	routeReviewsVersionsRule = rulesDir + "/" + "route-rule-reviews-v2-v3"
+	routeReviewsV3Rule       = rulesDir + "/" + "route-rule-reviews-v3"
+	tcpDbRule                = rulesDir + "/" + "route-rule-ratings-db"
 
 	egressRuleDir     = "tests/helm/templates"
 	egressRuleHttpbin = "egress-rule-httpbin.yaml"
@@ -97,8 +100,8 @@ func (t *testConfig) Setup() (err error) {
 	}()
 
 	for _, rule := range rules {
-		src := util.GetResourcePath(filepath.Join(rulesDir, rule))
-		dest := filepath.Join(t.rulesDir, rule)
+		src := util.GetResourcePath(filepath.Join(bookinfoSampleDir, rule+"."+yamlExtension))
+		dest := filepath.Join(t.rulesDir, rule+"."+yamlExtension)
 		if err = copyFile(src, dest); err != nil {
 			return err
 		}
@@ -133,6 +136,11 @@ func copyFile(src string, dest string) error {
 	srcBytes, err := ioutil.ReadFile(src)
 	if err != nil {
 		log.Errorf("Failed to read original rule file %s", src)
+		return err
+	}
+	err = os.MkdirAll(filepath.Dir(dest), 0700)
+	if err != nil {
+		log.Errorf("Failed to create the directory %s", filepath.Dir(dest))
 		return err
 	}
 	err = ioutil.WriteFile(dest, srcBytes, 0600)
@@ -1039,17 +1047,17 @@ func fqdn(service string) string {
 }
 
 func createRouteRule(ruleName string) error {
-	rule := filepath.Join(tc.rulesDir, ruleName)
+	rule := filepath.Join(tc.rulesDir, ruleName+"."+yamlExtension)
 	return util.KubeApply(tc.Kube.Namespace, rule)
 }
 
 func replaceRouteRule(ruleName string) error {
-	rule := filepath.Join(tc.rulesDir, ruleName)
+	rule := filepath.Join(tc.rulesDir, ruleName+"."+yamlExtension)
 	return util.KubeApply(tc.Kube.Namespace, rule)
 }
 
 func deleteRouteRule(ruleName string) error {
-	rule := filepath.Join(tc.rulesDir, ruleName)
+	rule := filepath.Join(tc.rulesDir, ruleName+"."+yamlExtension)
 	return util.KubeDelete(tc.Kube.Namespace, rule)
 }
 
@@ -1067,7 +1075,7 @@ type kubeDo func(namespace string, contents string) error
 // New mixer rules contain fully qualified pointers to other
 // resources, they must be replaced by the current namespace.
 func doMixerRule(ruleName string, do kubeDo) error {
-	rule := filepath.Join(tc.rulesDir, ruleName)
+	rule := filepath.Join(tc.rulesDir, ruleName+"."+yamlExtension)
 	cb, err := ioutil.ReadFile(rule)
 	if err != nil {
 		log.Errorf("Cannot read original yaml file %s", rule)
@@ -1100,6 +1108,11 @@ func doEgressRule(do kubeDo) error {
 	return do(tc.Kube.Namespace, contents)
 }
 
+func getBookinfoResourcePath(resource string) string {
+	return util.GetResourcePath(filepath.Join(bookinfoSampleDir, deploymentDir,
+		resource+"."+yamlExtension))
+}
+
 func setTestConfig() error {
 	cc, err := framework.NewCommonConfig("mixer_test")
 	if err != nil {
@@ -1114,19 +1127,19 @@ func setTestConfig() error {
 	tc.rulesDir = tmpDir
 	demoApps := []framework.App{
 		{
-			AppYaml:    util.GetResourcePath(bookinfoYaml),
+			AppYaml:    getBookinfoResourcePath(bookinfoYaml),
 			KubeInject: true,
 		},
 		{
-			AppYaml:    util.GetResourcePath(bookinfoRatingsv2Yaml),
+			AppYaml:    getBookinfoResourcePath(bookinfoRatingsv2Yaml),
 			KubeInject: true,
 		},
 		{
-			AppYaml:    util.GetResourcePath(bookinfoDbYaml),
+			AppYaml:    getBookinfoResourcePath(bookinfoDbYaml),
 			KubeInject: true,
 		},
 		{
-			AppYaml:    util.GetResourcePath(sleepYaml),
+			AppYaml:    util.GetResourcePath(sleepYaml + "." + yamlExtension),
 			KubeInject: true,
 		},
 	}
