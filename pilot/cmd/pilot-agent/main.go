@@ -241,9 +241,9 @@ var (
 				if err != nil {
 					return err
 				}
-				log.Infof("Static config:\n%s", content)
+				log.Infof("Static config:\n%s", string(content))
 				proxyConfig.CustomConfigFile = proxyConfig.ConfigPath + "/envoy.yaml"
-				err = ioutil.WriteFile(proxyConfig.CustomConfigFile, []byte(content), 0644)
+				err = ioutil.WriteFile(proxyConfig.CustomConfigFile, content, 0644)
 				if err != nil {
 					return err
 				}
