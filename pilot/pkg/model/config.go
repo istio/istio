@@ -596,24 +596,6 @@ func ResolveShortnameToFQDN(host string, meta ConfigMeta) string {
 	return out
 }
 
-// ResolveFQDN ensures a host is a FQDN. If the host is a short name (i.e. has no dots in the name) and the domain is
-// non-empty the FQDN is built by concatenating the host and domain with a dot. Otherwise host is assumed to be a
-// FQDN and is returned unchanged.
-// FIXME: remove obsolete function
-func ResolveFQDN(host, domain string) string {
-	if len(domain) > 0 && strings.Count(host, ".") == 0 { // host is a shortname
-		return fmt.Sprintf("%s.%s", host, domain)
-	}
-	return host
-}
-
-// resolveFQDNFromAuthNTarget returns FQDN for AuthenticationPolicy target selector,
-// in namespace and domain defines by config meta.
-func resolveFQDNFromAuthNTarget(meta ConfigMeta, target *authn.TargetSelector) string {
-	// return target.Name + "." + meta.Namespace + ".svc." + meta.Domain
-	return ResolveFQDN(target.Name, meta.Namespace+".svc."+meta.Domain)
-}
-
 // istioConfigStore provides a simple adapter for Istio configuration types
 // from the generic config registry
 type istioConfigStore struct {
@@ -1003,7 +985,7 @@ func (store *istioConfigStore) AuthenticationPolicyByDestination(hostname string
 		matchLevel := 0
 		if len(policy.Targets) > 0 {
 			for _, dest := range policy.Targets {
-				if hostname != resolveFQDNFromAuthNTarget(spec.ConfigMeta, dest) {
+				if hostname != ResolveHostname(spec.ConfigMeta, &routing.IstioService{Name: dest.Name}) {
 					continue
 				}
 				// If destination port is defined, it must match.
