@@ -32,6 +32,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 	node model.Proxy) ([]*xdsapi.Listener, error) {
 	config := env.IstioConfigStore
 
+	var gateways []model.Config
 	// collect workload labels
 	workloadInstances, err := env.GetProxyServiceInstances(node)
 	if err != nil {
@@ -44,7 +45,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 		workloadLabels = append(workloadLabels, w.Labels)
 	}
 
-	gateways := config.Gateways(workloadLabels)
+	gateways = config.Gateways(workloadLabels)
 
 	if len(gateways) == 0 {
 		log.Debuga("no gateways for router", node.ID)
@@ -153,6 +154,8 @@ func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamT
 			},
 			AlpnProtocols: ListenersALPNProtocols,
 		},
+		// For ingress, or if only one cert is defined we should not require SNI (would
+		// break compat with not-so-old devices, IoT, etc)
 		// TODO: Need config option to enable SNI
 		//RequireSni: &types.BoolValue{
 		//	Value: true, // is that OKAY?
@@ -165,10 +168,14 @@ func buildGatewayInboundHTTPRouteConfig(env model.Environment, gatewayName strin
 	// TODO WE DO NOT SUPPORT two gateways on same workload binding to same virtual service
 	virtualServices := env.VirtualServices([]string{gatewayName})
 
+	nameF := func(d *networking.Destination) string {
+		return model.BuildSubsetKey(model.TrafficDirectionOutbound, d.Subset, d.Name, &model.Port{Name: d.Port.GetName()})
+	}
+
 	virtualHosts := make([]route.VirtualHost, 0)
 	// TODO: Need to trim output based on source label/gateway match
 	for _, v := range virtualServices {
-		guardedRoute := TranslateRoutes(v, nil)
+		guardedRoute := TranslateRoutes(v, nameF)
 		var routes []route.Route
 		for _, g := range guardedRoute {
 			routes = append(routes, g.Route)

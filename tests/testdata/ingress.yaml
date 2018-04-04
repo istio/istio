@@ -41,7 +41,7 @@ spec:
         prefix: /foo
     route:
     - destination:
-        name: service3
+        host: service3.default.svc.cluster.local
         port:
            name: http
 

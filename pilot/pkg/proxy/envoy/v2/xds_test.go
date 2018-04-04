@@ -48,8 +48,12 @@ var (
 	// service1 and service2 are used by mixer tests. Use 'service3' and 'app3' for pilot
 	// local tests.
 
+	// 10.10.0.0/24 is service CIDR range
+
+	// 10.0.0.0/9 is instance CIDR range
 	app3Ip    = "10.2.0.1"
 	gatewayIP = "10.3.0.1"
+	ingressIP = "10.3.0.2"
 )
 
 // Common code for the xds testing.
@@ -98,8 +102,8 @@ func gatewayId(ip string) string {
 	return fmt.Sprintf("router~%s~istio-gateway-644fc65469-96dzt.istio-system~istio-system.svc.cluster.local", ip)
 }
 
-func ingressId() string {
-	return "ingress~~istio-ingress-7cd767fcb4-kl6gt.pilot-noauth-system~pilot-noauth-system.svc.cluster.local"
+func ingressId(ip string) string {
+	return fmt.Sprintf("ingress~%s~istio-ingress-7cd767fcb4-kl6gt.pilot-noauth-system~pilot-noauth-system.svc.cluster.local", ip)
 }
 
 // initLocalPilotTestEnv creates a local, in process Pilot with XDSv2 support and a set
@@ -169,6 +173,26 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 			},
 		},
 		Labels:           map[string]string{"version": "v2", "app": "my-gateway-controller"},
+		AvailabilityZone: "az",
+	})
+
+	server.EnvoyXdsServer.MemRegistry.AddService("istio-ingress.istio-system.svc.cluster.local", &model.Service{
+		Hostname: "istio-ingress.istio-system.svc.cluster.local",
+		Address:  "10.10.0.2",
+		Ports:    testPorts(0),
+	})
+	server.EnvoyXdsServer.MemRegistry.AddInstance("istio-ingress.istio-system.svc.cluster.local", &model.ServiceInstance{
+		Endpoint: model.NetworkEndpoint{
+			Address: ingressIP,
+			Port:    80,
+			ServicePort: &model.Port{
+				Name:                 "http-main",
+				Port:                 8000,
+				Protocol:             model.ProtocolHTTP,
+				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+			},
+		},
+		Labels:           map[string]string{"version": "v1", "istio": "ingress"},
 		AvailabilityZone: "az",
 	})
 

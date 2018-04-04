@@ -23,8 +23,6 @@ import (
 )
 
 // ConfigGenerator represents the interfaces to be implemented by code that generates xDS responses
-// Deprecated: the interface is too coarse, when we have multiple generator implementations we can
-//  try to abstract (if needed), but right now it creates more impedance miss-match pain than benefits.
 type ConfigGenerator interface {
 	// BuildListeners returns the list of listeners for the given proxy. This is the LDS output
 	// Internally, the computation will be optimized to ensure that listeners are computed only
@@ -39,6 +37,6 @@ type ConfigGenerator interface {
 }
 
 // NewConfigGenerator creates a new instance of the dataplane configuration generator
-func NewConfigGenerator() *v1alpha3.ConfigGeneratorImpl {
+func NewConfigGenerator() ConfigGenerator {
 	return v1alpha3.NewConfigGenerator(registry.NewPlugins())
 }
