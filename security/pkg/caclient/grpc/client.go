@@ -25,6 +25,13 @@ import (
 	pb "istio.io/istio/security/proto"
 )
 
+
+// CAProtocol is the interface for talking to CA.
+type CAProtocol interface {
+	// SendCSR send CSR request to the CA server.
+	SendCSR(*pb.CsrRequest) (*pb.CsrResponse, error)
+}
+
 // CAGrpcClient is for implementing the GRPC client to talk to CA.
 type CAGrpcClient interface {
 	// Send CSR to the CA and gets the response or error.
@@ -33,6 +40,30 @@ type CAGrpcClient interface {
 
 // CAGrpcClientImpl is an implementation of GRPC client to talk to CA.
 type CAGrpcClientImpl struct {
+}
+
+// CAGrpcProtocol implements CAProtocol talking to CA via gRPC.
+type CAGrpcClientA struct {
+	connection *grpc.ClientConn
+}
+
+func NewCAGrpcClient(caAddr string, dialOptions []grpc.DialOption) (*CAGrpcClientA, error) {
+	conn, err := grpc.Dial(caAddr, dialOptions...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to dial %s: %v", caAddr, err)
+	}
+	return &CAGrpcClientA{
+		connection: conn,
+	}, nil
+}
+
+func (c *CAGrpcClientA) SendCSR(req *pb.CsrRequest) (*pb.CsrResponse, error) {
+	client := pb.NewIstioCAServiceClient(c.connection)
+	return client.HandleCSR(context.Background(), req)
+}
+
+func (c *CAGrpcClientA) Close() error {
+	return c.connection.Close()
 }
 
 // SendCSR sends CSR to CA through GRPC.
