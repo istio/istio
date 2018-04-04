@@ -34,28 +34,27 @@ func TestIngress(t *testing.T) {
 	cfgs := &deployableConfig{
 		Namespace: tc.Kube.Namespace,
 		YamlFiles: []string{
-			"testdata/ingress.yaml",
-			"testdata/v1alpha1/rule-default-route.yaml"},
+			"testdata/ingress.yaml"},
 	}
 	if err := cfgs.Setup(); err != nil {
 		t.Fatal(err)
 	}
 	defer cfgs.Teardown()
 
-	// First, verify that version splitting is applied to ingress paths.
-	runRetriableTest(t, "VersionSplitting", defaultRetryBudget, func() error {
-		reqURL := fmt.Sprintf("http://%s.%s/c", ingressServiceName, istioNamespace)
-		resp := ClientRequest("t", reqURL, 100, "")
-		count := make(map[string]int)
-		for _, elt := range resp.Version {
-			count[elt] = count[elt] + 1
-		}
-		log.Infof("request counts %v", count)
-		if count["v1"] >= 95 {
-			return nil
-		}
-		return errAgain
-	})
+	//// First, verify that version splitting is applied to ingress paths.
+	//runRetriableTest(t, "VersionSplitting", defaultRetryBudget, func() error {
+	//	reqURL := fmt.Sprintf("http://%s.%s/c", ingressServiceName, istioNamespace)
+	//	resp := ClientRequest("t", reqURL, 100, "")
+	//	count := make(map[string]int)
+	//	for _, elt := range resp.Version {
+	//		count[elt] = count[elt] + 1
+	//	}
+	//	log.Infof("request counts %v", count)
+	//	if count["v1"] >= 95 {
+	//		return nil
+	//	}
+	//	return errAgain
+	//})
 
 	cases := []struct {
 		// empty destination to expect 404

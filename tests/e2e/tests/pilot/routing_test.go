@@ -328,6 +328,7 @@ func TestRouteRedirectInjection(t *testing.T) {
 }
 
 func TestRouteMirroring(t *testing.T) {
+	t.Skipf("Skipping %s", t.Name())
 	for _, version := range configVersions() {
 		logs := newAccessLogs()
 		// Invoke a function to scope the lifecycle of the deployed configs.
