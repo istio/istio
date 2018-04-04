@@ -718,7 +718,6 @@
           "allowMissingOrFailed": true,
           "rules": [
            {
-            "forward": true,
             "forwardPayloadHeader": "istio-sec-4cd586ece11fcc8dbb78ad8b1188c7369e6618d8",
             "fromHeaders": [
              {
