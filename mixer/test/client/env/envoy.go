@@ -47,7 +47,8 @@ func (s *TestSetup) NewEnvoy(stress, faultInject bool, mfConf *MixerFilterConf, 
 	if stress {
 		args = append(args, "--concurrency", "10")
 	} else {
-		args = append(args, "-l", "debug", "--concurrency", "1")
+		// debug is far too verbose.
+		args = append(args, "-l", "info", "--concurrency", "1")
 	}
 	if s.EnvoyParams != nil {
 		args = append(args, s.EnvoyParams...)

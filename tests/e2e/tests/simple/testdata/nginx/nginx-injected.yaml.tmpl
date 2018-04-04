@@ -261,6 +261,12 @@ spec:
         - "15001"
         - -u
         - "1337"
+        # Redirect all outbound traffic to Envoy.
+        - -i
+        - "*"
+        # Redirect all inbound traffic to Envoy.
+        - -b
+        - "*"
         image: {{.ProxyHub}}/proxy_init:{{.ProxyTag}}
         imagePullPolicy: {{.ImagePullPolicy}}
         name: istio-init
@@ -440,13 +446,16 @@ spec:
         - "15001"
         - -u
         - "1337"
-        # Do not redirect inbound traffic to Envoy.
-        - -b
-        - ""
+        # By default, redirect all outbound traffic to Envoy.
+        - -i
+        - "*"
         # Exclude outbound traffic to kubernetes master from redirection.
         # This is required in order to support single-namespace Istio configurations.
         - -x
         - {{.KubeMasterCIDR}}
+        # Do not redirect inbound traffic to Envoy.
+        - -b
+        - ""
         image: {{.ProxyHub}}/proxy_init:{{.ProxyTag}}
         imagePullPolicy: {{.ImagePullPolicy}}
         name: istio-init
