@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
@@ -236,9 +237,13 @@ var (
 				if err != nil {
 					return err
 				}
-				log.Infof("Static config:\n%s", out)
-				proxyConfig.CustomConfigFile = proxyConfig.ConfigPath + "/envoy.json"
-				err = ioutil.WriteFile(proxyConfig.CustomConfigFile, []byte(out), 0644)
+				content, err := yaml.JSONToYAML([]byte(out))
+				if err != nil {
+					return err
+				}
+				log.Infof("Static config:\n%s", content)
+				proxyConfig.CustomConfigFile = proxyConfig.ConfigPath + "/envoy.yaml"
+				err = ioutil.WriteFile(proxyConfig.CustomConfigFile, []byte(content), 0644)
 				if err != nil {
 					return err
 				}

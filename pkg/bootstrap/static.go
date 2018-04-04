@@ -33,8 +33,8 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
-	"istio.io/api/mixer/v1"
-	"istio.io/api/mixer/v1/config/client"
+	mixerv1 "istio.io/api/mixer/v1"
+	mixerclient "istio.io/api/mixer/v1/config/client"
 )
 
 // Default constants
@@ -166,26 +166,26 @@ type Upstream struct {
 }
 
 // BuildServiceConfig generates a mixer client config.
-func BuildServiceConfig(service, uid, telemetryCluster string) *client.HttpClientConfig {
-	return &client.HttpClientConfig{
+func BuildServiceConfig(service, uid, telemetryCluster string) *mixerclient.HttpClientConfig {
+	return &mixerclient.HttpClientConfig{
 		DefaultDestinationService: service,
-		ServiceConfigs: map[string]*client.ServiceConfig{
+		ServiceConfigs: map[string]*mixerclient.ServiceConfig{
 			service: {
 				DisableCheckCalls:  true,
 				DisableReportCalls: false,
-				MixerAttributes: &v1.Attributes{
-					Attributes: map[string]*v1.Attributes_AttributeValue{
-						"destination.service": {Value: &v1.Attributes_AttributeValue_StringValue{
+				MixerAttributes: &mixerv1.Attributes{
+					Attributes: map[string]*mixerv1.Attributes_AttributeValue{
+						"destination.service": {Value: &mixerv1.Attributes_AttributeValue_StringValue{
 							StringValue: service,
 						}},
-						"destination.uid": {Value: &v1.Attributes_AttributeValue_StringValue{
+						"destination.uid": {Value: &mixerv1.Attributes_AttributeValue_StringValue{
 							StringValue: uid,
 						}},
 					},
 				},
 			},
 		},
-		Transport: &client.TransportConfig{
+		Transport: &mixerclient.TransportConfig{
 			CheckCluster:  "mixer_check_server",
 			ReportCluster: telemetryCluster,
 		},
