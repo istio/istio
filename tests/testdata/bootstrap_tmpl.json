@@ -1,4 +1,14 @@
 {
+  "node": {
+    "id": "{{ .Options.NodeID }}",
+    "cluster": "mycluster",
+    "locality": {
+      "zone": "testzone"
+    },
+    "metadata": {
+      "foo": "bar"
+    }
+  },
   "stats_config": {
     "use_all_default_tags": false
   },
@@ -13,7 +23,9 @@
   },
   "dynamic_resources": {
     "lds_config": {
-      "api_config_source": {
+      "ads": {}
+       {{/*
+       "api_config_source": {
         "api_type": "GRPC",
         "refresh_delay": {
           "seconds": 30,
@@ -23,32 +35,20 @@
           "xds-grpc"
         ]
       }
-    },
+        */}}
+       },
     "cds_config": {
-      "api_config_source": {
-        "api_type": "GRPC",
-        "refresh_delay": {
-          "seconds": 30,
-          "nanos": 0
-        },
-        "cluster_names": [
-          "xds-grpc"
-        ]
-      }
+      "ads": {}
     },
-    "deprecated_v1": {
-      "sds_config": {
-        "api_config_source": {
-          "api_type": "GRPC",
-          "refresh_delay": {
-            "seconds": 30,
-            "nanos": 0
-          },
-          "cluster_names": [
-            "xds-grpc"
-          ]
-        }
-      }
+    "ads_config": {
+      "api_type": "GRPC",
+      "refresh_delay": {
+        "seconds": 30,
+        "nanos": 0
+      },
+      "cluster_names": [
+        "xds-grpc"
+      ]
     }
   },
   "static_resources": {

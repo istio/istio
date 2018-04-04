@@ -21,7 +21,7 @@ import (
 
 const (
 	// BufferSize specifies the buffer size of event channel
-	BufferSize = 10
+	BufferSize = 100
 )
 
 // Handler specifies a function to apply on a Config for a given event type

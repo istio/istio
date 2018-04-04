@@ -16,7 +16,6 @@ package v2_test
 import (
 	"context"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"strings"
 	"testing"
@@ -29,10 +28,11 @@ import (
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
 
-	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 
 	"fmt"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/tests/util"
 )
 
@@ -58,7 +58,7 @@ func connect(t *testing.T) xdsapi.EndpointDiscoveryService_StreamEndpointsClient
 	return edsstr
 }
 
-func reconnect(server *bootstrap.Server, res *xdsapi.DiscoveryResponse, t *testing.T) xdsapi.EndpointDiscoveryService_StreamEndpointsClient {
+func reconnect(res *xdsapi.DiscoveryResponse, t *testing.T) xdsapi.EndpointDiscoveryService_StreamEndpointsClient {
 	conn, err := grpc.Dial(util.MockPilotGrpcAddr, grpc.WithInsecure())
 	if err != nil {
 		t.Fatal("Connection failed", err)
@@ -84,14 +84,14 @@ func reconnect(server *bootstrap.Server, res *xdsapi.DiscoveryResponse, t *testi
 
 // Regression for envoy restart and overlapping connections
 func TestReconnectWithNonce(t *testing.T) {
-	server := initLocalPilotTestEnv()
+	_ = initLocalPilotTestEnv(t)
 	edsstr := connect(t)
 	res, _ := edsstr.Recv()
 
 	// closes old process
 	_ = edsstr.CloseSend()
 
-	edsstr = reconnect(server, res, t)
+	edsstr = reconnect(res, t)
 	res, _ = edsstr.Recv()
 	_ = edsstr.CloseSend()
 
@@ -100,7 +100,7 @@ func TestReconnectWithNonce(t *testing.T) {
 
 // Regression for envoy restart and overlapping connections
 func TestReconnect(t *testing.T) {
-	initLocalPilotTestEnv()
+	initLocalPilotTestEnv(t)
 	edsstr := connect(t)
 	_, _ = edsstr.Recv()
 
@@ -172,8 +172,20 @@ func directRequest(server *bootstrap.Server, t *testing.T) {
 	}
 	t.Log(cla.String(), res1.String())
 
-	server.MemoryServiceDiscovery.AddService("hello2.default.svc.cluster.local",
-		mock.MakeService("hello2.default.svc.cluster.local", "10.1.1.1"))
+	server.EnvoyXdsServer.MemRegistry.AddInstance("dynamic1.default.svc.cluster.local", &model.ServiceInstance{
+		Endpoint: model.NetworkEndpoint{
+			Address: "10.5.0.1",
+			Port:    2080,
+			ServicePort: &model.Port{
+				Name:                 "http-main",
+				Port:                 1080,
+				Protocol:             model.ProtocolHTTP,
+				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+			},
+		},
+		Labels:           map[string]string{"version": "v1"},
+		AvailabilityZone: "az",
+	})
 
 	v2.PushAll() // will trigger recompute and push
 	// This should happen in 15 seconds, for the periodic refresh
@@ -192,23 +204,8 @@ func directRequest(server *bootstrap.Server, t *testing.T) {
 }
 
 func TestEds(t *testing.T) {
-	initEnvoyTestEnv(t)
+	initLocalPilotTestEnv(t)
 	server := util.EnsureTestServer()
-
-	server.MemoryServiceDiscovery.AddService("hello2.default.svc.cluster.local",
-		mock.MakeService("hello2.default.svc.cluster.local", "10.12.0.0"))
-
-	// Verify services are set
-	srv, err := server.ServiceController.Services()
-	if err != nil {
-		t.Fatal("Listing services", err)
-	}
-	log.Println(srv)
-
-	//err := util.RunEnvoy("xds", "tests/testdata/envoy_local.json")
-	//if err != nil {
-	//	t.Error("Failed to start envoy", err)
-	//}
 
 	t.Run("DirectRequest", func(t *testing.T) {
 		directRequest(server, t)
@@ -225,7 +222,7 @@ func testEdsz(t *testing.T) {
 	edszURL := fmt.Sprintf("http://localhost:%d/debug/edsz", testEnv.Ports().PilotHTTPPort)
 	res, err := http.Get(edszURL)
 	if err != nil {
-		t.Fatalf("Failed to fetch /edsz")
+		t.Fatalf("Failed to fetch %s", edszURL)
 	}
 	data, err := ioutil.ReadAll(res.Body)
 	if err != nil {
