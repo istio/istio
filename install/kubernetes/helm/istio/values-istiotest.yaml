@@ -3,7 +3,7 @@
 global:
   nodePort: true
   proxy:
-    image: proxyv2
+    image: proxy_debug
 
 ingress:
   service:
