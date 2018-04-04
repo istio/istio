@@ -217,7 +217,7 @@ type HTTPTraceDriverConfig struct {
 }
 
 // RootRuntime definition.
-// See https://envoyproxy.github.io/envoy/configuration/overview/overview.html
+// See https://www.envoyproxy.io/docs/envoy/latest/api-v1/runtime
 type RootRuntime struct {
 	SymlinkRoot          string `json:"symlink_root"`
 	Subdirectory         string `json:"subdirectory"`
@@ -365,7 +365,7 @@ func (route *HTTPRoute) CombinePathPrefix(path, prefix string) *HTTPRoute {
 }
 
 // CORSPolicy definition
-// See: https://www.envoyproxy.io/envoy/configuration/http_filters/cors_filter.html#config-http-filters-cors
+// See: https://www.envoyproxy.io/docs/envoy/latest/api-v1/route_config/route#cors
 type CORSPolicy struct {
 	Enabled          bool     `json:"enabled,omitempty"`
 	AllowCredentials bool     `json:"allow_credentials,omitempty"`
@@ -377,7 +377,7 @@ type CORSPolicy struct {
 }
 
 // RetryPolicy definition
-// See: https://lyft.github.io/envoy/docs/configuration/http_conn_man/route_config/route.html#retry-policy
+// See: https://www.envoyproxy.io/docs/envoy/latest/api-v1/route_config/route#retry-policy
 type RetryPolicy struct {
 	Policy          string `json:"retry_on"` //if unset, set to 5xx,connect-failure,refused-stream
 	NumRetries      int    `json:"num_retries,omitempty"`
@@ -385,14 +385,13 @@ type RetryPolicy struct {
 }
 
 // ShadowCluster definition
-// See: https://www.envoyproxy.io/envoy/configuration/http_conn_man/route_config/route.html?
-// highlight=shadow#config-http-conn-man-route-table-route-shadow
+// See: https://www.envoyproxy.io/docs/envoy/latest/api-v1/route_config/route#shadow
 type ShadowCluster struct {
 	Cluster string `json:"cluster"`
 }
 
 // WeightedCluster definition
-// See https://envoyproxy.github.io/envoy/configuration/http_conn_man/route_config/route.html
+// See https://www.envoyproxy.io/docs/envoy/latest/api-v1/route_config/route#weighted-clusters
 type WeightedCluster struct {
 	Clusters         []*WeightedClusterEntry `json:"clusters"`
 	RuntimeKeyPrefix string                  `json:"runtime_key_prefix,omitempty"`
@@ -620,7 +619,7 @@ type MongoProxyFilterConfig struct {
 func (*MongoProxyFilterConfig) IsNetworkFilterConfig() {}
 
 // CORSFilterConfig definition
-// See: https://www.envoyproxy.io/envoy/configuration/http_filters/cors_filter.html#config-http-filters-cors
+// See: https://www.envoyproxy.io/docs/envoy/latest/api-v1/http_filters/cors_filter
 type CORSFilterConfig struct{}
 
 // IsNetworkFilterConfig marks CORSFilterConfig as an implementation of NetworkFilterConfig
@@ -796,7 +795,7 @@ type Cluster struct {
 }
 
 // CircuitBreaker definition
-// See: https://lyft.github.io/envoy/docs/configuration/cluster_manager/cluster_circuit_breakers.html#circuit-breakers
+// See: https://www.envoyproxy.io/docs/envoy/latest/api-v1/cluster_manager/cluster_circuit_breakers
 type CircuitBreaker struct {
 	Default DefaultCBPriority `json:"default"`
 }
@@ -810,7 +809,7 @@ type DefaultCBPriority struct {
 }
 
 // OutlierDetection definition
-// See: https://lyft.github.io/envoy/docs/configuration/cluster_manager/cluster_runtime.html#outlier-detection
+// See: https://www.envoyproxy.io/docs/envoy/latest/api-v1/cluster_manager/cluster_outlier_detection
 type OutlierDetection struct {
 	ConsecutiveErrors  int   `json:"consecutive_5xx,omitempty"`
 	IntervalMS         int64 `json:"interval_ms,omitempty"`
