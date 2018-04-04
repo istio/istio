@@ -29,6 +29,13 @@
        "filters": [
         {
          "type": "decoder",
+         "name": "istio_authn",
+         "config": {
+          "policy": {}
+         }
+        },
+        {
+         "type": "decoder",
          "name": "mixer",
          "config": {
           "v2": {
@@ -123,6 +130,13 @@
        "filters": [
         {
          "type": "decoder",
+         "name": "istio_authn",
+         "config": {
+          "policy": {}
+         }
+        },
+        {
+         "type": "decoder",
          "name": "mixer",
          "config": {
           "v2": {
@@ -215,6 +229,13 @@
         "refresh_delay_ms": 10
        },
        "filters": [
+        {
+         "type": "decoder",
+         "name": "istio_authn",
+         "config": {
+          "policy": {}
+         }
+        },
         {
          "type": "decoder",
          "name": "mixer",
@@ -410,6 +431,13 @@
         ]
        },
        "filters": [
+        {
+         "type": "decoder",
+         "name": "istio_authn",
+         "config": {
+          "policy": {}
+         }
+        },
         {
          "type": "decoder",
          "name": "mixer",
@@ -734,6 +762,29 @@
             }
            }
           ]
+         }
+        },
+        {
+         "type": "decoder",
+         "name": "istio_authn",
+         "config": {
+          "jwtOutputPayloadLocations": {
+           "https://securetoken.google.com": "istio-sec-4cd586ece11fcc8dbb78ad8b1188c7369e6618d8"
+          },
+          "policy": {
+           "origins": [
+            {
+             "jwt": {
+              "issuer": "https://securetoken.google.com",
+              "jwksUri": "https://www.googleapis.com/oauth2/v1/certs",
+              "jwtHeaders": [
+               "x-goog-iap-jwt-assertion"
+              ]
+             }
+            }
+           ],
+           "principalBinding": "USE_ORIGIN"
+          }
          }
         },
         {

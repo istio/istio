@@ -33,10 +33,15 @@ import (
 )
 
 const (
-	// jwtFilterName is the name for the Jwt filter. This should be the same
+	// JwtFilterName is the name for the Jwt filter. This should be the same
 	// as the name defined in
 	// https://github.com/istio/proxy/blob/master/src/envoy/http/jwt_auth/http_filter_factory.cc#L50
-	jwtFilterName = "jwt-auth"
+	JwtFilterName = "jwt-auth"
+
+	// AuthnFilterName is the name for the Istio AuthN filter. This should be the same
+	// as the name defined in
+	// https://github.com/istio/proxy/blob/master/src/envoy/http/authn/http_filter_factory.cc#L30
+	AuthnFilterName = "istio_authn"
 
 	// Defautl cache duration for JWT public key. This should be moved to a global config.
 	jwtPublicKeyCacheSeconds = 60 * 5
@@ -155,6 +160,28 @@ func ConvertPolicyToJwtConfig(policy *authn.Policy) *jwtfilter.JwtAuthentication
 	return ret
 }
 
+// ConvertPolicyToAuthNFilterConfig returns authn filter config corresponding for the input policy.
+func ConvertPolicyToAuthNFilterConfig(policy *authn.Policy) *authn_filter.FilterConfig {
+	if policy == nil {
+		return &authn_filter.FilterConfig{Policy: &authn.Policy{}}
+	}
+	filterConfig := &authn_filter.FilterConfig{
+		Policy: &authn.Policy{
+			Peers:            policy.Peers,
+			Origins:          policy.Origins,
+			PrincipalBinding: policy.PrincipalBinding,
+		},
+	}
+	locations := make(map[string]string)
+	for _, jwt := range CollectJwtSpecs(policy) {
+		locations[jwt.Issuer] = OutputLocationForJwtIssuer(jwt.Issuer)
+	}
+	if len(locations) > 0 {
+		filterConfig.JwtOutputPayloadLocations = locations
+	}
+	return filterConfig
+}
+
 // BuildJwtFilter returns a Jwt filter for all Jwt specs in the policy.
 func BuildJwtFilter(policy *authn.Policy) *http_conn.HttpFilter {
 	filterConfigProto := ConvertPolicyToJwtConfig(policy)
@@ -162,8 +189,16 @@ func BuildJwtFilter(policy *authn.Policy) *http_conn.HttpFilter {
 		return nil
 	}
 	return &http_conn.HttpFilter{
-		Name:   jwtFilterName,
+		Name:   JwtFilterName,
 		Config: util.MessageToStruct(filterConfigProto),
+	}
+}
+
+// BuildAuthNFilter returns authn filter for the given policy. If policy is nil, returns nil.
+func BuildAuthNFilter(policy *authn.Policy) *http_conn.HttpFilter {
+	return &http_conn.HttpFilter{
+		Name:   AuthnFilterName,
+		Config: util.MessageToStruct(ConvertPolicyToAuthNFilterConfig(policy)),
 	}
 }
 

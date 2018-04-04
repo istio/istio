@@ -25,6 +25,7 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	authn "istio.io/api/authentication/v1alpha1"
+	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -531,6 +532,135 @@ func TestBuildJwtFilter(t *testing.T) {
 	for _, c := range cases {
 		if got := BuildJwtFilter(c.in); !reflect.DeepEqual(c.expected, got) {
 			t.Errorf("buildJwtFilter(%#v), got:\n%#v\nwanted:\n%#v\n", c.in, got, c.expected)
+		}
+	}
+}
+
+func TestConvertPolicyToAuthNFilterConfig(t *testing.T) {
+	cases := []struct {
+		name     string
+		in       *authn.Policy
+		expected *authn_filter.FilterConfig
+	}{
+		{
+			name: "nil policy",
+			in:   nil,
+			expected: &authn_filter.FilterConfig{
+				Policy: &authn.Policy{},
+			},
+		},
+		{
+			name: "empty policy",
+			in:   &authn.Policy{},
+			expected: &authn_filter.FilterConfig{
+				Policy: &authn.Policy{},
+			},
+		},
+		{
+			name: "no jwt policy",
+			in: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{{
+					Params: &authn.PeerAuthenticationMethod_Mtls{},
+				}},
+			},
+			expected: &authn_filter.FilterConfig{
+				Policy: &authn.Policy{
+					Peers: []*authn.PeerAuthenticationMethod{{
+						Params: &authn.PeerAuthenticationMethod_Mtls{},
+					}},
+				},
+			},
+		},
+		{
+			name: "jwt policy",
+			in: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Jwt{
+							Jwt: &authn.Jwt{
+								Issuer: "foo",
+							},
+						},
+					},
+				},
+			},
+			expected: &authn_filter.FilterConfig{
+				Policy: &authn.Policy{
+					Peers: []*authn.PeerAuthenticationMethod{
+						{
+							Params: &authn.PeerAuthenticationMethod_Jwt{
+								Jwt: &authn.Jwt{
+									Issuer: "foo",
+								},
+							},
+						},
+					},
+				},
+				JwtOutputPayloadLocations: map[string]string{
+					"foo": "istio-sec-0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33",
+				},
+			},
+		},
+		{
+			name: "complex",
+			in: &authn.Policy{
+				Targets: []*authn.TargetSelector{
+					{
+						Name: "svc1",
+					},
+				},
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Jwt{
+							Jwt: &authn.Jwt{
+								Issuer: "foo",
+							},
+						},
+					},
+					{
+						Params: &authn.PeerAuthenticationMethod_Mtls{},
+					},
+				},
+				Origins: []*authn.OriginAuthenticationMethod{
+					{
+						Jwt: &authn.Jwt{
+							Issuer: "bar",
+						},
+					},
+				},
+			},
+			expected: &authn_filter.FilterConfig{
+				Policy: &authn.Policy{
+					Peers: []*authn.PeerAuthenticationMethod{
+						{
+							Params: &authn.PeerAuthenticationMethod_Jwt{
+								Jwt: &authn.Jwt{
+									Issuer: "foo",
+								},
+							},
+						},
+						{
+							Params: &authn.PeerAuthenticationMethod_Mtls{},
+						},
+					},
+					Origins: []*authn.OriginAuthenticationMethod{
+						{
+							Jwt: &authn.Jwt{
+								Issuer: "bar",
+							},
+						},
+					},
+				},
+				JwtOutputPayloadLocations: map[string]string{
+					"foo": "istio-sec-0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33",
+					"bar": "istio-sec-62cdb7020ff920e5aa642c3d4066950dd1f01f4d",
+				},
+			},
+		},
+	}
+	for _, c := range cases {
+		if got := ConvertPolicyToAuthNFilterConfig(c.in); !reflect.DeepEqual(c.expected, got) {
+			t.Errorf("Test case %s: expected\n%#v\n, got\n%#v", c.name, c.expected.String(), got.String())
 		}
 	}
 }
