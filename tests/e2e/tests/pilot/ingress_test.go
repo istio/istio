@@ -20,7 +20,6 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 
 	"go.uber.org/atomic"
 	v1 "k8s.io/api/core/v1"
@@ -41,7 +40,6 @@ import (
 
 const (
 	namespace = "test"
-	resync    = 1 * time.Second
 )
 
 var (
