@@ -118,7 +118,7 @@ test/minikube/noauth/e2e_simple:
 	  ${E2E_ARGS} ${EXTRA_E2E_ARGS}  ${T} \
            ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-noauth-simple.raw
 
-# V1 test with MTLS
+# v1alpha1+envoy v1 test with MTLS
 # Test runs in istio-system, using istio-auth.yaml generated config.
 # This will only (re)run the test - call "make docker istio.yaml" (or "make pilot docker.pilot" if
 # you only changed pilot) to build.
@@ -130,16 +130,16 @@ test/local/auth/e2e_pilot:
 	${E2E_ARGS} ${EXTRA_E2E_ARGS} ${T} \
 		| tee ${OUT_DIR}/logs/test-report.raw
 
-# V3 test without MTLS (not implemented yet). Still in progress, for tracking
+# v1alpha3+envoyv2 test without MTLS
 test/local/noauth/e2e_pilotv2:
 	@mkdir -p /go/out/logs
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 20m ./tests/e2e/tests/pilot \
- 	--skip_cleanup --auth_enable=false --egress=false --v1alpha3=false \
+ 	--skip_cleanup --auth_enable=false --egress=false --ingress=false --v1alpha1=false \
 	${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS}  ${T} \
 		| tee ${OUT_DIR}/logs/test-report.raw
 
-# V3 test without MTLS (not implemented yet). Still in progress, for tracking
-test/local/noauth/e2e_simple_alpha3:
+# v1alpha3+envoyv2 test without MTLS (not implemented yet). Still in progress, for tracking
+test/local/noauth/e2e_simple_pilotv2:
 	@mkdir -p /go/out/logs
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 20m ./tests/e2e/tests/simple \
 	--skip_cleanup --auth_enable=false \
