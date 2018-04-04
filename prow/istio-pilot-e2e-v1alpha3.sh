@@ -28,9 +28,10 @@ set -u
 set -x
 
 # Run tests with auth disabled
-echo 'Running pilot e2e tests (v1alpha3, noauth)'
-./prow/e2e-suite.sh --auth_enable=false --v1alpha1=false --single_test e2e_pilot "$@"
+#echo 'Running pilot e2e tests (v1alpha3, noauth)'
+#./prow/e2e-suite.sh --auth_enable=false --v1alpha1=false --single_test e2e_pilot "$@"
 
 # Run tests with auth enabled
-echo 'Running pilot e2e tests (v1alpha3, auth)'
-./prow/e2e-suite.sh --auth_enable=true --v1alpha1=false --single_test e2e_pilot "$@"
+#echo 'Running pilot e2e tests (v1alpha3, auth)'
+#./prow/e2e-suite.sh --auth_enable=true --v1alpha1=false --single_test e2e_pilot "$@"
+echo "v1alpha3 tests are disabled temporarily while we switch to envoyv2 for v1alpha3"

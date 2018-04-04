@@ -37,6 +37,7 @@ import (
 	authn "istio.io/api/authentication/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	authn_plugin "istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
 )
@@ -193,8 +194,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env model.Environmen
 // configuration for co-located service proxyInstances.
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Environment, node model.Proxy,
 	proxyInstances []*model.ServiceInstance) []*xdsapi.Listener {
-	listeners := make([]*xdsapi.Listener, 0, len(proxyInstances))
 
+	var listeners []*xdsapi.Listener
 	mesh := env.Mesh
 	config := env.IstioConfigStore
 	// inbound connections/requests are redirected to the endpoint address but appear to be sent
@@ -431,7 +432,7 @@ func buildMgmtPortListeners(managementPorts model.PortList, managementIP string)
 // TODO: move to plugins
 // buildInboundAuth adds TLS to the listener if the policy requires one.
 func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy) *auth.DownstreamTlsContext {
-	if requireTLS, mTLSParams := model.RequireTLS(authenticationPolicy); requireTLS {
+	if requireTLS, mTLSParams := authn_plugin.RequireTLS(authenticationPolicy); requireTLS {
 		return &auth.DownstreamTlsContext{
 			CommonTlsContext: &auth.CommonTlsContext{
 				TlsCertificates: []*auth.TlsCertificate{
