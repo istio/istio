@@ -20,17 +20,19 @@ import (
 )
 
 func TestHttp(t *testing.T) {
-	// Auth is enabled for d:80, and disabled for d:8080 using per-service policy.
-	// We expect request from non-envoy client ("t") to d:80 should always fail,
-	// while to d:8080 should always success.
 	srcPods := []string{"a", "b", "t"}
-	dstPods := []string{"a", "b", "d"}
+	dstPods := []string{"a", "b"}
 	ports := []string{"", "80", "8080"}
 	if !tc.Kube.AuthEnabled {
 		// t is not behind proxy, so it cannot talk in Istio auth.
 		dstPods = append(dstPods, "t")
 		// mTLS is not supported for headless services
 		dstPods = append(dstPods, "headless")
+	} else {
+		// Auth is enabled for d:80, and disabled for d:8080 using per-service policy.
+		// We expect request from non-envoy client ("t") to d:80 should always fail,
+		// while to d:8080 should always success.
+		dstPods = append(dstPods, "d")
 	}
 
 	logs := newAccessLogs()

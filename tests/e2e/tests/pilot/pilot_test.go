@@ -47,8 +47,8 @@ const (
 
 var (
 	tc = &testConfig{
-		V1alpha1: true,
-		V1alpha3: true,
+		V1alpha1: true, //implies envoyv1
+		V1alpha3: true, //implies envoyv2
 		Ingress:  true,
 		Egress:   true,
 	}
