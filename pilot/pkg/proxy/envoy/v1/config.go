@@ -33,6 +33,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
+	authn_plugin "istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pkg/log"
 )
 
@@ -463,7 +464,7 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *Listener {
 
 // mayApplyInboundAuth adds ssl_context to the listener if the given authN policy require TLS.
 func mayApplyInboundAuth(listener *Listener, authenticationPolicy *authn.Policy) {
-	if ok, mltsParams := model.RequireTLS(authenticationPolicy); ok {
+	if ok, mltsParams := authn_plugin.RequireTLS(authenticationPolicy); ok {
 		listener.SSLContext = buildListenerSSLContext(model.AuthCertsPath, mltsParams)
 	}
 }
@@ -907,8 +908,6 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 		}
 
 		if listener != nil {
-			authenticationPolicy := model.GetConsolidateAuthenticationPolicy(mesh,
-				config, instance.Service.Hostname, endpoint.ServicePort)
 			mayApplyInboundAuth(listener, authenticationPolicy)
 			listeners = append(listeners, listener)
 		}
