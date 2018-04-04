@@ -159,12 +159,20 @@ func decodeIngressRuleName(name string) (ingressName string, ruleNum, pathNum in
 }
 
 // ConvertIngressV1alpha3 converts from ingress spec to Istio Gateway + VirtualServices
+// TODO: handle multiple ingress specs
 func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) (model.Config, model.Config) {
 	gateway := &networking.Gateway{
 		Selector: model.IstioIngressWorkloadLabels,
 	}
 
-	for _, tls := range ingress.Spec.TLS {
+	// FIXME this is a temporary hack until all test templates are updated
+	//for _, tls := range ingress.Spec.TLS {
+	if len(ingress.Spec.TLS) > 0 {
+		tls := ingress.Spec.TLS[0] // FIXME
+		// TODO validation when multiple wildcard tls secrets are given
+		if len(tls.Hosts) == 0 {
+			tls.Hosts = []string{"*"}
+		}
 		gateway.Servers = append(gateway.Servers, &networking.Server{
 			Port: &networking.Port{
 				Number:   443,
