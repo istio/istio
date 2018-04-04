@@ -59,6 +59,10 @@ spec:
         - "15001"
         - -u
         - "1337"
+        - -i
+        - '*'
+        - -b
+        - '*'
         image: docker.io/istio/proxy_init:unittest
         imagePullPolicy: IfNotPresent
         name: istio-init

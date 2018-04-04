@@ -43,9 +43,9 @@ import (
 const (
 	defaultSelfSignedCACertTTL = 365 * 24 * time.Hour
 
-	defaultMaxWorkloadCertTTL = 7 * 24 * time.Hour
+	defaultMaxWorkloadCertTTL = 90 * 24 * time.Hour
 
-	defaultWorkloadCertTTL = 19 * time.Hour
+	defaultWorkloadCertTTL = 90 * 24 * time.Hour
 
 	// The default length of certificate rotation grace period, configured as
 	// the ratio of the certificate TTL.
@@ -178,8 +178,8 @@ func init() {
 		defaultWorkloadMinCertGracePeriod, "The minimum workload certificate rotation grace period.")
 
 	// gRPC server for signing CSRs.
-	flags.StringVar(&opts.grpcHostname, "grpc-hostname", "localhost", "The hostname for GRPC server.")
-	flags.IntVar(&opts.grpcPort, "grpc-port", 0, "The port number for GRPC server. "+
+	flags.StringVar(&opts.grpcHostname, "grpc-hostname", "istio-ca", "The hostname for GRPC server.")
+	flags.IntVar(&opts.grpcPort, "grpc-port", 8060, "The port number for GRPC server. "+
 		"If unspecified, Istio CA will not server GRPC request.")
 
 	// Upstream CA configuration

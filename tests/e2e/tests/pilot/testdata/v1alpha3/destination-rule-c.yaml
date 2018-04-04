@@ -3,7 +3,7 @@ kind: DestinationRule
 metadata:
   name: destination-rule-c
 spec:
-  name: c
+  host: c
   subsets:
     - name: v1
       labels:

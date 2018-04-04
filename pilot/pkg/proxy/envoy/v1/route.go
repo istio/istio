@@ -423,16 +423,10 @@ func buildHTTPRouteV3(store model.IstioConfigStore, config model.Config, service
 				log.Warnf("Nil Destination")
 				continue
 			}
+
+			fqdn := model.ResolveFQDN(dst.Destination.Host, domain)
+
 			var cluster *Cluster
-
-			route.Clusters = append(route.Clusters, cluster)
-			clusters = append(clusters,
-				&WeightedClusterEntry{
-					Name:   cluster.Name,
-					Weight: int(dst.Weight),
-				})
-
-			fqdn := model.ResolveFQDN(dst.Destination.Name, domain)
 			if includeSubsets == false || service.External() {
 				v2clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, dst.Destination.Subset, fqdn, port)
 				labels := fetchSubsetLabels(store, fqdn, dst.Destination.Subset, domain)
@@ -445,7 +439,6 @@ func buildHTTPRouteV3(store model.IstioConfigStore, config model.Config, service
 				cluster = BuildOutboundClusterForSubset(subset, service, fqdn, port,
 					&duration.Duration{Seconds: 1})
 			}
-
 			if cluster != nil {
 				route.Clusters = append(route.Clusters, cluster)
 				clusters = append(clusters,
@@ -487,7 +480,7 @@ func buildHTTPRouteV3(store model.IstioConfigStore, config model.Config, service
 	}
 
 	if http.Mirror != nil {
-		fqdn := model.ResolveFQDN(http.Mirror.Name, domain)
+		fqdn := model.ResolveFQDN(http.Mirror.Host, domain)
 		labels := fetchSubsetLabels(store, fqdn, http.Mirror.Subset, domain)
 		v2clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, http.Mirror.Subset, fqdn, port)
 		cluster := buildCluster(fqdn, port, labels, false)
