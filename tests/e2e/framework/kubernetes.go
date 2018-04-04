@@ -47,7 +47,7 @@ const (
 	mixerValidatorFile          = "istio-mixer-validator.yaml"
 	ingressCertsName            = "istio-ingress-certs"
 
-	maxDeploymentRolloutTime    = 120 * time.Second
+	maxDeploymentRolloutTime    = 240 * time.Second
 	mtlsExcludedServicesPattern = "mtlsExcludedServices:\\s*\\[(.*)\\]"
 )
 
