@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// TODO(myidpt): Deprecate this.
 package main
 
 import (
@@ -161,7 +162,7 @@ func createClientset() *kubernetes.Clientset {
 	return cs
 }
 
-func createCA(core corev1.SecretsGetter) ca.CertificateAuthority {
+func createCA(core corev1.SecretsGetter) *ca.IstioCA {
 	var caOpts *ca.IstioCAOptions
 	var err error
 
@@ -169,14 +170,14 @@ func createCA(core corev1.SecretsGetter) ca.CertificateAuthority {
 		log.Info("Use self-signed certificate as the CA certificate")
 
 		caOpts, err = ca.NewSelfSignedIstioCAOptions(opts.signingCertTTL, 0, /* unused */
-			opts.maxIssuedCertTTL, opts.selfSignedCAOrg, opts.istioCaStorageNamespace, core)
+			opts.maxIssuedCertTTL, true, opts.selfSignedCAOrg, opts.istioCaStorageNamespace, core)
 		if err != nil {
 			fatalf("Failed to create a self-signed Istio Multicluster CA (error: %v)", err)
 		}
 	} else {
 		log.Info("Use certificate from argument as the CA certificate")
 		caOpts, err = ca.NewPluggedCertIstioCAOptions(opts.certChainFile, opts.signingCertFile, opts.signingKeyFile,
-			opts.rootCertFile, 0 /* unused */, opts.maxIssuedCertTTL)
+			opts.rootCertFile, 0 /* unused */, opts.maxIssuedCertTTL, true)
 		if err != nil {
 			fatalf("Failed to create an Istio CA (error: %v)", err)
 		}
