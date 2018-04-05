@@ -72,8 +72,12 @@ func New(cfg *na.Config) (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to init nodeagent due to secret server %v", err)
 	}
-	cac, err := caclient.NewCAClient(pc, cfg.CAClientConfig.CAAddress,
-		cfg.CAClientConfig.CSRMaxRetries, cfg.CAClientConfig.CSRInitialRetrialInterval)
+	dialOpts, err := pc.GetDialOptions()
+	if err != nil {
+		return nil, err
+	}
+	protocol, err := cagrpc.NewCAGrpcClient(cfg.CAClientConfig.CAAddress, dialOpts)
+	cac, err := caclient.NewCAClient(pc, protocol, cfg.CAClientConfig.CSRMaxRetries, cfg.CAClientConfig.CSRInitialRetrialInterval)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create caclient err %v", err)
 	}
