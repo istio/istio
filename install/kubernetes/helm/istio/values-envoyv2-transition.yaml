@@ -4,6 +4,9 @@ global:
   proxy:
     image: proxyv2
 
+  mtls:
+    enabled: false
+
 ingress:
   enabled: true
   service:
@@ -23,4 +26,10 @@ ingress-gateway:
   enabled: true
 
 egress-gateway:
+  enabled: true
+
+zipkin:
+  enabled: true
+
+sidecar-injector:
   enabled: true
