@@ -86,7 +86,6 @@ func TestSendCSRAgainstLocalInstance(t *testing.T) {
 	testCases := map[string]struct {
 		caAddress   string
 		dialOptions []grpc.DialOption
-		//pc          platform.Client
 		expectedErr string
 	}{
 		"IstioCAAddress is empty": {
@@ -123,21 +122,14 @@ func TestSendCSRAgainstLocalInstance(t *testing.T) {
 			t.Errorf("CSR generation failure (%v)", err)
 		}
 
-		//cred, err := c.pc.GetAgentCredential()
-		//if err != nil {
-		//	t.Errorf("Error getting credential (%v)", err)
-		//}
-
 		req := &pb.CsrRequest{
-			CsrPem: csr,
-			//NodeAgentCredential: cred,
-			CredentialType:      "onprem", // c.pc.GetCredentialType(),
+			CsrPem:              csr,
+			CredentialType:      "onprem",
 			RequestedTtlMinutes: 60,
 		}
 
 		serv.SetResponseAndError(&defaultServerResponse, "")
 
-		//grpcClient, err := NewGrpcConnection(c.caAddress, []grpc.DialOption{grpc.WithInsecure()})
 		grpcClient, err := NewGrpcConnection(c.caAddress, c.dialOptions)
 		if err == nil {
 			_, err = grpcClient.SendCSR(req)

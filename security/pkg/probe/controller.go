@@ -40,6 +40,7 @@ const (
 // CAProtocolProvider returns a CAProtocol instance for talking to CA.
 type CAProtocolProvider func(caAddress string, dialOpts []grpc.DialOption) (protocol.CAProtocol, error)
 
+// GrpcProtocolProvider returns a CAProtocol instance talking to CA via gRPC.
 func GrpcProtocolProvider(caAddress string, dialOpts []grpc.DialOption) (protocol.CAProtocol, error) {
 	return protocol.NewGrpcConnection(caAddress, dialOpts)
 }
