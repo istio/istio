@@ -62,6 +62,8 @@ var (
 // Options are high-level options for the bootstrap.
 type Options struct {
 	Upstreams                      []Upstream // list of upstreams behind the proxy
+	Service                        string     // service FQDN
+	UID                            string     // workload ID
 	TelemetryUpstream              *Upstream  // set to one of the upstreams to route telemetry locally
 	TelemetryAddress, TelemetrySAN string     // set to telemetry DNS address and SAN, e.g. istio-telemetry:15004
 	ZipkinAddress                  string     // set to non-empty DNS zipkin address, e.g. zipkin:9411
@@ -74,12 +76,12 @@ type Upstream struct {
 	ListenPort   uint32
 	UpstreamPort uint32
 	GRPC         bool
-	Service      string
-	UID          string
 	Operation    string
+	Auth         *bool // overrides ControlPlaneAuth if set
 }
 
-// BuildOptions generates options for a bootstrap from a pre-defined profile
+// BuildOptions generates options for a bootstrap from a pre-defined profile.
+// These options contain all the hard-coded names selected at installation time.
 func BuildOptions(proxyConfig meshconfig.ProxyConfig, staticProfile, name, namespace string) Options {
 	opts := Options{
 		TelemetryAddress: "istio-telemetry:15004",
@@ -87,6 +89,7 @@ func BuildOptions(proxyConfig meshconfig.ProxyConfig, staticProfile, name, names
 		ZipkinAddress:    proxyConfig.ZipkinAddress,
 		ControlPlaneAuth: proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS,
 		AdminPort:        proxyConfig.ProxyAdminPort,
+		UID:              fmt.Sprintf("kubernetes://%s.%s", name, namespace),
 	}
 	switch staticProfile {
 	case "telemetry":
@@ -94,20 +97,44 @@ func BuildOptions(proxyConfig meshconfig.ProxyConfig, staticProfile, name, names
 			ListenPort:   15004,
 			UpstreamPort: 9091,
 			GRPC:         true,
-			Service:      fmt.Sprintf("istio-telemetry.%s.svc.cluster.local", namespace),
-			UID:          fmt.Sprintf("kubernetes://%s.%s", name, namespace),
 			Operation:    "Check",
 		}
 		opts.Upstreams = []Upstream{*opts.TelemetryUpstream}
+		opts.Service = fmt.Sprintf("istio-telemetry.%s.svc.cluster.local", namespace)
 	case "policy":
 		opts.Upstreams = []Upstream{{
 			ListenPort:   15004,
 			UpstreamPort: 9091,
 			GRPC:         true,
-			Service:      fmt.Sprintf("istio-policy.%s.svc.cluster.local", namespace),
-			UID:          fmt.Sprintf("kubernetes://%s.%s", name, namespace),
 			Operation:    "Report",
 		}}
+		opts.Service = fmt.Sprintf("istio-policy.%s.svc.cluster.local", namespace)
+	case "pilot":
+		v1 := Upstream{
+			ListenPort:   15003,
+			UpstreamPort: 8080,
+			Operation:    "v1",
+		}
+		v2 := Upstream{
+			ListenPort:   15011,
+			GRPC:         true,
+			UpstreamPort: 15010,
+			Operation:    "xDS",
+		}
+		secure := Upstream{
+			ListenPort:   15005,
+			UpstreamPort: 8080,
+			Operation:    "v1",
+			Auth:         func(b bool) *bool { return &b }(true),
+		}
+		insecure := Upstream{
+			ListenPort:   15007,
+			UpstreamPort: 8080,
+			Operation:    "v1",
+			Auth:         func(b bool) *bool { return &b }(false),
+		}
+		opts.Upstreams = []Upstream{v1, v2, secure, insecure}
+		opts.Service = fmt.Sprintf("istio-pilot.%s.svc.cluster.local", namespace)
 	}
 	return opts
 }
@@ -181,7 +208,7 @@ func BuildBootstrap(opts Options) (*bootstrap.Bootstrap, error) {
 		telemetryCluster = clusterName(*opts.TelemetryUpstream)
 	}
 
-	out.StaticResources.Listeners = BuildListeners(opts.Upstreams, telemetryCluster, opts.ControlPlaneAuth)
+	out.StaticResources.Listeners = BuildListeners(opts, telemetryCluster)
 
 	if err := out.Validate(); err != nil {
 		return nil, err
@@ -264,9 +291,10 @@ func BuildServiceConfig(service, uid, telemetryCluster string) *mixerclient.Http
 }
 
 // BuildListeners generates HTTP listeners from upstreams
-func BuildListeners(upstreams []Upstream, telemetryCluster string, controlPlaneAuth bool) []v2.Listener {
-	out := make([]v2.Listener, 0, len(upstreams))
-	for _, upstream := range upstreams {
+func BuildListeners(opts Options, telemetryCluster string) []v2.Listener {
+	out := make([]v2.Listener, 0, len(opts.Upstreams))
+	config := toStruct(BuildServiceConfig(opts.Service, opts.UID, telemetryCluster))
+	for _, upstream := range opts.Upstreams {
 		config := &hcm.HttpConnectionManager{
 			CodecType:         hcm.AUTO,
 			StatPrefix:        fmt.Sprintf("%d", upstream.ListenPort),
@@ -283,7 +311,7 @@ func BuildListeners(upstreams []Upstream, telemetryCluster string, controlPlaneA
 			HttpFilters: []*hcm.HttpFilter{
 				{
 					Name:   "mixer",
-					Config: toStruct(BuildServiceConfig(upstream.Service, upstream.UID, telemetryCluster)),
+					Config: config,
 				},
 				{
 					Name: util.Router,
@@ -293,7 +321,7 @@ func BuildListeners(upstreams []Upstream, telemetryCluster string, controlPlaneA
 				RouteConfig: &v2.RouteConfiguration{
 					Name: fmt.Sprintf("%d", upstream.ListenPort),
 					VirtualHosts: []route.VirtualHost{{
-						Name:    upstream.Service,
+						Name:    opts.Service,
 						Domains: []string{"*"},
 						Routes: []route.Route{{
 							Match:     route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}},
@@ -329,7 +357,12 @@ func BuildListeners(upstreams []Upstream, telemetryCluster string, controlPlaneA
 				}},
 			}},
 		}
-		if controlPlaneAuth {
+		authEnable := opts.ControlPlaneAuth
+		if upstream.Auth != nil {
+			authEnable = *upstream.Auth
+		}
+
+		if authEnable {
 			ctx := &auth.DownstreamTlsContext{
 				CommonTlsContext:         commonTLSContext(nil),
 				RequireClientCertificate: &types.BoolValue{Value: true},
@@ -352,8 +385,13 @@ func clusterName(upstream Upstream) string {
 
 // BuildClusters generates clusters from upstreams
 func BuildClusters(upstreams []Upstream) []v2.Cluster {
+	// skip duplicated upstream ports
+	set := make(map[uint32]bool)
 	out := make([]v2.Cluster, 0, len(upstreams))
 	for _, upstream := range upstreams {
+		if set[upstream.UpstreamPort] {
+			continue
+		}
 		cluster := v2.Cluster{
 			Name:           clusterName(upstream),
 			ConnectTimeout: 1 * time.Second,
@@ -373,6 +411,7 @@ func BuildClusters(upstreams []Upstream) []v2.Cluster {
 			cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{}
 		}
 		out = append(out, cluster)
+		set[upstream.UpstreamPort] = true
 	}
 	return out
 }

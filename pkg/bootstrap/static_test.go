@@ -15,6 +15,7 @@
 package bootstrap_test
 
 import (
+	"fmt"
 	"io/ioutil"
 	"testing"
 
@@ -31,27 +32,49 @@ func TestBuildBootstrap(t *testing.T) {
 	auth := noauth
 	auth.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
 
-	telemetryAuth, err := bootstrap.BuildBootstrap(bootstrap.BuildOptions(auth, "telemetry", "pod1", "ns2"))
-	if err != nil {
-		t.Error(err)
+	cases := []struct {
+		opts bootstrap.Options
+		file string
+	}{
+		{
+			opts: bootstrap.BuildOptions(auth, "telemetry", "pod1", "ns2"),
+			file: "testdata/telemetry-auth.yaml",
+		},
+		{
+			opts: bootstrap.BuildOptions(auth, "policy", "pod2", "ns3"),
+			file: "testdata/policy-auth.yaml",
+		},
+		{
+			opts: bootstrap.BuildOptions(noauth, "policy", "pod2", "ns3"),
+			file: "testdata/policy-noauth.yaml",
+		},
+		{
+			opts: bootstrap.BuildOptions(auth, "pilot", "pod3", "ns4"),
+			file: "testdata/pilot-auth.yaml",
+		},
+		{
+			opts: bootstrap.BuildOptions(noauth, "pilot", "pod3", "ns4"),
+			file: "testdata/pilot-noauth.yaml",
+		},
 	}
 
-	got, err := bootstrap.ToYAML(telemetryAuth)
-	if err != nil {
-		t.Error(err)
-	}
-	want, err := ioutil.ReadFile("testdata/telemetry-auth.yaml")
-	if err != nil {
-		t.Error(err)
-	}
-	if string(got) != string(want) {
-		t.Errorf("telemetry auth bootstrap changed: got\n%s", string(got))
-	}
-
-	if _, err = bootstrap.BuildBootstrap(bootstrap.BuildOptions(auth, "policy", "pod2", "ns3")); err != nil {
-		t.Error(err)
-	}
-	if _, err = bootstrap.BuildBootstrap(bootstrap.BuildOptions(noauth, "policy", "pod2", "ns3")); err != nil {
-		t.Error(err)
+	for _, test := range cases {
+		t.Run(fmt.Sprintf("bootstrap gen for %s", test.file), func(t *testing.T) {
+			config, err := bootstrap.BuildBootstrap(test.opts)
+			if err != nil {
+				t.Error(err)
+			}
+			got, err := bootstrap.ToYAML(config)
+			if err != nil {
+				t.Error(err)
+			}
+			want, err := ioutil.ReadFile(test.file)
+			if err != nil {
+				t.Error(err)
+			}
+			if string(got) != string(want) {
+				t.Errorf("%s bootstrap changed: got\n%s", test.file, string(got))
+			}
+		})
 	}
 }
