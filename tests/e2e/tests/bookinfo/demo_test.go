@@ -39,10 +39,10 @@ const (
 	u2                                 = "test-user"
 	bookinfoSampleDir                  = "samples/bookinfo"
 	yamlExtension                      = "yaml"
-	deploymentDir                      = "kube"
-	routeRulesDir                      = "kube"
+	configurationDir                   = "platforms/kubernetes/configurations/guide"
+	deploymentsDir                     = "platforms/kubernetes/deployments"
+	routeRulesDir                      = "routing/v1alpha2"
 	tutorialDir                        = "istio.io_tutorial"
-	bookinfoYaml                       = "bookinfo"
 	bookinfoRatingsv2Yaml              = "bookinfo-ratings-v2"
 	bookinfoRatingsMysqlYaml           = "bookinfo-ratings-v2-mysql"
 	bookinfoDbYaml                     = "bookinfo-db"
@@ -460,8 +460,8 @@ func doTestVersionMigration(t *testing.T, rule migrationRule) {
 	}
 }
 
-func getBookinfoResourcePath(resource string) string {
-	return util.GetResourcePath(filepath.Join(bookinfoSampleDir, deploymentDir,
+func getBookinfoDeploymentResourcePath(resource string) string {
+	return util.GetResourcePath(filepath.Join(bookinfoSampleDir, deploymentsDir,
 		resource+"."+yamlExtension))
 }
 
@@ -469,6 +469,26 @@ func isWithinPercentage(count int, total int, rate float64, tolerance float64) b
 	minimum := int((rate - tolerance) * float64(total))
 	maximum := int((rate + tolerance) * float64(total))
 	return count >= minimum && count <= maximum
+}
+
+func getConfigurationYamls() ([]framework.App, error) {
+	configurationApps := []framework.App{}
+
+	configurationDirPath := util.GetResourcePath(filepath.Join(bookinfoSampleDir, configurationDir))
+	files, err := ioutil.ReadDir(configurationDirPath)
+	if err != nil {
+		log.Errorf("Failed to read configuration directory %s", configurationDirPath)
+		return configurationApps, err
+	}
+
+	for _, file := range files {
+		app := framework.App{AppYaml: filepath.Join(configurationDirPath, file.Name()),
+			KubeInject: true,
+		}
+		configurationApps = append(configurationApps, app)
+	}
+
+	return configurationApps, nil
 }
 
 func setTestConfig() error {
@@ -482,25 +502,33 @@ func setTestConfig() error {
 	if err != nil {
 		return err
 	}
-	demoApps := []framework.App{{AppYaml: getBookinfoResourcePath(bookinfoYaml),
-		KubeInject: true,
-	},
-		{AppYaml: getBookinfoResourcePath(bookinfoRatingsv2Yaml),
+
+	baseDemoConfiguration, err := getConfigurationYamls()
+	if err != nil {
+		return err
+	}
+
+	additionalDemoDeployments := []framework.App{
+		{AppYaml: getBookinfoDeploymentResourcePath(bookinfoRatingsv2Yaml),
 			KubeInject: true,
 		},
-		{AppYaml: getBookinfoResourcePath(bookinfoRatingsMysqlYaml),
+		{AppYaml: getBookinfoDeploymentResourcePath(bookinfoRatingsMysqlYaml),
 			KubeInject: true,
 		},
-		{AppYaml: getBookinfoResourcePath(bookinfoDbYaml),
+		{AppYaml: getBookinfoDeploymentResourcePath(bookinfoDbYaml),
 			KubeInject: true,
 		},
-		{AppYaml: getBookinfoResourcePath(bookinfoMysqlYaml),
+		{AppYaml: getBookinfoDeploymentResourcePath(bookinfoMysqlYaml),
 			KubeInject: true,
 		},
-		{AppYaml: getBookinfoResourcePath(bookinfoDetailsExternalServiceYaml),
+		{AppYaml: getBookinfoDeploymentResourcePath(bookinfoDetailsExternalServiceYaml),
 			KubeInject: true,
 		},
 	}
+
+	demoApps := append(baseDemoConfiguration, additionalDemoDeployments...)
+
+	// use index iteration since pointers to the array are passed as a parameter to AppManager.AddApp
 	for i := range demoApps {
 		tc.Kube.AppManager.AddApp(&demoApps[i])
 	}
