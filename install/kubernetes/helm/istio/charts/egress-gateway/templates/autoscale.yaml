@@ -2,15 +2,15 @@
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-    name: istio-egress-gateway
-    namespace: {{ .Release.Namespace }}
+    name: {{ .Values.service.name }}
+    namespace: {{ .Values.service.namespace | default .Release.Namespace }}
 spec:
     maxReplicas: {{ .Values.autoscaleMax }}
     minReplicas: {{ .Values.autoscaleMin }}
     scaleTargetRef:
       apiVersion: apps/v1beta1
       kind: Deployment
-      name: istio-egress-gateway
+      name: {{ .Values.service.name }}
     metrics:
       - type: Resource
         resource:

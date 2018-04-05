@@ -1,31 +1,30 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: istio-ingress-gateway
-  namespace: {{ .Release.Namespace }}
+  name: {{ .Values.service.name }}
+  namespace: {{ .Values.service.namespace | default .Release.Namespace }}
   labels:
     app: {{ template "istio.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
-    istio: ingress-gateway
+    {{ .Values.service.labels }}
 spec:
   replicas: {{ .Values.replicaCount }}
   template:
     metadata:
       labels:
-        istio: ingress-gateway
+        {{ .Values.deployment.labels }}
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
-      serviceAccountName: istio-ingress-gateway-service-account
+      serviceAccountName: {{ .Values.serviceAccountName }}
       containers:
         - name: {{ template "istio.name" . }}
           image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
-            - containerPort: 80
-              containerPort: 443
+          {{ .Values.deployment.ports }}
           args:
           - proxy
           - router
@@ -40,7 +39,7 @@ spec:
           - --connectTimeout
           - '10s' #connectTimeout
           - --serviceCluster
-          - istio-ingress-gateway
+          - {{ .Values.service.name }}
           - --zipkinAddress
           - zipkin:9411
           - --statsdUdpAddress
@@ -75,17 +74,10 @@ spec:
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
-#          - name: ingress-certs
-#            mountPath: /etc/istio/ingress-certs
-#            readOnly: true
       volumes:
       - name: istio-certs
         secret:
           secretName: "istio.default"
           optional: true
-#      - name: ingress-certs
-#        secret:
-#          secretName: istio-ingress-certs
-#          optional: true
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}

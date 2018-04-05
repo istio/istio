@@ -2,13 +2,13 @@
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
-  name: istio-egress-gateway-{{ .Release.Namespace }}
+  name: {{ .Values.service.name }}-{{ .Values.service.namespace | default .Release.Namespace }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: istio-pilot-{{ .Release.Namespace }}
 subjects:
   - kind: ServiceAccount
-    name: istio-egress-gateway-service-account
-    namespace: {{ .Release.Namespace }}
+    name: {{ .Values.serviceAccountName }}
+    namespace: {{ .Values.service.namespace | default .Release.Namespace }}
 {{- end }}

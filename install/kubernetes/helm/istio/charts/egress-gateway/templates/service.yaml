@@ -1,45 +1,16 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: istio-egress-gateway
-  namespace: {{ .Release.Namespace }}
+  name: {{ .Values.service.name }}
+  namespace: {{ .Values.service.namespace | default .Release.Namespace }}    
   labels:
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
-    istio: egress-gateway
+    {{ .Values.service.labels }}
 spec:
-  type: LoadBalancer
-  ports:
-  - port: 80
-    name: http
-  - port: 443
-    name: https
+  type: {{ .Values.service.type }}
   selector:
-    istio: egress-gateway
----
-{{- if .Values.service.nodePort.enabled }}
-# Using separate egress for nodeport, to avoid conflict with pilot e2e test configs.
-apiVersion: v1
-kind: Service
-metadata:
-  name: istio-egress-gateway-nodeport
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: {{ template "istio.name" . }}
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
-    istio: egress-gateway
-spec:
-  type: NodePort
+    {{ .Values.deployment.labels }}
   ports:
-  - port: 80
-    nodePort: {{ .Values.service.nodePort.port80 }}
-    name: http
-  - port: 443
-    nodePort: {{ .Values.service.nodePort.port443 }}
-    name: https
-  selector:
-    istio: egress-gateway
-{{- end }}
+    {{ .Values.service.ports }}
