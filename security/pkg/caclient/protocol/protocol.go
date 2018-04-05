@@ -39,7 +39,7 @@ type CAGrpcClient interface {
 	SendCSR(*pb.CsrRequest, platform.Client, string) (*pb.CsrResponse, error)
 }
 
-// CAGrpcProtocol implements CAProtocol talking to CA via gRPC.
+// GrpcConnection implements CAProtocol talking to CA via gRPC.
 type GrpcConnection struct {
 	connection *grpc.ClientConn
 }

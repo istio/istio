@@ -31,17 +31,17 @@ import (
 	"istio.io/istio/pkg/probe"
 	"istio.io/istio/pkg/version"
 	"istio.io/istio/security/pkg/caclient"
+	"istio.io/istio/security/pkg/caclient/protocol"
 	_ "istio.io/istio/security/pkg/caclient/protocol"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/ca/controller"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
+	"istio.io/istio/security/pkg/platform"
 	probecontroller "istio.io/istio/security/pkg/probe"
 	"istio.io/istio/security/pkg/registry"
 	"istio.io/istio/security/pkg/registry/kube"
 	"istio.io/istio/security/pkg/server/grpc"
-	"istio.io/istio/security/pkg/platform"
-	"istio.io/istio/security/pkg/caclient/protocol"
 )
 
 // TODO(myidpt): move the following constants to pkg/cmd.
