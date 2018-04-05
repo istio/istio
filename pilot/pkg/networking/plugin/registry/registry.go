@@ -23,11 +23,9 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin/mixer"
 )
 
-// NewDefaultPlugins returns a slice of default Plugins.
-func NewDefaultPlugins() []plugin.Plugin {
-	var plugins []plugin.Plugin
-	plugins = append(plugins, authn.NewPlugin())
-	plugins = append(plugins, mixer.NewPlugin())
-	// plugins = append(plugins, apim.NewPlugin())
-	return plugins
+// NewPlugins returns a slice of default Plugins.
+func NewPlugins() []plugin.Plugin {
+	return []plugin.Plugin{
+		authn.NewPlugin(),
+		mixer.NewPlugin()}
 }

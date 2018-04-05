@@ -38,5 +38,5 @@ type ConfigGenerator interface {
 
 // NewConfigGenerator creates a new instance of the dataplane configuration generator
 func NewConfigGenerator() ConfigGenerator {
-	return v1alpha3.NewConfigGenerator(registry.NewDefaultPlugins())
+	return v1alpha3.NewConfigGenerator(registry.NewPlugins())
 }
