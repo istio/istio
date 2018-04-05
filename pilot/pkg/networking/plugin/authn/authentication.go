@@ -23,6 +23,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	jwtfilter "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
 	authn "istio.io/api/authentication/v1alpha1"
@@ -167,12 +168,10 @@ func ConvertPolicyToAuthNFilterConfig(policy *authn.Policy) *authn_filter.Filter
 		return &authn_filter.FilterConfig{Policy: &authn.Policy{}}
 	}
 	filterConfig := &authn_filter.FilterConfig{
-		Policy: &authn.Policy{
-			Peers:            policy.Peers,
-			Origins:          policy.Origins,
-			PrincipalBinding: policy.PrincipalBinding,
-		},
+		Policy: proto.Clone(policy).(*authn.Policy),
 	}
+	// Remove targets part.
+	filterConfig.Policy.Targets = nil
 	locations := make(map[string]string)
 	for _, jwt := range CollectJwtSpecs(policy) {
 		locations[jwt.Issuer] = OutputLocationForJwtIssuer(jwt.Issuer)
