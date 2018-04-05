@@ -88,7 +88,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 		var listenerType plugin.ListenerType
 		var networkFilters []listener.Filter
 		var hTTPFilters []*http_conn.HttpFilter
-		newListener := buildListener(opts)
 		switch model.Protocol(server.Port.Protocol) {
 		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC, model.ProtocolHTTPS:
 			listenerType = plugin.ListenerTypeHTTP
@@ -126,6 +125,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 			//buildTCPListener(buildOutboundNetworkFilters(clusterName, addresses, servicePort),
 			//	listenAddress, uint32(servicePort.Port), servicePort.Protocol)
 		}
+
+		newListener := buildListener(opts)
 
 		params := &plugin.CallbackListenerInputParams{
 			ListenerType: listenerType,

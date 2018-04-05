@@ -26,12 +26,10 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
-
 	google_protobuf "github.com/gogo/protobuf/types"
 
 	authn "istio.io/api/authentication/v1alpha1"
@@ -228,7 +226,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 			// TODO move to plugin
 			tlsContext: buildSidecarListenerTLSContext(authenticationPolicy),
 		}
-		newListener := buildListener(listenerOpts)
 
 		switch protocol {
 		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC:
@@ -248,6 +245,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 			log.Debugf("Unsupported inbound protocol %v for port %#v", protocol, instance.Endpoint.ServicePort)
 		}
 
+		newListener := buildListener(listenerOpts)
 		// call plugins
 		for _, p := range configgen.Plugins {
 			params := &plugin.CallbackListenerInputParams{
@@ -272,8 +270,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 
 		listeners = append(listeners, newListener)
 
-			listeners = append(listeners, buildListener(listenerOpts))
-		}
 	}
 
 	return listeners
@@ -318,9 +314,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				port:           servicePort.Port,
 				protocol:       servicePort.Protocol,
 			}
-			newListener := buildListener(listenerOpts)
 
-			var listenerType plugin.ListenerType
 			switch servicePort.Protocol {
 			case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
 				listenerType = plugin.ListenerTypeTCP
@@ -371,6 +365,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 			// call plugins
 
 			listenerOpts.ip = listenAddress
+			newListener := buildListener(listenerOpts)
 
 			params := &plugin.CallbackListenerInputParams{
 				ListenerType: listenerType,
@@ -387,8 +382,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				if err := p.OnOutboundListener(params, mutable); err != nil {
 					log.Error(err.Error())
 				}
-				listenerOpts.networkFilters = append(listenerOpts.networkFilters, nf...)
-				listenerOpts.hTTPFilters = append(listenerOpts.hTTPFilters, hf...)
 			}
 
 			// Filters are serialized one time into an opaque struct once we have the complete list.
@@ -599,7 +592,7 @@ func buildHTTPConnectionManager(mesh *meshconfig.MeshConfig, httpOpts *httpListe
 
 	if mesh.EnableTracing {
 		connectionManager.Tracing = &http_conn.HttpConnectionManager_Tracing{
-			OperationName: opts.httpOpts.direction,
+			OperationName: httpOpts.direction,
 		}
 		connectionManager.GenerateRequestId = &google_protobuf.BoolValue{true}
 	}
@@ -663,7 +656,6 @@ func marshalFilters(l *xdsapi.Listener, opts buildListenerOpts, networkFilters [
 
 	if opts.httpOpts != nil {
 		connectionManager := buildHTTPConnectionManager(opts.env.Mesh, opts.httpOpts, hTTPFilters)
-		log.Info(pretty.Sprint(connectionManager))
 		l.FilterChains[0].Filters = append(l.FilterChains[0].Filters, listener.Filter{
 			Name:   envoyHTTPConnectionManager,
 			Config: util.MessageToStruct(connectionManager),
