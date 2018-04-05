@@ -15,13 +15,11 @@
 package probe
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
 
 	"github.com/gogo/googleapis/google/rpc"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/balancer"
 
 	"istio.io/istio/pkg/probe"
@@ -35,7 +33,8 @@ type fakeCAGrpcClient struct {
 	err  error
 }
 
-func (c *fakeCAGrpcClient) HandleCSR(_ context.Context, req *pb.CsrRequest, opts ...grpc.CallOption) (*pb.CsrResponse, error) {
+func (c *fakeCAGrpcClient) SendCSR(request *pb.CsrRequest) (*pb.CsrResponse, error) {
+	fmt.Printf("jianfeih debug error is %v", c.err)
 	return c.resp, c.err
 }
 
@@ -88,8 +87,8 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 		}
 		provider := func(_ string, _ *ca.IstioCA, _ *util.CertOptions, _ time.Duration) (*CAChecker, error) {
 			return &CAChecker{
-				client:  mockClient,
-				cleanup: func() {},
+				protocol: mockClient,
+				cleanup:  func() {},
 			}, nil
 		}
 
