@@ -128,17 +128,17 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 
 		newListener := buildListener(opts)
 
-		params := &plugin.CallbackListenerInputParams{
-			ListenerType: listenerType,
-			Env:          &env,
-			Node:         &node,
-		}
-		mutable := &plugin.CallbackListenerMutableObjects{
-			Listener:    newListener,
-			TCPFilters:  &networkFilters,
-			HTTPFilters: &hTTPFilters,
-		}
 		for _, p := range configgen.Plugins {
+			params := &plugin.CallbackListenerInputParams{
+				ListenerType: listenerType,
+				Env:          &env,
+				Node:         &node,
+			}
+			mutable := &plugin.CallbackListenerMutableObjects{
+				Listener:    newListener,
+				TCPFilters:  &networkFilters,
+				HTTPFilters: &hTTPFilters,
+			}
 			if err := p.OnOutboundListener(params, mutable); err != nil {
 				log.Error(err.Error())
 			}

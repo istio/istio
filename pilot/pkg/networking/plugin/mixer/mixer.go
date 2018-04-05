@@ -40,7 +40,7 @@ func NewPlugin() *Plugin {
 }
 
 // OnOutboundListener implements the Callbacks interface method.
-func (*Plugin) OnOutboundListener(in *plugin.CallbackListenerInputParams, mutable *plugin.CallbackListenerMutableObjects) error {
+func (Plugin) OnOutboundListener(in *plugin.CallbackListenerInputParams, mutable *plugin.CallbackListenerMutableObjects) error {
 	if in.Service == nil || !in.Service.MeshExternal {
 		return nil
 	}
@@ -62,7 +62,7 @@ func (*Plugin) OnOutboundListener(in *plugin.CallbackListenerInputParams, mutabl
 }
 
 // OnInboundListener implements the Callbacks interface method.
-func (*Plugin) OnInboundListener(in *plugin.CallbackListenerInputParams, mutable *plugin.CallbackListenerMutableObjects) error {
+func (Plugin) OnInboundListener(in *plugin.CallbackListenerInputParams, mutable *plugin.CallbackListenerMutableObjects) error {
 	env := in.Env
 	node := in.Node
 	proxyInstances := in.ProxyInstances
@@ -81,19 +81,19 @@ func (*Plugin) OnInboundListener(in *plugin.CallbackListenerInputParams, mutable
 }
 
 // OnOutboundCluster implements the Callbacks interface method.
-func (*Plugin) OnOutboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
+func (Plugin) OnOutboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
 }
 
 // OnInboundCluster implements the Callbacks interface method.
-func (*Plugin) OnInboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
+func (Plugin) OnInboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
 }
 
 // OnOutboundRoute implements the Callbacks interface method.
-func (*Plugin) OnOutboundRoute(env model.Environment, node model.Proxy, route *xdsapi.RouteConfiguration) {
+func (Plugin) OnOutboundRoute(env model.Environment, node model.Proxy, route *xdsapi.RouteConfiguration) {
 }
 
 // OnInboundRoute implements the Callbacks interface method.
-func (*Plugin) OnInboundRoute(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port,
+func (Plugin) OnInboundRoute(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port,
 	route *xdsapi.RouteConfiguration) {
 }
 

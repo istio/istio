@@ -260,12 +260,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 				HTTPFilters: &hTTPFilters,
 			}
 			if err := p.OnInboundListener(params, mutable); err != nil {
-				log.Error(err.Error())
+				log.Warn(err.Error())
 			}
 		}
 		// Filters are serialized one time into an opaque struct once we have the complete list.
 		if err := marshalFilters(newListener, listenerOpts, networkFilters, hTTPFilters); err != nil {
-			log.Error(err.Error())
+			log.Warn(err.Error())
 		}
 
 		listeners = append(listeners, newListener)
@@ -367,26 +367,26 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 			listenerOpts.ip = listenAddress
 			newListener := buildListener(listenerOpts)
 
-			params := &plugin.CallbackListenerInputParams{
-				ListenerType: listenerType,
-				Env:          &env,
-				Node:         &node,
-				Service:      service,
-			}
-			mutable := &plugin.CallbackListenerMutableObjects{
-				Listener:    newListener,
-				TCPFilters:  &networkFilters,
-				HTTPFilters: &hTTPFilters,
-			}
 			for _, p := range configgen.Plugins {
+				params := &plugin.CallbackListenerInputParams{
+					ListenerType: listenerType,
+					Env:          &env,
+					Node:         &node,
+					Service:      service,
+				}
+				mutable := &plugin.CallbackListenerMutableObjects{
+					Listener:    newListener,
+					TCPFilters:  &networkFilters,
+					HTTPFilters: &hTTPFilters,
+				}
 				if err := p.OnOutboundListener(params, mutable); err != nil {
-					log.Error(err.Error())
+					log.Warn(err.Error())
 				}
 			}
 
 			// Filters are serialized one time into an opaque struct once we have the complete list.
 			if err := marshalFilters(newListener, listenerOpts, networkFilters, hTTPFilters); err != nil {
-				log.Error(err.Error())
+				log.Warn(err.Error())
 			}
 
 			listenerMap[listenerMapKey] = newListener
@@ -448,7 +448,7 @@ func buildMgmtPortListeners(managementPorts model.PortList, managementIP string)
 			}
 			l := buildListener(listenerOpts)
 			if err := marshalFilters(l, listenerOpts, buildInboundNetworkFilters(instance), nil); err != nil {
-				log.Error(err.Error())
+				log.Warn(err.Error())
 			}
 			listeners = append(listeners, l)
 		default:
