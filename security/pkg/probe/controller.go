@@ -15,16 +15,16 @@
 package probe
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"strings"
 	"time"
 
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/balancer"
 
 	"istio.io/istio/pkg/probe"
-	"istio.io/istio/security/pkg/caclient/grpc"
+	"istio.io/istio/security/pkg/caclient/protocol"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
@@ -37,23 +37,29 @@ const (
 	probeCheckRequestedTTLMinutes = 60
 )
 
+// CAProtocolProvider returns a CAProtocol instance for talking to CA.
+type CAProtocolProvider func(caAddress string, dialOpts []grpc.DialOption) (protocol.CAProtocol, error)
+
+// GrpcProtocolProvider returns a CAProtocol instance talking to CA via gRPC.
+func GrpcProtocolProvider(caAddress string, dialOpts []grpc.DialOption) (protocol.CAProtocol, error) {
+	return protocol.NewGrpcConnection(caAddress, dialOpts)
+}
+
 // LivenessCheckController updates the availability of the liveness probe of the CA instance
 type LivenessCheckController struct {
 	interval           time.Duration
-	grpcHostname       string
-	grpcPort           int
 	serviceIdentityOrg string
 	rsaKeySize         int
+	caAddress          string
 	ca                 *ca.IstioCA
 	livenessProbe      *probe.Probe
-	client             grpc.CAGrpcClient
+	provider           CAProtocolProvider
 }
 
 // NewLivenessCheckController creates the liveness check controller instance
-func NewLivenessCheckController(probeCheckInterval time.Duration,
-	grpcHostname string, grpcPort int, ca *ca.IstioCA, livenessProbeOptions *probe.Options,
-	client grpc.CAGrpcClient) (*LivenessCheckController, error) {
-
+func NewLivenessCheckController(probeCheckInterval time.Duration, caAddr string,
+	ca *ca.IstioCA, livenessProbeOptions *probe.Options,
+	provider CAProtocolProvider) (*LivenessCheckController, error) {
 	livenessProbe := probe.NewProbe()
 	livenessProbeController := probe.NewFileController(livenessProbeOptions)
 	livenessProbe.RegisterProbe(livenessProbeController, "liveness")
@@ -64,20 +70,15 @@ func NewLivenessCheckController(probeCheckInterval time.Duration,
 
 	return &LivenessCheckController{
 		interval:      probeCheckInterval,
-		grpcHostname:  grpcHostname,
-		grpcPort:      grpcPort,
 		rsaKeySize:    2048,
 		livenessProbe: livenessProbe,
 		ca:            ca,
-		client:        client,
+		caAddress:     caAddr,
+		provider:      provider,
 	}, nil
 }
 
 func (c *LivenessCheckController) checkGrpcServer() error {
-	if c.grpcPort <= 0 {
-		return nil
-	}
-
 	// generates certificate and private key for test
 	opts := util.CertOptions{
 		Host:       LivenessProbeClientIdentity,
@@ -145,12 +146,21 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 		Org:        c.serviceIdentityOrg,
 		RSAKeySize: c.rsaKeySize,
 	})
+	if err != nil {
+		return err
+	}
 
+	dialOpts, err := pc.GetDialOptions()
 	if err != nil {
 		return err
 	}
 
 	cred, err := pc.GetAgentCredential()
+	if err != nil {
+		return err
+	}
+	caProtocol, err := c.provider(c.caAddress, dialOpts)
+
 	if err != nil {
 		return err
 	}
@@ -161,8 +171,9 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 		CredentialType:      pc.GetCredentialType(),
 		RequestedTtlMinutes: probeCheckRequestedTTLMinutes,
 	}
+	_, err = caProtocol.SendCSR(req)
 
-	_, err = c.client.SendCSR(req, pc, fmt.Sprintf("%v:%v", c.grpcHostname, c.grpcPort))
+	// TODO(incfly): remove connectivity error once we always expose istio-ca into dns server.
 	if err != nil && strings.Contains(err.Error(), balancer.ErrTransientFailure.Error()) {
 		return nil
 	}
