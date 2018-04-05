@@ -492,9 +492,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env mo
 		} else {
 			if svcPort, exists := svc.Ports.GetByPort(port); exists {
 				nameToServiceMap[svc.Hostname] = &model.Service{
-					Hostname: svc.Hostname,
-					Address:  svc.Address,
-					Ports:    []*model.Port{svcPort},
+					Hostname:     svc.Hostname,
+					Address:      svc.Address,
+					MeshExternal: svc.MeshExternal,
+					Ports:        []*model.Port{svcPort},
 				}
 			}
 		}
@@ -522,7 +523,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env mo
 		}
 
 		for _, svc := range guardedHost.Services {
-			domains := generateAltVirtualHosts(svc.Hostname, guardedHost.Port)
+			domains := generateAltVirtualHosts(svc.Hostname, guardedHost.Port, svc.MeshExternal)
 			if len(svc.Address) > 0 {
 				// add a vhost match for the IP (if its non CIDR)
 				cidr := util.ConvertAddressToCidr(svc.Address)
@@ -566,14 +567,16 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env mo
 // For example, a service of the form foo.local.campus.net on port 80 could be accessed as
 // http://foo:80 within the .local network, as http://foo.local:80 (by other clients in the campus.net domain),
 // as http://foo.local.campus:80, etc.
-func generateAltVirtualHosts(hostname string, port int) []string {
+func generateAltVirtualHosts(hostname string, port int, meshExternal bool) []string {
 	vhosts := []string{hostname, fmt.Sprintf("%s:%d", hostname, port)}
-	for i := len(hostname) - 1; i >= 0; i-- {
-		if hostname[i] == '.' {
-			variant := hostname[:i]
-			variantWithPort := fmt.Sprintf("%s:%d", variant, port)
-			vhosts = append(vhosts, variant)
-			vhosts = append(vhosts, variantWithPort)
+	if !meshExternal {
+		for i := len(hostname) - 1; i >= 0; i-- {
+			if hostname[i] == '.' {
+				variant := hostname[:i]
+				variantWithPort := fmt.Sprintf("%s:%d", variant, port)
+				vhosts = append(vhosts, variant)
+				vhosts = append(vhosts, variantWithPort)
+			}
 		}
 	}
 	return vhosts

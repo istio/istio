@@ -680,6 +680,9 @@ func buildOutboundHTTPRoutes(node model.Proxy,
 	// outbound connections/requests are directed to service ports; we create a
 	// map for each service port to define filters
 	for _, service := range services {
+		if service.MeshExternal {
+			continue
+		}
 		for _, servicePort := range service.Ports {
 			routes := buildDestinationHTTPRoutes(node, service, servicePort, proxyInstances,
 				config, envoyv2, BuildOutboundCluster)
