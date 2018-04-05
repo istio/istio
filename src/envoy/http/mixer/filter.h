@@ -64,6 +64,9 @@ class Filter : public Http::StreamDecoderFilter,
   State state_;
   bool initiating_call_;
 
+  // Point to the request HTTP headers
+  HeaderMap* headers_;
+
   // The filter callback.
   StreamDecoderFilterCallbacks* decoder_callbacks_;
 };

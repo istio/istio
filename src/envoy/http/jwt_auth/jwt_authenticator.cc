@@ -195,6 +195,9 @@ void JwtAuthenticator::VerifyKey(const PubkeyCacheItem& issuer_item) {
     return;
   }
 
+  // kJwtPayloadKey is preserved for backward compatibility.
+  // Please refer to https://github.com/istio/istio/issues/4744
+  // for migrating to using Istio authentication.
   headers_->addReferenceKey(kJwtPayloadKey, jwt_->PayloadStrBase64Url());
 
   if (!issuer_item.jwt_config().forward_payload_header().empty()) {

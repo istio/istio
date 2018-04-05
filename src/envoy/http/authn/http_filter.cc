@@ -74,6 +74,12 @@ void AuthenticationFilter::onPeerAuthenticationDone(bool success) {
 }
 void AuthenticationFilter::onOriginAuthenticationDone(bool success) {
   ENVOY_LOG(debug, "{}: success = {}", __func__, success);
+  // After Istio authn, the JWT headers consumed by Istio authn should be
+  // removed.
+  for (auto const iter : filter_config_.jwt_output_payload_locations()) {
+    filter_context_->headers()->remove(LowerCaseString(iter.second));
+  }
+
   if (success) {
     // Put authentication result to headers.
     if (filter_context_ != nullptr) {

@@ -17,7 +17,6 @@
 
 #include "include/istio/utils/attributes_builder.h"
 #include "include/istio/utils/status.h"
-#include "src/istio/authn/context.pb.h"
 #include "src/istio/control/attribute_names.h"
 
 using ::istio::mixer::v1::Attributes;

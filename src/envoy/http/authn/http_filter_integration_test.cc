@@ -133,6 +133,48 @@ TEST_P(AuthenticationFilterIntegrationTest, CheckValidJwtPassAuthentication) {
   EXPECT_STREQ("200", response_->headers().Status()->value().c_str());
 }
 
+TEST_P(AuthenticationFilterIntegrationTest, CheckConsumedJwtHeadersAreRemoved) {
+  const Envoy::Http::LowerCaseString header_location(
+      "location-to-read-jwt-result");
+  const std::string jwt_header =
+      R"(
+     {
+       "iss": "issuer@foo.com",
+       "sub": "sub@foo.com",
+       "aud": "aud1",
+       "non-string-will-be-ignored": 1512754205,
+       "some-other-string-claims": "some-claims-kept"
+     }
+   )";
+  std::string jwt_header_base64 =
+      Base64::encode(jwt_header.c_str(), jwt_header.size());
+  Http::TestHeaderMapImpl request_headers_with_jwt_at_specified_location{
+      {":method", "GET"},
+      {":path", "/"},
+      {":authority", "host"},
+      {"location-to-read-jwt-result", jwt_header_base64}};
+  // In this config, the JWT verification result for "issuer@foo.com" is in the
+  // header "location-to-read-jwt-result"
+  createTestServer(
+      "src/envoy/http/authn/testdata/"
+      "envoy_jwt_with_output_header_location.conf",
+      {"http"});
+  // The AuthN filter requires JWT and the http request contains validated JWT.
+  // In this case, the authentication should succeed and an authn result
+  // should be generated.
+  codec_client_ =
+      makeHttpConnection(makeClientConnection((lookupPort("http"))));
+  codec_client_->makeHeaderOnlyRequest(
+      request_headers_with_jwt_at_specified_location, *response_);
+
+  // Wait for request to upstream[0] (backend)
+  waitForNextUpstreamRequest(0);
+
+  // After Istio authn, the JWT headers consumed by Istio authn should have
+  // been removed.
+  EXPECT_TRUE(nullptr == upstream_request_->headers().get(header_location));
+}
+
 TEST_P(AuthenticationFilterIntegrationTest, CheckAuthnResultIsExpected) {
   createTestServer(
       "src/envoy/http/authn/testdata/envoy_origin_jwt_authn_only.conf",
