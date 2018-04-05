@@ -326,6 +326,18 @@ const (
 	IstioMeshGateway = "mesh"
 )
 
+/*
+  This conversion of CRD (== yaml files with k8s metadata) is extremely inefficient.
+  The yaml is parsed (kubeyaml), converted to YAML again (FromJSONMap),
+  converted to JSON (YAMLToJSON) and finally UnmarshallString in proto is called.
+
+  The result is not cached in the model.
+
+  In 0.7, this was the biggest factor in scalability. Moving forward we will likely
+  deprecate model, and do the conversion (hopefully more efficient) only once, when
+  an object is first read.
+*/
+
 var (
 	// MockConfig is used purely for testing
 	MockConfig = ProtoSchema{
@@ -770,6 +782,10 @@ func (store *istioConfigStore) ExternalServices() []Config {
 	return configs
 }
 
+// TODO: move the logic to v2, read all VirtualServices once at startup and per
+// change event and pass them to the config generator. Model calls to List are
+// extremely expensive - and for larger number of services it doesn't make sense
+// to just convert again and again, for each listener times endpoints.
 func (store *istioConfigStore) VirtualServices(gateways []string) []Config {
 	configs, err := store.List(VirtualService.Type, NamespaceAll)
 	if err != nil {

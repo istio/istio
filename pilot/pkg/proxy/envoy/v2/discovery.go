@@ -20,10 +20,12 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+
 	"google.golang.org/grpc"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pkg/log"
 )
 
@@ -39,16 +41,18 @@ var (
 )
 
 const (
-	unknownPeerAddressStr = "Unknown peer address"
-)
-
-const (
 	typePrefix = "type.googleapis.com/envoy.api.v2."
 
-	// Constants used for
-	endpointType = typePrefix + "ClusterLoadAssignment"
-	clusterType  = typePrefix + "Cluster"
-	listenerType = typePrefix + "Listener"
+	// Constants used for XDS
+
+	// ClusterType is used for cluster discovery. Typically first request received
+	ClusterType = typePrefix + "Cluster"
+	// EndpointType is used for EDS and ADS endpoint discovery. Typically second request.
+	EndpointType = typePrefix + "ClusterLoadAssignment"
+	// ListenerType is sent after clusters and endpoints.
+	ListenerType = typePrefix + "Listener"
+	// RouteType is sent after listeners.
+	RouteType = typePrefix + "Route"
 )
 
 // DiscoveryServer is Pilot's gRPC implementation for Envoy's v2 xds APIs
@@ -58,27 +62,26 @@ type DiscoveryServer struct {
 	// env is the model environment.
 	env model.Environment
 
-	Connections map[string]*EdsConnection
-
 	// MemRegistry is used for debug and load testing, allow adding services. Visible for testing.
 	MemRegistry *MemServiceDiscovery
 
 	// ConfigGenerator is responsible for generating data plane configuration using Istio networking
 	// APIs and service registry info
-	ConfigGenerator core.ConfigGenerator
+	ConfigGenerator *v1alpha3.ConfigGeneratorImpl
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
-func NewDiscoveryServer(grpcServer *grpc.Server, env model.Environment, generator core.ConfigGenerator) *DiscoveryServer {
+func NewDiscoveryServer(grpcServer *grpc.Server, env model.Environment, generator *v1alpha3.ConfigGeneratorImpl) *DiscoveryServer {
 	out := &DiscoveryServer{
 		GrpcServer:      grpcServer,
 		env:             env,
 		ConfigGenerator: generator,
 	}
 
+	// EDS must remain registered for 0.8, for smooth upgrade from 0.7
+	// 0.7 proxies will use this service.
 	xdsapi.RegisterEndpointDiscoveryServiceServer(out.GrpcServer, out)
-	xdsapi.RegisterListenerDiscoveryServiceServer(out.GrpcServer, out)
-	xdsapi.RegisterClusterDiscoveryServiceServer(out.GrpcServer, out)
+	ads.RegisterAggregatedDiscoveryServiceServer(out.GrpcServer, out)
 
 	if len(periodicRefreshDuration) > 0 {
 		periodicRefresh()
@@ -113,12 +116,7 @@ func PushAll() {
 
 	log.Infoa("XDS: Registry event - pushing all configs")
 
-	cdsPushAll()
-
-	// TODO: rename to XdsLegacyPushAll
-	edsPushAll() // we want endpoints ready first
-
-	ldsPushAll()
+	adsPushAll()
 }
 
 func nonce() string {
