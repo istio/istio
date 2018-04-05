@@ -148,6 +148,7 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 	if err != nil {
 		return err
 	}
+
 	dialOpts, err := pc.GetDialOptions()
 	if err != nil {
 		return err
@@ -163,18 +164,19 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 		return err
 	}
 
-	request := &pb.CsrRequest{
+	req := &pb.CsrRequest{
 		CsrPem:              csr,
 		NodeAgentCredential: cred,
 		CredentialType:      pc.GetCredentialType(),
 		RequestedTtlMinutes: probeCheckRequestedTTLMinutes,
 	}
-	_, err = caProtocol.SendCSR(request)
+	_, err = caProtocol.SendCSR(req)
 
 	// TODO(incfly): remove connectivity error once we always expose istio-ca into dns server.
 	if err != nil && strings.Contains(err.Error(), balancer.ErrTransientFailure.Error()) {
 		return nil
 	}
+
 	return err
 }
 

@@ -30,20 +30,6 @@ func NewKeyCertBundleRotator(cfg *Config, retriever KeyCertRetriever, bundle pki
 	if cfg == nil {
 		return nil, fmt.Errorf("nil configuration passed")
 	}
-
-	//pc, err := platform.NewClient(cfg.Env, cfg.RootCertFile, cfg.KeyFile, cfg.CertChainFile, cfg.CAAddress)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//cAClient, err := NewCAClient(pc, cfg.CAAddress, cfg.CSRMaxRetries, cfg.CSRInitialRetrialInterval)
-	//if err != nil {
-	//	return nil, fmt.Errorf("failed to initialize CAClient: %v", err)
-	//}
-	//
-	//if err != nil {
-	//	return nil, fmt.Errorf("failed to initialize KeyCertBundle: %v", err)
-	//}
-
 	return &KeyCertBundleRotator{
 		certUtil:  util.NewCertUtil(cfg.CSRGracePeriodPercentage),
 		retriever: retriever,
