@@ -125,27 +125,27 @@ func WriteTempfile(tmpDir, prefix, suffix, contents string) (string, error) {
 
 // Shell run command on shell and get back output and error if get one
 func Shell(format string, args ...interface{}) (string, error) {
-	return sh(context.Background(), format, true, true, args...)
+	return sh(context.Background(), format, true, true, true, args...)
 }
 
 // ShellContext run command on shell and get back output and error if get one
 func ShellContext(ctx context.Context, format string, args ...interface{}) (string, error) {
-	return sh(ctx, format, true, true, args...)
+	return sh(ctx, format, true, true, true, args...)
 }
 
 // ShellMuteOutput run command on shell and get back output and error if get one
 // without logging the output
 func ShellMuteOutput(format string, args ...interface{}) (string, error) {
-	return sh(context.Background(), format, true, false, args...)
+	return sh(context.Background(), format, true, false, true, args...)
 }
 
 // ShellSilent runs command on shell and get back output and error if get one
 // without logging the command or output.
 func ShellSilent(format string, args ...interface{}) (string, error) {
-	return sh(context.Background(), format, false, false, args...)
+	return sh(context.Background(), format, false, false, false, args...)
 }
 
-func sh(ctx context.Context, format string, logCommand, logOutput bool, args ...interface{}) (string, error) {
+func sh(ctx context.Context, format string, logCommand, logOutput, logError bool, args ...interface{}) (string, error) {
 	command := fmt.Sprintf(format, args...)
 	if logCommand {
 		log.Infof("Running command %s", command)
@@ -156,11 +156,12 @@ func sh(ctx context.Context, format string, logCommand, logOutput bool, args ...
 		if output := strings.TrimSuffix(string(bytes), "\n"); len(output) > 0 {
 			log.Infof("Command output: \n%s", output)
 		}
-		if err != nil {
+	}
+
+	if err != nil {
+		if logError {
 			log.Infof("Command error: %v", err)
 		}
-	}
-	if err != nil {
 		return string(bytes), fmt.Errorf("command failed: %q %v", string(bytes), err)
 	}
 	return string(bytes), nil
