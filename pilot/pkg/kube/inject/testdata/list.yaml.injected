@@ -11,7 +11,7 @@ items:
     template:
       metadata:
         annotations:
-          sidecar.istio.io/status: '{"version":"2331371530cc3939de97204ee548e1e7dd9d69f9e589d0fe59ec2a538eeb99cf","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"]}'
+          sidecar.istio.io/status: '{"version":"f7f336a0434dd983d5ef90dbb6d00a3d2f598726d8fe488657e9d378f7768b2d","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"]}'
         creationTimestamp: null
         labels:
           app: hello
@@ -88,8 +88,12 @@ items:
           - "1337"
           - -i
           - '*'
+          - -x
+          - ""
           - -b
           - '*'
+          - -d
+          - ""
           image: docker.io/istio/proxy_init:unittest
           imagePullPolicy: IfNotPresent
           name: istio-init
@@ -118,7 +122,7 @@ items:
     template:
       metadata:
         annotations:
-          sidecar.istio.io/status: '{"version":"2331371530cc3939de97204ee548e1e7dd9d69f9e589d0fe59ec2a538eeb99cf","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"]}'
+          sidecar.istio.io/status: '{"version":"f7f336a0434dd983d5ef90dbb6d00a3d2f598726d8fe488657e9d378f7768b2d","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"]}'
         creationTimestamp: null
         labels:
           app: hello
@@ -195,8 +199,12 @@ items:
           - "1337"
           - -i
           - '*'
+          - -x
+          - ""
           - -b
           - '*'
+          - -d
+          - ""
           image: docker.io/istio/proxy_init:unittest
           imagePullPolicy: IfNotPresent
           name: istio-init
