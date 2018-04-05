@@ -676,7 +676,7 @@ func TestBuildAuthNFilter(t *testing.T) {
 				Name: "istio_authn",
 				Config: &types.Struct{
 					Fields: map[string]*types.Value{
-						"policy": &types.Value{
+						"policy": {
 							Kind: &types.Value_StructValue{
 								StructValue: &types.Struct{Fields: map[string]*types.Value{}},
 							},
@@ -701,11 +701,11 @@ func TestBuildAuthNFilter(t *testing.T) {
 				Name: "istio_authn",
 				Config: &types.Struct{
 					Fields: map[string]*types.Value{
-						"jwt_output_payload_locations": &types.Value{
+						"jwt_output_payload_locations": {
 							Kind: &types.Value_StructValue{
 								StructValue: &types.Struct{
 									Fields: map[string]*types.Value{
-										"": &types.Value{
+										"": {
 											Kind: &types.Value_StringValue{
 												StringValue: "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709",
 											},
@@ -714,23 +714,23 @@ func TestBuildAuthNFilter(t *testing.T) {
 								},
 							},
 						},
-						"policy": &types.Value{
+						"policy": {
 							Kind: &types.Value_StructValue{
 								StructValue: &types.Struct{
 									Fields: map[string]*types.Value{
-										"peers": &types.Value{
+										"peers": {
 											Kind: &types.Value_ListValue{
 												ListValue: &types.ListValue{
 													Values: []*types.Value{
-														&types.Value{
+														{
 															Kind: &types.Value_StructValue{
 																StructValue: &types.Struct{
 																	Fields: map[string]*types.Value{
-																		"jwt": &types.Value{
+																		"jwt": {
 																			Kind: &types.Value_StructValue{
 																				StructValue: &types.Struct{
 																					Fields: map[string]*types.Value{
-																						"jwks_uri": &types.Value{
+																						"jwks_uri": {
 																							Kind: &types.Value_StringValue{StringValue: "http://abc.com"},
 																						},
 																					},
