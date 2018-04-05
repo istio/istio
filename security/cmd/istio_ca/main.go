@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/pkg/version"
 	"istio.io/istio/security/pkg/caclient"
 	"istio.io/istio/security/pkg/caclient/protocol"
-	_ "istio.io/istio/security/pkg/caclient/protocol"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/ca/controller"
