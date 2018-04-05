@@ -134,7 +134,7 @@ test/local/auth/e2e_pilot:
 test/local/noauth/e2e_pilotv2:
 	@mkdir -p /go/out/logs
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 20m ./tests/e2e/tests/pilot \
- 	--skip_cleanup --auth_enable=false --egress=false --ingress=false --v1alpha1=false \
+ 	--skip_cleanup --auth_enable=false --v1alpha3=true --egress=false --v1alpha1=false \
 	${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS}  ${T} \
 		| tee ${OUT_DIR}/logs/test-report.raw
 
