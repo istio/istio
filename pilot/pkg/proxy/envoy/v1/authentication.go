@@ -22,6 +22,7 @@ import (
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
+	authn_plugin "istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pkg/log"
 )
 
@@ -34,7 +35,7 @@ const (
 
 // BuildJwtFilter returns a Jwt filter for all Jwt specs in the policy.
 func buildJwtFilter(policy *authn.Policy) *HTTPFilter {
-	filterConfigProto := model.ConvertPolicyToJwtConfig(policy)
+	filterConfigProto := authn_plugin.ConvertPolicyToJwtConfig(policy)
 	if filterConfigProto == nil {
 		return nil
 	}
@@ -60,7 +61,7 @@ func buildJwksURIClustersForProxyInstances(mesh *meshconfig.MeshConfig,
 	var jwtSpecs []*authn.Jwt
 	for _, instance := range proxyInstances {
 		authnPolicy := model.GetConsolidateAuthenticationPolicy(mesh, store, instance.Service.Hostname, instance.Endpoint.ServicePort)
-		jwtSpecs = append(jwtSpecs, model.CollectJwtSpecs(authnPolicy)...)
+		jwtSpecs = append(jwtSpecs, authn_plugin.CollectJwtSpecs(authnPolicy)...)
 	}
 
 	return buildJwksURIClusters(jwtSpecs, mesh.ConnectTimeout)
@@ -91,7 +92,7 @@ func buildJwksURIClusters(jwtSpecs []*authn.Jwt, timeout *duration.Duration) Clu
 	var clusters Clusters
 	for _, auth := range jwksClusters {
 		cluster := BuildOutboundCluster(auth.hostname, auth.port, nil /* labels */, true /* external */)
-		cluster.Name = model.JwksURIClusterName(auth.hostname, auth.port)
+		cluster.Name = authn_plugin.JwksURIClusterName(auth.hostname, auth.port)
 		cluster.CircuitBreaker = &CircuitBreaker{
 			Default: DefaultCBPriority{
 				MaxPendingRequests: 10000,

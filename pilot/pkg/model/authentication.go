@@ -15,23 +15,13 @@
 package model
 
 import (
-	"crypto/sha1"
 	"fmt"
 	"net/url"
 	"strconv"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	jwtfilter "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha"
-	"github.com/gogo/protobuf/types"
-
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/log"
-)
-
-const (
-	// Defautl cache duration for JWT public key. This should be moved to a global config.
-	jwtPublicKeyCacheSeconds = 60 * 5
 )
 
 // GetConsolidateAuthenticationPolicy returns the authentication policy for
@@ -83,25 +73,6 @@ func legacyAuthenticationPolicyToPolicy(legacy meshconfig.AuthenticationPolicy) 
 	return nil
 }
 
-// RequireTLS returns true and pointer to mTLS params if the policy use mTLS for (peer) authentication.
-// (note that mTLS params can still be nil). Otherwise, return (false, nil).
-func RequireTLS(policy *authn.Policy) (bool, *authn.MutualTls) {
-	if policy == nil {
-		return false, nil
-	}
-	if len(policy.Peers) > 0 {
-		for _, method := range policy.Peers {
-			switch method.GetParams().(type) {
-			case *authn.PeerAuthenticationMethod_Mtls:
-				return true, method.GetMtls()
-			default:
-				continue
-			}
-		}
-	}
-	return false, nil
-}
-
 // ParseJwksURI parses the input URI and returns the corresponding hostname, port, and whether SSL is used.
 // URI must start with "http://" or "https://", which corresponding to "http" or "https" scheme.
 // Port number is extracted from URI if available (i.e from postfix :<port>, eg. ":80"), or assigned
@@ -139,88 +110,4 @@ func ParseJwksURI(jwksURI string) (string, *Port, bool, error) {
 		Name: u.Scheme,
 		Port: portNumber,
 	}, useSSL, nil
-}
-
-// JwksURIClusterName returns cluster name for the jwks URI. This should be used
-// to override the name for outbound cluster that are added for Jwks URI so that they
-// can be referred correctly in the JWT filter config.
-func JwksURIClusterName(hostname string, port *Port) string {
-	const clusterPrefix = "jwks."
-	const maxClusterNameLength = 189 - len(clusterPrefix)
-	name := hostname + "|" + port.Name
-	if len(name) > maxClusterNameLength {
-		prefix := name[:maxClusterNameLength-sha1.Size*2]
-		sum := sha1.Sum([]byte(name))
-		name = fmt.Sprintf("%s%x", prefix, sum)
-	}
-	return clusterPrefix + name
-}
-
-// CollectJwtSpecs returns a list of all JWT specs (ponters) defined the policy. This
-// provides a convenient way to iterate all Jwt specs.
-func CollectJwtSpecs(policy *authn.Policy) []*authn.Jwt {
-	ret := []*authn.Jwt{}
-	if policy == nil {
-		return ret
-	}
-	for _, method := range policy.Peers {
-		switch method.GetParams().(type) {
-		case *authn.PeerAuthenticationMethod_Jwt:
-			ret = append(ret, method.GetJwt())
-		}
-	}
-	for _, method := range policy.Origins {
-		ret = append(ret, method.Jwt)
-	}
-	return ret
-}
-
-// ConvertPolicyToJwtConfig converts policy into Jwt filter config for envoy. The
-// config is still incomplete though: the jwks_uri_envoy_cluster has not been set
-// yet; it should be filled by pilot, accordingly how those clusters are added.
-// Also note,  the Jwt filter implementation is in Istio proxy, but it is under
-// upstreamming process
-// (https://github.com/envoyproxy/data-plane-api/pull/530/files).
-// The output of this function should use the Envoy data-plane-api proto once
-// this migration finished.
-func ConvertPolicyToJwtConfig(policy *authn.Policy) *jwtfilter.JwtAuthentication {
-	policyJwts := CollectJwtSpecs(policy)
-	if len(policyJwts) == 0 {
-		return nil
-	}
-	ret := &jwtfilter.JwtAuthentication{
-		AllowMissingOrFailed: true,
-	}
-	for _, policyJwt := range policyJwts {
-		hostname, port, _, err := ParseJwksURI(policyJwt.JwksUri)
-		if err != nil {
-			log.Errorf("Cannot parse jwks_uri %q: %v", policyJwt.JwksUri, err)
-			continue
-		}
-
-		jwt := &jwtfilter.JwtRule{
-			Issuer:    policyJwt.Issuer,
-			Audiences: policyJwt.Audiences,
-			JwksSourceSpecifier: &jwtfilter.JwtRule_RemoteJwks{
-				RemoteJwks: &jwtfilter.RemoteJwks{
-					HttpUri: &core.HttpUri{
-						Uri: policyJwt.JwksUri,
-						HttpUpstreamType: &core.HttpUri_Cluster{
-							Cluster: JwksURIClusterName(hostname, port),
-						},
-					},
-					CacheDuration: &types.Duration{Seconds: jwtPublicKeyCacheSeconds},
-				},
-			},
-			Forward: true,
-		}
-		for _, location := range policyJwt.JwtHeaders {
-			jwt.FromHeaders = append(jwt.FromHeaders, &jwtfilter.JwtHeader{
-				Name: location,
-			})
-		}
-		jwt.FromParams = policyJwt.JwtParams
-		ret.Rules = append(ret.Rules, jwt)
-	}
-	return ret
 }
