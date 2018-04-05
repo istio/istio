@@ -193,8 +193,14 @@ message Params {
         // variables named in the mapping to populate the fields of the request struct from the instance's variables.
         HttpRequestMapping http_mapping = 3;
 
-        // Gets information about sink to export Stackdriver logs to.
+        // Contains information about sink to export Stackdriver logs to.
         // See https://godoc.org/cloud.google.com/go/logging/logadmin#Sink.
+        // Ex: If you want to export it to a GCS bucket, id would be a unique idetifier you want for the sink,
+        // destination would be the storage be name of GCS Storage bucket and filter would be user defined condition for
+        // filtering logs. See below for a sample config:
+        //      id: 'info-errors-to-gcs'
+        //      destination: 'storage.googleapis.com/<bucket_name>'
+        //      filter: 'severity >= Default'
         message SinkInfo {
             // Client assigned sink identifier.
             string id = 1;

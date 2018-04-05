@@ -213,8 +213,14 @@ See https://godoc.org/cloud.google.com/go/logging#HTTPRequest</p>
 </section>
 <h2 id="Params.LogInfo.SinkInfo">Params.LogInfo.SinkInfo</h2>
 <section>
-<p>Gets information about sink to export Stackdriver logs to.
-See https://godoc.org/cloud.google.com/go/logging/logadmin#Sink.</p>
+<p>Contains information about sink to export Stackdriver logs to.
+See https://godoc.org/cloud.google.com/go/logging/logadmin#Sink.
+Ex: If you want to export it to a GCS bucket, id would be a unique idetifier you want for the sink,
+destination would be the storage be name of GCS Storage bucket and filter would be user defined condition for
+filtering logs. See below for a sample config:
+     id: &lsquo;info-errors-to-gcs&rsquo;
+     destination: &lsquo;storage.googleapis.com/<bucket_name>&rsquo;
+     filter: &lsquo;severity &gt;= Default&rsquo;</p>
 
 <table class="message-fields">
 <thead>
