@@ -162,7 +162,7 @@ func ConvertPolicyToJwtConfig(policy *authn.Policy) *jwtfilter.JwtAuthentication
 	return ret
 }
 
-// ConvertPolicyToAuthNFilterConfig returns authn filter config corresponding for the input policy.
+// ConvertPolicyToAuthNFilterConfig returns an authn filter config corresponding for the input policy.
 func ConvertPolicyToAuthNFilterConfig(policy *authn.Policy) *authn_filter.FilterConfig {
 	if policy == nil || (len(policy.Peers) == 0 && len(policy.Origins) == 0) {
 		return nil
