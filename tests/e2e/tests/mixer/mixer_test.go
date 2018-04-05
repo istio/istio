@@ -1115,11 +1115,6 @@ func doEgressRule(do kubeDo) error {
 	return do(tc.Kube.Namespace, contents)
 }
 
-func getBookinfoResourcePath(resource string) string {
-	return util.GetResourcePath(filepath.Join(bookinfoSampleDir, deploymentDir,
-		resource+"."+yamlExtension))
-}
-
 func setTestConfig() error {
 	cc, err := framework.NewCommonConfig("mixer_test")
 	if err != nil {
