@@ -21,12 +21,6 @@ istiotesting:
 # needs gateway for testing
 ingress-gateway:
   enabled: true
-  service:
-    nodePort:
-      enabled: true
 
 egress-gateway:
   enabled: true
-  service:
-    nodePort:
-      enabled: true
