@@ -180,9 +180,9 @@ func (p *quotaImpl) ProcessQuota(ctx context.Context,
 			quotaDuration, 0), err
 	}
 
-	if p.env.Logger().VerbosityLevel(logDebug) {
+	if p.env.Logger().DebugEnabled() {
 		if requestDetail, err := toFormattedJSON(request); err == nil {
-			p.env.Logger().Infof("Quota request :%v", requestDetail)
+			p.env.Logger().Debugf("Quota request :%v", requestDetail)
 		}
 	}
 
@@ -194,9 +194,9 @@ func (p *quotaImpl) ProcessQuota(ctx context.Context,
 			quotaDuration, 0), err
 	}
 
-	if p.env.Logger().VerbosityLevel(logDebug) {
+	if p.env.Logger().DebugEnabled() {
 		if responseDetail, err := toFormattedJSON(response); err == nil {
-			p.env.Logger().Infof("response :%v", responseDetail)
+			p.env.Logger().Debugf("response :%v", responseDetail)
 		}
 	}
 
