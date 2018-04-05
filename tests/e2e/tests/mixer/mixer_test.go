@@ -60,6 +60,9 @@ const (
 	routeReviewsV3Rule       = rulesDir + "/" + "route-rule-reviews-v3"
 	tcpDbRule                = rulesDir + "/" + "route-rule-ratings-db"
 
+	egressRuleDir     = "tests/helm/templates"
+	egressRuleHttpbin = "egress-rule-httpbin.yaml"
+
 	prometheusPort   = "9090"
 	mixerMetricsPort = "42422"
 	productPagePort  = "10000"
@@ -96,27 +99,19 @@ func (t *testConfig) Setup() (err error) {
 		}
 	}()
 
-	var srcBytes []byte
 	for _, rule := range rules {
 		src := util.GetResourcePath(filepath.Join(bookinfoSampleDir, rule+"."+yamlExtension))
 		dest := filepath.Join(t.rulesDir, rule+"."+yamlExtension)
-		srcBytes, err = ioutil.ReadFile(src)
-		if err != nil {
-			log.Errorf("Failed to read original rule file %s", src)
+		if err = copyFile(src, dest); err != nil {
 			return err
 		}
+	}
 
-		err = os.MkdirAll(filepath.Dir(dest), 0700)
-		if err != nil {
-			log.Errorf("Failed to create the directory %s", filepath.Dir(dest))
-			return err
-		}
-
-		err = ioutil.WriteFile(dest, srcBytes, 0600)
-		if err != nil {
-			log.Errorf("Failed to write into new rule file %s", dest)
-			return err
-		}
+	// Copy egressrule file into test directory.
+	src := util.GetResourcePath(filepath.Join(egressRuleDir, egressRuleHttpbin))
+	dest := filepath.Join(t.rulesDir, egressRuleHttpbin)
+	if err = copyFile(src, dest); err != nil {
+		return err
 	}
 
 	err = createDefaultRoutingRules()
@@ -135,6 +130,27 @@ func (t *testConfig) Setup() (err error) {
 	allowPrometheusSync()
 
 	return
+}
+
+func copyFile(src string, dest string) error {
+	srcBytes, err := ioutil.ReadFile(src)
+	if err != nil {
+		log.Errorf("Failed to read original rule file %s", src)
+		return err
+	}
+
+	err = os.MkdirAll(filepath.Dir(dest), 0700)
+	if err != nil {
+		log.Errorf("Failed to create the directory %s", filepath.Dir(dest))
+		return err
+	}
+
+	err = ioutil.WriteFile(dest, srcBytes, 0600)
+	if err != nil {
+		log.Errorf("Failed to write into new rule file %s", dest)
+		return err
+	}
+	return nil
 }
 
 func createDefaultRoutingRules() error {
@@ -545,6 +561,32 @@ func TestCheckCache(t *testing.T) {
 	url := fmt.Sprintf("http://productpage.%s:9080/health", tc.Kube.Namespace)
 
 	// visit calls product page health handler with sleep app.
+	visit := func() error {
+		return visitWithApp(url, pod, "sleep", 100)
+	}
+	testCheckCache(t, visit)
+}
+
+// TestEgressCheckCache tests that check cache works on egress traffic.
+func TestEgressCheckCache(t *testing.T) {
+	t.Logf("apply egress rule to enable traffic to httpbin.org")
+	if err := applyEgressRule(); err != nil {
+		fatalf(t, "could not apply egress rule: %v", err)
+	}
+	defer func() {
+		if err := deleteEgressRule(); err != nil {
+			t.Logf("could not clear egress rule: %v", err)
+		}
+	}()
+	allowRuleSync()
+
+	// Get pod id of sleep app.
+	pod, err := podID("app=sleep")
+	if err != nil {
+		fatalf(t, "fail getting pod id of sleep %v", err)
+	}
+	url := fmt.Sprintf("http://httpbin.org/status/200")
+
 	visit := func() error {
 		return visitWithApp(url, pod, "sleep", 100)
 	}
@@ -1046,6 +1088,30 @@ func doMixerRule(ruleName string, do kubeDo) error {
 		return fmt.Errorf("%s must contain %s so the it can replaced", rule, templateNamespace)
 	}
 	contents = strings.Replace(contents, templateNamespace, tc.Kube.Namespace, -1)
+	return do(tc.Kube.Namespace, contents)
+}
+
+func getBookinfoResourcePath(resource string) string {
+	return util.GetResourcePath(filepath.Join(bookinfoSampleDir, deploymentDir,
+		resource+"."+yamlExtension))
+}
+
+func applyEgressRule() error {
+	return doEgressRule(util.KubeApplyContents)
+}
+
+func deleteEgressRule() error {
+	return doEgressRule(util.KubeDeleteContents)
+}
+
+func doEgressRule(do kubeDo) error {
+	rule := filepath.Join(tc.rulesDir, egressRuleHttpbin)
+	cb, err := ioutil.ReadFile(rule)
+	if err != nil {
+		log.Errorf("cannot read original yaml file %s", rule)
+		return err
+	}
+	contents := string(cb)
 	return do(tc.Kube.Namespace, contents)
 }
 
