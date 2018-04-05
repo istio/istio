@@ -29,22 +29,24 @@ func NewVaultAdapter() (*VaultAdapter, error) {
 }
 
 // Sign takes a PEM-encoded CSR and returns a signed certificate. If the CA is a multicluster CA,
-// the signed certificate is a CA certificate, otherwise, it is a workload certificate.
+// the signed certificate is a CA certificate (CA:TRUE in X509v3 Basic Constraints), otherwise, it is a workload
+// certificate.
 func (v *VaultAdapter) Sign(csrPEM []byte, ttl time.Duration) ([]byte, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
-// SignCAServerCert signs the certificate for the Istio CA server.
+// SignCAServerCert signs the certificate for the Istio CA server (to serve the CSR, etc).
 func (v *VaultAdapter) SignCAServerCert(csrPEM []byte, ttl time.Duration) ([]byte, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
-// GetCertChain returns the certificate chain for the Vault CA.
-func (v *VaultAdapter) GetCertChain() []byte {
+// GetCertChainPem returns the certificate chain from the CA certificate to the root certificate (not including the root
+// certificate) in pem format.
+func (v *VaultAdapter) GetCertChainPem() []byte {
 	return nil
 }
 
-// GetRootCert returns the root certificate for the Vault CA.
-func (v *VaultAdapter) GetRootCert() []byte {
+// GetRootCertPem returns the root certificate pem for the CA.
+func (v *VaultAdapter) GetRootCertPem() []byte {
 	return nil
 }
