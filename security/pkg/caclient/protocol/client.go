@@ -42,26 +42,29 @@ type CAGrpcClientImpl struct {
 }
 
 // CAGrpcProtocol implements CAProtocol talking to CA via gRPC.
-type GrpcProtocol struct {
+type GrpcConnection struct {
 	connection *grpc.ClientConn
 }
 
-func NewCAGrpcClient(caAddr string, dialOptions []grpc.DialOption) (*GrpcProtocol, error) {
+// NewGrpcConnection creates a gRPC connection.
+func NewGrpcConnection(caAddr string, dialOptions []grpc.DialOption) (*GrpcConnection, error) {
 	conn, err := grpc.Dial(caAddr, dialOptions...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to dial %s: %v", caAddr, err)
 	}
-	return &GrpcProtocol{
+	return &GrpcConnection{
 		connection: conn,
 	}, nil
 }
 
-func (c *GrpcProtocol) SendCSR(req *pb.CsrRequest) (*pb.CsrResponse, error) {
+// SendCSR sends a resquest to CA server and returns the response.
+func (c *GrpcConnection) SendCSR(req *pb.CsrRequest) (*pb.CsrResponse, error) {
 	client := pb.NewIstioCAServiceClient(c.connection)
 	return client.HandleCSR(context.Background(), req)
 }
 
-func (c *GrpcProtocol) Close() error {
+// Close closes the gRPC connection.
+func (c *GrpcConnection) Close() error {
 	return c.connection.Close()
 }
 
@@ -91,12 +94,14 @@ func (c *CAGrpcClientImpl) SendCSR(req *pb.CsrRequest, pc platform.Client, caAdd
 	return resp, nil
 }
 
+// FakeProtocol is a fake for testing, implements CAProtocol interface.
 type FakeProtocol struct {
 	counter int
 	resp    *pb.CsrResponse
 	errMsg  string
 }
 
+// NewFakeProtocol returns a FakeProtocol with configured response and expected error.
 func NewFakeProtocol(response *pb.CsrResponse, err string) *FakeProtocol {
 	return &FakeProtocol{
 		resp:   response,
@@ -104,6 +109,7 @@ func NewFakeProtocol(response *pb.CsrResponse, err string) *FakeProtocol {
 	}
 }
 
+// SendCSR sends request and returns the result based on the predetermined config.
 func (f *FakeProtocol) SendCSR(req *pb.CsrRequest) (*pb.CsrResponse, error) {
 	f.counter++
 	if f.errMsg != "" {
@@ -112,6 +118,7 @@ func (f *FakeProtocol) SendCSR(req *pb.CsrRequest) (*pb.CsrResponse, error) {
 	return f.resp, nil
 }
 
+// InvokeTimes returns the times that SendCSR has been invoked.
 func (f *FakeProtocol) InvokeTimes() int {
 	return f.counter
 }

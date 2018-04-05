@@ -73,7 +73,7 @@ func New(cfg *na.Config) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	protocol, err := protocol.NewCAGrpcClient(cfg.CAClientConfig.CAAddress, dialOpts)
+	protocol, err := protocol.NewGrpcConnection(cfg.CAClientConfig.CAAddress, dialOpts)
 	cac, err := caclient.NewCAClient(pc, protocol, cfg.CAClientConfig.CSRMaxRetries, cfg.CAClientConfig.CSRInitialRetrialInterval)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create caclient err %v", err)

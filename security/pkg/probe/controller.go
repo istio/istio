@@ -41,7 +41,7 @@ const (
 type CAProtocolProvider func(caAddress string, dialOpts []grpc.DialOption) (protocol.CAProtocol, error)
 
 func GrpcProtocolProvider(caAddress string, dialOpts []grpc.DialOption) (protocol.CAProtocol, error) {
-	return protocol.NewCAGrpcClient(caAddress, dialOpts)
+	return protocol.NewGrpcConnection(caAddress, dialOpts)
 }
 
 // LivenessCheckController updates the availability of the liveness probe of the CA instance
