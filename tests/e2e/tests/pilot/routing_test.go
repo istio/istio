@@ -188,6 +188,11 @@ func TestRoutes(t *testing.T) {
 			}
 
 			for _, c := range cases {
+				if strings.Contains(c.testName, "websocket") && version == "v1alpha3" {
+					log.Infof("Skipping Websocket tests in v1alpha3 as they are not implemented yet")
+					continue
+				}
+
 				// Run each case in a function to scope the configuration's lifecycle.
 				func() {
 					ruleYaml := fmt.Sprintf("testdata/%s/%s", version, c.config)
@@ -327,8 +332,9 @@ func TestRouteRedirectInjection(t *testing.T) {
 	}
 }
 
+// TODO this is not implemented properly at the moment.
 func TestRouteMirroring(t *testing.T) {
-	t.Skipf("Skipping %s", t.Name())
+	t.Skipf("Skipping %s due to incomplete implementation", t.Name())
 	for _, version := range configVersions() {
 		logs := newAccessLogs()
 		// Invoke a function to scope the lifecycle of the deployed configs.
@@ -344,25 +350,19 @@ func TestRouteMirroring(t *testing.T) {
 			}
 			defer cfgs.Teardown()
 
-			runRetriableTest(t, version, 5, func() error {
-				reqURL := "http://c/a"
-				for i := 1; i <= 100; i++ {
-					resp := ClientRequest("a", reqURL, 1, fmt.Sprintf("-key X-Request-Id -val %d", i))
-					logEntry := fmt.Sprintf("HTTP request from a to c.istio-system.svc.cluster.local:80")
-					if len(resp.ID) > 0 {
-						id := resp.ID[0]
-						logs.add("b", id, logEntry)
-					}
+			reqURL := "http://c/a"
+			for i := 1; i <= 100; i++ {
+				resp := ClientRequest("a", reqURL, 1, fmt.Sprintf("-key X-Request-Id -val %d", i))
+				logEntry := fmt.Sprintf("HTTP request from a to c.istio-system.svc.cluster.local:80")
+				if len(resp.ID) > 0 {
+					id := resp.ID[0]
+					logs.add("b", id, logEntry)
 				}
-				return nil
-			})
-		}()
+			}
 
-		// After all requests complete, run the check logs tests.
-		if len(logs.logs) > 0 {
 			t.Run("check", func(t *testing.T) {
 				logs.checkLogs(t)
 			})
-		}
+		}()
 	}
 }

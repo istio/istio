@@ -183,18 +183,13 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) (model
 			// While we accept multiple certs, we expect them to be mounted in
 			// /etc/istio/certs/namespace/secretname/tls.crt|tls.key
 			Tls: &networking.Server_TLSOptions{
-				HttpsRedirect:     true,
-				Mode:              networking.Server_TLSOptions_SIMPLE,
+				HttpsRedirect: false,
+				Mode:          networking.Server_TLSOptions_SIMPLE,
+				// TODO this is no longer valid for the new v2 stuff
 				PrivateKey:        path.Join(model.IngressCertsPath, model.IngressKeyFilename),
 				ServerCertificate: path.Join(model.IngressCertsPath, model.IngressCertFilename),
 				// TODO: make sure this is mounted
 				CaCertificates: path.Join(model.IngressCertsPath, model.RootCertFilename),
-
-				// FIXME temporary hack until test templates are updated
-				//PrivateKey:        path.Join(model.IngressCertsPath, ingress.Namespace, tls.SecretName, model.IngressKeyFilename),
-				//ServerCertificate: path.Join(model.IngressCertsPath, ingress.Namespace, tls.SecretName, model.IngressCertFilename),
-				//// TODO: make sure this is mounted
-				//CaCertificates: path.Join(model.IngressCertsPath, ingress.Namespace, tls.SecretName, model.RootCertFilename),
 			},
 		})
 	}
@@ -205,6 +200,7 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) (model
 			Protocol: string(model.ProtocolHTTP),
 			Name:     "http-ingress-80",
 		},
+		Hosts: []string{"*"},
 	})
 
 	virtualService := &networking.VirtualService{

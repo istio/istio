@@ -195,6 +195,15 @@ func ExtractIDs(exts []pkix.Extension) ([]string, error) {
 	return ids, nil
 }
 
+// GenSanURI returns the formatted uri(SPIFFEE format for now) for the certificate.
+func GenSanURI(ns, serviceAccount string) (string, error) {
+	if ns == "" || serviceAccount == "" {
+		return "", fmt.Errorf(
+			"namespace or service account can't be empty ns=%v serviceAccount=%v", ns, serviceAccount)
+	}
+	return fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/%s", ns, serviceAccount), nil
+}
+
 func generateReversedMap(m map[IdentityType]int) map[int]IdentityType {
 	reversed := make(map[int]IdentityType)
 	for key, value := range m {

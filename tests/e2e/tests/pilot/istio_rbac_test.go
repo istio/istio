@@ -28,8 +28,8 @@ const (
 )
 
 func TestRBAC(t *testing.T) {
-	if !tc.Kube.AuthEnabled {
-		t.Skipf("Skipping %s: auth_enabled=false", t.Name())
+	if !tc.Kube.RBACEnabled {
+		t.Skipf("Skipping %s: rbac_enable=false", t.Name())
 	}
 	// Fill out the templates.
 	params := map[string]string{

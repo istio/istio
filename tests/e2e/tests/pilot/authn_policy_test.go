@@ -21,7 +21,7 @@ import (
 
 func TestAuthNPolicy(t *testing.T) {
 	if !tc.Kube.AuthEnabled {
-		t.Skipf("Skipping %s: auth_enabled=false", t.Name())
+		t.Skipf("Skipping %s: auth_enable=false", t.Name())
 	}
 
 	cfgs := &deployableConfig{
