@@ -152,7 +152,7 @@ func (s *Server) WorkloadAdded(ctx context.Context, request *pb.WorkloadInfo) (*
 		return fmt.Errorf(msg)
 	}
 
-	// Sends CSR request to CA.
+	// Send CSR request to CA.
 	host, err := pkiutil.GenSanURI(ns, sa)
 	if err != nil {
 		return nil, logReturn("failed to generate san uri", err)
