@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/balancer"
 
 	"istio.io/istio/pkg/probe"
@@ -38,15 +39,15 @@ const (
 )
 
 // CAChecker contains informations for prober to talk to Istio CA server.
-type CAChecker struct {
-	request *pb.CsrRequest
-	// client  pb.IstioCAServiceClient
-	protocol protocol.CAProtocol
-	cleanup  func()
-}
+//type CAChecker struct {
+//request *pb.CsrRequest
+//// client  pb.IstioCAServiceClient
+//protocol protocol.CAProtocol
+//cleanup  func()
+//}
 
-// CheckProvider returns a struct containing the CsrRequest and the grpc client.
-type CheckProvider func(addr string, ca *ca.IstioCA, certOpts *util.CertOptions, ttl time.Duration) (*CAChecker, error)
+// CAProtocolProvider returns a CAProtocol instance for talking to CA.
+type CAProtocolProvider func(caAddress string, dialOpts []grpc.DialOption) (protocol.CAProtocol, error)
 
 // LivenessCheckController updates the availability of the liveness probe of the CA instance
 type LivenessCheckController struct {
@@ -56,13 +57,13 @@ type LivenessCheckController struct {
 	caAddress          string
 	ca                 *ca.IstioCA
 	livenessProbe      *probe.Probe
-	clientProvider     CheckProvider
+	provider           CAProtocolProvider
 }
 
 // NewLivenessCheckController creates the liveness check controller instance
 func NewLivenessCheckController(probeCheckInterval time.Duration, caAddr string,
 	ca *ca.IstioCA, livenessProbeOptions *probe.Options,
-	provider CheckProvider) (*LivenessCheckController, error) {
+	provider CAProtocolProvider) (*LivenessCheckController, error) {
 	livenessProbe := probe.NewProbe()
 	livenessProbeController := probe.NewFileController(livenessProbeOptions)
 	livenessProbe.RegisterProbe(livenessProbeController, "liveness")
@@ -72,12 +73,12 @@ func NewLivenessCheckController(probeCheckInterval time.Duration, caAddr string,
 	livenessProbe.SetAvailable(nil)
 
 	return &LivenessCheckController{
-		interval:       probeCheckInterval,
-		rsaKeySize:     2048,
-		livenessProbe:  livenessProbe,
-		ca:             ca,
-		caAddress:      caAddr,
-		clientProvider: provider,
+		interval:      probeCheckInterval,
+		rsaKeySize:    2048,
+		livenessProbe: livenessProbe,
+		ca:            ca,
+		caAddress:     caAddr,
+		provider:      provider,
 	}, nil
 }
 
@@ -103,6 +104,10 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 	if err != nil {
 		return err
 	}
+	defer func() {
+		_ = os.RemoveAll(tempDir)
+	}()
+
 	testRoot, err := ioutil.TempFile(tempDir, "root")
 	if err != nil {
 		return err
@@ -143,36 +148,37 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 	if err != nil {
 		return err
 	}
-	//conn, err := grpc.Dial(c.caAddress, dialOpts...)
-	//if err != nil {
-	//return err
-	//}
-	grpcProtocol, err := protocol.NewCAGrpcClient(c.caAddress, dialOpts)
-	if err != nil {
-		return err
-	}
-	csr, _, err := util.GenCSR(certOpts)
-	if err != nil {
-		return err
-	}
-
 	cred, err := pc.GetAgentCredential()
 	if err != nil {
 		return err
 	}
-
-	checker := &CAChecker{
-		request: &pb.CsrRequest{
-			CsrPem:              csr,
-			NodeAgentCredential: cred,
-			CredentialType:      pc.GetCredentialType(),
-			RequestedTtlMinutes: probeCheckRequestedTTLMinutes,
-		},
-		protocol: grpcProtocol,
-		cleanup: func() {
-			_ = os.RemoveAll(tempDir)
-		},
+	//conn, err := grpc.Dial(c.caAddress, dialOpts...)
+	//if err != nil {
+	//return err
+	//}
+	// grpcProtocol, err := protocol.NewCAGrpcClient(c.caAddress, dialOpts)
+	caProtocol, err := c.provider(c.caAddress, dialOpts)
+	if err != nil {
+		return err
 	}
+
+	csr, _, err := util.GenCSR(certOpts)
+	if err != nil {
+		return err
+	}
+	request := &pb.CsrRequest{
+		CsrPem:              csr,
+		NodeAgentCredential: cred,
+		CredentialType:      pc.GetCredentialType(),
+		RequestedTtlMinutes: probeCheckRequestedTTLMinutes,
+	}
+
+	//checker := &CAChecker{
+	//protocol: grpcProtocol,
+	//cleanup: func() {
+	//_ = os.RemoveAll(tempDir)
+	//},
+	// }
 
 	//checker, err := c.clientProvider(c.caAddress, c.ca, &util.CertOptions{
 	//Host:       LivenessProbeClientIdentity,
@@ -182,10 +188,10 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 	//if err != nil {
 	//return err
 	//}
-	defer checker.cleanup()
+	// defer checker.cleanup()
 
 	// _, err = checker.client.HandleCSR(context.Background(), checker.request)
-	_, err = checker.protocol.SendCSR(checker.request)
+	_, err = caProtocol.SendCSR(request)
 
 	// TODO(incfly): remove connectivity error once we always expose istio-ca into dns server.
 	if err != nil && strings.Contains(err.Error(), balancer.ErrTransientFailure.Error()) {

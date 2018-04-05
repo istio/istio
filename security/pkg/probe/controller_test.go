@@ -20,9 +20,11 @@ import (
 	"time"
 
 	"github.com/gogo/googleapis/google/rpc"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/balancer"
 
 	"istio.io/istio/pkg/probe"
+	"istio.io/istio/security/pkg/caclient/protocol"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/util"
 	pb "istio.io/istio/security/proto"
@@ -81,17 +83,12 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 	}
 
 	for id, c := range testCases {
-		mockClient := &fakeCAGrpcClient{
-			resp: c.resp,
-			err:  c.err,
-		}
-		provider := func(_ string, _ *ca.IstioCA, _ *util.CertOptions, _ time.Duration) (*CAChecker, error) {
-			return &CAChecker{
-				protocol: mockClient,
-				cleanup:  func() {},
+		provider := func(_ string, _ []grpc.DialOption) (protocol.CAProtocol, error) {
+			return &fakeCAGrpcClient{
+				resp: c.resp,
+				err:  c.err,
 			}, nil
 		}
-
 		// test liveness probe check controller
 		controller, err := NewLivenessCheckController(
 			time.Minute,
