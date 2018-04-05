@@ -140,18 +140,22 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 	if err != nil {
 		return err
 	}
+
 	dialOpts, err := pc.GetDialOptions()
 	if err != nil {
 		return err
 	}
+
 	cred, err := pc.GetAgentCredential()
 	if err != nil {
 		return err
 	}
 	caProtocol, err := c.provider(c.caAddress, dialOpts)
+
 	if err != nil {
 		return err
 	}
+
 	request := &pb.CsrRequest{
 		CsrPem:              csrPEM,
 		NodeAgentCredential: cred,

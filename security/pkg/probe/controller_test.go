@@ -30,16 +30,6 @@ import (
 	pb "istio.io/istio/security/proto"
 )
 
-type fakeCAGrpcClient struct {
-	resp *pb.CsrResponse
-	err  error
-}
-
-func (c *fakeCAGrpcClient) SendCSR(request *pb.CsrRequest) (*pb.CsrResponse, error) {
-	fmt.Printf("jianfeih debug error is %v", c.err)
-	return c.resp, c.err
-}
-
 func TestGcpGetServiceIdentity(t *testing.T) {
 	bundle, err := util.NewVerifiedKeyCertBundleFromFile(
 		"./testdata/ca.crt", "./testdata/ca.key", "", "./testdata/root.crt")
@@ -57,7 +47,7 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 
 	testCases := map[string]struct {
 		resp     *pb.CsrResponse
-		err      error
+		err      string
 		expected string
 	}{
 		"Check success": {
@@ -67,27 +57,23 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 				SignedCert: nil,
 				CertChain:  nil,
 			},
-			err:      nil,
 			expected: "",
 		},
 		"SendCSR failed": {
 			resp:     nil,
-			err:      fmt.Errorf("sendCSR failed"),
+			err:      "sendCSR failed",
 			expected: "sendCSR failed",
 		},
 		"gRPC server is not available": {
 			resp:     nil,
-			err:      fmt.Errorf("%v", balancer.ErrTransientFailure.Error()),
+			err:      fmt.Sprintf("%v", balancer.ErrTransientFailure.Error()),
 			expected: "",
 		},
 	}
 
 	for id, c := range testCases {
-		provider := func(_ string, _ []grpc.DialOption) (protocol.CAProtocol, error) {
-			return &fakeCAGrpcClient{
-				resp: c.resp,
-				err:  c.err,
-			}, nil
+		fakeProvider := func(_ string, _ []grpc.DialOption) (protocol.CAProtocol, error) {
+			return protocol.NewFakeProtocol(c.resp, c.err), nil
 		}
 		// test liveness probe check controller
 		controller, err := NewLivenessCheckController(
@@ -98,7 +84,7 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 				Path:           "/tmp/test.key",
 				UpdateInterval: time.Minute,
 			},
-			provider,
+			fakeProvider,
 		)
 		if err != nil {
 			t.Errorf("%v: Expecting an error but an Istio CA is wrongly instantiated", id)
