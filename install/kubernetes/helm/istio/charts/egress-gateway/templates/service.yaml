@@ -35,9 +35,10 @@ spec:
   type: NodePort
   ports:
   - port: 80
-    nodePort: {{ .Values.service.nodePort.port }}
+    nodePort: {{ .Values.service.nodePort.port80 }}
     name: http
   - port: 443
+    nodePort: {{ .Values.service.nodePort.port443 }}
     name: https
   selector:
     istio: egress-gateway
