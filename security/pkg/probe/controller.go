@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
-	"istio.io/istio/security/pkg/workload"
 	pb "istio.io/istio/security/proto"
 )
 
@@ -80,12 +79,12 @@ func NewLivenessCheckController(probeCheckInterval time.Duration, caAddr string,
 
 func (c *LivenessCheckController) checkGrpcServer() error {
 	// generates certificate and private key for test
-	certOpts := util.CertOptions{
+	opts := util.CertOptions{
 		Host:       LivenessProbeClientIdentity,
 		RSAKeySize: 2048,
 	}
 
-	csrPEM, privPEM, err := util.GenCSR(certOpts)
+	csrPEM, privPEM, err := util.GenCSR(opts)
 	if err != nil {
 		return err
 	}
@@ -119,18 +118,18 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 		return err
 	}
 
-	err = ioutil.WriteFile(testCert.Name(), certPEM, workload.CertFilePermission)
+	err = ioutil.WriteFile(testCert.Name(), certPEM, 0644)
 	if err != nil {
 		return err
 	}
 
 	_, _, _, rootCertBytes := c.ca.GetCAKeyCertBundle().GetAll()
-	err = ioutil.WriteFile(testRoot.Name(), rootCertBytes, workload.CertFilePermission)
+	err = ioutil.WriteFile(testRoot.Name(), rootCertBytes, 0644)
 	if err != nil {
 		return err
 	}
 
-	err = ioutil.WriteFile(testKey.Name(), privPEM, workload.CertFilePermission)
+	err = ioutil.WriteFile(testKey.Name(), privPEM, 0644)
 	if err != nil {
 		return err
 	}
@@ -141,6 +140,14 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 		return err
 	}
 
+	csr, _, err := util.GenCSR(util.CertOptions{
+		Host:       LivenessProbeClientIdentity,
+		Org:        c.serviceIdentityOrg,
+		RSAKeySize: c.rsaKeySize,
+	})
+	if err != nil {
+		return err
+	}
 	dialOpts, err := pc.GetDialOptions()
 	if err != nil {
 		return err
@@ -157,7 +164,7 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 	}
 
 	request := &pb.CsrRequest{
-		CsrPem:              csrPEM,
+		CsrPem:              csr,
 		NodeAgentCredential: cred,
 		CredentialType:      pc.GetCredentialType(),
 		RequestedTtlMinutes: probeCheckRequestedTTLMinutes,
