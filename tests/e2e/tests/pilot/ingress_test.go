@@ -42,20 +42,22 @@ func TestIngress(t *testing.T) {
 	}
 	defer cfgs.Teardown()
 
-	// First, verify that version splitting is applied to ingress paths.
-	runRetriableTest(t, "VersionSplitting", defaultRetryBudget, func() error {
-		reqURL := fmt.Sprintf("http://%s.%s/c", ingressServiceName, istioNamespace)
-		resp := ClientRequest("t", reqURL, 100, "")
-		count := make(map[string]int)
-		for _, elt := range resp.Version {
-			count[elt] = count[elt] + 1
-		}
-		log.Infof("request counts %v", count)
-		if count["v1"] >= 95 {
-			return nil
-		}
-		return errAgain
-	})
+	if !tc.V1alpha3 {
+		// First, verify that version splitting is applied to ingress paths.
+		runRetriableTest(t, "VersionSplitting", defaultRetryBudget, func() error {
+			reqURL := fmt.Sprintf("http://%s.%s/c", ingressServiceName, istioNamespace)
+			resp := ClientRequest("t", reqURL, 100, "")
+			count := make(map[string]int)
+			for _, elt := range resp.Version {
+				count[elt] = count[elt] + 1
+			}
+			log.Infof("request counts %v", count)
+			if count["v1"] >= 95 {
+				return nil
+			}
+			return errAgain
+		})
+	}
 
 	cases := []struct {
 		// empty destination to expect 404

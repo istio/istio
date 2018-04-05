@@ -402,7 +402,10 @@ func GetConfigs(names ...string) (string, error) {
 }
 
 // PodExec runs the specified command on the container for the specified namespace and pod
-func PodExec(n, pod, container, command string) (string, error) {
+func PodExec(n, pod, container, command string, muteOutput bool) (string, error) {
+	if muteOutput {
+		return ShellMuteOutput("kubectl exec %s -n %s -c %s -- %s", pod, n, container, command)
+	}
 	return Shell("kubectl exec %s -n %s -c %s -- %s", pod, n, container, command)
 }
 
