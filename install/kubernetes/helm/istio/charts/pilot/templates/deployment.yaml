@@ -85,7 +85,7 @@ spec:
           - proxy
           - static
           - --serviceCluster
-          - istio-telemetry
+          - istio-pilot
           - --staticProfile
           - pilot
         {{- if $.Values.global.controlPlaneSecurityEnabled}}

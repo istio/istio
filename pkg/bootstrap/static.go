@@ -135,6 +135,8 @@ func BuildOptions(proxyConfig meshconfig.ProxyConfig, staticProfile, name, names
 		}
 		opts.Upstreams = []Upstream{v1, v2, secure, insecure}
 		opts.Service = fmt.Sprintf("istio-pilot.%s.svc.cluster.local", namespace)
+		// TODO: some tests fail due to zipkin
+		opts.ZipkinAddress = ""
 	}
 	return opts
 }
@@ -305,9 +307,6 @@ func BuildListeners(opts Options, telemetryCluster string) []v2.Listener {
 					Path: "/dev/stdout",
 				}),
 			}},
-			Tracing: &hcm.HttpConnectionManager_Tracing{
-				OperationName: hcm.INGRESS,
-			},
 			HttpFilters: []*hcm.HttpFilter{
 				{
 					Name:   "mixer",
@@ -336,6 +335,11 @@ func BuildListeners(opts Options, telemetryCluster string) []v2.Listener {
 					}},
 				},
 			},
+		}
+		if opts.ZipkinAddress != "" {
+			config.Tracing = &hcm.HttpConnectionManager_Tracing{
+				OperationName: hcm.INGRESS,
+			}
 		}
 		if upstream.GRPC {
 			config.CodecType = hcm.HTTP2
