@@ -286,6 +286,11 @@ func getApp(deploymentName, serviceName string, port1, port2, port3, port4, port
 
 // ClientRequest makes a request from inside the specified k8s container.
 func ClientRequest(app, url string, count int, extra string) ClientResponse {
+	return ClientRequestV(app, url, count, extra, false)
+}
+
+// ClientRequestV makes a request from inside the specified k8s container.
+func ClientRequestV(app, url string, count int, extra string, verbose bool) ClientResponse {
 	out := ClientResponse{}
 
 	pods := tc.Kube.GetAppPods()[app]
@@ -296,7 +301,7 @@ func ClientRequest(app, url string, count int, extra string) ClientResponse {
 
 	pod := pods[0]
 	cmd := fmt.Sprintf("client -url %s -count %d %s", url, count, extra)
-	request, err := util.PodExec(tc.Kube.Namespace, pod, "app", cmd, true)
+	request, err := util.PodExec(tc.Kube.Namespace, pod, "app", cmd, !verbose)
 	if err != nil {
 		log.Errorf("client request error %v for %s in %s", err, url, app)
 		return out
