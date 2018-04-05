@@ -48,6 +48,9 @@ type GrpcConnection struct {
 
 // NewGrpcConnection creates a gRPC connection.
 func NewGrpcConnection(caAddr string, dialOptions []grpc.DialOption) (*GrpcConnection, error) {
+	if caAddr == "" {
+		return nil, fmt.Errorf("istio CA address is empty")
+	}
 	conn, err := grpc.Dial(caAddr, dialOptions...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to dial %s: %v", caAddr, err)
@@ -112,8 +115,15 @@ func NewFakeProtocol(response *pb.CsrResponse, err string) *FakeProtocol {
 // SendCSR returns the result based on the predetermined config.
 func (f *FakeProtocol) SendCSR(req *pb.CsrRequest) (*pb.CsrResponse, error) {
 	f.counter++
+	if f.counter > 8 {
+		return nil, fmt.Errorf("terminating the test with errors")
+	}
+
 	if f.errMsg != "" {
 		return nil, fmt.Errorf(f.errMsg)
+	}
+	if f.resp == nil {
+		return &pb.CsrResponse{}, nil
 	}
 	return f.resp, nil
 }
