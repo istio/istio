@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	defaultTag          = "0.4.0"
+	defaultTag          = "0.7.1"
 	defaultHyperkubeTag = "v1.7.6_coreos.0"
 )
 

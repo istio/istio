@@ -442,7 +442,7 @@ JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit-tests.xml
 test: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
 	set -o pipefail; \
-	$(MAKE) --keep-going common-test mixer-test security-test broker-test galley-test pilot-test \
+	$(MAKE) --keep-going common-test pilot-test mixer-test security-test broker-test galley-test \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 GOTEST_PARALLEL ?= '-test.parallel=4'
@@ -604,10 +604,8 @@ installgen:
 generate_yaml:
 	./install/updateVersion.sh -a ${HUB},${TAG} 
 
-
 $(HELM):
 	bin/init_helm.sh
-
 
 # creates istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml
 # Ensure that values-$filename is present in install/kubernetes/helm/istio
@@ -621,7 +619,6 @@ isti%.yaml: $(HELM)
 
 deploy/all: $(HELM) istio-all.yaml
 	kubectl apply -n istio-system -f install/kubernetes/istio-all.yaml
-
 
 # Generate the install files, using istioctl.
 # TODO: make sure they match, pass all tests.

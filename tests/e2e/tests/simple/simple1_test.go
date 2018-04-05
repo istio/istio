@@ -88,7 +88,7 @@ func TestSimpleIngress(t *testing.T) {
 		dataDebug string
 	)
 	timeOut := time.Now().Add(timeToWaitForIngress)
-	for i := 0; true; i++ {
+	for i := 0; i < 120; i++ {
 		if time.Now().After(timeOut) {
 			t.Errorf("Ingress not really ready after %v - last error is %d : %s", timeToWaitForIngress, code, dataDebug)
 		}
