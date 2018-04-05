@@ -15,7 +15,7 @@
 apiVersion: config.istio.io/v1alpha2
 kind: RouteRule
 metadata:
-  name: reviews-90-10
+  name: reviews-v1-v2-90-10
 spec:
   destination:
     name: reviews
