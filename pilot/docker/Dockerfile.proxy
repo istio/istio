@@ -5,6 +5,7 @@ ADD envoy /usr/local/bin/envoy
 
 ADD pilot-agent /usr/local/bin/pilot-agent
 
+RUN mkdir -p /etc/istio/proxy
 COPY envoy_bootstrap_tmpl.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
 
 # Allow non-root user to run envoy.
