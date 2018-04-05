@@ -34,6 +34,8 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"strings"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
@@ -298,6 +300,10 @@ func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*v1.Confi
 
 	config, err := kube.CoreV1().ConfigMaps(namespace).Get(name, meta_v1.GetOptions{})
 	if err != nil {
+		if strings.Contains(err.Error(), fmt.Sprintf("\"%s\" not found", name)) {
+			defaultMesh := model.DefaultMeshConfig()
+			return nil, &defaultMesh, nil
+		}
 		return nil, nil, err
 	}
 
