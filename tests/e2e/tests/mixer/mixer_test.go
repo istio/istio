@@ -50,7 +50,6 @@ const (
 	routeRulesDir            = "routing/v1alpha2"
 	policiesDir              = "policies"
 	telemetryDir             = "telemetry"
-	bookinfoYaml             = "bookinfo"
 	bookinfoRatingsv2Yaml    = "bookinfo-ratings-v2"
 	bookinfoDbYaml           = "bookinfo-db"
 	sleepYaml                = "samples/sleep/sleep"
