@@ -20,7 +20,7 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
-	"istio.io/istio/pkg/log"
+	//"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/platform"
 	pb "istio.io/istio/security/proto"
 )
@@ -37,9 +37,9 @@ type CAGrpcClient interface {
 	SendCSR(*pb.CsrRequest, platform.Client, string) (*pb.CsrResponse, error)
 }
 
-// CAGrpcClientImpl is an implementation of GRPC client to talk to CA.
-type CAGrpcClientImpl struct {
-}
+//// CAGrpcClientImpl is an implementation of GRPC client to talk to CA.
+//type CAGrpcClientImpl struct {
+//}
 
 // CAGrpcProtocol implements CAProtocol talking to CA via gRPC.
 type GrpcConnection struct {
@@ -69,30 +69,30 @@ func (c *GrpcConnection) Close() error {
 }
 
 // SendCSR sends CSR to CA through GRPC.
-func (c *CAGrpcClientImpl) SendCSR(req *pb.CsrRequest, pc platform.Client, caAddress string) (*pb.CsrResponse, error) {
-	if caAddress == "" {
-		return nil, fmt.Errorf("istio CA address is empty")
-	}
-	dialOptions, err := pc.GetDialOptions()
-	if err != nil {
-		return nil, err
-	}
-	conn, err := grpc.Dial(caAddress, dialOptions...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to dial %s: %v", caAddress, err)
-	}
-	defer func() {
-		if closeErr := conn.Close(); closeErr != nil {
-			log.Errorf("Failed to close connection")
-		}
-	}()
-	client := pb.NewIstioCAServiceClient(conn)
-	resp, err := client.HandleCSR(context.Background(), req)
-	if err != nil {
-		return nil, fmt.Errorf("CSR request failed %v", err)
-	}
-	return resp, nil
-}
+//func (c *CAGrpcClientImpl) SendCSR(req *pb.CsrRequest, pc platform.Client, caAddress string) (*pb.CsrResponse, error) {
+//	if caAddress == "" {
+//		return nil, fmt.Errorf("istio CA address is empty")
+//	}
+//	dialOptions, err := pc.GetDialOptions()
+//	if err != nil {
+//		return nil, err
+//	}
+//	conn, err := grpc.Dial(caAddress, dialOptions...)
+//	if err != nil {
+//		return nil, fmt.Errorf("failed to dial %s: %v", caAddress, err)
+//	}
+//	defer func() {
+//		if closeErr := conn.Close(); closeErr != nil {
+//			log.Errorf("Failed to close connection")
+//		}
+//	}()
+//	client := pb.NewIstioCAServiceClient(conn)
+//	resp, err := client.HandleCSR(context.Background(), req)
+//	if err != nil {
+//		return nil, fmt.Errorf("CSR request failed %v", err)
+//	}
+//	return resp, nil
+//}
 
 // FakeProtocol is a fake for testing, implements CAProtocol interface.
 type FakeProtocol struct {

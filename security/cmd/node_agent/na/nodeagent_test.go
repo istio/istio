@@ -21,12 +21,12 @@ import (
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/caclient"
-	mockclient "istio.io/istio/security/pkg/caclient/protocol/mock"
 	"istio.io/istio/security/pkg/platform"
 	mockpc "istio.io/istio/security/pkg/platform/mock"
 	"istio.io/istio/security/pkg/util"
 	mockutil "istio.io/istio/security/pkg/util/mock"
 	pb "istio.io/istio/security/proto"
+	"istio.io/istio/security/pkg/caclient/protocol"
 )
 
 func TestStartWithArgs(t *testing.T) {
@@ -50,7 +50,7 @@ func TestStartWithArgs(t *testing.T) {
 	testCases := map[string]struct {
 		config      *Config
 		pc          platform.Client
-		cAClient    *mockclient.FakeCAClient
+		caProtocol  *protocol.FakeProtocol
 		certUtil    util.CertUtil
 		expectedErr string
 		sendTimes   int
@@ -59,8 +59,7 @@ func TestStartWithArgs(t *testing.T) {
 		"Success": {
 			config: &generalConfig,
 			pc:     mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
-			cAClient: &mockclient.FakeCAClient{
-				0, &pb.CsrResponse{IsApproved: true, SignedCert: signedCert, CertChain: certChain}, nil},
+			caProtocol: protocol.NewFakeProtocol(&pb.CsrResponse{IsApproved: true, SignedCert: signedCert, CertChain: certChain}, ""),
 			certUtil:    mockutil.FakeCertUtil{time.Duration(0), nil},
 			expectedErr: "node agent can't get the CSR approved from Istio CA after max number of retries (3)",
 			sendTimes:   12,
@@ -68,14 +67,14 @@ func TestStartWithArgs(t *testing.T) {
 		},
 		"Config Nil error": {
 			pc:          mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
-			cAClient:    &mockclient.FakeCAClient{0, nil, nil},
+			caProtocol:  protocol.NewFakeProtocol(nil, ""),
 			expectedErr: "node Agent configuration is nil",
 			sendTimes:   0,
 		},
 		"Platform error": {
 			config:      &generalConfig,
 			pc:          mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", false},
-			cAClient:    &mockclient.FakeCAClient{0, nil, nil},
+			caProtocol:  protocol.NewFakeProtocol(nil, ""),
 			expectedErr: "node Agent is not running on the right platform",
 			sendTimes:   0,
 		},
@@ -98,43 +97,44 @@ func TestStartWithArgs(t *testing.T) {
 				LoggingOptions: log.DefaultOptions(),
 			},
 			pc:          mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
-			cAClient:    &mockclient.FakeCAClient{0, nil, nil},
+			caProtocol:  protocol.NewFakeProtocol(nil, ""),
 			expectedErr: "CSR creation failed (crypto/rsa: message too long for RSA public key size)",
 			sendTimes:   0,
 		},
 		"Getting agent credential error": {
 			config:      &generalConfig,
 			pc:          mockpc.FakeClient{nil, "", "service1", "", nil, "Err1", true},
-			cAClient:    &mockclient.FakeCAClient{0, nil, nil},
+			caProtocol:  protocol.NewFakeProtocol(nil, ""),
 			expectedErr: "request creation fails on getting agent credential (Err1)",
 			sendTimes:   0,
 		},
 		"SendCSR empty response error": {
 			config:      &generalConfig,
 			pc:          mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
-			cAClient:    &mockclient.FakeCAClient{0, nil, nil},
+			caProtocol:  protocol.NewFakeProtocol(nil, ""),
 			expectedErr: "node agent can't get the CSR approved from Istio CA after max number of retries (3)",
 			sendTimes:   4,
 		},
 		"SendCSR returns error": {
 			config:      &generalConfig,
 			pc:          mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
-			cAClient:    &mockclient.FakeCAClient{0, nil, fmt.Errorf("error returned from CA")},
+			caProtocol:  protocol.NewFakeProtocol(nil, "error returned from CA"),
 			expectedErr: "node agent can't get the CSR approved from Istio CA after max number of retries (3)",
 			sendTimes:   4,
 		},
 		"SendCSR not approved": {
 			config:      &generalConfig,
 			pc:          mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
-			cAClient:    &mockclient.FakeCAClient{0, &pb.CsrResponse{IsApproved: false}, nil},
+			caProtocol:  protocol.NewFakeProtocol(&pb.CsrResponse{IsApproved: false}, ""),
 			expectedErr: "node agent can't get the CSR approved from Istio CA after max number of retries (3)",
 			sendTimes:   4,
 		},
 		"SendCSR parsing error": {
 			config: &generalConfig,
 			pc:     mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
-			cAClient: &mockclient.FakeCAClient{
-				0, &pb.CsrResponse{IsApproved: true, SignedCert: signedCert, CertChain: []byte{}}, nil},
+			caProtocol: protocol.NewFakeProtocol(&pb.CsrResponse{
+				IsApproved: true, SignedCert: signedCert, CertChain: []byte{},
+				}, ""),
 			certUtil:    mockutil.FakeCertUtil{time.Duration(0), fmt.Errorf("cert parsing error")},
 			expectedErr: "node agent can't get the CSR approved from Istio CA after max number of retries (3)",
 			sendTimes:   4,
@@ -143,14 +143,14 @@ func TestStartWithArgs(t *testing.T) {
 
 	for id, c := range testCases {
 		log.Errorf("Start to test %s", id)
-		na := nodeAgentInternal{c.config, c.pc, c.cAClient, "service1", c.certUtil}
+		na := nodeAgentInternal{c.config, c.pc, c.caProtocol, "service1", c.certUtil}
 		err := na.Start()
 		if err.Error() != c.expectedErr {
 			t.Errorf("Test case [%s]: incorrect error message: %s VS (expected) %s", id, err.Error(), c.expectedErr)
 		}
-		if c.cAClient.Counter != c.sendTimes {
+		if got := c.caProtocol.InvokeTimes(); got != c.sendTimes {
 			t.Errorf("Test case [%s]: sendCSR is called incorrect times: %d VS (expected) %d",
-				id, c.cAClient.Counter, c.sendTimes)
+				id, got, c.sendTimes)
 		}
 		// TODO(incfly): add check to compare fileContent equals to the saved secrets after we can read from SecretServer.
 	}
