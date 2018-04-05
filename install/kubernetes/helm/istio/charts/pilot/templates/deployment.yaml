@@ -95,8 +95,10 @@ spec:
           - --controlPlaneAuthPolicy
           - NONE
         {{- end }}
+        {{- if $.Values.global.controlPlaneTracingEnabled}}
           - --zipkinAddress
           - zipkin:9411
+        {{- end }}
           env:
           - name: POD_NAME
             valueFrom:

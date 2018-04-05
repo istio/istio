@@ -135,7 +135,6 @@ func BuildOptions(proxyConfig meshconfig.ProxyConfig, staticProfile, name, names
 		}
 		opts.Upstreams = []Upstream{v1, v2, secure, insecure}
 		opts.Service = fmt.Sprintf("istio-pilot.%s.svc.cluster.local", namespace)
-		// TODO: some tests fail due to zipkin
 		opts.ZipkinAddress = ""
 	}
 	return opts
@@ -298,9 +297,8 @@ func BuildListeners(opts Options, telemetryCluster string) []v2.Listener {
 	config := toStruct(BuildServiceConfig(opts.Service, opts.UID, telemetryCluster))
 	for _, upstream := range opts.Upstreams {
 		config := &hcm.HttpConnectionManager{
-			CodecType:         hcm.AUTO,
-			StatPrefix:        fmt.Sprintf("%d", upstream.ListenPort),
-			GenerateRequestId: &types.BoolValue{Value: true}, // required for zipkin tracing
+			CodecType:  hcm.AUTO,
+			StatPrefix: fmt.Sprintf("%d", upstream.ListenPort),
 			AccessLog: []*accesslog.AccessLog{{
 				Name: util.FileAccessLog,
 				Config: toStruct(&accesslog.FileAccessLog{
@@ -337,6 +335,7 @@ func BuildListeners(opts Options, telemetryCluster string) []v2.Listener {
 			},
 		}
 		if opts.ZipkinAddress != "" {
+			config.GenerateRequestId = &types.BoolValue{Value: true} // required for zipkin tracing
 			config.Tracing = &hcm.HttpConnectionManager_Tracing{
 				OperationName: hcm.INGRESS,
 			}

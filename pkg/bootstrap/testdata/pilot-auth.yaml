@@ -69,7 +69,6 @@ static_resources:
           - config:
               path: /dev/stdout
             name: envoy.file_access_log
-          generate_request_id: true
           http_filters:
           - config:
               default_destination_service: istio-pilot.ns4.svc.cluster.local
@@ -129,7 +128,6 @@ static_resources:
               path: /dev/stdout
             name: envoy.file_access_log
           codec_type: HTTP2
-          generate_request_id: true
           http_filters:
           - config:
               default_destination_service: istio-pilot.ns4.svc.cluster.local
@@ -188,7 +186,6 @@ static_resources:
           - config:
               path: /dev/stdout
             name: envoy.file_access_log
-          generate_request_id: true
           http_filters:
           - config:
               default_destination_service: istio-pilot.ns4.svc.cluster.local
@@ -247,7 +244,6 @@ static_resources:
           - config:
               path: /dev/stdout
             name: envoy.file_access_log
-          generate_request_id: true
           http_filters:
           - config:
               default_destination_service: istio-pilot.ns4.svc.cluster.local
