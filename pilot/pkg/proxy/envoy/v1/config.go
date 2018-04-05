@@ -416,6 +416,10 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *Listener {
 		filters = append([]HTTPFilter{filter}, filters...)
 	}
 
+	if filter := buildAuthnFilter(opts.authnPolicy); filter != nil {
+		filters = append([]HTTPFilter{*filter}, filters...)
+	}
+
 	if filter := buildJwtFilter(opts.authnPolicy); filter != nil {
 		filters = append([]HTTPFilter{*filter}, filters...)
 	}

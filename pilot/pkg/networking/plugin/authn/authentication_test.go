@@ -22,9 +22,11 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	jwtfilter "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	"github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/types"
 
 	authn "istio.io/api/authentication/v1alpha1"
+	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -456,7 +458,7 @@ func TestBuildJwtFilter(t *testing.T) {
 			expected: nil,
 		},
 		{
-			in:       nil,
+			in:       &authn.Policy{},
 			expected: nil,
 		},
 		{
@@ -531,6 +533,203 @@ func TestBuildJwtFilter(t *testing.T) {
 	for _, c := range cases {
 		if got := BuildJwtFilter(c.in); !reflect.DeepEqual(c.expected, got) {
 			t.Errorf("buildJwtFilter(%#v), got:\n%#v\nwanted:\n%#v\n", c.in, got, c.expected)
+		}
+	}
+}
+
+func TestConvertPolicyToAuthNFilterConfig(t *testing.T) {
+	cases := []struct {
+		name     string
+		in       *authn.Policy
+		expected *authn_filter.FilterConfig
+	}{
+		{
+			name:     "nil policy",
+			in:       nil,
+			expected: nil,
+		},
+		{
+			name:     "empty policy",
+			in:       &authn.Policy{},
+			expected: nil,
+		},
+		{
+			name: "no jwt policy",
+			in: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{{
+					Params: &authn.PeerAuthenticationMethod_Mtls{},
+				}},
+			},
+			expected: &authn_filter.FilterConfig{
+				Policy: &authn.Policy{
+					Peers: []*authn.PeerAuthenticationMethod{{
+						Params: &authn.PeerAuthenticationMethod_Mtls{
+							&authn.MutualTls{},
+						},
+					}},
+				},
+			},
+		},
+		{
+			name: "jwt policy",
+			in: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Jwt{
+							Jwt: &authn.Jwt{
+								Issuer: "foo",
+							},
+						},
+					},
+				},
+			},
+			expected: &authn_filter.FilterConfig{
+				Policy: &authn.Policy{
+					Peers: []*authn.PeerAuthenticationMethod{
+						{
+							Params: &authn.PeerAuthenticationMethod_Jwt{
+								Jwt: &authn.Jwt{
+									Issuer: "foo",
+								},
+							},
+						},
+					},
+				},
+				JwtOutputPayloadLocations: map[string]string{
+					"foo": "istio-sec-0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33",
+				},
+			},
+		},
+		{
+			name: "complex",
+			in: &authn.Policy{
+				Targets: []*authn.TargetSelector{
+					{
+						Name: "svc1",
+					},
+				},
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Jwt{
+							Jwt: &authn.Jwt{
+								Issuer: "foo",
+							},
+						},
+					},
+					{
+						Params: &authn.PeerAuthenticationMethod_Mtls{},
+					},
+				},
+				Origins: []*authn.OriginAuthenticationMethod{
+					{
+						Jwt: &authn.Jwt{
+							Issuer: "bar",
+						},
+					},
+				},
+			},
+			expected: &authn_filter.FilterConfig{
+				Policy: &authn.Policy{
+					Peers: []*authn.PeerAuthenticationMethod{
+						{
+							Params: &authn.PeerAuthenticationMethod_Jwt{
+								Jwt: &authn.Jwt{
+									Issuer: "foo",
+								},
+							},
+						},
+						{
+							Params: &authn.PeerAuthenticationMethod_Mtls{
+								&authn.MutualTls{},
+							},
+						},
+					},
+					Origins: []*authn.OriginAuthenticationMethod{
+						{
+							Jwt: &authn.Jwt{
+								Issuer: "bar",
+							},
+						},
+					},
+				},
+				JwtOutputPayloadLocations: map[string]string{
+					"foo": "istio-sec-0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33",
+					"bar": "istio-sec-62cdb7020ff920e5aa642c3d4066950dd1f01f4d",
+				},
+			},
+		},
+	}
+	for _, c := range cases {
+		if got := ConvertPolicyToAuthNFilterConfig(c.in); !reflect.DeepEqual(c.expected, got) {
+			t.Errorf("Test case %s: expected\n%#v\n, got\n%#v", c.name, c.expected.String(), got.String())
+		}
+	}
+}
+
+func TestBuildAuthNFilter(t *testing.T) {
+	cases := []struct {
+		in                   *authn.Policy
+		expectedFilterConfig *authn_filter.FilterConfig
+	}{
+		{
+			in:                   nil,
+			expectedFilterConfig: nil,
+		},
+		{
+			in:                   &authn.Policy{},
+			expectedFilterConfig: nil,
+		},
+		{
+			in: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Jwt{
+							Jwt: &authn.Jwt{
+								JwksUri: "http://abc.com",
+							},
+						},
+					},
+				},
+			},
+			expectedFilterConfig: &authn_filter.FilterConfig{
+				Policy: &authn.Policy{
+					Peers: []*authn.PeerAuthenticationMethod{
+						{
+							Params: &authn.PeerAuthenticationMethod_Jwt{
+								Jwt: &authn.Jwt{
+									JwksUri: "http://abc.com",
+								},
+							},
+						},
+					},
+				},
+				JwtOutputPayloadLocations: map[string]string{
+					"": "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709",
+				},
+			},
+		},
+	}
+
+	for _, c := range cases {
+		got := BuildAuthNFilter(c.in)
+		if got == nil {
+			if c.expectedFilterConfig != nil {
+				t.Errorf("BuildAuthNFilter(%#v), got: nil, wanted filter with config %s", c.in, c.expectedFilterConfig.String())
+			}
+		} else {
+			if c.expectedFilterConfig == nil {
+				t.Errorf("BuildAuthNFilter(%#v), got: \n%#v\n, wanted none", c.in, got)
+			} else {
+				if got.GetName() != AuthnFilterName {
+					t.Errorf("BuildAuthNFilter(%#v), filter name is %s, wanted %s", c.in, got.GetName(), AuthnFilterName)
+				}
+				filterConfig := &authn_filter.FilterConfig{}
+				if err := util.StructToMessage(got.GetConfig(), filterConfig); err != nil {
+					t.Errorf("BuildAuthNFilter(%#v), bad filter config: %v", c.in, err)
+				} else if !reflect.DeepEqual(c.expectedFilterConfig, filterConfig) {
+					t.Errorf("BuildAuthNFilter(%#v), got filter config:\n%s\nwanted:\n%s\n", c.in, filterConfig.String(), c.expectedFilterConfig.String())
+				}
+			}
 		}
 	}
 }
