@@ -218,7 +218,7 @@ $(GRPC_DIR):
 # If you want to force update/sync, invoke 'make submodule-sync' directly
 submodule-sync:
 	git submodule sync
-	git submodule update --init
+	git submodule update --init --recursive --remote
 
 # Short cut for pulling/updating to latest of the current branch
 pull:
