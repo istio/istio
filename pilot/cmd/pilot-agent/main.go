@@ -22,8 +22,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ghodss/yaml"
-	"github.com/gogo/protobuf/jsonpb"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/spf13/cobra"
@@ -204,47 +202,12 @@ var (
 			if role.Type == model.Static && proxyConfig.CustomConfigFile == "" {
 				name := os.Getenv("POD_NAME")
 				namespace := os.Getenv("POD_NAMESPACE")
-				telemetrySAN := fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/istio-mixer-service-account", namespace)
-				var upstreams []bootstrap.Upstream
-				var telemetry *bootstrap.Upstream
-				switch staticProfile {
-				case "telemetry":
-					telemetry = &bootstrap.Upstream{
-						ListenPort:   15004,
-						UpstreamPort: 9091,
-						GRPC:         true,
-						Service:      fmt.Sprintf("istio-telemetry.%s.svc.cluster.local", namespace),
-						UID:          fmt.Sprintf("kubernetes://%s.%s", name, namespace),
-						Operation:    "Check",
-					}
-					upstreams = []bootstrap.Upstream{*telemetry}
-				case "policy":
-					upstreams = []bootstrap.Upstream{{
-						ListenPort:   15004,
-						UpstreamPort: 9091,
-						GRPC:         true,
-						Service:      fmt.Sprintf("istio-policy.%s.svc.cluster.local", namespace),
-						UID:          fmt.Sprintf("kubernetes://%s.%s", name, namespace),
-						Operation:    "Report",
-					}}
-				}
 
-				config, err := bootstrap.BuildBootstrap(
-					upstreams,
-					telemetry,
-					"istio-telemetry:15004", telemetrySAN,
-					proxyConfig.ZipkinAddress,
-					proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS,
-					proxyConfig.ProxyAdminPort)
+				config, err := bootstrap.BuildBootstrap(bootstrap.BuildOptions(proxyConfig, staticProfile, name, namespace))
 				if err != nil {
 					return err
 				}
-				marshaler := jsonpb.Marshaler{OrigName: true}
-				out, err := marshaler.MarshalToString(config)
-				if err != nil {
-					return err
-				}
-				content, err := yaml.JSONToYAML([]byte(out))
+				content, err := bootstrap.ToYAML(config)
 				if err != nil {
 					return err
 				}

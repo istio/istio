@@ -31,9 +31,12 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	trace "github.com/envoyproxy/go-control-plane/envoy/config/trace/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/util"
+	"github.com/ghodss/yaml"
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	mixerv1 "istio.io/api/mixer/v1"
 	mixerclient "istio.io/api/mixer/v1/config/client"
 )
@@ -56,15 +59,61 @@ var (
 	}
 )
 
+// Options are high-level options for the bootstrap.
+type Options struct {
+	Upstreams                      []Upstream // list of upstreams behind the proxy
+	TelemetryUpstream              *Upstream  // set to one of the upstreams to route telemetry locally
+	TelemetryAddress, TelemetrySAN string     // set to telemetry DNS address and SAN, e.g. istio-telemetry:15004
+	ZipkinAddress                  string     // set to non-empty DNS zipkin address, e.g. zipkin:9411
+	ControlPlaneAuth               bool       // set to enable control plane authentication
+	AdminPort                      int32      // AdminPort for the admin interface
+}
+
+// Upstream declaration for a local HTTP service instance.
+type Upstream struct {
+	ListenPort   uint32
+	UpstreamPort uint32
+	GRPC         bool
+	Service      string
+	UID          string
+	Operation    string
+}
+
+// BuildOptions generates options for a bootstrap from a pre-defined profile
+func BuildOptions(proxyConfig meshconfig.ProxyConfig, staticProfile, name, namespace string) Options {
+	opts := Options{
+		TelemetryAddress: "istio-telemetry:15004",
+		TelemetrySAN:     fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/istio-mixer-service-account", namespace),
+		ZipkinAddress:    proxyConfig.ZipkinAddress,
+		ControlPlaneAuth: proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS,
+		AdminPort:        proxyConfig.ProxyAdminPort,
+	}
+	switch staticProfile {
+	case "telemetry":
+		opts.TelemetryUpstream = &Upstream{
+			ListenPort:   15004,
+			UpstreamPort: 9091,
+			GRPC:         true,
+			Service:      fmt.Sprintf("istio-telemetry.%s.svc.cluster.local", namespace),
+			UID:          fmt.Sprintf("kubernetes://%s.%s", name, namespace),
+			Operation:    "Check",
+		}
+		opts.Upstreams = []Upstream{*opts.TelemetryUpstream}
+	case "policy":
+		opts.Upstreams = []Upstream{{
+			ListenPort:   15004,
+			UpstreamPort: 9091,
+			GRPC:         true,
+			Service:      fmt.Sprintf("istio-policy.%s.svc.cluster.local", namespace),
+			UID:          fmt.Sprintf("kubernetes://%s.%s", name, namespace),
+			Operation:    "Report",
+		}}
+	}
+	return opts
+}
+
 // BuildBootstrap creates a static config for the sidecar HTTP proxy.
-func BuildBootstrap(
-	upstreams []Upstream, // list of upstreams behind the proxy
-	telemetryUpstream *Upstream, // set to one of the upstreams to route telemetry locally
-	telemetry, telemetrySAN string, // set to telemetry DNS address and SAN, e.g. istio-telemetry:15004
-	zipkin string, // set to non-empty DNS zipkin address, e.g. zipkin:9411
-	controlPlaneAuth bool, // set to enable control plane authentication
-	adminPort int32,
-) (*bootstrap.Bootstrap, error) {
+func BuildBootstrap(opts Options) (*bootstrap.Bootstrap, error) {
 	out := bootstrap.Bootstrap{
 		Admin: bootstrap.Admin{
 			AccessLogPath: "/dev/stdout",
@@ -72,18 +121,18 @@ func BuildBootstrap(
 				Address: &core.Address_SocketAddress{
 					SocketAddress: &core.SocketAddress{
 						Address:       "127.0.0.1",
-						PortSpecifier: &core.SocketAddress_PortValue{PortValue: uint32(adminPort)},
+						PortSpecifier: &core.SocketAddress_PortValue{PortValue: uint32(opts.AdminPort)},
 					},
 				},
 			},
 		},
 		StaticResources: &bootstrap.Bootstrap_StaticResources{
-			Clusters: BuildClusters(upstreams),
+			Clusters: BuildClusters(opts.Upstreams),
 		},
 	}
 
-	if zipkin != "" {
-		zipkinAddress, err := toAddress(zipkin)
+	if opts.ZipkinAddress != "" {
+		zipkinAddress, err := toAddress(opts.ZipkinAddress)
 		if err != nil {
 			return nil, err
 		}
@@ -108,8 +157,8 @@ func BuildBootstrap(
 
 	// telemetry bootstrap should route telemetry directly to the local upstream
 	telemetryCluster := TelemetryCluster
-	if telemetryUpstream == nil {
-		telemetryAddress, err := toAddress(telemetry)
+	if opts.TelemetryUpstream == nil {
+		telemetryAddress, err := toAddress(opts.TelemetryAddress)
 		if err != nil {
 			return nil, err
 		}
@@ -122,17 +171,21 @@ func BuildBootstrap(
 			CircuitBreakers:      circuitBreakers,
 			Http2ProtocolOptions: &core.Http2ProtocolOptions{},
 		}
-		if controlPlaneAuth {
+		if opts.ControlPlaneAuth {
 			cluster.TlsContext = &auth.UpstreamTlsContext{
-				CommonTlsContext: commonTLSContext([]string{telemetrySAN}),
+				CommonTlsContext: commonTLSContext([]string{opts.TelemetrySAN}),
 			}
 		}
 		out.StaticResources.Clusters = append(out.StaticResources.Clusters, cluster)
 	} else {
-		telemetryCluster = clusterName(*telemetryUpstream)
+		telemetryCluster = clusterName(*opts.TelemetryUpstream)
 	}
 
-	out.StaticResources.Listeners = BuildListeners(upstreams, telemetryCluster, controlPlaneAuth)
+	out.StaticResources.Listeners = BuildListeners(opts.Upstreams, telemetryCluster, opts.ControlPlaneAuth)
+
+	if err := out.Validate(); err != nil {
+		return nil, err
+	}
 
 	return &out, nil
 }
@@ -181,16 +234,6 @@ func toStruct(msg proto.Message) *types.Struct {
 		panic(err)
 	}
 	return out
-}
-
-// Upstream declaration for a local HTTP service instance.
-type Upstream struct {
-	ListenPort   uint32
-	UpstreamPort uint32
-	GRPC         bool
-	Service      string
-	UID          string
-	Operation    string
 }
 
 // BuildServiceConfig generates a mixer client config.
@@ -332,4 +375,18 @@ func BuildClusters(upstreams []Upstream) []v2.Cluster {
 		out = append(out, cluster)
 	}
 	return out
+}
+
+// ToYAML converts bootstrap to YAML
+func ToYAML(config proto.Message) ([]byte, error) {
+	marshaler := jsonpb.Marshaler{OrigName: true}
+	out, err := marshaler.MarshalToString(config)
+	if err != nil {
+		return nil, err
+	}
+	content, err := yaml.JSONToYAML([]byte(out))
+	if err != nil {
+		return nil, err
+	}
+	return content, nil
 }

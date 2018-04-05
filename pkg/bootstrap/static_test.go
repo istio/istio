@@ -15,76 +15,43 @@
 package bootstrap_test
 
 import (
+	"io/ioutil"
 	"testing"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/bootstrap"
 )
 
 func TestBuildBootstrap(t *testing.T) {
-	zipkin := "zipkin:9411"
+	noauth := meshconfig.ProxyConfig{
+		ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_NONE,
+		ZipkinAddress:          "zipkin:9411",
+		ProxyAdminPort:         15000,
+	}
+	auth := noauth
+	auth.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
 
-	telemetry := bootstrap.Upstream{
-		ListenPort:   15004,
-		UpstreamPort: 9091,
-		GRPC:         true,
-		Service:      "istio-telemetry",
-		UID:          "pod1.ns2",
-		Operation:    "Report",
-	}
-	policy := bootstrap.Upstream{
-		ListenPort:   15004,
-		UpstreamPort: 9091,
-		GRPC:         true,
-		Service:      "istio-policy.ns4",
-		UID:          "pod2.ns2",
-		Operation:    "Check",
-	}
-	discovery := bootstrap.Upstream{
-		ListenPort:   15007,
-		UpstreamPort: 8080,
-		GRPC:         false,
-		Service:      "istio-pilot",
-		UID:          "pod4.ns5",
-		Operation:    "Discovery",
+	telemetryAuth, err := bootstrap.BuildBootstrap(bootstrap.BuildOptions(auth, "telemetry", "pod1", "ns2"))
+	if err != nil {
+		t.Error(err)
 	}
 
-	b1, berr := bootstrap.BuildBootstrap(
-		[]bootstrap.Upstream{telemetry},
-		&telemetry,
-		"istio-telemetry:15004", "spiffe://cluster.local/ns/istio-system/sa/istio-mixer-service-account",
-		zipkin,
-		false,
-		15000)
-	if berr != nil {
-		t.Error(berr)
+	got, err := bootstrap.ToYAML(telemetryAuth)
+	if err != nil {
+		t.Error(err)
 	}
-	if err := b1.Validate(); err != nil {
-		t.Errorf("invalid bootstrap %v: %#v", err, b1)
+	want, err := ioutil.ReadFile("testdata/telemetry-auth.yaml")
+	if err != nil {
+		t.Error(err)
+	}
+	if string(got) != string(want) {
+		t.Errorf("telemetry auth bootstrap changed: got\n%s", string(got))
 	}
 
-	b2, berr := bootstrap.BuildBootstrap([]bootstrap.Upstream{policy},
-		nil,
-		"istio-telemetry:15004", "spiffe://cluster.local/ns/istio-system/sa/istio-mixer-service-account",
-		"",
-		true,
-		15000)
-	if berr != nil {
-		t.Error(berr)
+	if _, err = bootstrap.BuildBootstrap(bootstrap.BuildOptions(auth, "policy", "pod2", "ns3")); err != nil {
+		t.Error(err)
 	}
-	if err := b2.Validate(); err != nil {
-		t.Errorf("invalid bootstrap %v: %#v", err, b2)
-	}
-
-	b3, berr := bootstrap.BuildBootstrap([]bootstrap.Upstream{discovery},
-		nil,
-		"istio-telemetry:15004", "spiffe://cluster.local/ns/istio-system/sa/istio-mixer-service-account",
-		"",
-		true,
-		15000)
-	if berr != nil {
-		t.Error(berr)
-	}
-	if err := b3.Validate(); err != nil {
-		t.Errorf("invalid bootstrap %v: %#v", err, b3)
+	if _, err = bootstrap.BuildBootstrap(bootstrap.BuildOptions(noauth, "policy", "pod2", "ns3")); err != nil {
+		t.Error(err)
 	}
 }

@@ -32,6 +32,8 @@
         - static
         - --serviceCluster
         - istio-policy
+        - --staticProfile
+        - policy
       {{- if $.Values.global.controlPlaneSecurityEnabled }}
         - --controlPlaneAuthPolicy
         - MUTUAL_TLS
@@ -41,8 +43,6 @@
       {{- end }}
         - --zipkinAddress
         - zipkin:9411
-        - --staticProfile
-        - policy
         env:
         - name: POD_NAME
           valueFrom:
@@ -101,6 +101,8 @@
         args:
         - proxy
         - static
+        - --serviceCluster
+        - istio-telemetry
         - --staticProfile
         - telemetry
       {{- if $.Values.global.controlPlaneSecurityEnabled }}
@@ -112,8 +114,6 @@
       {{- end }}
         - --zipkinAddress
         - zipkin:9411
-        - --serviceCluster
-        - istio-telemetry
         env:
         - name: POD_NAME
           valueFrom:
