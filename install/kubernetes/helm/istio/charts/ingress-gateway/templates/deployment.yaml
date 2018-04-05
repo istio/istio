@@ -8,13 +8,17 @@ metadata:
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
-    {{ .Values.service.labels }}
+    {{- range $key, $val := .Values.service.labels }}
+    {{ $key }}: {{ $val }}
+    {{- end }}
 spec:
   replicas: {{ .Values.replicaCount }}
   template:
     metadata:
       labels:
-        {{ .Values.deployment.labels }}
+        {{- range $key, $val := .Values.deployment.labels }}
+        {{ $key }}: {{ $val }}
+        {{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
@@ -24,7 +28,9 @@ spec:
           image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
-          {{ .Values.deployment.ports }}
+            {{- range $key, $val := .Values.deployment.ports }}
+            - containerPort: {{ $val.containerPort }}
+            {{- end }}
           args:
           - proxy
           - router

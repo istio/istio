@@ -7,10 +7,19 @@ metadata:
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
-    {{ .Values.service.labels }}
+    {{- range $key, $val := .Values.service.labels }}
+    {{ $key }}: {{ $val }}
+    {{- end }}
 spec:
   type: {{ .Values.service.type }}
   selector:
-    {{ .Values.deployment.labels }}
+    {{- range $key, $val := .Values.deployment.labels }}
+    {{ $key }}: {{ $val }}
+    {{- end }}
   ports:
-    {{ .Values.service.ports }}
+    {{- range $key, $val := .Values.service.ports }}
+    -
+      {{- range $pkey, $pval := $val }}
+      {{ $pkey}}: {{ $pval }}
+      {{- end }}
+    {{- end }}
