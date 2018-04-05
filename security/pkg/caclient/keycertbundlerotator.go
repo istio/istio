@@ -21,32 +21,32 @@ import (
 
 	"istio.io/istio/pkg/log"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
-	"istio.io/istio/security/pkg/platform"
+	//"istio.io/istio/security/pkg/platform"
 	"istio.io/istio/security/pkg/util"
 )
 
 // NewKeyCertBundleRotator is constructor for keyCertBundleRotatorImpl based on the provided configuration.
-func NewKeyCertBundleRotator(cfg *Config, bundle pkiutil.KeyCertBundle) (*KeyCertBundleRotator, error) {
+func NewKeyCertBundleRotator(cfg *Config, retriever KeyCertRetriever, bundle pkiutil.KeyCertBundle) (*KeyCertBundleRotator, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("nil configuration passed")
 	}
 
-	pc, err := platform.NewClient(cfg.Env, cfg.RootCertFile, cfg.KeyFile, cfg.CertChainFile, cfg.CAAddress)
-	if err != nil {
-		return nil, err
-	}
-	cAClient, err := NewCAClient(pc, cfg.CAAddress, cfg.CSRMaxRetries, cfg.CSRInitialRetrialInterval)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize CAClient: %v", err)
-	}
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize KeyCertBundle: %v", err)
-	}
+	//pc, err := platform.NewClient(cfg.Env, cfg.RootCertFile, cfg.KeyFile, cfg.CertChainFile, cfg.CAAddress)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//cAClient, err := NewCAClient(pc, cfg.CAAddress, cfg.CSRMaxRetries, cfg.CSRInitialRetrialInterval)
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed to initialize CAClient: %v", err)
+	//}
+	//
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed to initialize KeyCertBundle: %v", err)
+	//}
 
 	return &KeyCertBundleRotator{
 		certUtil:  util.NewCertUtil(cfg.CSRGracePeriodPercentage),
-		retriever: cAClient,
+		retriever: retriever,
 		keycert:   bundle,
 		stopCh:    make(chan bool, 1),
 		stopped:   true,

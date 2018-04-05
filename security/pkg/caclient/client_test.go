@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/security/pkg/platform"
 	mockpc "istio.io/istio/security/pkg/platform/mock"
 	pb "istio.io/istio/security/proto"
+	grpc2 "istio.io/istio/security/pkg/caclient/grpc"
 )
 
 func TestRetrieveNewKeyCert(t *testing.T) {
@@ -115,11 +116,8 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 	}
 
 	for id, c := range testCases {
-		ca, addr, err := testserver.New(c.caOptions)
-		if err != nil {
-			t.Errorf("failed to setup test ca server %v", err)
-		}
-		client, err := NewCAClient(c.pltfmc, addr, c.maxRetries, c.interval)
+		fake := grpc2.NewFakeProtocol(c.caOptions.Response, c.caOptions.Error)
+		client, err := NewCAClient(c.pltfmc, fake, c.maxRetries, c.interval)
 		if err != nil {
 			t.Errorf("Test case [%s]: CA creation error: %v", id, err)
 		}
@@ -146,7 +144,7 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 			t.Errorf("Test case [%s]: cert chain content incorrect: %s VS (expected) %s",
 				id, certChain, c.expectedCertChain)
 		}
-		if invoke := ca.InvokeTimes(); invoke != c.sendTimes {
+		if invoke := fake.InvokeTimes(); invoke != c.sendTimes {
 			t.Errorf("Test case [%s]: sendCSR is called incorrect times: %d VS (expected) %d", id, invoke, c.sendTimes)
 		}
 	}

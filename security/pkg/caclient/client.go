@@ -20,15 +20,13 @@ import (
 
 	"io/ioutil"
 
-	"context"
-
-	"google.golang.org/grpc"
 
 	"istio.io/istio/pkg/log"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
 	"istio.io/istio/security/pkg/workload"
 	pb "istio.io/istio/security/proto"
+	"istio.io/istio/security/pkg/caclient/grpc"
 )
 
 // CAClient is a client to provision key and certificate from the upstream CA via CSR protocol.
@@ -36,31 +34,34 @@ type CAClient struct {
 	platformClient         platform.Client
 	maxRetries             int
 	initialRetrialInterval time.Duration
-	grpcClient             pb.IstioCAServiceClient
+	caConnection           grpc.CAProtocol
+
 }
 
 // NewCAClient creates a new CAClient instance.
-func NewCAClient(pltfmc platform.Client, caAddr string, maxRetries int, interval time.Duration) (*CAClient, error) {
+//func NewCAClient(pltfmc platform.Client, caAddr string, maxRetries int, interval time.Duration) (*CAClient, error) {
+func NewCAClient(pltfmc platform.Client, protocolClient grpc.CAProtocol, maxRetries int, interval time.Duration) (*CAClient, error) {
 	if !pltfmc.IsProperPlatform() {
 		return nil, fmt.Errorf("CA client is not running on the right platform") // nolint
 	}
-	if caAddr == "" {
-		return nil, fmt.Errorf("istio CA address is empty")
-	}
-	dialOptions, err := pltfmc.GetDialOptions()
-	if err != nil {
-		return nil, fmt.Errorf("can't get platform dial options, %v", err)
-	}
-	conn, err := grpc.Dial(caAddr, dialOptions...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to dial %s: %v", caAddr, err)
-	}
-	client := pb.NewIstioCAServiceClient(conn)
+	//if caAddr == "" {
+	//	return nil, fmt.Errorf("istio CA address is empty")
+	//}
+	//dialOptions, err := pltfmc.GetDialOptions()
+	//if err != nil {
+	//	return nil, fmt.Errorf("can't get platform dial options, %v", err)
+	//}
+	//conn, err := grpc.Dial(caAddr, dialOptions...)
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed to dial %s: %v", caAddr, err)
+	//}
+	//client := pb.NewIstioCAServiceClient(conn)
 	return &CAClient{
 		platformClient:         pltfmc,
 		maxRetries:             maxRetries,
 		initialRetrialInterval: interval,
-		grpcClient:             client,
+		caConnection: protocolClient,
+		//grpcClient:             client,
 	}, nil
 }
 
@@ -76,7 +77,8 @@ func (c *CAClient) Retrieve(options *pkiutil.CertOptions) (newCert []byte, certC
 		}
 		log.Infof("Sending CSR (retrial #%d) ...", retries)
 
-		resp, err := c.grpcClient.HandleCSR(context.Background(), req)
+		//resp, err := c.grpcClient.HandleCSR(context.Background(), req)
+		resp, err := c.caConnection.SendCSR(req)
 		if err == nil && resp != nil && resp.IsApproved {
 			return resp.SignedCert, resp.CertChain, privateKey, nil
 		}

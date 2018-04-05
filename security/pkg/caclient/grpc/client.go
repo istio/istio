@@ -43,26 +43,26 @@ type CAGrpcClientImpl struct {
 }
 
 // CAGrpcProtocol implements CAProtocol talking to CA via gRPC.
-type CAGrpcClientA struct {
+type GrpcProtocol struct {
 	connection *grpc.ClientConn
 }
 
-func NewCAGrpcClient(caAddr string, dialOptions []grpc.DialOption) (*CAGrpcClientA, error) {
+func NewCAGrpcClient(caAddr string, dialOptions []grpc.DialOption) (*GrpcProtocol, error) {
 	conn, err := grpc.Dial(caAddr, dialOptions...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to dial %s: %v", caAddr, err)
 	}
-	return &CAGrpcClientA{
+	return &GrpcProtocol{
 		connection: conn,
 	}, nil
 }
 
-func (c *CAGrpcClientA) SendCSR(req *pb.CsrRequest) (*pb.CsrResponse, error) {
+func (c *GrpcProtocol) SendCSR(req *pb.CsrRequest) (*pb.CsrResponse, error) {
 	client := pb.NewIstioCAServiceClient(c.connection)
 	return client.HandleCSR(context.Background(), req)
 }
 
-func (c *CAGrpcClientA) Close() error {
+func (c *GrpcProtocol) Close() error {
 	return c.connection.Close()
 }
 
@@ -90,4 +90,29 @@ func (c *CAGrpcClientImpl) SendCSR(req *pb.CsrRequest, pc platform.Client, caAdd
 		return nil, fmt.Errorf("CSR request failed %v", err)
 	}
 	return resp, nil
+}
+
+type FakeProtocol struct {
+	counter int
+	resp *pb.CsrResponse
+	errMsg string
+}
+
+func NewFakeProtocol(response *pb.CsrResponse, err string) *FakeProtocol {
+	return &FakeProtocol{
+		resp: response,
+		errMsg: err,
+	}
+}
+
+func (f *FakeProtocol) SendCSR(req *pb.CsrRequest) (*pb.CsrResponse, error) {
+	f.counter++
+	if f.errMsg != "" {
+		return nil, fmt.Errorf(f.errMsg)
+	}
+	return f.resp, nil
+}
+
+func (f *FakeProtocol) InvokeTimes() int {
+	return f.counter
 }
