@@ -40,21 +40,19 @@ func TestEnv(t *testing.T) {
 		if err == nil {
 			t.Error("Expected an error but got nil")
 		}
+		log.Debugf("Test%s", "ing")
 
-		if log.VerbosityLevel(999) {
-			t.Error("Expected false for verbosity level 999 check")
+		if !log.InfoEnabled() {
+			t.Error("Expected true for InfoEnabled check")
 		}
-		if !log.VerbosityLevel(0) {
-			t.Error("Expected true for verbosity level 0 check")
+		if !log.ErrorEnabled() {
+			t.Error("Expected true for ErrorEnabled check")
 		}
-		if !log.VerbosityLevel(1) {
-			t.Error("Expected true for verbosity level 1 check")
+		if !log.WarnEnabled() {
+			t.Error("Expected true for WarnEnabled check")
 		}
-		if !log.VerbosityLevel(2) {
-			t.Error("Expected true for verbosity level 2 check")
-		}
-		if log.VerbosityLevel(-1) {
-			t.Error("Expected false for verbosity level -1 check")
+		if log.DebugEnabled() {
+			t.Error("Expected false for DebugEnabled check")
 		}
 
 		wg := sync.WaitGroup{}

@@ -25,7 +25,7 @@ type env struct {
 	counters envCounters
 }
 
-// NewEnv returns a new environment instance.
+// newEnv returns a new environment instance.
 func newEnv(cfgID int64, name string, gp *pool.GoroutinePool) env {
 	return env{
 		logger:   newLogger(name),

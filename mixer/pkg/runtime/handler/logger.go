@@ -49,25 +49,6 @@ func newLogger(name string) logger {
 	}
 }
 
-// VerbosityLevel from adapter.Logger.
-func (l logger) VerbosityLevel(level adapter.VerbosityLevel) bool {
-	switch level {
-	case 0:
-		return l.l.Core().Enabled(zap.ErrorLevel)
-	case 1:
-		return l.l.Core().Enabled(zap.WarnLevel)
-	case 2:
-		return l.l.Core().Enabled(zap.InfoLevel)
-	}
-
-	if level >= 3 {
-		return l.l.Core().Enabled(zap.DebugLevel)
-	}
-
-	// < 0
-	return false
-}
-
 // Infof from adapter.Logger.
 func (l logger) Infof(format string, args ...interface{}) {
 	l.s.Infof(format, args...)
@@ -83,4 +64,29 @@ func (l logger) Errorf(format string, args ...interface{}) error {
 	s := fmt.Sprintf(format, args...)
 	l.s.Error(s)
 	return errors.New(s)
+}
+
+// Debugf from adapter.Logger.
+func (l logger) Debugf(format string, args ...interface{}) {
+	l.s.Debugf(format, args...)
+}
+
+// InfoEnabled from adapter.Logger.
+func (l logger) InfoEnabled() bool {
+	return l.l.Core().Enabled(zap.InfoLevel)
+}
+
+// WarnEnabled from adapter.Logger.
+func (l logger) WarnEnabled() bool {
+	return l.l.Core().Enabled(zap.WarnLevel)
+}
+
+// ErrorEnabled from adapter.Logger.
+func (l logger) ErrorEnabled() bool {
+	return l.l.Core().Enabled(zap.ErrorLevel)
+}
+
+// DebugEnabled from adapter.Logger.
+func (l logger) DebugEnabled() bool {
+	return l.l.Core().Enabled(zap.DebugLevel)
 }

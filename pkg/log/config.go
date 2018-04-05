@@ -70,28 +70,27 @@ var levelToZap = map[Level]zapcore.Level{
 	NoneLevel:  none,
 }
 
-// Configure initializes Istio's logging subsystem.
+// CreateLoggers is a utility function used by the Configure function.
 //
-// You typically call this once at process startup.
-// Once this call returns, the logging system is ready to accept data.
-func Configure(options *Options) error {
+// This does all the work necessary to create the logger objects to implement
+// the behavior described by the supplied options.
+func CreateLoggers(options *Options) (*zap.Logger, *zap.SugaredLogger, error) {
 	outputLevel, err := options.GetOutputLevel()
 	if err != nil {
 		// bad format specified
-		return err
+		return nil, nil, err
 	}
 
 	stackTraceLevel, err := options.GetStackTraceLevel()
 	if err != nil {
 		// bad format specified
-		return err
+		return nil, nil, err
 	}
 
 	if outputLevel == NoneLevel || ((len(options.OutputPaths) == 0) && options.RotateOutputPath == "") {
 		// stick with the Nop default
-		logger = zap.NewNop()
-		sugar = logger.Sugar()
-		return nil
+		l := zap.NewNop()
+		return l, l.Sugar(), nil
 	}
 
 	encCfg := zapcore.EncoderConfig{
@@ -127,7 +126,7 @@ func Configure(options *Options) error {
 
 	errSink, closeErrorSink, err := zap.Open(options.ErrorOutputPaths...)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	var outputSink zapcore.WriteSyncer
@@ -135,7 +134,7 @@ func Configure(options *Options) error {
 		outputSink, _, err = zap.Open(options.OutputPaths...)
 		if err != nil {
 			closeErrorSink()
-			return err
+			return nil, nil, err
 		}
 	}
 
@@ -161,13 +160,27 @@ func Configure(options *Options) error {
 	l := zap.New(
 		zapcore.NewCore(enc, sink, zap.NewAtomicLevelAt(levelToZap[outputLevel])),
 		opts...,
-	)
+	).WithOptions(zap.AddCallerSkip(1), zap.AddStacktrace(levelToZap[stackTraceLevel]))
 
-	logger = l.WithOptions(zap.AddCallerSkip(1), zap.AddStacktrace(levelToZap[stackTraceLevel]))
-	sugar = logger.Sugar()
+	return l, l.Sugar(), nil
+}
+
+// Configure initializes Istio's logging subsystem.
+//
+// You typically call this once at process startup.
+// Once this call returns, the logging system is ready to accept data.
+func Configure(options *Options) error {
+	l, s, err := CreateLoggers(options)
+	if err != nil {
+		return err
+	}
+
+	// update the global loggers for this process
+	logger = l
+	sugar = s
 
 	// capture global zap logging and force it through our logger
-	_ = zap.ReplaceGlobals(l)
+	_ = zap.ReplaceGlobals(logger)
 
 	// capture standard golang "log" package output and force it through our logger
 	_ = zap.RedirectStdLog(logger)

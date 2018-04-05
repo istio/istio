@@ -62,6 +62,7 @@ var (
 	caHub        = flag.String("ca_hub", os.Getenv("HUB"), "Ca hub")
 	caTag        = flag.String("ca_tag", os.Getenv("TAG"), "Ca tag")
 	authEnable   = flag.Bool("auth_enable", false, "Enable auth")
+	rbacEnable   = flag.Bool("rbac_enable", true, "Enable rbac")
 	localCluster = flag.Bool("use_local_cluster", false,
 		"Whether the cluster is local or not (i.e. the test is running within the cluster). If running on minikube, this should be set to true.")
 	skipSetup           = flag.Bool("skip_setup", false, "Skip namespace creation and istio cluster setup")
@@ -89,6 +90,7 @@ type KubeInfo struct {
 	localCluster     bool
 	namespaceCreated bool
 	AuthEnabled      bool
+	RBACEnabled      bool
 
 	// Extra services to be excluded from MTLS
 	MTLSExcludedServices []string
@@ -150,6 +152,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		Istioctl:         i,
 		AppManager:       a,
 		AuthEnabled:      *authEnable,
+		RBACEnabled:      *rbacEnable,
 		ReleaseDir:       releaseDir,
 		BaseVersion:      baseVersion,
 	}, nil
@@ -365,7 +368,7 @@ func (k *KubeInfo) GetRoutes(app string) (string, error) {
 	pod := appPods[app][0]
 
 	routesURL := "http://localhost:15000/routes"
-	routes, err := util.PodExec(k.Namespace, pod, "app", fmt.Sprintf("client -url %s", routesURL))
+	routes, err := util.PodExec(k.Namespace, pod, "app", fmt.Sprintf("client -url %s", routesURL), true)
 	if err != nil {
 		return "", errors.WithMessage(err, "failed to get routes")
 	}

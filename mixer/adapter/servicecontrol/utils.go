@@ -26,8 +26,6 @@ import (
 
 const (
 	apiKeyPrefix = "api_key:"
-
-	logDebug = 4
 )
 
 func toRPCCode(responseCode int) rpc.Code {

@@ -20,14 +20,16 @@ import (
 )
 
 func TestTcp(t *testing.T) {
-	// Auth is enabled for d:9090 using per-service policy. We expect request
-	// from non-envoy client ("t") should fail all the time.
 	srcPods := []string{"a", "b", "t"}
-	dstPods := []string{"a", "b", "d"}
+	dstPods := []string{"a", "b"}
 	ports := []string{"90", "9090"}
 	if !tc.Kube.AuthEnabled {
 		// t is not behind proxy, so it cannot talk in Istio auth.
 		dstPods = append(dstPods, "t")
+	} else {
+		// Auth is enabled for d:9090 using per-service policy. We expect request
+		// from non-envoy client ("t") should fail all the time.
+		dstPods = append(dstPods, "d")
 	}
 
 	// Run all request tests.
