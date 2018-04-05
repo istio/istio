@@ -116,7 +116,7 @@ func TestSign(t *testing.T) {
 	testCases := map[string]struct {
 		authenticators []authenticator
 		authorizer     *mockAuthorizer
-		ca             istioCA
+		ca             certificateAuthority
 		csr            string
 		cert           string
 		certChain      string

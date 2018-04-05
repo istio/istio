@@ -35,11 +35,12 @@ import (
 
 const certExpirationBuffer = time.Minute
 
-// istioCA contains methods to be supported by a CA.
-type istioCA interface {
+// certificateAuthority contains methods supported by a CA.
+type certificateAuthority interface {
 	Sign(csrPEM []byte, ttl time.Duration) ([]byte, error)
 	SignCAServerCert(csrPEM []byte, ttl time.Duration) ([]byte, error)
-	GetCAKeyCertBundle() util.KeyCertBundle
+	GetCertChainPem() []byte
+	GetRootCertPem() []byte
 }
 
 // Server implements pb.IstioCAService and provides the service on the
@@ -48,7 +49,7 @@ type Server struct {
 	authenticators []authenticator
 	authorizer     authorizer
 	serverCertTTL  time.Duration
-	ca             istioCA
+	ca             certificateAuthority
 	certificate    *tls.Certificate
 	hostname       string
 	port           int
@@ -77,7 +78,7 @@ func (s *Server) HandleCSR(ctx context.Context, request *pb.CsrRequest) (*pb.Csr
 		return nil, status.Errorf(codes.InvalidArgument, "CSR identity extraction error (%v)", err)
 	}
 
-	_, _, certChainBytes, _ := s.ca.GetCAKeyCertBundle().GetAll()
+	certChainBytes := s.ca.GetCertChainPem()
 	cert, err := s.ca.Sign(request.CsrPem, time.Duration(request.RequestedTtlMinutes)*time.Minute)
 	if err != nil {
 		log.Errorf("CSR signing error (%v)", err)
@@ -120,7 +121,7 @@ func (s *Server) Run() error {
 }
 
 // New creates a new instance of `IstioCAServiceServer`.
-func New(ca istioCA, ttl time.Duration, hostname string, port int) *Server {
+func New(ca certificateAuthority, ttl time.Duration, hostname string, port int) *Server {
 	// Notice that the order of authenticators matters, since at runtime
 	// authenticators are actived sequentially and the first successful attempt
 	// is used as the authentication result.
@@ -144,7 +145,7 @@ func New(ca istioCA, ttl time.Duration, hostname string, port int) *Server {
 
 func (s *Server) createTLSServerOption() grpc.ServerOption {
 	cp := x509.NewCertPool()
-	_, _, _, rootCertBytes := s.ca.GetCAKeyCertBundle().GetAll()
+	rootCertBytes := s.ca.GetRootCertPem()
 	cp.AppendCertsFromPEM(rootCertBytes)
 
 	config := &tls.Config{
