@@ -20,7 +20,6 @@ import (
 	"testing"
 	"time"
 
-	//"istio.io/istio/security/pkg/caclient/testserver"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	pkimock "istio.io/istio/security/pkg/pki/util/mock"
 	"istio.io/istio/security/pkg/util"
@@ -68,23 +67,9 @@ func TestNewKeyCertBundleRotator(t *testing.T) {
 			},
 			expectedErr: "",
 		},
-		"Unsupported env": {
-			config: &Config{
-				CertChainFile: "../platform/testdata/cert-from-root-good.pem",
-				Env:           "somethig-else",
-			},
-			expectedErr: "invalid env somethig-else specified",
-		},
 	}
 
 	for id, c := range testCases {
-		//if c.config != nil {
-		//	_, addr, err := testserver.New(&testserver.Options{})
-		//	if err != nil {
-		//		t.Errorf("failed to create ca server for test %v", err)
-		//	}
-		//	c.config.CAAddress = addr
-		//}
 		_, err := NewKeyCertBundleRotator(c.config, &fakeKeyCertRetriever{},&pkimock.FakeKeyCertBundle{})
 
 		if len(c.expectedErr) > 0 {
