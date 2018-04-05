@@ -45,9 +45,9 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 		sendTimes         int
 	}{
 		"Success": {
-			pltfmc:  mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", []byte{}, "", true},
-			keySize: 512,
-			caResponse: &pb.CsrResponse{IsApproved: true, SignedCert: signedCert, CertChain: certChain},
+			pltfmc:            mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", []byte{}, "", true},
+			keySize:           512,
+			caResponse:        &pb.CsrResponse{IsApproved: true, SignedCert: signedCert, CertChain: certChain},
 			ttl:               time.Hour,
 			maxRetries:        0,
 			interval:          time.Second,
@@ -57,7 +57,7 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 			sendTimes:         1,
 		},
 		"Create CSR error": {
-			pltfmc: mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", []byte{}, "", true},
+			pltfmc:     mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", []byte{}, "", true},
 			caResponse: &pb.CsrResponse{IsApproved: true, SignedCert: signedCert, CertChain: certChain},
 			// 128 is too small for a RSA private key. GenCSR will return error.
 			keySize:     128,
@@ -87,7 +87,7 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 		},
 		"SendCSR returns error": {
 			pltfmc:      mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", []byte{}, "", true},
-			caError: "error returned from CA",
+			caError:     "error returned from CA",
 			keySize:     512,
 			ttl:         time.Hour,
 			maxRetries:  1,
@@ -96,8 +96,8 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 			sendTimes:   2,
 		},
 		"SendCSR not approved": {
-			pltfmc: mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", []byte{}, "", true},
-			caResponse: &pb.CsrResponse{IsApproved: false},
+			pltfmc:      mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", []byte{}, "", true},
+			caResponse:  &pb.CsrResponse{IsApproved: false},
 			keySize:     512,
 			ttl:         time.Hour,
 			maxRetries:  1,

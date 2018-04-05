@@ -21,12 +21,12 @@ import (
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/caclient"
+	"istio.io/istio/security/pkg/caclient/protocol"
 	"istio.io/istio/security/pkg/platform"
 	mockpc "istio.io/istio/security/pkg/platform/mock"
 	"istio.io/istio/security/pkg/util"
 	mockutil "istio.io/istio/security/pkg/util/mock"
 	pb "istio.io/istio/security/proto"
-	"istio.io/istio/security/pkg/caclient/protocol"
 )
 
 func TestStartWithArgs(t *testing.T) {
@@ -57,9 +57,9 @@ func TestStartWithArgs(t *testing.T) {
 		fileContent []byte
 	}{
 		"Success": {
-			config: &generalConfig,
-			pc:     mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
-			caProtocol: protocol.NewFakeProtocol(&pb.CsrResponse{IsApproved: true, SignedCert: signedCert, CertChain: certChain}, ""),
+			config:      &generalConfig,
+			pc:          mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
+			caProtocol:  protocol.NewFakeProtocol(&pb.CsrResponse{IsApproved: true, SignedCert: signedCert, CertChain: certChain}, ""),
 			certUtil:    mockutil.FakeCertUtil{time.Duration(0), nil},
 			expectedErr: "node agent can't get the CSR approved from Istio CA after max number of retries (3)",
 			sendTimes:   12,
@@ -134,7 +134,7 @@ func TestStartWithArgs(t *testing.T) {
 			pc:     mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
 			caProtocol: protocol.NewFakeProtocol(&pb.CsrResponse{
 				IsApproved: true, SignedCert: signedCert, CertChain: []byte{},
-				}, ""),
+			}, ""),
 			certUtil:    mockutil.FakeCertUtil{time.Duration(0), fmt.Errorf("cert parsing error")},
 			expectedErr: "node agent can't get the CSR approved from Istio CA after max number of retries (3)",
 			sendTimes:   4,

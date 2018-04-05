@@ -31,12 +31,12 @@ import (
 // in the NodeAgent interface.
 type nodeAgentInternal struct {
 	// Configuration specific to Node Agent
-	config   *Config
-	pc       platform.Client
+	config *Config
+	pc     platform.Client
 	//caProtocol protocol.CAGrpcClient
 	caProtocol protocol.CAProtocol
-	identity string
-	certUtil util.CertUtil
+	identity   string
+	certUtil   util.CertUtil
 }
 
 // Start starts the node Agent.

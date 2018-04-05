@@ -96,18 +96,18 @@ func TestSendCSRAgainstLocalInstance(t *testing.T) {
 			expectedErr: "istio CA address is empty",
 		},
 		"IstioCAAddress is incorrect": {
-			caAddress: lis.Addr().String() + "1",
+			caAddress:   lis.Addr().String() + "1",
 			dialOptions: []grpc.DialOption{grpc.WithInsecure()},
 			expectedErr: "rpc error: code = Unavailable desc = all SubConns are in TransientFailure",
 		},
 		"Without Insecure option": {
-			caAddress: lis.Addr().String(),
+			caAddress:   lis.Addr().String(),
 			dialOptions: []grpc.DialOption{},
 			expectedErr: fmt.Sprintf("failed to dial %s: grpc: no transport security set "+
 				"(use grpc.WithInsecure() explicitly or set credentials)", lis.Addr().String()),
 		},
 		"SendCSR not approved": {
-			caAddress: lis.Addr().String(),
+			caAddress:   lis.Addr().String(),
 			dialOptions: []grpc.DialOption{grpc.WithInsecure()},
 			expectedErr: "",
 		},
@@ -129,7 +129,7 @@ func TestSendCSRAgainstLocalInstance(t *testing.T) {
 		//}
 
 		req := &pb.CsrRequest{
-			CsrPem:              csr,
+			CsrPem: csr,
 			//NodeAgentCredential: cred,
 			CredentialType:      "onprem", // c.pc.GetCredentialType(),
 			RequestedTtlMinutes: 60,

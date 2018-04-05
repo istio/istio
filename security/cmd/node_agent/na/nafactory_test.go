@@ -33,7 +33,7 @@ func TestNewNodeAgent(t *testing.T) {
 		"onprem env test": {
 			config: &Config{
 				CAClientConfig: caclient.Config{
-					CAAddress: "something",
+					CAAddress:     "something",
 					Env:           "onprem",
 					RootCertFile:  "../../../pkg/platform/testdata/cert-root-good.pem",
 					KeyFile:       "../../../pkg/platform/testdata/key-from-root-good.pem",
@@ -46,7 +46,7 @@ func TestNewNodeAgent(t *testing.T) {
 			config: &Config{
 				CAClientConfig: caclient.Config{
 					CAAddress: "something",
-					Env: "somethig else",
+					Env:       "somethig else",
 				},
 			},
 			expectedErr: "invalid env somethig else specified",
