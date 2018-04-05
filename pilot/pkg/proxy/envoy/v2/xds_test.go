@@ -14,23 +14,17 @@
 package v2_test
 
 import (
+	"encoding/json"
+	"flag"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"sync"
 	"testing"
 
-	testenv "istio.io/istio/mixer/test/client/env"
-
-	"flag"
-	"io/ioutil"
-	"os"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
-
-	"fmt"
-
-	"sync"
-
-	"encoding/json"
-	"net/http"
-
+	testenv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"

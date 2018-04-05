@@ -22,13 +22,12 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"strings"
 	"text/template"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
-
-	"strings"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 )

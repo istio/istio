@@ -16,15 +16,13 @@ package v2
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
-
-	"fmt"
-
 	"github.com/gogo/protobuf/jsonpb"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
@@ -39,7 +37,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	// For debugging and load testing v2 we add an memory registry.
 	s.MemRegistry = NewMemServiceDiscovery(
 		map[string]*model.Service{
-			//			mock.HelloService.Hostname: mock.HelloService,
+		//			mock.HelloService.Hostname: mock.HelloService,
 		}, 2)
 
 	sctl.AddRegistry(aggregate.Registry{
