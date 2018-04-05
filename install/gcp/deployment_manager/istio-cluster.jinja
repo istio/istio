@@ -81,19 +81,25 @@ resources:
       - key: startup-script
         value: |
           #!/bin/bash -x
-          apt-get update && apt-get install -y git curl kubectl
+          apt-get update && apt-get install -y git curl
+          # NOTE: Due to a bug in kubectl (https://github.com/kubernetes/kubectl/issues/384 
+          # and https://github.com/istio/issues/issues/261) we have to force an earlier
+          # version of kubectl than 1.10.0. 
+          KUBECTL=/usr/local/bin/kubectl
+          curl -L -o $KUBECTL https://storage.googleapis.com/kubernetes-release/release/v1.9.6/bin/linux/amd64/kubectl
+          chmod +x /usr/local/bin/kubectl
           export HOME=/root
           gcloud components update -q
           gcloud components install beta -q
           gcloud container clusters get-credentials {{ properties['gkeClusterName'] }} --zone {{ properties['zone'] }}
-          kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user=$(gcloud config get-value core/account)
+          $KUBECTL create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user=$(gcloud config get-value core/account)
           curl -L https://raw.githubusercontent.com/istio/istio/master/release/downloadIstioCandidate.sh | ISTIO_VERSION={{ properties['installIstioRelease'] }} sh -
           cd istio-{{ properties['installIstioRelease'] }}
 
           {% if  properties['enableMutualTLS'] %}
-            kubectl apply -f install/kubernetes/istio-auth.yaml
+            $KUBECTL apply -f install/kubernetes/istio-auth.yaml
           {% else %}
-            kubectl apply -f install/kubernetes/istio.yaml
+            $KUBECTL apply -f install/kubernetes/istio.yaml
           {% endif %}
 
           {% if  properties['enableAutomaticSidecarInjection'] %}
@@ -110,14 +116,14 @@ resources:
                 --service istio-sidecar-injector \
                     --namespace istio-system \
                     --secret sidecar-injector-certs
-            kubectl apply -f install/kubernetes/istio-sidecar-injector-configmap-release.yaml
+            $KUBECTL apply -f install/kubernetes/istio-sidecar-injector-configmap-release.yaml
             cat install/kubernetes/istio-sidecar-injector.yaml | \
                 ./install/kubernetes/webhook-patch-ca-bundle.sh > \
                 install/kubernetes/istio-sidecar-injector-with-ca-bundle.yaml
-            kubectl apply -f install/kubernetes/istio-sidecar-injector-with-ca-bundle.yaml
+            $KUBECTL apply -f install/kubernetes/istio-sidecar-injector-with-ca-bundle.yaml
             # Wait for the deployment to finish
-            kubectl rollout status -n istio-system deploy/istio-sidecar-injector
-            kubectl label namespace default istio-injection=enabled
+            $KUBECTL rollout status -n istio-system deploy/istio-sidecar-injector
+            $KUBECTL label namespace default istio-injection=enabled
           {% endif %}
 
           {% if properties['enableGrafana'] or properties['enablePrometheus'] %}
@@ -129,26 +135,26 @@ resources:
               # for more details.
               awk -v s="  - nodes/proxy" 'NR==257{print s}1' install/kubernetes/addons/prometheus.yaml \
                   | awk -v s="  namespace: istio-system" 'NR==245{print s}1' - \
-                  | kubectl apply -f -
+                  | $KUBECTL apply -f -
             {% else %}
-              kubectl apply -f install/kubernetes/addons/prometheus.yaml
+              $KUBECTL apply -f install/kubernetes/addons/prometheus.yaml
             {% endif %}
           {% endif %}
 
           {% if  properties['enableGrafana'] %}
-            kubectl apply -f install/kubernetes/addons/grafana.yaml
+            $KUBECTL apply -f install/kubernetes/addons/grafana.yaml
           {% endif %}
 
           {% if  properties['enableZipkin'] %}
-            kubectl apply -f install/kubernetes/addons/zipkin.yaml
+            $KUBECTL apply -f install/kubernetes/addons/zipkin.yaml
           {% endif %}
 
           {% if  properties['enableServiceGraph'] %}
-            kubectl apply -f install/kubernetes/addons/servicegraph.yaml
+            $KUBECTL apply -f install/kubernetes/addons/servicegraph.yaml
           {% endif %}
 
           {% if  properties['enableBookInfoSample'] %}
-             kubectl apply -f samples/bookinfo/kube/bookinfo.yaml
+            $KUBECTL apply -f samples/bookinfo/kube/bookinfo.yaml
           {% endif %}
 
           gcloud beta runtime-config configs variables set success/{{ CLUSTER_NAME }}-waiter success --config-name $(ref.{{ CLUSTER_NAME }}-config.name)
