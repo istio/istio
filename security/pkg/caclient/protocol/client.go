@@ -109,7 +109,7 @@ func NewFakeProtocol(response *pb.CsrResponse, err string) *FakeProtocol {
 	}
 }
 
-// SendCSR sends request and returns the result based on the predetermined config.
+// SendCSR returns the result based on the predetermined config.
 func (f *FakeProtocol) SendCSR(req *pb.CsrRequest) (*pb.CsrResponse, error) {
 	f.counter++
 	if f.errMsg != "" {
