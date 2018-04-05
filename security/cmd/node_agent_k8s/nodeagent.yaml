@@ -28,6 +28,8 @@ spec:
           mountPath: /tmp/udsuspver
         - name: test-workload
           mountPath: /tmp/nodeagent
+        - name: istio-certs
+          mountPath: /etc/certs
       volumes:
         - name: test-mgmt
           hostPath:
@@ -43,3 +45,7 @@ spec:
           hostPath:
             type: DirectoryOrCreate
             path: /home/kubernetes/flexvolume/nodeagent~uds
+        - name: istio-certs
+             secret:
+               optional: false
+               secretName: istio.default # TODO(incfly): use other secret names for provision root key cert
