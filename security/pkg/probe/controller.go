@@ -38,16 +38,12 @@ const (
 	probeCheckRequestedTTLMinutes = 60
 )
 
-// CAChecker contains informations for prober to talk to Istio CA server.
-//type CAChecker struct {
-//request *pb.CsrRequest
-//// client  pb.IstioCAServiceClient
-//protocol protocol.CAProtocol
-//cleanup  func()
-//}
-
 // CAProtocolProvider returns a CAProtocol instance for talking to CA.
 type CAProtocolProvider func(caAddress string, dialOpts []grpc.DialOption) (protocol.CAProtocol, error)
+
+func GrpcProtocolProvider(caAddress string, dialOpts []grpc.DialOption) (protocol.CAProtocol, error) {
+	return protocol.NewCAGrpcClient(caAddress, dialOpts)
+}
 
 // LivenessCheckController updates the availability of the liveness probe of the CA instance
 type LivenessCheckController struct {
@@ -152,45 +148,16 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 	if err != nil {
 		return err
 	}
-	//conn, err := grpc.Dial(c.caAddress, dialOpts...)
-	//if err != nil {
-	//return err
-	//}
-	// grpcProtocol, err := protocol.NewCAGrpcClient(c.caAddress, dialOpts)
 	caProtocol, err := c.provider(c.caAddress, dialOpts)
 	if err != nil {
 		return err
 	}
-
-	csr, _, err := util.GenCSR(certOpts)
-	if err != nil {
-		return err
-	}
 	request := &pb.CsrRequest{
-		CsrPem:              csr,
+		CsrPem:              csrPEM,
 		NodeAgentCredential: cred,
 		CredentialType:      pc.GetCredentialType(),
 		RequestedTtlMinutes: probeCheckRequestedTTLMinutes,
 	}
-
-	//checker := &CAChecker{
-	//protocol: grpcProtocol,
-	//cleanup: func() {
-	//_ = os.RemoveAll(tempDir)
-	//},
-	// }
-
-	//checker, err := c.clientProvider(c.caAddress, c.ca, &util.CertOptions{
-	//Host:       LivenessProbeClientIdentity,
-	//Org:        c.serviceIdentityOrg,
-	//RSAKeySize: c.rsaKeySize,
-	//}, c.interval)
-	//if err != nil {
-	//return err
-	//}
-	// defer checker.cleanup()
-
-	// _, err = checker.client.HandleCSR(context.Background(), checker.request)
 	_, err = caProtocol.SendCSR(request)
 
 	// TODO(incfly): remove connectivity error once we always expose istio-ca into dns server.
@@ -199,97 +166,6 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 	}
 	return err
 }
-
-// DefaultCheckProvider returns a CAChecker for prober to invoke.
-//func DefaultCheckProvider(addr string, ca *ca.IstioCA, certOpts *util.CertOptions, ttl time.Duration) (*CAChecker, error) {
-//// generates certificate and private key for test
-//opts := util.CertOptions{
-//Host:       LivenessProbeClientIdentity,
-//RSAKeySize: 2048,
-//}
-
-//csrPEM, privPEM, err := util.GenCSR(opts)
-//if err != nil {
-//return nil, err
-//}
-
-//certPEM, err := ca.Sign(csrPEM, ttl, false)
-//if err != nil {
-//return nil, err
-//}
-
-//// Store certificate chain and private key to generate CSR
-//tempDir, err := ioutil.TempDir("/tmp", "caprobe")
-//if err != nil {
-//return nil, err
-//}
-//testRoot, err := ioutil.TempFile(tempDir, "root")
-//if err != nil {
-//return nil, err
-//}
-
-//testCert, err := ioutil.TempFile(tempDir, "cert")
-//if err != nil {
-//return nil, err
-//}
-
-//testKey, err := ioutil.TempFile(tempDir, "priv")
-//if err != nil {
-//return nil, err
-//}
-
-//err = ioutil.WriteFile(testCert.Name(), certPEM, workload.CertFilePermission)
-//if err != nil {
-//return nil, err
-//}
-
-//_, _, _, rootCertBytes := ca.GetCAKeyCertBundle().GetAll()
-//err = ioutil.WriteFile(testRoot.Name(), rootCertBytes, workload.CertFilePermission)
-//if err != nil {
-//return nil, err
-//}
-
-//err = ioutil.WriteFile(testKey.Name(), privPEM, workload.CertFilePermission)
-//if err != nil {
-//return nil, err
-//}
-
-//// Generate csr and credential
-//pc, err := platform.NewOnPremClientImpl(testRoot.Name(), testKey.Name(), testCert.Name())
-//if err != nil {
-//return nil, err
-//}
-//dialOpts, err := pc.GetDialOptions()
-//if err != nil {
-//return nil, err
-//}
-//conn, err := grpc.Dial(addr, dialOpts...)
-//if err != nil {
-//return nil, err
-//}
-//csr, _, err := util.GenCSR(*certOpts)
-//if err != nil {
-//return nil, err
-//}
-
-//cred, err := pc.GetAgentCredential()
-//if err != nil {
-//return nil, err
-//}
-
-//return &CAChecker{
-//request: &pb.CsrRequest{
-//CsrPem:              csr,
-//NodeAgentCredential: cred,
-//CredentialType:      pc.GetCredentialType(),
-//RequestedTtlMinutes: probeCheckRequestedTTLMinutes,
-//},
-//client: pb.NewIstioCAServiceClient(conn),
-//cleanup: func() {
-//_ = os.RemoveAll(tempDir)
-//},
-//}, nil
-//}
 
 // Run starts the check routine
 func (c *LivenessCheckController) Run() {
