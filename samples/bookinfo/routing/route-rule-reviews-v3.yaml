@@ -8,5 +8,5 @@ spec:
   http:
   - route:
     - destination:
-        name: reviews
+        host: reviews
         subset: v3

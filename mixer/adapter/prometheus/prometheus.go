@@ -142,9 +142,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		break
 	}
 
-	if env.Logger().VerbosityLevel(4) {
-		env.Logger().Infof("%d new metrics defined", len(newMetrics))
-	}
+	env.Logger().Debugf("%d new metrics defined", len(newMetrics))
 
 	var err error
 	for _, m := range newMetrics {

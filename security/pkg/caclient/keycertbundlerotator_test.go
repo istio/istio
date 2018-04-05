@@ -148,7 +148,7 @@ func TestKeyCertBundleRotator(t *testing.T) {
 			expectedErr: "",
 		},
 		"CA Client error": {
-			retriever: &fakeKeyCertRetriever{Err: fmt.Errorf("error1")},
+			retriever: &fakeKeyCertRetriever{Err: fmt.Errorf("CA client error")},
 			certutil:  &utilmock.FakeCertUtil{Duration: time.Duration(0)},
 			keycert: &pkimock.FakeKeyCertBundle{
 				CertBytes:      oldCert,
@@ -157,9 +157,9 @@ func TestKeyCertBundleRotator(t *testing.T) {
 				RootCertBytes:  oldRootCert,
 			},
 			updated:     false,
-			expectedErr: "error retrieving the key and cert: error1, abort auto rotation",
+			expectedErr: "error retrieving the key and cert: CA client error, abort auto rotation",
 		},
-		"Key/cert verification error": {
+		"Cert options error": {
 			retriever: &fakeKeyCertRetriever{
 				NewCert:    newCert,
 				CertChain:  newCertChain,
@@ -171,10 +171,27 @@ func TestKeyCertBundleRotator(t *testing.T) {
 				PrivKeyBytes:   oldKey,
 				CertChainBytes: oldCertChain,
 				RootCertBytes:  oldRootCert,
-				ReturnErr:      fmt.Errorf("error2"),
+				CertOptionsErr: fmt.Errorf("cert options error"),
 			},
 			updated:     false,
-			expectedErr: "cannot verify the retrieved key and cert: error2, abort auto rotation",
+			expectedErr: "failed to extact CertOptions from bundle: cert options error, abort auto rotation",
+		},
+		"Key/cert verification error": {
+			retriever: &fakeKeyCertRetriever{
+				NewCert:    newCert,
+				CertChain:  newCertChain,
+				PrivateKey: newKey,
+			},
+			certutil: &utilmock.FakeCertUtil{Duration: time.Duration(0)},
+			keycert: &pkimock.FakeKeyCertBundle{
+				CertBytes:       oldCert,
+				PrivKeyBytes:    oldKey,
+				CertChainBytes:  oldCertChain,
+				RootCertBytes:   oldRootCert,
+				VerificationErr: fmt.Errorf("verification error"),
+			},
+			updated:     false,
+			expectedErr: "cannot verify the retrieved key and cert: verification error, abort auto rotation",
 		},
 	}
 

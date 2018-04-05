@@ -1,4 +1,4 @@
-name: hello
+host: hello
 subsets:
   - name: v0
     labels:

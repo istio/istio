@@ -19,7 +19,7 @@ spec:
     - destination:
         port:
           number: 81
-        name: service3.default.svc.cluster.local
+        host: service3.default.svc.cluster.local
   - match:
     - uri:
         prefix: /reviews/
@@ -27,10 +27,10 @@ spec:
     - destination:
         port:
           number: 80
-        name: service3.default.svc.cluster.local
+        host: service3.default.svc.cluster.local
         subset: v1
       weight: 80
     - destination:
-        name: service3.default.svc.cluster.local
+        host: service3.default.svc.cluster.local
         subset: v2
       weight: 20

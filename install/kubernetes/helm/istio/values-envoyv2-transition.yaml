@@ -1,0 +1,21 @@
+# Configuration overrides for deploying istio for testing using proxyv2 image
+global:
+  nodePort: true
+  proxy:
+    image: proxyv2
+
+ingress:
+  service:
+    nodePort:
+      enabled: true
+  autoscaleMin: 1
+  autoscaleMax: 8
+  meshExpansion:
+    enabled: false
+
+# Any customization for istio testing should be here
+istiotesting:
+  oneNameSpace: false
+
+ingress:
+  enabled: true

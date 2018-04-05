@@ -43,30 +43,37 @@ import (
 )
 
 const (
-	bookinfoYaml             = "samples/bookinfo/kube/bookinfo.yaml"
-	bookinfoRatingsv2Yaml    = "samples/bookinfo/kube/bookinfo-ratings-v2.yaml"
-	bookinfoDbYaml           = "samples/bookinfo/kube/bookinfo-db.yaml"
-	sleepYaml                = "samples/sleep/sleep.yaml"
-	rulesDir                 = "samples/bookinfo/kube"
-	rateLimitRule            = "mixer-rule-ratings-ratelimit.yaml"
-	denialRule               = "mixer-rule-ratings-denial.yaml"
-	ingressDenialRule        = "mixer-rule-ingress-denial.yaml"
-	newTelemetryRule         = "mixer-rule-additional-telemetry.yaml"
-	routeAllRule             = "route-rule-all-v1.yaml"
-	routeReviewsVersionsRule = "route-rule-reviews-v2-v3.yaml"
-	routeReviewsV3Rule       = "route-rule-reviews-v3.yaml"
-	tcpDbRule                = "route-rule-ratings-db.yaml"
+	bookinfoSampleDir        = "samples/bookinfo"
+	yamlExtension            = "yaml"
+	deploymentDir            = "kube"
+	rulesDir                 = "kube"
+	bookinfoYaml             = "bookinfo"
+	bookinfoRatingsv2Yaml    = "bookinfo-ratings-v2"
+	bookinfoDbYaml           = "bookinfo-db"
+	sleepYaml                = "samples/sleep/sleep"
+	rateLimitRule            = rulesDir + "/" + "mixer-rule-ratings-ratelimit"
+	denialRule               = rulesDir + "/" + "mixer-rule-ratings-denial"
+	ingressDenialRule        = rulesDir + "/" + "mixer-rule-ingress-denial"
+	newTelemetryRule         = rulesDir + "/" + "mixer-rule-additional-telemetry"
+	routeAllRule             = rulesDir + "/" + "route-rule-all-v1"
+	routeReviewsVersionsRule = rulesDir + "/" + "route-rule-reviews-v2-v3"
+	routeReviewsV3Rule       = rulesDir + "/" + "route-rule-reviews-v3"
+	tcpDbRule                = rulesDir + "/" + "route-rule-ratings-db"
 
 	prometheusPort   = "9090"
 	mixerMetricsPort = "42422"
 	productPagePort  = "10000"
 
+	srcLabel          = "source_service"
 	destLabel         = "destination_service"
 	responseCodeLabel = "response_code"
 
 	// This namespace is used by default in all mixer config documents.
 	// It will be replaced with the test namespace.
 	templateNamespace = "istio-system"
+
+	checkPath  = "/istio.mixer.v1.Mixer/Check"
+	reportPath = "/istio.mixer.v1.Mixer/Report"
 )
 
 type testConfig struct {
@@ -91,13 +98,20 @@ func (t *testConfig) Setup() (err error) {
 
 	var srcBytes []byte
 	for _, rule := range rules {
-		src := util.GetResourcePath(filepath.Join(rulesDir, rule))
-		dest := filepath.Join(t.rulesDir, rule)
+		src := util.GetResourcePath(filepath.Join(bookinfoSampleDir, rule+"."+yamlExtension))
+		dest := filepath.Join(t.rulesDir, rule+"."+yamlExtension)
 		srcBytes, err = ioutil.ReadFile(src)
 		if err != nil {
 			log.Errorf("Failed to read original rule file %s", src)
 			return err
 		}
+
+		err = os.MkdirAll(filepath.Dir(dest), 0700)
+		if err != nil {
+			log.Errorf("Failed to create the directory %s", filepath.Dir(dest))
+			return err
+		}
+
 		err = ioutil.WriteFile(dest, srcBytes, 0600)
 		if err != nil {
 			log.Errorf("Failed to write into new rule file %s", dest)
@@ -730,6 +744,73 @@ func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
 	}
 }
 
+func TestMixerReportingToMixer(t *testing.T) {
+	// setup prometheus API
+	promAPI, err := promAPI()
+	if err != nil {
+		t.Fatalf("Could not build prometheus API client: %v", err)
+	}
+
+	// ensure that some traffic has gone through mesh successfully
+	if err = visitProductPage(productPageTimeout, http.StatusOK); err != nil {
+		fatalf(t, "Test app setup failure: %v", err)
+	}
+
+	log.Info("Successfully sent request(s) to productpage app through ingress.")
+	allowPrometheusSync()
+
+	t.Logf("Validating metrics with 'istio-policy' have been generated... ")
+	query := fmt.Sprintf("sum(istio_request_count{%s=\"%s\"}) by (%s)", destLabel, fqdn("istio-policy"), srcLabel)
+	t.Logf("Prometheus query: %s", query)
+	value, err := promAPI.Query(context.Background(), query, time.Now())
+	if err != nil {
+		t.Fatalf("Could not get metrics from prometheus: %v", err)
+	}
+
+	if value.Type() != model.ValVector {
+		t.Fatalf("Expected ValVector from prometheus, got %T", value)
+	}
+
+	if vec := value.(model.Vector); len(vec) < 2 {
+		t.Logf("Values for istio_request_count:\n%s", promDump(promAPI, "istio_request_count"))
+		t.Errorf("Expected at least two metrics with 'istio-policy' as the destination (srcs: istio-ingress, productpage), got %d", len(vec))
+	}
+
+	t.Logf("Validating metrics with 'istio-telemetry' have been generated... ")
+	query = fmt.Sprintf("sum(istio_request_count{%s=\"%s\"}) by (%s)", destLabel, fqdn("istio-telemetry"), srcLabel)
+	t.Logf("Prometheus query: %s", query)
+	value, err = promAPI.Query(context.Background(), query, time.Now())
+	if err != nil {
+		t.Fatalf("Could not get metrics from prometheus: %v", err)
+	}
+
+	if value.Type() != model.ValVector {
+		t.Fatalf("Expected ValVector from prometheus, got %T", value)
+	}
+
+	if vec := value.(model.Vector); len(vec) < 2 {
+		t.Logf("Values for istio_request_count:\n%s", promDump(promAPI, "istio_request_count"))
+		t.Errorf("Expected at least two metrics with 'istio-telemetry' as the destination (srcs: istio-ingress, productpage), got %d", len(vec))
+	}
+
+	mixerPod, err := podID("istio-mixer-type=telemetry")
+	if err != nil {
+		t.Fatalf("Could not retrieve istio-telemetry pod: %v", err)
+	}
+
+	t.Logf("Validating Mixer access logs show Check() and Report() calls...")
+
+	logs, err := util.Shell(`kubectl -n %s logs %s -c mixer --tail 100 | grep -e "%s" -e "%s"`, tc.Kube.Namespace, mixerPod, checkPath, reportPath)
+	if err != nil {
+		t.Fatalf("Error retrieving istio-telemetry logs: %v", err)
+	}
+	gotLines := strings.Count(logs, "\n")
+	if gotLines < 4 {
+		t.Errorf("Expected at least 4 lines of Mixer-specific access logs, got %d", gotLines)
+	}
+
+}
+
 func allowRuleSync() {
 	log.Info("Sleeping to allow rules to take effect...")
 	time.Sleep(1 * time.Minute)
@@ -926,17 +1007,17 @@ func fqdn(service string) string {
 }
 
 func createRouteRule(ruleName string) error {
-	rule := filepath.Join(tc.rulesDir, ruleName)
+	rule := filepath.Join(tc.rulesDir, ruleName+"."+yamlExtension)
 	return util.KubeApply(tc.Kube.Namespace, rule)
 }
 
 func replaceRouteRule(ruleName string) error {
-	rule := filepath.Join(tc.rulesDir, ruleName)
+	rule := filepath.Join(tc.rulesDir, ruleName+"."+yamlExtension)
 	return util.KubeApply(tc.Kube.Namespace, rule)
 }
 
 func deleteRouteRule(ruleName string) error {
-	rule := filepath.Join(tc.rulesDir, ruleName)
+	rule := filepath.Join(tc.rulesDir, ruleName+"."+yamlExtension)
 	return util.KubeDelete(tc.Kube.Namespace, rule)
 }
 
@@ -954,7 +1035,7 @@ type kubeDo func(namespace string, contents string) error
 // New mixer rules contain fully qualified pointers to other
 // resources, they must be replaced by the current namespace.
 func doMixerRule(ruleName string, do kubeDo) error {
-	rule := filepath.Join(tc.rulesDir, ruleName)
+	rule := filepath.Join(tc.rulesDir, ruleName+"."+yamlExtension)
 	cb, err := ioutil.ReadFile(rule)
 	if err != nil {
 		log.Errorf("Cannot read original yaml file %s", rule)
@@ -966,6 +1047,11 @@ func doMixerRule(ruleName string, do kubeDo) error {
 	}
 	contents = strings.Replace(contents, templateNamespace, tc.Kube.Namespace, -1)
 	return do(tc.Kube.Namespace, contents)
+}
+
+func getBookinfoResourcePath(resource string) string {
+	return util.GetResourcePath(filepath.Join(bookinfoSampleDir, deploymentDir,
+		resource+"."+yamlExtension))
 }
 
 func setTestConfig() error {
@@ -982,19 +1068,19 @@ func setTestConfig() error {
 	tc.rulesDir = tmpDir
 	demoApps := []framework.App{
 		{
-			AppYaml:    util.GetResourcePath(bookinfoYaml),
+			AppYaml:    getBookinfoResourcePath(bookinfoYaml),
 			KubeInject: true,
 		},
 		{
-			AppYaml:    util.GetResourcePath(bookinfoRatingsv2Yaml),
+			AppYaml:    getBookinfoResourcePath(bookinfoRatingsv2Yaml),
 			KubeInject: true,
 		},
 		{
-			AppYaml:    util.GetResourcePath(bookinfoDbYaml),
+			AppYaml:    getBookinfoResourcePath(bookinfoDbYaml),
 			KubeInject: true,
 		},
 		{
-			AppYaml:    util.GetResourcePath(sleepYaml),
+			AppYaml:    util.GetResourcePath(sleepYaml + "." + yamlExtension),
 			KubeInject: true,
 		},
 	}

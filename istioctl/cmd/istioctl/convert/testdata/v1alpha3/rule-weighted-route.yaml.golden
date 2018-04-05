@@ -10,10 +10,10 @@ spec:
   http:
   - route:
     - destination:
-        name: c
+        host: c
         subset: version-v1
       weight: 75
     - destination:
-        name: c
+        host: c
         subset: version-v2
       weight: 25

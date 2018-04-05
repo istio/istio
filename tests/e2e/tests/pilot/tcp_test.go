@@ -16,57 +16,37 @@ package pilot
 
 import (
 	"fmt"
-
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/serviceregistry"
-	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
+	"testing"
 )
 
-type tcp struct {
-	*tutil.Environment
-}
-
-func (t *tcp) String() string {
-	return "tcp-reachability"
-}
-
-func (t *tcp) Setup() error {
-	return nil
-}
-
-func (t *tcp) Teardown() {
-}
-
-func (t *tcp) Run() error {
-	// TCP in Eureka is tested by the headless service test.
-	if serviceregistry.ServiceRegistry(t.Config.Registry) == serviceregistry.EurekaRegistry {
-		return nil
-	}
-	// Auth is enabled for d:9090 using per-service policy. We expect request
-	// from non-envoy client ("t") should fail all the time.
+func TestTcp(t *testing.T) {
 	srcPods := []string{"a", "b", "t"}
-	dstPods := []string{"a", "b", "d"}
-	if t.Auth == meshconfig.MeshConfig_NONE {
+	dstPods := []string{"a", "b"}
+	ports := []string{"90", "9090"}
+	if !tc.Kube.AuthEnabled {
 		// t is not behind proxy, so it cannot talk in Istio auth.
 		dstPods = append(dstPods, "t")
+	} else {
+		// Auth is enabled for d:9090 using per-service policy. We expect request
+		// from non-envoy client ("t") should fail all the time.
+		dstPods = append(dstPods, "d")
 	}
-	funcs := make(map[string]func() tutil.Status)
-	for _, src := range srcPods {
-		for _, dst := range dstPods {
-			if src == "t" && dst == "t" {
-				// this is flaky in minikube
-				continue
-			}
-			for _, port := range []string{":90", ":9090"} {
-				for _, domain := range []string{"", "." + t.Config.Namespace} {
-					name := fmt.Sprintf("TCP connection from %s to %s%s%s", src, dst, domain, port)
-					funcs[name] = (func(src, dst, port, domain string) func() tutil.Status {
-						url := fmt.Sprintf("http://%s%s%s/%s", dst, domain, port, src)
-						return func() tutil.Status {
-							resp := t.ClientRequest(src, url, 1, "")
-							if src == "t" &&
-								(t.Auth == meshconfig.MeshConfig_MUTUAL_TLS ||
-									(dst == "d" && port == ":9090")) {
+
+	// Run all request tests.
+	t.Run("request", func(t *testing.T) {
+		for _, src := range srcPods {
+			for _, dst := range dstPods {
+				if src == "t" && dst == "t" {
+					// this is flaky in minikube
+					continue
+				}
+				for _, port := range ports {
+					for _, domain := range []string{"", "." + tc.Kube.Namespace} {
+						testName := fmt.Sprintf("%s->%s%s_%s", src, dst, domain, port)
+						runRetriableTest(t, testName, defaultRetryBudget, func() error {
+							reqURL := fmt.Sprintf("http://%s%s:%s/%s", dst, domain, port, src)
+							resp := ClientRequest(src, reqURL, 1, "")
+							if src == "t" && (tc.Kube.AuthEnabled || (dst == "d" && port == "9090")) {
 								// t cannot talk to envoy (a or b) when mTLS enabled,
 								// nor with d:9090 (which always has mTLS enabled).
 								if !resp.IsHTTPOk() {
@@ -75,12 +55,11 @@ func (t *tcp) Run() error {
 							} else if resp.IsHTTPOk() {
 								return nil
 							}
-							return tutil.ErrAgain
-						}
-					})(src, dst, port, domain)
+							return errAgain
+						})
+					}
 				}
 			}
 		}
-	}
-	return tutil.Parallel(funcs)
+	})
 }

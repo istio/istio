@@ -16,5 +16,5 @@ spec:
         httpStatus: 500
   - route:
     - destination:
-        name: ratings
+        host: ratings
         subset: v1
