@@ -543,18 +543,14 @@ func TestConvertPolicyToAuthNFilterConfig(t *testing.T) {
 		expected *authn_filter.FilterConfig
 	}{
 		{
-			name: "nil policy",
-			in:   nil,
-			expected: &authn_filter.FilterConfig{
-				Policy: &authn.Policy{},
-			},
+			name:     "nil policy",
+			in:       nil,
+			expected: nil,
 		},
 		{
-			name: "empty policy",
-			in:   &authn.Policy{},
-			expected: &authn_filter.FilterConfig{
-				Policy: &authn.Policy{},
-			},
+			name:     "empty policy",
+			in:       &authn.Policy{},
+			expected: nil,
 		},
 		{
 			name: "no jwt policy",
@@ -671,19 +667,12 @@ func TestBuildAuthNFilter(t *testing.T) {
 		expected *http_conn.HttpFilter
 	}{
 		{
-			in: nil,
-			expected: &http_conn.HttpFilter{
-				Name: "istio_authn",
-				Config: &types.Struct{
-					Fields: map[string]*types.Value{
-						"policy": {
-							Kind: &types.Value_StructValue{
-								StructValue: &types.Struct{Fields: map[string]*types.Value{}},
-							},
-						},
-					},
-				},
-			},
+			in:       nil,
+			expected: nil,
+		},
+		{
+			in:       &authn.Policy{},
+			expected: nil,
 		},
 		{
 			in: &authn.Policy{

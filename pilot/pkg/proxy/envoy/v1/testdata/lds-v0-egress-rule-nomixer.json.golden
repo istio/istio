@@ -28,13 +28,6 @@
        },
        "filters": [
         {
-         "type": "decoder",
-         "name": "istio_authn",
-         "config": {
-          "policy": {}
-         }
-        },
-        {
          "type": "",
          "name": "cors",
          "config": {}
@@ -75,13 +68,6 @@
         "refresh_delay_ms": 10
        },
        "filters": [
-        {
-         "type": "decoder",
-         "name": "istio_authn",
-         "config": {
-          "policy": {}
-         }
-        },
         {
          "type": "",
          "name": "cors",
@@ -124,13 +110,6 @@
        },
        "filters": [
         {
-         "type": "decoder",
-         "name": "istio_authn",
-         "config": {
-          "policy": {}
-         }
-        },
-        {
          "type": "",
          "name": "cors",
          "config": {}
@@ -171,13 +150,6 @@
         "refresh_delay_ms": 10
        },
        "filters": [
-        {
-         "type": "decoder",
-         "name": "istio_authn",
-         "config": {
-          "policy": {}
-         }
-        },
         {
          "type": "",
          "name": "cors",
@@ -314,13 +286,6 @@
         ]
        },
        "filters": [
-        {
-         "type": "decoder",
-         "name": "istio_authn",
-         "config": {
-          "policy": {}
-         }
-        },
         {
          "type": "",
          "name": "cors",
@@ -481,13 +446,6 @@
         ]
        },
        "filters": [
-        {
-         "type": "decoder",
-         "name": "istio_authn",
-         "config": {
-          "policy": {}
-         }
-        },
         {
          "type": "",
          "name": "cors",

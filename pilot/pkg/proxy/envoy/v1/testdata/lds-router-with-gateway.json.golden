@@ -23,13 +23,6 @@
        "filters": [
         {
          "type": "decoder",
-         "name": "istio_authn",
-         "config": {
-          "policy": {}
-         }
-        },
-        {
-         "type": "decoder",
          "name": "mixer",
          "config": {
           "v2": {
@@ -103,13 +96,6 @@
         "refresh_delay_ms": 10
        },
        "filters": [
-        {
-         "type": "decoder",
-         "name": "istio_authn",
-         "config": {
-          "policy": {}
-         }
-        },
         {
          "type": "decoder",
          "name": "mixer",

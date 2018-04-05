@@ -164,8 +164,8 @@ func ConvertPolicyToJwtConfig(policy *authn.Policy) *jwtfilter.JwtAuthentication
 
 // ConvertPolicyToAuthNFilterConfig returns authn filter config corresponding for the input policy.
 func ConvertPolicyToAuthNFilterConfig(policy *authn.Policy) *authn_filter.FilterConfig {
-	if policy == nil {
-		return &authn_filter.FilterConfig{Policy: &authn.Policy{}}
+	if policy == nil || (len(policy.Peers) == 0 && len(policy.Origins) == 0) {
+		return nil
 	}
 	filterConfig := &authn_filter.FilterConfig{
 		Policy: proto.Clone(policy).(*authn.Policy),
@@ -196,9 +196,13 @@ func BuildJwtFilter(policy *authn.Policy) *http_conn.HttpFilter {
 
 // BuildAuthNFilter returns authn filter for the given policy. If policy is nil, returns nil.
 func BuildAuthNFilter(policy *authn.Policy) *http_conn.HttpFilter {
+	filterConfigProto := ConvertPolicyToAuthNFilterConfig(policy)
+	if filterConfigProto == nil {
+		return nil
+	}
 	return &http_conn.HttpFilter{
 		Name:   AuthnFilterName,
-		Config: util.MessageToStruct(ConvertPolicyToAuthNFilterConfig(policy)),
+		Config: util.MessageToStruct(filterConfigProto),
 	}
 }
 
