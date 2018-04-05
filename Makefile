@@ -622,7 +622,7 @@ isti%.yaml: $(HELM)
 generate_yaml-envoyv2_transition: $(HELM)
 	./install/updateVersion_orig.sh -a ${HUB},${TAG} >/dev/null 2>&1
 	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/istio.yaml
-	helm template --set global.tag=${TAG} \
+	$(HELM) template --set global.tag=${TAG} \
 		  --namespace=istio-system \
                   --set global.hub=${HUB} \
 		  --values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
