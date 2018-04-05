@@ -22,6 +22,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	jwtfilter "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	"github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/types"
 
 	authn "istio.io/api/authentication/v1alpha1"
@@ -667,16 +668,16 @@ func TestConvertPolicyToAuthNFilterConfig(t *testing.T) {
 
 func TestBuildAuthNFilter(t *testing.T) {
 	cases := []struct {
-		in       *authn.Policy
-		expected *http_conn.HttpFilter
+		in                   *authn.Policy
+		expectedFilterConfig *authn_filter.FilterConfig
 	}{
 		{
-			in:       nil,
-			expected: nil,
+			in:                   nil,
+			expectedFilterConfig: nil,
 		},
 		{
-			in:       &authn.Policy{},
-			expected: nil,
+			in:                   &authn.Policy{},
+			expectedFilterConfig: nil,
 		},
 		{
 			in: &authn.Policy{
@@ -690,67 +691,45 @@ func TestBuildAuthNFilter(t *testing.T) {
 					},
 				},
 			},
-			expected: &http_conn.HttpFilter{
-				Name: "istio_authn",
-				Config: &types.Struct{
-					Fields: map[string]*types.Value{
-						"jwt_output_payload_locations": {
-							Kind: &types.Value_StructValue{
-								StructValue: &types.Struct{
-									Fields: map[string]*types.Value{
-										"": {
-											Kind: &types.Value_StringValue{
-												StringValue: "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709",
-											},
-										},
-									},
-								},
-							},
-						},
-						"policy": {
-							Kind: &types.Value_StructValue{
-								StructValue: &types.Struct{
-									Fields: map[string]*types.Value{
-										"peers": {
-											Kind: &types.Value_ListValue{
-												ListValue: &types.ListValue{
-													Values: []*types.Value{
-														{
-															Kind: &types.Value_StructValue{
-																StructValue: &types.Struct{
-																	Fields: map[string]*types.Value{
-																		"jwt": {
-																			Kind: &types.Value_StructValue{
-																				StructValue: &types.Struct{
-																					Fields: map[string]*types.Value{
-																						"jwks_uri": {
-																							Kind: &types.Value_StringValue{StringValue: "http://abc.com"},
-																						},
-																					},
-																				},
-																			},
-																		},
-																	},
-																},
-															},
-														},
-													},
-												},
-											},
-										},
-									},
+			expectedFilterConfig: &authn_filter.FilterConfig{
+				Policy: &authn.Policy{
+					Peers: []*authn.PeerAuthenticationMethod{
+						{
+							Params: &authn.PeerAuthenticationMethod_Jwt{
+								Jwt: &authn.Jwt{
+									JwksUri: "http://abc.com",
 								},
 							},
 						},
 					},
+				},
+				JwtOutputPayloadLocations: map[string]string{
+					"": "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709",
 				},
 			},
 		},
 	}
 
 	for _, c := range cases {
-		if got := BuildAuthNFilter(c.in); !reflect.DeepEqual(c.expected, got) {
-			t.Errorf("BuildAuthNFilter(%#v), got:\n%#v\nwanted:\n%#v\n", c.in, got, c.expected)
+		got := BuildAuthNFilter(c.in)
+		if got == nil {
+			if c.expectedFilterConfig != nil {
+				t.Errorf("BuildAuthNFilter(%#v), got: nil, wanted filter with config %s", c.in, c.expectedFilterConfig.String())
+			}
+		} else {
+			if c.expectedFilterConfig == nil {
+				t.Errorf("BuildAuthNFilter(%#v), got: \n%#v\n, wanted none", c.in, got)
+			} else {
+				if got.GetName() != AuthnFilterName {
+					t.Errorf("BuildAuthNFilter(%#v), filter name is %s, wanted %s", c.in, got.GetName(), AuthnFilterName)
+				}
+				filterConfig := &authn_filter.FilterConfig{}
+				if err := util.StructToMessage(got.GetConfig(), filterConfig); err != nil {
+					t.Errorf("BuildAuthNFilter(%#v), bad filter config: %v", c.in, err)
+				} else if !reflect.DeepEqual(c.expectedFilterConfig, filterConfig) {
+					t.Errorf("BuildAuthNFilter(%#v), got filter config:\n%s\nwanted:\n%s\n", c.in, filterConfig.String(), c.expectedFilterConfig.String())
+				}
+			}
 		}
 	}
 }
