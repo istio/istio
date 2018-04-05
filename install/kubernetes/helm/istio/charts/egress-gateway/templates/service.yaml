@@ -17,3 +17,28 @@ spec:
     name: https
   selector:
     istio: egress-gateway
+---
+{{- if .Values.service.nodePort.enabled }}
+# Using separate egress for nodeport, to avoid conflict with pilot e2e test configs.
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-egress-gateway-nodeport
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "istio.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    istio: egress-gateway
+spec:
+  type: NodePort
+  ports:
+  - port: 80
+    nodePort: {{ .Values.service.nodePort.port }}
+    name: http
+  - port: 443
+    name: https
+  selector:
+    istio: egress-gateway
+{{- end }}

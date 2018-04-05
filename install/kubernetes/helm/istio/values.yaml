@@ -90,7 +90,7 @@ ingress:
 # ingress-gateway configuration
 #
 ingress-gateway:
-  enabled: true
+  enabled: false
   serviceAccountName: default
   imagePullPolicy: IfNotPresent
   autoscaleMin: 1
@@ -102,12 +102,17 @@ ingress-gateway:
 # requests:
 #  cpu: 100m
 #  memory: 128Mi
+  service:
+    nodePort:
+      enabled: false
+      port80: 31380
+      port443: 31390
 
 #
 # egress-gateway configuration
 #
 egress-gateway:
-  enabled: true
+  enabled: false
   serviceAccountName: default
   imagePullPolicy: IfNotPresent
   autoscaleMin: 1
@@ -119,6 +124,11 @@ egress-gateway:
 # requests:
 #  cpu: 100m
 #  memory: 128Mi
+  service:
+    nodePort:
+      enabled: false
+      port80: 31480
+      port443: 31490
 
 #
 # sidecar-injector configuration

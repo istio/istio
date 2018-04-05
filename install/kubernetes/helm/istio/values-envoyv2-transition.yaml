@@ -5,6 +5,7 @@ global:
     image: proxyv2
 
 ingress:
+  enabled: true
   service:
     nodePort:
       enabled: true
@@ -17,5 +18,15 @@ ingress:
 istiotesting:
   oneNameSpace: false
 
-ingress:
+# needs gateway for testing
+ingress-gateway:
   enabled: true
+  service:
+    nodePort:
+      enabled: true
+
+egress-gateway:
+  enabled: true
+  service:
+    nodePort:
+      enabled: true
