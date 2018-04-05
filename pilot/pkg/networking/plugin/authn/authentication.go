@@ -170,6 +170,16 @@ func ConvertPolicyToAuthNFilterConfig(policy *authn.Policy) *authn_filter.Filter
 	filterConfig := &authn_filter.FilterConfig{
 		Policy: proto.Clone(policy).(*authn.Policy),
 	}
+	// Create default mTLS params for params type mTLS but value is nil.
+	// This walks around the issue https://github.com/istio/istio/issues/4763
+	for _, peer := range filterConfig.Policy.Peers {
+		switch peer.GetParams().(type) {
+		case *authn.PeerAuthenticationMethod_Mtls:
+			if peer.GetMtls() == nil {
+				peer.Params = &authn.PeerAuthenticationMethod_Mtls{&authn.MutualTls{}}
+			}
+		}
+	}
 	// Remove targets part.
 	filterConfig.Policy.Targets = nil
 	locations := make(map[string]string)

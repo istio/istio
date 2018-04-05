@@ -562,7 +562,9 @@ func TestConvertPolicyToAuthNFilterConfig(t *testing.T) {
 			expected: &authn_filter.FilterConfig{
 				Policy: &authn.Policy{
 					Peers: []*authn.PeerAuthenticationMethod{{
-						Params: &authn.PeerAuthenticationMethod_Mtls{},
+						Params: &authn.PeerAuthenticationMethod_Mtls{
+							&authn.MutualTls{},
+						},
 					}},
 				},
 			},
@@ -636,7 +638,9 @@ func TestConvertPolicyToAuthNFilterConfig(t *testing.T) {
 							},
 						},
 						{
-							Params: &authn.PeerAuthenticationMethod_Mtls{},
+							Params: &authn.PeerAuthenticationMethod_Mtls{
+								&authn.MutualTls{},
+							},
 						},
 					},
 					Origins: []*authn.OriginAuthenticationMethod{

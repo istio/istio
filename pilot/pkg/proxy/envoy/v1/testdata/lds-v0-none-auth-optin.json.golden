@@ -718,7 +718,7 @@
           "policy": {
            "peers": [
             {
-             "mtls": null
+             "mtls": {}
             }
            ]
           }
