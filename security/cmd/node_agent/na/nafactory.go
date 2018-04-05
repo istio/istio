@@ -17,7 +17,7 @@ package na
 import (
 	"fmt"
 
-	"istio.io/istio/security/pkg/caclient/grpc"
+	"istio.io/istio/security/pkg/caclient/protocol"
 	"istio.io/istio/security/pkg/platform"
 	"istio.io/istio/security/pkg/util"
 )
@@ -44,6 +44,6 @@ func NewNodeAgent(cfg *Config) (NodeAgent, error) {
 		return nil, err
 	}
 	na.pc = pc
-	na.cAClient = &grpc.CAGrpcClientImpl{}
+	na.cAClient = &protocol.CAGrpcClientImpl{}
 	return na, nil
 }

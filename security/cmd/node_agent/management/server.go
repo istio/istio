@@ -28,7 +28,7 @@ import (
 	"istio.io/istio/security/cmd/node_agent/na"
 	"istio.io/istio/security/cmd/node_agent_k8s/workload/handler"
 	"istio.io/istio/security/pkg/caclient"
-	cagrpc "istio.io/istio/security/pkg/caclient/grpc"
+	"istio.io/istio/security/pkg/caclient/protocol"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
 	"istio.io/istio/security/pkg/workload"
@@ -44,9 +44,6 @@ type Server struct {
 	// makes mgmt-api server to stop
 	done   chan bool
 	config *na.Config
-	// TODO(incfly): remove these two after they're merged into CAClient.
-	pc           platform.Client
-	caGrpcClient cagrpc.CAGrpcClient
 	caClient     *caclient.CAClient
 	// the workload identity running together with the NodeAgent, only used for vm mode.
 	// TODO(incfly): uses this once Server supports vm mode.
@@ -76,7 +73,7 @@ func New(cfg *na.Config) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	protocol, err := cagrpc.NewCAGrpcClient(cfg.CAClientConfig.CAAddress, dialOpts)
+	protocol, err := protocol.NewCAGrpcClient(cfg.CAClientConfig.CAAddress, dialOpts)
 	cac, err := caclient.NewCAClient(pc, protocol, cfg.CAClientConfig.CSRMaxRetries, cfg.CAClientConfig.CSRInitialRetrialInterval)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create caclient err %v", err)
@@ -84,10 +81,8 @@ func New(cfg *na.Config) (*Server, error) {
 	return &Server{
 		done:         make(chan bool, 1),
 		handlerMap:   make(map[string]handler.WorkloadHandler),
-		caGrpcClient: &cagrpc.CAGrpcClientImpl{},
 		caClient:     cac,
 		config:       cfg,
-		pc:           pc,
 		secretServer: ss,
 	}, nil
 }

@@ -20,7 +20,7 @@ import (
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/caclient"
-	"istio.io/istio/security/pkg/caclient/grpc"
+	"istio.io/istio/security/pkg/caclient/protocol"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
 	"istio.io/istio/security/pkg/util"
@@ -33,7 +33,7 @@ type nodeAgentInternal struct {
 	// Configuration specific to Node Agent
 	config   *Config
 	pc       platform.Client
-	cAClient grpc.CAGrpcClient
+	cAClient protocol.CAGrpcClient
 	identity string
 	certUtil util.CertUtil
 }

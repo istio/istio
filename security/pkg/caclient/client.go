@@ -26,7 +26,7 @@ import (
 	"istio.io/istio/security/pkg/platform"
 	"istio.io/istio/security/pkg/workload"
 	pb "istio.io/istio/security/proto"
-	"istio.io/istio/security/pkg/caclient/grpc"
+	"istio.io/istio/security/pkg/caclient/protocol"
 )
 
 // CAClient is a client to provision key and certificate from the upstream CA via CSR protocol.
@@ -34,13 +34,13 @@ type CAClient struct {
 	platformClient         platform.Client
 	maxRetries             int
 	initialRetrialInterval time.Duration
-	caProtocol             grpc.CAProtocol
+	caProtocol             protocol.CAProtocol
 
 }
 
 // NewCAClient creates a new CAClient instance.
 //func NewCAClient(pltfmc platform.Client, caAddr string, maxRetries int, interval time.Duration) (*CAClient, error) {
-func NewCAClient(pltfmc platform.Client, protocolClient grpc.CAProtocol, maxRetries int, interval time.Duration) (*CAClient, error) {
+func NewCAClient(pltfmc platform.Client, protocolClient protocol.CAProtocol, maxRetries int, interval time.Duration) (*CAClient, error) {
 	if !pltfmc.IsProperPlatform() {
 		return nil, fmt.Errorf("CA client is not running on the right platform") // nolint
 	}

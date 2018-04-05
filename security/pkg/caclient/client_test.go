@@ -26,7 +26,7 @@ import (
 	"istio.io/istio/security/pkg/platform"
 	mockpc "istio.io/istio/security/pkg/platform/mock"
 	pb "istio.io/istio/security/proto"
-	grpc2 "istio.io/istio/security/pkg/caclient/grpc"
+	"istio.io/istio/security/pkg/caclient/protocol"
 )
 
 func TestRetrieveNewKeyCert(t *testing.T) {
@@ -116,7 +116,7 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 	}
 
 	for id, c := range testCases {
-		fake := grpc2.NewFakeProtocol(c.caOptions.Response, c.caOptions.Error)
+		fake := protocol.NewFakeProtocol(c.caOptions.Response, c.caOptions.Error)
 		client, err := NewCAClient(c.pltfmc, fake, c.maxRetries, c.interval)
 		if err != nil {
 			t.Errorf("Test case [%s]: CA creation error: %v", id, err)
