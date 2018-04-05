@@ -21,7 +21,7 @@ import (
 
 func TestAuthExclusion(t *testing.T) {
 	if !tc.Kube.AuthEnabled {
-		t.Skipf("Skipping %s: auth_enabled=false", t.Name())
+		t.Skipf("Skipping %s: auth_enable=false", t.Name())
 	}
 
 	// fake-control service doesn't have sidecar, and is excluded from mTLS so
