@@ -42,6 +42,7 @@ const (
 	configurationDir                   = "platforms/kubernetes/configurations/guide"
 	deploymentsDir                     = "platforms/kubernetes/deployments"
 	routeRulesDir                      = "routing/v1alpha2"
+	externalServicesDir                = "/platforms/kubernetes/external_services/v1alpha2"
 	tutorialDir                        = "istio.io_tutorial"
 	bookinfoRatingsv2Yaml              = "bookinfo-ratings-v2"
 	bookinfoRatingsMysqlYaml           = "bookinfo-ratings-v2-mysql"
@@ -58,7 +59,7 @@ const (
 	testDbRule                         = routeRulesDir + "/" + "route-rule-ratings-db"
 	testMysqlRule                      = routeRulesDir + "/" + "route-rule-ratings-mysql"
 	detailsExternalServiceRouteRule    = routeRulesDir + "/" + "route-rule-details-v2"
-	detailsExternalServiceEgressRule   = routeRulesDir + "/" + "egress-rule-google-apis"
+	detailsExternalServiceEgressRule   = externalServicesDir + "/" + "egress-rule-google-apis"
 )
 
 var (
