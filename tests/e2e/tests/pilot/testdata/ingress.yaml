@@ -3,11 +3,31 @@ kind: Ingress
 metadata:
   name: ingress
   annotations:
-    kubernetes.io/ingress.class: "istio"
+    kubernetes.io/ingress.class: istio
 spec:
   tls:
     - secretName: istio-ingress-certs
   rules:
+  - host: foo.bar.com
+    http:
+      paths:
+      - path: /foo
+        backend:
+          serviceName: a
+          servicePort: 8080
+  - host: "*.baz.com"
+    http:
+      paths:
+      - path: /bar
+        backend:
+          serviceName: a
+          servicePort: 8080
+  - host: api.company.com
+    http:
+      paths:
+      - backend:
+          serviceName: a
+          servicePort: grpc
   - http:
       paths:
       - path: /lucky
@@ -40,25 +60,5 @@ spec:
           servicePort: 8080
       - path: /.*
         backend:
-          serviceName: a
-          servicePort: grpc
-  - host: foo.bar.com
-    http:
-      paths:
-      - path: /foo
-        backend:
-          serviceName: a
-          servicePort: 8080
-  - host: "*.baz.com"
-    http:
-      paths:
-      - path: /bar
-        backend:
-          serviceName: a
-          servicePort: 8080
-  - host: api.company.com
-    http:
-      paths:
-      - backend:
           serviceName: a
           servicePort: grpc
