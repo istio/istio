@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package protocol defines the interface of CA client protocol. Currently we only support gRPC
+// protocol sent to Istio CA server.
 package protocol
 
 import (
