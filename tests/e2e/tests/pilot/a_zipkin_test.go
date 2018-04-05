@@ -25,11 +25,11 @@ import (
 )
 
 const (
-	traceHeader = "X-Client-Trace-Id"
-	numTraces   = 5
-	mixerCheckOperation = "mixer/check"
+	traceHeader          = "X-Client-Trace-Id"
+	numTraces            = 5
+	mixerCheckOperation  = "mixer/check"
 	policyCheckOperation = "\"check\""
-	traceIdField = "\"traceId\""
+	traceIDField         = "\"traceId\""
 )
 
 func TestZipkin(t *testing.T) {
@@ -79,7 +79,7 @@ func TestZipkin(t *testing.T) {
 			// NOTE: We are also indirectly verifying that the mixer/check span is a child span of the service invocation, as
 			// the mixer/check span can only exist in this trace as a child span. If it wasn't a child span then it would be
 			// in a separate trace instance not retrieved by the query to zipkin (based on the single x-client-trace-id).
-			if i == 0 && (strings.Count(response.Body, traceIdField) != 3 || !strings.Contains(response.Body, policyCheckOperation) ||
+			if i == 0 && (strings.Count(response.Body, traceIDField) != 3 || !strings.Contains(response.Body, policyCheckOperation) ||
 				!strings.Contains(response.Body, mixerCheckOperation)) {
 				return errAgain
 			}
