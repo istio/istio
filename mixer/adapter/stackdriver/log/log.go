@@ -62,10 +62,9 @@ type (
 	handler struct {
 		now func() time.Time // used for testing
 
-		l          adapter.Logger
-		client     io.Closer
-		syncClient io.Closer
-		info       map[string]info
+		l                  adapter.Logger
+		client, syncClient io.Closer
+		info               map[string]info
 	}
 )
 
@@ -136,8 +135,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 					})
 				}
 				if err != nil {
-					_ = logger.Errorf("failed to create/update stackdriver logging sink: %v", err)
-					continue
+					logger.Warningf("failed to create/update stackdriver logging sink: %v", err)
 				}
 			}
 		}
