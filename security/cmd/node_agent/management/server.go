@@ -42,9 +42,9 @@ type Server struct {
 	handlerMap map[string]handler.WorkloadHandler
 
 	// makes mgmt-api server to stop
-	done   chan bool
-	config *na.Config
-	caClient     *caclient.CAClient
+	done     chan bool
+	config   *na.Config
+	caClient *caclient.CAClient
 	// the workload identity running together with the NodeAgent, only used for vm mode.
 	// TODO(incfly): uses this once Server supports vm mode.
 	identity string // nolint

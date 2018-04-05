@@ -70,7 +70,7 @@ func TestNewKeyCertBundleRotator(t *testing.T) {
 	}
 
 	for id, c := range testCases {
-		_, err := NewKeyCertBundleRotator(c.config, &fakeKeyCertRetriever{},&pkimock.FakeKeyCertBundle{})
+		_, err := NewKeyCertBundleRotator(c.config, &fakeKeyCertRetriever{}, &pkimock.FakeKeyCertBundle{})
 
 		if len(c.expectedErr) > 0 {
 			if err == nil {

@@ -20,13 +20,12 @@ import (
 
 	"io/ioutil"
 
-
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/security/pkg/caclient/protocol"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
 	"istio.io/istio/security/pkg/workload"
 	pb "istio.io/istio/security/proto"
-	"istio.io/istio/security/pkg/caclient/protocol"
 )
 
 // CAClient is a client to provision key and certificate from the upstream CA via CSR protocol.
@@ -35,7 +34,6 @@ type CAClient struct {
 	maxRetries             int
 	initialRetrialInterval time.Duration
 	caProtocol             protocol.CAProtocol
-
 }
 
 // NewCAClient creates a new CAClient instance.

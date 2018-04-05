@@ -21,12 +21,12 @@ import (
 
 	"google.golang.org/grpc"
 
+	"istio.io/istio/security/pkg/caclient/protocol"
 	"istio.io/istio/security/pkg/caclient/testserver"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
 	mockpc "istio.io/istio/security/pkg/platform/mock"
 	pb "istio.io/istio/security/proto"
-	"istio.io/istio/security/pkg/caclient/protocol"
 )
 
 func TestRetrieveNewKeyCert(t *testing.T) {

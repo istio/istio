@@ -25,7 +25,6 @@ import (
 	pb "istio.io/istio/security/proto"
 )
 
-
 // CAProtocol is the interface for talking to CA.
 type CAProtocol interface {
 	// SendCSR send CSR request to the CA server.
@@ -94,13 +93,13 @@ func (c *CAGrpcClientImpl) SendCSR(req *pb.CsrRequest, pc platform.Client, caAdd
 
 type FakeProtocol struct {
 	counter int
-	resp *pb.CsrResponse
-	errMsg string
+	resp    *pb.CsrResponse
+	errMsg  string
 }
 
 func NewFakeProtocol(response *pb.CsrResponse, err string) *FakeProtocol {
 	return &FakeProtocol{
-		resp: response,
+		resp:   response,
 		errMsg: err,
 	}
 }
