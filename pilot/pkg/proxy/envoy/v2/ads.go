@@ -62,7 +62,7 @@ type XdsConnection struct {
 	//HttpConnectionManagers map[string]*http_conn.HttpConnectionManager
 
 	HTTPListeners []*xdsapi.Listener
-	RouteConfigs  map[string][]*xdsapi.RouteConfiguration
+	RouteConfigs  map[string]*xdsapi.RouteConfiguration
 
 	// current list of clusters monitored by the client
 	Clusters []string
@@ -108,7 +108,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 		PeerAddr:      peerAddr,
 		Connect:       time.Now(),
 		HTTPListeners: []*xdsapi.Listener{},
-		RouteConfigs:  map[string][]*xdsapi.RouteConfiguration{},
+		RouteConfigs:  map[string]*xdsapi.RouteConfiguration{},
 		Clusters:      []string{},
 		stream:        stream,
 	}
@@ -354,13 +354,13 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 }
 
 func (s *DiscoveryServer) pushRoute(con *XdsConnection) error {
-	rc := [][]*xdsapi.RouteConfiguration{}
+	rc := []*xdsapi.RouteConfiguration{}
+	// TODO: once per config update
+	services, err := s.env.Services()
 	for _, rn := range con.Routes {
-		r, err := s.ConfigGenerator.BuildRoutes(s.env, *con.modelNode, rn)
-		if err != nil {
-			log.Warnf("ADS: config failure, closing grpc %v", err)
-			return err
-		}
+		// TODO: for ingress/gateway use the other method
+		r := s.ConfigGenerator.BuildSidecarOutboundHTTPRouteConfig(s.env, *con.modelNode, nil, services, rn)
+
 		rc = append(rc, r)
 		con.RouteConfigs[rn] = r
 	}
@@ -380,17 +380,15 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection) error {
 	return nil
 }
 
-func routeDiscoveryResponse(ls [][]*xdsapi.RouteConfiguration, node model.Proxy) (*xdsapi.DiscoveryResponse, error) {
+func routeDiscoveryResponse(ls []*xdsapi.RouteConfiguration, node model.Proxy) (*xdsapi.DiscoveryResponse, error) {
 	resp := &xdsapi.DiscoveryResponse{
 		TypeUrl:     RouteType,
 		VersionInfo: versionInfo(),
 		Nonce:       nonce(),
 	}
 	for _, ll := range ls {
-		for _, rr := range ll {
-			lr, _ := types.MarshalAny(rr)
-			resp.Resources = append(resp.Resources, *lr)
-		}
+		lr, _ := types.MarshalAny(ll)
+		resp.Resources = append(resp.Resources, *lr)
 	}
 
 	return resp, nil

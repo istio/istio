@@ -31,6 +31,10 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"net"
+	"net/http/httputil"
+	"net/url"
+
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
@@ -54,6 +58,7 @@ var (
 	app3Ip    = "10.2.0.1"
 	gatewayIP = "10.3.0.1"
 	ingressIP = "10.3.0.2"
+	localIp   = "10.3.0.3"
 )
 
 // Common code for the xds testing.
@@ -140,6 +145,34 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 	svc.Ports = append(svc.Ports, port)
 	server.MemoryServiceDiscovery.AddService(hostname, svc)
 
+	localIp = getLocalIP()
+	// Explicit test service, in the v2 memory registry. Similar with mock.MakeService,
+	// but easier to read.
+	server.EnvoyXdsServer.MemRegistry.AddService("local.default.svc.cluster.local", &model.Service{
+		Hostname: "local.default.svc.cluster.local",
+		Address:  "10.10.0.4",
+		Ports: []*model.Port{
+			{
+				Name:                 "http-main",
+				Port:                 80,
+				Protocol:             model.ProtocolHTTP,
+				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+			}},
+	})
+	server.EnvoyXdsServer.MemRegistry.AddInstance("local.default.svc.cluster.local", &model.ServiceInstance{
+		Endpoint: model.NetworkEndpoint{
+			Address: localIp,
+			Port:    int(testEnv.Ports().BackendPort),
+			ServicePort: &model.Port{
+				Name:                 "http-main",
+				Port:                 80,
+				Protocol:             model.ProtocolHTTP,
+				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+			},
+		},
+		AvailabilityZone: "az",
+	})
+
 	// Explicit test service, in the v2 memory registry. Similar with mock.MakeService,
 	// but easier to read.
 	server.EnvoyXdsServer.MemRegistry.AddService("service3.default.svc.cluster.local", &model.Service{
@@ -147,6 +180,7 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 		Address:  "10.10.0.1",
 		Ports:    testPorts(0),
 	})
+
 	server.EnvoyXdsServer.MemRegistry.AddInstance("service3.default.svc.cluster.local", &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
 			Address: app3Ip,
@@ -256,6 +290,12 @@ func TestEnvoy(t *testing.T) {
 	// Make sure tcp port is ready before starting the test.
 	testenv.WaitForPort(testEnv.Ports().TCPProxyPort)
 
+	t.Run("envoyInit", envoyInit)
+	t.Run("service", testService)
+}
+
+// envoyInit verifies envoy has accepted the config from pilot by checking the stats.
+func envoyInit(t *testing.T) {
 	statsURL := fmt.Sprintf("http://localhost:%d/stats?format=json", testEnv.Ports().AdminPort)
 	res, err := http.Get(statsURL)
 	if err != nil {
@@ -291,6 +331,24 @@ func TestEnvoy(t *testing.T) {
 
 }
 
+// Example of using a local test connecting to the in-process test service, using Envoy http proxy
+// mode. This is also a test for http proxy (finally).
+func testService(t *testing.T) {
+	proxyUrl, _ := url.Parse("http://localhost:17002")
+
+	client := &http.Client{Transport: &http.Transport{Proxy: http.ProxyURL(proxyUrl)}}
+
+	res, err := client.Get("http://local.default.svc.cluster.local")
+	resdmp, _ := httputil.DumpResponse(res, true)
+	t.Log(string(resdmp))
+	if err != nil {
+		t.Error("Failed to access proxy", err)
+	}
+	if res.Status != "200" {
+		t.Error("Proxy failed ", res.Status)
+	}
+}
+
 // EnvoyStat is used to parse envoy stats
 type EnvoyStat struct {
 	Name  string `json:"name"`
@@ -310,6 +368,21 @@ func stats2map(stats []byte) map[string]int {
 	return m
 }
 
+func getLocalIP() string {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return ""
+	}
+	for _, address := range addrs {
+		// check the address type and if it is not a loopback the display it
+		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				return ipnet.IP.String()
+			}
+		}
+	}
+	return ""
+}
 func TestMain(m *testing.M) {
 	flag.Parse()
 	defer func() {

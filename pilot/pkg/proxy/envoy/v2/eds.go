@@ -89,7 +89,7 @@ type EdsCluster struct {
 	FirstUse time.Time
 
 	// EdsClients keeps track of all nodes monitoring the cluster.
-	EdsClients map[string]*XdsConnection
+	EdsClients map[string]*XdsConnection `json:"-"`
 
 	// NonEmptyTime is the time the cluster first had a non-empty set of endpoints
 	NonEmptyTime time.Time
@@ -414,9 +414,9 @@ func edsPushAll() {
 	}
 }
 
-// EDSz implements a status and debug interface for EDS.
+// edsz implements a status and debug interface for EDS.
 // It is mapped to /debug/edsz on the monitor port (9093).
-func EDSz(w http.ResponseWriter, req *http.Request) {
+func edsz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
 	if req.Form.Get("debug") != "" {
 		edsDebug = req.Form.Get("debug") == "1"

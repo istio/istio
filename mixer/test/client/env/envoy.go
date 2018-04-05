@@ -35,7 +35,7 @@ func (s *TestSetup) NewEnvoy(stress, faultInject bool, mfConf *MixerFilterConf, 
 	// TODO: use util.IstioBin instead to reduce dependency on PATH
 	envoyPath := "envoy"
 	// TODO: use util.IstioOut, so generate config is saved
-	confPath := fmt.Sprintf("/tmp/config.conf.%v", ports.AdminPort)
+	confPath := fmt.Sprintf("/tmp/config.conf.%v.json", ports.AdminPort)
 	log.Printf("Envoy config: in %v\n", confPath)
 	if err := s.CreateEnvoyConf(confPath, stress, faultInject, mfConf, ports, confVersion); err != nil {
 		return nil, err

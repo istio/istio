@@ -49,7 +49,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 		Controller:       s.MemRegistry.controller,
 	})
 
-	mux.HandleFunc("/debug/edsz", EDSz)
+	mux.HandleFunc("/debug/edsz", edsz)
 
 	mux.HandleFunc("/debug/adsz", adsz)
 

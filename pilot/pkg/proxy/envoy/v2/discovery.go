@@ -52,7 +52,7 @@ const (
 	// ListenerType is sent after clusters and endpoints.
 	ListenerType = typePrefix + "Listener"
 	// RouteType is sent after listeners.
-	RouteType = typePrefix + "Route"
+	RouteType = typePrefix + "RouteConfiguration"
 )
 
 // DiscoveryServer is Pilot's gRPC implementation for Envoy's v2 xds APIs

@@ -176,7 +176,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env model.Environmen
 			port:           int(mesh.ProxyHttpPort),
 			protocol:       model.ProtocolHTTP,
 			httpOpts: &httpListenerOpts{
-				routeConfig: configgen.buildSidecarOutboundHTTPRouteConfig(env, node, proxyInstances,
+				routeConfig: configgen.BuildSidecarOutboundHTTPRouteConfig(env, node, proxyInstances,
 					services, RDSHttpProxy),
 				//rds:              RDSHttpProxy,
 				useRemoteAddress: useRemoteAddress,
@@ -335,7 +335,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				listenerOpts.protocol = model.ProtocolHTTP
 				listenerOpts.httpOpts = &httpListenerOpts{
 					//rds:              fmt.Sprintf("%d", servicePort.Port),
-					routeConfig: configgen.buildSidecarOutboundHTTPRouteConfig(env, node, proxyInstances, services,
+					routeConfig: configgen.BuildSidecarOutboundHTTPRouteConfig(env, node, proxyInstances, services,
 						fmt.Sprintf("%d", servicePort.Port)),
 					useRemoteAddress: useRemoteAddress,
 					direction:        operation,
