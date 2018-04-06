@@ -25,7 +25,6 @@ function generate_routing {
     for routing_spec_path in routing/v1alpha2/*; do
         routing_spec=$(basename $routing_spec_path)
         cp  $routing_spec_path $routing_dir/$routing_spec
-        echo cp  $routing_spec_path $routing_dir/$routing_spec
         for service in ratings reviews productpage details; do
             sed -i.bak "s/name: $service$/service: $service$dns_domain/g" $routing_dir/$routing_spec
         done
