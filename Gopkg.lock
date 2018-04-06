@@ -1226,6 +1226,7 @@
   packages = [
     "authentication/v1alpha1",
     "broker/dev",
+    "envoy/config/filter/http/authn/v2alpha1",
     "mesh/v1alpha1",
     "mixer/adapter/model/v1beta1",
     "mixer/v1",
@@ -1531,6 +1532,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "f8b3f2c181b23642297f33470ff4b8da1b847254720f667c94fc6198edebfeac"
+  inputs-digest = "90c3a75f0e8d5a0ca79e3594ba500934344236268d9ceb74440a2689c5c28018"
   solver-name = "gps-cdcl"
   solver-version = 1
