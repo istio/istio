@@ -214,7 +214,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 		// Traffic sent to our service VIP is redirected by remote
 		// services' kubeproxy to our specific endpoint IP.
 		var networkFilters []listener.Filter
-		var hTTPFilters []*http_conn.HttpFilter
+		var httpFilters []*http_conn.HttpFilter
 		var listenerType plugin.ListenerType
 		listenerOpts := buildListenerOpts{
 			env:            env,
@@ -257,14 +257,14 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 			mutable := &plugin.CallbackListenerMutableObjects{
 				Listener:    newListener,
 				TCPFilters:  &networkFilters,
-				HTTPFilters: &hTTPFilters,
+				HTTPFilters: &httpFilters,
 			}
 			if err := p.OnInboundListener(params, mutable); err != nil {
 				log.Warn(err.Error())
 			}
 		}
 		// Filters are serialized one time into an opaque struct once we have the complete list.
-		if err := marshalFilters(newListener, listenerOpts, networkFilters, hTTPFilters); err != nil {
+		if err := marshalFilters(newListener, listenerOpts, networkFilters, httpFilters); err != nil {
 			log.Warn(err.Error())
 		}
 
@@ -304,7 +304,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 			var addresses []string
 			var listenerMapKey string
 			var networkFilters []listener.Filter
-			var hTTPFilters []*http_conn.HttpFilter
+			var httpFilters []*http_conn.HttpFilter
 			var listenerType plugin.ListenerType
 			listenerOpts := buildListenerOpts{
 				env:            env,
@@ -377,7 +377,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				mutable := &plugin.CallbackListenerMutableObjects{
 					Listener:    newListener,
 					TCPFilters:  &networkFilters,
-					HTTPFilters: &hTTPFilters,
+					HTTPFilters: &httpFilters,
 				}
 				if err := p.OnOutboundListener(params, mutable); err != nil {
 					log.Warn(err.Error())
@@ -385,7 +385,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 			}
 
 			// Filters are serialized one time into an opaque struct once we have the complete list.
-			if err := marshalFilters(newListener, listenerOpts, networkFilters, hTTPFilters); err != nil {
+			if err := marshalFilters(newListener, listenerOpts, networkFilters, httpFilters); err != nil {
 				log.Warn(err.Error())
 			}
 
@@ -522,8 +522,8 @@ type buildListenerOpts struct {
 	httpOpts       *httpListenerOpts
 }
 
-func buildHTTPConnectionManager(mesh *meshconfig.MeshConfig, httpOpts *httpListenerOpts, hTTPFilters []*http_conn.HttpFilter) *http_conn.HttpConnectionManager {
-	filters := append(hTTPFilters, &http_conn.HttpFilter{
+func buildHTTPConnectionManager(mesh *meshconfig.MeshConfig, httpOpts *httpListenerOpts, httpFilters []*http_conn.HttpFilter) *http_conn.HttpConnectionManager {
+	filters := append(httpFilters, &http_conn.HttpFilter{
 		Name: xdsutil.CORS,
 	})
 	// TODO: need alphav3 fault filters.
@@ -644,18 +644,18 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 }
 
 // marshalFilters adds the provided TCP and HTTP filters to the provided Listener and serializes them.
-func marshalFilters(l *xdsapi.Listener, opts buildListenerOpts, networkFilters []listener.Filter, hTTPFilters []*http_conn.HttpFilter) error {
+func marshalFilters(l *xdsapi.Listener, opts buildListenerOpts, networkFilters []listener.Filter, httpFilters []*http_conn.HttpFilter) error {
 	if len(l.FilterChains) != 1 {
 		return fmt.Errorf("expect exactly one FilterChain in the Listener in marshalFilters, got %v", l.FilterChains)
 	}
-	if len(networkFilters) > 0 && len(hTTPFilters) > 0 {
-		return fmt.Errorf("cannot set both network(%v) and HTTP(%v) filters", networkFilters, hTTPFilters)
+	if len(networkFilters) > 0 && len(httpFilters) > 0 {
+		return fmt.Errorf("cannot set both network(%v) and HTTP(%v) filters", networkFilters, httpFilters)
 	}
 
 	l.FilterChains[0].Filters = append(l.FilterChains[0].Filters, networkFilters...)
 
 	if opts.httpOpts != nil {
-		connectionManager := buildHTTPConnectionManager(opts.env.Mesh, opts.httpOpts, hTTPFilters)
+		connectionManager := buildHTTPConnectionManager(opts.env.Mesh, opts.httpOpts, httpFilters)
 		l.FilterChains[0].Filters = append(l.FilterChains[0].Filters, listener.Filter{
 			Name:   envoyHTTPConnectionManager,
 			Config: util.MessageToStruct(connectionManager),
