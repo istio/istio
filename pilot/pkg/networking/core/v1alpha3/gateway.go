@@ -111,7 +111,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 				}
 			}
 			l := buildListener(opts)
-			listeners = append(listeners, l)
+			if l != nil {
+				listeners = append(listeners, l)
+			}
 		case model.ProtocolTCP, model.ProtocolMongo:
 			// TODO
 			// Look at virtual service specs, and identity destinations,

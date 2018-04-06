@@ -166,8 +166,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env model.Environmen
 			traceOperation = http_conn.INGRESS
 			listenAddress = WildcardAddress
 		}
-
-		listeners = append(listeners, buildListener(buildListenerOpts{
+		l := buildListener(buildListenerOpts{
 			env:            env,
 			proxy:          node,
 			proxyInstances: proxyInstances,
@@ -180,8 +179,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env model.Environmen
 				//rds:              RDSHttpProxy,
 				useRemoteAddress: useRemoteAddress,
 				direction:        traceOperation,
-			},
-		}))
+			}})
+		if l != nil {
+			listeners = append(listeners, l)
+		}
 		// TODO: need inbound listeners in HTTP_PROXY case, with dedicated ingress listener.
 	}
 
@@ -253,7 +254,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 				log.Error(err.Error())
 			}
 
-			listeners = append(listeners, buildListener(listenerOpts))
+			l := buildListener(listenerOpts)
+			if l != nil {
+				listeners = append(listeners, l)
+			}
 		}
 	}
 
@@ -359,7 +363,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 			}
 
 			listenerOpts.ip = listenAddress
-			listenerMap[listenerMapKey] = buildListener(listenerOpts)
+			l := buildListener(listenerOpts)
+			if l != nil {
+				listenerMap[listenerMapKey] = l
+			}
 			// TODO: Set SNI for HTTPS
 		}
 	}
@@ -389,7 +396,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 // So, if a user wants to use kubernetes probes with Istio, she should ensure
 // that the health check ports are distinct from the service ports.
 func buildMgmtPortListeners(managementPorts model.PortList, managementIP string) []*xdsapi.Listener {
-	listeners := make([]*xdsapi.Listener, 0, len(managementPorts))
+	listeners := make([]*xdsapi.Listener, 0)
 
 	if managementIP == "" {
 		managementIP = "127.0.0.1"
@@ -417,7 +424,10 @@ func buildMgmtPortListeners(managementPorts model.PortList, managementIP string)
 				protocol:       model.ProtocolTCP,
 				networkFilters: buildInboundNetworkFilters(instance),
 			}
-			listeners = append(listeners, buildListener(listenerOpts))
+			l := buildListener(listenerOpts)
+			if l != nil {
+				listeners = append(listeners, l)
+			}
 		default:
 			log.Warnf("Unsupported inbound protocol %v for management port %#v",
 				mPort.Protocol, mPort)
