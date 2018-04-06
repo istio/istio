@@ -23,7 +23,7 @@ import (
 )
 
 func TestIngress(t *testing.T) {
-	if !tc.Ingress || !tc.V1alpha3 {
+	if !tc.Ingress || tc.V1alpha3 {
 		t.Skipf("Skipping %s: ingress=false", t.Name())
 	}
 

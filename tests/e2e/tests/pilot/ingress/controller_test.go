@@ -139,7 +139,7 @@ var (
 )
 
 func TestConfig(t *testing.T) {
-	if !tc.Ingress || !tc.V1alpha3 {
+	if !tc.Ingress || tc.V1alpha3 {
 		t.Skipf("Skipping %s: ingress=false", t.Name())
 	}
 
@@ -183,7 +183,7 @@ func TestConfig(t *testing.T) {
 }
 
 func TestIngressController(t *testing.T) {
-	if !tc.Ingress || !tc.V1alpha3 {
+	if !tc.Ingress || tc.V1alpha3 {
 		t.Skipf("Skipping %s: ingress=false", t.Name())
 	}
 	cl := fake.NewSimpleClientset()
@@ -269,7 +269,7 @@ func TestIngressController(t *testing.T) {
 }
 
 func TestSyncer(t *testing.T) {
-	if !tc.Ingress || !tc.V1alpha3 {
+	if !tc.Ingress || tc.V1alpha3 {
 		t.Skipf("Skipping %s: ingress=false", t.Name())
 	}
 	client := fake.NewSimpleClientset()
