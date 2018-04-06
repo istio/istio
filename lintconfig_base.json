@@ -8,15 +8,10 @@
     "lineLength": 160,
     "test": true,
     "sort": ["path"],
-    "Linters": {
-        "goimports": {"Command": "goimports -l --local istio.io"}
-    },
     "enable": [
         "deadcode",
         "errcheck",
         "goconst",
-        "gofmt",
-        "goimports",
         "golint",
         "ineffassign",
         "interfacer",
@@ -34,8 +29,6 @@
         "deadcode": "error",
         "errcheck": "error",
         "goconst": "error",
-        "gofmt": "error",
-        "goimports": "error",
         "golint": "error",
         "ineffassign": "error",
         "interfacer": "error",

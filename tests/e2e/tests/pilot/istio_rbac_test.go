@@ -16,7 +16,6 @@ package pilot
 
 import (
 	"fmt"
-
 	"testing"
 
 	"istio.io/istio/tests/util"
