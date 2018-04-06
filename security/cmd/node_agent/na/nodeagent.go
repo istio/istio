@@ -33,7 +33,6 @@ type nodeAgentInternal struct {
 	// Configuration specific to Node Agent
 	config *Config
 	pc     platform.Client
-	//caProtocol protocol.CAGrpcClient
 	caProtocol protocol.CAProtocol
 	identity   string
 	certUtil   util.CertUtil
@@ -67,7 +66,6 @@ func (na *nodeAgentInternal) Start() error {
 
 		log.Infof("Sending CSR (retrial #%d) ...", retries)
 
-		//resp, err := na.caProtocol.SendCSR(req, na.pc, na.config.CAClientConfig.CAAddress)
 		resp, err := na.caProtocol.SendCSR(req)
 		if err == nil && resp != nil && resp.IsApproved {
 			waitTime, ttlErr := na.certUtil.GetWaitTime(resp.SignedCert, time.Now())
