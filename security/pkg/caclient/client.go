@@ -60,7 +60,7 @@ func (c *CAClient) Retrieve(options *pkiutil.CertOptions) (newCert []byte, certC
 			return nil, nil, nil, reqErr
 		}
 		log.Infof("Sending CSR (retrial #%d) ...", retries)
-		
+
 		resp, err := c.caProtocol.SendCSR(req)
 		if err == nil && resp != nil && resp.IsApproved {
 			return resp.SignedCert, resp.CertChain, privateKey, nil

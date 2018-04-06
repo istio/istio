@@ -48,10 +48,10 @@ func NewNodeAgent(cfg *Config) (NodeAgent, error) {
 	if err != nil {
 		return nil, err
 	}
-	cap, err := protocol.NewGrpcConnection(cfg.CAClientConfig.CAAddress, dialOpts)
+	grpcConn, err := protocol.NewGrpcConnection(cfg.CAClientConfig.CAAddress, dialOpts)
 	if err != nil {
 		return nil, err
 	}
-	na.caProtocol = cap
+	na.caProtocol = grpcConn
 	return na, nil
 }

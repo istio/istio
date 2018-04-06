@@ -40,6 +40,8 @@ type CAGrpcClient interface {
 }
 
 // GrpcConnection implements CAProtocol talking to CA via gRPC.
+// TODO(incfly): investigate the overhead of maintaining gRPC connection for CA server compared with
+// establishing new connection every time.
 type GrpcConnection struct {
 	connection *grpc.ClientConn
 }
