@@ -389,24 +389,6 @@ func TestClusterDiscoveryIngress(t *testing.T) {
 	compareResponse(response, "testdata/cds-ingress.json", t)
 }
 
-func TestClusterDiscoveryRouterError(t *testing.T) {
-	_, _, ds := commonSetup(t)
-	mockDiscovery.ServicesError = errors.New("mock Services() error")
-	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.Router.ServiceNode())
-	response := getDiscoveryResponse(ds, "GET", url, t)
-	if response.StatusCode != http.StatusServiceUnavailable {
-		t.Errorf("unexpected error response from discovery: got %v, want %v",
-			response.StatusCode, http.StatusServiceUnavailable)
-	}
-}
-
-func TestClusterDiscoveryRouter(t *testing.T) {
-	_, _, ds := commonSetup(t)
-	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.Router.ServiceNode())
-	response := makeDiscoveryRequest(ds, "GET", url, t)
-	compareResponse(response, "testdata/cds-router.json", t)
-}
-
 // Test listing all routes
 func TestRouteDiscoveryAllRoutes(t *testing.T) {
 	_, _, ds := commonSetup(t)
@@ -595,16 +577,6 @@ func TestRouteDiscoveryIngressWeighted(t *testing.T) {
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.Ingress.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/rds-ingress-weighted.json", t)
-}
-
-func TestRouteDiscoveryRouterError(t *testing.T) {
-	_, _, ds := commonSetup(t)
-	url := fmt.Sprintf("/v1/routes/invalidRDSName/%s/%s", "istio-proxy", mock.Router.ServiceNode())
-	response := getDiscoveryResponse(ds, "GET", url, t)
-	if response.StatusCode != http.StatusServiceUnavailable {
-		t.Errorf("unexpected error response from discovery: got %v, want %v",
-			response.StatusCode, http.StatusServiceUnavailable)
-	}
 }
 
 func TestListenerDiscoverySidecar(t *testing.T) {
