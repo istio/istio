@@ -21,6 +21,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
+	authn_plugin "istio.io/istio/pilot/pkg/networking/plugin/authn"
 )
 
 func isDestinationExcludedForMTLS(serviceName string, mtlsExcludedServices []string) bool {
@@ -50,7 +51,7 @@ func ApplyClusterPolicy(cluster *Cluster,
 	// Original DST cluster are used to route to services outside the mesh
 	// where Istio auth does not apply.
 	if cluster.Type != ClusterTypeOriginalDST {
-		requireTLS, _ := model.RequireTLS(model.GetConsolidateAuthenticationPolicy(mesh, config, cluster.Hostname, cluster.Port))
+		requireTLS, _ := authn_plugin.RequireTLS(model.GetConsolidateAuthenticationPolicy(mesh, config, cluster.Hostname, cluster.Port))
 		if !isDestinationExcludedForMTLS(cluster.ServiceName, mesh.MtlsExcludedServices) && requireTLS {
 			// apply auth policies
 			ports := model.PortList{cluster.Port}.GetNames()

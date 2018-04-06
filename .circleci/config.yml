@@ -189,7 +189,7 @@ jobs:
       - store_artifacts:
           path: /tmp
 
-  e2e-pilot: #auth + v1alpha1
+  e2e-pilot: #auth + v1alpha1 + v1
     <<: *integrationDefaults
     environment:
             - GOPATH: /go
@@ -235,46 +235,6 @@ jobs:
       - store_artifacts:
           path: /tmp
 
-  e2e-pilot-noauth-v1alpha3-v1:
-    <<: *integrationDefaults
-    environment:
-            - GOPATH: /go
-            - KUBECONFIG: /go/out/minikube.conf
-            - TEST_ENV: minikube-none
-    steps:
-      - type: shell
-        name: Initialize Working Directory
-        pwd: /
-        command: |
-          sudo mkdir -p /go/src/istio.io/istio
-          sudo chown -R circleci /go
-          mkdir -p /go/out
-          mkdir -p /home/circleci/logs
-      - checkout
-      - attach_workspace:
-          at:  /go
-      - run: make sync
-      - run: bin/testEnvRootMinikube.sh start
-      - run:
-          command: |
-            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
-              # Should only happen when re-running a job, and the workspace is gone
-              time make build test-bins
-            fi
-            make docker.all generate_yaml
-      - run: bin/testEnvRootMinikube.sh wait
-      - run: docker images
-      - run:
-          no_output_timeout: 20m
-          # Run the test even if previous failed
-          when: always
-          command: |
-                make e2e_pilot E2E_ARGS="--skip_cleanup --auth_enable=false --egress=false --v1alpha1=false"
-      - store_artifacts:
-          path: /home/circleci/logs
-      - store_artifacts:
-          path: /tmp
-
   e2e-pilot-noauth-v1alpha3-v2:
     <<: *integrationDefaults
     environment:
@@ -302,7 +262,7 @@ jobs:
               # Should only happen when re-running a job, and the workspace is gone
               time make build test-bins
             fi
-            make docker.all generate_yaml
+            make docker.all generate_yaml-envoyv2_transition
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run:
@@ -322,7 +282,7 @@ jobs:
       - store_artifacts:
           path: /tmp
 
-  e2e-pilot-noauth-v1alpha1:
+  e2e-pilot-noauth-v1alpha1-v1:
     <<: *integrationDefaults
     environment:
             - GOPATH: /go
@@ -366,55 +326,6 @@ jobs:
             kubectl cluster-info dump > /go/out/logs/cluster-info.dump.txt
             kubectl describe pods -n pilot-noauth > /go/out/logs/pods-system.txt
             cat /go/out/tests/*.raw | /go/bin/go-junit-report > /go/out/tests/test-report-noauth-v1alpha1-pilot.xml
-      - store_artifacts:
-          path: /home/circleci/logs
-      - store_artifacts:
-          path: /tmp
-
-  e2e-pilot-auth-v1alpha3-v1:
-    <<: *integrationDefaults
-    environment:
-            - GOPATH: /go
-            - KUBECONFIG: /go/out/minikube.conf
-            - TEST_ENV: minikube-none
-    steps:
-      - type: shell
-        name: Initialize Working Directory
-        pwd: /
-        command: |
-          sudo mkdir -p /go/src/istio.io/istio
-          sudo chown -R circleci /go
-          mkdir -p /go/out
-          mkdir -p /home/circleci/logs
-      - checkout
-      - attach_workspace:
-          at:  /go
-      - run: make sync
-      - run: bin/testEnvRootMinikube.sh start
-      - run:
-          command: |
-            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
-              # Should only happen when re-running a job, and the workspace is gone
-              time make build test-bins
-            fi
-            make docker.all generate_yaml
-      - run: bin/testEnvRootMinikube.sh wait
-      - run: docker images
-      - run:
-          no_output_timeout: 20m
-          # Run the test even if previous failed
-          when: always
-          command: |
-                make e2e_pilot E2E_ARGS="--skip_cleanup --auth_enable=true --egress=false --v1alpha1=false"
-      - run:
-          name: dumpsys
-          when: always
-          command: |
-            # TODO: move to a make target 'dumpsys'.
-            kubectl get all -o wide --all-namespaces
-            kubectl cluster-info dump > /go/out/logs/cluster-info.dump.txt
-            kubectl describe pods -n pilot-auth > /go/out/logs/pods-system.txt
-            cat /go/out/tests/*.raw | /go/bin/go-junit-report > /go/out/tests/test-report-auth-v1alpha3-pilot.xml
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
@@ -665,7 +576,7 @@ workflows:
           requires:
             - test
             - build
-      - e2e-pilot-noauth-v1alpha1:
+      - e2e-pilot-noauth-v1alpha1-v1:
           requires:
             - test
             - build
@@ -703,7 +614,7 @@ workflows:
       - e2e-dashboard:
           requires:
             - build
-      - e2e-pilot-noauth-v1alpha1:
+      - e2e-pilot:  #auth+v1alpha1
           requires:
             - build
       - benchcheck:
@@ -714,54 +625,25 @@ workflows:
           requires:
             - build
 
-  flaky:
-    triggers:
-       - schedule:
-           cron: "20 8,16 * * *"
-           filters:
-             branches:
-               only:
-                 - master
-    jobs:
-      - build
-      - racetest
-      - e2e-pilot-auth-v1alpha1-egress:
-          requires:
-            - build
-      # Bookinfo requires 3 nodes, not a good fit for CircleCI.
-      - e2e-bookinfo:
-          requires:
-            - build
+  # flaky:
+  #   triggers:
+  #      - schedule:
+  #          cron: "20 8,16 * * *"
+  #          filters:
+  #            branches:
+  #              only:
+  #                - master
+  #   jobs:
+  #     - build
+  #     - racetest
+  #     - e2e-pilot-auth-v1alpha1-egress:
+  #         requires:
+  #           - build
+  #     # Bookinfo requires 3 nodes, not a good fit for CircleCI.
+  #     - e2e-bookinfo:
+  #         requires:
+  #           - build
 
-  envoyv2:
-    jobs:
-      - dependencies:
-          filters:
-            branches:
-              only:
-                - /envoyv2-.*/
-      - lint:
-          filters:
-            branches:
-              only:
-                - /envoyv2-.*/
-      - build:
-          filters:
-            branches:
-              only:
-                - /envoyv2-.*/
-      - test:
-          filters:
-            branches:
-              only:
-                - /envoyv2-.*/              
-      - e2e-pilot-noauth-v1alpha3-v2:
-          requires:
-            - build
-          filters:
-            branches:
-              only:
-                - /envoyv2-.*/
   all:
     jobs:
       - dependencies
@@ -783,3 +665,6 @@ workflows:
       - racetest:
           requires:
             - test
+      - e2e-pilot-noauth-v1alpha3-v2: #no auth+v1alpha3+v2
+          requires:
+            - build

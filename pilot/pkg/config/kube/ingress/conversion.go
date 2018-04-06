@@ -159,12 +159,20 @@ func decodeIngressRuleName(name string) (ingressName string, ruleNum, pathNum in
 }
 
 // ConvertIngressV1alpha3 converts from ingress spec to Istio Gateway + VirtualServices
+// TODO: handle multiple ingress specs
 func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) (model.Config, model.Config) {
 	gateway := &networking.Gateway{
 		Selector: model.IstioIngressWorkloadLabels,
 	}
 
-	for _, tls := range ingress.Spec.TLS {
+	// FIXME this is a temporary hack until all test templates are updated
+	//for _, tls := range ingress.Spec.TLS {
+	if len(ingress.Spec.TLS) > 0 {
+		tls := ingress.Spec.TLS[0] // FIXME
+		// TODO validation when multiple wildcard tls secrets are given
+		if len(tls.Hosts) == 0 {
+			tls.Hosts = []string{"*"}
+		}
 		gateway.Servers = append(gateway.Servers, &networking.Server{
 			Port: &networking.Port{
 				Number:   443,
@@ -175,12 +183,13 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) (model
 			// While we accept multiple certs, we expect them to be mounted in
 			// /etc/istio/certs/namespace/secretname/tls.crt|tls.key
 			Tls: &networking.Server_TLSOptions{
-				HttpsRedirect:     true,
-				Mode:              networking.Server_TLSOptions_SIMPLE,
-				PrivateKey:        path.Join(model.IngressCertsPath, ingress.Namespace, tls.SecretName, model.IngressKeyFilename),
-				ServerCertificate: path.Join(model.IngressCertsPath, ingress.Namespace, tls.SecretName, model.IngressCertFilename),
+				HttpsRedirect: false,
+				Mode:          networking.Server_TLSOptions_SIMPLE,
+				// TODO this is no longer valid for the new v2 stuff
+				PrivateKey:        path.Join(model.IngressCertsPath, model.IngressKeyFilename),
+				ServerCertificate: path.Join(model.IngressCertsPath, model.IngressCertFilename),
 				// TODO: make sure this is mounted
-				CaCertificates: path.Join(model.IngressCertsPath, ingress.Namespace, tls.SecretName, model.RootCertFilename),
+				CaCertificates: path.Join(model.IngressCertsPath, model.RootCertFilename),
 			},
 		})
 	}
@@ -191,6 +200,7 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) (model
 			Protocol: string(model.ProtocolHTTP),
 			Name:     "http-ingress-80",
 		},
+		Hosts: []string{"*"},
 	})
 
 	virtualService := &networking.VirtualService{

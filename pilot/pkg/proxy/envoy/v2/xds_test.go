@@ -14,23 +14,17 @@
 package v2_test
 
 import (
+	"encoding/json"
+	"flag"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"sync"
 	"testing"
 
-	testenv "istio.io/istio/mixer/test/client/env"
-
-	"flag"
-	"io/ioutil"
-	"os"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
-
-	"fmt"
-
-	"sync"
-
-	"encoding/json"
-	"net/http"
-
+	testenv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
@@ -179,25 +173,52 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 	server.EnvoyXdsServer.MemRegistry.AddService("istio-ingress.istio-system.svc.cluster.local", &model.Service{
 		Hostname: "istio-ingress.istio-system.svc.cluster.local",
 		Address:  "10.10.0.2",
-		Ports:    testPorts(0),
+		Ports: []*model.Port{
+			{
+				Name:                 "http",
+				Port:                 80,
+				Protocol:             model.ProtocolHTTP,
+				AuthenticationPolicy: meshconfig.AuthenticationPolicy_NONE,
+			},
+			{
+				Name:                 "https",
+				Port:                 443,
+				Protocol:             model.ProtocolHTTPS,
+				AuthenticationPolicy: meshconfig.AuthenticationPolicy_NONE,
+			},
+		},
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("istio-ingress.istio-system.svc.cluster.local", &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
 			Address: ingressIP,
 			Port:    80,
 			ServicePort: &model.Port{
-				Name:                 "http-main",
-				Port:                 8000,
+				Name:                 "http",
+				Port:                 80,
 				Protocol:             model.ProtocolHTTP,
-				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+				AuthenticationPolicy: meshconfig.AuthenticationPolicy_NONE,
 			},
 		},
-		Labels:           map[string]string{"version": "v1", "istio": "ingress"},
+		Labels:           model.IstioIngressWorkloadLabels,
+		AvailabilityZone: "az",
+	})
+	server.EnvoyXdsServer.MemRegistry.AddInstance("istio-ingress.istio-system.svc.cluster.local", &model.ServiceInstance{
+		Endpoint: model.NetworkEndpoint{
+			Address: ingressIP,
+			Port:    443,
+			ServicePort: &model.Port{
+				Name:                 "https",
+				Port:                 443,
+				Protocol:             model.ProtocolHTTPS,
+				AuthenticationPolicy: meshconfig.AuthenticationPolicy_NONE,
+			},
+		},
+		Labels:           model.IstioIngressWorkloadLabels,
 		AvailabilityZone: "az",
 	})
 
 	// Service4 is using port 80, to test that we generate multiple clusters (regression)
-	server.EnvoyXdsServer.MemRegistry.AddService("service4", &model.Service{
+	server.EnvoyXdsServer.MemRegistry.AddService("service4.default.svc.cluster.local", &model.Service{
 		Hostname: "service4.default.svc.cluster.local",
 		Address:  "10.1.0.4",
 		Ports: []*model.Port{

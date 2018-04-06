@@ -15,17 +15,16 @@
 package pilot
 
 import (
-	"flag"
-	"os"
-	"testing"
-
 	"errors"
+	"flag"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
+	"testing"
 	"time"
 
 	"go.uber.org/multierr"
@@ -47,8 +46,8 @@ const (
 
 var (
 	tc = &testConfig{
-		V1alpha1: true,
-		V1alpha3: true,
+		V1alpha1: true, //implies envoyv1
+		V1alpha3: true, //implies envoyv2
 		Ingress:  true,
 		Egress:   true,
 	}
@@ -296,7 +295,7 @@ func ClientRequest(app, url string, count int, extra string) ClientResponse {
 
 	pod := pods[0]
 	cmd := fmt.Sprintf("client -url %s -count %d %s", url, count, extra)
-	request, err := util.PodExec(tc.Kube.Namespace, pod, "app", cmd)
+	request, err := util.PodExec(tc.Kube.Namespace, pod, "app", cmd, true)
 	if err != nil {
 		log.Errorf("client request error %v for %s in %s", err, url, app)
 		return out
