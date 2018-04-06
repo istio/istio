@@ -1,9 +1,0 @@
-hosts:
-  - world
-http:
-  - route:
-    - destination:
-        host: world
-    mirror:
-      host: hello
-      subset: v1

@@ -253,20 +253,19 @@ type IstioConfigStore interface {
 	// destination service.  A rule must match at least one of the input service
 	// instances since the proxy does not distinguish between source instances in
 	// the request.
-	RouteRules(source []*ServiceInstance, destination string, domain string) []Config
+	RouteRules(source []*ServiceInstance, destination string) []Config
 
 	// RouteRulesByDestination selects routing rules associated with destination
 	// service instances.  A rule must match at least one of the input
 	// destination instances.
-	RouteRulesByDestination(destination []*ServiceInstance, domain string) []Config
+	RouteRulesByDestination(destination []*ServiceInstance) []Config
 
 	// Policy returns a policy for a service version that match at least one of
 	// the source instances.  The labels must match precisely in the policy.
 	Policy(source []*ServiceInstance, destination string, labels Labels) *Config
 
 	// DestinationRule returns a destination rule for a service name in a given domain.
-	// Name can be short name or FQDN.
-	DestinationRule(name, domain string) *Config
+	DestinationRule(hostname string) *Config
 
 	// VirtualServices lists all virtual services bound to the specified gateways
 	VirtualServices(gateways []string) []Config
@@ -275,7 +274,7 @@ type IstioConfigStore interface {
 	Gateways(workloadLabels LabelsCollection) []Config
 
 	// SubsetToLabels returns the labels associated with a subset of a given service.
-	SubsetToLabels(subsetName, hostname, domain string) LabelsCollection
+	SubsetToLabels(subsetName, hostname string) LabelsCollection
 
 	// HTTPAPISpecByDestination selects Mixerclient HTTP API Specs
 	// associated with destination service instances.
@@ -597,22 +596,6 @@ func ResolveShortnameToFQDN(host string, meta ConfigMeta) string {
 	return out
 }
 
-// ResolveFQDN ensures a host is a FQDN. If the host is a short name (i.e. has no dots in the name) and the domain is
-// non-empty the FQDN is built by concatenating the host and domain with a dot. Otherwise host is assumed to be a
-// FQDN and is returned unchanged.
-func ResolveFQDN(host, domain string) string {
-	if len(domain) > 0 && strings.Count(host, ".") == 0 { // host is a shortname
-		return fmt.Sprintf("%s.%s", host, domain)
-	}
-	return host
-}
-
-// resolveFQDNFromAuthNTarget returns FQDN for AuthenticationPolicy target selector,
-// in namespace and domain defines by config meta.
-func resolveFQDNFromAuthNTarget(meta ConfigMeta, target *authn.TargetSelector) string {
-	return ResolveFQDN(target.Name, meta.Namespace+".svc."+meta.Domain)
-}
-
 // istioConfigStore provides a simple adapter for Istio configuration types
 // from the generic config registry
 type istioConfigStore struct {
@@ -647,7 +630,6 @@ func MatchSource(meta ConfigMeta, source *routing.IstioService, instances []*Ser
 }
 
 // SortRouteRules sorts a slice of v1alpha1 rules by precedence in a stable manner.
-// non-v1alpha1 rules are sorted low without a guaranteed relative ordering.
 func SortRouteRules(rules []Config) {
 	// sort by high precedence first, key string second (keys are unique)
 	sort.Slice(rules, func(i, j int) bool {
@@ -660,13 +642,7 @@ func SortRouteRules(rules []Config) {
 	})
 }
 
-func (store *istioConfigStore) RouteRules(instances []*ServiceInstance, destination string, domain string) []Config {
-	configs := store.routeRules(instances, destination)
-	configs = append(configs, store.routeRulesV2(domain, destination)...)
-	return configs
-}
-
-func (store *istioConfigStore) routeRules(instances []*ServiceInstance, destination string) []Config {
+func (store *istioConfigStore) RouteRules(instances []*ServiceInstance, destination string) []Config {
 	out := make([]Config, 0)
 	configs, err := store.List(RouteRule.Type, NamespaceAll)
 	if err != nil {
@@ -693,37 +669,7 @@ func (store *istioConfigStore) routeRules(instances []*ServiceInstance, destinat
 	return out
 }
 
-func (store *istioConfigStore) routeRulesV2(domain, destination string) []Config {
-	out := make([]Config, 0)
-	configs, err := store.List(VirtualService.Type, NamespaceAll)
-	if err != nil {
-		return nil
-	}
-
-	for _, config := range configs {
-		rule := config.Spec.(*networking.VirtualService)
-		for _, host := range rule.Hosts {
-			if ResolveFQDN(host, domain) == destination {
-				out = append(out, config)
-				break
-			}
-		}
-	}
-
-	return out
-}
-
-// TODO: This is wrong per V1alpha3. We need RouteRulesBySource (which is the function below)
-// and a RouteRulesByDestination which scans the entire rule for destinations (in route, redirect, mirror blocks)
-// and matches these destinations against the input destination. The rules that match should be considered
-// for BuildInboundRoutesV2
-func (store *istioConfigStore) RouteRulesByDestination(instances []*ServiceInstance, domain string) []Config {
-	configs := store.routeRulesByDestination(instances)
-	configs = append(configs, store.routeRulesByDestinationV2(instances, domain)...)
-	return configs
-}
-
-func (store *istioConfigStore) routeRulesByDestination(instances []*ServiceInstance) []Config {
+func (store *istioConfigStore) RouteRulesByDestination(instances []*ServiceInstance) []Config {
 	out := make([]Config, 0)
 	configs, err := store.List(RouteRule.Type, NamespaceAll)
 	if err != nil {
@@ -742,28 +688,6 @@ func (store *istioConfigStore) routeRulesByDestination(instances []*ServiceInsta
 	}
 
 	return out
-}
-
-// This logic assumes there is at most one route rule for a given host.
-// If there is more than one the output may be non-deterministic.
-func (store *istioConfigStore) routeRulesByDestinationV2(instances []*ServiceInstance, domain string) []Config {
-	configs, err := store.List(VirtualService.Type, NamespaceAll)
-	if err != nil {
-		return nil
-	}
-
-	for _, config := range configs {
-		rule := config.Spec.(*networking.VirtualService)
-		for _, host := range rule.Hosts {
-			for _, instance := range instances {
-				if ResolveFQDN(host, domain) == instance.Service.Hostname {
-					return []Config{config}
-				}
-			}
-		}
-	}
-
-	return nil
 }
 
 func (store *istioConfigStore) EgressRules() []Config {
@@ -904,20 +828,15 @@ func (store *istioConfigStore) Policy(instances []*ServiceInstance, destination 
 	return &out
 }
 
-func (store *istioConfigStore) DestinationRule(name, domain string) *Config {
+func (store *istioConfigStore) DestinationRule(hostname string) *Config {
 	configs, err := store.List(DestinationRule.Type, NamespaceAll)
 	if err != nil {
 		return nil
 	}
 
-	target := ResolveFQDN(name, domain)
 	for _, config := range configs {
 		rule := config.Spec.(*networking.DestinationRule)
-		if ResolveFQDN(rule.Host, domain) == target {
-			return &config
-		}
-		// from shortname destination to FQDN using the rule's namespace
-		if ResolveShortnameToFQDN(rule.Host, config.ConfigMeta) == target {
+		if ResolveShortnameToFQDN(rule.Host, config.ConfigMeta) == hostname {
 			return &config
 		}
 	}
@@ -925,13 +844,13 @@ func (store *istioConfigStore) DestinationRule(name, domain string) *Config {
 	return nil
 }
 
-func (store *istioConfigStore) SubsetToLabels(subsetName, hostname, domain string) LabelsCollection {
+func (store *istioConfigStore) SubsetToLabels(subsetName, hostname string) LabelsCollection {
 	// empty subset
 	if subsetName == "" {
 		return nil
 	}
 
-	config := store.DestinationRule(hostname, domain)
+	config := store.DestinationRule(hostname)
 	if config == nil {
 		return nil
 	}
@@ -1066,8 +985,7 @@ func (store *istioConfigStore) AuthenticationPolicyByDestination(hostname string
 		matchLevel := 0
 		if len(policy.Targets) > 0 {
 			for _, dest := range policy.Targets {
-
-				if hostname != resolveFQDNFromAuthNTarget(spec.ConfigMeta, dest) {
+				if hostname != ResolveHostname(spec.ConfigMeta, &routing.IstioService{Name: dest.Name}) {
 					continue
 				}
 				// If destination port is defined, it must match.

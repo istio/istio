@@ -1,8 +1,0 @@
-hosts:
-  - world
-http:
-  - route:
-    - destination:
-        host: world
-    appendHeaders:
-      appendedname: appendedValue
