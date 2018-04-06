@@ -44,11 +44,16 @@ var (
 	initMutex      sync.Mutex
 	initEnvoyMutex sync.Mutex
 
+	envoyStarted = false
 	// service1 and service2 are used by mixer tests. Use 'service3' and 'app3' for pilot
 	// local tests.
 
+	// 10.10.0.0/24 is service CIDR range
+
+	// 10.0.0.0/9 is instance CIDR range
 	app3Ip    = "10.2.0.1"
 	gatewayIP = "10.3.0.1"
+	ingressIP = "10.3.0.2"
 )
 
 // Common code for the xds testing.
@@ -62,32 +67,31 @@ var (
 
 // Common test environment, including Mixer and Envoy. This is a singleton, the env will be
 // used for multiple tests, for local integration testing.
-func initEnvoyTestEnv(t *testing.T) {
+func startEnvoy(t *testing.T) {
 	initEnvoyMutex.Lock()
 	defer initEnvoyMutex.Unlock()
 
-	if testEnv != nil {
+	if envoyStarted {
 		return
 	}
-	initLocalPilotTestEnv()
 
-	testEnv = testenv.NewTestSetup(testenv.XDSTest, t)
 	tmplB, err := ioutil.ReadFile(util.IstioSrc + "/tests/testdata/bootstrap_tmpl.json")
 	if err != nil {
 		t.Fatal("Can't read bootstrap template", err)
 	}
 	testEnv.EnvoyTemplate = string(tmplB)
-	testEnv.EnvoyParams = []string{"--service-cluster", "serviceCluster", "--service-node", sidecarId(app3Ip, "app3"), "--v2-config-only"}
-	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
-	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)
-	testEnv.IstioSrc = util.IstioSrc
-	testEnv.IstioOut = util.IstioOut
+	nodeId := sidecarId(app3Ip, "app3")
+	testEnv.EnvoyParams = []string{"--service-cluster", "serviceCluster", "--service-node", nodeId, "--v2-config-only"}
+	testEnv.EnvoyConfigOpt = map[string]interface{}{
+		"NodeID": nodeId,
+	}
 
 	// Mixer will push stats every 1 sec
 	testenv.SetStatsUpdateInterval(testEnv.MfConfig(), 1)
 	if err := testEnv.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
+	envoyStarted = true
 }
 
 func sidecarId(ip, deployment string) string {
@@ -98,16 +102,30 @@ func gatewayId(ip string) string {
 	return fmt.Sprintf("router~%s~istio-gateway-644fc65469-96dzt.istio-system~istio-system.svc.cluster.local", ip)
 }
 
+func ingressId(ip string) string {
+	return fmt.Sprintf("ingress~%s~istio-ingress-7cd767fcb4-kl6gt.pilot-noauth-system~pilot-noauth-system.svc.cluster.local", ip)
+}
+
 // initLocalPilotTestEnv creates a local, in process Pilot with XDSv2 support and a set
-// of common test configs. This is a singleton.
-func initLocalPilotTestEnv() *bootstrap.Server {
+// of common test configs. This is a singleton server, reused for all tests in this package.
+//
+// The server will have a set of pre-defined instances and services, and read CRDs from the
+// common tests/testdata directory.
+func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 	initMutex.Lock()
 	defer initMutex.Unlock()
 	if pilotServer != nil {
 		return pilotServer
 	}
+	testEnv = testenv.NewTestSetup(testenv.XDSTest, t)
 	server := util.EnsureTestServer()
 	pilotServer = server
+
+	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
+	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)
+	testEnv.IstioSrc = util.IstioSrc
+	testEnv.IstioOut = util.IstioOut
+
 	hostname := "hello.default.svc.cluster.local"
 	svc := mock.MakeService(hostname, "10.1.0.0")
 	// The default service created by istio/test/util does not have a h2 port.
@@ -124,12 +142,12 @@ func initLocalPilotTestEnv() *bootstrap.Server {
 
 	// Explicit test service, in the v2 memory registry. Similar with mock.MakeService,
 	// but easier to read.
-	server.EnvoyXdsServer.MemRegistry.AddService("service3", &model.Service{
+	server.EnvoyXdsServer.MemRegistry.AddService("service3.default.svc.cluster.local", &model.Service{
 		Hostname: "service3.default.svc.cluster.local",
 		Address:  "10.10.0.1",
 		Ports:    testPorts(0),
 	})
-	server.EnvoyXdsServer.MemRegistry.AddInstance("service3", "app3", &model.ServiceInstance{
+	server.EnvoyXdsServer.MemRegistry.AddInstance("service3.default.svc.cluster.local", &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
 			Address: app3Ip,
 			Port:    2080,
@@ -143,7 +161,7 @@ func initLocalPilotTestEnv() *bootstrap.Server {
 		Labels:           map[string]string{"version": "v1"},
 		AvailabilityZone: "az",
 	})
-	server.EnvoyXdsServer.MemRegistry.AddInstance("service3", "app3", &model.ServiceInstance{
+	server.EnvoyXdsServer.MemRegistry.AddInstance("service3.default.svc.cluster.local", &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
 			Address: gatewayIP,
 			Port:    2080,
@@ -158,8 +176,55 @@ func initLocalPilotTestEnv() *bootstrap.Server {
 		AvailabilityZone: "az",
 	})
 
+	server.EnvoyXdsServer.MemRegistry.AddService("istio-ingress.istio-system.svc.cluster.local", &model.Service{
+		Hostname: "istio-ingress.istio-system.svc.cluster.local",
+		Address:  "10.10.0.2",
+		Ports: []*model.Port{
+			{
+				Name:                 "http",
+				Port:                 80,
+				Protocol:             model.ProtocolHTTP,
+				AuthenticationPolicy: meshconfig.AuthenticationPolicy_NONE,
+			},
+			{
+				Name:                 "https",
+				Port:                 443,
+				Protocol:             model.ProtocolHTTPS,
+				AuthenticationPolicy: meshconfig.AuthenticationPolicy_NONE,
+			},
+		},
+	})
+	server.EnvoyXdsServer.MemRegistry.AddInstance("istio-ingress.istio-system.svc.cluster.local", &model.ServiceInstance{
+		Endpoint: model.NetworkEndpoint{
+			Address: ingressIP,
+			Port:    80,
+			ServicePort: &model.Port{
+				Name:                 "http",
+				Port:                 80,
+				Protocol:             model.ProtocolHTTP,
+				AuthenticationPolicy: meshconfig.AuthenticationPolicy_NONE,
+			},
+		},
+		Labels:           model.IstioIngressWorkloadLabels,
+		AvailabilityZone: "az",
+	})
+	server.EnvoyXdsServer.MemRegistry.AddInstance("istio-ingress.istio-system.svc.cluster.local", &model.ServiceInstance{
+		Endpoint: model.NetworkEndpoint{
+			Address: ingressIP,
+			Port:    443,
+			ServicePort: &model.Port{
+				Name:                 "https",
+				Port:                 443,
+				Protocol:             model.ProtocolHTTPS,
+				AuthenticationPolicy: meshconfig.AuthenticationPolicy_NONE,
+			},
+		},
+		Labels:           model.IstioIngressWorkloadLabels,
+		AvailabilityZone: "az",
+	})
+
 	// Service4 is using port 80, to test that we generate multiple clusters (regression)
-	server.EnvoyXdsServer.MemRegistry.AddService("service4", &model.Service{
+	server.EnvoyXdsServer.MemRegistry.AddService("service4.default.svc.cluster.local", &model.Service{
 		Hostname: "service4.default.svc.cluster.local",
 		Address:  "10.1.0.4",
 		Ports: []*model.Port{
@@ -213,7 +278,8 @@ func testPorts(base int) []*model.Port {
 
 // Test XDS with real envoy and with mixer.
 func TestEnvoy(t *testing.T) {
-	initEnvoyTestEnv(t)
+	initLocalPilotTestEnv(t)
+	startEnvoy(t)
 	// Make sure tcp port is ready before starting the test.
 	testenv.WaitForPort(testEnv.Ports().TCPProxyPort)
 

@@ -17,6 +17,7 @@ package config
 import (
 	"github.com/gogo/protobuf/proto"
 
+	"istio.io/api/mixer/adapter/model/v1beta1"
 	configpb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/template"
@@ -29,17 +30,18 @@ func KindMap(adapterInfo map[string]*adapter.Info, templateInfo map[string]*temp
 	// typed instances
 	for kind, info := range templateInfo {
 		kindMap[kind] = info.CtrCfg
-		log.Debugf("template Kind: %s, %v", kind, info.CtrCfg)
+		log.Debugf("template kind: %s, %v", kind, info.CtrCfg)
 	}
 	// typed handlers
 	for kind, info := range adapterInfo {
 		kindMap[kind] = info.DefaultConfig
-		log.Debugf("adapter Kind: %s, %v", kind, info.DefaultConfig)
+		log.Debugf("adapter kind: %s, %v", kind, info.DefaultConfig)
 	}
 	kindMap[RulesKind] = &configpb.Rule{}
-	log.Debugf("template Kind: %s", RulesKind)
+	log.Debugf("Rules config kind: %s", RulesKind)
 	kindMap[AttributeManifestKind] = &configpb.AttributeManifest{}
-	log.Debugf("template Kind: %s", AttributeManifestKind)
-
+	log.Debugf("Attribute manifest kind: %s", AttributeManifestKind)
+	kindMap[AdapterKind] = &v1beta1.Info{}
+	log.Debugf("Adapter info config kind: %s", RulesKind)
 	return kindMap
 }

@@ -14,11 +14,11 @@ spec:
           exact: enabled
     route:
     - destination:
-        name: c
+        host: c
         subset: version-v1
     websocketUpgrade: true
   - route:
     - destination:
-        name: c
+        host: c
         subset: version-v1
       weight: 100

@@ -715,20 +715,48 @@
          "type": "decoder",
          "name": "jwt-auth",
          "config": {
-          "jwts": [
+          "allowMissingOrFailed": true,
+          "rules": [
            {
-            "forwardJwt": true,
-            "issuer": "https://securetoken.google.com",
-            "jwksUri": "https://www.googleapis.com/oauth2/v1/certs",
-            "jwksUriEnvoyCluster": "jwks.www.googleapis.com|https",
-            "locations": [
+            "forwardPayloadHeader": "istio-sec-4cd586ece11fcc8dbb78ad8b1188c7369e6618d8",
+            "fromHeaders": [
              {
-              "header": "x-goog-iap-jwt-assertion"
+              "name": "x-goog-iap-jwt-assertion"
              }
             ],
-            "publicKeyCacheDuration": "300.000s"
+            "issuer": "https://securetoken.google.com",
+            "remoteJwks": {
+             "cacheDuration": "300.000s",
+             "httpUri": {
+              "cluster": "jwks.www.googleapis.com|https",
+              "uri": "https://www.googleapis.com/oauth2/v1/certs"
+             }
+            }
            }
           ]
+         }
+        },
+        {
+         "type": "decoder",
+         "name": "istio_authn",
+         "config": {
+          "jwtOutputPayloadLocations": {
+           "https://securetoken.google.com": "istio-sec-4cd586ece11fcc8dbb78ad8b1188c7369e6618d8"
+          },
+          "policy": {
+           "origins": [
+            {
+             "jwt": {
+              "issuer": "https://securetoken.google.com",
+              "jwksUri": "https://www.googleapis.com/oauth2/v1/certs",
+              "jwtHeaders": [
+               "x-goog-iap-jwt-assertion"
+              ]
+             }
+            }
+           ],
+           "principalBinding": "USE_ORIGIN"
+          }
          }
         },
         {

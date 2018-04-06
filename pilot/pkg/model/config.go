@@ -326,6 +326,18 @@ const (
 	IstioMeshGateway = "mesh"
 )
 
+/*
+  This conversion of CRD (== yaml files with k8s metadata) is extremely inefficient.
+  The yaml is parsed (kubeyaml), converted to YAML again (FromJSONMap),
+  converted to JSON (YAMLToJSON) and finally UnmarshallString in proto is called.
+
+  The result is not cached in the model.
+
+  In 0.7, this was the biggest factor in scalability. Moving forward we will likely
+  deprecate model, and do the conversion (hopefully more efficient) only once, when
+  an object is first read.
+*/
+
 var (
 	// MockConfig is used purely for testing
 	MockConfig = ProtoSchema{
@@ -563,6 +575,28 @@ func ResolveHostname(meta ConfigMeta, svc *routing.IstioService) string {
 	return out
 }
 
+// ResolveShortnameToFQDN uses metadata information to resolve a reference
+// to shortname of the service to FQDN
+func ResolveShortnameToFQDN(host string, meta ConfigMeta) string {
+	out := host
+
+	// if FQDN is specified, do not append domain or namespace to hostname
+	if !strings.Contains(host, ".") {
+		if meta.Namespace != "" {
+			out = out + "." + meta.Namespace
+		}
+
+		// FIXME this is a gross hack to hardcode a service's domain name in kubernetes
+		// BUG this will break non kubernetes environments if they use shortnames in the
+		// rules.
+		if meta.Domain != "" {
+			out = out + ".svc." + meta.Domain
+		}
+	}
+
+	return out
+}
+
 // ResolveFQDN ensures a host is a FQDN. If the host is a short name (i.e. has no dots in the name) and the domain is
 // non-empty the FQDN is built by concatenating the host and domain with a dot. Otherwise host is assumed to be a
 // FQDN and is returned unchanged.
@@ -748,6 +782,10 @@ func (store *istioConfigStore) ExternalServices() []Config {
 	return configs
 }
 
+// TODO: move the logic to v2, read all VirtualServices once at startup and per
+// change event and pass them to the config generator. Model calls to List are
+// extremely expensive - and for larger number of services it doesn't make sense
+// to just convert again and again, for each listener times endpoints.
 func (store *istioConfigStore) VirtualServices(gateways []string) []Config {
 	configs, err := store.List(VirtualService.Type, NamespaceAll)
 	if err != nil {
@@ -775,6 +813,30 @@ func (store *istioConfigStore) VirtualServices(gateways []string) []Config {
 					out = append(out, config)
 					break
 				}
+			}
+		}
+	}
+
+	// Need to parse each rule and convert the shortname to FQDN
+	for _, r := range out {
+		rule := r.Spec.(*networking.VirtualService)
+		// resolve top level hosts
+		for i, h := range rule.Hosts {
+			rule.Hosts[i] = ResolveShortnameToFQDN(h, r.ConfigMeta)
+		}
+		// resolve host in http route.destination, route.mirror
+		for _, d := range rule.Http {
+			for _, w := range d.Route {
+				w.Destination.Host = ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta)
+			}
+			if d.Mirror != nil {
+				d.Mirror.Host = ResolveShortnameToFQDN(d.Mirror.Host, r.ConfigMeta)
+			}
+		}
+		//resolve host in tcp route.destination
+		for _, d := range rule.Tcp {
+			for _, w := range d.Route {
+				w.Destination.Host = ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta)
 			}
 		}
 	}
@@ -851,7 +913,11 @@ func (store *istioConfigStore) DestinationRule(name, domain string) *Config {
 	target := ResolveFQDN(name, domain)
 	for _, config := range configs {
 		rule := config.Spec.(*networking.DestinationRule)
-		if ResolveFQDN(rule.Name, domain) == target {
+		if ResolveFQDN(rule.Host, domain) == target {
+			return &config
+		}
+		// from shortname destination to FQDN using the rule's namespace
+		if ResolveShortnameToFQDN(rule.Host, config.ConfigMeta) == target {
 			return &config
 		}
 	}

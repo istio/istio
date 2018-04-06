@@ -53,14 +53,19 @@ func TestBuildJwksFilter(t *testing.T) {
 				Type: "decoder",
 				Name: "jwt-auth",
 				Config: map[string]interface{}{
-					"jwts": []interface{}{
+					"rules": []interface{}{
 						map[string]interface{}{
-							"jwksUri":                "http://abc.com",
-							"forwardJwt":             true,
-							"publicKeyCacheDuration": "300.000s",
-							"jwksUriEnvoyCluster":    "jwks.abc.com|http",
+							"remoteJwks": map[string]interface{}{
+								"cacheDuration": "300.000s",
+								"httpUri": map[string]interface{}{
+									"uri":     "http://abc.com",
+									"cluster": "jwks.abc.com|http",
+								},
+							},
+							"forwardPayloadHeader": "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709",
 						},
 					},
+					"allowMissingOrFailed": true,
 				},
 			},
 		},

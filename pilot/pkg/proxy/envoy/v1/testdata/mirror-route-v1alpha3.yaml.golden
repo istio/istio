@@ -3,7 +3,7 @@ hosts:
 http:
   - route:
     - destination:
-        name: world
+        host: world
     mirror:
-      name: hello
+      host: hello
       subset: v1

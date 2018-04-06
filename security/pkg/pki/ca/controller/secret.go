@@ -45,11 +45,11 @@ const (
 	PrivateKeyID = "key.pem"
 	// The ID/name for the CA root certificate file.
 	RootCertID = "root-cert.pem"
+	// The key to specify corresponding service account in the annotation of K8s secrets.
+	ServiceAccountNameAnnotationKey = "istio.io/service-account.name"
 
 	secretNamePrefix   = "istio."
 	secretResyncPeriod = time.Minute
-
-	serviceAccountNameAnnotationKey = "istio.io/service-account.name"
 
 	recommendedMinGracePeriodRatio = 0.2
 	recommendedMaxGracePeriodRatio = 0.8
@@ -150,6 +150,11 @@ func (sc *SecretController) Run(stopCh chan struct{}) {
 	go sc.saController.Run(stopCh)
 }
 
+// GetSecretName returns the secret name for a given service account name.
+func GetSecretName(saName string) string {
+	return secretNamePrefix + saName
+}
+
 // Handles the event where a service account is added.
 func (sc *SecretController) saAdded(obj interface{}) {
 	acct := obj.(*v1.ServiceAccount)
@@ -189,8 +194,8 @@ func (sc *SecretController) saUpdated(oldObj, curObj interface{}) {
 func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 	secret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Annotations: map[string]string{serviceAccountNameAnnotationKey: saName},
-			Name:        getSecretName(saName),
+			Annotations: map[string]string{ServiceAccountNameAnnotationKey: saName},
+			Name:        GetSecretName(saName),
 			Namespace:   saNamespace,
 		},
 		Type: IstioSecretType,
@@ -242,7 +247,7 @@ func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 }
 
 func (sc *SecretController) deleteSecret(saName, saNamespace string) {
-	err := sc.core.Secrets(saNamespace).Delete(getSecretName(saName), nil)
+	err := sc.core.Secrets(saNamespace).Delete(GetSecretName(saName), nil)
 	// kube-apiserver returns NotFound error when the secret is successfully deleted.
 	if err == nil || errors.IsNotFound(err) {
 		log.Infof("Istio secret for service account \"%s\" in namespace \"%s\" has been deleted", saName, saNamespace)
@@ -260,7 +265,7 @@ func (sc *SecretController) scrtDeleted(obj interface{}) {
 		return
 	}
 
-	saName := scrt.Annotations[serviceAccountNameAnnotationKey]
+	saName := scrt.Annotations[ServiceAccountNameAnnotationKey]
 	if sa, _ := sc.core.ServiceAccounts(scrt.GetNamespace()).Get(saName, metav1.GetOptions{}); sa != nil {
 		log.Errorf("Re-create deleted Istio secret for existing service account.")
 		sc.upsertSecret(saName, scrt.GetNamespace())
@@ -286,10 +291,12 @@ func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string
 		return nil, nil, err
 	}
 
-	certPEM, err := sc.ca.Sign(csrPEM, sc.certTTL, false)
+	_, _, certChainPEM, _ := sc.ca.GetCAKeyCertBundle().GetAll()
+	certPEM, err := sc.ca.Sign(csrPEM, sc.certTTL)
 	if err != nil {
 		return nil, nil, err
 	}
+	certPEM = append(certPEM, certChainPEM...)
 
 	return certPEM, keyPEM, nil
 }
@@ -333,7 +340,7 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 		log.Infof("Refreshing secret %s/%s, either the leaf certificate is about to expire "+
 			"or the root certificate is outdated", namespace, name)
 
-		saName := scrt.Annotations[serviceAccountNameAnnotationKey]
+		saName := scrt.Annotations[ServiceAccountNameAnnotationKey]
 
 		chain, key, err := sc.generateKeyAndCert(saName, namespace)
 		if err != nil {
@@ -351,8 +358,4 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 			log.Errorf("Failed to update secret %s/%s (error: %s)", namespace, name, err)
 		}
 	}
-}
-
-func getSecretName(saName string) string {
-	return secretNamePrefix + saName
 }

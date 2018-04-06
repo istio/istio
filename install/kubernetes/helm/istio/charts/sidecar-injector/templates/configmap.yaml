@@ -21,9 +21,25 @@ data:
         - {{ "{{ .MeshConfig.ProxyListenPort }}" }}
         - "-u"
         - 1337
-        {{ if .Values.includeIPRanges -}}
         - "-i"
+        {{ if .Values.includeIPRanges -}}
         - {{ .Values.includeIPRanges | quote }}
+        {{ else -}}
+        - "*"
+        {{ end -}}
+        {{ if .Values.excludeIPRanges -}}
+        - "-x"
+        - {{ .Values.excludeIPRanges | quote }}
+        {{ end -}}
+        - "-b"
+        {{ if .Values.includeInboundPorts -}}
+        - {{ .Values.includeInboundPorts | quote }}
+        {{ else -}}
+        - "*"
+        {{ end -}}
+        {{ if .Values.excludeInboundPorts -}}
+        - "-d"
+        - {{ .Values.excludeInboundPorts | quote }}
         {{ end -}}
         imagePullPolicy: IfNotPresent
         securityContext:
@@ -79,6 +95,10 @@ data:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
+        - name: ISTIO_META_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
         imagePullPolicy: IfNotPresent
         securityContext:
             privileged: false

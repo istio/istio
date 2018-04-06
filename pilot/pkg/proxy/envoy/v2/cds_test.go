@@ -14,12 +14,7 @@
 package v2_test
 
 import (
-	"context"
 	"testing"
-
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"google.golang.org/grpc"
 
 	"io/ioutil"
 
@@ -27,32 +22,11 @@ import (
 	"istio.io/istio/tests/util"
 )
 
-func connectCDS(url string, nodeID string, t *testing.T) xdsapi.ClusterDiscoveryService_StreamClustersClient {
-	conn, err := grpc.Dial(url, grpc.WithInsecure())
-	if err != nil {
-		t.Fatal("Connection failed", err)
-	}
-
-	xds := xdsapi.NewClusterDiscoveryServiceClient(conn)
-	cdsstr, err := xds.StreamClusters(context.Background())
-	if err != nil {
-		t.Fatal("Rpc failed", err)
-	}
-	err = cdsstr.Send(&xdsapi.DiscoveryRequest{
-		Node: &envoy_api_v2_core1.Node{
-			Id: nodeID,
-		},
-	})
-	if err != nil {
-		t.Fatal("Send failed", err)
-	}
-	return cdsstr
-}
-
 func TestCDS(t *testing.T) {
-	initLocalPilotTestEnv()
+	initLocalPilotTestEnv(t)
 
-	cdsr := connectCDS(util.MockPilotGrpcAddr, sidecarId(app3Ip, "app3"), t)
+	cdsr := connectADS(t, util.MockPilotGrpcAddr)
+	sendCDSReq(t, sidecarId(app3Ip, "app3"), cdsr)
 
 	res, err := cdsr.Recv()
 	if err != nil {

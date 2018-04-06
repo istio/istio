@@ -260,6 +260,7 @@
     "envoy/api/v2/route",
     "envoy/config/filter/accesslog/v2",
     "envoy/config/filter/fault/v2",
+    "envoy/config/filter/http/jwt_authn/v2alpha",
     "envoy/config/filter/network/http_connection_manager/v2",
     "envoy/config/filter/network/mongo_proxy/v2",
     "envoy/config/filter/network/tcp_proxy/v2",
@@ -1217,6 +1218,7 @@
   version = "v2.2.1"
 
 [[projects]]
+  branch = "master"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
@@ -1230,7 +1232,7 @@
     "rbac/v1alpha1",
     "routing/v1alpha1"
   ]
-  revision = "1e6e1c99aab41d28aa59c2e48afa4c4dad2da2da"
+  revision = "3388c6e22df091cbacf63f012aef56b3120bf869"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1246,8 +1248,8 @@
     "ui",
     "version"
   ]
-  revision = "0e1347b31d9eb6d190f29b81b2ee710697b6c6c3"
-  version = "v0.8.1"
+  revision = "e50943e8e525197f36f9b4f81464615c063a0a65"
+  version = "v0.9.0"
 
 [[projects]]
   name = "k8s.io/api"
@@ -1526,6 +1528,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "62024f0a7ac9b9eb574b6bd9af2ce90e0f6717966381c83656b9698bbaf6a2ed"
+  inputs-digest = "40d1d69954dfec356114c9b22857c398344d80df06c2ea92f26ce0d2ad8bcaa3"
   solver-name = "gps-cdcl"
   solver-version = 1

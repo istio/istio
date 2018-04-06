@@ -17,59 +17,47 @@ package pilot
 import (
 	"fmt"
 	"strings"
+	"testing"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/log"
-	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
 )
 
-type ingress struct {
-	*tutil.Environment
-	logs *accessLogs
-}
-
-const (
-	ingressServiceName = "istio-ingress"
-)
-
-func (t *ingress) String() string {
-	return "ingress"
-}
-
-func (t *ingress) Setup() error {
-	if !t.Config.Ingress {
-		return nil
-	}
-	if serviceregistry.ServiceRegistry(t.Config.Registry) != serviceregistry.KubernetesRegistry {
-		return nil
-	}
-	t.logs = makeAccessLogs()
-
-	// parse and send yamls
-	if yaml, err := t.Fill("ingress.yaml.tmpl", t.ToTemplateData()); err != nil {
-		return err
-	} else if err = t.KubeApply(yaml, t.Config.Namespace); err != nil {
-		return err
+func TestIngress(t *testing.T) {
+	if !tc.Ingress {
+		t.Skipf("Skipping %s: ingress=false", t.Name())
 	}
 
-	// send route rules for "c" only
-	return t.ApplyConfig("v1alpha1/rule-default-route.yaml.tmpl", nil)
-}
+	istioNamespace := tc.Kube.IstioSystemNamespace()
+	ingressServiceName := tc.Kube.IstioIngressService()
 
-func (t *ingress) Run() error {
-	if !t.Config.Ingress {
-		log.Info("skipping test since ingress is missing")
-		return nil
+	// Configure a route for "c" only
+	cfgs := &deployableConfig{
+		Namespace: tc.Kube.Namespace,
+		YamlFiles: []string{
+			"testdata/ingress.yaml",
+			"testdata/v1alpha1/rule-default-route.yaml"},
 	}
-	if serviceregistry.ServiceRegistry(t.Config.Registry) != serviceregistry.KubernetesRegistry {
-		return nil
+	if err := cfgs.Setup(); err != nil {
+		t.Fatal(err)
 	}
+	defer cfgs.Teardown()
 
-	funcs := make(map[string]func() tutil.Status)
-	funcs["Ingress status IP"] = t.checkIngressStatus
-	funcs["Route rule for /c"] = t.checkRouteRule
+	if !tc.V1alpha3 {
+		// First, verify that version splitting is applied to ingress paths.
+		runRetriableTest(t, "VersionSplitting", defaultRetryBudget, func() error {
+			reqURL := fmt.Sprintf("http://%s.%s/c", ingressServiceName, istioNamespace)
+			resp := ClientRequest("t", reqURL, 100, "")
+			count := make(map[string]int)
+			for _, elt := range resp.Version {
+				count[elt] = count[elt] + 1
+			}
+			log.Infof("request counts %v", count)
+			if count["v1"] >= 95 {
+				return nil
+			}
+			return errAgain
+		})
+	}
 
 	cases := []struct {
 		// empty destination to expect 404
@@ -77,96 +65,115 @@ func (t *ingress) Run() error {
 		url  string
 		host string
 	}{
-		{"a", fmt.Sprintf("https://%s.%s:443/http", ingressServiceName, t.Config.IstioNamespace), ""},
-		{"b", fmt.Sprintf("https://%s.%s:443/pasta", ingressServiceName, t.Config.IstioNamespace), ""},
-		{"a", fmt.Sprintf("http://%s.%s/lucky", ingressServiceName, t.Config.IstioNamespace), ""},
-		{"a", fmt.Sprintf("http://%s.%s/.well_known/foo", ingressServiceName, t.Config.IstioNamespace), ""},
-		{"a", fmt.Sprintf("http://%s.%s/io.grpc/method", ingressServiceName, t.Config.IstioNamespace), ""},
-		{"b", fmt.Sprintf("http://%s.%s/lol", ingressServiceName, t.Config.IstioNamespace), ""},
-		{"a", fmt.Sprintf("http://%s.%s/foo", ingressServiceName, t.Config.IstioNamespace), "foo.bar.com"},
-		{"a", fmt.Sprintf("http://%s.%s/bar", ingressServiceName, t.Config.IstioNamespace), "foo.baz.com"},
-		{"a", fmt.Sprintf("grpc://%s.%s:80", ingressServiceName, t.Config.IstioNamespace), "api.company.com"},
-		{"a", fmt.Sprintf("grpcs://%s.%s:443", ingressServiceName, t.Config.IstioNamespace), "api.company.com"},
-		{"", fmt.Sprintf("http://%s.%s/notfound", ingressServiceName, t.Config.IstioNamespace), ""},
-		{"", fmt.Sprintf("http://%s.%s/foo", ingressServiceName, t.Config.IstioNamespace), ""},
+		{
+			dst:  "a",
+			url:  fmt.Sprintf("https://%s.%s:443/http", ingressServiceName, istioNamespace),
+			host: "",
+		},
+		{
+			dst:  "b",
+			url:  fmt.Sprintf("https://%s.%s:443/pasta", ingressServiceName, istioNamespace),
+			host: "",
+		},
+		{
+			dst:  "a",
+			url:  fmt.Sprintf("http://%s.%s/lucky", ingressServiceName, istioNamespace),
+			host: "",
+		},
+		{
+			dst:  "a",
+			url:  fmt.Sprintf("http://%s.%s/.well_known/foo", ingressServiceName, istioNamespace),
+			host: "",
+		},
+		{
+			dst:  "a",
+			url:  fmt.Sprintf("http://%s.%s/io.grpc/method", ingressServiceName, istioNamespace),
+			host: "",
+		},
+		{
+			dst:  "b",
+			url:  fmt.Sprintf("http://%s.%s/lol", ingressServiceName, istioNamespace),
+			host: "",
+		},
+		{
+			dst:  "a",
+			url:  fmt.Sprintf("http://%s.%s/foo", ingressServiceName, istioNamespace),
+			host: "foo.bar.com",
+		},
+		{
+			dst:  "a",
+			url:  fmt.Sprintf("http://%s.%s/bar", ingressServiceName, istioNamespace),
+			host: "foo.baz.com",
+		},
+		{
+			dst:  "a",
+			url:  fmt.Sprintf("grpc://%s.%s:80", ingressServiceName, istioNamespace),
+			host: "api.company.com",
+		},
+		{
+			dst:  "a",
+			url:  fmt.Sprintf("grpcs://%s.%s:443", ingressServiceName, istioNamespace),
+			host: "api.company.com",
+		},
+		{
+			// Expect 404: no match for path
+			dst:  "",
+			url:  fmt.Sprintf("http://%s.%s/notfound", ingressServiceName, istioNamespace),
+			host: "",
+		},
+		{
+			// Expect 404: wrong service port for path
+			dst:  "",
+			url:  fmt.Sprintf("http://%s.%s/foo", ingressServiceName, istioNamespace),
+			host: "",
+		},
 	}
-	for _, req := range cases {
-		name := fmt.Sprintf("Ingress request to %+v", req)
-		funcs[name] = (func(dst, url, host string) func() tutil.Status {
+
+	logs := newAccessLogs()
+	t.Run("request", func(t *testing.T) {
+		for _, c := range cases {
 			extra := ""
-			if host != "" {
-				extra = "-key Host -val " + host
+			if c.host != "" {
+				extra = "-key Host -val " + c.host
 			}
-			return func() tutil.Status {
-				resp := t.ClientRequest("t", url, 1, extra)
-				if dst == "" {
+
+			expectReachable := c.dst != ""
+			retryBudget := defaultRetryBudget
+			testName := fmt.Sprintf("REACHABLE:%s(Host:%s)", c.url, c.host)
+			if !expectReachable {
+				retryBudget = 5
+				testName = fmt.Sprintf("UNREACHABLE:%s(Host:%s)", c.url, c.host)
+			}
+
+			logEntry := fmt.Sprintf("Ingress request to %+v", c)
+			runRetriableTest(t, testName, retryBudget, func() error {
+				resp := ClientRequest("t", c.url, 1, extra)
+				if !expectReachable {
 					if len(resp.Code) > 0 && resp.Code[0] == "404" {
 						return nil
 					}
-				} else if len(resp.ID) > 0 {
+					return errAgain
+				}
+				if len(resp.ID) > 0 {
 					if !strings.Contains(resp.Body, "X-Forwarded-For") &&
 						!strings.Contains(resp.Body, "x-forwarded-for") {
 						log.Warnf("Missing X-Forwarded-For in the body: %s", resp.Body)
-						return tutil.ErrAgain
+						return errAgain
 					}
 
 					id := resp.ID[0]
-					t.logs.add(dst, id, name)
-					t.logs.add("ingress", id, name)
+					logs.add(c.dst, id, logEntry)
+					logs.add(ingressAppName, id, logEntry)
 					return nil
 				}
-				return tutil.ErrAgain
-			}
-		})(req.dst, req.url, req.host)
-	}
-
-	if err := tutil.Parallel(funcs); err != nil {
-		return err
-	}
-	return t.logs.check(t.Environment)
-}
-
-// checkRouteRule verifies that version splitting is applied to ingress paths
-func (t *ingress) checkRouteRule() tutil.Status {
-	url := fmt.Sprintf("http://%s.%s/c", ingressServiceName, t.Config.IstioNamespace)
-	resp := t.ClientRequest("t", url, 100, "")
-	count := counts(resp.Version)
-	log.Infof("counts: %v", count)
-	if count["v1"] >= 95 {
-		return nil
-	}
-	return tutil.ErrAgain
-}
-
-// ensure that IPs/hostnames are in the ingress statuses
-func (t *ingress) checkIngressStatus() tutil.Status {
-	ings, err := t.KubeClient.ExtensionsV1beta1().Ingresses(t.Config.Namespace).List(metav1.ListOptions{})
-	if err != nil {
-		return err
-	}
-	if len(ings.Items) == 0 {
-		return fmt.Errorf("ingress status failure: no ingress")
-	}
-	for _, ing := range ings.Items {
-		if len(ing.Status.LoadBalancer.Ingress) == 0 {
-			return tutil.ErrAgain
+				return errAgain
+			})
 		}
+	})
 
-		for _, status := range ing.Status.LoadBalancer.Ingress {
-			if status.IP == "" && status.Hostname == "" {
-				return tutil.ErrAgain
-			}
-			log.Infof("Ingress Status IP: %s", status.IP)
-		}
-	}
-	return nil
-}
-
-func (t *ingress) Teardown() {
-	if !t.Config.Ingress {
-		return
-	}
-	if err := t.DeleteAllConfigs(); err != nil {
-		log.Warna(err)
-	}
+	// After all requests complete, run the check logs tests.
+	// Run all request tests in parallel.
+	t.Run("check", func(t *testing.T) {
+		logs.checkLogs(t)
+	})
 }

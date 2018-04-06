@@ -13,7 +13,7 @@ http:
             version: v0
     route:
       - destination:
-          name: world
+          host: world
           subset: v1
         weight: 100
     fault:

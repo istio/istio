@@ -31,15 +31,14 @@ set -o pipefail
 declare -a tests
 [[  $1 == "all" ]] && tests=("bookinfo" "mixer" "simple") || tests=($1)
 
-HUB=gcr.io/istio-testing
+HUB=gcr.io/istio-release
 
-cd ${WORKSPACE}/github.com/istio/istio
-TAG=`git rev-parse HEAD`
+cd ${WORKSPACE}/istio.io/istio
+git checkout ${TAG}
+make submodule-sync
+make init
 
 for t in ${tests[@]}; do
-  go test -v -timeout 20m ./tests/e2e/tests/${t} -args \
-  --skip_setup --namespace istio-system \
-  --mixer_tag ${TAG} --pilot_tag ${TAG} --proxy_tag ${TAG} --ca_tag ${TAG} \
-  --mixer_hub ${HUB} --pilot_hub ${HUB} --proxy_hub ${HUB} --ca_hub ${HUB} \
-  --istioctl_url https://storage.googleapis.com/istio-artifacts/pilot/${TAG}/artifacts/istioctl
+  make e2e_${t} E2E_ARGS="--skip_setup --namespace=istio-system --istioctl_url=https://storage.googleapis.com/istio-artifacts/pilot/${TAG}/artifacts/istioctl"
 done
+

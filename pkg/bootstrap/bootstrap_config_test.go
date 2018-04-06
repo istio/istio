@@ -55,7 +55,7 @@ func TestGolden(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			fn, err := WriteBootstrap(cfg, 0, []string{
+			fn, err := WriteBootstrap(cfg, "sidecar~1.2.3.4~foo~bar", 0, []string{
 				"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"}, nil)
 			if err != nil {
 				t.Fatal(err)
