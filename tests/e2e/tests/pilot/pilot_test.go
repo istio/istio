@@ -15,17 +15,16 @@
 package pilot
 
 import (
-	"flag"
-	"os"
-	"testing"
-
 	"errors"
+	"flag"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
+	"testing"
 	"time"
 
 	"go.uber.org/multierr"
