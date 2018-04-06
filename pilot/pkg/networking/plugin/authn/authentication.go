@@ -16,7 +16,11 @@ package authn
 
 import (
 	"crypto/sha1"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
@@ -47,6 +51,14 @@ const (
 
 	// Defautl cache duration for JWT public key. This should be moved to a global config.
 	jwtPublicKeyCacheSeconds = 60 * 5
+
+	// https://openid.net/specs/openid-connect-discovery-1_0.html
+	// OpenID Providers supporting Discovery MUST make a JSON document available at the path
+	// formed by concatenating the string /.well-known/openid-configuration to the Issuer.
+	openIDDiscoveryCfgURLSuffix = "/.well-known/openid-configuration"
+
+	// OpenID Discovery web request timeout.
+	openIDDiscoveryHTTPTimeOut = 5
 )
 
 // Plugin implements Istio mTLS auth
@@ -128,9 +140,15 @@ func ConvertPolicyToJwtConfig(policy *authn.Policy) *jwtfilter.JwtAuthentication
 		AllowMissingOrFailed: true,
 	}
 	for _, policyJwt := range policyJwts {
-		hostname, port, _, err := model.ParseJwksURI(policyJwt.JwksUri)
+		jwksURI, err := getJwksURI(policyJwt)
 		if err != nil {
-			log.Errorf("Cannot parse jwks_uri %q: %v", policyJwt.JwksUri, err)
+			log.Warnf("Cannot get jwks_uri for issuer %q: %v", policyJwt.Issuer, err)
+			continue
+		}
+
+		hostname, port, _, err := model.ParseJwksURI(jwksURI)
+		if err != nil {
+			log.Warnf("Cannot parse jwks_uri %q: %v", jwksURI, err)
 			continue
 		}
 
@@ -140,7 +158,7 @@ func ConvertPolicyToJwtConfig(policy *authn.Policy) *jwtfilter.JwtAuthentication
 			JwksSourceSpecifier: &jwtfilter.JwtRule_RemoteJwks{
 				RemoteJwks: &jwtfilter.RemoteJwks{
 					HttpUri: &core.HttpUri{
-						Uri: policyJwt.JwksUri,
+						Uri: jwksURI,
 						HttpUpstreamType: &core.HttpUri_Cluster{
 							Cluster: JwksURIClusterName(hostname, port),
 						},
@@ -364,4 +382,45 @@ func (*Plugin) OnOutboundCluster(env model.Environment, node model.Proxy, servic
 			},
 		},
 	}
+}
+
+// Get jwks_uri through openID discovery if it's not set in auth policy.
+func getJwksURI(policyJwt *authn.Jwt) (string, error) {
+	// Return directly if policyJwt.JwksUri is explicitly set.
+	// Ex, JwksUri should be set in auth policy when policyJwt.Issuer is an email address.
+	if policyJwt.JwksUri != "" {
+		return policyJwt.JwksUri, nil
+	}
+
+	// If policyJwt.Issuer isn't set, try to get it through OpenID Discovery.
+	discoveryURL := policyJwt.Issuer + openIDDiscoveryCfgURLSuffix
+	client := &http.Client{
+		Timeout: openIDDiscoveryHTTPTimeOut * time.Second,
+	}
+	resp, err := client.Get(discoveryURL)
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		if errr := resp.Body.Close(); errr != nil {
+			log.Errorf("Failed to close web response: %v", errr)
+		}
+	}()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	var data map[string]interface{}
+	if err := json.Unmarshal(body, &data); err != nil {
+		return "", err
+	}
+
+	jwksURI, ok := data["jwks_uri"].(string)
+	if !ok {
+		return "", fmt.Errorf("invalid jwks_uri %v in openID discovery configuration", data["jwks_uri"])
+	}
+
+	return jwksURI, nil
 }

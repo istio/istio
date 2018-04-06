@@ -1789,11 +1789,10 @@ func validateJwt(jwt *authn.Jwt) (errs error) {
 			errs = multierror.Append(errs, errors.New("audience must be non-empty string"))
 		}
 	}
-	if jwt.JwksUri == "" {
-		errs = multierror.Append(errs, errors.New("jwks_uri must be set"))
-	}
-	if _, _, _, err := ParseJwksURI(jwt.JwksUri); err != nil {
-		errs = multierror.Append(errs, err)
+	if jwt.JwksUri != "" {
+		if _, _, _, err := ParseJwksURI(jwt.JwksUri); err != nil {
+			errs = multierror.Append(errs, err)
+		}
 	}
 
 	for _, location := range jwt.JwtHeaders {
