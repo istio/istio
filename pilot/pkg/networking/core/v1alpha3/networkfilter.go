@@ -30,6 +30,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/log"
 )
 
 // buildInboundNetworkFilters generates a TCP proxy network filter on the inbound path
@@ -97,10 +98,12 @@ func buildOutboundNetworkFilters(clusterName string, addresses []string, port *m
 	}
 	data, err := json.Marshal(filterConfig)
 	if err != nil {
+		log.Errorf("filter config could not be marshalled: %v", err)
 		return nil
 	}
 	pbs := &types.Struct{}
 	if err := jsonpb.Unmarshal(bytes.NewReader(data), pbs); err != nil {
+		log.Errorf("filter config could not be unmarshalled: %v", err)
 		return nil
 	}
 
