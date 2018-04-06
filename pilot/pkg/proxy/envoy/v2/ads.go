@@ -103,6 +103,11 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	var receiveError error
 	reqChannel := make(chan *xdsapi.DiscoveryRequest, 1)
 
+	if s.services == nil {
+		// first call - lazy loading.
+		s.updateModel()
+	}
+
 	con := &XdsConnection{
 		pushChannel:   make(chan *XdsEvent, 1),
 		PeerAddr:      peerAddr,
@@ -293,6 +298,14 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	}
 }
 
+func edsClientCount() int {
+	var n int
+	edsClusterMutex.Lock()
+	n = len(adsClients)
+	edsClusterMutex.Unlock()
+	return n
+}
+
 // adsPushAll implements old style invalidation, generated when any rule or endpoint changes.
 // Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
 // to the model ConfigStorageCache and Controller.
@@ -355,14 +368,20 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 
 func (s *DiscoveryServer) pushRoute(con *XdsConnection) error {
 	rc := []*xdsapi.RouteConfiguration{}
+
+	var services []*model.Service
+	s.modelMutex.RLock()
+	services = s.services
+	s.modelMutex.RUnlock()
+
 	// TODO: once per config update
-	services, err := s.env.Services()
-	for _, rn := range con.Routes {
+	for _, routeName := range con.Routes {
 		// TODO: for ingress/gateway use the other method
-		r := s.ConfigGenerator.BuildSidecarOutboundHTTPRouteConfig(s.env, *con.modelNode, nil, services, rn)
+		r := s.ConfigGenerator.BuildSidecarOutboundHTTPRouteConfig(s.env, *con.modelNode, nil,
+			services, routeName)
 
 		rc = append(rc, r)
-		con.RouteConfigs[rn] = r
+		con.RouteConfigs[routeName] = r
 	}
 	response, err := routeDiscoveryResponse(rc, *con.modelNode)
 	if err != nil {

@@ -371,7 +371,7 @@ func testService(t *testing.T) {
 	if err != nil {
 		t.Error("Failed to access proxy", err)
 	}
-	if res.Status != "200" {
+	if res.Status != "200 OK" {
 		t.Error("Proxy failed ", res.Status)
 	}
 }
