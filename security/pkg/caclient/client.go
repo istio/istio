@@ -16,9 +16,8 @@ package caclient
 
 import (
 	"fmt"
-	"time"
-
 	"io/ioutil"
+	"time"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/caclient/grpc"

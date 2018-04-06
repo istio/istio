@@ -19,10 +19,9 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
-
-	"time"
 
 	nam "istio.io/istio/security/cmd/node_agent/management"
 	"istio.io/istio/security/cmd/node_agent/na"
