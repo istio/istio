@@ -705,12 +705,17 @@ type Listeners []*Listener
 // Normalize sorts and de-duplicates listeners by address
 func (listeners Listeners) normalize() Listeners {
 	out := make(Listeners, 0, len(listeners))
-	set := make(map[string]bool)
+	set := make(map[string]*Listener)
 	for _, listener := range listeners {
-		if !set[listener.Address] {
-			set[listener.Address] = true
-			out = append(out, listener)
+		if l, collision := set[listener.Address]; collision {
+			ol, _ := json.Marshal(*l)
+			ll, _ := json.Marshal(*listener)
+			log.Errorf("Listener collision for %s\n---\n%s\n--- rejected ---\n%s", listener.Address,
+				string(ol), string(ll))
+			continue
 		}
+		out = append(out, listener)
+		set[listener.Address] = listener
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Address < out[j].Address })
 	return out
