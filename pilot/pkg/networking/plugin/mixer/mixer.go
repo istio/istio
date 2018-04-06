@@ -26,7 +26,7 @@ import (
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	"istio.io/istio/pilot/pkg/model"
-	p "istio.io/istio/pilot/pkg/networking/plugin"
+	pluginPkg "istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
 )
@@ -35,12 +35,12 @@ import (
 type plugin struct{}
 
 // NewPlugin returns an ptr to an initialized mixer.Plugin.
-func NewPlugin() p.Plugin {
+func NewPlugin() pluginPkg.Plugin {
 	return plugin{}
 }
 
 // OnOutboundListener implements the Callbacks interface method.
-func (plugin) OnOutboundListener(in *p.InputParams, mutable *p.MutableObjects) error {
+func (plugin) OnOutboundListener(in *pluginPkg.InputParams, mutable *pluginPkg.MutableObjects) error {
 	if in.Service == nil || !in.Service.MeshExternal {
 		return nil
 	}
@@ -50,10 +50,10 @@ func (plugin) OnOutboundListener(in *p.InputParams, mutable *p.MutableObjects) e
 	proxyInstances := in.ProxyInstances
 
 	switch in.ListenerType {
-	case p.ListenerTypeHTTP:
+	case pluginPkg.ListenerTypeHTTP:
 		mutable.HTTPFilters = append(mutable.HTTPFilters, buildMixerHTTPFilter(env, node, proxyInstances, true))
 		return nil
-	case p.ListenerTypeTCP:
+	case pluginPkg.ListenerTypeTCP:
 		mutable.TCPFilters = append(mutable.TCPFilters, buildMixerOutboundTCPFilter(env, node))
 		return nil
 	}
@@ -62,17 +62,17 @@ func (plugin) OnOutboundListener(in *p.InputParams, mutable *p.MutableObjects) e
 }
 
 // OnInboundListener implements the Callbacks interface method.
-func (plugin) OnInboundListener(in *p.InputParams, mutable *p.MutableObjects) error {
+func (plugin) OnInboundListener(in *pluginPkg.InputParams, mutable *pluginPkg.MutableObjects) error {
 	env := in.Env
 	node := in.Node
 	proxyInstances := in.ProxyInstances
 	instance := in.ServiceInstance
 
 	switch in.ListenerType {
-	case p.ListenerTypeHTTP:
+	case pluginPkg.ListenerTypeHTTP:
 		mutable.HTTPFilters = append(mutable.HTTPFilters, buildMixerHTTPFilter(env, node, proxyInstances, false))
 		return nil
-	case p.ListenerTypeTCP:
+	case pluginPkg.ListenerTypeTCP:
 		mutable.TCPFilters = append(mutable.TCPFilters, buildMixerInboundTCPFilter(env, node, instance))
 		return nil
 	}
@@ -89,11 +89,11 @@ func (plugin) OnInboundCluster(env model.Environment, node model.Proxy, service 
 }
 
 // OnOutboundRoute implements the Callbacks interface method.
-func (plugin) OnOutboundRouteConfiguration(in *p.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
+func (plugin) OnOutboundRouteConfiguration(in *pluginPkg.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
 }
 
 // OnInboundRoute implements the Callbacks interface method.
-func (plugin) OnInboundRouteConfiguration(in *p.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
+func (plugin) OnInboundRouteConfiguration(in *pluginPkg.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
 }
 
 // buildMixerHTTPFilter builds a filter with a v1 mixer config encapsulated as JSON in a proto.Struct for v2 consumption.

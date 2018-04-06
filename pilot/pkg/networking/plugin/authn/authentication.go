@@ -29,7 +29,7 @@ import (
 	authn "istio.io/api/authentication/v1alpha1"
 	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	p "istio.io/istio/pilot/pkg/networking/plugin"
+	pluginPkg "istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
 )
@@ -53,7 +53,7 @@ const (
 type plugin struct{}
 
 // NewPlugin returns an instance of the authn plugin
-func NewPlugin() p.Plugin {
+func NewPlugin() pluginPkg.Plugin {
 	return plugin{}
 }
 
@@ -264,7 +264,7 @@ func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy) *auth.Do
 
 // OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service
 // Can be used to add additional filters on the outbound path
-func (plugin) OnOutboundListener(in *p.InputParams, mutable *p.MutableObjects) error {
+func (plugin) OnOutboundListener(in *pluginPkg.InputParams, mutable *pluginPkg.MutableObjects) error {
 	if in.Node.Type != model.Router {
 		// Only care about Router nodes.
 		return nil
@@ -276,7 +276,7 @@ func (plugin) OnOutboundListener(in *p.InputParams, mutable *p.MutableObjects) e
 // OnInboundListener is called whenever a new listener is added to the LDS output for a given service
 // Can be used to add additional filters (e.g., mixer filter) or add more stuff to the HTTP connection manager
 // on the inbound path
-func (plugin) OnInboundListener(in *p.InputParams, mutable *p.MutableObjects) error {
+func (plugin) OnInboundListener(in *pluginPkg.InputParams, mutable *pluginPkg.MutableObjects) error {
 	if in.Node.Type != model.Router {
 		// Only care about Router nodes.
 		return nil
@@ -306,12 +306,12 @@ func (plugin) OnInboundCluster(env model.Environment, node model.Proxy, service 
 
 // OnOutboundRoute is called whenever a new set of virtual hosts (a set of virtual hosts with routes) is added to
 // RDS in the outbound path. Can be used to add route specific metadata or additional headers to forward
-func (plugin) OnOutboundRouteConfiguration(in *p.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
+func (plugin) OnOutboundRouteConfiguration(in *pluginPkg.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
 }
 
 // OnInboundRoute is called whenever a new set of virtual hosts are added to the inbound path.
 // Can be used to enable route specific stuff like Lua filters or other metadata.
-func (plugin) OnInboundRouteConfiguration(in *p.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
+func (plugin) OnInboundRouteConfiguration(in *pluginPkg.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
 }
 
 // OnOutboundCluster is called whenever a new cluster is added to the CDS output
