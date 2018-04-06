@@ -778,7 +778,7 @@ func TestBuildSidecarListenerTLSContex(t *testing.T) {
 			expected: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					TlsCertificates: []*auth.TlsCertificate{
-						&auth.TlsCertificate{
+						{
 							CertificateChain: &core.DataSource{
 								Specifier: &core.DataSource_Filename{
 									Filename: "cert-chain.pem",
@@ -819,7 +819,7 @@ func TestBuildSidecarListenerTLSContex(t *testing.T) {
 			expected: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					TlsCertificates: []*auth.TlsCertificate{
-						&auth.TlsCertificate{
+						{
 							CertificateChain: &core.DataSource{
 								Specifier: &core.DataSource_Filename{
 									Filename: "cert-chain.pem",
