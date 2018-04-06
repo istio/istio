@@ -15,6 +15,7 @@
 package external
 
 import (
+	authn "istio.io/api/authentication/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 )
@@ -50,6 +51,19 @@ func NewController(configStore model.ConfigStoreCache) model.Controller {
 		for _, handler := range c.instanceHandlers {
 			for _, instance := range instances {
 				go handler(instance, event)
+			}
+		}
+	})
+
+	configStore.RegisterEventHandler(model.AuthenticationPolicy.Type, func(config model.Config, event model.Event) {
+		authnPolicy := config.Spec.(*authn.Policy)
+		externalSvcs := extractExternalService(authnPolicy)
+		for _, externalSvc := range externalSvcs {
+			services := convertService(externalSvc)
+			for _, handler := range c.serviceHandlers {
+				for _, service := range services {
+					go handler(service, event)
+				}
 			}
 		}
 	})

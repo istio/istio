@@ -15,6 +15,7 @@
 package external
 
 import (
+	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -49,9 +50,14 @@ func convertService(externalService *networking.ExternalService) []*model.Servic
 			svcPorts = append(svcPorts, convertPort(port))
 		}
 
+		// TODO(diemtvu) confirm this: ExternalName was not set before, but it was used
+		// (at least in v1) to decide if a service is external or not
+		// (https://github.com/istio/istio/blob/master/pilot/pkg/model/service.go#L417)
+		// Is this a bug for not setting it.
 		out = append(out, &model.Service{
 			MeshExternal: true,
 			Hostname:     host,
+			ExternalName: host,
 			// TODO: add Address if the host is a CIDR
 			Ports:      svcPorts,
 			Resolution: resolution,
@@ -110,4 +116,33 @@ func convertProtocol(name string) model.Protocol {
 		return model.ProtocolTCP
 	}
 	return protocol
+}
+
+func extractExternalService(authnPolicy *authn.Policy) []*networking.ExternalService {
+	out := make([]*networking.ExternalService, 0)
+
+	for _, method := range authnPolicy.Origins {
+		host, port, useSSl, err := model.ParseJwksURI(method.Jwt.JwksUri)
+		if err != nil {
+			log.Warnf("Cannot parse JwksUri for %v", method)
+			continue
+		}
+		extServicePort := &networking.Port{
+			Number: uint32(port.Port),
+			Name:   port.Name,
+		}
+		if useSSl {
+			extServicePort.Protocol = "HTTPS"
+		} else {
+			extServicePort.Protocol = "HTTP"
+		}
+
+		out = append(out, &networking.ExternalService{
+			Hosts:     []string{host},
+			Ports:     []*networking.Port{extServicePort},
+			Discovery: networking.ExternalService_DNS,
+		})
+	}
+
+	return out
 }
