@@ -37,7 +37,6 @@ type CAClient struct {
 }
 
 // NewCAClient creates a new CAClient instance.
-//func NewCAClient(pltfmc platform.Client, caAddr string, maxRetries int, interval time.Duration) (*CAClient, error) {
 func NewCAClient(pltfmc platform.Client, protocolClient protocol.CAProtocol, maxRetries int, interval time.Duration) (*CAClient, error) {
 	if !pltfmc.IsProperPlatform() {
 		return nil, fmt.Errorf("CA client is not running on the right platform") // nolint

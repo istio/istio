@@ -428,6 +428,9 @@ func createKeyCertBundleRotator(keycert pkiutil.KeyCertBundle) (keyCertBundleRot
 		return nil, err
 	}
 	cac, err := caclient.NewCAClient(pc, grpcConn, config.CSRMaxRetries, config.CSRInitialRetrialInterval)
+	if err != nil {
+		return nil, err
+	}
 	return caclient.NewKeyCertBundleRotator(config, cac, keycert)
 }
 
