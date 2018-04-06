@@ -15,22 +15,20 @@
 package util
 
 import (
+	"bytes"
 	"log"
 	"net"
 	"os"
+	"runtime"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
-	"istio.io/istio/pilot/pkg/serviceregistry"
-
-	"bytes"
-	"runtime"
-	"strconv"
-	"strings"
-
 	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v1"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 )
 
 var (

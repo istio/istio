@@ -15,11 +15,10 @@
 package pilot
 
 import (
+	"log"
 	"os"
 	"testing"
 	"time"
-
-	"log"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
