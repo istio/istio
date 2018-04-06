@@ -466,6 +466,10 @@ function run_tests() {
 }
 
 
+function check_image_versions() {
+  kubectl get pods --all-namespaces -o jsonpath="{..image}" | tr -s '[[:space:]]' '\n' | sort | uniq -c | grep -v -e google.containers
+}
+
 if [[ $SOURCED == 0 ]]; then
   # Normal mode: all at once:
   update_gcp_opts
