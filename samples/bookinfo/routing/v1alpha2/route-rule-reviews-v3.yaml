@@ -5,7 +5,7 @@ metadata:
 spec:
   destination:
     name: reviews
-  precedence: 1
+  precedence: 2
   route:
   - labels:
       version: v3
