@@ -36,7 +36,7 @@ type Plugin struct{}
 
 // NewPlugin returns an ptr to an initialized mixer.Plugin.
 func NewPlugin() plugin.Plugin {
-	return &Plugin{}
+	return Plugin{}
 }
 
 // OnOutboundListener implements the Callbacks interface method.
