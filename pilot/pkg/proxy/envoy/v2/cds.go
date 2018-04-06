@@ -47,6 +47,7 @@ func (con *XdsConnection) clusters(response []*xdsapi.Cluster) *xdsapi.Discovery
 func (s *DiscoveryServer) pushCds(node model.Proxy, con *XdsConnection) error {
 	rawClusters, _ := s.ConfigGenerator.BuildClusters(s.env, *con.modelNode)
 
+	con.HTTPClusters = rawClusters
 	response := con.clusters(rawClusters)
 	err := con.stream.Send(response)
 	if err != nil {
