@@ -21,6 +21,7 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"strings"
 	"time"
 
 	"code.cloudfoundry.org/copilot"
@@ -298,6 +299,10 @@ func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*v1.Confi
 
 	config, err := kube.CoreV1().ConfigMaps(namespace).Get(name, meta_v1.GetOptions{})
 	if err != nil {
+		if strings.Contains(err.Error(), fmt.Sprintf("\"%s\" not found", name)) {
+			defaultMesh := model.DefaultMeshConfig()
+			return nil, &defaultMesh, nil
+		}
 		return nil, nil, err
 	}
 

@@ -713,6 +713,19 @@
        "filters": [
         {
          "type": "decoder",
+         "name": "istio_authn",
+         "config": {
+          "policy": {
+           "peers": [
+            {
+             "mtls": {}
+            }
+           ]
+          }
+         }
+        },
+        {
+         "type": "decoder",
          "name": "mixer",
          "config": {
           "v2": {
