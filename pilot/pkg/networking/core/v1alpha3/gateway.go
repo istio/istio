@@ -128,7 +128,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 				tlsContext: buildGatewayListenerTLSContext(server),
 				bindToPort: true,
 			}
-			networkFilters = buildGatewayInboundNetworkFilters(env, server)
+			networkFilters = buildGatewayInboundNetworkFilters(env, server, []string{name})
 		}
 
 		newListener := buildListener(opts)
@@ -236,18 +236,21 @@ func buildGatewayInboundHTTPRouteConfig(env model.Environment, gatewayName strin
 	}
 }
 
-func buildGatewayInboundNetworkFilters(env model.Environment, server *networking.Server) []listener.Filter {
-	filters := make([]listener.Filter, 0, len(server.Hosts))
-	for _, host := range server.Hosts {
-		svc, err := env.GetService(host)
+// buildGatewayInboundNetworkFilters retrieves all VirtualServices bound to the set of Gateways for this workload, filters
+// them by this server's port and hostnames, and produces network filters for each destination from the filtered services
+func buildGatewayInboundNetworkFilters(env model.Environment, server *networking.Server, gatewayNames []string) []listener.Filter {
+	dests := filterTCPDownstreams(env, server, gatewayNames)
+	filters := make([]listener.Filter, 0, len(dests))
+	for _, dest := range dests {
+		svc, err := env.GetService(dest.Host)
 		if err != nil {
 			log.Debugf("no service for host %q, skipping at ingress: %v", err)
 			continue
 		}
-		names := svc.Ports.GetNames()
-		instances, err := env.Instances(host, names, model.LabelsCollection{})
+		portNames := svc.Ports.GetNames()
+		instances, err := env.Instances(svc.Hostname, portNames, model.LabelsCollection{})
 		if err != nil {
-			log.Debugf("failed to retrieve instances of %s:%v with err: %v", host, names, err)
+			log.Debugf("failed to retrieve instances of %s:%v with err: %v", svc.Hostname, portNames, err)
 			continue
 		}
 		for _, instance := range instances {
@@ -255,4 +258,80 @@ func buildGatewayInboundNetworkFilters(env model.Environment, server *networking
 		}
 	}
 	return filters
+}
+
+// getDownstreams filters virtual services by gateway names, then determines if any match the TCP server
+func filterTCPDownstreams(env model.Environment, server *networking.Server, gatewayNames []string) []*networking.Destination {
+	hosts := make(map[string]bool, len(server.Hosts))
+	for _, host := range server.Hosts {
+		hosts[host] = true
+	}
+
+	gateways := make(map[string]bool, len(gatewayNames))
+	for _, gateway := range gatewayNames {
+		gateways[gateway] = true
+	}
+
+	virtualServices := env.VirtualServices(gatewayNames)
+	downstreams := make([]*networking.Destination, 0, len(virtualServices))
+	for _, spec := range virtualServices {
+		vsvc := spec.Spec.(*networking.VirtualService)
+
+		// TODO: real wildcard based matching; does code to do that not exist already?
+		match := false
+		for _, host := range vsvc.Hosts {
+			match = match || hosts[host]
+		}
+		if !match {
+			// the VirtualService's hosts don't include hosts advertised by server
+			continue
+		}
+
+		// hosts match, now we ensure we satisfy the rule's l4 match conditions, if any exist
+		for _, tcp := range vsvc.Tcp {
+			if l4Match(tcp.Match, server, gateways) {
+				downstreams = append(downstreams, gatherDestinations(tcp.Route)...)
+			}
+		}
+	}
+	return downstreams
+}
+
+func l4Match(predicates []*networking.L4MatchAttributes, server *networking.Server, gatewayNames map[string]bool) bool {
+	// NB from proto definitions: each set of predicates is OR'd together; inside of a predicate all conditions are AND'd.
+	// This means we can return as soon as we get any match of an entire predicate.
+	for _, match := range predicates {
+		// if there's no port predicate, portMatch is true; otherwise we evaluate the port predicate against the server's port
+		portMatch := match.Port == nil
+		if match.Port != nil {
+			switch p := match.Port.Port.(type) {
+			case *networking.PortSelector_Name:
+				portMatch = server.Port.Name == p.Name
+			case *networking.PortSelector_Number:
+				portMatch = server.Port.Number == p.Number
+			}
+		}
+
+		// similarly, if there's no gateway predicate, gatewayMatch is true; otherwise we match against the gateways for this workload
+		gatewayMatch := len(match.Gateways) == 0
+		if len(match.Gateways) > 0 {
+			for _, gateway := range match.Gateways {
+				gatewayMatch = gatewayMatch || gatewayNames[gateway]
+			}
+		}
+
+		if portMatch && gatewayMatch {
+			return true
+		}
+	}
+	// If we had no predicates we match; otherwise we don't match since we'd have exited at the first match.
+	return len(predicates) == 0
+}
+
+func gatherDestinations(weights []*networking.DestinationWeight) []*networking.Destination {
+	dests := make([]*networking.Destination, 0, len(weights))
+	for _, w := range weights {
+		dests = append(dests, w.Destination)
+	}
+	return dests
 }
