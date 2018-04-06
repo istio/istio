@@ -685,9 +685,7 @@ func generateReportTests() []createInstanceTest {
 	tests = append(tests, t)
 
 	emptyFieldsParam := sample_report.InstanceParam{
-		// missing all fields
-		Res1: &sample_report.Res1InstanceParam{
-		// missing all fields
+		Res1: &sample_report.Res1InstanceParam{ // missing all fields
 		},
 	}
 	t = createInstanceTest{
