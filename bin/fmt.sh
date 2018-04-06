@@ -3,8 +3,6 @@
 # Applies requisite code formatters to the source tree
 # fmt.sh -c check only.
 
-echo $@
-
 set -e
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 
@@ -52,7 +50,8 @@ fi
 
 #check mode
 #remove blank lines so gofmt / goimports can do their job
-tf="/tmp/~istio-fmt-check.go"
+tf="/tmp/~output.go"
+ec=0
 for fl in ${GO_FILES}; do
   if [[ ${UX} == "Darwin" ]]; then
     sed -e "/^import[[:space:]]*(/,/)/{ /^\s*$/d;}" $fl > $tf
@@ -63,10 +62,11 @@ for fl in ${GO_FILES}; do
   gofmt -s -w $tf
   $goimports -w -local istio.io $tf
   if [[ $(diff $tf $fl) ]]; then
-    echo "File $fl needs formatting"
+    echo "File $fl needs formatting. Please run bin/fmt.sh"
     diff $tf $fl
-  #  rm $tf
-    exit 1
+    ec=1
   fi
 done
+
 #rm $tf
+exit $ec
