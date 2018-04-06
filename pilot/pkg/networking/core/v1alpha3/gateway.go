@@ -140,13 +140,13 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 				HTTPFilters: &hTTPFilters,
 			}
 			if err := p.OnOutboundListener(params, mutable); err != nil {
-				log.Error(err.Error())
+				log.Warn(err.Error())
 			}
 		}
 
 		// Filters are serialized one time into an opaque struct once we have the complete list.
 		if err := marshalFilters(newListener, opts, networkFilters, hTTPFilters); err != nil {
-			log.Error(err.Error())
+			log.Warn(err.Error())
 		}
 
 		listeners = append(listeners, newListener)

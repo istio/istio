@@ -35,7 +35,7 @@ import (
 type Plugin struct{}
 
 // NewPlugin returns an ptr to an initialized mixer.Plugin.
-func NewPlugin() *Plugin {
+func NewPlugin() plugin.Plugin {
 	return &Plugin{}
 }
 
