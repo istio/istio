@@ -164,18 +164,18 @@ func directRequest(server *bootstrap.Server, t *testing.T) {
 	if len(lbe) == 0 {
 		t.Fatal("No lb endpoints")
 	}
-	if "10.1.1.0" != lbe[0].Endpoint.Address.GetSocketAddress().Address {
-		t.Error("Expecting 10.1.1.10 got ", lbe[0].Endpoint.Address.GetSocketAddress().Address)
+	if "127.0.0.1" != lbe[0].Endpoint.Address.GetSocketAddress().Address {
+		t.Error("Expecting 127.0.0.1 got ", lbe[0].Endpoint.Address.GetSocketAddress().Address)
 	}
 	t.Log(cla.String(), res1.String())
 
-	server.EnvoyXdsServer.MemRegistry.AddInstance("dynamic1.default.svc.cluster.local", &model.ServiceInstance{
+	server.EnvoyXdsServer.MemRegistry.AddInstance("hello.default.svc.cluster.local", &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
-			Address: "10.5.0.1",
-			Port:    2080,
+			Address: "127.0.0.2",
+			Port:    int(testEnv.Ports().BackendPort),
 			ServicePort: &model.Port{
-				Name:                 "http-main",
-				Port:                 1080,
+				Name:                 "http",
+				Port:                 80,
 				Protocol:             model.ProtocolHTTP,
 				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
 			},

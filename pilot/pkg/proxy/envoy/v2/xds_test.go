@@ -123,33 +123,36 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 	testEnv.IstioSrc = util.IstioSrc
 	testEnv.IstioOut = util.IstioOut
 
-	hostname := "hello.default.svc.cluster.local"
-	svc := &model.Service{
-		Hostname: hostname,
-		Address:  "10.10.0.0",
-		Ports:    testPorts(0),
-	}
-	// The default service created by istio/test/util does not have a h2 port.
-	// Add a H2 port to test CDS.
-	// TODO: move me to discovery.go in istio/test/util
-	port := &model.Port{
-		Name:                 "h2port",
-		Port:                 66,
-		Protocol:             model.ProtocolGRPC,
-		AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
-	}
-	svc.Ports = append(svc.Ports, port)
-	server.EnvoyXdsServer.MemRegistry.AddService(hostname, svc)
-
 	localIp = getLocalIP()
-	// Explicit test service, in the v2 memory registry. Similar with mock.MakeService,
-	// but easier to read.
+
+	// Service and endpoints for hello.default - used in v1 pilot tests
+	hostname := "hello.default.svc.cluster.local"
+	server.EnvoyXdsServer.MemRegistry.AddService(hostname, &model.Service{
+		Hostname: hostname,
+		Address:  "10.10.0.3",
+		Ports:    testPorts(0),
+	})
+	server.EnvoyXdsServer.MemRegistry.AddInstance(hostname, &model.ServiceInstance{
+		Endpoint: model.NetworkEndpoint{
+			Address: "127.0.0.1",
+			Port:    int(testEnv.Ports().BackendPort),
+			ServicePort: &model.Port{
+				Name:                 "http",
+				Port:                 80,
+				Protocol:             model.ProtocolHTTP,
+				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+			},
+		},
+		AvailabilityZone: "az",
+	})
+
+	// "local" service points to the current host and the in-process mixer http test endpoint
 	server.EnvoyXdsServer.MemRegistry.AddService("local.default.svc.cluster.local", &model.Service{
 		Hostname: "local.default.svc.cluster.local",
 		Address:  "10.10.0.4",
 		Ports: []*model.Port{
 			{
-				Name:                 "http-main",
+				Name:                 "http",
 				Port:                 80,
 				Protocol:             model.ProtocolHTTP,
 				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
@@ -160,7 +163,7 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 			Address: localIp,
 			Port:    int(testEnv.Ports().BackendPort),
 			ServicePort: &model.Port{
-				Name:                 "http-main",
+				Name:                 "http",
 				Port:                 80,
 				Protocol:             model.ProtocolHTTP,
 				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
@@ -206,6 +209,7 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 		AvailabilityZone: "az",
 	})
 
+	// Mock ingress service
 	server.EnvoyXdsServer.MemRegistry.AddService("istio-ingress.istio-system.svc.cluster.local", &model.Service{
 		Hostname: "istio-ingress.istio-system.svc.cluster.local",
 		Address:  "10.10.0.2",
@@ -254,6 +258,7 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 	})
 
 	//RouteConf Service4 is using port 80, to test that we generate multiple clusters (regression)
+	// service4 has no endpoints
 	server.EnvoyXdsServer.MemRegistry.AddService("service4.default.svc.cluster.local", &model.Service{
 		Hostname: "service4.default.svc.cluster.local",
 		Address:  "10.1.0.4",
@@ -276,7 +281,7 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 func testPorts(base int) []*model.Port {
 	return []*model.Port{
 		{
-			Name:                 "http-main",
+			Name:                 "http",
 			Port:                 base + 80,
 			Protocol:             model.ProtocolHTTP,
 			AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
