@@ -116,17 +116,17 @@ func setup() error {
 	// When debugging a test or running locally it helps having a static port for /debug
 	// "0" is used on shared environment (it's not actually clear if such thing exists since
 	// we run the tests in isolated VMs)
-	pilotHttp := os.Getenv("PILOT_HTTP")
-	if len(pilotHttp) == 0 {
-		pilotHttp = "0"
+	pilotHTTP := os.Getenv("PILOT_HTTP")
+	if len(pilotHTTP) == 0 {
+		pilotHTTP = "0"
 	}
-	pilotHttpPort, _ := strconv.Atoi(pilotHttp)
+	pilotHTTPPort, _ := strconv.Atoi(pilotHTTP)
 
 	// Create a test pilot discovery service configured to watch the tempDir.
 	args := bootstrap.PilotArgs{
 		Namespace: "testing",
 		DiscoveryOptions: envoy.DiscoveryServiceOptions{
-			Port:            pilotHttpPort,
+			Port:            pilotHTTPPort,
 			GrpcAddr:        ":0",
 			EnableCaching:   true,
 			EnableProfiling: true,

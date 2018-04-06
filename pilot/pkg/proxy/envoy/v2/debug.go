@@ -419,15 +419,22 @@ func edsz(w http.ResponseWriter, req *http.Request) {
 	if req.Form.Get("push") != "" {
 		edsPushAll()
 	}
-	edsClusterMutex.Lock()
-	data, err := json.Marshal(edsClusters)
-	edsClusterMutex.Unlock()
-	if err != nil {
-		_, _ = w.Write([]byte(err.Error()))
-		return
-	}
 
-	_, _ = w.Write(data)
+	edsClusterMutex.Lock()
+	comma1 := false
+	for _, eds := range edsClusters {
+		if comma1 {
+			fmt.Fprint(w, ",\n")
+		} else {
+			comma1 = true
+		}
+		jsonm := &jsonpb.Marshaler{Indent: "  "}
+		dbgString, _ := jsonm.MarshalToString(eds.LoadAssignment)
+		if _, err := w.Write([]byte(dbgString)); err != nil {
+			return
+		}
+	}
+	edsClusterMutex.Unlock()
 }
 
 // cdsz implements a status and debug interface for CDS.

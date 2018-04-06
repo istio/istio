@@ -24,7 +24,6 @@ import (
 	"google.golang.org/grpc"
 
 	networking "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pkg/log"
@@ -78,7 +77,7 @@ type DiscoveryServer struct {
 	virtualServices []*networking.VirtualService
 	// Temp: the code in alpha3 should use VirtualService directly
 	virtualServiceConfigs []model.Config
-	gateways              []*networking.Gateway
+	//TODO: gateways              []*networking.Gateway
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures

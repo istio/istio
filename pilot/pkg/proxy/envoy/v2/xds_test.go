@@ -18,17 +18,13 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"sync"
 	"testing"
-
-	"encoding/json"
-	"net/http"
-
-	"net"
-	"net/http/httputil"
-	"net/url"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	testenv "istio.io/istio/mixer/test/client/env"
