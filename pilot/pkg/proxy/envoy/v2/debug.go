@@ -147,8 +147,6 @@ func (sd *MemServiceDiscovery) AddInstance(service string, instance *model.Servi
 
 // AddEndpoint adds an endpoint to a service.
 func (sd *MemServiceDiscovery) AddEndpoint(service, servicePortName string, servicePort int, address string, port int) *model.ServiceInstance {
-	sd.mutex.Lock()
-	defer sd.mutex.Unlock()
 	instance := &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
 			Address: address,
