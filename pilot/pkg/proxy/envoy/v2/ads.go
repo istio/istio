@@ -35,10 +35,10 @@ var (
 	adsDebug = os.Getenv("PILOT_DEBUG_ADS") != "0"
 
 	// adsClients reflect active gRPC channels, for both ADS and EDS.
-	adsClients      = map[string]*XdsConnection{}
+	adsClients = map[string]*XdsConnection{}
 	// Has map of sidecar ID to the same connection struct as above
 	adsSidecarConfigMap = map[string]*XdsConnection{}
-	adsClientsMutex sync.RWMutex
+	adsClientsMutex     sync.RWMutex
 )
 
 // XdsConnection is a listener connection type.
