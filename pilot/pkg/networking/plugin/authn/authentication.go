@@ -277,8 +277,8 @@ func (*Plugin) OnOutboundListener(in *plugin.CallbackListenerInputParams, mutabl
 // Can be used to add additional filters (e.g., mixer filter) or add more stuff to the HTTP connection manager
 // on the inbound path
 func (*Plugin) OnInboundListener(in *plugin.CallbackListenerInputParams, mutable *plugin.CallbackListenerMutableObjects) error {
-	if in.Node.Type != model.Router {
-		// Only care about Router nodes.
+	if in.Node.Type != model.Sidecar {
+		// Only care about sidecar.
 		return nil
 	}
 	authnPolicy := model.GetConsolidateAuthenticationPolicy(
