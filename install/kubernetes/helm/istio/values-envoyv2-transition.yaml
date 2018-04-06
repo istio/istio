@@ -22,10 +22,10 @@ istiotesting:
   oneNameSpace: false
 
 # needs gateway for testing
-ingress-gateway:
+ingressgateway:
   enabled: true
 
-egress-gateway:
+egressgateway:
   enabled: true
 
 zipkin:
