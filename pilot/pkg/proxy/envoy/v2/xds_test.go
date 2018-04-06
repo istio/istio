@@ -30,7 +30,6 @@ import (
 	testenv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
 	"istio.io/istio/tests/util"
 )
 
@@ -125,7 +124,11 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 	testEnv.IstioOut = util.IstioOut
 
 	hostname := "hello.default.svc.cluster.local"
-	svc := mock.MakeService(hostname, "10.1.0.0")
+	svc := &model.Service{
+		Hostname: hostname,
+		Address:  "10.10.0.0",
+		Ports:    testPorts(0),
+	}
 	// The default service created by istio/test/util does not have a h2 port.
 	// Add a H2 port to test CDS.
 	// TODO: move me to discovery.go in istio/test/util
@@ -136,7 +139,7 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 		AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
 	}
 	svc.Ports = append(svc.Ports, port)
-	server.MemoryServiceDiscovery.AddService(hostname, svc)
+	server.EnvoyXdsServer.MemRegistry.AddService(hostname, svc)
 
 	localIp = getLocalIP()
 	// Explicit test service, in the v2 memory registry. Similar with mock.MakeService,

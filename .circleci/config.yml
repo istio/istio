@@ -518,8 +518,6 @@ jobs:
       - setup_remote_docker:
           docker_layer_caching: true
       - run: make istio-archive
-      # Build the docker+extra
-      - run: make docker.push.basedebug
       - run:
           command: |
             if [ ! -z "${DOCKER_USER}" ] ; then
