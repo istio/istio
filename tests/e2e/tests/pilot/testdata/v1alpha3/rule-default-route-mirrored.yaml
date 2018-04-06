@@ -4,10 +4,10 @@ metadata:
   name: default-route
 spec:
   hosts:
-    - c
+    - c.istio-system.svc.cluster.local
   http:
     - route:
       - destination:
-          host: c
+          host: c.istio-system.svc.cluster.local
       mirror:
-        name: b
+        name: b.istio-system.svc.cluster.local

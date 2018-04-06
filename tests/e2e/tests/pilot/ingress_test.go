@@ -23,7 +23,7 @@ import (
 )
 
 func TestIngress(t *testing.T) {
-	if !tc.Ingress {
+	if !tc.Ingress || tc.V1alpha3 {
 		t.Skipf("Skipping %s: ingress=false", t.Name())
 	}
 
@@ -34,8 +34,7 @@ func TestIngress(t *testing.T) {
 	cfgs := &deployableConfig{
 		Namespace: tc.Kube.Namespace,
 		YamlFiles: []string{
-			"testdata/ingress.yaml",
-			"testdata/v1alpha1/rule-default-route.yaml"},
+			"testdata/ingress.yaml"},
 	}
 	if err := cfgs.Setup(); err != nil {
 		t.Fatal(err)

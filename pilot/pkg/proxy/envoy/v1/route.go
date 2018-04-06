@@ -194,7 +194,8 @@ func BuildHTTPRoutes(store model.IstioConfigStore, config model.Config, service 
 	case *routing.RouteRule:
 		return []*HTTPRoute{buildHTTPRouteV1(config, service, port, envoyv2)}
 	case *networking.VirtualService:
-		return buildHTTPRoutesV3(store, config, service, port, proxyInstances, domain, envoyv2, buildCluster)
+		return nil
+		//return buildHTTPRoutesV3(store, config, service, port, proxyInstances, domain, envoyv2, buildCluster)
 	default:
 		panic("unsupported rule")
 	}

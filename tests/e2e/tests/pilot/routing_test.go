@@ -126,24 +126,25 @@ func TestRoutes(t *testing.T) {
 				log.Infof("config: %v\n%s", err, cfg)
 			},
 		},
+		// SKIP websocket tests for v2
 		// In case of websockets, the server does not return headers as part of response.
 		// After upgrading to websocket connection, it waits for a dummy message from the
 		// client over the websocket connection. It then returns all the headers as
 		// part of the response message which is then printed out by the client.
 		// So the verify checks here are really parsing the output of a websocket message
 		// i.e., we are effectively checking websockets beyond just the upgrade.
-		{
-			testName:      "a->c[v1=100]_websocket",
-			description:   "routing 100 percent to c-v1 with websocket upgrades",
-			config:        "rule-websocket-route.yaml",
-			scheme:        "ws",
-			src:           "a",
-			dst:           "c",
-			headerKey:     "testwebsocket",
-			headerVal:     "enabled",
-			expectedCount: map[string]int{"v1": 100, "v2": 0},
-			operation:     "",
-		},
+		//{
+		//	testName:      "a->c[v1=100]_websocket",
+		//	description:   "routing 100 percent to c-v1 with websocket upgrades",
+		//	config:        "rule-websocket-route.yaml",
+		//	scheme:        "ws",
+		//	src:           "a",
+		//	dst:           "c",
+		//	headerKey:     "testwebsocket",
+		//	headerVal:     "enabled",
+		//	expectedCount: map[string]int{"v1": 100, "v2": 0},
+		//	operation:     "",
+		//},
 		{
 			testName:      "a->c[v1=100]_append_headers",
 			description:   "routing all traffic to c-v1 with appended headers",

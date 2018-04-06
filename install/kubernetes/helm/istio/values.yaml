@@ -13,7 +13,7 @@ global:
   # Currently using nightly build, for testing
   tag: circleci-nightly
   proxy:
-    image: proxy
+    image: proxyv2
 
   # imagePullPolicy is applied to istio control plane components.
   imagePullPolicy: IfNotPresent
@@ -85,6 +85,86 @@ ingress:
     nodePort:
       enabled: false
       port: 32000
+
+#
+# ingress-gateway configuration
+#
+ingress-gateway:
+  enabled: false
+  serviceAccountName: istio-ingress-gateway-service-account
+  imagePullPolicy: IfNotPresent
+  autoscaleMin: 1
+  autoscaleMax: 1
+  resources: {}
+# limits:
+#  cpu: 100m
+#  memory: 128Mi
+# requests:
+#  cpu: 100m
+#  memory: 128Mi
+  service:
+    name: istio-ingress-gateway #DNS addressible
+    labels:
+      istio: ingress-gateway
+    #namespace: istio-system
+    type: NodePort #change to ClusterIP or LoadBalancer if need be
+    ports:
+      ## You can add custom gateway ports
+    - port: 80
+      name: http
+      nodePort: 31380
+    - port: 443
+      name: https
+      nodePort: 31390
+  deployment:
+    labels:
+      istio: ingress-gateway #will be added to pods and service
+    ports:
+    - containerPort: 80
+    - containerPort: 443
+  # secretVolumes: TODO
+  # - name: someName
+  #   mountPath: somePath
+  #   secretName: someName
+
+#
+# egress-gateway configuration
+#
+egress-gateway:
+  enabled: false
+  serviceAccountName: istio-egress-gateway-service-account
+  imagePullPolicy: IfNotPresent
+  autoscaleMin: 1
+  autoscaleMax: 1
+  resources: {}
+# limits:
+#  cpu: 100m
+#  memory: 128Mi
+# requests:
+#  cpu: 100m
+#  memory: 128Mi
+  service:
+    name: istio-egress-gateway #DNS addressible
+    labels:
+      istio: egress-gateway
+    #namespace: istio-system
+    type: ClusterIP #change to NodePort or LoadBalancer if need be
+    ports:
+      ## You can add custom gateway ports
+    - port: 80
+      name: http
+    - port: 443
+      name: https
+  deployment:
+    labels:
+      istio: egress-gateway #will be added to pods and service
+    ports:
+    - containerPort: 80
+    - containerPort: 443
+  # secretVolumes: TODO
+  # - name: someName
+  #   mountPath: somePath
+  #   secretName: someName
 
 #
 # sidecar-injector configuration

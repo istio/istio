@@ -4,7 +4,11 @@ global:
   proxy:
     image: proxyv2
 
+  mtls:
+    enabled: false
+
 ingress:
+  enabled: true
   service:
     nodePort:
       enabled: true
@@ -17,5 +21,15 @@ ingress:
 istiotesting:
   oneNameSpace: false
 
-ingress:
+# needs gateway for testing
+ingress-gateway:
+  enabled: true
+
+egress-gateway:
+  enabled: true
+
+zipkin:
+  enabled: true
+
+sidecar-injector:
   enabled: true

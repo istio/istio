@@ -647,24 +647,24 @@ workflows:
   all:
     jobs:
       - dependencies
-      - lint
+#      - lint
       - build
-      - test
-      - codecov:
-           requires:
-            - build
-      - e2e-mixer:
-          requires:
-            - build
-      - e2e-pilot: #auth+v1alpha1
-          requires:
-            - build
+#      - test
+      # - codecov:
+      #      requires:
+      #       - build
+      # - e2e-mixer:
+      #     requires:
+      #       - build
+      # - e2e-pilot: #auth+v1alpha1
+      #     requires:
+      #       - build
       - e2e-simple:
           requires:
             - build
-      - racetest:
-          requires:
-            - test
-      - e2e-pilot-noauth-v1alpha3-v2: #no auth+v1alpha3+v2
+      # - racetest:
+      #     requires:
+      #       - test
+      - e2e-pilot-noauth-v1alpha3-v2:
           requires:
             - build
