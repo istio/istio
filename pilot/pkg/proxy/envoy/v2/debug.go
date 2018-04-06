@@ -47,8 +47,8 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	})
 
 	mux.HandleFunc("/debug/edsz", EDSz)
-
 	mux.HandleFunc("/debug/adsz", adsz)
+	mux.HandleFunc("/debug/cdsz", cdsz)
 
 	mux.HandleFunc("/debug/registryz", s.registryz)
 	mux.HandleFunc("/debug/endpointz", s.endpointz)
@@ -398,4 +398,43 @@ func adsz(w http.ResponseWriter, req *http.Request) {
 	//}
 	//
 	//_, _ = w.Write(data)
+}
+
+// cdsz implements a status and debug interface for CDS.
+// It is mapped to /debug/cdsz
+func cdsz(w http.ResponseWriter, req *http.Request) {
+	_ = req.ParseForm()
+	adsClientsMutex.RLock()
+
+	fmt.Fprint(w, "[\n")
+	comma2 := false
+	for _, c := range adsClients {
+		if comma2 {
+			fmt.Fprint(w, ",\n")
+		} else {
+			comma2 = true
+		}
+		fmt.Fprintf(w, "\n\n  {\"node\": \"%s\", \"addr\": \"%s\", \"connect\": \"%v\",\"Clusters\":[\n", c.ConID, c.PeerAddr, c.Connect)
+		comma1 := false
+		for _, cl := range c.HTTPClusters {
+			if cl == nil {
+				log.Errorf("INVALID Cluster NIL")
+				continue
+			}
+			if comma1 {
+				fmt.Fprint(w, ",\n")
+			} else {
+				comma1 = true
+			}
+			jsonm := &jsonpb.Marshaler{Indent: "  "}
+			dbgString, _ := jsonm.MarshalToString(cl)
+			if _, err := w.Write([]byte(dbgString)); err != nil {
+				return
+			}
+		}
+		fmt.Fprint(w, "]}\n")
+	}
+	fmt.Fprint(w, "]\n")
+
+	adsClientsMutex.RUnlock()
 }
