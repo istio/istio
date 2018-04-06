@@ -87,11 +87,11 @@ ingress:
       port: 32000
 
 #
-# ingress-gateway configuration
+# ingressgateway configuration
 #
-ingress-gateway:
+ingressgateway:
   enabled: false
-  serviceAccountName: istio-ingress-gateway-service-account
+  serviceAccountName: istio-ingressgateway-service-account
   imagePullPolicy: IfNotPresent
   autoscaleMin: 1
   autoscaleMax: 1
@@ -103,9 +103,9 @@ ingress-gateway:
 #  cpu: 100m
 #  memory: 128Mi
   service:
-    name: istio-ingress-gateway #DNS addressible
+    name: istio-ingressgateway #DNS addressible
     labels:
-      istio: ingress-gateway
+      istio: ingressgateway
     #namespace: istio-system
     type: NodePort #change to ClusterIP or LoadBalancer if need be
     ports:
@@ -118,7 +118,7 @@ ingress-gateway:
       nodePort: 31390
   deployment:
     labels:
-      istio: ingress-gateway #will be added to pods and service
+      istio: ingressgateway #will be added to pods and service
     ports:
     - containerPort: 80
     - containerPort: 443
@@ -128,11 +128,11 @@ ingress-gateway:
   #   secretName: someName
 
 #
-# egress-gateway configuration
+# egressgateway configuration
 #
-egress-gateway:
+egressgateway:
   enabled: false
-  serviceAccountName: istio-egress-gateway-service-account
+  serviceAccountName: istio-egressgateway-service-account
   imagePullPolicy: IfNotPresent
   autoscaleMin: 1
   autoscaleMax: 1
@@ -144,9 +144,9 @@ egress-gateway:
 #  cpu: 100m
 #  memory: 128Mi
   service:
-    name: istio-egress-gateway #DNS addressible
+    name: istio-egressgateway #DNS addressible
     labels:
-      istio: egress-gateway
+      istio: egressgateway
     #namespace: istio-system
     type: ClusterIP #change to NodePort or LoadBalancer if need be
     ports:
@@ -157,7 +157,7 @@ egress-gateway:
       name: https
   deployment:
     labels:
-      istio: egress-gateway #will be added to pods and service
+      istio: egressgateway #will be added to pods and service
     ports:
     - containerPort: 80
     - containerPort: 443
