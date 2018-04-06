@@ -28,6 +28,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/registry"
 	pb "istio.io/istio/security/proto"
@@ -35,20 +36,13 @@ import (
 
 const certExpirationBuffer = time.Minute
 
-// certificateAuthority contains methods supported by a CA.
-type certificateAuthority interface {
-	Sign(csrPEM []byte, ttl time.Duration) ([]byte, error)
-	SignCAServerCert(csrPEM []byte, ttl time.Duration) ([]byte, error)
-	GetCAKeyCertBundle() util.KeyCertBundle
-}
-
 // Server implements pb.IstioCAService and provides the service on the
 // specified port.
 type Server struct {
 	authenticators []authenticator
 	authorizer     authorizer
 	serverCertTTL  time.Duration
-	ca             certificateAuthority
+	ca             ca.CertificateAuthority
 	certificate    *tls.Certificate
 	hostname       string
 	port           int
@@ -120,7 +114,7 @@ func (s *Server) Run() error {
 }
 
 // New creates a new instance of `IstioCAServiceServer`.
-func New(ca certificateAuthority, ttl time.Duration, hostname string, port int) *Server {
+func New(ca ca.CertificateAuthority, ttl time.Duration, hostname string, port int) *Server {
 	// Notice that the order of authenticators matters, since at runtime
 	// authenticators are actived sequentially and the first successful attempt
 	// is used as the authentication result.

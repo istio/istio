@@ -57,6 +57,8 @@ const (
 type CertificateAuthority interface {
 	// Sign generates a certificate for a workload or CA, from the given CSR and TTL.
 	Sign(csrPEM []byte, ttl time.Duration) ([]byte, error)
+	// SignCAServerCert generates a certificate for the CA server (to serve the CSR).
+	SignCAServerCert(csrPEM []byte, ttl time.Duration) ([]byte, error)
 	// GetCAKeyCertBundle returns the KeyCertBundle used by CA.
 	GetCAKeyCertBundle() util.KeyCertBundle
 }
