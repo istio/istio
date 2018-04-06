@@ -311,7 +311,7 @@ func init() {
 	injectCmd.PersistentFlags().StringVar(&includeIPRanges, "includeIPRanges", "",
 		"Comma separated list of IP ranges in CIDR form. If set, only redirect outbound "+
 			"traffic to Envoy for IP ranges. Otherwise all outbound traffic is redirected")
-	injectCmd.PersistentFlags().StringVar(&includeIPRanges, "excludeIPRanges", "",
+	injectCmd.PersistentFlags().StringVar(&excludeIPRanges, "excludeIPRanges", "",
 		"Comma separated list of IP ranges in CIDR form. If set, outbound traffic will not be"+
 			"redirected to Envoy for IP ranges. Only applies if redirecting all outbound traffic by default.")
 	injectCmd.PersistentFlags().StringVar(&includeInboundPorts, "includeInboundPorts", "",
