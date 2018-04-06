@@ -33,7 +33,7 @@ declare -a tests
 
 HUB=gcr.io/istio-release
 
-cd ${WORKSPACE}/istio.io/istio
+cd $(dirname ${BASH_SOURCE[0]})/..
 git checkout ${TAG}
 make submodule-sync
 make init
