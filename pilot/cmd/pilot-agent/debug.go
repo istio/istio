@@ -20,9 +20,9 @@ import (
 	"net/http"
 	"path/filepath"
 
-	"istio.io/istio/pkg/log"
-
 	"github.com/spf13/cobra"
+
+	"istio.io/istio/pkg/log"
 )
 
 type debug struct {

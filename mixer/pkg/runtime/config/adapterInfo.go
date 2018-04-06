@@ -15,9 +15,8 @@
 package config
 
 import (
-	"fmt"
-
 	"encoding/base64"
+	"fmt"
 	"io/ioutil"
 	"regexp"
 	"strings"
