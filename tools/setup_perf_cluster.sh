@@ -252,15 +252,17 @@ function get_istio_version() {
 
 function get_json_file_name() {
   BASE="${1}"
-  TS=$(date +'%Y-%m-%d-%H-%M')
+  if [[ $TS == "" ]]; then
+    TS=$(date +'%Y-%m-%d-%H-%M')
+  fi
   if [[ $VERSION == "" ]]; then
     VERSION=$(get_istio_version)
   fi
-  QPSSTR="${QPS}_qps"
-  if [[ $QPSSTR == "-1_qps" ]]; then
-    QPSSTR="max_qps"
+  QPSSTR="qps_${QPS}"
+  if [[ $QPSSTR == "qps_-1" ]]; then
+    QPSSTR="qps_max"
   fi
-  LABELS="$BASE $QPS $VERSION"
+  LABELS="$BASE $QPSSTR $VERSION"
   FNAME=$QPSSTR-$BASE-$VERSION-$TS
   file_escape
   label_escape
@@ -453,9 +455,11 @@ function run_tests() {
   update_gcp_opts
   get_ips
   VERSION="" # reset in case it changed
+  TS="" # reset once per set
   QPS=-1
   run_4_tests
   QPS=400
+  TS="" # reset once per set
   run_4_tests
   echo "Graph the results:"
   fortio report &
