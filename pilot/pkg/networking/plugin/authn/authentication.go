@@ -216,6 +216,52 @@ func BuildAuthNFilter(policy *authn.Policy) *http_conn.HttpFilter {
 	}
 }
 
+func isDestinationExcludedForMTLS(destService string, mtlsExcludedServices []string) bool {
+	for _, serviceName := range mtlsExcludedServices {
+		if destService == serviceName {
+			return true
+		}
+	}
+	return false
+}
+
+// buildSidecarListenerTLSContext adds TLS to the listener if the policy requires one.
+func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy) *auth.DownstreamTlsContext {
+	if requireTLS, mTLSParams := RequireTLS(authenticationPolicy); requireTLS {
+		return &auth.DownstreamTlsContext{
+			CommonTlsContext: &auth.CommonTlsContext{
+				TlsCertificates: []*auth.TlsCertificate{
+					{
+						CertificateChain: &core.DataSource{
+							Specifier: &core.DataSource_Filename{
+								Filename: model.CertChainFilename,
+							},
+						},
+						PrivateKey: &core.DataSource{
+							Specifier: &core.DataSource_Filename{
+								Filename: model.KeyFilename,
+							},
+						},
+					},
+				},
+				ValidationContext: &auth.CertificateValidationContext{
+					TrustedCa: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: model.RootCertFilename,
+						},
+					},
+				},
+				// Same as ListenersALPNProtocols defined in listener. Need to move that constant else where in order to share.
+				AlpnProtocols: []string{"h2", "http/1.1"},
+			},
+			RequireClientCertificate: &types.BoolValue{
+				Value: !mTLSParams.AllowTls,
+			},
+		}
+	}
+	return nil
+}
+
 // OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service
 // Can be used to add additional filters on the outbound path
 func (*Plugin) OnOutboundListener(in *plugin.CallbackListenerInputParams, mutable *plugin.CallbackListenerMutableObjects) error {
@@ -235,7 +281,21 @@ func (*Plugin) OnInboundListener(in *plugin.CallbackListenerInputParams, mutable
 		// Only care about Router nodes.
 		return nil
 	}
-	// TODO: implementation
+	authnPolicy := model.GetConsolidateAuthenticationPolicy(
+		in.Env.Mesh, in.Env.IstioConfigStore, in.ServiceInstance.Service.Hostname, in.ServiceInstance.Endpoint.ServicePort)
+
+	if mutable.Listener == nil || len(mutable.Listener.FilterChains) != 1 {
+		return fmt.Errorf("Expect lister has exactly one filter chain")
+	}
+	mutable.Listener.FilterChains[0].TlsContext = buildSidecarListenerTLSContext(authnPolicy)
+
+	// Adding Jwt filter and authn filter, if needed.
+	if filter := BuildJwtFilter(authnPolicy); filter != nil {
+		*mutable.HTTPFilters = append(*mutable.HTTPFilters, filter)
+	}
+	if filter := BuildAuthNFilter(authnPolicy); filter != nil {
+		*mutable.HTTPFilters = append(*mutable.HTTPFilters, filter)
+	}
 	return nil
 }
 
@@ -304,13 +364,4 @@ func (*Plugin) OnOutboundCluster(env model.Environment, node model.Proxy, servic
 			},
 		},
 	}
-}
-
-func isDestinationExcludedForMTLS(destService string, mtlsExcludedServices []string) bool {
-	for _, serviceName := range mtlsExcludedServices {
-		if destService == serviceName {
-			return true
-		}
-	}
-	return false
 }
