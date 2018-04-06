@@ -39,11 +39,11 @@ services:
   istio-pilot:
     image: {PILOT_HUB}/pilot:{PILOT_TAG}
     expose:
-      - "15003"
+      - "15007"
     ports:
-      - "8081:15003"
+      - "8081:15007"
     command: ["discovery",
-             "--port", "15003",
+             "--port", "15007",
              "--registries", "Eureka",
              "--eurekaserverURL", "http://eureka:8080",
              "--kubeconfig", "/etc/istio/config/kubeconfig"]

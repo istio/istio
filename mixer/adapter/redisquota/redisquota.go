@@ -286,9 +286,7 @@ func (h *handler) getKeyAndQuotaAmount(instance *quota.Instance, quota *config.P
 
 	for idx := range quota.Overrides {
 		if matchDimensions(&quota.Overrides[idx].Dimensions, &instance.Dimensions) {
-			if h.logger.VerbosityLevel(4) {
-				h.logger.Infof("quota override: %v selected for %v", quota.Overrides[idx], *instance)
-			}
+			h.logger.Debugf("quota override: %v selected for %v", quota.Overrides[idx], *instance)
 
 			if hash, ok := h.dimensionHash[&quota.Overrides[idx].Dimensions]; ok {
 				// override key and max amount
@@ -318,9 +316,7 @@ func (h *handler) HandleQuota(context context.Context, instance *quota.Instance,
 				return adapter.QuotaResult{}, nil
 			}
 
-			if h.logger.VerbosityLevel(4) {
-				h.logger.Infof("key: %v maxAmount: %v", key, maxAmount)
-			}
+			h.logger.Debugf("key: %v maxAmount: %v", key, maxAmount)
 
 			// execute lua algorithm script
 			result, err := script.Run(

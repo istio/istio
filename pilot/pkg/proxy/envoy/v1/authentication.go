@@ -26,14 +26,7 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-const (
-	// jwtFilterName is the name for the Jwt filter. This should be the same
-	// as the name defined in
-	// https://github.com/istio/proxy/blob/master/src/envoy/http/jwt_auth/http_filter_factory.cc#L50
-	jwtFilterName = "jwt-auth"
-)
-
-// BuildJwtFilter returns a Jwt filter for all Jwt specs in the policy.
+// buildJwtFilter returns a Jwt filter for all Jwt specs in the policy.
 func buildJwtFilter(policy *authn.Policy) *HTTPFilter {
 	filterConfigProto := authn_plugin.ConvertPolicyToJwtConfig(policy)
 	if filterConfigProto == nil {
@@ -46,7 +39,25 @@ func buildJwtFilter(policy *authn.Policy) *HTTPFilter {
 	}
 	return &HTTPFilter{
 		Type:   decoder,
-		Name:   jwtFilterName,
+		Name:   authn_plugin.JwtFilterName,
+		Config: config,
+	}
+}
+
+// buildAuthnFilter returns a authN filter for the policy.
+func buildAuthnFilter(policy *authn.Policy) *HTTPFilter {
+	filterConfigProto := authn_plugin.ConvertPolicyToAuthNFilterConfig(policy)
+	if filterConfigProto == nil {
+		return nil
+	}
+	config, err := model.ToJSONMap(filterConfigProto)
+	if err != nil {
+		log.Errorf("Unable to convert authn filter config proto: %v", err)
+		return nil
+	}
+	return &HTTPFilter{
+		Type:   decoder,
+		Name:   authn_plugin.AuthnFilterName,
 		Config: config,
 	}
 }
