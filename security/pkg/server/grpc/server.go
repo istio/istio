@@ -39,7 +39,7 @@ const certExpirationBuffer = time.Minute
 type certificateAuthority interface {
 	Sign(csrPEM []byte, ttl time.Duration) ([]byte, error)
 	SignCAServerCert(csrPEM []byte, ttl time.Duration) ([]byte, error)
-	GetKeyCertBundle() util.KeyCertBundle
+	GetCAKeyCertBundle() util.KeyCertBundle
 }
 
 // Server implements pb.IstioCAService and provides the service on the
@@ -77,7 +77,7 @@ func (s *Server) HandleCSR(ctx context.Context, request *pb.CsrRequest) (*pb.Csr
 		return nil, status.Errorf(codes.InvalidArgument, "CSR identity extraction error (%v)", err)
 	}
 
-	certChainBytes := s.ca.GetKeyCertBundle().GetCertChainPem()
+	certChainBytes := s.ca.GetCAKeyCertBundle().GetCertChainPem()
 	cert, err := s.ca.Sign(request.CsrPem, time.Duration(request.RequestedTtlMinutes)*time.Minute)
 	if err != nil {
 		log.Errorf("CSR signing error (%v)", err)
@@ -144,7 +144,7 @@ func New(ca certificateAuthority, ttl time.Duration, hostname string, port int) 
 
 func (s *Server) createTLSServerOption() grpc.ServerOption {
 	cp := x509.NewCertPool()
-	rootCertBytes := s.ca.GetKeyCertBundle().GetRootCertPem()
+	rootCertBytes := s.ca.GetCAKeyCertBundle().GetRootCertPem()
 	cp.AppendCertsFromPEM(rootCertBytes)
 
 	config := &tls.Config{

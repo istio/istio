@@ -32,13 +32,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/util"
 )
-
-type certificateAuthority interface {
-	Sign(csrPEM []byte, ttl time.Duration) ([]byte, error)
-	GetKeyCertBundle() util.KeyCertBundle
-}
 
 /* #nosec: disable gas linter */
 const (
@@ -75,7 +71,7 @@ type DNSNameEntry struct {
 
 // SecretController manages the service accounts' secrets that contains Istio keys and certificates.
 type SecretController struct {
-	ca      certificateAuthority
+	ca      ca.CertificateAuthority
 	certTTL time.Duration
 	core    corev1.CoreV1Interface
 	// Length of the grace period for the certificate rotation.
@@ -95,7 +91,7 @@ type SecretController struct {
 }
 
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
-func NewSecretController(ca certificateAuthority, certTTL time.Duration, gracePeriodRatio float32, minGracePeriod time.Duration,
+func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, gracePeriodRatio float32, minGracePeriod time.Duration,
 	core corev1.CoreV1Interface, namespace string, dnsNames map[string]DNSNameEntry) (*SecretController, error) {
 
 	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
@@ -225,7 +221,7 @@ func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 
 		return
 	}
-	rootCert := sc.ca.GetKeyCertBundle().GetRootCertPem()
+	rootCert := sc.ca.GetCAKeyCertBundle().GetRootCertPem()
 	secret.Data = map[string][]byte{
 		CertChainID:  chain,
 		PrivateKeyID: key,
@@ -297,7 +293,7 @@ func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string
 		return nil, nil, err
 	}
 
-	certChainPEM := sc.ca.GetKeyCertBundle().GetCertChainPem()
+	certChainPEM := sc.ca.GetCAKeyCertBundle().GetCertChainPem()
 	certPEM, err := sc.ca.Sign(csrPEM, sc.certTTL)
 	if err != nil {
 		return nil, nil, err
@@ -333,7 +329,7 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 			certLifeTime, sc.gracePeriodRatio, gracePeriod, sc.minGracePeriod)
 		gracePeriod = sc.minGracePeriod
 	}
-	rootCertificate := sc.ca.GetKeyCertBundle().GetRootCertPem()
+	rootCertificate := sc.ca.GetCAKeyCertBundle().GetRootCertPem()
 
 	// Refresh the secret if 1) the certificate contained in the secret is about
 	// to expire, or 2) the root certificate in the secret is different than the

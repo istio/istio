@@ -18,6 +18,8 @@ package vault
 import (
 	"fmt"
 	"time"
+
+	"istio.io/istio/security/pkg/pki/util"
 )
 
 // CA connects to Vault to sign certificates.
@@ -41,13 +43,7 @@ func (v *CA) SignCAServerCert(csrPEM []byte, ttl time.Duration) ([]byte, error) 
 	return nil, fmt.Errorf("not implemented")
 }
 
-// GetCertChainPem returns the certificate chain from the CA certificate to the root certificate (not including the root
-// certificate) in pem format.
-func (v *CA) GetCertChainPem() []byte {
-	return nil
-}
-
-// GetRootCertPem returns the root certificate pem for the CA.
-func (v *CA) GetRootCertPem() []byte {
+// GetKeyCertBundle returns the KeyCertBundle for the CA.
+func (v *CA) GetKeyCertBundle() util.KeyCertBundle {
 	return nil
 }

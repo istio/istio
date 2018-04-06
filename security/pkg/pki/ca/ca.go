@@ -53,6 +53,14 @@ const (
 	pluggedCertCA
 )
 
+// CertificateAuthority contains methods to be supported by a CA.
+type CertificateAuthority interface {
+	// Sign generates a certificate for a workload or CA, from the given CSR and TTL.
+	Sign(csrPEM []byte, ttl time.Duration) ([]byte, error)
+	// GetCAKeyCertBundle returns the KeyCertBundle used by CA.
+	GetCAKeyCertBundle() util.KeyCertBundle
+}
+
 // IstioCAOptions holds the configurations for creating an Istio CA.
 // TODO(myidpt): remove IstioCAOptions.
 type IstioCAOptions struct {
@@ -181,19 +189,6 @@ func (ca *IstioCA) SignCAServerCert(csrPEM []byte, ttl time.Duration) ([]byte, e
 // GetCAKeyCertBundle returns the KeyCertBundle for the CA.
 func (ca *IstioCA) GetCAKeyCertBundle() util.KeyCertBundle {
 	return ca.keyCertBundle
-}
-
-// GetCertChainPem returns the certificate chain from the CA certificate to the root certificate (not including the root
-// certificate) in pem format.
-func (ca *IstioCA) GetCertChainPem() []byte {
-	_, _, certChainPem, _ := ca.keyCertBundle.GetAllPem()
-	return certChainPem
-}
-
-// GetRootCertPem returns the root certificate pem for the CA.
-func (ca *IstioCA) GetRootCertPem() []byte {
-	_, _, _, rootCertPem := ca.keyCertBundle.GetAllPem()
-	return rootCertPem
 }
 
 func (ca *IstioCA) sign(csrPEM []byte, ttl time.Duration, forCA bool) ([]byte, error) {

@@ -52,21 +52,3 @@ func (ca *FakeCA) GetCAKeyCertBundle() util.KeyCertBundle {
 	}
 	return ca.KeyCertBundle
 }
-
-// GetCertChainPem returns the cert chain pem if KeyCertBundle is not nil, otherwise, it returns nil.
-func (ca *FakeCA) GetCertChainPem() []byte {
-	if ca.KeyCertBundle == nil {
-		return nil
-	}
-	_, _, certChainPem, _ := ca.KeyCertBundle.GetAllPem()
-	return certChainPem
-}
-
-// GetRootCertPem returns the root cert pem if KeyCertBundle is not nil, otherwise, it returns nil.
-func (ca *FakeCA) GetRootCertPem() []byte {
-	if ca.KeyCertBundle == nil {
-		return nil
-	}
-	_, _, _, rootCertPem := ca.KeyCertBundle.GetAllPem()
-	return rootCertPem
-}
