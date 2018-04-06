@@ -285,7 +285,7 @@ func (*Plugin) OnInboundListener(in *plugin.CallbackListenerInputParams, mutable
 		in.Env.Mesh, in.Env.IstioConfigStore, in.ServiceInstance.Service.Hostname, in.ServiceInstance.Endpoint.ServicePort)
 
 	if mutable.Listener == nil || len(mutable.Listener.FilterChains) != 1 {
-		return fmt.Errorf("Expect lister has exactly one filter chain")
+		return fmt.Errorf("expect lister has exactly one filter chain")
 	}
 	mutable.Listener.FilterChains[0].TlsContext = buildSidecarListenerTLSContext(authnPolicy)
 
