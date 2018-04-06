@@ -255,7 +255,7 @@ func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy) *auth.Do
 				AlpnProtocols: []string{"h2", "http/1.1"},
 			},
 			RequireClientCertificate: &types.BoolValue{
-				Value: !mTLSParams.AllowTls,
+				Value: !(mTLSParams != nil && mTLSParams.AllowTls),
 			},
 		}
 	}

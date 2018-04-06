@@ -19,6 +19,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	jwtfilter "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
@@ -730,6 +731,123 @@ func TestBuildAuthNFilter(t *testing.T) {
 					t.Errorf("BuildAuthNFilter(%#v), got filter config:\n%s\nwanted:\n%s\n", c.in, filterConfig.String(), c.expectedFilterConfig.String())
 				}
 			}
+		}
+	}
+}
+
+func TestBuildSidecarListenerTLSContex(t *testing.T) {
+	cases := []struct {
+		name     string
+		in       *authn.Policy
+		expected *auth.DownstreamTlsContext
+	}{
+		{
+			name:     "nil policy",
+			in:       nil,
+			expected: nil,
+		},
+		{
+			name:     "empty policy",
+			in:       &authn.Policy{},
+			expected: nil,
+		},
+		{
+			name: "non-mTLS policy",
+			in: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Jwt{
+							Jwt: &authn.Jwt{
+								Issuer: "foo",
+							},
+						},
+					},
+				},
+			},
+			expected: nil,
+		},
+		{
+			name: "mTLS policy with nil param",
+			in: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Mtls{},
+					},
+				},
+			},
+			expected: &auth.DownstreamTlsContext{
+				CommonTlsContext: &auth.CommonTlsContext{
+					TlsCertificates: []*auth.TlsCertificate{
+						&auth.TlsCertificate{
+							CertificateChain: &core.DataSource{
+								Specifier: &core.DataSource_Filename{
+									Filename: "cert-chain.pem",
+								},
+							},
+							PrivateKey: &core.DataSource{
+								Specifier: &core.DataSource_Filename{
+									Filename: "key.pem",
+								},
+							},
+						},
+					},
+					ValidationContext: &auth.CertificateValidationContext{
+						TrustedCa: &core.DataSource{
+							Specifier: &core.DataSource_Filename{
+								Filename: "root-cert.pem",
+							},
+						},
+					},
+					AlpnProtocols: []string{"h2", "http/1.1"},
+				},
+				RequireClientCertificate: &types.BoolValue{true},
+			},
+		},
+		{
+			name: "mTLS policy allowTls",
+			in: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Mtls{
+							&authn.MutualTls{
+								AllowTls: true,
+							},
+						},
+					},
+				},
+			},
+			expected: &auth.DownstreamTlsContext{
+				CommonTlsContext: &auth.CommonTlsContext{
+					TlsCertificates: []*auth.TlsCertificate{
+						&auth.TlsCertificate{
+							CertificateChain: &core.DataSource{
+								Specifier: &core.DataSource_Filename{
+									Filename: "cert-chain.pem",
+								},
+							},
+							PrivateKey: &core.DataSource{
+								Specifier: &core.DataSource_Filename{
+									Filename: "key.pem",
+								},
+							},
+						},
+					},
+					ValidationContext: &auth.CertificateValidationContext{
+						TrustedCa: &core.DataSource{
+							Specifier: &core.DataSource_Filename{
+								Filename: "root-cert.pem",
+							},
+						},
+					},
+					AlpnProtocols: []string{"h2", "http/1.1"},
+				},
+				RequireClientCertificate: &types.BoolValue{false},
+			},
+		},
+	}
+	for _, c := range cases {
+		if got := buildSidecarListenerTLSContext(c.in); !reflect.DeepEqual(c.expected, got) {
+			t.Errorf("Test case %s: expected\n%#v\n, got\n%#v", c.name, c.expected.String(), got.String())
 		}
 	}
 }
