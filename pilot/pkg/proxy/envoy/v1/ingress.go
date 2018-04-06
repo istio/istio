@@ -49,7 +49,7 @@ func buildIngressListeners(mesh *meshconfig.MeshConfig, proxyInstances []*model.
 
 	// lack of SNI in Envoy implies that TLS secrets are attached to listeners
 	// therefore, we should first check that TLS endpoint is needed before shipping TLS listener
-	_, secret := BuildIngressRoutes(mesh, ingress, proxyInstances, discovery, config)
+	_, secret := BuildIngressRoutes(mesh, proxyInstances, discovery, config)
 	if secret != "" {
 		opts.port = 443
 		opts.rds = "443"
@@ -66,15 +66,15 @@ func buildIngressListeners(mesh *meshconfig.MeshConfig, proxyInstances []*model.
 }
 
 // BuildIngressRoutes builds ingress routes.
-func BuildIngressRoutes(mesh *meshconfig.MeshConfig, node model.Proxy,
+func BuildIngressRoutes(mesh *meshconfig.MeshConfig,
 	proxyInstances []*model.ServiceInstance,
 	discovery model.ServiceDiscovery,
 	config model.IstioConfigStore) (HTTPRouteConfigs, string) {
-	return buildIngressRoutes(mesh, node, proxyInstances, discovery, config, false)
+	return buildIngressRoutes(mesh, proxyInstances, discovery, config, false)
 }
 
 // buildIngressRoutes is the internal implementation, generating different rules for v2.
-func buildIngressRoutes(mesh *meshconfig.MeshConfig, node model.Proxy,
+func buildIngressRoutes(mesh *meshconfig.MeshConfig,
 	proxyInstances []*model.ServiceInstance,
 	discovery model.ServiceDiscovery,
 	config model.IstioConfigStore, envoyv2 bool) (HTTPRouteConfigs, string) {
@@ -85,7 +85,7 @@ func buildIngressRoutes(mesh *meshconfig.MeshConfig, node model.Proxy,
 
 	rules, _ := config.List(model.IngressRule.Type, model.NamespaceAll)
 	for _, rule := range rules {
-		routes, tls, err := buildIngressRoute(mesh, node, proxyInstances, rule, discovery, config, envoyv2)
+		routes, tls, err := buildIngressRoute(mesh, proxyInstances, rule, discovery, config, envoyv2)
 		if err != nil {
 			log.Warnf("Error constructing Envoy route from ingress rule: %v", err)
 			continue
@@ -157,7 +157,7 @@ func buildIngressVhostDomains(vhost string, port int) []string {
 }
 
 // buildIngressRoute translates an ingress rule to an Envoy route
-func buildIngressRoute(mesh *meshconfig.MeshConfig, node model.Proxy,
+func buildIngressRoute(mesh *meshconfig.MeshConfig,
 	proxyInstances []*model.ServiceInstance, rule model.Config,
 	discovery model.ServiceDiscovery,
 	config model.IstioConfigStore, envoyv2 bool) ([]*HTTPRoute, string, error) {
@@ -180,7 +180,7 @@ func buildIngressRoute(mesh *meshconfig.MeshConfig, node model.Proxy,
 	}
 
 	// unfold the rules for the destination port
-	routes := buildDestinationHTTPRoutes(node, service, servicePort, proxyInstances, config, envoyv2, BuildOutboundCluster)
+	routes := buildDestinationHTTPRoutes(service, servicePort, proxyInstances, config, envoyv2)
 
 	// filter by path, prefix from the ingress
 	ingressRoute := buildHTTPRouteMatch(ingress.Match)
