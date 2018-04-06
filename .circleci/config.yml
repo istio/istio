@@ -599,7 +599,7 @@ workflows:
            filters:
              branches:
                only:
-                 - master
+                 - DISABLE_THIS_SCHEDULE
     jobs: #daisy chained steps ending with docker push
       - depupdate
       - build
@@ -687,7 +687,7 @@ workflows:
            filters:
              branches:
                only:
-                 - master
+                 - DISABLE_THIS_SCHEDULE
     jobs:
       - build
       - racetest
