@@ -138,8 +138,8 @@ ifeq ($(HUB),)
   $(error "HUB cannot be empty")
 endif
 
-# If tag not explicitly set in users' .istiorc.mk or command line, default to the git sha.
-TAG ?= $(shell git rev-parse --verify HEAD)
+# If tag not explicitly set in users' .istiorc.mk or command line, default to the current tag, or git sha.
+TAG ?= $(shell git describe --exact-match --tags HEAD 2>/dev/null || git rev-parse --verify HEAD)
 ifeq ($(TAG),)
   $(error "TAG cannot be empty")
 endif

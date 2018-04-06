@@ -703,8 +703,14 @@ workflows:
     jobs:
       - dependencies
       - lint
-      - build
-      - test
+      - build:
+          filters:
+            tags:
+              only: /^[0-9.]+-am.*/
+      - test:
+          filters:
+            tags:
+              only: /^[0-9.]+-am.*/
       - codecov:
            requires:
             - build
@@ -720,9 +726,15 @@ workflows:
       - e2e-simple:
           requires:
             - build
+          filters:
+            tags:
+              only: /^[0-9.]+-am.*/
       # Disable racetest for now
       - aspenmesh-push:
           context: quay-ci
           requires:
             - test
             - e2e-simple
+          filters:
+            tags:
+              only: /^[0-9.]+-am.*/
