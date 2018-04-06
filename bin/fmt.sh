@@ -68,5 +68,5 @@ for fl in ${GO_FILES}; do
   fi
 done
 
-#rm $tf
+rm $tf
 exit $ec
