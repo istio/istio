@@ -17,6 +17,7 @@ package kube
 import (
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"time"
 
@@ -26,8 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-
-	"os"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
