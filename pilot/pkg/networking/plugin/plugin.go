@@ -26,8 +26,10 @@ import (
 type ListenerType int
 
 const (
+	// ListenerTypeUnknown is an unknown type of listener.
+	ListenerTypeUnknown = iota
 	// ListenerTypeTCP is a TCP listener.
-	ListenerTypeTCP = iota
+	ListenerTypeTCP
 	// ListenerTypeHTTP is an HTTP listener.
 	ListenerTypeHTTP
 )
@@ -46,6 +48,8 @@ type CallbackListenerInputParams struct {
 	ProxyInstances []*model.ServiceInstance
 	// ServiceInstance is the service instance colocated with the listener (applies to sidecar).
 	ServiceInstance *model.ServiceInstance
+	// Service is the service colocated with the listener (applies to sidecar).
+	Service *model.Service
 }
 
 // CallbackListenerMutableObjects is a set of objects passed to On*Listener callbacks. Fields may be nil or empty.
@@ -54,9 +58,9 @@ type CallbackListenerInputParams struct {
 // chain in unpredictable ways.
 type CallbackListenerMutableObjects struct {
 	// HTTPFilters is the slice of HTTP filters for the Listener. Append to only.
-	HTTPFilters []*http_conn.HttpFilter
+	HTTPFilters *[]*http_conn.HttpFilter
 	// TCPFilters is the slice of TCP filters for the Listener. Append to only.
-	TCPFilters []listener.Filter
+	TCPFilters *[]listener.Filter
 	// Listener is the listener being built. Any field may be modified, but changing other than appending to slices
 	// is discouraged.
 	Listener *xdsapi.Listener
@@ -66,7 +70,7 @@ type CallbackListenerMutableObjects struct {
 // way. Examples include AuthenticationPlugin that sets up mTLS authentication on the inbound Listener
 // and outbound Cluster, the mixer plugin that sets up policy checks on the inbound listener, etc.
 type Plugin interface {
-	// OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service
+	// OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service.
 	// Can be used to add additional filters on the outbound path.
 	OnOutboundListener(in *CallbackListenerInputParams, mutable *CallbackListenerMutableObjects) error
 

@@ -23,9 +23,11 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	jwtfilter "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
 	authn "istio.io/api/authentication/v1alpha1"
+	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -33,10 +35,15 @@ import (
 )
 
 const (
-	// jwtFilterName is the name for the Jwt filter. This should be the same
+	// JwtFilterName is the name for the Jwt filter. This should be the same
 	// as the name defined in
 	// https://github.com/istio/proxy/blob/master/src/envoy/http/jwt_auth/http_filter_factory.cc#L50
-	jwtFilterName = "jwt-auth"
+	JwtFilterName = "jwt-auth"
+
+	// AuthnFilterName is the name for the Istio AuthN filter. This should be the same
+	// as the name defined in
+	// https://github.com/istio/proxy/blob/master/src/envoy/http/authn/http_filter_factory.cc#L30
+	AuthnFilterName = "istio_authn"
 
 	// Defautl cache duration for JWT public key. This should be moved to a global config.
 	jwtPublicKeyCacheSeconds = 60 * 5
@@ -155,6 +162,36 @@ func ConvertPolicyToJwtConfig(policy *authn.Policy) *jwtfilter.JwtAuthentication
 	return ret
 }
 
+// ConvertPolicyToAuthNFilterConfig returns an authn filter config corresponding for the input policy.
+func ConvertPolicyToAuthNFilterConfig(policy *authn.Policy) *authn_filter.FilterConfig {
+	if policy == nil || (len(policy.Peers) == 0 && len(policy.Origins) == 0) {
+		return nil
+	}
+	filterConfig := &authn_filter.FilterConfig{
+		Policy: proto.Clone(policy).(*authn.Policy),
+	}
+	// Create default mTLS params for params type mTLS but value is nil.
+	// This walks around the issue https://github.com/istio/istio/issues/4763
+	for _, peer := range filterConfig.Policy.Peers {
+		switch peer.GetParams().(type) {
+		case *authn.PeerAuthenticationMethod_Mtls:
+			if peer.GetMtls() == nil {
+				peer.Params = &authn.PeerAuthenticationMethod_Mtls{&authn.MutualTls{}}
+			}
+		}
+	}
+	// Remove targets part.
+	filterConfig.Policy.Targets = nil
+	locations := make(map[string]string)
+	for _, jwt := range CollectJwtSpecs(policy) {
+		locations[jwt.Issuer] = OutputLocationForJwtIssuer(jwt.Issuer)
+	}
+	if len(locations) > 0 {
+		filterConfig.JwtOutputPayloadLocations = locations
+	}
+	return filterConfig
+}
+
 // BuildJwtFilter returns a Jwt filter for all Jwt specs in the policy.
 func BuildJwtFilter(policy *authn.Policy) *http_conn.HttpFilter {
 	filterConfigProto := ConvertPolicyToJwtConfig(policy)
@@ -162,7 +199,19 @@ func BuildJwtFilter(policy *authn.Policy) *http_conn.HttpFilter {
 		return nil
 	}
 	return &http_conn.HttpFilter{
-		Name:   jwtFilterName,
+		Name:   JwtFilterName,
+		Config: util.MessageToStruct(filterConfigProto),
+	}
+}
+
+// BuildAuthNFilter returns authn filter for the given policy. If policy is nil, returns nil.
+func BuildAuthNFilter(policy *authn.Policy) *http_conn.HttpFilter {
+	filterConfigProto := ConvertPolicyToAuthNFilterConfig(policy)
+	if filterConfigProto == nil {
+		return nil
+	}
+	return &http_conn.HttpFilter{
+		Name:   AuthnFilterName,
 		Config: util.MessageToStruct(filterConfigProto),
 	}
 }
@@ -170,6 +219,11 @@ func BuildJwtFilter(policy *authn.Policy) *http_conn.HttpFilter {
 // OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service
 // Can be used to add additional filters on the outbound path
 func (*Plugin) OnOutboundListener(in *plugin.CallbackListenerInputParams, mutable *plugin.CallbackListenerMutableObjects) error {
+	if in.Node.Type != model.Router {
+		// Only care about Router nodes.
+		return nil
+	}
+	// TODO: implementation
 	return nil
 }
 
@@ -177,6 +231,11 @@ func (*Plugin) OnOutboundListener(in *plugin.CallbackListenerInputParams, mutabl
 // Can be used to add additional filters (e.g., mixer filter) or add more stuff to the HTTP connection manager
 // on the inbound path
 func (*Plugin) OnInboundListener(in *plugin.CallbackListenerInputParams, mutable *plugin.CallbackListenerMutableObjects) error {
+	if in.Node.Type != model.Router {
+		// Only care about Router nodes.
+		return nil
+	}
+	// TODO: implementation
 	return nil
 }
 
