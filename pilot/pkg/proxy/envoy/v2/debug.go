@@ -51,6 +51,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 
 	mux.HandleFunc("/debug/edsz", edsz)
 
+	mux.HandleFunc("/debug/ldsz", ldsz)
 	mux.HandleFunc("/debug/adsz", adsz)
 
 	mux.HandleFunc("/debug/registryz", s.registryz)
@@ -357,6 +358,19 @@ func adsz(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	adsClientsMutex.RLock()
+	data, err := json.Marshal(adsClients)
+	adsClientsMutex.RUnlock()
+
+	if err != nil {
+		_, _ = w.Write([]byte(err.Error()))
+		return
+	}
+
+	_, _ = w.Write(data)
+}
+
+func ldsz(w http.ResponseWriter, req *http.Request) {
+	adsClientsMutex.RLock()
 
 	//data, err := json.Marshal(ldsClients)
 
@@ -394,11 +408,26 @@ func adsz(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprint(w, "]\n")
 
 	adsClientsMutex.RUnlock()
+}
 
-	//if err != nil {
-	//	_, _ = w.Write([]byte(err.Error()))
-	//	return
-	//}
-	//
-	//_, _ = w.Write(data)
+// edsz implements a status and debug interface for EDS.
+// It is mapped to /debug/edsz on the monitor port (9093).
+func edsz(w http.ResponseWriter, req *http.Request) {
+	_ = req.ParseForm()
+	if req.Form.Get("debug") != "" {
+		edsDebug = req.Form.Get("debug") == "1"
+		return
+	}
+	if req.Form.Get("push") != "" {
+		edsPushAll()
+	}
+	edsClusterMutex.Lock()
+	data, err := json.Marshal(edsClusters)
+	edsClusterMutex.Unlock()
+	if err != nil {
+		_, _ = w.Write([]byte(err.Error()))
+		return
+	}
+
+	_, _ = w.Write(data)
 }

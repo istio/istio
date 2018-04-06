@@ -41,6 +41,11 @@ func (s *TestSetup) NewEnvoy(stress, faultInject bool, mfConf *MixerFilterConf, 
 		return nil, err
 	}
 
+	debugLevel := os.Getenv("ENVOY_DEBUG")
+	if len(debugLevel) == 0 {
+		debugLevel = "info"
+	}
+
 	// Don't use hot-start, each Envoy re-start use different base-id
 	args := []string{"-c", confPath,
 		"--base-id", strconv.Itoa(int(ports.AdminPort) + epoch)}
@@ -48,7 +53,7 @@ func (s *TestSetup) NewEnvoy(stress, faultInject bool, mfConf *MixerFilterConf, 
 		args = append(args, "--concurrency", "10")
 	} else {
 		// debug is far too verbose.
-		args = append(args, "-l", "info", "--concurrency", "1")
+		args = append(args, "-l", debugLevel, "--concurrency", "1")
 	}
 	if s.EnvoyParams != nil {
 		args = append(args, s.EnvoyParams...)

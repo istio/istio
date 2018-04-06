@@ -257,7 +257,7 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 		AvailabilityZone: "az",
 	})
 
-	// Service4 is using port 80, to test that we generate multiple clusters (regression)
+	//RouteConf Service4 is using port 80, to test that we generate multiple clusters (regression)
 	server.EnvoyXdsServer.MemRegistry.AddService("service4.default.svc.cluster.local", &model.Service{
 		Hostname: "service4.default.svc.cluster.local",
 		Address:  "10.1.0.4",
@@ -270,6 +270,9 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 			},
 		},
 	})
+
+	// Update cache
+	server.EnvoyXdsServer.ClearCacheFunc()()
 
 	return server
 }

@@ -16,11 +16,9 @@ package v2
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
 	"net"
-	"net/http"
 	"os"
 	"strconv"
 	"sync"
@@ -412,28 +410,6 @@ func edsPushAll() {
 		}
 		edsCluster.mutex.Unlock()
 	}
-}
-
-// edsz implements a status and debug interface for EDS.
-// It is mapped to /debug/edsz on the monitor port (9093).
-func edsz(w http.ResponseWriter, req *http.Request) {
-	_ = req.ParseForm()
-	if req.Form.Get("debug") != "" {
-		edsDebug = req.Form.Get("debug") == "1"
-		return
-	}
-	if req.Form.Get("push") != "" {
-		edsPushAll()
-	}
-	edsClusterMutex.Lock()
-	data, err := json.Marshal(edsClusters)
-	edsClusterMutex.Unlock()
-	if err != nil {
-		_, _ = w.Write([]byte(err.Error()))
-		return
-	}
-
-	_, _ = w.Write(data)
 }
 
 // addEdsCon will track the eds connection with clusters, for optimized event-based push and debug

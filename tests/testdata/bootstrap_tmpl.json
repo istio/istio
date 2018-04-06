@@ -177,7 +177,7 @@
         ]
       },
       {
-        "name": "http_proxy",
+        "name": "http_proxy_80",
         "address": {
           "socket_address": {
             "address": "0.0.0.0",
@@ -199,6 +199,49 @@
                   ],
                   "rds": {
                       "route_config_name": "80",
+                       "config_source": {"ads": {}}
+                  },
+                  "http_protocol_options": {
+                    "allow_absolute_url": true
+                  },
+             "access_log": [
+                {
+                  "name": "envoy.file_access_log",
+                  "config": {
+                      "path":  "/dev/stdout"
+                   }
+                }
+              ]
+
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "http_proxy_all",
+        "address": {
+          "socket_address": {
+            "address": "0.0.0.0",
+            "port_value": 17003
+          }
+         },
+
+          "filter_chains": [
+          {
+            "filters": [
+              {
+                "name": "envoy.http_connection_manager",
+                "config": {
+                  "codec_type": "AUTO",
+                  "stat_prefix": "http_proxy",
+                  "http_filters": [
+                    {"name": "envoy.router"
+                    }
+                  ],
+                  "rds": {
+                      "route_config_name": "http_proxy",
                        "config_source": {"ads": {}}
                   },
                   "http_protocol_options": {

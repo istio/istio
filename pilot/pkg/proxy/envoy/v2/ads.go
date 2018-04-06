@@ -61,7 +61,7 @@ type XdsConnection struct {
 
 	//HttpConnectionManagers map[string]*http_conn.HttpConnectionManager
 
-	HTTPListeners []*xdsapi.Listener
+	HTTPListeners []*xdsapi.Listener `json:"-"`
 	RouteConfigs  map[string]*xdsapi.RouteConfiguration
 
 	// current list of clusters monitored by the client
