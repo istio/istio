@@ -33,6 +33,7 @@ import (
 	google_protobuf "github.com/gogo/protobuf/types"
 
 	authn "istio.io/api/authentication/v1alpha1"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	authn_plugin "istio.io/istio/pilot/pkg/networking/plugin/authn"
@@ -212,6 +213,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 		// by outbound routes.
 		// Traffic sent to our service VIP is redirected by remote
 		// services' kubeproxy to our specific endpoint IP.
+		var networkFilters []listener.Filter
+		var httpFilters []*http_conn.HttpFilter
+		var listenerType plugin.ListenerType
 		listenerOpts := buildListenerOpts{
 			env:            env,
 			proxy:          node,
@@ -222,8 +226,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 			// TODO move to plugin
 			tlsContext: buildSidecarListenerTLSContext(authenticationPolicy),
 		}
+
 		switch protocol {
 		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC:
+			listenerType = plugin.ListenerTypeHTTP
 			listenerOpts.httpOpts = &httpListenerOpts{
 				routeConfig:      configgen.buildSidecarInboundHTTPRouteConfig(env, node, instance),
 				rds:              "",
@@ -232,29 +238,38 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 				authnPolicy:      authenticationPolicy,
 			}
 		case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
-			listenerOpts.networkFilters = buildInboundNetworkFilters(instance)
+			listenerType = plugin.ListenerTypeTCP
+			networkFilters = buildInboundNetworkFilters(instance)
 
 		default:
 			log.Debugf("Unsupported inbound protocol %v for port %#v", protocol, instance.Endpoint.ServicePort)
 		}
 
+		newListener := buildListener(listenerOpts)
 		// call plugins
 		for _, p := range configgen.Plugins {
 			params := &plugin.CallbackListenerInputParams{
+				ListenerType:    listenerType,
 				Env:             &env,
 				Node:            &node,
 				ServiceInstance: instance,
 			}
 			mutable := &plugin.CallbackListenerMutableObjects{
-				TCPFilters:  listenerOpts.networkFilters,
-				HTTPFilters: listenerOpts.hTTPFilters,
+				Listener:    newListener,
+				TCPFilters:  &networkFilters,
+				HTTPFilters: &httpFilters,
 			}
 			if err := p.OnInboundListener(params, mutable); err != nil {
-				log.Error(err.Error())
+				log.Warn(err.Error())
 			}
-
-			listeners = append(listeners, buildListener(listenerOpts))
 		}
+		// Filters are serialized one time into an opaque struct once we have the complete list.
+		if err := marshalFilters(newListener, listenerOpts, networkFilters, httpFilters); err != nil {
+			log.Warn(err.Error())
+		}
+
+		listeners = append(listeners, newListener)
+
 	}
 
 	return listeners
@@ -288,6 +303,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 			listenAddress := WildcardAddress
 			var addresses []string
 			var listenerMapKey string
+			var networkFilters []listener.Filter
+			var httpFilters []*http_conn.HttpFilter
+			var listenerType plugin.ListenerType
 			listenerOpts := buildListenerOpts{
 				env:            env,
 				proxy:          node,
@@ -299,6 +317,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 
 			switch servicePort.Protocol {
 			case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
+				listenerType = plugin.ListenerTypeTCP
 				if service.Resolution != model.Passthrough {
 					listenAddress = service.Address
 					addresses = []string{service.Address}
@@ -310,9 +329,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 					continue
 				}
 
-				listenerOpts.networkFilters = buildOutboundNetworkFilters(clusterName, addresses, servicePort)
+				networkFilters = buildOutboundNetworkFilters(clusterName, addresses, servicePort)
 				// TODO: Set SNI for HTTPS
 			case model.ProtocolHTTP2, model.ProtocolHTTP, model.ProtocolGRPC:
+				listenerType = plugin.ListenerTypeHTTP
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
 				if l, exists := listenerMap[listenerMapKey]; exists {
 					if !strings.HasPrefix(l.Name, "http") {
@@ -344,22 +364,32 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 
 			// call plugins
 
-			params := &plugin.CallbackListenerInputParams{
-				Env:  &env,
-				Node: &node,
-			}
-			mutable := &plugin.CallbackListenerMutableObjects{
-				TCPFilters:  listenerOpts.networkFilters,
-				HTTPFilters: listenerOpts.hTTPFilters,
-			}
+			listenerOpts.ip = listenAddress
+			newListener := buildListener(listenerOpts)
+
 			for _, p := range configgen.Plugins {
+				params := &plugin.CallbackListenerInputParams{
+					ListenerType: listenerType,
+					Env:          &env,
+					Node:         &node,
+					Service:      service,
+				}
+				mutable := &plugin.CallbackListenerMutableObjects{
+					Listener:    newListener,
+					TCPFilters:  &networkFilters,
+					HTTPFilters: &httpFilters,
+				}
 				if err := p.OnOutboundListener(params, mutable); err != nil {
-					log.Error(err.Error())
+					log.Warn(err.Error())
 				}
 			}
 
-			listenerOpts.ip = listenAddress
-			listenerMap[listenerMapKey] = buildListener(listenerOpts)
+			// Filters are serialized one time into an opaque struct once we have the complete list.
+			if err := marshalFilters(newListener, listenerOpts, networkFilters, httpFilters); err != nil {
+				log.Warn(err.Error())
+			}
+
+			listenerMap[listenerMapKey] = newListener
 			// TODO: Set SNI for HTTPS
 		}
 	}
@@ -412,12 +442,15 @@ func buildMgmtPortListeners(managementPorts model.PortList, managementIP string)
 				},
 			}
 			listenerOpts := buildListenerOpts{
-				ip:             managementIP,
-				port:           mPort.Port,
-				protocol:       model.ProtocolTCP,
-				networkFilters: buildInboundNetworkFilters(instance),
+				ip:       managementIP,
+				port:     mPort.Port,
+				protocol: model.ProtocolTCP,
 			}
-			listeners = append(listeners, buildListener(listenerOpts))
+			l := buildListener(listenerOpts)
+			if err := marshalFilters(l, listenerOpts, buildInboundNetworkFilters(instance), nil); err != nil {
+				log.Warn(err.Error())
+			}
+			listeners = append(listeners, l)
 		default:
 			log.Warnf("Unsupported inbound protocol %v for management port %#v",
 				mPort.Protocol, mPort)
@@ -486,22 +519,11 @@ type buildListenerOpts struct {
 	port           int
 	protocol       model.Protocol
 	bindToPort     bool
-
-	// http stuff
-	httpOpts *httpListenerOpts
-	// network filter stuff
-	networkFilters []listener.Filter
-	// HTTP filters
-	hTTPFilters []*http_conn.HttpFilter
+	httpOpts       *httpListenerOpts
 }
 
-func buildHTTPConnectionManager(opts buildListenerOpts) *http_conn.HttpConnectionManager {
-	mesh := opts.env.Mesh
-	var filters []*http_conn.HttpFilter
-
-	filters = append(filters, opts.hTTPFilters...)
-
-	filters = append(filters, &http_conn.HttpFilter{
+func buildHTTPConnectionManager(mesh *meshconfig.MeshConfig, httpOpts *httpListenerOpts, httpFilters []*http_conn.HttpFilter) *http_conn.HttpConnectionManager {
+	filters := append(httpFilters, &http_conn.HttpFilter{
 		Name: xdsutil.CORS,
 	})
 	// TODO: need alphav3 fault filters.
@@ -525,14 +547,14 @@ func buildHTTPConnectionManager(opts buildListenerOpts) *http_conn.HttpConnectio
 		},
 		HttpFilters:      filters,
 		StatPrefix:       HTTPStatPrefix,
-		UseRemoteAddress: &google_protobuf.BoolValue{opts.httpOpts.useRemoteAddress},
+		UseRemoteAddress: &google_protobuf.BoolValue{httpOpts.useRemoteAddress},
 	}
 
 	// not enabled yet
-	if opts.httpOpts.rds != "" {
+	if httpOpts.rds != "" {
 		rds := &http_conn.HttpConnectionManager_Rds{
 			Rds: &http_conn.Rds{
-				RouteConfigName: opts.httpOpts.rds,
+				RouteConfigName: httpOpts.rds,
 				ConfigSource: core.ConfigSource{
 					ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 						ApiConfigSource: &core.ApiConfigSource{
@@ -546,12 +568,12 @@ func buildHTTPConnectionManager(opts buildListenerOpts) *http_conn.HttpConnectio
 		}
 		connectionManager.RouteSpecifier = rds
 	} else {
-		connectionManager.RouteSpecifier = &http_conn.HttpConnectionManager_RouteConfig{RouteConfig: opts.httpOpts.routeConfig}
+		connectionManager.RouteSpecifier = &http_conn.HttpConnectionManager_RouteConfig{RouteConfig: httpOpts.routeConfig}
 	}
 
 	if connectionManager.RouteSpecifier == nil {
 		connectionManager.RouteSpecifier = &http_conn.HttpConnectionManager_RouteConfig{
-			RouteConfig: opts.httpOpts.routeConfig,
+			RouteConfig: httpOpts.routeConfig,
 		}
 	}
 
@@ -570,7 +592,7 @@ func buildHTTPConnectionManager(opts buildListenerOpts) *http_conn.HttpConnectio
 
 	if mesh.EnableTracing {
 		connectionManager.Tracing = &http_conn.HttpConnectionManager_Tracing{
-			OperationName: opts.httpOpts.direction,
+			OperationName: httpOpts.direction,
 		}
 		connectionManager.GenerateRequestId = &google_protobuf.BoolValue{true}
 	}
@@ -582,25 +604,13 @@ func buildHTTPConnectionManager(opts buildListenerOpts) *http_conn.HttpConnectio
 	return connectionManager
 }
 
+// buildListener builds and initializes a Listener proto based on the provided opts. It does not set any filters.
 func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	var filterChainMatch *listener.FilterChainMatch
 	if len(opts.sniHosts) > 0 {
 		filterChainMatch = &listener.FilterChainMatch{
 			SniDomains: opts.sniHosts,
 		}
-	}
-
-	var filters []listener.Filter
-	if opts.httpOpts != nil {
-		connectionManager := buildHTTPConnectionManager(opts)
-		filters = append(filters, listener.Filter{
-			Name:   envoyHTTPConnectionManager,
-			Config: util.MessageToStruct(connectionManager),
-		})
-	} else if len(opts.networkFilters) > 0 {
-		filters = opts.networkFilters
-	} else {
-		return nil // error
 	}
 
 	var deprecatedV1 *xdsapi.Listener_DeprecatedV1
@@ -627,9 +637,30 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 			{
 				FilterChainMatch: filterChainMatch,
 				TlsContext:       opts.tlsContext,
-				Filters:          filters,
 			},
 		},
 		DeprecatedV1: deprecatedV1,
 	}
+}
+
+// marshalFilters adds the provided TCP and HTTP filters to the provided Listener and serializes them.
+func marshalFilters(l *xdsapi.Listener, opts buildListenerOpts, networkFilters []listener.Filter, httpFilters []*http_conn.HttpFilter) error {
+	if len(l.FilterChains) != 1 {
+		return fmt.Errorf("expect exactly one FilterChain in the Listener in marshalFilters, got %v", l.FilterChains)
+	}
+	if len(networkFilters) > 0 && len(httpFilters) > 0 {
+		return fmt.Errorf("cannot set both network(%v) and HTTP(%v) filters", networkFilters, httpFilters)
+	}
+
+	l.FilterChains[0].Filters = append(l.FilterChains[0].Filters, networkFilters...)
+
+	if opts.httpOpts != nil {
+		connectionManager := buildHTTPConnectionManager(opts.env.Mesh, opts.httpOpts, httpFilters)
+		l.FilterChains[0].Filters = append(l.FilterChains[0].Filters, listener.Filter{
+			Name:   envoyHTTPConnectionManager,
+			Config: util.MessageToStruct(connectionManager),
+		})
+	}
+
+	return nil
 }
