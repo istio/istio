@@ -490,7 +490,7 @@ func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy) *auth.Do
 				AlpnProtocols: ListenersALPNProtocols,
 			},
 			RequireClientCertificate: &google_protobuf.BoolValue{
-				Value: !mTLSParams.AllowTls,
+				Value: !(mTLSParams != nil && mTLSParams.AllowTls),
 			},
 		}
 	}
