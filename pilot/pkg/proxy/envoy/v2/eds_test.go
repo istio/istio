@@ -46,7 +46,7 @@ func connect(t *testing.T) xdsapi.EndpointDiscoveryService_StreamEndpointsClient
 	}
 	err = edsstr.Send(&xdsapi.DiscoveryRequest{
 		Node: &envoy_api_v2_core1.Node{
-			Id: "sidecar~a~b~c",
+			Id: sidecarId(app3Ip, "app3"),
 		},
 		ResourceNames: []string{"hello.default.svc.cluster.local|http"}})
 	if err != nil {
@@ -68,7 +68,7 @@ func reconnect(res *xdsapi.DiscoveryResponse, t *testing.T) xdsapi.EndpointDisco
 	}
 	err = edsstr.Send(&xdsapi.DiscoveryRequest{
 		Node: &envoy_api_v2_core1.Node{
-			Id: "sidecar~a~b~c",
+			Id: sidecarId(app3Ip, "app3"),
 		},
 		VersionInfo:   res.VersionInfo,
 		ResponseNonce: res.Nonce,
