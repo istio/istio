@@ -219,6 +219,11 @@ func BuildAuthNFilter(policy *authn.Policy) *http_conn.HttpFilter {
 // OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service
 // Can be used to add additional filters on the outbound path
 func (*Plugin) OnOutboundListener(in *plugin.CallbackListenerInputParams, mutable *plugin.CallbackListenerMutableObjects) error {
+	if in.Node.Type != model.Router {
+		// Only care about Router nodes.
+		return nil
+	}
+	// TODO: implementation
 	return nil
 }
 
@@ -226,6 +231,11 @@ func (*Plugin) OnOutboundListener(in *plugin.CallbackListenerInputParams, mutabl
 // Can be used to add additional filters (e.g., mixer filter) or add more stuff to the HTTP connection manager
 // on the inbound path
 func (*Plugin) OnInboundListener(in *plugin.CallbackListenerInputParams, mutable *plugin.CallbackListenerMutableObjects) error {
+	if in.Node.Type != model.Router {
+		// Only care about Router nodes.
+		return nil
+	}
+	// TODO: implementation
 	return nil
 }
 
