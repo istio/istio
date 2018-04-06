@@ -17,7 +17,6 @@ package convert
 import (
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/api/routing/v1alpha1"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )

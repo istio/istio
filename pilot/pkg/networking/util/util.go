@@ -15,6 +15,7 @@
 package util
 
 import (
+	"bytes"
 	"strconv"
 	"strings"
 	"time"
@@ -26,8 +27,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"k8s.io/apimachinery/pkg/util/json"
-
-	"bytes"
 
 	"istio.io/istio/pkg/log"
 )
