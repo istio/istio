@@ -7,6 +7,14 @@ dependencies:
     version: 0.5.0
     # repository: file://../ingress
     condition: ingress.enabled
+  - name: ingress-gateway
+    version: 0.5.0
+    # repository: file://../ingress-gateway
+    condition: ingress-gateway.enabled
+  - name: egress-gateway
+    version: 0.5.0
+    # repository: file://../egress-gateway
+    condition: egress-gateway.enabled
   - name: mixer
     version: 0.5.0
     # repository: file://../mixer
