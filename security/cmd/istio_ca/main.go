@@ -109,7 +109,6 @@ type cliOptions struct { // nolint: maligned
 	grpcHostname string
 	// Comma separated string containing all possible host name that clients may use to connect to.
 	grpcHosts string
-
 	grpcPort int
 
 	multiclusterCA bool
