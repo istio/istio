@@ -36,6 +36,8 @@ var (
 
 	// adsClients reflect active gRPC channels, for both ADS and EDS.
 	adsClients      = map[string]*XdsConnection{}
+	// Has map of sidecar ID to the same connection struct as above
+	adsSidecarConfigMap = map[string]*XdsConnection{}
 	adsClientsMutex sync.RWMutex
 )
 
@@ -338,6 +340,7 @@ func (s *DiscoveryServer) addCon(conID string, con *XdsConnection) {
 	adsClientsMutex.Lock()
 	defer adsClientsMutex.Unlock()
 	adsClients[conID] = con
+	adsSidecarConfigMap[con.modelNode.ID] = con
 }
 
 func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
@@ -352,6 +355,7 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 		log.Errorf("ADS: Removing connection for non-existing node %v.", s)
 	}
 	delete(adsClients, conID)
+	delete(adsSidecarConfigMap, con.modelNode.ID)
 }
 
 func (s *DiscoveryServer) pushRoute(con *XdsConnection) error {
