@@ -260,7 +260,7 @@ func buildGatewayInboundNetworkFilters(env model.Environment, server *networking
 	return filters
 }
 
-// getDownstreams filters virtual services by gateway names, then determines if any match the TCP server
+// filterTCPDownstreams filters virtual services by gateway names, then determines if any match the TCP server
 func filterTCPDownstreams(env model.Environment, server *networking.Server, gatewayNames []string) []*networking.Destination {
 	hosts := make(map[string]bool, len(server.Hosts))
 	for _, host := range server.Hosts {
