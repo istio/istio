@@ -26,6 +26,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
+	"strings"
+
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
@@ -105,7 +107,10 @@ type cliOptions struct { // nolint: maligned
 	workloadCertMinGracePeriod time.Duration
 
 	grpcHostname string
-	grpcPort     int
+	// Comma separated string containing all possible host name that clients may use to connect to.
+	grpcHosts string
+
+	grpcPort int
 
 	multiclusterCA bool
 
@@ -207,6 +212,8 @@ func init() {
 
 	// gRPC server for signing CSRs.
 	flags.StringVar(&opts.grpcHostname, "grpc-hostname", "istio-ca", "The hostname for GRPC server.")
+	flags.StringVar(&opts.grpcHosts, "grpc-host-identities", "istio-ca",
+		"The list of hostnames for istio ca server, separated by comma.")
 	flags.IntVar(&opts.grpcPort, "grpc-port", 8060, "The port number for GRPC server. "+
 		"If unspecified, Istio CA will not server GRPC request.")
 
@@ -304,7 +311,8 @@ func runCA() {
 		serviceAccountController.Run(ch)
 
 		// The CA API uses cert with the max workload cert TTL.
-		grpcServer := grpc.New(ca, opts.maxWorkloadCertTTL, opts.grpcHostname, opts.grpcPort)
+		hostnames := strings.Split(opts.grpcHosts, ",")
+		grpcServer := grpc.New(ca, opts.maxWorkloadCertTTL, hostnames, opts.grpcPort)
 		if serverErr := grpcServer.Run(); serverErr != nil {
 			// stop the registry-related controllers
 			ch <- struct{}{}
