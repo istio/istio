@@ -31,8 +31,8 @@ import (
 // in the NodeAgent interface.
 type nodeAgentInternal struct {
 	// Configuration specific to Node Agent
-	config *Config
-	pc     platform.Client
+	config     *Config
+	pc         platform.Client
 	caProtocol protocol.CAProtocol
 	identity   string
 	certUtil   util.CertUtil

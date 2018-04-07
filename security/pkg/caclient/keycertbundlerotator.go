@@ -21,7 +21,6 @@ import (
 
 	"istio.io/istio/pkg/log"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
-	//"istio.io/istio/security/pkg/platform"
 	"istio.io/istio/security/pkg/util"
 )
 
