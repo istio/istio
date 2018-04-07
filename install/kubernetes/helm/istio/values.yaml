@@ -30,9 +30,6 @@ global:
   # propagated, not recommended for tests.
   controlPlaneSecurityEnabled: false
 
-  # controlPlaneTracing enables zipkin tracing for the control plane components
-  controlPlaneTracingEnabled: false
-
   # Default mtls policy. If true, mtls between services will be enabled by default.
   mtls:
     # Default setting for service-to-service mtls. Can be set explicitly using

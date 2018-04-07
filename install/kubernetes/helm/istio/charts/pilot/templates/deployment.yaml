@@ -83,21 +83,16 @@ spec:
           - containerPort: 15011
           args:
           - proxy
-          - static
           - --serviceCluster
           - istio-pilot
-          - --staticProfile
-          - pilot
+          - --templateFile
+          - /etc/istio/proxy/envoy_pilot.yaml.tmpl
         {{- if $.Values.global.controlPlaneSecurityEnabled}}
           - --controlPlaneAuthPolicy
           - MUTUAL_TLS
         {{- else }}
           - --controlPlaneAuthPolicy
           - NONE
-        {{- end }}
-        {{- if $.Values.global.controlPlaneTracingEnabled}}
-          - --zipkinAddress
-          - zipkin:9411
         {{- end }}
           env:
           - name: POD_NAME

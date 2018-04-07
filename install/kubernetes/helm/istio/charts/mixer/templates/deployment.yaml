@@ -29,21 +29,16 @@
         - containerPort: 15004
         args:
         - proxy
-        - static
         - --serviceCluster
         - istio-policy
-        - --staticProfile
-        - policy
+        - --templateFile
+        - /etc/istio/proxy/envoy_policy.yaml.tmpl
       {{- if $.Values.global.controlPlaneSecurityEnabled }}
         - --controlPlaneAuthPolicy
         - MUTUAL_TLS
       {{- else }}
         - --controlPlaneAuthPolicy
         - NONE
-      {{- end }}
-      {{- if $.Values.global.controlPlaneTracingEnabled}}
-        - --zipkinAddress
-        - zipkin:9411
       {{- end }}
         env:
         - name: POD_NAME
@@ -97,21 +92,16 @@
         - containerPort: 15004
         args:
         - proxy
-        - static
         - --serviceCluster
         - istio-telemetry
-        - --staticProfile
-        - telemetry
+        - --templateFile
+        - /etc/istio/proxy/envoy_policy.yaml.tmpl
       {{- if $.Values.global.controlPlaneSecurityEnabled }}
         - --controlPlaneAuthPolicy
         - MUTUAL_TLS
       {{- else }}
         - --controlPlaneAuthPolicy
         - NONE
-      {{- end }}
-      {{- if $.Values.global.controlPlaneTracingEnabled}}
-        - --zipkinAddress
-        - zipkin:9411
       {{- end }}
         env:
         - name: POD_NAME
