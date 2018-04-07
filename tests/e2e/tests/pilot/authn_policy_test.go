@@ -25,8 +25,9 @@ func TestAuthNPolicy(t *testing.T) {
 	}
 
 	cfgs := &deployableConfig{
-		Namespace: tc.Kube.Namespace,
-		YamlFiles: []string{"testdata/v1alpha1/authn-policy.yaml.tmpl"},
+		Namespace:  tc.Kube.Namespace,
+		YamlFiles:  []string{"testdata/v1alpha1/authn-policy.yaml.tmpl"},
+		kubeconfig: tc.Kube.KubeConfig,
 	}
 	if err := cfgs.Setup(); err != nil {
 		t.Fatal(err)

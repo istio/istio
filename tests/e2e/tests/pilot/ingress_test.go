@@ -36,6 +36,7 @@ func TestIngress(t *testing.T) {
 		YamlFiles: []string{
 			"testdata/ingress.yaml",
 			"testdata/v1alpha1/rule-default-route.yaml"},
+		kubeconfig: tc.Kube.KubeConfig,
 	}
 	if err := cfgs.Setup(); err != nil {
 		t.Fatal(err)
