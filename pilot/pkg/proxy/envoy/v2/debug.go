@@ -353,7 +353,32 @@ func adsz(w http.ResponseWriter, req *http.Request) {
 		fmt.Fprintf(w, "Pushed to %d servers", len(adsClients))
 		return
 	}
+	proxyID := req.Form.Get("proxyID")
+
 	adsClientsMutex.RLock()
+	defer adsClientsMutex.RUnlock()
+	if proxyID != "" {
+		conn := adsSidecarConfigMap[proxyID]
+		if conn != nil {
+			for _, ls := range conn.HTTPListeners {
+				jsonm := &jsonpb.Marshaler{Indent: "  "}
+				dbgString, _ := jsonm.MarshalToString(ls)
+				if _, err := w.Write([]byte(dbgString)); err != nil {
+					return
+				}
+				fmt.Fprintln(w)
+			}
+			for _, cs := range conn.HTTPClusters {
+				jsonm := &jsonpb.Marshaler{Indent: "  "}
+				dbgString, _ := jsonm.MarshalToString(cs)
+				if _, err := w.Write([]byte(dbgString)); err != nil {
+					return
+				}
+				fmt.Fprintln(w)
+			}
+		}
+		return
+	}
 
 	//data, err := json.Marshal(ldsClients)
 
@@ -389,8 +414,6 @@ func adsz(w http.ResponseWriter, req *http.Request) {
 		fmt.Fprint(w, "]}\n")
 	}
 	fmt.Fprint(w, "]\n")
-
-	adsClientsMutex.RUnlock()
 
 	//if err != nil {
 	//	_, _ = w.Write([]byte(err.Error()))
