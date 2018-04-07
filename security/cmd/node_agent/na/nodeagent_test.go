@@ -46,11 +46,13 @@ func TestStartWithArgs(t *testing.T) {
 		},
 		LoggingOptions: log.DefaultOptions(),
 	}
+	defer func() {
+		_ = os.Remove(generalConfig.CAClientConfig.RootCertFile)
+		_ = os.Remove(generalConfig.CAClientConfig.KeyFile)
+		_ = os.Remove(generalConfig.CAClientConfig.CertChainFile)
+	}()
 	signedCert := []byte(`TESTCERT`)
 	certChain := []byte(`CERTCHAIN`)
-	defer os.Remove(generalConfig.CAClientConfig.RootCertFile)
-	defer os.Remove(generalConfig.CAClientConfig.KeyFile)
-	defer os.Remove(generalConfig.CAClientConfig.CertChainFile)
 	testCases := map[string]struct {
 		config      *Config
 		pc          platform.Client
