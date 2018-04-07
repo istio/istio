@@ -15,11 +15,13 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
@@ -33,7 +35,6 @@ import (
 	"istio.io/istio/pilot/pkg/proxy"
 	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v1"
 	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
@@ -61,7 +62,7 @@ var (
 	proxyLogLevel          string
 	concurrency            int
 	bootstrapv2            bool
-	staticProfile          string
+	templateFile           string
 
 	loggingOptions = log.DefaultOptions()
 
@@ -199,18 +200,23 @@ var (
 
 			log.Infof("Monitored certs: %#v", certs)
 
-			if role.Type == model.Static && proxyConfig.CustomConfigFile == "" {
-				name := os.Getenv("POD_NAME")
-				namespace := os.Getenv("POD_NAMESPACE")
-
-				config, err := bootstrap.BuildBootstrap(bootstrap.BuildOptions(proxyConfig, staticProfile, name, namespace))
+			if templateFile != "" && proxyConfig.CustomConfigFile == "" {
+				opts := make(map[string]string)
+				opts["PodName"] = os.Getenv("POD_NAME")
+				opts["PodNamespace"] = os.Getenv("POD_NAMESPACE")
+				if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
+					opts["ControlPlaneAuth"] = "enable"
+				}
+				tmpl, err := template.ParseFiles(templateFile)
 				if err != nil {
 					return err
 				}
-				content, err := bootstrap.ToYAML(config)
+				var buffer bytes.Buffer
+				err = tmpl.Execute(&buffer, opts)
 				if err != nil {
 					return err
 				}
+				content := buffer.Bytes()
 				log.Infof("Static config:\n%s", string(content))
 				proxyConfig.CustomConfigFile = proxyConfig.ConfigPath + "/envoy.yaml"
 				err = ioutil.WriteFile(proxyConfig.CustomConfigFile, content, 0644)
@@ -304,8 +310,8 @@ func init() {
 		"number of worker threads to run")
 	proxyCmd.PersistentFlags().BoolVar(&bootstrapv2, "bootstrapv2", true,
 		"Use bootstrap v2")
-	proxyCmd.PersistentFlags().StringVar(&staticProfile, "staticProfile", "",
-		"Static bootstrap profile (values are telemetry, policy)")
+	proxyCmd.PersistentFlags().StringVar(&templateFile, "templateFile", "",
+		"Go template bootstrap config")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)

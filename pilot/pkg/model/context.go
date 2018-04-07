@@ -75,9 +75,6 @@ const (
 
 	// Router type is used for standalone proxies acting as L7/L4 routers
 	Router NodeType = "router"
-
-	// Static proxy config
-	Static NodeType = "static"
 )
 
 // IsApplicationNodeType verifies that the NodeType is one of the declared constants in the model

@@ -82,7 +82,7 @@ static_resources:
                       destination.service:
                         string_value: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
                       destination.uid:
-                        string_value: kubernetes://${POD_NAME}.{{ .PodNamespace }}
+                        string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
               transport:
                 check_cluster: mixer_check_server
                 report_cluster: mixer_report_server
@@ -143,7 +143,7 @@ static_resources:
                       destination.service:
                         string_value: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
                       destination.uid:
-                        string_value: kubernetes://${POD_NAME}.${POD_NAMESPACE}
+                        string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
               transport:
                 check_cluster: mixer_check_server
                 report_cluster: mixer_report_server
@@ -154,7 +154,7 @@ static_resources:
             virtual_hosts:
             - domains:
               - '*'
-              name: istio-pilot.${POD_NAMESPACE}.svc.cluster.local
+              name: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
               routes:
               - decorator:
                   operation: xDS
@@ -194,16 +194,16 @@ static_resources:
             name: envoy.file_access_log
           http_filters:
           - config:
-              default_destination_service: istio-pilot.${POD_NAMESPACE}.svc.cluster.local
+              default_destination_service: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
               service_configs:
-                istio-pilot.${POD_NAMESPACE}.svc.cluster.local:
+                istio-pilot.{{ .PodNamespace }}.svc.cluster.local:
                   disable_check_calls: true
                   mixer_attributes:
                     attributes:
                       destination.service:
-                        string_value: istio-pilot.${POD_NAMESPACE}.svc.cluster.local
+                        string_value: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
                       destination.uid:
-                        string_value: kubernetes://${POD_NAME}.${POD_NAMESPACE}
+                        string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
               transport:
                 check_cluster: mixer_check_server
                 report_cluster: mixer_report_server
@@ -214,7 +214,7 @@ static_resources:
             virtual_hosts:
             - domains:
               - '*'
-              name: istio-pilot.${POD_NAMESPACE}.svc.cluster.local
+              name: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
               routes:
               - decorator:
                   operation: v1
@@ -252,16 +252,16 @@ static_resources:
             name: envoy.file_access_log
           http_filters:
           - config:
-              default_destination_service: istio-pilot.${POD_NAMESPACE}.svc.cluster.local
+              default_destination_service: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
               service_configs:
-                istio-pilot.${POD_NAMESPACE}.svc.cluster.local:
+                istio-pilot.{{ .PodNamespace }}.svc.cluster.local:
                   disable_check_calls: true
                   mixer_attributes:
                     attributes:
                       destination.service:
-                        string_value: istio-pilot.${POD_NAMESPACE}.svc.cluster.local
+                        string_value: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
                       destination.uid:
-                        string_value: kubernetes://${POD_NAME}.${POD_NAMESPACE}
+                        string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
               transport:
                 check_cluster: mixer_check_server
                 report_cluster: mixer_report_server
@@ -272,7 +272,7 @@ static_resources:
             virtual_hosts:
             - domains:
               - '*'
-              name: istio-pilot.${POD_NAMESPACE}.svc.cluster.local
+              name: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
               routes:
               - decorator:
                   operation: v1
