@@ -170,7 +170,6 @@ type PilotArgs struct {
 	Config           ConfigArgs
 	Service          ServiceArgs
 	Admission        AdmissionArgs
-	RDSv2            bool
 }
 
 // Server contains the runtime configuration for the Pilot discovery service.
@@ -726,8 +725,9 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 	// For now we create the gRPC server sourcing data from Pilot's older data model.
 	s.initGrpcServer()
-	envoy.V2ClearCache = envoyv2.PushAll
 	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(s.GRPCServer, environment, v1alpha3.NewConfigGenerator(registry.NewPlugins()))
+	// TODO: decouple v2 from the cache invalidation, use direct listeners.
+	envoy.V2ClearCache = s.EnvoyXdsServer.ClearCacheFunc()
 
 	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController)
 
@@ -770,13 +770,6 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 			}
 			s.EnvoyXdsServer.GrpcServer.Stop()
 		}()
-
-		if args.RDSv2 {
-			log.Info("xDS: enabling RDS")
-			cache := envoyv2.NewConfigCache(s.ServiceController, s.configController)
-			cache.Register(s.GRPCServer)
-			cache.RegisterInput(s.ServiceController, s.configController)
-		}
 
 		return err
 	})

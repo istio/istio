@@ -149,6 +149,11 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 		cfg = DefaultCfgDir
 	}
 
+	override := os.Getenv("ISTIO_BOOTSTRAP")
+	if len(override) > 0 {
+		cfg = override
+	}
+
 	cfgTmpl, err := ioutil.ReadFile(cfg)
 	if err != nil {
 		return "", err
