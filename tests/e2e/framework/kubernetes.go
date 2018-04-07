@@ -34,6 +34,8 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/util"
+
+	"k8s.io/client-go/kubernetes"
 )
 
 const (
