@@ -30,7 +30,7 @@ import (
 
 // Environment provides an aggregate environmental API for Pilot
 type Environment struct {
-	// Discovery interface for listing services and instances
+	// Discovery interface for listing services and instances.
 	ServiceDiscovery
 
 	// Accounts interface for listing service accounts

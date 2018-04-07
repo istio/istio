@@ -24,19 +24,7 @@
   "dynamic_resources": {
     "lds_config": {
       "ads": {}
-       {{/*
-       "api_config_source": {
-        "api_type": "GRPC",
-        "refresh_delay": {
-          "seconds": 30,
-          "nanos": 0
-        },
-        "cluster_names": [
-          "xds-grpc"
-        ]
-      }
-        */}}
-       },
+     },
     "cds_config": {
       "ads": {}
     },
@@ -98,25 +86,6 @@
               "name": "envoy.router"
               }
               ]
-
-
-{{/*
-              ,"access_log": [
-                {
-                  "name": "envoy.file_access_log",
-                  "config": {
-                    "fields": {
-                      "path": {
-                        "Kind": {
-                          "StringValue": "{{.AccessLog}}"
-                        }
-                      }
-                    }
-                  }
-                }
-              ]
-*/}}
-
             }
           }
         ]
@@ -170,23 +139,6 @@
               ]
 
 
-{{/*
-              ,"access_log": [
-                {
-                  "name": "envoy.file_access_log",
-                  "config": {
-                    "fields": {
-                      "path": {
-                        "Kind": {
-                          "StringValue": "{{.AccessLog}}"
-                        }
-                      }
-                    }
-                  }
-                }
-              ]
-*/}}
-
             }
           }
         ]
@@ -224,76 +176,16 @@
           }
         ]
       },
-
-    {
-        "name": "legacy15003",
-        "address": {
-          "socket_address": {
-            "address": "0.0.0.0",
-            "port_value": 17003
-          }
-        },
-        "filter_chains": [
-          {
-            "filters": [
-              {
-                "name": "envoy.tcp_proxy",
-                "config": {
-                  "deprecated_v1": true,
-                  "value": {
-                    "stat_prefix": "legacy15003",
-                    "route_config": {
-                      "routes": [
-                        {
-                          "cluster": "pilot_http"
-                        }
-                      ]
-                    }
-                  }
-                }
-              }
-            ]
-          }
-        ]
-      },
       {
-        "name": "iptables",
-        "address": {
-          "socket_address": {
-            "address": "0.0.0.0",
-            "port_value": 17001
-          }
-        },
-        "use_original_dst": {
-            "value": true
-        },
-        "filter_chains": [
-          {
-            "filters": [
-              {
-                "name": "envoy.tcp_proxy",
-                "config": {
-                  "stat_prefix": "iptables"
-                }
-              }
-            ]
-          }
-        ],
-        "listener_filters": [
-          {
-            "name": "envoy.listener.original_dst"
-          }
-        ]
-      },
-      {
-        "name": "http_proxy",
+        "name": "http_proxy_80",
         "address": {
           "socket_address": {
             "address": "0.0.0.0",
             "port_value": 17002
           }
-        },
-        "filter_chains": [
+         },
+
+          "filter_chains": [
           {
             "filters": [
               {
@@ -305,12 +197,21 @@
                     {"name": "envoy.router"
                     }
                   ],
-                  "route_config": {
-
+                  "rds": {
+                      "route_config_name": "80",
+                       "config_source": {"ads": {}}
                   },
                   "http_protocol_options": {
                     "allow_absolute_url": true
-                  }
+                  },
+             "access_log": [
+                {
+                  "name": "envoy.file_access_log",
+                  "config": {
+                      "path":  "/dev/stdout"
+                   }
+                }
+              ]
 
                 }
               }
@@ -319,30 +220,42 @@
         ]
       },
       {
-        "name": "httpproxy",
+        "name": "http_proxy_all",
         "address": {
           "socket_address": {
             "address": "0.0.0.0",
-            "port_value": 17008
+            "port_value": 17003
           }
-        },
-        "filter_chains": [
+         },
+
+          "filter_chains": [
           {
             "filters": [
               {
-                "name": "envoy.tcp_proxy",
+                "name": "envoy.http_connection_manager",
                 "config": {
-                  "deprecated_v1": true,
-                  "value": {
-                    "stat_prefix": "legacy15003",
-                    "route_config": {
-                      "routes": [
-                        {
-                          "cluster": "pilot_http"
-                        }
-                      ]
+                  "codec_type": "AUTO",
+                  "stat_prefix": "http_proxy",
+                  "http_filters": [
+                    {"name": "envoy.router"
                     }
-                  }
+                  ],
+                  "rds": {
+                      "route_config_name": "http_proxy",
+                       "config_source": {"ads": {}}
+                  },
+                  "http_protocol_options": {
+                    "allow_absolute_url": true
+                  },
+             "access_log": [
+                {
+                  "name": "envoy.file_access_log",
+                  "config": {
+                      "path":  "/dev/stdout"
+                   }
+                }
+              ]
+
                 }
               }
             ]
@@ -389,7 +302,7 @@
                     "route_config": {
                       "routes": [
                         {
-                          "cluster": "pilot_grpc"
+                          "cluster": "xds_grpc"
                         }
                       ]
                     }
@@ -403,23 +316,6 @@
 
     ],
     "clusters": [
-      {
-        "name": "rds",
-        "type": "STRICT_DNS",
-        "connect_timeout": {
-          "seconds": 5,
-          "nanos": 0
-        },
-        "lb_policy": "ROUND_ROBIN",
-        "hosts": [
-          {
-            "socket_address": {
-              "address": "127.0.0.1",
-              "port_value": {{.Ports.PilotHTTPPort}}
-            }
-          }
-        ]
-      },
       {
         "name": "xds-grpc",
         "type": "STRICT_DNS",

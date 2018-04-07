@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"sync"
 
 	"github.com/gogo/protobuf/jsonpb"
 
@@ -46,7 +47,9 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 		Controller:       s.MemRegistry.controller,
 	})
 
-	mux.HandleFunc("/debug/edsz", EDSz)
+	mux.HandleFunc("/debug/edsz", edsz)
+
+	mux.HandleFunc("/debug/ldsz", ldsz)
 	mux.HandleFunc("/debug/adsz", adsz)
 	mux.HandleFunc("/debug/cdsz", cdsz)
 
@@ -99,6 +102,9 @@ type MemServiceDiscovery struct {
 	InstancesError                error
 	GetProxyServiceInstancesError error
 	controller                    model.Controller
+
+	// Single mutex for now - it's for debug only.
+	mutex sync.Mutex
 }
 
 // ClearErrors clear errors used for mocking failures during model.MemServiceDiscovery interface methods
@@ -111,13 +117,17 @@ func (sd *MemServiceDiscovery) ClearErrors() {
 
 // AddService adds an in-memory service.
 func (sd *MemServiceDiscovery) AddService(name string, svc *model.Service) {
+	sd.mutex.Lock()
 	sd.services[name] = svc
+	sd.mutex.Unlock()
 	// TODO: notify listeners
 }
 
 // AddInstance adds an in-memory instance.
 func (sd *MemServiceDiscovery) AddInstance(service string, instance *model.ServiceInstance) {
 	// WIP: add enough code to allow tests and load tests to work
+	sd.mutex.Lock()
+	defer sd.mutex.Unlock()
 	svc := sd.services[service]
 	if svc == nil {
 		return
@@ -155,6 +165,8 @@ func (sd *MemServiceDiscovery) AddEndpoint(service, servicePortName string, serv
 
 // Services implements discovery interface
 func (sd *MemServiceDiscovery) Services() ([]*model.Service, error) {
+	sd.mutex.Lock()
+	defer sd.mutex.Unlock()
 	if sd.ServicesError != nil {
 		return nil, sd.ServicesError
 	}
@@ -167,6 +179,8 @@ func (sd *MemServiceDiscovery) Services() ([]*model.Service, error) {
 
 // GetService implements discovery interface
 func (sd *MemServiceDiscovery) GetService(hostname string) (*model.Service, error) {
+	sd.mutex.Lock()
+	defer sd.mutex.Unlock()
 	if sd.GetServiceError != nil {
 		return nil, sd.GetServiceError
 	}
@@ -178,6 +192,8 @@ func (sd *MemServiceDiscovery) GetService(hostname string) (*model.Service, erro
 // used by EDS/ADS.
 func (sd *MemServiceDiscovery) Instances(hostname string, ports []string,
 	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
+	sd.mutex.Lock()
+	defer sd.mutex.Unlock()
 	if sd.InstancesError != nil {
 		return nil, sd.InstancesError
 	}
@@ -196,6 +212,8 @@ func (sd *MemServiceDiscovery) Instances(hostname string, ports []string,
 // GetProxyServiceInstances returns service instances associated with a node, resulting in
 // 'in' services.
 func (sd *MemServiceDiscovery) GetProxyServiceInstances(node model.Proxy) ([]*model.ServiceInstance, error) {
+	sd.mutex.Lock()
+	defer sd.mutex.Unlock()
 	if sd.GetProxyServiceInstancesError != nil {
 		return nil, sd.GetProxyServiceInstancesError
 	}
@@ -212,6 +230,8 @@ func (sd *MemServiceDiscovery) GetProxyServiceInstances(node model.Proxy) ([]*mo
 
 // ManagementPorts implements discovery interface
 func (sd *MemServiceDiscovery) ManagementPorts(addr string) model.PortList {
+	sd.mutex.Lock()
+	defer sd.mutex.Unlock()
 	return model.PortList{{
 		Name:     "http",
 		Port:     3333,
@@ -225,6 +245,8 @@ func (sd *MemServiceDiscovery) ManagementPorts(addr string) model.PortList {
 
 // GetIstioServiceAccounts gets the Istio service accounts for a service hostname.
 func (sd *MemServiceDiscovery) GetIstioServiceAccounts(hostname string, ports []string) []string {
+	sd.mutex.Lock()
+	defer sd.mutex.Unlock()
 	if hostname == "world.default.svc.cluster.local" {
 		return []string{
 			"spiffe://cluster.local/ns/default/sa/serviceaccount1",
@@ -354,6 +376,19 @@ func adsz(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	adsClientsMutex.RLock()
+	data, err := json.Marshal(adsClients)
+	adsClientsMutex.RUnlock()
+
+	if err != nil {
+		_, _ = w.Write([]byte(err.Error()))
+		return
+	}
+
+	_, _ = w.Write(data)
+}
+
+func ldsz(w http.ResponseWriter, req *http.Request) {
+	adsClientsMutex.RLock()
 
 	//data, err := json.Marshal(ldsClients)
 
@@ -391,13 +426,35 @@ func adsz(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprint(w, "]\n")
 
 	adsClientsMutex.RUnlock()
+}
 
-	//if err != nil {
-	//	_, _ = w.Write([]byte(err.Error()))
-	//	return
-	//}
-	//
-	//_, _ = w.Write(data)
+// edsz implements a status and debug interface for EDS.
+// It is mapped to /debug/edsz on the monitor port (9093).
+func edsz(w http.ResponseWriter, req *http.Request) {
+	_ = req.ParseForm()
+	if req.Form.Get("debug") != "" {
+		edsDebug = req.Form.Get("debug") == "1"
+		return
+	}
+	if req.Form.Get("push") != "" {
+		edsPushAll()
+	}
+
+	edsClusterMutex.Lock()
+	comma1 := false
+	for _, eds := range edsClusters {
+		if comma1 {
+			fmt.Fprint(w, ",\n")
+		} else {
+			comma1 = true
+		}
+		jsonm := &jsonpb.Marshaler{Indent: "  "}
+		dbgString, _ := jsonm.MarshalToString(eds.LoadAssignment)
+		if _, err := w.Write([]byte(dbgString)); err != nil {
+			return
+		}
+	}
+	edsClusterMutex.Unlock()
 }
 
 // cdsz implements a status and debug interface for CDS.

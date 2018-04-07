@@ -17,10 +17,8 @@ package v2
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"net"
-	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -30,7 +28,6 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
-	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
@@ -88,7 +85,7 @@ type EdsCluster struct {
 	FirstUse time.Time
 
 	// EdsClients keeps track of all nodes monitoring the cluster.
-	EdsClients map[string]*XdsConnection
+	EdsClients map[string]*XdsConnection `json:"-"`
 
 	// NonEmptyTime is the time the cluster first had a non-empty set of endpoints
 	NonEmptyTime time.Time
@@ -411,34 +408,6 @@ func edsPushAll() {
 		}
 		edsCluster.mutex.Unlock()
 	}
-}
-
-// EDSz implements a status and debug interface for EDS.
-// It is mapped to /debug/edsz on the monitor port (9093).
-func EDSz(w http.ResponseWriter, req *http.Request) {
-	_ = req.ParseForm()
-	if req.Form.Get("debug") != "" {
-		edsDebug = req.Form.Get("debug") == "1"
-		return
-	}
-	if req.Form.Get("push") != "" {
-		edsPushAll()
-	}
-	edsClusterMutex.Lock()
-	comma1 := false
-	for _, eds := range edsClusters {
-		if comma1 {
-			fmt.Fprint(w, ",\n")
-		} else {
-			comma1 = true
-		}
-		jsonm := &jsonpb.Marshaler{Indent: "  "}
-		dbgString, _ := jsonm.MarshalToString(eds.LoadAssignment)
-		if _, err := w.Write([]byte(dbgString)); err != nil {
-			return
-		}
-	}
-	edsClusterMutex.Unlock()
 }
 
 // addEdsCon will track the eds connection with clusters, for optimized event-based push and debug

@@ -23,6 +23,7 @@ import (
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/grpc"
 
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pkg/log"
@@ -51,7 +52,7 @@ const (
 	// ListenerType is sent after clusters and endpoints.
 	ListenerType = typePrefix + "Listener"
 	// RouteType is sent after listeners.
-	RouteType = typePrefix + "Route"
+	RouteType = typePrefix + "RouteConfiguration"
 )
 
 // DiscoveryServer is Pilot's gRPC implementation for Envoy's v2 xds APIs
@@ -67,6 +68,16 @@ type DiscoveryServer struct {
 	// ConfigGenerator is responsible for generating data plane configuration using Istio networking
 	// APIs and service registry info
 	ConfigGenerator *v1alpha3.ConfigGeneratorImpl
+
+	// The next fields are updated by v2 discovery, based on config change events (currently
+	// the global invalidation). They are computed once - will not change. The new alpha3
+	// API should use this instead of directly accessing ServiceDiscovery or IstioConfigStore.
+	modelMutex      sync.RWMutex
+	services        []*model.Service
+	virtualServices []*networking.VirtualService
+	// Temp: the code in alpha3 should use VirtualService directly
+	virtualServiceConfigs []model.Config
+	//TODO: gateways              []*networking.Gateway
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
@@ -113,9 +124,45 @@ func PushAll() {
 	version = time.Now()
 	versionMutex.Unlock()
 
-	log.Infoa("XDS: Registry event - pushing all configs")
-
 	adsPushAll()
+}
+
+// ClearCacheFunc returns a function that invalidates v2 caches and triggers a push.
+// This is used for transition, once the new config model is in place we'll have separate
+// functions for each event and push only configs that need to be pushed.
+// This is currently called from v1 and has attenuation/throttling.
+func (s *DiscoveryServer) ClearCacheFunc() func() {
+	return func() {
+		s.updateModel()
+
+		s.modelMutex.RLock()
+		log.Infof("XDS: Registry event, pushing. Services: %d, "+
+			"VirtualServices: %d, ConnectedEndpoints: %d", len(s.services), len(s.virtualServices), edsClientCount())
+		s.modelMutex.RUnlock()
+
+		PushAll()
+	}
+}
+
+func (s *DiscoveryServer) updateModel() {
+	s.modelMutex.Lock()
+	defer s.modelMutex.Unlock()
+	services, err := s.env.Services()
+	if err != nil {
+		log.Errorf("XDS: failed to update services %v", err)
+	} else {
+		s.services = services
+	}
+	vservices, err := s.env.List(model.VirtualService.Type, model.NamespaceAll)
+	if err != nil {
+		log.Errorf("XDS: failed to update virtual services %v", err)
+	} else {
+		s.virtualServiceConfigs = vservices
+		s.virtualServices = make([]*networking.VirtualService, len(vservices))
+		for _, ss := range vservices {
+			s.virtualServices = append(s.virtualServices, ss.Spec.(*networking.VirtualService))
+		}
+	}
 }
 
 func nonce() string {
