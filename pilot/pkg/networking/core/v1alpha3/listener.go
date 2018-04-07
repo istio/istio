@@ -32,11 +32,9 @@ import (
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	google_protobuf "github.com/gogo/protobuf/types"
 
-	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	authn_plugin "istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
 )
@@ -195,16 +193,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 	proxyInstances []*model.ServiceInstance) []*xdsapi.Listener {
 
 	var listeners []*xdsapi.Listener
-	mesh := env.Mesh
-	config := env.IstioConfigStore
 	// inbound connections/requests are redirected to the endpoint address but appear to be sent
 	// to the service address.
 	for _, instance := range proxyInstances {
 		endpoint := instance.Endpoint
 		protocol := endpoint.ServicePort.Protocol
-
-		authenticationPolicy := model.GetConsolidateAuthenticationPolicy(mesh,
-			config, instance.Service.Hostname, instance.Endpoint.ServicePort)
 
 		// Local service instances can be accessed through one of three
 		// addresses: localhost, endpoint IP, and service
@@ -223,8 +216,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 			ip:             endpoint.Address,
 			port:           endpoint.Port,
 			protocol:       protocol,
-			// TODO move to plugin
-			tlsContext: buildSidecarListenerTLSContext(authenticationPolicy),
 		}
 
 		switch protocol {
@@ -235,7 +226,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 				rds:              "",
 				useRemoteAddress: false,
 				direction:        http_conn.INGRESS,
-				authnPolicy:      authenticationPolicy,
 			}
 		case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
 			listenerType = plugin.ListenerTypeTCP
@@ -358,7 +348,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 						fmt.Sprintf("%d", servicePort.Port)),
 					useRemoteAddress: useRemoteAddress,
 					direction:        operation,
-					authnPolicy:      nil, /* authn policy is not needed for outbound listener */
 				}
 			}
 
@@ -460,43 +449,6 @@ func buildMgmtPortListeners(managementPorts model.PortList, managementIP string)
 	return listeners
 }
 
-// TODO: move to plugins
-// buildInboundAuth adds TLS to the listener if the policy requires one.
-func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy) *auth.DownstreamTlsContext {
-	if requireTLS, mTLSParams := authn_plugin.RequireTLS(authenticationPolicy); requireTLS {
-		return &auth.DownstreamTlsContext{
-			CommonTlsContext: &auth.CommonTlsContext{
-				TlsCertificates: []*auth.TlsCertificate{
-					{
-						CertificateChain: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: model.CertChainFilename,
-							},
-						},
-						PrivateKey: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: model.KeyFilename,
-							},
-						},
-					},
-				},
-				ValidationContext: &auth.CertificateValidationContext{
-					TrustedCa: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: model.RootCertFilename,
-						},
-					},
-				},
-				AlpnProtocols: ListenersALPNProtocols,
-			},
-			RequireClientCertificate: &google_protobuf.BoolValue{
-				Value: !(mTLSParams != nil && mTLSParams.AllowTls),
-			},
-		}
-	}
-	return nil
-}
-
 // http specific listener options
 type httpListenerOpts struct {
 	//nolint: maligned
@@ -504,7 +456,6 @@ type httpListenerOpts struct {
 	rds              string
 	useRemoteAddress bool
 	direction        http_conn.HttpConnectionManager_Tracing_OperationName
-	authnPolicy      *authn.Policy
 }
 
 // options required to build a Listener
