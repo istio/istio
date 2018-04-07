@@ -95,7 +95,7 @@
         - --serviceCluster
         - istio-telemetry
         - --templateFile
-        - /etc/istio/proxy/envoy_policy.yaml.tmpl
+        - /etc/istio/proxy/envoy_telemetry.yaml.tmpl
       {{- if $.Values.global.controlPlaneSecurityEnabled }}
         - --controlPlaneAuthPolicy
         - MUTUAL_TLS
