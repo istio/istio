@@ -14,6 +14,10 @@ if [[ -z $SKIP_INIT ]];then
   bin/init.sh
 fi
 
+echo 'Running format/imports check ....'
+bin/fmt.sh -c
+echo 'Format/imports check OK'
+
 echo 'Checking licenses'
 bin/check_license.sh
 echo 'licenses OK'

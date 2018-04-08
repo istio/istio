@@ -16,11 +16,10 @@ package workload
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"testing"
 	"time"
-
-	"io/ioutil"
 
 	"istio.io/istio/security/pkg/pki/util"
 )

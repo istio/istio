@@ -15,14 +15,13 @@
 package v1alpha3
 
 import (
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"time"
 
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	v2_cluster "github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
-
-	"time"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -80,7 +79,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environmen
 	services []*model.Service) []*v2.Cluster {
 	clusters := make([]*v2.Cluster, 0)
 	for _, service := range services {
-		config := env.DestinationRule(service.Hostname, "")
+		config := env.DestinationRule(service.Hostname)
 		for _, port := range service.Ports {
 			hosts := buildClusterHosts(env, service, port)
 

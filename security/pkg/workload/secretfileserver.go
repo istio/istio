@@ -16,7 +16,6 @@ package workload
 
 import (
 	"io/ioutil"
-
 	"path"
 
 	"istio.io/istio/security/pkg/pki/util"

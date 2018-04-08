@@ -19,10 +19,9 @@ import (
 	"net"
 	"os"
 
+	"github.com/gogo/googleapis/google/rpc"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-
-	"github.com/gogo/googleapis/google/rpc"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/cmd/node_agent/na"
@@ -151,11 +150,12 @@ func (s *Server) WorkloadAdded(ctx context.Context, request *pb.WorkloadInfo) (*
 	}
 
 	// Sends CSR request to CA.
-	// TODO(inclfy): extract the SPIFFE formatting out into somewhere else.
-	id := fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/%s", ns, sa)
-
+	host, err := pkiutil.GenSanURI(ns, sa)
+	if err != nil {
+		return nil, logReturn("failed to generate san uri", err)
+	}
 	priv, csrReq, err := s.caClient.CreateCSRRequest(&pkiutil.CertOptions{
-		Host:       id,
+		Host:       host,
 		Org:        s.config.CAClientConfig.Org,
 		RSAKeySize: s.config.CAClientConfig.RSAKeySize,
 		TTL:        s.config.CAClientConfig.RequestedCertTTL,

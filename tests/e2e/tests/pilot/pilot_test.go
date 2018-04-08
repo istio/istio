@@ -15,17 +15,16 @@
 package pilot
 
 import (
-	"flag"
-	"os"
-	"testing"
-
 	"errors"
+	"flag"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
+	"testing"
 	"time"
 
 	"go.uber.org/multierr"
@@ -92,7 +91,7 @@ func setTestConfig() error {
 	tc.AppDir = appDir
 
 	// Add additional apps for this test suite.
-	apps := getApps()
+	apps := getApps(tc)
 	for i := range apps {
 		tc.Kube.AppManager.AddApp(&apps[i])
 	}
@@ -238,7 +237,7 @@ func configVersions() []string {
 	return versions
 }
 
-func getApps() []framework.App {
+func getApps(tc *testConfig) []framework.App {
 	return []framework.App{
 		// deploy a healthy mix of apps, with and without proxy
 		getApp("t", "t", 8080, 80, 9090, 90, 7070, 70, "unversioned", false, false),
@@ -246,7 +245,7 @@ func getApps() []framework.App {
 		getApp("b", "b", 80, 8080, 90, 9090, 70, 7070, "unversioned", true, false),
 		getApp("c-v1", "c", 80, 8080, 90, 9090, 70, 7070, "v1", true, false),
 		getApp("c-v2", "c", 80, 8080, 90, 9090, 70, 7070, "v2", true, false),
-		getApp("d", "d", 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true, true),
+		getApp("d", "d", 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true, tc.Kube.AuthEnabled),
 		// Add another service without sidecar to test mTLS blacklisting (as in the e2e test
 		// environment, pilot can see only services in the test namespaces). This service
 		// will be listed in mtlsExcludedServices in the mesh config.
