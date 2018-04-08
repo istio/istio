@@ -152,13 +152,13 @@ func (w *watcher) retrieveAZ(ctx context.Context, delay time.Duration, retries i
 			tlsConfig.BuildNameToCertificate()
 			transport := &http.Transport{TLSClientConfig: tlsConfig}
 			client = &http.Client{Transport: transport}
-			protocol = "https"
+			protocol = "https://"
 		} else {
 			client = &http.Client{}
-			protocol = "http"
+			protocol = "http://"
 		}
 
-		resp, err := client.Get(fmt.Sprintf("%v://%v/v1/az/%v/%v", protocol, w.config.DiscoveryAddress, w.config.ServiceCluster, w.role.ServiceNode()))
+		resp, err := client.Get(fmt.Sprintf("%v%v/v1/az/%v/%v", protocol, w.config.DiscoveryAddress, w.config.ServiceCluster, w.role.ServiceNode()))
 		if err != nil {
 			log.Infof("Unable to retrieve availability zone from pilot: %v", err)
 		} else {
