@@ -17,9 +17,12 @@ package v1
 import (
 	"context"
 	"crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"hash"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -123,7 +126,39 @@ func (w *watcher) retrieveAZ(ctx context.Context, delay time.Duration, retries i
 	attempts := 0
 	for w.config.AvailabilityZone == "" && attempts <= retries {
 		time.Sleep(delay)
-		resp, err := http.Get(fmt.Sprintf("http://%v/v1/az/%v/%v", w.config.DiscoveryAddress, w.config.ServiceCluster, w.role.ServiceNode()))
+
+		var client *http.Client
+		var protocol string
+		if w.config.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
+			chainCertFile := fmt.Sprintf("%v/%v", model.AuthCertsPath, model.CertChainFilename)
+			chainKeyFile := fmt.Sprintf("%v/%v", model.AuthCertsPath, model.KeyFilename)
+			chainCert, err := tls.LoadX509KeyPair(chainCertFile, chainKeyFile)
+			if err != nil {
+				log.Infof("Unable to load certs to talk to control plane: %v", err)
+			}
+			caCertFile := fmt.Sprintf("%v/%v", model.AuthCertsPath, model.RootCertFilename)
+			caCert, err := ioutil.ReadFile(caCertFile)
+			if err != nil {
+				log.Infof("Unable to load ca root cert to talk to control plane: %v", err)
+			}
+			caCertPool := x509.NewCertPool()
+			caCertPool.AppendCertsFromPEM(caCert)
+			serverName, _, _ := net.SplitHostPort(w.config.DiscoveryAddress)
+			tlsConfig := &tls.Config{
+				Certificates: []tls.Certificate{chainCert},
+				RootCAs:      caCertPool,
+				ServerName:   fmt.Sprintf("%v.svc", serverName),
+			}
+			tlsConfig.BuildNameToCertificate()
+			transport := &http.Transport{TLSClientConfig: tlsConfig}
+			client = &http.Client{Transport: transport}
+			protocol = "https"
+		} else {
+			client = &http.Client{}
+			protocol = "http"
+		}
+
+		resp, err := client.Get(fmt.Sprintf("%v://%v/v1/az/%v/%v", protocol, w.config.DiscoveryAddress, w.config.ServiceCluster, w.role.ServiceNode()))
 		if err != nil {
 			log.Infof("Unable to retrieve availability zone from pilot: %v", err)
 		} else {
