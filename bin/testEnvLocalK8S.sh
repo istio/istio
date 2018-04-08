@@ -7,10 +7,15 @@ set -euo pipefail
 # Based on circleCI config - used to reproduce the environment and to improve local testing
 
 # expect istio scripts to be under $GOPATH/src/istio.io/istio/bin/...
-export TOP=$(cd $(dirname $0)/../../../..; pwd)
+
+export TOP=${GOPATH}
 export ISTIO_GO=${TOP}/src/istio.io/istio
 
-export GOOS_LOCAL=${GOOS_LOCAL:-linux}
+if [[ "$OSTYPE" == "darwin"* ]]; then 
+   export GOOS_LOCAL=darwin
+else
+  export GOOS_LOCAL=${GOOS_LOCAL:-linux}
+fi
 
 export GOPATH=${TOP}
 export PATH=${GOPATH}/bin:${PATH}
@@ -128,11 +133,27 @@ function startLocalApiserver() {
     # make sure apiserver is actually alive
     kill -0 $(cat $LOG_DIR/apiserver.pid)
 
-    echo "Started local etcd and apiserver !"
+    # Really need to make sure that API Server is up before proceed further
+    waitForApiServer
+    printf "Started local etcd and apiserver!\n"
+}
+
+function ensureLocalApiServer() {
+    kubectl get nodes 2>/dev/null || startLocalApiserver
+}
+
+function createIstioConfigmap() {
+  helm template ${ISTIO_GO}/install/kubernetes/helm/istio --namespace=istio-system \
+     --execute=templates/configmap.yaml --values install/kubernetes/helm/istio/values.yaml  > ${LOG_DIR}/istio-configmap.yaml
+  kubectl create -f ${LOG_DIR}/istio-configmap.yaml 
+  helm template ${ISTIO_GO}/install/kubernetes/helm/istio --namespace=istio-system \
+     --execute=charts/ingress/templates/service.yaml --values install/kubernetes/helm/istio/values.yaml  > ${LOG_DIR}/istio-ingress.yaml
+  kubectl create -f ${LOG_DIR}/istio-ingress.yaml
 }
 
 function startIstio() {
     ensureLocalApiServer
+    createIstioConfigmap
     startPilot
     startEnvoy
     startMixer
@@ -140,36 +161,54 @@ function startIstio() {
 
 function stopIstio() {
   if [[ -f $LOG_DIR/pilot.pid ]] ; then
-    kill -9 $(cat $LOG_DIR/pilot.pid)
-    kill -9 $(cat $LOG_DIR/mixer.pid)
-    kill -9 $(cat $LOG_DIR/envoy4.pid)
-    rm $LOG_DIR/{pilot,mixer,envoy4}.pid
+    kill -9 $(cat $LOG_DIR/pilot.pid) || true
+    rm $LOG_DIR/pilot.pid
+   fi
+  if [[ -f $LOG_DIR/mixer.pid ]] ; then
+    kill -9 $(cat $LOG_DIR/mixer.pid) || true
+    rm $LOG_DIR/mixer.pid
+  fi
+  if [[ -f $LOG_DIR/envoy4.pid ]] ; then
+    kill -9 $(cat $LOG_DIR/envoy4.pid) || true
+    rm $LOG_DIR/envoy4.pid
   fi
 }
 
 function startPilot() {
-  POD_NAME=pilot POD_NAMESPACE=istio-system ${ISTIO_OUT}/pilot-discovery discovery \
-    -n default --kubeconfig .circleci/config &
+  printf "Pilot starting...\n"
+  POD_NAME=pilot POD_NAMESPACE=istio-system \
+  ${ISTIO_OUT}/pilot-discovery discovery --port 18080 \
+                                         --monitoringPort 19093 \
+                                         --log_target ${LOG_DIR} \
+                                         --kubeconfig ${ISTIO_GO}/.circleci/config &
   echo $! > $LOG_DIR/pilot.pid
 }
 
 function startMixer() {
-  ${ISTIO_OUT}/mixs server --configStoreURL=fs:${ISTIO_GO}/mixer/testdata/configroot \
-    --kubeconfig .circleci/config &
+  printf "Mixer starting...\n"
+  ${ISTIO_OUT}/mixs server --configStoreURL=fs:${ISTIO_GO}/mixer/testdata/configroot & 
   echo $! > $LOG_DIR/mixer.pid
 }
 
 function startEnvoy() {
+  if [[ "$OSTYPE" != "darwin"* ]]; then
+    printf "Envoy starting...\n"
     ${ISTIO_OUT}/envoy -c tests/testdata/envoy_local.json \
         --base-id 4 --service-cluster unittest --service-node local.test
-  echo $! > $LOG_DIR/envoy4.pid
+    echo $! > $LOG_DIR/envoy4.pid
+  else
+     printf "No Envoy on MAC, sorry...\n"
+  fi
 }
 
 function stopLocalApiserver() {
-  if [[ -f $LOG_DIR/etcd.pid ]] ; then
+  if [[ -f $LOG_DIR/etcd.pid ]]; then
     kill -9 $(cat $LOG_DIR/etcd.pid)
     kill -9 $(cat $LOG_DIR/apiserver.pid)
     rm $LOG_DIR/{etcd,apiserver}.pid
+  fi
+  if [[ -d "${ETCD_DATADIR}" ]]; then
+    rm -rf ${ETCD_DATADIR}
   fi
 }
 
@@ -179,8 +218,24 @@ function startLocalServers() {
     startEnvoy
 }
 
-function ensureLocalApiserver() {
-    kubectl get nodes 2>/dev/null || startLocalApiserver
+function waitForApiServer() {
+count=0
+set +xe
+
+  while true; do
+    status=$(kubectl get pod 2>&1 | grep resources | wc -l)
+    if [ $status -ne 1 ]; then
+      if [ $count -gt 30 ]; then
+        printf "API Server failed to come up\n"
+        exit -1
+      fi
+      count=$((count+1))
+      sleep 1
+    else
+      printf "API Server ready\n"
+      break
+    fi
+  done
 }
 
 CMD=${1:-help}
@@ -189,6 +244,6 @@ case "$1" in
     stop) stopLocalApiserver ;;
     startIstio) startIstio ;;
     stopIstio) stopIstio ;;
-    ensure) ensureLocalApiserver ;;
-    *) echo "start stop ensure"
+    ensure) ensureLocalApiServer ;;
+    *) printf "start stop ensure\n"
 esac
