@@ -187,6 +187,7 @@ type Server struct {
 	EnvoyXdsServer   *envoyv2.DiscoveryServer
 	HTTPServer       *http.Server
 	GRPCServer       *grpc.Server
+	secureGRPCServer       *grpc.Server
 	DiscoveryService *envoy.DiscoveryService
 
 	// An in-memory service discovery, enabled if 'mock' registry is added.
@@ -725,9 +726,10 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 	// For now we create the gRPC server sourcing data from Pilot's older data model.
 	s.initGrpcServer()
-	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(s.GRPCServer, environment, v1alpha3.NewConfigGenerator(registry.NewPlugins()))
+	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(environment, v1alpha3.NewConfigGenerator(registry.NewPlugins()))
 	// TODO: decouple v2 from the cache invalidation, use direct listeners.
 	envoy.V2ClearCache = s.EnvoyXdsServer.ClearCacheFunc()
+	s.EnvoyXdsServer.Register(s.GRPCServer)
 
 	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController)
 
@@ -748,6 +750,12 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	}
 	s.GRPCListeningAddr = grpcListener.Addr()
 
+	// TODO: only if TLS certs, go routine to check for late certs
+	secureGrpcListener, err := net.Listen("tcp", args.DiscoveryOptions.SecureGrpcAddr)
+	if err != nil {
+		return err
+	}
+
 	s.addStartFunc(func(stop chan struct{}) error {
 		log.Infof("Discovery service started at http=%s grpc=%s", listener.Addr().String(), grpcListener.Addr().String())
 
@@ -757,10 +765,11 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 			}
 		}()
 		go func() {
-			if err = s.EnvoyXdsServer.GrpcServer.Serve(grpcListener); err != nil {
+			if err = s.GRPCServer.Serve(grpcListener); err != nil {
 				log.Warna(err)
 			}
 		}()
+		go s.secureGrpcStart(secureGrpcListener)
 
 		go func() {
 			<-stop
@@ -768,7 +777,10 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 			if err != nil {
 				log.Warna(err)
 			}
-			s.EnvoyXdsServer.GrpcServer.Stop()
+			s.GRPCServer.Stop()
+			if s.secureGRPCServer != nil {
+				s.secureGRPCServer.Stop()
+			}
 		}()
 
 		return err
@@ -813,22 +825,31 @@ func (s *Server) initAdmissionController(args *PilotArgs) error {
 	return nil
 }
 
-// NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
 func (s *Server) initGrpcServer() {
-	// TODO for now use hard coded / default gRPC options. The constructor may evolve to use interfaces that guide specific options later.
-	// Example:
-	//		grpcOptions = append(grpcOptions, grpc.MaxConcurrentStreams(uint32(someconfig.MaxConcurrentStreams)))
-	var grpcOptions []grpc.ServerOption
+	grpcOptions := s.grpcServerOptions()
+	s.GRPCServer = grpc.NewServer(grpcOptions...)
+}
 
-	var interceptors []grpc.UnaryServerInterceptor
+// The secure grpc will start when the credentials are found.
+func (s *Server) secureGrpcStart(listener net.Listener) {
 
-	// TODO: log request interceptor if debug enabled.
+	opts := s.grpcServerOptions()
 
-	// setup server prometheus monitoring (as final interceptor in chain)
-	interceptors = append(interceptors, prometheus.UnaryServerInterceptor)
+	s.secureGRPCServer = grpc.NewServer(opts...)
+	s.EnvoyXdsServer.Register(s.secureGRPCServer)
+
+	if err := s.secureGRPCServer.Serve(listener); err != nil {
+		log.Warna(err)
+	}
+}
+
+func (s *Server) grpcServerOptions() []grpc.ServerOption {
+	interceptors := []grpc.UnaryServerInterceptor{
+		// setup server prometheus monitoring (as final interceptor in chain)
+		prometheus.UnaryServerInterceptor,
+	}
+
 	prometheus.EnableHandlingTimeHistogram()
-
-	grpcOptions = append(grpcOptions, grpc.UnaryInterceptor(middleware.ChainUnaryServer(interceptors...)))
 
 	// Temp setting, default should be enough for most supported environments. Can be used for testing
 	// envoy with lower values.
@@ -840,12 +861,16 @@ func (s *Server) initGrpcServer() {
 	if maxStreams == 0 {
 		maxStreams = 100000
 	}
-	grpcOptions = append(grpcOptions, grpc.MaxConcurrentStreams(uint32(maxStreams)))
+
+	grpcOptions := []grpc.ServerOption{
+		grpc.UnaryInterceptor(middleware.ChainUnaryServer(interceptors...)),
+		grpc.MaxConcurrentStreams(uint32(maxStreams)),
+	}
 
 	// get the grpc server wired up
 	grpc.EnableTracing = true
 
-	s.GRPCServer = grpc.NewServer(grpcOptions...)
+	return grpcOptions
 }
 
 func (s *Server) addStartFunc(fn startFunc) {

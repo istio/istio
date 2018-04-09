@@ -128,6 +128,7 @@ func setup() error {
 		DiscoveryOptions: envoy.DiscoveryServiceOptions{
 			Port:            pilotHTTPPort,
 			GrpcAddr:        ":0",
+			SecureGrpcAddr:        ":0",
 			EnableCaching:   true,
 			EnableProfiling: true,
 		},
