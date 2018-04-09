@@ -98,6 +98,14 @@ spec:
 `
 )
 
+// defaultTestArgs returns result of DefaultArgs(), except with a modification to the LoggingOptions
+// to avoid a data race between gRpc and the logging code.
+func defaultTestArgs() *Args {
+	a := DefaultArgs()
+	a.LoggingOptions.LogGrpc = false // Avoid introducing a race to the server tests.
+	return a
+}
+
 // createClient returns a Mixer gRPC client, useful for tests
 func createClient(addr net.Addr) (mixerpb.MixerClient, error) {
 	conn, err := grpc.Dial(addr.String(), grpc.WithInsecure())
@@ -109,10 +117,9 @@ func createClient(addr net.Addr) (mixerpb.MixerClient, error) {
 }
 
 func newTestServer(globalCfg, serviceCfg string) (*Server, error) {
-	a := DefaultArgs()
+	a := defaultTestArgs()
 	a.APIPort = 0
 	a.MonitoringPort = 0
-	a.LoggingOptions.LogGrpc = false // Avoid introducing a race to the server tests.
 	a.EnableProfiling = true
 	a.Templates = generatedTmplRepo.SupportedTmplInfo
 	a.LivenessProbeOptions.Path = "abc"
@@ -177,9 +184,8 @@ func TestClient(t *testing.T) {
 }
 
 func TestErrors(t *testing.T) {
-	a := DefaultArgs()
+	a := defaultTestArgs()
 	a.APIWorkerPoolSize = -1
-	a.LoggingOptions.LogGrpc = false // Avoid introducing a race to the server tests.
 	configStore, cerr := storetest.SetupStoreForTest(globalCfg, serviceCfg)
 	if cerr != nil {
 		t.Fatal(cerr)
@@ -191,11 +197,10 @@ func TestErrors(t *testing.T) {
 		t.Errorf("Got success, expecting error")
 	}
 
-	a = DefaultArgs()
+	a = defaultTestArgs()
 	a.APIPort = 0
 	a.MonitoringPort = 0
 	a.TracingOptions.LogTraceSpans = true
-	a.LoggingOptions.LogGrpc = false // Avoid introducing a race to the server tests.
 
 	// This test is designed to exercise the many failure paths in the server creation
 	// code. This is mostly about replacing methods in the patch table with methods that
@@ -266,7 +271,7 @@ func TestErrors(t *testing.T) {
 func TestMonitoringMux(t *testing.T) {
 	configStore, _ := storetest.SetupStoreForTest(globalCfg, serviceCfg)
 
-	a := DefaultArgs()
+	a := defaultTestArgs()
 	a.ConfigStore = configStore
 	a.MonitoringPort = 0
 	a.APIPort = 0
