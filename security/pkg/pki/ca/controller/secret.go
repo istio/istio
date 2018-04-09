@@ -86,11 +86,14 @@ type SecretController struct {
 	// Controller and store for secret objects.
 	scrtController cache.Controller
 	scrtStore      cache.Store
+
+	// Whether the certificates are for CAs.
+	forCA bool
 }
 
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
 func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, gracePeriodRatio float32, minGracePeriod time.Duration,
-	core corev1.CoreV1Interface, namespace string, dnsNames map[string]DNSNameEntry) (*SecretController, error) {
+	core corev1.CoreV1Interface, forCA bool, namespace string, dnsNames map[string]DNSNameEntry) (*SecretController, error) {
 
 	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
 		return nil, fmt.Errorf("grace period ratio %f should be within [0, 1]", gracePeriodRatio)
@@ -106,6 +109,7 @@ func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, grac
 		gracePeriodRatio: gracePeriodRatio,
 		minGracePeriod:   minGracePeriod,
 		core:             core,
+		forCA:            forCA,
 		dnsNames:         dnsNames,
 	}
 
@@ -292,7 +296,7 @@ func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string
 	}
 
 	_, _, certChainPEM, _ := sc.ca.GetCAKeyCertBundle().GetAll()
-	certPEM, err := sc.ca.Sign(csrPEM, sc.certTTL)
+	certPEM, err := sc.ca.Sign(csrPEM, sc.certTTL, sc.forCA)
 	if err != nil {
 		return nil, nil, err
 	}
