@@ -71,12 +71,15 @@ type DNSNameEntry struct {
 
 // SecretController manages the service accounts' secrets that contains Istio keys and certificates.
 type SecretController struct {
-	ca      ca.CertificateAuthority
-	certTTL time.Duration
-	core    corev1.CoreV1Interface
+	ca             ca.CertificateAuthority
+	certTTL        time.Duration
+	core           corev1.CoreV1Interface
+	minGracePeriod time.Duration
 	// Length of the grace period for the certificate rotation.
 	gracePeriodRatio float32
-	minGracePeriod   time.Duration
+
+	// Whether the certificates are for CAs.
+	forCA bool
 
 	// DNS-enabled service account/service pair
 	dnsNames map[string]DNSNameEntry
@@ -88,9 +91,6 @@ type SecretController struct {
 	// Controller and store for secret objects.
 	scrtController cache.Controller
 	scrtStore      cache.Store
-
-	// Whether the certificates are for CAs.
-	forCA bool
 }
 
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
