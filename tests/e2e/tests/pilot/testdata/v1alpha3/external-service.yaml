@@ -1,0 +1,16 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: ExternalService
+metadata:
+  name: external-service-bookinfo
+spec:
+  hosts:
+    - eu.bookinfo.com
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  discovery: STATIC
+  endpoints:
+  - address: t.istio-system.svc.cluster.local # TODO: this is brittle
+    ports:
+      http: 8080 # TODO test https

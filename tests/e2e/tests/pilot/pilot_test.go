@@ -57,6 +57,7 @@ var (
 	versionRegex = regexp.MustCompile("ServiceVersion=(.*)")
 	portRegex    = regexp.MustCompile("ServicePort=(.*)")
 	codeRegex    = regexp.MustCompile("StatusCode=(.*)")
+	hostRegex    = regexp.MustCompile("Host=(.*)")
 )
 
 func init() {
@@ -323,6 +324,11 @@ func ClientRequest(app, url string, count int, extra string) ClientResponse {
 		out.Code = append(out.Code, code[1])
 	}
 
+	hosts := hostRegex.FindAllStringSubmatch(request, -1)
+	for _, host := range hosts {
+		out.Host = append(out.Host, host[1])
+	}
+
 	return out
 }
 
@@ -338,6 +344,8 @@ type ClientResponse struct {
 	Port []string
 	// Code is the response code
 	Code []string
+	// Host is the host returned by the response
+	Host []string
 }
 
 // IsHTTPOk returns true if the response code was 200
