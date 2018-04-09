@@ -27,7 +27,7 @@ import (
 // 3. Add virtual service for each external service such that
 //    3.a. Traffic from all sidecars (i.e. mesh gateway) goes to egress gateway svc
 //    3.b. Traffic from egress gateway goes to actual destination (in our case, its t)
-// The tests will only check fo requests from a->t with host matching ext service
+// The tests will only check for requests from a->t with host matching ext service
 func TestEgressGateway(t *testing.T) {
 	if !tc.V1alpha3 {
 		t.Skipf("Skipping %s: v1alpha3=false", t.Name())
