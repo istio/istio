@@ -19,6 +19,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"golang.org/x/net/context"
@@ -26,8 +27,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
-
-	"strings"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/pki/ca"
@@ -116,7 +115,7 @@ func (s *Server) Run() error {
 }
 
 // New creates a new instance of `IstioCAServiceServer`.
-func New(ca istioCA, ttl time.Duration, hostlist []string, port int) *Server {
+func New(ca ca.CertificateAuthority, ttl time.Duration, hostlist []string, port int) *Server {
 	// Notice that the order of authenticators matters, since at runtime
 	// authenticators are activated sequentially and the first successful attempt
 	// is used as the authentication result.
