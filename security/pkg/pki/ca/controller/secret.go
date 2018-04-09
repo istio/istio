@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// TODO(myidpt): Move secret to security/pkg/k8s/.
+
 package controller
 
 import (
@@ -219,7 +221,7 @@ func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 
 		return
 	}
-	_, _, _, rootCert := sc.ca.GetCAKeyCertBundle().GetAll()
+	rootCert := sc.ca.GetCAKeyCertBundle().GetRootCertPem()
 	secret.Data = map[string][]byte{
 		CertChainID:  chain,
 		PrivateKeyID: key,
@@ -291,7 +293,7 @@ func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string
 		return nil, nil, err
 	}
 
-	_, _, certChainPEM, _ := sc.ca.GetCAKeyCertBundle().GetAll()
+	certChainPEM := sc.ca.GetCAKeyCertBundle().GetCertChainPem()
 	certPEM, err := sc.ca.Sign(csrPEM, sc.certTTL)
 	if err != nil {
 		return nil, nil, err
@@ -327,7 +329,7 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 			certLifeTime, sc.gracePeriodRatio, gracePeriod, sc.minGracePeriod)
 		gracePeriod = sc.minGracePeriod
 	}
-	_, _, _, rootCertificate := sc.ca.GetCAKeyCertBundle().GetAll()
+	rootCertificate := sc.ca.GetCAKeyCertBundle().GetRootCertPem()
 
 	// Refresh the secret if 1) the certificate contained in the secret is about
 	// to expire, or 2) the root certificate in the secret is different than the
