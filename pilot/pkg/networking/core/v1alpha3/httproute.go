@@ -137,7 +137,6 @@ func TranslateVirtualHost(in model.Config, serviceIndex map[string]*model.Servic
 	}
 
 	// if no services matched, then we have no port information -- default to 80 for now
-	// TODO: use match condition ports
 	if len(serviceByPort) == 0 {
 		serviceByPort[80] = nil
 	}
@@ -145,7 +144,10 @@ func TranslateVirtualHost(in model.Config, serviceIndex map[string]*model.Servic
 	out := make([]GuardedHost, len(serviceByPort))
 	for port, services := range serviceByPort {
 		clusterNaming := TranslateDestination(serviceIndex, port)
-		routes := TranslateRoutes(in, clusterNaming, proxyLabels, gatewayName)
+		routes := TranslateRoutes(in, clusterNaming, port, proxyLabels, gatewayName)
+		if len(routes) == 0 {
+			continue
+		}
 		out = append(out, GuardedHost{
 			Port:     port,
 			Services: services,
@@ -196,7 +198,7 @@ type ClusterNaming func(*networking.Destination) string
 // TranslateRoutes creates virtual host routes from the v1alpha3 config.
 // The rule should be adapted to destination names (outbound clusters).
 // Each rule is guarded by source labels.
-func TranslateRoutes(in model.Config, name ClusterNaming,
+func TranslateRoutes(in model.Config, name ClusterNaming, port int,
 	proxyLabels model.LabelsCollection, gatewayName string) []route.Route {
 	rule, ok := in.Spec.(*networking.VirtualService)
 	if !ok {
@@ -208,7 +210,7 @@ func TranslateRoutes(in model.Config, name ClusterNaming,
 	out := make([]route.Route, 0)
 	for _, http := range rule.Http {
 		if len(http.Match) == 0 {
-			r := TranslateRoute(http, nil, operation, name, proxyLabels, gatewayName)
+			r := TranslateRoute(http, nil, port, operation, name, proxyLabels, gatewayName)
 			if r != nil { // this cannot be nil
 				out = append(out, *r)
 			}
@@ -216,7 +218,7 @@ func TranslateRoutes(in model.Config, name ClusterNaming,
 		} else {
 			// TODO: https://github.com/istio/istio/issues/4239
 			for _, match := range http.Match {
-				r := TranslateRoute(http, match, operation, name, proxyLabels, gatewayName)
+				r := TranslateRoute(http, match, port, operation, name, proxyLabels, gatewayName)
 				if r != nil {
 					out = append(out, *r)
 				}
@@ -230,7 +232,7 @@ func TranslateRoutes(in model.Config, name ClusterNaming,
 // TranslateRoute translates HTTP routes
 // TODO: fault filters -- issue https://github.com/istio/api/issues/388
 func TranslateRoute(in *networking.HTTPRoute,
-	match *networking.HTTPMatchRequest,
+	match *networking.HTTPMatchRequest, port int,
 	operation string,
 	name ClusterNaming,
 	proxyLabels model.LabelsCollection,
@@ -254,6 +256,10 @@ func TranslateRoute(in *networking.HTTPRoute,
 	}
 
 	if !sourceMatched {
+		return nil
+	}
+
+	if match != nil && match.Port != nil && match.Port.GetNumber() != uint32(port) {
 		return nil
 	}
 
@@ -376,8 +382,6 @@ func TranslateRouteMatch(in *networking.HTTPMatchRequest) route.RouteMatch {
 		matcher := TranslateHeaderMatcher(HeaderScheme, in.Scheme)
 		out.Headers = append(out.Headers, &matcher)
 	}
-
-	// TODO: match.DestinationPorts
 
 	return out
 }
@@ -533,7 +537,6 @@ func (configgen *ConfigGeneratorImpl) BuildSidecarOutboundHTTPRouteConfig(env mo
 
 	for _, guardedHost := range guardedHosts {
 		// If none of the routes matched by source, skip this guarded host
-		// TODO: push this match stuff into TranslateVirtualHosts
 		if len(guardedHost.Routes) == 0 {
 			continue
 		}
