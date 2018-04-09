@@ -373,7 +373,7 @@ func TestSignCSRTTLError(t *testing.T) {
 	}
 }
 
-func createCA(maxTTL time.Duration, multicluster bool) (CertificateAuthority, error) {
+func createCA(maxTTL time.Duration, multicluster bool) (*IstioCA, error) {
 	// Generate root CA key and cert.
 	rootCAOpts := util.CertOptions{
 		IsCA:         true,
