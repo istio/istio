@@ -187,7 +187,7 @@ type Server struct {
 	EnvoyXdsServer   *envoyv2.DiscoveryServer
 	HTTPServer       *http.Server
 	GRPCServer       *grpc.Server
-	secureGRPCServer       *grpc.Server
+	secureGRPCServer *grpc.Server
 	DiscoveryService *envoy.DiscoveryService
 
 	// An in-memory service discovery, enabled if 'mock' registry is added.

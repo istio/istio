@@ -377,12 +377,12 @@ func (proxy envoy) Run(config interface{}, epoch int, abort <-chan error) error 
 		}
 	}
 
-	// spin up a new Watcher process
+	// spin up a new Envoy process
 	args := proxy.args(fname, epoch)
 	if proxy.v2 && len(proxy.config.CustomConfigFile) == 0 {
 		args = append(args, "--v2-config-only")
 	}
-	log.Infof("Watcher command: %v", args)
+	log.Infof("Envoy command: %v", args)
 
 	/* #nosec */
 	cmd := exec.Command(proxy.config.BinaryPath, args...)
