@@ -358,12 +358,11 @@ func (labels LabelsCollection) HasSubsetOf(that Labels) bool {
 // IsSupersetOf returns true if the input labels are a subset set of any set of labels in a
 // collection
 func (labels LabelsCollection) IsSupersetOf(that Labels) bool {
+
 	if len(labels) == 0 {
-		if len(that) == 0 {
-			return true
-		}
-		return false
+		return len(that) == 0
 	}
+
 	for _, label := range labels {
 		if that.SubsetOf(label) {
 			return true
