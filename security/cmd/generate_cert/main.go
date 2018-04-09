@@ -17,8 +17,6 @@
 package main
 
 import (
-	"crypto"
-	"crypto/x509"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -33,20 +31,31 @@ import (
 const timeLayout = "Jan 2 15:04:05 2006"
 
 var (
-	host           = flag.String("host", "", "Comma-separated hostnames and IPs to generate a certificate for.")
-	validFrom      = flag.String("start-date", "", "Creation date in format of "+timeLayout)
-	validFor       = flag.Duration("duration", 365*24*time.Hour, "Duration that certificate is valid for.")
-	isCA           = flag.Bool("ca", false, "Whether this cert should be a Cerificate Authority.")
-	isSelfSigned   = flag.Bool("self-signed", false, "Whether this cerificate is self-signed.")
-	signerCertFile = flag.String("signer-cert", "", "Signer certificate file (PEM encoded).")
-	signerPrivFile = flag.String("signer-priv", "", "Signer private key file (PEM encoded).")
-	isClient       = flag.Bool("client", false, "Whether this certificate is for a client.")
-	org            = flag.String("organization", "Juju org", "Organization for the cert.")
-	outCert        = flag.String("out-cert", "cert.pem", "Output certificate file.")
-	outPriv        = flag.String("out-priv", "priv.pem", "Output private key file.")
-	keySize        = flag.Int("key-size", 2048, "Size of the generated private key")
+	certOptions util.CertOptions
+
+	validFrom      string
+	signerCertFile string
+	signerPrivFile string
+	outCert        string
+	outPriv        string
 )
 
+func init() {
+	//CertOptions arguments
+	flag.StringVar(&certOptions.Host, "host", "", "Comma-separated hostnames and IPs to generate a certificate for.")
+	flag.DurationVar(&certOptions.TTL, "duration", 365*24*time.Hour, "Duration that certificate is valid for.")
+	flag.BoolVar(&certOptions.IsCA, "ca", false, "Whether this cert should be a Cerificate Authority.")
+	flag.BoolVar(&certOptions.IsSelfSigned, "self-signed", false, "Whether this cerificate is self-signed.")
+	flag.BoolVar(&certOptions.IsClient, "client", false, "Whether this certificate is for a client.")
+	flag.StringVar(&certOptions.Org, "organization", "Juju org", "Organization for the cert.")
+	flag.IntVar(&certOptions.RSAKeySize, "key-size", 2048, "Size of the generated private key")
+
+	flag.StringVar(&validFrom, "start-date", "", "Creation date in format of "+timeLayout)
+	flag.StringVar(&signerCertFile, "signer-cert", "", "Signer certificate file (PEM encoded).")
+	flag.StringVar(&signerPrivFile, "signer-priv", "", "Signer private key file (PEM encoded).")
+	flag.StringVar(&outCert, "out-cert", "cert.pem", "Output certificate file.")
+	flag.StringVar(&outPriv, "out-priv", "priv.pem", "Output private key file.")
+}
 func fatalf(template string, args ...interface{}) {
 	log.Errorf(template, args)
 	os.Exit(-1)
@@ -55,8 +64,8 @@ func fatalf(template string, args ...interface{}) {
 func checkCmdLine() {
 	flag.Parse()
 
-	hasCert, hasPriv := len(*signerCertFile) != 0, len(*signerPrivFile) != 0
-	if *isSelfSigned {
+	hasCert, hasPriv := len(signerCertFile) != 0, len(signerPrivFile) != 0
+	if certOptions.IsSelfSigned {
 		if hasCert || hasPriv {
 			fatalf("--self-signed is incompatible with --signer-cert or --signer-priv.")
 		}
@@ -70,12 +79,12 @@ func checkCmdLine() {
 }
 
 func saveCreds(certPem []byte, privPem []byte) {
-	err := ioutil.WriteFile(*outCert, certPem, 0644)
+	err := ioutil.WriteFile(outCert, certPem, 0644)
 	if err != nil {
 		fatalf("Could not write output certificate: %s.", err)
 	}
 
-	err = ioutil.WriteFile(*outPriv, privPem, 0600)
+	err = ioutil.WriteFile(outPriv, privPem, 0600)
 	if err != nil {
 		fatalf("Could not write output private key: %s.", err)
 	}
@@ -84,29 +93,17 @@ func saveCreds(certPem []byte, privPem []byte) {
 func main() {
 	checkCmdLine()
 
-	var signerCert *x509.Certificate
-	var signerPriv crypto.PrivateKey
 	var err error
-	if !*isSelfSigned {
-		signerCert, signerPriv, err = util.LoadSignerCredsFromFiles(*signerCertFile, *signerPrivFile)
+	if !certOptions.IsSelfSigned {
+		certOptions.SignerCert, certOptions.SignerPriv, err = util.LoadSignerCredsFromFiles(signerCertFile, signerPrivFile)
 		if err != nil {
 			log.Errora(err)
 			os.Exit(-1)
 		}
 	}
 
-	certPem, privPem, err := util.GenCertKeyFromOptions(util.CertOptions{
-		Host:         *host,
-		NotBefore:    getNotBefore(),
-		TTL:          *validFor,
-		SignerCert:   signerCert,
-		SignerPriv:   signerPriv,
-		Org:          *org,
-		IsCA:         *isCA,
-		IsSelfSigned: *isSelfSigned,
-		IsClient:     *isClient,
-		RSAKeySize:   *keySize,
-	})
+	certOptions.NotBefore = getNotBefore()
+	certPem, privPem, err := util.GenCertKeyFromOptions(certOptions)
 
 	if err != nil {
 		log.Errora(err)
@@ -114,15 +111,15 @@ func main() {
 	}
 
 	saveCreds(certPem, privPem)
-	fmt.Printf("Certificate and private files successfully saved in %s and %s\n", *outCert, *outPriv)
+	fmt.Printf("Certificate and private files successfully saved in %s and %s\n", outCert, outPriv)
 }
 
 func getNotBefore() time.Time {
-	if *validFrom == "" {
+	if validFrom == "" {
 		return time.Now()
 	}
 
-	t, err := time.Parse(timeLayout, *validFrom)
+	t, err := time.Parse(timeLayout, validFrom)
 	if err != nil {
 		fatalf("Failed to parse the '-start-from' option as a time (error: %s)", err)
 	}
