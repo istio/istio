@@ -20,11 +20,13 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pkg/log"
 )
 
@@ -82,9 +84,14 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 			log.Warnf("Multiple servers on same port is not supported yet, port %d", server.Port.Number)
 			continue
 		}
+		var opts buildListenerOpts
+		var listenerType plugin.ListenerType
+		var networkFilters []listener.Filter
+		var hTTPFilters []*http_conn.HttpFilter
 		switch model.Protocol(server.Port.Protocol) {
 		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC, model.ProtocolHTTPS:
-			opts := buildListenerOpts{
+			listenerType = plugin.ListenerTypeHTTP
+			opts = buildListenerOpts{
 				env:            env,
 				proxy:          node,
 				proxyInstances: nil, // only required to support deprecated mixerclient behavior
@@ -110,15 +117,39 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 					v.RequireTls = route.VirtualHost_EXTERNAL_ONLY
 				}
 			}
-			l := buildListener(opts)
-			listeners = append(listeners, l)
 		case model.ProtocolTCP, model.ProtocolMongo:
+			listenerType = plugin.ListenerTypeTCP
 			// TODO
 			// Look at virtual service specs, and identity destinations,
 			// call buildOutboundNetworkFilters.. and then construct TCPListener
 			//buildTCPListener(buildOutboundNetworkFilters(clusterName, addresses, servicePort),
 			//	listenAddress, uint32(servicePort.Port), servicePort.Protocol)
 		}
+
+		newListener := buildListener(opts)
+
+		for _, p := range configgen.Plugins {
+			params := &plugin.CallbackListenerInputParams{
+				ListenerType: listenerType,
+				Env:          &env,
+				Node:         &node,
+			}
+			mutable := &plugin.CallbackListenerMutableObjects{
+				Listener:    newListener,
+				TCPFilters:  &networkFilters,
+				HTTPFilters: &hTTPFilters,
+			}
+			if err := p.OnOutboundListener(params, mutable); err != nil {
+				log.Warn(err.Error())
+			}
+		}
+
+		// Filters are serialized one time into an opaque struct once we have the complete list.
+		if err := marshalFilters(newListener, opts, networkFilters, hTTPFilters); err != nil {
+			log.Warn(err.Error())
+		}
+
+		listeners = append(listeners, newListener)
 	}
 
 	return listeners, nil
@@ -170,17 +201,12 @@ func buildGatewayInboundHTTPRouteConfig(env model.Environment, gatewayName strin
 	virtualServices := env.VirtualServices([]string{gatewayName})
 
 	nameF := func(d *networking.Destination) string {
-		return model.BuildSubsetKey(model.TrafficDirectionOutbound, d.Subset, d.Name, &model.Port{Name: d.Port.GetName()})
+		return model.BuildSubsetKey(model.TrafficDirectionOutbound, d.Subset, d.Host, &model.Port{Name: d.Port.GetName()})
 	}
 
 	virtualHosts := make([]route.VirtualHost, 0)
-	// TODO: Need to trim output based on source label/gateway match
 	for _, v := range virtualServices {
-		guardedRoute := TranslateRoutes(v, nameF)
-		var routes []route.Route
-		for _, g := range guardedRoute {
-			routes = append(routes, g.Route)
-		}
+		routes := TranslateRoutes(v, nameF, int(server.Port.Number), nil, gatewayName)
 		domains := v.Spec.(*networking.VirtualService).Hosts
 
 		virtualHosts = append(virtualHosts, route.VirtualHost{

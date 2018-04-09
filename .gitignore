@@ -54,6 +54,7 @@ samples/bookinfo/eureka/bookinfo.sidecars.yaml
 Gopkg.lock
 Gopkg.toml
 vendor
+.gitmodules
 # Avoid accidental istio.VERSION changes
 istio.VERSION
 # Proxy generated proxy config in integration test

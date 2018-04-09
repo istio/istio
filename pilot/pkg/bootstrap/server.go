@@ -21,6 +21,7 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"strings"
 	"time"
 
 	"code.cloudfoundry.org/copilot"
@@ -169,7 +170,6 @@ type PilotArgs struct {
 	Config           ConfigArgs
 	Service          ServiceArgs
 	Admission        AdmissionArgs
-	RDSv2            bool
 }
 
 // Server contains the runtime configuration for the Pilot discovery service.
@@ -298,6 +298,10 @@ func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*v1.Confi
 
 	config, err := kube.CoreV1().ConfigMaps(namespace).Get(name, meta_v1.GetOptions{})
 	if err != nil {
+		if strings.Contains(err.Error(), fmt.Sprintf("\"%s\" not found", name)) {
+			defaultMesh := model.DefaultMeshConfig()
+			return nil, &defaultMesh, nil
+		}
 		return nil, nil, err
 	}
 
@@ -670,15 +674,13 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 func initMemoryRegistry(s *Server, serviceControllers *aggregate.Controller) {
 	// MemServiceDiscovery implementation
 	discovery1 := mock.NewDiscovery(
-		map[string]*model.Service{
-			//			mock.HelloService.Hostname: mock.HelloService,
+		map[string]*model.Service{ // mock.HelloService.Hostname: mock.HelloService,
 		}, 2)
 
 	s.MemoryServiceDiscovery = discovery1
 
 	discovery2 := mock.NewDiscovery(
-		map[string]*model.Service{
-			//			mock.WorldService.Hostname: mock.WorldService,
+		map[string]*model.Service{ // mock.WorldService.Hostname: mock.WorldService,
 		}, 2)
 
 	registry1 := aggregate.Registry{
@@ -723,8 +725,9 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 	// For now we create the gRPC server sourcing data from Pilot's older data model.
 	s.initGrpcServer()
-	envoy.V2ClearCache = envoyv2.PushAll
 	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(s.GRPCServer, environment, v1alpha3.NewConfigGenerator(registry.NewPlugins()))
+	// TODO: decouple v2 from the cache invalidation, use direct listeners.
+	envoy.V2ClearCache = s.EnvoyXdsServer.ClearCacheFunc()
 
 	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController)
 
@@ -767,13 +770,6 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 			}
 			s.EnvoyXdsServer.GrpcServer.Stop()
 		}()
-
-		if args.RDSv2 {
-			log.Info("xDS: enabling RDS")
-			cache := envoyv2.NewConfigCache(s.ServiceController, s.configController)
-			cache.Register(s.GRPCServer)
-			cache.RegisterInput(s.ServiceController, s.configController)
-		}
 
 		return err
 	})

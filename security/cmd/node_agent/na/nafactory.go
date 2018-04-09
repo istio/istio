@@ -17,7 +17,7 @@ package na
 import (
 	"fmt"
 
-	"istio.io/istio/security/pkg/caclient/grpc"
+	"istio.io/istio/security/pkg/caclient/protocol"
 	"istio.io/istio/security/pkg/platform"
 	"istio.io/istio/security/pkg/util"
 )
@@ -44,6 +44,14 @@ func NewNodeAgent(cfg *Config) (NodeAgent, error) {
 		return nil, err
 	}
 	na.pc = pc
-	na.cAClient = &grpc.CAGrpcClientImpl{}
+	dialOpts, err := pc.GetDialOptions()
+	if err != nil {
+		return nil, err
+	}
+	grpcConn, err := protocol.NewGrpcConnection(cfg.CAClientConfig.CAAddress, dialOpts)
+	if err != nil {
+		return nil, err
+	}
+	na.caProtocol = grpcConn
 	return na, nil
 }

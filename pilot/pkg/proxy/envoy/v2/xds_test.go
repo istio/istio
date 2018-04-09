@@ -14,26 +14,22 @@
 package v2_test
 
 import (
+	"encoding/json"
+	"flag"
+	"fmt"
+	"io/ioutil"
+	"net"
+	"net/http"
+	"net/http/httputil"
+	"net/url"
+	"os"
+	"sync"
 	"testing"
 
-	testenv "istio.io/istio/mixer/test/client/env"
-
-	"flag"
-	"io/ioutil"
-	"os"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
-
-	"fmt"
-
-	"sync"
-
-	"encoding/json"
-	"net/http"
-
+	testenv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
 	"istio.io/istio/tests/util"
 )
 
@@ -54,6 +50,7 @@ var (
 	app3Ip    = "10.2.0.1"
 	gatewayIP = "10.3.0.1"
 	ingressIP = "10.3.0.2"
+	localIp   = "10.3.0.3"
 )
 
 // Common code for the xds testing.
@@ -126,19 +123,54 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 	testEnv.IstioSrc = util.IstioSrc
 	testEnv.IstioOut = util.IstioOut
 
+	localIp = getLocalIP()
+
+	// Service and endpoints for hello.default - used in v1 pilot tests
 	hostname := "hello.default.svc.cluster.local"
-	svc := mock.MakeService(hostname, "10.1.0.0")
-	// The default service created by istio/test/util does not have a h2 port.
-	// Add a H2 port to test CDS.
-	// TODO: move me to discovery.go in istio/test/util
-	port := &model.Port{
-		Name:                 "h2port",
-		Port:                 66,
-		Protocol:             model.ProtocolGRPC,
-		AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
-	}
-	svc.Ports = append(svc.Ports, port)
-	server.MemoryServiceDiscovery.AddService(hostname, svc)
+	server.EnvoyXdsServer.MemRegistry.AddService(hostname, &model.Service{
+		Hostname: hostname,
+		Address:  "10.10.0.3",
+		Ports:    testPorts(0),
+	})
+	server.EnvoyXdsServer.MemRegistry.AddInstance(hostname, &model.ServiceInstance{
+		Endpoint: model.NetworkEndpoint{
+			Address: "127.0.0.1",
+			Port:    int(testEnv.Ports().BackendPort),
+			ServicePort: &model.Port{
+				Name:                 "http",
+				Port:                 80,
+				Protocol:             model.ProtocolHTTP,
+				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+			},
+		},
+		AvailabilityZone: "az",
+	})
+
+	// "local" service points to the current host and the in-process mixer http test endpoint
+	server.EnvoyXdsServer.MemRegistry.AddService("local.default.svc.cluster.local", &model.Service{
+		Hostname: "local.default.svc.cluster.local",
+		Address:  "10.10.0.4",
+		Ports: []*model.Port{
+			{
+				Name:                 "http",
+				Port:                 80,
+				Protocol:             model.ProtocolHTTP,
+				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+			}},
+	})
+	server.EnvoyXdsServer.MemRegistry.AddInstance("local.default.svc.cluster.local", &model.ServiceInstance{
+		Endpoint: model.NetworkEndpoint{
+			Address: localIp,
+			Port:    int(testEnv.Ports().BackendPort),
+			ServicePort: &model.Port{
+				Name:                 "http",
+				Port:                 80,
+				Protocol:             model.ProtocolHTTP,
+				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+			},
+		},
+		AvailabilityZone: "az",
+	})
 
 	// Explicit test service, in the v2 memory registry. Similar with mock.MakeService,
 	// but easier to read.
@@ -147,6 +179,7 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 		Address:  "10.10.0.1",
 		Ports:    testPorts(0),
 	})
+
 	server.EnvoyXdsServer.MemRegistry.AddInstance("service3.default.svc.cluster.local", &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
 			Address: app3Ip,
@@ -176,28 +209,57 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 		AvailabilityZone: "az",
 	})
 
+	// Mock ingress service
 	server.EnvoyXdsServer.MemRegistry.AddService("istio-ingress.istio-system.svc.cluster.local", &model.Service{
 		Hostname: "istio-ingress.istio-system.svc.cluster.local",
 		Address:  "10.10.0.2",
-		Ports:    testPorts(0),
+		Ports: []*model.Port{
+			{
+				Name:                 "http",
+				Port:                 80,
+				Protocol:             model.ProtocolHTTP,
+				AuthenticationPolicy: meshconfig.AuthenticationPolicy_NONE,
+			},
+			{
+				Name:                 "https",
+				Port:                 443,
+				Protocol:             model.ProtocolHTTPS,
+				AuthenticationPolicy: meshconfig.AuthenticationPolicy_NONE,
+			},
+		},
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("istio-ingress.istio-system.svc.cluster.local", &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
 			Address: ingressIP,
 			Port:    80,
 			ServicePort: &model.Port{
-				Name:                 "http-main",
-				Port:                 8000,
+				Name:                 "http",
+				Port:                 80,
 				Protocol:             model.ProtocolHTTP,
-				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+				AuthenticationPolicy: meshconfig.AuthenticationPolicy_NONE,
 			},
 		},
-		Labels:           map[string]string{"version": "v1", "istio": "ingress"},
+		Labels:           model.IstioIngressWorkloadLabels,
+		AvailabilityZone: "az",
+	})
+	server.EnvoyXdsServer.MemRegistry.AddInstance("istio-ingress.istio-system.svc.cluster.local", &model.ServiceInstance{
+		Endpoint: model.NetworkEndpoint{
+			Address: ingressIP,
+			Port:    443,
+			ServicePort: &model.Port{
+				Name:                 "https",
+				Port:                 443,
+				Protocol:             model.ProtocolHTTPS,
+				AuthenticationPolicy: meshconfig.AuthenticationPolicy_NONE,
+			},
+		},
+		Labels:           model.IstioIngressWorkloadLabels,
 		AvailabilityZone: "az",
 	})
 
-	// Service4 is using port 80, to test that we generate multiple clusters (regression)
-	server.EnvoyXdsServer.MemRegistry.AddService("service4", &model.Service{
+	//RouteConf Service4 is using port 80, to test that we generate multiple clusters (regression)
+	// service4 has no endpoints
+	server.EnvoyXdsServer.MemRegistry.AddService("service4.default.svc.cluster.local", &model.Service{
 		Hostname: "service4.default.svc.cluster.local",
 		Address:  "10.1.0.4",
 		Ports: []*model.Port{
@@ -210,13 +272,16 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 		},
 	})
 
+	// Update cache
+	server.EnvoyXdsServer.ClearCacheFunc()()
+
 	return server
 }
 
 func testPorts(base int) []*model.Port {
 	return []*model.Port{
 		{
-			Name:                 "http-main",
+			Name:                 "http",
 			Port:                 base + 80,
 			Protocol:             model.ProtocolHTTP,
 			AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
@@ -256,6 +321,12 @@ func TestEnvoy(t *testing.T) {
 	// Make sure tcp port is ready before starting the test.
 	testenv.WaitForPort(testEnv.Ports().TCPProxyPort)
 
+	t.Run("envoyInit", envoyInit)
+	t.Run("service", testService)
+}
+
+// envoyInit verifies envoy has accepted the config from pilot by checking the stats.
+func envoyInit(t *testing.T) {
 	statsURL := fmt.Sprintf("http://localhost:%d/stats?format=json", testEnv.Ports().AdminPort)
 	res, err := http.Get(statsURL)
 	if err != nil {
@@ -291,6 +362,24 @@ func TestEnvoy(t *testing.T) {
 
 }
 
+// Example of using a local test connecting to the in-process test service, using Envoy http proxy
+// mode. This is also a test for http proxy (finally).
+func testService(t *testing.T) {
+	proxyUrl, _ := url.Parse("http://localhost:17002")
+
+	client := &http.Client{Transport: &http.Transport{Proxy: http.ProxyURL(proxyUrl)}}
+
+	res, err := client.Get("http://local.default.svc.cluster.local")
+	resdmp, _ := httputil.DumpResponse(res, true)
+	t.Log(string(resdmp))
+	if err != nil {
+		t.Error("Failed to access proxy", err)
+	}
+	if res.Status != "200 OK" {
+		t.Error("Proxy failed ", res.Status)
+	}
+}
+
 // EnvoyStat is used to parse envoy stats
 type EnvoyStat struct {
 	Name  string `json:"name"`
@@ -310,6 +399,21 @@ func stats2map(stats []byte) map[string]int {
 	return m
 }
 
+func getLocalIP() string {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return ""
+	}
+	for _, address := range addrs {
+		// check the address type and if it is not a loopback the display it
+		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				return ipnet.IP.String()
+			}
+		}
+	}
+	return ""
+}
 func TestMain(m *testing.M) {
 	flag.Parse()
 	defer func() {

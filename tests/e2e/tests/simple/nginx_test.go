@@ -24,7 +24,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/e2e/framework"
@@ -188,7 +188,7 @@ func (t *testConfig) SendClientRequest(app, url string, count int, extra string)
 
 	pod := pods[0]
 	cmd := fmt.Sprintf("client -url %s -count %d %s", url, count, extra)
-	request, err := util.PodExec(t.Kube.Namespace, pod, "app", cmd)
+	request, err := util.PodExec(t.Kube.Namespace, pod, "app", cmd, true)
 	if err != nil {
 		log.Errorf("client request error %v for %s in %s", err, url, app)
 		return out

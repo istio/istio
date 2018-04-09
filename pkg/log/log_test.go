@@ -232,14 +232,15 @@ func TestOddballs(t *testing.T) {
 	}
 
 	o = DefaultOptions()
-	o.OutputPaths = []string{"/JUNK"}
+	//using invalid filename
+	o.OutputPaths = []string{"//"}
 	err = Configure(o)
 	if err == nil {
 		t.Errorf("Got success, expecting error")
 	}
 
 	o = DefaultOptions()
-	o.ErrorOutputPaths = []string{"/JUNK"}
+	o.ErrorOutputPaths = []string{"//"}
 	err = Configure(o)
 	if err == nil {
 		t.Errorf("Got success, expecting error")

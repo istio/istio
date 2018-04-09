@@ -15,11 +15,10 @@
 package v2
 
 import (
-	"istio.io/istio/pilot/pkg/model"
-
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/gogo/protobuf/types"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
 
@@ -48,6 +47,7 @@ func (con *XdsConnection) clusters(response []*xdsapi.Cluster) *xdsapi.Discovery
 func (s *DiscoveryServer) pushCds(node model.Proxy, con *XdsConnection) error {
 	rawClusters, _ := s.ConfigGenerator.BuildClusters(s.env, *con.modelNode)
 
+	con.HTTPClusters = rawClusters
 	response := con.clusters(rawClusters)
 	err := con.stream.Send(response)
 	if err != nil {

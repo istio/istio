@@ -16,7 +16,6 @@ package pilot
 
 import (
 	"fmt"
-
 	"testing"
 
 	"istio.io/istio/tests/util"
@@ -28,6 +27,9 @@ const (
 )
 
 func TestRBAC(t *testing.T) {
+	if !tc.Kube.RBACEnabled {
+		t.Skipf("Skipping %s: rbac_enable=false", t.Name())
+	}
 	// Fill out the templates.
 	params := map[string]string{
 		"IstioNamespace": tc.Kube.IstioSystemNamespace(),

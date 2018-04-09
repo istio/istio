@@ -20,9 +20,9 @@ import (
 	"net/http"
 	"path/filepath"
 
-	"istio.io/istio/pkg/log"
-
 	"github.com/spf13/cobra"
+
+	"istio.io/istio/pkg/log"
 )
 
 type debug struct {
@@ -45,7 +45,7 @@ var (
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			d := &debug{
-				envoyAdminAddress:    "http://127.0.0.1:15000",
+				envoyAdminAddress:    "127.0.0.1:15000",
 				staticConfigLocation: "/etc/istio/proxy",
 			}
 			return d.run(args)
@@ -96,6 +96,9 @@ func (d *debug) printStaticConfig() error {
 }
 
 func (d *debug) printDynamicConfig(typ string) error {
+	if typ == "routes" {
+		typ = "config_dump"
+	}
 	resp, err := http.Get(fmt.Sprintf("http://%v/%s", d.envoyAdminAddress, typ))
 	if err != nil {
 		return err

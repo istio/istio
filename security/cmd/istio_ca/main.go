@@ -30,18 +30,24 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
 	"istio.io/istio/pkg/version"
-	caclient "istio.io/istio/security/pkg/caclient/grpc"
+	"istio.io/istio/security/pkg/caclient"
+	"istio.io/istio/security/pkg/caclient/protocol"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/ca/controller"
+	pkiutil "istio.io/istio/security/pkg/pki/util"
+	"istio.io/istio/security/pkg/platform"
 	probecontroller "istio.io/istio/security/pkg/probe"
 	"istio.io/istio/security/pkg/registry"
 	"istio.io/istio/security/pkg/registry/kube"
 	"istio.io/istio/security/pkg/server/grpc"
 )
 
+// TODO(myidpt): move the following constants to pkg/cmd.
 const (
 	defaultSelfSignedCACertTTL = 365 * 24 * time.Hour
+
+	defaultRequestedCACertTTL = 365 * 24 * time.Hour
 
 	defaultMaxWorkloadCertTTL = 90 * 24 * time.Hour
 
@@ -56,12 +62,27 @@ const (
 
 	defaultProbeCheckInterval = 30 * time.Second
 
+	// The default length of certificate rotation grace period, configured as
+	// the percentage of the certificate TTL.
+	defaultCSRGracePeriodPercentage = 50
+
+	// The default initial interval between retries to send CSR to upstream CA.
+	defaultCSRInitialRetrialInterval = time.Second
+
+	// The default value of CSR retries for Istio CA to send CSR to upstream CA.
+	defaultCSRMaxRetries = 10
+
 	// The default issuer organization for self-signed CA certificate.
 	selfSignedCAOrgDefault = "k8s.cluster.local"
 
 	// The key for the environment variable that specifies the namespace.
 	listenedNamespaceKey = "NAMESPACE"
 )
+
+type keyCertBundleRotator interface {
+	Start(chan<- error)
+	Stop()
+}
 
 type cliOptions struct { // nolint: maligned
 	listenedNamespace       string
@@ -87,9 +108,9 @@ type cliOptions struct { // nolint: maligned
 	grpcHostname string
 	grpcPort     int
 
-	upstreamCAAddress  string
-	upstreamCACertFile string
-	upstreamAuth       string
+	multiclusterCA bool
+
+	cAClientConfig caclient.Config
 
 	// The path to the file which indicates the liveness of the server by its existence.
 	// This will be used for k8s liveness probe. If empty, it does nothing.
@@ -150,13 +171,13 @@ func init() {
 	flags.StringVar(&opts.kubeConfigFile, "kube-config", "",
 		"Specifies path to kubeconfig file. This must be specified when not running inside a Kubernetes pod.")
 
-	// Istio CA accepts key/cert configured through arguments.
+	// Configuration if Istio CA accepts key/cert configured through arguments.
 	flags.StringVar(&opts.certChainFile, "cert-chain", "", "Path to the certificate chain file")
 	flags.StringVar(&opts.signingCertFile, "signing-cert", "", "Path to the CA signing certificate file")
 	flags.StringVar(&opts.signingKeyFile, "signing-key", "", "Path to the CA signing key file")
 	flags.StringVar(&opts.rootCertFile, "root-cert", "", "Path to the root certificate file")
 
-	// Istio CA acts as a self signed CA.
+	// Configuration if Istio CA acts as a self signed CA.
 	flags.BoolVar(&opts.selfSignedCA, "self-signed-ca", false,
 		"Indicates whether to use auto-generated self-signed CA certificate. "+
 			"When set to true, the '--signing-cert' and '--signing-key' options are ignored.")
@@ -165,6 +186,14 @@ func init() {
 			selfSignedCAOrgDefault))
 	flags.DurationVar(&opts.selfSignedCACertTTL, "self-signed-ca-cert-ttl", defaultSelfSignedCACertTTL,
 		"The TTL of self-signed CA root certificate")
+
+	// Upstream CA configuration if Istio CA interacts with upstream CA.
+	flags.StringVar(&opts.cAClientConfig.CAAddress, "upstream-ca-address", "", "The IP:port address of the upstream "+
+		"CA. When set, the CA will rely on the upstream Istio CA to provision its own certificate.")
+	flags.StringVar(&opts.cAClientConfig.Org, "org", "", "Organization for the cert")
+	flags.DurationVar(&opts.cAClientConfig.RequestedCertTTL, "requested-ca-cert-ttl", defaultRequestedCACertTTL,
+		"The requested TTL for the workload")
+	flags.IntVar(&opts.cAClientConfig.RSAKeySize, "key-size", 2048, "Size of generated private key")
 
 	// Certificate signing configuration.
 	flags.DurationVar(&opts.workloadCertTTL, "workload-cert-ttl", defaultWorkloadCertTTL,
@@ -182,13 +211,7 @@ func init() {
 	flags.IntVar(&opts.grpcPort, "grpc-port", 8060, "The port number for GRPC server. "+
 		"If unspecified, Istio CA will not server GRPC request.")
 
-	// Upstream CA configuration
-	flags.StringVar(&opts.upstreamCAAddress, "upstream-ca-address", "", "The IP:port address of the upstream CA. "+
-		"When set, the CA will rely on the upstream Istio CA to provision its own certificate.")
-	flags.StringVar(&opts.upstreamCACertFile, "upstream-ca-cert-file", "",
-		"Path to the certificate for authenticating upstream CA.")
-	flags.StringVar(&opts.upstreamAuth, "upstream-auth", "mtls",
-		"Specifies how the Istio CA is authenticated to the upstream CA.")
+	flags.BoolVar(&opts.multiclusterCA, "multicluster-ca", false, "Whether the CA is a multicluster CA")
 
 	// Liveness Probe configuration
 	flags.StringVar(&opts.LivenessProbeOptions.Path, "liveness-probe-path", "",
@@ -266,9 +289,9 @@ func runCA() {
 		reg := registry.GetIdentityRegistry()
 
 		// add certificate identity to the identity registry for the liveness probe check
-		if err := reg.AddMapping(probecontroller.LivenessProbeClientIdentity,
-			probecontroller.LivenessProbeClientIdentity); err != nil {
-			log.Errorf("failed to add indentity mapping: %v", err)
+		if registryErr := reg.AddMapping(probecontroller.LivenessProbeClientIdentity,
+			probecontroller.LivenessProbeClientIdentity); registryErr != nil {
+			log.Errorf("failed to add indentity mapping: %v", registryErr)
 		}
 
 		ch := make(chan struct{})
@@ -283,16 +306,32 @@ func runCA() {
 
 		// The CA API uses cert with the max workload cert TTL.
 		grpcServer := grpc.New(ca, opts.maxWorkloadCertTTL, opts.grpcHostname, opts.grpcPort)
-		if err := grpcServer.Run(); err != nil {
+		if serverErr := grpcServer.Run(); serverErr != nil {
 			// stop the registry-related controllers
 			ch <- struct{}{}
 
-			log.Warnf("Failed to start GRPC server with error: %v", err)
+			log.Warnf("Failed to start GRPC server with error: %v", serverErr)
 		}
 	}
 
 	log.Info("Istio CA has started")
-	select {} // wait forever
+
+	errCh := make(chan error)
+	rotator := caclient.KeyCertBundleRotator{}
+	// Start CA client if the upstream CA address is specified.
+	if len(opts.cAClientConfig.CAAddress) != 0 {
+		rotator, creationErr := createKeyCertBundleRotator(ca.GetCAKeyCertBundle())
+		if creationErr != nil {
+			fatalf("failed to create CA key cert bundle rotator: %v", creationErr)
+		}
+		go rotator.Start(errCh)
+		log.Info("Istio CA key cert bundle rotator has started")
+	}
+
+	// Blocking until receives error.
+	err = <-errCh
+	rotator.Stop()
+	fatalf("Istio CA key cert bundle rotator failed: %v", err)
 }
 
 func createClientset() *kubernetes.Clientset {
@@ -304,28 +343,21 @@ func createClientset() *kubernetes.Clientset {
 	return cs
 }
 
-func createCA(core corev1.SecretsGetter) ca.CertificateAuthority {
+func createCA(core corev1.SecretsGetter) *ca.IstioCA {
 	var caOpts *ca.IstioCAOptions
 	var err error
 
-	if opts.upstreamCAAddress != "" {
-		log.Info("Rely on upstream CA to provision CA certificate")
-		caOpts, err = ca.NewIntegratedIstioCAOptions(opts.upstreamCAAddress, opts.upstreamCACertFile,
-			opts.upstreamAuth, opts.workloadCertTTL, opts.maxWorkloadCertTTL)
-		if err != nil {
-			fatalf("Failed to create a integrated Istio CA (error: %v)", err)
-		}
-	} else if opts.selfSignedCA {
+	if opts.selfSignedCA {
 		log.Info("Use self-signed certificate as the CA certificate")
 		caOpts, err = ca.NewSelfSignedIstioCAOptions(opts.selfSignedCACertTTL, opts.workloadCertTTL,
-			opts.maxWorkloadCertTTL, opts.selfSignedCAOrg, opts.istioCaStorageNamespace, core)
+			opts.maxWorkloadCertTTL, opts.multiclusterCA, opts.selfSignedCAOrg, opts.istioCaStorageNamespace, core)
 		if err != nil {
 			fatalf("Failed to create a self-signed Istio CA (error: %v)", err)
 		}
 	} else {
 		log.Info("Use certificate from argument as the CA certificate")
 		caOpts, err = ca.NewPluggedCertIstioCAOptions(opts.certChainFile, opts.signingCertFile, opts.signingKeyFile,
-			opts.rootCertFile, opts.workloadCertTTL, opts.maxWorkloadCertTTL)
+			opts.rootCertFile, opts.workloadCertTTL, opts.maxWorkloadCertTTL, opts.multiclusterCA)
 		if err != nil {
 			fatalf("Failed to create an Istio CA (error: %v)", err)
 		}
@@ -340,16 +372,13 @@ func createCA(core corev1.SecretsGetter) ca.CertificateAuthority {
 	}
 
 	if opts.LivenessProbeOptions.IsValid() {
-		var g interface{} = &caclient.CAGrpcClientImpl{}
-		if client, ok := g.(caclient.CAGrpcClient); ok {
-			livenessProbeChecker, err := probecontroller.NewLivenessCheckController(
-				opts.probeCheckInterval, opts.grpcHostname, opts.grpcPort, istioCA,
-				opts.LivenessProbeOptions, client)
-			if err != nil {
-				log.Errorf("failed to create an liveness probe check controller (error: %v)", err)
-			} else {
-				livenessProbeChecker.Run()
-			}
+		livenessProbeChecker, err := probecontroller.NewLivenessCheckController(
+			opts.probeCheckInterval, fmt.Sprintf("%v:%v", opts.grpcHostname, opts.grpcPort), istioCA,
+			opts.LivenessProbeOptions, probecontroller.GrpcProtocolProvider)
+		if err != nil {
+			log.Errorf("failed to create an liveness probe check controller (error: %v)", err)
+		} else {
+			livenessProbeChecker.Run()
 		}
 	}
 
@@ -371,6 +400,38 @@ func generateConfig() *rest.Config {
 		fatalf("Failed to create a in-cluster config (error: %s)", err)
 	}
 	return c
+}
+
+func createKeyCertBundleRotator(keycert pkiutil.KeyCertBundle) (keyCertBundleRotator, error) {
+	config := &opts.cAClientConfig
+	// Currently cluster CA needs key/cert to talk to upstream CA.
+	config.Env = "onprem"
+	config.Platform = "vm"
+	config.ForCA = true
+	config.CertFile = opts.signingCertFile
+	config.KeyFile = opts.signingKeyFile
+	config.CertChainFile = opts.certChainFile
+	config.RootCertFile = opts.rootCertFile
+	config.CSRGracePeriodPercentage = defaultCSRGracePeriodPercentage
+	config.CSRMaxRetries = defaultCSRMaxRetries
+	config.CSRInitialRetrialInterval = defaultCSRInitialRetrialInterval
+	pc, err := platform.NewClient(config.Env, config.RootCertFile, config.KeyFile, config.CertChainFile, config.CAAddress)
+	if err != nil {
+		return nil, err
+	}
+	dial, err := pc.GetDialOptions()
+	if err != nil {
+		return nil, err
+	}
+	grpcConn, err := protocol.NewGrpcConnection(config.CAAddress, dial)
+	if err != nil {
+		return nil, err
+	}
+	cac, err := caclient.NewCAClient(pc, grpcConn, config.CSRMaxRetries, config.CSRInitialRetrialInterval)
+	if err != nil {
+		return nil, err
+	}
+	return caclient.NewKeyCertBundleRotator(config, cac, keycert)
 }
 
 func verifyCommandLineOptions() {

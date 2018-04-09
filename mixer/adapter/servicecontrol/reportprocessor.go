@@ -69,9 +69,9 @@ func (r *reportImpl) scheduleReport(op *sc.Operation) {
 			_ = logger.Errorf("fail to send report: %v", err)
 		}
 
-		if logger.VerbosityLevel(logDebug) {
+		if logger.DebugEnabled() {
 			if requestDetail, err := toFormattedJSON(request); err == nil {
-				logger.Infof("request: %v", requestDetail)
+				logger.Debugf("request: %v", requestDetail)
 			}
 			if response != nil {
 				if responseDetail, err := toFormattedJSON(response); err == nil {

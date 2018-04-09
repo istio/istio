@@ -299,13 +299,8 @@ ${GEN_CERT}:
 # If pre-commit script is not used, please run this manually.
 precommit: format lint
 
-format: format.gofmt format.goimports
-
-format.gofmt: ; $(info $(H) formatting files with go fmt...)
-	$(Q) gofmt -s -w $$($(GO_FILES_CMD))
-
-format.goimports: ; $(info $(H) formatting files with goimports...)
-	$(Q) goimports -w -local istio.io $$($(GO_FILES_CMD))
+format:
+	bin/fmt.sh
 
 # Build with -i to store the build caches into $GOPATH/pkg
 buildcache:
@@ -364,13 +359,13 @@ servicegraph:
 ${ISTIO_OUT}/servicegraph:
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./addons/$(@F)/cmd/server
 
-SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca ${ISTIO_OUT}/multicluster_ca ${ISTIO_OUT}/flexvolume
+SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca ${ISTIO_OUT}/flexvolume
 $(SECURITY_GO_BINS):
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
 .PHONY: build
 # Build will rebuild the go binaries.
-build: depend $(PILOT_GO_BINS_SHORT) mixc mixs node_agent istio_ca flexvolume multicluster_ca istioctl
+build: depend $(PILOT_GO_BINS_SHORT) mixc mixs node_agent istio_ca flexvolume istioctl
 
 # The following are convenience aliases for most of the go targets
 # The first block is for aliases that are the same as the actual binary,
@@ -393,8 +388,8 @@ flexvolumedriver:
 .PHONY: pilot
 pilot: pilot-discovery
 
-.PHONY: multicluster_ca node_agent istio_ca flexvolume
-multicluster_ca node_agent istio_ca flexvolume:
+.PHONY: node_agent istio_ca flexvolume
+node_agent istio_ca flexvolume:
 	bin/gobuild.sh ${ISTIO_OUT}/$@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
@@ -616,6 +611,17 @@ isti%.yaml: $(HELM)
                   --set global.hub=${HUB} \
 		  --values install/kubernetes/helm/istio/values-$@ \
 		  install/kubernetes/helm/istio >> install/kubernetes/$@
+
+# This is temporary. REMOVE ME after Envoy v2 transition
+# creates istio.yaml using values-envoyv2-transition.yaml
+generate_yaml-envoyv2_transition: $(HELM)
+	./install/updateVersion_orig.sh -a ${HUB},${TAG} >/dev/null 2>&1
+	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/istio.yaml
+	$(HELM) template --set global.tag=${TAG} \
+		  --namespace=istio-system \
+                  --set global.hub=${HUB} \
+		  --values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
+		  install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
 
 deploy/all: $(HELM) istio-all.yaml
 	kubectl apply -n istio-system -f install/kubernetes/istio-all.yaml

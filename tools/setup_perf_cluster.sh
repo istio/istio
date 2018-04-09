@@ -241,31 +241,71 @@ function get_istio_ingress_ip() {
   echo "+++ In k8s istio ingress: http://$ISTIO_INGRESS_IP/fortio1/fortio/ and fortio2"
 }
 
+# Set default QPS to max qps
+if [[ $QPS == "" ]]; then
+  QPS=-1
+fi
+  
+function get_istio_version() {
+  kubectl describe pods -n istio|grep /proxy:|head -1 | awk -F: '{print $3}'
+}
+
+function get_json_file_name() {
+  BASE="${1}"
+  if [[ $TS == "" ]]; then
+    TS=$(date +'%Y-%m-%d-%H-%M')
+  fi
+  if [[ $VERSION == "" ]]; then
+    VERSION=$(get_istio_version)
+  fi
+  QPSSTR="qps_${QPS}"
+  if [[ $QPSSTR == "qps_-1" ]]; then
+    QPSSTR="qps_max"
+  fi
+  LABELS="$BASE $QPSSTR $VERSION"
+  FNAME=$QPSSTR-$BASE-$VERSION-$TS
+  file_escape
+  label_escape
+  echo $FNAME
+}
+
+function file_escape() {
+  FNAME=$(echo $FNAME|sed -e "s/ /_/g")
+}
+
+function label_escape() {
+  LABELS=$(echo $LABELS|sed -e "s/ /+/g")
+}
+
 function run_fortio_test1() {
   echo "Using default loadbalancer, no istio:"
-  Execute curl "$VM_URL?json=on&save=on&qps=-1&t=30s&c=48&load=Start&url=http://$FORTIO_K8S_IP:8080/echo"
+  Execute curl "$VM_URL?json=on&save=on&qps=$QPS&t=30s&c=48&load=Start&url=http://$FORTIO_K8S_IP:8080/echo"
 }
 function run_fortio_test2() {
   echo "Using default ingress, no istio:"
-  Execute curl "$VM_URL?json=on&save=on&qps=-1&t=30s&c=48&load=Start&url=http://$K8S_INGRESS_IP/echo"
-}
-function run_fortio_test_istio_ingress1() {
-  echo "Using istio ingress to fortio1:"
-  ExecuteEval curl -s "$VM_URL?labels=ingress+to+f1\&json=on\&save=on\&qps=-1\&t=30s\&c=48\&load=Start\&url=http://$ISTIO_INGRESS_IP/fortio1/echo" \| tee ing-to-f1.json \| grep ActualQPS
-}
-function run_fortio_test_istio_ingress2() {
-  echo "Using istio ingress to fortio2:"
-  ExecuteEval curl -s "$VM_URL?labels=ingress+to+f2\&json=on\&save=on\&qps=-1\&t=30s\&c=48\&load=Start\&url=http://$ISTIO_INGRESS_IP/fortio2/echo" \| tee ing-to-f2.json \| grep ActualQPS
-}
-function run_fortio_test_istio_1_2() {
-  echo "Using istio f1 to f2:"
-  ExecuteEval curl -s "http://$ISTIO_INGRESS_IP/fortio1/fortio/?labels=f1+to+f2\&json=on\&save=on\&qps=-1\&t=30s\&c=48\&load=Start\&url=http://echosrv2:8080/echo" \| tee f1-to-f2.json \| grep ActualQPS
-}
-function run_fortio_test_istio_2_1() {
-  echo "Using istio f2 to f1:"
-  ExecuteEval curl -s "http://$ISTIO_INGRESS_IP/fortio2/fortio/?labels=f2+to+f1\&json=on\&save=on\&qps=-1\&t=30s\&c=48\&load=Start\&url=http://echosrv1:8080/echo" \| tee f2-to-f1.json \| grep ActualQPS
+  Execute curl "$VM_URL?json=on&save=on&qps=$QPS&t=30s&c=48&load=Start&url=http://$K8S_INGRESS_IP/echo"
 }
 
+function run_fortio_test_istio_ingress1() {
+  get_json_file_name "ingress to s1"
+  echo "Using istio ingress to fortio1, saving to $FNAME"
+  ExecuteEval curl -s "$VM_URL?labels=$LABELS\&json=on\&save=on\&qps=$QPS\&t=30s\&c=48\&load=Start\&url=http://$ISTIO_INGRESS_IP/fortio1/echo" \| tee $FNAME.json \| grep ActualQPS
+}
+function run_fortio_test_istio_ingress2() {
+  get_json_file_name "ingress to s2"
+  echo "Using istio ingress to fortio2, saving to $FNAME"
+  ExecuteEval curl -s "$VM_URL?labels=$LABELS\&json=on\&save=on\&qps=$QPS\&t=30s\&c=48\&load=Start\&url=http://$ISTIO_INGRESS_IP/fortio2/echo" \| tee $FNAME.json \| grep ActualQPS
+}
+function run_fortio_test_istio_1_2() {
+  get_json_file_name "s1 to s2"
+  echo "Using istio f1 to f2, saving to $FNAME"
+  ExecuteEval curl -s "http://$ISTIO_INGRESS_IP/fortio1/fortio/?labels=$LABELS\&json=on\&save=on\&qps=$QPS\&t=30s\&c=48\&load=Start\&url=http://echosrv2:8080/echo" \| tee $FNAME.json \| grep ActualQPS
+}
+function run_fortio_test_istio_2_1() {
+  get_json_file_name "s2 to s1"
+  echo "Using istio f2 to f1, saving to $FNAME"
+  ExecuteEval curl -s "http://$ISTIO_INGRESS_IP/fortio2/fortio/?labels=$LABELS\&json=on\&save=on\&qps=$QPS\&t=30s\&c=48\&load=Start\&url=http://echosrv1:8080/echo" \| tee $FNAME.json \| grep ActualQPS
+}
 
 # Run canonical perf tests.
 # The following parameters can be supplied:
@@ -404,19 +444,31 @@ function get_ips() {
   get_istio_ingress_ip
 }
 
-function run_tests() {
-  update_gcp_opts
-  get_ips
-#  run_fortio_test1
-#  run_fortio_test2
+function run_4_tests() {
   run_fortio_test_istio_ingress1
   run_fortio_test_istio_ingress2
   run_fortio_test_istio_1_2
   run_fortio_test_istio_2_1
+}
+
+function run_tests() {
+  update_gcp_opts
+  get_ips
+  VERSION="" # reset in case it changed
+  TS="" # reset once per set
+  QPS=-1
+  run_4_tests
+  QPS=400
+  TS="" # reset once per set
+  run_4_tests
   echo "Graph the results:"
   fortio report &
 }
 
+
+function check_image_versions() {
+  kubectl get pods --all-namespaces -o jsonpath="{..image}" | tr -s '[[:space:]]' '\n' | sort | uniq -c | grep -v -e google.containers
+}
 
 if [[ $SOURCED == 0 ]]; then
   # Normal mode: all at once:

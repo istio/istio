@@ -15,6 +15,7 @@
 package util
 
 import (
+	"bytes"
 	"strconv"
 	"strings"
 	"time"
@@ -26,8 +27,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"k8s.io/apimachinery/pkg/util/json"
-
-	"bytes"
 
 	"istio.io/istio/pkg/log"
 )
@@ -102,7 +101,7 @@ func BuildAddress(ip string, port uint32) core.Address {
 // TODO(mostrowski): consider passing map around to save iteration.
 func GetByAddress(listeners []*xdsapi.Listener, addr string) *xdsapi.Listener {
 	for _, listener := range listeners {
-		if listener.Address.String() == addr {
+		if listener != nil && listener.Address.String() == addr {
 			return listener
 		}
 	}

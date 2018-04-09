@@ -23,7 +23,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 
@@ -162,22 +161,8 @@ func convertDuration(d *duration.Duration) time.Duration {
 	return dur
 }
 
-func convertDurationGogo(d *types.Duration) time.Duration {
-	if d == nil {
-		return 0
-	}
-	dur, err := types.DurationFromProto(d)
-	if err != nil {
-		log.Warnf("error converting duration %#v, using 0: %v", d, err)
-	}
-	return dur
-}
 func protoDurationToMS(dur *duration.Duration) int64 {
 	return int64(convertDuration(dur) / time.Millisecond)
-}
-
-func protoDurationToMSGogo(dur *types.Duration) int64 {
-	return int64(convertDurationGogo(dur) / time.Millisecond)
 }
 
 // Config defines the schema for Envoy JSON configuration format
@@ -720,12 +705,17 @@ type Listeners []*Listener
 // Normalize sorts and de-duplicates listeners by address
 func (listeners Listeners) normalize() Listeners {
 	out := make(Listeners, 0, len(listeners))
-	set := make(map[string]bool)
+	set := make(map[string]*Listener)
 	for _, listener := range listeners {
-		if !set[listener.Address] {
-			set[listener.Address] = true
-			out = append(out, listener)
+		if l, collision := set[listener.Address]; collision {
+			ol, _ := json.Marshal(*l)
+			ll, _ := json.Marshal(*listener)
+			log.Errorf("Listener collision for %s\n---\n%s\n--- rejected ---\n%s", listener.Address,
+				string(ol), string(ll))
+			continue
 		}
+		out = append(out, listener)
+		set[listener.Address] = listener
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Address < out[j].Address })
 	return out
