@@ -201,17 +201,12 @@ func buildGatewayInboundHTTPRouteConfig(env model.Environment, gatewayName strin
 	virtualServices := env.VirtualServices([]string{gatewayName})
 
 	nameF := func(d *networking.Destination) string {
-		return model.BuildSubsetKey(model.TrafficDirectionOutbound, d.Subset, d.Name, &model.Port{Name: d.Port.GetName()})
+		return model.BuildSubsetKey(model.TrafficDirectionOutbound, d.Subset, d.Host, &model.Port{Name: d.Port.GetName()})
 	}
 
 	virtualHosts := make([]route.VirtualHost, 0)
-	// TODO: Need to trim output based on source label/gateway match
 	for _, v := range virtualServices {
-		guardedRoute := TranslateRoutes(v, nameF)
-		var routes []route.Route
-		for _, g := range guardedRoute {
-			routes = append(routes, g.Route)
-		}
+		routes := TranslateRoutes(v, nameF, int(server.Port.Number), nil, gatewayName)
 		domains := v.Spec.(*networking.VirtualService).Hosts
 
 		virtualHosts = append(virtualHosts, route.VirtualHost{

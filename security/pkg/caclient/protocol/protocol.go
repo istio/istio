@@ -21,7 +21,6 @@ import (
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-
 	//"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/platform"
 	pb "istio.io/istio/security/proto"
