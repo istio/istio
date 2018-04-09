@@ -34,7 +34,7 @@ YESTERDAY = datetime.datetime.combine(
 default_args = {
     'owner': 'laane',
     'depends_on_past': False,
-    # This is the date to when the airlfow pipeline tryes to backfil to.
+    # This is the date to when the airlfow pipeline tries to backfill to.
     'start_date': YESTERDAY,
     'email': environment_config.EMAIL_LIST,
     'email_on_failure': True,
@@ -75,6 +75,7 @@ def MakeCommonDag(name='istio_daily_flow_test',
   """Creates the shared part of the daily/monthly dags."""
   common_dag = DAG(
       name,
+      catchup=False,
       default_args=default_args,
       schedule_interval=schedule_interval,
   )
