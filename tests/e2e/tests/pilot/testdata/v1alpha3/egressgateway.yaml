@@ -29,4 +29,4 @@ spec:
       serverCertificate: /etc/certs/cert-chain.pem
       privateKey: /etc/certs/key.pem
       caCertificates: /etc/certs/root-cert.pem
-      #mode: MUTUAL
+      #mode: MUTUAL # TODO

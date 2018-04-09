@@ -21,6 +21,15 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
+// The gateway is just another service.
+// So we try to reach this gateway from service t (without sidecar)
+// but use the hostname (uk.bookinfo.com) with which we configured the gateway so that
+// we match the virtual host in the gateway.
+// The backend for uk.bookinfo.com is set to c-v2 using the rule-ingressgateway.yaml
+// virtual service spec.
+// The gateways have already been deployed by the helm charts, and are configured by
+// default (kube service level) to expose ports 80/443. So our gateway specs also expose
+// ports 80/443.
 func TestIngressGateway(t *testing.T) {
 	if !tc.V1alpha3 {
 		t.Skipf("Skipping %s: v1alpha3=false", t.Name())
