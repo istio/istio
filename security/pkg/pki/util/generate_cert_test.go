@@ -81,9 +81,6 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 		name         string
 		certOptions  CertOptions
 		verifyFields *VerifyFields
-		// The list of host names certificates must contain.
-		// TODO(incfly): make it as a VerifyFields options.
-		hosts []string
 	}{
 		// These certs are signed by the CA cert
 		{
