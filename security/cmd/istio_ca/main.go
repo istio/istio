@@ -33,11 +33,12 @@ import (
 	"istio.io/istio/pkg/probe"
 	"istio.io/istio/pkg/version"
 	"istio.io/istio/security/pkg/caclient"
-	grpcclient "istio.io/istio/security/pkg/caclient/grpc"
+	"istio.io/istio/security/pkg/caclient/protocol"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/ca/controller"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
+	"istio.io/istio/security/pkg/platform"
 	probecontroller "istio.io/istio/security/pkg/probe"
 	"istio.io/istio/security/pkg/registry"
 	"istio.io/istio/security/pkg/registry/kube"
@@ -378,16 +379,13 @@ func createCA(core corev1.SecretsGetter) *ca.IstioCA {
 	}
 
 	if opts.LivenessProbeOptions.IsValid() {
-		var g interface{} = &grpcclient.CAGrpcClientImpl{}
-		if client, ok := g.(grpcclient.CAGrpcClient); ok {
-			livenessProbeChecker, err := probecontroller.NewLivenessCheckController(
-				opts.probeCheckInterval, opts.grpcHostname, opts.grpcPort, istioCA,
-				opts.LivenessProbeOptions, client)
-			if err != nil {
-				log.Errorf("failed to create an liveness probe check controller (error: %v)", err)
-			} else {
-				livenessProbeChecker.Run()
-			}
+		livenessProbeChecker, err := probecontroller.NewLivenessCheckController(
+			opts.probeCheckInterval, fmt.Sprintf("%v:%v", opts.grpcHostname, opts.grpcPort), istioCA,
+			opts.LivenessProbeOptions, probecontroller.GrpcProtocolProvider)
+		if err != nil {
+			log.Errorf("failed to create an liveness probe check controller (error: %v)", err)
+		} else {
+			livenessProbeChecker.Run()
 		}
 	}
 
@@ -424,7 +422,23 @@ func createKeyCertBundleRotator(keycert pkiutil.KeyCertBundle) (keyCertBundleRot
 	config.CSRGracePeriodPercentage = defaultCSRGracePeriodPercentage
 	config.CSRMaxRetries = defaultCSRMaxRetries
 	config.CSRInitialRetrialInterval = defaultCSRInitialRetrialInterval
-	return caclient.NewKeyCertBundleRotator(config, keycert)
+	pc, err := platform.NewClient(config.Env, config.RootCertFile, config.KeyFile, config.CertChainFile, config.CAAddress)
+	if err != nil {
+		return nil, err
+	}
+	dial, err := pc.GetDialOptions()
+	if err != nil {
+		return nil, err
+	}
+	grpcConn, err := protocol.NewGrpcConnection(config.CAAddress, dial)
+	if err != nil {
+		return nil, err
+	}
+	cac, err := caclient.NewCAClient(pc, grpcConn, config.CSRMaxRetries, config.CSRInitialRetrialInterval)
+	if err != nil {
+		return nil, err
+	}
+	return caclient.NewKeyCertBundleRotator(config, cac, keycert)
 }
 
 func verifyCommandLineOptions() {

@@ -15,6 +15,7 @@ package v2_test
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -25,14 +26,10 @@ import (
 	envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"google.golang.org/grpc"
 
-	"istio.io/istio/pilot/pkg/bootstrap"
-	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
-
-	"fmt"
-
+	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/tests/util"
 )
 
@@ -49,7 +46,7 @@ func connect(t *testing.T) xdsapi.EndpointDiscoveryService_StreamEndpointsClient
 	}
 	err = edsstr.Send(&xdsapi.DiscoveryRequest{
 		Node: &envoy_api_v2_core1.Node{
-			Id: "sidecar~a~b~c",
+			Id: sidecarId(app3Ip, "app3"),
 		},
 		ResourceNames: []string{"hello.default.svc.cluster.local|http"}})
 	if err != nil {
@@ -71,7 +68,7 @@ func reconnect(res *xdsapi.DiscoveryResponse, t *testing.T) xdsapi.EndpointDisco
 	}
 	err = edsstr.Send(&xdsapi.DiscoveryRequest{
 		Node: &envoy_api_v2_core1.Node{
-			Id: "sidecar~a~b~c",
+			Id: sidecarId(app3Ip, "app3"),
 		},
 		VersionInfo:   res.VersionInfo,
 		ResponseNonce: res.Nonce,
@@ -167,18 +164,18 @@ func directRequest(server *bootstrap.Server, t *testing.T) {
 	if len(lbe) == 0 {
 		t.Fatal("No lb endpoints")
 	}
-	if "10.1.1.0" != lbe[0].Endpoint.Address.GetSocketAddress().Address {
-		t.Error("Expecting 10.1.1.10 got ", lbe[0].Endpoint.Address.GetSocketAddress().Address)
+	if "127.0.0.1" != lbe[0].Endpoint.Address.GetSocketAddress().Address {
+		t.Error("Expecting 127.0.0.1 got ", lbe[0].Endpoint.Address.GetSocketAddress().Address)
 	}
 	t.Log(cla.String(), res1.String())
 
-	server.EnvoyXdsServer.MemRegistry.AddInstance("dynamic1.default.svc.cluster.local", &model.ServiceInstance{
+	server.EnvoyXdsServer.MemRegistry.AddInstance("hello.default.svc.cluster.local", &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
-			Address: "10.5.0.1",
-			Port:    2080,
+			Address: "127.0.0.2",
+			Port:    int(testEnv.Ports().BackendPort),
 			ServicePort: &model.Port{
-				Name:                 "http-main",
-				Port:                 1080,
+				Name:                 "http",
+				Port:                 80,
 				Protocol:             model.ProtocolHTTP,
 				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
 			},

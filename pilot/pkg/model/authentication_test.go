@@ -95,7 +95,7 @@ func TestLegacyAuthenticationPolicyToPolicy(t *testing.T) {
 			in: meshconfig.AuthenticationPolicy_MUTUAL_TLS,
 			expected: &authn.Policy{
 				Peers: []*authn.PeerAuthenticationMethod{{
-					Params: &authn.PeerAuthenticationMethod_Mtls{},
+					Params: &authn.PeerAuthenticationMethod_Mtls{&authn.MutualTls{}},
 				}},
 			},
 		},

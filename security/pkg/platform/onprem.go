@@ -19,11 +19,10 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
+	"os"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-
-	"os"
 
 	"istio.io/istio/security/pkg/pki/util"
 )

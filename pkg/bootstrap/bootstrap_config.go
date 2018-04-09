@@ -22,13 +22,12 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"strings"
 	"text/template"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
-
-	"strings"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 )
@@ -148,6 +147,11 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	}
 	if cfg == "" {
 		cfg = DefaultCfgDir
+	}
+
+	override := os.Getenv("ISTIO_BOOTSTRAP")
+	if len(override) > 0 {
+		cfg = override
 	}
 
 	cfgTmpl, err := ioutil.ReadFile(cfg)

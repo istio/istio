@@ -20,13 +20,12 @@ package registry
 import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/plugin/authn"
+	"istio.io/istio/pilot/pkg/networking/plugin/mixer"
 )
 
-// NewPlugins returns a list of plugin instance handles. Each plugin implements the plugin.Callbacks interfaces
+// NewPlugins returns a slice of default Plugins.
 func NewPlugins() []plugin.Plugin {
-	plugins := make([]plugin.Plugin, 0)
-	plugins = append(plugins, authn.NewPlugin())
-	// plugins = append(plugins, mixer.NewPlugin())
-	// plugins = append(plugins, apim.NewPlugin())
-	return plugins
+	return []plugin.Plugin{
+		authn.NewPlugin(),
+		mixer.NewPlugin()}
 }

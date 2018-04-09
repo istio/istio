@@ -16,26 +16,22 @@ package v2
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
 	"net"
-	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
-
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/gogo/protobuf/types"
-
-	"strings"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
@@ -89,7 +85,7 @@ type EdsCluster struct {
 	FirstUse time.Time
 
 	// EdsClients keeps track of all nodes monitoring the cluster.
-	EdsClients map[string]*XdsConnection
+	EdsClients map[string]*XdsConnection `json:"-"`
 
 	// NonEmptyTime is the time the cluster first had a non-empty set of endpoints
 	NonEmptyTime time.Time
@@ -168,7 +164,7 @@ func updateCluster(clusterName string, edsCluster *EdsCluster) {
 		_, subsetName, hostname, p = model.ParseSubsetKey(clusterName)
 		ports = []*model.Port{p}
 		portName = p.Name
-		labels = edsCluster.discovery.env.IstioConfigStore.SubsetToLabels(subsetName, hostname, "")
+		labels = edsCluster.discovery.env.IstioConfigStore.SubsetToLabels(subsetName, hostname)
 	} else {
 		hostname, ports, labels = model.ParseServiceKey(clusterName)
 		if len(ports) > 0 {
@@ -412,28 +408,6 @@ func edsPushAll() {
 		}
 		edsCluster.mutex.Unlock()
 	}
-}
-
-// EDSz implements a status and debug interface for EDS.
-// It is mapped to /debug/edsz on the monitor port (9093).
-func EDSz(w http.ResponseWriter, req *http.Request) {
-	_ = req.ParseForm()
-	if req.Form.Get("debug") != "" {
-		edsDebug = req.Form.Get("debug") == "1"
-		return
-	}
-	if req.Form.Get("push") != "" {
-		edsPushAll()
-	}
-	edsClusterMutex.Lock()
-	data, err := json.Marshal(edsClusters)
-	edsClusterMutex.Unlock()
-	if err != nil {
-		_, _ = w.Write([]byte(err.Error()))
-		return
-	}
-
-	_, _ = w.Write(data)
 }
 
 // addEdsCon will track the eds connection with clusters, for optimized event-based push and debug
