@@ -508,6 +508,7 @@ func (k *KubeInfo) deployIstio() error {
 	yamlDir := filepath.Join(istioInstallDir, istioYaml)
 	baseIstioYaml := filepath.Join(k.ReleaseDir, yamlDir)
 	testIstioYaml := filepath.Join(k.TmpDir, "yaml", istioYaml)
+	log.Infof("JAJ Generating yaml baseIstio = %s testIstio = %s", baseIstioYaml, testIstioYaml)
 
 	if err := k.generateIstio(baseIstioYaml, testIstioYaml); err != nil {
 		log.Errorf("Generating yaml %s failed", testIstioYaml)
