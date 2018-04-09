@@ -115,7 +115,10 @@ func (s *Server) Run() error {
 }
 
 // New creates a new instance of `IstioCAServiceServer`.
-func New(ca ca.CertificateAuthority, ttl time.Duration, hostlist []string, port int) *Server {
+func New(ca ca.CertificateAuthority, ttl time.Duration, hostlist []string, port int) (*Server, error) {
+	if len(hostlist) == 0 {
+		return nil, fmt.Errorf("failed to create grpc server hostlist empty")
+	}
 	// Notice that the order of authenticators matters, since at runtime
 	// authenticators are activated sequentially and the first successful attempt
 	// is used as the authentication result.
@@ -135,7 +138,7 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, hostlist []string, port 
 		ca:             ca,
 		hostnames:      hostlist,
 		port:           port,
-	}
+	}, nil
 }
 
 func (s *Server) createTLSServerOption() grpc.ServerOption {

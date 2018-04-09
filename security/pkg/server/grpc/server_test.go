@@ -248,6 +248,7 @@ func TestRun(t *testing.T) {
 	}{
 		"Invalid listening port number": {
 			ca:          &mockca.FakeCA{SignedCert: []byte(csr)},
+			hostname:    []string{"localhost"},
 			port:        -1,
 			expectedErr: "cannot listen on port -1 (error: listen tcp: address -1: invalid port)",
 		},
@@ -276,11 +277,18 @@ func TestRun(t *testing.T) {
 			applyServerCertificateError: "tls: failed to find \"CERTIFICATE\" PEM block in certificate " +
 				"input after skipping PEM blocks of the following types: [CERTIFICATE REQUEST]",
 		},
+		"Empty hostnames": {
+			ca:          &mockca.FakeCA{SignedCert: []byte(csr)},
+			hostname:    []string{},
+			expectedErr: "failed to create grpc server hostlist empty",
+		},
 	}
 
 	for id, tc := range testCases {
-		server := New(tc.ca, time.Hour, tc.hostname, tc.port)
-		err := server.Run()
+		server, err := New(tc.ca, time.Hour, tc.hostname, tc.port)
+		if err == nil {
+			err = server.Run()
+		}
 		if len(tc.expectedErr) > 0 {
 			if err == nil {
 				t.Errorf("%s: Succeeded. Error expected: %v", id, err)
