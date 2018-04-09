@@ -167,7 +167,7 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 	return ca, nil
 }
 
-// Sign takes a PEM-encoded CSR and returns a signed certificate. If the CA is a multicluster CA,
+// Sign takes a PEM-encoded CSR and ttl, and returns a signed certificate. If forCA is true,
 // the signed certificate is a CA certificate, otherwise, it is a workload certificate.
 func (ca *IstioCA) Sign(csrPEM []byte, ttl time.Duration, forCA bool) ([]byte, error) {
 	signingCert, signingKey, _, _ := ca.keyCertBundle.GetAll()
