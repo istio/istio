@@ -48,7 +48,7 @@ var (
 )
 
 func fatalf(template string, args ...interface{}) {
-	log.Errorf(template, args)
+	_, _ = fmt.Fprintf(os.Stderr, template+"\n", args...)
 	os.Exit(-1)
 }
 

@@ -152,15 +152,6 @@ var (
 	}
 )
 
-func fatalf(template string, args ...interface{}) {
-	if len(args) > 0 {
-		log.Errorf(template, args)
-	} else {
-		log.Errorf(template)
-	}
-	os.Exit(-1)
-}
-
 func init() {
 	flags := rootCmd.Flags()
 	// General configuration.
@@ -244,14 +235,13 @@ func init() {
 
 func main() {
 	if err := rootCmd.Execute(); err != nil {
-		log.Errora(err)
-		os.Exit(-1)
+		log.Fatala(err)
 	}
 }
 
 func runCA() {
 	if err := log.Configure(opts.loggingOptions); err != nil {
-		fatalf("Failed to configure logging (%v)", err)
+		log.Fatalf("Failed to configure logging (%v)", err)
 	}
 
 	if value, exists := os.LookupEnv(listenedNamespaceKey); exists {
@@ -282,7 +272,7 @@ func runCA() {
 	sc, err := controller.NewSecretController(ca, opts.workloadCertTTL, opts.workloadCertGracePeriodRatio,
 		opts.workloadCertMinGracePeriod, cs.CoreV1(), opts.signCACerts, opts.listenedNamespace, webhooks)
 	if err != nil {
-		fatalf("failed to create secret controller: %v", err)
+		log.Fatalf("failed to create secret controller: %v", err)
 	}
 
 	stopCh := make(chan struct{})
@@ -312,7 +302,7 @@ func runCA() {
 		hostnames := strings.Split(opts.grpcHosts, ",")
 		caServer, startErr := caserver.New(ca, opts.maxWorkloadCertTTL, opts.signCACerts, hostnames, opts.grpcPort)
 		if startErr != nil {
-			fatalf("failed to create istio ca server: %v", startErr)
+			log.Fatalf("failed to create istio ca server: %v", startErr)
 		}
 		if serverErr := caServer.Run(); serverErr != nil {
 			// stop the registry-related controllers
@@ -330,7 +320,7 @@ func runCA() {
 	if len(opts.cAClientConfig.CAAddress) != 0 {
 		rotator, creationErr := createKeyCertBundleRotator(ca.GetCAKeyCertBundle())
 		if creationErr != nil {
-			fatalf("failed to create CA key cert bundle rotator: %v", creationErr)
+			log.Fatalf("failed to create CA key cert bundle rotator: %v", creationErr)
 		}
 		go rotator.Start(errCh)
 		log.Info("Istio CA key cert bundle rotator has started")
@@ -339,14 +329,14 @@ func runCA() {
 	// Blocking until receives error.
 	err = <-errCh
 	rotator.Stop()
-	fatalf("Istio CA key cert bundle rotator failed: %v", err)
+	log.Fatalf("Istio CA key cert bundle rotator failed: %v", err)
 }
 
 func createClientset() *kubernetes.Clientset {
 	c := generateConfig()
 	cs, err := kubernetes.NewForConfig(c)
 	if err != nil {
-		fatalf("Failed to create a clientset (error: %s)", err)
+		log.Fatalf("Failed to create a clientset (error: %s)", err)
 	}
 	return cs
 }
@@ -360,14 +350,14 @@ func createCA(core corev1.SecretsGetter) *ca.IstioCA {
 		caOpts, err = ca.NewSelfSignedIstioCAOptions(opts.selfSignedCACertTTL, opts.workloadCertTTL,
 			opts.maxWorkloadCertTTL, opts.selfSignedCAOrg, opts.istioCaStorageNamespace, core)
 		if err != nil {
-			fatalf("Failed to create a self-signed Istio CA (error: %v)", err)
+			log.Fatalf("Failed to create a self-signed Istio CA (error: %v)", err)
 		}
 	} else {
 		log.Info("Use certificate from argument as the CA certificate")
 		caOpts, err = ca.NewPluggedCertIstioCAOptions(opts.certChainFile, opts.signingCertFile, opts.signingKeyFile,
 			opts.rootCertFile, opts.workloadCertTTL, opts.maxWorkloadCertTTL)
 		if err != nil {
-			fatalf("Failed to create an Istio CA (error: %v)", err)
+			log.Fatalf("Failed to create an Istio CA (error: %v)", err)
 		}
 	}
 
@@ -397,7 +387,7 @@ func generateConfig() *rest.Config {
 	if opts.kubeConfigFile != "" {
 		c, err := clientcmd.BuildConfigFromFlags("", opts.kubeConfigFile)
 		if err != nil {
-			fatalf("Failed to create a config object from file %s, (error %v)", opts.kubeConfigFile, err)
+			log.Fatalf("Failed to create a config object from file %s, (error %v)", opts.kubeConfigFile, err)
 		}
 		return c
 	}
@@ -405,7 +395,7 @@ func generateConfig() *rest.Config {
 	// When `kubeConfigFile` is unspecified, use the in-cluster configuration.
 	c, err := rest.InClusterConfig()
 	if err != nil {
-		fatalf("Failed to create a in-cluster config (error: %s)", err)
+		log.Fatalf("Failed to create a in-cluster config (error: %s)", err)
 	}
 	return c
 }
@@ -448,25 +438,25 @@ func verifyCommandLineOptions() {
 	}
 
 	if opts.signingCertFile == "" {
-		fatalf(
+		log.Fatalf(
 			"No signing cert has been specified. Either specify a cert file via '-signing-cert' option " +
 				"or use '-self-signed-ca'")
 	}
 
 	if opts.signingKeyFile == "" {
-		fatalf(
+		log.Fatalf(
 			"No signing key has been specified. Either specify a key file via '-signing-key' option " +
 				"or use '-self-signed-ca'")
 	}
 
 	if opts.rootCertFile == "" {
-		fatalf(
+		log.Fatalf(
 			"No root cert has been specified. Either specify a root cert file via '-root-cert' option " +
 				"or use '-self-signed-ca'")
 	}
 
 	if opts.workloadCertGracePeriodRatio < 0 || opts.workloadCertGracePeriodRatio > 1 {
-		fatalf("Workload cert grace period ratio %f is invalid. It should be within [0, 1]",
+		log.Fatalf("Workload cert grace period ratio %f is invalid. It should be within [0, 1]",
 			opts.workloadCertGracePeriodRatio)
 	}
 
