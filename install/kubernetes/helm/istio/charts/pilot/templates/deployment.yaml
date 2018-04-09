@@ -75,7 +75,7 @@ spec:
 {{- end }}
         - name: istio-proxy
           image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
-          imagePullPolicy: {{ .Values.global.proxy.imagePullPolicy }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
           - containerPort: 15003
           - containerPort: 15005
