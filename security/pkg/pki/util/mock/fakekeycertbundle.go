@@ -64,6 +64,16 @@ func (b *FakeKeyCertBundle) VerifyAndSetAll(certBytes, privKeyBytes, certChainBy
 	return nil
 }
 
+// GetCertChainPem returns CertChainBytes.
+func (b *FakeKeyCertBundle) GetCertChainPem() []byte {
+	return b.CertChainBytes
+}
+
+// GetRootCertPem returns RootCertBytes.
+func (b *FakeKeyCertBundle) GetRootCertPem() []byte {
+	return b.RootCertBytes
+}
+
 // CertOptions returns CertOptionsErr if it is not nil. Otherwise it returns an empty CertOptions.
 func (b *FakeKeyCertBundle) CertOptions() (*util.CertOptions, error) {
 	if b.CertOptionsErr != nil {
