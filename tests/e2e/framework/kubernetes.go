@@ -604,8 +604,8 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 			content = updateImage("proxy", *proxyHub, *proxyTag, content)
 		}
 		if *caHub != "" && *caTag != "" {
-			//Need to be updated when the string "istio-ca" is changed
-			content = updateImage("istio-ca", *caHub, *caTag, content)
+			//Need to be updated when the string "citadel" is changed
+			content = updateImage("citadel", *caHub, *caTag, content)
 		}
 		if *imagePullPolicy != "" {
 			content = updateImagePullPolicy(*imagePullPolicy, content)
