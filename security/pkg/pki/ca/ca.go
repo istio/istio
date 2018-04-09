@@ -57,6 +57,9 @@ const (
 type CertificateAuthority interface {
 	// Sign generates a certificate for a workload or CA, from the given CSR and TTL.
 	Sign(csrPEM []byte, ttl time.Duration) ([]byte, error)
+	// SignCAServerCert generates a certificate for the CA server (to serve the CSR).
+	// TODO(myidpt): Remove this and add forCA in Sign().
+	SignCAServerCert(csrPEM []byte, ttl time.Duration) ([]byte, error)
 	// GetCAKeyCertBundle returns the KeyCertBundle used by CA.
 	GetCAKeyCertBundle() util.KeyCertBundle
 }
@@ -175,12 +178,13 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 }
 
 // Sign takes a PEM-encoded CSR and returns a signed certificate. If the CA is a multicluster CA,
-// the signed certificate is a CA certificate, otherwise, it is a workload certificate.
+// the signed certificate is a CA certificate (CA:TRUE in X509v3 Basic Constraints), otherwise, it is a workload
+// certificate.
 func (ca *IstioCA) Sign(csrPEM []byte, ttl time.Duration) ([]byte, error) {
 	return ca.sign(csrPEM, ttl, ca.multicluster)
 }
 
-// SignCAServerCert signs the certificate for the Istio CA server.
+// SignCAServerCert signs the certificate for the Istio CA server (to serve the CSR, etc).
 func (ca *IstioCA) SignCAServerCert(csrPEM []byte, ttl time.Duration) ([]byte, error) {
 	return ca.sign(csrPEM, ttl, false)
 }
