@@ -27,6 +27,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	istio_route "istio.io/istio/pilot/pkg/networking/route"
 	"istio.io/istio/pkg/log"
 )
 
@@ -129,12 +130,12 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 		newListener := buildListener(opts)
 
 		for _, p := range configgen.Plugins {
-			params := &plugin.CallbackListenerInputParams{
+			params := &plugin.InputParams{
 				ListenerType: listenerType,
 				Env:          &env,
 				Node:         &node,
 			}
-			mutable := &plugin.CallbackListenerMutableObjects{
+			mutable := &plugin.MutableObjects{
 				Listener:    newListener,
 				TCPFilters:  &networkFilters,
 				HTTPFilters: &hTTPFilters,
@@ -215,7 +216,7 @@ func buildGatewayInboundHTTPRouteConfig(env model.Environment, gatewayName strin
 
 	virtualHosts := make([]route.VirtualHost, 0)
 	for _, v := range virtualServices {
-		routes := translateRoutes(v, nameF, int(server.Port.Number), nil, gatewayName)
+		routes := istio_route.TranslateRoutes(v, nameF, int(server.Port.Number), nil, gatewayName)
 		domains := v.Spec.(*networking.VirtualService).Hosts
 
 		virtualHosts = append(virtualHosts, route.VirtualHost{

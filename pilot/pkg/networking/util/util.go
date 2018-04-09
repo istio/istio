@@ -179,3 +179,15 @@ func ConvertGogoDurationToDuration(d *types.Duration) time.Duration {
 	}
 	return dur
 }
+
+// TranslateTime converts time protos.
+func TranslateTime(in *types.Duration) *time.Duration {
+	if in == nil {
+		return nil
+	}
+	out, err := types.DurationFromProto(in)
+	if err != nil {
+		log.Warnf("error converting duration %#v, using 0: %v", in, err)
+	}
+	return &out
+}
