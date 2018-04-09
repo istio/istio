@@ -53,7 +53,7 @@ func TestNewKeyCertBundleRotator(t *testing.T) {
 			config: &Config{
 				RootCertFile:  "../platform/testdata/cert-root-good.pem",
 				KeyFile:       "../platform/testdata/key-from-root-good.pem",
-				CertChainFile: "../platform/testdata/cert-chain-good.pem",
+				CertChainFile: "../platform/testdata/cert-from-root-good.pem",
 				Env:           "onprem",
 			},
 			expectedErr: "",
@@ -62,22 +62,15 @@ func TestNewKeyCertBundleRotator(t *testing.T) {
 			config: &Config{
 				RootCertFile:  "../platform/testdata/cert-root-good.pem",
 				KeyFile:       "../platform/testdata/key-from-root-good.pem",
-				CertChainFile: "../platform/testdata/cert-chain-good.pem",
+				CertChainFile: "../platform/testdata/cert-from-root-good.pem",
 				Env:           "unspecified",
 			},
 			expectedErr: "",
 		},
-		"Unsupported env": {
-			config: &Config{
-				CertChainFile: "../platform/testdata/cert-chain-good.pem",
-				Env:           "somethig-else",
-			},
-			expectedErr: "invalid env somethig-else specified",
-		},
 	}
 
 	for id, c := range testCases {
-		_, err := NewKeyCertBundleRotator(c.config, &pkimock.FakeKeyCertBundle{})
+		_, err := NewKeyCertBundleRotator(c.config, &fakeKeyCertRetriever{}, &pkimock.FakeKeyCertBundle{})
 
 		if len(c.expectedErr) > 0 {
 			if err == nil {

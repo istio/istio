@@ -33,26 +33,8 @@ func TestNewNodeAgent(t *testing.T) {
 		"onprem env test": {
 			config: &Config{
 				CAClientConfig: caclient.Config{
+					CAAddress:     "something",
 					Env:           "onprem",
-					RootCertFile:  "../../../pkg/platform/testdata/cert-root-good.pem",
-					KeyFile:       "../../../pkg/platform/testdata/key-from-root-good.pem",
-					CertChainFile: "../../../pkg/platform/testdata/cert-from-root-good.pem",
-				},
-			},
-			expectedErr: "",
-		},
-		"gcp env test": {
-			config: &Config{
-				CAClientConfig: caclient.Config{
-					Env: "gcp",
-				},
-			},
-			expectedErr: "",
-		},
-		"unspecified env test": {
-			config: &Config{
-				CAClientConfig: caclient.Config{
-					Env:           "unspecified",
 					RootCertFile:  "../../../pkg/platform/testdata/cert-root-good.pem",
 					KeyFile:       "../../../pkg/platform/testdata/key-from-root-good.pem",
 					CertChainFile: "../../../pkg/platform/testdata/cert-from-root-good.pem",
@@ -63,7 +45,8 @@ func TestNewNodeAgent(t *testing.T) {
 		"Unsupported env test": {
 			config: &Config{
 				CAClientConfig: caclient.Config{
-					Env: "somethig else",
+					CAAddress: "something",
+					Env:       "somethig else",
 				},
 			},
 			expectedErr: "invalid env somethig else specified",

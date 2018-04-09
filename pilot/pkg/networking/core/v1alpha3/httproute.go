@@ -61,7 +61,7 @@ type GuardedHost struct {
 	Hosts []string
 
 	// Routes in the virtual host
-	Routes []GuardedRoute
+	Routes []route.Route
 }
 
 // TranslateVirtualHosts creates the entire routing table for Istio v1alpha3 configs.
@@ -69,12 +69,14 @@ type GuardedHost struct {
 // Cluster domain is used to resolve short service names (e.g. "svc.cluster.local").
 func TranslateVirtualHosts(
 	serviceConfigs []model.Config,
-	services map[string]*model.Service) []GuardedHost {
+	services map[string]*model.Service,
+	proxyLabels model.LabelsCollection,
+	gatewayName string) []GuardedHost {
 	out := make([]GuardedHost, 0)
 
 	// translate all virtual service configs
 	for _, config := range serviceConfigs {
-		out = append(out, TranslateVirtualHost(config, services)...)
+		out = append(out, TranslateVirtualHost(config, services, proxyLabels, gatewayName)...)
 	}
 
 	// compute services missing service configs
@@ -97,9 +99,7 @@ func TranslateVirtualHosts(
 				out = append(out, GuardedHost{
 					Port:     port.Port,
 					Services: []*model.Service{svc},
-					Routes: []GuardedRoute{{
-						Route: *buildDefaultHTTPRoute(cluster),
-					}},
+					Routes:   []route.Route{*buildDefaultHTTPRoute(cluster)},
 				})
 			}
 		}
@@ -124,7 +124,8 @@ func MatchServiceHosts(in model.Config, serviceIndex map[string]*model.Service) 
 }
 
 // TranslateVirtualHost creates virtual hosts corresponding to a virtual service.
-func TranslateVirtualHost(in model.Config, serviceIndex map[string]*model.Service) []GuardedHost {
+func TranslateVirtualHost(in model.Config, serviceIndex map[string]*model.Service,
+	proxyLabels model.LabelsCollection, gatewayName string) []GuardedHost {
 	hosts, services := MatchServiceHosts(in, serviceIndex)
 	serviceByPort := make(map[int][]*model.Service)
 	for _, svc := range services {
@@ -136,7 +137,6 @@ func TranslateVirtualHost(in model.Config, serviceIndex map[string]*model.Servic
 	}
 
 	// if no services matched, then we have no port information -- default to 80 for now
-	// TODO: use match condition ports
 	if len(serviceByPort) == 0 {
 		serviceByPort[80] = nil
 	}
@@ -144,7 +144,10 @@ func TranslateVirtualHost(in model.Config, serviceIndex map[string]*model.Servic
 	out := make([]GuardedHost, len(serviceByPort))
 	for port, services := range serviceByPort {
 		clusterNaming := TranslateDestination(serviceIndex, port)
-		routes := TranslateRoutes(in, clusterNaming)
+		routes := TranslateRoutes(in, clusterNaming, port, proxyLabels, gatewayName)
+		if len(routes) == 0 {
+			continue
+		}
 		out = append(out, GuardedHost{
 			Port:     port,
 			Services: services,
@@ -192,21 +195,11 @@ func TranslateDestination(
 // ClusterNaming specifies cluster name for a destination
 type ClusterNaming func(*networking.Destination) string
 
-// GuardedRoute are routes for a destination guarded by deployment conditions.
-type GuardedRoute struct {
-	route.Route
-
-	// SourceLabels guarding the route
-	SourceLabels map[string]string
-
-	// Gateways pre-condition
-	Gateways []string
-}
-
 // TranslateRoutes creates virtual host routes from the v1alpha3 config.
 // The rule should be adapted to destination names (outbound clusters).
 // Each rule is guarded by source labels.
-func TranslateRoutes(in model.Config, name ClusterNaming) []GuardedRoute {
+func TranslateRoutes(in model.Config, name ClusterNaming, port int,
+	proxyLabels model.LabelsCollection, gatewayName string) []route.Route {
 	rule, ok := in.Spec.(*networking.VirtualService)
 	if !ok {
 		return nil
@@ -214,13 +207,21 @@ func TranslateRoutes(in model.Config, name ClusterNaming) []GuardedRoute {
 
 	operation := in.ConfigMeta.Name
 
-	out := make([]GuardedRoute, 0)
+	out := make([]route.Route, 0)
 	for _, http := range rule.Http {
 		if len(http.Match) == 0 {
-			out = append(out, TranslateRoute(http, nil, operation, name))
+			r := TranslateRoute(http, nil, port, operation, name, proxyLabels, gatewayName)
+			if r != nil { // this cannot be nil
+				out = append(out, *r)
+			}
+			break // we have a rule with catch all match prefix: /. Other rules are of no use
 		} else {
+			// TODO: https://github.com/istio/istio/issues/4239
 			for _, match := range http.Match {
-				out = append(out, TranslateRoute(http, match, operation, name))
+				r := TranslateRoute(http, match, port, operation, name, proxyLabels, gatewayName)
+				if r != nil {
+					out = append(out, *r)
+				}
 			}
 		}
 	}
@@ -231,10 +232,38 @@ func TranslateRoutes(in model.Config, name ClusterNaming) []GuardedRoute {
 // TranslateRoute translates HTTP routes
 // TODO: fault filters -- issue https://github.com/istio/api/issues/388
 func TranslateRoute(in *networking.HTTPRoute,
-	match *networking.HTTPMatchRequest,
+	match *networking.HTTPMatchRequest, port int,
 	operation string,
-	name ClusterNaming) GuardedRoute {
-	out := route.Route{
+	name ClusterNaming,
+	proxyLabels model.LabelsCollection,
+	gatewayName string) *route.Route {
+
+	sourceMatched := false
+	// Trim by source labels or mesh gateway
+	if match != nil {
+		if len(match.Gateways) > 0 {
+			for _, g := range match.Gateways {
+				if g == gatewayName {
+					sourceMatched = true
+					break
+				}
+			}
+		} else if proxyLabels.IsSupersetOf(match.GetSourceLabels()) {
+			sourceMatched = true
+		}
+	} else {
+		sourceMatched = true
+	}
+
+	if !sourceMatched {
+		return nil
+	}
+
+	if match != nil && match.Port != nil && match.Port.GetNumber() != uint32(port) {
+		return nil
+	}
+
+	out := &route.Route{
 		Match: TranslateRouteMatch(match),
 		Decorator: &route.Decorator{
 			Operation: operation,
@@ -305,11 +334,7 @@ func TranslateRoute(in *networking.HTTPRoute,
 		}
 	}
 
-	return GuardedRoute{
-		Route:        out,
-		SourceLabels: match.GetSourceLabels(),
-		Gateways:     match.GetGateways(),
-	}
+	return out
 }
 
 // TranslateRouteMatch translates match condition
@@ -357,8 +382,6 @@ func TranslateRouteMatch(in *networking.HTTPMatchRequest) route.RouteMatch {
 		matcher := TranslateHeaderMatcher(HeaderScheme, in.Scheme)
 		out.Headers = append(out.Headers, &matcher)
 	}
-
-	// TODO: match.DestinationPorts
 
 	return out
 }
@@ -429,7 +452,6 @@ func TranslateTime(in *types.Duration) *time.Duration {
 	return &out
 }
 
-// TODO: find a proper home for these http related functions
 // buildDefaultHTTPRoute builds a default route.
 func buildDefaultHTTPRoute(clusterName string) *route.Route {
 	return &route.Route{
@@ -475,7 +497,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env mod
 
 // BuildSidecarOutboundHTTPRouteConfig generates outbound routes
 func (configgen *ConfigGeneratorImpl) BuildSidecarOutboundHTTPRouteConfig(env model.Environment, node model.Proxy,
-	_ []*model.ServiceInstance, services []*model.Service, routeName string) *xdsapi.RouteConfiguration {
+	proxyInstances []*model.ServiceInstance, services []*model.Service, routeName string) *xdsapi.RouteConfiguration {
 
 	port := 0
 	if routeName != RDSHttpProxy {
@@ -502,16 +524,21 @@ func (configgen *ConfigGeneratorImpl) BuildSidecarOutboundHTTPRouteConfig(env mo
 		}
 	}
 
+	// Collect all proxy labels for source match
+	var proxyLabels model.LabelsCollection
+	for _, w := range proxyInstances {
+		proxyLabels = append(proxyLabels, w.Labels)
+	}
+
 	// Get list of virtual services bound to the mesh gateway
 	virtualServices := env.VirtualServices([]string{model.IstioMeshGateway})
-	// TODO: Need to trim output based on source label/gateway match
-	guardedHosts := TranslateVirtualHosts(virtualServices, nameToServiceMap)
+	guardedHosts := TranslateVirtualHosts(virtualServices, nameToServiceMap, proxyLabels, model.IstioMeshGateway)
 	vHostPortMap := make(map[int][]route.VirtualHost)
 
 	for _, guardedHost := range guardedHosts {
-		routes := make([]route.Route, 0, len(guardedHost.Routes))
-		for _, r := range guardedHost.Routes {
-			routes = append(routes, r.Route)
+		// If none of the routes matched by source, skip this guarded host
+		if len(guardedHost.Routes) == 0 {
+			continue
 		}
 
 		virtualHosts := make([]route.VirtualHost, 0, len(guardedHost.Hosts)+len(guardedHost.Services))
@@ -519,7 +546,7 @@ func (configgen *ConfigGeneratorImpl) BuildSidecarOutboundHTTPRouteConfig(env mo
 			virtualHosts = append(virtualHosts, route.VirtualHost{
 				Name:    fmt.Sprintf("%s:%d", host, guardedHost.Port),
 				Domains: []string{host},
-				Routes:  routes,
+				Routes:  guardedHost.Routes,
 			})
 		}
 
@@ -539,7 +566,7 @@ func (configgen *ConfigGeneratorImpl) BuildSidecarOutboundHTTPRouteConfig(env mo
 			virtualHosts = append(virtualHosts, route.VirtualHost{
 				Name:    fmt.Sprintf("%s:%d", svc.Hostname, guardedHost.Port),
 				Domains: domains,
-				Routes:  routes,
+				Routes:  guardedHost.Routes,
 			})
 		}
 

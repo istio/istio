@@ -375,10 +375,16 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection) error {
 	services = s.services
 	s.modelMutex.RUnlock()
 
+	proxyInstances, err := s.env.GetProxyServiceInstances(*con.modelNode)
+	if err != nil {
+		log.Warnf("ADS: RDS: Failed to retrieve proxy service instances %v", err)
+		return err
+	}
+
 	// TODO: once per config update
 	for _, routeName := range con.Routes {
 		// TODO: for ingress/gateway use the other method
-		r := s.ConfigGenerator.BuildSidecarOutboundHTTPRouteConfig(s.env, *con.modelNode, nil,
+		r := s.ConfigGenerator.BuildSidecarOutboundHTTPRouteConfig(s.env, *con.modelNode, proxyInstances,
 			services, routeName)
 
 		rc = append(rc, r)
