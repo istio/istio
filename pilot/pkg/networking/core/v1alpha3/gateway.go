@@ -206,7 +206,7 @@ func buildGatewayInboundHTTPRouteConfig(env model.Environment, gatewayName strin
 
 	virtualHosts := make([]route.VirtualHost, 0)
 	for _, v := range virtualServices {
-		routes := TranslateRoutes(v, nameF, int(server.Port.Number), nil, gatewayName)
+		routes := translateRoutes(v, nameF, int(server.Port.Number), nil, gatewayName)
 		domains := v.Spec.(*networking.VirtualService).Hosts
 
 		virtualHosts = append(virtualHosts, route.VirtualHost{
