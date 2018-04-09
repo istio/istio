@@ -56,6 +56,7 @@ const char AttributeName::kConnectionDuration[] = "connection.duration";
 const char AttributeName::kConnectionMtls[] = "connection.mtls";
 // Downstream TCP connection id.
 const char AttributeName::kConnectionId[] = "connection.id";
+const char AttributeName::kConnectionEvent[] = "connection.event";
 
 // Context attributes
 const char AttributeName::kContextProtocol[] = "context.protocol";

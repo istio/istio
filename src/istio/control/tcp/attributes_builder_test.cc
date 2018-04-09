@@ -37,6 +37,12 @@ namespace {
 
 const char kCheckAttributes[] = R"(
 attributes {
+  key: "connection.event"
+  value {
+    string_value: "open"
+  }
+}
+attributes {
   key: "context.protocol"
   value {
     string_value: "tcp"
@@ -82,6 +88,12 @@ attributes {
 )";
 
 const char kReportAttributes[] = R"(
+attributes {
+  key: "connection.event"
+  value {
+    string_value: "close"
+  }
+}
 attributes {
   key: "check.error_code"
   value {
@@ -149,6 +161,12 @@ attributes {
 
 const char kDeltaOneReportAttributes[] = R"(
 attributes {
+  key: "connection.event"
+  value {
+    string_value: "continue"
+  }
+}
+attributes {
   key: "connection.received.bytes"
   value {
     int64_value: 100
@@ -194,6 +212,12 @@ attributes {
 )";
 
 const char kDeltaTwoReportAttributes[] = R"(
+attributes {
+  key: "connection.event"
+  value {
+    string_value: "continue"
+  }
+}
 attributes {
   key: "connection.received.bytes"
   value {

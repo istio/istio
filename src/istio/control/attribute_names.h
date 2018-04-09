@@ -57,6 +57,8 @@ struct AttributeName {
   static const char kConnectionDuration[];
   static const char kConnectionMtls[];
   static const char kConnectionId[];
+  // Record TCP connection status: open, continue, close
+  static const char kConnectionEvent[];
 
   // Context attributes
   static const char kContextProtocol[];

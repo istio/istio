@@ -21,6 +21,12 @@
 namespace istio {
 namespace control {
 namespace tcp {
+namespace {
+// Connection events for TCP connection.
+const std::string kConnectionOpen("open");
+const std::string kConnectionContinue("continue");
+const std::string kConnectionClose("close");
+}  // namespace
 
 void AttributesBuilder::ExtractCheckAttributes(CheckData* check_data) {
   utils::AttributesBuilder builder(&request_->attributes);
@@ -43,6 +49,7 @@ void AttributesBuilder::ExtractCheckAttributes(CheckData* check_data) {
   builder.AddTimestamp(AttributeName::kContextTime,
                        std::chrono::system_clock::now());
   builder.AddString(AttributeName::kContextProtocol, "tcp");
+  builder.AddString(AttributeName::kConnectionEvent, kConnectionOpen);
 
   // Get unique downstream connection ID, which is <uuid>-<connection id>.
   std::string connection_id = check_data->GetConnectionId();
@@ -71,10 +78,12 @@ void AttributesBuilder::ExtractReportAttributes(
                        request_->check_status.error_code());
       builder.AddString(AttributeName::kCheckErrorMessage,
                         request_->check_status.ToString());
+      builder.AddString(AttributeName::kConnectionEvent, kConnectionClose);
     }
   } else {
     last_report_info->received_bytes = info.received_bytes;
     last_report_info->send_bytes = info.send_bytes;
+    builder.AddString(AttributeName::kConnectionEvent, kConnectionContinue);
   }
 
   std::string dest_ip;
