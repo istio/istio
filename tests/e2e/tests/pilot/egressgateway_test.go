@@ -36,7 +36,7 @@ func TestEgressGateway(t *testing.T) {
 	cfgs := &deployableConfig{
 		Namespace: tc.Kube.Namespace,
 		YamlFiles: []string{
-			"testdata/egressgateway.yaml",
+			"testdata/v1alpha3/egressgateway.yaml",
 			"testdata/v1alpha3/external-service.yaml",
 			"testdata/v1alpha3/rule-route-via-egressgateway.yaml"},
 	}
