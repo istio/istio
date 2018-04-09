@@ -20,7 +20,7 @@ import (
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/caclient"
-	"istio.io/istio/security/pkg/caclient/grpc"
+	"istio.io/istio/security/pkg/caclient/protocol"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
 	"istio.io/istio/security/pkg/util"
@@ -31,11 +31,11 @@ import (
 // in the NodeAgent interface.
 type nodeAgentInternal struct {
 	// Configuration specific to Node Agent
-	config   *Config
-	pc       platform.Client
-	cAClient grpc.CAGrpcClient
-	identity string
-	certUtil util.CertUtil
+	config     *Config
+	pc         platform.Client
+	caProtocol protocol.CAProtocol
+	identity   string
+	certUtil   util.CertUtil
 }
 
 // Start starts the node Agent.
@@ -66,7 +66,7 @@ func (na *nodeAgentInternal) Start() error {
 
 		log.Infof("Sending CSR (retrial #%d) ...", retries)
 
-		resp, err := na.cAClient.SendCSR(req, na.pc, na.config.CAClientConfig.CAAddress)
+		resp, err := na.caProtocol.SendCSR(req)
 		if err == nil && resp != nil && resp.IsApproved {
 			waitTime, ttlErr := na.certUtil.GetWaitTime(resp.SignedCert, time.Now())
 			if ttlErr != nil {

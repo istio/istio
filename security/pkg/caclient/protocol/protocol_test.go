@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package grpc
+package protocol
 
 import (
 	"fmt"
@@ -21,14 +21,12 @@ import (
 	"testing"
 	"time"
 
-	rpc "github.com/gogo/googleapis/google/rpc"
+	"github.com/gogo/googleapis/google/rpc"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
 	"istio.io/istio/security/pkg/pki/util"
-	"istio.io/istio/security/pkg/platform"
-	mockpc "istio.io/istio/security/pkg/platform/mock"
 	pb "istio.io/istio/security/proto"
 )
 
@@ -87,41 +85,29 @@ func TestSendCSRAgainstLocalInstance(t *testing.T) {
 
 	testCases := map[string]struct {
 		caAddress   string
-		pc          platform.Client
+		dialOptions []grpc.DialOption
 		expectedErr string
 	}{
 		"IstioCAAddress is empty": {
 			caAddress: "",
-			pc: mockpc.FakeClient{[]grpc.DialOption{
-				grpc.WithInsecure(),
-			}, "", "service1", "", []byte{}, "", true},
+			dialOptions: []grpc.DialOption{
+				grpc.WithInsecure()},
 			expectedErr: "istio CA address is empty",
 		},
 		"IstioCAAddress is incorrect": {
-			caAddress: lis.Addr().String() + "1",
-			pc: mockpc.FakeClient{[]grpc.DialOption{
-				grpc.WithInsecure(),
-			}, "", "service1", "", []byte{}, "", true},
-			expectedErr: "CSR request failed rpc error: code = Unavailable desc = all SubConns are in TransientFailure",
+			caAddress:   lis.Addr().String() + "1",
+			dialOptions: []grpc.DialOption{grpc.WithInsecure()},
+			expectedErr: "rpc error: code = Unavailable desc = all SubConns are in TransientFailure",
 		},
 		"Without Insecure option": {
-			caAddress: lis.Addr().String(),
-			pc:        mockpc.FakeClient{[]grpc.DialOption{}, "", "service1", "", []byte{}, "", true},
+			caAddress:   lis.Addr().String(),
+			dialOptions: []grpc.DialOption{},
 			expectedErr: fmt.Sprintf("failed to dial %s: grpc: no transport security set "+
 				"(use grpc.WithInsecure() explicitly or set credentials)", lis.Addr().String()),
 		},
-		"Error from GetDialOptions": {
-			caAddress: lis.Addr().String(),
-			pc: mockpc.FakeClient{[]grpc.DialOption{
-				grpc.WithInsecure(),
-			}, "Error from GetDialOptions", "service1", "", []byte{}, "", true},
-			expectedErr: "Error from GetDialOptions",
-		},
 		"SendCSR not approved": {
-			caAddress: lis.Addr().String(),
-			pc: mockpc.FakeClient{[]grpc.DialOption{
-				grpc.WithInsecure(),
-			}, "", "service1", "", []byte{}, "", true},
+			caAddress:   lis.Addr().String(),
+			dialOptions: []grpc.DialOption{grpc.WithInsecure()},
 			expectedErr: "",
 		},
 	}
@@ -136,22 +122,18 @@ func TestSendCSRAgainstLocalInstance(t *testing.T) {
 			t.Errorf("CSR generation failure (%v)", err)
 		}
 
-		cred, err := c.pc.GetAgentCredential()
-		if err != nil {
-			t.Errorf("Error getting credential (%v)", err)
-		}
-
 		req := &pb.CsrRequest{
 			CsrPem:              csr,
-			NodeAgentCredential: cred,
-			CredentialType:      c.pc.GetCredentialType(),
+			CredentialType:      "onprem",
 			RequestedTtlMinutes: 60,
 		}
 
 		serv.SetResponseAndError(&defaultServerResponse, "")
 
-		client := &CAGrpcClientImpl{}
-		_, err = client.SendCSR(req, c.pc, c.caAddress)
+		grpcClient, err := NewGrpcConnection(c.caAddress, c.dialOptions)
+		if err == nil {
+			_, err = grpcClient.SendCSR(req)
+		}
 		if len(c.expectedErr) > 0 {
 			if err == nil {
 				t.Errorf("Error expected: %v", c.expectedErr)
