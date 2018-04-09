@@ -81,6 +81,9 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 		name         string
 		certOptions  CertOptions
 		verifyFields *VerifyFields
+		// The list of host names certificates must contain.
+		// TODO(incfly): make it as a VerifyFields options.
+		hosts []string
 	}{
 		// These certs are signed by the CA cert
 		{
@@ -201,6 +204,21 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				NotBefore:   notBefore,
 				TTL:         ttl,
 				Org:         "MyOrg",
+			},
+		},
+		{
+			name: "Generate cert with multiple host names",
+			certOptions: CertOptions{
+				Host:       "a,b",
+				NotBefore:  notBefore,
+				TTL:        ttl,
+				SignerCert: caCert,
+				SignerPriv: caPriv,
+				RSAKeySize: 2048,
+			},
+			verifyFields: &VerifyFields{
+				IsCA:     false,
+				KeyUsage: x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 			},
 		},
 	}
