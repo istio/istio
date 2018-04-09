@@ -2,7 +2,6 @@ apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: gateway-bound-route
-  namespace: istio-system
 spec:
   hosts:
     - uk.bookinfo.com
@@ -22,10 +21,6 @@ spec:
 #        weight: 100
     - route:
       - destination:
-          host: a.istio-system.svc.cluster.local
-#          subset: v2
-          port:
-            name: http
+          host: c
+          subset: v2
         weight: 100
-
-          

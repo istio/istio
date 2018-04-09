@@ -200,18 +200,9 @@ func buildGatewayInboundHTTPRouteConfig(env model.Environment, gatewayName strin
 	// TODO WE DO NOT SUPPORT two gateways on same workload binding to same virtual service
 	virtualServices := env.VirtualServices([]string{gatewayName})
 
-	services, err := env.Services() // cannot panic here because gateways do not rely on services necessarily
-	if err != nil {
-		log.Errora("Failed to get services from registry")
-		return nil
+	nameF := func(d *networking.Destination) string {
+		return model.BuildSubsetKey(model.TrafficDirectionOutbound, d.Subset, d.Host, &model.Port{Name: d.Port.GetName()})
 	}
-
-	nameToServiceMap := make(map[string]*model.Service)
-	for _, svc := range services {
-		nameToServiceMap[svc.Hostname] = svc
-	}
-
-	nameF := convertDestinationToCluster(nameToServiceMap, int(server.Port.Number))
 
 	virtualHosts := make([]route.VirtualHost, 0)
 	for _, v := range virtualServices {
