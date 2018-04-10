@@ -17,10 +17,10 @@ package v2
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"sync"
-	"io"
 
 	"github.com/gogo/protobuf/jsonpb"
 

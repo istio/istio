@@ -382,7 +382,7 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 				index = i
 			}
 		}
-		adsSidecarIDConnectionsMap[con.modelNode.ID] = append(adsSidecarIDConnectionsMap[con.modelNode.ID][:index], 
+		adsSidecarIDConnectionsMap[con.modelNode.ID] = append(adsSidecarIDConnectionsMap[con.modelNode.ID][:index],
 			adsSidecarIDConnectionsMap[con.modelNode.ID][index+1:]...)
 	} else {
 		delete(adsSidecarIDConnectionsMap, con.modelNode.ID)
