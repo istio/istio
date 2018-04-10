@@ -212,7 +212,7 @@ func buildGatewayInboundHTTPRouteConfig(env model.Environment, gatewayName strin
 		nameToServiceMap[svc.Hostname] = svc
 	}
 
-	nameF := convertDestinationToCluster(nameToServiceMap, int(server.Port.Number))
+	nameF := istio_route.ConvertDestinationToCluster(nameToServiceMap, int(server.Port.Number))
 
 	virtualHosts := make([]route.VirtualHost, 0)
 	for _, v := range virtualServices {

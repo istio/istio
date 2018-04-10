@@ -24,6 +24,8 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/plugin"
+	istio_route "istio.io/istio/pilot/pkg/networking/route"
 	"istio.io/istio/pilot/pkg/networking/util"
 )
 
