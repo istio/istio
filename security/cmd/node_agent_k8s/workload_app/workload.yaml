@@ -15,7 +15,7 @@ spec:
       containers:
       - name: udsver-client
         image: gcr.io/istio-testing/workload:latest
-        imagePullPolicy: Always 
+        imagePullPolicy: Always
         command: ["/main"]
         args: ["--sock", "/tmp/udsver/nodeagent/server.sock" ]
         volumeMounts:

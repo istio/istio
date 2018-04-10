@@ -60,7 +60,7 @@ func New(cfg *na.Config, retriever Retriever) (*Server, error) {
 	}
 	ss, err := workload.NewSecretServer(&workload.Config{
 		Mode:            workload.SecretFile,
-		SecretDirectory: cfg.SecretDirectory, // TODO(incfly): put this into na.Config later.
+		SecretDirectory: cfg.SecretDirectory,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to init nodeagent due to secret server %v", err)
