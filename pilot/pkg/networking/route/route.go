@@ -275,10 +275,11 @@ func TranslateRoute(in *networking.HTTPRoute,
 				},
 			}}
 	} else {
+		d := util.GogoDurationToDuration(in.Timeout)
 		action := &route.RouteAction{
 			Cors:         TranslateCORSPolicy(in.CorsPolicy),
 			RetryPolicy:  TranslateRetryPolicy(in.Retries),
-			Timeout:      util.TranslateTime(in.Timeout),
+			Timeout:      &d,
 			UseWebsocket: &types.BoolValue{Value: in.WebsocketUpgrade},
 		}
 		out.Action = &route.Route_Route{Route: action}
@@ -407,10 +408,11 @@ func TranslateHeaderMatcher(name string, in *networking.StringMatch) route.Heade
 // TranslateRetryPolicy translates retry policy
 func TranslateRetryPolicy(in *networking.HTTPRetry) *route.RouteAction_RetryPolicy {
 	if in != nil && in.Attempts > 0 {
+		d := util.GogoDurationToDuration(in.PerTryTimeout)
 		return &route.RouteAction_RetryPolicy{
 			NumRetries:    &types.UInt32Value{Value: uint32(in.GetAttempts())},
 			RetryOn:       "5xx,connect-failure,refused-stream",
-			PerTryTimeout: util.TranslateTime(in.PerTryTimeout),
+			PerTryTimeout: &d,
 		}
 	}
 	return nil
