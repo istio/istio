@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
@@ -134,36 +135,14 @@ func (f *fakeRetriever) Retrieve(opt *pkiutil.CertOptions) (newCert, certChain, 
 }
 
 func TestWorkloadAddedService(t *testing.T) {
-	server := &Server{
-		handlerMap: map[string]handler.WorkloadHandler{},
-		done:       make(chan bool),
-		config: &na.Config{
-			WorkloadOpts: handler.Options{
-				SockFile: "path",
-				RegAPI:   wapi.RegisterGrpc,
-			},
-		},
-	}
-	server.handlerMap["testid"] = nil
-
-	attrs := pb.WorkloadInfo_WorkloadAttributes{Uid: "testid"}
-	naInp := &pb.WorkloadInfo{Attrs: &attrs}
-
-	resp, err := server.WorkloadAdded(context.Background(), naInp)
-	if err != nil {
-		t.Errorf("Failed to WorkloadAdded.")
-	}
-	if resp.Status.Code != int32(rpc.ALREADY_EXISTS) {
-		t.Errorf("Failed to WorkloadAdded with resp %v.", resp)
-	}
-}
-
-func TestWorkloadAdded_Succeed(t *testing.T) {
 	cf, cleanup := setupCertFiles(t)
 	defer cleanup()
 	fake := &fakeRetriever{
 		signer:    cf.bundle,
 		bundleMap: make(map[string]pkiutil.KeyCertBundle),
+	}
+	if err := fake.setupWorkload("spiffe://cluster.local/ns/ns1/sa/sa1"); err != nil {
+		t.Error(err)
 	}
 	server, err := New(&na.Config{
 		WorkloadOpts: handler.Options{
@@ -174,22 +153,39 @@ func TestWorkloadAdded_Succeed(t *testing.T) {
 			RootCertFile:  cf.rootFile,
 			CertChainFile: cf.certChainFile,
 			KeyFile:       cf.keyFile,
-			RSAKeySize:    512,
+			RSAKeySize:    1024,
 			Env:           "onprem",
 		},
 		SecretDirectory: cf.dir,
 	}, fake)
-	if err != nil {
-		t.Error(err)
+	testCases := []struct {
+		id     string
+		attr   *pb.WorkloadInfo_WorkloadAttributes
+		status rpc.Status
+	}{
+		{
+			id:     "WorkloadAdded Success",
+			attr:   &pb.WorkloadInfo_WorkloadAttributes{Uid: "uid-foo", Serviceaccount: "sa1", Namespace: "ns1"},
+			status: rpc.Status{Code: int32(rpc.OK), Message: "OK"},
+		},
+		{
+			id:     "WorkloadAdded already exists",
+			attr:   &pb.WorkloadInfo_WorkloadAttributes{Uid: "uid-foo", Serviceaccount: "sa1", Namespace: "ns1"},
+			status: rpc.Status{Code: int32(rpc.ALREADY_EXISTS), Message: "Already exists"},
+		},
 	}
-
-	attrs := pb.WorkloadInfo_WorkloadAttributes{Uid: "testid", Serviceaccount: "sa-bar", Namespace: "ns-foo"}
-	naInp := &pb.WorkloadInfo{Attrs: &attrs}
-	if err := fake.setupWorkload("spiffe://cluster.local/ns/ns-foo/sa/sa-bar"); err != nil {
-		t.Error(err)
-	}
-	if _, err := server.WorkloadAdded(context.Background(), naInp); err != nil {
-		t.Errorf("failed to add workload, expect succeed, err %v", err)
+	for _, tc := range testCases {
+		if err != nil {
+			t.Errorf("[%v]: failed to create NodeAgent server %v", tc.id, err)
+		}
+		resp, err := server.WorkloadAdded(context.Background(), &pb.WorkloadInfo{Attrs: tc.attr})
+		if err != nil {
+			t.Errorf("[%v] failed to add workload %v", tc.id, err)
+		}
+		fmt.Println("respon ", resp, " ", tc.id)
+		if !reflect.DeepEqual(*resp.Status, tc.status) {
+			t.Errorf("[%v] expect status (%v) got (%v)", tc.id, tc.status, *resp.Status)
+		}
 	}
 }
 
