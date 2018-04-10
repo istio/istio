@@ -90,7 +90,7 @@ e2e_version_skew: istioctl generate_yaml
 	go test -v -timeout 20m ./tests/e2e/tests/upgrade -args --smooth_check=true ${E2E_ARGS} ${EXTRA_E2E_ARGS} ${UPGRADE_E2E_ARGS}
 
 e2e_all:
-	$(MAKE) --keep-going e2e_simple e2e_mixer e2e_bookinfo e2e_dashboard e2e_upgrade
+	$(MAKE) --keep-going e2e_simple e2e_mixer e2e_bookinfo e2e_dashboard e2e_upgrade e2e_version_skew
 
 JUNIT_E2E_XML ?= $(ISTIO_OUT)/junit_e2e-all.xml
 e2e_all_junit_report: | $(JUNIT_REPORT)
