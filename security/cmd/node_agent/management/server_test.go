@@ -81,16 +81,18 @@ func setupCertFiles(t *testing.T) (*certFiles, func()) {
 		t.Errorf("failed to write cert chain file %v error %v", cf.certChainFile, err)
 	}
 	return cf, func() {
-		os.RemoveAll(dir)
+		_ = os.RemoveAll(dir)
 	}
+}
+
+type fakeRetriever struct {
+	signer    pkiutil.KeyCertBundle
+	bundleMap map[string]pkiutil.KeyCertBundle
+	errMsg    string
 }
 
 func (f *fakeRetriever) setupWorkload(host string) error {
 	rootCert, rootKey, certChain, rootCertBytes := f.signer.GetAll()
-	rootCert, err := pkiutil.ParsePemEncodedCertificate(rootCertBytes)
-	if err != nil {
-		return err
-	}
 	csrPEM, priv, err := pkiutil.GenCSR(pkiutil.CertOptions{
 		Host:       host,
 		RSAKeySize: 1024,
@@ -119,17 +121,11 @@ func (f *fakeRetriever) setupWorkload(host string) error {
 	return nil
 }
 
-type fakeRetriever struct {
-	signer    pkiutil.KeyCertBundle
-	bundleMap map[string]pkiutil.KeyCertBundle
-	errMsg    string
-}
-
-func (r *fakeRetriever) Retrieve(opt *pkiutil.CertOptions) (newCert, certChain, privateKey []byte, err error) {
-	if r.errMsg != "" {
-		return nil, nil, nil, fmt.Errorf(r.errMsg)
+func (f *fakeRetriever) Retrieve(opt *pkiutil.CertOptions) (newCert, certChain, privateKey []byte, err error) {
+	if f.errMsg != "" {
+		return nil, nil, nil, fmt.Errorf(f.errMsg)
 	}
-	kb, ok := r.bundleMap[opt.Host]
+	kb, ok := f.bundleMap[opt.Host]
 	if !ok {
 		return nil, nil, nil, fmt.Errorf("not found in the fake retriever %v", opt.Host)
 	}
