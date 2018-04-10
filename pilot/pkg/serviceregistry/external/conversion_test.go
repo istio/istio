@@ -140,9 +140,10 @@ func convertPortNameToProtocol(name string) model.Protocol {
 	return model.ParseProtocol(prefix)
 }
 
-func makeService(hostname string, ports map[string]int, resolution model.Resolution) *model.Service {
+func makeService(hostname, address string, ports map[string]int, resolution model.Resolution) *model.Service {
 	svc := &model.Service{
 		Hostname:     hostname,
+		Address:      address,
 		MeshExternal: true,
 		Resolution:   resolution,
 	}
@@ -190,49 +191,49 @@ func TestConvertService(t *testing.T) {
 		{
 			// external service http
 			externalSvc: httpNone,
-			services: []*model.Service{makeService("*.google.com",
+			services: []*model.Service{makeService("*.google.com", "",
 				map[string]int{"http-number": 80, "http2-number": 8080}, model.Passthrough),
 			},
 		},
 		{
 			// external service tcp
 			externalSvc: tcpNone,
-			services: []*model.Service{makeService("172.217.0.0/16",
+			services: []*model.Service{makeService("172.217.0.0/16", "172.217.0.0/16",
 				map[string]int{"tcp-444": 444}, model.Passthrough),
 			},
 		},
 		{
 			// external service http  static
 			externalSvc: httpStatic,
-			services: []*model.Service{makeService("*.google.com",
+			services: []*model.Service{makeService("*.google.com", "",
 				map[string]int{"http-port": 80, "http-alt-port": 8080}, model.ClientSideLB),
 			},
 		},
 		{
 			// external service DNS with no endpoints
 			externalSvc: httpDNSnoEndpoints,
-			services: []*model.Service{makeService("google.com",
+			services: []*model.Service{makeService("google.com", "",
 				map[string]int{"http-port": 80, "http-alt-port": 8080}, model.DNSLB),
 			},
 		},
 		{
 			// external service dns
 			externalSvc: httpDNS,
-			services: []*model.Service{makeService("*.google.com",
+			services: []*model.Service{makeService("*.google.com", "",
 				map[string]int{"http-port": 80, "http-alt-port": 8080}, model.DNSLB),
 			},
 		},
 		{
 			// external service tcp DNS
 			externalSvc: tcpDNS,
-			services: []*model.Service{makeService("172.217.0.0/16",
+			services: []*model.Service{makeService("172.217.0.0/16", "172.217.0.0/16",
 				map[string]int{"tcp-444": 444}, model.DNSLB),
 			},
 		},
 		{
 			// external service tcp static
 			externalSvc: tcpStatic,
-			services: []*model.Service{makeService("172.217.0.0/16",
+			services: []*model.Service{makeService("172.217.0.0/16", "172.217.0.0/16",
 				map[string]int{"tcp-444": 444}, model.ClientSideLB),
 			},
 		},
