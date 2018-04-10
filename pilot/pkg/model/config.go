@@ -15,10 +15,14 @@
 package model
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 
@@ -27,6 +31,8 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/model/test"
+	"istio.io/istio/pkg/cache"
+	"istio.io/istio/pkg/log"
 )
 
 // ConfigMeta is metadata attached to each configuration unit.
@@ -318,6 +324,22 @@ const (
 
 	// IstioMeshGateway is the built in gateway for all sidecars
 	IstioMeshGateway = "mesh"
+
+	// https://openid.net/specs/openid-connect-discovery-1_0.html
+	// OpenID Providers supporting Discovery MUST make a JSON document available at the path
+	// formed by concatenating the string /.well-known/openid-configuration to the Issuer.
+	openIDDiscoveryCfgURLSuffix = "/.well-known/openid-configuration"
+
+	// OpenID Discovery web request timeout.
+	openIDDiscoveryHTTPTimeOutInSec = 5
+
+	// JwksURI Cache expiration time duration, individual cached JwksURI item will be removed
+	// from cache after its duration expires.
+	jwksURICacheExpiration = time.Hour * 24
+
+	// JwksURI Cache eviction time duration, cache eviction is done on a periodic basis,
+	// jwksURICacheEviction specifies the frequency at which eviction activities take place.
+	jwksURICacheEviction = time.Minute * 30
 )
 
 /*
@@ -573,11 +595,14 @@ func ResolveShortnameToFQDN(host string, meta ConfigMeta) string {
 // from the generic config registry
 type istioConfigStore struct {
 	ConfigStore
+
+	// AuthCache is a cache for auth(right now jwks_uri), it has some expiration logic on updating the URIs.
+	AuthCache cache.ExpiringCache
 }
 
 // MakeIstioStore creates a wrapper around a store
 func MakeIstioStore(store ConfigStore) IstioConfigStore {
-	return &istioConfigStore{store}
+	return &istioConfigStore{store, cache.NewTTL(jwksURICacheExpiration, jwksURICacheEviction)}
 }
 
 // MatchSource checks that a rule applies for source service instances.
@@ -993,6 +1018,7 @@ func (store *istioConfigStore) AuthenticationPolicyByDestination(hostname string
 		// Swap output policy that is match in more specific scope.
 		if matchLevel > currentMatchLevel {
 			currentMatchLevel = matchLevel
+			store.SetAuthenticationPolicyJwksURIs(policy)
 			out = spec
 		}
 	}
@@ -1001,6 +1027,82 @@ func (store *istioConfigStore) AuthenticationPolicyByDestination(hostname string
 		return nil
 	}
 	return &out
+}
+
+// Set jwks_uri through openID discovery if it's not set in auth policy.
+func (store *istioConfigStore) SetAuthenticationPolicyJwksURIs(policy *authn.Policy) {
+	if policy == nil {
+		return
+	}
+
+	for _, method := range policy.Peers {
+		switch method.GetParams().(type) {
+		case *authn.PeerAuthenticationMethod_Jwt:
+			policyJwt := method.GetJwt()
+			uri, err := store.getJwksURI(policyJwt)
+			if err != nil {
+				log.Warnf("Failed to get jwks_uri for issuer %q: %v", policyJwt.Issuer, err)
+				continue
+			}
+			policyJwt.JwksUri = uri
+		}
+	}
+	for _, method := range policy.Origins {
+		// JWT is only allowed authentication method type for Origin.
+		policyJwt := method.GetJwt()
+		uri, err := store.getJwksURI(policyJwt)
+		if err != nil {
+			log.Warnf("Failed to get jwks_uri for issuer %q: %v", policyJwt.Issuer, err)
+			continue
+		}
+		policyJwt.JwksUri = uri
+	}
+}
+
+// Get jwks_uri through openID discovery if it's not set in auth policy, and cache the jwks_uri for furture use.
+func (store *istioConfigStore) getJwksURI(policyJwt *authn.Jwt) (string, error) {
+	// Return directly if policyJwt.JwksUri is explicitly set.
+	if policyJwt.JwksUri != "" {
+		return policyJwt.JwksUri, nil
+	}
+
+	// Set policyJwt.JwksUri if the JwksUri could be found in cache.
+	if uri, found := store.AuthCache.Get(policyJwt.Issuer); found {
+		return uri.(string), nil
+	}
+
+	// Try to get jwks_uri through OpenID Discovery.
+	discoveryURL := policyJwt.Issuer + openIDDiscoveryCfgURLSuffix
+	client := &http.Client{
+		Timeout: openIDDiscoveryHTTPTimeOutInSec * time.Second,
+	}
+	resp, err := client.Get(discoveryURL)
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	var data map[string]interface{}
+	if err := json.Unmarshal(body, &data); err != nil {
+		return "", err
+	}
+
+	jwksURI, ok := data["jwks_uri"].(string)
+	if !ok {
+		return "", fmt.Errorf("invalid jwks_uri %v in openID discovery configuration", data["jwks_uri"])
+	}
+
+	// Set JwksUri in cache.
+	store.AuthCache.Set(policyJwt.Issuer, jwksURI)
+
+	return jwksURI, nil
 }
 
 // SortHTTPAPISpec sorts a slice in a stable manner.
