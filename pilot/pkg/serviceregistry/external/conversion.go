@@ -15,17 +15,18 @@
 package external
 
 import (
+	"net"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
 )
 
 func convertPort(port *networking.Port) *model.Port {
 	return &model.Port{
 		Name:                 port.Name,
 		Port:                 int(port.Number),
-		Protocol:             convertProtocol(port.Protocol),
+		Protocol:             model.ConvertCaseInsensitiveStringToProtocol(port.Protocol),
 		AuthenticationPolicy: meshconfig.AuthenticationPolicy_NONE,
 	}
 }
@@ -49,12 +50,20 @@ func convertService(externalService *networking.ExternalService) []*model.Servic
 			svcPorts = append(svcPorts, convertPort(port))
 		}
 
+		// set address if host is an IP or CIDR prefix
+		var address string
+		if _, _, err := net.ParseCIDR(host); err == nil {
+			address = host
+		} else if net.ParseIP(host) != nil {
+			address = host
+		}
+
 		out = append(out, &model.Service{
 			MeshExternal: true,
 			Hostname:     host,
-			// TODO: add Address if the host is a CIDR
-			Ports:      svcPorts,
-			Resolution: resolution,
+			Address:      address,
+			Ports:        svcPorts,
+			Resolution:   resolution,
 		})
 	}
 
@@ -90,24 +99,8 @@ func convertInstances(externalService *networking.ExternalService) []*model.Serv
 
 	for _, endpoint := range externalService.Endpoints {
 		for _, servicePort := range externalService.Ports {
-
 			out = append(out, convertNetworkEndpoint(services, servicePort, endpoint)...)
 		}
 	}
 	return out
-}
-
-// parseHostname extracts service name from the service hostname
-func parseHostname(hostname string) (string, error) {
-	// TODO does the hostname even need to be parsed?
-	return hostname, nil
-}
-
-func convertProtocol(name string) model.Protocol {
-	protocol := model.ConvertCaseInsensitiveStringToProtocol(name)
-	if protocol == model.ProtocolUnsupported {
-		log.Warnf("unsupported protocol value: %s", name)
-		return model.ProtocolTCP
-	}
-	return protocol
 }
