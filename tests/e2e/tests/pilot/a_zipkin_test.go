@@ -52,7 +52,7 @@ func TestZipkin(t *testing.T) {
 			// Check the zipkin server to verify the trace was received.
 			response := ClientRequest(
 				"t",
-				fmt.Sprintf("http://zipkin.%s:9411/api/v1/traces", tc.Kube.IstioSystemNamespace()),
+				fmt.Sprintf("http://zipkin.%s:9411/api/v1/traces?limit=1000", tc.Kube.IstioSystemNamespace()),
 				1, "",
 			)
 
