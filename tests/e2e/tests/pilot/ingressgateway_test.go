@@ -43,7 +43,7 @@ func TestIngressGateway(t *testing.T) {
 		Namespace: tc.Kube.Namespace,
 		YamlFiles: []string{
 			"testdata/v1alpha3/ingressgateway.yaml",
-			"testdata/v1alpha3/destination-rule-c.yaml"},
+			"testdata/v1alpha3/destination-rule-c.yaml",
 			"testdata/v1alpha3/rule-ingressgateway.yaml"},
 	}
 	if err := cfgs.Setup(); err != nil {
