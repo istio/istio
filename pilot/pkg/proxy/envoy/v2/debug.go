@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"sync"
+	"io"
 
 	"github.com/gogo/protobuf/jsonpb"
 
@@ -381,7 +382,7 @@ func adsz(w http.ResponseWriter, req *http.Request) {
 	writeAllADS(w)
 }
 
-func writeADSForSidecar(w http.ResponseWriter, proxyID string) {
+func writeADSForSidecar(w io.Writer, proxyID string) {
 	adsClientsMutex.RLock()
 	defer adsClientsMutex.RUnlock()
 	connections := adsSidecarIDConnectionsMap[proxyID]
@@ -403,10 +404,9 @@ func writeADSForSidecar(w http.ResponseWriter, proxyID string) {
 			fmt.Fprintln(w)
 		}
 	}
-	return
 }
 
-func writeAllADS(w http.ResponseWriter) {
+func writeAllADS(w io.Writer) {
 	adsClientsMutex.RLock()
 	defer adsClientsMutex.RUnlock()
 
