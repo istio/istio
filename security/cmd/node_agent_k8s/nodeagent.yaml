@@ -20,7 +20,7 @@ spec:
       containers:
       - name: nodeagent
         image: gcr.io/istio-testing/nodeagent:latest
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         command: ["/main"]
         args: ["--ca-address=istio-ca.istio-system.svc.cluster.local:8060"]
         volumeMounts:
@@ -46,6 +46,6 @@ spec:
             type: DirectoryOrCreate
             path: /home/kubernetes/flexvolume/nodeagent~uds
         - name: istio-certs
-             secret:
-               optional: false
-               secretName: istio.default # TODO(incfly): use other secret names for provision root key cert
+          secret:
+            optional: false
+            secretName: istio.default # TODO(incfly): use other secret names for provision root key cert

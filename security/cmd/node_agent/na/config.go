@@ -42,7 +42,7 @@ type Config struct {
 	// WorkloadOpts configures how to create handler for each workload api.
 	WorkloadOpts handler.Options
 
-	// SecretDirectory is the directory to save the key certs when SecretServer is implemented as file.
+	// SecretDirectory is the directory to to save keys/certs when using file mode SecretServer.
 	SecretDirectory string
 }
 
