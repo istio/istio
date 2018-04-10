@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"sync"
+	"time"
 )
 
 // KeyCertBundle stores the cert, private key, cert chain and root cert for an entity. It is thread safe.
@@ -115,6 +116,22 @@ func NewKeyCertBundleWithRootCertFromFile(rootCertFile string) (*KeyCertBundleIm
 		certChainBytes: []byte{},
 		rootCertBytes:  rootCertBytes,
 	}, nil
+}
+
+// NewKeyCertBundleForTest returns a key cert bundle with signed by a root created on the fly.
+func NewKeyCertBundleForTest() (*KeyCertBundleImpl, error) {
+	rootCAOpts := CertOptions{
+		IsCA:         true,
+		IsSelfSigned: true,
+		TTL:          time.Hour,
+		Org:          "Root CA",
+		RSAKeySize:   2048,
+	}
+	rootCertBytes, rootKeyBytes, err := GenCertKeyFromOptions(rootCAOpts)
+	if err != nil {
+		return nil, err
+	}
+	return NewVerifiedKeyCertBundleFromPem(rootCertBytes, rootKeyBytes, rootCertBytes, rootCertBytes)
 }
 
 // RetrieveID returns the service account from the KeyCertBundle.
