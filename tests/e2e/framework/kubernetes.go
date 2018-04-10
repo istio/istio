@@ -46,7 +46,6 @@ const (
 	istioIngressGatewayServiceName   = "istio-ingressgateway"
 	istioEgressGatewayServiceName    = "istio-egressgateway"
 	defaultSidecarInjectorFile       = "istio-sidecar-injector.yaml"
-	mixerValidatorFile               = "istio-mixer-validator.yaml"
 	ingressCertsName                 = "istio-ingress-certs"
 	defaultGalleyConfigValidatorFile = "istio-galley-config-validator.yaml"
 

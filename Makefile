@@ -359,7 +359,7 @@ gals:
 
 $(GALLEY_GO_BINS):
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./galley/cmd/$(@F)
-	
+
 servicegraph:
 	bin/gobuild.sh ${ISTIO_OUT}/$@ istio.io/istio/pkg/version ./addons/servicegraph/cmd/server
 
@@ -372,7 +372,7 @@ $(SECURITY_GO_BINS):
 
 .PHONY: build
 # Build will rebuild the go binaries.
-build: depend $(PILOT_GO_BINS_SHORT) mixc mixs node_agent istio_ca flexvolume istioctl
+build: depend $(PILOT_GO_BINS_SHORT) mixc mixs node_agent istio_ca flexvolume istioctl gals
 
 # The following are convenience aliases for most of the go targets
 # The first block is for aliases that are the same as the actual binary,
@@ -604,7 +604,7 @@ installgen:
 
 # A make target to generate all the YAML files
 generate_yaml:
-	./install/updateVersion.sh -a ${HUB},${TAG} 
+	./install/updateVersion.sh -a ${HUB},${TAG}
 
 $(HELM):
 	bin/init_helm.sh

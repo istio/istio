@@ -64,11 +64,11 @@ func validatorCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 		cl := common.client.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
 		for {
 			webhooks := []string{pilotWebhookName, mixerWebhookName}
-			if err := util.PatchValidatingWebhookConfig(cl, webhookConfigName, webhooks, caCertPem); err == nil {
+			if err = util.PatchValidatingWebhookConfig(cl, webhookConfigName, webhooks, caCertPem); err == nil {
 				return nil
 			}
 
-			log.Errorf("Patching caBundle in ValidatingWebhookConfigurations %v failed -- retrying",
+			log.Errorf("Patching caBundle in ValidatingWebhookConfigurations %v failed: %v -- retrying",
 				webhookConfigName, err)
 			select {
 			case <-stop:

@@ -70,8 +70,8 @@ const (
 )
 
 var (
-	// TODO: use model.IstioConfigTypes once model.IngressRule is deprecated
 	// ConfigDescriptor describes all supported configuration kinds.
+	// TODO: use model.IstioConfigTypes once model.IngressRule is deprecated
 	ConfigDescriptor = model.ConfigDescriptor{
 		model.RouteRule,
 		model.VirtualService,
