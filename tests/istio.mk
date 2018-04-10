@@ -134,7 +134,7 @@ test/local/auth/e2e_pilot:
 test/local/noauth/e2e_pilotv2:
 	@mkdir -p /go/out/logs
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 20m ./tests/e2e/tests/pilot \
- 	--skip_cleanup --auth_enable=false --v1alpha3=true --egress=false --ingress=false --rbac_enable=false --v1alpha1=false \
+ 	--skip_cleanup --auth_enable=true --v1alpha3=true --egress=false --ingress=false --rbac_enable=false --v1alpha1=false \
 	${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS}  ${T} \
 		| tee ${OUT_DIR}/logs/test-report.raw
 
@@ -142,7 +142,7 @@ test/local/noauth/e2e_pilotv2:
 test/local/noauth/e2e_simple_pilotv2:
 	@mkdir -p /go/out/logs
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 20m ./tests/e2e/tests/simple \
-	--skip_cleanup --auth_enable=false \
+	--skip_cleanup --auth_enable=true \
     	  ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${T} \
 		| tee ${OUT_DIR}/logs/test-report.raw
 

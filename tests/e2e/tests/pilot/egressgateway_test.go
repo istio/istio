@@ -29,8 +29,8 @@ import (
 //    3.b. Traffic from egress gateway goes to actual destination (in our case, its t)
 // The tests will only check for requests from a->t with host matching ext service
 func TestEgressGateway(t *testing.T) {
-	if !tc.V1alpha3 {
-		t.Skipf("Skipping %s: v1alpha3=false", t.Name())
+	if !tc.V1alpha3 || tc.Kube.AuthEnabled {
+		t.Skipf("Skipping %s: v1alpha3=false or auth_enable=true", t.Name())
 	}
 
 	cfgs := &deployableConfig{
