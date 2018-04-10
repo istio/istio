@@ -147,6 +147,9 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	}
 	if cfg == "" {
 		cfg = DefaultCfgDir
+		if config.ProxyBootstrapTemplatePath != "" {
+			cfg = config.ProxyBootstrapTemplatePath
+		}
 	}
 
 	override := os.Getenv("ISTIO_BOOTSTRAP")
