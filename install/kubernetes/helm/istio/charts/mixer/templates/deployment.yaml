@@ -23,30 +23,23 @@
         resources:
 {{ toYaml $.Values.resources | indent 12 }}
       - name: istio-proxy
-        command:
-        - /usr/local/bin/mixer_bootstrap.sh
         image: "{{ $.Values.global.hub }}/{{ $.Values.global.proxy.image }}:{{ $.Values.global.tag }}"
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
         - containerPort: 15004
         args:
         - proxy
-        - mixer
+        - --serviceCluster
+        - istio-policy
+        - --templateFile
+        - /etc/istio/proxy/envoy_policy.yaml.tmpl
       {{- if $.Values.global.controlPlaneSecurityEnabled }}
         - --controlPlaneAuthPolicy
         - MUTUAL_TLS
-        - --customConfigFile
-        - /etc/istio/proxy/envoy_istio_policy_auth.json
       {{- else }}
         - --controlPlaneAuthPolicy
         - NONE
-        - --customConfigFile
-        - /etc/istio/proxy/envoy_istio_policy.json
       {{- end }}
-        - --zipkinAddress
-        - zipkin.{{ $.Release.Namespace }}:9411
-        - --serviceCluster      
-        - istio-policy
         env:
         - name: POD_NAME
           valueFrom:
@@ -58,11 +51,6 @@
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
-        - name: INSTANCE_IP
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: status.podIP
         resources:
 {{ toYaml $.Values.global.proxy.resources | indent 12 }}
         volumeMounts:
@@ -98,30 +86,23 @@
         resources:
 {{ toYaml $.Values.resources | indent 12 }}
       - name: istio-proxy
-        command:
-        - /usr/local/bin/mixer_bootstrap.sh
         image: "{{ $.Values.global.hub }}/{{ $.Values.global.proxy.image }}:{{ $.Values.global.tag }}"
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
         - containerPort: 15004
         args:
         - proxy
-        - mixer
+        - --serviceCluster
+        - istio-telemetry
+        - --templateFile
+        - /etc/istio/proxy/envoy_telemetry.yaml.tmpl
       {{- if $.Values.global.controlPlaneSecurityEnabled }}
         - --controlPlaneAuthPolicy
         - MUTUAL_TLS
-        - --customConfigFile
-        - /etc/istio/proxy/envoy_istio_telemetry_auth.json
       {{- else }}
         - --controlPlaneAuthPolicy
         - NONE
-        - --customConfigFile
-        - /etc/istio/proxy/envoy_istio_telemetry.json
       {{- end }}
-        - --zipkinAddress
-        - zipkin.{{ $.Release.Namespace }}:9411
-        - --serviceCluster      
-        - istio-telemetry
         env:
         - name: POD_NAME
           valueFrom:

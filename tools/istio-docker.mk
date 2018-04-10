@@ -25,13 +25,6 @@ $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 
 # static files/directories that are copied from source tree
 
-PROXY_JSON_FILES:=pilot/docker/envoy_pilot.json \
-                  pilot/docker/envoy_pilot_auth.json \
-                  pilot/docker/envoy_istio_policy.json \
-                  pilot/docker/envoy_istio_policy_auth.json \
-                  pilot/docker/envoy_istio_telemetry.json \
-                  pilot/docker/envoy_istio_telemetry_auth.json
-
 NODE_AGENT_TEST_FILES:=security/docker/start_app.sh \
                        security/docker/app.js
 
@@ -75,8 +68,8 @@ $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
 
 # tell make which files are copied from the source tree
 DOCKER_FILES_FROM_SOURCE:=tools/deb/istio-iptables.sh docker/ca-certificates.tgz tools/deb/envoy_bootstrap_tmpl.json \
-                          $(PROXY_JSON_FILES) $(NODE_AGENT_TEST_FILES) $(FLEXVOLUMEDRIVER_FILES) $(GRAFANA_FILES) \
-                          pilot/docker/certs/cert.crt pilot/docker/certs/cert.key pilot/docker/mixer_bootstrap.sh
+                          $(NODE_AGENT_TEST_FILES) $(FLEXVOLUMEDRIVER_FILES) $(GRAFANA_FILES) \
+                          pilot/docker/certs/cert.crt pilot/docker/certs/cert.key
 $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
         $(eval $(ISTIO_DOCKER)/$(notdir $(FILE)): $(FILE) | $(ISTIO_DOCKER); cp $(FILE) $$(@D)))
 
@@ -88,25 +81,31 @@ docker.sidecar_injector: $(ISTIO_DOCKER)/sidecar-injector
 
 docker.proxy: tools/deb/envoy_bootstrap_tmpl.json
 docker.proxy: ${ISTIO_ENVOY_RELEASE_PATH}
-docker.proxy: $(ISTIO_OUT)/pilot-agent ${PROXY_JSON_FILES}
+docker.proxy: $(ISTIO_OUT)/pilot-agent
 docker.proxy: pilot/docker/${DOCKER_PROXY_CFG}
-docker.proxy: pilot/docker/mixer_bootstrap.sh
+docker.proxy: pilot/docker/envoy_pilot.yaml.tmpl
+docker.proxy: pilot/docker/envoy_policy.yaml.tmpl
+docker.proxy: pilot/docker/envoy_telemetry.yaml.tmpl
 	mkdir -p $(DOCKER_BUILD_TOP)/proxy
 	# Not using $^ to avoid 2 copies of envoy
-	cp tools/deb/envoy_bootstrap_tmpl.json $(ISTIO_OUT)/pilot-agent ${PROXY_JSON_FILES} pilot/docker/mixer_bootstrap.sh pilot/docker/${DOCKER_PROXY_CFG} $(DOCKER_BUILD_TOP)/proxy/
+	cp tools/deb/envoy_bootstrap_tmpl.json $(ISTIO_OUT)/pilot-agent pilot/docker/${DOCKER_PROXY_CFG} $(DOCKER_BUILD_TOP)/proxy/
+	cp pilot/docker/*.yaml.tmpl $(DOCKER_BUILD_TOP)/proxy/
 	cp ${ISTIO_ENVOY_RELEASE_PATH} $(DOCKER_BUILD_TOP)/proxy/envoy
 	time (cd $(DOCKER_BUILD_TOP)/proxy && \
 		docker build -t $(HUB)/proxy:$(TAG) -f ${DOCKER_PROXY_CFG} .)
 
 docker.proxy_debug: tools/deb/envoy_bootstrap_tmpl.json
 docker.proxy_debug: ${ISTIO_ENVOY_DEBUG_PATH}
-docker.proxy_debug: $(ISTIO_OUT)/pilot-agent ${PROXY_JSON_FILES}
-docker.proxy_debug: pilot/docker/mixer_bootstrap.sh
+docker.proxy_debug: $(ISTIO_OUT)/pilot-agent
 docker.proxy_debug: pilot/docker/Dockerfile.proxy_debug
+docker.proxy_debug: pilot/docker/envoy_pilot.yaml.tmpl
+docker.proxy_debug: pilot/docker/envoy_policy.yaml.tmpl
+docker.proxy_debug: pilot/docker/envoy_telemetry.yaml.tmpl
 	mkdir -p $(DOCKER_BUILD_TOP)/proxyd
 	cp ${ISTIO_ENVOY_DEBUG_PATH} $(DOCKER_BUILD_TOP)/proxyd/envoy
+	cp pilot/docker/*.yaml.tmpl $(DOCKER_BUILD_TOP)/proxyd/
 	# Not using $^ to avoid 2 copies of envoy
-	cp tools/deb/envoy_bootstrap_tmpl.json $(ISTIO_OUT)/pilot-agent ${PROXY_JSON_FILES} pilot/docker/mixer_bootstrap.sh pilot/docker/Dockerfile.proxy_debug $(DOCKER_BUILD_TOP)/proxyd/
+	cp tools/deb/envoy_bootstrap_tmpl.json $(ISTIO_OUT)/pilot-agent pilot/docker/Dockerfile.proxy_debug $(DOCKER_BUILD_TOP)/proxyd/
 	time (cd $(DOCKER_BUILD_TOP)/proxyd && \
 		docker build -t $(HUB)/proxy_debug:$(TAG) -f Dockerfile.proxy_debug .)
 
@@ -114,16 +113,19 @@ docker.proxy_debug: pilot/docker/Dockerfile.proxy_debug
 # will scale better and have v2-specific features. Not built automatically until it passes
 # all tests. Developers working on v2 are currently expected to call this manually as
 # make docker.proxyv2; docker push ${HUB}/proxy:${TAG}
-docker.proxyv2: tools/deb/envoy_bootstrap_v2.json ${PROXY_JSON_FILES}
+docker.proxyv2: tools/deb/envoy_bootstrap_v2.json
 docker.proxyv2: ${ISTIO_ENVOY_RELEASE_PATH}
 docker.proxyv2: $(ISTIO_OUT)/pilot-agent
-docker.proxyv2: pilot/docker/mixer_bootstrap.sh
 docker.proxyv2: pilot/docker/Dockerfile.proxy pilot/docker/Dockerfile.proxy_debug
+docker.proxyv2: pilot/docker/envoy_pilot.yaml.tmpl
+docker.proxyv2: pilot/docker/envoy_policy.yaml.tmpl
+docker.proxyv2: pilot/docker/envoy_telemetry.yaml.tmpl
 	mkdir -p $(DOCKER_BUILD_TOP)/proxyv2
 	# Not using $^ to avoid 2 copies of envoy
-	cp ${PROXY_JSON_FILES} pilot/docker/mixer_bootstrap.sh $(ISTIO_OUT)/pilot-agent \
+	cp $(ISTIO_OUT)/pilot-agent \
 		pilot/docker/Dockerfile.proxy_debug $(DOCKER_BUILD_TOP)/proxyv2/
 	cp ${ISTIO_ENVOY_RELEASE_PATH} $(DOCKER_BUILD_TOP)/proxyv2/envoy
+	cp pilot/docker/*.yaml.tmpl $(DOCKER_BUILD_TOP)/proxyv2/
 	# Use v2 as default
 	cp tools/deb/envoy_bootstrap_v2.json $(DOCKER_BUILD_TOP)/proxyv2/envoy_bootstrap_tmpl.json
 	time (cd $(DOCKER_BUILD_TOP)/proxyv2 && \
