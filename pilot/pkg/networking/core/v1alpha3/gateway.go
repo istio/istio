@@ -128,7 +128,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 				tlsContext: buildGatewayListenerTLSContext(server),
 				bindToPort: true,
 			}
-			networkFilters = buildGatewayInboundNetworkFilters(env, server, []string{name})
+			networkFilters = buildGatewayNetworkFilters(env, server, []string{name})
 		}
 
 		newListener := buildListener(opts)
@@ -238,29 +238,23 @@ func buildGatewayInboundHTTPRouteConfig(env model.Environment, gatewayName strin
 
 // buildGatewayInboundNetworkFilters retrieves all VirtualServices bound to the set of Gateways for this workload, filters
 // them by this server's port and hostnames, and produces network filters for each destination from the filtered services
-func buildGatewayInboundNetworkFilters(env model.Environment, server *networking.Server, gatewayNames []string) []listener.Filter {
+func buildGatewayNetworkFilters(env model.Environment, server *networking.Server, gatewayNames []string) []listener.Filter {
+	port := &model.Port{
+		Name:     server.Port.Name,
+		Port:     int(server.Port.Number),
+		Protocol: model.ConvertCaseInsensitiveStringToProtocol(server.Port.Protocol),
+	}
+
 	dests := filterTCPDownstreams(env, server, gatewayNames)
 	filters := make([]listener.Filter, 0, len(dests))
 	for _, dest := range dests {
-		svc, err := env.GetService(dest.Host)
-		if err != nil {
-			log.Debugf("no service for host %q, skipping at ingress: %v", err)
-			continue
-		}
-		portNames := svc.Ports.GetNames()
-		instances, err := env.Instances(svc.Hostname, portNames, model.LabelsCollection{})
-		if err != nil {
-			log.Debugf("failed to retrieve instances of %s:%v with err: %v", svc.Hostname, portNames, err)
-			continue
-		}
-		for _, instance := range instances {
-			filters = append(filters, buildInboundNetworkFilter(instance))
-		}
+		filters = append(filters, buildOutboundNetworkFilters(destToClusterName(dest), []string{dest.Host}, port)...)
 	}
 	return filters
 }
 
-// filterTCPDownstreams filters virtual services by gateway names, then determines if any match the TCP server
+// filterTCPDownstreams filters virtual services by gateway names, then determines if any match the (TCP) server
+// TODO: move up to more general location so this can be re-used in sidecars
 func filterTCPDownstreams(env model.Environment, server *networking.Server, gatewayNames []string) []*networking.Destination {
 	hosts := make(map[string]bool, len(server.Hosts))
 	for _, host := range server.Hosts {
@@ -297,6 +291,7 @@ func filterTCPDownstreams(env model.Environment, server *networking.Server, gate
 	return downstreams
 }
 
+// TODO: move up to more general location so this can be re-used in other service matching
 func l4Match(predicates []*networking.L4MatchAttributes, server *networking.Server, gatewayNames map[string]bool) bool {
 	// NB from proto definitions: each set of predicates is OR'd together; inside of a predicate all conditions are AND'd.
 	// This means we can return as soon as we get any match of an entire predicate.
@@ -334,4 +329,9 @@ func gatherDestinations(weights []*networking.DestinationWeight) []*networking.D
 		dests = append(dests, w.Destination)
 	}
 	return dests
+}
+
+// TODO: move up to more general location so this can be re-used
+func destToClusterName(d *networking.Destination) string {
+	return model.BuildSubsetKey(model.TrafficDirectionOutbound, d.Subset, d.Host, &model.Port{Name: d.Port.GetName(), Port: int(d.Port.GetNumber())})
 }
