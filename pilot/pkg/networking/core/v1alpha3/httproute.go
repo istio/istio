@@ -64,10 +64,10 @@ type GuardedHost struct {
 	Routes []route.Route
 }
 
-// TranslateVirtualHosts creates the entire routing table for Istio v1alpha3 configs.
+// translateVirtualHosts creates the entire routing table for Istio v1alpha3 configs.
 // Services are indexed by FQDN hostnames.
 // Cluster domain is used to resolve short service names (e.g. "svc.cluster.local").
-func TranslateVirtualHosts(
+func translateVirtualHosts(
 	serviceConfigs []model.Config,
 	services map[string]*model.Service,
 	proxyLabels model.LabelsCollection,
@@ -76,7 +76,7 @@ func TranslateVirtualHosts(
 
 	// translate all virtual service configs
 	for _, config := range serviceConfigs {
-		out = append(out, TranslateVirtualHost(config, services, proxyLabels, gatewayName)...)
+		out = append(out, translateVirtualHost(config, services, proxyLabels, gatewayName)...)
 	}
 
 	// compute services missing service configs
@@ -108,8 +108,8 @@ func TranslateVirtualHosts(
 	return out
 }
 
-// MatchServiceHosts splits the virtual service hosts into services and literal hosts
-func MatchServiceHosts(in model.Config, serviceIndex map[string]*model.Service) ([]string, []*model.Service) {
+// matchServiceHosts splits the virtual service hosts into services and literal hosts
+func matchServiceHosts(in model.Config, serviceIndex map[string]*model.Service) ([]string, []*model.Service) {
 	rule := in.Spec.(*networking.VirtualService)
 	hosts := make([]string, 0)
 	services := make([]*model.Service, 0)
@@ -123,10 +123,10 @@ func MatchServiceHosts(in model.Config, serviceIndex map[string]*model.Service) 
 	return hosts, services
 }
 
-// TranslateVirtualHost creates virtual hosts corresponding to a virtual service.
-func TranslateVirtualHost(in model.Config, serviceIndex map[string]*model.Service,
+// translateVirtualHost creates virtual hosts corresponding to a virtual service.
+func translateVirtualHost(in model.Config, serviceIndex map[string]*model.Service,
 	proxyLabels model.LabelsCollection, gatewayName string) []GuardedHost {
-	hosts, services := MatchServiceHosts(in, serviceIndex)
+	hosts, services := matchServiceHosts(in, serviceIndex)
 	serviceByPort := make(map[int][]*model.Service)
 	for _, svc := range services {
 		for _, port := range svc.Ports {
@@ -143,8 +143,8 @@ func TranslateVirtualHost(in model.Config, serviceIndex map[string]*model.Servic
 
 	out := make([]GuardedHost, len(serviceByPort))
 	for port, services := range serviceByPort {
-		clusterNaming := TranslateDestination(serviceIndex, port)
-		routes := TranslateRoutes(in, clusterNaming, port, proxyLabels, gatewayName)
+		clusterNameGenerator := convertDestinationToCluster(serviceIndex, port)
+		routes := translateRoutes(in, clusterNameGenerator, port, proxyLabels, gatewayName)
 		if len(routes) == 0 {
 			continue
 		}
@@ -159,10 +159,10 @@ func TranslateVirtualHost(in model.Config, serviceIndex map[string]*model.Servic
 	return out
 }
 
-// TranslateDestination produces a cluster naming function using the config context.
-func TranslateDestination(
+// convertDestinationToCluster produces a cluster naming function using the config context.
+func convertDestinationToCluster(
 	serviceIndex map[string]*model.Service,
-	defaultPort int) ClusterNaming {
+	defaultPort int) ClusterNameGenerator {
 	return func(destination *networking.Destination) string {
 		// detect if it is a service
 		svc := serviceIndex[destination.Host]
@@ -192,13 +192,13 @@ func TranslateDestination(
 	}
 }
 
-// ClusterNaming specifies cluster name for a destination
-type ClusterNaming func(*networking.Destination) string
+// ClusterNameGenerator specifies cluster name for a destination
+type ClusterNameGenerator func(*networking.Destination) string
 
-// TranslateRoutes creates virtual host routes from the v1alpha3 config.
+// translateRoutes creates virtual host routes from the v1alpha3 config.
 // The rule should be adapted to destination names (outbound clusters).
 // Each rule is guarded by source labels.
-func TranslateRoutes(in model.Config, name ClusterNaming, port int,
+func translateRoutes(in model.Config, nameF ClusterNameGenerator, port int,
 	proxyLabels model.LabelsCollection, gatewayName string) []route.Route {
 	rule, ok := in.Spec.(*networking.VirtualService)
 	if !ok {
@@ -210,16 +210,15 @@ func TranslateRoutes(in model.Config, name ClusterNaming, port int,
 	out := make([]route.Route, 0)
 	for _, http := range rule.Http {
 		if len(http.Match) == 0 {
-			r := TranslateRoute(http, nil, port, operation, name, proxyLabels, gatewayName)
-			if r != nil { // this cannot be nil
+			if r := translateRoute(http, nil, port, operation, nameF, proxyLabels, gatewayName); r != nil {
+				// this cannot be nil
 				out = append(out, *r)
 			}
 			break // we have a rule with catch all match prefix: /. Other rules are of no use
 		} else {
 			// TODO: https://github.com/istio/istio/issues/4239
 			for _, match := range http.Match {
-				r := TranslateRoute(http, match, port, operation, name, proxyLabels, gatewayName)
-				if r != nil {
+				if r := translateRoute(http, match, port, operation, nameF, proxyLabels, gatewayName); r != nil {
 					out = append(out, *r)
 				}
 			}
@@ -229,42 +228,48 @@ func TranslateRoutes(in model.Config, name ClusterNaming, port int,
 	return out
 }
 
-// TranslateRoute translates HTTP routes
+// sourceMatchHttp checks if the sourceLabels or the gateways in a match condition match with the
+// labels for the proxy or the gateway name for which we are generating a route
+func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels model.LabelsCollection, gatewayName string) bool {
+	if match == nil {
+		return true
+	}
+
+	// Trim by source labels or mesh gateway
+	if len(match.Gateways) > 0 {
+		for _, g := range match.Gateways {
+			if g == gatewayName {
+				return true
+			}
+		}
+	} else if proxyLabels.IsSupersetOf(match.GetSourceLabels()) {
+		return true
+	}
+
+	return false
+}
+
+// translateRoute translates HTTP routes
 // TODO: fault filters -- issue https://github.com/istio/api/issues/388
-func TranslateRoute(in *networking.HTTPRoute,
+func translateRoute(in *networking.HTTPRoute,
 	match *networking.HTTPMatchRequest, port int,
 	operation string,
-	name ClusterNaming,
+	nameF ClusterNameGenerator,
 	proxyLabels model.LabelsCollection,
 	gatewayName string) *route.Route {
 
-	sourceMatched := false
-	// Trim by source labels or mesh gateway
-	if match != nil {
-		if len(match.Gateways) > 0 {
-			for _, g := range match.Gateways {
-				if g == gatewayName {
-					sourceMatched = true
-					break
-				}
-			}
-		} else if proxyLabels.IsSupersetOf(match.GetSourceLabels()) {
-			sourceMatched = true
-		}
-	} else {
-		sourceMatched = true
-	}
-
-	if !sourceMatched {
+	// Match by source labels/gateway names inside the match condition
+	if !sourceMatchHTTP(match, proxyLabels, gatewayName) {
 		return nil
 	}
 
+	// Match by the destination port specified in the match condition
 	if match != nil && match.Port != nil && match.Port.GetNumber() != uint32(port) {
 		return nil
 	}
 
 	out := &route.Route{
-		Match: TranslateRouteMatch(match),
+		Match: translateRouteMatch(match),
 		Decorator: &route.Decorator{
 			Operation: operation,
 		},
@@ -280,9 +285,9 @@ func TranslateRoute(in *networking.HTTPRoute,
 			}}
 	} else {
 		action := &route.RouteAction{
-			Cors:         TranslateCORSPolicy(in.CorsPolicy),
-			RetryPolicy:  TranslateRetryPolicy(in.Retries),
-			Timeout:      TranslateTime(in.Timeout),
+			Cors:         translateCORSPolicy(in.CorsPolicy),
+			RetryPolicy:  translateRetryPolicy(in.Retries),
+			Timeout:      translateTime(in.Timeout),
 			UseWebsocket: &types.BoolValue{Value: in.WebsocketUpgrade},
 		}
 		out.Action = &route.Route_Route{Route: action}
@@ -307,7 +312,7 @@ func TranslateRoute(in *networking.HTTPRoute,
 		}
 
 		if in.Mirror != nil {
-			action.RequestMirrorPolicy = &route.RouteAction_RequestMirrorPolicy{Cluster: name(in.Mirror)}
+			action.RequestMirrorPolicy = &route.RouteAction_RequestMirrorPolicy{Cluster: nameF(in.Mirror)}
 		}
 
 		weighted := make([]*route.WeightedCluster_ClusterWeight, 0)
@@ -317,7 +322,7 @@ func TranslateRoute(in *networking.HTTPRoute,
 				weight.Value = uint32(100)
 			}
 			weighted = append(weighted, &route.WeightedCluster_ClusterWeight{
-				Name:   name(dst.Destination),
+				Name:   nameF(dst.Destination),
 				Weight: weight,
 			})
 		}
@@ -337,15 +342,15 @@ func TranslateRoute(in *networking.HTTPRoute,
 	return out
 }
 
-// TranslateRouteMatch translates match condition
-func TranslateRouteMatch(in *networking.HTTPMatchRequest) route.RouteMatch {
+// translateRouteMatch translates match condition
+func translateRouteMatch(in *networking.HTTPMatchRequest) route.RouteMatch {
 	out := route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}}
 	if in == nil {
 		return out
 	}
 
 	for name, stringMatch := range in.Headers {
-		matcher := TranslateHeaderMatcher(name, stringMatch)
+		matcher := translateHeaderMatch(name, stringMatch)
 		out.Headers = append(out.Headers, &matcher)
 	}
 
@@ -369,25 +374,25 @@ func TranslateRouteMatch(in *networking.HTTPMatchRequest) route.RouteMatch {
 	}
 
 	if in.Method != nil {
-		matcher := TranslateHeaderMatcher(HeaderMethod, in.Method)
+		matcher := translateHeaderMatch(HeaderMethod, in.Method)
 		out.Headers = append(out.Headers, &matcher)
 	}
 
 	if in.Authority != nil {
-		matcher := TranslateHeaderMatcher(HeaderAuthority, in.Authority)
+		matcher := translateHeaderMatch(HeaderAuthority, in.Authority)
 		out.Headers = append(out.Headers, &matcher)
 	}
 
 	if in.Scheme != nil {
-		matcher := TranslateHeaderMatcher(HeaderScheme, in.Scheme)
+		matcher := translateHeaderMatch(HeaderScheme, in.Scheme)
 		out.Headers = append(out.Headers, &matcher)
 	}
 
 	return out
 }
 
-// TranslateHeaderMatcher translates to HeaderMatcher
-func TranslateHeaderMatcher(name string, in *networking.StringMatch) route.HeaderMatcher {
+// translateHeaderMatch translates to HeaderMatcher
+func translateHeaderMatch(name string, in *networking.StringMatch) route.HeaderMatcher {
 	out := route.HeaderMatcher{
 		Name: name,
 	}
@@ -408,20 +413,20 @@ func TranslateHeaderMatcher(name string, in *networking.StringMatch) route.Heade
 	return out
 }
 
-// TranslateRetryPolicy translates retry policy
-func TranslateRetryPolicy(in *networking.HTTPRetry) *route.RouteAction_RetryPolicy {
+// translateRetryPolicy translates retry policy
+func translateRetryPolicy(in *networking.HTTPRetry) *route.RouteAction_RetryPolicy {
 	if in != nil && in.Attempts > 0 {
 		return &route.RouteAction_RetryPolicy{
 			NumRetries:    &types.UInt32Value{Value: uint32(in.GetAttempts())},
 			RetryOn:       "5xx,connect-failure,refused-stream",
-			PerTryTimeout: TranslateTime(in.PerTryTimeout),
+			PerTryTimeout: translateTime(in.PerTryTimeout),
 		}
 	}
 	return nil
 }
 
-// TranslateCORSPolicy translates CORS policy
-func TranslateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
+// translateCORSPolicy translates CORS policy
+func translateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 	if in == nil {
 		return nil
 	}
@@ -440,8 +445,8 @@ func TranslateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 	return &out
 }
 
-// TranslateTime converts time protos.
-func TranslateTime(in *types.Duration) *time.Duration {
+// translateTime converts time protos.
+func translateTime(in *types.Duration) *time.Duration {
 	if in == nil {
 		return nil
 	}
@@ -455,7 +460,7 @@ func TranslateTime(in *types.Duration) *time.Duration {
 // buildDefaultHTTPRoute builds a default route.
 func buildDefaultHTTPRoute(clusterName string) *route.Route {
 	return &route.Route{
-		Match: TranslateRouteMatch(nil),
+		Match: translateRouteMatch(nil),
 		Decorator: &route.Decorator{
 			Operation: DefaultRoute,
 		},
@@ -532,7 +537,7 @@ func (configgen *ConfigGeneratorImpl) BuildSidecarOutboundHTTPRouteConfig(env mo
 
 	// Get list of virtual services bound to the mesh gateway
 	virtualServices := env.VirtualServices([]string{model.IstioMeshGateway})
-	guardedHosts := TranslateVirtualHosts(virtualServices, nameToServiceMap, proxyLabels, model.IstioMeshGateway)
+	guardedHosts := translateVirtualHosts(virtualServices, nameToServiceMap, proxyLabels, model.IstioMeshGateway)
 	vHostPortMap := make(map[int][]route.VirtualHost)
 
 	for _, guardedHost := range guardedHosts {
