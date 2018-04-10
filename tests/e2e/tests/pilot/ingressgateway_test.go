@@ -31,8 +31,8 @@ import (
 // default (kube service level) to expose ports 80/443. So our gateway specs also expose
 // ports 80/443.
 func TestIngressGateway(t *testing.T) {
-	if !tc.V1alpha3 {
-		t.Skipf("Skipping %s: v1alpha3=false", t.Name())
+	if !tc.V1alpha3 || tc.Kube.AuthEnabled {
+		t.Skipf("Skipping %s: v1alpha3=false or auth_enable=true", t.Name())
 	}
 
 	istioNamespace := tc.Kube.IstioSystemNamespace()
