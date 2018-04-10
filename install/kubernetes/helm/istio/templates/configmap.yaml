@@ -87,6 +87,5 @@ data:
       controlPlaneAuthPolicy: NONE
       #
       # Address where istio Pilot service is running
-      # Port 15007 is captured by envoy, but is not yet tuned (max connections, etc)
-      discoveryAddress: istio-pilot.{{ .Release.Namespace }}:8080
+      discoveryAddress: istio-pilot.{{ .Release.Namespace }}:15007
     {{- end }}
