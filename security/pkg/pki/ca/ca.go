@@ -56,10 +56,7 @@ const (
 // CertificateAuthority contains methods to be supported by a CA.
 type CertificateAuthority interface {
 	// Sign generates a certificate for a workload or CA, from the given CSR and TTL.
-	Sign(csrPEM []byte, ttl time.Duration) ([]byte, error)
-	// SignCAServerCert generates a certificate for the CA server (to serve the CSR).
-	// TODO(myidpt): Remove this and add forCA in Sign().
-	SignCAServerCert(csrPEM []byte, ttl time.Duration) ([]byte, error)
+	Sign(csrPEM []byte, ttl time.Duration, forCA bool) ([]byte, error)
 	// GetCAKeyCertBundle returns the KeyCertBundle used by CA.
 	GetCAKeyCertBundle() util.KeyCertBundle
 }
@@ -72,8 +69,6 @@ type IstioCAOptions struct {
 	CertTTL    time.Duration
 	MaxCertTTL time.Duration
 
-	multicluster bool
-
 	KeyCertBundle util.KeyCertBundle
 
 	LivenessProbeOptions *probe.Options
@@ -85,24 +80,21 @@ type IstioCA struct {
 	certTTL    time.Duration
 	maxCertTTL time.Duration
 
-	multicluster bool
-
 	keyCertBundle util.KeyCertBundle
 
 	livenessProbe *probe.Probe
 }
 
 // NewSelfSignedIstioCAOptions returns a new IstioCAOptions instance using self-signed certificate.
-func NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL time.Duration, multicluster bool, org string,
+func NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL time.Duration, org string,
 	namespace string, core corev1.SecretsGetter) (caOpts *IstioCAOptions, err error) {
 	// For the first time the CA is up, it generates a self-signed key/cert pair and write it to
 	// cASecret. For subsequent restart, CA will reads key/cert from cASecret.
 	caSecret, scrtErr := core.Secrets(namespace).Get(cASecret, metav1.GetOptions{})
 	caOpts = &IstioCAOptions{
-		CAType:       selfSignedCA,
-		CertTTL:      certTTL,
-		MaxCertTTL:   maxCertTTL,
-		multicluster: multicluster,
+		CAType:     selfSignedCA,
+		CertTTL:    certTTL,
+		MaxCertTTL: maxCertTTL,
 	}
 	if scrtErr != nil {
 		log.Infof("Failed to get secret (error: %s), will create one", scrtErr)
@@ -150,12 +142,11 @@ func NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL time.Duration, m
 
 // NewPluggedCertIstioCAOptions returns a new IstioCAOptions instance using given certificate.
 func NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile, rootCertFile string,
-	certTTL, maxCertTTL time.Duration, multicluster bool) (caOpts *IstioCAOptions, err error) {
+	certTTL, maxCertTTL time.Duration) (caOpts *IstioCAOptions, err error) {
 	caOpts = &IstioCAOptions{
-		CAType:       pluggedCertCA,
-		CertTTL:      certTTL,
-		MaxCertTTL:   maxCertTTL,
-		multicluster: multicluster,
+		CAType:     pluggedCertCA,
+		CertTTL:    certTTL,
+		MaxCertTTL: maxCertTTL,
 	}
 	if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromFile(
 		signingCertFile, signingKeyFile, certChainFile, rootCertFile); err != nil {
@@ -170,31 +161,15 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 		certTTL:       opts.CertTTL,
 		maxCertTTL:    opts.MaxCertTTL,
 		keyCertBundle: opts.KeyCertBundle,
-		multicluster:  opts.multicluster,
 		livenessProbe: probe.NewProbe(),
 	}
 
 	return ca, nil
 }
 
-// Sign takes a PEM-encoded CSR and returns a signed certificate. If the CA is a multicluster CA,
-// the signed certificate is a CA certificate (CA:TRUE in X509v3 Basic Constraints), otherwise, it is a workload
-// certificate.
-func (ca *IstioCA) Sign(csrPEM []byte, ttl time.Duration) ([]byte, error) {
-	return ca.sign(csrPEM, ttl, ca.multicluster)
-}
-
-// SignCAServerCert signs the certificate for the Istio CA server (to serve the CSR, etc).
-func (ca *IstioCA) SignCAServerCert(csrPEM []byte, ttl time.Duration) ([]byte, error) {
-	return ca.sign(csrPEM, ttl, false)
-}
-
-// GetCAKeyCertBundle returns the KeyCertBundle for the CA.
-func (ca *IstioCA) GetCAKeyCertBundle() util.KeyCertBundle {
-	return ca.keyCertBundle
-}
-
-func (ca *IstioCA) sign(csrPEM []byte, ttl time.Duration, forCA bool) ([]byte, error) {
+// Sign takes a PEM-encoded CSR and ttl, and returns a signed certificate. If forCA is true,
+// the signed certificate is a CA certificate, otherwise, it is a workload certificate.
+func (ca *IstioCA) Sign(csrPEM []byte, ttl time.Duration, forCA bool) ([]byte, error) {
 	signingCert, signingKey, _, _ := ca.keyCertBundle.GetAll()
 	if signingCert == nil {
 		return nil, fmt.Errorf("Istio CA is not ready") // nolint
@@ -223,4 +198,9 @@ func (ca *IstioCA) sign(csrPEM []byte, ttl time.Duration, forCA bool) ([]byte, e
 	cert := pem.EncodeToMemory(block)
 
 	return cert, nil
+}
+
+// GetCAKeyCertBundle returns the KeyCertBundle for the CA.
+func (ca *IstioCA) GetCAKeyCertBundle() util.KeyCertBundle {
+	return ca.keyCertBundle
 }

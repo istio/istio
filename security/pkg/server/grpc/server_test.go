@@ -285,7 +285,7 @@ func TestRun(t *testing.T) {
 	}
 
 	for id, tc := range testCases {
-		server, err := New(tc.ca, time.Hour, tc.hostname, tc.port)
+		server, err := New(tc.ca, time.Hour, false, tc.hostname, tc.port)
 		if err == nil {
 			err = server.Run()
 		}
