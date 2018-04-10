@@ -175,7 +175,7 @@ func TestSign(t *testing.T) {
 	for id, c := range testCases {
 		server := &Server{
 			ca:             c.ca,
-			hostname:       "hostname",
+			hostnames:      []string{"hostname"},
 			port:           8080,
 			authorizer:     c.authorizer,
 			authenticators: c.authenticators,
@@ -240,7 +240,7 @@ func TestShouldRefresh(t *testing.T) {
 func TestRun(t *testing.T) {
 	testCases := map[string]struct {
 		ca                          *mockca.FakeCA
-		hostname                    string
+		hostname                    []string
 		port                        int
 		expectedErr                 string
 		applyServerCertificateError string
@@ -248,12 +248,13 @@ func TestRun(t *testing.T) {
 	}{
 		"Invalid listening port number": {
 			ca:          &mockca.FakeCA{SignedCert: []byte(csr)},
+			hostname:    []string{"localhost"},
 			port:        -1,
 			expectedErr: "cannot listen on port -1 (error: listen tcp: address -1: invalid port)",
 		},
 		"CA sign error": {
 			ca:                          &mockca.FakeCA{SignErr: errors.New("mock CA cannot sign")},
-			hostname:                    "localhost",
+			hostname:                    []string{"localhost"},
 			port:                        0,
 			expectedErr:                 "",
 			expectedAuthenticatorsLen:   2,
@@ -261,18 +262,33 @@ func TestRun(t *testing.T) {
 		},
 		"Bad signed cert": {
 			ca:                        &mockca.FakeCA{SignedCert: []byte(csr)},
-			hostname:                  "localhost",
+			hostname:                  []string{"localhost"},
 			port:                      0,
 			expectedErr:               "",
 			expectedAuthenticatorsLen: 2,
 			applyServerCertificateError: "tls: failed to find \"CERTIFICATE\" PEM block in certificate " +
 				"input after skipping PEM blocks of the following types: [CERTIFICATE REQUEST]",
 		},
+		"Multiple hostname": {
+			ca:       &mockca.FakeCA{SignedCert: []byte(csr)},
+			hostname: []string{"localhost", "fancyhost"},
+			port:     0,
+			expectedAuthenticatorsLen: 3,
+			applyServerCertificateError: "tls: failed to find \"CERTIFICATE\" PEM block in certificate " +
+				"input after skipping PEM blocks of the following types: [CERTIFICATE REQUEST]",
+		},
+		"Empty hostnames": {
+			ca:          &mockca.FakeCA{SignedCert: []byte(csr)},
+			hostname:    []string{},
+			expectedErr: "failed to create grpc server hostlist empty",
+		},
 	}
 
 	for id, tc := range testCases {
-		server := New(tc.ca, time.Hour, tc.hostname, tc.port)
-		err := server.Run()
+		server, err := New(tc.ca, time.Hour, false, tc.hostname, tc.port)
+		if err == nil {
+			err = server.Run()
+		}
 		if len(tc.expectedErr) > 0 {
 			if err == nil {
 				t.Errorf("%s: Succeeded. Error expected: %v", id, err)

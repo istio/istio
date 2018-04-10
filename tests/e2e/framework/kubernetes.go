@@ -34,18 +34,20 @@ import (
 )
 
 const (
-	yamlSuffix                  = ".yaml"
-	istioInstallDir             = "install/kubernetes"
-	istioAddonsDir              = "install/kubernetes/addons"
-	nonAuthInstallFile          = "istio.yaml"
-	authInstallFile             = "istio-auth.yaml"
-	nonAuthInstallFileNamespace = "istio-one-namespace.yaml"
-	authInstallFileNamespace    = "istio-one-namespace-auth.yaml"
-	istioSystem                 = "istio-system"
-	istioIngressServiceName     = "istio-ingress"
-	defaultSidecarInjectorFile  = "istio-sidecar-injector.yaml"
-	mixerValidatorFile          = "istio-mixer-validator.yaml"
-	ingressCertsName            = "istio-ingress-certs"
+	yamlSuffix                     = ".yaml"
+	istioInstallDir                = "install/kubernetes"
+	istioAddonsDir                 = "install/kubernetes/addons"
+	nonAuthInstallFile             = "istio.yaml"
+	authInstallFile                = "istio-auth.yaml"
+	nonAuthInstallFileNamespace    = "istio-one-namespace.yaml"
+	authInstallFileNamespace       = "istio-one-namespace-auth.yaml"
+	istioSystem                    = "istio-system"
+	istioIngressServiceName        = "istio-ingress"
+	istioIngressGatewayServiceName = "istio-ingressgateway"
+	istioEgressGatewayServiceName  = "istio-egressgateway"
+	defaultSidecarInjectorFile     = "istio-sidecar-injector.yaml"
+	mixerValidatorFile             = "istio-mixer-validator.yaml"
+	ingressCertsName               = "istio-ingress-certs"
 
 	maxDeploymentRolloutTime    = 240 * time.Second
 	mtlsExcludedServicesPattern = "mtlsExcludedServices:\\s*\\[(.*)\\]"
@@ -169,6 +171,16 @@ func (k *KubeInfo) IstioSystemNamespace() string {
 // IstioIngressService returns the service name for the ingress service
 func (k *KubeInfo) IstioIngressService() string {
 	return istioIngressServiceName
+}
+
+// IstioIngressGatewayService returns the service name for the ingress gateway service
+func (k *KubeInfo) IstioIngressGatewayService() string {
+	return istioIngressGatewayServiceName
+}
+
+// IstioEgressGatewayService returns the service name for the egress gateway service
+func (k *KubeInfo) IstioEgressGatewayService() string {
+	return istioEgressGatewayServiceName
 }
 
 // Setup set up Kubernetes prerequest for tests

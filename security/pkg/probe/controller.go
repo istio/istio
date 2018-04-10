@@ -90,7 +90,7 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 		return err
 	}
 
-	certPEM, err := c.ca.Sign(csrPEM, c.interval)
+	certPEM, err := c.ca.Sign(csrPEM, c.interval, false)
 	if err != nil {
 		return err
 	}
