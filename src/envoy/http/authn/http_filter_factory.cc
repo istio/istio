@@ -62,8 +62,7 @@ class AuthnFilterConfig : public NamedHttpFilterConfigFactory,
 
   ProtobufTypes::MessagePtr createEmptyConfigProto() override {
     ENVOY_LOG(debug, "Called AuthnFilterConfig : {}", __func__);
-    return ProtobufTypes::MessagePtr{
-        new istio::authentication::v1alpha1::Policy};
+    return ProtobufTypes::MessagePtr{new FilterConfig};
   }
 
   std::string name() override { return kAuthnFactoryName; }
