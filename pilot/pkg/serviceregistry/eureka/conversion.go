@@ -126,7 +126,7 @@ func convertProtocol(md metadata) model.Protocol {
 	name := md[protocolMetadata]
 
 	if md != nil {
-		protocol := model.ConvertCaseInsensitiveStringToProtocol(name)
+		protocol := model.ParseProtocol(name)
 		if protocol == model.ProtocolUnsupported {
 			log.Warnf("unsupported protocol value: %s", name)
 		} else {

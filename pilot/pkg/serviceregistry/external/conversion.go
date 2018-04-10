@@ -26,7 +26,7 @@ func convertPort(port *networking.Port) *model.Port {
 	return &model.Port{
 		Name:                 port.Name,
 		Port:                 int(port.Number),
-		Protocol:             model.ConvertCaseInsensitiveStringToProtocol(port.Protocol),
+		Protocol:             model.ParseProtocol(port.Protocol),
 		AuthenticationPolicy: meshconfig.AuthenticationPolicy_NONE,
 	}
 }

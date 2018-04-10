@@ -154,9 +154,9 @@ const (
 	TrafficDirectionOutbound TrafficDirection = "outbound"
 )
 
-// ConvertCaseInsensitiveStringToProtocol converts a case-insensitive protocol to Protocol
-func ConvertCaseInsensitiveStringToProtocol(protocolAsString string) Protocol {
-	switch strings.ToLower(protocolAsString) {
+// ParseProtocol from string ignoring case
+func ParseProtocol(s string) Protocol {
+	switch strings.ToLower(s) {
 	case "tcp":
 		return ProtocolTCP
 	case "udp":

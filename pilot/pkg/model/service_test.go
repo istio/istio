@@ -202,7 +202,7 @@ func TestConvertCaseInsensitiveStringToProtocol(t *testing.T) {
 	}
 
 	for _, testPair := range testPairs {
-		out := ConvertCaseInsensitiveStringToProtocol(testPair.name)
+		out := ParseProtocol(testPair.name)
 		if out != testPair.out {
 			t.Errorf("ConvertCaseInsensitiveStringToProtocol(%q) => %q, want %q", testPair.name, out, testPair.out)
 		}

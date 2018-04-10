@@ -137,7 +137,7 @@ func convertPortNameToProtocol(name string) model.Protocol {
 	if i >= 0 {
 		prefix = name[:i]
 	}
-	return model.ConvertCaseInsensitiveStringToProtocol(prefix)
+	return model.ParseProtocol(prefix)
 }
 
 func makeService(hostname string, ports map[string]int, resolution model.Resolution) *model.Service {

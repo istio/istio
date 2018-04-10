@@ -924,7 +924,7 @@ func validateServerPort(port *networking.Port) (errs error) {
 	if port == nil {
 		return appendErrors(errs, fmt.Errorf("port is required"))
 	}
-	if ConvertCaseInsensitiveStringToProtocol(port.Protocol) == ProtocolUnsupported {
+	if ParseProtocol(port.Protocol) == ProtocolUnsupported {
 		errs = appendErrors(errs, fmt.Errorf("invalid protocol %q, supported protocols are HTTP, HTTP2, GRPC, MONGO, REDIS, TCP", port.Protocol))
 	}
 	if port.Number > 0 {
@@ -987,7 +987,7 @@ func ValidateEgressRule(msg proto.Message) error {
 		}
 
 		if cidrDestinationService &&
-			!IsEgressRulesSupportedTCPProtocol(ConvertCaseInsensitiveStringToProtocol(port.Protocol)) {
+			!IsEgressRulesSupportedTCPProtocol(ParseProtocol(port.Protocol)) {
 			errs = multierror.Append(errs, fmt.Errorf("Only the following protocols can be defined for "+
 				"CIDR destination service notation: %s. "+
 				"This rule - port: %d protocol: %s destination.service: %s",
@@ -1073,7 +1073,7 @@ func ValidateEgressRulePort(port *routing.EgressRule_Port) error {
 		return err
 	}
 
-	if !IsEgressRulesSupportedProtocol(ConvertCaseInsensitiveStringToProtocol(port.Protocol)) {
+	if !IsEgressRulesSupportedProtocol(ParseProtocol(port.Protocol)) {
 		return fmt.Errorf("egress rule support is available only for the following protocols: %s",
 			egressRulesSupportedProtocols())
 	}
@@ -2290,7 +2290,7 @@ func validatePortName(name string) error {
 }
 
 func validateProtocol(protocol string) error {
-	if ConvertCaseInsensitiveStringToProtocol(protocol) == ProtocolUnsupported {
+	if ParseProtocol(protocol) == ProtocolUnsupported {
 		return fmt.Errorf("unsupported protocol: %s", protocol)
 	}
 	return nil
