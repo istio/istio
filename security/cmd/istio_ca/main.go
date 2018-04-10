@@ -17,6 +17,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -106,7 +107,9 @@ type cliOptions struct { // nolint: maligned
 	workloadCertMinGracePeriod time.Duration
 
 	grpcHostname string
-	grpcPort     int
+	// Comma separated string containing all possible host name that clients may use to connect to.
+	grpcHosts string
+	grpcPort  int
 
 	// Whether the CA signs certificates for other CAs.
 	signCACerts bool
@@ -209,6 +212,8 @@ func init() {
 
 	// gRPC server for signing CSRs.
 	flags.StringVar(&opts.grpcHostname, "grpc-hostname", "istio-ca", "The hostname for GRPC server.")
+	flags.StringVar(&opts.grpcHosts, "grpc-host-identities", "istio-ca",
+		"The list of hostnames for istio ca server, separated by comma.")
 	flags.IntVar(&opts.grpcPort, "grpc-port", 8060, "The port number for GRPC server. "+
 		"If unspecified, Istio CA will not server GRPC request.")
 
@@ -306,7 +311,11 @@ func runCA() {
 		serviceAccountController.Run(ch)
 
 		// The CA API uses cert with the max workload cert TTL.
-		grpcServer := grpc.New(ca, opts.maxWorkloadCertTTL, opts.signCACerts, opts.grpcHostname, opts.grpcPort)
+		hostnames := strings.Split(opts.grpcHosts, ",")
+		grpcServer, startErr := grpc.New(ca, opts.maxWorkloadCertTTL, opts.signCACerts, hostnames, opts.grpcPort)
+		if startErr != nil {
+			fatalf("failed to create istio ca server: %v", startErr)
+		}
 		if serverErr := grpcServer.Run(); serverErr != nil {
 			// stop the registry-related controllers
 			ch <- struct{}{}

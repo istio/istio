@@ -19,6 +19,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"golang.org/x/net/context"
@@ -44,8 +45,8 @@ type Server struct {
 	serverCertTTL  time.Duration
 	ca             ca.CertificateAuthority
 	certificate    *tls.Certificate
+	hostnames      []string
 	forCA          bool
-	hostname       string
 	port           int
 }
 
@@ -115,27 +116,31 @@ func (s *Server) Run() error {
 }
 
 // New creates a new instance of `IstioCAServiceServer`.
-func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostname string, port int) *Server {
+func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []string, port int) (*Server, error) {
+	if len(hostlist) == 0 {
+		return nil, fmt.Errorf("failed to create grpc server hostlist empty")
+	}
 	// Notice that the order of authenticators matters, since at runtime
-	// authenticators are actived sequentially and the first successful attempt
+	// authenticators are activated sequentially and the first successful attempt
 	// is used as the authentication result.
 	authenticators := []authenticator{&clientCertAuthenticator{}}
-	aud := fmt.Sprintf("grpc://%s:%d", hostname, port)
-	if jwtAuthenticator, err := newIDTokenAuthenticator(aud); err != nil {
-		log.Errorf("failed to create JWT authenticator (error %v)", err)
-	} else {
-		authenticators = append(authenticators, jwtAuthenticator)
+	for _, host := range hostlist {
+		aud := fmt.Sprintf("grpc://%s:%d", host, port)
+		if jwtAuthenticator, err := newIDTokenAuthenticator(aud); err != nil {
+			log.Errorf("failed to create JWT authenticator (error %v)", err)
+		} else {
+			authenticators = append(authenticators, jwtAuthenticator)
+		}
 	}
-
 	return &Server{
 		authenticators: authenticators,
 		authorizer:     &registryAuthorizor{registry.GetIdentityRegistry()},
 		serverCertTTL:  ttl,
 		ca:             ca,
+		hostnames:      hostlist,
 		forCA:          forCA,
-		hostname:       hostname,
 		port:           port,
-	}
+	}, nil
 }
 
 func (s *Server) createTLSServerOption() grpc.ServerOption {
@@ -163,7 +168,7 @@ func (s *Server) createTLSServerOption() grpc.ServerOption {
 
 func (s *Server) applyServerCertificate() (*tls.Certificate, error) {
 	opts := util.CertOptions{
-		Host:       s.hostname,
+		Host:       strings.Join(s.hostnames, ","),
 		RSAKeySize: 2048,
 	}
 
