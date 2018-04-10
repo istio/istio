@@ -33,7 +33,7 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-// buildInboundNetworkFilter generates a TCP proxy network filter on the inbound path
+// buildInboundNetworkFilters generates a TCP proxy network filter on the inbound path
 func buildInboundNetworkFilters(instance *model.ServiceInstance) []listener.Filter {
 	config := &tcp_proxy.TcpProxy{
 		StatPrefix: fmt.Sprintf("%s|tcp|%d", model.TrafficDirectionInbound, instance.Endpoint.ServicePort.Port),
