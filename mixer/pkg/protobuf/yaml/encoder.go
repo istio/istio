@@ -24,15 +24,8 @@ import (
 )
 
 type (
-	bufferWriter struct {
-		resolver    Resolver
-		buffer      *proto.Buffer
-		walker      Walker
-		skipUnknown bool
-	}
 	// Encoder transforms yaml that represents protobuf data into []byte
 	Encoder struct {
-		walker   Walker
 		resolver Resolver
 	}
 )
@@ -40,96 +33,104 @@ type (
 // NewEncoder creates a Encoder
 func NewEncoder(fds *descriptor.FileDescriptorSet) *Encoder {
 	resolver := NewResolver(fds)
-	return &Encoder{resolver: resolver, walker: NewWalker(resolver)}
+	return &Encoder{resolver: resolver}
 }
 
 // EncodeBytes creates []byte from a yaml representation of a proto.
-func (c *Encoder) EncodeBytes(data map[interface{}]interface{}, msgName string, skipUnknown bool) ([]byte, error) {
+func (e *Encoder) EncodeBytes(data map[interface{}]interface{}, msgName string, skipUnknown bool) ([]byte, error) {
 	buf := GetBuffer()
-	msgWriter := newBufferWriter(c.resolver, buf, c.walker, skipUnknown)
-	err := c.walker.Walk(data, msgName, skipUnknown, msgWriter)
-	bytes := buf.Bytes()
-	PutBuffer(buf)
+	defer func() { PutBuffer(buf) }()
 
-	if err != nil {
-		return nil, err
+	message := e.resolver.ResolveMessage(msgName)
+	if message == nil {
+		return nil, fmt.Errorf("cannot resolve message '%s'", msgName)
 	}
+	for k, v := range data {
+		fd := findFieldByName(message, k.(string))
+		if fd == nil {
+			if skipUnknown {
+				continue
+			}
+			return nil, fmt.Errorf("field '%s' not found in message '%s'", k, message.GetName())
+		}
 
-	return bytes, nil
+		if err := e.visit(k.(string), v, fd, skipUnknown, buf); err != nil {
+			return nil, err
+		}
+
+	}
+	return buf.Bytes(), nil
 }
 
-func newBufferWriter(resolver Resolver, buffer *proto.Buffer, walker Walker, skipUnknown bool) *bufferWriter {
-	return &bufferWriter{resolver: resolver, buffer: buffer, walker: walker, skipUnknown: skipUnknown}
-}
-
-func (w *bufferWriter) Visit(name string, data interface{}, field *descriptor.FieldDescriptorProto) (Visitor, bool, error) {
+func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDescriptorProto, skipUnknown bool, buffer *proto.Buffer) error {
 	switch field.GetType() {
 	case descriptor.FieldDescriptorProto_TYPE_STRING:
 		v, ok := data.(string)
 		if !ok {
-			return nil, false, badTypeError(name, "string", data)
+			return badTypeError(name, "string", data)
 		}
 
-		_ = w.buffer.EncodeVarint(encodeIndexAndType(int(field.GetNumber()), proto.WireBytes))
-		_ = w.buffer.EncodeStringBytes(v)
+		// Errors from proto.Buffer.Encode* are always nil, therefore ignoring.
+		_ = buffer.EncodeVarint(encodeIndexAndType(int(field.GetNumber()), proto.WireBytes))
+		_ = buffer.EncodeStringBytes(v)
 	case descriptor.FieldDescriptorProto_TYPE_DOUBLE:
 		v, ok := data.(float64)
 		if !ok {
-			return nil, false, badTypeError(name, "float64", data)
+			return badTypeError(name, "float64", data)
 		}
-		_ = w.buffer.EncodeVarint(encodeIndexAndType(int(field.GetNumber()), proto.WireFixed64))
-		_ = w.buffer.EncodeFixed64(math.Float64bits(v))
+		_ = buffer.EncodeVarint(encodeIndexAndType(int(field.GetNumber()), proto.WireFixed64))
+		_ = buffer.EncodeFixed64(math.Float64bits(v))
 	case descriptor.FieldDescriptorProto_TYPE_INT64:
 		v, ok := data.(int)
 		if !ok {
-			return nil, false, badTypeError(name, "int", data)
+			return badTypeError(name, "int", data)
 		}
-		_ = w.buffer.EncodeVarint(encodeIndexAndType(int(field.GetNumber()), proto.WireVarint))
-		_ = w.buffer.EncodeVarint(uint64(v))
+		_ = buffer.EncodeVarint(encodeIndexAndType(int(field.GetNumber()), proto.WireVarint))
+		_ = buffer.EncodeVarint(uint64(v))
 	case descriptor.FieldDescriptorProto_TYPE_BOOL:
 		v, ok := data.(bool)
 		if !ok {
-			return nil, false, badTypeError(name, "bool", data)
+			return badTypeError(name, "bool", data)
 		}
 		val := uint64(0)
 		if v {
 			val = uint64(1)
 		}
-		_ = w.buffer.EncodeVarint(encodeIndexAndType(int(field.GetNumber()), proto.WireVarint))
-		_ = w.buffer.EncodeVarint(val)
+		_ = buffer.EncodeVarint(encodeIndexAndType(int(field.GetNumber()), proto.WireVarint))
+		_ = buffer.EncodeVarint(val)
 	case descriptor.FieldDescriptorProto_TYPE_ENUM:
 		enumValStr, ok := data.(string)
 		if !ok {
-			return nil, false, badTypeError(name, fmt.Sprintf("enum(%s)", strings.TrimPrefix(field.GetTypeName(), ".")), data)
+			return badTypeError(name, fmt.Sprintf("enum(%s)", strings.TrimPrefix(field.GetTypeName(), ".")), data)
 		}
-		enum := w.resolver.ResolveEnum(field.GetTypeName()) // enum must exist since resolver has full transitive closure.
+		enum := e.resolver.ResolveEnum(field.GetTypeName()) // enum must exist since resolver has full transitive closure.
 		for _, val := range enum.Value {
 			if val.GetName() == enumValStr {
-				_ = w.buffer.EncodeVarint(encodeIndexAndType(int(field.GetNumber()), uint64(field.WireType())))
-				_ = w.buffer.EncodeVarint(uint64(val.GetNumber()))
-				return w, true, nil
+				_ = buffer.EncodeVarint(encodeIndexAndType(int(field.GetNumber()), uint64(field.WireType())))
+				_ = buffer.EncodeVarint(uint64(val.GetNumber()))
+				return nil
 			}
 		}
-		return nil, false, fmt.Errorf("unrecognized enum value '%s' for enum '%s'", enumValStr, enum.GetName())
+		return fmt.Errorf("unrecognized enum value '%s' for enum '%s'", enumValStr, enum.GetName())
 	case descriptor.FieldDescriptorProto_TYPE_MESSAGE:
-		buffer := GetBuffer()
-		msgWriter := newBufferWriter(w.resolver, buffer, w.walker, w.skipUnknown)
-		err := w.walker.Walk(data.(map[interface{}]interface{}), field.GetTypeName(), w.skipUnknown, msgWriter)
-		bytes := buffer.Bytes()
-		PutBuffer(buffer)
-
-		if err != nil {
-			return nil, false, err
+		v, ok := data.(map[interface{}]interface{})
+		if !ok {
+			return badTypeError(name, strings.TrimPrefix(field.GetTypeName(), "."), data)
 		}
-		_ = w.buffer.EncodeVarint(encodeIndexAndType(int(field.GetNumber()), uint64(field.WireType())))
-		_ = w.buffer.EncodeRawBytes(bytes)
 
-		return w, false, nil
+		bytes, err := e.EncodeBytes(v, field.GetTypeName(), skipUnknown)
+		if err != nil {
+			return err
+		}
+		_ = buffer.EncodeVarint(encodeIndexAndType(int(field.GetNumber()), uint64(field.WireType())))
+		_ = buffer.EncodeRawBytes(bytes)
+
+		return nil
 	default:
-		return nil, false, fmt.Errorf("unrecognized field type '%s'", (*field.Type).String())
+		return fmt.Errorf("unrecognized field type '%s'", (*field.Type).String())
 	}
 
-	return w, true, nil
+	return nil
 }
 
 func badTypeError(name, wantType string, data interface{}) error {

@@ -107,7 +107,7 @@ type testdata struct {
 	expected    proto.Message
 }
 
-func TestEmptyMessage(t *testing.T) {
+func TestEncodeBytes(t *testing.T) {
 	fds, err := getFileDescSet("testdata/all/types.descriptor")
 	if err != nil {
 		t.Fatal(err)
