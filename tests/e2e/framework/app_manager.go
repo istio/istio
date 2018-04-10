@@ -23,7 +23,9 @@ import (
 	"istio.io/istio/tests/util"
 )
 
-var useAutomaticInjection = flag.Bool("use-automatic-injection", false, "Use automatic injection instead of kube-inject for transparent proxy injection")
+var (
+	useAutomaticInjection = flag.Bool("use-automatic-injection", false, "Use automatic injection instead of kube-inject for transparent proxy injection")
+)
 
 const (
 	kubeInjectPrefix = "KubeInject"

@@ -353,6 +353,13 @@ mixs:
 $(MIXER_GO_BINS):
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./mixer/cmd/$(@F)
 
+GALLEY_GO_BINS:=${ISTIO_OUT}/gals
+gals:
+	bin/gobuild.sh ${ISTIO_OUT}/gals istio.io/istio/pkg/version ./galley/cmd/gals
+
+$(GALLEY_GO_BINS):
+	bin/gobuild.sh $@ istio.io/istio/pkg/version ./galley/cmd/$(@F)
+	
 servicegraph:
 	bin/gobuild.sh ${ISTIO_OUT}/$@ istio.io/istio/pkg/version ./addons/servicegraph/cmd/server
 

@@ -169,6 +169,12 @@ $(MIXER_DOCKER): mixer/docker/Dockerfile$$(suffix $$@) \
 		$(ISTIO_DOCKER)/ca-certificates.tgz $(ISTIO_DOCKER)/mixs | $(ISTIO_DOCKER)
 	$(DOCKER_RULE)
 
+# galley docker images
+
+GALLEY_DOCKER:=docker.galley
+$(GALLEY_DOCKER): galley/docker/Dockerfile$$(suffix $$@) $(ISTIO_DOCKER)/gals | $(ISTIO_DOCKER)
+	$(DOCKER_RULE)
+
 # security docker images
 
 docker.istio-ca:        $(ISTIO_DOCKER)/istio_ca     $(ISTIO_DOCKER)/ca-certificates.tgz
@@ -190,7 +196,7 @@ $(foreach FILE,$(GRAFANA_FILES),$(eval docker.grafana: $(ISTIO_DOCKER)/$(notdir 
 docker.grafana: addons/grafana/Dockerfile$$(suffix $$@) $(GRAFANA_FILES) $(ISTIO_DOCKER)/dashboards
 	$(DOCKER_RULE)
 
-DOCKER_TARGETS:=docker.pilot docker.proxy docker.proxy_debug docker.proxyv2 docker.app $(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER) docker.grafana
+DOCKER_TARGETS:=docker.pilot docker.proxy docker.proxy_debug docker.proxyv2 docker.app $(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER) docker.grafana $(GALLEY_DOCKER)
 
 DOCKER_RULE=time (cp $< $(ISTIO_DOCKER)/ && cd $(ISTIO_DOCKER) && \
             docker build -t $(HUB)/$(subst docker.,,$@):$(TAG) -f Dockerfile$(suffix $@) .)

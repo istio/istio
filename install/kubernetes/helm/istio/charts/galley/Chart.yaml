@@ -1,13 +1,8 @@
-apiVersion: v1
-name: istio
+name: galley
 version: 0.5.0
-description: Helm chart for all istio components
+description: Helm chart for galley deployment
 keywords:
   - istio
-  - security
-  - sidecar-injector
-  - mixer
-  - pilot
   - galley
 sources:
   - http://github.com/istio/istio

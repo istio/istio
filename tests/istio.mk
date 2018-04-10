@@ -52,10 +52,12 @@ DEFAULT_EXTRA_E2E_ARGS += --mixer_tag=${TAG}
 DEFAULT_EXTRA_E2E_ARGS += --pilot_tag=${TAG}
 DEFAULT_EXTRA_E2E_ARGS += --proxy_tag=${TAG}
 DEFAULT_EXTRA_E2E_ARGS += --ca_tag=${TAG}
+DEFAULT_EXTRA_E2E_ARGS += --galley_tag=${TAG}
 DEFAULT_EXTRA_E2E_ARGS += --mixer_hub=${HUB}
 DEFAULT_EXTRA_E2E_ARGS += --pilot_hub=${HUB}
 DEFAULT_EXTRA_E2E_ARGS += --proxy_hub=${HUB}
 DEFAULT_EXTRA_E2E_ARGS += --ca_hub=${HUB}
+DEFAULT_EXTRA_E2E_ARGS += --galley_hub=${HUB}
 
 EXTRA_E2E_ARGS ?= ${DEFAULT_EXTRA_E2E_ARGS}
 

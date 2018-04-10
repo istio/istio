@@ -29,12 +29,8 @@ import (
 	durpb "github.com/golang/protobuf/ptypes/duration"
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
-	"k8s.io/api/core/v1"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
@@ -43,7 +39,6 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pilot/pkg/config/memory"
 	configmonitor "istio.io/istio/pilot/pkg/config/monitor"
-	"istio.io/istio/pilot/pkg/kube/admit"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/plugin/registry"
@@ -59,6 +54,9 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
+	"k8s.io/api/core/v1"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 const (
@@ -72,7 +70,8 @@ const (
 
 var (
 	// TODO: use model.IstioConfigTypes once model.IngressRule is deprecated
-	configDescriptor = model.ConfigDescriptor{
+	// ConfigDescriptor describes all supported configuration kinds.
+	ConfigDescriptor = model.ConfigDescriptor{
 		model.RouteRule,
 		model.VirtualService,
 		model.Gateway,
@@ -131,37 +130,6 @@ type ServiceArgs struct {
 	Eureka     EurekaArgs
 }
 
-// AdmissionArgs provides configuration options for the admission controller. This is a partial duplicate of
-// admit.ControllerOptions (other fields are filled out before constructing the admission controller). Only
-// used if running with k8s, Consul, or Eureka (not in a mock environment).
-type AdmissionArgs struct {
-	// ExternalAdmissionWebhookName is the name of the
-	// ExternalAdmissionHook which describes he external admission
-	// webhook and resources and operations it applies to.
-	ExternalAdmissionWebhookName string
-
-	// ServiceName is the service name of the webhook.
-	ServiceName string
-
-	// SecretName is the name of k8s secret that contains the webhook
-	// server key/cert and corresponding CA cert that signed them. The
-	// server key/cert are used to serve the webhook and the CA cert
-	// is provided to k8s apiserver during admission controller
-	// registration.
-	SecretName string
-
-	// Port where the webhook is served. Per k8s admission
-	// registration requirements this should be 443 unless there is
-	// only a single port for the service.
-	Port int
-
-	// RegistrationDelay controls how long admission registration
-	// occurs after the webhook is started. This is used to avoid
-	// potential races where registration completes and k8s apiserver
-	// invokes the webhook before the HTTP server is started.
-	RegistrationDelay time.Duration
-}
-
 // PilotArgs provides all of the configuration parameters for the Pilot discovery service.
 type PilotArgs struct {
 	DiscoveryOptions envoy.DiscoveryServiceOptions
@@ -169,7 +137,7 @@ type PilotArgs struct {
 	Mesh             MeshArgs
 	Config           ConfigArgs
 	Service          ServiceArgs
-	Admission        AdmissionArgs
+	RDSv2            bool
 }
 
 // Server contains the runtime configuration for the Pilot discovery service.
@@ -218,9 +186,6 @@ func NewServer(args PilotArgs) (*Server, error) {
 		return nil, err
 	}
 	if err := s.initMesh(&args); err != nil {
-		return nil, err
-	}
-	if err := s.initAdmissionController(&args); err != nil {
 		return nil, err
 	}
 	if err := s.initMixerSan(&args); err != nil {
@@ -430,7 +395,7 @@ func (c *mockController) Run(<-chan struct{}) {}
 // initConfigController creates the config controller in the pilotConfig.
 func (s *Server) initConfigController(args *PilotArgs) error {
 	if args.Config.FileDir != "" {
-		store := memory.Make(configDescriptor)
+		store := memory.Make(ConfigDescriptor)
 		configController := memory.NewController(store)
 
 		err := s.makeFileMonitor(args, configController)
@@ -466,7 +431,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 
 func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCache, error) {
 	kubeCfgFile := s.getKubeCfgFile(args)
-	configClient, err := crd.NewClient(kubeCfgFile, configDescriptor, args.Config.ControllerOptions.DomainSuffix)
+	configClient, err := crd.NewClient(kubeCfgFile, ConfigDescriptor, args.Config.ControllerOptions.DomainSuffix)
 	if err != nil {
 		return nil, multierror.Prefix(err, "failed to open a config client.")
 	}
@@ -479,7 +444,7 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCac
 }
 
 func (s *Server) makeFileMonitor(args *PilotArgs, configController model.ConfigStore) error {
-	fileSnapshot := configmonitor.NewFileSnapshot(args.Config.FileDir, configDescriptor)
+	fileSnapshot := configmonitor.NewFileSnapshot(args.Config.FileDir, ConfigDescriptor)
 	fileMonitor := configmonitor.NewMonitor(configController, FilepathWalkInterval, fileSnapshot.ReadConfigFiles)
 
 	// Defer starting the file monitor until after the service is created.
@@ -774,42 +739,6 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		return err
 	})
 
-	return nil
-}
-
-// initAdmissionController creates and initializes the k8s admission controller if running in a k8s environment.
-func (s *Server) initAdmissionController(args *PilotArgs) error {
-	if s.kubeClient == nil {
-		// Not running in a k8s environment - do nothing.
-		return nil
-	}
-
-	// Create the arguments for the admission controller
-	admissionArgs := admit.ControllerOptions{
-		ExternalAdmissionWebhookName: args.Admission.ExternalAdmissionWebhookName,
-		ServiceName:                  args.Admission.ServiceName,
-		SecretName:                   args.Admission.SecretName,
-		Port:                         args.Admission.Port,
-		RegistrationDelay:            args.Admission.RegistrationDelay,
-		Descriptor:                   configDescriptor,
-		ServiceNamespace:             args.Namespace,
-		DomainSuffix:                 args.Config.ControllerOptions.DomainSuffix,
-		ValidateNamespaces: []string{
-			args.Config.ControllerOptions.WatchedNamespace,
-			args.Namespace,
-		},
-	}
-
-	admissionController, err := admit.NewController(s.kubeClient, admissionArgs)
-	if err != nil {
-		return err
-	}
-
-	// Defer running the admission controller.
-	s.addStartFunc(func(stop chan struct{}) error {
-		go admissionController.Run(stop)
-		return nil
-	})
 	return nil
 }
 
