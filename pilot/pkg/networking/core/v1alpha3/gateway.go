@@ -130,7 +130,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 			}
 			networkFilters = buildGatewayNetworkFilters(env, server, []string{name})
 		}
-
 		newListener := buildListener(opts)
 
 		var httpFilters []*http_conn.HttpFilter
@@ -154,10 +153,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 		if err := marshalFilters(newListener, opts, networkFilters, httpFilters); err != nil {
 			log.Warn(err.Error())
 		}
-
 		listeners = append(listeners, newListener)
 	}
-
 	return listeners, nil
 }
 
@@ -246,9 +243,21 @@ func buildGatewayNetworkFilters(env model.Environment, server *networking.Server
 	}
 
 	dests := filterTCPDownstreams(env, server, gatewayNames)
-	filters := make([]listener.Filter, 0, len(dests))
+	// de-dupe destinations by hostname; we'll take a random destination if multiple claim the same host
+	byHost := make(map[string]*networking.Destination, len(dests))
 	for _, dest := range dests {
-		filters = append(filters, buildOutboundNetworkFilters(destToClusterName(dest), []string{dest.Host}, port)...)
+		local := dest
+		byHost[dest.Host] = local
+	}
+
+	filters := make([]listener.Filter, 0, len(byHost))
+	for host, dest := range byHost {
+		upstream, err := env.GetService(host)
+		if err != nil {
+			log.Debugf("failed to retrieve service for destination %q: %v", host, err)
+			continue
+		}
+		filters = append(filters, buildOutboundNetworkFilters(destToClusterName(dest), []string{upstream.Address}, port)...)
 	}
 	return filters
 }
@@ -333,5 +342,5 @@ func gatherDestinations(weights []*networking.DestinationWeight) []*networking.D
 
 // TODO: move up to more general location so this can be re-used
 func destToClusterName(d *networking.Destination) string {
-	return model.BuildSubsetKey(model.TrafficDirectionOutbound, d.Subset, d.Host, &model.Port{Name: d.Port.GetName(), Port: int(d.Port.GetNumber())})
+	return model.BuildSubsetKey(model.TrafficDirectionOutbound, d.Subset, d.Host, &model.Port{Name: d.Port.GetName()})
 }

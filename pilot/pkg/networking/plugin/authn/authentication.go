@@ -29,7 +29,7 @@ import (
 	authn "istio.io/api/authentication/v1alpha1"
 	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	pluginPkg "istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
 )
@@ -49,12 +49,12 @@ const (
 	jwtPublicKeyCacheSeconds = 60 * 5
 )
 
-// plugin implements Istio mTLS auth
-type plugin struct{}
+// Plugin implements Istio mTLS auth
+type Plugin struct{}
 
 // NewPlugin returns an instance of the authn plugin
-func NewPlugin() pluginPkg.Plugin {
-	return plugin{}
+func NewPlugin() plugin.Plugin {
+	return Plugin{}
 }
 
 // RequireTLS returns true and pointer to mTLS params if the policy use mTLS for (peer) authentication.
@@ -264,11 +264,7 @@ func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy) *auth.Do
 
 // OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service
 // Can be used to add additional filters on the outbound path
-func (plugin) OnOutboundListener(in *pluginPkg.InputParams, mutable *pluginPkg.MutableObjects) error {
-	if in.Node.Type != model.Router {
-		// Only care about Router nodes.
-		return nil
-	}
+func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 	// TODO: implementation
 	return nil
 }
@@ -276,9 +272,9 @@ func (plugin) OnOutboundListener(in *pluginPkg.InputParams, mutable *pluginPkg.M
 // OnInboundListener is called whenever a new listener is added to the LDS output for a given service
 // Can be used to add additional filters (e.g., mixer filter) or add more stuff to the HTTP connection manager
 // on the inbound path
-func (plugin) OnInboundListener(in *pluginPkg.InputParams, mutable *pluginPkg.MutableObjects) error {
-	if in.Node.Type != model.Router {
-		// Only care about Router nodes.
+func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+	if in.Node.Type != model.Sidecar {
+		// Only care about sidecar.
 		return nil
 	}
 	authnPolicy := model.GetConsolidateAuthenticationPolicy(
@@ -299,24 +295,22 @@ func (plugin) OnInboundListener(in *pluginPkg.InputParams, mutable *pluginPkg.Mu
 	return nil
 }
 
-// OnInboundCluster is called whenever a new cluster is added to the CDS output
-// Not used typically
-func (plugin) OnInboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
+// OnInboundCluster implements the Plugin interface method.
+func (Plugin) OnInboundCluster(env model.Environment, node model.Proxy, service *model.Service,
+	servicePort *model.Port, cluster *xdsapi.Cluster) {
 }
 
-// OnOutboundRoute is called whenever a new set of virtual hosts (a set of virtual hosts with routes) is added to
-// RDS in the outbound path. Can be used to add route specific metadata or additional headers to forward
-func (plugin) OnOutboundRouteConfiguration(in *pluginPkg.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
+// OnOutboundRouteConfiguration implements the Plugin interface method.
+func (Plugin) OnOutboundRouteConfiguration(in *plugin.InputParams, route *xdsapi.RouteConfiguration) {
 }
 
-// OnInboundRoute is called whenever a new set of virtual hosts are added to the inbound path.
-// Can be used to enable route specific stuff like Lua filters or other metadata.
-func (plugin) OnInboundRouteConfiguration(in *pluginPkg.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
+// OnInboundRouteConfiguration implements the Plugin interface method.
+func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, route *xdsapi.RouteConfiguration) {
 }
 
-// OnOutboundCluster is called whenever a new cluster is added to the CDS output
-// Typically used by AuthN plugin to add mTLS settings
-func (plugin) OnOutboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
+// OnOutboundCluster implements the Plugin interface method.
+func (Plugin) OnOutboundCluster(env model.Environment, node model.Proxy, service *model.Service,
+	servicePort *model.Port, cluster *xdsapi.Cluster) {
 	mesh := env.Mesh
 	config := env.IstioConfigStore
 

@@ -103,19 +103,19 @@ e2e_pilot: istioctl generate_yaml
 
 ## Targets for fast local development and staged CI.
 # The test take a T argument. Example:
-# make test/local/noauth/e2e_pilot_alpha3 T=-t.run=TestPilot/ingress
+# make test/local/noauth/e2e_pilotv2 T=-test.run=TestPilot/ingress
 
-test/minikube/auth/e2e_simple:
+test/minikube/auth/e2e_simple: generate_yaml
 	set -o pipefail; go test -v -timeout 20m ./tests/e2e/tests/simple -args --auth_enable=true \
 	  --skip_cleanup  -use_local_cluster -cluster_wide \
 	  ${E2E_ARGS} ${EXTRA_E2E_ARGS}  ${T}\
            ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-auth-simple.raw
 
-test/minikube/noauth/e2e_simple:
+test/minikube/noauth/e2e_simple: generate_yaml
 	mkdir -p ${OUT_DIR}/tests
 	set -o pipefail; go test -v -timeout 20m ./tests/e2e/tests/simple -args --auth_enable=false \
 	  --skip_cleanup  -use_local_cluster -cluster_wide -test.v \
-	  ${E2E_ARGS} ${EXTRA_E2E_ARGS}  ${T} \
+	  ${E2E_ARGS} ${EXTRA_E2E_ARGS} ${T} \
            ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-noauth-simple.raw
 
 # v1alpha1+envoy v1 test with MTLS
@@ -123,34 +123,35 @@ test/minikube/noauth/e2e_simple:
 # This will only (re)run the test - call "make docker istio.yaml" (or "make pilot docker.pilot" if
 # you only changed pilot) to build.
 # Note: This test is used by CircleCI as "e2e-pilot".
-test/local/auth/e2e_pilot:
-	@mkdir -p /go/out/logs
+test/local/auth/e2e_pilot: generate_yaml
+	@mkdir -p ${OUT_DIR}/logs
 	set -o pipefail; go test -v -timeout 20m ./tests/e2e/tests/pilot \
  	--skip_cleanup --auth_enable=true --egress=false --v1alpha3=false \
-	${E2E_ARGS} ${EXTRA_E2E_ARGS} ${T} \
+	${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} \
 		| tee ${OUT_DIR}/logs/test-report.raw
 
 # v1alpha3+envoyv2 test without MTLS
-test/local/noauth/e2e_pilotv2:
-	@mkdir -p /go/out/logs
+test/local/noauth/e2e_pilotv2: generate_yaml-envoyv2_transition
+	@mkdir -p ${OUT_DIR}/logs
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 20m ./tests/e2e/tests/pilot \
- 	--skip_cleanup --auth_enable=false --v1alpha3=true --egress=false --ingress=false --rbac_enable=false --v1alpha1=false \
-	${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS}  ${T} \
+ 	--skip_cleanup --auth_enable=false --v1alpha3=true --egress=false --ingress=false --rbac_enable=false --v1alpha1=false --cluster_wide \
+	${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} \
 		| tee ${OUT_DIR}/logs/test-report.raw
 
 # v1alpha3+envoyv2 test without MTLS (not implemented yet). Still in progress, for tracking
-test/local/noauth/e2e_simple_pilotv2:
-	@mkdir -p /go/out/logs
+test/local/noauth/e2e_simple_pilotv2: generate_yaml-envoyv2_transition
+	@mkdir -p ${OUT_DIR}/logs
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 20m ./tests/e2e/tests/simple \
 	--skip_cleanup --auth_enable=false \
-    	  ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${T} \
+    ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} \
 		| tee ${OUT_DIR}/logs/test-report.raw
 
 # Dumpsys will get as much info as possible from the test cluster
 # Can be run after tests. It will also process the auto-saved log output
 # This assume istio runs in istio-system namespace, and 'skip-cleanup' was used in tests.
 dumpsys:
-	@mkdir -p /go/out/tests
+	@mkdir -p ${OUT_DIR}/tests
+	@mkdir -p ${OUT_DIR}/logs
 	kubectl get all -o wide --all-namespaces
 	kubectl cluster-info dump > ${OUT_DIR}/logs/cluster-info.dump.txt
 	kubectl describe pods -n istio-system > ${OUT_DIR}/logs/pods-system.txt

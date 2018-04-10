@@ -65,3 +65,50 @@ func TestIngressGateway(t *testing.T) {
 		return errAgain
 	})
 }
+
+// TODO: rename this file gateway_test.go, merge w/ egress too? At least this test and test above
+// use gateway as an "ingress" of sorts.
+func TestGateway_TCP(t *testing.T) {
+	if !tc.V1alpha3 {
+		t.Skipf("Skipping %s: V1alpha3=false", t.Name())
+	}
+	// TODO: use current namespace so test doesn't require --cluster_wide flag
+	// circle CI always runs with --cluster_wide, and its required for gateway tests atm due to
+	// gateway resource only being created in istio-system namespace
+	istioNamespace := tc.Kube.IstioSystemNamespace()
+
+	cfgs := &deployableConfig{
+		Namespace: istioNamespace,
+		YamlFiles: []string{
+			"testdata/v1alpha3/rule-force-a-through-ingress-gateway.yaml",
+			"testdata/v1alpha3/rule-gateway-a.yaml",
+			"testdata/v1alpha3/gateway-tcp-a.yaml",
+		},
+	}
+	if err := cfgs.Setup(); err != nil {
+		t.Fatal(err)
+	}
+	defer cfgs.Teardown()
+
+	cases := []struct {
+		// empty destination to expect 404
+		dst string
+		url string
+	}{
+		{
+			dst: "a",
+			url: fmt.Sprintf("http://%s.%s:%d", "a", istioNamespace, 9090),
+		},
+	}
+	t.Run("tcp_requests", func(t *testing.T) {
+		for _, c := range cases {
+			runRetriableTest(t, c.url, defaultRetryBudget, func() error {
+				resp := ClientRequest("b", c.url, 1, "")
+				if resp.IsHTTPOk() {
+					return nil
+				}
+				return errAgain
+			})
+		}
+	})
+}

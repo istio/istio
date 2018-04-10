@@ -1,0 +1,19 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: force-a-through-ingress-gateway
+spec:
+  hosts:
+  - a
+  tcp:
+  - match:
+      # only match the TCP port so we don't affect HTTP traffic
+    - port: 9090
+      # TODO: this subnet is from my GKE cluster; is this the k8s default, and could we just 10.0.0.0/8?
+      sourceSubnet: "10.16.0.0/14"
+    route:
+    - destination:
+        # use the shortname so the test doesn't depend on istio-system namespace
+        host: istio-ingressgateway
+        port:
+          number: 31400
