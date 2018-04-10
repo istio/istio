@@ -23,7 +23,8 @@ import (
 
 // Visitor defines the callback made by the Walker.
 type Visitor interface {
-	Visit(name string, val interface{}, field *descriptor.FieldDescriptorProto) (Visitor, error)
+	Visit(name string, val interface{}, field *descriptor.FieldDescriptorProto) (visitor Visitor,
+		continueWalk bool, err error)
 }
 
 // Walker visits all the nodes inside yaml in a BFS, and calls back with the observed information.
@@ -71,7 +72,7 @@ func (r *walker) walk(name string, data interface{}, field *descriptor.FieldDesc
 		descriptor.FieldDescriptorProto_TYPE_INT64,
 		descriptor.FieldDescriptorProto_TYPE_BOOL,
 		descriptor.FieldDescriptorProto_TYPE_ENUM:
-		_, err := visitor.Visit(name, data, field)
+		_, _, err := visitor.Visit(name, data, field)
 		return err
 	case descriptor.FieldDescriptorProto_TYPE_MESSAGE:
 		msgData, ok := data.(map[interface{}]interface{})
@@ -79,11 +80,14 @@ func (r *walker) walk(name string, data interface{}, field *descriptor.FieldDesc
 			return badTypeError(name, strings.TrimPrefix(field.GetTypeName(), "."), data)
 		}
 
-		child, err := visitor.Visit(name, data, field)
+		child, contWalk, err := visitor.Visit(name, data, field)
 		if err != nil {
 			return err
 		}
-		return r.Walk(msgData, field.GetTypeName(), skipUnknown, child)
+		if contWalk {
+			return r.Walk(msgData, field.GetTypeName(), skipUnknown, child)
+		}
+		return nil
 	}
 
 	return fmt.Errorf("unrecognized field type '%s'", (*field.Type).String())

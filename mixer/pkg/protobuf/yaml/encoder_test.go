@@ -20,7 +20,6 @@ package yaml
 
 import (
 	"bytes"
-	"fmt"
 	"io/ioutil"
 	"reflect"
 	"strings"
@@ -75,6 +74,12 @@ b: ""
 	badInt64 = `
 i64: ""
 `
+
+	badInt64SubMsg = `
+oth:
+  i64: ""
+`
+
 	badDouble = `
 dbl: ""
 `
@@ -198,6 +203,14 @@ func TestEmptyMessage(t *testing.T) {
 			expected:    &foo.Simple{},
 		},
 		{
+			n:           "int64 type mismatch sub-message",
+			msg:         ".foo.Simple",
+			input:       badInt64SubMsg,
+			skipUnknown: false,
+			err:         "field 'i64' is of type 'string' instead of expected type 'int'",
+			expected:    &foo.Simple{},
+		},
+		{
 			n:           "message type mismatch",
 			msg:         ".foo.Simple",
 			input:       badMessage,
@@ -239,7 +252,6 @@ func TestEmptyMessage(t *testing.T) {
 			if td.err == "" {
 				wantInst := proto.Clone(td.expected)
 				js, err := yaml.YAMLToJSON([]byte(td.input))
-				fmt.Println(string(js))
 				if err != nil {
 					tt.Fatalf("Cannot marshal as json %s; %v", td.input, err)
 				}
