@@ -26,6 +26,7 @@ import (
 	"bytes"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	authn "istio.io/api/authentication/v1alpha1"
@@ -509,14 +510,15 @@ func ParseServiceKey(s string) (hostname string, ports PortList, labels LabelsCo
 // BuildSubsetKey generates a unique string referencing service instances for a given service name, a subset and a port.
 // The proxy queries Pilot with this key to obtain the list of instances in a subset.
 func BuildSubsetKey(direction TrafficDirection, subsetName, hostname string, port *Port) string {
-	return fmt.Sprintf("%s|%s|%s|%s", direction, port.Name, subsetName, hostname)
+	return fmt.Sprintf("%s|%d|%s|%s", direction, port.Port, subsetName, hostname)
 }
 
 // ParseSubsetKey is the inverse of the BuildSubsetKey method
 func ParseSubsetKey(s string) (direction TrafficDirection, subsetName, hostname string, port *Port) {
 	parts := strings.Split(s, "|")
+	p, _ := strconv.Atoi(parts[1])
 	// we ignore direction since its typically not used by the consuming functions
-	port = &Port{Name: parts[1]}
+	port = &Port{Port: p}
 	subsetName = parts[2]
 	hostname = parts[3]
 

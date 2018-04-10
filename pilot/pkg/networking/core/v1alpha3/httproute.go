@@ -167,7 +167,6 @@ func convertDestinationToCluster(
 		// detect if it is a service
 		svc := serviceIndex[destination.Host]
 
-		// TODO: create clusters for non-service hostnames/IPs
 		if svc == nil {
 			return UnresolvedCluster
 		}

@@ -185,19 +185,19 @@ func TestSubsetKey(t *testing.T) {
 			hostname: "hostname",
 			subset:   "subset",
 			port:     &model.Port{Name: "http", Port: 80, Protocol: model.ProtocolHTTP},
-			want:     "outbound|http|subset|hostname",
+			want:     "outbound|80|subset|hostname",
 		},
 		{
 			hostname: "hostname",
 			subset:   "subset",
-			port:     &model.Port{Port: 80, Protocol: model.ProtocolHTTP},
-			want:     "outbound||subset|hostname",
+			port:     &model.Port{Name: "http", Protocol: model.ProtocolHTTP},
+			want:     "outbound|0|subset|hostname",
 		},
 		{
 			hostname: "hostname",
 			subset:   "",
 			port:     &model.Port{Name: "http", Port: 80, Protocol: model.ProtocolHTTP},
-			want:     "outbound|http||hostname",
+			want:     "outbound|80||hostname",
 		},
 	}
 
@@ -209,9 +209,15 @@ func TestSubsetKey(t *testing.T) {
 
 		// test parse subset key. ParseSubsetKey is the inverse of BuildSubsetKey
 		_, s, h, p := model.ParseSubsetKey(got)
-		if s != c.subset || h != c.hostname || p.Name != c.port.Name {
-			t.Errorf("Failed: got %s,%s,%s want %s,%s,%s", s, h, p.Name, c.subset, c.hostname, c.port.Name)
+		if s != c.subset || h != c.hostname || p.Port != c.port.Port {
+			t.Errorf("Failed: got %s,%s,%d want %s,%s,%d", s, h, p.Port, c.subset, c.hostname, c.port.Port)
 		}
+	}
+
+	// Test with invalid port val in key
+	_, s, h, p := model.ParseSubsetKey("outbound|http|subset|hostname")
+	if s != "subset" || h != "hostname" || p.Port != 0 {
+		t.Errorf("failed: got %s,%s,%d want subset,hostname,0", s, h, p.Port)
 	}
 }
 
