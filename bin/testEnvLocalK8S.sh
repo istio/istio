@@ -8,7 +8,7 @@ set -euo pipefail
 
 # expect istio scripts to be under $GOPATH/src/istio.io/istio/bin/...
 
-export TOP=${GOPATH}
+export TOP=${TOP:-${GOPATH}}
 export ISTIO_GO=${TOP}/src/istio.io/istio
 
 if [[ "$OSTYPE" == "darwin"* ]]; then 
@@ -191,14 +191,10 @@ function startMixer() {
 }
 
 function startEnvoy() {
-  if [[ "$OSTYPE" != "darwin"* ]]; then
     printf "Envoy starting...\n"
     ${ISTIO_OUT}/envoy -c tests/testdata/envoy_local.json \
         --base-id 4 --service-cluster unittest --service-node local.test
     echo $! > $LOG_DIR/envoy4.pid
-  else
-     printf "No Envoy on MAC, sorry...\n"
-  fi
 }
 
 function stopLocalApiserver() {
