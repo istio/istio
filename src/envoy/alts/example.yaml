@@ -19,6 +19,9 @@ static_resources:
         name: alts
         config:
           handshaker_service: "169.254.169.254:8080"
+          # Please add the actual service account used in your environment, otherwise the ALTS
+          # connection will be closed due to validation failure.
+          target_service_accounts: ["test-service-account"]
       filters:
       - name: envoy.tcp_proxy
         config:
@@ -30,6 +33,9 @@ static_resources:
       name: alts
       config:
         handshaker_service: "169.254.169.254:8080"
+        # Please add the actual service account used in your environment, otherwise the ALTS
+        # connection will be closed due to validation failure.
+        target_service_accounts: ["test-service-account"]
     connect_timeout: 0.25s
     type: strict_dns
     lb_policy: round_robin

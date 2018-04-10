@@ -29,6 +29,36 @@ namespace Envoy {
 namespace Server {
 namespace Configuration {
 
+using ::google::protobuf::RepeatedPtrField;
+
+// Returns true if the peer's service account is found in targets, otherwise
+// returns false and fills out err with an error message.
+static bool doValidate(const tsi_peer &peer,
+                       const RepeatedPtrField<std::string> &targets,
+                       std::string &err) {
+  for (size_t i = 0; i < peer.property_count; ++i) {
+    std::string name = std::string(peer.properties[i].name);
+    std::string value = std::string(peer.properties[i].value.data,
+                                    peer.properties[i].value.length);
+    if (name.compare(TSI_ALTS_SERVICE_ACCOUNT_PEER_PROPERTY) == 0) {
+      for (int j = 0; j < targets.size(); ++j) {
+        if (value.compare(targets[j]) == 0) {
+          return true;
+        }
+      }
+    }
+  }
+
+  err = "Couldn't find peer's service account in targets: ";
+  for (int i = 0; i < targets.size(); ++i) {
+    if (i != 0) {
+      err += ", ";
+    }
+    err += targets[i];
+  }
+  return false;
+}
+
 ProtobufTypes::MessagePtr
 AltsTransportSocketConfigFactory::createEmptyConfigProto() {
   return std::make_unique<envoy::security::v2::AltsSocket>();
@@ -47,6 +77,7 @@ UpstreamAltsTransportSocketConfigFactory::createTransportSocketFactory(
           message);
 
   std::string handshaker_service = config.handshaker_service();
+  const auto &target_service_accounts = config.target_service_accounts();
 
   return std::make_unique<Security::TsiSocketFactory>(
       [handshaker_service](Event::Dispatcher &dispatcher) {
@@ -67,6 +98,9 @@ UpstreamAltsTransportSocketConfigFactory::createTransportSocketFactory(
 
         return std::make_unique<Security::TsiHandshaker>(handshaker,
                                                          dispatcher);
+      },
+      [target_service_accounts](const tsi_peer &peer, std::string &err) {
+        return doValidate(peer, target_service_accounts, err);
       });
 }
 
@@ -79,6 +113,7 @@ DownstreamAltsTransportSocketConfigFactory::createTransportSocketFactory(
           message);
 
   std::string handshaker_service = config.handshaker_service();
+  const auto &target_service_accounts = config.target_service_accounts();
 
   return std::make_unique<Security::TsiSocketFactory>(
       [handshaker_service](Event::Dispatcher &dispatcher) {
@@ -96,6 +131,9 @@ DownstreamAltsTransportSocketConfigFactory::createTransportSocketFactory(
 
         return std::make_unique<Security::TsiHandshaker>(handshaker,
                                                          dispatcher);
+      },
+      [target_service_accounts](const tsi_peer &peer, std::string &err) {
+        return doValidate(peer, target_service_accounts, err);
       });
 }
 

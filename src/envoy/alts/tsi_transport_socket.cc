@@ -20,8 +20,11 @@
 namespace Envoy {
 namespace Security {
 
-TsiSocket::TsiSocket(HandshakerFactory handshaker_factory)
-    : handshaker_factory_(handshaker_factory), raw_buffer_callbacks_(*this) {
+TsiSocket::TsiSocket(HandshakerFactory handshaker_factory,
+                     HandshakeValidator handshake_validator)
+    : handshaker_factory_(handshaker_factory),
+      handshake_validator_(handshake_validator),
+      raw_buffer_callbacks_(*this) {
   raw_buffer_socket_.setTransportSocketCallbacks(raw_buffer_callbacks_);
 }
 
@@ -82,12 +85,27 @@ Network::PostIoAction TsiSocket::doHandshakeNextDone(
     tsi_handshaker_result_extract_peer(handshaker_result, &peer);
     ENVOY_CONN_LOG(debug, "TSI: Handshake successful: peer properties: {}",
                    callbacks_->connection(), peer.property_count);
-    // TODO(lizan): validate peers
     for (size_t i = 0; i < peer.property_count; ++i) {
       ENVOY_CONN_LOG(debug, "  {}: {}", callbacks_->connection(),
                      peer.properties[i].name,
                      std::string(peer.properties[i].value.data,
                                  peer.properties[i].value.length));
+    }
+    if (handshake_validator_) {
+      std::string err = "";
+      bool peer_validated = handshake_validator_(peer, err);
+      if (peer_validated) {
+        ENVOY_CONN_LOG(info, "TSI: Handshake validation succeeded.",
+                       callbacks_->connection());
+      } else {
+        ENVOY_CONN_LOG(warn, "TSI: Handshake validation failed: {}",
+                       callbacks_->connection(), err);
+        tsi_peer_destruct(&peer);
+        return Network::PostIoAction::Close;
+      }
+    } else {
+      ENVOY_CONN_LOG(info, "TSI: Handshake validation skipped.",
+                     callbacks_->connection());
     }
     tsi_peer_destruct(&peer);
 
@@ -196,13 +214,15 @@ void TsiSocket::onNextDone(NextResultPtr &&result) {
   }
 }
 
-TsiSocketFactory::TsiSocketFactory(HandshakerFactory handshaker_factory)
-    : handshaker_factory_(std::move(handshaker_factory)) {}
+TsiSocketFactory::TsiSocketFactory(HandshakerFactory handshaker_factory,
+                                   HandshakeValidator handshake_validator)
+    : handshaker_factory_(std::move(handshaker_factory)),
+      handshake_validator_(std::move(handshake_validator)) {}
 
 bool TsiSocketFactory::implementsSecureTransport() const { return true; }
 
 Network::TransportSocketPtr TsiSocketFactory::createTransportSocket() const {
-  return std::make_unique<TsiSocket>(handshaker_factory_);
+  return std::make_unique<TsiSocket>(handshaker_factory_, handshake_validator_);
 }
 }  // namespace Security
 }  // namespace Envoy

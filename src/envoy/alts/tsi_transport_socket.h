@@ -24,6 +24,8 @@ namespace Envoy {
 namespace Security {
 
 typedef std::function<TsiHandshakerPtr(Event::Dispatcher&)> HandshakerFactory;
+typedef std::function<bool(const tsi_peer& peer, std::string& err)>
+    HandshakeValidator;
 
 /**
  * A implementation of Network::TransportSocket based on gRPC TSI
@@ -34,8 +36,12 @@ class TsiSocket : public Network::TransportSocket,
  public:
   /**
    * @param handshaker_factory a function to initiate a TsiHandshaker
+   * @param handshake_validator a function to validate the peer. Called right
+   * after the handshake completed with peer data to do the peer validation.
+   * The connection will be closed immediately if it returns false.
    */
-  explicit TsiSocket(HandshakerFactory handshaker_factory);
+  TsiSocket(HandshakerFactory handshaker_factory,
+            HandshakeValidator handshake_validator);
   virtual ~TsiSocket();
 
   // Network::TransportSocket
@@ -80,6 +86,7 @@ class TsiSocket : public Network::TransportSocket,
   Network::PostIoAction doHandshakeNextDone(NextResultPtr&& next_result);
 
   HandshakerFactory handshaker_factory_;
+  HandshakeValidator handshake_validator_;
   TsiHandshakerPtr handshaker_{};
   bool handshaker_next_calling_{};
   // TODO(lizan): wrap frame protector in a C++ class
@@ -99,13 +106,15 @@ class TsiSocket : public Network::TransportSocket,
  */
 class TsiSocketFactory : public Network::TransportSocketFactory {
  public:
-  explicit TsiSocketFactory(HandshakerFactory handshaker_factory);
+  TsiSocketFactory(HandshakerFactory handshaker_factory,
+                   HandshakeValidator handshake_validator);
 
   bool implementsSecureTransport() const override;
   Network::TransportSocketPtr createTransportSocket() const override;
 
  private:
   HandshakerFactory handshaker_factory_;
+  HandshakeValidator handshake_validator_;
 };
 }  // namespace Security
 }  // namespace Envoy

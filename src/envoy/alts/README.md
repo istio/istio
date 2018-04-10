@@ -7,4 +7,6 @@ A prototype of
 support for Istio/Envoy. It depends on ALTS stack in gRPC library and implemented as Envoy's
 [transport socket](https://www.envoyproxy.io/docs/envoy/latest/api-v2/api/v2/core/base.proto#core-transportsocket).
 
-A example config is in `example.yaml`.
+An example config is in `example.yaml`. Note: Please replace the `target_service_accounts` with the
+actual service account in your environment, otherwise the ALTS connection will be closed due to
+validation failure.
