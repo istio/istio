@@ -34,23 +34,16 @@ import (
 )
 
 // buildInboundNetworkFilter generates a TCP proxy network filter on the inbound path
-func buildInboundNetworkFilter(instance *model.ServiceInstance) listener.Filter {
+func buildInboundNetworkFilters(instance *model.ServiceInstance) []listener.Filter {
 	config := &tcp_proxy.TcpProxy{
 		StatPrefix: fmt.Sprintf("%s|tcp|%d", model.TrafficDirectionInbound, instance.Endpoint.ServicePort.Port),
 		Cluster:    model.BuildSubsetKey(model.TrafficDirectionInbound, "", instance.Service.Hostname, instance.Endpoint.ServicePort),
 	}
-	return listener.Filter{
-		Name:   xdsutil.TCPProxy,
-		Config: util.MessageToStruct(config),
-	}
-}
-
-// buildInboundNetworkFilters is a convenience wrapper around buildInboundNetworkFilter that can be used inline
-// constructing Envoy listener config (which requires an array of network filters even though Istio commonly only
-// constructs a single filter).
-func buildInboundNetworkFilters(instance *model.ServiceInstance) []listener.Filter {
 	return []listener.Filter{
-		buildInboundNetworkFilter(instance),
+		{
+			Name:   xdsutil.TCPProxy,
+			Config: util.MessageToStruct(config),
+		},
 	}
 }
 
