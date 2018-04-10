@@ -27,6 +27,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"istio.io/istio/security/pkg/pki/ca"
 	mockca "istio.io/istio/security/pkg/pki/ca/mock"
 	mockutil "istio.io/istio/security/pkg/pki/util/mock"
 	pb "istio.io/istio/security/proto"
@@ -116,7 +117,7 @@ func TestSign(t *testing.T) {
 	testCases := map[string]struct {
 		authenticators []authenticator
 		authorizer     *mockAuthorizer
-		ca             istioCA
+		ca             ca.CertificateAuthority
 		csr            string
 		cert           string
 		certChain      string
@@ -270,7 +271,7 @@ func TestRun(t *testing.T) {
 	}
 
 	for id, tc := range testCases {
-		server := New(tc.ca, time.Hour, tc.hostname, tc.port)
+		server := New(tc.ca, time.Hour, false, tc.hostname, tc.port)
 		err := server.Run()
 		if len(tc.expectedErr) > 0 {
 			if err == nil {
