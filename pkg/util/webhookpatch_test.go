@@ -111,12 +111,12 @@ func TestMutatingWebhookPatch(t *testing.T) {
 
 func TestValidatingWebhookPatch(t *testing.T) {
 	ts := []struct {
-		name        string
-		configs     admissionregistrationv1beta1.ValidatingWebhookConfigurationList
-		configName  string
+		name         string
+		configs      admissionregistrationv1beta1.ValidatingWebhookConfigurationList
+		configName   string
 		webhookNames []string
-		pemData     []byte
-		err         string
+		pemData      []byte
+		err          string
 	}{
 		{
 			"WebhookConfigNotFound",

@@ -17,13 +17,12 @@ package cmd
 import (
 	"fmt"
 	"io/ioutil"
-	"time"
-
-	"github.com/spf13/cobra"
-
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
+
+	"github.com/spf13/cobra"
 
 	"istio.io/istio/galley/cmd/shared"
 	"istio.io/istio/galley/pkg/crd/validation"

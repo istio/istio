@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -110,6 +110,7 @@ type Webhook struct {
 	keyFile             string
 }
 
+// CreateMixerValidator creates a mixer backend validator.
 func CreateMixerValidator(kubeconfig string) (store.BackendValidator, error) {
 	info := generatedTmplRepo.SupportedTmplInfo
 	templates := make(map[string]*template.Info, len(info))
