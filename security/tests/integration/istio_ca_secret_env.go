@@ -78,7 +78,7 @@ func (env *SecretTestEnv) GetComponents() []framework.Component {
 				env.ClientSet,
 				env.NameSpace,
 				citadelSelfSigned,
-				fmt.Sprintf("%v/istio-ca:%v", env.Hub, env.Tag),
+				fmt.Sprintf("%v/citadel:%v", env.Hub, env.Tag),
 				[]string{
 					"/usr/local/bin/istio_ca",
 				},

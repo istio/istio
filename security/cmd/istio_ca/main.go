@@ -17,6 +17,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -106,9 +107,12 @@ type cliOptions struct { // nolint: maligned
 	workloadCertMinGracePeriod time.Duration
 
 	grpcHostname string
-	grpcPort     int
+	// Comma separated string containing all possible host name that clients may use to connect to.
+	grpcHosts string
+	grpcPort  int
 
-	multiclusterCA bool
+	// Whether the CA signs certificates for other CAs.
+	signCACerts bool
 
 	cAClientConfig caclient.Config
 
@@ -208,10 +212,12 @@ func init() {
 
 	// gRPC server for signing CSRs.
 	flags.StringVar(&opts.grpcHostname, "grpc-hostname", "istio-citadel", "The hostname for GRPC server.")
+	flags.StringVar(&opts.grpcHosts, "grpc-host-identities", "istio-citadel",
+		"The list of hostnames for istio ca server, separated by comma.")
 	flags.IntVar(&opts.grpcPort, "grpc-port", 8060, "The port number for GRPC server. "+
 		"If unspecified, Istio CA will not server GRPC request.")
 
-	flags.BoolVar(&opts.multiclusterCA, "multicluster-ca", false, "Whether the CA is a multicluster CA")
+	flags.BoolVar(&opts.signCACerts, "sign-ca-certs", false, "Whether the CA signs certificates for other CAs")
 
 	// Liveness Probe configuration
 	flags.StringVar(&opts.LivenessProbeOptions.Path, "liveness-probe-path", "",
@@ -276,7 +282,7 @@ func runCA() {
 	ca := createCA(cs.CoreV1())
 	// For workloads in K8s, we apply the configured workload cert TTL.
 	sc, err := controller.NewSecretController(ca, opts.workloadCertTTL, opts.workloadCertGracePeriodRatio,
-		opts.workloadCertMinGracePeriod, cs.CoreV1(), opts.listenedNamespace, webhooks)
+		opts.workloadCertMinGracePeriod, cs.CoreV1(), opts.signCACerts, opts.listenedNamespace, webhooks)
 	if err != nil {
 		fatalf("failed to create secret controller: %v", err)
 	}
@@ -305,7 +311,11 @@ func runCA() {
 		serviceAccountController.Run(ch)
 
 		// The CA API uses cert with the max workload cert TTL.
-		grpcServer := grpc.New(ca, opts.maxWorkloadCertTTL, opts.grpcHostname, opts.grpcPort)
+		hostnames := strings.Split(opts.grpcHosts, ",")
+		grpcServer, startErr := grpc.New(ca, opts.maxWorkloadCertTTL, opts.signCACerts, hostnames, opts.grpcPort)
+		if startErr != nil {
+			fatalf("failed to create istio ca server: %v", startErr)
+		}
 		if serverErr := grpcServer.Run(); serverErr != nil {
 			// stop the registry-related controllers
 			ch <- struct{}{}
@@ -350,14 +360,14 @@ func createCA(core corev1.SecretsGetter) *ca.IstioCA {
 	if opts.selfSignedCA {
 		log.Info("Use self-signed certificate as the CA certificate")
 		caOpts, err = ca.NewSelfSignedIstioCAOptions(opts.selfSignedCACertTTL, opts.workloadCertTTL,
-			opts.maxWorkloadCertTTL, opts.multiclusterCA, opts.selfSignedCAOrg, opts.istioCaStorageNamespace, core)
+			opts.maxWorkloadCertTTL, opts.selfSignedCAOrg, opts.istioCaStorageNamespace, core)
 		if err != nil {
 			fatalf("Failed to create a self-signed Istio CA (error: %v)", err)
 		}
 	} else {
 		log.Info("Use certificate from argument as the CA certificate")
 		caOpts, err = ca.NewPluggedCertIstioCAOptions(opts.certChainFile, opts.signingCertFile, opts.signingKeyFile,
-			opts.rootCertFile, opts.workloadCertTTL, opts.maxWorkloadCertTTL, opts.multiclusterCA)
+			opts.rootCertFile, opts.workloadCertTTL, opts.maxWorkloadCertTTL)
 		if err != nil {
 			fatalf("Failed to create an Istio CA (error: %v)", err)
 		}
