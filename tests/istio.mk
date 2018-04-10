@@ -70,7 +70,7 @@ UPGRADE_E2E_ARGS ?= ${DEFAULT_UPGRADE_E2E_ARGS}
 # Simple e2e test using fortio, approx 2 min
 e2e_simple: istioctl generate_yaml e2e_simple_run
 
-e2e_mixer: istioctl generate_yaml e2e_simple_run
+e2e_mixer: istioctl generate_yaml e2e_mixer_run
 
 e2e_dashboard: istioctl generate_yaml e2e_dashboard_run
 
