@@ -230,7 +230,7 @@ func applyConnectionPool(cluster *v2.Cluster, settings *networking.ConnectionPoo
 
 	if settings.Tcp != nil {
 		if settings.Tcp.ConnectTimeout != nil {
-			cluster.ConnectTimeout = util.ConvertGogoDurationToDuration(settings.Tcp.ConnectTimeout)
+			cluster.ConnectTimeout = util.GogoDurationToDuration(settings.Tcp.ConnectTimeout)
 		}
 
 		if settings.Tcp.MaxConnections > 0 {
