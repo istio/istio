@@ -184,7 +184,7 @@ func GetIngress(n string) (string, error) {
 		return "", err
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, 300*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 600*time.Second)
 	defer cancel()
 
 	client := &http.Client{Timeout: 5 * time.Second}

@@ -43,7 +43,7 @@ const (
 	defaultSidecarInjectorFile  = "istio-sidecar-injector.yaml"
 	mixerValidatorFile          = "istio-mixer-validator.yaml"
 
-	maxDeploymentRolloutTime = 120 * time.Second
+	maxDeploymentRolloutTime = 240 * time.Second
 )
 
 var (
