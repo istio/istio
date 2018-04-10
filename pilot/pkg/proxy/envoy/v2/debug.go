@@ -48,8 +48,6 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	})
 
 	mux.HandleFunc("/debug/edsz", edsz)
-
-	mux.HandleFunc("/debug/ldsz", ldsz)
 	mux.HandleFunc("/debug/adsz", adsz)
 	mux.HandleFunc("/debug/cdsz", cdsz)
 
@@ -375,22 +373,42 @@ func adsz(w http.ResponseWriter, req *http.Request) {
 		fmt.Fprintf(w, "Pushed to %d servers", len(adsClients))
 		return
 	}
-	adsClientsMutex.RLock()
-	data, err := json.Marshal(adsClients)
-	adsClientsMutex.RUnlock()
 
-	if err != nil {
-		_, _ = w.Write([]byte(err.Error()))
+	if proxyID := req.Form.Get("proxyID"); proxyID != "" {
+		writeADSForSidecar(w, proxyID)
 		return
 	}
-
-	_, _ = w.Write(data)
+	writeAllADS(w)
 }
 
-func ldsz(w http.ResponseWriter, req *http.Request) {
+func writeADSForSidecar(w http.ResponseWriter, proxyID string) {
 	adsClientsMutex.RLock()
+	defer adsClientsMutex.RUnlock()
+	connections := adsSidecarIDConnectionsMap[proxyID]
+	for _, conn := range connections {
+		for _, ls := range conn.HTTPListeners {
+			jsonm := &jsonpb.Marshaler{Indent: "  "}
+			dbgString, _ := jsonm.MarshalToString(ls)
+			if _, err := w.Write([]byte(dbgString)); err != nil {
+				return
+			}
+			fmt.Fprintln(w)
+		}
+		for _, cs := range conn.HTTPClusters {
+			jsonm := &jsonpb.Marshaler{Indent: "  "}
+			dbgString, _ := jsonm.MarshalToString(cs)
+			if _, err := w.Write([]byte(dbgString)); err != nil {
+				return
+			}
+			fmt.Fprintln(w)
+		}
+	}
+	return
+}
 
-	//data, err := json.Marshal(ldsClients)
+func writeAllADS(w http.ResponseWriter) {
+	adsClientsMutex.RLock()
+	defer adsClientsMutex.RUnlock()
 
 	// Dirty json generation - because standard json is dirty (struct madness)
 	// Unfortunately we must use the jsonbp to encode part of the json - I'm sure there are
@@ -424,8 +442,6 @@ func ldsz(w http.ResponseWriter, req *http.Request) {
 		fmt.Fprint(w, "]}\n")
 	}
 	fmt.Fprint(w, "]\n")
-
-	adsClientsMutex.RUnlock()
 }
 
 // edsz implements a status and debug interface for EDS.
