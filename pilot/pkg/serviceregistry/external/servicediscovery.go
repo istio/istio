@@ -55,7 +55,7 @@ func (d *externalDiscovery) GetService(hostname string) (*model.Service, error) 
 
 func (d *externalDiscovery) getServices() []*model.Service {
 	services := make([]*model.Service, 0)
-	for _, config := range  d.store.ExternalServices() {
+	for _, config := range d.store.ExternalServices() {
 		externalService := config.Spec.(*networking.ExternalService)
 		services = append(services, convertService(externalService)...)
 	}

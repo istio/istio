@@ -174,7 +174,7 @@ func makeInstance(externalSvc *networking.ExternalService, address string, port 
 			ServicePort: &model.Port{
 				Name:                 svcPort.Name,
 				Port:                 int(svcPort.Number),
-				Protocol:             model.ParsePort(svcPort.Protocol),
+				Protocol:             model.ParseProtocol(svcPort.Protocol),
 				AuthenticationPolicy: mesh.AuthenticationPolicy_NONE,
 			},
 		},
