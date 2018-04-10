@@ -993,13 +993,13 @@ func getCheckCacheHits(promAPI v1.API) (float64, error) {
 		remoteCheck = 0
 	}
 
+	log.Infof("Total check call is %v and remote check call is %v", totalCheck, remoteCheck)
 	if remoteCheck > totalCheck {
 		// Remote check calls should always be less than or equal to total check calls.
-		return 0, fmt.Errorf("check call metric is invalid: remote check call %v is more than total check call %v", remoteCheck, totalCheck)
+		log.Info("Remote check call is more than total check call, this is not normal, use 0 as cache hit")
 	}
-	log.Infof("Total check call is %v and remote check call is %v", totalCheck, remoteCheck)
 	// number of cached check call is the gap between total check calls and remote check calls.
-	return totalCheck - remoteCheck, nil
+	return math.Max(totalCheck-remoteCheck, 0), nil
 }
 
 func fqdn(service string) string {
