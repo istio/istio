@@ -120,21 +120,9 @@ func (configgen *ConfigGeneratorImpl) BuildSidecarOutboundHTTPRouteConfig(env mo
 		}
 
 		for _, svc := range guardedHost.Services {
-			domains := []string{svc.Hostname, fmt.Sprintf("%s:%d", svc.Hostname, guardedHost.Port)}
-			if !svc.MeshExternal {
-				domains = append(domains, generateAltVirtualHosts(svc.Hostname, guardedHost.Port, node.Domain)...)
-			}
-			if len(svc.Address) > 0 {
-				// add a vhost match for the IP (if its non CIDR)
-				cidr := util.ConvertAddressToCidr(svc.Address)
-				if cidr.PrefixLen.Value == 32 {
-					domains = append(domains, svc.Address)
-					domains = append(domains, fmt.Sprintf("%s:%d", svc.Address, guardedHost.Port))
-				}
-			}
 			virtualHosts = append(virtualHosts, route.VirtualHost{
 				Name:    fmt.Sprintf("%s:%d", svc.Hostname, guardedHost.Port),
-				Domains: domains,
+				Domains: buildVirtualHostDomains(svc, guardedHost.Port, node),
 				Routes:  guardedHost.Routes,
 			})
 		}
@@ -168,6 +156,24 @@ func (configgen *ConfigGeneratorImpl) BuildSidecarOutboundHTTPRouteConfig(env mo
 	return out
 }
 
+// buildVirtualHostDomains generates the set of domain matches for a service being accessed from
+// a proxy node
+func buildVirtualHostDomains(service *model.Service, port int, node model.Proxy) []string {
+	domains := []string{service.Hostname, fmt.Sprintf("%s:%d", service.Hostname, port)}
+	if !service.MeshExternal {
+		domains = append(domains, generateAltVirtualHosts(service.Hostname, port, node.Domain)...)
+	}
+	if len(service.Address) > 0 {
+		// add a vhost match for the IP (if its non CIDR)
+		cidr := util.ConvertAddressToCidr(service.Address)
+		if cidr.PrefixLen.Value == 32 {
+			domains = append(domains, service.Address)
+			domains = append(domains, fmt.Sprintf("%s:%d", service.Address, port))
+		}
+	}
+	return domains
+}
+
 // Given a service, and a port, this function generates all possible HTTP Host headers.
 // For example, a service of the form foo.local.campus.net on port 80, with local domain "local.campus.net"
 // could be accessed as http://foo:80 within the .local network, as http://foo.local:80 (by other clients
@@ -188,8 +194,10 @@ func generateAltVirtualHosts(hostname string, port int, proxyDomain string) []st
 	var vhosts []string
 	uniqHostname, sharedDNSDomain := getUniqueAndSharedDNSDomain(hostname, proxyDomain)
 
+	// If there is no shared DNS name (e.g., foobar.com service on local.net proxy domain)
+	// do not generate any alternate virtual host representations
 	if len(sharedDNSDomain) == 0 {
-		return nil // shared dns domain would be
+		return nil
 	}
 
 	// adds the uniq piece foo, foo:80
@@ -259,7 +267,6 @@ func min(a, b int) int {
 // When given foo.ns2.svc.cluster.local and ns2.svc.cluster.local, this function will return
 // foo, ns2.svc.cluster.local.
 func getUniqueAndSharedDNSDomain(fqdnHostname, proxyDomain string) (string, string) {
-
 	// split them by the dot and reverse the arrays, so that we can
 	// start collecting the shared bits of DNS suffix.
 	// E.g., foo.ns1.svc.cluster.local -> local,cluster,svc,ns1,foo
