@@ -4,6 +4,7 @@
     dest: "{{ istio_dir }}/install/kubernetes/"
     mode: 0755
   when: istio_version_to_use < minimum_istio_version_for_webhook_certificates
+  ignore_errors: true
   with_items:
     - webhook-create-signed-cert.sh
     - webhook-patch-ca-bundle.sh
