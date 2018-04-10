@@ -311,7 +311,7 @@ func runCA() {
 
 		// The CA API uses cert with the max workload cert TTL.
 		hostnames := strings.Split(opts.grpcHosts, ",")
-		grpcServer, err := grpc.New(ca, opts.maxWorkloadCertTTL, hostnames, opts.grpcPort)
+		grpcServer, err = grpc.New(ca, opts.maxWorkloadCertTTL, hostnames, opts.grpcPort)
 		if err != nil {
 			fatalf("failed to create istio ca server: %v", err)
 		}
