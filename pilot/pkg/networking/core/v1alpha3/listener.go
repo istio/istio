@@ -238,13 +238,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 		newListener := buildListener(listenerOpts)
 		// call plugins
 		for _, p := range configgen.Plugins {
-			params := &plugin.CallbackListenerInputParams{
+			params := &plugin.InputParams{
 				ListenerType:    listenerType,
 				Env:             &env,
 				Node:            &node,
 				ServiceInstance: instance,
 			}
-			mutable := &plugin.CallbackListenerMutableObjects{
+			mutable := &plugin.MutableObjects{
 				Listener:    newListener,
 				TCPFilters:  &networkFilters,
 				HTTPFilters: &httpFilters,
@@ -357,13 +357,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 			newListener := buildListener(listenerOpts)
 
 			for _, p := range configgen.Plugins {
-				params := &plugin.CallbackListenerInputParams{
+				params := &plugin.InputParams{
 					ListenerType: listenerType,
 					Env:          &env,
 					Node:         &node,
 					Service:      service,
 				}
-				mutable := &plugin.CallbackListenerMutableObjects{
+				mutable := &plugin.MutableObjects{
 					Listener:    newListener,
 					TCPFilters:  &networkFilters,
 					HTTPFilters: &httpFilters,
