@@ -115,6 +115,23 @@ message ProxyConfig {
 
   // Path to the proxy bootstrap template file
   string proxy_bootstrap_template_path = 17;
+
+  // The mode used to redirect inbound traffic to Envoy.
+  // This setting has no effect on outbound traffic: iptables REDIRECT is always used for
+  // outbound connections.
+  enum InboundInterceptionMode {
+    // The REDIRECT mode uses iptables REDIRECT to NAT and redirect to Envoy. This mode loses
+    // source IP addresses during redirection.
+    REDIRECT = 0;
+    // The TPROXY mode uses iptables TPROXY to redirect to Envoy. This mode preserves both the
+    // source and destination IP addresses and ports, so that they can be used for advanced
+    // filtering and manipulation. This mode also configures the sidecar to run with the
+    // CAP_NET_ADMIN capability, which is required to use TPROXY.
+    TPROXY = 1;
+  }
+
+  // The mode used to redirect inbound traffic to Envoy.
+  InboundInterceptionMode interception_mode = 18;
 }
 
 // MeshConfig defines mesh-wide variables shared by all Envoy instances in the
