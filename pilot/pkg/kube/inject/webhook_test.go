@@ -34,7 +34,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"istio.io/istio/pilot/pkg/kube/admit/testcerts"
+	"istio.io/istio/galley/pkg/crd/validation/testcerts"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
 )
