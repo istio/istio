@@ -43,8 +43,9 @@ properties:
   installIstioRelease:
     type: string
     description: Install Istio Release version.
-    default: 0.6.0
+    default: 0.7.1
     enum:
+      - 0.7.1
       - 0.6.0
       - 0.5.1
 
