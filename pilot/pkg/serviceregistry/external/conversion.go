@@ -17,6 +17,8 @@ package external
 import (
 	"net"
 
+	"strings"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -52,10 +54,10 @@ func convertServices(externalService *networking.ExternalService) []*model.Servi
 	for _, host := range externalService.Hosts {
 		// set address if host is an IP or CIDR prefix
 		var address string
-		if _, _, err := net.ParseCIDR(host); err == nil {
+		if _, _, cidrErr := net.ParseCIDR(host); cidrErr == nil || net.ParseIP(host) != nil {
 			address = host
-		} else if net.ParseIP(host) != nil {
-			address = host
+			// FIXME: create common function for CIDR prefix to metrics friendly name?
+			host = strings.Replace(host, "/", "_", -1) // make hostname easy to parse for metrics
 		}
 
 		out = append(out, &model.Service{
