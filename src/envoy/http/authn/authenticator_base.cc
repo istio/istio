@@ -15,7 +15,7 @@
 
 #include "src/envoy/http/authn/authenticator_base.h"
 #include "src/envoy/http/authn/authn_utils.h"
-#include "src/envoy/http/authn/mtls_authentication.h"
+#include "src/envoy/utils/utils.h"
 
 using istio::authn::Payload;
 
@@ -36,29 +36,26 @@ AuthenticatorBase::~AuthenticatorBase() {}
 void AuthenticatorBase::done(bool success) const { done_callback_(success); }
 
 void AuthenticatorBase::validateX509(
-    const iaapi::MutualTls&,
+    const iaapi::MutualTls& mtls,
     const AuthenticatorBase::MethodDoneCallback& done_callback) const {
-  // Boilerplate for x509 validation and extraction. This function should
-  // extract user from SAN field from the x509 certificate come with request.
-  // (validation might not be needed, as establisment of the connection by
-  // itself is validation).
-  // If x509 is missing (i.e connection is not on TLS) or SAN value is not
-  // legit, call callback with status FAILED.
-  ENVOY_LOG(debug, "AuthenticatorBase: {} this connection requires mTLS",
-            __func__);
-  MtlsAuthentication mtls_authn(filter_context_.connection());
-  if (mtls_authn.IsMutualTLS() == false) {
+  const Network::Connection* connection = filter_context_.connection();
+  if (connection == nullptr || connection->ssl() == nullptr) {
+    // Not a TLS connection
     done_callback(nullptr, false);
     return;
   }
 
   Payload payload;
-  if (!mtls_authn.GetSourceUser(payload.mutable_x509()->mutable_user())) {
-    done_callback(&payload, false);
-  }
+  bool has_user =
+      connection->ssl()->peerCertificatePresented() &&
+      Utils::GetSourceUser(connection, payload.mutable_x509()->mutable_user());
 
-  // TODO (lei-tang): Adding other attributes (i.e ip) to payload if needed.
-  done_callback(&payload, true);
+  if (!has_user && !mtls.allow_tls()) {
+    // mTLS and no source user
+    done_callback(nullptr, false);
+  } else {
+    done_callback(&payload, true);
+  }
 }
 
 void AuthenticatorBase::validateJwt(

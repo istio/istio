@@ -105,6 +105,29 @@ TEST_F(PeerAuthenticatorTest, MTlsOnlyPass) {
       filter_context_.authenticationResult()));
 }
 
+TEST_F(PeerAuthenticatorTest, TlsOnlyPass) {
+  ASSERT_TRUE(Protobuf::TextFormat::ParseFromString(R"(
+      peers {
+        mtls {
+          allow_tls: true
+        }
+      }
+    )",
+                                                    &policy_));
+
+  createAuthenticator();
+  EXPECT_CALL(*authenticator_, validateX509(_, _))
+      .Times(1)
+      .WillOnce(testing::InvokeArgument<1>(&x509_payload_, true));
+  EXPECT_CALL(on_done_callback_, Call(true)).Times(1);
+  authenticator_->run();
+  // When client certificate is present on TLS, authenticated attribute
+  // should be extracted.
+  EXPECT_TRUE(TestUtility::protoEqual(
+      TestUtilities::AuthNResultFromString(R"(peer_user: "foo")"),
+      filter_context_.authenticationResult()));
+}
+
 TEST_F(PeerAuthenticatorTest, MTlsOnlyFail) {
   ASSERT_TRUE(Protobuf::TextFormat::ParseFromString(R"(
       peers {
@@ -120,6 +143,28 @@ TEST_F(PeerAuthenticatorTest, MTlsOnlyFail) {
       .WillOnce(testing::InvokeArgument<1>(&x509_payload_, false));
   EXPECT_CALL(on_done_callback_, Call(false)).Times(1);
   authenticator_->run();
+  EXPECT_TRUE(TestUtility::protoEqual(TestUtilities::AuthNResultFromString(""),
+                                      filter_context_.authenticationResult()));
+}
+
+TEST_F(PeerAuthenticatorTest, TlsOnlyFail) {
+  ASSERT_TRUE(Protobuf::TextFormat::ParseFromString(R"(
+      peers {
+        mtls {
+          allow_tls: true
+        }
+      }
+    )",
+                                                    &policy_));
+
+  createAuthenticator();
+  EXPECT_CALL(*authenticator_, validateX509(_, _))
+      .Times(1)
+      .WillOnce(testing::InvokeArgument<1>(&x509_payload_, false));
+  EXPECT_CALL(on_done_callback_, Call(false)).Times(1);
+  authenticator_->run();
+  // When TLS authentication failse, the authenticated attribute should be
+  // empty.
   EXPECT_TRUE(TestUtility::protoEqual(TestUtilities::AuthNResultFromString(""),
                                       filter_context_.authenticationResult()));
 }
@@ -197,6 +242,40 @@ TEST_F(PeerAuthenticatorTest, Multiple) {
       filter_context_.authenticationResult()));
 }
 
+TEST_F(PeerAuthenticatorTest, TlsFailAndJwtSucceed) {
+  ASSERT_TRUE(Protobuf::TextFormat::ParseFromString(R"(
+    peers {
+      mtls { allow_tls: true }
+    }
+    peers {
+      jwt {
+        issuer: "abc.xyz"
+      }
+    }
+    peers {
+      jwt {
+        issuer: "another"
+      }
+    }
+  )",
+                                                    &policy_));
+
+  createAuthenticator();
+  EXPECT_CALL(*authenticator_, validateX509(_, _))
+      .Times(1)
+      .WillOnce(testing::InvokeArgument<1>(nullptr, false));
+  EXPECT_CALL(*authenticator_, validateJwt(_, _))
+      .Times(1)
+      .WillOnce(testing::InvokeArgument<1>(&jwt_payload_, true));
+  EXPECT_CALL(on_done_callback_, Call(true)).Times(1);
+  authenticator_->run();
+  // validateX509 fail and validateJwt succeeds,
+  // result should be "foo", as expected as in jwt_payload.
+  EXPECT_TRUE(TestUtility::protoEqual(
+      TestUtilities::AuthNResultFromString(R"(peer_user: "foo")"),
+      filter_context_.authenticationResult()));
+}
+
 TEST_F(PeerAuthenticatorTest, MultipleAllFail) {
   ASSERT_TRUE(Protobuf::TextFormat::ParseFromString(R"(
     peers {
@@ -224,6 +303,38 @@ TEST_F(PeerAuthenticatorTest, MultipleAllFail) {
       .WillRepeatedly(testing::InvokeArgument<1>(nullptr, false));
   EXPECT_CALL(on_done_callback_, Call(false)).Times(1);
   authenticator_->run();
+  EXPECT_TRUE(TestUtility::protoEqual(TestUtilities::AuthNResultFromString(""),
+                                      filter_context_.authenticationResult()));
+}
+
+TEST_F(PeerAuthenticatorTest, TlsFailJwtFail) {
+  ASSERT_TRUE(Protobuf::TextFormat::ParseFromString(R"(
+    peers {
+      mtls { allow_tls: true }
+    }
+    peers {
+      jwt {
+        issuer: "abc.xyz"
+      }
+    }
+    peers {
+      jwt {
+        issuer: "another"
+      }
+    }
+  )",
+                                                    &policy_));
+
+  createAuthenticator();
+  EXPECT_CALL(*authenticator_, validateX509(_, _))
+      .Times(1)
+      .WillOnce(testing::InvokeArgument<1>(nullptr, false));
+  EXPECT_CALL(*authenticator_, validateJwt(_, _))
+      .Times(2)
+      .WillRepeatedly(testing::InvokeArgument<1>(nullptr, false));
+  EXPECT_CALL(on_done_callback_, Call(false)).Times(1);
+  authenticator_->run();
+  // validateX509 and validateJwt fail, result should be empty.
   EXPECT_TRUE(TestUtility::protoEqual(TestUtilities::AuthNResultFromString(""),
                                       filter_context_.authenticationResult()));
 }
