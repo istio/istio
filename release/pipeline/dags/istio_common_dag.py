@@ -34,8 +34,6 @@ YESTERDAY = datetime.datetime.combine(
 default_args = {
     'owner': 'laane',
     'depends_on_past': False,
-    # This is the date to when the airlfow pipeline tries to backfill to.
-    'start_date': YESTERDAY,
     'email': environment_config.EMAIL_LIST,
     'email_on_failure': True,
     'email_on_retry': False,
