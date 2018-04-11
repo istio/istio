@@ -15,29 +15,12 @@
 package v1alpha3
 
 import (
+	"reflect"
 	"sort"
 	"testing"
 
 	"istio.io/istio/pilot/pkg/model"
 )
-
-func checkEquals(strArray1, strArray2 []string) bool {
-	if len(strArray1) != len(strArray2) {
-		return false
-	}
-
-	str1Map := make(map[string]bool)
-	for _, s := range strArray1 {
-		str1Map[s] = true
-	}
-
-	for _, s := range strArray2 {
-		if !str1Map[s] {
-			return false
-		}
-	}
-	return true
-}
 
 func TestBuildVirtualHostDomains(t *testing.T) {
 	cases := []struct {
@@ -59,18 +42,6 @@ func TestBuildVirtualHostDomains(t *testing.T) {
 			},
 			want: []string{"foo", "foo.local", "foo.local.campus", "foo.local.campus.net",
 				"foo:80", "foo.local:80", "foo.local.campus:80", "foo.local.campus.net:80"},
-		},
-		{
-			name: "same domain with mesh external service",
-			service: &model.Service{
-				Hostname:     "foo.local.campus.net",
-				MeshExternal: true,
-			},
-			port: 80,
-			node: model.Proxy{
-				Domain: "local.campus.net",
-			},
-			want: []string{"foo.local.campus.net", "foo.local.campus.net:80"},
 		},
 		{
 			name: "different domains with some shared dns",
@@ -101,9 +72,9 @@ func TestBuildVirtualHostDomains(t *testing.T) {
 
 	for _, c := range cases {
 		out := buildVirtualHostDomains(c.service, c.port, c.node)
-		if !checkEquals(out, c.want) {
-			sort.SliceStable(c.want, func(i, j int) bool { return c.want[i] < c.want[j] })
-			sort.SliceStable(out, func(i, j int) bool { return out[i] < out[j] })
+		sort.SliceStable(c.want, func(i, j int) bool { return c.want[i] < c.want[j] })
+		sort.SliceStable(out, func(i, j int) bool { return out[i] < out[j] })
+		if !reflect.DeepEqual(out, c.want) {
 			t.Errorf("buildVirtualHostDomains(%s): \ngot %v\n want %v", c.name, out, c.want)
 		}
 	}

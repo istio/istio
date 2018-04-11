@@ -160,9 +160,8 @@ func (configgen *ConfigGeneratorImpl) BuildSidecarOutboundHTTPRouteConfig(env mo
 // a proxy node
 func buildVirtualHostDomains(service *model.Service, port int, node model.Proxy) []string {
 	domains := []string{service.Hostname, fmt.Sprintf("%s:%d", service.Hostname, port)}
-	if !service.MeshExternal {
-		domains = append(domains, generateAltVirtualHosts(service.Hostname, port, node.Domain)...)
-	}
+	domains = append(domains, generateAltVirtualHosts(service.Hostname, port, node.Domain)...)
+
 	if len(service.Address) > 0 {
 		// add a vhost match for the IP (if its non CIDR)
 		cidr := util.ConvertAddressToCidr(service.Address)
@@ -274,8 +273,8 @@ func getUniqueAndSharedDNSDomain(fqdnHostname, proxyDomain string) (string, stri
 	partsFQDN := reverseArray(strings.Split(fqdnHostname, "."))
 	partsProxyDomain := reverseArray(strings.Split(proxyDomain, "."))
 	var sharedSuffixesInReverse []string // pieces shared between proxy and svc. e.g., local,cluster,svc
-	i := 0
-	for ; i < min(len(partsFQDN), len(partsProxyDomain)); i++ {
+
+	for i := 0; i < min(len(partsFQDN), len(partsProxyDomain)); i++ {
 		if partsFQDN[i] == partsProxyDomain[i] {
 			sharedSuffixesInReverse = append(sharedSuffixesInReverse, partsFQDN[i])
 		} else {
