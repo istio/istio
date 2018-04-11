@@ -17,9 +17,9 @@ package resource
 import (
 	"reflect"
 
-	"istio.io/istio/galley/pkg/common"
-
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"istio.io/istio/galley/pkg/common"
 )
 
 // Equals checks whether the given two CRDs are equal or not.
