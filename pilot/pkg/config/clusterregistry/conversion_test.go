@@ -16,19 +16,17 @@ package clusterregistry
 
 import (
 	"bytes"
+	"io/ioutil"
+	"os"
 	"testing"
 	"text/template"
 
-	"io/ioutil"
-	"os"
-
+	"github.com/pborman/uuid"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	k8s_cr "k8s.io/cluster-registry/pkg/apis/clusterregistry/v1alpha1"
-
-	"github.com/pborman/uuid"
 )
 
 // type createCfgDataFilesFunc func(dir string, cData []clusterInfo) (err error)
