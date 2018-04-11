@@ -368,7 +368,8 @@ func injectionData(sidecarTemplate, version string, spec *v1.PodSpec, metadata *
 	}
 
 	var tmpl bytes.Buffer
-	t := template.Must(template.New("inject").Funcs(funcMap).Parse(sidecarTemplate))
+	temp := template.New("inject").Delims(sidecarTemplateDelimBegin, sidecarTemplateDelimEnd)
+	t := template.Must(temp.Funcs(funcMap).Parse(sidecarTemplate))
 	if err := t.Execute(&tmpl, &data); err != nil {
 		return nil, "", err
 	}
@@ -544,9 +545,8 @@ func GenerateTemplateFromParams(params *Params) (string, error) {
 	if err := params.Validate(); err != nil {
 		return "", err
 	}
-	t := template.New("inject").Delims(parameterizedTemplateDelimBegin, parameterizedTemplateDelimEnd)
 	var tmp bytes.Buffer
-	err := template.Must(t.Parse(parameterizedTemplate)).Execute(&tmp, params)
+	err := template.Must(template.New("inject").Parse(parameterizedTemplate)).Execute(&tmp, params)
 	return tmp.String(), err
 }
 

@@ -9,7 +9,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"f58e790dd8b65306a824e8d321c7081684dfdfdf0490dde2a8768f9beec238e5","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"]}'
+        sidecar.istio.io/status: '{"version":"c7d7bcd0e4a2f05476bfcca64961b22dfea5241783f809fa14a5a377c7d86d68","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"]}'
       creationTimestamp: null
       labels:
         app: traffic

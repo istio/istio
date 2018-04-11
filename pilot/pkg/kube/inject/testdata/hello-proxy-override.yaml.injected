@@ -10,7 +10,7 @@ spec:
     metadata:
       annotations:
         sidecar.istio.io/proxyImageOverride: docker.io/istio/proxy2_debug:unittest
-        sidecar.istio.io/status: '{"version":"81748d7d3d71b3be470c9cb77f7f9c9830c05ef137d14ea2d09330202b11c22c","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"]}'
+        sidecar.istio.io/status: '{"version":"8fdf48315e6afffc869dfd4b45aa1c3735dd3d574dde6b95849dcff45b255aaa","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"]}'
       creationTimestamp: null
       labels:
         app: hello
