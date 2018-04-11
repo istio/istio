@@ -46,9 +46,6 @@ fi
 function gen_file() {
     fl=$1
     dest=$2
-    if [[ -f ${dest}/install/kubernetes/$fl ]];then
-      mv -f ${dest}/install/kubernetes/$fl ${dest}/install/kubernetes/orig_$fl
-    fi
     make $1   # make always places the files in install/...
     if [[ ! -f ${dest}/install/kubernetes/$fl ]]; then
       cp -f install/kubernetes/$fl ${dest}/install/kubernetes/$fl
