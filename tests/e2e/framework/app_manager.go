@@ -68,7 +68,7 @@ func (am *AppManager) generateAppYaml(a *App) error {
 		return err
 	}
 	if err := util.Fill(a.AppYaml, a.AppYamlTemplate, a.Template); err != nil {
-		log.Errorf("Failed to generate yaml for template %s", a.AppYamlTemplate)
+		log.Errorf("Failed to generate yaml for template %s: %v", a.AppYamlTemplate, err)
 		return err
 	}
 	return nil

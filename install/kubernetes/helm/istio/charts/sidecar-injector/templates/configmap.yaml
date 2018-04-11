@@ -22,25 +22,29 @@ data:
         - "-u"
         - 1337
         - "-i"
-        {{ if .Values.includeIPRanges -}}
-        - {{ .Values.includeIPRanges | quote }}
-        {{ else -}}
-        - "*"
-        {{ end -}}
-        {{ if .Values.excludeIPRanges -}}
+        {{ "{{ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeOutboundIPRanges\") -}}" }}
+        {{ "- \"{{ index .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeOutboundIPRanges\"  }}\"" }}
+        {{ "{{ else -}}" }}
+        - "{{ .IncludeIPRanges }}"
+        {{ "{{ end -}}" }}
         - "-x"
-        - {{ .Values.excludeIPRanges | quote }}
-        {{ end -}}
+        {{ "{{ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/excludeOutboundIPRanges\") -}}" }}
+        {{ "- \"{{ index .ObjectMeta.Annotations \"traffic.sidecar.istio.io/excludeOutboundIPRanges\"  }}\"" }}
+        {{ "{{ else -}}" }}
+        - "{{ .ExcludeIPRanges }}"
+        {{ "{{ end -}}" }}
         - "-b"
-        {{ if .Values.includeInboundPorts -}}
-        - {{ .Values.includeInboundPorts | quote }}
-        {{ else -}}
-        - "*"
-        {{ end -}}
-        {{ if .Values.excludeInboundPorts -}}
+        {{ "{{ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeInboundPorts\") -}}" }}
+        {{ "- \"{{ index .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeInboundPorts\"  }}\"" }}
+        {{ "{{ else -}}" }}
+        - "{{ .IncludeInboundPorts }}"
+        {{ "{{ end -}}" }}
         - "-d"
-        - {{ .Values.excludeInboundPorts | quote }}
-        {{ end -}}
+        {{ "{{ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/excludeInboundPorts\") -}}" }}
+        {{ "- \"{{ index .ObjectMeta.Annotations \"traffic.sidecar.istio.io/excludeInboundPorts\" }}\"" }}
+        {{ "{{ else -}}" }}
+        - "{{ .ExcludeInboundPorts }}"
+        {{ "{{ end -}}" }}
         imagePullPolicy: IfNotPresent
         securityContext:
           capabilities:
