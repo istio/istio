@@ -26,8 +26,8 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	istio_route "istio.io/istio/pilot/pkg/networking/route"
 	"istio.io/istio/pkg/log"
 )
 
