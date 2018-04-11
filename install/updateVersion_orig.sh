@@ -163,7 +163,6 @@ function merge_files() {
   cat $SRC/istio-pilot.yaml.tmpl >> $ISTIO
   cat $SRC/istio-ingress.yaml.tmpl >> $ISTIO
 
-  cp $ISTIO $ISTIO_ONE_NAMESPACE
   cat $SRC/istio-ca.yaml.tmpl >> $ISTIO
 
   cp $ISTIO $ISTIO_AUTH
@@ -175,20 +174,6 @@ function merge_files() {
   execute_sed "s/8080 #--controlPlaneAuthPolicy/15005/" $ISTIO_AUTH
   execute_sed "s/envoy_mixer.json/envoy_mixer_auth.json/" $ISTIO_AUTH
   execute_sed "s/envoy_pilot.json/envoy_pilot_auth.json/" $ISTIO_AUTH
-
-  # restrict pilot controllers to a single namespace in the test file
-  execute_sed "s|args: \[\"discovery\"|args: \[\"discovery\", \"-a\", \"${ISTIO_NAMESPACE}\"|" $ISTIO_ONE_NAMESPACE
-  cat $SRC/istio-ca-one-namespace.yaml.tmpl >> $ISTIO_ONE_NAMESPACE
-
-  cp $ISTIO_ONE_NAMESPACE $ISTIO_ONE_NAMESPACE_AUTH
-  execute_sed "s/discoveryAddress: istio-pilot.${ISTIO_NAMESPACE}:15007/discoveryAddress: istio-pilot.${ISTIO_NAMESPACE}:15005/" $ISTIO_ONE_NAMESPACE_AUTH
-  execute_sed "s/- istio-pilot:15007/- istio-pilot:15005/" $ISTIO_ONE_NAMESPACE_AUTH
-  execute_sed "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_ONE_NAMESPACE_AUTH
-  execute_sed "s/# controlPlaneAuthPolicy: MUTUAL_TLS/controlPlaneAuthPolicy: MUTUAL_TLS/" $ISTIO_ONE_NAMESPACE_AUTH
-  execute_sed "s/NONE #--controlPlaneAuthPolicy/MUTUAL_TLS/" $ISTIO_ONE_NAMESPACE_AUTH
-  execute_sed "s/8080 #--controlPlaneAuthPolicy/15005/" $ISTIO_ONE_NAMESPACE_AUTH
-  execute_sed "s/envoy_mixer.json/envoy_mixer_auth.json/" $ISTIO_ONE_NAMESPACE_AUTH
-  execute_sed "s/envoy_pilot.json/envoy_pilot_auth.json/" $ISTIO_ONE_NAMESPACE_AUTH
 
   echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $ISTIO_CA_PLUGIN_CERTS
   echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO_CA_PLUGIN_CERTS

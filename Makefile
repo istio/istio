@@ -597,7 +597,7 @@ installgen:
 
 # A make target to generate all the YAML files
 generate_yaml:
-	./install/updateVersion.sh -a ${HUB},${TAG} 
+	./install/updateVersion.sh -a ${HUB},${TAG}
 
 $(HELM):
 	bin/init_helm.sh
@@ -644,8 +644,6 @@ FILES_TO_CLEAN+=install/consul/istio.yaml \
                 install/kubernetes/istio-auth.yaml \
                 install/kubernetes/istio-ca-plugin-certs.yaml \
                 install/kubernetes/istio-ca-with-health-check.yaml \
-                install/kubernetes/istio-one-namespace-auth.yaml \
-                install/kubernetes/istio-one-namespace.yaml \
                 install/kubernetes/istio.yaml \
                 samples/bookinfo/consul/bookinfo.sidecars.yaml \
                 samples/bookinfo/eureka/bookinfo.sidecars.yaml
