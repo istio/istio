@@ -227,17 +227,17 @@ func (p Protocol) IsTCP() bool {
 //  --> 172.16.0.1:33333 (with ServicePort pointing to 8080)
 type NetworkEndpoint struct {
 	// Address of the network endpoint, typically an IPv4 address
-	Address string `json:"ip_address,omitempty"`
+	Address string
 
 	// Port number where this instance is listening for connections This
 	// need not be the same as the port where the service is accessed.
 	// e.g., catalog.mystore.com:8080 -> 172.16.0.1:55446
-	Port int `json:"port"`
+	Port int
 
 	// Port declaration from the service declaration This is the port for
 	// the service associated with this instance (e.g.,
 	// catalog.mystore.com)
-	ServicePort *Port `json:"service_port"`
+	ServicePort *Port
 }
 
 // Labels is a non empty set of arbitrary strings. Each version of a service can
