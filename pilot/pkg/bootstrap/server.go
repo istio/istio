@@ -59,6 +59,10 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
+	"google.golang.org/grpc/credentials"
+	"crypto/tls"
+	"crypto/x509"
+	"io/ioutil"
 )
 
 const (
@@ -90,6 +94,11 @@ var (
 		model.ServiceRole,
 		model.ServiceRoleBinding,
 	}
+
+	// PilotCertDir is the default location for mTLS certificates used by pilot
+	// Visible for tests - at runtime can be set by PILOT_CERT_DIR environment variable.
+	PilotCertDir = "/etc/certs/"
+
 )
 
 // MeshArgs provide configuration options for the mesh. If ConfigFile is provided, an attempt will be made to
@@ -182,6 +191,7 @@ type Server struct {
 	startFuncs        []startFunc
 	HTTPListeningAddr net.Addr
 	GRPCListeningAddr net.Addr
+	SecureGRPCListeningAddr net.Addr
 	clusterStore      *clusterregistry.ClusterStore
 
 	EnvoyXdsServer   *envoyv2.DiscoveryServer
@@ -755,6 +765,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	if err != nil {
 		return err
 	}
+	s.SecureGRPCListeningAddr = secureGrpcListener.Addr()
 
 	s.addStartFunc(func(stop chan struct{}) error {
 		log.Infof("Discovery service started at http=%s grpc=%s", listener.Addr().String(), grpcListener.Addr().String())
@@ -832,15 +843,85 @@ func (s *Server) initGrpcServer() {
 
 // The secure grpc will start when the credentials are found.
 func (s *Server) secureGrpcStart(listener net.Listener) {
-
-	opts := s.grpcServerOptions()
-
-	s.secureGRPCServer = grpc.NewServer(opts...)
-	s.EnvoyXdsServer.Register(s.secureGRPCServer)
-
-	if err := s.secureGRPCServer.Serve(listener); err != nil {
-		log.Warna(err)
+	certDir := os.Getenv("PILOT_CERT_DIR")
+	if certDir == "" {
+		certDir = PilotCertDir // /etc/certs
 	}
+	if !strings.HasSuffix(certDir, "/") {
+		certDir = certDir + "/"
+	}
+
+	for i := 0; i < 10; i++ {
+		opts := s.grpcServerOptions()
+
+		// This is used for the grpc h2 implementation. It doesn't appear to be needed in
+		// the case of golang h2 stack.
+		creds, err := credentials.NewServerTLSFromFile(certDir + model.CertChainFilename,
+			certDir + model.KeyFilename)
+		// certs not ready yet.
+		if err != nil {
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
+		cert, err := tls.LoadX509KeyPair(certDir + model.CertChainFilename,
+			certDir + model.KeyFilename)
+		if err != nil {
+			time.Sleep(5 * time.Second)
+			continue
+		}
+		caCertFile := certDir + model.RootCertFilename
+		caCert, err := ioutil.ReadFile(caCertFile)
+		if err != nil {
+			time.Sleep(5 * time.Second)
+			continue
+		}
+		caCertPool := x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM(caCert)
+
+		opts = append(opts, grpc.Creds(creds))
+		s.secureGRPCServer = grpc.NewServer(opts...)
+
+		s.EnvoyXdsServer.Register(s.secureGRPCServer)
+
+		log.Infof("Starting GRPC secure on %v with certs in %s", listener.Addr(), certDir)
+
+		s := &http.Server{
+			TLSConfig:&tls.Config{
+				Certificates: []tls.Certificate{cert},
+				VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+					// For now accept any certs - pilot is not authenticating the caller, TLS used for
+					// privacy
+					log.Infof("Certificate received %v", verifiedChains)
+					return nil
+				},
+				//ClientAuth: tls.RequestClientCert,
+				ClientAuth: tls.RequireAndVerifyClientCert,
+				ClientCAs: caCertPool,
+			},
+			Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.ProtoMajor == 2 && strings.HasPrefix(
+					r.Header.Get("Content-Type"), "application/grpc") {
+					s.secureGRPCServer.ServeHTTP(w, r)
+				} else {
+					s.mux.ServeHTTP(w, r)
+				}
+			}),
+		}
+
+		// This seems the only way to call setupHTTP2 - it may also be possible to set NextProto
+		// on a listener
+		s.ServeTLS(listener, certDir + model.CertChainFilename, certDir + model.KeyFilename)
+
+		// The other way to set TLS - but you can't add http handlers, and the h2 stack is
+		// different.
+		//if err := s.secureGRPCServer.Serve(listener); err != nil {
+		//	log.Warna(err)
+		//}
+	}
+
+	log.Errorf("Failed to find certificates for GRPC secure in %s", certDir)
+
 }
 
 func (s *Server) grpcServerOptions() []grpc.ServerOption {

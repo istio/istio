@@ -54,47 +54,6 @@
   "static_resources": {
     "listeners": [
       {
-        "name": "http_0.0.0.0_9999",
-        "address": {
-          "socket_address": {
-            "address": "0.0.0.0",
-            "port_value": 99999
-          }
-        },
-        "filter_chains": [
-          {
-            "filters": [
-              {
-                "name": "envoy.http_connection_manager",
-                "config": {
-                  "stat_prefix": "http",
-                  "route_config": {
-                    "virtual_hosts": [
-                      {
-                        "name": "backend",
-                        "domains": [
-                          "*"
-                        ],
-                        "routes": [
-                          {
-                            "match": {
-                              "prefix": "/"
-                            },
-                            "route": {
-                              "cluster": "service1"
-                            }
-                          }
-                        ]
-                      }
-                    ]
-                  }
-                }
-              }
-            ]
-          }
-        ]
-      },
-      {
         "name": "legacy15003",
         "address": {
           "socket_address": {

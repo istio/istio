@@ -27,10 +27,59 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/tests/util"
+	"google.golang.org/grpc/credentials"
+	"crypto/tls"
+	"crypto/x509"
 )
 
 func connectADS(t *testing.T, url string) ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient {
 	conn, err := grpc.Dial(url, grpc.WithInsecure())
+	if err != nil {
+		t.Fatal("Connection failed", err)
+	}
+
+	xds := ads.NewAggregatedDiscoveryServiceClient(conn)
+	edsstr, err := xds.StreamAggregatedResources(context.Background())
+	if err != nil {
+		t.Fatal("Rpc failed", err)
+	}
+	return edsstr
+}
+
+func connectADSS(t *testing.T, url string) ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient {
+	certDir := util.IstioSrc + "/tests/testdata/certs/default/"
+
+	clientCert, err := tls.LoadX509KeyPair(certDir + model.CertChainFilename,
+		certDir + model.KeyFilename)
+	if err != nil {
+		t.Fatal("Can't load client certs ", err)
+		return nil
+	}
+
+	serverCABytes, err := ioutil.ReadFile(certDir + model.RootCertFilename)
+	if err != nil {
+		t.Fatal("Can't load client certs ", err)
+		return nil
+	}
+	serverCAs := x509.NewCertPool()
+	if ok := serverCAs.AppendCertsFromPEM(serverCABytes); !ok {
+		t.Fatal("Can't load client certs ", err)
+		return nil
+	}
+
+	tlsCfg := &tls.Config{
+		Certificates:     []tls.Certificate{clientCert},
+		RootCAs:          serverCAs,
+		ServerName: 	"istio-pilot.istio-system.svc",
+	}
+
+	creds := credentials.NewTLS(tlsCfg)
+
+	opts := []grpc.DialOption {
+		// Verify Pilot cert and service account
+		grpc.WithTransportCredentials(creds),
+	}
+	conn, err := grpc.Dial(url, opts...)
 	if err != nil {
 		t.Fatal("Connection failed", err)
 	}
@@ -143,6 +192,16 @@ func TestAdsReconnect(t *testing.T) {
 	t.Log("Received ", m)
 }
 
+func TestTLS(t *testing.T) {
+	initLocalPilotTestEnv(t)
+	edsstr := connectADSS(t, util.MockPilotSecureAddr)
+	sendCDSReq(t, sidecarId(app3Ip, "app3"), edsstr)
+	_, err := adsReceive(edsstr, 3*time.Second)
+	if err != nil {
+		t.Error("Failed to receive with TLS connection ", err)
+	}
+}
+
 func adsReceive(ads ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, to time.Duration) (*xdsapi.DiscoveryResponse, error) {
 	done := make(chan struct{}, 1)
 	t := time.NewTimer(to)
@@ -214,3 +273,4 @@ func TestAdsEds(t *testing.T) {
 
 	_ = edsstr.CloseSend()
 }
+

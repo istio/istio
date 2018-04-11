@@ -42,6 +42,12 @@ var (
 	// MockPilotGrpcAddr is the address to be used for grpc connections.
 	MockPilotGrpcAddr string
 
+	// MockPilotSecureAddr is the address to be used for secure grpc connections.
+	MockPilotSecureAddr string
+
+	// MockPilotSecurePort is the secure port
+	MockPilotSecurePort int
+
 	// MockPilotHTTPPort is the dynamic port for pilot http
 	MockPilotHTTPPort int
 
@@ -149,6 +155,8 @@ func setup() error {
 	// Static testdata, should include all configs we want to test.
 	args.Config.FileDir = IstioSrc + "/tests/testdata"
 
+	bootstrap.PilotCertDir = IstioSrc + "/tests/testdata/certs/pilot"
+
 	// Create and setup the controller.
 	s, err := bootstrap.NewServer(args)
 	if err != nil {
@@ -170,12 +178,20 @@ func setup() error {
 	}
 	MockPilotURL = "http://localhost:" + port
 	MockPilotHTTPPort, _ = strconv.Atoi(port)
+
 	_, port, err = net.SplitHostPort(s.GRPCListeningAddr.String())
 	if err != nil {
 		return err
 	}
 	MockPilotGrpcAddr = "localhost:" + port
 	MockPilotGrpcPort, _ = strconv.Atoi(port)
+
+	_, port, err = net.SplitHostPort(s.SecureGRPCListeningAddr.String())
+	if err != nil {
+		return err
+	}
+	MockPilotSecureAddr = "localhost:" + port
+	MockPilotSecurePort, _ = strconv.Atoi(port)
 
 	// Wait a bit for the server to come up.
 	// TODO(nmittler): Change to polling health endpoint once https://github.com/istio/istio/pull/2002 lands.
