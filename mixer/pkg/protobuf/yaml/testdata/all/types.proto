@@ -1,0 +1,76 @@
+syntax = "proto3";
+
+package foo;
+
+message Empty {}
+
+message Simple {
+  string str = 1; //
+  double dbl = 2; //
+  int64 i64 = 3; //
+  bool b = 4; //
+  uint64 ui64 = 5;
+  float flt = 6;
+  int32 i32 = 7;
+  uint32 ui32 = 8;
+  fixed32 f32 = 9;
+  fixed64 f64 = 10;
+
+  other oth = 11; //
+  bytes byts = 12;
+  myenum enm = 13; //
+
+  sfixed32 sf32 = 14;
+  sfixed64 sf64 = 15;
+
+  sint32 si32 = 16;
+  sint64 si64 = 17;
+
+  // complex types
+  map<string, string> map_str_str = 18;
+  map<string, other> map_str_msg = 19;
+  map<int32, other> map_i32_msg = 20;
+  map<string, myenum> map_str_enum = 21;
+
+  repeated string r_str = 22;
+  repeated other r_msg = 23;
+  repeated int32 r_i32 = 24;
+  repeated myenum r_enm = 25;
+}
+
+message other {
+  enum innerenum {
+    INNERONE = 0;
+    INNERTWO = 1;
+    INNERTHREE = 2;
+  }
+
+  message innerMsg {
+    string str = 1;
+    double dbl = 2;
+    int64 i64 = 3;
+  }
+
+  string str = 1;
+  double dbl = 2;
+  int64 i64 = 3;
+  bool b = 4;
+  innerenum inenum = 5;
+  innerMsg inmsg = 6;
+}
+
+enum myenum {
+  ONE = 0;
+  TWO = 1;
+  THREE = 2;
+}
+
+message Outer {
+  message Inner {
+      string str = 1;
+      double dbl = 2;
+      int64 i64 = 3;
+      bool b = 4;
+  }
+  Inner in = 1;
+}
