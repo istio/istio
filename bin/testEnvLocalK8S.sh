@@ -161,14 +161,17 @@ function startIstio() {
 
 function stopIstio() {
   if [[ -f $LOG_DIR/pilot.pid ]] ; then
+    printf "Pilot pid: $(cat $LOG_DIR/pilot.pid)\n"
     kill -9 $(cat $LOG_DIR/pilot.pid) || true
     rm $LOG_DIR/pilot.pid
    fi
   if [[ -f $LOG_DIR/mixer.pid ]] ; then
+    printf "Mixer pid: $(cat $LOG_DIR/mixer.pid)\n"
     kill -9 $(cat $LOG_DIR/mixer.pid) || true
     rm $LOG_DIR/mixer.pid
   fi
   if [[ -f $LOG_DIR/envoy4.pid ]] ; then
+    printf "Envoy pid: $(cat $LOG_DIR/envoy4.pid)\n"
     kill -9 $(cat $LOG_DIR/envoy4.pid) || true
     rm $LOG_DIR/envoy4.pid
   fi
@@ -179,21 +182,25 @@ function startPilot() {
   POD_NAME=pilot POD_NAMESPACE=istio-system \
   ${ISTIO_OUT}/pilot-discovery discovery --port 18080 \
                                          --monitoringPort 19093 \
-                                         --log_target ${LOG_DIR} \
+                                         --log_target ${LOG_DIR}/pilot.log \
                                          --kubeconfig ${ISTIO_GO}/.circleci/config &
   echo $! > $LOG_DIR/pilot.pid
 }
 
 function startMixer() {
   printf "Mixer starting...\n"
-  ${ISTIO_OUT}/mixs server --configStoreURL=fs:${ISTIO_GO}/mixer/testdata/configroot & 
+  ${ISTIO_OUT}/mixs server --configStoreURL=fs:${ISTIO_GO}/mixer/testdata/configroot \
+                           --log_target ${LOG_DIR}/mixer.log& 
   echo $! > $LOG_DIR/mixer.pid
 }
 
 function startEnvoy() {
     printf "Envoy starting...\n"
-    ${ISTIO_OUT}/envoy -c tests/testdata/envoy_local.json \
-        --base-id 4 --service-cluster unittest --service-node local.test
+    ${ISTIO_OUT}/envoy -c tests/testdata/envoy_local_v2.yaml \
+        --base-id 4 --service-cluster xds_cluster \
+        --service-node local.test \
+        --log-level debug \
+        --log-path ${LOG_DIR}/envoy.log&
     echo $! > $LOG_DIR/envoy4.pid
 }
 
