@@ -137,7 +137,7 @@ func TestInjectRequired(t *testing.T) {
 			meta: &metav1.ObjectMeta{
 				Name:        "force-on-policy",
 				Namespace:   "test-namespace",
-				Annotations: map[string]string{istioSidecarAnnotationPolicyKey: "true"},
+				Annotations: map[string]string{sidecarAnnotationPolicyKey: "true"},
 			},
 			want: true,
 		},
@@ -147,7 +147,7 @@ func TestInjectRequired(t *testing.T) {
 			meta: &metav1.ObjectMeta{
 				Name:        "force-off-policy",
 				Namespace:   "test-namespace",
-				Annotations: map[string]string{istioSidecarAnnotationPolicyKey: "false"},
+				Annotations: map[string]string{sidecarAnnotationPolicyKey: "false"},
 			},
 			want: false,
 		},
@@ -176,7 +176,7 @@ func TestInjectRequired(t *testing.T) {
 			meta: &metav1.ObjectMeta{
 				Name:        "force-on-policy",
 				Namespace:   "test-namespace",
-				Annotations: map[string]string{istioSidecarAnnotationPolicyKey: "true"},
+				Annotations: map[string]string{sidecarAnnotationPolicyKey: "true"},
 			},
 			want: true,
 		},
@@ -186,7 +186,7 @@ func TestInjectRequired(t *testing.T) {
 			meta: &metav1.ObjectMeta{
 				Name:        "force-off-policy",
 				Namespace:   "test-namespace",
-				Annotations: map[string]string{istioSidecarAnnotationPolicyKey: "false"},
+				Annotations: map[string]string{sidecarAnnotationPolicyKey: "false"},
 			},
 			want: false,
 		},
@@ -323,7 +323,7 @@ func makeTestData(t testing.TB, skip bool) []byte {
 	}
 
 	if skip {
-		pod.ObjectMeta.Annotations[istioSidecarAnnotationPolicyKey] = "false"
+		pod.ObjectMeta.Annotations[sidecarAnnotationPolicyKey] = "false"
 	}
 
 	raw, err := json.Marshal(&pod)
@@ -603,13 +603,15 @@ func checkCert(t *testing.T, wh *Webhook, cert, key []byte) bool {
 func BenchmarkInjectServe(b *testing.B) {
 	mesh := model.DefaultMeshConfig()
 	params := &Params{
-		InitImage:       InitImageName(unitTestHub, unitTestTag, false),
-		ProxyImage:      ProxyImageName(unitTestHub, unitTestTag, false),
-		ImagePullPolicy: "IfNotPresent",
-		Verbosity:       DefaultVerbosity,
-		SidecarProxyUID: DefaultSidecarProxyUID,
-		Version:         "12345678",
-		Mesh:            &mesh,
+		InitImage:           InitImageName(unitTestHub, unitTestTag, false),
+		ProxyImage:          ProxyImageName(unitTestHub, unitTestTag, false),
+		ImagePullPolicy:     "IfNotPresent",
+		Verbosity:           DefaultVerbosity,
+		SidecarProxyUID:     DefaultSidecarProxyUID,
+		Version:             "12345678",
+		Mesh:                &mesh,
+		IncludeIPRanges:     DefaultIncludeIPRanges,
+		IncludeInboundPorts: DefaultIncludeInboundPorts,
 	}
 	sidecarTemplate, err := GenerateTemplateFromParams(params)
 	if err != nil {

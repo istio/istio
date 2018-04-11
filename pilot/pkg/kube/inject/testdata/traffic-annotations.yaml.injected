@@ -1,31 +1,30 @@
-apiVersion: apps/v1beta1
-kind: StatefulSet
+apiVersion: extensions/v1beta1
+kind: Deployment
 metadata:
   creationTimestamp: null
-  name: hello
+  name: traffic
 spec:
-  replicas: 3
-  serviceName: hello
+  replicas: 7
+  strategy: {}
   template:
     metadata:
       annotations:
         sidecar.istio.io/status: '{"version":"f7f336a0434dd983d5ef90dbb6d00a3d2f598726d8fe488657e9d378f7768b2d","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"]}'
+        traffic.sidecar.istio.io/excludeInboundPorts: 4,5,6
+        traffic.sidecar.istio.io/excludeOutboundIPRanges: 10.96.0.2/24,10.96.0.3/24
+        traffic.sidecar.istio.io/includeInboundPorts: 1,2,3
+        traffic.sidecar.istio.io/includeOutboundIPRanges: 127.0.0.1/24,10.96.0.1/24
       creationTimestamp: null
       labels:
-        app: hello
-        tier: backend
-        track: stable
+        app: traffic
     spec:
       containers:
-      - image: fake.docker.io/google-samples/hello-go-gke:1.0
-        name: hello
+      - image: fake.docker.io/google-samples/traffic-go-gke:1.0
+        name: traffic
         ports:
         - containerPort: 80
           name: http
         resources: {}
-        volumeMounts:
-        - mountPath: /var/lib/data
-          name: data
       - args:
         - proxy
         - sidecar
@@ -34,7 +33,7 @@ spec:
         - --binaryPath
         - /usr/local/bin/envoy
         - --serviceCluster
-        - hello
+        - traffic
         - --drainDuration
         - 2s
         - --parentShutdownDuration
@@ -87,13 +86,13 @@ spec:
         - -u
         - "1337"
         - -i
-        - '*'
+        - 127.0.0.1/24,10.96.0.1/24
         - -x
-        - ""
+        - 10.96.0.2/24,10.96.0.3/24
         - -b
-        - '*'
+        - 1,2,3
         - -d
-        - ""
+        - 4,5,6
         image: docker.io/istio/proxy_init:unittest
         imagePullPolicy: IfNotPresent
         name: istio-init
@@ -103,9 +102,6 @@ spec:
             add:
             - NET_ADMIN
       volumes:
-      - hostPath:
-          path: /mnt/disks/ssd0
-        name: data
       - emptyDir:
           medium: Memory
         name: istio-envoy
@@ -113,7 +109,5 @@ spec:
         secret:
           optional: true
           secretName: istio.default
-  updateStrategy: {}
-status:
-  replicas: 0
+status: {}
 ---
