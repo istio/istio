@@ -356,10 +356,12 @@ func (s *DiscoveryServer) addCon(conID string, con *XdsConnection) {
 	adsClientsMutex.Lock()
 	defer adsClientsMutex.Unlock()
 	adsClients[conID] = con
-	if _, ok := adsSidecarIDConnectionsMap[con.modelNode.ID]; !ok {
-		adsSidecarIDConnectionsMap[con.modelNode.ID] = map[string]*XdsConnection{conID: con}
-	} else {
-		adsSidecarIDConnectionsMap[con.modelNode.ID][conID] = con
+	if con.modelNode != nil {
+		if _, ok := adsSidecarIDConnectionsMap[con.modelNode.ID]; !ok {
+			adsSidecarIDConnectionsMap[con.modelNode.ID] = map[string]*XdsConnection{conID: con}
+		} else {
+			adsSidecarIDConnectionsMap[con.modelNode.ID][conID] = con
+		}
 	}
 }
 
@@ -375,7 +377,9 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 		log.Errorf("ADS: Removing connection for non-existing node %v.", s)
 	}
 	delete(adsClients, conID)
-	delete(adsSidecarIDConnectionsMap[con.modelNode.ID], conID)
+	if con.modelNode != nil {
+		delete(adsSidecarIDConnectionsMap[con.modelNode.ID], conID)
+	}
 }
 
 func (s *DiscoveryServer) pushRoute(con *XdsConnection) error {
