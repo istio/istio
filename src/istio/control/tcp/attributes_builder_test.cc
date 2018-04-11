@@ -74,6 +74,12 @@ attributes {
   }
 }
 attributes {
+  key: "source.principal"
+  value {
+    string_value: "test_user"
+  }
+}
+attributes {
   key: "source.user"
   value {
     string_value: "test_user"

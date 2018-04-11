@@ -66,7 +66,11 @@ void AttributesBuilder::ExtractAuthAttributes(CheckData *check_data) {
                         authn_result.principal());
     }
     if (!authn_result.peer_user().empty()) {
+      // TODO(diemtvu): remove kSourceUser once migration to source.principal is
+      // over. https://github.com/istio/istio/issues/4689
       builder.AddString(AttributeName::kSourceUser, authn_result.peer_user());
+      builder.AddString(AttributeName::kSourcePrincipal,
+                        authn_result.peer_user());
     }
     if (authn_result.has_origin()) {
       const auto &origin = authn_result.origin();
@@ -109,7 +113,10 @@ void AttributesBuilder::ExtractAuthAttributes(CheckData *check_data) {
   }
   std::string source_user;
   if (check_data->GetSourceUser(&source_user)) {
+    // TODO(diemtvu): remove kSourceUser once migration to source.principal is
+    // over. https://github.com/istio/istio/issues/4689
     builder.AddString(AttributeName::kSourceUser, source_user);
+    builder.AddString(AttributeName::kSourcePrincipal, source_user);
   }
 }  // namespace http
 

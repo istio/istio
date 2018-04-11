@@ -20,6 +20,7 @@ namespace control {
 
 // Define attribute names
 const char AttributeName::kSourceUser[] = "source.user";
+const char AttributeName::kSourcePrincipal[] = "source.principal";
 
 const char AttributeName::kRequestHeaders[] = "request.headers";
 const char AttributeName::kRequestHost[] = "request.host";

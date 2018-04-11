@@ -23,7 +23,10 @@ namespace control {
 
 // Define attribute names
 struct AttributeName {
+  // source.user is replaced by source.principal
+  // https://github.com/istio/istio/issues/4689
   static const char kSourceUser[];
+  static const char kSourcePrincipal[];
 
   static const char kRequestHeaders[];
   static const char kRequestHost[];
