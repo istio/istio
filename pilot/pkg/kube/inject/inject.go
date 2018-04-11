@@ -48,6 +48,7 @@ import (
 const (
 	sidecarAnnotationPolicyKey                        = "sidecar.istio.io/inject"
 	sidecarAnnotationStatusKey                        = "sidecar.istio.io/status"
+	sidecarAnnotationProxyImageOverride               = "sidecar.istio.io/proxyImageOverride"
 	sidecarAnnotationIncludeOutboundIPRangesPolicyKey = "traffic.sidecar.istio.io/includeOutboundIPRanges"
 	sidecarAnnotationExcludeOutboundIPRangesPolicyKey = "traffic.sidecar.istio.io/excludeOutboundIPRanges"
 	sidecarAnnotationIncludeInboundPortsPolicyKey     = "traffic.sidecar.istio.io/includeInboundPorts"
@@ -287,13 +288,14 @@ func injectRequired(ignored []string, namespacePolicy InjectionPolicy, podSpec *
 		}
 	}
 
-	log.Debugf("Sidecar injection policy for %v/%v: namespacePolicy:%v useDefault:%v inject:%v status:%q "+
+	log.Debugf("Sidecar injection policy for %v/%v: namespacePolicy:%v useDefault:%v inject:%v status:%q proxyImageOverride:%q"+
 		"required:%v includeOutboundIPRanges:%v excludeOutboundIPRanges:%v includeInboundPorts:%v excludeInboundPorts:%v",
 		metadata.Namespace,
 		metadata.Name,
 		namespacePolicy,
 		useDefault,
 		inject,
+		annotations[sidecarAnnotationProxyImageOverride],
 		annotations[sidecarAnnotationStatusKey],
 		required,
 		annotationString(annotations, sidecarAnnotationIncludeOutboundIPRangesPolicyKey),

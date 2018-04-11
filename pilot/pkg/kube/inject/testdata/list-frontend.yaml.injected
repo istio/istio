@@ -24,7 +24,7 @@ items:
     template:
       metadata:
         annotations:
-          sidecar.istio.io/status: '{"version":"f7f336a0434dd983d5ef90dbb6d00a3d2f598726d8fe488657e9d378f7768b2d","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"]}'
+          sidecar.istio.io/status: '{"version":"90a41c86a38c019b16531ac96dbf47de319aad1365fdb9c3dd05aff571218c6b","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"]}'
         creationTimestamp: null
         labels:
           app: hello

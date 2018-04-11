@@ -2,21 +2,24 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   creationTimestamp: null
-  name: traffic
+  name: hello
 spec:
   replicas: 7
   strategy: {}
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"f58e790dd8b65306a824e8d321c7081684dfdfdf0490dde2a8768f9beec238e5","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"]}'
+        sidecar.istio.io/proxyImageOverride: docker.io/istio/proxy2_debug:unittest
+        sidecar.istio.io/status: '{"version":"81748d7d3d71b3be470c9cb77f7f9c9830c05ef137d14ea2d09330202b11c22c","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"]}'
       creationTimestamp: null
       labels:
-        app: traffic
+        app: hello
+        tier: backend
+        track: stable
     spec:
       containers:
-      - image: fake.docker.io/google-samples/traffic-go-gke:1.0
-        name: traffic
+      - image: fake.docker.io/google-samples/hello-go-gke:1.0
+        name: hello
         ports:
         - containerPort: 80
           name: http
@@ -29,7 +32,7 @@ spec:
         - --binaryPath
         - /usr/local/bin/envoy
         - --serviceCluster
-        - traffic
+        - hello
         - --drainDuration
         - 2s
         - --parentShutdownDuration
@@ -61,13 +64,13 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
-        image: docker.io/istio/proxy:unittest
+        image: docker.io/istio/proxy2_debug:unittest
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         resources: {}
         securityContext:
-          privileged: false
-          readOnlyRootFilesystem: true
+          privileged: true
+          readOnlyRootFilesystem: false
           runAsUser: 1337
         volumeMounts:
         - mountPath: /etc/istio/proxy
@@ -82,13 +85,13 @@ spec:
         - -u
         - "1337"
         - -i
-        - 127.0.0.1/24,10.96.0.1/24
+        - '*'
         - -x
-        - 10.96.0.2/24,10.96.0.3/24
+        - ""
         - -b
-        - 1,2,3
+        - '*'
         - -d
-        - 4,5,6
+        - ""
         image: docker.io/istio/proxy_init:unittest
         imagePullPolicy: IfNotPresent
         name: istio-init
@@ -97,6 +100,7 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
+          privileged: true
       volumes:
       - emptyDir:
           medium: Memory
