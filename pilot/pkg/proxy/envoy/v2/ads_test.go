@@ -15,6 +15,8 @@ package v2_test
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"io/ioutil"
 	"testing"
 	"time"
@@ -23,13 +25,12 @@ import (
 	envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/tests/util"
-	"google.golang.org/grpc/credentials"
-	"crypto/tls"
-	"crypto/x509"
 )
 
 func connectADS(t *testing.T, url string) ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient {
@@ -49,8 +50,8 @@ func connectADS(t *testing.T, url string) ads.AggregatedDiscoveryService_StreamA
 func connectADSS(t *testing.T, url string) ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient {
 	certDir := util.IstioSrc + "/tests/testdata/certs/default/"
 
-	clientCert, err := tls.LoadX509KeyPair(certDir + model.CertChainFilename,
-		certDir + model.KeyFilename)
+	clientCert, err := tls.LoadX509KeyPair(certDir+model.CertChainFilename,
+		certDir+model.KeyFilename)
 	if err != nil {
 		t.Fatal("Can't load client certs ", err)
 		return nil
@@ -68,14 +69,14 @@ func connectADSS(t *testing.T, url string) ads.AggregatedDiscoveryService_Stream
 	}
 
 	tlsCfg := &tls.Config{
-		Certificates:     []tls.Certificate{clientCert},
-		RootCAs:          serverCAs,
-		ServerName: 	"istio-pilot.istio-system.svc",
+		Certificates: []tls.Certificate{clientCert},
+		RootCAs:      serverCAs,
+		ServerName:   "istio-pilot.istio-system.svc",
 	}
 
 	creds := credentials.NewTLS(tlsCfg)
 
-	opts := []grpc.DialOption {
+	opts := []grpc.DialOption{
 		// Verify Pilot cert and service account
 		grpc.WithTransportCredentials(creds),
 	}
@@ -200,6 +201,14 @@ func TestTLS(t *testing.T) {
 	if err != nil {
 		t.Error("Failed to receive with TLS connection ", err)
 	}
+
+	bootstrap.IstioCertDir = util.IstioSrc + "/tests/testdata/certs/default"
+	c, err := bootstrap.Checkin(true, util.MockPilotSecureAddr, "cluster", sidecarId(app3Ip, "app3"),
+		1*time.Second, 2)
+	if err != nil {
+		t.Fatal("Failed to checkin", err)
+	}
+	t.Log("AZ:", c.AvailabilityZone)
 }
 
 func adsReceive(ads ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, to time.Duration) (*xdsapi.DiscoveryResponse, error) {
@@ -273,4 +282,3 @@ func TestAdsEds(t *testing.T) {
 
 	_ = edsstr.CloseSend()
 }
-

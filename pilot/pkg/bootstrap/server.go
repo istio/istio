@@ -15,7 +15,10 @@
 package bootstrap
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -31,6 +34,7 @@ import (
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	multierror "github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -59,10 +63,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
-	"google.golang.org/grpc/credentials"
-	"crypto/tls"
-	"crypto/x509"
-	"io/ioutil"
 )
 
 const (
@@ -98,7 +98,6 @@ var (
 	// PilotCertDir is the default location for mTLS certificates used by pilot
 	// Visible for tests - at runtime can be set by PILOT_CERT_DIR environment variable.
 	PilotCertDir = "/etc/certs/"
-
 )
 
 // MeshArgs provide configuration options for the mesh. If ConfigFile is provided, an attempt will be made to
@@ -183,16 +182,16 @@ type PilotArgs struct {
 
 // Server contains the runtime configuration for the Pilot discovery service.
 type Server struct {
-	mesh              *meshconfig.MeshConfig
-	ServiceController *aggregate.Controller
-	configController  model.ConfigStoreCache
-	mixerSAN          []string
-	kubeClient        kubernetes.Interface
-	startFuncs        []startFunc
-	HTTPListeningAddr net.Addr
-	GRPCListeningAddr net.Addr
+	mesh                    *meshconfig.MeshConfig
+	ServiceController       *aggregate.Controller
+	configController        model.ConfigStoreCache
+	mixerSAN                []string
+	kubeClient              kubernetes.Interface
+	startFuncs              []startFunc
+	HTTPListeningAddr       net.Addr
+	GRPCListeningAddr       net.Addr
 	SecureGRPCListeningAddr net.Addr
-	clusterStore      *clusterregistry.ClusterStore
+	clusterStore            *clusterregistry.ClusterStore
 
 	EnvoyXdsServer   *envoyv2.DiscoveryServer
 	HTTPServer       *http.Server
@@ -856,16 +855,16 @@ func (s *Server) secureGrpcStart(listener net.Listener) {
 
 		// This is used for the grpc h2 implementation. It doesn't appear to be needed in
 		// the case of golang h2 stack.
-		creds, err := credentials.NewServerTLSFromFile(certDir + model.CertChainFilename,
-			certDir + model.KeyFilename)
+		creds, err := credentials.NewServerTLSFromFile(certDir+model.CertChainFilename,
+			certDir+model.KeyFilename)
 		// certs not ready yet.
 		if err != nil {
 			time.Sleep(5 * time.Second)
 			continue
 		}
 
-		cert, err := tls.LoadX509KeyPair(certDir + model.CertChainFilename,
-			certDir + model.KeyFilename)
+		cert, err := tls.LoadX509KeyPair(certDir+model.CertChainFilename,
+			certDir+model.KeyFilename)
 		if err != nil {
 			time.Sleep(5 * time.Second)
 			continue
@@ -887,17 +886,17 @@ func (s *Server) secureGrpcStart(listener net.Listener) {
 		log.Infof("Starting GRPC secure on %v with certs in %s", listener.Addr(), certDir)
 
 		s := &http.Server{
-			TLSConfig:&tls.Config{
+			TLSConfig: &tls.Config{
 				Certificates: []tls.Certificate{cert},
 				VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 					// For now accept any certs - pilot is not authenticating the caller, TLS used for
 					// privacy
-					log.Infof("Certificate received %v", verifiedChains)
+					log.Infof("Certificate received %V", verifiedChains)
 					return nil
 				},
 				//ClientAuth: tls.RequestClientCert,
 				ClientAuth: tls.RequireAndVerifyClientCert,
-				ClientCAs: caCertPool,
+				ClientCAs:  caCertPool,
 			},
 			Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.ProtoMajor == 2 && strings.HasPrefix(
@@ -911,7 +910,7 @@ func (s *Server) secureGrpcStart(listener net.Listener) {
 
 		// This seems the only way to call setupHTTP2 - it may also be possible to set NextProto
 		// on a listener
-		s.ServeTLS(listener, certDir + model.CertChainFilename, certDir + model.KeyFilename)
+		s.ServeTLS(listener, certDir+model.CertChainFilename, certDir+model.KeyFilename)
 
 		// The other way to set TLS - but you can't add http handlers, and the h2 stack is
 		// different.

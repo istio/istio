@@ -15,10 +15,13 @@
 package bootstrap
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path"
@@ -30,6 +33,8 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/log"
 )
 
 // Generate the envoy v2 bootstrap configuration, using template.
@@ -253,4 +258,94 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	// Execute needs some sort of io.Writer
 	err = t.Execute(fout, opts)
 	return fname, err
+}
+
+// CheckinData has data provided by Pilot needed to start and prepare envoy.
+type CheckinData struct {
+	AvailabilityZone string
+}
+
+var (
+	// IstioCertDir is the location of istio certificates. Visible for testing.
+	// Can be set using ISTIO_CERT_DIR environment variable.
+	IstioCertDir = "/etc/certs"
+
+	// PilotSAN is the DNS name included in the pilot certificate. It may not match the
+	// actual address. Pilot, IstioCA and Sidecar have special certificate that include both
+	// SPIFEE and DNS.
+	PilotSAN = "istio-pilot.istio-system.svc"
+)
+
+// Checkin will connect to pilot and retrieve initial configuration data needed to start envoy.
+// In 0.8 this includes only AZ. Refactored from 'retrieveAZ'.
+// This will retry multiple times.
+func Checkin(secure bool, addr, cluster, node string, delay time.Duration, retries int) (*CheckinData, error) {
+	attempts := 0
+	w := &CheckinData{}
+
+	certDir := os.Getenv("ISTIO_CERT_DIR")
+	if certDir == "" {
+		certDir = IstioCertDir
+	}
+
+	for {
+		var client *http.Client
+		var protocol string
+		if secure {
+			chainCertFile := fmt.Sprintf("%v/%v", certDir, model.CertChainFilename)
+			chainKeyFile := fmt.Sprintf("%v/%v", certDir, model.KeyFilename)
+			chainCert, err := tls.LoadX509KeyPair(chainCertFile, chainKeyFile)
+			if err != nil {
+				log.Infof("Unable to load certs to talk to control plane: %v", err)
+			}
+			caCertFile := fmt.Sprintf("%v/%v", certDir, model.RootCertFilename)
+			caCert, err := ioutil.ReadFile(caCertFile)
+			if err != nil {
+				log.Infof("Unable to load ca root cert to talk to control plane: %v", err)
+			}
+			caCertPool := x509.NewCertPool()
+			caCertPool.AppendCertsFromPEM(caCert)
+
+			//serverName, _, _ := net.SplitHostPort(addr)
+
+			tlsConfig := &tls.Config{
+				Certificates: []tls.Certificate{chainCert},
+				RootCAs:      caCertPool,
+				ServerName:   PilotSAN,
+				// Original ServerName was fmt.Sprintf("%v.svc", serverName), but not sure
+				// how it could work - this SAN is not present in the cert.
+			}
+			//tlsConfig.BuildNameToCertificate()
+			transport := &http.Transport{TLSClientConfig: tlsConfig}
+			client = &http.Client{Transport: transport}
+			protocol = "https://"
+		} else {
+			client = &http.Client{}
+			protocol = "http://"
+		}
+
+		resp, err := client.Get(fmt.Sprintf("%v%v/v1/az/%v/%v", protocol, addr, cluster, node))
+		if err != nil {
+			log.Infof("Unable to retrieve availability zone from pilot: %v", err)
+			if attempts > retries {
+				return nil, err
+			}
+		} else {
+			body, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				log.Infof("Unable to read availability zone response from pilot: %v", err)
+			}
+			if resp.StatusCode != http.StatusOK {
+				log.Infof("Received %v status from pilot when retrieving availability zone: %v", resp.StatusCode, string(body))
+			} else {
+				// TODO: replace with json containing Checkin data.
+				w.AvailabilityZone = string(body)
+				log.Infof("Proxy availability zone: %v", w.AvailabilityZone)
+				return w, nil
+			}
+			_ = resp.Body.Close()
+		}
+		attempts++
+		time.Sleep(delay)
+	}
 }
