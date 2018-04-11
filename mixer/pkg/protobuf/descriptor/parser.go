@@ -13,6 +13,7 @@
 // limitations under the License.
 
 /*
+TODO currently this package is tested via the mixer/tools/pkg/modelgen. Create separate test file for this package.
 Code in this class is mostly a copy from https://github.com/golang/protobuf/blob/master/protoc-gen-go/generator/generator.go
 TODO:
 -  Handle name collision. When multiple files in the FileDescriptorSet have the same name, the protoc-gen-go do name
@@ -28,7 +29,7 @@ TODO:
    parameters for it's codegen and pass to the protoc-gen-go plugin (invoking another protoc process).
 */
 
-package modelgen
+package descriptor
 
 import (
 	"bytes"
@@ -51,19 +52,19 @@ type FileDescriptorSetParser struct {
 
 	Pkg map[string]string // The names under which we import support packages
 
-	packageName    string                     // What we're calling ourselves.
-	allFiles       []*FileDescriptor          // All files in the tree
+	PackageName    string                     // What we're calling ourselves.
+	AllFiles       []*FileDescriptor          // All files in the tree
 	allFilesByName map[string]*FileDescriptor // All files by filename.
 }
 
 type common struct {
-	file *descriptor.FileDescriptorProto // File this object comes from.
+	FileDesc *descriptor.FileDescriptorProto // File this object comes from.
 }
 
 // FileDescriptor wraps a FileDescriptorProto.
 type FileDescriptor struct {
 	*descriptor.FileDescriptorProto
-	desc []*Descriptor     // All the messages defined in this file.
+	Desc []*Descriptor     // All the messages defined in this file.
 	enum []*EnumDescriptor // All the enums defined in this file.
 
 	// lineNumbers stored as a map of path (comma-separated integers) to string.
@@ -72,7 +73,7 @@ type FileDescriptor struct {
 	// Comments, stored as a map of path (comma-separated integers) to the comment.
 	comments map[string]*descriptor.SourceCodeInfo_Location
 
-	proto3 bool // whether to generate proto3 code for this file
+	Proto3 bool // whether to generate proto3 code for this file
 }
 
 // Descriptor wraps a DescriptorProto.
@@ -83,7 +84,7 @@ type Descriptor struct {
 	nested   []*Descriptor     // Inner messages, if any.
 	enums    []*EnumDescriptor // Inner enums, if any.
 	typename []string          // Cached typename vector.
-	path     string            // The SourceCodeInfo path as comma-separated integers.
+	Path     string            // The SourceCodeInfo path as comma-separated integers.
 }
 
 // EnumDescriptor wraps a EnumDescriptorProto.
@@ -102,6 +103,28 @@ type Object interface {
 	File() *descriptor.FileDescriptorProto
 }
 
+// Enums return complete list of enums in the file descriptor set
+func (g *FileDescriptorSetParser) Enums() map[string]*descriptor.EnumDescriptorProto {
+	enums := make(map[string]*descriptor.EnumDescriptorProto)
+	for n, o := range g.typeNameToObject {
+		if v, ok := o.(*EnumDescriptor); ok {
+			enums[n] = v.EnumDescriptorProto
+		}
+	}
+	return enums
+}
+
+// Messages return complete list of messages in the file descriptor set
+func (g *FileDescriptorSetParser) Messages() map[string]*descriptor.DescriptorProto {
+	msgs := make(map[string]*descriptor.DescriptorProto)
+	for n, o := range g.typeNameToObject {
+		if v, ok := o.(*Descriptor); ok {
+			msgs[n] = v.DescriptorProto
+		}
+	}
+	return msgs
+}
+
 // CreateFileDescriptorSetParser builds a FileDescriptorSetParser instance.
 func CreateFileDescriptorSetParser(fds *descriptor.FileDescriptorSet, importMap map[string]string, packageImportPath string) *FileDescriptorSetParser {
 	parser := &FileDescriptorSetParser{ImportMap: importMap, PackageImportPath: packageImportPath}
@@ -112,8 +135,8 @@ func CreateFileDescriptorSetParser(fds *descriptor.FileDescriptorSet, importMap 
 
 // WrapTypes creates wrapper types for messages, enumse and file inside the FileDescriptorSet.
 func (g *FileDescriptorSetParser) WrapTypes(fds *descriptor.FileDescriptorSet) {
-	g.allFiles = make([]*FileDescriptor, 0, len(fds.File))
-	g.allFilesByName = make(map[string]*FileDescriptor, len(g.allFiles))
+	g.AllFiles = make([]*FileDescriptor, 0, len(fds.File))
+	g.allFilesByName = make(map[string]*FileDescriptor, len(g.AllFiles))
 	for _, f := range fds.File {
 		g.wrapFileDescriptor(f)
 
@@ -129,12 +152,12 @@ func (g *FileDescriptorSetParser) wrapFileDescriptor(f *descriptor.FileDescripto
 		g.buildNestedEnums(descs, enums)
 		fd := &FileDescriptor{
 			FileDescriptorProto: f,
-			desc:                descs,
+			Desc:                descs,
 			enum:                enums,
-			proto3:              fileIsProto3(f),
+			Proto3:              fileIsProto3(f),
 		}
 		extractCommentsAndLineNumbers(fd)
-		g.allFiles = append(g.allFiles, fd)
+		g.AllFiles = append(g.AllFiles, fd)
 		g.allFilesByName[f.GetName()] = fd
 	}
 }
@@ -181,9 +204,9 @@ func newDescriptor(desc *descriptor.DescriptorProto, parent *Descriptor, file *d
 	}
 
 	if parent == nil {
-		d.path = fmt.Sprintf("%s,%d", messagePath, index)
+		d.Path = fmt.Sprintf("%s,%d", MessagePath, index)
 	} else {
-		d.path = fmt.Sprintf("%s,%s,%d", parent.path, messageMessagePath, index)
+		d.Path = fmt.Sprintf("%s,%s,%d", parent.Path, MessageMessagePath, index)
 	}
 	return d
 }
@@ -227,9 +250,9 @@ func newEnumDescriptor(desc *descriptor.EnumDescriptorProto, parent *Descriptor,
 		parent:              parent,
 	}
 	if parent == nil {
-		ed.path = fmt.Sprintf("%s,%d", enumPath, index)
+		ed.path = fmt.Sprintf("%s,%d", EnumPath, index)
 	} else {
-		ed.path = fmt.Sprintf("%s,%s,%d", parent.path, messageEnumPath, index)
+		ed.path = fmt.Sprintf("%s,%s,%d", parent.Path, MessageEnumPath, index)
 	}
 	return ed
 }
@@ -272,13 +295,6 @@ func (g *FileDescriptorSetParser) fail(msgs ...string) {
 	os.Exit(1)
 }
 
-const (
-	sINT64   = "int64"
-	sFLOAT64 = "float64"
-	sBOOL    = "bool"
-	sSTRING  = "string"
-)
-
 // TypeName returns a full name for the underlying Object type.
 func (g *FileDescriptorSetParser) TypeName(obj Object) string {
 	return g.DefaultPackageName(obj) + camelCaseSlice(obj.TypeName())
@@ -293,7 +309,7 @@ func (g *FileDescriptorSetParser) DefaultPackageName(obj Object) string {
 		return ""
 	}
 	pkg := obj.PackageName()
-	if pkg == g.packageName {
+	if pkg == g.PackageName {
 		return ""
 	}
 	return pkg + "."
@@ -324,7 +340,8 @@ func extractCommentsAndLineNumbers(file *FileDescriptor) {
 	}
 }
 
-func (d *FileDescriptor) getComment(path string) string {
+// GetComment returns the comment associated with the element at a given path.
+func (d *FileDescriptor) GetComment(path string) string {
 	if loc, ok := d.comments[path]; ok {
 		text := strings.TrimSuffix(loc.GetLeadingComments(), "\n")
 		var buffer bytes.Buffer
@@ -336,7 +353,8 @@ func (d *FileDescriptor) getComment(path string) string {
 	return ""
 }
 
-func (d *FileDescriptor) getLineNumber(path string) string {
+// GetLineNumber returns line number for the path.
+func (d *FileDescriptor) GetLineNumber(path string) string {
 	if l, ok := d.lineNumbers[path]; ok {
 		return l
 	}
@@ -344,14 +362,15 @@ func (d *FileDescriptor) getLineNumber(path string) string {
 	return ""
 }
 
-func getPathForField(desc *Descriptor, index int) string {
-	return fmt.Sprintf("%s,%s,%d", desc.path, messageFieldPath, index)
+// GetPathForField returns the path associated with the field
+func GetPathForField(desc *Descriptor, index int) string {
+	return fmt.Sprintf("%s,%s,%d", desc.Path, MessageFieldPath, index)
 }
 
 // BuildTypeNameMap creates a map of type name to the wrapper Object associated with it.
 func (g *FileDescriptorSetParser) BuildTypeNameMap() {
 	g.typeNameToObject = make(map[string]Object)
-	for _, f := range g.allFiles {
+	for _, f := range g.AllFiles {
 		// The names in this loop are defined by the proto world, not us, so the
 		// package name may be empty.  If so, the dotted package name of X will
 		// be ".X"; otherwise it will be ".pkg.X".
@@ -363,7 +382,7 @@ func (g *FileDescriptorSetParser) BuildTypeNameMap() {
 			name := dottedPkg + dottedSlice(enum.TypeName())
 			g.typeNameToObject[name] = enum
 		}
-		for _, desc := range f.desc {
+		for _, desc := range f.Desc {
 			name := dottedPkg + dottedSlice(desc.TypeName())
 			g.typeNameToObject[name] = desc
 		}
@@ -374,11 +393,11 @@ func (g *FileDescriptorSetParser) BuildTypeNameMap() {
 
 // PackageName returns the Go package name for the file the common object belongs to.
 func (c *common) PackageName() string {
-	f := c.file
-	return goPackageName(f.GetPackage())
+	f := c.FileDesc
+	return GoPackageName(f.GetPackage())
 }
 
-func (c *common) File() *descriptor.FileDescriptorProto { return c.file }
+func (c *common) File() *descriptor.FileDescriptorProto { return c.FileDesc }
 
 // helper methods
 
@@ -394,7 +413,8 @@ func isASCIIDigit(c byte) bool {
 	return '0' <= c && c <= '9'
 }
 
-func camelCase(s string) string {
+// CamelCase converts the string into camel case string
+func CamelCase(s string) string {
 	if s == "" {
 		return ""
 	}
@@ -433,7 +453,7 @@ func camelCase(s string) string {
 	return string(t)
 }
 
-func camelCaseSlice(elem []string) string { return camelCase(strings.Join(elem, "_")) }
+func camelCaseSlice(elem []string) string { return CamelCase(strings.Join(elem, "_")) }
 
 func fileIsProto3(file *descriptor.FileDescriptorProto) bool {
 	return file.GetSyntax() == "proto3"
@@ -449,16 +469,24 @@ func badToUnderscore(r rune) rune {
 	return '_'
 }
 
-func goPackageName(pkg string) string {
+// GoPackageName converts proto package name into go package name.
+func GoPackageName(pkg string) string {
 	return strings.Map(badToUnderscore, pkg)
 }
 
 const (
-	syntaxPath         = "12" // syntax
-	packagePath        = "2"  // syntax
-	messagePath        = "4"  // message_type
-	enumPath           = "5"  // enum_type
-	messageFieldPath   = "2"  // field
-	messageMessagePath = "3"  // nested_type
-	messageEnumPath    = "4"  // enum_type
+	// SyntaxPath is location path number for syntax statement
+	SyntaxPath = "12" // syntax
+	// PackagePath is location path number for package statement
+	PackagePath = "2" // syntax
+	// MessagePath is location path number for message statement
+	MessagePath = "4" // message_type
+	// EnumPath is location path number for enum statement
+	EnumPath = "5" // enum_type
+	// MessageFieldPath is location path number for message field statement
+	MessageFieldPath = "2" // field
+	// MessageMessagePath is location path number for sub-message statement
+	MessageMessagePath = "3" // nested_type
+	// MessageEnumPath is location path number for sub-enum statement
+	MessageEnumPath = "4" // enum_type
 )
