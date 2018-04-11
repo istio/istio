@@ -1,34 +1,33 @@
 ---
-title: Route Rules Alpha 3
+title: Route Rules v1alpha3
 overview: Configuration affecting traffic routing
 location: https://istio.io/docs/reference/config/istio.networking.v1alpha3.html
 layout: protoc-gen-docs
 number_of_entries: 37
 ---
-<p>Configuration affecting traffic routing. Here are a few terms useful to define
-in the context of traffic routing.</p>
+<h3 id="terms-and-definitions">Terms and Definitions</h3>
 
-<p><em>Service</em> a unit of application behavior bound to a unique name in a
+<p><code>Service</code> a unit of application behavior bound to a unique name in a
 service registry. Services consist of multiple network <em>endpoints</em>
 implemented by workload instances running on pods, containers, VMs etc.</p>
 
-<p><em>Service versions (subsets)</em> - In a continuous deployment scenario, for
-a given service, there can be distinct subsets of instances running
-different variants of the application binary. These variants are not
-necessarily different API versions. They could be iterative changes to
-the same service, deployed in different environments (prod, staging,
-dev, etc.). Common scenarios where this occurs include A/B testing,
-canary rollouts, etc. The choice of a particular version can be decided
-based on various criterion (headers, url, etc.) and/or by weights
-assigned to each version. Each service has a default version consisting
-of all its instances.</p>
+<p><code>Service versions (a.k.a. subsets)</code> - In a continuous deployment
+scenario, for a given service, there can be distinct subsets of
+instances running different variants of the application binary. These
+variants are not necessarily different API versions. They could be
+iterative changes to the same service, deployed in different
+environments (prod, staging, dev, etc.). Common scenarios where this
+occurs include A/B testing, canary rollouts, etc. The choice of a
+particular version can be decided based on various criterion (headers,
+url, etc.) and/or by weights assigned to each version. Each service has
+a default version consisting of all its instances.</p>
 
-<p><em>Source</em> - A downstream client calling a service.</p>
+<p><code>Source</code> - A downstream client calling a service.</p>
 
-<p><em>Host</em> - The address used by a client when attempting to connect to a
+<p><code>Host</code> - The address used by a client when attempting to connect to a
 service.</p>
 
-<p><em>Access model</em> - Applications address only the destination service
+<p><code>Access model</code> - Applications address only the destination service
 (Host) without knowledge of individual service versions (subsets). The
 actual choice of the version is determined by the proxy/sidecar, enabling the
 application code to decouple itself from the evolution of dependent
@@ -50,7 +49,7 @@ kind: DestinationRule
 metadata:
   name: bookinfo-redis
 spec:
-  host: myredissrv
+  host: myredissrv.prod.svc.cluster.local
   trafficPolicy:
     connectionPool:
       tcp:
@@ -185,11 +184,11 @@ metadata:
   name: ratings-route
 spec:
   hosts:
-  - ratings
+  - ratings.prod.svc.cluster.local
   http:
   - route:
     - destination:
-        host: ratings
+        host: ratings.prod.svc.cluster.local
         subset: v1
     corsPolicy:
       allowOrigin:
@@ -275,41 +274,33 @@ Access-Control-Allow-Credentials header.</p>
 <section>
 <p>Destination indicates the network addressable service to which the
 request/connection will be sent after processing a routing rule. The
-destination.name should unambiguously refer to a service in the service
-registry. It can be a short name or a fully qualified domain name from
-the service registry, a resolvable DNS name, an IP address or a service
-name from the service registry and a subset name. The order of inference
-is as follows:</p>
+destination.host should unambiguously refer to a service in the service
+registry. Istio&rsquo;s service registry is composed of all the services found
+in the platform&rsquo;s service registry (e.g., Kubernetes services, Consul
+services), as well as hosts declared through the
+<a href="#ExternalService">ExternalService</a> resource.</p>
 
-<ol>
-<li><p>Service registry lookup. The entire name is looked up in the service
-registry. If the lookup succeeds, the search terminates. The requests
-will be routed to any instance of the service in the mesh. When the
-service name consists of a single word, the FQDN will be constructed in
-a platform specific manner. For example, in Kubernetes, the namespace
-associated with the routing rule will be used to identify the service as
-<servicename>.<rulenamespace>. However, if the service name contains
-multiple words separated by a dot (e.g., reviews.prod), the name in its
-entirety would be looked up in the service registry.</p></li>
+<p><em>Note for Kubernetes users</em>: When short names are used (e.g. &ldquo;reviews&rdquo;
+instead of &ldquo;reviews.default.svc.cluster.local&rdquo;), Istio will interpret
+the short name based on the namespace of the rule, not the service. A
+rule in the &ldquo;default&rdquo; namespace containing a host &ldquo;reviews will be
+interpreted as &ldquo;reviews.default.svc.cluster.local&rdquo;, irrespective of the
+actual namespace associated with the reviews service. <em>To avoid potential
+misconfigurations, it is recommended to always use fully qualified
+domain names over short names.</em></p>
 
-<li><p>Runtime DNS lookup by the proxy. If step 1 fails, and the name is not
-an IP address, it will be considered as a DNS name that is not in the
-service registry (e.g., wikipedia.org). The sidecar/gateway will resolve
-the DNS and load balance requests appropriately. See Envoy&rsquo;s strict_dns
-for details.</p></li>
-</ol>
-
-<p>The following example routes all traffic by default to pods of the
-reviews service with label &ldquo;version: v1&rdquo; (i.e., subset v1), and some
-to subset v2, in a kubernetes environment.</p>
+<p>The following Kubernetes example routes all traffic by default to pods
+of the reviews service with label &ldquo;version: v1&rdquo; (i.e., subset v1), and
+some to subset v2, in a kubernetes environment.</p>
 
 <pre><code>apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: reviews-route
+  namespace: foo
 spec:
   hosts:
-  - reviews # namespace is same as the client/caller's namespace
+  - reviews # interpreted as reviews.foo.svc.cluster.local
   http:
   - match:
     - uri:
@@ -320,11 +311,11 @@ spec:
       uri: &quot;/newcatalog&quot;
     route:
     - destination:
-        host: reviews
+        host: reviews # interpreted as reviews.foo.svc.cluster.local
         subset: v2
   - route:
     - destination:
-        host: reviews
+        host: reviews # interpreted as reviews.foo.svc.cluster.local
         subset: v1
 </code></pre>
 
@@ -334,8 +325,9 @@ spec:
 kind: DestinationRule
 metadata:
   name: reviews-destination
+  namespace: foo
 spec:
-  host: reviews
+  host: reviews # interpreted as reviews.foo.svc.cluster.local
   subsets:
   - name: v1
     labels:
@@ -346,29 +338,50 @@ spec:
 </code></pre>
 
 <p>The following VirtualService sets a timeout of 5s for all calls to
-productpage.prod service. Notice that there are no subsets defined in
-this rule. Istio will fetch all instances of productpage.prod service
-from the service registry and populate the sidecar&rsquo;s load balancing
-pool.</p>
+productpage.prod.svc.cluster.local service in Kubernetes. Notice that
+there are no subsets defined in this rule. Istio will fetch all
+instances of productpage.prod.svc.cluster.local service from the service
+registry and populate the sidecar&rsquo;s load balancing pool. Also, notice
+that this rule is set in the istio-system namespace but uses the fully
+qualified domain name of the productpage service,
+productpage.prod.svc.cluster.local. Therefore the rule&rsquo;s namespace does
+not have an impact in resolving the name of the productpage service.</p>
 
 <pre><code>apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: my-productpage-rule
+  namespace: istio-system
 spec:
   hosts:
-  - productpage.prod # in kubernetes, this applies only to prod namespace
+  - productpage.prod.svc.cluster.local # ignores rule namespace
   http:
   - timeout: 5s
     route:
     - destination:
-        host: productpage.prod
+        host: productpage.prod.svc.cluster.local
 </code></pre>
 
-<p>The following sets a timeout of 5s for all calls to the external
-service wikipedia.org, as there is no internal service of that name.</p>
+<p>To control routing for traffic bound to services outside the mesh, external
+services must first be added to Istio&rsquo;s internal service registry using the
+ExternalService rule. VirtualServices can then be defined to control traffic
+bound to these external services. For example, the following rules define an
+ExternalService for wikipedia.org and set a timeout of 5s for http requests.</p>
 
 <pre><code>apiVersion: networking.istio.io/v1alpha3
+kind: ExternalService
+metadata:
+  name: external-svc-wikipedia
+spec:
+  hosts:
+  - wikipedia.org
+  ports:
+  - number: 80
+    name: example-http
+    protocol: HTTP
+  discovery: DNS
+
+apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: my-wiki-rule
@@ -395,19 +408,20 @@ spec:
 <td><code>host</code></td>
 <td><code>string</code></td>
 <td>
-<p>REQUIRED. The host can be a short name or a fully qualified domain
-name from the service registry, a resolvable DNS name, or an IP
-address.</p>
+<p>REQUIRED. The name of a service from the service registry. Service
+names are looked up from the platform&rsquo;s service registry (e.g.,
+Kubernetes services, Consul services, etc.) and from the hosts
+declared by <a href="#ExternalService">ExternalServices</a>. Traffic forwarded to
+destinations that are not found in either of the two, will be dropped.</p>
 
-<p>If short names are used, the FQDN of the service will be resolved in a
-platform specific manner. For example in Kubernetes, when a route with a
-short name &ldquo;reviews&rdquo; in the destination in namespace &ldquo;bookinfo&rdquo; is applied,
-the final destination is resolved to reviews.bookinfo.svc.cluster.local. The
-sidecar will route to the IP
-addresses of the pods constituting the service. However, if the lookup
-fails, &ldquo;reviews&rdquo; is treated as an external service, such that the sidecar
-will dynamically resolve the DNS of the service name and route the request
-to the IP addresses returned by the DNS.</p>
+<p><em>Note for Kubernetes users</em>: When short names are used (e.g. &ldquo;reviews&rdquo;
+instead of &ldquo;reviews.default.svc.cluster.local&rdquo;), Istio will interpret
+the short name based on the namespace of the rule, not the service. A
+rule in the &ldquo;default&rdquo; namespace containing a host &ldquo;reviews will be
+interpreted as &ldquo;reviews.default.svc.cluster.local&rdquo;, irrespective of
+the actual namespace associated with the reviews service. <em>To avoid
+potential misconfigurations, it is recommended to always use fully
+qualified domain names over short names.</em></p>
 
 </td>
 </tr>
@@ -425,9 +439,9 @@ DestinationRule.</p>
 <td><code>port</code></td>
 <td><code><a href="#PortSelector">PortSelector</a></code></td>
 <td>
-<p>Specifies the port on the destination. Many services only expose a
-single port or label ports with the protocols they support, in these
-cases it is not required to explicitly select the port. Note that
+<p>Specifies the port on the host that is being addressed. Many services
+only expose a single port or label ports with the protocols they support,
+in these cases it is not required to explicitly select the port. Note that
 selection priority is to first match by name and then match by number.</p>
 
 <p>Names must comply with DNS label syntax (rfc1035) and therefore cannot
@@ -437,64 +451,57 @@ label>.</p>
 
 </td>
 </tr>
-<tr id="Destination.name">
-<td><code>name</code></td>
-<td><code>string</code></td>
-<td>
-<p>DEPRECATED: Use <code>host</code> instead. Adding <code>name</code> back to prevent backward incompatibility with existing code inside
-istio.io/istio.</p>
-
-</td>
-</tr>
 </tbody>
 </table>
 </section>
 <h2 id="DestinationRule">DestinationRule</h2>
 <section>
-<p>DestinationRule defines policies that apply to traffic intended for a
-service after routing has occurred. These rules specify configuration
-for load balancing, connection pool size from the sidecar, and outlier
-detection settings to detect and evict unhealthy hosts from the load
-balancing pool. For example, a simple load balancing policy for the
-ratings service would look as follows:</p>
+<p># Overview</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: bookinfo-ratings
-spec:
-  host: ratings
-  trafficPolicy:
-    loadBalancer:
-      simple: LEAST_CONN
+<p><code>DestinationRule</code> defines policies that apply to traffic intended for a
+ service after routing has occurred. These rules specify configuration
+ for load balancing, connection pool size from the sidecar, and outlier
+ detection settings to detect and evict unhealthy hosts from the load
+ balancing pool. For example, a simple load balancing policy for the
+ ratings service would look as follows:</p>
+
+<pre><code> apiVersion: networking.istio.io/v1alpha3
+ kind: DestinationRule
+ metadata:
+   name: bookinfo-ratings
+ spec:
+   host: ratings.prod.svc.cluster.local
+   trafficPolicy:
+     loadBalancer:
+       simple: LEAST_CONN
 </code></pre>
 
 <p>Version specific policies can be specified by defining a named
-subset and overriding the settings specified at the service level. The
-following rule uses a round robin load balancing policy for all traffic
-going to a subset named testversion that is composed of endpoints (e.g.,
-pods) with labels (version:v3).</p>
+ <code>subset</code> and overriding the settings specified at the service level. The
+ following rule uses a round robin load balancing policy for all traffic
+ going to a subset named testversion that is composed of endpoints (e.g.,
+ pods) with labels (version:v3).</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: bookinfo-ratings
-spec:
-  host: ratings
-  trafficPolicy:
-    loadBalancer:
-      simple: LEAST_CONN
-  subsets:
-  - name: testversion
-    labels:
-      version: v3
-    trafficPolicy:
-      loadBalancer:
-        simple: ROUND_ROBIN
+<pre><code> apiVersion: networking.istio.io/v1alpha3
+ kind: DestinationRule
+ metadata:
+   name: bookinfo-ratings
+ spec:
+   host: ratings.prod.svc.cluster.local
+   trafficPolicy:
+     loadBalancer:
+       simple: LEAST_CONN
+   subsets:
+   - name: testversion
+     labels:
+       version: v3
+     trafficPolicy:
+       loadBalancer:
+         simple: ROUND_ROBIN
 </code></pre>
 
-<p>Note that policies specified for subsets will not take effect until
-a route rule explicitly sends traffic to this subset.</p>
+<p><strong>Note:</strong> Policies specified for subsets will not take effect until
+ a route rule explicitly sends traffic to this subset.</p>
 
 <table class="message-fields">
 <thead>
@@ -509,27 +516,22 @@ a route rule explicitly sends traffic to this subset.</p>
 <td><code>host</code></td>
 <td><code>string</code></td>
 <td>
-<p>REQUIRED. The destination address for traffic captured by this
-rule.  Could be a DNS name with wildcard prefix or a CIDR
-prefix. Depending on the platform, short-names can also be used
-instead of a FQDN (i.e. has no dots in the name). In such a scenario,
-the FQDN of the host would be derived based on the underlying
-platform.</p>
+<p>REQUIRED. The name of a service from the service registry. Service
+names are looked up from the platform&rsquo;s service registry (e.g.,
+Kubernetes services, Consul services, etc.) and from the hosts
+declared by <a href="#ExternalService">ExternalServices</a>. Rules defined for
+services that do not exist in the service registry will be ignored.</p>
 
-<p>For example on Kubernetes, when host contains a short name, Istio will
-interpret the short name based on the namespace of the rule.  Thus, when a
-client applies a rule in the &ldquo;default&rdquo; namespace, containing a name
-&ldquo;reviews&rdquo;, Istio will setup routes to the
-&ldquo;reviews.default.svc.cluster.local&rdquo; service. However, if a different name
-such as &ldquo;reviews.sales&rdquo; is used, it would be treated as a FQDN during
-virtual host matching.  In Consul, a plain service name would be resolved to
-the FQDN &ldquo;reviews.service.consul&rdquo;.</p>
+<p><em>Note for Kubernetes users</em>: When short names are used (e.g. &ldquo;reviews&rdquo;
+instead of &ldquo;reviews.default.svc.cluster.local&rdquo;), Istio will interpret
+the short name based on the namespace of the rule, not the service. A
+rule in the &ldquo;default&rdquo; namespace containing a host &ldquo;reviews will be
+interpreted as &ldquo;reviews.default.svc.cluster.local&rdquo;, irrespective of
+the actual namespace associated with the reviews service. <em>To avoid
+potential misconfigurations, it is recommended to always use fully
+qualified domain names over short names.</em></p>
 
-<p>Note that the host field applies to both HTTP and TCP
-services. Service inside the mesh, i.e. those found in the service
-registry, must always be referred to using their alphanumeric
-names. IP addresses or CIDR prefixes are allowed only for services
-defined via the Gateway.</p>
+<p>Note that the host field applies to both HTTP and TCP services.</p>
 
 </td>
 </tr>
@@ -551,15 +553,6 @@ service. Traffic policies can be overridden at subset level.</p>
 
 </td>
 </tr>
-<tr id="DestinationRule.name">
-<td><code>name</code></td>
-<td><code>string</code></td>
-<td>
-<p>DEPRECATED: Use <code>host</code> instead. Adding <code>name</code> back to prevent backward incompatibility with existing code inside
-istio.io/istio.</p>
-
-</td>
-</tr>
 </tbody>
 </table>
 </section>
@@ -578,15 +571,15 @@ metadata:
   name: reviews-route
 spec:
   hosts:
-  - reviews
+  - reviews.prod.svc.cluster.local
   http:
   - route:
     - destination:
-        host: reviews
+        host: reviews.prod.svc.cluster.local
         subset: v2
       weight: 25
     - destination:
-        host: reviews
+        host: reviews.prod.svc.cluster.local
         subset: v1
       weight: 75
 </code></pre>
@@ -598,7 +591,7 @@ kind: DestinationRule
 metadata:
   name: reviews-destination
 spec:
-  host: reviews
+  host: reviews.prod.svc.cluster.local
   subsets:
   - name: v1
     labels:
@@ -606,6 +599,27 @@ spec:
   - name: v2
     labels:
       version: v2
+</code></pre>
+
+<p>Traffic can also be split across two entirely different services without
+having to define new subsets. For example, the following rule forwards 25% of
+traffic to reviews.com to dev.reviews.com</p>
+
+<pre><code>apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: reviews-route-two-domains
+spec:
+  hosts:
+  - reviews.com
+  http:
+  - route:
+    - destination:
+        host: dev.reviews.com
+      weight: 25
+    - destination:
+        host: reviews.com
+      weight: 75
 </code></pre>
 
 <table class="message-fields">
@@ -642,154 +656,150 @@ be 100.</p>
 </section>
 <h2 id="ExternalService">ExternalService</h2>
 <section>
-<p>External service describes the endpoints, ports and protocols of a
-white-listed set of mesh-external domains and IP blocks that services in
-the mesh are allowed to access.</p>
+<p># Overview</p>
 
-<p>For example, the following external service configuration describes the
-set of services at https://example.com to be accessed internally over
-plaintext http (i.e. http://example.com:443), with the sidecar originating
-TLS.</p>
+<p><code>ExternalService</code> describes the endpoints, ports and protocols of a
+ white-listed set of mesh-external domains and IP blocks that services in
+ the mesh are allowed to access.</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
-kind: ExternalService
-metadata:
-  name: external-svc-example
-spec:
-  hosts:
-  - example.com
-  ports:
-  - number: 443
-    name: example-http
-    protocol: HTTP # not HTTPS.
-  discovery: DNS
+<p>For example, the following ExternalService configuration describes the
+ set of services at https://example.com to be accessed internally over
+ plaintext http (i.e. http://example.com:443), with the sidecar originating
+ TLS.</p>
+
+<pre><code> apiVersion: networking.istio.io/v1alpha3
+ kind: ExternalService
+ metadata:
+   name: external-svc-example
+ spec:
+   hosts:
+   - example.com
+   ports:
+   - number: 443
+     name: example-http
+     protocol: HTTP # not HTTPS.
+   discovery: DNS
 </code></pre>
 
-<p>and a destination rule to initiate TLS connections to the external service.</p>
+<p>and a DestinationRule to initiate TLS connections to the external service.</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: tls-example
-spec:
-  name: example.com
-  trafficPolicy:
-    tls:
-      mode: SIMPLE # initiates HTTPS when talking to example.com
+<pre><code> apiVersion: networking.istio.io/v1alpha3
+ kind: DestinationRule
+ metadata:
+   name: tls-example
+ spec:
+   name: example.com
+   trafficPolicy:
+     tls:
+       mode: SIMPLE # initiates HTTPS when talking to example.com
 </code></pre>
 
 <p>The following specification specifies a static set of backend nodes for
-a MongoDB cluster behind a set of virtual IPs, and sets up a destination
-rule to initiate mTLS connections upstream.</p>
+ a MongoDB cluster behind a set of virtual IPs, and sets up a
+ DestinationRule to initiate mTLS connections upstream.</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
-kind: ExternalService
-metadata:
-  name: external-svc-mongocluster
-spec:
-  hosts:
-  - 192.192.192.192/24
-  ports:
-  - number: 27018
-    name: mongodb
-    protocol: MONGO
-  discovery: STATIC
-  endpoints:
-  - address: 2.2.2.2
-  - address: 3.3.3.3
+<pre><code> apiVersion: networking.istio.io/v1alpha3
+ kind: ExternalService
+ metadata:
+   name: external-svc-mongocluster
+ spec:
+   hosts:
+   - 192.192.192.192/24
+   ports:
+   - number: 27018
+     name: mongodb
+     protocol: MONGO
+   discovery: STATIC
+   endpoints:
+   - address: 2.2.2.2
+   - address: 3.3.3.3
 </code></pre>
 
-<p>and the associated destination rule</p>
+<p>and the associated DestinationRule</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: mtls-mongocluster
-spec:
-  name: 192.192.192.192/24
-  trafficPolicy:
-    tls:
-      mode: MUTUAL
-      clientCertificate: /etc/certs/myclientcert.pem
-      privateKey: /etc/certs/client_private_key.pem
-      caCertificates: /etc/certs/rootcacerts.pem
+<pre><code> apiVersion: networking.istio.io/v1alpha3
+ kind: DestinationRule
+ metadata:
+   name: mtls-mongocluster
+ spec:
+   name: 192.192.192.192/24
+   trafficPolicy:
+     tls:
+       mode: MUTUAL
+       clientCertificate: /etc/certs/myclientcert.pem
+       privateKey: /etc/certs/client_private_key.pem
+       caCertificates: /etc/certs/rootcacerts.pem
 </code></pre>
 
 <p>The following example demonstrates the use of wildcards in the hosts. If
-the connection has to be routed to the IP address requested by the
-application (i.e. application resolves DNS and attempts to connect to a
-specific IP), the discovery mode must be set to &ldquo;none&rdquo;.</p>
+ the connection has to be routed to the IP address requested by the
+ application (i.e. application resolves DNS and attempts to connect to a
+ specific IP), the discovery mode must be set to <code>NONE</code>.</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
-kind: ExternalService
-metadata:
-  name: external-svc-wildcard-example
-spec:
-  hosts:
-  - &quot;*.bar.com&quot;
-  ports:
-  - number: 80
-    name: http
-    protocol: HTTP
-  discovery: NONE
+<pre><code> apiVersion: networking.istio.io/v1alpha3
+ kind: ExternalService
+ metadata:
+   name: external-svc-wildcard-example
+ spec:
+   hosts:
+   - &quot;*.bar.com&quot;
+   ports:
+   - number: 80
+     name: http
+     protocol: HTTP
+   discovery: NONE
 </code></pre>
 
-<p>For HTTP based services, it is possible to create a virtual service
-backed by multiple DNS addressible endpoints. In such a scenario, the
-application can use the HTTP_PROXY environment variable to transparently
-reroute API calls for the virtual service to a chosen backend. For
-example, the following configuration creates a non-existent service
-called foo.bar.com backed by three domains: us.foo.bar.com:8443,
-uk.foo.bar.com:9443, and in.foo.bar.com:7443</p>
+<p>For HTTP based services, it is possible to create a VirtualService
+ backed by multiple DNS addressible endpoints. In such a scenario, the
+ application can use the HTTP_PROXY environment variable to transparently
+ reroute API calls for the VirtualService to a chosen backend. For
+ example, the following configuration creates a non-existent service
+ called foo.bar.com backed by three domains: us.foo.bar.com:8443,
+ uk.foo.bar.com:9443, and in.foo.bar.com:7443</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
-kind: ExternalService
-metadata:
-  name: external-svc-dns
-spec:
-  hosts:
-  - foo.bar.com
-  ports:
-  - number: 443
-    name: https
-    protocol: HTTP
-  discovery: DNS
-  endpoints:
-  - address: us.foo.bar.com
-    ports:
-      https: 8443
-  - address: uk.foo.bar.com
-    ports:
-      https: 9443
-  - address: in.foo.bar.com
-    ports:
-      https: 7443
+<pre><code> apiVersion: networking.istio.io/v1alpha3
+ kind: ExternalService
+ metadata:
+   name: external-svc-dns
+ spec:
+   hosts:
+   - foo.bar.com
+   ports:
+   - number: 443
+     name: https
+     protocol: HTTP
+   discovery: DNS
+   endpoints:
+   - address: us.foo.bar.com
+     ports:
+       https: 8443
+   - address: uk.foo.bar.com
+     ports:
+       https: 9443
+   - address: in.foo.bar.com
+     ports:
+       https: 7443
 </code></pre>
 
-<p>and a destination rule to initiate TLS connections to the external service.</p>
+<p>and a DestinationRule to initiate TLS connections to the ExternalService.</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: tls-foobar
-spec:
-  name: foo.bar.com
-  trafficPolicy:
-    tls:
-      mode: SIMPLE # initiates HTTPS
+<pre><code> apiVersion: networking.istio.io/v1alpha3
+ kind: DestinationRule
+ metadata:
+   name: tls-foobar
+ spec:
+   name: foo.bar.com
+   trafficPolicy:
+     tls:
+       mode: SIMPLE # initiates HTTPS
 </code></pre>
 
 <p>With HTTP_PROXY=http://localhost:443, calls from the application to
-http://foo.bar.com will be upgraded to HTTPS and load balanced across
-the three domains specified above. In other words, a call to
-http://foo.bar.com/baz would be translated to
-https://uk.foo.bar.com/baz.</p>
-
-<p>NOTE: In the scenario above, the value of the HTTP Authority/host header
-associated with the outbound HTTP requests will be based on the
-endpoint&rsquo;s DNS name, i.e. &ldquo;:authority: uk.foo.bar.com&rdquo;. Refer to Envoy&rsquo;s
-auto<em>host</em>rewrite for further details. The automatic rewrite can be
-overridden using a host rewrite route rule.</p>
+ http://foo.bar.com will be upgraded to HTTPS and load balanced across
+ the three domains specified above. In other words, a call to
+ http://foo.bar.com/baz would be translated to
+ https://uk.foo.bar.com/baz.</p>
 
 <table class="message-fields">
 <thead>
@@ -804,7 +814,7 @@ overridden using a host rewrite route rule.</p>
 <td><code>hosts</code></td>
 <td><code>string[]</code></td>
 <td>
-<p>REQUIRED. The hosts associated with the external service. Could be a
+<p>REQUIRED. The hosts associated with the ExternalService. Could be a
 DNS name with wildcard prefix or a CIDR prefix. Note that the hosts
 field applies to all protocols. DNS names in hosts will be ignored if
 the application accesses the service over non-HTTP protocols such as
@@ -837,8 +847,7 @@ to infer the discovery mode based on the value of hosts and endpoints.</p>
 <td><code>endpoints</code></td>
 <td><code><a href="#ExternalService.Endpoint">ExternalService.Endpoint[]</a></code></td>
 <td>
-<p>One or more endpoints associated with the service. Endpoints must be
-accessible over the set of outPorts defined at the service level.</p>
+<p>One or more endpoints associated with the service.</p>
 
 </td>
 </tr>
@@ -861,33 +870,31 @@ service.</p>
 <tr id="ExternalService.Discovery.NONE">
 <td><code>NONE</code></td>
 <td>
-<p>If set to &ldquo;NONE&rdquo;, the proxy will assume that incoming connections
-have already been resolved (to a specific destination IP
-address). Such connections are typically routed via the proxy using
-mechanisms such as IP table REDIRECT/ eBPF. After performing any
-routing related transformations, the proxy will forward the
-connection to the IP address to which the connection was bound.</p>
+<p>Assume that incoming connections have already been resolved (to a
+specific destination IP address). Such connections are typically
+routed via the proxy using mechanisms such as IP table REDIRECT/
+eBPF. After performing any routing related transformations, the
+proxy will forward the connection to the IP address to which the
+connection was bound.</p>
 
 </td>
 </tr>
 <tr id="ExternalService.Discovery.STATIC">
 <td><code>STATIC</code></td>
 <td>
-<p>If set to &ldquo;STATIC&rdquo;, the proxy will use the IP addresses specified in
-endpoints (See below) as the backing nodes associated with the
-external service.</p>
+<p>Use the IP addresses specified in endpoints (See below) as the
+backing nodes associated with the ExternalService.</p>
 
 </td>
 </tr>
 <tr id="ExternalService.Discovery.DNS">
 <td><code>DNS</code></td>
 <td>
-<p>If set to &ldquo;DNS&rdquo;, the proxy will attempt to resolve the DNS address
-during request processing. If no endpoints are specified, the proxy
-will resolve the DNS address specified in the hosts field, if
-wildcards are not used. If endpoints are specified, the DNS
-addresses specified in the endpoints will be resolved to determine
-the destination IP address.</p>
+<p>Attempt to resolve the DNS address during request processing. If no
+endpoints are specified, the proxy will resolve the DNS address
+specified in the hosts field, if wildcards are not used. If
+endpoints are specified, the DNS addresses specified in the
+endpoints will be resolved to determine the destination IP address.</p>
 
 </td>
 </tr>
@@ -940,130 +947,133 @@ service.</p>
 </section>
 <h2 id="Gateway">Gateway</h2>
 <section>
-<p>Gateway describes a load balancer operating at the edge of the mesh
-receiving incoming or outgoing HTTP/TCP connections. The specification
-describes a set of ports that should be exposed, the type of protocol to
-use, SNI configuration for the load balancer, etc.</p>
+<p># Overview</p>
 
-<p>For example, the following gateway spec sets up a proxy to act as a load
-balancer exposing port 80 and 9080 (http), 443 (https), and port 2379
-(TCP) for ingress.  The gateway will be applied to the proxy running on
-a pod with labels &ldquo;app: my-gateway-controller&rdquo;. While Istio will configure the
-proxy to listen on these ports, it is the responsibility of the user to
-ensure that external traffic to these ports are allowed into the mesh.</p>
+<p><code>Gateway</code> describes a load balancer operating at the edge of the mesh
+ receiving incoming or outgoing HTTP/TCP connections. The specification
+ describes a set of ports that should be exposed, the type of protocol to
+ use, SNI configuration for the load balancer, etc.</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
-kind: Gateway
-metadata:
-  name: my-gateway
-spec:
-  selector:
-    app: my-gatweway-controller
-  servers:
-  - port:
-      number: 80
-      name: http
-      protocol: HTTP
-    hosts:
-    - uk.bookinfo.com
-    - eu.bookinfo.com
-    tls:
-      httpsRedirect: true # sends 302 redirect for http requests
-  - port:
-      number: 443
-      name: https
-      protocol: HTTPS
-    hosts:
-    - uk.bookinfo.com
-    - eu.bookinfo.com
-    tls:
-      mode: SIMPLE #enables HTTPS on this port
-      serverCertificate: /etc/certs/servercert.pem
-      privateKey: /etc/certs/privatekey.pem
-  - port:
-      number: 9080
-      name: http-wildcard
-      protocol: HTTP
-    # no hosts implies wildcard match
-  - port:
-      number: 2379 #to expose internal service via external port 2379
-      name: mongo
-      protocol: MONGO
+<p>For example, the following Gateway configuration sets up a proxy to act
+ as a load balancer exposing port 80 and 9080 (http), 443 (https), and
+ port 2379 (TCP) for ingress.  The gateway will be applied to the proxy
+ running on a pod with labels <code>app: my-gateway-controller</code>. While Istio
+ will configure the proxy to listen on these ports, it is the
+ responsibility of the user to ensure that external traffic to these
+ ports are allowed into the mesh.</p>
+
+<pre><code> apiVersion: networking.istio.io/v1alpha3
+ kind: Gateway
+ metadata:
+   name: my-gateway
+ spec:
+   selector:
+     app: my-gatweway-controller
+   servers:
+   - port:
+       number: 80
+       name: http
+       protocol: HTTP
+     hosts:
+     - uk.bookinfo.com
+     - eu.bookinfo.com
+     tls:
+       httpsRedirect: true # sends 302 redirect for http requests
+   - port:
+       number: 443
+       name: https
+       protocol: HTTPS
+     hosts:
+     - uk.bookinfo.com
+     - eu.bookinfo.com
+     tls:
+       mode: SIMPLE #enables HTTPS on this port
+       serverCertificate: /etc/certs/servercert.pem
+       privateKey: /etc/certs/privatekey.pem
+   - port:
+       number: 9080
+       name: http-wildcard
+       protocol: HTTP
+     # no hosts implies wildcard match
+   - port:
+       number: 2379 #to expose internal service via external port 2379
+       name: mongo
+       protocol: MONGO
 </code></pre>
 
-<p>The gateway specification above describes the L4-L6 properties of a load
-balancer. A VirtualService can then be bound to a gateway to control
-the forwarding of traffic arriving at a particular host or gateway port.</p>
+<p>The Gateway specification above describes the L4-L6 properties of a load
+ balancer. A <code>VirtualService</code> can then be bound to a gateway to control
+ the forwarding of traffic arriving at a particular host or gateway port.</p>
 
 <p>For example, the following VirtualService splits traffic for
-https://uk.bookinfo.com/reviews, https://eu.bookinfo.com/reviews,
-http://uk.bookinfo.com:9080/reviews, http://eu.bookinfo.com:9080/reviews
-into two versions (prod and qa) of an internal reviews service on port
-9080. In addition, requests containing the cookie user: dev-123 will be
-sent to special port 7777 in the qa version. The same rule is also
-applicable inside the mesh for requests to the reviews.prod
-service. This rule is applicable across ports 443, 9080. Note that
-http://uk.bookinfo.com gets redirected to https://uk.bookinfo.com
-(i.e. 80 redirects to 443).</p>
+ &ldquo;https://uk.bookinfo.com/reviews&rdquo;, &ldquo;https://eu.bookinfo.com/reviews&rdquo;,
+ &ldquo;http://uk.bookinfo.com:9080/reviews&rdquo;,
+ &ldquo;http://eu.bookinfo.com:9080/reviews&rdquo; into two versions (prod and qa) of
+ an internal reviews service on port 9080. In addition, requests
+ containing the cookie &ldquo;user: dev-123&rdquo; will be sent to special port 7777
+ in the qa version. The same rule is also applicable inside the mesh for
+ requests to the r&rdquo;eviews.prod.svc.cluster.local&rdquo; service. This rule is
+ applicable across ports 443, 9080. Note that &ldquo;http://uk.bookinfo.com&rdquo;
+ gets redirected to &ldquo;https://uk.bookinfo.com&rdquo; (i.e. 80 redirects to 443).</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: bookinfo-rule
-spec:
-  hosts:
-  - reviews.prod
-  - uk.bookinfo.com
-  - eu.bookinfo.com
-  gateways:
-  - my-gateway
-  - mesh # applies to all the sidecars in the mesh
-  http:
-  - match:
-    - headers:
-        cookie:
-          user: dev-123
-    route:
-    - destination:
-        port:
-          number: 7777
-        name: reviews.qa
-  - match:
-      uri:
-        prefix: /reviews/
-    route:
-    - destination:
-        port:
-          number: 9080 # can be omitted if its the only port for reviews
-        name: reviews.prod
-      weight: 80
-    - destination:
-        name: reviews.qa
-      weight: 20
+<pre><code> apiVersion: networking.istio.io/v1alpha3
+ kind: VirtualService
+ metadata:
+   name: bookinfo-rule
+ spec:
+   hosts:
+   - reviews.prod.svc.cluster.local
+   - uk.bookinfo.com
+   - eu.bookinfo.com
+   gateways:
+   - my-gateway
+   - mesh # applies to all the sidecars in the mesh
+   http:
+   - match:
+     - headers:
+         cookie:
+           user: dev-123
+     route:
+     - destination:
+         port:
+           number: 7777
+         name: reviews.qa.svc.cluster.local
+   - match:
+       uri:
+         prefix: /reviews/
+     route:
+     - destination:
+         port:
+           number: 9080 # can be omitted if its the only port for reviews
+         name: reviews.prod.svc.cluster.local
+       weight: 80
+     - destination:
+         name: reviews.qa.svc.cluster.local
+       weight: 20
 </code></pre>
 
-<p>The following VirtualService forwards traffic arriving at (external) port
-2379 from 172.17.16.0/24 subnet to internal Mongo server on port 5555. This
-rule is not applicable internally in the mesh as the gateway list omits
-the reserved name &ldquo;mesh&rdquo;.</p>
+<p>The following VirtualService forwards traffic arriving at (external)
+ port 27017 from &ldquo;172.17.16.0/24&rdquo; subnet to internal Mongo server on port
+ 5555. This rule is not applicable internally in the mesh as the gateway
+ list omits the reserved name <code>mesh</code>.</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: bookinfo-Mongo
-spec:
-  hosts:
-  - mongosvr #name of Mongo service
-  gateways:
-  - my-gateway
-  tcp:
-  - match:
-    - port:
-        number: 2379
-      sourceSubnet: &quot;172.17.16.0/24&quot;
-    route:
-    - destination:
-        name: mongo.prod
+<pre><code> apiVersion: networking.istio.io/v1alpha3
+ kind: VirtualService
+ metadata:
+   name: bookinfo-Mongo
+ spec:
+   hosts:
+   - mongosvr.prod.svc.cluster.local #name of internal Mongo service
+   gateways:
+   - my-gateway
+   tcp:
+   - match:
+     - port:
+         number: 27017
+       sourceSubnet: &quot;172.17.16.0/24&quot;
+     route:
+     - destination:
+         name: mongo.prod.svc.cluster.local
 </code></pre>
 
 <table class="message-fields">
@@ -1088,9 +1098,7 @@ spec:
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
 <p>One or more labels that indicate a specific set of pods/VMs
-on which this gateway configuration should be applied.
-If no selectors are provided, the gateway will be implemented by
-the default istio-ingress controller.</p>
+on which this gateway configuration should be applied.</p>
 
 </td>
 </tr>
@@ -1150,11 +1158,11 @@ metadata:
   name: ratings-route
 spec:
   hosts:
-  - ratings
+  - ratings.prod.svc.cluster.local
   http:
   - route:
     - destination:
-        host: ratings
+        host: ratings.prod.svc.cluster.local
         subset: v1
     fault:
       abort:
@@ -1224,14 +1232,14 @@ metadata:
   name: reviews-route
 spec:
   hosts:
-  - reviews
+  - reviews.prod.svc.cluster.local
   http:
   - match:
     - sourceLabels:
         env: prod
     route:
     - destination:
-        host: reviews
+        host: reviews.prod.svc.cluster.local
         subset: v1
     fault:
       delay:
@@ -1288,8 +1296,8 @@ values &ndash;)</p>
 <p>HttpMatchRequest specifies a set of criterion to be met in order for the
 rule to be applied to the HTTP request. For example, the following
 restricts the rule to match only requests where the URL path
-starts with /ratings/v2/ and the request contains a &ldquo;cookie&rdquo; with value
-&ldquo;user=jason&rdquo;.</p>
+starts with /ratings/v2/ and the request contains a <code>cookie</code> with value
+<code>user=jason</code>.</p>
 
 <pre><code>apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -1297,7 +1305,7 @@ metadata:
   name: ratings-route
 spec:
   hosts:
-  - ratings
+  - ratings.prod.svc.cluster.local
   http:
   - match:
     - headers:
@@ -1307,7 +1315,7 @@ spec:
           prefix: &quot;/ratings/v2/&quot;
     route: 
     - destination:
-        host: ratings
+        host: ratings.prod.svc.cluster.local
 </code></pre>
 
 <p>HTTPMatchRequest CANNOT be empty.</p>
@@ -1328,11 +1336,13 @@ spec:
 <p>URI to match
 values are case-sensitive and formatted as follows:</p>
 
-<p><em>exact: &ldquo;value&rdquo;</em> or just <em>&ldquo;value&rdquo;</em> for exact string match</p>
+<ul>
+<li><p><code>exact: &quot;value&quot;</code> for exact string match</p></li>
 
-<p><em>prefix: &ldquo;value&rdquo;</em> for prefix-based match</p>
+<li><p><code>prefix: &quot;value&quot;</code> for prefix-based match</p></li>
 
-<p><em>regex: &ldquo;value&rdquo;</em> for ECMAscript style regex-based match</p>
+<li><p><code>regex: &quot;value&quot;</code> for ECMAscript style regex-based match</p></li>
+</ul>
 
 </td>
 </tr>
@@ -1343,11 +1353,13 @@ values are case-sensitive and formatted as follows:</p>
 <p>URI Scheme
 values are case-sensitive and formatted as follows:</p>
 
-<p><em>exact: &ldquo;value&rdquo;</em> or just <em>&ldquo;value&rdquo;</em> for exact string match</p>
+<ul>
+<li><p><code>exact: &quot;value&quot;</code> for exact string match</p></li>
 
-<p><em>prefix: &ldquo;value&rdquo;</em> for prefix-based match</p>
+<li><p><code>prefix: &quot;value&quot;</code> for prefix-based match</p></li>
 
-<p><em>regex: &ldquo;value&rdquo;</em> for ECMAscript style regex-based match</p>
+<li><p><code>regex: &quot;value&quot;</code> for ECMAscript style regex-based match</p></li>
+</ul>
 
 </td>
 </tr>
@@ -1358,11 +1370,13 @@ values are case-sensitive and formatted as follows:</p>
 <p>HTTP Method
 values are case-sensitive and formatted as follows:</p>
 
-<p><em>exact: &ldquo;value&rdquo;</em> or just <em>&ldquo;value&rdquo;</em> for exact string match</p>
+<ul>
+<li><p><code>exact: &quot;value&quot;</code> for exact string match</p></li>
 
-<p><em>prefix: &ldquo;value&rdquo;</em> for prefix-based match</p>
+<li><p><code>prefix: &quot;value&quot;</code> for prefix-based match</p></li>
 
-<p><em>regex: &ldquo;value&rdquo;</em> for ECMAscript style regex-based match</p>
+<li><p><code>regex: &quot;value&quot;</code> for ECMAscript style regex-based match</p></li>
+</ul>
 
 </td>
 </tr>
@@ -1373,11 +1387,13 @@ values are case-sensitive and formatted as follows:</p>
 <p>HTTP Authority
 values are case-sensitive and formatted as follows:</p>
 
-<p><em>exact: &ldquo;value&rdquo;</em> or just <em>&ldquo;value&rdquo;</em> for exact string match</p>
+<ul>
+<li><p><code>exact: &quot;value&quot;</code> for exact string match</p></li>
 
-<p><em>prefix: &ldquo;value&rdquo;</em> for prefix-based match</p>
+<li><p><code>prefix: &quot;value&quot;</code> for prefix-based match</p></li>
 
-<p><em>regex: &ldquo;value&rdquo;</em> for ECMAscript style regex-based match</p>
+<li><p><code>regex: &quot;value&quot;</code> for ECMAscript style regex-based match</p></li>
+</ul>
 
 </td>
 </tr>
@@ -1390,28 +1406,25 @@ e.g. <em>x-request-id</em>.</p>
 
 <p>Header values are case-sensitive and formatted as follows:</p>
 
-<p><em>exact: &ldquo;value&rdquo;</em> or just <em>&ldquo;value&rdquo;</em> for exact string match</p>
+<ul>
+<li><p><code>exact: &quot;value&quot;</code> for exact string match</p></li>
 
-<p><em>prefix: &ldquo;value&rdquo;</em> for prefix-based match</p>
+<li><p><code>prefix: &quot;value&quot;</code> for prefix-based match</p></li>
 
-<p><em>regex: &ldquo;value&rdquo;</em> for ECMAscript style regex-based match</p>
+<li><p><code>regex: &quot;value&quot;</code> for ECMAscript style regex-based match</p></li>
+</ul>
 
-<p><em>Note:</em> The keys <em>uri</em>, <em>scheme</em>, <em>method</em>, and <em>authority</em> will be ignored.</p>
+<p><strong>Note:</strong> The keys <code>uri</code>, <code>scheme</code>, <code>method</code>, and <code>authority</code> will be ignored.</p>
 
 </td>
 </tr>
 <tr id="HTTPMatchRequest.port">
 <td><code>port</code></td>
-<td><code><a href="#PortSelector">PortSelector</a></code></td>
+<td><code>uint32</code></td>
 <td>
 <p>Specifies the ports on the host that is being addressed. Many services
 only expose a single port or label ports with the protocols they support,
-in these cases it is not required to explicitly select the port. Note that
-selection priority is to first match by name and then match by number.</p>
-
-<p>Names must comply with DNS label syntax (rfc1035) and therefore cannot
-collide with numbers. If there are multiple ports on a service with the
-same protocol the names should be of the form <protocol-name>-<DNS label>.</p>
+in these cases it is not required to explicitly select the port.</p>
 
 </td>
 </tr>
@@ -1422,7 +1435,7 @@ same protocol the names should be of the form <protocol-name>-<DNS label>.</p>
 <p>One or more labels that constrain the applicability of a rule to
 workloads with the given labels. If the VirtualService has a list of
 gateways specified at the top, it should include the reserved gateway
-&ldquo;mesh&rdquo; in order for this field to be applicable.</p>
+<code>mesh</code> in order for this field to be applicable.</p>
 
 </td>
 </tr>
@@ -1453,14 +1466,14 @@ metadata:
   name: ratings-route
 spec:
   hosts:
-  - ratings
+  - ratings.prod.svc.cluster.local
   http:
   - match:
     - uri:
         exact: /v1/getProductRatings
   redirect:
     uri: /v1/bookRatings
-    authority: bookratings.default.svc.cluster.local
+    authority: newratings.default.svc.cluster.local
   ...
 </code></pre>
 
@@ -1507,11 +1520,11 @@ metadata:
   name: ratings-route
 spec:
   hosts:
-  - ratings
+  - ratings.prod.svc.cluster.local
   http:
   - route:
     - destination:
-        host: ratings
+        host: ratings.prod.svc.cluster.local
         subset: v1
     retries:
       attempts: 3
@@ -1562,7 +1575,7 @@ metadata:
   name: ratings-route
 spec:
   hosts:
-  - ratings
+  - ratings.prod.svc.cluster.local
   http:
   - match:
     - uri:
@@ -1571,7 +1584,7 @@ spec:
       uri: /v1/bookRatings
     route:
     - destination:
-        host: ratings
+        host: ratings.prod.svc.cluster.local
         subset: v1
 </code></pre>
 
@@ -1761,16 +1774,11 @@ specifies a particular IP.</p>
 </tr>
 <tr id="L4MatchAttributes.port">
 <td><code>port</code></td>
-<td><code><a href="#PortSelector">PortSelector</a></code></td>
+<td><code>uint32</code></td>
 <td>
 <p>Specifies the port on the host that is being addressed. Many services
 only expose a single port or label ports with the protocols they support,
-in these cases it is not required to explicitly select the port. Note that
-selection priority is to first match by name and then match by number.</p>
-
-<p>Names must comply with DNS label syntax (rfc1035) and therefore cannot
-collide with numbers. If there are multiple ports on a service with the
-same protocol the names should be of the form <protocol-name>-<DNS label>.</p>
+in these cases it is not required to explicitly select the port.</p>
 
 </td>
 </tr>
@@ -1790,7 +1798,7 @@ form or just a.b.c.d</p>
 <p>One or more labels that constrain the applicability of a rule to
 workloads with the given labels. If the VirtualService has a list of
 gateways specified at the top, it should include the reserved gateway
-&ldquo;mesh&rdquo; in order for this field to be applicable.</p>
+<code>mesh</code> in order for this field to be applicable.</p>
 
 </td>
 </tr>
@@ -1822,7 +1830,7 @@ kind: DestinationRule
 metadata:
   name: bookinfo-ratings
 spec:
-  host: ratings
+  host: ratings.prod.svc.cluster.local
   trafficPolicy:
     loadBalancer:
       simple: ROUND_ROBIN
@@ -1836,7 +1844,7 @@ kind: DestinationRule
 metadata:
   name: bookinfo-ratings
 spec:
-  host: ratings
+  host: ratings.prod.svc.cluster.local
   trafficPolicy:
     loadBalancer:
       consistentHash:
@@ -1983,7 +1991,7 @@ kind: DestinationRule
 metadata:
   name: reviews-cb-policy
 spec:
-  host: reviews
+  host: reviews.prod.svc.cluster.local
   trafficPolicy:
     connectionPool:
       tcp:
@@ -2099,7 +2107,8 @@ service that can be ejected. Defaults to 10%.</p>
 <td><code>string</code></td>
 <td>
 <p>REQUIRED: The protocol exposed on the port.
-MUST BE one of HTTP|HTTPS|GRPC|HTTP2|MONGO|TCP.</p>
+MUST BE one of HTTP|HTTPS|GRPC|HTTP2|MONGO|TCP|TCP-TLS.
+TCP-TLS is used to indicate secure connections to non HTTP services.</p>
 
 </td>
 </tr>
@@ -2149,8 +2158,8 @@ matching or selection for final routing.</p>
 </section>
 <h2 id="Server">Server</h2>
 <section>
-<p>Server describes the properties of the proxy on a given load balancer port.
-For example,</p>
+<p><code>Server</code> describes the properties of the proxy on a given load balancer
+port. For example,</p>
 
 <pre><code>apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
@@ -2158,7 +2167,7 @@ metadata:
   name: my-ingress
 spec:
   selector:
-    app: my-ingress-controller
+    app: my-ingress-gateway
   servers:
   - port:
       number: 80
@@ -2174,7 +2183,7 @@ metadata:
   name: my-tcp-ingress
 spec:
   selector:
-    app: my-tcp-ingress-controller
+    app: my-tcp-ingress-gateway
   servers:
   - port:
       number: 27018
@@ -2190,7 +2199,7 @@ metadata:
   name: my-tls-ingress
 spec:
   selector:
-    app: my-tls-ingress-controller
+    app: my-tls-ingress-gateway
   servers:
   - port:
       number: 443
@@ -2224,15 +2233,17 @@ connections</p>
 <td><code>hosts</code></td>
 <td><code>string[]</code></td>
 <td>
-<p>A list of hosts exposed by this gateway. While
-typically applicable to HTTP services, it can also be used for TCP
-services using TLS with SNI. Standard DNS wildcard prefix syntax
-is permitted.</p>
+<p>A list of hosts exposed by this gateway. While typically applicable to
+HTTP services, it can also be used for TCP services using TLS with
+SNI. Standard DNS wildcard prefix syntax is permitted.</p>
 
-<p>A VirtualService that is bound to a gateway must having a matching host
-in its default destination. Specifically one of the VirtualService
-destination hosts is a strict suffix of a gateway host or
-a gateway host is a suffix of one of the VirtualService hosts.</p>
+<p><strong>Note</strong>: A <code>VirtualService</code> that is bound to a gateway must have one
+or more hosts that match the hosts specified in a server. The match
+could be an exact match or a suffix match with the server&rsquo;s hosts. For
+example, if the server&rsquo;s hosts specifies &ldquo;*.example.com&rdquo;,
+VirtualServices with hosts dev.example.com, prod.example.com will
+match. However, VirtualServices with hosts example.com or
+newexample.com will not match.</p>
 
 </td>
 </tr>
@@ -2283,7 +2294,7 @@ enforced.</p>
 <td><code>serverCertificate</code></td>
 <td><code>string</code></td>
 <td>
-<p>REQUIRED if mode is &ldquo;SIMPLE&rdquo; or &ldquo;MUTUAL&rdquo;. The path to the file
+<p>REQUIRED if mode is <code>SIMPLE</code> or <code>MUTUAL</code>. The path to the file
 holding the server-side TLS certificate to use.</p>
 
 </td>
@@ -2292,7 +2303,7 @@ holding the server-side TLS certificate to use.</p>
 <td><code>privateKey</code></td>
 <td><code>string</code></td>
 <td>
-<p>REQUIRED if mode is &ldquo;SIMPLE&rdquo; or &ldquo;MUTUAL&rdquo;. The path to the file
+<p>REQUIRED if mode is <code>SIMPLE</code> or <code>MUTUAL</code>. The path to the file
 holding the server&rsquo;s private key.</p>
 
 </td>
@@ -2301,7 +2312,7 @@ holding the server&rsquo;s private key.</p>
 <td><code>caCertificates</code></td>
 <td><code>string</code></td>
 <td>
-<p>REQUIRED if mode is &ldquo;MUTUAL&rdquo;. The path to a file containing
+<p>REQUIRED if mode is <code>MUTUAL</code>. The path to a file containing
 certificate authority certificates to use in verifying a presented
 client side certificate.</p>
 
@@ -2334,26 +2345,23 @@ certificate presented by the client.</p>
 <tr id="Server.TLSOptions.TLSmode.PASSTHROUGH">
 <td><code>PASSTHROUGH</code></td>
 <td>
-<p>If set to &ldquo;PASSTHROUGH&rdquo;, the proxy will forward the connection
-to the upstream server selected based on the SNI string presented
-by the client.</p>
+<p>Forward the connection to the upstream server selected based on
+the SNI string presented by the client.</p>
 
 </td>
 </tr>
 <tr id="Server.TLSOptions.TLSmode.SIMPLE">
 <td><code>SIMPLE</code></td>
 <td>
-<p>If set to &ldquo;SIMPLE&rdquo;, the proxy will secure connections with
-standard TLS semantics.</p>
+<p>Secure connections with standard TLS semantics.</p>
 
 </td>
 </tr>
 <tr id="Server.TLSOptions.TLSmode.MUTUAL">
 <td><code>MUTUAL</code></td>
 <td>
-<p>If set to &ldquo;MUTUAL&rdquo;, the proxy will secure connections to the
-upstream using mutual TLS by presenting client certificates for
-authentication.</p>
+<p>Secure connections to the upstream using mutual TLS by presenting
+client certificates for authentication.</p>
 
 </td>
 </tr>
@@ -2405,19 +2413,19 @@ case-sensitive.</p>
 <section>
 <p>A subset of endpoints of a service. Subsets can be used for scenarios
 like A/B testing, or routing to a specific version of a service. Refer
-to VirtualService documentation for examples of using subsets in these
-scenarios. In addition, traffic policies defined at the service-level
-can be overridden at a subset-level. The following rule uses a round
-robin load balancing policy for all traffic going to a subset named
-testversion that is composed of endpoints (e.g., pods) with labels
-(version:v3).</p>
+to <a href="#VirtualService">VirtualService</a> documentation for examples of using
+subsets in these scenarios. In addition, traffic policies defined at the
+service-level can be overridden at a subset-level. The following rule
+uses a round robin load balancing policy for all traffic going to a
+subset named testversion that is composed of endpoints (e.g., pods) with
+labels (version:v3).</p>
 
 <pre><code>apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: bookinfo-ratings
 spec:
-  host: ratings
+  host: ratings.prod.svc.cluster.local
   trafficPolicy:
     loadBalancer:
       simple: LEAST_CONN
@@ -2430,7 +2438,7 @@ spec:
         simple: ROUND_ROBIN
 </code></pre>
 
-<p>Note that policies specified for subsets will not take effect until
+<p><strong>Note:</strong> Policies specified for subsets will not take effect until
 a route rule explicitly sends traffic to this subset.</p>
 
 <table class="message-fields">
@@ -2446,7 +2454,7 @@ a route rule explicitly sends traffic to this subset.</p>
 <td><code>name</code></td>
 <td><code>string</code></td>
 <td>
-<p>REQUIRED. name of the subset. The service name and the subset name can
+<p>REQUIRED. Name of the subset. The service name and the subset name can
 be used for traffic splitting in a route rule.</p>
 
 </td>
@@ -2477,8 +2485,9 @@ specified at the DestinationRule level.</p>
 <h2 id="TCPRoute">TCPRoute</h2>
 <section>
 <p>Describes match conditions and actions for routing TCP traffic. The
-following routing rule forwards traffic arriving at port 2379 named
-Mongo from 172.17.16.* subnet to another Mongo server on port 5555.</p>
+following routing rule forwards traffic arriving at port 27017 for
+mongo.prod.svc.cluster.local from 172.17.16.* subnet to another Mongo
+server on port 5555.</p>
 
 <pre><code>apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -2486,15 +2495,16 @@ metadata:
   name: bookinfo-Mongo
 spec:
   hosts:
-  - myMongosrv 
+  - mongo.prod.svc.cluster.local
   tcp:
   - match:
-    - port:
-        name: Mongo # only applies to ports named Mongo
+    - port: 27017
       sourceSubnet: &quot;172.17.16.0/24&quot;
     route:
     - destination:
-        host: mongo.prod
+        host: mongo.backup.svc.cluster.local
+        port:
+          number: 5555
 </code></pre>
 
 <table class="message-fields">
@@ -2545,7 +2555,7 @@ kind: DestinationRule
 metadata:
   name: db-mtls
 spec:
-  host: mydbserver
+  host: mydbserver.prod.svc.cluster.local
   trafficPolicy:
     tls:
       mode: MUTUAL
@@ -2554,7 +2564,8 @@ spec:
       caCertificates: /etc/certs/rootcacerts.pem
 </code></pre>
 
-<p>The following rule configures a client to use TLS when talking to a foreign service whose domain matches *.foo.com.</p>
+<p>The following rule configures a client to use TLS when talking to a
+foreign service whose domain matches *.foo.com.</p>
 
 <pre><code>apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
@@ -2589,7 +2600,7 @@ using TLS. The value of this field determines how TLS is enforced.</p>
 <td><code>clientCertificate</code></td>
 <td><code>string</code></td>
 <td>
-<p>REQUIRED if mode is &ldquo;mutual&rdquo;. The path to the file holding the
+<p>REQUIRED if mode is <code>MUTUAL</code>. The path to the file holding the
 client-side TLS certificate to use.</p>
 
 </td>
@@ -2598,7 +2609,7 @@ client-side TLS certificate to use.</p>
 <td><code>privateKey</code></td>
 <td><code>string</code></td>
 <td>
-<p>REQUIRED if mode is &ldquo;mutual&rdquo;. The path to the file holding the
+<p>REQUIRED if mode is <code>MUTUAL</code>. The path to the file holding the
 client&rsquo;s private key.</p>
 
 </td>
@@ -2649,25 +2660,22 @@ certificate&rsquo;s subject alt name matches one of the specified values.</p>
 <tr id="TLSSettings.TLSmode.DISABLE">
 <td><code>DISABLE</code></td>
 <td>
-<p>If set to &ldquo;disable&rdquo;, the proxy will use not setup a TLS connection to the
-upstream server.</p>
+<p>Do not setup a TLS connection to the upstream endpoint.</p>
 
 </td>
 </tr>
 <tr id="TLSSettings.TLSmode.SIMPLE">
 <td><code>SIMPLE</code></td>
 <td>
-<p>If set to &ldquo;simple&rdquo;, the proxy will originate a TLS connection to the
-upstream server.</p>
+<p>Originate a TLS connection to the upstream endpoint.</p>
 
 </td>
 </tr>
 <tr id="TLSSettings.TLSmode.MUTUAL">
 <td><code>MUTUAL</code></td>
 <td>
-<p>If set to &ldquo;mutual&rdquo;, the proxy will secure connections to the
-upstream using mutual TLS by presenting client certificates for
-authentication.</p>
+<p>Secure connections to the upstream using mutual TLS by presenting
+client certificates for authentication.</p>
 
 </td>
 </tr>
@@ -2725,72 +2733,64 @@ DestinationRule for examples.</p>
 </section>
 <h2 id="VirtualService">VirtualService</h2>
 <section>
-<p>A VirtualService defines a set of traffic routing rules to apply when a host is
-addressed. Each routing rule defines matching criteria for traffic of a specific
-protocol. If the traffic is matched, then it is sent to a named destination service
-(or subset/version of it) defined in the registry.</p>
+<p># Overview</p>
+
+<p>A <code>VirtualService</code> defines a set of traffic routing rules to apply when a host is
+ addressed. Each routing rule defines matching criteria for traffic of a specific
+ protocol. If the traffic is matched, then it is sent to a named destination service
+ (or subset/version of it) defined in the registry.</p>
 
 <p>The source of traffic can also be matched in a routing rule. This allows routing
-to be customized for specific client contexts.</p>
+ to be customized for specific client contexts.</p>
 
-<p>The following example routes all HTTP traffic by default to
-pods of the reviews service with label &ldquo;version: v1&rdquo;. In addition,
-HTTP requests containing /wpcatalog/, /consumercatalog/ url prefixes will
-be rewritten to /newcatalog and sent to pods with label &ldquo;version: v2&rdquo;. The
-rules will be applied at the gateway named &ldquo;bookinfo&rdquo; as well as at all
-the sidecars in the mesh (indicated by the reserved gateway name
-&ldquo;mesh&rdquo;).</p>
+<p>The following example on Kubernetes, routes all HTTP traffic by default to
+ pods of the reviews service with label &ldquo;version: v1&rdquo;. In addition,
+ HTTP requests containing /wpcatalog/, /consumercatalog/ url prefixes will
+ be rewritten to /newcatalog and sent to pods with label &ldquo;version: v2&rdquo;.</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: reviews-route
-spec:
-  hosts:
-  - reviews
-  gateways: # if omitted, defaults to &quot;mesh&quot;
-  - bookinfo
-  - mesh
-  http:
-  - match:
-    - uri:
-        prefix: &quot;/wpcatalog&quot;
-    - uri:
-        prefix: &quot;/consumercatalog&quot;
-    rewrite:
-      uri: &quot;/newcatalog&quot;
-    route:
-    - destination:
-        host: reviews
-        subset: v2
-  - route:
-    - destination:
-        host: reviews
-        subset: v1
+<pre><code> apiVersion: networking.istio.io/v1alpha3
+ kind: VirtualService
+ metadata:
+   name: reviews-route
+ spec:
+   hosts:
+   - reviews.prod.svc.cluster.local
+   http:
+   - match:
+     - uri:
+         prefix: &quot;/wpcatalog&quot;
+     - uri:
+         prefix: &quot;/consumercatalog&quot;
+     rewrite:
+       uri: &quot;/newcatalog&quot;
+     route:
+     - destination:
+         host: reviews.prod.svc.cluster.local
+         subset: v2
+   - route:
+     - destination:
+         host: reviews.prod.svc.cluster.local
+         subset: v1
 </code></pre>
 
 <p>A subset/version of a route destination is identified with a reference
-to a named service subset which must be declared in a corresponding
-DestinationRule.</p>
+ to a named service subset which must be declared in a corresponding
+ <code>DestinationRule</code>.</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: reviews-destination
-spec:
-  host: reviews
-  subsets:
-  - name: v1
-    labels:
-      version: v1
-  - name: v2
-    labels:
-      version: v2
+<pre><code> apiVersion: networking.istio.io/v1alpha3
+ kind: DestinationRule
+ metadata:
+   name: reviews-destination
+ spec:
+   host: reviews.prod.svc.cluster.local
+   subsets:
+   - name: v1
+     labels:
+       version: v1
+   - name: v2
+     labels:
+       version: v2
 </code></pre>
-
-<p>A host name can be defined by only one VirtualService. A single
-VirtualService can be used to describe traffic properties for multiple
-HTTP and TCP ports.</p>
 
 <table class="message-fields">
 <thead>
@@ -2805,27 +2805,29 @@ HTTP and TCP ports.</p>
 <td><code>hosts</code></td>
 <td><code>string[]</code></td>
 <td>
-<p>REQUIRED. The destination address for traffic captured by this virtual
-service. Could be a DNS name with wildcard prefix or a CIDR
-prefix. Depending on the platform, short-names can also be used
-instead of a FQDN (i.e. has no dots in the name). In such a scenario,
-the FQDN of the host would be derived based on the underlying
-platform.</p>
+<p>REQUIRED. The destination hosts to which traffic is being sent. Could
+be a DNS name with wildcard prefix or an IP address.  Depending on the
+platform, short-names can also be used instead of a FQDN (i.e. has no
+dots in the name). In such a scenario, the FQDN of the host would be
+derived based on the underlying platform.</p>
 
-<p>For example on Kubernetes, when hosts contains a short name, Istio will
-interpret the short name based on the namespace of the rule. Thus, when a
-client namespace applies a rule in the &ldquo;default&rdquo; namespace containing a name
-&ldquo;reviews, Istio will setup routes to the &ldquo;reviews.default.svc.cluster.local&rdquo;
-service. However, if a different name such as &ldquo;reviews.sales.svc.cluster.local&rdquo;
-is used, it would be treated as a FQDN during virtual host matching.
-In Consul, a plain service name would be resolved to the FQDN
-&ldquo;reviews.service.consul&rdquo;.</p>
+<p><strong>A host name can be defined by only one VirtualService</strong>. A single
+VirtualService can be used to describe traffic properties for multiple
+HTTP and TCP ports.</p>
 
-<p>Note that the hosts field applies to both HTTP and TCP
-services. Service inside the mesh, i.e., those found in the service
-registry, must always be referred to using their alphanumeric
-names. IP addresses or CIDR prefixes are allowed only for services
-defined via the Gateway.</p>
+<p><em>Note for Kubernetes users</em>: When short names are used (e.g. &ldquo;reviews&rdquo;
+instead of &ldquo;reviews.default.svc.cluster.local&rdquo;), Istio will interpret
+the short name based on the namespace of the rule, not the service. A
+rule in the &ldquo;default&rdquo; namespace containing a host &ldquo;reviews will be
+interpreted as &ldquo;reviews.default.svc.cluster.local&rdquo;, irrespective of
+the actual namespace associated with the reviews service. <em>To avoid
+potential misconfigurations, it is recommended to always use fully
+qualified domain names over short names.</em></p>
+
+<p>The hosts field applies to both HTTP and TCP services. Service inside
+the mesh, i.e., those found in the service registry, must always be
+referred to using their alphanumeric names. IP addresses are allowed
+only for services defined via the Gateway.</p>
 
 </td>
 </tr>
@@ -2837,12 +2839,12 @@ defined via the Gateway.</p>
 single VirtualService is used for sidecars inside the mesh as well
 as for one or more gateways. The selection condition imposed by this field
 can be overridden using the source field in the match conditions of HTTP/TCP
-routes. The reserved word &ldquo;mesh&rdquo; is used to imply all the sidecars in
-the mesh. When this field is omitted, the default gateway (&ldquo;mesh&rdquo;)
+routes. The reserved word <code>mesh</code> is used to imply all the sidecars in
+the mesh. When this field is omitted, the default gateway (<code>mesh</code>)
 will be used, which would apply the rule to all sidecars in the
 mesh. If a list of gateway names is provided, the rules will apply
 only to the gateways. To apply the rules to both gateways and sidecars,
-specify &ldquo;mesh&rdquo; as one of the gateway names.</p>
+specify <code>mesh</code> as one of the gateway names.</p>
 
 </td>
 </tr>

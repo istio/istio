@@ -19,7 +19,10 @@ package istio.networking.v1alpha3;
 
 option go_package = "istio.io/api/networking/v1alpha3";
 
-// DestinationRule defines policies that apply to traffic intended for a
+//
+// # Overview
+//
+// `DestinationRule` defines policies that apply to traffic intended for a
 // service after routing has occurred. These rules specify configuration
 // for load balancing, connection pool size from the sidecar, and outlier
 // detection settings to detect and evict unhealthy hosts from the load
@@ -31,13 +34,13 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //     metadata:
 //       name: bookinfo-ratings
 //     spec:
-//       host: ratings
+//       host: ratings.prod.svc.cluster.local
 //       trafficPolicy:
 //         loadBalancer:
 //           simple: LEAST_CONN
 //
 // Version specific policies can be specified by defining a named
-// subset and overriding the settings specified at the service level. The
+// `subset` and overriding the settings specified at the service level. The
 // following rule uses a round robin load balancing policy for all traffic
 // going to a subset named testversion that is composed of endpoints (e.g.,
 // pods) with labels (version:v3).
@@ -47,7 +50,7 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //     metadata:
 //       name: bookinfo-ratings
 //     spec:
-//       host: ratings
+//       host: ratings.prod.svc.cluster.local
 //       trafficPolicy:
 //         loadBalancer:
 //           simple: LEAST_CONN
@@ -59,30 +62,25 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //           loadBalancer:
 //             simple: ROUND_ROBIN
 //
-// Note that policies specified for subsets will not take effect until
+// **Note:** Policies specified for subsets will not take effect until
 // a route rule explicitly sends traffic to this subset.
 message DestinationRule {
-  // REQUIRED. The destination address for traffic captured by this 
-  // rule.  Could be a DNS name with wildcard prefix or a CIDR
-  // prefix. Depending on the platform, short-names can also be used
-  // instead of a FQDN (i.e. has no dots in the name). In such a scenario,
-  // the FQDN of the host would be derived based on the underlying
-  // platform.
+  // REQUIRED. The name of a service from the service registry. Service
+  // names are looked up from the platform's service registry (e.g.,
+  // Kubernetes services, Consul services, etc.) and from the hosts
+  // declared by [ExternalServices](#ExternalService). Rules defined for
+  // services that do not exist in the service registry will be ignored.
   //
-  // For example on Kubernetes, when host contains a short name, Istio will
-  // interpret the short name based on the namespace of the rule.  Thus, when a
-  // client applies a rule in the "default" namespace, containing a name
-  // "reviews", Istio will setup routes to the
-  // "reviews.default.svc.cluster.local" service. However, if a different name
-  // such as "reviews.sales" is used, it would be treated as a FQDN during
-  // virtual host matching.  In Consul, a plain service name would be resolved to
-  // the FQDN "reviews.service.consul".
+  // *Note for Kubernetes users*: When short names are used (e.g. "reviews"
+  // instead of "reviews.default.svc.cluster.local"), Istio will interpret
+  // the short name based on the namespace of the rule, not the service. A
+  // rule in the "default" namespace containing a host "reviews will be
+  // interpreted as "reviews.default.svc.cluster.local", irrespective of
+  // the actual namespace associated with the reviews service. _To avoid
+  // potential misconfigurations, it is recommended to always use fully
+  // qualified domain names over short names._
   //
-  // Note that the host field applies to both HTTP and TCP
-  // services. Service inside the mesh, i.e. those found in the service
-  // registry, must always be referred to using their alphanumeric
-  // names. IP addresses or CIDR prefixes are allowed only for services
-  // defined via the Gateway.
+  // Note that the host field applies to both HTTP and TCP services.
   string host = 1;
 
   // Traffic policies to apply (load balancing policy, connection pool
@@ -92,10 +90,6 @@ message DestinationRule {
   // One or more named sets that represent individual versions of a
   // service. Traffic policies can be overridden at subset level.
   repeated Subset subsets = 3;
-
-  // DEPRECATED: Use `host` instead. Adding `name` back to prevent backward incompatibility with existing code inside
-  // istio.io/istio.
-  string name = 4;
 }
 
 // Traffic policies to apply for a specific destination. See
@@ -116,19 +110,19 @@ message TrafficPolicy {
 
 // A subset of endpoints of a service. Subsets can be used for scenarios
 // like A/B testing, or routing to a specific version of a service. Refer
-// to VirtualService documentation for examples of using subsets in these
-// scenarios. In addition, traffic policies defined at the service-level
-// can be overridden at a subset-level. The following rule uses a round
-// robin load balancing policy for all traffic going to a subset named
-// testversion that is composed of endpoints (e.g., pods) with labels
-// (version:v3).
+// to [VirtualService](#VirtualService) documentation for examples of using
+// subsets in these scenarios. In addition, traffic policies defined at the
+// service-level can be overridden at a subset-level. The following rule
+// uses a round robin load balancing policy for all traffic going to a
+// subset named testversion that is composed of endpoints (e.g., pods) with
+// labels (version:v3).
 //
 //     apiVersion: networking.istio.io/v1alpha3
 //     kind: DestinationRule
 //     metadata:
 //       name: bookinfo-ratings
 //     spec:
-//       host: ratings
+//       host: ratings.prod.svc.cluster.local
 //       trafficPolicy:
 //         loadBalancer:
 //           simple: LEAST_CONN
@@ -140,10 +134,10 @@ message TrafficPolicy {
 //           loadBalancer:
 //             simple: ROUND_ROBIN
 //
-// Note that policies specified for subsets will not take effect until
+// **Note:** Policies specified for subsets will not take effect until
 // a route rule explicitly sends traffic to this subset.
 message Subset {
-  // REQUIRED. name of the subset. The service name and the subset name can
+  // REQUIRED. Name of the subset. The service name and the subset name can
   // be used for traffic splitting in a route rule.
   string name = 1;
 
@@ -171,7 +165,7 @@ message Subset {
 //     metadata:
 //       name: bookinfo-ratings
 //     spec:
-//       host: ratings
+//       host: ratings.prod.svc.cluster.local
 //       trafficPolicy:
 //         loadBalancer:
 //           simple: ROUND_ROBIN
@@ -184,7 +178,7 @@ message Subset {
 //     metadata:
 //       name: bookinfo-ratings
 //     spec:
-//       host: ratings
+//       host: ratings.prod.svc.cluster.local
 //       trafficPolicy:
 //         loadBalancer:
 //           consistentHash:
@@ -259,7 +253,7 @@ message LoadBalancerSettings {
 //     metadata:
 //       name: bookinfo-redis
 //     spec:
-//       host: myredissrv
+//       host: myredissrv.prod.svc.cluster.local
 //       trafficPolicy:
 //         connectionPool:
 //           tcp:
@@ -319,7 +313,7 @@ message ConnectionPoolSettings {
 //     metadata:
 //       name: reviews-cb-policy
 //     spec:
-//       host: reviews
+//       host: reviews.prod.svc.cluster.local
 //       trafficPolicy:
 //         connectionPool:
 //           tcp:
@@ -372,7 +366,7 @@ message OutlierDetection {
 //     metadata:
 //       name: db-mtls
 //     spec:
-//       host: mydbserver
+//       host: mydbserver.prod.svc.cluster.local
 //       trafficPolicy:
 //         tls:
 //           mode: MUTUAL
@@ -380,7 +374,8 @@ message OutlierDetection {
 //           privateKey: /etc/certs/client_private_key.pem
 //           caCertificates: /etc/certs/rootcacerts.pem
 //
-// The following rule configures a client to use TLS when talking to a foreign service whose domain matches *.foo.com.
+// The following rule configures a client to use TLS when talking to a
+// foreign service whose domain matches *.foo.com.
 //
 //     apiVersion: networking.istio.io/v1alpha3
 //     kind: DestinationRule
@@ -395,17 +390,14 @@ message OutlierDetection {
 message TLSSettings {
   // TLS connection mode
   enum TLSmode {
-    // If set to "disable", the proxy will use not setup a TLS connection to the
-    // upstream server.
+    // Do not setup a TLS connection to the upstream endpoint.
     DISABLE = 0;
 
-    // If set to "simple", the proxy will originate a TLS connection to the
-    // upstream server.
+    // Originate a TLS connection to the upstream endpoint.
     SIMPLE = 1;
 
-    // If set to "mutual", the proxy will secure connections to the
-    // upstream using mutual TLS by presenting client certificates for
-    // authentication.
+    // Secure connections to the upstream using mutual TLS by presenting
+    // client certificates for authentication.
     MUTUAL = 2;
   };
 
@@ -413,11 +405,11 @@ message TLSSettings {
   // using TLS. The value of this field determines how TLS is enforced.
   TLSmode mode = 1;
 
-  // REQUIRED if mode is "mutual". The path to the file holding the
+  // REQUIRED if mode is `MUTUAL`. The path to the file holding the
   // client-side TLS certificate to use.
   string client_certificate = 2;
 
-  // REQUIRED if mode is "mutual". The path to the file holding the
+  // REQUIRED if mode is `MUTUAL`. The path to the file holding the
   // client's private key.
   string private_key = 3;
 
