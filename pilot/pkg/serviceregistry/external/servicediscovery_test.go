@@ -57,7 +57,7 @@ func TestServiceDiscoveryServices(t *testing.T) {
 	sd := NewServiceDiscovery(store)
 	expectedServices := []*model.Service{
 		makeService("*.google.com", "", map[string]int{"http-port": 80, "http-alt-port": 8080}, model.DNSLB),
-		makeService("172.217.0.0/16", "172.217.0.0/16", map[string]int{"tcp-444": 444}, model.DNSLB),
+		makeService("172.217.0.0_16", "172.217.0.0/16", map[string]int{"tcp-444": 444}, model.DNSLB),
 	}
 
 	createExternalServices([]*networking.ExternalService{httpDNS, tcpDNS}, store, t)

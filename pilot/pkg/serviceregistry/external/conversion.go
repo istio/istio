@@ -16,7 +16,6 @@ package external
 
 import (
 	"net"
-
 	"strings"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -96,17 +95,22 @@ func convertInstances(externalService *networking.ExternalService) []*model.Serv
 	out := make([]*model.ServiceInstance, 0)
 	for _, service := range convertServices(externalService) {
 		for _, servicePort := range externalService.Ports {
-			if externalService.Endpoints == 0 { // only possible when discovery type is DNS
-				out = append(out, &model.ServiceInstance{
-					Endpoint: model.NetworkEndpoint{
-						Address:     service.Hostname,
-						Port:        int(servicePort.Number),
-						ServicePort: convertPort(servicePort),
-					},
-					// TODO AvailabilityZone, ServiceAccount
-					Service: service,
-					Labels:  nil,
-				})
+			if len(externalService.Endpoints) == 0 &&
+				externalService.Discovery == networking.ExternalService_DNS {
+				// when external service has discovery type DNS and no endpoints
+				// we create endpoints from external service hosts field
+				for _, host := range externalService.Hosts {
+					out = append(out, &model.ServiceInstance{
+						Endpoint: model.NetworkEndpoint{
+							Address:     host,
+							Port:        int(servicePort.Number),
+							ServicePort: convertPort(servicePort),
+						},
+						// TODO AvailabilityZone, ServiceAccount
+						Service: service,
+						Labels:  nil,
+					})
+				}
 			}
 			for _, endpoint := range externalService.Endpoints {
 				out = append(out, convertEndpoint(service, servicePort, endpoint))

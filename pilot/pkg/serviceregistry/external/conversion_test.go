@@ -198,7 +198,7 @@ func TestConvertService(t *testing.T) {
 		{
 			// external service tcp
 			externalSvc: tcpNone,
-			services: []*model.Service{makeService("172.217.0.0/16", "172.217.0.0/16",
+			services: []*model.Service{makeService("172.217.0.0_16", "172.217.0.0/16",
 				map[string]int{"tcp-444": 444}, model.Passthrough),
 			},
 		},
@@ -226,14 +226,14 @@ func TestConvertService(t *testing.T) {
 		{
 			// external service tcp DNS
 			externalSvc: tcpDNS,
-			services: []*model.Service{makeService("172.217.0.0/16", "172.217.0.0/16",
+			services: []*model.Service{makeService("172.217.0.0_16", "172.217.0.0/16",
 				map[string]int{"tcp-444": 444}, model.DNSLB),
 			},
 		},
 		{
 			// external service tcp static
 			externalSvc: tcpStatic,
-			services: []*model.Service{makeService("172.217.0.0/16", "172.217.0.0/16",
+			services: []*model.Service{makeService("172.217.0.0_16", "172.217.0.0/16",
 				map[string]int{"tcp-444": 444}, model.ClientSideLB),
 			},
 		},
@@ -315,12 +315,14 @@ func TestConvertInstances(t *testing.T) {
 	}
 
 	for _, tt := range serviceInstanceTests {
-		instances := convertInstances(tt.externalSvc)
-		sortServiceInstances(instances)
-		sortServiceInstances(tt.out)
-		if err := compare(t, instances, tt.out); err != nil {
-			t.Error(err)
-		}
+		t.Run(strings.Join(tt.externalSvc.Hosts, "_"), func(t *testing.T) {
+			instances := convertInstances(tt.externalSvc)
+			sortServiceInstances(instances)
+			sortServiceInstances(tt.out)
+			if err := compare(t, instances, tt.out); err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
 }
 
