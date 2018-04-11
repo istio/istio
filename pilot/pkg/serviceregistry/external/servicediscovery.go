@@ -36,7 +36,7 @@ func (d *externalDiscovery) Services() ([]*model.Service, error) {
 	services := make([]*model.Service, 0)
 	for _, config := range d.store.ExternalServices() {
 		externalService := config.Spec.(*networking.ExternalService)
-		services = append(services, convertService(externalService)...)
+		services = append(services, convertServices(externalService)...)
 	}
 
 	return services, nil
@@ -57,7 +57,7 @@ func (d *externalDiscovery) getServices() []*model.Service {
 	services := make([]*model.Service, 0)
 	for _, config := range d.store.ExternalServices() {
 		externalService := config.Spec.(*networking.ExternalService)
-		services = append(services, convertService(externalService)...)
+		services = append(services, convertServices(externalService)...)
 	}
 	return services
 }

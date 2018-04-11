@@ -31,25 +31,25 @@ func convertPort(port *networking.Port) *model.Port {
 	}
 }
 
-func convertService(externalService *networking.ExternalService) []*model.Service {
+func convertServices(externalService *networking.ExternalService) []*model.Service {
 	out := make([]*model.Service, 0)
 
+	var resolution model.Resolution
+	switch externalService.Discovery {
+	case networking.ExternalService_NONE:
+		resolution = model.Passthrough
+	case networking.ExternalService_DNS:
+		resolution = model.DNSLB
+	case networking.ExternalService_STATIC:
+		resolution = model.ClientSideLB
+	}
+
+	svcPorts := make(model.PortList, 0, len(externalService.Ports))
+	for _, port := range externalService.Ports {
+		svcPorts = append(svcPorts, convertPort(port))
+	}
+
 	for _, host := range externalService.Hosts {
-		var resolution model.Resolution
-		switch externalService.Discovery {
-		case networking.ExternalService_NONE:
-			resolution = model.Passthrough
-		case networking.ExternalService_DNS:
-			resolution = model.DNSLB
-		case networking.ExternalService_STATIC:
-			resolution = model.ClientSideLB
-		}
-
-		svcPorts := make(model.PortList, 0, len(externalService.Ports))
-		for _, port := range externalService.Ports {
-			svcPorts = append(svcPorts, convertPort(port))
-		}
-
 		// set address if host is an IP or CIDR prefix
 		var address string
 		if _, _, err := net.ParseCIDR(host); err == nil {
@@ -70,36 +70,45 @@ func convertService(externalService *networking.ExternalService) []*model.Servic
 	return out
 }
 
-func convertNetworkEndpoint(services []*model.Service, servicePort *networking.Port, endpoint *networking.ExternalService_Endpoint) []*model.ServiceInstance {
-	out := make([]*model.ServiceInstance, 0)
-	for _, service := range services {
-		instancePort := endpoint.Ports[servicePort.Name]
-		if instancePort == 0 {
-			instancePort = servicePort.Number
-		}
+func convertEndpoint(service *model.Service, servicePort *networking.Port,
+	endpoint *networking.ExternalService_Endpoint) *model.ServiceInstance {
 
-		serviceInstance := &model.ServiceInstance{
-			Endpoint: model.NetworkEndpoint{
-				Address:     endpoint.Address,
-				Port:        int(instancePort),
-				ServicePort: convertPort(servicePort),
-			},
-			// TODO AvailabilityZone
-			Service: service,
-			Labels:  endpoint.Labels,
-		}
-		out = append(out, serviceInstance)
+	instancePort := endpoint.Ports[servicePort.Name]
+	if instancePort == 0 {
+		instancePort = servicePort.Number
 	}
-	return out
+
+	return &model.ServiceInstance{
+		Endpoint: model.NetworkEndpoint{
+			Address:     endpoint.Address,
+			Port:        int(instancePort),
+			ServicePort: convertPort(servicePort),
+		},
+		// TODO AvailabilityZone, ServiceAccount
+		Service: service,
+		Labels:  endpoint.Labels,
+	}
 }
 
 func convertInstances(externalService *networking.ExternalService) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
-	services := convertService(externalService)
-
-	for _, endpoint := range externalService.Endpoints {
+	for _, service := range convertServices(externalService) {
 		for _, servicePort := range externalService.Ports {
-			out = append(out, convertNetworkEndpoint(services, servicePort, endpoint)...)
+			if externalService.Endpoints == 0 { // only possible when discovery type is DNS
+				out = append(out, &model.ServiceInstance{
+					Endpoint: model.NetworkEndpoint{
+						Address:     service.Hostname,
+						Port:        int(servicePort.Number),
+						ServicePort: convertPort(servicePort),
+					},
+					// TODO AvailabilityZone, ServiceAccount
+					Service: service,
+					Labels:  nil,
+				})
+			}
+			for _, endpoint := range externalService.Endpoints {
+				out = append(out, convertEndpoint(service, servicePort, endpoint))
+			}
 		}
 	}
 	return out

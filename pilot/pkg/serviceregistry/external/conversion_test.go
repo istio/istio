@@ -168,7 +168,7 @@ func makeService(hostname, address string, ports map[string]int, resolution mode
 func makeInstance(externalSvc *networking.ExternalService, address string, port int,
 	svcPort *networking.Port, labels map[string]string) *model.ServiceInstance {
 	return &model.ServiceInstance{
-		Service: convertService(externalSvc)[0],
+		Service: convertServices(externalSvc)[0],
 		Endpoint: model.NetworkEndpoint{
 			Address: address,
 			Port:    port,
@@ -240,7 +240,7 @@ func TestConvertService(t *testing.T) {
 	}
 
 	for _, tt := range serviceTests {
-		services := convertService(tt.externalSvc)
+		services := convertServices(tt.externalSvc)
 		if err := compare(t, services, tt.services); err != nil {
 			t.Error(err)
 		}
@@ -279,7 +279,10 @@ func TestConvertInstances(t *testing.T) {
 		{
 			// external service DNS with no endpoints
 			externalSvc: httpDNSnoEndpoints,
-			out:         []*model.ServiceInstance{},
+			out: []*model.ServiceInstance{
+				makeInstance(httpDNSnoEndpoints, "google.com", 80, httpDNSnoEndpoints.Ports[0], nil),
+				makeInstance(httpDNSnoEndpoints, "google.com", 8080, httpDNSnoEndpoints.Ports[1], nil),
+			},
 		},
 		{
 			// external service dns
