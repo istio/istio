@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,114 +15,133 @@
 package cloudwatch
 
 import (
-	"reflect"
 	"strings"
 	"testing"
 
-	"istio.io/api/policy/v1beta1"
+	istio_policy_v1beta1 "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/adapter/cloudwatch/config"
-	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/adapter/test"
 	"istio.io/istio/mixer/template/metric"
 )
 
 func TestValidate(t *testing.T) {
-	info := GetInfo()
-	b := info.NewBuilder()
+	b := &builder{}
 
 	cases := []struct {
 		cfg            *config.Params
+		metricTypes    map[string]*metric.Type
 		expectedErrors string
 	}{
+		// config missing namespace
 		{
-			&config.Params{
-				Namespace: "istio-mixer-cloudwatch",
-				MetricInfo: map[string]*config.Params_MetricDatum{
-					"requestCount": {
-						Unit:              "Count",
-						StorageResolution: 10,
-					},
+			&config.Params{},
+			map[string]*metric.Type{
+				"metric": {
+					Value: istio_policy_v1beta1.STRING,
 				},
 			},
-			"Storage resolution should be either 1 or 60",
+			"namespace",
 		},
+		// length of instance and handler metrics does not match
 		{
 			&config.Params{
-				Namespace: "istio-mixer-cloudwatch",
+				Namespace: "namespace",
+			},
+			map[string]*metric.Type{
+				"metric": {
+					Value: istio_policy_v1beta1.STRING,
+				},
+			},
+			"metricInfo",
+		},
+		// instance and handler metrics do not match
+		{
+			&config.Params{
+				Namespace: "namespace",
 				MetricInfo: map[string]*config.Params_MetricDatum{
-					"requestCount": {
-						StorageResolution: 1,
+					"metric": {},
+				},
+			},
+			map[string]*metric.Type{
+				"newmetric": {
+					Value: istio_policy_v1beta1.STRING,
+				},
+			},
+			"metricInfo",
+		},
+		// validate duration metric has a duration unit
+		{
+			&config.Params{
+				Namespace: "namespace",
+				MetricInfo: map[string]*config.Params_MetricDatum{
+					"duration": {
+						Unit: config.Count,
 					},
 				},
 			},
-			"Cloudwatch metric unit must not be null",
+			map[string]*metric.Type{
+				"duration": {
+					Value: istio_policy_v1beta1.DURATION,
+				},
+			},
+			"duration",
+		},
+		// validate that value can be handled by the cloudwatch handler
+		{
+			&config.Params{
+				Namespace: "namespace",
+				MetricInfo: map[string]*config.Params_MetricDatum{
+					"dns": {
+						Unit: config.Count,
+					},
+				},
+			},
+			map[string]*metric.Type{
+				"dns": {
+					Value: istio_policy_v1beta1.DNS_NAME,
+				},
+			},
+			"value type",
+		},
+		// validate dimension cloudwatch_limits
+		{
+			&config.Params{
+				Namespace: "namespace",
+				MetricInfo: map[string]*config.Params_MetricDatum{
+					"dns": {
+						Unit: config.Count,
+					},
+				},
+			},
+			map[string]*metric.Type{
+				"dns": {
+					Value: istio_policy_v1beta1.STRING,
+					Dimensions: map[string]istio_policy_v1beta1.ValueType{
+						"d1":  istio_policy_v1beta1.STRING,
+						"d2":  istio_policy_v1beta1.STRING,
+						"d3":  istio_policy_v1beta1.STRING,
+						"d4":  istio_policy_v1beta1.STRING,
+						"d5":  istio_policy_v1beta1.STRING,
+						"d6":  istio_policy_v1beta1.STRING,
+						"d7":  istio_policy_v1beta1.STRING,
+						"d8":  istio_policy_v1beta1.STRING,
+						"d9":  istio_policy_v1beta1.STRING,
+						"d10": istio_policy_v1beta1.STRING,
+						"d11": istio_policy_v1beta1.STRING,
+					},
+				},
+			},
+			"dimensions",
 		},
 	}
 
 	for _, c := range cases {
+		b.SetMetricTypes(c.metricTypes)
 		b.SetAdapterConfig(c.cfg)
+
 		errs := b.Validate()
+
 		if !strings.Contains(errs.Error(), c.expectedErrors) {
 			t.Errorf("Expected an error containing \"%s\", actual error: \"%v\"", c.expectedErrors, errs.Error())
-		}
-	}
-
-}
-
-func TestHandleMetric(t *testing.T) {
-	env := test.NewEnv(t)
-	types := map[string]*metric.Type{
-		"validType": {
-			Value: v1beta1.STRING,
-		},
-	}
-	cfg := &config.Params{
-		MetricInfo: map[string]*config.Params_MetricDatum{
-			"validType": {},
-		},
-	}
-
-	cases := []struct {
-		handler       adapter.Handler
-		insts         []*metric.Instance
-		expectedInsts []*metric.Instance
-	}{
-		{
-			NewHandler(nil, env, nil, &mockCloudWatchClient{}),
-			[]*metric.Instance{{Name: "nonExistentType", Value: "1"}},
-			[]*metric.Instance{},
-		},
-		{
-			NewHandler(types, env, nil, &mockCloudWatchClient{}),
-			[]*metric.Instance{{Name: "validType", Value: "1"}},
-			[]*metric.Instance{},
-		},
-		{
-			NewHandler(types, env, cfg, &mockCloudWatchClient{}),
-			[]*metric.Instance{{Name: "validType", Value: "1"}},
-			[]*metric.Instance{{Name: "validType", Value: "1"}},
-		},
-	}
-
-	for _, c := range cases {
-		h, ok := c.handler.(*Handler)
-		if !ok {
-			t.Error("Test case has the wrong type of handler.")
-		}
-
-		actualInsts := getValidMetrics(h, c.insts)
-
-		if len(c.expectedInsts) != len(actualInsts) {
-			t.Errorf("Expected %v instances but got %v", len(c.expectedInsts), len(actualInsts))
-		}
-
-		for i := 0; i < len(actualInsts); i++ {
-			expectedInst := c.expectedInsts[i]
-			actualInst := actualInsts[i]
-
-			if !reflect.DeepEqual(expectedInst, actualInst) {
-				t.Errorf("Expected %v, actual %v", expectedInst, actualInst)
-			}
 		}
 	}
 }

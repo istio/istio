@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,14 +18,34 @@ package cloudwatch
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/aws/aws-sdk-go/service/cloudwatch/cloudwatchiface"
 
+	istio_policy_v1beta1 "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/adapter/cloudwatch/config"
-
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/template/metric"
 )
+
+const (
+	// CloudWatch enforced limit
+	// https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch_limits.html
+	dimensionLimit = 10
+)
+
+var supportedValueTypes = map[string]bool{
+	"STRING":   true,
+	"INT64":    true,
+	"DOUBLE":   true,
+	"DURATION": true,
+}
+
+var supportedDurationUnits = map[config.Params_MetricDatum_Unit]bool{
+	config.Seconds:      true,
+	config.Microseconds: true,
+	config.Milliseconds: true,
+}
 
 type (
 	builder struct {
@@ -66,21 +86,42 @@ func (b *builder) SetAdapterConfig(cfg adapter.Config) {
 
 // adapter.HandlerBuilder#Validate
 func (b *builder) Validate() (ce *adapter.ConfigErrors) {
-	cfg := b.adpCfg
-
-	// validate that instance and handler contain the same metrics
-	for _, v := range cfg.GetMetricInfo() {
-		if v.GetStorageResolution() != 1 && v.GetStorageResolution() != 60 {
-			ce = ce.Appendf("storageResolution", "Storage resolution should be either 1 or 60")
-		}
-
-		//TODO: validate cw unit
-		if len(v.GetUnit()) == 0 {
-			ce = ce.Appendf("unit", "Cloudwatch metric unit must not be null")
-		}
+	if len(b.adpCfg.GetNamespace()) == 0 {
+		ce = ce.Append("namespace", fmt.Errorf("namespace should not be empty"))
 	}
 
-	return
+	if len(b.adpCfg.GetMetricInfo()) != len(b.metricTypes) {
+		ce = ce.Append("metricInfo", fmt.Errorf("metricInfo and instance config must contain the same metrics"))
+	}
+
+	for k, v := range b.metricTypes {
+		// validate handler config contains required metric config
+		_, ok := b.adpCfg.GetMetricInfo()[k]
+		if !ok {
+			ce = ce.Append("metricInfo", fmt.Errorf("metricInfo and instance config must contain the same metrics but missing %v", k))
+		}
+
+		// validate that value type can be handled by the CloudWatch handler
+		_, ok = supportedValueTypes[v.Value.String()]
+		if !ok {
+			ce = ce.Append("value type", fmt.Errorf("value of type %v is not supported", v.Value))
+		}
+
+		// validate that if the value is a duration it has the correct cloudwatch unit
+		if v.Value == istio_policy_v1beta1.DURATION {
+			unit := b.adpCfg.GetMetricInfo()[k].GetUnit()
+			_, ok = supportedDurationUnits[unit]
+			if !ok {
+				ce = ce.Append("duration metric unit", fmt.Errorf("value of type duration should have a unit of seconds, milliseconds or microseconds"))
+			}
+		}
+
+		// validate that metrics have less than 10 dimensions which is a cloudwatch limit
+		if len(v.Dimensions) > dimensionLimit {
+			ce = ce.Append("dimensions", fmt.Errorf("metrics can only contain %v dimensions", dimensionLimit))
+		}
+	}
+	return ce
 }
 
 // metric.HandlerBuilder#SetMetricTypes
@@ -88,31 +129,11 @@ func (b *builder) SetMetricTypes(types map[string]*metric.Type) {
 	b.metricTypes = types
 }
 
-// HandleMetric validates received instances and sends them to cloudwatch
+// HandleMetric sends metrics to cloudwatch
 func (h *Handler) HandleMetric(ctx context.Context, insts []*metric.Instance) error {
-	validInsts := getValidMetrics(h, insts)
-	return handleValidMetrics(h, validInsts)
-}
-
-func getValidMetrics(h *Handler, insts []*metric.Instance) []*metric.Instance {
-	validInsts := make([]*metric.Instance, 0, len(insts))
-
-	for _, inst := range insts {
-		if _, ok := h.metricTypes[inst.Name]; !ok {
-			_ = h.env.Logger().Errorf("There is no type found for instance %s", inst.Name)
-			continue
-		}
-
-		// check that every instance metric has a corresponding cloudwatch handler metric
-		if _, ok := h.cfg.GetMetricInfo()[inst.Name]; !ok {
-			_ = h.env.Logger().Errorf("There is no corresponding cloudwatch handler metric present for instance %s", inst.Name)
-			continue
-		}
-
-		validInsts = append(validInsts, inst)
-	}
-
-	return validInsts
+	metricData := h.generateMetricData(insts)
+	_, err := h.sendMetricsToCloudWatch(metricData)
+	return err
 }
 
 // Close implements client closing functionality if necessary

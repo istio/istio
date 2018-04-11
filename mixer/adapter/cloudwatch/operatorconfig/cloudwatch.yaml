@@ -2,28 +2,31 @@
 apiVersion: "config.istio.io/v1alpha2"
 kind: metric
 metadata:
- name: cloudwatchrequestcount
- namespace: istio-system
+  name: requestcount
+  namespace: istio-system
 spec:
- value: "1"
- dimensions:
-   target: destination.service | "unknown"
-   service: destination.labels["app"] | "unknown"
-   response_code: response.code | 200
-   time: request.time
+  value: "1"
+  dimensions:
+    source_cluster: source.labels["cluster"] | "unknown"
+    source_service: source.labels["service"] | "unknown"
+    source_version: source.labels["version"] | "unknown"
+    destination_cluster: destination.labels["cluster"] | "unknown"
+    destination_service: destination.labels["service"] | "unknown"
+    destination_version: destination.labels["version"] | "unknown"
+    response_code: response.code | 200
+  monitored_resource_type: '"UNSPECIFIED"'
 ---
 # handler configuration for adapter 'metric'
 apiVersion: "config.istio.io/v1alpha2"
 kind: cloudwatch
 metadata:
- name: hndlrTest
+ name: handler
  namespace: istio-system
 spec:
- namespace: "mixer-CloudWatch"
+ namespace: "cloudwatch-istio"
  metricInfo:
-   cloudwatchrequestcount.metric.istio-system:
-     unit: Count
-     storageResolution: 1 #high resolution metric
+  requestcount.metric.istio-system:
+   unit: Count
 ---
 # rule to dispatch to your handler
 apiVersion: "config.istio.io/v1alpha2"
@@ -34,6 +37,6 @@ metadata:
 spec:
  match: "true"
  actions:
- - handler: hndlrTest.cloudwatch
+ - handler: handler.cloudwatch
    instances:
-   - cloudwatchrequestcount.metric
+   - requestcount.metric

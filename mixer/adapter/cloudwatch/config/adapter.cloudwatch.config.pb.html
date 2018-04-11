@@ -3,10 +3,21 @@ title: CloudWatch
 overview: Adapter for cloudwatch metrics.
 location: https://istio.io/docs/reference/config/adapters/cloudwatch.html
 layout: protoc-gen-docs
-number_of_entries: 2
+number_of_entries: 3
 ---
-<p>The <code>cloudwatch</code> adapter enables Istio to deliver metrics to
+<p>The CloudWatch adapter enables Istio to deliver metrics to
 <a href="https://aws.amazon.com/cloudwatch/">Amazon CloudWatch</a>.</p>
+
+<p>To push metrics to CloudWatch using this adapter you need create an IAM user
+that has permissions to call cloudwatch APIs. The credentials for the user
+need to be available on the instance the adapter is running on
+(see <a href="https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/setup-credentials.html">AWS docs</a>).</p>
+
+<p>To activate the CloudWatch adapter, operators need to provide configuration for the
+<a href="https://istio.io/docs/reference/config/adapters/cloudwatch.html">cloudwatch adapter</a>.</p>
+
+<p>The handler configuration must contain the same metrics as the instance configuration.
+The metrics specified in both instance and handler configurations will be sent to CloudWatch.</p>
 
 <h2 id="Params">Params</h2>
 <section>
@@ -53,22 +64,161 @@ number_of_entries: 2
 </tr>
 </thead>
 <tbody>
-<tr id="Params.MetricDatum.storageResolution">
-<td><code>storageResolution</code></td>
-<td><code>int64</code></td>
+<tr id="Params.MetricDatum.unit">
+<td><code>unit</code></td>
+<td><code><a href="#Params.MetricDatum.Unit">Params.MetricDatum.Unit</a></code></td>
 <td>
-<p>The second resolution of the metric. Valid values are 1 and 60.
-https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_MetricDatum.html</p>
+<p>The unit of the metric. Must be valid cloudwatch unit value.
+<a href="https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_MetricDatum.html">CloudWatch docs</a></p>
 
 </td>
 </tr>
-<tr id="Params.MetricDatum.unit">
-<td><code>unit</code></td>
-<td><code>string</code></td>
+</tbody>
+</table>
+</section>
+<h2 id="Params.MetricDatum.Unit">Params.MetricDatum.Unit</h2>
+<section>
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.MetricDatum.Unit.None">
+<td><code>None</code></td>
 <td>
-<p>The unit of the metric. Must be valid cloudwatch unit value.
-https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_MetricDatum.html</p>
-
+</td>
+</tr>
+<tr id="Params.MetricDatum.Unit.Seconds">
+<td><code>Seconds</code></td>
+<td>
+</td>
+</tr>
+<tr id="Params.MetricDatum.Unit.Microseconds">
+<td><code>Microseconds</code></td>
+<td>
+</td>
+</tr>
+<tr id="Params.MetricDatum.Unit.Milliseconds">
+<td><code>Milliseconds</code></td>
+<td>
+</td>
+</tr>
+<tr id="Params.MetricDatum.Unit.Count">
+<td><code>Count</code></td>
+<td>
+</td>
+</tr>
+<tr id="Params.MetricDatum.Unit.Bytes">
+<td><code>Bytes</code></td>
+<td>
+</td>
+</tr>
+<tr id="Params.MetricDatum.Unit.Kilobytes">
+<td><code>Kilobytes</code></td>
+<td>
+</td>
+</tr>
+<tr id="Params.MetricDatum.Unit.Megabytes">
+<td><code>Megabytes</code></td>
+<td>
+</td>
+</tr>
+<tr id="Params.MetricDatum.Unit.Gigabytes">
+<td><code>Gigabytes</code></td>
+<td>
+</td>
+</tr>
+<tr id="Params.MetricDatum.Unit.Terabytes">
+<td><code>Terabytes</code></td>
+<td>
+</td>
+</tr>
+<tr id="Params.MetricDatum.Unit.Bits">
+<td><code>Bits</code></td>
+<td>
+</td>
+</tr>
+<tr id="Params.MetricDatum.Unit.Kilobits">
+<td><code>Kilobits</code></td>
+<td>
+</td>
+</tr>
+<tr id="Params.MetricDatum.Unit.Megabits">
+<td><code>Megabits</code></td>
+<td>
+</td>
+</tr>
+<tr id="Params.MetricDatum.Unit.Gigabits">
+<td><code>Gigabits</code></td>
+<td>
+</td>
+</tr>
+<tr id="Params.MetricDatum.Unit.Terabits">
+<td><code>Terabits</code></td>
+<td>
+</td>
+</tr>
+<tr id="Params.MetricDatum.Unit.Percent">
+<td><code>Percent</code></td>
+<td>
+</td>
+</tr>
+<tr id="Params.MetricDatum.Unit.Bytes_Second">
+<td><code>Bytes_Second</code></td>
+<td>
+</td>
+</tr>
+<tr id="Params.MetricDatum.Unit.Kilobytes_Second">
+<td><code>Kilobytes_Second</code></td>
+<td>
+</td>
+</tr>
+<tr id="Params.MetricDatum.Unit.Megabytes_Second">
+<td><code>Megabytes_Second</code></td>
+<td>
+</td>
+</tr>
+<tr id="Params.MetricDatum.Unit.Gigabytes_Second">
+<td><code>Gigabytes_Second</code></td>
+<td>
+</td>
+</tr>
+<tr id="Params.MetricDatum.Unit.Terabytes_Second">
+<td><code>Terabytes_Second</code></td>
+<td>
+</td>
+</tr>
+<tr id="Params.MetricDatum.Unit.Bits_Second">
+<td><code>Bits_Second</code></td>
+<td>
+</td>
+</tr>
+<tr id="Params.MetricDatum.Unit.Kilobits_Second">
+<td><code>Kilobits_Second</code></td>
+<td>
+</td>
+</tr>
+<tr id="Params.MetricDatum.Unit.Megabits_Second">
+<td><code>Megabits_Second</code></td>
+<td>
+</td>
+</tr>
+<tr id="Params.MetricDatum.Unit.Gigabits_Second">
+<td><code>Gigabits_Second</code></td>
+<td>
+</td>
+</tr>
+<tr id="Params.MetricDatum.Unit.Terabits_Second">
+<td><code>Terabits_Second</code></td>
+<td>
+</td>
+</tr>
+<tr id="Params.MetricDatum.Unit.Count_Second">
+<td><code>Count_Second</code></td>
+<td>
 </td>
 </tr>
 </tbody>

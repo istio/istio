@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,14 +15,16 @@
 package cloudwatch
 
 import (
-	"errors"
-	"net"
+	"fmt"
 	"strconv"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
+	multierror "github.com/hashicorp/go-multierror"
 
+	"istio.io/istio/mixer/adapter/cloudwatch/config"
+	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/template/metric"
 )
 
@@ -30,20 +32,11 @@ const (
 	// CloudWatch enforced limit
 	// https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch_limits.html
 	metricDatumLimit = 20
-	// CloudWatch enforced limit
-	// https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch_limits.html
-	dimensionLimit = 10
 )
 
-func handleValidMetrics(h *Handler, insts []*metric.Instance) error {
-	metricData := generateMetricData(h, insts)
-	_, err := sendMetricsToCloudWatch(h, metricData)
-	return err
-}
-
-func sendMetricsToCloudWatch(h *Handler, metricData []*cloudwatch.MetricDatum) (int, error) {
+func (h *Handler) sendMetricsToCloudWatch(metricData []*cloudwatch.MetricDatum) (int, error) {
 	cloudWatchCallCount := 0
-	var err error
+	var multiError *multierror.Error
 
 	for i := 0; i < len(metricData); i += metricDatumLimit {
 		size := i + metricDatumLimit
@@ -51,16 +44,18 @@ func sendMetricsToCloudWatch(h *Handler, metricData []*cloudwatch.MetricDatum) (
 			size = len(metricData)
 		}
 
-		err = putMetricData(h, metricData[i:size])
+		err := h.putMetricData(metricData[i:size])
 		if err == nil {
 			cloudWatchCallCount++
+		} else {
+			multiError = multierror.Append(multiError, err)
 		}
 	}
 
-	return cloudWatchCallCount, err
+	return cloudWatchCallCount, multiError.ErrorOrNil()
 }
 
-func generateMetricData(h *Handler, insts []*metric.Instance) []*cloudwatch.MetricDatum {
+func (h *Handler) generateMetricData(insts []*metric.Instance) []*cloudwatch.MetricDatum {
 	metricData := make([]*cloudwatch.MetricDatum, 0, len(insts))
 
 	for _, inst := range insts {
@@ -68,42 +63,26 @@ func generateMetricData(h *Handler, insts []*metric.Instance) []*cloudwatch.Metr
 
 		datum := cloudwatch.MetricDatum{
 			MetricName: aws.String(inst.Name),
-			Unit:       aws.String(cwMetric.GetUnit()),
+			Unit:       aws.String(cwMetric.GetUnit().String()),
 		}
 
-		if cwMetric.GetStorageResolution() != 0 {
-			datum.SetStorageResolution(cwMetric.GetStorageResolution())
-		}
-
-		value, err := getNumericValue(h, inst)
+		value, err := getNumericValue(inst.Value, cwMetric.GetUnit())
 		if err != nil {
+			_ = h.env.Logger().Errorf("could not parse value %v", err)
 			continue
 		}
 		datum.SetValue(value)
 
-		// Only 10 dimenstions can be added to a metric. This is a cloudwatch limit.
-		d := make([]*cloudwatch.Dimension, 0, dimensionLimit)
+		d := make([]*cloudwatch.Dimension, 0, len(inst.Dimensions))
 
 		for k, v := range inst.Dimensions {
-
-			// check whether the dimension is a timestamp
-			t, ok := v.(time.Time)
-			if ok {
-				datum.SetTimestamp(t)
-				continue
-			}
-
-			// if not timestamp, add to the dimension map
 			cdimension := &cloudwatch.Dimension{
-				Name: aws.String(k),
+				Name:  aws.String(k),
+				Value: aws.String(adapter.Stringify(v)),
 			}
-			dimensionValue, err := getDimensionValue(h, v)
-			if err != nil {
-				continue
-			}
-			cdimension.SetValue(dimensionValue)
 			d = append(d, cdimension)
 		}
+
 		datum.SetDimensions(d)
 
 		metricData = append(metricData, &datum)
@@ -112,33 +91,12 @@ func generateMetricData(h *Handler, insts []*metric.Instance) []*cloudwatch.Metr
 	return metricData
 }
 
-func getDimensionValue(h *Handler, value interface{}) (string, error) {
+func getNumericValue(value interface{}, unit config.Params_MetricDatum_Unit) (float64, error) {
 	switch v := value.(type) {
-	case string:
-		return v, nil
-	case int:
-		return strconv.Itoa(v), nil
-	case int64:
-		return strconv.FormatInt(v, 10), nil
-	case float64:
-		return strconv.FormatFloat(v, 'E', -1, 64), nil
-	case bool:
-		return strconv.FormatBool(v), nil
-	case time.Duration:
-		return v.String(), nil
-	case net.IP:
-		return v.String(), nil
-	default:
-		return "", h.env.Logger().Errorf("Dimensions contain an unsupported type: %T", v)
-	}
-}
-
-func getNumericValue(h *Handler, inst *metric.Instance) (float64, error) {
-	switch v := inst.Value.(type) {
 	case string:
 		value, err := strconv.ParseFloat(v, 64)
 		if err != nil {
-			return 0, h.env.Logger().Errorf("Can't parse string %s into float", v)
+			return 0, fmt.Errorf("can't parse string %s into float", v)
 		}
 		return value, nil
 	case int:
@@ -150,38 +108,27 @@ func getNumericValue(h *Handler, inst *metric.Instance) (float64, error) {
 	case float64:
 		return v, nil
 	case time.Duration:
-		return getDurationNumericValue(h, inst, v)
+		return getDurationNumericValue(v, unit), nil
 	default:
-		return 0, h.env.Logger().Errorf("Unsupported value type %T. Only strings and numeric values are accepted", v)
+		return 0, fmt.Errorf("unsupported value type %T. Only strings and numeric values are accepted", v)
 	}
 }
 
-func getDurationNumericValue(h *Handler, inst *metric.Instance, v time.Duration) (float64, error) {
-	unit := h.cfg.GetMetricInfo()[inst.Name].GetUnit()
-
+func getDurationNumericValue(v time.Duration, unit config.Params_MetricDatum_Unit) float64 {
 	switch unit {
-	case "Seconds":
-		return float64(v / time.Second), nil
-	case "Microseconds":
-		return float64(v / time.Microsecond), nil
-	case "Milliseconds":
-		return float64(v / time.Millisecond), nil
+	case config.Seconds:
+		return float64(v / time.Second)
+	case config.Microseconds:
+		return float64(v / time.Microsecond)
+	case config.Milliseconds:
+		return float64(v / time.Millisecond)
 	default:
-		return 0, h.env.Logger().Errorf("Supported dimensions for duration are Seconds, Microseconds, and Milliseconds. %v is not supported", unit)
+		// assume milliseconds if timestamp unit is not provided
+		return float64(v / time.Millisecond)
 	}
 }
 
-func putMetricData(h *Handler, metricData []*cloudwatch.MetricDatum) error {
-	if len(metricData) == 0 {
-		err := errors.New("metricData is empty")
-		return h.env.Logger().Errorf("cannot send empty metrics to cloudwatch: %v", err)
-	}
-
-	if len(h.cfg.Namespace) == 0 {
-		err := errors.New("cloudwatch namespace is not provided in configuration")
-		return h.env.Logger().Errorf("cloudwatch namespace is required: %v", err)
-	}
-
+func (h *Handler) putMetricData(metricData []*cloudwatch.MetricDatum) error {
 	input := cloudwatch.PutMetricDataInput{
 		Namespace:  aws.String(h.cfg.Namespace),
 		MetricData: metricData,

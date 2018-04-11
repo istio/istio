@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,8 +18,19 @@ syntax = "proto3";
 // $overview: Adapter for cloudwatch metrics.
 // $location: https://istio.io/docs/reference/config/adapters/cloudwatch.html
 
-// The `cloudwatch` adapter enables Istio to deliver metrics to
+// The CloudWatch adapter enables Istio to deliver metrics to
 // [Amazon CloudWatch](https://aws.amazon.com/cloudwatch/).
+//
+// To push metrics to CloudWatch using this adapter you need create an IAM user
+// that has permissions to call cloudwatch APIs. The credentials for the user
+// need to be available on the instance the adapter is running on
+// (see [AWS docs](https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/setup-credentials.html)).
+//
+// To activate the CloudWatch adapter, operators need to provide configuration for the
+// [cloudwatch adapter](https://istio.io/docs/reference/config/adapters/cloudwatch.html).
+//
+// The handler configuration must contain the same metrics as the instance configuration.
+// The metrics specified in both instance and handler configurations will be sent to CloudWatch.
 package adapter.cloudwatch.config;
 
 option go_package="config";
@@ -28,17 +39,43 @@ option go_package="config";
 message Params {
     // CloudWatch metric namespace.
     string namespace = 1;
+
     // A map of Istio metric name to CloudWatch metric info.
     map<string, MetricDatum> metric_info = 2;
 
-
     // CloudWatch metric format.
     message MetricDatum {
-        // The second resolution of the metric. Valid values are 1 and 60.
-        // https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_MetricDatum.html
-        int64 storageResolution = 3;
-        // The unit of the metric. Must be valid cloudwatch unit value.
-        // https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_MetricDatum.html
-        string unit = 4;
+      enum Unit {
+        None = 0;
+        Seconds = 1;
+        Microseconds = 2;
+        Milliseconds = 3;
+        Count = 4;
+        Bytes = 5;
+        Kilobytes = 6;
+        Megabytes = 7;
+        Gigabytes = 8;
+        Terabytes = 9;
+        Bits = 10;
+        Kilobits = 11;
+        Megabits = 12;
+        Gigabits = 13;
+        Terabits = 14;
+        Percent = 15;
+        Bytes_Second = 16;
+        Kilobytes_Second = 17;
+        Megabytes_Second = 18;
+        Gigabytes_Second = 19;
+        Terabytes_Second = 20;
+        Bits_Second = 21;
+        Kilobits_Second = 22;
+        Megabits_Second = 23;
+        Gigabits_Second = 24;
+        Terabits_Second = 25;
+        Count_Second = 26;
+      }
+      // The unit of the metric. Must be valid cloudwatch unit value.
+      // [CloudWatch docs](https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_MetricDatum.html)
+      Unit unit = 3;
     }
 }

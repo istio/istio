@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@ package cloudwatch
 
 import (
 	"errors"
-	"net"
 	"reflect"
 	"strconv"
 	"strings"
@@ -62,18 +61,6 @@ func TestPutMetricData(t *testing.T) {
 		handler           adapter.Handler
 	}{
 		{
-			[]*cloudwatch.MetricDatum{},
-			"metricdata",
-			NewHandler(nil, env, cfg, &mockCloudWatchClient{}),
-		},
-		{
-			[]*cloudwatch.MetricDatum{
-				{MetricName: aws.String("testMetric"), Value: aws.Float64(1)},
-			},
-			"namespace",
-			NewHandler(nil, env, &config.Params{}, &mockCloudWatchClient{}),
-		},
-		{
 			[]*cloudwatch.MetricDatum{
 				{MetricName: aws.String("testMetric"), Value: aws.Float64(1)},
 			},
@@ -95,13 +82,12 @@ func TestPutMetricData(t *testing.T) {
 			t.Error("Test case has the wrong type of handler.")
 		}
 
-		err := putMetricData(h, c.metricData)
+		err := h.putMetricData(c.metricData)
 		if len(c.expectedErrString) > 0 {
 			if err == nil {
 				t.Errorf("Expected an error containing %s, got none", c.expectedErrString)
-			}
 
-			if !strings.Contains(strings.ToLower(err.Error()), c.expectedErrString) {
+			} else if !strings.Contains(strings.ToLower(err.Error()), c.expectedErrString) {
 				t.Errorf("Expected an error containing \"%s\", actual error: \"%v\"", c.expectedErrString, err)
 			}
 		} else if err != nil {
@@ -110,181 +96,110 @@ func TestPutMetricData(t *testing.T) {
 	}
 }
 
-func generateCfgWithUnit(unit string) *config.Params {
+func generateCfgWithUnit(unit config.Params_MetricDatum_Unit) *config.Params {
+	return generateCfgWithNameAndUnit("requestDuration", unit)
+}
+
+func generateCfgWithNameAndUnit(metricName string, unit config.Params_MetricDatum_Unit) *config.Params {
 	return &config.Params{
 		Namespace: "istio-mixer-cloudwatch",
 		MetricInfo: map[string]*config.Params_MetricDatum{
-			"requestDuration": {
-				Unit:              unit,
-				StorageResolution: 1,
+			metricName: {
+				Unit: unit,
 			},
 		},
 	}
 }
 
 func TestDurationNumericValue(t *testing.T) {
-	env := test.NewEnv(t)
-
 	cases := []struct {
-		handler           adapter.Handler
-		inst              *metric.Instance
-		expectedErrString string
-		expectedValue     float64
+		config        *config.Params
+		inst          *metric.Instance
+		expectedValue float64
 	}{
 		{
-			NewHandler(nil, env,
-				generateCfgWithUnit("Count"),
-				&mockCloudWatchClient{}),
+			generateCfgWithUnit(config.None),
 			&metric.Instance{
 				Name:  "requestDuration",
 				Value: 1 * time.Minute},
-			"not supported",
-			0,
-		},
-		{
-			NewHandler(nil, env,
-				generateCfgWithUnit("Seconds"),
-				&mockCloudWatchClient{}),
-			&metric.Instance{
-				Name:  "requestDuration",
-				Value: 1 * time.Minute},
-			"",
-			60,
-		},
-		{
-			NewHandler(nil, env,
-				generateCfgWithUnit("Milliseconds"),
-				&mockCloudWatchClient{}),
-			&metric.Instance{
-				Name:  "requestDuration",
-				Value: 1 * time.Minute},
-			"",
 			60000,
 		},
 		{
-			NewHandler(nil, env,
-				generateCfgWithUnit("Microseconds"),
-				&mockCloudWatchClient{}),
+			generateCfgWithUnit(config.Seconds),
 			&metric.Instance{
 				Name:  "requestDuration",
 				Value: 1 * time.Minute},
-			"",
+			60,
+		},
+		{
+			generateCfgWithUnit(config.Milliseconds),
+			&metric.Instance{
+				Name:  "requestDuration",
+				Value: 1 * time.Minute},
+			60000,
+		},
+		{
+			generateCfgWithUnit(config.Microseconds),
+			&metric.Instance{
+				Name:  "requestDuration",
+				Value: 1 * time.Minute},
 			60000000,
 		},
 	}
 
 	for _, c := range cases {
-		h, ok := c.handler.(*Handler)
-		if !ok {
-			t.Error("Test case has the wrong type of handler.")
-		}
-
 		v, ok := c.inst.Value.(time.Duration)
 		if !ok {
 			t.Error("Test case instance value is of the wrong type")
 		}
 
-		n, err := getDurationNumericValue(h, c.inst, v)
-		if len(c.expectedErrString) > 0 && err == nil {
-			t.Errorf("Unexpected error: \"%v\"", err)
+		unit := c.config.GetMetricInfo()["requestDuration"].GetUnit()
+		n := getDurationNumericValue(v, unit)
+
+		if n != c.expectedValue {
+			t.Errorf("Expected value %v, got %v", c.expectedValue, n)
 		}
 
-		if len(c.expectedErrString) > 0 {
-			if !strings.Contains(strings.ToLower(err.Error()), c.expectedErrString) {
-				t.Errorf("Expected an error containing \"%s\", actual error: \"%v\"", c.expectedErrString, err)
-			}
-
-		} else {
-			if n != c.expectedValue {
-				t.Errorf("Expected value %v, got %v", c.expectedValue, n)
-			}
-		}
 	}
 }
 
 func TestGetNumericValue(t *testing.T) {
-	env := test.NewEnv(t)
-	cfg := &config.Params{
-		Namespace: "istio-mixer-cloudwatch",
-		MetricInfo: map[string]*config.Params_MetricDatum{
-			"requestDuration": {
-				Unit:              "Seconds",
-				StorageResolution: 1,
-			},
-		},
-	}
-	h := NewHandler(nil, env, cfg, &mockCloudWatchClient{})
-
 	cases := []struct {
 		inst              *metric.Instance
+		config            *config.Params
 		expectedErrString string
 		expectedValue     float64
 	}{
-		{&metric.Instance{Value: "invalidValue"}, "can't parse string", 0},
-		{&metric.Instance{Value: "1"}, "", 1.0},
-		{&metric.Instance{Value: 1}, "", 1.0},
-		{&metric.Instance{Value: 1.0}, "", 1.0},
-		{&metric.Instance{Value: true}, "unsupported value type", 0},
-		{&metric.Instance{Name: "requestDuration", Value: 1 * time.Minute}, "", 60},
+		{&metric.Instance{Name: "invalid", Value: "invalidValue"},
+			generateCfgWithNameAndUnit("invalid", config.None),
+			"can't parse string", 0},
+		{&metric.Instance{Name: "requestcount", Value: "1"},
+			generateCfgWithNameAndUnit("requestcount", config.Count),
+			"", 1.0},
+		{&metric.Instance{Name: "requestcount", Value: 1},
+			generateCfgWithNameAndUnit("requestcount", config.Count),
+			"", 1.0},
+		{&metric.Instance{Name: "requestcount", Value: 1.0},
+			generateCfgWithNameAndUnit("requestcount", config.Count),
+			"", 1.0},
+		{&metric.Instance{Name: "requestcount", Value: true},
+			generateCfgWithNameAndUnit("requestcount", config.Count),
+			"unsupported value type", 0},
+		{&metric.Instance{Name: "requestduration", Value: 1 * time.Minute},
+			generateCfgWithNameAndUnit("requestduration", config.Seconds), "", 60},
 	}
 
 	for _, c := range cases {
-		h, ok := h.(*Handler)
-		if !ok {
-			t.Error("Test case has the wrong type of handler.")
-		}
-
-		v, err := getNumericValue(h, c.inst)
-		if len(c.expectedErrString) > 0 && err == nil {
+		v, err := getNumericValue(c.inst.Value, c.config.GetMetricInfo()[c.inst.Name].GetUnit())
+		if len(c.expectedErrString) == 0 && err != nil {
 			t.Errorf("Unexpected error: \"%v\"", err)
 		}
 
 		if len(c.expectedErrString) > 0 {
-			if !strings.Contains(strings.ToLower(err.Error()), c.expectedErrString) {
-				t.Errorf("Expected an error containing \"%s\", actual error: \"%v\"", c.expectedErrString, err)
-			}
+			if err == nil {
+				t.Errorf("Expected an error containing \"%s\", but no error was thrown", c.expectedErrString)
 
-		} else {
-			if v != c.expectedValue {
-				t.Errorf("Expected value %v, got %v", c.expectedValue, v)
-			}
-		}
-	}
-}
-
-func TestGetDimensionValue(t *testing.T) {
-	env := test.NewEnv(t)
-	h := NewHandler(nil, env, nil, &mockCloudWatchClient{})
-
-	type invalidType struct{}
-
-	cases := []struct {
-		value             interface{}
-		expectedErrString string
-		expectedValue     string
-	}{
-		{"value", "", "value"},
-		{int64(1), "", "1"},
-		{1.1, "", "1.1E+00"},
-		{true, "", "true"},
-		{time.Second, "", "1s"},
-		{net.IPv4(0, 0, 0, 0), "", "0.0.0.0"},
-		{invalidType{}, "unsupported type", ""},
-	}
-
-	for _, c := range cases {
-		h, ok := h.(*Handler)
-		if !ok {
-			t.Error("Test case has the wrong type of handler.")
-		}
-
-		v, err := getDimensionValue(h, c.value)
-		if len(c.expectedErrString) > 0 && err == nil {
-			t.Errorf("Unexpected error: \"%v\"", err)
-		}
-
-		if len(c.expectedErrString) > 0 {
-			if !strings.Contains(strings.ToLower(err.Error()), c.expectedErrString) {
+			} else if !strings.Contains(strings.ToLower(err.Error()), c.expectedErrString) {
 				t.Errorf("Expected an error containing \"%s\", actual error: \"%v\"", c.expectedErrString, err)
 			}
 
@@ -319,7 +234,7 @@ func TestSendMetricsToCloudWatch(t *testing.T) {
 			t.Error("Test case has the wrong type of handler.")
 		}
 
-		count, err := sendMetricsToCloudWatch(h, c.metricData)
+		count, err := h.sendMetricsToCloudWatch(c.metricData)
 		if err != nil {
 			t.Errorf("Unexpected error: \"%v\"", err)
 		}
@@ -344,104 +259,56 @@ func generateTestMetricData(count int) []*cloudwatch.MetricDatum {
 
 func TestGenerateMetricData(t *testing.T) {
 	env := test.NewEnv(t)
-	cfg := &config.Params{
-		Namespace: "istio-mixer-cloudwatch",
-		MetricInfo: map[string]*config.Params_MetricDatum{
-			"requestCount": {
-				Unit:              "Count",
-				StorageResolution: 1,
-			},
-			"requestDuration": {
-				Unit: "Seconds",
-			},
-		},
-	}
-	timestamp := time.Now()
-	type invalidType struct{}
-
-	h := NewHandler(nil, env, cfg, &mockCloudWatchClient{})
-
 	cases := []struct {
+		handler            adapter.Handler
 		insts              []*metric.Instance
 		expectedMetricData []*cloudwatch.MetricDatum
 	}{
 		// empty instances
-		{[]*metric.Instance{}, []*cloudwatch.MetricDatum{}},
-		// no storage resolution specified
-		{[]*metric.Instance{
-			{
-				Name:  "requestDuration",
-				Value: "1"}},
+		{
+			NewHandler(nil, env,
+				generateCfgWithUnit(config.Count),
+				&mockCloudWatchClient{}),
+			[]*metric.Instance{}, []*cloudwatch.MetricDatum{}},
+		// timestamp value
+		{
+			NewHandler(nil, env,
+				generateCfgWithNameAndUnit("requestduration", config.Milliseconds),
+				&mockCloudWatchClient{}),
+			[]*metric.Instance{
+				{
+					Value: 1 * time.Minute,
+					Name:  "requestduration",
+				},
+			},
 			[]*cloudwatch.MetricDatum{
 				{
-					MetricName: aws.String("requestDuration"),
-					Unit:       aws.String("Seconds"),
-					Value:      aws.Float64(1),
+					MetricName: aws.String("requestduration"),
+					Unit:       aws.String(config.Milliseconds.String()),
+					Value:      aws.Float64(60000),
 					Dimensions: []*cloudwatch.Dimension{},
 				},
-			}},
-		// illegal value
-		{[]*metric.Instance{
-			{
-				Name:  "requestCount",
-				Value: "invalidValue"}},
-			[]*cloudwatch.MetricDatum{}},
-		{
-			[]*metric.Instance{
-				{
-					Value: "1",
-					Name:  "requestCount",
-				},
-			},
-			[]*cloudwatch.MetricDatum{
-				{
-					MetricName:        aws.String("requestCount"),
-					Unit:              aws.String("Count"),
-					StorageResolution: aws.Int64(1),
-					Value:             aws.Float64(1),
-					Dimensions:        []*cloudwatch.Dimension{},
-				},
 			},
 		},
+		// count value and dimensions
 		{
+			NewHandler(nil, env,
+				generateCfgWithNameAndUnit("requestcount", config.Count),
+				&mockCloudWatchClient{}),
 			[]*metric.Instance{
 				{
 					Value: "1",
-					Name:  "requestCount",
+					Name:  "requestcount",
 					Dimensions: map[string]interface{}{
-						"time": timestamp,
-					},
-				},
-			},
-			[]*cloudwatch.MetricDatum{
-				{
-					MetricName:        aws.String("requestCount"),
-					Unit:              aws.String("Count"),
-					StorageResolution: aws.Int64(1),
-					Value:             aws.Float64(1),
-					Timestamp:         aws.Time(timestamp),
-					Dimensions:        []*cloudwatch.Dimension{},
-				},
-			},
-		},
-		{
-			[]*metric.Instance{
-				{
-					Value: "1",
-					Name:  "requestCount",
-					Dimensions: map[string]interface{}{
-						"time":               timestamp,
 						"arbitraryDimension": 50,
 					},
 				},
 			},
 			[]*cloudwatch.MetricDatum{
 				{
-					MetricName:        aws.String("requestCount"),
-					Unit:              aws.String("Count"),
-					StorageResolution: aws.Int64(1),
-					Value:             aws.Float64(1),
-					Timestamp:         aws.Time(timestamp),
+					MetricName: aws.String("requestcount"),
+					Unit:       aws.String(config.Count.String()),
+					Value:      aws.Float64(1),
 					Dimensions: []*cloudwatch.Dimension{
 						{
 							Name:  aws.String("arbitraryDimension"),
@@ -451,37 +318,15 @@ func TestGenerateMetricData(t *testing.T) {
 				},
 			},
 		},
-		{
-			[]*metric.Instance{
-				{
-					Value: "1",
-					Name:  "requestCount",
-					Dimensions: map[string]interface{}{
-						"time":            timestamp,
-						"unsupportedType": invalidType{},
-					},
-				},
-			},
-			[]*cloudwatch.MetricDatum{
-				{
-					MetricName:        aws.String("requestCount"),
-					Unit:              aws.String("Count"),
-					StorageResolution: aws.Int64(1),
-					Value:             aws.Float64(1),
-					Timestamp:         aws.Time(timestamp),
-					Dimensions:        []*cloudwatch.Dimension{},
-				},
-			},
-		},
 	}
 
 	for _, c := range cases {
-		h, ok := h.(*Handler)
+		h, ok := c.handler.(*Handler)
 		if !ok {
 			t.Error("Test case has the wrong type of handler.")
 		}
 
-		md := generateMetricData(h, c.insts)
+		md := h.generateMetricData(c.insts)
 
 		if len(c.expectedMetricData) != len(md) {
 			t.Errorf("Expected %v metric data items but got %v", len(c.expectedMetricData), len(md))

@@ -2,15 +2,17 @@
 apiVersion: "config.istio.io/v1alpha2"
 kind: metric
 metadata:
- name: cloudwatchrequestcount
+ name: requestcount
  namespace: istio-system
 spec:
  value: "1"
  dimensions:
-   target: destination.service | "unknown"
-   service: destination.labels["app"] | "unknown"
+   source_service: source.service | "unknown"
+   source_version: source.labels["version"] | "unknown"
+   destination_service: destination.service | "unknown"
+   destination_version: destination.labels["version"] | "unknown"
    response_code: response.code | 200
-   time: request.time
+ monitored_resource_type: '"UNSPECIFIED"'
 ---
 # handler configuration for adapter 'metric'
 apiVersion: "config.istio.io/v1alpha2"
@@ -21,7 +23,7 @@ metadata:
 spec:
  namespace: "mixer-CloudWatch"
  metricInfo:
-   cloudwatchrequestcount.metric.istio-system:
+   requestcount.metric.istio-system:
      unit: Count
      storageResolution: 1 #high resolution metric
 ---
@@ -36,4 +38,4 @@ spec:
  actions:
  - handler: hndlrTest.cloudwatch
    instances:
-   - cloudwatchrequestcount.metric
+   - requestcount.metric
