@@ -105,6 +105,7 @@ func setTestConfig() error {
 			"testdata/external-wikipedia.yaml",
 			"testdata/externalbin.yaml",
 		},
+		kubeconfig: tc.Kube.KubeConfig,
 	}
 	return nil
 }
@@ -151,9 +152,10 @@ func runRetriableTest(t *testing.T, testName string, retries int, f func() error
 
 // deployableConfig is a collection of configs that are applied/deleted as a single unit.
 type deployableConfig struct {
-	Namespace string
-	YamlFiles []string
-	applied   []string
+	Namespace  string
+	YamlFiles  []string
+	applied    []string
+	kubeconfig string
 }
 
 // Setup pushes the config and waits for it to propagate to all nodes in the cluster.
@@ -162,7 +164,7 @@ func (c *deployableConfig) Setup() error {
 
 	// Apply the configs.
 	for _, yamlFile := range c.YamlFiles {
-		if err := util.KubeApply(c.Namespace, yamlFile); err != nil {
+		if err := util.KubeApply(c.Namespace, yamlFile, c.kubeconfig); err != nil {
 			// Run the teardown function now and return
 			_ = c.Teardown()
 			return err
@@ -188,7 +190,7 @@ func (c *deployableConfig) Teardown() error {
 func (c *deployableConfig) TeardownNoDelay() error {
 	var err error
 	for _, yamlFile := range c.applied {
-		err = multierr.Append(err, util.KubeDelete(c.Namespace, yamlFile))
+		err = multierr.Append(err, util.KubeDelete(c.Namespace, yamlFile, c.kubeconfig))
 	}
 	c.applied = []string{}
 	return err
@@ -214,7 +216,7 @@ func (t *testConfig) Setup() error {
 	err := t.extraConfig.Setup()
 
 	// Wait for all the pods to be in the running state before starting tests.
-	if err == nil && !util.CheckPodsRunning(t.Kube.Namespace) {
+	if err == nil && !util.CheckPodsRunning(t.Kube.Namespace, t.Kube.KubeConfig) {
 		err = fmt.Errorf("can't get all pods running")
 	}
 
@@ -296,7 +298,7 @@ func ClientRequest(app, url string, count int, extra string) ClientResponse {
 
 	pod := pods[0]
 	cmd := fmt.Sprintf("client -url %s -count %d %s", url, count, extra)
-	request, err := util.PodExec(tc.Kube.Namespace, pod, "app", cmd, true)
+	request, err := util.PodExec(tc.Kube.Namespace, pod, "app", cmd, true, tc.Kube.KubeConfig)
 	if err != nil {
 		log.Errorf("client request error %v for %s in %s", err, url, app)
 		return out
@@ -398,7 +400,7 @@ func (a *accessLogs) checkLogs(t *testing.T) {
 func (a *accessLogs) getAppPods(t *testing.T, app string) []string {
 	if app == ingressAppName {
 		// Ingress is uses the "istio" label, not an "app" label.
-		pods, err := util.GetIngressPodNames(tc.Kube.Namespace)
+		pods, err := util.GetIngressPodNames(tc.Kube.Namespace, tc.Kube.KubeConfig)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -437,7 +439,7 @@ func (a *accessLogs) checkLog(t *testing.T, app string, pods []string) {
 		var logs string
 		for _, pod := range pods {
 			// Retrieve the logs from the service container
-			logs += util.GetPodLogs(tc.Kube.Namespace, pod, container, false, false)
+			logs += util.GetPodLogs(tc.Kube.Namespace, pod, container, false, false, tc.Kube.KubeConfig)
 		}
 
 		for id, want := range counts {
