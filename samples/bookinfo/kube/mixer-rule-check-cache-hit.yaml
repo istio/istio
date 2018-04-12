@@ -1,0 +1,47 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: attributemanifest
+metadata:
+  name: istioproxycheckcache
+  namespace: istio-system
+spec:
+  attributes:
+    check.cache_hit:
+      valueType: BOOL
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: prometheus
+metadata:
+  name: checkcachehandler
+  namespace: istio-system
+spec:
+  metrics:
+  - name: check_cache_hit
+    instance_name: checkcachehit.metric.istio-system
+    kind: COUNTER
+    label_names:
+    - destination_service
+    - check_cache_hit
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: metric
+metadata:
+  name: checkcachehit
+  namespace: istio-system
+spec:
+  value: "1"
+  dimensions:
+    destination_service: destination.service | "unknown"
+    check_cache_hit: check.cache_hit | false
+  monitored_resource_type: '"UNSPECIFIED"'
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: promcheckcache
+  namespace: istio-system
+spec:
+  match: check.cache_hit | false
+  actions:
+  - handler: checkcachehandler.prometheus
+    instances:
+    - checkcachehit.metric
