@@ -245,9 +245,13 @@ func configVersions() []string {
 }
 
 func getApps(tc *testConfig) []framework.App {
+	// this is just a way to uniquely identify the destination pod
 	for _, id := range []string{"t", "a", "b", "c-v1", "c-v2", "d", "e"} {
 		tc.serverIDMap[id] = id + "-" + strconv.Itoa(rand.Int())
 	}
+	tc.serverIDMap["headless"] = tc.serverIDMap["b"]
+	// What do we do for service C?
+
 	return []framework.App{
 		// deploy a healthy mix of apps, with and without proxy
 		getApp("t", "t", 8080, 80, 9090, 90, 7070, 70, "unversioned", tc.serverIDMap["t"], false, false),

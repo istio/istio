@@ -408,7 +408,7 @@ func GetConfigs(kubeconfig string, names ...string) (string, error) {
 // PodExec runs the specified command on the container for the specified namespace and pod
 func PodExec(n, pod, container, command string, muteOutput bool, kubeconfig string) (string, error) {
 	if muteOutput {
-		return ShellMuteOutput("kubectl exec --kubeconfig=%s %s -n %s -c %s -- %s", kubeconfig, pod, n, container, command)
+		return ShellSilent("kubectl exec --kubeconfig=%s %s -n %s -c %s -- %s", kubeconfig, pod, n, container, command)
 	}
 	return Shell("kubectl exec --kubeconfig=%s %s -n %s -c %s -- %s ", kubeconfig, pod, n, container, command)
 }
