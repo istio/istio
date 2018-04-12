@@ -26,7 +26,7 @@ import (
 )
 
 // DeleteAll deletes all resources in the specified custom resource set for given namespaces.
-func DeleteAll(config *rest.Config, name string, kind string, gv schema.GroupVersion, namespaces []string) (error) {
+func DeleteAll(config *rest.Config, name string, kind string, gv schema.GroupVersion, namespaces []string) error {
 	cfg := *config
 	cfg.GroupVersion = &gv
 	cfg.APIPath = "/apis"

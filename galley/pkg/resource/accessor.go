@@ -179,7 +179,7 @@ func (s *accessor) stop() {
 }
 
 func (s *accessor) handleEvent(t change.Type, obj interface{}) {
-	object, ok := obj.(metav1.Object);
+	object, ok := obj.(metav1.Object)
 	if !ok {
 		var tombstone cache.DeletedFinalStateUnknown
 		if tombstone, ok = obj.(cache.DeletedFinalStateUnknown); !ok {

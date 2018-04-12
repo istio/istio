@@ -21,18 +21,18 @@ import (
 	"testing"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/rest"
+	dtesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/galley/pkg/change"
 	"istio.io/istio/galley/pkg/testing/common"
 	"istio.io/istio/galley/pkg/testing/mock"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/dynamic/fake"
-	dtesting "k8s.io/client-go/testing"
 )
 
 func TestAccessor_NewClientError(t *testing.T) {
