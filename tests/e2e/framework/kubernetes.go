@@ -31,7 +31,6 @@ import (
 	"github.com/pkg/errors"
 	"k8s.io/client-go/kubernetes"
 
-	"istio.io/istio/pilot/pkg/config/clusterregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/util"
@@ -161,32 +160,17 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 	if *multiClusterDir != "" {
 		// ClusterRegistiresDir indicates the Kubernetes cluster config should come from files versus KUBECONFIG
 		// environmental variable.  The test config can be defined to use either a single cluster or 2 clusters
-		var clusterStore *clusterregistry.ClusterStore
-		clusterStore, err = clusterregistry.ReadClusters(*multiClusterDir)
-		if clusterStore == nil {
-			log.Errorf("Failed to clusters in the ClusterRegistriesDir %s\n", *multiClusterDir)
+		kubeConfig, remoteKubeConfig, err = util.GetKubeConfigFromFile(*multiClusterDir)
+		if err != nil {
 			return nil, err
 		}
-		if clusterStore != nil {
-			kubeConfig = clusterStore.GetPilotAccessConfig()
-			kubeConfig = path.Join(*multiClusterDir, kubeConfig)
-			//				kubeConfig = kubeCfgFile
-			if _, kubeClient, err = kube.CreateInterface(kubeConfig); err != nil {
-				return nil, err
-			}
-			// Note only a single remote cluster is currently supported.
-			clusters := clusterStore.GetPilotClusters()
-			for _, cluster := range clusters {
-				kubeconfig := clusterregistry.GetClusterAccessConfig(cluster)
-				remoteKubeConfig = path.Join(*multiClusterDir, kubeconfig)
-				log.Infof("Cluster name: %s, AccessConfigFile: %s", clusterregistry.GetClusterName(cluster), remoteKubeConfig)
-				// Expecting only a single remote cluster so hard code this.  The code won't throw an error
-				// if more than 2 clusters are defined in the config files, but will only use the last cluster parsed.
-				if _, remoteKubeClient, err = kube.CreateInterface(remoteKubeConfig); err != nil {
-					return nil, err
-				}
-			}
+		if _, kubeClient, err = kube.CreateInterface(kubeConfig); err != nil {
+			return nil, err
 		}
+		if _, remoteKubeClient, err = kube.CreateInterface(remoteKubeConfig); err != nil {
+			return nil, err
+		}
+
 		aRemote = NewAppManager(tmpDir, *namespace, i, remoteKubeConfig)
 	} else {
 		tmpfile := *namespace + "_kubeconfig"
