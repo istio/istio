@@ -148,28 +148,31 @@ loop:
 			time.Sleep(s.retryInterval)
 		}
 		retryCount++
-		resources, err := d.ServerResourcesForGroupVersion(apiGroupVersion)
-		if err != nil {
-			log.Debugf("Failed to obtain resources for CRD: %v", err)
-			continue
-		}
-		s.cacheMutex.Lock()
-		for _, res := range resources.APIResources {
-			if _, ok := s.caches[res.Kind]; ok {
+		kindMap := map[string]string{"legacyConfig": apiGroupVersion}
+		for _, apis := range kindMap {
+			resources, err := d.ServerResourcesForGroupVersion(apis)
+			if err != nil {
+				log.Debugf("Failed to obtain resources for CRD: %v", err)
 				continue
 			}
-			if _, ok := kindsSet[res.Kind]; ok {
-				cl := lwBuilder.build(res)
-				informer := cache.NewSharedInformer(cl, &unstructured.Unstructured{}, 0)
-				s.caches[res.Kind] = informer.GetStore()
-				informers[res.Kind] = informer
-				delete(kindsSet, res.Kind)
-				informer.AddEventHandler(s)
-				go informer.Run(s.donec)
-				added++
+			s.cacheMutex.Lock()
+			for _, res := range resources.APIResources {
+				if _, ok := s.caches[res.Kind]; ok {
+					continue
+				}
+				if _, ok := kindsSet[res.Kind]; ok {
+					cl := lwBuilder.build(res)
+					informer := cache.NewSharedInformer(cl, &unstructured.Unstructured{}, 0)
+					s.caches[res.Kind] = informer.GetStore()
+					informers[res.Kind] = informer
+					delete(kindsSet, res.Kind)
+					informer.AddEventHandler(s)
+					go informer.Run(s.donec)
+					added++
+				}
 			}
+			s.cacheMutex.Unlock()
 		}
-		s.cacheMutex.Unlock()
 	}
 	<-waitForSynced(retryDone, informers)
 	remaining := make([]string, 0, len(kindsSet))
