@@ -272,7 +272,7 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 								CacheDuration: &types.Duration{Seconds: 300},
 							},
 						},
-						Forward: false,
+						Forward: true,
 						FromHeaders: []*jwtfilter.JwtHeader{
 							{
 								Name: "x-jwt-foo",
@@ -331,7 +331,7 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 								CacheDuration: &types.Duration{Seconds: 300},
 							},
 						},
-						Forward: false,
+						Forward: true,
 						FromHeaders: []*jwtfilter.JwtHeader{
 							{
 								Name: "x-jwt-foo",
@@ -355,7 +355,7 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 								CacheDuration: &types.Duration{Seconds: 300},
 							},
 						},
-						Forward:              false,
+						Forward:              true,
 						FromParams:           []string{"x-jwt-bar"},
 						ForwardPayloadHeader: "istio-sec-62cdb7020ff920e5aa642c3d4066950dd1f01f4d",
 					},
@@ -404,7 +404,7 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 								CacheDuration: &types.Duration{Seconds: 300},
 							},
 						},
-						Forward:              false,
+						Forward:              true,
 						ForwardPayloadHeader: "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709",
 					},
 					{
@@ -419,7 +419,7 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 								CacheDuration: &types.Duration{Seconds: 300},
 							},
 						},
-						Forward:              false,
+						Forward:              true,
 						ForwardPayloadHeader: "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709",
 					},
 					{
@@ -434,7 +434,7 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 								CacheDuration: &types.Duration{Seconds: 300},
 							},
 						},
-						Forward:              false,
+						Forward:              true,
 						ForwardPayloadHeader: "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709",
 					},
 				},
@@ -487,6 +487,7 @@ func TestBuildJwtFilter(t *testing.T) {
 											Kind: &types.Value_StructValue{
 												StructValue: &types.Struct{
 													Fields: map[string]*types.Value{
+														"forward": &types.Value{Kind: &types.Value_BoolValue{BoolValue: true}},
 														"forward_payload_header": {
 															Kind: &types.Value_StringValue{
 																StringValue: "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709",
