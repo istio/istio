@@ -127,14 +127,14 @@ function startLocalApiserver() {
         --tls-cert-file ${CERTDIR}/apiserver.crt \
         --tls-private-key-file ${CERTDIR}/apiserver.key \
         --service-cluster-ip-range 10.99.0.0/16 \
-        --port 8080 -v 2 --insecure-bind-address 0.0.0.0 \
+        --port 8090 -v 2 --insecure-bind-address 0.0.0.0 \
         > ${LOG_DIR}/apiserver.log 2>&1 &
     echo $! > $LOG_DIR/apiserver.pid
     # make sure apiserver is actually alive
     kill -0 $(cat $LOG_DIR/apiserver.pid)
 
     # Really need to make sure that API Server is up before proceed further
-    waitForApiServer
+    waitForApiServer "http://127.0.0.1:8090"
     printf "Started local etcd and apiserver!\n"
 }
 
@@ -215,6 +215,59 @@ function stopLocalApiserver() {
   fi
 }
 
+function stopMultiCluster() {
+  for (( i=0; i<3; i++))
+	  do
+  if [[ -f $LOG_DIR/etcd$i.pid ]]; then
+    kill -9 $(cat $LOG_DIR/etcd$i.pid)
+    kill -9 $(cat $LOG_DIR/apiserver$i.pid)
+    rm $LOG_DIR/{etcd$i,apiserver$i}.pid
+  fi
+  if [[ -d "${ETCD_DATADIR}$i" ]]; then
+    rm -rf ${ETCD_DATADIR}$i
+  fi
+  done
+}
+
+# No root required, run local etcd and kube apiserver for tests.
+function startMultiCluster() {
+    ensureK8SCerts
+    getDeps
+
+    mkdir -p ${LOG_DIR}
+
+    for (( i=0; i<3; i++))
+	  do
+      set -x
+		  mkdir -p ${ETCD_DATADIR}$i
+      ${TOP}/bin/etcd --listen-client-urls "http://localhost:237$i" \
+                      --advertise-client-urls "http://localhost:237$i" \
+                      --listen-peer-urls "http://localhost:238$i" \
+                      --data-dir ${ETCD_DATADIR}$i > ${LOG_DIR}/etcd$i.log 2>&1 &
+      echo $! > $LOG_DIR/etcd$i.pid
+      # make sure etcd is actually alive
+      kill -0 $(cat $LOG_DIR/etcd$i.pid)
+    
+      ${TOP}/bin/kube-apiserver --etcd-servers http://127.0.0.1:237$i \
+          --client-ca-file ${CERTDIR}/k8sca.crt \
+          --requestheader-client-ca-file ${CERTDIR}/k8sca.crt \
+          --tls-cert-file ${CERTDIR}/apiserver.crt \
+          --tls-private-key-file ${CERTDIR}/apiserver.key \
+          --service-cluster-ip-range 10.97.0.0/16 \
+          --secure-port 644$i \
+          --port 809$i -v 2 --insecure-bind-address 0.0.0.0 \
+          > ${LOG_DIR}/apiserver$i.log 2>&1 &
+      echo $! > $LOG_DIR/apiserver$i.pid
+      # make sure apiserver is actually alive
+      kill -0 $(cat $LOG_DIR/apiserver$i.pid)
+
+      # Really need to make sure that API Server is up before proceed further
+      waitForApiServer "http://127.0.0.1:809$i"
+   done
+
+    printf "Started local etcds and apiservers!\n"
+}
+
 function startLocalServers() {
     startLocalApiserver
     startPilot
@@ -226,7 +279,7 @@ count=0
 set +xe
 
   while true; do
-    status=$(kubectl get pod 2>&1 | grep resources | wc -l)
+    status=$(kubectl get pod --server=$1 2>&1 | grep resources | wc -l)
     if [ $status -ne 1 ]; then
       if [ $count -gt 30 ]; then
         printf "API Server failed to come up\n"
@@ -247,6 +300,8 @@ case "$1" in
     stop) stopLocalApiserver ;;
     startIstio) startIstio ;;
     stopIstio) stopIstio ;;
+    startMultiCluster) startMultiCluster ;;
+    stopMultiCluster) stopMultiCluster ;;
     ensure) ensureLocalApiServer ;;
     *) printf "start stop ensure\n"
 esac
