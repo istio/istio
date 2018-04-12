@@ -35,7 +35,7 @@ func TestHttp(t *testing.T) {
 		dstPods = append(dstPods, "d")
 	}
 
-	//	logs := newAccessLogs()
+	logs := newAccessLogs()
 
 	// Run all request tests.
 	t.Run("request", func(t *testing.T) {
@@ -56,7 +56,7 @@ func TestHttp(t *testing.T) {
 							if src == "t" &&
 								((tc.Kube.AuthEnabled && !(dst == "d" && port == "8080")) ||
 									dst == "d" && (port == "80" || port == "")) {
-								if len(resp.ServerID) == 0 {
+								if len(resp.ID) == 0 {
 									// Expected no match for:
 									//   t->a (or b) when auth is on
 									//   t->d:80 (all the time)
@@ -65,31 +65,24 @@ func TestHttp(t *testing.T) {
 								}
 								return errAgain
 							}
-							if len(resp.ServerID) > 0 && resp.IsHTTPOk() {
-								id := resp.ServerID[0]
-								if tc.serverIDMap[dst] != id {
-									return errAgain
+							logEntry := fmt.Sprintf("HTTP request from %s to %s%s:%s", src, dst, domain, port)
+							if len(resp.ID) > 0 {
+								id := resp.ID[0]
+								if src != "t" {
+									logs.add(src, id, logEntry)
+								}
+								if dst != "t" {
+									if dst == "headless" { // headless points to b
+										if src != "b" {
+											logs.add("b", id, logEntry)
+										}
+									} else {
+										logs.add(dst, id, logEntry)
+									}
 								}
 								return nil
 							}
-							//logEntry := fmt.Sprintf("HTTP request from %s to %s%s:%s", src, dst, domain, port)
-							//if len(resp.XRequestID) > 0 {
-							//	id := resp.XRequestID[0]
-							//	if src != "t" {
-							//		logs.add(src, id, logEntry)
-							//	}
-							//	if dst != "t" {
-							//		if dst == "headless" { // headless points to b
-							//			if src != "b" {
-							//				logs.add("b", id, logEntry)
-							//			}
-							//		} else {
-							//			logs.add(dst, id, logEntry)
-							//		}
-							//	}
-							//	return nil
-							//}
-							if src == "t" && dst == "t" && resp.IsHTTPOk() {
+							if src == "t" && dst == "t" {
 								// Expected no match for t->t
 								return nil
 							}
@@ -102,9 +95,9 @@ func TestHttp(t *testing.T) {
 	})
 
 	// After all requests complete, run the check logs tests.
-	//if len(logs.logs) > 0 {
-	//	t.Run("check-logs", func(t *testing.T) {
-	//		logs.checkLogs(t)
-	//	})
-	//}
+	if len(logs.logs) > 0 {
+		t.Run("check", func(t *testing.T) {
+			logs.checkLogs(t)
+		})
+	}
 }

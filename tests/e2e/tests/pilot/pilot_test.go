@@ -19,7 +19,6 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"regexp"
 	"strconv"
@@ -47,20 +46,18 @@ const (
 
 var (
 	tc = &testConfig{
-		V1alpha1:    false, //implies envoyv1
-		V1alpha3:    true,  //implies envoyv2
-		Ingress:     true,
-		Egress:      false,
-		serverIDMap: make(map[string]string),
+		V1alpha1: true, //implies envoyv1
+		V1alpha3: true, //implies envoyv2
+		Ingress:  true,
+		Egress:   true,
 	}
 
-	errAgain      = errors.New("try again")
-	idRegex       = regexp.MustCompile("(?i)X-Request-Id=(.*)")
-	serverIDRegex = regexp.MustCompile("ServerID=(.*)")
-	versionRegex  = regexp.MustCompile("ServiceVersion=(.*)")
-	portRegex     = regexp.MustCompile("ServicePort=(.*)")
-	codeRegex     = regexp.MustCompile("StatusCode=(.*)")
-	hostRegex     = regexp.MustCompile("Host=(.*)")
+	errAgain     = errors.New("try again")
+	idRegex      = regexp.MustCompile("(?i)X-Request-Id=(.*)")
+	versionRegex = regexp.MustCompile("ServiceVersion=(.*)")
+	portRegex    = regexp.MustCompile("ServicePort=(.*)")
+	codeRegex    = regexp.MustCompile("StatusCode=(.*)")
+	hostRegex    = regexp.MustCompile("Host=(.*)")
 )
 
 func init() {
@@ -211,7 +208,6 @@ type testConfig struct {
 	Ingress     bool
 	Egress      bool
 	extraConfig *deployableConfig
-	serverIDMap map[string]string // Unique ID assigned to each pod - to check in logs
 }
 
 // Setup initializes the test environment and waits for all pods to be in the running state.
@@ -245,30 +241,23 @@ func configVersions() []string {
 }
 
 func getApps(tc *testConfig) []framework.App {
-	// this is just a way to uniquely identify the destination pod
-	for _, id := range []string{"t", "a", "b", "c-v1", "c-v2", "d", "e"} {
-		tc.serverIDMap[id] = id + "-" + strconv.Itoa(rand.Int())
-	}
-	tc.serverIDMap["headless"] = tc.serverIDMap["b"]
-	// What do we do for service C?
-
 	return []framework.App{
 		// deploy a healthy mix of apps, with and without proxy
-		getApp("t", "t", 8080, 80, 9090, 90, 7070, 70, "unversioned", tc.serverIDMap["t"], false, false),
-		getApp("a", "a", 8080, 80, 9090, 90, 7070, 70, "v1", tc.serverIDMap["a"], true, false),
-		getApp("b", "b", 80, 8080, 90, 9090, 70, 7070, "unversioned", tc.serverIDMap["b"], true, false),
-		getApp("c-v1", "c", 80, 8080, 90, 9090, 70, 7070, "v1", tc.serverIDMap["c-v1"], true, false),
-		getApp("c-v2", "c", 80, 8080, 90, 9090, 70, 7070, "v2", tc.serverIDMap["c-v2"], true, false),
-		getApp("d", "d", 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", tc.serverIDMap["d"], true, tc.Kube.AuthEnabled),
+		getApp("t", "t", 8080, 80, 9090, 90, 7070, 70, "unversioned", false, false),
+		getApp("a", "a", 8080, 80, 9090, 90, 7070, 70, "v1", true, false),
+		getApp("b", "b", 80, 8080, 90, 9090, 70, 7070, "unversioned", true, false),
+		getApp("c-v1", "c", 80, 8080, 90, 9090, 70, 7070, "v1", true, false),
+		getApp("c-v2", "c", 80, 8080, 90, 9090, 70, 7070, "v2", true, false),
+		getApp("d", "d", 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true, tc.Kube.AuthEnabled),
 		// Add another service without sidecar to test mTLS blacklisting (as in the e2e test
 		// environment, pilot can see only services in the test namespaces). This service
 		// will be listed in mtlsExcludedServices in the mesh config.
-		getApp("e", "fake-control", 80, 8080, 90, 9090, 70, 7070, "fake-control", tc.serverIDMap["e"], false, false),
+		getApp("e", "fake-control", 80, 8080, 90, 9090, 70, 7070, "fake-control", false, false),
 	}
 }
 
 func getApp(deploymentName, serviceName string, port1, port2, port3, port4, port5, port6 int,
-	version string, serverID string, injectProxy, perServiceAuth bool) framework.App {
+	version string, injectProxy, perServiceAuth bool) framework.App {
 	// TODO(nmittler): Eureka does not support management ports ... should we support other registries?
 	healthPort := "true"
 
@@ -288,7 +277,6 @@ func getApp(deploymentName, serviceName string, port1, port2, port3, port4, port
 			"port5":           strconv.Itoa(port5),
 			"port6":           strconv.Itoa(port6),
 			"version":         version,
-			"serverID":        serverID,
 			"istioNamespace":  tc.Kube.Namespace,
 			"injectProxy":     strconv.FormatBool(injectProxy),
 			"healthPort":      healthPort,
@@ -299,8 +287,8 @@ func getApp(deploymentName, serviceName string, port1, port2, port3, port4, port
 }
 
 // ClientRequest makes a request from inside the specified k8s container.
-func ClientRequest(app, url string, count int, extra string) ServerResponse {
-	out := ServerResponse{}
+func ClientRequest(app, url string, count int, extra string) ClientResponse {
+	out := ClientResponse{}
 
 	pods := tc.Kube.GetAppPods()[app]
 	if len(pods) == 0 {
@@ -310,40 +298,35 @@ func ClientRequest(app, url string, count int, extra string) ServerResponse {
 
 	pod := pods[0]
 	cmd := fmt.Sprintf("client -url %s -count %d %s", url, count, extra)
-	response, err := util.PodExec(tc.Kube.Namespace, pod, "app", cmd, true, tc.Kube.KubeConfig)
+	request, err := util.PodExec(tc.Kube.Namespace, pod, "app", cmd, true, tc.Kube.KubeConfig)
 	if err != nil {
 		log.Errorf("client request error %v for %s in %s", err, url, app)
 		return out
 	}
 
-	out.Body = response
+	out.Body = request
 
-	xrequestIds := idRegex.FindAllStringSubmatch(response, -1)
-	for _, id := range xrequestIds {
-		out.XRequestID = append(out.XRequestID, id[1])
+	ids := idRegex.FindAllStringSubmatch(request, -1)
+	for _, id := range ids {
+		out.ID = append(out.ID, id[1])
 	}
 
-	serverIDs := serverIDRegex.FindAllStringSubmatch(response, -1)
-	for _, serverID := range serverIDs {
-		out.XRequestID = append(out.ServerID, serverID[1])
-	}
-
-	versions := versionRegex.FindAllStringSubmatch(response, -1)
+	versions := versionRegex.FindAllStringSubmatch(request, -1)
 	for _, version := range versions {
 		out.Version = append(out.Version, version[1])
 	}
 
-	ports := portRegex.FindAllStringSubmatch(response, -1)
+	ports := portRegex.FindAllStringSubmatch(request, -1)
 	for _, port := range ports {
 		out.Port = append(out.Port, port[1])
 	}
 
-	codes := codeRegex.FindAllStringSubmatch(response, -1)
+	codes := codeRegex.FindAllStringSubmatch(request, -1)
 	for _, code := range codes {
 		out.Code = append(out.Code, code[1])
 	}
 
-	hosts := hostRegex.FindAllStringSubmatch(response, -1)
+	hosts := hostRegex.FindAllStringSubmatch(request, -1)
 	for _, host := range hosts {
 		out.Host = append(out.Host, host[1])
 	}
@@ -351,16 +334,14 @@ func ClientRequest(app, url string, count int, extra string) ServerResponse {
 	return out
 }
 
-// ServerResponse represents a response to a client request.
-type ServerResponse struct {
+// ClientResponse represents a response to a client request.
+type ClientResponse struct {
 	// Body is the body of the response
 	Body string
-	// XRequestID is a unique identifier of the resource in the response
-	XRequestID []string
+	// ID is a unique identifier of the resource in the response
+	ID []string
 	// Version is the version of the resource in the response
 	Version []string
-	// ServerID is the identifier uniquely identifying the remote server
-	ServerID []string
 	// Port is the port of the resource in the response
 	Port []string
 	// Code is the response code
@@ -370,7 +351,7 @@ type ServerResponse struct {
 }
 
 // IsHTTPOk returns true if the response code was 200
-func (r *ServerResponse) IsHTTPOk() bool {
+func (r *ClientResponse) IsHTTPOk() bool {
 	return len(r.Code) > 0 && r.Code[0] == httpOK
 }
 
@@ -465,9 +446,7 @@ func (a *accessLogs) checkLog(t *testing.T, app string, pods []string) {
 			got := strings.Count(logs, id)
 			if got < want {
 				log.Errorf("Got %d for %s in logs of %s, want %d", got, id, app, want)
-				// Please do not dump logs on the console. It makes the entire test unusable
-				// Instead check the artifacts for per pod logs.
-				//log.Errorf("Log: %s", logs)
+				log.Errorf("Log: %s", logs)
 				return errAgain
 			}
 		}

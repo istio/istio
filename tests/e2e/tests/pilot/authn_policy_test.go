@@ -49,7 +49,7 @@ func TestAuthNPolicy(t *testing.T) {
 							reqURL := fmt.Sprintf("http://%s%s:%s/%s", dst, domain, port, src)
 							resp := ClientRequest(src, reqURL, 1, "")
 							if src == "t" && (dst == "b" || (dst == "d" && port == "8080")) {
-								if len(resp.XRequestID) == 0 {
+								if len(resp.ID) == 0 {
 									// t cannot talk to b nor d:80
 									return nil
 								}

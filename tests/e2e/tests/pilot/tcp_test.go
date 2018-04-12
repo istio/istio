@@ -52,12 +52,7 @@ func TestTcp(t *testing.T) {
 								if !resp.IsHTTPOk() {
 									return nil
 								}
-							}
-							if len(resp.ServerID) > 0 && resp.IsHTTPOk() {
-								id := resp.ServerID[0]
-								if tc.serverIDMap[dst] != id {
-									return errAgain
-								}
+							} else if resp.IsHTTPOk() {
 								return nil
 							}
 							return errAgain

@@ -41,11 +41,7 @@ func TestAuthExclusion(t *testing.T) {
 						reqURL := fmt.Sprintf("http://%s%s:%s/%s", dst, domain, port, src)
 						resp := ClientRequest(src, reqURL, 1, "")
 						// Request should return successfully (status 200)
-						if len(resp.ServerID) > 0 && resp.IsHTTPOk() {
-							id := resp.ServerID[0]
-							if tc.serverIDMap[dst] != id {
-								return errAgain
-							}
+						if resp.IsHTTPOk() {
 							return nil
 						}
 						return errAgain

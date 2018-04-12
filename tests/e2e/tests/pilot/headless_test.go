@@ -38,11 +38,7 @@ func TestHeadless(t *testing.T) {
 						runRetriableTest(t, testName, defaultRetryBudget, func() error {
 							reqURL := fmt.Sprintf("http://%s%s:%s/%s", dst, domain, port, src)
 							resp := ClientRequest(src, reqURL, 1, "")
-							if len(resp.ServerID) > 0 && resp.IsHTTPOk() {
-								id := resp.ServerID[0]
-								if tc.serverIDMap[dst] != id {
-									return errAgain
-								}
+							if resp.IsHTTPOk() {
 								return nil
 							}
 							return errAgain

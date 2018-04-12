@@ -51,8 +51,8 @@ var (
 	ports     []int
 	grpcPorts []int
 	version   string
-	serverID  string // a uuid that uniquely identifies this server instance
-	crt, key  string
+
+	crt, key string
 )
 
 var upgrader = websocket.Upgrader{
@@ -68,7 +68,6 @@ func init() {
 	flag.StringVar(&version, "version", "", "Version string")
 	flag.StringVar(&crt, "crt", "", "gRPC TLS server-side certificate")
 	flag.StringVar(&key, "key", "", "gRPC TLS server-side key")
-	flag.StringVar(&serverID, "serverID", "", "unique server Id")
 }
 
 type handler struct {
@@ -92,7 +91,6 @@ func (h handler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 	body.WriteString("Proto=" + r.Proto + "\n")
 	body.WriteString("RemoteAddr=" + r.RemoteAddr + "\n")
 	body.WriteString("Host=" + r.Host + "\n")
-	body.WriteString("ServerID=" + serverID + "\n")
 	for name, headers := range r.Header {
 		for _, h := range headers {
 			body.WriteString(fmt.Sprintf("%v=%v\n", name, h))
@@ -141,7 +139,6 @@ func (h handler) Echo(ctx context.Context, req *pb.EchoRequest) (*pb.EchoRespons
 	}
 	body.WriteString("ServiceVersion=" + version + "\n")
 	body.WriteString("ServicePort=" + strconv.Itoa(h.port) + "\n")
-	body.WriteString("ServerID=" + serverID + "\n")
 	body.WriteString("Echo=" + req.GetMessage())
 	return &pb.EchoResponse{Message: body.String()}, nil
 }
