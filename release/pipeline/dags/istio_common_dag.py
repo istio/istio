@@ -92,7 +92,7 @@ def MakeCommonDag(name='istio_daily_flow_test',
         however we dont backfill and only need to run one build therefore use
         the current date instead of the date that is passed in """
 #    date = kwargs['execution_date']
-date = datetime.datetime.now()
+    date = datetime.datetime.now()
 
     timestamp = time.mktime(date.timetuple())
 
