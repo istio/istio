@@ -43,11 +43,22 @@ install/kubernetes/istio-citadel-plugin-certs.yaml
 install/kubernetes/istio-citadel-with-health-check.yaml
 install/kubernetes/istio-one-namespace-auth.yaml
 install/kubernetes/istio-one-namespace.yaml
-install/kubernetes/istio-sidecar-injector-configmap-debug.yaml
-install/kubernetes/istio-sidecar-injector-configmap-release.yaml
 install/kubernetes/istio-sidecar-injector.yaml
+install/kubernetes/istio-auth-sidecar-injector.yaml
 install/kubernetes/istio.yaml
 install/kubernetes/istio-all.yaml
+install/kubernetes/istio-auth-multicluster.yaml
+install/kubernetes/istio-multicluster.yaml
+install/kubernetes/istio-remote.yaml
+install/kubernetes/orig_istio-auth-multicluster.yaml
+install/kubernetes/orig_istio-auth-sidecar-injector.yaml
+install/kubernetes/orig_istio-auth.yaml
+install/kubernetes/orig_istio-multicluster.yaml
+install/kubernetes/orig_istio-one-namespace-auth.yaml
+install/kubernetes/orig_istio-one-namespace.yaml
+install/kubernetes/orig_istio-remote.yaml
+install/kubernetes/orig_istio-sidecar-injector.yaml
+install/kubernetes/orig_istio.yaml
 samples/bookinfo/consul/bookinfo.sidecars.yaml
 samples/bookinfo/eureka/bookinfo.sidecars.yaml
 # Avoid accidental vendor changes

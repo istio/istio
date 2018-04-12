@@ -439,10 +439,6 @@ func CheckPodsRunning(n string, kubeconfig string) (ready bool) {
 
 // CheckDeployment gets status of a deployment from a namespace
 func CheckDeployment(ctx context.Context, namespace, deployment string, kubeconfig string) error {
-	if deployment == "deployments/istio-sidecar-injector" {
-		// This can be deployed by previous tests, but doesn't complete currently, blocking the test.
-		return nil
-	}
 	errc := make(chan error)
 	go func() {
 		if _, err := ShellMuteOutput("kubectl -n %s rollout status %s --kubeconfig=%s", namespace, deployment, kubeconfig); err != nil {

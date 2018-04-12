@@ -40,8 +40,6 @@ const (
 	yamlSuffix                       = ".yaml"
 	istioInstallDir                  = "install/kubernetes"
 	istioAddonsDir                   = "install/kubernetes/addons"
-	nonAuthInstallFile               = "istio.yaml"
-	authInstallFile                  = "istio-auth.yaml"
 	nonAuthInstallFileNamespace      = "istio-one-namespace.yaml"
 	authInstallFileNamespace         = "istio-one-namespace-auth.yaml"
 	mcNonAuthInstallFileNamespace    = "istio-multicluster.yaml"
@@ -50,7 +48,6 @@ const (
 	istioIngressServiceName          = "istio-ingress"
 	istioIngressGatewayServiceName   = "istio-ingressgateway"
 	istioEgressGatewayServiceName    = "istio-egressgateway"
-	defaultSidecarInjectorFile       = "istio-sidecar-injector.yaml"
 	ingressCertsName                 = "istio-ingress-certs"
 	defaultGalleyConfigValidatorFile = "istio-galley-config-validator.yaml"
 	maxDeploymentRolloutTime         = 240 * time.Second
@@ -74,7 +71,6 @@ var (
 	localCluster = flag.Bool("use_local_cluster", false,
 		"Whether the cluster is local or not (i.e. the test is running within the cluster). If running on minikube, this should be set to true.")
 	skipSetup                 = flag.Bool("skip_setup", false, "Skip namespace creation and istio cluster setup")
-	sidecarInjectorFile       = flag.String("sidecar_injector_file", defaultSidecarInjectorFile, "Sidecar injector yaml file")
 	clusterWide               = flag.Bool("cluster_wide", false, "Run cluster wide tests")
 	imagePullPolicy           = flag.String("image_pull_policy", "", "Specifies an override for the Docker image pull policy to be used")
 	multiClusterDir           = flag.String("cluster_registry_dir", "", "Directory name for the cluster registry config")
@@ -124,6 +120,31 @@ type KubeInfo struct {
 	RemoteKubeConfig string
 	RemoteKubeClient kubernetes.Interface
 	RemoteAppManager *AppManager
+}
+
+func getClusterWideInstallFile() string {
+	const (
+		nonAuthInstallFile                    = "istio.yaml"
+		authInstallFile                       = "istio-auth.yaml"
+		nonAuthWithSidecarInjectorInstallFile = "istio-sidecar-injector.yaml"
+		authWithSidecarInjectorInstallFile    = "istio-auth-sidecar-injector.yaml"
+	)
+	var istioYaml string
+	if *authEnable {
+		if *useAutomaticInjection {
+			istioYaml = authWithSidecarInjectorInstallFile
+		} else {
+			istioYaml = authInstallFile
+		}
+	} else {
+		if *useAutomaticInjection {
+			istioYaml = nonAuthWithSidecarInjectorInstallFile
+		} else {
+			istioYaml = nonAuthInstallFile
+		}
+
+	}
+	return istioYaml
 }
 
 // newKubeInfo create a new KubeInfo by given temp dir and runID
@@ -330,15 +351,6 @@ func (k *KubeInfo) Teardown() error {
 		return nil
 	}
 
-	if *useAutomaticInjection {
-		testSidecarInjectorYAML := filepath.Join(k.TmpDir, "yaml", *sidecarInjectorFile)
-
-		if err := util.KubeDelete(k.Namespace, testSidecarInjectorYAML, k.KubeConfig); err != nil {
-			log.Errorf("Istio sidecar injector %s deletion failed", testSidecarInjectorYAML)
-			return err
-		}
-	}
-
 	if *useGalleyConfigValidator {
 		testGalleyConfigValidatorYAML := filepath.Join(k.TmpDir, "yaml", *galleyConfigValidatorFile)
 
@@ -350,13 +362,8 @@ func (k *KubeInfo) Teardown() error {
 
 	if *clusterWide {
 		// for cluster-wide, we can verify the uninstall
-		istioYaml := nonAuthInstallFile
-		if *authEnable {
-			istioYaml = authInstallFile
-		}
-
+		istioYaml := getClusterWideInstallFile()
 		testIstioYaml := filepath.Join(k.TmpDir, "yaml", istioYaml)
-
 		if err := util.KubeDelete(k.Namespace, testIstioYaml, k.KubeConfig); err != nil {
 			log.Infof("Safe to ignore resource not found errors in kubectl delete -f %s", testIstioYaml)
 		}
@@ -505,17 +512,16 @@ func (k *KubeInfo) deployIstio() error {
 		istioYaml = mcNonAuthInstallFileNamespace
 	}
 	if *clusterWide {
-		if *authEnable {
-			istioYaml = authInstallFile
-		} else {
-			istioYaml = nonAuthInstallFile
-		}
+		istioYaml = getClusterWideInstallFile()
 	} else {
 		if *authEnable {
 			istioYaml = authInstallFileNamespace
 			if *multiClusterDir != "" {
 				istioYaml = mcAuthInstallFileNamespace
 			}
+		}
+		if *useAutomaticInjection {
+			return errors.New("cannot enable useAutomaticInjection in one namespace tests")
 		}
 	}
 
@@ -545,32 +551,21 @@ func (k *KubeInfo) deployIstio() error {
 		return err
 	}
 
+	if err := util.CheckDeployments(k.Namespace, maxDeploymentRolloutTime, k.KubeConfig); err != nil {
+		log.Errorf("Fail to check deployment in %s within %d seconds: %s",
+			k.Namespace, maxDeploymentRolloutTime/time.Second, err)
+		return err
+	}
+
 	if *useAutomaticInjection {
-		baseSidecarInjectorYAML := util.GetResourcePath(filepath.Join(istioInstallDir, *sidecarInjectorFile))
-		testSidecarInjectorYAML := filepath.Join(k.TmpDir, "yaml", *sidecarInjectorFile)
-		if err := k.generateSidecarInjector(baseSidecarInjectorYAML, testSidecarInjectorYAML); err != nil {
-			log.Errorf("Generating sidecar injector yaml failed")
-			return err
-		}
-		if err := util.KubeApply(k.Namespace, testSidecarInjectorYAML, k.KubeConfig); err != nil {
-			log.Errorf("Istio sidecar injector %s deployment failed", testSidecarInjectorYAML)
+		_, err := util.ShellMuteOutput("kubectl label namespace %s istio-injection=enabled", k.Namespace)
+		if err != nil {
+			log.Errorf("Error when applying the label to namespace %s: %s", k.Namespace, err)
 			return err
 		}
 	}
 
-	if *useGalleyConfigValidator {
-		baseConfigValidatorYAML := util.GetResourcePath(filepath.Join(istioInstallDir, *galleyConfigValidatorFile))
-		testConfigValidatorYAML := filepath.Join(k.TmpDir, "yaml", *galleyConfigValidatorFile)
-		if err := k.generateGalleyConfigValidator(baseConfigValidatorYAML, testConfigValidatorYAML); err != nil {
-			log.Errorf("Generating galley config validator yaml failed")
-			return err
-		}
-		if err := util.KubeApply(k.Namespace, testConfigValidatorYAML, k.KubeConfig); err != nil {
-			log.Errorf("Istio galley config validator %s deployment failed", testConfigValidatorYAML)
-			return err
-		}
-	}
-	return util.CheckDeployments(k.Namespace, maxDeploymentRolloutTime, k.KubeConfig)
+	return nil
 }
 
 func updateInjectImage(name, module, hub, tag string, content []byte) []byte {
