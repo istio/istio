@@ -41,7 +41,7 @@ import (
 	probecontroller "istio.io/istio/security/pkg/probe"
 	"istio.io/istio/security/pkg/registry"
 	"istio.io/istio/security/pkg/registry/kube"
-	"istio.io/istio/security/pkg/server/grpc"
+	caserver "istio.io/istio/security/pkg/server/ca"
 )
 
 // TODO(myidpt): move the following constants to pkg/cmd.
@@ -312,11 +312,11 @@ func runCA() {
 
 		// The CA API uses cert with the max workload cert TTL.
 		hostnames := strings.Split(opts.grpcHosts, ",")
-		grpcServer, startErr := grpc.New(ca, opts.maxWorkloadCertTTL, opts.signCACerts, hostnames, opts.grpcPort)
+		caServer, startErr := caserver.New(ca, opts.maxWorkloadCertTTL, opts.signCACerts, hostnames, opts.grpcPort)
 		if startErr != nil {
 			fatalf("failed to create istio ca server: %v", startErr)
 		}
-		if serverErr := grpcServer.Run(); serverErr != nil {
+		if serverErr := caServer.Run(); serverErr != nil {
 			// stop the registry-related controllers
 			ch <- struct{}{}
 
