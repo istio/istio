@@ -53,8 +53,8 @@ const (
 type Plugin struct{}
 
 // NewPlugin returns an instance of the authn plugin
-func NewPlugin() *Plugin {
-	return &Plugin{}
+func NewPlugin() plugin.Plugin {
+	return Plugin{}
 }
 
 // RequireTLS returns true and pointer to mTLS params if the policy use mTLS for (peer) authentication.
@@ -264,11 +264,7 @@ func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy) *auth.Do
 
 // OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service
 // Can be used to add additional filters on the outbound path
-func (*Plugin) OnOutboundListener(in *plugin.CallbackListenerInputParams, mutable *plugin.CallbackListenerMutableObjects) error {
-	if in.Node.Type != model.Router {
-		// Only care about Router nodes.
-		return nil
-	}
+func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 	// TODO: implementation
 	return nil
 }
@@ -276,7 +272,7 @@ func (*Plugin) OnOutboundListener(in *plugin.CallbackListenerInputParams, mutabl
 // OnInboundListener is called whenever a new listener is added to the LDS output for a given service
 // Can be used to add additional filters (e.g., mixer filter) or add more stuff to the HTTP connection manager
 // on the inbound path
-func (*Plugin) OnInboundListener(in *plugin.CallbackListenerInputParams, mutable *plugin.CallbackListenerMutableObjects) error {
+func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 	if in.Node.Type != model.Sidecar {
 		// Only care about sidecar.
 		return nil
@@ -291,35 +287,29 @@ func (*Plugin) OnInboundListener(in *plugin.CallbackListenerInputParams, mutable
 
 	// Adding Jwt filter and authn filter, if needed.
 	if filter := BuildJwtFilter(authnPolicy); filter != nil {
-		*mutable.HTTPFilters = append(*mutable.HTTPFilters, filter)
+		mutable.HTTPFilters = append(mutable.HTTPFilters, filter)
 	}
 	if filter := BuildAuthNFilter(authnPolicy); filter != nil {
-		*mutable.HTTPFilters = append(*mutable.HTTPFilters, filter)
+		mutable.HTTPFilters = append(mutable.HTTPFilters, filter)
 	}
 	return nil
 }
 
-// OnInboundCluster is called whenever a new cluster is added to the CDS output
-// Not used typically
-func (*Plugin) OnInboundCluster(env model.Environment, node model.Proxy, service *model.Service,
+// OnInboundCluster implements the Plugin interface method.
+func (Plugin) OnInboundCluster(env model.Environment, node model.Proxy, service *model.Service,
 	servicePort *model.Port, cluster *xdsapi.Cluster) {
 }
 
-// OnOutboundRoute is called whenever a new set of virtual hosts (a set of virtual hosts with routes) is added to
-// RDS in the outbound path. Can be used to add route specific metadata or additional headers to forward
-func (*Plugin) OnOutboundRoute(env model.Environment, node model.Proxy,
-	route *xdsapi.RouteConfiguration) {
+// OnOutboundRouteConfiguration implements the Plugin interface method.
+func (Plugin) OnOutboundRouteConfiguration(in *plugin.InputParams, route *xdsapi.RouteConfiguration) {
 }
 
-// OnInboundRoute is called whenever a new set of virtual hosts are added to the inbound path.
-// Can be used to enable route specific stuff like Lua filters or other metadata.
-func (*Plugin) OnInboundRoute(env model.Environment, node model.Proxy, service *model.Service,
-	servicePort *model.Port, route *xdsapi.RouteConfiguration) {
+// OnInboundRouteConfiguration implements the Plugin interface method.
+func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, route *xdsapi.RouteConfiguration) {
 }
 
-// OnOutboundCluster is called whenever a new cluster is added to the CDS output
-// Typically used by AuthN plugin to add mTLS settings
-func (*Plugin) OnOutboundCluster(env model.Environment, node model.Proxy, service *model.Service,
+// OnOutboundCluster implements the Plugin interface method.
+func (Plugin) OnOutboundCluster(env model.Environment, node model.Proxy, service *model.Service,
 	servicePort *model.Port, cluster *xdsapi.Cluster) {
 	mesh := env.Mesh
 	config := env.IstioConfigStore

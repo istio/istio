@@ -116,12 +116,16 @@ ingressgateway:
     - port: 443
       name: https
       nodePort: 31390
+    - port: 31400
+      name: tcp
+      nodePort: 31400
   deployment:
     labels:
       istio: ingressgateway #will be added to pods and service
     ports:
     - containerPort: 80
     - containerPort: 443
+    - containerPort: 31400
   # secretVolumes: TODO
   # - name: someName
   #   mountPath: somePath
@@ -187,7 +191,14 @@ sidecar-injector:
   # example: includeIPRanges: "172.30.0.0/16,172.20.0.0/16"
   # would only capture egress traffic on those two IP Ranges, all other outbound traffic would
   # be allowed by the sidecar
-  includeIPRanges: {}
+  includeIPRanges: "*"
+
+  # istio ingress capture whitelist
+  # examples:
+  #     Redirect no inbound traffic to Envoy:    --includeInboundPorts=""
+  #     Redirect all inbound traffic to Envoy:   --includeInboundPorts="*"
+  #     Redirect only selected ports:            --includeInboundPorts="80,8080"
+  includeInboundPorts: "*"
 
 #
 # mixer configuration

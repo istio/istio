@@ -122,7 +122,7 @@ func (t *testConfig) Setup() error {
 
 	}
 
-	if !util.CheckPodsRunning(tc.Kube.Namespace) {
+	if !util.CheckPodsRunning(tc.Kube.Namespace, tc.Kube.KubeConfig) {
 		return fmt.Errorf("can't get all pods running")
 	}
 
@@ -264,7 +264,7 @@ func deleteRules(ruleKeys []string) error {
 	var err error
 	for _, ruleKey := range ruleKeys {
 		rule := filepath.Join(tc.rulesDir, ruleKey+"."+yamlExtension)
-		if e := util.KubeDelete(tc.Kube.Namespace, rule); e != nil {
+		if e := util.KubeDelete(tc.Kube.Namespace, rule, tc.Kube.KubeConfig); e != nil {
 			err = multierror.Append(err, e)
 		}
 	}
@@ -276,7 +276,7 @@ func deleteRules(ruleKeys []string) error {
 func applyRules(ruleKeys []string) error {
 	for _, ruleKey := range ruleKeys {
 		rule := filepath.Join(tc.rulesDir, ruleKey+"."+yamlExtension)
-		if err := util.KubeApply(tc.Kube.Namespace, rule); err != nil {
+		if err := util.KubeApply(tc.Kube.Namespace, rule, tc.Kube.KubeConfig); err != nil {
 			//log.Errorf("Kubectl apply %s failed", rule)
 			return err
 		}
@@ -544,6 +544,7 @@ func TestDbRoutingMysql(t *testing.T) {
 }
 
 func TestVMExtendsIstio(t *testing.T) {
+	t.Skip("issue https://github.com/istio/istio/issues/4794")
 	if *framework.TestVM {
 		// TODO (chx) vm_provider flag to select venders
 		vm, err := framework.NewGCPRawVM(tc.CommonConfig.Kube.Namespace)

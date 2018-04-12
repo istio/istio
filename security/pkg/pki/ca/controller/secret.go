@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// TODO(myidpt): Move secret to security/pkg/k8s/.
+
 package controller
 
 import (
@@ -69,12 +71,15 @@ type DNSNameEntry struct {
 
 // SecretController manages the service accounts' secrets that contains Istio keys and certificates.
 type SecretController struct {
-	ca      ca.CertificateAuthority
-	certTTL time.Duration
-	core    corev1.CoreV1Interface
+	ca             ca.CertificateAuthority
+	certTTL        time.Duration
+	core           corev1.CoreV1Interface
+	minGracePeriod time.Duration
 	// Length of the grace period for the certificate rotation.
 	gracePeriodRatio float32
-	minGracePeriod   time.Duration
+
+	// Whether the certificates are for CAs.
+	forCA bool
 
 	// DNS-enabled service account/service pair
 	dnsNames map[string]DNSNameEntry
@@ -90,7 +95,7 @@ type SecretController struct {
 
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
 func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, gracePeriodRatio float32, minGracePeriod time.Duration,
-	core corev1.CoreV1Interface, namespace string, dnsNames map[string]DNSNameEntry) (*SecretController, error) {
+	core corev1.CoreV1Interface, forCA bool, namespace string, dnsNames map[string]DNSNameEntry) (*SecretController, error) {
 
 	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
 		return nil, fmt.Errorf("grace period ratio %f should be within [0, 1]", gracePeriodRatio)
@@ -106,6 +111,7 @@ func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, grac
 		gracePeriodRatio: gracePeriodRatio,
 		minGracePeriod:   minGracePeriod,
 		core:             core,
+		forCA:            forCA,
 		dnsNames:         dnsNames,
 	}
 
@@ -219,7 +225,7 @@ func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 
 		return
 	}
-	_, _, _, rootCert := sc.ca.GetCAKeyCertBundle().GetAll()
+	rootCert := sc.ca.GetCAKeyCertBundle().GetRootCertPem()
 	secret.Data = map[string][]byte{
 		CertChainID:  chain,
 		PrivateKeyID: key,
@@ -291,8 +297,8 @@ func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string
 		return nil, nil, err
 	}
 
-	_, _, certChainPEM, _ := sc.ca.GetCAKeyCertBundle().GetAll()
-	certPEM, err := sc.ca.Sign(csrPEM, sc.certTTL)
+	certChainPEM := sc.ca.GetCAKeyCertBundle().GetCertChainPem()
+	certPEM, err := sc.ca.Sign(csrPEM, sc.certTTL, sc.forCA)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -327,7 +333,7 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 			certLifeTime, sc.gracePeriodRatio, gracePeriod, sc.minGracePeriod)
 		gracePeriod = sc.minGracePeriod
 	}
-	_, _, _, rootCertificate := sc.ca.GetCAKeyCertBundle().GetAll()
+	rootCertificate := sc.ca.GetCAKeyCertBundle().GetRootCertPem()
 
 	// Refresh the secret if 1) the certificate contained in the secret is about
 	// to expire, or 2) the root certificate in the secret is different than the

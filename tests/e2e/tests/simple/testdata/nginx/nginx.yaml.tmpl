@@ -232,6 +232,11 @@ spec:
       annotations:
         prometheus.io/port: '10254'
         prometheus.io/scrape: 'true'
+        # Do not redirect inbound traffic to Envoy.
+        traffic.sidecar.istio.io/includeInboundPorts: ""
+        # Exclude outbound traffic to kubernetes master from redirection.
+        # This is required in order to support single-namespace Istio configurations.
+        traffic.sidecar.istio.io/excludeOutboundIPRanges: "{{.KubeMasterCIDR}}"
     spec:
       serviceAccountName: nginx-ingress-serviceaccount
       containers:

@@ -19,6 +19,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"golang.org/x/net/context"
@@ -28,6 +29,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/registry"
 	pb "istio.io/istio/security/proto"
@@ -35,22 +37,16 @@ import (
 
 const certExpirationBuffer = time.Minute
 
-// istioCA contains methods to be supported by a CA.
-type istioCA interface {
-	Sign(csrPEM []byte, ttl time.Duration) ([]byte, error)
-	SignCAServerCert(csrPEM []byte, ttl time.Duration) ([]byte, error)
-	GetCAKeyCertBundle() util.KeyCertBundle
-}
-
 // Server implements pb.IstioCAService and provides the service on the
 // specified port.
 type Server struct {
 	authenticators []authenticator
 	authorizer     authorizer
 	serverCertTTL  time.Duration
-	ca             istioCA
+	ca             ca.CertificateAuthority
 	certificate    *tls.Certificate
-	hostname       string
+	hostnames      []string
+	forCA          bool
 	port           int
 }
 
@@ -78,7 +74,7 @@ func (s *Server) HandleCSR(ctx context.Context, request *pb.CsrRequest) (*pb.Csr
 	}
 
 	_, _, certChainBytes, _ := s.ca.GetCAKeyCertBundle().GetAll()
-	cert, err := s.ca.Sign(request.CsrPem, time.Duration(request.RequestedTtlMinutes)*time.Minute)
+	cert, err := s.ca.Sign(request.CsrPem, time.Duration(request.RequestedTtlMinutes)*time.Minute, s.forCA)
 	if err != nil {
 		log.Errorf("CSR signing error (%v)", err)
 		return nil, status.Errorf(codes.Internal, "CSR signing error (%v)", err)
@@ -120,31 +116,36 @@ func (s *Server) Run() error {
 }
 
 // New creates a new instance of `IstioCAServiceServer`.
-func New(ca istioCA, ttl time.Duration, hostname string, port int) *Server {
+func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []string, port int) (*Server, error) {
+	if len(hostlist) == 0 {
+		return nil, fmt.Errorf("failed to create grpc server hostlist empty")
+	}
 	// Notice that the order of authenticators matters, since at runtime
-	// authenticators are actived sequentially and the first successful attempt
+	// authenticators are activated sequentially and the first successful attempt
 	// is used as the authentication result.
 	authenticators := []authenticator{&clientCertAuthenticator{}}
-	aud := fmt.Sprintf("grpc://%s:%d", hostname, port)
-	if jwtAuthenticator, err := newIDTokenAuthenticator(aud); err != nil {
-		log.Errorf("failed to create JWT authenticator (error %v)", err)
-	} else {
-		authenticators = append(authenticators, jwtAuthenticator)
+	for _, host := range hostlist {
+		aud := fmt.Sprintf("grpc://%s:%d", host, port)
+		if jwtAuthenticator, err := newIDTokenAuthenticator(aud); err != nil {
+			log.Errorf("failed to create JWT authenticator (error %v)", err)
+		} else {
+			authenticators = append(authenticators, jwtAuthenticator)
+		}
 	}
-
 	return &Server{
 		authenticators: authenticators,
 		authorizer:     &registryAuthorizor{registry.GetIdentityRegistry()},
 		serverCertTTL:  ttl,
 		ca:             ca,
-		hostname:       hostname,
+		hostnames:      hostlist,
+		forCA:          forCA,
 		port:           port,
-	}
+	}, nil
 }
 
 func (s *Server) createTLSServerOption() grpc.ServerOption {
 	cp := x509.NewCertPool()
-	_, _, _, rootCertBytes := s.ca.GetCAKeyCertBundle().GetAll()
+	rootCertBytes := s.ca.GetCAKeyCertBundle().GetRootCertPem()
 	cp.AppendCertsFromPEM(rootCertBytes)
 
 	config := &tls.Config{
@@ -167,7 +168,7 @@ func (s *Server) createTLSServerOption() grpc.ServerOption {
 
 func (s *Server) applyServerCertificate() (*tls.Certificate, error) {
 	opts := util.CertOptions{
-		Host:       s.hostname,
+		Host:       strings.Join(s.hostnames, ","),
 		RSAKeySize: 2048,
 	}
 
@@ -176,7 +177,7 @@ func (s *Server) applyServerCertificate() (*tls.Certificate, error) {
 		return nil, err
 	}
 
-	certPEM, err := s.ca.SignCAServerCert(csrPEM, s.serverCertTTL)
+	certPEM, err := s.ca.Sign(csrPEM, s.serverCertTTL, false)
 	if err != nil {
 		return nil, err
 	}

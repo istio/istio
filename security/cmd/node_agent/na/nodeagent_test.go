@@ -16,6 +16,7 @@ package na
 
 import (
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -45,6 +46,11 @@ func TestStartWithArgs(t *testing.T) {
 		},
 		LoggingOptions: log.DefaultOptions(),
 	}
+	defer func() {
+		_ = os.Remove(generalConfig.CAClientConfig.RootCertFile)
+		_ = os.Remove(generalConfig.CAClientConfig.KeyFile)
+		_ = os.Remove(generalConfig.CAClientConfig.CertChainFile)
+	}()
 	signedCert := []byte(`TESTCERT`)
 	certChain := []byte(`CERTCHAIN`)
 	testCases := map[string]struct {

@@ -407,7 +407,7 @@ var (
 func injectionStatus(pod *corev1.Pod) *SidecarInjectionStatus {
 	var statusBytes []byte
 	if pod.ObjectMeta.Annotations != nil {
-		if value, ok := pod.ObjectMeta.Annotations[istioSidecarAnnotationStatusKey]; ok {
+		if value, ok := pod.ObjectMeta.Annotations[sidecarAnnotationStatusKey]; ok {
 			statusBytes = []byte(value)
 		}
 	}
@@ -464,7 +464,7 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 	}
 
 	applyDefaultsWorkaround(spec.InitContainers, spec.Containers, spec.Volumes)
-	annotations := map[string]string{istioSidecarAnnotationStatusKey: status}
+	annotations := map[string]string{sidecarAnnotationStatusKey: status}
 
 	patchBytes, err := createPatch(&pod, injectionStatus(&pod), annotations, spec)
 	if err != nil {
