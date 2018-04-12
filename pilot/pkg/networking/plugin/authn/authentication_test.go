@@ -487,7 +487,7 @@ func TestBuildJwtFilter(t *testing.T) {
 											Kind: &types.Value_StructValue{
 												StructValue: &types.Struct{
 													Fields: map[string]*types.Value{
-														"forward": &types.Value{Kind: &types.Value_BoolValue{BoolValue: true}},
+														"forward": {Kind: &types.Value_BoolValue{BoolValue: true}},
 														"forward_payload_header": {
 															Kind: &types.Value_StringValue{
 																StringValue: "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709",
