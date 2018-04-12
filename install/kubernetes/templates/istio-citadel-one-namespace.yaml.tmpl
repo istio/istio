@@ -1,5 +1,5 @@
 ################################
-# Istio-CA single namespace
+# Citadel single namespace
 ################################
 # This CA only issues certs/keys for the namespace it runs in.
 # For demo only. Please use istio-cluster-ca.yaml for real-world use cases.
@@ -7,7 +7,7 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: istio-ca-service-account
+  name: istio-citadel-service-account
   namespace: {ISTIO_NAMESPACE}
 ---
 # Istio CA
@@ -15,21 +15,21 @@ apiVersion: v1
 kind: Deployment
 apiVersion: extensions/v1beta1
 metadata:
-  name: istio-ca
+  name: istio-citadel
   namespace: {ISTIO_NAMESPACE}
 spec:
   replicas: 1
   template:
     metadata:
       labels:
-        istio: istio-ca
+        istio: citadel
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
-      serviceAccountName: istio-ca-service-account
+      serviceAccountName: istio-citadel-service-account
       containers:
-      - name: istio-ca
-        image: {CA_HUB}/istio-ca:{CA_TAG}
+      - name: citadel
+        image: {CA_HUB}/citadel:{CA_TAG}
         imagePullPolicy: IfNotPresent
         env:
         - name: NAMESPACE

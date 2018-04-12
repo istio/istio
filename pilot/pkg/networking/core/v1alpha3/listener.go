@@ -246,8 +246,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 			}
 			mutable := &plugin.MutableObjects{
 				Listener:    newListener,
-				TCPFilters:  &networkFilters,
-				HTTPFilters: &httpFilters,
+				TCPFilters:  networkFilters,
+				HTTPFilters: httpFilters,
 			}
 			if err := p.OnInboundListener(params, mutable); err != nil {
 				log.Warn(err.Error())
@@ -365,8 +365,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				}
 				mutable := &plugin.MutableObjects{
 					Listener:    newListener,
-					TCPFilters:  &networkFilters,
-					HTTPFilters: &httpFilters,
+					TCPFilters:  networkFilters,
+					HTTPFilters: httpFilters,
 				}
 				if err := p.OnOutboundListener(params, mutable); err != nil {
 					log.Warn(err.Error())

@@ -34,7 +34,8 @@ const checkAttributesOkPost = `
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
-  "connection.id": "*"
+  "connection.id": "*",
+	"connection.event": "open"
 }
 `
 
@@ -58,7 +59,8 @@ const reportAttributesOkPost = `
   "connection.sent.bytes": 133,
   "connection.sent.bytes_total": 133,
   "connection.duration": "*",
-  "connection.id": "*"
+  "connection.id": "*",
+	"connection.event": "open"
 }
 `
 
@@ -84,7 +86,8 @@ const reportAttributesFailPost = `
   "connection.duration": "*",
   "check.error_code": 16,
   "check.error_message": "UNAUTHENTICATED",
-  "connection.id": "*"
+  "connection.id": "*",
+	"connection.event": "close"
 }
 `
 
