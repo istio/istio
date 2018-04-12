@@ -80,7 +80,6 @@ type clusterConfig struct {
 }
 
 func TestGetPilotClusters(t *testing.T) {
-
 	tests := []struct {
 		testName       string
 		cs             ClusterStore
@@ -92,7 +91,7 @@ func TestGetPilotClusters(t *testing.T) {
 			numberOfPilots: 0,
 		},
 		{
-			testName: "2 out of 3 Pilot in the store",
+			testName: "3 out of 3 Pilot in the store",
 			cs: ClusterStore{
 				clusters: []*k8s_cr.Cluster{
 					{
@@ -116,7 +115,7 @@ func TestGetPilotClusters(t *testing.T) {
 				},
 				clientConfigs: map[string]clientcmdapi.Config{"fakePilot": {}},
 			},
-			numberOfPilots: 2,
+			numberOfPilots: 3,
 		},
 		{
 			testName: "3 out of 3 Pilot in the store",
