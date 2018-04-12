@@ -26,8 +26,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	"istio.io/istio/galley/pkg/testing/dynamic/mock"
 	kmock "istio.io/istio/galley/pkg/testing/kubernetes/mock"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/dynamic/fake"
+	dtesting "k8s.io/client-go/testing"
 )
 
 func TestDeleteAll_NewClientError(t *testing.T) {
@@ -42,7 +44,9 @@ func TestDeleteAll_NewClientError(t *testing.T) {
 }
 
 func TestDeleteAll_Basic(t *testing.T) {
-	m := mock.NewClient()
+	m := &fake.FakeClient{
+		Fake: &dtesting.Fake{},
+	}
 	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
 		return m, nil
 	}
@@ -53,18 +57,21 @@ func TestDeleteAll_Basic(t *testing.T) {
 	}
 
 	expected := `
-DeleteCollection
+delete-collection foos
 `
-	check(t, m.String(), expected)
+	check(t, writeActions(m.Actions()), expected)
 }
 
 func TestDeleteAll_Error(t *testing.T) {
-	m := mock.NewClient()
+	m := &fake.FakeClient{
+		Fake: &dtesting.Fake{},
+	}
 	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
 		return m, nil
 	}
-
-	m.MockResource.ErrorResult = errors.New("some DeleteCollection error")
+	m.AddReactor("delete-collection", "foos", func(action dtesting.Action) (bool, runtime.Object, error) {
+		return true, nil, errors.New("some DeleteCollection error")
+	})
 
 	err := DeleteAll(&rest.Config{}, "foos", "foo", schema.GroupVersion{}, []string{"ns1"})
 	if err == nil || err.Error() != "some DeleteCollection error" {

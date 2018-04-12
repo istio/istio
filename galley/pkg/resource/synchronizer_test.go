@@ -25,8 +25,11 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 
-	"istio.io/istio/galley/pkg/testing/dynamic/mock"
+	"istio.io/istio/galley/pkg/testing/mock"
 	wmock "istio.io/istio/galley/pkg/testing/mock"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/dynamic/fake"
+	dtesting "k8s.io/client-go/testing"
 )
 
 func TestSynchronizer_NewClientError(t *testing.T) {
@@ -44,7 +47,11 @@ func TestSynchronizer_NewClientError(t *testing.T) {
 
 func TestSynchronizer_NewClientError2(t *testing.T) {
 	callid := 0
-	m := mock.NewClient()
+
+	m := &fake.FakeClient{
+		Fake: &dtesting.Fake{},
+	}
+
 	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
 		if callid == 0 {
 			callid++
@@ -62,8 +69,8 @@ func TestSynchronizer_NewClientError2(t *testing.T) {
 }
 
 type testState struct {
-	m1           *mock.Client
-	m2           *mock.Client
+	fc1          *fake.FakeClient
+	fc2          *fake.FakeClient
 	w1           *wmock.Watch
 	w2           *wmock.Watch
 	synchronizer *Synchronizer
@@ -73,23 +80,41 @@ type testState struct {
 func newTestState(t *testing.T, initial1, initial2 []unstructured.Unstructured) *testState {
 	st := &testState{}
 
+	w1 := mock.NewWatch()
+	cl1 := &fake.FakeClient{
+		Fake: &dtesting.Fake{},
+	}
+	cl1.AddReactor("list", "foo", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
+		return true, &unstructured.UnstructuredList{Items: initial1}, nil
+	})
+	cl1.AddWatchReactor("foo", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
+		return true, w1, nil
+	})
+
+	w2 := mock.NewWatch()
+	cl2 := &fake.FakeClient{
+		Fake: &dtesting.Fake{},
+	}
+	cl2.AddReactor("list", "foo", func(action dtesting.Action) (bool, runtime.Object, error) {
+		return true, &unstructured.UnstructuredList{Items: initial2}, nil
+	})
+	cl2.AddWatchReactor("foo", func(action dtesting.Action) (bool, watch.Interface, error) {
+		return true, w2, nil
+	})
+
+	st.fc1 = cl1
+	st.w1 = w1
+
+	st.fc2 = cl2
+	st.w2 = w2
+
 	callid := 0
-	st.m1 = mock.NewClient()
-	st.w1 = wmock.NewWatch()
-	st.m1.MockResource.ListResult = &unstructured.UnstructuredList{Items: initial1}
-	st.m1.MockResource.WatchResult = st.w1
-
-	st.m2 = mock.NewClient()
-	st.w2 = wmock.NewWatch()
-	st.m2.MockResource.ListResult = &unstructured.UnstructuredList{Items: initial2}
-	st.m2.MockResource.WatchResult = st.w2
-
 	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
 		if callid == 0 {
 			callid++
-			return st.m1, nil
+			return st.fc1, nil
 		}
-		return st.m2, nil
+		return st.fc2, nil
 	}
 
 	hookFn := func(_ interface{}) {
@@ -119,11 +144,12 @@ func TestSynchronizer_Basic(t *testing.T) {
 	st.synchronizer.Stop()
 
 	expected := `
-List
-Watch`
+list foo
+watch foo
+`
 	// Both accessors should do the same list/watch operations.
-	check(t, st.m1.String(), expected)
-	check(t, st.m2.String(), expected)
+	check(t, writeActions(st.fc1.Fake.Actions()), expected)
+	check(t, writeActions(st.fc2.Fake.Actions()), expected)
 }
 
 func TestSynchronizer_DoubleStart(t *testing.T) {
@@ -135,11 +161,12 @@ func TestSynchronizer_DoubleStart(t *testing.T) {
 	st.synchronizer.Stop()
 
 	expected := `
-List
-Watch`
+list foo
+watch foo
+`
 	// Both accessors should do the same list/watch operations.
-	check(t, st.m1.String(), expected)
-	check(t, st.m2.String(), expected)
+	check(t, writeActions(st.fc1.Fake.Actions()), expected)
+	check(t, writeActions(st.fc2.Fake.Actions()), expected)
 }
 
 func TestSynchronizer_DoubleStop(t *testing.T) {
@@ -150,16 +177,19 @@ func TestSynchronizer_DoubleStop(t *testing.T) {
 	st.synchronizer.Stop()
 
 	expected := `
-List
-Watch`
+list foo
+watch foo
+`
 	// Both accessors should do the same list/watch operations.
-	check(t, st.m1.String(), expected)
-	check(t, st.m2.String(), expected)
+	check(t, writeActions(st.fc1.Fake.Actions()), expected)
+	check(t, writeActions(st.fc2.Fake.Actions()), expected)
 }
 
 func TestSynchronizer_SourceAddEvent(t *testing.T) {
 	st := newTestState(t, nil, nil)
-
+	st.fc2.AddReactor("create", "foo", func(action dtesting.Action) (bool, runtime.Object, error) {
+		return true, &unstructured.Unstructured{}, nil
+	})
 	st.eventWG.Add(1)
 	st.w1.Send(watch.Event{Type: watch.Added, Object: template.DeepCopy()})
 	st.eventWG.Wait()
@@ -167,21 +197,25 @@ func TestSynchronizer_SourceAddEvent(t *testing.T) {
 	st.synchronizer.Stop()
 
 	expected := `
-List
-Watch`
-	check(t, st.m1.String(), expected)
+list foo
+watch foo
+`
+	check(t, writeActions(st.fc1.Fake.Actions()), expected)
 
 	expected = `
-List
-Watch
-Create foo/g2/v2`
-	check(t, st.m2.String(), expected)
+list foo
+watch foo
+create foo
+`
+	check(t, writeActions(st.fc2.Fake.Actions()), expected)
 }
 
 func TestSynchronizer_SourceAddEvent_CreateError(t *testing.T) {
 	st := newTestState(t, nil, nil)
 
-	st.m2.MockResource.ErrorResult = errors.New("some create error")
+	st.fc2.AddReactor("create", "foo", func(action dtesting.Action) (bool, runtime.Object, error) {
+		return true, nil, errors.New("some create error")
+	})
 
 	st.eventWG.Add(1)
 	st.w1.Send(watch.Event{Type: watch.Added, Object: template.DeepCopy()})
@@ -190,20 +224,26 @@ func TestSynchronizer_SourceAddEvent_CreateError(t *testing.T) {
 	st.synchronizer.Stop()
 
 	expected := `
-List
-Watch`
-	check(t, st.m1.String(), expected)
+list foo
+watch foo
+`
+	check(t, writeActions(st.fc1.Fake.Actions()), expected)
 
 	expected = `
-List
-Watch
-Create foo/g2/v2`
-	check(t, st.m2.String(), expected)
+list foo
+watch foo
+create foo
+`
+	check(t, writeActions(st.fc2.Fake.Actions()), expected)
 }
 
 func TestSynchronizer_DestinationAddEvent(t *testing.T) {
 	st := newTestState(t, nil, nil)
 
+	st.fc2.AddReactor("delete", "foo", func(action dtesting.Action) (bool, runtime.Object, error) {
+		return true, nil, nil
+	})
+
 	st.eventWG.Add(1)
 	st.w2.Send(watch.Event{Type: watch.Added, Object: template.DeepCopy()})
 	st.eventWG.Wait()
@@ -211,21 +251,25 @@ func TestSynchronizer_DestinationAddEvent(t *testing.T) {
 	st.synchronizer.Stop()
 
 	expected := `
-List
-Watch`
-	check(t, st.m1.String(), expected)
+list foo
+watch foo
+`
+	check(t, writeActions(st.fc1.Fake.Actions()), expected)
 
 	expected = `
-List
-Watch
-Delete foo`
-	check(t, st.m2.String(), expected)
+list foo
+watch foo
+delete foo
+`
+	check(t, writeActions(st.fc2.Fake.Actions()), expected)
 }
 
 func TestSynchronizer_DestinationAddEvent_DeleteError(t *testing.T) {
 	st := newTestState(t, nil, nil)
 
-	st.m2.MockResource.ErrorResult = errors.New("some delete error")
+	st.fc2.AddReactor("delete", "foo", func(action dtesting.Action) (bool, runtime.Object, error) {
+		return true, nil, errors.New("some delete error")
+	})
 
 	st.eventWG.Add(1)
 	st.w2.Send(watch.Event{Type: watch.Added, Object: template.DeepCopy()})
@@ -234,15 +278,17 @@ func TestSynchronizer_DestinationAddEvent_DeleteError(t *testing.T) {
 	st.synchronizer.Stop()
 
 	expected := `
-List
-Watch`
-	check(t, st.m1.String(), expected)
+list foo
+watch foo
+`
+	check(t, writeActions(st.fc1.Fake.Actions()), expected)
 
 	expected = `
-List
-Watch
-Delete foo`
-	check(t, st.m2.String(), expected)
+list foo
+watch foo
+delete foo
+`
+	check(t, writeActions(st.fc2.Fake.Actions()), expected)
 }
 
 func TestSynchronizer_InitiallySynced(t *testing.T) {
@@ -255,14 +301,16 @@ func TestSynchronizer_InitiallySynced(t *testing.T) {
 	st.synchronizer.Stop()
 
 	expected := `
-List
-Watch`
-	check(t, st.m1.String(), expected)
+list foo
+watch foo
+`
+	check(t, writeActions(st.fc1.Fake.Actions()), expected)
 
 	expected = `
-List
-Watch`
-	check(t, st.m2.String(), expected)
+list foo
+watch foo
+`
+	check(t, writeActions(st.fc2.Fake.Actions()), expected)
 }
 
 func TestSynchronizer_NoSemanticChange(t *testing.T) {
@@ -280,20 +328,25 @@ func TestSynchronizer_NoSemanticChange(t *testing.T) {
 	st.synchronizer.Stop()
 
 	expected := `
-List
-Watch`
-	check(t, st.m1.String(), expected)
+list foo
+watch foo
+`
+	check(t, writeActions(st.fc1.Fake.Actions()), expected)
 
 	expected = `
-List
-Watch`
-	check(t, st.m2.String(), expected)
+list foo
+watch foo
+`
+	check(t, writeActions(st.fc2.Fake.Actions()), expected)
 }
 
 func TestSynchronizer_Update(t *testing.T) {
 	t1 := template.DeepCopy()
 	t2 := rewrite(t1, "g2/v2")
 	st := newTestState(t, []unstructured.Unstructured{*t1}, []unstructured.Unstructured{*t2})
+	st.fc2.AddReactor("update", "foo", func(action dtesting.Action) (bool, runtime.Object, error) {
+		return true, &unstructured.Unstructured{}, nil
+	})
 
 	t3 := t1.DeepCopy()
 	t3.SetResourceVersion("rv3")
@@ -306,27 +359,30 @@ func TestSynchronizer_Update(t *testing.T) {
 	st.synchronizer.Stop()
 
 	expected := `
-List
-Watch`
-	check(t, st.m1.String(), expected)
+list foo
+watch foo
+`
+	check(t, writeActions(st.fc1.Fake.Actions()), expected)
 
 	expected = `
-List
-Watch
-Update foo/g2/v2`
-	check(t, st.m2.String(), expected)
+list foo
+watch foo
+update foo
+`
+	check(t, writeActions(st.fc2.Fake.Actions()), expected)
 }
 
 func TestSynchronizer_Update_Error(t *testing.T) {
 	t1 := template.DeepCopy()
 	t2 := rewrite(t1, "g2/v2")
 	st := newTestState(t, []unstructured.Unstructured{*t1}, []unstructured.Unstructured{*t2})
+	st.fc2.AddReactor("update", "foo", func(action dtesting.Action) (bool, runtime.Object, error) {
+		return true, nil, errors.New("some update error")
+	})
 
 	t3 := t1.DeepCopy()
 	t3.SetResourceVersion("rv3")
 	t3.SetLabels(map[string]string{"aa": "bb"})
-
-	st.m2.MockResource.ErrorResult = errors.New("some update error")
 
 	st.eventWG.Add(1)
 	st.w1.Send(watch.Event{Type: watch.Modified, Object: t3})
@@ -335,15 +391,17 @@ func TestSynchronizer_Update_Error(t *testing.T) {
 	st.synchronizer.Stop()
 
 	expected := `
-List
-Watch`
-	check(t, st.m1.String(), expected)
+list foo
+watch foo
+`
+	check(t, writeActions(st.fc1.Fake.Actions()), expected)
 
 	expected = `
-List
-Watch
-Update foo/g2/v2`
-	check(t, st.m2.String(), expected)
+list foo
+watch foo
+update foo
+`
+	check(t, writeActions(st.fc2.Fake.Actions()), expected)
 }
 
 func TestSynchronizer_NonChangeEvent(t *testing.T) {
@@ -358,12 +416,14 @@ func TestSynchronizer_NonChangeEvent(t *testing.T) {
 	st.synchronizer.Stop()
 
 	expected := `
-List
-Watch`
-	check(t, st.m1.String(), expected)
+list foo
+watch foo
+`
+	check(t, writeActions(st.fc1.Fake.Actions()), expected)
 
 	expected = `
-List
-Watch`
-	check(t, st.m2.String(), expected)
+list foo
+watch foo
+`
+	check(t, writeActions(st.fc2.Fake.Actions()), expected)
 }

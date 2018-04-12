@@ -16,6 +16,7 @@ package resource
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 
@@ -28,8 +29,10 @@ import (
 
 	"istio.io/istio/galley/pkg/change"
 	"istio.io/istio/galley/pkg/testing/common"
-	"istio.io/istio/galley/pkg/testing/dynamic/mock"
-	wmock "istio.io/istio/galley/pkg/testing/mock"
+	"istio.io/istio/galley/pkg/testing/mock"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/dynamic/fake"
+	dtesting "k8s.io/client-go/testing"
 )
 
 func TestAccessor_NewClientError(t *testing.T) {
@@ -51,14 +54,19 @@ func TestAccessor_Basic(t *testing.T) {
 	processorLog := &common.MockLog{}
 	processorFn := func(c *change.Info) { processorLog.Append("%v", c) }
 
-	m := mock.NewClient()
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		return m, nil
+	cl := &fake.FakeClient{
+		Fake: &dtesting.Fake{},
 	}
+	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
+		return cl, nil
+	}
+	cl.AddReactor("*", "foo", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
+		return true, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{}}, nil
+	})
+	cl.AddWatchReactor("foo", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
+		return true, mock.NewWatch(), nil
+	})
 
-	w := wmock.NewWatch()
-	m.MockResource.ListResult = &unstructured.UnstructuredList{Items: []unstructured.Unstructured{}}
-	m.MockResource.WatchResult = w
 	a, err := newAccessor(&rest.Config{}, 0, "foo", gv, "kind", "listkind", processorFn)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -67,10 +75,10 @@ func TestAccessor_Basic(t *testing.T) {
 	a.start()
 
 	expected := `
-List
-Watch`
-	check(t, m.String(), expected)
-
+list foo
+watch foo
+`
+	check(t, writeActions(cl.Fake.Actions()), expected)
 	check(t, processorLog.String(), "")
 }
 
@@ -79,14 +87,19 @@ func TestAccessor_DoubleStart(t *testing.T) {
 	processorLog := &common.MockLog{}
 	processorFn := func(c *change.Info) { processorLog.Append("%v", c) }
 
-	m := mock.NewClient()
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		return m, nil
+	cl := &fake.FakeClient{
+		Fake: &dtesting.Fake{},
 	}
+	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
+		return cl, nil
+	}
+	cl.AddReactor("*", "foo", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
+		return true, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{}}, nil
+	})
+	cl.AddWatchReactor("foo", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
+		return true, mock.NewWatch(), nil
+	})
 
-	w := wmock.NewWatch()
-	m.MockResource.ListResult = &unstructured.UnstructuredList{Items: []unstructured.Unstructured{}}
-	m.MockResource.WatchResult = w
 	a, err := newAccessor(&rest.Config{}, 0, "foo", gv, "kind", "listkind", processorFn)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -97,10 +110,10 @@ func TestAccessor_DoubleStart(t *testing.T) {
 	a.start()
 
 	expected := `
-List
-Watch`
-
-	check(t, m.String(), expected)
+list foo
+watch foo
+`
+	check(t, writeActions(cl.Fake.Actions()), expected)
 	check(t, processorLog.String(), "")
 }
 
@@ -109,14 +122,19 @@ func TestAccessor_DoubleStop(t *testing.T) {
 	processorLog := &common.MockLog{}
 	processorFn := func(c *change.Info) { processorLog.Append("%v", c) }
 
-	m := mock.NewClient()
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		return m, nil
+	cl := &fake.FakeClient{
+		Fake: &dtesting.Fake{},
 	}
+	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
+		return cl, nil
+	}
+	cl.AddReactor("*", "foo", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
+		return true, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{}}, nil
+	})
+	cl.AddWatchReactor("foo", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
+		return true, mock.NewWatch(), nil
+	})
 
-	w := wmock.NewWatch()
-	m.MockResource.ListResult = &unstructured.UnstructuredList{Items: []unstructured.Unstructured{}}
-	m.MockResource.WatchResult = w
 	a, err := newAccessor(&rest.Config{}, 0, "foo", gv, "kind", "listkind", processorFn)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -126,10 +144,10 @@ func TestAccessor_DoubleStop(t *testing.T) {
 	a.stop()
 
 	expected := `
-List
-Watch`
-
-	check(t, m.String(), expected)
+list foo
+watch foo
+`
+	check(t, writeActions(cl.Fake.Actions()), expected)
 	check(t, processorLog.String(), "")
 }
 
@@ -143,14 +161,20 @@ func TestAccessor_AddEvent(t *testing.T) {
 		wg.Done()
 	}
 
-	m := mock.NewClient()
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		return m, nil
+	cl := &fake.FakeClient{
+		Fake: &dtesting.Fake{},
 	}
+	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
+		return cl, nil
+	}
+	cl.AddReactor("*", "foo", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
+		return true, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{}}, nil
+	})
+	w := mock.NewWatch()
+	cl.AddWatchReactor("foo", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
+		return true, w, nil
+	})
 
-	w := wmock.NewWatch()
-	m.MockResource.ListResult = &unstructured.UnstructuredList{Items: []unstructured.Unstructured{}}
-	m.MockResource.WatchResult = w
 	a, err := newAccessor(&rest.Config{}, 0, "foo", gv, "kind", "listkind", processorFn)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -163,10 +187,10 @@ func TestAccessor_AddEvent(t *testing.T) {
 	wg.Wait()
 
 	expected := `
-List
-Watch`
-
-	check(t, m.String(), expected)
+list foo
+watch foo
+`
+	check(t, writeActions(cl.Fake.Actions()), expected)
 
 	expected = `
 Info[Type:Add, Name:foo, GroupVersion:group/version]`
@@ -184,17 +208,20 @@ func TestAccessor_UpdateEvent(t *testing.T) {
 		wg.Done()
 	}
 
-	m := mock.NewClient()
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		return m, nil
+	cl := &fake.FakeClient{
+		Fake: &dtesting.Fake{},
 	}
+	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
+		return cl, nil
+	}
+	cl.AddReactor("*", "foo", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
+		return true, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{*template.DeepCopy()}}, nil
+	})
+	w := mock.NewWatch()
+	cl.AddWatchReactor("foo", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
+		return true, w, nil
+	})
 
-	w := wmock.NewWatch()
-	m.MockResource.ListResult = &unstructured.UnstructuredList{Items: []unstructured.Unstructured{
-		*template.DeepCopy(),
-	}}
-
-	m.MockResource.WatchResult = w
 	a, err := newAccessor(&rest.Config{}, 0, "foo", gv, "kind", "listkind", processorFn)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -209,10 +236,10 @@ func TestAccessor_UpdateEvent(t *testing.T) {
 	wg.Wait()
 
 	expected := `
-List
-Watch`
-
-	check(t, m.String(), expected)
+list foo
+watch foo
+`
+	check(t, writeActions(cl.Fake.Actions()), expected)
 
 	expected = `
 Info[Type:Add, Name:foo, GroupVersion:group/version]
@@ -231,17 +258,20 @@ func TestAccessor_UpdateEvent_SameResourceVersion(t *testing.T) {
 		wg.Done()
 	}
 
-	m := mock.NewClient()
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		return m, nil
+	cl := &fake.FakeClient{
+		Fake: &dtesting.Fake{},
 	}
+	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
+		return cl, nil
+	}
+	cl.AddReactor("*", "foo", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
+		return true, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{*template.DeepCopy()}}, nil
+	})
+	w := mock.NewWatch()
+	cl.AddWatchReactor("foo", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
+		return true, w, nil
+	})
 
-	w := wmock.NewWatch()
-	m.MockResource.ListResult = &unstructured.UnstructuredList{Items: []unstructured.Unstructured{
-		*template.DeepCopy(),
-	}}
-
-	m.MockResource.WatchResult = w
 	a, err := newAccessor(&rest.Config{}, 0, "foo", gv, "kind", "listkind", processorFn)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -255,10 +285,10 @@ func TestAccessor_UpdateEvent_SameResourceVersion(t *testing.T) {
 	wg.Wait()
 
 	expected := `
-List
-Watch`
-
-	check(t, m.String(), expected)
+list foo
+watch foo
+`
+	check(t, writeActions(cl.Fake.Actions()), expected)
 
 	expected = `
 Info[Type:Add, Name:foo, GroupVersion:group/version]
@@ -276,17 +306,20 @@ func TestAccessor_DeleteEvent(t *testing.T) {
 		wg.Done()
 	}
 
-	m := mock.NewClient()
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		return m, nil
+	cl := &fake.FakeClient{
+		Fake: &dtesting.Fake{},
 	}
+	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
+		return cl, nil
+	}
+	cl.AddReactor("*", "foo", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
+		return true, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{*template.DeepCopy()}}, nil
+	})
+	w := mock.NewWatch()
+	cl.AddWatchReactor("foo", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
+		return true, w, nil
+	})
 
-	w := wmock.NewWatch()
-	m.MockResource.ListResult = &unstructured.UnstructuredList{Items: []unstructured.Unstructured{
-		*template.DeepCopy(),
-	}}
-
-	m.MockResource.WatchResult = w
 	a, err := newAccessor(&rest.Config{}, 0, "foo", gv, "kind", "listkind", processorFn)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -301,10 +334,10 @@ func TestAccessor_DeleteEvent(t *testing.T) {
 	wg.Wait()
 
 	expected := `
-List
-Watch`
-
-	check(t, m.String(), expected)
+list foo
+watch foo
+`
+	check(t, writeActions(cl.Fake.Actions()), expected)
 
 	expected = `
 Info[Type:Add, Name:foo, GroupVersion:group/version]
@@ -322,17 +355,20 @@ func TestAccessor_Tombstone(t *testing.T) {
 		wg.Done()
 	}
 
-	m := mock.NewClient()
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		return m, nil
+	cl := &fake.FakeClient{
+		Fake: &dtesting.Fake{},
 	}
+	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
+		return cl, nil
+	}
+	cl.AddReactor("*", "foo", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
+		return true, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{*template.DeepCopy()}}, nil
+	})
+	w := mock.NewWatch()
+	cl.AddWatchReactor("foo", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
+		return true, w, nil
+	})
 
-	w := wmock.NewWatch()
-	m.MockResource.ListResult = &unstructured.UnstructuredList{Items: []unstructured.Unstructured{
-		*template.DeepCopy(),
-	}}
-
-	m.MockResource.WatchResult = w
 	a, err := newAccessor(&rest.Config{}, 0, "foo", gv, "kind", "listkind", processorFn)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -348,10 +384,10 @@ func TestAccessor_Tombstone(t *testing.T) {
 	wg.Wait()
 
 	expected := `
-List
-Watch`
-
-	check(t, m.String(), expected)
+list foo
+watch foo
+`
+	check(t, writeActions(cl.Fake.Actions()), expected)
 
 	expected = `
 Info[Type:Add, Name:foo, GroupVersion:group/version]
@@ -369,17 +405,20 @@ func TestAccessor_TombstoneDecodeError(t *testing.T) {
 		wg.Done()
 	}
 
-	m := mock.NewClient()
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		return m, nil
+	cl := &fake.FakeClient{
+		Fake: &dtesting.Fake{},
 	}
+	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
+		return cl, nil
+	}
+	cl.AddReactor("*", "foo", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
+		return true, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{*template.DeepCopy()}}, nil
+	})
+	w := mock.NewWatch()
+	cl.AddWatchReactor("foo", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
+		return true, w, nil
+	})
 
-	w := wmock.NewWatch()
-	m.MockResource.ListResult = &unstructured.UnstructuredList{Items: []unstructured.Unstructured{
-		*template.DeepCopy(),
-	}}
-
-	m.MockResource.WatchResult = w
 	a, err := newAccessor(&rest.Config{}, 0, "foo", gv, "kind", "listkind", processorFn)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -393,10 +432,10 @@ func TestAccessor_TombstoneDecodeError(t *testing.T) {
 	wg.Wait()
 
 	expected := `
-List
-Watch`
-
-	check(t, m.String(), expected)
+list foo
+watch foo
+`
+	check(t, writeActions(cl.Fake.Actions()), expected)
 
 	expected = `
 Info[Type:Add, Name:foo, GroupVersion:group/version]
@@ -414,17 +453,20 @@ func TestAccessor_Tombstone_ObjDecodeError(t *testing.T) {
 		wg.Done()
 	}
 
-	m := mock.NewClient()
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		return m, nil
+	cl := &fake.FakeClient{
+		Fake: &dtesting.Fake{},
 	}
+	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
+		return cl, nil
+	}
+	cl.AddReactor("*", "foo", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
+		return true, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{*template.DeepCopy()}}, nil
+	})
+	w := mock.NewWatch()
+	cl.AddWatchReactor("foo", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
+		return true, w, nil
+	})
 
-	w := wmock.NewWatch()
-	m.MockResource.ListResult = &unstructured.UnstructuredList{Items: []unstructured.Unstructured{
-		*template.DeepCopy(),
-	}}
-
-	m.MockResource.WatchResult = w
 	a, err := newAccessor(&rest.Config{}, 0, "foo", gv, "kind", "listkind", processorFn)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -439,10 +481,10 @@ func TestAccessor_Tombstone_ObjDecodeError(t *testing.T) {
 	wg.Wait()
 
 	expected := `
-List
-Watch`
-
-	check(t, m.String(), expected)
+list foo
+watch foo
+`
+	check(t, writeActions(cl.Fake.Actions()), expected)
 
 	expected = `
 Info[Type:Add, Name:foo, GroupVersion:group/version]
@@ -457,4 +499,12 @@ var template = &unstructured.Unstructured{
 			"resourceVersion": "rv",
 		},
 	},
+}
+
+func writeActions(actions []dtesting.Action) string {
+	result := ""
+	for _, a := range actions {
+		result += fmt.Sprintf("%s %s\n", a.GetVerb(), a.GetResource().Resource)
+	}
+	return result
 }
