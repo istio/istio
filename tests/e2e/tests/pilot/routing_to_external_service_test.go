@@ -20,7 +20,7 @@ import (
 	"testing"
 )
 
-func TestExternalServiceRouteHeaders(t *testing.T) {
+func TestExternalServiceAppendHeaders(t *testing.T) {
 	if !tc.V1alpha3 {
 		t.Skipf("Skipping %s: v1alpha3=false", t.Name())
 	}
