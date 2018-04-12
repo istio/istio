@@ -336,37 +336,37 @@ func TestRouteRedirectInjection(t *testing.T) {
 }
 
 // TODO this is not implemented properly at the moment.
-func TestRouteMirroring(t *testing.T) {
-	t.Skipf("Skipping %s due to incomplete implementation", t.Name())
-	for _, version := range configVersions() {
-		logs := newAccessLogs()
-		// Invoke a function to scope the lifecycle of the deployed configs.
-		func() {
-			// Push the rule config.
-			ruleYaml := fmt.Sprintf("testdata/%s/rule-default-route-mirrored.yaml", version)
-			cfgs := &deployableConfig{
-				Namespace:  tc.Kube.Namespace,
-				YamlFiles:  []string{ruleYaml},
-				kubeconfig: tc.Kube.KubeConfig,
-			}
-			if err := cfgs.Setup(); err != nil {
-				t.Fatal(err)
-			}
-			defer cfgs.Teardown()
-
-			reqURL := "http://c/a"
-			for i := 1; i <= 100; i++ {
-				resp := ClientRequest("a", reqURL, 1, fmt.Sprintf("-key X-Request-Id -val %d", i))
-				logEntry := fmt.Sprintf("HTTP request from a to c.istio-system.svc.cluster.local:80")
-				if len(resp.XRequestID) > 0 {
-					id := resp.XRequestID[0]
-					logs.add("b", id, logEntry)
-				}
-			}
-
-			t.Run("check-logs", func(t *testing.T) {
-				logs.checkLogs(t)
-			})
-		}()
-	}
-}
+//func TestRouteMirroring(t *testing.T) {
+//	t.Skipf("Skipping %s due to incomplete implementation", t.Name())
+//	for _, version := range configVersions() {
+//		logs := newAccessLogs()
+//		// Invoke a function to scope the lifecycle of the deployed configs.
+//		func() {
+//			// Push the rule config.
+//			ruleYaml := fmt.Sprintf("testdata/%s/rule-default-route-mirrored.yaml", version)
+//			cfgs := &deployableConfig{
+//				Namespace:  tc.Kube.Namespace,
+//				YamlFiles:  []string{ruleYaml},
+//				kubeconfig: tc.Kube.KubeConfig,
+//			}
+//			if err := cfgs.Setup(); err != nil {
+//				t.Fatal(err)
+//			}
+//			defer cfgs.Teardown()
+//
+//			reqURL := "http://c/a"
+//			for i := 1; i <= 100; i++ {
+//				resp := ClientRequest("a", reqURL, 1, fmt.Sprintf("-key X-Request-Id -val %d", i))
+//				logEntry := fmt.Sprintf("HTTP request from a to c.istio-system.svc.cluster.local:80")
+//				if len(resp.XRequestID) > 0 {
+//					id := resp.XRequestID[0]
+//					logs.add("b", id, logEntry)
+//				}
+//			}
+//
+//			t.Run("check-logs", func(t *testing.T) {
+//				logs.checkLogs(t)
+//			})
+//		}()
+//	}
+//}
