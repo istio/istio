@@ -17,15 +17,11 @@ package cmd
 import (
 	"flag"
 	"fmt"
-	"os"
-	"path"
 
-	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/util/homedir"
 
 	"istio.io/istio/galley/cmd/shared"
 	"istio.io/istio/pkg/collateral"
@@ -45,49 +41,12 @@ var (
 	loggingOptions = log.DefaultOptions()
 )
 
-// resolveConfig checks whether to use the in-cluster or out-of-cluster config
-func resolveConfig(kubeconfig string) (string, error) {
-	if kubeconfig == "" {
-		kubeconfig = os.Getenv("KUBECONFIG")
-	}
-	if kubeconfig == "" {
-		defaultCfg := path.Join(homedir.HomeDir(), ".kube/config")
-		fmt.Printf("(3) %v\n", defaultCfg)
-		if _, err := os.Stat(kubeconfig); err == nil {
-			kubeconfig = defaultCfg
-		}
-	}
-	if kubeconfig != "" {
-		info, err := os.Stat(kubeconfig)
-		if err != nil {
-			if os.IsNotExist(err) {
-				err = fmt.Errorf("kubernetes configuration file %q does not exist", kubeconfig)
-			} else {
-				err = multierror.Append(err, fmt.Errorf("kubernetes configuration file %q", kubeconfig))
-			}
-			return "", err
-		}
-		// if it's an empty file, switch to in-cluster config
-		if info.Size() == 0 {
-			log.Info("using in-cluster configuration")
-			return "", nil
-		}
-	}
-	return kubeconfig, nil
-}
-
 // createInterface is a helper function to create Kubernetes interface
 func createInterface(kubeconfig string) (kubernetes.Interface, error) {
-	kube, err := resolveConfig(kubeconfig)
+	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
 		return nil, err
 	}
-
-	config, err := clientcmd.BuildConfigFromFlags("", kube)
-	if err != nil {
-		return nil, err
-	}
-
 	return kubernetes.NewForConfig(config)
 }
 

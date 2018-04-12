@@ -17,9 +17,6 @@ package cmd
 import (
 	"fmt"
 	"io/ioutil"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -27,18 +24,10 @@ import (
 	"istio.io/istio/galley/cmd/shared"
 	"istio.io/istio/galley/pkg/crd/validation"
 	"istio.io/istio/pilot/pkg/bootstrap"
+	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util"
 )
-
-// waitSignal awaits for SIGINT or SIGTERM and closes the channel
-func waitSignal(stop chan struct{}) {
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-	<-sigs
-	close(stop)
-	_ = log.Sync()
-}
 
 func validatorCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 	var (
@@ -88,7 +77,7 @@ func validatorCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 		Short: "Runs an https server for Istio configuration validation.",
 		Long: "Runs an https server for Istio configuration validation. " +
 			"Uses k8s validating webhooks to validate Pilot and Mixer configuration.",
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: func(_ *cobra.Command, args []string) {
 			mixerValidator, err := validation.CreateMixerValidator(flags.kubeConfig)
 			if err != nil {
 				fatalf("cannot create mixer backend validator for %q: %v", flags.kubeConfig, err)
@@ -119,7 +108,7 @@ func validatorCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 			}()
 
 			go wh.Run(stop)
-			waitSignal(stop)
+			cmd.WaitSignal(stop)
 		},
 	}
 

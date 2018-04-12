@@ -111,6 +111,9 @@ type Webhook struct {
 }
 
 // CreateMixerValidator creates a mixer backend validator.
+// TODO(https://github.com/istio/istio/issues/4887) - refactor mixer
+// config validation to remove galley dependency on mixer internal
+// packages.
 func CreateMixerValidator(kubeconfig string) (store.BackendValidator, error) {
 	info := generatedTmplRepo.SupportedTmplInfo
 	templates := make(map[string]*template.Info, len(info))
