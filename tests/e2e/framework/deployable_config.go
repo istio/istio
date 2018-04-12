@@ -60,7 +60,7 @@ func (c *DeployableConfig) Teardown() error {
 	return err
 }
 
-// Teardown deletes the deployed configuration.
+// TeardownNoDelay deletes the deployed configuration without a delay
 func (c *DeployableConfig) TeardownNoDelay() error {
 	var err error
 	for _, yamlFile := range c.applied {

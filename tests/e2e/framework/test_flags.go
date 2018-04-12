@@ -26,6 +26,7 @@ type TestFlags struct {
 	Egress   bool
 }
 
+// Init initializes golang "flags" with the flags of TestFlags
 func (tf *TestFlags) Init() {
 	flag.BoolVar(&tf.V1alpha1, "v1alpha1", tf.V1alpha1, "Enable / disable v1alpha1 routing rules.")
 	flag.BoolVar(&tf.V1alpha3, "v1alpha3", tf.V1alpha3, "Enable / disable v1alpha3 routing rules.")
@@ -33,6 +34,7 @@ func (tf *TestFlags) Init() {
 	flag.BoolVar(&tf.Egress, "egress", tf.Egress, "Enable / disable Egress tests.")
 }
 
+// ConfigVersions returns a list of strings of the enabled config versions
 func (tf *TestFlags) ConfigVersions() []string {
 	versions := []string{}
 	if tf.V1alpha1 {
