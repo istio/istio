@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Tool to get xDS configs from pilot. It makes an gRPC call to get config, as if it come from envoy
-// sidecar, so it will work even with pilot running in local (as long as it use the same kubeconfig)
+// Tool to get xDS configs from pilot. This tool simulate envoy sidecar gRPC call to get config,
+// so it will work even when sidecar haswhen sidecar hasn't connected (e.g in the case of pilot running on local machine))
 //
 // Usage:
 //
@@ -34,10 +34,11 @@
 // ```
 // Use cds | eds | rds for other config types.
 //
-// You can also provide the path to kubeconfig to find pod IP automatically (by default, it will look for the config under
-// `${HOME}/.kube/config`)
+// For more convience, you can provide the path to kubeconfig to find pod IP automatically,
+// and even pod name (using --app flag to find the first pod that has matching app label). The default value for kubeconfig path will be resolved to .kube/config in the home folder (Linux only)
 // ```bash
-// go run ./pilot/debug/pilot_cli.go -pod <POD_NAME> -kubeconfig ${HOME}/.kube/config
+// go run ./pilot/debug/pilot_cli.go -pod <POD_NAME> -kubeconfig path/to/kube/config
+// go run ./pilot/debug/pilot_cli.go -app <APP_LABEL> -kubeconfig path/to/kube/config
 // ```
 
 package main
@@ -51,17 +52,17 @@ import (
 	"path/filepath"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/grpc"
-
-	envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
-	"istio.io/istio/pkg/log"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/tools/clientcmd"
+
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	"istio.io/istio/pkg/log"
 )
 
 // PodInfo holds information to identify pod.
@@ -69,31 +70,46 @@ type PodInfo struct {
 	Name      string
 	Namespace string
 	IP        string
+	AppLabel  string
 }
 
-func (p *PodInfo) fetchPodIP(kubeconfig string) {
-	log.Infof("fetchPodIP for %s.%s with kube config at %s", p.Name, p.Namespace, kubeconfig)
+func (p *PodInfo) populatePodNameAndIP(kubeconfig string) bool {
+	if p.Name != "" && p.IP != "" {
+		// Already set, nothing to do.
+		return true
+	}
+	log.Infof("Using kube config at %s", kubeconfig)
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
-		panic(err.Error())
+		log.Errorf(err.Error())
+		return false
 	}
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		panic(err.Error())
+		log.Errorf(err.Error())
+		return false
 	}
 	pods, err := clientset.Core().Pods(p.Namespace).List(meta_v1.ListOptions{})
 	if err != nil {
-		panic(err.Error())
+		log.Errorf(err.Error())
+		return false
 	}
 
 	for _, pod := range pods.Items {
-		log.Infof("%s %s", pod.Name, pod.Status.HostIP)
-		if pod.Name == p.Name {
+		if p.Name != "" && pod.Name == p.Name {
+			log.Infof("Found pod %q~%s matching name %q", pod.Name, pod.Status.HostIP, p.Name)
 			p.IP = pod.Status.HostIP
-			return
+			return true
+		}
+		if app, ok := pod.ObjectMeta.Labels["app"]; ok && app == p.AppLabel {
+			log.Infof("Found pod %q~%s matching app label %q", pod.Name, pod.Status.HostIP, p.AppLabel)
+			p.Name = pod.Name
+			p.IP = pod.Status.HostIP
+			return true
 		}
 	}
-	panic(fmt.Sprintf("Cannot find pod %s.%s in registry.", p.Name, p.Namespace))
+	log.Warnf("Cannot find pod matching %v in registry.", p)
+	return false
 }
 
 func (p PodInfo) makeNodeID() string {
@@ -162,8 +178,9 @@ func resolveKubeConfigPath(kubeConfig string) string {
 }
 
 func main() {
-	podName := flag.String("pod", "", "pod name. Require")
-	podIP := flag.String("ip", "", "pod IP. Leave blank to use value from registry (need --kubeconfig)")
+	podName := flag.String("pod", "", "pod name. If omit, pod name will be found from k8s registry using app label.")
+	appName := flag.String("app", "", "app label. Should be set if pod name is not provided. It will be used to find the pod that has the same app label. Ignored if --pod is set.")
+	podIP := flag.String("ip", "", "pod IP. If omit, pod IP will be found from registry.")
 	namespace := flag.String("namespace", "default", "namespace. Default is 'default'.")
 	kubeConfig := flag.String("kubeconfig", "", "path to the kubeconfig file. Leave blank to use the ~/.kube/config")
 	pilotURL := flag.String("pilot", "localhost:15010", "pilot address")
@@ -171,24 +188,27 @@ func main() {
 	outputFile := flag.String("output", "", "output file. Leave blank to go to stdout")
 	flag.Parse()
 
-	if *podName == "" {
-		panic("--pod cannot be empty")
+	if *podName == "" && *appName == "" {
+		log.Error("Either --pod or --app should be set.")
+		return
 	}
 	if *namespace == "" {
-		panic("--namespace cannot be empty")
+		log.Error("--namespace cannot be empty")
+		return
 	}
 	if *pilotURL == "" {
-		panic("--pilot cannot be empy")
+		log.Error("--pilot cannot be empy")
+		return
 	}
 
 	podInfo := PodInfo{
 		Name:      *podName,
 		IP:        *podIP,
 		Namespace: *namespace,
+		AppLabel:  *appName,
 	}
-
-	if podInfo.IP == "" {
-		podInfo.fetchPodIP(resolveKubeConfigPath(*kubeConfig))
+	if !podInfo.populatePodNameAndIP(resolveKubeConfigPath(*kubeConfig)) {
+		return
 	}
 
 	resp := request(*pilotURL, podInfo.makeRequest(*configType))
@@ -197,7 +217,7 @@ func main() {
 		fmt.Printf("%v\n", strResponse)
 	} else {
 		if err := ioutil.WriteFile(*outputFile, []byte(strResponse), 0644); err != nil {
-			panic(err)
+			log.Errorf("Cannot write output to file %q", *outputFile)
 		}
 	}
 }
