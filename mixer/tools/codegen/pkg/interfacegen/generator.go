@@ -28,6 +28,7 @@ import (
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 	"golang.org/x/tools/imports"
 
+	descriptor2 "istio.io/istio/mixer/pkg/protobuf/descriptor"
 	tmpl "istio.io/istio/mixer/tools/codegen/pkg/interfacegen/template"
 	"istio.io/istio/mixer/tools/codegen/pkg/modelgen"
 )
@@ -75,7 +76,7 @@ func (g *Generator) generateInternal(fdsFile string, interfaceTmpl, augmentedPro
 		return fmt.Errorf("cannot parse file '%s' as a FileDescriptorSetProto: %v", fdsFile, err)
 	}
 
-	parser := modelgen.CreateFileDescriptorSetParser(fds, g.ImptMap, "")
+	parser := descriptor2.CreateFileDescriptorSetParser(fds, g.ImptMap, "")
 
 	model, err := modelgen.Create(parser)
 	if err != nil {

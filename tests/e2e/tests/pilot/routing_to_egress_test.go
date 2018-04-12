@@ -47,8 +47,9 @@ func TestEgressRouteFaultInjection(t *testing.T) {
 
 		// Apply the new rule
 		cfgs = &deployableConfig{
-			Namespace: tc.Kube.Namespace,
-			YamlFiles: yamlFiles,
+			Namespace:  tc.Kube.Namespace,
+			YamlFiles:  yamlFiles,
+			kubeconfig: tc.Kube.KubeConfig,
 		}
 		if err := cfgs.Setup(); err != nil {
 			t.Fatal(err)
@@ -144,6 +145,7 @@ func TestEgressRouteHeaders(t *testing.T) {
 		YamlFiles: []string{
 			"testdata/v1alpha1/egress-rule-httpbin.yaml",
 			"testdata/v1alpha1/rule-route-append-headers-httpbin.yaml"},
+		kubeconfig: tc.Kube.KubeConfig,
 	}
 	if err := cfgs.Setup(); err != nil {
 		t.Fatal(err)
@@ -195,8 +197,9 @@ func TestEgressRouteRedirectRewrite(t *testing.T) {
 
 		// Apply the new rule
 		cfgs = &deployableConfig{
-			Namespace: tc.Kube.Namespace,
-			YamlFiles: yamlFiles,
+			Namespace:  tc.Kube.Namespace,
+			YamlFiles:  yamlFiles,
+			kubeconfig: tc.Kube.KubeConfig,
 		}
 		if err := cfgs.Setup(); err != nil {
 			t.Fatal(err)

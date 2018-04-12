@@ -121,7 +121,7 @@ func (t *testConfig) Setup() (err error) {
 
 	err = createDefaultRoutingRules()
 
-	if err = util.WaitForDeploymentsReady(tc.Kube.Namespace, time.Minute*2); err != nil {
+	if err = util.WaitForDeploymentsReady(tc.Kube.Namespace, time.Minute*2, tc.Kube.KubeConfig); err != nil {
 		return fmt.Errorf("pods not ready: %v", err)
 	}
 
@@ -234,7 +234,7 @@ func (p *promProxy) portForward(labelSelector string, localPort string, remotePo
 func (p *promProxy) Setup() error {
 	var err error
 
-	if err = util.WaitForDeploymentsReady(tc.Kube.Namespace, time.Minute*2); err != nil {
+	if err = util.WaitForDeploymentsReady(tc.Kube.Namespace, time.Minute*2, tc.Kube.KubeConfig); err != nil {
 		return fmt.Errorf("could not establish prometheus proxy: pods not ready: %v", err)
 	}
 
@@ -800,13 +800,14 @@ func TestMixerReportingToMixer(t *testing.T) {
 
 	t.Logf("Validating Mixer access logs show Check() and Report() calls...")
 
-	logs, err := util.Shell(`kubectl -n %s logs %s -c mixer --tail 100 | grep -e "%s" -e "%s"`, tc.Kube.Namespace, mixerPod, checkPath, reportPath)
+	logs, err := util.Shell(`kubectl -n %s logs %s -c mixer --tail 1000 | grep -e "%s" -e "%s"`, tc.Kube.Namespace, mixerPod, checkPath, reportPath)
 	if err != nil {
 		t.Fatalf("Error retrieving istio-telemetry logs: %v", err)
 	}
+	wantLines := 4
 	gotLines := strings.Count(logs, "\n")
-	if gotLines < 4 {
-		t.Errorf("Expected at least 4 lines of Mixer-specific access logs, got %d", gotLines)
+	if gotLines < wantLines {
+		t.Errorf("Expected at least %v lines of Mixer-specific access logs, got %d", wantLines, gotLines)
 	}
 
 }
@@ -1008,17 +1009,17 @@ func fqdn(service string) string {
 
 func createRouteRule(ruleName string) error {
 	rule := filepath.Join(tc.rulesDir, ruleName+"."+yamlExtension)
-	return util.KubeApply(tc.Kube.Namespace, rule)
+	return util.KubeApply(tc.Kube.Namespace, rule, tc.Kube.KubeConfig)
 }
 
 func replaceRouteRule(ruleName string) error {
 	rule := filepath.Join(tc.rulesDir, ruleName+"."+yamlExtension)
-	return util.KubeApply(tc.Kube.Namespace, rule)
+	return util.KubeApply(tc.Kube.Namespace, rule, tc.Kube.KubeConfig)
 }
 
 func deleteRouteRule(ruleName string) error {
 	rule := filepath.Join(tc.rulesDir, ruleName+"."+yamlExtension)
-	return util.KubeDelete(tc.Kube.Namespace, rule)
+	return util.KubeDelete(tc.Kube.Namespace, rule, tc.Kube.KubeConfig)
 }
 
 func deleteMixerRule(ruleName string) error {
@@ -1029,7 +1030,7 @@ func applyMixerRule(ruleName string) error {
 	return doMixerRule(ruleName, util.KubeApplyContents)
 }
 
-type kubeDo func(namespace string, contents string) error
+type kubeDo func(namespace string, contents string, kubeconfig string) error
 
 // doMixerRule
 // New mixer rules contain fully qualified pointers to other
@@ -1046,7 +1047,7 @@ func doMixerRule(ruleName string, do kubeDo) error {
 		return fmt.Errorf("%s must contain %s so the it can replaced", rule, templateNamespace)
 	}
 	contents = strings.Replace(contents, templateNamespace, tc.Kube.Namespace, -1)
-	return do(tc.Kube.Namespace, contents)
+	return do(tc.Kube.Namespace, contents, tc.Kube.KubeConfig)
 }
 
 func getBookinfoResourcePath(resource string) string {

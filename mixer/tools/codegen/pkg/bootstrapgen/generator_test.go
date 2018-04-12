@@ -29,6 +29,7 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/istio/mixer/pkg/protobuf/descriptor"
 	"istio.io/istio/mixer/tools/codegen/pkg/bootstrapgen/template"
 	"istio.io/istio/mixer/tools/codegen/pkg/modelgen"
 )
@@ -129,7 +130,7 @@ func TestGeneratorBadModel(t *testing.T) {
 	}
 	err = g.generateInternal(
 		map[string]string{"testdata/check/template.descriptor": "istio.io/istio/mixer/template/list"},
-		template.BootstrapTemplate, func(parser *modelgen.FileDescriptorSetParser) (*modelgen.Model, error) {
+		template.BootstrapTemplate, func(parser *descriptor.FileDescriptorSetParser) (*modelgen.Model, error) {
 			return nil, fmt.Errorf("bad model")
 		})
 	validateHasError(t, err, "bad model")
@@ -145,7 +146,7 @@ func TestGeneratorNilModel(t *testing.T) {
 	}
 	err = g.generateInternal(
 		map[string]string{"testdata/check/template.descriptor": "istio.io/istio/mixer/template/list"},
-		template.BootstrapTemplate, func(parser *modelgen.FileDescriptorSetParser) (*modelgen.Model, error) { return nil, nil })
+		template.BootstrapTemplate, func(parser *descriptor.FileDescriptorSetParser) (*modelgen.Model, error) { return nil, nil })
 	validateHasError(t, err, "cannot execute the template")
 }
 
