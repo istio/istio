@@ -29,7 +29,7 @@ set -x
 
 # Run tests with auth disabled
 #echo 'Running pilot e2e tests (v1alpha3, noauth)'
-#./prow/e2e-suite.sh --auth_enable=false --v1alpha1=false --single_test e2e_pilot "$@"
+./prow/e2e-suite.sh --single_test e2e_pilotv2 "$@"
 
 # Run tests with auth enabled
 #echo 'Running pilot e2e tests (v1alpha3, auth)'

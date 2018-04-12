@@ -101,6 +101,12 @@ e2e_upgrade_run:
 e2e_version_skew_run:
 	go test -v -timeout 20m ./tests/e2e/tests/upgrade -args --smooth_check=true ${E2E_ARGS} ${EXTRA_E2E_ARGS} ${UPGRADE_E2E_ARGS}
 
+# v1alpha3+envoyv2 test without MTLS
+e2e_pilotv2: istioctl generate_yaml-envoyv2_transition
+	ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 20m ./tests/e2e/tests/pilot \
+ 	--skip_cleanup --auth_enable=false --v1alpha3=true --egress=false --ingress=false --rbac_enable=false --v1alpha1=false \
+	${E2E_ARGS} ${EXTRA_E2E_ARGS} ${T} 
+
 e2e_all_run:
 	$(MAKE) --keep-going e2e_simple_run e2e_mixer_run e2e_bookinfo_run e2e_dashboard_run e2e_upgrade_run
 

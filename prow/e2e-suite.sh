@@ -31,6 +31,7 @@ set -u
 set -x
 
 TEST_TARGETS=(e2e_simple e2e_mixer e2e_bookinfo e2e_upgrade e2e_dashboard e2e_pilot)
+TEST_TARGETS_SET=(e2e_simple e2e_mixer e2e_bookinfo e2e_upgrade e2e_dashboard e2e_pilot e2e_pilotv2)
 SINGLE_MODE=false
 
 # Check https://github.com/istio/test-infra/blob/master/boskos/configs.yaml
@@ -88,7 +89,7 @@ if ${SINGLE_MODE}; then
 
     # Check if it's a valid test file
     VALID_TEST=false
-    for T in ${TEST_TARGETS[@]}; do
+    for T in ${TEST_TARGETS_SET[@]}; do
         if [ "${T}" == "${SINGLE_TEST}" ]; then
             VALID_TEST=true
             time ISTIO_DOCKER_HUB=$HUB \
