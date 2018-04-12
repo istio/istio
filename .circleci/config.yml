@@ -257,6 +257,11 @@ jobs:
       - run: make sync
       - run: bin/testEnvRootMinikube.sh start
       - run:
+          no_output_timeout: 20m
+          when: always
+          command: |
+                make test/local/cloudfoundry/e2e_pilotv2
+      - run:
           command: |
             if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
               # Should only happen when re-running a job, and the workspace is gone
