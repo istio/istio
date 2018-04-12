@@ -57,38 +57,33 @@ type Synchronizer struct {
 type eventHookFn func(e interface{})
 
 // NewSynchronizer returns a new instance of a Synchronizer
-func NewSynchronizer(config *rest.Config, resyncPeriod time.Duration, name string, source schema.GroupVersion,
-	destination schema.GroupVersion, kind string, listKind string) (s *Synchronizer, err error) {
-	return newSynchronizer(config, resyncPeriod, name, source, destination, kind, listKind, nil)
+func NewSynchronizer(config *rest.Config, resyncPeriod time.Duration, source schema.GroupVersion,
+	destination schema.GroupVersion, name, kind, listKind string) (s *Synchronizer, err error) {
+	return newSynchronizer(config, resyncPeriod, source, destination, name, kind, listKind, nil)
 }
 
 // NewSynchronizer returns a new instance of a Synchronizer that synchronizes the custom resource contents
 // from the accessor APIGroup/Version to the destination APIGroup/Version. The kind and listKind is used
 // when hydrating objects as unstructured.Unstructured.
-func newSynchronizer(
-	config *rest.Config, resyncPeriod time.Duration, name string, source schema.GroupVersion,
-	destination schema.GroupVersion, kind string, listKind string, eventHook eventHookFn) (
-	s *Synchronizer, err error) {
+func newSynchronizer(config *rest.Config, resyncPeriod time.Duration, source schema.GroupVersion,
+	destination schema.GroupVersion, name, kind, listKind string, eventHook eventHookFn) (*Synchronizer, error) {
 
-	s = &Synchronizer{
+	s := &Synchronizer{
 		eventHook: eventHook,
 	}
 
-	if s.source, err = newAccessor(config, resyncPeriod, name,
-		source, kind, listKind, s.handleInputEvent); err != nil {
-
-		s = nil
-		return
+	var err error
+	if s.source, err = newAccessor(config, resyncPeriod, name, source, kind, listKind, s.handleInputEvent); err != nil {
+		return nil, err
 	}
 
 	if s.destination, err = newAccessor(config, resyncPeriod, name,
 		destination, kind, listKind, s.handleOutputEvent); err != nil {
 
-		s = nil
-		return
+		return nil, err
 	}
 
-	return
+	return s, nil
 }
 
 // Start the resource synchronizer

@@ -26,14 +26,13 @@ import (
 )
 
 // DeleteAll deletes all resources in the specified custom resource set for given namespaces.
-func DeleteAll(
-	config *rest.Config, name string, kind string, gv schema.GroupVersion, namespaces []string) (err error) {
-
+func DeleteAll(config *rest.Config, name string, kind string, gv schema.GroupVersion, namespaces []string) (error) {
 	cfg := *config
 	cfg.GroupVersion = &gv
 	cfg.APIPath = "/apis"
 	cfg.ContentType = runtime.ContentTypeJSON
 
+	var err error
 	var iface dynamic.Interface
 	if iface, err = newDynamicClient(&cfg); err != nil {
 		return err
@@ -50,13 +49,13 @@ func DeleteAll(
 	for _, ns := range namespaces {
 		log.Infof("Deleting all resources: name:%s (%s/%s), kind:%s, ns:%s",
 			name, gv.Group, gv.Version, kind, ns)
-		if err = iface.Resource(apiResource, ns).
-			DeleteCollection(&metav1.DeleteOptions{}, metav1.ListOptions{}); err != nil {
-			return err
+		if e := iface.Resource(apiResource, ns).
+			DeleteCollection(&metav1.DeleteOptions{}, metav1.ListOptions{}); e != nil && err == nil {
+			err = e
 		}
 	}
 
-	return nil
+	return err
 }
 
 // GetNamespaces returns the currently known namespaces.

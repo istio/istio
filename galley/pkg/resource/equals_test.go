@@ -67,6 +67,7 @@ func TestEquals(t *testing.T) {
 }
 
 func checkUnstructuredEquals(t *testing.T, expected bool, u1, u2 *unstructured.Unstructured) {
+	t.Helper()
 	actual := equals(u1, u2)
 
 	if actual != expected {

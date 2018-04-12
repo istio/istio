@@ -39,7 +39,7 @@ func TestSynchronizer_NewClientError(t *testing.T) {
 
 	sgv := schema.GroupVersion{Group: "g1", Version: "v1"}
 	dgv := schema.GroupVersion{Group: "g2", Version: "v2"}
-	_, err := NewSynchronizer(&rest.Config{}, 0, "foo", sgv, dgv, "kind", "listkind")
+	_, err := NewSynchronizer(&rest.Config{}, 0, sgv, dgv, "foo", "kind", "listkind")
 	if err == nil || err.Error() != "newDynamicClient error" {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -62,7 +62,7 @@ func TestSynchronizer_NewClientError2(t *testing.T) {
 
 	sgv := schema.GroupVersion{Group: "g1", Version: "v1"}
 	dgv := schema.GroupVersion{Group: "g1", Version: "v2"}
-	_, err := NewSynchronizer(&rest.Config{}, 0, "foo", sgv, dgv, "kind", "listkind")
+	_, err := NewSynchronizer(&rest.Config{}, 0, sgv, dgv, "foo", "kind", "listkind")
 	if err == nil || err.Error() != "newDynamicClient error" {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -124,7 +124,7 @@ func newTestState(t *testing.T, initial1, initial2 []unstructured.Unstructured) 
 	sgv := schema.GroupVersion{Group: "g1", Version: "v1"}
 	dgv := schema.GroupVersion{Group: "g2", Version: "v2"}
 	s, err := newSynchronizer(
-		&rest.Config{}, 0, "foo", sgv, dgv, "kind", "listkind", hookFn)
+		&rest.Config{}, 0, sgv, dgv, "foo", "kind", "listkind", hookFn)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}

@@ -146,8 +146,8 @@ func (s *accessor) start() {
 			newRes := new.(*unstructured.Unstructured)
 			oldRes := old.(*unstructured.Unstructured)
 			if newRes.GetResourceVersion() == oldRes.GetResourceVersion() {
-				// Periodic resync will send update events for all known Deployments.
-				// Two different versions of the same Deployment will always have different RVs.
+				// Periodic resync will send update events for all known resources.
+				// Two different versions of the same resource will always have different RVs.
 				return
 			}
 			s.handleEvent(change.Update, new)
@@ -179,9 +179,8 @@ func (s *accessor) stop() {
 }
 
 func (s *accessor) handleEvent(t change.Type, obj interface{}) {
-	var object metav1.Object
-	var ok bool
-	if object, ok = obj.(metav1.Object); !ok {
+	object, ok := obj.(metav1.Object);
+	if !ok {
 		var tombstone cache.DeletedFinalStateUnknown
 		if tombstone, ok = obj.(cache.DeletedFinalStateUnknown); !ok {
 			log.Errorf("error decoding object, invalid type: %v", reflect.TypeOf(obj))
@@ -209,7 +208,7 @@ func (s *accessor) handleEvent(t change.Type, obj interface{}) {
 	s.processor(info)
 }
 
-func addTypeToScheme(s *runtime.Scheme, gv schema.GroupVersion, kind string, listkind string) error {
+func addTypeToScheme(s *runtime.Scheme, gv schema.GroupVersion, kind, listKind string) error {
 	builder := runtime.NewSchemeBuilder(func(s *runtime.Scheme) error {
 		// Add the object itself
 		gvk := schema.GroupVersionKind{
@@ -227,12 +226,12 @@ func addTypeToScheme(s *runtime.Scheme, gv schema.GroupVersion, kind string, lis
 		gvk = schema.GroupVersionKind{
 			Group:   gv.Group,
 			Version: gv.Version,
-			Kind:    listkind,
+			Kind:    listKind,
 		}
 
 		c := &unstructured.UnstructuredList{}
 		o.SetAPIVersion(gv.Group)
-		o.SetKind(listkind)
+		o.SetKind(listKind)
 		s.AddKnownTypeWithName(gvk, c)
 
 		return nil
