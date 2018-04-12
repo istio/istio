@@ -16,9 +16,12 @@ package pilot
 
 import (
 	"fmt"
+	"net/http"
 	"testing"
 	"time"
 
+	"istio.io/fortio/fhttp"
+	"istio.io/fortio/periodic"
 	"istio.io/istio/pkg/log"
 )
 
@@ -120,7 +123,7 @@ func TestIngressGateway503DuringRuleChange(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer newDestRule.Teardown()
-		log.Infof("routing to v1/v2")
+		log.Infof("routing to v1,v2")
 		if err := newVirtService.Setup(); err != nil {
 			t.Fatal(err)
 		}
@@ -133,20 +136,31 @@ func TestIngressGateway503DuringRuleChange(t *testing.T) {
 		if err := routeToNewSubsets.Setup(); err != nil {
 			t.Fatal(err)
 		}
-		log.Infof("deleting old subsets a/b")
+		log.Infof("deleting old subsets v1,v2")
 		if err := deleteOldSubsets.Setup(); err != nil {
 			t.Fatal(err)
 		}
 	}()
 
-	reqURL := fmt.Sprintf("http://%s.%s/c", ingressGatewayServiceName, istioNamespace)
-	resp := ClientRequest("t", reqURL, 100, "-key Host -val uk.bookinfo.com")
-	count := make(map[string]int)
-	for _, elt := range resp.Code {
-		count[elt] = count[elt] + 1
+	// We need a way to issue steady stream of requests
+	// run at a low/moderate QPS for a while while changing the routing rules,
+	// check for any non 200s
+	opts := fhttp.HTTPRunnerOptions{
+		RunnerOptions: periodic.RunnerOptions{
+			QPS:        24, // 3 per second per connection
+			Duration:   30 * time.Second,
+			NumThreads: 8,
+		},
 	}
-	log.Infof("request counts %v", count)
-	if count["200"] != 100 {
-			t.Errorf("Got one or more non 200 response codes during the test..")
+	opts.URL = fmt.Sprintf("http://%s.%s/c", ingressGatewayServiceName, istioNamespace)
+	opts.HTTPOptions.AddAndValidateExtraHeader("host:uk.bookinfo.com")
+	res, err := fhttp.RunHTTPTest(&opts)
+	if err != nil {
+		t.Fatalf("Generating traffic via fortio failed: %v", err)
+	}
+	numRequests := res.DurationHistogram.Count
+	num200s := res.RetCodes[http.StatusOK]
+	if num200s != numRequests {
+		t.Errorf("Not all %d requests were successful (%v)", numRequests, res.RetCodes)
 	}
 }
