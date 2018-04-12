@@ -9,4 +9,3 @@ spec:
   - number: 80
     name: http
     protocol: HTTP
-  discovery: DNS
