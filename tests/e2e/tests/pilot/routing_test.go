@@ -42,8 +42,9 @@ func TestRoutes(t *testing.T) {
 
 		// Apply the new rule
 		cfgs = &deployableConfig{
-			Namespace: tc.Kube.Namespace,
-			YamlFiles: []string{ruleYaml},
+			Namespace:  tc.Kube.Namespace,
+			YamlFiles:  []string{ruleYaml},
+			kubeconfig: tc.Kube.KubeConfig,
 		}
 		if err := cfgs.Setup(); err != nil {
 			t.Fatal(err)
@@ -175,8 +176,9 @@ func TestRoutes(t *testing.T) {
 			if version == "v1alpha3" {
 				destRule := "testdata/v1alpha3/destination-rule-c.yaml"
 				cfgs := &deployableConfig{
-					Namespace: tc.Kube.Namespace,
-					YamlFiles: []string{destRule},
+					Namespace:  tc.Kube.Namespace,
+					YamlFiles:  []string{destRule},
+					kubeconfig: tc.Kube.KubeConfig,
 				}
 				if err := cfgs.Setup(); err != nil {
 					t.Fatal(err)
@@ -248,8 +250,9 @@ func TestRouteFaultInjection(t *testing.T) {
 		func() {
 			ruleYaml := fmt.Sprintf("testdata/%s/rule-fault-injection.yaml", version)
 			cfgs := &deployableConfig{
-				Namespace: tc.Kube.Namespace,
-				YamlFiles: []string{ruleYaml},
+				Namespace:  tc.Kube.Namespace,
+				YamlFiles:  []string{ruleYaml},
+				kubeconfig: tc.Kube.KubeConfig,
 			}
 			if err := cfgs.Setup(); err != nil {
 				t.Fatal(err)
@@ -289,8 +292,9 @@ func TestRouteRedirectInjection(t *testing.T) {
 			// Push the rule config.
 			ruleYaml := fmt.Sprintf("testdata/%s/rule-redirect-injection.yaml", version)
 			cfgs := &deployableConfig{
-				Namespace: tc.Kube.Namespace,
-				YamlFiles: []string{ruleYaml},
+				Namespace:  tc.Kube.Namespace,
+				YamlFiles:  []string{ruleYaml},
+				kubeconfig: tc.Kube.KubeConfig,
 			}
 			if err := cfgs.Setup(); err != nil {
 				t.Fatal(err)
@@ -341,8 +345,9 @@ func TestRouteMirroring(t *testing.T) {
 			// Push the rule config.
 			ruleYaml := fmt.Sprintf("testdata/%s/rule-default-route-mirrored.yaml", version)
 			cfgs := &deployableConfig{
-				Namespace: tc.Kube.Namespace,
-				YamlFiles: []string{ruleYaml},
+				Namespace:  tc.Kube.Namespace,
+				YamlFiles:  []string{ruleYaml},
+				kubeconfig: tc.Kube.KubeConfig,
 			}
 			if err := cfgs.Setup(); err != nil {
 				t.Fatal(err)

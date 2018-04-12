@@ -70,7 +70,7 @@ func TestSimpleIngress(t *testing.T) {
 	// works, as fortio only replies with "echo debug server ..." on the /debug uri.
 	url := tc.Kube.IngressOrFail(t) + "/fortio/debug"
 	// Make sure the pods are running:
-	if !util.CheckPodsRunning(tc.Kube.Namespace) {
+	if !util.CheckPodsRunning(tc.Kube.Namespace, tc.Kube.KubeConfig) {
 		t.Fatalf("Pods not ready!")
 	}
 

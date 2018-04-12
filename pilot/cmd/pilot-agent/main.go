@@ -15,10 +15,13 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
@@ -59,6 +62,7 @@ var (
 	proxyLogLevel          string
 	concurrency            int
 	bootstrapv2            bool
+	templateFile           string
 
 	loggingOptions = log.DefaultOptions()
 
@@ -196,6 +200,31 @@ var (
 
 			log.Infof("Monitored certs: %#v", certs)
 
+			if templateFile != "" && proxyConfig.CustomConfigFile == "" {
+				opts := make(map[string]string)
+				opts["PodName"] = os.Getenv("POD_NAME")
+				opts["PodNamespace"] = os.Getenv("POD_NAMESPACE")
+				if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
+					opts["ControlPlaneAuth"] = "enable"
+				}
+				tmpl, err := template.ParseFiles(templateFile)
+				if err != nil {
+					return err
+				}
+				var buffer bytes.Buffer
+				err = tmpl.Execute(&buffer, opts)
+				if err != nil {
+					return err
+				}
+				content := buffer.Bytes()
+				log.Infof("Static config:\n%s", string(content))
+				proxyConfig.CustomConfigFile = proxyConfig.ConfigPath + "/envoy.yaml"
+				err = ioutil.WriteFile(proxyConfig.CustomConfigFile, content, 0644)
+				if err != nil {
+					return err
+				}
+			}
+
 			var envoyProxy proxy.Proxy
 			if bootstrapv2 {
 				// Using a different constructor - the code will likely be refactored / split from the v1,
@@ -272,7 +301,7 @@ func init() {
 	proxyCmd.PersistentFlags().StringVar(&controlPlaneAuthPolicy, "controlPlaneAuthPolicy",
 		values.ControlPlaneAuthPolicy.String(), "Control Plane Authentication Policy")
 	proxyCmd.PersistentFlags().StringVar(&customConfigFile, "customConfigFile", values.CustomConfigFile,
-		"Path to the generated configuration file directory")
+		"Path to the custom configuration file")
 	// Log levels are provided by the library https://github.com/gabime/spdlog, used by Envoy.
 	proxyCmd.PersistentFlags().StringVar(&proxyLogLevel, "proxyLogLevel", "info",
 		fmt.Sprintf("The log level used to start the Envoy proxy (choose from {%s, %s, %s, %s, %s, %s, %s})",
@@ -281,6 +310,8 @@ func init() {
 		"number of worker threads to run")
 	proxyCmd.PersistentFlags().BoolVar(&bootstrapv2, "bootstrapv2", true,
 		"Use bootstrap v2")
+	proxyCmd.PersistentFlags().StringVar(&templateFile, "templateFile", "",
+		"Go template bootstrap config")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)

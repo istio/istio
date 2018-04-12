@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -28,7 +29,9 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"k8s.io/client-go/kubernetes"
 
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/util"
 )
@@ -71,10 +74,12 @@ var (
 		"Whether the cluster is local or not (i.e. the test is running within the cluster). If running on minikube, this should be set to true.")
 	skipSetup                 = flag.Bool("skip_setup", false, "Skip namespace creation and istio cluster setup")
 	sidecarInjectorFile       = flag.String("sidecar_injector_file", defaultSidecarInjectorFile, "Sidecar injector yaml file")
-	galleyConfigValidatorFile = flag.String("galley_config_validator_file", defaultGalleyConfigValidatorFile, "Galley config validator yaml file")
 	clusterWide               = flag.Bool("cluster_wide", false, "Run cluster wide tests")
-	useGalleyConfigValidator  = flag.Bool("use_galley_config_validator", false, "Use galley configuration validation webhook")
+	withMixerValidator        = flag.Bool("with_mixer_validator", false, "Set up mixer validator")
 	imagePullPolicy           = flag.String("image_pull_policy", "", "Specifies an override for the Docker image pull policy to be used")
+	multiClusterDir           = flag.String("cluster_registry_dir", "", "Directory name for the cluster registry config")
+	galleyConfigValidatorFile = flag.String("galley_config_validator_file", defaultGalleyConfigValidatorFile, "Galley config validator yaml file")
+	useGalleyConfigValidator  = flag.Bool("use_galley_config_validator", false, "Use galley configuration validation webhook")
 
 	addons = []string{
 		"zipkin",
@@ -113,6 +118,12 @@ type KubeInfo struct {
 	// A map of app label values to the pods for that app
 	appPods      map[string][]string
 	appPodsMutex sync.Mutex
+
+	KubeConfig       string
+	KubeClient       kubernetes.Interface
+	RemoteKubeConfig string
+	RemoteKubeClient kubernetes.Interface
+	RemoteAppManager *AppManager
 }
 
 // newKubeInfo create a new KubeInfo by given temp dir and runID
@@ -130,7 +141,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	a := NewAppManager(tmpDir, *namespace, i)
+
 	// Download the base release if baseVersion is specified.
 	var releaseDir string
 	if baseVersion != "" {
@@ -147,6 +158,35 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 	} else {
 		releaseDir = util.GetResourcePath("")
 	}
+	var kubeConfig, remoteKubeConfig string
+	var kubeClient, remoteKubeClient kubernetes.Interface
+	var aRemote *AppManager
+	if *multiClusterDir != "" {
+		// ClusterRegistiresDir indicates the Kubernetes cluster config should come from files versus KUBECONFIG
+		// environmental variable.  The test config can be defined to use either a single cluster or 2 clusters
+		kubeConfig, remoteKubeConfig, err = util.GetKubeConfigFromFile(*multiClusterDir)
+		if err != nil {
+			return nil, err
+		}
+		if _, kubeClient, err = kube.CreateInterface(kubeConfig); err != nil {
+			return nil, err
+		}
+		if _, remoteKubeClient, err = kube.CreateInterface(remoteKubeConfig); err != nil {
+			return nil, err
+		}
+
+		aRemote = NewAppManager(tmpDir, *namespace, i, remoteKubeConfig)
+	} else {
+		tmpfile := *namespace + "_kubeconfig"
+		tmpfile = path.Join(tmpDir, tmpfile)
+		if err = util.GetKubeConfig(tmpfile); err != nil {
+			return nil, err
+		}
+		kubeConfig = tmpfile
+	}
+
+	a := NewAppManager(tmpDir, *namespace, i, kubeConfig)
+
 	log.Infof("Using release dir: %s", releaseDir)
 	return &KubeInfo{
 		Namespace:        *namespace,
@@ -156,10 +196,15 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		localCluster:     *localCluster,
 		Istioctl:         i,
 		AppManager:       a,
+		RemoteAppManager: aRemote,
 		AuthEnabled:      *authEnable,
 		RBACEnabled:      *rbacEnable,
 		ReleaseDir:       releaseDir,
 		BaseVersion:      baseVersion,
+		KubeConfig:       kubeConfig,
+		KubeClient:       kubeClient,
+		RemoteKubeConfig: remoteKubeConfig,
+		RemoteKubeClient: remoteKubeClient,
 	}, nil
 }
 
@@ -208,7 +253,7 @@ func (k *KubeInfo) Setup() error {
 		certDir := util.GetResourcePath("./tests/testdata/certs")
 		certFile := filepath.Join(certDir, "cert.crt")
 		keyFile := filepath.Join(certDir, "cert.key")
-		if _, err = util.CreateTLSSecret(ingressCertsName, k.IstioSystemNamespace(), keyFile, certFile); err != nil {
+		if _, err = util.CreateTLSSecret(ingressCertsName, k.IstioSystemNamespace(), keyFile, certFile, k.KubeConfig); err != nil {
 			log.Warn("Secret already exists")
 		}
 	}
@@ -261,9 +306,9 @@ func (k *KubeInfo) Ingress() (string, error) {
 	}
 
 	if k.localCluster {
-		k.ingress, k.ingressErr = util.GetIngressPod(k.Namespace)
+		k.ingress, k.ingressErr = util.GetIngressPod(k.Namespace, k.KubeConfig)
 	} else {
-		k.ingress, k.ingressErr = util.GetIngress(k.Namespace)
+		k.ingress, k.ingressErr = util.GetIngress(k.Namespace, k.KubeConfig)
 	}
 
 	// So far we only do http ingress
@@ -285,7 +330,7 @@ func (k *KubeInfo) Teardown() error {
 	if *useAutomaticInjection {
 		testSidecarInjectorYAML := filepath.Join(k.TmpDir, "yaml", *sidecarInjectorFile)
 
-		if err := util.KubeDelete(k.Namespace, testSidecarInjectorYAML); err != nil {
+		if err := util.KubeDelete(k.Namespace, testSidecarInjectorYAML, k.KubeConfig); err != nil {
 			log.Errorf("Istio sidecar injector %s deletion failed", testSidecarInjectorYAML)
 			return err
 		}
@@ -294,7 +339,7 @@ func (k *KubeInfo) Teardown() error {
 	if *useGalleyConfigValidator {
 		testGalleyConfigValidatorYAML := filepath.Join(k.TmpDir, "yaml", *galleyConfigValidatorFile)
 
-		if err := util.KubeDelete(k.Namespace, testGalleyConfigValidatorYAML); err != nil {
+		if err := util.KubeDelete(k.Namespace, testGalleyConfigValidatorYAML, k.KubeConfig); err != nil {
 			log.Errorf("Istio galley config validator %s deletion failed", testGalleyConfigValidatorYAML)
 			return err
 		}
@@ -309,27 +354,33 @@ func (k *KubeInfo) Teardown() error {
 
 		testIstioYaml := filepath.Join(k.TmpDir, "yaml", istioYaml)
 
-		if err := util.KubeDelete(k.Namespace, testIstioYaml); err != nil {
+		if err := util.KubeDelete(k.Namespace, testIstioYaml, k.KubeConfig); err != nil {
 			log.Infof("Safe to ignore resource not found errors in kubectl delete -f %s", testIstioYaml)
 		}
 	} else {
-		if err := util.DeleteNamespace(k.Namespace); err != nil {
+		if err := util.DeleteNamespace(k.Namespace, k.KubeConfig); err != nil {
 			log.Errorf("Failed to delete namespace %s", k.Namespace)
 			return err
 		}
+		if *multiClusterDir != "" {
+			if err := util.DeleteNamespace(k.Namespace, k.RemoteKubeConfig); err != nil {
+				log.Errorf("Failed to delete namespace %s on remote cluster", k.Namespace)
+				return err
+			}
+		}
 
 		// ClusterRoleBindings are not namespaced and need to be deleted separately
-		if _, err := util.Shell("kubectl get clusterrolebinding -o jsonpath={.items[*].metadata.name}"+
-			"|xargs -n 1|fgrep %s|xargs kubectl delete clusterrolebinding",
-			k.Namespace); err != nil {
+		if _, err := util.Shell("kubectl get --kubeconfig=%s clusterrolebinding -o jsonpath={.items[*].metadata.name}"+
+			"|xargs -n 1|fgrep %s|xargs kubectl delete --kubeconfig=%s clusterrolebinding", k.KubeConfig,
+			k.Namespace, k.KubeConfig); err != nil {
 			log.Errorf("Failed to delete clusterrolebindings associated with namespace %s", k.Namespace)
 			return err
 		}
 
 		// ClusterRoles are not namespaced and need to be deleted separately
-		if _, err := util.Shell("kubectl get clusterrole -o jsonpath={.items[*].metadata.name}"+
-			"|xargs -n 1|fgrep %s|xargs kubectl delete clusterrole",
-			k.Namespace); err != nil {
+		if _, err := util.Shell("kubectl get --kubeconfig=%s clusterrole -o jsonpath={.items[*].metadata.name}"+
+			"|xargs -n 1|fgrep %s|xargs kubectl delete --kubeconfig=%s clusterrole", k.KubeConfig,
+			k.Namespace, k.KubeConfig); err != nil {
 			log.Errorf("Failed to delete clusterroles associated with namespace %s", k.Namespace)
 			return err
 		}
@@ -340,7 +391,7 @@ func (k *KubeInfo) Teardown() error {
 	namespaceDeleted := false
 	log.Infof("Deleting namespace %v", k.Namespace)
 	for attempts := 1; attempts <= maxAttempts; attempts++ {
-		namespaceDeleted, _ = util.NamespaceDeleted(k.Namespace)
+		namespaceDeleted, _ = util.NamespaceDeleted(k.Namespace, k.KubeConfig)
 		if namespaceDeleted {
 			break
 		}
@@ -364,7 +415,7 @@ func (k *KubeInfo) GetAppPods() map[string][]string {
 
 	if len(newMap) == 0 {
 		var err error
-		if newMap, err = util.GetAppPods(k.Namespace); err != nil {
+		if newMap, err = util.GetAppPods(k.Namespace, k.KubeConfig); err != nil {
 			log.Errorf("Failed to get retrieve the app pods for namespace %s", k.Namespace)
 		} else {
 			// Copy the new results to the internal map.
@@ -385,7 +436,7 @@ func (k *KubeInfo) GetRoutes(app string) (string, error) {
 	pod := appPods[app][0]
 
 	routesURL := "http://localhost:15000/routes"
-	routes, err := util.PodExec(k.Namespace, pod, "app", fmt.Sprintf("client -url %s", routesURL), true)
+	routes, err := util.PodExec(k.Namespace, pod, "app", fmt.Sprintf("client -url %s", routesURL), true, k.KubeConfig)
 	if err != nil {
 		return "", errors.WithMessage(err, "failed to get routes")
 	}
@@ -437,7 +488,7 @@ func (k *KubeInfo) deployAddons() error {
 			log.Errorf("Cannot write into file %s", yamlFile)
 		}
 
-		if err := util.KubeApply(k.Namespace, yamlFile); err != nil {
+		if err := util.KubeApply(k.Namespace, yamlFile, k.KubeConfig); err != nil {
 			log.Errorf("Kubectl apply %s failed", yamlFile)
 			return err
 		}
@@ -467,12 +518,19 @@ func (k *KubeInfo) deployIstio() error {
 		return err
 	}
 
-	if err := util.CreateNamespace(k.Namespace); err != nil {
+	if err := util.CreateNamespace(k.Namespace, k.KubeConfig); err != nil {
 		log.Errorf("Unable to create namespace %s: %s", k.Namespace, err.Error())
 		return err
 	}
 
-	if err := util.KubeApply(k.Namespace, testIstioYaml); err != nil {
+	if *multiClusterDir != "" {
+		if err := util.CreateNamespace(k.Namespace, k.RemoteKubeConfig); err != nil {
+			log.Errorf("Unable to create namespace %s on remote cluster: %s", k.Namespace, err.Error())
+			return err
+		}
+	}
+
+	if err := util.KubeApply(k.Namespace, testIstioYaml, k.KubeConfig); err != nil {
 		log.Errorf("Istio core %s deployment failed", testIstioYaml)
 		return err
 	}
@@ -484,11 +542,12 @@ func (k *KubeInfo) deployIstio() error {
 			log.Errorf("Generating sidecar injector yaml failed")
 			return err
 		}
-		if err := util.KubeApply(k.Namespace, testSidecarInjectorYAML); err != nil {
+		if err := util.KubeApply(k.Namespace, testSidecarInjectorYAML, k.KubeConfig); err != nil {
 			log.Errorf("Istio sidecar injector %s deployment failed", testSidecarInjectorYAML)
 			return err
 		}
 	}
+
 	if *useGalleyConfigValidator {
 		baseConfigValidatorYAML := util.GetResourcePath(filepath.Join(istioInstallDir, *galleyConfigValidatorFile))
 		testConfigValidatorYAML := filepath.Join(k.TmpDir, "yaml", *galleyConfigValidatorFile)
@@ -496,12 +555,12 @@ func (k *KubeInfo) deployIstio() error {
 			log.Errorf("Generating galley config validator yaml failed")
 			return err
 		}
-		if err := util.KubeApply(k.Namespace, testConfigValidatorYAML); err != nil {
+		if err := util.KubeApply(k.Namespace, testConfigValidatorYAML, k.KubeConfig); err != nil {
 			log.Errorf("Istio galley config validator %s deployment failed", testConfigValidatorYAML)
 			return err
 		}
 	}
-	return util.CheckDeployments(k.Namespace, maxDeploymentRolloutTime)
+	return util.CheckDeployments(k.Namespace, maxDeploymentRolloutTime, k.KubeConfig)
 }
 
 func updateInjectImage(name, module, hub, tag string, content []byte) []byte {
