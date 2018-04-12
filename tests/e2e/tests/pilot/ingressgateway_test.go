@@ -17,6 +17,7 @@ package pilot
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"istio.io/istio/pkg/log"
 )
@@ -64,4 +65,88 @@ func TestIngressGateway(t *testing.T) {
 		}
 		return errAgain
 	})
+}
+
+func TestIngressGateway503DuringRuleChange(t *testing.T) {
+	if !tc.V1alpha3 {
+		t.Skipf("Skipping %s: v1alpha3=false", t.Name())
+	}
+
+	istioNamespace := tc.Kube.IstioSystemNamespace()
+	ingressGatewayServiceName := tc.Kube.IstioIngressGatewayService()
+
+	gateway := &deployableConfig{
+		Namespace: tc.Kube.Namespace,
+		YamlFiles: []string{"testdata/v1alpha3/ingressgateway.yaml"},
+	}
+
+	// Add subsets
+	newDestRule := &deployableConfig{
+		Namespace: tc.Kube.Namespace,
+		YamlFiles: []string{"testdata/v1alpha3/rule-503test-destinationrule-c.yaml"},
+	}
+
+	// route to subsets
+	newVirtService := &deployableConfig{
+		Namespace: tc.Kube.Namespace,
+		YamlFiles: []string{"testdata/v1alpha3/rule-503test-virtualservice.yaml"},
+	}
+
+	addMoreSubsets := &deployableConfig{
+		Namespace: tc.Kube.Namespace,
+		YamlFiles: []string{"testdata/v1alpha3/rule-503test-destinationrule-c-add-subset.yaml"},
+	}
+
+	routeToNewSubsets := &deployableConfig{
+		Namespace: tc.Kube.Namespace,
+		YamlFiles: []string{"testdata/v1alpha3/rule-503test-update-virtualservice.yaml"},
+	}
+
+	deleteOldSubsets := &deployableConfig{
+		Namespace: tc.Kube.Namespace,
+		YamlFiles: []string{"testdata/v1alpha3/rule-503test-destinationrule-c-del-subset.yaml"},
+	}
+
+	if err := gateway.Setup(); err != nil {
+		t.Fatal(err)
+	}
+	defer gateway.Teardown()
+
+	// Update configs in background
+	go func() {
+		log.Infof("Adding new subsets v1,v2")
+		// these functions have built in sleep. So we don't have to add any extra sleep here
+		if err := newDestRule.Setup(); err != nil {
+			t.Fatal(err)
+		}
+		defer newDestRule.Teardown()
+		log.Infof("routing to v1/v2")
+		if err := newVirtService.Setup(); err != nil {
+			t.Fatal(err)
+		}
+		defer newVirtService.Teardown()
+		log.Infof("Adding new subsets v3,v4")
+		if err := addMoreSubsets.Setup(); err != nil {
+			t.Fatal(err)
+		}
+		log.Infof("routing to v3,v4")
+		if err := routeToNewSubsets.Setup(); err != nil {
+			t.Fatal(err)
+		}
+		log.Infof("deleting old subsets a/b")
+		if err := deleteOldSubsets.Setup(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	reqURL := fmt.Sprintf("http://%s.%s/c", ingressGatewayServiceName, istioNamespace)
+	resp := ClientRequest("t", reqURL, 100, "-key Host -val uk.bookinfo.com")
+	count := make(map[string]int)
+	for _, elt := range resp.Code {
+		count[elt] = count[elt] + 1
+	}
+	log.Infof("request counts %v", count)
+	if count["200"] != 100 {
+			t.Errorf("Got one or more non 200 response codes during the test..")
+	}
 }
