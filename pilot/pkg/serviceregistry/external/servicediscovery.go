@@ -15,6 +15,7 @@
 package external
 
 import (
+	authn "istio.io/api/authentication/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
@@ -41,7 +42,13 @@ func (d *externalDiscovery) Services() ([]*model.Service, error) {
 
 		services = append(services, convertService(externalService)...)
 	}
-
+	allAuthnConfigs := d.store.AllAuthenticationPolicies()
+	for _, authnPolicyConfig := range allAuthnConfigs {
+		authnPolicy := authnPolicyConfig.Spec.(*authn.Policy)
+		for _, externalService := range extractExternalService(authnPolicy) {
+			services = append(services, convertService(externalService)...)
+		}
+	}
 	return services, nil
 }
 
@@ -69,6 +76,13 @@ func (d *externalDiscovery) getServices() []*model.Service {
 	for _, externalServiceConfig := range configs {
 		externalService := externalServiceConfig.Spec.(*networking.ExternalService)
 		services = append(services, convertService(externalService)...)
+	}
+	allAuthnConfigs := d.store.AllAuthenticationPolicies()
+	for _, authnPolicyConfig := range allAuthnConfigs {
+		authnPolicy := authnPolicyConfig.Spec.(*authn.Policy)
+		for _, externalService := range extractExternalService(authnPolicy) {
+			services = append(services, convertService(externalService)...)
+		}
 	}
 	return services
 }

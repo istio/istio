@@ -296,6 +296,9 @@ type IstioConfigStore interface {
 	// one with the same scope, the first one seen will be used (later, we should
 	// have validation at submitting time to prevent this scenario from happening)
 	AuthenticationPolicyByDestination(hostname string, port *Port) *Config
+
+	// AllAuthenticationPolicies retuns all authentication policies.
+	AllAuthenticationPolicies() []Config
 }
 
 const (
@@ -957,6 +960,14 @@ func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance)
 	}
 
 	return out
+}
+
+func (store *istioConfigStore) AllAuthenticationPolicies() []Config {
+	configs, err := store.List(AuthenticationPolicy.Type, NamespaceAll)
+	if err != nil {
+		return nil
+	}
+	return configs
 }
 
 func (store *istioConfigStore) AuthenticationPolicyByDestination(hostname string, port *Port) *Config {
