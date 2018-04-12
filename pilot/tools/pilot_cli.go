@@ -35,7 +35,8 @@
 // Use cds | eds | rds for other config types.
 //
 // For more convience, you can provide the path to kubeconfig to find pod IP automatically,
-// and even pod name (using --app flag to find the first pod that has matching app label). The default value for kubeconfig path will be resolved to .kube/config in the home folder (Linux only)
+// and even pod name (using --app flag to find the first pod that has matching app label). The default
+// value for kubeconfig path is .kube/config in home folder (works for Linux only).
 // ```bash
 // go run ./pilot/debug/pilot_cli.go -pod <POD_NAME> -kubeconfig path/to/kube/config
 // go run ./pilot/debug/pilot_cli.go -app <APP_LABEL> -kubeconfig path/to/kube/config
@@ -178,7 +179,8 @@ func resolveKubeConfigPath(kubeConfig string) string {
 
 func main() {
 	podName := flag.String("pod", "", "pod name. If omit, pod name will be found from k8s registry using app label.")
-	appName := flag.String("app", "", "app label. Should be set if pod name is not provided. It will be used to find the pod that has the same app label. Ignored if --pod is set.")
+	appName := flag.String("app", "", "app label. Should be set if pod name is not provided. It will be used to find "+
+		"the pod that has the same app label. Ignored if --pod is set.")
 	podIP := flag.String("ip", "", "pod IP. If omit, pod IP will be found from registry.")
 	namespace := flag.String("namespace", "default", "namespace. Default is 'default'.")
 	kubeConfig := flag.String("kubeconfig", "~/.kube/config", "path to the kubeconfig file. Default is ~/.kube/config")
