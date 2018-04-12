@@ -50,6 +50,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -167,10 +168,8 @@ func request(pilotURL string, req *xdsapi.DiscoveryRequest) *xdsapi.DiscoveryRes
 }
 
 func resolveKubeConfigPath(kubeConfig string) string {
-	if kubeConfig == "" {
-		return fmt.Sprintf("%s/.kube/config", os.Getenv("HOME"))
-	}
-	ret, err := filepath.Abs(kubeConfig)
+	path := strings.Replace(kubeConfig, "~", os.Getenv("HOME"), 1)
+	ret, err := filepath.Abs(path)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -182,7 +181,7 @@ func main() {
 	appName := flag.String("app", "", "app label. Should be set if pod name is not provided. It will be used to find the pod that has the same app label. Ignored if --pod is set.")
 	podIP := flag.String("ip", "", "pod IP. If omit, pod IP will be found from registry.")
 	namespace := flag.String("namespace", "default", "namespace. Default is 'default'.")
-	kubeConfig := flag.String("kubeconfig", "", "path to the kubeconfig file. Leave blank to use the ~/.kube/config")
+	kubeConfig := flag.String("kubeconfig", "~/.kube/config", "path to the kubeconfig file. Default is ~/.kube/config")
 	pilotURL := flag.String("pilot", "localhost:15010", "pilot address")
 	configType := flag.String("type", "lds", "lds, cds, rds or eds. Default lds.")
 	outputFile := flag.String("output", "", "output file. Leave blank to go to stdout")
