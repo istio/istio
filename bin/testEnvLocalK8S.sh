@@ -135,6 +135,7 @@ function startLocalApiserver() {
 
     # Really need to make sure that API Server is up before proceed further
     waitForApiServer "http://127.0.0.1:8090"
+    export K8S1="http://localhost:8090"
     printf "Started local etcd and apiserver!\n"
 }
 
@@ -217,28 +218,28 @@ function stopLocalApiserver() {
 
 function stopMultiCluster() {
   for (( i=0; i<3; i++))
-	  do
-  if [[ -f $LOG_DIR/etcd$i.pid ]]; then
-    kill -9 $(cat $LOG_DIR/etcd$i.pid)
-    kill -9 $(cat $LOG_DIR/apiserver$i.pid)
-    rm $LOG_DIR/{etcd$i,apiserver$i}.pid
-  fi
-  if [[ -d "${ETCD_DATADIR}$i" ]]; then
-    rm -rf ${ETCD_DATADIR}$i
-  fi
+	do
+    if [[ -f $LOG_DIR/etcd$i.pid ]]; then
+      kill -9 $(cat $LOG_DIR/etcd$i.pid) || true
+      kill -9 $(cat $LOG_DIR/apiserver$i.pid) || true
+      rm $LOG_DIR/{etcd$i,apiserver$i}.pid || true
+      rm $LOG_DIR/apiserver$i.url || true
+    fi
+    if [[ -d "${ETCD_DATADIR}$i" ]]; then
+      rm -rf ${ETCD_DATADIR}$i
+    fi
   done
 }
 
 # No root required, run local etcd and kube apiserver for tests.
-function startMultiCluster() {
+function startETCDsAndAPIs() {
     ensureK8SCerts
     getDeps
 
     mkdir -p ${LOG_DIR}
 
-    for (( i=0; i<3; i++))
+    for (( i=0; i<$1; i++))
 	  do
-      set -x
 		  mkdir -p ${ETCD_DATADIR}$i
       ${TOP}/bin/etcd --listen-client-urls "http://localhost:237$i" \
                       --advertise-client-urls "http://localhost:237$i" \
@@ -263,9 +264,16 @@ function startMultiCluster() {
 
       # Really need to make sure that API Server is up before proceed further
       waitForApiServer "http://127.0.0.1:809$i"
+      echo "http://localhost:809$i" > $LOG_DIR/apiserver$i.url
+
    done
 
-    printf "Started local etcds and apiservers!\n"
+    printf "Started $1 local etcds and apiservers!\n"
+}
+
+function startMultiCluster() {
+  startETCDsAndAPIs 3
+
 }
 
 function startLocalServers() {
