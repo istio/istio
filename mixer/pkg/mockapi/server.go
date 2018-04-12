@@ -90,7 +90,7 @@ func (a *AttributesServer) Check(ctx context.Context, req *mixerpb.CheckRequest)
 	requestBag := attribute.NewProtoBag(&req.Attributes, a.GlobalDict, attribute.GlobalList())
 	defer requestBag.Done()
 
-	responseBag := attribute.GetMutableBag(requestBag)
+	responseBag := attribute.GetMutableBag(nil)
 	result, out := a.Handler.Check(requestBag, responseBag)
 
 	resp := &mixerpb.CheckResponse{
