@@ -79,6 +79,8 @@ spec:
 {{end}}
           - --version
           - "{{.version}}"
+          - --serverId
+          - "{{.serverId}}"
         ports:
         - containerPort: {{.port1}}
         - containerPort: {{.port2}}

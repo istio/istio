@@ -16,7 +16,6 @@ package pilot
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 
 	"istio.io/istio/pkg/log"
@@ -130,7 +129,7 @@ func TestIngress(t *testing.T) {
 		},
 	}
 
-	logs := newAccessLogs()
+	//logs := newAccessLogs()
 	t.Run("request", func(t *testing.T) {
 		for _, c := range cases {
 			extra := ""
@@ -146,7 +145,7 @@ func TestIngress(t *testing.T) {
 				testName = fmt.Sprintf("UNREACHABLE:%s(Host:%s)", c.url, c.host)
 			}
 
-			logEntry := fmt.Sprintf("Ingress request to %+v", c)
+			//logEntry := fmt.Sprintf("Ingress request to %+v", c)
 			runRetriableTest(t, testName, retryBudget, func() error {
 				resp := ClientRequest("t", c.url, 1, extra)
 				if !expectReachable {
@@ -155,18 +154,25 @@ func TestIngress(t *testing.T) {
 					}
 					return errAgain
 				}
-				if len(resp.ID) > 0 {
-					if !strings.Contains(resp.Body, "X-Forwarded-For") &&
-						!strings.Contains(resp.Body, "x-forwarded-for") {
-						log.Warnf("Missing X-Forwarded-For in the body: %s", resp.Body)
+				if len(resp.ServerID) > 0 {
+					id := resp.ServerID[0]
+					if tc.serverIDMap[c.dst] != id {
 						return errAgain
 					}
-
-					id := resp.ID[0]
-					logs.add(c.dst, id, logEntry)
-					logs.add(ingressAppName, id, logEntry)
 					return nil
 				}
+				//if len(resp.XRequestID) > 0 {
+				//	if !strings.Contains(resp.Body, "X-Forwarded-For") &&
+				//		!strings.Contains(resp.Body, "x-forwarded-for") {
+				//		log.Warnf("Missing X-Forwarded-For in the body: %s", resp.Body)
+				//		return errAgain
+				//	}
+				//
+				//	id := resp.XRequestID[0]
+				//	logs.add(c.dst, id, logEntry)
+				//	logs.add(ingressAppName, id, logEntry)
+				//	return nil
+				//}
 				return errAgain
 			})
 		}
@@ -174,7 +180,7 @@ func TestIngress(t *testing.T) {
 
 	// After all requests complete, run the check logs tests.
 	// Run all request tests in parallel.
-	t.Run("check", func(t *testing.T) {
-		logs.checkLogs(t)
-	})
+	//t.Run("check-logs", func(t *testing.T) {
+	//	logs.checkLogs(t)
+	//})
 }

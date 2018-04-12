@@ -390,10 +390,12 @@ func GetPodLogs(n, pod, container string, tail, alsoShowPreviousPodLogs bool, ku
 	o1 := ""
 	if alsoShowPreviousPodLogs {
 		log.Info("Expect and ignore an error getting crash logs when there are no crash (-p invocation)")
-		o1, _ = Shell("kubectl --namespace %s logs %s -c %s %s -p --kubeconfig=%s", n, pod, container, tailOption, kubeconfig)
+		// Do not use Shell. It dumps the entire log on the console and makes the test unusable due to very large amount of output
+		o1, _ = ShellMuteOutput("kubectl --namespace %s logs %s -c %s %s -p --kubeconfig=%s", n, pod, container, tailOption, kubeconfig)
 		o1 += "\n"
 	}
-	o2, _ := Shell("kubectl --namespace %s logs %s -c %s %s --kubeconfig=%s", n, pod, container, tailOption, kubeconfig)
+	// Do not use Shell. It dumps the entire log on the console and makes the test unusable due to very large amount of output
+	o2, _ := ShellMuteOutput("kubectl --namespace %s logs %s -c %s %s --kubeconfig=%s", n, pod, container, tailOption, kubeconfig)
 	return o1 + o2
 }
 

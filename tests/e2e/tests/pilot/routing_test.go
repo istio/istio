@@ -358,13 +358,13 @@ func TestRouteMirroring(t *testing.T) {
 			for i := 1; i <= 100; i++ {
 				resp := ClientRequest("a", reqURL, 1, fmt.Sprintf("-key X-Request-Id -val %d", i))
 				logEntry := fmt.Sprintf("HTTP request from a to c.istio-system.svc.cluster.local:80")
-				if len(resp.ID) > 0 {
-					id := resp.ID[0]
+				if len(resp.XRequestID) > 0 {
+					id := resp.XRequestID[0]
 					logs.add("b", id, logEntry)
 				}
 			}
 
-			t.Run("check", func(t *testing.T) {
+			t.Run("check-logs", func(t *testing.T) {
 				logs.checkLogs(t)
 			})
 		}()

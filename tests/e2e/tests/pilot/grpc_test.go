@@ -35,7 +35,7 @@ func TestGrpc(t *testing.T) {
 		dstPods = append(dstPods, "d")
 	}
 
-	logs := newAccessLogs()
+	// logs := newAccessLogs()
 
 	// Run all request tests.
 	t.Run("request", func(t *testing.T) {
@@ -47,27 +47,34 @@ func TestGrpc(t *testing.T) {
 				}
 				for _, port := range ports {
 					for _, domain := range []string{"", "." + tc.Kube.Namespace} {
-						testName := fmt.Sprintf("%s->%s%s_%s", src, dst, domain, port)
+						testName := fmt.Sprintf("%s->%s%s_%s(serverID: %s)", src, dst, domain, port, tc.serverIDMap[dst])
 						runRetriableTest(t, testName, defaultRetryBudget, func() error {
 							reqURL := fmt.Sprintf("grpc://%s%s:%s", dst, domain, port)
 							resp := ClientRequest(src, reqURL, 1, "")
-							if len(resp.ID) > 0 {
-								id := resp.ID[0]
-								logEntry := fmt.Sprintf("GRPC request from %s to %s%s:%s", src, dst, domain, port)
-								if src != "t" {
-									logs.add(src, id, logEntry)
-								}
-								if dst != "t" {
-									if dst == "headless" { // headless points to b
-										if src != "b" {
-											logs.add("b", id, logEntry)
-										}
-									} else {
-										logs.add(dst, id, logEntry)
-									}
+							if len(resp.ServerID) > 0 {
+								id := resp.ServerID[0]
+								if tc.serverIDMap[dst] != id {
+									return errAgain
 								}
 								return nil
 							}
+							//if len(resp.XRequestID) > 0 {
+							//	id := resp.XRequestID[0]
+							//	logEntry := fmt.Sprintf("GRPC request from %s to %s%s:%s", src, dst, domain, port)
+							//	if src != "t" {
+							//		logs.add(src, id, logEntry)
+							//	}
+							//	if dst != "t" {
+							//		if dst == "headless" { // headless points to b
+							//			if src != "b" {
+							//				logs.add("b", id, logEntry)
+							//			}
+							//		} else {
+							//			logs.add(dst, id, logEntry)
+							//		}
+							//	}
+							//	return nil
+							//}
 							if src == "t" && dst == "t" {
 								// Expected no match for t->t
 								return nil
@@ -85,9 +92,9 @@ func TestGrpc(t *testing.T) {
 	})
 
 	// After all requests complete, run the check logs tests.
-	if len(logs.logs) > 0 {
-		t.Run("check", func(t *testing.T) {
-			logs.checkLogs(t)
-		})
-	}
+	//if len(logs.logs) > 0 {
+	//	t.Run("check-logs", func(t *testing.T) {
+	//		logs.checkLogs(t)
+	//	})
+	//}
 }
