@@ -800,13 +800,14 @@ func TestMixerReportingToMixer(t *testing.T) {
 
 	t.Logf("Validating Mixer access logs show Check() and Report() calls...")
 
-	logs, err := util.Shell(`kubectl -n %s logs %s -c mixer --tail 100 | grep -e "%s" -e "%s"`, tc.Kube.Namespace, mixerPod, checkPath, reportPath)
+	logs, err := util.Shell(`kubectl -n %s logs %s -c mixer --tail 1000 | grep -e "%s" -e "%s"`, tc.Kube.Namespace, mixerPod, checkPath, reportPath)
 	if err != nil {
 		t.Fatalf("Error retrieving istio-telemetry logs: %v", err)
 	}
+	wantLines := 4
 	gotLines := strings.Count(logs, "\n")
-	if gotLines < 4 {
-		t.Errorf("Expected at least 4 lines of Mixer-specific access logs, got %d", gotLines)
+	if gotLines < wantLines {
+		t.Errorf("Expected at least %v lines of Mixer-specific access logs, got %d", wantLines, gotLines)
 	}
 
 }
