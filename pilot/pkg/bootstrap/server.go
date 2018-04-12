@@ -846,7 +846,7 @@ func (s *Server) secureGrpcStart(listener net.Listener) {
 		certDir = certDir + "/"
 	}
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 30; i++ {
 		opts := s.grpcServerOptions()
 
 		// This is used for the grpc h2 implementation. It doesn't appear to be needed in
@@ -859,6 +859,7 @@ func (s *Server) secureGrpcStart(listener net.Listener) {
 			continue
 		}
 
+		// TODO: parse the file to determine expiration date. Restart listener before expiration
 		cert, err := tls.LoadX509KeyPair(certDir+model.CertChainFilename,
 			certDir+model.KeyFilename)
 		if err != nil {
@@ -917,6 +918,11 @@ func (s *Server) secureGrpcStart(listener net.Listener) {
 
 	log.Errorf("Failed to find certificates for GRPC secure in %s", certDir)
 
+	// Exit - mesh is in MTLS mode, but certificates are missing or bad.
+	// k8s may allocate to a different machine.
+	if s.mesh.DefaultConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
+		os.Exit(403)
+	}
 }
 
 func (s *Server) grpcServerOptions() []grpc.ServerOption {
