@@ -79,49 +79,8 @@ type clusterConfig struct {
 	ClientKeyData            string
 }
 
-func TestGetPilotAccessConfig(t *testing.T) {
-
-	pilot := k8s_cr.Cluster{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "fakePilot",
-		},
-	}
-	tests := []struct {
-		testName    string
-		cs          ClusterStore
-		expectError bool
-	}{
-		{
-			testName:    "No pilot in the store",
-			cs:          ClusterStore{},
-			expectError: true,
-		},
-		{
-			testName: "Pilot in the store",
-			cs: ClusterStore{
-				cfgStore:      &pilot,
-				clientConfigs: map[string]clientcmdapi.Config{"fakePilot": {}},
-			},
-			expectError: false,
-		},
-	}
-	for _, test := range tests {
-
-		if test.cs.GetPilotAccessConfig() == nil && !test.expectError {
-			t.Errorf("Test '%s' failed", test.testName)
-			continue
-		}
-	}
-}
-
 func TestGetPilotClusters(t *testing.T) {
 
-	pilot := k8s_cr.Cluster{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        "fakePilot",
-			Annotations: map[string]string{ClusterPilotEndpoint: "192.168.1.1:9080"},
-		},
-	}
 	tests := []struct {
 		testName       string
 		cs             ClusterStore
@@ -135,7 +94,6 @@ func TestGetPilotClusters(t *testing.T) {
 		{
 			testName: "2 out of 3 Pilot in the store",
 			cs: ClusterStore{
-				cfgStore: &pilot,
 				clusters: []*k8s_cr.Cluster{
 					{
 						ObjectMeta: metav1.ObjectMeta{
@@ -163,7 +121,6 @@ func TestGetPilotClusters(t *testing.T) {
 		{
 			testName: "3 out of 3 Pilot in the store",
 			cs: ClusterStore{
-				cfgStore: &pilot,
 				clusters: []*k8s_cr.Cluster{
 					{
 						ObjectMeta: metav1.ObjectMeta{

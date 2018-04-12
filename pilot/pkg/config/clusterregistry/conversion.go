@@ -53,17 +53,7 @@ const (
 // ClusterStore is a collection of clusters
 type ClusterStore struct {
 	clusters      []*k8s_cr.Cluster
-	cfgStore      *k8s_cr.Cluster
 	clientConfigs map[string]clientcmdapi.Config
-}
-
-// GetPilotAccessConfig returns this pilot's access config file name
-func (cs *ClusterStore) GetPilotAccessConfig() *clientcmdapi.Config {
-	if cs.cfgStore == nil {
-		return nil
-	}
-	pilotAccessConfig := cs.clientConfigs[cs.cfgStore.ObjectMeta.Name]
-	return &pilotAccessConfig
 }
 
 // GetClientAccessConfigs returns map of collected client configs
@@ -89,33 +79,8 @@ func GetClusterName(cluster *k8s_cr.Cluster) string {
 }
 
 // GetPilotClusters return a list of clusters under this pilot, exclude PilotCfgStore
-func (cs *ClusterStore) GetPilotClusters() (clusters []*k8s_cr.Cluster) {
-	if cs.cfgStore != nil {
-		pilotEndpoint := cs.cfgStore.ObjectMeta.Annotations[ClusterPilotEndpoint]
-		for _, cluster := range cs.clusters {
-			if cluster.ObjectMeta.Annotations[ClusterPilotEndpoint] == pilotEndpoint {
-				clusters = append(clusters, cluster)
-			}
-		}
-	}
-	return
-}
-
-func setCfgStore(cs *ClusterStore) error {
-	for _, cluster := range cs.clusters {
-		log.Infof("ClusterPilotCfgStore: %s", cluster.ObjectMeta.Annotations[ClusterPilotCfgStore])
-		if isCfgStore, _ := strconv.ParseBool(cluster.ObjectMeta.Annotations[ClusterPilotCfgStore]); isCfgStore {
-			if cs.cfgStore != nil {
-				return fmt.Errorf("multiple cluster config stores are defined")
-			}
-			cs.cfgStore = cluster
-		}
-	}
-	if cs.cfgStore == nil {
-		return fmt.Errorf("no config store is defined in the cluster registries")
-	}
-
-	return nil
+func (cs *ClusterStore) GetPilotClusters() ([]*k8s_cr.Cluster) {
+	return cs.clusters
 }
 
 // ReadClusters reads multiple clusters from a ConfigMap
@@ -129,10 +94,6 @@ func ReadClusters(k8s kubernetes.Interface, configMapName string, configMapNames
 	if len(cs.clusters) == 0 {
 		return nil, fmt.Errorf("no kubeconf found in provided ConfigMap: %s/%s", configMapNamespace, configMapName)
 	}
-	if err := setCfgStore(cs); err != nil {
-		log.Errorf("%s", err.Error())
-		return nil, err
-	}
 
 	return cs, nil
 }
@@ -141,7 +102,6 @@ func ReadClusters(k8s kubernetes.Interface, configMapName string, configMapNames
 func getClustersConfigs(k8s kubernetes.Interface, configMapName, configMapNamespace string) (*ClusterStore, error) {
 	cs := &ClusterStore{
 		clusters:      []*k8s_cr.Cluster{},
-		cfgStore:      nil,
 		clientConfigs: map[string]clientcmdapi.Config{},
 	}
 
@@ -182,6 +142,7 @@ func getClustersConfigs(k8s kubernetes.Interface, configMapName, configMapNamesp
 				secretName, secretNamespace, key, err)
 			return &ClusterStore{}, nil
 		}
+		cs.clusters = append(cs.clusters, &cluster)
 		cs.clientConfigs[cluster.ObjectMeta.Name] = *clientConfig
 	}
 
