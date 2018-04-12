@@ -79,8 +79,8 @@ initContainers:
 {{ end -}}
 containers:
 - name: istio-proxy
-  image: [[ if (isset .ObjectMeta.Annotations "sidecar.istio.io/proxyImageOverride") -]]
-  "[[ index .ObjectMeta.Annotations "sidecar.istio.io/proxyImageOverride" ]]"
+  image: [[ if (isset .ObjectMeta.Annotations "sidecar.istio.io/proxyImage") -]]
+  "[[ index .ObjectMeta.Annotations "sidecar.istio.io/proxyImage" ]]"
   [[ else -]]
   {{ .ProxyImage }}
   [[ end -]]

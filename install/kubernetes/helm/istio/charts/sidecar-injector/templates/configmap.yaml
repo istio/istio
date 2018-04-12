@@ -54,8 +54,8 @@ data:
         restartPolicy: Always
       containers:
       - name: istio-proxy
-        image: {{ "[[ if (isset .ObjectMeta.Annotations \"sidecar.istio.io/proxyImageOverride\") -]]" }}
-        {{ "\"[[ index .ObjectMeta.Annotations \"sidecar.istio.io/proxyImageOverride\" ]]\"" }}
+        image: {{ "[[ if (isset .ObjectMeta.Annotations \"sidecar.istio.io/proxyImage\") -]]" }}
+        {{ "\"[[ index .ObjectMeta.Annotations \"sidecar.istio.io/proxyImage\" ]]\"" }}
         {{ "[[ else -]]" }}
         {{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}
         {{ "[[ end -]]" }}
