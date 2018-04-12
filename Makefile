@@ -373,8 +373,8 @@ build: depend $(PILOT_GO_BINS_SHORT) mixc mixs node_agent istio_ca flexvolume is
 #
 # This is intended for developer use - will rebuild the package.
 
-.PHONY: istio-ca
-istio-ca:
+.PHONY: citadel
+citadel:
 	bin/gobuild.sh ${ISTIO_OUT}/istio_ca istio.io/istio/pkg/version ./security/cmd/istio_ca
 
 .PHONY: node-agent
@@ -643,8 +643,8 @@ FILES_TO_CLEAN+=install/consul/istio.yaml \
                 install/kubernetes/addons/zipkin-to-stackdriver.yaml \
                 install/kubernetes/addons/zipkin.yaml \
                 install/kubernetes/istio-auth.yaml \
-                install/kubernetes/istio-ca-plugin-certs.yaml \
-                install/kubernetes/istio-ca-with-health-check.yaml \
+                install/kubernetes/istio-citadel-plugin-certs.yaml \
+                install/kubernetes/istio-citadel-with-health-check.yaml \
                 install/kubernetes/istio-mixer-validator.yaml \
                 install/kubernetes/istio-mixer-with-health-check.yaml \
                 install/kubernetes/istio-one-namespace-auth.yaml \

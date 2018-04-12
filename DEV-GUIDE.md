@@ -234,7 +234,7 @@ make push
 
 ### Building and pushing a specific container.
 
-If you want to make a local change and test some component, say istio-ca, you
+If you want to make a local change and test some component, say citadel, you
 could do:
 
 Under istio/istio repo
@@ -251,10 +251,10 @@ The path should be
 Set up environment variables HUB and TAG by
 ```shell
 export HUB=docker.io/yourrepo
-export TAG=istio-ca
+export TAG=citadel
 ```
 
-Make some local change of CA code, then build istio-ca
+Make some local change of CA code, then build citadel
 
 ```shell
 bin/gobuild.sh istio_ca istio.io/istio/pkg/version ./security/cmd/istio_ca
@@ -269,7 +269,7 @@ cp istio_ca $GOPATH/out/linux_amd64/release/docker_temp
 
 Push docker image
 ```shell
-make push.docker.istio-ca
+make push.docker.citadel
 ```
 
 ### Building the Istio manifests
