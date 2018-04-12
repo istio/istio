@@ -775,7 +775,9 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 				log.Warna(err)
 			}
 		}()
-		go s.secureGrpcStart(secureGrpcListener)
+		if len(args.DiscoveryOptions.SecureGrpcAddr) > 0 {
+			go s.secureGrpcStart(secureGrpcListener)
+		}
 
 		go func() {
 			<-stop
