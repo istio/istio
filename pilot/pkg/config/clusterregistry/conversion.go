@@ -79,7 +79,7 @@ func GetClusterName(cluster *k8s_cr.Cluster) string {
 }
 
 // GetPilotClusters return a list of clusters under this pilot, exclude PilotCfgStore
-func (cs *ClusterStore) GetPilotClusters() ([]*k8s_cr.Cluster) {
+func (cs *ClusterStore) GetPilotClusters() []*k8s_cr.Cluster {
 	return cs.clusters
 }
 
