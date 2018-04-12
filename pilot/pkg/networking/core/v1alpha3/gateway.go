@@ -233,7 +233,7 @@ func buildGatewayInboundHTTPRouteConfig(env model.Environment, gatewayName strin
 	}
 }
 
-// buildGatewayInboundNetworkFilters retrieves all VirtualServices bound to the set of Gateways for this workload, filters
+// buildGatewayNetworkFilters retrieves all VirtualServices bound to the set of Gateways for this workload, filters
 // them by this server's port and hostnames, and produces network filters for each destination from the filtered services
 func buildGatewayNetworkFilters(env model.Environment, server *networking.Server, gatewayNames []string) []listener.Filter {
 	port := &model.Port{
@@ -305,6 +305,8 @@ func l4Match(predicates []*networking.L4MatchAttributes, server *networking.Serv
 	// NB from proto definitions: each set of predicates is OR'd together; inside of a predicate all conditions are AND'd.
 	// This means we can return as soon as we get any match of an entire predicate.
 	for _, match := range predicates {
+		// TODO: implement more matches, like CIDR ranges, etc.
+
 		// if there's no port predicate, portMatch is true; otherwise we evaluate the port predicate against the server's port
 		portMatch := match.Port == nil
 		if match.Port != nil {
