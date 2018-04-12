@@ -192,7 +192,7 @@ func (b *KeyCertBundleImpl) CertOptions() (*CertOptions, error) {
 	if len(ids) != 1 {
 		return nil, fmt.Errorf("expect single id from the cert, found %v", ids)
 	}
-	size, err := GetRSAKeySize(b.privKey)
+	size, err := GetRSAKeySize(*b.privKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get RSA key size: %v", err)
 	}
