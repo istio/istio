@@ -96,20 +96,17 @@ func TestGetPilotClusters(t *testing.T) {
 				clusters: []*k8s_cr.Cluster{
 					{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:        "fakePilot2",
-							Annotations: map[string]string{ClusterPilotEndpoint: "192.168.1.1:9080"},
+							Name: "fakePilot2",
 						},
 					},
 					{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:        "fakePilot3",
-							Annotations: map[string]string{ClusterPilotEndpoint: "192.168.1.1:9080"},
+							Name: "fakePilot3",
 						},
 					},
 					{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:        "fakePilot4",
-							Annotations: map[string]string{ClusterPilotEndpoint: "192.168.2.1:9080"},
+							Name: "fakePilot4",
 						},
 					},
 				},
@@ -123,20 +120,17 @@ func TestGetPilotClusters(t *testing.T) {
 				clusters: []*k8s_cr.Cluster{
 					{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:        "fakePilot2",
-							Annotations: map[string]string{ClusterPilotEndpoint: "192.168.1.1:9080"},
+							Name: "fakePilot2",
 						},
 					},
 					{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:        "fakePilot3",
-							Annotations: map[string]string{ClusterPilotEndpoint: "192.168.1.1:9080"},
+							Name: "fakePilot3",
 						},
 					},
 					{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:        "fakePilot4",
-							Annotations: map[string]string{ClusterPilotEndpoint: "192.168.1.1:9080"},
+							Name: "fakePilot4",
 						},
 					},
 				},
