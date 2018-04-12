@@ -15,8 +15,9 @@
 package framework
 
 import (
-	"go.uber.org/multierr"
 	"time"
+
+	"go.uber.org/multierr"
 
 	"istio.io/istio/tests/util"
 )
