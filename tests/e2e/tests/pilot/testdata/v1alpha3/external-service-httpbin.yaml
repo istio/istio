@@ -1,0 +1,12 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: ExternalService
+metadata:
+  name: external-service-httpbin
+spec:
+  hosts:
+    - httpbin.org
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  discovery: DNS

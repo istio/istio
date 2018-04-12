@@ -1,0 +1,14 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: httpbin-append-headers
+spec:
+  hosts:
+    - httpbin.org
+  http:
+    route:
+    - destination:
+        host: httpbin.org
+    appendHeaders:
+      istio-custom-header1: user-defined-value1
+      istio-custom-header2: user-defined-value2
