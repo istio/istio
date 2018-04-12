@@ -39,7 +39,7 @@ type (
 )
 
 const (
-	istioCaWithGivenCertificate = "istio-ca-with-given-certificate"
+	citadelWithGivenCertificate = "citadel-with-given-certificate"
 	nodeAgent                   = "node-agent"
 	nodeAgentService            = "node-agent-service"
 	podGroupPostfix             = "-pod-group"
@@ -82,19 +82,19 @@ func (env *NodeAgentTestEnv) GetComponents() []framework.Component {
 			NewKubernetesPod(
 				env.ClientSet,
 				env.NameSpace,
-				istioCaWithGivenCertificate,
-				fmt.Sprintf("%v/istio-ca-test:%v", env.Hub, env.Tag),
+				citadelWithGivenCertificate,
+				fmt.Sprintf("%v/citadel-test:%v", env.Hub, env.Tag),
 				[]string{},
 				[]string{},
 			),
 			NewKubernetesService(
 				env.ClientSet,
 				env.NameSpace,
-				"istio-ca",
+				"citadel",
 				v1.ServiceTypeClusterIP,
 				8060,
 				map[string]string{
-					"pod-group": istioCaWithGivenCertificate + podGroupPostfix,
+					"pod-group": citadelWithGivenCertificate + podGroupPostfix,
 				},
 				map[string]string{
 					kube.KubeServiceAccountsOnVMAnnotation: "nodeagent.google.com",

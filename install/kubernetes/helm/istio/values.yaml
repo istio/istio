@@ -116,12 +116,16 @@ ingressgateway:
     - port: 443
       name: https
       nodePort: 31390
+    - port: 31400
+      name: tcp
+      nodePort: 31400
   deployment:
     labels:
       istio: ingressgateway #will be added to pods and service
     ports:
     - containerPort: 80
     - containerPort: 443
+    - containerPort: 31400
   # secretVolumes: TODO
   # - name: someName
   #   mountPath: somePath
