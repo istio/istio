@@ -2,7 +2,7 @@
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
-  name: istio-ca-{{ .Release.Namespace }}
+  name: istio-citadel-{{ .Release.Namespace }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "security.name" . }}
