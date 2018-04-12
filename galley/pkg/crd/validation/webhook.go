@@ -32,15 +32,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 
-	"istio.io/istio/mixer/adapter"
-	"istio.io/istio/mixer/pkg/config"
 	mixerCrd "istio.io/istio/mixer/pkg/config/crd"
 	"istio.io/istio/mixer/pkg/config/store"
-	"istio.io/istio/mixer/pkg/lang/checker"
-	runtimeConfig "istio.io/istio/mixer/pkg/runtime/config"
-	"istio.io/istio/mixer/pkg/runtime/validator"
-	"istio.io/istio/mixer/pkg/template"
-	generatedTmplRepo "istio.io/istio/mixer/template"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
@@ -110,32 +103,6 @@ type Webhook struct {
 	keyFile             string
 }
 
-// CreateMixerValidator creates a mixer backend validator.
-// TODO(https://github.com/istio/istio/issues/4887) - refactor mixer
-// config validation to remove galley dependency on mixer internal
-// packages.
-func CreateMixerValidator(kubeconfig string) (store.BackendValidator, error) {
-	info := generatedTmplRepo.SupportedTmplInfo
-	templates := make(map[string]*template.Info, len(info))
-	for k := range info {
-		t := info[k]
-		templates[k] = &t
-	}
-	adapters := config.AdapterInfoMap(adapter.Inventory(), template.NewRepository(info).SupportsTemplate)
-
-	storeURL := fmt.Sprintf("k8s://%s?retry-timeout=%v", kubeconfig, 2*time.Second)
-
-	s, err := store.NewRegistry(config.StoreInventory()...).NewStore(storeURL)
-	if err != nil {
-		return nil, err
-	}
-	rv, err := validator.New(checker.NewTypeChecker(), "", s, adapters, templates)
-	if err != nil {
-		return nil, err
-	}
-	return store.NewValidator(rv, runtimeConfig.KindMap(adapters, templates)), nil
-}
-
 // NewWebhook creates a new instance of the admission webhook controller.
 func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	pair, err := tls.LoadX509KeyPair(p.CertFile, p.KeyFile)
@@ -178,6 +145,7 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	h.HandleFunc("/admitmixer", wh.serveAdmitMixer)
 	wh.server.Handler = h
 
+
 	return wh, nil
 }
 
@@ -202,6 +170,7 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 	for {
 		select {
 		case <-timerC:
+			timerC = nil
 			pair, err := tls.LoadX509KeyPair(wh.certFile, wh.keyFile)
 			if err != nil {
 				log.Errorf("reload cert error: %v", err)
@@ -212,7 +181,7 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 			wh.mu.Unlock()
 		case event := <-wh.watcher.Event:
 			// use a timer to debounce cert updates
-			if event.IsModify() || event.IsCreate() {
+			if (event.IsModify() || event.IsCreate()) && timerC == nil {
 				timerC = time.After(watchDebounceDelay)
 			}
 		case err := <-wh.watcher.Error:

@@ -27,6 +27,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/onsi/gomega"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
@@ -65,9 +66,10 @@ func createTestWebhook(t testing.TB) (*Webhook, func()) {
 	}
 
 	var (
-		certFile = filepath.Join(dir, "cert-file.yaml")
-		keyFile  = filepath.Join(dir, "key-file.yaml")
-		port     = uint(0)
+		certFile   = filepath.Join(dir, "cert-file.yaml")
+		keyFile    = filepath.Join(dir, "key-file.yaml")
+		healthFile = filepath.Join(dir, "health-file.yaml")
+		port       = uint(0)
 	)
 
 	// cert
@@ -82,12 +84,14 @@ func createTestWebhook(t testing.TB) (*Webhook, func()) {
 	}
 
 	options := WebhookParameters{
-		CertFile:        certFile,
-		KeyFile:         keyFile,
-		Port:            port,
-		DomainSuffix:    testDomainSuffix,
-		PilotDescriptor: mock.Types,
-		MixerValidator:  &fakeValidator{},
+		CertFile:            certFile,
+		KeyFile:             keyFile,
+		Port:                port,
+		DomainSuffix:        testDomainSuffix,
+		PilotDescriptor:     mock.Types,
+		MixerValidator:      &fakeValidator{},
+		HealthCheckFile:     healthFile,
+		HealthCheckInterval: 10 * time.Millisecond,
 	}
 	wh, err := NewWebhook(options)
 	if err != nil {
@@ -98,13 +102,14 @@ func createTestWebhook(t testing.TB) (*Webhook, func()) {
 	return wh, cleanup
 }
 
-func makePilotConfig(t *testing.T, i int, valid bool) []byte {
+func makePilotConfig(t *testing.T, i int, validKind, validConfig bool) []byte {
 	t.Helper()
 
 	var key string
-	if valid {
+	if validConfig {
 		key = "key"
 	}
+
 	name := fmt.Sprintf("%s%d", "mock-config", i)
 	config := model.Config{
 		ConfigMeta: model.ConfigMeta{
@@ -137,8 +142,8 @@ func makePilotConfig(t *testing.T, i int, valid bool) []byte {
 }
 
 func TestAdmitPilot(t *testing.T) {
-	valid := makePilotConfig(t, 0, true)
-	invalid := makePilotConfig(t, 0, false)
+	valid := makePilotConfig(t, 0, true, true)
+	invalidConfig := makePilotConfig(t, 0, true, false)
 
 	wh, cancel := createTestWebhook(t)
 	defer cancel()
@@ -170,11 +175,31 @@ func TestAdmitPilot(t *testing.T) {
 			allowed: true,
 		},
 		{
-			name:  "invalid create",
+			name:  "unsupported operation",
 			admit: wh.admitPilot,
 			in: &admissionv1beta1.AdmissionRequest{
 				Kind:      metav1.GroupVersionKind{}, // TODO
-				Object:    runtime.RawExtension{Raw: invalid},
+				Object:    runtime.RawExtension{Raw: valid},
+				Operation: admissionv1beta1.Delete,
+			},
+			allowed: true,
+		},
+		{
+			name:  "invalid spec",
+			admit: wh.admitPilot,
+			in: &admissionv1beta1.AdmissionRequest{
+				Kind:      metav1.GroupVersionKind{}, // TODO
+				Object:    runtime.RawExtension{Raw: invalidConfig},
+				Operation: admissionv1beta1.Create,
+			},
+			allowed: false,
+		},
+		{
+			name:  "corrupt object",
+			admit: wh.admitPilot,
+			in: &admissionv1beta1.AdmissionRequest{
+				Kind:      metav1.GroupVersionKind{}, // TODO
+				Object:    runtime.RawExtension{Raw: append([]byte("---"), valid...)},
 				Operation: admissionv1beta1.Create,
 			},
 			allowed: false,
@@ -292,6 +317,28 @@ func TestAdmitMixer(t *testing.T) {
 			validator: &fakeValidator{errors.New("fail")},
 			allowed:   false,
 		},
+		{
+			name: "invalid operation",
+			in: &admissionv1beta1.AdmissionRequest{
+				Kind:      metav1.GroupVersionKind{Kind: "mock"},
+				Name:      "invalid operation",
+				Object:    runtime.RawExtension{Raw: rawConfig},
+				Operation: admissionv1beta1.Connect,
+			},
+			validator: &fakeValidator{},
+			allowed:   true,
+		},
+		{
+			name: "invalid object",
+			in: &admissionv1beta1.AdmissionRequest{
+				Kind:      metav1.GroupVersionKind{Kind: "mock"},
+				Name:      "invalid object",
+				Object:    runtime.RawExtension{Raw: append([]byte("---"), rawConfig...)},
+				Operation: admissionv1beta1.Create,
+			},
+			validator: &fakeValidator{},
+			allowed:   false,
+		},
 	}
 
 	for i, c := range cases {
@@ -311,7 +358,7 @@ func makeTestReview(t *testing.T, valid bool) []byte {
 		Request: &admissionv1beta1.AdmissionRequest{
 			Kind: metav1.GroupVersionKind{},
 			Object: runtime.RawExtension{
-				Raw: makePilotConfig(t, 0, valid),
+				Raw: makePilotConfig(t, 0, true, valid),
 			},
 			Operation: admissionv1beta1.Create,
 		},
@@ -369,6 +416,13 @@ func TestServe(t *testing.T) {
 			contentType:    "application/json",
 			wantAllowed:    false,
 			wantStatusCode: http.StatusOK,
+		},
+		{
+			name:           "no content",
+			body:           []byte{},
+			contentType:    "application/json",
+			wantAllowed:    false,
+			wantStatusCode: http.StatusBadRequest,
 		},
 	}
 
