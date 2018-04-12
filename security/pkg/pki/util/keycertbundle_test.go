@@ -109,7 +109,7 @@ func TestKeyCertBundleWithRootCertFromFile(t *testing.T) {
 }
 
 // The test of CertOptions
-func TestCertOptions(t *testing.T) {
+func TestCertOptionsAndRetrieveID(t *testing.T) {
 	testCases := map[string]struct {
 		caCertFile    string
 		caKeyFile     string
@@ -151,6 +151,9 @@ func TestCertOptions(t *testing.T) {
 		k, err := NewVerifiedKeyCertBundleFromFile(tc.caCertFile, tc.caKeyFile, tc.certChainFile, tc.rootCertFile)
 		if err != nil {
 			t.Fatalf("%s: Unexpected error: %v", id, err)
+		}
+		if RetrieveID(k) != "" {
+			t.Errorf("%s: RetrieveID should return empty", id)
 		}
 		opts, err := k.CertOptions()
 		if err != nil {
