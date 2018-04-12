@@ -148,9 +148,9 @@ func TestCertOptions(t *testing.T) {
 		},
 	}
 	for id, tc := range testCases {
-		k, err2 := NewVerifiedKeyCertBundleFromFile(tc.caCertFile, tc.caKeyFile, tc.certChainFile, tc.rootCertFile)
-		if err2 != nil {
-			t.Fatalf("%s: Unexpected error: %v", id, err2)
+		k, err := NewVerifiedKeyCertBundleFromFile(tc.caCertFile, tc.caKeyFile, tc.certChainFile, tc.rootCertFile)
+		if err != nil {
+			t.Fatalf("%s: Unexpected error: %v", id, err)
 		}
 		opts, err := k.CertOptions()
 		if err != nil {
