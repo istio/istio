@@ -32,8 +32,9 @@ func TestRewriteExternalService(t *testing.T) {
 
 	// Apply the rule
 	cfgs := &deployableConfig{
-		Namespace: tc.Kube.Namespace,
-		YamlFiles: []string{"testdata/v1alpha1/rule-rewrite-authority-externalbin.yaml"},
+		Namespace:  tc.Kube.Namespace,
+		YamlFiles:  []string{"testdata/v1alpha1/rule-rewrite-authority-externalbin.yaml"},
+		kubeconfig: tc.Kube.KubeConfig,
 	}
 
 	if err := cfgs.Setup(); err != nil {

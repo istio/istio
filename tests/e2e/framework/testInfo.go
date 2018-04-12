@@ -98,8 +98,8 @@ func (t testInfo) Update(r int) error {
 	return t.createStatusFile(r)
 }
 
-func (t testInfo) FetchAndSaveClusterLogs(namespace string) error {
-	return util.FetchAndSaveClusterLogs(namespace, t.TempDir)
+func (t testInfo) FetchAndSaveClusterLogs(namespace string, kubeconfig string) error {
+	return util.FetchAndSaveClusterLogs(namespace, t.TempDir, kubeconfig)
 }
 
 func (t testInfo) createStatusFile(r int) error {

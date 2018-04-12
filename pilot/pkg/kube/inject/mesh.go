@@ -27,25 +27,29 @@ initContainers:
   - "-u"
   - [[ .SidecarProxyUID ]]
   - "-i"
-  [[ if ne .IncludeIPRanges "" -]]
-  - [[ .IncludeIPRanges ]]
-  [[ else -]]
-  - "*"
-  [[ end -]]
-  [[ if ne .ExcludeIPRanges "" -]]
+  {{ if (isset .ObjectMeta.Annotations "traffic.sidecar.istio.io/includeOutboundIPRanges") -}}
+  - "{{ index .ObjectMeta.Annotations "traffic.sidecar.istio.io/includeOutboundIPRanges"}}"
+  {{ else -}}
+  - "[[ .IncludeIPRanges ]]"
+  {{ end -}}
   - "-x"
-  - [[ .ExcludeIPRanges ]]
-  [[ end -]]
+  {{ if (isset .ObjectMeta.Annotations "traffic.sidecar.istio.io/excludeOutboundIPRanges") -}}
+  - "{{ index .ObjectMeta.Annotations "traffic.sidecar.istio.io/excludeOutboundIPRanges" }}"
+  {{ else -}}
+  - "[[ .ExcludeIPRanges ]]"
+  {{ end -}}
   - "-b"
-  [[ if ne .IncludeInboundPorts "" -]]
-  - [[ .IncludeInboundPorts ]]
-  [[ else -]]
-  - "*"
-  [[ end -]]
-  [[ if ne .ExcludeInboundPorts "" -]]
+  {{ if (isset .ObjectMeta.Annotations "traffic.sidecar.istio.io/includeInboundPorts") -}}
+  - "{{ index .ObjectMeta.Annotations "traffic.sidecar.istio.io/includeInboundPorts" }}"
+  {{ else -}}
+  - "[[ .IncludeInboundPorts ]]"
+  {{ end -}}
   - "-d"
-  - [[ .ExcludeInboundPorts ]]
-  [[ end -]]
+  {{ if (isset .ObjectMeta.Annotations "traffic.sidecar.istio.io/excludeInboundPorts") -}}
+  - "{{ index .ObjectMeta.Annotations "traffic.sidecar.istio.io/excludeInboundPorts" }}"
+  {{ else -}}
+  - "[[ .ExcludeInboundPorts ]]"
+  {{ end -}}
   [[ if eq .ImagePullPolicy "" -]]
   imagePullPolicy: IfNotPresent
   [[ else -]]
