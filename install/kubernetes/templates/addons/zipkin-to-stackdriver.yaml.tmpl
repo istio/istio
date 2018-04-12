@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: zipkin-to-stackdriver
-        image: gcr.io/stackdriver-trace-docker/zipkin-collector
+        image: {ZIPKIN_COLLECTOR_HUB}/zipkin-collector:{ZIPKIN_COLLECTOR_TAG}
         imagePullPolicy: IfNotPresent
 #        env:
 #        - name: GOOGLE_APPLICATION_CREDENTIALS

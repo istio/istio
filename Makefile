@@ -56,10 +56,24 @@ endif
 LOCAL_ARCH := $(shell uname -m)
 ifeq ($(LOCAL_ARCH),x86_64)
 GOARCH_LOCAL := amd64
+MACH := amd64
 else
 GOARCH_LOCAL := $(LOCAL_ARCH)
+MACH := $(LOCAL_ARCH)
 endif
 export GOARCH ?= $(GOARCH_LOCAL)
+export MACH
+
+# MACH ?= $(shell uname -m)
+
+# ifeq ($(MACH), ppc64le)
+#    export GOARCH ?= ppc64le
+# else ifeq ($(MACH), x86_64)
+#    export GOARCH ?= amd64
+#    export MACH:=amd64
+# else
+#    export GOARCH ?= $(MACH)
+# endif
 
 LOCAL_OS := $(shell uname)
 ifeq ($(LOCAL_OS),Linux)

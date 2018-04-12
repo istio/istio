@@ -4,6 +4,11 @@ export K8S_VER=${K8S_VER:-v1.9.2}
 export MINIKUBE_VER=${MINIKUBE_VER:-v0.25.0}
 set -x
 
+if [ "$ARCH" == "ppc64le" ]; then
+    echo "Minikube tests not supported on ppc64le, exiting..."
+    exit 1
+fi
+
 if [ ! -f /usr/local/bin/minikube ]; then
    time curl -Lo minikube https://storage.googleapis.com/minikube/releases/${MINIKUBE_VER}/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
 fi

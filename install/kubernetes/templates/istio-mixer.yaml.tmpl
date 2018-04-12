@@ -55,7 +55,7 @@ spec:
       serviceAccountName: istio-mixer-service-account
       containers:
       - name: statsd-to-prometheus
-        image: prom/statsd-exporter:v0.5.0
+        image: {STATSD_HUB}/statsd-exporter:{STATSD_TAG}
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9102

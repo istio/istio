@@ -1,4 +1,7 @@
-from grafana/grafana:5.0.4
+# starts graphana with Prometheus Datasource pre configured
+# imports dashboard /grafana-dashboard.json from DASHBOARD_URL
+ARG grafana_base
+from ${grafana_base}
 
 COPY grafana.ini /etc/grafana/
 COPY dashboards.yaml /etc/grafana/provisioning/dashboards/

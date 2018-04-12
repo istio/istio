@@ -61,6 +61,11 @@ global:
     s390x: 2
     ppc64le: 2
 
+  # Specify the platform arch (amd64, ppc64le) for which the right images
+  # should be pulled.
+  platform: "amd64"
+#  platform: "ppc64le"
+
 # Any customization for istio testing should be here
 istiotesting:
   oneNameSpace: false
@@ -213,7 +218,8 @@ mixer:
   #  memory: 128Mi
 
   prometheusStatsdExporter:
-    repository: prom/statsd-exporter
+    repository_amd64: prom/statsd-exporter
+    repository_ppc64le: ibmcom/statsd-exporter
     tag: latest
     imagePullPolicy: IfNotPresent
     resources: {}
@@ -287,7 +293,8 @@ prometheus:
   enabled: false
   replicaCount: 1
   image:
-    repository: docker.io/prom/prometheus
+    repository_amd64: docker.io/prom/prometheus
+    repository_ppc64le: ibmcom/prometheus
     tag: latest
     pullPolicy: IfNotPresent
   ingress:
@@ -351,7 +358,8 @@ zipkin:
   enabled: false
   replicaCount: 1
   image:
-    repository: docker.io/openzipkin/zipkin
+    repository_amd64: docker.io/openzipkin/zipkin
+    repository_ppc64le: ibmcom/zipkin
     tag: latest
     pullPolicy: IfNotPresent
   service:
