@@ -16,10 +16,9 @@ package clusterregistry
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 	"go.uber.org/multierr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -34,9 +33,6 @@ import (
 
 // annotations for a Cluster
 const (
-	// the pilot's endpoint IP address where this cluster is part of
-	ClusterPilotEndpoint = "config.istio.io/pilotEndpoint"
-
 	// The cluster's platform: Kubernetes, Consul, Eureka, CloudFoundry
 	ClusterPlatform = "config.istio.io/platform"
 
@@ -44,10 +40,6 @@ const (
 	// E.g., on kubenetes, this file can be usually copied from .kube/config
 	ClusterAccessConfigSecret          = "config.istio.io/accessConfigSecret"
 	ClusterAccessConfigSecretNamespace = "config.istio.io/accessConfigSecretNamespace"
-
-	// For the time being, assume that ClusterPilotCfgStore is only set for one cluster only.
-	// If set to be true, this cluster will be used as the pilot's config store.
-	ClusterPilotCfgStore = "config.istio.io/pilotCfgStore"
 )
 
 // ClusterStore is a collection of clusters
@@ -149,6 +141,7 @@ func getClustersConfigs(k8s kubernetes.Interface, configMapName, configMapNamesp
 	return cs, nil
 }
 
+// Read a kubeconfig framgent from the secret.
 func getClusterConfigFromSecret(k8s kubernetes.Interface,
 	secretName string,
 	secretNamespace string,
@@ -173,32 +166,29 @@ func validateCluster(cluster *k8s_cr.Cluster) (err error) {
 	if cluster.TypeMeta.Kind != "Cluster" {
 		err = multierr.Append(err, fmt.Errorf("bad kind in configuration: `%s` != 'Cluster'", cluster.TypeMeta.Kind))
 	}
-
-	if cluster.ObjectMeta.Annotations[ClusterPilotEndpoint] == "" {
-		err = multierror.Append(err, fmt.Errorf("cluster %s doesn't have a valid pilot endpoint", cluster.ObjectMeta.Name))
-	}
-
-	switch serviceregistry.ServiceRegistry(cluster.ObjectMeta.Annotations[ClusterPlatform]) {
-	case serviceregistry.KubernetesRegistry:
-	case serviceregistry.ConsulRegistry:
-	case serviceregistry.EurekaRegistry:
-	case serviceregistry.CloudFoundryRegistry:
-	default:
-		err = multierror.Append(err, fmt.Errorf("cluster %s has unsupported platform %s",
-			cluster.ObjectMeta.Name, cluster.ObjectMeta.Annotations[ClusterPlatform]))
-	}
-
-	if cluster.ObjectMeta.Annotations[ClusterPilotCfgStore] != "" {
-		if _, err1 := strconv.ParseBool(cluster.ObjectMeta.Annotations[ClusterPilotCfgStore]); err1 != nil {
-			err = multierror.Append(err, err1)
+	// Default is k8s.
+	if len(cluster.ObjectMeta.Annotations[ClusterPlatform]) > 0 {
+		switch serviceregistry.ServiceRegistry(cluster.ObjectMeta.Annotations[ClusterPlatform]) {
+		// Currently only supporting kubernetes registry,
+		case serviceregistry.KubernetesRegistry:
+		case serviceregistry.ConsulRegistry:
+			fallthrough
+		case serviceregistry.EurekaRegistry:
+			fallthrough
+		case serviceregistry.CloudFoundryRegistry:
+			fallthrough
+		default:
+			err = multierror.Append(err, fmt.Errorf("cluster %s has unsupported platform %s",
+				cluster.ObjectMeta.Name, cluster.ObjectMeta.Annotations[ClusterPlatform]))
 		}
 	}
+
 	if cluster.ObjectMeta.Annotations[ClusterAccessConfigSecret] == "" {
-		err = multierror.Append(err, fmt.Errorf("cluster %s doesn't have a valid config secret", cluster.ObjectMeta.Name))
-	} else {
-		if cluster.ObjectMeta.Annotations[ClusterAccessConfigSecretNamespace] == "" {
-			cluster.ObjectMeta.Annotations[ClusterAccessConfigSecretNamespace] = "istio-system"
-		}
+		// by default, expect a secret with the same name as the cluster
+		cluster.ObjectMeta.Annotations[ClusterAccessConfigSecretNamespace] = cluster.Name
+	}
+	if cluster.ObjectMeta.Annotations[ClusterAccessConfigSecretNamespace] == "" {
+		cluster.ObjectMeta.Annotations[ClusterAccessConfigSecretNamespace] = "istio-system"
 	}
 
 	return
