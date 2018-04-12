@@ -15,6 +15,7 @@
 package framework
 
 import (
+	"os"
 	"time"
 
 	"go.uber.org/multierr"
@@ -22,7 +23,10 @@ import (
 	"istio.io/istio/tests/util"
 )
 
-const defaultPropagationDelay = 10 * time.Second
+const (
+	defaultPropagationDelay   = 10 * time.Second
+	skipSetupConfigurationEnv = "ISTIO_SKIP_TEST_SETUP"
+)
 
 // DeployableConfig is a collection of configs that are applied/deleted as a single unit.
 type DeployableConfig struct {
@@ -34,6 +38,9 @@ type DeployableConfig struct {
 
 // Setup pushes the config and waits for it to propagate to all nodes in the cluster.
 func (c *DeployableConfig) Setup() error {
+	if len(os.Getenv(skipSetupConfigurationEnv)) > 0 {
+		return nil
+	}
 	c.applied = []string{}
 
 	// Apply the configs.
@@ -53,6 +60,9 @@ func (c *DeployableConfig) Setup() error {
 
 // Teardown deletes the deployed configuration.
 func (c *DeployableConfig) Teardown() error {
+	if len(os.Getenv(skipSetupConfigurationEnv)) > 0 {
+		return nil
+	}
 	err := c.TeardownNoDelay()
 
 	// Sleep for a while to allow the change to propagate.
@@ -62,6 +72,9 @@ func (c *DeployableConfig) Teardown() error {
 
 // TeardownNoDelay deletes the deployed configuration without a delay
 func (c *DeployableConfig) TeardownNoDelay() error {
+	if len(os.Getenv(skipSetupConfigurationEnv)) > 0 {
+		return nil
+	}
 	var err error
 	for _, yamlFile := range c.applied {
 		err = multierr.Append(err, util.KubeDelete(c.Namespace, yamlFile, c.Kubeconfig))
