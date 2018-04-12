@@ -47,15 +47,16 @@ const (
 
 var (
 	tc = &testConfig{
-		V1alpha1: true, //implies envoyv1
-		V1alpha3: true, //implies envoyv2
-		Ingress:  true,
-		Egress:   true,
+		V1alpha1:    true, //implies envoyv1
+		V1alpha3:    true, //implies envoyv2
+		Ingress:     true,
+		Egress:      true,
+		serverIDMap: make(map[string]string),
 	}
 
 	errAgain      = errors.New("try again")
 	idRegex       = regexp.MustCompile("(?i)X-Request-Id=(.*)")
-	serverIdRegex = regexp.MustCompile("ServerID=(.*)")
+	serverIDRegex = regexp.MustCompile("ServerID=(.*)")
 	versionRegex  = regexp.MustCompile("ServiceVersion=(.*)")
 	portRegex     = regexp.MustCompile("ServicePort=(.*)")
 	codeRegex     = regexp.MustCompile("StatusCode=(.*)")
@@ -263,7 +264,7 @@ func getApps(tc *testConfig) []framework.App {
 }
 
 func getApp(deploymentName, serviceName string, port1, port2, port3, port4, port5, port6 int,
-	version string, serverId string, injectProxy, perServiceAuth bool) framework.App {
+	version string, serverID string, injectProxy, perServiceAuth bool) framework.App {
 	// TODO(nmittler): Eureka does not support management ports ... should we support other registries?
 	healthPort := "true"
 
@@ -283,7 +284,7 @@ func getApp(deploymentName, serviceName string, port1, port2, port3, port4, port
 			"port5":           strconv.Itoa(port5),
 			"port6":           strconv.Itoa(port6),
 			"version":         version,
-			"serverId":        serverId,
+			"serverID":        serverID,
 			"istioNamespace":  tc.Kube.Namespace,
 			"injectProxy":     strconv.FormatBool(injectProxy),
 			"healthPort":      healthPort,
@@ -318,9 +319,9 @@ func ClientRequest(app, url string, count int, extra string) ServerResponse {
 		out.XRequestID = append(out.XRequestID, id[1])
 	}
 
-	serverIds := serverIdRegex.FindAllStringSubmatch(response, -1)
-	for _, serverId := range serverIds {
-		out.XRequestID = append(out.ServerID, serverId[1])
+	serverIDs := serverIDRegex.FindAllStringSubmatch(response, -1)
+	for _, serverID := range serverIDs {
+		out.XRequestID = append(out.ServerID, serverID[1])
 	}
 
 	versions := versionRegex.FindAllStringSubmatch(response, -1)
