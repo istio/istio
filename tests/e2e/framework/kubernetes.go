@@ -34,8 +34,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/util"
-
-	"k8s.io/client-go/kubernetes"
 )
 
 const (
@@ -46,6 +44,8 @@ const (
 	authInstallFile                = "istio-auth.yaml"
 	nonAuthInstallFileNamespace    = "istio-one-namespace.yaml"
 	authInstallFileNamespace       = "istio-one-namespace-auth.yaml"
+	mcNonAuthInstallFileNamespace  = "istio-multicluster.yaml"
+	mcAuthInstallFileNamespace     = "istio-auth-multicluster.yaml"
 	istioSystem                    = "istio-system"
 	istioIngressServiceName        = "istio-ingress"
 	istioIngressGatewayServiceName = "istio-ingressgateway"
@@ -494,6 +494,9 @@ func (k *KubeInfo) deployAddons() error {
 
 func (k *KubeInfo) deployIstio() error {
 	istioYaml := nonAuthInstallFileNamespace
+	if *multiClusterDir != "" {
+		istioYaml = mcNonAuthInstallFileNamespace
+	}
 	if *clusterWide {
 		if *authEnable {
 			istioYaml = authInstallFile
@@ -503,7 +506,13 @@ func (k *KubeInfo) deployIstio() error {
 	} else {
 		if *authEnable {
 			istioYaml = authInstallFileNamespace
+			if *multiClusterDir != "" {
+				istioYaml = mcAuthInstallFileNamespace
+			}
 		}
+	}
+	if *multiClusterDir != "" {
+		mcNonAuthInstallFileNamespace
 	}
 	yamlDir := filepath.Join(istioInstallDir, istioYaml)
 	baseIstioYaml := filepath.Join(k.ReleaseDir, yamlDir)
@@ -705,4 +714,52 @@ func updateImagePullPolicy(policy string, content []byte) []byte {
 	image := []byte(fmt.Sprintf("imagePullPolicy: %s", policy))
 	r := regexp.MustCompile("imagePullPolicy:.*")
 	return r.ReplaceAllLiteral(content, image)
+}
+
+func (e *Environment) createMulticlusterConfig() error {
+	// Although this function loops through all files in the configuration directory the tests assumes a single
+	// clusterregistry configuration file.
+
+	info, err := os.Stat(e.Config.ClusterRegistriesDir)
+	if err != nil {
+		switch err := err.(type) {
+		case *os.PathError:
+			return fmt.Errorf("error reading %s: %v", e.Config.ClusterRegistriesDir, err.Err)
+		default:
+			return fmt.Errorf("error reading %s: %v", e.Config.ClusterRegistriesDir, err)
+		}
+	}
+
+	if info.IsDir() {
+		if strings.Contains(e.Config.ClusterRegistriesDir, "=") {
+			return fmt.Errorf("cannot give a key name for a directory path")
+		}
+		fileList, err := ioutil.ReadDir(e.Config.ClusterRegistriesDir)
+		if err != nil {
+			return fmt.Errorf("error listing files in %s: %v", e.Config.ClusterRegistriesDir, err)
+		}
+		var Data []byte
+		configData := make(map[string]string)
+		for _, item := range fileList {
+			itemPath := path.Join(e.Config.ClusterRegistriesDir, item.Name())
+			if item.Mode().IsRegular() {
+				keyName := item.Name()
+				Data, err = ioutil.ReadFile(itemPath)
+				if err != nil {
+					return err
+				}
+				configData[keyName] = string(Data)
+			}
+		}
+		if _, err = e.KubeClient.CoreV1().ConfigMaps(e.Config.IstioNamespace).Create(&v1.ConfigMap{
+
+			ObjectMeta: meta_v1.ObjectMeta{
+				Name: "multicluster",
+			},
+			Data: configData,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
