@@ -602,15 +602,17 @@ generate_yaml:
 $(HELM):
 	bin/init_helm.sh
 
-# creates istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml
+# Creates istio.yaml istio-auth.yaml
 # Ensure that values-$filename is present in install/kubernetes/helm/istio
 isti%.yaml: $(HELM)
 	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/$@
-	$(HELM) template --set global.tag=${TAG} \
-		  --namespace=istio-system \
-                  --set global.hub=${HUB} \
-		  --values install/kubernetes/helm/istio/values-$@ \
-		  install/kubernetes/helm/istio >> install/kubernetes/$@
+	$(HELM) template \
+		--set global.tag=${TAG} \
+		--set global.hub=${HUB} \
+		--namespace=istio-system \
+		--values install/kubernetes/helm/istio/values-$@ \
+		install/kubernetes/helm/istio \
+		>> install/kubernetes/$@
 
 # This is temporary. REMOVE ME after Envoy v2 transition
 # creates istio.yaml using values-envoyv2-transition.yaml
