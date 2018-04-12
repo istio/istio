@@ -193,6 +193,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 	proxyInstances []*model.ServiceInstance) []*xdsapi.Listener {
 
 	var listeners []*xdsapi.Listener
+	listenerMap := make(map[string]*xdsapi.Listener)
 	// inbound connections/requests are redirected to the endpoint address but appear to be sent
 	// to the service address.
 	for _, instance := range proxyInstances {
@@ -216,6 +217,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 			ip:             endpoint.Address,
 			port:           endpoint.Port,
 			protocol:       protocol,
+		}
+
+		listenerMapKey := fmt.Sprintf("%s:%d", endpoint.Address, endpoint.Port)
+		if l, exists := listenerMap[listenerMapKey]; exists {
+			log.Warnf("Conflicting inbound listeners on %s: previous listener %s", listenerMapKey, l.Name)
+			// Skip building listener for the same ip port
+			continue
 		}
 
 		switch protocol {
@@ -259,6 +267,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 		}
 
 		listeners = append(listeners, newListener)
+		listenerMap[listenerMapKey] = newListener
 
 	}
 
@@ -326,7 +335,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
 				if l, exists := listenerMap[listenerMapKey]; exists {
 					if !strings.HasPrefix(l.Name, "http") {
-						log.Warnf("Conflicting listeners on %s: previous listener %s", listenerMapKey, l.Name)
+						log.Warnf("Conflicting outbound listeners on %s: previous listener %s", listenerMapKey, l.Name)
 					}
 					// Skip building listener for the same http port
 					continue
