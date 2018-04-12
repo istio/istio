@@ -1,0 +1,100 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: meshexpansion
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: meshexpansion
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    istio: meshexpansion
+spec:
+  replicas: {{ .Values.replicaCount  | print "1" }}
+  template:
+    metadata:
+      labels:
+        istio: meshexpansion
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: meshexpansion
+      containers:
+        - name: app
+          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.imagev2 }}:{{ .Values.global.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            {{- range $app := .Values.apps }}
+              - containerPort: {{ $app.externalPort }}
+            {{- end }}
+              - containerPort: 15006
+              - containerPort: 8060
+              - containerPort: 8080
+              - containerPort: 15053
+              - containerPort: 8080
+              - containerPort: 15010
+          #args: ["-c", "/etc/envoy/envoy.yaml", "-l", "debug", "--service-cluster", "istio-ingress", "--service-node" , "ingress~~istio-ingress.istio-system~istio-system.svc.cluster.local"]
+          args:
+          - proxy
+          - router
+          - --drainDuration
+          - '45s' #drainDuration
+          - --parentShutdownDuration
+          - '1m0s' #parentShutdownDuration
+          - --connectTimeout
+          - '10s' #connectTimeout
+          - --serviceCluster
+          - "meshexpansion"
+          - --templateFile
+          - "/etc/envoy/envoy.yaml"
+          - --statsdUdpAddress
+          - istio-statsd-prom-bridge:9125
+        {{- if .Values.global.controlPlaneSecurityEnabled }}
+          - --controlPlaneAuthPolicy
+          - MUTUAL_TLS
+          - --discoveryAddress
+          - istio-pilot:15005
+        {{- else }}
+          - --controlPlaneAuthPolicy
+          - NONE
+          - --discoveryAddress
+          - istio-pilot:8080
+        {{- end }}
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+          env:
+          - name: ISTIO_BOOTSTRAP
+            value: "/etc/envoy/envoy.yaml"
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: INSTANCE_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+          - name: ISTIO_META_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          volumeMounts:
+          - name: istio-certs
+            mountPath: /etc/certs
+            readOnly: true
+          - name: envoyconfig
+            mountPath: /etc/envoy
+      volumes:
+      - name: istio-certs
+        secret:
+          secretName: "istio.default"
+          optional: true
+      - name: envoyconfig
+        configMap:
+            name: meshexpansion-envoy-config
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}

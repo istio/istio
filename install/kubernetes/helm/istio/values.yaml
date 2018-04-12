@@ -14,6 +14,8 @@ global:
   tag: circleci-nightly
   proxy:
     image: proxy
+    # Used for services using v2/alpha3
+    imagev2: proxyv2
 
   # imagePullPolicy is applied to istio control plane components.
   imagePullPolicy: IfNotPresent
@@ -379,3 +381,8 @@ zipkin:
     # requests:
     #  cpu: 100m
     #  memory: 128Mi
+
+# Meshexpansion adds internal load balancers and gateway allowing standalone machines and multiple
+# clusters to connect to the control plane running in the deployed cluster.
+meshexpansion:
+  enabled: true # For testing

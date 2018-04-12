@@ -1,0 +1,33 @@
+# Internal load balancer currently specific to GKE. Annotations specific to other providers should be added
+# after they get tested.
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-meshexpansion
+  namespace: {{ .Release.Namespace }}
+  # TODO: Add additional annotations, as they get tested.
+  annotations:
+    cloud.google.com/load-balancer-type: "internal"
+  labels:
+    istio: meshexpansion
+spec:
+  type: LoadBalancer
+  ports:
+  - name: grpc-pilot
+    port: 15010
+  - name: https-grpc-pilot
+    port: 15011
+  - name: grpc-ca-mtls
+    port: 8060
+  - port: 15006
+    name: grpc-mixer-mtls
+  - port: 15053
+    name: tcp-dns
+  - port: 8080
+    name: http-pilot-insecure
+{{- range $app := .Values.apps }}
+  - port: {{ $app.externalPort }}
+    name: {{ $app.portName }}
+{{- end }}
+  selector:
+    istio: meshexpansion
