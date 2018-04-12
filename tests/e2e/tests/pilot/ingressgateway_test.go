@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/tests/e2e/framework"
 )
 
 // The gateway is just another service.
@@ -31,7 +32,7 @@ import (
 // default (kube service level) to expose ports 80/443. So our gateway specs also expose
 // ports 80/443.
 func TestIngressGateway(t *testing.T) {
-	if !tc.V1alpha3 {
+	if !tf.V1alpha3 {
 		t.Skipf("Skipping %s: v1alpha3=false", t.Name())
 	}
 
@@ -39,7 +40,7 @@ func TestIngressGateway(t *testing.T) {
 	ingressGatewayServiceName := tc.Kube.IstioIngressGatewayService()
 
 	// Configure a route from us.bookinfo.com to "c-v2" only
-	cfgs := &deployableConfig{
+	cfgs := &framework.DeployableConfig{
 		Namespace: tc.Kube.Namespace,
 		YamlFiles: []string{
 			"testdata/v1alpha3/ingressgateway.yaml",

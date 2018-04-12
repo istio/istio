@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/tests/e2e/framework"
 )
 
 // To route all external traffic via Istio Egress gateway
@@ -29,11 +30,11 @@ import (
 //    3.b. Traffic from egress gateway goes to actual destination (in our case, its t)
 // The tests will only check for requests from a->t with host matching ext service
 func TestEgressGateway(t *testing.T) {
-	if !tc.V1alpha3 {
+	if !tf.V1alpha3 {
 		t.Skipf("Skipping %s: v1alpha3=false", t.Name())
 	}
 
-	cfgs := &deployableConfig{
+	cfgs := &framework.DeployableConfig{
 		Namespace: tc.Kube.Namespace,
 		YamlFiles: []string{
 			"testdata/v1alpha3/egressgateway.yaml",

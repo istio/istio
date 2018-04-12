@@ -20,10 +20,11 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/tests/e2e/framework"
 )
 
 func TestIngress(t *testing.T) {
-	if !tc.Ingress || tc.V1alpha3 {
+	if !tf.Ingress || tf.V1alpha3 {
 		t.Skipf("Skipping %s: ingress=false", t.Name())
 	}
 
@@ -31,19 +32,19 @@ func TestIngress(t *testing.T) {
 	ingressServiceName := tc.Kube.IstioIngressService()
 
 	// Configure a route for "c" only
-	cfgs := &deployableConfig{
+	cfgs := &framework.DeployableConfig{
 		Namespace: tc.Kube.Namespace,
 		YamlFiles: []string{
 			"testdata/ingress.yaml",
 			"testdata/v1alpha1/rule-default-route.yaml"},
-		kubeconfig: tc.Kube.KubeConfig,
+		Kubeconfig: tc.Kube.KubeConfig,
 	}
 	if err := cfgs.Setup(); err != nil {
 		t.Fatal(err)
 	}
 	defer cfgs.Teardown()
 
-	if !tc.V1alpha3 {
+	if !tf.V1alpha3 {
 		// First, verify that version splitting is applied to ingress paths.
 		runRetriableTest(t, "VersionSplitting", defaultRetryBudget, func() error {
 			reqURL := fmt.Sprintf("http://%s.%s/c", ingressServiceName, istioNamespace)
