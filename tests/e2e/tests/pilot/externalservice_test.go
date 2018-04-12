@@ -25,6 +25,9 @@ func TestExternalService(t *testing.T) {
 	if !tc.V1alpha3 {
 		t.Skipf("Skipping %s: v1alpha3=false", t.Name())
 	}
+	if !tc.Egress {
+		t.Skipf("Skipping %s: egress=false", t.Name())
+	}
 
 	// This list is ordered so that cases that use the same egress rule are adjacent. This is
 	// done to avoid applying config changes more than necessary.
