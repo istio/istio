@@ -18,10 +18,9 @@ data:
       lds_config: {"ads": {}}
       cds_config: {"ads": {}}
       ads_config:
-        api_config_source:
-                api_type: GRPC
-                refresh_delay: 10s
-                cluster_names: [xds-grpc]
+        api_type: GRPC
+        refresh_delay: 10s
+        cluster_names: [xds-grpc]
 
     static_resources:
       listeners:

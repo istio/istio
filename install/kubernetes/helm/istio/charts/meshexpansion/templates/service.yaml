@@ -13,21 +13,15 @@ metadata:
 spec:
   type: LoadBalancer
   ports:
+  - name: grpc-ca-mtls
+    port: 8060
   - name: grpc-pilot
     port: 15010
   - name: https-grpc-pilot
     port: 15011
-  - name: grpc-ca-mtls
-    port: 8060
-  - port: 15006
-    name: grpc-mixer-mtls
+  - name: grpc-mixer-mtls
+    port: 15006
   - port: 15053
     name: tcp-dns
-  - port: 8080
-    name: http-pilot-insecure
-{{- range $app := .Values.apps }}
-  - port: {{ $app.externalPort }}
-    name: {{ $app.portName }}
-{{- end }}
   selector:
     istio: meshexpansion
