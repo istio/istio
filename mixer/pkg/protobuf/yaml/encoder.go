@@ -63,69 +63,909 @@ func (e *Encoder) EncodeBytes(data map[interface{}]interface{}, msgName string, 
 }
 
 func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDescriptorProto, skipUnknown bool, buffer *proto.Buffer) error {
-	switch field.GetType() {
-	case descriptor.FieldDescriptorProto_TYPE_STRING:
-		v, ok := data.(string)
-		if !ok {
-			return badTypeError(name, "string", data)
-		}
-
-		// Errors from proto.Buffer.Encode* are always nil, therefore ignoring.
-		_ = buffer.EncodeVarint(encodeIndexAndType(int(field.GetNumber()), proto.WireBytes))
-		_ = buffer.EncodeStringBytes(v)
-	case descriptor.FieldDescriptorProto_TYPE_DOUBLE:
-		v, ok := data.(float64)
-		if !ok {
-			return badTypeError(name, "float64", data)
-		}
-		_ = buffer.EncodeVarint(encodeIndexAndType(int(field.GetNumber()), proto.WireFixed64))
-		_ = buffer.EncodeFixed64(math.Float64bits(v))
-	case descriptor.FieldDescriptorProto_TYPE_INT64:
-		v, ok := data.(int)
-		if !ok {
-			return badTypeError(name, "int", data)
-		}
-		_ = buffer.EncodeVarint(encodeIndexAndType(int(field.GetNumber()), proto.WireVarint))
-		_ = buffer.EncodeVarint(uint64(v))
-	case descriptor.FieldDescriptorProto_TYPE_BOOL:
-		v, ok := data.(bool)
-		if !ok {
-			return badTypeError(name, "bool", data)
-		}
-		val := uint64(0)
-		if v {
-			val = uint64(1)
-		}
-		_ = buffer.EncodeVarint(encodeIndexAndType(int(field.GetNumber()), proto.WireVarint))
-		_ = buffer.EncodeVarint(val)
-	case descriptor.FieldDescriptorProto_TYPE_ENUM:
-		enumValStr, ok := data.(string)
-		if !ok {
-			return badTypeError(name, fmt.Sprintf("enum(%s)", strings.TrimPrefix(field.GetTypeName(), ".")), data)
-		}
-		enum := e.resolver.ResolveEnum(field.GetTypeName()) // enum must exist since resolver has full transitive closure.
-		for _, val := range enum.Value {
-			if val.GetName() == enumValStr {
-				_ = buffer.EncodeVarint(encodeIndexAndType(int(field.GetNumber()), uint64(field.WireType())))
-				_ = buffer.EncodeVarint(uint64(val.GetNumber()))
-				return nil
-			}
-		}
-		return fmt.Errorf("unrecognized enum value '%s' for enum '%s'", enumValStr, enum.GetName())
-	case descriptor.FieldDescriptorProto_TYPE_MESSAGE:
-		v, ok := data.(map[interface{}]interface{})
-		if !ok {
-			return badTypeError(name, strings.TrimPrefix(field.GetTypeName(), "."), data)
-		}
-
-		bytes, err := e.EncodeBytes(v, field.GetTypeName(), skipUnknown)
-		if err != nil {
-			return err
-		}
-		_ = buffer.EncodeVarint(encodeIndexAndType(int(field.GetNumber()), uint64(field.WireType())))
-		_ = buffer.EncodeRawBytes(bytes)
-
+	if data == nil {
 		return nil
+	}
+	repeated := field.IsRepeated()
+	packed := field.IsPacked() || field.IsPacked3()
+	wireType := uint64(field.WireType())
+	fieldNumber := int(field.GetNumber())
+	if packed {
+		wireType = uint64(proto.WireBytes)
+	}
+	switch field.GetType() {
+	case descriptor.FieldDescriptorProto_TYPE_DOUBLE:
+		if packed {
+			/*
+				dAtA[i] = 0xba
+				i++
+				dAtA[i] = 0x1
+				i++
+				i = encodeVarintTypes(dAtA, i, uint64(len(m.RDbl)*8))
+				for _, num := range m.RDbl {
+					f4 := math.Float64bits(float64(num))
+					encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(f4))
+					i += 8
+				}
+			*/
+			v, ok := data.([]interface{})
+			if !ok {
+				return badTypeError(name, "[]float64", data)
+			}
+			_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
+			_ = buffer.EncodeVarint(uint64(len(v) * 8))
+			for i, iface := range v {
+				c, ok := toFloat(iface)
+				if !ok {
+					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "float64", iface)
+				}
+				_ = buffer.EncodeFixed64(math.Float64bits(c))
+			}
+		} else if repeated {
+			/*
+				for _, num := range m.RDblUnpacked {
+					dAtA[i] = 0xc1
+					i++
+					dAtA[i] = 0x1
+					i++
+					f5 := math.Float64bits(float64(num))
+					encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(f5))
+					i += 8
+				}
+			*/
+			v, ok := data.([]interface{})
+			if !ok {
+				return badTypeError(name, "[]float64", data)
+			}
+
+			for i, iface := range v {
+				c, ok := toFloat(iface)
+				if !ok {
+					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "float64", iface)
+				}
+				_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
+				_ = buffer.EncodeFixed64(math.Float64bits(c))
+			}
+		} else {
+			/*
+				dAtA[i] = 0x11
+				i++
+				encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Dbl))))
+				i += 8
+			*/
+			v, ok := toFloat(data)
+			if !ok {
+				return badTypeError(name, "float64", data)
+			}
+			_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
+			_ = buffer.EncodeFixed64(math.Float64bits(v))
+		}
+
+	case descriptor.FieldDescriptorProto_TYPE_FLOAT:
+		if packed {
+			/*
+				dAtA[i] = 0xf2
+				i++
+				dAtA[i] = 0x1
+				i++
+				i = encodeVarintTypes(dAtA, i, uint64(len(m.RFlt)*4))
+				for _, num := range m.RFlt {
+					f8 := math.Float32bits(float32(num))
+					encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(f8))
+					i += 4
+				}
+			*/
+			v, ok := data.([]interface{})
+			if !ok {
+				return badTypeError(name, "[]float32", data)
+			}
+			_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
+			_ = buffer.EncodeVarint(uint64(len(v) * 4))
+			for i, iface := range v {
+				c, ok := toFloat(iface)
+				if !ok {
+					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "float32", iface)
+				}
+				_ = buffer.EncodeFixed32(uint64(math.Float32bits(float32(c))))
+			}
+		} else if repeated {
+			/*
+				for _, num := range m.RFltUnpacked {
+					dAtA[i] = 0xfd
+					i++
+					dAtA[i] = 0x1
+					i++
+					f9 := math.Float32bits(float32(num))
+					encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(f9))
+					i += 4
+				}
+			*/
+			v, ok := data.([]interface{})
+			if !ok {
+				return badTypeError(name, "[]float32", data)
+			}
+
+			for i, iface := range v {
+				c, ok := toFloat(iface)
+				if !ok {
+					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "float32", iface)
+				}
+				_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
+				_ = buffer.EncodeFixed32(uint64(math.Float32bits(float32(c))))
+			}
+		} else {
+			/*
+				dAtA[i] = 0xed
+				i++
+				dAtA[i] = 0x1
+				i++
+				encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(m.Flt))))
+				i += 4
+			*/
+			v, ok := toFloat(data)
+			if !ok {
+				return badTypeError(name, "float32", data)
+			}
+			_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
+			_ = buffer.EncodeFixed32(uint64(math.Float32bits(float32(v))))
+		}
+	case descriptor.FieldDescriptorProto_TYPE_INT64,
+		descriptor.FieldDescriptorProto_TYPE_UINT64,
+		descriptor.FieldDescriptorProto_TYPE_INT32,
+		descriptor.FieldDescriptorProto_TYPE_UINT32:
+		if packed {
+			/*
+				dAtA11 := make([]byte, len(m.RI64)*10)
+				var j10 int
+				for _, num1 := range m.RI64 {
+					num := uint64(num1)
+					for num >= 1<<7 {
+						dAtA11[j10] = uint8(uint64(num)&0x7f | 0x80)
+						num >>= 7
+						j10++
+					}
+					dAtA11[j10] = uint8(num)
+					j10++
+				}
+				dAtA[i] = 0x8a
+				i++
+				dAtA[i] = 0x2
+				i++
+				i = encodeVarintTypes(dAtA, i, uint64(j10))
+				i += copy(dAtA[i:], dAtA11[:j10])
+			*/
+			v, ok := data.([]interface{})
+			if !ok {
+				return badTypeError(name, "[]int", data)
+			}
+
+			tmpBuffer := GetBuffer()
+			for i, iface := range v {
+				c, ok := toInt64(iface)
+				if !ok {
+					PutBuffer(tmpBuffer)
+					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
+				}
+				_ = tmpBuffer.EncodeVarint(uint64(c))
+			}
+			_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
+			_ = buffer.EncodeRawBytes(tmpBuffer.Bytes())
+			PutBuffer(tmpBuffer)
+		} else if repeated {
+			/*
+				for _, num := range m.RI64Unpacked {
+					dAtA[i] = 0x90
+					i++
+					dAtA[i] = 0x2
+					i++
+					i = encodeVarintTypes(dAtA, i, uint64(num))
+				}
+			*/
+			v, ok := data.([]interface{})
+			if !ok {
+				return badTypeError(name, "[]int", data)
+			}
+
+			for i, iface := range v {
+				c, ok := toInt64(iface)
+				if !ok {
+					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
+				}
+				_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
+				_ = buffer.EncodeVarint(uint64(c))
+			}
+		} else {
+			/*
+				dAtA[i] = 0x18
+				i++
+				i = encodeVarintTypes(dAtA, i, uint64(m.I64))
+			*/
+			v, ok := toInt64(data)
+			if !ok {
+				return badTypeError(name, "int", data)
+			}
+			_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
+			_ = buffer.EncodeVarint(uint64(v))
+		}
+	case descriptor.FieldDescriptorProto_TYPE_FIXED64,
+		descriptor.FieldDescriptorProto_TYPE_SFIXED64:
+		if packed {
+			/*
+				dAtA[i] = 0xea
+				i++
+				dAtA[i] = 0x2
+				i++
+				i = encodeVarintTypes(dAtA, i, uint64(len(m.RF64)*8))
+				for _, num := range m.RF64 {
+					encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(num))
+					i += 8
+				}
+			*/
+			v, ok := data.([]interface{})
+			if !ok {
+				return badTypeError(name, "[]int", data)
+			}
+			_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
+			_ = buffer.EncodeVarint(uint64(len(v) * 8))
+			for i, iface := range v {
+				c, ok := toInt64(iface)
+				if !ok {
+					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
+				}
+				_ = buffer.EncodeFixed64(uint64(c))
+			}
+		} else if repeated {
+			/*
+				for _, num := range m.RF64Unpacked {
+					dAtA[i] = 0xf1
+					i++
+					dAtA[i] = 0x2
+					i++
+					encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(num))
+					i += 8
+				}
+			*/
+			v, ok := data.([]interface{})
+			if !ok {
+				return badTypeError(name, "[]int", data)
+			}
+
+			for i, iface := range v {
+				c, ok := toInt64(iface)
+				if !ok {
+					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
+				}
+				_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
+				_ = buffer.EncodeFixed64(uint64(c))
+			}
+		} else {
+			/*
+				dAtA[i] = 0xe1
+				i++
+				dAtA[i] = 0x2
+				i++
+				encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.F64))
+				i += 8
+			*/
+			v, ok := toInt64(data)
+			if !ok {
+				return badTypeError(name, "int", data)
+			}
+			_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
+			_ = buffer.EncodeFixed64(uint64(v))
+		}
+	case descriptor.FieldDescriptorProto_TYPE_FIXED32,
+		descriptor.FieldDescriptorProto_TYPE_SFIXED32:
+		if packed {
+			/*
+				dAtA[i] = 0x9a
+				i++
+				dAtA[i] = 0x3
+				i++
+				i = encodeVarintTypes(dAtA, i, uint64(len(m.RF32)*4))
+				for _, num := range m.RF32 {
+					encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(num))
+					i += 4
+				}
+			*/
+			v, ok := data.([]interface{})
+			if !ok {
+				return badTypeError(name, "[]int", data)
+			}
+			_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
+			_ = buffer.EncodeVarint(uint64(len(v) * 4))
+			for i, iface := range v {
+				c, ok := toInt64(iface)
+				if !ok {
+					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
+				}
+				_ = buffer.EncodeFixed32(uint64(c))
+			}
+		} else if repeated {
+			/*
+				for _, num := range m.RF32Unpacked {
+					dAtA[i] = 0xa5
+					i++
+					dAtA[i] = 0x3
+					i++
+					encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(num))
+					i += 4
+				}
+			*/
+			v, ok := data.([]interface{})
+			if !ok {
+				return badTypeError(name, "[]int", data)
+			}
+
+			for i, iface := range v {
+				c, ok := toInt64(iface)
+				if !ok {
+					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
+				}
+				_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
+				_ = buffer.EncodeFixed32(uint64(c))
+			}
+		} else {
+			/*
+				dAtA[i] = 0x95
+				i++
+				dAtA[i] = 0x3
+				i++
+				encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(m.F32))
+				i += 4
+			*/
+			v, ok := toInt64(data)
+			if !ok {
+				return badTypeError(name, "int", data)
+			}
+			_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
+			_ = buffer.EncodeFixed32(uint64(v))
+		}
+	case descriptor.FieldDescriptorProto_TYPE_BOOL:
+		if packed {
+			/*
+				dAtA[i] = 0xc2
+				i++
+				dAtA[i] = 0x3
+				i++
+				i = encodeVarintTypes(dAtA, i, uint64(len(m.RB)))
+				for _, b := range m.RB {
+					if b {
+						dAtA[i] = 1
+					} else {
+						dAtA[i] = 0
+					}
+					i++
+				}
+			*/
+			v, ok := data.([]interface{})
+			if !ok {
+				return badTypeError(name, "[]bool", data)
+			}
+			_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
+			_ = buffer.EncodeVarint(uint64(len(v)))
+			for i, iface := range v {
+				c, ok := iface.(bool)
+				if !ok {
+					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "bool", iface)
+				}
+				val := uint64(0)
+				if c {
+					val = uint64(1)
+				}
+				_ = buffer.EncodeVarint(val)
+			}
+		} else if repeated {
+			/*
+				for _, b := range m.RBUnpacked {
+					dAtA[i] = 0xc8
+					i++
+					dAtA[i] = 0x3
+					i++
+					if b {
+						dAtA[i] = 1
+					} else {
+						dAtA[i] = 0
+					}
+					i++
+				}
+			*/
+			v, ok := data.([]interface{})
+			if !ok {
+				return badTypeError(name, "[]bool", data)
+			}
+
+			for i, iface := range v {
+				c, ok := iface.(bool)
+				if !ok {
+					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "bool", iface)
+				}
+				val := uint64(0)
+				if c {
+					val = uint64(1)
+				}
+				_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
+				_ = buffer.EncodeVarint(val)
+			}
+		} else {
+			/*
+				dAtA[i] = 0x20
+				i++
+				if m.B {
+					dAtA[i] = 1
+				} else {
+					dAtA[i] = 0
+				}
+				i++
+			*/
+			v, ok := data.(bool)
+			if !ok {
+				return badTypeError(name, "bool", data)
+			}
+			val := uint64(0)
+			if v {
+				val = uint64(1)
+			}
+			_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
+			_ = buffer.EncodeVarint(val)
+		}
+	case descriptor.FieldDescriptorProto_TYPE_STRING:
+		if repeated {
+			/*
+				for _, s := range m.RStr {
+					dAtA[i] = 0xd2
+					i++
+					dAtA[i] = 0x3
+					i++
+					l = len(s)
+					for l >= 1<<7 {
+						dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
+						l >>= 7
+						i++
+					}
+					dAtA[i] = uint8(l)
+					i++
+					i += copy(dAtA[i:], s)
+				}
+			*/
+			v, ok := data.([]interface{})
+			if !ok {
+				return badTypeError(name, "[]string", data)
+			}
+
+			for i, iface := range v {
+				c, ok := iface.(string)
+				if !ok {
+					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "string", iface)
+				}
+				_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
+				_ = buffer.EncodeStringBytes(c)
+			}
+		} else {
+			/*
+				dAtA[i] = 0xa
+				i++
+				i = encodeVarintTypes(dAtA, i, uint64(len(m.Str)))
+				i += copy(dAtA[i:], m.Str)
+			*/
+			v, ok := data.(string)
+			if !ok {
+				return badTypeError(name, "string", data)
+			}
+
+			// Errors from proto.Buffer.Encode* are always nil, therefore ignoring.
+			_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
+			_ = buffer.EncodeStringBytes(v)
+		}
+	case descriptor.FieldDescriptorProto_TYPE_SINT32:
+		if packed {
+			/*
+				dAtA18 := make([]byte, len(m.RSi32)*5)
+				var j19 int
+				for _, num := range m.RSi32 {
+					x20 := (uint32(num) << 1) ^ uint32((num >> 31))
+					for x20 >= 1<<7 {
+						dAtA18[j19] = uint8(uint64(x20)&0x7f | 0x80)
+						j19++
+						x20 >>= 7
+					}
+					dAtA18[j19] = uint8(x20)
+					j19++
+				}
+				dAtA[i] = 0xe2
+				i++
+				dAtA[i] = 0x3
+				i++
+				i = encodeVarintTypes(dAtA, i, uint64(j19))
+				i += copy(dAtA[i:], dAtA18[:j19])
+			*/
+			v, ok := data.([]interface{})
+			if !ok {
+				return badTypeError(name, "[]int", data)
+			}
+
+			tmpBuffer := GetBuffer()
+			for i, iface := range v {
+				c, ok := toInt64(iface)
+				if !ok {
+					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
+				}
+				_ = tmpBuffer.EncodeZigzag32(uint64(c))
+			}
+			_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
+			_ = buffer.EncodeRawBytes(tmpBuffer.Bytes())
+			PutBuffer(tmpBuffer)
+
+		} else if repeated {
+			/*
+				for _, num := range m.RSi32Unpacked {
+					dAtA[i] = 0xe8
+					i++
+					dAtA[i] = 0x3
+					i++
+					x21 := (uint32(num) << 1) ^ uint32((num >> 31))
+					for x21 >= 1<<7 {
+						dAtA[i] = uint8(uint64(x21)&0x7f | 0x80)
+						x21 >>= 7
+						i++
+					}
+					dAtA[i] = uint8(x21)
+					i++
+				}
+			*/
+			v, ok := data.([]interface{})
+			if !ok {
+				return badTypeError(name, "[]int", data)
+			}
+
+			for i, iface := range v {
+				c, ok := toInt64(iface)
+				if !ok {
+					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
+				}
+				_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
+				_ = buffer.EncodeZigzag32(uint64(c))
+			}
+		} else {
+			/*
+				dAtA[i] = 0xd8
+				i++
+				dAtA[i] = 0x3
+				i++
+				i = encodeVarintTypes(dAtA, i, uint64((uint32(m.Si32)<<1)^uint32((m.Si32>>31))))
+			*/
+			v, ok := toInt64(data)
+			if !ok {
+				return badTypeError(name, "int", data)
+			}
+			_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
+			_ = buffer.EncodeZigzag32(uint64(v))
+		}
+	case descriptor.FieldDescriptorProto_TYPE_SINT64:
+		if packed {
+			/*
+				var j22 int
+				dAtA24 := make([]byte, len(m.RSi64)*10)
+				for _, num := range m.RSi64 {
+					x23 := (uint64(num) << 1) ^ uint64((num >> 63))
+					for x23 >= 1<<7 {
+						dAtA24[j22] = uint8(uint64(x23)&0x7f | 0x80)
+						j22++
+						x23 >>= 7
+					}
+					dAtA24[j22] = uint8(x23)
+					j22++
+				}
+				dAtA[i] = 0xfa
+				i++
+				dAtA[i] = 0x3
+				i++
+				i = encodeVarintTypes(dAtA, i, uint64(j22))
+				i += copy(dAtA[i:], dAtA24[:j22])
+			*/
+			v, ok := data.([]interface{})
+			if !ok {
+				return badTypeError(name, "[]int", data)
+			}
+
+			tmpBuffer := GetBuffer()
+			for i, iface := range v {
+				c, ok := toInt64(iface)
+				if !ok {
+					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
+				}
+				_ = tmpBuffer.EncodeZigzag64(uint64(c))
+			}
+			_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
+			_ = buffer.EncodeRawBytes(tmpBuffer.Bytes())
+			PutBuffer(tmpBuffer)
+		} else if repeated {
+			/*
+				for _, num := range m.RSi64Unpacked {
+					dAtA[i] = 0x80
+					i++
+					dAtA[i] = 0x4
+					i++
+					x25 := (uint64(num) << 1) ^ uint64((num >> 63))
+					for x25 >= 1<<7 {
+						dAtA[i] = uint8(uint64(x25)&0x7f | 0x80)
+						x25 >>= 7
+						i++
+					}
+					dAtA[i] = uint8(x25)
+					i++
+				}
+			*/
+			v, ok := data.([]interface{})
+			if !ok {
+				return badTypeError(name, "[]int", data)
+			}
+
+			for i, iface := range v {
+				c, ok := toInt64(iface)
+				if !ok {
+					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
+				}
+				_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
+				_ = buffer.EncodeZigzag64(uint64(c))
+			}
+		} else {
+			/*
+				dAtA[i] = 0xf0
+				i++
+				dAtA[i] = 0x3
+				i++
+				i = encodeVarintTypes(dAtA, i, uint64((uint64(m.Si64)<<1)^uint64((m.Si64>>63))))
+			*/
+			v, ok := toInt64(data)
+			if !ok {
+				return badTypeError(name, "int", data)
+			}
+			_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
+			_ = buffer.EncodeZigzag64(uint64(v))
+		}
+
+	case descriptor.FieldDescriptorProto_TYPE_MESSAGE:
+		if e.isMap(field) {
+
+			/*
+				if len(m.MapStrStr) > 0 {
+					for k, v := range m.MapStrStr {
+						_ = k
+						_ = v
+						mapEntrySize := 1 + len(k) + sovTypes(uint64(len(k))) + 1 + len(v) + sovTypes(uint64(len(v)))
+						n += mapEntrySize + 2 + sovTypes(uint64(mapEntrySize))
+					}
+				}
+				if len(m.MapStrMsg) > 0 {
+					for k, v := range m.MapStrMsg {
+						_ = k
+						_ = v
+						l = 0
+						if v != nil {
+							l = v.Size()
+							l += 1 + sovTypes(uint64(l))
+						}
+						mapEntrySize := 1 + len(k) + sovTypes(uint64(len(k))) + l
+						n += mapEntrySize + 2 + sovTypes(uint64(mapEntrySize))
+					}
+				}
+				if len(m.MapI32Msg) > 0 {
+					for k, v := range m.MapI32Msg {
+						_ = k
+						_ = v
+						l = 0
+						if v != nil {
+							l = v.Size()
+							l += 1 + sovTypes(uint64(l))
+						}
+						mapEntrySize := 1 + sovTypes(uint64(k)) + l
+						n += mapEntrySize + 2 + sovTypes(uint64(mapEntrySize))
+					}
+				}
+				if len(m.MapStrEnum) > 0 {
+					for k, v := range m.MapStrEnum {
+						_ = k
+						_ = v
+						mapEntrySize := 1 + len(k) + sovTypes(uint64(len(k))) + 1 + sovTypes(uint64(v))
+						n += mapEntrySize + 2 + sovTypes(uint64(mapEntrySize))
+					}
+				}
+			*/
+			mapInfo := e.mapType(field)
+			keyType := typeName(mapInfo.KeyField)
+			valType := typeName(mapInfo.ValueField)
+			v, ok := data.(map[interface{}]interface{})
+			if !ok {
+				return badTypeError(name, fmt.Sprintf("map<%s, %s>", keyType, valType), data)
+			}
+
+			//Maps always have a wire format like this:
+			//message MapEntry {
+			//	key_type key = 1;
+			//	value_type value = 2;
+			//}
+			//repeated MapEntry map = N;
+
+			// So, we can create a map[key_type]value_type and use it to encode the MapEntry, repeatedly.
+			for key, val := range v {
+				tmpMapEntry := make(map[interface{}]interface{}, 2)
+				tmpMapEntry["key"] = key
+				tmpMapEntry["value"] = val
+				bytes, err := e.EncodeBytes(tmpMapEntry, field.GetTypeName(), skipUnknown)
+				if err != nil {
+					return fmt.Errorf("/%s: '%v'", fmt.Sprintf("%s[%v]", name, key), err)
+				}
+
+				_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
+				_ = buffer.EncodeRawBytes(bytes)
+			}
+		} else if repeated {
+			/*
+				for _, msg := range m.ROth {
+					dAtA[i] = 0xd2
+					i++
+					dAtA[i] = 0x1
+					i++
+					i = encodeVarintTypes(dAtA, i, uint64(msg.Size()))
+					n, err := msg.MarshalTo(dAtA[i:])
+					if err != nil {
+						return 0, err
+					}
+					i += n
+				}
+			*/
+			tName := strings.TrimPrefix(field.GetTypeName(), ".")
+			v, ok := data.([]interface{})
+			if !ok {
+				return badTypeError(name, fmt.Sprintf("[]%s", tName), data)
+			}
+
+			for i, iface := range v {
+				c, ok := iface.(map[interface{}]interface{})
+				if !ok {
+					return badTypeError(fmt.Sprintf("%s[%d]", name, i), tName, iface)
+				}
+				bytes, err := e.EncodeBytes(c, field.GetTypeName(), skipUnknown)
+				if err != nil {
+					return fmt.Errorf("/%s: '%v'", fmt.Sprintf("%s[%d]", name, i), err)
+				}
+
+				_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
+				_ = buffer.EncodeRawBytes(bytes)
+			}
+		} else {
+			/*
+				dAtA[i] = 0x5a
+				i++
+				i = encodeVarintTypes(dAtA, i, uint64(m.Oth.Size()))
+				n1, err := m.Oth.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
+				}
+				i += n1
+			*/
+			v, ok := data.(map[interface{}]interface{})
+			if !ok {
+				return badTypeError(name, strings.TrimPrefix(field.GetTypeName(), "."), data)
+			}
+
+			bytes, err := e.EncodeBytes(v, field.GetTypeName(), skipUnknown)
+			if err != nil {
+				return fmt.Errorf("/%s: '%v'", name, err)
+			}
+			_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
+			_ = buffer.EncodeRawBytes(bytes)
+
+			return nil
+		}
+
+	case descriptor.FieldDescriptorProto_TYPE_ENUM:
+		if packed {
+			/*
+				dAtA7 := make([]byte, len(m.REnm)*10)
+				var j6 int
+				for _, num := range m.REnm {
+					for num >= 1<<7 {
+						dAtA7[j6] = uint8(uint64(num)&0x7f | 0x80)
+						num >>= 7
+						j6++
+					}
+					dAtA7[j6] = uint8(num)
+					j6++
+				}
+				dAtA[i] = 0xe2
+				i++
+				dAtA[i] = 0x1
+				i++
+				i = encodeVarintTypes(dAtA, i, uint64(j6))
+				i += copy(dAtA[i:], dAtA7[:j6])
+			*/
+			enumName := fmt.Sprintf("enum(%s)", strings.TrimPrefix(field.GetTypeName(), "."))
+			v, ok := data.([]interface{})
+			if !ok {
+				return badTypeError(name, fmt.Sprintf("[]%s", enumName), data)
+			}
+
+			tmpBuffer := GetBuffer()
+			for i, iface := range v {
+				enumValStr, ok := iface.(string)
+				if !ok {
+					PutBuffer(tmpBuffer)
+					return badTypeError(fmt.Sprintf("%s[%d]", name, i), enumName, iface)
+				}
+				enum := e.resolver.ResolveEnum(field.GetTypeName()) // enum must exist since resolver has full transitive closure.
+				valMatched := false
+				for _, val := range enum.Value {
+					if val.GetName() == enumValStr {
+						_ = tmpBuffer.EncodeVarint(uint64(val.GetNumber()))
+						valMatched = true
+						break
+					}
+				}
+				if !valMatched {
+					PutBuffer(tmpBuffer)
+					return fmt.Errorf("unrecognized enum value '%s' for enum '%s'", enumValStr, enum.GetName())
+				}
+			}
+			_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
+			_ = buffer.EncodeRawBytes(tmpBuffer.Bytes())
+			PutBuffer(tmpBuffer)
+		} else if repeated {
+			/*
+				for _, num := range m.REnmUnpacked {
+					dAtA[i] = 0xc8
+					i++
+					dAtA[i] = 0x11
+					i++
+					i = encodeVarintTypes(dAtA, i, uint64(num))
+				}
+			*/
+			enumName := fmt.Sprintf("enum(%s)", strings.TrimPrefix(field.GetTypeName(), "."))
+			v, ok := data.([]interface{})
+			if !ok {
+				return badTypeError(name, fmt.Sprintf("[]%s", enumName), data)
+			}
+
+			for i, iface := range v {
+				enumValStr, ok := iface.(string)
+				if !ok {
+					return badTypeError(fmt.Sprintf("%s[%d]", name, i), enumName, iface)
+				}
+				enum := e.resolver.ResolveEnum(field.GetTypeName()) // enum must exist since resolver has full transitive closure.
+				valMatched := false
+				for _, val := range enum.Value {
+					if val.GetName() == enumValStr {
+						_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
+						_ = buffer.EncodeVarint(uint64(val.GetNumber()))
+						valMatched = true
+						break
+					}
+				}
+				if !valMatched {
+					return fmt.Errorf("unrecognized enum value '%s' for enum '%s'", enumValStr, enum.GetName())
+				}
+			}
+		} else {
+			/*
+				dAtA[i] = 0x68
+				i++
+				i = encodeVarintTypes(dAtA, i, uint64(m.Enm))
+			*/
+			enumValStr, ok := data.(string)
+			if !ok {
+				return badTypeError(name, fmt.Sprintf("enum(%s)", strings.TrimPrefix(field.GetTypeName(), ".")), data)
+			}
+			enum := e.resolver.ResolveEnum(field.GetTypeName()) // enum must exist since resolver has full transitive closure.
+			for _, val := range enum.Value {
+				if val.GetName() == enumValStr {
+					_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
+					_ = buffer.EncodeVarint(uint64(val.GetNumber()))
+					return nil
+				}
+			}
+			return fmt.Errorf("unrecognized enum value '%s' for enum '%s'", enumValStr, enum.GetName())
+		}
 	default:
 		return fmt.Errorf("unrecognized field type '%s'", (*field.Type).String())
 	}
@@ -139,4 +979,67 @@ func badTypeError(name, wantType string, data interface{}) error {
 
 func encodeIndexAndType(index int, typeid uint64) uint64 {
 	return (uint64(index) << 3) | typeid
+}
+
+func (e *Encoder) isMap(field *descriptor.FieldDescriptorProto) bool {
+	desc := e.resolver.ResolveMessage(field.GetTypeName())
+	if desc == nil || !desc.GetOptions().GetMapEntry() {
+		return false
+	}
+	return true
+}
+
+type mapDescriptor struct {
+	KeyField   *descriptor.FieldDescriptorProto
+	ValueField *descriptor.FieldDescriptorProto
+}
+
+func (e *Encoder) mapType(field *descriptor.FieldDescriptorProto) *mapDescriptor {
+	desc := e.resolver.ResolveMessage(field.GetTypeName()) // desc must exists, resolver has full transitive closure.
+
+	m := &mapDescriptor{
+		KeyField:   desc.Field[0],
+		ValueField: desc.Field[1],
+	}
+	return m
+}
+
+// nolint: goconst
+func typeName(field *descriptor.FieldDescriptorProto) string {
+	typ := ""
+	switch *field.Type {
+	case descriptor.FieldDescriptorProto_TYPE_DOUBLE:
+		typ = "float64"
+	case descriptor.FieldDescriptorProto_TYPE_FLOAT:
+		typ = "float32"
+	case descriptor.FieldDescriptorProto_TYPE_INT64:
+		typ = "int64"
+	case descriptor.FieldDescriptorProto_TYPE_UINT64:
+		typ = "uint64"
+	case descriptor.FieldDescriptorProto_TYPE_INT32:
+		typ = "int32"
+	case descriptor.FieldDescriptorProto_TYPE_UINT32:
+		typ = "uint32"
+	case descriptor.FieldDescriptorProto_TYPE_FIXED64:
+		typ = "uint64"
+	case descriptor.FieldDescriptorProto_TYPE_FIXED32:
+		typ = "uint32"
+	case descriptor.FieldDescriptorProto_TYPE_BOOL:
+		typ = "bool"
+	case descriptor.FieldDescriptorProto_TYPE_STRING:
+		typ = "string"
+	case descriptor.FieldDescriptorProto_TYPE_MESSAGE:
+		typ = strings.Trim(field.GetTypeName(), ".")
+	case descriptor.FieldDescriptorProto_TYPE_ENUM:
+		typ = strings.Trim(field.GetTypeName(), ".")
+	case descriptor.FieldDescriptorProto_TYPE_SFIXED32:
+		typ = "int32"
+	case descriptor.FieldDescriptorProto_TYPE_SFIXED64:
+		typ = "int64"
+	case descriptor.FieldDescriptorProto_TYPE_SINT32:
+		typ = "int32"
+	case descriptor.FieldDescriptorProto_TYPE_SINT64:
+		typ = "int64"
+	}
+	return typ
 }

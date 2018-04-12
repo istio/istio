@@ -51,7 +51,7 @@ func (r *resolver) ResolveEnum(name string) *descriptor.EnumDescriptorProto {
 
 func findFieldByName(descriptor *descriptor.DescriptorProto, name string) *descriptor.FieldDescriptorProto {
 	for _, f := range descriptor.Field {
-		if *f.JsonName == name || *f.Name == name {
+		if f.GetJsonName() == name || f.GetName() == name {
 			return f
 		}
 	}
