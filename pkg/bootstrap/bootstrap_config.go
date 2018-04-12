@@ -273,7 +273,7 @@ var (
 	// PilotSAN is the DNS name included in the pilot certificate. It may not match the
 	// actual address. Pilot, IstioCA and Sidecar have special certificate that include both
 	// SPIFEE and DNS.
-	PilotSAN = "istio-pilot.istio-system.svc"
+	PilotSAN = "istio-pilot.istio-system"
 )
 
 // Checkin will connect to pilot and retrieve initial configuration data needed to start envoy.
@@ -306,14 +306,18 @@ func Checkin(secure bool, addr, cluster, node string, delay time.Duration, retri
 			caCertPool := x509.NewCertPool()
 			caCertPool.AppendCertsFromPEM(caCert)
 
-			//serverName, _, _ := net.SplitHostPort(addr)
+			serverName, _, _ := net.SplitHostPort(addr)
+
+			// Testing environment.
+			if serverName == "localhost" {
+				serverName = PilotSAN
+			}
 
 			tlsConfig := &tls.Config{
 				Certificates: []tls.Certificate{chainCert},
 				RootCAs:      caCertPool,
-				ServerName:   PilotSAN,
-				// Original ServerName was fmt.Sprintf("%v.svc", serverName), but not sure
-				// how it could work - this SAN is not present in the cert.
+				// TODO: remove the .svc from CA !!!
+				ServerName: fmt.Sprintf("%v.svc", serverName),
 			}
 			//tlsConfig.BuildNameToCertificate()
 			transport := &http.Transport{TLSClientConfig: tlsConfig}

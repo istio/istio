@@ -125,6 +125,10 @@ type cliOptions struct { // nolint: maligned
 
 	// Whether to append DNS names to the certificate
 	appendDNSNames bool
+
+	// Custom domain options, for control plane and special service accounts
+	// comma separated list of SERVICE_ACCOUNT.NAMESPACE:DOMAIN
+	customDNSNames string
 }
 
 var (
@@ -229,6 +233,8 @@ func init() {
 
 	flags.BoolVar(&opts.appendDNSNames, "append-dns-names", true,
 		"Append DNS names to the certificates for webhook services.")
+	flags.StringVar(&opts.customDNSNames, "custom-dns-names", "",
+		"The list of account.namespace:customdns names, separated by comma.")
 
 	rootCmd.AddCommand(version.CobraCommand())
 
@@ -274,6 +280,23 @@ func runCA() {
 			webhooks[svcAccount] = controller.DNSNameEntry{
 				ServiceName: webhookServiceNames[i],
 				Namespace:   opts.istioCaStorageNamespace,
+			}
+		}
+		if len(opts.customDNSNames) > 0 {
+			customNames := strings.Split(opts.customDNSNames, ",")
+			for _, customName := range customNames {
+				nameDomain := strings.Split(customName, ":")
+				if len(nameDomain) == 2 {
+					override, ok := webhooks[nameDomain[0]]
+					if ok {
+						override.CustomDomains = append(override.CustomDomains, nameDomain[1])
+					} else {
+						webhooks[nameDomain[0]] = controller.DNSNameEntry{
+							ServiceName:   nameDomain[0],
+							CustomDomains: []string{nameDomain[1]},
+						}
+					}
+				}
 			}
 		}
 	}
