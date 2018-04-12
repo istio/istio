@@ -26,9 +26,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	kmock "istio.io/istio/galley/pkg/testing/kubernetes/mock"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic/fake"
+	kfake "k8s.io/client-go/kubernetes/fake"
 	dtesting "k8s.io/client-go/testing"
 )
 
@@ -80,12 +80,7 @@ func TestDeleteAll_Error(t *testing.T) {
 }
 
 func TestGetNamespaces(t *testing.T) {
-	m := kmock.NewClient()
-	newKubernetesClient = func(cfg *rest.Config) (kubernetes.Interface, error) {
-		return m, nil
-	}
-
-	m.MockCoreV1.MockNamespaces.ListResult = &v1.NamespaceList{
+	l := &v1.NamespaceList{
 		Items: []v1.Namespace{
 			{
 				ObjectMeta: metav1.ObjectMeta{Name: "foo"},
@@ -94,6 +89,11 @@ func TestGetNamespaces(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "bar"},
 			},
 		},
+	}
+	m := kfake.NewSimpleClientset(l)
+
+	newKubernetesClient = func(cfg *rest.Config) (kubernetes.Interface, error) {
+		return m, nil
 	}
 
 	ns, err := GetNamespaces(&rest.Config{})
@@ -107,12 +107,14 @@ func TestGetNamespaces(t *testing.T) {
 }
 
 func TestGetNamespaces_Empty(t *testing.T) {
-	m := kmock.NewClient()
+	l := &v1.NamespaceList{
+		Items: []v1.Namespace{},
+	}
+	m := kfake.NewSimpleClientset(l)
+
 	newKubernetesClient = func(cfg *rest.Config) (kubernetes.Interface, error) {
 		return m, nil
 	}
-
-	m.MockCoreV1.MockNamespaces.ListResult = &v1.NamespaceList{}
 
 	ns, err := GetNamespaces(&rest.Config{})
 	if err != nil {
@@ -136,12 +138,14 @@ func TestGetNamespaces_NewClientError(t *testing.T) {
 }
 
 func TestGetNamespaces_ListError(t *testing.T) {
-	m := kmock.NewClient()
-	newKubernetesClient = func(cfg *rest.Config) (kubernetes.Interface, error) {
-		return m, nil
-	}
+	m := kfake.Clientset{}
+	m.AddReactor("*", "namespaces", func(action dtesting.Action) (bool, runtime.Object, error) {
+		return true, nil, errors.New("some list error")
+	})
 
-	m.MockCoreV1.MockNamespaces.ErrorResult = errors.New("some list error")
+	newKubernetesClient = func(cfg *rest.Config) (kubernetes.Interface, error) {
+		return &m, nil
+	}
 
 	_, err := GetNamespaces(&rest.Config{})
 	if err == nil || err.Error() != "some list error" {
