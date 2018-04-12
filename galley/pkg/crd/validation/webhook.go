@@ -145,7 +145,6 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	h.HandleFunc("/admitmixer", wh.serveAdmitMixer)
 	wh.server.Handler = h
 
-
 	return wh, nil
 }
 
