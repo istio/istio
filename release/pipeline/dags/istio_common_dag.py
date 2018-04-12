@@ -27,15 +27,13 @@ from airflow.operators.python_operator import PythonOperator
 import environment_config
 from gcs_copy_operator import GoogleCloudStorageCopyOperator
 
-YESTERDAY = datetime.datetime.combine(
-    datetime.datetime.today() - datetime.timedelta(days=1),
-    datetime.datetime.min.time())
-
 default_args = {
     'owner': 'laane',
     'depends_on_past': False,
+    # This is the date to when the airlfow pipeline thinks the run started
+    'start_date': datetime.datetime.now(),
     'email': environment_config.EMAIL_LIST,
-    'email_on_failure': True,
+    'email_on_failure': True, 
     'email_on_retry': False,
     'retries': 1,
     'retry_delay': datetime.timedelta(minutes=5),
