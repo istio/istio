@@ -62,16 +62,16 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: istio-ca-ilb
+  name: citadel-ilb
   namespace: istio-system
   annotations:
     cloud.google.com/load-balancer-type: "internal"
   labels:
-    istio: istio-ca
+    istio: citadel
 spec:
   type: LoadBalancer
   ports:
   - port: 8060
     protocol: TCP
   selector:
-    istio: istio-ca
+    istio: citadel

@@ -37,7 +37,7 @@ type (
 )
 
 const (
-	istioCaSelfSignedShortTTL = "istio-ca-self-signed-short-ttl"
+	citadelSelfSignedShortTTL = "citadel-self-signed-short-ttl"
 )
 
 // NewCertRotationTestEnv creates the environment instance
@@ -77,8 +77,8 @@ func (env *CertRotationTestEnv) GetComponents() []framework.Component {
 			NewKubernetesPod(
 				env.ClientSet,
 				env.NameSpace,
-				istioCaSelfSignedShortTTL,
-				fmt.Sprintf("%s/istio-ca:%s", env.Hub, env.Tag),
+				citadelSelfSignedShortTTL,
+				fmt.Sprintf("%s/citadel:%s", env.Hub, env.Tag),
 				[]string{
 					"/usr/local/bin/istio_ca",
 				},

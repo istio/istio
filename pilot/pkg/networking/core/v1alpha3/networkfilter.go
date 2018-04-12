@@ -35,20 +35,16 @@ import (
 
 // buildInboundNetworkFilters generates a TCP proxy network filter on the inbound path
 func buildInboundNetworkFilters(instance *model.ServiceInstance) []listener.Filter {
-	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "",
-		instance.Service.Hostname, instance.Endpoint.ServicePort)
 	config := &tcp_proxy.TcpProxy{
 		StatPrefix: fmt.Sprintf("%s|tcp|%d", model.TrafficDirectionInbound, instance.Endpoint.ServicePort.Port),
-		Cluster:    clusterName,
+		Cluster:    model.BuildSubsetKey(model.TrafficDirectionInbound, "", instance.Service.Hostname, instance.Endpoint.ServicePort),
 	}
-
 	return []listener.Filter{
 		{
 			Name:   xdsutil.TCPProxy,
 			Config: util.MessageToStruct(config),
 		},
 	}
-
 }
 
 func buildDeprecatedTCPRouteConfig(clusterName string, addresses []string) *DeprecatedTCPRouteConfig {

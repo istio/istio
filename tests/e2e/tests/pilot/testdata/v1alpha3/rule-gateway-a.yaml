@@ -1,0 +1,16 @@
+# Routes TCP traffic through the ingressgateway Gateway to service A.
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: rule-gateway-a
+spec:
+  hosts:
+  - a.istio-system.svc.cluster.local
+  gateways:
+  - gateway-a
+  tcp:
+  - route:
+    - destination:
+        host: a
+        port:
+          name: tcp
