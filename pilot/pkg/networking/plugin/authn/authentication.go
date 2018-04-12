@@ -287,10 +287,10 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 
 	// Adding Jwt filter and authn filter, if needed.
 	if filter := BuildJwtFilter(authnPolicy); filter != nil {
-		*mutable.HTTPFilters = append(*mutable.HTTPFilters, filter)
+		mutable.HTTPFilters = append(mutable.HTTPFilters, filter)
 	}
 	if filter := BuildAuthNFilter(authnPolicy); filter != nil {
-		*mutable.HTTPFilters = append(*mutable.HTTPFilters, filter)
+		mutable.HTTPFilters = append(mutable.HTTPFilters, filter)
 	}
 	return nil
 }
