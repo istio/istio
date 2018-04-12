@@ -138,6 +138,11 @@ test/local/noauth/e2e_pilotv2:
 	${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS}  ${T} \
 		| tee ${OUT_DIR}/logs/test-report.raw
 
+test/local/cloudfoundry/e2e_pilotv2:
+	@mkdir -p /go/out/logs
+	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 20m ./tests/e2e/tests/pilot/cloudfoundry ${T} \
+		| tee ${OUT_DIR}/logs/test-report.raw
+
 # v1alpha3+envoyv2 test without MTLS (not implemented yet). Still in progress, for tracking
 test/local/noauth/e2e_simple_pilotv2:
 	@mkdir -p /go/out/logs
