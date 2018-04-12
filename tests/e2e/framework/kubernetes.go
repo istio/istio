@@ -75,7 +75,6 @@ var (
 	skipSetup                 = flag.Bool("skip_setup", false, "Skip namespace creation and istio cluster setup")
 	sidecarInjectorFile       = flag.String("sidecar_injector_file", defaultSidecarInjectorFile, "Sidecar injector yaml file")
 	clusterWide               = flag.Bool("cluster_wide", false, "Run cluster wide tests")
-	withMixerValidator        = flag.Bool("with_mixer_validator", false, "Set up mixer validator")
 	imagePullPolicy           = flag.String("image_pull_policy", "", "Specifies an override for the Docker image pull policy to be used")
 	multiClusterDir           = flag.String("cluster_registry_dir", "", "Directory name for the cluster registry config")
 	galleyConfigValidatorFile = flag.String("galley_config_validator_file", defaultGalleyConfigValidatorFile, "Galley config validator yaml file")
