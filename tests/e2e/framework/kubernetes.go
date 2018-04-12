@@ -440,8 +440,7 @@ func (k *KubeInfo) deployAddons() error {
 	return nil
 }
 
-func (k *KubeInfo) deployIstio() error {
-	istioYaml := nonAuthInstallFileNamespace
+func getIstioYaml() (istioYaml string) {
 	if *clusterWide {
 		if *authEnable {
 			istioYaml = authInstallFile
@@ -451,8 +450,15 @@ func (k *KubeInfo) deployIstio() error {
 	} else {
 		if *authEnable {
 			istioYaml = authInstallFileNamespace
+		} else {
+			istioYaml = nonAuthInstallFileNamespace
 		}
 	}
+	return
+}
+
+func (k *KubeInfo) deployIstio() error {
+	istioYaml := getIstioYaml()
 	yamlDir := filepath.Join(istioInstallDir, istioYaml)
 	baseIstioYaml := filepath.Join(k.ReleaseDir, yamlDir)
 	testIstioYaml := filepath.Join(k.TmpDir, "yaml", istioYaml)
