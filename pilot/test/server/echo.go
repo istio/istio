@@ -141,6 +141,7 @@ func (h handler) Echo(ctx context.Context, req *pb.EchoRequest) (*pb.EchoRespons
 	}
 	body.WriteString("ServiceVersion=" + version + "\n")
 	body.WriteString("ServicePort=" + strconv.Itoa(h.port) + "\n")
+	body.WriteString("ServerID=" + serverID + "\n")
 	body.WriteString("Echo=" + req.GetMessage())
 	return &pb.EchoResponse{Message: body.String()}, nil
 }

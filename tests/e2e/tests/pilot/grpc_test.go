@@ -47,7 +47,7 @@ func TestGrpc(t *testing.T) {
 				}
 				for _, port := range ports {
 					for _, domain := range []string{"", "." + tc.Kube.Namespace} {
-						testName := fmt.Sprintf("%s->%s%s_%s(serverID: %s)", src, dst, domain, port, tc.serverIDMap[dst])
+						testName := fmt.Sprintf("%s->%s%s_%s", src, dst, domain, port)
 						runRetriableTest(t, testName, defaultRetryBudget, func() error {
 							reqURL := fmt.Sprintf("grpc://%s%s:%s", dst, domain, port)
 							resp := ClientRequest(src, reqURL, 1, "")
