@@ -68,34 +68,53 @@ DEFAULT_UPGRADE_E2E_ARGS += --target_version=""
 UPGRADE_E2E_ARGS ?= ${DEFAULT_UPGRADE_E2E_ARGS}
 
 # Simple e2e test using fortio, approx 2 min
-e2e_simple: istioctl generate_yaml
-	go test -v -timeout 20m ./tests/e2e/tests/simple -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
+e2e_simple: istioctl generate_yaml e2e_simple_run
 
+e2e_mixer: istioctl generate_yaml e2e_mixer_run
+
+e2e_dashboard: istioctl generate_yaml e2e_dashboard_run
+
+e2e_bookinfo: istioctl generate_yaml e2e_bookinfo_run
+
+e2e_upgrade: istioctl generate_yaml e2e_upgrade_run
+
+e2e_version_skew: istioctl generate_yaml e2e_version_skew_run
+
+e2e_all: istioctl generate_yaml e2e_all_run
+
+# *_run targets do not rebuild the artifacts and test with whatever is given
 e2e_simple_run:
 	go test -v -timeout 20m ./tests/e2e/tests/simple -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
 
-e2e_mixer: istioctl generate_yaml
+e2e_mixer_run:
 	go test -v -timeout 20m ./tests/e2e/tests/mixer -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
 
-e2e_dashboard: istioctl generate_yaml
+e2e_dashboard_run:
 	go test -v -timeout 20m ./tests/e2e/tests/dashboard -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
 
-e2e_bookinfo: istioctl generate_yaml
+e2e_bookinfo_run:
 	go test -v -timeout 60m ./tests/e2e/tests/bookinfo -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
 
-e2e_upgrade: istioctl generate_yaml
+e2e_upgrade_run:
 	go test -v -timeout 20m ./tests/e2e/tests/upgrade -args ${E2E_ARGS} ${EXTRA_E2E_ARGS} ${UPGRADE_E2E_ARGS}
 
-e2e_version_skew: istioctl generate_yaml
+e2e_version_skew_run:
 	go test -v -timeout 20m ./tests/e2e/tests/upgrade -args --smooth_check=true ${E2E_ARGS} ${EXTRA_E2E_ARGS} ${UPGRADE_E2E_ARGS}
 
-e2e_all:
-	$(MAKE) --keep-going e2e_simple e2e_mixer e2e_bookinfo e2e_dashboard e2e_upgrade
+e2e_all_run:
+	$(MAKE) --keep-going e2e_simple_run e2e_mixer_run e2e_bookinfo_run e2e_dashboard_run e2e_upgrade_run
 
-JUNIT_E2E_XML ?= $(ISTIO_OUT)/junit_e2e-all.xml
-e2e_all_junit_report: | $(JUNIT_REPORT)
+JUNIT_E2E_XML ?= $(ISTIO_OUT)/junit.xml
+TARGET ?= e2e_all
+with_junit_report: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_E2E_XML))
-	set -o pipefail; $(MAKE) e2e_all 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_E2E_XML))
+	set -o pipefail; $(MAKE) $(TARGET) 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_E2E_XML))
+
+e2e_all_junit_report:
+	$(MAKE) with_junit_report TARGET=e2e_all
+
+e2e_all_run_junit_report:
+	$(MAKE) with_junit_report TARGET=e2e_all_run
 
 # The pilot tests cannot currently be part of e2e_all, since they requires some additional flags.
 e2e_pilot: istioctl generate_yaml
