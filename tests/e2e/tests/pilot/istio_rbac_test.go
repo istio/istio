@@ -46,8 +46,9 @@ func TestRBAC(t *testing.T) {
 
 	// Push all of the configs
 	cfgs := &deployableConfig{
-		Namespace: tc.Kube.Namespace,
-		YamlFiles: []string{rbackEnableYaml, rbackRulesYaml},
+		Namespace:  tc.Kube.Namespace,
+		YamlFiles:  []string{rbackEnableYaml, rbackRulesYaml},
+		kubeconfig: tc.Kube.KubeConfig,
 	}
 	if err := cfgs.Setup(); err != nil {
 		t.Fatal(err)

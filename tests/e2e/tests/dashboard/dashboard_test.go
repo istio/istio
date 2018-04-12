@@ -309,7 +309,7 @@ func setTestConfig() error {
 }
 
 func (t *testConfig) Setup() (err error) {
-	if !util.CheckPodsRunning(tc.Kube.Namespace) {
+	if !util.CheckPodsRunning(tc.Kube.Namespace, tc.Kube.KubeConfig) {
 		return fmt.Errorf("could not get all pods running")
 	}
 
@@ -381,7 +381,7 @@ func (p *promProxy) portForward(labelSelector string, localPort string, remotePo
 }
 
 func (p *promProxy) Setup() error {
-	if !util.CheckPodsRunning(tc.Kube.Namespace) {
+	if !util.CheckPodsRunning(tc.Kube.Namespace, tc.Kube.KubeConfig) {
 		return errors.New("could not establish port-forward to prometheus: pods not running")
 	}
 
