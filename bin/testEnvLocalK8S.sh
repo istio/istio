@@ -127,15 +127,15 @@ function startLocalApiserver() {
         --tls-cert-file ${CERTDIR}/apiserver.crt \
         --tls-private-key-file ${CERTDIR}/apiserver.key \
         --service-cluster-ip-range 10.99.0.0/16 \
-        --port 8090 -v 2 --insecure-bind-address 0.0.0.0 \
+        --port 8080 -v 2 --insecure-bind-address 0.0.0.0 \
         > ${LOG_DIR}/apiserver.log 2>&1 &
     echo $! > $LOG_DIR/apiserver.pid
     # make sure apiserver is actually alive
     kill -0 $(cat $LOG_DIR/apiserver.pid)
 
     # Really need to make sure that API Server is up before proceed further
-    waitForApiServer "http://127.0.0.1:8090"
-    export K8S1="http://localhost:8090"
+    waitForApiServer "http://127.0.0.1:8080"
+    
     printf "Started local etcd and apiserver!\n"
 }
 
