@@ -32,8 +32,8 @@ usage: ${BASH_SOURCE[0]} [options ...]"
     -i ... URL to download istioctl binary
     -p ... <hub>,<tag> for the pilot docker image
     -x ... <hub>,<tag> for the mixer docker image
-    -c ... <hub>,<tag> for the istio-ca docker image
-    -a ... <hub>,<tag> Specifies same hub and tag for pilot, mixer, proxy, and istio-ca containers
+    -c ... <hub>,<tag> for the citadel docker image
+    -a ... <hub>,<tag> Specifies same hub and tag for pilot, mixer, proxy, and citadel containers
     -h ... <hub>,<tag> for the hyperkube docker image
     -o ... <hub>,<tag> for the proxy docker image
     -n ... <namespace> namespace in which to install Istio control plane components
@@ -139,8 +139,8 @@ function merge_files() {
   ISTIO_AUTH=$DEST/istio-auth.yaml
   ISTIO_ONE_NAMESPACE=$DEST/istio-one-namespace.yaml
   ISTIO_ONE_NAMESPACE_AUTH=$DEST/istio-one-namespace-auth.yaml
-  ISTIO_CA_PLUGIN_CERTS=$DEST/istio-ca-plugin-certs.yaml
-  ISTIO_CA_HEALTH_CHECK=$DEST/istio-ca-with-health-check.yaml
+  ISTIO_CA_PLUGIN_CERTS=$DEST/istio-citadel-plugin-certs.yaml
+  ISTIO_CA_HEALTH_CHECK=$DEST/istio-citadel-with-health-check.yaml
   ISTIO_MIXER_HEALTH_CHECK=$DEST/istio-mixer-with-health-check.yaml
   ISTIO_MIXER_VALIDATOR=$DEST/istio-mixer-validator.yaml
 
@@ -169,7 +169,7 @@ function merge_files() {
   cat $SRC/istio-ingress.yaml.tmpl >> $ISTIO
 
   cp $ISTIO $ISTIO_ONE_NAMESPACE
-  cat $SRC/istio-ca.yaml.tmpl >> $ISTIO
+  cat $SRC/istio-citadel.yaml.tmpl >> $ISTIO
 
   cp $ISTIO $ISTIO_AUTH
   execute_sed "s/discoveryAddress: istio-pilot.${ISTIO_NAMESPACE}:15007/discoveryAddress: istio-pilot.${ISTIO_NAMESPACE}:15005/" $ISTIO_AUTH
@@ -183,7 +183,7 @@ function merge_files() {
 
   # restrict pilot controllers to a single namespace in the test file
   execute_sed "s|args: \[\"discovery\"|args: \[\"discovery\", \"-a\", \"${ISTIO_NAMESPACE}\"|" $ISTIO_ONE_NAMESPACE
-  cat $SRC/istio-ca-one-namespace.yaml.tmpl >> $ISTIO_ONE_NAMESPACE
+  cat $SRC/istio-citadel-one-namespace.yaml.tmpl >> $ISTIO_ONE_NAMESPACE
 
   cp $ISTIO_ONE_NAMESPACE $ISTIO_ONE_NAMESPACE_AUTH
   execute_sed "s/discoveryAddress: istio-pilot.${ISTIO_NAMESPACE}:15007/discoveryAddress: istio-pilot.${ISTIO_NAMESPACE}:15005/" $ISTIO_ONE_NAMESPACE_AUTH
@@ -197,11 +197,11 @@ function merge_files() {
 
   echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $ISTIO_CA_PLUGIN_CERTS
   echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO_CA_PLUGIN_CERTS
-  cat $SRC/istio-ca-plugin-certs.yaml.tmpl >> $ISTIO_CA_PLUGIN_CERTS
+  cat $SRC/istio-citadel-plugin-certs.yaml.tmpl >> $ISTIO_CA_PLUGIN_CERTS
 
   echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $ISTIO_CA_HEALTH_CHECK
   echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO_CA_HEALTH_CHECK
-  cat $SRC/istio-ca-with-health-check.yaml.tmpl >> $ISTIO_CA_HEALTH_CHECK
+  cat $SRC/istio-citadel-with-health-check.yaml.tmpl >> $ISTIO_CA_HEALTH_CHECK
 
   echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $ISTIO_MIXER_HEALTH_CHECK
   echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO_MIXER_HEALTH_CHECK
@@ -257,10 +257,10 @@ function update_istio_install() {
   execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-mixer.yaml.tmpl
   execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-mixer-with-health-check.yaml.tmpl
   execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-mixer-validator.yaml.tmpl
-  execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ca.yaml.tmpl
-  execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ca-one-namespace.yaml.tmpl
-  execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ca-plugin-certs.yaml.tmpl
-  execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ca-with-health-check.yaml.tmpl
+  execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-citadel.yaml.tmpl
+  execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-citadel-one-namespace.yaml.tmpl
+  execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-citadel-plugin-certs.yaml.tmpl
+  execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-citadel-with-health-check.yaml.tmpl
 
   execute_sed "s|image: {PILOT_HUB}/\(.*\):{PILOT_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-pilot.yaml.tmpl
   execute_sed "s|image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}|image: ${PROXY_HUB}/${PROXY_IMAGE}:${PROXY_TAG}|" istio-pilot.yaml.tmpl
@@ -269,10 +269,10 @@ function update_istio_install() {
   execute_sed "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" istio-mixer-validator.yaml.tmpl
   execute_sed "s|image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}|image: ${PROXY_HUB}/${PROXY_IMAGE}:${PROXY_TAG}|" istio-mixer.yaml.tmpl
   execute_sed "s|image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}|image: ${PROXY_HUB}/${PROXY_IMAGE}:${PROXY_TAG}|" istio-mixer-with-health-check.yaml.tmpl
-  execute_sed "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-ca.yaml.tmpl
-  execute_sed "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-ca-one-namespace.yaml.tmpl
-  execute_sed "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-ca-plugin-certs.yaml.tmpl
-  execute_sed "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-ca-with-health-check.yaml.tmpl
+  execute_sed "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-citadel.yaml.tmpl
+  execute_sed "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-citadel-one-namespace.yaml.tmpl
+  execute_sed "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-citadel-plugin-certs.yaml.tmpl
+  execute_sed "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-citadel-with-health-check.yaml.tmpl
 
   execute_sed "s|image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}|image: ${PROXY_HUB}/${PROXY_IMAGE}:${PROXY_TAG}|" istio-ingress.yaml.tmpl
   popd

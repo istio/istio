@@ -118,12 +118,16 @@ ingressgateway:
     - port: 443
       name: https
       nodePort: 31390
+    - port: 31400
+      name: tcp
+      nodePort: 31400
   deployment:
     labels:
       istio: ingressgateway #will be added to pods and service
     ports:
     - containerPort: 80
     - containerPort: 443
+    - containerPort: 31400
   # secretVolumes: TODO
   # - name: someName
   #   mountPath: somePath
@@ -197,6 +201,22 @@ sidecar-injector:
   #     Redirect all inbound traffic to Envoy:   --includeInboundPorts="*"
   #     Redirect only selected ports:            --includeInboundPorts="80,8080"
   includeInboundPorts: "*"
+
+#
+# galley configuration
+#
+galley:
+  enabled: false
+  serviceAccountName: default
+  replicaCount: 1
+  imagePullPolicy: IfNotPresent
+  resources: {}
+  # limits:
+  #  cpu: 100m
+  #  memory: 128Mi
+  # requests:
+  #  cpu: 100m
+  #  memory: 128Mi
 
 #
 # mixer configuration

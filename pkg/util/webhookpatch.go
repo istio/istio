@@ -60,3 +60,44 @@ func PatchMutatingWebhookConfig(client admissionregistrationv1beta1client.Mutati
 	_, err = client.Patch(webhookConfigName, types.StrategicMergePatchType, patch)
 	return err
 }
+
+// PatchValidatingWebhookConfig patches a CA bundle into the specified webhook config.
+func PatchValidatingWebhookConfig(client admissionregistrationv1beta1client.ValidatingWebhookConfigurationInterface,
+	webhookConfigName string, webhookNames []string, caBundle []byte) error {
+	config, err := client.Get(webhookConfigName, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	prev, err := json.Marshal(config)
+	if err != nil {
+		return err
+	}
+	var found int
+	names := map[string]bool{}
+	for _, name := range webhookNames {
+		names[name] = true
+	}
+	for i, w := range config.Webhooks {
+		if _, ok := names[w.Name]; ok {
+			config.Webhooks[i].ClientConfig.CABundle = caBundle[:]
+			found++
+			if found == len(webhookNames) {
+				break
+			}
+		}
+	}
+	if found < len(webhookNames) {
+		return apierrors.NewInternalError(fmt.Errorf(
+			"webhook entries %q not found in config %q", webhookNames, webhookConfigName))
+	}
+	curr, err := json.Marshal(config)
+	if err != nil {
+		return err
+	}
+	patch, err := strategicpatch.CreateTwoWayMergePatch(prev, curr, admissionregistrationv1beta1.ValidatingWebhookConfiguration{})
+	if err != nil {
+		return err
+	}
+	_, err = client.Patch(webhookConfigName, types.StrategicMergePatchType, patch)
+	return err
+}

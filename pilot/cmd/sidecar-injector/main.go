@@ -29,8 +29,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/pkg/kube/inject"
+	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
@@ -119,8 +119,7 @@ func patchCert() error {
 	if err != nil {
 		return err
 	}
-	i := 0
-	for i < retryTimes {
+	for i := 0; i < retryTimes; i++ {
 		err = util.PatchMutatingWebhookConfig(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
 			flags.webhookConfigName, flags.webhookName, caCertPem)
 		if err == nil {
@@ -166,7 +165,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&flags.kubeconfigFile, "kubeconfig", "",
 		"Specifies path to kubeconfig file. This must be specified when not running inside a Kubernetes pod.")
 	rootCmd.PersistentFlags().StringVar(&flags.webhookConfigName, "webhookConfigName", "istio-sidecar-injector",
-		"Name of the mutatingwebhookconfiguration resource in Kubernete.")
+		"Name of the mutatingwebhookconfiguration resource in Kubernetes.")
 	rootCmd.PersistentFlags().StringVar(&flags.webhookName, "webhookName", "sidecar-injector.istio.io",
 		"Name of the webhook entry in the webhook config.")
 	// Attach the Istio logging options to the command.

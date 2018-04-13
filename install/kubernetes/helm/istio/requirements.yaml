@@ -43,3 +43,7 @@ dependencies:
     version: 0.1.0
     # repository: file://../addons/zipkin
     condition: zipkin.enabled
+  - name: galley
+    version: 0.5.0
+    # repository: file://../sidecar-injector
+    condition: galley.enabled

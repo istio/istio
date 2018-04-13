@@ -24,7 +24,5 @@ spec:
     name: http-legacy-discovery # direct
   - port: 9093
     name: http-monitoring
-  - port: 443
-    name: admission-webhook
   selector:
     istio: pilot
