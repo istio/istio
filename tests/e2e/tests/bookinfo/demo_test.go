@@ -39,6 +39,10 @@ type versionRoutingRule struct {
 }
 
 func TestVersionRouting(t *testing.T) {
+	inspect(applyRules(defaultRules), "failed to apply default rules", "", t)
+	defer func() {
+		inspect(deleteRules(defaultRules), "failed to delete default rules", "", t)
+	}()
 	v1Model := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v1.html"))
 	v2TestModel := util.GetResourcePath(filepath.Join(modelDir, "productpage-test-user-v2.html"))
 
@@ -81,7 +85,7 @@ func doTestVersionRouting(t *testing.T, rule versionRoutingRule) {
 }
 
 func TestFaultDelay(t *testing.T) {
-	var rules = []string{testRule, delayRule}
+	var rules = append([]string{testRule, delayRule}, defaultRules...)
 	inspect(applyRules(rules), "failed to apply rules", "", t)
 	defer func() {
 		inspect(deleteRules(rules), "failed to delete rules", "", t)
