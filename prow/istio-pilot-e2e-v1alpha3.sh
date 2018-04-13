@@ -29,9 +29,8 @@ set -x
 
 # Run tests with auth disabled
 #echo 'Running pilot e2e tests (v1alpha3, noauth)'
-./prow/e2e-suite.sh --single_test e2e_pilotv2 "$@"
+./prow/e2e-suite.sh --single_test test/local/noauth/e2e_pilotv2
 
 # Run tests with auth enabled
 #echo 'Running pilot e2e tests (v1alpha3, auth)'
 #./prow/e2e-suite.sh --auth_enable=true --v1alpha1=false --single_test e2e_pilot "$@"
-echo "v1alpha3 tests are disabled temporarily while we switch to envoyv2 for v1alpha3"
