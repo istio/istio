@@ -96,7 +96,7 @@ to the cluster created in GKE.
 
 #### Additional notes for Minikube
 
-Minikube version >= v0.22.3 is required for proper certificate
+Minikube version >= v0.25.0 is required for proper certificate
 configuration for GenericAdmissionWebhook feature. Get the latest version
 from
 [minikube release page](https://github.com/kubernetes/minikube/releases)
@@ -113,8 +113,10 @@ If you are using kubernetes with version < v1.8.0, you need to specify
 the extra-config and RBAC flags explicitly. Please run:
 ```bash
 minikube start \
-    --extra-config=apiserver.Admission.PluginNames="Initializers,NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,GenericAdmissionWebhook,ResourceQuota" \
-    --kubernetes-version=v1.7.5
+	--extra-config=controller-manager.ClusterSigningCertFile="/var/lib/localkube/certs/ca.crt" \
+	--extra-config=controller-manager.ClusterSigningKeyFile="/var/lib/localkube/certs/ca.key" \
+	--extra-config=apiserver.Admission.PluginNames=NamespaceLifecycle,LimitRanger,ServiceAccount,PersistentVolumeLabel,DefaultStorageClass,DefaultTolerationSeconds,MutatingAdmissionWebhook,ValidatingAdmissionWebhook,ResourceQuota \
+	--kubernetes-version=v1.9.0
 ```
 
 To enable RBAC, add `--bootstrapper kubeadm --extra-config=apiserver.Authorization.Mode=RBAC` to `minikube start` command, in addition to the flags above.
