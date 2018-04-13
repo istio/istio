@@ -21,6 +21,9 @@ func toFloat(v interface{}) (float64, bool) {
 	case float64:
 		return c, true
 	default:
+		// depending on the parser, `v` can be an integer if user does not explicitly append the value with `.0`.
+		// For example user writes `3` instead of `3.0`. Below case takes care of treating integer
+		// as float64.
 		if d, ok := toInt64(v); ok {
 			return float64(d), true
 		}
