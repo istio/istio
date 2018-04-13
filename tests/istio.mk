@@ -120,6 +120,8 @@ e2e_all_run_junit_report:
 e2e_pilot: istioctl generate_yaml
 	go test -v -timeout 20m ./tests/e2e/tests/pilot ${E2E_ARGS} ${EXTRA_E2E_ARGS}
 
+e2e_pilotv2: istioctl test/local/noauth/e2e_pilotv2
+
 ## Targets for fast local development and staged CI.
 # The test take a T argument. Example:
 # make test/local/noauth/e2e_pilotv2 T=-test.run=TestPilot/ingress
