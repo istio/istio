@@ -609,13 +609,3 @@ func GetKubeConfig(filename string) error {
 	log.Infof("kubeconfig file %s created\n", filename)
 	return nil
 }
-
-// GetKubeConfigFromFile will parse the provided directory for a file that provides two kubeconfig
-// formatted blocks.  One for the local cluster where Istio is installed and another for a remote
-// cluster
-func GetKubeConfigFromFile(dirname string) (string, string, error) {
-	//TODO complete function
-	err := fmt.Errorf("the function to parse the test config is not completed and is a TODO")
-	return "", "", err
-
-}

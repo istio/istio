@@ -20,7 +20,6 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -156,13 +155,17 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 	} else {
 		releaseDir = util.GetResourcePath("")
 	}
+	// Note the kubectl commands used by the test will default to use the local
+	// environments kubeconfig if an empty string is provided.  Therefore in the
+	// default case kubeConfig will not be set.
 	var kubeConfig, remoteKubeConfig string
 	var kubeClient, remoteKubeClient kubernetes.Interface
 	var aRemote *AppManager
 	if *multiClusterDir != "" {
-		// ClusterRegistiresDir indicates the Kubernetes cluster config should come from files versus KUBECONFIG
-		// environmental variable.  The test config can be defined to use either a single cluster or 2 clusters
-		kubeConfig, remoteKubeConfig, err = util.GetKubeConfigFromFile(*multiClusterDir)
+		// multiClusterDir indicates the Kubernetes cluster config should come from files versus
+		// the environmental. The test config can be defined to use either a single cluster or
+		// 2 clusters
+		kubeConfig, remoteKubeConfig, err = getKubeConfigFromFile(*multiClusterDir)
 		if err != nil {
 			return nil, err
 		}
@@ -174,13 +177,6 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		}
 
 		aRemote = NewAppManager(tmpDir, *namespace, i, remoteKubeConfig)
-	} else {
-		tmpfile := *namespace + "_kubeconfig"
-		tmpfile = path.Join(tmpDir, tmpfile)
-		if err = util.GetKubeConfig(tmpfile); err != nil {
-			return nil, err
-		}
-		kubeConfig = tmpfile
 	}
 
 	a := NewAppManager(tmpDir, *namespace, i, kubeConfig)
@@ -511,13 +507,10 @@ func (k *KubeInfo) deployIstio() error {
 			}
 		}
 	}
-	if *multiClusterDir != "" {
-		mcNonAuthInstallFileNamespace
-	}
+
 	yamlDir := filepath.Join(istioInstallDir, istioYaml)
 	baseIstioYaml := filepath.Join(k.ReleaseDir, yamlDir)
 	testIstioYaml := filepath.Join(k.TmpDir, "yaml", istioYaml)
-	log.Infof("JAJ Generating yaml baseIstio = %s testIstio = %s", baseIstioYaml, testIstioYaml)
 
 	if err := k.generateIstio(baseIstioYaml, testIstioYaml); err != nil {
 		log.Errorf("Generating yaml %s failed", testIstioYaml)
@@ -714,52 +707,4 @@ func updateImagePullPolicy(policy string, content []byte) []byte {
 	image := []byte(fmt.Sprintf("imagePullPolicy: %s", policy))
 	r := regexp.MustCompile("imagePullPolicy:.*")
 	return r.ReplaceAllLiteral(content, image)
-}
-
-func (e *Environment) createMulticlusterConfig() error {
-	// Although this function loops through all files in the configuration directory the tests assumes a single
-	// clusterregistry configuration file.
-
-	info, err := os.Stat(e.Config.ClusterRegistriesDir)
-	if err != nil {
-		switch err := err.(type) {
-		case *os.PathError:
-			return fmt.Errorf("error reading %s: %v", e.Config.ClusterRegistriesDir, err.Err)
-		default:
-			return fmt.Errorf("error reading %s: %v", e.Config.ClusterRegistriesDir, err)
-		}
-	}
-
-	if info.IsDir() {
-		if strings.Contains(e.Config.ClusterRegistriesDir, "=") {
-			return fmt.Errorf("cannot give a key name for a directory path")
-		}
-		fileList, err := ioutil.ReadDir(e.Config.ClusterRegistriesDir)
-		if err != nil {
-			return fmt.Errorf("error listing files in %s: %v", e.Config.ClusterRegistriesDir, err)
-		}
-		var Data []byte
-		configData := make(map[string]string)
-		for _, item := range fileList {
-			itemPath := path.Join(e.Config.ClusterRegistriesDir, item.Name())
-			if item.Mode().IsRegular() {
-				keyName := item.Name()
-				Data, err = ioutil.ReadFile(itemPath)
-				if err != nil {
-					return err
-				}
-				configData[keyName] = string(Data)
-			}
-		}
-		if _, err = e.KubeClient.CoreV1().ConfigMaps(e.Config.IstioNamespace).Create(&v1.ConfigMap{
-
-			ObjectMeta: meta_v1.ObjectMeta{
-				Name: "multicluster",
-			},
-			Data: configData,
-		}); err != nil {
-			return err
-		}
-	}
-	return nil
 }
