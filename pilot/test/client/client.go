@@ -203,9 +203,10 @@ func setup503Test() job {
 			if headerKey != "" {
 				opts.HTTPOptions.AddAndValidateExtraHeader(fmt.Sprintf("%s:%s", headerKey, headerVal))
 			}
+
 			res, err := fhttp.RunHTTPTest(&opts)
 			if err != nil {
-				return fmt.Errorf("[%d] %v", i, err)
+				log.Printf("[%d] %v", i, err)
 			}
 			numRequests := res.DurationHistogram.Count
 			num200s := res.RetCodes[http.StatusOK]
