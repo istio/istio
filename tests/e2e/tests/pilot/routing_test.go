@@ -23,13 +23,14 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/util"
 )
 
 func TestRoutes(t *testing.T) {
 	samples := 100
 
-	var cfgs *deployableConfig
+	var cfgs *framework.DeployableConfig
 	applyRuleFunc := func(t *testing.T, ruleYaml string) {
 		// Delete the previous rule if there was one. No delay on the teardown, since we're going to apply
 		// a delay when we push the new config.
@@ -41,10 +42,10 @@ func TestRoutes(t *testing.T) {
 		}
 
 		// Apply the new rule
-		cfgs = &deployableConfig{
+		cfgs = &framework.DeployableConfig{
 			Namespace:  tc.Kube.Namespace,
 			YamlFiles:  []string{ruleYaml},
-			kubeconfig: tc.Kube.KubeConfig,
+			Kubeconfig: tc.Kube.KubeConfig,
 		}
 		if err := cfgs.Setup(); err != nil {
 			t.Fatal(err)
@@ -171,14 +172,14 @@ func TestRoutes(t *testing.T) {
 		},
 	}
 
-	for _, version := range configVersions() {
+	for _, version := range tf.ConfigVersions() {
 		t.Run(version, func(t *testing.T) {
 			if version == "v1alpha3" {
 				destRule := "testdata/v1alpha3/destination-rule-c.yaml"
-				cfgs := &deployableConfig{
+				cfgs := &framework.DeployableConfig{
 					Namespace:  tc.Kube.Namespace,
 					YamlFiles:  []string{destRule},
-					kubeconfig: tc.Kube.KubeConfig,
+					Kubeconfig: tc.Kube.KubeConfig,
 				}
 				if err := cfgs.Setup(); err != nil {
 					t.Fatal(err)
@@ -242,17 +243,17 @@ func TestRoutes(t *testing.T) {
 }
 
 func TestRouteFaultInjection(t *testing.T) {
-	if tc.V1alpha3 {
+	if tf.V1alpha3 {
 		t.Skipf("Skipping %s in v1alpha3+v2", t.Name())
 	}
-	for _, version := range configVersions() {
+	for _, version := range tf.ConfigVersions() {
 		// Invoke a function to scope the lifecycle of the deployed configs.
 		func() {
 			ruleYaml := fmt.Sprintf("testdata/%s/rule-fault-injection.yaml", version)
-			cfgs := &deployableConfig{
+			cfgs := &framework.DeployableConfig{
 				Namespace:  tc.Kube.Namespace,
 				YamlFiles:  []string{ruleYaml},
-				kubeconfig: tc.Kube.KubeConfig,
+				Kubeconfig: tc.Kube.KubeConfig,
 			}
 			if err := cfgs.Setup(); err != nil {
 				t.Fatal(err)
@@ -286,15 +287,15 @@ func TestRouteFaultInjection(t *testing.T) {
 }
 
 func TestRouteRedirectInjection(t *testing.T) {
-	for _, version := range configVersions() {
+	for _, version := range tf.ConfigVersions() {
 		// Invoke a function to scope the lifecycle of the deployed configs.
 		func() {
 			// Push the rule config.
 			ruleYaml := fmt.Sprintf("testdata/%s/rule-redirect-injection.yaml", version)
-			cfgs := &deployableConfig{
+			cfgs := &framework.DeployableConfig{
 				Namespace:  tc.Kube.Namespace,
 				YamlFiles:  []string{ruleYaml},
-				kubeconfig: tc.Kube.KubeConfig,
+				Kubeconfig: tc.Kube.KubeConfig,
 			}
 			if err := cfgs.Setup(); err != nil {
 				t.Fatal(err)
@@ -338,16 +339,16 @@ func TestRouteRedirectInjection(t *testing.T) {
 // TODO this is not implemented properly at the moment.
 func TestRouteMirroring(t *testing.T) {
 	t.Skipf("Skipping %s due to incomplete implementation", t.Name())
-	for _, version := range configVersions() {
+	for _, version := range tf.ConfigVersions() {
 		logs := newAccessLogs()
 		// Invoke a function to scope the lifecycle of the deployed configs.
 		func() {
 			// Push the rule config.
 			ruleYaml := fmt.Sprintf("testdata/%s/rule-default-route-mirrored.yaml", version)
-			cfgs := &deployableConfig{
+			cfgs := &framework.DeployableConfig{
 				Namespace:  tc.Kube.Namespace,
 				YamlFiles:  []string{ruleYaml},
-				kubeconfig: tc.Kube.KubeConfig,
+				Kubeconfig: tc.Kube.KubeConfig,
 			}
 			if err := cfgs.Setup(); err != nil {
 				t.Fatal(err)

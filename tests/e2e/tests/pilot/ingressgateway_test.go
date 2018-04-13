@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/tests/e2e/framework"
 )
 
 // The gateway is just another service.
@@ -31,7 +32,7 @@ import (
 // default (kube service level) to expose ports 80/443. So our gateway specs also expose
 // ports 80/443.
 func TestIngressGateway(t *testing.T) {
-	if !tc.V1alpha3 {
+	if !tf.V1alpha3 {
 		t.Skipf("Skipping %s: v1alpha3=false", t.Name())
 	}
 
@@ -39,7 +40,7 @@ func TestIngressGateway(t *testing.T) {
 	ingressGatewayServiceName := tc.Kube.IstioIngressGatewayService()
 
 	// Configure a route from us.bookinfo.com to "c-v2" only
-	cfgs := &deployableConfig{
+	cfgs := &framework.DeployableConfig{
 		Namespace: tc.Kube.Namespace,
 		YamlFiles: []string{
 			"testdata/v1alpha3/ingressgateway.yaml",
@@ -69,7 +70,7 @@ func TestIngressGateway(t *testing.T) {
 // TODO: rename this file gateway_test.go, merge w/ egress too? At least this test and test above
 // use gateway as an "ingress" of sorts.
 func TestGateway_TCP(t *testing.T) {
-	if !tc.V1alpha3 {
+	if !tf.V1alpha3 {
 		t.Skipf("Skipping %s: V1alpha3=false", t.Name())
 	}
 	// TODO: use current namespace so test doesn't require --cluster_wide flag
@@ -77,7 +78,7 @@ func TestGateway_TCP(t *testing.T) {
 	// gateway resource only being created in istio-system namespace
 	istioNamespace := tc.Kube.IstioSystemNamespace()
 
-	cfgs := &deployableConfig{
+	cfgs := &framework.DeployableConfig{
 		Namespace: istioNamespace,
 		YamlFiles: []string{
 			"testdata/v1alpha3/rule-force-a-through-ingress-gateway.yaml",

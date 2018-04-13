@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"testing"
 
+	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/util"
 )
 
@@ -45,10 +46,10 @@ func TestRBAC(t *testing.T) {
 	}
 
 	// Push all of the configs
-	cfgs := &deployableConfig{
+	cfgs := &framework.DeployableConfig{
 		Namespace:  tc.Kube.Namespace,
 		YamlFiles:  []string{rbackEnableYaml, rbackRulesYaml},
-		kubeconfig: tc.Kube.KubeConfig,
+		Kubeconfig: tc.Kube.KubeConfig,
 	}
 	if err := cfgs.Setup(); err != nil {
 		t.Fatal(err)

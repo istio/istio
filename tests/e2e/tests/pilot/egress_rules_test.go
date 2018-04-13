@@ -19,14 +19,16 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"istio.io/istio/tests/e2e/framework"
 )
 
 func TestEgress(t *testing.T) {
-	if !tc.Egress {
+	if !tf.Egress {
 		t.Skipf("Skipping %s: egress=false", t.Name())
 	}
 	// egress rules are v1alpha1
-	if !tc.V1alpha1 {
+	if !tf.V1alpha1 {
 		t.Skipf("Skipping %s: v1alpha1=false", t.Name())
 	}
 
@@ -88,7 +90,7 @@ func TestEgress(t *testing.T) {
 		},
 	}
 
-	var cfgs *deployableConfig
+	var cfgs *framework.DeployableConfig
 	applyRuleFunc := func(t *testing.T, ruleYaml string) {
 		configChange := cfgs == nil || cfgs.YamlFiles[0] != ruleYaml
 		if configChange {
@@ -102,10 +104,10 @@ func TestEgress(t *testing.T) {
 			}
 
 			// Apply the new rule
-			cfgs = &deployableConfig{
+			cfgs = &framework.DeployableConfig{
 				Namespace:  tc.Kube.Namespace,
 				YamlFiles:  []string{ruleYaml},
-				kubeconfig: tc.Kube.KubeConfig,
+				Kubeconfig: tc.Kube.KubeConfig,
 			}
 			if err := cfgs.Setup(); err != nil {
 				t.Fatal(err)

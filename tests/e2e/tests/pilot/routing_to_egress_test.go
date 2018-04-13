@@ -22,19 +22,20 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/util"
 )
 
 func TestEgressRouteFaultInjection(t *testing.T) {
-	if !tc.Egress {
+	if !tf.Egress {
 		t.Skipf("Skipping %s: egress=false", t.Name())
 	}
 	// egress rules are v1alpha1
-	if !tc.V1alpha1 {
+	if !tf.V1alpha1 {
 		t.Skipf("Skipping %s: v1alpha1=false", t.Name())
 	}
 
-	var cfgs *deployableConfig
+	var cfgs *framework.DeployableConfig
 	applyRuleFunc := func(t *testing.T, yamlFiles []string) {
 		// Delete the previous rule if there was one. No delay on the teardown, since we're going to apply
 		// a delay when we push the new config.
@@ -46,10 +47,10 @@ func TestEgressRouteFaultInjection(t *testing.T) {
 		}
 
 		// Apply the new rule
-		cfgs = &deployableConfig{
+		cfgs = &framework.DeployableConfig{
 			Namespace:  tc.Kube.Namespace,
 			YamlFiles:  yamlFiles,
-			kubeconfig: tc.Kube.KubeConfig,
+			Kubeconfig: tc.Kube.KubeConfig,
 		}
 		if err := cfgs.Setup(); err != nil {
 			t.Fatal(err)
@@ -131,21 +132,21 @@ func TestEgressRouteFaultInjection(t *testing.T) {
 }
 
 func TestEgressRouteHeaders(t *testing.T) {
-	if !tc.Egress {
+	if !tf.Egress {
 		t.Skipf("Skipping %s: egress=false", t.Name())
 	}
 	// egress rules are v1alpha1
-	if !tc.V1alpha1 {
+	if !tf.V1alpha1 {
 		t.Skipf("Skipping %s: v1alpha1=false", t.Name())
 	}
 
 	// Push all of the configs
-	cfgs := &deployableConfig{
+	cfgs := &framework.DeployableConfig{
 		Namespace: tc.Kube.Namespace,
 		YamlFiles: []string{
 			"testdata/v1alpha1/egress-rule-httpbin.yaml",
 			"testdata/v1alpha1/rule-route-append-headers-httpbin.yaml"},
-		kubeconfig: tc.Kube.KubeConfig,
+		Kubeconfig: tc.Kube.KubeConfig,
 	}
 	if err := cfgs.Setup(); err != nil {
 		t.Fatal(err)
@@ -176,15 +177,15 @@ func TestEgressRouteHeaders(t *testing.T) {
 }
 
 func TestEgressRouteRedirectRewrite(t *testing.T) {
-	if !tc.Egress {
+	if !tf.Egress {
 		t.Skipf("Skipping %s: egress=false", t.Name())
 	}
 	// egress rules are v1alpha1
-	if !tc.V1alpha1 {
+	if !tf.V1alpha1 {
 		t.Skipf("Skipping %s: v1alpha1=false", t.Name())
 	}
 
-	var cfgs *deployableConfig
+	var cfgs *framework.DeployableConfig
 	applyRuleFunc := func(t *testing.T, yamlFiles []string) {
 		// Delete the previous rule if there was one. No delay on the teardown, since we're going to apply
 		// a delay when we push the new config.
@@ -196,10 +197,10 @@ func TestEgressRouteRedirectRewrite(t *testing.T) {
 		}
 
 		// Apply the new rule
-		cfgs = &deployableConfig{
+		cfgs = &framework.DeployableConfig{
 			Namespace:  tc.Kube.Namespace,
 			YamlFiles:  yamlFiles,
-			kubeconfig: tc.Kube.KubeConfig,
+			Kubeconfig: tc.Kube.KubeConfig,
 		}
 		if err := cfgs.Setup(); err != nil {
 			t.Fatal(err)

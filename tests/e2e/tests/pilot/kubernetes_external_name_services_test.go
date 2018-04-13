@@ -17,24 +17,26 @@ package pilot
 import (
 	"fmt"
 	"testing"
+
+	"istio.io/istio/tests/e2e/framework"
 )
 
 func TestRewriteExternalService(t *testing.T) {
 	// external name service tests are still using v1alpha1 route rules.
 	// TODO: need to migrate
-	if !tc.Egress {
+	if !tf.Egress {
 		t.Skipf("Skipping %s: egress=false", t.Name())
 	}
 	// egress rules are v1alpha1
-	if !tc.V1alpha1 {
+	if !tf.V1alpha1 {
 		t.Skipf("Skipping %s: v1alpha1=false", t.Name())
 	}
 
 	// Apply the rule
-	cfgs := &deployableConfig{
+	cfgs := &framework.DeployableConfig{
 		Namespace:  tc.Kube.Namespace,
 		YamlFiles:  []string{"testdata/v1alpha1/rule-rewrite-authority-externalbin.yaml"},
-		kubeconfig: tc.Kube.KubeConfig,
+		Kubeconfig: tc.Kube.KubeConfig,
 	}
 
 	if err := cfgs.Setup(); err != nil {
