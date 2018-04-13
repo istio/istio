@@ -14,230 +14,28 @@
 package util
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/golang/protobuf/ptypes"
+	"istio.io/istio/pilot/pkg/bootstrap"
+	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v1"
+	"istio.io/istio/pilot/pkg/serviceregistry"
+	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api/v1"
+
+	k8s_cr "k8s.io/cluster-registry/pkg/apis/clusterregistry/v1alpha1"
 )
-
-/*
-func buildLocalClient() (*kubernetes.Clientset, error) {
-	rc, err := clientcmd.BuildConfigFromFlags("http://localhost:8080", "")
-	if err != nil {
-		return nil, err
-	}
-	return kubernetes.NewForConfig(rc)
-}
-
-func checkLocalAPIServer() error {
-
-	client, err := buildLocalClient()
-	if err != nil {
-		return err
-	}
-	_, err = client.CoreV1().Namespaces().List(metav1.ListOptions{})
-	return err
-}
-
-func createTestEndpoint(epName, epNamespace string) error {
-	client, err := buildLocalClient()
-	if err != nil {
-		return err
-	}
-
-	ep := v1.Endpoints{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      epName,
-			Namespace: epNamespace,
-		},
-		Subsets: []v1.EndpointSubset{
-			{
-				Addresses: []v1.EndpointAddress{
-					{
-						IP: "1.1.1.1",
-					},
-					{
-						IP: "1.1.1.2",
-					},
-					{
-						IP: "1.1.1.3",
-					},
-				},
-				Ports: []v1.EndpointPort{
-					{
-						Name: epName,
-						Port: int32(38081),
-					},
-				},
-			},
-		},
-	}
-
-	_, err = client.CoreV1().Endpoints(epNamespace).Create(&ep)
-
-	return err
-}
-
-func deleteTestEndpoint(epName, epNamespace string) error {
-	client, err := buildLocalClient()
-	if err != nil {
-		return err
-	}
-
-	return client.CoreV1().Endpoints(epNamespace).Delete(epName, &metav1.DeleteOptions{})
-}
-
-func createTestService(svcName, svcNamespace string) error {
-	client, err := buildLocalClient()
-	if err != nil {
-		return err
-	}
-
-	s := &v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      svcName,
-			Namespace: svcNamespace,
-		},
-		Spec: v1.ServiceSpec{
-			Ports: []v1.ServicePort{
-				{
-					Name: svcName,
-					Port: int32(28081),
-					TargetPort: intstr.IntOrString{
-						Type:   intstr.Int,
-						IntVal: 38081,
-					},
-				},
-			},
-		},
-	}
-	_, err = client.CoreV1().Services("istio-system").Create(s)
-
-	return err
-}
-
-func ensureTestNamespace(nsName string) error {
-	client, err := buildLocalClient()
-	if err != nil {
-		return err
-	}
-	if _, err = client.CoreV1().Namespaces().Get(nsName, metav1.GetOptions{}); err == nil {
-		// Namespace already exist, do nothing
-		return nil
-	}
-	ns := &v1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: nsName,
-		},
-	}
-	_, err = client.CoreV1().Namespaces().Create(ns)
-	return err
-}
-
-func deleteTestService(svcName, svcNamespace string) error {
-	client, err := buildLocalClient()
-	if err != nil {
-		return err
-	}
-	if err := client.CoreV1().Services(svcNamespace).Delete(svcName, &metav1.DeleteOptions{}); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func initLocalPilot(IstioSrc string) (*bootstrap.Server, error) {
-
-	serverAgrs := bootstrap.PilotArgs{
-		Namespace: "istio-system",
-		DiscoveryOptions: envoy.DiscoveryServiceOptions{
-			Port:            18080, // An unused port will be chosen
-			GrpcAddr:        ":0",
-			EnableCaching:   true,
-			EnableProfiling: true,
-		},
-		//TODO: start mixer first, get its address
-		Mesh: bootstrap.MeshArgs{
-			MixerAddress:    "istio-mixer.istio-system:9091",
-			RdsRefreshDelay: ptypes.DurationProto(10 * time.Millisecond),
-		},
-		Config: bootstrap.ConfigArgs{
-			KubeConfig: IstioSrc + "/.circleci/config",
-		},
-		Service: bootstrap.ServiceArgs{
-			Registries: []string{
-				string(serviceregistry.KubernetesRegistry)},
-		},
-	}
-	// Create the server for the discovery service.
-	discoveryServer, err := bootstrap.NewServer(serverAgrs)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create discovery service: %v", err)
-	}
-
-	return discoveryServer, nil
-}
-
-func startLocalPilot(s *bootstrap.Server, stop chan struct{}) {
-	// Start the server
-	_, _ = s.Start(stop)
-}
-
-// Test availability of local API Server
-func TestLocalAPIServer(t *testing.T) {
-
-	if err := checkLocalAPIServer(); err != nil {
-		t.Errorf("Local API Server is not running")
-	} else {
-		t.Log("API Server is running")
-	}
-}
-
-// Test
-func TestLocalPilotStart(t *testing.T) {
-
-	// Create the stop channel for all of the servers.
-	stop := make(chan struct{})
-	defer func() {
-		close(stop)
-	}()
-
-	istioPath := os.Getenv("GOPATH") + "/src/istio.io/istio"
-	pilot, err := initLocalPilot(istioPath)
-	if err != nil {
-		t.Fatalf("Failed to initialize pilot")
-	}
-
-	go func() {
-		startLocalPilot(pilot, stop)
-	}()
-
-	if err = ensureTestNamespace("istio-system"); err != nil {
-		t.Fatalf("Failed to create namespace with error: %v", err)
-	}
-	if err = createTestService("app1", "istio-system"); err != nil {
-		t.Fatalf("Failed to create service with error: %v", err)
-	}
-
-	if err = createTestEndpoint("app1", "istio-system"); err != nil {
-		t.Fatalf("Failed to create endpoints with error: %v", err)
-	}
-
-	svc, err := pilot.ServiceController.GetService("app1.istio-system.svc.")
-	if err != nil {
-		t.Fatalf("Faled to get Service with error: %v", err)
-	}
-	if svc == nil {
-		t.Fatalf("Expected to have 1 service, but 0 found")
-	}
-
-	_ = deleteTestEndpoint("app1", "istio-system")
-	_ = deleteTestService("app1", "istio-system")
-}
-*/
 
 func getAPIsURLs() ([]string, error) {
 
@@ -255,7 +53,7 @@ func getAPIsURLs() ([]string, error) {
 			if filepath.Ext(path) == ".url" && strings.HasPrefix(f.Name(), "apiserver") {
 				b, err := ioutil.ReadFile(path)
 				if err == nil {
-					urls = append(urls, string(b))
+					urls = append(urls, strings.TrimSuffix(string(b), "\n"))
 				}
 			}
 		}
@@ -265,9 +63,172 @@ func getAPIsURLs() ([]string, error) {
 	return urls, nil
 }
 
-func buildClusterConfigSecret(urls []string) error {
+func createClusterConfig(urls []string) (*[]clientcmdapi.Config, error) {
+	clusterName := "cluster-"
 
+	clusterConfigs := []clientcmdapi.Config{}
+	for i, url := range urls {
+		cluster := clientcmdapi.Cluster{
+			Server: url,
+		}
+		context := clientcmdapi.Context{
+			Cluster: clusterName + strconv.Itoa(i+1),
+		}
+		clusterConfig := clientcmdapi.Config{
+			Kind:           "Config",
+			APIVersion:     "v1",
+			CurrentContext: "local",
+			Clusters: []clientcmdapi.NamedCluster{
+				{
+					Name:    clusterName + strconv.Itoa(i+1),
+					Cluster: cluster,
+				},
+			},
+			Contexts: []clientcmdapi.NamedContext{
+				{
+					Name:    "local",
+					Context: context,
+				},
+			},
+		}
+		clusterConfigs = append(clusterConfigs, clusterConfig)
+	}
+
+	return &clusterConfigs, nil
+}
+
+func createSecretFromClusterConfig(apiServerURL string, namespace string, clusterConfigs *[]clientcmdapi.Config) error {
+
+	client, err := buildLocalClient(apiServerURL)
+	if err != nil {
+		return err
+	}
+
+	for _, config := range *clusterConfigs {
+		clusterName := config.Clusters[0].Name
+		secret := v1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      clusterName,
+				Namespace: namespace,
+				Labels: map[string]string{
+					"config.istio.io/multiClusterConfig": "true",
+				},
+			},
+			Data: map[string][]byte{},
+		}
+		b, _ := json.Marshal(config)
+		secret.Data[clusterName] = b
+
+		_, err := client.CoreV1().Secrets(namespace).Create(&secret)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+func createClusterConfigmap(apiServerURL string, namespace string, clusterConfigs *[]clientcmdapi.Config) error {
+
+	client, err := buildLocalClient(apiServerURL)
+	if err != nil {
+		return err
+	}
+	var pilotCfgStore string
+	clusters := map[string]k8s_cr.Cluster{}
+	for i, config := range *clusterConfigs {
+		clusterName := config.Clusters[0].Name
+		pilotCfgStore = "false"
+		if i == 0 {
+			pilotCfgStore = "true"
+		}
+		annotations := map[string]string{
+			"config.istio.io/pilotEndpoint":               "192.168." + strconv.Itoa(i) + ".1:9080",
+			"config.istio.io/platform":                    "Kubernetes",
+			"config.istio.io/pilotCfgStore":               pilotCfgStore,
+			"config.istio.io/accessConfigSecret":          clusterName,
+			"config.istio.io/accessConfigSecretNamespace": namespace,
+		}
+		cluster := k8s_cr.Cluster{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Cluster",
+				APIVersion: "clusterregistry.k8s.io/v1alpha1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        clusterName,
+				Namespace:   namespace,
+				Annotations: annotations,
+			},
+			Spec: k8s_cr.ClusterSpec{
+				KubernetesAPIEndpoints: k8s_cr.KubernetesAPIEndpoints{
+					ServerEndpoints: []k8s_cr.ServerAddressByClientCIDR{
+						{
+							ClientCIDR:    "10.23." + strconv.Itoa(i) + ".0/28",
+							ServerAddress: config.Clusters[0].Cluster.Server,
+						},
+					},
+				},
+			},
+		}
+		clusters[clusterName] = cluster
+	}
+
+	configmap := v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "clusterregistry",
+			Namespace: namespace,
+		},
+		Data: map[string]string{},
+	}
+	for cn, cd := range clusters {
+
+		dataBytes, err := json.Marshal(cd)
+		if err != nil {
+			return err
+		}
+		configmap.Data[cn] = string(dataBytes)
+	}
+	_, err = client.CoreV1().ConfigMaps(namespace).Create(&configmap)
+
+	return err
+}
+
+func initMulticlusterPilot(IstioSrc string) (*bootstrap.Server, error) {
+
+	serverAgrs := bootstrap.PilotArgs{
+		Namespace: "istio-system",
+		DiscoveryOptions: envoy.DiscoveryServiceOptions{
+			Port:            18080, // An unused port will be chosen
+			GrpcAddr:        ":0",
+			EnableCaching:   true,
+			EnableProfiling: true,
+		},
+		//TODO: start mixer first, get its address
+		Mesh: bootstrap.MeshArgs{
+			MixerAddress:    "istio-mixer.istio-system:9091",
+			RdsRefreshDelay: ptypes.DurationProto(10 * time.Millisecond),
+		},
+		Config: bootstrap.ConfigArgs{
+			KubeConfig:                 IstioSrc + "/.circleci/mc-config",
+			ClusterRegistriesConfigmap: "clusterregistry",
+			ClusterRegistriesNamespace: "istio-testing",
+		},
+		Service: bootstrap.ServiceArgs{
+			Registries: []string{
+				string(serviceregistry.KubernetesRegistry)},
+		},
+	}
+	// Create the server for the discovery service.
+	discoveryServer, err := bootstrap.NewServer(serverAgrs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create discovery service: %v", err)
+	}
+
+	return discoveryServer, nil
+}
+
+func startMulticlusterPilot(s *bootstrap.Server, stop chan struct{}) {
+	// Start the server
+	_, _ = s.Start(stop)
 }
 
 func prepareEnv(t *testing.T) error {
@@ -283,10 +244,27 @@ func prepareEnv(t *testing.T) error {
 	}
 	t.Logf("Retrived URLs : %+v", urls)
 
-	err = buildClusterConfigSecret(urls)
+	clusterConfigs, err := createClusterConfig(urls)
+	if err != nil {
+		return err
+	}
+	if err = checkLocalAPIServer(urls[0]); err != nil {
+		return fmt.Errorf("Error in checkLocalAPIServer: %v", err)
+	}
+	if err = ensureTestNamespace(urls[0], "istio-testing"); err != nil {
+		return fmt.Errorf("Error in checkLocalAPIServer: %v", err)
+	}
+	if err = createSecretFromClusterConfig(urls[0], "istio-testing", clusterConfigs); err != nil {
+		return fmt.Errorf("Error in createSecretFromClusterConfig: %v", err)
+	}
+
+	if err = createClusterConfigmap(urls[0], "istio-testing", clusterConfigs); err != nil {
+		return fmt.Errorf("Error in createCusterConfigmap: %v", err)
+	}
 
 	return err
 }
+
 func TestClusterRegistry(t *testing.T) {
 
 	if err := prepareEnv(t); err != nil {
@@ -295,4 +273,18 @@ func TestClusterRegistry(t *testing.T) {
 		}
 		t.Fatalf("Failed with error: %v", err)
 	}
+	stop := make(chan struct{})
+	defer func() {
+		close(stop)
+	}()
+
+	istioPath := os.Getenv("GOPATH") + "/src/istio.io/istio"
+	pilot, err := initMulticlusterPilot(istioPath)
+	if err != nil {
+		t.Fatalf("Failed to initialize pilot error: %v", err)
+	}
+
+	go func() {
+		startMulticlusterPilot(pilot, stop)
+	}()
 }

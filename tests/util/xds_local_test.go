@@ -31,17 +31,17 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 )
 
-func buildLocalClient() (*kubernetes.Clientset, error) {
-	rc, err := clientcmd.BuildConfigFromFlags("http://localhost:8080", "")
+func buildLocalClient(apiServerURL string) (*kubernetes.Clientset, error) {
+	rc, err := clientcmd.BuildConfigFromFlags(apiServerURL, "")
 	if err != nil {
 		return nil, err
 	}
 	return kubernetes.NewForConfig(rc)
 }
 
-func checkLocalAPIServer() error {
+func checkLocalAPIServer(apiServerURL string) error {
 
-	client, err := buildLocalClient()
+	client, err := buildLocalClient(apiServerURL)
 	if err != nil {
 		return err
 	}
@@ -49,8 +49,8 @@ func checkLocalAPIServer() error {
 	return err
 }
 
-func createTestEndpoint(epName, epNamespace string) error {
-	client, err := buildLocalClient()
+func createTestEndpoint(apiServerURL string, epName, epNamespace string) error {
+	client, err := buildLocalClient(apiServerURL)
 	if err != nil {
 		return err
 	}
@@ -88,8 +88,8 @@ func createTestEndpoint(epName, epNamespace string) error {
 	return err
 }
 
-func deleteTestEndpoint(epName, epNamespace string) error {
-	client, err := buildLocalClient()
+func deleteTestEndpoint(apiServerURL string, epName, epNamespace string) error {
+	client, err := buildLocalClient(apiServerURL)
 	if err != nil {
 		return err
 	}
@@ -97,8 +97,8 @@ func deleteTestEndpoint(epName, epNamespace string) error {
 	return client.CoreV1().Endpoints(epNamespace).Delete(epName, &metav1.DeleteOptions{})
 }
 
-func createTestService(svcName, svcNamespace string) error {
-	client, err := buildLocalClient()
+func createTestService(apiServerURL string, svcName, svcNamespace string) error {
+	client, err := buildLocalClient(apiServerURL)
 	if err != nil {
 		return err
 	}
@@ -126,8 +126,8 @@ func createTestService(svcName, svcNamespace string) error {
 	return err
 }
 
-func ensureTestNamespace(nsName string) error {
-	client, err := buildLocalClient()
+func ensureTestNamespace(apiServerURL string, nsName string) error {
+	client, err := buildLocalClient(apiServerURL)
 	if err != nil {
 		return err
 	}
@@ -144,8 +144,8 @@ func ensureTestNamespace(nsName string) error {
 	return err
 }
 
-func deleteTestService(svcName, svcNamespace string) error {
-	client, err := buildLocalClient()
+func deleteTestService(apiServerURL string, svcName, svcNamespace string) error {
+	client, err := buildLocalClient(apiServerURL)
 	if err != nil {
 		return err
 	}
@@ -196,7 +196,7 @@ func startLocalPilot(s *bootstrap.Server, stop chan struct{}) {
 // Test availability of local API Server
 func TestLocalAPIServer(t *testing.T) {
 
-	if err := checkLocalAPIServer(); err != nil {
+	if err := checkLocalAPIServer("http://localhost:8090"); err != nil {
 		t.Errorf("Local API Server is not running")
 	} else {
 		t.Log("API Server is running")
@@ -206,6 +206,7 @@ func TestLocalAPIServer(t *testing.T) {
 // Test
 func TestLocalPilotStart(t *testing.T) {
 
+	localAPIServerURL := "http://localhost:8090"
 	// Create the stop channel for all of the servers.
 	stop := make(chan struct{})
 	defer func() {
@@ -222,14 +223,14 @@ func TestLocalPilotStart(t *testing.T) {
 		startLocalPilot(pilot, stop)
 	}()
 
-	if err = ensureTestNamespace("istio-system"); err != nil {
+	if err = ensureTestNamespace(localAPIServerURL, "istio-system"); err != nil {
 		t.Fatalf("Failed to create namespace with error: %v", err)
 	}
-	if err = createTestService("app1", "istio-system"); err != nil {
+	if err = createTestService(localAPIServerURL, "app1", "istio-system"); err != nil {
 		t.Fatalf("Failed to create service with error: %v", err)
 	}
 
-	if err = createTestEndpoint("app1", "istio-system"); err != nil {
+	if err = createTestEndpoint(localAPIServerURL, "app1", "istio-system"); err != nil {
 		t.Fatalf("Failed to create endpoints with error: %v", err)
 	}
 
@@ -241,6 +242,6 @@ func TestLocalPilotStart(t *testing.T) {
 		t.Fatalf("Expected to have 1 service, but 0 found")
 	}
 
-	_ = deleteTestEndpoint("app1", "istio-system")
-	_ = deleteTestService("app1", "istio-system")
+	_ = deleteTestEndpoint(localAPIServerURL, "app1", "istio-system")
+	_ = deleteTestService(localAPIServerURL, "app1", "istio-system")
 }

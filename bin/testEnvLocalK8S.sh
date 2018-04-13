@@ -254,7 +254,7 @@ function startETCDsAndAPIs() {
           --requestheader-client-ca-file ${CERTDIR}/k8sca.crt \
           --tls-cert-file ${CERTDIR}/apiserver.crt \
           --tls-private-key-file ${CERTDIR}/apiserver.key \
-          --service-cluster-ip-range 10.97.0.0/16 \
+          --service-cluster-ip-range 10.97.$i.0/16 \
           --secure-port 644$i \
           --port 809$i -v 2 --insecure-bind-address 0.0.0.0 \
           > ${LOG_DIR}/apiserver$i.log 2>&1 &
