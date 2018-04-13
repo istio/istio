@@ -64,15 +64,13 @@ type GuardedHost struct {
 // Services are indexed by FQDN hostnames.
 // Cluster domain is used to resolve short service names (e.g. "svc.cluster.local").
 func TranslateVirtualHosts(
-	serviceConfigs []model.Config,
-	services map[string]*model.Service,
-	proxyLabels model.LabelsCollection,
-	gatewayName string) []GuardedHost {
+	serviceConfigs []model.Config, services map[string]*model.Service, proxyLabels model.LabelsCollection, gatewayNames map[string]bool) []GuardedHost {
+
 	out := make([]GuardedHost, 0)
 
 	// translate all virtual service configs
 	for _, config := range serviceConfigs {
-		out = append(out, translateVirtualHost(config, services, proxyLabels, gatewayName)...)
+		out = append(out, translateVirtualHost(config, services, proxyLabels, gatewayNames)...)
 	}
 
 	// compute services missing service configs
@@ -120,8 +118,9 @@ func matchServiceHosts(in model.Config, serviceIndex map[string]*model.Service) 
 }
 
 // translateVirtualHost creates virtual hosts corresponding to a virtual service.
-func translateVirtualHost(in model.Config, serviceIndex map[string]*model.Service,
-	proxyLabels model.LabelsCollection, gatewayName string) []GuardedHost {
+func translateVirtualHost(
+	in model.Config, serviceIndex map[string]*model.Service, proxyLabels model.LabelsCollection, gatewayName map[string]bool) []GuardedHost {
+
 	hosts, services := matchServiceHosts(in, serviceIndex)
 	serviceByPort := make(map[int][]*model.Service)
 	for _, svc := range services {
@@ -194,8 +193,9 @@ type ClusterNameGenerator func(*networking.Destination) string
 // TranslateRoutes creates virtual host routes from the v1alpha3 config.
 // The rule should be adapted to destination names (outbound clusters).
 // Each rule is guarded by source labels.
-func TranslateRoutes(in model.Config, nameF ClusterNameGenerator, port int,
-	proxyLabels model.LabelsCollection, gatewayName string) []route.Route {
+func TranslateRoutes(
+	in model.Config, nameF ClusterNameGenerator, port int, proxyLabels model.LabelsCollection, gatewayNames map[string]bool) []route.Route {
+
 	rule, ok := in.Spec.(*networking.VirtualService)
 	if !ok {
 		return nil
@@ -206,7 +206,7 @@ func TranslateRoutes(in model.Config, nameF ClusterNameGenerator, port int,
 	out := make([]route.Route, 0)
 	for _, http := range rule.Http {
 		if len(http.Match) == 0 {
-			if r := translateRoute(http, nil, port, operation, nameF, proxyLabels, gatewayName); r != nil {
+			if r := translateRoute(http, nil, port, operation, nameF, proxyLabels, gatewayNames); r != nil {
 				// this cannot be nil
 				out = append(out, *r)
 			}
@@ -214,7 +214,7 @@ func TranslateRoutes(in model.Config, nameF ClusterNameGenerator, port int,
 		} else {
 			// TODO: https://github.com/istio/istio/issues/4239
 			for _, match := range http.Match {
-				if r := translateRoute(http, match, port, operation, nameF, proxyLabels, gatewayName); r != nil {
+				if r := translateRoute(http, match, port, operation, nameF, proxyLabels, gatewayNames); r != nil {
 					out = append(out, *r)
 				}
 			}
@@ -226,7 +226,7 @@ func TranslateRoutes(in model.Config, nameF ClusterNameGenerator, port int,
 
 // sourceMatchHttp checks if the sourceLabels or the gateways in a match condition match with the
 // labels for the proxy or the gateway name for which we are generating a route
-func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels model.LabelsCollection, gatewayName string) bool {
+func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels model.LabelsCollection, gatewayNames map[string]bool) bool {
 	if match == nil {
 		return true
 	}
@@ -234,7 +234,7 @@ func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels model.Label
 	// Trim by source labels or mesh gateway
 	if len(match.Gateways) > 0 {
 		for _, g := range match.Gateways {
-			if g == gatewayName {
+			if gatewayNames[g] {
 				return true
 			}
 		}
@@ -252,10 +252,10 @@ func translateRoute(in *networking.HTTPRoute,
 	operation string,
 	nameF ClusterNameGenerator,
 	proxyLabels model.LabelsCollection,
-	gatewayName string) *route.Route {
+	gatewayNames map[string]bool) *route.Route {
 
 	// Match by source labels/gateway names inside the match condition
-	if !sourceMatchHTTP(match, proxyLabels, gatewayName) {
+	if !sourceMatchHTTP(match, proxyLabels, gatewayNames) {
 		return nil
 	}
 

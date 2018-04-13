@@ -280,17 +280,19 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 	authnPolicy := model.GetConsolidateAuthenticationPolicy(
 		in.Env.Mesh, in.Env.IstioConfigStore, in.ServiceInstance.Service.Hostname, in.ServiceInstance.Endpoint.ServicePort)
 
-	if mutable.Listener == nil || len(mutable.Listener.FilterChains) != 1 {
-		return fmt.Errorf("expect lister has exactly one filter chain")
+	if mutable.Listener == nil || (len(mutable.Listener.FilterChains) != len(mutable.FilterChains)) {
+		return fmt.Errorf("expected same number of filter chains in listener (%d) and mutable (%d)", len(mutable.Listener.FilterChains), len(mutable.FilterChains))
 	}
-	mutable.Listener.FilterChains[0].TlsContext = buildSidecarListenerTLSContext(authnPolicy)
 
-	// Adding Jwt filter and authn filter, if needed.
-	if filter := BuildJwtFilter(authnPolicy); filter != nil {
-		mutable.HTTPFilters = append(mutable.HTTPFilters, filter)
-	}
-	if filter := BuildAuthNFilter(authnPolicy); filter != nil {
-		mutable.HTTPFilters = append(mutable.HTTPFilters, filter)
+	for i := range mutable.Listener.FilterChains {
+		mutable.Listener.FilterChains[i].TlsContext = buildSidecarListenerTLSContext(authnPolicy)
+		// Adding Jwt filter and authn filter, if needed.
+		if filter := BuildJwtFilter(authnPolicy); filter != nil {
+			mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
+		}
+		if filter := BuildAuthNFilter(authnPolicy); filter != nil {
+			mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
+		}
 	}
 	return nil
 }
