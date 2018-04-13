@@ -174,9 +174,6 @@ func inspect(err error, fMsg, sMsg string, t *testing.T) {
 }
 
 func setUpDefaultRouting() error {
-	if err := applyRules(defaultRules); err != nil {
-		return fmt.Errorf("could not apply rule '%s': %v", allRule, err)
-	}
 	standby := 0
 	for i := 0; i <= testRetryTimes; i++ {
 		time.Sleep(time.Duration(standby) * time.Second)
@@ -279,7 +276,7 @@ func checkHTTPResponse(user, gateway, expr string, count int) (int, error) {
 
 func deleteRules(ruleKeys []string) error {
 	var err error
-	for _, ruleKey := range ruleKeys {
+	for _, ruleKey := range append(defaultRules, ruleKeys...) {
 		rule := getPreprocessedRulePath(tc, ruleKey)
 		if e := util.KubeDelete(tc.Kube.Namespace, rule, tc.Kube.KubeConfig); e != nil {
 			err = multierror.Append(err, e)
@@ -291,7 +288,7 @@ func deleteRules(ruleKeys []string) error {
 }
 
 func applyRules(ruleKeys []string) error {
-	for _, ruleKey := range ruleKeys {
+	for _, ruleKey := range append(defaultRules, ruleKeys...) {
 		rule := getPreprocessedRulePath(tc, ruleKey)
 		if err := util.KubeApply(tc.Kube.Namespace, rule, tc.Kube.KubeConfig); err != nil {
 			//log.Errorf("Kubectl apply %s failed", rule)
