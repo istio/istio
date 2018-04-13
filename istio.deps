@@ -5,7 +5,7 @@
 		"repoName": "api",
 		"prodBranch": "master",
 		"file": "repositories.bzl",
-		"lastStableSHA": "80900db86e07f68b09b21adf49efd1e68df242d1"
+		"lastStableSHA": "6236f62006b304f999e4647cc302eaa575d852d3"
 	},
 	{
 		"_comment": "",
