@@ -233,6 +233,11 @@ function stopMultiCluster() {
 
 # No root required, run local etcd and kube apiserver for tests.
 function startETCDsAndAPIs() {
+    if [ $1 -gt 9 ]; then
+       echo "Seriously? $1 - local apis/etcds?!? No support for more than 9."
+       echo "Exiting..."
+       exit 1
+    fi
     ensureK8SCerts
     getDeps
 
