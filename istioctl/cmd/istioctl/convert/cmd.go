@@ -115,8 +115,6 @@ func convertConfigs(readers []io.Reader, writer io.Writer) error {
 		model.HTTPAPISpecBinding,
 		model.QuotaSpec,
 		model.QuotaSpecBinding,
-		model.EndUserAuthenticationPolicySpec,
-		model.EndUserAuthenticationPolicySpecBinding,
 	}
 
 	configs, err := readConfigs(readers)

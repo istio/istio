@@ -208,7 +208,6 @@ func buildClusters(env model.Environment, node model.Proxy) (Clusters, error) {
 	// append Mixer service definition if necessary
 	if env.Mesh.MixerCheckServer != "" || env.Mesh.MixerReportServer != "" {
 		clusters = append(clusters, BuildMixerClusters(env.Mesh, node, env.MixerSAN)...)
-		clusters = append(clusters, BuildMixerAuthFilterClusters(env.IstioConfigStore, env.Mesh, proxyInstances)...)
 	}
 
 	// append cluster for JwksUri (for Jwt authentication) if necessary.
