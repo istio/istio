@@ -197,7 +197,7 @@ function startMixer() {
 
 function startEnvoy() {
     printf "Envoy starting...\n"
-    ${ISTIO_OUT}/envoy -c tests/testdata/envoy_local_v2.yaml \
+    ${ISTIO_OUT}/envoy -c tests/testdata/multicluster/envoy_local_v2.yaml \
         --base-id 4 --service-cluster xds_cluster \
         --service-node local.test \
         --log-level debug \

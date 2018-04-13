@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package util
+package local
 
 import (
 	"fmt"
@@ -196,8 +196,8 @@ func startLocalPilot(s *bootstrap.Server, stop chan struct{}) {
 // Test availability of local API Server
 func TestLocalAPIServer(t *testing.T) {
 
-	if err := checkLocalAPIServer("http://localhost:8090"); err != nil {
-		t.Errorf("Local API Server is not running")
+	if err := checkLocalAPIServer("http://localhost:8080"); err != nil {
+		t.Skip("Local API Server is not running")
 	} else {
 		t.Log("API Server is running")
 	}
@@ -206,7 +206,12 @@ func TestLocalAPIServer(t *testing.T) {
 // Test
 func TestLocalPilotStart(t *testing.T) {
 
-	localAPIServerURL := "http://localhost:8090"
+	localAPIServerURL := "http://localhost:8080"
+
+	if err := checkLocalAPIServer(localAPIServerURL); err != nil {
+		t.Skip("Local API Server is not running")
+	}
+
 	// Create the stop channel for all of the servers.
 	stop := make(chan struct{})
 	defer func() {
