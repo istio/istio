@@ -597,7 +597,7 @@ installgen:
 
 # A make target to generate all the YAML files
 generate_yaml:
-	./install/updateVersion.sh -a ${HUB},${TAG} 
+	./install/updateVersion.sh -a ${HUB},${TAG}
 
 $(HELM):
 	bin/init_helm.sh
