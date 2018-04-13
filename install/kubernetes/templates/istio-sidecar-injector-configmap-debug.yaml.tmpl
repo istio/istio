@@ -25,8 +25,7 @@ data:
       - args:
         - -c
         #/etc/istio/proxy value here matches ConfigPathDir const in context.go
-        - sysctl -w kernel.core_pattern=/etc/istio/proxy/core.%e.%p.%t && ulimit -c
-          unlimited
+        - sysctl -w kernel.core_pattern=/etc/istio/proxy/core.%e.%p.%t && ulimit -c unlimited
         command:
         - /bin/sh
         image: alpine
