@@ -266,9 +266,6 @@
     "envoy/config/filter/network/tcp_proxy/v2",
     "envoy/service/discovery/v2",
     "envoy/type",
-    "pkg/cache",
-    "pkg/log",
-    "pkg/server",
     "pkg/util"
   ]
   revision = "9fdf4bd79736a87c78b3d48b7baa84ea24be1c1a"
@@ -1223,6 +1220,7 @@
   packages = [
     "authentication/v1alpha1",
     "broker/dev",
+    "envoy/config/filter/http/authn/v2alpha1",
     "mesh/v1alpha1",
     "mixer/adapter/model/v1beta1",
     "mixer/v1",
@@ -1370,6 +1368,7 @@
     "discovery",
     "discovery/fake",
     "dynamic",
+    "dynamic/fake",
     "kubernetes",
     "kubernetes/fake",
     "kubernetes/scheme",
@@ -1528,6 +1527,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "40d1d69954dfec356114c9b22857c398344d80df06c2ea92f26ce0d2ad8bcaa3"
+  inputs-digest = "74eb13989ef78633e4a1468009366dfcdd1a39ed7792329ba88177441bdb45a6"
   solver-name = "gps-cdcl"
   solver-version = 1
