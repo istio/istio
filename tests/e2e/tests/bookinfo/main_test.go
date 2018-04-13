@@ -61,7 +61,13 @@ const (
 )
 
 var (
-	tc             *testConfig
+	tc *testConfig
+	tf = &framework.TestFlags{
+		V1alpha1: true,  //implies envoyv1
+		V1alpha3: false, //implies envoyv2
+		Ingress:  true,
+		Egress:   true,
+	}
 	testRetryTimes = 5
 	defaultRules   = []string{allRule}
 )
@@ -344,4 +350,8 @@ func TestMain(m *testing.M) {
 	check(setTestConfig(), "could not create TestConfig")
 	tc.Cleanup.RegisterCleanable(tc)
 	os.Exit(tc.RunTest(m))
+}
+
+func init() {
+	tf.Init()
 }
