@@ -147,13 +147,6 @@ func (t *testConfig) Setup() error {
 }
 
 func (t *testConfig) Teardown() error {
-	if err := deleteRules(defaultRules); err != nil {
-		// don't report errors if the rule being deleted doesn't exist
-		if notFound := strings.Contains(err.Error(), "not found"); notFound {
-			return nil
-		}
-		return err
-	}
 	return nil
 }
 
