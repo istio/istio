@@ -17,7 +17,6 @@ package external
 import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
 )
 
 // externalDiscovery communicates with ExternalService CRDs and monitors for changes
@@ -34,12 +33,10 @@ func NewServiceDiscovery(store model.IstioConfigStore) model.ServiceDiscovery {
 
 // Services list declarations of all services in the system
 func (d *externalDiscovery) Services() ([]*model.Service, error) {
-	configs := d.store.ExternalServices()
 	services := make([]*model.Service, 0)
-	for _, externalServiceConfig := range configs {
-		externalService := externalServiceConfig.Spec.(*networking.ExternalService)
-
-		services = append(services, convertService(externalService)...)
+	for _, config := range d.store.ExternalServices() {
+		externalService := config.Spec.(*networking.ExternalService)
+		services = append(services, convertServices(externalService)...)
 	}
 
 	return services, nil
@@ -47,15 +44,8 @@ func (d *externalDiscovery) Services() ([]*model.Service, error) {
 
 // GetService retrieves a service by host name if it exists
 func (d *externalDiscovery) GetService(hostname string) (*model.Service, error) {
-	// Get actual service by name
-	name, err := parseHostname(hostname)
-	if err != nil {
-		log.Infof("parseHostname(%s) => error %v", hostname, err)
-		return nil, err
-	}
-
 	for _, service := range d.getServices() {
-		if service.Hostname == name {
+		if service.Hostname == hostname {
 			return service, nil
 		}
 	}
@@ -64,11 +54,10 @@ func (d *externalDiscovery) GetService(hostname string) (*model.Service, error) 
 }
 
 func (d *externalDiscovery) getServices() []*model.Service {
-	configs := d.store.ExternalServices()
 	services := make([]*model.Service, 0)
-	for _, externalServiceConfig := range configs {
-		externalService := externalServiceConfig.Spec.(*networking.ExternalService)
-		services = append(services, convertService(externalService)...)
+	for _, config := range d.store.ExternalServices() {
+		externalService := config.Spec.(*networking.ExternalService)
+		services = append(services, convertServices(externalService)...)
 	}
 	return services
 }
@@ -84,35 +73,24 @@ func (d *externalDiscovery) ManagementPorts(addr string) model.PortList {
 // any of the supplied labels. All instances match an empty tag list.
 func (d *externalDiscovery) Instances(hostname string, ports []string,
 	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
-	// Get actual service by name
-	name, err := parseHostname(hostname)
-	if err != nil {
-		log.Infof("parseHostname(%s) => error %v", hostname, err)
-		return nil, err
-	}
-
 	portMap := make(map[string]bool)
 	for _, port := range ports {
 		portMap[port] = true
 	}
 
-	instances := []*model.ServiceInstance{}
-	externalInstances := []*model.ServiceInstance{}
-	configs := d.store.ExternalServices()
-	for _, externalServiceConfig := range configs {
-		externalService := externalServiceConfig.Spec.(*networking.ExternalService)
-		externalInstances = append(externalInstances, convertInstances(externalService)...)
-	}
-
-	for _, externalInstance := range externalInstances {
-		if externalInstance.Service.Hostname == name &&
-			labels.HasSubsetOf(externalInstance.Labels) &&
-			portMatch(externalInstance, portMap) {
-			instances = append(instances, externalInstance)
+	out := []*model.ServiceInstance{}
+	for _, config := range d.store.ExternalServices() {
+		externalService := config.Spec.(*networking.ExternalService)
+		for _, instance := range convertInstances(externalService) {
+			if instance.Service.Hostname == hostname &&
+				labels.HasSubsetOf(instance.Labels) &&
+				portMatch(instance, portMap) {
+				out = append(out, instance)
+			}
 		}
 	}
 
-	return instances, nil
+	return out, nil
 }
 
 // returns true if an instance's port matches with any in the provided list
