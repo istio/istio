@@ -49,7 +49,8 @@ var (
 	headerVal string
 	msg       string
 
-	caFile string
+	caFile   string
+	grpcConn *grpc.ClientConn
 )
 
 type job func(int) func() error
@@ -255,20 +256,16 @@ func setupDefaultTest() job {
 			security = grpc.WithTransportCredentials(creds)
 		}
 
-		conn, err := grpc.Dial(address,
+		grpcConn, err := grpc.Dial(address,
 			security,
 			grpc.WithAuthority(authority),
 			grpc.WithBlock(),
 			grpc.WithTimeout(timeout))
 		if err != nil {
 			log.Fatalf("did not connect: %v", err)
+			return nil
 		}
-		defer func() {
-			if err := conn.Close(); err != nil {
-				log.Println(err)
-			}
-		}()
-		client := pb.NewEchoTestServiceClient(conn)
+		client := pb.NewEchoTestServiceClient(grpcConn)
 		return makeGRPCRequest(client)
 	} else if strings.HasPrefix(url, "ws://") || strings.HasPrefix(url, "wss://") {
 		/* #nosec */
@@ -309,6 +306,14 @@ func main() {
 		log.Printf("Error %s\n", err)
 		os.Exit(1)
 	}
+
+	defer func() {
+		if grpcConn != nil {
+			if err := grpcConn.Close(); err != nil {
+				log.Println(err)
+			}
+		}
+	}()
 
 	log.Println("All requests succeeded")
 }
