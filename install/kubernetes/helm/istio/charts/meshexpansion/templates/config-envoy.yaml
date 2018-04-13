@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: meshexpansion-envoy-config
-  namespace: istio-system
+  namespace: {{ .Release.Namespace }}
 data:
   envoy.yaml: |
     stats_config:
@@ -32,8 +32,6 @@ data:
         - filters:
           - name: envoy.tcp_proxy
             config:
-              deprecated_v1: true
-              value:
                 stat_prefix: tcp_pilot
                 route_config:
                     routes:
@@ -46,8 +44,6 @@ data:
         - filters:
           - name: envoy.tcp_proxy
             config:
-              deprecated_v1: true
-              value:
                 stat_prefix: tcp_pilot
                 route_config:
                     routes:
@@ -60,8 +56,6 @@ data:
         - filters:
           - name: envoy.tcp_proxy
             config:
-              deprecated_v1: true
-              value:
                 stat_prefix: tcp-mixer
                 route_config:
                     routes:
@@ -74,8 +68,6 @@ data:
         - filters:
           - name: envoy.tcp_proxy
             config:
-              deprecated_v1: true
-              value:
                 stat_prefix: tcp_ca
                 route_config:
                     routes:
@@ -88,8 +80,6 @@ data:
         - filters:
           - name: envoy.tcp_proxy
             config:
-              deprecated_v1: true
-              value:
                 stat_prefix: tcp_dns
                 route_config:
                     routes:
