@@ -93,32 +93,40 @@ func closeResponseBody(r *http.Response) {
 	}
 }
 
+func preprocessRule(t *testConfig, rule string) error {
+	src := util.GetResourcePath(filepath.Join(bookinfoSampleDir, rule+"."+yamlExtension))
+	dest := filepath.Join(t.rulesDir, rule+"."+yamlExtension)
+	ori, err := ioutil.ReadFile(src)
+	if err != nil {
+		log.Errorf("Failed to read original rule file %s", src)
+		return err
+	}
+	content := string(ori)
+	content = strings.Replace(content, "jason", u2, -1)
+
+	err = os.MkdirAll(filepath.Dir(dest), 0700)
+	if err != nil {
+		log.Errorf("Failed to create the directory %s", filepath.Dir(dest))
+		return err
+	}
+
+	err = ioutil.WriteFile(dest, []byte(content), 0600)
+	if err != nil {
+		log.Errorf("Failed to write into new rule file %s", dest)
+		return err
+	}
+
+	return nil
+}
+
 func (t *testConfig) Setup() error {
 	//generate rule yaml files, replace "jason" with actual user
 	for _, rule := range []string{allRule, delayRule, tenRule, twentyRule, fiftyRule, testRule,
 		testDbRule, testMysqlRule, detailsExternalServiceRouteRule, detailsExternalServiceEgressRule} {
-		src := util.GetResourcePath(filepath.Join(bookinfoSampleDir, rule+"."+yamlExtension))
-		dest := filepath.Join(t.rulesDir, rule+"."+yamlExtension)
-		ori, err := ioutil.ReadFile(src)
+		err := preprocessRule(t, rule)
 		if err != nil {
-			log.Errorf("Failed to read original rule file %s", src)
-			return err
+			return nil
 		}
-		content := string(ori)
-		content = strings.Replace(content, "jason", u2, -1)
-
-		err = os.MkdirAll(filepath.Dir(dest), 0700)
-		if err != nil {
-			log.Errorf("Failed to create the directory %s", filepath.Dir(dest))
-			return err
-		}
-
-		err = ioutil.WriteFile(dest, []byte(content), 0600)
-		if err != nil {
-			log.Errorf("Failed to write into new rule file %s", dest)
-			return err
-		}
-
 	}
 
 	if !util.CheckPodsRunning(tc.Kube.Namespace, tc.Kube.KubeConfig) {
