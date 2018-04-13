@@ -117,29 +117,35 @@ func TestIngressGateway503DuringRuleChange(t *testing.T) {
 
 	// Update configs in background
 	go func() {
+		time.Sleep(9 * time.Second)
 		log.Infof("Adding new subsets v1,v2")
 		// these functions have built in sleep. So we don't have to add any extra sleep here
 		if err := newDestRule.Setup(); err != nil {
 			t.Fatal(err)
 		}
+		time.Sleep(4 * time.Second)
 		defer newDestRule.Teardown()
 		log.Infof("routing to v1,v2")
 		if err := newVirtService.Setup(); err != nil {
 			t.Fatal(err)
 		}
+		time.Sleep(4 * time.Second)
 		defer newVirtService.Teardown()
 		log.Infof("Adding new subsets v3,v4")
 		if err := addMoreSubsets.Setup(); err != nil {
 			t.Fatal(err)
 		}
+		time.Sleep(4 * time.Second)
 		log.Infof("routing to v3,v4")
 		if err := routeToNewSubsets.Setup(); err != nil {
 			t.Fatal(err)
 		}
+		time.Sleep(4 * time.Second)
 		log.Infof("deleting old subsets v1,v2")
 		if err := deleteOldSubsets.Setup(); err != nil {
 			t.Fatal(err)
 		}
+		time.Sleep(4 * time.Second)
 	}()
 
 	// We need a way to issue steady stream of requests
@@ -163,6 +169,7 @@ func TestIngressGateway503DuringRuleChange(t *testing.T) {
 	if num200s != numRequests {
 		t.Errorf("Not all %d requests were successful (%v)", numRequests, res.RetCodes)
 	}
+	time.Sleep(20 * time.Second)
 }
 
 // TODO: rename this file gateway_test.go, merge w/ egress too? At least this test and test above
