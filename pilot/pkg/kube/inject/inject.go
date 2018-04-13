@@ -48,6 +48,7 @@ import (
 const (
 	sidecarAnnotationPolicyKey                        = "sidecar.istio.io/inject"
 	sidecarAnnotationStatusKey                        = "sidecar.istio.io/status"
+	sidecarAnnotationProxyImageOverride               = "sidecar.istio.io/proxyImage"
 	sidecarAnnotationIncludeOutboundIPRangesPolicyKey = "traffic.sidecar.istio.io/includeOutboundIPRanges"
 	sidecarAnnotationExcludeOutboundIPRangesPolicyKey = "traffic.sidecar.istio.io/excludeOutboundIPRanges"
 	sidecarAnnotationIncludeInboundPortsPolicyKey     = "traffic.sidecar.istio.io/includeInboundPorts"
@@ -287,13 +288,14 @@ func injectRequired(ignored []string, namespacePolicy InjectionPolicy, podSpec *
 		}
 	}
 
-	log.Debugf("Sidecar injection policy for %v/%v: namespacePolicy:%v useDefault:%v inject:%v status:%q "+
+	log.Debugf("Sidecar injection policy for %v/%v: namespacePolicy:%v useDefault:%v inject:%v status:%q proxyImage:%q"+
 		"required:%v includeOutboundIPRanges:%v excludeOutboundIPRanges:%v includeInboundPorts:%v excludeInboundPorts:%v",
 		metadata.Namespace,
 		metadata.Name,
 		namespacePolicy,
 		useDefault,
 		inject,
+		annotations[sidecarAnnotationProxyImageOverride],
 		annotations[sidecarAnnotationStatusKey],
 		required,
 		annotationString(annotations, sidecarAnnotationIncludeOutboundIPRangesPolicyKey),
@@ -366,7 +368,8 @@ func injectionData(sidecarTemplate, version string, spec *v1.PodSpec, metadata *
 	}
 
 	var tmpl bytes.Buffer
-	t := template.Must(template.New("inject").Funcs(funcMap).Parse(sidecarTemplate))
+	temp := template.New("inject").Delims(sidecarTemplateDelimBegin, sidecarTemplateDelimEnd)
+	t := template.Must(temp.Funcs(funcMap).Parse(sidecarTemplate))
 	if err := t.Execute(&tmpl, &data); err != nil {
 		return nil, "", err
 	}
@@ -542,9 +545,8 @@ func GenerateTemplateFromParams(params *Params) (string, error) {
 	if err := params.Validate(); err != nil {
 		return "", err
 	}
-	t := template.New("inject").Delims(parameterizedTemplateDelimBegin, parameterizedTemplateDelimEnd)
 	var tmp bytes.Buffer
-	err := template.Must(t.Parse(parameterizedTemplate)).Execute(&tmp, params)
+	err := template.Must(template.New("inject").Parse(parameterizedTemplate)).Execute(&tmp, params)
 	return tmp.String(), err
 }
 
