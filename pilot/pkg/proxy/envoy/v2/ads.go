@@ -390,7 +390,7 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection) error {
 	services = s.services
 	s.modelMutex.RUnlock()
 
-	proxyInstances, err := s.env.GetProxyServiceInstances(*con.modelNode)
+	proxyInstances, err := s.env.GetProxyServiceInstances(con.modelNode)
 	if err != nil {
 		log.Warnf("ADS: RDS: Failed to retrieve proxy service instances %v", err)
 		return err

@@ -48,6 +48,9 @@ type Environment struct {
 
 // Proxy defines the proxy attributes used by xDS identification
 type Proxy struct {
+	// ClusterID specifies the cluster where the proxy resides
+	ClusterID string
+
 	// Type specifies the node type
 	Type NodeType
 

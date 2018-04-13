@@ -357,7 +357,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
 
-	services, err := controller.GetProxyServiceInstances(model.Proxy{IPAddress: "172.19.0.11"})
+	services, err := controller.GetProxyServiceInstances(&model.Proxy{IPAddress: "172.19.0.11"})
 	if err != nil {
 		t.Errorf("client encountered error during GetProxyServiceInstances(): %v", err)
 	}
@@ -380,7 +380,7 @@ func TestGetProxyServiceInstancesError(t *testing.T) {
 	}
 
 	ts.Server.Close()
-	instances, err := controller.GetProxyServiceInstances(model.Proxy{IPAddress: "172.19.0.11"})
+	instances, err := controller.GetProxyServiceInstances(&model.Proxy{IPAddress: "172.19.0.11"})
 	if err == nil {
 		t.Error("GetProxyServiceInstances() should return error when client experiences connection problem")
 	}
