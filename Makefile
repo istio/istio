@@ -133,6 +133,12 @@ export ISTIO_ENVOY_RELEASE_PATH ?= ${ISTIO_ENVOY_RELEASE_DIR}/${ISTIO_ENVOY_RELE
 
 GO_VERSION_REQUIRED:=1.9
 
+ifneq ($(CIRCLE_TAG),)
+  # Building a tag from circleci
+  HUB = quay.io/aspenmesh/istio-private
+  TAG = $(CIRCLE_TAG)
+endif
+
 HUB?=istio
 ifeq ($(HUB),)
   $(error "HUB cannot be empty")
