@@ -74,8 +74,7 @@ var (
 var ListenersALPNProtocols = []string{"h2", "http/1.1"}
 
 // BuildListeners produces a list of listeners and referenced clusters for all proxies
-func (configgen *ConfigGeneratorImpl) BuildListeners(env model.Environment,
-	node model.Proxy) ([]*xdsapi.Listener, error) {
+func (configgen *ConfigGeneratorImpl) BuildListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
 	switch node.Type {
 	case model.Sidecar:
 		return configgen.buildSidecarListeners(env, node)
@@ -87,8 +86,7 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(env model.Environment,
 }
 
 // buildSidecarListeners produces a list of listeners for sidecar proxies
-func (configgen *ConfigGeneratorImpl) buildSidecarListeners(
-	env model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
+func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
 
 	mesh := env.Mesh
 	managementPorts := env.ManagementPorts(node.IPAddress)
@@ -320,26 +318,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				protocol:       servicePort.Protocol,
 			}
 
-			log.Infof("buildSidecarOutboundListeners: opts after init %#v", listenerOpts.filterChainOpts)
-
 			switch servicePort.Protocol {
-			case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
-				listenerType = plugin.ListenerTypeTCP
-				if service.Resolution != model.Passthrough {
-					listenAddress = service.Address
-					addresses = []string{service.Address}
-				}
-
-				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
-				if _, exists := listenerMap[listenerMapKey]; exists {
-					log.Warnf("Multiple TCP listener definitions for %s", listenerMapKey)
-					continue
-				}
-				listenerOpts.filterChainOpts = []*filterChainOpts{{
-					networkFilters: buildOutboundNetworkFilters(clusterName, addresses, servicePort),
-				}}
-				log.Infof("buildSidecarOutboundListeners: opts after tcp/https/mongo/redis network filters %#v", listenerOpts.filterChainOpts)
-				// TODO: Set SNI for HTTPS
+			// TODO: Set SNI for HTTPS
 			case model.ProtocolHTTP2, model.ProtocolHTTP, model.ProtocolGRPC:
 				listenerType = plugin.ListenerTypeHTTP
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
@@ -370,28 +350,34 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 						direction:        operation,
 					},
 				}}
-				log.Infof("buildSidecarOutboundListeners: opts after h2/http/grpc network filters %#v", listenerOpts.filterChainOpts)
 			default:
-				log.Warnf("buildSidecarOutboundListeners: service %q has unknown protocol %#v", service.Hostname, servicePort)
-				continue
+				log.Infof("buildSidecarOutboundListeners: service %q has unknown protocol %#v, defaulting to TCP", service.Hostname, servicePort)
+				fallthrough
+			case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
+				listenerType = plugin.ListenerTypeTCP
+				if service.Resolution != model.Passthrough {
+					listenAddress = service.Address
+					addresses = []string{service.Address}
+				}
+
+				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
+				if _, exists := listenerMap[listenerMapKey]; exists {
+					log.Warnf("Multiple TCP listener definitions for %s", listenerMapKey)
+					continue
+				}
+				listenerOpts.filterChainOpts = []*filterChainOpts{{
+					networkFilters: buildOutboundNetworkFilters(clusterName, addresses, servicePort),
+				}}
 			}
 
 			// call plugins
 
-			log.Infof("buildSidecarOutboundListeners: opts chains before build: %v", listenerOpts.filterChainOpts)
-
 			listenerOpts.ip = listenAddress
 			l := buildListener(listenerOpts)
-
-			log.Infof("buildSidecarOutboundListeners: opts chains after build: %v", listenerOpts.filterChainOpts)
-			log.Infof("buildSidecarOutboundListeners: listener after build: %v", l)
-
 			mutable := &plugin.MutableObjects{
 				Listener:     l,
 				FilterChains: make([]plugin.FilterChain, len(l.FilterChains)),
 			}
-
-			log.Infof("buildSidecarOutboundListeners: mutable before plugins: %#v", mutable)
 
 			for _, p := range configgen.Plugins {
 				params := &plugin.InputParams{
@@ -401,23 +387,15 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 					Service:      service,
 				}
 
-				log.Infof("buildSidecarOutboundListeners: mutable after plugin %#v: %#v", p, mutable)
-
 				if err := p.OnOutboundListener(params, mutable); err != nil {
 					log.Warn(err.Error())
 				}
 			}
 
-			log.Infof("buildSidecarOutboundListeners: opts before marshal: %v", listenerOpts.filterChainOpts)
-			log.Infof("buildSidecarOutboundListeners: listener before marshal: %v", l)
-			log.Infof("buildSidecarOutboundListeners: mutable before marshal: %#v", mutable)
-
 			// Filters are serialized one time into an opaque struct once we have the complete list.
 			if err := marshalFilters(mutable.Listener, listenerOpts, mutable.FilterChains); err != nil {
-				log.Warna("buildSidecarOutboundListeners ", err.Error())
+				log.Warna("buildSidecarOutboundListeners: ", err.Error())
 			}
-
-			log.Infof("buildSidecarOutboundListeners: listener after marshal: %v", l)
 
 			// By default we require SNI; if there's only one filter chain then we know there's either 0 or 1 cert,
 			// therefore SNI is not required.
@@ -425,7 +403,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				mutable.Listener.FilterChains[0].TlsContext.RequireSni = boolFalse
 			}
 
-			log.Infof("buildSidecarOutboundListeners: listener after TLS check: %v", l)
+			if len(mutable.Listener.FilterChains) > 1 {
+				log.Infof("buildSidecarOutboundListeners: multiple filter chain listener: %q", mutable.Listener.Name)
+			}
+
 			listenerMap[listenerMapKey] = mutable.Listener
 		}
 	}
