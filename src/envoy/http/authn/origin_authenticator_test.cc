@@ -81,13 +81,11 @@ const char kPeerBinding[] = R"(
 class MockOriginAuthenticator : public OriginAuthenticator {
  public:
   MockOriginAuthenticator(FilterContext* filter_context,
-                          const DoneCallback& done_callback,
                           const iaapi::Policy& policy)
-      : OriginAuthenticator(filter_context, done_callback, policy) {}
+      : OriginAuthenticator(filter_context, policy) {}
 
-  MOCK_CONST_METHOD2(validateX509,
-                     void(const iaapi::MutualTls&, const MethodDoneCallback&));
-  MOCK_METHOD2(validateJwt, void(const iaapi::Jwt&, const MethodDoneCallback&));
+  MOCK_CONST_METHOD2(validateX509, bool(const iaapi::MutualTls&, Payload*));
+  MOCK_METHOD2(validateJwt, bool(const iaapi::Jwt&, Payload*));
 };
 
 class OriginAuthenticatorTest : public testing::TestWithParam<bool> {
@@ -111,24 +109,31 @@ class OriginAuthenticatorTest : public testing::TestWithParam<bool> {
       expected_result_when_pass_.set_peer_user("bar");
     }
     initial_result_ = filter_context_.authenticationResult();
+    payload_ = new Payload();
   }
 
+  void TearDown() override { delete (payload_); }
+
   void createAuthenticator() {
-    authenticator_.reset(new StrictMock<MockOriginAuthenticator>(
-        &filter_context_, on_done_callback_.AsStdFunction(), policy_));
+    authenticator_.reset(
+        new StrictMock<MockOriginAuthenticator>(&filter_context_, policy_));
   }
 
  protected:
   std::unique_ptr<StrictMock<MockOriginAuthenticator>> authenticator_;
-  StrictMock<MockFunction<void(bool)>> on_done_callback_;
   Http::TestHeaderMapImpl request_headers_;
   FilterContext filter_context_{&request_headers_, nullptr,
                                 istio::envoy::config::filter::http::authn::
                                     v2alpha1::FilterConfig::default_instance()};
   iaapi::Policy policy_;
 
+  Payload* payload_;
+
   // Mock response payload.
   Payload jwt_payload_{TestUtilities::CreateJwtPayload("foo", "istio.io")};
+  Payload jwt_extra_payload_{
+      TestUtilities::CreateJwtPayload("bar", "istio.io")};
+
   // Expected result (when authentication pass with mock payload above)
   Result expected_result_when_pass_;
   // Copy of authN result (from filter context) before running authentication.
@@ -142,8 +147,7 @@ class OriginAuthenticatorTest : public testing::TestWithParam<bool> {
 
 TEST_P(OriginAuthenticatorTest, Empty) {
   createAuthenticator();
-  EXPECT_CALL(on_done_callback_, Call(true)).Times(1);
-  authenticator_->run();
+  authenticator_->run(payload_);
   if (set_peer_) {
     initial_result_.set_principal("bar");
   }
@@ -159,10 +163,9 @@ TEST_P(OriginAuthenticatorTest, SingleMethodPass) {
 
   EXPECT_CALL(*authenticator_, validateJwt(_, _))
       .Times(1)
-      .WillOnce(testing::InvokeArgument<1>(&jwt_payload_, true));
+      .WillOnce(DoAll(SetArgPointee<1>(jwt_payload_), Return(true)));
 
-  EXPECT_CALL(on_done_callback_, Call(true)).Times(1);
-  authenticator_->run();
+  authenticator_->run(payload_);
   EXPECT_TRUE(TestUtility::protoEqual(expected_result_when_pass_,
                                       filter_context_.authenticationResult()));
 }
@@ -175,10 +178,9 @@ TEST_P(OriginAuthenticatorTest, SingleMethodFail) {
 
   EXPECT_CALL(*authenticator_, validateJwt(_, _))
       .Times(1)
-      .WillOnce(testing::InvokeArgument<1>(&jwt_payload_, false));
+      .WillOnce(DoAll(SetArgPointee<1>(jwt_payload_), Return(false)));
 
-  EXPECT_CALL(on_done_callback_, Call(false)).Times(1);
-  authenticator_->run();
+  authenticator_->run(payload_);
   EXPECT_TRUE(TestUtility::protoEqual(initial_result_,
                                       filter_context_.authenticationResult()));
 }
@@ -192,11 +194,10 @@ TEST_P(OriginAuthenticatorTest, Multiple) {
   // First method fails, second success (thus third is ignored)
   EXPECT_CALL(*authenticator_, validateJwt(_, _))
       .Times(2)
-      .WillOnce(testing::InvokeArgument<1>(nullptr, false))
-      .WillOnce(testing::InvokeArgument<1>(&jwt_payload_, true));
+      .WillOnce(DoAll(SetArgPointee<1>(jwt_extra_payload_), Return(false)))
+      .WillOnce(DoAll(SetArgPointee<1>(jwt_payload_), Return(true)));
 
-  EXPECT_CALL(on_done_callback_, Call(true)).Times(1);
-  authenticator_->run();
+  authenticator_->run(payload_);
   EXPECT_TRUE(TestUtility::protoEqual(expected_result_when_pass_,
                                       filter_context_.authenticationResult()));
 }
@@ -210,10 +211,10 @@ TEST_P(OriginAuthenticatorTest, MultipleFail) {
   // All fail.
   EXPECT_CALL(*authenticator_, validateJwt(_, _))
       .Times(3)
-      .WillRepeatedly(testing::InvokeArgument<1>(nullptr, false));
+      .WillRepeatedly(
+          DoAll(SetArgPointee<1>(jwt_extra_payload_), Return(false)));
 
-  EXPECT_CALL(on_done_callback_, Call(false)).Times(1);
-  authenticator_->run();
+  authenticator_->run(payload_);
   EXPECT_TRUE(TestUtility::protoEqual(initial_result_,
                                       filter_context_.authenticationResult()));
 }
@@ -227,10 +228,9 @@ TEST_P(OriginAuthenticatorTest, PeerBindingPass) {
 
   EXPECT_CALL(*authenticator_, validateJwt(_, _))
       .Times(1)
-      .WillOnce(testing::InvokeArgument<1>(&jwt_payload_, true));
+      .WillOnce(DoAll(SetArgPointee<1>(jwt_payload_), Return(true)));
 
-  EXPECT_CALL(on_done_callback_, Call(true)).Times(1);
-  authenticator_->run();
+  authenticator_->run(payload_);
   EXPECT_TRUE(TestUtility::protoEqual(expected_result_when_pass_,
                                       filter_context_.authenticationResult()));
 }
@@ -242,10 +242,9 @@ TEST_P(OriginAuthenticatorTest, PeerBindingFail) {
   // All fail.
   EXPECT_CALL(*authenticator_, validateJwt(_, _))
       .Times(1)
-      .WillOnce(testing::InvokeArgument<1>(&jwt_payload_, false));
+      .WillOnce(DoAll(SetArgPointee<1>(jwt_payload_), Return(false)));
 
-  EXPECT_CALL(on_done_callback_, Call(false)).Times(1);
-  authenticator_->run();
+  authenticator_->run(payload_);
   EXPECT_TRUE(TestUtility::protoEqual(initial_result_,
                                       filter_context_.authenticationResult()));
 }

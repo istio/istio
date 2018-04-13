@@ -30,35 +30,24 @@ namespace AuthN {
 // compound authentication flow.
 class AuthenticatorBase : public Logger::Loggable<Logger::Id::filter> {
  public:
-  // Callback type for individual authentication method.
-  typedef std::function<void(istio::authn::Payload*, bool)> MethodDoneCallback;
-
-  // Callback type for the whole authenticator.
-  typedef std::function<void(bool)> DoneCallback;
-
-  AuthenticatorBase(FilterContext* filter_context,
-                    const DoneCallback& callback);
+  AuthenticatorBase(FilterContext* filter_context);
   virtual ~AuthenticatorBase();
 
   // Perform authentication.
-  virtual void run() PURE;
-
-  // Calls done_callback_ with success value.
-  void done(bool success) const;
+  virtual bool run(istio::authn::Payload*) PURE;
 
   // Validate TLS/MTLS connection and extract authenticated attributes (just
   // source user identity for now). Unlike mTLS, TLS connection does not require
-  // a client certificate. Upon completion of the authentication, the callback
-  // is invoked.
-  virtual void validateX509(
+  // a client certificate.
+  virtual bool validateX509(
       const istio::authentication::v1alpha1::MutualTls& params,
-      const MethodDoneCallback& done_callback) const;
+      istio::authn::Payload* payload) const;
 
-  // Validates JWT given the jwt params. If JWT is validated, it will call
-  // the callback function with the extracted attributes and claims (JwtPayload)
-  // and status SUCCESS. Otherwise, calling callback with status FAILED.
-  virtual void validateJwt(const istio::authentication::v1alpha1::Jwt& params,
-                           const MethodDoneCallback& done_callback);
+  // Validates JWT given the jwt params. If JWT is validated, it will extract
+  // attributes and claims (JwtPayload), returns status SUCCESS.
+  // Otherwise, returns status FAILED.
+  virtual bool validateJwt(const istio::authentication::v1alpha1::Jwt& params,
+                           istio::authn::Payload* payload);
 
   // Mutable accessor to filter context.
   FilterContext* filter_context() { return &filter_context_; }
@@ -66,8 +55,6 @@ class AuthenticatorBase : public Logger::Loggable<Logger::Id::filter> {
  private:
   // Pointer to filter state. Do not own.
   FilterContext& filter_context_;
-
-  const DoneCallback done_callback_;
 };
 
 }  // namespace AuthN

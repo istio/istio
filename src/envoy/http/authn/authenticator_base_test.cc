@@ -51,8 +51,8 @@ const std::string kSecIstioAuthUserinfoHeaderValue =
 class MockAuthenticatorBase : public AuthenticatorBase {
  public:
   MockAuthenticatorBase(FilterContext* filter_context)
-      : AuthenticatorBase(filter_context, [](bool) {}) {}
-  MOCK_METHOD0(run, void());
+      : AuthenticatorBase(filter_context) {}
+  MOCK_METHOD1(run, bool(Payload*));
 };
 
 class AuthenticatorBaseTest : public testing::Test,
@@ -69,6 +69,16 @@ class AuthenticatorBaseTest : public testing::Test,
                                     v2alpha1::FilterConfig::default_instance()};
 
   MockAuthenticatorBase authenticator_{&filter_context_};
+
+  void SetUp() override { payload_ = new Payload(); }
+
+  void TearDown() override { delete (payload_); }
+
+ protected:
+  iaapi::MutualTls mtls_params_;
+  iaapi::Jwt jwt_;
+  Payload* payload_;
+  Payload default_payload_;
 };
 
 Http::TestHeaderMapImpl CreateTestHeaderMap(const std::string& header_key,
@@ -82,94 +92,65 @@ Http::TestHeaderMapImpl CreateTestHeaderMap(const std::string& header_key,
 }
 
 TEST_F(AuthenticatorBaseTest, ValidateMtlsOnPlaintextConnection) {
-  iaapi::MutualTls mTlsParams;
-  authenticator_.validateX509(mTlsParams,
-                              [](const Payload* payload, bool success) {
-                                // When requiring mTLS, plaintext connection
-                                // should fail.
-                                EXPECT_FALSE(payload);
-                                EXPECT_FALSE(success);
-                              });
+  EXPECT_FALSE(authenticator_.validateX509(mtls_params_, payload_));
+  EXPECT_TRUE(MessageDifferencer::Equals(*payload_, default_payload_));
 }
 
 TEST_F(AuthenticatorBaseTest, ValidateTlsOnPlaintextConnection) {
-  iaapi::MutualTls mTlsParams;
-  mTlsParams.set_allow_tls(true);  // allow TLS connection
-  authenticator_.validateX509(mTlsParams,
-                              [](const Payload* payload, bool success) {
-                                // When requiring TLS, plaintext connection
-                                // should fail.
-                                EXPECT_FALSE(payload);
-                                EXPECT_FALSE(success);
-                              });
+  mtls_params_.set_allow_tls(true);  // allow TLS connection
+  // When requiring TLS, plaintext connection should fail.
+  EXPECT_FALSE(authenticator_.validateX509(mtls_params_, payload_));
+  EXPECT_TRUE(MessageDifferencer::Equals(*payload_, default_payload_));
 }
 
 TEST_F(AuthenticatorBaseTest, ValidateMtlsOnSslConnectionWithNoPeerCert) {
-  iaapi::MutualTls mTlsParams;
   EXPECT_CALL(Const(connection_), ssl()).WillRepeatedly(Return(&ssl_));
   EXPECT_CALL(Const(ssl_), peerCertificatePresented())
       .Times(1)
       .WillOnce(Return(false));
-  authenticator_.validateX509(mTlsParams,
-                              [](const Payload* payload, bool success) {
-                                EXPECT_FALSE(payload);
-                                EXPECT_FALSE(success);
-                              });
+
+  EXPECT_FALSE(authenticator_.validateX509(mtls_params_, payload_));
+  EXPECT_TRUE(MessageDifferencer::Equals(*payload_, default_payload_));
 }
 
 TEST_F(AuthenticatorBaseTest, ValidateTlsOnSslConnectionWithNoPeerCert) {
-  iaapi::MutualTls mTlsParams;
-  mTlsParams.set_allow_tls(true);  // allow TLS connection
+  mtls_params_.set_allow_tls(true);  // allow TLS connection
   EXPECT_CALL(Const(connection_), ssl()).WillRepeatedly(Return(&ssl_));
   EXPECT_CALL(Const(ssl_), peerCertificatePresented())
       .Times(1)
       .WillOnce(Return(false));
-  authenticator_.validateX509(mTlsParams,
-                              [](const Payload* payload, bool success) {
-                                EXPECT_TRUE(payload);
-                                // When client certificate is not present on
-                                // TLS, authentication should still succeed.
-                                EXPECT_TRUE(success);
-                              });
+
+  // When client certificate is not present on TLS, authentication should still
+  // succeed.
+  EXPECT_TRUE(authenticator_.validateX509(mtls_params_, payload_));
 }
 
 TEST_F(AuthenticatorBaseTest, ValidateMtlsOnSslConnectionWithPeerCert) {
-  iaapi::MutualTls mTlsParams;
   EXPECT_CALL(Const(connection_), ssl()).WillRepeatedly(Return(&ssl_));
   EXPECT_CALL(Const(ssl_), peerCertificatePresented())
       .Times(1)
       .WillOnce(Return(true));
   EXPECT_CALL(ssl_, uriSanPeerCertificate()).Times(1).WillOnce(Return("foo"));
-  authenticator_.validateX509(mTlsParams,
-                              [](const Payload* payload, bool success) {
-                                // When client certificate is present on
-                                // mTLS, authenticated attribute should be
-                                // extracted.
-                                EXPECT_EQ(payload->x509().user(), "foo");
-                                EXPECT_TRUE(success);
-                              });
+  EXPECT_TRUE(authenticator_.validateX509(mtls_params_, payload_));
+  // When client certificate is present on mTLS, authenticated attribute should
+  // be extracted.
+  EXPECT_EQ(payload_->x509().user(), "foo");
 }
 
 TEST_F(AuthenticatorBaseTest, ValidateTlsOnSslConnectionWithPeerCert) {
-  iaapi::MutualTls mTlsParams;
-  mTlsParams.set_allow_tls(true);  // allow TLS connection
+  mtls_params_.set_allow_tls(true);  // allow TLS connection
   EXPECT_CALL(Const(connection_), ssl()).WillRepeatedly(Return(&ssl_));
   EXPECT_CALL(Const(ssl_), peerCertificatePresented())
       .Times(1)
       .WillOnce(Return(true));
   EXPECT_CALL(ssl_, uriSanPeerCertificate()).Times(1).WillOnce(Return("foo"));
-  authenticator_.validateX509(mTlsParams,
-                              [](const Payload* payload, bool success) {
-                                // When client certificate is present on
-                                // TLS, authenticated attribute should be
-                                // extracted.
-                                EXPECT_EQ(payload->x509().user(), "foo");
-                                EXPECT_TRUE(success);
-                              });
+  EXPECT_TRUE(authenticator_.validateX509(mtls_params_, payload_));
+  // When client certificate is present on TLS, authenticated attribute should
+  // be extracted.
+  EXPECT_EQ(payload_->x509().user(), "foo");
 }
 
 TEST_F(AuthenticatorBaseTest, ValidateMtlsOnSslConnectionWithPeerSpiffeCert) {
-  iaapi::MutualTls mTlsParams;
   EXPECT_CALL(Const(connection_), ssl()).WillRepeatedly(Return(&ssl_));
   EXPECT_CALL(Const(ssl_), peerCertificatePresented())
       .Times(1)
@@ -177,19 +158,15 @@ TEST_F(AuthenticatorBaseTest, ValidateMtlsOnSslConnectionWithPeerSpiffeCert) {
   EXPECT_CALL(ssl_, uriSanPeerCertificate())
       .Times(1)
       .WillOnce(Return("spiffe://foo"));
-  authenticator_.validateX509(mTlsParams,
-                              [](const Payload* payload, bool success) {
-                                // When client certificate is present on
-                                // mTLS, authenticated attribute should be
-                                // extracted.
-                                EXPECT_EQ(payload->x509().user(), "foo");
-                                EXPECT_TRUE(success);
-                              });
+  EXPECT_TRUE(authenticator_.validateX509(mtls_params_, payload_));
+
+  // When client certificate is present on mTLS, authenticated attribute should
+  // be extracted.
+  EXPECT_EQ(payload_->x509().user(), "foo");
 }
 
 TEST_F(AuthenticatorBaseTest, ValidateTlsOnSslConnectionWithPeerSpiffeCert) {
-  iaapi::MutualTls mTlsParams;
-  mTlsParams.set_allow_tls(true);  // allow TLS connection
+  mtls_params_.set_allow_tls(true);  // allow TLS connection
   EXPECT_CALL(Const(connection_), ssl()).WillRepeatedly(Return(&ssl_));
   EXPECT_CALL(Const(ssl_), peerCertificatePresented())
       .Times(1)
@@ -197,19 +174,14 @@ TEST_F(AuthenticatorBaseTest, ValidateTlsOnSslConnectionWithPeerSpiffeCert) {
   EXPECT_CALL(ssl_, uriSanPeerCertificate())
       .Times(1)
       .WillOnce(Return("spiffe://foo"));
-  authenticator_.validateX509(mTlsParams,
-                              [](const Payload* payload, bool success) {
-                                // When client certificate is present on
-                                // TLS, authenticated attribute should be
-                                // extracted.
-                                EXPECT_EQ(payload->x509().user(), "foo");
-                                EXPECT_TRUE(success);
-                              });
+  EXPECT_TRUE(authenticator_.validateX509(mtls_params_, payload_));
+  // When client certificate is present on TLS, authenticated attribute should
+  // be extracted.
+  EXPECT_EQ(payload_->x509().user(), "foo");
 }
 
 TEST_F(AuthenticatorBaseTest,
        ValidateMtlsOnSslConnectionWithPeerMalformedSpiffeCert) {
-  iaapi::MutualTls mTlsParams;
   EXPECT_CALL(Const(connection_), ssl()).WillRepeatedly(Return(&ssl_));
   EXPECT_CALL(Const(ssl_), peerCertificatePresented())
       .Times(1)
@@ -217,21 +189,18 @@ TEST_F(AuthenticatorBaseTest,
   EXPECT_CALL(ssl_, uriSanPeerCertificate())
       .Times(1)
       .WillOnce(Return("spiffe:foo"));
-  authenticator_.validateX509(mTlsParams,
-                              [](const Payload* payload, bool success) {
-                                // When client certificate is present on mTLS
-                                // and the spiffe subject format is wrong
-                                // ("spiffe:foo" instead of "spiffe://foo"), the
-                                // user attribute should be extracted.
-                                EXPECT_EQ(payload->x509().user(), "spiffe:foo");
-                                EXPECT_TRUE(success);
-                              });
+  EXPECT_TRUE(authenticator_.validateX509(mtls_params_, payload_));
+
+  // When client certificate is present on mTLS and the spiffe subject format is
+  // wrong
+  // ("spiffe:foo" instead of "spiffe://foo"), the user attribute should be
+  // extracted.
+  EXPECT_EQ(payload_->x509().user(), "spiffe:foo");
 }
 
 TEST_F(AuthenticatorBaseTest,
        ValidateTlsOnSslConnectionWithPeerMalformedSpiffeCert) {
-  iaapi::MutualTls mTlsParams;
-  mTlsParams.set_allow_tls(true);  // allow TLS connection
+  mtls_params_.set_allow_tls(true);  // allow TLS connection
   EXPECT_CALL(Const(connection_), ssl()).WillRepeatedly(Return(&ssl_));
   EXPECT_CALL(Const(ssl_), peerCertificatePresented())
       .Times(1)
@@ -239,33 +208,26 @@ TEST_F(AuthenticatorBaseTest,
   EXPECT_CALL(ssl_, uriSanPeerCertificate())
       .Times(1)
       .WillOnce(Return("spiffe:foo"));
-  authenticator_.validateX509(mTlsParams,
-                              [](const Payload* payload, bool success) {
-                                // When client certificate is present on TLS and
-                                // the spiffe subject format is wrong
-                                // ("spiffe:foo" instead of "spiffe://foo"), the
-                                // user attribute should be extracted.
-                                EXPECT_EQ(payload->x509().user(), "spiffe:foo");
-                                EXPECT_TRUE(success);
-                              });
+  EXPECT_TRUE(authenticator_.validateX509(mtls_params_, payload_));
+  // When client certificate is present on TLS and the spiffe subject format is
+  // wrong
+  // ("spiffe:foo" instead of "spiffe://foo"), the user attribute should be
+  // extracted.
+  EXPECT_EQ(payload_->x509().user(), "spiffe:foo");
 }
 
 // TODO: more tests for Jwt.
 TEST_F(AuthenticatorBaseTest, ValidateJwtWithNoIstioAuthnConfig) {
-  iaapi::Jwt jwt;
-  jwt.set_issuer("issuer@foo.com");
+  jwt_.set_issuer("issuer@foo.com");
   // authenticator_ has empty Istio authn config
-  authenticator_.validateJwt(jwt, [](const Payload* payload, bool success) {
-    // When there is empty Istio authn config, validateJwt() should return
-    // nullptr and failure.
-    EXPECT_TRUE(payload == nullptr);
-    EXPECT_FALSE(success);
-  });
+  // When there is empty Istio authn config, validateJwt() should return
+  // nullptr and failure.
+  EXPECT_FALSE(authenticator_.validateJwt(jwt_, payload_));
+  EXPECT_TRUE(MessageDifferencer::Equals(*payload_, default_payload_));
 }
 
 TEST_F(AuthenticatorBaseTest, ValidateJwtWithNoIssuer) {
   // no issuer in jwt
-  iaapi::Jwt jwt;
   google::protobuf::util::JsonParseOptions options;
   FilterConfig filter_config;
   JsonStringToMessage(
@@ -281,17 +243,15 @@ TEST_F(AuthenticatorBaseTest, ValidateJwtWithNoIssuer) {
   FilterContext filter_context{&empty_request_headers, &connection_,
                                filter_config};
   MockAuthenticatorBase authenticator{&filter_context};
-  authenticator.validateJwt(jwt, [](const Payload* payload, bool success) {
-    // When there is no issuer in the JWT config, validateJwt() should return
-    // nullptr and failure.
-    EXPECT_TRUE(payload == nullptr);
-    EXPECT_FALSE(success);
-  });
+
+  // When there is no issuer in the JWT config, validateJwt() should return
+  // nullptr and failure.
+  EXPECT_FALSE(authenticator_.validateJwt(jwt_, payload_));
+  EXPECT_TRUE(MessageDifferencer::Equals(*payload_, default_payload_));
 }
 
 TEST_F(AuthenticatorBaseTest, ValidateJwtWithEmptyJwtOutputPayloadLocations) {
-  iaapi::Jwt jwt;
-  jwt.set_issuer("issuer@foo.com");
+  jwt_.set_issuer("issuer@foo.com");
   Http::TestHeaderMapImpl request_headers_with_jwt = CreateTestHeaderMap(
       kSecIstioAuthUserInfoHeaderKey, kSecIstioAuthUserinfoHeaderValue);
   google::protobuf::util::JsonParseOptions options;
@@ -308,17 +268,14 @@ TEST_F(AuthenticatorBaseTest, ValidateJwtWithEmptyJwtOutputPayloadLocations) {
                                filter_config};
   MockAuthenticatorBase authenticator{&filter_context};
   // authenticator has empty jwt_output_payload_locations in Istio authn config
-  authenticator.validateJwt(jwt, [](const Payload* payload, bool success) {
-    // When there is no matching jwt_output_payload_locations for the issuer in
-    // the Istio authn config, validateJwt() should return nullptr and failure.
-    EXPECT_TRUE(payload == nullptr);
-    EXPECT_FALSE(success);
-  });
+  // When there is no matching jwt_output_payload_locations for the issuer in
+  // the Istio authn config, validateJwt() should return nullptr and failure.
+  EXPECT_FALSE(authenticator_.validateJwt(jwt_, payload_));
+  EXPECT_TRUE(MessageDifferencer::Equals(*payload_, default_payload_));
 }
 
 TEST_F(AuthenticatorBaseTest, ValidateJwtWithNoJwtInHeader) {
-  iaapi::Jwt jwt;
-  jwt.set_issuer("issuer@foo.com");
+  jwt_.set_issuer("issuer@foo.com");
   google::protobuf::util::JsonParseOptions options;
   FilterConfig filter_config;
   JsonStringToMessage(
@@ -334,17 +291,14 @@ TEST_F(AuthenticatorBaseTest, ValidateJwtWithNoJwtInHeader) {
   FilterContext filter_context{&empty_request_headers, &connection_,
                                filter_config};
   MockAuthenticatorBase authenticator{&filter_context};
-  authenticator.validateJwt(jwt, [](const Payload* payload, bool success) {
-    // When there is no JWT in the HTTP header, validateJwt() should return
-    // nullptr and failure.
-    EXPECT_TRUE(payload == nullptr);
-    EXPECT_FALSE(success);
-  });
+  // When there is no JWT in the HTTP header, validateJwt() should return
+  // nullptr and failure.
+  EXPECT_FALSE(authenticator_.validateJwt(jwt_, payload_));
+  EXPECT_TRUE(MessageDifferencer::Equals(*payload_, default_payload_));
 }
 
 TEST_F(AuthenticatorBaseTest, ValidateJwtWithJwtInHeader) {
-  iaapi::Jwt jwt;
-  jwt.set_issuer("issuer@foo.com");
+  jwt_.set_issuer("issuer@foo.com");
   Http::TestHeaderMapImpl request_headers_with_jwt = CreateTestHeaderMap(
       "sec-istio-auth-jwt-output", kSecIstioAuthUserinfoHeaderValue);
   google::protobuf::util::JsonParseOptions options;
@@ -378,17 +332,9 @@ TEST_F(AuthenticatorBaseTest, ValidateJwtWithJwtInHeader) {
            }
         )",
       &expected_payload, options);
-  authenticator.validateJwt(
-      jwt, [&expected_payload](const Payload* payload, bool success) {
-        // When there is a verified JWT in the HTTP header, validateJwt()
-        // should return non-nullptr and success.
-        EXPECT_TRUE(payload != nullptr);
-        EXPECT_TRUE(success);
-        // Note: TestUtility::protoEqual() uses SerializeAsString() and the
-        // output is non-deterministic.  Thus, MessageDifferencer::Equals() is
-        // used.
-        EXPECT_TRUE(MessageDifferencer::Equals(expected_payload, *payload));
-      });
+
+  EXPECT_TRUE(authenticator.validateJwt(jwt_, payload_));
+  EXPECT_TRUE(MessageDifferencer::Equals(expected_payload, *payload_));
 }
 
 }  // namespace

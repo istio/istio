@@ -27,28 +27,14 @@ namespace AuthN {
 class OriginAuthenticator : public AuthenticatorBase {
  public:
   OriginAuthenticator(FilterContext* filter_context,
-                      const DoneCallback& done_callback,
                       const istio::authentication::v1alpha1::Policy& policy);
 
-  void run() override;
-
- protected:
-  // Runs specific authentication method.
-  void runMethod(
-      const istio::authentication::v1alpha1::OriginAuthenticationMethod& method,
-      const MethodDoneCallback& callback);
-
-  // Callback for runMethod.
-  void onMethodDone(const istio::authn::Payload* payload, bool success);
+  bool run(istio::authn::Payload*) override;
 
  private:
   // Reference to the authentication policy that the authenticator should
   // enforce. Typically, the actual object is owned by filter.
   const istio::authentication::v1alpha1::Policy& policy_;
-
-  // Internal variable to keep track which (origin) authentication methods have
-  // been tried.
-  int method_index_{0};
 };
 
 }  // namespace AuthN

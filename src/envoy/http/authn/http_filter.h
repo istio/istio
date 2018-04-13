@@ -46,12 +46,6 @@ class AuthenticationFilter : public StreamDecoderFilter,
       StreamDecoderFilterCallbacks& callbacks) override;
 
  protected:
-  // Callback for peer authenticator.
-  void onPeerAuthenticationDone(bool success);
-
-  // Callback for origin authenticator.
-  void onOriginAuthenticationDone(bool success);
-
   // Convenient function to call decoder_callbacks_ only when stopped_ is true.
   void continueDecoding();
 
@@ -61,15 +55,13 @@ class AuthenticationFilter : public StreamDecoderFilter,
   // Creates peer authenticator. This is made virtual function for
   // testing.
   virtual std::unique_ptr<Istio::AuthN::AuthenticatorBase>
-  createPeerAuthenticator(
-      Istio::AuthN::FilterContext* filter_context,
-      const Istio::AuthN::AuthenticatorBase::DoneCallback& done_callback);
+
+  createPeerAuthenticator(Istio::AuthN::FilterContext* filter_context);
 
   // Creates origin authenticator.
   virtual std::unique_ptr<Istio::AuthN::AuthenticatorBase>
-  createOriginAuthenticator(
-      Istio::AuthN::FilterContext* filter_context,
-      const Istio::AuthN::AuthenticatorBase::DoneCallback& done_callback);
+
+  createOriginAuthenticator(Istio::AuthN::FilterContext* filter_context);
 
  private:
   // Store the config.
@@ -82,16 +74,9 @@ class AuthenticationFilter : public StreamDecoderFilter,
   // Holds the state of the filter.
   State state_{State::INIT};
 
-  // Indicates filter is 'stopped', thus (decoder_callbacks_) continueDecoding
-  // should be called.
-  bool stopped_{false};
-
   // Context for authentication process. Created in decodeHeader to start
   // authentication process.
   std::unique_ptr<Istio::AuthN::FilterContext> filter_context_;
-
-  // Holder of authenticator so that it can be cleaned up when done.
-  std::unique_ptr<Istio::AuthN::AuthenticatorBase> authenticator_;
 };
 
 }  // namespace AuthN

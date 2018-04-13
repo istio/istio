@@ -43,13 +43,11 @@ namespace {
 class MockPeerAuthenticator : public PeerAuthenticator {
  public:
   MockPeerAuthenticator(FilterContext* filter_context,
-                        const DoneCallback& done_callback,
                         const istio::authentication::v1alpha1::Policy& policy)
-      : PeerAuthenticator(filter_context, done_callback, policy) {}
+      : PeerAuthenticator(filter_context, policy) {}
 
-  MOCK_CONST_METHOD2(validateX509,
-                     void(const iaapi::MutualTls&, const MethodDoneCallback&));
-  MOCK_METHOD2(validateJwt, void(const iaapi::Jwt&, const MethodDoneCallback&));
+  MOCK_CONST_METHOD2(validateX509, bool(const iaapi::MutualTls&, Payload*));
+  MOCK_METHOD2(validateJwt, bool(const iaapi::Jwt&, Payload*));
 };
 
 class PeerAuthenticatorTest : public testing::Test {
@@ -59,28 +57,33 @@ class PeerAuthenticatorTest : public testing::Test {
   virtual ~PeerAuthenticatorTest() {}
 
   void createAuthenticator() {
-    authenticator_.reset(new StrictMock<MockPeerAuthenticator>(
-        &filter_context_, on_done_callback_.AsStdFunction(), policy_));
+    authenticator_.reset(
+        new StrictMock<MockPeerAuthenticator>(&filter_context_, policy_));
   }
+
+  void SetUp() override { payload_ = new Payload(); }
+
+  void TearDown() override { delete (payload_); }
 
  protected:
   std::unique_ptr<StrictMock<MockPeerAuthenticator>> authenticator_;
-  StrictMock<MockFunction<void(bool)>> on_done_callback_;
   Http::TestHeaderMapImpl request_headers_;
   FilterContext filter_context_{&request_headers_, nullptr,
                                 istio::envoy::config::filter::http::authn::
                                     v2alpha1::FilterConfig::default_instance()};
 
   iaapi::Policy policy_;
+  Payload* payload_;
 
   Payload x509_payload_{TestUtilities::CreateX509Payload("foo")};
   Payload jwt_payload_{TestUtilities::CreateJwtPayload("foo", "istio.io")};
+  Payload jwt_extra_payload_{
+      TestUtilities::CreateJwtPayload("bar", "istio.io")};
 };
 
 TEST_F(PeerAuthenticatorTest, EmptyPolicy) {
   createAuthenticator();
-  EXPECT_CALL(on_done_callback_, Call(true)).Times(1);
-  authenticator_->run();
+  authenticator_->run(payload_);
   EXPECT_TRUE(TestUtility::protoEqual(TestUtilities::AuthNResultFromString(""),
                                       filter_context_.authenticationResult()));
 }
@@ -97,9 +100,9 @@ TEST_F(PeerAuthenticatorTest, MTlsOnlyPass) {
   createAuthenticator();
   EXPECT_CALL(*authenticator_, validateX509(_, _))
       .Times(1)
-      .WillOnce(testing::InvokeArgument<1>(&x509_payload_, true));
-  EXPECT_CALL(on_done_callback_, Call(true)).Times(1);
-  authenticator_->run();
+      .WillOnce(DoAll(SetArgPointee<1>(x509_payload_), Return(true)));
+
+  authenticator_->run(payload_);
   EXPECT_TRUE(TestUtility::protoEqual(
       TestUtilities::AuthNResultFromString(R"(peer_user: "foo")"),
       filter_context_.authenticationResult()));
@@ -118,9 +121,9 @@ TEST_F(PeerAuthenticatorTest, TlsOnlyPass) {
   createAuthenticator();
   EXPECT_CALL(*authenticator_, validateX509(_, _))
       .Times(1)
-      .WillOnce(testing::InvokeArgument<1>(&x509_payload_, true));
-  EXPECT_CALL(on_done_callback_, Call(true)).Times(1);
-  authenticator_->run();
+      .WillOnce(DoAll(SetArgPointee<1>(x509_payload_), Return(true)));
+
+  authenticator_->run(payload_);
   // When client certificate is present on TLS, authenticated attribute
   // should be extracted.
   EXPECT_TRUE(TestUtility::protoEqual(
@@ -140,9 +143,8 @@ TEST_F(PeerAuthenticatorTest, MTlsOnlyFail) {
   createAuthenticator();
   EXPECT_CALL(*authenticator_, validateX509(_, _))
       .Times(1)
-      .WillOnce(testing::InvokeArgument<1>(&x509_payload_, false));
-  EXPECT_CALL(on_done_callback_, Call(false)).Times(1);
-  authenticator_->run();
+      .WillOnce(DoAll(SetArgPointee<1>(x509_payload_), Return(false)));
+  authenticator_->run(payload_);
   EXPECT_TRUE(TestUtility::protoEqual(TestUtilities::AuthNResultFromString(""),
                                       filter_context_.authenticationResult()));
 }
@@ -160,9 +162,9 @@ TEST_F(PeerAuthenticatorTest, TlsOnlyFail) {
   createAuthenticator();
   EXPECT_CALL(*authenticator_, validateX509(_, _))
       .Times(1)
-      .WillOnce(testing::InvokeArgument<1>(&x509_payload_, false));
-  EXPECT_CALL(on_done_callback_, Call(false)).Times(1);
-  authenticator_->run();
+      .WillOnce(DoAll(SetArgPointee<1>(x509_payload_), Return(false)));
+
+  authenticator_->run(payload_);
   // When TLS authentication failse, the authenticated attribute should be
   // empty.
   EXPECT_TRUE(TestUtility::protoEqual(TestUtilities::AuthNResultFromString(""),
@@ -182,9 +184,8 @@ TEST_F(PeerAuthenticatorTest, JwtOnlyPass) {
   createAuthenticator();
   EXPECT_CALL(*authenticator_, validateJwt(_, _))
       .Times(1)
-      .WillOnce(testing::InvokeArgument<1>(&jwt_payload_, true));
-  EXPECT_CALL(on_done_callback_, Call(true)).Times(1);
-  authenticator_->run();
+      .WillOnce(DoAll(SetArgPointee<1>(x509_payload_), Return(true)));
+  authenticator_->run(payload_);
   EXPECT_TRUE(TestUtility::protoEqual(
       TestUtilities::AuthNResultFromString(R"(peer_user: "foo")"),
       filter_context_.authenticationResult()));
@@ -203,9 +204,8 @@ TEST_F(PeerAuthenticatorTest, JwtOnlyFail) {
   createAuthenticator();
   EXPECT_CALL(*authenticator_, validateJwt(_, _))
       .Times(1)
-      .WillOnce(testing::InvokeArgument<1>(&jwt_payload_, false));
-  EXPECT_CALL(on_done_callback_, Call(false)).Times(1);
-  authenticator_->run();
+      .WillOnce(DoAll(SetArgPointee<1>(x509_payload_), Return(false)));
+  authenticator_->run(payload_);
   EXPECT_TRUE(TestUtility::protoEqual(TestUtilities::AuthNResultFromString(""),
                                       filter_context_.authenticationResult()));
 }
@@ -229,14 +229,15 @@ TEST_F(PeerAuthenticatorTest, Multiple) {
                                                     &policy_));
 
   createAuthenticator();
+
   EXPECT_CALL(*authenticator_, validateX509(_, _))
       .Times(1)
-      .WillOnce(testing::InvokeArgument<1>(nullptr, false));
+      .WillOnce(DoAll(SetArgPointee<1>(jwt_extra_payload_), Return(false)));
   EXPECT_CALL(*authenticator_, validateJwt(_, _))
       .Times(1)
-      .WillOnce(testing::InvokeArgument<1>(&jwt_payload_, true));
-  EXPECT_CALL(on_done_callback_, Call(true)).Times(1);
-  authenticator_->run();
+      .WillOnce(DoAll(SetArgPointee<1>(jwt_payload_), Return(true)));
+
+  authenticator_->run(payload_);
   EXPECT_TRUE(TestUtility::protoEqual(
       TestUtilities::AuthNResultFromString(R"(peer_user: "foo")"),
       filter_context_.authenticationResult()));
@@ -263,12 +264,11 @@ TEST_F(PeerAuthenticatorTest, TlsFailAndJwtSucceed) {
   createAuthenticator();
   EXPECT_CALL(*authenticator_, validateX509(_, _))
       .Times(1)
-      .WillOnce(testing::InvokeArgument<1>(nullptr, false));
+      .WillOnce(DoAll(SetArgPointee<1>(jwt_extra_payload_), Return(false)));
   EXPECT_CALL(*authenticator_, validateJwt(_, _))
       .Times(1)
-      .WillOnce(testing::InvokeArgument<1>(&jwt_payload_, true));
-  EXPECT_CALL(on_done_callback_, Call(true)).Times(1);
-  authenticator_->run();
+      .WillOnce(DoAll(SetArgPointee<1>(jwt_payload_), Return(true)));
+  authenticator_->run(payload_);
   // validateX509 fail and validateJwt succeeds,
   // result should be "foo", as expected as in jwt_payload.
   EXPECT_TRUE(TestUtility::protoEqual(
@@ -297,12 +297,12 @@ TEST_F(PeerAuthenticatorTest, MultipleAllFail) {
   createAuthenticator();
   EXPECT_CALL(*authenticator_, validateX509(_, _))
       .Times(1)
-      .WillOnce(testing::InvokeArgument<1>(nullptr, false));
+      .WillOnce(DoAll(SetArgPointee<1>(jwt_extra_payload_), Return(false)));
   EXPECT_CALL(*authenticator_, validateJwt(_, _))
       .Times(2)
-      .WillRepeatedly(testing::InvokeArgument<1>(nullptr, false));
-  EXPECT_CALL(on_done_callback_, Call(false)).Times(1);
-  authenticator_->run();
+      .WillRepeatedly(
+          DoAll(SetArgPointee<1>(jwt_extra_payload_), Return(false)));
+  authenticator_->run(payload_);
   EXPECT_TRUE(TestUtility::protoEqual(TestUtilities::AuthNResultFromString(""),
                                       filter_context_.authenticationResult()));
 }
@@ -328,12 +328,12 @@ TEST_F(PeerAuthenticatorTest, TlsFailJwtFail) {
   createAuthenticator();
   EXPECT_CALL(*authenticator_, validateX509(_, _))
       .Times(1)
-      .WillOnce(testing::InvokeArgument<1>(nullptr, false));
+      .WillOnce(DoAll(SetArgPointee<1>(jwt_extra_payload_), Return(false)));
   EXPECT_CALL(*authenticator_, validateJwt(_, _))
       .Times(2)
-      .WillRepeatedly(testing::InvokeArgument<1>(nullptr, false));
-  EXPECT_CALL(on_done_callback_, Call(false)).Times(1);
-  authenticator_->run();
+      .WillRepeatedly(
+          DoAll(SetArgPointee<1>(jwt_extra_payload_), Return(false)));
+  authenticator_->run(payload_);
   // validateX509 and validateJwt fail, result should be empty.
   EXPECT_TRUE(TestUtility::protoEqual(TestUtilities::AuthNResultFromString(""),
                                       filter_context_.authenticationResult()));

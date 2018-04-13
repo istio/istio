@@ -26,11 +26,12 @@ namespace Istio {
 namespace AuthN {
 
 OriginAuthenticator::OriginAuthenticator(FilterContext* filter_context,
-                                         const DoneCallback& done_callback,
                                          const iaapi::Policy& policy)
-    : AuthenticatorBase(filter_context, done_callback), policy_(policy) {}
+    : AuthenticatorBase(filter_context), policy_(policy) {}
 
-void OriginAuthenticator::run() {
+bool OriginAuthenticator::run(Payload* payload) {
+  bool success = false;
+
   if (policy_.origins_size() == 0) {
     switch (policy_.principal_binding()) {
       case iaapi::PrincipalBinding::USE_ORIGIN:
@@ -42,12 +43,11 @@ void OriginAuthenticator::run() {
                   "Principal is binded to origin, but no method specified in "
                   "policy {}",
                   policy_.DebugString());
-        onMethodDone(nullptr, false);
         break;
       case iaapi::PrincipalBinding::USE_PEER:
         // On the other hand, it's ok to have no (origin) methods if
         // rule USE_SOURCE
-        onMethodDone(nullptr, true);
+        success = true;
         break;
       default:
         // Should never come here.
@@ -55,35 +55,21 @@ void OriginAuthenticator::run() {
                   policy_.DebugString());
         break;
     }
-    return;
   }
-  runMethod(policy_.origins(0), [this](const Payload* payload, bool success) {
-    onMethodDone(payload, success);
-  });
-}
 
-void OriginAuthenticator::runMethod(
-    const istio::authentication::v1alpha1::OriginAuthenticationMethod& method,
-    const AuthenticatorBase::MethodDoneCallback& callback) {
-  validateJwt(method.jwt(), callback);
-}
-
-void OriginAuthenticator::onMethodDone(const Payload* payload, bool success) {
-  if (!success && method_index_ + 1 < policy_.origins_size()) {
-    // Authentication fail, try the next method, if available.
-    method_index_++;
-    runMethod(policy_.origins(method_index_),
-              [this](const Payload* payload, bool success) {
-                onMethodDone(payload, success);
-              });
-    return;
+  for (const auto& method : policy_.origins()) {
+    if (validateJwt(method.jwt(), payload)) {
+      success = true;
+      break;
+    }
   }
 
   if (success) {
     filter_context()->setOriginResult(payload);
     filter_context()->setPrincipal(policy_.principal_binding());
   }
-  done(success);
+
+  return success;
 }
 
 }  // namespace AuthN

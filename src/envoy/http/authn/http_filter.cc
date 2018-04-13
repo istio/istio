@@ -22,6 +22,7 @@
 #include "src/envoy/utils/authn.h"
 #include "src/envoy/utils/utils.h"
 
+using istio::authn::Payload;
 using istio::envoy::config::filter::http::authn::v2alpha1::FilterConfig;
 
 namespace iaapi = istio::authentication::v1alpha1;
@@ -48,49 +49,36 @@ FilterHeadersStatus AuthenticationFilter::decodeHeaders(HeaderMap& headers,
   filter_context_.reset(new Istio::AuthN::FilterContext(
       &headers, decoder_callbacks_->connection(), filter_config_));
 
-  authenticator_ = createPeerAuthenticator(
-      filter_context_.get(),
-      [this](bool success) { onPeerAuthenticationDone(success); });
-  authenticator_->run();
+  Payload payload;
 
-  if (state_ == State::COMPLETE) {
-    return FilterHeadersStatus::Continue;
-  }
-
-  stopped_ = true;
-  return FilterHeadersStatus::StopIteration;
-}
-
-void AuthenticationFilter::onPeerAuthenticationDone(bool success) {
-  ENVOY_LOG(debug, "{}: success = {}", __func__, success);
-  if (success) {
-    authenticator_ = createOriginAuthenticator(
-        filter_context_.get(),
-        [this](bool success) { onOriginAuthenticationDone(success); });
-    authenticator_->run();
-  } else {
+  if (!createPeerAuthenticator(filter_context_.get())->run(&payload)) {
     rejectRequest("Peer authentication failed.");
+    return FilterHeadersStatus::StopIteration;
   }
-}
-void AuthenticationFilter::onOriginAuthenticationDone(bool success) {
-  ENVOY_LOG(debug, "{}: success = {}", __func__, success);
+
+  bool success =
+      createOriginAuthenticator(filter_context_.get())->run(&payload);
+
   // After Istio authn, the JWT headers consumed by Istio authn should be
   // removed.
+  // TODO: remove internal headers used to pass data between filters
+  // https://github.com/istio/istio/issues/4689
   for (auto const iter : filter_config_.jwt_output_payload_locations()) {
     filter_context_->headers()->remove(LowerCaseString(iter.second));
   }
 
-  if (success) {
-    // Put authentication result to headers.
-    if (filter_context_ != nullptr) {
-      Utils::Authentication::SaveResultToHeader(
-          filter_context_->authenticationResult(), filter_context_->headers());
-    }
-
-    continueDecoding();
-  } else {
+  if (!success) {
     rejectRequest("Origin authentication failed.");
+    return FilterHeadersStatus::StopIteration;
   }
+
+  // Put authentication result to headers.
+  if (filter_context_ != nullptr) {
+    Utils::Authentication::SaveResultToHeader(
+        filter_context_->authenticationResult(), filter_context_->headers());
+  }
+
+  return FilterHeadersStatus::Continue;
 }
 
 FilterDataStatus AuthenticationFilter::decodeData(Buffer::Instance&, bool) {
@@ -118,17 +106,6 @@ void AuthenticationFilter::setDecoderFilterCallbacks(
   decoder_callbacks_ = &callbacks;
 }
 
-void AuthenticationFilter::continueDecoding() {
-  if (state_ != State::PROCESSING) {
-    ENVOY_LOG(error, "State {} is not PROCESSING.", state_);
-    return;
-  }
-  state_ = State::COMPLETE;
-  if (stopped_) {
-    decoder_callbacks_->continueDecoding();
-  }
-}
-
 void AuthenticationFilter::rejectRequest(const std::string& message) {
   if (state_ != State::PROCESSING) {
     ENVOY_LOG(error, "State {} is not PROCESSING.", state_);
@@ -141,18 +118,16 @@ void AuthenticationFilter::rejectRequest(const std::string& message) {
 
 std::unique_ptr<Istio::AuthN::AuthenticatorBase>
 AuthenticationFilter::createPeerAuthenticator(
-    Istio::AuthN::FilterContext* filter_context,
-    const Istio::AuthN::AuthenticatorBase::DoneCallback& done_callback) {
+    Istio::AuthN::FilterContext* filter_context) {
   return std::make_unique<Istio::AuthN::PeerAuthenticator>(
-      filter_context, done_callback, filter_config_.policy());
+      filter_context, filter_config_.policy());
 }
 
 std::unique_ptr<Istio::AuthN::AuthenticatorBase>
 AuthenticationFilter::createOriginAuthenticator(
-    Istio::AuthN::FilterContext* filter_context,
-    const Istio::AuthN::AuthenticatorBase::DoneCallback& done_callback) {
+    Istio::AuthN::FilterContext* filter_context) {
   return std::make_unique<Istio::AuthN::OriginAuthenticator>(
-      filter_context, done_callback, filter_config_.policy());
+      filter_context, filter_config_.policy());
 }
 
 }  // namespace AuthN

@@ -26,53 +26,43 @@ namespace Http {
 namespace Istio {
 namespace AuthN {
 
-PeerAuthenticator::PeerAuthenticator(
-    FilterContext* filter_context,
-    const AuthenticatorBase::DoneCallback& done_callback,
-    const iaapi::Policy& policy)
-    : AuthenticatorBase(filter_context, done_callback), policy_(policy) {}
+PeerAuthenticator::PeerAuthenticator(FilterContext* filter_context,
+                                     const iaapi::Policy& policy)
+    : AuthenticatorBase(filter_context), policy_(policy) {}
 
-void PeerAuthenticator::run() {
+bool PeerAuthenticator::run(Payload* payload) {
+  bool success = false;
+
   if (policy_.peers_size() == 0) {
     ENVOY_LOG(debug, "No method defined. Skip source authentication.");
-    onMethodDone(nullptr, true);
+    success = true;
   } else {
-    runMethod(policy_.peers(0), [this](const Payload* payload, bool success) {
-      onMethodDone(payload, success);
-    });
-  }
-}
+    for (const auto& method : policy_.peers()) {
+      switch (method.params_case()) {
+        case iaapi::PeerAuthenticationMethod::ParamsCase::kMtls:
+          success = validateX509(method.mtls(), payload);
+          break;
+        case iaapi::PeerAuthenticationMethod::ParamsCase::kJwt:
+          success = validateJwt(method.jwt(), payload);
+          break;
+        default:
+          ENVOY_LOG(error, "Unknown peer authentication param {}",
+                    method.DebugString());
+          success = false;
+          break;
+      }
 
-void PeerAuthenticator::runMethod(const iaapi::PeerAuthenticationMethod& method,
-                                  const MethodDoneCallback& done_callback) {
-  switch (method.params_case()) {
-    case iaapi::PeerAuthenticationMethod::ParamsCase::kMtls:
-      validateX509(method.mtls(), done_callback);
-      break;
-    case iaapi::PeerAuthenticationMethod::ParamsCase::kJwt:
-      validateJwt(method.jwt(), done_callback);
-      break;
-    default:
-      ENVOY_LOG(error, "Unknown peer authentication param {}",
-                method.DebugString());
-      done_callback(nullptr, false);
-  }
-}
-void PeerAuthenticator::onMethodDone(const Payload* payload, bool success) {
-  if (!success && peer_method_index_ + 1 < policy_.peers_size()) {
-    // Authentication fails, try next one if available.
-    peer_method_index_++;
-    runMethod(policy_.peers(peer_method_index_),
-              [this](const Payload* payload, bool success) {
-                onMethodDone(payload, success);
-              });
-    return;
+      if (success) {
+        break;
+      }
+    }
   }
 
   if (success) {
     filter_context()->setPeerResult(payload);
   }
-  done(success);
+
+  return success;
 }
 
 }  // namespace AuthN

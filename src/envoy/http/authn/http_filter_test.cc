@@ -27,6 +27,7 @@
 
 using Envoy::Http::Istio::AuthN::AuthenticatorBase;
 using Envoy::Http::Istio::AuthN::FilterContext;
+using istio::authn::Payload;
 using istio::authn::Result;
 using istio::envoy::config::filter::http::authn::v2alpha1::FilterConfig;
 using testing::Invoke;
@@ -41,38 +42,32 @@ namespace AuthN {
 namespace {
 
 // Create a fake authenticator for test. This authenticator do nothing except
-// making done callback with failure.
+// making the authentication fail.
 std::unique_ptr<AuthenticatorBase> createAlwaysFailAuthenticator(
-    FilterContext* filter_context,
-    const AuthenticatorBase::DoneCallback& done_callback) {
+    FilterContext* filter_context) {
   class _local : public AuthenticatorBase {
    public:
-    _local(FilterContext* filter_context,
-           const AuthenticatorBase::DoneCallback& callback)
-        : AuthenticatorBase(filter_context, callback) {}
-    void run() override { done(false); }
+    _local(FilterContext* filter_context) : AuthenticatorBase(filter_context) {}
+    bool run(Payload*) override { return false; }
   };
-  return std::make_unique<_local>(filter_context, done_callback);
+  return std::make_unique<_local>(filter_context);
 }
 
 // Create a fake authenticator for test. This authenticator do nothing except
-// making done callback with success.
+// making the authentication successful.
 std::unique_ptr<AuthenticatorBase> createAlwaysPassAuthenticator(
-    FilterContext* filter_context,
-    const AuthenticatorBase::DoneCallback& done_callback) {
+    FilterContext* filter_context) {
   class _local : public AuthenticatorBase {
    public:
-    _local(FilterContext* filter_context,
-           const AuthenticatorBase::DoneCallback& callback)
-        : AuthenticatorBase(filter_context, callback) {}
-    void run() override {
+    _local(FilterContext* filter_context) : AuthenticatorBase(filter_context) {}
+    bool run(Payload*) override {
       // Set some data to verify authentication result later.
       auto payload = TestUtilities::CreateX509Payload("foo");
       filter_context()->setPeerResult(&payload);
-      done(true);
+      return true;
     }
   };
-  return std::make_unique<_local>(filter_context, done_callback);
+  return std::make_unique<_local>(filter_context);
 }
 
 class MockAuthenticationFilter : public AuthenticationFilter {
@@ -83,12 +78,10 @@ class MockAuthenticationFilter : public AuthenticationFilter {
       : AuthenticationFilter(FilterConfig::default_instance()) {}
   ~MockAuthenticationFilter(){};
 
-  MOCK_METHOD2(createPeerAuthenticator,
-               std::unique_ptr<AuthenticatorBase>(
-                   FilterContext*, const AuthenticatorBase::DoneCallback&));
-  MOCK_METHOD2(createOriginAuthenticator,
-               std::unique_ptr<AuthenticatorBase>(
-                   FilterContext*, const AuthenticatorBase::DoneCallback&));
+  MOCK_METHOD1(createPeerAuthenticator,
+               std::unique_ptr<AuthenticatorBase>(FilterContext*));
+  MOCK_METHOD1(createOriginAuthenticator,
+               std::unique_ptr<AuthenticatorBase>(FilterContext*));
 };
 
 class AuthenticationFilterTest : public testing::Test {
@@ -110,7 +103,7 @@ class AuthenticationFilterTest : public testing::Test {
 TEST_F(AuthenticationFilterTest, PeerFail) {
   // Peer authentication fail, request should be rejected with 401. No origin
   // authentiation needed.
-  EXPECT_CALL(filter_, createPeerAuthenticator(_, _))
+  EXPECT_CALL(filter_, createPeerAuthenticator(_))
       .Times(1)
       .WillOnce(Invoke(createAlwaysFailAuthenticator));
   EXPECT_CALL(decoder_callbacks_, encodeHeaders_(_, _))
@@ -126,10 +119,10 @@ TEST_F(AuthenticationFilterTest, PeerFail) {
 TEST_F(AuthenticationFilterTest, PeerPassOrginFail) {
   // Peer pass thus origin authentication must be called. Final result should
   // fail as origin authn fails.
-  EXPECT_CALL(filter_, createPeerAuthenticator(_, _))
+  EXPECT_CALL(filter_, createPeerAuthenticator(_))
       .Times(1)
       .WillOnce(Invoke(createAlwaysPassAuthenticator));
-  EXPECT_CALL(filter_, createOriginAuthenticator(_, _))
+  EXPECT_CALL(filter_, createOriginAuthenticator(_))
       .Times(1)
       .WillOnce(Invoke(createAlwaysFailAuthenticator));
   EXPECT_CALL(decoder_callbacks_, encodeHeaders_(_, _))
@@ -143,10 +136,10 @@ TEST_F(AuthenticationFilterTest, PeerPassOrginFail) {
 }
 
 TEST_F(AuthenticationFilterTest, AllPass) {
-  EXPECT_CALL(filter_, createPeerAuthenticator(_, _))
+  EXPECT_CALL(filter_, createPeerAuthenticator(_))
       .Times(1)
       .WillOnce(Invoke(createAlwaysPassAuthenticator));
-  EXPECT_CALL(filter_, createOriginAuthenticator(_, _))
+  EXPECT_CALL(filter_, createOriginAuthenticator(_))
       .Times(1)
       .WillOnce(Invoke(createAlwaysPassAuthenticator));
   EXPECT_EQ(Http::FilterHeadersStatus::Continue,
