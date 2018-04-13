@@ -189,14 +189,14 @@ func doTestVersionMigration(t *testing.T, rule migrationRule) {
 		if isWithinPercentage(c1, totalShot, 1.0-rule.rate, tolerance) &&
 			isWithinPercentage(cVersionToMigrate, totalShot, rule.rate, tolerance) {
 			log.Infof(
-				"Success! Version migration acts as expected, "+
-					"old version hit %d, new version hit %d", c1, cVersionToMigrate)
+				"Success! Version migration acts as expected for rate %f, "+
+					"old version hit %d, new version hit %d", rule.rate, c1, cVersionToMigrate)
 			break
 		}
 
 		if i == testRetryTimes-1 {
-			t.Errorf("Failed version migration test, "+
-				"old version hit %d, new version hit %d", c1, cVersionToMigrate)
+			t.Errorf("Failed version migration test for rate %f, "+
+				"old version hit %d, new version hit %d", rule.rate, c1, cVersionToMigrate)
 		}
 	}
 }
