@@ -23,45 +23,26 @@ import (
 	"time"
 
 	apiext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/galley/pkg/change"
 	"istio.io/istio/galley/pkg/testing/mock"
 )
 
-func TestSynchronizer_ClientSetError(t *testing.T) {
-	newCRDI = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
-		return nil, errors.New("newForConfig error")
-	}
-
-	_, err := NewSynchronizer(&rest.Config{}, getMappingForSynchronizerTests(), 0, SyncListener{})
-	if err == nil || err.Error() != "newForConfig error" {
-		t.Fatalf("Expected error not found: %v", err)
-	}
-}
-
 func TestSynchronizer_DoubleStart(t *testing.T) {
-	iface := mock.NewInterface()
-	defer iface.Close()
-	newCRDI = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
-		return iface, nil
-	}
+	crdi := mock.NewInterface()
+	defer crdi.Close()
 
-	iface.AddListResponse(&apiext.CustomResourceDefinitionList{}, nil)
+	crdi.AddListResponse(&apiext.CustomResourceDefinitionList{}, nil)
 	w := mock.NewWatch()
-	iface.AddWatchResponse(w, nil)
+	crdi.AddWatchResponse(w, nil)
 
-	synchronizer, err := NewSynchronizer(&rest.Config{}, getMappingForSynchronizerTests(), 0, SyncListener{})
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
+	synchronizer := NewSynchronizer(crdi, getMappingForSynchronizerTests(), 0, SyncListener{})
 
-	err = synchronizer.Start()
+	err := synchronizer.Start()
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -75,22 +56,16 @@ func TestSynchronizer_DoubleStart(t *testing.T) {
 }
 
 func TestSynchronizer_DoubleStop(t *testing.T) {
-	iface := mock.NewInterface()
-	defer iface.Close()
-	newCRDI = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
-		return iface, nil
-	}
+	crdi := mock.NewInterface()
+	defer crdi.Close()
 
-	iface.AddListResponse(&apiext.CustomResourceDefinitionList{}, nil)
+	crdi.AddListResponse(&apiext.CustomResourceDefinitionList{}, nil)
 	w := mock.NewWatch()
-	iface.AddWatchResponse(w, nil)
+	crdi.AddWatchResponse(w, nil)
 
-	synchronizer, err := NewSynchronizer(&rest.Config{}, getMappingForSynchronizerTests(), 0, SyncListener{})
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
+	synchronizer := NewSynchronizer(crdi, getMappingForSynchronizerTests(), 0, SyncListener{})
 
-	err = synchronizer.Start()
+	err := synchronizer.Start()
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -100,18 +75,18 @@ func TestSynchronizer_DoubleStop(t *testing.T) {
 }
 
 func TestSynchronizer_BasicCreate(t *testing.T) {
-	st := newTestState(t)
+	st := newTestState()
 	defer st.Close()
 
-	st.iface.AddListResponse(&apiext.CustomResourceDefinitionList{
+	st.crdi.AddListResponse(&apiext.CustomResourceDefinitionList{
 		Items: []apiext.CustomResourceDefinition{
 			*i1Template.DeepCopy(),
 		},
 	}, nil)
 	st.eventSync.Inc()
 
-	st.iface.AddWatchResponse(st.watch, nil)
-	st.iface.AddCreateResponse(nil, nil)
+	st.crdi.AddWatchResponse(st.watch, nil)
+	st.crdi.AddCreateResponse(nil, nil)
 
 	st.Start(t)
 	st.eventSync.wait()
@@ -121,17 +96,17 @@ LIST
 WATCH
 CREATE: foos.g2
 `
-	check(t, "Iface.Log", st.iface.String(), expected)
+	check(t, "crdi.Log", st.crdi.String(), expected)
 }
 
 func TestSynchronizer_BasicUpdate(t *testing.T) {
-	st := newTestState(t)
+	st := newTestState()
 	defer st.Close()
 
 	i2 := i2Template.DeepCopy() // The already-existing, but not matching target copy.
 	i2.Labels = map[string]string{"foo": "bar"}
 
-	st.iface.AddListResponse(&apiext.CustomResourceDefinitionList{
+	st.crdi.AddListResponse(&apiext.CustomResourceDefinitionList{
 		Items: []apiext.CustomResourceDefinition{
 			*i1Template.DeepCopy(),
 			*i2,
@@ -140,9 +115,9 @@ func TestSynchronizer_BasicUpdate(t *testing.T) {
 	st.eventSync.Inc() // for i1 add
 	st.eventSync.Inc() // for i2 add
 
-	st.iface.AddWatchResponse(st.watch, nil)
-	st.iface.AddUpdateResponse(nil, nil)
-	st.iface.AddUpdateResponse(nil, nil)
+	st.crdi.AddWatchResponse(st.watch, nil)
+	st.crdi.AddUpdateResponse(nil, nil)
+	st.crdi.AddUpdateResponse(nil, nil)
 
 	st.Start(t)
 	st.eventSync.wait()
@@ -154,14 +129,14 @@ WATCH
 UPDATE: foos.g2
 UPDATE: foos.g2
 `
-	check(t, "Iface.Log", st.iface.String(), expected)
+	check(t, "crdi.Log", st.crdi.String(), expected)
 }
 
 func TestSynchronizer_BasicDelete(t *testing.T) {
-	st := newTestState(t)
+	st := newTestState()
 	defer st.Close()
 
-	st.iface.AddListResponse(&apiext.CustomResourceDefinitionList{
+	st.crdi.AddListResponse(&apiext.CustomResourceDefinitionList{
 		Items: []apiext.CustomResourceDefinition{
 			// Instance at destination with no source.
 			*i2Template.DeepCopy(),
@@ -169,8 +144,8 @@ func TestSynchronizer_BasicDelete(t *testing.T) {
 	}, nil)
 	st.eventSync.Inc() // for i2 add
 
-	st.iface.AddWatchResponse(st.watch, nil)
-	st.iface.AddDeleteResponse(nil)
+	st.crdi.AddWatchResponse(st.watch, nil)
+	st.crdi.AddDeleteResponse(nil)
 
 	st.Start(t)
 	st.eventSync.wait()
@@ -180,11 +155,11 @@ LIST
 WATCH
 DELETE: foos.g2
 `
-	check(t, "Iface.Log", st.iface.String(), expected)
+	check(t, "crdi.Log", st.crdi.String(), expected)
 }
 
 func setInitialDataAndStart(t *testing.T, st *testState) {
-	st.iface.AddListResponse(&apiext.CustomResourceDefinitionList{
+	st.crdi.AddListResponse(&apiext.CustomResourceDefinitionList{
 		Items: []apiext.CustomResourceDefinition{
 			*i1Template.DeepCopy(),
 			*i2Template.DeepCopy(),
@@ -193,13 +168,13 @@ func setInitialDataAndStart(t *testing.T, st *testState) {
 	st.eventSync.Inc()
 	st.eventSync.Inc()
 
-	st.iface.AddWatchResponse(st.watch, nil)
+	st.crdi.AddWatchResponse(st.watch, nil)
 	st.Start(t)
 	st.eventSync.wait()
 }
 
 func TestSynchronizer_BasicAlreadySynced(t *testing.T) {
-	st := newTestState(t)
+	st := newTestState()
 	defer st.Close()
 	setInitialDataAndStart(t, st)
 
@@ -207,7 +182,7 @@ func TestSynchronizer_BasicAlreadySynced(t *testing.T) {
 LIST
 WATCH
 `
-	check(t, "Iface.Log", st.iface.String(), expected)
+	check(t, "crdi.Log", st.crdi.String(), expected)
 
 	expected = `
 ADD: foos.g1, foo, foolist
@@ -216,7 +191,7 @@ ADD: foos.g1, foo, foolist
 }
 
 func TestSynchronizer_BasicCreateEvent(t *testing.T) {
-	st := newTestState(t)
+	st := newTestState()
 	defer st.Close()
 	setInitialDataAndStart(t, st)
 
@@ -226,7 +201,7 @@ func TestSynchronizer_BasicCreateEvent(t *testing.T) {
 	i3.ResourceVersion = "rv3"
 	i3.Labels = map[string]string{"foo": "bar"}
 
-	st.iface.AddCreateResponse(nil, nil)
+	st.crdi.AddCreateResponse(nil, nil)
 
 	st.eventSync.Inc()
 	st.watch.Send(watch.Event{Type: watch.Added, Object: i3})
@@ -237,7 +212,7 @@ LIST
 WATCH
 CREATE: i3.g2
 `
-	check(t, "Iface.Log", st.iface.String(), expected)
+	check(t, "crdi.Log", st.crdi.String(), expected)
 
 	expected = `
 ADD: foos.g1, foo, foolist
@@ -247,7 +222,7 @@ ADD: i3.g1, foo, foolist
 }
 
 func TestSynchronizer_BasicCreateEvent_Error(t *testing.T) {
-	st := newTestState(t)
+	st := newTestState()
 	defer st.Close()
 	setInitialDataAndStart(t, st)
 
@@ -257,7 +232,7 @@ func TestSynchronizer_BasicCreateEvent_Error(t *testing.T) {
 	i3.ResourceVersion = "rv3"
 	i3.Labels = map[string]string{"foo": "bar"}
 
-	st.iface.AddCreateResponse(nil, errors.New("some create error"))
+	st.crdi.AddCreateResponse(nil, errors.New("some create error"))
 
 	st.eventSync.Inc()
 	st.watch.Send(watch.Event{Type: watch.Added, Object: i3})
@@ -268,7 +243,7 @@ LIST
 WATCH
 CREATE: i3.g2
 `
-	check(t, "Iface.Log", st.iface.String(), expected)
+	check(t, "crdi.Log", st.crdi.String(), expected)
 
 	expected = `
 ADD: foos.g1, foo, foolist
@@ -277,7 +252,7 @@ ADD: foos.g1, foo, foolist
 }
 
 func TestSynchronizer_BasicCreateEvent_Unrelated(t *testing.T) {
-	st := newTestState(t)
+	st := newTestState()
 	defer st.Close()
 	setInitialDataAndStart(t, st)
 
@@ -292,7 +267,7 @@ func TestSynchronizer_BasicCreateEvent_Unrelated(t *testing.T) {
 LIST
 WATCH
 `
-	check(t, "Iface.Log", st.iface.String(), expected)
+	check(t, "crdi.Log", st.crdi.String(), expected)
 
 	expected = `
 ADD: foos.g1, foo, foolist
@@ -301,7 +276,7 @@ ADD: foos.g1, foo, foolist
 }
 
 func TestSynchronizer_BasicUpdateEvent(t *testing.T) {
-	st := newTestState(t)
+	st := newTestState()
 	defer st.Close()
 	setInitialDataAndStart(t, st)
 
@@ -309,7 +284,7 @@ func TestSynchronizer_BasicUpdateEvent(t *testing.T) {
 	i3.ResourceVersion = "rv2"
 	i3.Labels = map[string]string{"foo": "bar"}
 
-	st.iface.AddUpdateResponse(nil, nil)
+	st.crdi.AddUpdateResponse(nil, nil)
 
 	st.eventSync.Inc()
 	st.watch.Send(watch.Event{Type: watch.Modified, Object: i3})
@@ -320,7 +295,7 @@ LIST
 WATCH
 UPDATE: foos.g2
 `
-	check(t, "Iface.Log", st.iface.String(), expected)
+	check(t, "crdi.Log", st.crdi.String(), expected)
 
 	expected = `
 ADD: foos.g1, foo, foolist
@@ -329,7 +304,7 @@ ADD: foos.g1, foo, foolist
 }
 
 func TestSynchronizer_BasicUpdateEvent_Error(t *testing.T) {
-	st := newTestState(t)
+	st := newTestState()
 	defer st.Close()
 	setInitialDataAndStart(t, st)
 
@@ -337,7 +312,7 @@ func TestSynchronizer_BasicUpdateEvent_Error(t *testing.T) {
 	i3.ResourceVersion = "rv2"
 	i3.Labels = map[string]string{"foo": "bar"}
 
-	st.iface.AddUpdateResponse(nil, errors.New("some update error"))
+	st.crdi.AddUpdateResponse(nil, errors.New("some update error"))
 
 	st.eventSync.Inc()
 	st.watch.Send(watch.Event{Type: watch.Modified, Object: i3})
@@ -348,7 +323,7 @@ LIST
 WATCH
 UPDATE: foos.g2
 `
-	check(t, "Iface.Log", st.iface.String(), expected)
+	check(t, "crdi.Log", st.crdi.String(), expected)
 
 	expected = `
 ADD: foos.g1, foo, foolist
@@ -357,7 +332,7 @@ ADD: foos.g1, foo, foolist
 }
 
 func TestSynchronizer_BasicUpdateEvent_SameVersion(t *testing.T) {
-	st := newTestState(t)
+	st := newTestState()
 	defer st.Close()
 	setInitialDataAndStart(t, st)
 
@@ -374,7 +349,7 @@ func TestSynchronizer_BasicUpdateEvent_SameVersion(t *testing.T) {
 LIST
 WATCH
 `
-	check(t, "Iface.Log", st.iface.String(), expected)
+	check(t, "crdi.Log", st.crdi.String(), expected)
 
 	expected = `
 ADD: foos.g1, foo, foolist
@@ -383,7 +358,7 @@ ADD: foos.g1, foo, foolist
 }
 
 func TestSynchronizer_BasicDeleteEvent(t *testing.T) {
-	st := newTestState(t)
+	st := newTestState()
 	defer st.Close()
 	setInitialDataAndStart(t, st)
 
@@ -391,7 +366,7 @@ func TestSynchronizer_BasicDeleteEvent(t *testing.T) {
 	i3.ResourceVersion = "rv2"
 	i3.Labels = map[string]string{"foo": "bar"}
 
-	st.iface.AddDeleteResponse(nil)
+	st.crdi.AddDeleteResponse(nil)
 
 	st.eventSync.Inc()
 	st.watch.Send(watch.Event{Type: watch.Deleted, Object: i3})
@@ -402,7 +377,7 @@ LIST
 WATCH
 DELETE: foos.g2
 `
-	check(t, "Iface.Log", st.iface.String(), expected)
+	check(t, "crdi.Log", st.crdi.String(), expected)
 
 	expected = `
 ADD: foos.g1, foo, foolist
@@ -412,7 +387,7 @@ REMOVE: foos.g1
 }
 
 func TestSynchronizer_BasicDeleteEvent_Error(t *testing.T) {
-	st := newTestState(t)
+	st := newTestState()
 	defer st.Close()
 	setInitialDataAndStart(t, st)
 
@@ -420,7 +395,7 @@ func TestSynchronizer_BasicDeleteEvent_Error(t *testing.T) {
 	i3.ResourceVersion = "rv2"
 	i3.Labels = map[string]string{"foo": "bar"}
 
-	st.iface.AddDeleteResponse(errors.New("some delete error"))
+	st.crdi.AddDeleteResponse(errors.New("some delete error"))
 
 	st.eventSync.Inc()
 	st.watch.Send(watch.Event{Type: watch.Deleted, Object: i3})
@@ -431,7 +406,7 @@ LIST
 WATCH
 DELETE: foos.g2
 `
-	check(t, "Iface.Log", st.iface.String(), expected)
+	check(t, "crdi.Log", st.crdi.String(), expected)
 
 	expected = `
 ADD: foos.g1, foo, foolist
@@ -440,7 +415,7 @@ ADD: foos.g1, foo, foolist
 }
 
 func TestSynchronizer_TombstoneEvent(t *testing.T) {
-	st := newTestState(t)
+	st := newTestState()
 	defer st.Close()
 	setInitialDataAndStart(t, st)
 
@@ -456,7 +431,7 @@ func TestSynchronizer_TombstoneEvent(t *testing.T) {
 LIST
 WATCH
 `
-	check(t, "Iface.Log", st.iface.String(), expected)
+	check(t, "crdi.Log", st.crdi.String(), expected)
 
 	expected = `
 ADD: foos.g1, foo, foolist
@@ -466,7 +441,7 @@ REMOVE: foos.g1
 }
 
 func TestSynchronizer_TombstoneEvent_Error(t *testing.T) {
-	st := newTestState(t)
+	st := newTestState()
 	defer st.Close()
 	setInitialDataAndStart(t, st)
 
@@ -484,7 +459,7 @@ func TestSynchronizer_TombstoneEvent_Error(t *testing.T) {
 LIST
 WATCH
 `
-	check(t, "Iface.Log", st.iface.String(), expected)
+	check(t, "crdi.Log", st.crdi.String(), expected)
 
 	expected = `
 ADD: foos.g1, foo, foolist
@@ -493,7 +468,7 @@ ADD: foos.g1, foo, foolist
 }
 
 func TestSynchronizer_HandleEvent_Error(t *testing.T) {
-	st := newTestState(t)
+	st := newTestState()
 	defer st.Close()
 	setInitialDataAndStart(t, st)
 
@@ -507,7 +482,7 @@ func TestSynchronizer_HandleEvent_Error(t *testing.T) {
 LIST
 WATCH
 `
-	check(t, "Iface.Log", st.iface.String(), expected)
+	check(t, "crdi.Log", st.crdi.String(), expected)
 
 	expected = `
 ADD: foos.g1, foo, foolist
@@ -516,7 +491,7 @@ ADD: foos.g1, foo, foolist
 }
 
 func TestSynchronizer_NonChangeItem(t *testing.T) {
-	st := newTestState(t)
+	st := newTestState()
 	defer st.Close()
 	setInitialDataAndStart(t, st)
 
@@ -528,7 +503,7 @@ func TestSynchronizer_NonChangeItem(t *testing.T) {
 LIST
 WATCH
 `
-	check(t, "Iface.Log", st.iface.String(), expected)
+	check(t, "crdi.Log", st.crdi.String(), expected)
 
 	expected = `
 ADD: foos.g1, foo, foolist
@@ -537,7 +512,7 @@ ADD: foos.g1, foo, foolist
 }
 
 type testState struct {
-	iface        *mock.Interface
+	crdi         *mock.Interface
 	watch        *mock.Watch
 	synchronizer *Synchronizer
 	eventSync    *eventSynchronizer
@@ -559,26 +534,17 @@ var i1Template = apiext.CustomResourceDefinition{
 
 var i2Template = rewrite(&i1Template, "g2", "v2")
 
-func newTestState(t *testing.T) *testState {
-	i := mock.NewInterface()
+func newTestState() *testState {
+	crdi := mock.NewInterface()
 	state := &testState{
-		iface:     i,
+		crdi:      crdi,
 		watch:     mock.NewWatch(),
 		eventSync: &eventSynchronizer{},
 		listener:  newLoggingListener(),
 	}
 
-	crdiFn := func(config *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
-		return i, nil
-	}
-
-	var err error
-	if state.synchronizer, err = newSynchronizer(
-		&rest.Config{}, getMappingForSynchronizerTests(), 0,
-		state.listener.listener, state.eventSync.hookFn, crdiFn); err != nil {
-
-		t.Fatalf("Unexpected error during newSynchronizer call: %v", err)
-	}
+	state.synchronizer = newSynchronizer(
+		crdi, getMappingForSynchronizerTests(), 0, state.listener.listener, state.eventSync.hookFn)
 
 	return state
 }
@@ -591,7 +557,7 @@ func (s *testState) Start(t *testing.T) {
 
 func (s *testState) Close() {
 	s.synchronizer.Stop()
-	s.iface.Close()
+	s.crdi.Close()
 }
 
 func getMappingForSynchronizerTests() Mapping {
