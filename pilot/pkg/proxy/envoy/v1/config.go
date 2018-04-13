@@ -974,7 +974,7 @@ func BuildEgressHTTPRoutes(mesh *meshconfig.MeshConfig, node model.Proxy,
 		meshName := r.Name + "." + r.Namespace + "." + r.Domain
 
 		for _, port := range rule.Ports {
-			protocol := model.ConvertCaseInsensitiveStringToProtocol(port.Protocol)
+			protocol := model.ParseProtocol(port.Protocol)
 			if !model.IsEgressRulesSupportedHTTPProtocol(protocol) {
 				continue
 			}
@@ -1014,7 +1014,7 @@ func buildEgressTCPListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 	for _, r := range egressRules {
 		rule, _ := r.Spec.(*routing.EgressRule)
 		for _, port := range rule.Ports {
-			protocol := model.ConvertCaseInsensitiveStringToProtocol(port.Protocol)
+			protocol := model.ParseProtocol(port.Protocol)
 			if !model.IsEgressRulesSupportedTCPProtocol(protocol) {
 				continue
 			}

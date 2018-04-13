@@ -463,6 +463,9 @@ test-bins: $(PILOT_TEST_BINS)
 localTestEnv: test-bins
 	bin/testEnvLocalK8S.sh ensure
 
+localTestEnvCleanup: test-bins
+	bin/testEnvLocalK8S.sh stop
+
 # Temp. disable parallel test - flaky consul test.
 # https://github.com/istio/istio/issues/2318
 .PHONY: pilot-test
