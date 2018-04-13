@@ -28,8 +28,6 @@ spec:
           imagePullPolicy: {{ .Values.imagePullPolicy }}
           args:
           - "discovery"
-          - "--admission-service"
-          - "istio-pilot"
 {{- if $.Values.global.oneNamespace }}
           - "-a"
           - {{ .Release.Namespace }}
@@ -41,7 +39,6 @@ spec:
           ports:
           - containerPort: 8080
           - containerPort: 15010
-          - containerPort: 443
           readinessProbe:
             httpGet:
               path: /v1/registration

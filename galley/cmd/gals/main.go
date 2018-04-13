@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,22 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+package main
 
 import (
-	"io/ioutil"
+	"os"
 
-	multierror "github.com/hashicorp/go-multierror"
-
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/galley/cmd/gals/cmd"
+	"istio.io/istio/mixer/cmd/shared"
 )
 
-// ReadMeshConfig gets mesh configuration from a config file
-func ReadMeshConfig(filename string) (*meshconfig.MeshConfig, error) {
-	yaml, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return nil, multierror.Prefix(err, "cannot read mesh config file")
+func main() {
+	rootCmd := cmd.GetRootCmd(os.Args[1:], shared.Printf, shared.Fatalf)
+
+	if err := rootCmd.Execute(); err != nil {
+		os.Exit(-1)
 	}
-	return model.ApplyMeshConfigDefaults(string(yaml))
 }
