@@ -23,11 +23,11 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
 	"istio.io/istio/galley/pkg/change"
+	"istio.io/istio/galley/pkg/common"
 	"istio.io/istio/pkg/log"
 )
 
@@ -57,15 +57,15 @@ type Synchronizer struct {
 type eventHookFn func(e interface{})
 
 // NewSynchronizer returns a new instance of a Synchronizer
-func NewSynchronizer(config *rest.Config, resyncPeriod time.Duration, source schema.GroupVersion,
+func NewSynchronizer(kube common.Kube, resyncPeriod time.Duration, source schema.GroupVersion,
 	destination schema.GroupVersion, name, kind, listKind string) (s *Synchronizer, err error) {
-	return newSynchronizer(config, resyncPeriod, source, destination, name, kind, listKind, nil)
+	return newSynchronizer(kube, resyncPeriod, source, destination, name, kind, listKind, nil)
 }
 
 // NewSynchronizer returns a new instance of a Synchronizer that synchronizes the custom resource contents
 // from the accessor APIGroup/Version to the destination APIGroup/Version. The kind and listKind is used
 // when hydrating objects as unstructured.Unstructured.
-func newSynchronizer(config *rest.Config, resyncPeriod time.Duration, source schema.GroupVersion,
+func newSynchronizer(kube common.Kube, resyncPeriod time.Duration, source schema.GroupVersion,
 	destination schema.GroupVersion, name, kind, listKind string, eventHook eventHookFn) (*Synchronizer, error) {
 
 	s := &Synchronizer{
@@ -73,11 +73,11 @@ func newSynchronizer(config *rest.Config, resyncPeriod time.Duration, source sch
 	}
 
 	var err error
-	if s.source, err = newAccessor(config, resyncPeriod, name, source, kind, listKind, s.handleInputEvent); err != nil {
+	if s.source, err = newAccessor(kube, resyncPeriod, name, source, kind, listKind, s.handleInputEvent); err != nil {
 		return nil, err
 	}
 
-	if s.destination, err = newAccessor(config, resyncPeriod, name,
+	if s.destination, err = newAccessor(kube, resyncPeriod, name,
 		destination, kind, listKind, s.handleOutputEvent); err != nil {
 
 		return nil, err
