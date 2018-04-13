@@ -46,11 +46,29 @@ else
   TOOLS_DIR=${TOOLS_DIR:-$(dirname $0)}
   echo "$0 is Executed, (Tools in $TOOLS_DIR) (can also be sourced interactively)..."
   echo "In case of errors, retry at the failed step (readyness checks missing)"
-  set -e
+  #set -e
   SOURCED=0
   if [[ -z "${PROJECT}" ]]; then
     Usage
   fi
+
+  while getopts ":sh" opt; do
+    case ${opt} in
+      s)
+        SKIP_CREATE="true"
+        ;;
+      h)
+        Usage
+        exit 0
+        ;;
+      \?)
+        echo "Invalid option: -$OPTARG" >&2
+        Usage
+        exit 1
+        ;;
+    esac
+  done
+
 fi
 
 
@@ -71,7 +89,6 @@ function ExecuteEval() {
 
 function create_cluster() {
   Execute gcloud container clusters create $CLUSTER_NAME $GCP_OPTS --machine-type=$MACHINE_TYPE --num-nodes=$NUM_NODES --no-enable-legacy-authorization
-  Execute gcloud container clusters get-credentials $CLUSTER_NAME $GCP_OPTS
 }
 
 function delete_cluster() {
@@ -395,9 +412,15 @@ function run_canonical_perf_test() {
     curl -s "${URL}" -o "${OUT_FILE}"
 }
 
-function setup_vm_all() {
+function create_vm_cluster_all() {
   update_gcp_opts
   create_vm
+  echo "Setting up CLUSTER_NAME=$CLUSTER_NAME for PROJECT=$PROJECT in ZONE=$ZONE, NUM_NODES=$NUM_NODES * MACHINE_TYPE=$MACHINE_TYPE"
+  create_cluster
+}
+
+function setup_vm_all() {
+  update_gcp_opts
   setup_vm
   setup_vm_firewall
   update_fortio_on_vm
@@ -406,17 +429,19 @@ function setup_vm_all() {
 
 function setup_istio_all() {
   update_gcp_opts
-  install_istio
+  if [[ -z "${SKIP_CREATE}" ]]; then
+    install_istio
+  fi
   install_istio_svc
   install_istio_ingress_rules
   install_istio_cache_busting_rule
 }
 
 function setup_cluster_all() {
-  echo "Setting up CLUSTER_NAME=$CLUSTER_NAME for PROJECT=$PROJECT in ZONE=$ZONE, NUM_NODES=$NUM_NODES * MACHINE_TYPE=$MACHINE_TYPE"
-  create_cluster
   kubectl_setup
-  install_non_istio_svc
+  if [[ -z "${SKIP_CREATE}" ]]; then
+    install_non_istio_svc
+  fi
   setup_non_istio_ingress
   setup_istio_all
 }
@@ -473,7 +498,12 @@ function check_image_versions() {
 if [[ $SOURCED == 0 ]]; then
   # Normal mode: all at once:
   update_gcp_opts
-  setup_all
+  if [[ -z "${SKIP_CREATE}" ]]; then
+    create_vm_cluster_all
+    setup_all
+  else
+    setup_vm_all
+  fi
 
 #update_fortio_on_vm
 #run_fortio_on_vm
