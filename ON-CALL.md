@@ -50,7 +50,7 @@ and is performed during regular working hours for your time zone.
 
 ## Instructions for temporarily disabling required tests in GitHub
 
-Note: You need admin permissions in Github to do this.
+Note: You need admin permissions in Github to do this. Join https://github.com/orgs/istio/teams/oncall for temporary admin access while on-call. 
 
 If Prow/CircleCI is impacted by test failures affecting multiple PRs, or there are some test/infrastructure issues,
 you can disable that tests temporarily, but only after filing a kind/test-failure issue.
