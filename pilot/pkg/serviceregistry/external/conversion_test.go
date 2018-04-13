@@ -137,12 +137,13 @@ func convertPortNameToProtocol(name string) model.Protocol {
 	if i >= 0 {
 		prefix = name[:i]
 	}
-	return model.ConvertCaseInsensitiveStringToProtocol(prefix)
+	return model.ParseProtocol(prefix)
 }
 
-func makeService(hostname string, ports map[string]int, resolution model.Resolution) *model.Service {
+func makeService(hostname, address string, ports map[string]int, resolution model.Resolution) *model.Service {
 	svc := &model.Service{
 		Hostname:     hostname,
+		Address:      address,
 		MeshExternal: true,
 		Resolution:   resolution,
 	}
@@ -167,14 +168,14 @@ func makeService(hostname string, ports map[string]int, resolution model.Resolut
 func makeInstance(externalSvc *networking.ExternalService, address string, port int,
 	svcPort *networking.Port, labels map[string]string) *model.ServiceInstance {
 	return &model.ServiceInstance{
-		Service: convertService(externalSvc)[0],
+		Service: convertServices(externalSvc)[0],
 		Endpoint: model.NetworkEndpoint{
 			Address: address,
 			Port:    port,
 			ServicePort: &model.Port{
 				Name:                 svcPort.Name,
 				Port:                 int(svcPort.Number),
-				Protocol:             convertProtocol(svcPort.Protocol),
+				Protocol:             model.ParseProtocol(svcPort.Protocol),
 				AuthenticationPolicy: mesh.AuthenticationPolicy_NONE,
 			},
 		},
@@ -190,56 +191,56 @@ func TestConvertService(t *testing.T) {
 		{
 			// external service http
 			externalSvc: httpNone,
-			services: []*model.Service{makeService("*.google.com",
+			services: []*model.Service{makeService("*.google.com", "",
 				map[string]int{"http-number": 80, "http2-number": 8080}, model.Passthrough),
 			},
 		},
 		{
 			// external service tcp
 			externalSvc: tcpNone,
-			services: []*model.Service{makeService("172.217.0.0/16",
+			services: []*model.Service{makeService("172.217.0.0_16", "172.217.0.0/16",
 				map[string]int{"tcp-444": 444}, model.Passthrough),
 			},
 		},
 		{
 			// external service http  static
 			externalSvc: httpStatic,
-			services: []*model.Service{makeService("*.google.com",
+			services: []*model.Service{makeService("*.google.com", "",
 				map[string]int{"http-port": 80, "http-alt-port": 8080}, model.ClientSideLB),
 			},
 		},
 		{
 			// external service DNS with no endpoints
 			externalSvc: httpDNSnoEndpoints,
-			services: []*model.Service{makeService("google.com",
+			services: []*model.Service{makeService("google.com", "",
 				map[string]int{"http-port": 80, "http-alt-port": 8080}, model.DNSLB),
 			},
 		},
 		{
 			// external service dns
 			externalSvc: httpDNS,
-			services: []*model.Service{makeService("*.google.com",
+			services: []*model.Service{makeService("*.google.com", "",
 				map[string]int{"http-port": 80, "http-alt-port": 8080}, model.DNSLB),
 			},
 		},
 		{
 			// external service tcp DNS
 			externalSvc: tcpDNS,
-			services: []*model.Service{makeService("172.217.0.0/16",
+			services: []*model.Service{makeService("172.217.0.0_16", "172.217.0.0/16",
 				map[string]int{"tcp-444": 444}, model.DNSLB),
 			},
 		},
 		{
 			// external service tcp static
 			externalSvc: tcpStatic,
-			services: []*model.Service{makeService("172.217.0.0/16",
+			services: []*model.Service{makeService("172.217.0.0_16", "172.217.0.0/16",
 				map[string]int{"tcp-444": 444}, model.ClientSideLB),
 			},
 		},
 	}
 
 	for _, tt := range serviceTests {
-		services := convertService(tt.externalSvc)
+		services := convertServices(tt.externalSvc)
 		if err := compare(t, services, tt.services); err != nil {
 			t.Error(err)
 		}
@@ -278,7 +279,10 @@ func TestConvertInstances(t *testing.T) {
 		{
 			// external service DNS with no endpoints
 			externalSvc: httpDNSnoEndpoints,
-			out:         []*model.ServiceInstance{},
+			out: []*model.ServiceInstance{
+				makeInstance(httpDNSnoEndpoints, "google.com", 80, httpDNSnoEndpoints.Ports[0], nil),
+				makeInstance(httpDNSnoEndpoints, "google.com", 8080, httpDNSnoEndpoints.Ports[1], nil),
+			},
 		},
 		{
 			// external service dns
@@ -311,12 +315,14 @@ func TestConvertInstances(t *testing.T) {
 	}
 
 	for _, tt := range serviceInstanceTests {
-		instances := convertInstances(tt.externalSvc)
-		sortServiceInstances(instances)
-		sortServiceInstances(tt.out)
-		if err := compare(t, instances, tt.out); err != nil {
-			t.Error(err)
-		}
+		t.Run(strings.Join(tt.externalSvc.Hosts, "_"), func(t *testing.T) {
+			instances := convertInstances(tt.externalSvc)
+			sortServiceInstances(instances)
+			sortServiceInstances(tt.out)
+			if err := compare(t, instances, tt.out); err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
 }
 

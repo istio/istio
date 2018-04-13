@@ -178,7 +178,7 @@ func TestGetByPort(t *testing.T) {
 	}
 }
 
-func TestConvertCaseInsensitiveStringToProtocol(t *testing.T) {
+func TestParseProtocol(t *testing.T) {
 	var testPairs = []struct {
 		name string
 		out  Protocol
@@ -202,9 +202,9 @@ func TestConvertCaseInsensitiveStringToProtocol(t *testing.T) {
 	}
 
 	for _, testPair := range testPairs {
-		out := ConvertCaseInsensitiveStringToProtocol(testPair.name)
+		out := ParseProtocol(testPair.name)
 		if out != testPair.out {
-			t.Errorf("ConvertCaseInsensitiveStringToProtocol(%q) => %q, want %q", testPair.name, out, testPair.out)
+			t.Errorf("ParseProtocol(%q) => %q, want %q", testPair.name, out, testPair.out)
 		}
 	}
 }
