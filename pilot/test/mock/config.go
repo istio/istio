@@ -21,7 +21,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/proto"
 	"go.uber.org/atomic"
 
@@ -196,43 +195,6 @@ var (
 		QuotaSpecs: []*mccpb.QuotaSpecBinding_QuotaSpecReference{
 			{
 				Name:      "fooQuota",
-				Namespace: "default",
-			},
-		},
-	}
-
-	// ExampleEndUserAuthenticationPolicySpec is an example EndUserAuthenticationPolicySpec
-	ExampleEndUserAuthenticationPolicySpec = &mccpb.EndUserAuthenticationPolicySpec{
-		Jwts: []*mccpb.JWT{
-			{
-				Issuer: "https://issuer.example.com",
-				Audiences: []string{
-					"audience_foo.example.com",
-					"audience_bar.example.com",
-				},
-				JwksUri:                "https://www.example.com/oauth/v1/certs",
-				ForwardJwt:             true,
-				PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
-				Locations: []*mccpb.JWT_Location{{
-					Scheme: &mccpb.JWT_Location_Header{
-						Header: "x-goog-iap-jwt-assertion",
-					},
-				}},
-			},
-		},
-	}
-
-	// ExampleEndUserAuthenticationPolicySpecBinding is an example EndUserAuthenticationPolicySpecBinding
-	ExampleEndUserAuthenticationPolicySpecBinding = &mccpb.EndUserAuthenticationPolicySpecBinding{
-		Services: []*mccpb.IstioService{
-			{
-				Name:      "foo",
-				Namespace: "bar",
-			},
-		},
-		Policies: []*mccpb.EndUserAuthenticationPolicySpecReference{
-			{
-				Name:      "fooPolicy",
 				Namespace: "default",
 			},
 		},
@@ -497,10 +459,6 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 		{"HTTPAPISpecBinding", model.HTTPAPISpecBinding, ExampleHTTPAPISpecBinding},
 		{"QuotaSpec", model.QuotaSpec, ExampleQuotaSpec},
 		{"QuotaSpecBinding", model.QuotaSpecBinding, ExampleQuotaSpecBinding},
-		{"EndUserAuthenticationPolicySpec", model.EndUserAuthenticationPolicySpec,
-			ExampleEndUserAuthenticationPolicySpec},
-		{"EndUserAuthenticationPolicySpecBinding", model.EndUserAuthenticationPolicySpecBinding,
-			ExampleEndUserAuthenticationPolicySpecBinding},
 		{"Policy", model.AuthenticationPolicy, ExampleAuthenticationPolicy},
 		{"ServiceRole", model.ServiceRole, ExampleServiceRole},
 		{"ServiceRoleBinding", model.ServiceRoleBinding, ExampleServiceRoleBinding},
