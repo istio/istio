@@ -23,13 +23,12 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/galley/pkg/change"
+	"istio.io/istio/galley/pkg/common"
 	"istio.io/istio/pkg/log"
 )
 
@@ -67,29 +66,14 @@ type accessor struct {
 type changeProcessorFn func(c *change.Info)
 
 // creates a new accessor instance.
-func newAccessor(config *rest.Config, resyncPeriod time.Duration, name string, gv schema.GroupVersion,
+func newAccessor(kube common.Kube, resyncPeriod time.Duration, name string, gv schema.GroupVersion,
 	kind string, listKind string, processor changeProcessorFn) (*accessor, error) {
 
 	log.Debugf("Creating a new resource accessor for: name='%s', gv:'%v'", name, gv)
-	configShallowCopy := *config
-
-	configShallowCopy.GroupVersion = &gv
-	configShallowCopy.APIPath = "/apis"
-	configShallowCopy.ContentType = runtime.ContentTypeJSON
-
-	scheme := runtime.NewScheme()
-	metav1.AddToGroupVersion(scheme, schema.GroupVersion{Version: "v1"})
-
-	err := addTypeToScheme(scheme, gv, kind, listKind)
-	if err != nil {
-		return nil, err
-	}
-	configShallowCopy.NegotiatedSerializer = serializer.DirectCodecFactory{
-		CodecFactory: serializer.NewCodecFactory(scheme),
-	}
 
 	var client dynamic.Interface
-	if client, err = newDynamicClient(&configShallowCopy); err != nil {
+	client, err := kube.DynamicInterface(gv, kind, listKind)
+	if err != nil {
 		return nil, err
 	}
 
@@ -206,36 +190,4 @@ func (s *accessor) handleEvent(t change.Type, obj interface{}) {
 	}
 
 	s.processor(info)
-}
-
-func addTypeToScheme(s *runtime.Scheme, gv schema.GroupVersion, kind, listKind string) error {
-	builder := runtime.NewSchemeBuilder(func(s *runtime.Scheme) error {
-		// Add the object itself
-		gvk := schema.GroupVersionKind{
-			Group:   gv.Group,
-			Version: gv.Version,
-			Kind:    kind,
-		}
-
-		o := &unstructured.Unstructured{}
-		o.SetAPIVersion(gv.Version)
-		o.SetKind(kind)
-		s.AddKnownTypeWithName(gvk, o)
-
-		// Add the collection object.
-		gvk = schema.GroupVersionKind{
-			Group:   gv.Group,
-			Version: gv.Version,
-			Kind:    listKind,
-		}
-
-		c := &unstructured.UnstructuredList{}
-		o.SetAPIVersion(gv.Group)
-		o.SetKind(listKind)
-		s.AddKnownTypeWithName(gvk, c)
-
-		return nil
-	})
-
-	return builder.AddToScheme(s)
 }

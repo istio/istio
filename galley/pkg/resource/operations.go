@@ -15,26 +15,19 @@
 package resource
 
 import (
-	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/rest"
+	"k8s.io/client-go/kubernetes"
 
+	"istio.io/istio/galley/pkg/common"
 	"istio.io/istio/pkg/log"
 )
 
 // DeleteAll deletes all resources in the specified custom resource set for given namespaces.
-func DeleteAll(config *rest.Config, name string, kind string, gv schema.GroupVersion, namespaces []string) error {
-	cfg := *config
-	cfg.GroupVersion = &gv
-	cfg.APIPath = "/apis"
-	cfg.ContentType = runtime.ContentTypeJSON
+func DeleteAll(kube common.Kube, name string, kind string, listKind string, gv schema.GroupVersion, namespaces []string) error {
 
-	var err error
-	var iface dynamic.Interface
-	if iface, err = newDynamicClient(&cfg); err != nil {
+	iface, err := kube.DynamicInterface(gv, kind, listKind)
+	if err != nil {
 		return err
 	}
 
@@ -59,19 +52,14 @@ func DeleteAll(config *rest.Config, name string, kind string, gv schema.GroupVer
 }
 
 // GetNamespaces returns the currently known namespaces.
-func GetNamespaces(config *rest.Config) ([]string, error) {
-
-	k, err := newKubernetesClient(config)
-	if err != nil {
-		return nil, err
-	}
+func GetNamespaces(client kubernetes.Interface) ([]string, error) {
 
 	var namespaces []string
 	continuation := ""
 
 	for {
-		var nslist *v1.NamespaceList
-		if nslist, err = k.CoreV1().Namespaces().List(metav1.ListOptions{Continue: continuation}); err != nil {
+		nslist, err := client.CoreV1().Namespaces().List(metav1.ListOptions{Continue: continuation})
+		if err != nil {
 			return nil, err
 		}
 
