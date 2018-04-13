@@ -269,7 +269,7 @@ func checkHTTPResponse(user, gateway, expr string, count int) (int, error) {
 
 func deleteRules(ruleKeys []string) error {
 	var err error
-	for _, ruleKey := range append(defaultRules, ruleKeys...) {
+	for _, ruleKey := range ruleKeys {
 		rule := getPreprocessedRulePath(tc, ruleKey)
 		if e := util.KubeDelete(tc.Kube.Namespace, rule, tc.Kube.KubeConfig); e != nil {
 			err = multierror.Append(err, e)
@@ -281,7 +281,7 @@ func deleteRules(ruleKeys []string) error {
 }
 
 func applyRules(ruleKeys []string) error {
-	for _, ruleKey := range append(defaultRules, ruleKeys...) {
+	for _, ruleKey := range ruleKeys {
 		rule := getPreprocessedRulePath(tc, ruleKey)
 		if err := util.KubeApply(tc.Kube.Namespace, rule, tc.Kube.KubeConfig); err != nil {
 			//log.Errorf("Kubectl apply %s failed", rule)
