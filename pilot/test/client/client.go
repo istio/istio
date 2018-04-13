@@ -33,13 +33,17 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
+	"istio.io/fortio/fhttp"
+	"istio.io/fortio/periodic"
 	pb "istio.io/istio/pilot/test/grpcecho"
 )
 
 var (
-	count   int
-	timeout time.Duration
-
+	mode      string // individual requests or load tests that check for 503w
+	count     int
+	timeout   time.Duration
+	duration  time.Duration // how long to run the test
+	qps       int           // how many qps when duration is set
 	url       string
 	headerKey string
 	headerVal string
@@ -48,12 +52,18 @@ var (
 	caFile string
 )
 
+type job func(int) func() error
+
 const (
-	hostKey = "Host"
+	hostKey  = "Host"
+	check503 = "check503"
 )
 
 func init() {
+	flag.StringVar(&mode, "mode", "default", "Default: make requests,dump response, check503: sustained load, check for non 200 response")
 	flag.IntVar(&count, "count", 1, "Number of times to make the request")
+	flag.DurationVar(&duration, "duration", 0, "How long to run the test (for check503 mode)")
+	flag.IntVar(&qps, "qps", 30, "Queries per second (for check503 mode)")
 	flag.DurationVar(&timeout, "timeout", 15*time.Second, "Request timeout")
 	flag.StringVar(&url, "url", "", "Specify URL")
 	flag.StringVar(&headerKey, "key", "", "Header key (use Host for authority)")
@@ -62,7 +72,7 @@ func init() {
 	flag.StringVar(&msg, "msg", "HelloWorld", "message to send (for websockets)")
 }
 
-func makeHTTPRequest(client *http.Client) func(int) func() error {
+func makeHTTPRequest(client *http.Client) job {
 	return func(i int) func() error {
 		return func() error {
 			req, err := http.NewRequest("GET", url, nil)
@@ -108,7 +118,7 @@ func makeHTTPRequest(client *http.Client) func(int) func() error {
 	}
 }
 
-func makeWebSocketRequest(client *websocket.Dialer) func(int) func() error {
+func makeWebSocketRequest(client *websocket.Dialer) job {
 	return func(i int) func() error {
 		return func() error {
 			req := make(http.Header)
@@ -155,7 +165,7 @@ func makeWebSocketRequest(client *websocket.Dialer) func(int) func() error {
 	}
 }
 
-func makeGRPCRequest(client pb.EchoTestServiceClient) func(int) func() error {
+func makeGRPCRequest(client pb.EchoTestServiceClient) job {
 	return func(i int) func() error {
 		return func() error {
 			req := &pb.EchoRequest{Message: fmt.Sprintf("request #%d", i)}
@@ -178,9 +188,37 @@ func makeGRPCRequest(client pb.EchoTestServiceClient) func(int) func() error {
 	}
 }
 
-func main() {
-	flag.Parse()
-	var f func(int) func() error
+func setup503Test() job {
+	return func(i int) func() error {
+		return func() error {
+			opts := fhttp.HTTPRunnerOptions{
+				RunnerOptions: periodic.RunnerOptions{
+					QPS:        float64(qps),
+					Duration:   duration,
+					NumThreads: 1,
+				},
+			}
+			opts.URL = url
+			if headerKey != "" {
+				opts.HTTPOptions.AddAndValidateExtraHeader(fmt.Sprintf("%s:%s", headerKey, headerVal))
+			}
+			res, err := fhttp.RunHTTPTest(&opts)
+			if err != nil {
+				return fmt.Errorf("[%d] %v", i, err)
+			}
+			numRequests := res.DurationHistogram.Count
+			num200s := res.RetCodes[http.StatusOK]
+			if num200s != numRequests {
+				log.Printf("[%d] StatusCode=503\n", i)
+				return fmt.Errorf("[%d] Only %d out of %d requests succeeded with 200 OK", i, num200s, numRequests)
+			}
+			log.Printf("[%d] StatusCode=200\n", i)
+			return nil
+		}
+	}
+}
+
+func setupDefaultTest() job {
 	if strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") {
 		/* #nosec */
 		client := &http.Client{
@@ -191,7 +229,7 @@ func main() {
 			},
 			Timeout: timeout,
 		}
-		f = makeHTTPRequest(client)
+		return makeHTTPRequest(client)
 	} else if strings.HasPrefix(url, "grpc://") || strings.HasPrefix(url, "grpcs://") {
 		secure := strings.HasPrefix(url, "grpcs://")
 		var address string
@@ -231,7 +269,7 @@ func main() {
 			}
 		}()
 		client := pb.NewEchoTestServiceClient(conn)
-		f = makeGRPCRequest(client)
+		return makeGRPCRequest(client)
 	} else if strings.HasPrefix(url, "ws://") || strings.HasPrefix(url, "wss://") {
 		/* #nosec */
 		client := &websocket.Dialer{
@@ -240,14 +278,32 @@ func main() {
 			},
 			HandshakeTimeout: timeout,
 		}
-		f = makeWebSocketRequest(client)
-	} else {
-		log.Fatalf("Unrecognized protocol %q", url)
+		return makeWebSocketRequest(client)
+	}
+
+	log.Fatalf("Unrecognized protocol %q", url)
+	return nil
+}
+
+func main() {
+	flag.Parse()
+	var j job
+
+	switch mode {
+	case check503:
+		j = setup503Test()
+	default:
+		j = setupDefaultTest()
+	}
+
+	if j == nil {
+		log.Fatalf("Failed to setup client")
+		os.Exit(1)
 	}
 
 	g, _ := errgroup.WithContext(context.Background())
 	for i := 0; i < count; i++ {
-		g.Go(f(i))
+		g.Go(j(i))
 	}
 	if err := g.Wait(); err != nil {
 		log.Printf("Error %s\n", err)

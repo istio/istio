@@ -16,12 +16,9 @@ package pilot
 
 import (
 	"fmt"
-	"net/http"
 	"testing"
 	"time"
 
-	"istio.io/fortio/fhttp"
-	"istio.io/fortio/periodic"
 	"istio.io/istio/pkg/log"
 )
 
@@ -148,28 +145,14 @@ func TestIngressGateway503DuringRuleChange(t *testing.T) {
 		time.Sleep(4 * time.Second)
 	}()
 
-	// We need a way to issue steady stream of requests
-	// run at a low/moderate QPS for a while while changing the routing rules,
-	// check for any non 200s
-	opts := fhttp.HTTPRunnerOptions{
-		RunnerOptions: periodic.RunnerOptions{
-			QPS:        24, // 3 per second per connection
-			Duration:   30 * time.Second,
-			NumThreads: 8,
-		},
+	reqURL := fmt.Sprintf("http://%s.%s/c", ingressGatewayServiceName, istioNamespace)
+	resp := ClientRequest("t", reqURL, 1, "-key Host -val uk.bookinfo.com -mode check503 -duration 35s -qps 24")
+	log.Infof("Body: %s, response codes: %v", resp.Body, resp.Code)
+	if len(resp.Code) > 0 && resp.Code[0] == "200" {
+		log.Infoa("No 503s were encountered while changing rules")
+	} else {
+		t.Errorf("Got 503 status code while changing rules")
 	}
-	opts.URL = fmt.Sprintf("http://%s.%s/c", ingressGatewayServiceName, istioNamespace)
-	opts.HTTPOptions.AddAndValidateExtraHeader("host:uk.bookinfo.com")
-	res, err := fhttp.RunHTTPTest(&opts)
-	if err != nil {
-		t.Fatalf("Generating traffic via fortio failed: %v", err)
-	}
-	numRequests := res.DurationHistogram.Count
-	num200s := res.RetCodes[http.StatusOK]
-	if num200s != numRequests {
-		t.Errorf("Not all %d requests were successful (%v)", numRequests, res.RetCodes)
-	}
-	time.Sleep(20 * time.Second)
 }
 
 // TODO: rename this file gateway_test.go, merge w/ egress too? At least this test and test above
