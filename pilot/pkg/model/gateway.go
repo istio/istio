@@ -35,12 +35,16 @@ type MergedGateway struct {
 func MergeGateways(gateways ...Config) *MergedGateway {
 	names := make(map[string]bool, len(gateways))
 	servers := make(map[uint32][]*networking.Server, len(gateways))
+
+	log.Debugf("MergeGateways: merging %d gateways", len(gateways))
 	for _, spec := range gateways {
-		// TODO: do we need to do name canonicalization here?
-		names[ResolveShortnameToFQDN(spec.Name, spec.ConfigMeta)] = true
+		name := ResolveShortnameToFQDN(spec.Name, spec.ConfigMeta)
+		names[name] = true
 
 		gateway := spec.Spec.(*networking.Gateway)
+		log.Debugf("MergeGateways: merging gateway %q into %v:\n%v", name, names, gateway)
 		for _, s := range gateway.Servers {
+			log.Debugf("MergeGateways: gateway %q processing server %v", name, s.Hosts)
 			if ss, exists := servers[s.Port.Number]; exists {
 				// TODO: remove this check when Envoy supports filter chain matching so we can expose multiple protocols on the same physical port
 				if ss[0].Port.Protocol != s.Port.Protocol {
@@ -52,6 +56,7 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 			} else {
 				servers[s.Port.Number] = []*networking.Server{s}
 			}
+			log.Debugf("MergeGateways: gateway %q merged server %v", name, s.Hosts)
 		}
 	}
 

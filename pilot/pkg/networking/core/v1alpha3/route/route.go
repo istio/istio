@@ -23,6 +23,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"github.com/gogo/protobuf/types"
+	"istio.io/istio/pkg/log"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -139,8 +140,8 @@ func translateVirtualHost(
 	out := make([]GuardedHost, len(serviceByPort))
 	for port, services := range serviceByPort {
 		clusterNameGenerator := ConvertDestinationToCluster(serviceIndex, port)
-		routes := TranslateRoutes(in, clusterNameGenerator, port, proxyLabels, gatewayName)
-		if len(routes) == 0 {
+		routes, err := TranslateRoutes(in, clusterNameGenerator, port, proxyLabels, gatewayName)
+		if err != nil || len(routes) == 0 {
 			continue
 		}
 		out = append(out, GuardedHost{
@@ -155,58 +156,62 @@ func translateVirtualHost(
 }
 
 // ConvertDestinationToCluster produces a cluster naming function using the config context.
-func ConvertDestinationToCluster(
-	serviceIndex map[string]*model.Service,
-	defaultPort int) ClusterNameGenerator {
-	return func(destination *networking.Destination) string {
+func ConvertDestinationToCluster(serviceIndex map[string]*model.Service, defaultPort int) ClusterNameGenerator {
+	return func(destination *networking.Destination) (string, error) {
 		// detect if it is a service
 		svc := serviceIndex[destination.Host]
 
 		// TODO: create clusters for non-service hostnames/IPs
 		if svc == nil {
-			return UnresolvedCluster
+			return UnresolvedCluster, fmt.Errorf("no service named %q in set %v", destination.Host, serviceIndex)
 		}
 
 		// default port uses port number
 		svcPort, _ := svc.Ports.GetByPort(defaultPort)
+		log.Infof("got default port: %v", svcPort)
 		if destination.Port != nil {
 			switch selector := destination.Port.Port.(type) {
 			case *networking.PortSelector_Name:
 				svcPort, _ = svc.Ports.Get(selector.Name)
+				log.Infof("overwrote default by name to get port: %v", svcPort)
 			case *networking.PortSelector_Number:
 				svcPort, _ = svc.Ports.GetByPort(int(selector.Number))
+				log.Infof("overwrote default by number to get port: %v", svcPort)
 			}
 		}
 
 		if svcPort == nil {
-			return UnresolvedCluster
+			log.Info("svcPort == nil => unresolved cluster")
+			return UnresolvedCluster, fmt.Errorf("unknown port for service %q with no default port %d", destination.Host, defaultPort)
 		}
 
 		// use subsets if it is a service
-		return model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, svc.Hostname, svcPort)
+		return model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, svc.Hostname, svcPort), nil
 	}
 }
 
 // ClusterNameGenerator specifies cluster name for a destination
-type ClusterNameGenerator func(*networking.Destination) string
+type ClusterNameGenerator func(*networking.Destination) (string, error)
 
 // TranslateRoutes creates virtual host routes from the v1alpha3 config.
 // The rule should be adapted to destination names (outbound clusters).
 // Each rule is guarded by source labels.
 func TranslateRoutes(
-	in model.Config, nameF ClusterNameGenerator, port int, proxyLabels model.LabelsCollection, gatewayNames map[string]bool) []route.Route {
+	in model.Config, nameF ClusterNameGenerator, port int, proxyLabels model.LabelsCollection, gatewayNames map[string]bool) ([]route.Route, error) {
 
 	rule, ok := in.Spec.(*networking.VirtualService)
 	if !ok {
-		return nil
+		return nil, fmt.Errorf("in not a virtual service: %#v", in)
 	}
 
 	operation := in.ConfigMeta.Name
 
-	out := make([]route.Route, 0)
+	out := make([]route.Route, 0, len(rule.Http))
 	for _, http := range rule.Http {
 		if len(http.Match) == 0 {
-			if r := translateRoute(http, nil, port, operation, nameF, proxyLabels, gatewayNames); r != nil {
+			if r, err := translateRoute(http, nil, port, operation, nameF, proxyLabels, gatewayNames); err != nil {
+				return nil, err
+			} else if r != nil {
 				// this cannot be nil
 				out = append(out, *r)
 			}
@@ -214,14 +219,16 @@ func TranslateRoutes(
 		} else {
 			// TODO: https://github.com/istio/istio/issues/4239
 			for _, match := range http.Match {
-				if r := translateRoute(http, match, port, operation, nameF, proxyLabels, gatewayNames); r != nil {
+				if r, err := translateRoute(http, match, port, operation, nameF, proxyLabels, gatewayNames); err != nil {
+					return nil, err
+				} else if r != nil {
 					out = append(out, *r)
 				}
 			}
 		}
 	}
 
-	return out
+	return out, nil
 }
 
 // sourceMatchHttp checks if the sourceLabels or the gateways in a match condition match with the
@@ -252,16 +259,16 @@ func translateRoute(in *networking.HTTPRoute,
 	operation string,
 	nameF ClusterNameGenerator,
 	proxyLabels model.LabelsCollection,
-	gatewayNames map[string]bool) *route.Route {
+	gatewayNames map[string]bool) (*route.Route, error) {
 
 	// Match by source labels/gateway names inside the match condition
 	if !sourceMatchHTTP(match, proxyLabels, gatewayNames) {
-		return nil
+		return nil, fmt.Errorf("no source match: %v", match)
 	}
 
 	// Match by the destination port specified in the match condition
 	if match != nil && match.Port != nil && match.Port.GetNumber() != uint32(port) {
-		return nil
+		return nil, fmt.Errorf("no port match: expected %d have %d", match.Port.GetName(), port)
 	}
 
 	out := &route.Route{
@@ -309,7 +316,11 @@ func translateRoute(in *networking.HTTPRoute,
 		}
 
 		if in.Mirror != nil {
-			action.RequestMirrorPolicy = &route.RouteAction_RequestMirrorPolicy{Cluster: nameF(in.Mirror)}
+			n, err := nameF(in.Mirror)
+			if err != nil {
+				return nil, err
+			}
+			action.RequestMirrorPolicy = &route.RouteAction_RequestMirrorPolicy{Cluster: n}
 		}
 
 		weighted := make([]*route.WeightedCluster_ClusterWeight, 0)
@@ -318,8 +329,13 @@ func translateRoute(in *networking.HTTPRoute,
 			if dst.Weight == 0 {
 				weight.Value = uint32(100)
 			}
+			n, err := nameF(dst.Destination)
+			if err != nil {
+				// TODO: could we continue here rather than bailing?
+				return nil, err
+			}
 			weighted = append(weighted, &route.WeightedCluster_ClusterWeight{
-				Name:   nameF(dst.Destination),
+				Name:   n,
 				Weight: weight,
 			})
 		}
@@ -335,8 +351,7 @@ func translateRoute(in *networking.HTTPRoute,
 			}
 		}
 	}
-
-	return out
+	return out, nil
 }
 
 // translateRouteMatch translates match condition

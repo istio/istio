@@ -15,7 +15,6 @@
 package v1alpha3
 
 import (
-	"bytes"
 	"fmt"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -27,6 +26,7 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 
+	"github.com/gogo/protobuf/proto"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
@@ -67,9 +67,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 		return []*xdsapi.Listener{}, nil
 	}
 
-	log.Infof("buildGatewayListeners: gateways: %v", workloadLabels, gateways)
 	merged := model.MergeGateways(gateways...)
-	log.Infof("buildGatewayListeners: gateways after merging: %v", merged)
+	log.Debugf("buildGatewayListeners: gateways after merging: %v", merged)
 
 	listeners := make([]*xdsapi.Listener, 0, len(merged.Servers))
 	for portNumber, servers := range merged.Servers {
@@ -118,14 +117,10 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 		if err := marshalFilters(mutable.Listener, opts, mutable.FilterChains); err != nil {
 			log.Warn(err.Error())
 		}
-
-		if len(mutable.Listener.FilterChains) > 1 {
-			log.Info("buildGatewayListeners: multiple filter chain listener")
+		if log.DebugEnabled() {
+			// pprint does JSON marshalling, so we skip it if debugging is not enabled
+			log.Debugf("buildGatewayListeners: constructed listener with %d filter chains:\n%v", len(mutable.Listener.FilterChains), pprint(mutable.Listener))
 		}
-
-		s := &bytes.Buffer{}
-		(&jsonpb.Marshaler{}).Marshal(s, mutable.Listener)
-		log.Infof("buildGatewayListeners: constructed listener:\n%v", s)
 		listeners = append(listeners, mutable.Listener)
 	}
 	return listeners, nil
@@ -148,16 +143,20 @@ func createHTTPFilterChainOpts(env model.Environment, servers []*networking.Serv
 	}
 
 	httpListeners := make([]*filterChainOpts, 0, len(servers))
-	for _, server := range servers {
-		// if https redirect is set, we need to enable requireTls field in all the virtual hosts
+	for i, server := range servers {
 		routeCfg := buildGatewayInboundHTTPRouteConfig(env, nameF, gatewayNames, server)
+		if routeCfg == nil {
+			log.Debugf("omitting HTTP listeners for port %d filter chain %d due to no routes", server.Port, i)
+			continue
+		}
+		// if https redirect is set, we need to enable requireTls field in all the virtual hosts
 		if server.Tls != nil && server.Tls.HttpsRedirect {
 			for i := range routeCfg.VirtualHosts {
 				// TODO: should this be set to ALL ?
 				routeCfg.VirtualHosts[i].RequireTls = route.VirtualHost_EXTERNAL_ONLY
 			}
 		}
-		httpListeners = append(httpListeners, &filterChainOpts{
+		o := &filterChainOpts{
 			sniHosts:   server.Hosts,
 			tlsContext: buildGatewayListenerTLSContext(server),
 			httpOpts: &httpListenerOpts{
@@ -166,7 +165,8 @@ func createHTTPFilterChainOpts(env model.Environment, servers []*networking.Serv
 				useRemoteAddress: true,
 				direction:        http_conn.EGRESS, // viewed as from gateway to internal
 			},
-		})
+		}
+		httpListeners = append(httpListeners, o)
 	}
 	return httpListeners
 }
@@ -211,29 +211,35 @@ func buildGatewayInboundHTTPRouteConfig(
 	nameF func(int) istio_route.ClusterNameGenerator,
 	gatewayNames map[string]bool,
 	server *networking.Server) *xdsapi.RouteConfiguration {
-	// TODO WE DO NOT SUPPORT two gateways on same workload binding to same virtual service
+
+	port := int(server.Port.Number)
+	// TODO: WE DO NOT SUPPORT two gateways on same workload binding to same virtual service
 	virtualServices := env.VirtualServices(gatewayNames)
-	log.Infof("got %d virtual services for gateways %v", len(virtualServices), gatewayNames)
-
-	portNumber := int(server.Port.Number)
-	virtualHosts := make([]route.VirtualHost, len(virtualServices))
+	virtualHosts := make([]route.VirtualHost, 0, len(virtualServices))
 	for _, v := range virtualServices {
+		// TODO: I think this is the wrong port to use: we feed in the server's port (i.e. the gateway port), then use it
+		// to construct downstreams; I think we need to look up the service itself, and use the service's port.
+		routes, err := istio_route.TranslateRoutes(v, nameF(port), port, nil, gatewayNames)
+		if err != nil {
+			log.Debugf("omitting routes for service %v due to error: %v", v, err)
+			continue
+		}
 		domains := v.Spec.(*networking.VirtualService).Hosts
-		log.Infof("processing service %q with domains: %v", v.Name, domains)
-
-		routes := istio_route.TranslateRoutes(v, nameF(portNumber), portNumber, nil, gatewayNames)
 		host := route.VirtualHost{
-			Name:    fmt.Sprintf("%s:%d", v.Name, server.Port.Number),
+			Name:    fmt.Sprintf("%s:%d", v.Name, port),
 			Domains: domains,
 			Routes:  routes,
 		}
-		log.Infof("host created for gateways %v: %v", gatewayNames, host)
-
 		virtualHosts = append(virtualHosts, host)
 	}
 
+	if len(virtualHosts) == 0 {
+		log.Debugf("constructed http route config for port %d with no vhosts; omitting", port)
+		return nil
+	}
+
 	return &xdsapi.RouteConfiguration{
-		Name:         fmt.Sprintf("%d", server.Port.Number),
+		Name:         fmt.Sprintf("%d", port),
 		VirtualHosts: virtualHosts,
 	}
 }
@@ -287,13 +293,9 @@ func filterTCPDownstreams(env model.Environment, server *networking.Server, gate
 	}
 
 	virtualServices := env.VirtualServices(gateways)
-	log.Infof("got %d TCP services for gateways %v", len(virtualServices), gateways)
-
 	downstreams := make([]*networking.Destination, 0, len(virtualServices))
 	for _, spec := range virtualServices {
 		vsvc := spec.Spec.(*networking.VirtualService)
-		log.Infof("processing service %q with domains: %v", spec.Name, vsvc.Hosts)
-
 		// TODO: real wildcard based matching; does code to do that not exist already?
 		match := false
 		for _, host := range vsvc.Hosts {
@@ -357,6 +359,13 @@ func gatherDestinations(weights []*networking.DestinationWeight) []*networking.D
 }
 
 // TODO: move up to more general location so this can be re-used
+// TODO: should this try to use `istio_route.ConvertDestinationToCluster`?
 func destToClusterName(d *networking.Destination) string {
 	return model.BuildSubsetKey(model.TrafficDirectionOutbound, d.Subset, d.Host, &model.Port{Name: d.Port.GetName()})
+}
+
+// TODO: move up to pkg/proto
+func pprint(p proto.Message) string {
+	s, _ := (&jsonpb.Marshaler{}).MarshalToString(p)
+	return s
 }

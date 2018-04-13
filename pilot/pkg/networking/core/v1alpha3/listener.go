@@ -403,8 +403,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				mutable.Listener.FilterChains[0].TlsContext.RequireSni = boolFalse
 			}
 
-			if len(mutable.Listener.FilterChains) > 1 {
-				log.Infof("buildSidecarOutboundListeners: multiple filter chain listener: %q", mutable.Listener.Name)
+			if log.DebugEnabled() && len(mutable.Listener.FilterChains) > 1 {
+				log.Debuga("buildSidecarOutboundListeners: multiple filter chain listener: ", mutable.Listener.Name)
 			}
 
 			listenerMap[listenerMapKey] = mutable.Listener
@@ -512,14 +512,12 @@ type buildListenerOpts struct {
 }
 
 func buildHTTPConnectionManager(mesh *meshconfig.MeshConfig, httpOpts *httpListenerOpts, httpFilters []*http_conn.HttpFilter) *http_conn.HttpConnectionManager {
-	filters := append(httpFilters, &http_conn.HttpFilter{
-		Name: xdsutil.CORS,
-	})
-	// TODO: need alphav3 fault filters.
-	// filters = append(filters, buildFaultFilters(opts.config, opts.env, opts.proxy)...)
-	filters = append(filters, &http_conn.HttpFilter{
-		Name: xdsutil.Router,
-	})
+	filters := append(httpFilters,
+		&http_conn.HttpFilter{Name: xdsutil.CORS},
+		&http_conn.HttpFilter{Name: xdsutil.Router},
+		// TODO: need alphav3 fault filters.
+		//buildFaultFilters(opts.config, opts.env, opts.proxy)...
+	)
 
 	refresh := time.Duration(mesh.RdsRefreshDelay.Seconds) * time.Second
 	if refresh == 0 {
@@ -652,6 +650,9 @@ func marshalFilters(l *xdsapi.Listener, opts buildListenerOpts, chains []plugin.
 
 		l.FilterChains[i].Filters = append(l.FilterChains[i].Filters, chain.TCP...)
 		l.FilterChains[i].Filters = append(l.FilterChains[i].Filters, opt.networkFilters...)
+		if log.DebugEnabled() {
+			log.Debugf("attached %d network filters to listener %q filter chain %d", len(chain.TCP)+len(opt.networkFilters), l.Name, i)
+		}
 
 		if opt.httpOpts != nil {
 			connectionManager := buildHTTPConnectionManager(opts.env.Mesh, opt.httpOpts, chain.HTTP)
@@ -659,6 +660,7 @@ func marshalFilters(l *xdsapi.Listener, opts buildListenerOpts, chains []plugin.
 				Name:   envoyHTTPConnectionManager,
 				Config: util.MessageToStruct(connectionManager),
 			})
+			log.Debugf("attached HTTP filter with %d http_filter options to listener %q filter chain %d", 1+len(chain.HTTP), l.Name, i)
 		}
 	}
 	return nil
