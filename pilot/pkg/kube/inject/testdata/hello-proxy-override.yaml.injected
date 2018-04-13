@@ -1,13 +1,16 @@
 apiVersion: extensions/v1beta1
-kind: DaemonSet
+kind: Deployment
 metadata:
   creationTimestamp: null
   name: hello
 spec:
+  replicas: 7
+  strategy: {}
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"6664c7ccc4d37fcb43512dd10fb86c20f045a3eae116a994acdb8cfd78cb0945","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"]}'
+        sidecar.istio.io/proxyImage: docker.io/istio/proxy2_debug:unittest
+        sidecar.istio.io/status: '{"version":"3d26eb0ae6bfe33a4819a33dc0b087c52d8670a5527789f2c85ba3368a161881","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"]}'
       creationTimestamp: null
       labels:
         app: hello
@@ -61,13 +64,13 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
-        image: docker.io/istio/proxy:unittest
+        image: docker.io/istio/proxy2_debug:unittest
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         resources: {}
         securityContext:
-          privileged: false
-          readOnlyRootFilesystem: true
+          privileged: true
+          readOnlyRootFilesystem: false
           runAsUser: 1337
         volumeMounts:
         - mountPath: /etc/istio/proxy
@@ -97,6 +100,7 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
+          privileged: true
       volumes:
       - emptyDir:
           medium: Memory
@@ -105,10 +109,5 @@ spec:
         secret:
           optional: true
           secretName: istio.default
-  updateStrategy: {}
-status:
-  currentNumberScheduled: 0
-  desiredNumberScheduled: 0
-  numberMisscheduled: 0
-  numberReady: 0
+status: {}
 ---

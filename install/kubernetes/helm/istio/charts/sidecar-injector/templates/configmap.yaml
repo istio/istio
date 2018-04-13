@@ -18,33 +18,33 @@ data:
         image: {{ .Values.global.hub }}/proxy_init:{{ .Values.global.tag }}
         args:
         - "-p"
-        - {{ "{{ .MeshConfig.ProxyListenPort }}" }}
+        - {{ "[[ .MeshConfig.ProxyListenPort ]]" }}
         - "-u"
         - 1337
         - "-i"
-        {{ "{{ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeOutboundIPRanges\") -}}" }}
-        {{ "- \"{{ index .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeOutboundIPRanges\"  }}\"" }}
-        {{ "{{ else -}}" }}
-        - "{{ .IncludeIPRanges }}"
-        {{ "{{ end -}}" }}
+        {{ "[[ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeOutboundIPRanges\") -]]" }}
+        {{ "- \"[[ index .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeOutboundIPRanges\"  ]]\"" }}
+        {{ "[[ else -]]" }}
+        - "{{ .Values.includeIPRanges }}"
+        {{ "[[ end -]]" }}
         - "-x"
-        {{ "{{ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/excludeOutboundIPRanges\") -}}" }}
-        {{ "- \"{{ index .ObjectMeta.Annotations \"traffic.sidecar.istio.io/excludeOutboundIPRanges\"  }}\"" }}
-        {{ "{{ else -}}" }}
-        - "{{ .ExcludeIPRanges }}"
-        {{ "{{ end -}}" }}
+        {{ "[[ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/excludeOutboundIPRanges\") -]]" }}
+        {{ "- \"[[ index .ObjectMeta.Annotations \"traffic.sidecar.istio.io/excludeOutboundIPRanges\"  ]]\"" }}
+        {{ "[[ else -]]" }}
+        - "{{ .Values.excludeIPRanges }}"
+        {{ "[[ end -]]" }}
         - "-b"
-        {{ "{{ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeInboundPorts\") -}}" }}
-        {{ "- \"{{ index .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeInboundPorts\"  }}\"" }}
-        {{ "{{ else -}}" }}
-        - "{{ .IncludeInboundPorts }}"
-        {{ "{{ end -}}" }}
+        {{ "[[ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeInboundPorts\") -]]" }}
+        {{ "- \"[[ index .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeInboundPorts\"  ]]\"" }}
+        {{ "[[ else -]]" }}
+        - "{{ .Values.includeInboundPorts }}"
+        {{ "[[ end -]]" }}
         - "-d"
-        {{ "{{ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/excludeInboundPorts\") -}}" }}
-        {{ "- \"{{ index .ObjectMeta.Annotations \"traffic.sidecar.istio.io/excludeInboundPorts\" }}\"" }}
-        {{ "{{ else -}}" }}
-        - "{{ .ExcludeInboundPorts }}"
-        {{ "{{ end -}}" }}
+        {{ "[[ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/excludeInboundPorts\") -]]" }}
+        {{ "- \"[[ index .ObjectMeta.Annotations \"traffic.sidecar.istio.io/excludeInboundPorts\" ]]\"" }}
+        {{ "[[ else -]]" }}
+        - "{{ .Values.excludeInboundPorts }}"
+        {{ "[[ end -]]" }}
         imagePullPolicy: IfNotPresent
         securityContext:
           capabilities:
@@ -54,38 +54,42 @@ data:
         restartPolicy: Always
       containers:
       - name: istio-proxy
-        image: {{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}
+        image: {{ "[[ if (isset .ObjectMeta.Annotations \"sidecar.istio.io/proxyImage\") -]]" }}
+        {{ "\"[[ index .ObjectMeta.Annotations \"sidecar.istio.io/proxyImage\" ]]\"" }}
+        {{ "[[ else -]]" }}
+        {{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}
+        {{ "[[ end -]]" }}
         args:
         - proxy
         - sidecar
         - --configPath
-        - {{ "{{ .ProxyConfig.ConfigPath }}" }}
+        - {{ "[[ .ProxyConfig.ConfigPath ]]" }}
         - --binaryPath
-        - {{ "{{ .ProxyConfig.BinaryPath }}" }}
+        - {{ "[[ .ProxyConfig.BinaryPath ]]" }}
         - --serviceCluster
-        {{ "{{ if ne \"\" (index .ObjectMeta.Labels \"app\") -}}" }}
-        - {{ "{{ index .ObjectMeta.Labels \"app\" }}" }}
-        {{ "{{ else -}}" }}
+        {{ "[[ if ne \"\" (index .ObjectMeta.Labels \"app\") -]]" }}
+        - {{ "[[ index .ObjectMeta.Labels \"app\" ]]" }}
+        {{ "[[ else -]]" }}
         - "istio-proxy"
-        {{ "{{ end -}}" }}
+        {{ "[[ end -]]" }}
         - --drainDuration
-        - {{ "{{ formatDuration .ProxyConfig.DrainDuration }}" }}
+        - {{ "[[ formatDuration .ProxyConfig.DrainDuration ]]" }}
         - --parentShutdownDuration
-        - {{ "{{ formatDuration .ProxyConfig.ParentShutdownDuration }}" }}
+        - {{ "[[ formatDuration .ProxyConfig.ParentShutdownDuration ]]" }}
         - --discoveryAddress
-        - {{ "{{ .ProxyConfig.DiscoveryAddress }}" }}
+        - {{ "[[ .ProxyConfig.DiscoveryAddress ]]" }}
         - --discoveryRefreshDelay
-        - {{ "{{ formatDuration .ProxyConfig.DiscoveryRefreshDelay }}" }}
+        - {{ "[[ formatDuration .ProxyConfig.DiscoveryRefreshDelay ]]" }}
         - --zipkinAddress
-        - {{ "{{ .ProxyConfig.ZipkinAddress }}" }}
+        - {{ "[[ .ProxyConfig.ZipkinAddress ]]" }}
         - --connectTimeout
-        - {{ "{{ formatDuration .ProxyConfig.ConnectTimeout }}" }}
+        - {{ "[[ formatDuration .ProxyConfig.ConnectTimeout ]]" }}
         - --statsdUdpAddress
-        - {{ "{{ .ProxyConfig.StatsdUdpAddress }}" }}
+        - {{ "[[ .ProxyConfig.StatsdUdpAddress ]]" }}
         - --proxyAdminPort
-        - {{ "{{ .ProxyConfig.ProxyAdminPort }}" }}
+        - {{ "[[ .ProxyConfig.ProxyAdminPort ]]" }}
         - --controlPlaneAuthPolicy
-        - {{ "{{ .ProxyConfig.ControlPlaneAuthPolicy }}" }}
+        - {{ "[[ .ProxyConfig.ControlPlaneAuthPolicy ]]" }}
         env:
         - name: POD_NAME
           valueFrom:
@@ -122,8 +126,8 @@ data:
       - name: istio-certs
         secret:
           optional: true
-          {{ "{{ if eq .Spec.ServiceAccountName \"\" -}}" }}
+          {{ "[[ if eq .Spec.ServiceAccountName \"\" -]]" }}
           secretName: istio.default
-          {{ "{{ else -}}" }}
-          secretName: {{ "{{ printf \"istio.%s\" .Spec.ServiceAccountName }}"  }}
-          {{ "{{ end -}}" }}
+          {{ "[[ else -]]" }}
+          secretName: {{ "[[ printf \"istio.%s\" .Spec.ServiceAccountName ]]"  }}
+          {{ "[[ end -]]" }}
