@@ -201,6 +201,22 @@ sidecar-injector:
   includeInboundPorts: "*"
 
 #
+# galley configuration
+#
+galley:
+  enabled: false
+  serviceAccountName: default
+  replicaCount: 1
+  imagePullPolicy: IfNotPresent
+  resources: {}
+  # limits:
+  #  cpu: 100m
+  #  memory: 128Mi
+  # requests:
+  #  cpu: 100m
+  #  memory: 128Mi
+
+#
 # mixer configuration
 #
 mixer:

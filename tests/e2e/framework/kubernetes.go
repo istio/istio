@@ -37,20 +37,20 @@ import (
 )
 
 const (
-	yamlSuffix                     = ".yaml"
-	istioInstallDir                = "install/kubernetes"
-	istioAddonsDir                 = "install/kubernetes/addons"
-	nonAuthInstallFile             = "istio.yaml"
-	authInstallFile                = "istio-auth.yaml"
-	nonAuthInstallFileNamespace    = "istio-one-namespace.yaml"
-	authInstallFileNamespace       = "istio-one-namespace-auth.yaml"
-	istioSystem                    = "istio-system"
-	istioIngressServiceName        = "istio-ingress"
-	istioIngressGatewayServiceName = "istio-ingressgateway"
-	istioEgressGatewayServiceName  = "istio-egressgateway"
-	defaultSidecarInjectorFile     = "istio-sidecar-injector.yaml"
-	mixerValidatorFile             = "istio-mixer-validator.yaml"
-	ingressCertsName               = "istio-ingress-certs"
+	yamlSuffix                       = ".yaml"
+	istioInstallDir                  = "install/kubernetes"
+	istioAddonsDir                   = "install/kubernetes/addons"
+	nonAuthInstallFile               = "istio.yaml"
+	authInstallFile                  = "istio-auth.yaml"
+	nonAuthInstallFileNamespace      = "istio-one-namespace.yaml"
+	authInstallFileNamespace         = "istio-one-namespace-auth.yaml"
+	istioSystem                      = "istio-system"
+	istioIngressServiceName          = "istio-ingress"
+	istioIngressGatewayServiceName   = "istio-ingressgateway"
+	istioEgressGatewayServiceName    = "istio-egressgateway"
+	defaultSidecarInjectorFile       = "istio-sidecar-injector.yaml"
+	ingressCertsName                 = "istio-ingress-certs"
+	defaultGalleyConfigValidatorFile = "istio-galley-config-validator.yaml"
 
 	maxDeploymentRolloutTime    = 240 * time.Second
 	mtlsExcludedServicesPattern = "mtlsExcludedServices:\\s*\\[(.*)\\]"
@@ -66,16 +66,19 @@ var (
 	proxyTag     = flag.String("proxy_tag", os.Getenv("TAG"), "Proxy tag")
 	caHub        = flag.String("ca_hub", os.Getenv("HUB"), "Ca hub")
 	caTag        = flag.String("ca_tag", os.Getenv("TAG"), "Ca tag")
+	galleyHub    = flag.String("galley_hub", os.Getenv("HUB"), "Galley hub")
+	galleyTag    = flag.String("galley_tag", os.Getenv("TAG"), "Galley tag")
 	authEnable   = flag.Bool("auth_enable", false, "Enable auth")
 	rbacEnable   = flag.Bool("rbac_enable", true, "Enable rbac")
 	localCluster = flag.Bool("use_local_cluster", false,
 		"Whether the cluster is local or not (i.e. the test is running within the cluster). If running on minikube, this should be set to true.")
-	skipSetup           = flag.Bool("skip_setup", false, "Skip namespace creation and istio cluster setup")
-	sidecarInjectorFile = flag.String("sidecar_injector_file", defaultSidecarInjectorFile, "Sidecar injector yaml file")
-	clusterWide         = flag.Bool("cluster_wide", false, "Run cluster wide tests")
-	withMixerValidator  = flag.Bool("with_mixer_validator", false, "Set up mixer validator")
-	imagePullPolicy     = flag.String("image_pull_policy", "", "Specifies an override for the Docker image pull policy to be used")
-	multiClusterDir     = flag.String("cluster_registry_dir", "", "Directory name for the cluster registry config")
+	skipSetup                 = flag.Bool("skip_setup", false, "Skip namespace creation and istio cluster setup")
+	sidecarInjectorFile       = flag.String("sidecar_injector_file", defaultSidecarInjectorFile, "Sidecar injector yaml file")
+	clusterWide               = flag.Bool("cluster_wide", false, "Run cluster wide tests")
+	imagePullPolicy           = flag.String("image_pull_policy", "", "Specifies an override for the Docker image pull policy to be used")
+	multiClusterDir           = flag.String("cluster_registry_dir", "", "Directory name for the cluster registry config")
+	galleyConfigValidatorFile = flag.String("galley_config_validator_file", defaultGalleyConfigValidatorFile, "Galley config validator yaml file")
+	useGalleyConfigValidator  = flag.Bool("use_galley_config_validator", false, "Use galley configuration validation webhook")
 
 	addons = []string{
 		"zipkin",
@@ -252,13 +255,6 @@ func (k *KubeInfo) Setup() error {
 		if _, err = util.CreateTLSSecret(ingressCertsName, k.IstioSystemNamespace(), keyFile, certFile, k.KubeConfig); err != nil {
 			log.Warn("Secret already exists")
 		}
-		if *withMixerValidator {
-			// Run the script to set up the certificate.
-			certGenerator := util.GetResourcePath("./install/kubernetes/webhook-create-signed-cert.sh")
-			if _, err = util.Shell("%s --service istio-mixer-validator --secret istio-mixer-validator --namespace %s", certGenerator, k.Namespace); err != nil {
-				return err
-			}
-		}
 	}
 
 	return nil
@@ -335,6 +331,15 @@ func (k *KubeInfo) Teardown() error {
 
 		if err := util.KubeDelete(k.Namespace, testSidecarInjectorYAML, k.KubeConfig); err != nil {
 			log.Errorf("Istio sidecar injector %s deletion failed", testSidecarInjectorYAML)
+			return err
+		}
+	}
+
+	if *useGalleyConfigValidator {
+		testGalleyConfigValidatorYAML := filepath.Join(k.TmpDir, "yaml", *galleyConfigValidatorFile)
+
+		if err := util.KubeDelete(k.Namespace, testGalleyConfigValidatorYAML, k.KubeConfig); err != nil {
+			log.Errorf("Istio galley config validator %s deletion failed", testGalleyConfigValidatorYAML)
 			return err
 		}
 	}
@@ -529,25 +534,6 @@ func (k *KubeInfo) deployIstio() error {
 		return err
 	}
 
-	if *withMixerValidator {
-		baseMixerValidatorYaml := filepath.Join(k.ReleaseDir, istioInstallDir, mixerValidatorFile)
-		_, err := os.Stat(baseMixerValidatorYaml)
-		if err != nil && os.IsNotExist(err) {
-			// Some old version may not have this file.
-			log.Warnf("%s does not exist in install dir %s", mixerValidatorFile, istioInstallDir)
-		} else {
-			testMixerValidatorYaml := filepath.Join(k.TmpDir, "yaml", mixerValidatorFile)
-			if err := k.generateIstio(baseMixerValidatorYaml, testMixerValidatorYaml); err != nil {
-				log.Errorf("Generating yaml %s failed", testMixerValidatorYaml)
-				return err
-			}
-			if err := util.KubeApply(k.Namespace, testMixerValidatorYaml, k.KubeConfig); err != nil {
-				log.Errorf("Istio mixer validator %s deployment failed", testMixerValidatorYaml)
-				return err
-			}
-		}
-	}
-
 	if *useAutomaticInjection {
 		baseSidecarInjectorYAML := util.GetResourcePath(filepath.Join(istioInstallDir, *sidecarInjectorFile))
 		testSidecarInjectorYAML := filepath.Join(k.TmpDir, "yaml", *sidecarInjectorFile)
@@ -557,6 +543,19 @@ func (k *KubeInfo) deployIstio() error {
 		}
 		if err := util.KubeApply(k.Namespace, testSidecarInjectorYAML, k.KubeConfig); err != nil {
 			log.Errorf("Istio sidecar injector %s deployment failed", testSidecarInjectorYAML)
+			return err
+		}
+	}
+
+	if *useGalleyConfigValidator {
+		baseConfigValidatorYAML := util.GetResourcePath(filepath.Join(istioInstallDir, *galleyConfigValidatorFile))
+		testConfigValidatorYAML := filepath.Join(k.TmpDir, "yaml", *galleyConfigValidatorFile)
+		if err := k.generateGalleyConfigValidator(baseConfigValidatorYAML, testConfigValidatorYAML); err != nil {
+			log.Errorf("Generating galley config validator yaml failed")
+			return err
+		}
+		if err := util.KubeApply(k.Namespace, testConfigValidatorYAML, k.KubeConfig); err != nil {
+			log.Errorf("Istio galley config validator %s deployment failed", testConfigValidatorYAML)
 			return err
 		}
 	}
@@ -596,6 +595,28 @@ func (k *KubeInfo) generateSidecarInjector(src, dst string) error {
 	err = ioutil.WriteFile(dst, content, 0600)
 	if err != nil {
 		log.Errorf("Cannot write into generate sidecar injector file %s", dst)
+	}
+	return err
+}
+
+func (k *KubeInfo) generateGalleyConfigValidator(src, dst string) error {
+	content, err := ioutil.ReadFile(src)
+	if err != nil {
+		log.Errorf("Cannot read original yaml file %s", src)
+		return err
+	}
+
+	if !*clusterWide {
+		content = replacePattern(content, istioSystem, k.Namespace)
+	}
+
+	if *galleyHub != "" && *galleyTag != "" {
+		content = updateImage("galley", *galleyHub, *galleyTag, content)
+	}
+
+	err = ioutil.WriteFile(dst, content, 0600)
+	if err != nil {
+		log.Errorf("Cannot write into generate galley config validator %s", dst)
 	}
 	return err
 }

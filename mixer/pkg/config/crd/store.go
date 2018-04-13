@@ -155,6 +155,7 @@ loop:
 		}
 		s.cacheMutex.Lock()
 		for _, res := range resources.APIResources {
+
 			if _, ok := s.caches[res.Kind]; ok {
 				continue
 			}
@@ -241,10 +242,11 @@ func (s *Store) Get(key store.Key) (*store.BackEndResource, error) {
 		return nil, store.ErrNotFound
 	}
 	uns, _ := obj.(*unstructured.Unstructured)
-	return backEndResource(uns), nil
+	return ToBackEndResource(uns), nil
 }
 
-func backEndResource(uns *unstructured.Unstructured) *store.BackEndResource {
+// ToBackEndResource converts an unstructured k8s resource into a mixer backend resource.
+func ToBackEndResource(uns *unstructured.Unstructured) *store.BackEndResource {
 	spec, _ := uns.UnstructuredContent()["spec"].(map[string]interface{})
 	return &store.BackEndResource{
 		Metadata: store.ResourceMeta{
@@ -269,7 +271,7 @@ func (s *Store) List() map[store.Key]*store.BackEndResource {
 			if s.ns != nil && !s.ns[key.Namespace] {
 				continue
 			}
-			result[key] = backEndResource(uns)
+			result[key] = ToBackEndResource(uns)
 		}
 	}
 	s.cacheMutex.Unlock()
@@ -282,7 +284,7 @@ func toEvent(t store.ChangeType, obj interface{}) store.BackendEvent {
 	return store.BackendEvent{
 		Type:  t,
 		Key:   key,
-		Value: backEndResource(uns),
+		Value: ToBackEndResource(uns),
 	}
 }
 
