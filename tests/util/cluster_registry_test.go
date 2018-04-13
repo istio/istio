@@ -26,15 +26,14 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
+	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api/v1"
+	k8s_cr "k8s.io/cluster-registry/pkg/apis/clusterregistry/v1alpha1"
+
 	"istio.io/istio/pilot/pkg/bootstrap"
 	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v1"
 	"istio.io/istio/pilot/pkg/serviceregistry"
-	"k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api/v1"
-
-	k8s_cr "k8s.io/cluster-registry/pkg/apis/clusterregistry/v1alpha1"
 )
 
 func getAPIsURLs() ([]string, error) {
@@ -45,10 +44,10 @@ func getAPIsURLs() ([]string, error) {
 	}
 	urlPath = path.Join(urlPath, "out/log")
 	if _, err := os.Stat(urlPath); err != nil {
-		return []string{}, fmt.Errorf("Problem with location of URL files, error: %v", err)
+		return []string{}, fmt.Errorf("problem with location of URL files, error %v", err)
 	}
 	var urls []string
-	filepath.Walk(urlPath, func(path string, f os.FileInfo, _ error) error {
+	_ = filepath.Walk(urlPath, func(path string, f os.FileInfo, _ error) error {
 		if !f.IsDir() {
 			if filepath.Ext(path) == ".url" && strings.HasPrefix(f.Name(), "apiserver") {
 				b, err := ioutil.ReadFile(path)
@@ -181,9 +180,9 @@ func createClusterConfigmap(apiServerURL string, namespace string, clusterConfig
 	}
 	for cn, cd := range clusters {
 
-		dataBytes, err := json.Marshal(cd)
-		if err != nil {
-			return err
+		dataBytes, err1 := json.Marshal(cd)
+		if err1 != nil {
+			return err1
 		}
 		configmap.Data[cn] = string(dataBytes)
 	}
@@ -233,7 +232,6 @@ func startMulticlusterPilot(s *bootstrap.Server, stop chan struct{}) {
 
 func prepareEnv(t *testing.T) error {
 	var err error
-	err = nil
 
 	urls, err := getAPIsURLs()
 	if err != nil {
@@ -242,24 +240,24 @@ func prepareEnv(t *testing.T) error {
 	if len(urls) == 0 {
 		return fmt.Errorf("NOURL")
 	}
-	t.Logf("Retrived URLs : %+v", urls)
+	t.Logf("Retrieved URLs : %+v", urls)
 
 	clusterConfigs, err := createClusterConfig(urls)
 	if err != nil {
 		return err
 	}
 	if err = checkLocalAPIServer(urls[0]); err != nil {
-		return fmt.Errorf("Error in checkLocalAPIServer: %v", err)
+		return fmt.Errorf("error in checkLocalAPIServer: %v", err)
 	}
 	if err = ensureTestNamespace(urls[0], "istio-testing"); err != nil {
-		return fmt.Errorf("Error in checkLocalAPIServer: %v", err)
+		return fmt.Errorf("error in checkLocalAPIServer: %v", err)
 	}
 	if err = createSecretFromClusterConfig(urls[0], "istio-testing", clusterConfigs); err != nil {
-		return fmt.Errorf("Error in createSecretFromClusterConfig: %v", err)
+		return fmt.Errorf("error in createSecretFromClusterConfig: %v", err)
 	}
 
 	if err = createClusterConfigmap(urls[0], "istio-testing", clusterConfigs); err != nil {
-		return fmt.Errorf("Error in createCusterConfigmap: %v", err)
+		return fmt.Errorf("error in createCusterConfigmap: %v", err)
 	}
 
 	return err
