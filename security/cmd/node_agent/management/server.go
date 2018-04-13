@@ -170,7 +170,7 @@ func (s *Server) WorkloadAdded(ctx context.Context, request *pb.WorkloadInfo) (*
 		return nil, logReturn("failed to build key cert buhndle", err)
 	}
 
-	if err := s.secretServer.Save(kb); err != nil {
+	if err := s.secretServer.Put(sa, kb); err != nil {
 		return nil, logReturn("failed to save key cert", err)
 	}
 

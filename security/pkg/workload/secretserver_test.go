@@ -15,18 +15,21 @@
 package workload
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"testing"
 	"time"
 
 	"istio.io/istio/security/pkg/pki/util"
 )
 
-// TODO(incfly): merge this with createCA() in ca_test.go in a testing library later.
-func createBundle() (util.KeyCertBundle, error) {
+// TODO(incfly): put this in a testing library.
+func createBundle(t *testing.T, host string) util.KeyCertBundle {
 	rootCAOpts := util.CertOptions{
+		Host:         host,
 		IsCA:         true,
 		IsSelfSigned: true,
 		TTL:          time.Hour,
@@ -35,39 +38,14 @@ func createBundle() (util.KeyCertBundle, error) {
 	}
 	rootCertBytes, rootKeyBytes, err := util.GenCertKeyFromOptions(rootCAOpts)
 	if err != nil {
-		return nil, err
+		t.Errorf("failed to genecreate key for %v", host)
 	}
-
-	rootCert, err := util.ParsePemEncodedCertificate(rootCertBytes)
-	if err != nil {
-		return nil, err
-	}
-
-	rootKey, err := util.ParsePemEncodedKey(rootKeyBytes)
-	if err != nil {
-		return nil, err
-	}
-
-	intermediateCAOpts := util.CertOptions{
-		IsCA:         true,
-		IsSelfSigned: false,
-		TTL:          time.Hour,
-		Org:          "Intermediate CA",
-		RSAKeySize:   2048,
-		SignerCert:   rootCert,
-		SignerPriv:   rootKey,
-	}
-	intermediateCert, intermediateKey, err := util.GenCertKeyFromOptions(intermediateCAOpts)
-	if err != nil {
-		return nil, err
-	}
-
 	bundle, err := util.NewVerifiedKeyCertBundleFromPem(
-		intermediateCert, intermediateKey, intermediateCert, rootCertBytes)
+		rootCertBytes, rootKeyBytes, rootCertBytes, rootCertBytes)
 	if err != nil {
-		return nil, err
+		t.Errorf("failed to create key cert bundle for %v", host)
 	}
-	return bundle, nil
+	return bundle
 }
 
 func setupTempDir(t *testing.T) (string, func()) {
@@ -77,39 +55,67 @@ func setupTempDir(t *testing.T) (string, func()) {
 		t.Errorf("failed to create temp dir for test %v err %v", t.Name(), err)
 	}
 	return path, func() {
-		if err := os.RemoveAll(path); err != nil {
-			t.Errorf("failed to clean up temp dir %v", err)
+		_ = os.RemoveAll(path)
+		// fmt.Println("jiafneih debug tmpdir ", path, err)
+	}
+}
+
+func TestNewSecretServer_FileMode(t *testing.T) {
+	dir, cleanup := setupTempDir(t)
+	defer cleanup()
+	ss, err := NewSecretServer(&Config{Mode: SecretFile, SecretDirectory: dir})
+	if err != nil {
+		t.Errorf("failed to create file mode secret server err (%v)", err)
+	}
+	bundleMap := map[string]util.KeyCertBundle{}
+	hosts := []string{"sa1", "sa2"}
+	for _, host := range hosts {
+		bundleMap[host] = createBundle(t, host)
+	}
+	for _, host := range hosts {
+		b, _ := bundleMap[host]
+		if err := ss.Put(host, b); err != nil {
+			t.Errorf("failed to save secret for %v, err %v", host, err)
+		}
+	}
+
+	// Verify each identity has correct key certs saved in the file.
+	for _, host := range hosts {
+		b, _ := bundleMap[host]
+		_, key, cert, root := b.GetAllPem()
+
+		keyBytes, err := ioutil.ReadFile(path.Join(dir, host, "key.pem"))
+		if err != nil {
+			t.Errorf("failed to read key file for %v, error %v", host, err)
+		}
+		if !bytes.Equal(key, keyBytes) {
+			t.Errorf("unexpecte key for %v, want\n%v\ngot\n%v", host, string(key), string(keyBytes))
+		}
+
+		certBytes, err := ioutil.ReadFile(path.Join(dir, host, "cert-chain.pem"))
+		if err != nil {
+			t.Errorf("failed to read cert file for %v, error %v", host, err)
+		}
+		if !bytes.Equal(cert, certBytes) {
+			t.Errorf("unexpecte cert for %v, want\n%v\ngot\n%v", host, string(cert), string(certBytes))
+		}
+
+		rootBytes, err := ioutil.ReadFile(path.Join(dir, host, "root-cert.pem"))
+		if err != nil {
+			t.Errorf("failed to read root file for %v, error %v", host, err)
+		}
+		if !bytes.Equal(root, rootBytes) {
+			t.Errorf("unexpecte root for %v, want\n%v\ngot\n%v", host, string(root), string(rootBytes))
 		}
 	}
 }
 
-func TestNewSecretServer_SecretFile(t *testing.T) {
+func TestNewSecretServer_WorkloadAPI(t *testing.T) {
 	ss, err := NewSecretServer(&Config{Mode: SecretDiscoveryServiceAPI})
 	if err != nil {
-		t.Errorf("server error")
+		t.Errorf("failed to create SDS mode secret server err (%v)", err)
 	}
-
 	if ss == nil {
-		t.Errorf("secretServer should not be nil")
-	}
-	kb, err := createBundle()
-	if err != nil {
-		t.Errorf("failed to create KeyCertBundle %v", kb)
-	}
-	if err := ss.Save(kb); err != nil {
-		t.Errorf("failed to write key cert %v", err)
-	}
-}
-
-func TestNewSecretServer_WorkloadAPI(t *testing.T) {
-	path, cleanup := setupTempDir(t)
-	defer cleanup()
-	actual, err := NewSecretServer(&Config{Mode: SecretFile, SecretDirectory: path})
-	if err != nil {
-		t.Errorf("server error")
-	}
-
-	if actual == nil {
 		t.Errorf("secretServer should not be nil")
 	}
 }

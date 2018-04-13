@@ -90,9 +90,14 @@ func (s *SDSServer) SetServiceIdentityPrivateKey(content []byte) error {
 	return nil
 }
 
-// Save saves the specified key cert.
-func (s *SDSServer) Save(b util.KeyCertBundle) error {
+// Put stores the KeyCertBundle for a specific service account.
+func (s *SDSServer) Put(serviceAccount string, b util.KeyCertBundle) error {
 	return nil
+}
+
+// Get returns the KeyCertBundle for a specific service account.
+func (s *SDSServer) Get(serviceAccount string) (util.KeyCertBundle, error) {
+	return nil, fmt.Errorf("not implemented yet")
 }
 
 // GetTLSCertificate generates the X.509 key/cert for the workload identity
