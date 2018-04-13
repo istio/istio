@@ -93,9 +93,13 @@ func closeResponseBody(r *http.Response) {
 	}
 }
 
+func getPreprocessedRulePath(t *testConfig, rule string) string {
+	return filepath.Join(t.rulesDir, rule+"."+yamlExtension)
+}
+
 func preprocessRule(t *testConfig, rule string) error {
 	src := util.GetResourcePath(filepath.Join(bookinfoSampleDir, rule+"."+yamlExtension))
-	dest := filepath.Join(t.rulesDir, rule+"."+yamlExtension)
+	dest := getPreprocessedRulePath(t, rule)
 	ori, err := ioutil.ReadFile(src)
 	if err != nil {
 		log.Errorf("Failed to read original rule file %s", src)
@@ -270,7 +274,7 @@ func checkHTTPResponse(user, gateway, expr string, count int) (int, error) {
 func deleteRules(ruleKeys []string) error {
 	var err error
 	for _, ruleKey := range ruleKeys {
-		rule := filepath.Join(tc.rulesDir, ruleKey+"."+yamlExtension)
+		rule := getPreprocessedRulePath(tc, ruleKey)
 		if e := util.KubeDelete(tc.Kube.Namespace, rule, tc.Kube.KubeConfig); e != nil {
 			err = multierror.Append(err, e)
 		}
@@ -282,7 +286,7 @@ func deleteRules(ruleKeys []string) error {
 
 func applyRules(ruleKeys []string) error {
 	for _, ruleKey := range ruleKeys {
-		rule := filepath.Join(tc.rulesDir, ruleKey+"."+yamlExtension)
+		rule := getPreprocessedRulePath(tc, ruleKey)
 		if err := util.KubeApply(tc.Kube.Namespace, rule, tc.Kube.KubeConfig); err != nil {
 			//log.Errorf("Kubectl apply %s failed", rule)
 			return err
