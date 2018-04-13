@@ -33,9 +33,7 @@ data:
           - name: envoy.tcp_proxy
             config:
                 stat_prefix: tcp_pilot
-                route_config:
-                    routes:
-                    - cluster: zvpn.pilot
+                cluster: zvpn.pilot
 
       - name: tcp-zvpn-pilots
         address:
@@ -45,9 +43,7 @@ data:
           - name: envoy.tcp_proxy
             config:
                 stat_prefix: tcp_pilot
-                route_config:
-                    routes:
-                    - cluster: zvpn.pilot
+                cluster: zvpn.pilot
 
       - name: tcp-zvpn-mixer
         address:
@@ -57,9 +53,7 @@ data:
           - name: envoy.tcp_proxy
             config:
                 stat_prefix: tcp-mixer
-                route_config:
-                    routes:
-                    - cluster: zvpn.mixer
+                cluster: zvpn.mixer
 
       - name: tcp-zvpn-ca
         address:
@@ -69,9 +63,7 @@ data:
           - name: envoy.tcp_proxy
             config:
                 stat_prefix: tcp_ca
-                route_config:
-                    routes:
-                    - cluster: zvpn.ca
+                cluster: zvpn.ca
 
       - name: tcp-zvpn-dns
         address:
@@ -81,9 +73,7 @@ data:
           - name: envoy.tcp_proxy
             config:
                 stat_prefix: tcp_dns
-                route_config:
-                    routes:
-                    - cluster: zvpn.dns
+                cluster: zvpn.dns
 
 {{ if .Values.zvpn }}
 {{- range $app := .Values.zvpn.apps }}
@@ -94,12 +84,8 @@ data:
         - filters:
           - name: envoy.tcp_proxy
             config:
-              deprecated_v1: true
-              value:
                 stat_prefix: {{ $app.portName }}
-                route_config:
-                    routes:
-                    - cluster: zvpn.{{ $app.portName }}
+                cluster: zvpn.{{ $app.portName }}
 {{ end }}
 {{ end }}
       clusters:
@@ -107,7 +93,7 @@ data:
         connect_timeout: 5s
         type: STRICT_DNS
         lb_policy: ROUND_ROBIN
-        http2_protocol_options:
+        http2_protocol_options: {}
         hosts:
           # TODO(costin): add TLS/15011
           - { socket_address: { address: "istio-pilot.istio-system", port_value: 15010 }}
