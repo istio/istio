@@ -106,6 +106,7 @@ type cliOptions struct { // nolint: maligned
 	// The minimum grace period for workload cert rotation.
 	workloadCertMinGracePeriod time.Duration
 
+	// TODO(incfly): delete this field once we deprecate flag --grpc-hostname.
 	grpcHostname string
 	// Comma separated string containing all possible host name that clients may use to connect to.
 	grpcHosts string
@@ -211,8 +212,8 @@ func init() {
 		defaultWorkloadMinCertGracePeriod, "The minimum workload certificate rotation grace period.")
 
 	// gRPC server for signing CSRs.
-	flags.StringVar(&opts.grpcHostname, "grpc-hostname", "istio-citadel", "The hostname for GRPC server.")
-	flags.StringVar(&opts.grpcHosts, "grpc-host-identities", "istio-citadel",
+	flags.StringVar(&opts.grpcHostname, "grpc-hostname", "istio-ca", "DEPRECATED, use --grpc-host-identites.")
+	flags.StringVar(&opts.grpcHosts, "grpc-host-identities", "istio-ca",
 		"The list of hostnames for istio ca server, separated by comma.")
 	flags.IntVar(&opts.grpcPort, "grpc-port", 8060, "The port number for GRPC server. "+
 		"If unspecified, Istio CA will not server GRPC request.")
