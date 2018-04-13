@@ -41,7 +41,7 @@ import (
 	probecontroller "istio.io/istio/security/pkg/probe"
 	"istio.io/istio/security/pkg/registry"
 	"istio.io/istio/security/pkg/registry/kube"
-	"istio.io/istio/security/pkg/server/grpc"
+	caserver "istio.io/istio/security/pkg/server/ca"
 )
 
 // TODO(myidpt): move the following constants to pkg/cmd.
@@ -169,7 +169,7 @@ func init() {
 	flags.StringVar(&opts.listenedNamespace, "listened-namespace", "",
 		"Select a namespace for the CA to listen to. If unspecified, Istio CA tries to use the ${"+
 			listenedNamespaceKey+"} environment variable. If neither is set, Istio CA listens to all namespaces.")
-	flags.StringVar(&opts.istioCaStorageNamespace, "istio-ca-storage-namespace", "istio-system", "Namespace where "+
+	flags.StringVar(&opts.istioCaStorageNamespace, "citadel-storage-namespace", "istio-system", "Namespace where "+
 		"the Istio CA pods is running. Will not be used if explicit file or other storage mechanism is specified.")
 
 	flags.StringVar(&opts.kubeConfigFile, "kube-config", "",
@@ -211,8 +211,8 @@ func init() {
 		defaultWorkloadMinCertGracePeriod, "The minimum workload certificate rotation grace period.")
 
 	// gRPC server for signing CSRs.
-	flags.StringVar(&opts.grpcHostname, "grpc-hostname", "istio-ca", "The hostname for GRPC server.")
-	flags.StringVar(&opts.grpcHosts, "grpc-host-identities", "istio-ca",
+	flags.StringVar(&opts.grpcHostname, "grpc-hostname", "istio-citadel", "The hostname for GRPC server.")
+	flags.StringVar(&opts.grpcHosts, "grpc-host-identities", "istio-citadel",
 		"The list of hostnames for istio ca server, separated by comma.")
 	flags.IntVar(&opts.grpcPort, "grpc-port", 8060, "The port number for GRPC server. "+
 		"If unspecified, Istio CA will not server GRPC request.")
@@ -312,11 +312,11 @@ func runCA() {
 
 		// The CA API uses cert with the max workload cert TTL.
 		hostnames := strings.Split(opts.grpcHosts, ",")
-		grpcServer, startErr := grpc.New(ca, opts.maxWorkloadCertTTL, opts.signCACerts, hostnames, opts.grpcPort)
+		caServer, startErr := caserver.New(ca, opts.maxWorkloadCertTTL, opts.signCACerts, hostnames, opts.grpcPort)
 		if startErr != nil {
 			fatalf("failed to create istio ca server: %v", startErr)
 		}
-		if serverErr := grpcServer.Run(); serverErr != nil {
+		if serverErr := caServer.Run(); serverErr != nil {
 			// stop the registry-related controllers
 			ch <- struct{}{}
 
