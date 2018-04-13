@@ -76,7 +76,7 @@ func init() {
 
 	// TODO(incfly): is it better to check ca address reachability when program starts? Also refactor this address into some constants package.
 	flags.StringVar(&cAClientConfig.CAAddress, "ca-address",
-		"istio-ca.istio-system.svc.cluster.local:8060", "Istio CA address")
+		"istio-citadel.istio-system.svc.cluster.local:8060", "Istio CA address")
 
 	flags.StringVar(&cAClientConfig.Env, "env", "unspecified",
 		"Node Environment : unspecified | onprem | gcp | aws")
