@@ -121,7 +121,9 @@ type migrationRule struct {
 func TestVersionMigration(t *testing.T) {
 	inspect(applyRules(defaultRules), "failed to apply default rules", "", t)
 	defer func() {
-		inspect(deleteRules(defaultRules), fmt.Sprintf("failed to delete default rules"), "", t)
+		// ignore the error that will happen since the fifty rule redefines
+		// "reviews-default" rule and is deleted
+		deleteRules(defaultRules)
 	}()
 
 	modelV2 := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v2.html"))
