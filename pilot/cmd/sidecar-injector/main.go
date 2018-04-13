@@ -160,7 +160,7 @@ func init() {
 	rootCmd.PersistentFlags().IntVar(&flags.port, "port", 443, "Webhook port")
 
 	rootCmd.PersistentFlags().DurationVar(&flags.healthCheckInterval, "healthCheckInterval", 0,
-		"Configure how frequently the health check file specified by --healhCheckFile should be updated")
+		"Configure how frequently the health check file specified by --healthCheckFile should be updated")
 	rootCmd.PersistentFlags().StringVar(&flags.healthCheckFile, "healthCheckFile", "",
 		"File that should be periodically updated if health checking is enabled")
 	rootCmd.PersistentFlags().StringVar(&flags.kubeconfigFile, "kubeconfig", "",
