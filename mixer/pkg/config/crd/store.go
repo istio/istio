@@ -21,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	multierror "github.com/hashicorp/go-multierror"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/discovery"
@@ -51,6 +52,15 @@ const (
 	crdRetryTimeout = time.Second * 30
 )
 
+// readinessCheckInterval is the interval to check its internal status and
+// update its readiness.
+var readinessCheckInterval = time.Second
+
+// readinessInitialInterval is the initial buffer to allow unreadiness when a new
+// cache is added in the background. Within this period, the store itself is considered
+// to be ready although some caches are still in the process of the initial sync.
+var readinessInitialInterval = time.Minute
+
 // When retrying happens on initializing caches, it shouldn't log the message for
 // every retry, it may flood the log messages if the initialization is never satisfied.
 // see also https://github.com/istio/istio/issues/3138
@@ -58,29 +68,6 @@ const logPerRetries = 100
 
 type listerWatcherBuilderInterface interface {
 	build(res metav1.APIResource) cache.ListerWatcher
-}
-
-func waitForSynced(donec chan struct{}, informers map[string]cache.SharedInformer) <-chan struct{} {
-	out := make(chan struct{})
-	go func() {
-		tick := time.NewTicker(initWaiterInterval)
-	loop:
-		for len(informers) > 0 {
-			select {
-			case <-donec:
-				break loop
-			case <-tick.C:
-				for k, i := range informers {
-					if i.HasSynced() {
-						delete(informers, k)
-					}
-				}
-			}
-		}
-		tick.Stop()
-		close(out)
-	}()
-	return out
 }
 
 // Store offers store.StoreBackend interface through kubernetes custom resource definitions.
@@ -91,7 +78,10 @@ type Store struct {
 	donec        chan struct{}
 
 	cacheMutex sync.Mutex
-	caches     map[string]cache.Store
+	// mapping of CRD kind --> SharedInformer
+	informers map[string]cache.SharedInformer
+	// mapping of CRD kind --> the timestamp when the shared informer is created.
+	created map[string]time.Time
 
 	watchMutex sync.RWMutex
 	watchCh    chan store.BackendEvent
@@ -110,6 +100,57 @@ type Store struct {
 var _ store.Backend = new(Store)
 var _ probe.SupportsProbe = new(Store)
 
+func (s *Store) getReadiness() error {
+	var errs error
+	s.cacheMutex.Lock()
+	defer s.cacheMutex.Unlock()
+	if len(s.informers) == 0 {
+		return fmt.Errorf("no informers are prepared")
+	}
+	for k, i := range s.informers {
+		if ctime, ok := s.created[k]; ok && time.Since(ctime) < readinessInitialInterval {
+			continue
+		}
+		if i.HasSynced() {
+			delete(s.created, k)
+		} else {
+			errs = multierror.Append(errs, fmt.Errorf("%s is not yet synced", k))
+		}
+	}
+	return errs
+}
+
+func (s *Store) checkReadiness() {
+	tick := time.NewTicker(readinessCheckInterval)
+	defer func() {
+		tick.Stop()
+		s.SetAvailable(fmt.Errorf("finished"))
+	}()
+	for {
+		select {
+		case <-s.donec:
+			return
+		case <-tick.C:
+			s.SetAvailable(s.getReadiness())
+		}
+	}
+}
+
+func (s *Store) waitForSynced(donec chan struct{}) {
+	tick := time.NewTicker(initWaiterInterval)
+	defer tick.Stop()
+	for {
+		select {
+		case <-donec:
+			return
+		case <-tick.C:
+			if s.getReadiness() == nil {
+				return
+			}
+		}
+	}
+}
+
 // Stop implements store.Backend interface.
 func (s *Store) Stop() {
 	close(s.donec)
@@ -123,12 +164,12 @@ func (s *Store) checkAndCreateCaches(
 	retryDone chan struct{},
 	d discovery.DiscoveryInterface,
 	lwBuilder listerWatcherBuilderInterface,
-	kinds []string) []string {
+	kinds []string,
+	initial bool) []string {
 	kindsSet := map[string]bool{}
 	for _, k := range kinds {
 		kindsSet[k] = true
 	}
-	informers := map[string]cache.SharedInformer{}
 	retryCount := 0
 loop:
 	for added := 0; added < len(kinds); {
@@ -155,14 +196,16 @@ loop:
 		}
 		s.cacheMutex.Lock()
 		for _, res := range resources.APIResources {
-			if _, ok := s.caches[res.Kind]; ok {
+			if _, ok := s.informers[res.Kind]; ok {
 				continue
 			}
 			if _, ok := kindsSet[res.Kind]; ok {
 				cl := lwBuilder.build(res)
 				informer := cache.NewSharedInformer(cl, &unstructured.Unstructured{}, 0)
-				s.caches[res.Kind] = informer.GetStore()
-				informers[res.Kind] = informer
+				s.informers[res.Kind] = informer
+				if !initial {
+					s.created[res.Kind] = time.Now()
+				}
 				delete(kindsSet, res.Kind)
 				informer.AddEventHandler(s)
 				go informer.Run(s.donec)
@@ -171,16 +214,11 @@ loop:
 		}
 		s.cacheMutex.Unlock()
 	}
-	<-waitForSynced(retryDone, informers)
+	s.waitForSynced(retryDone)
 	remaining := make([]string, 0, len(kindsSet))
 	for k := range kindsSet {
 		remaining = append(remaining, k)
 	}
-	var err error
-	if len(remaining) > 0 {
-		err = fmt.Errorf("not yet ready: %+v", remaining)
-	}
-	s.SetAvailable(err)
 	return remaining
 }
 
@@ -194,7 +232,9 @@ func (s *Store) Init(kinds []string) error {
 	if err != nil {
 		return err
 	}
-	s.caches = make(map[string]cache.Store, len(kinds))
+	s.informers = make(map[string]cache.SharedInformer, len(kinds))
+	s.created = make(map[string]time.Time, len(kinds))
+	go s.checkReadiness()
 	timeout := time.After(s.retryTimeout)
 	timeoutdone := make(chan struct{})
 	s.retryInterval = time.Second / 2
@@ -202,10 +242,10 @@ func (s *Store) Init(kinds []string) error {
 		<-timeout
 		close(timeoutdone)
 	}()
-	remainingKinds := s.checkAndCreateCaches(timeoutdone, d, lwBuilder, kinds)
+	remainingKinds := s.checkAndCreateCaches(timeoutdone, d, lwBuilder, kinds, true)
 	if len(remainingKinds) > 0 {
 		// Wait asynchronously for other kinds.
-		go s.checkAndCreateCaches(s.donec, d, lwBuilder, remainingKinds)
+		go s.checkAndCreateCaches(s.donec, d, lwBuilder, remainingKinds, false)
 	}
 	return nil
 }
@@ -225,11 +265,12 @@ func (s *Store) Get(key store.Key) (*store.BackEndResource, error) {
 		return nil, store.ErrNotFound
 	}
 	s.cacheMutex.Lock()
-	c, ok := s.caches[key.Kind]
+	i, ok := s.informers[key.Kind]
 	s.cacheMutex.Unlock()
 	if !ok {
 		return nil, store.ErrNotFound
 	}
+	c := i.GetStore()
 	req := &unstructured.Unstructured{}
 	req.SetName(key.Name)
 	req.SetNamespace(key.Namespace)
@@ -262,8 +303,8 @@ func backEndResource(uns *unstructured.Unstructured) *store.BackEndResource {
 func (s *Store) List() map[store.Key]*store.BackEndResource {
 	result := make(map[store.Key]*store.BackEndResource)
 	s.cacheMutex.Lock()
-	for kind, c := range s.caches {
-		for _, obj := range c.List() {
+	for kind, i := range s.informers {
+		for _, obj := range i.GetStore().List() {
 			uns := obj.(*unstructured.Unstructured)
 			key := store.Key{Kind: kind, Name: uns.GetName(), Namespace: uns.GetNamespace()}
 			if s.ns != nil && !s.ns[key.Namespace] {
