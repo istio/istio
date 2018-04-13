@@ -263,14 +263,13 @@ func buildGatewayNetworkFilters(env model.Environment, server *networking.Server
 	// de-dupe destinations by hostname; we'll take a random destination if multiple claim the same host
 	byHost := make(map[string]*networking.Destination, len(dests))
 	for _, dest := range dests {
-		local := dest
-		byHost[dest.Host] = local
+		byHost[dest.Host] = dest
 	}
 
 	filters := make([]listener.Filter, 0, len(byHost))
 	for host, dest := range byHost {
 		upstream, err := env.GetService(host)
-		if err != nil {
+		if err != nil || upstream == nil {
 			log.Debugf("failed to retrieve service for destination %q: %v", host, err)
 			continue
 		}
