@@ -71,12 +71,15 @@ type DNSNameEntry struct {
 
 // SecretController manages the service accounts' secrets that contains Istio keys and certificates.
 type SecretController struct {
-	ca      ca.CertificateAuthority
-	certTTL time.Duration
-	core    corev1.CoreV1Interface
+	ca             ca.CertificateAuthority
+	certTTL        time.Duration
+	core           corev1.CoreV1Interface
+	minGracePeriod time.Duration
 	// Length of the grace period for the certificate rotation.
 	gracePeriodRatio float32
-	minGracePeriod   time.Duration
+
+	// Whether the certificates are for CAs.
+	forCA bool
 
 	// DNS-enabled service account/service pair
 	dnsNames map[string]DNSNameEntry
@@ -92,7 +95,7 @@ type SecretController struct {
 
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
 func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, gracePeriodRatio float32, minGracePeriod time.Duration,
-	core corev1.CoreV1Interface, namespace string, dnsNames map[string]DNSNameEntry) (*SecretController, error) {
+	core corev1.CoreV1Interface, forCA bool, namespace string, dnsNames map[string]DNSNameEntry) (*SecretController, error) {
 
 	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
 		return nil, fmt.Errorf("grace period ratio %f should be within [0, 1]", gracePeriodRatio)
@@ -108,6 +111,7 @@ func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, grac
 		gracePeriodRatio: gracePeriodRatio,
 		minGracePeriod:   minGracePeriod,
 		core:             core,
+		forCA:            forCA,
 		dnsNames:         dnsNames,
 	}
 
@@ -294,7 +298,7 @@ func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string
 	}
 
 	certChainPEM := sc.ca.GetCAKeyCertBundle().GetCertChainPem()
-	certPEM, err := sc.ca.Sign(csrPEM, sc.certTTL)
+	certPEM, err := sc.ca.Sign(csrPEM, sc.certTTL, sc.forCA)
 	if err != nil {
 		return nil, nil, err
 	}

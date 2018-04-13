@@ -47,6 +47,8 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
+
+	descriptor2 "istio.io/istio/mixer/pkg/protobuf/descriptor"
 )
 
 func TestErrorInTemplate(t *testing.T) {
@@ -354,7 +356,7 @@ func createTestModel(t *testing.T, inputFDS string) (*Model, error) {
 
 	}
 
-	parser := CreateFileDescriptorSetParser(fds, map[string]string{}, "")
+	parser := descriptor2.CreateFileDescriptorSetParser(fds, map[string]string{}, "")
 	return Create(parser)
 }
 

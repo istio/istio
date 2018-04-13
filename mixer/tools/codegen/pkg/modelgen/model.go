@@ -24,6 +24,7 @@ import (
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 
 	tmpl "istio.io/api/mixer/adapter/model/v1beta1"
+	protoDesc "istio.io/istio/mixer/pkg/protobuf/descriptor"
 )
 
 const fullProtoNameOfValueMsg = "istio.mixer.adapter.model.v1beta1.Value"
@@ -133,19 +134,19 @@ const tmplNameRegex = "^[a-zA-Z]+$"
 var tmplNameRegexCompiled = regexp.MustCompile(tmplNameRegex)
 
 // Create creates a Model object.
-func Create(parser *FileDescriptorSetParser) (*Model, error) {
+func Create(parser *protoDesc.FileDescriptorSetParser) (*Model, error) {
 
-	templateProto, diags := getTmplFileDesc(parser.allFiles)
+	templateProto, diags := getTmplFileDesc(parser.AllFiles)
 	if len(diags) != 0 {
 		return nil, createGoError(diags)
 	}
 
-	resourceFileDescs := getResourceDesc(parser.allFiles, templateProto.GetPackage())
+	resourceFileDescs := getResourceDesc(parser.AllFiles, templateProto.GetPackage())
 
 	// set the current generated code package to the package of the
 	// templateProto. This will make sure references within the
 	// generated file into the template's pb.go file are fully qualified.
-	parser.packageName = goPackageName(templateProto.GetPackage())
+	parser.PackageName = protoDesc.GoPackageName(templateProto.GetPackage())
 
 	model := &Model{diags: make([]diag, 0), ResourceMessages: make([]MessageInfo, 0)}
 	model.fillModel(templateProto, resourceFileDescs, parser)
@@ -160,7 +161,7 @@ func createGoError(diags []diag) error {
 	return fmt.Errorf("errors during parsing:\n%s", stringifyDiags(diags))
 }
 
-func (m *Model) fillModel(templateProto *FileDescriptor, resourceProtos []*FileDescriptor, parser *FileDescriptorSetParser) {
+func (m *Model) fillModel(templateProto *protoDesc.FileDescriptor, resourceProtos []*protoDesc.FileDescriptor, parser *protoDesc.FileDescriptorSetParser) {
 	m.PackageImportPath = parser.PackageImportPath
 
 	m.addTopLevelFields(templateProto)
@@ -216,7 +217,7 @@ func (m *Model) fillModel(templateProto *FileDescriptor, resourceProtos []*FileD
 	}
 
 	for _, resourceProto := range resourceProtos {
-		for _, desc := range resourceProto.desc {
+		for _, desc := range resourceProto.Desc {
 			if desc.GetName() != "Template" && desc.GetName() != "OutputTemplate" && !desc.GetOptions().GetMapEntry() {
 				rescMsg := MessageInfo{Name: desc.GetName()}
 				diags := addMessageFields(parser,
@@ -233,18 +234,18 @@ func (m *Model) fillModel(templateProto *FileDescriptor, resourceProtos []*FileD
 	}
 }
 
-func addMessageFields(parser *FileDescriptorSetParser, fileDesc *FileDescriptor, msgDesc *Descriptor,
+func addMessageFields(parser *protoDesc.FileDescriptorSetParser, fileDesc *protoDesc.FileDescriptor, msgDesc *protoDesc.Descriptor,
 	reservedNames map[string]bool, valueTypeAllowed bool, outMessage *MessageInfo) []diag {
 	diags := make([]diag, 0)
-	outMessage.Comment = fileDesc.getComment(msgDesc.path)
+	outMessage.Comment = fileDesc.GetComment(msgDesc.Path)
 	outMessage.Fields = make([]FieldInfo, 0)
 	for i, fieldDesc := range msgDesc.Field {
 		fieldName := fieldDesc.GetName()
 
 		if _, ok := reservedNames[strings.ToLower(fieldName)]; ok {
 			err := createError(
-				msgDesc.file.GetName(),
-				fileDesc.getLineNumber(getPathForField(msgDesc, i)),
+				msgDesc.FileDesc.GetName(),
+				fileDesc.GetLineNumber(protoDesc.GetPathForField(msgDesc, i)),
 				"%s message must not contain the reserved field name '%s'",
 				msgDesc.GetName(), fieldDesc.GetName())
 
@@ -254,16 +255,16 @@ func addMessageFields(parser *FileDescriptorSetParser, fileDesc *FileDescriptor,
 
 		protoTypeInfo, goTypeInfo, err := getTypeName(parser, fieldDesc, valueTypeAllowed)
 		if err != nil {
-			err := createError(msgDesc.file.GetName(), fileDesc.getLineNumber(getPathForField(msgDesc, i)), err.Error())
+			err := createError(msgDesc.FileDesc.GetName(), fileDesc.GetLineNumber(protoDesc.GetPathForField(msgDesc, i)), err.Error())
 			diags = append(diags, err)
 		}
 		outMessage.Fields = append(outMessage.Fields, FieldInfo{
 			ProtoName: fieldName,
-			GoName:    camelCase(fieldName),
+			GoName:    protoDesc.CamelCase(fieldName),
 			GoType:    goTypeInfo,
 			ProtoType: protoTypeInfo,
 			Number:    strconv.Itoa(int(fieldDesc.GetNumber())),
-			Comment:   fileDesc.getComment(getPathForField(msgDesc, i)),
+			Comment:   fileDesc.GetComment(protoDesc.GetPathForField(msgDesc, i)),
 		})
 	}
 
@@ -271,8 +272,8 @@ func addMessageFields(parser *FileDescriptorSetParser, fileDesc *FileDescriptor,
 }
 
 // get all file descriptors that has the same package as the Template message.
-func getResourceDesc(fds []*FileDescriptor, pkg string) []*FileDescriptor {
-	result := make([]*FileDescriptor, 0)
+func getResourceDesc(fds []*protoDesc.FileDescriptor, pkg string) []*protoDesc.FileDescriptor {
+	result := make([]*protoDesc.FileDescriptor, 0)
 	for _, fd := range fds {
 		if fd.GetPackage() == pkg {
 			result = append(result, fd)
@@ -282,8 +283,8 @@ func getResourceDesc(fds []*FileDescriptor, pkg string) []*FileDescriptor {
 }
 
 // Find the file that has the options TemplateVariety and TemplateName. There should only be one such file.
-func getTmplFileDesc(fds []*FileDescriptor) (*FileDescriptor, []diag) {
-	var templateDescriptorProto *FileDescriptor
+func getTmplFileDesc(fds []*protoDesc.FileDescriptor) (*protoDesc.FileDescriptor, []diag) {
+	var templateDescriptorProto *protoDesc.FileDescriptor
 	diags := make([]diag, 0)
 	for _, fd := range fds {
 		if fd.GetOptions() == nil {
@@ -316,16 +317,16 @@ func getTmplFileDesc(fds []*FileDescriptor) (*FileDescriptor, []diag) {
 }
 
 // Add all the file level fields to the model.
-func (m *Model) addTopLevelFields(fd *FileDescriptor) {
-	if !fd.proto3 {
-		m.addError(fd.GetName(), fd.getLineNumber(syntaxPath), "Only proto3 template files are allowed")
+func (m *Model) addTopLevelFields(fd *protoDesc.FileDescriptor) {
+	if !fd.Proto3 {
+		m.addError(fd.GetName(), fd.GetLineNumber(protoDesc.SyntaxPath), "Only proto3 template files are allowed")
 	}
 
 	if fd.Package != nil {
 		m.PackageName = strings.ToLower(strings.TrimSpace(fd.GetPackage()))
-		m.GoPackageName = goPackageName(m.PackageName)
+		m.GoPackageName = protoDesc.GoPackageName(m.PackageName)
 		if lastSeg, err := getLastSegment(strings.TrimSpace(fd.GetPackage())); err != nil {
-			m.addError(fd.GetName(), fd.getLineNumber(packagePath), err.Error())
+			m.addError(fd.GetName(), fd.GetLineNumber(protoDesc.PackagePath), err.Error())
 		} else {
 			// capitalize the first character since this string is used to create function names.
 			m.InterfaceName = strings.Title(lastSeg)
@@ -352,7 +353,7 @@ func (m *Model) addTopLevelFields(fd *FileDescriptor) {
 	}
 
 	// For file level comments, comments from multiple locations are composed.
-	m.Comment = fmt.Sprintf("%s\n%s", fd.getComment(syntaxPath), fd.getComment(packagePath))
+	m.Comment = fmt.Sprintf("%s\n%s", fd.GetComment(protoDesc.SyntaxPath), fd.GetComment(protoDesc.PackagePath))
 }
 
 func getLastSegment(pkg string) (string, error) {
@@ -364,9 +365,9 @@ func getLastSegment(pkg string) (string, error) {
 	return "", fmt.Errorf("the last segment of package name '%s' must match the regex '%s'", pkg, tmplNameRegex)
 }
 
-func getMsg(fdp *FileDescriptor, msgName string) (*Descriptor, bool) {
-	var cstrDesc *Descriptor
-	for _, desc := range fdp.desc {
+func getMsg(fdp *protoDesc.FileDescriptor, msgName string) (*protoDesc.Descriptor, bool) {
+	var cstrDesc *protoDesc.Descriptor
+	for _, desc := range fdp.Desc {
 		if desc.GetName() == msgName {
 			cstrDesc = desc
 			break
@@ -403,7 +404,8 @@ func getAllSupportedTypes(simpleTypes ...string) string {
 	return strings.Join(simpleTypes, ", ") + ", map<string, any of the listed supported types>"
 }
 
-func getTypeName(g *FileDescriptorSetParser, field *descriptor.FieldDescriptorProto, valueTypeAllowed bool) (protoType TypeInfo, goType TypeInfo, err error) {
+func getTypeName(g *protoDesc.FileDescriptorSetParser, field *descriptor.FieldDescriptorProto,
+	valueTypeAllowed bool) (protoType TypeInfo, goType TypeInfo, err error) {
 	proto, golang, err := getTypeNameRec(g, field, valueTypeAllowed)
 	// `repeated` is not part of the type descriptor, instead it is on the field. So we have to separately set it on
 	// the TypeInfo object.
@@ -422,7 +424,14 @@ func getProtoArray(typeName string) string {
 	return "repeated " + typeName
 }
 
-func getTypeNameRec(g *FileDescriptorSetParser, field *descriptor.FieldDescriptorProto, valueTypeAllowed bool) (
+const (
+	sINT64   = "int64"
+	sFLOAT64 = "float64"
+	sBOOL    = "bool"
+	sSTRING  = "string"
+)
+
+func getTypeNameRec(g *protoDesc.FileDescriptorSetParser, field *descriptor.FieldDescriptorProto, valueTypeAllowed bool) (
 	protoType TypeInfo, goType TypeInfo, err error) {
 	switch *field.Type {
 	case descriptor.FieldDescriptorProto_TYPE_STRING:
@@ -447,7 +456,7 @@ func getTypeNameRec(g *FileDescriptorSetParser, field *descriptor.FieldDescripto
 			return pType, gType, nil
 		}
 		desc := g.ObjectNamed(field.GetTypeName())
-		if d, ok := desc.(*Descriptor); ok && d.GetOptions().GetMapEntry() {
+		if d, ok := desc.(*protoDesc.Descriptor); ok && d.GetOptions().GetMapEntry() {
 			keyField, valField := d.Field[0], d.Field[1]
 
 			protoKeyType, goKeyType, err := getTypeNameRec(g, keyField, valueTypeAllowed)

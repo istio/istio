@@ -78,7 +78,7 @@ func init() {
 	flags.IntVar(&cAClientConfig.RSAKeySize, "key-size", 2048, "Size of generated private key")
 
 	flags.StringVar(&cAClientConfig.CAAddress, "ca-address",
-		"istio-ca.istio-system.svc.cluster.local:8060", "Istio CA address")
+		"istio-citadel.istio-system.svc.cluster.local:8060", "Istio CA address")
 
 	flags.StringVar(&cAClientConfig.Env, "env", "unspecified",
 		"Node Environment : unspecified | onprem | gcp | aws")

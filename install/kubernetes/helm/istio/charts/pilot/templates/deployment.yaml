@@ -80,22 +80,31 @@ spec:
           - containerPort: 15003
           - containerPort: 15005
           - containerPort: 15007
+          - containerPort: 15011
           args:
           - proxy
-          - pilot
-          - --discoveryAddress
-          - localhost:8080
+          - --serviceCluster
+          - istio-pilot
+          - --templateFile
+          - /etc/istio/proxy/envoy_pilot.yaml.tmpl
         {{- if $.Values.global.controlPlaneSecurityEnabled}}
           - --controlPlaneAuthPolicy
           - MUTUAL_TLS
-          - --customConfigFile
-          - /etc/istio/proxy/envoy_pilot_auth.json
         {{- else }}
           - --controlPlaneAuthPolicy
           - NONE
-          - --customConfigFile
-          - /etc/istio/proxy/envoy_pilot.json
         {{- end }}
+          env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
           resources:
 {{ toYaml .Values.global.proxy.resources | indent 12 }}
           volumeMounts:
@@ -114,6 +123,5 @@ spec:
       - name: istio-certs
         secret:
           secretName: "istio.istio-pilot-service-account"
-          optional: true
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
