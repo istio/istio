@@ -1,0 +1,3 @@
+FROM scratch
+ADD gals /usr/local/bin/
+ENTRYPOINT ["/usr/local/bin/gals"]

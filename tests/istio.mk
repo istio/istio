@@ -52,10 +52,12 @@ DEFAULT_EXTRA_E2E_ARGS += --mixer_tag=${TAG}
 DEFAULT_EXTRA_E2E_ARGS += --pilot_tag=${TAG}
 DEFAULT_EXTRA_E2E_ARGS += --proxy_tag=${TAG}
 DEFAULT_EXTRA_E2E_ARGS += --ca_tag=${TAG}
+DEFAULT_EXTRA_E2E_ARGS += --galley_tag=${TAG}
 DEFAULT_EXTRA_E2E_ARGS += --mixer_hub=${HUB}
 DEFAULT_EXTRA_E2E_ARGS += --pilot_hub=${HUB}
 DEFAULT_EXTRA_E2E_ARGS += --proxy_hub=${HUB}
 DEFAULT_EXTRA_E2E_ARGS += --ca_hub=${HUB}
+DEFAULT_EXTRA_E2E_ARGS += --galley_hub=${HUB}
 
 EXTRA_E2E_ARGS ?= ${DEFAULT_EXTRA_E2E_ARGS}
 
@@ -102,7 +104,7 @@ e2e_version_skew_run:
 	go test -v -timeout 20m ./tests/e2e/tests/upgrade -args --smooth_check=true ${E2E_ARGS} ${EXTRA_E2E_ARGS} ${UPGRADE_E2E_ARGS}
 
 e2e_all_run:
-	$(MAKE) --keep-going e2e_simple_run e2e_mixer_run e2e_bookinfo_run e2e_dashboard_run e2e_upgrade_run
+	$(MAKE) --keep-going e2e_simple_run e2e_mixer_run e2e_bookinfo_run e2e_dashboard_run e2e_upgrade_run e2e_version_skew_run
 
 JUNIT_E2E_XML ?= $(ISTIO_OUT)/junit.xml
 TARGET ?= e2e_all
