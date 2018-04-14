@@ -90,142 +90,54 @@ func TestTimestampProperMicros(t *testing.T) {
 	}
 }
 
-func TestBasic(t *testing.T) {
-	cases := []struct {
-		f          func()
-		pat        string
-		json       bool
-		caller     bool
-		stackLevel Level
-	}{
-		{func() { Debug("Hello") }, timePattern + "\tdebug\tHello", false, false, NoneLevel},
-		{func() { Debugf("Hello") }, timePattern + "\tdebug\tHello", false, false, NoneLevel},
-		{func() { Debugw("Hello") }, timePattern + "\tdebug\tHello", false, false, NoneLevel},
-		{func() { Debuga("Hello") }, timePattern + "\tdebug\tHello", false, false, NoneLevel},
-
-		{func() { Info("Hello") }, timePattern + "\tinfo\tHello", false, false, NoneLevel},
-		{func() { Infof("Hello") }, timePattern + "\tinfo\tHello", false, false, NoneLevel},
-		{func() { Infow("Hello") }, timePattern + "\tinfo\tHello", false, false, NoneLevel},
-		{func() { Infoa("Hello") }, timePattern + "\tinfo\tHello", false, false, NoneLevel},
-
-		{func() { Warn("Hello") }, timePattern + "\twarn\tHello", false, false, NoneLevel},
-		{func() { Warnf("Hello") }, timePattern + "\twarn\tHello", false, false, NoneLevel},
-		{func() { Warnw("Hello") }, timePattern + "\twarn\tHello", false, false, NoneLevel},
-		{func() { Warna("Hello") }, timePattern + "\twarn\tHello", false, false, NoneLevel},
-
-		{func() { Error("Hello") }, timePattern + "\terror\tHello", false, false, NoneLevel},
-		{func() { Errorf("Hello") }, timePattern + "\terror\tHello", false, false, NoneLevel},
-		{func() { Errorw("Hello") }, timePattern + "\terror\tHello", false, false, NoneLevel},
-		{func() { Errora("Hello") }, timePattern + "\terror\tHello", false, false, NoneLevel},
-
-		{func() {
-			l := With(zap.String("key", "value"))
-			l.Debug("Hello")
-		}, timePattern + "\tdebug\tHello\t{\"key\": \"value\"}", false, false, NoneLevel},
-
-		{func() { Debug("Hello") }, timePattern + "\tdebug\tlog/log_test.go:.*\tHello", false, true, NoneLevel},
-
-		{func() { Debug("Hello") }, "{\"level\":\"debug\",\"time\":\"" + timePattern + "\",\"caller\":\"log/log_test.go:.*\",\"msg\":\"Hello\"," +
-			"\"stack\":\".*\"}",
-			true, true, DebugLevel},
-		{func() { Info("Hello") }, "{\"level\":\"info\",\"time\":\"" + timePattern + "\",\"caller\":\"log/log_test.go:.*\",\"msg\":\"Hello\"," +
-			"\"stack\":\".*\"}",
-			true, true, DebugLevel},
-		{func() { Warn("Hello") }, "{\"level\":\"warn\",\"time\":\"" + timePattern + "\",\"caller\":\"log/log_test.go:.*\",\"msg\":\"Hello\"," +
-			"\"stack\":\".*\"}",
-			true, true, DebugLevel},
-		{func() { Error("Hello") }, "{\"level\":\"error\",\"time\":\"" + timePattern + "\",\"caller\":\"log/log_test.go:.*\",\"msg\":\"Hello\"," +
-			"\"stack\":\".*\"}",
-			true, true, DebugLevel},
-	}
-
-	for i, c := range cases {
-		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			lines, err := captureStdout(func() {
-				o := DefaultOptions()
-
-				o.JSONEncoding = c.json
-				o.IncludeCallerSourceLocation = c.caller
-
-				_ = o.SetOutputLevel(DebugLevel)
-				_ = o.SetStackTraceLevel(c.stackLevel)
-				if err := Configure(o); err != nil {
-					t.Errorf("Got err '%v', expecting success", err)
-				}
-
-				c.f()
-				Sync() // nolint: errcheck
-			})
-
-			if err != nil {
-				t.Errorf("Got error '%v', expected success", err)
-			}
-
-			if match, _ := regexp.MatchString(c.pat, lines[0]); !match {
-				t.Errorf("Got '%v', expected a match with '%v'", lines[0], c.pat)
-			}
-		})
-	}
-
-	// sadly, only testing whether we crash or not...
-	l := With(zap.String("Key", "Value"))
-	l.Debug("Hello")
-	_ = l.Sync()
-}
-
-func TestEnabled(t *testing.T) {
-	cases := []struct {
-		level        Level
-		debugEnabled bool
-		infoEnabled  bool
-		warnEnabled  bool
-		errorEnabled bool
-	}{
-		{DebugLevel, true, true, true, true},
-		{InfoLevel, false, true, true, true},
-		{WarnLevel, false, false, true, true},
-		{ErrorLevel, false, false, false, true},
-		{NoneLevel, false, false, false, false},
-	}
-
-	for i, c := range cases {
-		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			o := DefaultOptions()
-			_ = o.SetOutputLevel(c.level)
-			_ = Configure(o)
-
-			if c.debugEnabled != DebugEnabled() {
-				t.Errorf("Got %v, expecting %v", DebugEnabled(), c.debugEnabled)
-			}
-
-			if c.infoEnabled != InfoEnabled() {
-				t.Errorf("Got %v, expecting %v", InfoEnabled(), c.infoEnabled)
-			}
-
-			if c.warnEnabled != WarnEnabled() {
-				t.Errorf("Got %v, expecting %v", WarnEnabled(), c.warnEnabled)
-			}
-
-			if c.errorEnabled != ErrorEnabled() {
-				t.Errorf("Got %v, expecting %v", ErrorEnabled(), c.errorEnabled)
-			}
-		})
-	}
-}
-
 func TestOddballs(t *testing.T) {
 	o := DefaultOptions()
 	_ = Configure(o)
 
 	o = DefaultOptions()
-	o.outputLevel = "foobar"
+	o.outputLevels = "default,,"
 	err := Configure(o)
 	if err == nil {
 		t.Error("Got success, expected failure")
 	}
 
 	o = DefaultOptions()
-	o.stackTraceLevel = "foobar"
+	o.outputLevels = "foobar"
+	err = Configure(o)
+	if err == nil {
+		t.Error("Got success, expected failure")
+	}
+
+	o = DefaultOptions()
+	o.outputLevels = "foobar:debug"
+	err = Configure(o)
+	if err == nil {
+		t.Error("Got success, expected failure")
+	}
+
+	o = DefaultOptions()
+	o.stackTraceLevels = "default,,"
+	err = Configure(o)
+	if err == nil {
+		t.Error("Got success, expected failure")
+	}
+
+	o = DefaultOptions()
+	o.stackTraceLevels = "foobar"
+	err = Configure(o)
+	if err == nil {
+		t.Error("Got success, expected failure")
+	}
+
+	o = DefaultOptions()
+	o.stackTraceLevels = "foobar:debug"
+	err = Configure(o)
+	if err == nil {
+		t.Error("Got success, expected failure")
+	}
+
+	o = DefaultOptions()
+	o.logCallers = "foobar"
 	err = Configure(o)
 	if err == nil {
 		t.Error("Got success, expected failure")
@@ -262,7 +174,7 @@ func TestRotateNoStdout(t *testing.T) {
 		t.Fatalf("Unable to configure logging: %v", err)
 	}
 
-	Error("HELLO")
+	defaultScope.Error("HELLO")
 	Sync() // nolint: errcheck
 
 	content, err := ioutil.ReadFile(file)
@@ -289,7 +201,7 @@ func TestRotateAndStdout(t *testing.T) {
 			t.Fatalf("Unable to configure logger: %v", err)
 		}
 
-		Error("HELLO")
+		defaultScope.Error("HELLO")
 		Sync() // nolint: errcheck
 
 		content, err := ioutil.ReadFile(file)
@@ -311,23 +223,52 @@ func TestRotateAndStdout(t *testing.T) {
 func TestCapture(t *testing.T) {
 	lines, _ := captureStdout(func() {
 		o := DefaultOptions()
-		o.IncludeCallerSourceLocation = true
+		o.SetLogCallers(DefaultScopeName, true)
+		o.SetOutputLevel(DefaultScopeName, DebugLevel)
 		_ = Configure(o)
 
 		// output to the plain golang "log" package
-		log.Println("Hello")
+		log.Println("golang")
 
 		// output to the gRPC logging package
-		grpclog.Info("There")
+		grpclog.Error("grpc-error")
+		grpclog.Warning("grpc-warn")
+		grpclog.Info("grpc-info")
 
 		// output directly to zap
-		zap.L().Info("Goodbye")
+		zap.L().Error("zap-error")
+		zap.L().Warn("zap-warn")
+		zap.L().Info("zap-info")
+		zap.L().Debug("zap-debug")
+
+		l := zap.L().With(zap.String("a", "b"))
+		l.Error("zap-with")
+
+		entry := zapcore.Entry{
+			Message: "zap-write",
+			Level:   zapcore.ErrorLevel,
+		}
+		zap.L().Core().Write(entry, nil)
+
+		defaultScope.Level = NoneLevel
+		// all these get thrown out
+		zap.L().Error("zap-error")
+		zap.L().Warn("zap-warn")
+		zap.L().Info("zap-info")
+		zap.L().Debug("zap-debug")
 	})
 
 	patterns := []string{
-		timePattern + "\tinfo\tlog/log_test.go:.*\tHello",
-		timePattern + "\tinfo\tlog/log_test.go:.*\tThere",
-		timePattern + "\tinfo\tlog/log_test.go:.*\tGoodbye",
+		timePattern + "\tinfo\tlog/config_test.go:.*\tgolang",
+		timePattern + "\tinfo\tlog/config_test.go:.*\tgrpc-error", // gRPC errors and warnings come out as info
+		timePattern + "\tinfo\tlog/config_test.go:.*\tgrpc-warn",
+		timePattern + "\tinfo\tlog/config_test.go:.*\tgrpc-info",
+		timePattern + "\terror\tlog/config_test.go:.*\tzap-error",
+		timePattern + "\twarn\tlog/config_test.go:.*\tzap-warn",
+		timePattern + "\tinfo\tlog/config_test.go:.*\tzap-info",
+		timePattern + "\tdebug\tlog/config_test.go:.*\tzap-debug",
+		timePattern + "\terror\tlog/config_test.go:.*\tzap-with",
+		timePattern + "\terror\tzap-write",
 	}
 
 	for i, pat := range patterns {
@@ -338,6 +279,23 @@ func TestCapture(t *testing.T) {
 			}
 		})
 	}
+
+	lines, _ = captureStdout(func() {
+		o := DefaultOptions()
+		o.SetStackTraceLevel(DefaultScopeName, DebugLevel)
+		o.SetOutputLevel(DefaultScopeName, DebugLevel)
+		_ = Configure(o)
+		log.Println("golang")
+	})
+
+	for _, line := range lines {
+		// see if the captured output contains the current file name
+		if strings.Contains(line, "config_test.go") {
+			return
+		}
+	}
+
+	t.Error("Could not find stack trace info in output")
 }
 
 // Runs the given function while capturing everything sent to stdout
@@ -365,4 +323,14 @@ func captureStdout(f func()) ([]string, error) {
 	}
 
 	return strings.Split(string(content), "\n"), nil
+}
+
+func TestNops(t *testing.T) {
+	if err := nopSync(); err != nil {
+		t.Errorf("Expecting nil, got %v", err)
+	}
+
+	if err := nopWrite(zapcore.Entry{}, nil); err != nil {
+		t.Errorf("Expecting nil, got %v", err)
+	}
 }
