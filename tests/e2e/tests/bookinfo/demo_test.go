@@ -41,7 +41,7 @@ const (
 	yamlExtension                      = "yaml"
 	configurationDir                   = "platforms/kubernetes/configurations/guide"
 	deploymentsDir                     = "platforms/kubernetes/deployments"
-	routeRulesDir                      = "routing/v1alpha2"
+	routeRulesDir                      = "routing/v1alpha1"
 	externalServicesDir                = "/platforms/kubernetes/external_services/v1alpha2"
 	tutorialDir                        = "istio.io_tutorial"
 	bookinfoRatingsv2Yaml              = "bookinfo-ratings-v2"
