@@ -58,6 +58,7 @@ const (
 	testMysqlRule                      = routeRulesDir + "/" + "route-rule-ratings-mysql"
 	detailsExternalServiceRouteRule    = routeRulesDir + "/" + "route-rule-details-v2"
 	detailsExternalServiceEgressRule   = routeRulesDir + "/" + "egress-rule-google-apis"
+	reviewsDestinationRule             = routeRulesDir + "/" + "destination-policy-reviews"
 )
 
 var (
@@ -357,6 +358,12 @@ func setTestConfig() error {
 func TestMain(m *testing.M) {
 	flag.Parse()
 	check(framework.InitLogging(), "cannot setup logging")
+
+	if tf.V1alpha3 {
+		allRules = append(allRules, reviewsDestinationRule)
+		defaultRules = append(defaultRules, reviewsDestinationRule)
+	}
+
 	check(setTestConfig(), "could not create TestConfig")
 	tc.Cleanup.RegisterCleanable(tc)
 	os.Exit(tc.RunTest(m))
