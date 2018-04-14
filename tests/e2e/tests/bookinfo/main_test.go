@@ -70,6 +70,9 @@ var (
 	}
 	testRetryTimes = 5
 	defaultRules   = []string{allRule}
+	allRules       = []string{allRule, delayRule, tenRule, twentyRule, fiftyRule, testRule,
+		testDbRule, testMysqlRule, detailsExternalServiceRouteRule,
+		detailsExternalServiceEgressRule}
 )
 
 type testConfig struct {
@@ -147,8 +150,7 @@ func preprocessRule(t *testConfig, version, rule string) error {
 
 func (t *testConfig) Setup() error {
 	//generate rule yaml files, replace "jason" with actual user
-	for _, rule := range []string{allRule, delayRule, tenRule, twentyRule, fiftyRule, testRule,
-		testDbRule, testMysqlRule, detailsExternalServiceRouteRule, detailsExternalServiceEgressRule} {
+	for _, rule := range allRules {
 		for _, configVersion := range tf.ConfigVersions() {
 			err := preprocessRule(t, configVersion, rule)
 			if err != nil {
