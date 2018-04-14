@@ -1236,7 +1236,7 @@
     "rbac/v1alpha1",
     "routing/v1alpha1"
   ]
-  revision = "3388c6e22df091cbacf63f012aef56b3120bf869"
+  revision = "6236f62006b304f999e4647cc302eaa575d852d3"
 
 [[projects]]
   name = "istio.io/fortio"
