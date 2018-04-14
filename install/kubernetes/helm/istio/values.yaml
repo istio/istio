@@ -192,6 +192,7 @@ sidecar-injector:
   # would only capture egress traffic on those two IP Ranges, all other outbound traffic would
   # be allowed by the sidecar
   includeIPRanges: "*"
+  excludeIPRanges: ""
 
   # istio ingress capture whitelist
   # examples:
@@ -199,6 +200,7 @@ sidecar-injector:
   #     Redirect all inbound traffic to Envoy:   --includeInboundPorts="*"
   #     Redirect only selected ports:            --includeInboundPorts="80,8080"
   includeInboundPorts: "*"
+  excludeInboundPorts: ""
 
 #
 # galley configuration
