@@ -47,7 +47,7 @@ const (
 	yamlExtension            = "yaml"
 	configurationDir         = "platforms/kubernetes/configurations/guide"
 	deploymentsDir           = "platforms/kubernetes/deployments"
-	routeRulesDir            = "routing/v1alpha2"
+	routeRulesDir            = "routing/v1alpha1"
 	policiesDir              = "policies"
 	telemetryDir             = "telemetry"
 	bookinfoRatingsv2Yaml    = "bookinfo-ratings-v2"
