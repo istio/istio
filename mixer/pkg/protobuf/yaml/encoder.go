@@ -30,7 +30,7 @@ type (
 	}
 )
 
-// NewEncoder creates a Encoder
+// NewEncoder creates an Encoder
 func NewEncoder(fds *descriptor.FileDescriptorSet) *Encoder {
 	resolver := NewResolver(fds)
 	return &Encoder{resolver: resolver}
