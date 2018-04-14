@@ -60,6 +60,8 @@ containers:
 - name: istio-proxy
 volumes:
 - name: istio-envoy
+imagePullSecrets:
+- name: istio-image-pull-secrets
 `
 )
 
@@ -721,9 +723,10 @@ func makeTestData(t testing.TB, skip bool) []byte {
 			Annotations: map[string]string{},
 		},
 		Spec: corev1.PodSpec{
-			Volumes:        []corev1.Volume{{Name: "v0"}},
-			InitContainers: []corev1.Container{{Name: "c0"}},
-			Containers:     []corev1.Container{{Name: "c1"}},
+			Volumes:          []corev1.Volume{{Name: "v0"}},
+			InitContainers:   []corev1.Container{{Name: "c0"}},
+			Containers:       []corev1.Container{{Name: "c1"}},
+			ImagePullSecrets: []corev1.LocalObjectReference{{Name: "p0"}},
 		},
 	}
 
@@ -868,9 +871,16 @@ func TestRunAndServe(t *testing.T) {
    },
    {
       "op":"add",
+      "path":"/spec/imagePullSecrets/-",
+      "value":{
+         "name":"istio-image-pull-secrets"
+      }
+   },
+   {
+      "op":"add",
       "path":"/metadata/annotations",
       "value":{
-         "sidecar.istio.io/status":"{\"version\":\"d4935f8d2cac8a0d1549d3c6c61d512ba2e6822965f4f6b0863a98f73993dbf8\",\"initContainers\":[\"istio-init\"],\"containers\":[\"istio-proxy\"],\"volumes\":[\"istio-envoy\"]}"
+		  "sidecar.istio.io/status":"{\"version\":\"461c380844de8df1d1e2a80a09b6d7b58b8313c4a7d6796530eb124740a1440f\",\"initContainers\":[\"istio-init\"],\"containers\":[\"istio-proxy\"],\"volumes\":[\"istio-envoy\"],\"imagePullSecrets\":[\"istio-image-pull-secrets\"]}"
       }
    }
 ]`)
