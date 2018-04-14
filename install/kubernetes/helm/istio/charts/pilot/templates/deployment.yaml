@@ -32,9 +32,12 @@ spec:
           - "-a"
           - {{ .Release.Namespace }}
 {{- end }}
+# TODO(sdake) remove when secrets are automagically registered
 {{- if .Values.global.multicluster.enabled }}
-          - "--clusterRegistriesDir"
-          - "/etc/istio/multicluster"
+          - "--clusterRegistriesConfigMap"
+          - "clusterregistry"
+          - "--clusterRegistriesNamespace"
+          - "istio-system"
 {{- end }}
           ports:
           - containerPort: 8080
