@@ -18,6 +18,7 @@ package util
 
 import (
 	"bytes"
+	base_json "encoding/json"
 	"strconv"
 	"strings"
 	"time"
@@ -182,4 +183,13 @@ func GogoDurationToDuration(d *types.Duration) time.Duration {
 		return 0
 	}
 	return dur
+}
+
+// PrettySprint pretty sprints v using JSON Marshal.
+func PrettySprint(v interface{}) string {
+	j, err := base_json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return err.Error()
+	}
+	return string(j)
 }
