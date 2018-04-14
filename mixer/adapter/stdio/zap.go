@@ -31,8 +31,8 @@ var levelToZap = map[config.Params_Level]zapcore.Level{
 	config.ERROR:   zapcore.ErrorLevel,
 }
 
-// Creates a zap logger based on the given options
-func newZapLogger(options *config.Params) (*zap.Logger, func(), error) {
+// Creates a zap core based on the given options
+func newZapCore(options *config.Params) (zapcore.Core, func(), error) {
 	encCfg := zapcore.EncoderConfig{
 		TimeKey:        "time",
 		LevelKey:       "level",
@@ -81,11 +81,7 @@ func newZapLogger(options *config.Params) (*zap.Logger, func(), error) {
 		outputSink = os.Stderr
 	}
 
-	l := zap.New(
-		zapcore.NewCore(enc, outputSink, zap.NewAtomicLevelAt(levelToZap[options.OutputLevel])),
-		zap.ErrorOutput(os.Stderr))
-
-	return l, closer, nil
+	return zapcore.NewCore(enc, outputSink, zap.NewAtomicLevelAt(levelToZap[options.OutputLevel])), closer, nil
 }
 
 func formatDate(t time.Time, enc zapcore.PrimitiveArrayEncoder) {

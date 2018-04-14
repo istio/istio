@@ -25,7 +25,6 @@ import (
 	"testing"
 	"time"
 
-	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
 	descriptor "istio.io/api/policy/v1beta1"
@@ -141,12 +140,12 @@ func TestBuilder(t *testing.T) {
 
 	for i, c := range cases {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			zb := func(options *config.Params) (*zap.Logger, func(), error) {
+			zb := func(options *config.Params) (zapcore.Core, func(), error) {
 				if c.induceError {
 					return nil, func() {}, errors.New("expected")
 				}
 
-				return newZapLogger(options)
+				return newZapCore(options)
 			}
 
 			info := GetInfo()

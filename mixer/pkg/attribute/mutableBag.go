@@ -47,6 +47,8 @@ var mutableBags = sync.Pool{
 	},
 }
 
+var scope = log.RegisterScope("attributes", "Attribute-related messsages.", 0)
+
 // GetMutableBag returns an initialized bag.
 //
 // Bags can be chained in a parent/child relationship. You can pass nil if the
@@ -308,7 +310,7 @@ func (mb *MutableBag) UpdateBagFromProto(attrs *mixerpb.CompressedAttributes, gl
 	var buf *bytes.Buffer
 	lg := func(format string, args ...interface{}) {}
 
-	if log.DebugEnabled() {
+	if scope.DebugEnabled() {
 		buf = pool.GetBuffer()
 		lg = func(format string, args ...interface{}) {
 			fmt.Fprintf(buf, format, args...)
@@ -317,7 +319,7 @@ func (mb *MutableBag) UpdateBagFromProto(attrs *mixerpb.CompressedAttributes, gl
 
 		defer func() {
 			if buf != nil {
-				log.Debug(buf.String())
+				scope.Debug(buf.String())
 				pool.PutBuffer(buf)
 			}
 		}()
