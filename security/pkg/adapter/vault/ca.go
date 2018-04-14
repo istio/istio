@@ -22,6 +22,7 @@ import (
 
 	"github.com/hashicorp/vault/api"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/pki/util"
 )
 
@@ -78,7 +79,7 @@ func getVaultConnection(vaultAddr string, token string) (*api.Client, error) {
 
 	client, err := api.NewClient(config)
 	if err != nil {
-		fmt.Errorf("NewClient() failed (error %v)", err)
+		log.Errorf("NewClient() failed (error %v)", err)
 		return nil, err
 	}
 
@@ -96,20 +97,19 @@ func mountVaultPki(client *api.Client, caMountPoint string, caDescription string
 	mountInput.Type = "pki"
 	err := client.Sys().Mount(caMountPoint, &mountInput)
 	if err != nil {
-		fmt.Errorf("Mount() failed (error %v)", err)
+		log.Errorf("Mount() failed (error %v)", err)
 		return err
-	} else {
-		return nil
 	}
+	return nil
 }
 
 // Set the workload role that issues certs with the given max-TTL and number of key bits.
 // rolePath: the path to the workload role (e.g., "istio_ca/roles/workload_role")
 // maxTtl:  the max life time of a workload cert (e.g., "1h")
 // keyBits:  the number of bits for the key of a workload cert (e.g., 2048)
-func setWorkloadRole(client *api.Client, rolePath string, maxTtl string, keyBits int) error {
+func setWorkloadRole(client *api.Client, rolePath string, maxTTL string, keyBits int) error {
 	m := map[string]interface{}{
-		"max_ttl":           maxTtl,
+		"max_ttl":           maxTTL,
 		"key_bits":          keyBits,
 		"enforce_hostnames": false,
 		"allow_any_name":    true,
@@ -117,11 +117,10 @@ func setWorkloadRole(client *api.Client, rolePath string, maxTtl string, keyBits
 
 	_, err := client.Logical().Write(rolePath, m)
 	if err != nil {
-		fmt.Errorf("Write() failed (error %v)", err)
+		log.Errorf("Write() failed (error %v)", err)
 		return err
-	} else {
-		return nil
 	}
+	return nil
 }
 
 // Set the certificate and the private key of the CA.
@@ -134,11 +133,10 @@ func setCaKeyCert(client *api.Client, caConfigPath string, keyCert string) (*api
 
 	res, err := client.Logical().Write(caConfigPath, m)
 	if err != nil {
-		fmt.Errorf("Write() failed (error %v)", err)
+		log.Errorf("Write() failed (error %v)", err)
 		return nil, err
-	} else {
-		return res, nil
 	}
+	return res, nil
 }
 
 // Sign a CSR and return the signed certificate.
@@ -154,60 +152,60 @@ func signCsr(client *api.Client, csrPath string, csr string) (*api.Secret, error
 
 	res, err := client.Logical().Write(csrPath, m)
 	if err != nil {
-		fmt.Errorf("Write() failed (error %v)", err)
+		log.Errorf("Write() failed (error %v)", err)
 		return nil, err
-	} else {
-		return res, nil
 	}
+	return res, nil
 }
 
-//Run a prototyping signCsr flow, includes:
+//RunProtoTypeSignCsrFlow runs a prototyping signCsr flow, includes:
 //- Create a connection to Vault
 //- Mount Vault PKI
 //- Set CA signing key and cert
 //- Set workload role for issuing certificates
 //- Sign CSR and print the certificate signed
-func runProtoTypeSignCsrFlow() {
+func RunProtoTypeSignCsrFlow() error {
 	client, err := getVaultConnection(vaultAddrForTesting, tokenForTesting)
 	if err != nil {
-		fmt.Errorf("getVaultConnection() failed (error %v)", err)
-		return
+		log.Errorf("getVaultConnection() failed (error %v)", err)
+		return err
 	}
 
 	err = mountVaultPki(client, istioCaMountPoint, istioCaDescription)
 	if err != nil {
-		fmt.Errorf("mountVaultPki() failed (error %v)", err)
-		return
+		log.Errorf("mountVaultPki() failed (error %v)", err)
+		return err
 	}
 
 	keyCert, err := ioutil.ReadFile(testCAKeyCertFile)
 	if err != nil {
-		fmt.Errorf("ReadFile() failed (error %v)", err)
-		return
+		log.Errorf("ReadFile() failed (error %v)", err)
+		return err
 	}
 	_, err = setCaKeyCert(client, configCaKeyCertPath, string(keyCert[:]))
 	if err != nil {
-		fmt.Errorf("setCaKeyCert() failed (error %v)", err)
-		return
+		log.Errorf("setCaKeyCert() failed (error %v)", err)
+		return err
 	}
 
 	err = setWorkloadRole(client, workloadRolePath, "1h", 2048)
 	if err != nil {
-		fmt.Errorf("setWorkloadRole() failed (error %v)", err)
-		return
+		log.Errorf("setWorkloadRole() failed (error %v)", err)
+		return err
 	}
 
 	testCsr, err := ioutil.ReadFile(testCsrFile)
 	if err != nil {
-		fmt.Errorf("ReadFile() failed (error %v)", err)
-		return
+		log.Errorf("ReadFile() failed (error %v)", err)
+		return err
 	}
 	res, err := signCsr(client, signCsrPath, string(testCsr[:]))
 	if err != nil {
-		fmt.Errorf("signCsr() failed (error %v)", err)
-	} else {
-		fmt.Println("The certificate generated from CSR is :")
-		//Print the certificate
-		fmt.Printf("%v", res.Data["certificate"])
+		log.Errorf("signCsr() failed (error %v)", err)
+		return err
 	}
+	log.Info("The certificate generated from CSR is :")
+	//Print the certificate
+	log.Infof("%v", res.Data["certificate"])
+	return nil
 }
