@@ -311,7 +311,7 @@ func TestVMExtendsIstio(t *testing.T) {
 
 func TestExternalDetailsService(t *testing.T) {
 	if !tf.Egress {
-		t.Skip("Skipping %s: egress=false", t.Name())
+		t.Skipf("Skipping %s: egress=false", t.Name())
 	}
 
 	var rules = []string{detailsExternalServiceRouteRule, detailsExternalServiceEgressRule}
