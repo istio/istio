@@ -141,8 +141,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 			}
 			mutable := &plugin.MutableObjects{
 				Listener:    newListener,
-				TCPFilters:  networkFilters,
-				HTTPFilters: httpFilters,
+				TCPFilters:  &networkFilters,
+				HTTPFilters: &httpFilters,
 			}
 			if err := p.OnOutboundListener(params, mutable); err != nil {
 				log.Warn(err.Error())
