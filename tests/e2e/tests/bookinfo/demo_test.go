@@ -39,10 +39,6 @@ type versionRoutingRule struct {
 }
 
 func TestVersionRouting(t *testing.T) {
-	inspect(applyRules(defaultRules), "failed to apply default rules", "", t)
-	defer func() {
-		inspect(deleteRules(defaultRules), "failed to delete default rules", "", t)
-	}()
 	v1Model := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v1.html"))
 	v2TestModel := util.GetResourcePath(filepath.Join(modelDir, "productpage-test-user-v2.html"))
 
@@ -63,15 +59,27 @@ func TestVersionRouting(t *testing.T) {
 		},
 	}
 
-	for _, rule := range rules {
-		doTestVersionRouting(t, rule)
+	for _, configVersion := range tf.ConfigVersions() {
+		testVersionRoutingRules(t, configVersion, rules)
 	}
 }
 
-func doTestVersionRouting(t *testing.T, rule versionRoutingRule) {
-	inspect(applyRules([]string{rule.key}), "failed to apply rules", "", t)
+func testVersionRoutingRules(t *testing.T, configVersion string, rules []versionRoutingRule) {
+	inspect(applyRules(configVersion, defaultRules), "failed to apply default rules", "", t)
 	defer func() {
-		inspect(deleteRules([]string{rule.key}), fmt.Sprintf("failed to delete rules"), "", t)
+		inspect(deleteRules(configVersion, defaultRules), "failed to delete default rules", "", t)
+	}()
+
+	for _, rule := range rules {
+		testVersionRoutingRule(t, configVersion, rule)
+	}
+}
+
+func testVersionRoutingRule(t *testing.T, configVersion string, rule versionRoutingRule) {
+	inspect(applyRules(configVersion, []string{rule.key}), "failed to apply rules", "", t)
+	defer func() {
+		inspect(deleteRules(configVersion, []string{rule.key}),
+			fmt.Sprintf("failed to delete rules"), "", t)
 	}()
 
 	for _, userVersion := range rule.userVersions {
@@ -85,10 +93,17 @@ func doTestVersionRouting(t *testing.T, rule versionRoutingRule) {
 }
 
 func TestFaultDelay(t *testing.T) {
+
 	var rules = append([]string{testRule, delayRule}, defaultRules...)
-	inspect(applyRules(rules), "failed to apply rules", "", t)
+	for _, configVersion := range tf.ConfigVersions() {
+		doTestFaultDelay(t, configVersion, rules)
+	}
+}
+
+func doTestFaultDelay(t *testing.T, configVersion string, rules []string) {
+	inspect(applyRules(configVersion, rules), "failed to apply rules", "", t)
 	defer func() {
-		inspect(deleteRules(rules), "failed to delete rules", "", t)
+		inspect(deleteRules(configVersion, rules), "failed to delete rules", "", t)
 	}()
 	minDuration := 5
 	maxDuration := 8
@@ -123,11 +138,17 @@ type migrationRule struct {
 }
 
 func TestVersionMigration(t *testing.T) {
-	inspect(applyRules(defaultRules), "failed to apply default rules", "", t)
+	for _, configVersion := range tf.ConfigVersions() {
+		doTestVersionMigration(t, configVersion)
+	}
+}
+
+func doTestVersionMigration(t *testing.T, configVersion string) {
+	inspect(applyRules(configVersion, defaultRules), "failed to apply default rules", "", t)
 	defer func() {
 		// ignore the error that will happen since the fifty rule redefines
 		// "reviews-default" rule and is deleted
-		deleteRules(defaultRules)
+		deleteRules(configVersion, defaultRules)
 	}()
 
 	modelV2 := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v2.html"))
@@ -152,14 +173,15 @@ func TestVersionMigration(t *testing.T) {
 	}
 
 	for _, rule := range rules {
-		doTestVersionMigration(t, rule)
+		testVersionMigrationRule(t, configVersion, rule)
 	}
 }
 
-func doTestVersionMigration(t *testing.T, rule migrationRule) {
-	inspect(applyRules([]string{rule.key}), "failed to apply rules", "", t)
+func testVersionMigrationRule(t *testing.T, configVersion string, rule migrationRule) {
+	inspect(applyRules(configVersion, []string{rule.key}), "failed to apply rules", "", t)
 	defer func() {
-		inspect(deleteRules([]string{rule.key}), fmt.Sprintf("failed to delete rules"), "", t)
+		inspect(deleteRules(configVersion, []string{rule.key}),
+			fmt.Sprintf("failed to delete rules"), "", t)
 	}()
 	modelV1 := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v1.html"))
 	tolerance := 0.05
@@ -219,11 +241,17 @@ func isWithinPercentage(count int, total int, rate float64, tolerance float64) b
 }
 
 func TestDbRoutingMongo(t *testing.T) {
-	var err error
 	var rules = []string{testDbRule}
-	inspect(applyRules(rules), "failed to apply rules", "", t)
+	for _, configVersion := range tf.ConfigVersions() {
+		doTestDbRoutingMongo(t, configVersion, rules)
+	}
+}
+
+func doTestDbRoutingMongo(t *testing.T, configVersion string, rules []string) {
+	var err error
+	inspect(applyRules(configVersion, rules), "failed to apply rules", "", t)
 	defer func() {
-		inspect(deleteRules(rules), "failed to delete rules", "", t)
+		inspect(deleteRules(configVersion, rules), "failed to delete rules", "", t)
 	}()
 
 	// TODO: update the rating in the db and check the value on page
@@ -237,11 +265,18 @@ func TestDbRoutingMongo(t *testing.T) {
 }
 
 func TestDbRoutingMysql(t *testing.T) {
-	var err error
 	var rules = []string{testMysqlRule}
-	inspect(applyRules(rules), "failed to apply rules", "", t)
+
+	for _, configVersion := range tf.ConfigVersions() {
+		doTestDbRoutingMysql(t, configVersion, rules)
+	}
+}
+
+func doTestDbRoutingMysql(t *testing.T, configVersion string, rules []string) {
+	var err error
+	inspect(applyRules(configVersion, rules), "failed to apply rules", "", t)
 	defer func() {
-		inspect(deleteRules(rules), "failed to delete rules", "", t)
+		inspect(deleteRules(configVersion, rules), "failed to delete rules", "", t)
 	}()
 
 	// TODO: update the rating in the db and check the value on page
@@ -275,11 +310,22 @@ func TestVMExtendsIstio(t *testing.T) {
 }
 
 func TestExternalDetailsService(t *testing.T) {
-	var err error
+	if !tf.Egress {
+		t.Skip("Skipping %s: egress=false", t.Name())
+	}
+
 	var rules = []string{detailsExternalServiceRouteRule, detailsExternalServiceEgressRule}
-	inspect(applyRules(rules), "failed to apply rules", "", t)
+
+	for _, configVersion := range tf.ConfigVersions() {
+		doTestExternalDetailsService(t, configVersion, rules)
+	}
+}
+
+func doTestExternalDetailsService(t *testing.T, configVersion string, rules []string) {
+	var err error
+	inspect(applyRules(configVersion, rules), "failed to apply rules", "", t)
 	defer func() {
-		inspect(deleteRules(rules), "failed to delete rules", "", t)
+		inspect(deleteRules(configVersion, rules), "failed to delete rules", "", t)
 	}()
 
 	isbnFetchedFromExternalService := "0486424618"

@@ -99,13 +99,29 @@ func closeResponseBody(r *http.Response) {
 	}
 }
 
-func getPreprocessedRulePath(t *testConfig, rule string) string {
-	return filepath.Join(t.rulesDir, rule+"."+yamlExtension)
+func getPreprocessedRulePath(t *testConfig, version, rule string) string {
+	// transform, for example "routing/route-rule" into
+	// "{t.rulesDir}/routing/v1aplha3/route-rule.yaml"
+	parts := strings.Split(rule, string(os.PathSeparator))
+	parts[len(parts)-1] = parts[len(parts)-1] + "." + yamlExtension
+
+	return util.GetResourcePath(filepath.Join(t.rulesDir, "routing", version,
+		strings.Join(parts[1:], string(os.PathSeparator))))
 }
 
-func preprocessRule(t *testConfig, rule string) error {
-	src := util.GetResourcePath(filepath.Join(bookinfoSampleDir, rule+"."+yamlExtension))
-	dest := getPreprocessedRulePath(t, rule)
+func getOriginalRulePath(version, rule string) string {
+	parts := strings.Split(rule, string(os.PathSeparator))
+	if version == "v1alpha3" {
+		parts[0] = "routing"
+	}
+	parts[len(parts)-1] = parts[len(parts)-1] + "." + yamlExtension
+	return util.GetResourcePath(filepath.Join(bookinfoSampleDir,
+		strings.Join(parts, string(os.PathSeparator))))
+}
+
+func preprocessRule(t *testConfig, version, rule string) error {
+	src := getOriginalRulePath(version, rule)
+	dest := getPreprocessedRulePath(t, version, rule)
 	ori, err := ioutil.ReadFile(src)
 	if err != nil {
 		log.Errorf("Failed to read original rule file %s", src)
@@ -133,9 +149,11 @@ func (t *testConfig) Setup() error {
 	//generate rule yaml files, replace "jason" with actual user
 	for _, rule := range []string{allRule, delayRule, tenRule, twentyRule, fiftyRule, testRule,
 		testDbRule, testMysqlRule, detailsExternalServiceRouteRule, detailsExternalServiceEgressRule} {
-		err := preprocessRule(t, rule)
-		if err != nil {
-			return nil
+		for _, configVersion := range tf.ConfigVersions() {
+			err := preprocessRule(t, configVersion, rule)
+			if err != nil {
+				return nil
+			}
 		}
 	}
 
@@ -267,10 +285,10 @@ func checkHTTPResponse(user, gateway, expr string, count int) (int, error) {
 	return 1, nil
 }
 
-func deleteRules(ruleKeys []string) error {
+func deleteRules(configVersion string, ruleKeys []string) error {
 	var err error
 	for _, ruleKey := range ruleKeys {
-		rule := getPreprocessedRulePath(tc, ruleKey)
+		rule := getPreprocessedRulePath(tc, configVersion, ruleKey)
 		if e := util.KubeDelete(tc.Kube.Namespace, rule, tc.Kube.KubeConfig); e != nil {
 			err = multierror.Append(err, e)
 		}
@@ -280,9 +298,9 @@ func deleteRules(ruleKeys []string) error {
 	return err
 }
 
-func applyRules(ruleKeys []string) error {
+func applyRules(configVersion string, ruleKeys []string) error {
 	for _, ruleKey := range ruleKeys {
-		rule := getPreprocessedRulePath(tc, ruleKey)
+		rule := getPreprocessedRulePath(tc, configVersion, ruleKey)
 		if err := util.KubeApply(tc.Kube.Namespace, rule, tc.Kube.KubeConfig); err != nil {
 			//log.Errorf("Kubectl apply %s failed", rule)
 			return err
