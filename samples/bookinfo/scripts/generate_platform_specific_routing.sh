@@ -19,10 +19,10 @@ set -o errexit
 function generate_routing {
     platform=$1
     dns_domain=$2
-    routing_dir=platforms/$platform/routing/v1alpha2
+    routing_dir=platforms/$platform/routing/v1alpha1
     mkdir -p $routing_dir
 
-    for routing_spec_path in routing/v1alpha2/*; do
+    for routing_spec_path in routing/v1alpha1/*; do
         routing_spec=$(basename $routing_spec_path)
         cp  $routing_spec_path $routing_dir/$routing_spec
         for service in ratings reviews productpage details; do
