@@ -17,7 +17,7 @@
 
 ################################################
 #                                              #
-#             e2e-bookInfoTests-v1alpha3       #
+#             e2e-bookInfoTests (v1alpha3)     #
 #                                              #
 ################################################
 
@@ -29,4 +29,4 @@ set -u
 set -x
 
 echo 'Running bookinfo test with rbac, auth Tests'
-./prow/e2e-suite.sh --auth_enable --single_test --v1alpha1=false --v1alpha3=true e2e_bookinfo "$@"
+./prow/e2e-suite.sh --single_test e2e_bookinfo_envoyv2_v1alpha3 "$@"
