@@ -30,7 +30,6 @@ import (
 
 	"github.com/golang/sync/errgroup"
 	"github.com/gorilla/websocket"
-
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
