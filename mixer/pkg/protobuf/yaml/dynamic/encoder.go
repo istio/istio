@@ -20,21 +20,15 @@ import (
 	"istio.io/istio/mixer/pkg/attribute"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
-	"math"
 	"sort"
 	"istio.io/istio/mixer/pkg/protobuf/yaml"
 )
 
 
 type (
-	// DynamicEncoder transforms yaml that represents protobuf data into []byte
+	// Encoder transforms yaml that represents protobuf data into []byte
 	// The yaml representation may have dynamic content
-	DynamicEncoder interface {
-		Encode(bag attribute.Bag, ba []byte) ([]byte, error)
-	}
-
-	// dynamicEncoder
-	dynamicEncoder interface {
+	Encoder interface {
 		Encode(bag attribute.Bag, ba []byte) ([]byte, error)
 	}
 
@@ -56,7 +50,7 @@ type (
 		encodedData []byte
 
 		// encoder is needed if encodedData is not available.
-		encoder dynamicEncoder
+		encoder Encoder
 
 		// number fields are sorted by this.
 		number int
@@ -86,7 +80,7 @@ func NewDynamicEncoderBuilder(msgName string, resolver yaml.Resolver, data map[i
 }
 
 // Build builds a DynamicEncoder
-func (c DynamicEncoderBuilder) Build() (DynamicEncoder, error) {
+func (c DynamicEncoderBuilder) Build() (Encoder, error) {
 	m := c.resolver.ResolveMessage(c.msgName)
 	if m == nil {
 		return nil, fmt.Errorf("cannot resolve message '%s'", c.msgName)
@@ -95,22 +89,7 @@ func (c DynamicEncoderBuilder) Build() (DynamicEncoder, error) {
 	return c.buildMessage(m, c.data, true)
 }
 
-func makeField(fd *descriptor.FieldDescriptorProto) *field {
-	packed := fd.IsPacked() || fd.IsPacked3()
-	wireType := uint64(fd.WireType())
-	fieldNumber := int(fd.GetNumber())
-	if packed {
-		wireType = uint64(proto.WireBytes)
-	}
-
-	return &field{
-		protoKey: protoKey(fieldNumber, wireType),
-		number :fieldNumber,
-		name : fd.GetName(),
-	}
-}
-
-func (c DynamicEncoderBuilder) buildMessage(md *descriptor.DescriptorProto, data map[interface{}]interface{}, skipEncodeLength bool) (DynamicEncoder, error) {
+func (c DynamicEncoderBuilder) buildMessage(md *descriptor.DescriptorProto, data map[interface{}]interface{}, skipEncodeLength bool) (Encoder, error) {
 	var err error
 	var ok bool
 
@@ -174,7 +153,7 @@ func (c DynamicEncoderBuilder) buildMessage(md *descriptor.DescriptorProto, data
 					return nil, fmt.Errorf("unable to process: %v, got %T, want: map[string]interface{}", fd, vv)
 				}
 
-				var de DynamicEncoder
+				var de Encoder
 				if de, err = c.buildMessage(m, vq, false); err != nil {
 					return nil, fmt.Errorf("unable to process: %v, %v", fd, err)
 				}
@@ -225,17 +204,6 @@ func extendSlice(ba []byte, n int) []byte {
 const varLength  = 2
 
 
-func (m messageEncoder) encodeNoLength(bag attribute.Bag, ba []byte) ([]byte, error) {
-	var err error
-	for _, f  := range m.fields {
-		ba, err = f.Encode(bag, ba)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return ba, nil
-}
-
 // encode message including length of the message into []byte
 func (m messageEncoder) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
 	var err error
@@ -270,54 +238,23 @@ func (m messageEncoder) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
 	return ba, nil
 }
 
+
+func (m messageEncoder) encodeNoLength(bag attribute.Bag, ba []byte) ([]byte, error) {
+	var err error
+	for _, f  := range m.fields {
+		ba, err = f.Encode(bag, ba)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return ba, nil
+}
+
 type evalEncoder struct {
 	//TODO handle google.proto.Value type
 	useValueType bool
 	etype descriptor.FieldDescriptorProto_Type
 	ex compiled.Expression
-}
-
-func EncodePrimitive(v interface{}, etype descriptor.FieldDescriptorProto_Type, ba []byte) ([]byte, error) {
-	switch t := v.(type) {
-	case string:
-		if etype != descriptor.FieldDescriptorProto_TYPE_STRING {
-			return nil, fmt.Errorf("incorrect type:string, want:%s", etype)
-		}
-		ba, _ = EncodeVarint(ba, uint64(len(t)))
-		ba = append(ba, t...)
-	case bool:
-		if etype != descriptor.FieldDescriptorProto_TYPE_BOOL {
-			return nil, fmt.Errorf("incorrect type:bool, want:%s", etype)
-		}
-		// varint of 0 is 0, 1 is 1
-		v := byte(0x0)
-		if t {
-			v = byte(0x1)
-		}
-		ba = append(ba, v)
-	case int, int32, int64:
-		if !isIntegerType(etype) {
-			return nil, fmt.Errorf("incorrect type:%T, want:%s", v, etype)
-		}
-		vv, ok := Int64(t)
-		if !ok {
-			return nil, fmt.Errorf("incorrect type:%T, want:%s", v, etype)
-		}
-		ba, _ = EncodeVarint(ba, uint64(vv))
-	case float64:
-		switch etype {
-		case descriptor.FieldDescriptorProto_TYPE_FLOAT:
-			ba = EncodeFixed32(ba, uint64(math.Float32bits(float32(t))))
-		case descriptor.FieldDescriptorProto_TYPE_DOUBLE:
-			ba = EncodeFixed64(ba, math.Float64bits(t))
-		default:
-			return nil, fmt.Errorf("incorrect type:float64, want:%s", etype)
-		}
-	default:
-		return nil, fmt.Errorf("unknown type %v: %T", v, v)
-	}
-
-	return ba, nil
 }
 
 func (e evalEncoder) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
@@ -344,94 +281,4 @@ func (f field) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
 	// 3. field is of Message
 	// In all cases Encode function must correctly set Length.
 	return f.encoder.Encode(bag, ba)
-}
-
-// EncodeVarintZeroExtend encodes x as Varint in ba. Ensures that encoding is at least
-// minBytes long.
-func EncodeVarintZeroExtend(ba []byte, x uint64, minBytes int) []byte {
-	bn := 0
-	ba, bn = EncodeVarint(ba, x)
-	diff := minBytes - bn
-
-	if diff <= 0 {
-		return ba
-	}
-
-	ba[len(ba)-1] = 0x80 | ba[len(ba)-1]
-
-	for ; diff>1; diff-- {
-		ba = append(ba, 0x80)
-	}
-
-	// must end with 0x00
-	ba = append(ba, 0x00)
-
-	return ba
-}
-
-// EncodeVarint -- encodeVarint no allocations
-func EncodeVarint(buf []byte, x uint64) ([]byte, int) {
-	ol := len(buf)
-	for ; x > 127; {
-		buf = append(buf, 0x80 | uint8(x&0x7F))
-		x >>= 7
-	}
-	buf = append(buf, uint8(x))
-	return buf, len(buf) - ol
-}
-
-func EncodeFixed64(buf []byte, x uint64) []byte {
-	buf = append(buf,
-		uint8(x),
-		uint8(x>>8),
-		uint8(x>>16),
-		uint8(x>>24),
-		uint8(x>>32),
-		uint8(x>>40),
-		uint8(x>>48),
-		uint8(x>>56))
-	return buf
-}
-
-func EncodeFixed32(buf []byte, x uint64) []byte {
-	buf = append(buf,
-		uint8(x),
-		uint8(x>>8),
-		uint8(x>>16),
-		uint8(x>>24))
-	return buf
-}
-
-// protoKey returns the key which is comprised of field number and wire type.
-func protoKey(fieldNumber int, wireType uint64) []byte {
-	return proto.EncodeVarint((uint64(fieldNumber) << 3) | wireType)
-}
-
-func isIntegerType(etype descriptor.FieldDescriptorProto_Type) bool {
-	switch etype {
-	case descriptor.FieldDescriptorProto_TYPE_INT32,
-		descriptor.FieldDescriptorProto_TYPE_UINT32,
-		descriptor.FieldDescriptorProto_TYPE_INT64,
-		descriptor.FieldDescriptorProto_TYPE_UINT64:
-			return true
-	}
-
-	return false
-}
-
-func Int64(v interface{}) (int64, bool) {
-	switch c := v.(type) {
-	case int:
-		return int64(c), true
-	case int8:
-		return int64(c), true
-	case int16:
-		return int64(c), true
-	case int32:
-		return int64(c), true
-	case int64:
-		return int64(c), true
-	default:
-		return 0, false
-	}
 }
