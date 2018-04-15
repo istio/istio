@@ -158,7 +158,7 @@ func parseHostname(hostname string) (name string, err error) {
 }
 
 func convertProtocol(name string) model.Protocol {
-	protocol := model.ConvertCaseInsensitiveStringToProtocol(name)
+	protocol := model.ParseProtocol(name)
 	if protocol == model.ProtocolUnsupported {
 		log.Warnf("unsupported protocol value: %s", name)
 		return model.ProtocolTCP
