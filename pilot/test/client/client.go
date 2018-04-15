@@ -30,11 +30,10 @@ import (
 
 	"github.com/golang/sync/errgroup"
 	"github.com/gorilla/websocket"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	"istio.io/fortio/fhttp"
-	"istio.io/fortio/periodic"
 	pb "istio.io/istio/pilot/test/grpcecho"
 )
 
@@ -189,32 +188,49 @@ func makeGRPCRequest(client pb.EchoTestServiceClient) job {
 	}
 }
 
-func setup503Test() job {
+func setup503Test(client *http.Client) job {
 	return func(i int) func() error {
+		ms := int(1000/qps) * 1000 * 1000
+		time.Sleep(time.Duration(ms))
 		return func() error {
-			opts := fhttp.HTTPRunnerOptions{
-				RunnerOptions: periodic.RunnerOptions{
-					QPS:        float64(qps),
-					Duration:   duration,
-					NumThreads: 2,
-				},
-			}
-			opts.URL = url
-			if headerKey != "" {
-				opts.HTTPOptions.AddAndValidateExtraHeader(fmt.Sprintf("%s:%s", headerKey, headerVal))
+			req, err := http.NewRequest("GET", url, nil)
+			if err != nil {
+				return err
 			}
 
-			res, err := fhttp.RunHTTPTest(&opts)
+			log.Printf("[%d] Url=%s\n", i, url)
+			if headerKey == hostKey {
+				req.Host = headerVal
+				log.Printf("[%d] Host=%s\n", i, headerVal)
+			} else if headerKey != "" {
+				req.Header.Add(headerKey, headerVal)
+				log.Printf("[%d] Header=%s:%s\n", i, headerKey, headerVal)
+			}
+
+			resp, err := client.Do(req)
 			if err != nil {
-				log.Printf("[%d] %v", i, err)
+				return err
 			}
-			numRequests := res.DurationHistogram.Count
-			num200s := res.RetCodes[http.StatusOK]
-			if num200s != numRequests {
-				log.Printf("[%d] StatusCode=503\n", i)
-				return fmt.Errorf("[%d] Only %d out of %d requests succeeded with 200 OK", i, num200s, numRequests)
+
+			log.Printf("[%d] StatusCode=%d\n", i, resp.StatusCode)
+
+			data, err := ioutil.ReadAll(resp.Body)
+			defer func() {
+				if err = resp.Body.Close(); err != nil {
+					log.Printf("[%d error] %s\n", i, err)
+				}
+			}()
+
+			if err != nil {
+				return err
 			}
-			log.Printf("[%d] StatusCode=200\n", i)
+
+			for _, line := range strings.Split(string(data), "\n") {
+				if line != "" {
+					log.Printf("[%d body] %s\n", i, line)
+				}
+			}
+
 			return nil
 		}
 	}
@@ -289,7 +305,18 @@ func main() {
 
 	switch mode {
 	case check503:
-		j = setup503Test()
+		count = qps * int((duration / time.Second).Seconds())
+		/* #nosec */
+		client := &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: true,
+				},
+			},
+			Timeout: timeout,
+		}
+
+		j = setup503Test(client)
 	default:
 		j = setupDefaultTest()
 	}
