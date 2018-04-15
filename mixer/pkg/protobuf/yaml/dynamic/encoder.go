@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package yaml
+package dynamic
 
 import (
 	"istio.io/istio/mixer/pkg/lang/compiled"
@@ -22,6 +22,7 @@ import (
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 	"math"
 	"sort"
+	"istio.io/istio/mixer/pkg/protobuf/yaml"
 )
 
 
@@ -66,7 +67,7 @@ type (
 
 	DynamicEncoderBuilder struct {
 		msgName string
-		resolver Resolver
+		resolver yaml.Resolver
 		data map[interface{}]interface{}
 		compiler compiled.Compiler
 		skipUnknown bool
@@ -74,7 +75,7 @@ type (
 )
 
 // NewDynamicEncoderBuilder creates a DynamicEncoderBuilder.
-func NewDynamicEncoderBuilder(msgName string, resolver Resolver, data map[interface{}]interface{},
+func NewDynamicEncoderBuilder(msgName string, resolver yaml.Resolver, data map[interface{}]interface{},
 	compiler compiled.Compiler, skipUnknown bool) *DynamicEncoderBuilder {
 	return &DynamicEncoderBuilder{
 		msgName: msgName,
@@ -124,7 +125,7 @@ func (c DynamicEncoderBuilder) buildMessage(md *descriptor.DescriptorProto, data
 			return nil, fmt.Errorf("error processing message '%s':%v got %T want string", md.GetName(), kk, kk)
 		}
 
-		fd := findFieldByName(md, k)
+		fd := yaml.FindFieldByName(md, k)
 		if fd == nil {
 			if c.skipUnknown {
 				continue

@@ -1,9 +1,10 @@
-package yaml
+package dynamic
 
 import (
 	"testing"
 	"github.com/gogo/protobuf/proto"
 	"fmt"
+	protoyaml "istio.io/istio/mixer/pkg/protobuf/yaml"
 	"istio.io/istio/mixer/pkg/protobuf/yaml/testdata/all"
 	yaml2 "gopkg.in/yaml.v2"
 	"reflect"
@@ -86,11 +87,11 @@ func TestStatic1 (t *testing.T) {
 
 	t.Logf("\n%s", string(ba))
 
-	fds, err := getFileDescSet("testdata/all/types.descriptor")
+	fds, err := protoyaml.GetFileDescSet("../testdata/all/types.descriptor")
 	if err != nil {
 		t.Fatal(err)
 	}
-	res := NewResolver(fds)
+	res := protoyaml.NewResolver(fds)
 
 	db := NewDynamicEncoderBuilder(".foo.Simple", res, data, nil, true)
 
@@ -124,20 +125,20 @@ func TestStatic1 (t *testing.T) {
 
 
 func TestStatic2(t *testing.T){
-	fds, err := getFileDescSet("testdata/all/types.descriptor")
+	fds, err := protoyaml.GetFileDescSet("../testdata/all/types.descriptor")
 	if err != nil {
 		t.Fatal(err)
 	}
-	res := NewResolver(fds)
+	res := protoyaml.NewResolver(fds)
 	testMsg(t, sff2, res)
 }
 
 func TestStatic3(t *testing.T){
-	fds, err := getFileDescSet("testdata/all/types.descriptor")
+	fds, err := protoyaml.GetFileDescSet("../testdata/all/types.descriptor")
 	if err != nil {
 		t.Fatal(err)
 	}
-	res := NewResolver(fds)
+	res := protoyaml.NewResolver(fds)
 
 	fs := &foo.Simple{
 		MapStrStr: map[string] string {
@@ -152,7 +153,7 @@ func TestStatic3(t *testing.T){
 	testMsg(t, ba, res)
 }
 
-func testMsg(t *testing.T, input string, res Resolver) {
+func testMsg(t *testing.T, input string, res protoyaml.Resolver) {
 	data := map[interface{}] interface{} {}
 	var err error
 

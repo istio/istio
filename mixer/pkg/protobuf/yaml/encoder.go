@@ -21,6 +21,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
+	"io/ioutil"
 )
 
 type (
@@ -46,7 +47,7 @@ func (e *Encoder) EncodeBytes(data map[interface{}]interface{}, msgName string, 
 		return nil, fmt.Errorf("cannot resolve message '%s'", msgName)
 	}
 	for k, v := range data {
-		fd := findFieldByName(message, k.(string))
+		fd := FindFieldByName(message, k.(string))
 		if fd == nil {
 			if skipUnknown {
 				continue
@@ -1042,4 +1043,18 @@ func typeName(field *descriptor.FieldDescriptorProto) string {
 		typ = "int64"
 	}
 	return typ
+}
+
+func GetFileDescSet(path string) (*descriptor.FileDescriptorSet, error) {
+	byts, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	fds := &descriptor.FileDescriptorSet{}
+	if err = proto.Unmarshal(byts, fds); err != nil {
+		return nil, err
+	}
+
+	return fds, nil
 }
