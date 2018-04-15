@@ -11,8 +11,7 @@ import (
 	"github.com/ghodss/yaml"
 )
 
-func TestDecode(t *testing.T) {
-
+func TestEncodeVarintZeroExtend(t *testing.T) {
 	for _, tst := range []struct {
 		x int
 		l int
@@ -31,26 +30,24 @@ func TestDecode(t *testing.T) {
 	} {
 		name := fmt.Sprintf("x=%v,l=%v",tst.x, tst.l)
 		t.Run(name, func(tt *testing.T) {
-			test_x(uint64(tst.x), tst.l, tt)
+			testEncodeVarintZeroExtend(uint64(tst.x), tst.l, tt)
 		})
 	}
 }
 
-
-func test_x(x uint64,  l int, t *testing.T) {
+func testEncodeVarintZeroExtend(x uint64,  l int, tt *testing.T) {
 	ba := make([]byte, 0, 8)
-	//ba := EncodeLength(x, l)
-	ba = EncodeLength2(ba, x, l)
+	ba = EncodeVarintZeroExtend(ba, x, l)
 
 	if len(ba) < l {
-		t.Fatalf("Incorrect length. got %v, want %v", len(ba), l)
+		tt.Fatalf("Incorrect length. got %v, want %v", len(ba), l)
 	}
 	x1, n := proto.DecodeVarint(ba)
 	if x1 != x {
-		t.Fatalf("Incorrect decode. got %v, want %v", x1, x)
+		tt.Fatalf("Incorrect decode. got %v, want %v", x1, x)
 	}
 	if n != len(ba) {
-		t.Fatalf("Not all args were consumed. got %v, want %v, %v", n, len(ba), ba)
+		tt.Fatalf("Not all args were consumed. got %v, want %v, %v", n, len(ba), ba)
 	}
 }
 

@@ -50,11 +50,11 @@ type (
 		// proto key  -- EncodeVarInt ((field_number << 3) | wire_type)
 		protoKey []byte
 
-		// staticData is available if the entire field can be encoded
+		// encodedData is available if the entire field can be encoded
 		// at compile time.
-		staticData []byte
+		encodedData []byte
 
-		// encoder is needed
+		// encoder is needed if encodedData is not available.
 		encoder dynamicEncoder
 
 		// number fields are sorted by this.
@@ -70,22 +70,6 @@ type (
 		data map[interface{}]interface{}
 		compiler compiled.Compiler
 		skipUnknown bool
-	}
-
-	Buffer interface {
-		// EncodeVarint writes a varint-encoded integer to the Buffer.
-		// This is the format for the
-		// int32, int64, uint32, uint64, bool, and enum
-		// protocol buffer types.
-		EncodeVarint(x uint64) error
-
-		// EncodeRawBytes writes a count-delimited byte buffer to the Buffer.
-		// This is the format used for the bytes protocol buffer
-		// type and for embedded messages.
-		EncodeRawBytes(b []byte) error
-
-		// Length returns the current length of the buffer
-		Length () int
 	}
 )
 
@@ -109,14 +93,6 @@ func (c DynamicEncoderBuilder) Build() (DynamicEncoder, error) {
 
 	return c.buildMessage(m, c.data, true)
 }
-
-type nopEncoder struct {
-
-}
-func (n nopEncoder) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
-	return ba, nil
-}
-var ne = nopEncoder{}
 
 func makeField(fd *descriptor.FieldDescriptorProto) *field {
 	packed := fd.IsPacked() || fd.IsPacked3()
@@ -164,7 +140,7 @@ func (c DynamicEncoderBuilder) buildMessage(md *descriptor.DescriptorProto, data
 			}
 
 			fld := makeField(fd)
-			if fld.staticData, err = EncodePrimitive(v, fd.GetType(), fld.staticData); err != nil {
+			if fld.encodedData, err = EncodePrimitive(v, fd.GetType(), fld.encodedData); err != nil {
 				return nil, fmt.Errorf("unable to encode: %v. %v", k, err)
 			}
 			me.fields = append(me.fields, fld)
@@ -181,7 +157,7 @@ func (c DynamicEncoderBuilder) buildMessage(md *descriptor.DescriptorProto, data
 				if err != nil {
 					return nil, fmt.Errorf("unable to process: %v, %v", fd, err)
 				}
-			} else if repeated {
+			} else if repeated { // map entry is always repeated.
 				ma, ok = v.([]interface{})
 				if !ok {
 					return nil, fmt.Errorf("unable to process: %v, got %T, want: []interface{}", fd, v)
@@ -190,6 +166,7 @@ func (c DynamicEncoderBuilder) buildMessage(md *descriptor.DescriptorProto, data
 				ma = []interface{}{v}
 			}
 
+			// now maps, messages and repeated maps all look the same.
 			for _, vv := range ma {
 				var vq map[interface{}]interface{}
 				if vq, ok = vv.(map[interface{}]interface{}); !ok {
@@ -287,7 +264,7 @@ func (m messageEncoder) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
 	}
 
 	// ignore return value. EncodeLength is writing in the middle of the array.
-	_ = EncodeLength2(ba[l0:l0], uint64(length), varLength)
+	_ = EncodeVarintZeroExtend(ba[l0:l0], uint64(length), varLength)
 
 	return ba, nil
 }
@@ -356,8 +333,8 @@ func (f field) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
 
 	// Varint, 64-bit, 32-bit are directly encoded
 	// should take care of its own length
-	if f.staticData != nil {
-		return append(ba, f.staticData...), nil
+	if f.encodedData != nil {
+		return append(ba, f.encodedData...), nil
 	}
 
 	// The following call happens when
@@ -368,34 +345,12 @@ func (f field) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
 	return f.encoder.Encode(bag, ba)
 }
 
-// EncodeLength - zero extend to n bytes
-// Varint encoding may be larger than n in which case it is directly returned.
-func EncodeLength(x uint64, n int) []byte {
-	ba := proto.EncodeVarint(x)
-
-	diff := n - len(ba)
-
-	if diff <= 0 {
-		return ba
-	}
-
-	ba[len(ba)-1] = 0x80 | ba[len(ba)-1]
-
-	for ; diff>1; diff-- {
-		ba = append(ba, 0x80)
-	}
-
-	// must end with 0x00
-	ba = append(ba, 0x00)
-
-	return ba
-}
-
-func EncodeLength2(ba []byte, x uint64, n int) []byte {
+// EncodeVarintZeroExtend encodes x as Varint in ba. Ensures that encoding is at least
+// minBytes long.
+func EncodeVarintZeroExtend(ba []byte, x uint64, minBytes int) []byte {
 	bn := 0
 	ba, bn = EncodeVarint(ba, x)
-
-	diff := n - bn
+	diff := minBytes - bn
 
 	if diff <= 0 {
 		return ba
@@ -413,7 +368,7 @@ func EncodeLength2(ba []byte, x uint64, n int) []byte {
 	return ba
 }
 
-// encodeVarint -- encodeVarint no allocations
+// EncodeVarint -- encodeVarint no allocations
 func EncodeVarint(buf []byte, x uint64) ([]byte, int) {
 	ol := len(buf)
 	for ; x > 127; {
