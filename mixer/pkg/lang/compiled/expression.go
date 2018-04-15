@@ -14,7 +14,10 @@
 
 package compiled
 
-import "istio.io/istio/mixer/pkg/attribute"
+import (
+	"istio.io/istio/mixer/pkg/attribute"
+	descriptor "istio.io/api/policy/v1beta1"
+)
 
 // Expression represents a precompiled expression that can be immediately evaluated.
 // It holds no cache and does not listen to any events. If the configuration changes, the CompiledExpression needs
@@ -38,4 +41,11 @@ type Expression interface {
 	// EvaluateInteger evaluates this compiled expression against the attribute bag and returns the result as int64.
 	// panics if the expression does not return a int64.
 	EvaluateInteger(attribute attribute.Bag) (int64, error)
+}
+
+
+// Compiler compiles expression and returns a value type.
+type Compiler interface {
+	// Compile type Compiler interface {compiles expression and returns a value type.
+	Compile(text string) (Expression, descriptor.ValueType, error)
 }
