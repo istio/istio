@@ -196,7 +196,7 @@ func setup503Test() job {
 				RunnerOptions: periodic.RunnerOptions{
 					QPS:        float64(qps),
 					Duration:   duration,
-					NumThreads: 1,
+					NumThreads: 2,
 				},
 			}
 			opts.URL = url
