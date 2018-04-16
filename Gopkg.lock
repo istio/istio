@@ -908,7 +908,8 @@
     "thrift-gen/zipkincore",
     "transport",
     "transport/zipkin",
-    "utils"
+    "utils",
+    "zipkin"
   ]
   revision = "c107110d057826281414cb964f167bce5be17588"
   version = "v2.12.0"
@@ -1533,6 +1534,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "d917af43d4122fe296a1c08542dd740b0e48204955f051f56b52cca86bce6c15"
+  inputs-digest = "6cad8ed9d4298d65597b3aeee13396f09f4a44781d58ec5ca197f2816348bd14"
   solver-name = "gps-cdcl"
   solver-version = 1
