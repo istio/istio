@@ -33,7 +33,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	pb "istio.io/istio/pilot/test/grpcecho"
+	pb "istio.io/fortio/fgrpc"
 )
 
 var (
@@ -155,12 +155,12 @@ func makeWebSocketRequest(client *websocket.Dialer) func(int) func() error {
 	}
 }
 
-func makeGRPCRequest(client pb.EchoTestServiceClient) func(int) func() error {
+func makeGRPCRequest(client pb.PingServerClient) func(int) func() error {
 	return func(i int) func() error {
 		return func() error {
-			req := &pb.EchoRequest{Message: fmt.Sprintf("request #%d", i)}
+			req := &pb.PingMessage{Payload: fmt.Sprintf("request #%d", i)}
 			log.Printf("[%d] grpcecho.Echo(%v)\n", i, req)
-			resp, err := client.Echo(context.Background(), req)
+			resp, err := client.Ping(context.Background(), req)
 			if err != nil {
 				return err
 			}
@@ -168,7 +168,7 @@ func makeGRPCRequest(client pb.EchoTestServiceClient) func(int) func() error {
 			// when the underlying HTTP2 request returns status 404, GRPC
 			// request does not return an error in grpc-go.
 			// instead it just returns an empty response
-			for _, line := range strings.Split(resp.GetMessage(), "\n") {
+			for _, line := range strings.Split(resp.GetPayload(), "\n") {
 				if line != "" {
 					log.Printf("[%d body] %s\n", i, line)
 				}
@@ -230,7 +230,7 @@ func main() {
 				log.Println(err)
 			}
 		}()
-		client := pb.NewEchoTestServiceClient(conn)
+		client := pb.NewPingServerClient(conn)
 		f = makeGRPCRequest(client)
 	} else if strings.HasPrefix(url, "ws://") || strings.HasPrefix(url, "wss://") {
 		/* #nosec */
