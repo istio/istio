@@ -366,9 +366,10 @@ func setUpstreamProtocol(cluster *v2.Cluster, port *model.Port) {
 func buildDefaultCluster(env model.Environment, name string, discoveryType v2.Cluster_DiscoveryType,
 	hosts []*core.Address) *v2.Cluster {
 	cluster := &v2.Cluster{
-		Name:  name,
-		Type:  discoveryType,
-		Hosts: hosts,
+		Name:            name,
+		Type:            discoveryType,
+		Hosts:           hosts,
+		DnsLookupFamily: v2.Cluster_V4_ONLY,
 	}
 	defaultTrafficPolicy := buildDefaultTrafficPolicy(env, discoveryType)
 	applyTrafficPolicy(cluster, defaultTrafficPolicy)
