@@ -38,7 +38,7 @@ const (
 	versionPath = "/version"
 )
 
-func startMonitor(port uint16, enableProfiling bool) (*monitor, error) {
+func startMonitor(port uint16, enableProfiling bool, lf listenFunc) (*monitor, error) {
 	m := &monitor{
 		closed: make(chan struct{}),
 	}
@@ -46,7 +46,7 @@ func startMonitor(port uint16, enableProfiling bool) (*monitor, error) {
 	// get the network stuff setup
 	var listener net.Listener
 	var err error
-	if listener, err = net.Listen("tcp", fmt.Sprintf(":%d", port)); err != nil {
+	if listener, err = lf("tcp", fmt.Sprintf(":%d", port)); err != nil {
 		return nil, fmt.Errorf("unable to listen on socket: %v", err)
 	}
 

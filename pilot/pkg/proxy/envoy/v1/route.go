@@ -25,10 +25,9 @@ import (
 
 	"github.com/golang/protobuf/ptypes/duration"
 
-	networking "istio.io/api/networking/v1alpha3"
+	authn "istio.io/api/authentication/v1alpha1"
 	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -40,12 +39,12 @@ const (
 )
 
 // buildListenerSSLContext returns an SSLContext struct.
-func buildListenerSSLContext(certsDir string) *SSLContext {
+func buildListenerSSLContext(certsDir string, mtlsParams *authn.MutualTls) *SSLContext {
 	return &SSLContext{
 		CertChainFile:            path.Join(certsDir, model.CertChainFilename),
 		PrivateKeyFile:           path.Join(certsDir, model.KeyFilename),
 		CaCertFile:               path.Join(certsDir, model.RootCertFilename),
-		RequireClientCertificate: true,
+		RequireClientCertificate: !(mtlsParams != nil && mtlsParams.AllowTls),
 	}
 }
 
@@ -86,46 +85,6 @@ func BuildInboundRoute(config model.Config, rule *routing.RouteRule, cluster *Cl
 	}
 
 	if !rule.WebsocketUpgrade {
-		route.Decorator = buildDecorator(config)
-	}
-
-	return route
-}
-
-// BuildInboundRoutesV2 builds inbound routes using the V2 API.
-func BuildInboundRoutesV2(proxyInstances []*model.ServiceInstance, config model.Config, rule *networking.VirtualService, cluster *Cluster) []*HTTPRoute {
-	routes := make([]*HTTPRoute, 0)
-	for _, http := range rule.Http {
-		if len(http.Match) == 0 {
-			routes = append(routes, BuildInboundRouteV2(config, cluster, http, nil))
-		}
-		for _, match := range http.Match {
-			for _, instance := range proxyInstances {
-				if model.Labels(match.SourceLabels).SubsetOf(instance.Labels) {
-					routes = append(routes, BuildInboundRouteV2(config, cluster, http, match))
-					break
-				}
-			}
-		}
-	}
-	return routes
-}
-
-// BuildInboundRouteV2 builds an inbound route using the v2 API.
-func BuildInboundRouteV2(config model.Config, cluster *Cluster, http *networking.HTTPRoute, match *networking.HTTPMatchRequest) *HTTPRoute {
-	route := buildHTTPRouteMatchV2(match)
-
-	route.Cluster = cluster.Name
-	route.Clusters = []*Cluster{cluster}
-	route.WebsocketUpgrade = http.WebsocketUpgrade
-	if http.Rewrite != nil && http.Rewrite.Uri != "" {
-		// overwrite the computed prefix with the rewritten prefix,
-		// for this is what we expect from remote envoys
-		route.Prefix = http.Rewrite.Uri
-		route.Path = ""
-	}
-
-	if !http.WebsocketUpgrade {
 		route.Decorator = buildDecorator(config)
 	}
 
@@ -181,21 +140,8 @@ func BuildOutboundCluster(hostname string, port *model.Port, labels model.Labels
 	return cluster
 }
 
-// BuildHTTPRoutes translates a route rule to an Envoy route
-func BuildHTTPRoutes(store model.IstioConfigStore, config model.Config, service *model.Service,
-	port *model.Port, proxyInstances []*model.ServiceInstance, domain string, buildCluster BuildClusterFunc) []*HTTPRoute {
-
-	switch config.Spec.(type) {
-	case *routing.RouteRule:
-		return []*HTTPRoute{buildHTTPRouteV1(config, service, port)}
-	case *networking.VirtualService:
-		return buildHTTPRoutesV2(store, config, service, port, proxyInstances, domain, buildCluster)
-	default:
-		panic("unsupported rule")
-	}
-}
-
-func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.Port) *HTTPRoute {
+// BuildHTTPRoute translates a route rule to an Envoy route
+func BuildHTTPRoute(config model.Config, service *model.Service, port *model.Port, envoyv2 bool) *HTTPRoute {
 	rule := config.Spec.(*routing.RouteRule)
 	route := buildHTTPRouteMatch(rule.Match)
 
@@ -246,6 +192,12 @@ func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.P
 		// default route for the destination
 		cluster := BuildOutboundCluster(destination, port, nil, service.External())
 		route.Cluster = cluster.Name
+
+		v2clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", destination, port)
+		if envoyv2 {
+			route.Cluster = v2clusterName
+		}
+
 		route.Clusters = append(route.Clusters, cluster)
 	}
 
@@ -306,7 +258,7 @@ func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.P
 			route.CORSPolicy.ExposeHeaders = strings.Join(rule.CorsPolicy.ExposeHeaders, ",")
 		}
 		if rule.CorsPolicy.MaxAge != nil {
-			route.CORSPolicy.MaxAge = rule.CorsPolicy.MaxAge.String()
+			route.CORSPolicy.MaxAge = int(rule.CorsPolicy.MaxAge.Seconds)
 		}
 	}
 
@@ -317,200 +269,6 @@ func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.P
 	route.Decorator = buildDecorator(config)
 
 	return route
-}
-
-func buildHTTPRoutesV2(store model.IstioConfigStore, config model.Config, service *model.Service, port *model.Port,
-	proxyInstances []*model.ServiceInstance, domain string, buildCluster BuildClusterFunc) []*HTTPRoute {
-
-	rule := config.Spec.(*networking.VirtualService)
-	routes := make([]*HTTPRoute, 0)
-
-	for _, http := range rule.Http {
-		if len(http.Match) == 0 {
-			routes = append(routes, buildHTTPRouteV2(store, config, service, port, http, nil, domain, buildCluster))
-		}
-		for _, match := range http.Match {
-			for _, instance := range proxyInstances {
-				if model.Labels(match.SourceLabels).SubsetOf(instance.Labels) {
-					routes = append(routes, buildHTTPRouteV2(store, config, service, port, http, match, domain, buildCluster))
-					break
-				}
-			}
-		}
-	}
-	if len(rule.Http) == 0 {
-		route := &HTTPRoute{
-			Prefix: "/",
-		}
-		// default route for the destination
-		cluster := buildCluster(service.Hostname, port, nil, service.External())
-		route.Cluster = cluster.Name
-		route.Clusters = append(route.Clusters, cluster)
-		routes = append(routes, route)
-	}
-
-	return routes
-}
-
-func buildHTTPRouteV2(store model.IstioConfigStore, config model.Config, service *model.Service, port *model.Port,
-	http *networking.HTTPRoute, match *networking.HTTPMatchRequest, domain string, buildCluster BuildClusterFunc) *HTTPRoute {
-
-	route := buildHTTPRouteMatchV2(match)
-
-	if len(http.Route) == 0 { // build default cluster
-		cluster := buildCluster(service.Hostname, port, nil, service.External())
-		route.Cluster = cluster.Name
-		route.Clusters = append(route.Clusters, cluster)
-	} else {
-		route.WeightedClusters = &WeightedCluster{Clusters: make([]*WeightedClusterEntry, 0, len(http.Route))}
-		for _, dst := range http.Route {
-			fqdn := model.ResolveFQDN(dst.Destination.Name, domain)
-			labels := fetchSubsetLabels(store, fqdn, dst.Destination.Subset, domain)
-			cluster := buildCluster(fqdn, port, labels, service.External()) // TODO: support Destination.Port
-			route.Clusters = append(route.Clusters, cluster)
-			route.WeightedClusters.Clusters = append(route.WeightedClusters.Clusters,
-				&WeightedClusterEntry{
-					Name:   cluster.Name,
-					Weight: int(dst.Weight),
-				})
-		}
-
-		// rewrite to a single cluster if there is only weighted cluster
-		if len(route.WeightedClusters.Clusters) == 1 {
-			route.Cluster = route.WeightedClusters.Clusters[0].Name
-			route.WeightedClusters = nil
-		}
-	}
-
-	if http.Timeout != nil &&
-		protoDurationToMS(http.Timeout) > 0 {
-		route.TimeoutMS = protoDurationToMS(http.Timeout)
-	}
-
-	route.RetryPolicy = buildRetryPolicy(http.Retries)
-
-	applyRedirect(route, http.Redirect)
-	applyRewrite(route, http.Rewrite)
-
-	// Add the fault filters, one per cluster defined in weighted cluster or cluster
-	if http.Fault != nil {
-		route.faults = make([]*HTTPFilter, 0, len(route.Clusters))
-		for _, cluster := range route.Clusters {
-			if fault := buildHTTPFaultFilterV2(cluster.Name, http.Fault, route.Headers); fault != nil {
-				route.faults = append(route.faults, fault)
-			}
-		}
-	}
-
-	if http.Mirror != nil {
-		fqdn := model.ResolveFQDN(http.Mirror.Name, domain)
-		labels := fetchSubsetLabels(store, fqdn, http.Mirror.Subset, domain)
-		cluster := buildCluster(fqdn, port, labels, false)
-		route.Clusters = append(route.Clusters, cluster)
-		route.ShadowCluster = &ShadowCluster{Cluster: cluster.Name}
-	}
-
-	route.HeadersToAdd = buildHeadersToAdd(http.AppendHeaders)
-	route.CORSPolicy = buildCORSPolicy(http.CorsPolicy)
-	route.WebsocketUpgrade = http.WebsocketUpgrade
-	route.Decorator = buildDecorator(config)
-
-	return route
-}
-
-// TODO: This logic is temporary until we fully switch from v1alpha1 to v1alpha2.
-// In v1alpha2, cluster names will be built using the subset name instead of labels.
-// This will allow us to remove this function, which is very inefficient.
-func fetchSubsetLabels(store model.IstioConfigStore, name, subsetName, domain string) (labels model.Labels) {
-	if subsetName == "" {
-		return
-	}
-
-	destinationRuleConfig := store.DestinationRule(name, domain)
-	if destinationRuleConfig != nil {
-		destinationRule := destinationRuleConfig.Spec.(*networking.DestinationRule)
-
-		var found bool
-		for _, subset := range destinationRule.Subsets {
-			if subset.Name == subsetName {
-				labels = model.Labels(subset.Labels)
-				found = true
-				break
-			}
-		}
-
-		if !found {
-			log.Warnf("Reference to non-existent subset %q", subsetName)
-		}
-	}
-
-	return
-}
-
-func applyRedirect(route *HTTPRoute, redirect *networking.HTTPRedirect) {
-	if redirect != nil {
-		route.HostRedirect = redirect.Authority
-		route.PathRedirect = redirect.Uri
-		route.Cluster = ""
-	}
-}
-
-func buildRetryPolicy(retries *networking.HTTPRetry) (policy *RetryPolicy) {
-	if retries != nil && retries.Attempts > 0 {
-		policy = &RetryPolicy{
-			NumRetries: int(retries.GetAttempts()),
-			Policy:     "5xx,connect-failure,refused-stream",
-		}
-		if protoDurationToMS(retries.PerTryTimeout) > 0 {
-			policy.PerTryTimeoutMS = protoDurationToMS(retries.PerTryTimeout)
-		}
-	}
-	return
-}
-
-func applyRewrite(route *HTTPRoute, rewrite *networking.HTTPRewrite) {
-	if rewrite != nil {
-		route.HostRewrite = rewrite.Authority
-		route.PrefixRewrite = rewrite.Uri
-	}
-}
-
-func buildHeadersToAdd(headers map[string]string) []AppendedHeader {
-	out := make([]AppendedHeader, 0, len(headers))
-	for name, val := range headers {
-		out = append(out, AppendedHeader{
-			Key:   name,
-			Value: val,
-		})
-	}
-	return out
-}
-
-func buildCORSPolicy(policy *networking.CorsPolicy) *CORSPolicy {
-	if policy == nil {
-		return nil
-	}
-
-	out := &CORSPolicy{
-		AllowOrigin: policy.AllowOrigin,
-		Enabled:     true,
-	}
-	if policy.AllowCredentials != nil {
-		out.AllowCredentials = policy.AllowCredentials.Value
-	}
-	if len(policy.AllowHeaders) > 0 {
-		out.AllowHeaders = strings.Join(policy.AllowHeaders, ",")
-	}
-	if len(policy.AllowMethods) > 0 {
-		out.AllowMethods = strings.Join(policy.AllowMethods, ",")
-	}
-	if len(policy.ExposeHeaders) > 0 {
-		out.ExposeHeaders = strings.Join(policy.ExposeHeaders, ",")
-	}
-	if policy.MaxAge != nil {
-		out.MaxAge = policy.MaxAge.String()
-	}
-	return out
 }
 
 func buildCluster(address, name string, timeout *duration.Duration) *Cluster {
@@ -527,6 +285,7 @@ func buildCluster(address, name string, timeout *duration.Duration) *Cluster {
 	}
 }
 
+// TODO: With multiple rules per VirtualService, this is no longer useful.
 func buildDecorator(config model.Config) *Decorator {
 	if config.ConfigMeta.Name != "" {
 		return &Decorator{

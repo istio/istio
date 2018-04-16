@@ -14,11 +14,17 @@
   "dynamic_resources": {
     "lds_config": {
       "api_config_source": {
+{{- if .ldsv2 }}
+        "api_type": "GRPC",
+        "refresh_delay": {{ .refresh_delay }},
+        "cluster_names": [
+          "xds-grpc"
+        ]{{ else }}
         "api_type": "REST_LEGACY",
         "refresh_delay": {{ .refresh_delay }},
         "cluster_names": [
           "rds"
-        ]
+        ]{{ end }}
       }
     },
     "cds_config": {
@@ -33,11 +39,19 @@
     "deprecated_v1": {
       "sds_config": {
         "api_config_source": {
+{{- if .edsv1  }}
           "api_type": "REST_LEGACY",
           "refresh_delay": {{ .refresh_delay }},
           "cluster_names": [
             "rds"
           ]
+{{ else }}
+          "api_type": "GRPC",
+          "refresh_delay": {{ .refresh_delay }},
+          "cluster_names": [
+            "xds-grpc"
+          ]
+{{ end }}
         }
       }
     }
@@ -90,6 +104,21 @@
     "socket_address": {{ .pilot_grpc_address }}
     }
     ],
+    "circuit_breakers": {
+        "thresholds": [
+      {
+        "priority": "default",
+        "max_connections": "100000",
+        "max_pending_requests": "100000",
+        "max_requests": "100000"
+      },
+      {
+        "priority": "high",
+        "max_connections": "100000",
+        "max_pending_requests": "100000",
+        "max_requests": "100000"
+      }]
+    },
     "http2_protocol_options": { }
     }
 

@@ -99,6 +99,6 @@ func TestController(t *testing.T) {
 	})
 	time.Sleep(notifyThreshold)
 	if c := getCountAndReset(); c != 2 {
-		t.Errorf("got %d notifications from controller, want %d", count, 2)
+		t.Errorf("got %d notifications from controller, want %d", c, 2)
 	}
 }

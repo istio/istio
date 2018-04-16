@@ -71,7 +71,6 @@ parse_skipped_tests
 
 echo "Code coverage test (concurrency ${MAXPROCS})"
 for P in $(go list ${DIR} | grep -v vendor); do
-  #FIXME remove mixer tools exclusion after tests can be run without bazel
   if echo ${P} | grep -q "${SKIPPED_TESTS_GREP_ARGS}"; then
     echo "Skipped ${P}"
     continue
@@ -100,19 +99,23 @@ if [[ -n ${FAILED_TESTS:-} ]]; then
   exit 1
 fi
 
+PKG_CHECK_ARGS=(--bucket='' )
+if [[ -n "${CIRCLE_BUILD_NUM:-}" ]]; then
+  if [[ -z "${CIRCLE_PR_NUMBER:-}" ]]; then
+    TMP_SA_JSON=$(mktemp /tmp/XXXXX.json)
+    ENCRYPTED_SA_JSON="${ROOTDIR}/.circleci/accounts/istio-circle-ci.gcp.serviceaccount"
+    openssl aes-256-cbc -d -in "${ENCRYPTED_SA_JSON}" -out "${TMP_SA_JSON}" -k "${GCS_BUCKET_TOKEN}"
+    # only pushing data on post submit
+    PKG_CHECK_ARGS=( --build_id="${CIRCLE_BUILD_NUM}"
+      --job_name="istio/${CIRCLE_JOB}_${CIRCLE_BRANCH}"
+      --service_account="${TMP_SA_JSON}"
+    )
+  fi
+fi
+
 echo 'Checking package coverage'
 go get -u istio.io/test-infra/toolbox/pkg_check
-
-if [ "$CODECOV_NO_ENFORCE" == "true" ] ; then
-# Coverage doesn't yet take into account files used for or covered by integration tests,
-# only looks for unit test coverage. It can be enforced once real coverage can be measured.
 pkg_check \
-  --bucket= \
-  --report_file=/go/out/codecov/codecov.report \
-  --requirement_file=codecov.requirement || true
-else
-pkg_check \
-  --bucket= \
   --report_file=${FINAL_CODECOV_DIR}/codecov.report \
-  --requirement_file=codecov.requirement
-fi
+  --alsologtostderr \
+  --requirement_file=codecov.requirement "${PKG_CHECK_ARGS[@]}"

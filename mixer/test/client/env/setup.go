@@ -21,37 +21,71 @@ import (
 	"testing"
 	"time"
 
+	rpc "github.com/gogo/googleapis/google/rpc"
+
 	mixerpb "istio.io/api/mixer/v1"
-	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
+	"istio.io/istio/pkg/test"
 )
 
 // TestSetup store data for a test.
 type TestSetup struct {
-	t           *testing.T
-	stress      bool
-	faultInject bool
-	noMixer     bool
-	v2          *V2Conf
-	ports       *Ports
+	t      *testing.T
+	epoch  int
+	mfConf *MixerFilterConf
+	ports  *Ports
 
-	envoy   *Envoy
-	mixer   *MixerServer
-	backend *HTTPServer
+	envoy         *Envoy
+	mixer         *MixerServer
+	backend       *HTTPServer
+	testName      uint16
+	stress        bool
+	faultInject   bool
+	noMixer       bool
+	mfConfVersion string
+
+	// EnvoyTemplate is the bootstrap config used by envoy.
+	EnvoyTemplate string
+
+	// EnvoyParams contain extra envoy parameters to pass in the CLI (cluster, node)
+	EnvoyParams []string
+
+	// EnvoyConfigOpt allows passing additional parameters to the EnvoyTemplate
+	EnvoyConfigOpt map[string]interface{}
+
+	// IstioSrc is the base directory of istio sources. May be set for finding testdata or
+	// other files in the source tree
+	IstioSrc string
+
+	// IstioOut is the base output directory.
+	IstioOut string
 }
+
+// MixerFilterConfigV1 is version v1 for Mixer filter config.
+const MixerFilterConfigV1 = "\"v1\": "
+
+// MixerFilterConfigV2 is version v2 for Mixer filter config.
+const MixerFilterConfigV2 = "\"v2\": "
 
 // NewTestSetup creates a new test setup
 // "name" has to be defined in ports.go
 func NewTestSetup(name uint16, t *testing.T) *TestSetup {
 	return &TestSetup{
-		t:     t,
-		v2:    GetDefaultV2Conf(),
-		ports: NewPorts(name),
+		t:             t,
+		mfConf:        GetDefaultMixerFilterConf(),
+		ports:         NewPorts(name),
+		testName:      name,
+		mfConfVersion: MixerFilterConfigV2,
 	}
 }
 
-// V2 get v2 config
-func (s *TestSetup) V2() *V2Conf {
-	return s.v2
+// MfConfig get Mixer filter config
+func (s *TestSetup) MfConfig() *MixerFilterConf {
+	return s.mfConf
+}
+
+// SetMixerFilterConfVersion sets Mixer filter config version into Envoy config.
+func (s *TestSetup) SetMixerFilterConfVersion(ver string) {
+	s.mfConfVersion = ver
 }
 
 // Ports get ports object
@@ -89,6 +123,16 @@ func (s *TestSetup) GetMixerQuotaCount() int {
 	return s.mixer.quota.Count()
 }
 
+// GetMixerCheckCount get the number of Check calls.
+func (s *TestSetup) GetMixerCheckCount() int {
+	return s.mixer.check.Count()
+}
+
+// GetMixerReportCount get the number of Report calls.
+func (s *TestSetup) GetMixerReportCount() int {
+	return s.mixer.report.Count()
+}
+
 // SetStress set the stress flag
 func (s *TestSetup) SetStress(stress bool) {
 	s.stress = stress
@@ -107,7 +151,7 @@ func (s *TestSetup) SetFaultInject(f bool) {
 // SetUp setups Envoy, Mixer, and Backend server for test.
 func (s *TestSetup) SetUp() error {
 	var err error
-	s.envoy, err = NewEnvoy(s.stress, s.faultInject, s.v2, s.ports)
+	s.envoy, err = s.NewEnvoy(s.stress, s.faultInject, s.mfConf, s.ports, s.epoch, s.mfConfVersion)
 	if err != nil {
 		log.Printf("unable to create Envoy %v", err)
 	} else {
@@ -144,8 +188,11 @@ func (s *TestSetup) TearDown() {
 // ReStartEnvoy restarts Envoy
 func (s *TestSetup) ReStartEnvoy() {
 	_ = s.envoy.Stop()
+	s.ports = NewEnvoyPorts(s.ports, s.testName)
+	log.Printf("new allocated ports are %v:", s.ports)
 	var err error
-	s.envoy, err = NewEnvoy(s.stress, s.faultInject, s.v2, s.ports)
+	s.epoch++
+	s.envoy, err = s.NewEnvoy(s.stress, s.faultInject, s.mfConf, s.ports, s.epoch, s.mfConfVersion)
 	if err != nil {
 		s.t.Errorf("unable to re-start Envoy %v", err)
 	} else {
@@ -155,18 +202,16 @@ func (s *TestSetup) ReStartEnvoy() {
 
 // VerifyCheckCount verifies the number of Check calls.
 func (s *TestSetup) VerifyCheckCount(tag string, expected int) {
-	if s.mixer.check.Count() != expected {
-		s.t.Fatalf("%s check count doesn't match: %v\n, expected: %+v",
-			tag, s.mixer.check.Count(), expected)
-	}
+	test.Eventually(s.t, "VerifyCheckCount", func() bool {
+		return s.mixer.check.Count() == expected
+	})
 }
 
 // VerifyReportCount verifies the number of Report calls.
 func (s *TestSetup) VerifyReportCount(tag string, expected int) {
-	if s.mixer.report.Count() != expected {
-		s.t.Fatalf("%s report count doesn't match: %v\n, expected: %+v",
-			tag, s.mixer.report.Count(), expected)
-	}
+	test.Eventually(s.t, "VerifyReportCount", func() bool {
+		return s.mixer.report.Count() == expected
+	})
 }
 
 // VerifyCheck verifies Check request data.

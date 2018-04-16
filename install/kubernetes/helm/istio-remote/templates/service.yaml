@@ -1,0 +1,42 @@
+# Pilot service for discovery
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-pilot
+  namespace: istio-system
+  labels:
+    istio: pilot
+spec:
+  ports:
+  - port: 15005
+    name: https-discovery
+  - port: 15007
+    name: http-discovery
+    targetPort: 15007
+  - port: 15003
+    name: http-old-discovery
+  - port: 15010
+    name: grpc-xds
+  - port: 8080
+    name: http-legacy-discovery
+  - port: 9093
+    name: http-monitoring
+  - port: 443
+    name: admission-webhook
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-policy
+  namespace: istio-system
+  labels:
+    istio: mixer
+spec:
+  ports:
+  - name: tcp-plain
+    port: 9091
+  - name: tcp-mtls
+    port: 15004
+  - name: http-monitoring
+    port: 9093
+---

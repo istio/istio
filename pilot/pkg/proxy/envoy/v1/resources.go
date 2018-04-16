@@ -357,7 +357,7 @@ type CORSPolicy struct {
 	AllowMethods     string   `json:"allow_methods,omitempty"`
 	AllowHeaders     string   `json:"allow_headers,omitempty"`
 	ExposeHeaders    string   `json:"expose_headers,omitempty"`
-	MaxAge           string   `json:"max_age,omitempty"`
+	MaxAge           int      `json:"max_age,string,omitempty"`
 	AllowOrigin      []string `json:"allow_origin,omitempty"`
 }
 
@@ -406,7 +406,8 @@ func (host *VirtualHost) clusters() Clusters {
 
 // HTTPRouteConfig definition
 type HTTPRouteConfig struct {
-	VirtualHosts []*VirtualHost `json:"virtual_hosts"`
+	ValidateClusters bool           `json:"validate_clusters"`
+	VirtualHosts     []*VirtualHost `json:"virtual_hosts"`
 }
 
 // HTTPRouteConfigs is a map from the port number to the route config
@@ -416,7 +417,7 @@ type HTTPRouteConfigs map[int]*HTTPRouteConfig
 func (routes HTTPRouteConfigs) EnsurePort(port int) *HTTPRouteConfig {
 	config, ok := routes[port]
 	if !ok {
-		config = &HTTPRouteConfig{}
+		config = &HTTPRouteConfig{ValidateClusters: ValidateClusters}
 		routes[port] = config
 	}
 	return config
@@ -447,7 +448,7 @@ func (routes HTTPRouteConfigs) Normalize() HTTPRouteConfigs {
 // note that the virtual hosts without an explicit port suffix (IP:PORT) are stripped
 // for all routes except the route for port 80.
 func (routes HTTPRouteConfigs) Combine() *HTTPRouteConfig {
-	out := &HTTPRouteConfig{}
+	out := &HTTPRouteConfig{ValidateClusters: ValidateClusters}
 	for port, config := range routes {
 		for _, host := range config.VirtualHosts {
 			vhost := &VirtualHost{
@@ -493,7 +494,7 @@ func (rc *HTTPRouteConfig) Normalize() *HTTPRouteConfig {
 	hosts := make([]*VirtualHost, len(rc.VirtualHosts))
 	copy(hosts, rc.VirtualHosts)
 	sort.Slice(hosts, func(i, j int) bool { return hosts[i].Name < hosts[j].Name })
-	return &HTTPRouteConfig{VirtualHosts: hosts}
+	return &HTTPRouteConfig{ValidateClusters: ValidateClusters, VirtualHosts: hosts}
 }
 
 // AccessLog definition.
@@ -704,12 +705,17 @@ type Listeners []*Listener
 // Normalize sorts and de-duplicates listeners by address
 func (listeners Listeners) normalize() Listeners {
 	out := make(Listeners, 0, len(listeners))
-	set := make(map[string]bool)
+	set := make(map[string]*Listener)
 	for _, listener := range listeners {
-		if !set[listener.Address] {
-			set[listener.Address] = true
-			out = append(out, listener)
+		if l, collision := set[listener.Address]; collision {
+			ol, _ := json.Marshal(*l)
+			ll, _ := json.Marshal(*listener)
+			log.Errorf("Listener collision for %s\n---\n%s\n--- rejected ---\n%s", listener.Address,
+				string(ol), string(ll))
+			continue
 		}
+		out = append(out, listener)
+		set[listener.Address] = listener
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Address < out[j].Address })
 	return out

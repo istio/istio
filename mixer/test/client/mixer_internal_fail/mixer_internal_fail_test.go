@@ -18,7 +18,8 @@ import (
 	"fmt"
 	"testing"
 
-	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
+	rpc "github.com/gogo/googleapis/google/rpc"
+
 	"istio.io/istio/mixer/test/client/env"
 )
 
@@ -48,11 +49,12 @@ func TestMixerInternalFail(t *testing.T) {
 	}
 
 	// Set to fail_close
-	env.SetNetworPolicy(s.V2().HTTPServerConf, false)
+	env.SetNetworPolicy(s.MfConfig().HTTPServerConf, false)
 	s.ReStartEnvoy()
 
 	tag = "Fail-Close"
 	// Use fail close policy.
+	url = fmt.Sprintf("http://localhost:%d/echo", s.Ports().ServerProxyPort)
 	code, _, err = env.HTTPGet(url)
 	if err != nil {
 		t.Errorf("Failed in request %s: %v", tag, err)

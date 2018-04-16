@@ -97,29 +97,12 @@ popd
 echo "Done."
 fi
 
-# TODO: vendor those too like istio.io/api without pruning protos
-
-GOOGLEAPIS_SHA=c8c975543a134177cc41b64cbbf10b88fe66aa1d
-GOOGLEAPIS_URL=https://raw.githubusercontent.com/googleapis/googleapis/${GOOGLEAPIS_SHA}
-
-if [ ! -e ${ROOT}/vendor/github.com/googleapis/googleapis ]; then
-echo "Pull down source protos from googleapis..."
-
-mkdir -p ${ROOT}/vendor/github.com/googleapis/googleapis
-
-# all the google_rpc protos
-mkdir -p ${ROOT}/vendor/github.com/googleapis/googleapis/google/rpc
-curl -sS ${GOOGLEAPIS_URL}/google/rpc/status.proto > ${ROOT}/vendor/github.com/googleapis/googleapis/google/rpc/status.proto
-curl -sS ${GOOGLEAPIS_URL}/google/rpc/code.proto > ${ROOT}/vendor/github.com/googleapis/googleapis/google/rpc/code.proto
-curl -sS ${GOOGLEAPIS_URL}/google/rpc/error_details.proto > ${ROOT}/vendor/github.com/googleapis/googleapis/google/rpc/error_details.proto
-fi
-
 imports=(
  "${ROOT}"
  "${ROOT}/vendor/istio.io/api"
  "${ROOT}/vendor/github.com/gogo/protobuf"
+ "${ROOT}/vendor/github.com/gogo/googleapis"
  "${ROOT}/vendor/github.com/gogo/protobuf/protobuf"
- "${ROOT}/vendor/github.com/googleapis/googleapis"
 )
 
 IMPORTS=""
@@ -135,9 +118,9 @@ mappings=(
   "gogoproto/gogo.proto=github.com/gogo/protobuf/gogoproto"
   "google/protobuf/any.proto=github.com/gogo/protobuf/types"
   "google/protobuf/duration.proto=github.com/gogo/protobuf/types"
-  "google/rpc/status.proto=istio.io/gogo-genproto/googleapis/google/rpc"
-  "google/rpc/code.proto=istio.io/gogo-genproto/googleapis/google/rpc"
-  "google/rpc/error_details.proto=istio.io/gogo-genproto/googleapis/google/rpc"
+  "google/rpc/status.proto=github.com/gogo/googleapis/google/rpc"
+  "google/rpc/code.proto=github.com/gogo/googleapis/google/rpc"
+  "google/rpc/error_details.proto=github.com/gogo/googleapis/google/rpc"
 )
 
 MAPPINGS=""
@@ -158,9 +141,7 @@ GENDOCS_PLUGIN_TEMPLATE=$GENDOCS_PLUGIN$(dirname "${template}")
 if [ "$opttemplate" = true ]; then
 
   template_mappings=(
-    "mixer/v1/config/descriptor/value_type.proto:istio.io/api/mixer/v1/config/descriptor"
-    "mixer/v1/template/extensions.proto:istio.io/api/mixer/v1/template"
-    "mixer/v1/template/standard_types.proto:istio.io/api/mixer/v1/template"
+    "google/protobuf/any.proto:github.com/gogo/protobuf/types"
     "gogoproto/gogo.proto:github.com/gogo/protobuf/gogoproto"
     "google/protobuf/duration.proto:github.com/gogo/protobuf/types"
   )
@@ -174,34 +155,32 @@ if [ "$opttemplate" = true ]; then
     TMPL_PROTOC_MAPPING+="M${i/:/=},"
   done
 
-  TMPL_PLUGIN="--plugin=$ROOT/bin/protoc-gen-gogoslick-$GOGO_VERSION --gogoslick-${GOGO_VERSION}_out=$TMPL_PROTOC_MAPPING:"
+  TMPL_PLUGIN="--plugin=$ROOT/bin/protoc-gen-gogoslick-$GOGO_VERSION --gogoslick-${GOGO_VERSION}_out=plugins=grpc,$TMPL_PROTOC_MAPPING:"
   TMPL_PLUGIN+=$outdir
 
   descriptor_set="_proto.descriptor_set"
   handler_gen_go="_handler.gen.go"
-  instance_proto="_instance.proto"
+  handler_service="_handler_service.proto"
   pb_go=".pb.go"
 
   templateDS=${template/.proto/$descriptor_set}
   templateHG=${template/.proto/$handler_gen_go}
-  templateIP=${template/.proto/$instance_proto}
+  templateHSP=${template/.proto/$handler_service}
   templatePG=${template/.proto/$pb_go}
-
   # generate the descriptor set for the intermediate artifacts
   DESCRIPTOR="--include_imports --include_source_info --descriptor_set_out=$templateDS"
   err=`$protoc $DESCRIPTOR $IMPORTS $PLUGIN $GENDOCS_PLUGIN_TEMPLATE $template`
   if [ ! -z "$err" ]; then
-    die "template generation failure: $err"; 
-  fi
-  
-  go run $GOPATH/src/istio.io/istio/mixer/tools/codegen/cmd/mixgenproc/main.go $templateDS -o $templateHG -t $templateIP $TMPL_GEN_MAP  
-
-  err=`$protoc $IMPORTS $TMPL_PLUGIN $templateIP`
-  if [ ! -z "$err" ]; then 
-    die "template generation failure: $err"; 
+    die "template generation failure: $err";
   fi
 
-  rm $templateIP
+  go run $GOPATH/src/istio.io/istio/mixer/tools/codegen/cmd/mixgenproc/main.go $templateDS -o $templateHG -t $templateHSP $TMPL_GEN_MAP
+
+  err=`$protoc $IMPORTS $TMPL_PLUGIN $templateHSP`
+  if [ ! -z "$err" ]; then
+    die "template generation failure: $err";
+  fi
+
   rm $templatePG
 
   exit 0

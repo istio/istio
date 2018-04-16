@@ -227,34 +227,9 @@ const (
 )
 
 var (
-	destinationRuleWorld = fileConfig{
-		meta: model.ConfigMeta{Type: model.DestinationRule.Type, Name: "destination-world"},
-		file: "testdata/destination-world-v1alpha2.yaml.golden",
-	}
-
-	destinationRuleWorldCB = fileConfig{
-		meta: model.ConfigMeta{Type: model.DestinationRule.Type, Name: "destination-world-cb"},
-		file: "testdata/destination-world-cb-v1alpha2.yaml.golden",
-	}
-
-	destinationRuleHello = fileConfig{
-		meta: model.ConfigMeta{Type: model.DestinationRule.Type, Name: "destination-hello"},
-		file: "testdata/destination-hello-v1alpha2.yaml.golden",
-	}
-
-	destinationRuleExternal = fileConfig{
-		meta: model.ConfigMeta{Type: model.DestinationRule.Type, Name: "destination-google"},
-		file: "testdata/subset-google-v1alpha2.yaml.golden",
-	}
-
 	cbPolicy = fileConfig{
 		meta: model.ConfigMeta{Type: model.DestinationPolicy.Type, Name: "circuit-breaker"},
 		file: "testdata/cb-policy.yaml.golden",
-	}
-
-	cbRouteRuleV2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "circuit-breaker"},
-		file: "testdata/cb-route-rule-v1alpha2.yaml.golden",
 	}
 
 	timeoutRouteRule = fileConfig{
@@ -262,54 +237,9 @@ var (
 		file: "testdata/timeout-route-rule.yaml.golden",
 	}
 
-	timeoutRouteRuleV2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "timeout"},
-		file: "testdata/timeout-route-rule-v1alpha2.yaml.golden",
-	}
-
 	weightedRouteRule = fileConfig{
 		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "weighted"},
 		file: "testdata/weighted-route.yaml.golden",
-	}
-
-	weightedRouteRuleV2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "weighted"},
-		file: "testdata/weighted-route-v1alpha2.yaml.golden",
-	}
-
-	gatewayWeightedRouteRule = fileConfig{
-		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "gateway-weighted"},
-		file: "testdata/gateway-weighted-route.yaml",
-	}
-
-	gatewayRouteRule = fileConfig{
-		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "gateway-simple"},
-		file: "testdata/gateway-route.yaml",
-	}
-
-	gatewayWildcardRouteRule = fileConfig{
-		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "gateway-wildcard-simple"},
-		file: "testdata/gateway-wildcard-route.yaml",
-	}
-
-	gatewayRouteRule2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "gateway-simple-2"},
-		file: "testdata/gateway-route-2.yaml",
-	}
-
-	gatewayConfig = fileConfig{
-		meta: model.ConfigMeta{Type: model.Gateway.Type, Name: "some-gateway"},
-		file: "testdata/gateway.yaml",
-	}
-
-	gatewayConfig2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.Gateway.Type, Name: "some-gateway-2"},
-		file: "testdata/gateway2.yaml",
-	}
-
-	gatewayWildcardConfig = fileConfig{
-		meta: model.ConfigMeta{Type: model.Gateway.Type, Name: "some-gateway-wildcard"},
-		file: "testdata/gateway-wildcard.yaml",
 	}
 
 	faultRouteRule = fileConfig{
@@ -317,24 +247,9 @@ var (
 		file: "testdata/fault-route.yaml.golden",
 	}
 
-	faultRouteRuleV2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "fault"},
-		file: "testdata/fault-route-v1alpha2.yaml.golden",
-	}
-
-	multiMatchFaultRouteRuleV2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "multi-match-fault"},
-		file: "testdata/multi-match-fault-v1alpha2.yaml.golden",
-	}
-
 	redirectRouteRule = fileConfig{
 		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "redirect"},
 		file: "testdata/redirect-route.yaml.golden",
-	}
-
-	redirectRouteRuleV2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "redirect"},
-		file: "testdata/redirect-route-v1alpha2.yaml.golden",
 	}
 
 	redirectRouteToEgressRule = fileConfig{
@@ -347,79 +262,14 @@ var (
 		file: "testdata/rewrite-route.yaml.golden",
 	}
 
-	rewriteRouteRuleV2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "rewrite"},
-		file: "testdata/rewrite-route-v1alpha2.yaml.golden",
-	}
-
-	multiMatchRewriteRouteRuleV2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "multi-match-rewrite"},
-		file: "testdata/multi-match-rewrite-route-v1alpha2.yaml.golden",
-	}
-
-	googleTimeoutRuleV2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "egress-timeout"}, // FIXME: rename after switch to v1alpha2
-		file: "testdata/google-timeout-rule-v1alpha2.yaml.golden",
-	}
-
 	websocketRouteRule = fileConfig{
 		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "websocket"},
 		file: "testdata/websocket-route.yaml.golden",
 	}
 
-	websocketRouteRuleV2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "websocket"},
-		file: "testdata/websocket-route-v1alpha2.yaml.golden",
-	}
-
 	egressRule = fileConfig{
 		meta: model.ConfigMeta{Type: model.EgressRule.Type, Name: "google"},
 		file: "testdata/egress-rule.yaml.golden",
-	}
-
-	externalServiceRule = fileConfig{
-		meta: model.ConfigMeta{Type: model.ExternalService.Type, Name: "google"},
-		file: "testdata/external-service-rule.yaml.golden",
-	}
-
-	externalServiceRuleDNS = fileConfig{
-		meta: model.ConfigMeta{Type: model.ExternalService.Type, Name: "google"},
-		file: "testdata/external-service-rule-dns.yaml.golden",
-	}
-
-	externalServiceRuleDNSNoEndpoints = fileConfig{
-		meta: model.ConfigMeta{Type: model.ExternalService.Type, Name: "google"},
-		file: "testdata/external-service-rule-dns-no-endpoints.yaml.golden",
-	}
-
-	externalServiceRuleStatic = fileConfig{
-		meta: model.ConfigMeta{Type: model.ExternalService.Type, Name: "google"},
-		file: "testdata/external-service-rule-static.yaml.golden",
-	}
-
-	externalServiceRuleTCP = fileConfig{
-		meta: model.ConfigMeta{Type: model.ExternalService.Type, Name: "google"},
-		file: "testdata/external-service-rule-tcp.yaml.golden",
-	}
-
-	externalServiceRuleTCPDNS = fileConfig{
-		meta: model.ConfigMeta{Type: model.ExternalService.Type, Name: "google"},
-		file: "testdata/external-service-rule-tcp-dns.yaml.golden",
-	}
-
-	externalServiceRuleTCPStatic = fileConfig{
-		meta: model.ConfigMeta{Type: model.ExternalService.Type, Name: "google"},
-		file: "testdata/external-service-rule-tcp-static.yaml.golden",
-	}
-
-	externalServiceRouteRule = fileConfig{
-		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "ext-route"},
-		file: "testdata/external-service-route-rule.yaml.golden",
-	}
-
-	destinationRuleGoogleCB = fileConfig{
-		meta: model.ConfigMeta{Type: model.DestinationRule.Type, Name: "google"},
-		file: "testdata/subset-google-cb-v1alpha2.yaml.golden",
 	}
 
 	egressRuleCBPolicy = fileConfig{
@@ -452,29 +302,14 @@ var (
 		file: "testdata/addheaders-route.yaml.golden",
 	}
 
-	addHeaderRuleV2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "append-headers"},
-		file: "testdata/addheaders-route-v1alpha2.yaml.golden",
-	}
-
 	corsPolicyRule = fileConfig{
 		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "cors-policy"},
 		file: "testdata/corspolicy-route.yaml.golden",
 	}
 
-	corsPolicyRuleV2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "cors-policy"},
-		file: "testdata/corspolicy-route-v1alpha2.yaml.golden",
-	}
-
 	mirrorRule = fileConfig{
 		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "mirror-requests"},
 		file: "testdata/mirror-route.yaml.golden",
-	}
-
-	mirrorRuleV2 = fileConfig{
-		meta: model.ConfigMeta{Type: model.VirtualService.Type, Name: "mirror-requests"},
-		file: "testdata/mirror-route-v1alpha2.yaml.golden",
 	}
 
 	// mixerclient service configuration
@@ -498,14 +333,29 @@ var (
 		file: "testdata/quota-spec-binding.yaml.golden",
 	}
 
-	mixerclientAuthSpec = fileConfig{
-		meta: model.ConfigMeta{Type: model.EndUserAuthenticationPolicySpec.Type, Name: "auth-spec"},
-		file: "testdata/auth-spec.yaml.golden",
+	authnPolicyNamespaceMTlsOff = fileConfig{
+		meta: model.ConfigMeta{Type: model.AuthenticationPolicy.Type, Name: "authn-namespace-mtls-off"},
+		file: "testdata/authn-namespace-mtls-off.yaml.golden",
 	}
 
-	mixerclientAuthSpecBinding = fileConfig{
-		meta: model.ConfigMeta{Type: model.EndUserAuthenticationPolicySpecBinding.Type, Name: "auth-spec-binding"},
-		file: "testdata/auth-spec-binding.yaml.golden",
+	authnPolicyNamespaceMTlsOn = fileConfig{
+		meta: model.ConfigMeta{Type: model.AuthenticationPolicy.Type, Name: "authn-namespace-mtls-on"},
+		file: "testdata/authn-namespace-mtls-on.yaml.golden",
+	}
+
+	authnPolicyHelloMTlsOff = fileConfig{
+		meta: model.ConfigMeta{Type: model.AuthenticationPolicy.Type, Name: "authn-hello-mtls-off"},
+		file: "testdata/authn-hello-mtls-off.yaml.golden",
+	}
+
+	authnPolicyWorldMTlsOff = fileConfig{
+		meta: model.ConfigMeta{Type: model.AuthenticationPolicy.Type, Name: "authn-world-mtls-on"},
+		file: "testdata/authn-world-mtls-off.yaml.golden",
+	}
+
+	authnPolicyHelloJwt = fileConfig{
+		meta: model.ConfigMeta{Type: model.AuthenticationPolicy.Type, Name: "authn-hello-jwt"},
+		file: "testdata/authn-hello-jwt.yaml.golden",
 	}
 )
 
@@ -641,56 +491,6 @@ func TestTruncateClusterName(t *testing.T) {
 	prefixLen := MaxClusterNameLength - sha1.Size*2
 	if gt[:prefixLen] != trunc[:prefixLen] {
 		t.Errorf("Unexpected prefix:\nwant %s,\ngot %s", gt[:prefixLen], trunc[:prefixLen])
-	}
-}
-
-func TestBuildJwksUriClusterNameAndAddress(t *testing.T) {
-	cases := []struct {
-		in          string
-		wantAddress string
-		wantName    string
-		wantSSL     bool
-		wantError   bool
-	}{
-		{
-			in:          "https://www.googleapis.com/oauth2/v1/certs",
-			wantAddress: "www.googleapis.com:443",
-			wantName:    OutboundJWTURIClusterPrefix + "www.googleapis.com|443",
-			wantSSL:     true,
-		},
-		{
-			in:          "https://www.googleapis.com:443/oauth2/v1/certs",
-			wantAddress: "www.googleapis.com:443",
-			wantName:    OutboundJWTURIClusterPrefix + "www.googleapis.com|443",
-			wantSSL:     true,
-		},
-		{
-			in:          "http://example.com/oauth2/v1/certs",
-			wantAddress: "example.com:80",
-			wantName:    OutboundJWTURIClusterPrefix + "example.com|80",
-			wantSSL:     false,
-		},
-		{
-			in:        ":foo",
-			wantError: true,
-		},
-	}
-	for _, c := range cases {
-		gotName, gotAddress, gotSSL, gotError := buildJWKSURIClusterNameAndAddress(c.in)
-		if c.wantError != (gotError != nil) {
-			t.Errorf("%s returned unexpected error: want %v got %v: %v",
-				c.in, c.wantError, gotError != nil, gotError)
-		} else {
-			if gotAddress != c.wantAddress {
-				t.Errorf("%s: gotAddress %v wantAddress %v", c.in, gotAddress, c.wantAddress)
-			}
-			if gotName != c.wantName {
-				t.Errorf("%s: gotName %v wantName %v", c.in, gotName, c.wantName)
-			}
-			if gotSSL != c.wantSSL {
-				t.Errorf("%s: gotSsl %v wantSSL %v", c.in, gotSSL, c.wantSSL)
-			}
-		}
 	}
 }
 

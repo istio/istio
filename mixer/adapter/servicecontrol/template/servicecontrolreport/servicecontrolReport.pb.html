@@ -3,7 +3,7 @@ title: Service Control Report
 overview: A template used by the Google Service Control adapter.
 location: https://istio.io/docs/reference/config/template/servicecontrolreport.html
 layout: protoc-gen-docs
-number_of_entries: 1
+number_of_entries: 3
 ---
 <p>The <code>servicecontrolreport</code> template is used by the <a href="https://istio.io/docs/reference/config/adapters/servicecontrol.html">Google Service Control</a>
 adapter.</p>
@@ -78,7 +78,7 @@ spec:
 </tr>
 <tr id="Template.request_time">
 <td><code>requestTime</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/mixer/istio.mixer.adapter.model.v1beta1.html#TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</a></code></td>
+<td><code><a href="#istio.mixer.adapter.model.v1beta1.TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</a></code></td>
 <td>
 </td>
 </tr>
@@ -102,7 +102,7 @@ spec:
 </tr>
 <tr id="Template.response_time">
 <td><code>responseTime</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/mixer/istio.mixer.adapter.model.v1beta1.html#TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</a></code></td>
+<td><code><a href="#istio.mixer.adapter.model.v1beta1.TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</a></code></td>
 <td>
 </td>
 </tr>
@@ -120,10 +120,20 @@ spec:
 </tr>
 <tr id="Template.response_latency">
 <td><code>responseLatency</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/mixer/istio.mixer.adapter.model.v1beta1.html#Duration">istio.mixer.adapter.model.v1beta1.Duration</a></code></td>
+<td><code><a href="#istio.mixer.adapter.model.v1beta1.Duration">istio.mixer.adapter.model.v1beta1.Duration</a></code></td>
 <td>
 </td>
 </tr>
 </tbody>
 </table>
+</section>
+<h2 id="istio.mixer.adapter.model.v1beta1.Duration">istio.mixer.adapter.model.v1beta1.Duration</h2>
+<section>
+<p>Duration is used inside templates for fields that are of ValueType &ldquo;DURATION&rdquo;</p>
+
+</section>
+<h2 id="istio.mixer.adapter.model.v1beta1.TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</h2>
+<section>
+<p>TimeStamp is used inside templates for fields that are of ValueType &ldquo;TIMESTAMP&rdquo;</p>
+
 </section>

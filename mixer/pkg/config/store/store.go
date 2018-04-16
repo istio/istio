@@ -136,8 +136,8 @@ type Store interface {
 	// watch channel at the same time. Multiple calls lead to an error.
 	Watch() (<-chan Event, error)
 
-	// Get returns a resource's spec to the key.
-	Get(key Key, spec proto.Message) error
+	// Get returns the resource to the key.
+	Get(key Key) (*Resource, error)
 
 	// List returns the whole mapping from key to resource specs in the store.
 	List() map[Key]*Resource
@@ -201,13 +201,20 @@ func (s *store) Watch() (<-chan Event, error) {
 }
 
 // Get returns a resource's spec to the key.
-func (s *store) Get(key Key, spec proto.Message) error {
+func (s *store) Get(key Key) (*Resource, error) {
 	obj, err := s.backend.Get(key)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return convert(key, obj.Spec, spec)
+	pbSpec, err := cloneMessage(key.Kind, s.kinds)
+	if err != nil {
+		return nil, err
+	}
+	if err = convert(key, obj.Spec, pbSpec); err != nil {
+		return nil, err
+	}
+	return &Resource{Metadata: obj.Metadata, Spec: pbSpec}, nil
 }
 
 // List returns the whole mapping from key to resource specs in the store.

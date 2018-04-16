@@ -17,39 +17,67 @@ package mock
 import (
 	"crypto"
 	"crypto/x509"
+	"sync"
+
+	"istio.io/istio/security/pkg/pki/util"
 )
 
 // FakeKeyCertBundle is a mocked KeyCertBundle for testing.
 type FakeKeyCertBundle struct {
-	CertBytes      []byte
-	Cert           *x509.Certificate
-	PrivKeyBytes   []byte
-	PrivKey        *crypto.PrivateKey
-	CertChainBytes []byte
-	RootCertBytes  []byte
-	ReturnErr      error
+	CertBytes       []byte
+	Cert            *x509.Certificate
+	PrivKeyBytes    []byte
+	PrivKey         *crypto.PrivateKey
+	CertChainBytes  []byte
+	RootCertBytes   []byte
+	VerificationErr error
+	CertOptionsErr  error
+	mutex           sync.Mutex
 }
 
 // GetAllPem returns all key/cert PEMs in KeyCertBundle together. Getting all values together avoids inconsistancy.
 func (b *FakeKeyCertBundle) GetAllPem() (certBytes, privKeyBytes, certChainBytes, rootCertBytes []byte) {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 	return b.CertBytes, b.PrivKeyBytes, b.CertChainBytes, b.RootCertBytes
 }
 
 // GetAll returns all key/cert in KeyCertBundle together. Getting all values together avoids inconsistancy.
 func (b *FakeKeyCertBundle) GetAll() (cert *x509.Certificate, privKey *crypto.PrivateKey, certChainBytes,
 	rootCertBytes []byte) {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 	return b.Cert, b.PrivKey, b.CertChainBytes, b.RootCertBytes
 }
 
-// VerifyAndSetAll verifies the key/certs, and sets all key/certs in KeyCertBundle together.
-// Setting all values together avoids inconsistancy.
+// VerifyAndSetAll returns VerificationErr if it is not nil. Otherwise, it returns all the key/certs in the bundle.
 func (b *FakeKeyCertBundle) VerifyAndSetAll(certBytes, privKeyBytes, certChainBytes, rootCertBytes []byte) error {
-	if b.ReturnErr != nil {
-		return b.ReturnErr
+	if b.VerificationErr != nil {
+		return b.VerificationErr
 	}
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 	b.CertBytes = certBytes
 	b.PrivKeyBytes = privKeyBytes
 	b.CertChainBytes = certChainBytes
 	b.RootCertBytes = rootCertBytes
 	return nil
+}
+
+// GetCertChainPem returns CertChainBytes.
+func (b *FakeKeyCertBundle) GetCertChainPem() []byte {
+	return b.CertChainBytes
+}
+
+// GetRootCertPem returns RootCertBytes.
+func (b *FakeKeyCertBundle) GetRootCertPem() []byte {
+	return b.RootCertBytes
+}
+
+// CertOptions returns CertOptionsErr if it is not nil. Otherwise it returns an empty CertOptions.
+func (b *FakeKeyCertBundle) CertOptions() (*util.CertOptions, error) {
+	if b.CertOptionsErr != nil {
+		return nil, b.CertOptionsErr
+	}
+	return &util.CertOptions{}, nil
 }

@@ -62,12 +62,6 @@ var (
 		ID:        "ingress.default",
 		Domain:    "default.svc.cluster.local",
 	}
-	Router = model.Proxy{
-		Type:      model.Router,
-		IPAddress: "10.3.3.5",
-		ID:        "router.default",
-		Domain:    "default.svc.cluster.local",
-	}
 )
 
 // NewDiscovery builds a mock ServiceDiscovery

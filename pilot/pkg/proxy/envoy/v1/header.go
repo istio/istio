@@ -19,7 +19,6 @@ import (
 	"regexp"
 	"sort"
 
-	networking "istio.io/api/networking/v1alpha3"
 	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 )
@@ -59,54 +58,6 @@ func buildHTTPRouteMatch(matches *routing.MatchCondition) *HTTPRoute {
 	}
 }
 
-func buildHTTPRouteMatchV2(match *networking.HTTPMatchRequest) *HTTPRoute {
-	if match == nil {
-		return &HTTPRoute{Prefix: "/"}
-	}
-
-	route := &HTTPRoute{}
-	for name, stringMatch := range match.Headers {
-		route.Headers = append(route.Headers, buildHeaderV2(name, stringMatch))
-	}
-
-	// guarantee ordering of headers
-	sort.Slice(route.Headers, func(i, j int) bool {
-		if route.Headers[i].Name == route.Headers[j].Name {
-			return route.Headers[i].Value < route.Headers[j].Value
-		}
-		return route.Headers[i].Name < route.Headers[j].Name
-	})
-
-	if match.Uri != nil {
-		switch m := match.Uri.MatchType.(type) {
-		case *networking.StringMatch_Exact:
-			route.Path = m.Exact
-		case *networking.StringMatch_Prefix:
-			route.Prefix = m.Prefix
-		case *networking.StringMatch_Regex:
-			route.Regex = m.Regex
-		}
-	} else {
-		route.Prefix = "/" // default
-	}
-
-	if match.Method != nil {
-		route.Headers = append(route.Headers, buildHeaderV2(HeaderMethod, match.Method))
-	}
-
-	if match.Authority != nil {
-		route.Headers = append(route.Headers, buildHeaderV2(HeaderAuthority, match.Authority))
-	}
-
-	if match.Scheme != nil {
-		route.Headers = append(route.Headers, buildHeaderV2(HeaderScheme, match.Scheme))
-	}
-
-	// TODO: match.DestinationPorts
-
-	return route
-}
-
 func buildHeader(name string, match *routing.StringMatch) Header {
 	header := Header{Name: name}
 
@@ -119,25 +70,6 @@ func buildHeader(name string, match *routing.StringMatch) Header {
 		header.Value = fmt.Sprintf("^%s.*", regexp.QuoteMeta(m.Prefix))
 		header.Regex = true
 	case *routing.StringMatch_Regex:
-		header.Value = m.Regex
-		header.Regex = true
-	}
-
-	return header
-}
-
-func buildHeaderV2(name string, match *networking.StringMatch) Header {
-	header := Header{Name: name}
-
-	switch m := match.MatchType.(type) {
-	case *networking.StringMatch_Exact:
-		header.Value = m.Exact
-	case *networking.StringMatch_Prefix:
-		// Envoy regex grammar is ECMA-262 (http://en.cppreference.com/w/cpp/regex/ecmascript)
-		// Golang has a slightly different regex grammar
-		header.Value = fmt.Sprintf("^%s.*", regexp.QuoteMeta(m.Prefix))
-		header.Regex = true
-	case *networking.StringMatch_Regex:
 		header.Value = m.Regex
 		header.Regex = true
 	}

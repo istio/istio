@@ -35,7 +35,18 @@ const (
 	versionPath = "/version"
 )
 
-func startMonitor(port int) (*monitor, error) {
+func addMonitor(mux *http.ServeMux) {
+	mux.Handle(metricsPath, promhttp.Handler())
+	mux.HandleFunc(versionPath, func(out http.ResponseWriter, req *http.Request) {
+		if _, err := out.Write([]byte(version.Info.String())); err != nil {
+			log.Errorf("Unable to write version string: %v", err)
+		}
+	})
+}
+
+// Deprecated: we shouldn't have 2 http ports. Will be removed after code using
+// this port is removed.
+func startMonitor(port int, mux *http.ServeMux) (*monitor, error) {
 	m := &monitor{
 		shutdown: make(chan struct{}),
 	}
@@ -51,14 +62,7 @@ func startMonitor(port int) (*monitor, error) {
 	// for pilot. a full design / implementation of self-monitoring and reporting
 	// is coming. that design will include proper coverage of statusz/healthz type
 	// functionality, in addition to how pilot reports its own metrics.
-	mux := http.NewServeMux()
-	mux.Handle(metricsPath, promhttp.Handler())
-	mux.HandleFunc(versionPath, func(out http.ResponseWriter, req *http.Request) {
-		if _, err := out.Write([]byte(version.Info.String())); err != nil {
-			log.Errorf("Unable to write version string: %v", err)
-		}
-	})
-
+	addMonitor(mux)
 	m.monitoringServer = &http.Server{
 		Handler: mux,
 	}

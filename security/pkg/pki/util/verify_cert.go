@@ -37,6 +37,7 @@ type VerifyFields struct {
 // VerifyCertificate verifies a given PEM encoded certificate by
 // - building one or more chains from the certificate to a root certificate;
 // - checking fields are set as expected.
+// TODO(incfly): make host a field of VerifyFields.
 func VerifyCertificate(privPem []byte, certChainPem []byte, rootCertPem []byte,
 	host string, expectedFields *VerifyFields) error {
 
@@ -85,8 +86,12 @@ func VerifyCertificate(privPem []byte, certChainPem []byte, rootCertPem []byte,
 
 	if strings.HasPrefix(host, "spiffe") {
 		matchHost := false
-		for _, e := range cert.Extensions {
-			if strings.HasSuffix(string(e.Value[:]), host) {
+		ids, err := ExtractIDs(cert.Extensions)
+		if err != nil {
+			return err
+		}
+		for _, id := range ids {
+			if strings.HasSuffix(id, host) {
 				matchHost = true
 				break
 			}

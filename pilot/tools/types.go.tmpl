@@ -39,7 +39,7 @@ var knownTypes = map[string]schemaType{
         schema: model.{{ .IstioKind }},
         object: &{{ .CrdKind }}{
             TypeMeta: meta_v1.TypeMeta{
-                Kind:       model.{{ .IstioKind }}.Type,
+                Kind:       "{{ .CrdKind }}",
                 APIVersion: apiVersion(&model.{{ .IstioKind }}),
             },
         },

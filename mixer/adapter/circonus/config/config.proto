@@ -30,7 +30,7 @@ option (gogoproto.goproto_getters_all) = false;
 option (gogoproto.equal_all) = false;
 option (gogoproto.gostring_all) = false;
 
-// Cnofiguration format for the Circonus adapter.
+// Configuration format for the Circonus adapter.
 message Params {
     // Circonus SubmissionURL to HTTPTrap check
     string submission_url = 1;

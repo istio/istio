@@ -18,7 +18,8 @@ import (
 	"fmt"
 	"testing"
 
-	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
+	rpc "github.com/gogo/googleapis/google/rpc"
+
 	"istio.io/istio/mixer/test/client/env"
 )
 
@@ -34,16 +35,15 @@ var expectedStats = map[string]int{
 	"http_mixer_filter.total_quota_calls":                 2,
 	"http_mixer_filter.total_remote_check_calls":          2,
 	"http_mixer_filter.total_remote_quota_calls":          2,
-	"http_mixer_filter.total_remote_report_calls":         1,
 	"http_mixer_filter.total_report_calls":                2,
 }
 
 func TestQuotaCall(t *testing.T) {
 	s := env.NewTestSetup(env.QuotaCallTest, t)
-	env.SetStatsUpdateInterval(s.V2(), 1)
+	env.SetStatsUpdateInterval(s.MfConfig(), 1)
 
 	// Add v2 quota config for all requests.
-	env.AddHTTPQuota(s.V2(), "RequestCount", 5)
+	env.AddHTTPQuota(s.MfConfig(), "RequestCount", 5)
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}

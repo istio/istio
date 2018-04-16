@@ -71,11 +71,15 @@ const reportAttributesOkGet = `
   "source.namespace": "XYZ11",
   "source.ip": "[127 0 0 1]",
   "source.port": "*",
+  "destination.ip": "[127 0 0 1]",
+  "destination.port": "*",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
+  "check.cache_hit": false,
+  "quota.cache_hit": false,
   "request.headers": {
      ":method": "GET",
      ":path": "/echo",
@@ -148,11 +152,15 @@ const reportAttributesOkPost = `
   "source.namespace": "XYZ11",
   "source.ip": "[127 0 0 1]",
   "source.port": "*",
+  "destination.ip": "[127 0 0 1]",
+  "destination.port": "*",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
+  "check.cache_hit": false,
+  "quota.cache_hit": false,
   "request.headers": {
      ":method": "POST",
      ":path": "/echo",
@@ -190,7 +198,7 @@ var expectedStats = map[string]int{
 
 func TestCheckReportAttributes(t *testing.T) {
 	s := env.NewTestSetup(env.CheckReportAttributesTest, t)
-	env.SetStatsUpdateInterval(s.V2(), 1)
+	env.SetStatsUpdateInterval(s.MfConfig(), 1)
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
@@ -219,4 +227,16 @@ func TestCheckReportAttributes(t *testing.T) {
 	} else {
 		t.Errorf("Failed to get stats from Envoy %v", err)
 	}
+
+	// Verify that Mixer HTTP filter works properly when we change config version to V1 at Envoy.
+	s.SetMixerFilterConfVersion(env.MixerFilterConfigV1)
+	s.ReStartEnvoy()
+
+	// Issues a POST request.
+	url = fmt.Sprintf("http://localhost:%d/echo", s.Ports().ClientProxyPort)
+	if _, _, err := env.HTTPPost(url, "text/plain", "Hello World!"); err != nil {
+		t.Errorf("Failed in request %s: %v", tag, err)
+	}
+	s.VerifyCheck(tag, checkAttributesOkPost)
+	s.VerifyReport(tag, reportAttributesOkPost)
 }

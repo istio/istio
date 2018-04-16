@@ -3,7 +3,7 @@ title: Log Entry
 overview: A template that represents a single runtime log entry.
 location: https://istio.io/docs/reference/config/template/logentry.html
 layout: protoc-gen-docs
-number_of_entries: 1
+number_of_entries: 3
 ---
 <p>The <code>logentry</code> template represents an individual entry within a log.</p>
 
@@ -50,7 +50,7 @@ spec:
 <tbody>
 <tr id="Template.variables">
 <td><code>variables</code></td>
-<td><code>map&lt;string,&nbsp;<a href="https://istio.io/docs/reference/config/mixer/istio.mixer.adapter.model.v1beta1.html#Value">istio.mixer.adapter.model.v1beta1.Value</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#istio.mixer.adapter.model.v1beta1.Value">istio.mixer.adapter.model.v1beta1.Value</a>&gt;</code></td>
 <td>
 <p>Variables that are delivered for each log entry.</p>
 
@@ -58,7 +58,7 @@ spec:
 </tr>
 <tr id="Template.timestamp">
 <td><code>timestamp</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/mixer/istio.mixer.adapter.model.v1beta1.html#TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</a></code></td>
+<td><code><a href="#istio.mixer.adapter.model.v1beta1.TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</a></code></td>
 <td>
 <p>Timestamp is the time value for the log entry</p>
 
@@ -84,7 +84,7 @@ Otherwise these fields will be ignored by the adapter.</p>
 </tr>
 <tr id="Template.monitored_resource_dimensions">
 <td><code>monitoredResourceDimensions</code></td>
-<td><code>map&lt;string,&nbsp;<a href="https://istio.io/docs/reference/config/mixer/istio.mixer.adapter.model.v1beta1.html#Value">istio.mixer.adapter.model.v1beta1.Value</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#istio.mixer.adapter.model.v1beta1.Value">istio.mixer.adapter.model.v1beta1.Value</a>&gt;</code></td>
 <td>
 <p>Optional. A set of expressions that will form the dimensions of the monitored resource this log entry is being
 recorded on. If the logging backend supports monitored resources, these fields are used to populate that resource.
@@ -94,4 +94,15 @@ Otherwise these fields will be ignored by the adapter.</p>
 </tr>
 </tbody>
 </table>
+</section>
+<h2 id="istio.mixer.adapter.model.v1beta1.TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</h2>
+<section>
+<p>TimeStamp is used inside templates for fields that are of ValueType &ldquo;TIMESTAMP&rdquo;</p>
+
+</section>
+<h2 id="istio.mixer.adapter.model.v1beta1.Value">istio.mixer.adapter.model.v1beta1.Value</h2>
+<section>
+<p>Value is used inside templates for fields that have dynamic types. The actual datatype
+of the field depends on the datatype of the expression used in the operator configuration.</p>
+
 </section>

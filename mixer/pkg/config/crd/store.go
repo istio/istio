@@ -51,10 +51,6 @@ const (
 	crdRetryTimeout = time.Second * 30
 )
 
-// The interval to wait between the attempt to initialize caches. This is not const
-// to allow changing the value for unittests.
-var retryInterval = time.Second / 2
-
 // When retrying happens on initializing caches, it shouldn't log the message for
 // every retry, it may flood the log messages if the initialization is never satisfied.
 // see also https://github.com/istio/istio/issues/3138
@@ -105,10 +101,14 @@ type Store struct {
 	listerWatcherBuilder func(conf *rest.Config) (listerWatcherBuilderInterface, error)
 
 	*probe.Probe
+
+	// The interval to wait between the attempt to initialize caches. This is not const
+	// to allow changing the value for unittests.
+	retryInterval time.Duration
 }
 
-var _ store.Backend = &Store{}
-var _ probe.SupportsProbe = &Store{}
+var _ store.Backend = new(Store)
+var _ probe.SupportsProbe = new(Store)
 
 // Stop implements store.Backend interface.
 func (s *Store) Stop() {
@@ -145,7 +145,7 @@ loop:
 				}
 				log.Debugf("Retrying to fetch config: %+v", remainingKeys)
 			}
-			time.Sleep(retryInterval)
+			time.Sleep(s.retryInterval)
 		}
 		retryCount++
 		resources, err := d.ServerResourcesForGroupVersion(apiGroupVersion)
@@ -155,6 +155,7 @@ loop:
 		}
 		s.cacheMutex.Lock()
 		for _, res := range resources.APIResources {
+
 			if _, ok := s.caches[res.Kind]; ok {
 				continue
 			}
@@ -197,6 +198,7 @@ func (s *Store) Init(kinds []string) error {
 	s.caches = make(map[string]cache.Store, len(kinds))
 	timeout := time.After(s.retryTimeout)
 	timeoutdone := make(chan struct{})
+	s.retryInterval = time.Second / 2
 	go func() {
 		<-timeout
 		close(timeoutdone)
@@ -240,10 +242,11 @@ func (s *Store) Get(key store.Key) (*store.BackEndResource, error) {
 		return nil, store.ErrNotFound
 	}
 	uns, _ := obj.(*unstructured.Unstructured)
-	return backEndResource(uns), nil
+	return ToBackEndResource(uns), nil
 }
 
-func backEndResource(uns *unstructured.Unstructured) *store.BackEndResource {
+// ToBackEndResource converts an unstructured k8s resource into a mixer backend resource.
+func ToBackEndResource(uns *unstructured.Unstructured) *store.BackEndResource {
 	spec, _ := uns.UnstructuredContent()["spec"].(map[string]interface{})
 	return &store.BackEndResource{
 		Metadata: store.ResourceMeta{
@@ -268,7 +271,7 @@ func (s *Store) List() map[store.Key]*store.BackEndResource {
 			if s.ns != nil && !s.ns[key.Namespace] {
 				continue
 			}
-			result[key] = backEndResource(uns)
+			result[key] = ToBackEndResource(uns)
 		}
 	}
 	s.cacheMutex.Unlock()
@@ -281,7 +284,7 @@ func toEvent(t store.ChangeType, obj interface{}) store.BackendEvent {
 	return store.BackendEvent{
 		Type:  t,
 		Key:   key,
-		Value: backEndResource(uns),
+		Value: ToBackEndResource(uns),
 	}
 }
 

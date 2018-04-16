@@ -2,5 +2,5 @@
   shell: |
     {{ cmd_path }} create -f {{ istio_dir }}/install/kubernetes/addons/{{ item }}.yaml
     {{ cmd_path }} expose svc {{ item }} -n istio-system
-  with_items: "{{ istio.addon | difference(disabled_addons) }}"
+  with_items: "{{ istio.addon | difference(disabled_addons) | difference('jaeger') }}"
   ignore_errors: true

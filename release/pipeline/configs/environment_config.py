@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-EMAIL_LIST = [''istio-release@google.com']
+EMAIL_LIST = ['istio-release@google.com']
 
 #Make the release on the 3ed Thursday of the mounth.
 #It will run on at 17:15 GST

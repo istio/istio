@@ -81,6 +81,9 @@ type Webhook struct {
 	meshFile   string
 	configFile string
 	watcher    *fsnotify.Watcher
+	certFile   string
+	keyFile    string
+	cert       *tls.Certificate
 }
 
 func loadConfig(injectFile, meshFile string) (*Config, *meshconfig.MeshConfig, error) {
@@ -149,7 +152,7 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	}
 	// watch the parent directory of the target files so we can catch
 	// symlink updates of k8s ConfigMaps volumes.
-	for _, file := range []string{p.ConfigFile, p.MeshFile} {
+	for _, file := range []string{p.ConfigFile, p.MeshFile, p.CertFile, p.KeyFile} {
 		watchDir, _ := filepath.Split(file)
 		if err := watcher.Watch(watchDir); err != nil {
 			return nil, fmt.Errorf("could not watch %v: %v", file, err)
@@ -158,9 +161,7 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 
 	wh := &Webhook{
 		server: &http.Server{
-			Addr:      fmt.Sprintf(":%v", p.Port),
-			TLSConfig: &tls.Config{Certificates: []tls.Certificate{pair}},
-			// mtls disabled because apiserver webhook cert usage is still TBD.
+			Addr: fmt.Sprintf(":%v", p.Port),
 		},
 		sidecarConfig:          sidecarConfig,
 		sidecarTemplateVersion: sidecarTemplateVersionHash(sidecarConfig.Template),
@@ -170,7 +171,12 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		watcher:                watcher,
 		healthCheckInterval:    p.HealthCheckInterval,
 		healthCheckFile:        p.HealthCheckFile,
+		certFile:               p.CertFile,
+		keyFile:                p.KeyFile,
+		cert:                   &pair,
 	}
+	// mtls disabled because apiserver webhook cert usage is still TBD.
+	wh.server.TLSConfig = &tls.Config{GetCertificate: wh.getCert}
 	h := http.NewServeMux()
 	h.HandleFunc("/inject", wh.serveInject)
 	wh.server.Handler = h
@@ -206,11 +212,16 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 			}
 
 			version := sidecarTemplateVersionHash(sidecarConfig.Template)
-
+			pair, err := tls.LoadX509KeyPair(wh.certFile, wh.keyFile)
+			if err != nil {
+				log.Errorf("reload cert error: %v", err)
+				break
+			}
 			wh.mu.Lock()
 			wh.sidecarConfig = sidecarConfig
 			wh.sidecarTemplateVersion = version
 			wh.meshConfig = meshConfig
+			wh.cert = &pair
 			wh.mu.Unlock()
 		case event := <-wh.watcher.Event:
 			// use a timer to debounce configuration updates
@@ -228,6 +239,12 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 			return
 		}
 	}
+}
+
+func (wh *Webhook) getCert(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+	wh.mu.Lock()
+	defer wh.mu.Unlock()
+	return wh.cert, nil
 }
 
 // TODO(https://github.com/kubernetes/kubernetes/issues/57982)
@@ -271,6 +288,7 @@ func removeContainers(containers []corev1.Container, removed []string, path stri
 	}
 	return patch
 }
+
 func removeVolumes(volumes []corev1.Volume, removed []string, path string) (patch []rfc6902PatchOperation) {
 	names := map[string]bool{}
 	for _, name := range removed {
@@ -278,6 +296,22 @@ func removeVolumes(volumes []corev1.Volume, removed []string, path string) (patc
 	}
 	for i := len(volumes) - 1; i >= 0; i-- {
 		if _, ok := names[volumes[i].Name]; ok {
+			patch = append(patch, rfc6902PatchOperation{
+				Op:   "remove",
+				Path: fmt.Sprintf("%v/%v", path, i),
+			})
+		}
+	}
+	return patch
+}
+
+func removeImagePullSecrets(imagePullSecrets []corev1.LocalObjectReference, removed []string, path string) (patch []rfc6902PatchOperation) {
+	names := map[string]bool{}
+	for _, name := range removed {
+		names[name] = true
+	}
+	for i := len(imagePullSecrets) - 1; i >= 0; i-- {
+		if _, ok := names[imagePullSecrets[i].Name]; ok {
 			patch = append(patch, rfc6902PatchOperation{
 				Op:   "remove",
 				Path: fmt.Sprintf("%v/%v", path, i),
@@ -317,6 +351,27 @@ func addVolume(target, added []corev1.Volume, basePath string) (patch []rfc6902P
 		if first {
 			first = false
 			value = []corev1.Volume{add}
+		} else {
+			path = path + "/-"
+		}
+		patch = append(patch, rfc6902PatchOperation{
+			Op:    "add",
+			Path:  path,
+			Value: value,
+		})
+	}
+	return patch
+}
+
+func addImagePullSecrets(target, added []corev1.LocalObjectReference, basePath string) (patch []rfc6902PatchOperation) {
+	first := len(target) == 0
+	var value interface{}
+	for _, add := range added {
+		value = add
+		path := basePath
+		if first {
+			first = false
+			value = []corev1.LocalObjectReference{add}
 		} else {
 			path = path + "/-"
 		}
@@ -369,10 +424,12 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotation
 	patch = append(patch, removeContainers(pod.Spec.InitContainers, prevStatus.InitContainers, "/spec/initContainers")...)
 	patch = append(patch, removeContainers(pod.Spec.Containers, prevStatus.Containers, "/spec/containers")...)
 	patch = append(patch, removeVolumes(pod.Spec.Volumes, prevStatus.Volumes, "/spec/volumes")...)
+	patch = append(patch, removeImagePullSecrets(pod.Spec.ImagePullSecrets, prevStatus.ImagePullSecrets, "/spec/imagePullSecrets")...)
 
 	patch = append(patch, addContainer(pod.Spec.InitContainers, sic.InitContainers, "/spec/initContainers")...)
 	patch = append(patch, addContainer(pod.Spec.Containers, sic.Containers, "/spec/containers")...)
 	patch = append(patch, addVolume(pod.Spec.Volumes, sic.Volumes, "/spec/volumes")...)
+	patch = append(patch, addImagePullSecrets(pod.Spec.ImagePullSecrets, sic.ImagePullSecrets, "/spec/imagePullSecrets")...)
 
 	patch = append(patch, updateAnnotation(pod.Annotations, annotations)...)
 
@@ -390,7 +447,7 @@ var (
 func injectionStatus(pod *corev1.Pod) *SidecarInjectionStatus {
 	var statusBytes []byte
 	if pod.ObjectMeta.Annotations != nil {
-		if value, ok := pod.ObjectMeta.Annotations[istioSidecarAnnotationStatusKey]; ok {
+		if value, ok := pod.ObjectMeta.Annotations[sidecarAnnotationStatusKey]; ok {
 			statusBytes = []byte(value)
 		}
 	}
@@ -402,7 +459,8 @@ func injectionStatus(pod *corev1.Pod) *SidecarInjectionStatus {
 		// lists is non-empty.
 		if len(status.InitContainers) != 0 ||
 			len(status.Containers) != 0 ||
-			len(status.Volumes) != 0 {
+			len(status.Volumes) != 0 ||
+			len(status.ImagePullSecrets) != 0 {
 			return &status
 		}
 	}
@@ -447,7 +505,7 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 	}
 
 	applyDefaultsWorkaround(spec.InitContainers, spec.Containers, spec.Volumes)
-	annotations := map[string]string{istioSidecarAnnotationStatusKey: status}
+	annotations := map[string]string{sidecarAnnotationStatusKey: status}
 
 	patchBytes, err := createPatch(&pod, injectionStatus(&pod), annotations, spec)
 	if err != nil {

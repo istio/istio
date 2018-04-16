@@ -3,6 +3,7 @@ apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
   name: istio-pilot-{{ .Release.Namespace }}
+  namespace: {{ .Release.Namespace }}
   labels:
     app: istio-pilot
     chart: {{ .Chart.Name }}-{{ .Chart.Version }}
@@ -10,6 +11,12 @@ metadata:
     release: {{ .Release.Name }}
 rules:
 - apiGroups: ["config.istio.io"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["networking.istio.io"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["authentication.istio.io"]
   resources: ["*"]
   verbs: ["*"]
 - apiGroups: ["apiextensions.k8s.io"]
@@ -27,7 +34,4 @@ rules:
 - apiGroups: [""]
   resources: ["namespaces", "nodes", "secrets"]
   verbs: ["get", "list", "watch"]
-- apiGroups: ["admissionregistration.k8s.io"]
-  resources: ["externaladmissionhookconfigurations"]
-  verbs: ["create", "update", "delete"]
 {{- end }}

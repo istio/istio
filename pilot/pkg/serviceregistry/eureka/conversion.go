@@ -47,6 +47,8 @@ func convertServices(apps []*application, hostnames map[string]bool) map[string]
 					Address:      "",
 					Ports:        make(model.PortList, 0),
 					ExternalName: "",
+					MeshExternal: false,
+					Resolution:   model.ClientSideLB,
 				}
 				services[instance.Hostname] = service
 			}
@@ -124,7 +126,7 @@ func convertProtocol(md metadata) model.Protocol {
 	name := md[protocolMetadata]
 
 	if md != nil {
-		protocol := model.ConvertCaseInsensitiveStringToProtocol(name)
+		protocol := model.ParseProtocol(name)
 		if protocol == model.ProtocolUnsupported {
 			log.Warnf("unsupported protocol value: %s", name)
 		} else {

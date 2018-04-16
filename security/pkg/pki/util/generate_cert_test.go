@@ -20,6 +20,7 @@ import (
 	"crypto/x509"
 	"math/big"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -178,6 +179,45 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				Org:         "MyOrg",
 			},
 		},
+		{
+			name: "Server cert with DNS for webhook",
+			certOptions: CertOptions{
+				Host:         "spiffe://domain/ns/bar/sa/foo,bar.foo.svcs",
+				NotBefore:    notBefore,
+				TTL:          ttl,
+				SignerCert:   caCert,
+				SignerPriv:   caPriv,
+				Org:          "",
+				IsCA:         false,
+				IsSelfSigned: false,
+				IsClient:     false,
+				IsServer:     true,
+				RSAKeySize:   2048,
+			},
+			verifyFields: &VerifyFields{
+				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+				IsCA:        false,
+				KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+				NotBefore:   notBefore,
+				TTL:         ttl,
+				Org:         "MyOrg",
+			},
+		},
+		{
+			name: "Generate cert with multiple host names",
+			certOptions: CertOptions{
+				Host:       "a,b",
+				NotBefore:  notBefore,
+				TTL:        ttl,
+				SignerCert: caCert,
+				SignerPriv: caPriv,
+				RSAKeySize: 2048,
+			},
+			verifyFields: &VerifyFields{
+				IsCA:     false,
+				KeyUsage: x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+			},
+		},
 	}
 
 	for _, c := range cases {
@@ -186,8 +226,11 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 		if err != nil {
 			t.Errorf("[%s] cert/key generation error: %v", c.name, err)
 		}
-		if err := VerifyCertificate(privPem, certPem, caCertPem, certOptions.Host, c.verifyFields); err != nil {
-			t.Errorf("[%s] cert verification error: %v", c.name, err)
+
+		for _, host := range strings.Split(certOptions.Host, ",") {
+			if err := VerifyCertificate(privPem, certPem, caCertPem, host, c.verifyFields); err != nil {
+				t.Errorf("[%s] cert verification error: %v", c.name, err)
+			}
 		}
 	}
 }
@@ -281,13 +324,13 @@ func TestLoadSignerCredsFromFiles(t *testing.T) {
 			expectedErr: "private key file reading failure (open ../testdata/key-not-exist.pem: no such file or directory)",
 		},
 		"Bad cert files": {
-			certFile:    "../testdata/cert-bad.pem",
+			certFile:    "../testdata/cert-parse-fail.pem",
 			keyFile:     "../testdata/key.pem",
 			expectedErr: "pem encoded cert parsing failure (invalid PEM encoded certificate)",
 		},
 		"Bad key files": {
 			certFile:    "../testdata/cert.pem",
-			keyFile:     "../testdata/key-bad.pem",
+			keyFile:     "../testdata/key-parse-fail.pem",
 			expectedErr: "pem encoded key parsing failure (invalid PEM-encoded key)",
 		},
 	}

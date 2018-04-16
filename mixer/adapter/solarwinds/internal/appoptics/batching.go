@@ -49,8 +49,6 @@ func BatchMeasurements(prepChan <-chan []*Measurement,
 			}
 		case <-stopChan:
 			return
-		default:
-			continue
 		}
 	}
 }

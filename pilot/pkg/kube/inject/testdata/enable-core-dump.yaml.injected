@@ -9,7 +9,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"25deea1217623062e710353911374f1ffeb8da83b918662b426fe87016d57dcd","initContainers":["istio-init","enable-core-dump"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"]}'
+        sidecar.istio.io/status: '{"version":"0df13cbba48820e26f4142b1397351f6cbdcaa91d012da025bcdf405302b5913","initContainers":["istio-init","enable-core-dump"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: hello
@@ -83,6 +83,14 @@ spec:
         - "15001"
         - -u
         - "1337"
+        - -i
+        - '*'
+        - -x
+        - ""
+        - -b
+        - '*'
+        - -d
+        - ""
         image: docker.io/istio/proxy_init:unittest
         imagePullPolicy: IfNotPresent
         name: istio-init
@@ -97,7 +105,7 @@ spec:
           unlimited
         command:
         - /bin/sh
-        image: alpine
+        image: docker.io/istio/proxy_init:unittest
         imagePullPolicy: IfNotPresent
         name: enable-core-dump
         resources: {}

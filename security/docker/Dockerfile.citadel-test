@@ -1,0 +1,14 @@
+FROM ubuntu:xenial
+
+ADD istio_ca /usr/local/bin/istio_ca
+
+COPY istio_ca.crt /usr/local/bin/istio_ca.crt
+COPY istio_ca.key /usr/local/bin/istio_ca.key
+
+
+ENTRYPOINT [ "/usr/local/bin/istio_ca", \
+"--signing-cert", "/usr/local/bin/istio_ca.crt", \
+"--signing-key", "/usr/local/bin/istio_ca.key", \
+"--root-cert", "/usr/local/bin/istio_ca.crt", \
+"--grpc-hostname", "istio-citadel", \
+"--grpc-port", "8060" ]

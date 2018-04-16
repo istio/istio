@@ -18,7 +18,8 @@ import (
 	"fmt"
 	"testing"
 
-	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
+	rpc "github.com/gogo/googleapis/google/rpc"
+
 	"istio.io/istio/mixer/test/client/env"
 )
 
@@ -83,6 +84,8 @@ const reportAttributesMixerFail = `
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
+  "check.cache_hit": false,
+  "quota.cache_hit": false,
   "request.headers": {
      ":method": "GET",
      ":path": "/echo",
@@ -123,11 +126,15 @@ const reportAttributesBackendFail = `
   "source.namespace": "XYZ11",
   "source.ip": "[127 0 0 1]",
   "source.port": "*",
+  "destination.ip": "[127 0 0 1]",
+  "destination.port": "*",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
+  "check.cache_hit": false,
+  "quota.cache_hit": false,
   "request.headers": {
      ":method": "GET",
      ":path": "/echo",

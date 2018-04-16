@@ -116,36 +116,36 @@ func (s *Stepper) Result() Result {
 
 // String dumps the current state of the interpreter in a human-readable form.
 func (s *Stepper) String() string {
-	var b bytes.Buffer
+	b := &bytes.Buffer{}
 	b.WriteString("\n")
-	b.WriteString(fmt.Sprintf("sp = %d\n", s.sp))
-	b.WriteString(fmt.Sprintf("ip = %d\n", s.ip))
-	b.WriteString(fmt.Sprintf("fp = %d\n", s.fp))
+	fmt.Fprintf(b, "sp = %d\n", s.sp)
+	fmt.Fprintf(b, "ip = %d\n", s.ip)
+	fmt.Fprintf(b, "fp = %d\n", s.fp)
 	for i, r := range s.registers {
-		b.WriteString(fmt.Sprintf("r%d = %d  ", i, r))
+		fmt.Fprintf(b, "r%d = %d  ", i, r)
 	}
 	b.WriteString("\n")
 
 	b.WriteString("stack:  [ ")
 	for i := 0; i < int(s.sp); i++ {
-		b.WriteString(fmt.Sprintf("%d ", s.opstack[i]))
+		fmt.Fprintf(b, "%d ", s.opstack[i])
 	}
 	b.WriteString("]\n")
 
 	b.WriteString("frames: [ ")
 	for i := 0; i < int(s.fp); i++ {
-		b.WriteString(fmt.Sprintf("%v ", s.frames[i]))
+		fmt.Fprintf(b, "%v ", s.frames[i])
 	}
 	b.WriteString("]\n")
 
 	b.WriteString("heap:   [ ")
 	for i := 0; i < int(s.hp); i++ {
-		b.WriteString(fmt.Sprintf("%v ", s.heap[i]))
+		fmt.Fprintf(b, "%v ", s.heap[i])
 	}
 	b.WriteString("]\n\n")
 
 	b.WriteString("code:   [\n")
-	text.WriteFn(&b, s.program.ByteCode(), s.fn, s.program.Strings(), s.ip)
+	text.WriteFn(b, s.program.ByteCode(), s.fn, s.program.Strings(), s.ip)
 	b.WriteString("]\n\n")
 
 	return b.String()

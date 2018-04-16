@@ -39,7 +39,8 @@ const reportAttributesOkPost = `
   "connection.sent.bytes": 133,
   "connection.sent.bytes_total": 133,
   "connection.duration": "*",
-  "connection.id": "*"
+  "connection.id": "*",
+	"connection.event": "open"
 }
 `
 
@@ -57,9 +58,9 @@ var expectedStats = map[string]int{
 
 func TestDisableTCPCheckCalls(t *testing.T) {
 	s := env.NewTestSetup(env.DisableTCPCheckCallsTest, t)
-	env.SetStatsUpdateInterval(s.V2(), 1)
+	env.SetStatsUpdateInterval(s.MfConfig(), 1)
 	// Disable Check
-	env.DisableTCPCheckReport(s.V2().TCPServerConf, true, false)
+	env.DisableTCPCheckReport(s.MfConfig().TCPServerConf, true, false)
 
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)

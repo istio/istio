@@ -93,7 +93,7 @@ type Params struct {
 	// Chance that any particular metric is sampled when emitted; can take the range [0, 1].
 	// Default: 1
 	SampleRate float64 `protobuf:"fixed64,5,opt,name=sample_rate,json=sampleRate,proto3" json:"sample_rate,omitempty"`
-	// Map of a specific metric instance name -> info. If a metric's instnace name is not in the map then the metric will not be exported to DataDog.
+	// Map of a specific metric instance name -> info. If a metric's instance name is not in the map then the metric will not be exported to DataDog.
 	Metrics map[string]*Params_MetricInfo `protobuf:"bytes,6,rep,name=metrics" json:"metrics,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
 }
 

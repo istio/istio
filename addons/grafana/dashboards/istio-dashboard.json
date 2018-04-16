@@ -519,6 +519,22 @@
           "legendFormat": "400s",
           "refId": "C",
           "step": 2
+        },
+        {
+          "expr": "round(sum(irate(istio_request_count{source_service=~\"$source\",source_version=~\"$source_version\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\",connection_mtls=\"true\"}[1m])), 0.001)",
+          "hide": false,
+          "intervalFactor": 1,
+          "legendFormat": "All Secured Requests",
+          "refId": "D",
+          "step": 2
+        },
+        {
+          "expr": "round(sum(irate(istio_request_count{source_service=~\"$source\",source_version=~\"$source_version\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\",connection_mtls=\"false\"}[1m])), 0.001)",
+          "hide": false,
+          "intervalFactor": 1,
+          "legendFormat": "All Unsecured Requests",
+          "refId": "E",
+          "step": 2
         }
       ],
       "thresholds": [],

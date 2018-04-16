@@ -20,7 +20,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"net"
-	"net/url"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
@@ -171,16 +170,16 @@ func BuildMixerClusters(mesh *meshconfig.MeshConfig, role model.Proxy, mixerSAN 
 // with destination of Service `dest` and `destName` as the service name
 func BuildMixerConfig(source model.Proxy, destName string, dest *model.Service, instances []*model.ServiceInstance, config model.IstioConfigStore,
 	disableCheck bool, disableReport bool) map[string]string {
-	sc := serviceConfig(destName, &model.ServiceInstance{Service: dest}, config, disableCheck, disableReport)
+	sc := ServiceConfig(destName, &model.ServiceInstance{Service: dest}, config, disableCheck, disableReport)
 	var labels map[string]string
 	// Note: instances are all running on mode.Node named 'role'
 	// So instance labels are the workload / Node labels.
 	if len(instances) > 0 {
 		labels = instances[0].Labels
 	}
-	addStandardNodeAttributes(sc.MixerAttributes.Attributes, AttrSourcePrefix, source.IPAddress, source.ID, labels)
+	AddStandardNodeAttributes(sc.MixerAttributes.Attributes, AttrSourcePrefix, source.IPAddress, source.ID, labels)
 
-	addStandardNodeAttributes(sc.MixerAttributes.Attributes, AttrDestinationPrefix, "", destName, nil)
+	AddStandardNodeAttributes(sc.MixerAttributes.Attributes, AttrDestinationPrefix, "", destName, nil)
 
 	oc := map[string]string{
 		AttrDestinationService: destName,
@@ -241,7 +240,7 @@ func BuildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 	if !outboundRoute {
 		// for outboundRoutes there are no default MixerAttributes
 		// specific MixerAttributes are in per route configuration.
-		addStandardNodeAttributes(v2.MixerAttributes.Attributes, AttrDestinationPrefix, role.IPAddress, role.ID, labels)
+		AddStandardNodeAttributes(v2.MixerAttributes.Attributes, AttrDestinationPrefix, role.IPAddress, role.ID, labels)
 	}
 
 	if role.Type == model.Sidecar && !outboundRoute {
@@ -250,11 +249,11 @@ func BuildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 		v2.ForwardAttributes = &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{},
 		}
-		addStandardNodeAttributes(v2.ForwardAttributes.Attributes, AttrSourcePrefix, role.IPAddress, role.ID, labels)
+		AddStandardNodeAttributes(v2.ForwardAttributes.Attributes, AttrSourcePrefix, role.IPAddress, role.ID, labels)
 	}
 
 	for _, instance := range nodeInstances {
-		v2.ServiceConfigs[instance.Service.Hostname] = serviceConfig(instance.Service.Hostname, instance, config,
+		v2.ServiceConfigs[instance.Service.Hostname] = ServiceConfig(instance.Service.Hostname, instance, config,
 			outboundRoute || mesh.DisablePolicyChecks, outboundRoute)
 	}
 
@@ -266,8 +265,8 @@ func BuildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 	return filter
 }
 
-// addStandardNodeAttributes add standard node attributes with the given prefix
-func addStandardNodeAttributes(attr map[string]*mpb.Attributes_AttributeValue, prefix string, IPAddress string, ID string, labels map[string]string) {
+// AddStandardNodeAttributes add standard node attributes with the given prefix
+func AddStandardNodeAttributes(attr map[string]*mpb.Attributes_AttributeValue, prefix string, IPAddress string, ID string, labels map[string]string) {
 	if len(IPAddress) > 0 {
 		attr[prefix+"."+AttrIPSuffix] = &mpb.Attributes_AttributeValue{
 			Value: &mpb.Attributes_AttributeValue_BytesValue{net.ParseIP(IPAddress)},
@@ -287,14 +286,15 @@ func addStandardNodeAttributes(attr map[string]*mpb.Attributes_AttributeValue, p
 	}
 }
 
-func standardNodeAttributes(prefix string, IPAddress string, ID string, labels map[string]string) map[string]*mpb.Attributes_AttributeValue {
+// StandardNodeAttributes populates and returns a map of attributes with the provided parameters.
+func StandardNodeAttributes(prefix string, IPAddress string, ID string, labels map[string]string) map[string]*mpb.Attributes_AttributeValue {
 	attrs := make(map[string]*mpb.Attributes_AttributeValue)
-	addStandardNodeAttributes(attrs, prefix, IPAddress, ID, labels)
+	AddStandardNodeAttributes(attrs, prefix, IPAddress, ID, labels)
 	return attrs
 }
 
-// generate serviceConfig for a given instance
-func serviceConfig(serviceName string, dest *model.ServiceInstance, config model.IstioConfigStore, disableCheck, disableReport bool) *mccpb.ServiceConfig {
+// ServiceConfig generates a ServiceConfig for a given instance
+func ServiceConfig(serviceName string, dest *model.ServiceInstance, config model.IstioConfigStore, disableCheck, disableReport bool) *mccpb.ServiceConfig {
 	sc := &mccpb.ServiceConfig{
 		MixerAttributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
@@ -327,31 +327,6 @@ func serviceConfig(serviceName string, dest *model.ServiceInstance, config model
 		sc.QuotaSpec = append(sc.QuotaSpec, config.Spec.(*mccpb.QuotaSpec))
 	}
 
-	authSpecs := config.EndUserAuthenticationPolicySpecByDestination(dest)
-	model.SortEndUserAuthenticationPolicySpec(quotaSpecs)
-	if len(authSpecs) > 0 {
-		spec := (authSpecs[0].Spec).(*mccpb.EndUserAuthenticationPolicySpec)
-
-		// Update jwks_uri_envoy_cluster This cluster should be
-		// created elsewhere using the same host-to-cluster naming
-		// scheme, i.e. buildJWKSURIClusterNameAndAddress.
-		for _, jwt := range spec.Jwts {
-			if name, _, _, err := buildJWKSURIClusterNameAndAddress(jwt.JwksUri); err != nil {
-				log.Warnf("Could not set jwks_uri_envoy and address for jwks_uri %q: %v",
-					jwt.JwksUri, err)
-			} else {
-				jwt.JwksUriEnvoyCluster = name
-			}
-		}
-
-		sc.EndUserAuthnSpec = spec
-		if len(authSpecs) > 1 {
-			// TODO - validation should catch this problem earlier at config time.
-			log.Warnf("Multiple EndUserAuthenticationPolicySpec found for service %q. Selecting %v",
-				dest.Service, spec)
-		}
-	}
-
 	return sc
 }
 
@@ -364,7 +339,7 @@ func BuildTCPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, in
 		},
 	}
 
-	attrs := standardNodeAttributes(AttrDestinationPrefix, role.IPAddress, role.ID, nil)
+	attrs := StandardNodeAttributes(AttrDestinationPrefix, role.IPAddress, role.ID, nil)
 	attrs[AttrDestinationService] = &mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_StringValue{instance.Service.Hostname}}
 
 	v2 := &mccpb.TcpClientConfig{
@@ -385,81 +360,4 @@ func BuildTCPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, in
 
 	}
 	return filter
-}
-
-const (
-	// OutboundJWTURIClusterPrefix is the prefix for jwt_uri service
-	// clusters external to the proxy instance
-	OutboundJWTURIClusterPrefix = "jwt."
-)
-
-// buildJWKSURIClusterNameAndAddress builds the internal envoy cluster
-// name and DNS address from the jwks_uri. The cluster name is used by
-// the JWT auth filter to fetch public keys. The cluster name and
-// address are used to build an envoy cluster that corresponds to the
-// jwks_uri server.
-func buildJWKSURIClusterNameAndAddress(raw string) (string, string, bool, error) {
-	var useSSL bool
-
-	u, err := url.Parse(raw)
-	if err != nil {
-		return "", "", useSSL, err
-	}
-
-	host := u.Hostname()
-	port := u.Port()
-	if port == "" {
-		if u.Scheme == "https" {
-			port = "443"
-
-		} else {
-			port = "80"
-		}
-	}
-	address := host + ":" + port
-	name := host + "|" + port
-
-	if u.Scheme == "https" {
-		useSSL = true
-	}
-
-	return TruncateClusterName(OutboundJWTURIClusterPrefix + name), address, useSSL, nil
-}
-
-// BuildMixerAuthFilterClusters builds the necessary clusters for the
-// JWT auth filter to fetch public keys from the specified jwks_uri.
-func BuildMixerAuthFilterClusters(config model.IstioConfigStore, mesh *meshconfig.MeshConfig, proxyInstances []*model.ServiceInstance) Clusters {
-	type authCluster struct {
-		name   string
-		useSSL bool
-	}
-	authClusters := map[string]authCluster{}
-	for _, instance := range proxyInstances {
-		for _, policy := range config.EndUserAuthenticationPolicySpecByDestination(instance) {
-			for _, jwt := range policy.Spec.(*mccpb.EndUserAuthenticationPolicySpec).Jwts {
-				if name, address, ssl, err := buildJWKSURIClusterNameAndAddress(jwt.JwksUri); err != nil {
-					log.Warnf("Could not build envoy cluster and address from jwks_uri %q: %v",
-						jwt.JwksUri, err)
-				} else {
-					authClusters[address] = authCluster{name, ssl}
-				}
-			}
-		}
-	}
-
-	var clusters Clusters
-	for address, auth := range authClusters {
-		cluster := buildCluster(address, auth.name, mesh.ConnectTimeout)
-		cluster.CircuitBreaker = &CircuitBreaker{
-			Default: DefaultCBPriority{
-				MaxPendingRequests: 10000,
-				MaxRequests:        10000,
-			},
-		}
-		if auth.useSSL {
-			cluster.SSLContext = &SSLContextExternal{}
-		}
-		clusters = append(clusters, cluster)
-	}
-	return clusters
 }

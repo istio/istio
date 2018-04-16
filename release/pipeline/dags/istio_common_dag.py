@@ -27,17 +27,13 @@ from airflow.operators.python_operator import PythonOperator
 import environment_config
 from gcs_copy_operator import GoogleCloudStorageCopyOperator
 
-YESTERDAY = datetime.datetime.combine(
-    datetime.datetime.today() - datetime.timedelta(days=1),
-    datetime.datetime.min.time())
-
 default_args = {
     'owner': 'laane',
     'depends_on_past': False,
-    # This is the date to when the airlfow pipeline tryes to backfil to.
-    'start_date': YESTERDAY,
+    # This is the date to when the airlfow pipeline thinks the run started
+    'start_date': datetime.datetime.now(),
     'email': environment_config.EMAIL_LIST,
-    'email_on_failure': True,
+    'email_on_failure': True, 
     'email_on_retry': False,
     'retries': 1,
     'retry_delay': datetime.timedelta(minutes=5),
@@ -75,6 +71,7 @@ def MakeCommonDag(name='istio_daily_flow_test',
   """Creates the shared part of the daily/monthly dags."""
   common_dag = DAG(
       name,
+      catchup=False,
       default_args=default_args,
       schedule_interval=schedule_interval,
   )
@@ -126,7 +123,7 @@ def MakeCommonDag(name='istio_daily_flow_test',
         minor=minor_version,
         patch=patch,
         date=date.strftime('%Y%m%d'),
-        rc=date.strftime('%H-%M-%S'))
+        rc=date.strftime('%H-%M'))
     config_settings = dict(VERSION=default_conf['VERSION'])
     config_settings_name = [
         'PROJECT_ID',
@@ -213,7 +210,7 @@ def MakeCommonDag(name='istio_daily_flow_test',
     {% set m_commit = task_instance.xcom_pull(task_ids='get_git_commit') %}
     gsutil cp gs://{{ settings.GCS_RELEASE_TOOLS_PATH }}/data/release/*.json .
     gsutil cp gs://{{ settings.GCS_RELEASE_TOOLS_PATH }}/data/release/*.sh .
-    chmod +x *
+    chmod u+x *
     ./start_gcb_build.sh -w -p {{ settings.PROJECT_ID \
     }} -r {{ settings.GCR_STAGING_DEST }} -s {{ settings.GCS_BUILD_PATH }} \
     -v "{{ settings.VERSION }}" \
@@ -227,11 +224,13 @@ def MakeCommonDag(name='istio_daily_flow_test',
       task_id='run_cloud_builder', bash_command=build_template, dag=common_dag)
 
   test_command = """
-    chmod +x /home/airflow/gcs/data/githubctl
+    cp /home/airflow/gcs/data/githubctl ./githubctl
+    chmod u+x ./githubctl
     {% set settings = task_instance.xcom_pull(task_ids='generate_workflow_args') %}
     git config --global user.name "TestRunnerBot"
     git config --global user.email "testrunner@istio.io"
-    /home/airflow/gcs/data/githubctl \
+    ls -l    ./githubctl
+    ./githubctl \
     --token_file="{{ settings.TOKEN_FILE }}" \
     --op=dailyRelQual \
     --hub=gcr.io/{{ settings.GCR_STAGING_DEST }} \

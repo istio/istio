@@ -16,6 +16,8 @@ package platform
 
 import (
 	"testing"
+
+	"cloud.google.com/go/compute/metadata"
 )
 
 func TestNewClient(t *testing.T) {
@@ -26,34 +28,38 @@ func TestNewClient(t *testing.T) {
 		certChainFile string
 		caAddr        string
 		expectedErr   string
-		expectedType  string
 	}{
 		"onprem test": {
 			platform:      "onprem",
-			rootCertFile:  "testdata/root-cert-good.pem",
-			keyFile:       "testdata/key-good.pem",
-			certChainFile: "testdata/cert-chain-good.pem",
+			rootCertFile:  "testdata/cert-root-good.pem",
+			keyFile:       "testdata/key-from-root-good.pem",
+			certChainFile: "testdata/cert-from-root-good.pem",
 			caAddr:        "localhost",
 			expectedErr:   "",
-			expectedType:  "onprem",
 		},
 		"gcp test": {
 			platform:      "gcp",
-			rootCertFile:  "testdata/root-cert-good.pem",
-			keyFile:       "testdata/key-good.pem",
+			rootCertFile:  "testdata/cert-root-good.pem",
+			keyFile:       "testdata/key-from-root-good.pem",
 			certChainFile: "testdata/cert-chain-good.pem",
 			caAddr:        "localhost",
 			expectedErr:   "",
-			expectedType:  "gcp",
 		},
 		"aws test": {
 			platform:      "aws",
-			rootCertFile:  "testdata/root-cert-good.pem",
-			keyFile:       "testdata/key-good.pem",
+			rootCertFile:  "testdata/cert-root-good.pem",
+			keyFile:       "testdata/key-from-root-good.pem",
 			certChainFile: "testdata/cert-chain-good.pem",
 			caAddr:        "localhost",
 			expectedErr:   "",
-			expectedType:  "aws",
+		},
+		"unspecified test": {
+			platform:      "unspecified",
+			rootCertFile:  "testdata/cert-root-good.pem",
+			keyFile:       "testdata/key-from-root-good.pem",
+			certChainFile: "testdata/cert-chain-good.pem",
+			caAddr:        "localhost",
+			expectedErr:   "",
 		},
 		"invalid test": {
 			platform:    "invalid",
@@ -77,9 +83,17 @@ func TestNewClient(t *testing.T) {
 		}
 
 		credentialType := client.GetCredentialType()
-		if credentialType != tc.expectedType {
+		expectedType := tc.platform
+		if expectedType == "unspecified" {
+			if metadata.OnGCE() {
+				expectedType = "gcp"
+			} else {
+				expectedType = "onprem"
+			}
+		}
+		if credentialType != expectedType {
 			t.Errorf("%s: Wrong Credential Type. Expected %v, Actual %v", id,
-				string(tc.expectedType), string(credentialType))
+				string(expectedType), string(credentialType))
 		}
 	}
 }

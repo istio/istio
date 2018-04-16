@@ -190,12 +190,18 @@ func stringMatch(a string, list []string) bool {
 
 // Helper function to check if string "a" prefix matches "pattern".
 func prefixMatch(a string, pattern string) bool {
+	if !strings.HasSuffix(pattern, "*") {
+		return false
+	}
 	pattern = strings.TrimSuffix(pattern, "*")
 	return strings.HasPrefix(a, pattern)
 }
 
 // Helper function to check if string "a" prefix matches "pattern".
 func suffixMatch(a string, pattern string) bool {
+	if !strings.HasPrefix(pattern, "*") {
+		return false
+	}
 	pattern = strings.TrimPrefix(pattern, "*")
 	return strings.HasSuffix(a, pattern)
 }

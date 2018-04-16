@@ -1,9 +1,17 @@
 #!/bin/bash
 
 # Applies requisite code formatters to the source tree
+# fmt.sh -c check only.
 
 set -e
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
+
+check=false
+
+case $1 in
+    -c|--check)
+    check=true
+esac
 
 ROOTDIR=$SCRIPTPATH/..
 cd $ROOTDIR
@@ -25,14 +33,40 @@ fi
 
 UX=$(uname)
 
-#remove blank lines so gofmt / goimports can do their job
-for fl in ${GO_FILES}; do
-  if [[ ${UX} == "Darwin" ]];then
-    sed -i '' -e "/^import[[:space:]]*(/,/)/{ /^\s*$/d;}" $fl
-  else
-    sed -i -e "/^import[[:space:]]*(/,/)/{ /^\s*$/d;}" $fl
+if [ $check = false ]; then
+  #remove blank lines so gofmt / goimports can do their job
+  for fl in ${GO_FILES}; do
+    if [[ ${UX} == "Darwin" ]]; then
+      sed -i '' -e "/^import[[:space:]]*(/,/)/{ /^\s*$/d;}" $fl
+    else
+      sed -i -e "/^import[[:space:]]*(/,/)/{ /^\s*$/d;}" $fl
+    fi
+  done
+
+  gofmt -s -w ${GO_FILES}
+  $goimports -w -local istio.io ${GO_FILES}
+  exit $?
 fi
+
+#check mode
+#remove blank lines so gofmt / goimports can do their job
+tf="/tmp/~output.go"
+ec=0
+for fl in ${GO_FILES}; do
+  if [[ ${UX} == "Darwin" ]]; then
+    sed -e "/^import[[:space:]]*(/,/)/{ /^\s*$/d;}" $fl > $tf
+  else
+    sed -e "/^import[[:space:]]*(/,/)/{ /^\s*$/d;}" $fl > $tf
+  fi
+
+  gofmt -s -w $tf
+  $goimports -w -local istio.io $tf
+  if [[ $(diff $tf $fl) ]]; then
+    echo "File $fl needs formatting. Please run bin/fmt.sh"
+    diff $tf $fl
+    ec=1
+  fi
 done
 
-gofmt -s -w ${GO_FILES}
-$goimports -w -local istio.io ${GO_FILES}
+rm $tf
+exit $ec
