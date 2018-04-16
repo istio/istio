@@ -8,6 +8,9 @@ global:
 sidecar-injector:
   enabled: true
 
+galley:
+  enabled: false
+
 grafana:
   enabled: true
 

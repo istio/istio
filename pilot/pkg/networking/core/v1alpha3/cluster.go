@@ -358,10 +358,8 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 }
 
 func setUpstreamProtocol(cluster *v2.Cluster, port *model.Port) {
-	if port.Protocol.IsHTTP() {
-		if port.Protocol == model.ProtocolHTTP2 || port.Protocol == model.ProtocolGRPC {
-			cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{}
-		}
+	if port.Protocol.IsHTTP2() {
+		cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{}
 	}
 }
 

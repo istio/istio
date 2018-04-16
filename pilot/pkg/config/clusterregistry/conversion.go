@@ -103,7 +103,7 @@ func (cs *ClusterStore) GetPilotClusters() (clusters []*k8s_cr.Cluster) {
 
 func setCfgStore(cs *ClusterStore) error {
 	for _, cluster := range cs.clusters {
-		log.Infof("ClusterPilotCfgStore: %s", cluster.ObjectMeta.Annotations[ClusterPilotCfgStore])
+		log.Infof("Name: %s, ClusterPilotCfgStore: %s", cluster.ObjectMeta.Name, cluster.ObjectMeta.Annotations[ClusterPilotCfgStore])
 		if isCfgStore, _ := strconv.ParseBool(cluster.ObjectMeta.Annotations[ClusterPilotCfgStore]); isCfgStore {
 			if cs.cfgStore != nil {
 				return fmt.Errorf("multiple cluster config stores are defined")
@@ -149,9 +149,9 @@ func getClustersConfigs(k8s kubernetes.Interface, configMapName, configMapNamesp
 	if err != nil {
 		return &ClusterStore{}, err
 	}
-	cluster := k8s_cr.Cluster{}
 
 	for key, data := range clusterRegistry.Data {
+		cluster := k8s_cr.Cluster{}
 		decoder := yaml.NewYAMLOrJSONDecoder(strings.NewReader(data), 4096)
 		if err = decoder.Decode(&cluster); err != nil {
 			log.Errorf("failed to decode cluster definition for: %s error: %v", key, err)
@@ -183,6 +183,7 @@ func getClustersConfigs(k8s kubernetes.Interface, configMapName, configMapNamesp
 			return &ClusterStore{}, nil
 		}
 		cs.clientConfigs[cluster.ObjectMeta.Name] = *clientConfig
+		cs.clusters = append(cs.clusters, &cluster)
 	}
 
 	return cs, nil

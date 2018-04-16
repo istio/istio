@@ -48,6 +48,7 @@ import (
 const (
 	sidecarAnnotationPolicyKey                        = "sidecar.istio.io/inject"
 	sidecarAnnotationStatusKey                        = "sidecar.istio.io/status"
+	sidecarAnnotationProxyImageOverride               = "sidecar.istio.io/proxyImage"
 	sidecarAnnotationIncludeOutboundIPRangesPolicyKey = "traffic.sidecar.istio.io/includeOutboundIPRanges"
 	sidecarAnnotationExcludeOutboundIPRangesPolicyKey = "traffic.sidecar.istio.io/excludeOutboundIPRanges"
 	sidecarAnnotationIncludeInboundPortsPolicyKey     = "traffic.sidecar.istio.io/includeInboundPorts"
@@ -92,9 +93,10 @@ const (
 // SidecarInjectionSpec collects all container types and volumes for
 // sidecar mesh injection
 type SidecarInjectionSpec struct {
-	InitContainers []v1.Container `yaml:"initContainers"`
-	Containers     []v1.Container `yaml:"containers"`
-	Volumes        []v1.Volume    `yaml:"volumes"`
+	InitContainers   []v1.Container            `yaml:"initContainers"`
+	Containers       []v1.Container            `yaml:"containers"`
+	Volumes          []v1.Volume               `yaml:"volumes"`
+	ImagePullSecrets []v1.LocalObjectReference `yaml:"imagePullSecrets"`
 }
 
 // SidecarTemplateData is the data object to which the templated
@@ -287,13 +289,14 @@ func injectRequired(ignored []string, namespacePolicy InjectionPolicy, podSpec *
 		}
 	}
 
-	log.Debugf("Sidecar injection policy for %v/%v: namespacePolicy:%v useDefault:%v inject:%v status:%q "+
+	log.Debugf("Sidecar injection policy for %v/%v: namespacePolicy:%v useDefault:%v inject:%v status:%q proxyImage:%q"+
 		"required:%v includeOutboundIPRanges:%v excludeOutboundIPRanges:%v includeInboundPorts:%v excludeInboundPorts:%v",
 		metadata.Namespace,
 		metadata.Name,
 		namespacePolicy,
 		useDefault,
 		inject,
+		annotations[sidecarAnnotationProxyImageOverride],
 		annotations[sidecarAnnotationStatusKey],
 		required,
 		annotationString(annotations, sidecarAnnotationIncludeOutboundIPRangesPolicyKey),
@@ -366,7 +369,8 @@ func injectionData(sidecarTemplate, version string, spec *v1.PodSpec, metadata *
 	}
 
 	var tmpl bytes.Buffer
-	t := template.Must(template.New("inject").Funcs(funcMap).Parse(sidecarTemplate))
+	temp := template.New("inject").Delims(sidecarTemplateDelimBegin, sidecarTemplateDelimEnd)
+	t := template.Must(temp.Funcs(funcMap).Parse(sidecarTemplate))
 	if err := t.Execute(&tmpl, &data); err != nil {
 		return nil, "", err
 	}
@@ -385,6 +389,9 @@ func injectionData(sidecarTemplate, version string, spec *v1.PodSpec, metadata *
 	}
 	for _, c := range sic.Volumes {
 		status.Volumes = append(status.Volumes, c.Name)
+	}
+	for _, c := range sic.ImagePullSecrets {
+		status.ImagePullSecrets = append(status.ImagePullSecrets, c.Name)
 	}
 	statusAnnotationValue, err := json.Marshal(status)
 	if err != nil {
@@ -542,9 +549,8 @@ func GenerateTemplateFromParams(params *Params) (string, error) {
 	if err := params.Validate(); err != nil {
 		return "", err
 	}
-	t := template.New("inject").Delims(parameterizedTemplateDelimBegin, parameterizedTemplateDelimEnd)
 	var tmp bytes.Buffer
-	err := template.Must(t.Parse(parameterizedTemplate)).Execute(&tmp, params)
+	err := template.Must(template.New("inject").Parse(parameterizedTemplate)).Execute(&tmp, params)
 	return tmp.String(), err
 }
 
@@ -552,10 +558,11 @@ func GenerateTemplateFromParams(params *Params) (string, error) {
 // injected sidecar. This includes the names of added containers and
 // volumes.
 type SidecarInjectionStatus struct {
-	Version        string   `json:"version"`
-	InitContainers []string `json:"initContainers"`
-	Containers     []string `json:"containers"`
-	Volumes        []string `json:"volumes"`
+	Version          string   `json:"version"`
+	InitContainers   []string `json:"initContainers"`
+	Containers       []string `json:"containers"`
+	Volumes          []string `json:"volumes"`
+	ImagePullSecrets []string `json:"imagePullSecrets"`
 }
 
 // helper function to generate a template version identifier from a

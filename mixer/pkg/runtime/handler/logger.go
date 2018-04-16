@@ -19,17 +19,10 @@ import (
 	"fmt"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
-	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/pkg/log"
 )
-
-type logger struct {
-	l *zap.Logger
-	s *zap.SugaredLogger
-}
-
-var _ adapter.Logger = &logger{}
 
 // stackDepth is used
 // to determine how many levels of stack to skip
@@ -39,54 +32,56 @@ var _ adapter.Logger = &logger{}
 // logger is used through the adapter.Logger interface.
 const stackDepth = 2
 
-func newLogger(name string) logger {
-	l := log.With(zap.String("adapter", name)).WithOptions(zap.AddCallerSkip(stackDepth))
-	s := l.Sugar()
+var adapterScope = log.RegisterScope("adapters", "Messages from adapters", stackDepth)
 
+type logger struct {
+	name zapcore.Field
+}
+
+func newLogger(name string) logger {
 	return logger{
-		l: l,
-		s: s,
+		name: zap.String("adapter", name),
 	}
 }
 
 // Infof from adapter.Logger.
 func (l logger) Infof(format string, args ...interface{}) {
-	l.s.Infof(format, args...)
+	adapterScope.Info(fmt.Sprintf(format, args...), l.name)
 }
 
 // Warningf from adapter.Logger.
 func (l logger) Warningf(format string, args ...interface{}) {
-	l.s.Warnf(format, args...)
+	adapterScope.Warn(fmt.Sprintf(format, args...), l.name)
 }
 
 // Errorf from adapter.Logger.
 func (l logger) Errorf(format string, args ...interface{}) error {
 	s := fmt.Sprintf(format, args...)
-	l.s.Error(s)
+	adapterScope.Error(s, l.name)
 	return errors.New(s)
 }
 
 // Debugf from adapter.Logger.
 func (l logger) Debugf(format string, args ...interface{}) {
-	l.s.Debugf(format, args...)
+	adapterScope.Debug(fmt.Sprintf(format, args...), l.name)
 }
 
 // InfoEnabled from adapter.Logger.
 func (l logger) InfoEnabled() bool {
-	return l.l.Core().Enabled(zap.InfoLevel)
+	return adapterScope.InfoEnabled()
 }
 
 // WarnEnabled from adapter.Logger.
 func (l logger) WarnEnabled() bool {
-	return l.l.Core().Enabled(zap.WarnLevel)
+	return adapterScope.WarnEnabled()
 }
 
 // ErrorEnabled from adapter.Logger.
 func (l logger) ErrorEnabled() bool {
-	return l.l.Core().Enabled(zap.ErrorLevel)
+	return adapterScope.ErrorEnabled()
 }
 
 // DebugEnabled from adapter.Logger.
 func (l logger) DebugEnabled() bool {
-	return l.l.Core().Enabled(zap.DebugLevel)
+	return adapterScope.DebugEnabled()
 }

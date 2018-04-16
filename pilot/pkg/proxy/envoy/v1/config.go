@@ -208,7 +208,6 @@ func buildClusters(env model.Environment, node model.Proxy) (Clusters, error) {
 	// append Mixer service definition if necessary
 	if env.Mesh.MixerCheckServer != "" || env.Mesh.MixerReportServer != "" {
 		clusters = append(clusters, BuildMixerClusters(env.Mesh, node, env.MixerSAN)...)
-		clusters = append(clusters, BuildMixerAuthFilterClusters(env.IstioConfigStore, env.Mesh, proxyInstances)...)
 	}
 
 	// append cluster for JwksUri (for Jwt authentication) if necessary.
@@ -975,7 +974,7 @@ func BuildEgressHTTPRoutes(mesh *meshconfig.MeshConfig, node model.Proxy,
 		meshName := r.Name + "." + r.Namespace + "." + r.Domain
 
 		for _, port := range rule.Ports {
-			protocol := model.ConvertCaseInsensitiveStringToProtocol(port.Protocol)
+			protocol := model.ParseProtocol(port.Protocol)
 			if !model.IsEgressRulesSupportedHTTPProtocol(protocol) {
 				continue
 			}
@@ -1015,7 +1014,7 @@ func buildEgressTCPListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 	for _, r := range egressRules {
 		rule, _ := r.Spec.(*routing.EgressRule)
 		for _, port := range rule.Ports {
-			protocol := model.ConvertCaseInsensitiveStringToProtocol(port.Protocol)
+			protocol := model.ParseProtocol(port.Protocol)
 			if !model.IsEgressRulesSupportedTCPProtocol(protocol) {
 				continue
 			}

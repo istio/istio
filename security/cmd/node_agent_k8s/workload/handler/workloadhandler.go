@@ -84,7 +84,6 @@ func NewHandler(wli *pbmgmt.WorkloadInfo, options Options) WorkloadHandler {
 // Serve adherence to nodeagent workload management interface.
 func (s *handler) Serve() {
 	grpcServer := grpc.NewServer(grpc.Creds(s.GetCred()))
-	//s.wlS.RegAPI(grpcServer)
 	s.regAPI(grpcServer)
 
 	var lis net.Listener

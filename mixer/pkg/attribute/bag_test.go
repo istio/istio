@@ -870,6 +870,7 @@ func TestParentRoundTrip(t *testing.T) {
 func init() {
 	// bump up the log level so log-only logic runs during the tests, for correctness and coverage.
 	o := log.DefaultOptions()
-	_ = o.SetOutputLevel(log.DebugLevel)
+	o.SetOutputLevel(log.DefaultScopeName, log.DebugLevel)
+	o.SetOutputLevel(scope.Name(), log.DebugLevel)
 	_ = log.Configure(o)
 }

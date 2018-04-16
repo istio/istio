@@ -243,7 +243,7 @@ func ConvertProtocol(name string, proto v1.Protocol) model.Protocol {
 		if i >= 0 {
 			prefix = name[:i]
 		}
-		protocol := model.ConvertCaseInsensitiveStringToProtocol(prefix)
+		protocol := model.ParseProtocol(prefix)
 		if protocol != model.ProtocolUDP && protocol != model.ProtocolUnsupported {
 			out = protocol
 		}
