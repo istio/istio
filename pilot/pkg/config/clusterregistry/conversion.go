@@ -133,7 +133,6 @@ func getClustersConfigs(k8s kubernetes.Interface, configMapName, configMapNamesp
 				secretName, secretNamespace, key, err)
 			return &ClusterStore{}, nil
 		}
-		cs.clusters = append(cs.clusters, &cluster)
 		cs.clientConfigs[cluster.ObjectMeta.Name] = *clientConfig
 		cs.clusters = append(cs.clusters, &cluster)
 	}
