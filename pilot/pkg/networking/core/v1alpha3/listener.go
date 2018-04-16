@@ -91,7 +91,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env model.Environmen
 	node model.Proxy) ([]*xdsapi.Listener, error) {
 	mesh := env.Mesh
 	managementPorts := env.ManagementPorts(node.IPAddress)
-
 	proxyInstances, err := env.GetProxyServiceInstances(node)
 	if err != nil {
 		return nil, err
@@ -254,8 +253,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 			}
 			mutable := &plugin.MutableObjects{
 				Listener:    newListener,
-				TCPFilters:  networkFilters,
-				HTTPFilters: httpFilters,
+				TCPFilters:  &networkFilters,
+				HTTPFilters: &httpFilters,
 			}
 			if err := p.OnInboundListener(params, mutable); err != nil {
 				log.Warn(err.Error())
@@ -374,8 +373,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				}
 				mutable := &plugin.MutableObjects{
 					Listener:    newListener,
-					TCPFilters:  networkFilters,
-					HTTPFilters: httpFilters,
+					TCPFilters:  &networkFilters,
+					HTTPFilters: &httpFilters,
 				}
 				if err := p.OnOutboundListener(params, mutable); err != nil {
 					log.Warn(err.Error())

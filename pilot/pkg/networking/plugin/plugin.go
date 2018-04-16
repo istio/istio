@@ -60,9 +60,9 @@ type MutableObjects struct {
 	// Listener is the listener being built. Must be initialized before Plugin methods are called.
 	Listener *xdsapi.Listener
 	// HTTPFilters is the slice of HTTP filters for the Listener. Append to only.
-	HTTPFilters []*http_conn.HttpFilter
+	HTTPFilters *[]*http_conn.HttpFilter
 	// TCPFilters is the slice of TCP filters for the Listener. Append to only.
-	TCPFilters []listener.Filter
+	TCPFilters *[]listener.Filter
 }
 
 // Plugin is called during the construction of a xdsapi.Listener which may alter the Listener in any
