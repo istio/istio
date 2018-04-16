@@ -9,6 +9,7 @@
     "logging",
     "logging/apiv2",
     "logging/internal",
+    "logging/logadmin",
     "monitoring/apiv3"
   ]
   revision = "4b98a6370e36d7a85192e7bad08a4ebd82eac2a8"
@@ -1136,6 +1137,8 @@
     "googleapis/api/label",
     "googleapis/api/metric",
     "googleapis/api/monitoredres",
+    "googleapis/appengine/logging/v1",
+    "googleapis/cloud/audit",
     "googleapis/logging/type",
     "googleapis/logging/v2",
     "googleapis/monitoring/v3",
@@ -1533,6 +1536,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "d917af43d4122fe296a1c08542dd740b0e48204955f051f56b52cca86bce6c15"
+  inputs-digest = "08eedb62a28d8afeb8bd383c2cf9507f20f387f4b1c133cfef0cd0ea64ad835b"
   solver-name = "gps-cdcl"
   solver-version = 1
