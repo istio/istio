@@ -250,7 +250,7 @@ func TestCapture(t *testing.T) {
 		}
 		zap.L().Core().Write(entry, nil)
 
-		defaultScope.Level = NoneLevel
+		defaultScope.SetOutputLevel(NoneLevel)
 		// all these get thrown out
 		zap.L().Error("zap-error")
 		zap.L().Warn("zap-warn")
@@ -323,14 +323,4 @@ func captureStdout(f func()) ([]string, error) {
 	}
 
 	return strings.Split(string(content), "\n"), nil
-}
-
-func TestNops(t *testing.T) {
-	if err := nopSync(); err != nil {
-		t.Errorf("Expecting nil, got %v", err)
-	}
-
-	if err := nopWrite(zapcore.Entry{}, nil); err != nil {
-		t.Errorf("Expecting nil, got %v", err)
-	}
 }

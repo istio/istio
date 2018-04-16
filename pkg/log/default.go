@@ -24,120 +24,120 @@ var defaultScope = RegisterScope(DefaultScopeName, "Unscoped logging messages.",
 
 // Error outputs a message at error level.
 func Error(msg string, fields ...zapcore.Field) {
-	if defaultScope.Level >= ErrorLevel {
-		defaultScope.emit(zapcore.ErrorLevel, defaultScope.StackTraceLevel >= ErrorLevel, msg, fields)
+	if defaultScope.GetOutputLevel() >= ErrorLevel {
+		defaultScope.emit(zapcore.ErrorLevel, defaultScope.GetStackTraceLevel() >= ErrorLevel, msg, fields)
 	}
 }
 
 // Errora uses fmt.Sprint to construct and log a message at error level.
 func Errora(args ...interface{}) {
-	if defaultScope.Level >= ErrorLevel {
-		defaultScope.emit(zapcore.ErrorLevel, defaultScope.StackTraceLevel >= ErrorLevel, fmt.Sprint(args...), nil)
+	if defaultScope.GetOutputLevel() >= ErrorLevel {
+		defaultScope.emit(zapcore.ErrorLevel, defaultScope.GetStackTraceLevel() >= ErrorLevel, fmt.Sprint(args...), nil)
 	}
 }
 
 // Errorf uses fmt.Sprintf to construct and log a message at error level.
 func Errorf(template string, args ...interface{}) {
-	if defaultScope.Level >= ErrorLevel {
+	if defaultScope.GetOutputLevel() >= ErrorLevel {
 		msg := template
 		if len(args) > 0 {
 			msg = fmt.Sprintf(template, args...)
 		}
-		defaultScope.emit(zapcore.ErrorLevel, defaultScope.StackTraceLevel >= ErrorLevel, msg, nil)
+		defaultScope.emit(zapcore.ErrorLevel, defaultScope.GetStackTraceLevel() >= ErrorLevel, msg, nil)
 	}
 }
 
 // ErrorEnabled returns whether output of messages using this scope is currently enabled for error-level output.
 func ErrorEnabled() bool {
-	return defaultScope.Level >= ErrorLevel
+	return defaultScope.GetOutputLevel() >= ErrorLevel
 }
 
 // Warn outputs a message at warn level.
 func Warn(msg string, fields ...zapcore.Field) {
-	if defaultScope.Level >= WarnLevel {
-		defaultScope.emit(zapcore.WarnLevel, defaultScope.StackTraceLevel >= WarnLevel, msg, fields)
+	if defaultScope.GetOutputLevel() >= WarnLevel {
+		defaultScope.emit(zapcore.WarnLevel, defaultScope.GetStackTraceLevel() >= WarnLevel, msg, fields)
 	}
 }
 
 // Warna uses fmt.Sprint to construct and log a message at warn level.
 func Warna(args ...interface{}) {
-	if defaultScope.Level >= WarnLevel {
-		defaultScope.emit(zapcore.WarnLevel, defaultScope.StackTraceLevel >= WarnLevel, fmt.Sprint(args...), nil)
+	if defaultScope.GetOutputLevel() >= WarnLevel {
+		defaultScope.emit(zapcore.WarnLevel, defaultScope.GetStackTraceLevel() >= WarnLevel, fmt.Sprint(args...), nil)
 	}
 }
 
 // Warnf uses fmt.Sprintf to construct and log a message at warn level.
 func Warnf(template string, args ...interface{}) {
-	if defaultScope.Level >= WarnLevel {
+	if defaultScope.GetOutputLevel() >= WarnLevel {
 		msg := template
 		if len(args) > 0 {
 			msg = fmt.Sprintf(template, args...)
 		}
-		defaultScope.emit(zapcore.WarnLevel, defaultScope.StackTraceLevel >= WarnLevel, msg, nil)
+		defaultScope.emit(zapcore.WarnLevel, defaultScope.GetStackTraceLevel() >= WarnLevel, msg, nil)
 	}
 }
 
 // WarnEnabled returns whether output of messages using this scope is currently enabled for warn-level output.
 func WarnEnabled() bool {
-	return defaultScope.Level >= WarnLevel
+	return defaultScope.GetOutputLevel() >= WarnLevel
 }
 
 // Info outputs a message at info level.
 func Info(msg string, fields ...zapcore.Field) {
-	if defaultScope.Level >= InfoLevel {
-		defaultScope.emit(zapcore.InfoLevel, defaultScope.StackTraceLevel >= InfoLevel, msg, fields)
+	if defaultScope.GetOutputLevel() >= InfoLevel {
+		defaultScope.emit(zapcore.InfoLevel, defaultScope.GetStackTraceLevel() >= InfoLevel, msg, fields)
 	}
 }
 
 // Infoa uses fmt.Sprint to construct and log a message at info level.
 func Infoa(args ...interface{}) {
-	if defaultScope.Level >= InfoLevel {
-		defaultScope.emit(zapcore.InfoLevel, defaultScope.StackTraceLevel >= InfoLevel, fmt.Sprint(args...), nil)
+	if defaultScope.GetOutputLevel() >= InfoLevel {
+		defaultScope.emit(zapcore.InfoLevel, defaultScope.GetStackTraceLevel() >= InfoLevel, fmt.Sprint(args...), nil)
 	}
 }
 
 // Infof uses fmt.Sprintf to construct and log a message at info level.
 func Infof(template string, args ...interface{}) {
-	if defaultScope.Level >= InfoLevel {
+	if defaultScope.GetOutputLevel() >= InfoLevel {
 		msg := template
 		if len(args) > 0 {
 			msg = fmt.Sprintf(template, args...)
 		}
-		defaultScope.emit(zapcore.InfoLevel, defaultScope.StackTraceLevel >= InfoLevel, msg, nil)
+		defaultScope.emit(zapcore.InfoLevel, defaultScope.GetStackTraceLevel() >= InfoLevel, msg, nil)
 	}
 }
 
 // InfoEnabled returns whether output of messages using this scope is currently enabled for info-level output.
 func InfoEnabled() bool {
-	return defaultScope.Level >= InfoLevel
+	return defaultScope.GetOutputLevel() >= InfoLevel
 }
 
 // Debug outputs a message at debug level.
 func Debug(msg string, fields ...zapcore.Field) {
-	if defaultScope.Level >= DebugLevel {
-		defaultScope.emit(zapcore.DebugLevel, defaultScope.StackTraceLevel >= DebugLevel, msg, fields)
+	if defaultScope.GetOutputLevel() >= DebugLevel {
+		defaultScope.emit(zapcore.DebugLevel, defaultScope.GetStackTraceLevel() >= DebugLevel, msg, fields)
 	}
 }
 
 // Debuga uses fmt.Sprint to construct and log a message at debug level.
 func Debuga(args ...interface{}) {
-	if defaultScope.Level >= DebugLevel {
-		defaultScope.emit(zapcore.DebugLevel, defaultScope.StackTraceLevel >= DebugLevel, fmt.Sprint(args...), nil)
+	if defaultScope.GetOutputLevel() >= DebugLevel {
+		defaultScope.emit(zapcore.DebugLevel, defaultScope.GetStackTraceLevel() >= DebugLevel, fmt.Sprint(args...), nil)
 	}
 }
 
 // Debugf uses fmt.Sprintf to construct and log a message at debug level.
 func Debugf(template string, args ...interface{}) {
-	if defaultScope.Level >= DebugLevel {
+	if defaultScope.GetOutputLevel() >= DebugLevel {
 		msg := template
 		if len(args) > 0 {
 			msg = fmt.Sprintf(template, args...)
 		}
-		defaultScope.emit(zapcore.DebugLevel, defaultScope.StackTraceLevel >= DebugLevel, msg, nil)
+		defaultScope.emit(zapcore.DebugLevel, defaultScope.GetStackTraceLevel() >= DebugLevel, msg, nil)
 	}
 }
 
 // DebugEnabled returns whether output of messages using this scope is currently enabled for debug-level output.
 func DebugEnabled() bool {
-	return defaultScope.Level >= DebugLevel
+	return defaultScope.GetOutputLevel() >= DebugLevel
 }
