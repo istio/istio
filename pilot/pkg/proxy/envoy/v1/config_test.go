@@ -333,16 +333,6 @@ var (
 		file: "testdata/quota-spec-binding.yaml.golden",
 	}
 
-	mixerclientAuthSpec = fileConfig{
-		meta: model.ConfigMeta{Type: model.EndUserAuthenticationPolicySpec.Type, Name: "auth-spec"},
-		file: "testdata/auth-spec.yaml.golden",
-	}
-
-	mixerclientAuthSpecBinding = fileConfig{
-		meta: model.ConfigMeta{Type: model.EndUserAuthenticationPolicySpecBinding.Type, Name: "auth-spec-binding"},
-		file: "testdata/auth-spec-binding.yaml.golden",
-	}
-
 	authnPolicyNamespaceMTlsOff = fileConfig{
 		meta: model.ConfigMeta{Type: model.AuthenticationPolicy.Type, Name: "authn-namespace-mtls-off"},
 		file: "testdata/authn-namespace-mtls-off.yaml.golden",
@@ -501,56 +491,6 @@ func TestTruncateClusterName(t *testing.T) {
 	prefixLen := MaxClusterNameLength - sha1.Size*2
 	if gt[:prefixLen] != trunc[:prefixLen] {
 		t.Errorf("Unexpected prefix:\nwant %s,\ngot %s", gt[:prefixLen], trunc[:prefixLen])
-	}
-}
-
-func TestBuildJwksUriClusterNameAndAddress(t *testing.T) {
-	cases := []struct {
-		in          string
-		wantAddress string
-		wantName    string
-		wantSSL     bool
-		wantError   bool
-	}{
-		{
-			in:          "https://www.googleapis.com/oauth2/v1/certs",
-			wantAddress: "www.googleapis.com:443",
-			wantName:    OutboundJWTURIClusterPrefix + "www.googleapis.com|443",
-			wantSSL:     true,
-		},
-		{
-			in:          "https://www.googleapis.com:443/oauth2/v1/certs",
-			wantAddress: "www.googleapis.com:443",
-			wantName:    OutboundJWTURIClusterPrefix + "www.googleapis.com|443",
-			wantSSL:     true,
-		},
-		{
-			in:          "http://example.com/oauth2/v1/certs",
-			wantAddress: "example.com:80",
-			wantName:    OutboundJWTURIClusterPrefix + "example.com|80",
-			wantSSL:     false,
-		},
-		{
-			in:        ":foo",
-			wantError: true,
-		},
-	}
-	for _, c := range cases {
-		gotName, gotAddress, gotSSL, gotError := buildJWKSURIClusterNameAndAddress(c.in)
-		if c.wantError != (gotError != nil) {
-			t.Errorf("%s returned unexpected error: want %v got %v: %v",
-				c.in, c.wantError, gotError != nil, gotError)
-		} else {
-			if gotAddress != c.wantAddress {
-				t.Errorf("%s: gotAddress %v wantAddress %v", c.in, gotAddress, c.wantAddress)
-			}
-			if gotName != c.wantName {
-				t.Errorf("%s: gotName %v wantName %v", c.in, gotName, c.wantName)
-			}
-			if gotSSL != c.wantSSL {
-				t.Errorf("%s: gotSsl %v wantSSL %v", c.in, gotSSL, c.wantSSL)
-			}
-		}
 	}
 }
 

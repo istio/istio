@@ -239,7 +239,7 @@ func buildGatewayNetworkFilters(env model.Environment, server *networking.Server
 	port := &model.Port{
 		Name:     server.Port.Name,
 		Port:     int(server.Port.Number),
-		Protocol: model.ConvertCaseInsensitiveStringToProtocol(server.Port.Protocol),
+		Protocol: model.ParseProtocol(server.Port.Protocol),
 	}
 
 	dests := filterTCPDownstreams(env, server, gatewayNames)

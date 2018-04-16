@@ -32,9 +32,12 @@ spec:
           - "-a"
           - {{ .Release.Namespace }}
 {{- end }}
+# TODO(sdake) remove when secrets are automagically registered
 {{- if .Values.global.multicluster.enabled }}
-          - "--clusterRegistriesDir"
-          - "/etc/istio/multicluster"
+          - "--clusterRegistriesConfigMap"
+          - "clusterregistry"
+          - "--clusterRegistriesNamespace"
+          - "istio-system"
 {{- end }}
           ports:
           - containerPort: 8080
@@ -66,10 +69,6 @@ spec:
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
-{{- if .Values.global.multicluster.enabled }}
-          - name: multicluster-volume
-            mountPath: /etc/istio/multicluster
-{{- end }}
         - name: istio-proxy
           image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
@@ -112,11 +111,6 @@ spec:
       - name: config-volume
         configMap:
           name: istio
-{{- if .Values.global.multicluster.enabled }}
-      - name: multicluster-volume
-        configMap:
-          name: multicluster
-{{- end }}
       - name: istio-certs
         secret:
           secretName: "istio.istio-pilot-service-account"

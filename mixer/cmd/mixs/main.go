@@ -17,7 +17,7 @@ package main
 import (
 	"os"
 
-	adapter "istio.io/istio/mixer/adapter"
+	"istio.io/istio/mixer/adapter"
 	"istio.io/istio/mixer/cmd/mixs/cmd"
 	"istio.io/istio/mixer/cmd/shared"
 	adptr "istio.io/istio/mixer/pkg/adapter"

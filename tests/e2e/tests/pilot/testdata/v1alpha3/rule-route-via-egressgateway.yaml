@@ -23,5 +23,5 @@ spec:
         - istio-egressgateway
       route:
       - destination:
-          host: t
+          host: eu.bookinfo.com
         weight: 100

@@ -271,6 +271,12 @@
   revision = "9fdf4bd79736a87c78b3d48b7baa84ea24be1c1a"
 
 [[projects]]
+  name = "github.com/evanphx/json-patch"
+  packages = ["."]
+  revision = "afac545df32f2287a079e2dfb7ba2745a643747e"
+  version = "v3.0.0"
+
+[[projects]]
   name = "github.com/fluent/fluent-logger-golang"
   packages = ["fluent"]
   revision = "8bbc2356beaf021b04c9bd5cdc76ea5a7ccb40ec"
@@ -1527,6 +1533,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "74eb13989ef78633e4a1468009366dfcdd1a39ed7792329ba88177441bdb45a6"
+  inputs-digest = "d917af43d4122fe296a1c08542dd740b0e48204955f051f56b52cca86bce6c15"
   solver-name = "gps-cdcl"
   solver-version = 1

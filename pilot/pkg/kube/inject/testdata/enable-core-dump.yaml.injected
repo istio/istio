@@ -105,7 +105,7 @@ spec:
           unlimited
         command:
         - /bin/sh
-        image: alpine
+        image: docker.io/istio/proxy_init:unittest
         imagePullPolicy: IfNotPresent
         name: enable-core-dump
         resources: {}
