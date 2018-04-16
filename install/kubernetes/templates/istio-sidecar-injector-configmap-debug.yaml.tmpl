@@ -29,7 +29,7 @@ data:
           unlimited
         command:
         - /bin/sh
-        image: alpine
+        image: {PROXY_HUB}/proxy_init:{PROXY_TAG}
         imagePullPolicy: IfNotPresent
         name: enable-core-dump
         resources: {}
