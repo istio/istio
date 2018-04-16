@@ -1,0 +1,46 @@
+# Configuration for default graph edge
+apiVersion: "config.istio.io/v1alpha2"
+kind: edge
+metadata:
+  name: default
+  namespace: istio-system
+spec:
+  timestamp: request.time
+  sourceName: source.name | "Unknown"
+  sourceNamespace: source.namespace | "Unknown"
+  sourceOwner: source.owner | "Unknown"
+  sourceWorkloadName: source.workload.name | "Unknown"
+  sourceWorkloadNamespace: source.workload.namespace | "Unknown"
+  destinationName: destination.name | "Unknown"
+  destinationNamespace: destination.namespace | "Unknown"
+  destinationOwner: destination.owner | "Unknown"
+  destinationWorkloadName: destination.workload.name | "Unknown"
+  destinationWorkloadNamespace: destination.workload.namespace | "Unknown"
+  contextProtocol: context.protocol | "Unknown"
+  apiProtocol: api.protocol | "Unknown"
+---
+# Configuration for a fluentd handler
+apiVersion: "config.istio.io/v1alpha2"
+kind: contextgraph
+metadata:
+  name: handler
+  namespace: istio-system
+spec:
+  projectId: context-istio-test
+  zone: us-central1-f
+  cluster: istio-080
+  serviceAccountPath: /home/jeffmendoza/Downloads/context-istio-test-fe8c41aabee9.json
+---
+# Rule to send logentry instances to the fluentd handler
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: edgetocontext
+  namespace: istio-system
+spec:
+  match: "true" # match for all requests
+  actions:
+   - handler: handler.contextgraph
+     instances:
+     - default.edge
+---
