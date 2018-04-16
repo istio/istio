@@ -75,7 +75,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 		// TODO: this works because all Servers on the same port use the same protocol due to model.MergeGateways's implementation.
 		// When Envoy supports filter chain matching, we'll have to group the ports by number and protocol, so this logic will
 		// no longer work.
-		protocol := model.ConvertCaseInsensitiveStringToProtocol(servers[0].Port.Protocol)
+		protocol := model.ParseProtocol(servers[0].Port.Protocol)
 		opts := buildListenerOpts{
 			env:        env,
 			proxy:      node,
