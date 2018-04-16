@@ -16,15 +16,15 @@ package v2
 
 import (
 	"encoding/json"
+	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
-
-	meshconfig "istio.io/api/mesh/v1alpha1"
-
-	"fmt"
+	"sync"
 
 	"github.com/gogo/protobuf/jsonpb"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
@@ -38,8 +38,7 @@ import (
 func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller) {
 	// For debugging and load testing v2 we add an memory registry.
 	s.MemRegistry = NewMemServiceDiscovery(
-		map[string]*model.Service{
-			//			mock.HelloService.Hostname: mock.HelloService,
+		map[string]*model.Service{ // mock.HelloService.Hostname: mock.HelloService,
 		}, 2)
 
 	sctl.AddRegistry(aggregate.Registry{
@@ -49,9 +48,9 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 		Controller:       s.MemRegistry.controller,
 	})
 
-	mux.HandleFunc("/debug/edsz", EDSz)
-
+	mux.HandleFunc("/debug/edsz", edsz)
 	mux.HandleFunc("/debug/adsz", adsz)
+	mux.HandleFunc("/debug/cdsz", cdsz)
 
 	mux.HandleFunc("/debug/registryz", s.registryz)
 	mux.HandleFunc("/debug/endpointz", s.endpointz)
@@ -102,6 +101,9 @@ type MemServiceDiscovery struct {
 	InstancesError                error
 	GetProxyServiceInstancesError error
 	controller                    model.Controller
+
+	// Single mutex for now - it's for debug only.
+	mutex sync.Mutex
 }
 
 // ClearErrors clear errors used for mocking failures during model.MemServiceDiscovery interface methods
@@ -114,13 +116,17 @@ func (sd *MemServiceDiscovery) ClearErrors() {
 
 // AddService adds an in-memory service.
 func (sd *MemServiceDiscovery) AddService(name string, svc *model.Service) {
+	sd.mutex.Lock()
 	sd.services[name] = svc
+	sd.mutex.Unlock()
 	// TODO: notify listeners
 }
 
 // AddInstance adds an in-memory instance.
 func (sd *MemServiceDiscovery) AddInstance(service string, instance *model.ServiceInstance) {
 	// WIP: add enough code to allow tests and load tests to work
+	sd.mutex.Lock()
+	defer sd.mutex.Unlock()
 	svc := sd.services[service]
 	if svc == nil {
 		return
@@ -158,6 +164,8 @@ func (sd *MemServiceDiscovery) AddEndpoint(service, servicePortName string, serv
 
 // Services implements discovery interface
 func (sd *MemServiceDiscovery) Services() ([]*model.Service, error) {
+	sd.mutex.Lock()
+	defer sd.mutex.Unlock()
 	if sd.ServicesError != nil {
 		return nil, sd.ServicesError
 	}
@@ -170,6 +178,8 @@ func (sd *MemServiceDiscovery) Services() ([]*model.Service, error) {
 
 // GetService implements discovery interface
 func (sd *MemServiceDiscovery) GetService(hostname string) (*model.Service, error) {
+	sd.mutex.Lock()
+	defer sd.mutex.Unlock()
 	if sd.GetServiceError != nil {
 		return nil, sd.GetServiceError
 	}
@@ -181,6 +191,8 @@ func (sd *MemServiceDiscovery) GetService(hostname string) (*model.Service, erro
 // used by EDS/ADS.
 func (sd *MemServiceDiscovery) Instances(hostname string, ports []string,
 	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
+	sd.mutex.Lock()
+	defer sd.mutex.Unlock()
 	if sd.InstancesError != nil {
 		return nil, sd.InstancesError
 	}
@@ -199,6 +211,8 @@ func (sd *MemServiceDiscovery) Instances(hostname string, ports []string,
 // GetProxyServiceInstances returns service instances associated with a node, resulting in
 // 'in' services.
 func (sd *MemServiceDiscovery) GetProxyServiceInstances(node model.Proxy) ([]*model.ServiceInstance, error) {
+	sd.mutex.Lock()
+	defer sd.mutex.Unlock()
 	if sd.GetProxyServiceInstancesError != nil {
 		return nil, sd.GetProxyServiceInstancesError
 	}
@@ -215,6 +229,8 @@ func (sd *MemServiceDiscovery) GetProxyServiceInstances(node model.Proxy) ([]*mo
 
 // ManagementPorts implements discovery interface
 func (sd *MemServiceDiscovery) ManagementPorts(addr string) model.PortList {
+	sd.mutex.Lock()
+	defer sd.mutex.Unlock()
 	return model.PortList{{
 		Name:     "http",
 		Port:     3333,
@@ -228,6 +244,8 @@ func (sd *MemServiceDiscovery) ManagementPorts(addr string) model.PortList {
 
 // GetIstioServiceAccounts gets the Istio service accounts for a service hostname.
 func (sd *MemServiceDiscovery) GetIstioServiceAccounts(hostname string, ports []string) []string {
+	sd.mutex.Lock()
+	defer sd.mutex.Unlock()
 	if hostname == "world.default.svc.cluster.local" {
 		return []string{
 			"spiffe://cluster.local/ns/default/sa/serviceaccount1",
@@ -356,9 +374,41 @@ func adsz(w http.ResponseWriter, req *http.Request) {
 		fmt.Fprintf(w, "Pushed to %d servers", len(adsClients))
 		return
 	}
-	adsClientsMutex.RLock()
 
-	//data, err := json.Marshal(ldsClients)
+	if proxyID := req.Form.Get("proxyID"); proxyID != "" {
+		writeADSForSidecar(w, proxyID)
+		return
+	}
+	writeAllADS(w)
+}
+
+func writeADSForSidecar(w io.Writer, proxyID string) {
+	adsClientsMutex.RLock()
+	defer adsClientsMutex.RUnlock()
+	connections := adsSidecarIDConnectionsMap[proxyID]
+	for _, conn := range connections {
+		for _, ls := range conn.HTTPListeners {
+			jsonm := &jsonpb.Marshaler{Indent: "  "}
+			dbgString, _ := jsonm.MarshalToString(ls)
+			if _, err := w.Write([]byte(dbgString)); err != nil {
+				return
+			}
+			fmt.Fprintln(w)
+		}
+		for _, cs := range conn.HTTPClusters {
+			jsonm := &jsonpb.Marshaler{Indent: "  "}
+			dbgString, _ := jsonm.MarshalToString(cs)
+			if _, err := w.Write([]byte(dbgString)); err != nil {
+				return
+			}
+			fmt.Fprintln(w)
+		}
+	}
+}
+
+func writeAllADS(w io.Writer) {
+	adsClientsMutex.RLock()
+	defer adsClientsMutex.RUnlock()
 
 	// Dirty json generation - because standard json is dirty (struct madness)
 	// Unfortunately we must use the jsonbp to encode part of the json - I'm sure there are
@@ -392,13 +442,72 @@ func adsz(w http.ResponseWriter, req *http.Request) {
 		fmt.Fprint(w, "]}\n")
 	}
 	fmt.Fprint(w, "]\n")
+}
+
+// edsz implements a status and debug interface for EDS.
+// It is mapped to /debug/edsz on the monitor port (9093).
+func edsz(w http.ResponseWriter, req *http.Request) {
+	_ = req.ParseForm()
+	if req.Form.Get("debug") != "" {
+		edsDebug = req.Form.Get("debug") == "1"
+		return
+	}
+	if req.Form.Get("push") != "" {
+		edsPushAll()
+	}
+
+	edsClusterMutex.Lock()
+	comma1 := false
+	for _, eds := range edsClusters {
+		if comma1 {
+			fmt.Fprint(w, ",\n")
+		} else {
+			comma1 = true
+		}
+		jsonm := &jsonpb.Marshaler{Indent: "  "}
+		dbgString, _ := jsonm.MarshalToString(eds.LoadAssignment)
+		if _, err := w.Write([]byte(dbgString)); err != nil {
+			return
+		}
+	}
+	edsClusterMutex.Unlock()
+}
+
+// cdsz implements a status and debug interface for CDS.
+// It is mapped to /debug/cdsz
+func cdsz(w http.ResponseWriter, req *http.Request) {
+	_ = req.ParseForm()
+	adsClientsMutex.RLock()
+
+	fmt.Fprint(w, "[\n")
+	comma2 := false
+	for _, c := range adsClients {
+		if comma2 {
+			fmt.Fprint(w, ",\n")
+		} else {
+			comma2 = true
+		}
+		fmt.Fprintf(w, "\n\n  {\"node\": \"%s\", \"addr\": \"%s\", \"connect\": \"%v\",\"Clusters\":[\n", c.ConID, c.PeerAddr, c.Connect)
+		comma1 := false
+		for _, cl := range c.HTTPClusters {
+			if cl == nil {
+				log.Errorf("INVALID Cluster NIL")
+				continue
+			}
+			if comma1 {
+				fmt.Fprint(w, ",\n")
+			} else {
+				comma1 = true
+			}
+			jsonm := &jsonpb.Marshaler{Indent: "  "}
+			dbgString, _ := jsonm.MarshalToString(cl)
+			if _, err := w.Write([]byte(dbgString)); err != nil {
+				return
+			}
+		}
+		fmt.Fprint(w, "]}\n")
+	}
+	fmt.Fprint(w, "]\n")
 
 	adsClientsMutex.RUnlock()
-
-	//if err != nil {
-	//	_, _ = w.Write([]byte(err.Error()))
-	//	return
-	//}
-	//
-	//_, _ = w.Write(data)
 }

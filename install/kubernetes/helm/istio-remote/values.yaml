@@ -1,7 +1,7 @@
-# Use --set to specify the pilot and mixer IPs on the main Istio control plane
+# Use --set to specify the Pilot and Policy IPs on the main Istio control plane
 global:
-  # The Istio control plane Pilot IP address
-  pilotIp: none
+  # The Istio control plane Pilot endpoint
+  pilotEndpoint: none
 
-  # The Istio control plane Mixer IP address
-  mixerIp: none
+  # The Istio control plane Policy endpoint
+  policyEndpoint: none

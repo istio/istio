@@ -24,7 +24,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/e2e/framework"
@@ -33,7 +33,7 @@ import (
 
 const (
 	nginxIngressYaml   = "tests/e2e/tests/simple/testdata/nginx/ingress.yaml"
-	nginxYamlTmpl      = "tests/e2e/tests/simple/testdata/nginx/nginx-injected.yaml.tmpl"
+	nginxYamlTmpl      = "tests/e2e/tests/simple/testdata/nginx/nginx.yaml.tmpl"
 	appYamlTmpl        = "tests/e2e/tests/simple/testdata/nginx/app.yaml.tmpl"
 	httpOK             = "200"
 	nginxServiceName   = "ingress-nginx"
@@ -58,7 +58,7 @@ func TestNginx(t *testing.T) {
 	}()
 	for _, app := range apps {
 		if err := tc.Kube.AppManager.DeployApp(&app); err != nil {
-			t.Fatalf("Failed to deploy app: %s", app.AppYamlTemplate)
+			t.Fatalf("Failed to deploy app %s: %v", app.AppYamlTemplate, err)
 		}
 	}
 	if err := tc.Kube.AppManager.CheckDeployments(); err != nil {
@@ -106,22 +106,21 @@ func getApps(kubeMasterCIDR string) []framework.App {
 		getApp("a", "a", 8080, 80, 9090, 90, 7070, 70, "v1", true, false),
 		getApp("t", "t", 8080, 80, 9090, 90, 7070, 70, "unversioned", false, false),
 		{
-			// TODO(nmittler): Once support for ingress sidecars is added, stop using manually injected file.
 			AppYamlTemplate: util.GetResourcePath(nginxYamlTmpl),
 			Template: map[string]string{
-				"ProxyHub":        tc.Kube.ProxyHub(),
-				"ProxyTag":        tc.Kube.ProxyTag(),
-				"IstioNamespace":  tc.Kube.IstioSystemNamespace(),
-				"ImagePullPolicy": tc.imagePullPolicy(),
-				"KubeMasterCIDR":  kubeMasterCIDR,
-				"Namespace":       tc.Kube.Namespace,
+				//"ProxyHub":        tc.Kube.ProxyHub(),
+				//"ProxyTag":        tc.Kube.ProxyTag(),
+				//"IstioNamespace":  tc.Kube.IstioSystemNamespace(),
+				//"ImagePullPolicy": tc.imagePullPolicy(),
+				"KubeMasterCIDR": kubeMasterCIDR,
+				"Namespace":      tc.Kube.Namespace,
 			},
-			KubeInject: false,
+			KubeInject: true,
 		},
 		{
 			AppYamlTemplate: util.GetResourcePath(nginxIngressYaml),
 			Template:        nil,
-			KubeInject:      false,
+			KubeInject:      false, // No need to inject since it will have no effect.
 		},
 	}
 }
@@ -188,7 +187,7 @@ func (t *testConfig) SendClientRequest(app, url string, count int, extra string)
 
 	pod := pods[0]
 	cmd := fmt.Sprintf("client -url %s -count %d %s", url, count, extra)
-	request, err := util.PodExec(t.Kube.Namespace, pod, "app", cmd)
+	request, err := util.PodExec(t.Kube.Namespace, pod, "app", cmd, true, t.Kube.KubeConfig)
 	if err != nil {
 		log.Errorf("client request error %v for %s in %s", err, url, app)
 		return out

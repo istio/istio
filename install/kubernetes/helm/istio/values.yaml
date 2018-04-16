@@ -45,12 +45,12 @@ global:
 
   # Default is 1 second
   refreshInterval: 10s
-  
+
   # Enable multicluster operation.  Must be set to true if multicluster operation
   # is desired.
   multicluster:
     enabled: false
-  
+
   # Specify pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
   #   0 - Never scheduled
   #   1 - Least preferred
@@ -82,9 +82,94 @@ ingress:
 #  cpu: 100m
 #  memory: 128Mi
   service:
+    loadBalancerIP: ""
     nodePort:
       enabled: false
       port: 32000
+
+#
+# ingressgateway configuration
+#
+ingressgateway:
+  enabled: false
+  serviceAccountName: istio-ingressgateway-service-account
+  imagePullPolicy: IfNotPresent
+  autoscaleMin: 1
+  autoscaleMax: 1
+  resources: {}
+# limits:
+#  cpu: 100m
+#  memory: 128Mi
+# requests:
+#  cpu: 100m
+#  memory: 128Mi
+  service:
+    name: istio-ingressgateway #DNS addressible
+    labels:
+      istio: ingressgateway
+    #namespace: istio-system
+    type: NodePort #change to ClusterIP or LoadBalancer if need be
+    ports:
+      ## You can add custom gateway ports
+    - port: 80
+      name: http
+      nodePort: 31380
+    - port: 443
+      name: https
+      nodePort: 31390
+    - port: 31400
+      name: tcp
+      nodePort: 31400
+  deployment:
+    labels:
+      istio: ingressgateway #will be added to pods and service
+    ports:
+    - containerPort: 80
+    - containerPort: 443
+    - containerPort: 31400
+  # secretVolumes: TODO
+  # - name: someName
+  #   mountPath: somePath
+  #   secretName: someName
+
+#
+# egressgateway configuration
+#
+egressgateway:
+  enabled: false
+  serviceAccountName: istio-egressgateway-service-account
+  imagePullPolicy: IfNotPresent
+  autoscaleMin: 1
+  autoscaleMax: 1
+  resources: {}
+# limits:
+#  cpu: 100m
+#  memory: 128Mi
+# requests:
+#  cpu: 100m
+#  memory: 128Mi
+  service:
+    name: istio-egressgateway #DNS addressible
+    labels:
+      istio: egressgateway
+    #namespace: istio-system
+    type: ClusterIP #change to NodePort or LoadBalancer if need be
+    ports:
+      ## You can add custom gateway ports
+    - port: 80
+      name: http
+    - port: 443
+      name: https
+  deployment:
+    labels:
+      istio: egressgateway #will be added to pods and service
+    ports:
+    - containerPort: 80
+    - containerPort: 443
+  # secretVolumes: TODO
+  # - name: someName
+  #   mountPath: somePath
+  #   secretName: someName
 
 #
 # sidecar-injector configuration
@@ -107,7 +192,32 @@ sidecar-injector:
   # example: includeIPRanges: "172.30.0.0/16,172.20.0.0/16"
   # would only capture egress traffic on those two IP Ranges, all other outbound traffic would
   # be allowed by the sidecar
-  includeIPRanges: {}
+  includeIPRanges: "*"
+  excludeIPRanges: ""
+
+  # istio ingress capture whitelist
+  # examples:
+  #     Redirect no inbound traffic to Envoy:    --includeInboundPorts=""
+  #     Redirect all inbound traffic to Envoy:   --includeInboundPorts="*"
+  #     Redirect only selected ports:            --includeInboundPorts="80,8080"
+  includeInboundPorts: "*"
+  excludeInboundPorts: ""
+
+#
+# galley configuration
+#
+galley:
+  enabled: false
+  serviceAccountName: default
+  replicaCount: 1
+  imagePullPolicy: IfNotPresent
+  resources: {}
+  # limits:
+  #  cpu: 100m
+  #  memory: 128Mi
+  # requests:
+  #  cpu: 100m
+  #  memory: 128Mi
 
 #
 # mixer configuration

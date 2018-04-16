@@ -21,34 +21,30 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/types"
-
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	mongo_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mongo_proxy/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
+	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/log"
 )
 
 // buildInboundNetworkFilters generates a TCP proxy network filter on the inbound path
 func buildInboundNetworkFilters(instance *model.ServiceInstance) []listener.Filter {
-	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "",
-		instance.Service.Hostname, instance.Endpoint.ServicePort)
 	config := &tcp_proxy.TcpProxy{
 		StatPrefix: fmt.Sprintf("%s|tcp|%d", model.TrafficDirectionInbound, instance.Endpoint.ServicePort.Port),
-		Cluster:    clusterName,
+		Cluster:    model.BuildSubsetKey(model.TrafficDirectionInbound, "", instance.Service.Hostname, instance.Endpoint.ServicePort),
 	}
-
 	return []listener.Filter{
 		{
 			Name:   xdsutil.TCPProxy,
 			Config: util.MessageToStruct(config),
 		},
 	}
-
 }
 
 func buildDeprecatedTCPRouteConfig(clusterName string, addresses []string) *DeprecatedTCPRouteConfig {
@@ -98,10 +94,12 @@ func buildOutboundNetworkFilters(clusterName string, addresses []string, port *m
 	}
 	data, err := json.Marshal(filterConfig)
 	if err != nil {
+		log.Errorf("filter config could not be marshalled: %v", err)
 		return nil
 	}
 	pbs := &types.Struct{}
 	if err := jsonpb.Unmarshal(bytes.NewReader(data), pbs); err != nil {
+		log.Errorf("filter config could not be unmarshalled: %v", err)
 		return nil
 	}
 

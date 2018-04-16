@@ -23,6 +23,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
+	"go.uber.org/multierr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -86,6 +87,27 @@ func getInjectConfigFromConfigMap(kubeconfig string) (string, error) {
 	}
 	log.Debugf("using inject template from configmap %q", injectConfigMapName)
 	return injectConfig.Template, nil
+}
+
+func validateFlags() error {
+	var err error
+	if inFilename != "" && emitTemplate {
+		err = multierr.Append(err, errors.New("--filename and --emitTemplate are mutually exclusive"))
+	}
+	if inFilename == "" && !emitTemplate {
+		err = multierr.Append(err, errors.New("filename not specified (see --filename or -f)"))
+	}
+	if meshConfigFile == "" && meshConfigMapName == "" {
+		err = multierr.Append(err, errors.New("--meshConfigFile or --meshConfigMapName must be set"))
+	}
+	if injectConfigFile != "" && injectConfigMapName != "" {
+		err = multierr.Append(err, errors.New("--injectConfigFile and --injectConfigMapName are mutually exclusive"))
+	}
+	err = multierr.Append(err, inject.ValidateIncludeIPRanges(includeIPRanges))
+	err = multierr.Append(err, inject.ValidateExcludeIPRanges(excludeIPRanges))
+	err = multierr.Append(err, inject.ValidateIncludeInboundPorts(includeInboundPorts))
+	err = multierr.Append(err, inject.ValidateExcludeInboundPorts(excludeInboundPorts))
+	return err
 }
 
 var (
@@ -154,15 +176,8 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConfigMapName istio-inject
 `,
 		RunE: func(_ *cobra.Command, _ []string) (err error) {
-			switch {
-			case inFilename != "" && emitTemplate:
-				return errors.New("--filename and --emitTemplate are mutually exclusive")
-			case inFilename == "" && !emitTemplate:
-				return errors.New("filename not specified (see --filename or -f)")
-			case meshConfigFile == "" && meshConfigMapName == "":
-				return errors.New("--meshConfigFile or --meshConfigMapName must be set")
-			case injectConfigFile != "" && injectConfigMapName != "":
-				return errors.New("--injectConfigFile and --injectConfigMapName are mutually exclusive")
+			if err = validateFlags(); err != nil {
+				return err
 			}
 
 			var reader io.Reader
@@ -240,7 +255,7 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 					return err
 				}
 			} else {
-				sidecarTemplate, err = inject.GenerateTemplateFromParams(&inject.Params{
+				if sidecarTemplate, err = inject.GenerateTemplateFromParams(&inject.Params{
 					InitImage:           inject.InitImageName(hub, tag, debugMode),
 					ProxyImage:          inject.ProxyImageName(hub, tag, debugMode),
 					Verbosity:           verbosity,
@@ -254,7 +269,9 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 					IncludeInboundPorts: includeInboundPorts,
 					ExcludeInboundPorts: excludeInboundPorts,
 					DebugMode:           debugMode,
-				})
+				}); err != nil {
+					return err
+				}
 			}
 
 			if emitTemplate {
@@ -308,18 +325,20 @@ func init() {
 	injectCmd.PersistentFlags().StringVar(&imagePullPolicy, "imagePullPolicy", inject.DefaultImagePullPolicy,
 		"Sets the container image pull policy. Valid options are Always,IfNotPresent,Never."+
 			"The default policy is IfNotPresent.")
-	injectCmd.PersistentFlags().StringVar(&includeIPRanges, "includeIPRanges", "",
-		"Comma separated list of IP ranges in CIDR form. If set, only redirect outbound "+
-			"traffic to Envoy for IP ranges. Otherwise all outbound traffic is redirected")
-	injectCmd.PersistentFlags().StringVar(&includeIPRanges, "excludeIPRanges", "",
-		"Comma separated list of IP ranges in CIDR form. If set, outbound traffic will not be"+
-			"redirected to Envoy for IP ranges. Only applies if redirecting all outbound traffic by default.")
-	injectCmd.PersistentFlags().StringVar(&includeInboundPorts, "includeInboundPorts", "",
-		"Comma separated list of inbound ports for which traffic is to be redirected to Envoy. "+
-			"If not specified, all inbound traffic will be redirected.")
+	injectCmd.PersistentFlags().StringVar(&includeIPRanges, "includeIPRanges", inject.DefaultIncludeIPRanges,
+		"Comma separated list of IP ranges in CIDR form. If set, only redirect outbound traffic to Envoy for "+
+			"these IP ranges. All outbound traffic can be redirected with the wildcard character '*'. Defaults to '*'.")
+	injectCmd.PersistentFlags().StringVar(&excludeIPRanges, "excludeIPRanges", "",
+		"Comma separated list of IP ranges in CIDR form. If set, outbound traffic will not be redirected for "+
+			"these IP ranges. Exclusions are only applied if configured to redirect all outbound traffic. By "+
+			"default, no IP ranges are excluded.")
+	injectCmd.PersistentFlags().StringVar(&includeInboundPorts, "includeInboundPorts", inject.DefaultIncludeInboundPorts,
+		"Comma separated list of inbound ports for which traffic is to be redirected to Envoy. All ports can "+
+			"be redirected with the wildcard character '*'. Defaults to '*'.")
 	injectCmd.PersistentFlags().StringVar(&excludeInboundPorts, "excludeInboundPorts", "",
-		"Comma separated list of inbound ports for which traffic should not be redirected to Envoy. "+
-			"Only applies if redirecting all inbound traffic by default.")
+		"Comma separated list of inbound ports. If set, inbound traffic will not be redirected for those "+
+			"ports. Exclusions are only applied if configured to redirect all inbound traffic. By default, no ports "+
+			"are excluded.")
 	injectCmd.PersistentFlags().BoolVar(&debugMode, "debug", false, "Use debug images and settings for the sidecar")
 
 	injectCmd.PersistentFlags().StringVar(&meshConfigMapName, "meshConfigMapName", "istio",

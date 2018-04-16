@@ -186,9 +186,7 @@ func (h *handler) HandleMetric(_ context.Context, vals []*metric.Instance) error
 		minfo, found := h.metricInfo[val.Name]
 		if !found {
 			// We weren't configured with stackdriver data about this metric, so we don't know how to publish it.
-			if h.l.VerbosityLevel(4) {
-				h.l.Warningf("Skipping metric %s due to not being configured with stackdriver info about it.", val.Name)
-			}
+			h.l.Debugf("Skipping metric %s due to not being configured with stackdriver info about it.", val.Name)
 			continue
 		}
 

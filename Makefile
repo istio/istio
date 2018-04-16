@@ -299,13 +299,8 @@ ${GEN_CERT}:
 # If pre-commit script is not used, please run this manually.
 precommit: format lint
 
-format: format.gofmt format.goimports
-
-format.gofmt: ; $(info $(H) formatting files with go fmt...)
-	$(Q) gofmt -s -w $$($(GO_FILES_CMD))
-
-format.goimports: ; $(info $(H) formatting files with goimports...)
-	$(Q) goimports -w -local istio.io $$($(GO_FILES_CMD))
+format:
+	bin/fmt.sh
 
 # Build with -i to store the build caches into $GOPATH/pkg
 buildcache:
@@ -358,19 +353,26 @@ mixs:
 $(MIXER_GO_BINS):
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./mixer/cmd/$(@F)
 
+GALLEY_GO_BINS:=${ISTIO_OUT}/gals
+gals:
+	bin/gobuild.sh ${ISTIO_OUT}/gals istio.io/istio/pkg/version ./galley/cmd/gals
+
+$(GALLEY_GO_BINS):
+	bin/gobuild.sh $@ istio.io/istio/pkg/version ./galley/cmd/$(@F)
+
 servicegraph:
 	bin/gobuild.sh ${ISTIO_OUT}/$@ istio.io/istio/pkg/version ./addons/servicegraph/cmd/server
 
 ${ISTIO_OUT}/servicegraph:
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./addons/$(@F)/cmd/server
 
-SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca ${ISTIO_OUT}/multicluster_ca ${ISTIO_OUT}/flexvolume
+SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca ${ISTIO_OUT}/flexvolume
 $(SECURITY_GO_BINS):
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
 .PHONY: build
 # Build will rebuild the go binaries.
-build: depend $(PILOT_GO_BINS_SHORT) mixc mixs node_agent istio_ca flexvolume multicluster_ca istioctl
+build: depend $(PILOT_GO_BINS_SHORT) mixc mixs node_agent istio_ca flexvolume istioctl gals
 
 # The following are convenience aliases for most of the go targets
 # The first block is for aliases that are the same as the actual binary,
@@ -378,8 +380,8 @@ build: depend $(PILOT_GO_BINS_SHORT) mixc mixs node_agent istio_ca flexvolume mu
 #
 # This is intended for developer use - will rebuild the package.
 
-.PHONY: istio-ca
-istio-ca:
+.PHONY: citadel
+citadel:
 	bin/gobuild.sh ${ISTIO_OUT}/istio_ca istio.io/istio/pkg/version ./security/cmd/istio_ca
 
 .PHONY: node-agent
@@ -393,8 +395,8 @@ flexvolumedriver:
 .PHONY: pilot
 pilot: pilot-discovery
 
-.PHONY: multicluster_ca node_agent istio_ca flexvolume
-multicluster_ca node_agent istio_ca flexvolume:
+.PHONY: node_agent istio_ca flexvolume
+node_agent istio_ca flexvolume:
 	bin/gobuild.sh ${ISTIO_OUT}/$@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
@@ -460,6 +462,9 @@ test-bins: $(PILOT_TEST_BINS)
 
 localTestEnv: test-bins
 	bin/testEnvLocalK8S.sh ensure
+
+localTestEnvCleanup: test-bins
+	bin/testEnvLocalK8S.sh stop
 
 # Temp. disable parallel test - flaky consul test.
 # https://github.com/istio/istio/issues/2318
@@ -602,10 +607,18 @@ installgen:
 
 # A make target to generate all the YAML files
 generate_yaml:
-	./install/updateVersion.sh -a ${HUB},${TAG} 
+	./install/updateVersion.sh -a ${HUB},${TAG}
 
 $(HELM):
 	bin/init_helm.sh
+
+# create istio-remote.yaml
+istio-remote.yaml: $(HELM)
+	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/$@
+	$(HELM) template --namespace=istio-system \
+		  --set global.pilotIp="pilotIpReplace" \
+		  --set global.mixerIp="mixerIpReplace" \
+		  install/kubernetes/helm/istio-remote >> install/kubernetes/$@
 
 # creates istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml
 # Ensure that values-$filename is present in install/kubernetes/helm/istio
@@ -616,6 +629,17 @@ isti%.yaml: $(HELM)
                   --set global.hub=${HUB} \
 		  --values install/kubernetes/helm/istio/values-$@ \
 		  install/kubernetes/helm/istio >> install/kubernetes/$@
+
+# This is temporary. REMOVE ME after Envoy v2 transition
+# creates istio.yaml using values-envoyv2-transition.yaml
+generate_yaml-envoyv2_transition: $(HELM)
+	./install/updateVersion_orig.sh -a ${HUB},${TAG} >/dev/null 2>&1
+	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/istio.yaml
+	$(HELM) template --set global.tag=${TAG} \
+		  --namespace=istio-system \
+                  --set global.hub=${HUB} \
+		  --values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
+		  install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
 
 deploy/all: $(HELM) istio-all.yaml
 	kubectl apply -n istio-system -f install/kubernetes/istio-all.yaml
@@ -637,8 +661,8 @@ FILES_TO_CLEAN+=install/consul/istio.yaml \
                 install/kubernetes/addons/zipkin-to-stackdriver.yaml \
                 install/kubernetes/addons/zipkin.yaml \
                 install/kubernetes/istio-auth.yaml \
-                install/kubernetes/istio-ca-plugin-certs.yaml \
-                install/kubernetes/istio-ca-with-health-check.yaml \
+                install/kubernetes/istio-citadel-plugin-certs.yaml \
+                install/kubernetes/istio-citadel-with-health-check.yaml \
                 install/kubernetes/istio-mixer-validator.yaml \
                 install/kubernetes/istio-mixer-with-health-check.yaml \
                 install/kubernetes/istio-one-namespace-auth.yaml \

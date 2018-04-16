@@ -28,7 +28,10 @@ ${ROOT}/install/updateVersion_orig.sh "$@"
 echo "$@"
 
 DEST_DIR=${ROOT}
-while getopts :d:a: arg; do
+# The top level script needs many more options.
+# leading ":" does not parse the first argument.
+# so we are using ":P".
+while getopts ":P:d:a:" arg; do
   case ${arg} in
     d) DEST_DIR="${OPTARG}";;
     a) ALL_HUB_TAG="${OPTARG}";;       # Format: "<hub>,<tag>"
@@ -53,7 +56,7 @@ function gen_file() {
 }
 
 
-for target in istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml;do
+for target in istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml istio-multicluster.yaml istio-auth-multicluster.yaml istio-remote.yaml;do
     gen_file $target ${DEST_DIR}
 done
 

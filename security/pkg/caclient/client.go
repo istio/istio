@@ -16,12 +16,11 @@ package caclient
 
 import (
 	"fmt"
+	"io/ioutil"
 	"time"
 
-	"io/ioutil"
-
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/security/pkg/caclient/grpc"
+	"istio.io/istio/security/pkg/caclient/protocol"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
 	"istio.io/istio/security/pkg/workload"
@@ -31,24 +30,21 @@ import (
 // CAClient is a client to provision key and certificate from the upstream CA via CSR protocol.
 type CAClient struct {
 	platformClient         platform.Client
-	protocolClient         grpc.CAGrpcClient
-	istioCAAddress         string
 	maxRetries             int
 	initialRetrialInterval time.Duration
+	caProtocol             protocol.CAProtocol
 }
 
 // NewCAClient creates a new CAClient instance.
-func NewCAClient(pltfmc platform.Client, ptclc grpc.CAGrpcClient, caAddr string,
-	maxRetries int, interval time.Duration) (*CAClient, error) {
+func NewCAClient(pltfmc platform.Client, protocolClient protocol.CAProtocol, maxRetries int, interval time.Duration) (*CAClient, error) {
 	if !pltfmc.IsProperPlatform() {
 		return nil, fmt.Errorf("CA client is not running on the right platform") // nolint
 	}
 	return &CAClient{
 		platformClient:         pltfmc,
-		protocolClient:         ptclc,
-		istioCAAddress:         caAddr,
 		maxRetries:             maxRetries,
 		initialRetrialInterval: interval,
+		caProtocol:             protocolClient,
 	}, nil
 }
 
@@ -58,14 +54,13 @@ func (c *CAClient) Retrieve(options *pkiutil.CertOptions) (newCert []byte, certC
 	retries := 0
 	retrialInterval := c.initialRetrialInterval
 	for {
-		privateKey, req, reqErr := c.CreateCSRRequest(options)
+		privateKey, req, reqErr := c.createCSRRequest(options)
 		if reqErr != nil {
 			return nil, nil, nil, reqErr
 		}
-
 		log.Infof("Sending CSR (retrial #%d) ...", retries)
 
-		resp, err := c.protocolClient.SendCSR(req, c.platformClient, c.istioCAAddress)
+		resp, err := c.caProtocol.SendCSR(req)
 		if err == nil && resp != nil && resp.IsApproved {
 			return resp.SignedCert, resp.CertChain, privateKey, nil
 		}
@@ -91,9 +86,7 @@ func (c *CAClient) Retrieve(options *pkiutil.CertOptions) (newCert []byte, certC
 	}
 }
 
-// CreateCSRRequest returns a CsrRequest based on the specified CertOptions.
-// TODO(incfly): add SendCSR method directly to CAClient.
-func (c *CAClient) CreateCSRRequest(opts *pkiutil.CertOptions) ([]byte, *pb.CsrRequest, error) {
+func (c *CAClient) createCSRRequest(opts *pkiutil.CertOptions) ([]byte, *pb.CsrRequest, error) {
 	csr, privKey, err := pkiutil.GenCSR(*opts)
 	if err != nil {
 		return nil, nil, err

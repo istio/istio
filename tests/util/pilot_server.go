@@ -15,22 +15,20 @@
 package util
 
 import (
+	"bytes"
 	"log"
 	"net"
 	"os"
+	"runtime"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
-	"istio.io/istio/pilot/pkg/serviceregistry"
-
-	"bytes"
-	"runtime"
-	"strconv"
-	"strings"
-
 	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v1"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 )
 
 var (
@@ -115,11 +113,20 @@ func setup() error {
 	// This limits the options -
 	stop = make(chan struct{})
 
+	// When debugging a test or running locally it helps having a static port for /debug
+	// "0" is used on shared environment (it's not actually clear if such thing exists since
+	// we run the tests in isolated VMs)
+	pilotHTTP := os.Getenv("PILOT_HTTP")
+	if len(pilotHTTP) == 0 {
+		pilotHTTP = "0"
+	}
+	pilotHTTPPort, _ := strconv.Atoi(pilotHTTP)
+
 	// Create a test pilot discovery service configured to watch the tempDir.
 	args := bootstrap.PilotArgs{
 		Namespace: "testing",
 		DiscoveryOptions: envoy.DiscoveryServiceOptions{
-			Port:            0, // An unused port will be chosen
+			Port:            pilotHTTPPort,
 			GrpcAddr:        ":0",
 			EnableCaching:   true,
 			EnableProfiling: true,

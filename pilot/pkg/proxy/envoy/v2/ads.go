@@ -37,6 +37,11 @@ var (
 	// adsClients reflect active gRPC channels, for both ADS and EDS.
 	adsClients      = map[string]*XdsConnection{}
 	adsClientsMutex sync.RWMutex
+
+	// Map of sidecar IDs to XdsConnections, first key is sidecarID, second key is connID
+	// This is a map due to an edge case during envoy restart whereby the 'old' envoy
+	// reconnects after the 'new/restarted' envoy
+	adsSidecarIDConnectionsMap = map[string]map[string]*XdsConnection{}
 )
 
 // XdsConnection is a listener connection type.
@@ -61,8 +66,9 @@ type XdsConnection struct {
 
 	//HttpConnectionManagers map[string]*http_conn.HttpConnectionManager
 
-	HTTPListeners []*xdsapi.Listener
-	RouteConfigs  map[string][]*xdsapi.RouteConfiguration
+	HTTPListeners []*xdsapi.Listener `json:"-"`
+	RouteConfigs  map[string]*xdsapi.RouteConfiguration
+	HTTPClusters  []*xdsapi.Cluster
 
 	// current list of clusters monitored by the client
 	Clusters []string
@@ -103,12 +109,17 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	var receiveError error
 	reqChannel := make(chan *xdsapi.DiscoveryRequest, 1)
 
+	if s.services == nil {
+		// first call - lazy loading.
+		s.updateModel()
+	}
+
 	con := &XdsConnection{
 		pushChannel:   make(chan *XdsEvent, 1),
 		PeerAddr:      peerAddr,
 		Connect:       time.Now(),
 		HTTPListeners: []*xdsapi.Listener{},
-		RouteConfigs:  map[string][]*xdsapi.RouteConfiguration{},
+		RouteConfigs:  map[string]*xdsapi.RouteConfiguration{},
 		Clusters:      []string{},
 		stream:        stream,
 	}
@@ -293,6 +304,14 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	}
 }
 
+func edsClientCount() int {
+	var n int
+	edsClusterMutex.Lock()
+	n = len(adsClients)
+	edsClusterMutex.Unlock()
+	return n
+}
+
 // adsPushAll implements old style invalidation, generated when any rule or endpoint changes.
 // Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
 // to the model ConfigStorageCache and Controller.
@@ -337,6 +356,13 @@ func (s *DiscoveryServer) addCon(conID string, con *XdsConnection) {
 	adsClientsMutex.Lock()
 	defer adsClientsMutex.Unlock()
 	adsClients[conID] = con
+	if con.modelNode != nil {
+		if _, ok := adsSidecarIDConnectionsMap[con.modelNode.ID]; !ok {
+			adsSidecarIDConnectionsMap[con.modelNode.ID] = map[string]*XdsConnection{conID: con}
+		} else {
+			adsSidecarIDConnectionsMap[con.modelNode.ID][conID] = con
+		}
+	}
 }
 
 func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
@@ -351,18 +377,33 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 		log.Errorf("ADS: Removing connection for non-existing node %v.", s)
 	}
 	delete(adsClients, conID)
+	if con.modelNode != nil {
+		delete(adsSidecarIDConnectionsMap[con.modelNode.ID], conID)
+	}
 }
 
 func (s *DiscoveryServer) pushRoute(con *XdsConnection) error {
-	rc := [][]*xdsapi.RouteConfiguration{}
-	for _, rn := range con.Routes {
-		r, err := s.ConfigGenerator.BuildRoutes(s.env, *con.modelNode, rn)
-		if err != nil {
-			log.Warnf("ADS: config failure, closing grpc %v", err)
-			return err
-		}
+	rc := []*xdsapi.RouteConfiguration{}
+
+	var services []*model.Service
+	s.modelMutex.RLock()
+	services = s.services
+	s.modelMutex.RUnlock()
+
+	proxyInstances, err := s.env.GetProxyServiceInstances(*con.modelNode)
+	if err != nil {
+		log.Warnf("ADS: RDS: Failed to retrieve proxy service instances %v", err)
+		return err
+	}
+
+	// TODO: once per config update
+	for _, routeName := range con.Routes {
+		// TODO: for ingress/gateway use the other method
+		r := s.ConfigGenerator.BuildSidecarOutboundHTTPRouteConfig(s.env, *con.modelNode, proxyInstances,
+			services, routeName)
+
 		rc = append(rc, r)
-		con.RouteConfigs[rn] = r
+		con.RouteConfigs[routeName] = r
 	}
 	response, err := routeDiscoveryResponse(rc, *con.modelNode)
 	if err != nil {
@@ -380,17 +421,15 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection) error {
 	return nil
 }
 
-func routeDiscoveryResponse(ls [][]*xdsapi.RouteConfiguration, node model.Proxy) (*xdsapi.DiscoveryResponse, error) {
+func routeDiscoveryResponse(ls []*xdsapi.RouteConfiguration, node model.Proxy) (*xdsapi.DiscoveryResponse, error) {
 	resp := &xdsapi.DiscoveryResponse{
 		TypeUrl:     RouteType,
 		VersionInfo: versionInfo(),
 		Nonce:       nonce(),
 	}
 	for _, ll := range ls {
-		for _, rr := range ll {
-			lr, _ := types.MarshalAny(rr)
-			resp.Resources = append(resp.Resources, *lr)
-		}
+		lr, _ := types.MarshalAny(ll)
+		resp.Resources = append(resp.Resources, *lr)
 	}
 
 	return resp, nil

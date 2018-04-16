@@ -26,70 +26,69 @@ import (
 type ListenerType int
 
 const (
+	// ListenerTypeUnknown is an unknown type of listener.
+	ListenerTypeUnknown = iota
 	// ListenerTypeTCP is a TCP listener.
-	ListenerTypeTCP = iota
+	ListenerTypeTCP
 	// ListenerTypeHTTP is an HTTP listener.
 	ListenerTypeHTTP
 )
 
-// CallbackListenerInputParams is a set of values passed to On*Listener callbacks. Not all fields are guaranteed to
+// InputParams is a set of values passed to Plugin callback methods. Not all fields are guaranteed to
 // be set, it's up to the callee to validate required fields are set and emit error if they are not.
 // These are for reading only and should not be modified.
-type CallbackListenerInputParams struct {
-	// ListenerType is the type of listener (TCP, HTTP etc.)
+type InputParams struct {
+	// ListenerType is the type of listener (TCP, HTTP etc.). Must be set.
 	ListenerType ListenerType
-	// Env is the model environment.
+	// Env is the model environment. Must be set.
 	Env *model.Environment
-	// Node is the node the listener is for.
+	// Node is the node the response is for.
 	Node *model.Proxy
 	// ProxyInstances is a slice of all proxy service instances in the mesh.
 	ProxyInstances []*model.ServiceInstance
 	// ServiceInstance is the service instance colocated with the listener (applies to sidecar).
 	ServiceInstance *model.ServiceInstance
+	// Service is the service colocated with the listener (applies to sidecar).
+	Service *model.Service
 }
 
-// CallbackListenerMutableObjects is a set of objects passed to On*Listener callbacks. Fields may be nil or empty.
+// MutableObjects is a set of objects passed to On*Listener callbacks. Fields may be nil or empty.
 // Any lists should not be overridden, but rather only appended to.
 // Non-list fields may be mutated; however it's not recommended to do this since it can affect other plugins in the
 // chain in unpredictable ways.
-type CallbackListenerMutableObjects struct {
+type MutableObjects struct {
+	// Listener is the listener being built. Must be initialized before Plugin methods are called.
+	Listener *xdsapi.Listener
 	// HTTPFilters is the slice of HTTP filters for the Listener. Append to only.
 	HTTPFilters []*http_conn.HttpFilter
 	// TCPFilters is the slice of TCP filters for the Listener. Append to only.
 	TCPFilters []listener.Filter
-	// Listener is the listener being built. Any field may be modified, but changing other than appending to slices
-	// is discouraged.
-	Listener *xdsapi.Listener
 }
 
 // Plugin is called during the construction of a xdsapi.Listener which may alter the Listener in any
 // way. Examples include AuthenticationPlugin that sets up mTLS authentication on the inbound Listener
 // and outbound Cluster, the mixer plugin that sets up policy checks on the inbound listener, etc.
 type Plugin interface {
-	// OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service
+	// OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service.
 	// Can be used to add additional filters on the outbound path.
-	OnOutboundListener(in *CallbackListenerInputParams, mutable *CallbackListenerMutableObjects) error
+	OnOutboundListener(in *InputParams, mutable *MutableObjects) error
 
 	// OnInboundListener is called whenever a new listener is added to the LDS output for a given service
 	// Can be used to add additional filters.
-	OnInboundListener(in *CallbackListenerInputParams, mutable *CallbackListenerMutableObjects) error
+	OnInboundListener(in *InputParams, mutable *MutableObjects) error
 
-	// OnOutboundCluster is called whenever a new cluster is added to the CDS output
-	// Typically used by AuthN plugin to add mTLS settings
+	// OnOutboundCluster is called whenever a new cluster is added to the CDS output.
 	OnOutboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port,
 		cluster *xdsapi.Cluster)
 
-	// OnInboundCluster is called whenever a new cluster is added to the CDS output
-	// Not used typically
+	// OnInboundCluster is called whenever a new cluster is added to the CDS output.
 	OnInboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port,
 		cluster *xdsapi.Cluster)
 
-	// OnOutboundHttpRoute is called whenever a new set of virtual hosts (a set of virtual hosts with routes) is
-	// added to RDS in the outbound path. Can be used to add route specific metadata or additional headers to forward
-	OnOutboundRoute(env model.Environment, node model.Proxy, route *xdsapi.RouteConfiguration)
+	// OnOutboundRouteConfiguration is called whenever a new set of virtual hosts (a set of virtual hosts with routes) is
+	// added to RDS in the outbound path.
+	OnOutboundRouteConfiguration(in *InputParams, routeConfiguration *xdsapi.RouteConfiguration)
 
-	// OnInboundRoute is called whenever a new set of virtual hosts are added to the inbound path.
-	// Can be used to enable route specific stuff like Lua filters or other metadata.
-	OnInboundRoute(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port,
-		route *xdsapi.RouteConfiguration)
+	// OnInboundRouteConfiguration is called whenever a new set of virtual hosts are added to the inbound path.
+	OnInboundRouteConfiguration(in *InputParams, routeConfiguration *xdsapi.RouteConfiguration)
 }

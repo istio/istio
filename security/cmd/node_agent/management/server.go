@@ -16,21 +16,18 @@ package management
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
 
+	"github.com/gogo/googleapis/google/rpc"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-
-	"github.com/gogo/googleapis/google/rpc"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/cmd/node_agent/na"
 	"istio.io/istio/security/cmd/node_agent_k8s/workload/handler"
-	"istio.io/istio/security/pkg/caclient"
-	cagrpc "istio.io/istio/security/pkg/caclient/grpc"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
-	"istio.io/istio/security/pkg/platform"
 	"istio.io/istio/security/pkg/workload"
 	pb "istio.io/istio/security/proto"
 )
@@ -40,14 +37,10 @@ import (
 type Server struct {
 	// map from uid to workload handler instance.
 	handlerMap map[string]handler.WorkloadHandler
-
 	// makes mgmt-api server to stop
-	done   chan bool
-	config *na.Config
-	// TODO(incfly): remove these two after they're merged into CAClient.
-	pc           platform.Client
-	caGrpcClient cagrpc.CAGrpcClient
-	caClient     *caclient.CAClient
+	done      chan bool
+	config    *na.Config
+	retriever Retriever
 	// the workload identity running together with the NodeAgent, only used for vm mode.
 	// TODO(incfly): uses this once Server supports vm mode.
 	identity string // nolint
@@ -55,35 +48,31 @@ type Server struct {
 	secretServer workload.SecretServer
 }
 
+// Retriever is the interface responsible for retrieving key/cert from upstream CA.
+type Retriever interface {
+	Retrieve(opt *pkiutil.CertOptions) (newCert, certChain, privateKey []byte, err error)
+}
+
 // New creates an NodeAgent server.
-func New(cfg *na.Config) (*Server, error) {
+func New(cfg *na.Config, retriever Retriever) (*Server, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("unablet to create when config is nil")
 	}
-	pc, err := platform.NewClient(cfg.CAClientConfig.Env, cfg.CAClientConfig.RootCertFile, cfg.CAClientConfig.KeyFile,
-		cfg.CAClientConfig.CertChainFile, cfg.CAClientConfig.CAAddress)
-	if err != nil {
-		return nil, fmt.Errorf("failed to init nodeagent due to pc init %v", err)
-	}
 	ss, err := workload.NewSecretServer(&workload.Config{
 		Mode:            workload.SecretFile,
-		SecretDirectory: "/etc/certs", // TODO(incfly): put this into na.Config later.
+		SecretDirectory: cfg.SecretDirectory,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to init nodeagent due to secret server %v", err)
 	}
-	cac, err := caclient.NewCAClient(pc, &cagrpc.CAGrpcClientImpl{}, cfg.CAClientConfig.CAAddress,
-		cfg.CAClientConfig.CSRMaxRetries, cfg.CAClientConfig.CSRInitialRetrialInterval)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create caclient err %v", err)
 	}
 	return &Server{
 		done:         make(chan bool, 1),
 		handlerMap:   make(map[string]handler.WorkloadHandler),
-		caGrpcClient: &cagrpc.CAGrpcClientImpl{},
-		caClient:     cac,
+		retriever:    retriever,
 		config:       cfg,
-		pc:           pc,
 		secretServer: ss,
 	}, nil
 }
@@ -136,7 +125,7 @@ func (s *Server) WorkloadAdded(ctx context.Context, request *pb.WorkloadInfo) (*
 	uid := request.Attrs.Uid
 	sa := request.Attrs.Serviceaccount
 	ns := request.Attrs.Namespace
-	wlstr := fmt.Sprintf("ns = %v, service account = %v, uid = %v", ns, sa, ns)
+	wlstr := fmt.Sprintf("ns = %v, service account = %v, uid = %v", ns, sa, uid)
 	log.Infof("workload %v added", wlstr)
 	if _, ok := s.handlerMap[uid]; ok {
 		status := &rpc.Status{Code: int32(rpc.ALREADY_EXISTS), Message: "Already exists"}
@@ -150,26 +139,27 @@ func (s *Server) WorkloadAdded(ctx context.Context, request *pb.WorkloadInfo) (*
 		return fmt.Errorf(msg)
 	}
 
-	// Sends CSR request to CA.
-	// TODO(inclfy): extract the SPIFFE formatting out into somewhere else.
-	id := fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/%s", ns, sa)
-
-	priv, csrReq, err := s.caClient.CreateCSRRequest(&pkiutil.CertOptions{
-		Host:       id,
+	// Send CSR request to CA.
+	host, err := pkiutil.GenSanURI(ns, sa)
+	if err != nil {
+		return nil, logReturn("failed to generate san uri", err)
+	}
+	cert, chain, priv, err := s.retriever.Retrieve(&pkiutil.CertOptions{
+		Host:       host,
 		Org:        s.config.CAClientConfig.Org,
 		RSAKeySize: s.config.CAClientConfig.RSAKeySize,
 		TTL:        s.config.CAClientConfig.RequestedCertTTL,
 	})
 	if err != nil {
-		return nil, logReturn("failed to create csr", err)
-	}
-	resp, err := s.caGrpcClient.SendCSR(csrReq, s.pc, s.config.CAClientConfig.CAAddress)
-	if err != nil {
 		return nil, logReturn("csr request failed", err)
 	}
-	kb, err := pkiutil.NewVerifiedKeyCertBundleFromPem(resp.SignedCert, priv, resp.CertChain, nil)
+	rootCert, err := ioutil.ReadFile(s.config.CAClientConfig.RootCertFile)
 	if err != nil {
-		return nil, logReturn("failed to build key cert buhndle", err)
+		return nil, logReturn("failed to load root cert err", err)
+	}
+	kb, err := pkiutil.NewVerifiedKeyCertBundleFromPem(cert, priv, chain, rootCert)
+	if err != nil {
+		return nil, logReturn("failed to build key cert bundle", err)
 	}
 
 	if err := s.secretServer.Save(kb); err != nil {

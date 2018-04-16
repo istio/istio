@@ -9,6 +9,7 @@
     "logging",
     "logging/apiv2",
     "logging/internal",
+    "logging/logadmin",
     "monitoring/apiv3"
   ]
   revision = "4b98a6370e36d7a85192e7bad08a4ebd82eac2a8"
@@ -260,17 +261,21 @@
     "envoy/api/v2/route",
     "envoy/config/filter/accesslog/v2",
     "envoy/config/filter/fault/v2",
+    "envoy/config/filter/http/jwt_authn/v2alpha",
     "envoy/config/filter/network/http_connection_manager/v2",
     "envoy/config/filter/network/mongo_proxy/v2",
     "envoy/config/filter/network/tcp_proxy/v2",
     "envoy/service/discovery/v2",
     "envoy/type",
-    "pkg/cache",
-    "pkg/log",
-    "pkg/server",
     "pkg/util"
   ]
   revision = "9fdf4bd79736a87c78b3d48b7baa84ea24be1c1a"
+
+[[projects]]
+  name = "github.com/evanphx/json-patch"
+  packages = ["."]
+  revision = "afac545df32f2287a079e2dfb7ba2745a643747e"
+  version = "v3.0.0"
 
 [[projects]]
   name = "github.com/fluent/fluent-logger-golang"
@@ -1132,6 +1137,8 @@
     "googleapis/api/label",
     "googleapis/api/metric",
     "googleapis/api/monitoredres",
+    "googleapis/appengine/logging/v1",
+    "googleapis/cloud/audit",
     "googleapis/logging/type",
     "googleapis/logging/v2",
     "googleapis/monitoring/v3",
@@ -1222,6 +1229,7 @@
   packages = [
     "authentication/v1alpha1",
     "broker/dev",
+    "envoy/config/filter/http/authn/v2alpha1",
     "mesh/v1alpha1",
     "mixer/adapter/model/v1beta1",
     "mixer/v1",
@@ -1247,8 +1255,8 @@
     "ui",
     "version"
   ]
-  revision = "0e1347b31d9eb6d190f29b81b2ee710697b6c6c3"
-  version = "v0.8.1"
+  revision = "e50943e8e525197f36f9b4f81464615c063a0a65"
+  version = "v0.9.0"
 
 [[projects]]
   name = "k8s.io/api"
@@ -1369,6 +1377,7 @@
     "discovery",
     "discovery/fake",
     "dynamic",
+    "dynamic/fake",
     "kubernetes",
     "kubernetes/fake",
     "kubernetes/scheme",
@@ -1527,6 +1536,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "88b2904822dff763e7dce7e3e4ccf56b271a2323f16b214e5aa31fc091d32e1e"
+  inputs-digest = "08eedb62a28d8afeb8bd383c2cf9507f20f387f4b1c133cfef0cd0ea64ad835b"
   solver-name = "gps-cdcl"
   solver-version = 1

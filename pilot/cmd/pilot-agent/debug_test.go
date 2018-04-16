@@ -36,7 +36,7 @@ type envoyStubState struct {
 func (p *envoyStubHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	p.Lock()
 	switch r.URL.Path {
-	case "/clusters", "/listeners", "/routes":
+	case "/clusters", "/listeners", "/config_dump":
 		w.WriteHeader(p.States[0].StatusCode)
 		_, _ = w.Write([]byte(p.States[0].Response))
 		p.States = p.States[1:]

@@ -19,8 +19,8 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"path"
 	"strconv"
+	"strings"
 	"time"
 
 	"code.cloudfoundry.org/copilot"
@@ -42,7 +42,6 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pilot/pkg/config/memory"
 	configmonitor "istio.io/istio/pilot/pkg/config/monitor"
-	"istio.io/istio/pilot/pkg/kube/admit"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/plugin/registry"
@@ -70,8 +69,9 @@ const (
 )
 
 var (
+	// ConfigDescriptor describes all supported configuration kinds.
 	// TODO: use model.IstioConfigTypes once model.IngressRule is deprecated
-	configDescriptor = model.ConfigDescriptor{
+	ConfigDescriptor = model.ConfigDescriptor{
 		model.RouteRule,
 		model.VirtualService,
 		model.Gateway,
@@ -83,8 +83,6 @@ var (
 		model.HTTPAPISpecBinding,
 		model.QuotaSpec,
 		model.QuotaSpecBinding,
-		model.EndUserAuthenticationPolicySpec,
-		model.EndUserAuthenticationPolicySpecBinding,
 		model.AuthenticationPolicy,
 		model.ServiceRole,
 		model.ServiceRoleBinding,
@@ -103,11 +101,12 @@ type MeshArgs struct {
 // be monitored for CRD yaml files and will update the controller as those files change (This is used for testing
 // purposes). Otherwise, a CRD client is created based on the configuration.
 type ConfigArgs struct {
-	ClusterRegistriesDir string
-	KubeConfig           string
-	CFConfig             string
-	ControllerOptions    kube.ControllerOptions
-	FileDir              string
+	ClusterRegistriesConfigmap string
+	ClusterRegistriesNamespace string
+	KubeConfig                 string
+	CFConfig                   string
+	ControllerOptions          kube.ControllerOptions
+	FileDir                    string
 }
 
 // ConsulArgs provides configuration for the Consul service registry.
@@ -130,37 +129,6 @@ type ServiceArgs struct {
 	Eureka     EurekaArgs
 }
 
-// AdmissionArgs provides configuration options for the admission controller. This is a partial duplicate of
-// admit.ControllerOptions (other fields are filled out before constructing the admission controller). Only
-// used if running with k8s, Consul, or Eureka (not in a mock environment).
-type AdmissionArgs struct {
-	// ExternalAdmissionWebhookName is the name of the
-	// ExternalAdmissionHook which describes he external admission
-	// webhook and resources and operations it applies to.
-	ExternalAdmissionWebhookName string
-
-	// ServiceName is the service name of the webhook.
-	ServiceName string
-
-	// SecretName is the name of k8s secret that contains the webhook
-	// server key/cert and corresponding CA cert that signed them. The
-	// server key/cert are used to serve the webhook and the CA cert
-	// is provided to k8s apiserver during admission controller
-	// registration.
-	SecretName string
-
-	// Port where the webhook is served. Per k8s admission
-	// registration requirements this should be 443 unless there is
-	// only a single port for the service.
-	Port int
-
-	// RegistrationDelay controls how long admission registration
-	// occurs after the webhook is started. This is used to avoid
-	// potential races where registration completes and k8s apiserver
-	// invokes the webhook before the HTTP server is started.
-	RegistrationDelay time.Duration
-}
-
 // PilotArgs provides all of the configuration parameters for the Pilot discovery service.
 type PilotArgs struct {
 	DiscoveryOptions envoy.DiscoveryServiceOptions
@@ -168,7 +136,6 @@ type PilotArgs struct {
 	Mesh             MeshArgs
 	Config           ConfigArgs
 	Service          ServiceArgs
-	Admission        AdmissionArgs
 	RDSv2            bool
 }
 
@@ -211,16 +178,13 @@ func NewServer(args PilotArgs) (*Server, error) {
 	s := &Server{}
 
 	// Apply the arguments to the configuration.
-	if err := s.initClusterRegistries(&args); err != nil {
-		return nil, err
-	}
 	if err := s.initKubeClient(&args); err != nil {
 		return nil, err
 	}
-	if err := s.initMesh(&args); err != nil {
+	if err := s.initClusterRegistries(&args); err != nil {
 		return nil, err
 	}
-	if err := s.initAdmissionController(&args); err != nil {
+	if err := s.initMesh(&args); err != nil {
 		return nil, err
 	}
 	if err := s.initMixerSan(&args); err != nil {
@@ -279,8 +243,10 @@ func (s *Server) initMonitor(args *PilotArgs) error {
 }
 
 func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
-	if args.Config.ClusterRegistriesDir != "" {
-		s.clusterStore, err = clusterregistry.ReadClusters(args.Config.ClusterRegistriesDir)
+	if args.Config.ClusterRegistriesConfigmap != "" {
+		s.clusterStore, err = clusterregistry.ReadClusters(s.kubeClient,
+			args.Config.ClusterRegistriesConfigmap,
+			args.Config.ClusterRegistriesNamespace)
 		if s.clusterStore != nil {
 			log.Infof("clusters configuration %s", spew.Sdump(s.clusterStore))
 		}
@@ -298,6 +264,10 @@ func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*v1.Confi
 
 	config, err := kube.CoreV1().ConfigMaps(namespace).Get(name, meta_v1.GetOptions{})
 	if err != nil {
+		if strings.Contains(err.Error(), fmt.Sprintf("\"%s\" not found", name)) {
+			defaultMesh := model.DefaultMeshConfig()
+			return nil, &defaultMesh, nil
+		}
 		return nil, nil, err
 	}
 
@@ -366,12 +336,6 @@ func (s *Server) initMixerSan(args *PilotArgs) error {
 }
 
 func (s *Server) getKubeCfgFile(args *PilotArgs) (kubeCfgFile string) {
-	// If the cluster store is configured, get pilot's kubeconfig from there
-	if s.clusterStore != nil {
-		if kubeCfgFile = s.clusterStore.GetPilotAccessConfig(); kubeCfgFile != "" {
-			kubeCfgFile = path.Join(args.Config.ClusterRegistriesDir, kubeCfgFile)
-		}
-	}
 	if kubeCfgFile == "" {
 		kubeCfgFile = args.Config.KubeConfig
 	}
@@ -426,7 +390,7 @@ func (c *mockController) Run(<-chan struct{}) {}
 // initConfigController creates the config controller in the pilotConfig.
 func (s *Server) initConfigController(args *PilotArgs) error {
 	if args.Config.FileDir != "" {
-		store := memory.Make(configDescriptor)
+		store := memory.Make(ConfigDescriptor)
 		configController := memory.NewController(store)
 
 		err := s.makeFileMonitor(args, configController)
@@ -462,7 +426,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 
 func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCache, error) {
 	kubeCfgFile := s.getKubeCfgFile(args)
-	configClient, err := crd.NewClient(kubeCfgFile, configDescriptor, args.Config.ControllerOptions.DomainSuffix)
+	configClient, err := crd.NewClient(kubeCfgFile, ConfigDescriptor, args.Config.ControllerOptions.DomainSuffix)
 	if err != nil {
 		return nil, multierror.Prefix(err, "failed to open a config client.")
 	}
@@ -475,7 +439,7 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCac
 }
 
 func (s *Server) makeFileMonitor(args *PilotArgs, configController model.ConfigStore) error {
-	fileSnapshot := configmonitor.NewFileSnapshot(args.Config.FileDir, configDescriptor)
+	fileSnapshot := configmonitor.NewFileSnapshot(args.Config.FileDir, ConfigDescriptor)
 	fileMonitor := configmonitor.NewMonitor(configController, FilepathWalkInterval, fileSnapshot.ReadConfigFiles)
 
 	// Defer starting the file monitor until after the service is created.
@@ -526,13 +490,13 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 	// Add clusters under the same pilot
 	if s.clusterStore != nil {
 		clusters := s.clusterStore.GetPilotClusters()
+		clientAccessConfigs := s.clusterStore.GetClientAccessConfigs()
 		for _, cluster := range clusters {
-			kubeconfig := clusterregistry.GetClusterAccessConfig(cluster)
-			kubeCfgFile := path.Join(args.Config.ClusterRegistriesDir, kubeconfig)
-			log.Infof("Cluster name: %s, AccessConfigFile: %s", clusterregistry.GetClusterName(cluster), kubeCfgFile)
-			_, client, kuberr := kube.CreateInterface(kubeCfgFile)
+			log.Infof("Cluster name: %s, AccessConfigFile: %s", clusterregistry.GetClusterName(cluster))
+			clusterClient := clientAccessConfigs[cluster.ObjectMeta.Name]
+			_, client, kuberr := kube.CreateInterfaceFromClusterConfig(&clusterClient)
 			if kuberr != nil {
-				err = multierror.Append(err, multierror.Prefix(kuberr, fmt.Sprintf("failed to connect to Access API with accessconfig: %s", kubeCfgFile)))
+				err = multierror.Append(err, multierror.Prefix(kuberr, fmt.Sprintf("failed to connect to Access API with access config: %s", cluster.ObjectMeta.Name)))
 			}
 
 			kubectl := kube.NewController(client, args.Config.ControllerOptions)
@@ -670,15 +634,13 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 func initMemoryRegistry(s *Server, serviceControllers *aggregate.Controller) {
 	// MemServiceDiscovery implementation
 	discovery1 := mock.NewDiscovery(
-		map[string]*model.Service{
-			//			mock.HelloService.Hostname: mock.HelloService,
+		map[string]*model.Service{ // mock.HelloService.Hostname: mock.HelloService,
 		}, 2)
 
 	s.MemoryServiceDiscovery = discovery1
 
 	discovery2 := mock.NewDiscovery(
-		map[string]*model.Service{
-			//			mock.WorldService.Hostname: mock.WorldService,
+		map[string]*model.Service{ // mock.WorldService.Hostname: mock.WorldService,
 		}, 2)
 
 	registry1 := aggregate.Registry{
@@ -723,8 +685,9 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 	// For now we create the gRPC server sourcing data from Pilot's older data model.
 	s.initGrpcServer()
-	envoy.V2ClearCache = envoyv2.PushAll
 	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(s.GRPCServer, environment, v1alpha3.NewConfigGenerator(registry.NewPlugins()))
+	// TODO: decouple v2 from the cache invalidation, use direct listeners.
+	envoy.V2ClearCache = s.EnvoyXdsServer.ClearCacheFunc()
 
 	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController)
 
@@ -768,52 +731,9 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 			s.EnvoyXdsServer.GrpcServer.Stop()
 		}()
 
-		if args.RDSv2 {
-			log.Info("xDS: enabling RDS")
-			cache := envoyv2.NewConfigCache(s.ServiceController, s.configController)
-			cache.Register(s.GRPCServer)
-			cache.RegisterInput(s.ServiceController, s.configController)
-		}
-
 		return err
 	})
 
-	return nil
-}
-
-// initAdmissionController creates and initializes the k8s admission controller if running in a k8s environment.
-func (s *Server) initAdmissionController(args *PilotArgs) error {
-	if s.kubeClient == nil {
-		// Not running in a k8s environment - do nothing.
-		return nil
-	}
-
-	// Create the arguments for the admission controller
-	admissionArgs := admit.ControllerOptions{
-		ExternalAdmissionWebhookName: args.Admission.ExternalAdmissionWebhookName,
-		ServiceName:                  args.Admission.ServiceName,
-		SecretName:                   args.Admission.SecretName,
-		Port:                         args.Admission.Port,
-		RegistrationDelay:            args.Admission.RegistrationDelay,
-		Descriptor:                   configDescriptor,
-		ServiceNamespace:             args.Namespace,
-		DomainSuffix:                 args.Config.ControllerOptions.DomainSuffix,
-		ValidateNamespaces: []string{
-			args.Config.ControllerOptions.WatchedNamespace,
-			args.Namespace,
-		},
-	}
-
-	admissionController, err := admit.NewController(s.kubeClient, admissionArgs)
-	if err != nil {
-		return err
-	}
-
-	// Defer running the admission controller.
-	s.addStartFunc(func(stop chan struct{}) error {
-		go admissionController.Run(stop)
-		return nil
-	})
 	return nil
 }
 

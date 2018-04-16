@@ -16,7 +16,6 @@ package pilot
 
 import (
 	"fmt"
-
 	"testing"
 
 	"istio.io/istio/tests/util"
@@ -28,6 +27,9 @@ const (
 )
 
 func TestRBAC(t *testing.T) {
+	if !tc.Kube.RBACEnabled {
+		t.Skipf("Skipping %s: rbac_enable=false", t.Name())
+	}
 	// Fill out the templates.
 	params := map[string]string{
 		"IstioNamespace": tc.Kube.IstioSystemNamespace(),
@@ -44,8 +46,9 @@ func TestRBAC(t *testing.T) {
 
 	// Push all of the configs
 	cfgs := &deployableConfig{
-		Namespace: tc.Kube.Namespace,
-		YamlFiles: []string{rbackEnableYaml, rbackRulesYaml},
+		Namespace:  tc.Kube.Namespace,
+		YamlFiles:  []string{rbackEnableYaml, rbackRulesYaml},
+		kubeconfig: tc.Kube.KubeConfig,
 	}
 	if err := cfgs.Setup(); err != nil {
 		t.Fatal(err)

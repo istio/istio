@@ -15,17 +15,16 @@
 package pilot
 
 import (
-	"flag"
-	"os"
-	"testing"
-
 	"errors"
+	"flag"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
+	"testing"
 	"time"
 
 	"go.uber.org/multierr"
@@ -47,8 +46,8 @@ const (
 
 var (
 	tc = &testConfig{
-		V1alpha1: true,
-		V1alpha3: true,
+		V1alpha1: true, //implies envoyv1
+		V1alpha3: true, //implies envoyv2
 		Ingress:  true,
 		Egress:   true,
 	}
@@ -58,6 +57,7 @@ var (
 	versionRegex = regexp.MustCompile("ServiceVersion=(.*)")
 	portRegex    = regexp.MustCompile("ServicePort=(.*)")
 	codeRegex    = regexp.MustCompile("StatusCode=(.*)")
+	hostRegex    = regexp.MustCompile("Host=(.*)")
 )
 
 func init() {
@@ -92,7 +92,7 @@ func setTestConfig() error {
 	tc.AppDir = appDir
 
 	// Add additional apps for this test suite.
-	apps := getApps()
+	apps := getApps(tc)
 	for i := range apps {
 		tc.Kube.AppManager.AddApp(&apps[i])
 	}
@@ -105,6 +105,7 @@ func setTestConfig() error {
 			"testdata/external-wikipedia.yaml",
 			"testdata/externalbin.yaml",
 		},
+		kubeconfig: tc.Kube.KubeConfig,
 	}
 	return nil
 }
@@ -151,9 +152,10 @@ func runRetriableTest(t *testing.T, testName string, retries int, f func() error
 
 // deployableConfig is a collection of configs that are applied/deleted as a single unit.
 type deployableConfig struct {
-	Namespace string
-	YamlFiles []string
-	applied   []string
+	Namespace  string
+	YamlFiles  []string
+	applied    []string
+	kubeconfig string
 }
 
 // Setup pushes the config and waits for it to propagate to all nodes in the cluster.
@@ -162,7 +164,7 @@ func (c *deployableConfig) Setup() error {
 
 	// Apply the configs.
 	for _, yamlFile := range c.YamlFiles {
-		if err := util.KubeApply(c.Namespace, yamlFile); err != nil {
+		if err := util.KubeApply(c.Namespace, yamlFile, c.kubeconfig); err != nil {
 			// Run the teardown function now and return
 			_ = c.Teardown()
 			return err
@@ -188,7 +190,7 @@ func (c *deployableConfig) Teardown() error {
 func (c *deployableConfig) TeardownNoDelay() error {
 	var err error
 	for _, yamlFile := range c.applied {
-		err = multierr.Append(err, util.KubeDelete(c.Namespace, yamlFile))
+		err = multierr.Append(err, util.KubeDelete(c.Namespace, yamlFile, c.kubeconfig))
 	}
 	c.applied = []string{}
 	return err
@@ -214,7 +216,7 @@ func (t *testConfig) Setup() error {
 	err := t.extraConfig.Setup()
 
 	// Wait for all the pods to be in the running state before starting tests.
-	if err == nil && !util.CheckPodsRunning(t.Kube.Namespace) {
+	if err == nil && !util.CheckPodsRunning(t.Kube.Namespace, t.Kube.KubeConfig) {
 		err = fmt.Errorf("can't get all pods running")
 	}
 
@@ -238,7 +240,7 @@ func configVersions() []string {
 	return versions
 }
 
-func getApps() []framework.App {
+func getApps(tc *testConfig) []framework.App {
 	return []framework.App{
 		// deploy a healthy mix of apps, with and without proxy
 		getApp("t", "t", 8080, 80, 9090, 90, 7070, 70, "unversioned", false, false),
@@ -246,7 +248,7 @@ func getApps() []framework.App {
 		getApp("b", "b", 80, 8080, 90, 9090, 70, 7070, "unversioned", true, false),
 		getApp("c-v1", "c", 80, 8080, 90, 9090, 70, 7070, "v1", true, false),
 		getApp("c-v2", "c", 80, 8080, 90, 9090, 70, 7070, "v2", true, false),
-		getApp("d", "d", 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true, true),
+		getApp("d", "d", 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true, tc.Kube.AuthEnabled),
 		// Add another service without sidecar to test mTLS blacklisting (as in the e2e test
 		// environment, pilot can see only services in the test namespaces). This service
 		// will be listed in mtlsExcludedServices in the mesh config.
@@ -296,7 +298,7 @@ func ClientRequest(app, url string, count int, extra string) ClientResponse {
 
 	pod := pods[0]
 	cmd := fmt.Sprintf("client -url %s -count %d %s", url, count, extra)
-	request, err := util.PodExec(tc.Kube.Namespace, pod, "app", cmd)
+	request, err := util.PodExec(tc.Kube.Namespace, pod, "app", cmd, true, tc.Kube.KubeConfig)
 	if err != nil {
 		log.Errorf("client request error %v for %s in %s", err, url, app)
 		return out
@@ -324,6 +326,11 @@ func ClientRequest(app, url string, count int, extra string) ClientResponse {
 		out.Code = append(out.Code, code[1])
 	}
 
+	hosts := hostRegex.FindAllStringSubmatch(request, -1)
+	for _, host := range hosts {
+		out.Host = append(out.Host, host[1])
+	}
+
 	return out
 }
 
@@ -339,6 +346,8 @@ type ClientResponse struct {
 	Port []string
 	// Code is the response code
 	Code []string
+	// Host is the host returned by the response
+	Host []string
 }
 
 // IsHTTPOk returns true if the response code was 200
@@ -391,7 +400,7 @@ func (a *accessLogs) checkLogs(t *testing.T) {
 func (a *accessLogs) getAppPods(t *testing.T, app string) []string {
 	if app == ingressAppName {
 		// Ingress is uses the "istio" label, not an "app" label.
-		pods, err := util.GetIngressPodNames(tc.Kube.Namespace)
+		pods, err := util.GetIngressPodNames(tc.Kube.Namespace, tc.Kube.KubeConfig)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -430,7 +439,7 @@ func (a *accessLogs) checkLog(t *testing.T, app string, pods []string) {
 		var logs string
 		for _, pod := range pods {
 			// Retrieve the logs from the service container
-			logs += util.GetPodLogs(tc.Kube.Namespace, pod, container, false, false)
+			logs += util.GetPodLogs(tc.Kube.Namespace, pod, container, false, false, tc.Kube.KubeConfig)
 		}
 
 		for id, want := range counts {

@@ -47,6 +47,8 @@ var mutableBags = sync.Pool{
 	},
 }
 
+var scope = log.RegisterScope("attributes", "Attribute-related messsages.", 0)
+
 // GetMutableBag returns an initialized bag.
 //
 // Bags can be chained in a parent/child relationship. You can pass nil if the
@@ -201,9 +203,11 @@ func (mb *MutableBag) Merge(bag *MutableBag) {
 // ToProto fills-in an Attributes proto based on the content of the bag.
 func (mb *MutableBag) ToProto(output *mixerpb.CompressedAttributes, globalDict map[string]int32, globalWordCount int) {
 	ds := newDictState(globalDict, globalWordCount)
+	keys := mb.Names()
 
-	for k, v := range mb.values {
+	for _, k := range keys {
 		index := ds.assignDictIndex(k)
+		v, _ := mb.Get(k) // if not found, nil return will be ignored by the switch below
 
 		switch t := v.(type) {
 		case string:
@@ -306,7 +310,7 @@ func (mb *MutableBag) UpdateBagFromProto(attrs *mixerpb.CompressedAttributes, gl
 	var buf *bytes.Buffer
 	lg := func(format string, args ...interface{}) {}
 
-	if log.DebugEnabled() {
+	if scope.DebugEnabled() {
 		buf = pool.GetBuffer()
 		lg = func(format string, args ...interface{}) {
 			fmt.Fprintf(buf, format, args...)
@@ -315,7 +319,7 @@ func (mb *MutableBag) UpdateBagFromProto(attrs *mixerpb.CompressedAttributes, gl
 
 		defer func() {
 			if buf != nil {
-				log.Debug(buf.String())
+				scope.Debug(buf.String())
 				pool.PutBuffer(buf)
 			}
 		}()

@@ -23,7 +23,9 @@ import (
 	"istio.io/istio/tests/util"
 )
 
-var useAutomaticInjection = flag.Bool("use-automatic-injection", false, "Use automatic injection instead of kube-inject for transparent proxy injection")
+var (
+	useAutomaticInjection = flag.Bool("use-automatic-injection", false, "Use automatic injection instead of kube-inject for transparent proxy injection")
+)
 
 const (
 	kubeInjectPrefix = "KubeInject"
@@ -40,19 +42,21 @@ type App struct {
 
 // AppManager organize and deploy apps
 type AppManager struct {
-	Apps      []*App
-	tmpDir    string
-	namespace string
-	istioctl  *Istioctl
-	active    bool
+	Apps       []*App
+	tmpDir     string
+	namespace  string
+	istioctl   *Istioctl
+	active     bool
+	kubeconfig string
 }
 
 // NewAppManager create a new AppManager
-func NewAppManager(tmpDir, namespace string, istioctl *Istioctl) *AppManager {
+func NewAppManager(tmpDir, namespace string, istioctl *Istioctl, kubeconfig string) *AppManager {
 	return &AppManager{
-		namespace: namespace,
-		tmpDir:    tmpDir,
-		istioctl:  istioctl,
+		namespace:  namespace,
+		tmpDir:     tmpDir,
+		istioctl:   istioctl,
+		kubeconfig: kubeconfig,
 	}
 }
 
@@ -68,7 +72,7 @@ func (am *AppManager) generateAppYaml(a *App) error {
 		return err
 	}
 	if err := util.Fill(a.AppYaml, a.AppYamlTemplate, a.Template); err != nil {
-		log.Errorf("Failed to generate yaml for template %s", a.AppYamlTemplate)
+		log.Errorf("Failed to generate yaml for template %s: %v", a.AppYamlTemplate, err)
 		return err
 	}
 	return nil
@@ -91,7 +95,7 @@ func (am *AppManager) deploy(a *App) error {
 			return err
 		}
 	}
-	if err := util.KubeApply(am.namespace, finalYaml); err != nil {
+	if err := util.KubeApply(am.namespace, finalYaml, am.kubeconfig); err != nil {
 		log.Errorf("Kubectl apply %s failed", finalYaml)
 		return err
 	}
@@ -144,7 +148,7 @@ func (am *AppManager) UndeployApp(a *App) error {
 		return nil
 	}
 
-	if err := util.KubeDelete(am.namespace, a.deployedYaml); err != nil {
+	if err := util.KubeDelete(am.namespace, a.deployedYaml, am.kubeconfig); err != nil {
 		log.Errorf("Kubectl delete %s failed", a.deployedYaml)
 		return err
 	}
@@ -153,5 +157,5 @@ func (am *AppManager) UndeployApp(a *App) error {
 
 // CheckDeployments waits for a period for the deployments to be started.
 func (am *AppManager) CheckDeployments() error {
-	return util.CheckDeployments(am.namespace, maxDeploymentRolloutTime)
+	return util.CheckDeployments(am.namespace, maxDeploymentRolloutTime, am.kubeconfig)
 }

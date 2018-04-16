@@ -34,13 +34,14 @@ import (
 )
 
 const (
-	u1           = "normal-user"
-	u2           = "test-user"
-	bookinfoYaml = "samples/bookinfo/kube/bookinfo.yaml"
-	modelDir     = "tests/apps/bookinfo/output"
-	rulesDir     = "samples/bookinfo/kube"
-	allRule      = "route-rule-all-v1.yaml"
-	testRule     = "route-rule-reviews-test-v2.yaml"
+	u1             = "normal-user"
+	u2             = "test-user"
+	bookinfoYaml   = "samples/bookinfo/kube/bookinfo.yaml"
+	modelDir       = "tests/apps/bookinfo/output"
+	rulesDir       = "samples/bookinfo/kube"
+	allRule        = "route-rule-all-v1.yaml"
+	testRule       = "route-rule-reviews-test-v2.yaml"
+	testRetryTimes = 10
 )
 
 var (
@@ -79,7 +80,7 @@ func (t *testConfig) Setup() error {
 
 	}
 
-	if !util.CheckPodsRunning(tc.Kube.Namespace) {
+	if !util.CheckPodsRunning(tc.Kube.Namespace, tc.Kube.KubeConfig) {
 		return fmt.Errorf("can't get all pods running")
 	}
 
@@ -141,18 +142,27 @@ func inspect(err error, fMsg, sMsg string, t *testing.T) {
 	}
 }
 
-func probeGateway(retryTimes int, modelFile string) error {
+func probeGateway(retryTimes int) error {
+	var err1, err2 error
 	standby := 0
 	v1File := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v1.html"))
+	v2File := util.GetResourcePath(filepath.Join(modelDir, "productpage-test-user-v2.html"))
 	for i := 0; i <= retryTimes; i++ {
 		time.Sleep(time.Duration(standby) * time.Second)
-		_, err := checkRoutingResponse(u1, "v1", tc.gateway, v1File)
-		if err == nil {
+		_, err1 = checkRoutingResponse(u1, "v1", tc.gateway, v1File)
+		_, err2 = checkRoutingResponse(u2, "v2", tc.gateway, v2File)
+		if err1 == nil && err2 == nil {
 			log.Infof("Successfully getting response from gateway.")
 			return nil
 		}
 		standby += 5
 		log.Warnf("Couldn't get to the bookinfo product page, trying again in %d second", standby)
+	}
+	if err1 != nil {
+		log.Errorf("Failed version routing! %s in v1: %s", u1, err1)
+	}
+	if err2 != nil {
+		log.Errorf("Failed version routing! %s in v2: %s", u2, err2)
 	}
 	return errors.New("unable to get valid response from gateway")
 }
@@ -161,8 +171,7 @@ func setUpDefaultRouting() error {
 	if err := applyRules(defaultRules); err != nil {
 		return fmt.Errorf("could not apply rule '%s': %v", allRule, err)
 	}
-	v1File := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v1.html"))
-	return probeGateway(5, v1File)
+	return probeGateway(testRetryTimes)
 }
 
 func checkRoutingResponse(user, version, gateway, modelFile string) (int, error) {
@@ -201,7 +210,7 @@ func deleteRules(ruleKeys []string) error {
 	var err error
 	for _, ruleKey := range ruleKeys {
 		rule := filepath.Join(tc.rulesDir, ruleKey)
-		if e := util.KubeDelete(tc.Kube.Namespace, rule); e != nil {
+		if e := util.KubeDelete(tc.Kube.Namespace, rule, tc.Kube.KubeConfig); e != nil {
 			err = multierror.Append(err, e)
 		}
 	}
@@ -213,7 +222,7 @@ func deleteRules(ruleKeys []string) error {
 func applyRules(ruleKeys []string) error {
 	for _, ruleKey := range ruleKeys {
 		rule := filepath.Join(tc.rulesDir, ruleKey)
-		if err := util.KubeApply(tc.Kube.Namespace, rule); err != nil {
+		if err := util.KubeApply(tc.Kube.Namespace, rule, tc.Kube.KubeConfig); err != nil {
 			//log.Errorf("Kubectl apply %s failed", rule)
 			return err
 		}
@@ -223,30 +232,13 @@ func applyRules(ruleKeys []string) error {
 	return nil
 }
 
-func checkTraffic(t *testing.T) {
-	v1File := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v1.html"))
-	v2File := util.GetResourcePath(filepath.Join(modelDir, "productpage-test-user-v2.html"))
-	// Check whether gateway is reachable
-	err := probeGateway(5, v1File)
-	inspect(err, "Failed to reach Gateway after upgrade", "", t)
-	// Check whether routes are correct.
-	_, err = checkRoutingResponse(u1, "v1", tc.gateway, v1File)
-	inspect(
-		err, fmt.Sprintf("Failed version routing! %s in v1", u1),
-		fmt.Sprintf("Success! Response matches with expected! %s in v1", u1), t)
-	_, err = checkRoutingResponse(u2, "v2", tc.gateway, v2File)
-	inspect(
-		err, fmt.Sprintf("Failed version routing! %s in v2", u2),
-		fmt.Sprintf("Success! Response matches with expected! %s in v2", u2), t)
-}
-
 func upgradeControlPlane() error {
 	// Generate and deploy Isito yaml files.
 	err := targetConfig.Kube.Setup()
 	if err != nil {
 		return err
 	}
-	if !util.CheckPodsRunningWithMaxDuration(targetConfig.Kube.Namespace, 300*time.Second) {
+	if !util.CheckPodsRunningWithMaxDuration(targetConfig.Kube.Namespace, 600*time.Second, tc.Kube.KubeConfig) {
 		return fmt.Errorf("can't get all pods running when upgrading control plane")
 	}
 	if _, err = util.Shell("kubectl get all -n %s -o wide", targetConfig.Kube.Namespace); err != nil {
@@ -272,7 +264,7 @@ func upgradeSidecars() error {
 	if err != nil {
 		return err
 	}
-	if !util.CheckPodsRunningWithMaxDuration(targetConfig.Kube.Namespace, 300*time.Second) {
+	if !util.CheckPodsRunningWithMaxDuration(targetConfig.Kube.Namespace, 600*time.Second, tc.Kube.KubeConfig) {
 		return fmt.Errorf("can't get all pods running when upgrading sidecar")
 	}
 	// TODO: Check sidecar version.
@@ -280,18 +272,22 @@ func upgradeSidecars() error {
 }
 
 func TestUpgrade(t *testing.T) {
-	checkTraffic(t)
 	err := upgradeControlPlane()
 	inspect(err, "Failed to upgrade control plane", "Control plane upgraded.", t)
 	if err != nil {
 		return
 	}
 	if *flagSmoothCheck {
-		checkTraffic(t)
+		err = probeGateway(testRetryTimes)
+		inspect(err, "Probing Gateway failed after control plane upgraded.", "", t)
 	}
 	err = upgradeSidecars()
 	inspect(err, "Failed to upgrade sidecars.", "Sidecar upgraded.", t)
-	checkTraffic(t)
+	if err != nil {
+		return
+	}
+	err = probeGateway(testRetryTimes)
+	inspect(err, "Probing Gateway failed after sidecar upgraded.", "", t)
 }
 
 func setTestConfig() error {

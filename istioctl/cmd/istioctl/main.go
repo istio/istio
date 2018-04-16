@@ -29,7 +29,6 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
-
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -46,10 +45,10 @@ import (
 
 	"istio.io/istio/istioctl/cmd/istioctl/convert"
 	"istio.io/istio/istioctl/cmd/istioctl/gendeployment"
-	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
@@ -674,8 +673,6 @@ func newClient() (*crd.Client, error) {
 		model.HTTPAPISpecBinding,
 		model.QuotaSpec,
 		model.QuotaSpecBinding,
-		model.EndUserAuthenticationPolicySpec,
-		model.EndUserAuthenticationPolicySpecBinding,
 		model.AuthenticationPolicy,
 		model.ServiceRole,
 		model.ServiceRoleBinding,
