@@ -97,7 +97,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 		listenerType := plugin.ModelProtocolToListenerType(protocol)
 		l := buildListener(opts)
 		mutable := &plugin.MutableObjects{
-			Listener:     l,
+			Listener: l,
+			// Note: buildListener creates filter chains but does not populate the filters in the chain; that's what
+			// this is for.
 			FilterChains: make([]plugin.FilterChain, len(l.FilterChains)),
 		}
 		for _, p := range configgen.Plugins {
