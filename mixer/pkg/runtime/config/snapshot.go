@@ -16,7 +16,9 @@ package config
 
 import (
 	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 
+	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/template"
@@ -59,6 +61,16 @@ type (
 
 		// parameters used to construct the Handler.
 		Params proto.Message
+
+		// google.protobuf.Any representation of parameters used to construct the Handler.
+		//
+		// This is set only when the adapter config is not compiled into mixer, but instead it is injected
+		// into Mixer as proto descriptor via config resource. For compiled in adapter configuration, `ParamBytes` is
+		// `nil` and `Params` field is set to the adapter-specific handler configuration.
+		ParamBytes *types.Any
+
+		// connect information for the associated adapter.
+		Connection *v1beta1.Connection
 	}
 
 	// Instance configuration. Fully resolved.
