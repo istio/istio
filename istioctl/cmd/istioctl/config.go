@@ -16,6 +16,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -31,36 +32,41 @@ import (
 
 var (
 
-	// TODO - Pull in remaining xDS information from pilot agent via curl and add to output
-	// TODO - Add config-diff to get the difference between pilot's xDS API response and the proxy config
+	// TODO - Add diff option to get the difference between pilot's xDS API response and the proxy config
+	// TODO - Add a full mesh Pilot look up (e.g. All clusters, all endpoints, etc)
 	// TODO - Add support for non-default proxy config locations
 	// TODO - Add support for non-kube istio deployments
 	configCmd = &cobra.Command{
-		Use:   "proxy-config <pod-name> [<configuration-type>]",
-		Short: "Retrieves local proxy configuration for the specified pod [kube only]",
+		Use:   "proxy-config <local|pilot> <pod-name> [<configuration-type>]",
+		Short: "Retrieves proxy configuration for the specified pod from the local proxy or Pilot [kube only]",
 		Long: `
-Retrieves the local proxy configuration for the specified pod when running in Kubernetes.
+Retrieves proxy configuration for the specified pod from the local proxy or Pilot when running in Kubernetes.
 
 Available configuration types:
 
+	Local:
 	[clusters listeners routes static]
 
+	Pilot:
+	[clusters listeners routes endpoints]
+
 `,
-		Example: `# Retrieve all config for productpage-v1-bb8d5cbc7-k7qbm pod
-istioctl proxy-config productpage-v1-bb8d5cbc7-k7qbm
+		Example: `# Retrieve all config for productpage-v1-bb8d5cbc7-k7qbm pod from the local proxy
+istioctl proxy-config local productpage-v1-bb8d5cbc7-k7qbm
 
-# Retrieve cluster config for productpage-v1-bb8d5cbc7-k7qbm pod
-istioctl proxy-config productpage-v1-bb8d5cbc7-k7qbm clusters
+# Retrieve cluster config for productpage-v1-bb8d5cbc7-k7qbm pod from Pilot
+istioctl proxy-config pilot productpage-v1-bb8d5cbc7-k7qbm clusters
 
-# Retrieve static config for productpage-v1-bb8d5cbc7-k7qbm pod in the application namespace
-istioctl proxy-config -n application productpage-v1-bb8d5cbc7-k7qbm static`,
+# Retrieve static config for productpage-v1-bb8d5cbc7-k7qbm pod in the application namespace from the local proxy
+istioctl proxy-config local -n application productpage-v1-bb8d5cbc7-k7qbm static`,
 		Aliases: []string{"pc"},
-		Args:    cobra.MinimumNArgs(1),
+		Args:    cobra.MinimumNArgs(2),
 		RunE: func(c *cobra.Command, args []string) error {
-			podName := args[0]
+			location := args[0]
+			podName := args[1]
 			var configType string
-			if len(args) > 1 {
-				configType = args[1]
+			if len(args) > 2 {
+				configType = args[2]
 			} else {
 				configType = "all"
 			}
@@ -70,10 +76,31 @@ istioctl proxy-config -n application productpage-v1-bb8d5cbc7-k7qbm static`,
 			if ns == v1.NamespaceAll {
 				ns = defaultNamespace
 			}
-			debug, err := callPilotAgentDebug(podName, ns, configType)
-			if err != nil {
-				return err
+			var debug string
+			if location == "pilot" {
+				proxyID, pilotErr := getProxyID(podName, ns)
+				if pilotErr != nil {
+					return pilotErr
+				}
+				pilots, pilotErr := listPilot()
+				if pilotErr != nil {
+					return pilotErr
+				}
+				if len(pilots) == 0 {
+					return errors.New("unable to find any Pilot instances")
+				}
+				debug, pilotErr = callPilotDiscoveryDebug(pilots[0].Name, pilots[0].Namespace, proxyID, configType)
+				if pilotErr != nil {
+					return pilotErr
+				}
+			} else if location == "local" {
+				var localErr error
+				debug, localErr = callPilotAgentDebug(podName, ns, configType)
+				if localErr != nil {
+					return localErr
+				}
 			}
+
 			fmt.Println(debug)
 			return nil
 		},
@@ -103,9 +130,31 @@ func defaultRestConfig() (*rest.Config, error) {
 	return config, nil
 }
 
+func getProxyID(podName, podNamespace string) (string, error) {
+	cmd := []string{"/usr/local/bin/pilot-agent", "get", "proxyID"}
+	if stdout, stderr, err := podExec(podName, podNamespace, "istio-proxy", cmd); err != nil {
+		return "", err
+	} else if stderr.String() != "" {
+		return "", fmt.Errorf("unable to call retrieve proxy ID: %v", stderr.String())
+	} else {
+		return stdout.String(), nil
+	}
+}
+
+func callPilotDiscoveryDebug(podName, podNamespace, proxyID, configType string) (string, error) {
+	cmd := []string{"/usr/local/bin/pilot-discovery", "debug", proxyID, configType}
+	if stdout, stderr, err := podExec(podName, podNamespace, "discovery", cmd); err != nil {
+		return "", err
+	} else if stderr.String() != "" {
+		return "", fmt.Errorf("unable to call pilot-disocver debug: %v", stderr.String())
+	} else {
+		return stdout.String(), nil
+	}
+}
+
 func callPilotAgentDebug(podName, podNamespace, configType string) (string, error) {
 	cmd := []string{"/usr/local/bin/pilot-agent", "debug", configType}
-	if stdout, stderr, err := podExec(podName, podNamespace, cmd); err != nil {
+	if stdout, stderr, err := podExec(podName, podNamespace, "istio-proxy", cmd); err != nil {
 		return "", err
 	} else if stderr.String() != "" {
 		return "", fmt.Errorf("unable to call pilot-agent debug: %v", stderr.String())
@@ -114,7 +163,29 @@ func callPilotAgentDebug(podName, podNamespace, configType string) (string, erro
 	}
 }
 
-func podExec(podName, podNamespace string, command []string) (*bytes.Buffer, *bytes.Buffer, error) {
+func listPilot() ([]v1.Pod, error) {
+	client, err := createCoreV1Client()
+	if err != nil {
+		return nil, err
+	}
+
+	req := client.Get().
+		Resource("pods").
+		Namespace(istioNamespace).
+		Param("labelSelector", "istio=pilot")
+
+	res := req.Do()
+	if res.Error() != nil {
+		return nil, fmt.Errorf("unable to retrieve Pods: %v", res.Error())
+	}
+	list := &v1.PodList{}
+	if err := res.Into(list); err != nil {
+		return nil, fmt.Errorf("unable to parse PodList: %v", res.Error())
+	}
+	return list.Items, nil
+}
+
+func podExec(podName, podNamespace, container string, command []string) (*bytes.Buffer, *bytes.Buffer, error) {
 	client, err := createCoreV1Client()
 	if err != nil {
 		return nil, nil, err
@@ -125,7 +196,7 @@ func podExec(podName, podNamespace string, command []string) (*bytes.Buffer, *by
 		Name(podName).
 		Namespace(podNamespace).
 		SubResource("exec").
-		Param("container", "istio-proxy").
+		Param("container", container).
 		VersionedParams(&v1.PodExecOptions{
 			Container: "istio-proxy",
 			Command:   command,

@@ -36,6 +36,8 @@ import (
 
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
 func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller) {
+
+	log.Info("INITDEBUG CALLED")
 	// For debugging and load testing v2 we add an memory registry.
 	s.MemRegistry = NewMemServiceDiscovery(
 		map[string]*model.Service{ // mock.HelloService.Hostname: mock.HelloService,
@@ -51,6 +53,8 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	mux.HandleFunc("/debug/edsz", edsz)
 	mux.HandleFunc("/debug/adsz", adsz)
 	mux.HandleFunc("/debug/cdsz", cdsz)
+	mux.HandleFunc("/debug/ldsz", ldsz)
+	mux.HandleFunc("/debug/rdsz", rdsz)
 
 	mux.HandleFunc("/debug/registryz", s.registryz)
 	mux.HandleFunc("/debug/endpointz", s.endpointz)
@@ -510,4 +514,18 @@ func cdsz(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprint(w, "]\n")
 
 	adsClientsMutex.RUnlock()
+}
+
+// ldsz implements a status and debug interface for LDS.
+// It is mapped to /debug/ldsz.
+func ldsz(w http.ResponseWriter, req *http.Request) {
+	// TODO: actually implement
+	w.Write([]byte("Not yet implemented"))
+}
+
+// rdsz implements a status and debug interface for RDS.
+// It is mapped to /debug/rdsz.
+func rdsz(w http.ResponseWriter, req *http.Request) {
+	// TODO: actually implement
+	w.Write([]byte("Not yet implemented"))
 }
