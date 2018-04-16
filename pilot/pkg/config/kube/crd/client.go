@@ -219,12 +219,12 @@ func (rc *restClient) registerResources() error {
 		for _, cond := range crd.Status.Conditions {
 			if cond.Type == apiextensionsv1beta1.Established &&
 				cond.Status == apiextensionsv1beta1.ConditionTrue {
-					continue
+				continue
 			}
 
 			if cond.Type == apiextensionsv1beta1.NamesAccepted &&
-				 cond.Status == apiextensionsv1beta1.ConditionTrue {
-				 	continue
+				cond.Status == apiextensionsv1beta1.ConditionTrue {
+				continue
 			}
 
 			log.Warnf("Not established: %v", name)
