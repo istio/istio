@@ -41,7 +41,7 @@ import (
 	probecontroller "istio.io/istio/security/pkg/probe"
 	"istio.io/istio/security/pkg/registry"
 	"istio.io/istio/security/pkg/registry/kube"
-	"istio.io/istio/security/pkg/server/grpc"
+	caserver "istio.io/istio/security/pkg/server/ca"
 )
 
 // TODO(myidpt): move the following constants to pkg/cmd.
@@ -144,13 +144,11 @@ var (
 	// TODO: move it to a configmap later when we have more services to support.
 	webhookServiceAccounts = []string{
 		"istio-sidecar-injector-service-account",
-		"istio-mixer-validator-service-account",
-		"istio-pilot-service-account",
+		"istio-galley-service-account",
 	}
 	webhookServiceNames = []string{
 		"istio-sidecar-injector",
-		"istio-mixer-validator",
-		"istio-pilot",
+		"istio-galley",
 	}
 )
 
@@ -312,11 +310,11 @@ func runCA() {
 
 		// The CA API uses cert with the max workload cert TTL.
 		hostnames := strings.Split(opts.grpcHosts, ",")
-		grpcServer, startErr := grpc.New(ca, opts.maxWorkloadCertTTL, opts.signCACerts, hostnames, opts.grpcPort)
+		caServer, startErr := caserver.New(ca, opts.maxWorkloadCertTTL, opts.signCACerts, hostnames, opts.grpcPort)
 		if startErr != nil {
 			fatalf("failed to create istio ca server: %v", startErr)
 		}
-		if serverErr := grpcServer.Run(); serverErr != nil {
+		if serverErr := caServer.Run(); serverErr != nil {
 			// stop the registry-related controllers
 			ch <- struct{}{}
 

@@ -70,11 +70,6 @@ func GetClusterName(cluster *k8s_cr.Cluster) string {
 	return cluster.ObjectMeta.Name
 }
 
-// GetPilotClusters return a list of clusters under this pilot, exclude PilotCfgStore
-func (cs *ClusterStore) GetPilotClusters() []*k8s_cr.Cluster {
-	return cs.clusters
-}
-
 // ReadClusters reads multiple clusters from a ConfigMap
 func ReadClusters(k8s kubernetes.Interface, configMapName string, configMapNamespace string) (*ClusterStore, error) {
 
@@ -101,9 +96,9 @@ func getClustersConfigs(k8s kubernetes.Interface, configMapName, configMapNamesp
 	if err != nil {
 		return &ClusterStore{}, err
 	}
-	cluster := k8s_cr.Cluster{}
 
 	for key, data := range clusterRegistry.Data {
+		cluster := k8s_cr.Cluster{}
 		decoder := yaml.NewYAMLOrJSONDecoder(strings.NewReader(data), 4096)
 		if err = decoder.Decode(&cluster); err != nil {
 			log.Errorf("failed to decode cluster definition for: %s error: %v", key, err)
@@ -136,6 +131,7 @@ func getClustersConfigs(k8s kubernetes.Interface, configMapName, configMapNamesp
 		}
 		cs.clusters = append(cs.clusters, &cluster)
 		cs.clientConfigs[cluster.ObjectMeta.Name] = *clientConfig
+		cs.clusters = append(cs.clusters, &cluster)
 	}
 
 	return cs, nil

@@ -55,6 +55,7 @@ func Compare(content, golden []byte) error {
 
 // CompareYAML compares a file "x" against a golden file "x.golden"
 func CompareYAML(filename string, t *testing.T) {
+	t.Helper()
 	content, err := ioutil.ReadFile(filename)
 	if err != nil {
 		t.Fatalf(err.Error())
@@ -76,8 +77,16 @@ func CompareYAML(filename string, t *testing.T) {
 	}
 }
 
-// CompareContent compares the content value against the golden file
+// CompareContent compares the content value against the golden file and fails the test if they differ
 func CompareContent(content []byte, goldenFile string, t *testing.T) {
+	t.Helper()
+	golden := ReadGoldenFile(content, goldenFile, t)
+	CompareBytes(content, golden, goldenFile, t)
+}
+
+// ReadGoldenFile reads the content of the golden file and fails the test if an error is encountered
+func ReadGoldenFile(content []byte, goldenFile string, t *testing.T) []byte {
+	t.Helper()
 	if Refresh() {
 		t.Logf("Refreshing golden file %s", goldenFile)
 		if err := ioutil.WriteFile(goldenFile, content, 0644); err != nil {
@@ -85,11 +94,23 @@ func CompareContent(content []byte, goldenFile string, t *testing.T) {
 		}
 	}
 
-	golden, err := ioutil.ReadFile(goldenFile)
+	return ReadFile(goldenFile, t)
+}
+
+// ReadFile reads the content of the given file or fails the test if an error is encountered.
+func ReadFile(file string, t *testing.T) []byte {
+	t.Helper()
+	golden, err := ioutil.ReadFile(file)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	if err = Compare(content, golden); err != nil {
-		t.Fatalf("Failed validating golden file %s:\n%v", goldenFile, err)
+	return golden
+}
+
+// CompareBytes compares the content value against the golden bytes and fails the test if they differ
+func CompareBytes(content []byte, golden []byte, name string, t *testing.T) {
+	t.Helper()
+	if err := Compare(content, golden); err != nil {
+		t.Fatalf("Failed validating golden file %s:\n%v", name, err)
 	}
 }

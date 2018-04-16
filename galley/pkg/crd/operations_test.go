@@ -21,42 +21,25 @@ import (
 	"testing"
 
 	apiext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/rest"
 
 	"istio.io/istio/galley/pkg/testing/mock"
 )
 
-func TestGetAll_Error(t *testing.T) {
-	newCRDI = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
-		return nil, errors.New("newForConfig error")
-	}
-
-	_, err := GetAll(&rest.Config{})
-	if err == nil || err.Error() != "newForConfig error" {
-		t.Fatal("Expected error not found")
-	}
-}
-
 func TestGetAll_Simple(t *testing.T) {
-	i := mock.NewInterface()
-	defer i.Close()
-	newCRDI = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
-		return i, nil
-	}
-
+	crdi := mock.NewInterface()
+	defer crdi.Close()
 	items := []apiext.CustomResourceDefinition{
 		{ObjectMeta: v1.ObjectMeta{Name: "foo"}},
 		{ObjectMeta: v1.ObjectMeta{Name: "bar"}},
 	}
 
-	i.AddListResponse(&apiext.CustomResourceDefinitionList{
+	crdi.AddListResponse(&apiext.CustomResourceDefinitionList{
 		Items: items,
 	}, nil)
 
-	crds, err := GetAll(&rest.Config{})
+	crds, err := GetAll(crdi)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -67,15 +50,12 @@ func TestGetAll_Simple(t *testing.T) {
 }
 
 func TestGetAll_Empty(t *testing.T) {
-	i := mock.NewInterface()
-	defer i.Close()
-	newCRDI = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
-		return i, nil
-	}
+	crdi := mock.NewInterface()
+	defer crdi.Close()
 
-	i.AddListResponse(&apiext.CustomResourceDefinitionList{}, nil)
+	crdi.AddListResponse(&apiext.CustomResourceDefinitionList{}, nil)
 
-	crds, err := GetAll(&rest.Config{})
+	crds, err := GetAll(crdi)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -86,26 +66,20 @@ func TestGetAll_Empty(t *testing.T) {
 }
 
 func TestGetAll_ListError(t *testing.T) {
-	i := mock.NewInterface()
-	defer i.Close()
-	newCRDI = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
-		return i, nil
-	}
+	crdi := mock.NewInterface()
+	defer crdi.Close()
 
-	i.AddListResponse(nil, errors.New("some list error"))
+	crdi.AddListResponse(nil, errors.New("some list error"))
 
-	_, err := GetAll(&rest.Config{})
+	_, err := GetAll(crdi)
 	if err == nil || err.Error() != "some list error" {
 		t.Fatalf("error mismatch: %v", err)
 	}
 }
 
 func TestGetAll_Continuation(t *testing.T) {
-	i := mock.NewInterface()
-	defer i.Close()
-	newCRDI = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
-		return i, nil
-	}
+	crdi := mock.NewInterface()
+	defer crdi.Close()
 
 	items1 := []apiext.CustomResourceDefinition{
 		{ObjectMeta: v1.ObjectMeta{Name: "foo"}},
@@ -117,15 +91,15 @@ func TestGetAll_Continuation(t *testing.T) {
 
 	expected := []apiext.CustomResourceDefinition{items1[0], items2[0]}
 
-	i.AddListResponse(&apiext.CustomResourceDefinitionList{
+	crdi.AddListResponse(&apiext.CustomResourceDefinitionList{
 		Items:    items1,
 		ListMeta: v1.ListMeta{Continue: "continue"},
 	}, nil)
-	i.AddListResponse(&apiext.CustomResourceDefinitionList{
+	crdi.AddListResponse(&apiext.CustomResourceDefinitionList{
 		Items: items2,
 	}, nil)
 
-	crds, err := GetAll(&rest.Config{})
+	crds, err := GetAll(crdi)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -136,37 +110,20 @@ func TestGetAll_Continuation(t *testing.T) {
 }
 
 func TestPurge_ListError(t *testing.T) {
-	i := mock.NewInterface()
-	defer i.Close()
-	newCRDI = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
-		return i, nil
-	}
+	crdi := mock.NewInterface()
+	defer crdi.Close()
 
-	i.AddListResponse(nil, errors.New("some list error"))
+	crdi.AddListResponse(nil, errors.New("some list error"))
 
-	err := Purge(&rest.Config{}, getMappingForOperationsTests())
+	err := Purge(crdi, getMappingForOperationsTests())
 	if err == nil || err.Error() != "some list error" {
 		t.Fatalf("expected error not found:: %v", err)
 	}
 }
 
-func TestPurge_ClientError(t *testing.T) {
-	newCRDI = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
-		return nil, errors.New("some error")
-	}
-
-	err := Purge(&rest.Config{}, getMappingForOperationsTests())
-	if err == nil || err.Error() != "some error" {
-		t.Fatalf("expected error not found:: %v", err)
-	}
-}
-
 func TestPurge(t *testing.T) {
-	i := mock.NewInterface()
-	defer i.Close()
-	newCRDI = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
-		return i, nil
-	}
+	crdi := mock.NewInterface()
+	defer crdi.Close()
 
 	items := []apiext.CustomResourceDefinition{
 		{ObjectMeta: v1.ObjectMeta{Name: "foo.g2"},
@@ -179,13 +136,13 @@ func TestPurge(t *testing.T) {
 			}},
 	}
 
-	i.AddListResponse(&apiext.CustomResourceDefinitionList{
+	crdi.AddListResponse(&apiext.CustomResourceDefinitionList{
 		Items: items,
 	}, nil)
-	i.AddDeleteResponse(nil)
-	i.AddDeleteResponse(nil)
+	crdi.AddDeleteResponse(nil)
+	crdi.AddDeleteResponse(nil)
 
-	err := Purge(&rest.Config{}, getMappingForOperationsTests())
+	err := Purge(crdi, getMappingForOperationsTests())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -194,17 +151,14 @@ func TestPurge(t *testing.T) {
 LIST
 DELETE: foo.g2
 DELETE: bar.g2`
-	if strings.TrimSpace(expected) != strings.TrimSpace(i.String()) {
-		t.Fatalf("Expected operation mismatch: got:\n%v\nwanted:\n%v\n", i.String(), expected)
+	if strings.TrimSpace(expected) != strings.TrimSpace(crdi.String()) {
+		t.Fatalf("Expected operation mismatch: got:\n%v\nwanted:\n%v\n", crdi.String(), expected)
 	}
 }
 
 func TestPurge_DeleteError(t *testing.T) {
-	i := mock.NewInterface()
-	defer i.Close()
-	newCRDI = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
-		return i, nil
-	}
+	crdi := mock.NewInterface()
+	defer crdi.Close()
 
 	items := []apiext.CustomResourceDefinition{
 		{ObjectMeta: v1.ObjectMeta{Name: "foo.g2"},
@@ -217,23 +171,20 @@ func TestPurge_DeleteError(t *testing.T) {
 			}},
 	}
 
-	i.AddListResponse(&apiext.CustomResourceDefinitionList{
+	crdi.AddListResponse(&apiext.CustomResourceDefinitionList{
 		Items: items,
 	}, nil)
-	i.AddDeleteResponse(errors.New("some delete error"))
+	crdi.AddDeleteResponse(errors.New("some delete error"))
 
-	err := Purge(&rest.Config{}, getMappingForOperationsTests())
+	err := Purge(crdi, getMappingForOperationsTests())
 	if err == nil || err.Error() != "some delete error" {
 		t.Fatalf("expected error not found:: %v", err)
 	}
 }
 
 func TestPurge_Originals(t *testing.T) {
-	i := mock.NewInterface()
-	defer i.Close()
-	newCRDI = func(cfg *rest.Config) (v1beta1.CustomResourceDefinitionInterface, error) {
-		return i, nil
-	}
+	crdi := mock.NewInterface()
+	defer crdi.Close()
 
 	items := []apiext.CustomResourceDefinition{
 		{ObjectMeta: v1.ObjectMeta{Name: "foo.g1"},
@@ -246,12 +197,12 @@ func TestPurge_Originals(t *testing.T) {
 			}},
 	}
 
-	i.AddListResponse(&apiext.CustomResourceDefinitionList{
+	crdi.AddListResponse(&apiext.CustomResourceDefinitionList{
 		Items: items,
 	}, nil)
-	i.AddDeleteResponse(nil)
+	crdi.AddDeleteResponse(nil)
 
-	err := Purge(&rest.Config{}, getMappingForOperationsTests())
+	err := Purge(crdi, getMappingForOperationsTests())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -260,8 +211,8 @@ func TestPurge_Originals(t *testing.T) {
 	expected := `
 LIST
 DELETE: bar.g2`
-	if strings.TrimSpace(expected) != strings.TrimSpace(i.String()) {
-		t.Fatalf("Expected operation mismatch: got:\n%v\nwanted:\n%v\n", i.String(), expected)
+	if strings.TrimSpace(expected) != strings.TrimSpace(crdi.String()) {
+		t.Fatalf("Expected operation mismatch: got:\n%v\nwanted:\n%v\n", crdi.String(), expected)
 	}
 }
 

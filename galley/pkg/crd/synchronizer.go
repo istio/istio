@@ -28,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
@@ -80,21 +79,16 @@ type SyncListener struct {
 
 // NewSynchronizer returns a new instance of a Synchronizer. The returned Synchronizer is not started: this
 // needs to be done explicitly using start()/Stop() methods.
-func NewSynchronizer(config *rest.Config, mapping Mapping, resyncPeriod time.Duration, listener SyncListener) (*Synchronizer, error) {
-	return newSynchronizer(config, mapping, resyncPeriod, listener, nil, newCRDI)
+func NewSynchronizer(crdi v1beta1.CustomResourceDefinitionInterface, mapping Mapping, resyncPeriod time.Duration, listener SyncListener) *Synchronizer {
+	return newSynchronizer(crdi, mapping, resyncPeriod, listener, nil)
 }
 
 type eventHookFn func(e interface{})
 
 // NewSynchronizer returns a new instance of a Synchronizer. The returned Synchronizer is not started: this
 // needs to be done explicitly using start()/Stop() methods.
-func newSynchronizer(config *rest.Config, mapping Mapping, resyncPeriod time.Duration, listener SyncListener,
-	eventHook eventHookFn, crdiFn newCRDIFn) (*Synchronizer, error) {
-
-	crdi, err := crdiFn(config)
-	if err != nil {
-		return nil, err
-	}
+func newSynchronizer(crdi v1beta1.CustomResourceDefinitionInterface, mapping Mapping, resyncPeriod time.Duration, listener SyncListener,
+	eventHook eventHookFn) *Synchronizer {
 
 	return &Synchronizer{
 		mapping:      mapping,
@@ -102,7 +96,7 @@ func newSynchronizer(config *rest.Config, mapping Mapping, resyncPeriod time.Dur
 		listener:     listener,
 		crdi:         crdi,
 		eventHook:    eventHook,
-	}, nil
+	}
 }
 
 // Start commences synchronizing CRDs.
