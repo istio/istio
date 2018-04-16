@@ -136,7 +136,7 @@ func createGatewayHTTPFilterChainOpts(
 		return []*filterChainOpts{}
 	}
 
-	nameToServiceMap := make(map[string]*model.Service)
+	nameToServiceMap := make(map[string]*model.Service, len(services))
 	for _, svc := range services {
 		nameToServiceMap[svc.Hostname] = svc
 	}
