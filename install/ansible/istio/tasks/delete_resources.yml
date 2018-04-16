@@ -5,12 +5,12 @@
 - import_tasks: create_namespace_free_definition_file.yml
 
 - name: Delete Addons
-  command: "{{ cmd_path }} delete -f {{ istio_dir }}/{{ istio_k8s_install_path }}/addons/{{ item }}.yaml --ignore-not-found=true -n {{ istio.namespace }}"
+  command: "{{ cmd_path }} delete -f {{ istio_dir }}/{{ istio_k8s_install_path }}/addons/{{ item }}.yaml --ignore-not-found=true -n {{ istio_namespace }}"
   ignore_errors: true
   with_items: "{{ istio_all_addons }}"
 
 - name: Delete Addon ServiceAccounts
-  command: "{{ cmd_path }} delete sa istio-{{ item }}-service-account --ignore-not-found=true -n {{ istio.namespace }}"
+  command: "{{ cmd_path }} delete sa istio-{{ item }}-service-account --ignore-not-found=true -n {{ istio_namespace }}"
   ignore_errors: true
   with_items: "{{ istio_all_addons }}"
 
@@ -22,7 +22,7 @@
 
 
 - name: Delete content from Istio Kubernetes file
-  command: "{{ cmd_path }} delete -f {{ istio_copied_definition_file_full_path }} --ignore-not-found=true -n {{ istio.namespace }}"
+  command: "{{ cmd_path }} delete -f {{ istio_copied_definition_file_full_path }} --ignore-not-found=true -n {{ istio_namespace}}"
   when: not istio.auth
   ignore_errors: true
 
@@ -30,7 +30,7 @@
   command: "{{ cmd_path }} delete all --all -n {{ item }}"
   ignore_errors: true
   with_items:
-    - "{{ istio.namespace }}"
+    - "{{ istio_namespace }}"
     - samples
     - bookinfo
 

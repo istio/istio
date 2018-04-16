@@ -29,15 +29,12 @@
       - "vo.stdout >= minimum_cluster_version"
     msg: "Cluster version must be at least {{ minimum_cluster_version }}"
 
-- include_tasks: assert_oc_admin.yml
-  when: cluster_flavour == 'ocp'
+#- include_tasks: assert_oc_admin.yml
+#  when: cluster_flavour == 'ocp'
 
 - include_tasks: install_distro.yml
 - include_tasks: delete_resources.yml
   when: istio.delete_resources == true
-- include_tasks: safely_create_namespace.yml
-  vars:
-    ns_name: "{{ istio.namespace }}"
 - include_tasks: change_scc.yml
   when: cluster_flavour == 'ocp'
 - include_tasks: install_on_cluster.yml
