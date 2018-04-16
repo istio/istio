@@ -1,3 +1,0 @@
-coverage:
-  ignore:
-    - "pkg/test/" # Test infrastructure coverage does not affect core coverage
