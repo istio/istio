@@ -303,7 +303,7 @@ func (v *Validator) validateDelete(key store.Key) error {
 		}()
 	} else if key.Kind == config.AdapterKind {
 
-		var adapterInfos map[store.Key]*v1beta1.Info
+		adapterInfos := map[store.Key]*v1beta1.Info{}
 		v.c.forEach(func(k store.Key, spec proto.Message) {
 			if k.Kind == config.AdapterKind && k != key {
 				adapterInfos[k] = spec.(*v1beta1.Info)
@@ -360,7 +360,7 @@ func (v *Validator) validateUpdate(ev *store.Event) error {
 			v.refreshTypeChecker()
 		}()
 	} else if adptInfo, ok := ev.Value.Spec.(*v1beta1.Info); ok && ev.Kind == config.AdapterKind {
-		var adapterInfos map[store.Key]*v1beta1.Info
+		adapterInfos := map[store.Key]*v1beta1.Info{}
 		v.c.forEach(func(k store.Key, spec proto.Message) {
 			if k.Kind == config.AdapterKind {
 				adapterInfos[k] = spec.(*v1beta1.Info)

@@ -25,6 +25,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
+	"istio.io/api/mixer/adapter/model/v1beta1"
 	cpb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config"
@@ -214,6 +215,58 @@ func TestValidator(t *testing.T) {
 			deleteEvent("kubernetes.attributemanifest.istio-system"),
 			false,
 		},
+
+		{
+			//"adding info",
+			//updateEvent("test.listentry.default", &types.Struct{Fields: map[string]*types.Value{
+			//	"value": {Kind: &types.Value_StringValue{StringValue: "0"}},
+			//}}),
+			//true,
+
+			"new info",
+			updateEvent("testCR1.adapter.default", &v1beta1.Info{
+				Name:         "testAdapter",
+				Description:  "testAdapter description",
+				SessionBased: true,
+
+				//Actions: []*cpb.Action{
+				//	{
+				//		Handler: "staticversion.listchecker.istio-system",
+				//		Instances: []string{
+				//			"appversion.listentry.istio-system"},
+				//			},
+				//},
+			},
+			),
+			true,
+		},
+		//{
+		//	"adapter validation failure",
+		//	updateEvent("test.listchecker.default", &types.Struct{}),
+		//	false,
+		//},
+		//{
+		//	"invalid instance",
+		//	updateEvent("test.listentry.default", &types.Struct{}),
+		//	false,
+		//},
+		//{
+		//	"invalid instance syntax",
+		//	updateEvent("test.listentry.default", &types.Struct{Fields: map[string]*types.Value{
+		//		"value": {Kind: &types.Value_StringValue{StringValue: ""}},
+		//	}}),
+		//	false,
+		//},
+		//{
+		//	"invalid delete handler",
+		//	deleteEvent("staticversion.listchecker.istio-system"),
+		//	false,
+		//},
+		//{
+		//	"invalid delete instance",
+		//	deleteEvent("appversion.listentry.istio-system"),
+		//	false,
+		//},
 	} {
 		t.Run(cc.title, func(tt *testing.T) {
 			v, err := getValidatorForTest()
