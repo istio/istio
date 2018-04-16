@@ -118,7 +118,7 @@ func TestIngressGateway503DuringRuleChange(t *testing.T) {
 	var fatalError bool
 	go func() {
 		reqURL := fmt.Sprintf("http://%s.%s/c", ingressGatewayServiceName, istioNamespace)
-		resp = ClientRequest("t", reqURL, 1, "-key Host -val uk.bookinfo.com -qps 10")
+		resp = ClientRequest("t", reqURL, 500, "-key Host -val uk.bookinfo.com -qps 10")
 		waitChan <- 1
 	}()
 
