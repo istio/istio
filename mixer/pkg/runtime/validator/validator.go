@@ -301,6 +301,23 @@ func (v *Validator) validateDelete(key store.Key) error {
 			<-time.After(validatedDataExpiration)
 			v.refreshTypeChecker()
 		}()
+	} else if key.Kind == config.AdapterKind {
+
+		var adapterInfos map[store.Key]*v1beta1.Info
+		v.c.forEach(func(k store.Key, spec proto.Message) {
+			if k.Kind == config.AdapterKind && k != key {
+				adapterInfos[k] = spec.(*v1beta1.Info)
+			}
+		})
+		infoRegistry, err := v.newAdapterInfoRegistry(adapterInfos)
+		if err != nil {
+			return err
+		}
+		v.infoRegistry = infoRegistry
+		go func() {
+			<-time.After(validatedDataExpiration)
+			v.refreshAdapterInfos()
+		}()
 	} else {
 		log.Debugf("don't know how to validate %s", key)
 	}
