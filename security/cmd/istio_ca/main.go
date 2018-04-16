@@ -213,7 +213,7 @@ func init() {
 
 	// gRPC server for signing CSRs.
 	flags.StringVar(&opts.grpcHostname, "grpc-hostname", "istio-ca", "DEPRECATED, use --grpc-host-identites.")
-	flags.StringVar(&opts.grpcHosts, "grpc-host-identities", "istio-ca",
+	flags.StringVar(&opts.grpcHosts, "grpc-host-identities", "istio-ca,istio-citadel",
 		"The list of hostnames for istio ca server, separated by comma.")
 	flags.IntVar(&opts.grpcPort, "grpc-port", 8060, "The port number for GRPC server. "+
 		"If unspecified, Istio CA will not server GRPC request.")
@@ -250,6 +250,11 @@ func main() {
 		log.Errora(err)
 		os.Exit(-1)
 	}
+}
+
+// fqdn returns the k8s cluster dns name for the citdal service.
+func fqdn() string {
+	return fmt.Sprintf("istio-citadel.%v.svc.cluster.local", opts.istioCaStorageNamespace)
 }
 
 func runCA() {
@@ -312,7 +317,7 @@ func runCA() {
 		serviceAccountController.Run(ch)
 
 		// The CA API uses cert with the max workload cert TTL.
-		hostnames := strings.Split(opts.grpcHosts, ",")
+		hostnames := append(strings.Split(opts.grpcHosts, ","), fqdn())
 		caServer, startErr := caserver.New(ca, opts.maxWorkloadCertTTL, opts.signCACerts, hostnames, opts.grpcPort)
 		if startErr != nil {
 			fatalf("failed to create istio ca server: %v", startErr)
@@ -384,7 +389,7 @@ func createCA(core corev1.SecretsGetter) *ca.IstioCA {
 
 	if opts.LivenessProbeOptions.IsValid() {
 		livenessProbeChecker, err := probecontroller.NewLivenessCheckController(
-			opts.probeCheckInterval, fmt.Sprintf("%v:%v", opts.grpcHostname, opts.grpcPort), istioCA,
+			opts.probeCheckInterval, fmt.Sprintf("%v:%v", fqdn(), opts.grpcPort), istioCA,
 			opts.LivenessProbeOptions, probecontroller.GrpcProtocolProvider)
 		if err != nil {
 			log.Errorf("failed to create an liveness probe check controller (error: %v)", err)
