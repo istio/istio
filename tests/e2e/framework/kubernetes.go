@@ -44,6 +44,8 @@ const (
 	authInstallFile                  = "istio-auth.yaml"
 	nonAuthInstallFileNamespace      = "istio-one-namespace.yaml"
 	authInstallFileNamespace         = "istio-one-namespace-auth.yaml"
+	mcNonAuthInstallFileNamespace    = "istio-multicluster.yaml"
+	mcAuthInstallFileNamespace       = "istio-auth-multicluster.yaml"
 	istioSystem                      = "istio-system"
 	istioIngressServiceName          = "istio-ingress"
 	istioIngressGatewayServiceName   = "istio-ingressgateway"
@@ -51,9 +53,8 @@ const (
 	defaultSidecarInjectorFile       = "istio-sidecar-injector.yaml"
 	ingressCertsName                 = "istio-ingress-certs"
 	defaultGalleyConfigValidatorFile = "istio-galley-config-validator.yaml"
-
-	maxDeploymentRolloutTime    = 240 * time.Second
-	mtlsExcludedServicesPattern = "mtlsExcludedServices:\\s*\\[(.*)\\]"
+	maxDeploymentRolloutTime         = 240 * time.Second
+	mtlsExcludedServicesPattern      = "mtlsExcludedServices:\\s*\\[(.*)\\]"
 )
 
 var (
@@ -157,13 +158,23 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 	} else {
 		releaseDir = util.GetResourcePath("")
 	}
+	// Note the kubectl commands used by the test will default to use the local
+	// environments kubeconfig if an empty string is provided.  Therefore in the
+	// default case kubeConfig will not be set.
 	var kubeConfig, remoteKubeConfig string
 	var kubeClient, remoteKubeClient kubernetes.Interface
 	var aRemote *AppManager
 	if *multiClusterDir != "" {
-		// ClusterRegistiresDir indicates the Kubernetes cluster config should come from files versus KUBECONFIG
-		// environmental variable.  The test config can be defined to use either a single cluster or 2 clusters
-		kubeConfig, remoteKubeConfig, err = util.GetKubeConfigFromFile(*multiClusterDir)
+		// multiClusterDir indicates the Kubernetes cluster config should come from files versus
+		// the environmental. The test config can be defined to use either a single cluster or
+		// 2 clusters
+		tmpfile := *namespace + "_kubeconfig"
+		tmpfile = path.Join(tmpDir, tmpfile)
+		if err = util.GetKubeConfig(tmpfile); err != nil {
+			return nil, err
+		}
+		kubeConfig = tmpfile
+		remoteKubeConfig, err = getKubeConfigFromFile(*multiClusterDir)
 		if err != nil {
 			return nil, err
 		}
@@ -175,13 +186,6 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		}
 
 		aRemote = NewAppManager(tmpDir, *namespace, i, remoteKubeConfig)
-	} else {
-		tmpfile := *namespace + "_kubeconfig"
-		tmpfile = path.Join(tmpDir, tmpfile)
-		if err = util.GetKubeConfig(tmpfile); err != nil {
-			return nil, err
-		}
-		kubeConfig = tmpfile
 	}
 
 	a := NewAppManager(tmpDir, *namespace, i, kubeConfig)
@@ -497,6 +501,9 @@ func (k *KubeInfo) deployAddons() error {
 
 func (k *KubeInfo) deployIstio() error {
 	istioYaml := nonAuthInstallFileNamespace
+	if *multiClusterDir != "" {
+		istioYaml = mcNonAuthInstallFileNamespace
+	}
 	if *clusterWide {
 		if *authEnable {
 			istioYaml = authInstallFile
@@ -506,8 +513,12 @@ func (k *KubeInfo) deployIstio() error {
 	} else {
 		if *authEnable {
 			istioYaml = authInstallFileNamespace
+			if *multiClusterDir != "" {
+				istioYaml = mcAuthInstallFileNamespace
+			}
 		}
 	}
+
 	yamlDir := filepath.Join(istioInstallDir, istioYaml)
 	baseIstioYaml := filepath.Join(k.ReleaseDir, yamlDir)
 	testIstioYaml := filepath.Join(k.TmpDir, "yaml", istioYaml)
