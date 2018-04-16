@@ -252,7 +252,7 @@ func main() {
 	var throttle <-chan time.Time
 
 	if qps > 0 {
-		sleepTime := time.Second/time.Duration(qps)
+		sleepTime := time.Second / time.Duration(qps)
 		log.Printf("Sleeping %v nanoseconds between requests\n", sleepTime)
 		throttle = time.Tick(sleepTime)
 	}
