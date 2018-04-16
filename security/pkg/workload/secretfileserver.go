@@ -56,8 +56,3 @@ func (sf *SecretFileServer) Put(serviceAccount string, keycert util.KeyCertBundl
 	rpath := path.Join(dir, "root-cert.pem")
 	return ioutil.WriteFile(rpath, root, CertFilePermission)
 }
-
-// Get is not implemented on purpose since workload pods get key cert by hostPath mounts.
-func (sf *SecretFileServer) Get(serviceAccount string) (util.KeyCertBundle, error) {
-	return nil, fmt.Errorf("should not be called")
-}

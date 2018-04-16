@@ -95,11 +95,6 @@ func (s *SDSServer) Put(serviceAccount string, b util.KeyCertBundle) error {
 	return nil
 }
 
-// Get returns the KeyCertBundle for a specific service account.
-func (s *SDSServer) Get(serviceAccount string) (util.KeyCertBundle, error) {
-	return nil, fmt.Errorf("not implemented yet")
-}
-
 // GetTLSCertificate generates the X.509 key/cert for the workload identity
 // derived from udsPath, which is where the FetchSecrets grpc request is
 // received.
