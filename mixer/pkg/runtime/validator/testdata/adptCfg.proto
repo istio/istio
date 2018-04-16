@@ -3,5 +3,5 @@ syntax = "proto3";
 package bar;
 
 message Params {
-
+    string abc = 1;
 }

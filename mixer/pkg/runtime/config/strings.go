@@ -173,7 +173,7 @@ func writeRules(w io.Writer, rules []*Rule) {
 	}
 }
 
-func writeAdapterMetadatas(w io.Writer, adapters map[string]*AdapterMetadata) {
+func writeAdapterMetadatas(w io.Writer, adapters map[string]*Adapter) {
 	names := make([]string, 0, len(adapters))
 	for k := range adapters {
 		names = append(names, k)
@@ -191,7 +191,7 @@ func writeAdapterMetadatas(w io.Writer, adapters map[string]*AdapterMetadata) {
 	}
 }
 
-func writeTemplateMetadatas(w io.Writer, templates map[string]*TemplateMetadata) {
+func writeTemplateMetadatas(w io.Writer, templates map[string]*Template) {
 	names := make([]string, 0, len(templates))
 	for k := range templates {
 		names = append(names, k)
@@ -201,8 +201,9 @@ func writeTemplateMetadatas(w io.Writer, templates map[string]*TemplateMetadata)
 	for _, n := range names {
 		a := templates[n]
 
-		fmt.Fprintf(w, "  Name:      %s", a.Name)
-		fmt.Fprintln(w)
+		fmt.Fprintln(w, "  Resource Name: ", n)
+		fmt.Fprintln(w, "    Name: ", a.Name)
+		fmt.Fprintln(w, "    InternalPackageDerivedName: ", a.InternalPackageDerivedName)
 	}
 }
 
