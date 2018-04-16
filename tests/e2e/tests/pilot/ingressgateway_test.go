@@ -112,6 +112,22 @@ func TestIngressGateway503DuringRuleChange(t *testing.T) {
 	}
 	defer gateway.Teardown()
 
+	log.Infof("Adding new subsets v1,v2")
+	// these functions have built in sleep. So we don't have to add any extra sleep here
+	if err = newDestRule.Setup(); err != nil {
+		fatalError = true
+		goto cleanup
+	}
+	defer newDestRule.Teardown()
+
+	log.Infof("routing to v1,v2")
+	if err = newVirtService.Setup(); err != nil {
+		fatalError = true
+		goto cleanup
+	}
+	defer newVirtService.Teardown()
+
+	time.Sleep(4 * time.Second)
 	waitChan := make(chan int)
 	var resp ClientResponse
 	var err error
@@ -122,40 +138,23 @@ func TestIngressGateway503DuringRuleChange(t *testing.T) {
 		waitChan <- 1
 	}()
 
-	time.Sleep(9 * time.Second)
-	log.Infof("Adding new subsets v1,v2")
-	// these functions have built in sleep. So we don't have to add any extra sleep here
-	if err = newDestRule.Setup(); err != nil {
-		fatalError = true
-		goto cleanup
-	}
-	time.Sleep(4 * time.Second)
-	defer newDestRule.Teardown()
-	log.Infof("routing to v1,v2")
-	if err = newVirtService.Setup(); err != nil {
-		fatalError = true
-		goto cleanup
-	}
-	time.Sleep(4 * time.Second)
-	defer newVirtService.Teardown()
 	log.Infof("Adding new subsets v3,v4")
 	if err = addMoreSubsets.Setup(); err != nil {
 		fatalError = true
 		goto cleanup
 	}
-	time.Sleep(4 * time.Second)
+	time.Sleep(2 * time.Second)
 	log.Infof("routing to v3,v4")
 	if err = routeToNewSubsets.Setup(); err != nil {
 		fatalError = true
 		goto cleanup
 	}
-	time.Sleep(4 * time.Second)
+	time.Sleep(2 * time.Second)
 	log.Infof("deleting old subsets v1,v2")
 	if err = deleteOldSubsets.Setup(); err != nil {
 		fatalError = true
 		goto cleanup
 	}
-	time.Sleep(4 * time.Second)
 
 cleanup:
 	_ = <-waitChan
