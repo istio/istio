@@ -22,6 +22,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	multierror "github.com/hashicorp/go-multierror"
 
+	"istio.io/api/mixer/adapter/model/v1beta1"
 	cpb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
@@ -39,6 +40,7 @@ type Validator struct {
 	templates       map[string]*template.Info
 	tc              checker.TypeChecker
 	af              ast.AttributeDescriptorFinder
+	infoRegistry    config.AdapterInfoRegistry
 	c               *validatorCache
 	donec           chan struct{}
 }
@@ -64,6 +66,15 @@ func New(tc checker.TypeChecker, identityAttribute string, s store.Store,
 		}
 		configData[k] = obj.Spec
 	}
+
+	adapterInfos := map[store.Key]*v1beta1.Info{}
+	for k, obj := range data {
+		if k.Kind == config.AdapterKind {
+			adapterInfos[k] = obj.Spec.(*v1beta1.Info)
+		}
+		configData[k] = obj.Spec
+	}
+
 	v := &Validator{
 		handlerBuilders: hb,
 		templates:       templateInfo,
@@ -76,6 +87,10 @@ func New(tc checker.TypeChecker, identityAttribute string, s store.Store,
 	}
 	go store.WatchChanges(ch, v.donec, time.Second, v.c.applyChanges)
 	v.af = v.newAttributeDescriptorFinder(manifests)
+	v.infoRegistry, err = v.newAdapterInfoRegistry(adapterInfos)
+	if err != nil {
+		log.Errorf("error when reading the adapter information from the store %v", err)
+	}
 	return v, nil
 }
 
@@ -92,6 +107,20 @@ func (v *Validator) refreshTypeChecker() {
 		}
 	})
 	v.af = v.newAttributeDescriptorFinder(manifests)
+}
+
+func (v *Validator) refreshAdapterInfos() {
+	adapterInfos := map[store.Key]*v1beta1.Info{}
+	v.c.forEach(func(key store.Key, spec proto.Message) {
+		if key.Kind == config.AdapterKind {
+			adapterInfos[key] = spec.(*v1beta1.Info)
+		}
+	})
+	var err error
+	v.infoRegistry, err = v.newAdapterInfoRegistry(adapterInfos)
+	if err != nil {
+		log.Errorf("error when reading the adapter information from the store %v", err)
+	}
 }
 
 func (v *Validator) getKey(value, namespace string) (store.Key, error) {
@@ -121,6 +150,14 @@ func (v *Validator) newAttributeDescriptorFinder(manifests map[store.Key]*cpb.At
 		}
 	}
 	return ast.NewFinder(attrs)
+}
+
+func (v *Validator) newAdapterInfoRegistry(adapterInfos map[store.Key]*v1beta1.Info) (config.AdapterInfoRegistry, error) {
+	infos := make([]*v1beta1.Info, len(adapterInfos))
+	for _, info := range adapterInfos {
+		infos = append(infos, info)
+	}
+	return config.NewAdapterInfoRegistry(infos)
 }
 
 func (v *Validator) validateUpdateRule(namespace string, rule *cpb.Rule) error {
@@ -272,6 +309,7 @@ func (v *Validator) validateDelete(key store.Key) error {
 
 func (v *Validator) validateUpdate(ev *store.Event) error {
 	if hb, ok := v.handlerBuilders[ev.Kind]; ok {
+		// found a compiled in adapter
 		hb.SetAdapterConfig((adapter.Config)(ev.Value.Spec))
 		if err := hb.Validate(); err != nil {
 			return err
@@ -303,6 +341,23 @@ func (v *Validator) validateUpdate(ev *store.Event) error {
 		go func() {
 			<-time.After(validatedDataExpiration)
 			v.refreshTypeChecker()
+		}()
+	} else if adptInfo, ok := ev.Value.Spec.(*v1beta1.Info); ok && ev.Kind == config.AdapterKind {
+		var adapterInfos map[store.Key]*v1beta1.Info
+		v.c.forEach(func(k store.Key, spec proto.Message) {
+			if k.Kind == config.AdapterKind {
+				adapterInfos[k] = spec.(*v1beta1.Info)
+			}
+		})
+		adapterInfos[ev.Key] = adptInfo
+		infoRegistry, err := v.newAdapterInfoRegistry(adapterInfos)
+		if err != nil {
+			return err
+		}
+		v.infoRegistry = infoRegistry
+		go func() {
+			<-time.After(validatedDataExpiration)
+			v.refreshAdapterInfos()
 		}()
 	} else {
 		log.Debugf("don't know how to validate %s", ev.Key)

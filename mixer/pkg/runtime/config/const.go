@@ -26,6 +26,10 @@ const RulesKind = "rule"
 // AdapterKind defines the config kind Name of adapter infos (name, templates is consumes, its own configuration).
 const AdapterKind = "adapter"
 
+// HandlerKind defines the config kind Name of adapter handlers (name, adapter name, adapter-specific params,
+// connection information).
+const HandlerKind = "handler"
+
 // AttributeManifestKind define the config kind Name of attribute manifests.
 const AttributeManifestKind = "attributemanifest"
 
