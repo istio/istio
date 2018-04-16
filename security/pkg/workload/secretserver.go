@@ -34,9 +34,6 @@ type SecretServerMode int
 type SecretServer interface {
 	// Put stores the key cert bundle with associated workload identity.
 	Put(serviceAccount string, bundle util.KeyCertBundle) error
-
-	// Get returns the key cert for a specific workload identity.
-	Get(serviceAccount string) (util.KeyCertBundle, error)
 }
 
 // Config contains the SecretServer configuration.

@@ -56,7 +56,6 @@ func setupTempDir(t *testing.T) (string, func()) {
 	}
 	return path, func() {
 		_ = os.RemoveAll(path)
-		// fmt.Println("jiafneih debug tmpdir ", path, err)
 	}
 }
 
