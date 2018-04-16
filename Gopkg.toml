@@ -171,7 +171,7 @@ required = [
 
 [[constraint]]
   name = "github.com/hashicorp/vault"
-  version = "0.10.0" 
+  version = "0.10.0"
 
 [[constraint]]
   name = "github.com/howeyc/fsnotify"
