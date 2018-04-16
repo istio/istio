@@ -231,6 +231,20 @@ $(foreach TGT,$(DOCKER_TARGETS),$(eval push.$(TGT): | $(TGT) ; \
 DOCKER_PUSH_TARGETS:=
 $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_PUSH_TARGETS+=push.$(TGT)))
 
+
+ifneq ($(PUBLIC_HUB),)
+  PUBLIC_DOCKER_TARGETS := docker.proxy docker.proxy_debug docker.proxy_init
+  # Add extra aspenmesh targets for public proxy images. These few images need to
+  # be also pushed to a public repository.
+  $(info pushing public images to $(PUBLIC_HUB) in addition to $(HUB))
+$(foreach TGT,$(PUBLIC_DOCKER_TARGETS),$(eval push_public.$(TGT): | $(TGT) ; \
+        time (docker tag $(HUB)$(HUB_IMG_DELIM)$(subst docker.,,$(TGT))$(IMG_TAG_DELIM)$(TAG) \
+                  $(PUBLIC_HUB)$(HUB_IMG_DELIM)$(subst docker.,,$(TGT))$(IMG_TAG_DELIM)$(TAG) && \
+	$(DOCKER_PUSH_CMD) $(PUBLIC_HUB)$(HUB_IMG_DELIM)$(subst docker.,,$(TGT))$(IMG_TAG_DELIM)$(TAG))))
+
+$(foreach TGT,$(PUBLIC_DOCKER_TARGETS),$(eval DOCKER_PUSH_TARGETS+=push_public.$(TGT)))
+endif
+
 # This target pushes each docker image to specified HUB and TAG.
 # The push scripts support a comma-separated list of HUB(s) and TAG(s),
 # but I'm not sure this is worth the added complexity to support.

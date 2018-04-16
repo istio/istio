@@ -136,6 +136,7 @@ GO_VERSION_REQUIRED:=1.9
 ifneq ($(CIRCLE_TAG),)
   # Building a tag from circleci
   HUB = quay.io/aspenmesh/istio-private
+  PUBLIC_HUB = quay.io/aspenmesh/istio
   TAG = $(CIRCLE_TAG)
 endif
 
