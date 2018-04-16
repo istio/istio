@@ -65,9 +65,12 @@ type InputParams struct {
 }
 
 // FilterChain describes a set of filters (HTTP or TCP) with a shared TLS context.
+// Only one of TCP or HTTP can be populated. TODO: when Envoy supports port multiplexing remove this constraint.
 type FilterChain struct {
+	// HTTP is the set of HTTP filters for this filter chain
 	HTTP []*http_conn.HttpFilter
-	TCP  []listener.Filter
+	// TCP is the set of network (TCP) filters for this filter chain.
+	TCP []listener.Filter
 }
 
 // MutableObjects is a set of objects passed to On*Listener callbacks. Fields may be nil or empty.

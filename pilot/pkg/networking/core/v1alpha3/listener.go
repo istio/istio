@@ -308,7 +308,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 			listenAddress := WildcardAddress
 			var addresses []string
 			var listenerMapKey string
-			var listenerType plugin.ListenerType
 			listenerOpts := buildListenerOpts{
 				env:            env,
 				proxy:          node,
@@ -321,7 +320,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 			switch servicePort.Protocol {
 			// TODO: Set SNI for HTTPS
 			case model.ProtocolHTTP2, model.ProtocolHTTP, model.ProtocolGRPC:
-				listenerType = plugin.ListenerTypeHTTP
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
 				if l, exists := listenerMap[listenerMapKey]; exists {
 					if !strings.HasPrefix(l.Name, "http") {
@@ -354,7 +352,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				log.Infof("buildSidecarOutboundListeners: service %q has unknown protocol %#v, defaulting to TCP", service.Hostname, servicePort)
 				fallthrough
 			case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
-				listenerType = plugin.ListenerTypeTCP
 				if service.Resolution != model.Passthrough {
 					listenAddress = service.Address
 					addresses = []string{service.Address}
@@ -381,7 +378,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 
 			for _, p := range configgen.Plugins {
 				params := &plugin.InputParams{
-					ListenerType: listenerType,
+					ListenerType: plugin.ModelProtocolToListenerType(servicePort.Protocol),
 					Env:          &env,
 					Node:         &node,
 					Service:      service,
@@ -611,16 +608,10 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 			BindToPort: boolFalse,
 		}
 	}
-	var protocolPrefix string
-	if opts.protocol.IsHTTP() {
-		protocolPrefix = "http"
-	} else {
-		protocolPrefix = "tcp"
-	}
 
 	return &xdsapi.Listener{
 		// protocol is either TCP or HTTP
-		Name:         fmt.Sprintf("%s_%s_%d", protocolPrefix, opts.ip, opts.port),
+		Name:         fmt.Sprintf("%s_%s_%d", protocolToListenerPrefix(opts.protocol), opts.ip, opts.port),
 		Address:      util.BuildAddress(opts.ip, uint32(opts.port)),
 		FilterChains: filterChains,
 		DeprecatedV1: deprecatedV1,
@@ -664,4 +655,11 @@ func marshalFilters(l *xdsapi.Listener, opts buildListenerOpts, chains []plugin.
 		}
 	}
 	return nil
+}
+
+func protocolToListenerPrefix(p model.Protocol) string {
+	if p.IsHTTP() {
+		return "http"
+	}
+	return "tcp"
 }

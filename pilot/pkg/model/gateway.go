@@ -45,8 +45,9 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 		log.Debugf("MergeGateways: merging gateway %q into %v:\n%v", name, names, gateway)
 		for _, s := range gateway.Servers {
 			log.Debugf("MergeGateways: gateway %q processing server %v", name, s.Hosts)
-			if ss, exists := servers[s.Port.Number]; exists {
+			if ss, ok := servers[s.Port.Number]; ok {
 				// TODO: remove this check when Envoy supports filter chain matching so we can expose multiple protocols on the same physical port
+				// ss must have at least one element because the key exists in the map, otherwise we'd be in the else case below.
 				if ss[0].Port.Protocol != s.Port.Protocol {
 					log.Debugf("skipping server: attempting to merge servers for gateway %q into %v but servers have different protocols: want %v have %v",
 						spec.Name, names, ss[0].Port.Protocol, s.Port.Protocol)

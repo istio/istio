@@ -23,8 +23,6 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -120,7 +118,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 		if log.DebugEnabled() {
 			// pprint does JSON marshalling, so we skip it if debugging is not enabled
 			log.Debugf("buildGatewayListeners: constructed listener with %d filter chains:\n%v",
-				len(mutable.Listener.FilterChains), pprint(mutable.Listener))
+				len(mutable.Listener.FilterChains), mutable.Listener)
 		}
 		listeners = append(listeners, mutable.Listener)
 	}
@@ -367,10 +365,4 @@ func gatherDestinations(weights []*networking.DestinationWeight) []*networking.D
 // TODO: should this try to use `istio_route.ConvertDestinationToCluster`?
 func destToClusterName(d *networking.Destination) string {
 	return model.BuildSubsetKey(model.TrafficDirectionOutbound, d.Subset, d.Host, &model.Port{Name: d.Port.GetName()})
-}
-
-// TODO: move up to pkg/proto
-func pprint(p proto.Message) string {
-	s, _ := (&jsonpb.Marshaler{}).MarshalToString(p)
-	return s
 }
