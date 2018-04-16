@@ -55,10 +55,10 @@ func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mutable
 
 	switch in.ListenerType {
 	case plugin.ListenerTypeHTTP:
-		mutable.HTTPFilters = append(mutable.HTTPFilters, buildMixerHTTPFilter(env, node, proxyInstances, true))
+		*mutable.HTTPFilters = append(*mutable.HTTPFilters, buildMixerHTTPFilter(env, node, proxyInstances, true))
 		return nil
 	case plugin.ListenerTypeTCP:
-		mutable.TCPFilters = append(mutable.TCPFilters, buildMixerOutboundTCPFilter(env, node))
+		*mutable.TCPFilters = append(*mutable.TCPFilters, buildMixerOutboundTCPFilter(env, node))
 		return nil
 	}
 
@@ -74,10 +74,10 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 
 	switch in.ListenerType {
 	case plugin.ListenerTypeHTTP:
-		mutable.HTTPFilters = append(mutable.HTTPFilters, buildMixerHTTPFilter(env, node, proxyInstances, false))
+		*mutable.HTTPFilters = append(*mutable.HTTPFilters, buildMixerHTTPFilter(env, node, proxyInstances, false))
 		return nil
 	case plugin.ListenerTypeTCP:
-		mutable.TCPFilters = append(mutable.TCPFilters, buildMixerInboundTCPFilter(env, node, instance))
+		*mutable.TCPFilters = append(*mutable.TCPFilters, buildMixerInboundTCPFilter(env, node, instance))
 		return nil
 	}
 
