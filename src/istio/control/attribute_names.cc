@@ -28,7 +28,8 @@ const char AttributeName::kRequestMethod[] = "request.method";
 const char AttributeName::kRequestPath[] = "request.path";
 const char AttributeName::kRequestReferer[] = "request.referer";
 const char AttributeName::kRequestScheme[] = "request.scheme";
-const char AttributeName::kRequestSize[] = "request.size";
+const char AttributeName::kRequestBodySize[] = "request.size";
+const char AttributeName::kRequestTotleSize[] = "request.totle_size";
 const char AttributeName::kRequestTime[] = "request.time";
 const char AttributeName::kRequestUserAgent[] = "request.useragent";
 const char AttributeName::kRequestApiKey[] = "request.api_key";
@@ -36,7 +37,8 @@ const char AttributeName::kRequestApiKey[] = "request.api_key";
 const char AttributeName::kResponseCode[] = "response.code";
 const char AttributeName::kResponseDuration[] = "response.duration";
 const char AttributeName::kResponseHeaders[] = "response.headers";
-const char AttributeName::kResponseSize[] = "response.size";
+const char AttributeName::kResponseBodySize[] = "response.size";
+const char AttributeName::kResponseTotleSize[] = "response.totle_size";
 const char AttributeName::kResponseTime[] = "response.time";
 
 // TCP attributes

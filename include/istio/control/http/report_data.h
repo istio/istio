@@ -34,8 +34,10 @@ class ReportData {
 
   // Get additional report info.
   struct ReportInfo {
-    uint64_t send_bytes;
-    uint64_t received_bytes;
+    uint64_t response_totle_size;
+    uint64_t request_totle_size;
+    uint64_t request_body_size;
+    uint64_t response_body_size;
     std::chrono::nanoseconds duration;
     int response_code;
   };
