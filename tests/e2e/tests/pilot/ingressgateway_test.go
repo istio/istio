@@ -163,10 +163,19 @@ cleanup:
 		t.Fatal(err)
 	} else {
 		log.Infof("Body: %s, response codes: %v", resp.Body, resp.Code)
-		if len(resp.Code) > 0 && resp.Code[0] == "200" {
-			log.Infoa("No 503s were encountered while changing rules")
+		if len(resp.Code) > 0 {
+			count := make(map[string]int)
+			for _, elt := range resp.Code {
+				count[elt] = count[elt] + 1
+			}
+			if count["200"] != len(resp.Code) {
+				// have entries other than 200
+				t.Errorf("Got non 200 status code while changing rules: %v", count)
+			} else {
+				log.Infoa("No 503s were encountered while changing rules")
+			}
 		} else {
-			t.Errorf("Got 503 status code while changing rules")
+			t.Errorf("Could not parse response codes from the client")
 		}
 	}
 }
