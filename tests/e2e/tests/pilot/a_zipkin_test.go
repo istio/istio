@@ -25,10 +25,10 @@ import (
 )
 
 const (
-	traceHeader          = "X-Client-Trace-Id"
-	numTraces            = 5
-	mixerCheckOperation  = "mixer/check"
-	traceIDField         = "\"traceId\""
+	traceHeader         = "X-Client-Trace-Id"
+	numTraces           = 5
+	mixerCheckOperation = "mixer/check"
+	traceIDField        = "\"traceId\""
 )
 
 func TestZipkin(t *testing.T) {
