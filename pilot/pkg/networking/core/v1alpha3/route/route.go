@@ -268,7 +268,7 @@ func translateRoute(in *networking.HTTPRoute,
 
 	// Match by the destination port specified in the match condition
 	if match != nil && match.Port != nil && match.Port.GetNumber() != uint32(port) {
-		return nil, fmt.Errorf("no port match: expected %d have %d", match.Port.GetName(), port)
+		return nil, fmt.Errorf("no port match: expected port %q to have number %d", match.Port.GetName(), port)
 	}
 
 	out := &route.Route{
