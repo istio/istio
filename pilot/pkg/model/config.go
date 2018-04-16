@@ -27,7 +27,6 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/model/test"
-	"istio.io/istio/pkg/log"
 )
 
 // ConfigMeta is metadata attached to each configuration unit.
@@ -699,7 +698,6 @@ func (store *istioConfigStore) VirtualServices(gateways map[string]bool) []Confi
 				out = append(out, config)
 			}
 		} else {
-			log.Infof("service %v has gateways %v, comparing against %v", config.Name, rule.Gateways, gateways)
 			for _, g := range rule.Gateways {
 				if gateways[ResolveShortnameToFQDN(g, config.ConfigMeta)] {
 					out = append(out, config)
