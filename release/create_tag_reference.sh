@@ -165,11 +165,7 @@ EOF
 }
 
 
-# eventually this can be used on all of:
-# (istio/api istio/istio istio/proxy istio/vendor-istio)
-# ORG_REPOS=(api istio proxy vendor-istio)
-
-ORG_REPOS=(api istio proxy)
+ORG_REPOS=(api istio proxy vendor-istio)
 
 for GITREPO in ${ORG_REPOS[@]}; do
   SHA=`grep $ORG/$GITREPO $BUILD_FILE  | cut -f 6 -d \"`
