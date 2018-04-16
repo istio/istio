@@ -54,6 +54,7 @@ package log
 import (
 	"fmt"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/natefinch/lumberjack"
@@ -218,9 +219,9 @@ func formatDate(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 
 func updateScopes(options *Options, core zapcore.Core, errSink zapcore.WriteSyncer) error {
 	// init the global I/O funcs
-	writeFn = core.Write
-	syncFn = core.Sync
-	errorSink = errSink
+	writeFn.Store(core.Write)
+	syncFn.Store(core.Sync)
+	errorSink.Store(errSink)
 
 	// update the output levels of all scopes
 	levels := strings.Split(options.outputLevels, ",")
@@ -231,7 +232,7 @@ func updateScopes(options *Options, core zapcore.Core, errSink zapcore.WriteSync
 		}
 
 		if scope, ok := scopes[s]; ok {
-			scope.Level = l
+			scope.SetOutputLevel(l)
 		} else {
 			return fmt.Errorf("unknown scope '%s' specified", s)
 		}
@@ -246,7 +247,7 @@ func updateScopes(options *Options, core zapcore.Core, errSink zapcore.WriteSync
 		}
 
 		if scope, ok := scopes[s]; ok {
-			scope.StackTraceLevel = l
+			scope.SetStackTraceLevel(l)
 		} else {
 			return fmt.Errorf("unknown scope '%s' specified", s)
 		}
@@ -260,7 +261,7 @@ func updateScopes(options *Options, core zapcore.Core, errSink zapcore.WriteSync
 		}
 
 		if scope, ok := scopes[s]; ok {
-			scope.LogCallers = true
+			scope.SetLogCallers(true)
 		} else {
 			return fmt.Errorf("unknown scope '%s' specified", s)
 		}
@@ -288,12 +289,13 @@ func Configure(options *Options) error {
 		zap.AddCallerSkip(1),
 	}
 
-	if defaultScope.LogCallers {
+	if defaultScope.GetLogCallers() {
 		opts = append(opts, zap.AddCaller())
 	}
 
-	if defaultScope.StackTraceLevel != NoneLevel {
-		opts = append(opts, zap.AddStacktrace(levelToZap[defaultScope.StackTraceLevel]))
+	l := defaultScope.GetStackTraceLevel()
+	if l != NoneLevel {
+		opts = append(opts, zap.AddStacktrace(levelToZap[l]))
 	}
 
 	captureLogger := zap.New(interceptor{core}, opts...)
@@ -313,14 +315,14 @@ func Configure(options *Options) error {
 }
 
 // reset by the Configure method
-var syncFn = nopSync
-
-func nopSync() error {
-	return nil
-}
+var syncFn atomic.Value
 
 // Sync flushes any buffered log entries.
 // Processes should normally take care to call Sync before exiting.
 func Sync() error {
-	return syncFn()
+	if s := syncFn.Load().(func() error); s != nil {
+		return s()
+	}
+
+	return nil
 }
