@@ -15,15 +15,16 @@
 package dynamic
 
 import (
-	"istio.io/istio/mixer/pkg/lang/compiled"
 	"fmt"
-	"istio.io/istio/mixer/pkg/attribute"
+	"sort"
+
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
-	"sort"
+
+	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/lang/compiled"
 	"istio.io/istio/mixer/pkg/protobuf/yaml"
 )
-
 
 type (
 	// Encoder transforms yaml that represents protobuf data into []byte
@@ -52,35 +53,35 @@ type (
 		// encoder is needed if encodedData is not available.
 		encoder Encoder
 
-		// number fields are sorted by this.
+		// number fields are sorted by field number.
 		number int
 
 		// name for debug.
 		name string
 	}
 
-	DynamicEncoderBuilder struct {
-		msgName string
-		resolver yaml.Resolver
-		data map[interface{}]interface{}
-		compiler compiled.Compiler
+	EncoderBuilder struct {
+		msgName     string
+		resolver    yaml.Resolver
+		data        map[interface{}]interface{}
+		compiler    compiled.Compiler
 		skipUnknown bool
 	}
 )
 
-// NewDynamicEncoderBuilder creates a DynamicEncoderBuilder.
-func NewDynamicEncoderBuilder(msgName string, resolver yaml.Resolver, data map[interface{}]interface{},
-	compiler compiled.Compiler, skipUnknown bool) *DynamicEncoderBuilder {
-	return &DynamicEncoderBuilder{
-		msgName: msgName,
-		resolver: resolver,
-		data: data,
-		compiler: compiler,
+// NewEncoderBuilder creates a EncoderBuilder.
+func NewEncoderBuilder(msgName string, resolver yaml.Resolver, data map[interface{}]interface{},
+	compiler compiled.Compiler, skipUnknown bool) *EncoderBuilder {
+	return &EncoderBuilder{
+		msgName:     msgName,
+		resolver:    resolver,
+		data:        data,
+		compiler:    compiler,
 		skipUnknown: skipUnknown}
 }
 
 // Build builds a DynamicEncoder
-func (c DynamicEncoderBuilder) Build() (Encoder, error) {
+func (c EncoderBuilder) Build() (Encoder, error) {
 	m := c.resolver.ResolveMessage(c.msgName)
 	if m == nil {
 		return nil, fmt.Errorf("cannot resolve message '%s'", c.msgName)
@@ -89,7 +90,7 @@ func (c DynamicEncoderBuilder) Build() (Encoder, error) {
 	return c.buildMessage(m, c.data, true)
 }
 
-func (c DynamicEncoderBuilder) buildMessage(md *descriptor.DescriptorProto, data map[interface{}]interface{}, skipEncodeLength bool) (Encoder, error) {
+func (c EncoderBuilder) buildMessage(md *descriptor.DescriptorProto, data map[interface{}]interface{}, skipEncodeLength bool) (Encoder, error) {
 	var err error
 	var ok bool
 
@@ -116,23 +117,27 @@ func (c DynamicEncoderBuilder) buildMessage(md *descriptor.DescriptorProto, data
 		//packed := fd.IsPacked() || fd.IsPacked3()
 
 		if fd.IsScalar() || fd.IsString() {
-			if repeated {  // TODO
+			if repeated { // TODO
+			}
+			fld := makeField(fd)
+
+			if *fd.Type == descriptor.FieldDescriptorProto_TYPE_ENUM {
+				//TODO e := c.resolver.ResolveEnum(fd.GetTypeName())
 			}
 
-			fld := makeField(fd)
 			if fld.encodedData, err = EncodePrimitive(v, fd.GetType(), fld.encodedData); err != nil {
 				return nil, fmt.Errorf("unable to encode: %v. %v", k, err)
 			}
 			me.fields = append(me.fields, fld)
 
-		} else if *fd.Type == descriptor.FieldDescriptorProto_TYPE_MESSAGE {  // MESSAGE, or map
+		} else if *fd.Type == descriptor.FieldDescriptorProto_TYPE_MESSAGE { // MESSAGE, or map
 			m := c.resolver.ResolveMessage(fd.GetTypeName())
 			if m == nil {
 				return nil, fmt.Errorf("unable to resolve message '%s'", fd.GetTypeName())
 			}
 
 			var ma []interface{}
-			if m.GetOptions().GetMapEntry() {  // this is a Map
+			if m.GetOptions().GetMapEntry() { // this is a Map
 				ma, err = convertMapToMapentry(v)
 				if err != nil {
 					return nil, fmt.Errorf("unable to process: %v, %v", fd, err)
@@ -159,7 +164,7 @@ func (c DynamicEncoderBuilder) buildMessage(md *descriptor.DescriptorProto, data
 				}
 				fld := makeField(fd)
 				fld.encoder = de
-				me.fields = append(me.fields, fld)// create new fields ...
+				me.fields = append(me.fields, fld) // create new fields ...
 			}
 		} else {
 			return nil, fmt.Errorf("field not supported '%v'", fd)
@@ -175,8 +180,7 @@ func (c DynamicEncoderBuilder) buildMessage(md *descriptor.DescriptorProto, data
 	return me, nil
 }
 
-
-func convertMapToMapentry(data interface{}) ([]interface{}, error){
+func convertMapToMapentry(data interface{}) ([]interface{}, error) {
 	md, ok := data.(map[interface{}]interface{})
 	if !ok {
 		return nil, fmt.Errorf("incorrect map type:%T, want:map[interface{}]interface{}", data)
@@ -184,7 +188,7 @@ func convertMapToMapentry(data interface{}) ([]interface{}, error){
 	res := make([]interface{}, 0, len(md))
 	for k, v := range md {
 		res = append(res, map[interface{}]interface{}{
-			"key": k,
+			"key":   k,
 			"value": v,
 		})
 	}
@@ -192,7 +196,7 @@ func convertMapToMapentry(data interface{}) ([]interface{}, error){
 }
 
 func extendSlice(ba []byte, n int) []byte {
-	for k:=0; k<n; k++ {
+	for k := 0; k < n; k++ {
 		ba = append(ba, 0xff)
 	}
 	return ba
@@ -201,8 +205,7 @@ func extendSlice(ba []byte, n int) []byte {
 // expected length of the varint encoded word
 // 2 byte words represent 2 ** 14 = 16K bytes
 // If message lenght is more, it involves an array copy
-const varLength  = 2
-
+const varLength = 2
 
 // encode message including length of the message into []byte
 func (m messageEncoder) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
@@ -238,10 +241,9 @@ func (m messageEncoder) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
 	return ba, nil
 }
 
-
 func (m messageEncoder) encodeNoLength(bag attribute.Bag, ba []byte) ([]byte, error) {
 	var err error
-	for _, f  := range m.fields {
+	for _, f := range m.fields {
 		ba, err = f.Encode(bag, ba)
 		if err != nil {
 			return nil, err
@@ -253,8 +255,8 @@ func (m messageEncoder) encodeNoLength(bag attribute.Bag, ba []byte) ([]byte, er
 type evalEncoder struct {
 	//TODO handle google.proto.Value type
 	useValueType bool
-	etype descriptor.FieldDescriptorProto_Type
-	ex compiled.Expression
+	etype        descriptor.FieldDescriptorProto_Type
+	ex           compiled.Expression
 }
 
 func (e evalEncoder) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {

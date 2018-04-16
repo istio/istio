@@ -16,9 +16,10 @@ package dynamic
 
 import (
 	"fmt"
+	"math"
+
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
-	"math"
 )
 
 func makeField(fd *descriptor.FieldDescriptorProto) *field {
@@ -31,13 +32,67 @@ func makeField(fd *descriptor.FieldDescriptorProto) *field {
 
 	return &field{
 		protoKey: protoKey(fieldNumber, wireType),
-		number :fieldNumber,
-		name : fd.GetName(),
+		number:   fieldNumber,
+		name:     fd.GetName(),
 	}
 }
 
-
 func EncodePrimitive(v interface{}, etype descriptor.FieldDescriptorProto_Type, ba []byte) ([]byte, error) {
+	switch t := v.(type) {
+	case string:
+		if etype != descriptor.FieldDescriptorProto_TYPE_STRING {
+			return nil, fmt.Errorf("incorrect type:string, %v want:%s", v, etype)
+		}
+		ba, _ = EncodeVarint(ba, uint64(len(t)))
+		ba = append(ba, t...)
+	case bool:
+		if etype != descriptor.FieldDescriptorProto_TYPE_BOOL {
+			return nil, fmt.Errorf("incorrect type:bool, want:%s", etype)
+		}
+		// varint of 0 is 0, 1 is 1
+		v := byte(0x0)
+		if t {
+			v = byte(0x1)
+		}
+		ba = append(ba, v)
+	case int, int32, int64:
+		if !isIntegerType(etype) {
+			return nil, fmt.Errorf("incorrect type:%T, want:%s", v, etype)
+		}
+		vv, ok := Int64(t)
+		if !ok {
+			return nil, fmt.Errorf("incorrect type:%T, want:%s", v, etype)
+		}
+		ba, _ = EncodeVarint(ba, uint64(vv))
+	case float64:
+		switch etype {
+		case descriptor.FieldDescriptorProto_TYPE_FLOAT:
+			ba = EncodeFixed32(ba, uint64(math.Float32bits(float32(t))))
+		case descriptor.FieldDescriptorProto_TYPE_DOUBLE:
+			ba = EncodeFixed64(ba, math.Float64bits(t))
+		default:
+			return nil, fmt.Errorf("incorrect type:float64, %v want:%s", v, etype)
+		}
+	default:
+		return nil, fmt.Errorf("unknown type %v: %T", v, v)
+	}
+
+	return ba, nil
+}
+
+// EncodeString encode given string.
+func EncodeString(v interface{}, ba []byte) ([]byte, error) {
+	switch t := v.(type) {
+	case string:
+		ba, _ = EncodeVarint(ba, uint64(len(t)))
+		ba = append(ba, t...)
+	default:
+		return nil, fmt.Errorf("incorrect type:%T, %v want:string", v, v)
+	}
+	return ba, nil
+}
+
+func EncodePrimitive2(v interface{}, etype descriptor.FieldDescriptorProto_Type, ba []byte) ([]byte, error) {
 	switch t := v.(type) {
 	case string:
 		if etype != descriptor.FieldDescriptorProto_TYPE_STRING {
@@ -80,7 +135,6 @@ func EncodePrimitive(v interface{}, etype descriptor.FieldDescriptorProto_Type, 
 	return ba, nil
 }
 
-
 // EncodeVarintZeroExtend encodes x as Varint in ba. Ensures that encoding is at least
 // minBytes long.
 func EncodeVarintZeroExtend(ba []byte, x uint64, minBytes int) []byte {
@@ -94,7 +148,7 @@ func EncodeVarintZeroExtend(ba []byte, x uint64, minBytes int) []byte {
 
 	ba[len(ba)-1] = 0x80 | ba[len(ba)-1]
 
-	for ; diff>1; diff-- {
+	for ; diff > 1; diff-- {
 		ba = append(ba, 0x80)
 	}
 
@@ -107,8 +161,8 @@ func EncodeVarintZeroExtend(ba []byte, x uint64, minBytes int) []byte {
 // EncodeVarint -- encodeVarint no allocations
 func EncodeVarint(buf []byte, x uint64) ([]byte, int) {
 	ol := len(buf)
-	for ; x > 127; {
-		buf = append(buf, 0x80 | uint8(x&0x7F))
+	for x > 127 {
+		buf = append(buf, 0x80|uint8(x&0x7F))
 		x >>= 7
 	}
 	buf = append(buf, uint8(x))
@@ -148,7 +202,7 @@ func isIntegerType(etype descriptor.FieldDescriptorProto_Type) bool {
 		descriptor.FieldDescriptorProto_TYPE_UINT32,
 		descriptor.FieldDescriptorProto_TYPE_INT64,
 		descriptor.FieldDescriptorProto_TYPE_UINT64:
-			return true
+		return true
 	}
 
 	return false

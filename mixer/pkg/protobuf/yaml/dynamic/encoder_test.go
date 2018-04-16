@@ -1,15 +1,17 @@
 package dynamic
 
 import (
-	"testing"
-	"github.com/gogo/protobuf/proto"
 	"fmt"
+	"reflect"
+	"testing"
+
+	"github.com/ghodss/yaml"
+	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/proto"
+	yaml2 "gopkg.in/yaml.v2"
+
 	protoyaml "istio.io/istio/mixer/pkg/protobuf/yaml"
 	"istio.io/istio/mixer/pkg/protobuf/yaml/testdata/all"
-	yaml2 "gopkg.in/yaml.v2"
-	"reflect"
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/ghodss/yaml"
 )
 
 func TestEncodeVarintZeroExtend(t *testing.T) {
@@ -18,7 +20,7 @@ func TestEncodeVarintZeroExtend(t *testing.T) {
 		l int
 	}{
 		{259, 1},
-		{ 259, 2},
+		{259, 2},
 		{259, 3},
 		{259, 4},
 		{7, 1},
@@ -29,14 +31,14 @@ func TestEncodeVarintZeroExtend(t *testing.T) {
 		{10003432, 5},
 		{10003432, 8},
 	} {
-		name := fmt.Sprintf("x=%v,l=%v",tst.x, tst.l)
+		name := fmt.Sprintf("x=%v,l=%v", tst.x, tst.l)
 		t.Run(name, func(tt *testing.T) {
 			testEncodeVarintZeroExtend(uint64(tst.x), tst.l, tt)
 		})
 	}
 }
 
-func testEncodeVarintZeroExtend(x uint64,  l int, tt *testing.T) {
+func testEncodeVarintZeroExtend(x uint64, l int, tt *testing.T) {
 	ba := make([]byte, 0, 8)
 	ba = EncodeVarintZeroExtend(ba, x, l)
 
@@ -52,6 +54,23 @@ func testEncodeVarintZeroExtend(x uint64,  l int, tt *testing.T) {
 	}
 }
 
+const simple = `
+str: "mystring"
+i64: 56789
+dbl: 123.456
+b: true
+enm: TWO
+oth:
+  str: "mystring2"
+  i64: 33333
+  dbl: 333.333
+  b: true
+  inenum: INNERTHREE
+  inmsg:
+    str: "myinnerstring"
+    i64: 99
+    dbl: 99.99
+`
 const sff2 = `
 str: Str
 dbl: 0.0021
@@ -62,6 +81,9 @@ oth:
 mapStrStr:
     kk1: vv1
     kk2: vv2
+mapI32Msg:
+    200:
+        str: Str
 `
 const sff = `
 str: Str
@@ -75,92 +97,54 @@ mapStrStr:
     kk2: vv2
 `
 
-func TestStatic1 (t *testing.T) {
-    data := map[interface{}] interface{} {}
-	t.Logf("err = %v", yaml2.Unmarshal([]byte(sff), data))
-
-	ff := foo.Simple{}
-
-	t.Logf("err = %v", yaml2.Unmarshal([]byte(sff), &ff))
-
-	ba, _ := yaml2.Marshal(ff)
-
-	t.Logf("\n%s", string(ba))
-
-	fds, err := protoyaml.GetFileDescSet("../testdata/all/types.descriptor")
-	if err != nil {
-		t.Fatal(err)
-	}
-	res := protoyaml.NewResolver(fds)
-
-	db := NewDynamicEncoderBuilder(".foo.Simple", res, data, nil, true)
-
-	de, err := db.Build()
-
-	if err != nil {
-		t.Fatalf("unable to build: %v", err)
-	}
-
-	ba = make([]byte, 0, 30)
-	ba, err = de.Encode(nil, ba)
-	if err != nil {
-		t.Fatalf("unable to encode: %v", err)
-	}
-	t.Logf("ba = %v", ba)
-
-	ff2 := foo.Simple{}
-	err = ff2.Unmarshal(ba)
-	if err != nil {
-		t.Fatalf("unable to decode: %v", err)
-	}
-
-	t.Logf("ff2 = %v", ff2)
-
-	ba, err = ff.Marshal()
-
-	t.Logf("ba = %v", ba)
-
-	_ = de
+type testdata struct {
+	desc  string
+	input string
+	msg   string
 }
 
-
-func TestStatic2(t *testing.T){
-	fds, err := protoyaml.GetFileDescSet("../testdata/all/types.descriptor")
-	if err != nil {
-		t.Fatal(err)
-	}
-	res := protoyaml.NewResolver(fds)
-	testMsg(t, sff2, res)
-}
-
-func TestStatic3(t *testing.T){
+func TestEncoder(t *testing.T) {
 	fds, err := protoyaml.GetFileDescSet("../testdata/all/types.descriptor")
 	if err != nil {
 		t.Fatal(err)
 	}
 	res := protoyaml.NewResolver(fds)
 
-	fs := &foo.Simple{
-		MapStrStr: map[string] string {
-			"kkk1": "vvv1",
+	for _, td := range []testdata{
+		{
+			desc:  "map-only",
+			msg:   ".foo.Simple",
+			input: smm,
 		},
-		RMsg:[]*foo.Other{ {B: true}, {Str: "OtherStrStr"},
+		{
+			desc:  "elementary",
+			msg:   ".foo.Simple",
+			input: sff,
 		},
+		{
+			desc:  "full-message",
+			msg:   ".foo.Simple",
+			input: sff2,
+		},
+		{
+			desc:  "full-message2",
+			msg:   ".foo.Simple",
+			input: simple,
+		},
+	} {
+		t.Run(td.desc, func(tt *testing.T) {
+			testMsg(tt, td.input, res)
+		})
 	}
-	var ba string
-	enc := jsonpb.Marshaler{}
-	ba, err = enc.MarshalToString(fs)
-	testMsg(t, ba, res)
 }
 
 func testMsg(t *testing.T, input string, res protoyaml.Resolver) {
-	data := map[interface{}] interface{} {}
+	data := map[interface{}]interface{}{}
 	var err error
 
 	if err = yaml2.Unmarshal([]byte(input), data); err != nil {
 		t.Fatalf("unable to unmarshal: %v\n%s", err, input)
 	}
-
 
 	var ba []byte
 
@@ -175,7 +159,7 @@ func testMsg(t *testing.T, input string, res protoyaml.Resolver) {
 
 	t.Logf("ff1 = %v", ff1)
 
-	db := NewDynamicEncoderBuilder(".foo.Simple", res, data, nil, false)
+	db := NewEncoderBuilder(".foo.Simple", res, data, nil, false)
 	de, err := db.Build()
 
 	if err != nil {
@@ -195,7 +179,8 @@ func testMsg(t *testing.T, input string, res protoyaml.Resolver) {
 		t.Fatalf("unable to decode: %v", err)
 	}
 
-	if ! reflect.DeepEqual(ff2, ff1) {
+	// confirm that codegen'd code direct unmarshal and unmarhal thru bytes yields the same result.
+	if !reflect.DeepEqual(ff2, ff1) {
 		t.Fatalf("got: %v, want: %v", ff2, ff1)
 	}
 
