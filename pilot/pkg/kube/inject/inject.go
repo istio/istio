@@ -93,9 +93,10 @@ const (
 // SidecarInjectionSpec collects all container types and volumes for
 // sidecar mesh injection
 type SidecarInjectionSpec struct {
-	InitContainers []v1.Container `yaml:"initContainers"`
-	Containers     []v1.Container `yaml:"containers"`
-	Volumes        []v1.Volume    `yaml:"volumes"`
+	InitContainers   []v1.Container            `yaml:"initContainers"`
+	Containers       []v1.Container            `yaml:"containers"`
+	Volumes          []v1.Volume               `yaml:"volumes"`
+	ImagePullSecrets []v1.LocalObjectReference `yaml:"imagePullSecrets"`
 }
 
 // SidecarTemplateData is the data object to which the templated
@@ -389,6 +390,9 @@ func injectionData(sidecarTemplate, version string, spec *v1.PodSpec, metadata *
 	for _, c := range sic.Volumes {
 		status.Volumes = append(status.Volumes, c.Name)
 	}
+	for _, c := range sic.ImagePullSecrets {
+		status.ImagePullSecrets = append(status.ImagePullSecrets, c.Name)
+	}
 	statusAnnotationValue, err := json.Marshal(status)
 	if err != nil {
 		return nil, "", fmt.Errorf("error encoded injection status: %v", err)
@@ -554,10 +558,11 @@ func GenerateTemplateFromParams(params *Params) (string, error) {
 // injected sidecar. This includes the names of added containers and
 // volumes.
 type SidecarInjectionStatus struct {
-	Version        string   `json:"version"`
-	InitContainers []string `json:"initContainers"`
-	Containers     []string `json:"containers"`
-	Volumes        []string `json:"volumes"`
+	Version          string   `json:"version"`
+	InitContainers   []string `json:"initContainers"`
+	Containers       []string `json:"containers"`
+	Volumes          []string `json:"volumes"`
+	ImagePullSecrets []string `json:"imagePullSecrets"`
 }
 
 // helper function to generate a template version identifier from a

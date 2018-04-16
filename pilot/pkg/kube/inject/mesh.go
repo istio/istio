@@ -70,7 +70,7 @@ initContainers:
     unlimited
   command:
   - /bin/sh
-  image: alpine
+  image: {{ .InitImage }}
   imagePullPolicy: IfNotPresent
   name: enable-core-dump
   resources: {}

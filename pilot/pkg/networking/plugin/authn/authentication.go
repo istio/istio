@@ -234,12 +234,12 @@ func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy) *auth.Do
 					{
 						CertificateChain: &core.DataSource{
 							Specifier: &core.DataSource_Filename{
-								Filename: model.CertChainFilename,
+								Filename: model.AuthCertsPath + model.CertChainFilename,
 							},
 						},
 						PrivateKey: &core.DataSource{
 							Specifier: &core.DataSource_Filename{
-								Filename: model.KeyFilename,
+								Filename: model.AuthCertsPath + model.KeyFilename,
 							},
 						},
 					},
@@ -247,7 +247,7 @@ func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy) *auth.Do
 				ValidationContext: &auth.CertificateValidationContext{
 					TrustedCa: &core.DataSource{
 						Specifier: &core.DataSource_Filename{
-							Filename: model.RootCertFilename,
+							Filename: model.AuthCertsPath + model.RootCertFilename,
 						},
 					},
 				},
