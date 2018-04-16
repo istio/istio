@@ -37,11 +37,9 @@ import (
 )
 
 var (
-	mode      string // individual requests or load tests that check for 503w
 	count     int
 	timeout   time.Duration
-	duration  time.Duration // how long to run the test
-	qps       int           // how many qps when duration is set
+	qps       int
 	url       string
 	headerKey string
 	headerVal string
@@ -54,15 +52,12 @@ var (
 type job func(int) func() error
 
 const (
-	hostKey  = "Host"
-	check503 = "check503"
+	hostKey = "Host"
 )
 
 func init() {
-	flag.StringVar(&mode, "mode", "default", "Default: make requests,dump response, check503: sustained load, check for non 200 response")
 	flag.IntVar(&count, "count", 1, "Number of times to make the request")
-	flag.DurationVar(&duration, "duration", 0, "How long to run the test (for check503 mode)")
-	flag.IntVar(&qps, "qps", 0, "Queries per second (for check503 mode)")
+	flag.IntVar(&qps, "qps", 0, "Queries per second")
 	flag.DurationVar(&timeout, "timeout", 15*time.Second, "Request timeout")
 	flag.StringVar(&url, "url", "", "Specify URL")
 	flag.StringVar(&headerKey, "key", "", "Header key (use Host for authority)")
@@ -73,9 +68,6 @@ func init() {
 
 func makeHTTPRequest(client *http.Client) job {
 	return func(i int) func() error {
-		if qps > 0 {
-			time.Sleep(time.Duration(int64(time.Second) / int64(qps)))
-		}
 		return func() error {
 			req, err := http.NewRequest("GET", url, nil)
 			if err != nil {
@@ -257,9 +249,12 @@ func setupDefaultTest() job {
 func main() {
 	flag.Parse()
 	var j job
+	var throttle <-chan time.Time
 
-	if mode == check503 {
-		count = qps * int((duration / time.Second).Seconds())
+	if qps > 0 {
+		sleepTime := int64(1000 * 1000 * 1000 / qps)
+		log.Printf("Sleeping %d nanoseconds between requests\n", sleepTime)
+		throttle = time.Tick(time.Duration(sleepTime))
 	}
 
 	j = setupDefaultTest()
@@ -270,6 +265,9 @@ func main() {
 
 	g, _ := errgroup.WithContext(context.Background())
 	for i := 0; i < count; i++ {
+		if qps > 0 {
+			<-throttle
+		}
 		g.Go(j(i))
 	}
 	if err := g.Wait(); err != nil {

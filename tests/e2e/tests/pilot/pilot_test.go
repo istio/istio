@@ -298,7 +298,7 @@ func ClientRequest(app, url string, count int, extra string) ClientResponse {
 
 	pod := pods[0]
 	cmd := fmt.Sprintf("client -url %s -count %d %s", url, count, extra)
-	request, err := util.PodExec(tc.Kube.Namespace, pod, "app", cmd, true, tc.Kube.KubeConfig)
+	request, err := util.PodExec(tc.Kube.Namespace, pod, "app", cmd, false, tc.Kube.KubeConfig)
 	if err != nil {
 		log.Errorf("client request error %v for %s in %s", err, url, app)
 		return out
