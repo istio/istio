@@ -112,46 +112,62 @@ func TestIngressGateway503DuringRuleChange(t *testing.T) {
 	}
 	defer gateway.Teardown()
 
-	// Update configs in background
+	waitChan := make(chan int)
+	var resp ClientResponse
+	var err error
+	var fatalError bool
 	go func() {
-		time.Sleep(9 * time.Second)
-		log.Infof("Adding new subsets v1,v2")
-		// these functions have built in sleep. So we don't have to add any extra sleep here
-		if err := newDestRule.Setup(); err != nil {
-			t.Fatal(err)
-		}
-		time.Sleep(4 * time.Second)
-		defer newDestRule.Teardown()
-		log.Infof("routing to v1,v2")
-		if err := newVirtService.Setup(); err != nil {
-			t.Fatal(err)
-		}
-		time.Sleep(4 * time.Second)
-		defer newVirtService.Teardown()
-		log.Infof("Adding new subsets v3,v4")
-		if err := addMoreSubsets.Setup(); err != nil {
-			t.Fatal(err)
-		}
-		time.Sleep(4 * time.Second)
-		log.Infof("routing to v3,v4")
-		if err := routeToNewSubsets.Setup(); err != nil {
-			t.Fatal(err)
-		}
-		time.Sleep(4 * time.Second)
-		log.Infof("deleting old subsets v1,v2")
-		if err := deleteOldSubsets.Setup(); err != nil {
-			t.Fatal(err)
-		}
-		time.Sleep(4 * time.Second)
+		reqURL := fmt.Sprintf("http://%s.%s/c", ingressGatewayServiceName, istioNamespace)
+		resp = ClientRequest("t", reqURL, 1, "-key Host -val uk.bookinfo.com -mode check503 -duration 35s -qps 20")
+		waitChan <- 1
 	}()
 
-	reqURL := fmt.Sprintf("http://%s.%s/c", ingressGatewayServiceName, istioNamespace)
-	resp := ClientRequest("t", reqURL, 1, "-key Host -val uk.bookinfo.com -mode check503 -duration 35s -qps 24")
-	log.Infof("Body: %s, response codes: %v", resp.Body, resp.Code)
-	if len(resp.Code) > 0 && resp.Code[0] == "200" {
-		log.Infoa("No 503s were encountered while changing rules")
+	time.Sleep(9 * time.Second)
+	log.Infof("Adding new subsets v1,v2")
+	// these functions have built in sleep. So we don't have to add any extra sleep here
+	if err = newDestRule.Setup(); err != nil {
+		fatalError = true
+		goto cleanup
+	}
+	time.Sleep(4 * time.Second)
+	defer newDestRule.Teardown()
+	log.Infof("routing to v1,v2")
+	if err = newVirtService.Setup(); err != nil {
+		fatalError = true
+		goto cleanup
+	}
+	time.Sleep(4 * time.Second)
+	defer newVirtService.Teardown()
+	log.Infof("Adding new subsets v3,v4")
+	if err = addMoreSubsets.Setup(); err != nil {
+		fatalError = true
+		goto cleanup
+	}
+	time.Sleep(4 * time.Second)
+	log.Infof("routing to v3,v4")
+	if err = routeToNewSubsets.Setup(); err != nil {
+		fatalError = true
+		goto cleanup
+	}
+	time.Sleep(4 * time.Second)
+	log.Infof("deleting old subsets v1,v2")
+	if err = deleteOldSubsets.Setup(); err != nil {
+		fatalError = true
+		goto cleanup
+	}
+	time.Sleep(4 * time.Second)
+
+cleanup:
+	_ = <-waitChan
+	if fatalError {
+		t.Fatal(err)
 	} else {
-		t.Errorf("Got 503 status code while changing rules")
+		log.Infof("Body: %s, response codes: %v", resp.Body, resp.Code)
+		if len(resp.Code) > 0 && resp.Code[0] == "200" {
+			log.Infoa("No 503s were encountered while changing rules")
+		} else {
+			t.Errorf("Got 503 status code while changing rules")
+		}
 	}
 }
 

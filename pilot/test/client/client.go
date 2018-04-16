@@ -62,7 +62,7 @@ func init() {
 	flag.StringVar(&mode, "mode", "default", "Default: make requests,dump response, check503: sustained load, check for non 200 response")
 	flag.IntVar(&count, "count", 1, "Number of times to make the request")
 	flag.DurationVar(&duration, "duration", 0, "How long to run the test (for check503 mode)")
-	flag.IntVar(&qps, "qps", 30, "Queries per second (for check503 mode)")
+	flag.IntVar(&qps, "qps", 0, "Queries per second (for check503 mode)")
 	flag.DurationVar(&timeout, "timeout", 15*time.Second, "Request timeout")
 	flag.StringVar(&url, "url", "", "Specify URL")
 	flag.StringVar(&headerKey, "key", "", "Header key (use Host for authority)")
@@ -73,6 +73,9 @@ func init() {
 
 func makeHTTPRequest(client *http.Client) job {
 	return func(i int) func() error {
+		if qps > 0 {
+			time.Sleep(time.Duration(int64(time.Second) / int64(qps)))
+		}
 		return func() error {
 			req, err := http.NewRequest("GET", url, nil)
 			if err != nil {
@@ -187,54 +190,6 @@ func makeGRPCRequest(client pb.EchoTestServiceClient) job {
 	}
 }
 
-func setup503Test(client *http.Client) job {
-	return func(i int) func() error {
-		ms := int(1000/qps) * 1000 * 1000
-		time.Sleep(time.Duration(ms))
-		return func() error {
-			req, err := http.NewRequest("GET", url, nil)
-			if err != nil {
-				return err
-			}
-
-			log.Printf("[%d] Url=%s\n", i, url)
-			if headerKey == hostKey {
-				req.Host = headerVal
-				log.Printf("[%d] Host=%s\n", i, headerVal)
-			} else if headerKey != "" {
-				req.Header.Add(headerKey, headerVal)
-				log.Printf("[%d] Header=%s:%s\n", i, headerKey, headerVal)
-			}
-
-			resp, err := client.Do(req)
-			if err != nil {
-				return err
-			}
-
-			log.Printf("[%d] StatusCode=%d\n", i, resp.StatusCode)
-
-			data, err := ioutil.ReadAll(resp.Body)
-			defer func() {
-				if err = resp.Body.Close(); err != nil {
-					log.Printf("[%d error] %s\n", i, err)
-				}
-			}()
-
-			if err != nil {
-				return err
-			}
-
-			for _, line := range strings.Split(string(data), "\n") {
-				if line != "" {
-					log.Printf("[%d body] %s\n", i, line)
-				}
-			}
-
-			return nil
-		}
-	}
-}
-
 func setupDefaultTest() job {
 	if strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") {
 		/* #nosec */
@@ -272,7 +227,8 @@ func setupDefaultTest() job {
 			security = grpc.WithTransportCredentials(creds)
 		}
 
-		grpcConn, err := grpc.Dial(address,
+		var err error
+		grpcConn, err = grpc.Dial(address,
 			security,
 			grpc.WithAuthority(authority),
 			grpc.WithBlock(),
@@ -302,24 +258,11 @@ func main() {
 	flag.Parse()
 	var j job
 
-	switch mode {
-	case check503:
+	if mode == check503 {
 		count = qps * int((duration / time.Second).Seconds())
-		/* #nosec */
-		client := &http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{
-					InsecureSkipVerify: true,
-				},
-			},
-			Timeout: timeout,
-		}
-
-		j = setup503Test(client)
-	default:
-		j = setupDefaultTest()
 	}
 
+	j = setupDefaultTest()
 	if j == nil {
 		log.Fatalf("Failed to setup client")
 		os.Exit(1)
