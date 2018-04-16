@@ -207,9 +207,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 		// by outbound routes.
 		// Traffic sent to our service VIP is redirected by remote
 		// services' kubeproxy to our specific endpoint IP.
-		var networkFilters []listener.Filter
-		var httpFilters []*http_conn.HttpFilter
 		var listenerType plugin.ListenerType
+		mutable := &plugin.MutableObjects{}
 		listenerOpts := buildListenerOpts{
 			env:            env,
 			proxy:          node,
@@ -237,13 +236,14 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 			}
 		case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
 			listenerType = plugin.ListenerTypeTCP
-			networkFilters = buildInboundNetworkFilters(instance)
+			mutable.TCPFilters = buildInboundNetworkFilters(instance)
 
 		default:
 			log.Debugf("Unsupported inbound protocol %v for port %#v", protocol, instance.Endpoint.ServicePort)
 		}
 
-		newListener := buildListener(listenerOpts)
+		mutable.Listener = buildListener(listenerOpts)
+
 		// call plugins
 		for _, p := range configgen.Plugins {
 			params := &plugin.InputParams{
@@ -252,22 +252,17 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 				Node:            &node,
 				ServiceInstance: instance,
 			}
-			mutable := &plugin.MutableObjects{
-				Listener:    newListener,
-				TCPFilters:  networkFilters,
-				HTTPFilters: httpFilters,
-			}
 			if err := p.OnInboundListener(params, mutable); err != nil {
 				log.Warn(err.Error())
 			}
 		}
 		// Filters are serialized one time into an opaque struct once we have the complete list.
-		if err := marshalFilters(newListener, listenerOpts, networkFilters, httpFilters); err != nil {
+		if err := marshalFilters(mutable.Listener, listenerOpts, mutable.TCPFilters, mutable.HTTPFilters); err != nil {
 			log.Warn(err.Error())
 		}
 
-		listeners = append(listeners, newListener)
-		listenerMap[listenerMapKey] = newListener
+		listeners = append(listeners, mutable.Listener)
+		listenerMap[listenerMapKey] = mutable.Listener
 
 	}
 
@@ -302,9 +297,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 			listenAddress := WildcardAddress
 			var addresses []string
 			var listenerMapKey string
-			var networkFilters []listener.Filter
-			var httpFilters []*http_conn.HttpFilter
 			var listenerType plugin.ListenerType
+			mutable := &plugin.MutableObjects{}
 			listenerOpts := buildListenerOpts{
 				env:            env,
 				proxy:          node,
@@ -328,7 +322,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 					continue
 				}
 
-				networkFilters = buildOutboundNetworkFilters(clusterName, addresses, servicePort)
+				mutable.TCPFilters = buildOutboundNetworkFilters(clusterName, addresses, servicePort)
 				// TODO: Set SNI for HTTPS
 			case model.ProtocolHTTP2, model.ProtocolHTTP, model.ProtocolGRPC:
 				listenerType = plugin.ListenerTypeHTTP
@@ -363,7 +357,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 			// call plugins
 
 			listenerOpts.ip = listenAddress
-			newListener := buildListener(listenerOpts)
+			mutable.Listener = buildListener(listenerOpts)
 
 			for _, p := range configgen.Plugins {
 				params := &plugin.InputParams{
@@ -372,22 +366,17 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 					Node:         &node,
 					Service:      service,
 				}
-				mutable := &plugin.MutableObjects{
-					Listener:    newListener,
-					TCPFilters:  networkFilters,
-					HTTPFilters: httpFilters,
-				}
 				if err := p.OnOutboundListener(params, mutable); err != nil {
 					log.Warn(err.Error())
 				}
 			}
 
 			// Filters are serialized one time into an opaque struct once we have the complete list.
-			if err := marshalFilters(newListener, listenerOpts, networkFilters, httpFilters); err != nil {
+			if err := marshalFilters(mutable.Listener, listenerOpts, mutable.TCPFilters, mutable.HTTPFilters); err != nil {
 				log.Warn(err.Error())
 			}
 
-			listenerMap[listenerMapKey] = newListener
+			listenerMap[listenerMapKey] = mutable.Listener
 			// TODO: Set SNI for HTTPS
 		}
 	}
