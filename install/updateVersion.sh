@@ -43,23 +43,5 @@ if [[ ! -z ${ALL_HUB_TAG} ]]; then
     export TAG="$(echo ${ALL_HUB_TAG}|cut -f2 -d,)"
 fi
 
-function gen_file() {
-    fl=$1
-    dest=$2
-    if [[ -f ${dest}/install/kubernetes/$fl ]];then
-      mv -f ${dest}/install/kubernetes/$fl ${dest}/install/kubernetes/orig_$fl
-    fi
-    make $1   # make always places the files in install/...
-    if [[ ! -f ${dest}/install/kubernetes/$fl ]]; then
-      cp -f install/kubernetes/$fl ${dest}/install/kubernetes/$fl
-    fi
-}
-
-
-for target in istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml istio-multicluster.yaml istio-auth-multicluster.yaml istio-remote.yaml;do
-    gen_file $target ${DEST_DIR}
-done
-
-
 # run something like
 # helm template install/kubernetes/helm/istio -x templates/namespace.yaml
