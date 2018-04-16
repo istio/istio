@@ -24,9 +24,9 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
-	"github.com/gogo/protobuf/proto"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
@@ -86,9 +86,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 		}
 		switch protocol {
 		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC, model.ProtocolHTTPS:
-			opts.filterChainOpts = createHTTPFilterChainOpts(env, servers, merged.Names)
+			opts.filterChainOpts = createGatewayHTTPFilterChainOpts(env, servers, merged.Names)
 		case model.ProtocolTCP, model.ProtocolMongo:
-			opts.filterChainOpts = createTCPFilterChainOpts(env, servers, merged.Names)
+			opts.filterChainOpts = createGatewayTCPFilterChainOpts(env, servers, merged.Names)
 		}
 
 		// one filter chain => 0 or 1 certs => SNI not required
@@ -119,14 +119,17 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 		}
 		if log.DebugEnabled() {
 			// pprint does JSON marshalling, so we skip it if debugging is not enabled
-			log.Debugf("buildGatewayListeners: constructed listener with %d filter chains:\n%v", len(mutable.Listener.FilterChains), pprint(mutable.Listener))
+			log.Debugf("buildGatewayListeners: constructed listener with %d filter chains:\n%v",
+				len(mutable.Listener.FilterChains), pprint(mutable.Listener))
 		}
 		listeners = append(listeners, mutable.Listener)
 	}
 	return listeners, nil
 }
 
-func createHTTPFilterChainOpts(env model.Environment, servers []*networking.Server, gatewayNames map[string]bool) []*filterChainOpts {
+func createGatewayHTTPFilterChainOpts(
+	env model.Environment, servers []*networking.Server, gatewayNames map[string]bool) []*filterChainOpts {
+
 	services, err := env.Services() // cannot panic here because gateways do not rely on services necessarily
 	if err != nil {
 		log.Errora("Failed to get services from registry")
@@ -244,7 +247,9 @@ func buildGatewayInboundHTTPRouteConfig(
 	}
 }
 
-func createTCPFilterChainOpts(env model.Environment, servers []*networking.Server, gatewayNames map[string]bool) []*filterChainOpts {
+func createGatewayTCPFilterChainOpts(
+	env model.Environment, servers []*networking.Server, gatewayNames map[string]bool) []*filterChainOpts {
+
 	opts := make([]*filterChainOpts, 0, len(servers))
 	for _, server := range servers {
 		opts = append(opts, &filterChainOpts{
