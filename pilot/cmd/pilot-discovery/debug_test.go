@@ -36,7 +36,7 @@ type pilotStubState struct {
 func (p *pilotStubHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	p.Lock()
 	switch r.URL.Path {
-	case "/debug/cdsz", "/debug/ldsz", "/debug/rdsz", "/debug/edsz":
+	case "/debug/adsz", "/debug/edsz":
 		w.WriteHeader(p.States[0].StatusCode)
 		_, _ = w.Write([]byte(p.States[0].Response))
 		p.States = p.States[1:]
@@ -56,7 +56,7 @@ func Test_debug_run(t *testing.T) {
 		wantError         bool
 	}{
 		{
-			name: "debug with all configType does not error",
+			name: "all configType no error",
 			args: []string{"proxyID", "all"},
 			pilotStates: []pilotStubState{
 				{StatusCode: 200, Response: "fine"},
@@ -66,76 +66,48 @@ func Test_debug_run(t *testing.T) {
 			},
 		},
 		{
-			name:              "debug with all configType errors when unable to reach to pilot",
+			name:              "all configType errors if pilot unreachable",
 			args:              []string{"proxyID", "all"},
 			pilotNotReachable: true,
 			wantError:         true,
 		},
 		{
-			name: "debug with all configType errors when one request to pilot returns a non 200 response",
+			name: "all configType error when pilot returns !200",
 			args: []string{"proxyID", "all"},
 			pilotStates: []pilotStubState{
-				{StatusCode: 200, Response: "fine"},
-				{StatusCode: 200, Response: "fine"},
 				{StatusCode: 200, Response: "fine"},
 				{StatusCode: 404, Response: "not fine"},
 			},
 			wantError: true,
 		},
 		{
-			name: "debug with clusters configType does not error",
-			args: []string{"proxyID", "clusters"},
+			name: "ads configType does not error",
+			args: []string{"proxyID", "ads"},
 			pilotStates: []pilotStubState{
 				{StatusCode: 200, Response: "fine"},
 			},
 		},
 		{
-			name:              "debug with clusters configType errors if pilot unreachable",
-			args:              []string{"proxyID", "clusters"},
+			name:              "ads configType errors if pilot unreachable",
+			args:              []string{"proxyID", "ads"},
 			pilotNotReachable: true,
 			wantError:         true,
 		},
 		{
-			name: "debug with listeners configType does not error",
-			args: []string{"proxyID", "listeners"},
+			name: "eds configType does not error",
+			args: []string{"proxyID", "eds"},
 			pilotStates: []pilotStubState{
 				{StatusCode: 200, Response: "fine"},
 			},
 		},
 		{
-			name:              "debug with listeners configType errors if pilot unreachable",
-			args:              []string{"proxyID", "listeners"},
+			name:              "eds configType errors if pilot unreachable",
+			args:              []string{"proxyID", "eds"},
 			pilotNotReachable: true,
 			wantError:         true,
 		},
 		{
-			name: "debug with routes configType does not error",
-			args: []string{"proxyID", "routes"},
-			pilotStates: []pilotStubState{
-				{StatusCode: 200, Response: "fine"},
-			},
-		},
-		{
-			name:              "debug with routes configType errors if pilot unreachable",
-			args:              []string{"proxyID", "routes"},
-			pilotNotReachable: true,
-			wantError:         true,
-		},
-		{
-			name: "debug with endpoints configType does not error",
-			args: []string{"proxyID", "endpoints"},
-			pilotStates: []pilotStubState{
-				{StatusCode: 200, Response: "fine"},
-			},
-		},
-		{
-			name:              "debug with endpoints configType errors if pilot unreachable",
-			args:              []string{"proxyID", "endpoints"},
-			pilotNotReachable: true,
-			wantError:         true,
-		},
-		{
-			name:      "debug with invalid configType returns an error",
+			name:      "invalid configType returns an error",
 			args:      []string{"proxyID", "not-a-config-type"},
 			wantError: true,
 		},

@@ -30,11 +30,9 @@ type debug struct {
 
 var (
 	configTypes = map[string]string{
-		"all":       "",
-		"clusters":  "cdsz",
-		"listeners": "ldsz",
-		"routes":    "rdsz",
-		"endpoints": "edsz",
+		"all": "",
+		"ads": "adsz",
+		"eds": "edsz",
 	}
 
 	debugCmd = &cobra.Command{

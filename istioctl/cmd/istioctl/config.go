@@ -41,6 +41,7 @@ var (
 	// TODO - Add a full mesh Pilot look up (e.g. All clusters, all endpoints, etc)
 	// TODO - Add support for non-default proxy config locations
 	// TODO - Add support for non-kube istio deployments
+	// TODO - Bring Endpoint and Pilot config types more inline with each other
 	configCmd = &cobra.Command{
 		Use:   "proxy-config <endpoint|pilot> <pod-name> [<configuration-type>]",
 		Short: "Retrieves proxy configuration for the specified pod from the endpoint proxy or Pilot [kube only]",
@@ -49,11 +50,11 @@ Retrieves proxy configuration for the specified pod from the endpoint proxy or P
 
 Available configuration types:
 
-	Local:
+	Endpoint:
 	[clusters listeners routes static]
 
 	Pilot:
-	[clusters listeners routes endpoints]
+	[ads eds]
 
 `,
 		Example: `# Retrieve all config for productpage-v1-bb8d5cbc7-k7qbm pod from the endpoint proxy
