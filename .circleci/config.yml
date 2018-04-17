@@ -256,11 +256,6 @@ jobs:
           at:  /go
       - run: make sync
       - run: bin/testEnvRootMinikube.sh start
-      # - run:
-      #     no_output_timeout: 20m
-      #     when: always
-      #     command: |
-      #           make test/local/cloudfoundry/e2e_pilotv2
       - run:
           command: |
             if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
@@ -391,8 +386,6 @@ jobs:
     <<: *defaults
     steps:
       - checkout
-      - run: make submodule-sync
-      - run: make depend.status # check before any change
       - run: make depend.update
       - run: ( cd vendor ; git status  ) # just to see what changes
       - run: make init build
@@ -413,7 +406,6 @@ jobs:
       ISTIO_BIN: /go/bin
     steps:
       - checkout
-      - run: make submodule-sync
       - run:
           name: Starting Kubernetes API Server standalone and running tests
           command: |
@@ -459,7 +451,6 @@ jobs:
     resource_class: xlarge
     steps:
       - checkout
-      - run: make submodule-sync
       - run:
           command: |
             mkdir -p /go/out/racetests
@@ -475,7 +466,6 @@ jobs:
       KUBECONFIG: /go/src/istio.io/istio/.circleci/config
     steps:
       - checkout
-      - run: make submodule-sync
       - run:
           command: |
             mkdir -p /go/out/benchcheck
@@ -537,7 +527,6 @@ jobs:
     resource_class: xlarge
     steps:
       - checkout
-      - run: make submodule-sync
       - run:
           command: |
             cp -a /usr/local/go /go

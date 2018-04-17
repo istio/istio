@@ -412,6 +412,12 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/golang/snappy"
+  packages = ["."]
+  revision = "553a641470496b2327abcac10b36396bd98e45c9"
+
+[[projects]]
+  branch = "master"
   name = "github.com/golang/sync"
   packages = ["errgroup"]
   revision = "1d60e4601c6fd243af51cc01ddf169918a5407ca"
@@ -567,10 +573,38 @@
   revision = "0fb14efe8c47ae851c0034ed7a448854d3d34cf3"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/hashicorp/hcl"
+  packages = [
+    ".",
+    "hcl/ast",
+    "hcl/parser",
+    "hcl/scanner",
+    "hcl/strconv",
+    "hcl/token",
+    "json/parser",
+    "json/scanner",
+    "json/token"
+  ]
+  revision = "ef8a98b0bbce4a65b5aa4c368430a80ddc533168"
+
+[[projects]]
   name = "github.com/hashicorp/serf"
   packages = ["coordinate"]
   revision = "d6574a5bb1226678d7010325fb6c985db20ee458"
   version = "v0.8.1"
+
+[[projects]]
+  name = "github.com/hashicorp/vault"
+  packages = [
+    "api",
+    "helper/compressutil",
+    "helper/jsonutil",
+    "helper/parseutil",
+    "helper/strutil"
+  ]
+  revision = "5dd7f25f5c4b541f2da62d70075b6f82771a650d"
+  version = "v0.10.0"
 
 [[projects]]
   name = "github.com/howeyc/fsnotify"
@@ -652,6 +686,12 @@
   name = "github.com/mitchellh/go-homedir"
   packages = ["."]
   revision = "b8bc1bf767474819792c23f32d8286a45736f1c6"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/mitchellh/mapstructure"
+  packages = ["."]
+  revision = "00c29f56e2386353d58c599509e8dc3801b0d716"
 
 [[projects]]
   name = "github.com/modern-go/concurrent"
@@ -839,10 +879,22 @@
   version = "v1.5.1"
 
 [[projects]]
+  name = "github.com/ryanuber/go-glob"
+  packages = ["."]
+  revision = "572520ed46dbddaed19ea3d9541bdd0494163693"
+  version = "v0.1"
+
+[[projects]]
   name = "github.com/satori/go.uuid"
   packages = ["."]
   revision = "f58768cc1a7a7e77a3bd49e98cdd21419399b6a3"
   version = "v1.2.0"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/sethgrid/pester"
+  packages = ["."]
+  revision = "ed9870dad3170c0b25ab9b11830cc57c3a7798fb"
 
 [[projects]]
   branch = "master"
@@ -1239,7 +1291,7 @@
     "rbac/v1alpha1",
     "routing/v1alpha1"
   ]
-  revision = "3388c6e22df091cbacf63f012aef56b3120bf869"
+  revision = "bf7eff00d3dede110dbe8b2f8fb09d778c9948ce"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1536,6 +1588,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "08eedb62a28d8afeb8bd383c2cf9507f20f387f4b1c133cfef0cd0ea64ad835b"
+  inputs-digest = "8b86e4a11e9c6547ee298eb1602f982a3c3e428398c01e9a54dd2a7ee6aca36a"
   solver-name = "gps-cdcl"
   solver-version = 1

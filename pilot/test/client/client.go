@@ -37,16 +37,19 @@ import (
 )
 
 var (
-	count   int
-	timeout time.Duration
-
+	count     int
+	timeout   time.Duration
+	qps       int
 	url       string
 	headerKey string
 	headerVal string
 	msg       string
 
-	caFile string
+	caFile   string
+	grpcConn *grpc.ClientConn
 )
+
+type job func(int) func() error
 
 const (
 	hostKey = "Host"
@@ -54,6 +57,7 @@ const (
 
 func init() {
 	flag.IntVar(&count, "count", 1, "Number of times to make the request")
+	flag.IntVar(&qps, "qps", 0, "Queries per second")
 	flag.DurationVar(&timeout, "timeout", 15*time.Second, "Request timeout")
 	flag.StringVar(&url, "url", "", "Specify URL")
 	flag.StringVar(&headerKey, "key", "", "Header key (use Host for authority)")
@@ -62,7 +66,7 @@ func init() {
 	flag.StringVar(&msg, "msg", "HelloWorld", "message to send (for websockets)")
 }
 
-func makeHTTPRequest(client *http.Client) func(int) func() error {
+func makeHTTPRequest(client *http.Client) job {
 	return func(i int) func() error {
 		return func() error {
 			req, err := http.NewRequest("GET", url, nil)
@@ -108,7 +112,7 @@ func makeHTTPRequest(client *http.Client) func(int) func() error {
 	}
 }
 
-func makeWebSocketRequest(client *websocket.Dialer) func(int) func() error {
+func makeWebSocketRequest(client *websocket.Dialer) job {
 	return func(i int) func() error {
 		return func() error {
 			req := make(http.Header)
@@ -155,7 +159,7 @@ func makeWebSocketRequest(client *websocket.Dialer) func(int) func() error {
 	}
 }
 
-func makeGRPCRequest(client pb.EchoTestServiceClient) func(int) func() error {
+func makeGRPCRequest(client pb.EchoTestServiceClient) job {
 	return func(i int) func() error {
 		return func() error {
 			req := &pb.EchoRequest{Message: fmt.Sprintf("request #%d", i)}
@@ -178,9 +182,7 @@ func makeGRPCRequest(client pb.EchoTestServiceClient) func(int) func() error {
 	}
 }
 
-func main() {
-	flag.Parse()
-	var f func(int) func() error
+func setupDefaultTest() job {
 	if strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") {
 		/* #nosec */
 		client := &http.Client{
@@ -191,7 +193,7 @@ func main() {
 			},
 			Timeout: timeout,
 		}
-		f = makeHTTPRequest(client)
+		return makeHTTPRequest(client)
 	} else if strings.HasPrefix(url, "grpc://") || strings.HasPrefix(url, "grpcs://") {
 		secure := strings.HasPrefix(url, "grpcs://")
 		var address string
@@ -217,21 +219,18 @@ func main() {
 			security = grpc.WithTransportCredentials(creds)
 		}
 
-		conn, err := grpc.Dial(address,
+		var err error
+		grpcConn, err = grpc.Dial(address,
 			security,
 			grpc.WithAuthority(authority),
 			grpc.WithBlock(),
 			grpc.WithTimeout(timeout))
 		if err != nil {
 			log.Fatalf("did not connect: %v", err)
+			return nil
 		}
-		defer func() {
-			if err := conn.Close(); err != nil {
-				log.Println(err)
-			}
-		}()
-		client := pb.NewEchoTestServiceClient(conn)
-		f = makeGRPCRequest(client)
+		client := pb.NewEchoTestServiceClient(grpcConn)
+		return makeGRPCRequest(client)
 	} else if strings.HasPrefix(url, "ws://") || strings.HasPrefix(url, "wss://") {
 		/* #nosec */
 		client := &websocket.Dialer{
@@ -240,19 +239,49 @@ func main() {
 			},
 			HandshakeTimeout: timeout,
 		}
-		f = makeWebSocketRequest(client)
-	} else {
-		log.Fatalf("Unrecognized protocol %q", url)
+		return makeWebSocketRequest(client)
+	}
+
+	log.Fatalf("Unrecognized protocol %q", url)
+	return nil
+}
+
+func main() {
+	flag.Parse()
+	var j job
+	var throttle <-chan time.Time
+
+	if qps > 0 {
+		sleepTime := time.Second / time.Duration(qps)
+		log.Printf("Sleeping %v between requests\n", sleepTime)
+		throttle = time.Tick(sleepTime)
+	}
+
+	j = setupDefaultTest()
+	if j == nil {
+		log.Fatalf("Failed to setup client")
+		os.Exit(1)
 	}
 
 	g, _ := errgroup.WithContext(context.Background())
 	for i := 0; i < count; i++ {
-		g.Go(f(i))
+		if qps > 0 {
+			<-throttle
+		}
+		g.Go(j(i))
 	}
 	if err := g.Wait(); err != nil {
 		log.Printf("Error %s\n", err)
 		os.Exit(1)
 	}
+
+	defer func() {
+		if grpcConn != nil {
+			if err := grpcConn.Close(); err != nil {
+				log.Println(err)
+			}
+		}
+	}()
 
 	log.Println("All requests succeeded")
 }
