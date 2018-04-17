@@ -113,7 +113,7 @@ function delete_vm_firewall() {
 }
 
 function update_fortio_on_vm() {
-  run_on_vm 'go get istio.io/fortio && cd go/src/istio.io/fortio && git fetch && git checkout latest_release && make submodule-sync && go build -o ~/go/bin/fortio -ldflags "-X istio.io/fortio/version.tag=$(git describe --tag --match v\*) -X istio.io/fortio/version.buildInfo=$(git rev-parse HEAD)" . && sudo setcap 'cap_net_bind_service=+ep' `which fortio` && fortio version'
+  run_on_vm 'go get istio.io/fortio && cd go/src/istio.io/fortio && git fetch --tags && git checkout latest_release && make submodule-sync && go build -o ~/go/bin/fortio -ldflags "-X istio.io/fortio/version.tag=$(git describe --tag --match v\*) -X istio.io/fortio/version.buildInfo=$(git rev-parse HEAD)" . && sudo setcap 'cap_net_bind_service=+ep' `which fortio` && fortio version'
 }
 
 function run_fortio_on_vm() {
@@ -132,6 +132,11 @@ function install_istio() {
   Execute sh -c 'kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user="$(gcloud config get-value core/account)"'
   # Use the non debug ingress and remove the -v "2"
   Execute sh -c 'sed -e "s/_debug//g" install/kubernetes/istio-auth.yaml | egrep -v -e "- (-v|\"2\")" | kubectl apply -f -'
+}
+
+function install_istio_addons() {
+  Execute sh -c 'kubectl apply -f install/kubernetes/addons/prometheus.yaml'
+  Execute sh -c 'kubectl apply -f install/kubernetes/addons/grafana.yaml'
 }
 
 # assumes run from istio/ (or release) directory
@@ -245,7 +250,12 @@ function get_istio_ingress_ip() {
 if [[ $QPS == "" ]]; then
   QPS=-1
 fi
-  
+
+# Set default run duration to 30s
+if [[ $DUR == "" ]]; then
+  DUR="30s"
+fi
+
 function get_istio_version() {
   kubectl describe pods -n istio|grep /proxy:|head -1 | awk -F: '{print $3}'
 }
@@ -279,32 +289,32 @@ function label_escape() {
 
 function run_fortio_test1() {
   echo "Using default loadbalancer, no istio:"
-  Execute curl "$VM_URL?json=on&save=on&qps=$QPS&t=30s&c=48&load=Start&url=http://$FORTIO_K8S_IP:8080/echo"
+  Execute curl "$VM_URL?json=on&save=on&qps=$QPS&t=$DUR&c=48&load=Start&url=http://$FORTIO_K8S_IP:8080/echo"
 }
 function run_fortio_test2() {
   echo "Using default ingress, no istio:"
-  Execute curl "$VM_URL?json=on&save=on&qps=$QPS&t=30s&c=48&load=Start&url=http://$K8S_INGRESS_IP/echo"
+  Execute curl "$VM_URL?json=on&save=on&qps=$QPS&t=$DUR&c=48&load=Start&url=http://$K8S_INGRESS_IP/echo"
 }
 
 function run_fortio_test_istio_ingress1() {
   get_json_file_name "ingress to s1"
   echo "Using istio ingress to fortio1, saving to $FNAME"
-  ExecuteEval curl -s "$VM_URL?labels=$LABELS\&json=on\&save=on\&qps=$QPS\&t=30s\&c=48\&load=Start\&url=http://$ISTIO_INGRESS_IP/fortio1/echo" \| tee $FNAME.json \| grep ActualQPS
+  ExecuteEval curl -s "$VM_URL?labels=$LABELS\&json=on\&save=on\&qps=$QPS\&t=$DUR\&c=48\&load=Start\&url=http://$ISTIO_INGRESS_IP/fortio1/echo" \| tee $FNAME.json \| grep ActualQPS
 }
 function run_fortio_test_istio_ingress2() {
   get_json_file_name "ingress to s2"
   echo "Using istio ingress to fortio2, saving to $FNAME"
-  ExecuteEval curl -s "$VM_URL?labels=$LABELS\&json=on\&save=on\&qps=$QPS\&t=30s\&c=48\&load=Start\&url=http://$ISTIO_INGRESS_IP/fortio2/echo" \| tee $FNAME.json \| grep ActualQPS
+  ExecuteEval curl -s "$VM_URL?labels=$LABELS\&json=on\&save=on\&qps=$QPS\&t=$DUR\&c=48\&load=Start\&url=http://$ISTIO_INGRESS_IP/fortio2/echo" \| tee $FNAME.json \| grep ActualQPS
 }
 function run_fortio_test_istio_1_2() {
   get_json_file_name "s1 to s2"
   echo "Using istio f1 to f2, saving to $FNAME"
-  ExecuteEval curl -s "http://$ISTIO_INGRESS_IP/fortio1/fortio/?labels=$LABELS\&json=on\&save=on\&qps=$QPS\&t=30s\&c=48\&load=Start\&url=http://echosrv2:8080/echo" \| tee $FNAME.json \| grep ActualQPS
+  ExecuteEval curl -s "http://$ISTIO_INGRESS_IP/fortio1/fortio/?labels=$LABELS\&json=on\&save=on\&qps=$QPS\&t=$DUR\&c=48\&load=Start\&url=http://echosrv2:8080/echo" \| tee $FNAME.json \| grep ActualQPS
 }
 function run_fortio_test_istio_2_1() {
   get_json_file_name "s2 to s1"
   echo "Using istio f2 to f1, saving to $FNAME"
-  ExecuteEval curl -s "http://$ISTIO_INGRESS_IP/fortio2/fortio/?labels=$LABELS\&json=on\&save=on\&qps=$QPS\&t=30s\&c=48\&load=Start\&url=http://echosrv1:8080/echo" \| tee $FNAME.json \| grep ActualQPS
+  ExecuteEval curl -s "http://$ISTIO_INGRESS_IP/fortio2/fortio/?labels=$LABELS\&json=on\&save=on\&qps=$QPS\&t=$DUR\&c=48\&load=Start\&url=http://echosrv1:8080/echo" \| tee $FNAME.json \| grep ActualQPS
 }
 
 # Run canonical perf tests.
