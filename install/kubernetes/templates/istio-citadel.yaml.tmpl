@@ -1,14 +1,14 @@
 ################################
 # Citadel cluster-wide
 ################################
-# Service account Citadel
+# Service account for Citadel
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istio-citadel-service-account
   namespace: {ISTIO_NAMESPACE}
 ---
-# Istio Citadel watching all namespaces
+# Citadel watching all namespaces
 apiVersion: v1
 kind: Deployment
 apiVersion: extensions/v1beta1
