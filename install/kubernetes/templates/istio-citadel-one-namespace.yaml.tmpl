@@ -1,16 +1,15 @@
 ################################
 # Citadel single namespace
 ################################
-# This CA only issues certs/keys for the namespace it runs in.
-# For demo only. Please use istio-cluster-ca.yaml for real-world use cases.
-# Service account CA runs in.
+# This Citadel only issues certs/keys for the namespace it runs in.
+# For demo only. Please use istio-citadel.yaml for real-world use cases.
+# Service account Citadel runs in.
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istio-citadel-service-account
   namespace: {ISTIO_NAMESPACE}
 ---
-# Istio CA
 apiVersion: v1
 kind: Deployment
 apiVersion: extensions/v1beta1
@@ -29,7 +28,7 @@ spec:
       serviceAccountName: istio-citadel-service-account
       containers:
       - name: citadel
-        image: {CA_HUB}/citadel:{CA_TAG}
+        image: {CITADEL_HUB}/citadel:{CITADEL_TAG}
         imagePullPolicy: IfNotPresent
         env:
         - name: NAMESPACE
