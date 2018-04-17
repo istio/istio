@@ -17,7 +17,6 @@ package bootstrap
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -335,9 +334,8 @@ func Checkin(secure bool, addr, cluster, node string, delay time.Duration, retri
 			if attempts >= retries {
 				if err != nil {
 					return nil, err
-				} else {
-					return nil, errors.New(fmt.Sprintf("AZ error %d", resp.StatusCode))
 				}
+				return nil, fmt.Errorf("AZ error %d", resp.StatusCode)
 			}
 		} else {
 			body, err := ioutil.ReadAll(resp.Body)

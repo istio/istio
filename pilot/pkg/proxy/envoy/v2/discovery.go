@@ -131,36 +131,36 @@ func PushAll() {
 // This is used for transition, once the new config model is in place we'll have separate
 // functions for each event and push only configs that need to be pushed.
 // This is currently called from v1 and has attenuation/throttling.
-func (s *DiscoveryServer) ClearCacheFunc() func() {
+func (ds *DiscoveryServer) ClearCacheFunc() func() {
 	return func() {
-		s.updateModel()
+		ds.updateModel()
 
-		s.modelMutex.RLock()
+		ds.modelMutex.RLock()
 		log.Infof("XDS: Registry event, pushing. Services: %d, "+
-			"VirtualServices: %d, ConnectedEndpoints: %d", len(s.services), len(s.virtualServices), edsClientCount())
-		s.modelMutex.RUnlock()
+			"VirtualServices: %d, ConnectedEndpoints: %d", len(ds.services), len(ds.virtualServices), edsClientCount())
+		ds.modelMutex.RUnlock()
 
 		PushAll()
 	}
 }
 
-func (s *DiscoveryServer) updateModel() {
-	s.modelMutex.Lock()
-	defer s.modelMutex.Unlock()
-	services, err := s.env.Services()
+func (ds *DiscoveryServer) updateModel() {
+	ds.modelMutex.Lock()
+	defer ds.modelMutex.Unlock()
+	services, err := ds.env.Services()
 	if err != nil {
 		log.Errorf("XDS: failed to update services %v", err)
 	} else {
-		s.services = services
+		ds.services = services
 	}
-	vservices, err := s.env.List(model.VirtualService.Type, model.NamespaceAll)
+	vservices, err := ds.env.List(model.VirtualService.Type, model.NamespaceAll)
 	if err != nil {
 		log.Errorf("XDS: failed to update virtual services %v", err)
 	} else {
-		s.virtualServiceConfigs = vservices
-		s.virtualServices = make([]*networking.VirtualService, len(vservices))
+		ds.virtualServiceConfigs = vservices
+		ds.virtualServices = make([]*networking.VirtualService, len(vservices))
 		for _, ss := range vservices {
-			s.virtualServices = append(s.virtualServices, ss.Spec.(*networking.VirtualService))
+			ds.virtualServices = append(ds.virtualServices, ss.Spec.(*networking.VirtualService))
 		}
 	}
 }
