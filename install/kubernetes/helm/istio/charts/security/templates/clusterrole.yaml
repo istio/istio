@@ -25,7 +25,7 @@ rules:
   resources:
   - podsecuritypolicies
   resourceNames:
-  - privileged-{{ .Release.Namespace }}
+  - privileged-istio-{{ .Release.Namespace }}
   verbs:
   - use
 ---
@@ -39,7 +39,7 @@ rules:
   resources:
   - podsecuritypolicies
   resourceNames:
-  - istio-privileged-{{ .Release.Namespace }}
+  - privileged-istio-{{ .Release.Namespace }}
   verbs:
   - use
 {{- end -}}
