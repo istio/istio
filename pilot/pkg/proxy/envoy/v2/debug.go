@@ -36,8 +36,6 @@ import (
 
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
 func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller) {
-
-	log.Info("INITDEBUG CALLED")
 	// For debugging and load testing v2 we add an memory registry.
 	s.MemRegistry = NewMemServiceDiscovery(
 		map[string]*model.Service{ // mock.HelloService.Hostname: mock.HelloService,
