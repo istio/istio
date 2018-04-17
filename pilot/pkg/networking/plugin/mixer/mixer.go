@@ -55,13 +55,13 @@ func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mutable
 
 	switch in.ListenerType {
 	case plugin.ListenerTypeHTTP:
-		for _, chain := range mutable.FilterChains {
-			chain.HTTP = append(chain.HTTP, buildMixerHTTPFilter(env, node, proxyInstances, true))
+		for cnum := range mutable.FilterChains {
+			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, buildMixerHTTPFilter(env, node, proxyInstances, true))
 		}
 		return nil
 	case plugin.ListenerTypeTCP:
-		for _, chain := range mutable.FilterChains {
-			chain.TCP = append(chain.TCP, buildMixerOutboundTCPFilter(env, node))
+		for cnum:= range mutable.FilterChains {
+			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, buildMixerOutboundTCPFilter(env, node))
 		}
 		return nil
 	}
@@ -78,13 +78,13 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 
 	switch in.ListenerType {
 	case plugin.ListenerTypeHTTP:
-		for _, chain := range mutable.FilterChains {
-			chain.HTTP = append(chain.HTTP, buildMixerHTTPFilter(env, node, proxyInstances, false))
+		for cnum := range mutable.FilterChains {
+			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, buildMixerHTTPFilter(env, node, proxyInstances, false))
 		}
 		return nil
 	case plugin.ListenerTypeTCP:
-		for _, chain := range mutable.FilterChains {
-			chain.TCP = append(chain.TCP, buildMixerInboundTCPFilter(env, node, instance))
+		for cnum := range mutable.FilterChains {
+			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, buildMixerInboundTCPFilter(env, node, instance))
 		}
 		return nil
 	}
