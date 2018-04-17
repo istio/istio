@@ -138,10 +138,15 @@ func TestIngressGateway503DuringRuleChange(t *testing.T) {
 	}()
 
 	log.Infof("Adding new subsets v3,v4")
-	if err = addMoreSubsets.Setup(); err != nil {
+	log.Infof("deleting old subsets v1,v2")
+	if err = deleteOldSubsets.Setup(); err != nil {
 		fatalError = true
 		goto cleanup
 	}
+	// if err = addMoreSubsets.Setup(); err != nil {
+	// 	fatalError = true
+	// 	goto cleanup
+	// }
 	time.Sleep(2 * time.Second)
 	log.Infof("routing to v3,v4")
 	if err = routeToNewSubsets.Setup(); err != nil {
@@ -149,11 +154,6 @@ func TestIngressGateway503DuringRuleChange(t *testing.T) {
 		goto cleanup
 	}
 	time.Sleep(2 * time.Second)
-	log.Infof("deleting old subsets v1,v2")
-	if err = deleteOldSubsets.Setup(); err != nil {
-		fatalError = true
-		goto cleanup
-	}
 
 cleanup:
 	_ = <-waitChan
