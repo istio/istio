@@ -1911,27 +1911,34 @@ func ValidateEndUserAuthenticationPolicySpecBinding(msg proto.Message) error {
 
 // ValidateVirtualService checks that a v1alpha3 route rule is well-formed.
 func ValidateVirtualService(msg proto.Message) (errs error) {
-	routeRule, ok := msg.(*networking.VirtualService)
+	virtualService, ok := msg.(*networking.VirtualService)
 	if !ok {
-		return errors.New("cannot cast to v1alpha3 routing rule")
+		return errors.New("cannot cast to virtual service")
 	}
 
-	// TODO: routeRule.Gateways
-
-	if len(routeRule.Hosts) == 0 {
-		errs = appendErrors(errs, fmt.Errorf("route rule must have at least one host"))
+	for _, gateway := range virtualService.Gateways {
+		if !IsDNS1123Label(gateway) { // FIXME: verify this restriction
+			errs = appendErrors(errs, fmt.Errorf("gateway is not a valid DNS1123 label: %v", gateway))
+		}
 	}
-	for _, host := range routeRule.Hosts {
+
+	if len(virtualService.Hosts) == 0 {
+		errs = appendErrors(errs, fmt.Errorf("virtual service must have at least one host"))
+	}
+	for _, host := range virtualService.Hosts {
 		errs = appendErrors(errs, validateHost(host))
 	}
 
-	for _, httpRoute := range routeRule.Http {
-		errs = appendErrors(validateHTTPRoute(httpRoute))
+	if len(virtualService.Http) == 0 && len(virtualService.Tcp) == 0 {
+		errs = appendErrors(errs, fmt.Errorf("http or tcp must be provided in virtual service"))
+	}
+	for _, httpRoute := range virtualService.Http {
+		errs = appendErrors(errs, validateHTTPRoute(httpRoute))
 	}
 
 	// TODO: validate once implemented
-	if len(routeRule.Tcp) > 0 {
-		errs = appendErrors(errs, errors.New("TCP route rules have not been implemented"))
+	if len(virtualService.Tcp) > 0 {
+		errs = appendErrors(errs, errors.New("TCP virtual services have not been implemented"))
 	}
 
 	return
@@ -1981,23 +1988,24 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 		}
 
-		// TODO: validate once implemented
-		if match.Port != nil {
-			errs = appendErrors(errs, errors.New("HTTP match port has not been implemented"))
-		}
-
+		// TODO: validate match.Port
 		errs = appendErrors(errs, Labels(match.SourceLabels).Validate())
 	}
 	errs = appendErrors(errs, validateDestination(http.Mirror))
 	errs = appendErrors(errs, validateHTTPRedirect(http.Redirect))
 	errs = appendErrors(errs, validateHTTPRetry(http.Retries))
 	errs = appendErrors(errs, validateHTTPRewrite(http.Rewrite))
+	var totalWeight int32
 	for _, route := range http.Route {
 		if route.Destination == nil {
 			errs = multierror.Append(errs, errors.New("destination is required"))
 		}
 		errs = appendErrors(errs, validateDestination(route.Destination))
 		errs = appendErrors(errs, ValidatePercent(route.Weight))
+		totalWeight += route.Weight
+	}
+	if len(http.Route) > 1 && totalWeight > 100 {
+		errs = appendErrors(errs, fmt.Errorf("total destination weight %v > 100", totalWeight))
 	}
 	if http.Timeout != nil {
 		errs = appendErrors(errs, ValidateDurationGogo(http.Timeout))
