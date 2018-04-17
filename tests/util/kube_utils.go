@@ -503,8 +503,27 @@ func FetchAndSaveClusterLogs(namespace string, tempDir string, kubeconfig string
 			if err != nil {
 				return err
 			}
+
 			if _, err = f.WriteString(fmt.Sprintf("%s\n", dump)); err != nil {
 				return err
+			}
+
+			dump1, err := ShellMuteOutput(
+				fmt.Sprintf("kubectl logs %s -n %s -c %s -p --kubeconfig=%s", pod, namespace, container, kubeconfig))
+			if err == nil && len(dump1) > 0 {
+				filePath = filepath.Join(tempDir, fmt.Sprintf("%s_container:%s.old_log", pod, container))
+				f1, err := os.Create(filePath)
+				if err != nil {
+					return err
+				}
+				defer func() {
+					if err = f1.Close(); err != nil {
+						log.Warnf("Error during closing file: %v\n", err)
+					}
+				}()
+				if _, err = f.WriteString(fmt.Sprintf("%s\n", dump)); err != nil {
+					return err
+				}
 			}
 		}
 		return nil

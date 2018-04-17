@@ -439,7 +439,7 @@ func (a *accessLogs) checkLog(t *testing.T, app string, pods []string) {
 		var logs string
 		for _, pod := range pods {
 			// Retrieve the logs from the service container
-			logs += util.GetPodLogs(tc.Kube.Namespace, pod, container, false, false, tc.Kube.KubeConfig)
+			logs += util.GetPodLogs(tc.Kube.Namespace, pod, container, false, true, tc.Kube.KubeConfig)
 		}
 
 		for id, want := range counts {

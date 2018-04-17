@@ -17,6 +17,7 @@ package bootstrap
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -35,7 +36,6 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
-	"errors"
 )
 
 // Generate the envoy v2 bootstrap configuration, using template.
