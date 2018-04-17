@@ -43,7 +43,7 @@ func (s *TestSetup) NewEnvoy(stress, faultInject bool, mfConf *MixerFilterConf, 
 
 	debugLevel := os.Getenv("ENVOY_DEBUG")
 	if len(debugLevel) == 0 {
-		debugLevel = "debug"
+		debugLevel = "info"
 	}
 
 	// Don't use hot-start, each Envoy re-start use different base-id
