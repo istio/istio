@@ -16,7 +16,6 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/galley/cmd/shared"
@@ -38,18 +37,15 @@ func serverCmd(fatalf shared.FormatFn) *cobra.Command {
 	}
 }
 
-func runServer(fatalf shared.FormatFn) (err error) {
-	var config *rest.Config
-	if config, err = clientcmd.BuildConfigFromFlags("", flags.kubeConfig); err != nil {
+func runServer(fatalf shared.FormatFn) (error) {
+	config, err := clientcmd.BuildConfigFromFlags("", flags.kubeConfig)
+	if err != nil {
 		fatalf("Error getting service config: %v", err)
-		return
+		return err
 	}
 
 	kube := common.NewKube(config)
-	var s *server.Server
-	if s, err = server.New(kube, server.Mapping(), flags.resyncPeriod); err != nil {
-		return
-	}
+	s := server.New(kube, server.Mapping(), flags.resyncPeriod)
 
 	stop := make(chan struct{})
 
