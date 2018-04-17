@@ -336,7 +336,7 @@ func Checkin(secure bool, addr, cluster, node string, delay time.Duration, retri
 				if err != nil {
 					return nil, err
 				} else {
-					return nil, errors.New(fmt.Sprint("AZ error %d", resp.StatusCode))
+					return nil, errors.New(fmt.Sprintf("AZ error %d", resp.StatusCode))
 				}
 			}
 		} else {
