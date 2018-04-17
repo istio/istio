@@ -78,7 +78,6 @@ var (
 	clusterWide               = flag.Bool("cluster_wide", false, "Run cluster wide tests")
 	imagePullPolicy           = flag.String("image_pull_policy", "", "Specifies an override for the Docker image pull policy to be used")
 	multiClusterDir           = flag.String("cluster_registry_dir", "", "Directory name for the cluster registry config")
-	galleyConfigValidatorFile = flag.String("galley_config_validator_file", defaultGalleyConfigValidatorFile, "Galley config validator yaml file")
 	useGalleyConfigValidator  = flag.Bool("use_galley_config_validator", false, "Use galley configuration validation webhook")
 
 	addons = []string{
@@ -124,6 +123,30 @@ type KubeInfo struct {
 	RemoteKubeConfig string
 	RemoteKubeClient kubernetes.Interface
 	RemoteAppManager *AppManager
+}
+
+func getClusterWideInstallFile() string {
+	const (
+		nonAuthInstallFile           = "istio.yaml"
+		authInstallFile              = "istio-auth.yaml"
+		nonAuthWithGalleyInstallFile = "istio-galley.yaml"
+		authWithGalleyInstallFile    = "istio-auth-galley.yaml"
+	)
+	var istioYaml string
+	if *authEnable {
+		if *useGalleyConfigValidator {
+			istioYaml = authWithGalleyInstallFile
+		} else {
+			istioYaml = authInstallFile
+		}
+	} else {
+		if *useGalleyConfigValidator {
+			istioYaml = nonAuthWithGalleyInstallFile
+		} else {
+			istioYaml = nonAuthInstallFile
+		}
+	}
+	return istioYaml
 }
 
 // newKubeInfo create a new KubeInfo by given temp dir and runID
@@ -339,21 +362,8 @@ func (k *KubeInfo) Teardown() error {
 		}
 	}
 
-	if *useGalleyConfigValidator {
-		testGalleyConfigValidatorYAML := filepath.Join(k.TmpDir, "yaml", *galleyConfigValidatorFile)
-
-		if err := util.KubeDelete(k.Namespace, testGalleyConfigValidatorYAML, k.KubeConfig); err != nil {
-			log.Errorf("Istio galley config validator %s deletion failed", testGalleyConfigValidatorYAML)
-			return err
-		}
-	}
-
 	if *clusterWide {
-		// for cluster-wide, we can verify the uninstall
-		istioYaml := nonAuthInstallFile
-		if *authEnable {
-			istioYaml = authInstallFile
-		}
+		istioYaml := getClusterWideInstallFile()
 
 		testIstioYaml := filepath.Join(k.TmpDir, "yaml", istioYaml)
 
@@ -505,17 +515,16 @@ func (k *KubeInfo) deployIstio() error {
 		istioYaml = mcNonAuthInstallFileNamespace
 	}
 	if *clusterWide {
-		if *authEnable {
-			istioYaml = authInstallFile
-		} else {
-			istioYaml = nonAuthInstallFile
-		}
+		istioYaml = getClusterWideInstallFile()
 	} else {
 		if *authEnable {
 			istioYaml = authInstallFileNamespace
 			if *multiClusterDir != "" {
 				istioYaml = mcAuthInstallFileNamespace
 			}
+		}
+		if *useGalleyConfigValidator {
+			return errors.New("cannot enable useGalleyConfigValidator in one namespace tests")
 		}
 	}
 
@@ -558,18 +567,6 @@ func (k *KubeInfo) deployIstio() error {
 		}
 	}
 
-	if *useGalleyConfigValidator {
-		baseConfigValidatorYAML := util.GetResourcePath(filepath.Join(istioInstallDir, *galleyConfigValidatorFile))
-		testConfigValidatorYAML := filepath.Join(k.TmpDir, "yaml", *galleyConfigValidatorFile)
-		if err := k.generateGalleyConfigValidator(baseConfigValidatorYAML, testConfigValidatorYAML); err != nil {
-			log.Errorf("Generating galley config validator yaml failed")
-			return err
-		}
-		if err := util.KubeApply(k.Namespace, testConfigValidatorYAML, k.KubeConfig); err != nil {
-			log.Errorf("Istio galley config validator %s deployment failed", testConfigValidatorYAML)
-			return err
-		}
-	}
 	return util.CheckDeployments(k.Namespace, maxDeploymentRolloutTime, k.KubeConfig)
 }
 
