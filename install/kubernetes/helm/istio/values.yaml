@@ -42,6 +42,8 @@ global:
 
   # create RBAC resources. Must be set for any cluster configured with rbac.
   rbacEnabled: true
+  # create RBAC resources for clusters with Pod Security Policy enabled.
+  rbacPSPEnabled: true
 
   # Default is 1 second
   refreshInterval: 10s

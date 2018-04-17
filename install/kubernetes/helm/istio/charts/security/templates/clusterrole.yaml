@@ -19,4 +19,28 @@ rules:
 - apiGroups: [""]
   resources: ["services"]
   verbs: ["get", "watch", "list"]
+{{- if .Values.global.rbacPSPEnabled }}
+- apiGroups:
+  - extensions
+  resources:
+  - podsecuritypolicies
+  resourceNames:
+  - privileged-{{ .Release.Namespace }}
+  verbs:
+  - use
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: istio:privileged-psp-user-{{ .Release.Namespace }}
+rules:
+- apiGroups:
+  - extensions
+  resources:
+  - podsecuritypolicies
+  resourceNames:
+  - istio-privileged-{{ .Release.Namespace }}
+  verbs:
+  - use
+{{- end -}}
 {{- end }}
