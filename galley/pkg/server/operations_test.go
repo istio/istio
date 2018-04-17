@@ -17,6 +17,7 @@ package server
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"k8s.io/api/core/v1"
@@ -235,7 +236,7 @@ func TestPurge_DeleteError(t *testing.T) {
 
 	m := Mapping()
 	err := Purge(k, m)
-	if err == nil || err.Error() != "purge error: some delete error" {
+	if err == nil || !strings.Contains(err.Error(), "some delete error") {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 }

@@ -17,6 +17,7 @@ package server
 import (
 	"fmt"
 
+	"github.com/hashicorp/go-multierror"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"istio.io/istio/galley/pkg/common"
@@ -48,19 +49,16 @@ func Purge(k common.Kube, mapping crd.Mapping) error {
 	}
 
 	for _, c := range crds {
-
 		var exists bool
-		var destinationGv schema.GroupVersion
-		if _, destinationGv, exists = mapping.GetGroupVersion(c.Spec.Group); !exists || c.Spec.Group != destinationGv.Group {
+		var destGv schema.GroupVersion
+		if _, destGv, exists = mapping.GetGroupVersion(c.Spec.Group); !exists || c.Spec.Group != destGv.Group {
 			continue
 		}
 
 		if e := resource.DeleteAll(
-			k, c.Spec.Names.Plural, c.Spec.Names.Kind, c.Spec.Names.ListKind, destinationGv, nslist); e != nil {
+			k, c.Spec.Names.Plural, c.Spec.Names.Kind, c.Spec.Names.ListKind, destGv, nslist); e != nil {
 			log.Errorf("Deletion error: name='%s', err:'%v'", c.Name, e)
-			if err == nil {
-				err = e
-			}
+			err = multierror.Append(err, e)
 		}
 	}
 
