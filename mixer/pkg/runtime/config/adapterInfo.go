@@ -49,12 +49,16 @@ type AdapterMetadata struct {
 type AdapterInfoRegistry interface {
 	GetAdapter(name string) *AdapterMetadata
 	GetTemplate(name string) *TemplateMetadata
+	GetAdapters() []string
+	GetTemplates() []string
 }
 
 // adapterInfoRegistry to ingest templates and adapters. It is single threaded.
 type adapterInfoRegistry struct {
-	adapters  map[string]*AdapterMetadata
-	templates map[string]*TemplateMetadata
+	adapters      map[string]*AdapterMetadata
+	templates     map[string]*TemplateMetadata
+	adapterNames  []string
+	templateNames []string
 }
 
 const adapterCfgMsgName = "Param"
@@ -63,7 +67,8 @@ const adapterCfgMsgName = "Param"
 // Note: For adding built-in templates that are not associated with any adapters, supply the `Info` object with
 // only `templates`, leaving other fields to default empty.
 func NewAdapterInfoRegistry(infos []*adapter.Info) (*adapterInfoRegistry, error) {
-	r := &adapterInfoRegistry{make(map[string]*AdapterMetadata), make(map[string]*TemplateMetadata)}
+	r := &adapterInfoRegistry{make(map[string]*AdapterMetadata), make(map[string]*TemplateMetadata),
+		make([]string, 0, len(infos)), make([]string, 0, len(infos))}
 	var resultErr error
 	log.Debugf("registering %#v", infos)
 
@@ -91,12 +96,17 @@ func NewAdapterInfoRegistry(infos []*adapter.Info) (*adapterInfoRegistry, error)
 		// empty adapter name means just the template needs to be ingested.
 		if info.Name != "" {
 			r.adapters[info.Name] = &AdapterMetadata{SupportedTemplates: tmplNames, Name: info.Name, ConfigDescSet: cfgFds, ConfigDescProto: cfgProto}
-
+			r.adapterNames = append(r.adapterNames, info.Name)
 		}
 	}
 
 	if resultErr != nil {
 		log.Error(resultErr.Error())
+	}
+
+	// now that all the templates are deduped and ingested, we can create a final name list
+	for k := range r.templates {
+		r.templateNames = append(r.templateNames, k)
 	}
 
 	return r, resultErr
@@ -117,6 +127,16 @@ func (r *adapterInfoRegistry) GetTemplate(name string) *TemplateMetadata {
 	}
 
 	return nil
+}
+
+// GetAdapters returns all the supported adapters
+func (r *adapterInfoRegistry) GetAdapters() []string {
+	return r.adapterNames
+}
+
+// GetTemplates returns all the supported templates
+func (r *adapterInfoRegistry) GetTemplates() []string {
+	return r.templateNames
 }
 
 func (r *adapterInfoRegistry) ingestTemplates(tmpls []string) ([]string, error) {

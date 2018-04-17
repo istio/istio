@@ -293,6 +293,10 @@ func TestNew(t *testing.T) {
 				t.Fatalf("want %d infos with names '%v'; got %d as '%v'",
 					len(td.wantInfos), td.wantInfos, len(reg.adapters), reg.adapters)
 			}
+			if len(reg.GetAdapters()) != len(td.wantInfos) {
+				t.Fatalf("want %d infos with names '%v'; got %d as '%v'",
+					len(td.wantInfos), td.wantInfos, len(reg.GetAdapters()), reg.GetAdapters())
+			}
 			for k, wantInfo := range td.wantInfos {
 				if adptMeta, ok := reg.adapters[k]; !ok {
 					t.Errorf("want info '%s' to be present; got '%v'", k, reg.adapters)
@@ -305,6 +309,10 @@ func TestNew(t *testing.T) {
 			if len(reg.templates) != len(td.wantTmpls) {
 				t.Fatalf("want %d templates with names '%v'; got %d as '%v'",
 					len(td.wantTmpls), td.wantTmpls, len(reg.templates), reg.templates)
+			}
+			if len(reg.GetTemplates()) != len(td.wantTmpls) {
+				t.Fatalf("want %d templates with names '%v'; got %d as '%v'",
+					len(td.wantTmpls), td.wantTmpls, len(reg.GetTemplates()), reg.GetTemplates())
 			}
 			for _, wantTmpl := range td.wantTmpls {
 				if _, ok := reg.templates[wantTmpl]; !ok {

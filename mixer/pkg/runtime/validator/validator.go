@@ -350,6 +350,19 @@ func (v *Validator) validateUpdate(ev *store.Event) error {
 		if err := v.validateUpdateRule(ev.Namespace, rule); err != nil {
 			return err
 		}
+	} else if handler, ok := ev.Value.Spec.(*cpb.Handler); ok && ev.Kind == config.HandlerKind {
+		if adapter := v.infoRegistry.GetAdapter(handler.Adapter); adapter == nil {
+			return fmt.Errorf("referenced adapter %s is not valid; only valid adapters are %v", handler.Adapter,
+				v.infoRegistry.GetAdapters())
+		} else {
+			// things to validate
+			// 	Param is valid as per the adapter config descriptor
+			// 	TODO Connection info is valid
+			// 	TODO invoke the out of proc adapter call to validate config
+
+			params := handler.Params.(map[interface{}]interface{})
+			fmt.Println(params)
+		}
 	} else if manifest, ok := ev.Value.Spec.(*cpb.AttributeManifest); ok && ev.Kind == config.AttributeManifestKind {
 		manifests := map[store.Key]*cpb.AttributeManifest{}
 		v.c.forEach(func(k store.Key, spec proto.Message) {
