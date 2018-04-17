@@ -1,0 +1,11 @@
+destination:
+  service: "*.google.com"
+match:
+  request:
+    headers:
+      uri:
+        exact: /path
+redirect:
+  uri: "/new/path"
+  authority: "foo.bar.com"
+

@@ -1,0 +1,7 @@
+syntax = "proto3";
+
+package foo.bar;
+
+import "mixer/adapter/model/v1beta1/extensions.proto";
+
+message Template {}

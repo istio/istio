@@ -1,0 +1,6 @@
+from grafana/grafana:5.0.0-beta2
+
+COPY grafana.ini /etc/grafana/
+COPY dashboards.yaml /etc/grafana/provisioning/dashboards/
+COPY datasources.yaml /etc/grafana/provisioning/datasources/
+COPY dashboards /var/lib/grafana/dashboards/

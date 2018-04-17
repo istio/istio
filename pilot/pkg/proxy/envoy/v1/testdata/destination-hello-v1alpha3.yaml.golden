@@ -1,0 +1,8 @@
+name: hello
+subsets:
+  - name: v0
+    labels:
+      version: v0
+  - name: v1
+    labels:
+      version: v1

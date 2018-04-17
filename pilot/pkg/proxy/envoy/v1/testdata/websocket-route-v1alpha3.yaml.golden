@@ -1,0 +1,10 @@
+hosts:
+  - hello
+http:
+  - route:
+    - destination:
+        name: hello
+    match:
+    - uri:
+        prefix: /websocket
+    websocketUpgrade: True

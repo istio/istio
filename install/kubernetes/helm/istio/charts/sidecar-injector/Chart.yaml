@@ -1,0 +1,10 @@
+name: sidecar-injector
+version: 0.5.0
+description: Helm chart for sidecar injector deployment
+keywords:
+  - istio
+  - sidecar-injector
+sources:
+  - http://github.com/istio/istio
+engine: gotpl
+icon: https://istio.io/favicons/android-192x192.png

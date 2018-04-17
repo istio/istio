@@ -1,0 +1,18 @@
+FROM ubuntu:xenial
+
+# Install Envoy.
+ADD envoy /usr/local/bin/envoy
+
+ADD pilot-agent /usr/local/bin/pilot-agent
+
+COPY envoy_pilot.json      /etc/istio/proxy/envoy_pilot.json
+COPY envoy_pilot_auth.json /etc/istio/proxy/envoy_pilot_auth.json
+COPY envoy_mixer.json      /etc/istio/proxy/envoy_mixer.json
+COPY envoy_mixer_auth.json /etc/istio/proxy/envoy_mixer_auth.json
+COPY envoy_bootstrap_tmpl.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
+
+# Allow non-root user to run envoy.
+RUN chmod 755 /usr/local/bin/envoy
+
+# The pilot-agent will bootstrap Envoy.
+ENTRYPOINT ["/usr/local/bin/pilot-agent"]

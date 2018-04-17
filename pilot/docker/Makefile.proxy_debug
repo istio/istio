@@ -1,0 +1,3 @@
+default:
+	docker build -f Dockerfile.proxy_debug --net=host -t docker-hub.ucweb.com:5000/istio/proxy_debug:0.7.1_20180402 .
+	docker push docker-hub.ucweb.com:5000/istio/proxy_debug:0.7.1_20180402

@@ -1,0 +1,165 @@
+{
+  "stats_config": {
+    "use_all_default_tags": false
+  },
+  "admin": {
+    "access_log_path": "/dev/stdout",
+    "address": {
+      "socket_address": {
+        "address": "127.0.0.1",
+        "port_value": 15000
+      }
+    }
+  },
+  "dynamic_resources": {
+    "lds_config": {
+      "api_config_source": {
+{{- if .ldsv2 }}
+        "api_type": "GRPC",
+        "refresh_delay": {{ .refresh_delay }},
+        "cluster_names": [
+          "xds-grpc"
+        ]{{ else }}
+        "api_type": "REST_LEGACY",
+        "refresh_delay": {{ .refresh_delay }},
+        "cluster_names": [
+          "rds"
+        ]{{ end }}
+      }
+    },
+    "cds_config": {
+      "api_config_source": {
+        "api_type": "REST_LEGACY",
+        "refresh_delay": {{ .refresh_delay }},
+        "cluster_names": [
+          "rds"
+        ]
+      }
+    },
+    "deprecated_v1": {
+      "sds_config": {
+        "api_config_source": {
+{{- if .edsv1  }}
+          "api_type": "REST_LEGACY",
+          "refresh_delay": {{ .refresh_delay }},
+          "cluster_names": [
+            "rds"
+          ]
+{{ else }}
+          "api_type": "GRPC",
+          "refresh_delay": {{ .refresh_delay }},
+          "cluster_names": [
+            "xds-grpc"
+          ]
+{{ end }}
+        }
+      }
+    }
+  },
+  "static_resources": {
+    "clusters": [
+      {
+        "name": "rds",
+        "type": "STRICT_DNS",
+        "connect_timeout": {{ .connect_timeout }},
+        "lb_policy": "ROUND_ROBIN",
+{{ if eq .config.ControlPlaneAuthPolicy 1 }}
+      "tls_context": {
+        "common_tls_context": {
+          "tls_certificates": {
+            "certificate_chain": {
+              "filename": "/etc/certs/cert-chain.pem"
+            },
+            "private_key": {
+              "filename": "/etc/certs/key.pem"
+            }
+          },
+          "validation_context": {
+            "trusted_ca": {
+              "filename": "/etc/certs/root-cert.pem"
+            },
+            "verify_subject_alt_name": [
+            {{- range $a, $s := .pilot_SAN }}
+              "{{$s}}"
+            {{- end}}
+            ]
+          }
+        }
+      },
+{{ end }}
+      "hosts": [
+          {
+            "socket_address": {{ .pilot_address }}
+          }
+        ]
+
+    },
+    {
+    "name": "xds-grpc",
+    "type": "STRICT_DNS",
+    "connect_timeout": {{ .connect_timeout }},
+    "lb_policy": "ROUND_ROBIN",
+    "hosts": [
+    {
+    "socket_address": {{ .pilot_grpc_address }}
+    }
+    ],
+    "circuit_breakers": {
+        "thresholds": [
+      {
+        "priority": "default",
+        "max_connections": "100000",
+        "max_pending_requests": "100000",
+        "max_requests": "100000"
+      },
+      {
+        "priority": "high",
+        "max_connections": "100000",
+        "max_pending_requests": "100000",
+        "max_requests": "100000"
+      }]
+    },
+    "http2_protocol_options": { }
+    }
+
+    {{ if .zipkin }}
+    ,
+      {
+        "name": "zipkin",
+        "type": "STRICT_DNS",
+        "connect_timeout": {
+          "seconds": 1
+        },
+        "lb_policy": "ROUND_ROBIN",
+        "hosts": [
+          {
+            "socket_address": {{ .zipkin }}
+          }
+        ]
+      }
+      {{ end }}
+    ]
+  },
+  {{ if .zipkin }}
+  "tracing": {
+    "http": {
+      "name": "envoy.zipkin",
+      "config": {
+        "collector_cluster": "zipkin"
+      }
+    }
+  },
+  {{ end }}
+  {{ if .statsd }}
+  "stats_sinks": [
+    {
+      "name": "envoy.statsd",
+      "config": {
+        "address": {
+          "socket_address": {{ .statsd }}
+        }
+      }
+    }
+  ]
+{{ end }}
+}

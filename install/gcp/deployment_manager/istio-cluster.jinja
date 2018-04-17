@@ -1,0 +1,155 @@
+{% set CLUSTER_NAME = env['deployment'] + '-' + env['name'] %}
+
+resources:
+
+- name: {{ properties['gkeClusterName'] }}
+  type: container.v1.cluster
+  properties:
+    zone: {{ properties['zone'] }}
+    cluster:
+      name: {{ properties['gkeClusterName'] }}
+      initialClusterVersion: 1.9.2-gke.1
+      legacyAbac:
+        enabled: false
+      initialNodeCount: {{ properties['initialNodeCount'] }}
+      nodeConfig:
+        machineType: {{ properties["instanceType"] }}
+        oauthScopes:
+        - https://www.googleapis.com/auth/logging.write
+        - https://www.googleapis.com/auth/monitoring
+
+- type: runtimeconfig.v1beta1.config
+  name: {{ CLUSTER_NAME }}-config
+  properties:
+    config: {{ CLUSTER_NAME }}-config
+
+- type: runtimeconfig.v1beta1.waiter
+  name: {{ CLUSTER_NAME }}-waiter
+  metadata:
+    dependsOn:
+    - {{ CLUSTER_NAME }}-config
+  properties:
+    parent: $(ref.{{ CLUSTER_NAME }}-config.name)
+    waiter: {{ CLUSTER_NAME }}-waiter
+    timeout: 600s
+    success:
+      cardinality:
+        path: /success
+        number: 1
+    failure:
+      cardinality:
+        path: /failure
+        number: 1
+
+- name: {{ CLUSTER_NAME }}-vm
+  type: compute.v1.instance
+  metadata:
+    dependsOn:
+    - {{ properties['gkeClusterName'] }}
+  properties:
+    zone: {{ properties['zone'] }}
+    machineType: https://www.googleapis.com/compute/v1/projects/{{ env["project"] }}/zones/{{ properties["zone"] }}/machineTypes/{{ properties["instanceType"] }}
+    tags:
+      items:
+      -  istio-init
+    serviceAccounts:
+      - email: "default"
+        scopes:
+        - https://www.googleapis.com/auth/cloud-platform
+        - https://www.googleapis.com/auth/compute
+        - https://www.googleapis.com/auth/logging.write
+        - https://www.googleapis.com/auth/monitoring
+        - https://www.googleapis.com/auth/servicecontrol
+        - https://www.googleapis.com/auth/service.management.readonly
+        - https://www.googleapis.com/auth/userinfo.email
+
+    networkInterfaces:
+    - network: https://www.googleapis.com/compute/v1/projects/{{ env["project"] }}/global/networks/default
+      accessConfigs:
+      - name: External NAT
+        type: ONE_TO_ONE_NAT
+    disks:
+    - deviceName: boot
+      type: PERSISTENT
+      boot: true
+      autoDelete: true
+      initializeParams:
+        diskName: {{ CLUSTER_NAME }}-vm-disk
+        sourceImage: https://www.googleapis.com/compute/v1/projects/debian-cloud/global/images/debian-8-jessie-v20170918
+    metadata:
+      items:
+      - key: startup-script
+        value: |
+          #!/bin/bash -x
+          apt-get update && apt-get install -y git curl kubectl
+          export HOME=/root
+          gcloud components update -q
+          gcloud components install beta -q
+          gcloud container clusters get-credentials {{ properties['gkeClusterName'] }} --zone {{ properties['zone'] }}
+          kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user=$(gcloud config get-value core/account)
+          curl -L https://raw.githubusercontent.com/istio/istio/master/release/downloadIstioCandidate.sh | ISTIO_VERSION={{ properties['installIstioRelease'] }} sh -
+          cd istio-{{ properties['installIstioRelease'] }}
+
+          {% if  properties['enableMutualTLS'] %}
+            kubectl apply -f install/kubernetes/istio-auth.yaml
+          {% else %}
+            kubectl apply -f install/kubernetes/istio.yaml
+          {% endif %}
+
+          {% if  properties['enableAutomaticSidecarInjection'] %}
+            # Setup automatic istio sidecar injection for the default namespace.
+            {% if properties['installIstioRelease'] == "0.5.1" %}
+              # Note that the original 0.5.1-tagged version of this script had
+              # a timing bug; here we pull one commit later.
+              curl -s https://raw.githubusercontent.com/istio/istio/41203341818c4dada2ea5385cfedc7859c01e957/install/kubernetes/webhook-create-signed-cert.sh -o ./install/kubernetes/webhook-create-signed-cert.sh && chmod +x ./install/kubernetes/webhook-create-signed-cert.sh
+              curl -s https://raw.githubusercontent.com/istio/istio/0.5.1/install/kubernetes/webhook-patch-ca-bundle.sh -o ./install/kubernetes/webhook-patch-ca-bundle.sh && chmod +x ./install/kubernetes/webhook-patch-ca-bundle.sh
+
+            {% endif %}
+
+            ./install/kubernetes/webhook-create-signed-cert.sh \
+                --service istio-sidecar-injector \
+                    --namespace istio-system \
+                    --secret sidecar-injector-certs
+            kubectl apply -f install/kubernetes/istio-sidecar-injector-configmap-release.yaml
+            cat install/kubernetes/istio-sidecar-injector.yaml | \
+                ./install/kubernetes/webhook-patch-ca-bundle.sh > \
+                install/kubernetes/istio-sidecar-injector-with-ca-bundle.yaml
+            kubectl apply -f install/kubernetes/istio-sidecar-injector-with-ca-bundle.yaml
+            # Wait for the deployment to finish
+            kubectl rollout status -n istio-system deploy/istio-sidecar-injector
+            kubectl label namespace default istio-injection=enabled
+          {% endif %}
+
+          {% if properties['enableGrafana'] or properties['enablePrometheus'] %}
+            {% if properties['installIstioRelease'] == '0.5.1' %}
+              # Unfortunately the default prometheus RBAC rules have two small
+              # omissions - correct that before proceeding.
+              # See https://github.com/istio/istio/pull/3393 and
+              # https://github.com/istio/istio/issues/3149#issuecomment-365431877
+              # for more details.
+              awk -v s="  - nodes/proxy" 'NR==257{print s}1' install/kubernetes/addons/prometheus.yaml \
+                  | awk -v s="  namespace: istio-system" 'NR==245{print s}1' - \
+                  | kubectl apply -f -
+            {% else %}
+              kubectl apply -f install/kubernetes/addons/prometheus.yaml
+            {% endif %}
+          {% endif %}
+
+          {% if  properties['enableGrafana'] %}
+            kubectl apply -f install/kubernetes/addons/grafana.yaml
+          {% endif %}
+
+          {% if  properties['enableZipkin'] %}
+            kubectl apply -f install/kubernetes/addons/zipkin.yaml
+          {% endif %}
+
+          {% if  properties['enableServiceGraph'] %}
+            kubectl apply -f install/kubernetes/addons/servicegraph.yaml
+          {% endif %}
+
+          {% if  properties['enableBookInfoSample'] %}
+             kubectl apply -f samples/bookinfo/kube/bookinfo.yaml
+          {% endif %}
+
+          gcloud beta runtime-config configs variables set success/{{ CLUSTER_NAME }}-waiter success --config-name $(ref.{{ CLUSTER_NAME }}-config.name)
+          gcloud -q compute instances delete {{ CLUSTER_NAME }}-vm --zone {{ properties['zone'] }}

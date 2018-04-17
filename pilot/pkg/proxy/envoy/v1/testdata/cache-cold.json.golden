@@ -1,0 +1,16 @@
+{
+  "cache_stats": {
+   "/v1/clusters/istio-proxy/sidecar~10.1.1.0~v0.default~default.svc.cluster.local": {
+    "hit": 0,
+    "miss": 1
+   },
+   "/v1/registration/hello.default.svc.cluster.local%7Chttp": {
+    "hit": 0,
+    "miss": 1
+   },
+   "/v1/routes/80/istio-proxy/sidecar~10.1.1.0~v0.default~default.svc.cluster.local": {
+    "hit": 0,
+    "miss": 1
+   }
+  }
+ }

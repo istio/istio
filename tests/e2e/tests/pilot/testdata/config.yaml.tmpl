@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio
+data:
+  mesh: |-
+    defaultConfig:
+      configPath:             "/etc/istio/proxy"
+      binaryPath:             "/usr/local/bin/envoy"
+      serviceCluster:         istio-proxy
+      drainDuration:          2s
+      parentShutdownDuration: 3s
+{{if eq .Auth.String "NONE"}}
+      discoveryAddress:       istio-pilot.{{.IstioNamespace}}:8080
+{{else}}
+      discoveryAddress:       istio-pilot.{{.IstioNamespace}}:15005
+{{end}}
+      discoveryRefreshDelay:  1s
+      connectTimeout:         5s
+      proxyAdminPort:         15000
+      controlPlaneAuthPolicy:        {{ .Auth }}
+{{if .Zipkin}}
+      zipkinAddress:          zipkin.{{.IstioNamespace}}:9411
+{{end}}
+{{if .Mixer}}
+    mixerCheckServer:         istio-mixer.{{.IstioNamespace}}:15004
+    mixerReportServer:        istio-mixer.{{.IstioNamespace}}:15004
+{{end}}
+    authPolicy:               {{ .Auth }}
+    connectTimeout:           5s
+    rdsRefreshDelay:          1s
+    disablePolicyChecks:      false
+    ingressClass:             {{.IstioNamespace}}
+    ingressControllerMode:    STRICT
+    enableTracing:            true
+    accessLogFile:            /dev/stdout
+    mtlsExcludedServices: [ "fake-control.{{.Namespace}}.svc.cluster.local" ]

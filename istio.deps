@@ -1,0 +1,17 @@
+[
+	{
+		"_comment": "This file is auto updated by a robot executing `https://github.com/istio/test-infra/blob/master/prow/test-infra-update-deps.sh`.",
+		"name": "istio.io/api",
+		"repoName": "api",
+		"prodBranch": "master",
+		"file": "Gopkg.toml",
+		"lastStableSHA": "9d978d76653da8b7b4bd6421b7e8f9925d8c79ea"
+	},
+	{
+		"name": "PROXY_REPO_SHA",
+		"repoName": "proxy",
+		"prodBranch": "master",
+		"file": "",
+		"lastStableSHA": "a53ea297f935e46ec0a00dc4ec056e7f752202d6"
+	}
+]

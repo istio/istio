@@ -1,0 +1,36 @@
+# Configuration overrides for deploying istio for testing
+
+global:
+  nodePort: true
+  proxy:
+    image: proxy_debug
+
+ingress:
+  service:
+    nodePort:
+      enabled: true
+  autoscaleMin: 1
+  autoscaleMax: 8
+  meshExpansion:
+    enabled: true
+
+  zvpn:
+    enabled: true
+    apps:
+    - externalPort: 9999
+      portName: http-9999
+
+
+prometheus:
+  enabled: true
+  ingress:
+    enabled: true
+  service:
+    nodePort:
+      enabled: true
+
+grafana:
+  enabled: true
+
+servicegraph:
+  enabled: true

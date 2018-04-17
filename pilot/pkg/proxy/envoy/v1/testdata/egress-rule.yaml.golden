@@ -1,0 +1,9 @@
+destination:
+  service: "*.google.com"
+ports:
+- port: 80
+  protocol: http
+- port: 443
+  protocol: https
+- port: 8080
+  protocol: http2

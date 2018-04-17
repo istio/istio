@@ -1,0 +1,11 @@
+apiVersion: config.istio.io/v1alpha2
+kind: EgressRule
+metadata:
+  name: google
+spec:
+  destination:
+      service: "*google.com"
+  ports:
+      - port: 443
+        protocol: https
+  use_egress_proxy: false

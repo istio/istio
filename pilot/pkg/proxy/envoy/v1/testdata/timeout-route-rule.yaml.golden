@@ -1,0 +1,9 @@
+destination:
+  name: world
+httpReqTimeout:
+  simpleTimeout:
+    timeout: 30s
+httpReqRetries:
+  simple_retry:
+    attempts: 1
+    perTryTimeout: 5s

@@ -1,0 +1,11 @@
+apiVersion: v1
+name: pilot
+version: 0.5.0
+description: Helm chart for pilot deployment
+keywords:
+  - istio
+  - pilot
+sources:
+  - http://github.com/istio/istio
+engine: gotpl
+icon: https://istio.io/favicons/android-192x192.png

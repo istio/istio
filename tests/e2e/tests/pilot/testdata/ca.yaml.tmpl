@@ -1,0 +1,28 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-ca-service-account
+---
+kind: Deployment
+apiVersion: extensions/v1beta1
+metadata:
+  name: istio-ca
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: istio-ca-app
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: istio-ca-service-account
+      containers:
+      - name: istio-ca-container
+        image: {{.Hub}}/istio-ca:{{.Tag}}
+        imagePullPolicy: {{.ImagePullPolicy}}
+        args:
+        - --istio-ca-storage-namespace=istio-system
+        - --grpc-port=8060
+        - --grpc-hostname=istio-ca

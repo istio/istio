@@ -1,0 +1,9 @@
+destination:
+  name: world
+route:
+  - labels:
+       version: v0
+    weight: 75
+  - labels:
+       version: v1
+    weight: 25

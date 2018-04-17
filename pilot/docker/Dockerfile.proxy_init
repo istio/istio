@@ -1,0 +1,7 @@
+FROM ubuntu:xenial
+RUN apt-get update && apt-get install -y \
+    iptables \
+ && rm -rf /var/lib/apt/lists/*
+
+ADD prepare_proxy.sh /usr/local/bin/
+ENTRYPOINT ["/usr/local/bin/prepare_proxy.sh"]

@@ -1,0 +1,10 @@
+hosts:
+  - "*.google.com"
+ports:
+  - number: 80
+    name: http-number
+    protocol: http
+  - number: 8080
+    name: http2-number
+    protocol: http2
+discovery: NONE

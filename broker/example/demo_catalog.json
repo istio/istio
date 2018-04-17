@@ -1,0 +1,40 @@
+{
+  "services": [
+    {
+      "name": "SoftLayer",
+      "id": "sl-service-guid",
+      "description": "Provides the SL VM service, including VM creation, key pair injection",
+      "requires": [],
+      "tags": [],
+      "bindable": true,
+      "metadata": {
+        "provider": {
+          "name": "IBM"
+        },
+        "listing": {
+          "imageUrl": "http://daasle.biz/wp-content/uploads/2013/04/ibm-softlayer-logo96436.png",
+          "blurb": "A SoftLayer CF broker to create VMs",
+          "longDescription": "Provides a SL VM service, including VM creation, key pair injection"
+        },
+        "displayName": "SoftLayer Service"
+      },
+      "dashboard_client": {
+        "id": "<sso-test>",
+        "secret": "<sso-secret>",
+        "redirect_uri": "http://softlayer.com"
+      },
+      "plan_updateable": true,
+      "plans": [
+        {
+          "name": "small",
+          "id": "small-plan-guid",
+          "description": "stands for small type VM",
+          "metadata": {
+            "cost": 0,
+            "bullets": []
+          }
+        }
+      ]
+    }
+  ]
+}

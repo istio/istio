@@ -1,0 +1,8 @@
+rules:
+- match:
+  - clause:
+      api.operation:
+        exact: echo
+  quotas:
+  - charge: "1"
+    quota: read-requests

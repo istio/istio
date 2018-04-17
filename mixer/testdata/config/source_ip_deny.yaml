@@ -1,0 +1,17 @@
+# This rule denies all TCP traffic sent to the  
+# destination service of "foo.default.svc.cluster.local"
+# that is NOT from a source ip addr of "10.11.12.13"
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: mixerdenyip
+  namespace: istio-system
+  labels:
+    istio-protocol: tcp
+spec:
+  match: destination.service == "foo.default.svc.cluster.local" && source.ip != ip("10.11.12.13")
+  actions:
+  - handler: denyall.denier
+    instances:
+    - denyrequest.checknothing
+---

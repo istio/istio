@@ -1,0 +1,284 @@
+# Use --set or additional values.yaml file to configure settings.
+# This file no longer uses sed, updateVersions.sh or istio.VERSIONS
+# TODO: evaluate if we need individual overrides for each component version, istio
+# is not typically tested with a mix of versions. Only supported case is version upgrade.
+
+# Common settings.
+global:
+  # Default tag for Istio images.
+  hub: docker.io/istionightly
+
+  # Default tag for Istio images.
+  # Should track latest released version.
+  # Currently using nightly build, for testing
+  tag: circleci-nightly
+  proxy:
+    image: proxy
+
+  # imagePullPolicy is applied to istio control plane components.
+  imagePullPolicy: IfNotPresent
+
+  # Not recommended for user to configure this. Hyperkube image to use when creating custom resources
+  hyperkube:
+    repository: quay.io/coreos/hyperkube
+    tag: v1.7.6_coreos.0
+
+  # Install istio CA.
+  securityEnabled: true
+
+  # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
+  # propagated, not recommended for tests.
+  controlPlaneSecurityEnabled: false
+
+  # Default mtls policy. If true, mtls between services will be enabled by default.
+  mtls:
+    # Default setting for service-to-service mtls. Can be set explicitly using
+    # destination rules or service annotations.
+    enabled: false
+    # List of fully qualified services to exclude from mtls
+    # TODO: add the templating.
+    mtlsExcludedServices:
+    - "kubernetes.default.svc.cluster.local"
+
+  # create RBAC resources. Must be set for any cluster configured with rbac.
+  rbacEnabled: true
+
+  # Default is 1 second
+  refreshInterval: 10s
+
+#
+# ingress configuration
+#
+ingress:
+  enabled: true
+  serviceAccountName: default
+  imagePullPolicy: IfNotPresent
+  autoscaleMin: 2
+  autoscaleMax: 8
+  resources: {}
+# limits:
+#  cpu: 100m
+#  memory: 128Mi
+# requests:
+#  cpu: 100m
+#  memory: 128Mi
+  nodeSelector: {}
+  service:
+    nodePort:
+      enabled: false
+      port: 32000
+
+#
+# sidecar-injector configuration
+#
+sidecar-injector:
+  enabled: false
+  serviceAccountName: default # used only if RBAC is not enabled
+  replicaCount: 1
+  imagePullPolicy: IfNotPresent
+  resources: {}
+  # limits:
+  #  cpu: 100m
+  #  memory: 128Mi
+  # requests:
+  #  cpu: 100m
+  #  memory: 128Mi
+  nodeSelector: {}
+
+  # istio egress capture whitelist
+  # https://istio.io/docs/tasks/traffic-management/egress.html#calling-external-services-directly
+  # example: includeIPRanges: "172.30.0.0/16,172.20.0.0/16"
+  # would only capture egress traffic on those two IP Ranges, all other outbound traffic would
+  # be allowed by the sidecar
+  includeIPRanges: {}
+
+#
+# mixer configuration
+#
+mixer:
+  enabled: true
+  serviceAccountName: default # used only if RBAC is not enabled
+  replicaCount: 1
+  imagePullPolicy: IfNotPresent
+  resources: {}
+  # limits:
+  #  cpu: 100m
+  #  memory: 128Mi
+  # requests:
+  #  cpu: 100m
+  #  memory: 128Mi
+  nodeSelector: {}
+
+  prometheusStatsdExporter:
+    repository: prom/statsd-exporter
+    tag: latest
+    imagePullPolicy: IfNotPresent
+    resources: {}
+
+#
+# pilot configuration
+#
+pilot:
+  enabled: true
+  serviceAccountName: default # used only if RBAC is not enabled
+  replicaCount: 1
+  imagePullPolicy: IfNotPresent
+  resources: {}
+  # limits:
+  #  cpu: 100m
+  #  memory: 128Mi
+  # requests:
+  #  cpu: 100m
+  #  memory: 128Mi
+  nodeSelector: {}
+
+#
+# security configuration
+#
+security:
+  serviceAccountName: default # used only if RBAC is not enabled
+  replicaCount: 1
+  imagePullPolicy: IfNotPresent
+  resources: {}
+  # limits:
+  #  cpu: 100m
+  #  memory: 128Mi
+  # requests:
+  #  cpu: 100m
+  #  memory: 128Mi
+  nodeSelector: {}
+
+#
+# addons configuration
+#
+grafana:
+  enabled: false
+  replicaCount: 1
+  imagePullPolicy: IfNotPresent
+  service:
+    name: http
+    type: ClusterIP
+    externalPort: 3000
+    internalPort: 3000
+  ingress:
+    enabled: false
+    # Used to create an Ingress record.
+    hosts:
+      - grafana.local
+    annotations:
+      # kubernetes.io/ingress.class: nginx
+      # kubernetes.io/tls-acme: "true"
+    tls:
+      # Secrets must be manually created in the namespace.
+      # - secretName: grafana-tls
+      #   hosts:
+      #     - grafana.local
+
+  resources: {}
+    # limits:
+    #  cpu: 100m
+    #  memory: 128Mi
+    # requests:
+    #  cpu: 100m
+    #  memory: 128Mi
+  nodeSelector: {}
+
+prometheus:
+  enabled: false
+  replicaCount: 1
+  image:
+    repository: docker.io/prom/prometheus
+    tag: latest
+    pullPolicy: IfNotPresent
+  ingress:
+    enabled: false
+    # Used to create an Ingress record.
+    hosts:
+      - prometheus.local
+    annotations:
+      # kubernetes.io/ingress.class: nginx
+      # kubernetes.io/tls-acme: "true"
+    tls:
+      # Secrets must be manually created in the namespace.
+      # - secretName: prometheus-tls
+      #   hosts:
+      #     - prometheus.local
+  resources: {}
+    # limits:
+    #  cpu: 100m
+    #  memory: 128Mi
+    # requests:
+    #  cpu: 100m
+    #  memory: 128Mi
+  nodeSelector: {}
+  service:
+    nodePort:
+      enabled: false
+      port: 32090
+
+servicegraph:
+  enabled: false
+  replicaCount: 1
+  imagePullPolicy: IfNotPresent
+  service:
+    name: http
+    type: ClusterIP
+    externalPort: 8088
+    internalPort: 8088
+  ingress:
+    enabled: false
+    # Used to create an Ingress record.
+    hosts:
+      - servicegraph.local
+    annotations:
+      # kubernetes.io/ingress.class: nginx
+      # kubernetes.io/tls-acme: "true"
+    tls:
+      # Secrets must be manually created in the namespace.
+      # - secretName: servicegraph-tls
+      #   hosts:
+      #     - servicegraph.local
+  resources: {}
+    # limits:
+    #  cpu: 100m
+    #  memory: 128Mi
+    # requests:
+    #  cpu: 100m
+    #  memory: 128Mi
+  nodeSelector: {}
+  # prometheus addres
+  prometheusAddr: http://prometheus:9090
+
+zipkin:
+  enabled: false
+  replicaCount: 1
+  image:
+    repository: docker.io/openzipkin/zipkin
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    name: http
+    type: ClusterIP
+    externalPort: 9411
+    internalPort: 9411
+  ingress:
+    enabled: false
+    # Used to create an Ingress record.
+    hosts:
+      - zipkin.local
+    annotations:
+      # kubernetes.io/ingress.class: nginx
+      # kubernetes.io/tls-acme: "true"
+    tls:
+      # Secrets must be manually created in the namespace.
+      # - secretName: zipkin-tls
+      #   hosts:
+      #     - zipkin.local
+  resources: {}
+    # limits:
+    #  cpu: 100m
+    #  memory: 128Mi
+    # requests:
+    #  cpu: 100m
+    #  memory: 128Mi
+  nodeSelector: {}

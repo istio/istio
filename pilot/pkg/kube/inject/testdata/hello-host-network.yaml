@@ -1,0 +1,20 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: hello-host-network
+spec:
+  replicas: 7
+  template:
+    metadata:
+      labels:
+        app: hello-host-network
+        tier: backend
+        track: stable
+    spec:
+      containers:
+        - name: hello-host-network
+          image: "fake.docker.io/google-samples/hello-go-gke:1.0"
+          ports:
+            - name: http
+              containerPort: 80
+      hostNetwork: true

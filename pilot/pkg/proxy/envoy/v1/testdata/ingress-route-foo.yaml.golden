@@ -1,0 +1,9 @@
+destination:
+  name: hello
+destinationPort: 81
+tlsSecret: my-secret.default
+match:
+  request:
+    headers:
+      uri:
+        prefix: "/bar"

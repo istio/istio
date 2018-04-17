@@ -1,0 +1,17 @@
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: reviews-test-v2
+spec:
+# Route rules are the same across platforms. The rule files differ in the DNS domain used for the platform.
+  destination:
+    service: reviews
+  precedence: 2
+  match:
+    request:
+      headers:
+        cookie:
+          regex: "^(.*?;)?(user=jason)(;.*)?$"
+  route:
+  - labels:
+      version: v2

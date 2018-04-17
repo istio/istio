@@ -1,0 +1,6 @@
+policies:
+- name: auth-spec
+  namespace: default
+services:
+- name: hello
+  namespace: default

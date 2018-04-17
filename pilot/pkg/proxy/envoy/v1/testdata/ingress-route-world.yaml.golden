@@ -1,0 +1,10 @@
+destination:
+  name: world
+destinationPortName: http
+match:
+  request:
+    headers:
+      authority:
+        exact: world.com
+      uri:
+        exact: "/hello"

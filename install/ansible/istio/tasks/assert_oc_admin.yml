@@ -1,0 +1,18 @@
+- name: Find users that have the admin role
+  shell: |
+    {{ cmd_path }} get ClusterRoleBinding cluster-admin -o 'jsonpath={.subjects[*].name}' 2> /dev/null
+  register: ro
+  ignore_errors: true
+
+- name: Get current logged in user
+  command: "{{ cmd_path }} whoami"
+  register: uo
+  ignore_errors: true
+
+- assert:
+    that:
+      - ro.rc == 0
+      - uo.rc == 0
+      - uo.stdout in ro.stdout
+    msg: "Make sure you use 'oc login' with a user that is an admin before running the playbook"
+

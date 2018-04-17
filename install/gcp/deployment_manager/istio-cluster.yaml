@@ -1,0 +1,20 @@
+
+imports:
+- path: istio-cluster.jinja
+
+resources:
+- name: my-cluster
+  type: istio-cluster.jinja
+  properties:
+    gkeClusterName: istio-cluster
+    zone: us-central1-a
+    initialNodeCount: 3
+    instanceType: n1-standard-2
+    enableAutomaticSidecarInjection: true
+    enableMutualTLS: false
+    enablePrometheus: true
+    enableGrafana: true
+    enableZipkin: true
+    enableServiceGraph: true
+    enableBookInfoSample: true
+    installIstioRelease: 0.6.0

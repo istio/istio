@@ -1,0 +1,7 @@
+servers:
+- port:
+    number: 10080
+    name: http
+    protocol: http
+  hosts:
+  - "*.example.com"

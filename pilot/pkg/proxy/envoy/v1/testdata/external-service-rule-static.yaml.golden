@@ -1,0 +1,21 @@
+hosts:
+  - "*.google.com"
+ports:
+  - number: 80
+    name: http-port
+    protocol: http
+  - number: 8080
+    name: http-alt-port
+    protocol: http
+discovery: STATIC
+endpoints:
+  - address: 2.2.2.2
+    ports:
+      http-port: 7080
+      http-alt-port: 18080
+  - address: 3.3.3.3
+    ports:
+      http-port: 1080
+  - address: 4.4.4.4
+    labels:
+      foo: bar

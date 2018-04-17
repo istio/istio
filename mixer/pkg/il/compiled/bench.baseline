@@ -1,0 +1,7 @@
+# 3/19/2018
+BenchmarkCompiled/ExprBench/ok_1st-8         	 5000000	       288 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCompiled/ExprBench/ok_2nd-8         	 2000000	      1063 ns/op	      56 B/op	       4 allocs/op
+BenchmarkCompiled/ExprBench/not_found-8      	 2000000	       892 ns/op	      56 B/op	       4 allocs/op
+BenchmarkCompiled/true_&&_false-8            	10000000	       210 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCompiled/true_&&_true-8             	10000000	       215 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCompiled/false_&&_false-8           	10000000	       216 ns/op	       0 B/op	       0 allocs/op

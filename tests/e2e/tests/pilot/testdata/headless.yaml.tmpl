@@ -1,0 +1,24 @@
+# Test service without the proxy
+apiVersion: v1
+kind: Service
+metadata:
+  name: headless
+  labels:
+    app: b
+spec:
+  clusterIP: None
+  ports:
+  - port: 80
+    name: http
+  - port: 8080
+    name: http-two
+  - port: 10090
+    name: tcp
+  - port: 19090
+    name: https
+  - port: 70
+    name: http2-example
+  - port: 7070
+    name: grpc
+  selector:
+    app: b

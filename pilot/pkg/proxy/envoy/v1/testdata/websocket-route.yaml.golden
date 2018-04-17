@@ -1,0 +1,8 @@
+destination:
+  name: hello
+match:
+  request:
+    headers:
+      uri:
+        prefix: /websocket
+websocketUpgrade: True
