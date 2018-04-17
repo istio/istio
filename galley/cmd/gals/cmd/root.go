@@ -73,6 +73,9 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 	rootCmd.PersistentFlags().StringVar(&flags.kubeConfig, "kubeconfig", "",
 		"Use a Kubernetes configuration file instead of in-cluster configuration")
 
+	rootCmd.PersistentFlags().DurationVar(&flags.resyncPeriod, "resyncPeriod", 0,
+		"Resync period for rescanning Kubernetes resources")
+
 	rootCmd.AddCommand(purgeCmd(fatalf))
 	rootCmd.AddCommand(serverCmd(fatalf))
 	rootCmd.AddCommand(validatorCmd(printf, fatalf))
