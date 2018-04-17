@@ -24,9 +24,8 @@ import (
 )
 
 func TestExternalServiceRouteFaultInjection(t *testing.T) {
-	// egress rules are v1alpha1
-	if !tc.V1alpha1 {
-		t.Skipf("Skipping %s: v1alpha1=false", t.Name())
+	if !tc.V1alpha3 {
+		t.Skipf("Skipping %s: v1alpha3=false", t.Name())
 	}
 
 	var cfgs *deployableConfig
