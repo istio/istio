@@ -64,45 +64,6 @@ import (
 	"google.golang.org/grpc/grpclog"
 )
 
-// This type exists so we can have a bit of logic sitting in front of all the real core calls for the
-// case where we are intercepting other log packages. This lets us subject the log output to the
-// default scope's log level, as is these other log packages were in fact directly outputting to the
-// default scope.
-type interceptor struct {
-	zapcore.Core
-}
-
-func (in interceptor) Check(ent zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.CheckedEntry {
-	switch ent.Level {
-	case zapcore.ErrorLevel:
-		if !defaultScope.ErrorEnabled() {
-			return nil
-		}
-	case zapcore.WarnLevel:
-		if !defaultScope.WarnEnabled() {
-			return nil
-		}
-	case zapcore.InfoLevel:
-		if !defaultScope.InfoEnabled() {
-			return nil
-		}
-	case zapcore.DebugLevel:
-		if !defaultScope.DebugEnabled() {
-			return nil
-		}
-	}
-
-	return in.Core.Check(ent, ce)
-}
-
-func (in interceptor) With(fields []zapcore.Field) zapcore.Core {
-	return &interceptor{Core: in.Core.With(fields)}
-}
-
-func (in interceptor) Write(ent zapcore.Entry, f []zapcore.Field) error {
-	return in.Core.Write(ent, f)
-}
-
 // none is used to disable logging output as well as to disable stack tracing.
 const none zapcore.Level = 100
 
@@ -120,7 +81,7 @@ func init() {
 }
 
 // prepZap is a utility function used by the Configure function.
-func prepZap(options *Options) (zapcore.Core, zapcore.WriteSyncer, error) {
+func prepZap(options *Options) (zapcore.Core, zapcore.Core, zapcore.WriteSyncer, error) {
 	encCfg := zapcore.EncoderConfig{
 		TimeKey:        "time",
 		LevelKey:       "level",
@@ -154,7 +115,7 @@ func prepZap(options *Options) (zapcore.Core, zapcore.WriteSyncer, error) {
 
 	errSink, closeErrorSink, err := zap.Open(options.ErrorOutputPaths...)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	var outputSink zapcore.WriteSyncer
@@ -162,7 +123,7 @@ func prepZap(options *Options) (zapcore.Core, zapcore.WriteSyncer, error) {
 		outputSink, _, err = zap.Open(options.OutputPaths...)
 		if err != nil {
 			closeErrorSink()
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 	}
 
@@ -175,7 +136,21 @@ func prepZap(options *Options) (zapcore.Core, zapcore.WriteSyncer, error) {
 		sink = outputSink
 	}
 
-	return zapcore.NewCore(enc, sink, zap.NewAtomicLevelAt(zapcore.DebugLevel)), errSink, nil
+	var enabler zap.LevelEnablerFunc = func(lvl zapcore.Level) bool {
+		switch lvl {
+		case zapcore.ErrorLevel:
+			return defaultScope.ErrorEnabled()
+		case zapcore.WarnLevel:
+			return defaultScope.WarnEnabled()
+		case zapcore.InfoLevel:
+			return defaultScope.InfoEnabled()
+		}
+		return defaultScope.DebugEnabled()
+	}
+
+	return zapcore.NewCore(enc, sink, zap.NewAtomicLevelAt(zapcore.DebugLevel)),
+		zapcore.NewCore(enc, sink, enabler),
+		errSink, nil
 }
 
 func formatDate(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
@@ -275,7 +250,7 @@ func updateScopes(options *Options, core zapcore.Core, errSink zapcore.WriteSync
 // You typically call this once at process startup.
 // Once this call returns, the logging system is ready to accept data.
 func Configure(options *Options) error {
-	core, errSink, err := prepZap(options)
+	core, captureCore, errSink, err := prepZap(options)
 	if err != nil {
 		return err
 	}
@@ -298,7 +273,7 @@ func Configure(options *Options) error {
 		opts = append(opts, zap.AddStacktrace(levelToZap[l]))
 	}
 
-	captureLogger := zap.New(interceptor{core}, opts...)
+	captureLogger := zap.New(captureCore, opts...)
 
 	// capture global zap logging and force it through our logger
 	_ = zap.ReplaceGlobals(captureLogger)
@@ -320,9 +295,10 @@ var syncFn atomic.Value
 // Sync flushes any buffered log entries.
 // Processes should normally take care to call Sync before exiting.
 func Sync() error {
+	var err error
 	if s := syncFn.Load().(func() error); s != nil {
-		return s()
+		err = s()
 	}
 
-	return nil
+	return err
 }
