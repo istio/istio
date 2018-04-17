@@ -211,6 +211,7 @@ FilterTrailersStatus Filter::encodeTrailers(Http::HeaderMap& trailers) {
 
 void Filter::setEncoderFilterCallbacks(
     StreamEncoderFilterCallbacks& callbacks) {
+  ENVOY_LOG(debug, "Called Mixer::Filter : {}", __func__);
   encoder_callbacks_ = &callbacks;
 }
 

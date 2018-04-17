@@ -81,8 +81,8 @@ void AttributesBuilder::ExtractReportAttributes(
                        request_->check_status.error_code());
       builder.AddString(AttributeName::kCheckErrorMessage,
                         request_->check_status.ToString());
-      builder.AddString(AttributeName::kConnectionEvent, kConnectionClose);
     }
+    builder.AddString(AttributeName::kConnectionEvent, kConnectionClose);
   } else {
     last_report_info->received_bytes = info.received_bytes;
     last_report_info->send_bytes = info.send_bytes;
