@@ -107,6 +107,11 @@ func TestIngressGateway503DuringRuleChange(t *testing.T) {
 		YamlFiles: []string{"testdata/v1alpha3/rule-503test-destinationrule-c-del-subset.yaml"},
 	}
 
+	waitChan := make(chan int)
+	var resp ClientResponse
+	var err error
+	var fatalError bool
+
 	if err := gateway.Setup(); err != nil {
 		t.Fatal(err)
 	}
@@ -115,23 +120,17 @@ func TestIngressGateway503DuringRuleChange(t *testing.T) {
 	log.Infof("Adding new subsets v1,v2")
 	// these functions have built in sleep. So we don't have to add any extra sleep here
 	if err = newDestRule.Setup(); err != nil {
-		fatalError = true
-		goto cleanup
+		t.Fatal(err)
 	}
 	defer newDestRule.Teardown()
 
 	log.Infof("routing to v1,v2")
 	if err = newVirtService.Setup(); err != nil {
-		fatalError = true
-		goto cleanup
+		t.Fatal(err)
 	}
 	defer newVirtService.Teardown()
 
-	time.Sleep(4 * time.Second)
-	waitChan := make(chan int)
-	var resp ClientResponse
-	var err error
-	var fatalError bool
+	time.Sleep(2 * time.Second)
 	go func() {
 		reqURL := fmt.Sprintf("http://%s.%s/c", ingressGatewayServiceName, istioNamespace)
 		resp = ClientRequest("t", reqURL, 500, "-key Host -val uk.bookinfo.com -qps 10")
