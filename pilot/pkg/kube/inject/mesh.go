@@ -66,11 +66,10 @@ initContainers:
 {{ if eq .EnableCoreDump true -}}
 - args:
   - -c
-  - sysctl -w kernel.core_pattern=/etc/istio/proxy/core.%e.%p.%t && ulimit -c
-    unlimited
+  - sysctl -w kernel.core_pattern=/etc/istio/proxy/core.%e.%p.%t && ulimit -c unlimited
   command:
   - /bin/sh
-  image: alpine
+  image: {{ .InitImage }}
   imagePullPolicy: IfNotPresent
   name: enable-core-dump
   resources: {}

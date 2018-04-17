@@ -1,11 +1,11 @@
 apiVersion: v1
 kind: Endpoints
 metadata:
-  name: istio-mixer
+  name: istio-policy
   namespace: istio-system
 subsets:
 - addresses:
-  - ip: {{ .Values.global.mixerIp }}
+  - ip: {{ .Values.global.policyEndpoint }}
   ports:
   - name: tcp-plain
     port: 9091
@@ -30,10 +30,12 @@ metadata:
   namespace: istio-system
 subsets:
 - addresses:
-  - ip: {{ .Values.global.pilotIp }}
+  - ip: {{ .Values.global.pilotEndpoint }}
   ports:
+  - port: 15011
+    name: https-xds
   - port: 15003
-    name: discovery
+    name: http-old-discovery
   - port: 15005
     name: https-discovery
   - port: 15007

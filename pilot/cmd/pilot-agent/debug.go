@@ -42,7 +42,7 @@ var (
 	debugCmd = &cobra.Command{
 		Use:   "debug <configuration-type>",
 		Short: "Debug local envoy",
-		Args:  cobra.MaximumNArgs(1),
+		Args:  cobra.MinimumNArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			d := &debug{
 				envoyAdminAddress:    "127.0.0.1:15000",

@@ -165,7 +165,7 @@ func rejectConflictingOnPortTCPEgressRules(cfg []Config) ([]Config, error) {
 
 		isRuleConflicting := false
 		for _, port := range egressRule.Ports {
-			protocol := ConvertCaseInsensitiveStringToProtocol(port.Protocol)
+			protocol := ParseProtocol(port.Protocol)
 			if IsEgressRulesSupportedHTTPProtocol(protocol) {
 				// we treat all the http protocols the same here, since there is no collision
 				// between HTTP protocols in the current implementation

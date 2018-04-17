@@ -781,12 +781,12 @@ func TestBuildSidecarListenerTLSContex(t *testing.T) {
 						{
 							CertificateChain: &core.DataSource{
 								Specifier: &core.DataSource_Filename{
-									Filename: "cert-chain.pem",
+									Filename: "/etc/certs/cert-chain.pem",
 								},
 							},
 							PrivateKey: &core.DataSource{
 								Specifier: &core.DataSource_Filename{
-									Filename: "key.pem",
+									Filename: "/etc/certs/key.pem",
 								},
 							},
 						},
@@ -794,7 +794,7 @@ func TestBuildSidecarListenerTLSContex(t *testing.T) {
 					ValidationContext: &auth.CertificateValidationContext{
 						TrustedCa: &core.DataSource{
 							Specifier: &core.DataSource_Filename{
-								Filename: "root-cert.pem",
+								Filename: "/etc/certs/root-cert.pem",
 							},
 						},
 					},
@@ -822,12 +822,12 @@ func TestBuildSidecarListenerTLSContex(t *testing.T) {
 						{
 							CertificateChain: &core.DataSource{
 								Specifier: &core.DataSource_Filename{
-									Filename: "cert-chain.pem",
+									Filename: "/etc/certs/cert-chain.pem",
 								},
 							},
 							PrivateKey: &core.DataSource{
 								Specifier: &core.DataSource_Filename{
-									Filename: "key.pem",
+									Filename: "/etc/certs/key.pem",
 								},
 							},
 						},
@@ -835,7 +835,7 @@ func TestBuildSidecarListenerTLSContex(t *testing.T) {
 					ValidationContext: &auth.CertificateValidationContext{
 						TrustedCa: &core.DataSource{
 							Specifier: &core.DataSource_Filename{
-								Filename: "root-cert.pem",
+								Filename: "/etc/certs/root-cert.pem",
 							},
 						},
 					},

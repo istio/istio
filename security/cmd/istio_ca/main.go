@@ -145,13 +145,11 @@ var (
 	// TODO: move it to a configmap later when we have more services to support.
 	webhookServiceAccounts = []string{
 		"istio-sidecar-injector-service-account",
-		"istio-mixer-validator-service-account",
-		"istio-pilot-service-account",
+		"istio-galley-service-account",
 	}
 	webhookServiceNames = []string{
 		"istio-sidecar-injector",
-		"istio-mixer-validator",
-		"istio-pilot",
+		"istio-galley",
 	}
 )
 

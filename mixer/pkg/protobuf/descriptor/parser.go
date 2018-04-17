@@ -103,7 +103,7 @@ type Object interface {
 	File() *descriptor.FileDescriptorProto
 }
 
-// Enums return complete list of enums in the file descriptor set
+// Enums return a complete list of enums in the file descriptor set
 func (g *FileDescriptorSetParser) Enums() map[string]*descriptor.EnumDescriptorProto {
 	enums := make(map[string]*descriptor.EnumDescriptorProto)
 	for n, o := range g.typeNameToObject {
@@ -114,7 +114,7 @@ func (g *FileDescriptorSetParser) Enums() map[string]*descriptor.EnumDescriptorP
 	return enums
 }
 
-// Messages return complete list of messages in the file descriptor set
+// Messages return a complete list of messages in the file descriptor set
 func (g *FileDescriptorSetParser) Messages() map[string]*descriptor.DescriptorProto {
 	msgs := make(map[string]*descriptor.DescriptorProto)
 	for n, o := range g.typeNameToObject {
