@@ -29,6 +29,7 @@ import (
 	authn "istio.io/api/authentication/v1alpha1"
 	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/plugin/authn/mock"
 )
 
 func TestRequireTls(t *testing.T) {
@@ -848,6 +849,58 @@ func TestBuildSidecarListenerTLSContex(t *testing.T) {
 	for _, c := range cases {
 		if got := buildSidecarListenerTLSContext(c.in); !reflect.DeepEqual(c.expected, got) {
 			t.Errorf("Test case %s: expected\n%#v\n, got\n%#v", c.name, c.expected.String(), got.String())
+		}
+	}
+}
+
+func TestGetJwksURI(t *testing.T) {
+	ms := mock.NewServer(9999)
+	if err := ms.Start(); err != nil {
+		t.Fatal("failed to start mock openID discovery server")
+	}
+	defer func() {
+		_ = ms.Stop()
+	}()
+
+	cases := []struct {
+		in                   *authn.Jwt
+		expectedJwksURI      string
+		expectedErrorMessage string
+	}{
+		{
+			in: &authn.Jwt{
+				Issuer:  "svc1@proj.iam.gserviceaccount.com",
+				JwksUri: "https://abc/service_accounts/v1/jwk/svc1@proj.iam.gserviceaccount.com",
+			},
+			expectedJwksURI: "https://abc/service_accounts/v1/jwk/svc1@proj.iam.gserviceaccount.com",
+		},
+		{
+			in: &authn.Jwt{
+				Issuer: "http://localhost:9999",
+			},
+			expectedJwksURI: "https://www.googleapis.com/oauth2/v3/certs",
+		},
+		{
+			in: &authn.Jwt{
+				Issuer: "http://xyz",
+			},
+			expectedErrorMessage: "no such host",
+		},
+	}
+	for _, c := range cases {
+		jwksURI, err := getJwksURI(c.in)
+		if err != nil {
+			if !strings.Contains(err.Error(), c.expectedErrorMessage) {
+				t.Errorf("getJwksURI(%+v): expected error (%s), got (%v)", c.in, c.expectedErrorMessage, err)
+			}
+		} else {
+			if c.expectedErrorMessage != "" {
+				t.Errorf("getJwksURI(%+v): expected error (%s), got no error", c.in, c.expectedErrorMessage)
+			}
+			if c.expectedJwksURI != jwksURI {
+				t.Errorf("getJwksURI(%+v): expected (%s), got (%s)",
+					c.in, c.expectedJwksURI, jwksURI)
+			}
 		}
 	}
 }
