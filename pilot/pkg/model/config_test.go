@@ -25,7 +25,6 @@ import (
 	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
 	mock_config "istio.io/istio/pilot/test/mock"
 )
@@ -550,14 +549,6 @@ func TestDestinationPolicy(t *testing.T) {
 }
 
 func TestAuthenticationPolicyConfig(t *testing.T) {
-	ms := test.NewServer(9999)
-	if err := ms.Start(); err != nil {
-		t.Fatal("failed to start mock openID discovery server")
-	}
-	defer func() {
-		_ = ms.Stop()
-	}()
-
 	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
 
 	authNPolicies := map[string]*authn.Policy{
@@ -591,10 +582,7 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 			},
 			PrincipalBinding: authn.PrincipalBinding_USE_ORIGIN,
 		},
-		"mockopenidonce":  makeGoldenPolicyForMockOpenIdDiscovery("mockopenidonce"),
-		"mockopenidtwice": makeGoldenPolicyForMockOpenIdDiscovery("mockopenidtwice"),
 	}
-
 	for key, value := range authNPolicies {
 		config := model.Config{
 			ConfigMeta: model.ConfigMeta{
@@ -633,16 +621,6 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 			expected: "all",
 		},
 		{
-			hostname: "mockopenidonce.default.svc.cluster.local",
-			port:     80,
-			expected: "mockopenidonce",
-		},
-		{
-			hostname: "mockopenidtwice.default.svc.cluster.local",
-			port:     80,
-			expected: "mockopenidtwice",
-		},
-		{
 			hostname: "world.another-galaxy.svc.cluster.local",
 			port:     8080,
 			expected: "",
@@ -664,44 +642,6 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 				t.Errorf("AutheticationPolicy(%s:%d) => expected %#v but got %#v",
 					testCase.hostname, testCase.port, expected, out)
 			}
-
-			// Verify jwks_uri is got correctly through mock openID discovery server if not set in the auth policy.
-			if testCase.expected == "mockopenidonce" || testCase.expected == "mockopenidtwice" {
-				for _, method := range policy.Origins {
-					if got, want := method.GetJwt().JwksUri, "https://www.googleapis.com/oauth2/v3/certs"; got != want {
-						t.Errorf("AutheticationPolicy JwksUri(%s) => expected %#v but got %#v", testCase.hostname, want, got)
-						continue
-					}
-				}
-			}
 		}
-	}
-
-	// Verify mock openID discovery http://localhost:9999/.well-known/openid-configuration was only called once because of the cache.
-	if got, want := ms.HitNum, 1; got != want {
-		t.Errorf("Mock OpenID discovery Hit number => expected %d but got %d", want, got)
-	}
-}
-
-func makeGoldenPolicyForMockOpenIdDiscovery(name string) *authn.Policy {
-	return &authn.Policy{
-		Targets: []*authn.TargetSelector{{
-			Name: name,
-			Ports: []*authn.PortSelector{
-				{
-					Port: &authn.PortSelector_Number{
-						Number: 80,
-					},
-				},
-			},
-		}},
-		Origins: []*authn.OriginAuthenticationMethod{
-			{
-				Jwt: &authn.Jwt{
-					Issuer: "http://localhost:9999",
-				},
-			},
-		},
-		PrincipalBinding: authn.PrincipalBinding_USE_ORIGIN,
 	}
 }
