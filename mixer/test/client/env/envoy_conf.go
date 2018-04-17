@@ -102,7 +102,7 @@ const envoyConfTempl = `
             "filters": [
 {{.FaultFilter}}
               {
-                "type": "decoder",
+                "type": "both",
                 "name": "mixer",
                 "config": {
 {{.ServerConfig}}

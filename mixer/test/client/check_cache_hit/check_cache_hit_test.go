@@ -100,7 +100,9 @@ var reportAttributesOkGet = [...]string{`{
     "content-length": "0",
     ":status": "200",
     "server": "envoy"
-  }
+  },
+  "response.totle_size": 88,
+  "request.totle_size": 306
 }`,
 	`{
   "context.protocol": "http",
@@ -144,7 +146,9 @@ var reportAttributesOkGet = [...]string{`{
     "content-length": "0",
     ":status": "200",
     "server": "envoy"
-  }
+  },
+  "response.totle_size": 88,
+  "request.totle_size": 306
 }`}
 
 func TestCheckCacheHit(t *testing.T) {

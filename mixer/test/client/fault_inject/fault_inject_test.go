@@ -60,7 +60,9 @@ const reportAttributes = `
      "content-length": "18",
      ":status": "503",
      "server": "envoy"
-  }
+  },
+  "response.totle_size": 66,
+  "request.totle_size": 0
 }
 `
 

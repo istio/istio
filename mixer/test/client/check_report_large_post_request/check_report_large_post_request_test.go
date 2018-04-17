@@ -93,7 +93,9 @@ const reportAttributesOkPost = `
      "content-length": "10485760",
      ":status": "200",
      "server": "envoy"
-  }
+  },
+  "response.totle_size": 10485877,
+  "request.totle_size": 10485966
 }
 `
 

@@ -98,7 +98,9 @@ const reportAttributesOkGet = `
      "content-length": "0",
      ":status": "200",
      "server": "envoy"
-  }
+  },
+  "response.totle_size": 88,
+  "request.totle_size": 306
 }
 `
 
@@ -180,7 +182,9 @@ const reportAttributesOkPost = `
      "content-length": "12",
      ":status": "200",
      "server": "envoy"
-  }
+  },
+  "response.totle_size": 123,
+  "request.totle_size": 342
 }
 `
 
