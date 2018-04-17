@@ -111,8 +111,7 @@ func (ms *MockOpenIDDiscoveryServer) Start() error {
 	// Starts the HTTP and waits for it to begin receiving requests.
 	// Returns an error if the server doesn't serve traffic within about 2 seconds.
 	go func() {
-		err := server.ListenAndServe()
-		log.Errorf("Server exited with %v, ms is %+v, server is %+v", err, ms, server)
+		server.ListenAndServe()
 	}()
 
 	wait := 300 * time.Millisecond

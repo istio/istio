@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -55,9 +55,9 @@ func newJwksURIResolver() jwksURIResolver {
 }
 
 // Set jwks_uri through openID discovery if it's not set in auth policy.
-func (r *jwksURIResolver) setAuthenticationPolicyJwksURIs(policy *authn.Policy) {
+func (r *jwksURIResolver) SetAuthenticationPolicyJwksURIs(policy *authn.Policy) error {
 	if policy == nil {
-		return
+		return fmt.Errorf("invalid nil policy")
 	}
 
 	for _, method := range policy.Peers {
@@ -68,7 +68,7 @@ func (r *jwksURIResolver) setAuthenticationPolicyJwksURIs(policy *authn.Policy) 
 				uri, err := r.resolveJwksURIUsingOpenID(policyJwt.Issuer)
 				if err != nil {
 					log.Warnf("Failed to get jwks_uri for issuer %q: %v", policyJwt.Issuer, err)
-					continue
+					return err
 				}
 				policyJwt.JwksUri = uri
 			}
@@ -81,11 +81,13 @@ func (r *jwksURIResolver) setAuthenticationPolicyJwksURIs(policy *authn.Policy) 
 			uri, err := r.resolveJwksURIUsingOpenID(policyJwt.Issuer)
 			if err != nil {
 				log.Warnf("Failed to get jwks_uri for issuer %q: %v", policyJwt.Issuer, err)
-				continue
+				return err
 			}
 			policyJwt.JwksUri = uri
 		}
 	}
+
+	return nil
 }
 
 // Resolve jwks_uri through openID discovery and cache the jwks_uri for furture use.

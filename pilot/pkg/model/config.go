@@ -573,14 +573,11 @@ func ResolveShortnameToFQDN(host string, meta ConfigMeta) string {
 // from the generic config registry
 type istioConfigStore struct {
 	ConfigStore
-
-	// jwksURIResolver is a cache for jwks_uri, it has some expiration logic on updating the URIs.
-	jwksURIResolver jwksURIResolver
 }
 
 // MakeIstioStore creates a wrapper around a store
 func MakeIstioStore(store ConfigStore) IstioConfigStore {
-	return &istioConfigStore{store, newJwksURIResolver()}
+	return &istioConfigStore{store}
 }
 
 // MatchSource checks that a rule applies for source service instances.
@@ -996,7 +993,6 @@ func (store *istioConfigStore) AuthenticationPolicyByDestination(hostname string
 		// Swap output policy that is match in more specific scope.
 		if matchLevel > currentMatchLevel {
 			currentMatchLevel = matchLevel
-			store.jwksURIResolver.setAuthenticationPolicyJwksURIs(policy)
 			out = spec
 		}
 	}
