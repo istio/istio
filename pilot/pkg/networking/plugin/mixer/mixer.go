@@ -60,7 +60,7 @@ func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mutable
 		}
 		return nil
 	case plugin.ListenerTypeTCP:
-		for cnum:= range mutable.FilterChains {
+		for cnum := range mutable.FilterChains {
 			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, buildMixerOutboundTCPFilter(env, node))
 		}
 		return nil
@@ -184,9 +184,13 @@ func buildMixerOutboundTCPFilter(env *model.Environment, node *model.Proxy) list
 // buildHTTPMixerFilterConfig builds a mixer HTTP filter config. Mixer filter uses outbound configuration by default
 // (forward attributes, but not invoke check calls)  ServiceInstances belong to the Node.
 func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, nodeInstances []*model.ServiceInstance, outboundRoute bool, config model.IstioConfigStore) *mccpb.HttpClientConfig { // nolint: lll
+	mcs, _, _ := net.SplitHostPort(mesh.MixerCheckServer)
+	mrs, _, _ := net.SplitHostPort(mesh.MixerReportServer)
 	transport := &mccpb.TransportConfig{
-		CheckCluster:  v1.MixerCheckClusterName,
-		ReportCluster: v1.MixerReportClusterName,
+		CheckCluster: model.BuildSubsetKey(model.TrafficDirectionOutbound, "", mcs+".svc.cluster.local",
+			&model.Port{Name: "http2-mixer"}),
+		ReportCluster: model.BuildSubsetKey(model.TrafficDirectionOutbound, "", mrs+".svc.cluster.local",
+			&model.Port{Name: "http2-mixer"}),
 	}
 
 	mxConfig := &mccpb.HttpClientConfig{
