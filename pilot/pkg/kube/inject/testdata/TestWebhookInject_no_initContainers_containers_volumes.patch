@@ -1,15 +1,17 @@
 [
   {
     "op": "add",
-    "path": "/spec/initContainers/-",
-    "value": {
-      "name": "istio-init",
-      "image": "example.com/init:latest",
-      "resources": {},
-      "terminationMessagePath": "/dev/termination-log",
-      "terminationMessagePolicy": "File",
-      "imagePullPolicy": "Always"
-    }
+    "path": "/spec/initContainers",
+    "value": [
+      {
+        "name": "istio-init",
+        "image": "example.com/init:latest",
+        "resources": {},
+        "terminationMessagePath": "/dev/termination-log",
+        "terminationMessagePolicy": "File",
+        "imagePullPolicy": "Always"
+      }
+    ]
   },
   {
     "op": "add",
@@ -27,13 +29,15 @@
   },
   {
     "op": "add",
-    "path": "/spec/volumes/-",
-    "value": {
-      "name": "istio-envoy",
-      "emptyDir": {
-        "medium": "Memory"
+    "path": "/spec/volumes",
+    "value": [
+      {
+        "name": "istio-envoy",
+        "emptyDir": {
+          "medium": "Memory"
+        }
       }
-    }
+    ]
   },
   {
     "op": "add",
