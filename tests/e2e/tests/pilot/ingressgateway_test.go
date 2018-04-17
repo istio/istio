@@ -92,10 +92,10 @@ func TestIngressGateway503DuringRuleChange(t *testing.T) {
 		YamlFiles: []string{"testdata/v1alpha3/rule-503test-virtualservice.yaml"},
 	}
 
-	addMoreSubsets := &deployableConfig{
-		Namespace: tc.Kube.Namespace,
-		YamlFiles: []string{"testdata/v1alpha3/rule-503test-destinationrule-c-add-subset.yaml"},
-	}
+	// addMoreSubsets := &deployableConfig{
+	// 	Namespace: tc.Kube.Namespace,
+	// 	YamlFiles: []string{"testdata/v1alpha3/rule-503test-destinationrule-c-add-subset.yaml"},
+	// }
 
 	routeToNewSubsets := &deployableConfig{
 		Namespace: tc.Kube.Namespace,
@@ -137,23 +137,24 @@ func TestIngressGateway503DuringRuleChange(t *testing.T) {
 		waitChan <- 1
 	}()
 
+	time.Sleep(4 * time.Second)
 	log.Infof("Adding new subsets v3,v4")
-	if err = addMoreSubsets.Setup(); err != nil {
-		fatalError = true
-		goto cleanup
-	}
-	time.Sleep(2 * time.Second)
-	log.Infof("routing to v3,v4")
-	if err = routeToNewSubsets.Setup(); err != nil {
-		fatalError = true
-		goto cleanup
-	}
-	time.Sleep(2 * time.Second)
 	log.Infof("deleting old subsets v1,v2")
 	if err = deleteOldSubsets.Setup(); err != nil {
 		fatalError = true
 		goto cleanup
 	}
+	// if err = addMoreSubsets.Setup(); err != nil {
+	// 	fatalError = true
+	// 	goto cleanup
+	// }
+	//time.Sleep(2 * time.Second)
+	log.Infof("routing to v3,v4")
+	if err = routeToNewSubsets.Setup(); err != nil {
+		fatalError = true
+		goto cleanup
+	}
+	time.Sleep(5 * time.Second)
 
 cleanup:
 	_ = <-waitChan
