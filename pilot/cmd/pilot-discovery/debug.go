@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
 
@@ -26,27 +25,23 @@ import (
 )
 
 type debug struct {
-	envoyAdminAddress    string
-	staticConfigLocation string
+	pilotAddress string
 }
 
 var (
-	configTypes = map[string]struct{}{
-		"all":       {},
-		"clusters":  {},
-		"listeners": {},
-		"routes":    {},
-		"static":    {},
+	configTypes = map[string]string{
+		"all": "",
+		"ads": "adsz",
+		"eds": "edsz",
 	}
 
 	debugCmd = &cobra.Command{
-		Use:   "debug <configuration-type>",
-		Short: "Debug local envoy",
-		Args:  cobra.MinimumNArgs(1),
+		Use:   "debug <proxyID> <configuration-type>",
+		Short: "Retrieve the configuration for the specified proxy",
+		Args:  cobra.MinimumNArgs(2),
 		RunE: func(c *cobra.Command, args []string) error {
 			d := &debug{
-				envoyAdminAddress:    "127.0.0.1:15000",
-				staticConfigLocation: "/etc/istio/proxy",
+				pilotAddress: "127.0.0.1:15007",
 			}
 			return d.run(args)
 		},
@@ -54,52 +49,28 @@ var (
 )
 
 func (d *debug) run(args []string) error {
-	configType := args[0]
+	proxyID := args[0]
+	configType := args[1]
 	if err := validateConfigType(configType); err != nil {
 		return err
 	}
 
-	if configType == "static" {
-		return d.printStaticConfig()
-	} else if configType == "all" {
+	if configType == "all" {
 		for ct := range configTypes {
-			switch ct {
-			case "clusters", "listeners", "routes":
-				if err := d.printDynamicConfig(ct); err != nil {
-					return err
-				}
-			case "static":
-				if err := d.printStaticConfig(); err != nil {
+			if ct != "all" {
+				if err := d.printConfig(ct, proxyID); err != nil {
 					return err
 				}
 			}
 		}
 		return nil
 	}
-	return d.printDynamicConfig(configType)
+	return d.printConfig(configType, proxyID)
 }
 
-func (d *debug) printStaticConfig() error {
-	files, err := ioutil.ReadDir(d.staticConfigLocation)
-	if err != nil {
-		return fmt.Errorf("error reading default config directory: %v", err)
-	}
-	for _, f := range files {
-		filePath := filepath.Join(d.staticConfigLocation, f.Name())
-		contents, err := ioutil.ReadFile(filePath)
-		if err != nil {
-			return fmt.Errorf("error reading config file %q: %v", filePath, err)
-		}
-		fmt.Println(string(contents))
-	}
-	return nil
-}
-
-func (d *debug) printDynamicConfig(typ string) error {
-	if typ == "routes" {
-		typ = "config_dump"
-	}
-	resp, err := http.Get(fmt.Sprintf("http://%v/%s", d.envoyAdminAddress, typ))
+func (d *debug) printConfig(typ, proxyID string) error {
+	log.Infof("Retrieving %v for %q", typ, proxyID)
+	resp, err := http.Get(fmt.Sprintf("http://%v/debug/%s", d.pilotAddress, configTypes[typ]))
 	if err != nil {
 		return err
 	}
@@ -113,7 +84,7 @@ func (d *debug) printDynamicConfig(typ string) error {
 	if resp.StatusCode == 200 {
 		fmt.Println(string(bytes))
 	} else {
-		return fmt.Errorf("received %v status from Envoy: %v", resp.StatusCode, string(bytes))
+		return fmt.Errorf("received %v status from Pilot: %v", resp.StatusCode, string(bytes))
 	}
 	return nil
 }

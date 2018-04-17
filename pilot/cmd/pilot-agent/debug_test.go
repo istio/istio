@@ -57,7 +57,7 @@ func TestDebug_Run(t *testing.T) {
 		wantError            bool
 	}{
 		{
-			name:                 "debug with all configType does not error",
+			name:                 "all configType no error",
 			args:                 []string{"all"},
 			staticConfigLocation: "./testdata",
 			envoyStates: []envoyStubState{
@@ -67,14 +67,14 @@ func TestDebug_Run(t *testing.T) {
 			},
 		},
 		{
-			name:                 "debug with all configType errors when unable to reach to envoy",
+			name:                 "all configType errors when unable to reach envoy",
 			args:                 []string{"all"},
 			staticConfigLocation: "./testdata",
 			envoyNotReachable:    true,
 			wantError:            true,
 		},
 		{
-			name:                 "debug with all configType errors when unable to find static config",
+			name:                 "all configType errors when unable to find static config",
 			args:                 []string{"all"},
 			staticConfigLocation: "",
 			envoyStates: []envoyStubState{
@@ -85,7 +85,7 @@ func TestDebug_Run(t *testing.T) {
 			wantError: true,
 		},
 		{
-			name:                 "debug with all configType errors when one request to envoy returns a non 200 response",
+			name:                 "all configType errors envoy returns 404",
 			args:                 []string{"all"},
 			staticConfigLocation: "./testdata",
 			envoyStates: []envoyStubState{
@@ -96,57 +96,57 @@ func TestDebug_Run(t *testing.T) {
 			wantError: true,
 		},
 		{
-			name:                 "debug with static configType does not error",
+			name:                 "static configType no error",
 			args:                 []string{"static"},
 			staticConfigLocation: "./testdata",
 		},
 		{
-			name:                 "debug with static configType and no config returns an error",
+			name:                 "static configType no config file returns error",
 			args:                 []string{"static"},
 			staticConfigLocation: "",
 			wantError:            true,
 		},
 		{
-			name: "debug with listeners configType does not error",
+			name: "listeners configType no error",
 			args: []string{"listeners"},
 			envoyStates: []envoyStubState{
 				{StatusCode: 200, Response: "fine"},
 			},
 		},
 		{
-			name:              "debug with listeners configType errors if envoy unreachable",
+			name:              "listeners configType errors if envoy unreachable",
 			args:              []string{"listeners"},
 			envoyNotReachable: true,
 			wantError:         true,
 		},
 		{
-			name: "debug with clusters configType does not error",
+			name: "clusters configType no error",
 			args: []string{"routes"},
 			envoyStates: []envoyStubState{
 				{StatusCode: 200, Response: "fine"},
 			},
 		},
 		{
-			name:              "debug with clusters configType errors if envoy unreachable",
+			name:              "clusters configType error if envoy unreachable",
 			args:              []string{"clusters"},
 			envoyNotReachable: true,
 			wantError:         true,
 		},
 		{
-			name: "debug with routes configType does not error",
+			name: "routes configType no error",
 			args: []string{"routes"},
 			envoyStates: []envoyStubState{
 				{StatusCode: 200, Response: "fine"},
 			},
 		},
 		{
-			name:              "debug with routes configType errors if envoy unreachable",
+			name:              "routes configType error if envoy unreachable",
 			args:              []string{"routes"},
 			envoyNotReachable: true,
 			wantError:         true,
 		},
 		{
-			name:      "debug with invalid configType returns an error",
+			name:      "invalid configType returns error",
 			args:      []string{"not-a-config-type"},
 			wantError: true,
 		},
