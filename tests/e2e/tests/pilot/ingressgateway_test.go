@@ -31,7 +31,7 @@ import (
 // The gateways have already been deployed by the helm charts, and are configured by
 // default (kube service level) to expose ports 80/443. So our gateway specs also expose
 // ports 80/443.
-func TestIngressGateway(t *testing.T) {
+func TestGateway_HTTPIngress(t *testing.T) {
 	if !tc.V1alpha3 {
 		t.Skipf("Skipping %s: v1alpha3=false", t.Name())
 	}
