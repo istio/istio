@@ -18,7 +18,6 @@
 #include "common/http/message_impl.h"
 #include "common/http/utility.h"
 #include "envoy/http/async_client.h"
-#include "server/config/network/http_connection_manager.h"
 
 #include <chrono>
 #include <string>

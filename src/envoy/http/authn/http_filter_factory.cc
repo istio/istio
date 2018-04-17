@@ -15,6 +15,7 @@
 
 #include "envoy/config/filter/http/authn/v2alpha1/config.pb.h"
 #include "envoy/registry/registry.h"
+#include "envoy/server/filter_config.h"
 #include "google/protobuf/util/json_util.h"
 #include "src/envoy/http/authn/http_filter.h"
 #include "src/envoy/utils/utils.h"

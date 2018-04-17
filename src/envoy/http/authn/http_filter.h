@@ -17,7 +17,7 @@
 
 #include "common/common/logger.h"
 #include "envoy/config/filter/http/authn/v2alpha1/config.pb.h"
-#include "server/config/network/http_connection_manager.h"
+#include "envoy/http/filter.h"
 #include "src/envoy/http/authn/authenticator_base.h"
 #include "src/envoy/http/authn/filter_context.h"
 

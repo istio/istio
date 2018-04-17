@@ -18,7 +18,7 @@
 #include "src/envoy/http/jwt_auth/jwt_authenticator.h"
 
 #include "common/common/logger.h"
-#include "server/config/network/http_connection_manager.h"
+#include "envoy/http/filter.h"
 
 namespace Envoy {
 namespace Http {

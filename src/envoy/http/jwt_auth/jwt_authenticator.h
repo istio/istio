@@ -17,7 +17,6 @@
 
 #include "common/common/logger.h"
 #include "envoy/http/async_client.h"
-#include "server/config/network/http_connection_manager.h"
 
 #include "src/envoy/http/jwt_auth/auth_store.h"
 
