@@ -103,7 +103,6 @@ func (c *CAClient) createCSRRequest(opts *pkiutil.CertOptions) ([]byte, *pb.CsrR
 		CredentialType:      c.platformClient.GetCredentialType(),
 		// TODO(inclfy): verify current value matches default value.
 		RequestedTtlMinutes: int32(opts.TTL.Minutes()),
-		ForCA:               opts.IsCA,
 	}, nil
 }
 
