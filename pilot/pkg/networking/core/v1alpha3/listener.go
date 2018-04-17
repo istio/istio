@@ -37,7 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
-	"github.com/godebug/pretty"
+
 )
 
 const (
@@ -263,7 +263,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 			log.Warn(err.Error())
 		}
 
-		log.Infof("buildSidecarInboundListeners %s: %s", node.ID, pretty.Sprint(*mutable.Listener))
+		log.Infof("buildSidecarInboundListeners %s: %s", node.ID, util.PrettySprint(*mutable.Listener))
 		listeners = append(listeners, mutable.Listener)
 		listenerMap[listenerMapKey] = mutable.Listener
 

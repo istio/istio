@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	base_json "encoding/json"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -182,4 +183,12 @@ func GogoDurationToDuration(d *types.Duration) time.Duration {
 		return 0
 	}
 	return dur
+}
+
+func PrettySprint(v interface{}) string {
+	j, err := base_json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return err.Error()
+	}
+	return string(j)
 }
