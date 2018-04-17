@@ -93,11 +93,11 @@ func NewDiscoveryServer(env model.Environment, generator *v1alpha3.ConfigGenerat
 }
 
 // Register adds the ADS and EDS handles to the grpc server
-func (ds *DiscoveryServer) Register(s *grpc.Server) {
+func (s *DiscoveryServer) Register(rpcs *grpc.Server) {
 	// EDS must remain registered for 0.8, for smooth upgrade from 0.7
 	// 0.7 proxies will use this service.
-	xdsapi.RegisterEndpointDiscoveryServiceServer(s, ds)
-	ads.RegisterAggregatedDiscoveryServiceServer(s, ds)
+	xdsapi.RegisterEndpointDiscoveryServiceServer(rpcs, s)
+	ads.RegisterAggregatedDiscoveryServiceServer(rpcs, s)
 }
 
 // Singleton, refresh the cache - may not be needed if events work properly, just a failsafe
