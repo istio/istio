@@ -761,6 +761,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 	proxyInstances []*model.ServiceInstance, config model.IstioConfigStore) (Listeners, Clusters) {
 	listeners := make(Listeners, 0, len(proxyInstances))
 	clusters := make(Clusters, 0, len(proxyInstances))
+	log.Infof("buildInboundListenersV1 %s: proxyInstances: %v", node.ID, proxyInstances)
 
 	// inbound connections/requests are redirected to the endpoint address but appear to be sent
 	// to the service address

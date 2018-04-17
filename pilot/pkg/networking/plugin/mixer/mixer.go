@@ -212,7 +212,9 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 		addStandardNodeAttributes(mxConfig.ForwardAttributes.Attributes, v1.AttrSourcePrefix, role.IPAddress, role.ID, labels)
 	}
 
+	log.Infof("buildHTTPMixerFilterConfig with nodeInstances %v", nodeInstances)
 	for _, instance := range nodeInstances {
+		log.Infof("add config name %s", instance.Service.Hostname)
 		mxConfig.ServiceConfigs[instance.Service.Hostname] = v1.ServiceConfig(instance.Service.Hostname, instance, config,
 			outboundRoute || mesh.DisablePolicyChecks, outboundRoute)
 	}

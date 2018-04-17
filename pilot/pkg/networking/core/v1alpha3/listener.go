@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
+	"github.com/godebug/pretty"
 )
 
 const (
@@ -196,6 +197,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 	listenerMap := make(map[string]*xdsapi.Listener)
 	// inbound connections/requests are redirected to the endpoint address but appear to be sent
 	// to the service address.
+	log.Infof("buildInboundListenersV2 %s: proxyInstances: %v", node.ID, proxyInstances)
 	for _, instance := range proxyInstances {
 		endpoint := instance.Endpoint
 		protocol := endpoint.ServicePort.Protocol
@@ -261,6 +263,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 			log.Warn(err.Error())
 		}
 
+		log.Infof("buildSidecarInboundListeners %s: %s", node.ID, pretty.Sprint(*mutable.Listener))
 		listeners = append(listeners, mutable.Listener)
 		listenerMap[listenerMapKey] = mutable.Listener
 
