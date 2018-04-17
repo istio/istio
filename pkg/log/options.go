@@ -335,7 +335,7 @@ func (o *Options) AttachCobraFlags(cmd *cobra.Command) {
 		}
 
 		cmd.PersistentFlags().StringVar(&o.outputLevels, "log_output_level", o.outputLevels,
-			fmt.Sprintf("Comma-separated minimum per-scope logging level of messages to output in the form of "+
+			fmt.Sprintf("Comma-separated minimum per-scope logging level of messages to output, in the form of "+
 				"<scope>:<level>,<scope>:<level>,... where scope can be one of [%s] and level can be one of [%s, %s, %s, %s, %s]",
 				s,
 				levelToString[DebugLevel],
@@ -345,7 +345,7 @@ func (o *Options) AttachCobraFlags(cmd *cobra.Command) {
 				levelToString[NoneLevel]))
 
 		cmd.PersistentFlags().StringVar(&o.stackTraceLevels, "log_stacktrace_level", o.stackTraceLevels,
-			fmt.Sprintf("Comma-separated minimum per-scope logging level at which stack traces are captured in the form of "+
+			fmt.Sprintf("Comma-separated minimum per-scope logging level at which stack traces are captured, in the form of "+
 				"<scope>:<level>,<scope:level>,... where scope can be one of [%s] and level can be one of [%s, %s, %s, %s, %s]",
 				s,
 				levelToString[DebugLevel],
@@ -355,7 +355,7 @@ func (o *Options) AttachCobraFlags(cmd *cobra.Command) {
 				levelToString[NoneLevel]))
 
 		cmd.PersistentFlags().StringVar(&o.logCallers, "log_caller", o.logCallers,
-			fmt.Sprintf("Comma-separated list of scopes for which to include called information, scopes can be any of [%s]", s))
+			fmt.Sprintf("Comma-separated list of scopes for which to include caller information, scopes can be any of [%s]", s))
 	} else {
 		cmd.PersistentFlags().StringVar(&o.outputLevels, "log_output_level", o.outputLevels,
 			fmt.Sprintf("The minimum logging level of messages to output,  can be one of [%s, %s, %s, %s, %s]",
