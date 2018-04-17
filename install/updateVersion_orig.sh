@@ -141,6 +141,7 @@ function merge_files() {
   ISTIO_ONE_NAMESPACE_AUTH=$DEST/istio-one-namespace-auth.yaml
   ISTIO_CITADEL_PLUGIN_CERTS=$DEST/istio-citadel-plugin-certs.yaml
   ISTIO_CITADEL_HEALTH_CHECK=$DEST/istio-citadel-with-health-check.yaml
+  ISTIO_CITADEL_STANDALONE=$DEST/istio-citadel-standalone.yaml
   ISTIO_MIXER_HEALTH_CHECK=$DEST/istio-mixer-with-health-check.yaml
   ISTIO_MIXER_VALIDATOR=$DEST/istio-mixer-validator.yaml
 
@@ -203,6 +204,10 @@ function merge_files() {
   echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO_CITADEL_HEALTH_CHECK
   cat $SRC/istio-citadel-with-health-check.yaml.tmpl >> $ISTIO_CITADEL_HEALTH_CHECK
 
+  echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $ISTIO_CITADEL_STANDALONE
+  echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO_CITADEL_STANDALONE
+  cat $SRC/istio-citadel-standalone.yaml.tmpl >> $ISTIO_CITADEL_STANDALONE
+
   echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $ISTIO_MIXER_HEALTH_CHECK
   echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO_MIXER_HEALTH_CHECK
   cat $SRC/istio-mixer-with-health-check.yaml.tmpl >> $ISTIO_MIXER_HEALTH_CHECK
@@ -261,6 +266,7 @@ function update_istio_install() {
   execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-citadel-one-namespace.yaml.tmpl
   execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-citadel-plugin-certs.yaml.tmpl
   execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-citadel-with-health-check.yaml.tmpl
+  execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-citadel-standalone.yaml.tmpl
 
   execute_sed "s|image: {PILOT_HUB}/\(.*\):{PILOT_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-pilot.yaml.tmpl
   execute_sed "s|image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}|image: ${PROXY_HUB}/${PROXY_IMAGE}:${PROXY_TAG}|" istio-pilot.yaml.tmpl
@@ -273,6 +279,7 @@ function update_istio_install() {
   execute_sed "s|image: {CITADEL_HUB}/\(.*\):{CITADEL_TAG}|image: ${CITADEL_HUB}/\1:${CITADEL_TAG}|" istio-citadel-one-namespace.yaml.tmpl
   execute_sed "s|image: {CITADEL_HUB}/\(.*\):{CITADEL_TAG}|image: ${CITADEL_HUB}/\1:${CITADEL_TAG}|" istio-citadel-plugin-certs.yaml.tmpl
   execute_sed "s|image: {CITADEL_HUB}/\(.*\):{CITADEL_TAG}|image: ${CITADEL_HUB}/\1:${CITADEL_TAG}|" istio-citadel-with-health-check.yaml.tmpl
+  execute_sed "s|image: {CITADEL_HUB}/\(.*\):{CITADEL_TAG}|image: ${CITADEL_HUB}/\1:${CITADEL_TAG}|" istio-citadel-standalone.yaml.tmpl
 
   execute_sed "s|image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}|image: ${PROXY_HUB}/${PROXY_IMAGE}:${PROXY_TAG}|" istio-ingress.yaml.tmpl
   popd
