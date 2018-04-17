@@ -154,10 +154,18 @@ func (v *Validator) newAttributeDescriptorFinder(manifests map[store.Key]*cpb.At
 
 func (v *Validator) newAdapterInfoRegistry(adapterInfos map[store.Key]*v1beta1.Info) (config.AdapterInfoRegistry, error) {
 	infos := make([]*v1beta1.Info, len(adapterInfos))
+	i := 0
 	for _, info := range adapterInfos {
-		infos = append(infos, info)
+		infos[i] = info
+		i++
 	}
-	return config.NewAdapterInfoRegistry(infos)
+	infoRef, err := config.NewAdapterInfoRegistry(infos)
+	if err != nil {
+		// return no-op registry. Therefore future validations that depend on registry don't need to do nil check.
+		noopReg, _ := config.NewAdapterInfoRegistry([]*v1beta1.Info{})
+		return noopReg, fmt.Errorf("validation failed for adapters %v: %v", infos, err)
+	}
+	return infoRef, nil
 }
 
 func (v *Validator) validateUpdateRule(namespace string, rule *cpb.Rule) error {
@@ -176,7 +184,6 @@ func (v *Validator) validateUpdateRule(namespace string, rule *cpb.Rule) error {
 				}
 			} else {
 				err = fmt.Errorf("%s is not a handler", key.Kind)
-
 			}
 		}
 		if err != nil {
@@ -302,7 +309,6 @@ func (v *Validator) validateDelete(key store.Key) error {
 			v.refreshTypeChecker()
 		}()
 	} else if key.Kind == config.AdapterKind {
-
 		adapterInfos := map[store.Key]*v1beta1.Info{}
 		v.c.forEach(func(k store.Key, spec proto.Message) {
 			if k.Kind == config.AdapterKind && k != key {
@@ -311,6 +317,8 @@ func (v *Validator) validateDelete(key store.Key) error {
 		})
 		infoRegistry, err := v.newAdapterInfoRegistry(adapterInfos)
 		if err != nil {
+			// this will never happen; adapter infos are leaf nodes and removing an already committed valid entry
+			// should never cause errors.
 			return err
 		}
 		v.infoRegistry = infoRegistry

@@ -24,6 +24,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/hashicorp/go-multierror"
 
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	cpb "istio.io/api/policy/v1beta1"
@@ -132,152 +133,170 @@ func deleteEvent(keystr string) *store.Event {
 func TestValidator(t *testing.T) {
 	for _, cc := range []struct {
 		title string
-		ev    *store.Event
+		evs   []*store.Event
 		ok    bool
 	}{
 		{
 			"new rule",
-			updateEvent("test.rule.default", &cpb.Rule{
+			[]*store.Event{updateEvent("test.rule.default", &cpb.Rule{
 				Actions: []*cpb.Action{
 					{Handler: "staticversion.listchecker.istio-system", Instances: []string{"appversion.listentry.istio-system"}},
-				}}),
+				}})},
 			true,
 		},
 		{
 			"update rule",
-			updateEvent("checkwl.rule.istio-system", &cpb.Rule{
+			[]*store.Event{updateEvent("checkwl.rule.istio-system", &cpb.Rule{
 				Actions: []*cpb.Action{
 					{Handler: "staticversion.listchecker", Instances: []string{"appversion.listentry"}},
-				}}),
+				}})},
 			true,
 		},
 		{
 			"delete rule",
-			deleteEvent("checkwl.rule.istio-system"),
+			[]*store.Event{deleteEvent("checkwl.rule.istio-system")},
 			true,
 		},
 		{
 			"invalid updating rule: match syntax error",
-			updateEvent("test.rule.default", &cpb.Rule{Match: "foo"}),
+			[]*store.Event{updateEvent("test.rule.default", &cpb.Rule{Match: "foo"})},
 			false,
 		},
 		{
 			"invalid updating rule: match type error",
-			updateEvent("test.rule.default", &cpb.Rule{Match: "1"}),
+			[]*store.Event{updateEvent("test.rule.default", &cpb.Rule{Match: "1"})},
 			false,
 		},
 		{
 			"invalid updating rule: reference not found",
-			updateEvent("test.rule.default", &cpb.Rule{Actions: []*cpb.Action{{Handler: "nonexistent.listchecker.istio-system"}}}),
+			[]*store.Event{updateEvent("test.rule.default", &cpb.Rule{Actions: []*cpb.Action{{Handler: "nonexistent.listchecker.istio-system"}}})},
 			false,
 		},
 		{
 			"adding adapter",
-			updateEvent("test.listchecker.default", testAdapterConfig),
+			[]*store.Event{updateEvent("test.listchecker.default", testAdapterConfig)},
 			true,
 		},
 		{
 			"adding instance",
-			updateEvent("test.listentry.default", &types.Struct{Fields: map[string]*types.Value{
+			[]*store.Event{updateEvent("test.listentry.default", &types.Struct{Fields: map[string]*types.Value{
 				"value": {Kind: &types.Value_StringValue{StringValue: "0"}},
-			}}),
+			}})},
 			true,
 		},
 		{
 			"adapter validation failure",
-			updateEvent("test.listchecker.default", &types.Struct{}),
+			[]*store.Event{updateEvent("test.listchecker.default", &types.Struct{})},
 			false,
 		},
 		{
 			"invalid instance",
-			updateEvent("test.listentry.default", &types.Struct{}),
+			[]*store.Event{updateEvent("test.listentry.default", &types.Struct{})},
 			false,
 		},
 		{
 			"invalid instance syntax",
-			updateEvent("test.listentry.default", &types.Struct{Fields: map[string]*types.Value{
+			[]*store.Event{updateEvent("test.listentry.default", &types.Struct{Fields: map[string]*types.Value{
 				"value": {Kind: &types.Value_StringValue{StringValue: ""}},
-			}}),
+			}})},
 			false,
 		},
 		{
 			"invalid delete handler",
-			deleteEvent("staticversion.listchecker.istio-system"),
+			[]*store.Event{deleteEvent("staticversion.listchecker.istio-system")},
 			false,
 		},
 		{
 			"invalid delete instance",
-			deleteEvent("appversion.listentry.istio-system"),
+			[]*store.Event{deleteEvent("appversion.listentry.istio-system")},
 			false,
 		},
 		{
 			"invalid removal of attributemanifest",
-			deleteEvent("kubernetes.attributemanifest.istio-system"),
+			[]*store.Event{deleteEvent("kubernetes.attributemanifest.istio-system")},
 			false,
 		},
-
 		{
-			//"adding info",
-			//updateEvent("test.listentry.default", &types.Struct{Fields: map[string]*types.Value{
-			//	"value": {Kind: &types.Value_StringValue{StringValue: "0"}},
-			//}}),
-			//true,
-
-			"new info",
-			updateEvent("testCR1.adapter.default", &v1beta1.Info{
+			"add new info valid",
+			[]*store.Event{updateEvent("testCR1.adapter.default", &v1beta1.Info{
 				Name:         "testAdapter",
 				Description:  "testAdapter description",
 				SessionBased: true,
-
-				//Actions: []*cpb.Action{
-				//	{
-				//		Handler: "staticversion.listchecker.istio-system",
-				//		Instances: []string{
-				//			"appversion.listentry.istio-system"},
-				//			},
-				//},
-			},
-			),
+			})},
 			true,
 		},
-		//{
-		//	"adapter validation failure",
-		//	updateEvent("test.listchecker.default", &types.Struct{}),
-		//	false,
-		//},
-		//{
-		//	"invalid instance",
-		//	updateEvent("test.listentry.default", &types.Struct{}),
-		//	false,
-		//},
-		//{
-		//	"invalid instance syntax",
-		//	updateEvent("test.listentry.default", &types.Struct{Fields: map[string]*types.Value{
-		//		"value": {Kind: &types.Value_StringValue{StringValue: ""}},
-		//	}}),
-		//	false,
-		//},
-		//{
-		//	"invalid delete handler",
-		//	deleteEvent("staticversion.listchecker.istio-system"),
-		//	false,
-		//},
-		//{
-		//	"invalid delete instance",
-		//	deleteEvent("appversion.listentry.istio-system"),
-		//	false,
-		//},
+		{
+			"add info error duplicate error",
+			[]*store.Event{
+				updateEvent("testCR1.adapter.default", &v1beta1.Info{
+					Name:         "testAdapter",
+					Description:  "testAdapter description",
+					SessionBased: true,
+				}),
+				updateEvent("testCR2.adapter.default", &v1beta1.Info{
+					Name:         "testAdapter",
+					Description:  "testAdapter description",
+					SessionBased: true,
+				}),
+			},
+			false,
+		},
+		{
+			"add invalid info content for template descriptor",
+			[]*store.Event{updateEvent("testCR1.adapter.default", &v1beta1.Info{
+				Name:         "testAdapter",
+				Description:  "testAdapter description",
+				SessionBased: true,
+				Templates:    []string{"not a descriptor"},
+			})},
+			false,
+		},
+		{
+			"add invalid info content for adapter descriptor",
+			[]*store.Event{updateEvent("testCR1.adapter.default", &v1beta1.Info{
+				Name:         "testAdapter",
+				Description:  "testAdapter description",
+				SessionBased: true,
+				Config:       "not a descriptor",
+			})},
+			false,
+		},
+		{
+			"delete info valid",
+			[]*store.Event{
+				updateEvent("testCR1.adapter.default", &v1beta1.Info{
+					Name:         "testAdapter",
+					Description:  "testAdapter description",
+					SessionBased: true,
+				}),
+				updateEvent("testCR2.adapter.default", &v1beta1.Info{
+					Name:         "testAdapter2",
+					Description:  "testAdapter description",
+					SessionBased: true,
+				}),
+				deleteEvent("testCR1.adapter.default"),
+			},
+			true,
+		},
 	} {
 		t.Run(cc.title, func(tt *testing.T) {
 			v, err := getValidatorForTest()
+			v.refreshTypeChecker()
+			v.refreshAdapterInfos()
 			if err != nil {
 				tt.Fatal(err)
 			}
 			defer v.Stop()
-			err = v.Validate(cc.ev)
-			ok := (err == nil)
+			var result *multierror.Error
+			for _, ev := range cc.evs {
+				e := v.Validate(ev)
+				v.refreshTypeChecker()
+				v.refreshAdapterInfos()
+				result = multierror.Append(result, e)
+			}
+			ok := result.ErrorOrNil() == nil
 			if cc.ok != ok {
-				tt.Errorf("Got %v, Want %v", err, cc.ok)
+				tt.Errorf("Got %v, Want %v", result.ErrorOrNil(), cc.ok)
 			}
 		})
 	}
