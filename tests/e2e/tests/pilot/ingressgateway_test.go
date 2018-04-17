@@ -92,10 +92,10 @@ func TestIngressGateway503DuringRuleChange(t *testing.T) {
 		YamlFiles: []string{"testdata/v1alpha3/rule-503test-virtualservice.yaml"},
 	}
 
-	addMoreSubsets := &deployableConfig{
-		Namespace: tc.Kube.Namespace,
-		YamlFiles: []string{"testdata/v1alpha3/rule-503test-destinationrule-c-add-subset.yaml"},
-	}
+	// addMoreSubsets := &deployableConfig{
+	// 	Namespace: tc.Kube.Namespace,
+	// 	YamlFiles: []string{"testdata/v1alpha3/rule-503test-destinationrule-c-add-subset.yaml"},
+	// }
 
 	routeToNewSubsets := &deployableConfig{
 		Namespace: tc.Kube.Namespace,
