@@ -43,7 +43,7 @@ func (d *externalDiscovery) Services() ([]*model.Service, error) {
 }
 
 // GetService retrieves a service by host name if it exists
-func (d *externalDiscovery) GetService(hostname string) (*model.Service, error) {
+func (d *externalDiscovery) GetService(hostname model.Hostname) (*model.Service, error) {
 	for _, service := range d.getServices() {
 		if service.Hostname == hostname {
 			return service, nil
@@ -71,7 +71,7 @@ func (d *externalDiscovery) ManagementPorts(addr string) model.PortList {
 
 // Instances retrieves instances for a service and its ports that match
 // any of the supplied labels. All instances match an empty tag list.
-func (d *externalDiscovery) Instances(hostname string, ports []string,
+func (d *externalDiscovery) Instances(hostname model.Hostname, ports []string,
 	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	portMap := make(map[string]bool)
 	for _, port := range ports {

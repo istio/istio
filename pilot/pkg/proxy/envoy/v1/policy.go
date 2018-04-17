@@ -27,7 +27,7 @@ import (
 func isDestinationExcludedForMTLS(serviceName string, mtlsExcludedServices []string) bool {
 	hostname, _, _ := model.ParseServiceKey(serviceName)
 	for _, serviceName := range mtlsExcludedServices {
-		if hostname == serviceName {
+		if hostname.String() == serviceName {
 			return true
 		}
 	}
@@ -51,17 +51,17 @@ func ApplyClusterPolicy(cluster *Cluster,
 	// Original DST cluster are used to route to services outside the mesh
 	// where Istio auth does not apply.
 	if cluster.Type != ClusterTypeOriginalDST {
-		requireTLS, _ := authn_plugin.RequireTLS(model.GetConsolidateAuthenticationPolicy(mesh, config, cluster.Hostname, cluster.Port))
+		requireTLS, _ := authn_plugin.RequireTLS(model.GetConsolidateAuthenticationPolicy(mesh, config, model.Hostname(cluster.Hostname), cluster.Port))
 		if !isDestinationExcludedForMTLS(cluster.ServiceName, mesh.MtlsExcludedServices) && requireTLS {
 			// apply auth policies
 			ports := model.PortList{cluster.Port}.GetNames()
-			serviceAccounts := accounts.GetIstioServiceAccounts(cluster.Hostname, ports)
+			serviceAccounts := accounts.GetIstioServiceAccounts(model.Hostname(cluster.Hostname), ports)
 			cluster.SSLContext = buildClusterSSLContext(model.AuthCertsPath, serviceAccounts)
 		}
 	}
 
 	// apply destination policies
-	policyConfig := config.Policy(proxyInstances, cluster.Hostname, cluster.labels)
+	policyConfig := config.Policy(proxyInstances, model.Hostname(cluster.Hostname), cluster.labels)
 	if policyConfig == nil {
 		return
 	}

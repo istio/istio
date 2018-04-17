@@ -151,7 +151,7 @@ func createGatewayHTTPFilterChainOpts(
 		return []*filterChainOpts{}
 	}
 
-	nameToServiceMap := make(map[string]*model.Service, len(services))
+	nameToServiceMap := make(map[model.Hostname]*model.Service, len(services))
 	for _, svc := range services {
 		nameToServiceMap[svc.Hostname] = svc
 	}
@@ -283,9 +283,9 @@ func buildGatewayNetworkFilters(env model.Environment, server *networking.Server
 
 	dests := filterTCPDownstreams(env, server, gatewayNames)
 	// de-dupe destinations by hostname; we'll take a random destination if multiple claim the same host
-	byHost := make(map[string]*networking.Destination, len(dests))
+	byHost := make(map[model.Hostname]*networking.Destination, len(dests))
 	for _, dest := range dests {
-		byHost[dest.Host] = dest
+		byHost[model.Hostname(dest.Host)] = dest
 	}
 
 	filters := make([]listener.Filter, 0, len(byHost))
@@ -372,5 +372,5 @@ func gatherDestinations(weights []*networking.DestinationWeight) []*networking.D
 // TODO: move up to more general location so this can be re-used
 // TODO: should this try to use `istio_route.ConvertDestinationToCluster`?
 func destToClusterName(d *networking.Destination) string {
-	return model.BuildSubsetKey(model.TrafficDirectionOutbound, d.Subset, d.Host, &model.Port{Name: d.Port.GetName()})
+	return model.BuildSubsetKey(model.TrafficDirectionOutbound, d.Subset, model.Hostname(d.Host), &model.Port{Name: d.Port.GetName()})
 }

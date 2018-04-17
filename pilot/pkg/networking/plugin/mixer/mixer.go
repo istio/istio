@@ -228,7 +228,7 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 	// So instance labels are the workload / Node labels.
 	if len(nodeInstances) > 0 {
 		labels = nodeInstances[0].Labels
-		mxConfig.DefaultDestinationService = nodeInstances[0].Service.Hostname
+		mxConfig.DefaultDestinationService = nodeInstances[0].Service.Hostname.String()
 	}
 
 	if !outboundRoute {
@@ -247,7 +247,7 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 	}
 
 	for _, instance := range nodeInstances {
-		mxConfig.ServiceConfigs[instance.Service.Hostname] = v1.ServiceConfig(instance.Service.Hostname, instance, config,
+		mxConfig.ServiceConfigs[instance.Service.Hostname.String()] = v1.ServiceConfig(instance.Service.Hostname.String(), instance, config,
 			outboundRoute || mesh.DisablePolicyChecks, outboundRoute)
 	}
 
@@ -257,7 +257,7 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 // buildTCPMixerFilterConfig builds a TCP filter config for inbound requests.
 func buildTCPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, instance *model.ServiceInstance) *mccpb.TcpClientConfig {
 	attrs := v1.StandardNodeAttributes(v1.AttrDestinationPrefix, role.IPAddress, role.ID, nil)
-	attrs[v1.AttrDestinationService] = &mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_StringValue{instance.Service.Hostname}}
+	attrs[v1.AttrDestinationService] = &mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_StringValue{instance.Service.Hostname.String()}}
 
 	mxConfig := &mccpb.TcpClientConfig{
 		MixerAttributes: &mpb.Attributes{

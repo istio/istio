@@ -47,20 +47,20 @@ func (sd *serviceDiscovery) Services() ([]*model.Service, error) {
 }
 
 // GetService implements a service catalog operation
-func (sd *serviceDiscovery) GetService(hostname string) (*model.Service, error) {
+func (sd *serviceDiscovery) GetService(hostname model.Hostname) (*model.Service, error) {
 	apps, err := sd.client.Applications()
 	if err != nil {
 		log.Warnf("could not list Eureka instances: %v", err)
 		return nil, err
 	}
 
-	services := convertServices(apps, map[string]bool{hostname: true})
+	services := convertServices(apps, map[model.Hostname]bool{hostname: true})
 	service := services[hostname]
 	return service, nil
 }
 
 // Instances implements a service catalog operation
-func (sd *serviceDiscovery) Instances(hostname string, ports []string,
+func (sd *serviceDiscovery) Instances(hostname model.Hostname, ports []string,
 	tagsList model.LabelsCollection) ([]*model.ServiceInstance, error) {
 
 	apps, err := sd.client.Applications()
@@ -72,7 +72,7 @@ func (sd *serviceDiscovery) Instances(hostname string, ports []string,
 	for _, port := range ports {
 		portSet[port] = true
 	}
-	services := convertServices(apps, map[string]bool{hostname: true})
+	services := convertServices(apps, map[model.Hostname]bool{hostname: true})
 
 	out := make([]*model.ServiceInstance, 0)
 	for _, instance := range convertServiceInstances(services, apps) {
