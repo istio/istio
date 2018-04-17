@@ -28,7 +28,7 @@
        },
        "filters": [
         {
-         "type": "decoder",
+         "type": "both",
          "name": "mixer",
          "config": {
           "v2": {
@@ -146,7 +146,7 @@
        },
        "filters": [
         {
-         "type": "decoder",
+         "type": "both",
          "name": "mixer",
          "config": {
           "v2": {
@@ -240,7 +240,7 @@
        },
        "filters": [
         {
-         "type": "decoder",
+         "type": "both",
          "name": "mixer",
          "config": {
           "v2": {
@@ -435,7 +435,7 @@
        },
        "filters": [
         {
-         "type": "decoder",
+         "type": "both",
          "name": "mixer",
          "config": {
           "v2": {
@@ -736,7 +736,7 @@
        },
        "filters": [
         {
-         "type": "decoder",
+         "type": "both",
          "name": "mixer",
          "config": {
           "v2": {

@@ -21,7 +21,7 @@
        },
        "filters": [
         {
-         "type": "decoder",
+         "type": "both",
          "name": "mixer",
          "config": {
           "v2": {
