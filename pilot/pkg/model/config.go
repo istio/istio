@@ -268,7 +268,7 @@ type IstioConfigStore interface {
 	DestinationRule(hostname string) *Config
 
 	// VirtualServices lists all virtual services bound to the specified gateways
-	VirtualServices(gateways []string) []Config
+	VirtualServices(gateways map[string]bool) []Config
 
 	// Gateways lists all gateways bound to the specified workload labels
 	Gateways(workloadLabels LabelsCollection) []Config
@@ -283,11 +283,6 @@ type IstioConfigStore interface {
 	// QuotaSpecByDestination selects Mixerclient quota specifications
 	// associated with destination service instances.
 	QuotaSpecByDestination(instance *ServiceInstance) []Config
-
-	// EndUserAuthenticationPolicySpecByDestination selects
-	// Mixerclient end user authn policy specifications associated
-	// with destination service instances.
-	EndUserAuthenticationPolicySpecByDestination(instance *ServiceInstance) []Config
 
 	// AuthenticationPolicyByDestination selects authentication policy associated
 	// with a service + port. Hostname must be FQDN.
@@ -486,26 +481,6 @@ var (
 		Validate:    ValidateAuthenticationPolicy,
 	}
 
-	// EndUserAuthenticationPolicySpec describes an end-user authentication policy.
-	EndUserAuthenticationPolicySpec = ProtoSchema{
-		Type:        "end-user-authentication-policy-spec",
-		Plural:      "end-user-authentication-policy-specs",
-		Group:       "config",
-		Version:     istioAPIVersion,
-		MessageName: "istio.mixer.v1.config.client.EndUserAuthenticationPolicySpec",
-		Validate:    ValidateEndUserAuthenticationPolicySpec,
-	}
-
-	// EndUserAuthenticationPolicySpecBinding describes an EndUserAuthenticationPolicy specification binding.
-	EndUserAuthenticationPolicySpecBinding = ProtoSchema{
-		Type:        "end-user-authentication-policy-spec-binding",
-		Plural:      "end-user-authentication-policy-spec-bindings",
-		Group:       "config",
-		Version:     istioAPIVersion,
-		MessageName: "istio.mixer.v1.config.client.EndUserAuthenticationPolicySpecBinding",
-		Validate:    ValidateEndUserAuthenticationPolicySpecBinding,
-	}
-
 	// ServiceRole describes an RBAC service role.
 	ServiceRole = ProtoSchema{
 		Type:        "service-role",
@@ -540,8 +515,6 @@ var (
 		HTTPAPISpecBinding,
 		QuotaSpec,
 		QuotaSpecBinding,
-		EndUserAuthenticationPolicySpec,
-		EndUserAuthenticationPolicySpecBinding,
 		AuthenticationPolicy,
 		ServiceRole,
 		ServiceRoleBinding,
@@ -710,17 +683,10 @@ func (store *istioConfigStore) ExternalServices() []Config {
 // change event and pass them to the config generator. Model calls to List are
 // extremely expensive - and for larger number of services it doesn't make sense
 // to just convert again and again, for each listener times endpoints.
-func (store *istioConfigStore) VirtualServices(gateways []string) []Config {
+func (store *istioConfigStore) VirtualServices(gateways map[string]bool) []Config {
 	configs, err := store.List(VirtualService.Type, NamespaceAll)
 	if err != nil {
 		return nil
-	}
-
-	// Trim the list to virtual services bound to the gateways specified
-
-	gatewayRequested := make(map[string]bool)
-	for _, gateway := range gateways {
-		gatewayRequested[gateway] = true
 	}
 
 	out := make([]Config, 0)
@@ -728,12 +694,12 @@ func (store *istioConfigStore) VirtualServices(gateways []string) []Config {
 		rule := config.Spec.(*networking.VirtualService)
 		if len(rule.Gateways) == 0 {
 			// This rule applies only to IstioMeshGateway
-			if gatewayRequested[IstioMeshGateway] {
+			if gateways[IstioMeshGateway] {
 				out = append(out, config)
 			}
 		} else {
-			for _, ruleGateway := range rule.Gateways {
-				if gatewayRequested[ruleGateway] {
+			for _, g := range rule.Gateways {
+				if gateways[ResolveShortnameToFQDN(g, config.ConfigMeta)] {
 					out = append(out, config)
 					break
 				}
@@ -748,8 +714,17 @@ func (store *istioConfigStore) VirtualServices(gateways []string) []Config {
 		for i, h := range rule.Hosts {
 			rule.Hosts[i] = ResolveShortnameToFQDN(h, r.ConfigMeta)
 		}
+		// resolve gateways to bind to
+		for i, g := range rule.Gateways {
+			rule.Gateways[i] = ResolveShortnameToFQDN(g, r.ConfigMeta)
+		}
 		// resolve host in http route.destination, route.mirror
 		for _, d := range rule.Http {
+			for _, m := range d.Match {
+				for i, g := range m.Gateways {
+					m.Gateways[i] = ResolveShortnameToFQDN(g, r.ConfigMeta)
+				}
+			}
 			for _, w := range d.Route {
 				w.Destination.Host = ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta)
 			}
@@ -759,6 +734,11 @@ func (store *istioConfigStore) VirtualServices(gateways []string) []Config {
 		}
 		//resolve host in tcp route.destination
 		for _, d := range rule.Tcp {
+			for _, m := range d.Match {
+				for i, g := range m.Gateways {
+					m.Gateways[i] = ResolveShortnameToFQDN(g, r.ConfigMeta)
+				}
+			}
 			for _, w := range d.Route {
 				w.Destination.Host = ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta)
 			}
@@ -1023,45 +1003,6 @@ func (store *istioConfigStore) AuthenticationPolicyByDestination(hostname string
 	return &out
 }
 
-// EndUserAuthenticationPolicySpecByDestination selects Mixerclient quota specifications
-// associated with destination service instances.
-func (store *istioConfigStore) EndUserAuthenticationPolicySpecByDestination(instance *ServiceInstance) []Config {
-	bindings, err := store.List(EndUserAuthenticationPolicySpecBinding.Type, NamespaceAll)
-	if err != nil {
-		return nil
-	}
-	specs, err := store.List(EndUserAuthenticationPolicySpec.Type, NamespaceAll)
-	if err != nil {
-		return nil
-	}
-
-	// Create a set key from a reference's name and namespace.
-	key := func(name, namespace string) string { return name + "/" + namespace }
-
-	// Build the set of end user authn spec references bound to the service instance.
-	refs := make(map[string]struct{})
-	for _, binding := range bindings {
-		b := binding.Spec.(*mccpb.EndUserAuthenticationPolicySpecBinding)
-		for _, service := range b.Services {
-			hostname := ResolveHostname(binding.ConfigMeta, mixerToProxyIstioService(service))
-			if hostname == instance.Service.Hostname {
-				for _, spec := range b.Policies {
-					refs[key(spec.Name, spec.Namespace)] = struct{}{}
-				}
-			}
-		}
-	}
-
-	// Append any spec that is in the set of references.
-	var out []Config
-	for _, spec := range specs {
-		if _, ok := refs[key(spec.ConfigMeta.Name, spec.ConfigMeta.Namespace)]; ok {
-			out = append(out, spec)
-		}
-	}
-	return out
-}
-
 // SortHTTPAPISpec sorts a slice in a stable manner.
 func SortHTTPAPISpec(specs []Config) {
 	sort.Slice(specs, func(i, j int) bool {
@@ -1078,16 +1019,6 @@ func SortQuotaSpec(specs []Config) {
 		// protect against incompatible types
 		irule, _ := specs[i].Spec.(*mccpb.QuotaSpec)
 		jrule, _ := specs[j].Spec.(*mccpb.QuotaSpec)
-		return irule == nil || jrule == nil || (specs[i].Key() < specs[j].Key())
-	})
-}
-
-// SortEndUserAuthenticationPolicySpec sorts a slice in a stable manner.
-func SortEndUserAuthenticationPolicySpec(specs []Config) {
-	sort.Slice(specs, func(i, j int) bool {
-		// protect against incompatible types
-		irule, _ := specs[i].Spec.(*mccpb.EndUserAuthenticationPolicySpec)
-		jrule, _ := specs[j].Spec.(*mccpb.EndUserAuthenticationPolicySpec)
 		return irule == nil || jrule == nil || (specs[i].Key() < specs[j].Key())
 	})
 }

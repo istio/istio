@@ -384,7 +384,7 @@ if __name__ == "__main__":
                         " \n\nkubectl --namespace=istio-system port-forward $(kubectl --namespace=istio-system get -l istio=pilot pod -o=jsonpath='{.items[0].metadata.name}') 8080:8080."
                         "\n\nIf not provided, attempt will be made to find it out."
                         )
-    parser.add_argument("podname", help="podname must be either name.namespace.podip or name.namespace or any string that is a pod's label or a prefix of a pod's name. ingress, mixer, istio-ca, product-page all work")
+    parser.add_argument("podname", help="podname must be either name.namespace.podip or name.namespace or any string that is a pod's label or a prefix of a pod's name. ingress, mixer, citadel, product-page all work")
     parser.add_argument(
         "--output", help="A directory where output files are saved. default is the /tmp directory")
     parser.add_argument(

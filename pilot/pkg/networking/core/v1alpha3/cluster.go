@@ -163,6 +163,25 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env model.Environment
 		address := util.BuildAddress("127.0.0.1", uint32(instance.Endpoint.Port))
 		localCluster := buildDefaultCluster(env, clusterName, v2.Cluster_STATIC, []*core.Address{&address})
 		setUpstreamProtocol(localCluster, instance.Endpoint.ServicePort)
+		// call plugins
+		for _, p := range configgen.Plugins {
+			p.OnInboundCluster(env, proxy, instance.Service, instance.Endpoint.ServicePort, localCluster)
+		}
+
+		// When users specify circuit breakers, they need to be set on the receiver end
+		// (server side) as well as client side, so that the server has enough capacity
+		// (not the defaults) to handle the increased traffic volume
+		// TODO: This is not foolproof - if instance is part of multiple services listening on same port,
+		// choice of inbound cluster is arbitrary. So the connection pool settings may not apply cleanly.
+		config := env.DestinationRule(instance.Service.Hostname)
+		if config != nil {
+			destinationRule := config.Spec.(*networking.DestinationRule)
+			if destinationRule.TrafficPolicy != nil {
+				// only connection pool settings make sense on the inbound path.
+				// upstream TLS settings/outlier detection/load balancer don't apply here.
+				applyConnectionPool(localCluster, destinationRule.TrafficPolicy.ConnectionPool)
+			}
+		}
 		clusters = append(clusters, localCluster)
 	}
 
@@ -339,10 +358,8 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 }
 
 func setUpstreamProtocol(cluster *v2.Cluster, port *model.Port) {
-	if port.Protocol.IsHTTP() {
-		if port.Protocol == model.ProtocolHTTP2 || port.Protocol == model.ProtocolGRPC {
-			cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{}
-		}
+	if port.Protocol.IsHTTP2() {
+		cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{}
 	}
 }
 

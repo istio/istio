@@ -39,7 +39,7 @@ func NewController(configStore model.ConfigStoreCache) model.Controller {
 	configStore.RegisterEventHandler(model.ExternalService.Type, func(config model.Config, event model.Event) {
 		externalSvc := config.Spec.(*networking.ExternalService)
 
-		services := convertService(externalSvc)
+		services := convertServices(externalSvc)
 		for _, handler := range c.serviceHandlers {
 			for _, service := range services {
 				go handler(service, event)

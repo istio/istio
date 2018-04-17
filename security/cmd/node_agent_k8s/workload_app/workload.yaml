@@ -17,7 +17,7 @@ spec:
         image: gcr.io/istio-testing/workload:latest
         imagePullPolicy: IfNotPresent
         command: ["/main"]
-        args: ["-s", "/tmp/udsver/nodeagent/server.sock" ]
+        args: ["--sock", "/tmp/udsver/nodeagent/server.sock" ]
         volumeMounts:
         - mountPath: /tmp/udsver
           name: test-volume

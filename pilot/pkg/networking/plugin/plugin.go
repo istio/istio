@@ -34,6 +34,18 @@ const (
 	ListenerTypeHTTP
 )
 
+// ModelProtocolToListenerType converts from a model.Protocol to its corresponding plugin.ListenerType
+func ModelProtocolToListenerType(protocol model.Protocol) ListenerType {
+	switch protocol {
+	case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC, model.ProtocolHTTPS:
+		return ListenerTypeHTTP
+	case model.ProtocolTCP, model.ProtocolMongo:
+		return ListenerTypeTCP
+	default:
+		return ListenerTypeUnknown
+	}
+}
+
 // InputParams is a set of values passed to Plugin callback methods. Not all fields are guaranteed to
 // be set, it's up to the callee to validate required fields are set and emit error if they are not.
 // These are for reading only and should not be modified.
@@ -52,6 +64,15 @@ type InputParams struct {
 	Service *model.Service
 }
 
+// FilterChain describes a set of filters (HTTP or TCP) with a shared TLS context.
+// Only one of TCP or HTTP can be populated. TODO: when Envoy supports port multiplexing remove this constraint.
+type FilterChain struct {
+	// HTTP is the set of HTTP filters for this filter chain
+	HTTP []*http_conn.HttpFilter
+	// TCP is the set of network (TCP) filters for this filter chain.
+	TCP []listener.Filter
+}
+
 // MutableObjects is a set of objects passed to On*Listener callbacks. Fields may be nil or empty.
 // Any lists should not be overridden, but rather only appended to.
 // Non-list fields may be mutated; however it's not recommended to do this since it can affect other plugins in the
@@ -59,10 +80,9 @@ type InputParams struct {
 type MutableObjects struct {
 	// Listener is the listener being built. Must be initialized before Plugin methods are called.
 	Listener *xdsapi.Listener
-	// HTTPFilters is the slice of HTTP filters for the Listener. Append to only.
-	HTTPFilters *[]*http_conn.HttpFilter
-	// TCPFilters is the slice of TCP filters for the Listener. Append to only.
-	TCPFilters *[]listener.Filter
+
+	// FilterChains is the set of filter chains that will be attached to Listener
+	FilterChains []FilterChain
 }
 
 // Plugin is called during the construction of a xdsapi.Listener which may alter the Listener in any
