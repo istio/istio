@@ -653,7 +653,7 @@ workflows:
            filters:
              branches:
                only:
-                 - master
+                 - DISABLE_THIS_SCHEDULE
     jobs:
       - depupdate
       - build
