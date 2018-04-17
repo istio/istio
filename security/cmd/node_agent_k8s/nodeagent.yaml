@@ -22,7 +22,7 @@ spec:
         image: gcr.io/istio-testing/nodeagent:latest
         imagePullPolicy: IfNotPresent
         command: ["/main"]
-        args: ["--ca-address=citadel.istio-system.svc.cluster.local:8060"]
+        args: ["--ca-address=istio-citadel.istio-system.svc.cluster.local:8060"]
         volumeMounts:
         - name: test-mgmt
           mountPath: /tmp/udsuspver
