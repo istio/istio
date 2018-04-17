@@ -32,6 +32,9 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
+// Hostname describes a (possibly wildcarded) hostname
+type Hostname string
+
 // Service describes an Istio service (e.g., catalog.mystore.com:8080)
 // Each service has a fully qualified domain name (FQDN) and one or more
 // ports where the service is listening for connections. *Optionally*, a
@@ -44,7 +47,7 @@ import (
 // listens on ports 80, 8080
 type Service struct {
 	// Hostname of the service, e.g. "catalog.mystore.com"
-	Hostname string `json:"hostname"`
+	Hostname Hostname `json:"hostname"`
 
 	// Address specifies the service IPv4 address of the load balancer
 	Address string `json:"address,omitempty"`
@@ -61,7 +64,7 @@ type Service struct {
 	// service DNS name.  External services are name-based solution to represent
 	// external service instances as a service inside the cluster.
 	// Deprecated : made obsolete by the MeshExternal and Resolution flags.
-	ExternalName string `json:"external"`
+	ExternalName Hostname `json:"external"`
 
 	// ServiceAccounts specifies the service accounts that run the service.
 	ServiceAccounts []string `json:"serviceaccounts,omitempty"`
@@ -288,7 +291,7 @@ type ServiceDiscovery interface {
 	Services() ([]*Service, error)
 
 	// GetService retrieves a service by host name if it exists
-	GetService(hostname string) (*Service, error)
+	GetService(hostname Hostname) (*Service, error)
 
 	// Instances retrieves instances for a service and its ports that match
 	// any of the supplied labels. All instances match an empty tag list.
@@ -307,7 +310,7 @@ type ServiceDiscovery interface {
 	//
 	// Similar concepts apply for calling this function with a specific
 	// port, hostname and labels.
-	Instances(hostname string, ports []string, labels LabelsCollection) ([]*ServiceInstance, error)
+	Instances(hostname Hostname, ports []string, labels LabelsCollection) ([]*ServiceInstance, error)
 
 	// GetProxyServiceInstances returns the service instances that co-located with a given Proxy
 	//
@@ -341,7 +344,13 @@ type ServiceDiscovery interface {
 type ServiceAccounts interface {
 	// GetIstioServiceAccounts returns a list of service accounts looked up from
 	// the specified service hostname and ports.
-	GetIstioServiceAccounts(hostname string, ports []string) []string
+	GetIstioServiceAccounts(hostname Hostname, ports []string) []string
+}
+
+// String returns Hostname as a string; Hostname is already an alias of a string, so this is really for convenience over
+// explicit casting.
+func (h Hostname) String() string {
+	return string(h)
 }
 
 // SubsetOf is true if the tag has identical values for the keys
@@ -455,10 +464,10 @@ func (s *Service) Key(port *Port, labels Labels) string {
 
 // ServiceKey generates a service key for a collection of ports and labels
 // Deprecated
-func ServiceKey(hostname string, servicePorts PortList, labelsList LabelsCollection) string {
+func ServiceKey(hostname Hostname, servicePorts PortList, labelsList LabelsCollection) string {
 	// example: name.namespace|http|env=prod;env=test,version=my-v1
 	var buffer bytes.Buffer
-	buffer.WriteString(hostname)
+	buffer.WriteString(string(hostname))
 	np := len(servicePorts)
 	nt := len(labelsList)
 
@@ -507,9 +516,9 @@ func ServiceKey(hostname string, servicePorts PortList, labelsList LabelsCollect
 
 // ParseServiceKey is the inverse of the Service.String() method
 // Deprecated
-func ParseServiceKey(s string) (hostname string, ports PortList, labels LabelsCollection) {
+func ParseServiceKey(s string) (hostname Hostname, ports PortList, labels LabelsCollection) {
 	parts := strings.Split(s, "|")
-	hostname = parts[0]
+	hostname = Hostname(parts[0])
 
 	var names []string
 	if len(parts) > 1 {
@@ -532,18 +541,17 @@ func ParseServiceKey(s string) (hostname string, ports PortList, labels LabelsCo
 
 // BuildSubsetKey generates a unique string referencing service instances for a given service name, a subset and a port.
 // The proxy queries Pilot with this key to obtain the list of instances in a subset.
-func BuildSubsetKey(direction TrafficDirection, subsetName, hostname string, port *Port) string {
+func BuildSubsetKey(direction TrafficDirection, subsetName string, hostname Hostname, port *Port) string {
 	return fmt.Sprintf("%s|%s|%s|%s", direction, port.Name, subsetName, hostname)
 }
 
 // ParseSubsetKey is the inverse of the BuildSubsetKey method
-func ParseSubsetKey(s string) (direction TrafficDirection, subsetName, hostname string, port *Port) {
+func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, hostname Hostname, port *Port) {
 	parts := strings.Split(s, "|")
 	direction = TrafficDirection(parts[0])
 	port = &Port{Name: parts[1]}
 	subsetName = parts[2]
-	hostname = parts[3]
-
+	hostname = Hostname(parts[3])
 	return
 }
 

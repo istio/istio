@@ -62,7 +62,7 @@ type GuardedHost struct {
 // Services are indexed by FQDN hostnames.
 // Cluster domain is used to resolve short service names (e.g. "svc.cluster.local").
 func TranslateVirtualHosts(
-	serviceConfigs []model.Config, services map[string]*model.Service, proxyLabels model.LabelsCollection, gatewayNames map[string]bool) []GuardedHost {
+	serviceConfigs []model.Config, services map[model.Hostname]*model.Service, proxyLabels model.LabelsCollection, gatewayNames map[string]bool) []GuardedHost {
 
 	out := make([]GuardedHost, 0)
 
@@ -72,7 +72,7 @@ func TranslateVirtualHosts(
 	}
 
 	// compute services missing service configs
-	missing := make(map[string]bool)
+	missing := make(map[model.Hostname]bool)
 	for fqdn := range services {
 		missing[fqdn] = true
 	}
@@ -101,12 +101,12 @@ func TranslateVirtualHosts(
 }
 
 // matchServiceHosts splits the virtual service hosts into services and literal hosts
-func matchServiceHosts(in model.Config, serviceIndex map[string]*model.Service) ([]string, []*model.Service) {
+func matchServiceHosts(in model.Config, serviceIndex map[model.Hostname]*model.Service) ([]string, []*model.Service) {
 	rule := in.Spec.(*networking.VirtualService)
 	hosts := make([]string, 0)
 	services := make([]*model.Service, 0)
 	for _, host := range rule.Hosts {
-		if svc := serviceIndex[host]; svc != nil {
+		if svc := serviceIndex[model.Hostname(host)]; svc != nil {
 			services = append(services, svc)
 		} else {
 			hosts = append(hosts, host)
@@ -117,7 +117,7 @@ func matchServiceHosts(in model.Config, serviceIndex map[string]*model.Service) 
 
 // translateVirtualHost creates virtual hosts corresponding to a virtual service.
 func translateVirtualHost(
-	in model.Config, serviceIndex map[string]*model.Service, proxyLabels model.LabelsCollection, gatewayName map[string]bool) []GuardedHost {
+	in model.Config, serviceIndex map[model.Hostname]*model.Service, proxyLabels model.LabelsCollection, gatewayName map[string]bool) []GuardedHost {
 
 	hosts, services := matchServiceHosts(in, serviceIndex)
 	serviceByPort := make(map[int][]*model.Service)
@@ -155,10 +155,10 @@ func translateVirtualHost(
 // ConvertDestinationToCluster produces a cluster naming function using the config context.
 // defaultPort is the service port. This function returns an error if the service cannot be
 // resolved by defaultPort
-func ConvertDestinationToCluster(serviceIndex map[string]*model.Service, defaultPort int) ClusterNameGenerator {
+func ConvertDestinationToCluster(serviceIndex map[model.Hostname]*model.Service, defaultPort int) ClusterNameGenerator {
 	return func(destination *networking.Destination) string {
 		// detect if it is a service
-		svc := serviceIndex[destination.Host]
+		svc := serviceIndex[model.Hostname(destination.Host)]
 
 		if svc == nil {
 			return util.BlackHoleCluster
