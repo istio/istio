@@ -591,18 +591,22 @@ func ResolveShortnameToFQDN(host string, meta ConfigMeta) string {
 	return out
 }
 
+type authCache struct {
+	cache cache.ExpiringCache
+}
+
 // istioConfigStore provides a simple adapter for Istio configuration types
 // from the generic config registry
 type istioConfigStore struct {
 	ConfigStore
 
 	// AuthCache is a cache for auth(right now jwks_uri), it has some expiration logic on updating the URIs.
-	AuthCache cache.ExpiringCache
+	authCache authCache
 }
 
 // MakeIstioStore creates a wrapper around a store
 func MakeIstioStore(store ConfigStore) IstioConfigStore {
-	return &istioConfigStore{store, cache.NewTTL(jwksURICacheExpiration, jwksURICacheEviction)}
+	return &istioConfigStore{store, authCache{cache.NewTTL(jwksURICacheExpiration, jwksURICacheEviction)}}
 }
 
 // MatchSource checks that a rule applies for source service instances.
@@ -1018,7 +1022,7 @@ func (store *istioConfigStore) AuthenticationPolicyByDestination(hostname string
 		// Swap output policy that is match in more specific scope.
 		if matchLevel > currentMatchLevel {
 			currentMatchLevel = matchLevel
-			store.SetAuthenticationPolicyJwksURIs(policy)
+			store.authCache.SetAuthenticationPolicyJwksURIs(policy)
 			out = spec
 		}
 	}
@@ -1030,7 +1034,7 @@ func (store *istioConfigStore) AuthenticationPolicyByDestination(hostname string
 }
 
 // Set jwks_uri through openID discovery if it's not set in auth policy.
-func (store *istioConfigStore) SetAuthenticationPolicyJwksURIs(policy *authn.Policy) {
+func (c *authCache) SetAuthenticationPolicyJwksURIs(policy *authn.Policy) {
 	if policy == nil {
 		return
 	}
@@ -1039,7 +1043,7 @@ func (store *istioConfigStore) SetAuthenticationPolicyJwksURIs(policy *authn.Pol
 		switch method.GetParams().(type) {
 		case *authn.PeerAuthenticationMethod_Jwt:
 			policyJwt := method.GetJwt()
-			uri, err := store.getJwksURI(policyJwt)
+			uri, err := c.getJwksURI(policyJwt)
 			if err != nil {
 				log.Warnf("Failed to get jwks_uri for issuer %q: %v", policyJwt.Issuer, err)
 				continue
@@ -1050,7 +1054,7 @@ func (store *istioConfigStore) SetAuthenticationPolicyJwksURIs(policy *authn.Pol
 	for _, method := range policy.Origins {
 		// JWT is only allowed authentication method type for Origin.
 		policyJwt := method.GetJwt()
-		uri, err := store.getJwksURI(policyJwt)
+		uri, err := c.getJwksURI(policyJwt)
 		if err != nil {
 			log.Warnf("Failed to get jwks_uri for issuer %q: %v", policyJwt.Issuer, err)
 			continue
@@ -1060,14 +1064,14 @@ func (store *istioConfigStore) SetAuthenticationPolicyJwksURIs(policy *authn.Pol
 }
 
 // Get jwks_uri through openID discovery if it's not set in auth policy, and cache the jwks_uri for furture use.
-func (store *istioConfigStore) getJwksURI(policyJwt *authn.Jwt) (string, error) {
+func (c *authCache) getJwksURI(policyJwt *authn.Jwt) (string, error) {
 	// Return directly if policyJwt.JwksUri is explicitly set.
 	if policyJwt.JwksUri != "" {
 		return policyJwt.JwksUri, nil
 	}
 
 	// Set policyJwt.JwksUri if the JwksUri could be found in cache.
-	if uri, found := store.AuthCache.Get(policyJwt.Issuer); found {
+	if uri, found := c.cache.Get(policyJwt.Issuer); found {
 		return uri.(string), nil
 	}
 
@@ -1100,7 +1104,7 @@ func (store *istioConfigStore) getJwksURI(policyJwt *authn.Jwt) (string, error) 
 	}
 
 	// Set JwksUri in cache.
-	store.AuthCache.Set(policyJwt.Issuer, jwksURI)
+	c.cache.Set(policyJwt.Issuer, jwksURI)
 
 	return jwksURI, nil
 }
