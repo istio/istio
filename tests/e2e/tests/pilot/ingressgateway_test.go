@@ -112,7 +112,7 @@ func TestIngressGateway503DuringRuleChange(t *testing.T) {
 	var err error
 	var fatalError bool
 
-	if err := gateway.Setup(); err != nil {
+	if err = gateway.Setup(); err != nil {
 		t.Fatal(err)
 	}
 	defer gateway.Teardown()
@@ -133,7 +133,7 @@ func TestIngressGateway503DuringRuleChange(t *testing.T) {
 	time.Sleep(2 * time.Second)
 	go func() {
 		reqURL := fmt.Sprintf("http://%s.%s/c", ingressGatewayServiceName, istioNamespace)
-		resp = ClientRequest("t", reqURL, 500, "-key Host -val uk.bookinfo.com -qps 10")
+		resp = ClientRequest("t", reqURL, 500, "-key Host -val uk.bookinfo.com -qps 20")
 		waitChan <- 1
 	}()
 
@@ -160,7 +160,7 @@ cleanup:
 	if fatalError {
 		t.Fatal(err)
 	} else {
-		log.Infof("Body: %s, response codes: %v", resp.Body, resp.Code)
+		//log.Infof("Body: %s, response codes: %v", resp.Body, resp.Code)
 		if len(resp.Code) > 0 {
 			count := make(map[string]int)
 			for _, elt := range resp.Code {
@@ -170,7 +170,7 @@ cleanup:
 				// have entries other than 200
 				t.Errorf("Got non 200 status code while changing rules: %v", count)
 			} else {
-				log.Infoa("No 503s were encountered while changing rules")
+				log.Infof("No 503s were encountered while changing rules (total %d requests)", len(resp.Code))
 			}
 		} else {
 			t.Errorf("Could not parse response codes from the client")
