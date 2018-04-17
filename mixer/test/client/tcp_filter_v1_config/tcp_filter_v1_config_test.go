@@ -60,7 +60,7 @@ const reportAttributesOkPost = `
   "connection.sent.bytes_total": 133,
   "connection.duration": "*",
   "connection.id": "*",
-	"connection.event": "close"
+  "connection.event": "close"
 }
 `
 
