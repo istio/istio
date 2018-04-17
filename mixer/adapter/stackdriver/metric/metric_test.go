@@ -230,7 +230,7 @@ func TestRecord(t *testing.T) {
 						GrowthFactor:     10,
 					}}},
 			},
-			vtype: descriptor.DOUBLE,
+			vtype: descriptor.INT64,
 		},
 		"distribution-explicit": {
 			ttype: "type",
@@ -243,7 +243,7 @@ func TestRecord(t *testing.T) {
 						Bounds: []float64{1, 10, 100},
 					}}},
 			},
-			vtype: descriptor.DOUBLE,
+			vtype: descriptor.DURATION,
 		},
 	}
 	now := time.Now()
@@ -336,7 +336,7 @@ func TestRecord(t *testing.T) {
 		{"distribution-exp", []*metrict.Instance{
 			{
 				Name:       "distribution-exp",
-				Value:      float64(99),
+				Value:      int64(99),
 				Dimensions: map[string]interface{}{"str": "str", "int": int64(34)},
 			},
 		}, []*monitoringpb.TimeSeries{
@@ -359,7 +359,7 @@ func TestRecord(t *testing.T) {
 		{"distribution-explicit", []*metrict.Instance{
 			{
 				Name:       "distribution-explicit",
-				Value:      float64(9),
+				Value:      9 * time.Millisecond,
 				Dimensions: map[string]interface{}{"str": "str", "int": int64(34)},
 			},
 		}, []*monitoringpb.TimeSeries{
