@@ -154,9 +154,9 @@ const (
 	TrafficDirectionOutbound TrafficDirection = "outbound"
 )
 
-// ConvertCaseInsensitiveStringToProtocol converts a case-insensitive protocol to Protocol
-func ConvertCaseInsensitiveStringToProtocol(protocolAsString string) Protocol {
-	switch strings.ToLower(protocolAsString) {
+// ParseProtocol from string ignoring case
+func ParseProtocol(s string) Protocol {
+	switch strings.ToLower(s) {
 	case "tcp":
 		return ProtocolTCP
 	case "udp":
@@ -178,10 +178,30 @@ func ConvertCaseInsensitiveStringToProtocol(protocolAsString string) Protocol {
 	return ProtocolUnsupported
 }
 
+// IsHTTP2 is true for protocols that use HTTP/2 as transport protocol
+func (p Protocol) IsHTTP2() bool {
+	switch p {
+	case ProtocolHTTP2, ProtocolGRPC:
+		return true
+	default:
+		return false
+	}
+}
+
 // IsHTTP is true for protocols that use HTTP as transport protocol
 func (p Protocol) IsHTTP() bool {
 	switch p {
 	case ProtocolHTTP, ProtocolHTTP2, ProtocolGRPC:
+		return true
+	default:
+		return false
+	}
+}
+
+// IsTCP is true for protocols that use TCP as transport protocol
+func (p Protocol) IsTCP() bool {
+	switch p {
+	case ProtocolTCP, ProtocolHTTPS, ProtocolMongo, ProtocolRedis, ProtocolHTTP, ProtocolHTTP2, ProtocolGRPC:
 		return true
 	default:
 		return false
@@ -207,17 +227,17 @@ func (p Protocol) IsHTTP() bool {
 //  --> 172.16.0.1:33333 (with ServicePort pointing to 8080)
 type NetworkEndpoint struct {
 	// Address of the network endpoint, typically an IPv4 address
-	Address string `json:"ip_address,omitempty"`
+	Address string
 
 	// Port number where this instance is listening for connections This
 	// need not be the same as the port where the service is accessed.
 	// e.g., catalog.mystore.com:8080 -> 172.16.0.1:55446
-	Port int `json:"port"`
+	Port int
 
 	// Port declaration from the service declaration This is the port for
 	// the service associated with this instance (e.g.,
 	// catalog.mystore.com)
-	ServicePort *Port `json:"service_port"`
+	ServicePort *Port
 }
 
 // Labels is a non empty set of arbitrary strings. Each version of a service can
@@ -515,7 +535,7 @@ func BuildSubsetKey(direction TrafficDirection, subsetName, hostname string, por
 // ParseSubsetKey is the inverse of the BuildSubsetKey method
 func ParseSubsetKey(s string) (direction TrafficDirection, subsetName, hostname string, port *Port) {
 	parts := strings.Split(s, "|")
-	// we ignore direction since its typically not used by the consuming functions
+	direction = TrafficDirection(parts[0])
 	port = &Port{Name: parts[1]}
 	subsetName = parts[2]
 	hostname = parts[3]

@@ -52,10 +52,12 @@ DEFAULT_EXTRA_E2E_ARGS += --mixer_tag=${TAG}
 DEFAULT_EXTRA_E2E_ARGS += --pilot_tag=${TAG}
 DEFAULT_EXTRA_E2E_ARGS += --proxy_tag=${TAG}
 DEFAULT_EXTRA_E2E_ARGS += --ca_tag=${TAG}
+DEFAULT_EXTRA_E2E_ARGS += --galley_tag=${TAG}
 DEFAULT_EXTRA_E2E_ARGS += --mixer_hub=${HUB}
 DEFAULT_EXTRA_E2E_ARGS += --pilot_hub=${HUB}
 DEFAULT_EXTRA_E2E_ARGS += --proxy_hub=${HUB}
 DEFAULT_EXTRA_E2E_ARGS += --ca_hub=${HUB}
+DEFAULT_EXTRA_E2E_ARGS += --galley_hub=${HUB}
 
 EXTRA_E2E_ARGS ?= ${DEFAULT_EXTRA_E2E_ARGS}
 
@@ -119,6 +121,8 @@ e2e_all_run_junit_report:
 # The pilot tests cannot currently be part of e2e_all, since they requires some additional flags.
 e2e_pilot: istioctl generate_yaml
 	go test -v -timeout 20m ./tests/e2e/tests/pilot ${E2E_ARGS} ${EXTRA_E2E_ARGS}
+
+e2e_pilotv2_v1alpha3: | istioctl test/local/noauth/e2e_pilotv2
 
 ## Targets for fast local development and staged CI.
 # The test take a T argument. Example:

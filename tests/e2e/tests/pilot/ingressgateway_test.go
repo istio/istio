@@ -17,6 +17,7 @@ package pilot
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"istio.io/istio/pkg/log"
 )
@@ -30,7 +31,7 @@ import (
 // The gateways have already been deployed by the helm charts, and are configured by
 // default (kube service level) to expose ports 80/443. So our gateway specs also expose
 // ports 80/443.
-func TestIngressGateway(t *testing.T) {
+func TestGateway_HTTPIngress(t *testing.T) {
 	if !tc.V1alpha3 {
 		t.Skipf("Skipping %s: v1alpha3=false", t.Name())
 	}
@@ -64,6 +65,117 @@ func TestIngressGateway(t *testing.T) {
 		}
 		return errAgain
 	})
+}
+
+func TestIngressGateway503DuringRuleChange(t *testing.T) {
+	if !tc.V1alpha3 {
+		t.Skipf("Skipping %s: v1alpha3=false", t.Name())
+	}
+
+	istioNamespace := tc.Kube.IstioSystemNamespace()
+	ingressGatewayServiceName := tc.Kube.IstioIngressGatewayService()
+
+	gateway := &deployableConfig{
+		Namespace: tc.Kube.Namespace,
+		YamlFiles: []string{"testdata/v1alpha3/ingressgateway.yaml"},
+	}
+
+	// Add subsets
+	newDestRule := &deployableConfig{
+		Namespace: tc.Kube.Namespace,
+		YamlFiles: []string{"testdata/v1alpha3/rule-503test-destinationrule-c.yaml"},
+	}
+
+	// route to subsets
+	newVirtService := &deployableConfig{
+		Namespace: tc.Kube.Namespace,
+		YamlFiles: []string{"testdata/v1alpha3/rule-503test-virtualservice.yaml"},
+	}
+
+	addMoreSubsets := &deployableConfig{
+		Namespace: tc.Kube.Namespace,
+		YamlFiles: []string{"testdata/v1alpha3/rule-503test-destinationrule-c-add-subset.yaml"},
+	}
+
+	routeToNewSubsets := &deployableConfig{
+		Namespace: tc.Kube.Namespace,
+		YamlFiles: []string{"testdata/v1alpha3/rule-503test-update-virtualservice.yaml"},
+	}
+
+	deleteOldSubsets := &deployableConfig{
+		Namespace: tc.Kube.Namespace,
+		YamlFiles: []string{"testdata/v1alpha3/rule-503test-destinationrule-c-del-subset.yaml"},
+	}
+
+	waitChan := make(chan int)
+	var resp ClientResponse
+	var err error
+	var fatalError bool
+
+	if err = gateway.Setup(); err != nil {
+		t.Fatal(err)
+	}
+	defer gateway.Teardown()
+
+	log.Infof("Adding new subsets v1,v2")
+	// these functions have built in sleep. So we don't have to add any extra sleep here
+	if err = newDestRule.Setup(); err != nil {
+		t.Fatal(err)
+	}
+	defer newDestRule.Teardown()
+
+	log.Infof("routing to v1,v2")
+	if err = newVirtService.Setup(); err != nil {
+		t.Fatal(err)
+	}
+	defer newVirtService.Teardown()
+
+	time.Sleep(2 * time.Second)
+	go func() {
+		reqURL := fmt.Sprintf("http://%s.%s/c", ingressGatewayServiceName, istioNamespace)
+		resp = ClientRequest("t", reqURL, 500, "-key Host -val uk.bookinfo.com -qps 20")
+		waitChan <- 1
+	}()
+
+	log.Infof("Adding new subsets v3,v4")
+	if err = addMoreSubsets.Setup(); err != nil {
+		fatalError = true
+		goto cleanup
+	}
+	time.Sleep(2 * time.Second)
+	log.Infof("routing to v3,v4")
+	if err = routeToNewSubsets.Setup(); err != nil {
+		fatalError = true
+		goto cleanup
+	}
+	time.Sleep(2 * time.Second)
+	log.Infof("deleting old subsets v1,v2")
+	if err = deleteOldSubsets.Setup(); err != nil {
+		fatalError = true
+		goto cleanup
+	}
+
+cleanup:
+	_ = <-waitChan
+	if fatalError {
+		t.Fatal(err)
+	} else {
+		//log.Infof("Body: %s, response codes: %v", resp.Body, resp.Code)
+		if len(resp.Code) > 0 {
+			count := make(map[string]int)
+			for _, elt := range resp.Code {
+				count[elt] = count[elt] + 1
+			}
+			if count["200"] != len(resp.Code) {
+				// have entries other than 200
+				t.Errorf("Got non 200 status code while changing rules: %v", count)
+			} else {
+				log.Infof("No 503s were encountered while changing rules (total %d requests)", len(resp.Code))
+			}
+		} else {
+			t.Errorf("Could not parse response codes from the client")
+		}
+	}
 }
 
 // TODO: rename this file gateway_test.go, merge w/ egress too? At least this test and test above
