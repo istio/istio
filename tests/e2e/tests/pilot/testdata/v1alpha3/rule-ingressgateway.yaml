@@ -8,17 +8,6 @@ spec:
   gateways:
   - istio-ingressgateway # pinned to ingress gateway only
   http:
-#    - match:
-#      - headers:
-#          version:
-#            exact: v2
-#        source_labels:
-#          version: v1
-#      route:
-#      - destination:
-#          host: c
-#          subset: v2
-#        weight: 100
     - route:
       - destination:
           host: c
