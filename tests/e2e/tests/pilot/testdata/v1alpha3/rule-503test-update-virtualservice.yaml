@@ -11,7 +11,13 @@ spec:
     - route:
       - destination:
           host: c
-          subset: v2
+          subset: v3
           port:
             name: http
-        weight: 100
+        weight: 50
+      - destination:
+          host: c
+          subset: v4
+          port:
+            name: http
+        weight: 50

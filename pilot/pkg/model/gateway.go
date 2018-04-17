@@ -15,83 +15,54 @@
 package model
 
 import (
-	"fmt"
-	"reflect"
-	"strings"
-
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/log"
 )
 
-// MergeGateways merges servers from src into the server set on dst
+// MergedGateway describes a set of gateways for a workload merged into a single logical gateway.
 //
-// Merging happens on a per-server basis.
-// When comparing two servers, there are three possible results:
-//   1. If the servers have distinct port numbers and port names,
-//      then the resulting Gateway (dst) will contain both
-//   2. If the servers have identical port number, port name, and tls config
-//      then their hosts are merged into a single server on the result (dst)
-//   3. Otherwise, the servers are in considered to be in conflict
-//      and an error will be returned
-//
-// Missing features (TODO)
-//   - respect the 'selector' field
-//   - allow merging when ports exactly match but tls config differs (SNI)
-//   - allow merging h1, h2 and grpc protocols
-//
-// See also: Merging Gateways and RouteRules
-//  https://docs.google.com/document/d/1z9jOZ1f4MhC3Fvisduio8IoUqd1_Eqrd3kG65M6n854
-func MergeGateways(dst, src *networking.Gateway) error {
-	// Simplify the loop logic below by handling the case where either Gateway is empty.
-	if len(dst.Servers) == 0 {
-		dst.Servers = src.Servers
-		return nil
-	} else if len(src.Servers) == 0 {
-		return nil
-	}
+// TODO: do we need a `func (m *MergedGateway) MergeInto(gateway *networking.Gateway)`?
+type MergedGateway struct {
+	Names map[string]bool
 
-	servers := make([]*networking.Server, 0, len(dst.Servers))
-	for _, ss := range src.Servers {
-		for _, ds := range dst.Servers {
-			if serversEqual(ss, ds) {
-				ds.Hosts = append(ds.Hosts, ss.Hosts...)
-			} else if portsAreDistinct(ss.Port, ds.Port) {
-				servers = append(servers, ss)
+	// maps from physical port to virtual servers
+	Servers map[uint32][]*networking.Server
+}
+
+// MergeGateways combines multiple gateways targeting the same workload into a single logical Gateway.
+// Note that today any Servers in the combined gateways listening on the same port must have the same protocol.
+// If servers with different protocols attempt to listen on the same port, one of the protocols will be chosen at random.
+func MergeGateways(gateways ...Config) *MergedGateway {
+	names := make(map[string]bool, len(gateways))
+	servers := make(map[uint32][]*networking.Server, len(gateways))
+
+	log.Debugf("MergeGateways: merging %d gateways", len(gateways))
+	for _, spec := range gateways {
+		name := ResolveShortnameToFQDN(spec.Name, spec.ConfigMeta)
+		names[name] = true
+
+		gateway := spec.Spec.(*networking.Gateway)
+		log.Debugf("MergeGateways: merging gateway %q into %v:\n%v", name, names, gateway)
+		for _, s := range gateway.Servers {
+			log.Debugf("MergeGateways: gateway %q processing server %v", name, s.Hosts)
+			if ss, ok := servers[s.Port.Number]; ok {
+				// TODO: remove this check when Envoy supports filter chain matching so we can expose multiple protocols on the same physical port
+				// ss must have at least one element because the key exists in the map, otherwise we'd be in the else case below.
+				if ss[0].Port.Protocol != s.Port.Protocol {
+					log.Debugf("skipping server: attempting to merge servers for gateway %q into %v but servers have different protocols: want %v have %v",
+						spec.Name, names, ss[0].Port.Protocol, s.Port.Protocol)
+					continue
+				}
+				servers[s.Port.Number] = append(ss, s)
 			} else {
-				return fmt.Errorf("unable to merge gateways: conflicting ports: %v and %v", ds.Port, ss.Port)
+				servers[s.Port.Number] = []*networking.Server{s}
 			}
-			servers = append(servers, ds)
+			log.Debugf("MergeGateways: gateway %q merged server %v", name, s.Hosts)
 		}
 	}
-	dst.Servers = servers
-	return nil
-}
 
-func serversEqual(a, b *networking.Server) bool {
-	return portsEqual(a.Port, b.Port) && tlsEqual(a.Tls, b.Tls)
-}
-
-// Two ports are distinct if they have different names and different numbers
-// In this case, they can each have their own listener without any
-// ambiguity about which routing rules apply to which.
-//
-// Note it is possible for two ports to be neither distinct nor equal.
-// In that case, they conflict.
-//
-// TODO: once SNI and TLS-snooping work, we should be able to
-// avoid many of those conflicts.
-func portsAreDistinct(a, b *networking.Port) bool {
-	return a.Number != b.Number && a.Name != b.Name
-}
-
-// Two ports are equal if they expose the same protocol on the same port number
-// with the same name.  They can only be merged if they are equal.
-func portsEqual(a, b *networking.Port) bool {
-	return a.Number == b.Number && a.Name == b.Name &&
-		strings.ToLower(a.Protocol) == strings.ToLower(b.Protocol)
-
-}
-
-// Two TLS Options are equal if all of their fields are equal.
-func tlsEqual(a, b *networking.Server_TLSOptions) bool {
-	return reflect.DeepEqual(a, b)
+	return &MergedGateway{
+		Names:   names,
+		Servers: servers,
+	}
 }

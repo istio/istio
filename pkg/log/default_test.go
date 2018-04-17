@@ -74,9 +74,9 @@ func TestDefault(t *testing.T) {
 					t.Errorf("Got err '%v', expecting success", err)
 				}
 
-				defaultScope.Level = DebugLevel
-				defaultScope.StackTraceLevel = c.stackLevel
-				defaultScope.LogCallers = c.caller
+				defaultScope.SetOutputLevel(DebugLevel)
+				defaultScope.SetStackTraceLevel(c.stackLevel)
+				defaultScope.SetLogCallers(c.caller)
 
 				c.f()
 				_ = Sync()

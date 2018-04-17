@@ -14,6 +14,10 @@ global:
   # create RBAC resources for clusters with Pod Security Policy enabled.
   rbacPSPEnabled: true
 
+  ## imagePullSecrets for all ServiceAccount. Must be set for any clustser configured with privte docker registry.
+  # imagePullSecrets:
+  #   - name: "private-registry-key"
+
   # Default is 10s second
   refreshInterval: 1s
 

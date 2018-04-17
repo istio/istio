@@ -41,7 +41,6 @@ func makeClient(t *testing.T, desc model.ConfigDescriptor) (*crd.Client, error) 
 	if err != nil {
 		return nil, err
 	}
-	log.Print("RESOURCES CREATED XXXXXXXXXXXXXXXXXX")
 
 	// TODO(kuat) initial watch always fails, takes time to register, keep
 	// around as a work-around
