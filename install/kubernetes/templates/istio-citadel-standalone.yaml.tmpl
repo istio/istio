@@ -60,7 +60,7 @@ spec:
       serviceAccountName: istio-citadel-service-account
       containers:
       - name: citadel
-        image: {CA_HUB}/citadel:{CA_TAG}
+        image: {CITADEL_HUB}/citadel:{CITADEL_TAG}
         imagePullPolicy: IfNotPresent
         command: ["/usr/local/bin/istio_ca"]
         args:

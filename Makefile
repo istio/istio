@@ -203,27 +203,7 @@ check-tree:
        exit 1; fi
 
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
-# Will also check vendor, based on Gopkg.lock
-init: check-tree submodule vendor.check check-go-version $(ISTIO_OUT)/istio_is_init
-
-# Marker for whether vendor submodule is here or not already
-GRPC_DIR:=./vendor/google.golang.org/grpc
-
-# Submodule handling when not already there
-submodule: $(GRPC_DIR)
-
-$(GRPC_DIR):
-	$(MAKE) submodule-sync
-
-# If you want to force update/sync, invoke 'make submodule-sync' directly
-submodule-sync:
-	git submodule sync
-	git submodule update --init
-
-# Short cut for pulling/updating to latest of the current branch
-pull:
-	git pull
-	$(MAKE) submodule-sync
+init: check-tree check-go-version $(ISTIO_OUT)/istio_is_init
 
 # Merge master. To be used in CI or by developers, assumes the
 # remote is called 'origin' (git default). Will fail on conflicts
@@ -234,10 +214,8 @@ git.pullmaster:
 
 # Sync target will pull from master and sync the modules. It is the first step of the
 # circleCI build, developers should call it periodically.
-sync: git.pullmaster submodule-sync init
+sync: git.pullmaster init
 	mkdir -p ${OUT_DIR}/logs
-
-.PHONY: submodule pull submodule-sync git.pullmaster
 
 # I tried to make this dependent on what I thought was the appropriate
 # lock file, but it caused the rule for that file to get run (which
@@ -252,22 +230,15 @@ ${ISTIO_ENVOY_DEBUG_PATH}: init
 ${ISTIO_ENVOY_RELEASE_PATH}: init
 
 # Pull depdendencies, based on the checked in Gopkg.lock file.
-# Developers must manually call make depend.update if adding new deps or
-# make pull to pull recent changes in the submodule.
+# Developers must manually call make depend.update if adding new deps
 depend: init | $(ISTIO_OUT)
 
 $(ISTIO_OUT) $(ISTIO_BIN):
 	@mkdir -p $@
 
-depend.status: | $(ISTIO_OUT)
-	@echo "No error means your Gopkg.* are in sync and ok with vendor/"
-	dep status -dot > $(ISTIO_OUT)/dep.dot
-	cp Gopkg.* vendor/
-
 $(ISTIO_OUT)/dep.png: $(ISTIO_OUT)/dep.dot
 	dot -T png < $(ISTIO_OUT)/dep.dot > $(ISTIO_OUT)/dep.png
 
-# https://github.com/istio/istio/wiki/Vendor-FAQ#how-do-i-add--change-a-dependency
 depend.update.full: depend.cleanlock depend.update
 
 depend.cleanlock:
@@ -276,16 +247,6 @@ depend.cleanlock:
 depend.update:
 	@echo "Running dep ensure with DEPARGS=$(DEPARGS)"
 	time dep ensure $(DEPARGS)
-	cp Gopkg.* vendor/
-	@echo "now check the diff in vendor/ and make a PR"
-
-vendor.check:
-	@echo "Checking that Gopkg.* are in sync with vendor/ submodule:"
-	@echo "if this fails, 'make pull' and/or seek on-call help"
-	diff Gopkg.toml vendor/
-	diff Gopkg.lock vendor/
-
-.PHONY: vendor.check
 
 ${GEN_CERT}:
 	GOOS=$(GOOS_LOCAL) && GOARCH=$(GOARCH_LOCAL) && CGO_ENABLED=1 bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/generate_cert
