@@ -64,24 +64,20 @@ type event struct {
 }
 
 // New returns a new instance of a Server.
-func New(k common.Kube, mapping crd.Mapping, resyncPeriod time.Duration) (server *Server, err error) {
+func New(k common.Kube, mapping crd.Mapping, resyncPeriod time.Duration) (*Server) {
 	return newServer(k, mapping, resyncPeriod, nil)
 }
 
 func newServer(
-	k common.Kube, mapping crd.Mapping, resyncPeriod time.Duration, eventHook eventHookFn) (server *Server, err error) {
+	k common.Kube, mapping crd.Mapping, resyncPeriod time.Duration, eventHook eventHookFn) (*Server) {
 
-	s := &Server{
+	return &Server{
 		mapping:               mapping,
 		kube:                  k,
 		resyncPeriod:          resyncPeriod,
 		eventHook:             eventHook,
 		resourceSynchronizers: make(map[string]*resource.Synchronizer),
 	}
-
-	// TODO: Remove error
-	server = s
-	return
 }
 
 // Start the server instance. It will start synchronizing CRDs.

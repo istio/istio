@@ -34,12 +34,9 @@ func TestServer_CRDI_Error(t *testing.T) {
 	k := mock.NewKube()
 	k.AddResponse(nil, errors.New("some crdi error"))
 
-	s, err := New(k, Mapping(), 0)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	s := New(k, Mapping(), 0)
 
-	if err = s.Start(); err == nil || err.Error() != "some crdi error" {
+	if err := s.Start(); err == nil || err.Error() != "some crdi error" {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -55,12 +52,9 @@ func TestDoubleStart(t *testing.T) {
 	crdi.AddListResponse(&apiext.CustomResourceDefinitionList{}, nil)
 	crdi.AddWatchResponse(w, nil)
 
-	s, err := New(k, Mapping(), 0)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	s := New(k, Mapping(), 0)
 
-	err = s.Start()
+	err := s.Start()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -82,12 +76,9 @@ func TestDoubleStop(t *testing.T) {
 	crdi.AddListResponse(&apiext.CustomResourceDefinitionList{}, nil)
 	crdi.AddWatchResponse(w, nil)
 
-	s, err := New(k, Mapping(), 0)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	s := New(k, Mapping(), 0)
 
-	err = s.Start()
+	err := s.Start()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -138,12 +129,9 @@ func TestBasic(t *testing.T) {
 		wg.Done()
 	}
 
-	s, err := newServer(k, Mapping(), 0, hookFn)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	s := newServer(k, Mapping(), 0, hookFn)
 
-	err = s.Start()
+	err := s.Start()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
