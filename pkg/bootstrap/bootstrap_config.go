@@ -35,6 +35,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
+	"errors"
 )
 
 // Generate the envoy v2 bootstrap configuration, using template.
@@ -329,10 +330,14 @@ func Checkin(secure bool, addr, cluster, node string, delay time.Duration, retri
 		}
 
 		resp, err := client.Get(fmt.Sprintf("%v%v/v1/az/%v/%v", protocol, addr, cluster, node))
-		if err != nil {
-			log.Infof("Unable to retrieve availability zone from pilot: %v", err)
-			if attempts > retries {
-				return nil, err
+		if err != nil || resp.StatusCode != 200 {
+			log.Infof("Unable to retrieve availability zone from pilot: %v %d", err, attempts)
+			if attempts >= retries {
+				if err != nil {
+					return nil, err
+				} else {
+					return nil, errors.New(fmt.Sprint("AZ error %d", resp.StatusCode))
+				}
 			}
 		} else {
 			body, err := ioutil.ReadAll(resp.Body)
