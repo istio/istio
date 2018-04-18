@@ -209,7 +209,7 @@ func TestGetClusterConfig(t *testing.T) {
 	}
 	defer e.teardown()
 
-	cs := &ClusterStore{}
+	cs := NewClustersStore()
 	client := fake.NewSimpleClientset()
 
 	for _, test := range tests {
