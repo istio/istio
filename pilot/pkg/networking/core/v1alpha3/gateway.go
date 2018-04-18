@@ -328,6 +328,12 @@ func l4Match(predicates []*networking.L4MatchAttributes, server *networking.Serv
 	for _, match := range predicates {
 		// TODO: implement more matches, like CIDR ranges, etc.
 
+		// if there's no port predicate, portMatch is true; otherwise we evaluate the port predicate against the server's port
+		portMatch := match.Port == 0
+		if match.Port != 0 {
+			portMatch = server.Port.Number == match.Port
+		}
+
 		// similarly, if there's no gateway predicate, gatewayMatch is true; otherwise we match against the gateways for this workload
 		gatewayMatch := len(match.Gateways) == 0
 		if len(match.Gateways) > 0 {
@@ -336,7 +342,7 @@ func l4Match(predicates []*networking.L4MatchAttributes, server *networking.Serv
 			}
 		}
 
-		if gatewayMatch {
+		if portMatch && gatewayMatch {
 			return true
 		}
 	}
