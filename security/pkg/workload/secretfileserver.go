@@ -15,7 +15,9 @@
 package workload
 
 import (
+	"fmt"
 	"io/ioutil"
+	"os"
 	"path"
 
 	"istio.io/istio/security/pkg/pki/util"
@@ -34,15 +36,23 @@ type SecretFileServer struct {
 	rootDir string
 }
 
-// Save writes the specified key and cert to the files.
-// TODO(incfly): need to add more test for isolation.
-func (sf *SecretFileServer) Save(keycert util.KeyCertBundle) error {
-	cert, priv, _, _ := keycert.GetAllPem()
-	id := util.RetrieveID(keycert)
-	cpath := path.Join(sf.rootDir, id, "cert-chain.pem")
-	kpath := path.Join(sf.rootDir, id, "key.pem")
-	if err := ioutil.WriteFile(cpath, priv, KeyFilePermission); err != nil {
+// Put writes the specified key and cert to the files.
+func (sf *SecretFileServer) Put(serviceAccount string, keycert util.KeyCertBundle) error {
+	_, priv, cert, root := keycert.GetAllPem()
+	dir := path.Join(sf.rootDir, serviceAccount)
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		if err := os.Mkdir(dir, 0700); err != nil {
+			return fmt.Errorf("failed to create directory for %v, err %v", serviceAccount, err)
+		}
+	}
+	kpath := path.Join(dir, "key.pem")
+	if err := ioutil.WriteFile(kpath, priv, KeyFilePermission); err != nil {
 		return err
 	}
-	return ioutil.WriteFile(kpath, cert, CertFilePermission)
+	cpath := path.Join(dir, "cert-chain.pem")
+	if err := ioutil.WriteFile(cpath, cert, CertFilePermission); err != nil {
+		return err
+	}
+	rpath := path.Join(dir, "root-cert.pem")
+	return ioutil.WriteFile(rpath, root, CertFilePermission)
 }
