@@ -784,6 +784,18 @@ func (m *AccessLogFilter) Validate() error {
 			}
 		}
 
+	case *AccessLogFilter_HeaderFilter:
+
+		if v, ok := interface{}(m.GetHeaderFilter()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return AccessLogFilterValidationError{
+					Field:  "HeaderFilter",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
 	default:
 		return AccessLogFilterValidationError{
 			Field:  "FilterSpecifier",
@@ -1273,6 +1285,65 @@ func (e OrFilterValidationError) Error() string {
 }
 
 var _ error = OrFilterValidationError{}
+
+// Validate checks the field values on HeaderFilter with the rules defined in
+// the proto definition for this message. If any rules are violated, an error
+// is returned.
+func (m *HeaderFilter) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	if m.GetHeader() == nil {
+		return HeaderFilterValidationError{
+			Field:  "Header",
+			Reason: "value is required",
+		}
+	}
+
+	if v, ok := interface{}(m.GetHeader()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HeaderFilterValidationError{
+				Field:  "Header",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	return nil
+}
+
+// HeaderFilterValidationError is the validation error returned by
+// HeaderFilter.Validate if the designated constraints aren't met.
+type HeaderFilterValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e HeaderFilterValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sHeaderFilter.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = HeaderFilterValidationError{}
 
 // Validate checks the field values on FileAccessLog with the rules defined in
 // the proto definition for this message. If any rules are violated, an error
