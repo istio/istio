@@ -527,9 +527,7 @@ func splitYamlDoc(yamlFile string, t *testing.T) [][]byte {
 	stringParts := strings.Split(string(yamlDoc), yamlSeparator)
 	byteParts := [][]byte{}
 	for _, stringPart := range stringParts {
-		for _, injectablePart := range getInjectableYamlDocs(stringPart, t) {
-			byteParts = append(byteParts, injectablePart)
-		}
+		byteParts = append(byteParts, getInjectableYamlDocs(stringPart, t)...)
 	}
 	if len(byteParts) == 0 {
 		t.Skip("Found no injectable parts")
@@ -573,9 +571,7 @@ func getInjectableYamlDocs(yamlDoc string, t *testing.T) [][]byte {
 				t.Fatal(err)
 			}
 			injectables := getInjectableYamlDocs(string(iout), t)
-			for _, injectable := range injectables {
-				out = append(out, injectable)
-			}
+			out = append(out, injectables...)
 		}
 		return out
 	default:
