@@ -24,7 +24,8 @@ message AltsSocket {
   // on GCE
   string handshaker_service = 1 [(validate.rules).string.min_bytes = 1];
 
-  // The AltsSocket will only connect to peers with service account listed here.
-  // Peers not in the list will be rejected in the handshake validation step.
-  repeated string target_service_accounts = 2;
+  // The acceptable service accounts from peer, peers not in the list will be
+  // rejected in the handshake validation step.
+  // If empty, no validation will be performed.
+  repeated string peer_service_accounts = 2;
 }

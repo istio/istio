@@ -24,6 +24,14 @@ namespace Envoy {
 namespace Security {
 
 typedef std::function<TsiHandshakerPtr(Event::Dispatcher&)> HandshakerFactory;
+
+/**
+ * A function to validate the peer of the connection.
+ * @param peer the detail peer information of the connection.
+ * @param err an error message to indicate why the peer is invalid. This is an
+ * output param that should be populated by the function implementation.
+ * @return true if the peer is valid or false if the peer is invalid.
+ */
 typedef std::function<bool(const tsi_peer& peer, std::string& err)>
     HandshakeValidator;
 

@@ -92,7 +92,7 @@ Network::PostIoAction TsiSocket::doHandshakeNextDone(
                                  peer.properties[i].value.length));
     }
     if (handshake_validator_) {
-      std::string err = "";
+      std::string err;
       bool peer_validated = handshake_validator_(peer, err);
       if (peer_validated) {
         ENVOY_CONN_LOG(info, "TSI: Handshake validation succeeded.",
