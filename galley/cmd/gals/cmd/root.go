@@ -77,7 +77,7 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 		"Resync period for rescanning Kubernetes resources")
 
 	rootCmd.AddCommand(purgeCmd(fatalf))
-	rootCmd.AddCommand(serverCmd(fatalf))
+	rootCmd.AddCommand(syncCmd(fatalf))
 	rootCmd.AddCommand(validatorCmd(printf, fatalf))
 	rootCmd.AddCommand(probeCmd(printf, fatalf))
 	rootCmd.AddCommand(version.CobraCommand())
