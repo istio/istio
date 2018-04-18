@@ -1,4 +1,4 @@
-# Copyright 2017,2018 Istio Authors
+# Copyright 2017 Istio Authors
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -12,18 +12,22 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-apiVersion: config.istio.io/v1alpha2
-kind: RouteRule
+apiVersion: extensions/v1beta1
+kind: Deployment
 metadata:
-  name: reviews-v1-v2-90-10
+  name: ratings-v1
 spec:
-  destination:
-    name: reviews
-  precedence: 4
-  route:
-  - labels:
-      version: v1
-    weight: 90
-  - labels:
-      version: v2
-    weight: 10
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: ratings
+        version: v1
+    spec:
+      containers:
+      - name: ratings
+        image: istio/examples-bookinfo-ratings-v1:1.5.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9080
+---

@@ -1,4 +1,4 @@
-# Copyright 2017,2018 Istio Authors
+# Copyright 2017 Istio Authors
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -12,18 +12,19 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-apiVersion: config.istio.io/v1alpha2
-kind: RouteRule
+##################################################################################################
+# Productpage services
+##################################################################################################
+apiVersion: v1
+kind: Service
 metadata:
-  name: reviews-v1-v2-90-10
+  name: productpage
+  labels:
+    app: productpage
 spec:
-  destination:
-    name: reviews
-  precedence: 4
-  route:
-  - labels:
-      version: v1
-    weight: 90
-  - labels:
-      version: v2
-    weight: 10
+  ports:
+  - port: 9080
+    name: http
+  selector:
+    app: productpage
+---

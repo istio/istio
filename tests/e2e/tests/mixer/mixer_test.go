@@ -45,20 +45,22 @@ import (
 const (
 	bookinfoSampleDir        = "samples/bookinfo"
 	yamlExtension            = "yaml"
-	deploymentDir            = "kube"
-	rulesDir                 = "kube"
-	bookinfoYaml             = "bookinfo"
+	configurationDir         = "platforms/kubernetes/configurations/guide"
+	deploymentsDir           = "platforms/kubernetes/deployments"
+	routeRulesDir            = "routing/v1alpha1"
+	policiesDir              = "policies"
+	telemetryDir             = "telemetry"
 	bookinfoRatingsv2Yaml    = "bookinfo-ratings-v2"
 	bookinfoDbYaml           = "bookinfo-db"
 	sleepYaml                = "samples/sleep/sleep"
-	rateLimitRule            = rulesDir + "/" + "mixer-rule-ratings-ratelimit"
-	denialRule               = rulesDir + "/" + "mixer-rule-ratings-denial"
-	ingressDenialRule        = rulesDir + "/" + "mixer-rule-ingress-denial"
-	newTelemetryRule         = rulesDir + "/" + "mixer-rule-additional-telemetry"
-	routeAllRule             = rulesDir + "/" + "route-rule-all-v1"
-	routeReviewsVersionsRule = rulesDir + "/" + "route-rule-reviews-v2-v3"
-	routeReviewsV3Rule       = rulesDir + "/" + "route-rule-reviews-v3"
-	tcpDbRule                = rulesDir + "/" + "route-rule-ratings-db"
+	rateLimitRule            = policiesDir + "/" + "mixer-rule-ratings-ratelimit"
+	denialRule               = policiesDir + "/" + "mixer-rule-ratings-denial"
+	ingressDenialRule        = policiesDir + "/" + "mixer-rule-ingress-denial"
+	newTelemetryRule         = telemetryDir + "/" + "mixer-rule-additional-telemetry"
+	routeAllRule             = routeRulesDir + "/" + "route-rule-all-v1"
+	routeReviewsVersionsRule = routeRulesDir + "/" + "route-rule-reviews-v2-v3"
+	routeReviewsV3Rule       = routeRulesDir + "/" + "route-rule-reviews-v3"
+	tcpDbRule                = routeRulesDir + "/" + "route-rule-ratings-db"
 
 	prometheusPort   = "9090"
 	mixerMetricsPort = "42422"
@@ -1050,9 +1052,29 @@ func doMixerRule(ruleName string, do kubeDo) error {
 	return do(tc.Kube.Namespace, contents, tc.Kube.KubeConfig)
 }
 
-func getBookinfoResourcePath(resource string) string {
-	return util.GetResourcePath(filepath.Join(bookinfoSampleDir, deploymentDir,
+func getBookinfoDeploymentResourcePath(resource string) string {
+	return util.GetResourcePath(filepath.Join(bookinfoSampleDir, deploymentsDir,
 		resource+"."+yamlExtension))
+}
+
+func getConfigurationYamls() ([]framework.App, error) {
+	configurationApps := []framework.App{}
+
+	configurationDirPath := util.GetResourcePath(filepath.Join(bookinfoSampleDir, configurationDir))
+	files, err := ioutil.ReadDir(configurationDirPath)
+	if err != nil {
+		log.Errorf("Failed to read configuration directory %s", configurationDirPath)
+		return configurationApps, err
+	}
+
+	for _, file := range files {
+		app := framework.App{AppYaml: filepath.Join(configurationDirPath, file.Name()),
+			KubeInject: true,
+		}
+		configurationApps = append(configurationApps, app)
+	}
+
+	return configurationApps, nil
 }
 
 func setTestConfig() error {
@@ -1067,17 +1089,19 @@ func setTestConfig() error {
 		return err
 	}
 	tc.rulesDir = tmpDir
-	demoApps := []framework.App{
+
+	baseDemoConfiguration, err := getConfigurationYamls()
+	if err != nil {
+		return err
+	}
+
+	additionalDemoDeployments := []framework.App{
 		{
-			AppYaml:    getBookinfoResourcePath(bookinfoYaml),
+			AppYaml:    getBookinfoDeploymentResourcePath(bookinfoRatingsv2Yaml),
 			KubeInject: true,
 		},
 		{
-			AppYaml:    getBookinfoResourcePath(bookinfoRatingsv2Yaml),
-			KubeInject: true,
-		},
-		{
-			AppYaml:    getBookinfoResourcePath(bookinfoDbYaml),
+			AppYaml:    getBookinfoDeploymentResourcePath(bookinfoDbYaml),
 			KubeInject: true,
 		},
 		{
@@ -1085,9 +1109,14 @@ func setTestConfig() error {
 			KubeInject: true,
 		},
 	}
+
+	demoApps := append(baseDemoConfiguration, additionalDemoDeployments...)
+
+	// use index iteration since pointers to the array are passed as a parameter to AppManager.AddApp
 	for i := range demoApps {
 		tc.Kube.AppManager.AddApp(&demoApps[i])
 	}
+
 	mp := newPromProxy(tc.Kube.Namespace)
 	tc.Cleanup.RegisterCleanable(mp)
 	return nil

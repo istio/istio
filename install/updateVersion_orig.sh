@@ -321,12 +321,12 @@ function merge_files_docker() {
   cat $SRC/istio.yaml.tmpl >> $ISTIO
 
   # Merge bookinfo.sidecars.yaml sample file
-  SAMPLES_DEST=$DEST_DIR/samples/bookinfo/$TYPE
+  SAMPLES_DEST=$DEST_DIR/samples/bookinfo/platforms/$TYPE
   BOOKINFO=${SAMPLES_DEST}/bookinfo.sidecars.yaml
 
   mkdir -p $SAMPLES_DEST
   echo "# GENERATED FILE. Use with Docker-Compose and ${TYPE}" > $BOOKINFO
-  echo "# TO UPDATE, modify files in samples/bookinfo/${TYPE}/templates and run install/updateVersion.sh" >> $BOOKINFO
+  echo "# TO UPDATE, modify files in samples/bookinfo/platforms/${TYPE}/templates and run install/updateVersion.sh" >> $BOOKINFO
   cat $SRC/bookinfo.sidecars.yaml.tmpl >> $BOOKINFO
 }
 
@@ -350,7 +350,7 @@ rm -R $TEMP_DIR/templates
 for platform in consul eureka
 do
     cp -R $ROOT/install/$platform/templates $TEMP_DIR/templates
-    cp -a $ROOT/samples/bookinfo/$platform/templates/. $TEMP_DIR/templates/
+    cp -a $ROOT/samples/bookinfo/platforms/$platform/templates/. $TEMP_DIR/templates/
     update_istio_install_docker
     merge_files_docker $platform
     rm -R $TEMP_DIR/templates
