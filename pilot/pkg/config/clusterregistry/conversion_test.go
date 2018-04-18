@@ -82,17 +82,17 @@ type clusterConfig struct {
 func TestGetPilotClusters(t *testing.T) {
 	tests := []struct {
 		testName       string
-		cs             ClusterStore
+		cs             *ClusterStore
 		numberOfPilots int
 	}{
 		{
 			testName:       "No pilots in the store",
-			cs:             ClusterStore{},
+			cs:             &ClusterStore{},
 			numberOfPilots: 0,
 		},
 		{
 			testName: "3 out of 3 Pilot in the store",
-			cs: ClusterStore{
+			cs: &ClusterStore{
 				clusters: []*k8s_cr.Cluster{
 					{
 						ObjectMeta: metav1.ObjectMeta{
@@ -116,7 +116,7 @@ func TestGetPilotClusters(t *testing.T) {
 		},
 		{
 			testName: "3 out of 3 Pilot in the store",
-			cs: ClusterStore{
+			cs: &ClusterStore{
 				clusters: []*k8s_cr.Cluster{
 					{
 						ObjectMeta: metav1.ObjectMeta{
@@ -139,7 +139,6 @@ func TestGetPilotClusters(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-
 		numberOfPilots := len(test.cs.GetPilotClusters())
 		if numberOfPilots != test.numberOfPilots {
 			t.Errorf("Test '%s' failed, expected: %d number of Pilots, got: %d ", test.testName,

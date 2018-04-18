@@ -257,10 +257,21 @@ func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 		s.clusterStore, err = clusterregistry.ReadClusters(s.kubeClient,
 			args.Config.ClusterRegistriesConfigmap,
 			args.Config.ClusterRegistriesNamespace)
+		if err != nil {
+			return err
+		}
 		if s.clusterStore != nil {
 			log.Infof("clusters configuration %s", spew.Sdump(s.clusterStore))
+
+			// TODO Since Secret controller is not initializing clusterStore, it can be called
+			// only after successful clusterStore initialization. Refactor once Configmap use is eliminated.
+
+			// Starting Secret controller which will watch for Secret Objects and handle
+			// clientConfigs map dynamically
+			err = clusterregistry.StartSecretController(s.kubeClient, s.clusterStore, args.Config.ClusterRegistriesNamespace)
 		}
 	}
+
 	return err
 }
 

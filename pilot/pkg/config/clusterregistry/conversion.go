@@ -17,6 +17,7 @@ package clusterregistry
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	multierror "github.com/hashicorp/go-multierror"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,6 +46,7 @@ const (
 type ClusterStore struct {
 	clusters      []*k8s_cr.Cluster
 	clientConfigs map[string]clientcmdapi.Config
+	storeLock     sync.RWMutex
 }
 
 // GetClientAccessConfigs returns map of collected client configs
