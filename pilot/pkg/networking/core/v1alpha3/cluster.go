@@ -210,16 +210,45 @@ func convertResolution(resolution model.Resolution) v2.Cluster_DiscoveryType {
 	}
 }
 
-func applyTrafficPolicy(cluster *v2.Cluster, policy *networking.TrafficPolicy, _ *model.Port) {
+func applyTrafficPolicy(cluster *v2.Cluster, policy *networking.TrafficPolicy, port *model.Port) {
 	if policy == nil {
 		return
 	}
 
-	// TODO: add per-port settings
-	applyConnectionPool(cluster, policy.ConnectionPool)
-	applyOutlierDetection(cluster, policy.OutlierDetection)
-	applyLoadBalancer(cluster, policy.LoadBalancer)
-	applyUpstreamTLSSettings(cluster, policy.Tls)
+	connectionPool := policy.ConnectionPool
+	outlierDetection := policy.OutlierDetection
+	loadBalancer := policy.LoadBalancer
+	tls := policy.Tls
+
+	if port != nil && len(policy.PortLevelSettings) > 0 {
+		foundPort := false
+		for _, p := range policy.PortLevelSettings {
+			if p.Port != nil {
+				switch selector := p.Port.Port.(type) {
+				case *networking.PortSelector_Name:
+					if port.Name == selector.Name {
+						foundPort = true
+					}
+				case *networking.PortSelector_Number:
+					if uint32(port.Port) == selector.Number {
+						foundPort = true
+					}
+				}
+			}
+			if foundPort {
+				connectionPool = p.ConnectionPool
+				outlierDetection = p.OutlierDetection
+				loadBalancer = p.LoadBalancer
+				tls = p.Tls
+				break
+			}
+		}
+	}
+
+	applyConnectionPool(cluster, connectionPool)
+	applyOutlierDetection(cluster, outlierDetection)
+	applyLoadBalancer(cluster, loadBalancer)
+	applyUpstreamTLSSettings(cluster, tls)
 }
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
