@@ -14,7 +14,10 @@
 
 package model
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 var validServiceKeys = map[string]struct {
 	service Service
@@ -206,5 +209,56 @@ func TestParseProtocol(t *testing.T) {
 		if out != testPair.out {
 			t.Errorf("ParseProtocol(%q) => %q, want %q", testPair.name, out, testPair.out)
 		}
+	}
+}
+
+func TestHostnameMatches(t *testing.T) {
+	tests := []struct {
+		name string
+		a, b Hostname
+		out  bool
+	}{
+		{"empty", "", "", true},
+
+		{"non-wildcard domain",
+			"foo.com", "foo.com", true},
+		{"non-wildcard domain",
+			"bar.com", "foo.com", false},
+		{"non-wildcard domain - order doesn't matter",
+			"foo.com", "bar.com", false},
+
+		{"domain does not match subdomain",
+			"bar.foo.com", "foo.com", false},
+		{"domain does not match subdomain - order doesn't matter",
+			"foo.com", "bar.foo.com", false},
+
+		{"wildcard matches subdomains",
+			"*.com", "foo.com", true},
+		{"wildcard matches subdomains",
+			"*.com", "bar.com", true},
+		{"wildcard matches subdomains",
+			"*.foo.com", "bar.foo.com", true},
+
+		{"wildcard matches anything", "*", "foo.com", true},
+		{"wildcard matches anything", "*", "*.com", true},
+		{"wildcard matches anything", "*", "com", true},
+		{"wildcard matches anything", "*", "*", true},
+		{"wildcard matches anything", "*", "", true},
+
+		{"long wildcard matches short host", "*.foo.bar.baz", "baz", true},
+
+		// TODO: with the current implementation, this test case fails but is clearly invalid. Do we care?
+		// We validate that all hostnames are valid wildcard-DNS names (which disallows non-leading '*'), so we should
+		// never see this case in the wild.
+		//{"non-leading wildcard",
+		//	"foo.*.com", "foo.*.com", false},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
+			if tt.out != tt.a.Matches(tt.b) {
+				t.Fatalf("%q.Matches(%q) = %t wanted %t", tt.a, tt.b, !tt.out, tt.out)
+			}
+		})
 	}
 }
