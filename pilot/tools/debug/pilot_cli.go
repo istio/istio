@@ -99,14 +99,14 @@ func (p *PodInfo) populatePodNameAndIP(kubeconfig string) bool {
 
 	for _, pod := range pods.Items {
 		if p.Name != "" && pod.Name == p.Name {
-			log.Infof("Found pod %q~%s matching name %q", pod.Name, pod.Status.HostIP, p.Name)
-			p.IP = pod.Status.HostIP
+			log.Infof("Found pod %q~%s matching name %q", pod.Name, pod.Status.PodIP, p.Name)
+			p.IP = pod.Status.PodIP
 			return true
 		}
 		if app, ok := pod.ObjectMeta.Labels["app"]; ok && app == p.AppLabel {
-			log.Infof("Found pod %q~%s matching app label %q", pod.Name, pod.Status.HostIP, p.AppLabel)
+			log.Infof("Found pod %q~%s matching app label %q", pod.Name, pod.Status.PodIP, p.AppLabel)
 			p.Name = pod.Name
-			p.IP = pod.Status.HostIP
+			p.IP = pod.Status.PodIP
 			return true
 		}
 	}

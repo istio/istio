@@ -92,9 +92,18 @@ func RunAccessLogServer(ctx context.Context, als *AccessLogService, port uint) {
 	grpcServer.GracefulStop()
 }
 
+const grpcMaxConcurrentStreams = 1000000
+
 // RunManagementServer starts an xDS server at the given port.
 func RunManagementServer(ctx context.Context, server xds.Server, port uint) {
-	grpcServer := grpc.NewServer()
+	// gRPC golang library sets a very small upper bound for the number gRPC/h2
+	// streams over a single TCP connection. If a proxy multiplexes requests over
+	// a single connection to the management server, then it might lead to
+	// availability problems.
+	var grpcOptions []grpc.ServerOption
+	grpcOptions = append(grpcOptions, grpc.MaxConcurrentStreams(grpcMaxConcurrentStreams))
+	grpcServer := grpc.NewServer(grpcOptions...)
+
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		log.WithError(err).Fatal("failed to listen")
