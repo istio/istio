@@ -25,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/pkg/log"
 )
@@ -103,7 +104,12 @@ func addMemberCluster(s *corev1.Secret, cs *ClusterStore) {
 	// Check if there is already a cluster member with the specified
 	if _, ok := cs.clientConfigs[s.ObjectMeta.Name]; !ok {
 		log.Infof("Adding new cluster member: %s", s.ObjectMeta.Name)
-		// cs.store[s.ObjectMeta.Annotations[mcAnnotation]] = s.Data[s.ObjectMeta.Annotations[mcAnnotation]]
+		clientConfig, err := clientcmd.Load(s.Data[s.ObjectMeta.Name])
+		if err != nil {
+			log.Errorf("failed to load client config from secret %s in namespace %s with error: %v",
+				s.ObjectMeta.Name, s.ObjectMeta.Namespace, err)
+		}
+		cs.clientConfigs[s.ObjectMeta.Name] = *clientConfig
 	}
 	log.Infof("Number of clusters in the cluster store: %d", len(cs.clientConfigs))
 }
