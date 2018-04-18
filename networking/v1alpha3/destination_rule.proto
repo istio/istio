@@ -14,6 +14,7 @@
 syntax = "proto3";
 
 import "google/protobuf/duration.proto";
+import "networking/v1alpha3/virtual_service.proto";
 
 package istio.networking.v1alpha3;
 
@@ -64,6 +65,29 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //
 // **Note:** Policies specified for subsets will not take effect until
 // a route rule explicitly sends traffic to this subset.
+//
+// Traffic policies can be customized to specific ports as well. The
+// following rule uses the least connection load balancing policy for all
+// traffic to port 80, while uses a round robin load balancing setting for
+// traffic to the port 9080.
+//
+//     apiVersion: networking.istio.io/v1alpha3
+//     kind: DestinationRule
+//     metadata:
+//       name: bookinfo-ratings-port
+//     spec:
+//       host: ratings.prod.svc.cluster.local
+//       trafficPolicy: # Apply to all ports
+//         portLevelSettings:
+//         - port:
+//             number: 80
+//           loadBalancer:
+//             simple: LEAST_CONN
+//         - port:
+//             number: 9080
+//           loadBalancer:
+//             simple: ROUND_ROBIN
+//
 message DestinationRule {
   // REQUIRED. The name of a service from the service registry. Service
   // names are looked up from the platform's service registry (e.g.,
@@ -92,8 +116,8 @@ message DestinationRule {
   repeated Subset subsets = 3;
 }
 
-// Traffic policies to apply for a specific destination. See
-// DestinationRule for examples.
+// Traffic policies to apply for a specific destination, across all
+// destination ports. See DestinationRule for examples.
 message TrafficPolicy {
   // Settings controlling the load balancer algorithms.
   LoadBalancerSettings load_balancer = 1;
@@ -106,6 +130,37 @@ message TrafficPolicy {
 
   // TLS related settings for connections to the upstream service.
   TLSSettings tls = 4;
+
+  // Traffic policies that apply to specific ports of the service
+  message PortTrafficPolicy {
+    // Specifies the port name or number of a port on the destination service
+    // on which this policy is being applied.
+    //
+    // Names must comply with DNS label syntax (rfc1035) and therefore cannot
+    // collide with numbers. If there are multiple ports on a service with
+    // the same protocol the names should be of the form <protocol-name>-<DNS
+    // label>.
+    PortSelector port = 1;
+
+    // Settings controlling the load balancer algorithms.
+    LoadBalancerSettings load_balancer = 2;
+
+    // Settings controlling the volume of connections to an upstream service
+    ConnectionPoolSettings connection_pool = 3;
+
+    // Settings controlling eviction of unhealthy hosts from the load balancing pool
+    OutlierDetection outlier_detection = 4;
+
+    // TLS related settings for connections to the upstream service.
+    TLSSettings tls = 5;
+  }
+
+  // Traffic policies specific to individual ports. Note that port level
+  // settings will override the destination-level settings. Traffic
+  // settings specified at the destination-level will not be inherited when
+  // overridden by port-level settings, i.e. default values will be applied
+  // to fields omitted in port-level traffic policies.
+  repeated PortTrafficPolicy port_level_settings = 5;
 }
 
 // A subset of endpoints of a service. Subsets can be used for scenarios
