@@ -54,8 +54,8 @@ class ReportData : public ::istio::control::http::ReportData {
       ::istio::control::http::ReportData::ReportInfo *data) const override {
     data->request_body_size = info_.bytesReceived();
     data->response_body_size = info_.bytesSent();
-    data->response_totle_size = sent_bytes_;
-    data->request_totle_size = received_bytes_;
+    data->response_total_size = sent_bytes_;
+    data->request_total_size = received_bytes_;
     data->duration =
         info_.requestComplete().value_or(std::chrono::nanoseconds{0});
     // responseCode is for the backend response. If it is not valid, the request

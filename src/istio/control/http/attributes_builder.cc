@@ -182,8 +182,8 @@ void AttributesBuilder::ExtractReportAttributes(ReportData *report_data) {
   report_data->GetReportInfo(&info);
   builder.AddInt64(AttributeName::kRequestBodySize, info.request_body_size);
   builder.AddInt64(AttributeName::kResponseBodySize, info.response_body_size);
-  builder.AddInt64(AttributeName::kRequestTotleSize, info.request_totle_size);
-  builder.AddInt64(AttributeName::kResponseTotleSize, info.response_totle_size);
+  builder.AddInt64(AttributeName::kRequestTotalSize, info.request_total_size);
+  builder.AddInt64(AttributeName::kResponseTotalSize, info.response_total_size);
   builder.AddDuration(AttributeName::kResponseDuration, info.duration);
   if (!request_->check_status.ok()) {
     builder.AddInt64(
