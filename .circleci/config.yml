@@ -381,23 +381,6 @@ jobs:
       - store_artifacts:
           path: /tmp
 
-  # Run nightly, to verify 'dep update' works
-  depupdate:
-    <<: *defaults
-    steps:
-      - checkout
-      - run: make depend.update
-      - run: ( cd vendor ; git status  ) # just to see what changes
-      - run: make init build
-      - run:
-          name: Status and artifacts
-          command: make depend.status ISTIO_OUT=/go/out
-      - store_artifacts:
-          path: vendor/Gopkg.lock
-      - store_artifacts:
-          path: /go/out/dep.dot
-      # TODO: auto-commit Gopkg.lock if test is successful
-
   codecov:
     <<: *defaults
     resource_class: xlarge
@@ -472,6 +455,12 @@ jobs:
             make benchcheck | tee -a /go/out/benchcheck/go-benchcheck-report.out
       - store_test_results:
           path: /go/out/benchcheck
+
+  depdiff:
+    <<: *defaults
+    steps:
+      - checkout
+      - run: make depend.diff
 
   build:
     <<: *defaults
@@ -549,38 +538,44 @@ workflows:
                only:
                  - master
     jobs: #daisy chained steps ending with docker push
-      - depupdate
       - build
       - test
       - e2e-simple:
           requires:
             - test
             - build
+            - depdiff
       - e2e-dashboard:
           requires:
             - test
             - build
+            - depdiff
       - e2e-mixer:
           requires:
             - test
             - build
+            - depdiff
       - e2e-pilot: #auth+v1alpha1
           requires:
             - test
             - build
+            - depdiff
       - e2e-pilot-noauth-v1alpha1-v1:
           requires:
             - test
             - build
+            - depdiff
       - benchcheck:
           requires:
             - test
             - build
+            - depdiff
       # Compile for mac and arm
       - goxbuild:
           requires:
             - test
             - build
+            - depdiff
       # Nightly release
       - nightly:
           context: org-global
@@ -597,24 +592,29 @@ workflows:
                only:
                  - master
     jobs:
-      - depupdate
+      - depdiff
       - build
       - test
       - e2e-simple:
           requires:
+            - depdiff
             - build
       - e2e-dashboard:
           requires:
+            - depdiff
             - build
       - e2e-pilot:  #auth+v1alpha1
           requires:
+            - depdiff
             - build
       - benchcheck:
           requires:
+            - depdiff
             - test
             - build
       - e2e-mixer:
           requires:
+            - depdiff
             - build
 
   # flaky:
@@ -640,23 +640,29 @@ workflows:
     jobs:
       - dependencies
       - lint
+      - depdiff
       - build
       - test
       - codecov:
            requires:
+            - depdiff
             - build
       - e2e-mixer:
           requires:
+            - depdiff
             - build
       - e2e-pilot: #auth+v1alpha1
           requires:
+            - depdiff
             - build
       - e2e-simple:
           requires:
+            - depdiff
             - build
       - racetest:
           requires:
             - test
       - e2e-pilot-noauth-v1alpha3-v2: #no auth+v1alpha3+v2
           requires:
+            - depdiff
             - build
