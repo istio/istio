@@ -10,15 +10,8 @@ RUN apt-get update && \
       curl \
       iptables \
       iproute2 \
-      iputils-ping \
-      dnsutils \
-      netcat \
       tcpdump \
-      net-tools \
-      libc6-dbg gdb \
-      elvis-tiny \
       lsof \
       busybox \
-      sudo &&  apt-get upgrade -y && \
-    rm -rf /var/lib/apt/lists/*
+      sudo &&  busybox --install /bin && rm -rf /var/lib/apt/lists/*
 
