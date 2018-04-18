@@ -155,10 +155,7 @@ func StartSecretController(k8s kubernetes.Interface, cs *ClusterStore, namespace
 	controller := NewController(k8s, kubeInformerFactory, namespace, cs)
 
 	go kubeInformerFactory.Start(stopCh)
-	if err := controller.Run(stopCh); err != nil {
-		log.Errorf("Error running Secret controller: %s", err.Error())
-		return err
-	}
+	go controller.Run(stopCh)
 
 	return nil
 }
