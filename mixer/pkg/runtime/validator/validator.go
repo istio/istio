@@ -354,18 +354,23 @@ func (v *Validator) validateUpdate(ev *store.Event) error {
 			return err
 		}
 	} else if handler, ok := ev.Value.Spec.(*cpb.Handler); ok && ev.Kind == config.HandlerKind {
-		if adapter := v.infoRegistry.GetAdapter(handler.Adapter); adapter == nil {
-			return fmt.Errorf("referenced adapter %s is not valid; only valid adapters are %v", handler.Adapter,
-				v.infoRegistry.GetAdapters())
-		} else {
-			// things to validate
-			// 	Param is valid as per the adapter config descriptor
-			// 	TODO Connection info is valid
-			// 	TODO invoke the out of proc adapter call to validate config
-
-			params := handler.Params.(map[string]interface{})
-			fmt.Println(params)
+		key, err := v.getKey(handler.Adapter, ev.Namespace)
+		if err != nil || key.Kind != config.AdapterKind {
+			return fmt.Errorf("adapter name '%s' does not reference to a valid 'adapter' kind resource", handler.Adapter)
 		}
+
+		//if adapter := v.infoRegistry.GetAdapter(handler.Adapter); adapter == nil {
+		// return fmt.Errorf("referenced adapter %s is not valid; only valid adapters are %v", handler.Adapter,
+		//	v.infoRegistry.GetAdapters())
+		//} else {
+		// things to validate
+		// 	Param is valid as per the adapter config descriptor
+		// 	TODO Connection info is valid
+		// 	TODO invoke the out of proc adapter call to validate config
+
+		params := handler.Params.(map[string]interface{})
+		fmt.Println(params)
+		//}
 	} else if manifest, ok := ev.Value.Spec.(*cpb.AttributeManifest); ok && ev.Kind == config.AttributeManifestKind {
 		manifests := map[store.Key]*cpb.AttributeManifest{}
 		v.c.forEach(func(k store.Key, spec proto.Message) {
@@ -448,7 +453,7 @@ func (v *Validator) validateAdapterDelete(ikey store.Key) error {
 			return
 		}
 		if key == ikey {
-			errs = multierror.Append(errs, fmt.Errorf("%v is referred by %v.adapter", ikey, rkey))
+			errs = multierror.Append(errs, fmt.Errorf("cannot delete adapter %v as it is referenced by handler %v", ikey, rkey))
 		}
 	})
 	return errs

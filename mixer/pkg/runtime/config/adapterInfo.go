@@ -61,7 +61,7 @@ type adapterInfoRegistry struct {
 	templateNames []string
 }
 
-const adapterCfgMsgName = "Param"
+const adapterCfgMsgName = "Params"
 
 // NewAdapterInfoRegistry creates a `AdapterInfoRegistry` from given adapter infos.
 // Note: For adding built-in templates that are not associated with any adapters, supply the `Info` object with

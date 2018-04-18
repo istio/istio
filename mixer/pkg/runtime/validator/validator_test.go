@@ -288,7 +288,7 @@ func TestValidator(t *testing.T) {
 					SessionBased: true,
 				}),
 				updateEvent("myhandler.handler.default", &cpb.Handler{
-					Adapter: "testadapter.adapter.default",
+					Adapter: "testadapter.adapter",
 					Params: unmarshalJson(`
 overrides: ["v1", "v2"]
 blacklist: false
@@ -299,19 +299,19 @@ blacklist: false
 				}),
 				deleteEvent("testadapter.adapter.default"),
 			},
-			true,
+			false,
 		},
 		{
 			"add new handler valid",
 			[]*store.Event{
 				// first add the adapter, followed by the handler
 				updateEvent("testCR1.adapter.default", &v1beta1.Info{
-					Name:         "testAdapter",
+					Name:         "testadapter",
 					Description:  "testAdapter description",
 					SessionBased: true,
 				}),
 				updateEvent("myhandler.handler.default", &cpb.Handler{
-					Adapter: "testAdapter",
+					Adapter: "testadapter.adapter",
 					Params: unmarshalJson(`
 overrides: ["v1", "v2"]
 blacklist: false
