@@ -551,6 +551,18 @@ func (k *KubeInfo) deployIstio() error {
 		return err
 	}
 
+	if *useGalleyConfigValidator {
+		baseConfigValidatorYAML := util.GetResourcePath(filepath.Join(istioInstallDir, *galleyConfigValidatorFile))
+		testConfigValidatorYAML := filepath.Join(k.TmpDir, "yaml", *galleyConfigValidatorFile)
+		if err := k.generateGalleyConfigValidator(baseConfigValidatorYAML, testConfigValidatorYAML); err != nil {
+			log.Errorf("Generating galley config validator yaml failed")
+			return err
+		}
+		if err := util.KubeApply(k.Namespace, testConfigValidatorYAML, k.KubeConfig); err != nil {
+			log.Errorf("Istio galley config validator %s deployment failed", testConfigValidatorYAML)
+		}
+	}
+
 	if err := util.CheckDeployments(k.Namespace, maxDeploymentRolloutTime, k.KubeConfig); err != nil {
 		log.Errorf("Fail to check deployment in %s within %d seconds: %s",
 			k.Namespace, maxDeploymentRolloutTime/time.Second, err)
