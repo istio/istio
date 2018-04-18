@@ -17,6 +17,7 @@ package model
 import (
 	"strings"
 	"testing"
+	"time"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	"istio.io/istio/pilot/pkg/model/test"
@@ -40,11 +41,11 @@ func TestResolveJwksURIUsingOpenID(t *testing.T) {
 	}{
 		{
 			in:              "http://localhost:9999",
-			expectedJwksURI: "https://www.googleapis.com/oauth2/v3/certs",
+			expectedJwksURI: "http://localhost:9999/oauth2/v3/certs",
 		},
 		{
 			in:              "http://localhost:9999", // Send two same request, mock server is expected to hit only once because of the cache.
-			expectedJwksURI: "https://www.googleapis.com/oauth2/v3/certs",
+			expectedJwksURI: "http://localhost:9999/oauth2/v3/certs",
 		},
 		{
 			in:                   "http://xyz",
@@ -69,7 +70,7 @@ func TestResolveJwksURIUsingOpenID(t *testing.T) {
 	}
 
 	// Verify mock openID discovery http://localhost:9999/.well-known/openid-configuration was only called once because of the cache.
-	if got, want := ms.HitNum, 1; got != want {
+	if got, want := ms.OpenIDHitNum, 1; got != want {
 		t.Errorf("Mock OpenID discovery Hit number => expected %d but got %d", want, got)
 	}
 }
@@ -135,7 +136,7 @@ func TestSetAuthenticationPolicyJwksURIs(t *testing.T) {
 	}{
 		{
 			in:       authNPolicies["one"],
-			expected: "https://www.googleapis.com/oauth2/v3/certs",
+			expected: "http://localhost:9999/oauth2/v3/certs",
 		},
 		{
 			in:       authNPolicies["two"],
@@ -147,6 +148,104 @@ func TestSetAuthenticationPolicyJwksURIs(t *testing.T) {
 		got := c.in.GetOrigins()[0].GetJwt().JwksUri
 		if want := c.expected; got != want {
 			t.Errorf("setAuthenticationPolicyJwksURIs(%+v): expected (%s), got (%s)", c.in, c.expected, c.in)
+		}
+	}
+}
+
+func TestResolveJwtPubKey(t *testing.T) {
+	r := newJwtPubKeyResolver(newJwksURIResolver(), JwtPubKeyExpireDuration, JwtPubKeyRefreshInterval)
+	defer r.Close()
+
+	ms := test.NewServer(9999)
+	if err := ms.Start(); err != nil {
+		t.Fatal("failed to start mock server")
+	}
+	defer func() {
+		_ = ms.Stop()
+	}()
+
+	cases := []struct {
+		in                string
+		expectedJwtPubkey string
+	}{
+		{
+			in:                "http://localhost:9999",
+			expectedJwtPubkey: test.JwtPubKey1,
+		},
+		{
+			in:                "http://localhost:9999", // Send two same request, mock server is expected to hit only once because of the cache.
+			expectedJwtPubkey: test.JwtPubKey1,
+		},
+	}
+	for _, c := range cases {
+		pk, err := r.ResolveJwtPubKey(c.in)
+		if err != nil {
+			t.Errorf("ResolveJwtPubKey(%+v) fails: expected no error, got (%v)", c.in, err)
+		}
+		if c.expectedJwtPubkey != pk {
+			t.Errorf("ResolveJwtPubKey(%+v): expected (%s), got (%s)", c.in, c.expectedJwtPubkey, pk)
+		}
+	}
+
+	// Verify mock server http://localhost:9999/oauth2/v3/certs was only called once because of the cache.
+	if got, want := ms.PubKeyHitNum, 1; got != want {
+		t.Errorf("Mock server Hit number => expected %d but got %d", want, got)
+	}
+}
+
+func TestJwtPubKeyRefresh(t *testing.T) {
+	r := newJwtPubKeyResolver(newJwksURIResolver(), time.Millisecond /*ExpireDuration*/, 2*time.Millisecond /*RefreshInterval*/)
+	defer r.Close()
+
+	ms := test.NewServer(9999)
+	if err := ms.Start(); err != nil {
+		t.Fatal("failed to start mock server")
+	}
+	defer func() {
+		_ = ms.Stop()
+	}()
+
+	cases := []struct {
+		in                string
+		expectedJwtPubkey string
+	}{
+		{
+			in: "http://localhost:9999",
+			// Mock server returns JwtPubKey1 for first call.
+			expectedJwtPubkey: test.JwtPubKey1,
+		},
+	}
+	for _, c := range cases {
+		pk, err := r.ResolveJwtPubKey(c.in)
+		if err != nil {
+			t.Errorf("ResolveJwtPubKey(%+v) fails: expected no error, got (%v)", c.in, err)
+		}
+		if c.expectedJwtPubkey != pk {
+			t.Errorf("ResolveJwtPubKey(%+v): expected (%s), got (%s)", c.in, c.expectedJwtPubkey, pk)
+		}
+	}
+
+	// Sleep so that refresher job has chance to run.
+	time.Sleep(10 * time.Millisecond)
+
+	cases = []struct {
+		in                string
+		expectedJwtPubkey string
+	}{
+		{
+			in: "http://localhost:9999",
+			// Mock server returns JwtPubKey2 for later calls.
+			// Verify the refresher has run and got new key from mock server.
+			expectedJwtPubkey: test.JwtPubKey2,
+		},
+	}
+	for _, c := range cases {
+		pk, err := r.ResolveJwtPubKey(c.in)
+		if err != nil {
+			t.Errorf("ResolveJwtPubKey(%+v) fails: expected no error, got (%v)", c.in, err)
+		}
+		if c.expectedJwtPubkey != pk {
+			t.Errorf("ResolveJwtPubKey(%+v): expected (%s), got (%s)", c.in, c.expectedJwtPubkey, pk)
 		}
 	}
 }

@@ -789,6 +789,8 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 			if s.secureGRPCServer != nil {
 				s.secureGRPCServer.Stop()
 			}
+
+			model.Jwtkeyresolver.Close()
 		}()
 
 		return err

@@ -29,6 +29,7 @@ import (
 	authn "istio.io/api/authentication/v1alpha1"
 	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model/test"
 )
 
 func TestRequireTls(t *testing.T) {
@@ -513,6 +514,85 @@ func TestBuildJwtFilter(t *testing.T) {
 																					},
 																				},
 																			},
+																		},
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, c := range cases {
+		if got := BuildJwtFilter(c.in); !reflect.DeepEqual(c.expected, got) {
+			t.Errorf("buildJwtFilter(%#v), got:\n%#v\nwanted:\n%#v\n", c.in, got, c.expected)
+		}
+	}
+}
+
+func TestBuildLocalJwtFilter(t *testing.T) {
+	ms := test.NewServer(9999)
+	if err := ms.Start(); err != nil {
+		t.Fatal("failed to start mock server")
+	}
+	enableLocalJwks = true
+	defer func() {
+		_ = ms.Stop()
+		enableLocalJwks = false
+	}()
+
+	cases := []struct {
+		in       *authn.Policy
+		expected *http_conn.HttpFilter
+	}{
+		{
+			in: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Jwt{
+							Jwt: &authn.Jwt{
+								Issuer: "http://localhost:9999",
+							},
+						},
+					},
+				},
+			},
+			expected: &http_conn.HttpFilter{
+				Name: "jwt-auth",
+				Config: &types.Struct{
+					Fields: map[string]*types.Value{
+						"allow_missing_or_failed": {Kind: &types.Value_BoolValue{BoolValue: true}},
+						"rules": {
+							Kind: &types.Value_ListValue{
+								ListValue: &types.ListValue{
+									Values: []*types.Value{
+										{
+											Kind: &types.Value_StructValue{
+												StructValue: &types.Struct{
+													Fields: map[string]*types.Value{
+														"issuer":  {Kind: &types.Value_StringValue{StringValue: "http://localhost:9999"}},
+														"forward": {Kind: &types.Value_BoolValue{BoolValue: true}},
+														"forward_payload_header": {
+															Kind: &types.Value_StringValue{
+																StringValue: "istio-sec-b95a5c97fd14614cab74497a8d3ef0b8477adc62",
+															},
+														},
+														"local_jwks": {
+															Kind: &types.Value_StructValue{
+																StructValue: &types.Struct{
+																	Fields: map[string]*types.Value{
+																		"inline_string": {
+																			Kind: &types.Value_StringValue{StringValue: test.JwtPubKey1},
 																		},
 																	},
 																},

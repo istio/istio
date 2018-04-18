@@ -26,14 +26,15 @@ import (
 )
 
 // OpenID discovery content returned by mock server.
-const cfgContent = `
+const (
+	cfgContent = `
 {
 	"issuer": "https://accounts.google.com",
 	"authorization_endpoint": "https://accounts.google.com/o/oauth2/v2/auth",
 	"token_endpoint": "https://www.googleapis.com/oauth2/v4/token",
 	"userinfo_endpoint": "https://www.googleapis.com/oauth2/v3/userinfo",
 	"revocation_endpoint": "https://accounts.google.com/o/oauth2/revoke",
-	"jwks_uri": "https://www.googleapis.com/oauth2/v3/certs",
+	"jwks_uri": "http://localhost:9999/oauth2/v3/certs",
 	"response_types_supported": [
 	 "code",
 	 "token",
@@ -79,6 +80,9 @@ const cfgContent = `
 	]
    }
 `
+	JwtPubKey1 = "fakeKey1"
+	JwtPubKey2 = "fakeKey2"
+)
 
 // MockOpenIDDiscoveryServer is the in-memory openID discovery server.
 type MockOpenIDDiscoveryServer struct {
@@ -87,7 +91,10 @@ type MockOpenIDDiscoveryServer struct {
 	server *http.Server
 
 	// How many times openIDCfg is called, use this number to verfiy cache takes effect.
-	HitNum int
+	OpenIDHitNum int
+
+	// How many times jwtPubKey is called, use this number to verfiy cache takes effect.
+	PubKeyHitNum int
 }
 
 // NewServer creates a mock openID discovery server.
@@ -102,6 +109,7 @@ func NewServer(port int) *MockOpenIDDiscoveryServer {
 func (ms *MockOpenIDDiscoveryServer) Start() error {
 	router := mux.NewRouter()
 	router.HandleFunc("/.well-known/openid-configuration", ms.openIDCfg).Methods("GET")
+	router.HandleFunc("/oauth2/v3/certs", ms.jwtPubKey).Methods("GET")
 
 	server := &http.Server{
 		Addr:    ":" + strconv.Itoa(ms.port),
@@ -126,7 +134,8 @@ func (ms *MockOpenIDDiscoveryServer) Start() error {
 		}
 
 		log.Infof("Successfully serving on %s", ms.url)
-		ms.HitNum = 0
+		ms.OpenIDHitNum = 0
+		ms.PubKeyHitNum = 0
 		ms.server = server
 		return nil
 	}
@@ -137,11 +146,23 @@ func (ms *MockOpenIDDiscoveryServer) Start() error {
 
 // Stop stops he mock server.
 func (ms *MockOpenIDDiscoveryServer) Stop() error {
-	ms.HitNum = 0
+	ms.OpenIDHitNum = 0
+	ms.PubKeyHitNum = 0
 	return ms.server.Close()
 }
 
 func (ms *MockOpenIDDiscoveryServer) openIDCfg(w http.ResponseWriter, req *http.Request) {
-	ms.HitNum++
+	ms.OpenIDHitNum++
 	fmt.Fprintf(w, "%v", cfgContent)
+}
+
+func (ms *MockOpenIDDiscoveryServer) jwtPubKey(w http.ResponseWriter, req *http.Request) {
+	ms.PubKeyHitNum++
+
+	if ms.PubKeyHitNum == 1 {
+		fmt.Fprintf(w, "%v", JwtPubKey1)
+		return
+	}
+
+	fmt.Fprintf(w, "%v", JwtPubKey2)
 }

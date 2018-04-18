@@ -49,6 +49,9 @@ const (
 	jwtPublicKeyCacheSeconds = 60 * 5
 )
 
+// Flag to enable local jwks.
+var enableLocalJwks = false
+
 // Plugin implements Istio mTLS auth
 type Plugin struct{}
 
@@ -128,35 +131,54 @@ func ConvertPolicyToJwtConfig(policy *authn.Policy) *jwtfilter.JwtAuthentication
 		AllowMissingOrFailed: true,
 	}
 	for _, policyJwt := range policyJwts {
-		hostname, port, _, err := model.ParseJwksURI(policyJwt.JwksUri)
-		if err != nil {
-			log.Errorf("Cannot parse jwks_uri %q: %v", policyJwt.JwksUri, err)
-			continue
-		}
-
 		jwt := &jwtfilter.JwtRule{
-			Issuer:    policyJwt.Issuer,
-			Audiences: policyJwt.Audiences,
-			JwksSourceSpecifier: &jwtfilter.JwtRule_RemoteJwks{
-				RemoteJwks: &jwtfilter.RemoteJwks{
-					HttpUri: &core.HttpUri{
-						Uri: policyJwt.JwksUri,
-						HttpUpstreamType: &core.HttpUri_Cluster{
-							Cluster: JwksURIClusterName(hostname, port),
-						},
-					},
-					CacheDuration: &types.Duration{Seconds: jwtPublicKeyCacheSeconds},
-				},
-			},
+			Issuer:               policyJwt.Issuer,
+			Audiences:            policyJwt.Audiences,
 			ForwardPayloadHeader: OutputLocationForJwtIssuer(policyJwt.Issuer),
 			Forward:              true,
 		}
+
 		for _, location := range policyJwt.JwtHeaders {
 			jwt.FromHeaders = append(jwt.FromHeaders, &jwtfilter.JwtHeader{
 				Name: location,
 			})
 		}
 		jwt.FromParams = policyJwt.JwtParams
+
+		if enableLocalJwks {
+			jwtPubKey, err := model.ResolveJwtPubKey(policyJwt.Issuer)
+			if err == nil && jwtPubKey != "" {
+				jwt.JwksSourceSpecifier = &jwtfilter.JwtRule_LocalJwks{
+					LocalJwks: &core.DataSource{
+						Specifier: &core.DataSource_InlineString{
+							InlineString: jwtPubKey,
+						},
+					},
+				}
+
+				ret.Rules = append(ret.Rules, jwt)
+				continue
+			}
+		}
+
+		hostname, port, _, err := model.ParseJwksURI(policyJwt.JwksUri)
+		if err != nil {
+			log.Errorf("Cannot parse jwks_uri %q: %v", policyJwt.JwksUri, err)
+			continue
+		}
+
+		jwt.JwksSourceSpecifier = &jwtfilter.JwtRule_RemoteJwks{
+			RemoteJwks: &jwtfilter.RemoteJwks{
+				HttpUri: &core.HttpUri{
+					Uri: policyJwt.JwksUri,
+					HttpUpstreamType: &core.HttpUri_Cluster{
+						Cluster: JwksURIClusterName(hostname, port),
+					},
+				},
+				CacheDuration: &types.Duration{Seconds: jwtPublicKeyCacheSeconds},
+			},
+		}
+
 		ret.Rules = append(ret.Rules, jwt)
 	}
 	return ret
