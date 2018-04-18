@@ -19,23 +19,21 @@ var _ = math.Inf
 type ExternalService_Discovery int32
 
 const (
-	// If set to "NONE", the proxy will assume that incoming connections
-	// have already been resolved (to a specific destination IP
-	// address). Such connections are typically routed via the proxy using
-	// mechanisms such as IP table REDIRECT/ eBPF. After performing any
-	// routing related transformations, the proxy will forward the
-	// connection to the IP address to which the connection was bound.
+	// Assume that incoming connections have already been resolved (to a
+	// specific destination IP address). Such connections are typically
+	// routed via the proxy using mechanisms such as IP table REDIRECT/
+	// eBPF. After performing any routing related transformations, the
+	// proxy will forward the connection to the IP address to which the
+	// connection was bound.
 	ExternalService_NONE ExternalService_Discovery = 0
-	// If set to "STATIC", the proxy will use the IP addresses specified in
-	// endpoints (See below) as the backing nodes associated with the
-	// external service.
+	// Use the IP addresses specified in endpoints (See below) as the
+	// backing nodes associated with the ExternalService.
 	ExternalService_STATIC ExternalService_Discovery = 1
-	// If set to "DNS", the proxy will attempt to resolve the DNS address
-	// during request processing. If no endpoints are specified, the proxy
-	// will resolve the DNS address specified in the hosts field, if
-	// wildcards are not used. If endpoints are specified, the DNS
-	// addresses specified in the endpoints will be resolved to determine
-	// the destination IP address.
+	// Attempt to resolve the DNS address during request processing. If no
+	// endpoints are specified, the proxy will resolve the DNS address
+	// specified in the hosts field, if wildcards are not used. If
+	// endpoints are specified, the DNS addresses specified in the
+	// endpoints will be resolved to determine the destination IP address.
 	ExternalService_DNS ExternalService_Discovery = 2
 )
 
@@ -57,11 +55,14 @@ func (ExternalService_Discovery) EnumDescriptor() ([]byte, []int) {
 	return fileDescriptorExternalService, []int{0, 0}
 }
 
-// External service describes the endpoints, ports and protocols of a
+//
+// # Overview
+//
+// `ExternalService` describes the endpoints, ports and protocols of a
 // white-listed set of mesh-external domains and IP blocks that services in
 // the mesh are allowed to access.
 //
-// For example, the following external service configuration describes the
+// For example, the following ExternalService configuration describes the
 // set of services at https://example.com to be accessed internally over
 // plaintext http (i.e. http://example.com:443), with the sidecar originating
 // TLS.
@@ -79,7 +80,7 @@ func (ExternalService_Discovery) EnumDescriptor() ([]byte, []int) {
 //         protocol: HTTP # not HTTPS.
 //       discovery: DNS
 //
-// and a destination rule to initiate TLS connections to the external service.
+// and a DestinationRule to initiate TLS connections to the external service.
 //
 //     apiVersion: networking.istio.io/v1alpha3
 //     kind: DestinationRule
@@ -92,8 +93,8 @@ func (ExternalService_Discovery) EnumDescriptor() ([]byte, []int) {
 //           mode: SIMPLE # initiates HTTPS when talking to example.com
 //
 // The following specification specifies a static set of backend nodes for
-// a MongoDB cluster behind a set of virtual IPs, and sets up a destination
-// rule to initiate mTLS connections upstream.
+// a MongoDB cluster behind a set of virtual IPs, and sets up a
+// DestinationRule to initiate mTLS connections upstream.
 //
 //     apiVersion: networking.istio.io/v1alpha3
 //     kind: ExternalService
@@ -111,7 +112,7 @@ func (ExternalService_Discovery) EnumDescriptor() ([]byte, []int) {
 //       - address: 2.2.2.2
 //       - address: 3.3.3.3
 //
-// and the associated destination rule
+// and the associated DestinationRule
 //
 //     apiVersion: networking.istio.io/v1alpha3
 //     kind: DestinationRule
@@ -129,7 +130,7 @@ func (ExternalService_Discovery) EnumDescriptor() ([]byte, []int) {
 // The following example demonstrates the use of wildcards in the hosts. If
 // the connection has to be routed to the IP address requested by the
 // application (i.e. application resolves DNS and attempts to connect to a
-// specific IP), the discovery mode must be set to "none".
+// specific IP), the discovery mode must be set to `NONE`.
 //
 //     apiVersion: networking.istio.io/v1alpha3
 //     kind: ExternalService
@@ -144,10 +145,10 @@ func (ExternalService_Discovery) EnumDescriptor() ([]byte, []int) {
 //         protocol: HTTP
 //       discovery: NONE
 //
-// For HTTP based services, it is possible to create a virtual service
+// For HTTP based services, it is possible to create a VirtualService
 // backed by multiple DNS addressible endpoints. In such a scenario, the
 // application can use the HTTP_PROXY environment variable to transparently
-// reroute API calls for the virtual service to a chosen backend. For
+// reroute API calls for the VirtualService to a chosen backend. For
 // example, the following configuration creates a non-existent service
 // called foo.bar.com backed by three domains: us.foo.bar.com:8443,
 // uk.foo.bar.com:9443, and in.foo.bar.com:7443
@@ -175,7 +176,7 @@ func (ExternalService_Discovery) EnumDescriptor() ([]byte, []int) {
 //         ports:
 //           https: 7443
 //
-// and a destination rule to initiate TLS connections to the external service.
+// and a DestinationRule to initiate TLS connections to the ExternalService.
 //
 //     apiVersion: networking.istio.io/v1alpha3
 //     kind: DestinationRule
@@ -192,15 +193,8 @@ func (ExternalService_Discovery) EnumDescriptor() ([]byte, []int) {
 // the three domains specified above. In other words, a call to
 // http://foo.bar.com/baz would be translated to
 // https://uk.foo.bar.com/baz.
-//
-// NOTE: In the scenario above, the value of the HTTP Authority/host header
-// associated with the outbound HTTP requests will be based on the
-// endpoint's DNS name, i.e. ":authority: uk.foo.bar.com". Refer to Envoy's
-// auto_host_rewrite for further details. The automatic rewrite can be
-// overridden using a host rewrite route rule.
-//
 type ExternalService struct {
-	// REQUIRED. The hosts associated with the external service. Could be a
+	// REQUIRED. The hosts associated with the ExternalService. Could be a
 	// DNS name with wildcard prefix or a CIDR prefix. Note that the hosts
 	// field applies to all protocols. DNS names in hosts will be ignored if
 	// the application accesses the service over non-HTTP protocols such as
@@ -215,8 +209,7 @@ type ExternalService struct {
 	// Service discovery mode for the hosts. If not set, Istio will attempt
 	// to infer the discovery mode based on the value of hosts and endpoints.
 	Discovery ExternalService_Discovery `protobuf:"varint,3,opt,name=discovery,proto3,enum=istio.networking.v1alpha3.ExternalService_Discovery" json:"discovery,omitempty"`
-	// One or more endpoints associated with the service. Endpoints must be
-	// accessible over the set of outPorts defined at the service level.
+	// One or more endpoints associated with the service.
 	Endpoints []*ExternalService_Endpoint `protobuf:"bytes,4,rep,name=endpoints" json:"endpoints,omitempty"`
 }
 
