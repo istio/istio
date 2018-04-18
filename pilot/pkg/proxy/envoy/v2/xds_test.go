@@ -126,7 +126,7 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 	localIp = getLocalIP()
 
 	// Service and endpoints for hello.default - used in v1 pilot tests
-	hostname := "hello.default.svc.cluster.local"
+	hostname := model.Hostname("hello.default.svc.cluster.local")
 	server.EnvoyXdsServer.MemRegistry.AddService(hostname, &model.Service{
 		Hostname: hostname,
 		Address:  "10.10.0.3",
