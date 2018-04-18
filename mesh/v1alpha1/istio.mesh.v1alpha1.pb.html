@@ -51,6 +51,13 @@ policy.</p>
 <p>MeshConfig defines mesh-wide variables shared by all Envoy instances in the
 Istio service mesh.</p>
 
+<p>NOTE: This configuration type should be used for the low-level global
+configuration, such as component addresses and port numbers. It should not
+be used for the features of the mesh that can be scoped by service or by
+namespace. Some of the fields in the mesh config are going to be deprecated
+and replaced with several individual configuration types (for example,
+tracing configuration).</p>
+
 <table class="message-fields">
 <thead>
 <tr>
