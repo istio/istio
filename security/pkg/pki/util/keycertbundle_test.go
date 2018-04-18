@@ -152,9 +152,6 @@ func TestCertOptionsAndRetrieveID(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: Unexpected error: %v", id, err)
 		}
-		if RetrieveID(k) != "" {
-			t.Errorf("%s: RetrieveID should return empty", id)
-		}
 		opts, err := k.CertOptions()
 		if err != nil {
 			if len(tc.expectedErr) == 0 {
