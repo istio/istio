@@ -17,7 +17,7 @@ package sync
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"istio.io/istio/galley/pkg/crd"
+	"istio.io/istio/galley/pkg/kube/sync/crd"
 )
 
 var mappingData = map[schema.GroupVersion]schema.GroupVersion{

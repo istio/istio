@@ -20,7 +20,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 
-	"istio.io/istio/galley/pkg/common"
+	"istio.io/istio/galley/pkg/kube"
 )
 
 // Kube is a mock implementation of galley/pkg/common/Kube
@@ -29,7 +29,7 @@ type Kube struct {
 	response2 []error
 }
 
-var _ common.Kube = &Kube{}
+var _ kube.Kube = &Kube{}
 
 // NewKube returns a new instance of mock Kube.
 func NewKube() *Kube {
