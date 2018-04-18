@@ -17,52 +17,45 @@ package resource
 import (
 	"errors"
 	"sync"
+	//	"sync"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/fake"
-	"k8s.io/client-go/rest"
+	//	"k8s.io/client-go/rest"
 	dtesting "k8s.io/client-go/testing"
-
+	//
+	//	"istio.io/istio/galley/pkg/testing/mock"
 	"istio.io/istio/galley/pkg/testing/mock"
 	wmock "istio.io/istio/galley/pkg/testing/mock"
 )
 
 func TestSynchronizer_NewClientError(t *testing.T) {
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		return nil, errors.New("newDynamicClient error")
-	}
+	k := mock.NewKube()
+	k.AddResponse(nil, errors.New("newDynamicClient error"))
 
 	sgv := schema.GroupVersion{Group: "g1", Version: "v1"}
 	dgv := schema.GroupVersion{Group: "g2", Version: "v2"}
-	_, err := NewSynchronizer(&rest.Config{}, 0, sgv, dgv, "foo", "kind", "listkind")
+	_, err := NewSynchronizer(k, 0, sgv, dgv, "foo", "kind", "listkind")
 	if err == nil || err.Error() != "newDynamicClient error" {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 }
 
 func TestSynchronizer_NewClientError2(t *testing.T) {
-	callid := 0
-
-	m := &fake.FakeClient{
+	k := mock.NewKube()
+	cl := &fake.FakeClient{
 		Fake: &dtesting.Fake{},
 	}
-
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		if callid == 0 {
-			callid++
-			return m, nil
-		}
-		return nil, errors.New("newDynamicClient error")
-	}
+	k.AddResponse(cl, nil)
+	k.AddResponse(nil, errors.New("newDynamicClient error"))
 
 	sgv := schema.GroupVersion{Group: "g1", Version: "v1"}
 	dgv := schema.GroupVersion{Group: "g1", Version: "v2"}
-	_, err := NewSynchronizer(&rest.Config{}, 0, sgv, dgv, "foo", "kind", "listkind")
+	_, err := NewSynchronizer(k, 0, sgv, dgv, "foo", "kind", "listkind")
 	if err == nil || err.Error() != "newDynamicClient error" {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -79,6 +72,8 @@ type testState struct {
 
 func newTestState(t *testing.T, initial1, initial2 []unstructured.Unstructured) *testState {
 	st := &testState{}
+
+	k := mock.NewKube()
 
 	w1 := mock.NewWatch()
 	cl1 := &fake.FakeClient{
@@ -108,14 +103,8 @@ func newTestState(t *testing.T, initial1, initial2 []unstructured.Unstructured) 
 	st.fc2 = cl2
 	st.w2 = w2
 
-	callid := 0
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		if callid == 0 {
-			callid++
-			return st.fc1, nil
-		}
-		return st.fc2, nil
-	}
+	k.AddResponse(cl1, nil)
+	k.AddResponse(cl2, nil)
 
 	hookFn := func(_ interface{}) {
 		st.eventWG.Done()
@@ -123,8 +112,7 @@ func newTestState(t *testing.T, initial1, initial2 []unstructured.Unstructured) 
 
 	sgv := schema.GroupVersion{Group: "g1", Version: "v1"}
 	dgv := schema.GroupVersion{Group: "g2", Version: "v2"}
-	s, err := newSynchronizer(
-		&rest.Config{}, 0, sgv, dgv, "foo", "kind", "listkind", hookFn)
+	s, err := newSynchronizer(k, 0, sgv, dgv, "foo", "kind", "listkind", hookFn)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}

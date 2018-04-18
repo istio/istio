@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/logging"
+	"cloud.google.com/go/logging/logadmin"
 	"golang.org/x/net/context"
 	"google.golang.org/api/option"
 	"google.golang.org/genproto/googleapis/api/monitoredres"
@@ -37,6 +38,8 @@ import (
 
 func TestBuild(t *testing.T) {
 	b := &builder{makeClient: func(context.Context, string, ...option.ClientOption) (*logging.Client, error) {
+		return nil, errors.New("expected")
+	}, makeSyncClient: func(context.Context, string, ...option.ClientOption) (*logadmin.Client, error) {
 		return nil, errors.New("expected")
 	}}
 	b.SetLogEntryTypes(map[string]*logentry.Type{})
@@ -72,6 +75,8 @@ func TestBuild(t *testing.T) {
 
 			b := &builder{makeClient: func(context.Context, string, ...option.ClientOption) (*logging.Client, error) {
 				return &logging.Client{}, nil
+			}, makeSyncClient: func(context.Context, string, ...option.ClientOption) (*logadmin.Client, error) {
+				return &logadmin.Client{}, nil
 			}}
 			b.SetLogEntryTypes(tt.types)
 			b.SetAdapterConfig(tt.cfg)
@@ -220,6 +225,7 @@ func TestHandleLogEntry(t *testing.T) {
 					tmpl:   i.tmpl,
 					req:    i.req,
 					log:    func(entry logging.Entry) { actuals = append(actuals, entry) },
+					flush:  func() error { return nil },
 				}
 			}
 			h := &handler{

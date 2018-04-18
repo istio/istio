@@ -33,7 +33,6 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 	"k8s.io/api/batch/v2alpha1"
-	"k8s.io/api/core/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -93,16 +92,17 @@ const (
 // SidecarInjectionSpec collects all container types and volumes for
 // sidecar mesh injection
 type SidecarInjectionSpec struct {
-	InitContainers []v1.Container `yaml:"initContainers"`
-	Containers     []v1.Container `yaml:"containers"`
-	Volumes        []v1.Volume    `yaml:"volumes"`
+	InitContainers   []corev1.Container            `yaml:"initContainers"`
+	Containers       []corev1.Container            `yaml:"containers"`
+	Volumes          []corev1.Volume               `yaml:"volumes"`
+	ImagePullSecrets []corev1.LocalObjectReference `yaml:"imagePullSecrets"`
 }
 
 // SidecarTemplateData is the data object to which the templated
 // version of `SidecarInjectionSpec` is applied.
 type SidecarTemplateData struct {
 	ObjectMeta  *metav1.ObjectMeta
-	Spec        *v1.PodSpec
+	Spec        *corev1.PodSpec
 	ProxyConfig *meshconfig.ProxyConfig
 	MeshConfig  *meshconfig.MeshConfig
 }
@@ -350,7 +350,7 @@ func validateAnnotations(metadata *metav1.ObjectMeta) error {
 	return validateAnnotation(annotations, sidecarAnnotationExcludeInboundPortsPolicyKey, ValidateExcludeInboundPorts)
 }
 
-func injectionData(sidecarTemplate, version string, spec *v1.PodSpec, metadata *metav1.ObjectMeta, proxyConfig *meshconfig.ProxyConfig, meshConfig *meshconfig.MeshConfig) (*SidecarInjectionSpec, string, error) { // nolint: lll
+func injectionData(sidecarTemplate, version string, spec *corev1.PodSpec, metadata *metav1.ObjectMeta, proxyConfig *meshconfig.ProxyConfig, meshConfig *meshconfig.MeshConfig) (*SidecarInjectionSpec, string, error) { // nolint: lll
 	if err := validateAnnotations(metadata); err != nil {
 		return nil, "", err
 	}
@@ -388,6 +388,9 @@ func injectionData(sidecarTemplate, version string, spec *v1.PodSpec, metadata *
 	}
 	for _, c := range sic.Volumes {
 		status.Volumes = append(status.Volumes, c.Name)
+	}
+	for _, c := range sic.ImagePullSecrets {
+		status.ImagePullSecrets = append(status.ImagePullSecrets, c.Name)
 	}
 	statusAnnotationValue, err := json.Marshal(status)
 	if err != nil {
@@ -459,10 +462,10 @@ func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in ru
 	out := in.DeepCopyObject()
 
 	var metadata *metav1.ObjectMeta
-	var podSpec *v1.PodSpec
+	var podSpec *corev1.PodSpec
 
 	// Handle Lists
-	if list, ok := out.(*v1.List); ok {
+	if list, ok := out.(*corev1.List); ok {
 		result := list
 
 		for i, item := range list.Items {
@@ -502,7 +505,7 @@ func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in ru
 			templateValue = templateValue.Elem()
 		}
 		metadata = templateValue.FieldByName("ObjectMeta").Addr().Interface().(*metav1.ObjectMeta)
-		podSpec = templateValue.FieldByName("Spec").Addr().Interface().(*v1.PodSpec)
+		podSpec = templateValue.FieldByName("Spec").Addr().Interface().(*corev1.PodSpec)
 	}
 
 	// Skip injection when host networking is enabled. The problem is
@@ -554,10 +557,11 @@ func GenerateTemplateFromParams(params *Params) (string, error) {
 // injected sidecar. This includes the names of added containers and
 // volumes.
 type SidecarInjectionStatus struct {
-	Version        string   `json:"version"`
-	InitContainers []string `json:"initContainers"`
-	Containers     []string `json:"containers"`
-	Volumes        []string `json:"volumes"`
+	Version          string   `json:"version"`
+	InitContainers   []string `json:"initContainers"`
+	Containers       []string `json:"containers"`
+	Volumes          []string `json:"volumes"`
+	ImagePullSecrets []string `json:"imagePullSecrets"`
 }
 
 // helper function to generate a template version identifier from a

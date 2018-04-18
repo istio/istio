@@ -24,6 +24,8 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
+var jwksresolver = newJwksURIResolver()
+
 // GetConsolidateAuthenticationPolicy returns the authentication policy for
 // service specified by hostname and port, if defined.
 // If not, it generates and output a policy that is equivalent to the legacy flag
@@ -32,14 +34,17 @@ import (
 // directly.
 func GetConsolidateAuthenticationPolicy(mesh *meshconfig.MeshConfig, store IstioConfigStore, hostname string, port *Port) *authn.Policy {
 	config := store.AuthenticationPolicyByDestination(hostname, port)
-	if config == nil {
-		legacyPolicy := consolidateAuthPolicy(mesh, port.AuthenticationPolicy)
-		log.Debugf("No authentication policy found for  %s:%d. Fallback to legacy authentication mode %v\n",
-			hostname, port.Port, legacyPolicy)
-		return legacyAuthenticationPolicyToPolicy(legacyPolicy)
+	if config != nil {
+		policy := config.Spec.(*authn.Policy)
+		if err := jwksresolver.SetAuthenticationPolicyJwksURIs(policy); err == nil {
+			return policy
+		}
 	}
 
-	return config.Spec.(*authn.Policy)
+	legacyPolicy := consolidateAuthPolicy(mesh, port.AuthenticationPolicy)
+	log.Debugf("No authentication policy found for  %s:%d. Fallback to legacy authentication mode %v\n",
+		hostname, port.Port, legacyPolicy)
+	return legacyAuthenticationPolicyToPolicy(legacyPolicy)
 }
 
 // consolidateAuthPolicy returns service auth policy, if it's not INHERIT. Else,

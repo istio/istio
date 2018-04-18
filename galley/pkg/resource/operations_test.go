@@ -23,34 +23,31 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/fake"
-	"k8s.io/client-go/kubernetes"
 	kfake "k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/rest"
 	dtesting "k8s.io/client-go/testing"
+
+	"istio.io/istio/galley/pkg/testing/mock"
 )
 
 func TestDeleteAll_NewClientError(t *testing.T) {
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		return nil, errors.New("newDynamicClient error")
-	}
+	k := mock.NewKube()
+	k.AddResponse(nil, errors.New("newDynamicClient error"))
 
-	err := DeleteAll(&rest.Config{}, "foos", "foo", schema.GroupVersion{}, []string{"ns1"})
+	err := DeleteAll(k, "foos", "foo", "foolist", schema.GroupVersion{}, []string{"ns1"})
 	if err == nil || err.Error() != "newDynamicClient error" {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
 func TestDeleteAll_Basic(t *testing.T) {
+	k := mock.NewKube()
 	m := &fake.FakeClient{
 		Fake: &dtesting.Fake{},
 	}
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		return m, nil
-	}
+	k.AddResponse(m, nil)
 
-	err := DeleteAll(&rest.Config{}, "foos", "foo", schema.GroupVersion{}, []string{"ns1"})
+	err := DeleteAll(k, "foos", "foo", "foolist", schema.GroupVersion{}, []string{"ns1"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -62,17 +59,17 @@ delete-collection foos
 }
 
 func TestDeleteAll_Error(t *testing.T) {
+	k := mock.NewKube()
 	m := &fake.FakeClient{
 		Fake: &dtesting.Fake{},
 	}
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		return m, nil
-	}
+	k.AddResponse(m, nil)
+
 	m.AddReactor("delete-collection", "foos", func(action dtesting.Action) (bool, runtime.Object, error) {
 		return true, nil, errors.New("some DeleteCollection error")
 	})
 
-	err := DeleteAll(&rest.Config{}, "foos", "foo", schema.GroupVersion{}, []string{"ns1"})
+	err := DeleteAll(k, "foos", "foo", "foolist", schema.GroupVersion{}, []string{"ns1"})
 	if err == nil || err.Error() != "some DeleteCollection error" {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -91,11 +88,7 @@ func TestGetNamespaces(t *testing.T) {
 	}
 	m := kfake.NewSimpleClientset(l)
 
-	newKubernetesClient = func(cfg *rest.Config) (kubernetes.Interface, error) {
-		return m, nil
-	}
-
-	ns, err := GetNamespaces(&rest.Config{})
+	ns, err := GetNamespaces(m)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -111,11 +104,7 @@ func TestGetNamespaces_Empty(t *testing.T) {
 	}
 	m := kfake.NewSimpleClientset(l)
 
-	newKubernetesClient = func(cfg *rest.Config) (kubernetes.Interface, error) {
-		return m, nil
-	}
-
-	ns, err := GetNamespaces(&rest.Config{})
+	ns, err := GetNamespaces(m)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -125,28 +114,13 @@ func TestGetNamespaces_Empty(t *testing.T) {
 	}
 }
 
-func TestGetNamespaces_NewClientError(t *testing.T) {
-	newKubernetesClient = func(cfg *rest.Config) (kubernetes.Interface, error) {
-		return nil, errors.New("newKubernetesClient error")
-	}
-
-	_, err := GetNamespaces(&rest.Config{})
-	if err == nil || err.Error() != "newKubernetesClient error" {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
 func TestGetNamespaces_ListError(t *testing.T) {
-	m := kfake.Clientset{}
+	m := &kfake.Clientset{}
 	m.AddReactor("*", "namespaces", func(action dtesting.Action) (bool, runtime.Object, error) {
 		return true, nil, errors.New("some list error")
 	})
 
-	newKubernetesClient = func(cfg *rest.Config) (kubernetes.Interface, error) {
-		return &m, nil
-	}
-
-	_, err := GetNamespaces(&rest.Config{})
+	_, err := GetNamespaces(m)
 	if err == nil || err.Error() != "some list error" {
 		t.Fatalf("unexpected error: %v", err)
 	}

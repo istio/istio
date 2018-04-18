@@ -45,14 +45,18 @@ global:
   # create RBAC resources. Must be set for any cluster configured with rbac.
   rbacEnabled: true
 
+  ## imagePullSecrets for all ServiceAccount. Must be set for any clustser configured with privte docker registry.
+  # imagePullSecrets:
+  #   - name: "private-registry-key"
+
   # Default is 1 second
   refreshInterval: 10s
-  
+
   # Enable multicluster operation.  Must be set to true if multicluster operation
   # is desired.
   multicluster:
     enabled: false
-  
+
   # Specify pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
   #   0 - Never scheduled
   #   1 - Least preferred
@@ -84,6 +88,7 @@ ingress:
 #  cpu: 100m
 #  memory: 128Mi
   service:
+    loadBalancerIP: ""
     nodePort:
       enabled: false
       port: 32000
@@ -194,6 +199,7 @@ sidecar-injector:
   # would only capture egress traffic on those two IP Ranges, all other outbound traffic would
   # be allowed by the sidecar
   includeIPRanges: "*"
+  excludeIPRanges: ""
 
   # istio ingress capture whitelist
   # examples:
@@ -201,6 +207,7 @@ sidecar-injector:
   #     Redirect all inbound traffic to Envoy:   --includeInboundPorts="*"
   #     Redirect only selected ports:            --includeInboundPorts="80,8080"
   includeInboundPorts: "*"
+  excludeInboundPorts: ""
 
 #
 # galley configuration

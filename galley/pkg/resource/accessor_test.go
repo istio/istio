@@ -24,9 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/fake"
-	"k8s.io/client-go/rest"
 	dtesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
@@ -36,30 +34,29 @@ import (
 )
 
 func TestAccessor_NewClientError(t *testing.T) {
+	k := &mock.Kube{}
+	k.AddResponse(nil, errors.New("newDynamicClient error"))
+
 	gv := schema.GroupVersion{Group: "group", Version: "version"}
 	processorFn := func(c *change.Info) {}
 
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		return nil, errors.New("newDynamicClient error")
-	}
-
-	_, err := newAccessor(&rest.Config{}, 0, "foo", gv, "kind", "listkind", processorFn)
+	_, err := newAccessor(k, 0, "foo", gv, "kind", "listkind", processorFn)
 	if err == nil || err.Error() != "newDynamicClient error" {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
 func TestAccessor_Basic(t *testing.T) {
+	k := mock.NewKube()
+	cl := &fake.FakeClient{
+		Fake: &dtesting.Fake{},
+	}
+	k.AddResponse(cl, nil)
+
 	gv := schema.GroupVersion{Group: "group", Version: "version"}
 	processorLog := &common.MockLog{}
 	processorFn := func(c *change.Info) { processorLog.Append("%v", c) }
 
-	cl := &fake.FakeClient{
-		Fake: &dtesting.Fake{},
-	}
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		return cl, nil
-	}
 	cl.AddReactor("*", "foo", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
 		return true, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{}}, nil
 	})
@@ -67,7 +64,7 @@ func TestAccessor_Basic(t *testing.T) {
 		return true, mock.NewWatch(), nil
 	})
 
-	a, err := newAccessor(&rest.Config{}, 0, "foo", gv, "kind", "listkind", processorFn)
+	a, err := newAccessor(k, 0, "foo", gv, "kind", "listkind", processorFn)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -83,16 +80,16 @@ watch foo
 }
 
 func TestAccessor_DoubleStart(t *testing.T) {
+	k := mock.NewKube()
+	cl := &fake.FakeClient{
+		Fake: &dtesting.Fake{},
+	}
+	k.AddResponse(cl, nil)
+
 	gv := schema.GroupVersion{Group: "group", Version: "version"}
 	processorLog := &common.MockLog{}
 	processorFn := func(c *change.Info) { processorLog.Append("%v", c) }
 
-	cl := &fake.FakeClient{
-		Fake: &dtesting.Fake{},
-	}
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		return cl, nil
-	}
 	cl.AddReactor("*", "foo", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
 		return true, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{}}, nil
 	})
@@ -100,7 +97,7 @@ func TestAccessor_DoubleStart(t *testing.T) {
 		return true, mock.NewWatch(), nil
 	})
 
-	a, err := newAccessor(&rest.Config{}, 0, "foo", gv, "kind", "listkind", processorFn)
+	a, err := newAccessor(k, 0, "foo", gv, "kind", "listkind", processorFn)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -118,16 +115,16 @@ watch foo
 }
 
 func TestAccessor_DoubleStop(t *testing.T) {
+	k := mock.NewKube()
+	cl := &fake.FakeClient{
+		Fake: &dtesting.Fake{},
+	}
+	k.AddResponse(cl, nil)
+
 	gv := schema.GroupVersion{Group: "group", Version: "version"}
 	processorLog := &common.MockLog{}
 	processorFn := func(c *change.Info) { processorLog.Append("%v", c) }
 
-	cl := &fake.FakeClient{
-		Fake: &dtesting.Fake{},
-	}
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		return cl, nil
-	}
 	cl.AddReactor("*", "foo", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
 		return true, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{}}, nil
 	})
@@ -135,7 +132,7 @@ func TestAccessor_DoubleStop(t *testing.T) {
 		return true, mock.NewWatch(), nil
 	})
 
-	a, err := newAccessor(&rest.Config{}, 0, "foo", gv, "kind", "listkind", processorFn)
+	a, err := newAccessor(k, 0, "foo", gv, "kind", "listkind", processorFn)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -152,6 +149,12 @@ watch foo
 }
 
 func TestAccessor_AddEvent(t *testing.T) {
+	k := mock.NewKube()
+	cl := &fake.FakeClient{
+		Fake: &dtesting.Fake{},
+	}
+	k.AddResponse(cl, nil)
+
 	gv := schema.GroupVersion{Group: "group", Version: "version"}
 	processorLog := &common.MockLog{}
 	wg := &sync.WaitGroup{}
@@ -161,12 +164,6 @@ func TestAccessor_AddEvent(t *testing.T) {
 		wg.Done()
 	}
 
-	cl := &fake.FakeClient{
-		Fake: &dtesting.Fake{},
-	}
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		return cl, nil
-	}
 	cl.AddReactor("*", "foo", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
 		return true, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{}}, nil
 	})
@@ -175,7 +172,7 @@ func TestAccessor_AddEvent(t *testing.T) {
 		return true, w, nil
 	})
 
-	a, err := newAccessor(&rest.Config{}, 0, "foo", gv, "kind", "listkind", processorFn)
+	a, err := newAccessor(k, 0, "foo", gv, "kind", "listkind", processorFn)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -199,6 +196,12 @@ Info[Type:Add, Name:foo, GroupVersion:group/version]`
 }
 
 func TestAccessor_UpdateEvent(t *testing.T) {
+	k := mock.NewKube()
+	cl := &fake.FakeClient{
+		Fake: &dtesting.Fake{},
+	}
+	k.AddResponse(cl, nil)
+
 	gv := schema.GroupVersion{Group: "group", Version: "version"}
 	processorLog := &common.MockLog{}
 	wg := &sync.WaitGroup{}
@@ -208,12 +211,6 @@ func TestAccessor_UpdateEvent(t *testing.T) {
 		wg.Done()
 	}
 
-	cl := &fake.FakeClient{
-		Fake: &dtesting.Fake{},
-	}
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		return cl, nil
-	}
 	cl.AddReactor("*", "foo", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
 		return true, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{*template.DeepCopy()}}, nil
 	})
@@ -222,7 +219,7 @@ func TestAccessor_UpdateEvent(t *testing.T) {
 		return true, w, nil
 	})
 
-	a, err := newAccessor(&rest.Config{}, 0, "foo", gv, "kind", "listkind", processorFn)
+	a, err := newAccessor(k, 0, "foo", gv, "kind", "listkind", processorFn)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -249,6 +246,12 @@ Info[Type:Update, Name:foo, GroupVersion:group/version]`
 }
 
 func TestAccessor_UpdateEvent_SameResourceVersion(t *testing.T) {
+	k := mock.NewKube()
+	cl := &fake.FakeClient{
+		Fake: &dtesting.Fake{},
+	}
+	k.AddResponse(cl, nil)
+
 	gv := schema.GroupVersion{Group: "group", Version: "version"}
 	processorLog := &common.MockLog{}
 	wg := &sync.WaitGroup{}
@@ -258,12 +261,6 @@ func TestAccessor_UpdateEvent_SameResourceVersion(t *testing.T) {
 		wg.Done()
 	}
 
-	cl := &fake.FakeClient{
-		Fake: &dtesting.Fake{},
-	}
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		return cl, nil
-	}
 	cl.AddReactor("*", "foo", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
 		return true, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{*template.DeepCopy()}}, nil
 	})
@@ -272,7 +269,7 @@ func TestAccessor_UpdateEvent_SameResourceVersion(t *testing.T) {
 		return true, w, nil
 	})
 
-	a, err := newAccessor(&rest.Config{}, 0, "foo", gv, "kind", "listkind", processorFn)
+	a, err := newAccessor(k, 0, "foo", gv, "kind", "listkind", processorFn)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -297,6 +294,12 @@ Info[Type:Add, Name:foo, GroupVersion:group/version]
 }
 
 func TestAccessor_DeleteEvent(t *testing.T) {
+	k := mock.NewKube()
+	cl := &fake.FakeClient{
+		Fake: &dtesting.Fake{},
+	}
+	k.AddResponse(cl, nil)
+
 	gv := schema.GroupVersion{Group: "group", Version: "version"}
 	processorLog := &common.MockLog{}
 	wg := &sync.WaitGroup{}
@@ -306,12 +309,6 @@ func TestAccessor_DeleteEvent(t *testing.T) {
 		wg.Done()
 	}
 
-	cl := &fake.FakeClient{
-		Fake: &dtesting.Fake{},
-	}
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		return cl, nil
-	}
 	cl.AddReactor("*", "foo", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
 		return true, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{*template.DeepCopy()}}, nil
 	})
@@ -320,7 +317,7 @@ func TestAccessor_DeleteEvent(t *testing.T) {
 		return true, w, nil
 	})
 
-	a, err := newAccessor(&rest.Config{}, 0, "foo", gv, "kind", "listkind", processorFn)
+	a, err := newAccessor(k, 0, "foo", gv, "kind", "listkind", processorFn)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -346,6 +343,12 @@ Info[Type:Delete, Name:foo, GroupVersion:group/version]`
 }
 
 func TestAccessor_Tombstone(t *testing.T) {
+	k := mock.NewKube()
+	cl := &fake.FakeClient{
+		Fake: &dtesting.Fake{},
+	}
+	k.AddResponse(cl, nil)
+
 	gv := schema.GroupVersion{Group: "group", Version: "version"}
 	processorLog := &common.MockLog{}
 	wg := &sync.WaitGroup{}
@@ -355,12 +358,6 @@ func TestAccessor_Tombstone(t *testing.T) {
 		wg.Done()
 	}
 
-	cl := &fake.FakeClient{
-		Fake: &dtesting.Fake{},
-	}
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		return cl, nil
-	}
 	cl.AddReactor("*", "foo", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
 		return true, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{*template.DeepCopy()}}, nil
 	})
@@ -369,7 +366,7 @@ func TestAccessor_Tombstone(t *testing.T) {
 		return true, w, nil
 	})
 
-	a, err := newAccessor(&rest.Config{}, 0, "foo", gv, "kind", "listkind", processorFn)
+	a, err := newAccessor(k, 0, "foo", gv, "kind", "listkind", processorFn)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -396,6 +393,12 @@ Info[Type:Delete, Name:foo, GroupVersion:group/version]`
 }
 
 func TestAccessor_TombstoneDecodeError(t *testing.T) {
+	k := mock.NewKube()
+	cl := &fake.FakeClient{
+		Fake: &dtesting.Fake{},
+	}
+	k.AddResponse(cl, nil)
+
 	gv := schema.GroupVersion{Group: "group", Version: "version"}
 	processorLog := &common.MockLog{}
 	wg := &sync.WaitGroup{}
@@ -405,12 +408,6 @@ func TestAccessor_TombstoneDecodeError(t *testing.T) {
 		wg.Done()
 	}
 
-	cl := &fake.FakeClient{
-		Fake: &dtesting.Fake{},
-	}
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		return cl, nil
-	}
 	cl.AddReactor("*", "foo", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
 		return true, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{*template.DeepCopy()}}, nil
 	})
@@ -419,7 +416,7 @@ func TestAccessor_TombstoneDecodeError(t *testing.T) {
 		return true, w, nil
 	})
 
-	a, err := newAccessor(&rest.Config{}, 0, "foo", gv, "kind", "listkind", processorFn)
+	a, err := newAccessor(k, 0, "foo", gv, "kind", "listkind", processorFn)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -444,6 +441,12 @@ Info[Type:Add, Name:foo, GroupVersion:group/version]
 }
 
 func TestAccessor_Tombstone_ObjDecodeError(t *testing.T) {
+	k := mock.NewKube()
+	cl := &fake.FakeClient{
+		Fake: &dtesting.Fake{},
+	}
+	k.AddResponse(cl, nil)
+
 	gv := schema.GroupVersion{Group: "group", Version: "version"}
 	processorLog := &common.MockLog{}
 	wg := &sync.WaitGroup{}
@@ -451,13 +454,6 @@ func TestAccessor_Tombstone_ObjDecodeError(t *testing.T) {
 	processorFn := func(c *change.Info) {
 		processorLog.Append("%v", c)
 		wg.Done()
-	}
-
-	cl := &fake.FakeClient{
-		Fake: &dtesting.Fake{},
-	}
-	newDynamicClient = func(cfg *rest.Config) (dynamic.Interface, error) {
-		return cl, nil
 	}
 	cl.AddReactor("*", "foo", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
 		return true, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{*template.DeepCopy()}}, nil
@@ -467,7 +463,7 @@ func TestAccessor_Tombstone_ObjDecodeError(t *testing.T) {
 		return true, w, nil
 	})
 
-	a, err := newAccessor(&rest.Config{}, 0, "foo", gv, "kind", "listkind", processorFn)
+	a, err := newAccessor(k, 0, "foo", gv, "kind", "listkind", processorFn)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

@@ -26,16 +26,17 @@ spec:
             {{- range $app := .Values.apps }}
               - containerPort: {{ $app.externalPort }}
             {{- end }}
-              - containerPort: 15006
-              - containerPort: 8060
-              - containerPort: 8080
-              - containerPort: 15053
-              - containerPort: 8080
-              - containerPort: 15010
+              - containerPort: 16006
+              - containerPort: 16060
+              - containerPort: 16053
+              - containerPort: 16010
+              - containerPort: 16011
           #args: ["-c", "/etc/envoy/envoy.yaml", "-l", "debug", "--service-cluster", "istio-ingress", "--service-node" , "ingress~~istio-ingress.istio-system~istio-system.svc.cluster.local"]
           args:
           - proxy
           - router
+          - --proxyLogLevel
+          - "debug"
           - --drainDuration
           - '45s' #drainDuration
           - --parentShutdownDuration

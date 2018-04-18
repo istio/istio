@@ -9,6 +9,9 @@ metadata:
     heritage: {{ .Release.Service }}
     istio: ingress
 spec:
+{{- if .Values.service.loadBalancerIP }}
+  loadBalancerIP: "{{ .Values.service.loadBalancerIP }}"
+{{- end }}
   type: LoadBalancer
   ports:
   - port: 80

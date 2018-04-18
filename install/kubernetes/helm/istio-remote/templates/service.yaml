@@ -8,14 +8,15 @@ metadata:
     istio: pilot
 spec:
   ports:
-  - port: 15003
-    name: discovery
   - port: 15005
     name: https-discovery
   - port: 15007
     name: http-discovery
+    targetPort: 15007
+  - port: 15003
+    name: http-old-discovery
   - port: 15010
-    name: grpc-discovery
+    name: grpc-xds
   - port: 8080
     name: http-legacy-discovery
   - port: 9093
@@ -23,11 +24,10 @@ spec:
   - port: 443
     name: admission-webhook
 ---
-# Mixer service for discovery
 apiVersion: v1
 kind: Service
 metadata:
-  name: istio-mixer
+  name: istio-policy
   namespace: istio-system
   labels:
     istio: mixer
@@ -39,13 +39,4 @@ spec:
     port: 15004
   - name: http-monitoring
     port: 9093
-  - name: configapi
-    port: 9094
-  - name: statsd-prom
-    port: 9102
-  - name: statsd-udp
-    port: 9125
-    protocol: UDP
-  - name: prometheus
-    port: 42422
 ---
