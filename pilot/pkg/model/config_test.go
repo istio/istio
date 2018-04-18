@@ -175,9 +175,9 @@ func TestServiceKey(t *testing.T) {
 }
 
 func TestSubsetKey(t *testing.T) {
-	hostname := "hostname"
+	hostname := model.Hostname("hostname")
 	cases := []struct {
-		hostname string
+		hostname model.Hostname
 		subset   string
 		port     *model.Port
 		want     string
@@ -254,7 +254,7 @@ func TestResolveHostname(t *testing.T) {
 	cases := []struct {
 		meta model.ConfigMeta
 		svc  *routing.IstioService
-		want string
+		want model.Hostname
 	}{
 		{
 			meta: model.ConfigMeta{Namespace: "default", Domain: "cluster.local"},
@@ -602,7 +602,7 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 	}
 
 	cases := []struct {
-		hostname string
+		hostname model.Hostname
 		port     int
 		expected string
 	}{
