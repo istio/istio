@@ -28,7 +28,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/galley/pkg/change"
-	"istio.io/istio/galley/pkg/common"
+	"istio.io/istio/galley/pkg/kube"
 	"istio.io/istio/pkg/log"
 )
 
@@ -66,7 +66,7 @@ type accessor struct {
 type changeProcessorFn func(c *change.Info)
 
 // creates a new accessor instance.
-func newAccessor(kube common.Kube, resyncPeriod time.Duration, name string, gv schema.GroupVersion,
+func newAccessor(kube kube.Kube, resyncPeriod time.Duration, name string, gv schema.GroupVersion,
 	kind string, listKind string, processor changeProcessorFn) (*accessor, error) {
 
 	log.Debugf("Creating a new resource accessor for: name='%s', gv:'%v'", name, gv)
