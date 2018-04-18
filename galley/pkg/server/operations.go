@@ -17,7 +17,7 @@ package server
 import (
 	"fmt"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"istio.io/istio/galley/pkg/common"
