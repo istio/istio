@@ -24,12 +24,12 @@ import (
 	"istio.io/istio/pkg/cmd"
 )
 
-func serverCmd(fatalf shared.FormatFn) *cobra.Command {
+func syncCmd(fatalf shared.FormatFn) *cobra.Command {
 	return &cobra.Command{
 		Use:   "server",
 		Short: "Starts Galley as a server",
 		Run: func(cmd *cobra.Command, args []string) {
-			err := runServer(fatalf)
+			err := runSync(fatalf)
 			if err != nil {
 				fatalf("Error during startup: %v", err)
 			}
@@ -37,10 +37,10 @@ func serverCmd(fatalf shared.FormatFn) *cobra.Command {
 	}
 }
 
-func runServer(fatalf shared.FormatFn) error {
+func runSync(fatalf shared.FormatFn) error {
 	config, err := clientcmd.BuildConfigFromFlags("", flags.kubeConfig)
 	if err != nil {
-		fatalf("Error getting service config: %v", err)
+		fatalf("Error getting kube config: %v", err)
 		return err
 	}
 
