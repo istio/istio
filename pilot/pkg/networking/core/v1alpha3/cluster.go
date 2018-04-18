@@ -88,29 +88,30 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environmen
 			defaultCluster := buildDefaultCluster(env, clusterName, convertResolution(service.Resolution), hosts)
 			updateEds(env, defaultCluster, service.Hostname)
 			setUpstreamProtocol(defaultCluster, port)
-			// call plugins
-			for _, p := range configgen.Plugins {
-				p.OnOutboundCluster(env, proxy, service, port, defaultCluster)
-			}
 			clusters = append(clusters, defaultCluster)
 
 			if config != nil {
 				destinationRule := config.Spec.(*networking.DestinationRule)
-				applyTrafficPolicy(defaultCluster, destinationRule.TrafficPolicy)
+				applyTrafficPolicy(defaultCluster, destinationRule.TrafficPolicy, port)
 
 				for _, subset := range destinationRule.Subsets {
 					subsetClusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port)
 					subsetCluster := buildDefaultCluster(env, subsetClusterName, convertResolution(service.Resolution), hosts)
 					updateEds(env, subsetCluster, service.Hostname)
 					setUpstreamProtocol(subsetCluster, port)
-					applyTrafficPolicy(subsetCluster, destinationRule.TrafficPolicy)
-					applyTrafficPolicy(subsetCluster, subset.TrafficPolicy)
+					applyTrafficPolicy(subsetCluster, destinationRule.TrafficPolicy, port)
+					applyTrafficPolicy(subsetCluster, subset.TrafficPolicy, port)
 					// call plugins
 					for _, p := range configgen.Plugins {
 						p.OnOutboundCluster(env, proxy, service, port, subsetCluster)
 					}
 					clusters = append(clusters, subsetCluster)
 				}
+			}
+
+			// call plugins for the default cluster
+			for _, p := range configgen.Plugins {
+				p.OnOutboundCluster(env, proxy, service, port, defaultCluster)
 			}
 		}
 	}
@@ -209,10 +210,12 @@ func convertResolution(resolution model.Resolution) v2.Cluster_DiscoveryType {
 	}
 }
 
-func applyTrafficPolicy(cluster *v2.Cluster, policy *networking.TrafficPolicy) {
+func applyTrafficPolicy(cluster *v2.Cluster, policy *networking.TrafficPolicy, _ *model.Port) {
 	if policy == nil {
 		return
 	}
+
+	// TODO: add per-port settings
 	applyConnectionPool(cluster, policy.ConnectionPool)
 	applyOutlierDetection(cluster, policy.OutlierDetection)
 	applyLoadBalancer(cluster, policy.LoadBalancer)
@@ -371,7 +374,7 @@ func buildDefaultCluster(env model.Environment, name string, discoveryType v2.Cl
 		Hosts: hosts,
 	}
 	defaultTrafficPolicy := buildDefaultTrafficPolicy(env, discoveryType)
-	applyTrafficPolicy(cluster, defaultTrafficPolicy)
+	applyTrafficPolicy(cluster, defaultTrafficPolicy, nil)
 	return cluster
 }
 

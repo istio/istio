@@ -242,9 +242,6 @@ func TestRoutes(t *testing.T) {
 }
 
 func TestRouteFaultInjection(t *testing.T) {
-	if tc.V1alpha3 {
-		t.Skipf("Skipping %s in v1alpha3+v2", t.Name())
-	}
 	for _, version := range configVersions() {
 		// Invoke a function to scope the lifecycle of the deployed configs.
 		func() {

@@ -22,6 +22,9 @@ import (
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	xdsfault "github.com/envoyproxy/go-control-plane/envoy/config/filter/fault/v2"
+	xdshttpfault "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/fault/v2"
+	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/types"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -253,7 +256,6 @@ func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels model.Label
 }
 
 // translateRoute translates HTTP routes
-// TODO: fault filters -- issue https://github.com/istio/api/issues/388
 func translateRoute(in *networking.HTTPRoute,
 	match *networking.HTTPMatchRequest, port int,
 	operation string,
@@ -351,6 +353,11 @@ func translateRoute(in *networking.HTTPRoute,
 			}
 		}
 	}
+
+	if fault := in.Fault; fault != nil {
+		out.PerFilterConfig[xdsutil.Fault] = util.BuildProtoStruct(translateFault(in.Fault))
+	}
+
 	return out, nil
 }
 
@@ -471,4 +478,50 @@ func BuildDefaultHTTPRoute(clusterName string) *route.Route {
 			},
 		},
 	}
+}
+
+// translateFault translates networking.HTTPFaultInjection into Envoy's HTTPFault
+func translateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
+	if in == nil {
+		return nil
+	}
+
+	out := xdshttpfault.HTTPFault{}
+	if in.Delay != nil {
+		out.Delay = &xdsfault.FaultDelay{
+			Type:    xdsfault.FaultDelay_FIXED,
+			Percent: uint32(in.Delay.Percent),
+		}
+		switch d := in.Delay.HttpDelayType.(type) {
+		case *networking.HTTPFaultInjection_Delay_FixedDelay:
+			delayDuration := util.GogoDurationToDuration(d.FixedDelay)
+			out.Delay.FaultDelaySecifier = &xdsfault.FaultDelay_FixedDelay{
+				FixedDelay: &delayDuration,
+			}
+		default:
+			log.Warnf("Ignoring exponential fault in route")
+			out.Delay = nil
+		}
+	}
+
+	if in.Abort != nil {
+		out.Abort = &xdshttpfault.FaultAbort{
+			Percent: uint32(in.Abort.Percent),
+		}
+		switch a := in.Abort.ErrorType.(type) {
+		case *networking.HTTPFaultInjection_Abort_HttpStatus:
+			out.Abort.ErrorType = &xdshttpfault.FaultAbort_HttpStatus{
+				HttpStatus: uint32(a.HttpStatus),
+			}
+		default:
+			log.Warnf("Ignoring non http status type faults")
+			out.Abort = nil
+		}
+	}
+
+	if out.Delay == nil && out.Abort == nil {
+		return nil
+	}
+
+	return &out
 }
