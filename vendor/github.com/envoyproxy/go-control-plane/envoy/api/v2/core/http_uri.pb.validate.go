@@ -48,6 +48,13 @@ func (m *HttpUri) Validate() error {
 		}
 	}
 
+	if m.GetTimeout() == nil {
+		return HttpUriValidationError{
+			Field:  "Timeout",
+			Reason: "value is required",
+		}
+	}
+
 	switch m.HttpUpstreamType.(type) {
 
 	case *HttpUri_Cluster:

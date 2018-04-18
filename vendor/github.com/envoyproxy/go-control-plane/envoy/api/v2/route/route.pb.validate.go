@@ -153,6 +153,8 @@ func (m *VirtualHost) Validate() error {
 		}
 	}
 
+	// no validation rules for PerFilterConfig
+
 	return nil
 }
 
@@ -233,6 +235,8 @@ func (m *Route) Validate() error {
 			}
 		}
 	}
+
+	// no validation rules for PerFilterConfig
 
 	switch m.Action.(type) {
 
@@ -1314,6 +1318,8 @@ func (m *WeightedCluster_ClusterWeight) Validate() error {
 		}
 
 	}
+
+	// no validation rules for PerFilterConfig
 
 	return nil
 }
