@@ -57,7 +57,7 @@ func init() {
 		"The requested TTL for the workload")
 	flags.IntVar(&cAClientConfig.RSAKeySize, "key-size", 2048, "Size of generated private key")
 	flags.StringVar(&cAClientConfig.CAAddress,
-		"ca-address", "citadel:8060", "Istio CA address")
+		"ca-address", "istio-citadel:8060", "Istio CA address")
 
 	flags.StringVar(&cAClientConfig.Env, "env", "unspecified",
 		"Node Environment : unspecified | onprem | gcp | aws")
