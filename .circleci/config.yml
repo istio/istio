@@ -183,7 +183,7 @@ jobs:
             no_output_timeout: 20m
             when: always
             command: |
-              make e2e_bookinfo E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -test.v"
+              make e2e_bookinfo E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -test.v --installer helm
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
