@@ -37,7 +37,7 @@ func serverCmd(fatalf shared.FormatFn) *cobra.Command {
 	}
 }
 
-func runServer(fatalf shared.FormatFn) (error) {
+func runServer(fatalf shared.FormatFn) error {
 	config, err := clientcmd.BuildConfigFromFlags("", flags.kubeConfig)
 	if err != nil {
 		fatalf("Error getting service config: %v", err)
