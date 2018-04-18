@@ -66,8 +66,8 @@ const reportAttributesOkGet = `
      ":status": "200",
      "server": "envoy"
   },
-  "response.totle_size": 88,
-  "request.totle_size": 306
+  "response.total_size": 88,
+  "request.total_size": 306
 }
 `
 
@@ -117,8 +117,8 @@ const reportAttributesOkPost1 = `
      ":status": "200",
      "server": "envoy"
   },
-  "response.totle_size": 123,
-  "request.totle_size": 342
+  "response.total_size": 123,
+  "request.total_size": 342
 }
 `
 
@@ -168,8 +168,8 @@ const reportAttributesOkPost2 = `
      ":status": "200",
      "server": "envoy"
   },
-  "response.totle_size": 129,
-  "request.totle_size": 348
+  "response.total_size": 129,
+  "request.total_size": 348
 }
 `
 

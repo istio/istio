@@ -106,8 +106,8 @@ const reportAttributesMixerFail = `
      ":status": "401",
      "server": "envoy"
   },
-  "response.totle_size": 89,
-  "request.totle_size": 306
+  "response.total_size": 89,
+  "request.total_size": 306
 }
 `
 
@@ -156,8 +156,8 @@ const reportAttributesBackendFail = `
      ":status": "400",
      "server": "envoy"
   },
-  "response.totle_size": 151,
-  "request.totle_size": 329
+  "response.total_size": 151,
+  "request.total_size": 329
 }
 `
 

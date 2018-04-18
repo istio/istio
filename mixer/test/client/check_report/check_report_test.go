@@ -183,8 +183,8 @@ const reportAttributesOkPost = `
      ":status": "200",
      "server": "envoy"
   },
-  "response.totle_size": 123,
-  "request.totle_size": 342
+  "response.total_size": 123,
+  "request.total_size": 342
 }
 `
 

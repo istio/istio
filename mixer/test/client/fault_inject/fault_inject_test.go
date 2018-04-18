@@ -61,8 +61,8 @@ const reportAttributes = `
      ":status": "503",
      "server": "envoy"
   },
-  "response.totle_size": 66,
-  "request.totle_size": 0
+  "response.total_size": 66,
+  "request.total_size": 0
 }
 `
 
