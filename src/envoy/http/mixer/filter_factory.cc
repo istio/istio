@@ -25,6 +25,7 @@
 using ::envoy::config::filter::http::jwt_authn::v2alpha::JwtAuthentication;
 using ::istio::mixer::v1::config::client::EndUserAuthenticationPolicySpec;
 using ::istio::mixer::v1::config::client::HttpClientConfig;
+using ::istio::mixer::v1::config::client::ServiceConfig;
 
 namespace Envoy {
 namespace Server {
@@ -73,6 +74,9 @@ class MixerConfigFactory : public NamedHttpFilterConfigFactory {
 
   ProtobufTypes::MessagePtr createEmptyConfigProto() override {
     return ProtobufTypes::MessagePtr{new HttpClientConfig};
+  }
+  ProtobufTypes::MessagePtr createEmptyRouteConfigProto() override {
+    return ProtobufTypes::MessagePtr{new ServiceConfig};
   }
   std::string name() override { return "mixer"; }
 
