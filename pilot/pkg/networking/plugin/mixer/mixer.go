@@ -186,11 +186,11 @@ func buildMixerOutboundTCPFilter(env *model.Environment, node *model.Proxy) list
 func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, nodeInstances []*model.ServiceInstance, outboundRoute bool, config model.IstioConfigStore) *mccpb.HttpClientConfig { // nolint: lll
 	mcs, _, _ := net.SplitHostPort(mesh.MixerCheckServer)
 	mrs, _, _ := net.SplitHostPort(mesh.MixerReportServer)
+
+	// TODO: derive these port types.
 	transport := &mccpb.TransportConfig{
-		CheckCluster: model.BuildSubsetKey(model.TrafficDirectionOutbound, "", mcs+".svc.cluster.local",
-			&model.Port{Name: "http2-mixer"}),
-		ReportCluster: model.BuildSubsetKey(model.TrafficDirectionOutbound, "", mrs+".svc.cluster.local",
-			&model.Port{Name: "http2-mixer"}),
+		CheckCluster:  model.BuildSubsetKey(model.TrafficDirectionOutbound, "", mcs, &model.Port{Name: "http2-mixer"}),
+		ReportCluster: model.BuildSubsetKey(model.TrafficDirectionOutbound, "", mrs, &model.Port{Name: "http2-mixer"}),
 	}
 
 	mxConfig := &mccpb.HttpClientConfig{

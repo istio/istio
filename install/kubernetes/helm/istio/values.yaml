@@ -65,6 +65,8 @@ global:
     s390x: 2
     ppc64le: 2
 
+  mixerAddrSuffix: .svc.cluster.local
+
 # Any customization for istio testing should be here
 istiotesting:
   oneNameSpace: false
