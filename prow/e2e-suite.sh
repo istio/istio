@@ -30,7 +30,7 @@ set -u
 # Print commands
 set -x
 
-TEST_TARGETS=(e2e_simple e2e_mixer e2e_bookinfo e2e_upgrade e2e_dashboard)
+TEST_TARGETS=(e2e_simple e2e_mixer e2e_bookinfo e2e_upgrade e2e_dashboard e2e_pilot e2e_pilotv2_v1alpha3)
 SINGLE_MODE=false
 
 # Check https://github.com/istio/test-infra/blob/master/boskos/configs.yaml
@@ -107,5 +107,5 @@ else
     time ISTIO_DOCKER_HUB=$HUB \
       E2E_ARGS="${E2E_ARGS[@]}" \
       JUNIT_E2E_XML="${ARTIFACTS_DIR}/junit_e2e-all.xml" \
-      make e2e_all
+      make e2e_all_junit_report
 fi

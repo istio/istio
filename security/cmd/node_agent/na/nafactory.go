@@ -16,13 +16,10 @@ package na
 
 import (
 	"fmt"
-	"os"
 
-	"istio.io/istio/pkg/log"
-	"istio.io/istio/security/pkg/caclient/grpc"
+	"istio.io/istio/security/pkg/caclient/protocol"
 	"istio.io/istio/security/pkg/platform"
 	"istio.io/istio/security/pkg/util"
-	"istio.io/istio/security/pkg/workload"
 )
 
 // NodeAgent interface that should be implemented by
@@ -47,17 +44,14 @@ func NewNodeAgent(cfg *Config) (NodeAgent, error) {
 		return nil, err
 	}
 	na.pc = pc
-
-	cAClient := &grpc.CAGrpcClientImpl{}
-	na.cAClient = cAClient
-
-	// TODO: Specify files for service identity cert/key instead of node agent files.
-	secretServer, err := workload.NewSecretServer(
-		workload.NewSecretFileServerConfig(cfg.CAClientConfig.CertChainFile, cfg.CAClientConfig.KeyFile))
+	dialOpts, err := pc.GetDialOptions()
 	if err != nil {
-		log.Errorf("Workload IO creation error: %v", err)
-		os.Exit(-1)
+		return nil, err
 	}
-	na.secretServer = secretServer
+	grpcConn, err := protocol.NewGrpcConnection(cfg.CAClientConfig.CAAddress, dialOpts)
+	if err != nil {
+		return nil, err
+	}
+	na.caProtocol = grpcConn
 	return na, nil
 }

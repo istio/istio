@@ -52,6 +52,11 @@
 package log
 
 import (
+	"fmt"
+	"strings"
+	"sync/atomic"
+	"time"
+
 	"github.com/natefinch/lumberjack"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -70,34 +75,17 @@ var levelToZap = map[Level]zapcore.Level{
 	NoneLevel:  none,
 }
 
-// Configure initializes Istio's logging subsystem.
-//
-// You typically call this once at process startup.
-// Once this call returns, the logging system is ready to accept data.
-func Configure(options *Options) error {
-	outputLevel, err := options.GetOutputLevel()
-	if err != nil {
-		// bad format specified
-		return err
-	}
+func init() {
+	// use our defaults for starters so that logging works even before everything is fully configured
+	_ = Configure(DefaultOptions())
+}
 
-	stackTraceLevel, err := options.GetStackTraceLevel()
-	if err != nil {
-		// bad format specified
-		return err
-	}
-
-	if outputLevel == NoneLevel || ((len(options.OutputPaths) == 0) && options.RotateOutputPath == "") {
-		// stick with the Nop default
-		logger = zap.NewNop()
-		sugar = logger.Sugar()
-		return nil
-	}
-
+// prepZap is a utility function used by the Configure function.
+func prepZap(options *Options) (zapcore.Core, zapcore.Core, zapcore.WriteSyncer, error) {
 	encCfg := zapcore.EncoderConfig{
 		TimeKey:        "time",
 		LevelKey:       "level",
-		NameKey:        "logger",
+		NameKey:        "scope",
 		CallerKey:      "caller",
 		MessageKey:     "msg",
 		StacktraceKey:  "stack",
@@ -127,7 +115,7 @@ func Configure(options *Options) error {
 
 	errSink, closeErrorSink, err := zap.Open(options.ErrorOutputPaths...)
 	if err != nil {
-		return err
+		return nil, nil, nil, err
 	}
 
 	var outputSink zapcore.WriteSyncer
@@ -135,7 +123,7 @@ func Configure(options *Options) error {
 		outputSink, _, err = zap.Open(options.OutputPaths...)
 		if err != nil {
 			closeErrorSink()
-			return err
+			return nil, nil, nil, err
 		}
 	}
 
@@ -148,34 +136,169 @@ func Configure(options *Options) error {
 		sink = outputSink
 	}
 
-	opts := []zap.Option{zap.ErrorOutput(errSink)}
-
-	if options.IncludeCallerSourceLocation {
-		opts = append(opts, zap.AddCaller())
+	var enabler zap.LevelEnablerFunc = func(lvl zapcore.Level) bool {
+		switch lvl {
+		case zapcore.ErrorLevel:
+			return defaultScope.ErrorEnabled()
+		case zapcore.WarnLevel:
+			return defaultScope.WarnEnabled()
+		case zapcore.InfoLevel:
+			return defaultScope.InfoEnabled()
+		}
+		return defaultScope.DebugEnabled()
 	}
 
-	if stackTraceLevel != NoneLevel {
-		opts = append(opts, zap.AddStacktrace(levelToZap[stackTraceLevel]))
+	return zapcore.NewCore(enc, sink, zap.NewAtomicLevelAt(zapcore.DebugLevel)),
+		zapcore.NewCore(enc, sink, enabler),
+		errSink, nil
+}
+
+func formatDate(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+	t = t.UTC()
+	year, month, day := t.Date()
+	hour, minute, second := t.Clock()
+	micros := t.Nanosecond() / 1000
+
+	buf := make([]byte, 27)
+
+	buf[0] = byte((year/1000)%10) + '0'
+	buf[1] = byte((year/100)%10) + '0'
+	buf[2] = byte((year/10)%10) + '0'
+	buf[3] = byte(year%10) + '0'
+	buf[4] = '-'
+	buf[5] = byte((month)/10) + '0'
+	buf[6] = byte((month)%10) + '0'
+	buf[7] = '-'
+	buf[8] = byte((day)/10) + '0'
+	buf[9] = byte((day)%10) + '0'
+	buf[10] = 'T'
+	buf[11] = byte((hour)/10) + '0'
+	buf[12] = byte((hour)%10) + '0'
+	buf[13] = ':'
+	buf[14] = byte((minute)/10) + '0'
+	buf[15] = byte((minute)%10) + '0'
+	buf[16] = ':'
+	buf[17] = byte((second)/10) + '0'
+	buf[18] = byte((second)%10) + '0'
+	buf[19] = '.'
+	buf[20] = byte((micros/100000)%10) + '0'
+	buf[21] = byte((micros/10000)%10) + '0'
+	buf[22] = byte((micros/1000)%10) + '0'
+	buf[23] = byte((micros/100)%10) + '0'
+	buf[24] = byte((micros/10)%10) + '0'
+	buf[25] = byte((micros)%10) + '0'
+	buf[26] = 'Z'
+
+	enc.AppendString(string(buf))
+}
+
+func updateScopes(options *Options, core zapcore.Core, errSink zapcore.WriteSyncer) error {
+	// init the global I/O funcs
+	writeFn.Store(core.Write)
+	syncFn.Store(core.Sync)
+	errorSink.Store(errSink)
+
+	// update the output levels of all scopes
+	levels := strings.Split(options.outputLevels, ",")
+	for _, sl := range levels {
+		s, l, err := convertScopedLevel(sl)
+		if err != nil {
+			return err
+		}
+
+		if scope, ok := scopes[s]; ok {
+			scope.SetOutputLevel(l)
+		} else {
+			return fmt.Errorf("unknown scope '%s' specified", s)
+		}
 	}
 
-	l := zap.New(
-		zapcore.NewCore(enc, sink, zap.NewAtomicLevelAt(levelToZap[outputLevel])),
-		opts...,
-	)
+	// update the stack tracing levels of all scopes
+	levels = strings.Split(options.stackTraceLevels, ",")
+	for _, sl := range levels {
+		s, l, err := convertScopedLevel(sl)
+		if err != nil {
+			return err
+		}
 
-	logger = l.WithOptions(zap.AddCallerSkip(1), zap.AddStacktrace(levelToZap[stackTraceLevel]))
-	sugar = logger.Sugar()
+		if scope, ok := scopes[s]; ok {
+			scope.SetStackTraceLevel(l)
+		} else {
+			return fmt.Errorf("unknown scope '%s' specified", s)
+		}
+	}
 
-	// capture global zap logging and force it through our logger
-	_ = zap.ReplaceGlobals(l)
+	// update the caller location setting of all scopes
+	sc := strings.Split(options.logCallers, ",")
+	for _, s := range sc {
+		if s == "" {
+			continue
+		}
 
-	// capture standard golang "log" package output and force it through our logger
-	_ = zap.RedirectStdLog(logger)
-
-	// capture gRPC logging
-	if options.LogGrpc {
-		grpclog.SetLogger(zapgrpc.NewLogger(logger.WithOptions(zap.AddCallerSkip(2))))
+		if scope, ok := scopes[s]; ok {
+			scope.SetLogCallers(true)
+		} else {
+			return fmt.Errorf("unknown scope '%s' specified", s)
+		}
 	}
 
 	return nil
+}
+
+// Configure initializes Istio's logging subsystem.
+//
+// You typically call this once at process startup.
+// Once this call returns, the logging system is ready to accept data.
+func Configure(options *Options) error {
+	core, captureCore, errSink, err := prepZap(options)
+	if err != nil {
+		return err
+	}
+
+	if err = updateScopes(options, core, errSink); err != nil {
+		return err
+	}
+
+	opts := []zap.Option{
+		zap.ErrorOutput(errSink),
+		zap.AddCallerSkip(1),
+	}
+
+	if defaultScope.GetLogCallers() {
+		opts = append(opts, zap.AddCaller())
+	}
+
+	l := defaultScope.GetStackTraceLevel()
+	if l != NoneLevel {
+		opts = append(opts, zap.AddStacktrace(levelToZap[l]))
+	}
+
+	captureLogger := zap.New(captureCore, opts...)
+
+	// capture global zap logging and force it through our logger
+	_ = zap.ReplaceGlobals(captureLogger)
+
+	// capture standard golang "log" package output and force it through our logger
+	_ = zap.RedirectStdLog(captureLogger)
+
+	// capture gRPC logging
+	if options.LogGrpc {
+		grpclog.SetLogger(zapgrpc.NewLogger(captureLogger.WithOptions(zap.AddCallerSkip(2))))
+	}
+
+	return nil
+}
+
+// reset by the Configure method
+var syncFn atomic.Value
+
+// Sync flushes any buffered log entries.
+// Processes should normally take care to call Sync before exiting.
+func Sync() error {
+	var err error
+	if s := syncFn.Load().(func() error); s != nil {
+		err = s()
+	}
+
+	return err
 }

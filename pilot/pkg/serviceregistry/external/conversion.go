@@ -15,43 +15,54 @@
 package external
 
 import (
+	"net"
+	"strings"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
 )
 
 func convertPort(port *networking.Port) *model.Port {
 	return &model.Port{
 		Name:                 port.Name,
 		Port:                 int(port.Number),
-		Protocol:             convertProtocol(port.Protocol),
+		Protocol:             model.ParseProtocol(port.Protocol),
 		AuthenticationPolicy: meshconfig.AuthenticationPolicy_NONE,
 	}
 }
 
-func convertService(externalService *networking.ExternalService) []*model.Service {
+func convertServices(externalService *networking.ExternalService) []*model.Service {
 	out := make([]*model.Service, 0)
 
-	for _, host := range externalService.Hosts {
-		var resolution model.Resolution
-		switch externalService.Discovery {
-		case networking.ExternalService_NONE:
-			resolution = model.Passthrough
-		case networking.ExternalService_DNS:
-			resolution = model.DNSLB
-		case networking.ExternalService_STATIC:
-			resolution = model.ClientSideLB
-		}
+	var resolution model.Resolution
+	switch externalService.Discovery {
+	case networking.ExternalService_NONE:
+		resolution = model.Passthrough
+	case networking.ExternalService_DNS:
+		resolution = model.DNSLB
+	case networking.ExternalService_STATIC:
+		resolution = model.ClientSideLB
+	}
 
-		svcPorts := make(model.PortList, 0, len(externalService.Ports))
-		for _, port := range externalService.Ports {
-			svcPorts = append(svcPorts, convertPort(port))
+	svcPorts := make(model.PortList, 0, len(externalService.Ports))
+	for _, port := range externalService.Ports {
+		svcPorts = append(svcPorts, convertPort(port))
+	}
+
+	for _, host := range externalService.Hosts {
+		// set address if host is an IP or CIDR prefix
+		var address string
+		if _, _, cidrErr := net.ParseCIDR(host); cidrErr == nil || net.ParseIP(host) != nil {
+			address = host
+			// FIXME: create common function for CIDR prefix to metrics friendly name?
+			host = strings.Replace(host, "/", "_", -1) // make hostname easy to parse for metrics
 		}
 
 		out = append(out, &model.Service{
 			MeshExternal: true,
 			Hostname:     host,
+			Address:      address,
 			Ports:        svcPorts,
 			Resolution:   resolution,
 		})
@@ -60,53 +71,51 @@ func convertService(externalService *networking.ExternalService) []*model.Servic
 	return out
 }
 
-func convertNetworkEndpoint(services []*model.Service, servicePort *networking.Port, endpoint *networking.ExternalService_Endpoint) []*model.ServiceInstance {
-	out := make([]*model.ServiceInstance, 0)
-	for _, service := range services {
-		instancePort := endpoint.Ports[servicePort.Name]
-		if instancePort == 0 {
-			instancePort = servicePort.Number
-		}
+func convertEndpoint(service *model.Service, servicePort *networking.Port,
+	endpoint *networking.ExternalService_Endpoint) *model.ServiceInstance {
 
-		serviceInstance := &model.ServiceInstance{
-			Endpoint: model.NetworkEndpoint{
-				Address:     endpoint.Address,
-				Port:        int(instancePort),
-				ServicePort: convertPort(servicePort),
-			},
-			// TODO AvailabilityZone
-			Service: service,
-			Labels:  endpoint.Labels,
-		}
-		out = append(out, serviceInstance)
+	instancePort := endpoint.Ports[servicePort.Name]
+	if instancePort == 0 {
+		instancePort = servicePort.Number
 	}
-	return out
+
+	return &model.ServiceInstance{
+		Endpoint: model.NetworkEndpoint{
+			Address:     endpoint.Address,
+			Port:        int(instancePort),
+			ServicePort: convertPort(servicePort),
+		},
+		// TODO AvailabilityZone, ServiceAccount
+		Service: service,
+		Labels:  endpoint.Labels,
+	}
 }
 
 func convertInstances(externalService *networking.ExternalService) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
-	services := convertService(externalService)
-
-	for _, endpoint := range externalService.Endpoints {
+	for _, service := range convertServices(externalService) {
 		for _, servicePort := range externalService.Ports {
-
-			out = append(out, convertNetworkEndpoint(services, servicePort, endpoint)...)
+			if len(externalService.Endpoints) == 0 &&
+				externalService.Discovery == networking.ExternalService_DNS {
+				// when external service has discovery type DNS and no endpoints
+				// we create endpoints from external service hosts field
+				for _, host := range externalService.Hosts {
+					out = append(out, &model.ServiceInstance{
+						Endpoint: model.NetworkEndpoint{
+							Address:     host,
+							Port:        int(servicePort.Number),
+							ServicePort: convertPort(servicePort),
+						},
+						// TODO AvailabilityZone, ServiceAccount
+						Service: service,
+						Labels:  nil,
+					})
+				}
+			}
+			for _, endpoint := range externalService.Endpoints {
+				out = append(out, convertEndpoint(service, servicePort, endpoint))
+			}
 		}
 	}
 	return out
-}
-
-// parseHostname extracts service name from the service hostname
-func parseHostname(hostname string) (string, error) {
-	// TODO does the hostname even need to be parsed?
-	return hostname, nil
-}
-
-func convertProtocol(name string) model.Protocol {
-	protocol := model.ConvertCaseInsensitiveStringToProtocol(name)
-	if protocol == model.ProtocolUnsupported {
-		log.Warnf("unsupported protocol value: %s", name)
-		return model.ProtocolTCP
-	}
-	return protocol
 }

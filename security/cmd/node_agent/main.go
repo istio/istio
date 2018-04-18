@@ -53,11 +53,11 @@ func init() {
 
 	cAClientConfig := &naConfig.CAClientConfig
 	flags.StringVar(&cAClientConfig.Org, "org", "", "Organization for the cert")
-	flags.DurationVar(&cAClientConfig.RequestedCertTTL, "workload-cert-ttl", 19*time.Hour,
+	flags.DurationVar(&cAClientConfig.RequestedCertTTL, "workload-cert-ttl", 90*24*time.Hour,
 		"The requested TTL for the workload")
 	flags.IntVar(&cAClientConfig.RSAKeySize, "key-size", 2048, "Size of generated private key")
 	flags.StringVar(&cAClientConfig.CAAddress,
-		"ca-address", "istio-ca:8060", "Istio CA address")
+		"ca-address", "citadel:8060", "Istio CA address")
 
 	flags.StringVar(&cAClientConfig.Env, "env", "unspecified",
 		"Node Environment : unspecified | onprem | gcp | aws")

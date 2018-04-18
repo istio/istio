@@ -28,7 +28,7 @@ import (
 	"sort"
 	"strings"
 
-	authn "istio.io/api/authentication/v1alpha2"
+	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
@@ -56,7 +56,7 @@ type Service struct {
 	// ExternalName is only set for external services and holds the external
 	// service DNS name.  External services are name-based solution to represent
 	// external service instances as a service inside the cluster.
-	// TODO: this should be deprecated. it is made obsolete by the MeshExternal and Resolution flags.
+	// Deprecated : made obsolete by the MeshExternal and Resolution flags.
 	ExternalName string `json:"external"`
 
 	// ServiceAccounts specifies the service accounts that run the service.
@@ -67,7 +67,7 @@ type Service struct {
 	MeshExternal bool
 
 	// LoadBalancingDisabled indicates that no load balancing should be done for this service.
-	// TODO: this should be deprecated. it is made obsolete by the MeshExternal and Resolution flags.
+	// Deprecated : made obsolete by the MeshExternal and Resolution flags.
 	LoadBalancingDisabled bool `json:"-"`
 
 	// Resolution indicates how the service instances need to be resolved before routing
@@ -154,9 +154,9 @@ const (
 	TrafficDirectionOutbound TrafficDirection = "outbound"
 )
 
-// ConvertCaseInsensitiveStringToProtocol converts a case-insensitive protocol to Protocol
-func ConvertCaseInsensitiveStringToProtocol(protocolAsString string) Protocol {
-	switch strings.ToLower(protocolAsString) {
+// ParseProtocol from string ignoring case
+func ParseProtocol(s string) Protocol {
+	switch strings.ToLower(s) {
 	case "tcp":
 		return ProtocolTCP
 	case "udp":
@@ -178,10 +178,30 @@ func ConvertCaseInsensitiveStringToProtocol(protocolAsString string) Protocol {
 	return ProtocolUnsupported
 }
 
+// IsHTTP2 is true for protocols that use HTTP/2 as transport protocol
+func (p Protocol) IsHTTP2() bool {
+	switch p {
+	case ProtocolHTTP2, ProtocolGRPC:
+		return true
+	default:
+		return false
+	}
+}
+
 // IsHTTP is true for protocols that use HTTP as transport protocol
 func (p Protocol) IsHTTP() bool {
 	switch p {
 	case ProtocolHTTP, ProtocolHTTP2, ProtocolGRPC:
+		return true
+	default:
+		return false
+	}
+}
+
+// IsTCP is true for protocols that use TCP as transport protocol
+func (p Protocol) IsTCP() bool {
+	switch p {
+	case ProtocolTCP, ProtocolHTTPS, ProtocolMongo, ProtocolRedis, ProtocolHTTP, ProtocolHTTP2, ProtocolGRPC:
 		return true
 	default:
 		return false
@@ -207,17 +227,17 @@ func (p Protocol) IsHTTP() bool {
 //  --> 172.16.0.1:33333 (with ServicePort pointing to 8080)
 type NetworkEndpoint struct {
 	// Address of the network endpoint, typically an IPv4 address
-	Address string `json:"ip_address,omitempty"`
+	Address string
 
 	// Port number where this instance is listening for connections This
 	// need not be the same as the port where the service is accessed.
 	// e.g., catalog.mystore.com:8080 -> 172.16.0.1:55446
-	Port int `json:"port"`
+	Port int
 
 	// Port declaration from the service declaration This is the port for
 	// the service associated with this instance (e.g.,
 	// catalog.mystore.com)
-	ServicePort *Port `json:"service_port"`
+	ServicePort *Port
 }
 
 // Labels is a non empty set of arbitrary strings. Each version of a service can
@@ -349,6 +369,22 @@ func (labels LabelsCollection) HasSubsetOf(that Labels) bool {
 	}
 	for _, label := range labels {
 		if label.SubsetOf(that) {
+			return true
+		}
+	}
+	return false
+}
+
+// IsSupersetOf returns true if the input labels are a subset set of any set of labels in a
+// collection
+func (labels LabelsCollection) IsSupersetOf(that Labels) bool {
+
+	if len(labels) == 0 {
+		return len(that) == 0
+	}
+
+	for _, label := range labels {
+		if that.SubsetOf(label) {
 			return true
 		}
 	}
@@ -499,7 +535,7 @@ func BuildSubsetKey(direction TrafficDirection, subsetName, hostname string, por
 // ParseSubsetKey is the inverse of the BuildSubsetKey method
 func ParseSubsetKey(s string) (direction TrafficDirection, subsetName, hostname string, port *Port) {
 	parts := strings.Split(s, "|")
-	// we ignore direction since its typically not used by the consuming functions
+	direction = TrafficDirection(parts[0])
 	port = &Port{Name: parts[1]}
 	subsetName = parts[2]
 	hostname = parts[3]

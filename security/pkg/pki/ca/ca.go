@@ -47,10 +47,8 @@ const (
 type cATypes int
 
 const (
-	// IntegratedCA means the Istio CA automatically interacts with upstream CA.
-	integratedCA cATypes = iota
 	// SelfSignedCA means the Istio CA uses a self signed certificate.
-	selfSignedCA
+	selfSignedCA cATypes = iota
 	// PluggedCertCA means the Istio CA uses a operator-specified key/cert.
 	pluggedCertCA
 )
@@ -64,6 +62,7 @@ type CertificateAuthority interface {
 }
 
 // IstioCAOptions holds the configurations for creating an Istio CA.
+// TODO(myidpt): remove IstioCAOptions.
 type IstioCAOptions struct {
 	CAType cATypes
 
@@ -71,10 +70,6 @@ type IstioCAOptions struct {
 	MaxCertTTL time.Duration
 
 	KeyCertBundle util.KeyCertBundle
-
-	UpstreamCAAddress   string
-	UpstreamCACertBytes []byte
-	UpstreamAuth        string
 
 	LivenessProbeOptions *probe.Options
 	ProbeCheckInterval   time.Duration
@@ -91,8 +86,8 @@ type IstioCA struct {
 }
 
 // NewSelfSignedIstioCAOptions returns a new IstioCAOptions instance using self-signed certificate.
-func NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL time.Duration, org string, namespace string,
-	core corev1.SecretsGetter) (caOpts *IstioCAOptions, err error) {
+func NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL time.Duration, org string,
+	namespace string, core corev1.SecretsGetter) (caOpts *IstioCAOptions, err error) {
 	// For the first time the CA is up, it generates a self-signed key/cert pair and write it to
 	// cASecret. For subsequent restart, CA will reads key/cert from cASecret.
 	caSecret, scrtErr := core.Secrets(namespace).Get(cASecret, metav1.GetOptions{})
@@ -160,22 +155,6 @@ func NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile
 	return caOpts, nil
 }
 
-// NewIntegratedIstioCAOptions returns a new IstioCAOptions instance with upstream CA configuration.
-func NewIntegratedIstioCAOptions(upstreamCAAddress, upstreamCACertFile, upstreamAuth string,
-	workloadCertTTL, maxWorkloadCertTTL time.Duration) (caOpts *IstioCAOptions, err error) {
-	caOpts = &IstioCAOptions{
-		CAType:            integratedCA,
-		CertTTL:           workloadCertTTL,
-		MaxCertTTL:        maxWorkloadCertTTL,
-		UpstreamCAAddress: upstreamCAAddress,
-		UpstreamAuth:      upstreamAuth,
-	}
-	if caOpts.KeyCertBundle, err = util.NewKeyCertBundleWithRootCertFromFile(upstreamCACertFile); err != nil {
-		return nil, fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
-	}
-	return caOpts, nil
-}
-
 // NewIstioCA returns a new IstioCA instance.
 func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 	ca := &IstioCA{
@@ -188,8 +167,8 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 	return ca, nil
 }
 
-// Sign takes a PEM-encoded certificate signing request and returns a signed
-// certificate.
+// Sign takes a PEM-encoded CSR and ttl, and returns a signed certificate. If forCA is true,
+// the signed certificate is a CA certificate, otherwise, it is a workload certificate.
 func (ca *IstioCA) Sign(csrPEM []byte, ttl time.Duration, forCA bool) ([]byte, error) {
 	signingCert, signingKey, _, _ := ca.keyCertBundle.GetAll()
 	if signingCert == nil {

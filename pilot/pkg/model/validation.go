@@ -32,7 +32,7 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 	multierror "github.com/hashicorp/go-multierror"
 
-	authn "istio.io/api/authentication/v1alpha2"
+	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
@@ -924,7 +924,7 @@ func validateServerPort(port *networking.Port) (errs error) {
 	if port == nil {
 		return appendErrors(errs, fmt.Errorf("port is required"))
 	}
-	if ConvertCaseInsensitiveStringToProtocol(port.Protocol) == ProtocolUnsupported {
+	if ParseProtocol(port.Protocol) == ProtocolUnsupported {
 		errs = appendErrors(errs, fmt.Errorf("invalid protocol %q, supported protocols are HTTP, HTTP2, GRPC, MONGO, REDIS, TCP", port.Protocol))
 	}
 	if port.Number > 0 {
@@ -987,7 +987,7 @@ func ValidateEgressRule(msg proto.Message) error {
 		}
 
 		if cidrDestinationService &&
-			!IsEgressRulesSupportedTCPProtocol(ConvertCaseInsensitiveStringToProtocol(port.Protocol)) {
+			!IsEgressRulesSupportedTCPProtocol(ParseProtocol(port.Protocol)) {
 			errs = multierror.Append(errs, fmt.Errorf("Only the following protocols can be defined for "+
 				"CIDR destination service notation: %s. "+
 				"This rule - port: %d protocol: %s destination.service: %s",
@@ -1073,7 +1073,7 @@ func ValidateEgressRulePort(port *routing.EgressRule_Port) error {
 		return err
 	}
 
-	if !IsEgressRulesSupportedProtocol(ConvertCaseInsensitiveStringToProtocol(port.Protocol)) {
+	if !IsEgressRulesSupportedProtocol(ParseProtocol(port.Protocol)) {
 		return fmt.Errorf("egress rule support is available only for the following protocols: %s",
 			egressRulesSupportedProtocols())
 	}
@@ -1088,7 +1088,7 @@ func ValidateDestinationRule(msg proto.Message) (errs error) {
 	}
 
 	errs = appendErrors(errs,
-		validateHost(rule.Name),
+		validateHost(rule.Host),
 		validateTrafficPolicy(rule.TrafficPolicy))
 
 	for _, subset := range rule.Subsets {
@@ -1695,10 +1695,23 @@ func ValidateAuthenticationPolicy(msg proto.Message) error {
 		errs = appendErrors(errs, validateAuthNPolicyTarget(target))
 	}
 
+	jwtIssuers := make(map[string]bool)
 	for _, method := range in.Peers {
-		errs = appendErrors(errs, validateJwt(method.GetJwt()))
+		if jwt := method.GetJwt(); jwt != nil {
+			if _, jwtExist := jwtIssuers[jwt.Issuer]; jwtExist {
+				errs = appendErrors(errs, fmt.Errorf("jwt with issuer %q already defined", jwt.Issuer))
+			} else {
+				jwtIssuers[jwt.Issuer] = true
+			}
+			errs = appendErrors(errs, validateJwt(jwt))
+		}
 	}
 	for _, method := range in.Origins {
+		if _, jwtExist := jwtIssuers[method.Jwt.Issuer]; jwtExist {
+			errs = appendErrors(errs, fmt.Errorf("jwt with issuer %q already defined", method.Jwt.Issuer))
+		} else {
+			jwtIssuers[method.Jwt.Issuer] = true
+		}
 		errs = appendErrors(errs, validateJwt(method.Jwt))
 	}
 
@@ -1776,14 +1789,11 @@ func validateJwt(jwt *authn.Jwt) (errs error) {
 			errs = multierror.Append(errs, errors.New("audience must be non-empty string"))
 		}
 	}
-	if jwt.JwksUri == "" {
-		errs = multierror.Append(errs, errors.New("jwks_uri must be set"))
-	}
-	if !strings.HasPrefix(jwt.JwksUri, "http://") && !strings.HasPrefix(jwt.JwksUri, "https://") {
-		errs = multierror.Append(errs, errors.New("jwks_uri must have http:// or https:// scheme"))
-	}
-	if _, err := url.Parse(jwt.JwksUri); err != nil {
-		errs = multierror.Append(errs, fmt.Errorf("%q is not a valid url: %v", jwt.JwksUri, err))
+	if jwt.JwksUri != "" {
+		// TODO: do more extensive check (e.g try to fetch JwksUri)
+		if _, _, _, err := ParseJwksURI(jwt.JwksUri); err != nil {
+			errs = multierror.Append(errs, err)
+		}
 	}
 
 	for _, location := range jwt.JwtHeaders {
@@ -1805,7 +1815,11 @@ func validateAuthNPolicyTarget(target *authn.TargetSelector) (errs error) {
 		return
 	}
 
-	errs = appendErrors(errs, validateHost(target.Name))
+	// AuthN policy target (host)name must be a shortname
+	if !IsDNS1123Label(target.Name) {
+		errs = multierror.Append(errs, fmt.Errorf("taget name %q must be a valid label", target.Name))
+	}
+
 	if target.Subset != "" {
 		errs = appendErrors(errs, validateSubsetName(target.Subset))
 	}
@@ -1897,28 +1911,31 @@ func ValidateEndUserAuthenticationPolicySpecBinding(msg proto.Message) error {
 
 // ValidateVirtualService checks that a v1alpha3 route rule is well-formed.
 func ValidateVirtualService(msg proto.Message) (errs error) {
-	routeRule, ok := msg.(*networking.VirtualService)
+	virtualService, ok := msg.(*networking.VirtualService)
 	if !ok {
-		return errors.New("cannot cast to v1alpha3 routing rule")
+		return errors.New("cannot cast to virtual service")
 	}
 
-	// TODO: routeRule.Gateways
-
-	if len(routeRule.Hosts) == 0 {
-		errs = appendErrors(errs, fmt.Errorf("route rule must have at least one host"))
+	for _, gateway := range virtualService.Gateways {
+		if !IsDNS1123Label(gateway) {
+			errs = appendErrors(errs, fmt.Errorf("gateway is not a valid DNS1123 label: %v", gateway))
+		}
 	}
-	for _, host := range routeRule.Hosts {
+
+	if len(virtualService.Hosts) == 0 {
+		errs = appendErrors(errs, fmt.Errorf("virtual service must have at least one host"))
+	}
+	for _, host := range virtualService.Hosts {
 		errs = appendErrors(errs, validateHost(host))
 	}
 
-	for _, httpRoute := range routeRule.Http {
-		errs = appendErrors(validateHTTPRoute(httpRoute))
+	if len(virtualService.Http) == 0 && len(virtualService.Tcp) == 0 {
+		errs = appendErrors(errs, fmt.Errorf("http or tcp must be provided in virtual service"))
 	}
-
-	// TODO: validate once implemented
-	if len(routeRule.Tcp) > 0 {
-		errs = appendErrors(errs, errors.New("TCP route rules have not been implemented"))
+	for _, httpRoute := range virtualService.Http {
+		errs = appendErrors(errs, validateHTTPRoute(httpRoute))
 	}
+	// TODO: validate TCP
 
 	return
 }
@@ -1967,23 +1984,24 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 		}
 
-		// TODO: validate once implemented
-		if match.Port != nil {
-			errs = appendErrors(errs, errors.New("HTTP match port has not been implemented"))
-		}
-
+		// TODO: validate match.Port
 		errs = appendErrors(errs, Labels(match.SourceLabels).Validate())
 	}
 	errs = appendErrors(errs, validateDestination(http.Mirror))
 	errs = appendErrors(errs, validateHTTPRedirect(http.Redirect))
 	errs = appendErrors(errs, validateHTTPRetry(http.Retries))
 	errs = appendErrors(errs, validateHTTPRewrite(http.Rewrite))
+	var totalWeight int32
 	for _, route := range http.Route {
 		if route.Destination == nil {
 			errs = multierror.Append(errs, errors.New("destination is required"))
 		}
 		errs = appendErrors(errs, validateDestination(route.Destination))
 		errs = appendErrors(errs, ValidatePercent(route.Weight))
+		totalWeight += route.Weight
+	}
+	if len(http.Route) > 1 && totalWeight > 100 {
+		errs = appendErrors(errs, fmt.Errorf("total destination weight %v > 100", totalWeight))
 	}
 	if http.Timeout != nil {
 		errs = appendErrors(errs, ValidateDurationGogo(http.Timeout))
@@ -2094,7 +2112,7 @@ func validateDestination(destination *networking.Destination) (errs error) {
 		return
 	}
 
-	errs = appendErrors(errs, validateHost(destination.Name))
+	errs = appendErrors(errs, validateHost(destination.Host))
 	if destination.Subset != "" {
 		errs = appendErrors(errs, validateSubsetName(destination.Subset))
 	}
@@ -2237,6 +2255,12 @@ func ValidateExternalService(config proto.Message) (errs error) {
 						fmt.Errorf("hosts must be FQDN if no endpoints are provided for discovery mode DNS"))
 				}
 			}
+			for _, port := range externalService.Ports {
+				if !ParseProtocol(port.Protocol).IsHTTP() {
+					errs = appendErrors(errs,
+						fmt.Errorf("if discovery type is DNS and no endpoints are provided all ports must be HTTP based"))
+				}
+			}
 		}
 
 		for _, endpoint := range externalService.Endpoints {
@@ -2276,7 +2300,7 @@ func validatePortName(name string) error {
 }
 
 func validateProtocol(protocol string) error {
-	if ConvertCaseInsensitiveStringToProtocol(protocol) == ProtocolUnsupported {
+	if ParseProtocol(protocol) == ProtocolUnsupported {
 		return fmt.Errorf("unsupported protocol: %s", protocol)
 	}
 	return nil

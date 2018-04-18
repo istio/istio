@@ -20,10 +20,12 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"text/template"
 	"time"
 
 	"cloud.google.com/go/logging"
+	"cloud.google.com/go/logging/logadmin"
 	xctx "golang.org/x/net/context"
 	"google.golang.org/api/option"
 	"google.golang.org/genproto/googleapis/api/monitoredres"
@@ -36,14 +38,17 @@ import (
 )
 
 type (
-	makeClientFn func(ctx xctx.Context, projectID string, opts ...option.ClientOption) (*logging.Client, error)
+	makeClientFn     func(ctx xctx.Context, projectID string, opts ...option.ClientOption) (*logging.Client, error)
+	makeSyncClientFn func(ctx xctx.Context, projectID string, opts ...option.ClientOption) (*logadmin.Client, error)
 
-	logFn func(logging.Entry)
+	logFn   func(logging.Entry)
+	flushFn func() error
 
 	builder struct {
-		makeClient makeClientFn
-		types      map[string]*logentry.Type
-		cfg        *config.Params
+		makeClient     makeClientFn
+		makeSyncClient makeSyncClientFn
+		types          map[string]*logentry.Type
+		cfg            *config.Params
 	}
 
 	info struct {
@@ -51,14 +56,15 @@ type (
 		tmpl   *template.Template
 		req    *config.Params_LogInfo_HttpRequestMapping
 		log    logFn
+		flush  flushFn
 	}
 
 	handler struct {
 		now func() time.Time // used for testing
 
-		l      adapter.Logger
-		client io.Closer
-		info   map[string]info
+		l                  adapter.Logger
+		client, syncClient io.Closer
+		info               map[string]info
 	}
 )
 
@@ -70,7 +76,7 @@ var (
 
 // NewBuilder returns a builder implementing the logentry.HandlerBuilder interface.
 func NewBuilder() logentry.HandlerBuilder {
-	return &builder{makeClient: logging.NewClient}
+	return &builder{makeClient: logging.NewClient, makeSyncClient: logadmin.NewClient}
 }
 
 func (b *builder) SetLogEntryTypes(types map[string]*logentry.Type) {
@@ -94,6 +100,12 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		_ = logger.Errorf("Stackdriver logger failed with: %v", err)
 	}
 
+	syncClient, err := b.makeSyncClient(context.Background(), cfg.ProjectId, helper.ToOpts(cfg)...)
+	if err != nil {
+		_ = logger.Errorf("failed to create stackdriver sink logging client: %v", err)
+		syncClient = nil
+	}
+
 	infos := make(map[string]info)
 	for name, log := range cfg.LogInfo {
 		_, found := b.types[name]
@@ -106,14 +118,33 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 			_ = logger.Errorf("failed to evaluate template for log %s, skipping: %v", name, err)
 			continue
 		}
+
+		if log.SinkInfo != nil {
+			sink := &logadmin.Sink{
+				ID:          log.SinkInfo.Id,
+				Destination: log.SinkInfo.Destination,
+				Filter:      log.SinkInfo.Filter,
+			}
+			ctx := context.Background()
+			var sinkErr error
+			// first try to CreateSink, if error is AlreadyExists then update that sink.
+			if _, sinkErr = syncClient.CreateSink(ctx, sink); isAlreadyExists(sinkErr) {
+				_, sinkErr = syncClient.UpdateSink(ctx, sink)
+			}
+			if sinkErr != nil {
+				logger.Warningf("failed to create/update stackdriver logging sink: %v", err)
+			}
+		}
+
 		infos[name] = info{
 			labels: log.LabelNames,
 			tmpl:   tmpl,
 			req:    log.HttpMapping,
 			log:    client.Logger(name).Log,
+			flush:  client.Logger(name).Flush,
 		}
 	}
-	return &handler{client: client, now: time.Now, l: logger, info: infos}, nil
+	return &handler{client: client, syncClient: syncClient, now: time.Now, l: logger, info: infos}, nil
 }
 
 func (h *handler) HandleLogEntry(_ context.Context, values []*logentry.Instance) error {
@@ -123,6 +154,13 @@ func (h *handler) HandleLogEntry(_ context.Context, values []*logentry.Instance)
 			h.l.Warningf("got instance for unknown log '%s', skipping", v.Name)
 			continue
 		}
+
+		defer func() {
+			err := linfo.flush()
+			if err != nil {
+				h.l.Warningf("failed to flush log entry: %v", err)
+			}
+		}()
 
 		buf := pool.GetBuffer()
 		if err := linfo.tmpl.Execute(buf, v.Variables); err != nil {
@@ -153,6 +191,12 @@ func (h *handler) HandleLogEntry(_ context.Context, values []*logentry.Instance)
 }
 
 func (h *handler) Close() error {
+	if h.syncClient != nil {
+		if err := h.syncClient.Close(); err != nil {
+			h.l.Warningf("Failed to close sync client %v", err)
+		}
+	}
+
 	return h.client.Close()
 }
 
@@ -224,4 +268,11 @@ func toInt64(v interface{}) (int64, bool) {
 	default:
 		return 0, false
 	}
+}
+
+func isAlreadyExists(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), "AlreadyExists")
 }

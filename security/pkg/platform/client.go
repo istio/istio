@@ -39,7 +39,7 @@ type Client interface {
 func NewClient(platform, rootCertFile, keyFile, certChainFile, caAddr string) (Client, error) {
 	switch platform {
 	case "onprem":
-		return NewOnPremClientImpl(rootCertFile, keyFile, certChainFile), nil
+		return NewOnPremClientImpl(rootCertFile, keyFile, certChainFile)
 	case "gcp":
 		return NewGcpClientImpl(rootCertFile, caAddr), nil
 	case "aws":
@@ -48,7 +48,7 @@ func NewClient(platform, rootCertFile, keyFile, certChainFile, caAddr string) (C
 		if metadata.OnGCE() {
 			return NewGcpClientImpl(rootCertFile, caAddr), nil
 		}
-		return NewOnPremClientImpl(rootCertFile, keyFile, certChainFile), nil
+		return NewOnPremClientImpl(rootCertFile, keyFile, certChainFile)
 	default:
 		return nil, fmt.Errorf("invalid env %s specified", platform)
 	}

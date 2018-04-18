@@ -14,22 +14,45 @@
 
 package workload
 
+import (
+	"fmt"
+	"io/ioutil"
+	"os"
+	"path"
+
+	"istio.io/istio/security/pkg/pki/util"
+)
+
 const (
-	keyFilePermission  = 0600
-	certFilePermission = 0644
+	// KeyFilePermission is the permission bits for private key file.
+	KeyFilePermission = 0600
+
+	// CertFilePermission is the permission bits for certificate file.
+	CertFilePermission = 0644
 )
 
 // SecretFileServer is an implementation of SecretServer that writes the key/cert into file system.
 type SecretFileServer struct {
-	cfg Config
+	rootDir string
 }
 
-// SetServiceIdentityPrivateKey sets the service identity private key into the file system.
-func (sf *SecretFileServer) SetServiceIdentityPrivateKey(content []byte) error {
-	return sf.cfg.FileUtil.Write(sf.cfg.ServiceIdentityPrivateKeyFile, content, keyFilePermission)
-}
-
-// SetServiceIdentityCert sets the service identity certificate into the file system.
-func (sf *SecretFileServer) SetServiceIdentityCert(content []byte) error {
-	return sf.cfg.FileUtil.Write(sf.cfg.ServiceIdentityCertFile, content, certFilePermission)
+// Put writes the specified key and cert to the files.
+func (sf *SecretFileServer) Put(serviceAccount string, keycert util.KeyCertBundle) error {
+	_, priv, cert, root := keycert.GetAllPem()
+	dir := path.Join(sf.rootDir, serviceAccount)
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		if err := os.Mkdir(dir, 0700); err != nil {
+			return fmt.Errorf("failed to create directory for %v, err %v", serviceAccount, err)
+		}
+	}
+	kpath := path.Join(dir, "key.pem")
+	if err := ioutil.WriteFile(kpath, priv, KeyFilePermission); err != nil {
+		return err
+	}
+	cpath := path.Join(dir, "cert-chain.pem")
+	if err := ioutil.WriteFile(cpath, cert, CertFilePermission); err != nil {
+		return err
+	}
+	rpath := path.Join(dir, "root-cert.pem")
+	return ioutil.WriteFile(rpath, root, CertFilePermission)
 }

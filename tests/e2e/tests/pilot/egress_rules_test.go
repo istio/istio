@@ -12,153 +12,134 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Routing tests
-
 package pilot
 
 import (
 	"fmt"
-	"os"
 	"strings"
+	"testing"
 	"time"
-
-	multierror "github.com/hashicorp/go-multierror"
-
-	"istio.io/istio/pkg/log"
-	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
 )
 
-type egressRules struct {
-	*tutil.Environment
-}
-
-func (t *egressRules) String() string {
-	return "egress-rules"
-}
-
-func (t *egressRules) Setup() error {
-	return nil
-}
-
-// TODO: test negatives
-func (t *egressRules) Run() error {
-	if os.Getenv("SKIP_EGRESS") != "" {
-		return nil
+func TestEgress(t *testing.T) {
+	if !tc.Egress {
+		t.Skipf("Skipping %s: egress=false", t.Name())
 	}
 	// egress rules are v1alpha1
-	if !t.Config.V1alpha1 {
-		return nil
+	if !tc.V1alpha1 {
+		t.Skipf("Skipping %s: v1alpha1=false", t.Name())
 	}
+
+	// This list is ordered so that cases that use the same egress rule are adjacent. This is
+	// done to avoid applying config changes more than necessary.
 	cases := []struct {
-		description string
-		config      string
-		check       func() error
+		name              string
+		config            string
+		url               string
+		shouldBeReachable bool
 	}{
 		{
-			description: "allow external traffic to httbin.org",
-			config:      "v1alpha1/egress-rule-httpbin.yaml.tmpl",
-			check: func() error {
-				return t.verifyReachable("http://httpbin.org/headers", true)
-			},
+			name:   "REACHABLE_google.com_443",
+			config: "testdata/v1alpha1/egress-rule-google.yaml",
+			// Note that we're using http (not https). We're relying on Envoy to convert the outbound call to
+			// TLS for us. This is currently the suggested way for the application to call an external TLS service.\
+			// If the application uses TLS, then no metrics will be collected for the request.
+			url:               "http://www.google.com:443",
+			shouldBeReachable: true,
 		},
 		{
-			description: "allow external traffic to *.httbin.org",
-			config:      "v1alpha1/egress-rule-wildcard-httpbin.yaml.tmpl",
-			check: func() error {
-				return t.verifyReachable("http://www.httpbin.org/headers", true)
-			},
+			name:              "REACHABLE_httpbin.org",
+			config:            "testdata/v1alpha1/egress-rule-httpbin.yaml",
+			url:               "http://httpbin.org/headers",
+			shouldBeReachable: true,
 		},
 		{
-			description: "ensure traffic to httbin.org is prohibited when setting *.httbin.org",
-			config:      "v1alpha1/egress-rule-wildcard-httpbin.yaml.tmpl",
-			check: func() error {
-				return t.verifyReachable("http://httpbin.org/headers", false)
-			},
+			name:   "UNREACHABLE_httpbin.org_443",
+			config: "testdata/v1alpha1/egress-rule-httpbin.yaml",
+			// Note that we're using http (not https). We're relying on Envoy to convert the outbound call to
+			// TLS for us. This is currently the suggested way for the application to call an external TLS service.\
+			// If the application uses TLS, then no metrics will be collected for the request.
+			url:               "http://httpbin.org:443/headers",
+			shouldBeReachable: false,
 		},
 		{
-			description: "allow external http2 traffic to google.com",
-			config:      "v1alpha1/egress-rule-google.yaml.tmpl",
-			check: func() error {
-				// Note that we're using http (not https). We're relying on Envoy to convert the outbound call to
-				// TLS for us. This is currently the suggested way for the application to call an external TLS service.\
-				// If the application uses TLS, then no metrics will be collected for the request.
-				return t.verifyReachable("http://www.google.com:443", true)
-			},
+			name:              "REACHABLE_www.httpbin.org",
+			config:            "testdata/v1alpha1/egress-rule-wildcard-httpbin.yaml",
+			url:               "http://www.httpbin.org/headers",
+			shouldBeReachable: true,
 		},
 		{
-			description: "prohibit https to httbin.org",
-			config:      "v1alpha1/egress-rule-httpbin.yaml.tmpl",
-			check: func() error {
-				// Note that we're using http (not https). We're relying on Envoy to convert the outbound call to
-				// TLS for us. This is currently the suggested way for the application to call an external TLS service.\
-				// If the application uses TLS, then no metrics will be collected for the request.
-				return t.verifyReachable("http://httpbin.org:443/headers", false)
-			},
+			name:              "UNREACHABLE_httpbin.org",
+			config:            "testdata/v1alpha1/egress-rule-wildcard-httpbin.yaml",
+			url:               "http://httpbin.org/headers",
+			shouldBeReachable: false,
 		},
 		{
-			description: "allow https external traffic to www.wikipedia.org by a tcp egress rule with cidr",
-			config:      "v1alpha1/egress-rule-tcp-wikipedia-cidr.yaml.tmpl",
-			check: func() error {
-				return t.verifyReachable("https://www.wikipedia.org", true)
-			},
+			name:              "REACHABLE_wikipedia",
+			config:            "testdata/v1alpha1/egress-rule-tcp-wikipedia-cidr.yaml",
+			url:               "https://www.wikipedia.org",
+			shouldBeReachable: true,
 		},
 		{
-			description: "prohibit http external traffic to cnn.com by a tcp egress rule",
-			config:      "v1alpha1/egress-rule-tcp-wikipedia-cidr.yaml.tmpl",
-			check: func() error {
-				return t.verifyReachable("https://cnn.com", false)
-			},
+			name:              "UNREACHABLE_cnn",
+			config:            "testdata/v1alpha1/egress-rule-tcp-wikipedia-cidr.yaml",
+			url:               "https://cnn.com",
+			shouldBeReachable: false,
 		},
 	}
-	var errs error
-	for _, cs := range cases {
-		tutil.Tlog("Checking egressRules test", cs.description)
-		if err := t.ApplyConfig(cs.config, nil); err != nil {
-			return err
-		}
 
-		if err := tutil.Repeat(cs.check, 3, time.Second); err != nil {
-			log.Infof("Failed the test with %v", err)
-			errs = multierror.Append(errs, multierror.Prefix(err, cs.description))
-		} else {
-			log.Info("Success!")
-		}
-
-		if err := t.DeleteConfig(cs.config, nil); err != nil {
-			return err
-		}
-	}
-	return errs
-}
-
-func (t *egressRules) Teardown() {
-	log.Info("Cleaning up egress rules...")
-	if err := t.DeleteAllConfigs(); err != nil {
-		log.Warna(err)
-	}
-}
-
-// verifyReachable verifies that the url is reachable
-func (t *egressRules) verifyReachable(url string, shouldBeReachable bool) error {
-	funcs := make(map[string]func() tutil.Status)
-	for _, src := range []string{"a", "b"} {
-		name := fmt.Sprintf("Request from %s to %s", src, url)
-		funcs[name] = (func(src string) func() tutil.Status {
-			trace := fmt.Sprint(time.Now().UnixNano())
-			return func() tutil.Status {
-				resp := t.ClientRequest(src, url, 1, fmt.Sprintf("-key Trace-Id -val %q", trace))
-				reachable := resp.IsHTTPOk() && strings.Contains(resp.Body, trace)
-				if reachable && !shouldBeReachable {
-					return fmt.Errorf("%s is reachable from %s (should be unreachable)", url, src)
+	var cfgs *deployableConfig
+	applyRuleFunc := func(t *testing.T, ruleYaml string) {
+		configChange := cfgs == nil || cfgs.YamlFiles[0] != ruleYaml
+		if configChange {
+			// Delete the previous rule if there was one. No delay on the teardown, since we're going to apply
+			// a delay when we push the new config.
+			if cfgs != nil {
+				if err := cfgs.TeardownNoDelay(); err != nil {
+					t.Fatal(err)
 				}
-				if !reachable && shouldBeReachable {
-					return tutil.ErrAgain
-				}
-
-				return nil
+				cfgs = nil
 			}
-		})(src)
-	}
 
-	return tutil.Parallel(funcs)
+			// Apply the new rule
+			cfgs = &deployableConfig{
+				Namespace:  tc.Kube.Namespace,
+				YamlFiles:  []string{ruleYaml},
+				kubeconfig: tc.Kube.KubeConfig,
+			}
+			if err := cfgs.Setup(); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	// Upon function exit, delete the active rule.
+	defer func() {
+		if cfgs != nil {
+			_ = cfgs.Teardown()
+		}
+	}()
+
+	for _, cs := range cases {
+		t.Run(cs.name, func(t *testing.T) {
+			// Apply the rule
+			applyRuleFunc(t, cs.config)
+
+			// Make the requests and verify the reachability
+			for _, src := range []string{"a", "b"} {
+				runRetriableTest(t, src, 3, func() error {
+					trace := fmt.Sprint(time.Now().UnixNano())
+					resp := ClientRequest(src, cs.url, 1, fmt.Sprintf("-key Trace-Id -val %q", trace))
+					reachable := resp.IsHTTPOk() && strings.Contains(resp.Body, trace)
+					if reachable && !cs.shouldBeReachable {
+						return fmt.Errorf("%s is reachable from %s (should be unreachable)", cs.url, src)
+					}
+					if !reachable && cs.shouldBeReachable {
+						return errAgain
+					}
+
+					return nil
+				})
+			}
+		})
+	}
 }

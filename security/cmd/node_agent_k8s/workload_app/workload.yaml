@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: udsver-client
 spec:
-  replicas: 2
+  replicas: 3
   template:
     metadata:
       labels:
@@ -16,7 +16,8 @@ spec:
       - name: udsver-client
         image: gcr.io/istio-testing/workload:latest
         imagePullPolicy: IfNotPresent
-        args: ["-s", "/tmp/udsver/nodeagent/server.sock" ]
+        command: ["/main"]
+        args: ["--sock", "/tmp/udsver/nodeagent/server.sock" ]
         volumeMounts:
         - mountPath: /tmp/udsver
           name: test-volume

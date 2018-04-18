@@ -133,9 +133,13 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 			env.Logger().Warningf("No stackdriver info found for metric %s, skipping it", name)
 			continue
 		}
+		mt := i.MetricType
+		if mt == "" {
+			mt = customMetricType(name)
+		}
 		// TODO: do we want to make sure that the definition conforms to stackdrvier requirements? Really that needs to happen during config validation
 		types[name] = info{
-			ttype: metricType(name),
+			ttype: mt,
 			vtype: t.Value,
 			minfo: i,
 		}
@@ -182,9 +186,7 @@ func (h *handler) HandleMetric(_ context.Context, vals []*metric.Instance) error
 		minfo, found := h.metricInfo[val.Name]
 		if !found {
 			// We weren't configured with stackdriver data about this metric, so we don't know how to publish it.
-			if h.l.VerbosityLevel(4) {
-				h.l.Warningf("Skipping metric %s due to not being configured with stackdriver info about it.", val.Name)
-			}
+			h.l.Debugf("Skipping metric %s due to not being configured with stackdriver info about it.", val.Name)
 			continue
 		}
 
@@ -263,7 +265,7 @@ func toTypedVal(val interface{}, i info) *monitoringpb.TypedValue {
 	}
 }
 
-func metricType(name string) string {
+func customMetricType(name string) string {
 	// TODO: figure out what, if anything, we need to do to sanitize these.
 	return customMetricPrefix + name
 }

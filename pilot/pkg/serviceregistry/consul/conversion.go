@@ -81,7 +81,7 @@ func convertService(endpoints []*api.CatalogService) *model.Service {
 		if endpoint.NodeMeta[externalTagName] != "" {
 			externalName = endpoint.NodeMeta[externalTagName]
 			meshExternal = true
-			resolution = model.DNSLB
+			resolution = model.Passthrough
 		}
 	}
 
@@ -158,7 +158,7 @@ func parseHostname(hostname string) (name string, err error) {
 }
 
 func convertProtocol(name string) model.Protocol {
-	protocol := model.ConvertCaseInsensitiveStringToProtocol(name)
+	protocol := model.ParseProtocol(name)
 	if protocol == model.ProtocolUnsupported {
 		log.Warnf("unsupported protocol value: %s", name)
 		return model.ProtocolTCP

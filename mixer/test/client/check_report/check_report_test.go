@@ -71,11 +71,15 @@ const reportAttributesOkGet = `
   "source.namespace": "XYZ11",
   "source.ip": "[127 0 0 1]",
   "source.port": "*",
+  "destination.ip": "[127 0 0 1]",
+  "destination.port": "*",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
+  "check.cache_hit": false,
+  "quota.cache_hit": false,
   "request.headers": {
      ":method": "GET",
      ":path": "/echo",
@@ -148,11 +152,15 @@ const reportAttributesOkPost = `
   "source.namespace": "XYZ11",
   "source.ip": "[127 0 0 1]",
   "source.port": "*",
+  "destination.ip": "[127 0 0 1]",
+  "destination.port": "*",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
+  "check.cache_hit": false,
+  "quota.cache_hit": false,
   "request.headers": {
      ":method": "POST",
      ":path": "/echo",
@@ -225,6 +233,7 @@ func TestCheckReportAttributes(t *testing.T) {
 	s.ReStartEnvoy()
 
 	// Issues a POST request.
+	url = fmt.Sprintf("http://localhost:%d/echo", s.Ports().ClientProxyPort)
 	if _, _, err := env.HTTPPost(url, "text/plain", "Hello World!"); err != nil {
 		t.Errorf("Failed in request %s: %v", tag, err)
 	}

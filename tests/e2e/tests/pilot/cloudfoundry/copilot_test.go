@@ -46,8 +46,9 @@ import (
 )
 
 const (
-	pilotPort   = 5555
-	copilotPort = 5556
+	pilotDebugPort = 5555
+	pilotGrpcPort  = 15010
+	copilotPort    = 5556
 
 	cfRouteOne   = "public.example.com"
 	cfRouteTwo   = "public2.example.com"
@@ -59,7 +60,7 @@ const (
 func pilotURL(path string) string {
 	return (&url.URL{
 		Scheme: "http",
-		Host:   fmt.Sprintf("127.0.0.1:%d", pilotPort),
+		Host:   fmt.Sprintf("127.0.0.1:%d", pilotDebugPort),
 		Path:   path,
 	}).String()
 }
@@ -111,7 +112,7 @@ func TestWildcardHostEdgeRouterWithMockCopilot(t *testing.T) {
 
 	t.Log("building pilot...")
 
-	pilotSession, err := runPilot(testState.copilotConfigFilePath, testState.istioConfigDir, pilotPort)
+	pilotSession, err := runPilot(testState.copilotConfigFilePath, testState.istioConfigDir, pilotGrpcPort, pilotDebugPort)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	testState.addCleanupTask(func() {
@@ -124,17 +125,17 @@ func TestWildcardHostEdgeRouterWithMockCopilot(t *testing.T) {
 
 	t.Log("checking if pilot received routes from copilot")
 	g.Eventually(func() (string, error) {
-		return curlPilot(pilotURL("/v1/registration"))
+		return curlPilot(pilotURL("/debug/adsz"))
 	}).Should(gomega.ContainSubstring(cfRouteOne))
 
 	t.Log("checking if pilot is creating the correct listeners")
 	g.Eventually(func() (string, error) {
-		return curlPilot(pilotURL("/v1/listeners/x/router~x~x~x"))
+		return curlPilot(pilotURL("/debug/ldsz"))
 	}).Should(gomega.ContainSubstring("http_connection_manager"))
 
 	t.Log("run envoy...")
 
-	err = testState.runEnvoy(fmt.Sprintf("127.0.0.1:%d", pilotPort))
+	err = testState.runEnvoy(fmt.Sprintf("127.0.0.1:%d", pilotGrpcPort))
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	t.Log("curling the app with expected host header")
@@ -227,7 +228,7 @@ func (testState *testState) runEnvoy(discoveryAddr string) error {
 	config.ServiceCluster = "x"
 
 	envoyConfig := envoy.BuildConfig(config, nil)
-	envoyProxy := envoy.NewProxy(config, "router~x~x~x", string(log.ErrorLevel))
+	envoyProxy := envoy.NewV2Proxy(config, "router~x~x~x", string(log.ErrorLevel), nil)
 	abortCh := make(chan error, 1)
 
 	cleanupSignal := errors.New("test cleanup")
@@ -291,7 +292,7 @@ func runFakeApp(port int) {
 	go http.ListenAndServe(fmt.Sprintf(":%d", port), fakeAppHandler) // nolint: errcheck
 }
 
-func runPilot(copilotConfigFile, istioConfigDir string, port int) (*gexec.Session, error) {
+func runPilot(copilotConfigFile, istioConfigDir string, grpcPort, debugPort int) (*gexec.Session, error) {
 	path, err := gexec.Build("istio.io/istio/pilot/cmd/pilot-discovery")
 	if err != nil {
 		return nil, err
@@ -302,7 +303,8 @@ func runPilot(copilotConfigFile, istioConfigDir string, port int) (*gexec.Sessio
 		"--registries", "CloudFoundry",
 		"--cfConfig", copilotConfigFile,
 		"--meshConfig", "/dev/null",
-		"--port", fmt.Sprintf("%d", port),
+		"--grpcAddr", fmt.Sprintf("%d", grpcPort),
+		"--port", fmt.Sprintf("%d", debugPort),
 	)
 	return gexec.Start(pilotCmd, nil, nil) // change these to os.Stdout when debugging
 }

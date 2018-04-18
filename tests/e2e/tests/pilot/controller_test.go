@@ -15,6 +15,7 @@
 package pilot
 
 import (
+	"log"
 	"os"
 	"testing"
 	"time"
@@ -73,6 +74,7 @@ func TestStoreInvariant(t *testing.T) {
 	client, ns, cleanup := makeTempClient(t)
 	defer cleanup()
 	mock.CheckMapInvariant(client, t, ns, 5)
+	log.Println("Check Map Invariant done")
 }
 
 func TestIstioConfig(t *testing.T) {

@@ -8,7 +8,7 @@ spec:
   http:
   - route:
     - destination:
-        name: reviews
+        host: reviews
         subset: v3
 ---
 apiVersion: networking.istio.io/v1alpha3
@@ -21,6 +21,6 @@ spec:
   http:
   - route:
     - destination:
-        name: ratings
+        host: ratings
         subset: v2
 ---

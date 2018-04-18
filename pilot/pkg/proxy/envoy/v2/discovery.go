@@ -16,13 +16,17 @@ package v2
 
 import (
 	"os"
+	"sync"
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/grpc"
 
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
+	"istio.io/istio/pkg/log"
 )
 
 var (
@@ -30,30 +34,64 @@ var (
 	// TODO: remove after events get enough testing
 	periodicRefreshDuration = os.Getenv("V2_REFRESH")
 	responseTickDuration    = time.Second * 15
+
+	versionMutex sync.Mutex
+	// version is update by registry events.
+	version = time.Now()
 )
 
 const (
-	unknownPeerAddressStr = "Unknown peer address"
+	typePrefix = "type.googleapis.com/envoy.api.v2."
+
+	// Constants used for XDS
+
+	// ClusterType is used for cluster discovery. Typically first request received
+	ClusterType = typePrefix + "Cluster"
+	// EndpointType is used for EDS and ADS endpoint discovery. Typically second request.
+	EndpointType = typePrefix + "ClusterLoadAssignment"
+	// ListenerType is sent after clusters and endpoints.
+	ListenerType = typePrefix + "Listener"
+	// RouteType is sent after listeners.
+	RouteType = typePrefix + "RouteConfiguration"
 )
 
 // DiscoveryServer is Pilot's gRPC implementation for Envoy's v2 xds APIs
 type DiscoveryServer struct {
-	// mesh holds the reference to Pilot's internal data structures that provide mesh discovery capability.
-	mesh *v1.DiscoveryService
 	// GrpcServer supports gRPC for xDS v2 services.
 	GrpcServer *grpc.Server
 	// env is the model environment.
 	env model.Environment
 
-	Connections map[string]*EdsConnection
+	// MemRegistry is used for debug and load testing, allow adding services. Visible for testing.
+	MemRegistry *MemServiceDiscovery
+
+	// ConfigGenerator is responsible for generating data plane configuration using Istio networking
+	// APIs and service registry info
+	ConfigGenerator *v1alpha3.ConfigGeneratorImpl
+
+	// The next fields are updated by v2 discovery, based on config change events (currently
+	// the global invalidation). They are computed once - will not change. The new alpha3
+	// API should use this instead of directly accessing ServiceDiscovery or IstioConfigStore.
+	modelMutex      sync.RWMutex
+	services        []*model.Service
+	virtualServices []*networking.VirtualService
+	// Temp: the code in alpha3 should use VirtualService directly
+	virtualServiceConfigs []model.Config
+	//TODO: gateways              []*networking.Gateway
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
-func NewDiscoveryServer(mesh *v1.DiscoveryService, grpcServer *grpc.Server, env model.Environment) *DiscoveryServer {
-	out := &DiscoveryServer{mesh: mesh, GrpcServer: grpcServer, env: env}
+func NewDiscoveryServer(grpcServer *grpc.Server, env model.Environment, generator *v1alpha3.ConfigGeneratorImpl) *DiscoveryServer {
+	out := &DiscoveryServer{
+		GrpcServer:      grpcServer,
+		env:             env,
+		ConfigGenerator: generator,
+	}
+
+	// EDS must remain registered for 0.8, for smooth upgrade from 0.7
+	// 0.7 proxies will use this service.
 	xdsapi.RegisterEndpointDiscoveryServiceServer(out.GrpcServer, out)
-	xdsapi.RegisterListenerDiscoveryServiceServer(out.GrpcServer, out)
-	xdsapi.RegisterClusterDiscoveryServiceServer(out.GrpcServer, out)
+	ads.RegisterAggregatedDiscoveryServiceServer(out.GrpcServer, out)
 
 	if len(periodicRefreshDuration) > 0 {
 		periodicRefresh()
@@ -74,6 +112,65 @@ func periodicRefresh() {
 	ticker := time.NewTicker(responseTickDuration)
 	defer ticker.Stop()
 	for range ticker.C {
-		EdsPushAll()
+		PushAll()
 	}
+}
+
+// PushAll implements old style invalidation, generated when any rule or endpoint changes.
+// Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
+// to the model ConfigStorageCache and Controller.
+func PushAll() {
+	versionMutex.Lock()
+	version = time.Now()
+	versionMutex.Unlock()
+
+	adsPushAll()
+}
+
+// ClearCacheFunc returns a function that invalidates v2 caches and triggers a push.
+// This is used for transition, once the new config model is in place we'll have separate
+// functions for each event and push only configs that need to be pushed.
+// This is currently called from v1 and has attenuation/throttling.
+func (s *DiscoveryServer) ClearCacheFunc() func() {
+	return func() {
+		s.updateModel()
+
+		s.modelMutex.RLock()
+		log.Infof("XDS: Registry event, pushing. Services: %d, "+
+			"VirtualServices: %d, ConnectedEndpoints: %d", len(s.services), len(s.virtualServices), edsClientCount())
+		s.modelMutex.RUnlock()
+
+		PushAll()
+	}
+}
+
+func (s *DiscoveryServer) updateModel() {
+	s.modelMutex.Lock()
+	defer s.modelMutex.Unlock()
+	services, err := s.env.Services()
+	if err != nil {
+		log.Errorf("XDS: failed to update services %v", err)
+	} else {
+		s.services = services
+	}
+	vservices, err := s.env.List(model.VirtualService.Type, model.NamespaceAll)
+	if err != nil {
+		log.Errorf("XDS: failed to update virtual services %v", err)
+	} else {
+		s.virtualServiceConfigs = vservices
+		s.virtualServices = make([]*networking.VirtualService, len(vservices))
+		for _, ss := range vservices {
+			s.virtualServices = append(s.virtualServices, ss.Spec.(*networking.VirtualService))
+		}
+	}
+}
+
+func nonce() string {
+	return time.Now().String()
+}
+
+func versionInfo() string {
+	versionMutex.Lock()
+	defer versionMutex.Unlock()
+	return version.String()
 }

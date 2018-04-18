@@ -54,6 +54,7 @@ func TestMixerInternalFail(t *testing.T) {
 
 	tag = "Fail-Close"
 	// Use fail close policy.
+	url = fmt.Sprintf("http://localhost:%d/echo", s.Ports().ServerProxyPort)
 	code, _, err = env.HTTPGet(url)
 	if err != nil {
 		t.Errorf("Failed in request %s: %v", tag, err)

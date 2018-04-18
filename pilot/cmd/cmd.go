@@ -15,18 +15,12 @@
 package cmd
 
 import (
-	"flag"
 	"io/ioutil"
-	"os"
-	"os/signal"
-	"syscall"
 
 	multierror "github.com/hashicorp/go-multierror"
-	"github.com/spf13/cobra"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
 )
 
 // ReadMeshConfig gets mesh configuration from a config file
@@ -36,20 +30,4 @@ func ReadMeshConfig(filename string) (*meshconfig.MeshConfig, error) {
 		return nil, multierror.Prefix(err, "cannot read mesh config file")
 	}
 	return model.ApplyMeshConfigDefaults(string(yaml))
-}
-
-// AddFlags adds all command line flags to the given command.
-func AddFlags(rootCmd *cobra.Command) {
-	flag.CommandLine.VisitAll(func(gf *flag.Flag) {
-		rootCmd.PersistentFlags().AddGoFlag(gf)
-	})
-}
-
-// WaitSignal awaits for SIGINT or SIGTERM and closes the channel
-func WaitSignal(stop chan struct{}) {
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-	<-sigs
-	close(stop)
-	_ = log.Sync()
 }

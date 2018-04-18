@@ -20,10 +20,9 @@ import (
 	"testing"
 	"time"
 
+	copilotapi "code.cloudfoundry.org/copilot/api"
 	"github.com/onsi/gomega"
 	"google.golang.org/grpc"
-
-	copilotapi "code.cloudfoundry.org/copilot/api"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
@@ -111,7 +110,7 @@ func TestCloudFoundrySnapshot(t *testing.T) {
 				Route: []*networking.DestinationWeight{
 					{
 						Destination: &networking.Destination{
-							Name: matchHostname,
+							Host: matchHostname,
 						},
 					},
 				},
@@ -183,7 +182,7 @@ func TestCloudFoundrySnapshotVirtualServiceCache(t *testing.T) {
 			Route: []*networking.DestinationWeight{
 				{
 					Destination: &networking.Destination{
-						Name: "some-external-route.example.com",
+						Host: "some-external-route.example.com",
 					},
 				},
 			},

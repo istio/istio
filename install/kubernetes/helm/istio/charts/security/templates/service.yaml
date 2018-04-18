@@ -3,14 +3,17 @@ kind: Service
 metadata:
   # we use the normal name here (e.g. 'prometheus')
   # as grafana is configured to use this as a data source
-  name: istio-ca
+  name: istio-citadel
+  namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-ca
+    app: istio-citadel
 spec:
   ports:
-    - port: 8060
+    - name: grpc-citadel
+      port: 8060
       targetPort: 8060
       protocol: TCP
-      name: grpc-istioca
+    - name: http-monitoring
+      port: 9093
   selector:
-    istio: istio-ca
+    istio: citadel

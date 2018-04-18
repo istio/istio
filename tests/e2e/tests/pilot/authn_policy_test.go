@@ -12,76 +12,58 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Routing tests
-
 package pilot
 
 import (
 	"fmt"
-
-	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
+	"testing"
 )
 
-type authnPolicy struct {
-	*tutil.Environment
-}
-
-func (r *authnPolicy) String() string {
-	return "authn-policy"
-}
-
-func (r *authnPolicy) Setup() error {
-	return nil
-}
-
-func (r *authnPolicy) Teardown() {}
-
-func (r *authnPolicy) Run() error {
-	// This authentication policy will:
-	// - Enable mTLS for the whole namespace.
-	// - But disable mTLS for service c (all ports) and d port 80.
-	if err := r.ApplyConfig("v1alpha1/authn-policy.yaml.tmpl", nil); err != nil {
-		return err
+func TestAuthNPolicy(t *testing.T) {
+	if !tc.Kube.AuthEnabled {
+		t.Skipf("Skipping %s: auth_enable=false", t.Name())
 	}
-	return r.makeRequests()
-}
 
-// makeRequests executes requests in pods and collects request ids per pod to check against access logs
-func (r *authnPolicy) makeRequests() error {
+	cfgs := &deployableConfig{
+		Namespace:  tc.Kube.Namespace,
+		YamlFiles:  []string{"testdata/v1alpha1/authn-policy.yaml.tmpl"},
+		kubeconfig: tc.Kube.KubeConfig,
+	}
+	if err := cfgs.Setup(); err != nil {
+		t.Fatal(err)
+	}
+	defer cfgs.Teardown()
+
 	srcPods := []string{"a", "t"}
 	dstPods := []string{"b", "c", "d"}
-	funcs := make(map[string]func() tutil.Status)
-	// Given the policy, the expected behavior is:
-	// - a (with proxy) can talk to all destination that also have proxy, as mTLS will be
-	// configured matchingly between them.
-	// - t (without proxy) can NOT talk to b and d port 80 as mTLS is on for those destinations.
-	// - However, t can still talk to c and d:8080 as mTLS is off for those.
-	for _, src := range srcPods {
-		for _, dst := range dstPods {
-			for _, port := range []string{"", ":80", ":8080"} {
-				for _, domain := range []string{"", "." + r.Config.Namespace} {
-					name := fmt.Sprintf("Request from %s to %s%s%s", src, dst, domain, port)
-					funcs[name] = (func(src, dst, port, domain string) func() tutil.Status {
-						url := fmt.Sprintf("http://%s%s%s/%s", dst, domain, port, src)
-						return func() tutil.Status {
-							resp := r.ClientRequest(src, url, 1, "")
-							if src == "t" && (dst == "b" || (dst == "d" && port == ":8080")) {
+	ports := []string{"", "80", "8080"}
+
+	// Run all request tests.
+	t.Run("request", func(t *testing.T) {
+		for _, src := range srcPods {
+			for _, dst := range dstPods {
+				for _, port := range ports {
+					for _, domain := range []string{"", "." + tc.Kube.Namespace} {
+						testName := fmt.Sprintf("%s->%s%s_%s", src, dst, domain, port)
+						runRetriableTest(t, testName, defaultRetryBudget, func() error {
+							reqURL := fmt.Sprintf("http://%s%s:%s/%s", dst, domain, port, src)
+							resp := ClientRequest(src, reqURL, 1, "")
+							if src == "t" && (dst == "b" || (dst == "d" && port == "8080")) {
 								if len(resp.ID) == 0 {
 									// t cannot talk to b nor d:80
 									return nil
 								}
-								return tutil.ErrAgain
+								return errAgain
 							}
 							// Request should return successfully (status 200)
 							if resp.IsHTTPOk() {
 								return nil
 							}
-							return tutil.ErrAgain
-						}
-					})(src, dst, port, domain)
+							return errAgain
+						})
+					}
 				}
 			}
 		}
-	}
-	return tutil.Parallel(funcs)
+	})
 }

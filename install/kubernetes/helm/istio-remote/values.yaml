@@ -1,0 +1,7 @@
+# Use --set to specify the Pilot and Policy IPs on the main Istio control plane
+global:
+  # The Istio control plane Pilot endpoint
+  pilotEndpoint: none
+
+  # The Istio control plane Policy endpoint
+  policyEndpoint: none
