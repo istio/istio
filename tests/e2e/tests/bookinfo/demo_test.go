@@ -51,10 +51,12 @@ const (
 	modelDir                           = "tests/apps/bookinfo/output"
 	allRule                            = routeRulesDir + "/" + "route-rule-all-v1"
 	delayRule                          = routeRulesDir + "/" + "route-rule-ratings-test-delay"
-	tenRule                            = tutorialDir + "/" + "/route-rule-reviews-90-10"
+	tenRule                            = tutorialDir + "/" + "route-rule-reviews-90-10"
 	twentyRule                         = tutorialDir + "/" + "route-rule-reviews-80-20"
 	fiftyRule                          = routeRulesDir + "/" + "route-rule-reviews-50-v3"
 	testRule                           = routeRulesDir + "/" + "route-rule-reviews-test-v2"
+	reviewsV2Rule                      = tutorialDir + "/" + "route-rule-reviews-v2"
+	shadowRule                         = tutorialDir + "/" + "route-rule-reviews-shadow-v2"
 	testDbRule                         = routeRulesDir + "/" + "route-rule-ratings-db"
 	testMysqlRule                      = routeRulesDir + "/" + "route-rule-ratings-mysql"
 	detailsExternalServiceRouteRule    = routeRulesDir + "/" + "route-rule-details-v2"
@@ -96,8 +98,9 @@ func closeResponseBody(r *http.Response) {
 
 func (t *testConfig) Setup() error {
 	//generate rule yaml files, replace "jason" with actual user
-	for _, rule := range []string{allRule, delayRule, tenRule, twentyRule, fiftyRule, testRule,
-		testDbRule, testMysqlRule, detailsExternalServiceRouteRule, detailsExternalServiceEgressRule} {
+	for _, rule := range []string{allRule, delayRule, tenRule, twentyRule, fiftyRule, reviewsV2Rule,
+		shadowRule, testRule, testDbRule, testMysqlRule, detailsExternalServiceRouteRule,
+		detailsExternalServiceEgressRule} {
 		src := util.GetResourcePath(filepath.Join(bookinfoSampleDir, rule+"."+yamlExtension))
 		dest := filepath.Join(t.rulesDir, rule+"."+yamlExtension)
 		ori, err := ioutil.ReadFile(src)
@@ -299,6 +302,7 @@ type versionRoutingRule struct {
 
 func TestVersionRouting(t *testing.T) {
 	v1Model := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v1.html"))
+	v2Model := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v2.html"))
 	v2TestModel := util.GetResourcePath(filepath.Join(modelDir, "productpage-test-user-v2.html"))
 
 	var rules = []versionRoutingRule{
@@ -313,6 +317,29 @@ func TestVersionRouting(t *testing.T) {
 					user:    u2,
 					version: "v2",
 					model:   v2TestModel,
+				},
+			},
+		},
+		{key: reviewsV2Rule,
+			userVersions: []userVersion{
+				{
+					user:    u1,
+					version: "v2",
+					model:   v2Model,
+				},
+				{
+					user:    u2,
+					version: "v2",
+					model:   v2TestModel,
+				},
+			},
+		},
+		{key: shadowRule,
+			userVersions: []userVersion{
+				{
+					user:    u1,
+					version: "v1",
+					model:   v1Model,
 				},
 			},
 		},
