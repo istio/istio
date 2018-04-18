@@ -149,7 +149,7 @@ func ConvertPolicyToJwtConfig(policy *authn.Policy) *jwtfilter.JwtAuthentication
 				},
 			},
 			ForwardPayloadHeader: OutputLocationForJwtIssuer(policyJwt.Issuer),
-			Forward:              false,
+			Forward:              true,
 		}
 		for _, location := range policyJwt.JwtHeaders {
 			jwt.FromHeaders = append(jwt.FromHeaders, &jwtfilter.JwtHeader{
