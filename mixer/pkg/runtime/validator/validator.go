@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/cache"
 	"istio.io/istio/pkg/log"
+	"github.com/davecgh/go-spew/spew"
 )
 
 // Validator offers semantic validation of the config changes.
@@ -74,7 +75,6 @@ func New(tc checker.TypeChecker, identityAttribute string, s store.Store,
 		}
 		configData[k] = obj.Spec
 	}
-
 	v := &Validator{
 		handlerBuilders: hb,
 		templates:       templateInfo,
@@ -360,7 +360,7 @@ func (v *Validator) validateUpdate(ev *store.Event) error {
 			// 	TODO Connection info is valid
 			// 	TODO invoke the out of proc adapter call to validate config
 
-			params := handler.Params.(map[interface{}]interface{})
+			params := handler.Params.(map[string]interface{})
 			fmt.Println(params)
 		}
 	} else if manifest, ok := ev.Value.Spec.(*cpb.AttributeManifest); ok && ev.Kind == config.AttributeManifestKind {
@@ -380,6 +380,18 @@ func (v *Validator) validateUpdate(ev *store.Event) error {
 			<-time.After(validatedDataExpiration)
 			v.refreshTypeChecker()
 		}()
+	} else if handler, ok := ev.Value.Spec.(*cpb.Handler); ok && ev.Kind == config.HandlerKind {
+			// things to validate
+			// 	Param is valid as per the adapter config descriptor
+			// 	TODO Connection info is valid
+			// 	TODO invoke the out of proc adapter call to validate config
+			tmpParam := handler.Params.(map[string]interface{})
+			//params := make(map[interface{}]interface{}, len(tmpParam))
+			//for k,v := range tmpParam {
+			//	params[k] = v
+			//}
+			// convert params to (map[interface{}]interface{})
+			fmt.Println("++++", spew.Sdump(tmpParam))
 	} else if adptInfo, ok := ev.Value.Spec.(*v1beta1.Info); ok && ev.Kind == config.AdapterKind {
 		adapterInfos := map[store.Key]*v1beta1.Info{}
 		v.c.forEach(func(k store.Key, spec proto.Message) {

@@ -26,6 +26,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
 
+	"encoding/json"
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	cpb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -278,6 +279,27 @@ func TestValidator(t *testing.T) {
 			},
 			true,
 		},
+
+		{
+			"add new handler valid",
+			[]*store.Event{
+				updateEvent("testCR1.adapter.default", &v1beta1.Info{
+					Name:         "testAdapter",
+					Description:  "testAdapter description",
+					SessionBased: true,
+				}),
+				updateEvent("myhandler.handler.default", &cpb.Handler{
+					Adapter: "testAdapter",
+					Params: unmarshalJson(`
+overrides: ["v1", "v2"]
+blacklist: false
+`),
+					Connection: &cpb.Connection{
+						Address: "myadapter.test.com",
+					},
+				})},
+			true,
+		},
 	} {
 		t.Run(cc.title, func(tt *testing.T) {
 			v, err := getValidatorForTest()
@@ -300,6 +322,14 @@ func TestValidator(t *testing.T) {
 			}
 		})
 	}
+}
+
+func unmarshalJson(jsonStr string) map[string]interface{} {
+	var in map[string]interface{}
+	if err := json.Unmarshal([]byte(jsonStr), &in); err != nil {
+		return nil
+	}
+	return in
 }
 
 func TestValidatorToRememberValidation(t *testing.T) {

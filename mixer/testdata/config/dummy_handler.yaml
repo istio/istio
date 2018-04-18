@@ -1,0 +1,19 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: handler
+metadata:
+  name: hdlr
+  namespace: istio-system
+spec:
+  # adapter name
+  adapter: "mytestadapter"
+  # adapter configuration
+  params:
+    fooint: 123
+    foostr: "testingstr"
+    foodouble: 1.2
+    foosubmsg:
+      bar: "barstr"
+    foomap:
+      1234: "barstrinmap"
+  connection:
+    address: "test.google.com"
