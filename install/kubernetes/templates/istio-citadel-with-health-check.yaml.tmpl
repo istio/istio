@@ -1,5 +1,5 @@
 ################################
-# Citadel cluster-wide
+# Citadel with k8s health check. Apply this after istio-auth.yaml
 ################################
 # Service account for Citadel
 apiVersion: v1
@@ -12,12 +12,17 @@ apiVersion: v1
 kind: Service
 metadata:
   name: istio-citadel
-  namespace: istio-system
+  namespace:  {ISTIO_NAMESPACE}
   labels:
-    istio: citadel
+    app: istio-citadel
 spec:
   ports:
-    - port: 8060
+    - name: grpc-citadel
+      port: 8060
+      targetPort: 8060
+      protocol: TCP
+    - name: http-monitoring
+      port: 9093
   selector:
     istio: citadel
 ---
