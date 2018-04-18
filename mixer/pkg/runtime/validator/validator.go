@@ -22,6 +22,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	multierror "github.com/hashicorp/go-multierror"
 
+	"github.com/davecgh/go-spew/spew"
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	cpb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -32,7 +33,6 @@ import (
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/cache"
 	"istio.io/istio/pkg/log"
-	"github.com/davecgh/go-spew/spew"
 )
 
 // Validator offers semantic validation of the config changes.
@@ -321,6 +321,9 @@ func (v *Validator) validateDelete(key store.Key) error {
 			// should never cause errors.
 			return err
 		}
+		if err := v.validateAdapterDelete(key); err != nil {
+			return err
+		}
 		v.infoRegistry = infoRegistry
 		go func() {
 			<-time.After(validatedDataExpiration)
@@ -381,17 +384,17 @@ func (v *Validator) validateUpdate(ev *store.Event) error {
 			v.refreshTypeChecker()
 		}()
 	} else if handler, ok := ev.Value.Spec.(*cpb.Handler); ok && ev.Kind == config.HandlerKind {
-			// things to validate
-			// 	Param is valid as per the adapter config descriptor
-			// 	TODO Connection info is valid
-			// 	TODO invoke the out of proc adapter call to validate config
-			tmpParam := handler.Params.(map[string]interface{})
-			//params := make(map[interface{}]interface{}, len(tmpParam))
-			//for k,v := range tmpParam {
-			//	params[k] = v
-			//}
-			// convert params to (map[interface{}]interface{})
-			fmt.Println("++++", spew.Sdump(tmpParam))
+		// things to validate
+		// 	Param is valid as per the adapter config descriptor
+		// 	TODO Connection info is valid
+		// 	TODO invoke the out of proc adapter call to validate config
+		tmpParam := handler.Params.(map[string]interface{})
+		//params := make(map[interface{}]interface{}, len(tmpParam))
+		//for k,v := range tmpParam {
+		//	params[k] = v
+		//}
+		// convert params to (map[interface{}]interface{})
+		fmt.Println("++++", spew.Sdump(tmpParam))
 	} else if adptInfo, ok := ev.Value.Spec.(*v1beta1.Info); ok && ev.Kind == config.AdapterKind {
 		adapterInfos := map[store.Key]*v1beta1.Info{}
 		v.c.forEach(func(k store.Key, spec proto.Message) {
@@ -427,4 +430,26 @@ func (v *Validator) Validate(ev *store.Event) error {
 		v.c.putCache(ev)
 	}
 	return err
+}
+
+// validate if we have any handler that references the to-be-deleted adapter
+// TODO also validate when template is deleted.
+func (v *Validator) validateAdapterDelete(ikey store.Key) error {
+	var errs error
+	v.c.forEach(func(rkey store.Key, spec proto.Message) {
+		if rkey.Kind != config.HandlerKind {
+			return
+		}
+		handler := spec.(*cpb.Handler)
+		key, err := v.getKey(handler.Adapter, rkey.Namespace)
+		if err != nil {
+			// invalid handlers are already in the cache; simply log it and continue
+			log.Errorf("invalid adapter value %s in %v", handler.Adapter, rkey)
+			return
+		}
+		if key == ikey {
+			errs = multierror.Append(errs, fmt.Errorf("%v is referred by %v.adapter", ikey, rkey))
+		}
+	})
+	return errs
 }

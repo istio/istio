@@ -58,7 +58,6 @@ func (e *Encoder) EncodeBytes(data map[string]interface{}, msgName string, skipU
 		if err := e.visit(k, v, fd, skipUnknown, buf); err != nil {
 			return nil, err
 		}
-
 	}
 	return buf.Bytes(), nil
 }
