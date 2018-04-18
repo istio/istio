@@ -61,13 +61,11 @@ func TestNewLogger(t *testing.T) {
 			if got == nil {
 				t.Errorf("Expected a non-nil instance")
 			}
-
 		})
 	}
 }
 
 func TestLog(t *testing.T) {
-	loopFactor := true
 	t.Run("No log info for msg name", func(t *testing.T) {
 		env := test.NewEnv(t)
 		logger := env.Logger()
@@ -79,7 +77,7 @@ func TestLog(t *testing.T) {
 			log:           logger,
 			env:           env,
 			logInfos:      map[string]*logInfo{},
-			loopFactor:    loopFactor,
+			loopFactor:    make(chan bool),
 		}
 
 		if pp.Log(&logentry.Instance{

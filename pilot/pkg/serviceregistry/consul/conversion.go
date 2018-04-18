@@ -17,10 +17,10 @@ package consul
 import (
 	"fmt"
 	"strings"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
+
 	"github.com/hashicorp/consul/api"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
@@ -50,14 +50,18 @@ func convertPort(port int, name string) *model.Port {
 	}
 
 	return &model.Port{
-		Name:     name,
-		Port:     port,
-		Protocol: convertProtocol(name),
+		Name:                 name,
+		Port:                 port,
+		Protocol:             convertProtocol(name),
+		AuthenticationPolicy: extractAuthenticationPolicy(port, name),
 	}
 }
 
 func convertService(endpoints []*api.CatalogService) *model.Service {
-	name, addr, external := "", "", ""
+	name, addr, externalName := "", "", ""
+
+	meshExternal := false
+	resolution := model.ClientSideLB
 
 	ports := make(map[int]*model.Port)
 	for _, endpoint := range endpoints {
@@ -75,7 +79,9 @@ func convertService(endpoints []*api.CatalogService) *model.Service {
 		// TODO This will not work if service is a mix of external and local services
 		// or if a service has more than one external name
 		if endpoint.NodeMeta[externalTagName] != "" {
-			external = endpoint.NodeMeta[externalTagName]
+			externalName = endpoint.NodeMeta[externalTagName]
+			meshExternal = true
+			resolution = model.Passthrough
 		}
 	}
 
@@ -86,9 +92,11 @@ func convertService(endpoints []*api.CatalogService) *model.Service {
 
 	out := &model.Service{
 		Hostname:     serviceHostname(name),
-		Ports:        svcPorts,
 		Address:      addr,
-		ExternalName: external,
+		Ports:        svcPorts,
+		ExternalName: externalName,
+		MeshExternal: meshExternal,
+		Resolution:   resolution,
 	}
 
 	return out
@@ -103,6 +111,14 @@ func convertInstance(instance *api.CatalogService) *model.ServiceInstance {
 		addr = instance.Address
 	}
 
+	meshExternal := false
+	resolution := model.ClientSideLB
+	externalName := instance.NodeMeta[externalTagName]
+	if externalName != "" {
+		meshExternal = true
+		resolution = model.DNSLB
+	}
+
 	return &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
 			Address:     addr,
@@ -115,7 +131,9 @@ func convertInstance(instance *api.CatalogService) *model.ServiceInstance {
 			Address:  instance.ServiceAddress,
 			Ports:    model.PortList{port},
 			// TODO ExternalName come from metadata?
-			ExternalName: instance.NodeMeta[externalTagName],
+			ExternalName: externalName,
+			MeshExternal: meshExternal,
+			Resolution:   resolution,
 		},
 		Labels: labels,
 	}
@@ -140,10 +158,20 @@ func parseHostname(hostname string) (name string, err error) {
 }
 
 func convertProtocol(name string) model.Protocol {
-	protocol := model.ConvertCaseInsensitiveStringToProtocol(name)
+	protocol := model.ParseProtocol(name)
 	if protocol == model.ProtocolUnsupported {
 		log.Warnf("unsupported protocol value: %s", name)
 		return model.ProtocolTCP
 	}
 	return protocol
+}
+
+// Extracts security option for given port from labels. If there is no such
+// annotation, or the annotation value is not recognized, returns
+// meshconfig.AuthenticationPolicy_INHERIT
+func extractAuthenticationPolicy(port int, name string) meshconfig.AuthenticationPolicy {
+	// TODO: https://github.com/istio/istio/issues/3338
+	// Check for the label - auth.istio.io/<port> and return auth policy respectively
+
+	return meshconfig.AuthenticationPolicy_INHERIT
 }

@@ -24,7 +24,6 @@ import (
 
 	"github.com/alicebob/miniredis"
 	"github.com/alicebob/miniredis/server"
-	"github.com/golang/glog"
 
 	"istio.io/istio/mixer/adapter/redisquota/config"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -46,7 +45,7 @@ type (
 func TestBuilderValidate(t *testing.T) {
 	mockRedis, err := miniredis.Run()
 	if err != nil {
-		glog.Fatalf("Unable to start mock redis server: %v", err)
+		t.Fatalf("Unable to start mock redis server: %v", err)
 		return
 	}
 	defer mockRedis.Close()
@@ -270,7 +269,7 @@ func TestBuilderValidate(t *testing.T) {
 func TestHandleQuota(t *testing.T) {
 	mockRedis, err := miniredis.Run()
 	if err != nil {
-		glog.Fatalf("Unable to start mock redis server: %v", err)
+		t.Fatalf("Unable to start mock redis server: %v", err)
 		return
 	}
 	defer mockRedis.Close()
@@ -609,7 +608,9 @@ func TestHandleQuotaErrorMsg(t *testing.T) {
 		}
 
 		for funcTime, funcHandler := range c.mockRedis {
-			s.Register(funcTime, funcHandler.(func(c *server.Peer, cmd string, args []string)))
+			if err = s.Register(funcTime, funcHandler.(func(c *server.Peer, cmd string, args []string))); err != nil {
+				t.Fatal(err)
+			}
 		}
 
 		b := info.NewBuilder().(*builder)
@@ -634,7 +635,7 @@ func TestHandleQuotaErrorMsg(t *testing.T) {
 		})
 
 		if err != nil {
-			glog.Errorf("%v: unexpected error: %v", id, err.Error())
+			t.Errorf("%v: unexpected error: %v", id, err.Error())
 			continue
 		}
 

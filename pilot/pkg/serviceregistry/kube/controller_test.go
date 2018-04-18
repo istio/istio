@@ -20,8 +20,7 @@ import (
 	"sort"
 	"testing"
 	"time"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
+
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -30,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/tests/k8s"
 )
 
@@ -71,7 +71,7 @@ func TestServices(t *testing.T) {
 
 	var sds model.ServiceDiscovery = ctl
 	makeService(testService, ns, cl, t)
-	util.Eventually(func() bool {
+	test.Eventually(t, "successfully list services", func() bool {
 		out, clientErr := sds.Services()
 		if clientErr != nil {
 			return false
@@ -86,7 +86,7 @@ func TestServices(t *testing.T) {
 			}
 		}
 		return false
-	}, t)
+	})
 
 	svc, err := sds.GetService(hostname)
 	if err != nil {
@@ -221,7 +221,7 @@ func TestController_getPodAZ(t *testing.T) {
 
 }
 
-func TestGetSidecarServiceInstances(t *testing.T) {
+func TestGetProxyServiceInstances(t *testing.T) {
 	controller := makeFakeKubeAPIController()
 
 	k8sSaOnVM := "acct4"
@@ -239,30 +239,30 @@ func TestGetSidecarServiceInstances(t *testing.T) {
 	portNames := []string{"test-port"}
 	createEndpoints(controller, "svc1", "nsA", portNames, svc1Ips, t)
 
-	var svcNode model.Node
+	var svcNode model.Proxy
 	svcNode.Type = model.Ingress
 	svcNode.IPAddress = "128.0.0.1"
 	svcNode.ID = "pod1.nsA"
 	svcNode.Domain = "nsA.svc.cluster.local"
-	services, err := controller.GetSidecarServiceInstances(svcNode)
+	services, err := controller.GetProxyServiceInstances(svcNode)
 	if err != nil {
-		t.Errorf("client encountered error during GetSidecarServiceInstances(): %v", err)
+		t.Errorf("client encountered error during GetProxyServiceInstances(): %v", err)
 	}
 
 	if len(services) != 1 {
-		t.Errorf("GetSidecarServiceInstances() returned wrong # of endpoints => %q, want 1", len(services))
+		t.Errorf("GetProxyServiceInstances() returned wrong # of endpoints => %q, want 1", len(services))
 	}
 
 	hostname := serviceHostname("svc1", "nsA", domainSuffix)
 	if services[0].Service.Hostname != hostname {
-		t.Errorf("GetSidecarServiceInstances() wrong service instance returned => hostname %q, want %q",
+		t.Errorf("GetProxyServiceInstances() wrong service instance returned => hostname %q, want %q",
 			services[0].Service.Hostname, hostname)
 	}
 
 	svcNode.Domain = "nsWRONG.svc.cluster.local"
-	_, err = controller.GetSidecarServiceInstances(svcNode)
+	_, err = controller.GetProxyServiceInstances(svcNode)
 	if err == nil {
-		t.Errorf("GetSidecarServiceInstances() should have returned error for unknown domain.")
+		t.Errorf("GetProxyServiceInstances() should have returned error for unknown domain.")
 	}
 }
 

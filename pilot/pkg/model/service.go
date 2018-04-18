@@ -28,6 +28,7 @@ import (
 	"sort"
 	"strings"
 
+	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
@@ -55,14 +56,41 @@ type Service struct {
 	// ExternalName is only set for external services and holds the external
 	// service DNS name.  External services are name-based solution to represent
 	// external service instances as a service inside the cluster.
+	// Deprecated : made obsolete by the MeshExternal and Resolution flags.
 	ExternalName string `json:"external"`
 
 	// ServiceAccounts specifies the service accounts that run the service.
 	ServiceAccounts []string `json:"serviceaccounts,omitempty"`
 
+	// MeshExternal (if true) indicates that the service is external to the mesh.
+	// These services are defined using Istio's ExternalService spec.
+	MeshExternal bool
+
 	// LoadBalancingDisabled indicates that no load balancing should be done for this service.
+	// Deprecated : made obsolete by the MeshExternal and Resolution flags.
 	LoadBalancingDisabled bool `json:"-"`
+
+	// Resolution indicates how the service instances need to be resolved before routing
+	// traffic. Most services in the service registry will use static load balancing wherein
+	// the proxy will decide the service instance that will receive the traffic. External services
+	// could either use DNS load balancing (i.e. proxy will query DNS server for the IP of the service)
+	// or use the passthrough model (i.e. proxy will forward the traffic to the network endpoint requested
+	// by the caller)
+	Resolution Resolution
 }
+
+// Resolution indicates how the service instances need to be resolved before routing
+// traffic.
+type Resolution int
+
+const (
+	// ClientSideLB implies that the proxy will decide the endpoint from its local lb pool
+	ClientSideLB Resolution = iota
+	// DNSLB implies that the proxy will resolve a DNS address and forward to the resolved address
+	DNSLB
+	// Passthrough implies that the proxy should forward traffic to the destination IP requested by the caller
+	Passthrough
+)
 
 // Port represents a network port where a service is listening for
 // connections. The port should be annotated with the type of protocol
@@ -116,9 +144,19 @@ const (
 	ProtocolUnsupported Protocol = "UnsupportedProtocol"
 )
 
-// ConvertCaseInsensitiveStringToProtocol converts a case-insensitive protocol to Protocol
-func ConvertCaseInsensitiveStringToProtocol(protocolAsString string) Protocol {
-	switch strings.ToLower(protocolAsString) {
+// TrafficDirection defines whether traffic exists a service instance or enters a service instance
+type TrafficDirection string
+
+const (
+	// TrafficDirectionInbound indicates inbound traffic
+	TrafficDirectionInbound TrafficDirection = "inbound"
+	// TrafficDirectionOutbound indicates outbound traffic
+	TrafficDirectionOutbound TrafficDirection = "outbound"
+)
+
+// ParseProtocol from string ignoring case
+func ParseProtocol(s string) Protocol {
+	switch strings.ToLower(s) {
 	case "tcp":
 		return ProtocolTCP
 	case "udp":
@@ -140,10 +178,30 @@ func ConvertCaseInsensitiveStringToProtocol(protocolAsString string) Protocol {
 	return ProtocolUnsupported
 }
 
+// IsHTTP2 is true for protocols that use HTTP/2 as transport protocol
+func (p Protocol) IsHTTP2() bool {
+	switch p {
+	case ProtocolHTTP2, ProtocolGRPC:
+		return true
+	default:
+		return false
+	}
+}
+
 // IsHTTP is true for protocols that use HTTP as transport protocol
 func (p Protocol) IsHTTP() bool {
 	switch p {
 	case ProtocolHTTP, ProtocolHTTP2, ProtocolGRPC:
+		return true
+	default:
+		return false
+	}
+}
+
+// IsTCP is true for protocols that use TCP as transport protocol
+func (p Protocol) IsTCP() bool {
+	switch p {
+	case ProtocolTCP, ProtocolHTTPS, ProtocolMongo, ProtocolRedis, ProtocolHTTP, ProtocolHTTP2, ProtocolGRPC:
 		return true
 	default:
 		return false
@@ -169,17 +227,17 @@ func (p Protocol) IsHTTP() bool {
 //  --> 172.16.0.1:33333 (with ServicePort pointing to 8080)
 type NetworkEndpoint struct {
 	// Address of the network endpoint, typically an IPv4 address
-	Address string `json:"ip_address,omitempty"`
+	Address string
 
 	// Port number where this instance is listening for connections This
 	// need not be the same as the port where the service is accessed.
 	// e.g., catalog.mystore.com:8080 -> 172.16.0.1:55446
-	Port int `json:"port"`
+	Port int
 
 	// Port declaration from the service declaration This is the port for
 	// the service associated with this instance (e.g.,
 	// catalog.mystore.com)
-	ServicePort *Port `json:"service_port"`
+	ServicePort *Port
 }
 
 // Labels is a non empty set of arbitrary strings. Each version of a service can
@@ -247,7 +305,12 @@ type ServiceDiscovery interface {
 	// port, hostname and labels.
 	Instances(hostname string, ports []string, labels LabelsCollection) ([]*ServiceInstance, error)
 
-	// GetSidecarServiceInstances returns the service instances that are hosted on (implemented by) a given Node
+	// GetProxyServiceInstances returns the service instances that co-located with a given Proxy
+	//
+	// Co-located generally means running in the same network namespace and security context.
+	//
+	// A Proxy operating as a Sidecar will return a non-empty slice.  A stand-alone Proxy
+	// will return an empty slice.
 	//
 	// There are two reasons why this returns multiple ServiceInstances instead of one:
 	// - A ServiceInstance has a single NetworkEndpoint which has a single Port.  But a Service
@@ -258,8 +321,8 @@ type ServiceDiscovery interface {
 	// In the second case, multiple services may be implemented by the same physical port number,
 	// though with a different ServicePort and NetworkEndpoint for each.  If any of these overlapping
 	// services are not HTTP or H2-based, behavior is undefined, since the listener may not be able to
-	// determine the intendend destination of a connection without a Host header on the request.
-	GetSidecarServiceInstances(Node) ([]*ServiceInstance, error)
+	// determine the intended destination of a connection without a Host header on the request.
+	GetProxyServiceInstances(Proxy) ([]*ServiceInstance, error)
 
 	// ManagementPorts lists set of management ports associated with an IPv4 address.
 	// These management ports are typically used by the platform for out of band management
@@ -312,6 +375,37 @@ func (labels LabelsCollection) HasSubsetOf(that Labels) bool {
 	return false
 }
 
+// IsSupersetOf returns true if the input labels are a subset set of any set of labels in a
+// collection
+func (labels LabelsCollection) IsSupersetOf(that Labels) bool {
+
+	if len(labels) == 0 {
+		return len(that) == 0
+	}
+
+	for _, label := range labels {
+		if that.SubsetOf(label) {
+			return true
+		}
+	}
+	return false
+}
+
+// Match returns true if port matches with authentication port selector criteria.
+func (port Port) Match(portSelector *authn.PortSelector) bool {
+	if portSelector == nil {
+		return true
+	}
+	switch portSelector.Port.(type) {
+	case *authn.PortSelector_Name:
+		return portSelector.GetName() == port.Name
+	case *authn.PortSelector_Number:
+		return portSelector.GetNumber() == uint32(port.Port)
+	default:
+		return false
+	}
+}
+
 // GetNames returns port names
 func (ports PortList) GetNames() []string {
 	names := make([]string, 0, len(ports))
@@ -349,12 +443,14 @@ func (s *Service) External() bool {
 // Key generates a unique string referencing service instances for a given port and labels.
 // The separator character must be exclusive to the regular expressions allowed in the
 // service declaration.
+// Deprecated
 func (s *Service) Key(port *Port, labels Labels) string {
 	// TODO: check port is non nil and membership of port in service
 	return ServiceKey(s.Hostname, PortList{port}, LabelsCollection{labels})
 }
 
 // ServiceKey generates a service key for a collection of ports and labels
+// Deprecated
 func ServiceKey(hostname string, servicePorts PortList, labelsList LabelsCollection) string {
 	// example: name.namespace|http|env=prod;env=test,version=my-v1
 	var buffer bytes.Buffer
@@ -406,6 +502,7 @@ func ServiceKey(hostname string, servicePorts PortList, labelsList LabelsCollect
 }
 
 // ParseServiceKey is the inverse of the Service.String() method
+// Deprecated
 func ParseServiceKey(s string) (hostname string, ports PortList, labels LabelsCollection) {
 	parts := strings.Split(s, "|")
 	hostname = parts[0]
@@ -426,6 +523,23 @@ func ParseServiceKey(s string) (hostname string, ports PortList, labels LabelsCo
 			labels = append(labels, ParseLabelsString(tag))
 		}
 	}
+	return
+}
+
+// BuildSubsetKey generates a unique string referencing service instances for a given service name, a subset and a port.
+// The proxy queries Pilot with this key to obtain the list of instances in a subset.
+func BuildSubsetKey(direction TrafficDirection, subsetName, hostname string, port *Port) string {
+	return fmt.Sprintf("%s|%s|%s|%s", direction, port.Name, subsetName, hostname)
+}
+
+// ParseSubsetKey is the inverse of the BuildSubsetKey method
+func ParseSubsetKey(s string) (direction TrafficDirection, subsetName, hostname string, port *Port) {
+	parts := strings.Split(s, "|")
+	direction = TrafficDirection(parts[0])
+	port = &Port{Name: parts[1]}
+	subsetName = parts[2]
+	hostname = parts[3]
+
 	return
 }
 

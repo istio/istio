@@ -18,7 +18,8 @@ import (
 	"fmt"
 	"testing"
 
-	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
+	rpc "github.com/gogo/googleapis/google/rpc"
+
 	"istio.io/istio/mixer/test/client/env"
 )
 
@@ -83,6 +84,8 @@ const reportAttributesMixerFail = `
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
+  "check.cache_hit": false,
+  "quota.cache_hit": false,
   "request.headers": {
      ":method": "GET",
      ":path": "/echo",
@@ -130,6 +133,8 @@ const reportAttributesBackendFail = `
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
+  "check.cache_hit": false,
+  "quota.cache_hit": false,
   "request.headers": {
      ":method": "GET",
      ":path": "/echo",
@@ -153,7 +158,7 @@ const reportAttributesBackendFail = `
 `
 
 func TestFailedRequest(t *testing.T) {
-	s := env.NewTestSetupV2(env.FailedRequestTest, t)
+	s := env.NewTestSetup(env.FailedRequestTest, t)
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}

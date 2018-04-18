@@ -82,6 +82,7 @@ func NewStore(u *url.URL) (store.Backend, error) {
 	s := &Store{
 		conf:                 conf,
 		retryTimeout:         retryTimeout,
+		donec:                make(chan struct{}),
 		discoveryBuilder:     defaultDiscoveryBuilder,
 		listerWatcherBuilder: newDynamicListenerWatcherBuilder,
 		Probe:                probe.NewProbe(),

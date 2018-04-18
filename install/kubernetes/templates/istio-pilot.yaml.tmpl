@@ -44,6 +44,48 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: virtualservices.networking.istio.io
+spec:
+  group: networking.istio.io
+  names:
+    kind: VirtualService
+    listKind: VirtualServiceList
+    plural: virtualservices
+    singular: virtualservice
+  scope: Namespaced
+  version: v1alpha3
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: destinationrules.networking.istio.io
+spec:
+  group: networking.istio.io
+  names:
+    kind: DestinationRule
+    listKind: DestinationRuleList
+    plural: destinationrules
+    singular: destinationrule
+  scope: Namespaced
+  version: v1alpha3
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: externalservices.networking.istio.io
+spec:
+  group: networking.istio.io
+  names:
+    kind: ExternalService
+    listKind: ExternalServiceList
+    plural: externalservices
+    singular: externalservice
+  scope: Namespaced
+  version: v1alpha3
+---
 # Pilot service for discovery
 apiVersion: v1
 kind: Service
@@ -55,7 +97,13 @@ metadata:
 spec:
   ports:
   - port: 15003
+    name: discovery
+  - port: 15005
+    name: https-discovery
+  - port: 15007
     name: http-discovery
+  - port: 15010
+    name: grpc-discovery
   - port: 8080
     name: http-legacy-discovery
   - port: 9093
@@ -90,7 +138,7 @@ spec:
       - name: discovery
         image: {PILOT_HUB}/pilot:{PILOT_TAG}
         imagePullPolicy: IfNotPresent
-        args: ["discovery", "-v", "2", "--admission-service", "istio-pilot"]
+        args: ["discovery", "--admission-service", "istio-pilot"]
         ports:
         - containerPort: 8080
         - containerPort: 443
@@ -105,6 +153,8 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
+        - name: PILOT_THROTTLE
+          value: "200"
         volumeMounts:
         - name: config-volume
           mountPath: /etc/istio/config
@@ -113,13 +163,13 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 15003
+        - containerPort: 15005
+        - containerPort: 15007
         args:
         - proxy
         - pilot
-        - -v
-        - "2"
         - --discoveryAddress
-        - istio-pilot:15003
+        - istio-pilot:15007
         - --controlPlaneAuthPolicy
         - NONE #--controlPlaneAuthPolicy
         - --customConfigFile

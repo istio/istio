@@ -1,41 +1,39 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: {{ template "servicegraph.fullname" . }}
+  name: servicegraph
+  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "servicegraph.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
-  annotations:
-    sidecar.istio.io/inject: "false"
 spec:
   replicas: {{ .Values.replicaCount }}
   template:
     metadata:
       labels:
-        app: {{ template "servicegraph.name" . }}
-        release: {{ .Release.Name }}
+        app: servicegraph
+      annotations:
+        sidecar.istio.io/inject: "false"
     spec:
       containers:
-        - name: {{ .Chart.Name }}
-          image: "{{ .Values.global.servicegraph.repository }}:{{ .Values.global.servicegraph.tag }}"
+        - name: servicegraph
+          image: "{{ .Values.global.hub }}/servicegraph:{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.imagePullPolicy }}
           ports:
             - containerPort: {{ .Values.service.internalPort }}
           args:
-          - --prometheusAddr={{ .Values.prometheusAddr }}
-          livenessProbe:
-            httpGet:
-              path: /
-              port: {{ .Values.service.internalPort }}
-          readinessProbe:
-            httpGet:
-              path: /
-              port: {{ .Values.service.internalPort }}
+          - --prometheusAddr=http://prometheus:9090
+#          livenessProbe:
+#            httpGet:
+#              path: /
+#              port: {{ .Values.service.internalPort }}
+#          readinessProbe:
+#            httpGet:
+#              path: /
+#              port: {{ .Values.service.internalPort }}
           resources:
 {{ toYaml .Values.resources | indent 12 }}
-    {{- if .Values.nodeSelector }}
-      nodeSelector:
-{{ toYaml .Values.nodeSelector | indent 8 }}
-    {{- end }}
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}

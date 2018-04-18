@@ -70,28 +70,28 @@ spec:
         image: {{.Values.testHub}}/app:{{.Values.testTag}}
         imagePullPolicy: IfNotPresent
         args:
-          - --port
-          - "80"
-          - --port
-          - "8080"
-          - --port
-          - "90"
-          - --port
-          - "9090"
-          - --grpc
-          - "70"
-          - --grpc
-          - "7070"
-          - --port
-          - "10090"
-          - --port
-          - "19090"
+        - --port
+        - "80"
+        - --port
+        - "8080"
+        - --port
+        - "90"
+        - --port
+        - "9090"
+        - --grpc
+        - "70"
+        - --grpc
+        - "7070"
+        - --port
+        - "10090"
+        - --port
+        - "19090"
 {{if .Values.healthCheck}}
-          - --port
-          - "3333"
+        - --port
+        - "3333"
 {{end}}
-          - --version
-          - "unversioned"
+        - --version
+        - "unversioned"
         ports:
         - containerPort: 80
         - containerPort: 8080

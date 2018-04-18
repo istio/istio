@@ -47,6 +47,9 @@ be lost.</p>
 </section>
 <h2 id="Params.Override">Params.Override</h2>
 <section>
+<p>Defines an override value for a quota. If no override matches
+a particular quota request, the default for the quota is used.</p>
+
 <table class="message-fields">
 <thead>
 <tr>
@@ -58,7 +61,7 @@ be lost.</p>
 <tbody>
 <tr id="Params.Override.dimensions">
 <td><code>dimensions</code></td>
-<td><code>map&lt;string, string&gt;</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
 <p>The specific dimensions for which this override applies.
 String representation of instance dimensions is used to check against configured dimensions.</p>
@@ -88,6 +91,8 @@ quotas, otherwise the value must be zero.</p>
 </section>
 <h2 id="Params.Quota">Params.Quota</h2>
 <section>
+<p>Defines a quota&rsquo;s limit and duration.</p>
+
 <table class="message-fields">
 <thead>
 <tr>

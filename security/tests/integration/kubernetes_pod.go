@@ -17,10 +17,10 @@ package integration
 import (
 	"fmt"
 
-	"github.com/golang/glog"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/integration/framework"
 )
 
@@ -66,30 +66,24 @@ func (c *KubernetesPod) Start() (err error) {
 	}
 
 	if _, err = createPod(c.clientset, c.namespace, c.image, c.name, labels, c.cmds, c.args); err != nil {
-		glog.Errorf("failed to create a pod: %v", c.name)
+		log.Errorf("failed to create a pod: %v", c.name)
 	}
-
 	return err
 }
 
 // Stop stop this component
 // Stop is being called in framework.TearDown()
 func (c *KubernetesPod) Stop() (err error) {
-	glog.Infof("deleting the pod: %v", c.name)
+	log.Infof("deleting the pod: %v", c.name)
 	return deletePod(c.clientset, c.namespace, c.name)
 }
 
 // IsAlive check if component is alive/running
 func (c *KubernetesPod) IsAlive() (bool, error) {
 	if err := waitForPodRunning(c.clientset, c.namespace, c.uuid, kubernetesWaitTimeout); err != nil {
-		glog.Errorf("failed to create a pod: %v err: %v", c.name, err)
+		log.Errorf("failed to create a pod: %v err: %v", c.name, err)
 		return false, err
 	}
 
 	return true, nil
-}
-
-// Cleanup clean up tmp files and other resource created by this component
-func (c *KubernetesPod) Cleanup() error {
-	return nil
 }

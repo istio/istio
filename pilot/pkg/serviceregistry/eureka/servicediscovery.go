@@ -15,9 +15,6 @@
 package eureka
 
 import (
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
@@ -92,8 +89,8 @@ func (sd *serviceDiscovery) Instances(hostname string, ports []string,
 	return out, nil
 }
 
-// GetSidecarServiceInstances implements a service catalog operation
-func (sd *serviceDiscovery) GetSidecarServiceInstances(node model.Node) ([]*model.ServiceInstance, error) {
+// GetProxyServiceInstances returns service instances co-located with a proxy
+func (sd *serviceDiscovery) GetProxyServiceInstances(proxy model.Proxy) ([]*model.ServiceInstance, error) {
 	apps, err := sd.client.Applications()
 	if err != nil {
 		log.Warnf("could not list Eureka instances: %v", err)
@@ -103,7 +100,7 @@ func (sd *serviceDiscovery) GetSidecarServiceInstances(node model.Node) ([]*mode
 
 	out := make([]*model.ServiceInstance, 0)
 	for _, instance := range convertServiceInstances(services, apps) {
-		if node.IPAddress == instance.Endpoint.Address {
+		if proxy.IPAddress == instance.Endpoint.Address {
 			out = append(out, instance)
 		}
 	}

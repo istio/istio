@@ -1,0 +1,558 @@
+---
+title: Policy and Telemetry Rules
+overview: Describes the rules used to configure Mixer's policy and telemetry features.
+location: https://istio.io/docs/reference/config/istio.policy.v1beta1.html
+layout: protoc-gen-docs
+number_of_entries: 9
+---
+<p>Describes the rules used to configure Mixer&rsquo;s policy and telemetry features.</p>
+
+<h2 id="Action">Action</h2>
+<section>
+<p>Action describes which <a href="#Handler">Handler</a> to invoke and what data to pass to it for processing.</p>
+
+<p>The following example instructs Mixer to invoke &lsquo;prometheus-handler&rsquo; handler and pass it the object
+constructed using the instance &lsquo;RequestCountByService&rsquo;.</p>
+
+<pre><code class="language-yaml">  handler: prometheus-handler
+  instances:
+  - RequestCountByService
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Action.handler">
+<td><code>handler</code></td>
+<td><code>string</code></td>
+<td>
+<p>Required. Fully qualified name of the handler to invoke.
+Must match the <code>name</code> of a <a href="#Handler.name">Handler</a>.</p>
+
+</td>
+</tr>
+<tr id="Action.instances">
+<td><code>instances</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>Required. Each value must match the fully qualified name of the
+<a href="#Instance.name">Instance</a>s.
+Referenced instances are evaluated by resolving the attributes/literals for all the fields.
+The constructed objects are then passed to the <code>handler</code> referenced within this action.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="AttributeManifest">AttributeManifest</h2>
+<section>
+<p>AttributeManifest describes a set of Attributes produced by some component
+of an Istio deployment.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="AttributeManifest.revision">
+<td><code>revision</code></td>
+<td><code>string</code></td>
+<td>
+<p>Optional. The revision of this document. Assigned by server.</p>
+
+</td>
+</tr>
+<tr id="AttributeManifest.name">
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>
+<p>Required. Name of the component producing these attributes. This can be
+the proxy (with the canonical name &ldquo;istio-proxy&rdquo;) or the name of an
+<code>attributes</code> kind adapter in Mixer.</p>
+
+</td>
+</tr>
+<tr id="AttributeManifest.attributes">
+<td><code>attributes</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#AttributeManifest.AttributeInfo">AttributeManifest.AttributeInfo</a>&gt;</code></td>
+<td>
+<p>The set of attributes this Istio component will be responsible for producing at runtime.
+We map from attribute name to the attribute&rsquo;s specification. The name of an attribute,
+which is how attributes are referred to in aspect configuration, must conform to:</p>
+
+<pre><code>Name = IDENT &lbrace; SEPARATOR IDENT };
+</code></pre>
+
+<p>Where <code>IDENT</code> must match the regular expression <code>*a-z*+</code> and <code>SEPARATOR</code> must
+match the regular expression <code>[\.-]</code>.</p>
+
+<p>Attribute names must be unique within a single Istio deployment. The set of canonical
+attributes are described at https://istio.io/docs/reference/attribute-vocabulary.html.
+Attributes not in that list should be named with a component-specific suffix such as
+request.count-my.component.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="AttributeManifest.AttributeInfo">AttributeManifest.AttributeInfo</h2>
+<section>
+<p>AttributeInfo describes the schema of an Istio <code>Attribute</code>.</p>
+
+<h4 id="istio-attributes">Istio Attributes</h4>
+
+<p>Istio uses <code>attributes</code> to describe runtime activities of Istio services.
+An Istio attribute carries a specific piece of information about an activity,
+such as the error code of an API request, the latency of an API request, or the
+original IP address of a TCP connection. The attributes are often generated
+and consumed by different services. For example, a frontend service can
+generate an authenticated user attribute and pass it to a backend service for
+access control purpose.</p>
+
+<p>To simplify the system and improve developer experience, Istio uses
+shared attribute definitions across all components. For example, the same
+authenticated user attribute will be used for logging, monitoring, analytics,
+billing, access control, auditing. Many Istio components provide their
+functionality by collecting, generating, and operating on attributes.
+For example, the proxy collects the error code attribute, and the logging
+stores it into a log.</p>
+
+<h4 id="design">Design</h4>
+
+<p>Each Istio attribute must conform to an <code>AttributeInfo</code> in an
+<code>AttributeManifest</code> in the current Istio deployment at runtime. An
+<em><code>AttributeInfo</code></em> is used to define an attribute&rsquo;s
+metadata: the type of its value and a detailed description that explains
+the semantics of the attribute type. Each attribute&rsquo;s name is globally unique;
+in other words an attribute name can only appear once across all manifests.</p>
+
+<p>The runtime presentation of an attribute is intentionally left out of this
+specification, because passing attribute using JSON, XML, or Protocol Buffers
+does not change the semantics of the attribute. Different implementations
+can choose different representations based on their needs.</p>
+
+<h4 id="http-mapping">HTTP Mapping</h4>
+
+<p>Because many systems already have REST APIs, it makes sense to define a
+standard HTTP mapping for Istio attributes that are compatible with typical
+REST APIs. The design is to map one attribute to one HTTP header, the
+attribute name and value becomes the HTTP header name and value. The actual
+encoding scheme will be decided later.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="AttributeManifest.AttributeInfo.description">
+<td><code>description</code></td>
+<td><code>string</code></td>
+<td>
+<p>Optional. A human-readable description of the attribute&rsquo;s purpose.</p>
+
+</td>
+</tr>
+<tr id="AttributeManifest.AttributeInfo.value_type">
+<td><code>valueType</code></td>
+<td><code><a href="#ValueType">ValueType</a></code></td>
+<td>
+<p>Required. The type of data carried by this attribute.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Connection">Connection</h2>
+<section>
+<p>Connection allows the operator to specify the endpoint for out-of-process infrastructure backend.
+Connection is part of the handler custom resource and is specified alongside adapter specific configuration.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Connection.address">
+<td><code>address</code></td>
+<td><code>string</code></td>
+<td>
+<p>The address of the backend.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Handler">Handler</h2>
+<section>
+<p>Handler allows the operator to configure a specific adapter implementation.
+Each adapter implementation defines its own <code>params</code> proto.</p>
+
+<p>In the following example we define a <code>metrics</code> handler for the <code>prometheus</code> adapter.
+The example is in the form of a kubernetes resource:
+* The <code>metadata.name</code> is the name of the handler
+* The <code>kind</code> refers to the adapter name
+* The <code>spec</code> block represents adapter-specific configuration as well as the connection information</p>
+
+<pre><code class="language-yaml">### Sample-1: No connection specified (for compiled in adapters)
+### Note: if connection information is not specified, the adapter configuration is directly inside
+### `spec` block. This is going to be DEPRECATED in favor of Sample-2
+apiVersion: &quot;config.istio.io/v1alpha2&quot;
+kind: prometheus
+metadata:
+  name: handler
+  namespace: istio-system
+spec:
+  metrics:
+  - name: request_count
+    instance_name: requestcount.metric.istio-system
+    kind: COUNTER
+    label_names:
+    - source_service
+    - source_version
+    - destination_service
+    - destination_version
+---
+### Sample-2: With connection information (for out-of-process adapters)
+### Note: Unlike sample-1, the adapter configuration is parallel to `connection` and is nested inside `param` block.
+apiVersion: &quot;config.istio.io/v1alpha2&quot;
+kind: prometheus
+metadata:
+  name: handler
+  namespace: istio-system
+spec:
+  param:
+    metrics:
+    - name: request_count
+      instance_name: requestcount.metric.istio-system
+      kind: COUNTER
+      label_names:
+      - source_service
+      - source_version
+      - destination_service
+      - destination_version
+  connection:
+    address: localhost:8090
+---
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Handler.name">
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>
+<p>Required. Must be unique in the entire mixer configuration. Used by <a href="#Action.handler">Actions</a>
+to refer to this handler.</p>
+
+</td>
+</tr>
+<tr id="Handler.adapter">
+<td><code>adapter</code></td>
+<td><code>string</code></td>
+<td>
+<p>Required. The name of a specific adapter implementation. An adapter&rsquo;s
+implementation name is typically a constant in its code.</p>
+
+</td>
+</tr>
+<tr id="Handler.params">
+<td><code>params</code></td>
+<td><code><a href="#google.protobuf.Struct">google.protobuf.Struct</a></code></td>
+<td>
+<p>Optional. Depends on adapter implementation. Struct representation of a
+proto defined by the adapter implementation; this varies depending on the value of field <code>adapter</code>.</p>
+
+</td>
+</tr>
+<tr id="Handler.connection">
+<td><code>connection</code></td>
+<td><code><a href="#Connection">Connection</a></code></td>
+<td>
+<p>Optional. Information on how to connect to the out-of-process adapter.
+This is used if the adapter is not compiled into Mixer binary and is running as a separate process.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Instance">Instance</h2>
+<section>
+<p>An Instance tells Mixer how to create instances for particular template.</p>
+
+<p>Instance is defined by the operator. Instance is defined relative to a known
+template. Their purpose is to tell Mixer how to use attributes or literals to produce
+instances of the specified template at runtime.</p>
+
+<p>The following example instructs Mixer to construct an instance associated with template
+&lsquo;istio.mixer.adapter.metric.Metric&rsquo;. It provides a mapping from the template&rsquo;s fields to expressions.
+Instances produced with this instance can be referenced by <a href="#Action">Actions</a> using name
+&lsquo;RequestCountByService&rsquo;</p>
+
+<pre><code class="language-yaml">- name: RequestCountByService
+  template: istio.mixer.adapter.metric.Metric
+  params:
+    value: 1
+    dimensions:
+      source: source.service
+      destination_ip: destination.ip
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Instance.name">
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>
+<p>Required. The name of this instance</p>
+
+<p>Must be unique amongst other Instances in scope. Used by <a href="#Action">Action</a> to refer
+to an instance produced by this instance.</p>
+
+</td>
+</tr>
+<tr id="Instance.template">
+<td><code>template</code></td>
+<td><code>string</code></td>
+<td>
+<p>Required. The name of the template this instance creates instances for.
+The value must match the name of the available template in scope.</p>
+
+</td>
+</tr>
+<tr id="Instance.params">
+<td><code>params</code></td>
+<td><code><a href="#google.protobuf.Struct">google.protobuf.Struct</a></code></td>
+<td>
+<p>Required. Depends on referenced template. Struct representation of a
+proto defined by the template; this varies depending on the value of field <code>template</code>.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Rule">Rule</h2>
+<section>
+<p>A Rule is a selector and a set of intentions to be executed when the
+selector is <code>true</code></p>
+
+<p>The following example instructs Mixer to invoke &lsquo;prometheus-handler&rsquo; handler for all services and pass it the
+instance constructed using the &lsquo;RequestCountByService&rsquo; instance.</p>
+
+<pre><code class="language-yaml">- match: destination.service == &quot;*&quot;
+  actions:
+  - handler: prometheus-handler
+    instances:
+    - RequestCountByService
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Rule.match">
+<td><code>match</code></td>
+<td><code>string</code></td>
+<td>
+<p>Required. Match is an attribute based predicate. When Mixer receives a
+request it evaluates the match expression and executes all the associated <code>actions</code>
+if the match evaluates to true.</p>
+
+<p>A few example match:</p>
+
+<ul>
+<li>an empty match evaluates to <code>true</code></li>
+<li><code>true</code>, a boolean literal; a rule with this match will always be executed</li>
+<li><code>destination.service == ratings*</code> selects any request targeting a service whose
+name starts with &ldquo;ratings&rdquo;</li>
+<li><code>attr1 == &quot;20&quot; &amp;&amp; attr2 == &quot;30&quot;</code> logical AND, OR, and NOT are also available</li>
+</ul>
+
+</td>
+</tr>
+<tr id="Rule.actions">
+<td><code>actions</code></td>
+<td><code><a href="#Action">Action[]</a></code></td>
+<td>
+<p>Optional. The actions that will be executed when match evaluates to <code>true</code>.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ValueType">ValueType</h2>
+<section>
+<p>ValueType describes the types that values in the Istio system can take. These
+are used to describe the type of Attributes at run time, describe the type of
+the result of evaluating an expression, and to describe the runtime type of
+fields of other descriptors.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ValueType.VALUE_TYPE_UNSPECIFIED">
+<td><code>VALUE_TYPE_UNSPECIFIED</code></td>
+<td>
+<p>Invalid, default value.</p>
+
+</td>
+</tr>
+<tr id="ValueType.STRING">
+<td><code>STRING</code></td>
+<td>
+<p>An undiscriminated variable-length string.</p>
+
+</td>
+</tr>
+<tr id="ValueType.INT64">
+<td><code>INT64</code></td>
+<td>
+<p>An undiscriminated 64-bit signed integer.</p>
+
+</td>
+</tr>
+<tr id="ValueType.DOUBLE">
+<td><code>DOUBLE</code></td>
+<td>
+<p>An undiscriminated 64-bit floating-point value.</p>
+
+</td>
+</tr>
+<tr id="ValueType.BOOL">
+<td><code>BOOL</code></td>
+<td>
+<p>An undiscriminated boolean value.</p>
+
+</td>
+</tr>
+<tr id="ValueType.TIMESTAMP">
+<td><code>TIMESTAMP</code></td>
+<td>
+<p>A point in time.</p>
+
+</td>
+</tr>
+<tr id="ValueType.IP_ADDRESS">
+<td><code>IP_ADDRESS</code></td>
+<td>
+<p>An IP address.</p>
+
+</td>
+</tr>
+<tr id="ValueType.EMAIL_ADDRESS">
+<td><code>EMAIL_ADDRESS</code></td>
+<td>
+<p>An email address.</p>
+
+</td>
+</tr>
+<tr id="ValueType.URI">
+<td><code>URI</code></td>
+<td>
+<p>A URI.</p>
+
+</td>
+</tr>
+<tr id="ValueType.DNS_NAME">
+<td><code>DNS_NAME</code></td>
+<td>
+<p>A DNS name.</p>
+
+</td>
+</tr>
+<tr id="ValueType.DURATION">
+<td><code>DURATION</code></td>
+<td>
+<p>A span between two points in time.</p>
+
+</td>
+</tr>
+<tr id="ValueType.STRING_MAP">
+<td><code>STRING_MAP</code></td>
+<td>
+<p>A map string -&gt; string, typically used by headers.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="google.protobuf.Struct">google.protobuf.Struct</h2>
+<section>
+<p><code>Struct</code> represents a structured data value, consisting of fields
+which map to dynamically typed values. In some languages, <code>Struct</code>
+might be supported by a native representation. For example, in
+scripting languages like JS a struct is represented as an
+object. The details of that representation are described together
+with the proto support for the language.</p>
+
+<p>The JSON representation for <code>Struct</code> is JSON object.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="google.protobuf.Struct.fields">
+<td><code>fields</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#google.protobuf.Value">google.protobuf.Value</a>&gt;</code></td>
+<td>
+<p>Unordered map of dynamically typed values.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>

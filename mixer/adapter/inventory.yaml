@@ -1,5 +1,6 @@
 circonus: "istio.io/istio/mixer/adapter/circonus"
 denier: "istio.io/istio/mixer/adapter/denier"
+dogstatsd: "istio.io/istio/mixer/adapter/dogstatsd"
 fluentd: "istio.io/istio/mixer/adapter/fluentd"
 kubernetesenv: "istio.io/istio/mixer/adapter/kubernetesenv"
 list: "istio.io/istio/mixer/adapter/list"

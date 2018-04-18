@@ -2,7 +2,8 @@
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
-  name: {{ template "security.fullname" . }}
+  name: istio-citadel-{{ .Release.Namespace }}
+  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "security.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version }}
@@ -11,7 +12,7 @@ metadata:
 rules:
 - apiGroups: [""]
   resources: ["secrets"]
-  verbs: ["create", "get", "watch", "list", "update"]
+  verbs: ["create", "get", "watch", "list", "update", "delete"]
 - apiGroups: [""]
   resources: ["serviceaccounts"]
   verbs: ["get", "watch", "list"]

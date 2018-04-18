@@ -15,16 +15,13 @@
 package memory
 
 import (
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
 
 const (
 	// BufferSize specifies the buffer size of event channel
-	BufferSize = 10
+	BufferSize = 100
 )
 
 // Handler specifies a function to apply on a Config for a given event type

@@ -16,20 +16,37 @@ package framework
 
 // Component is a interface of a test component
 type Component interface {
-	// GetName return component name
+	// GetName returns component name
 	GetName() string
 
-	// Bringup doing setup for this component
-	// Start() is being called in framework.StartUp()
+	// GetConfig returns the config of this component for outside use
+	// It can be called anytime during the whole component lifetime
+	// It's recommended to use sync.Mutex to lock data while read
+	// in case component itself is accessing config
+	GetConfig() Config
+
+	// SetConfig sets a config into this component
+	// Initial config is set when during initialization
+	// But config can be updated at runtime using SetConfig
+	// Component needs to implement extra functions to apply new configs
+	// It's recommended to use sync.Mutex to lock data while write
+	// in case component itself is accessing config
+	SetConfig(config Config) error
+
+	// GetStatus returns the status of this component for outside use
+	// It can be called anytime during the whole component lifetime
+	// It's recommended to use sync.Mutex to lock data while read
+	// in case component itself is updating status
+	GetStatus() Status
+
+	// Start sets up for this component
+	// Start is being called in framework.StartUp()
 	Start() error
 
-	// Stop stop this component
-	// Stop() is being called in framework.TearDown()
+	// Stop stops this component and clean it up
+	// Stop is being called in framework.TearDown()
 	Stop() error
 
-	// IsAlive check if component is alive/running
+	// IsAlive checks if component is alive/running
 	IsAlive() (bool, error)
-
-	// Cleanup clean up tmp files and other resource created by this component
-	Cleanup() error
 }

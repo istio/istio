@@ -30,7 +30,6 @@ import (
 	"testing"
 	"time"
 
-	_ "github.com/golang/glog"
 	"github.com/howeyc/fsnotify"
 	"github.com/stretchr/testify/assert"
 
@@ -57,7 +56,7 @@ func TestRunReload(t *testing.T) {
 		},
 	}
 	config := model.DefaultProxyConfig()
-	node := model.Node{
+	node := model.Proxy{
 		Type: model.Ingress,
 		ID:   "random",
 	}
@@ -100,6 +99,7 @@ func Test_watcher_retrieveAZ(t *testing.T) {
 		name        string
 		az          string
 		retries     int
+		nodeType    model.NodeType
 		wantReload  bool
 		wantAZ      string
 		pilotStates []pilotStubState
@@ -108,6 +108,7 @@ func Test_watcher_retrieveAZ(t *testing.T) {
 			name:       "retrieves an AZ and calls for a reload",
 			wantReload: true,
 			wantAZ:     "az1",
+			nodeType:   model.Ingress,
 			retries:    5,
 			pilotStates: []pilotStubState{
 				{StatusCode: 200, Response: "az1"},
@@ -117,6 +118,7 @@ func Test_watcher_retrieveAZ(t *testing.T) {
 			name:       "retries if it receives an error",
 			wantReload: true,
 			wantAZ:     "az1",
+			nodeType:   model.Ingress,
 			retries:    5,
 			pilotStates: []pilotStubState{
 				{StatusCode: 301, Response: ""},
@@ -127,6 +129,7 @@ func Test_watcher_retrieveAZ(t *testing.T) {
 			name:       "retries if it receives non 200 status from pilot",
 			wantReload: true,
 			wantAZ:     "az1",
+			nodeType:   model.Ingress,
 			retries:    5,
 			pilotStates: []pilotStubState{
 				{StatusCode: 500, Response: ""},
@@ -137,12 +140,24 @@ func Test_watcher_retrieveAZ(t *testing.T) {
 			name:       "do nothing if az is set",
 			az:         "az1",
 			wantAZ:     "az1",
+			nodeType:   model.Ingress,
 			retries:    5,
 			wantReload: false,
 		},
 		{
-			name:    "give up after retry count is reached",
-			retries: 2,
+			name:       "do nothing if node type is pilot",
+			nodeType:   "pilot",
+			wantReload: false,
+		},
+		{
+			name:       "do nothing if node type is mixer",
+			nodeType:   "mixer",
+			wantReload: false,
+		},
+		{
+			name:     "give up after retry count is reached",
+			nodeType: model.Ingress,
+			retries:  2,
 			pilotStates: []pilotStubState{
 				{StatusCode: 500, Response: ""},
 				{StatusCode: 500, Response: ""},
@@ -160,8 +175,8 @@ func Test_watcher_retrieveAZ(t *testing.T) {
 					called <- true
 				},
 			}
-			node := model.Node{
-				Type:      model.Ingress,
+			node := model.Proxy{
+				Type:      tt.nodeType,
 				ID:        "id",
 				Domain:    "domain",
 				IPAddress: "ip",
@@ -351,36 +366,4 @@ func TestEnvoyArgs(t *testing.T) {
 	}
 }
 
-func TestEnvoyRun(t *testing.T) {
-	config := model.DefaultProxyConfig()
-	dir := os.Getenv("ISTIO_BIN")
-	var err error
-	if len(dir) == 0 {
-		t.Fatalf("envoy binary dir empty")
-	}
-	config.BinaryPath = path.Join(dir, "envoy")
-
-	config.ConfigPath = "tmp"
-
-	envoyConfig := BuildConfig(config, nil)
-	envoyProxy := envoy{config: config, node: "my-node", extraArgs: []string{"--mode", "validate"}}
-	abortCh := make(chan error, 1)
-
-	if err = envoyProxy.Run(nil, 0, abortCh); err == nil {
-		t.Error("expected error on nil config")
-	}
-
-	if err = envoyProxy.Run(envoyConfig, 0, abortCh); err != nil {
-		t.Error(err)
-	}
-
-	envoyProxy.Cleanup(0)
-
-	badConfig := config
-	badConfig.ConfigPath = ""
-	envoyProxy.config = badConfig
-
-	if err = envoyProxy.Run(envoyConfig, 0, abortCh); err == nil {
-		t.Errorf("expected error on bad config path")
-	}
-}
+// TestEnvoyRun is no longer used - we are now using v2 bootstrap API.

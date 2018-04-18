@@ -17,16 +17,18 @@ package v1
 import (
 	"context"
 	"crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"hash"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path"
 	"time"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
+
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/howeyc/fsnotify"
 
@@ -56,7 +58,7 @@ type CertSource struct {
 
 type watcher struct {
 	agent    proxy.Agent
-	role     model.Node
+	role     model.Proxy
 	config   meshconfig.ProxyConfig
 	certs    []CertSource
 	pilotSAN []string
@@ -64,7 +66,7 @@ type watcher struct {
 
 // NewWatcher creates a new watcher instance from a proxy agent and a set of monitored certificate paths
 // (directories with files in them)
-func NewWatcher(config meshconfig.ProxyConfig, agent proxy.Agent, role model.Node,
+func NewWatcher(config meshconfig.ProxyConfig, agent proxy.Agent, role model.Proxy,
 	certs []CertSource, pilotSAN []string) Watcher {
 	return &watcher{
 		agent:    agent,
@@ -117,13 +119,46 @@ func (w *watcher) Reload() {
 // retrieveAZ will only run once and then exit because AZ won't change over a proxy's lifecycle
 // it has to use a reload due to limitations with envoy (az has to be passed in as a flag)
 func (w *watcher) retrieveAZ(ctx context.Context, delay time.Duration, retries int) {
-	if w.config.AvailabilityZone == "" {
-		log.Info("Availability zone not set, proxy will default to not using zone aware routing. To manually override use the --availabilityZone flag.")
+	if !model.IsApplicationNodeType(w.role.Type) {
+		log.Infof("Agent is proxy for %v component. This component does not require zone aware routing.", w.role.Type)
+		return
 	}
 	attempts := 0
 	for w.config.AvailabilityZone == "" && attempts <= retries {
 		time.Sleep(delay)
-		resp, err := http.Get(fmt.Sprintf("http://%v/v1/az/%v/%v", w.config.DiscoveryAddress, w.config.ServiceCluster, w.role.ServiceNode()))
+
+		var client *http.Client
+		var protocol string
+		if w.config.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
+			chainCertFile := fmt.Sprintf("%v/%v", model.AuthCertsPath, model.CertChainFilename)
+			chainKeyFile := fmt.Sprintf("%v/%v", model.AuthCertsPath, model.KeyFilename)
+			chainCert, err := tls.LoadX509KeyPair(chainCertFile, chainKeyFile)
+			if err != nil {
+				log.Infof("Unable to load certs to talk to control plane: %v", err)
+			}
+			caCertFile := fmt.Sprintf("%v/%v", model.AuthCertsPath, model.RootCertFilename)
+			caCert, err := ioutil.ReadFile(caCertFile)
+			if err != nil {
+				log.Infof("Unable to load ca root cert to talk to control plane: %v", err)
+			}
+			caCertPool := x509.NewCertPool()
+			caCertPool.AppendCertsFromPEM(caCert)
+			serverName, _, _ := net.SplitHostPort(w.config.DiscoveryAddress)
+			tlsConfig := &tls.Config{
+				Certificates: []tls.Certificate{chainCert},
+				RootCAs:      caCertPool,
+				ServerName:   fmt.Sprintf("%v.svc", serverName),
+			}
+			tlsConfig.BuildNameToCertificate()
+			transport := &http.Transport{TLSClientConfig: tlsConfig}
+			client = &http.Client{Transport: transport}
+			protocol = "https://"
+		} else {
+			client = &http.Client{}
+			protocol = "http://"
+		}
+
+		resp, err := client.Get(fmt.Sprintf("%v%v/v1/az/%v/%v", protocol, w.config.DiscoveryAddress, w.config.ServiceCluster, w.role.ServiceNode()))
 		if err != nil {
 			log.Infof("Unable to retrieve availability zone from pilot: %v", err)
 		} else {
@@ -141,6 +176,9 @@ func (w *watcher) retrieveAZ(ctx context.Context, delay time.Duration, retries i
 			_ = resp.Body.Close()
 		}
 		attempts++
+	}
+	if w.config.AvailabilityZone == "" {
+		log.Info("Availability zone not set, proxy will default to not using zone aware routing.")
 	}
 }
 
@@ -241,6 +279,8 @@ type envoy struct {
 	extraArgs []string
 	v2        bool
 	pilotSAN  []string
+	opts      map[string]interface{}
+	errChan   chan error
 }
 
 // NewProxy creates an instance of the proxy control commands
@@ -264,6 +304,19 @@ func NewV2Proxy(config meshconfig.ProxyConfig, node string, logLevel string, pil
 	e := proxy.(envoy)
 	e.v2 = true
 	e.pilotSAN = pilotSAN
+	return e
+}
+
+// NewV2ProxyCustom creates a proxy runner with custom options that can be injected in
+// template
+func NewV2ProxyCustom(config meshconfig.ProxyConfig, node string, logLevel string,
+	pilotSAN []string, opts map[string]interface{}, errChan chan error) proxy.Proxy {
+	proxy := NewProxy(config, node, logLevel)
+	e := proxy.(envoy)
+	e.v2 = true
+	e.pilotSAN = pilotSAN
+	e.errChan = errChan
+	e.opts = opts
 	return e
 }
 
@@ -304,7 +357,7 @@ func (proxy envoy) Run(config interface{}, epoch int, abort <-chan error) error 
 		// there is a custom configuration. Don't write our own config - but keep watching the certs.
 		fname = proxy.config.CustomConfigFile
 	} else if proxy.v2 {
-		out, err := bootstrap.WriteBootstrap(&proxy.config, epoch, proxy.pilotSAN)
+		out, err := bootstrap.WriteBootstrap(&proxy.config, proxy.node, epoch, proxy.pilotSAN, proxy.opts)
 		if err != nil {
 			log.Errora("Failed to generate bootstrap config", err)
 			os.Exit(1) // Prevent infinite loop attempting to write the file, let k8s/systemd report
@@ -326,7 +379,9 @@ func (proxy envoy) Run(config interface{}, epoch int, abort <-chan error) error 
 
 	// spin up a new Envoy process
 	args := proxy.args(fname, epoch)
-
+	if proxy.v2 && len(proxy.config.CustomConfigFile) == 0 {
+		args = append(args, "--v2-config-only")
+	}
 	log.Infof("Envoy command: %v", args)
 
 	/* #nosec */
@@ -335,6 +390,16 @@ func (proxy envoy) Run(config interface{}, epoch int, abort <-chan error) error 
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
 		return err
+	}
+
+	// Set if the caller is monitoring envoy, for example in tests or if envoy runs in same
+	// container with the app.
+	if proxy.errChan != nil {
+		// Caller passed a channel, will wait itself for termination
+		go func() {
+			proxy.errChan <- cmd.Wait()
+		}()
+		return nil
 	}
 
 	done := make(chan error, 1)

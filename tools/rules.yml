@@ -18,19 +18,19 @@ rules:
         value: "1"
         labels:
           source: source.labels["app"] | "unknown"
-          target: target.service | "unknown"
-          service: target.labels["app"] | "unknown"
+          target: destination.service | "unknown"
+          service: destination.labels["app"] | "unknown"
           method: request.path | "unknown"
-          version: target.labels["version"] | "unknown"
+          version: destination.labels["version"] | "unknown"
           response_code: response.code | 200
       - descriptor_name:  request_duration
         value: response.duration | "0ms"
         labels:
           source: source.labels["app"] | "unknown"
-          target: target.service | "unknown"
-          service: target.labels["app"] | "unknown"
+          target: destination.service | "unknown"
+          service: destination.labels["app"] | "unknown"
           method: request.path | "unknown"
-          version: target.labels["version"] | "unknown"
+          version: destination.labels["version"] | "unknown"
           response_code: response.code | 200
   - kind: access-logs
     params:

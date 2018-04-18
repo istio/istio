@@ -16,6 +16,7 @@ package ilt
 
 import (
 	"net"
+	"reflect"
 )
 
 // AreEqual checks for equality of given values. It handles comparison of []byte as a special case.
@@ -28,5 +29,5 @@ func AreEqual(e interface{}, a interface{}) bool {
 		return false
 	}
 
-	return a == e
+	return reflect.DeepEqual(a, e)
 }

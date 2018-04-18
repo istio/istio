@@ -15,6 +15,7 @@
 package helper
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"testing"
@@ -22,6 +23,7 @@ import (
 	gapiopts "google.golang.org/api/option"
 
 	"istio.io/istio/mixer/adapter/stackdriver/config"
+	"istio.io/istio/mixer/pkg/adapter"
 )
 
 func TestToOpts(t *testing.T) {
@@ -64,6 +66,32 @@ func TestToOpts(t *testing.T) {
 				if !found {
 					t.Errorf("toOpts() = %v, wanted opt '%v' (type %v)", opts, expected, reflect.TypeOf(expected))
 				}
+			}
+		})
+	}
+}
+
+func TestFillProjectID(t *testing.T) {
+	tests := []struct {
+		name       string
+		shouldFill shouldFillFn
+		projectID  projectIDFn
+		in         adapter.Config
+		res        string
+	}{
+		{"has project id", func(*config.Params) bool { return false }, func() (string, error) { return "", nil }, &config.Params{ProjectId: "id"}, "id"},
+		{"should not fill", func(*config.Params) bool { return false }, func() (string, error) { return "", nil }, &config.Params{}, ""},
+		{"fail to get project id", func(*config.Params) bool { return true }, func() (string, error) { return "", errors.New("error") }, &config.Params{}, ""},
+		{"get project id", func(*config.Params) bool { return true }, func() (string, error) { return "id", nil }, &config.Params{}, "id"},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
+			fp := NewProjectIDFiller(tt.shouldFill, tt.projectID)
+			fp.FillProjectID(tt.in)
+			cfg := tt.in.(*config.Params)
+			if cfg.ProjectId != tt.res {
+				t.Errorf("project ID %v is wrong, expected project ID %v.", cfg.ProjectId, tt.res)
 			}
 		})
 	}

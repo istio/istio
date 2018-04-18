@@ -16,6 +16,7 @@ package model_test
 
 import (
 	"reflect"
+	"sort"
 	"testing"
 
 	routing "istio.io/api/routing/v1alpha1"
@@ -284,14 +285,34 @@ func TestRejectConflictingEgressRules(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		got, errs := model.RejectConflictingEgressRules(c.in)
+		in := mapToArr(c.in)
+		want := mapToArr(c.out)
+		got, errs := model.RejectConflictingEgressRules(in)
 		if (errs == nil) != c.valid {
 			t.Errorf("RejectConflictingEgressRules failed on %s: got valid=%v but wanted valid=%v, errs=%v",
 				c.name, errs == nil, c.valid, errs)
 		}
-		if !reflect.DeepEqual(got, c.out) {
-			t.Errorf("RejectConflictingEgressRules failed on %s: got=%v but wanted %v, errs= %v",
-				c.name, got, c.in, errs)
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("RejectConflictingEgressRules failed on %s: got\n%v but wanted \n%v, errs= %v",
+				c.name, got, want, errs)
 		}
 	}
+}
+
+func mapToArr(rmap map[string]*routing.EgressRule) []model.Config {
+	m := make([]model.Config, 0, len(rmap))
+	for k, r := range rmap {
+		m = append(m, model.Config{
+			ConfigMeta: model.ConfigMeta{
+				Name: k,
+			},
+			Spec: r,
+		})
+	}
+
+	sort.SliceStable(m, func(i, j int) bool {
+		return m[i].Key() < m[j].Key()
+	})
+
+	return m
 }

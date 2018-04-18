@@ -78,6 +78,8 @@ const reportAttributesOkGet = `
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
+  "check.cache_hit": false,
+  "quota.cache_hit": false,
   "request.headers": {
      ":method": "GET",
      ":path": "/echo",
@@ -151,12 +153,14 @@ const reportAttributesOkPost = `
   "source.ip": "[127 0 0 1]",
   "source.port": "*",
   "destination.ip": "[127 0 0 1]",
-	"destination.port": "*",
+  "destination.port": "*",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
-	"connection.mtls": false,
+  "connection.mtls": false,
+  "check.cache_hit": false,
+  "quota.cache_hit": false,
   "request.headers": {
      ":method": "POST",
      ":path": "/echo",
@@ -180,8 +184,21 @@ const reportAttributesOkPost = `
 }
 `
 
+// Stats in Envoy proxy.
+var expectedStats = map[string]int{
+	"http_mixer_filter.total_blocking_remote_check_calls": 2,
+	"http_mixer_filter.total_blocking_remote_quota_calls": 0,
+	"http_mixer_filter.total_check_calls":                 2,
+	"http_mixer_filter.total_quota_calls":                 0,
+	"http_mixer_filter.total_remote_check_calls":          2,
+	"http_mixer_filter.total_remote_quota_calls":          0,
+	"http_mixer_filter.total_remote_report_calls":         2,
+	"http_mixer_filter.total_report_calls":                2,
+}
+
 func TestCheckReportAttributes(t *testing.T) {
-	s := env.NewTestSetup(env.CheckReportAttributesTest, t, env.BasicConfig)
+	s := env.NewTestSetup(env.CheckReportAttributesTest, t)
+	env.SetStatsUpdateInterval(s.MfConfig(), 1)
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
@@ -190,25 +207,7 @@ func TestCheckReportAttributes(t *testing.T) {
 	url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().ClientProxyPort)
 
 	// Issues a GET echo request with 0 size body
-	tag := "OKGetV1"
-	if _, _, err := env.HTTPGet(url); err != nil {
-		t.Errorf("Failed in request %s: %v", tag, err)
-	}
-	s.VerifyCheck(tag, checkAttributesOkGet)
-	s.VerifyReport(tag, reportAttributesOkGet)
-
-	// Issues a POST request.
-	tag = "OKPostV1"
-	if _, _, err := env.HTTPPost(url, "text/plain", "Hello World!"); err != nil {
-		t.Errorf("Failed in request %s: %v", tag, err)
-	}
-	s.VerifyCheck(tag, checkAttributesOkPost)
-	s.VerifyReport(tag, reportAttributesOkPost)
-
-	s.SetV2Conf()
-	s.ReStartEnvoy()
-
-	tag = "OKGet"
+	tag := "OKGet"
 	if _, _, err := env.HTTPGet(url); err != nil {
 		t.Errorf("Failed in request %s: %v", tag, err)
 	}
@@ -217,6 +216,24 @@ func TestCheckReportAttributes(t *testing.T) {
 
 	// Issues a POST request.
 	tag = "OKPost"
+	if _, _, err := env.HTTPPost(url, "text/plain", "Hello World!"); err != nil {
+		t.Errorf("Failed in request %s: %v", tag, err)
+	}
+	s.VerifyCheck(tag, checkAttributesOkPost)
+	s.VerifyReport(tag, reportAttributesOkPost)
+
+	if respStats, err := s.WaitForStatsUpdateAndGetStats(2); err == nil {
+		s.VerifyStats(respStats, expectedStats)
+	} else {
+		t.Errorf("Failed to get stats from Envoy %v", err)
+	}
+
+	// Verify that Mixer HTTP filter works properly when we change config version to V1 at Envoy.
+	s.SetMixerFilterConfVersion(env.MixerFilterConfigV1)
+	s.ReStartEnvoy()
+
+	// Issues a POST request.
+	url = fmt.Sprintf("http://localhost:%d/echo", s.Ports().ClientProxyPort)
 	if _, _, err := env.HTTPPost(url, "text/plain", "Hello World!"); err != nil {
 		t.Errorf("Failed in request %s: %v", tag, err)
 	}

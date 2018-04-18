@@ -21,9 +21,11 @@ package stackdriver
 import (
 	"context"
 
+	md "cloud.google.com/go/compute/metadata"
 	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/mixer/adapter/stackdriver/config"
+	"istio.io/istio/mixer/adapter/stackdriver/helper"
 	"istio.io/istio/mixer/adapter/stackdriver/log"
 	sdmetric "istio.io/istio/mixer/adapter/stackdriver/metric"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -33,8 +35,9 @@ import (
 
 type (
 	builder struct {
-		m metric.HandlerBuilder
-		l logentry.HandlerBuilder
+		m  metric.HandlerBuilder
+		l  logentry.HandlerBuilder
+		pf *helper.ProjectIDFiller
 	}
 
 	handler struct {
@@ -53,6 +56,7 @@ var (
 
 // GetInfo returns the Info associated with this adapter implementation.
 func GetInfo() adapter.Info {
+	shouldFill := func(c *config.Params) bool { return c.ProjectId == "" && md.OnGCE() }
 	return adapter.Info{
 		Name:        "stackdriver",
 		Impl:        "istio.io/istio/mixer/adapte/stackdriver",
@@ -62,8 +66,9 @@ func GetInfo() adapter.Info {
 			logentry.TemplateName,
 		},
 		DefaultConfig: &config.Params{},
-		NewBuilder:    func() adapter.HandlerBuilder { return &builder{m: sdmetric.NewBuilder(), l: log.NewBuilder()} },
-	}
+		NewBuilder: func() adapter.HandlerBuilder {
+			return &builder{m: sdmetric.NewBuilder(), l: log.NewBuilder(), pf: helper.NewProjectIDFiller(shouldFill, md.ProjectID)}
+		}}
 }
 
 func (b *builder) SetMetricTypes(metrics map[string]*metric.Type) {
@@ -74,6 +79,7 @@ func (b *builder) SetLogEntryTypes(entries map[string]*logentry.Type) {
 	b.l.SetLogEntryTypes(entries)
 }
 func (b *builder) SetAdapterConfig(c adapter.Config) {
+	b.pf.FillProjectID(c)
 	b.m.SetAdapterConfig(c)
 	b.l.SetAdapterConfig(c)
 }

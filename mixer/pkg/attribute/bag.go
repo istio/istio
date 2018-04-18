@@ -14,8 +14,12 @@
 
 package attribute
 
+import "fmt"
+
 // Bag is a generic mechanism to access a set of attributes.
 type Bag interface {
+	fmt.Stringer
+
 	// Get returns an attribute value.
 	Get(name string) (value interface{}, found bool)
 
@@ -24,8 +28,4 @@ type Bag interface {
 
 	// Done indicates the bag can be reclaimed.
 	Done()
-
-	// DebugString provides a dump of an attribute Bag that avoids affecting the
-	// calculation of referenced attributes.
-	DebugString() string
 }

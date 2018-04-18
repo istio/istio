@@ -46,6 +46,7 @@ var _ = time.Kitchen
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
+// Determines the type of list that the adapter is consulting.
 type Params_ListEntryType int32
 
 const (
@@ -55,7 +56,7 @@ const (
 	CASE_INSENSITIVE_STRINGS Params_ListEntryType = 1
 	// List entries are treated as IP addresses and ranges.
 	IP_ADDRESSES Params_ListEntryType = 2
-	// List entries are treated as re2 regexp. See https://github.com/google/re2/wiki/Syntax for syntax.
+	// List entries are treated as re2 regexp. See [here](https://github.com/google/re2/wiki/Syntax) for the supported syntax.
 	REGEX Params_ListEntryType = 3
 )
 
@@ -74,6 +75,7 @@ var Params_ListEntryType_value = map[string]int32{
 
 func (Params_ListEntryType) EnumDescriptor() ([]byte, []int) { return fileDescriptorConfig, []int{0, 0} }
 
+// Configuration format for the `list` adapter.
 type Params struct {
 	// Where to find the list to check against. This may be ommited for a completely local list.
 	ProviderUrl string `protobuf:"bytes,1,opt,name=provider_url,json=providerUrl,proto3" json:"provider_url,omitempty"`

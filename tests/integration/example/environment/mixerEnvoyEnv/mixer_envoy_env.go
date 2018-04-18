@@ -15,6 +15,7 @@
 package mixerEnvoyEnv
 
 import (
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -29,49 +30,65 @@ import (
 // MixerEnvoyEnv is a test environment with envoy, mixer and echo server
 type MixerEnvoyEnv struct {
 	framework.TestEnv
-	EnvID     string
-	TmpDir    string
+	envID     string
+	tmpDir    string
 	configDir string
+	comps     []framework.Component
 }
 
 // NewMixerEnvoyEnv create a MixerEnvoyEnv with a env ID
 func NewMixerEnvoyEnv(id string) *MixerEnvoyEnv {
 	return &MixerEnvoyEnv{
-		EnvID: id,
+		envID: id,
 	}
 }
 
 // GetName implement the function in TestEnv return environment ID
 func (mixerEnvoyEnv *MixerEnvoyEnv) GetName() string {
-	return mixerEnvoyEnv.EnvID
+	return mixerEnvoyEnv.envID
 }
 
 // Bringup implement the function in TestEnv
 // Create local temp dir. Can be manually overrided if necessary.
 func (mixerEnvoyEnv *MixerEnvoyEnv) Bringup() (err error) {
-	log.Printf("Bringing up %s", mixerEnvoyEnv.EnvID)
-	mixerEnvoyEnv.TmpDir, err = ioutil.TempDir("", mixerEnvoyEnv.GetName())
+	log.Printf("Bringing up %s", mixerEnvoyEnv.envID)
+	mixerEnvoyEnv.tmpDir, err = ioutil.TempDir("", mixerEnvoyEnv.GetName())
+	log.Println(mixerEnvoyEnv.tmpDir)
 	return
 }
 
 // GetComponents returns a list of components, including mixer, proxy and fortio server
 func (mixerEnvoyEnv *MixerEnvoyEnv) GetComponents() []framework.Component {
-	mixerEnvoyEnv.configDir = filepath.Join(mixerEnvoyEnv.TmpDir, "mixer_config")
+	// If it's the first time GetComponents being called, i.e. comps hasn't been defined yet
+	if mixerEnvoyEnv.comps == nil {
+		// Define what components this environment has
+		mixerEnvoyEnv.configDir = filepath.Join(mixerEnvoyEnv.tmpDir, "mixer_config")
+		mixerEnvoyEnv.comps = []framework.Component{}
+		mixerEnvoyEnv.comps = append(mixerEnvoyEnv.comps, fortioServer.NewLocalComponent("my_fortio_server",
+			fortioServer.LocalCompConfig{
+				LogFile: fmt.Sprintf("%s/%s.log", mixerEnvoyEnv.tmpDir, "my_local_fortio"),
+			}))
 
-	// Define what components this environment has
-	comps := []framework.Component{}
-	comps = append(comps, fortioServer.NewLocalComponent("my_fortio_server", mixerEnvoyEnv.TmpDir))
-	comps = append(comps, mixer.NewLocalComponent("my_local_mixer", mixerEnvoyEnv.TmpDir, mixerEnvoyEnv.configDir))
-	comps = append(comps, proxy.NewLocalComponent("my_local_envoy", mixerEnvoyEnv.TmpDir))
+		mixerEnvoyEnv.comps = append(mixerEnvoyEnv.comps, proxy.NewLocalComponent("my_local_envoy",
+			proxy.LocalCompConfig{
+				LogFile: fmt.Sprintf("%s/%s.log", mixerEnvoyEnv.tmpDir, "my_local_proxy"),
+			}))
 
-	return comps
+		mixerEnvoyEnv.comps = append(mixerEnvoyEnv.comps, mixer.NewLocalComponent("my_local_mixer",
+			mixer.LocalCompConfig{
+				ConfigFileDir: mixerEnvoyEnv.configDir,
+				LogFile:       fmt.Sprintf("%s/%s.log", mixerEnvoyEnv.tmpDir, "my_local_mixer"),
+			}))
+	}
+
+	return mixerEnvoyEnv.comps
 }
 
 // Cleanup implement the function in TestEnv
 // Remove the local temp dir. Can be manually overrided if necessary.
 func (mixerEnvoyEnv *MixerEnvoyEnv) Cleanup() (err error) {
-	log.Printf("Cleaning up %s", mixerEnvoyEnv.EnvID)
-	_ = os.RemoveAll(mixerEnvoyEnv.TmpDir)
+	log.Printf("Cleaning up %s", mixerEnvoyEnv.envID)
+	_ = os.RemoveAll(mixerEnvoyEnv.tmpDir)
 	_ = os.RemoveAll(mixerEnvoyEnv.configDir)
 	return
 }

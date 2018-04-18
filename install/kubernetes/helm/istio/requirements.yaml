@@ -2,7 +2,19 @@ dependencies:
   - name: sidecar-injector
     version: 0.5.0
     # repository: file://../sidecar-injector
-    condition: sidecarInjector.enabled
+    condition: sidecar-injector.enabled
+  - name: ingress
+    version: 0.5.0
+    # repository: file://../ingress
+    condition: ingress.enabled
+  - name: ingressgateway
+    version: 0.5.0
+    # repository: file://../ingressgateway
+    condition: ingressgateway.enabled
+  - name: egressgateway
+    version: 0.5.0
+    # repository: file://../egressgateway
+    condition: egressgateway.enabled
   - name: mixer
     version: 0.5.0
     # repository: file://../mixer
@@ -11,10 +23,6 @@ dependencies:
     version: 0.5.0
     # repository: file://../pilot
     condition: pilot.enabled
-  - name: security
-    version: 0.5.0
-    # repository: file://../security
-    condition: global.securityEnabled
   - name: grafana
     version: 0.1.0
     # repository: file://../addons/grafana
@@ -31,3 +39,7 @@ dependencies:
     version: 0.1.0
     # repository: file://../addons/zipkin
     condition: zipkin.enabled
+  - name: galley
+    version: 0.5.0
+    # repository: file://../sidecar-injector
+    condition: galley.enabled

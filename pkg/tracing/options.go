@@ -32,8 +32,8 @@ type Options struct {
 	LogTraceSpans bool
 }
 
-// NewOptions returns a new set of options, initialized to the defaults
-func NewOptions() *Options {
+// DefaultOptions returns a new set of options, initialized to the defaults
+func DefaultOptions() *Options {
 	return &Options{}
 }
 
@@ -58,27 +58,12 @@ func (o *Options) TracingEnabled() bool {
 // the necessary set of flags to expose a CLI to let the user control all
 // tracing options.
 func (o *Options) AttachCobraFlags(cmd *cobra.Command) {
-	cmd.PersistentFlags().StringVarP(&o.ZipkinURL, "trace_zipkin_url", "", "",
+	cmd.PersistentFlags().StringVarP(&o.ZipkinURL, "trace_zipkin_url", "", o.ZipkinURL,
 		"URL of Zipkin collector (example: 'http://zipkin:9411/api/v1/spans').")
 
-	cmd.PersistentFlags().StringVarP(&o.JaegerURL, "trace_jaeger_url", "", "",
+	cmd.PersistentFlags().StringVarP(&o.JaegerURL, "trace_jaeger_url", "", o.JaegerURL,
 		"URL of Jaeger HTTP collector (example: 'http://jaeger:14268/api/traces?format=jaeger.thrift').")
 
-	cmd.PersistentFlags().BoolVarP(&o.LogTraceSpans, "trace_log_spans", "", false,
+	cmd.PersistentFlags().BoolVarP(&o.LogTraceSpans, "trace_log_spans", "", o.LogTraceSpans,
 		"Whether or not to log trace spans.")
-
-	// TODO: Remove all this stuff by the 0.5 release (don't forget all associated YAML templates and any other uses of these options in the code
-	// base & docs)
-	cmd.PersistentFlags().StringVarP(&o.ZipkinURL, "traceOutput", "", "", "deprecated")
-	cmd.PersistentFlags().StringVarP(&o.ZipkinURL, "zipkinURL", "", "", "deprecated")
-	cmd.PersistentFlags().StringVarP(&o.JaegerURL, "jaegerURL", "", "", "deprecated")
-	cmd.PersistentFlags().BoolVarP(&o.LogTraceSpans, "logTraceSpans", "", false, "deprecated")
-	_ = cmd.PersistentFlags().MarkDeprecated("traceOutput", "")
-	_ = cmd.PersistentFlags().MarkDeprecated("zipkinURL", "")
-	_ = cmd.PersistentFlags().MarkDeprecated("jaegerURL", "")
-	_ = cmd.PersistentFlags().MarkDeprecated("logTraceSpans", "")
-	_ = cmd.PersistentFlags().MarkHidden("traceOutput")
-	_ = cmd.PersistentFlags().MarkHidden("zipkinURL")
-	_ = cmd.PersistentFlags().MarkHidden("jaegerURL")
-	_ = cmd.PersistentFlags().MarkHidden("logTraceSpans")
 }

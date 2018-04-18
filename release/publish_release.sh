@@ -213,15 +213,13 @@ if [[ -n "${GCS_SOURCE}" ]]; then
   if [[ "${DO_GCS}" == "true" ]]; then
     mkdir -p "${UPLOAD_DIR}/deb/"
     gsutil -m cp "gs://${GCS_SOURCE}/deb/istio*.deb" "${UPLOAD_DIR}/deb/"
-    mkdir -p "${UPLOAD_DIR}/istioctl/"
-    gsutil -m cp "gs://${GCS_SOURCE}/istioctl/istioctl-*"  "${UPLOAD_DIR}/istioctl/"
   fi
   if [[ "${DO_GITHUB_TAG}" == "true" || "${DO_GITHUB_REL}" == "true" ]]; then
     gsutil -m cp "gs://${GCS_SOURCE}/manifest.xml" "${UPLOAD_DIR}/"
   fi
   if [[ "${DO_GITHUB_REL}" == "true" ]]; then
-    gsutil -m cp "gs://${GCS_SOURCE}/istio*.zip" "${UPLOAD_DIR}/"
-    gsutil -m cp "gs://${GCS_SOURCE}/istio*.gz"  "${UPLOAD_DIR}/"
+    gsutil -m cp "gs://${GCS_SOURCE}/docker.io/istio-*.zip" "${UPLOAD_DIR}/"
+    gsutil -m cp "gs://${GCS_SOURCE}/docker.io/istio-*.gz"  "${UPLOAD_DIR}/"
   fi
   if [[ "${DO_GCRHUB}" == "true" || "${DO_DOCKERHUB}" == "true" ]]; then
     mkdir -p "${UPLOAD_DIR}/docker/"
@@ -235,7 +233,6 @@ fi
 if [[ "${DO_GCS}" == "true" ]]; then
   echo "Copying to GCS destination ${GCS_DEST}"
   gsutil -m cp "${UPLOAD_DIR}/deb/istio*.deb" "gs://${GCS_DEST}/deb/"
-  gsutil -m cp "${UPLOAD_DIR}/istioctl/istioctl-*" "gs://${GCS_DEST}/istioctl/"
   echo "Done copying to GCS destination"
 fi
 
@@ -270,11 +267,11 @@ if [[ "${DO_DOCKERHUB}" == "true" || "${DO_GCRHUB}" == "true" ]]; then
     docker load -i "${TAR_PATH}"
 
     if [[ "${DO_DOCKERHUB}" == "true" ]]; then
-      docker tag "${IMAGE_NAME}" "${DOCKER_DEST}/${IMAGE_NAME}:${VERSION}"
+      docker tag "istio/${IMAGE_NAME}:${VERSION}" "${DOCKER_DEST}/${IMAGE_NAME}:${VERSION}"
       docker push "${DOCKER_DEST}/${IMAGE_NAME}:${VERSION}"
     fi
     if [[ "${DO_GCRHUB}" == "true" ]]; then
-      docker tag "${IMAGE_NAME}" "${GCR_DEST}/${IMAGE_NAME}:${VERSION}"
+      docker tag "istio/${IMAGE_NAME}:${VERSION}" "${GCR_DEST}/${IMAGE_NAME}:${VERSION}"
       gcloud docker -- push "${GCR_DEST}/${IMAGE_NAME}:${VERSION}"
     fi
   done

@@ -45,6 +45,8 @@ const reportAttributesOkGet = `
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
+  "check.cache_hit": false,
+  "quota.cache_hit": false,
   "request.headers": {
      ":method": "GET",
      ":path": "/echo",
@@ -91,6 +93,8 @@ const reportAttributesOkPost1 = `
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
+  "check.cache_hit": false,
+  "quota.cache_hit": false,
   "request.headers": {
      ":method": "POST",
      ":path": "/echo",
@@ -138,6 +142,8 @@ const reportAttributesOkPost2 = `
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
+  "check.cache_hit": false,
+  "quota.cache_hit": false,
   "request.headers": {
      ":method": "POST",
      ":path": "/echo",
@@ -161,8 +167,21 @@ const reportAttributesOkPost2 = `
 }
 `
 
+// Stats in Envoy proxy.
+var expectedStats = map[string]int{
+	"http_mixer_filter.total_blocking_remote_check_calls": 3,
+	"http_mixer_filter.total_blocking_remote_quota_calls": 0,
+	"http_mixer_filter.total_check_calls":                 3,
+	"http_mixer_filter.total_quota_calls":                 0,
+	"http_mixer_filter.total_remote_check_calls":          3,
+	"http_mixer_filter.total_remote_quota_calls":          0,
+	"http_mixer_filter.total_remote_report_calls":         1,
+	"http_mixer_filter.total_report_calls":                3,
+}
+
 func TestReportBatch(t *testing.T) {
-	s := env.NewTestSetupV2(env.ReportBatchTest, t)
+	s := env.NewTestSetup(env.ReportBatchTest, t)
+	env.SetStatsUpdateInterval(s.MfConfig(), 1)
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
@@ -189,4 +208,11 @@ func TestReportBatch(t *testing.T) {
 	s.VerifyReport(tag, reportAttributesOkGet)
 	s.VerifyReport(tag, reportAttributesOkPost1)
 	s.VerifyReport(tag, reportAttributesOkPost2)
+
+	// Check stats for Check, Quota and report calls.
+	if respStats, err := s.WaitForStatsUpdateAndGetStats(2); err == nil {
+		s.VerifyStats(respStats, expectedStats)
+	} else {
+		t.Errorf("Failed to get stats from Envoy %v", err)
+	}
 }

@@ -22,15 +22,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 	"text/template"
 
 	"github.com/ghodss/yaml"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
-
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/duration"
 	"k8s.io/api/batch/v2alpha1"
 	"k8s.io/api/core/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -45,8 +46,13 @@ import (
 
 // per-sidecar policy and status
 const (
-	istioSidecarAnnotationPolicyKey = "sidecar.istio.io/inject"
-	istioSidecarAnnotationStatusKey = "sidecar.istio.io/status"
+	sidecarAnnotationPolicyKey                        = "sidecar.istio.io/inject"
+	sidecarAnnotationStatusKey                        = "sidecar.istio.io/status"
+	sidecarAnnotationProxyImageOverride               = "sidecar.istio.io/proxyImage"
+	sidecarAnnotationIncludeOutboundIPRangesPolicyKey = "traffic.sidecar.istio.io/includeOutboundIPRanges"
+	sidecarAnnotationExcludeOutboundIPRangesPolicyKey = "traffic.sidecar.istio.io/excludeOutboundIPRanges"
+	sidecarAnnotationIncludeInboundPortsPolicyKey     = "traffic.sidecar.istio.io/includeInboundPorts"
+	sidecarAnnotationExcludeInboundPortsPolicyKey     = "traffic.sidecar.istio.io/excludeInboundPorts"
 )
 
 // InjectionPolicy determines the policy for injecting the
@@ -72,9 +78,11 @@ const (
 // Defaults values for injecting istio proxy into kubernetes
 // resources.
 const (
-	DefaultSidecarProxyUID = uint64(1337)
-	DefaultVerbosity       = 2
-	DefaultImagePullPolicy = "IfNotPresent"
+	DefaultSidecarProxyUID     = uint64(1337)
+	DefaultVerbosity           = 2
+	DefaultImagePullPolicy     = "IfNotPresent"
+	DefaultIncludeIPRanges     = "*"
+	DefaultIncludeInboundPorts = "*"
 )
 
 const (
@@ -85,9 +93,10 @@ const (
 // SidecarInjectionSpec collects all container types and volumes for
 // sidecar mesh injection
 type SidecarInjectionSpec struct {
-	InitContainers []v1.Container `yaml:"initContainers"`
-	Containers     []v1.Container `yaml:"containers"`
-	Volumes        []v1.Volume    `yaml:"volumes"`
+	InitContainers   []v1.Container            `yaml:"initContainers"`
+	Containers       []v1.Container            `yaml:"containers"`
+	Volumes          []v1.Volume               `yaml:"volumes"`
+	ImagePullSecrets []v1.LocalObjectReference `yaml:"imagePullSecrets"`
 }
 
 // SidecarTemplateData is the data object to which the templated
@@ -108,6 +117,11 @@ func InitImageName(hub string, tag string, _ bool) string {
 // ProxyImageName returns the fully qualified image name for the istio
 // proxy image given a docker hub and tag and whether to use debug or not.
 func ProxyImageName(hub string, tag string, debug bool) string {
+	// Allow overriding the proxy image.
+	image := os.Getenv("ISTIO_PROXY_IMAGE")
+	if image != "" {
+		return hub + "/" + image + ":" + tag
+	}
 	if debug {
 		return hub + "/proxy_debug:" + tag
 	}
@@ -126,10 +140,33 @@ type Params struct {
 	DebugMode       bool                   `json:"debugMode"`
 	Mesh            *meshconfig.MeshConfig `json:"-"`
 	ImagePullPolicy string                 `json:"imagePullPolicy"`
-	// Comma separated list of IP ranges in CIDR form. If set, only
-	// redirect outbound traffic to Envoy for these IP
-	// ranges. Otherwise all outbound traffic is redirected to Envoy.
+	// Comma separated list of IP ranges in CIDR form. If set, only redirect outbound traffic to Envoy for these IP
+	// ranges. All outbound traffic can be redirected with the wildcard character "*". Defaults to "*".
 	IncludeIPRanges string `json:"includeIPRanges"`
+	// Comma separated list of IP ranges in CIDR form. If set, outbound traffic will not be redirected for
+	// these IP ranges. Exclusions are only applied if configured to redirect all outbound traffic. By default,
+	// no IP ranges are excluded.
+	ExcludeIPRanges string `json:"excludeIPRanges"`
+	// Comma separated list of inbound ports for which traffic is to be redirected to Envoy. All ports can be
+	// redirected with the wildcard character "*". Defaults to "*".
+	IncludeInboundPorts string `json:"includeInboundPorts"`
+	// Comma separated list of inbound ports. If set, inbound traffic will not be redirected for those ports.
+	// Exclusions are only applied if configured to redirect all inbound traffic. By default, no ports are excluded.
+	ExcludeInboundPorts string `json:"excludeInboundPorts"`
+}
+
+// Validate validates the parameters and returns an error if there is configuration issue.
+func (p *Params) Validate() error {
+	if err := ValidateIncludeIPRanges(p.IncludeIPRanges); err != nil {
+		return err
+	}
+	if err := ValidateExcludeIPRanges(p.ExcludeIPRanges); err != nil {
+		return err
+	}
+	if err := ValidateIncludeInboundPorts(p.IncludeInboundPorts); err != nil {
+		return err
+	}
+	return ValidateExcludeInboundPorts(p.ExcludeInboundPorts)
 }
 
 // Config specifies the sidecar injection configuration This includes
@@ -141,6 +178,64 @@ type Config struct {
 	// Template is the templated version of `SidecarInjectionSpec` prior to
 	// expansion over the `SidecarTemplateData`.
 	Template string `json:"template"`
+}
+
+func validateCIDRList(cidrs string) error {
+	if len(cidrs) > 0 {
+		for _, cidr := range strings.Split(cidrs, ",") {
+			if _, _, err := net.ParseCIDR(cidr); err != nil {
+				return fmt.Errorf("failed parsing cidr '%s': %v", cidr, err)
+			}
+		}
+	}
+	return nil
+}
+
+func validatePortList(ports string) error {
+	if len(ports) > 0 {
+		for _, port := range strings.Split(ports, ",") {
+			if _, err := strconv.ParseInt(port, 10, 16); err != nil {
+				return fmt.Errorf("failed parsing port '%s': %v", port, err)
+			}
+		}
+	}
+	return nil
+}
+
+// ValidateIncludeIPRanges validates the includeIPRanges parameter
+func ValidateIncludeIPRanges(ipRanges string) error {
+	if ipRanges != "*" {
+		if e := validateCIDRList(ipRanges); e != nil {
+			return fmt.Errorf("includeIPRanges invalid: %v", e)
+		}
+	}
+	return nil
+}
+
+// ValidateExcludeIPRanges validates the excludeIPRanges parameter
+func ValidateExcludeIPRanges(ipRanges string) error {
+	if e := validateCIDRList(ipRanges); e != nil {
+		return fmt.Errorf("excludeIPRanges invalid: %v", e)
+	}
+	return nil
+}
+
+// ValidateIncludeInboundPorts validates the includeInboundPorts parameter
+func ValidateIncludeInboundPorts(ports string) error {
+	if ports != "*" {
+		if e := validatePortList(ports); e != nil {
+			return fmt.Errorf("includeInboundPorts invalid: %v", e)
+		}
+	}
+	return nil
+}
+
+// ValidateExcludeInboundPorts validates the excludeInboundPorts parameter
+func ValidateExcludeInboundPorts(ports string) error {
+	if e := validatePortList(ports); e != nil {
+		return fmt.Errorf("excludeInboundPorts invalid: %v", e)
+	}
+	return nil
 }
 
 func injectRequired(ignored []string, namespacePolicy InjectionPolicy, podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta) bool { // nolint: lll
@@ -168,7 +263,7 @@ func injectRequired(ignored []string, namespacePolicy InjectionPolicy, podSpec *
 
 	var useDefault bool
 	var inject bool
-	switch strings.ToLower(annotations[istioSidecarAnnotationPolicyKey]) {
+	switch strings.ToLower(annotations[sidecarAnnotationPolicyKey]) {
 	// http://yaml.org/type/bool.html
 	case "y", "yes", "true", "on":
 		inject = true
@@ -194,15 +289,73 @@ func injectRequired(ignored []string, namespacePolicy InjectionPolicy, podSpec *
 		}
 	}
 
-	status := annotations[istioSidecarAnnotationStatusKey]
-
-	log.Infof("Sidecar injection policy for %v/%v: namespacePolicy:%v useDefault:%v inject:%v status:%q required:%v",
-		metadata.Namespace, metadata.Name, namespacePolicy, useDefault, inject, status, required)
+	log.Debugf("Sidecar injection policy for %v/%v: namespacePolicy:%v useDefault:%v inject:%v status:%q proxyImage:%q"+
+		"required:%v includeOutboundIPRanges:%v excludeOutboundIPRanges:%v includeInboundPorts:%v excludeInboundPorts:%v",
+		metadata.Namespace,
+		metadata.Name,
+		namespacePolicy,
+		useDefault,
+		inject,
+		annotations[sidecarAnnotationProxyImageOverride],
+		annotations[sidecarAnnotationStatusKey],
+		required,
+		annotationString(annotations, sidecarAnnotationIncludeOutboundIPRangesPolicyKey),
+		annotationString(annotations, sidecarAnnotationExcludeOutboundIPRangesPolicyKey),
+		annotationString(annotations, sidecarAnnotationIncludeInboundPortsPolicyKey),
+		annotationString(annotations, sidecarAnnotationExcludeInboundPortsPolicyKey))
 
 	return required
 }
 
+func formatDuration(in *duration.Duration) string {
+	dur, err := ptypes.Duration(in)
+	if err != nil {
+		return "1s"
+	}
+	return dur.String()
+}
+
+func isset(m map[string]string, key string) bool {
+	_, ok := m[key]
+	return ok
+}
+
+func annotationString(annotations map[string]string, key string) string {
+	if val, ok := annotations[key]; ok {
+		return val
+	}
+	return "(unset)"
+}
+
+func validateAnnotation(annotations map[string]string, key string, validateFunc func(string) error) error {
+	if val, ok := annotations[key]; ok {
+		if err := validateFunc(val); err != nil {
+			return fmt.Errorf("injection failed. Invalid value for annotation %s: %s. Error: %v", key, val, err)
+		}
+	}
+	return nil
+}
+
+func validateAnnotations(metadata *metav1.ObjectMeta) error {
+	// Validate injection annotations, if present.
+	annotations := metadata.GetAnnotations()
+	if err := validateAnnotation(annotations, sidecarAnnotationIncludeOutboundIPRangesPolicyKey, ValidateIncludeIPRanges); err != nil {
+		return err
+	}
+	if err := validateAnnotation(annotations, sidecarAnnotationExcludeOutboundIPRangesPolicyKey, ValidateExcludeIPRanges); err != nil {
+		return err
+	}
+	if err := validateAnnotation(annotations, sidecarAnnotationIncludeInboundPortsPolicyKey, ValidateIncludeInboundPorts); err != nil {
+		return err
+	}
+	return validateAnnotation(annotations, sidecarAnnotationExcludeInboundPortsPolicyKey, ValidateExcludeInboundPorts)
+}
+
 func injectionData(sidecarTemplate, version string, spec *v1.PodSpec, metadata *metav1.ObjectMeta, proxyConfig *meshconfig.ProxyConfig, meshConfig *meshconfig.MeshConfig) (*SidecarInjectionSpec, string, error) { // nolint: lll
+	if err := validateAnnotations(metadata); err != nil {
+		return nil, "", err
+	}
+
 	data := SidecarTemplateData{
 		ObjectMeta:  metadata,
 		Spec:        spec,
@@ -210,8 +363,14 @@ func injectionData(sidecarTemplate, version string, spec *v1.PodSpec, metadata *
 		MeshConfig:  meshConfig,
 	}
 
+	funcMap := template.FuncMap{
+		"formatDuration": formatDuration,
+		"isset":          isset,
+	}
+
 	var tmpl bytes.Buffer
-	t := template.Must(template.New("inject").Parse(sidecarTemplate))
+	temp := template.New("inject").Delims(sidecarTemplateDelimBegin, sidecarTemplateDelimEnd)
+	t := template.Must(temp.Funcs(funcMap).Parse(sidecarTemplate))
 	if err := t.Execute(&tmpl, &data); err != nil {
 		return nil, "", err
 	}
@@ -230,6 +389,9 @@ func injectionData(sidecarTemplate, version string, spec *v1.PodSpec, metadata *
 	}
 	for _, c := range sic.Volumes {
 		status.Volumes = append(status.Volumes, c.Name)
+	}
+	for _, c := range sic.ImagePullSecrets {
+		status.ImagePullSecrets = append(status.ImagePullSecrets, c.Name)
 	}
 	statusAnnotationValue, err := json.Marshal(status)
 	if err != nil {
@@ -354,7 +516,7 @@ func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in ru
 	// affect the network provider within the cluster causing
 	// additional pod failures.
 	if podSpec.HostNetwork {
-		fmt.Fprintf(os.Stderr, "Skipping injection because %q has host networking enabled", metadata.Name)
+		fmt.Fprintf(os.Stderr, "Skipping injection because %q has host networking enabled\n", metadata.Name)
 		return out, nil
 	}
 
@@ -376,16 +538,19 @@ func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in ru
 	if metadata.Annotations == nil {
 		metadata.Annotations = make(map[string]string)
 	}
-	metadata.Annotations[istioSidecarAnnotationStatusKey] = status
+	metadata.Annotations[sidecarAnnotationStatusKey] = status
 
 	return out, nil
 }
 
 // GenerateTemplateFromParams generates a sidecar template from the legacy injection parameters
 func GenerateTemplateFromParams(params *Params) (string, error) {
-	t := template.New("inject").Delims(parameterizedTemplateDelimBegin, parameterizedTemplateDelimEnd)
+	// Validate the parameters before we go any farther.
+	if err := params.Validate(); err != nil {
+		return "", err
+	}
 	var tmp bytes.Buffer
-	err := template.Must(t.Parse(parameterizedTemplate)).Execute(&tmp, params)
+	err := template.Must(template.New("inject").Parse(parameterizedTemplate)).Execute(&tmp, params)
 	return tmp.String(), err
 }
 
@@ -393,10 +558,11 @@ func GenerateTemplateFromParams(params *Params) (string, error) {
 // injected sidecar. This includes the names of added containers and
 // volumes.
 type SidecarInjectionStatus struct {
-	Version        string   `json:"version"`
-	InitContainers []string `json:"initContainers"`
-	Containers     []string `json:"containers"`
-	Volumes        []string `json:"volumes"`
+	Version          string   `json:"version"`
+	InitContainers   []string `json:"initContainers"`
+	Containers       []string `json:"containers"`
+	Volumes          []string `json:"volumes"`
+	ImagePullSecrets []string `json:"imagePullSecrets"`
 }
 
 // helper function to generate a template version identifier from a

@@ -69,7 +69,7 @@ type Logger struct {
 
 	maxWorkers int
 
-	loopFactor bool
+	loopFactor chan bool
 
 	loopWait chan struct{}
 }
@@ -87,11 +87,11 @@ func NewLogger(paperTrailURL string, retention time.Duration, logConfigs map[str
 	p := &Logger{
 		paperTrailURL:   paperTrailURL,
 		retentionPeriod: retention,
-		cmap:            &sync.Map{},
+		cmap:            new(sync.Map),
 		log:             logger,
 		env:             env,
 		maxWorkers:      defaultWorkerCount * runtime.NumCPU(),
-		loopFactor:      true,
+		loopFactor:      make(chan bool),
 		loopWait:        make(chan struct{}),
 	}
 
@@ -165,49 +165,54 @@ func (p *Logger) flushLogs() {
 		p.loopWait <- struct{}{}
 	}()
 	re := regexp.MustCompile(keyPattern)
-	for p.loopFactor {
-		hose := make(chan interface{}, p.maxWorkers)
-		var wg sync.WaitGroup
+	for {
+		select {
+		case <-p.loopFactor:
+			return
+		default:
+			hose := make(chan interface{}, p.maxWorkers)
+			var wg sync.WaitGroup
 
-		// workers
-		for i := 0; i < p.maxWorkers; i++ {
-			p.env.ScheduleDaemon(func() {
-				for keyI := range hose {
-					key, _ := keyI.(string)
-					match := re.FindStringSubmatch(key)
-					if len(match) > 2 {
-						if err = p.sendLogs(match[2]); err == nil {
-							p.cmap.Delete(key)
-							wg.Done()
-							continue
+			// workers
+			for i := 0; i < p.maxWorkers; i++ {
+				p.env.ScheduleDaemon(func() {
+					for keyI := range hose {
+						key, _ := keyI.(string)
+						match := re.FindStringSubmatch(key)
+						if len(match) > 2 {
+							if err = p.sendLogs(match[2]); err == nil {
+								p.cmap.Delete(key)
+								wg.Done()
+								continue
+							}
+
+							tsN, _ := strconv.ParseInt(match[1], 10, 64)
+							ts := time.Unix(0, tsN)
+
+							if time.Since(ts) > p.retentionPeriod {
+								p.cmap.Delete(key)
+							}
 						}
-
-						tsN, _ := strconv.ParseInt(match[1], 10, 64)
-						ts := time.Unix(0, tsN)
-
-						if time.Since(ts) > p.retentionPeriod {
-							p.cmap.Delete(key)
-						}
+						wg.Done()
 					}
-					wg.Done()
-				}
-			})
-		}
+				})
+			}
 
-		p.cmap.Range(func(k, v interface{}) bool {
-			wg.Add(1)
-			hose <- k
-			return true
-		})
-		wg.Wait()
-		close(hose)
-		time.Sleep(500 * time.Millisecond)
+			p.cmap.Range(func(k, v interface{}) bool {
+				wg.Add(1)
+				hose <- k
+				return true
+			})
+			wg.Wait()
+			close(hose)
+			time.Sleep(500 * time.Millisecond)
+		}
 	}
 }
 
 // Close - closes the Logger instance
 func (p *Logger) Close() error {
-	p.loopFactor = false
+	p.loopFactor <- true
 	defer close(p.loopWait)
 	<-p.loopWait
 	return nil

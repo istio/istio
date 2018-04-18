@@ -58,3 +58,12 @@ func Benchmark_Single_Check(b *testing.B) {
 
 	perf.Run(b, &setup, settings)
 }
+
+func Benchmark_Single_Check_R2(b *testing.B) {
+	settings := baseSettings
+	settings.RunMode = perf.InProcessBypassGrpc
+
+	setup := baseSingleCheckSetup
+
+	perf.Run(b, &setup, settings)
+}

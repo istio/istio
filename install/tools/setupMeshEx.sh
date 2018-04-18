@@ -53,31 +53,35 @@ function istioDnsmasq() {
     PILOT_IP=$(kubectl get -n $NS service istio-pilot-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
     ISTIO_DNS=$(kubectl get -n kube-system service dns-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
     MIXER_IP=$(kubectl get -n $NS service mixer-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-    CA_IP=$(kubectl get -n $NS service istio-ca-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+    CITADEL_IP=$(kubectl get -n $NS service citadel-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 
-    if [ "${PILOT_IP}" == "" -o  "${ISTIO_DNS}" == "" -o "${MIXER_IP}" == "" -o "${CA_IP}" == "" ] ; then
-      echo "Waiting for ILBs, pilot=$PILOT_IP, MIXER_IP=$MIXER_IP, CA_IP=$CA_IP, DNS=$ISTIO_DNS - kubectl get -n $NS service: $(kubectl get -n $NS service)"
+    if [ "${PILOT_IP}" == "" -o  "${ISTIO_DNS}" == "" -o "${MIXER_IP}" == "" -o "${CITADEL_IP}" == "" ] ; then
+      echo "Waiting for ILBs, pilot=$PILOT_IP, MIXER_IP=$MIXER_IP, CITADEL_IP=$CITADEL_IP, DNS=$ISTIO_DNS - kubectl get -n $NS service: $(kubectl get -n $NS service)"
       sleep 30
     else
       break
     fi
   done
 
-  if [ "${PILOT_IP}" == "" -o  "${ISTIO_DNS}" == "" -o "${MIXER_IP}" == "" -o "${CA_IP}" == "" ] ; then
+  if [ "${PILOT_IP}" == "" -o  "${ISTIO_DNS}" == "" -o "${MIXER_IP}" == "" -o "${CITADEL_IP}" == "" ] ; then
     echo "Failed to create ILBs"
     exit 1
   fi
 
   #/etc/dnsmasq.d/kubedns
   echo "server=/svc.cluster.local/$ISTIO_DNS" > kubedns
-  echo "address=/istio-mixer/$MIXER_IP" >> kubedns
+  echo "address=/istio-policy/$MIXER_IP" >> kubedns
+  echo "address=/istio-telemetry/$MIXER_IP" >> kubedns
   echo "address=/istio-pilot/$PILOT_IP" >> kubedns
-  echo "address=/istio-ca/$CA_IP" >> kubedns
+  echo "address=/istio-citadel/$CITADEL_IP" >> kubedns
+  echo "address=/istio-ca/$CITADEL_IP" >> kubedns # Deprecated. For backward compatibility
   # Also generate host entries for the istio-system. The generated config will work with both
   # 'cluster-wide' and 'per-namespace'.
-  echo "address=/istio-mixer.$NS/$MIXER_IP" >> kubedns
+  echo "address=/istio-policy.$NS/$MIXER_IP" >> kubedns
+  echo "address=/istio-telemetry.$NS/$MIXER_IP" >> kubedns
   echo "address=/istio-pilot.$NS/$PILOT_IP" >> kubedns
-  echo "address=/istio-ca.$NS/$CA_IP" >> kubedns
+  echo "address=/istio-citadel.$NS/$CITADEL_IP" >> kubedns
+  echo "address=/istio-ca.$NS/$CITADEL_IP" >> kubedns # Deprecated. For backward compatibility
 
   echo "Generated Dnsmaq config file 'kubedns'. Install it in /etc/dnsmasq.d and restart dnsmasq."
   echo "$0 machineSetup does this for you."
@@ -110,21 +114,69 @@ function istioClusterEnv() {
 function istio_provision_certs() {
   local SA=${1:-${SERVICE_ACCOUNT:-default}}
   local NS=${2:-${SERVICE_NAMESPACE:-}}
+  local ALL=${3}
   local CERT_NAME=${ISTIO_SECRET_PREFIX:-istio.}${SA}
 
   if [[ -n "$NS" ]] ; then
     NS="-n $NS"
   fi
   local B64_DECODE=${BASE64_DECODE:-base64 --decode}
-  kubectl get $NS secret $CERT_NAME -o jsonpath='{.data.cert-chain\.pem}' | $B64_DECODE  > cert-chain.pem
   kubectl get $NS secret $CERT_NAME -o jsonpath='{.data.root-cert\.pem}' | $B64_DECODE   > root-cert.pem
-  kubectl get $NS secret $CERT_NAME -o jsonpath='{.data.key\.pem}' | $B64_DECODE   > key.pem
+  echo "Generated root-cert.pem. It should be installed on /etc/certs"
+  if [ "$ALL" == "all" ] ; then
+    kubectl get $NS secret $CERT_NAME -o jsonpath='{.data.cert-chain\.pem}' | $B64_DECODE  > cert-chain.pem
+    kubectl get $NS secret $CERT_NAME -o jsonpath='{.data.key\.pem}' | $B64_DECODE   > key.pem
+    echo "Generated cert-chain.pem and key.pem. It should be installed on /etc/certs"
+  fi
 
-  echo "Generated cert-chain.pem, root-cert.pem and key.pem. Please install them on /etc/certs"
   echo "the directory and files must be owned by 'istio-proxy' user"
   echo "$0 machineSetup does this for you."
 }
 
+# Install required files on a VM and run the setup script.
+# This is an example to help integrating the steps into the admin automation tools.
+#
+# Must be run for each VM added to the cluster
+# Params:
+# - name of the VM - used to copy files over.
+# - optional service account to be provisioned (defaults to istio.default)
+# - optional namespace of the service account and VM services, defaults to SERVICE_NAMESPACE env
+# or kube config.
+#
+# Expected to be run from the release directory (ie istio-0.2.8/ or istio/)
+function istioBootstrapGCE() {
+  local DESTINATION=${1}
+  local SA=${2:-${SERVICE_ACCOUNT:-default}}
+  local NS=${3:-${SERVICE_NAMESPACE:-}}
+
+  DEFAULT_SCRIPT="install/tools/setupIstioVM.sh"
+  SETUP_ISTIO_VM_SCRIPT=${SETUP_ISTIO_VM_SCRIPT:-${DEFAULT_SCRIPT}}
+  echo "Making certs for service account $SA (namespace $NS)"
+  istio_provision_certs $SA $NS "root-cert-only"
+
+  for i in {1..10}; do
+    # Copy deb, helper and config files
+    istioCopy $DESTINATION \
+      kubedns \
+      *.pem \
+      cluster.env \
+      istio.VERSION \
+      ${SETUP_ISTIO_VM_SCRIPT}
+
+    if [[ $? -ne 0 ]]; then
+      echo "scp failed, retry in 10 sec"
+      sleep 10
+    else
+      echo "scp succeeded"
+      break
+    fi
+  done
+
+  istioRun $DESTINATION "ls -a"
+
+  # Run the setup script.
+  istioRun $DESTINATION "sudo bash -c -x ./setupIstioVM.sh"
+}
 
 # Install required files on a VM and run the setup script.
 # This is an example to help integrating the steps into the admin automation tools.
@@ -145,7 +197,7 @@ function istioBootstrapVM() {
   DEFAULT_SCRIPT="install/tools/setupIstioVM.sh"
   SETUP_ISTIO_VM_SCRIPT=${SETUP_ISTIO_VM_SCRIPT:-${DEFAULT_SCRIPT}}
   echo "Making certs for service account $SA (namespace $NS)"
-  istio_provision_certs $SA $NS
+  istio_provision_certs $SA $NS "all"
 
   for i in {1..10}; do
     # Copy deb, helper and config files
@@ -204,13 +256,17 @@ elif [[ ${1:-} == "generateClusterEnv" ]] ; then
   istioClusterEnv $1
 elif [[ ${1:-} == "machineCerts" ]] ; then
   shift
-  istio_provision_certs $1 $2
+  istio_provision_certs $1 $2 $3
 elif [[ ${1:-} == "machineSetup" ]] ; then
   shift
   istioBootstrapVM $1
+elif [[ ${1:-} == "gceMachineSetup" ]] ; then
+  shift
+  istioBootstrapGCE $1
 else
   echo "$0 generateDnsmasq: Generate dnsmasq config files (one time)"
   echo "GCP_OPTS=\"--project P --zone Z\" $0 generateClusterEnv K8S_CLUSTER_NAME: Generate cluster range config files (one time)"
   echo "$0 machineCerts SERVICE_ACCOUNT: Generate bootstrap machine certs. Uses 'default' account if no parameters (one time per host)"
   echo "$0 machineSetup HOST: Copy files to HOST, and run the setup script (one time per host)"
+  echo "$0 gceMachineSetup HOST: Copy files to a GCE HOST, and run the setup script (one time per host)"
 fi

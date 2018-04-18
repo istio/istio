@@ -22,12 +22,10 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
+
 	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/log"
@@ -36,24 +34,24 @@ import (
 )
 
 const (
-	u1                       = "normal-user"
-	u2                       = "test-user"
-	bookinfoYaml             = "samples/bookinfo/kube/bookinfo.yaml"
-	bookinfoRatingsv2Yaml    = "samples/bookinfo/kube/bookinfo-ratings-v2.yaml"
-	bookinfoRatingsMysqlYaml = "samples/bookinfo/kube/bookinfo-ratings-v2-mysql.yaml"
-	bookinfoDbYaml           = "samples/bookinfo/kube/bookinfo-db.yaml"
-	bookinfoMysqlYaml        = "samples/bookinfo/kube/bookinfo-mysql.yaml"
-	modelDir                 = "tests/apps/bookinfo/output"
-	rulesDir                 = "samples/bookinfo/kube"
-	allRule                  = "route-rule-all-v1.yaml"
-	testRule                 = "route-rule-reviews-test-v2.yaml"
+	u1             = "normal-user"
+	u2             = "test-user"
+	bookinfoYaml   = "samples/bookinfo/kube/bookinfo.yaml"
+	modelDir       = "tests/apps/bookinfo/output"
+	rulesDir       = "samples/bookinfo/kube"
+	allRule        = "route-rule-all-v1.yaml"
+	testRule       = "route-rule-reviews-test-v2.yaml"
+	testRetryTimes = 10
 )
 
 var (
-	tc              *testConfig
-	testRetryTimes  = 5
-	defaultRules    = []string{allRule, testRule}
-	flagBaseVersion = flag.String("base_version", "0.4.0", "Base version to use for upgrade.")
+	tc                *testConfig
+	baseConfig        *framework.CommonConfig
+	targetConfig      *framework.CommonConfig
+	defaultRules      = []string{allRule, testRule}
+	flagBaseVersion   = flag.String("base_version", "0.4.0", "Base version to upgrade from.")
+	flagTargetVersion = flag.String("target_version", "0.5.1", "Target version to upgrade to.")
+	flagSmoothCheck   = flag.Bool("smooth_check", false, "Whether to check the upgrade is smooth.")
 )
 
 type testConfig struct {
@@ -63,7 +61,6 @@ type testConfig struct {
 }
 
 func (t *testConfig) Setup() error {
-	t.gateway = "http://" + tc.Kube.Ingress
 	//generate rule yaml files, replace "jason" with actual user
 	for _, rule := range defaultRules {
 		src := util.GetResourcePath(filepath.Join(rulesDir, rule))
@@ -83,9 +80,16 @@ func (t *testConfig) Setup() error {
 
 	}
 
-	if !util.CheckPodsRunning(tc.Kube.Namespace) {
+	if !util.CheckPodsRunning(tc.Kube.Namespace, tc.Kube.KubeConfig) {
 		return fmt.Errorf("can't get all pods running")
 	}
+
+	gateway, errGw := tc.Kube.Ingress()
+	if errGw != nil {
+		return errGw
+	}
+
+	t.gateway = gateway
 
 	return setUpDefaultRouting()
 }
@@ -138,36 +142,36 @@ func inspect(err error, fMsg, sMsg string, t *testing.T) {
 	}
 }
 
-func probeGateway() error {
+func probeGateway(retryTimes int) error {
+	var err1, err2 error
 	standby := 0
-	for i := 0; i <= testRetryTimes; i++ {
+	v1File := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v1.html"))
+	v2File := util.GetResourcePath(filepath.Join(modelDir, "productpage-test-user-v2.html"))
+	for i := 0; i <= retryTimes; i++ {
 		time.Sleep(time.Duration(standby) * time.Second)
-		resp, err := http.Get(fmt.Sprintf("%s/productpage", tc.gateway))
-		if err != nil {
-			log.Infof("Error talking to productpage: %s", err)
-		} else {
-			log.Infof("Get from page: %d", resp.StatusCode)
-			if resp.StatusCode == http.StatusOK {
-				log.Info("Get response from product page!")
-				break
-			}
-			closeResponseBody(resp)
-		}
-		if i == testRetryTimes {
-			return errors.New("unable to set default route")
+		_, err1 = checkRoutingResponse(u1, "v1", tc.gateway, v1File)
+		_, err2 = checkRoutingResponse(u2, "v2", tc.gateway, v2File)
+		if err1 == nil && err2 == nil {
+			log.Infof("Successfully getting response from gateway.")
+			return nil
 		}
 		standby += 5
 		log.Warnf("Couldn't get to the bookinfo product page, trying again in %d second", standby)
 	}
-	log.Info("Success! Default route got expected response")
-	return nil
+	if err1 != nil {
+		log.Errorf("Failed version routing! %s in v1: %s", u1, err1)
+	}
+	if err2 != nil {
+		log.Errorf("Failed version routing! %s in v2: %s", u2, err2)
+	}
+	return errors.New("unable to get valid response from gateway")
 }
 
 func setUpDefaultRouting() error {
 	if err := applyRules(defaultRules); err != nil {
 		return fmt.Errorf("could not apply rule '%s': %v", allRule, err)
 	}
-	return probeGateway()
+	return probeGateway(testRetryTimes)
 }
 
 func checkRoutingResponse(user, version, gateway, modelFile string) (int, error) {
@@ -196,57 +200,17 @@ func checkRoutingResponse(user, version, gateway, modelFile string) (int, error)
 	}
 
 	if err = util.CompareToFile(body, modelFile); err != nil {
-		log.Errorf("Error: User %s in version %s didn't get expected response", user, version)
 		duration = -1
 	}
 	closeResponseBody(resp)
 	return duration, err
 }
 
-func checkHTTPResponse(user, gateway, expr string, count int) (int, error) {
-	resp, err := http.Get(fmt.Sprintf("%s/productpage", tc.gateway))
-	if err != nil {
-		return -1, err
-	}
-
-	defer closeResponseBody(resp)
-	log.Infof("Get from page: %d", resp.StatusCode)
-	if resp.StatusCode != http.StatusOK {
-		log.Errorf("Get response from product page failed!")
-		return -1, fmt.Errorf("status code is %d", resp.StatusCode)
-	}
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return -1, err
-	}
-
-	if expr == "" {
-		return 1, nil
-	}
-
-	re, err := regexp.Compile(expr)
-	if err != nil {
-		return -1, err
-	}
-
-	ref := re.FindAll(body, -1)
-	if ref == nil {
-		log.Infof("%v", string(body))
-		return -1, fmt.Errorf("could not find %v in response", expr)
-	}
-	if count > 0 && len(ref) < count {
-		log.Infof("%v", string(body))
-		return -1, fmt.Errorf("could not find %v # of %v in response. found %v", count, expr, len(ref))
-	}
-	return 1, nil
-}
-
 func deleteRules(ruleKeys []string) error {
 	var err error
 	for _, ruleKey := range ruleKeys {
 		rule := filepath.Join(tc.rulesDir, ruleKey)
-		if e := util.KubeDelete(tc.Kube.Namespace, rule); e != nil {
+		if e := util.KubeDelete(tc.Kube.Namespace, rule, tc.Kube.KubeConfig); e != nil {
 			err = multierror.Append(err, e)
 		}
 	}
@@ -258,7 +222,7 @@ func deleteRules(ruleKeys []string) error {
 func applyRules(ruleKeys []string) error {
 	for _, ruleKey := range ruleKeys {
 		rule := filepath.Join(tc.rulesDir, ruleKey)
-		if err := util.KubeApply(tc.Kube.Namespace, rule); err != nil {
+		if err := util.KubeApply(tc.Kube.Namespace, rule, tc.Kube.KubeConfig); err != nil {
 			//log.Errorf("Kubectl apply %s failed", rule)
 			return err
 		}
@@ -268,85 +232,88 @@ func applyRules(ruleKeys []string) error {
 	return nil
 }
 
-func checkRouting(t *testing.T) {
-	var err error
-	v1File := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v1.html"))
-	v2File := util.GetResourcePath(filepath.Join(modelDir, "productpage-test-user-v2.html"))
-	_, err = checkRoutingResponse(u1, "v1", tc.gateway, v1File)
-	inspect(
-		err, fmt.Sprintf("Failed version routing! %s in v1", u1),
-		fmt.Sprintf("Success! Response matches with expected! %s in v1", u1), t)
-	_, err = checkRoutingResponse(u2, "v2", tc.gateway, v2File)
-	inspect(
-		err, fmt.Sprintf("Failed version routing! %s in v2", u2),
-		fmt.Sprintf("Success! Response matches with expected! %s in v2", u2), t)
+func upgradeControlPlane() error {
+	// Generate and deploy Isito yaml files.
+	err := targetConfig.Kube.Setup()
+	if err != nil {
+		return err
+	}
+	if !util.CheckPodsRunningWithMaxDuration(targetConfig.Kube.Namespace, 600*time.Second, tc.Kube.KubeConfig) {
+		return fmt.Errorf("can't get all pods running when upgrading control plane")
+	}
+	if _, err = util.Shell("kubectl get all -n %s -o wide", targetConfig.Kube.Namespace); err != nil {
+		return err
+	}
+	// TODO: Check control plane version.
+	// Update gateway address
+	gateway, errGw := targetConfig.Kube.Ingress()
+	if errGw != nil {
+		return errGw
+	}
+
+	tc.gateway = gateway
+	return nil
 }
 
-func upgradeControlPlane() error {
-	k, err := framework.NewCommonConfig("upgrade_test")
+func upgradeSidecars() error {
+	err := targetConfig.Kube.Istioctl.Setup()
 	if err != nil {
 		return err
 	}
-	// Generate and deploy Isito yaml files.
-	err = k.Kube.Setup()
+	err = targetConfig.Kube.AppManager.Setup()
 	if err != nil {
 		return err
 	}
-	if !util.CheckPodsRunning(k.Kube.Namespace) {
-		return fmt.Errorf("can't get all pods running")
+	if !util.CheckPodsRunningWithMaxDuration(targetConfig.Kube.Namespace, 600*time.Second, tc.Kube.KubeConfig) {
+		return fmt.Errorf("can't get all pods running when upgrading sidecar")
 	}
-	util.Shell("kubectl get all -n %s -o wide", k.Kube.Namespace)
-	// Update gateway address
-	tc.gateway = "http://" + k.Kube.Ingress
+	// TODO: Check sidecar version.
 	return nil
 }
 
 func TestUpgrade(t *testing.T) {
-	checkRouting(t)
 	err := upgradeControlPlane()
 	inspect(err, "Failed to upgrade control plane", "Control plane upgraded.", t)
 	if err != nil {
 		return
 	}
-	err = probeGateway()
-	inspect(err, "Failed to reach Gateway after upgrade", "", t)
+	if *flagSmoothCheck {
+		err = probeGateway(testRetryTimes)
+		inspect(err, "Probing Gateway failed after control plane upgraded.", "", t)
+	}
+	err = upgradeSidecars()
+	inspect(err, "Failed to upgrade sidecars.", "Sidecar upgraded.", t)
 	if err != nil {
 		return
 	}
-	checkRouting(t)
+	err = probeGateway(testRetryTimes)
+	inspect(err, "Probing Gateway failed after sidecar upgraded.", "", t)
 }
 
 func setTestConfig() error {
-	cc, err := framework.NewTestConfig("upgrade_test", *flagBaseVersion)
+	var err error
+	baseConfig, err = framework.NewCommonConfigWithVersion("upgrade_test", *flagBaseVersion)
 	if err != nil {
 		return err
 	}
-	tc = new(testConfig)
-	tc.CommonConfig = cc
-	tc.rulesDir, err = ioutil.TempDir(os.TempDir(), "upgrade_test")
+	targetConfig, err = framework.NewCommonConfigWithVersion("upgrade_test", *flagTargetVersion)
 	if err != nil {
 		return err
 	}
-	demoApps := []framework.App{{AppYaml: util.GetResourcePath(bookinfoYaml),
-		KubeInject: true,
-	},
-		{AppYaml: util.GetResourcePath(bookinfoRatingsv2Yaml),
-			KubeInject: true,
-		},
-		{AppYaml: util.GetResourcePath(bookinfoRatingsMysqlYaml),
-			KubeInject: true,
-		},
-		{AppYaml: util.GetResourcePath(bookinfoDbYaml),
-			KubeInject: true,
-		},
-		{AppYaml: util.GetResourcePath(bookinfoMysqlYaml),
+	demoApps := []framework.App{
+		{
+			AppYaml:    util.GetResourcePath(bookinfoYaml),
 			KubeInject: true,
 		},
 	}
 	for i := range demoApps {
-		tc.Kube.AppManager.AddApp(&demoApps[i])
+		baseConfig.Kube.AppManager.AddApp(&demoApps[i])
+		targetConfig.Kube.AppManager.AddApp(&demoApps[i])
 	}
-	return nil
+	tc = new(testConfig)
+	tc.CommonConfig = baseConfig
+	tc.rulesDir, err = ioutil.TempDir(os.TempDir(), "upgrade_test")
+	return err
 }
 
 func TestMain(m *testing.M) {

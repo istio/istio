@@ -15,6 +15,14 @@
 # limitations under the License.
 #
 # This script builds and link stamps the output
+
+VERBOSE=${VERBOSE:-"0"}
+V=""
+if [[ "${VERBOSE}" == "1" ]];then
+    V="-x"
+    set -x
+fi
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 OUT=${1:?"output path"}
@@ -22,12 +30,6 @@ VERSION_PACKAGE=${2:?"version go package"} # istio.io/istio/pkg/version
 BUILDPATH=${3:?"path to build"}
 
 set -e
-
-VERBOSE=${VERBOSE:-"0"}
-V=""
-if [[ "${VERBOSE}" == "1" ]];then
-    V="-x"
-fi
 
 GOOS=${GOOS:-linux}
 GOARCH=${GOARCH:-amd64}

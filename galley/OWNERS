@@ -1,11 +1,6 @@
-reviewers:
-  - xiaolanz
-  - geeknoid
-  - ozevren
-  - cmluciano
 approvers:
-  - xiaolanz
+  - cmluciano
   - geeknoid
   - ozevren
-  - cmluciano
-
+  - xiaolanz
+  - ayj

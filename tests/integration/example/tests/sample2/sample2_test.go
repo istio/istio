@@ -21,14 +21,21 @@ import (
 	"os"
 	"testing"
 
-	mixerEnvoyEnv "istio.io/istio/tests/integration/example/environment/mixerEnvoyEnv"
+	"istio.io/istio/tests/integration/component/mixer"
+	"istio.io/istio/tests/integration/component/proxy"
+	"istio.io/istio/tests/integration/example/environment/mixerEnvoyEnv"
 	"istio.io/istio/tests/integration/framework"
 )
 
+// This sample shows how to reuse a test environment in different test cases.
+// Two test cases are using the same environment.
+// TestEcho verifies the proxy routing behavior.
+// TestMetrics verifies the metrics endpoint provided by mixer.
+// The environment is brought up at the beginning, followed by two test cases
+// and will be teared down after both tests finish.
+
 const (
 	mixerEnvoyEnvName = "mixer_envoy_env"
-	sidecarEndpoint   = "http://localhost:9090/echo"
-	metricsEndpoint   = "http://localhost:42422/metrics"
 	testID            = "sample2_test"
 )
 
@@ -36,10 +43,36 @@ var (
 	testEM *framework.TestEnvManager
 )
 
-func TestSample2(t *testing.T) {
-	log.Printf("Running %s", testEM.TestID)
+func TestEcho(t *testing.T) {
+	log.Printf("Running %s: echo test", testEM.GetID())
+
+	sideCarStatus, ok := testEM.GetEnv().GetComponents()[1].GetStatus().(proxy.LocalCompStatus)
+	if !ok {
+		t.Fatalf("failed to get side car proxy status")
+	}
+	url := sideCarStatus.SideCarEndpoint
+
 	client := &http.Client{}
-	req, _ := http.NewRequest(http.MethodGet, sidecarEndpoint, nil)
+	req, _ := http.NewRequest(http.MethodGet, url, nil)
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("error when do request: %s", err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("response code is not 200: %d", resp.StatusCode)
+	}
+	log.Printf("%s echo test succeeded!", testEM.GetID())
+}
+
+func TestMetrics(t *testing.T) {
+	log.Printf("Running %s: metrics test", testEM.GetID())
+
+	mixerStatus, ok := testEM.GetEnv().GetComponents()[2].GetStatus().(mixer.LocalCompStatus)
+	if !ok {
+		t.Fatalf("failed to get status of mixer component")
+	}
+	req, _ := http.NewRequest(http.MethodGet, mixerStatus.MetricsEndpoint, nil)
+	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
 		t.Fatalf("error when do request: %s", err)
@@ -48,16 +81,13 @@ func TestSample2(t *testing.T) {
 		t.Fatalf("response code is not 200: %d", resp.StatusCode)
 	}
 
-	req, _ = http.NewRequest(http.MethodGet, metricsEndpoint, nil)
-	resp, err = client.Do(req)
-	if err != nil {
-		t.Fatalf("error when do request: %s", err)
+	config := testEM.GetEnv().GetComponents()[2].GetConfig()
+	mixerConfig, ok := config.(mixer.LocalCompConfig)
+	if !ok {
+		t.Fatalf("failed to get config of mixer component")
 	}
-	if resp.StatusCode != 200 {
-		t.Fatalf("response code is not 200: %d", resp.StatusCode)
-	}
-
-	log.Printf("%s succeeded!", testEM.TestID)
+	log.Printf("mixer configfile Dir is: %s", mixerConfig.ConfigFileDir)
+	log.Printf("%s metrics test succeeded!", testEM.GetID())
 }
 
 func TestMain(m *testing.M) {

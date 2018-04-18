@@ -18,13 +18,14 @@ import (
 	"fmt"
 	"testing"
 
-	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
+	rpc "github.com/gogo/googleapis/google/rpc"
+
 	"istio.io/istio/mixer/test/client/env"
 )
 
 // Mixer server returns INTERNAL failure.
 func TestMixerInternalFail(t *testing.T) {
-	s := env.NewTestSetup(env.MixerInternalFailTest, t, env.BasicConfig)
+	s := env.NewTestSetup(env.MixerInternalFailTest, t)
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
@@ -37,7 +38,7 @@ func TestMixerInternalFail(t *testing.T) {
 		Code: int32(rpc.INTERNAL),
 	})
 
-	tag := "Fail-Open-v1"
+	tag := "Fail-Open"
 	code, _, err := env.HTTPGet(url)
 	if err != nil {
 		t.Errorf("Failed in request %s: %v", tag, err)
@@ -47,39 +48,13 @@ func TestMixerInternalFail(t *testing.T) {
 		t.Errorf("Status code 200 is expected, got %d.", code)
 	}
 
-	s.SetConf(env.BasicConfig + "," + env.NetworkFailClose)
-	s.ReStartEnvoy()
-
-	tag = "Fail-Close-V1"
-	// Use fail close policy.
-	code, _, err = env.HTTPGet(url)
-	if err != nil {
-		t.Errorf("Failed in request %s: %v", tag, err)
-	}
-	// Since fail_close policy, expect 500.
-	if code != 500 {
-		t.Errorf("Status code 500 is expected, got %d.", code)
-	}
-
-	s.SetV2Conf()
-	s.ReStartEnvoy()
-
-	tag = "Fail-Open"
-	// Default is fail open policy.
-	code, _, err = env.HTTPGet(url)
-	if err != nil {
-		t.Errorf("Failed in request %s: %v", tag, err)
-	}
-	if code != 200 {
-		t.Errorf("Status code 200 is expected, got %d.", code)
-	}
-
 	// Set to fail_close
-	env.SetNetworPolicy(s.V2().HTTPServerConf, false)
+	env.SetNetworPolicy(s.MfConfig().HTTPServerConf, false)
 	s.ReStartEnvoy()
 
 	tag = "Fail-Close"
 	// Use fail close policy.
+	url = fmt.Sprintf("http://localhost:%d/echo", s.Ports().ServerProxyPort)
 	code, _, err = env.HTTPGet(url)
 	if err != nil {
 		t.Errorf("Failed in request %s: %v", tag, err)

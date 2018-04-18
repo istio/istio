@@ -16,10 +16,9 @@ package util
 
 import (
 	"fmt"
-	"testing"
+	"strings"
 	"time"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
+
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -123,6 +122,9 @@ func CopyPodFiles(container, pod, ns, source, dest string) {
 // GetAppPods awaits till all pods are running in a namespace, and returns a map
 // from "app" label value to the pod names.
 func GetAppPods(cl kubernetes.Interface, kubeconfig string, nslist []string) (map[string][]string, error) {
+	// TODO: clean and move this method to top level, 'AwaitPods' or something similar,
+	// merged with the similar method used by the other tests. Eventually make it part of
+	// istioctl or a similar helper.
 	pods := make(map[string][]string)
 	var items []v1.Pod
 
@@ -138,6 +140,14 @@ func GetAppPods(cl kubernetes.Interface, kubeconfig string, nslist []string) (ma
 			ready := true
 
 			for _, pod := range items {
+				// Exclude pods that may be in non-running state when helm is used to
+				// initialize.
+				if strings.HasPrefix(pod.Name, "istio-mixer-create") {
+					continue
+				}
+				if strings.HasPrefix(pod.Name, "istio-sidecar-injector") {
+					continue
+				}
 				if pod.Status.Phase != "Running" {
 					log.Infof("Pod %s.%s has status %s", pod.Name, ns, pod.Status.Phase)
 					ready = false
@@ -161,6 +171,9 @@ func GetAppPods(cl kubernetes.Interface, kubeconfig string, nslist []string) (ma
 					if app, exists := pod.Labels["app"]; exists {
 						pods[app] = append(pods[app], pod.Name)
 					}
+					if app, exists := pod.Labels["istio"]; exists {
+						pods[app] = append(pods[app], pod.Name)
+					}
 				}
 
 				break
@@ -174,6 +187,7 @@ func GetAppPods(cl kubernetes.Interface, kubeconfig string, nslist []string) (ma
 		}
 	}
 
+	log.Infof("Found pods: %v", pods)
 	return pods, nil
 }
 
@@ -194,18 +208,4 @@ func FetchLogs(cl kubernetes.Interface, name, namespace string, container string
 		}
 	}
 	return string(raw)
-}
-
-// Eventually retries until f() returns true, or it times out in error
-func Eventually(f func() bool, t *testing.T) {
-	interval := 64 * time.Millisecond
-	for i := 0; i < 10; i++ {
-		if f() {
-			return
-		}
-		log.Infof("Sleeping %v", interval)
-		time.Sleep(interval)
-		interval = 2 * interval
-	}
-	t.Errorf("Failed to satisfy function")
 }

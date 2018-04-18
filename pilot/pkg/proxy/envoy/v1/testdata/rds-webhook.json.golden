@@ -1,1 +1,1 @@
-'routes': [ {'name': 'Hello-RDS-WebHook'}]
+{"routes": [ {"name": "Hello-RDS-WebHook"}]}

@@ -60,6 +60,7 @@ func (m *Params) Reset()                    { *m = Params{} }
 func (*Params) ProtoMessage()               {}
 func (*Params) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{0} }
 
+// Defines a quota's limit and duration.
 type Params_Quota struct {
 	// The name of the quota
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -106,6 +107,8 @@ func (m *Params_Quota) GetOverrides() []Params_Override {
 	return nil
 }
 
+// Defines an override value for a quota. If no override matches
+// a particular quota request, the default for the quota is used.
 type Params_Override struct {
 	// The specific dimensions for which this override applies.
 	// String representation of instance dimensions is used to check against configured dimensions.

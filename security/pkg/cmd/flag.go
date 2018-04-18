@@ -26,10 +26,4 @@ func InitializeFlags(rootCmd *cobra.Command) {
 	flag.CommandLine.VisitAll(func(gf *flag.Flag) {
 		rootCmd.PersistentFlags().AddGoFlag(gf)
 	})
-
-	// hack to make flag.Parsed return true such that glog is happy
-	// about the flags having been parsed
-	flagSet := flag.NewFlagSet("", flag.ContinueOnError)
-	_ = flagSet.Parse([]string{})
-	flag.CommandLine = flagSet
 }

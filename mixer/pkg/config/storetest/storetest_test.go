@@ -15,7 +15,6 @@
 package storetest
 
 import (
-	"context"
 	"testing"
 
 	"github.com/gogo/protobuf/proto"
@@ -94,14 +93,13 @@ func TestSetupStore(t *testing.T) {
 			if err != nil {
 				return
 			}
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-			if err = s.Init(ctx, map[string]proto.Message{"rule": &types.Empty{}}); err != nil {
+			if err = s.Init(map[string]proto.Message{"rule": &types.Empty{}}); err != nil {
 				t.Fatalf("Failed to init: %v", err)
 			}
 			if d := s.List(); len(d) != c.count {
 				t.Errorf("Got %d (%+v), Want %d", len(d), d, c.count)
 			}
+			s.Stop()
 		})
 	}
 }

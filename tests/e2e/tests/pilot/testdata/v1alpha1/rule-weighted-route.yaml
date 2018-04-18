@@ -1,0 +1,15 @@
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: default-route
+spec:
+  destination:
+    name: c
+  precedence: 1
+  route:
+    - labels:
+         version: v1
+      weight: 75
+    - labels:
+         version: v2
+      weight: 25

@@ -57,32 +57,28 @@ func (fetcher *mockTokenFetcher) FetchServiceAccount() (string, error) {
 
 func TestGcpGetServiceIdentity(t *testing.T) {
 	testCases := map[string]struct {
-		cfg         GcpConfig
-		sa          string
-		err         string
-		expectedSa  string
-		expectedErr string
+		rootCertFile string
+		sa           string
+		err          string
+		expectedSa   string
+		expectedErr  string
 	}{
 		"success": {
-			cfg: GcpConfig{
-				RootCACertFile: "testdata/cert-chain-good.pem",
-			},
-			sa:         "464382306716@developer.gserviceaccount.com",
-			expectedSa: "spiffe://cluster.local/ns/default/sa/464382306716@developer.gserviceaccount.com",
+			rootCertFile: "testdata/cert-chain-good.pem",
+			sa:           "464382306716@developer.gserviceaccount.com",
+			expectedSa:   "spiffe://cluster.local/ns/default/sa/464382306716@developer.gserviceaccount.com",
 		},
 		"fetch error": {
-			cfg: GcpConfig{
-				RootCACertFile: "testdata/cert-chain-good.pem",
-			},
-			err:         "failed to fetch service account",
-			expectedErr: "failed to fetch service account",
+			rootCertFile: "testdata/cert-chain-good.pem",
+			err:          "failed to fetch service account",
+			expectedErr:  "failed to fetch service account",
 		},
 	}
 
 	for id, c := range testCases {
 		gcp := GcpClientImpl{
-			config:  c.cfg,
-			fetcher: &mockTokenFetcher{"", "", c.sa, c.err},
+			rootCertFile: c.rootCertFile,
+			fetcher:      &mockTokenFetcher{"", "", c.sa, c.err},
 		}
 
 		actualSa, err := gcp.GetServiceIdentity()
@@ -108,40 +104,32 @@ func TestGetDialOptions(t *testing.T) {
 	assert.Equal(t, err, nil, "Unable to get credential for testdata/cert-chain-good.pem")
 
 	testCases := map[string]struct {
-		cfg             GcpConfig
+		rootCertFile    string
 		token           string
 		tokenFetchErr   string
 		expectedErr     string
 		expectedOptions []grpc.DialOption
 	}{
 		"nil configuration": {
-			cfg: GcpConfig{
-				RootCACertFile: "testdata/cert-chain-good.pem",
-			},
+			rootCertFile:  "testdata/cert-chain-good.pem",
 			token:         "abcdef",
 			expectedErr:   "Nil configuration passed",
 			tokenFetchErr: "Nil configuration passed",
 		},
 		"Token fetch error": {
-			cfg: GcpConfig{
-				RootCACertFile: "testdata/cert-chain-good.pem",
-			},
+			rootCertFile:  "testdata/cert-chain-good.pem",
 			token:         "",
 			expectedErr:   "Nil configuration passed",
 			tokenFetchErr: "Nil configuration passed",
 		},
 		"Root certificate file read error": {
-			cfg: GcpConfig{
-				RootCACertFile: "testdata/cert-chain-good_not_exist.pem",
-			},
+			rootCertFile:  "testdata/cert-chain-good_not_exist.pem",
 			token:         token,
 			tokenFetchErr: "",
 			expectedErr:   "open testdata/cert-chain-good_not_exist.pem: no such file or directory",
 		},
 		"Token fetched": {
-			cfg: GcpConfig{
-				RootCACertFile: "testdata/cert-chain-good.pem",
-			},
+			rootCertFile:  "testdata/cert-chain-good.pem",
 			token:         token,
 			tokenFetchErr: "",
 			expectedOptions: []grpc.DialOption{
@@ -153,8 +141,8 @@ func TestGetDialOptions(t *testing.T) {
 
 	for id, c := range testCases {
 		gcp := GcpClientImpl{
-			config:  c.cfg,
-			fetcher: &mockTokenFetcher{c.token, c.tokenFetchErr, "", ""},
+			rootCertFile: c.rootCertFile,
+			fetcher:      &mockTokenFetcher{c.token, c.tokenFetchErr, "", ""},
 		}
 
 		options, err := gcp.GetDialOptions()
@@ -265,7 +253,7 @@ func TestGcpGetAgentCredentials(t *testing.T) {
 	}
 
 	for id, c := range testCases {
-		gcp := GcpClientImpl{GcpConfig{}, &mockTokenFetcher{c.token, c.tokenFetchErr, "", ""}}
+		gcp := GcpClientImpl{"", "", &mockTokenFetcher{c.token, c.tokenFetchErr, "", ""}}
 
 		credential, err := gcp.GetAgentCredential()
 		if len(c.expectedErr) > 0 {
@@ -289,21 +277,21 @@ func TestGcpGetAgentCredentials(t *testing.T) {
 
 func TestGcpGetCredentialTypes(t *testing.T) {
 	testCases := map[string]struct {
-		cfg           GcpConfig
+		rootCertFile  string
 		token         string
 		tokenFetchErr string
 		expectedType  string
 	}{
 		"Good Identity": {
-			cfg:          GcpConfig{},
+			rootCertFile: "",
 			expectedType: "gcp",
 		},
 	}
 
 	for id, c := range testCases {
 		gcp := GcpClientImpl{
-			config:  c.cfg,
-			fetcher: &mockTokenFetcher{c.token, c.tokenFetchErr, "", ""},
+			rootCertFile: c.rootCertFile,
+			fetcher:      &mockTokenFetcher{c.token, c.tokenFetchErr, "", ""},
 		}
 
 		credentialType := gcp.GetCredentialType()

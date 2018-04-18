@@ -16,48 +16,50 @@ package platform
 
 import (
 	"testing"
+
+	"cloud.google.com/go/compute/metadata"
 )
 
 func TestNewClient(t *testing.T) {
 	testCases := map[string]struct {
-		platform     string
-		cfg          ClientConfig
-		caAddr       string
-		expectedErr  string
-		expectedType string
+		platform      string
+		rootCertFile  string
+		keyFile       string
+		certChainFile string
+		caAddr        string
+		expectedErr   string
 	}{
 		"onprem test": {
-			platform: "onprem",
-			cfg: ClientConfig{
-				OnPremConfig: OnPremConfig{
-					RootCACertFile: "testdata/cert-chain-good.pem",
-				},
-			},
-			caAddr:       "localhost",
-			expectedErr:  "",
-			expectedType: "onprem",
+			platform:      "onprem",
+			rootCertFile:  "testdata/cert-root-good.pem",
+			keyFile:       "testdata/key-from-root-good.pem",
+			certChainFile: "testdata/cert-from-root-good.pem",
+			caAddr:        "localhost",
+			expectedErr:   "",
 		},
 		"gcp test": {
-			platform: "gcp",
-			cfg: ClientConfig{
-				GcpConfig: GcpConfig{
-					RootCACertFile: "testdata/cert-chain-good.pem",
-				},
-			},
-			caAddr:       "localhost",
-			expectedErr:  "",
-			expectedType: "gcp",
+			platform:      "gcp",
+			rootCertFile:  "testdata/cert-root-good.pem",
+			keyFile:       "testdata/key-from-root-good.pem",
+			certChainFile: "testdata/cert-chain-good.pem",
+			caAddr:        "localhost",
+			expectedErr:   "",
 		},
 		"aws test": {
-			platform: "aws",
-			cfg: ClientConfig{
-				AwsConfig: AwsConfig{
-					RootCACertFile: "testdata/cert-chain-good.pem",
-				},
-			},
-			caAddr:       "localhost",
-			expectedErr:  "",
-			expectedType: "aws",
+			platform:      "aws",
+			rootCertFile:  "testdata/cert-root-good.pem",
+			keyFile:       "testdata/key-from-root-good.pem",
+			certChainFile: "testdata/cert-chain-good.pem",
+			caAddr:        "localhost",
+			expectedErr:   "",
+		},
+		"unspecified test": {
+			platform:      "unspecified",
+			rootCertFile:  "testdata/cert-root-good.pem",
+			keyFile:       "testdata/key-from-root-good.pem",
+			certChainFile: "testdata/cert-chain-good.pem",
+			caAddr:        "localhost",
+			expectedErr:   "",
 		},
 		"invalid test": {
 			platform:    "invalid",
@@ -66,7 +68,8 @@ func TestNewClient(t *testing.T) {
 	}
 
 	for id, tc := range testCases {
-		client, err := NewClient(tc.platform, tc.cfg, tc.caAddr)
+		client, err := NewClient(
+			tc.platform, tc.rootCertFile, tc.keyFile, tc.certChainFile, tc.caAddr)
 		if len(tc.expectedErr) > 0 {
 			if err == nil {
 				t.Errorf("%s: Succeeded. Error expected: %v", id, err)
@@ -80,9 +83,17 @@ func TestNewClient(t *testing.T) {
 		}
 
 		credentialType := client.GetCredentialType()
-		if credentialType != tc.expectedType {
+		expectedType := tc.platform
+		if expectedType == "unspecified" {
+			if metadata.OnGCE() {
+				expectedType = "gcp"
+			} else {
+				expectedType = "onprem"
+			}
+		}
+		if credentialType != expectedType {
 			t.Errorf("%s: Wrong Credential Type. Expected %v, Actual %v", id,
-				string(tc.expectedType), string(credentialType))
+				string(expectedType), string(credentialType))
 		}
 	}
 }

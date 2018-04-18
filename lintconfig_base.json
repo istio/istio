@@ -6,17 +6,12 @@
     "deadline": "600s",
     "minConfidence": 0.0,
     "lineLength": 160,
-    "tests": true,
+    "test": true,
     "sort": ["path"],
-    "Linters": {
-        "goimports": {"Command": "goimports -l --local istio.io"}
-    },
     "enable": [
         "deadcode",
         "errcheck",
         "goconst",
-        "gofmt",
-        "goimports",
         "golint",
         "ineffassign",
         "interfacer",
@@ -34,8 +29,6 @@
         "deadcode": "error",
         "errcheck": "error",
         "goconst": "error",
-        "gofmt": "error",
-        "goimports": "error",
         "golint": "error",
         "ineffassign": "error",
         "interfacer": "error",
@@ -49,6 +42,9 @@
         "vet": "error",
         "vetshadow": "error"
     },
+    "skip": [
+        "mixer/tools/adapterlinter/testdata"
+    ],
     "exclude": [
         ".pb.go",
         "mock_*",
@@ -59,7 +55,8 @@
         "mixer/template/sample/.*.go",
         "mixer/test/spyAdapter/template/doc.go",
         "mixer/template/doc.go",
-        "mixer/tools/adapterlinter/testdata/.*",
+        "pilot/tools/.*.go",
+        "_test\\.go:.*\\bdefer .*\\(errcheck\\)$",
         "should have a package comment",
         "composite literal uses unkeyed fields",
         "genfiles"

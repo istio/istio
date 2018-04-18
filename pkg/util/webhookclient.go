@@ -20,30 +20,29 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"istio.io/istio/pkg/log"
 )
 
-// NewWebHookClient takes URLs of the form http://foo.com,
-// unix+http://foo.com, and returns a base URL and http client that can be
+// NewWebHookClient takes URLs of the form http://foo.com, or
+// unix:///absolute/path/to/socket, and returns a base URL and http client that can be
 // used to communicate with the endpoint over IP or unix domain socket.
 func NewWebHookClient(apiEndpoint string) (string, *http.Client) {
 	if len(apiEndpoint) == 0 {
+		log.Debug("empty Webhook API endpoint.")
 		return "", nil
 	}
 
+	log.Infof("setting up webhook API client at %s", apiEndpoint)
 	transport := &http.Transport{}
 	strippedEndpoint := apiEndpoint
 
-	if strings.Contains(apiEndpoint, "unix://") {
-		transport.DialContext = func(_ context.Context, _, addr string) (net.Conn, error) {
+	if strings.HasPrefix(apiEndpoint, "unix://") {
+		addr := strings.TrimPrefix(apiEndpoint, "unix://")
+		transport.DialContext = func(_ context.Context, _, _ string) (net.Conn, error) {
 			return net.Dial("unix", addr)
 		}
-
-		// strip the +unix and convert to plain http://
-		if strings.Index(apiEndpoint, "unix://") == 0 {
-			strippedEndpoint = strings.Replace(apiEndpoint, "unix", "", 1)
-		} else {
-			strippedEndpoint = strings.Replace(apiEndpoint, "+unix", "", 1)
-		}
+		strippedEndpoint = "http://unix"
 	}
 
 	return strippedEndpoint, &http.Client{

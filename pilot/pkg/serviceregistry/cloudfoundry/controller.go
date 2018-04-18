@@ -19,8 +19,6 @@ import (
 	"time"
 
 	copilotapi "code.cloudfoundry.org/copilot/api"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 	"golang.org/x/net/context"
 
 	"istio.io/istio/pilot/pkg/model"

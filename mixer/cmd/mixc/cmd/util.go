@@ -23,13 +23,13 @@ import (
 	"text/tabwriter"
 	"time"
 
+	rpc "github.com/gogo/googleapis/google/rpc"
 	otgrpc "github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	ot "github.com/opentracing/opentracing-go"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
 
 	mixerpb "istio.io/api/mixer/v1"
-	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/pkg/tracing"
@@ -65,10 +65,6 @@ func createAPIClient(port string, tracingOptions *tracing.Options) (*clientState
 }
 
 func deleteAPIClient(cs *clientState) {
-	// TODO: This is to compensate for this bug: https://github.com/grpc/grpc-go/issues/1059
-	//       Remove this delay once that bug is fixed.
-	time.Sleep(50 * time.Millisecond)
-
 	_ = cs.connection.Close()
 	cs.client = nil
 	cs.connection = nil

@@ -19,8 +19,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 
 	"istio.io/istio/broker/pkg/model/config"
 	"istio.io/istio/broker/pkg/model/osb"

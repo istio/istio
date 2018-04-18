@@ -17,14 +17,14 @@ package integration
 import (
 	"fmt"
 
-	"github.com/golang/glog"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/integration/framework"
 )
 
 const (
-	istioCaSelfSigned = "istio-ca-self-signed"
+	citadelSelfSigned = "citadel-self-signed"
 )
 
 type (
@@ -32,6 +32,7 @@ type (
 	SecretTestEnv struct {
 		framework.TestEnv
 		name      string
+		comps     []framework.Component
 		ClientSet *kubernetes.Clientset
 		NameSpace string
 		Hub       string
@@ -43,13 +44,13 @@ type (
 func NewSecretTestEnv(name, kubeConfig, hub, tag string) *SecretTestEnv {
 	clientset, err := CreateClientset(kubeConfig)
 	if err != nil {
-		glog.Errorf("failed to initialize K8s client: %v", err)
+		log.Errorf("failed to initialize K8s client: %v", err)
 		return nil
 	}
 
 	namespace, err := createTestNamespace(clientset, testNamespacePrefix)
 	if err != nil {
-		glog.Errorf("failed to create test namespace: %v", err)
+		log.Errorf("failed to create test namespace: %v", err)
 		return nil
 	}
 
@@ -71,20 +72,23 @@ func (env *SecretTestEnv) GetName() string {
 // It defines what components a environment contains.
 // Components will be stored in framework for start and stop
 func (env *SecretTestEnv) GetComponents() []framework.Component {
-	return []framework.Component{
-		NewKubernetesPod(
-			env.ClientSet,
-			env.NameSpace,
-			istioCaSelfSigned,
-			fmt.Sprintf("%v/istio-ca:%v", env.Hub, env.Tag),
-			[]string{
-				"/usr/local/bin/istio_ca",
-			},
-			[]string{
-				"--self-signed-ca",
-			},
-		),
+	if env.comps == nil {
+		env.comps = []framework.Component{
+			NewKubernetesPod(
+				env.ClientSet,
+				env.NameSpace,
+				citadelSelfSigned,
+				fmt.Sprintf("%v/citadel:%v", env.Hub, env.Tag),
+				[]string{
+					"/usr/local/bin/istio_ca",
+				},
+				[]string{
+					"--self-signed-ca",
+				},
+			),
+		}
 	}
+	return env.comps
 }
 
 // Bringup doing general setup for environment level, not components.
@@ -96,11 +100,11 @@ func (env *SecretTestEnv) Bringup() error {
 // Cleanup clean everything created by this test environment, not component level
 // Cleanup() is being called in framework.TearDown()
 func (env *SecretTestEnv) Cleanup() error {
-	glog.Infof("cleaning up environment...")
+	log.Infof("cleaning up environment...")
 	err := deleteTestNamespace(env.ClientSet, env.NameSpace)
 	if err != nil {
 		retErr := fmt.Errorf("failed to delete namespace: %v error: %v", env.NameSpace, err)
-		glog.Error(retErr)
+		log.Errorf("%v", retErr)
 		return retErr
 	}
 	return nil

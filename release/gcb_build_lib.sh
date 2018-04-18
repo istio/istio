@@ -50,7 +50,7 @@ function parse_result_file {
 
   [[ -z "${INPUT_FILE}" ]] && usage
 
-  local STATUS_VALUE=$(parse_json_for_string $INPUT_FILE "status")
+  local STATUS_VALUE=$(parse_json_for_first_string $INPUT_FILE "status")
   local ERROR_VALUE=""
   local ERROR_CODE=""
   local ERROR_STATUS=""
@@ -93,6 +93,7 @@ function parse_result_file {
       ;;
     *)
       echo "unrecognized status: ${STATUS_VALUE}"
+      cat $INPUT_FILE
       BUILD_FAILED=1
       return 2
   esac

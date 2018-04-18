@@ -17,7 +17,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
 
@@ -35,13 +34,6 @@ func main() {
 	fmt.Printf("Starting external client:\n")
 	fmt.Printf("  address:     %s\n", address)
 	fmt.Printf("  rpc path: %s\n", path)
-
-	// hack to make flag.Parsed return true such that glog is happy
-	// about the flags having been parsed
-	fs := flag.NewFlagSet("", flag.ContinueOnError)
-	/* #nosec */
-	_ = fs.Parse([]string{})
-	flag.CommandLine = fs
 
 	c, err := perf.NewClientServer(perf.ServiceLocation{Address: address, Path: path})
 	if err != nil {

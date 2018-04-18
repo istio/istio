@@ -39,10 +39,13 @@ spec:
           image: {PILOT_HUB}/sidecar_injector:{PILOT_TAG}
           imagePullPolicy: IfNotPresent
           args:
-            - --tlsCertFile=/etc/istio/certs/cert.pem
-            - --tlsKeyFile=/etc/istio/certs/key.pem
+            - --caCertFile=/etc/istio/certs/root-cert.pem
+            - --tlsCertFile=/etc/istio/certs/cert-chain.pem
+            - --tlsKeyFile=/etc/istio/certs/key.pem            
             - --injectConfig=/etc/istio/inject/config
             - --meshConfig=/etc/istio/config/mesh
+            - --healthCheckInterval=2s
+            - --healthCheckFile=/health
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
@@ -53,13 +56,31 @@ spec:
           - name: inject-config
             mountPath: /etc/istio/inject
             readOnly: true
+          livenessProbe:
+            exec:
+              command:
+                - /usr/local/bin/sidecar-injector
+                - probe
+                - --probe-path=/health
+                - --interval=2s
+            initialDelaySeconds: 4
+            periodSeconds: 4
+          readinessProbe:
+            exec:
+              command:
+                - /usr/local/bin/sidecar-injector
+                - probe
+                - --probe-path=/health
+                - --interval=2s
+            initialDelaySeconds: 4
+            periodSeconds: 4
       volumes:
       - name: config-volume
         configMap:
           name: istio
       - name: certs
         secret:
-          secretName: sidecar-injector-certs
+          secretName: istio.istio-sidecar-injector-service-account
       - name: inject-config
         configMap:
           name: istio-inject
@@ -78,12 +99,13 @@ webhooks:
         name: istio-sidecar-injector
         namespace: {ISTIO_NAMESPACE}
         path: "/inject"
-      caBundle: ${CA_BUNDLE}
+      caBundle: ""
     rules:
       - operations: [ "CREATE" ]
         apiGroups: [""]
         apiVersions: ["v1"]
         resources: ["pods"]
+    failurePolicy: Fail
     namespaceSelector:
       matchLabels:
         istio-injection: enabled

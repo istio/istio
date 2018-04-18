@@ -16,6 +16,7 @@
 package env
 
 import (
+	"encoding/base64"
 	"fmt"
 	"os"
 	"text/template"
@@ -37,65 +38,15 @@ type confParam struct {
 	AccessLog       string
 	MixerRouteFlags string
 	FaultFilter     string
+
+	// Ports contains the allocated ports.
+	Ports    *Ports
+	IstioSrc string
+	IstioOut string
+
+	// Options are additional config options for the template
+	Options map[string]interface{}
 }
-
-// BasicConfig is a config with basic mixer filter config.
-const BasicConfig = `
-                  "mixer_attributes": {
-		      "mesh1.ip": "1.1.1.1",
-                      "target.uid": "POD222",
-                      "target.namespace": "XYZ222"
-                  }
-`
-
-// QuotaConfig is a quota config without cache
-const QuotaConfig = `
-                  "quota_name": "RequestCount",
-                  "quota_amount": "5"
-`
-
-// QuotaCacheConfig is a quota cache is on by default
-const QuotaCacheConfig = `
-                  "quota_name": "RequestCount"
-`
-
-// DisableTCPCheckCalls is a config to disable all check calls for TCP proxy
-const DisableTCPCheckCalls = `
-                  "disable_tcp_check_calls": true
-`
-
-// DisableCheckCache is a config to disable check cache
-const DisableCheckCache = `
-                  "disable_check_cache": true
-`
-
-// DisableQuotaCache is a config to disable quota cache
-const DisableQuotaCache = `
-                  "disable_quota_cache": true
-`
-
-// DisableReportBatch is a config to disable report batch
-const DisableReportBatch = `
-                  "disable_report_batch": true
-`
-
-// NetworkFailClose is a config with network fail close policy
-const NetworkFailClose = `
-                  "network_fail_policy": "close"
-`
-
-// The default client proxy mixer config
-const defaultClientMixerConfig = `
-                   "forward_attributes": {
-		      "mesh3.ip": "1::8",
-                      "source.uid": "POD11",
-                      "source.namespace": "XYZ11"
-                   }
-`
-
-const defaultMixerRouteFlags = `
-                   "mixer_control": "on",
-`
 
 const allAbortFaultFilter = `
                {
@@ -110,6 +61,7 @@ const allAbortFaultFilter = `
                },
 `
 
+// TODO: convert to v2, real clients use bootstrap v2 and all configs are switching !!!
 // The envoy config template
 const envoyConfTempl = `
 {
@@ -136,10 +88,6 @@ const envoyConfTempl = `
                       "cluster": "service1",
                       "opaque_config": {
 {{.MixerRouteFlags}}
-                        "mixer_forward": "off",
-			"mixer_attributes.mesh2.ip": "::ffff:204.152.189.116",
-                        "mixer_attributes.target.user": "target-user",
-                        "mixer_attributes.target.name": "target-name"
                       }
                     }
                   ]
@@ -191,8 +139,6 @@ const envoyConfTempl = `
                       "prefix": "/",
                       "cluster": "service2",
                       "opaque_config": {
-                        "mixer_forward_attributes.source.user": "source-user",
-                        "mixer_forward_attributes.source.name": "source-name"
                       }
                     }
                   ]
@@ -301,15 +247,15 @@ const envoyConfTempl = `
 }
 `
 
-func (c *confParam) write(path string) error {
-	tmpl, err := template.New("test").Parse(envoyConfTempl)
+func (c *confParam) write(outPath, confTmpl string) error {
+	tmpl, err := template.New("test").Parse(confTmpl)
 	if err != nil {
 		return fmt.Errorf("failed to parse config template: %v", err)
 	}
 
-	f, err := os.Create(path)
+	f, err := os.Create(outPath)
 	if err != nil {
-		return fmt.Errorf("failed to create file %v: %v", path, err)
+		return fmt.Errorf("failed to create file %v: %v", outPath, err)
 	}
 	defer func() {
 		_ = f.Close()
@@ -317,28 +263,28 @@ func (c *confParam) write(path string) error {
 	return tmpl.Execute(f, *c)
 }
 
-func getConf(ports *Ports) confParam {
-	return confParam{
-		ClientPort:   ports.ClientProxyPort,
-		ServerPort:   ports.ServerProxyPort,
-		TCPProxyPort: ports.TCPProxyPort,
-		AdminPort:    ports.AdminPort,
-		MixerServer:  fmt.Sprintf("localhost:%d", ports.MixerPort),
-		Backend:      fmt.Sprintf("localhost:%d", ports.BackendPort),
-		ClientConfig: defaultClientMixerConfig,
-		AccessLog:    "/dev/stdout",
-	}
-}
-
 // CreateEnvoyConf create envoy config.
-func CreateEnvoyConf(path, conf, flags string, stress, faultInject bool, v2 *V2Conf, ports *Ports) error {
-	c := getConf(ports)
-	c.ServerConfig = conf
-	c.TCPServerConfig = conf
-	c.MixerRouteFlags = defaultMixerRouteFlags
-	if flags != "" {
-		c.MixerRouteFlags = flags
+func (s *TestSetup) CreateEnvoyConf(path string, stress, faultInject bool, mfConfig *MixerFilterConf, ports *Ports,
+	confVersion string) error {
+	c := &confParam{
+		ClientPort:      ports.ClientProxyPort,
+		ServerPort:      ports.ServerProxyPort,
+		TCPProxyPort:    ports.TCPProxyPort,
+		AdminPort:       ports.AdminPort,
+		MixerServer:     fmt.Sprintf("localhost:%d", ports.MixerPort),
+		Backend:         fmt.Sprintf("localhost:%d", ports.BackendPort),
+		AccessLog:       "/dev/stdout",
+		ServerConfig:    getConfig(mfConfig.HTTPServerConf, confVersion),
+		ClientConfig:    getConfig(mfConfig.HTTPClientConf, confVersion),
+		TCPServerConfig: getConfig(mfConfig.TCPServerConf, confVersion),
+		MixerRouteFlags: getPerRouteConfig(mfConfig.PerRouteConf),
+		Ports:           ports,
+		IstioSrc:        s.IstioSrc,
+		IstioOut:        s.IstioOut,
+		Options:         s.EnvoyConfigOpt,
 	}
+	// TODO: use fields from s directly instead of copying
+
 	if stress {
 		c.AccessLog = "/dev/null"
 	}
@@ -346,21 +292,30 @@ func CreateEnvoyConf(path, conf, flags string, stress, faultInject bool, v2 *V2C
 		c.FaultFilter = allAbortFaultFilter
 	}
 
-	if v2 != nil {
-		c.ServerConfig = getV2Config(v2.HTTPServerConf)
-		c.ClientConfig = getV2Config(v2.HTTPClientConf)
-		c.TCPServerConfig = getV2Config(v2.TCPServerConf)
+	confTmpl := envoyConfTempl
+	if s.EnvoyTemplate != "" {
+		confTmpl = s.EnvoyTemplate
 	}
-	return c.write(path)
+	return c.write(path, confTmpl)
 }
 
-func getV2Config(v2 proto.Message) string {
+func getConfig(mixerFilterConfig proto.Message, configVersion string) string {
 	m := jsonpb.Marshaler{
 		Indent: "  ",
 	}
-	str, err := m.MarshalToString(v2)
+	str, err := m.MarshalToString(mixerFilterConfig)
 	if err != nil {
 		return ""
 	}
-	return "\"v2\": " + str
+	return configVersion + str
+}
+
+func getPerRouteConfig(cfg proto.Message) string {
+	m := jsonpb.Marshaler{}
+	str, err := m.MarshalToString(cfg)
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf("\"mixer_sha\": \"id111\", \"mixer\": \"%v\"",
+		base64.StdEncoding.EncodeToString([]byte(str)))
 }

@@ -41,7 +41,6 @@ type metricsHandler struct {
 	prepChan    chan []*appoptics.Measurement
 	stopChan    chan struct{}
 	pushChan    chan []*appoptics.Measurement
-	loopFactor  *bool
 	lc          *appoptics.Client
 	batchWait   chan struct{}
 	persistWait chan struct{}
@@ -49,8 +48,6 @@ type metricsHandler struct {
 
 func newMetricsHandler(ctx context.Context, env adapter.Env, cfg *config.Params) (metricsHandlerInterface, error) {
 	buffChanSize := runtime.NumCPU() * 10
-
-	loopFactor := true
 
 	// prepChan holds groups of Measurements to be batched
 	prepChan := make(chan []*appoptics.Measurement, buffChanSize)
@@ -73,11 +70,11 @@ func newMetricsHandler(ctx context.Context, env adapter.Env, cfg *config.Params)
 		}
 
 		env.ScheduleDaemon(func() {
-			appoptics.BatchMeasurements(&loopFactor, prepChan, pushChan, stopChan, int(batchSize), env.Logger())
+			appoptics.BatchMeasurements(prepChan, pushChan, stopChan, int(batchSize), env.Logger())
 			batchWait <- struct{}{}
 		})
 		env.ScheduleDaemon(func() {
-			appoptics.PersistBatches(&loopFactor, lc, pushChan, stopChan, env.Logger())
+			appoptics.PersistBatches(lc, pushChan, stopChan, env.Logger())
 			persistWait <- struct{}{}
 		})
 	}
@@ -86,7 +83,6 @@ func newMetricsHandler(ctx context.Context, env adapter.Env, cfg *config.Params)
 		prepChan:    prepChan,
 		stopChan:    stopChan,
 		pushChan:    pushChan,
-		loopFactor:  &loopFactor,
 		lc:          lc,
 		persistWait: persistWait,
 		batchWait:   batchWait,
@@ -109,7 +105,7 @@ func (h *metricsHandler) handleMetric(_ context.Context, vals []*metric.Instance
 
 			for _, label := range mInfo.LabelNames {
 				// val.Dimensions[label] should exists because we have validated this before during config time.
-				m.Tags[label] = h.processLabels(val.Dimensions[label])
+				m.Tags[label] = adapter.Stringify(val.Dimensions[label])
 			}
 			measurements = append(measurements, m)
 		}
@@ -126,7 +122,6 @@ func (h *metricsHandler) close() error {
 	close(h.stopChan)
 	defer close(h.batchWait)
 	defer close(h.persistWait)
-	*h.loopFactor = false
 	if h.lc != nil {
 		<-h.batchWait
 		<-h.persistWait
@@ -154,19 +149,4 @@ func (h *metricsHandler) aoVal(i interface{}) float64 {
 		_ = h.logger.Errorf("could not extract numeric value for %v", i)
 		return 0
 	}
-}
-
-func (h *metricsHandler) processLabels(v interface{}) string {
-	switch vv := v.(type) {
-	case int:
-	case int32:
-	case int64:
-		return strconv.FormatInt(vv, 10)
-	case float64:
-		return strconv.FormatFloat(vv, 'f', -1, 64)
-	default:
-		str, _ := v.(string)
-		return str
-	}
-	return ""
 }

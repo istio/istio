@@ -17,10 +17,10 @@ package kube
 import (
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"time"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
+
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -39,6 +39,12 @@ const (
 	NodeZoneLabel = "failure-domain.beta.kubernetes.io/zone"
 	// IstioNamespace used by default for Istio cluster-wide installation
 	IstioNamespace = "istio-system"
+	// IstioConfigMap is used by default
+	IstioConfigMap = "istio"
+)
+
+var (
+	azDebug = os.Getenv("VERBOSE_AZ_DEBUG") == "1"
 )
 
 // ControllerOptions stores the configurable attributes of a Controller.
@@ -129,6 +135,12 @@ func (c *Controller) notify(obj interface{}, event model.Event) error {
 	return nil
 }
 
+// createInformer registers handers for a specific event.
+// Current implementation queues the events in queue.go, and the handler is run with
+// some throttling.
+// Used for Service, Endpoint, Node and Pod.
+// See config/kube for CRD events.
+// See config/ingress for Ingress objects
 func (c *Controller) createInformer(
 	o runtime.Object,
 	resyncPeriod time.Duration,
@@ -236,12 +248,16 @@ func (c *Controller) GetPodAZ(pod *v1.Pod) (string, bool) {
 	}
 	region, exists := node.(*v1.Node).Labels[NodeRegionLabel]
 	if !exists {
-		log.Warnf("unable to retrieve region label for pod: %v", pod.Name)
+		if azDebug {
+			log.Warnf("unable to retrieve region label for pod: %v", pod.Name)
+		}
 		return "", false
 	}
 	zone, exists := node.(*v1.Node).Labels[NodeZoneLabel]
 	if !exists {
-		log.Warnf("unable to retrieve zone label for pod: %v", pod.Name)
+		if azDebug {
+			log.Warnf("unable to retrieve zone label for pod: %v", pod.Name)
+		}
 		return "", false
 	}
 	return fmt.Sprintf("%v/%v", region, zone), true
@@ -336,17 +352,17 @@ func (c *Controller) Instances(hostname string, ports []string,
 	return nil, nil
 }
 
-// GetSidecarServiceInstances implements a service catalog operation
-func (c *Controller) GetSidecarServiceInstances(svcNode model.Node) ([]*model.ServiceInstance, error) {
+// GetProxyServiceInstances returns service instances co-located with a given proxy
+func (c *Controller) GetProxyServiceInstances(proxy model.Proxy) ([]*model.ServiceInstance, error) {
 	var out []*model.ServiceInstance
 	kubeNodes := make(map[string]*kubeServiceNode)
 	for _, item := range c.endpoints.informer.GetStore().List() {
 		ep := *item.(*v1.Endpoints)
 		for _, ss := range ep.Subsets {
 			for _, ea := range ss.Addresses {
-				if svcNode.IPAddress == ea.IP {
+				if proxy.IPAddress == ea.IP {
 					if kubeNodes[ea.IP] == nil {
-						err := parseKubeServiceNode(ea.IP, &svcNode, kubeNodes)
+						err := parseKubeServiceNode(ea.IP, &proxy, kubeNodes)
 						if err != nil {
 							return out, err
 						}
@@ -471,7 +487,7 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 			return nil
 		}
 
-		log.Infof("Handle endpoint %s in namespace %s", ep.Name, ep.Namespace)
+		log.Infof("Handle endpoint %s in namespace %s -> %v", ep.Name, ep.Namespace, ep.Subsets)
 		if item, exists := c.serviceByKey(ep.Name, ep.Namespace); exists {
 			if svc := convertService(*item, c.domainSuffix); svc != nil {
 				// TODO: we're passing an incomplete instance to the

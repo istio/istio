@@ -14,6 +14,9 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+WD=$(dirname $0)
+WD=$(cd $WD; pwd)
+
 # Print commands
 set -x
 
@@ -26,35 +29,39 @@ function process_result() {
     fi
 }
 
+echo ${GOPATH}
+
 # Build mixer binary
-bazel build //mixer/cmd/mixs:mixs
-MIXER_BINARY=$(pwd)/bazel-bin/mixer/cmd/mixs/mixs
+make mixs
+MIXER_BINARY=$(make where-is-out)/mixs
+ENVOY_BINARY=$(make where-is-out)/envoy
 
-# Get fortio
-go get -u istio.io/fortio
+START_ENVOY=${WD}/../component/proxy/start_envoy
 
-# Download Proxy
-cd ..
-ls proxy || git clone https://github.com/istio/proxy
-cd proxy
-#git pull
-bazel build //src/envoy/mixer:envoy
-ENVOY_BINARY=$(pwd)/src/envoy/mixer/start_envoy
-cd ../istio
+# Install Fortio
+( cd vendor/istio.io/fortio ; go install . )
 
 # Run Tests
 TESTSPATH='tests/integration/example/tests'
-TESTS_TARGETS=($(bazel query "tests(//${TESTSPATH}/...)")) || error_exit 'Could not find tests targets'
 TOTAL_FAILURE=0
 SUMMARY='Tests Summary'
 
-TESTARG=(-envoy_binary ${ENVOY_BINARY} -mixer_binary ${MIXER_BINARY} -fortio_binary fortio)
+printf "Envoy date:"
+ls -l ${ENVOY_BINARY}
 
-for T in ${TESTS_TARGETS[@]}; do
-    echo "Running ${T}"
-    bazel run ${T} -- ${TESTARG[@]}
-    process_result $? ${T}
-done
+printf "Mixer date:"
+ls -l ${MIXER_BINARY}
+
+printf "Envoy hash:"
+md5sum ${ENVOY_BINARY}
+
+TESTARG=(-envoy_binary ${ENVOY_BINARY} -envoy_start_script ${START_ENVOY} -mixer_binary ${MIXER_BINARY} -fortio_binary fortio)
+
+go test -v ./tests/integration/example/tests/sample1 ${TESTARG[@]} $@
+process_result $? sample1
+
+go test -v ./tests/integration/example/tests/sample2 ${TESTARG[@]} $@
+process_result $? sample2
 
 printf "${SUMMARY}\n"
 exit ${FAILURE_COUNT}

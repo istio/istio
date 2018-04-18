@@ -20,8 +20,7 @@ import (
 	"io"
 	"reflect"
 	"strings"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
+
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 
@@ -37,9 +36,19 @@ func ConvertObject(schema model.ProtoSchema, object IstioObject, domain string) 
 		return nil, err
 	}
 	meta := object.GetObjectMeta()
+
+	//// FIXME this is a gross hack to hardcode a service's domain name in kubernetes
+	//if domain == "" {
+	//	domain = "svc.cluster.local"
+	//} else {
+	//	domain = "svc." + domain
+	//}
+
 	return &model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:            schema.Type,
+			Group:           ResourceGroup(&schema),
+			Version:         schema.Version,
 			Name:            meta.Name,
 			Namespace:       meta.Namespace,
 			Domain:          domain,
@@ -78,6 +87,11 @@ func ConvertConfig(schema model.ProtoSchema, config model.Config) (IstioObject, 
 // This is needed by k8s API server as dashes prevent kubectl from accessing CRDs
 func ResourceName(s string) string {
 	return strings.Replace(s, "-", "", -1)
+}
+
+// ResourceGroup generates the k8s API group for each schema.
+func ResourceGroup(schema *model.ProtoSchema) string {
+	return schema.Group + model.IstioAPIGroupDomain
 }
 
 // TODO - add special cases for type-to-kind and kind-to-type

@@ -21,7 +21,6 @@ import (
 	"github.com/golang/protobuf/ptypes"
 
 	routing "istio.io/api/routing/v1alpha1"
-	routingv2 "istio.io/api/routing/v1alpha2"
 )
 
 // buildFaultFilters builds a list of fault filters for the http route
@@ -83,62 +82,5 @@ func buildDelayConfig(delayRule *routing.HTTPFaultInjection_Delay) *DelayFilter 
 		Type:     "fixed",
 		Percent:  int(delayRule.Percent),
 		Duration: protoDurationToMS(delayRule.GetFixedDelay()),
-	}
-}
-
-func buildHTTPFaultFilterV2(cluster string, faultRule *routingv2.HTTPFaultInjection, headers Headers) *HTTPFilter {
-	abort := buildAbortConfigV2(faultRule.Abort)
-	delay := buildDelayConfigV2(faultRule.Delay)
-	if abort == nil && delay == nil {
-		return nil
-	}
-
-	return &HTTPFilter{
-		Type: decoder,
-		Name: "fault",
-		Config: FilterFaultConfig{
-			UpstreamCluster: cluster,
-			Headers:         headers,
-			Abort:           abort,
-			Delay:           delay,
-		},
-	}
-}
-
-func buildAbortConfigV2(abortRule *routingv2.HTTPFaultInjection_Abort) *AbortFilter {
-	if abortRule == nil || abortRule.GetHttpStatus() == 0 {
-		return nil
-	}
-
-	percent := int(abortRule.Percent)
-	if percent == 0 {
-		percent = 100 // default to 100 percent
-	}
-
-	return &AbortFilter{
-		Percent:    percent,
-		HTTPStatus: int(abortRule.GetHttpStatus()),
-	}
-}
-
-func buildDelayConfigV2(delayRule *routingv2.HTTPFaultInjection_Delay) *DelayFilter {
-	if delayRule == nil {
-		return nil
-	}
-
-	ms := protoDurationToMS(delayRule.GetFixedDelay())
-	if ms == 0 {
-		return nil
-	}
-
-	percent := int(delayRule.Percent)
-	if percent == 0 {
-		percent = 100 // default to 100 percent
-	}
-
-	return &DelayFilter{
-		Type:     "fixed",
-		Percent:  percent,
-		Duration: ms,
 	}
 }

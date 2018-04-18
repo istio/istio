@@ -15,8 +15,6 @@
 package aggregate
 
 import (
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -124,12 +122,12 @@ func (c *Controller) Instances(hostname string, ports []string,
 	return instances, errs
 }
 
-// GetSidecarServiceInstances lists service instances hosted on a given node
-func (c *Controller) GetSidecarServiceInstances(node model.Node) ([]*model.ServiceInstance, error) {
+// GetProxyServiceInstances lists service instances co-located with a given proxy
+func (c *Controller) GetProxyServiceInstances(node model.Proxy) ([]*model.ServiceInstance, error) {
 	out := make([]*model.ServiceInstance, 0)
 	var errs error
 	for _, r := range c.registries {
-		instances, err := r.GetSidecarServiceInstances(node)
+		instances, err := r.GetProxyServiceInstances(node)
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		} else {
@@ -139,7 +137,7 @@ func (c *Controller) GetSidecarServiceInstances(node model.Node) ([]*model.Servi
 
 	if len(out) > 0 {
 		if errs != nil {
-			log.Warnf("GetSidecarServiceInstances() found match but encountered an error: %v", errs)
+			log.Warnf("GetProxyServiceInstances() found match but encountered an error: %v", errs)
 		}
 		return out, nil
 	}

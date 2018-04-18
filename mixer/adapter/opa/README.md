@@ -5,7 +5,7 @@ that evaluates the client request using the [Open Policy Agent](http://www.openp
 
 Opa adapter embedded the [Open Policy Agent](http://www.openpolicyagent.org/) as a library inside a Mixer adapter.
 
-![mixer adapter opa](https://github.com/mangchiandjjoe/istio/blob/authorization_opa_adapter_fix/mixer/adapter/opa/mixer_adapter_opa.png?raw=true)
+![mixer adapter opa](mixer_adapter_opa.png)
 
 The adapter is responsible for (1) instantiating an [Open Policy Agent](http://www.openpolicyagent.org/) instance,
 (2) passing the parameters to [Open Policy Agent](http://www.openpolicyagent.org/) and getting the evaluation results from OPA at runtime
@@ -68,8 +68,8 @@ spec:
  subject:
    user: source.uid | ""
  action:
-   namespace: target.namespace | "default"
-   service: target.service | ""
+   namespace: destination.namespace | "default"
+   service: destination.service | ""
    method: request.method | ""
    path: request.path | ""
 

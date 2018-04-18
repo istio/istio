@@ -4,7 +4,6 @@ Default:20
 #Package requirement
 #Package name, coverage requirement, actually coverage at specific SHA
 istio.io/istio/pilot/cmd:0 [0]
-istio.io/istio/pilot/cmd/istioctl:0 [0]
 istio.io/istio/pilot/cmd/pilot-agent:0 [0]
 istio.io/istio/pilot/cmd/pilot-discovery:0 [0]
 istio.io/istio/pilot/cmd/sidecar-injector:0 [0]
@@ -22,7 +21,6 @@ istio.io/istio/pilot/pkg/serviceregistry/consul:40 [43.6]
 istio.io/istio/pilot/pkg/serviceregistry/eureka:80 [82.9]
 istio.io/istio/pilot/pkg/serviceregistry/kube:60 [63.8]
 istio.io/istio/pilot/test/client:0 [0]
-istio.io/istio/pilot/test/integration:0 [0]
 istio.io/istio/pilot/test/mock:0 [14.6]
 istio.io/istio/pilot/test/server:0 [0]
 istio.io/istio/pilot/test/util:0 [0]

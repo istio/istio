@@ -72,13 +72,10 @@ const (
 	namespace = "istio"
 )
 
-// GetInfo returns the Info associated with this adapter.
-func GetInfo() adapter.Info {
-	// prometheus uses a singleton http port, so we make the
-	// builder itself a singleton, when defaultAddr become configurable
-	// srv will be a map[string]server
+// getInfo returns the Info associated with this adapter.
+func getInfo(addr string) (adapter.Info, server) {
 	singletonBuilder := &builder{
-		srv: newServer(defaultAddr),
+		srv: newServer(addr),
 	}
 	singletonBuilder.clearState()
 	return adapter.Info{
@@ -90,7 +87,16 @@ func GetInfo() adapter.Info {
 		},
 		NewBuilder:    func() adapter.HandlerBuilder { return singletonBuilder },
 		DefaultConfig: &config.Params{},
-	}
+	}, singletonBuilder.srv
+}
+
+// GetInfo returns the Info associated with this adapter.
+func GetInfo() adapter.Info {
+	// prometheus uses a singleton http port, so we make the
+	// builder itself a singleton, when defaultAddr become configurable
+	// srv will be a map[string]server
+	ii, _ := getInfo(defaultAddr)
+	return ii
 }
 
 func (b *builder) clearState() {
@@ -136,9 +142,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		break
 	}
 
-	if env.Logger().VerbosityLevel(4) {
-		env.Logger().Infof("%d new metrics defined", len(newMetrics))
-	}
+	env.Logger().Debugf("%d new metrics defined", len(newMetrics))
 
 	var err error
 	for _, m := range newMetrics {
@@ -337,7 +341,7 @@ func promValue(val interface{}) (float64, error) {
 func promLabels(l map[string]interface{}) prometheus.Labels {
 	labels := make(prometheus.Labels, len(l))
 	for i, label := range l {
-		labels[i] = fmt.Sprintf("%v", label)
+		labels[i] = adapter.Stringify(label)
 	}
 	return labels
 }

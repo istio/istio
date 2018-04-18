@@ -1,0 +1,24 @@
+# This is used to generate istio-all.yaml
+global:
+  controlPlaneSecurityEnabled: true
+
+  mtls:
+    enabled: true
+
+sidecar-injector:
+  enabled: true
+
+galley:
+  enabled: false
+
+grafana:
+  enabled: true
+
+zipkin:
+  enabled: true
+
+servicegraph:
+  enabled: true
+
+prometheus:
+  enabled: true

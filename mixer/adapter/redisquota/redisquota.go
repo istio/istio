@@ -244,17 +244,8 @@ func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handl
 func matchDimensions(cfg *map[string]string, inst *map[string]interface{}) bool {
 	for k, val := range *cfg {
 		if rval, ok := (*inst)[k]; ok {
-			if rval == val { // this dimension matches, on to next comparison.
+			if adapter.StringEquals(rval, val) { // this dimension matches, on to next comparison.
 				continue
-			}
-
-			// if rval has a string representation then compare it with val
-			// For example net.ip has a useful string representation.
-			switch v := rval.(type) {
-			case fmt.Stringer:
-				if v.String() == val {
-					continue
-				}
 			}
 		}
 
@@ -295,9 +286,7 @@ func (h *handler) getKeyAndQuotaAmount(instance *quota.Instance, quota *config.P
 
 	for idx := range quota.Overrides {
 		if matchDimensions(&quota.Overrides[idx].Dimensions, &instance.Dimensions) {
-			if h.logger.VerbosityLevel(4) {
-				h.logger.Infof("quota override: %v selected for %v", quota.Overrides[idx], *instance)
-			}
+			h.logger.Debugf("quota override: %v selected for %v", quota.Overrides[idx], *instance)
 
 			if hash, ok := h.dimensionHash[&quota.Overrides[idx].Dimensions]; ok {
 				// override key and max amount
@@ -327,9 +316,7 @@ func (h *handler) HandleQuota(context context.Context, instance *quota.Instance,
 				return adapter.QuotaResult{}, nil
 			}
 
-			if h.logger.VerbosityLevel(4) {
-				h.logger.Infof("key: %v maxAmount: %v", key, maxAmount)
-			}
+			h.logger.Debugf("key: %v maxAmount: %v", key, maxAmount)
 
 			// execute lua algorithm script
 			result, err := script.Run(

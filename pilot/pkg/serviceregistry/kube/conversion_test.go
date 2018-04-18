@@ -370,7 +370,7 @@ func TestProbesToPortsConversion(t *testing.T) {
 }
 
 func TestParseKubeServiceNode(t *testing.T) {
-	var svcNode model.Node
+	var svcNode model.Proxy
 	ipaddr := "128.0.0.1"
 	kubeNodes := make(map[string]*kubeServiceNode)
 
@@ -393,7 +393,7 @@ func TestParseKubeServiceNode(t *testing.T) {
 }
 
 func TestParseKubeServiceNodeErrors(t *testing.T) {
-	var svcNode model.Node
+	var svcNode model.Proxy
 	ipaddr := "128.0.0.1"
 	kubeNodes := make(map[string]*kubeServiceNode)
 

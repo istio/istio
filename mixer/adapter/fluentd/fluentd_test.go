@@ -22,7 +22,7 @@ import (
 
 	"github.com/fluent/fluent-logger-golang/fluent"
 
-	descriptor "istio.io/api/mixer/v1/config/descriptor"
+	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/adapter/fluentd/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/adapter/test"

@@ -27,7 +27,7 @@ import (
 
 	"github.com/fluent/fluent-logger-golang/fluent"
 
-	descriptor "istio.io/api/mixer/v1/config/descriptor"
+	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/adapter/fluentd/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/template/logentry"
@@ -116,9 +116,7 @@ func (b *builder) SetLogEntryTypes(types map[string]*logentry.Type) {
 // logentry.Handler#HandleLogEntry
 func (h *handler) HandleLogEntry(ctx context.Context, insts []*logentry.Instance) error {
 	for _, i := range insts {
-		if h.env.Logger().VerbosityLevel(4) {
-			h.env.Logger().Infof("Got a new log for fluentd, name %v", i.Name)
-		}
+		h.env.Logger().Debugf("Got a new log for fluentd, name %v", i.Name)
 
 		// Durations are not supported by msgp
 		for k, v := range i.Variables {

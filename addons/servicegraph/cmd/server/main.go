@@ -75,7 +75,7 @@ type state struct {
 func main() {
 	bindAddr := flag.String("bindAddr", ":8088", "Address to bind to for serving")
 	promAddr := flag.String("prometheusAddr", "http://localhost:9090", "Address of prometheus instance for graph generation")
-	assetDir := flag.String("assetDir", "example/servicegraph", "directory find assets to serve")
+	assetDir := flag.String("assetDir", "./", "directory find assets to serve")
 	flag.Parse()
 
 	s := &state{staticGraph: &servicegraph.Static{Nodes: make(map[string]struct{})}}
@@ -87,6 +87,7 @@ func main() {
 	http.HandleFunc("/node", s.addNode)
 	http.Handle("/dotgraph", promgen.NewPromHandler(*promAddr, s.staticGraph, dot.GenerateRaw))
 	http.Handle("/dotviz", promgen.NewPromHandler(*promAddr, s.staticGraph, dot.GenerateHTML))
+	http.Handle("/d3graph", promgen.NewPromHandler(*promAddr, s.staticGraph, servicegraph.GenerateD3JSON))
 
 	log.Printf("Starting servicegraph service at %s", *bindAddr)
 	log.Fatal(http.ListenAndServe(*bindAddr, nil))

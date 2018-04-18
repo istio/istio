@@ -7,6 +7,9 @@ spec:
   rules:
   - services: ["*"]
     methods: ["GET"]
+    constraints:
+    - key: "app"
+      values: ["productpage", "details", "reviews", "ratings"]
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: ServiceRoleBinding
@@ -16,9 +19,9 @@ metadata:
 spec:
   subjects:
   - properties:
-      namespace: "istio-system"
-  - properties:
       namespace: "default"
+  - properties:
+      namespace: "istio-system"
   roleRef:
     kind: ServiceRole
     name: "service-viewer"

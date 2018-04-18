@@ -16,11 +16,7 @@
 package status
 
 import (
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
-	me "github.com/hashicorp/go-multierror"
-
-	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
+	rpc "github.com/gogo/googleapis/google/rpc"
 )
 
 // OK represents a status with a code of rpc.OK
@@ -74,36 +70,6 @@ func WithDeadlineExceeded(message string) rpc.Status {
 // IsOK returns true is the given status has the code rpc.OK
 func IsOK(status rpc.Status) bool {
 	return status.Code == int32(rpc.OK)
-}
-
-// InvalidWithDetails builds a google.rpc.Status proto with the provided
-// message and the `details` field populated with the supplied proto message.
-// NOTE: if there is an issue marshaling the proto to a google.protobuf.Any,
-// the returned Status message will not have the `details` field populated.
-func InvalidWithDetails(msg string, pb proto.Message) rpc.Status {
-	invalid := WithInvalidArgument(msg)
-	if any, err := types.MarshalAny(pb); err == nil {
-		invalid.Details = []*types.Any{any}
-	}
-	return invalid
-}
-
-// NewBadRequest builds a google.rpc.BadRequest proto. BadRequest proto messages
-// can be used to populate the `details` field in a google.rpc.Status message.
-func NewBadRequest(field string, err error) *rpc.BadRequest {
-	fvs := make([]*rpc.BadRequest_FieldViolation, 0, 1) // alloc for at least one
-	switch err.(type) {
-	case *me.Error:
-		merr := err.(*me.Error)
-		for _, e := range merr.Errors {
-			fv := &rpc.BadRequest_FieldViolation{Field: field, Description: e.Error()}
-			fvs = append(fvs, fv)
-		}
-	default:
-		fv := &rpc.BadRequest_FieldViolation{Field: field, Description: err.Error()}
-		fvs = append(fvs, fv)
-	}
-	return &rpc.BadRequest{FieldViolations: fvs}
 }
 
 // String produces a string representation of rpc.Status.

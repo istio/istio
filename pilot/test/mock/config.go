@@ -18,22 +18,22 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
-	"sync"
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
+	"go.uber.org/atomic"
 
+	authn "istio.io/api/authentication/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
+	networking "istio.io/api/networking/v1alpha3"
+	rbac "istio.io/api/rbac/v1alpha1"
 	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
-	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/log"
+	pkgtest "istio.io/istio/pkg/test"
 )
 
 var (
@@ -48,6 +48,51 @@ var (
 		Route: []*routing.DestinationWeight{
 			{Weight: 80, Labels: map[string]string{"version": "v1"}},
 			{Weight: 20, Labels: map[string]string{"version": "v2"}},
+		},
+	}
+
+	// ExampleVirtualService is an example V2 route rule
+	ExampleVirtualService = &networking.VirtualService{
+		Hosts: []string{"prod", "test"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.DestinationWeight{
+					{
+						Destination: &networking.Destination{
+							Host: "job",
+						},
+						Weight: 80,
+					},
+				},
+			},
+		},
+	}
+
+	ExampleExternalService = &networking.ExternalService{
+		Hosts:     []string{"*.google.com"},
+		Discovery: networking.ExternalService_NONE,
+		Ports: []*networking.Port{
+			{Number: 80, Name: "http-name", Protocol: "http"},
+			{Number: 8080, Name: "http2-name", Protocol: "http2"},
+		},
+	}
+
+	ExampleGateway = &networking.Gateway{
+		Servers: []*networking.Server{
+			{
+				Hosts: []string{"google.com"},
+				Port:  &networking.Port{Name: "http", Protocol: "http", Number: 10080},
+			},
+		},
+	}
+
+	// ExampleDestinationRule is an example destination rule
+	ExampleDestinationRule = &networking.DestinationRule{
+		Host: "ratings",
+		TrafficPolicy: &networking.TrafficPolicy{
+			LoadBalancer: &networking.LoadBalancerSettings{
+				new(networking.LoadBalancerSettings_Simple),
+			},
 		},
 	}
 
@@ -104,6 +149,22 @@ var (
 		}},
 	}
 
+	// ExampleHTTPAPISpecBinding is an example HTTPAPISpecBinding
+	ExampleHTTPAPISpecBinding = &mccpb.HTTPAPISpecBinding{
+		Services: []*mccpb.IstioService{
+			{
+				Name:      "foo",
+				Namespace: "bar",
+			},
+		},
+		ApiSpecs: []*mccpb.HTTPAPISpecReference{
+			{
+				Name:      "petstore",
+				Namespace: "default",
+			},
+		},
+	}
+
 	// ExampleQuotaSpec is an example QuotaSpec
 	ExampleQuotaSpec = &mccpb.QuotaSpec{
 		Rules: []*mccpb.QuotaRule{{
@@ -123,25 +184,59 @@ var (
 		}},
 	}
 
-	// ExampleEndUserAuthenticationPolicySpec is an example EndUserAuthenticationPolicySpec
-	ExampleEndUserAuthenticationPolicySpec = &mccpb.EndUserAuthenticationPolicySpec{
-		Jwts: []*mccpb.JWT{
+	// ExampleQuotaSpecBinding is an example QuotaSpecBinding
+	ExampleQuotaSpecBinding = &mccpb.QuotaSpecBinding{
+		Services: []*mccpb.IstioService{
 			{
-				Issuer: "https://issuer.example.com",
-				Audiences: []string{
-					"audience_foo.example.com",
-					"audience_bar.example.com",
-				},
-				JwksUri:                "https://www.example.com/oauth/v1/certs",
-				ForwardJwt:             true,
-				PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
-				Locations: []*mccpb.JWT_Location{{
-					Scheme: &mccpb.JWT_Location_Header{
-						Header: "x-goog-iap-jwt-assertion",
-					},
-				}},
+				Name:      "foo",
+				Namespace: "bar",
 			},
 		},
+		QuotaSpecs: []*mccpb.QuotaSpecBinding_QuotaSpecReference{
+			{
+				Name:      "fooQuota",
+				Namespace: "default",
+			},
+		},
+	}
+
+	// ExampleAuthenticationPolicy is an example authentication Policy
+	ExampleAuthenticationPolicy = &authn.Policy{
+		Targets: []*authn.TargetSelector{{
+			Name: "hello",
+		}},
+		Peers: []*authn.PeerAuthenticationMethod{{
+			Params: &authn.PeerAuthenticationMethod_Mtls{},
+		}},
+	}
+
+	// ExampleServiceRole is an example rbac service role
+	ExampleServiceRole = &rbac.ServiceRole{Rules: []*rbac.AccessRule{
+		{
+			Services: []string{"service0"},
+			Methods:  []string{"GET", "POST"},
+			Constraints: []*rbac.AccessRule_Constraint{
+				{Key: "key", Values: []string{"value"}},
+				{Key: "key", Values: []string{"value"}},
+			},
+		},
+		{
+			Services: []string{"service0"},
+			Methods:  []string{"GET", "POST"},
+			Constraints: []*rbac.AccessRule_Constraint{
+				{Key: "key", Values: []string{"value"}},
+				{Key: "key", Values: []string{"value"}},
+			},
+		},
+	}}
+
+	// ExampleServiceRoleBinding is an example rbac service role binding
+	ExampleServiceRoleBinding = &rbac.ServiceRoleBinding{
+		Subjects: []*rbac.Subject{
+			{User: "User0", Group: "Group0", Properties: map[string]string{"prop0": "value0"}},
+			{User: "User1", Group: "Group1", Properties: map[string]string{"prop1": "value1"}},
+		},
+		RoleRef: &rbac.RoleRef{Kind: "ServiceRole", Name: "ServiceRole001"},
 	}
 )
 
@@ -151,6 +246,8 @@ func Make(namespace string, i int) model.Config {
 	return model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:      model.MockConfig.Type,
+			Group:     "test.istio.io",
+			Version:   "v1",
 			Name:      name,
 			Namespace: namespace,
 			Labels: map[string]string{
@@ -183,12 +280,14 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 	if !contains {
 		t.Error("expected config mock types")
 	}
+	log.Info("Created mock descriptor")
 
 	// create configuration objects
 	elts := make(map[int]model.Config)
 	for i := 0; i < n; i++ {
 		elts[i] = Make(namespace, i)
 	}
+	log.Info("Make mock objects")
 
 	// post all elements
 	for _, elt := range elts {
@@ -196,6 +295,7 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 			t.Error(err)
 		}
 	}
+	log.Info("Created mock objects")
 
 	revs := make(map[int]string)
 
@@ -208,6 +308,8 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 			revs[i] = v1.ResourceVersion
 		}
 	}
+
+	log.Info("Got stored elements")
 
 	if _, err := r.Create(elts[0]); err == nil {
 		t.Error("expected error posting twice")
@@ -324,6 +426,7 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 			t.Error(err)
 		}
 	}
+	log.Info("Delete elements")
 
 	l, err = r.List(model.MockConfig.Type, namespace)
 	if err != nil {
@@ -332,6 +435,7 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 	if len(l) != 0 {
 		t.Errorf("wanted 0 element(s), got %d in %v", len(l), l)
 	}
+	log.Info("Test done, deleting namespace")
 }
 
 // CheckIstioConfigTypes validates that an empty store can ingest Istio config objects
@@ -339,25 +443,34 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 	name := "example"
 
 	cases := []struct {
-		name string
-		typ  string
-		spec proto.Message
+		name   string
+		schema model.ProtoSchema
+		spec   proto.Message
 	}{
-		{"RouteRule", model.RouteRule.Type, ExampleRouteRule},
-		{"IngressRule", model.IngressRule.Type, ExampleIngressRule},
-		{"EgressRule", model.EgressRule.Type, ExampleEgressRule},
-		{"DestinationPolicy", model.DestinationPolicy.Type, ExampleDestinationPolicy},
-		{"HTTPAPISpec", model.HTTPAPISpec.Type, ExampleHTTPAPISpec},
-		{"QuotaSpec", model.QuotaSpec.Type, ExampleQuotaSpec},
-		{"EndUserAuthenticationPolicySpec", model.EndUserAuthenticationPolicySpec.Type,
-			ExampleEndUserAuthenticationPolicySpec},
+		{"RouteRule", model.RouteRule, ExampleRouteRule},
+		{"VirtualService", model.VirtualService, ExampleVirtualService},
+		{"DestinationRule", model.DestinationRule, ExampleDestinationRule},
+		{"ExternalService", model.ExternalService, ExampleExternalService},
+		{"Gatway", model.Gateway, ExampleGateway},
+		{"IngressRule", model.IngressRule, ExampleIngressRule},
+		{"EgressRule", model.EgressRule, ExampleEgressRule},
+		{"DestinationPolicy", model.DestinationPolicy, ExampleDestinationPolicy},
+		{"HTTPAPISpec", model.HTTPAPISpec, ExampleHTTPAPISpec},
+		{"HTTPAPISpecBinding", model.HTTPAPISpecBinding, ExampleHTTPAPISpecBinding},
+		{"QuotaSpec", model.QuotaSpec, ExampleQuotaSpec},
+		{"QuotaSpecBinding", model.QuotaSpecBinding, ExampleQuotaSpecBinding},
+		{"Policy", model.AuthenticationPolicy, ExampleAuthenticationPolicy},
+		{"ServiceRole", model.ServiceRole, ExampleServiceRole},
+		{"ServiceRoleBinding", model.ServiceRoleBinding, ExampleServiceRoleBinding},
 	}
 
 	for _, c := range cases {
 		if _, err := store.Create(model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:      c.typ,
+				Type:      c.schema.Type,
 				Name:      name,
+				Group:     c.schema.Group + model.IstioAPIGroupDomain,
+				Version:   c.schema.Version,
 				Namespace: namespace,
 			},
 			Spec: c.spec,
@@ -369,30 +482,24 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 
 // CheckCacheEvents validates operational invariants of a cache
 func CheckCacheEvents(store model.ConfigStore, cache model.ConfigStoreCache, namespace string, n int, t *testing.T) {
+	n64 := int64(n)
 	stop := make(chan struct{})
 	defer close(stop)
-
-	lock := sync.Mutex{}
-
-	added, deleted := 0, 0
+	added, deleted := atomic.NewInt64(0), atomic.NewInt64(0)
 	cache.RegisterEventHandler(model.MockConfig.Type, func(c model.Config, ev model.Event) {
-
-		lock.Lock()
-		defer lock.Unlock()
-
 		switch ev {
 		case model.EventAdd:
-			if deleted != 0 {
+			if deleted.Load() != 0 {
 				t.Errorf("Events are not serialized (add)")
 			}
-			added++
+			added.Inc()
 		case model.EventDelete:
-			if added != n {
+			if added.Load() != n64 {
 				t.Errorf("Events are not serialized (delete)")
 			}
-			deleted++
+			deleted.Inc()
 		}
-		log.Infof("Added %d, deleted %d", added, deleted)
+		log.Infof("Added %d, deleted %d", added.Load(), deleted.Load())
 	})
 	go cache.Run(stop)
 
@@ -400,19 +507,15 @@ func CheckCacheEvents(store model.ConfigStore, cache model.ConfigStoreCache, nam
 	CheckMapInvariant(store, t, namespace, n)
 
 	log.Infof("Waiting till all events are received")
-	util.Eventually(func() bool {
-		lock.Lock()
-		defer lock.Unlock()
-		return added == n && deleted == n
-
-	}, t)
+	pkgtest.NewEventualOpts(500*time.Millisecond, 60*time.Second).Eventually(t, "receive events", func() bool {
+		return added.Load() == n64 && deleted.Load() == n64
+	})
 }
 
 // CheckCacheFreshness validates operational invariants of a cache
 func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *testing.T) {
 	stop := make(chan struct{})
-	var doneMu sync.Mutex
-	done := false
+	done := make(chan bool)
 	o := Make(namespace, 0)
 
 	// validate cache consistency
@@ -452,9 +555,7 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 			}
 			log.Infof("Stopping channel for (%#v)", config.Key)
 			close(stop)
-			doneMu.Lock()
-			done = true
-			doneMu.Unlock()
+			done <- true
 		}
 	})
 
@@ -471,11 +572,13 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 		t.Error(err)
 	}
 
-	util.Eventually(func() bool {
-		doneMu.Lock()
-		defer doneMu.Unlock()
-		return done
-	}, t)
+	timeout := time.After(10 * time.Second)
+	select {
+	case <-timeout:
+		t.Fatalf("timeout waiting to be done")
+	case <-done:
+		return
+	}
 }
 
 // CheckCacheSync validates operational invariants of a cache against the
@@ -494,7 +597,7 @@ func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreCache, names
 	stop := make(chan struct{})
 	defer close(stop)
 	go cache.Run(stop)
-	util.Eventually(func() bool { return cache.HasSynced() }, t)
+	pkgtest.Eventually(t, "HasSynced", cache.HasSynced)
 	os, _ := cache.List(model.MockConfig.Type, namespace)
 	if len(os) != n {
 		t.Errorf("cache.List => Got %d, expected %d", len(os), n)
@@ -508,11 +611,11 @@ func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreCache, names
 	}
 
 	// check again in the controller cache
-	util.Eventually(func() bool {
+	pkgtest.Eventually(t, "no elements in cache", func() bool {
 		os, _ = cache.List(model.MockConfig.Type, namespace)
 		log.Infof("cache.List => Got %d, expected %d", len(os), 0)
 		return len(os) == 0
-	}, t)
+	})
 
 	// now add through the controller
 	for i := 0; i < n; i++ {
@@ -522,13 +625,13 @@ func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreCache, names
 	}
 
 	// check directly through the client
-	util.Eventually(func() bool {
+	pkgtest.Eventually(t, "cache and backing store match", func() bool {
 		cs, _ := cache.List(model.MockConfig.Type, namespace)
 		os, _ := store.List(model.MockConfig.Type, namespace)
 		log.Infof("cache.List => Got %d, expected %d", len(cs), n)
 		log.Infof("store.List => Got %d, expected %d", len(os), n)
 		return len(os) == n && len(cs) == n
-	}, t)
+	})
 
 	// remove elements directly through the client
 	for i := 0; i < n; i++ {

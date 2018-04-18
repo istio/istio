@@ -31,7 +31,7 @@ option (gogoproto.goproto_getters_all) = false;
 option (gogoproto.equal_all) = false;
 option (gogoproto.gostring_all) = false;
 
-// Cnofiguration format for the Denier adapter.
+// Configuration format for the Denier adapter.
 message Params {
 	// The error to return when denying a request.
 	google.rpc.Status status = 1 [(gogoproto.nullable) = false];

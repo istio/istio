@@ -1,0 +1,4 @@
+Default:20
+#Package requirement
+#Package name, coverage requirement, actually coverage at specific SHA
+istio.io/istio/pkg/bootstrap:50 [50]

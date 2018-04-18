@@ -15,7 +15,7 @@ rolling window algorithm. And it is using Redis as a shared data storage.</p>
 
 <p>Example configuration:</p>
 
-<p>redisServerUrl: localhost:6379
+<pre><code class="language-yaml">redisServerUrl: localhost:6379
 connectionPoolSize: 10
 quotas:
   - name: requestCount.quota.istio-system
@@ -30,7 +30,8 @@ quotas:
         maxAmount: 12
       - dimensions:
           destination: reviews
-        maxAmount: 5</p>
+        maxAmount: 5
+</code></pre>
 
 <table class="message-fields">
 <thead>
@@ -83,7 +84,7 @@ Default is 10 connections per every CPU as reported by runtime.NumCPU.</p>
 <tbody>
 <tr id="Params.Override.dimensions">
 <td><code>dimensions</code></td>
-<td><code>map&lt;string, string&gt;</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
 <p>The specific dimensions for which this override applies.
 String representation of instance dimensions is used to check against configured dimensions.

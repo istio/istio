@@ -74,10 +74,16 @@ type Webhook struct {
 	sidecarTemplateVersion string
 	meshConfig             *meshconfig.MeshConfig
 
+	healthCheckInterval time.Duration
+	healthCheckFile     string
+
 	server     *http.Server
 	meshFile   string
 	configFile string
 	watcher    *fsnotify.Watcher
+	certFile   string
+	keyFile    string
+	cert       *tls.Certificate
 }
 
 func loadConfig(injectFile, meshFile string) (*Config, *meshconfig.MeshConfig, error) {
@@ -101,13 +107,41 @@ func loadConfig(injectFile, meshFile string) (*Config, *meshconfig.MeshConfig, e
 	return &c, meshConfig, nil
 }
 
+// WebhookParameters configures parameters for the sidecar injection
+// webhook.
+type WebhookParameters struct {
+	// ConfigFile is the path to the sidecar injection configuration file.
+	ConfigFile string
+
+	// MeshFile is the path to the mesh configuration file.
+	MeshFile string
+
+	// CertFile is the path to the x509 certificate for https.
+	CertFile string
+
+	// KeyFile is the path to the x509 private key matching `CertFile`.
+	KeyFile string
+
+	// Port is the webhook port, e.g. typically 443 for https.
+	Port int
+
+	// HealthCheckInterval configures how frequently the health check
+	// file is updated. Value of zero disables the health check
+	// update.
+	HealthCheckInterval time.Duration
+
+	// HealthCheckFile specifies the path to the health check file
+	// that is periodically updated.
+	HealthCheckFile string
+}
+
 // NewWebhook creates a new instance of a mutating webhook for automatic sidecar injection.
-func NewWebhook(configFile, meshFile, certFile, keyFile string, port int) (*Webhook, error) {
-	sidecarConfig, meshConfig, err := loadConfig(configFile, meshFile)
+func NewWebhook(p WebhookParameters) (*Webhook, error) {
+	sidecarConfig, meshConfig, err := loadConfig(p.ConfigFile, p.MeshFile)
 	if err != nil {
 		return nil, err
 	}
-	pair, err := tls.LoadX509KeyPair(certFile, keyFile)
+	pair, err := tls.LoadX509KeyPair(p.CertFile, p.KeyFile)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +152,7 @@ func NewWebhook(configFile, meshFile, certFile, keyFile string, port int) (*Webh
 	}
 	// watch the parent directory of the target files so we can catch
 	// symlink updates of k8s ConfigMaps volumes.
-	for _, file := range []string{configFile, meshFile} {
+	for _, file := range []string{p.ConfigFile, p.MeshFile, p.CertFile, p.KeyFile} {
 		watchDir, _ := filepath.Split(file)
 		if err := watcher.Watch(watchDir); err != nil {
 			return nil, fmt.Errorf("could not watch %v: %v", file, err)
@@ -127,18 +161,26 @@ func NewWebhook(configFile, meshFile, certFile, keyFile string, port int) (*Webh
 
 	wh := &Webhook{
 		server: &http.Server{
-			Addr:      fmt.Sprintf(":%v", port),
-			TLSConfig: &tls.Config{Certificates: []tls.Certificate{pair}},
-			// mtls disabled because apiserver webhook cert usage is still TBD.
+			Addr: fmt.Sprintf(":%v", p.Port),
 		},
 		sidecarConfig:          sidecarConfig,
 		sidecarTemplateVersion: sidecarTemplateVersionHash(sidecarConfig.Template),
 		meshConfig:             meshConfig,
-		configFile:             configFile,
-		meshFile:               meshFile,
+		configFile:             p.ConfigFile,
+		meshFile:               p.MeshFile,
 		watcher:                watcher,
+		healthCheckInterval:    p.HealthCheckInterval,
+		healthCheckFile:        p.HealthCheckFile,
+		certFile:               p.CertFile,
+		keyFile:                p.KeyFile,
+		cert:                   &pair,
 	}
-	http.HandleFunc("/inject", wh.serveInject)
+	// mtls disabled because apiserver webhook cert usage is still TBD.
+	wh.server.TLSConfig = &tls.Config{GetCertificate: wh.getCert}
+	h := http.NewServeMux()
+	h.HandleFunc("/inject", wh.serveInject)
+	wh.server.Handler = h
+
 	return wh, nil
 }
 
@@ -152,7 +194,14 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 	defer wh.watcher.Close() // nolint: errcheck
 	defer wh.server.Close()  // nolint: errcheck
 
+	var healthC <-chan time.Time
+	if wh.healthCheckInterval != 0 && wh.healthCheckFile != "" {
+		t := time.NewTicker(wh.healthCheckInterval)
+		healthC = t.C
+		defer t.Stop()
+	}
 	var timerC <-chan time.Time
+
 	for {
 		select {
 		case <-timerC:
@@ -163,11 +212,16 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 			}
 
 			version := sidecarTemplateVersionHash(sidecarConfig.Template)
-
+			pair, err := tls.LoadX509KeyPair(wh.certFile, wh.keyFile)
+			if err != nil {
+				log.Errorf("reload cert error: %v", err)
+				break
+			}
 			wh.mu.Lock()
 			wh.sidecarConfig = sidecarConfig
 			wh.sidecarTemplateVersion = version
 			wh.meshConfig = meshConfig
+			wh.cert = &pair
 			wh.mu.Unlock()
 		case event := <-wh.watcher.Event:
 			// use a timer to debounce configuration updates
@@ -176,10 +230,21 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 			}
 		case err := <-wh.watcher.Error:
 			log.Errorf("Watcher error: %v", err)
+		case <-healthC:
+			content := []byte(`ok`)
+			if err := ioutil.WriteFile(wh.healthCheckFile, content, 0644); err != nil {
+				log.Errorf("Health check update of %q failed: %v", wh.healthCheckFile, err)
+			}
 		case <-stop:
 			return
 		}
 	}
+}
+
+func (wh *Webhook) getCert(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+	wh.mu.Lock()
+	defer wh.mu.Unlock()
+	return wh.cert, nil
 }
 
 // TODO(https://github.com/kubernetes/kubernetes/issues/57982)
@@ -203,7 +268,7 @@ func applyDefaultsWorkaround(initContainers, containers []corev1.Container, volu
 type rfc6902PatchOperation struct {
 	Op    string      `json:"op"`
 	Path  string      `json:"path"`
-	Value interface{} `json:"value"`
+	Value interface{} `json:"value,omitempty"`
 }
 
 // JSONPatch `remove` is applied sequentially. Remove items in reverse
@@ -223,6 +288,7 @@ func removeContainers(containers []corev1.Container, removed []string, path stri
 	}
 	return patch
 }
+
 func removeVolumes(volumes []corev1.Volume, removed []string, path string) (patch []rfc6902PatchOperation) {
 	names := map[string]bool{}
 	for _, name := range removed {
@@ -230,6 +296,22 @@ func removeVolumes(volumes []corev1.Volume, removed []string, path string) (patc
 	}
 	for i := len(volumes) - 1; i >= 0; i-- {
 		if _, ok := names[volumes[i].Name]; ok {
+			patch = append(patch, rfc6902PatchOperation{
+				Op:   "remove",
+				Path: fmt.Sprintf("%v/%v", path, i),
+			})
+		}
+	}
+	return patch
+}
+
+func removeImagePullSecrets(imagePullSecrets []corev1.LocalObjectReference, removed []string, path string) (patch []rfc6902PatchOperation) {
+	names := map[string]bool{}
+	for _, name := range removed {
+		names[name] = true
+	}
+	for i := len(imagePullSecrets) - 1; i >= 0; i-- {
+		if _, ok := names[imagePullSecrets[i].Name]; ok {
 			patch = append(patch, rfc6902PatchOperation{
 				Op:   "remove",
 				Path: fmt.Sprintf("%v/%v", path, i),
@@ -269,6 +351,27 @@ func addVolume(target, added []corev1.Volume, basePath string) (patch []rfc6902P
 		if first {
 			first = false
 			value = []corev1.Volume{add}
+		} else {
+			path = path + "/-"
+		}
+		patch = append(patch, rfc6902PatchOperation{
+			Op:    "add",
+			Path:  path,
+			Value: value,
+		})
+	}
+	return patch
+}
+
+func addImagePullSecrets(target, added []corev1.LocalObjectReference, basePath string) (patch []rfc6902PatchOperation) {
+	first := len(target) == 0
+	var value interface{}
+	for _, add := range added {
+		value = add
+		path := basePath
+		if first {
+			first = false
+			value = []corev1.LocalObjectReference{add}
 		} else {
 			path = path + "/-"
 		}
@@ -321,10 +424,12 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotation
 	patch = append(patch, removeContainers(pod.Spec.InitContainers, prevStatus.InitContainers, "/spec/initContainers")...)
 	patch = append(patch, removeContainers(pod.Spec.Containers, prevStatus.Containers, "/spec/containers")...)
 	patch = append(patch, removeVolumes(pod.Spec.Volumes, prevStatus.Volumes, "/spec/volumes")...)
+	patch = append(patch, removeImagePullSecrets(pod.Spec.ImagePullSecrets, prevStatus.ImagePullSecrets, "/spec/imagePullSecrets")...)
 
 	patch = append(patch, addContainer(pod.Spec.InitContainers, sic.InitContainers, "/spec/initContainers")...)
 	patch = append(patch, addContainer(pod.Spec.Containers, sic.Containers, "/spec/containers")...)
 	patch = append(patch, addVolume(pod.Spec.Volumes, sic.Volumes, "/spec/volumes")...)
+	patch = append(patch, addImagePullSecrets(pod.Spec.ImagePullSecrets, sic.ImagePullSecrets, "/spec/imagePullSecrets")...)
 
 	patch = append(patch, updateAnnotation(pod.Annotations, annotations)...)
 
@@ -342,7 +447,7 @@ var (
 func injectionStatus(pod *corev1.Pod) *SidecarInjectionStatus {
 	var statusBytes []byte
 	if pod.ObjectMeta.Annotations != nil {
-		if value, ok := pod.ObjectMeta.Annotations[istioSidecarAnnotationStatusKey]; ok {
+		if value, ok := pod.ObjectMeta.Annotations[sidecarAnnotationStatusKey]; ok {
 			statusBytes = []byte(value)
 		}
 	}
@@ -354,7 +459,8 @@ func injectionStatus(pod *corev1.Pod) *SidecarInjectionStatus {
 		// lists is non-empty.
 		if len(status.InitContainers) != 0 ||
 			len(status.Containers) != 0 ||
-			len(status.Volumes) != 0 {
+			len(status.Volumes) != 0 ||
+			len(status.ImagePullSecrets) != 0 {
 			return &status
 		}
 	}
@@ -397,8 +503,9 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 	if err != nil {
 		return toAdmissionResponse(err)
 	}
+
 	applyDefaultsWorkaround(spec.InitContainers, spec.Containers, spec.Volumes)
-	annotations := map[string]string{istioSidecarAnnotationStatusKey: status}
+	annotations := map[string]string{sidecarAnnotationStatusKey: status}
 
 	patchBytes, err := createPatch(&pod, injectionStatus(&pod), annotations, spec)
 	if err != nil {
@@ -425,18 +532,24 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 			body = data
 		}
 	}
+	if len(body) == 0 {
+		log.Errorf("no body found")
+		http.Error(w, "no body found", http.StatusBadRequest)
+		return
+	}
 
 	// verify the content type is accurate
 	contentType := r.Header.Get("Content-Type")
 	if contentType != "application/json" {
 		log.Errorf("contentType=%s, expect application/json", contentType)
+		http.Error(w, "invalid Content-Type, want `application/json`", http.StatusUnsupportedMediaType)
 		return
 	}
 
 	var reviewResponse *v1beta1.AdmissionResponse
 	ar := v1beta1.AdmissionReview{}
 	if _, _, err := deserializer.Decode(body, nil, &ar); err != nil {
-		log.Errorf("Could not decode AdmissionReview: %v", err)
+		log.Errorf("Could not decode body: %v", err)
 		reviewResponse = toAdmissionResponse(err)
 	} else {
 		reviewResponse = wh.inject(&ar)
@@ -445,18 +558,18 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 	response := v1beta1.AdmissionReview{}
 	if reviewResponse != nil {
 		response.Response = reviewResponse
-		response.Response.UID = ar.Request.UID
+		if ar.Request != nil {
+			response.Response.UID = ar.Request.UID
+		}
 	}
-
-	// reset the Object and OldObject, they are not needed in a response.
-	ar.Request.Object = runtime.RawExtension{}
-	ar.Request.OldObject = runtime.RawExtension{}
 
 	resp, err := json.Marshal(response)
 	if err != nil {
-		log.Errorf("Could not encode AdmissionResponse: %v", err)
+		log.Errorf("Could not encode response: %v", err)
+		http.Error(w, fmt.Sprintf("could encode response: %v", err), http.StatusInternalServerError)
 	}
 	if _, err := w.Write(resp); err != nil {
-		log.Errorf("Could not write AdmissionResponse: %v", err)
+		log.Errorf("Could not write response: %v", err)
+		http.Error(w, fmt.Sprintf("could write response: %v", err), http.StatusInternalServerError)
 	}
 }

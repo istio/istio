@@ -9,7 +9,7 @@ data:
     template: |-
       initContainers:
       - name: istio-init
-        image: {PILOT_HUB}/proxy_init:{PILOT_TAG}
+        image: {PROXY_HUB}/proxy_init:{PROXY_TAG}
         args:
         - "-p"
         - {{ .MeshConfig.ProxyListenPort }}
@@ -25,11 +25,10 @@ data:
       - args:
         - -c
         #/etc/istio/proxy value here matches ConfigPathDir const in context.go
-        - sysctl -w kernel.core_pattern=/etc/istio/proxy/core.%e.%p.%t && ulimit -c
-          unlimited
+        - sysctl -w kernel.core_pattern=/etc/istio/proxy/core.%e.%p.%t && ulimit -c unlimited
         command:
         - /bin/sh
-        image: alpine
+        image: {PROXY_HUB}/proxy_init:{PROXY_TAG}
         imagePullPolicy: IfNotPresent
         name: enable-core-dump
         resources: {}
@@ -37,7 +36,7 @@ data:
           privileged: true
       containers:
       - name: istio-proxy
-        image: {PILOT_HUB}/proxy_debug:{PILOT_TAG}
+        image: {PROXY_HUB}/proxy_debug:{PROXY_TAG}
         args:
         - proxy
         - sidecar
@@ -52,17 +51,17 @@ data:
         - "istio-proxy"
         {{ end -}}
         - --drainDuration
-        - 2s
+        - {{ formatDuration .ProxyConfig.DrainDuration }}
         - --parentShutdownDuration
-        - 3s
+        - {{ formatDuration .ProxyConfig.ParentShutdownDuration }}
         - --discoveryAddress
         - {{ .ProxyConfig.DiscoveryAddress }}
         - --discoveryRefreshDelay
-        - 1s
+        - {{ formatDuration .ProxyConfig.DiscoveryRefreshDelay }}
         - --zipkinAddress
         - {{ .ProxyConfig.ZipkinAddress }}
         - --connectTimeout
-        - 1s
+        - {{ formatDuration .ProxyConfig.ConnectTimeout }}
         - --statsdUdpAddress
         - {{ .ProxyConfig.StatsdUdpAddress }}
         - --proxyAdminPort

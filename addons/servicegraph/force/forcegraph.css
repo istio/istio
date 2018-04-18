@@ -1,0 +1,83 @@
+.background {
+    stroke: white;
+    stroke-width: 1px;
+    fill: white;
+}
+
+.node {
+    stroke: black;
+    stroke-width: 1.5px;
+    cursor: move;
+    fill: #466BB0;
+}
+
+.node.darken {
+    stroke: grey;
+}
+
+.link {
+    fill: none;
+    stroke: #000;
+    stroke-width: 3px;
+    opacity: 0.7;
+    marker-end: url(#end-arrow);
+}
+
+.link.darken {
+    opacity: 0.3;
+}
+
+.label {
+    fill: white;
+    font-family: Verdana;
+    font-size: 14px;
+    text-anchor: middle;
+    cursor: move;
+}
+
+.label.darken {
+    fill: lightgrey;
+}
+
+#graph {
+    overflow-y: scroll;
+}
+
+#info {
+    height: 300px;
+    display: none;
+    overflow-y: scroll;
+}
+
+html, body, #total{
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    font-family: Verdana;
+    font-size: 14px;
+}
+
+a {
+    font-size: 18px;
+    color: #3F51B5;
+}
+
+table {
+    border-collapse: collapse;
+    width: 80%;
+    table-layout: fixed;
+}
+
+table, th, td {
+    border: 1px solid black;
+    text-align: left;
+    padding: 4px;
+}
+
+.conn-table {
+    margin: 20px;
+}
+
+div.float {
+    position:absolute;
+}

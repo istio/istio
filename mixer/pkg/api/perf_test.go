@@ -28,17 +28,16 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/pool"
-	"istio.io/istio/mixer/pkg/runtime"
+	"istio.io/istio/mixer/pkg/runtime/dispatcher"
 	"istio.io/istio/mixer/pkg/status"
 )
 
 type benchState struct {
-	client       mixerpb.MixerClient
-	connection   *grpc.ClientConn
-	gs           *grpc.Server
-	gp           *pool.GoroutinePool
-	s            *grpcServer
-	delayOnClose bool
+	client     mixerpb.MixerClient
+	connection *grpc.ClientConn
+	gs         *grpc.Server
+	gp         *pool.GoroutinePool
+	s          *grpcServer
 }
 
 func (bs *benchState) createGRPCServer() (string, error) {
@@ -76,19 +75,12 @@ func (bs *benchState) createAPIClient(dial string) error {
 		return err
 	}
 
-	bs.delayOnClose = true
 	bs.client = mixerpb.NewMixerClient(bs.connection)
 	return nil
 }
 
 func (bs *benchState) deleteAPIClient() {
 	_ = bs.connection.Close()
-
-	if bs.delayOnClose {
-		// TODO: This is to compensate for this bug: https://github.com/grpc/grpc-go/issues/1059
-		//       Remove this delay once that bug is fixed.
-		time.Sleep(100 * time.Millisecond)
-	}
 
 	bs.client = nil
 	bs.connection = nil
@@ -130,7 +122,7 @@ func (bs *benchState) Report(_ context.Context, _ attribute.Bag) error {
 }
 
 func (bs *benchState) Quota(ctx context.Context, requestBag attribute.Bag,
-	qma *runtime.QuotaMethodArgs) (*adapter.QuotaResult, error) {
+	qma *dispatcher.QuotaMethodArgs) (*adapter.QuotaResult, error) {
 
 	qr := &adapter.QuotaResult{
 		Status: status.OK,
@@ -234,8 +226,8 @@ func getGlobalDict() []string {
 		"response.time",
 		"source.namespace",
 		"source.uid",
-		"target.namespace",
-		"target.uid",
+		"destination.namespace",
+		"destination.uid",
 	}
 }
 
@@ -268,6 +260,6 @@ func setRequestAttrs(bag *attribute.MutableBag, uuid []byte) {
 	bag.Set("response.time", time.Now())
 	bag.Set("source.namespace", "XYZ11")
 	bag.Set("source.uid", "POD11")
-	bag.Set("target.namespace", "XYZ222")
-	bag.Set("target.uid", "POD222")
+	bag.Set("destination.namespace", "XYZ222")
+	bag.Set("destination.uid", "POD222")
 }

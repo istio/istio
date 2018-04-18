@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -98,4 +99,56 @@ func TestPodCache(t *testing.T) {
 		})
 	}
 
+}
+
+func TestPodCacheEvents(t *testing.T) {
+	handler := &ChainHandler{}
+	cache := newPodCache(cacheHandler{handler: handler})
+	if len(handler.funcs) != 1 {
+		t.Fatal("failed to register handlers")
+	}
+
+	f := handler.funcs[0]
+
+	ns := "default"
+	ip := "172.0.3.35"
+	pod1 := metav1.ObjectMeta{Name: "pod1", Namespace: ns}
+	if err := f(&v1.Pod{ObjectMeta: pod1}, model.EventAdd); err != nil {
+		t.Error(err)
+	}
+	if err := f(&v1.Pod{ObjectMeta: pod1, Status: v1.PodStatus{PodIP: ip, Phase: v1.PodPending}}, model.EventUpdate); err != nil {
+		t.Error(err)
+	}
+
+	if pod, exists := cache.getPodKey(ip); !exists || pod != "default/pod1" {
+		t.Errorf("getPodKey => got %s, pod1 not found or incorrect", pod)
+	}
+
+	pod2 := metav1.ObjectMeta{Name: "pod2", Namespace: ns}
+	if err := f(&v1.Pod{ObjectMeta: pod1, Status: v1.PodStatus{PodIP: ip, Phase: v1.PodFailed}}, model.EventUpdate); err != nil {
+		t.Error(err)
+	}
+	if err := f(&v1.Pod{ObjectMeta: pod2, Status: v1.PodStatus{PodIP: ip, Phase: v1.PodRunning}}, model.EventAdd); err != nil {
+		t.Error(err)
+	}
+
+	if pod, exists := cache.getPodKey(ip); !exists || pod != "default/pod2" {
+		t.Errorf("getPodKey => got %s, pod2 not found or incorrect", pod)
+	}
+
+	if err := f(&v1.Pod{ObjectMeta: pod1, Status: v1.PodStatus{PodIP: ip, Phase: v1.PodFailed}}, model.EventDelete); err != nil {
+		t.Error(err)
+	}
+
+	if pod, exists := cache.getPodKey(ip); !exists || pod != "default/pod2" {
+		t.Errorf("getPodKey => got %s, pod2 not found or incorrect", pod)
+	}
+
+	if err := f(&v1.Pod{ObjectMeta: pod2, Status: v1.PodStatus{PodIP: ip, Phase: v1.PodFailed}}, model.EventDelete); err != nil {
+		t.Error(err)
+	}
+
+	if pod, exists := cache.getPodKey(ip); exists {
+		t.Errorf("getPodKey => got %s, want none", pod)
+	}
 }

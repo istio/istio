@@ -2,7 +2,7 @@
 
 This directory contains Istio end-to-end tests and associated test framework.
 
-Only an E2E smoke test (bookinfo test with auth enabled) is automatically triggered in Before-Merge stage for every PR. The full suite of E2E tests are run in After-Merge stage only. Their results can be found in https://prow.istio.io/ and https://k8s-testgrid.appspot.com/istio
+E2E-bookInfoTest and E2E-smokeTest (both with auth enabled) is automatically triggered in Before-Merge stage for every PR. The full suite of E2E tests are run in After-Merge stage only. Their results can be found in https://prow.istio.io/ and https://k8s-testgrid.appspot.com/istio
 
 # Running E2E tests in PR stage
 
@@ -133,12 +133,13 @@ go_test target. The script has a number of options:
 * `--skip_cleanup` - to skip cleanup steps
 * `--namespace <namespace>` : If you don't specify `namespace`, a random namespace is generated for each test.
 * `--verbose <debug level noise from proxies>`
-* `--istioctl <local istioctl path>`: Use local istioctl binary.
+* `--istioctl <local istioctl path>`: Use local istioctl binary (i.e. `${GOPATH}/out/linux_amd64/release/istioctl`).
 * `--istioctl_url <remote istioctl url>`: If local path is not defined, download istioctl from a remote location.
-* `--use_local_cluster`
+* `--use_local_cluster`: If running on minikube, this should be set to true.
 * `--auth_enable` - if you want to include auth
 * `--cluster_wide` - if you want to run the cluster wide installation and tests
 * `--use_automatic_injection` - if you want to do transparent sidecar injection
+* `--use_galley_config_validator` - if you want to enable automatic configuration validation
 * `--mixer_hub <mixer image hub>`
 * `--mixer_tag <mixer image tag>`
 * `--pilot_hub <pilot image hub>`
@@ -147,6 +148,8 @@ go_test target. The script has a number of options:
 * `--proxy_tag <proxy image tag>`
 * `--ca_hub <CA image hub>`
 * `--ca_tag <CA image tag>`
+* `--galley_hub <galley image hub>`
+* `--galley_tag <galley image tag>`
 
 ## Examples
 
@@ -177,6 +180,14 @@ Please see golang testing options for more information.
   # Subsequent runs if only the TestSimpleIngress (for instance) changes:
   make e2e_simple E2E_ARGS="--skip_setup --skip_cleanup --namespace=e2e -istioctl ~/istioctl-osx --auth_enable --test.run TestSimpleIngress"
   ```
+
+* Running pilot e2e tests locally on minikube:
+
+```bash
+go test -v ./tests/e2e/tests/pilot \
+  --use_local_cluster \
+  --istioctl="${GOPATH}/out/linux_amd64/release/istioctl"
+```
 
 # demo_test.go
 

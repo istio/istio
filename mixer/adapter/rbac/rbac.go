@@ -50,6 +50,7 @@ type (
 		rbac          authorizer
 		env           adapter.Env
 		cacheDuration time.Duration
+		store         store.Store
 		closing       chan bool
 		done          chan bool
 	}
@@ -93,6 +94,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		rbac:          r,
 		env:           env,
 		cacheDuration: b.adapterConfig.CacheDuration,
+		store:         s,
 		closing:       make(chan bool),
 		done:          make(chan bool),
 	}
@@ -159,17 +161,15 @@ func (h *handler) startController(s store.Store) error {
 
 // startWatch registers with store, initiates a watch, and returns the current config state.
 func startWatch(s store.Store) (map[store.Key]*store.Resource, <-chan store.Event, error) {
-	ctx := context.Background()
-
 	kindMap := make(map[string]proto.Message)
 	kindMap[serviceRoleKind] = &rbacproto.ServiceRole{}
 	kindMap[serviceRoleBindingKind] = &rbacproto.ServiceRoleBinding{}
 
-	if err := s.Init(ctx, kindMap); err != nil {
+	if err := s.Init(kindMap); err != nil {
 		return nil, nil, err
 	}
 	// create channel before listing.
-	watchChan, err := s.Watch(ctx)
+	watchChan, err := s.Watch()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -197,6 +197,7 @@ func (h *handler) Close() error {
 	close(h.closing)
 
 	<-h.done
+	h.store.Stop()
 	return nil
 }
 

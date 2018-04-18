@@ -38,17 +38,20 @@ var invalidImportPaths = map[string]string{
 
 func main() {
 	flag.Parse()
-	var reports []string
-	if flag.NArg() == 0 {
-		reports = doAllDirs([]string{"."})
-	} else {
-		reports = doAllDirs(flag.Args())
-	}
-
-	for _, r := range reports {
+	for _, r := range getReport(flag.Args()) {
 		reportErr(r)
 	}
 	os.Exit(exitCode)
+}
+
+func getReport(args []string) []string {
+	var reports []string
+	if len(args) == 0 {
+		reports = doAllDirs([]string{"."})
+	} else {
+		reports = doAllDirs(args)
+	}
+	return reports
 }
 
 func doAllDirs(args []string) []string {

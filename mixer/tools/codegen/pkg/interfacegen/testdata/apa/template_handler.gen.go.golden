@@ -57,6 +57,8 @@ type Instance struct {
 
 // Output struct is returned by the attribute producing adapters that handle this template.
 type Output struct {
+	fieldsSet map[string]bool
+
 	Int64Primitive int64
 
 	BoolPrimitive bool
@@ -68,6 +70,45 @@ type Output struct {
 	TimeStamp time.Time
 
 	Duration time.Duration
+}
+
+func NewOutput() *Output {
+	return &Output{fieldsSet: make(map[string]bool)}
+}
+
+func (o *Output) SetInt64Primitive(val int64) {
+	o.fieldsSet["int64Primitive"] = true
+	o.Int64Primitive = val
+}
+
+func (o *Output) SetBoolPrimitive(val bool) {
+	o.fieldsSet["boolPrimitive"] = true
+	o.BoolPrimitive = val
+}
+
+func (o *Output) SetDoublePrimitive(val float64) {
+	o.fieldsSet["doublePrimitive"] = true
+	o.DoublePrimitive = val
+}
+
+func (o *Output) SetStringPrimitive(val string) {
+	o.fieldsSet["stringPrimitive"] = true
+	o.StringPrimitive = val
+}
+
+func (o *Output) SetTimeStamp(val time.Time) {
+	o.fieldsSet["timeStamp"] = true
+	o.TimeStamp = val
+}
+
+func (o *Output) SetDuration(val time.Duration) {
+	o.fieldsSet["duration"] = true
+	o.Duration = val
+}
+
+func (o *Output) WasSet(field string) bool {
+	_, found := o.fieldsSet[field]
+	return found
 }
 
 type Resource1 struct {

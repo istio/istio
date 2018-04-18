@@ -15,13 +15,8 @@
 package framework
 
 // Config is interface to extend the ability of the framework.
+// It is a interface to accumulate config fields into one structure
 // Any item (component, environment or even framework itself can has a Config)
 // Actual implement can take this interface with its configuration.
-// Implement is recommended to also take sync.Mutex to lock data while read/write
 type Config interface {
-	// GetConfig return the Config.
-	GetConfig() *Config
-
-	// SetConfig set a Config interface to an item.
-	SetConfig(config *Config)
 }

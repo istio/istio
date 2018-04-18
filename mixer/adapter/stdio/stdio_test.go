@@ -25,10 +25,9 @@ import (
 	"testing"
 	"time"
 
-	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	descriptor "istio.io/api/mixer/v1/config/descriptor"
+	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/adapter/stdio/config"
 	"istio.io/istio/mixer/pkg/adapter/test"
 	"istio.io/istio/mixer/template/logentry"
@@ -141,12 +140,12 @@ func TestBuilder(t *testing.T) {
 
 	for i, c := range cases {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			zb := func(options *config.Params) (*zap.Logger, func(), error) {
+			zb := func(options *config.Params) (zapcore.Core, func(), error) {
 				if c.induceError {
 					return nil, func() {}, errors.New("expected")
 				}
 
-				return newZapLogger(options)
+				return newZapCore(options)
 			}
 
 			info := GetInfo()
@@ -170,6 +169,10 @@ func TestBuilder(t *testing.T) {
 				handler := h.(*handler)
 				if handler.metricLevel != c.metricLevel {
 					t.Errorf("Got metric level %v, expecting %v", handler.metricLevel, c.metricLevel)
+				}
+
+				if err = h.Close(); err != nil {
+					t.Errorf("Got %v, expected success", err)
 				}
 			}
 		})
