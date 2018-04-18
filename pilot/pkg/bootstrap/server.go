@@ -267,10 +267,12 @@ func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 			log.Infof("clusters configuration %s", spew.Sdump(s.clusterStore))
 		}
 	}
-
-	// Starting Secret controller which will watch for Secret Objects and handle
-	// clientConfigs map dynamically
-	err = clusterregistry.StartSecretController(s.kubeClient, s.clusterStore, args.Config.ClusterRegistriesNamespace)
+	// Should not start Secret Controller if Mock Registry is used
+	if s.MemoryServiceDiscovery != nil {
+		// Starting Secret controller which will watch for Secret Objects and handle
+		// clientConfigs map dynamically
+		err = clusterregistry.StartSecretController(s.kubeClient, s.clusterStore, args.Config.ClusterRegistriesNamespace)
+	}
 
 	return err
 }
