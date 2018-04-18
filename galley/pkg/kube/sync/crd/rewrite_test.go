@@ -22,7 +22,7 @@ import (
 	ext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/istio/galley/pkg/common"
+	"istio.io/istio/galley/pkg/kube/sync/common"
 )
 
 func TestRewrite(t *testing.T) {

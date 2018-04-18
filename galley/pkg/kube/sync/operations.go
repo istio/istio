@@ -20,14 +20,14 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"istio.io/istio/galley/pkg/common"
-	"istio.io/istio/galley/pkg/crd"
-	"istio.io/istio/galley/pkg/resource"
+	"istio.io/istio/galley/pkg/kube"
+	"istio.io/istio/galley/pkg/kube/sync/crd"
+	"istio.io/istio/galley/pkg/kube/sync/resource"
 	"istio.io/istio/pkg/log"
 )
 
 // Purge internal custom resources and custom resource definitions, based on the provided mapping.
-func Purge(k common.Kube, mapping crd.Mapping) error {
+func Purge(k kube.Kube, mapping crd.Mapping) error {
 	crdi, err := k.CustomResourceDefinitionInterface()
 	if err != nil {
 		return err

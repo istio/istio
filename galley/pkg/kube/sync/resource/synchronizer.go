@@ -27,7 +27,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"istio.io/istio/galley/pkg/change"
-	"istio.io/istio/galley/pkg/common"
+	"istio.io/istio/galley/pkg/kube"
 	"istio.io/istio/pkg/log"
 )
 
@@ -57,7 +57,7 @@ type Synchronizer struct {
 type eventHookFn func(e interface{})
 
 // NewSynchronizer returns a new instance of a Synchronizer
-func NewSynchronizer(kube common.Kube, resyncPeriod time.Duration, source schema.GroupVersion,
+func NewSynchronizer(kube kube.Kube, resyncPeriod time.Duration, source schema.GroupVersion,
 	destination schema.GroupVersion, name, kind, listKind string) (s *Synchronizer, err error) {
 	return newSynchronizer(kube, resyncPeriod, source, destination, name, kind, listKind, nil)
 }
@@ -65,7 +65,7 @@ func NewSynchronizer(kube common.Kube, resyncPeriod time.Duration, source schema
 // NewSynchronizer returns a new instance of a Synchronizer that synchronizes the custom resource contents
 // from the accessor APIGroup/Version to the destination APIGroup/Version. The kind and listKind is used
 // when hydrating objects as unstructured.Unstructured.
-func newSynchronizer(kube common.Kube, resyncPeriod time.Duration, source schema.GroupVersion,
+func newSynchronizer(kube kube.Kube, resyncPeriod time.Duration, source schema.GroupVersion,
 	destination schema.GroupVersion, name, kind, listKind string, eventHook eventHookFn) (*Synchronizer, error) {
 
 	s := &Synchronizer{

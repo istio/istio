@@ -19,12 +19,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 
-	"istio.io/istio/galley/pkg/common"
+	"istio.io/istio/galley/pkg/kube"
 	"istio.io/istio/pkg/log"
 )
 
 // DeleteAll deletes all resources in the specified custom resource set for given namespaces.
-func DeleteAll(kube common.Kube, name string, kind string, listKind string, gv schema.GroupVersion, namespaces []string) error {
+func DeleteAll(kube kube.Kube, name string, kind string, listKind string, gv schema.GroupVersion, namespaces []string) error {
 
 	iface, err := kube.DynamicInterface(gv, kind, listKind)
 	if err != nil {

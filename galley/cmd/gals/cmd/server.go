@@ -19,8 +19,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/galley/cmd/shared"
-	"istio.io/istio/galley/pkg/common"
-	"istio.io/istio/galley/pkg/server"
+	"istio.io/istio/galley/pkg/kube"
+	"istio.io/istio/galley/pkg/kube/sync"
 	"istio.io/istio/pkg/cmd"
 )
 
@@ -44,8 +44,8 @@ func runServer(fatalf shared.FormatFn) error {
 		return err
 	}
 
-	kube := common.NewKube(config)
-	s := server.New(kube, server.Mapping(), flags.resyncPeriod)
+	kube := kube.NewKube(config)
+	s := sync.New(kube, sync.Mapping(), flags.resyncPeriod)
 
 	stop := make(chan struct{})
 

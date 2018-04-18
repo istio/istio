@@ -22,7 +22,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/galley/cmd/shared"
-	"istio.io/istio/galley/pkg/crd/validation"
+	"istio.io/istio/galley/pkg/kube/validation"
 	"istio.io/istio/mixer/adapter"
 	"istio.io/istio/mixer/pkg/config"
 	"istio.io/istio/mixer/pkg/config/store"
