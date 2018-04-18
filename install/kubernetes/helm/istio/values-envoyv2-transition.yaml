@@ -7,8 +7,6 @@ global:
   mtls:
     enabled: false
 
-  mixerAddrSuffix: .svc.cluster.local
-
 ingress:
   enabled: true
   service:
