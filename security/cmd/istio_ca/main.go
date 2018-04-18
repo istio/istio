@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/security/pkg/registry"
 	"istio.io/istio/security/pkg/registry/kube"
 	caserver "istio.io/istio/security/pkg/server/ca"
+	"istio.io/istio/security/pkg/server/monitoring"
 )
 
 // TODO(myidpt): move the following constants to pkg/cmd.
@@ -115,6 +116,11 @@ type cliOptions struct { // nolint: maligned
 	signCACerts bool
 
 	cAClientConfig caclient.Config
+
+	// Monitoring port number
+	monitoringPort int
+	// Enable profiling in monitoring
+	enableProfiling bool
 
 	// The path to the file which indicates the liveness of the server by its existence.
 	// This will be used for k8s liveness probe. If empty, it does nothing.
@@ -212,10 +218,15 @@ func init() {
 	flags.StringVar(&opts.grpcHostname, "grpc-hostname", "istio-citadel", "The hostname for GRPC server.")
 	flags.StringVar(&opts.grpcHosts, "grpc-host-identities", "istio-citadel",
 		"The list of hostnames for istio ca server, separated by comma.")
-	flags.IntVar(&opts.grpcPort, "grpc-port", 8060, "The port number for GRPC server. "+
-		"If unspecified, Istio CA will not server GRPC request.")
+	flags.IntVar(&opts.grpcPort, "grpc-port", 8060, "The port number for Citadel GRPC server. "+
+		"If unspecified, Istio CA will not serve GRPC requests.")
 
 	flags.BoolVar(&opts.signCACerts, "sign-ca-certs", false, "Whether the CA signs certificates for other CAs")
+
+	// Monitoring configuration
+	flags.IntVar(&opts.monitoringPort, "monitoring-port", 9093, "The port number for monitoring Citadel. "+
+		"If unspecified, Istio CA will disable monitoring.")
+	flags.BoolVar(&opts.enableProfiling, "enable-profiling", false, "Enabling profiling when monitoring Citadel.")
 
 	// Liveness Probe configuration
 	flags.StringVar(&opts.LivenessProbeOptions.Path, "liveness-probe-path", "",
@@ -282,7 +293,7 @@ func runCA() {
 	sc, err := controller.NewSecretController(ca, opts.workloadCertTTL, opts.workloadCertGracePeriodRatio,
 		opts.workloadCertMinGracePeriod, cs.CoreV1(), opts.signCACerts, opts.listenedNamespace, webhooks)
 	if err != nil {
-		fatalf("failed to create secret controller: %v", err)
+		fatalf("Failed to create secret controller: %v", err)
 	}
 
 	stopCh := make(chan struct{})
@@ -295,7 +306,7 @@ func runCA() {
 		// add certificate identity to the identity registry for the liveness probe check
 		if registryErr := reg.AddMapping(probecontroller.LivenessProbeClientIdentity,
 			probecontroller.LivenessProbeClientIdentity); registryErr != nil {
-			log.Errorf("failed to add indentity mapping: %v", registryErr)
+			log.Errorf("Failed to add indentity mapping: %v", registryErr)
 		}
 
 		ch := make(chan struct{})
@@ -312,7 +323,7 @@ func runCA() {
 		hostnames := strings.Split(opts.grpcHosts, ",")
 		caServer, startErr := caserver.New(ca, opts.maxWorkloadCertTTL, opts.signCACerts, hostnames, opts.grpcPort)
 		if startErr != nil {
-			fatalf("failed to create istio ca server: %v", startErr)
+			fatalf("Failed to create istio ca server: %v", startErr)
 		}
 		if serverErr := caServer.Run(); serverErr != nil {
 			// stop the registry-related controllers
@@ -322,24 +333,40 @@ func runCA() {
 		}
 	}
 
+	monitorErrCh := make(chan error)
+	// Start the monitoring server.
+	if opts.monitoringPort > 0 {
+		monitor, mErr := monitoring.StartMonitor(opts.monitoringPort, opts.enableProfiling, monitorErrCh)
+		if mErr != nil {
+			fatalf("Unable to setup monitoring: %v", mErr)
+		}
+		log.Info("Citadel monitor has started.")
+		defer monitor.Close()
+	}
+
 	log.Info("Istio CA has started")
 
-	errCh := make(chan error)
-	rotator := caclient.KeyCertBundleRotator{}
+	rotatorErrCh := make(chan error)
 	// Start CA client if the upstream CA address is specified.
 	if len(opts.cAClientConfig.CAAddress) != 0 {
 		rotator, creationErr := createKeyCertBundleRotator(ca.GetCAKeyCertBundle())
 		if creationErr != nil {
-			fatalf("failed to create CA key cert bundle rotator: %v", creationErr)
+			fatalf("Failed to create key cert bundle rotator: %v", creationErr)
 		}
-		go rotator.Start(errCh)
-		log.Info("Istio CA key cert bundle rotator has started")
+		go rotator.Start(rotatorErrCh)
+		log.Info("Key cert bundle rotator has started.")
+		defer rotator.Stop()
 	}
 
 	// Blocking until receives error.
-	err = <-errCh
-	rotator.Stop()
-	fatalf("Istio CA key cert bundle rotator failed: %v", err)
+	for {
+		select {
+		case <-monitorErrCh:
+			fatalf("Monitoring server error: %v", err)
+		case <-rotatorErrCh:
+			fatalf("Key cert bundle rotator error: %v", err)
+		}
+	}
 }
 
 func createClientset() *kubernetes.Clientset {
