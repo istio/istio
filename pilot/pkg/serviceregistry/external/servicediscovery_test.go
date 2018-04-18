@@ -82,7 +82,7 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 
 	createServiceEntries([]*networking.ServiceEntry{httpDNS, tcpStatic}, store, t)
 
-	service, err := sd.GetService(hostDNE)
+	service, err := sd.GetService(model.Hostname(hostDNE))
 	if err != nil {
 		t.Errorf("GetService() encountered unexpected error: %v", err)
 	}
@@ -90,14 +90,14 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 		t.Errorf("GetService(%q) => should not exist, got %s", hostDNE, service.Hostname)
 	}
 
-	service, err = sd.GetService(host)
+	service, err = sd.GetService(model.Hostname(host))
 	if err != nil {
 		t.Errorf("GetService(%q) encountered unexpected error: %v", host, err)
 	}
 	if service == nil {
 		t.Errorf("GetService(%q) => should exist", host)
 	}
-	if service.Hostname != host {
+	if service.Hostname != model.Hostname(host) {
 		t.Errorf("GetService(%q) => %q, want %q", host, service.Hostname, host)
 	}
 }

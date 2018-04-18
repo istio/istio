@@ -43,13 +43,13 @@ var discovery2 *mock.ServiceDiscovery
 
 func buildMockController() *Controller {
 	discovery1 = mock.NewDiscovery(
-		map[string]*model.Service{
+		map[model.Hostname]*model.Service{
 			mock.HelloService.Hostname:   mock.HelloService,
 			mock.ExtHTTPService.Hostname: mock.ExtHTTPService,
 		}, 2)
 
 	discovery2 = mock.NewDiscovery(
-		map[string]*model.Service{
+		map[model.Hostname]*model.Service{
 			mock.WorldService.Hostname:    mock.WorldService,
 			mock.ExtHTTPSService.Hostname: mock.ExtHTTPSService,
 		}, 2)
@@ -172,7 +172,7 @@ func TestServices(t *testing.T) {
 	services, err := aggregateCtl.Services()
 
 	// Set up ground truth hostname values
-	serviceMap := map[string]bool{
+	serviceMap := map[model.Hostname]bool{
 		mock.HelloService.Hostname:    false,
 		mock.ExtHTTPService.Hostname:  false,
 		mock.WorldService.Hostname:    false,
