@@ -459,20 +459,8 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *Listener {
 	}
 }
 
-func buildHSFListener(opts buildHTTPListenerOpts) *Listener {
+func buildHSFInboundListener(opts buildHTTPListenerOpts) *Listener {
 	filters := buildFaultFilters(opts.routeConfig)
-
-	filters = append(filters, HTTPFilter{
-		Type:   decoder,
-		Name:   router,
-		Config: FilterRouterConfig{},
-	})
-
-	filter := HTTPFilter{
-		Name:   CORSFilter,
-		Config: CORSFilterConfig{},
-	}
-	filters = append([]HTTPFilter{filter}, filters...)
 
 	if opts.mesh.MixerCheckServer != "" || opts.mesh.MixerReportServer != "" {
 		mixerConfig := BuildHTTPMixerFilterConfig(opts.mesh, opts.proxy, opts.proxyInstances, opts.outboundListener, opts.store)
@@ -491,7 +479,7 @@ func buildHSFListener(opts buildHTTPListenerOpts) *Listener {
 	config := &HTTPFilterConfig{
 		CodecType:        auto,
 		UseRemoteAddress: opts.useRemoteAddress,
-		StatPrefix:       "http",
+		StatPrefix:       "hsf",
 		Filters:          filters,
 	}
 
@@ -520,11 +508,70 @@ func buildHSFListener(opts buildHTTPListenerOpts) *Listener {
 
 	return &Listener{
 		BindToPort: true,
-		Name:       fmt.Sprintf("http_%s_%d", opts.ip, opts.port),
+		Name:       fmt.Sprintf("hsf_%s_%d", opts.ip, opts.port),
 		Address:    fmt.Sprintf("tcp://%s:%d", opts.ip, opts.port),
 		Filters: []*NetworkFilter{{
 			Type:   read,
-			Name:   HSFConnectionManager,
+			Name:   HSFInboundProxy,
+			Config: config,
+		}},
+	}
+}
+
+func buildHSFOutboundListener(opts buildHTTPListenerOpts) *Listener {
+	filters := buildFaultFilters(opts.routeConfig)
+
+	if opts.mesh.MixerCheckServer != "" || opts.mesh.MixerReportServer != "" {
+		mixerConfig := BuildHTTPMixerFilterConfig(opts.mesh, opts.proxy, opts.proxyInstances, opts.outboundListener, opts.store)
+		filter := HTTPFilter{
+			Type:   decoder,
+			Name:   MixerFilter,
+			Config: mixerConfig,
+		}
+		filters = append([]HTTPFilter{filter}, filters...)
+	}
+
+	if filter := buildJwtFilter(opts.authnPolicy); filter != nil {
+		filters = append([]HTTPFilter{*filter}, filters...)
+	}
+
+	config := &HTTPFilterConfig{
+		CodecType:        auto,
+		UseRemoteAddress: opts.useRemoteAddress,
+		StatPrefix:       "hsf",
+		Filters:          filters,
+	}
+
+	if opts.mesh.AccessLogFile != "" {
+		config.AccessLog = []AccessLog{{
+			Path: opts.mesh.AccessLogFile,
+		}}
+	}
+
+	if opts.mesh.EnableTracing {
+		config.GenerateRequestID = true
+		config.Tracing = &HTTPFilterTraceConfig{
+			OperationName: opts.direction,
+		}
+	}
+
+	if opts.rds != "" {
+		config.RDS = &RDS{
+			Cluster:         RDSName,
+			RouteConfigName: opts.rds,
+			RefreshDelayMs:  protoDurationToMS(opts.mesh.RdsRefreshDelay),
+		}
+	} else {
+		config.RouteConfig = opts.routeConfig
+	}
+
+	return &Listener{
+		BindToPort: true,
+		Name:       fmt.Sprintf("hsf_%s_%d", opts.ip, opts.port),
+		Address:    fmt.Sprintf("tcp://%s:%d", opts.ip, opts.port),
+		Filters: []*NetworkFilter{{
+			Type:   read,
+			Name:   HSFOutboundProxy,
 			Config: config,
 		}},
 	}
@@ -641,7 +688,7 @@ func buildOutboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy, proxy
 		}
 
 		if routeConfig.Protocol == model.ProtocolHSF {
-			listeners = append(listeners, buildHSFListener(buildHTTPListenerOpts{
+			listeners = append(listeners, buildHSFOutboundListener(buildHTTPListenerOpts{
 				mesh:             mesh,
 				proxy:            node,
 				proxyInstances:   proxyInstances,
@@ -967,7 +1014,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 			routeConfig := &HTTPRouteConfig{ValidateClusters: ValidateClusters, VirtualHosts: []*VirtualHost{host}}
 
 			if protocol == model.ProtocolHSF {
-				listener = buildHSFListener(buildHTTPListenerOpts{
+				listener = buildHSFInboundListener(buildHTTPListenerOpts{
 					mesh:             mesh,
 					proxy:            node,
 					proxyInstances:   proxyInstances,

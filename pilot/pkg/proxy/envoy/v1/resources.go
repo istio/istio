@@ -91,6 +91,8 @@ const (
 
 	// HSFConnectionManager is the name of HSF filter.
 	HSFConnectionManager = "hsf_connection_manager"
+	HSFInboundProxy = "hsf_inbound_proxy"
+	HSFOutboundProxy = "hsf_outbound_proxy"
 
 	// TCPProxyFilter is the name of the TCP Proxy network filter.
 	TCPProxyFilter = "tcp_proxy"
