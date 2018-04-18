@@ -282,7 +282,7 @@ func TestCapture(t *testing.T) {
 			Message: "zap-write",
 			Level:   zapcore.ErrorLevel,
 		}
-		zap.L().Core().Write(entry, nil)
+		_ = zap.L().Core().Write(entry, nil)
 
 		defaultScope.SetOutputLevel(NoneLevel)
 
