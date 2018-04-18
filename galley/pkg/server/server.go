@@ -64,12 +64,12 @@ type event struct {
 }
 
 // New returns a new instance of a Server.
-func New(k common.Kube, mapping crd.Mapping, resyncPeriod time.Duration) (*Server) {
+func New(k common.Kube, mapping crd.Mapping, resyncPeriod time.Duration) *Server {
 	return newServer(k, mapping, resyncPeriod, nil)
 }
 
 func newServer(
-	k common.Kube, mapping crd.Mapping, resyncPeriod time.Duration, eventHook eventHookFn) (*Server) {
+	k common.Kube, mapping crd.Mapping, resyncPeriod time.Duration, eventHook eventHookFn) *Server {
 
 	return &Server{
 		mapping:               mapping,
