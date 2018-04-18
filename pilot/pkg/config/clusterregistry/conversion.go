@@ -49,6 +49,14 @@ type ClusterStore struct {
 	storeLock     sync.RWMutex
 }
 
+// NewClustersStore initializes data struct to store clusters information
+func NewClustersStore() *ClusterStore {
+	return &ClusterStore{
+		clusters:      []*k8s_cr.Cluster{},
+		clientConfigs: map[string]clientcmdapi.Config{},
+	}
+}
+
 // GetClientAccessConfigs returns map of collected client configs
 func (cs *ClusterStore) GetClientAccessConfigs() map[string]clientcmdapi.Config {
 	return cs.clientConfigs
@@ -77,30 +85,26 @@ func (cs *ClusterStore) GetPilotClusters() []*k8s_cr.Cluster {
 }
 
 // ReadClusters reads multiple clusters from a ConfigMap
-func ReadClusters(k8s kubernetes.Interface, configMapName string, configMapNamespace string) (*ClusterStore, error) {
+func ReadClusters(k8s kubernetes.Interface, configMapName string,
+	configMapNamespace string, cs *ClusterStore) error {
 
 	// getClustersConfigs
-	cs, err := getClustersConfigs(k8s, configMapName, configMapNamespace)
-	if err != nil {
-		return nil, err
+	if err := getClustersConfigs(k8s, configMapName, configMapNamespace, cs); err != nil {
+		return err
 	}
 	if len(cs.clusters) == 0 {
-		return nil, fmt.Errorf("no kubeconf found in provided ConfigMap: %s/%s", configMapNamespace, configMapName)
+		return fmt.Errorf("no kubeconf found in provided ConfigMap: %s/%s", configMapNamespace, configMapName)
 	}
 
-	return cs, nil
+	return nil
 }
 
 // getClustersConfigs(configMapName,configMapNamespace)
-func getClustersConfigs(k8s kubernetes.Interface, configMapName, configMapNamespace string) (*ClusterStore, error) {
-	cs := &ClusterStore{
-		clusters:      []*k8s_cr.Cluster{},
-		clientConfigs: map[string]clientcmdapi.Config{},
-	}
+func getClustersConfigs(k8s kubernetes.Interface, configMapName, configMapNamespace string, cs *ClusterStore) error {
 
 	clusterRegistry, err := k8s.CoreV1().ConfigMaps(configMapNamespace).Get(configMapName, metav1.GetOptions{})
 	if err != nil {
-		return &ClusterStore{}, err
+		return err
 	}
 
 	for key, data := range clusterRegistry.Data {
@@ -108,17 +112,17 @@ func getClustersConfigs(k8s kubernetes.Interface, configMapName, configMapNamesp
 		decoder := yaml.NewYAMLOrJSONDecoder(strings.NewReader(data), 4096)
 		if err = decoder.Decode(&cluster); err != nil {
 			log.Errorf("failed to decode cluster definition for: %s error: %v", key, err)
-			return &ClusterStore{}, err
+			continue
 		}
 		if err := validateCluster(&cluster); err != nil {
 			log.Errorf("failed to validate cluster: %s error: %v", key, err)
-			return &ClusterStore{}, err
+			continue
 		}
 		secretName := cluster.ObjectMeta.Annotations[ClusterAccessConfigSecret]
 		secretNamespace := cluster.ObjectMeta.Annotations[ClusterAccessConfigSecretNamespace]
 		if len(secretName) == 0 {
 			log.Errorf("cluster %s does not have annotation for Secret", key)
-			return &ClusterStore{}, nil
+			continue
 		}
 		if len(secretNamespace) == 0 {
 			secretNamespace = "istio-system"
@@ -127,19 +131,19 @@ func getClustersConfigs(k8s kubernetes.Interface, configMapName, configMapNamesp
 		if err != nil {
 			log.Errorf("failed to get Secret %s in namespace %s for cluster %s with error: %v",
 				secretName, secretNamespace, key, err)
-			return &ClusterStore{}, nil
+			continue
 		}
 		clientConfig, err := clientcmd.Load(kubeconfig)
 		if err != nil {
 			log.Errorf("failed to load client config from secret %s in namespace %s for cluster %s with error: %v",
 				secretName, secretNamespace, key, err)
-			return &ClusterStore{}, nil
+			continue
 		}
 		cs.clientConfigs[cluster.ObjectMeta.Name] = *clientConfig
 		cs.clusters = append(cs.clusters, &cluster)
 	}
 
-	return cs, nil
+	return nil
 }
 
 // Read a kubeconfig fragment from the secret.

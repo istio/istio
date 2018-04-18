@@ -15,7 +15,6 @@
 package clusterregistry
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
@@ -68,7 +67,7 @@ func NewController(
 }
 
 // Run starts the controller until it receves a message over stopCh
-func (c *Controller) Run(stopCh <-chan struct{}) error {
+func (c *Controller) Run(stopCh <-chan struct{}) {
 	defer runtime.HandleCrash()
 
 	// Start the informer factories to begin populating the informer caches
@@ -77,13 +76,11 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 	// Wait for the caches to be synced before starting workers
 	log.Info("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh, c.secretsSynced); !ok {
-		return fmt.Errorf("failed to wait for caches to sync")
+		log.Errorf("failed to wait for caches to sync")
+	} else {
+		<-stopCh
 	}
-
-	<-stopCh
 	log.Info("Shutting down workers")
-
-	return nil
 }
 
 func checkSecret(s *corev1.Secret) bool {

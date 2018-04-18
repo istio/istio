@@ -209,6 +209,7 @@ func TestGetClusterConfig(t *testing.T) {
 	}
 	defer e.teardown()
 
+	cs := &ClusterStore{}
 	client := fake.NewSimpleClientset()
 
 	for _, test := range tests {
@@ -218,7 +219,7 @@ func TestGetClusterConfig(t *testing.T) {
 		if err := buildSecret(client, test.cc); err != nil {
 			t.Errorf("Failed to build secret(s) with error: %v", err)
 		}
-		cs, err := getClustersConfigs(client, test.configMapName, "istio-system")
+		err := getClustersConfigs(client, test.configMapName, "istio-system", cs)
 		if err != nil && !test.expectError {
 			t.Errorf("Test '%s' failed, expected not to fail, but failed with error: %v", test.testName, err)
 			continue
