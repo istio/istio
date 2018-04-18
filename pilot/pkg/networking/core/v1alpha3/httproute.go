@@ -100,8 +100,9 @@ func (configgen *ConfigGeneratorImpl) BuildSidecarOutboundHTTPRouteConfig(env mo
 	}
 
 	// Get list of virtual services bound to the mesh gateway
-	virtualServices := env.VirtualServices([]string{model.IstioMeshGateway})
-	guardedHosts := istio_route.TranslateVirtualHosts(virtualServices, nameToServiceMap, proxyLabels, model.IstioMeshGateway)
+	meshGateway := map[string]bool{model.IstioMeshGateway: true}
+	virtualServices := env.VirtualServices(meshGateway)
+	guardedHosts := istio_route.TranslateVirtualHosts(virtualServices, nameToServiceMap, proxyLabels, meshGateway)
 	vHostPortMap := make(map[int][]route.VirtualHost)
 
 	for _, guardedHost := range guardedHosts {

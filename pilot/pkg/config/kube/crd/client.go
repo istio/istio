@@ -208,6 +208,35 @@ func (rc *restClient) registerResources() error {
 		return err
 	}
 
+	skipCreate := true
+	for _, schema := range rc.descriptor {
+		name := ResourceName(schema.Plural) + "." + ResourceGroup(&schema)
+		crd, errGet := cs.ApiextensionsV1beta1().CustomResourceDefinitions().Get(name, meta_v1.GetOptions{})
+		if errGet != nil {
+			skipCreate = false
+			break // create the resources
+		}
+		for _, cond := range crd.Status.Conditions {
+			if cond.Type == apiextensionsv1beta1.Established &&
+				cond.Status == apiextensionsv1beta1.ConditionTrue {
+				continue
+			}
+
+			if cond.Type == apiextensionsv1beta1.NamesAccepted &&
+				cond.Status == apiextensionsv1beta1.ConditionTrue {
+				continue
+			}
+
+			log.Warnf("Not established: %v", name)
+			skipCreate = false
+			break
+		}
+	}
+
+	if skipCreate {
+		return nil
+	}
+
 	for _, schema := range rc.descriptor {
 		g := ResourceGroup(&schema)
 		name := ResourceName(schema.Plural) + "." + g

@@ -268,7 +268,7 @@ type IstioConfigStore interface {
 	DestinationRule(hostname string) *Config
 
 	// VirtualServices lists all virtual services bound to the specified gateways
-	VirtualServices(gateways []string) []Config
+	VirtualServices(gateways map[string]bool) []Config
 
 	// Gateways lists all gateways bound to the specified workload labels
 	Gateways(workloadLabels LabelsCollection) []Config
@@ -683,17 +683,10 @@ func (store *istioConfigStore) ExternalServices() []Config {
 // change event and pass them to the config generator. Model calls to List are
 // extremely expensive - and for larger number of services it doesn't make sense
 // to just convert again and again, for each listener times endpoints.
-func (store *istioConfigStore) VirtualServices(gateways []string) []Config {
+func (store *istioConfigStore) VirtualServices(gateways map[string]bool) []Config {
 	configs, err := store.List(VirtualService.Type, NamespaceAll)
 	if err != nil {
 		return nil
-	}
-
-	// Trim the list to virtual services bound to the gateways specified
-
-	gatewayRequested := make(map[string]bool)
-	for _, gateway := range gateways {
-		gatewayRequested[gateway] = true
 	}
 
 	out := make([]Config, 0)
@@ -701,12 +694,12 @@ func (store *istioConfigStore) VirtualServices(gateways []string) []Config {
 		rule := config.Spec.(*networking.VirtualService)
 		if len(rule.Gateways) == 0 {
 			// This rule applies only to IstioMeshGateway
-			if gatewayRequested[IstioMeshGateway] {
+			if gateways[IstioMeshGateway] {
 				out = append(out, config)
 			}
 		} else {
-			for _, ruleGateway := range rule.Gateways {
-				if gatewayRequested[ruleGateway] {
+			for _, g := range rule.Gateways {
+				if gateways[ResolveShortnameToFQDN(g, config.ConfigMeta)] {
 					out = append(out, config)
 					break
 				}
@@ -721,8 +714,17 @@ func (store *istioConfigStore) VirtualServices(gateways []string) []Config {
 		for i, h := range rule.Hosts {
 			rule.Hosts[i] = ResolveShortnameToFQDN(h, r.ConfigMeta)
 		}
+		// resolve gateways to bind to
+		for i, g := range rule.Gateways {
+			rule.Gateways[i] = ResolveShortnameToFQDN(g, r.ConfigMeta)
+		}
 		// resolve host in http route.destination, route.mirror
 		for _, d := range rule.Http {
+			for _, m := range d.Match {
+				for i, g := range m.Gateways {
+					m.Gateways[i] = ResolveShortnameToFQDN(g, r.ConfigMeta)
+				}
+			}
 			for _, w := range d.Route {
 				w.Destination.Host = ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta)
 			}
@@ -732,6 +734,11 @@ func (store *istioConfigStore) VirtualServices(gateways []string) []Config {
 		}
 		//resolve host in tcp route.destination
 		for _, d := range rule.Tcp {
+			for _, m := range d.Match {
+				for i, g := range m.Gateways {
+					m.Gateways[i] = ResolveShortnameToFQDN(g, r.ConfigMeta)
+				}
+			}
 			for _, w := range d.Route {
 				w.Destination.Host = ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta)
 			}

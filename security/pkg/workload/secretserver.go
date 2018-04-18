@@ -32,8 +32,8 @@ type SecretServerMode int
 
 // SecretServer is for implementing the communication from the node agent to the workload.
 type SecretServer interface {
-	// Save stores the key cert bundle with associated workload identity.
-	Save(util.KeyCertBundle) error
+	// Put stores the key cert bundle with associated workload identity.
+	Put(serviceAccount string, bundle util.KeyCertBundle) error
 }
 
 // Config contains the SecretServer configuration.
