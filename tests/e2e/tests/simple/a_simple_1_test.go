@@ -207,8 +207,8 @@ func Test503sDuringChanges(t *testing.T) {
 			return
 		}
 		time.Sleep(4 * time.Second)
-		util.KubeDelete(tc.Kube.Namespace, rulePath1) // nolint:errcheck
-		util.KubeDelete(tc.Kube.Namespace, rulePath2) // nolint:errcheck
+		util.KubeDelete(tc.Kube.Namespace, rulePath1, tc.Kube.KubeConfig) // nolint:errcheck
+		util.KubeDelete(tc.Kube.Namespace, rulePath2, tc.Kube.KubeConfig) // nolint:errcheck
 	}()
 	// run at a low/moderate QPS for a while while changing the routing rules,
 	// check for any non 200s
