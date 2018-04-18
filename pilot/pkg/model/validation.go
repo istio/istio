@@ -1917,7 +1917,7 @@ func ValidateVirtualService(msg proto.Message) (errs error) {
 	}
 
 	for _, gateway := range virtualService.Gateways {
-		if !IsDNS1123Label(gateway) { // FIXME: verify this restriction
+		if !IsDNS1123Label(gateway) {
 			errs = appendErrors(errs, fmt.Errorf("gateway is not a valid DNS1123 label: %v", gateway))
 		}
 	}
@@ -1935,11 +1935,7 @@ func ValidateVirtualService(msg proto.Message) (errs error) {
 	for _, httpRoute := range virtualService.Http {
 		errs = appendErrors(errs, validateHTTPRoute(httpRoute))
 	}
-
-	// TODO: validate once implemented
-	if len(virtualService.Tcp) > 0 {
-		errs = appendErrors(errs, errors.New("TCP virtual services have not been implemented"))
-	}
+	// TODO: validate TCP
 
 	return
 }
