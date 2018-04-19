@@ -57,13 +57,18 @@ Add E2E_ARGS="--use_local_cluster" to all your e2e tests as tests are we are run
 
 
 # Cleanup
-1. Cleanup test environment
+To save the vagrant vm status:
 ```bash
 vagrant halt
 ```
 
-2. Cleanup vagrant environment
-This is necessary if you want to remove vagrant VM setup from your host and want to bring it back to original state
+To destroy the vm:
 ```bash
-sh cleanup_linux_host.sh
+vagrant destroy
+``` 
+
+To cleanup host settings only(restore kubectl and remove docker daemon setup)
+```bash
+sh host_cleanup.sh
 ```
+If you are on macOS, please go to the Preferences->Daemon to remove `10.10.0.0:5000` from the "Insecure registries" section. Then apply changes and restart docker. 
