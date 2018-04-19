@@ -268,7 +268,7 @@ func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 		}
 	}
 	// Should not start Secret Controller if Mock Registry is used
-	if checkForMock(args.Service.Registries) {
+	if !checkForMock(args.Service.Registries) {
 		// Starting Secret controller which will watch for Secret Objects and handle
 		// clientConfigs map dynamically
 		err = clusterregistry.StartSecretController(s.kubeClient, s.clusterStore, args.Config.ClusterRegistriesNamespace)
