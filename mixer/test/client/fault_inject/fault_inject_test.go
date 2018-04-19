@@ -60,7 +60,9 @@ const reportAttributes = `
      "content-length": "18",
      ":status": "503",
      "server": "envoy"
-  }
+  },
+  "response.total_size": 66,
+  "request.total_size": 0
 }
 `
 
