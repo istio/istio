@@ -22,7 +22,7 @@ You can run the following OS specific scripts to install all pre-requisites, or 
 sh linux_prereqs.sh
 
 // assumes [homebrew](https://brew.sh) exists
-sh setup_macos_prerequs.sh
+sh macos_prereqs.sh
 
 ```
 
