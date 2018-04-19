@@ -27,7 +27,7 @@ initContainers:
   - "-u"
   - {{ .SidecarProxyUID }}
   - "-m"
-  - [[ .ProxyConfig.InterceptionMode.String ]]
+  - [[ or (index .ObjectMeta.Annotations "sidecar.istio.io/interceptionMode") .ProxyConfig.InterceptionMode.String ]]
   - "-i"
   [[ if (isset .ObjectMeta.Annotations "traffic.sidecar.istio.io/includeOutboundIPRanges") -]]
   - "[[ index .ObjectMeta.Annotations "traffic.sidecar.istio.io/includeOutboundIPRanges"]]"
@@ -134,7 +134,7 @@ containers:
       fieldRef:
         fieldPath: metadata.name
   - name: ISTIO_META_INTERCEPTION_MODE
-    value: [[ .ProxyConfig.InterceptionMode.String ]]
+    value: [[ or (index .ObjectMeta.Annotations "sidecar.istio.io/interceptionMode") .ProxyConfig.InterceptionMode.String ]]
   {{ if eq .ImagePullPolicy "" -}}
   imagePullPolicy: IfNotPresent
   {{ else -}}
@@ -147,13 +147,13 @@ containers:
     {{ else -}}
     privileged: false
     readOnlyRootFilesystem: true
-    [[ if eq .ProxyConfig.InterceptionMode.String "TPROXY" -]]
+    [[ if eq (or (index .ObjectMeta.Annotations "sidecar.istio.io/interceptionMode") .ProxyConfig.InterceptionMode.String) "TPROXY" -]]
     capabilities:
       add:
       - NET_ADMIN
     [[ end -]]
     {{ end -}}
-    [[ if ne .ProxyConfig.InterceptionMode.String "TPROXY" -]]
+    [[ if ne (or (index .ObjectMeta.Annotations "sidecar.istio.io/interceptionMode") .ProxyConfig.InterceptionMode.String) "TPROXY" -]]
     runAsUser: 1337
     [[ end -]]
   restartPolicy: Always
