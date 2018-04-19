@@ -35,7 +35,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"k8s.io/api/core/v1"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -149,14 +149,14 @@ type PilotArgs struct {
 
 // Server contains the runtime configuration for the Pilot discovery service.
 type Server struct {
-	mesh                    *meshconfig.MeshConfig
-	ServiceController       *aggregate.Controller
-	configController        model.ConfigStoreCache
-	mixerSAN                []string
-	kubeClient              kubernetes.Interface
-	startFuncs              []startFunc
-	HTTPListeningAddr       net.Addr
-	GRPCListeningAddr       net.Addr
+	mesh              *meshconfig.MeshConfig
+	ServiceController *aggregate.Controller
+	configController  model.ConfigStoreCache
+	mixerSAN          []string
+	kubeClient        kubernetes.Interface
+	startFuncs        []startFunc
+	HTTPListeningAddr net.Addr
+	GRPCListeningAddr net.Addr
 	SecureGRPCListeningAddr net.Addr
 	clusterStore            *clusterregistry.ClusterStore
 
@@ -189,9 +189,6 @@ func NewServer(args PilotArgs) (*Server, error) {
 
 	// Apply the arguments to the configuration.
 	if err := s.initKubeClient(&args); err != nil {
-		return nil, err
-	}
-	if err := s.initClusterRegistries(&args); err != nil {
 		return nil, err
 	}
 	if err := s.initMesh(&args); err != nil {
@@ -252,18 +249,6 @@ func (s *Server) initMonitor(args *PilotArgs) error {
 	return nil
 }
 
-func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
-	if args.Config.ClusterRegistriesConfigmap != "" {
-		s.clusterStore, err = clusterregistry.ReadClusters(s.kubeClient,
-			args.Config.ClusterRegistriesConfigmap,
-			args.Config.ClusterRegistriesNamespace)
-		if s.clusterStore != nil {
-			log.Infof("clusters configuration %s", spew.Sdump(s.clusterStore))
-		}
-	}
-	return err
-}
-
 // GetMeshConfig fetches the ProxyMesh configuration from Kubernetes ConfigMap.
 func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*v1.ConfigMap, *meshconfig.MeshConfig, error) {
 
@@ -272,7 +257,7 @@ func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*v1.Confi
 		return nil, &defaultMesh, nil
 	}
 
-	config, err := kube.CoreV1().ConfigMaps(namespace).Get(name, meta_v1.GetOptions{})
+	config, err := kube.CoreV1().ConfigMaps(namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
 		if strings.Contains(err.Error(), fmt.Sprintf("\"%s\" not found", name)) {
 			defaultMesh := model.DefaultMeshConfig()
@@ -486,162 +471,7 @@ func (s *Server) makeCopilotMonitor(args *PilotArgs, configController model.Conf
 	return nil
 }
 
-// createK8sServiceControllers creates all the k8s service controllers under this pilot
-func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Controller, args *PilotArgs) (err error) {
-	kubectl := kube.NewController(s.kubeClient, args.Config.ControllerOptions)
-	serviceControllers.AddRegistry(
-		aggregate.Registry{
-			Name:             serviceregistry.KubernetesRegistry,
-			ServiceDiscovery: kubectl,
-			ServiceAccounts:  kubectl,
-			Controller:       kubectl,
-		})
-
-	// Add clusters under the same pilot
-	if s.clusterStore != nil {
-		clusters := s.clusterStore.GetPilotClusters()
-		clientAccessConfigs := s.clusterStore.GetClientAccessConfigs()
-		for _, cluster := range clusters {
-			log.Infof("Cluster name: %s, AccessConfigFile: %s", clusterregistry.GetClusterName(cluster))
-			clusterClient := clientAccessConfigs[cluster.ObjectMeta.Name]
-			_, client, kuberr := kube.CreateInterfaceFromClusterConfig(&clusterClient)
-			if kuberr != nil {
-				err = multierror.Append(err, multierror.Prefix(kuberr, fmt.Sprintf("failed to connect to Access API with access config: %s", cluster.ObjectMeta.Name)))
-			}
-
-			kubectl := kube.NewController(client, args.Config.ControllerOptions)
-			serviceControllers.AddRegistry(
-				aggregate.Registry{
-					Name:             serviceregistry.KubernetesRegistry,
-					ClusterName:      clusterregistry.GetClusterName(cluster),
-					ServiceDiscovery: kubectl,
-					ServiceAccounts:  kubectl,
-					Controller:       kubectl,
-				})
-		}
-	}
-	return
-}
-
-// initServiceControllers creates and initializes the service controllers
-func (s *Server) initServiceControllers(args *PilotArgs) error {
-	serviceControllers := aggregate.NewController()
-	registered := make(map[serviceregistry.ServiceRegistry]bool)
-	for _, r := range args.Service.Registries {
-		serviceRegistry := serviceregistry.ServiceRegistry(r)
-		if _, exists := registered[serviceRegistry]; exists {
-			log.Warnf("%s registry specified multiple times.", r)
-			continue
-		}
-		registered[serviceRegistry] = true
-		log.Infof("Adding %s registry adapter", serviceRegistry)
-		switch serviceRegistry {
-		case serviceregistry.MockRegistry:
-			initMemoryRegistry(s, serviceControllers)
-		case serviceregistry.KubernetesRegistry:
-			if err := s.createK8sServiceControllers(serviceControllers, args); err != nil {
-				return err
-			}
-			if s.mesh.IngressControllerMode != meshconfig.MeshConfig_OFF {
-				// Wrap the config controller with a cache.
-				configController, err := configaggregate.MakeCache([]model.ConfigStoreCache{
-					s.configController,
-					ingress.NewController(s.kubeClient, s.mesh, args.Config.ControllerOptions),
-				})
-				if err != nil {
-					return err
-				}
-
-				// Update the config controller
-				s.configController = configController
-
-				if ingressSyncer, errSyncer := ingress.NewStatusSyncer(s.mesh, s.kubeClient,
-					args.Namespace, args.Config.ControllerOptions); errSyncer != nil {
-					log.Warnf("Disabled ingress status syncer due to %v", errSyncer)
-				} else {
-					s.addStartFunc(func(stop chan struct{}) error {
-						go ingressSyncer.Run(stop)
-						return nil
-					})
-				}
-			}
-		case serviceregistry.ConsulRegistry:
-			log.Infof("Consul url: %v", args.Service.Consul.ServerURL)
-			conctl, conerr := consul.NewController(
-				args.Service.Consul.ServerURL, args.Service.Consul.Interval)
-			if conerr != nil {
-				return fmt.Errorf("failed to create Consul controller: %v", conerr)
-			}
-			serviceControllers.AddRegistry(
-				aggregate.Registry{
-					Name:             serviceRegistry,
-					ServiceDiscovery: conctl,
-					ServiceAccounts:  conctl,
-					Controller:       conctl,
-				})
-		case serviceregistry.EurekaRegistry:
-			log.Infof("Eureka url: %v", args.Service.Eureka.ServerURL)
-			eurekaClient := eureka.NewClient(args.Service.Eureka.ServerURL)
-			serviceControllers.AddRegistry(
-				aggregate.Registry{
-					Name:             serviceRegistry,
-					Controller:       eureka.NewController(eurekaClient, args.Service.Eureka.Interval),
-					ServiceDiscovery: eureka.NewServiceDiscovery(eurekaClient),
-					ServiceAccounts:  eureka.NewServiceAccounts(),
-				})
-
-		case serviceregistry.CloudFoundryRegistry:
-			cfConfig, err := cloudfoundry.LoadConfig(args.Config.CFConfig)
-			if err != nil {
-				return multierror.Prefix(err, "loading cloud foundry config")
-			}
-			tlsConfig, err := cfConfig.ClientTLSConfig()
-			if err != nil {
-				return multierror.Prefix(err, "creating cloud foundry client tls config")
-			}
-			client, err := copilot.NewIstioClient(cfConfig.Copilot.Address, tlsConfig)
-			if err != nil {
-				return multierror.Prefix(err, "creating cloud foundry client")
-			}
-			serviceControllers.AddRegistry(aggregate.Registry{
-				Name: serviceRegistry,
-				Controller: &cloudfoundry.Controller{
-					Ticker: cloudfoundry.NewTicker(cfConfig.Copilot.PollInterval),
-					Client: client,
-				},
-				ServiceDiscovery: &cloudfoundry.ServiceDiscovery{
-					Client:      client,
-					ServicePort: cfConfig.ServicePort,
-				},
-				ServiceAccounts: cloudfoundry.NewServiceAccounts(),
-			})
-
-		default:
-			return multierror.Prefix(nil, "Service registry "+r+" is not supported.")
-		}
-	}
-	configStore := model.MakeIstioStore(s.configController)
-
-	// add external service registry to aggregator by default
-	serviceControllers.AddRegistry(
-		aggregate.Registry{
-			Name:             "ExternalServices",
-			Controller:       external.NewController(s.configController),
-			ServiceDiscovery: external.NewServiceDiscovery(configStore),
-			ServiceAccounts:  external.NewServiceAccounts(),
-		})
-
-	s.ServiceController = serviceControllers
-
-	// Defer running of the service controllers.
-	s.addStartFunc(func(stop chan struct{}) error {
-		go s.ServiceController.Run(stop)
-		return nil
-	})
-
-	return nil
-}
-func initMemoryRegistry(s *Server, serviceControllers *aggregate.Controller) {
+func (s *Server) createMockServiceControllers(serviceControllers *aggregate.Controller) error {
 	// MemServiceDiscovery implementation
 	discovery1 := mock.NewDiscovery(
 		map[string]*model.Service{ // mock.HelloService.Hostname: mock.HelloService,
@@ -668,6 +498,191 @@ func initMemoryRegistry(s *Server, serviceControllers *aggregate.Controller) {
 	}
 	serviceControllers.AddRegistry(registry1)
 	serviceControllers.AddRegistry(registry2)
+	return nil
+}
+
+func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Controller, args *PilotArgs) (err error) {
+	kubectl := kube.NewController(s.kubeClient, args.Config.ControllerOptions)
+	serviceControllers.AddRegistry(
+		aggregate.Registry{
+			Name:             serviceregistry.KubernetesRegistry,
+			ServiceDiscovery: kubectl,
+			ServiceAccounts:  kubectl,
+			Controller:       kubectl,
+		})
+
+	if args.Config.ClusterRegistriesConfigmap != "" {
+		clusterStore, err := clusterregistry.ReadClusters(s.kubeClient,
+			args.Config.ClusterRegistriesConfigmap,
+			args.Config.ClusterRegistriesNamespace)
+		if clusterStore != nil {
+			log.Infof("clusters configuration %s", spew.Sdump(clusterStore))
+
+			// Add clusters under the same pilot
+			clusters := clusterStore.GetPilotClusters()
+			clientAccessConfigs := clusterStore.GetClientAccessConfigs()
+			for _, cluster := range clusters {
+				log.Infof("Cluster name: %s, AccessConfigFile: %s", clusterregistry.GetClusterName(cluster))
+				clusterClient := clientAccessConfigs[cluster.ObjectMeta.Name]
+				_, client, kuberr := kube.CreateInterfaceFromClusterConfig(&clusterClient)
+				if kuberr != nil {
+					err = multierror.Append(err, multierror.Prefix(kuberr, fmt.Sprintf("failed to connect to Access API with access config: %s", cluster.ObjectMeta.Name)))
+				}
+
+				kubectl := kube.NewController(client, args.Config.ControllerOptions)
+				serviceControllers.AddRegistry(
+					aggregate.Registry{
+						Name:             serviceregistry.KubernetesRegistry,
+						ClusterName:      clusterregistry.GetClusterName(cluster),
+						ServiceDiscovery: kubectl,
+						ServiceAccounts:  kubectl,
+						Controller:       kubectl,
+					})
+			}
+		}
+	}
+
+	if s.mesh.IngressControllerMode != meshconfig.MeshConfig_OFF {
+		// Wrap the config controller with a cache.
+		configController, err := configaggregate.MakeCache([]model.ConfigStoreCache{
+			s.configController,
+			ingress.NewController(s.kubeClient, s.mesh, args.Config.ControllerOptions),
+		})
+		if err != nil {
+			return err
+		}
+
+		// Update the config controller
+		s.configController = configController
+
+		if ingressSyncer, errSyncer := ingress.NewStatusSyncer(s.mesh, s.kubeClient,
+			args.Namespace, args.Config.ControllerOptions); errSyncer != nil {
+			log.Warnf("Disabled ingress status syncer due to %v", errSyncer)
+		} else {
+			s.addStartFunc(func(stop chan struct{}) error {
+				go ingressSyncer.Run(stop)
+				return nil
+			})
+		}
+	}
+	return nil
+}
+
+func (s *Server) createConsulServiceControllers(serviceControllers *aggregate.Controller, args *PilotArgs) error {
+	log.Infof("Consul url: %v", args.Service.Consul.ServerURL)
+	conctl, conerr := consul.NewController(
+		args.Service.Consul.ServerURL, args.Service.Consul.Interval)
+	if conerr != nil {
+		return fmt.Errorf("failed to create Consul controller: %v", conerr)
+	}
+	serviceControllers.AddRegistry(
+		aggregate.Registry{
+			Name:             serviceregistry.ConsulRegistry,
+			ServiceDiscovery: conctl,
+			ServiceAccounts:  conctl,
+			Controller:       conctl,
+		})
+	return nil
+}
+
+func (s *Server) createEurekaServiceControllers(serviceControllers *aggregate.Controller, args *PilotArgs) error {
+	log.Infof("Eureka url: %v", args.Service.Eureka.ServerURL)
+	eurekaClient := eureka.NewClient(args.Service.Eureka.ServerURL)
+	serviceControllers.AddRegistry(
+		aggregate.Registry{
+			Name:             serviceregistry.EurekaRegistry,
+			Controller:       eureka.NewController(eurekaClient, args.Service.Eureka.Interval),
+			ServiceDiscovery: eureka.NewServiceDiscovery(eurekaClient),
+			ServiceAccounts:  eureka.NewServiceAccounts(),
+		})
+	return nil
+}
+
+func (s *Server) createCloudFoundryServiceControllers(serviceControllers *aggregate.Controller, args *PilotArgs) error {
+	cfConfig, err := cloudfoundry.LoadConfig(args.Config.CFConfig)
+	if err != nil {
+		return multierror.Prefix(err, "loading cloud foundry config")
+	}
+	tlsConfig, err := cfConfig.ClientTLSConfig()
+	if err != nil {
+		return multierror.Prefix(err, "creating cloud foundry client tls config")
+	}
+	client, err := copilot.NewIstioClient(cfConfig.Copilot.Address, tlsConfig)
+	if err != nil {
+		return multierror.Prefix(err, "creating cloud foundry client")
+	}
+	serviceControllers.AddRegistry(aggregate.Registry{
+		Name: serviceregistry.CloudFoundryRegistry,
+		Controller: &cloudfoundry.Controller{
+			Ticker: cloudfoundry.NewTicker(cfConfig.Copilot.PollInterval),
+			Client: client,
+		},
+		ServiceDiscovery: &cloudfoundry.ServiceDiscovery{
+			Client:      client,
+			ServicePort: cfConfig.ServicePort,
+		},
+		ServiceAccounts: cloudfoundry.NewServiceAccounts(),
+	})
+	return nil
+}
+
+// initServiceControllers creates and initializes the service controllers
+func (s *Server) initServiceControllers(args *PilotArgs) error {
+	serviceControllers := aggregate.NewController()
+	registered := make(map[serviceregistry.ServiceRegistry]bool)
+	for _, r := range args.Service.Registries {
+		serviceRegistry := serviceregistry.ServiceRegistry(r)
+		if _, exists := registered[serviceRegistry]; exists {
+			log.Warnf("%s registry specified multiple times.", r)
+			continue
+		}
+		registered[serviceRegistry] = true
+		log.Infof("Adding %s registry adapter", serviceRegistry)
+		switch serviceRegistry {
+		case serviceregistry.MockRegistry:
+			if err := s.createMockServiceControllers(serviceControllers); err != nil {
+				return err
+			}
+		case serviceregistry.KubernetesRegistry:
+			if err := s.createK8sServiceControllers(serviceControllers, args); err != nil {
+				return err
+			}
+		case serviceregistry.ConsulRegistry:
+			if err := s.createConsulServiceControllers(serviceControllers, args); err != nil {
+				return err
+			}
+		case serviceregistry.EurekaRegistry:
+			if err := s.createEurekaServiceControllers(serviceControllers, args); err != nil {
+				return err
+			}
+		case serviceregistry.CloudFoundryRegistry:
+			if err := s.createCloudFoundryServiceControllers(serviceControllers, args); err != nil {
+				return err
+			}
+		default:
+			return multierror.Prefix(nil, "Service registry "+r+" is not supported.")
+		}
+	}
+	configStore := model.MakeIstioStore(s.configController)
+
+	// add external service registry to aggregator by default
+	serviceControllers.AddRegistry(
+		aggregate.Registry{
+			Name:             "ExternalServices",
+			Controller:       external.NewController(s.configController),
+			ServiceDiscovery: external.NewServiceDiscovery(configStore),
+			ServiceAccounts:  external.NewServiceAccounts(),
+		})
+
+	s.ServiceController = serviceControllers
+
+	// Defer running of the service controllers.
+	s.addStartFunc(func(stop chan struct{}) error {
+		go s.ServiceController.Run(stop)
+		return nil
+	})
+
+	return nil
 }
 
 func (s *Server) initDiscoveryService(args *PilotArgs) error {
