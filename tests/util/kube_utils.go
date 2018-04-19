@@ -662,6 +662,6 @@ func CheckPodRunning(n, name string, kubeconfig string) error {
 	if err != nil {
 		return err
 	}
-	log.Info("Get the pod running!")
+	log.Info("Get the pod name=%s running!", name)
 	return nil
 }
