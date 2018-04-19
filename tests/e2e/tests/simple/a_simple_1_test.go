@@ -174,7 +174,35 @@ func TestAuth(t *testing.T) {
 	}
 	pod := podList[0]
 	log.Infof("From client, non istio injected pod \"%s\"", pod)
-	res, err := util.Shell("kubectl exec -n %s %s -- /usr/local/bin/fortio load -qps 5 -t 1s http://echosrv.%s:8080/echo", ns, pod, ns)
+	res, err := util.Shell("kubectl exec -n %s %s -- /usr/local/bin/fortio curl http://echosrv.%s:8080/debug", ns, pod, ns)
+	if tc.Kube.AuthEnabled {
+		if err == nil {
+			t.Errorf("Running with auth on yet able to connect from non istio to istio (insecure): %v", res)
+		} else {
+			log.Infof("Got expected error with auth on and non istio->istio connection: %v", err)
+		}
+	} else {
+		if err == nil {
+			log.Infof("Got expected success with auth off and non istio->istio connection: %v", res)
+		} else {
+			t.Errorf("Unexpected error connect from non istio to istio without auth: %v", err)
+		}
+	}
+}
+
+func TestAuthWithHeaders(t *testing.T) {
+	ns := tc.Kube.Namespace
+	// Get the 2 pods
+	podList, err := getPodList(ns, "app=fortio-noistio")
+	if err != nil {
+		t.Fatalf("kubectl failure to get pods %v", err)
+	}
+	if len(podList) != 1 {
+		t.Fatalf("Unexpected to get %d pods when expecting 1. got %v", len(podList), podList)
+	}
+	pod := podList[0]
+	log.Infof("From client, non istio injected pod \"%s\"", pod)
+	res, err := util.Shell("kubectl exec -n %s %s -- /usr/local/bin/fortio curl http://echosrv2.%s:8088/debug", ns, pod, ns)
 	if tc.Kube.AuthEnabled {
 		if err == nil {
 			t.Errorf("Running with auth on yet able to connect from non istio to istio (insecure): %v", res)

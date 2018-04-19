@@ -50,7 +50,7 @@ kind: Deployment
 metadata:
   name: echosrv-deployment-1
 spec:
-  replicas: 1 # tells deployment to run 2 pods matching the template
+  replicas: 1 # tells deployment to run 1 pod matching the template
   template: # create pods using pod definition in this template
     metadata:
       # a unique name is generated from the deployment name
@@ -77,7 +77,7 @@ kind: Deployment
 metadata:
   name: echosrv-deployment-2
 spec:
-  replicas: 1 # tells deployment to run 2 pods matching the template
+  replicas: 1 # tells deployment to run 1 pod matching the template
   template: # create pods using pod definition in this template
     metadata:
       # a unique name is generated from the deployment name
@@ -85,6 +85,7 @@ spec:
         app: echosrv
         version: v2
         test: b
+        hasExtraPort: true
     spec:
       containers:
       - name: echosrv
@@ -92,7 +93,26 @@ spec:
         ports:
          - containerPort: 8080
          - containerPort: 8079
+         - containerPort: 8088 # Port that doesn't exist on deployment 1
         args:
           - server
+          - -P="8088 localhost:8080" # Proxy to self, aka have another http echo on 8088
 #          - -loglevel=debug  # to see all incoming connections
 #          - -echo-debug-path=/fortio/debug # can be changed
+---
+# Second service, selecting the pod that does have the extra port
+apiVersion: v1
+kind: Service
+metadata:
+  name: echosrv2
+spec:
+  ports:
+  - port: 8080
+    name: http-echo
+  - port: 8079
+    name: grpc-ping
+  - port: 8088
+    name: http-echo2
+  selector:
+    app: echosrv
+    hasExtraPort: true
