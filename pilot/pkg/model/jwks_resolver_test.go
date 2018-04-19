@@ -16,6 +16,7 @@ package model
 
 import (
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -244,8 +245,24 @@ func TestJwtPubKeyRefresh(t *testing.T) {
 		}
 	}
 
-	// Sleep so that refresher job has chance to run.
-	time.Sleep(10 * time.Millisecond)
+	// Wait until refresh job at least finished once.
+	wait := time.Millisecond
+	retries := 0
+	for ; retries < 3; retries++ {
+		time.Sleep(wait)
+		// Make sure refresh job has run and detect change happened.
+		if atomic.LoadUint64(&r.changedCount) == 0 {
+			// Retry after some sleep if not run.
+			wait *= 2
+			continue
+		}
+
+		break
+	}
+
+	if retries == 3 {
+		t.Errorf("Refresher failed to run")
+	}
 
 	cases = []struct {
 		in                string

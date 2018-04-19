@@ -16,6 +16,7 @@ package authn
 
 import (
 	"crypto/sha1"
+	"encoding/base64"
 	"fmt"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -152,7 +153,7 @@ func ConvertPolicyToJwtConfig(policy *authn.Policy, useInlinePublicKey bool) *jw
 			jwt.JwksSourceSpecifier = &jwtfilter.JwtRule_LocalJwks{
 				LocalJwks: &core.DataSource{
 					Specifier: &core.DataSource_InlineString{
-						InlineString: jwtPubKey,
+						InlineString: base64.StdEncoding.EncodeToString([]byte(jwtPubKey)),
 					},
 				},
 			}

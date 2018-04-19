@@ -15,6 +15,7 @@
 package authn
 
 import (
+	"encoding/base64"
 	"reflect"
 	"strings"
 	"testing"
@@ -483,7 +484,7 @@ func TestConvertPolicyToJwtConfigWithInlineKey(t *testing.T) {
 						JwksSourceSpecifier: &jwtfilter.JwtRule_LocalJwks{
 							LocalJwks: &core.DataSource{
 								Specifier: &core.DataSource_InlineString{
-									InlineString: test.JwtPubKey1,
+									InlineString: base64.StdEncoding.EncodeToString([]byte(test.JwtPubKey1)),
 								},
 							},
 						},
@@ -561,7 +562,7 @@ func TestBuildJwtFilter(t *testing.T) {
 																StructValue: &types.Struct{
 																	Fields: map[string]*types.Value{
 																		"inline_string": {
-																			Kind: &types.Value_StringValue{StringValue: test.JwtPubKey1},
+																			Kind: &types.Value_StringValue{StringValue: base64.StdEncoding.EncodeToString([]byte(test.JwtPubKey1))},
 																		},
 																	},
 																},

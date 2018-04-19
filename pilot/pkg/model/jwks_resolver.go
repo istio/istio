@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	authn "istio.io/api/authentication/v1alpha1"
@@ -72,6 +73,9 @@ type jwksResolver struct {
 	refreshTicker   *time.Ticker
 	expireDuration  time.Duration
 	refreshInterval time.Duration
+
+	// How may times refresh job has detect change, used in unit test.
+	changedCount uint64
 }
 
 // newJwksResolver creates new instance of jwksResolver.
@@ -86,6 +90,7 @@ func newJwksResolver(expireDuration, refreshInterval time.Duration) *jwksResolve
 		},
 	}
 
+	atomic.StoreUint64(&ret.changedCount, 0)
 	go ret.refresher()
 
 	return ret
@@ -133,11 +138,12 @@ func (r *jwksResolver) GetPublicKey(jwksURI string) (string, error) {
 		return val.(*jwtPubKeyEntry).pubKey, nil
 	}
 
-	pubKey, err := r.fetchJwtPubKey(jwksURI)
+	resp, err := r.getRemoteContent(jwksURI)
 	if err != nil {
 		return "", err
 	}
 
+	pubKey := string(resp)
 	r.keyEntries.Store(jwksURI, &jwtPubKeyEntry{
 		pubKey:     pubKey,
 		expireTime: time.Now().Add(r.expireDuration),
@@ -154,20 +160,10 @@ func (r *jwksResolver) resolveJwksURIUsingOpenID(issuer string) (string, error) 
 	}
 
 	// Try to get jwks_uri through OpenID Discovery.
-	discoveryURL := issuer + openIDDiscoveryCfgURLSuffix
-	resp, err := r.client.Get(discoveryURL)
+	body, err := r.getRemoteContent(issuer + openIDDiscoveryCfgURLSuffix)
 	if err != nil {
 		return "", err
 	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-
 	var data map[string]interface{}
 	if err := json.Unmarshal(body, &data); err != nil {
 		return "", err
@@ -184,10 +180,10 @@ func (r *jwksResolver) resolveJwksURIUsingOpenID(issuer string) (string, error) 
 	return jwksURI, nil
 }
 
-func (r *jwksResolver) fetchJwtPubKey(jwksURI string) (string, error) {
-	resp, err := r.client.Get(jwksURI)
+func (r *jwksResolver) getRemoteContent(url string) ([]byte, error) {
+	resp, err := r.client.Get(url)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer func() {
 		_ = resp.Body.Close()
@@ -195,10 +191,10 @@ func (r *jwksResolver) fetchJwtPubKey(jwksURI string) (string, error) {
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return string(body), nil
+	return body, nil
 }
 
 func (r *jwksResolver) refresher() {
@@ -234,11 +230,12 @@ func (r *jwksResolver) refresh(t time.Time) {
 				// Decrement the counter when the goroutine completes.
 				defer wg.Done()
 
-				newPubKey, err := r.fetchJwtPubKey(jwksURI)
+				resp, err := r.getRemoteContent(jwksURI)
 				if err != nil {
 					log.Errorf("Cannot fetch JWT public key from %q", jwksURI)
 					return
 				}
+				newPubKey := string(resp)
 
 				//Update expireTime even if prev/current keys are the same.
 				r.keyEntries.Store(jwksURI, &jwtPubKeyEntry{
@@ -259,6 +256,7 @@ func (r *jwksResolver) refresh(t time.Time) {
 	wg.Wait()
 
 	if hasChange {
+		atomic.AddUint64(&r.changedCount, 1)
 		// TODO(quanlin): send notification to update config and push config to sidecar.
 	}
 }
