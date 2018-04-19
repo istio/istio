@@ -313,25 +313,25 @@ var (
 	}
 
 	// mixerclient service configuration
-	mixerclientAPISpec = fileConfig{
-		meta: model.ConfigMeta{Type: model.HTTPAPISpec.Type, Name: "api-spec"},
-		file: "testdata/api-spec.yaml.golden",
-	}
+	//	mixerclientAPISpec = fileConfig{
+	//		meta: model.ConfigMeta{Type: model.HTTPAPISpec.Type, Name: "api-spec"},
+	//		file: "testdata/api-spec.yaml.golden",
+	//	}
 
-	mixerclientAPISpecBinding = fileConfig{
-		meta: model.ConfigMeta{Type: model.HTTPAPISpecBinding.Type, Name: "api-spec-binding"},
-		file: "testdata/api-spec-binding.yaml.golden",
-	}
+	//	mixerclientAPISpecBinding = fileConfig{
+	//		meta: model.ConfigMeta{Type: model.HTTPAPISpecBinding.Type, Name: "api-spec-binding"},
+	//		file: "testdata/api-spec-binding.yaml.golden",
+	//	}
 
-	mixerclientQuotaSpec = fileConfig{
-		meta: model.ConfigMeta{Type: model.QuotaSpec.Type, Name: "quota-spec"},
-		file: "testdata/quota-spec.yaml.golden",
-	}
+	//	mixerclientQuotaSpec = fileConfig{
+	//		meta: model.ConfigMeta{Type: model.QuotaSpec.Type, Name: "quota-spec"},
+	//		file: "testdata/quota-spec.yaml.golden",
+	//	}
 
-	mixerclientQuotaSpecBinding = fileConfig{
-		meta: model.ConfigMeta{Type: model.QuotaSpecBinding.Type, Name: "quota-spec-binding"},
-		file: "testdata/quota-spec-binding.yaml.golden",
-	}
+	//	mixerclientQuotaSpecBinding = fileConfig{
+	//		meta: model.ConfigMeta{Type: model.QuotaSpecBinding.Type, Name: "quota-spec-binding"},
+	//		file: "testdata/quota-spec-binding.yaml.golden",
+	//	}
 
 	authnPolicyNamespaceMTlsOff = fileConfig{
 		meta: model.ConfigMeta{Type: model.AuthenticationPolicy.Type, Name: "authn-namespace-mtls-off"},

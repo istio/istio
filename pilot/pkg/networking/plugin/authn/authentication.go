@@ -149,7 +149,7 @@ func ConvertPolicyToJwtConfig(policy *authn.Policy) *jwtfilter.JwtAuthentication
 				},
 			},
 			ForwardPayloadHeader: OutputLocationForJwtIssuer(policyJwt.Issuer),
-			Forward:              false,
+			Forward:              true,
 		}
 		for _, location := range policyJwt.JwtHeaders {
 			jwt.FromHeaders = append(jwt.FromHeaders, &jwtfilter.JwtHeader{
@@ -234,12 +234,12 @@ func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy) *auth.Do
 					{
 						CertificateChain: &core.DataSource{
 							Specifier: &core.DataSource_Filename{
-								Filename: model.CertChainFilename,
+								Filename: model.AuthCertsPath + model.CertChainFilename,
 							},
 						},
 						PrivateKey: &core.DataSource{
 							Specifier: &core.DataSource_Filename{
-								Filename: model.KeyFilename,
+								Filename: model.AuthCertsPath + model.KeyFilename,
 							},
 						},
 					},
@@ -247,7 +247,7 @@ func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy) *auth.Do
 				ValidationContext: &auth.CertificateValidationContext{
 					TrustedCa: &core.DataSource{
 						Specifier: &core.DataSource_Filename{
-							Filename: model.RootCertFilename,
+							Filename: model.AuthCertsPath + model.RootCertFilename,
 						},
 					},
 				},
@@ -280,17 +280,21 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 	authnPolicy := model.GetConsolidateAuthenticationPolicy(
 		in.Env.Mesh, in.Env.IstioConfigStore, in.ServiceInstance.Service.Hostname, in.ServiceInstance.Endpoint.ServicePort)
 
-	if mutable.Listener == nil || len(mutable.Listener.FilterChains) != 1 {
-		return fmt.Errorf("expect lister has exactly one filter chain")
+	if mutable.Listener == nil || (len(mutable.Listener.FilterChains) != len(mutable.FilterChains)) {
+		return fmt.Errorf("expected same number of filter chains in listener (%d) and mutable (%d)", len(mutable.Listener.FilterChains), len(mutable.FilterChains))
 	}
-	mutable.Listener.FilterChains[0].TlsContext = buildSidecarListenerTLSContext(authnPolicy)
 
-	// Adding Jwt filter and authn filter, if needed.
-	if filter := BuildJwtFilter(authnPolicy); filter != nil {
-		mutable.HTTPFilters = append(mutable.HTTPFilters, filter)
-	}
-	if filter := BuildAuthNFilter(authnPolicy); filter != nil {
-		mutable.HTTPFilters = append(mutable.HTTPFilters, filter)
+	for i := range mutable.Listener.FilterChains {
+		mutable.Listener.FilterChains[i].TlsContext = buildSidecarListenerTLSContext(authnPolicy)
+		if in.ListenerType == plugin.ListenerTypeHTTP {
+			// Adding Jwt filter and authn filter, if needed.
+			if filter := BuildJwtFilter(authnPolicy); filter != nil {
+				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
+			}
+			if filter := BuildAuthNFilter(authnPolicy); filter != nil {
+				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
+			}
+		}
 	}
 	return nil
 }

@@ -60,6 +60,8 @@ containers:
 - name: istio-proxy
 volumes:
 - name: istio-envoy
+imagePullSecrets:
+- name: istio-image-pull-secrets
 `
 )
 
@@ -232,32 +234,68 @@ func TestInject(t *testing.T) {
 			wantFile:  "TestWebhookInject.patch",
 		},
 		{
-			inputFile: "TestWebhookInject_no_volumes.yaml",
-			wantFile:  "TestWebhookInject_no_volumes.patch",
-		},
-		{
-			inputFile: "TestWebhookInject_no_containers_volumes.yaml",
-			wantFile:  "TestWebhookInject_no_containers_volumes.patch",
+			inputFile: "TestWebhookInject_no_initContainers.yaml",
+			wantFile:  "TestWebhookInject_no_initContainers.patch",
 		},
 		{
 			inputFile: "TestWebhookInject_no_containers.yaml",
 			wantFile:  "TestWebhookInject_no_containers.patch",
 		},
 		{
-			inputFile: "TestWebhookInject_no_initContainers.yaml",
-			wantFile:  "TestWebhookInject_no_initContainers.patch",
+			inputFile: "TestWebhookInject_no_volumes.yaml",
+			wantFile:  "TestWebhookInject_no_volumes.patch",
 		},
 		{
-			inputFile: "TestWebhookInject_no_initContainers_volumes.yaml",
-			wantFile:  "TestWebhookInject_no_initContainers_volumes.patch",
+			inputFile: "TestWebhookInject_no_imagePullSecrets.yaml",
+			wantFile:  "TestWebhookInject_no_imagePullSecrets.patch",
+		},
+		{
+			inputFile: "TestWebhookInject_no_volumes_imagePullSecrets.yaml",
+			wantFile:  "TestWebhookInject_no_volumes_imagePullSecrets.patch",
+		},
+		{
+			inputFile: "TestWebhookInject_no_containers_volumes_imagePullSecrets.yaml",
+			wantFile:  "TestWebhookInject_no_containers_volumes_imagePullSecrets.patch",
+		},
+		{
+			inputFile: "TestWebhookInject_no_containers_volumes.yaml",
+			wantFile:  "TestWebhookInject_no_containers_volumes.patch",
+		},
+		{
+			inputFile: "TestWebhookInject_no_containers_imagePullSecrets.yaml",
+			wantFile:  "TestWebhookInject_no_containers_imagePullSecrets.patch",
 		},
 		{
 			inputFile: "TestWebhookInject_no_initContainers_containers.yaml",
 			wantFile:  "TestWebhookInject_no_initContainers_containers.patch",
 		},
 		{
+			inputFile: "TestWebhookInject_no_initContainers_volumes.yaml",
+			wantFile:  "TestWebhookInject_no_initContainers_volumes.patch",
+		},
+		{
+			inputFile: "TestWebhookInject_no_initContainers_imagePullSecrets.yaml",
+			wantFile:  "TestWebhookInject_no_initContainers_imagePullSecrets.patch",
+		},
+		{
+			inputFile: "TestWebhookInject_no_containers_volumes_imagePullSecrets.yaml",
+			wantFile:  "TestWebhookInject_no_containers_volumes_imagePullSecrets.patch",
+		},
+		{
+			inputFile: "TestWebhookInject_no_initContainers_volumes_imagePullSecrets.yaml",
+			wantFile:  "TestWebhookInject_no_initContainers_volumes_imagePullSecrets.patch",
+		},
+		{
 			inputFile: "TestWebhookInject_no_initContainers_containers_volumes.yaml",
-			wantFile:  "TestWebhookInject_no_initcontainers_containers_volumes.patch",
+			wantFile:  "TestWebhookInject_no_initContainers_containers_volumes.patch",
+		},
+		{
+			inputFile: "TestWebhookInject_no_initContainers_containers_imagePullSecrets.yaml",
+			wantFile:  "TestWebhookInject_no_initContainers_containers_imagePullSecrets.patch",
+		},
+		{
+			inputFile: "TestWebhookInject_no_initContainers_containers_volumes_imagePullSecrets.yaml",
+			wantFile:  "TestWebhookInject_no_initcontainers_containers_volumes_imagePullSecrets.patch",
 		},
 		{
 			inputFile: "TestWebhookInject_replace.yaml",
@@ -525,9 +563,7 @@ func splitYamlDoc(yamlFile string, t *testing.T) [][]byte {
 	stringParts := strings.Split(string(yamlDoc), yamlSeparator)
 	byteParts := [][]byte{}
 	for _, stringPart := range stringParts {
-		for _, injectablePart := range getInjectableYamlDocs(stringPart, t) {
-			byteParts = append(byteParts, injectablePart)
-		}
+		byteParts = append(byteParts, getInjectableYamlDocs(stringPart, t)...)
 	}
 	if len(byteParts) == 0 {
 		t.Skip("Found no injectable parts")
@@ -571,9 +607,7 @@ func getInjectableYamlDocs(yamlDoc string, t *testing.T) [][]byte {
 				t.Fatal(err)
 			}
 			injectables := getInjectableYamlDocs(string(iout), t)
-			for _, injectable := range injectables {
-				out = append(out, injectable)
-			}
+			out = append(out, injectables...)
 		}
 		return out
 	default:
@@ -721,9 +755,10 @@ func makeTestData(t testing.TB, skip bool) []byte {
 			Annotations: map[string]string{},
 		},
 		Spec: corev1.PodSpec{
-			Volumes:        []corev1.Volume{{Name: "v0"}},
-			InitContainers: []corev1.Container{{Name: "c0"}},
-			Containers:     []corev1.Container{{Name: "c1"}},
+			Volumes:          []corev1.Volume{{Name: "v0"}},
+			InitContainers:   []corev1.Container{{Name: "c0"}},
+			Containers:       []corev1.Container{{Name: "c1"}},
+			ImagePullSecrets: []corev1.LocalObjectReference{{Name: "p0"}},
 		},
 	}
 
@@ -868,9 +903,16 @@ func TestRunAndServe(t *testing.T) {
    },
    {
       "op":"add",
+      "path":"/spec/imagePullSecrets/-",
+      "value":{
+         "name":"istio-image-pull-secrets"
+      }
+   },
+   {
+      "op":"add",
       "path":"/metadata/annotations",
       "value":{
-         "sidecar.istio.io/status":"{\"version\":\"d4935f8d2cac8a0d1549d3c6c61d512ba2e6822965f4f6b0863a98f73993dbf8\",\"initContainers\":[\"istio-init\"],\"containers\":[\"istio-proxy\"],\"volumes\":[\"istio-envoy\"]}"
+		  "sidecar.istio.io/status":"{\"version\":\"461c380844de8df1d1e2a80a09b6d7b58b8313c4a7d6796530eb124740a1440f\",\"initContainers\":[\"istio-init\"],\"containers\":[\"istio-proxy\"],\"volumes\":[\"istio-envoy\"],\"imagePullSecrets\":[\"istio-image-pull-secrets\"]}"
       }
    }
 ]`)

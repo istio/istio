@@ -84,9 +84,9 @@ func TestBasicScopes(t *testing.T) {
 					t.Errorf("Got err '%v', expecting success", err)
 				}
 
-				s.Level = DebugLevel
-				s.StackTraceLevel = c.stackLevel
-				s.LogCallers = c.caller
+				s.SetOutputLevel(DebugLevel)
+				s.SetStackTraceLevel(c.stackLevel)
+				s.SetLogCallers(c.caller)
 
 				c.f()
 				_ = Sync()
@@ -132,7 +132,7 @@ func TestScopeEnabled(t *testing.T) {
 
 	for i, c := range cases {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			s.Level = c.level
+			s.SetOutputLevel(c.level)
 
 			if c.debugEnabled != s.DebugEnabled() {
 				t.Errorf("Got %v, expected %v", s.DebugEnabled(), c.debugEnabled)
@@ -150,8 +150,8 @@ func TestScopeEnabled(t *testing.T) {
 				t.Errorf("Got %v, expected %v", s.ErrorEnabled(), c.errorEnabled)
 			}
 
-			if c.level != s.Level {
-				t.Errorf("Got %v, expected %v", s.Level, c.level)
+			if c.level != s.GetOutputLevel() {
+				t.Errorf("Got %v, expected %v", s.GetOutputLevel(), c.level)
 			}
 		})
 	}
@@ -198,9 +198,9 @@ func TestBadWriter(t *testing.T) {
 		t.Errorf("Got err '%v', expecting success", err)
 	}
 
-	writeFn = func(zapcore.Entry, []zapcore.Field) error {
+	writeFn.Store(func(zapcore.Entry, []zapcore.Field) error {
 		return errors.New("bad")
-	}
+	})
 
 	// for now, we just make sure this doesn't crash. To be totally correct, we'd need to capture stderr and
 	// inspect it, but it's just not worth it

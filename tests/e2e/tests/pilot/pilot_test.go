@@ -446,7 +446,8 @@ func (a *accessLogs) checkLog(t *testing.T, app string, pods []string) {
 			got := strings.Count(logs, id)
 			if got < want {
 				log.Errorf("Got %d for %s in logs of %s, want %d", got, id, app, want)
-				log.Errorf("Log: %s", logs)
+				// Do not dump the logs. Its virtually useless even if just one iteration fails.
+				//log.Errorf("Log: %s", logs)
 				return errAgain
 			}
 		}

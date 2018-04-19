@@ -55,10 +55,14 @@ func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mutable
 
 	switch in.ListenerType {
 	case plugin.ListenerTypeHTTP:
-		mutable.HTTPFilters = append(mutable.HTTPFilters, buildMixerHTTPFilter(env, node, proxyInstances, true))
+		for cnum := range mutable.FilterChains {
+			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, buildMixerHTTPFilter(env, node, proxyInstances, true))
+		}
 		return nil
 	case plugin.ListenerTypeTCP:
-		mutable.TCPFilters = append(mutable.TCPFilters, buildMixerOutboundTCPFilter(env, node))
+		for cnum := range mutable.FilterChains {
+			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, buildMixerOutboundTCPFilter(env, node))
+		}
 		return nil
 	}
 
@@ -74,10 +78,14 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 
 	switch in.ListenerType {
 	case plugin.ListenerTypeHTTP:
-		mutable.HTTPFilters = append(mutable.HTTPFilters, buildMixerHTTPFilter(env, node, proxyInstances, false))
+		for cnum := range mutable.FilterChains {
+			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, buildMixerHTTPFilter(env, node, proxyInstances, false))
+		}
 		return nil
 	case plugin.ListenerTypeTCP:
-		mutable.TCPFilters = append(mutable.TCPFilters, buildMixerInboundTCPFilter(env, node, instance))
+		for cnum := range mutable.FilterChains {
+			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, buildMixerInboundTCPFilter(env, node, instance))
+		}
 		return nil
 	}
 
@@ -176,9 +184,13 @@ func buildMixerOutboundTCPFilter(env *model.Environment, node *model.Proxy) list
 // buildHTTPMixerFilterConfig builds a mixer HTTP filter config. Mixer filter uses outbound configuration by default
 // (forward attributes, but not invoke check calls)  ServiceInstances belong to the Node.
 func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, nodeInstances []*model.ServiceInstance, outboundRoute bool, config model.IstioConfigStore) *mccpb.HttpClientConfig { // nolint: lll
+	mcs, _, _ := net.SplitHostPort(mesh.MixerCheckServer)
+	mrs, _, _ := net.SplitHostPort(mesh.MixerReportServer)
+
+	// TODO: derive these port types.
 	transport := &mccpb.TransportConfig{
-		CheckCluster:  v1.MixerCheckClusterName,
-		ReportCluster: v1.MixerReportClusterName,
+		CheckCluster:  model.BuildSubsetKey(model.TrafficDirectionOutbound, "", mcs, &model.Port{Name: "http2-mixer"}),
+		ReportCluster: model.BuildSubsetKey(model.TrafficDirectionOutbound, "", mrs, &model.Port{Name: "http2-mixer"}),
 	}
 
 	mxConfig := &mccpb.HttpClientConfig{
