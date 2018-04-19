@@ -46,8 +46,7 @@ struct AttributeName {
   static const char kResponseDuration[];
   static const char kResponseHeaders[];
   static const char kResponseBodySize[];
-  // Total size of response sent, including response headers, body, and
-  // trailers.
+  // Total size of response sent, including response headers and body.
   static const char kResponseTotalSize[];
   static const char kResponseTime[];
 

@@ -121,7 +121,7 @@ void Filter::ReadPerRouteConfig(
 
 FilterHeadersStatus Filter::decodeHeaders(HeaderMap& headers, bool) {
   ENVOY_LOG(debug, "Called Mixer::Filter : {}", __func__);
-  received_bytes_ += headers.byteSize();
+  request_total_size_ += headers.byteSize();
 
   ::istio::control::http::Controller::PerRouteConfig config;
   auto route = decoder_callbacks_->route();
@@ -150,7 +150,7 @@ FilterHeadersStatus Filter::decodeHeaders(HeaderMap& headers, bool) {
 FilterDataStatus Filter::decodeData(Buffer::Instance& data, bool end_stream) {
   ENVOY_LOG(debug, "Called Mixer::Filter : {} ({}, {})", __func__,
             data.length(), end_stream);
-  received_bytes_ += data.length();
+  request_total_size_ += data.length();
   if (state_ == Calling) {
     return FilterDataStatus::StopIterationAndWatermark;
   }
@@ -159,7 +159,7 @@ FilterDataStatus Filter::decodeData(Buffer::Instance& data, bool end_stream) {
 
 FilterTrailersStatus Filter::decodeTrailers(HeaderMap& trailers) {
   ENVOY_LOG(debug, "Called Mixer::Filter : {}", __func__);
-  received_bytes_ += trailers.byteSize();
+  request_total_size_ += trailers.byteSize();
   if (state_ == Calling) {
     return FilterTrailersStatus::StopIteration;
   }
@@ -199,36 +199,6 @@ void Filter::completeCheck(const Status& status) {
   }
 }
 
-// Http::StreamEncoderFilter
-FilterHeadersStatus Filter::encode100ContinueHeaders(Http::HeaderMap& headers) {
-  ENVOY_LOG(debug, "Called Mixer::Filter : {}", __func__);
-  sent_bytes_ += headers.byteSize();
-  return FilterHeadersStatus::Continue;
-}
-
-FilterHeadersStatus Filter::encodeHeaders(Http::HeaderMap& headers, bool) {
-  ENVOY_LOG(debug, "Called Mixer::Filter : {}", __func__);
-  sent_bytes_ += headers.byteSize();
-  return Http::FilterHeadersStatus::Continue;
-}
-
-FilterDataStatus Filter::encodeData(Buffer::Instance& data, bool) {
-  ENVOY_LOG(debug, "Called Mixer::Filter : {}", __func__);
-  sent_bytes_ += data.length();
-  return Http::FilterDataStatus::Continue;
-}
-
-FilterTrailersStatus Filter::encodeTrailers(Http::HeaderMap& trailers) {
-  sent_bytes_ += trailers.byteSize();
-  return Http::FilterTrailersStatus::Continue;
-}
-
-void Filter::setEncoderFilterCallbacks(
-    StreamEncoderFilterCallbacks& callbacks) {
-  ENVOY_LOG(debug, "Called Mixer::Filter : {}", __func__);
-  encoder_callbacks_ = &callbacks;
-}
-
 void Filter::onDestroy() {
   ENVOY_LOG(debug, "Called Mixer::Filter : {} state: {}", __func__, state_);
   if (state_ != Calling) {
@@ -259,8 +229,8 @@ void Filter::log(const HeaderMap* request_headers,
     CheckData check_data(*request_headers, nullptr);
     handler_->ExtractRequestAttributes(&check_data);
   }
-  ReportData report_data(response_headers, request_info, sent_bytes_,
-                         received_bytes_);
+  // response trailer header is not counted to response total size.
+  ReportData report_data(response_headers, request_info, request_total_size_);
   handler_->Report(&report_data);
 }
 

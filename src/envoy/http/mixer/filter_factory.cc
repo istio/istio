@@ -108,7 +108,8 @@ class MixerConfigFactory : public NamedHttpFilterConfigFactory {
       }
       std::shared_ptr<Http::Mixer::Filter> instance =
           std::make_shared<Http::Mixer::Filter>(control_factory->control());
-      callbacks.addStreamFilter(Http::StreamFilterSharedPtr(instance));
+      callbacks.addStreamDecoderFilter(
+          Http::StreamDecoderFilterSharedPtr(instance));
       callbacks.addAccessLogHandler(AccessLog::InstanceSharedPtr(instance));
     };
   }

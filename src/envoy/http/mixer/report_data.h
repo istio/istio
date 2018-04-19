@@ -32,16 +32,16 @@ const std::set<std::string> ResponseHeaderExclusives = {};
 class ReportData : public ::istio::control::http::ReportData {
   const HeaderMap *headers_;
   const RequestInfo::RequestInfo &info_;
-  uint64_t sent_bytes_;
-  uint64_t received_bytes_;
+  uint64_t response_total_size_;
+  uint64_t request_total_size_;
 
  public:
   ReportData(const HeaderMap *headers, const RequestInfo::RequestInfo &info,
-             uint64_t sent_bytes, uint64_t received_bytes)
+             uint64_t request_total_size)
       : headers_(headers),
         info_(info),
-        sent_bytes_(sent_bytes),
-        received_bytes_(received_bytes) {}
+        response_total_size_(headers->byteSize() + info.bytesSent()),
+        request_total_size_(request_total_size) {}
 
   std::map<std::string, std::string> GetResponseHeaders() const override {
     if (headers_) {
@@ -54,8 +54,8 @@ class ReportData : public ::istio::control::http::ReportData {
       ::istio::control::http::ReportData::ReportInfo *data) const override {
     data->request_body_size = info_.bytesReceived();
     data->response_body_size = info_.bytesSent();
-    data->response_total_size = sent_bytes_;
-    data->request_total_size = received_bytes_;
+    data->response_total_size = response_total_size_;
+    data->request_total_size = request_total_size_;
     data->duration =
         info_.requestComplete().value_or(std::chrono::nanoseconds{0});
     // responseCode is for the backend response. If it is not valid, the request

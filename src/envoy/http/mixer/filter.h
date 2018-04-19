@@ -24,7 +24,7 @@ namespace Envoy {
 namespace Http {
 namespace Mixer {
 
-class Filter : public Http::StreamFilter,
+class Filter : public Http::StreamDecoderFilter,
                public AccessLog::Instance,
                public Logger::Loggable<Logger::Id::filter> {
  public:
@@ -36,15 +36,6 @@ class Filter : public Http::StreamFilter,
   FilterTrailersStatus decodeTrailers(HeaderMap& trailers) override;
   void setDecoderFilterCallbacks(
       StreamDecoderFilterCallbacks& callbacks) override;
-
-  // Http::StreamEncoderFilter
-  FilterHeadersStatus encode100ContinueHeaders(
-      Http::HeaderMap& headers) override;
-  FilterHeadersStatus encodeHeaders(HeaderMap& headers, bool) override;
-  FilterDataStatus encodeData(Buffer::Instance& data, bool) override;
-  FilterTrailersStatus encodeTrailers(HeaderMap& trailers) override;
-  void setEncoderFilterCallbacks(
-      StreamEncoderFilterCallbacks& callbacks) override;
 
   // Http::StreamFilterBase
   void onDestroy() override;
@@ -80,14 +71,10 @@ class Filter : public Http::StreamFilter,
 
   // Total number of bytes received, including request headers, body, and
   // trailers.
-  uint64_t received_bytes_{0};
-  // Total number of bytes sent, including response headers, body, and trailers.
-  uint64_t sent_bytes_{0};
+  uint64_t request_total_size_{0};
 
   // The stream decoder filter callback.
   StreamDecoderFilterCallbacks* decoder_callbacks_{nullptr};
-  // The stream encoder filter callback.
-  StreamEncoderFilterCallbacks* encoder_callbacks_{nullptr};
 };
 
 }  // namespace Mixer
