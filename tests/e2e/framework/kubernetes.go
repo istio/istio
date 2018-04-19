@@ -349,63 +349,70 @@ func (k *KubeInfo) Teardown() error {
 	if *skipSetup || *skipCleanup {
 		return nil
 	}
-
-	if *useAutomaticInjection {
-		testSidecarInjectorYAML := filepath.Join(k.TmpDir, "yaml", *sidecarInjectorFile)
-
-		if err := util.KubeDelete(k.Namespace, testSidecarInjectorYAML, k.KubeConfig); err != nil {
-			log.Errorf("Istio sidecar injector %s deletion failed", testSidecarInjectorYAML)
-			return err
-		}
-	}
-
-	if *useGalleyConfigValidator {
-		testGalleyConfigValidatorYAML := filepath.Join(k.TmpDir, "yaml", *galleyConfigValidatorFile)
-
-		if err := util.KubeDelete(k.Namespace, testGalleyConfigValidatorYAML, k.KubeConfig); err != nil {
-			log.Errorf("Istio galley config validator %s deletion failed", testGalleyConfigValidatorYAML)
-			return err
-		}
-	}
-
-	if *clusterWide {
-		// for cluster-wide, we can verify the uninstall
-		istioYaml := nonAuthInstallFile
-		if *authEnable {
-			istioYaml = authInstallFile
-		}
-
-		testIstioYaml := filepath.Join(k.TmpDir, "yaml", istioYaml)
-
-		if err := util.KubeDelete(k.Namespace, testIstioYaml, k.KubeConfig); err != nil {
-			log.Infof("Safe to ignore resource not found errors in kubectl delete -f %s", testIstioYaml)
+	if *installer == "helm" {
+		// clean up using helm
+		err := util.HelmDelete("istio")
+		if err != nil {
+			return nil
 		}
 	} else {
-		if err := util.DeleteNamespace(k.Namespace, k.KubeConfig); err != nil {
-			log.Errorf("Failed to delete namespace %s", k.Namespace)
-			return err
-		}
-		if *multiClusterDir != "" {
-			if err := util.DeleteNamespace(k.Namespace, k.RemoteKubeConfig); err != nil {
-				log.Errorf("Failed to delete namespace %s on remote cluster", k.Namespace)
+		if *useAutomaticInjection {
+			testSidecarInjectorYAML := filepath.Join(k.TmpDir, "yaml", *sidecarInjectorFile)
+
+			if err := util.KubeDelete(k.Namespace, testSidecarInjectorYAML, k.KubeConfig); err != nil {
+				log.Errorf("Istio sidecar injector %s deletion failed", testSidecarInjectorYAML)
 				return err
 			}
 		}
 
-		// ClusterRoleBindings are not namespaced and need to be deleted separately
-		if _, err := util.Shell("kubectl get --kubeconfig=%s clusterrolebinding -o jsonpath={.items[*].metadata.name}"+
-			"|xargs -n 1|fgrep %s|xargs kubectl delete --kubeconfig=%s clusterrolebinding", k.KubeConfig,
-			k.Namespace, k.KubeConfig); err != nil {
-			log.Errorf("Failed to delete clusterrolebindings associated with namespace %s", k.Namespace)
-			return err
+		if *useGalleyConfigValidator {
+			testGalleyConfigValidatorYAML := filepath.Join(k.TmpDir, "yaml", *galleyConfigValidatorFile)
+
+			if err := util.KubeDelete(k.Namespace, testGalleyConfigValidatorYAML, k.KubeConfig); err != nil {
+				log.Errorf("Istio galley config validator %s deletion failed", testGalleyConfigValidatorYAML)
+				return err
+			}
 		}
 
-		// ClusterRoles are not namespaced and need to be deleted separately
-		if _, err := util.Shell("kubectl get --kubeconfig=%s clusterrole -o jsonpath={.items[*].metadata.name}"+
-			"|xargs -n 1|fgrep %s|xargs kubectl delete --kubeconfig=%s clusterrole", k.KubeConfig,
-			k.Namespace, k.KubeConfig); err != nil {
-			log.Errorf("Failed to delete clusterroles associated with namespace %s", k.Namespace)
-			return err
+		if *clusterWide {
+			// for cluster-wide, we can verify the uninstall
+			istioYaml := nonAuthInstallFile
+			if *authEnable {
+				istioYaml = authInstallFile
+			}
+
+			testIstioYaml := filepath.Join(k.TmpDir, "yaml", istioYaml)
+
+			if err := util.KubeDelete(k.Namespace, testIstioYaml, k.KubeConfig); err != nil {
+				log.Infof("Safe to ignore resource not found errors in kubectl delete -f %s", testIstioYaml)
+			}
+		} else {
+			if err := util.DeleteNamespace(k.Namespace, k.KubeConfig); err != nil {
+				log.Errorf("Failed to delete namespace %s", k.Namespace)
+				return err
+			}
+			if *multiClusterDir != "" {
+				if err := util.DeleteNamespace(k.Namespace, k.RemoteKubeConfig); err != nil {
+					log.Errorf("Failed to delete namespace %s on remote cluster", k.Namespace)
+					return err
+				}
+			}
+
+			// ClusterRoleBindings are not namespaced and need to be deleted separately
+			if _, err := util.Shell("kubectl get --kubeconfig=%s clusterrolebinding -o jsonpath={.items[*].metadata.name}"+
+				"|xargs -n 1|fgrep %s|xargs kubectl delete --kubeconfig=%s clusterrolebinding", k.KubeConfig,
+				k.Namespace, k.KubeConfig); err != nil {
+				log.Errorf("Failed to delete clusterrolebindings associated with namespace %s", k.Namespace)
+				return err
+			}
+
+			// ClusterRoles are not namespaced and need to be deleted separately
+			if _, err := util.Shell("kubectl get --kubeconfig=%s clusterrole -o jsonpath={.items[*].metadata.name}"+
+				"|xargs -n 1|fgrep %s|xargs kubectl delete --kubeconfig=%s clusterrole", k.KubeConfig,
+				k.Namespace, k.KubeConfig); err != nil {
+				log.Errorf("Failed to delete clusterroles associated with namespace %s", k.Namespace)
+				return err
+			}
 		}
 	}
 
@@ -623,12 +630,20 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 
 	// construct setValue to pass into helm install
 	// mTLS
-	setValue := "global.security=" + strconv.FormatBool(isSecurityOn)
+	setValue := "global.securityEnabled=" + strconv.FormatBool(isSecurityOn)
 	// side car injector
 	if *useAutomaticInjection {
-		setValue += ";sidecarInjector.enabled=true"
+		setValue += ";sidecar-injector.enabled=true"
 	}
-	// hubs and tags replacement
+	// hubs and tags replacement.
+	// Helm chart assumes hub and tag are the same among multiple istio components.
+	if *pilotHub != "" && *pilotTag != "" {
+		setValue = setValue + ";global.hub=" + *pilotHub + ";global.tag=" + *pilotTag
+	}
+
+	if !*clusterWide {
+		setValue += ";istiotesting.oneNameSpace=true"
+	}
 
 	// helm install dry run
 	err := util.HelmInstallDryRun(istioHelmInstallDir, "istio", "istio-system", setValue)
