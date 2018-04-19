@@ -69,6 +69,9 @@ spec:
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
+          - name: istio-certs
+            mountPath: /etc/certs
+            readOnly: true
         - name: istio-proxy
           image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
