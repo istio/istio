@@ -30,9 +30,9 @@ sh setup_macos_prerequs.sh
 docker version
 ``` 
 should show you the version information of docker(>= 18.03.0-ce).
-  ### macOS
-  After this, double-click Docker.app in the Applications folder to start Docker.
-  The whale in the top status bar indicates that Docker is running, and accessible from a terminal.
+**macOS**
+After this, double-click Docker.app in the Applications folder to start Docker.
+The whale in the top status bar indicates that Docker is running, and accessible from a terminal.
 
 2) Vagrant
 ```
@@ -45,6 +45,12 @@ should show you the verison information of vagrant(>= Vagrant 2.0.3).
 virtualbox
 ``` 
 should pop up the VirtualBox UI.
+
+4) Kubectl
+```bash
+kubectl version
+```
+should return versions for both server and client
 
 # Istio
 Also you need to have Istio Dev Environment setup on your box!
