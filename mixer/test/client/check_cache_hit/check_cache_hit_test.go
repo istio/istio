@@ -101,7 +101,7 @@ var reportAttributesOkGet = [...]string{`{
     ":status": "200",
     "server": "envoy"
   },
-  "response.total_size": 99,
+  "response.total_size": "*",
   "request.total_size": 306
 }`,
 	`{
@@ -147,7 +147,7 @@ var reportAttributesOkGet = [...]string{`{
     ":status": "200",
     "server": "envoy"
   },
-  "response.total_size": 99,
+  "response.total_size": "*",
   "request.total_size": 306
 }`}
 
