@@ -64,9 +64,18 @@ const (
 )
 
 // DNSNameEntry stores the service name and namespace to construct the DNS id.
+// Service accounts matching the ServiceName and Namespace will have additional DNS SANs:
+// ServiceName.Namespace.svc, ServiceName.Namespace and optionall CustomDomain.
+// This is intended for control plane and trusted services.
 type DNSNameEntry struct {
+	// ServiceName is the name of the service account to match
 	ServiceName string
-	Namespace   string
+
+	// Namespace restricts to a specific namespace.
+	Namespace string
+
+	// CustomDomain allows adding a user-defined domain.
+	CustomDomains []string
 }
 
 // SecretController manages the service accounts' secrets that contains Istio keys and certificates.
@@ -281,9 +290,18 @@ func (sc *SecretController) scrtDeleted(obj interface{}) {
 func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string) ([]byte, []byte, error) {
 	id := fmt.Sprintf("%s://cluster.local/ns/%s/sa/%s", util.URIScheme, saNamespace, saName)
 	if sc.dnsNames != nil {
+		// Control plane components in same namespace.
 		if e, ok := sc.dnsNames[saName]; ok {
 			if e.Namespace == saNamespace {
+				// Example: istio-pilot.istio-system.svc, istio-pilot.istio-system
 				id += "," + fmt.Sprintf("%s.%s.svc", e.ServiceName, e.Namespace)
+				id += "," + fmt.Sprintf("%s.%s", e.ServiceName, e.Namespace)
+			}
+		}
+		// Custom overrides using CLI
+		if e, ok := sc.dnsNames[saName+"."+saName]; ok {
+			for _, d := range e.CustomDomains {
+				id += "," + d
 			}
 		}
 	}

@@ -1,5 +1,5 @@
 name: galley
-version: 0.5.0
+version: 0.8.0
 description: Helm chart for galley deployment
 keywords:
   - istio
