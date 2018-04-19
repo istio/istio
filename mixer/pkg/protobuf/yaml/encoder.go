@@ -92,14 +92,14 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			// 	}
 			v, ok := data.([]interface{})
 			if !ok {
-				return badTypeError(name, "[]float64", data)
+				return BadTypeError(name, "[]float64", data)
 			}
 			_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
 			_ = buffer.EncodeVarint(uint64(len(v) * 8))
 			for i, iface := range v {
-				c, ok := toFloat(iface)
+				c, ok := ToFloat(iface)
 				if !ok {
-					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "float64", iface)
+					return BadTypeError(fmt.Sprintf("%s[%d]", name, i), "float64", iface)
 				}
 				_ = buffer.EncodeFixed64(math.Float64bits(c))
 			}
@@ -117,13 +117,13 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			//	}
 			v, ok := data.([]interface{})
 			if !ok {
-				return badTypeError(name, "[]float64", data)
+				return BadTypeError(name, "[]float64", data)
 			}
 
 			for i, iface := range v {
-				c, ok := toFloat(iface)
+				c, ok := ToFloat(iface)
 				if !ok {
-					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "float64", iface)
+					return BadTypeError(fmt.Sprintf("%s[%d]", name, i), "float64", iface)
 				}
 				_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
 				_ = buffer.EncodeFixed64(math.Float64bits(c))
@@ -135,9 +135,9 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			//	i++
 			//	encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Dbl))))
 			//	i += 8
-			v, ok := toFloat(data)
+			v, ok := ToFloat(data)
 			if !ok {
-				return badTypeError(name, "float64", data)
+				return BadTypeError(name, "float64", data)
 			}
 			_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
 			_ = buffer.EncodeFixed64(math.Float64bits(v))
@@ -159,14 +159,14 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			//	}
 			v, ok := data.([]interface{})
 			if !ok {
-				return badTypeError(name, "[]float32", data)
+				return BadTypeError(name, "[]float32", data)
 			}
 			_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
 			_ = buffer.EncodeVarint(uint64(len(v) * 4))
 			for i, iface := range v {
-				c, ok := toFloat(iface)
+				c, ok := ToFloat(iface)
 				if !ok {
-					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "float32", iface)
+					return BadTypeError(fmt.Sprintf("%s[%d]", name, i), "float32", iface)
 				}
 				_ = buffer.EncodeFixed32(uint64(math.Float32bits(float32(c))))
 			}
@@ -184,13 +184,13 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			//	}
 			v, ok := data.([]interface{})
 			if !ok {
-				return badTypeError(name, "[]float32", data)
+				return BadTypeError(name, "[]float32", data)
 			}
 
 			for i, iface := range v {
-				c, ok := toFloat(iface)
+				c, ok := ToFloat(iface)
 				if !ok {
-					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "float32", iface)
+					return BadTypeError(fmt.Sprintf("%s[%d]", name, i), "float32", iface)
 				}
 				_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
 				_ = buffer.EncodeFixed32(uint64(math.Float32bits(float32(c))))
@@ -204,9 +204,9 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			//	i++
 			//	encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(m.Flt))))
 			//	i += 4
-			v, ok := toFloat(data)
+			v, ok := ToFloat(data)
 			if !ok {
-				return badTypeError(name, "float32", data)
+				return BadTypeError(name, "float32", data)
 			}
 			_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
 			_ = buffer.EncodeFixed32(uint64(math.Float32bits(float32(v))))
@@ -238,15 +238,15 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			//	i += copy(dAtA[i:], dAtA11[:j10])
 			v, ok := data.([]interface{})
 			if !ok {
-				return badTypeError(name, "[]int", data)
+				return BadTypeError(name, "[]int", data)
 			}
 
 			tmpBuffer := GetBuffer()
 			for i, iface := range v {
-				c, ok := toInt64(iface)
+				c, ok := ToInt64(iface)
 				if !ok {
 					PutBuffer(tmpBuffer)
-					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
+					return BadTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
 				}
 				_ = tmpBuffer.EncodeVarint(uint64(c))
 			}
@@ -265,13 +265,13 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			//	}
 			v, ok := data.([]interface{})
 			if !ok {
-				return badTypeError(name, "[]int", data)
+				return BadTypeError(name, "[]int", data)
 			}
 
 			for i, iface := range v {
-				c, ok := toInt64(iface)
+				c, ok := ToInt64(iface)
 				if !ok {
-					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
+					return BadTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
 				}
 				_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
 				_ = buffer.EncodeVarint(uint64(c))
@@ -282,9 +282,9 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			//	dAtA[i] = 0x18
 			//	i++
 			//	i = encodeVarintTypes(dAtA, i, uint64(m.I64))
-			v, ok := toInt64(data)
+			v, ok := ToInt64(data)
 			if !ok {
-				return badTypeError(name, "int", data)
+				return BadTypeError(name, "int", data)
 			}
 			_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
 			_ = buffer.EncodeVarint(uint64(v))
@@ -305,14 +305,14 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			//	}
 			v, ok := data.([]interface{})
 			if !ok {
-				return badTypeError(name, "[]int", data)
+				return BadTypeError(name, "[]int", data)
 			}
 			_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
 			_ = buffer.EncodeVarint(uint64(len(v) * 8))
 			for i, iface := range v {
-				c, ok := toInt64(iface)
+				c, ok := ToInt64(iface)
 				if !ok {
-					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
+					return BadTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
 				}
 				_ = buffer.EncodeFixed64(uint64(c))
 			}
@@ -329,13 +329,13 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			//	}
 			v, ok := data.([]interface{})
 			if !ok {
-				return badTypeError(name, "[]int", data)
+				return BadTypeError(name, "[]int", data)
 			}
 
 			for i, iface := range v {
-				c, ok := toInt64(iface)
+				c, ok := ToInt64(iface)
 				if !ok {
-					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
+					return BadTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
 				}
 				_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
 				_ = buffer.EncodeFixed64(uint64(c))
@@ -349,9 +349,9 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			//	i++
 			//	encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.F64))
 			//	i += 8
-			v, ok := toInt64(data)
+			v, ok := ToInt64(data)
 			if !ok {
-				return badTypeError(name, "int", data)
+				return BadTypeError(name, "int", data)
 			}
 			_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
 			_ = buffer.EncodeFixed64(uint64(v))
@@ -372,14 +372,14 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			//	}
 			v, ok := data.([]interface{})
 			if !ok {
-				return badTypeError(name, "[]int", data)
+				return BadTypeError(name, "[]int", data)
 			}
 			_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
 			_ = buffer.EncodeVarint(uint64(len(v) * 4))
 			for i, iface := range v {
-				c, ok := toInt64(iface)
+				c, ok := ToInt64(iface)
 				if !ok {
-					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
+					return BadTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
 				}
 				_ = buffer.EncodeFixed32(uint64(c))
 			}
@@ -396,13 +396,13 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			//	}
 			v, ok := data.([]interface{})
 			if !ok {
-				return badTypeError(name, "[]int", data)
+				return BadTypeError(name, "[]int", data)
 			}
 
 			for i, iface := range v {
-				c, ok := toInt64(iface)
+				c, ok := ToInt64(iface)
 				if !ok {
-					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
+					return BadTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
 				}
 				_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
 				_ = buffer.EncodeFixed32(uint64(c))
@@ -416,9 +416,9 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			//	i++
 			//	encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(m.F32))
 			//	i += 4
-			v, ok := toInt64(data)
+			v, ok := ToInt64(data)
 			if !ok {
-				return badTypeError(name, "int", data)
+				return BadTypeError(name, "int", data)
 			}
 			_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
 			_ = buffer.EncodeFixed32(uint64(v))
@@ -442,14 +442,14 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			//	}
 			v, ok := data.([]interface{})
 			if !ok {
-				return badTypeError(name, "[]bool", data)
+				return BadTypeError(name, "[]bool", data)
 			}
 			_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
 			_ = buffer.EncodeVarint(uint64(len(v)))
 			for i, iface := range v {
 				c, ok := iface.(bool)
 				if !ok {
-					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "bool", iface)
+					return BadTypeError(fmt.Sprintf("%s[%d]", name, i), "bool", iface)
 				}
 				val := uint64(0)
 				if c {
@@ -474,13 +474,13 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			//	}
 			v, ok := data.([]interface{})
 			if !ok {
-				return badTypeError(name, "[]bool", data)
+				return BadTypeError(name, "[]bool", data)
 			}
 
 			for i, iface := range v {
 				c, ok := iface.(bool)
 				if !ok {
-					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "bool", iface)
+					return BadTypeError(fmt.Sprintf("%s[%d]", name, i), "bool", iface)
 				}
 				val := uint64(0)
 				if c {
@@ -502,7 +502,7 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			//	i++
 			v, ok := data.(bool)
 			if !ok {
-				return badTypeError(name, "bool", data)
+				return BadTypeError(name, "bool", data)
 			}
 			val := uint64(0)
 			if v {
@@ -532,13 +532,13 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			//	}
 			v, ok := data.([]interface{})
 			if !ok {
-				return badTypeError(name, "[]string", data)
+				return BadTypeError(name, "[]string", data)
 			}
 
 			for i, iface := range v {
 				c, ok := iface.(string)
 				if !ok {
-					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "string", iface)
+					return BadTypeError(fmt.Sprintf("%s[%d]", name, i), "string", iface)
 				}
 				_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
 				_ = buffer.EncodeStringBytes(c)
@@ -552,7 +552,7 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			//	i += copy(dAtA[i:], m.Str)
 			v, ok := data.(string)
 			if !ok {
-				return badTypeError(name, "string", data)
+				return BadTypeError(name, "string", data)
 			}
 
 			// Errors from proto.Buffer.Encode* are always nil, therefore ignoring.
@@ -583,14 +583,14 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			//	i += copy(dAtA[i:], dAtA18[:j19])
 			v, ok := data.([]interface{})
 			if !ok {
-				return badTypeError(name, "[]int", data)
+				return BadTypeError(name, "[]int", data)
 			}
 
 			tmpBuffer := GetBuffer()
 			for i, iface := range v {
-				c, ok := toInt64(iface)
+				c, ok := ToInt64(iface)
 				if !ok {
-					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
+					return BadTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
 				}
 				_ = tmpBuffer.EncodeZigzag32(uint64(c))
 			}
@@ -617,13 +617,13 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			//	}
 			v, ok := data.([]interface{})
 			if !ok {
-				return badTypeError(name, "[]int", data)
+				return BadTypeError(name, "[]int", data)
 			}
 
 			for i, iface := range v {
-				c, ok := toInt64(iface)
+				c, ok := ToInt64(iface)
 				if !ok {
-					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
+					return BadTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
 				}
 				_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
 				_ = buffer.EncodeZigzag32(uint64(c))
@@ -636,9 +636,9 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			//	dAtA[i] = 0x3
 			//	i++
 			//	i = encodeVarintTypes(dAtA, i, uint64((uint32(m.Si32)<<1)^uint32((m.Si32>>31))))
-			v, ok := toInt64(data)
+			v, ok := ToInt64(data)
 			if !ok {
-				return badTypeError(name, "int", data)
+				return BadTypeError(name, "int", data)
 			}
 			_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
 			_ = buffer.EncodeZigzag32(uint64(v))
@@ -667,14 +667,14 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			//	i += copy(dAtA[i:], dAtA24[:j22])
 			v, ok := data.([]interface{})
 			if !ok {
-				return badTypeError(name, "[]int", data)
+				return BadTypeError(name, "[]int", data)
 			}
 
 			tmpBuffer := GetBuffer()
 			for i, iface := range v {
-				c, ok := toInt64(iface)
+				c, ok := ToInt64(iface)
 				if !ok {
-					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
+					return BadTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
 				}
 				_ = tmpBuffer.EncodeZigzag64(uint64(c))
 			}
@@ -700,13 +700,13 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			//	}
 			v, ok := data.([]interface{})
 			if !ok {
-				return badTypeError(name, "[]int", data)
+				return BadTypeError(name, "[]int", data)
 			}
 
 			for i, iface := range v {
-				c, ok := toInt64(iface)
+				c, ok := ToInt64(iface)
 				if !ok {
-					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
+					return BadTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
 				}
 				_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
 				_ = buffer.EncodeZigzag64(uint64(c))
@@ -719,9 +719,9 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			//	dAtA[i] = 0x3
 			//	i++
 			//	i = encodeVarintTypes(dAtA, i, uint64((uint64(m.Si64)<<1)^uint64((m.Si64>>63))))
-			v, ok := toInt64(data)
+			v, ok := ToInt64(data)
 			if !ok {
-				return badTypeError(name, "int", data)
+				return BadTypeError(name, "int", data)
 			}
 			_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
 			_ = buffer.EncodeZigzag64(uint64(v))
@@ -778,7 +778,7 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			valType := typeName(mapInfo.ValueField)
 			v, ok := data.(map[interface{}]interface{})
 			if !ok {
-				return badTypeError(name, fmt.Sprintf("map<%s, %s>", keyType, valType), data)
+				return BadTypeError(name, fmt.Sprintf("map<%s, %s>", keyType, valType), data)
 			}
 
 			//	Maps always have a wire format like this:
@@ -819,13 +819,13 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			tName := strings.TrimPrefix(field.GetTypeName(), ".")
 			v, ok := data.([]interface{})
 			if !ok {
-				return badTypeError(name, fmt.Sprintf("[]%s", tName), data)
+				return BadTypeError(name, fmt.Sprintf("[]%s", tName), data)
 			}
 
 			for i, iface := range v {
 				c, ok := iface.(map[interface{}]interface{})
 				if !ok {
-					return badTypeError(fmt.Sprintf("%s[%d]", name, i), tName, iface)
+					return BadTypeError(fmt.Sprintf("%s[%d]", name, i), tName, iface)
 				}
 				bytes, err := e.EncodeBytes(c, field.GetTypeName(), skipUnknown)
 				if err != nil {
@@ -848,7 +848,7 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			//	i += n1
 			v, ok := data.(map[interface{}]interface{})
 			if !ok {
-				return badTypeError(name, strings.TrimPrefix(field.GetTypeName(), "."), data)
+				return BadTypeError(name, strings.TrimPrefix(field.GetTypeName(), "."), data)
 			}
 
 			bytes, err := e.EncodeBytes(v, field.GetTypeName(), skipUnknown)
@@ -885,7 +885,7 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			enumName := fmt.Sprintf("enum(%s)", strings.TrimPrefix(field.GetTypeName(), "."))
 			v, ok := data.([]interface{})
 			if !ok {
-				return badTypeError(name, fmt.Sprintf("[]%s", enumName), data)
+				return BadTypeError(name, fmt.Sprintf("[]%s", enumName), data)
 			}
 
 			tmpBuffer := GetBuffer()
@@ -893,7 +893,7 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 				enumValStr, ok := iface.(string)
 				if !ok {
 					PutBuffer(tmpBuffer)
-					return badTypeError(fmt.Sprintf("%s[%d]", name, i), enumName, iface)
+					return BadTypeError(fmt.Sprintf("%s[%d]", name, i), enumName, iface)
 				}
 				enum := e.resolver.ResolveEnum(field.GetTypeName()) // enum must exist since resolver has full transitive closure.
 				valMatched := false
@@ -925,13 +925,13 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			enumName := fmt.Sprintf("enum(%s)", strings.TrimPrefix(field.GetTypeName(), "."))
 			v, ok := data.([]interface{})
 			if !ok {
-				return badTypeError(name, fmt.Sprintf("[]%s", enumName), data)
+				return BadTypeError(name, fmt.Sprintf("[]%s", enumName), data)
 			}
 
 			for i, iface := range v {
 				enumValStr, ok := iface.(string)
 				if !ok {
-					return badTypeError(fmt.Sprintf("%s[%d]", name, i), enumName, iface)
+					return BadTypeError(fmt.Sprintf("%s[%d]", name, i), enumName, iface)
 				}
 				enum := e.resolver.ResolveEnum(field.GetTypeName()) // enum must exist since resolver has full transitive closure.
 				valMatched := false
@@ -955,7 +955,7 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			//	i = encodeVarintTypes(dAtA, i, uint64(m.Enm))
 			enumValStr, ok := data.(string)
 			if !ok {
-				return badTypeError(name, fmt.Sprintf("enum(%s)", strings.TrimPrefix(field.GetTypeName(), ".")), data)
+				return BadTypeError(name, fmt.Sprintf("enum(%s)", strings.TrimPrefix(field.GetTypeName(), ".")), data)
 			}
 			enum := e.resolver.ResolveEnum(field.GetTypeName()) // enum must exist since resolver has full transitive closure.
 			for _, val := range enum.Value {
@@ -974,7 +974,7 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 	return nil
 }
 
-func badTypeError(name, wantType string, data interface{}) error {
+func BadTypeError(name, wantType string, data interface{}) error {
 	return fmt.Errorf("field '%s' is of type '%T' instead of expected type '%s'", name, data, wantType)
 }
 
