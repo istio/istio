@@ -142,7 +142,7 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConfigura
 
 func buildMixerOpaqueConfig(disableCheck, _ /*disableForward*/ bool, destinationService string) *mccpb.ServiceConfig {
 	out := &mccpb.ServiceConfig{
-		// Report calls are never disabled. Forward is currently removed.
+		// Report calls are never disabled. Disable forward is currently not in the proto.
 		DisableCheckCalls: disableCheck,
 	}
 	if destinationService != "" {
