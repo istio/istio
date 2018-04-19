@@ -17,9 +17,12 @@ package dynamic
 import (
 	"fmt"
 	"math"
+	"strings"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
+
+	"istio.io/istio/mixer/pkg/protobuf/yaml"
 )
 
 func makeField(fd *descriptor.FieldDescriptorProto) *field {
@@ -29,7 +32,6 @@ func makeField(fd *descriptor.FieldDescriptorProto) *field {
 	if packed {
 		wireType = uint64(proto.WireBytes)
 	}
-
 	return &field{
 		protoKey: protoKey(fieldNumber, wireType),
 		number:   fieldNumber,
@@ -38,6 +40,7 @@ func makeField(fd *descriptor.FieldDescriptorProto) *field {
 }
 
 func EncodePrimitive(v interface{}, etype descriptor.FieldDescriptorProto_Type, ba []byte) ([]byte, error) {
+	var err error
 	switch t := v.(type) {
 	case string:
 		if etype != descriptor.FieldDescriptorProto_TYPE_STRING {
@@ -49,84 +52,24 @@ func EncodePrimitive(v interface{}, etype descriptor.FieldDescriptorProto_Type, 
 		if etype != descriptor.FieldDescriptorProto_TYPE_BOOL {
 			return nil, fmt.Errorf("incorrect type:bool, want:%s", etype)
 		}
-		// varint of 0 is 0, 1 is 1
-		v := byte(0x0)
-		if t {
-			v = byte(0x1)
-		}
-		ba = append(ba, v)
+
+		ba, _ = EncodeBool(t, ba)
 	case int, int32, int64:
 		if !isIntegerType(etype) {
 			return nil, fmt.Errorf("incorrect type:%T, want:%s", v, etype)
 		}
-		vv, ok := Int64(t)
-		if !ok {
-			return nil, fmt.Errorf("incorrect type:%T, want:%s", v, etype)
+		ba, err = EncodeInt(t, ba)
+		if err != nil {
+			return nil, err
 		}
-		ba, _ = EncodeVarint(ba, uint64(vv))
 	case float64:
 		switch etype {
 		case descriptor.FieldDescriptorProto_TYPE_FLOAT:
-			ba = EncodeFixed32(ba, uint64(math.Float32bits(float32(t))))
+			ba = encodeFixed32(ba, uint64(math.Float32bits(float32(t))))
 		case descriptor.FieldDescriptorProto_TYPE_DOUBLE:
-			ba = EncodeFixed64(ba, math.Float64bits(t))
+			ba = encodeFixed64(ba, math.Float64bits(t))
 		default:
 			return nil, fmt.Errorf("incorrect type:float64, %v want:%s", v, etype)
-		}
-	default:
-		return nil, fmt.Errorf("unknown type %v: %T", v, v)
-	}
-
-	return ba, nil
-}
-
-// EncodeString encode given string.
-func EncodeString(v interface{}, ba []byte) ([]byte, error) {
-	switch t := v.(type) {
-	case string:
-		ba, _ = EncodeVarint(ba, uint64(len(t)))
-		ba = append(ba, t...)
-	default:
-		return nil, fmt.Errorf("incorrect type:%T, %v want:string", v, v)
-	}
-	return ba, nil
-}
-
-func EncodePrimitive2(v interface{}, etype descriptor.FieldDescriptorProto_Type, ba []byte) ([]byte, error) {
-	switch t := v.(type) {
-	case string:
-		if etype != descriptor.FieldDescriptorProto_TYPE_STRING {
-			return nil, fmt.Errorf("incorrect type:string, want:%s", etype)
-		}
-		ba, _ = EncodeVarint(ba, uint64(len(t)))
-		ba = append(ba, t...)
-	case bool:
-		if etype != descriptor.FieldDescriptorProto_TYPE_BOOL {
-			return nil, fmt.Errorf("incorrect type:bool, want:%s", etype)
-		}
-		// varint of 0 is 0, 1 is 1
-		v := byte(0x0)
-		if t {
-			v = byte(0x1)
-		}
-		ba = append(ba, v)
-	case int, int32, int64:
-		if !isIntegerType(etype) {
-			return nil, fmt.Errorf("incorrect type:%T, want:%s", v, etype)
-		}
-		vv, ok := Int64(t)
-		if !ok {
-			return nil, fmt.Errorf("incorrect type:%T, want:%s", v, etype)
-		}
-		ba, _ = EncodeVarint(ba, uint64(vv))
-	case float64:
-		switch etype {
-		case descriptor.FieldDescriptorProto_TYPE_FLOAT:
-			ba = EncodeFixed32(ba, uint64(math.Float32bits(float32(t))))
-		case descriptor.FieldDescriptorProto_TYPE_DOUBLE:
-			ba = EncodeFixed64(ba, math.Float64bits(t))
-		default:
-			return nil, fmt.Errorf("incorrect type:float64, want:%s", etype)
 		}
 	default:
 		return nil, fmt.Errorf("unknown type %v: %T", v, v)
@@ -169,8 +112,8 @@ func EncodeVarint(buf []byte, x uint64) ([]byte, int) {
 	return buf, len(buf) - ol
 }
 
-func EncodeFixed64(buf []byte, x uint64) []byte {
-	buf = append(buf,
+func encodeFixed64(buf []byte, x uint64) []byte {
+	return append(buf,
 		uint8(x),
 		uint8(x>>8),
 		uint8(x>>16),
@@ -179,15 +122,25 @@ func EncodeFixed64(buf []byte, x uint64) []byte {
 		uint8(x>>40),
 		uint8(x>>48),
 		uint8(x>>56))
-	return buf
 }
 
-func EncodeFixed32(buf []byte, x uint64) []byte {
-	buf = append(buf,
+func encodeFixed32(buf []byte, x uint64) []byte {
+	return append(buf,
 		uint8(x),
 		uint8(x>>8),
 		uint8(x>>16),
 		uint8(x>>24))
+}
+
+func encodeZigzag32(buf []byte, x uint64) []byte {
+	// use signed number to get arithmetic right shift.
+	buf, _ = EncodeVarint(buf, uint64((uint32(x)<<1)^uint32((int32(x)>>31))))
+	return buf
+}
+
+func encodeZigzag64(buf []byte, x uint64) []byte {
+	// use signed number to get arithmetic right shift.
+	buf, _ = EncodeVarint(buf, (x<<1)^uint64((int64(x)>>63)))
 	return buf
 }
 
@@ -223,4 +176,148 @@ func Int64(v interface{}) (int64, bool) {
 	default:
 		return 0, false
 	}
+}
+
+func badTypeError(v interface{}, wantType string) error {
+	return fmt.Errorf("badTypeError: value: '%v' is of type:%T, want:%s", v, v, wantType)
+}
+
+// EncodeDouble encode as
+func EncodeDouble(v interface{}, ba []byte) ([]byte, error) {
+	c, ok := yaml.ToFloat(v)
+	if !ok {
+		return nil, badTypeError(v, "double")
+	}
+	return encodeFixed64(ba, math.Float64bits(c)), nil
+}
+
+// Low level Encode Funcs
+func EncodeFloat(v interface{}, ba []byte) ([]byte, error) {
+	c, ok := yaml.ToFloat(v)
+	if !ok {
+		return nil, badTypeError(v, "float64")
+	}
+	return encodeFixed32(ba, uint64(math.Float32bits(float32(c)))), nil
+}
+
+// EncodeInt encodes (U)INT(32/64)
+func EncodeInt(v interface{}, ba []byte) ([]byte, error) {
+	c, ok := yaml.ToInt64(v)
+	if !ok {
+		return nil, badTypeError(v, "int")
+	}
+	return encodeInt(c, ba)
+}
+
+func encodeInt(v int64, ba []byte) ([]byte, error) {
+	ba, _ = EncodeVarint(ba, uint64(v))
+	return ba, nil
+}
+
+// EncodeFixed64 encodes FIXED64, SFIXED64
+func EncodeFixed64(v interface{}, ba []byte) ([]byte, error) {
+	c, ok := yaml.ToInt64(v)
+	if !ok {
+		return nil, badTypeError(v, "int")
+	}
+
+	return encodeFixed64(ba, uint64(c)), nil
+}
+
+// EncodeFixed32 encodes FIXED32, SFIXED32
+func EncodeFixed32(v interface{}, ba []byte) ([]byte, error) {
+	c, ok := yaml.ToInt64(v)
+	if !ok {
+		return nil, badTypeError(v, "int")
+	}
+
+	return encodeFixed32(ba, uint64(c)), nil
+}
+
+func EncodeBool(v interface{}, ba []byte) ([]byte, error) {
+	c, ok := v.(bool)
+	if !ok {
+		return nil, badTypeError(v, "bool")
+	}
+	return encodeBool(c, ba), nil
+}
+
+const trueByte = byte(0x1)
+const falseByte = byte(0x0)
+
+func encodeBool(c bool, ba []byte) []byte {
+	if c {
+		ba = append(ba, trueByte)
+	} else {
+		ba = append(ba, falseByte)
+	}
+	return ba
+}
+
+func EncodeString(v interface{}, ba []byte) ([]byte, error) {
+	t, ok := v.(string)
+	if !ok {
+		return nil, badTypeError(v, "string")
+	}
+	return encodeString(t, ba)
+}
+
+func encodeString(s string, ba []byte) ([]byte, error) {
+	ba, _ = EncodeVarint(ba, uint64(len(s)))
+	ba = append(ba, s...)
+	return ba, nil
+}
+
+func EncodeSInt32(v interface{}, ba []byte) ([]byte, error) {
+	c, ok := yaml.ToInt64(v)
+	if !ok {
+		return nil, badTypeError(v, "int")
+	}
+	return encodeZigzag32(ba, uint64(c)), nil
+}
+
+func EncodeSInt64(v interface{}, ba []byte) ([]byte, error) {
+	c, ok := yaml.ToInt64(v)
+	if !ok {
+		return nil, badTypeError(v, "int")
+	}
+	return encodeZigzag64(ba, uint64(c)), nil
+}
+
+func EncodeEnumInt(v int, ba []byte, enumValues []*descriptor.EnumValueDescriptorProto) ([]byte, error) {
+	for _, val := range enumValues {
+		if val.GetNumber() == int32(v) {
+			ba, _ = EncodeVarint(ba, uint64(val.GetNumber()))
+			return ba, nil
+		}
+	}
+	return nil, fmt.Errorf("unknown value: %v, enum:%v", v, enumValues)
+}
+
+func EncodeEnumString(v string, ba []byte, enumValues []*descriptor.EnumValueDescriptorProto) ([]byte, error) {
+	for _, val := range enumValues {
+		if val.GetName() == v {
+			ba, _ = EncodeVarint(ba, uint64(val.GetNumber()))
+			return ba, nil
+		}
+	}
+	return nil, fmt.Errorf("unknown value: %v, enum:%v", v, enumValues)
+}
+
+func transFormQuotedString(v interface{}) (interface{}, bool) {
+	var ok bool
+	var s string
+	if s, ok = v.(string); !ok {
+		return v, false
+	}
+
+	if len(s) < 2 {
+		return v, false
+	}
+
+	if (strings.HasPrefix(s, "'") && strings.HasSuffix(s, "'")) ||
+		(strings.HasPrefix(s, "\"") && strings.HasSuffix(s, "\"")) {
+		return s[1 : len(s)-1], true
+	}
+	return v, false
 }

@@ -21,6 +21,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 
+	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/compiled"
 	"istio.io/istio/mixer/pkg/protobuf/yaml"
@@ -42,6 +43,11 @@ type (
 		fields []*field
 	}
 
+	packedEncoder struct {
+		fieldSize int
+		fields    []*field
+	}
+
 	field struct {
 		// proto key  -- EncodeVarInt ((field_number << 3) | wire_type)
 		protoKey []byte
@@ -51,13 +57,15 @@ type (
 		encodedData []byte
 
 		// encoder is needed if encodedData is not available.
-		encoder Encoder
+		// packed fields have a list of encoders.
+		encoder []Encoder
 
 		// number fields are sorted by field number.
 		number int
-
 		// name for debug.
 		name string
+		// if packed this is set to true
+		packed bool
 	}
 
 	EncoderBuilder struct {
@@ -97,14 +105,25 @@ func (c EncoderBuilder) buildMessage(md *descriptor.DescriptorProto, data map[in
 	me := messageEncoder{
 		skipEncodeLength: skipEncodeLength,
 	}
+	isMap := md.GetOptions().GetMapEntry()
 
-	for kk, v := range data {
+	keys := make([]string, 0, len(data))
+
+	for kk := range data {
 		var k string
-
 		if k, ok = kk.(string); !ok {
 			return nil, fmt.Errorf("error processing message '%s':%v got %T want string", md.GetName(), kk, kk)
 		}
+		keys = append(keys, k)
+	}
 
+	// This is off the data path.
+	// This way we get consistent log output.
+
+	sort.Strings(keys)
+
+	for _, k := range keys {
+		v := data[k]
 		fd := yaml.FindFieldByName(md, k)
 		if fd == nil {
 			if c.skipUnknown {
@@ -113,23 +132,51 @@ func (c EncoderBuilder) buildMessage(md *descriptor.DescriptorProto, data map[in
 			return nil, fmt.Errorf("field '%s' not found in message '%s'", k, md.GetName())
 		}
 
+		var constString bool
+		var expr compiled.Expression
+		var vt v1beta1.ValueType
+
+		v, constString = transFormQuotedString(v)
+
+		if !(isMap && k == "key") && !constString { // do not use dynamic keys in maps.
+			expr, vt, err = ExtractExpression(v, c.compiler)
+		}
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to process %v:%v %v", k, v, err)
+		}
+
 		repeated := fd.IsRepeated()
 		//packed := fd.IsPacked() || fd.IsPacked3()
 
-		if fd.IsScalar() || fd.IsString() {
+		if *fd.Type == descriptor.FieldDescriptorProto_TYPE_ENUM {
+			fld := makeField(fd)
+			e := c.resolver.ResolveEnum(fd.GetTypeName())
+			if expr != nil {
+				fld.encoder = []Encoder{&eEnumEncoder{
+					expr:       expr,
+					enumValues: e.Value,
+				}}
+			} else if vs, ok := v.(string); ok {
+				if fld.encodedData, err = EncodeEnumString(vs, fld.encodedData, e.Value); err != nil {
+					return nil, fmt.Errorf("unable to encode: %v. %v", k, err)
+				}
+			}
+			me.fields = append(me.fields, fld)
+		} else if fd.IsScalar() || fd.IsString() {
 			if repeated { // TODO
 			}
 			fld := makeField(fd)
-
-			if *fd.Type == descriptor.FieldDescriptorProto_TYPE_ENUM {
-				//TODO e := c.resolver.ResolveEnum(fd.GetTypeName())
-			}
-
-			if fld.encodedData, err = EncodePrimitive(v, fd.GetType(), fld.encodedData); err != nil {
+			var enc Encoder
+			if expr != nil {
+				if enc, err = PrimitiveEvalEncoder(expr, vt, fd); err != nil {
+					return nil, fmt.Errorf("unable to build encoder: %v. %v", k, err)
+				}
+				fld.encoder = []Encoder{enc}
+			} else if fld.encodedData, err = PrimitiveEncode(v, fd, fld.encodedData); err != nil {
 				return nil, fmt.Errorf("unable to encode: %v. %v", k, err)
 			}
 			me.fields = append(me.fields, fld)
-
 		} else if *fd.Type == descriptor.FieldDescriptorProto_TYPE_MESSAGE { // MESSAGE, or map
 			m := c.resolver.ResolveMessage(fd.GetTypeName())
 			if m == nil {
@@ -163,13 +210,12 @@ func (c EncoderBuilder) buildMessage(md *descriptor.DescriptorProto, data map[in
 					return nil, fmt.Errorf("unable to process: %v, %v", fd, err)
 				}
 				fld := makeField(fd)
-				fld.encoder = de
+				fld.encoder = []Encoder{de}
 				me.fields = append(me.fields, fld) // create new fields ...
 			}
 		} else {
 			return nil, fmt.Errorf("field not supported '%v'", fd)
 		}
-
 	}
 
 	// sorting is recommended, but not required.
@@ -204,7 +250,7 @@ func extendSlice(ba []byte, n int) []byte {
 
 // expected length of the varint encoded word
 // 2 byte words represent 2 ** 14 = 16K bytes
-// If message lenght is more, it involves an array copy
+// If message length is more, it involves an array copy
 const varLength = 2
 
 // encode message including length of the message into []byte
@@ -246,10 +292,14 @@ func (m messageEncoder) encodeNoLength(bag attribute.Bag, ba []byte) ([]byte, er
 	for _, f := range m.fields {
 		ba, err = f.Encode(bag, ba)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("field: %s - %v", f.name, err)
 		}
 	}
 	return ba, nil
+}
+
+func (p packedEncoder) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
+	return nil, nil
 }
 
 type evalEncoder struct {
@@ -269,10 +319,12 @@ func (e evalEncoder) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
 }
 
 func (f field) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
-	ba = append(ba, f.protoKey...)
+	// protoKey is nil for packed fields.
+	if f.protoKey != nil {
+		ba = append(ba, f.protoKey...)
+	}
 
-	// Varint, 64-bit, 32-bit are directly encoded
-	// should take care of its own length
+	// if data was fully encoded just use it.
 	if f.encodedData != nil {
 		return append(ba, f.encodedData...), nil
 	}
@@ -282,5 +334,13 @@ func (f field) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
 	// 2. field is of type map
 	// 3. field is of Message
 	// In all cases Encode function must correctly set Length.
-	return f.encoder.Encode(bag, ba)
+	var err error
+	for _, en := range f.encoder {
+		ba, err = en.Encode(bag, ba)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return ba, nil
 }
