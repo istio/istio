@@ -18,12 +18,8 @@ The following instruction details the steps required to run E2E tests with a Vag
 You can run the following OS specific scripts to install all pre-requisites, or use them as a reference to install them manually. .
 
 ```bash
-// assumes api-get and dpkkg exist
-sh linux_prereqs.sh
-
-// assumes [homebrew](https://brew.sh) exists
-sh macos_prereqs.sh
-
+// assumes [homebrew](https://brew.sh) exists for Mac
+sh prereqs.sh
 ```
 
 # Steps
