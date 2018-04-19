@@ -29,6 +29,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/workqueue"
+	k8s_cr "k8s.io/cluster-registry/pkg/apis/clusterregistry/v1alpha1"
 
 	"istio.io/istio/pkg/log"
 )
@@ -209,7 +210,18 @@ func addMemberCluster(s *corev1.Secret, cs *ClusterStore) {
 			log.Errorf("failed to load client config from secret %s in namespace %s with error: %v",
 				s.ObjectMeta.Name, s.ObjectMeta.Namespace, err)
 		}
+		cluster := k8s_cr.Cluster{
+			TypeMeta: meta_v1.TypeMeta{
+				Kind:       "Cluster",
+				APIVersion: "clusterregistry.k8s.io/v1alpha1",
+			},
+			ObjectMeta: meta_v1.ObjectMeta{
+				Name:      s.ObjectMeta.Name,
+				Namespace: s.ObjectMeta.Namespace,
+			},
+		}
 		cs.clientConfigs[s.ObjectMeta.Name] = *clientConfig
+		cs.clusters = append(cs.clusters, &cluster)
 	}
 	// TODO Add exporting a number of cluster to Prometheus
 	// for now for debbuging purposes, print it to the log.
@@ -223,6 +235,7 @@ func deleteMemberCluster(s string, cs *ClusterStore) {
 	if _, ok := cs.clientConfigs[s]; ok {
 		log.Infof("Deleting cluster member: %s", s)
 		delete(cs.clientConfigs, s)
+		// TODO add deleting corresponding k8s_cr.Cluster object from the slice
 	}
 	log.Infof("Number of clusters in the cluster store: %d", len(cs.clientConfigs))
 }
