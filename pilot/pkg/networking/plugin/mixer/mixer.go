@@ -125,7 +125,7 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConfigura
 					nr.PerFilterConfig = make(map[string]*types.Struct)
 				}
 				nr.PerFilterConfig[v1.MixerFilter] = util.MessageToStruct(
-					buildMixerOpaqueConfig(!in.Env.Mesh.DisablePolicyChecks, forward, in.ServiceInstance.Service.Hostname))
+					buildMixerOpaqueConfig(in.Env.Mesh.DisablePolicyChecks, forward, in.ServiceInstance.Service.Hostname))
 				nrs = append(nrs, nr)
 			}
 			nvh.Routes = nrs
@@ -140,10 +140,10 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConfigura
 	}
 }
 
-func buildMixerOpaqueConfig(check, _ /*forward*/ bool, destinationService string) *mccpb.ServiceConfig {
+func buildMixerOpaqueConfig(disableCheck, _ /*disableForward*/ bool, destinationService string) *mccpb.ServiceConfig {
 	out := &mccpb.ServiceConfig{
 		// Report calls are never disabled. Forward is currently removed.
-		DisableCheckCalls: check,
+		DisableCheckCalls: disableCheck,
 	}
 	if destinationService != "" {
 		out.MixerAttributes = &mpb.Attributes{}
