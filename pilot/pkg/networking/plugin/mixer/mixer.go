@@ -19,7 +19,6 @@ import (
 	"net"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
@@ -122,14 +121,11 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConfigura
 			var nrs []route.Route
 			for _, r := range vh.Routes {
 				nr := r
-				if nr.Metadata == nil {
-					nr.Metadata = &core.Metadata{}
+				if nr.PerFilterConfig == nil {
+					nr.PerFilterConfig = make(map[string]*types.Struct)
 				}
-				if nr.Metadata.FilterMetadata == nil {
-					nr.Metadata.FilterMetadata = make(map[string]*types.Struct)
-				}
-				nr.Metadata.FilterMetadata[v1.MixerFilter] =
-					util.BuildProtoStruct(v1.BuildMixerOpaqueConfig(!in.Env.Mesh.DisablePolicyChecks, forward, in.ServiceInstance.Service.Hostname))
+				nr.PerFilterConfig[v1.MixerFilter] = util.MessageToStruct(
+					buildMixerOpaqueConfig(!in.Env.Mesh.DisablePolicyChecks, forward, in.ServiceInstance.Service.Hostname))
 				nrs = append(nrs, nr)
 			}
 			nvh.Routes = nrs
@@ -142,6 +138,27 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConfigura
 	default:
 		log.Warn("Unknown listener type in mixer#OnOutboundRouteConfiguration")
 	}
+}
+
+func buildMixerOpaqueConfig(check, forward bool, destinationService string) *mccpb.ServiceConfig {
+	keys := map[bool]string{true: "on", false: "off"}
+
+	out := &mccpb.ServiceConfig{
+		MixerAttributes: &mpb.Attributes{
+			Attributes: map[string]*mpb.Attributes_AttributeValue{
+				v1.MixerReport:  {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: "on"}},
+				v1.MixerCheck:   {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: keys[check]}},
+				v1.MixerForward: {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: keys[forward]}},
+			},
+		},
+	}
+	if destinationService != "" {
+		out.MixerAttributes.Attributes[v1.AttrDestinationService] = &mpb.Attributes_AttributeValue{
+			Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: destinationService},
+		}
+	}
+
+	return out
 
 }
 
