@@ -23,12 +23,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	nam "istio.io/istio/security/cmd/node_agent/management"
 	"istio.io/istio/security/cmd/node_agent/na"
 	"istio.io/istio/security/cmd/node_agent_k8s/workload/handler"
 	wlapi "istio.io/istio/security/cmd/node_agent_k8s/workloadapi"
 	"istio.io/istio/security/pkg/caclient"
 	"istio.io/istio/security/pkg/caclient/protocol"
+	"istio.io/istio/security/pkg/nodeagent/registry"
 	"istio.io/istio/security/pkg/platform"
 )
 
@@ -117,13 +117,13 @@ func startManagement() {
 	if err != nil {
 		log.Fatalf("failed to create CAClient %v", err)
 	}
-	mgmtServer, err := nam.New(&naConfig, caClient)
+	mgmtServer, err := registry.New(&naConfig, caClient)
 	if err != nil {
 		log.Fatalf("failed to create node agent management server %v", err)
 	}
 	sigc := make(chan os.Signal, 1)
 	signal.Notify(sigc, os.Interrupt, syscall.SIGTERM)
-	go func(s *nam.Server, c chan os.Signal) {
+	go func(s *registry.Server, c chan os.Signal) {
 		<-c
 		s.Stop()
 		s.WaitDone()
