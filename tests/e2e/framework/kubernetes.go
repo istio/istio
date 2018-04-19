@@ -37,24 +37,23 @@ import (
 )
 
 const (
-	yamlSuffix                       = ".yaml"
-	istioInstallDir                  = "install/kubernetes"
-	istioAddonsDir                   = "install/kubernetes/addons"
-	nonAuthInstallFile               = "istio.yaml"
-	authInstallFile                  = "istio-auth.yaml"
-	nonAuthInstallFileNamespace      = "istio-one-namespace.yaml"
-	authInstallFileNamespace         = "istio-one-namespace-auth.yaml"
-	mcNonAuthInstallFileNamespace    = "istio-multicluster.yaml"
-	mcAuthInstallFileNamespace       = "istio-auth-multicluster.yaml"
-	istioSystem                      = "istio-system"
-	istioIngressServiceName          = "istio-ingress"
-	istioIngressGatewayServiceName   = "istio-ingressgateway"
-	istioEgressGatewayServiceName    = "istio-egressgateway"
-	defaultSidecarInjectorFile       = "istio-sidecar-injector.yaml"
-	ingressCertsName                 = "istio-ingress-certs"
-	defaultGalleyConfigValidatorFile = "istio-galley-config-validator.yaml"
-	maxDeploymentRolloutTime         = 240 * time.Second
-	mtlsExcludedServicesPattern      = "mtlsExcludedServices:\\s*\\[(.*)\\]"
+	yamlSuffix                     = ".yaml"
+	istioInstallDir                = "install/kubernetes"
+	istioAddonsDir                 = "install/kubernetes/addons"
+	nonAuthInstallFile             = "istio.yaml"
+	authInstallFile                = "istio-auth.yaml"
+	nonAuthInstallFileNamespace    = "istio-one-namespace.yaml"
+	authInstallFileNamespace       = "istio-one-namespace-auth.yaml"
+	mcNonAuthInstallFileNamespace  = "istio-multicluster.yaml"
+	mcAuthInstallFileNamespace     = "istio-auth-multicluster.yaml"
+	istioSystem                    = "istio-system"
+	istioIngressServiceName        = "istio-ingress"
+	istioIngressGatewayServiceName = "istio-ingressgateway"
+	istioEgressGatewayServiceName  = "istio-egressgateway"
+	defaultSidecarInjectorFile     = "istio-sidecar-injector.yaml"
+	ingressCertsName               = "istio-ingress-certs"
+	maxDeploymentRolloutTime       = 240 * time.Second
+	mtlsExcludedServicesPattern    = "mtlsExcludedServices:\\s*\\[(.*)\\]"
 )
 
 var (

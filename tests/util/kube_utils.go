@@ -131,7 +131,7 @@ func KubeApply(namespace, yamlFileName string, kubeconfig string) error {
 	return err
 }
 
-// KubeApplyContents kubectl apply from contents silently
+// KubeApplyContentSilent kubectl apply from contents silently
 func KubeApplyContentSilent(namespace, yamlContents string, kubeconfig string) error {
 	tmpfile, err := WriteTempfile(os.TempDir(), "kubeapply", ".yaml", yamlContents)
 	if err != nil {
@@ -141,7 +141,7 @@ func KubeApplyContentSilent(namespace, yamlContents string, kubeconfig string) e
 	return KubeApplySilent(namespace, tmpfile, kubeconfig)
 }
 
-// KubeApply kubectl apply from file silently
+// KubeApplySilent kubectl apply from file silently
 func KubeApplySilent(namespace, yamlFileName string, kubeconfig string) error {
 	_, err := ShellSilent("kubectl apply -n %s -f %s --kubeconfig=%s", namespace, yamlFileName, kubeconfig)
 	return err
