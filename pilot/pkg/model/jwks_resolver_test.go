@@ -28,10 +28,10 @@ func TestResolveJwksURIUsingOpenID(t *testing.T) {
 
 	ms, err := test.NewServer()
 	if err != nil {
-		t.Fatal("failed to create mock openID discovery server")
+		t.Fatal("failed to create mock server")
 	}
 	if err := ms.Start(); err != nil {
-		t.Fatal("failed to start mock openID discovery server")
+		t.Fatal("failed to start mock server")
 	}
 	defer func() {
 		_ = ms.Stop()
@@ -84,11 +84,11 @@ func TestSetAuthenticationPolicyJwksURIs(t *testing.T) {
 
 	ms, err := test.NewServer()
 	if err != nil {
-		t.Fatal("failed to create mock openID discovery server")
+		t.Fatal("failed to create mock server")
 	}
 
 	if err := ms.Start(); err != nil {
-		t.Fatal("failed to start mock openID discovery server")
+		t.Fatal("failed to start mock server")
 	}
 	defer func() {
 		_ = ms.Stop()
@@ -162,13 +162,13 @@ func TestSetAuthenticationPolicyJwksURIs(t *testing.T) {
 	}
 }
 
-func TestResolveJwtPubKey(t *testing.T) {
+func TestGetPublicKey(t *testing.T) {
 	r := newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyRefreshInterval)
 	defer r.Close()
 
 	ms, err := test.NewServer()
 	if err != nil {
-		t.Fatal("failed to create mock openID discovery server")
+		t.Fatal("failed to create mock server")
 	}
 	if err := ms.Start(); err != nil {
 		t.Fatal("failed to start mock server")
@@ -193,12 +193,12 @@ func TestResolveJwtPubKey(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		pk, err := r.ResolveJwtPubKey(c.in)
+		pk, err := r.GetPublicKey(c.in)
 		if err != nil {
-			t.Errorf("ResolveJwtPubKey(%+v) fails: expected no error, got (%v)", c.in, err)
+			t.Errorf("GetPublicKey(%+v) fails: expected no error, got (%v)", c.in, err)
 		}
 		if c.expectedJwtPubkey != pk {
-			t.Errorf("ResolveJwtPubKey(%+v): expected (%s), got (%s)", c.in, c.expectedJwtPubkey, pk)
+			t.Errorf("GetPublicKey(%+v): expected (%s), got (%s)", c.in, c.expectedJwtPubkey, pk)
 		}
 	}
 
@@ -214,7 +214,7 @@ func TestJwtPubKeyRefresh(t *testing.T) {
 
 	ms, err := test.NewServer()
 	if err != nil {
-		t.Fatal("failed to create mock openID discovery server")
+		t.Fatal("failed to create mock server")
 	}
 	if err := ms.Start(); err != nil {
 		t.Fatal("failed to start mock server")
@@ -235,12 +235,12 @@ func TestJwtPubKeyRefresh(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		pk, err := r.ResolveJwtPubKey(c.in)
+		pk, err := r.GetPublicKey(c.in)
 		if err != nil {
-			t.Errorf("ResolveJwtPubKey(%+v) fails: expected no error, got (%v)", c.in, err)
+			t.Errorf("GetPublicKey(%+v) fails: expected no error, got (%v)", c.in, err)
 		}
 		if c.expectedJwtPubkey != pk {
-			t.Errorf("ResolveJwtPubKey(%+v): expected (%s), got (%s)", c.in, c.expectedJwtPubkey, pk)
+			t.Errorf("GetPublicKey(%+v): expected (%s), got (%s)", c.in, c.expectedJwtPubkey, pk)
 		}
 	}
 
@@ -259,12 +259,12 @@ func TestJwtPubKeyRefresh(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		pk, err := r.ResolveJwtPubKey(c.in)
+		pk, err := r.GetPublicKey(c.in)
 		if err != nil {
-			t.Errorf("ResolveJwtPubKey(%+v) fails: expected no error, got (%v)", c.in, err)
+			t.Errorf("GetPublicKey(%+v) fails: expected no error, got (%v)", c.in, err)
 		}
 		if c.expectedJwtPubkey != pk {
-			t.Errorf("ResolveJwtPubKey(%+v): expected (%s), got (%s)", c.in, c.expectedJwtPubkey, pk)
+			t.Errorf("GetPublicKey(%+v): expected (%s), got (%s)", c.in, c.expectedJwtPubkey, pk)
 		}
 	}
 }

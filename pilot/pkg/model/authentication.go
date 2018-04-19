@@ -24,8 +24,8 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-// Jwtkeyresolver resolves JWT public key and JwksURI.
-var Jwtkeyresolver = newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyRefreshInterval)
+// JwtKeyResolver resolves JWT public key and JwksURI.
+var JwtKeyResolver = newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyRefreshInterval)
 
 // GetConsolidateAuthenticationPolicy returns the authentication policy for
 // service specified by hostname and port, if defined.
@@ -37,7 +37,7 @@ func GetConsolidateAuthenticationPolicy(mesh *meshconfig.MeshConfig, store Istio
 	config := store.AuthenticationPolicyByDestination(hostname, port)
 	if config != nil {
 		policy := config.Spec.(*authn.Policy)
-		if err := Jwtkeyresolver.SetAuthenticationPolicyJwksURIs(policy); err == nil {
+		if err := JwtKeyResolver.SetAuthenticationPolicyJwksURIs(policy); err == nil {
 			return policy
 		}
 	}

@@ -450,7 +450,69 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 	}
 }
 
+func TestConvertPolicyToJwtConfigWithInlineKey(t *testing.T) {
+	ms, err := test.NewServer()
+	if err != nil {
+		t.Fatal("failed to create mock server")
+	}
+	if err := ms.Start(); err != nil {
+		t.Fatal("failed to start mock server")
+	}
+
+	jwksURI := ms.URL + "/oauth2/v3/certs"
+
+	cases := []struct {
+		in       *authn.Policy
+		expected *jwtfilter.JwtAuthentication
+	}{
+		{
+			in: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Jwt{
+							Jwt: &authn.Jwt{
+								JwksUri: jwksURI,
+							},
+						},
+					},
+				},
+			},
+			expected: &jwtfilter.JwtAuthentication{
+				Rules: []*jwtfilter.JwtRule{
+					{
+						JwksSourceSpecifier: &jwtfilter.JwtRule_LocalJwks{
+							LocalJwks: &core.DataSource{
+								Specifier: &core.DataSource_InlineString{
+									InlineString: test.JwtPubKey1,
+								},
+							},
+						},
+						Forward:              true,
+						ForwardPayloadHeader: "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709"},
+				},
+				AllowMissingOrFailed: true,
+			},
+		},
+	}
+
+	for _, c := range cases {
+		if got := ConvertPolicyToJwtConfig(c.in, true); !reflect.DeepEqual(c.expected, got) {
+			t.Errorf("ConvertPolicyToJwtConfig(%#v), got:\n%#v\nwanted:\n%#v\n", c.in, got, c.expected)
+		}
+	}
+}
+
 func TestBuildJwtFilter(t *testing.T) {
+	ms, err := test.NewServer()
+	if err != nil {
+		t.Fatal("failed to create mock server")
+	}
+	if err := ms.Start(); err != nil {
+		t.Fatal("failed to start mock server")
+	}
+
+	jwksURI := ms.URL + "/oauth2/v3/certs"
+
 	cases := []struct {
 		in       *authn.Policy
 		expected *http_conn.HttpFilter
@@ -463,103 +525,6 @@ func TestBuildJwtFilter(t *testing.T) {
 			in:       &authn.Policy{},
 			expected: nil,
 		},
-		{
-			in: &authn.Policy{
-				Peers: []*authn.PeerAuthenticationMethod{
-					{
-						Params: &authn.PeerAuthenticationMethod_Jwt{
-							Jwt: &authn.Jwt{
-								JwksUri: "http://abc.com",
-							},
-						},
-					},
-				},
-			},
-			expected: &http_conn.HttpFilter{
-				Name: "jwt-auth",
-				Config: &types.Struct{
-					Fields: map[string]*types.Value{
-						"allow_missing_or_failed": {Kind: &types.Value_BoolValue{BoolValue: true}},
-						"rules": {
-							Kind: &types.Value_ListValue{
-								ListValue: &types.ListValue{
-									Values: []*types.Value{
-										{
-											Kind: &types.Value_StructValue{
-												StructValue: &types.Struct{
-													Fields: map[string]*types.Value{
-														"forward": {Kind: &types.Value_BoolValue{BoolValue: true}},
-														"forward_payload_header": {
-															Kind: &types.Value_StringValue{
-																StringValue: "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709",
-															},
-														},
-														"remote_jwks": {
-															Kind: &types.Value_StructValue{
-																StructValue: &types.Struct{
-																	Fields: map[string]*types.Value{
-																		"cache_duration": {
-																			Kind: &types.Value_StringValue{StringValue: "300.000s"},
-																		},
-																		"http_uri": {
-																			Kind: &types.Value_StructValue{
-																				StructValue: &types.Struct{
-																					Fields: map[string]*types.Value{
-																						"cluster": {
-																							Kind: &types.Value_StringValue{StringValue: "jwks.abc.com|http"},
-																						},
-																						"uri": {
-																							Kind: &types.Value_StringValue{StringValue: "http://abc.com"},
-																						},
-																					},
-																				},
-																			},
-																		},
-																	},
-																},
-															},
-														},
-													},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	for _, c := range cases {
-		if got := BuildJwtFilter(c.in); !reflect.DeepEqual(c.expected, got) {
-			t.Errorf("buildJwtFilter(%#v), got:\n%#v\nwanted:\n%#v\n", c.in, got, c.expected)
-		}
-	}
-}
-
-func TestBuildLocalJwtFilter(t *testing.T) {
-	ms, err := test.NewServer()
-	if err != nil {
-		t.Fatal("failed to create mock openID discovery server")
-	}
-	if err := ms.Start(); err != nil {
-		t.Fatal("failed to start mock server")
-	}
-	enableLocalJwks = true
-	defer func() {
-		_ = ms.Stop()
-		enableLocalJwks = false
-	}()
-
-	jwksURI := ms.URL + "/oauth2/v3/certs"
-
-	cases := []struct {
-		in       *authn.Policy
-		expected *http_conn.HttpFilter
-	}{
 		{
 			in: &authn.Policy{
 				Peers: []*authn.PeerAuthenticationMethod{

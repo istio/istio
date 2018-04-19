@@ -127,8 +127,8 @@ func (r *jwksResolver) SetAuthenticationPolicyJwksURIs(policy *authn.Policy) err
 	return nil
 }
 
-// ResolveJwtPubKey resolves JWT public key and cache the key for furture use.
-func (r *jwksResolver) ResolveJwtPubKey(jwksURI string) (string, error) {
+// GetPublicKey gets JWT public key and cache the key for furture use.
+func (r *jwksResolver) GetPublicKey(jwksURI string) (string, error) {
 	if val, found := r.keyEntries.Load(jwksURI); found {
 		return val.(*jwtPubKeyEntry).pubKey, nil
 	}

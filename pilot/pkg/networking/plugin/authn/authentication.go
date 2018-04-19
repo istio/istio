@@ -49,9 +49,6 @@ const (
 	jwtPublicKeyCacheSeconds = 60 * 5
 )
 
-// Flag to enable local jwks.
-var enableLocalJwks = false
-
 // Plugin implements Istio mTLS auth
 type Plugin struct{}
 
@@ -122,7 +119,7 @@ func OutputLocationForJwtIssuer(issuer string) string {
 }
 
 // ConvertPolicyToJwtConfig converts policy into Jwt filter config for envoy.
-func ConvertPolicyToJwtConfig(policy *authn.Policy, fetchPubKey bool) *jwtfilter.JwtAuthentication {
+func ConvertPolicyToJwtConfig(policy *authn.Policy, useInlinePublicKey bool) *jwtfilter.JwtAuthentication {
 	policyJwts := CollectJwtSpecs(policy)
 	if len(policyJwts) == 0 {
 		return nil
@@ -145,8 +142,8 @@ func ConvertPolicyToJwtConfig(policy *authn.Policy, fetchPubKey bool) *jwtfilter
 		}
 		jwt.FromParams = policyJwt.JwtParams
 
-		if fetchPubKey {
-			jwtPubKey, err := model.Jwtkeyresolver.ResolveJwtPubKey(policyJwt.JwksUri)
+		if useInlinePublicKey {
+			jwtPubKey, err := model.JwtKeyResolver.GetPublicKey(policyJwt.JwksUri)
 			if err != nil {
 				log.Warnf("Failed to fetch jwt public key from %q", policyJwt.JwksUri)
 			}
@@ -162,8 +159,7 @@ func ConvertPolicyToJwtConfig(policy *authn.Policy, fetchPubKey bool) *jwtfilter
 		} else {
 			hostname, port, _, err := model.ParseJwksURI(policyJwt.JwksUri)
 			if err != nil {
-				log.Errorf("Cannot parse jwks_uri %q: %v", policyJwt.JwksUri, err)
-				continue
+				log.Warnf("Cannot parse jwks_uri %q: %v", policyJwt.JwksUri, err)
 			}
 
 			jwt.JwksSourceSpecifier = &jwtfilter.JwtRule_RemoteJwks{
@@ -216,7 +212,8 @@ func ConvertPolicyToAuthNFilterConfig(policy *authn.Policy) *authn_filter.Filter
 
 // BuildJwtFilter returns a Jwt filter for all Jwt specs in the policy.
 func BuildJwtFilter(policy *authn.Policy) *http_conn.HttpFilter {
-	filterConfigProto := ConvertPolicyToJwtConfig(policy, enableLocalJwks)
+	// v2 api will use inline public key.
+	filterConfigProto := ConvertPolicyToJwtConfig(policy, true /*useInlinePublicKey*/)
 	if filterConfigProto == nil {
 		return nil
 	}
