@@ -6,6 +6,7 @@ This sets up your local linux box to run tests on a kubernetes cluster on vagran
 3) TODO: Debug tests right from your development environment.
 
 # Prereqs:
+## Linux
 1) apt-get (should be available on linux, but make sure it's there on your mac box)
 2) dpkg (should be available on linux, but make sure it's there on your mac box)
 3) curl
@@ -26,8 +27,43 @@ For installation of curl, virtualbox, docker, vagrant and kubectl on linux, you 
 ```bash
 sh setup_linux_prereqs.sh
 ```
+
 Verify they are installed by running verification commands listed above for each of the components.
 
+## macOS
+### Installation
+You can follow instructions in the official website to complete the installation process.
+1) [Docker](https://docs.docker.com/docker-for-mac/install/)
+2) [VirtualBox](https://www.virtualbox.org/wiki/Downloads)
+3) [Vagrant](https://www.vagrantup.com/downloads.html)
+
+With [Homebrew](https://brew.sh) installed, you can install all the prerequisites in one step:
+```bash
+sh setup_macos_prerequs.sh
+```
+
+### Verification
+1) Docker
+```bash
+docker version
+``` 
+should show you the version information of docker(>= 18.03.0-ce).
+After this, double-click Docker.app in the Applications folder to start Docker.
+The whale in the top status bar indicates that Docker is running, and accessible from a terminal.
+
+2) Vagrant
+```
+vagrant -v
+```
+should show you the verison information of vagrant(>= Vagrant 2.0.3).
+
+3) VirtualBox
+```bash
+virtualbox
+``` 
+should pop up the VirtualBox UI.
+
+## Istio
 Also you need to have Istio Dev Environment setup on your box!
 Refer: https://github.com/istio/istio/wiki/Dev-Guide for that.
 
