@@ -122,7 +122,7 @@ func OutputLocationForJwtIssuer(issuer string) string {
 }
 
 // ConvertPolicyToJwtConfig converts policy into Jwt filter config for envoy.
-func ConvertPolicyToJwtConfig(policy *authn.Policy) *jwtfilter.JwtAuthentication {
+func ConvertPolicyToJwtConfig(policy *authn.Policy, fetchPubKey bool) *jwtfilter.JwtAuthentication {
 	policyJwts := CollectJwtSpecs(policy)
 	if len(policyJwts) == 0 {
 		return nil
@@ -145,38 +145,38 @@ func ConvertPolicyToJwtConfig(policy *authn.Policy) *jwtfilter.JwtAuthentication
 		}
 		jwt.FromParams = policyJwt.JwtParams
 
-		if enableLocalJwks {
-			jwtPubKey, err := model.ResolveJwtPubKey(policyJwt.Issuer)
-			if err == nil && jwtPubKey != "" {
-				jwt.JwksSourceSpecifier = &jwtfilter.JwtRule_LocalJwks{
-					LocalJwks: &core.DataSource{
-						Specifier: &core.DataSource_InlineString{
-							InlineString: jwtPubKey,
-						},
-					},
-				}
-
-				ret.Rules = append(ret.Rules, jwt)
-				continue
+		if fetchPubKey {
+			jwtPubKey, err := model.Jwtkeyresolver.ResolveJwtPubKey(policyJwt.JwksUri)
+			if err != nil {
+				log.Warnf("Failed to fetch jwt public key from %q", policyJwt.JwksUri)
 			}
-		}
 
-		hostname, port, _, err := model.ParseJwksURI(policyJwt.JwksUri)
-		if err != nil {
-			log.Errorf("Cannot parse jwks_uri %q: %v", policyJwt.JwksUri, err)
-			continue
-		}
-
-		jwt.JwksSourceSpecifier = &jwtfilter.JwtRule_RemoteJwks{
-			RemoteJwks: &jwtfilter.RemoteJwks{
-				HttpUri: &core.HttpUri{
-					Uri: policyJwt.JwksUri,
-					HttpUpstreamType: &core.HttpUri_Cluster{
-						Cluster: JwksURIClusterName(hostname, port),
+			// Put empty string in config even if above ResolveJwtPubKey fails.
+			jwt.JwksSourceSpecifier = &jwtfilter.JwtRule_LocalJwks{
+				LocalJwks: &core.DataSource{
+					Specifier: &core.DataSource_InlineString{
+						InlineString: jwtPubKey,
 					},
 				},
-				CacheDuration: &types.Duration{Seconds: jwtPublicKeyCacheSeconds},
-			},
+			}
+		} else {
+			hostname, port, _, err := model.ParseJwksURI(policyJwt.JwksUri)
+			if err != nil {
+				log.Errorf("Cannot parse jwks_uri %q: %v", policyJwt.JwksUri, err)
+				continue
+			}
+
+			jwt.JwksSourceSpecifier = &jwtfilter.JwtRule_RemoteJwks{
+				RemoteJwks: &jwtfilter.RemoteJwks{
+					HttpUri: &core.HttpUri{
+						Uri: policyJwt.JwksUri,
+						HttpUpstreamType: &core.HttpUri_Cluster{
+							Cluster: JwksURIClusterName(hostname, port),
+						},
+					},
+					CacheDuration: &types.Duration{Seconds: jwtPublicKeyCacheSeconds},
+				},
+			}
 		}
 
 		ret.Rules = append(ret.Rules, jwt)
@@ -216,7 +216,7 @@ func ConvertPolicyToAuthNFilterConfig(policy *authn.Policy) *authn_filter.Filter
 
 // BuildJwtFilter returns a Jwt filter for all Jwt specs in the policy.
 func BuildJwtFilter(policy *authn.Policy) *http_conn.HttpFilter {
-	filterConfigProto := ConvertPolicyToJwtConfig(policy)
+	filterConfigProto := ConvertPolicyToJwtConfig(policy, enableLocalJwks)
 	if filterConfigProto == nil {
 		return nil
 	}

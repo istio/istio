@@ -17,92 +17,54 @@ package test
 import (
 	"errors"
 	"fmt"
+	"math/rand"
+	"net"
 	"net/http"
 	"strconv"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/mux"
 	"istio.io/istio/pkg/log"
 )
 
-// OpenID discovery content returned by mock server.
+var (
+	portBase   uint16 = 20000
+	cfgContent        = "{\"jwks_uri\": \"%s\"}"
+)
+
 const (
-	cfgContent = `
-{
-	"issuer": "https://accounts.google.com",
-	"authorization_endpoint": "https://accounts.google.com/o/oauth2/v2/auth",
-	"token_endpoint": "https://www.googleapis.com/oauth2/v4/token",
-	"userinfo_endpoint": "https://www.googleapis.com/oauth2/v3/userinfo",
-	"revocation_endpoint": "https://accounts.google.com/o/oauth2/revoke",
-	"jwks_uri": "http://localhost:9999/oauth2/v3/certs",
-	"response_types_supported": [
-	 "code",
-	 "token",
-	 "id_token",
-	 "code token",
-	 "code id_token",
-	 "token id_token",
-	 "code token id_token",
-	 "none"
-	],
-	"subject_types_supported": [
-	 "public"
-	],
-	"id_token_signing_alg_values_supported": [
-	 "RS256"
-	],
-	"scopes_supported": [
-	 "openid",
-	 "email",
-	 "profile"
-	],
-	"token_endpoint_auth_methods_supported": [
-	 "client_secret_post",
-	 "client_secret_basic"
-	],
-	"claims_supported": [
-	 "aud",
-	 "email",
-	 "email_verified",
-	 "exp",
-	 "family_name",
-	 "given_name",
-	 "iat",
-	 "iss",
-	 "locale",
-	 "name",
-	 "picture",
-	 "sub"
-	],
-	"code_challenge_methods_supported": [
-	 "plain",
-	 "S256"
-	]
-   }
-`
+	// JwtPubKey1 is the response to 1st call for JWT public key returned by mock server.
 	JwtPubKey1 = "fakeKey1"
+
+	// JwtPubKey2 is the response to later calls for JWT public key returned by mock server.
 	JwtPubKey2 = "fakeKey2"
 )
 
 // MockOpenIDDiscoveryServer is the in-memory openID discovery server.
 type MockOpenIDDiscoveryServer struct {
-	port   int
-	url    string
+	Port   int
+	URL    string
 	server *http.Server
 
 	// How many times openIDCfg is called, use this number to verfiy cache takes effect.
-	OpenIDHitNum int
+	OpenIDHitNum uint64
 
 	// How many times jwtPubKey is called, use this number to verfiy cache takes effect.
-	PubKeyHitNum int
+	PubKeyHitNum uint64
 }
 
 // NewServer creates a mock openID discovery server.
-func NewServer(port int) *MockOpenIDDiscoveryServer {
-	return &MockOpenIDDiscoveryServer{
-		port: port,
-		url:  fmt.Sprintf("http://localhost:%d", port),
+func NewServer() (*MockOpenIDDiscoveryServer, error) {
+	port, err := allocPort()
+	if err != nil {
+		return nil, err
 	}
+
+	return &MockOpenIDDiscoveryServer{
+		Port: port,
+		URL:  fmt.Sprintf("http://localhost:%d", port),
+	}, nil
 }
 
 // Start starts the mock server.
@@ -112,7 +74,7 @@ func (ms *MockOpenIDDiscoveryServer) Start() error {
 	router.HandleFunc("/oauth2/v3/certs", ms.jwtPubKey).Methods("GET")
 
 	server := &http.Server{
-		Addr:    ":" + strconv.Itoa(ms.port),
+		Addr:    ":" + strconv.Itoa(ms.Port),
 		Handler: router,
 	}
 
@@ -126,16 +88,16 @@ func (ms *MockOpenIDDiscoveryServer) Start() error {
 	for try := 0; try < 3; try++ {
 		time.Sleep(wait)
 		// Try to call the server
-		if _, err := http.Get(fmt.Sprintf("%s/.well-known/openid-configuration", ms.url)); err != nil {
+		if _, err := http.Get(fmt.Sprintf("%s/.well-known/openid-configuration", ms.URL)); err != nil {
 			log.Infof("Server not yet serving: %v", err)
 			// Retry after some sleep.
 			wait *= 2
 			continue
 		}
 
-		log.Infof("Successfully serving on %s", ms.url)
-		ms.OpenIDHitNum = 0
-		ms.PubKeyHitNum = 0
+		log.Infof("Successfully serving on %s", ms.URL)
+		atomic.StoreUint64(&ms.OpenIDHitNum, 0)
+		atomic.StoreUint64(&ms.PubKeyHitNum, 0)
 		ms.server = server
 		return nil
 	}
@@ -146,23 +108,60 @@ func (ms *MockOpenIDDiscoveryServer) Start() error {
 
 // Stop stops he mock server.
 func (ms *MockOpenIDDiscoveryServer) Stop() error {
-	ms.OpenIDHitNum = 0
-	ms.PubKeyHitNum = 0
+	atomic.StoreUint64(&ms.OpenIDHitNum, 0)
+	atomic.StoreUint64(&ms.PubKeyHitNum, 0)
 	return ms.server.Close()
 }
 
 func (ms *MockOpenIDDiscoveryServer) openIDCfg(w http.ResponseWriter, req *http.Request) {
-	ms.OpenIDHitNum++
-	fmt.Fprintf(w, "%v", cfgContent)
+	atomic.AddUint64(&ms.OpenIDHitNum, 1)
+	fmt.Fprintf(w, "%v", fmt.Sprintf(cfgContent, ms.URL+"/oauth2/v3/certs"))
 }
 
 func (ms *MockOpenIDDiscoveryServer) jwtPubKey(w http.ResponseWriter, req *http.Request) {
-	ms.PubKeyHitNum++
+	atomic.AddUint64(&ms.PubKeyHitNum, 1)
 
-	if ms.PubKeyHitNum == 1 {
+	if atomic.LoadUint64(&ms.PubKeyHitNum) == 1 {
 		fmt.Fprintf(w, "%v", JwtPubKey1)
 		return
 	}
 
 	fmt.Fprintf(w, "%v", JwtPubKey2)
+}
+
+// allocPort allocate a free port.
+func allocPort() (int, error) {
+	minPort := 32768
+	maxPort := 60000
+
+	port := random(minPort, maxPort)
+
+	// Test entire range of ports
+	stop := port
+	for {
+		if !isPortUsed(port) {
+			return port, nil
+		}
+		port++
+		if port > maxPort {
+			port = minPort
+		}
+		if port == stop {
+			break
+		}
+	}
+
+	return 0, errors.New("portpicker: no unused port")
+}
+
+// isPortUsed checks if a port is used
+func isPortUsed(port int) bool {
+	serverPort := fmt.Sprintf("localhost:%v", port)
+	_, err := net.Dial("tcp", serverPort)
+	return err == nil
+}
+
+func random(min, max int) int {
+	rand.Seed(time.Now().Unix())
+	return rand.Intn(max-min) + min
 }

@@ -24,9 +24,12 @@ import (
 )
 
 func TestResolveJwksURIUsingOpenID(t *testing.T) {
-	r := newJwksURIResolver()
+	r := newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyRefreshInterval)
 
-	ms := test.NewServer(9999)
+	ms, err := test.NewServer()
+	if err != nil {
+		t.Fatal("failed to create mock openID discovery server")
+	}
 	if err := ms.Start(); err != nil {
 		t.Fatal("failed to start mock openID discovery server")
 	}
@@ -34,18 +37,19 @@ func TestResolveJwksURIUsingOpenID(t *testing.T) {
 		_ = ms.Stop()
 	}()
 
+	mockCertURL := ms.URL + "/oauth2/v3/certs"
 	cases := []struct {
 		in                   string
 		expectedJwksURI      string
 		expectedErrorMessage string
 	}{
 		{
-			in:              "http://localhost:9999",
-			expectedJwksURI: "http://localhost:9999/oauth2/v3/certs",
+			in:              ms.URL,
+			expectedJwksURI: mockCertURL,
 		},
 		{
-			in:              "http://localhost:9999", // Send two same request, mock server is expected to hit only once because of the cache.
-			expectedJwksURI: "http://localhost:9999/oauth2/v3/certs",
+			in:              ms.URL, // Send two same request, mock server is expected to hit only once because of the cache.
+			expectedJwksURI: mockCertURL,
 		},
 		{
 			in:                   "http://xyz",
@@ -70,21 +74,27 @@ func TestResolveJwksURIUsingOpenID(t *testing.T) {
 	}
 
 	// Verify mock openID discovery http://localhost:9999/.well-known/openid-configuration was only called once because of the cache.
-	if got, want := ms.OpenIDHitNum, 1; got != want {
+	if got, want := ms.OpenIDHitNum, uint64(1); got != want {
 		t.Errorf("Mock OpenID discovery Hit number => expected %d but got %d", want, got)
 	}
 }
 
 func TestSetAuthenticationPolicyJwksURIs(t *testing.T) {
-	r := newJwksURIResolver()
+	r := newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyRefreshInterval)
 
-	ms := test.NewServer(9999)
+	ms, err := test.NewServer()
+	if err != nil {
+		t.Fatal("failed to create mock openID discovery server")
+	}
+
 	if err := ms.Start(); err != nil {
 		t.Fatal("failed to start mock openID discovery server")
 	}
 	defer func() {
 		_ = ms.Stop()
 	}()
+
+	mockCertURL := ms.URL + "/oauth2/v3/certs"
 
 	authNPolicies := map[string]*authn.Policy{
 		"one": {
@@ -101,7 +111,7 @@ func TestSetAuthenticationPolicyJwksURIs(t *testing.T) {
 			Origins: []*authn.OriginAuthenticationMethod{
 				{
 					Jwt: &authn.Jwt{
-						Issuer: "http://localhost:9999",
+						Issuer: ms.URL,
 					},
 				},
 			},
@@ -136,7 +146,7 @@ func TestSetAuthenticationPolicyJwksURIs(t *testing.T) {
 	}{
 		{
 			in:       authNPolicies["one"],
-			expected: "http://localhost:9999/oauth2/v3/certs",
+			expected: mockCertURL,
 		},
 		{
 			in:       authNPolicies["two"],
@@ -153,10 +163,13 @@ func TestSetAuthenticationPolicyJwksURIs(t *testing.T) {
 }
 
 func TestResolveJwtPubKey(t *testing.T) {
-	r := newJwtPubKeyResolver(newJwksURIResolver(), JwtPubKeyExpireDuration, JwtPubKeyRefreshInterval)
+	r := newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyRefreshInterval)
 	defer r.Close()
 
-	ms := test.NewServer(9999)
+	ms, err := test.NewServer()
+	if err != nil {
+		t.Fatal("failed to create mock openID discovery server")
+	}
 	if err := ms.Start(); err != nil {
 		t.Fatal("failed to start mock server")
 	}
@@ -164,16 +177,18 @@ func TestResolveJwtPubKey(t *testing.T) {
 		_ = ms.Stop()
 	}()
 
+	mockCertURL := ms.URL + "/oauth2/v3/certs"
+
 	cases := []struct {
 		in                string
 		expectedJwtPubkey string
 	}{
 		{
-			in:                "http://localhost:9999",
+			in:                mockCertURL,
 			expectedJwtPubkey: test.JwtPubKey1,
 		},
 		{
-			in:                "http://localhost:9999", // Send two same request, mock server is expected to hit only once because of the cache.
+			in:                mockCertURL, // Send two same request, mock server is expected to hit only once because of the cache.
 			expectedJwtPubkey: test.JwtPubKey1,
 		},
 	}
@@ -188,16 +203,19 @@ func TestResolveJwtPubKey(t *testing.T) {
 	}
 
 	// Verify mock server http://localhost:9999/oauth2/v3/certs was only called once because of the cache.
-	if got, want := ms.PubKeyHitNum, 1; got != want {
+	if got, want := ms.PubKeyHitNum, uint64(1); got != want {
 		t.Errorf("Mock server Hit number => expected %d but got %d", want, got)
 	}
 }
 
 func TestJwtPubKeyRefresh(t *testing.T) {
-	r := newJwtPubKeyResolver(newJwksURIResolver(), time.Millisecond /*ExpireDuration*/, 2*time.Millisecond /*RefreshInterval*/)
+	r := newJwksResolver(time.Millisecond /*ExpireDuration*/, 2*time.Millisecond /*RefreshInterval*/)
 	defer r.Close()
 
-	ms := test.NewServer(9999)
+	ms, err := test.NewServer()
+	if err != nil {
+		t.Fatal("failed to create mock openID discovery server")
+	}
 	if err := ms.Start(); err != nil {
 		t.Fatal("failed to start mock server")
 	}
@@ -205,12 +223,13 @@ func TestJwtPubKeyRefresh(t *testing.T) {
 		_ = ms.Stop()
 	}()
 
+	mockCertURL := ms.URL + "/oauth2/v3/certs"
 	cases := []struct {
 		in                string
 		expectedJwtPubkey string
 	}{
 		{
-			in: "http://localhost:9999",
+			in: mockCertURL,
 			// Mock server returns JwtPubKey1 for first call.
 			expectedJwtPubkey: test.JwtPubKey1,
 		},
@@ -233,7 +252,7 @@ func TestJwtPubKeyRefresh(t *testing.T) {
 		expectedJwtPubkey string
 	}{
 		{
-			in: "http://localhost:9999",
+			in: mockCertURL,
 			// Mock server returns JwtPubKey2 for later calls.
 			// Verify the refresher has run and got new key from mock server.
 			expectedJwtPubkey: test.JwtPubKey2,

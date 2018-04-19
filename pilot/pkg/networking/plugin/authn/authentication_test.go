@@ -444,7 +444,7 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		if got := ConvertPolicyToJwtConfig(&c.in); !reflect.DeepEqual(c.expected, got) {
+		if got := ConvertPolicyToJwtConfig(&c.in, false /*fetchPubKey*/); !reflect.DeepEqual(c.expected, got) {
 			t.Errorf("Test case %s: expected\n%#v\n, got\n%#v", c.name, c.expected.String(), got.String())
 		}
 	}
@@ -541,7 +541,10 @@ func TestBuildJwtFilter(t *testing.T) {
 }
 
 func TestBuildLocalJwtFilter(t *testing.T) {
-	ms := test.NewServer(9999)
+	ms, err := test.NewServer()
+	if err != nil {
+		t.Fatal("failed to create mock openID discovery server")
+	}
 	if err := ms.Start(); err != nil {
 		t.Fatal("failed to start mock server")
 	}
@@ -550,6 +553,8 @@ func TestBuildLocalJwtFilter(t *testing.T) {
 		_ = ms.Stop()
 		enableLocalJwks = false
 	}()
+
+	jwksURI := ms.URL + "/oauth2/v3/certs"
 
 	cases := []struct {
 		in       *authn.Policy
@@ -561,7 +566,7 @@ func TestBuildLocalJwtFilter(t *testing.T) {
 					{
 						Params: &authn.PeerAuthenticationMethod_Jwt{
 							Jwt: &authn.Jwt{
-								Issuer: "http://localhost:9999",
+								JwksUri: jwksURI,
 							},
 						},
 					},
@@ -580,11 +585,10 @@ func TestBuildLocalJwtFilter(t *testing.T) {
 											Kind: &types.Value_StructValue{
 												StructValue: &types.Struct{
 													Fields: map[string]*types.Value{
-														"issuer":  {Kind: &types.Value_StringValue{StringValue: "http://localhost:9999"}},
 														"forward": {Kind: &types.Value_BoolValue{BoolValue: true}},
 														"forward_payload_header": {
 															Kind: &types.Value_StringValue{
-																StringValue: "istio-sec-b95a5c97fd14614cab74497a8d3ef0b8477adc62",
+																StringValue: "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709",
 															},
 														},
 														"local_jwks": {

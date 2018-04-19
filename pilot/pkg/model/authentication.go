@@ -24,12 +24,8 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-var (
-	jwksresolver = newJwksURIResolver()
-
-	// Jwtkeyresolver resolves JWT public key.
-	Jwtkeyresolver = newJwtPubKeyResolver(jwksresolver, JwtPubKeyExpireDuration, JwtPubKeyRefreshInterval)
-)
+// Jwtkeyresolver resolves JWT public key and JwksURI.
+var Jwtkeyresolver = newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyRefreshInterval)
 
 // GetConsolidateAuthenticationPolicy returns the authentication policy for
 // service specified by hostname and port, if defined.
@@ -41,7 +37,7 @@ func GetConsolidateAuthenticationPolicy(mesh *meshconfig.MeshConfig, store Istio
 	config := store.AuthenticationPolicyByDestination(hostname, port)
 	if config != nil {
 		policy := config.Spec.(*authn.Policy)
-		if err := jwksresolver.SetAuthenticationPolicyJwksURIs(policy); err == nil {
+		if err := Jwtkeyresolver.SetAuthenticationPolicyJwksURIs(policy); err == nil {
 			return policy
 		}
 	}
@@ -50,11 +46,6 @@ func GetConsolidateAuthenticationPolicy(mesh *meshconfig.MeshConfig, store Istio
 	log.Debugf("No authentication policy found for  %s:%d. Fallback to legacy authentication mode %v\n",
 		hostname, port.Port, legacyPolicy)
 	return legacyAuthenticationPolicyToPolicy(legacyPolicy)
-}
-
-// ResolveJwtPubKey returns JWT public key for issuer.
-func ResolveJwtPubKey(issuer string) (string, error) {
-	return Jwtkeyresolver.ResolveJwtPubKey(issuer)
 }
 
 // consolidateAuthPolicy returns service auth policy, if it's not INHERIT. Else,
