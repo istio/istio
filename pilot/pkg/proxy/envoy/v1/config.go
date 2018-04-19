@@ -395,7 +395,7 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *Listener {
 	if opts.mesh.MixerCheckServer != "" || opts.mesh.MixerReportServer != "" {
 		mixerConfig := BuildHTTPMixerFilterConfig(opts.mesh, opts.proxy, opts.proxyInstances, opts.outboundListener, opts.store)
 		filter := HTTPFilter{
-			Type:   both,
+			Type:   decoder,
 			Name:   MixerFilter,
 			Config: mixerConfig,
 		}
