@@ -36,25 +36,25 @@ bool PeerAuthenticator::run(Payload* payload) {
   if (policy_.peers_size() == 0) {
     ENVOY_LOG(debug, "No method defined. Skip source authentication.");
     success = true;
-  } else {
-    for (const auto& method : policy_.peers()) {
-      switch (method.params_case()) {
-        case iaapi::PeerAuthenticationMethod::ParamsCase::kMtls:
-          success = validateX509(method.mtls(), payload);
-          break;
-        case iaapi::PeerAuthenticationMethod::ParamsCase::kJwt:
-          success = validateJwt(method.jwt(), payload);
-          break;
-        default:
-          ENVOY_LOG(error, "Unknown peer authentication param {}",
-                    method.DebugString());
-          success = false;
-          break;
-      }
-
-      if (success) {
+    return success;
+  }
+  for (const auto& method : policy_.peers()) {
+    switch (method.params_case()) {
+      case iaapi::PeerAuthenticationMethod::ParamsCase::kMtls:
+        success = validateX509(method.mtls(), payload);
         break;
-      }
+      case iaapi::PeerAuthenticationMethod::ParamsCase::kJwt:
+        success = validateJwt(method.jwt(), payload);
+        break;
+      default:
+        ENVOY_LOG(error, "Unknown peer authentication param {}",
+                  method.DebugString());
+        success = false;
+        break;
+    }
+
+    if (success) {
+      break;
     }
   }
 
