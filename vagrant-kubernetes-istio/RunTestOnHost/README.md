@@ -19,10 +19,10 @@ You can run the following OS specific scripts to install all pre-requisites, or 
 
 ```bash
 // assumes api-get and dpkkg exist
-sh setup_linux_prereqs.sh
+sh linux_prereqs.sh
 
 // assumes [homebrew](https://brew.sh) exists
-sh setup_macos_prerequs.sh
+sh macos_prereqs.sh
 
 ```
 
