@@ -1,3 +1,4 @@
+{{ if ! .Values.jaeger }}
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -41,3 +42,4 @@ spec:
 {{ toYaml .Values.resources | indent 12 }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
+{{ endif }}

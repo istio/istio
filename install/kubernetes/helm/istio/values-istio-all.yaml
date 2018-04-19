@@ -16,6 +16,7 @@ grafana:
 
 zipkin:
   enabled: true
+  jaeger: true
 
 servicegraph:
   enabled: true
