@@ -15,52 +15,93 @@
 package clusterregistry
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
-	kubeinformers "k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
-	// "k8s.io/client-go/tools/clientcmd"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/runtime"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/util/workqueue"
 
 	"istio.io/istio/pkg/log"
 )
 
 const (
-	mcLabel = "istio/multiCluster"
+	mcLabel    = "istio/multiCluster"
+	maxRetries = 5
+)
+
+var (
+	serverStartTime time.Time
 )
 
 // Controller is the controller implementation for Secret resources
 type Controller struct {
 	kubeclientset kubernetes.Interface
 	namespace     string
-	secretsSynced cache.InformerSynced
 	cs            *ClusterStore
+	queue         workqueue.RateLimitingInterface
+	informer      cache.SharedIndexInformer
 }
 
 // NewController returns a new secret controller
 func NewController(
 	kubeclientset kubernetes.Interface,
-	kubeInformerFactory kubeinformers.SharedInformerFactory,
+	// kubeInformerFactory kubeinformers.SharedInformerFactory,
 	namespace string,
 	cs *ClusterStore) *Controller {
 
-	secretsInformer := kubeInformerFactory.Core().V1().Secrets()
+	secretsInformer := cache.NewSharedIndexInformer(&cache.ListWatch{
+		ListFunc: func(opts meta_v1.ListOptions) (runtime.Object, error) {
+			return kubeclientset.CoreV1().Secrets(namespace).List(opts)
+		},
+		WatchFunc: func(opts meta_v1.ListOptions) (watch.Interface, error) {
+			return kubeclientset.CoreV1().Secrets(namespace).Watch(opts)
+		}},
+		&corev1.Secret{},
+		0,
+		cache.Indexers{})
+	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
 	controller := &Controller{
 		kubeclientset: kubeclientset,
 		namespace:     namespace,
-		secretsSynced: secretsInformer.Informer().HasSynced,
 		cs:            cs,
+		informer:      secretsInformer,
+		queue:         queue,
 	}
 
 	log.Info("Setting up event handlers")
-	secretsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    controller.secretAdd,
-		DeleteFunc: controller.secretDelete,
+	secretsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			key, err := cache.MetaNamespaceKeyFunc(obj)
+			log.Infof("Processing add: %s", key)
+			if err == nil {
+				queue.Add(key)
+			}
+		},
+		// TODO Add Secret Update handler, it will allow detect Secret key rotation
+		UpdateFunc: func(old, new interface{}) {
+			key, _ := cache.MetaNamespaceKeyFunc(new)
+			log.Infof("Processing update: %s", key)
+			//			if err == nil {
+			//				queue.Add(key)
+			//			}
+		},
+		DeleteFunc: func(obj interface{}) {
+			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+			log.Infof("Processing delete: %s", key)
+			if err == nil {
+				queue.Add(key)
+			}
+		},
 	})
 
 	return controller
@@ -68,19 +109,81 @@ func NewController(
 
 // Run starts the controller until it receves a message over stopCh
 func (c *Controller) Run(stopCh <-chan struct{}) {
-	defer runtime.HandleCrash()
+	defer utilruntime.HandleCrash()
+	defer c.queue.ShutDown()
 
-	// Start the informer factories to begin populating the informer caches
 	log.Info("Starting Secrets controller")
+	serverStartTime = time.Now().Local()
+	go c.informer.Run(stopCh)
 
 	// Wait for the caches to be synced before starting workers
 	log.Info("Waiting for informer caches to sync")
-	if ok := cache.WaitForCacheSync(stopCh, c.secretsSynced); !ok {
-		log.Errorf("failed to wait for caches to sync")
-	} else {
-		<-stopCh
+	if !cache.WaitForCacheSync(stopCh, c.informer.HasSynced) {
+		utilruntime.HandleError(fmt.Errorf("timed out waiting for caches to sync"))
+		return
 	}
-	log.Info("Shutting down workers")
+
+	wait.Until(c.runWorker, 5*time.Second, stopCh)
+}
+
+// StartSecretController start k8s controller which will be watching Secret object
+// in a specified namesapce
+func StartSecretController(k8s kubernetes.Interface, cs *ClusterStore, namespace string) error {
+	stopCh := make(chan struct{})
+	controller := NewController(k8s, namespace, cs)
+
+	go controller.Run(stopCh)
+
+	return nil
+}
+
+func (c *Controller) runWorker() {
+	for c.processNextItem() {
+		// continue looping
+	}
+}
+
+func (c *Controller) processNextItem() bool {
+	key, quit := c.queue.Get()
+
+	if quit {
+		return false
+	}
+	defer c.queue.Done(key)
+
+	err := c.processItem(key.(string))
+	if err == nil {
+		// No error, reset the ratelimit counters
+		c.queue.Forget(key)
+	} else if c.queue.NumRequeues(key) < maxRetries {
+		log.Errorf("Error processing %s (will retry): %v", key, err)
+		c.queue.AddRateLimited(key)
+	} else {
+		log.Errorf("Error processing %s (giving up): %v", key, err)
+		c.queue.Forget(key)
+		utilruntime.HandleError(err)
+	}
+
+	return true
+}
+
+func (c *Controller) processItem(key string) error {
+	obj, exists, err := c.informer.GetIndexer().GetByKey(key)
+	if err != nil {
+		return fmt.Errorf("error fetching object with key %s from store: %v", key, err)
+	}
+
+	if !exists {
+		c.secretDelete(key)
+		return nil
+	}
+	secret := obj.(*corev1.Secret)
+	if secret.ObjectMeta.CreationTimestamp.Sub(serverStartTime).Seconds() > 0 {
+		c.secretAdd(obj)
+		return nil
+	}
+
+	return nil
 }
 
 func checkSecret(s *corev1.Secret) bool {
@@ -113,46 +216,28 @@ func addMemberCluster(s *corev1.Secret, cs *ClusterStore) {
 	log.Infof("Number of clusters in the cluster store: %d", len(cs.clientConfigs))
 }
 
-func deleteMemberCluster(s *corev1.Secret, cs *ClusterStore) {
+func deleteMemberCluster(s string, cs *ClusterStore) {
 	cs.storeLock.Lock()
 	defer cs.storeLock.Unlock()
 	// Check if there is a cluster member with the specified name
-	if _, ok := cs.clientConfigs[s.ObjectMeta.Name]; ok {
-		log.Infof("Deleting cluster member: %s", s.ObjectMeta.Name)
-		delete(cs.clientConfigs, s.ObjectMeta.Name)
+	if _, ok := cs.clientConfigs[s]; ok {
+		log.Infof("Deleting cluster member: %s", s)
+		delete(cs.clientConfigs, s)
 	}
 	log.Infof("Number of clusters in the cluster store: %d", len(cs.clientConfigs))
 }
 
 func (c *Controller) secretAdd(obj interface{}) {
 	s := obj.(*corev1.Secret)
-	if s.ObjectMeta.Namespace == c.namespace {
-		if checkSecret(s) {
-			addMemberCluster(s, c.cs)
-		}
+	if checkSecret(s) {
+		addMemberCluster(s, c.cs)
 	}
 }
 
-func (c *Controller) secretDelete(obj interface{}) {
-	s := obj.(*corev1.Secret)
-	if s.ObjectMeta.Namespace == c.namespace {
-		if checkSecret(s) {
-			deleteMemberCluster(s, c.cs)
-		}
+func (c *Controller) secretDelete(key string) {
+	s := key
+	if strings.Contains(key, "/") {
+		s = strings.Split(key, "/")[1]
 	}
-}
-
-// TODO Add Secret Update handler, it will allow detect Secret key rotation
-
-// StartSecretController start k8s controller which will be watching Secret object
-// in a specified namesapce
-func StartSecretController(k8s kubernetes.Interface, cs *ClusterStore, namespace string) error {
-	stopCh := make(chan struct{})
-	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(k8s, time.Second*30)
-	controller := NewController(k8s, kubeInformerFactory, namespace, cs)
-
-	go kubeInformerFactory.Start(stopCh)
-	go controller.Run(stopCh)
-
-	return nil
+	deleteMemberCluster(s, c.cs)
 }

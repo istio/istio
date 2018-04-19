@@ -88,14 +88,19 @@ func (cs *ClusterStore) GetPilotClusters() []*k8s_cr.Cluster {
 func ReadClusters(k8s kubernetes.Interface, configMapName string,
 	configMapNamespace string, cs *ClusterStore) error {
 
-	// getClustersConfigs
-	if err := getClustersConfigs(k8s, configMapName, configMapNamespace, cs); err != nil {
-		return err
-	}
-	if len(cs.clusters) == 0 {
-		return fmt.Errorf("no kubeconf found in provided ConfigMap: %s/%s", configMapNamespace, configMapName)
+	// getClustersConfigs populates Cluster Store with valid entries found in
+	// the configmap. Partial success is possible when some entries in the configmap
+	// are valid and some not.
+	err := getClustersConfigs(k8s, configMapName, configMapNamespace, cs)
+	if err != nil {
+		// Errors were encountered, but cluster store was populated
+		log.Errorf("The following errors were encountered during processing of the configmap %s/%s, [ %v ]",
+			configMapNamespace, configMapName, err)
+
 	}
 
+	// ALways return nil because Cluster Store has been already initialized and populating it
+	// at start up is NOT required, it can be populated at runtime
 	return nil
 }
 

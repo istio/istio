@@ -181,23 +181,6 @@ func TestGetClusterConfig(t *testing.T) {
 			},
 			expectError: false,
 		},
-		{
-			testName:      "Invalid kind",
-			configMapName: "clusterregistry" + "-" + uuid.New(),
-			ci: []clusterInfo{
-				{
-					Kind:                  "Invalid",
-					Name:                  "clusA",
-					PilotIP:               "2.2.2.2",
-					AccessConfigSecret:    "clusA",
-					AccessConfigNamespace: "istio-system",
-					ServerEndpointIP:      "192.168.4.10",
-					ClientCidr:            "0.0.0.1/0",
-				},
-			},
-			cc:          []clusterConfig{},
-			expectError: true,
-		},
 	}
 	e := env{}
 	err := e.setup()
