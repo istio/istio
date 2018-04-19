@@ -6,7 +6,7 @@ The following instruction details the steps required to run E2E tests with a Vag
 1. TODO: Debug tests right from your development environment.
 
 # Prereqs:
-1. Set up Isto Dev envrionment using https://github.com/istio/istio/wiki/Dev-Guide.
+1. Set up Istio Dev envrionment using https://github.com/istio/istio/wiki/Dev-Guide.
 
 1. Install
   * [virtual box](https://www.virtualbox.org/wiki/Downloads) - Verify `virtualbox` command opens up a virtual box window
@@ -39,10 +39,7 @@ Add `10.10.0.2:5000` to Insecure registries.
 Finally click the `Apply and Start` button in the bottom to restart Docker with new setting.
 
 ### Linux
-Run the following script the complete the settings:
-```bash
-sh linux_docker_setup.sh
-```
+No, need to do anything, startup script above takes care of it.
 
 ## 3. Build istio images
 Push images from your local dev environment to local registry on vagrant vm:
