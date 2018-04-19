@@ -25,19 +25,19 @@ sh prereqs.sh
 # Steps
 ## 1. Set up Vagrant Environment
 ```bash
-sh startup.sh
+sh vm_setup.sh
 ```
 
-## 2. Set up Docker daemon on Host
-### macOS
+## 2. Set up Docker daemon and kubectl on Host
+```bash
+sh host_setup.sh
+```
+If you are on macOS, you need to setup docker daemon using UI additionally.
 Click on the docker icon and go into Preferences..., click into the Daemon tag.
 Add `10.10.0.2:5000` to Insecure registries.
 Finally click the `Apply and Start` button in the bottom to restart Docker with new setting.
 The final setup should be like this:
 ![Docker Daemon on macOS](macos_docker_daemon.png)
-
-### Linux
-No, need to do anything, startup script above takes care of it.
 
 ## 3. Build istio images
 Push images from your local dev environment to local registry on vagrant vm:
