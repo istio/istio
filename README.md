@@ -6,6 +6,7 @@
 [![codecov.io](https://codecov.io/github/istio/istio/coverage.svg?branch=master)](https://codecov.io/github/istio/istio?branch=master)
 
 TESTING A PR - a DUMMY CHANGE IN README.
+ADDITIONAL DUMMY CHANGE.
 
 An open platform to connect, manage, and secure microservices.
 
