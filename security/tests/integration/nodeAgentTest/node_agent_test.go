@@ -20,18 +20,17 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/security/tests/integration"
+	"istio.io/istio/tests/integration/framework"
 	"net/http"
 	"os"
 	"testing"
 	"time"
-
-	"istio.io/istio/pkg/log"
-	"istio.io/istio/security/tests/integration"
-	"istio.io/istio/tests/integration/framework"
 )
 
 const (
-	testID = "istio_ca_secret_test"
+	testID = "nodeagent_vm_mode"
 	// Certificates validation retry
 	certValidateRetry = 10
 	// Initially wait for 1 second. This value will be increased exponentially on retry
@@ -52,14 +51,6 @@ var (
 	config  *Config
 )
 
-func readFile(path string) (string, error) {
-	data, err := ioutil.ReadFile(path)
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
-}
-
 func readURI(uri string) (string, error) {
 	resp, err := http.Get(uri)
 	if err != nil {
@@ -75,80 +66,74 @@ func readURI(uri string) (string, error) {
 	return string(bodyBytes), nil
 }
 
+func initialRead(addr string) (root string, certChain string, err error) {
+	retry := 10
+	for i := 0; i < retry; i++ {
+		root, err = readURI(fmt.Sprintf("http://%v:8080/root", addr))
+		certChain, err = readURI(fmt.Sprintf("http://%v:8080/cert", addr))
+		if root != "" && certChain != "" {
+			return root, certChain, nil
+		}
+		log.Infof("Attempt (%v) empty key or cert, retry in 3 seconds, error %v\root:%v\ncert:\n%v\n",
+			i+1, err, root, certChain)
+		time.Sleep(time.Second * 3)
+	}
+	return "", "", fmt.Errorf("failed to load key certs after %v retries %v", retry, err)
+}
+
 // Test that the node agent's root cert is equal to the initial root cert, and the node agent's
 // cert chain is updated to be different from the initial cert chain.
 func TestNodeAgent(t *testing.T) {
-	initialRootCert, err := readFile(config.rootCert)
-	if err != nil {
-		t.Errorf("unable to read original root certificate: %v", config.rootCert)
-	}
-
-	initialCertChain, err := readFile(config.certChain)
-	if err != nil {
-		t.Errorf("unable to read original certificate chain: %v", config.certChain)
-	}
-
 	nodeAgentIPAddress, err := testEnv.GetNodeAgentIPAddress()
 	if err != nil {
 		t.Errorf("external IP address of NodeAgent is not ready")
 	}
-
+	initialRootCert, initialCertChain, err := initialRead(nodeAgentIPAddress)
+	if err != nil {
+		t.Errorf("failed to read initial key certs %v", err)
+	}
+	log.Infof("finish loading initial key certs.")
 	term := certValidationInterval
+	roots := x509.NewCertPool()
+	ok := roots.AppendCertsFromPEM([]byte(initialRootCert))
+	if !ok {
+		t.Errorf("failed to append initial root certificate from PEM: %s", initialRootCert)
+	}
 	for i := 0; i < certValidateRetry; i++ {
-		if i > 0 {
-			t.Logf("retry checking certificate update and validation in %v seconds", term)
-			time.Sleep(time.Duration(term) * time.Second)
-			term = term * 2
-		}
 
 		retrievedCertChain, err := readURI(fmt.Sprintf("http://%v:8080/cert", nodeAgentIPAddress))
 		if err != nil {
 			t.Errorf("failed to read the certificate of NodeAgent: %v", err)
-			continue
 		}
 
 		retrievedRootCert, err := readURI(fmt.Sprintf("http://%v:8080/root", nodeAgentIPAddress))
 		if err != nil {
 			t.Errorf("failed to read the root certificate of NodeAgent: %v", err)
-			continue
 		}
 
 		if initialRootCert != retrievedRootCert {
 			t.Errorf("invalid root certificate was downloaded:\n%s\nExpected:\n%s", retrievedRootCert, initialRootCert)
 		}
 
-		if initialCertChain == retrievedCertChain {
-			t.Log("certificate chain is not updated yet")
-			continue
+		if initialCertChain != retrievedCertChain {
+			block, _ := pem.Decode([]byte(retrievedCertChain))
+			if block == nil {
+				t.Errorf("failed to parse retrieved certificate chain PEM: %s", retrievedCertChain)
+			}
+			cert, err := x509.ParseCertificate(block.Bytes)
+			if err != nil {
+				t.Errorf("failed to parse retrieved x509 certificate: %v", err)
+			}
+			if _, err := cert.Verify(x509.VerifyOptions{Roots: roots}); err != nil {
+				t.Errorf("failed to verify certificate. Error: %v\nCertificate:\n%s", err, retrievedCertChain)
+			}
+			log.Infof("certificate updated, succeed\n")
+			return
 		}
-
-		roots := x509.NewCertPool()
-		ok := roots.AppendCertsFromPEM([]byte(initialRootCert))
-		if !ok {
-			t.Errorf("failed to append initial root certificate from PEM: %s", initialRootCert)
-		}
-
-		block, _ := pem.Decode([]byte(retrievedCertChain))
-		if block == nil {
-			t.Errorf("failed to parse retrieved certificate chain PEM: %s", retrievedCertChain)
-		}
-
-		cert, err := x509.ParseCertificate(block.Bytes)
-		if err != nil {
-			t.Errorf("failed to parse retrieved x509 certificate: %v", err)
-		}
-
-		opts := x509.VerifyOptions{
-			Roots: roots,
-		}
-
-		if _, err := cert.Verify(opts); err != nil {
-			t.Errorf("failed to verify certificate. Error: %v\nCertificate:\n%s", err, retrievedCertChain)
-		}
-
-		return
+		log.Infof("retry checking certificate update and validation in %v seconds", term)
+		time.Sleep(time.Duration(term) * time.Second)
+		term = term * 2
 	}
-
 	t.Errorf("failed to check certificate update and validate after %v retries", certValidateRetry)
 }
 
