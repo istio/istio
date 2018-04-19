@@ -64,13 +64,11 @@ Add E2E_ARGS="--use_local_cluster" to all your e2e tests as tests are we are run
 # Cleanup
 1. Cleanup test environment
 ```bash
-cd $ISTIO/istio/vagrant/vagrant-kubernetes-istio/RunTestOnHost
 vagrant halt
 ```
 
-1. Cleanup vagrant environment
+2. Cleanup vagrant environment
 This is necessary if you want to remove vagrant VM setup from your host and want to bring it back to original state
 ```bash
-cd $ISTIO/istio/vagrant/vagrant-kubernetes-istio/RunTestOnHost
 sh cleanup_linux_host.sh
 ```
