@@ -65,7 +65,6 @@ type clusterInfo struct {
 	Platform              string
 	AccessConfigSecret    string
 	AccessConfigNamespace string
-	PilotCfgStore         bool
 	ServerEndpointIP      string
 	ClientCidr            string
 }
@@ -166,7 +165,6 @@ func TestGetClusterConfig(t *testing.T) {
 					PilotIP:               "2.2.2.2",
 					AccessConfigSecret:    "clusA",
 					AccessConfigNamespace: "istio-system",
-					PilotCfgStore:         true,
 					ServerEndpointIP:      "192.168.4.10",
 					ClientCidr:            "0.0.0.1/0",
 				},
@@ -193,7 +191,6 @@ func TestGetClusterConfig(t *testing.T) {
 					PilotIP:               "2.2.2.2",
 					AccessConfigSecret:    "clusA",
 					AccessConfigNamespace: "istio-system",
-					PilotCfgStore:         true,
 					ServerEndpointIP:      "192.168.4.10",
 					ClientCidr:            "0.0.0.1/0",
 				},

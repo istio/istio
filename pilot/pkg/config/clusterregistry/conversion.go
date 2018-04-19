@@ -123,6 +123,7 @@ func getClustersConfigs(k8s kubernetes.Interface, configMapName, configMapNamesp
 		if len(secretName) == 0 {
 			log.Errorf("cluster %s does not have annotation for Secret", key)
 			continue
+
 		}
 		if len(secretNamespace) == 0 {
 			secretNamespace = "istio-system"

@@ -108,6 +108,8 @@ func addMemberCluster(s *corev1.Secret, cs *ClusterStore) {
 		}
 		cs.clientConfigs[s.ObjectMeta.Name] = *clientConfig
 	}
+	// TODO Add exporting a number of cluster to Prometheus
+	// for now for debbuging purposes, print it to the log.
 	log.Infof("Number of clusters in the cluster store: %d", len(cs.clientConfigs))
 }
 
@@ -145,9 +147,7 @@ func (c *Controller) secretDelete(obj interface{}) {
 // StartSecretController start k8s controller which will be watching Secret object
 // in a specified namesapce
 func StartSecretController(k8s kubernetes.Interface, cs *ClusterStore, namespace string) error {
-
 	stopCh := make(chan struct{})
-
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(k8s, time.Second*30)
 	controller := NewController(k8s, kubeInformerFactory, namespace, cs)
 
