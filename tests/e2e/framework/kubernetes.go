@@ -46,6 +46,7 @@ const (
 	authInstallFileNamespace       = "istio-one-namespace-auth.yaml"
 	mcNonAuthInstallFileNamespace  = "istio-multicluster.yaml"
 	mcAuthInstallFileNamespace     = "istio-auth-multicluster.yaml"
+	mcRemoteInstallFile            = "istio-remote.yaml"
 	istioSystem                    = "istio-system"
 	istioIngressServiceName        = "istio-ingress"
 	istioIngressGatewayServiceName = "istio-ingressgateway"
@@ -541,16 +542,39 @@ func (k *KubeInfo) deployIstio() error {
 		return err
 	}
 
+	if err := util.KubeApply(k.Namespace, testIstioYaml, k.KubeConfig); err != nil {
+		log.Errorf("Istio core %s deployment failed", testIstioYaml)
+		return err
+	}
+
 	if *multiClusterDir != "" {
+		// Create namespace on any remote clusters
 		if err := util.CreateNamespace(k.Namespace, k.RemoteKubeConfig); err != nil {
 			log.Errorf("Unable to create namespace %s on remote cluster: %s", k.Namespace, err.Error())
 			return err
 		}
-	}
+		// Create the local secrets and configmap to start pilot
+		if err := util.CreateMultiClusterSecrets(k.Namespace, k.KubeClient, k.RemoteKubeConfig); err != nil {
+			log.Errorf("Unable to create secrets on local cluster %s", err.Error())
+			return err
+		}
+		// Create the remote secrets. This is temporary until a better CA strategy is used
+		if err := k.createRemoteSecrets(); err != nil {
+			log.Errorf("Unable to create secrets on Remote cluster %s", err.Error())
+			return err
+		}
 
-	if err := util.KubeApply(k.Namespace, testIstioYaml, k.KubeConfig); err != nil {
-		log.Errorf("Istio core %s deployment failed", testIstioYaml)
-		return err
+		yamlDir := filepath.Join(istioInstallDir, mcRemoteInstallFile)
+		baseIstioYaml := filepath.Join(k.ReleaseDir, yamlDir)
+		testIstioYaml := filepath.Join(k.TmpDir, "yaml", mcRemoteInstallFile)
+		if err := k.generateRemoteIstio(baseIstioYaml, testIstioYaml); err != nil {
+			log.Errorf("Generating Remote yaml %s failed", testIstioYaml)
+			return err
+		}
+		if err := util.KubeApply(k.Namespace, testIstioYaml, k.RemoteKubeConfig); err != nil {
+			log.Errorf("Remote Istio %s deployment failed", testIstioYaml)
+			return err
+		}
 	}
 
 	if *useAutomaticInjection {

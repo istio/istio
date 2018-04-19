@@ -496,6 +496,10 @@ func (m *HttpConnectionManager_SetCurrentClientCertDetails) Validate() error {
 
 	// no validation rules for Cert
 
+	// no validation rules for Dns
+
+	// no validation rules for Uri
+
 	return nil
 }
 
