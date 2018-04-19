@@ -32,7 +32,6 @@ import (
 type Monitor struct {
 	monitoringServer *http.Server
 	closed           chan bool
-	stoppedMutex     sync.Mutex
 }
 
 const (
