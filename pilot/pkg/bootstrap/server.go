@@ -149,14 +149,14 @@ type PilotArgs struct {
 
 // Server contains the runtime configuration for the Pilot discovery service.
 type Server struct {
-	mesh              *meshconfig.MeshConfig
-	ServiceController *aggregate.Controller
-	configController  model.ConfigStoreCache
-	mixerSAN          []string
-	kubeClient        kubernetes.Interface
-	startFuncs        []startFunc
-	HTTPListeningAddr net.Addr
-	GRPCListeningAddr net.Addr
+	mesh                    *meshconfig.MeshConfig
+	ServiceController       *aggregate.Controller
+	configController        model.ConfigStoreCache
+	mixerSAN                []string
+	kubeClient              kubernetes.Interface
+	startFuncs              []startFunc
+	HTTPListeningAddr       net.Addr
+	GRPCListeningAddr       net.Addr
 	SecureGRPCListeningAddr net.Addr
 	clusterStore            *clusterregistry.ClusterStore
 
