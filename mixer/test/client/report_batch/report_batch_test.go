@@ -66,7 +66,7 @@ const reportAttributesOkGet = `
      ":status": "200",
      "server": "envoy"
   },
-  "response.total_size": 99,
+  "response.total_size": "*",
   "request.total_size": 306
 }
 `
@@ -117,7 +117,7 @@ const reportAttributesOkPost1 = `
      ":status": "200",
      "server": "envoy"
   },
-  "response.total_size": 134,
+  "response.total_size": "*",
   "request.total_size": 342
 }
 `
@@ -168,7 +168,7 @@ const reportAttributesOkPost2 = `
      ":status": "200",
      "server": "envoy"
   },
-  "response.total_size": 140,
+  "response.total_size": "*",
   "request.total_size": 348
 }
 `
