@@ -606,6 +606,9 @@ func (k *KubeInfo) deployTiller(yamlFileName string) error {
 		return err
 	}
 	// wait till tiller reaches running
+	if err := util.GetPodStatus("kube-system", "name=tiller", k.KubeConfig); err != nil {
+		return err
+	}
 
 	return nil
 }

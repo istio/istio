@@ -131,6 +131,31 @@ func KubeApply(namespace, yamlFileName string, kubeconfig string) error {
 	return err
 }
 
+// HelmInit init helm with a service account
+func HelmInit(serviceAccount string) error {
+	_, err := Shell("helm init --upgrade --service-account %s", serviceAccount)
+	return err
+}
+
+// HelmInstallDryRun helm install dry run from a chart for a given namespace
+func HelmInstallDryRun(chartDir, chartName, namespace, setValue string) error {
+	_, err := Shell("helm install --dry-run --debug %s --name %s --namespace %s --set %s", chartDir, chartName, namespace, setValue)
+	return err
+}
+
+// HelmInstall helm install from a chart for a given namespace
+//       --set stringArray        set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
+func HelmInstall(chartDir, chartName, namespace, setValue string) error {
+	_, err := Shell("helm install %s --name %s --namespace %s --set %s", chartDir, chartName, namespace, setValue)
+	return err
+}
+
+// HelmDelete helm del --purge a chart
+func HelmDelete(chartName string) error {
+	_, err := Shell("helm del --purge %s", chartName)
+	return err
+}
+
 // KubeDeleteContents kubectl apply from contents
 func KubeDeleteContents(namespace, yamlContents string, kubeconfig string) error {
 	tmpfile, err := WriteTempfile(os.TempDir(), "kubedelete", ".yaml", yamlContents)
@@ -609,5 +634,34 @@ func GetKubeConfig(filename string) error {
 		return err
 	}
 	log.Infof("kubeconfig file %s created\n", filename)
+	return nil
+}
+
+// CheckPodRunning return if a given pod with labeled name in a namespace are in "Running" status
+func CheckPodRunning(n, name string, kubeconfig string) error {
+	retry := Retrier{
+		BaseDelay: 30 * time.Second,
+		MaxDelay:  30 * time.Second,
+		Retries:   6,
+	}
+
+	retryFn := func(i int) error {
+		pod := GetPodName(n, name, kubeconfig)
+		ready = true
+		if status := GetPodStatus(n, pod, kubeconfig); status != podRunning {
+			log.Infof("%s in namespace %s is not running: %s", pod, n, status)
+			ready = false
+		}
+
+		if !ready {
+			return fmt.Errorf("pod %s is not ready", pod)
+		}
+		return nil
+	}
+	_, err := retry.Retry(retryFn)
+	if err != nil {
+		return err
+	}
+	log.Info("Get the pod running!")
 	return nil
 }
