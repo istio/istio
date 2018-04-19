@@ -67,7 +67,8 @@ $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key: ${GEN_CERT} $(IST
 # tell make which files are copied form go/out
 DOCKER_FILES_FROM_ISTIO_OUT:=pilot-test-client pilot-test-server pilot-test-eurekamirror \
                              pilot-discovery pilot-agent sidecar-injector servicegraph mixs \
-                             istio_ca flexvolume node_agent multicluster_ca
+                             istio_ca flexvolume node_agent multicluster_ca \
+			     proxy-ready
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT)/$(FILE) | $(ISTIO_DOCKER); cp $$< $$(@D)))
 
@@ -95,6 +96,7 @@ docker.sidecar_injector: $(ISTIO_DOCKER)/sidecar-injector
 docker.proxy: tools/deb/envoy_bootstrap_tmpl.json
 docker.proxy: ${ISTIO_ENVOY_RELEASE_PATH}
 docker.proxy: $(ISTIO_OUT)/pilot-agent ${PROXY_JSON_FILES}
+docker.proxy: $(ISTIO_OUT)/proxy-ready
 docker.proxy: pilot/docker/Dockerfile.proxy pilot/docker/Dockerfile.proxy_debug
 	mkdir -p $(ISTIO_DOCKER)/proxy
 	cp $^ $(ISTIO_DOCKER)/proxy/
@@ -111,6 +113,7 @@ endif
 docker.proxy_debug: tools/deb/envoy_bootstrap_tmpl.json
 docker.proxy_debug: ${ISTIO_ENVOY_DEBUG_PATH}
 docker.proxy_debug: $(ISTIO_OUT)/pilot-agent ${PROXY_JSON_FILES}
+docker.proxy_debug: $(ISTIO_OUT)/proxy-ready
 docker.proxy_debug: pilot/docker/Dockerfile.proxy_debug
 	mkdir -p $(ISTIO_DOCKER)/proxyd
 	cp ${ISTIO_ENVOY_DEBUG_PATH} $(ISTIO_DOCKER)/proxyd/envoy
