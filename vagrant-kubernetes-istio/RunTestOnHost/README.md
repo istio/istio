@@ -30,6 +30,7 @@ sh setup_macos_prerequs.sh
 docker version
 ``` 
 should show you the version information of docker(>= 18.03.0-ce).
+
 ### macOS
 After this, double-click Docker.app in the Applications folder to start Docker.
 The whale in the top status bar indicates that Docker is running, and accessible from a terminal.
