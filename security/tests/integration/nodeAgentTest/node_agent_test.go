@@ -20,13 +20,14 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"istio.io/istio/pkg/log"
-	"istio.io/istio/security/tests/integration"
-	"istio.io/istio/tests/integration/framework"
 	"net/http"
 	"os"
 	"testing"
 	"time"
+
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/security/tests/integration"
+	"istio.io/istio/tests/integration/framework"
 )
 
 const (
