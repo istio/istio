@@ -140,26 +140,19 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConfigura
 	}
 }
 
-func buildMixerOpaqueConfig(check, forward bool, destinationService string) *mccpb.ServiceConfig {
-	keys := map[bool]string{true: "on", false: "off"}
-
+func buildMixerOpaqueConfig(check , _ /*forward*/ bool, destinationService string) *mccpb.ServiceConfig {
 	out := &mccpb.ServiceConfig{
-		MixerAttributes: &mpb.Attributes{
-			Attributes: map[string]*mpb.Attributes_AttributeValue{
-				v1.MixerReport:  {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: "on"}},
-				v1.MixerCheck:   {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: keys[check]}},
-				v1.MixerForward: {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: keys[forward]}},
-			},
-		},
+		// Report calls are never disabled. Forward is currently removed.
+		DisableCheckCalls: check,
 	}
 	if destinationService != "" {
-		out.MixerAttributes.Attributes[v1.AttrDestinationService] = &mpb.Attributes_AttributeValue{
-			Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: destinationService},
+		out.MixerAttributes = &mpb.Attributes{}
+		out.MixerAttributes.Attributes = map[string]*mpb.Attributes_AttributeValue{
+			v1.AttrDestinationService: {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: destinationService}},
 		}
 	}
 
 	return out
-
 }
 
 // buildMixerHTTPFilter builds a filter with a v1 mixer config encapsulated as JSON in a proto.Struct for v2 consumption.
