@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package management
+package registry
 
 import (
 	"encoding/pem"
@@ -31,8 +31,8 @@ import (
 	"istio.io/istio/security/cmd/node_agent_k8s/workload/handler"
 	wapi "istio.io/istio/security/cmd/node_agent_k8s/workloadapi"
 	"istio.io/istio/security/pkg/caclient"
+	"istio.io/istio/security/pkg/nodeagent/secrets"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
-	"istio.io/istio/security/pkg/workload"
 	pb "istio.io/istio/security/proto"
 )
 
@@ -72,13 +72,13 @@ func setupCertFiles(t *testing.T) (*certFiles, func()) {
 		certChainFile: filepath.Join(dir, "cert-chain.pem"),
 		bundle:        kb,
 	}
-	if err := ioutil.WriteFile(cf.rootFile, rootCertBytes, workload.CertFilePermission); err != nil {
+	if err := ioutil.WriteFile(cf.rootFile, rootCertBytes, secrets.CertFilePermission); err != nil {
 		t.Errorf("failed to write testing root-cert into file %v err %v", cf.rootFile, err)
 	}
-	if err := ioutil.WriteFile(cf.keyFile, rootKeyBytes, workload.KeyFilePermission); err != nil {
+	if err := ioutil.WriteFile(cf.keyFile, rootKeyBytes, secrets.KeyFilePermission); err != nil {
 		t.Errorf("failed to write private key file %v error %v", cf.keyFile, err)
 	}
-	if err := ioutil.WriteFile(cf.certChainFile, rootCertBytes, workload.CertFilePermission); err != nil {
+	if err := ioutil.WriteFile(cf.certChainFile, rootCertBytes, secrets.CertFilePermission); err != nil {
 		t.Errorf("failed to write cert chain file %v error %v", cf.certChainFile, err)
 	}
 	return cf, func() {

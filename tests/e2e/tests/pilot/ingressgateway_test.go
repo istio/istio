@@ -156,7 +156,7 @@ func TestIngressGateway503DuringRuleChange(t *testing.T) {
 	}
 
 cleanup:
-	_ = <-waitChan
+	<-waitChan
 	if fatalError {
 		t.Fatal(err)
 	} else {

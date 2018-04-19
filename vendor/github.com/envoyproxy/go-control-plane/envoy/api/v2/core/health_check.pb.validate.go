@@ -116,6 +116,36 @@ func (m *HealthCheck) Validate() error {
 		}
 	}
 
+	if v, ok := interface{}(m.GetUnhealthyInterval()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HealthCheckValidationError{
+				Field:  "UnhealthyInterval",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	if v, ok := interface{}(m.GetUnhealthyEdgeInterval()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HealthCheckValidationError{
+				Field:  "UnhealthyEdgeInterval",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	if v, ok := interface{}(m.GetHealthyEdgeInterval()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HealthCheckValidationError{
+				Field:  "HealthyEdgeInterval",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
 	switch m.HealthChecker.(type) {
 
 	case *HealthCheck_HttpHealthCheck_:
@@ -160,6 +190,18 @@ func (m *HealthCheck) Validate() error {
 			if err := v.Validate(); err != nil {
 				return HealthCheckValidationError{
 					Field:  "GrpcHealthCheck",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	case *HealthCheck_CustomHealthCheck_:
+
+		if v, ok := interface{}(m.GetCustomHealthCheck()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return HealthCheckValidationError{
+					Field:  "CustomHealthCheck",
 					Reason: "embedded message failed validation",
 					Cause:  err,
 				}
@@ -310,6 +352,21 @@ func (m *HealthCheck_HttpHealthCheck) Validate() error {
 	}
 
 	// no validation rules for ServiceName
+
+	for idx, item := range m.GetRequestHeadersToAdd() {
+		_, _ = idx, item
+
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return HealthCheck_HttpHealthCheckValidationError{
+					Field:  fmt.Sprintf("RequestHeadersToAdd[%v]", idx),
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	}
 
 	return nil
 }
@@ -502,3 +559,63 @@ func (e HealthCheck_GrpcHealthCheckValidationError) Error() string {
 }
 
 var _ error = HealthCheck_GrpcHealthCheckValidationError{}
+
+// Validate checks the field values on HealthCheck_CustomHealthCheck with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, an error is returned.
+func (m *HealthCheck_CustomHealthCheck) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	if len(m.GetName()) < 1 {
+		return HealthCheck_CustomHealthCheckValidationError{
+			Field:  "Name",
+			Reason: "value length must be at least 1 bytes",
+		}
+	}
+
+	if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HealthCheck_CustomHealthCheckValidationError{
+				Field:  "Config",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	return nil
+}
+
+// HealthCheck_CustomHealthCheckValidationError is the validation error
+// returned by HealthCheck_CustomHealthCheck.Validate if the designated
+// constraints aren't met.
+type HealthCheck_CustomHealthCheckValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e HealthCheck_CustomHealthCheckValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sHealthCheck_CustomHealthCheck.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = HealthCheck_CustomHealthCheckValidationError{}
