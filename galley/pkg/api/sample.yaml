@@ -1,0 +1,26 @@
+apiVersion: config.istio.io/v1alpha2
+kind: ServiceConfig
+metadata:
+  name: foo
+spec:
+  name: foo # TODO: having name both in spec & metadata is redundant
+  rules:
+    - match: foo == bar
+      actions:
+        - handler: stackdriver
+          instances:
+            - template: quota
+              params:
+                foo: bar
+            - ref: logstuff
+
+  handlers:
+    - name: stackdriver
+
+  instances:
+    - name: logstuff
+      template: report
+      params:
+        bar: baz
+
+  

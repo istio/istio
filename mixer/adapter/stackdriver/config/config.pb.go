@@ -1473,7 +1473,7 @@ func (this *Params_LogInfo_SinkInfo) String() string {
 		return "nil"
 	}
 	s := strings.Join([]string{`&Params_LogInfo_SinkInfo{`,
-		`Id:` + fmt.Sprintf("%v", this.Id) + `,`,
+		`Key:` + fmt.Sprintf("%v", this.Id) + `,`,
 		`Destination:` + fmt.Sprintf("%v", this.Destination) + `,`,
 		`Filter:` + fmt.Sprintf("%v", this.Filter) + `,`,
 		`}`,
@@ -2954,7 +2954,7 @@ func (m *Params_LogInfo_SinkInfo) Unmarshal(dAtA []byte) error {
 		switch fieldNum {
 		case 1:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Id", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Key", wireType)
 			}
 			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {

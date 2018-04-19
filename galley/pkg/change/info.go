@@ -25,6 +25,7 @@ import (
 type Info struct {
 	Type         Type
 	Name         string
+	Version      string
 	GroupVersion schema.GroupVersion
 }
 
@@ -37,6 +38,8 @@ func (i Info) String() string {
 		t = "Update"
 	case Delete:
 		t = "Delete"
+	case FullSync:
+		t = "FullSync"
 	default:
 		t = "Unknown"
 	}

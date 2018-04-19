@@ -115,7 +115,7 @@ func TestExternalService(t *testing.T) {
 			for _, src := range []string{"a", "b"} {
 				runRetriableTest(t, "from_"+src, 3, func() error {
 					trace := fmt.Sprint(time.Now().UnixNano())
-					resp := ClientRequest(src, cs.url, 1, fmt.Sprintf("-key Trace-Id -val %q", trace))
+					resp := ClientRequest(src, cs.url, 1, fmt.Sprintf("-key Trace-Key -val %q", trace))
 					reachable := resp.IsHTTPOk() && strings.Contains(resp.Body, trace)
 					if reachable && !cs.shouldBeReachable {
 						return fmt.Errorf("%s is reachable from %s (should be unreachable)", cs.url, src)

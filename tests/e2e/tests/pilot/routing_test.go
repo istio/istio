@@ -356,7 +356,7 @@ func TestRouteMirroring(t *testing.T) {
 
 			reqURL := "http://c/a"
 			for i := 1; i <= 100; i++ {
-				resp := ClientRequest("a", reqURL, 1, fmt.Sprintf("-key X-Request-Id -val %d", i))
+				resp := ClientRequest("a", reqURL, 1, fmt.Sprintf("-key X-Request-Key -val %d", i))
 				logEntry := fmt.Sprintf("HTTP request from a to c.istio-system.svc.cluster.local:80")
 				if len(resp.ID) > 0 {
 					id := resp.ID[0]

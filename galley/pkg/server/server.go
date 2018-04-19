@@ -12,40 +12,42 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package analyzer
+package server
 
-import "fmt"
+import (
+	"time"
 
-type Level int
-
-const (
-	Info Level = iota
-	Warning
-	Error
+	"istio.io/istio/galley/pkg/kube"
+	"istio.io/istio/galley/pkg/kube/client"
+	"istio.io/istio/galley/pkg/runtime"
+	"istio.io/istio/pkg/log"
 )
 
-type Message struct {
-	Level   Level
-	Content string
-	Source  string
-	Code    int
+type Server struct {
+	rt *runtime.Processor
 }
 
-func (m *Message) String() string {
-	src := ""
-	if m.Source != "" {
-		src = "  " + m.Source
+func New(k kube.Kube, resyncPeriod time.Duration) (*Server, error) {
+	src, err := client.NewSource(k, resyncPeriod)
+	if err != nil {
+		return nil, nil
 	}
 
-	lvl := "?"
-	switch m.Level {
-	case Info:
-		lvl = "I"
-	case Warning:
-		lvl = "W"
-	case Error:
-		lvl = "E"
+	dist := client.NewDistributor(k)
+	rt := runtime.New(src, dist)
+
+	s := &Server{
+		rt: rt,
 	}
 
-	return fmt.Sprintf("[%s%#04d] %s%s", lvl, m.Code, m.Content, src)
+	return s, nil
+}
+
+func (s *Server) Start() error {
+	log.Info("Starting server...")
+	return s.rt.Start()
+}
+
+func (s *Server) Stop() {
+	s.rt.Stop()
 }

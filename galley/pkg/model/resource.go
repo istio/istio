@@ -12,10 +12,28 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package analyzer
+package model
 
-func checkEmpty(m *Messages, name string, txt string) {
-	if txt == "" {
-		m.emptyField(name)
-	}
+import "github.com/gogo/protobuf/proto"
+
+type ResourceKind string
+type ResourceVersion string
+
+type ResourceKey struct {
+	Kind ResourceKind
+	Name string // TODO: Should this be namespace + Name?
+}
+
+func (r ResourceVersion) Equals(other ResourceVersion) bool {
+	return string(r) == string(other)
+}
+
+type Resource struct {
+	Key     ResourceKey
+	Version ResourceVersion
+	Item    proto.Message
+}
+
+type ResourceInfo struct {
+	Kind ResourceKind
 }

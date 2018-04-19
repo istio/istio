@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	traceHeader = "X-Client-Trace-Id"
+	traceHeader = "X-Client-Trace-Key"
 	numTraces   = 5
 )
 

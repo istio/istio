@@ -44,4 +44,3 @@ func (u *Uniquifier) Generate(prefix string) string {
 		}
 	}
 }
-

@@ -86,7 +86,7 @@ func (m *WorkloadInfo) GetWorkloadpath() string {
 }
 
 type WorkloadInfo_WorkloadAttributes struct {
-	// uid: Unique Id of the Workload.
+	// uid: Unique Key of the Workload.
 	// During delete the uid is mandatory.
 	Uid string `protobuf:"bytes,1,opt,name=uid,proto3" json:"uid,omitempty"`
 	// workload identifier aka name.

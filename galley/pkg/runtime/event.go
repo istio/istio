@@ -12,10 +12,22 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package analyzer
+package runtime
 
-func checkEmpty(m *Messages, name string, txt string) {
-	if txt == "" {
-		m.emptyField(name)
-	}
+import "istio.io/istio/galley/pkg/model"
+
+type EventKind int
+
+const (
+	None EventKind = iota
+	Added
+	Updated
+	Deleted
+	FullSync
+)
+
+type Event struct {
+	Kind    EventKind
+	Id      model.ResourceKey
+	Version model.ResourceVersion
 }

@@ -80,7 +80,7 @@ message Handle{{.InterfaceName}}Request {
     // value of session_id (returned from InfrastructureBackend.CreateSession).
     google.protobuf.Any adapter_config = 2;
 
-    // Id to dedupe identical requests from Mixer.
+    // Key to dedupe identical requests from Mixer.
     string dedup_id = 3;
     {{- if eq .VarietyName "TEMPLATE_VARIETY_QUOTA"}}
 

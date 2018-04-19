@@ -42,7 +42,7 @@ const (
 )
 
 var (
-	idRegex      = regexp.MustCompile("(?i)X-Request-Id=(.*)")
+	idRegex      = regexp.MustCompile("(?i)X-Request-Key=(.*)")
 	versionRegex = regexp.MustCompile("ServiceVersion=(.*)")
 	portRegex    = regexp.MustCompile("ServicePort=(.*)")
 	codeRegex    = regexp.MustCompile("StatusCode=(.*)")

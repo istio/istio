@@ -30,7 +30,7 @@ func NewWatch() *Watch {
 	}
 }
 
-// Stop is an implementation of watch.Interface.Watch.
+// stop is an implementation of watch.Interface.Watch.
 func (w *Watch) Stop() {
 	close(w.ch)
 }

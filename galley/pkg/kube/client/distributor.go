@@ -12,36 +12,43 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package analyzer
+package client
 
 import (
-	"fmt"
+	"gopkg.in/yaml.v2"
+	"istio.io/istio/galley/pkg/api/distrib"
+	"istio.io/istio/galley/pkg/kube"
+	"istio.io/istio/galley/pkg/runtime"
+	"istio.io/istio/pkg/log"
 )
 
-type Messages struct {
-	messages []Message
+type Distributor struct {
+	k kube.Kube
 }
 
-func (m *Messages) String() string {
-	result := ""
-	for _, msg := range m.messages {
-		result += msg.String()
-		result += "\n"
+var _ runtime.Distributor = &Distributor{}
+
+func NewDistributor(k kube.Kube) *Distributor {
+	return &Distributor{
+		k: k,
 	}
-
-	return result
 }
 
-func (m *Messages) append(level Level, code int, format string, params ...interface{}) {
-	msg := Message{
-		Level:   level,
-		Code:    code,
-		Content: fmt.Sprintf(format, params...),
-	}
-
-	m.messages = append(m.messages, msg)
+func (d *Distributor) Initialize() error {
+	return nil
 }
 
-func (m *Messages) emptyField(name string) {
-	m.append(Error, 1, "Field cannot be empty: %s", name)
+func (d *Distributor) Start() {
+	log.Info("Start")
+
+}
+
+func (d *Distributor) Shutdown() {
+
+}
+
+func (d *Distributor) Dispatch(config *distrib.MixerConfig) error {
+	b, _ := yaml.Marshal(config)
+	log.Infof("Dispatch: %v", string(b))
+	return nil
 }
