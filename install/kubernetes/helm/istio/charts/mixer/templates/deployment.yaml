@@ -1,45 +1,3 @@
-{{- define "liveness_probe_args" }}
-          {{- if $.Values.livenessProbeEnabled }}
-          - --livenessProbePath=/live
-          - --livenessProbeInterval=5s
-          {{- end }}
-{{- end }}
-
-{{- define "readiness_probe_args" }}
-          {{- if $.Values.readinessProbeEnabled }}
-          - --readinessProbePath=/ready
-          - --readinessProbeInterval=5s
-          {{- end }}
-{{- end }}
-
-{{- define "liveness_probe_config" }}
-        {{- if $.Values.livenessProbeEnabled }}
-        livenessProbe:
-          exec:
-            command:
-            - /usr/local/bin/mixs
-            - probe
-            - --probe-path=/live
-            - --interval=5s
-          initialDelaySeconds: 60
-          periodSeconds: 5
-        {{- end }}
-{{- end }}
-
-{{- define "readiness_probe_config" }}
-        {{- if $.Values.readinessProbeEnabled }}
-        readinessProbe:
-          exec:
-            command:
-            - /usr/local/bin/mixs
-            - probe
-            - --probe-path=/ready
-            - --interval=5s
-          initialDelaySeconds: 5
-          periodSeconds: 5
-        {{- end }}
-{{- end }}
-
 {{- define "policy_container" }}
     spec:
       serviceAccountName: istio-mixer-service-account
@@ -62,10 +20,36 @@
           - --configStoreURL=k8s://
           - --configDefaultNamespace={{ $.Release.Namespace }}
           - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
-          {{- template "liveness_probe_args" $ }}
-          {{- template "readiness_probe_args" $ }}
-        {{- template "liveness_probe_config" $ }}
-        {{- template "readiness_probe_config" $ }}
+          {{- if $.Values.livenessProbeEnabled }}
+          - --livenessProbePath=/live
+          - --livenessProbeInterval=5s
+          {{- end }}
+          {{- if $.Values.readinessProbeEnabled }}
+          - --readinessProbePath=/ready
+          - --readinessProbeInterval=5s
+          {{- end }}
+        {{- if $.Values.livenessProbeEnabled }}
+        livenessProbe:
+          exec:
+            command:
+            - /usr/local/bin/mixs
+            - probe
+            - --probe-path=/live
+            - --interval=5s
+          initialDelaySeconds: 60
+          periodSeconds: 5
+        {{- end }}
+        {{- if $.Values.readinessProbeEnabled }}
+        readinessProbe:
+          exec:
+            command:
+            - /usr/local/bin/mixs
+            - probe
+            - --probe-path=/ready
+            - --interval=5s
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        {{- end }}
         resources:
 {{ toYaml $.Values.resources | indent 12 }}
       - name: istio-proxy
@@ -134,10 +118,36 @@
           - --configStoreURL=k8s://
           - --configDefaultNamespace={{ $.Release.Namespace }}
           - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
-          {{- template "liveness_probe_args" $ }}
-          {{- template "readiness_probe_args" $ }}
-        {{- template "liveness_probe_config" $ }}
-        {{- template "readiness_probe_config" $ }}
+          {{- if $.Values.livenessProbeEnabled }}
+          - --livenessProbePath=/live
+          - --livenessProbeInterval=5s
+          {{- end }}
+          {{- if $.Values.readinessProbeEnabled }}
+          - --readinessProbePath=/ready
+          - --readinessProbeInterval=5s
+          {{- end }}
+        {{- if $.Values.livenessProbeEnabled }}
+        livenessProbe:
+          exec:
+            command:
+            - /usr/local/bin/mixs
+            - probe
+            - --probe-path=/live
+            - --interval=5s
+          initialDelaySeconds: 60
+          periodSeconds: 5
+        {{- end }}
+        {{- if $.Values.readinessProbeEnabled }}
+        readinessProbe:
+          exec:
+            command:
+            - /usr/local/bin/mixs
+            - probe
+            - --probe-path=/ready
+            - --interval=5s
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        {{- end }}
         resources:
 {{ toYaml $.Values.resources | indent 12 }}
       - name: istio-proxy
