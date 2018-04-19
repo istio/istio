@@ -100,7 +100,7 @@ func ReadClusters(k8s kubernetes.Interface, configMapName string,
 }
 
 // getClustersConfigs(configMapName,configMapNamespace)
-func getClustersConfigs(k8s kubernetes.Interface, configMapName, configMapNamespace string, cs *ClusterStore) error {
+func getClustersConfigs(k8s kubernetes.Interface, configMapName, configMapNamespace string, cs *ClusterStore) (errList error) {
 
 	clusterRegistry, err := k8s.CoreV1().ConfigMaps(configMapNamespace).Get(configMapName, metav1.GetOptions{})
 	if err != nil {
@@ -111,17 +111,17 @@ func getClustersConfigs(k8s kubernetes.Interface, configMapName, configMapNamesp
 		cluster := k8s_cr.Cluster{}
 		decoder := yaml.NewYAMLOrJSONDecoder(strings.NewReader(data), 4096)
 		if err = decoder.Decode(&cluster); err != nil {
-			log.Errorf("failed to decode cluster definition for: %s error: %v", key, err)
+			errList = multierror.Append(errList, fmt.Errorf("failed to decode cluster definition for: %s error: %v", key, err))
 			continue
 		}
 		if err := validateCluster(&cluster); err != nil {
-			log.Errorf("failed to validate cluster: %s error: %v", key, err)
+			errList = multierror.Append(errList, fmt.Errorf("failed to validate cluster: %s error: %v", key, err))
 			continue
 		}
 		secretName := cluster.ObjectMeta.Annotations[ClusterAccessConfigSecret]
 		secretNamespace := cluster.ObjectMeta.Annotations[ClusterAccessConfigSecretNamespace]
 		if len(secretName) == 0 {
-			log.Errorf("cluster %s does not have annotation for Secret", key)
+			errList = multierror.Append(errList, fmt.Errorf("cluster %s does not have annotation for Secret", key))
 			continue
 
 		}
@@ -130,21 +130,21 @@ func getClustersConfigs(k8s kubernetes.Interface, configMapName, configMapNamesp
 		}
 		kubeconfig, err := getClusterConfigFromSecret(k8s, secretName, secretNamespace, key)
 		if err != nil {
-			log.Errorf("failed to get Secret %s in namespace %s for cluster %s with error: %v",
-				secretName, secretNamespace, key, err)
+			errList = multierror.Append(errList, fmt.Errorf("failed to get Secret %s in namespace %s for cluster %s with error: %v",
+				secretName, secretNamespace, key, err))
 			continue
 		}
 		clientConfig, err := clientcmd.Load(kubeconfig)
 		if err != nil {
-			log.Errorf("failed to load client config from secret %s in namespace %s for cluster %s with error: %v",
-				secretName, secretNamespace, key, err)
+			errList = multierror.Append(errList, fmt.Errorf("failed to load client config from secret %s in namespace %s for cluster %s with error: %v",
+				secretName, secretNamespace, key, err))
 			continue
 		}
 		cs.clientConfigs[cluster.ObjectMeta.Name] = *clientConfig
 		cs.clusters = append(cs.clusters, &cluster)
 	}
 
-	return nil
+	return
 }
 
 // Read a kubeconfig fragment from the secret.
