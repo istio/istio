@@ -30,6 +30,7 @@ import (
 // Monitor is the server that exposes Prometheus metrics about Citadel.
 type Monitor struct {
 	monitoringServer *http.Server
+	port             int
 	closed           chan bool
 }
 
@@ -38,16 +39,11 @@ const (
 	versionPath = "/version"
 )
 
-// StartMonitor starts the Citadel monitor.
-func StartMonitor(port int, enableProfiling bool, errCh chan<- error) (*Monitor, error) {
+// NewMonitor creates a monitor.
+func NewMonitor(port int, enableProfiling bool) (*Monitor, error) {
 	m := &Monitor{
+		port:   port,
 		closed: make(chan bool),
-	}
-
-	// get the network stuff setup
-	listener, lErr := net.Listen("tcp", fmt.Sprintf(":%d", port))
-	if lErr != nil {
-		return nil, fmt.Errorf("unable to listen on socket: %v", lErr)
 	}
 
 	mux := http.NewServeMux()
@@ -70,14 +66,22 @@ func StartMonitor(port int, enableProfiling bool, errCh chan<- error) (*Monitor,
 		Handler: mux,
 	}
 
-	go func() {
-		log.Info("Monitor server started.")
-		err := m.monitoringServer.Serve(listener)
-		errCh <- fmt.Errorf("monitor server error: %v", err)
-		close(m.closed)
-	}()
-
 	return m, nil
+}
+
+// Start starts the monitor server.
+func (m *Monitor) Start(errCh chan<- error) {
+	// get the network stuff setup
+	listener, lErr := net.Listen("tcp", fmt.Sprintf(":%d", m.port))
+	if lErr != nil {
+		errCh <- fmt.Errorf("unable to listen on socket: %v", lErr)
+		return
+	}
+
+	log.Info("Monitor server started.")
+	err := m.monitoringServer.Serve(listener)
+	errCh <- fmt.Errorf("monitor server error: %v", err)
+	close(m.closed)
 }
 
 // Close stops the Monitoring server for Citadel.

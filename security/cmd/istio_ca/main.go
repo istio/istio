@@ -342,10 +342,11 @@ func runCA() {
 	monitorErrCh := make(chan error)
 	// Start the monitoring server.
 	if opts.monitoringPort > 0 {
-		monitor, mErr := monitoring.StartMonitor(opts.monitoringPort, opts.enableProfiling, monitorErrCh)
+		monitor, mErr := monitoring.NewMonitor(opts.monitoringPort, opts.enableProfiling)
 		if mErr != nil {
 			fatalf("Unable to setup monitoring: %v", mErr)
 		}
+		go monitor.Start(monitorErrCh)
 		log.Info("Citadel monitor has started.")
 		defer monitor.Close()
 	}
