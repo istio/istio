@@ -19,7 +19,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/pprof"
-	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
