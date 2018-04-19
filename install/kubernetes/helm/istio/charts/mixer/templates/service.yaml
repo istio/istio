@@ -11,7 +11,7 @@ metadata:
     istio: mixer
 spec:
   ports:
-  - name: tcp-plain
+  - name: http2-mixer
     port: 9091
   - name: tcp-mtls
     port: 15004

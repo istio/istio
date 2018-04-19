@@ -214,10 +214,9 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	// TODO: take over the DiscoveryAddress or add a separate mesh config option
 	// Default value
 	grpcPort := "15010"
-	// TODO: enable mtls for grpc
-	//if config.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
-	//	grpcPort = "15011"
-	//}
+	if config.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
+		grpcPort = "15011"
+	}
 	grpcHost := h // Use pilot host
 
 	grpcAddress := opts["pilot_grpc"]
