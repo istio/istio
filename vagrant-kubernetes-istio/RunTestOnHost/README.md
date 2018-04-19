@@ -26,7 +26,7 @@ sh setup_macos_prerequs.sh
 
 ```
 
-# Setup
+# Steps
 ## 1. Set up Vagrant Environment
 ```bash
 sh startup.sh
