@@ -6,48 +6,31 @@ This sets up your local linux box to run tests on a kubernetes cluster on vagran
 3) TODO: Debug tests right from your development environment.
 
 # Prereqs:
-## Linux
-1) apt-get (should be available on linux, but make sure it's there on your mac box)
-2) dpkg (should be available on linux, but make sure it's there on your mac box)
-3) curl
-4) [virtual box](https://www.virtualbox.org/wiki/Downloads)
-
-   Verify `virtualbox` command opens up console for virtual box showing your vm's if any.
-5) [docker-ce](https://docs.docker.com/install/linux/docker-ce/debian/#install-docker-ce-1)
-
-   Verify `docker version` returns version >= 18.03.0-ce
-6) [vagrant](https://www.vagrantup.com/downloads.html)
-
-   Verify `vagrant -v` returns version >= Vagrant 2.0.3
-7) [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl)
-
-   Verify `kubectl version` returns versions for both server and client
-
-For installation of curl, virtualbox, docker, vagrant and kubectl on linux, you can try following script:
-```bash
-sh setup_linux_prereqs.sh
-```
-
-Verify they are installed by running verification commands listed above for each of the components.
-
-## macOS
-### Installation
-You can follow instructions in the official website to complete the installation process.
+Following are the basic components required for local e2e testing:
 1) [Docker](https://docs.docker.com/docker-for-mac/install/)
 2) [VirtualBox](https://www.virtualbox.org/wiki/Downloads)
 3) [Vagrant](https://www.vagrantup.com/downloads.html)
+4) [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl)
 
+## Prereqs Installation
+### Linux
+Please run following script, to check and install all the prereqs:
+```bash
+sh linux_prereqs.sh
+```
+### macOS
 With [Homebrew](https://brew.sh) installed, you can install all the prerequisites in one step:
 ```bash
 sh setup_macos_prerequs.sh
 ```
 
-### Verification
+## Prereqs Verification
 1) Docker
 ```bash
 docker version
 ``` 
 should show you the version information of docker(>= 18.03.0-ce).
+### macOS
 After this, double-click Docker.app in the Applications folder to start Docker.
 The whale in the top status bar indicates that Docker is running, and accessible from a terminal.
 
@@ -63,7 +46,7 @@ virtualbox
 ``` 
 should pop up the VirtualBox UI.
 
-## Istio
+# Istio
 Also you need to have Istio Dev Environment setup on your box!
 Refer: https://github.com/istio/istio/wiki/Dev-Guide for that.
 
