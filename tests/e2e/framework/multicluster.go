@@ -84,30 +84,36 @@ func (k *KubeInfo) generateRemoteIstio(src, dst string) error {
 		return err
 	}
 	getOpt := meta_v1.GetOptions{IncludeUninitialized: true}
-	var pilotEPS, mixerEPS *v1.Endpoints
+	var pilotEPS, policyEPS, statsdEPS *v1.Endpoints
 
 	for i := 0; i <= 200; i++ {
 		pilotEPS, err = k.KubeClient.CoreV1().Endpoints(k.Namespace).Get("istio-pilot", getOpt)
 		log.Infof("PilotEPS = %s ", pilotEPS)
 		if (len(pilotEPS.Subsets) != 0) && (err == nil) {
 
-			mixerEPS, err = k.KubeClient.CoreV1().Endpoints(k.Namespace).Get("istio-policy", getOpt)
-			log.Infof("mixerEPS = %s ", mixerEPS)
-			if (len(mixerEPS.Subsets) != 0) && (err == nil) {
+			policyEPS, err = k.KubeClient.CoreV1().Endpoints(k.Namespace).Get("istio-policy", getOpt)
+			log.Infof("policyEPS = %s ", policyEPS)
+			if (len(policyEPS.Subsets) != 0) && (err == nil) {
+				break
+			}
+			statsdEPS, err = k.KubeClient.CoreV1().Endpoints(k.Namespace).Get("istio-statsd-prom-bridge", getOpt)
+			log.Infof("statsdEPS = %s ", policyEPS)
+			if (len(statsdEPS.Subsets) != 0) && (err == nil) {
 				break
 			}
 		}
 		time.Sleep(time.Second * 1)
 	}
-	log.Infof("len pilot %i len mixerEPS = %i ", len(pilotEPS.Subsets), len(mixerEPS.Subsets))
+	log.Infof("len pilot %i len policyEPS = %i ", len(pilotEPS.Subsets), len(policyEPS.Subsets))
 	log.Infof("pilotEPS %s", spew.Sdump(pilotEPS))
-	log.Infof("mixerEPS %s", spew.Sdump(mixerEPS))
+	log.Infof("policyEPS %s", spew.Sdump(policyEPS))
+	log.Infof("statsdEPS %s", spew.Sdump(statsdEPS))
 	if err != nil {
 		err = fmt.Errorf("could not get endpoints from local cluster")
 		return err
 	}
 
-	var pilotIP, mixerIP string
+	var pilotIP, policyIP, statsdIP string
 	if len(pilotEPS.Subsets[0].Addresses) != 0 {
 		pilotIP = pilotEPS.Subsets[0].Addresses[0].IP
 	} else if len(pilotEPS.Subsets[0].NotReadyAddresses) != 0 {
@@ -116,18 +122,27 @@ func (k *KubeInfo) generateRemoteIstio(src, dst string) error {
 		err = fmt.Errorf("could not get endpoint addresses")
 		return err
 	}
-	if len(mixerEPS.Subsets[0].Addresses) != 0 {
-		mixerIP = mixerEPS.Subsets[0].Addresses[0].IP
+	if len(policyEPS.Subsets[0].Addresses) != 0 {
+		policyIP = policyEPS.Subsets[0].Addresses[0].IP
 	} else if len(pilotEPS.Subsets[0].NotReadyAddresses) != 0 {
-		mixerIP = mixerEPS.Subsets[0].NotReadyAddresses[0].IP
+		policyIP = policyEPS.Subsets[0].NotReadyAddresses[0].IP
 	} else {
 		err = fmt.Errorf("could not get endpoint addresses")
 		return err
 	}
-	log.Infof("istio-pilot endpoint IP = %s istio-policy endpoint IP = %s", pilotIP, mixerIP)
+	if len(statsdEPS.Subsets[0].Addresses) != 0 {
+		statsdIP = statsdEPS.Subsets[0].Addresses[0].IP
+	} else if len(statsdEPS.Subsets[0].NotReadyAddresses) != 0 {
+		statsdIP = statsdEPS.Subsets[0].NotReadyAddresses[0].IP
+	} else {
+		err = fmt.Errorf("could not get endpoint addresses")
+		return err
+	}
+	log.Infof("istio-pilot endpoint IP = %s istio-policy endpoint IP = %s statsd endpoint IP %s", pilotIP, policyIP, statsdIP)
 	content = replacePattern(content, istioSystem, k.Namespace)
-	content = replacePattern(content, "mixerIpReplace", mixerIP)
-	content = replacePattern(content, "pilotIpReplace", pilotIP)
+	content = replacePattern(content, "istio-policy.istio-system", policyIP)
+	content = replacePattern(content, "istio-pilot.istio-system", pilotIP)
+	content = replacePattern(content, "istio-statsd.istio-system", statsdIP)
 	err = ioutil.WriteFile(dst, content, 0600)
 	if err != nil {
 		log.Errorf("cannot write remote into generated yaml file %s", dst)
