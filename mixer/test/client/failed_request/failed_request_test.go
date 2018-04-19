@@ -105,7 +105,9 @@ const reportAttributesMixerFail = `
      "content-length": "41",
      ":status": "401",
      "server": "envoy"
-  }
+  },
+  "response.total_size": 133,
+  "request.total_size": 306
 }
 `
 
@@ -153,7 +155,9 @@ const reportAttributesBackendFail = `
      "content-length": "25",
      ":status": "400",
      "server": "envoy"
-  }
+  },
+  "response.total_size": 162,
+  "request.total_size": 329
 }
 `
 
