@@ -37,7 +37,8 @@ sh startup.sh
 Click on the docker icon and go into Preferences..., click into the Daemon tag.
 Add `10.10.0.2:5000` to Insecure registries.
 Finally click the `Apply and Start` button in the bottom to restart Docker with new setting.
-![Docker Daemon on macOS](docker_daemon_macos.png)
+The final setup should be like this:
+![Docker Daemon on macOS](macos_docker_daemon.png)
 
 ### Linux
 No, need to do anything, startup script above takes care of it.
