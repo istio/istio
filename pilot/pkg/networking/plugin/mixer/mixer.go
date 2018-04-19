@@ -140,7 +140,7 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConfigura
 	}
 }
 
-func buildMixerOpaqueConfig(check , _ /*forward*/ bool, destinationService string) *mccpb.ServiceConfig {
+func buildMixerOpaqueConfig(check, _ /*forward*/ bool, destinationService string) *mccpb.ServiceConfig {
 	out := &mccpb.ServiceConfig{
 		// Report calls are never disabled. Forward is currently removed.
 		DisableCheckCalls: check,
