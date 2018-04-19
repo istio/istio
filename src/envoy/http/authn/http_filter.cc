@@ -77,7 +77,7 @@ FilterHeadersStatus AuthenticationFilter::decodeHeaders(HeaderMap& headers,
     Utils::Authentication::SaveResultToHeader(
         filter_context_->authenticationResult(), filter_context_->headers());
   }
-
+  state_ = State::COMPLETE;
   return FilterHeadersStatus::Continue;
 }
 
