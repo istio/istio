@@ -277,12 +277,14 @@ func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 	return err
 }
 
+// Check if Mock's registry exists in PilotArgs's Registries
 func checkForMock(registries []string) bool {
 	for _, r := range registries {
 		if strings.ToLower(r) == "mock" {
 			return true
 		}
 	}
+
 	return false
 }
 

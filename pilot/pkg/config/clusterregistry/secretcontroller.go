@@ -55,7 +55,6 @@ type Controller struct {
 // NewController returns a new secret controller
 func NewController(
 	kubeclientset kubernetes.Interface,
-	// kubeInformerFactory kubeinformers.SharedInformerFactory,
 	namespace string,
 	cs *ClusterStore) *Controller {
 
@@ -88,10 +87,10 @@ func NewController(
 				queue.Add(key)
 			}
 		},
-		// TODO Add Secret Update handler, it will allow detect Secret key rotation
 		UpdateFunc: func(old, new interface{}) {
 			key, _ := cache.MetaNamespaceKeyFunc(new)
 			log.Infof("Processing update: %s", key)
+			// TODO Add Secret Update handler, it will allow detect Secret key rotation
 			//			if err == nil {
 			//				queue.Add(key)
 			//			}
