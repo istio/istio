@@ -115,8 +115,9 @@ func TestValidation(t *testing.T) {
 		{"config-v1alpha2-fluentd-invalid", false},
 		{"config-v1alpha2-fluentd-valid", true},
 
-		// TODO - APA adapter validation disabled because mixer
-		// template's attribute manifest is not plumbed through to mixer validation code yet.
+		// TODO - APA adapter validation disabled because mixer template's attribute
+		// manifest is not plumbed through to mixer validation code yet.
+		//
 		// {"config-v1alpha2-kubernetes-invalid", false},
 		// {"config-v1alpha2-kubernetes-valid", true},
 
