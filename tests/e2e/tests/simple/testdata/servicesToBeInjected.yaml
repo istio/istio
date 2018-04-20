@@ -58,6 +58,7 @@ spec:
         app: echosrv
         version: v1
         test: a
+        extrap: "no"
     spec:
       containers:
       - name: echosrv
@@ -85,7 +86,7 @@ spec:
         app: echosrv
         version: v2
         test: b
-        extrap: x
+        extrap: x # can't seem to be able to use "yes" here and in selector...
     spec:
       containers:
       - name: echosrv

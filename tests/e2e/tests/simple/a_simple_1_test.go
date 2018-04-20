@@ -192,17 +192,27 @@ func TestAuth(t *testing.T) {
 
 func TestAuthWithHeaders(t *testing.T) {
 	ns := tc.Kube.Namespace
-	// Get the 2 pods
+	// Get the non istio pod
 	podList, err := getPodList(ns, "app=fortio-noistio")
 	if err != nil {
-		t.Fatalf("kubectl failure to get pods %v", err)
+		t.Fatalf("kubectl failure to get non istio pod %v", err)
 	}
 	if len(podList) != 1 {
 		t.Fatalf("Unexpected to get %d pods when expecting 1. got %v", len(podList), podList)
 	}
-	pod := podList[0]
-	log.Infof("From client, non istio injected pod \"%s\"", pod)
-	res, err := util.Shell("kubectl exec -n %s %s -- /usr/local/bin/fortio curl http://echosrv2.%s:8088/debug", ns, pod, ns)
+	podNoIstio := podList[0]
+	// Get the istio pod without extra unique port
+	podList, err = getPodIpList(ns, "app=fortio-noistio,extrap=no")
+	if err != nil {
+		t.Fatalf("kubectl failure to get deployment1 pod %v", err)
+	}
+	if len(podList) != 1 {
+		t.Fatalf("Unexpected to get %d pod ips when expecting 1. got %v", len(podList), podList)
+	}
+	podIstio := podList[0]
+	log.Infof("From client, non istio injected pod \"%s\" to istio pod \"%s\"", podNoIstio, podIstio)
+	// TODO: ipv6 fix
+	res, err := util.Shell("kubectl exec -n %s %s -- /usr/local/bin/fortio curl -H Host:echosrv2.%s:8088 http://%s:8088/debug", ns, podNoIstio, podIstio)
 	if tc.Kube.AuthEnabled {
 		if err == nil {
 			t.Errorf("Running with auth on yet able to connect from non istio to istio (insecure): %v", res)
@@ -301,6 +311,14 @@ type fortioTemplate struct {
 
 func getPodList(namespace string, selector string) ([]string, error) {
 	pods, err := util.Shell("kubectl get pods -n %s -l %s -o jsonpath={.items[*].metadata.name}", namespace, selector)
+	if err != nil {
+		return nil, err
+	}
+	return strings.Split(pods, " "), nil
+}
+
+func getPodIpList(namespace string, selector string) ([]string, error) {
+	pods, err := util.Shell("kubectl get pods -n %s -l %s -o jsonpath={.items[*].status.podIP}", namespace, selector)
 	if err != nil {
 		return nil, err
 	}
