@@ -2,11 +2,16 @@
 
 # Setup vagrant.
 echo "Setup vagrant"
-vagrant destroy
 vagrant up --provider virtualbox
 vagrant ssh -c "echo export HUB=10.10.0.2:5000 >> ~/.bashrc"
 vagrant ssh -c "echo export TAG=latest >> ~/.bashrc"
 vagrant ssh -c "source ~/.bashrc"
+
+# Adding insecure registry on VM.
+echo "Adding insecure registry to docker daemon in vagrant vm..."
+vagrant ssh -c "sudo sed -i 's/ExecStart=\/usr\/bin\/dockerd -H fd:\/\//ExecStart=\/usr\/bin\/dockerd -H fd:\/\/ --insecure-registry 10.10.0.2:5000/' /lib/systemd/system/docker.service"
+vagrant ssh -c "sudo systemctl daemon-reload"
+vagrant ssh -c "sudo systemctl restart docker"
 
 # Setting up kubernetest Cluster on VM for Istio Tests.
 echo "Adding priviledges to kubernetes cluster..."
