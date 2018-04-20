@@ -780,8 +780,7 @@ TEST_F(JwtAuthenticatorTest, TestInlineJwks) {
   auto rule0 = config_.mutable_rules(0);
   rule0->clear_remote_jwks();
   auto local_jwks = rule0->mutable_local_jwks();
-  local_jwks->set_inline_string(
-      Base64::encode(kPublicKey.c_str(), kPublicKey.size()));
+  local_jwks->set_inline_string(kPublicKey);
 
   // recreate store and auth with modified config.
   store_.reset(new JwtAuthStore(config_));

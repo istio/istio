@@ -18,7 +18,6 @@
 #include <chrono>
 #include <unordered_map>
 
-#include "common/common/base64.h"
 #include "common/common/logger.h"
 #include "common/config/datasource.h"
 #include "envoy/config/filter/http/jwt_authn/v2alpha/config.pb.h"
@@ -52,7 +51,7 @@ class PubkeyCacheItem : public Logger::Loggable<Logger::Id::filter> {
 
     auto inline_jwks = Config::DataSource::read(jwt_config_.local_jwks(), true);
     if (!inline_jwks.empty()) {
-      Status status = SetKey(Base64::decode(inline_jwks),
+      Status status = SetKey(inline_jwks,
                              // inline jwks never expires.
                              std::chrono::steady_clock::time_point::max());
       if (status != Status::OK) {
