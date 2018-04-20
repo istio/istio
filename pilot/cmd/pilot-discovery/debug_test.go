@@ -29,16 +29,24 @@ type pilotStubHandler struct {
 }
 
 type pilotStubState struct {
-	StatusCode int
-	Response   string
+	wantProxyID string
+	StatusCode  int
+	Response    string
 }
 
 func (p *pilotStubHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	p.Lock()
+	proxyID := r.URL.Query().Get("proxyID")
 	switch r.URL.Path {
 	case "/debug/adsz", "/debug/edsz":
-		w.WriteHeader(p.States[0].StatusCode)
-		_, _ = w.Write([]byte(p.States[0].Response))
+		if proxyID == p.States[0].wantProxyID {
+			w.WriteHeader(p.States[0].StatusCode)
+			_, _ = w.Write([]byte(p.States[0].Response))
+		} else {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(fmt.Sprintf("wanted proxyID %q got %q", p.States[0].wantProxyID, proxyID)))
+		}
+
 		p.States = p.States[1:]
 	default:
 		w.WriteHeader(http.StatusBadRequest)
@@ -59,10 +67,16 @@ func Test_debug_run(t *testing.T) {
 			name: "all configType no error",
 			args: []string{"proxyID", "all"},
 			pilotStates: []pilotStubState{
-				{StatusCode: 200, Response: "fine"},
-				{StatusCode: 200, Response: "fine"},
-				{StatusCode: 200, Response: "fine"},
-				{StatusCode: 200, Response: "fine"},
+				{StatusCode: 200, Response: "fine", wantProxyID: "proxyID"},
+				{StatusCode: 200, Response: "fine", wantProxyID: "proxyID"},
+			},
+		},
+		{
+			name: "all configType with all proxyID passes no proxyID",
+			args: []string{"all", "all"},
+			pilotStates: []pilotStubState{
+				{StatusCode: 200, Response: "fine", wantProxyID: ""},
+				{StatusCode: 200, Response: "fine", wantProxyID: ""},
 			},
 		},
 		{
@@ -75,8 +89,8 @@ func Test_debug_run(t *testing.T) {
 			name: "all configType error when pilot returns !200",
 			args: []string{"proxyID", "all"},
 			pilotStates: []pilotStubState{
-				{StatusCode: 200, Response: "fine"},
-				{StatusCode: 404, Response: "not fine"},
+				{StatusCode: 200, Response: "fine", wantProxyID: "proxyID"},
+				{StatusCode: 404, Response: "not fine", wantProxyID: "proxyID"},
 			},
 			wantError: true,
 		},
@@ -84,7 +98,7 @@ func Test_debug_run(t *testing.T) {
 			name: "ads configType does not error",
 			args: []string{"proxyID", "ads"},
 			pilotStates: []pilotStubState{
-				{StatusCode: 200, Response: "fine"},
+				{StatusCode: 200, Response: "fine", wantProxyID: "proxyID"},
 			},
 		},
 		{
@@ -97,7 +111,7 @@ func Test_debug_run(t *testing.T) {
 			name: "eds configType does not error",
 			args: []string{"proxyID", "eds"},
 			pilotStates: []pilotStubState{
-				{StatusCode: 200, Response: "fine"},
+				{StatusCode: 200, Response: "fine", wantProxyID: "proxyID"},
 			},
 		},
 		{
@@ -123,6 +137,7 @@ func Test_debug_run(t *testing.T) {
 			}
 			d := &debug{
 				pilotAddress: stubURL.Host,
+				client:       &http.Client{},
 			}
 			err := d.run(tt.args)
 			if (err == nil) && tt.wantError {
