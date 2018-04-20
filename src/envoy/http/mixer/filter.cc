@@ -16,7 +16,6 @@
 #include "src/envoy/http/mixer/filter.h"
 
 #include "common/common/base64.h"
-#include "common/protobuf/utility.h"
 #include "include/istio/utils/status.h"
 #include "src/envoy/http/mixer/check_data.h"
 #include "src/envoy/http/mixer/header_update.h"
@@ -67,15 +66,13 @@ void Filter::ReadPerRouteConfig(
   }
 
   // Check v2 per-route config.
-  auto route_cfg = entry->perFilterConfig("mixer");
+  auto route_cfg = entry->perFilterConfigTyped<PerRouteServiceConfig>("mixer");
   if (route_cfg) {
-    // TODO: Not to calcualte hash for each request.
-    auto id = std::to_string(MessageUtil::hash(*route_cfg));
-    if (!control_.controller()->LookupServiceConfig(id)) {
-      control_.controller()->AddServiceConfig(
-          id, dynamic_cast<const ServiceConfig&>(*route_cfg));
+    if (!control_.controller()->LookupServiceConfig(route_cfg->hash)) {
+      control_.controller()->AddServiceConfig(route_cfg->hash,
+                                              route_cfg->config);
     }
-    config->service_config_id = id;
+    config->service_config_id = route_cfg->hash;
     return;
   }
 

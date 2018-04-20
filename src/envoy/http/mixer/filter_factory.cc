@@ -14,6 +14,7 @@
  */
 
 #include "common/config/utility.h"
+#include "common/protobuf/utility.h"
 #include "envoy/json/json_object.h"
 #include "envoy/registry/registry.h"
 #include "envoy/server/filter_config.h"
@@ -52,9 +53,15 @@ class MixerConfigFactory : public NamedHttpFilterConfigFactory {
   ProtobufTypes::MessagePtr createEmptyConfigProto() override {
     return ProtobufTypes::MessagePtr{new HttpClientConfig};
   }
-  ProtobufTypes::MessagePtr createEmptyRouteConfigProto() override {
-    return ProtobufTypes::MessagePtr{new ServiceConfig};
+
+  Router::RouteSpecificFilterConfigConstSharedPtr
+  createRouteSpecificFilterConfig(const ProtobufWkt::Struct& config) override {
+    auto obj = std::make_shared<Http::Mixer::PerRouteServiceConfig>();
+    MessageUtil::jsonConvert(config, obj->config);
+    obj->hash = std::to_string(MessageUtil::hash(obj->config));
+    return obj;
   }
+
   std::string name() override { return "mixer"; }
 
  private:

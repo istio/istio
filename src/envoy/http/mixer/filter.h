@@ -17,12 +17,22 @@
 
 #include "common/common/logger.h"
 #include "envoy/access_log/access_log.h"
+#include "envoy/config/filter/http/jwt_authn/v2alpha/config.pb.h"
 #include "envoy/http/filter.h"
 #include "src/envoy/http/mixer/control.h"
 
 namespace Envoy {
 namespace Http {
 namespace Mixer {
+
+// The struct to store per-route service config and its hash.
+struct PerRouteServiceConfig : public Router::RouteSpecificFilterConfig {
+  // The per_route service config.
+  ::istio::mixer::v1::config::client::ServiceConfig config;
+
+  // Its config hash
+  std::string hash;
+};
 
 class Filter : public Http::StreamDecoderFilter,
                public AccessLog::Instance,
