@@ -18,33 +18,27 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-const (
-	configID = "SecretController"
-)
-
 var (
-	controllerLabels = []string{configID}
-
 	serviceAccountCreationCount = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "citadel",
 		Subsystem: "secret_controller",
-		Name:      "certs_created_due_to_service_account_creation",
+		Name:      "svc_acc_created_cert_count",
 		Help:      "The number of certificates created due to service account creation.",
-	}, controllerLabels)
+	}, []string{})
 
 	serviceAccountDeletionCount = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "citadel",
 		Subsystem: "secret_controller",
-		Name:      "certs_deleted_due_to_service_account_deletion",
+		Name:      "svc_acc_deleted_cert_count",
 		Help:      "The number of certificates deleted due to service account deletion.",
-	}, controllerLabels)
+	}, []string{})
 
 	secretDeletionCount = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "citadel",
 		Subsystem: "secret_controller",
-		Name:      "certs_created_due_to_secret_deletion",
+		Name:      "secret_deleted_cert_count",
 		Help:      "The number of certificates recreated due to secret deletion (service account still exists).",
-	}, controllerLabels)
+	}, []string{})
 )
 
 func init() {
@@ -62,9 +56,7 @@ type monitoringMetrics struct {
 
 // newMonitoringMetrics creates a new monitoringMetrics.
 func newMonitoringMetrics() monitoringMetrics {
-	labels := prometheus.Labels{
-		configID: "1",
-	}
+	labels := prometheus.Labels{}
 	return monitoringMetrics{
 		ServiceAccountCreation: serviceAccountCreationCount.With(labels),
 		ServiceAccountDeletion: serviceAccountDeletionCount.With(labels),

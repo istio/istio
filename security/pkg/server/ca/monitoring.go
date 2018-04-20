@@ -18,54 +18,48 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-const (
-	configID = "CitadelServer"
-)
-
 var (
-	citadelLabels = []string{configID}
-
 	csrCount = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "citadel",
 		Subsystem: "server",
 		Name:      "csr_count",
 		Help:      "The number of CSRs recerived by Citadel server.",
-	}, citadelLabels)
+	}, []string{})
 
 	authenticationErrorCount = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "citadel",
 		Subsystem: "server",
 		Name:      "authentication_failure_count",
 		Help:      "The number of authentication failures.",
-	}, citadelLabels)
+	}, []string{})
 
 	csrParsingErrorCount = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "citadel",
 		Subsystem: "server",
 		Name:      "csr_parsing_err_count",
 		Help:      "The number of erorrs occurred when parsing the CSR.",
-	}, citadelLabels)
+	}, []string{})
 
 	idExtractionErrorCount = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "citadel",
 		Subsystem: "server",
 		Name:      "id_extraction_err_count",
 		Help:      "The number of erorrs occurred when extracting the ID from CSR.",
-	}, citadelLabels)
+	}, []string{})
 
 	csrSignErrorCount = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "citadel",
 		Subsystem: "server",
 		Name:      "csr_sign_err_count",
 		Help:      "The number of erorrs occurred when signing the CSR.",
-	}, citadelLabels)
+	}, []string{})
 
 	successCertIssuanceCount = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "citadel",
 		Subsystem: "server",
 		Name:      "success_cert_issuance_count",
 		Help:      "The number of certificates issuances that have succeeded.",
-	}, citadelLabels)
+	}, []string{})
 )
 
 func init() {
@@ -89,9 +83,7 @@ type monitoringMetrics struct {
 
 // newMonitoringMetrics creates a new monitoringMetrics.
 func newMonitoringMetrics() monitoringMetrics {
-	labels := prometheus.Labels{
-		configID: "1",
-	}
+	labels := prometheus.Labels{}
 	return monitoringMetrics{
 		SuccessCertIssuance: successCertIssuanceCount.With(labels),
 		CSR:                 csrCount.With(labels),
