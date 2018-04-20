@@ -47,7 +47,7 @@ type AppManager struct {
 	namespace  string
 	istioctl   *Istioctl
 	active     bool
-	kubeconfig string
+	Kubeconfig string
 }
 
 // NewAppManager create a new AppManager
@@ -56,7 +56,7 @@ func NewAppManager(tmpDir, namespace string, istioctl *Istioctl, kubeconfig stri
 		namespace:  namespace,
 		tmpDir:     tmpDir,
 		istioctl:   istioctl,
-		kubeconfig: kubeconfig,
+		Kubeconfig: kubeconfig,
 	}
 }
 
@@ -95,7 +95,7 @@ func (am *AppManager) deploy(a *App) error {
 			return err
 		}
 	}
-	if err := util.KubeApply(am.namespace, finalYaml, am.kubeconfig); err != nil {
+	if err := util.KubeApply(am.namespace, finalYaml, am.Kubeconfig); err != nil {
 		log.Errorf("Kubectl apply %s failed", finalYaml)
 		return err
 	}
@@ -148,7 +148,7 @@ func (am *AppManager) UndeployApp(a *App) error {
 		return nil
 	}
 
-	if err := util.KubeDelete(am.namespace, a.deployedYaml, am.kubeconfig); err != nil {
+	if err := util.KubeDelete(am.namespace, a.deployedYaml, am.Kubeconfig); err != nil {
 		log.Errorf("Kubectl delete %s failed", a.deployedYaml)
 		return err
 	}
@@ -157,5 +157,5 @@ func (am *AppManager) UndeployApp(a *App) error {
 
 // CheckDeployments waits for a period for the deployments to be started.
 func (am *AppManager) CheckDeployments() error {
-	return util.CheckDeployments(am.namespace, maxDeploymentRolloutTime, am.kubeconfig)
+	return util.CheckDeployments(am.namespace, maxDeploymentRolloutTime, am.Kubeconfig)
 }
