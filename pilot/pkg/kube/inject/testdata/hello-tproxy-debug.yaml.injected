@@ -1,45 +1,27 @@
-kind: Service
-apiVersion: v1
-metadata:
-  name: frontend
-spec:
-  selector:
-    app: hello
-    tier: frontend
-  ports:
-    - protocol: "TCP"
-      port: 80
-      targetPort: 80
-  type: LoadBalancer
----
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   creationTimestamp: null
-  name: frontend
+  name: hello
 spec:
-  replicas: 1
+  replicas: 7
   strategy: {}
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"c0aa4004dced33479c4e63a337aa661a447bc3d3c3e325e024208076d385ff2f","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"eb03b36543150e0ef0ff3ddd7d588a6246eaa73dbca4ab9a329c1d1d750e85b0","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: hello
-        tier: frontend
+        tier: backend
         track: stable
     spec:
       containers:
-      - image: fake.docker.io/google-samples/hello-frontend:1.0
-        lifecycle:
-          preStop:
-            exec:
-              command:
-              - /usr/sbin/nginx
-              - -s
-              - quit
-        name: nginx
+      - image: fake.docker.io/google-samples/hello-go-gke:1.0
+        name: hello
+        ports:
+        - containerPort: 80
+          name: http
         resources: {}
       - args:
         - proxy
@@ -86,15 +68,14 @@ spec:
             fieldRef:
               fieldPath: metadata.name
         - name: ISTIO_META_INTERCEPTION_MODE
-          value: REDIRECT
-        image: docker.io/istio/proxy:unittest
+          value: TPROXY
+        image: docker.io/istio/proxy_debug:unittest
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         resources: {}
         securityContext:
-          privileged: false
-          readOnlyRootFilesystem: true
-          runAsUser: 1337
+          privileged: true
+          readOnlyRootFilesystem: false
         volumeMounts:
         - mountPath: /etc/istio/proxy
           name: istio-envoy
@@ -108,13 +89,13 @@ spec:
         - -u
         - "1337"
         - -m
-        - REDIRECT
+        - TPROXY
         - -i
-        - '*'
+        - ""
         - -x
         - ""
         - -b
-        - '*'
+        - ""
         - -d
         - ""
         image: docker.io/istio/proxy_init:unittest
@@ -125,6 +106,7 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
+          privileged: true
       volumes:
       - emptyDir:
           medium: Memory
