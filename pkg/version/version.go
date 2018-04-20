@@ -29,6 +29,7 @@ var (
 	buildHost        = "unknown"
 	buildDockerHub   = "unknown"
 	buildStatus      = "unknown"
+	installPrefix    = "/usr/local"
 )
 
 // BuildInfo describes version information about the binary build.
@@ -40,6 +41,7 @@ type BuildInfo struct {
 	GolangVersion string `json:"golang_version"`
 	DockerHub     string `json:"hub"`
 	BuildStatus   string `json:"status"`
+	InstallPrefix string `json:"install_prefix"`
 }
 
 var (
@@ -102,5 +104,6 @@ func init() {
 		GolangVersion: runtime.Version(),
 		DockerHub:     buildDockerHub,
 		BuildStatus:   buildStatus,
+		InstallPrefix: installPrefix,
 	}
 }

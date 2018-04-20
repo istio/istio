@@ -50,7 +50,7 @@ spec:
         livenessProbe:
           exec:
             command:
-            - /usr/local/bin/mixs
+            - {INSTALL_PREFIX}/bin/mixs
             - probe
             - --probe-path=/live
             - --interval=5s
@@ -59,7 +59,7 @@ spec:
         readinessProbe:
           exec:
             command:
-            - /usr/local/bin/mixs
+            - {INSTALL_PREFIX}/bin/mixs
             - probe
             - --probe-path=/ready
             - --interval=5s

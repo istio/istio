@@ -59,7 +59,7 @@ spec:
           livenessProbe:
             exec:
               command:
-                - /usr/local/bin/sidecar-injector
+                - {INSTALL_PREFIX}/bin/sidecar-injector
                 - probe
                 - --probe-path=/health
                 - --interval=2s
@@ -68,7 +68,7 @@ spec:
           readinessProbe:
             exec:
               command:
-                - /usr/local/bin/sidecar-injector
+                - {INSTALL_PREFIX}/bin/sidecar-injector
                 - probe
                 - --probe-path=/health
                 - --interval=2s

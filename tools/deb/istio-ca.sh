@@ -27,7 +27,7 @@ if [[ -r ${ISTIO_SIDECAR_CONFIG} ]]; then
 fi
 
 # Set defaults
-ISTIO_BIN_BASE=${ISTIO_BIN_BASE:-/usr/local/bin}
+ISTIO_BIN_BASE=${ISTIO_BIN_BASE:-{INSTALL_PREFIX}/bin}
 ISTIO_LOG_DIR=${ISTIO_LOG_DIR:-/var/log/istio}
 ISTIO_CFG=${ISTIO_CFG:-/var/lib/istio}
 

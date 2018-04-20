@@ -33,7 +33,7 @@ if [[ -r ${ISTIO_CLUSTER_CONFIG} ]]; then
 fi
 
 # Set defaults
-ISTIO_BIN_BASE=${ISTIO_BIN_BASE:-/usr/local/bin}
+ISTIO_BIN_BASE=${ISTIO_BIN_BASE:-{INSTALL_PREFIX}/bin}
 ISTIO_LOG_DIR=${ISTIO_LOG_DIR:-/var/log/istio}
 NS=${ISTIO_NAMESPACE:-default}
 SVC=${ISTIO_SERVICE:-rawvm}

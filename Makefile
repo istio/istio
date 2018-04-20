@@ -96,6 +96,10 @@ endif
 # Optional file including user-specific settings (HUB, TAG, etc)
 -include .istiorc.mk
 
+# Base directory for installing artifacts
+INSTALL_PREFIX ?= /usr/local
+export INSTALL_PREFIX
+
 # @todo allow user to run for a single $PKG only?
 PACKAGES_CMD := GOPATH=$(GOPATH) $(GO) list ./...
 GO_EXCLUDE := /vendor/|.pb.go|.gen.go
@@ -585,7 +589,8 @@ isti%.yaml: $(HELM)
 	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/$@
 	$(HELM) template --set global.tag=${TAG} \
 		  --namespace=istio-system \
-                  --set global.hub=${HUB} \
+		  --set global.hub=${HUB} \
+		  --set global.installPrefix=${INSTALL_PREFIX} \
 		  --values install/kubernetes/helm/istio/values-$@ \
 		  install/kubernetes/helm/istio >> install/kubernetes/$@
 

@@ -40,6 +40,7 @@ STATIC=${STATIC:-1}
 LDFLAGS="-extldflags -static"
 GOBUILDFLAGS=${GOBUILDFLAGS:-""}
 GCFLAGS=${GCFLAGS:-}
+INSTALL_PREFIX=${INSTALL_PREFIX:-/usr/local}
 export CGO_ENABLED=0
 
 if [[ "${STATIC}" !=  "1" ]];then
@@ -55,7 +56,7 @@ if [[ -z ${BUILDINFO} ]];then
 fi
 
 # BUILD LD_VERSIONFLAGS
-LD_VERSIONFLAGS=""
+LD_VERSIONFLAGS="-X ${VERSION_PACKAGE}.installPrefix=${INSTALL_PREFIX}"
 while read line; do
     read SYMBOL VALUE < <(echo $line)
     LD_VERSIONFLAGS=${LD_VERSIONFLAGS}" -X ${VERSION_PACKAGE}.${SYMBOL}=${VALUE}"

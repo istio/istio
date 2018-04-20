@@ -23,6 +23,11 @@ COMPONENT_FILES=false
 set -o errexit
 set -o pipefail
 
+# Try to read variables from user-defined file
+source $ROOT/.istiorc.mk 2>/dev/null || true
+# If those don't come from user or from Makefile
+INSTALL_PREFIX=${INSTALL_PREFIX:-/usr/local}
+
 function usage() {
   [[ -n "${1}" ]] && echo "${1}"
 
@@ -236,6 +241,7 @@ export FORTIO_HUB="${FORTIO_HUB}"
 export FORTIO_TAG="${FORTIO_TAG}"
 export HYPERKUBE_HUB="${HYPERKUBE_HUB}"
 export HYPERKUBE_TAG="${HYPERKUBE_TAG}"
+export INSTALL_PREFIX="${INSTALL_PREFIX}"
 EOF
 }
 
@@ -282,6 +288,16 @@ function update_istio_install() {
   execute_sed "s|image: {CITADEL_HUB}/\(.*\):{CITADEL_TAG}|image: ${CITADEL_HUB}/\1:${CITADEL_TAG}|" istio-citadel-standalone.yaml.tmpl
 
   execute_sed "s|image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}|image: ${PROXY_HUB}/${PROXY_IMAGE}:${PROXY_TAG}|" istio-ingress.yaml.tmpl
+
+  execute_sed "s|{INSTALL_PREFIX}|${INSTALL_PREFIX}|" istio-citadel-plugin-certs.yaml.tmpl
+  execute_sed "s|{INSTALL_PREFIX}|${INSTALL_PREFIX}|" istio-citadel-standalone.yaml.tmpl
+  execute_sed "s|{INSTALL_PREFIX}|${INSTALL_PREFIX}|" istio-citadel-with-health-check.yaml.tmpl
+  execute_sed "s|{INSTALL_PREFIX}|${INSTALL_PREFIX}|" istio-citadel.yaml.tmpl
+  execute_sed "s|{INSTALL_PREFIX}|${INSTALL_PREFIX}|" istio-config.yaml.tmpl
+  execute_sed "s|{INSTALL_PREFIX}|${INSTALL_PREFIX}|" istio-mixer-validator.yaml.tmpl
+  execute_sed "s|{INSTALL_PREFIX}|${INSTALL_PREFIX}|" istio-mixer-with-health-check.yaml.tmpl
+  execute_sed "s|{INSTALL_PREFIX}|${INSTALL_PREFIX}|" istio-sidecar-injector.yaml.tmpl
+
   popd
 }
 

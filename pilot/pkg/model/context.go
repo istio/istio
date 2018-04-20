@@ -26,6 +26,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/version"
 )
 
 // Environment provides an aggregate environmental API for Pilot
@@ -152,9 +153,6 @@ const (
 	// https://github.com/istio/istio/blob/master/install/kubernetes/templates/istio-sidecar-injector-configmap-debug.yaml.tmpl#L27
 	ConfigPathDir = "/etc/istio/proxy"
 
-	// BinaryPathFilename envoy binary location
-	BinaryPathFilename = "/usr/local/bin/envoy"
-
 	// ServiceClusterName service cluster name used in xDS calls
 	ServiceClusterName = "istio-proxy"
 
@@ -168,8 +166,13 @@ const (
 	IstioIngressNamespace = "istio-system"
 )
 
-// IstioIngressWorkloadLabels is the label assigned to Istio ingress pods
-var IstioIngressWorkloadLabels = map[string]string{"istio": "ingress"}
+var (
+	// BinaryPathFilename envoy binary location
+	BinaryPathFilename = version.Info.InstallPrefix + "/bin/envoy"
+
+	// IstioIngressWorkloadLabels is the label assigned to Istio ingress pods
+	IstioIngressWorkloadLabels = map[string]string{"istio": "ingress"}
+)
 
 // DefaultProxyConfig for individual proxies
 func DefaultProxyConfig() meshconfig.ProxyConfig {
