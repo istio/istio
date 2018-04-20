@@ -161,13 +161,3 @@ if [ ! -f ${ISTIO_BIN}/envoy ] ; then
     # Make sure the envoy binary exists. This is only used for tests, so use the debug binary.
     cp ${ISTIO_ENVOY_DEBUG_PATH} ${ISTIO_BIN}/envoy
 fi
-
-# Check for pilot binary and if it does not exist, build it.
-if [ ! -f "$ISTIO_OUT/pilot-discovery" ]; then
-   make pilot
-fi
-
-# Check for mixer binary and if it does not exist, build it.
-if [ ! -f "$ISTIO_OUT/mixs" ]; then
-   make mixs
-fi
