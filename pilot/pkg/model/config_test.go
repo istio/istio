@@ -21,6 +21,8 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 
+	"fmt"
+
 	authn "istio.io/api/authentication/v1alpha1"
 	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/memory"
@@ -643,5 +645,40 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 					testCase.hostname, testCase.port, expected, out)
 			}
 		}
+	}
+}
+
+func TestResolveShortnameToFQDN(t *testing.T) {
+	tests := []struct {
+		name string
+		meta model.ConfigMeta
+		out  string
+	}{
+		{
+			"*", model.ConfigMeta{}, "*",
+		},
+		{
+			"*", model.ConfigMeta{Namespace: "default", Domain: "cluster.local"}, "*",
+		},
+		{
+			"foo", model.ConfigMeta{Namespace: "default", Domain: "cluster.local"}, "foo.default.svc.cluster.local",
+		},
+		{
+			"foo.bar", model.ConfigMeta{Namespace: "default", Domain: "cluster.local"}, "foo.bar",
+		},
+		{
+			"foo", model.ConfigMeta{Domain: "cluster.local"}, "foo.svc.cluster.local",
+		},
+		{
+			"foo", model.ConfigMeta{Namespace: "default"}, "foo.default",
+		},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.out), func(t *testing.T) {
+			if actual := model.ResolveShortnameToFQDN(tt.name, tt.meta); actual != tt.out {
+				t.Fatalf("model.ResolveShortnameToFQDN(%q, %v) = %q wanted %q", tt.name, tt.meta, actual, tt.out)
+			}
+		})
 	}
 }
