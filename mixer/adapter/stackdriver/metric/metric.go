@@ -178,8 +178,6 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 }
 
 func (h *handler) HandleMetric(_ context.Context, vals []*metric.Instance) error {
-	h.l.Infof("stackdriver.Record called with %d vals", len(vals))
-
 	// TODO: len(vals) is constant for config lifetime, consider pooling
 	data := make([]*monitoringpb.TimeSeries, 0, len(vals))
 	for _, val := range vals {
