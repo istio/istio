@@ -12,4 +12,31 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package analyzer
+package rules
+
+import (
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+)
+
+var Name = "rules"
+var SingularName = "rule"
+var Kind = "rule"
+var ListKind = "RuleList"
+var Version = "v1alpha2"
+var Group = "config.istio.io"
+
+var APIResource = v1.APIResource{
+	Name:         Name,
+	SingularName: SingularName,
+	Kind:         Kind,
+	Version:      Version,
+	Group:        Group,
+	Namespaced:   true,
+}
+
+var GroupVersion = schema.GroupVersion{
+	Group:   APIResource.Group,
+	Version: APIResource.Version,
+}
+
