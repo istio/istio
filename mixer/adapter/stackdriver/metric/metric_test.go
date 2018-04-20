@@ -477,7 +477,7 @@ func TestProjectMetadata(t *testing.T) {
 					Value: int64(1),
 					MonitoredResourceType: "mr-type",
 					MonitoredResourceDimensions: map[string]interface{}{
-						"project":      "id",
+						"project_id":   "id",
 						"location":     "l",
 						"cluster_name": "c",
 					},
@@ -486,7 +486,7 @@ func TestProjectMetadata(t *testing.T) {
 			&monitoredres.MonitoredResource{
 				Type: "mr-type",
 				Labels: map[string]string{
-					"project":      "id",
+					"project_id":   "id",
 					"location":     "l",
 					"cluster_name": "c",
 				},
@@ -500,7 +500,7 @@ func TestProjectMetadata(t *testing.T) {
 					Value: int64(1),
 					MonitoredResourceType: "mr-type",
 					MonitoredResourceDimensions: map[string]interface{}{
-						"project":      "",
+						"project_id":   "",
 						"location":     "",
 						"cluster_name": "",
 					},
@@ -509,7 +509,7 @@ func TestProjectMetadata(t *testing.T) {
 			&monitoredres.MonitoredResource{
 				Type: "mr-type",
 				Labels: map[string]string{
-					"project":      "pid",
+					"project_id":   "pid",
 					"location":     "location",
 					"cluster_name": "cluster",
 				},

@@ -142,26 +142,26 @@ func TestFillProjectMetadata(t *testing.T) {
 		{
 			"empty metadata",
 			Metadata{ProjectID: "", Location: "", ClusterName: ""},
-			map[string]string{"project": "pid", "location": "location", "cluster_name": ""},
-			map[string]string{"project": "pid", "location": "location", "cluster_name": ""},
+			map[string]string{"project_id": "pid", "location": "location", "cluster_name": ""},
+			map[string]string{"project_id": "pid", "location": "location", "cluster_name": ""},
 		},
 		{
 			"fill metadata",
 			Metadata{ProjectID: "pid", Location: "location", ClusterName: "cluster"},
-			map[string]string{"project": "", "location": "location", "cluster_name": ""},
-			map[string]string{"project": "pid", "location": "location", "cluster_name": "cluster"},
+			map[string]string{"project_id": "", "location": "location", "cluster_name": ""},
+			map[string]string{"project_id": "pid", "location": "location", "cluster_name": "cluster"},
 		},
 		{
 			"do not override",
 			Metadata{ProjectID: "pid", Location: "location", ClusterName: "cluster"},
-			map[string]string{"project": "id", "location": "l", "cluster_name": "c"},
-			map[string]string{"project": "id", "location": "l", "cluster_name": "c"},
+			map[string]string{"project_id": "id", "location": "l", "cluster_name": "c"},
+			map[string]string{"project_id": "id", "location": "l", "cluster_name": "c"},
 		},
 		{
 			"unrelated field",
 			Metadata{ProjectID: "", Location: "", ClusterName: "cluster"},
-			map[string]string{"project": "pid", "location": "location", "cluster": ""},
-			map[string]string{"project": "pid", "location": "location", "cluster": ""},
+			map[string]string{"project_id": "pid", "location": "location", "cluster": ""},
+			map[string]string{"project_id": "pid", "location": "location", "cluster": ""},
 		},
 	}
 
