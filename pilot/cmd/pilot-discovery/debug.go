@@ -24,6 +24,8 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
+const all = "all"
+
 type debug struct {
 	pilotAddress string
 	client       *http.Client
@@ -57,9 +59,9 @@ func (d *debug) run(args []string) error {
 		return err
 	}
 
-	if configType == "all" {
+	if configType == all {
 		for ct := range configTypes {
-			if ct != "all" {
+			if ct != all {
 				if err := d.printConfig(ct, proxyID); err != nil {
 					return err
 				}
@@ -76,7 +78,7 @@ func (d *debug) printConfig(typ, proxyID string) error {
 	if err != nil {
 		return err
 	}
-	if proxyID != "all" {
+	if proxyID != all {
 		q := req.URL.Query()
 		q.Add("proxyID", proxyID)
 		req.URL.RawQuery = q.Encode()
