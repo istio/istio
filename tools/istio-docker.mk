@@ -221,15 +221,11 @@ $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_TAR_TARGETS+=tar.$(TGT)))
 # this target saves a tar.gz of each docker image to ${ISTIO_OUT}/docker/
 docker.save: $(DOCKER_TAR_TARGETS)
 
-# if first part of URL (i.e., hostname) is gcr.io then use gcloud for push
-$(if $(findstring gcr.io,$(firstword $(subst /, ,$(HUB)))),\
-        $(eval DOCKER_PUSH_CMD:=gcloud docker -- push),$(eval DOCKER_PUSH_CMD:=docker push))
-
 # for each docker.XXX target create a push.docker.XXX target that pushes
 # the local docker image to another hub
 # a possible optimization is to use tag.$(TGT) as a dependency to do the tag for us
 $(foreach TGT,$(DOCKER_TARGETS),$(eval push.$(TGT): | $(TGT) ; \
-        time ($(DOCKER_PUSH_CMD) $(HUB)/$(subst docker.,,$(TGT)):$(TAG))))
+        time (docker push $(HUB)/$(subst docker.,,$(TGT)):$(TAG))))
 
 # create a DOCKER_PUSH_TARGETS that's each of DOCKER_TARGETS with a push. prefix
 DOCKER_PUSH_TARGETS:=
