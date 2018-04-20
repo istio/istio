@@ -16,6 +16,7 @@ package log
 
 import (
 	"fmt"
+	"os"
 
 	"go.uber.org/zap/zapcore"
 )
@@ -50,6 +51,24 @@ func Errorf(template string, args ...interface{}) {
 // ErrorEnabled returns whether output of messages using this scope is currently enabled for error-level output.
 func ErrorEnabled() bool {
 	return defaultScope.GetOutputLevel() >= ErrorLevel
+}
+
+// Fatal outputs a message at error level, and then os.Exit.
+func Fatal(msg string, fields ...zapcore.Field) {
+	Error(msg, fields...)
+	os.Exit(-1)
+}
+
+// Fatala uses Errora to construct and log a message at error level, and then os.Exit.
+func Fatala(args ...interface{}) {
+	Errora(args...)
+	os.Exit(-1)
+}
+
+// Fatalf uses Errorf to construct and log a message at error level, and then os.Exit.
+func Fatalf(template string, args ...interface{}) {
+	Errorf(template, args...)
+	os.Exit(-1)
 }
 
 // Warn outputs a message at warn level.

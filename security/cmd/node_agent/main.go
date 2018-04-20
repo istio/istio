@@ -15,7 +15,6 @@
 package main
 
 import (
-	"os"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -77,32 +76,26 @@ func init() {
 func main() {
 	if naConfig.CAClientConfig.Platform == "vm" {
 		if err := rootCmd.Execute(); err != nil {
-			log.Errora(err)
-			os.Exit(-1)
+			log.Fatala(err)
 		}
 	} else if naConfig.CAClientConfig.Platform == "k8s" {
-		log.Errorf("WIP for support on k8s...")
-		os.Exit(-1)
+		log.Fatalf("WIP for support on k8s...")
 	} else {
-		log.Errorf("node agent on %v is not supported yet", naConfig.CAClientConfig.Platform)
-		os.Exit(-1)
+		log.Fatalf("node agent on %v is not supported yet", naConfig.CAClientConfig.Platform)
 	}
 }
 
 func runNodeAgent() {
 	if err := log.Configure(naConfig.LoggingOptions); err != nil {
-		log.Errora(err)
-		os.Exit(-1)
+		log.Fatala(err)
 	}
 	nodeAgent, err := na.NewNodeAgent(naConfig)
 	if err != nil {
-		log.Errora(err)
-		os.Exit(-1)
+		log.Fatala(err)
 	}
 
 	log.Infof("Starting Node Agent")
 	if err := nodeAgent.Start(); err != nil {
-		log.Errorf("Node agent terminated with error: %v.", err)
-		os.Exit(-1)
+		log.Fatalf("Node agent terminated with error: %v.", err)
 	}
 }

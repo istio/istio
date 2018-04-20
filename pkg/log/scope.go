@@ -120,6 +120,24 @@ func (s *Scope) ErrorEnabled() bool {
 	return s.GetOutputLevel() >= ErrorLevel
 }
 
+// Fatal outputs a message at error level, and then os.Exit.
+func (s *Scope) Fatal(msg string, fields ...zapcore.Field) {
+	Error(msg, fields...)
+	os.Exit(-1)
+}
+
+// Fatala uses Errora to construct and log a message at error level, and then os.Exit.
+func (s *Scope) Fatala(args ...interface{}) {
+	Errora(args...)
+	os.Exit(-1)
+}
+
+// Fatalf uses Errorf to construct and log a message at error level, and then os.Exit.
+func (s *Scope) Fatalf(template string, args ...interface{}) {
+	Errorf(template, args...)
+	os.Exit(-1)
+}
+
 // Warn outputs a message at warn level.
 func (s *Scope) Warn(msg string, fields ...zapcore.Field) {
 	if s.GetOutputLevel() >= WarnLevel {
