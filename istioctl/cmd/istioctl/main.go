@@ -45,6 +45,7 @@ import (
 
 	"istio.io/istio/istioctl/cmd/istioctl/convert"
 	"istio.io/istio/istioctl/cmd/istioctl/gendeployment"
+	"istio.io/istio/istioctl/cmd/istioctl/rbac"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
@@ -544,6 +545,7 @@ func init() {
 		"Output format. One of:yaml|short")
 
 	experimentalCmd.AddCommand(convert.Command())
+	experimentalCmd.AddCommand(rbac.Command())
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
