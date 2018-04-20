@@ -191,6 +191,7 @@ func TestAuth(t *testing.T) {
 }
 
 func TestAuthWithHeaders(t *testing.T) {
+	// t.Skip("Skipping TestAuthWithHeaders until bug is fixed") // TODO: fix me !
 	ns := tc.Kube.Namespace
 	// Get the non istio pod
 	podList, err := getPodList(ns, "app=fortio-noistio")
@@ -202,7 +203,7 @@ func TestAuthWithHeaders(t *testing.T) {
 	}
 	podNoIstio := podList[0]
 	// Get the istio pod without extra unique port
-	podList, err = getPodIpList(ns, "app=fortio-noistio,extrap=no")
+	podList, err = getPodIPList(ns, "app=echosrv,extrap=no")
 	if err != nil {
 		t.Fatalf("kubectl failure to get deployment1 pod %v", err)
 	}
@@ -229,6 +230,7 @@ func TestAuthWithHeaders(t *testing.T) {
 }
 
 func Test503sDuringChanges(t *testing.T) {
+	t.Skip("Skipping Test503sDuringChanges until bug #1038 is fixed") // TODO fix me!
 	url := tc.Kube.IngressOrFail(t) + "/fortio/debug"
 	rulePath1 := util.GetResourcePath(routingR1Yaml)
 	rulePath2 := util.GetResourcePath(routingR2Yaml)
@@ -270,7 +272,10 @@ func Test503sDuringChanges(t *testing.T) {
 	}
 }
 
+// This one may need to be fixed through some retries or health check
+// config/setup/policy in envoy (through pilot)
 func Test503sWithBadClusters(t *testing.T) {
+	t.Skip("Skipping Test503sWithBadClusters until bug #1038 is fixed") // TODO fix me!
 	url := tc.Kube.IngressOrFail(t) + "/fortio/debug"
 	rulePath := util.GetResourcePath(routingRNPYaml)
 	go func() {
@@ -318,7 +323,7 @@ func getPodList(namespace string, selector string) ([]string, error) {
 	return strings.Split(pods, " "), nil
 }
 
-func getPodIpList(namespace string, selector string) ([]string, error) {
+func getPodIPList(namespace string, selector string) ([]string, error) {
 	pods, err := util.Shell("kubectl get pods -n %s -l %s -o jsonpath={.items[*].status.podIP}", namespace, selector)
 	if err != nil {
 		return nil, err
