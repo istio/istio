@@ -85,7 +85,7 @@ spec:
         app: echosrv
         version: v2
         test: b
-        hasExtraPort: true
+        extrap: x
     spec:
       containers:
       - name: echosrv
@@ -115,4 +115,4 @@ spec:
     name: http-echo2
   selector:
     app: echosrv
-    hasExtraPort: true
+    extrap: x
