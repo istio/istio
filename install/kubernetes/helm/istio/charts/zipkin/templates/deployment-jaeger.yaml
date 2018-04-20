@@ -1,4 +1,4 @@
-{{ if ! .Values.jaeger }}
+{{ if .Values.jaeger }}
 #
 # Copyright 2017 The Jaeger Authors
 #
@@ -20,20 +20,21 @@ items:
   kind: Deployment
   metadata:
     name: zipkin
+    namespace: {{ .Release.Namespace }} 
     labels:
       app: zipkin
       app: jaeger
       jaeger-infra: jaeger-deployment
   spec:
-    replicas: 1
-    strategy:
-      type: Recreate
+    replicas: {{ .Values.replicaCount }}
+    #    strategy:
+    #  type: Recreate
     template:
       metadata:
         labels:
           app: zipkin
-          app: jaeger
-          jaeger-infra: jaeger-pod
+#          app: jaeger
+#          jaeger-infra: jaeger-pod
       spec:
           containers:
           -   env:
@@ -57,4 +58,4 @@ items:
                   path: "/"
                   port: 16686
                 initialDelaySeconds: 5
-{{ endif }}
+{{ end }}
