@@ -499,7 +499,7 @@ func translateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 				FixedDelay: &delayDuration,
 			}
 		default:
-			log.Warnf("Ignoring exponential fault in route")
+			log.Warnf("Exponential faults are not yet supported")
 			out.Delay = nil
 		}
 	}
@@ -514,7 +514,7 @@ func translateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 				HttpStatus: uint32(a.HttpStatus),
 			}
 		default:
-			log.Warnf("Ignoring non http status type faults")
+			log.Warnf("Non-HTTP type abort faults are not yet supported")
 			out.Abort = nil
 		}
 	}
