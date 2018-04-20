@@ -88,14 +88,15 @@ func TestSimpleIngress(t *testing.T) {
 		dataDebug string
 	)
 	timeOut := time.Now().Add(timeToWaitForIngress)
-	for i := 0; i < 120; i++ {
+	for i := 0; true; i++ {
 		if time.Now().After(timeOut) {
-			t.Errorf("Ingress not really ready after %v - last error is %d : %s", timeToWaitForIngress, code, dataDebug)
+			t.Errorf("Ingress not really ready after %v (%d tries)- last error is %d : %s", timeToWaitForIngress, i, code, dataDebug)
+			return
 		}
 		code, data = fhttp.Fetch(o)
 		dataDebug = fhttp.DebugSummary(data, 512) // not for searching, only for logging
 		if code != 200 {
-			log.Infof("Iter %d : ingress+svc not ready, code %d data %s", code, dataDebug)
+			log.Infof("Iter %d : ingress+svc not ready, code %d data %s", i, code, dataDebug)
 			time.Sleep(1 * time.Second)
 			continue
 		}
