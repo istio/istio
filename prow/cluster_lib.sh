@@ -35,6 +35,59 @@ CLUSTER_VERSION="${VERSIONS[0]}"
 KUBE_USER="${KUBE_USER:-istio-prow-test-job@istio-testing.iam.gserviceaccount.com}"
 CLUSTER_CREATED=false
 
+function setup_clusterreg () {
+    # setup cluster-registries dir setup by mason
+    CLUSTERREG_DIR=${CLUSTERREG_DIR:-$HOME/.kube}
+
+    # These IP params don't really matter
+    PilotIP="1.1.1.1"
+    ClientCidr=1.1.1.0/24
+    ServerEndpointIP=1.1.1.1
+
+    PilotCfgStore=True
+
+    # mason dumps all the kubeconfigs into the same file but we need to use per cluster
+    # files for the clusterregsitry config.  Create the separate files.
+    #  -- if PILOT_CLUSTER not set, assume pilot install to be in the first cluster
+    unset IFS
+    k_contexts=$(kubectl config get-contexts -o name)
+    for context in $k_contexts; do
+        kubectl config use-context ${context}
+        kubectl config view --raw=true --minify=true > ${CLUSTERREG_DIR}/${context}.kconf
+
+        if [[ "$PILOT_CLUSTER" == "$context" ]]; then
+            PilotCfgStore=True
+        elif [[ "$PILOT_CLUSTER" != "" ]]; then
+            PilotCfgStore=False
+        fi
+
+        CLUSREG_CONTENT+=$(cat <<EOF
+
+---
+
+apiVersion: clusterregistry.k8s.io/v1alpha1
+kind: Cluster
+metadata:
+  name: ${context}
+  annotations:
+    config.istio.io/pilotEndpoint: "${PilotIP}:9080"
+    config.istio.io/platform: "Kubernetes"
+    config.istio.io/pilotCfgStore: ${PilotCfgStore}
+    config.istio.io/accessConfigFile: ${context}.kconf
+spec:
+  kubernetesApiEndpoints:
+    serverEndpoints:
+      - clientCIDR: "${ClientCidr}"
+        serverAddress: "${ServerEndpointIP}"
+EOF
+)
+
+        PilotCfgStore=False
+    done
+
+    echo "$CLUSREG_CONTENT" > ${CLUSTERREG_DIR}/multi_clus.yaml
+}
+
 function delete_cluster () {
   if [ "${CLUSTER_CREATED}" = true ]; then
     gcloud container clusters delete ${CLUSTER_NAME}\
@@ -46,9 +99,24 @@ function delete_cluster () {
 }
 
 function setup_cluster() {
+  # use the first context in the list if not preset
+  if [[ "$PILOT_CLUSTER" == "" ]]; then
+    unset IFS
+    k_contexts=$(kubectl config get-contexts -o name)
+    for context in $k_contexts; do
+        if [[ "$PILOT_CLUSTER" == "" ]]; then
+            PILOT_CLUSTER=${context}
+        fi
+    done
+  fi
+  kubectl config use-context ${PILOT_CLUSTER}
+
   kubectl create clusterrolebinding prow-cluster-admin-binding\
     --clusterrole=cluster-admin\
     --user="${KUBE_USER}"
+  if [[ "$SETUP_CLUSTERREG" == "True" ]]; then
+      setup_clusterreg
+  fi
 }
 
 function check_cluster() {
