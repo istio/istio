@@ -15,89 +15,39 @@
 package test
 
 import (
-	"testing"
-
-	"istio.io/istio/pkg/test/impl/helm"
 	"k8s.io/client-go/rest"
 )
 
-func GetClusterEnvironment(t testing.TB) *ClusterEnvironment {
-	return &ClusterEnvironment{
-		t: t,
-	}
-}
-
-func GetLocalEnvironment(t testing.TB) *LocalEnvironment {
-	return &LocalEnvironment{
-		t: t,
-	}
-}
-
+// Environment is a common interface for all testing environments
 type Environment interface {
-	GetApiServer() DeployedApiServer
+	// GetAPIServer returns the deployed k8s API server
+	GetAPIServer() DeployedAPIServer
+	// GetIstioComponent gets the deployed configuration for all Istio components of the given kind.
 	GetIstioComponent(k DeployedServiceKind) []DeployedIstioComponent
 }
 
+// Deployed represents a deployed component
 type Deployed interface {
 }
 
-type DeployedApiServer interface {
+// DeployedAPIServer the configuration for a deployed k8s server
+type DeployedAPIServer interface {
 	Deployed
 	Config() *rest.Config
 }
 
+// DeployedIstioComponent the configuration for a deployed Istio component
 type DeployedIstioComponent interface {
 	Deployed
 }
 
+// DeployedServiceKind an enum for the various types of deployed services
 type DeployedServiceKind string
 
 const (
-	MixerComponent  = "mixer"
-	PilotComponent  = "pilot"
+	//MixerComponent  = "mixer"
+	//PilotComponent  = "pilot"
+
+	// GalleyComponent enum value for Galley.
 	GalleyComponent = "galley"
 )
-
-type ClusterEnvironment struct {
-	t testing.TB
-}
-
-var _ Environment = &ClusterEnvironment{}
-
-type LocalEnvironment struct {
-	t testing.TB
-}
-
-var _ Environment = &LocalEnvironment{}
-
-func (e *ClusterEnvironment) Deploy(c *helm.Chart) {
-
-}
-
-func (e *ClusterEnvironment) GetApiServer() DeployedApiServer {
-	return nil
-}
-
-func (e *ClusterEnvironment) GetIstioComponent(k DeployedServiceKind) []DeployedIstioComponent {
-	return []DeployedIstioComponent{nil}
-}
-
-func (e *LocalEnvironment) StartApiServer() DeployedApiServer {
-	return nil
-}
-
-func (e *LocalEnvironment) StartGalley() DeployedIstioComponent {
-	return nil
-}
-
-func (e *LocalEnvironment) StartMixer() DeployedIstioComponent {
-	return nil
-}
-
-func (e *LocalEnvironment) GetApiServer() DeployedApiServer {
-	return nil
-}
-
-func (e *LocalEnvironment) GetIstioComponent(k DeployedServiceKind) []DeployedIstioComponent {
-	return nil
-}

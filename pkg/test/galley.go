@@ -15,17 +15,17 @@
 package test
 
 import (
-	"istio.io/istio/pkg/test/impl/apiserver"
 	"k8s.io/client-go/rest"
+
+	"istio.io/istio/pkg/test/impl/apiserver"
 )
 
 // Galley dependency.
 var Galley = &GalleyDependency{}
 
+// GalleyDependency is a dependency on Galley.
 type GalleyDependency struct {
 }
-
-var _ Dependency = &ApiServerDependency{}
 
 func (a *GalleyDependency) String() string {
 	return "galley"
@@ -43,6 +43,7 @@ func (a *GalleyDependency) reset(interface{}) error {
 func (a *GalleyDependency) cleanup(interface{}) {
 }
 
+// GetConfig gets the configuration for a Galley dependency
 func (a *GalleyDependency) GetConfig() *rest.Config {
 	return nil
 }
