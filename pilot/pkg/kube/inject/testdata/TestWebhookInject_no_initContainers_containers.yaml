@@ -1,3 +1,5 @@
 spec:
   volumes:
     - name: v0
+  imagePullSecrets:
+    - name: p0

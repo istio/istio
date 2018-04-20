@@ -104,9 +104,10 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 		}
 		for _, p := range configgen.Plugins {
 			params := &plugin.InputParams{
-				ListenerType: listenerType,
-				Env:          &env,
-				Node:         &node,
+				ListenerType:   listenerType,
+				Env:            &env,
+				Node:           &node,
+				ProxyInstances: workloadInstances,
 			}
 			if err := p.OnOutboundListener(params, mutable); err != nil {
 				log.Warn(err.Error())

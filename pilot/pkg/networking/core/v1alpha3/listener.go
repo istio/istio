@@ -262,6 +262,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 				ListenerType:    listenerType,
 				Env:             &env,
 				Node:            &node,
+				ProxyInstances:  proxyInstances,
 				ServiceInstance: instance,
 			}
 			if err := p.OnInboundListener(params, mutable); err != nil {
@@ -378,10 +379,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 
 			for _, p := range configgen.Plugins {
 				params := &plugin.InputParams{
-					ListenerType: plugin.ModelProtocolToListenerType(servicePort.Protocol),
-					Env:          &env,
-					Node:         &node,
-					Service:      service,
+					ListenerType:   plugin.ModelProtocolToListenerType(servicePort.Protocol),
+					Env:            &env,
+					Node:           &node,
+					ProxyInstances: proxyInstances,
+					Service:        service,
 				}
 
 				if err := p.OnOutboundListener(params, mutable); err != nil {

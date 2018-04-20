@@ -15,9 +15,15 @@
 package framework
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"time"
+
+	"github.com/davecgh/go-spew/spew"
+	"k8s.io/api/core/v1"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/log"
 )
@@ -45,4 +51,86 @@ func getKubeConfigFromFile(dirname string) (string, error) {
 		return "", nil
 	}
 	return remoteKube, nil
+}
+func (k *KubeInfo) createRemoteSecrets() error {
+	var err error
+	var caSecret *v1.Secret
+	// need to give time for the secret to be created on the local cluster
+	for i := 0; i <= 200; i++ {
+		caSecret, err = k.KubeClient.CoreV1().Secrets(k.Namespace).Get("istio.default", meta_v1.GetOptions{})
+		if err == nil {
+			break
+		}
+		time.Sleep(time.Second * 1)
+	}
+	if err != nil {
+		err = fmt.Errorf("could not get secret from local cluster")
+		return err
+	}
+
+	caSecret.ObjectMeta.ResourceVersion = ""
+	_, err = k.RemoteKubeClient.CoreV1().Secrets(k.Namespace).Create(caSecret)
+	if err != nil {
+		err = fmt.Errorf("could not create secret on remote cluster")
+		return err
+	}
+	return nil
+}
+
+func (k *KubeInfo) generateRemoteIstio(src, dst string) error {
+	content, err := ioutil.ReadFile(src)
+	if err != nil {
+		log.Errorf("cannot read remote yaml file %s", src)
+		return err
+	}
+	getOpt := meta_v1.GetOptions{IncludeUninitialized: true}
+	var pilotEPS, mixerEPS *v1.Endpoints
+
+	for i := 0; i <= 200; i++ {
+		pilotEPS, err = k.KubeClient.CoreV1().Endpoints(k.Namespace).Get("istio-pilot", getOpt)
+		log.Infof("PilotEPS = %s ", pilotEPS)
+		if (len(pilotEPS.Subsets) != 0) && (err == nil) {
+
+			mixerEPS, err = k.KubeClient.CoreV1().Endpoints(k.Namespace).Get("istio-policy", getOpt)
+			log.Infof("mixerEPS = %s ", mixerEPS)
+			if (len(mixerEPS.Subsets) != 0) && (err == nil) {
+				break
+			}
+		}
+		time.Sleep(time.Second * 1)
+	}
+	log.Infof("len pilot %i len mixerEPS = %i ", len(pilotEPS.Subsets), len(mixerEPS.Subsets))
+	log.Infof("pilotEPS %s", spew.Sdump(pilotEPS))
+	log.Infof("mixerEPS %s", spew.Sdump(mixerEPS))
+	if err != nil {
+		err = fmt.Errorf("could not get endpoints from local cluster")
+		return err
+	}
+
+	var pilotIP, mixerIP string
+	if len(pilotEPS.Subsets[0].Addresses) != 0 {
+		pilotIP = pilotEPS.Subsets[0].Addresses[0].IP
+	} else if len(pilotEPS.Subsets[0].NotReadyAddresses) != 0 {
+		pilotIP = pilotEPS.Subsets[0].NotReadyAddresses[0].IP
+	} else {
+		err = fmt.Errorf("could not get endpoint addresses")
+		return err
+	}
+	if len(mixerEPS.Subsets[0].Addresses) != 0 {
+		mixerIP = mixerEPS.Subsets[0].Addresses[0].IP
+	} else if len(pilotEPS.Subsets[0].NotReadyAddresses) != 0 {
+		mixerIP = mixerEPS.Subsets[0].NotReadyAddresses[0].IP
+	} else {
+		err = fmt.Errorf("could not get endpoint addresses")
+		return err
+	}
+	log.Infof("istio-pilot endpoint IP = %s istio-policy endpoint IP = %s", pilotIP, mixerIP)
+	content = replacePattern(content, istioSystem, k.Namespace)
+	content = replacePattern(content, "mixerIpReplace", mixerIP)
+	content = replacePattern(content, "pilotIpReplace", pilotIP)
+	err = ioutil.WriteFile(dst, content, 0600)
+	if err != nil {
+		log.Errorf("cannot write remote into generated yaml file %s", dst)
+	}
+	return nil
 }

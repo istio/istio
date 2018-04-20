@@ -62,7 +62,7 @@ var (
 // One set of pilot/mixer/envoy is used for all tests, similar with the larger integration
 // tests in real docker/k8s environments
 
-// Common test environment, including Mixer and Envoy. This is a singleton, the env will be
+// Common test environment, including Mixer and Watcher. This is a singleton, the env will be
 // used for multiple tests, for local integration testing.
 func startEnvoy(t *testing.T) {
 	initEnvoyMutex.Lock()

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package management
+package registry
 
 import (
 	"fmt"
@@ -27,8 +27,8 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/cmd/node_agent/na"
 	"istio.io/istio/security/cmd/node_agent_k8s/workload/handler"
+	"istio.io/istio/security/pkg/nodeagent/secrets"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
-	"istio.io/istio/security/pkg/workload"
 	pb "istio.io/istio/security/proto"
 )
 
@@ -45,7 +45,7 @@ type Server struct {
 	// TODO(incfly): uses this once Server supports vm mode.
 	identity string // nolint
 	// secretServer manages the secrets associated for different workload.
-	secretServer workload.SecretServer
+	secretServer secrets.SecretServer
 }
 
 // Retriever is the interface responsible for retrieving key/cert from upstream CA.
@@ -58,8 +58,8 @@ func New(cfg *na.Config, retriever Retriever) (*Server, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("unablet to create when config is nil")
 	}
-	ss, err := workload.NewSecretServer(&workload.Config{
-		Mode:            workload.SecretFile,
+	ss, err := secrets.NewSecretServer(&secrets.Config{
+		Mode:            secrets.SecretFile,
 		SecretDirectory: cfg.SecretDirectory,
 	})
 	if err != nil {

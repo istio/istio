@@ -317,6 +317,7 @@ const (
 type DiscoveryServiceOptions struct {
 	Port            int
 	GrpcAddr        string
+	SecureGrpcAddr  string
 	MonitoringPort  int
 	EnableProfiling bool
 	EnableCaching   bool
