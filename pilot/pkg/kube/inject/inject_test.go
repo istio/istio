@@ -67,6 +67,7 @@ func TestIntoResourceFile(t *testing.T) {
 		excludeIPRanges     string
 		includeInboundPorts string
 		excludeInboundPorts string
+		tproxy              bool
 	}{
 		// "testdata/hello.yaml" is tested in http_test.go (with debug)
 		{
@@ -82,6 +83,17 @@ func TestIntoResourceFile(t *testing.T) {
 			debugMode:           true,
 			includeIPRanges:     DefaultIncludeIPRanges,
 			includeInboundPorts: DefaultIncludeInboundPorts,
+		},
+		{
+			in:     "testdata/hello.yaml",
+			want:   "testdata/hello-tproxy.yaml.injected",
+			tproxy: true,
+		},
+		{
+			in:        "testdata/hello.yaml",
+			want:      "testdata/hello-tproxy-debug.yaml.injected",
+			debugMode: true,
+			tproxy:    true,
 		},
 		{
 			in:                  "testdata/hello-probes.yaml",
@@ -292,6 +304,11 @@ func TestIntoResourceFile(t *testing.T) {
 				mesh.DefaultConfig.ParentShutdownDuration = ptypes.DurationProto(c.duration)
 				mesh.DefaultConfig.DiscoveryRefreshDelay = ptypes.DurationProto(c.duration)
 				mesh.DefaultConfig.ConnectTimeout = ptypes.DurationProto(c.duration)
+			}
+			if c.tproxy {
+				mesh.DefaultConfig.InterceptionMode = meshconfig.ProxyConfig_TPROXY
+			} else {
+				mesh.DefaultConfig.InterceptionMode = meshconfig.ProxyConfig_REDIRECT
 			}
 
 			params := &Params{

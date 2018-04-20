@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -1789,11 +1788,11 @@ func validateJwt(jwt *authn.Jwt) (errs error) {
 			errs = multierror.Append(errs, errors.New("audience must be non-empty string"))
 		}
 	}
-	if jwt.JwksUri == "" {
-		errs = multierror.Append(errs, errors.New("jwks_uri must be set"))
-	}
-	if _, _, _, err := ParseJwksURI(jwt.JwksUri); err != nil {
-		errs = multierror.Append(errs, err)
+	if jwt.JwksUri != "" {
+		// TODO: do more extensive check (e.g try to fetch JwksUri)
+		if _, _, _, err := ParseJwksURI(jwt.JwksUri); err != nil {
+			errs = multierror.Append(errs, err)
+		}
 	}
 
 	for _, location := range jwt.JwtHeaders {
@@ -1830,109 +1829,33 @@ func validateAuthNPolicyTarget(target *authn.TargetSelector) (errs error) {
 	return
 }
 
-// ValidateEndUserAuthenticationPolicySpec checks that EndUserAuthenticationPolicySpec is well-formed.
-func ValidateEndUserAuthenticationPolicySpec(msg proto.Message) error {
-	in, ok := msg.(*mccpb.EndUserAuthenticationPolicySpec)
-	if !ok {
-		return errors.New("cannot case to EndUserAuthenticationPolicySpec")
-	}
-	var errs error
-	if len(in.Jwts) == 0 {
-		errs = multierror.Append(errs, errors.New("at least one JWT must be specified"))
-	}
-	for _, jwt := range in.Jwts {
-		if jwt.Issuer == "" {
-			errs = multierror.Append(errs, errors.New("issuer must be set"))
-		}
-		for _, audience := range jwt.Audiences {
-			if audience == "" {
-				errs = multierror.Append(errs, errors.New("audience must be non-empty string"))
-			}
-		}
-		if jwt.JwksUri == "" {
-			errs = multierror.Append(errs, errors.New("jwks_uri must be set"))
-		}
-		if !strings.HasPrefix(jwt.JwksUri, "http://") && !strings.HasPrefix(jwt.JwksUri, "https://") {
-			errs = multierror.Append(errs, errors.New("jwks_uri must have http:// or https:// scheme"))
-		}
-		if _, err := url.Parse(jwt.JwksUri); err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("%q is not a valid url: %v", jwt.JwksUri, err))
-		}
-
-		for _, location := range jwt.Locations {
-			switch l := location.Scheme.(type) {
-			case *mccpb.JWT_Location_Header:
-				if l.Header == "" {
-					errs = multierror.Append(errs, errors.New("location header must be non-empty string"))
-				}
-			case *mccpb.JWT_Location_Query:
-				if l.Query == "" {
-					errs = multierror.Append(errs, errors.New("location query must be non-empty string"))
-				}
-			}
-		}
-		if jwt.PublicKeyCacheDuration != nil {
-			if err := ValidateGogoDuration(jwt.PublicKeyCacheDuration); err != nil {
-				errs = multierror.Append(errs, err)
-			}
-		}
-	}
-	return errs
-}
-
-// ValidateEndUserAuthenticationPolicySpecBinding checks that EndUserAuthenticationPolicySpecBinding is well-formed.
-func ValidateEndUserAuthenticationPolicySpecBinding(msg proto.Message) error {
-	in, ok := msg.(*mccpb.EndUserAuthenticationPolicySpecBinding)
-	if !ok {
-		return errors.New("cannot case to EndUserAuthenticationPolicySpecBinding")
-	}
-	var errs error
-	if len(in.Services) == 0 {
-		errs = multierror.Append(errs, errors.New("at least one service must be specified"))
-	}
-	for _, service := range in.Services {
-		if err := ValidateIstioService(mixerToProxyIstioService(service)); err != nil {
-			errs = multierror.Append(errs, err)
-		}
-	}
-	if len(in.Policies) == 0 {
-		errs = multierror.Append(errs, errors.New("at least one policy must be specified"))
-	}
-	for _, policy := range in.Policies {
-		if policy.Name == "" {
-			errs = multierror.Append(errs, errors.New("name is mandatory for EndUserAuthenticationPolicySpecReference"))
-		}
-		if policy.Namespace != "" && !IsDNS1123Label(policy.Namespace) {
-			errs = multierror.Append(errs, fmt.Errorf("namespace %q must be a valid label", policy.Namespace))
-		}
-	}
-	return errs
-}
-
 // ValidateVirtualService checks that a v1alpha3 route rule is well-formed.
 func ValidateVirtualService(msg proto.Message) (errs error) {
-	routeRule, ok := msg.(*networking.VirtualService)
+	virtualService, ok := msg.(*networking.VirtualService)
 	if !ok {
-		return errors.New("cannot cast to v1alpha3 routing rule")
+		return errors.New("cannot cast to virtual service")
 	}
 
-	// TODO: routeRule.Gateways
-
-	if len(routeRule.Hosts) == 0 {
-		errs = appendErrors(errs, fmt.Errorf("route rule must have at least one host"))
+	for _, gateway := range virtualService.Gateways {
+		if !IsDNS1123Label(gateway) {
+			errs = appendErrors(errs, fmt.Errorf("gateway is not a valid DNS1123 label: %v", gateway))
+		}
 	}
-	for _, host := range routeRule.Hosts {
+
+	if len(virtualService.Hosts) == 0 {
+		errs = appendErrors(errs, fmt.Errorf("virtual service must have at least one host"))
+	}
+	for _, host := range virtualService.Hosts {
 		errs = appendErrors(errs, validateHost(host))
 	}
 
-	for _, httpRoute := range routeRule.Http {
-		errs = appendErrors(validateHTTPRoute(httpRoute))
+	if len(virtualService.Http) == 0 && len(virtualService.Tcp) == 0 {
+		errs = appendErrors(errs, fmt.Errorf("http or tcp must be provided in virtual service"))
 	}
-
-	// TODO: validate once implemented
-	if len(routeRule.Tcp) > 0 {
-		errs = appendErrors(errs, errors.New("TCP route rules have not been implemented"))
+	for _, httpRoute := range virtualService.Http {
+		errs = appendErrors(errs, validateHTTPRoute(httpRoute))
 	}
+	// TODO: validate TCP
 
 	return
 }
@@ -1981,23 +1904,24 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 		}
 
-		// TODO: validate once implemented
-		if match.Port != nil {
-			errs = appendErrors(errs, errors.New("HTTP match port has not been implemented"))
-		}
-
+		// TODO: validate match.Port
 		errs = appendErrors(errs, Labels(match.SourceLabels).Validate())
 	}
 	errs = appendErrors(errs, validateDestination(http.Mirror))
 	errs = appendErrors(errs, validateHTTPRedirect(http.Redirect))
 	errs = appendErrors(errs, validateHTTPRetry(http.Retries))
 	errs = appendErrors(errs, validateHTTPRewrite(http.Rewrite))
+	var totalWeight int32
 	for _, route := range http.Route {
 		if route.Destination == nil {
 			errs = multierror.Append(errs, errors.New("destination is required"))
 		}
 		errs = appendErrors(errs, validateDestination(route.Destination))
 		errs = appendErrors(errs, ValidatePercent(route.Weight))
+		totalWeight += route.Weight
+	}
+	if len(http.Route) > 1 && totalWeight > 100 {
+		errs = appendErrors(errs, fmt.Errorf("total destination weight %v > 100", totalWeight))
 	}
 	if http.Timeout != nil {
 		errs = appendErrors(errs, ValidateDurationGogo(http.Timeout))

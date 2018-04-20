@@ -90,7 +90,7 @@ func (env *NodeAgentTestEnv) GetComponents() []framework.Component {
 			NewKubernetesService(
 				env.ClientSet,
 				env.NameSpace,
-				"citadel",
+				"istio-citadel",
 				v1.ServiceTypeClusterIP,
 				8060,
 				map[string]string{

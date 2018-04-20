@@ -152,6 +152,16 @@ func (m *Listener) Validate() error {
 		}
 	}
 
+	if v, ok := interface{}(m.GetTcpFastOpenQueueLength()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ListenerValidationError{
+				Field:  "TcpFastOpenQueueLength",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
 	return nil
 }
 

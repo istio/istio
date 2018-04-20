@@ -15,7 +15,10 @@
 package bootstrap
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -30,6 +33,7 @@ import (
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	multierror "github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -87,6 +91,10 @@ var (
 		model.ServiceRole,
 		model.ServiceRoleBinding,
 	}
+
+	// PilotCertDir is the default location for mTLS certificates used by pilot
+	// Visible for tests - at runtime can be set by PILOT_CERT_DIR environment variable.
+	PilotCertDir = "/etc/certs/"
 )
 
 // MeshArgs provide configuration options for the mesh. If ConfigFile is provided, an attempt will be made to
@@ -141,19 +149,21 @@ type PilotArgs struct {
 
 // Server contains the runtime configuration for the Pilot discovery service.
 type Server struct {
-	mesh              *meshconfig.MeshConfig
-	ServiceController *aggregate.Controller
-	configController  model.ConfigStoreCache
-	mixerSAN          []string
-	kubeClient        kubernetes.Interface
-	startFuncs        []startFunc
-	HTTPListeningAddr net.Addr
-	GRPCListeningAddr net.Addr
-	clusterStore      *clusterregistry.ClusterStore
+	mesh                    *meshconfig.MeshConfig
+	ServiceController       *aggregate.Controller
+	configController        model.ConfigStoreCache
+	mixerSAN                []string
+	kubeClient              kubernetes.Interface
+	startFuncs              []startFunc
+	HTTPListeningAddr       net.Addr
+	GRPCListeningAddr       net.Addr
+	SecureGRPCListeningAddr net.Addr
+	clusterStore            *clusterregistry.ClusterStore
 
 	EnvoyXdsServer   *envoyv2.DiscoveryServer
 	HTTPServer       *http.Server
 	GRPCServer       *grpc.Server
+	secureGRPCServer *grpc.Server
 	DiscoveryService *envoy.DiscoveryService
 
 	// An in-memory service discovery, enabled if 'mock' registry is added.
@@ -243,15 +253,39 @@ func (s *Server) initMonitor(args *PilotArgs) error {
 }
 
 func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
+	// Initializing Cluster store
+	s.clusterStore = clusterregistry.NewClustersStore()
+
 	if args.Config.ClusterRegistriesConfigmap != "" {
-		s.clusterStore, err = clusterregistry.ReadClusters(s.kubeClient,
+		if err = clusterregistry.ReadClusters(s.kubeClient,
 			args.Config.ClusterRegistriesConfigmap,
-			args.Config.ClusterRegistriesNamespace)
+			args.Config.ClusterRegistriesNamespace,
+			s.clusterStore); err != nil {
+			return err
+		}
 		if s.clusterStore != nil {
 			log.Infof("clusters configuration %s", spew.Sdump(s.clusterStore))
 		}
 	}
+	// Should not start Secret Controller if Mock Registry is used
+	if !checkForMock(args.Service.Registries) {
+		// Starting Secret controller which will watch for Secret Objects and handle
+		// clientConfigs map dynamically
+		err = clusterregistry.StartSecretController(s.kubeClient, s.clusterStore, args.Config.ClusterRegistriesNamespace)
+	}
+
 	return err
+}
+
+// Check if Mock's registry exists in PilotArgs's Registries
+func checkForMock(registries []string) bool {
+	for _, r := range registries {
+		if strings.ToLower(r) == "mock" {
+			return true
+		}
+	}
+
+	return false
 }
 
 // GetMeshConfig fetches the ProxyMesh configuration from Kubernetes ConfigMap.
@@ -685,9 +719,10 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 	// For now we create the gRPC server sourcing data from Pilot's older data model.
 	s.initGrpcServer()
-	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(s.GRPCServer, environment, v1alpha3.NewConfigGenerator(registry.NewPlugins()))
+	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(environment, v1alpha3.NewConfigGenerator(registry.NewPlugins()))
 	// TODO: decouple v2 from the cache invalidation, use direct listeners.
 	envoy.V2ClearCache = s.EnvoyXdsServer.ClearCacheFunc()
+	s.EnvoyXdsServer.Register(s.GRPCServer)
 
 	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController)
 
@@ -708,6 +743,13 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	}
 	s.GRPCListeningAddr = grpcListener.Addr()
 
+	// TODO: only if TLS certs, go routine to check for late certs
+	secureGrpcListener, err := net.Listen("tcp", args.DiscoveryOptions.SecureGrpcAddr)
+	if err != nil {
+		return err
+	}
+	s.SecureGRPCListeningAddr = secureGrpcListener.Addr()
+
 	s.addStartFunc(func(stop chan struct{}) error {
 		log.Infof("Discovery service started at http=%s grpc=%s", listener.Addr().String(), grpcListener.Addr().String())
 
@@ -717,10 +759,13 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 			}
 		}()
 		go func() {
-			if err = s.EnvoyXdsServer.GrpcServer.Serve(grpcListener); err != nil {
+			if err = s.GRPCServer.Serve(grpcListener); err != nil {
 				log.Warna(err)
 			}
 		}()
+		if len(args.DiscoveryOptions.SecureGrpcAddr) > 0 {
+			go s.secureGrpcStart(secureGrpcListener)
+		}
 
 		go func() {
 			<-stop
@@ -728,7 +773,10 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 			if err != nil {
 				log.Warna(err)
 			}
-			s.EnvoyXdsServer.GrpcServer.Stop()
+			s.GRPCServer.Stop()
+			if s.secureGRPCServer != nil {
+				s.secureGRPCServer.Stop()
+			}
 		}()
 
 		return err
@@ -737,22 +785,107 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	return nil
 }
 
-// NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
 func (s *Server) initGrpcServer() {
-	// TODO for now use hard coded / default gRPC options. The constructor may evolve to use interfaces that guide specific options later.
-	// Example:
-	//		grpcOptions = append(grpcOptions, grpc.MaxConcurrentStreams(uint32(someconfig.MaxConcurrentStreams)))
-	var grpcOptions []grpc.ServerOption
+	grpcOptions := s.grpcServerOptions()
+	s.GRPCServer = grpc.NewServer(grpcOptions...)
+}
 
-	var interceptors []grpc.UnaryServerInterceptor
+// The secure grpc will start when the credentials are found.
+func (s *Server) secureGrpcStart(listener net.Listener) {
+	certDir := os.Getenv("PILOT_CERT_DIR")
+	if certDir == "" {
+		certDir = PilotCertDir // /etc/certs
+	}
+	if !strings.HasSuffix(certDir, "/") {
+		certDir = certDir + "/"
+	}
 
-	// TODO: log request interceptor if debug enabled.
+	for i := 0; i < 30; i++ {
+		opts := s.grpcServerOptions()
 
-	// setup server prometheus monitoring (as final interceptor in chain)
-	interceptors = append(interceptors, prometheus.UnaryServerInterceptor)
+		// This is used for the grpc h2 implementation. It doesn't appear to be needed in
+		// the case of golang h2 stack.
+		creds, err := credentials.NewServerTLSFromFile(certDir+model.CertChainFilename,
+			certDir+model.KeyFilename)
+		// certs not ready yet.
+		if err != nil {
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
+		// TODO: parse the file to determine expiration date. Restart listener before expiration
+		cert, err := tls.LoadX509KeyPair(certDir+model.CertChainFilename,
+			certDir+model.KeyFilename)
+		if err != nil {
+			time.Sleep(5 * time.Second)
+			continue
+		}
+		caCertFile := certDir + model.RootCertFilename
+		caCert, err := ioutil.ReadFile(caCertFile)
+		if err != nil {
+			time.Sleep(5 * time.Second)
+			continue
+		}
+		caCertPool := x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM(caCert)
+
+		opts = append(opts, grpc.Creds(creds))
+		s.secureGRPCServer = grpc.NewServer(opts...)
+
+		s.EnvoyXdsServer.Register(s.secureGRPCServer)
+
+		log.Infof("Starting GRPC secure on %v with certs in %s", listener.Addr(), certDir)
+
+		s := &http.Server{
+			TLSConfig: &tls.Config{
+				Certificates: []tls.Certificate{cert},
+				VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+					// For now accept any certs - pilot is not authenticating the caller, TLS used for
+					// privacy
+					//log.Infof("Certificate received %V", verifiedChains)
+					return nil
+				},
+				//ClientAuth: tls.RequestClientCert,
+				ClientAuth: tls.RequireAndVerifyClientCert,
+				ClientCAs:  caCertPool,
+			},
+			Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.ProtoMajor == 2 && strings.HasPrefix(
+					r.Header.Get("Content-Type"), "application/grpc") {
+					s.secureGRPCServer.ServeHTTP(w, r)
+				} else {
+					s.mux.ServeHTTP(w, r)
+				}
+			}),
+		}
+
+		// This seems the only way to call setupHTTP2 - it may also be possible to set NextProto
+		// on a listener
+		_ = s.ServeTLS(listener, certDir+model.CertChainFilename, certDir+model.KeyFilename)
+
+		// The other way to set TLS - but you can't add http handlers, and the h2 stack is
+		// different.
+		//if err := s.secureGRPCServer.Serve(listener); err != nil {
+		//	log.Warna(err)
+		//}
+	}
+
+	log.Errorf("Failed to find certificates for GRPC secure in %s", certDir)
+
+	// Exit - mesh is in MTLS mode, but certificates are missing or bad.
+	// k8s may allocate to a different machine.
+	if s.mesh.DefaultConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
+		os.Exit(403)
+	}
+}
+
+func (s *Server) grpcServerOptions() []grpc.ServerOption {
+	interceptors := []grpc.UnaryServerInterceptor{
+		// setup server prometheus monitoring (as final interceptor in chain)
+		prometheus.UnaryServerInterceptor,
+	}
+
 	prometheus.EnableHandlingTimeHistogram()
-
-	grpcOptions = append(grpcOptions, grpc.UnaryInterceptor(middleware.ChainUnaryServer(interceptors...)))
 
 	// Temp setting, default should be enough for most supported environments. Can be used for testing
 	// envoy with lower values.
@@ -764,12 +897,16 @@ func (s *Server) initGrpcServer() {
 	if maxStreams == 0 {
 		maxStreams = 100000
 	}
-	grpcOptions = append(grpcOptions, grpc.MaxConcurrentStreams(uint32(maxStreams)))
+
+	grpcOptions := []grpc.ServerOption{
+		grpc.UnaryInterceptor(middleware.ChainUnaryServer(interceptors...)),
+		grpc.MaxConcurrentStreams(uint32(maxStreams)),
+	}
 
 	// get the grpc server wired up
 	grpc.EnableTracing = true
 
-	s.GRPCServer = grpc.NewServer(grpcOptions...)
+	return grpcOptions
 }
 
 func (s *Server) addStartFunc(fn startFunc) {

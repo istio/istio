@@ -21,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes"
 	multierror "github.com/hashicorp/go-multierror"
 
@@ -61,6 +62,9 @@ type Proxy struct {
 	// Domain defines the DNS domain suffix for short hostnames (e.g.
 	// "default.svc.cluster.local")
 	Domain string
+
+	// Metadata key-value pairs extending the Node identifier
+	Metadata map[string]string
 }
 
 // NodeType decides the responsibility of the proxy serves in the mesh
@@ -88,11 +92,30 @@ func IsApplicationNodeType(nType NodeType) bool {
 }
 
 // ServiceNode encodes the proxy node attributes into a URI-acceptable string
-func (node Proxy) ServiceNode() string {
+func (node *Proxy) ServiceNode() string {
 	return strings.Join([]string{
 		string(node.Type), node.IPAddress, node.ID, node.Domain,
 	}, serviceNodeSeparator)
 
+}
+
+// ParseMetadata parses the opaque Metadata from an Envoy Node into string key-value pairs.
+// Any non-string values are ignored.
+func ParseMetadata(metadata *types.Struct) map[string]string {
+	if metadata == nil {
+		return nil
+	}
+	fields := metadata.GetFields()
+	res := make(map[string]string, len(fields))
+	for k, v := range fields {
+		if s, ok := v.GetKind().(*types.Value_StringValue); ok {
+			res[k] = s.StringValue
+		}
+	}
+	if len(res) == 0 {
+		res = nil
+	}
+	return res
 }
 
 // ParseServiceNode is the inverse of service node function

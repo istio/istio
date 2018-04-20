@@ -41,7 +41,7 @@ type Scope struct {
 	logCallers      atomic.Value
 }
 
-var scopes = make(map[string]*Scope, 0)
+var scopes = make(map[string]*Scope)
 var lock = sync.Mutex{}
 
 // set by the Configure method
@@ -53,7 +53,7 @@ var errorSink atomic.Value
 //
 // Scope names cannot include colons, commas, or periods.
 func RegisterScope(name string, description string, callerSkip int) *Scope {
-	if strings.IndexAny(name, ":,.") >= 0 {
+	if strings.ContainsAny(name, ":,.") {
 		return nil
 	}
 
@@ -86,7 +86,7 @@ func FindScope(scope string) *Scope {
 	lock.Lock()
 	defer lock.Unlock()
 
-	s, _ := scopes[scope]
+	s := scopes[scope]
 	return s
 }
 
@@ -242,7 +242,7 @@ func (s *Scope) emit(level zapcore.Level, dumpStack bool, msg string, fields []z
 		if err := w(e, fields); err != nil {
 			if es := errorSink.Load().(zapcore.WriteSyncer); es != nil {
 				fmt.Fprintf(es, "%v log write error: %v\n", time.Now(), err)
-				es.Sync()
+				_ = es.Sync()
 			}
 		}
 	}
