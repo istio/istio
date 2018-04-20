@@ -96,7 +96,7 @@ spec:
          - containerPort: 8088 # Port that doesn't exist on deployment 1
         args:
           - server
-          - -P="8088 localhost:8080" # Proxy to self, aka have another http echo on 8088
+          - -P=8088 localhost:8080 # Proxy to self, aka have another http echo on 8088, includes the space in arg
 #          - -loglevel=debug  # to see all incoming connections
 #          - -echo-debug-path=/fortio/debug # can be changed
 ---
