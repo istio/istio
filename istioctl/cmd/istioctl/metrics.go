@@ -32,6 +32,7 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
 
@@ -142,7 +143,7 @@ func run(c *cobra.Command, args []string) error {
 	}
 }
 
-func prometheusPods(client *rest.RESTClient) (*v1.PodList, error) {
+func prometheusPods(client cache.Getter) (*v1.PodList, error) {
 	podGet := client.Get().Resource("pods").Namespace(istioNamespace).Param("labelSelector", "app=prometheus")
 	obj, err := podGet.Do().Get()
 	if err != nil {
