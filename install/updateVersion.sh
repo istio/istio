@@ -22,11 +22,6 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/.."
 
 cd ${ROOT}
 
-# just run the old version
-${ROOT}/install/updateVersion_orig.sh "$@"
-
-echo "$@"
-
 DEST_DIR=${ROOT}
 # The top level script needs many more options.
 # leading ":" does not parse the first argument.
