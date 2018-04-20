@@ -82,6 +82,8 @@ func setTestConfig() error {
 	}
 	tc.CommonConfig = cc
 
+	tc.Kube.InstallAddons = true // zipkin is used
+
 	// Add mTLS auth exclusion policy.
 	tc.Kube.MTLSExcludedServices = []string{fmt.Sprintf("fake-control.%s.svc.cluster.local", tc.Kube.Namespace)}
 
