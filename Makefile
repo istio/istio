@@ -577,8 +577,6 @@ $(HELM):
 istio-remote.yaml: $(HELM)
 	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/$@
 	$(HELM) template --namespace=istio-system \
-		  --set global.pilotEndpoint="pilotIpReplace" \
-		  --set global.policyEndpoint="mixerIpReplace" \
 		  install/kubernetes/helm/istio-remote >> install/kubernetes/$@
 
 # creates istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml
