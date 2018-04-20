@@ -131,6 +131,7 @@ e2e_bookinfo_envoyv2_v1alpha3: | istioctl test/local/noauth/e2e_bookinfo_envoyv2
 # make test/local/noauth/e2e_pilotv2 T=-test.run=TestPilot/ingress
 
 test/minikube/auth/e2e_simple: generate_yaml
+	mkdir -p ${OUT_DIR}/tests
 	set -o pipefail; go test -v -timeout 20m ./tests/e2e/tests/simple -args --auth_enable=true \
 	  --skip_cleanup  -use_local_cluster -cluster_wide \
 	  ${E2E_ARGS} ${EXTRA_E2E_ARGS}  ${T}\
