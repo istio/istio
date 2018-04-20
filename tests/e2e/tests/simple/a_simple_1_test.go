@@ -191,7 +191,7 @@ func TestAuth(t *testing.T) {
 }
 
 func TestAuthWithHeaders(t *testing.T) {
-	// t.Skip("Skipping TestAuthWithHeaders until bug is fixed") // TODO: fix me !
+	t.Skip("Skipping TestAuthWithHeaders until bug is fixed") // TODO: fix me !
 	ns := tc.Kube.Namespace
 	// Get the non istio pod
 	podList, err := getPodList(ns, "app=fortio-noistio")
@@ -210,21 +210,22 @@ func TestAuthWithHeaders(t *testing.T) {
 	if len(podList) != 1 {
 		t.Fatalf("Unexpected to get %d pod ips when expecting 1. got %v", len(podList), podList)
 	}
-	podIstio := podList[0]
-	log.Infof("From client, non istio injected pod \"%s\" to istio pod \"%s\"", podNoIstio, podIstio)
+	podIstioIP := podList[0]
+	log.Infof("From client, non istio injected pod \"%s\" to istio pod \"%s\"", podNoIstio, podIstioIP)
 	// TODO: ipv6 fix
-	res, err := util.Shell("kubectl exec -n %s %s -- /usr/local/bin/fortio curl -H Host:echosrv2.%s:8088 http://%s:8088/debug", ns, podNoIstio, ns, podIstio)
+	res, err := util.Shell("kubectl exec -n %s %s -- /usr/local/bin/fortio curl -H Host:echosrv2.%s:8088 http://%s:8088/debug", ns, podNoIstio, ns, podIstioIP)
 	if tc.Kube.AuthEnabled {
 		if err == nil {
 			t.Errorf("Running with auth on yet able to connect from non istio to istio (insecure): %v", res)
 		} else {
-			log.Infof("Got expected error with auth on and non istio->istio connection: %v", err)
+			log.Infof("Got expected error with auth on and non istio->istio pod ip connection despite headers: %v", err)
 		}
 	} else {
+		// even with auth off this should fail and not proxy from 1 pod to another based on host header
 		if err == nil {
-			log.Infof("Got expected success with auth off and non istio->istio connection: %v", res)
+			t.Errorf("Running with auth off but yet able to connect from non istio to istio pod ip with wrong port: %v", res)
 		} else {
-			t.Errorf("Unexpected error connect from non istio to istio without auth: %v", err)
+			log.Infof("Got expected error from non istio to istio pod ip without auth but with wrong port: %v", err)
 		}
 	}
 }
