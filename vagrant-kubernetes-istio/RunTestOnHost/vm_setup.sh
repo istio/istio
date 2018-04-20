@@ -5,7 +5,16 @@ echo "Setup vagrant"
 vagrant up --provider virtualbox
 vagrant ssh -c "echo export HUB=10.10.0.2:5000 >> ~/.bashrc"
 vagrant ssh -c "echo export TAG=latest >> ~/.bashrc"
+vagrant ssh -c "echo export GOPATH=/home/vagrant/go >> ~/.bashrc"
+vagrant ssh -c "echo export PATH=$PATH:/usr/local/go/bin:/go/bin:/home/vagrant/go/bin >> ~/.bashrc"
 vagrant ssh -c "source ~/.bashrc"
+
+#Setup delve on vagrant
+vagrant ssh -c "/usr/local/go/bin/go get github.com/derekparker/delve/cmd/dlv"
+
+#Create symbolic link between shared istio folder source at GOPATH, so that
+# delve can find it while debugging.
+vagrant ssh -c "sudo ln -s /go /home/vagrant/go"
 
 # Adding insecure registry on VM.
 echo "Adding insecure registry to docker daemon in vagrant vm..."
