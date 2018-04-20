@@ -70,13 +70,13 @@ func readURI(uri string) (string, error) {
 func initialRead(addr string) (root string, certChain string, err error) {
 	retry := 10
 	for i := 0; i < retry; i++ {
-		root, err = readURI(fmt.Sprintf("http://%v:8080/root", addr))
-		certChain, err = readURI(fmt.Sprintf("http://%v:8080/cert", addr))
+		root, _ = readURI(fmt.Sprintf("http://%v:8080/root", addr))
+		certChain, _ = readURI(fmt.Sprintf("http://%v:8080/cert", addr))
 		if root != "" && certChain != "" {
 			return root, certChain, nil
 		}
-		log.Infof("Attempt (%v) empty key or cert, retry in 3 seconds, error %v\root:%v\ncert:\n%v\n",
-			i+1, err, root, certChain)
+		log.Infof("Attempt (%v) empty key or cert, retry in 3 seconds\nroot:%v\ncert:\n%v\n",
+			i+1, root, certChain)
 		time.Sleep(time.Second * 3)
 	}
 	return "", "", fmt.Errorf("failed to load key certs after %v retries %v", retry, err)
