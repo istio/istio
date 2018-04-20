@@ -189,7 +189,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env model.Environmen
 		listeners = append(listeners, l)
 		// TODO: need inbound listeners in HTTP_PROXY case, with dedicated ingress listener.
 	}
-
+	log.Infof("Debug pilot e2e: node.ID %s", node.ID)
+	listenersJSON, _ := json.MarshalIndent(listeners, "  ", "  ")
+	log.Infof("Debug pilot e2e: listeners: %s \n", string(listenersJSON))
 	return listeners, nil
 }
 
