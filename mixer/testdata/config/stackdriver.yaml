@@ -70,7 +70,7 @@ spec:
       - responseCode
       - responseSize
       - requestSize
-    latency: response.duration | "0ms"
+      - latency
       sinkInfo:
         id: '<sink_id>'
         destination: '<sink_destination>'
