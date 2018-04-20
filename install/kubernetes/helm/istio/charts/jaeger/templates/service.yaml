@@ -1,0 +1,108 @@
+#
+# Copyright 2017-2018 The Jaeger Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+# in compliance with the License. You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software distributed under the License
+# is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+# or implied. See the License for the specific language governing permissions and limitations under
+# the License.
+#
+
+apiVersion: v1
+kind: List
+items:
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: jaeger-query
+    namespace: {{ .Release.Namespace }}
+    labels:
+      app: jaeger
+      jaeger-infra: jaeger-service
+      chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+      release: {{ .Release.Name }}
+      heritage: {{ .Release.Service }}
+  spec:
+    ports:
+      - name: query-http
+        port: 80
+        protocol: TCP
+        targetPort: {{ .Values.queryservice.internalPort }}
+    selector:
+      jaeger-infra: jaeger-pod
+    type: {{ .Values.queryservice.type }}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: jaeger-collector
+    namespace: {{ .Release.Namespace }}
+    labels:
+      app: jaeger
+      jaeger-infra: collector-service
+      chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+      release: {{ .Release.Name }}
+      heritage: {{ .Release.Service }}
+  spec:
+    ports:
+    - name: {{ .Values.collectorservice.nameTChannel }}
+      port: {{ .Values.collectorservice.externalTChannelPort }}
+      protocol: TCP
+      targetPort: {{ .Values.collectorservice.internalTChannelPort }}
+    - name: {{ .Values.collectorservice.nameHttp }}
+      port: {{ .Values.collectorservice.externalHttpPort }}
+      targetPort: {{ .Values.collectorservice.internalHttpPort }}
+      protocol: TCP
+    selector:
+      jaeger-infra: jaeger-pod
+    type: {{ .Values.collectorservice.type }}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: jaeger-agent
+    namespace: {{ .Release.Namespace }}
+    labels:
+      app: jaeger
+      jaeger-infra: agent-service
+      chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+      release: {{ .Release.Name }}
+      heritage: {{ .Release.Service }}
+  spec:
+    ports:
+    - name: agent-zipkin-thrift
+      port: 5775
+      protocol: UDP
+      targetPort: 5775
+    - name: agent-compact
+      port: 6831
+      protocol: UDP
+      targetPort: 6831
+    - name: agent-binary
+      port: 6832
+      protocol: UDP
+      targetPort: 6832
+    clusterIP: None
+    selector:
+      jaeger-infra: jaeger-pod
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: zipkin
+    namespace: {{ .Release.Namespace }}
+    labels:
+      app: jaeger
+      chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+      release: {{ .Release.Name }}
+      heritage: {{ .Release.Service }}
+  spec:
+    ports:
+      - port: {{ .Values.zipkinservice.externalPort }}
+        targetPort: {{ .Values.zipkinservice.internalPort }}
+        protocol: TCP
+        name: {{ .Values.zipkinservice.name }}
+    clusterIP: None
+    selector:
+      jaeger-infra: jaeger-pod

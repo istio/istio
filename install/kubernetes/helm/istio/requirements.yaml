@@ -39,6 +39,10 @@ dependencies:
     version: 0.1.0
     # repository: file://../addons/zipkin
     condition: zipkin.enabled
+  - name: jaeger
+    version: 0.1.0
+    # repository: file://../addons/jaeger
+    condition: jaeger.enabled
   - name: galley
     version: 0.8.0
     # repository: file://../sidecar-injector
