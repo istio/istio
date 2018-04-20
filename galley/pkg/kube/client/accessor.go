@@ -34,23 +34,23 @@ import (
 
 type ChangeProcessorFn func(c *change.Info)
 
-type accessor struct {
-	// Lock for changing the running state of the accessor
+type Accessor struct {
+	// Lock for changing the running state of the Accessor
 	stateLock sync.Mutex
 
-	// name, API group and version of the resource.
+	// name, API group and lastKnownVersion of the resource.
 	name string
 	gv   schema.GroupVersion
 
 	resyncPeriod time.Duration
 
-	// client for accessing the resources dynamically
-	client dynamic.Interface
+	// Client for accessing the resources dynamically
+	Client dynamic.Interface
 
 	// The dynamic resource interface for accessing custom resources dynamically.
 	iface dynamic.ResourceInterface
 
-	// metadata about the resource (i.e. name, kind, group, version etc.)
+	// metadata about the resource (i.e. name, kind, group, lastKnownVersion etc.)
 	apiResource *metav1.APIResource
 
 	// stopCh is used to quiesce the background activity during shutdown
@@ -63,10 +63,10 @@ type accessor struct {
 	processor ChangeProcessorFn
 }
 
-func newAccessor(kube kube.Kube, resyncPeriod time.Duration, name string, gv schema.GroupVersion,
-	kind string, listKind string, processor ChangeProcessorFn) (*accessor, error) {
+func NewAccessor(kube kube.Kube, resyncPeriod time.Duration, name string, gv schema.GroupVersion,
+	kind string, listKind string, processor ChangeProcessorFn) (*Accessor, error) {
 
-	log.Debugf("Creating a new resource accessor for: name='%s', gv:'%v'", name, gv)
+	log.Debugf("Creating a new resource Accessor for: name='%s', gv:'%v'", name, gv)
 
 	var client dynamic.Interface
 	client, err := kube.DynamicInterface(gv, kind, listKind)
@@ -83,18 +83,18 @@ func newAccessor(kube kube.Kube, resyncPeriod time.Duration, name string, gv sch
 	}
 	iface := client.Resource(apiResource, "")
 
-	return &accessor{
+	return &Accessor{
 		resyncPeriod: resyncPeriod,
 		name:         name,
 		gv:           gv,
 		iface:        iface,
-		client:       client,
+		Client:       client,
 		processor:    processor,
 		apiResource:  apiResource,
 	}, nil
 }
 
-func (c *accessor) start() {
+func (c *Accessor) Start() {
 	c.stateLock.Lock()
 	defer c.stateLock.Unlock()
 
@@ -103,7 +103,7 @@ func (c *accessor) start() {
 		return
 	}
 
-	log.Debugf("Starting accessor for %s(%v)", c.name, c.gv)
+	log.Debugf("Starting Accessor for %s(%v)", c.name, c.gv)
 
 	c.stopCh = make(chan struct{})
 
@@ -136,12 +136,12 @@ func (c *accessor) start() {
 		DeleteFunc: func(obj interface{}) { c.handleEvent(change.Delete, obj) },
 	})
 
-	// start CRD shared informer background process.
+	// Start CRD shared informer background process.
 	go c.informer.Run(c.stopCh)
 
 	// Wait for CRD cache sync.
 	if !cache.WaitForCacheSync(c.stopCh, c.informer.HasSynced) {
-		log.Warnf("Shutting down while waiting for accessor cache sync %c(%v)", c.name, c.gv)
+		log.Warnf("Shutting down while waiting for Accessor cache sync %c(%v)", c.name, c.gv)
 	}
 	log.Debugf("Completed cache sync and listening. %s(%v)", c.name, c.gv)
 
@@ -153,7 +153,7 @@ func (c *accessor) start() {
 	c.processor(info)
 }
 
-func (c *accessor) stop() {
+func (c *Accessor) Stop() {
 	c.stateLock.Lock()
 	defer c.stateLock.Unlock()
 
@@ -166,7 +166,7 @@ func (c *accessor) stop() {
 	c.stopCh = nil
 }
 
-func (c *accessor) handleEvent(t change.Type, obj interface{}) {
+func (c *Accessor) handleEvent(t change.Type, obj interface{}) {
 	object, ok := obj.(metav1.Object)
 	if !ok {
 		var tombstone cache.DeletedFinalStateUnknown
@@ -194,6 +194,6 @@ func (c *accessor) handleEvent(t change.Type, obj interface{}) {
 		GroupVersion: c.gv,
 	}
 
-	log.Debugf("Dispatching accessor event: %v", info)
+	log.Debugf("Dispatching Accessor event: %v", info)
 	c.processor(info)
 }

@@ -12,12 +12,13 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package client
+package source
 
 import (
 	"strings"
 	"time"
 
+	"istio.io/istio/galley/pkg/kube/client"
 	"istio.io/istio/galley/pkg/kube/client/serviceconfig"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -32,17 +33,17 @@ type Source struct {
 	k  kube.Kube
 	ch chan runtime.Event
 
-	scAccessor *accessor
+	scAccessor *client.Accessor
 }
 
 var _ runtime.Source = &Source{}
 
-func NewSource(k kube.Kube, resyncPeriod time.Duration) (*Source, error) {
+func New(k kube.Kube, resyncPeriod time.Duration) (*Source, error) {
 	s := &Source{
 		k: k,
 	}
 
-	scAccessor, err := newAccessor(
+	scAccessor, err := client.NewAccessor(
 		k,
 		resyncPeriod,
 		serviceconfig.Name,
@@ -62,13 +63,13 @@ func NewSource(k kube.Kube, resyncPeriod time.Duration) (*Source, error) {
 func (s *Source) Start() (chan runtime.Event, error) {
 	s.ch = make(chan runtime.Event, 1024)
 
-	s.scAccessor.start()
+	s.scAccessor.Start()
 
 	return s.ch, nil
 }
 
 func (s *Source) Stop() {
-	s.scAccessor.stop()
+	s.scAccessor.Stop()
 	s.ch = nil
 }
 
@@ -76,7 +77,7 @@ func (s *Source) Get(id model.ResourceKey) (model.Resource, error) {
 	parts := strings.Split(id.Name, "/")
 	ns := parts[0]
 	name := parts[1]
-	u, err := s.scAccessor.client.Resource(&serviceconfig.APIResource, ns).Get(name, metav1.GetOptions{})
+	u, err := s.scAccessor.Client.Resource(&serviceconfig.APIResource, ns).Get(name, metav1.GetOptions{})
 	if err != nil {
 		return model.Resource{}, err
 	}

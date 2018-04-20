@@ -18,7 +18,8 @@ import (
 	"time"
 
 	"istio.io/istio/galley/pkg/kube"
-	"istio.io/istio/galley/pkg/kube/client"
+	"istio.io/istio/galley/pkg/kube/client/distributor"
+	"istio.io/istio/galley/pkg/kube/client/source"
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/pkg/log"
 )
@@ -28,12 +29,15 @@ type Server struct {
 }
 
 func New(k kube.Kube, resyncPeriod time.Duration) (*Server, error) {
-	src, err := client.NewSource(k, resyncPeriod)
+	src, err := source.New(k, resyncPeriod)
 	if err != nil {
-		return nil, nil
+		return nil, err
 	}
 
-	dist := client.NewDistributor(k)
+	dist, err := distributor.New(k, resyncPeriod)
+	if err != nil {
+		return nil, err
+	}
 	rt := runtime.New(src, dist)
 
 	s := &Server{
