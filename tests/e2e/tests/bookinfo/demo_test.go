@@ -148,7 +148,7 @@ func doTestVersionMigration(t *testing.T, configVersion string) {
 	defer func() {
 		// ignore the error that will happen since the fifty rule redefines
 		// "reviews-default" rule and is deleted
-		deleteRules(configVersion, defaultRules)
+		_ = deleteRules(configVersion, defaultRules)
 	}()
 
 	modelV2 := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v2.html"))

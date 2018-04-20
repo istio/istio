@@ -375,7 +375,7 @@ func adsz(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if proxyID := req.Form.Get("proxyID"); proxyID != "" {
+	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
 		writeADSForSidecar(w, proxyID)
 		return
 	}

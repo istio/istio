@@ -1,0 +1,20 @@
+# What retry or other policy is needed to avoid 503s when talking to non
+# existant pods (version=doesntexist1) ?
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: rule-3
+spec:
+  destination:
+    name: echosrv
+  precedence: 1
+  route:
+  - labels:
+      version: v1
+    weight: 33
+  - labels:
+      version: doesntexist1
+    weight: 33
+  - labels:
+      version: v2
+    weight: 34

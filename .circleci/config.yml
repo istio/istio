@@ -54,7 +54,7 @@ jobs:
             make docker.all generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: make test/minikube/noauth/e2e_simple
+      - run: make test/minikube/auth/e2e_simple
       - run:
           name: dumpsys
           when: always
@@ -64,7 +64,7 @@ jobs:
             kubectl get all -o wide --all-namespaces
             kubectl cluster-info dump > /go/out/logs/cluster-info.dump.txt
             kubectl describe pods -n istio-system > /go/out/logs/pods-system.txt
-            /go/bin/go-junit-report </go/out/tests/test-report-noauth-simple.raw > /go/out/tests/test-report-noauth-simple.xml
+            /go/bin/go-junit-report </go/out/tests/test-report-auth-simple.raw > /go/out/tests/test-report-auth-simple.xml
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
