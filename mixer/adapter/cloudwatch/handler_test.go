@@ -65,19 +65,19 @@ func TestPutMetricData(t *testing.T) {
 				{MetricName: aws.String("testMetric"), Value: aws.Float64(1)},
 			},
 			"put metric data",
-			NewHandler(nil, env, cfg, &mockFailCloudWatchClient{}),
+			newHandler(nil, env, cfg, &mockFailCloudWatchClient{}),
 		},
 		{
 			[]*cloudwatch.MetricDatum{
 				{MetricName: aws.String("testMetric"), Value: aws.Float64(1)},
 			},
 			"",
-			NewHandler(nil, env, cfg, &mockCloudWatchClient{}),
+			newHandler(nil, env, cfg, &mockCloudWatchClient{}),
 		},
 	}
 
 	for _, c := range cases {
-		h, ok := c.handler.(*Handler)
+		h, ok := c.handler.(*handler)
 		if !ok {
 			t.Error("Test case has the wrong type of handler.")
 		}
@@ -217,7 +217,7 @@ func TestSendMetricsToCloudWatch(t *testing.T) {
 		Namespace: "istio-mixer-cloudwatch",
 	}
 
-	h := NewHandler(nil, env, cfg, &mockCloudWatchClient{})
+	h := newHandler(nil, env, cfg, &mockCloudWatchClient{})
 
 	cases := []struct {
 		metricData                  []*cloudwatch.MetricDatum
@@ -229,7 +229,7 @@ func TestSendMetricsToCloudWatch(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		h, ok := h.(*Handler)
+		h, ok := h.(*handler)
 		if !ok {
 			t.Error("Test case has the wrong type of handler.")
 		}
@@ -266,13 +266,13 @@ func TestGenerateMetricData(t *testing.T) {
 	}{
 		// empty instances
 		{
-			NewHandler(nil, env,
+			newHandler(nil, env,
 				generateCfgWithUnit(config.Count),
 				&mockCloudWatchClient{}),
 			[]*metric.Instance{}, []*cloudwatch.MetricDatum{}},
 		// timestamp value
 		{
-			NewHandler(nil, env,
+			newHandler(nil, env,
 				generateCfgWithNameAndUnit("requestduration", config.Milliseconds),
 				&mockCloudWatchClient{}),
 			[]*metric.Instance{
@@ -292,7 +292,7 @@ func TestGenerateMetricData(t *testing.T) {
 		},
 		// count value and dimensions
 		{
-			NewHandler(nil, env,
+			newHandler(nil, env,
 				generateCfgWithNameAndUnit("requestcount", config.Count),
 				&mockCloudWatchClient{}),
 			[]*metric.Instance{
@@ -321,7 +321,7 @@ func TestGenerateMetricData(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		h, ok := c.handler.(*Handler)
+		h, ok := c.handler.(*handler)
 		if !ok {
 			t.Error("Test case has the wrong type of handler.")
 		}

@@ -34,7 +34,7 @@ const (
 	metricDatumLimit = 20
 )
 
-func (h *Handler) sendMetricsToCloudWatch(metricData []*cloudwatch.MetricDatum) (int, error) {
+func (h *handler) sendMetricsToCloudWatch(metricData []*cloudwatch.MetricDatum) (int, error) {
 	cloudWatchCallCount := 0
 	var multiError *multierror.Error
 
@@ -44,8 +44,7 @@ func (h *Handler) sendMetricsToCloudWatch(metricData []*cloudwatch.MetricDatum) 
 			size = len(metricData)
 		}
 
-		err := h.putMetricData(metricData[i:size])
-		if err == nil {
+		if err := h.putMetricData(metricData[i:size]); err == nil {
 			cloudWatchCallCount++
 		} else {
 			multiError = multierror.Append(multiError, err)
@@ -55,7 +54,7 @@ func (h *Handler) sendMetricsToCloudWatch(metricData []*cloudwatch.MetricDatum) 
 	return cloudWatchCallCount, multiError.ErrorOrNil()
 }
 
-func (h *Handler) generateMetricData(insts []*metric.Instance) []*cloudwatch.MetricDatum {
+func (h *handler) generateMetricData(insts []*metric.Instance) []*cloudwatch.MetricDatum {
 	metricData := make([]*cloudwatch.MetricDatum, 0, len(insts))
 
 	for _, inst := range insts {
@@ -68,6 +67,7 @@ func (h *Handler) generateMetricData(insts []*metric.Instance) []*cloudwatch.Met
 
 		value, err := getNumericValue(inst.Value, cwMetric.GetUnit())
 		if err != nil {
+			// do not fail putting all instances into cloudwatch if one does not have a parsable value
 			_ = h.env.Logger().Errorf("could not parse value %v", err)
 			continue
 		}
@@ -128,14 +128,13 @@ func getDurationNumericValue(v time.Duration, unit config.Params_MetricDatum_Uni
 	}
 }
 
-func (h *Handler) putMetricData(metricData []*cloudwatch.MetricDatum) error {
+func (h *handler) putMetricData(metricData []*cloudwatch.MetricDatum) error {
 	input := cloudwatch.PutMetricDataInput{
 		Namespace:  aws.String(h.cfg.Namespace),
 		MetricData: metricData,
 	}
 
-	_, err := h.cloudwatch.PutMetricData(&input)
-	if err != nil {
+	if _, err := h.cloudwatch.PutMetricData(&input); err != nil {
 		return h.env.Logger().Errorf("could not put metric data into cloudwatch: %v. %v", input, err)
 	}
 

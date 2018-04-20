@@ -19,8 +19,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 )
 
-// NewCloudWatchClient creates a cloudwatch client
-func NewCloudWatchClient() *cloudwatch.CloudWatch {
+// newCloudWatchClient creates a cloudwatch client
+func newCloudWatchClient() *cloudwatch.CloudWatch {
 	return cloudwatch.New(session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 	})))

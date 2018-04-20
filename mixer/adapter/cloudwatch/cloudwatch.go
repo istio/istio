@@ -53,8 +53,8 @@ type (
 		metricTypes map[string]*metric.Type
 	}
 
-	// Handler holds data for the cloudwatch adapter handler
-	Handler struct {
+	// handler holds data for the cloudwatch adapter handler
+	handler struct {
 		metricTypes map[string]*metric.Type
 		env         adapter.Env
 		cfg         *config.Params
@@ -64,19 +64,19 @@ type (
 
 // ensure types implement the requisite interfaces
 var _ metric.HandlerBuilder = &builder{}
-var _ metric.Handler = &Handler{}
+var _ metric.Handler = &handler{}
 
 ///////////////// Configuration-time Methods ///////////////
 
-// NewHandler initializes a cloudwatch handler
-func NewHandler(metricTypes map[string]*metric.Type, env adapter.Env, cfg *config.Params, cloudwatch cloudwatchiface.CloudWatchAPI) adapter.Handler {
-	return &Handler{metricTypes: metricTypes, env: env, cfg: cfg, cloudwatch: cloudwatch}
+// newHandler initializes a cloudwatch handler
+func newHandler(metricTypes map[string]*metric.Type, env adapter.Env, cfg *config.Params, cloudwatch cloudwatchiface.CloudWatchAPI) adapter.Handler {
+	return &handler{metricTypes: metricTypes, env: env, cfg: cfg, cloudwatch: cloudwatch}
 }
 
 // adapter.HandlerBuilder#Build
 func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
-	cloudwatch := NewCloudWatchClient()
-	return NewHandler(b.metricTypes, env, b.adpCfg, cloudwatch), nil
+	cloudwatch := newCloudWatchClient()
+	return newHandler(b.metricTypes, env, b.adpCfg, cloudwatch), nil
 }
 
 // adapter.HandlerBuilder#SetAdapterConfig
@@ -96,22 +96,19 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 
 	for k, v := range b.metricTypes {
 		// validate handler config contains required metric config
-		_, ok := b.adpCfg.GetMetricInfo()[k]
-		if !ok {
+		if _, ok := b.adpCfg.GetMetricInfo()[k]; !ok {
 			ce = ce.Append("metricInfo", fmt.Errorf("metricInfo and instance config must contain the same metrics but missing %v", k))
 		}
 
 		// validate that value type can be handled by the CloudWatch handler
-		_, ok = supportedValueTypes[v.Value.String()]
-		if !ok {
+		if _, ok := supportedValueTypes[v.Value.String()]; !ok {
 			ce = ce.Append("value type", fmt.Errorf("value of type %v is not supported", v.Value))
 		}
 
 		// validate that if the value is a duration it has the correct cloudwatch unit
 		if v.Value == istio_policy_v1beta1.DURATION {
 			unit := b.adpCfg.GetMetricInfo()[k].GetUnit()
-			_, ok = supportedDurationUnits[unit]
-			if !ok {
+			if _, ok := supportedDurationUnits[unit]; !ok {
 				ce = ce.Append("duration metric unit", fmt.Errorf("value of type duration should have a unit of seconds, milliseconds or microseconds"))
 			}
 		}
@@ -130,14 +127,14 @@ func (b *builder) SetMetricTypes(types map[string]*metric.Type) {
 }
 
 // HandleMetric sends metrics to cloudwatch
-func (h *Handler) HandleMetric(ctx context.Context, insts []*metric.Instance) error {
+func (h *handler) HandleMetric(ctx context.Context, insts []*metric.Instance) error {
 	metricData := h.generateMetricData(insts)
 	_, err := h.sendMetricsToCloudWatch(metricData)
 	return err
 }
 
 // Close implements client closing functionality if necessary
-func (h *Handler) Close() error {
+func (h *handler) Close() error {
 	return nil
 }
 
