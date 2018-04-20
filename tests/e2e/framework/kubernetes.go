@@ -102,6 +102,7 @@ type KubeInfo struct {
 	namespaceCreated bool
 	AuthEnabled      bool
 	RBACEnabled      bool
+	InstallAddons    bool
 
 	// Extra services to be excluded from MTLS
 	MTLSExcludedServices []string
@@ -249,9 +250,11 @@ func (k *KubeInfo) Setup() error {
 			return err
 		}
 
-		if err = k.deployAddons(); err != nil {
-			log.Error("Failed to deploy istio addons")
-			return err
+		if k.InstallAddons {
+			if err = k.deployAddons(); err != nil {
+				log.Error("Failed to deploy istio addons")
+				return err
+			}
 		}
 		// Create the ingress secret.
 		certDir := util.GetResourcePath("./tests/testdata/certs")
