@@ -442,7 +442,7 @@ func (k *KubeInfo) GetRoutes(app string) (string, error) {
 
 	pod := appPods[app][0]
 
-	routesURL := "http://localhost:15000/routes"
+	routesURL := "http://localhost:15000/config_dump"
 	routes, err := util.PodExec(k.Namespace, pod, "app", fmt.Sprintf("client -url %s", routesURL), true, k.KubeConfig)
 	if err != nil {
 		return "", errors.WithMessage(err, "failed to get routes")

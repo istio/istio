@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -1828,85 +1827,6 @@ func validateAuthNPolicyTarget(target *authn.TargetSelector) (errs error) {
 	}
 
 	return
-}
-
-// ValidateEndUserAuthenticationPolicySpec checks that EndUserAuthenticationPolicySpec is well-formed.
-func ValidateEndUserAuthenticationPolicySpec(msg proto.Message) error {
-	in, ok := msg.(*mccpb.EndUserAuthenticationPolicySpec)
-	if !ok {
-		return errors.New("cannot case to EndUserAuthenticationPolicySpec")
-	}
-	var errs error
-	if len(in.Jwts) == 0 {
-		errs = multierror.Append(errs, errors.New("at least one JWT must be specified"))
-	}
-	for _, jwt := range in.Jwts {
-		if jwt.Issuer == "" {
-			errs = multierror.Append(errs, errors.New("issuer must be set"))
-		}
-		for _, audience := range jwt.Audiences {
-			if audience == "" {
-				errs = multierror.Append(errs, errors.New("audience must be non-empty string"))
-			}
-		}
-		if jwt.JwksUri == "" {
-			errs = multierror.Append(errs, errors.New("jwks_uri must be set"))
-		}
-		if !strings.HasPrefix(jwt.JwksUri, "http://") && !strings.HasPrefix(jwt.JwksUri, "https://") {
-			errs = multierror.Append(errs, errors.New("jwks_uri must have http:// or https:// scheme"))
-		}
-		if _, err := url.Parse(jwt.JwksUri); err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("%q is not a valid url: %v", jwt.JwksUri, err))
-		}
-
-		for _, location := range jwt.Locations {
-			switch l := location.Scheme.(type) {
-			case *mccpb.JWT_Location_Header:
-				if l.Header == "" {
-					errs = multierror.Append(errs, errors.New("location header must be non-empty string"))
-				}
-			case *mccpb.JWT_Location_Query:
-				if l.Query == "" {
-					errs = multierror.Append(errs, errors.New("location query must be non-empty string"))
-				}
-			}
-		}
-		if jwt.PublicKeyCacheDuration != nil {
-			if err := ValidateGogoDuration(jwt.PublicKeyCacheDuration); err != nil {
-				errs = multierror.Append(errs, err)
-			}
-		}
-	}
-	return errs
-}
-
-// ValidateEndUserAuthenticationPolicySpecBinding checks that EndUserAuthenticationPolicySpecBinding is well-formed.
-func ValidateEndUserAuthenticationPolicySpecBinding(msg proto.Message) error {
-	in, ok := msg.(*mccpb.EndUserAuthenticationPolicySpecBinding)
-	if !ok {
-		return errors.New("cannot case to EndUserAuthenticationPolicySpecBinding")
-	}
-	var errs error
-	if len(in.Services) == 0 {
-		errs = multierror.Append(errs, errors.New("at least one service must be specified"))
-	}
-	for _, service := range in.Services {
-		if err := ValidateIstioService(mixerToProxyIstioService(service)); err != nil {
-			errs = multierror.Append(errs, err)
-		}
-	}
-	if len(in.Policies) == 0 {
-		errs = multierror.Append(errs, errors.New("at least one policy must be specified"))
-	}
-	for _, policy := range in.Policies {
-		if policy.Name == "" {
-			errs = multierror.Append(errs, errors.New("name is mandatory for EndUserAuthenticationPolicySpecReference"))
-		}
-		if policy.Namespace != "" && !IsDNS1123Label(policy.Namespace) {
-			errs = multierror.Append(errs, fmt.Errorf("namespace %q must be a valid label", policy.Namespace))
-		}
-	}
-	return errs
 }
 
 // ValidateVirtualService checks that a v1alpha3 route rule is well-formed.
