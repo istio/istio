@@ -15,7 +15,6 @@
 package authn
 
 import (
-	"encoding/base64"
 	"reflect"
 	"strings"
 	"testing"
@@ -445,7 +444,7 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		if got := ConvertPolicyToJwtConfig(&c.in, false /*fetchPubKey*/); !reflect.DeepEqual(c.expected, got) {
+		if got := ConvertPolicyToJwtConfig(&c.in, false /*useInlinePublicKey*/); !reflect.DeepEqual(c.expected, got) {
 			t.Errorf("Test case %s: expected\n%#v\n, got\n%#v", c.name, c.expected.String(), got.String())
 		}
 	}
@@ -484,7 +483,7 @@ func TestConvertPolicyToJwtConfigWithInlineKey(t *testing.T) {
 						JwksSourceSpecifier: &jwtfilter.JwtRule_LocalJwks{
 							LocalJwks: &core.DataSource{
 								Specifier: &core.DataSource_InlineString{
-									InlineString: base64.StdEncoding.EncodeToString([]byte(test.JwtPubKey1)),
+									InlineString: test.JwtPubKey1,
 								},
 							},
 						},
@@ -562,7 +561,7 @@ func TestBuildJwtFilter(t *testing.T) {
 																StructValue: &types.Struct{
 																	Fields: map[string]*types.Value{
 																		"inline_string": {
-																			Kind: &types.Value_StringValue{StringValue: base64.StdEncoding.EncodeToString([]byte(test.JwtPubKey1))},
+																			Kind: &types.Value_StringValue{StringValue: test.JwtPubKey1},
 																		},
 																	},
 																},

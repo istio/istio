@@ -781,6 +781,8 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 		go func() {
 			<-stop
+			model.JwtKeyResolver.Close()
+
 			err = s.HTTPServer.Close()
 			if err != nil {
 				log.Warna(err)
@@ -789,8 +791,6 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 			if s.secureGRPCServer != nil {
 				s.secureGRPCServer.Stop()
 			}
-
-			model.JwtKeyResolver.Close()
 		}()
 
 		return err

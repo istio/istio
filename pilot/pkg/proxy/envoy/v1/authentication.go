@@ -28,7 +28,7 @@ import (
 
 // buildJwtFilter returns a Jwt filter for all Jwt specs in the policy.
 func buildJwtFilter(policy *authn.Policy) *HTTPFilter {
-	filterConfigProto := authn_plugin.ConvertPolicyToJwtConfig(policy, false /*fetchPubKey*/)
+	filterConfigProto := authn_plugin.ConvertPolicyToJwtConfig(policy, false /*useInlinePublicKey*/)
 	if filterConfigProto == nil {
 		return nil
 	}

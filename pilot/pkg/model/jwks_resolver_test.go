@@ -25,7 +25,7 @@ import (
 )
 
 func TestResolveJwksURIUsingOpenID(t *testing.T) {
-	r := newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyRefreshInterval)
+	r := newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
 
 	ms, err := test.NewServer()
 	if err != nil {
@@ -81,7 +81,7 @@ func TestResolveJwksURIUsingOpenID(t *testing.T) {
 }
 
 func TestSetAuthenticationPolicyJwksURIs(t *testing.T) {
-	r := newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyRefreshInterval)
+	r := newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
 
 	ms, err := test.NewServer()
 	if err != nil {
@@ -164,7 +164,7 @@ func TestSetAuthenticationPolicyJwksURIs(t *testing.T) {
 }
 
 func TestGetPublicKey(t *testing.T) {
-	r := newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyRefreshInterval)
+	r := newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
 	defer r.Close()
 
 	ms, err := test.NewServer()
@@ -210,7 +210,7 @@ func TestGetPublicKey(t *testing.T) {
 }
 
 func TestJwtPubKeyRefresh(t *testing.T) {
-	r := newJwksResolver(time.Millisecond /*ExpireDuration*/, 2*time.Millisecond /*RefreshInterval*/)
+	r := newJwksResolver(time.Millisecond /*ExpireDuration*/, 100*time.Millisecond /*EvictionDuration*/, 2*time.Millisecond /*RefreshInterval*/)
 	defer r.Close()
 
 	ms, err := test.NewServer()
@@ -251,8 +251,8 @@ func TestJwtPubKeyRefresh(t *testing.T) {
 	for ; retries < 3; retries++ {
 		time.Sleep(wait)
 		// Make sure refresh job has run and detect change happened.
-		if atomic.LoadUint64(&r.changedCount) == 0 {
-			// Retry after some sleep if not run.
+		if atomic.LoadUint64(&r.keyChangedCount) == 0 {
+			// Retry after some sleep.
 			wait *= 2
 			continue
 		}
@@ -283,5 +283,23 @@ func TestJwtPubKeyRefresh(t *testing.T) {
 		if c.expectedJwtPubkey != pk {
 			t.Errorf("GetPublicKey(%+v): expected (%s), got (%s)", c.in, c.expectedJwtPubkey, pk)
 		}
+	}
+
+	// Wait until unused keys are evicted.
+	wait = 50 * time.Millisecond
+	retries = 0
+	for ; retries < 3; retries++ {
+		time.Sleep(wait)
+		if _, found := r.keyEntries.Load(mockCertURL); found {
+			// Retry after some sleep.
+			wait *= 2
+			continue
+		}
+
+		break
+	}
+
+	if retries == 3 {
+		t.Errorf("Unused keys failed to be evicted")
 	}
 }
