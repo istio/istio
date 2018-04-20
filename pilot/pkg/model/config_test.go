@@ -16,12 +16,11 @@ package model_test
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
-
-	"fmt"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	routing "istio.io/api/routing/v1alpha1"
