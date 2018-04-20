@@ -17,87 +17,20 @@ package test
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/impl/helm"
-	"k8s.io/client-go/rest"
+	"istio.io/istio/pkg/test/cluster"
+	"istio.io/istio/pkg/test/local"
 )
 
-func GetClusterEnvironment(t testing.TB) *ClusterEnvironment {
-	return &ClusterEnvironment{
-		t: t,
+// GetClusterEnvironment a convenience method for constructing a cluster environment.
+func GetClusterEnvironment(t testing.TB) *cluster.Environment {
+	return &cluster.Environment{
+		T: t,
 	}
 }
 
-func GetLocalEnvironment(t testing.TB) *LocalEnvironment {
-	return &LocalEnvironment{
-		t: t,
+// GetLocalEnvironment a convenience method for constructing a local environment.
+func GetLocalEnvironment(t testing.TB) *local.Environment {
+	return &local.Environment{
+		T: t,
 	}
-}
-
-type Environment interface {
-	GetApiServer() DeployedApiServer
-	GetIstioComponent(k DeployedServiceKind) []DeployedIstioComponent
-}
-
-type Deployed interface {
-}
-
-type DeployedApiServer interface {
-	Deployed
-	Config() *rest.Config
-}
-
-type DeployedIstioComponent interface {
-	Deployed
-}
-
-type DeployedServiceKind string
-
-const (
-	MixerComponent  = "mixer"
-	PilotComponent  = "pilot"
-	GalleyComponent = "galley"
-)
-
-type ClusterEnvironment struct {
-	t testing.TB
-}
-
-var _ Environment = &ClusterEnvironment{}
-
-type LocalEnvironment struct {
-	t testing.TB
-}
-
-var _ Environment = &LocalEnvironment{}
-
-func (e *ClusterEnvironment) Deploy(c *helm.Chart) {
-
-}
-
-func (e *ClusterEnvironment) GetApiServer() DeployedApiServer {
-	return nil
-}
-
-func (e *ClusterEnvironment) GetIstioComponent(k DeployedServiceKind) []DeployedIstioComponent {
-	return []DeployedIstioComponent{nil}
-}
-
-func (e *LocalEnvironment) StartApiServer() DeployedApiServer {
-	return nil
-}
-
-func (e *LocalEnvironment) StartGalley() DeployedIstioComponent {
-	return nil
-}
-
-func (e *LocalEnvironment) StartMixer() DeployedIstioComponent {
-	return nil
-}
-
-func (e *LocalEnvironment) GetApiServer() DeployedApiServer {
-	return nil
-}
-
-func (e *LocalEnvironment) GetIstioComponent(k DeployedServiceKind) []DeployedIstioComponent {
-	return nil
 }

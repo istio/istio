@@ -24,6 +24,7 @@ import (
 )
 
 const (
+	// Prefix is the prefix used for generated test dir names.
 	Prefix = "istio.e2e."
 )
 
@@ -32,6 +33,7 @@ var (
 	testLogsPath = flag.String("test_logs_path", "", "Local path to store logs in")
 )
 
+// Create creates a temporary directory for the given test run ID.
 func Create(runID string) (string, error) {
 	var tmpDir string
 	var err error
