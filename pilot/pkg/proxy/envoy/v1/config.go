@@ -244,6 +244,9 @@ func buildSidecarListenersClusters(
 		listeners = append(listeners, outbound...)
 		clusters = append(clusters, outClusters...)
 	} else if mesh.ProxyListenPort > 0 {
+		if len(proxyInstances) == 0 {
+			log.Warnf("No proxy instances for %s (%s)", node.ID, node.IPAddress)
+		}
 		inbound, inClusters := buildInboundListeners(mesh, node, proxyInstances, config)
 		outbound, outClusters := buildOutboundListeners(mesh, node, proxyInstances, services, config)
 		mgmtListeners, mgmtClusters := buildMgmtPortListeners(mesh, managementPorts, node.IPAddress)

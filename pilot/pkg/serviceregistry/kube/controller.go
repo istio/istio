@@ -350,7 +350,10 @@ func (c *Controller) GetProxyServiceInstances(proxy model.Proxy) ([]*model.Servi
 	for _, item := range c.endpoints.informer.GetStore().List() {
 		ep := *item.(*v1.Endpoints)
 		for _, ss := range ep.Subsets {
-			for _, ea := range ss.Addresses {
+			addrs := make([]v1.EndpointAddress, 0, len(ss.NotReadyAddresses)+len(ss.Addresses))
+			addrs = append(addrs, ss.Addresses...)
+			addrs = append(addrs, ss.NotReadyAddresses...)
+			for _, ea := range addrs {
 				if proxy.IPAddress == ea.IP {
 					if kubeNodes[ea.IP] == nil {
 						err := parseKubeServiceNode(ea.IP, &proxy, kubeNodes)
