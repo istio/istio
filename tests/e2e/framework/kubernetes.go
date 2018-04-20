@@ -54,7 +54,7 @@ const (
 	defaultSidecarInjectorFile       = "istio-sidecar-injector.yaml"
 	ingressCertsName                 = "istio-ingress-certs"
 	defaultGalleyConfigValidatorFile = "istio-galley-config-validator.yaml"
-	maxDeploymentRolloutTime         = 240 * time.Second
+	maxDeploymentRolloutTime         = 480 * time.Second
 	mtlsExcludedServicesPattern      = "mtlsExcludedServices:\\s*\\[(.*)\\]"
 )
 
@@ -548,11 +548,6 @@ func (k *KubeInfo) deployIstio() error {
 		// Create the local secrets and configmap to start pilot
 		if err := util.CreateMultiClusterSecrets(k.Namespace, k.KubeClient, k.RemoteKubeConfig); err != nil {
 			log.Errorf("Unable to create secrets on local cluster %s", err.Error())
-			return err
-		}
-		// Create the remote secrets. This is temporary until a better CA strategy is used
-		if err := k.createRemoteSecrets(); err != nil {
-			log.Errorf("Unable to create secrets on Remote cluster %s", err.Error())
 			return err
 		}
 
