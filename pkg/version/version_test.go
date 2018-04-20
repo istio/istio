@@ -43,7 +43,7 @@ BuildStatus: STATUS
 GitRevision: unknown
 User: unknown@unknown
 Hub: unknown
-GolangVersion: go1.10
+GolangVersion: go1.10.1
 BuildStatus: unknown
 `},
 	}
