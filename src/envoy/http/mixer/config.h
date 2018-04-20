@@ -41,11 +41,6 @@ class Config {
     return config_pb_.transport().report_cluster();
   }
 
-  // Extract all AuthSpec from all service config.
-  std::unique_ptr<
-      ::istio::mixer::v1::config::client::EndUserAuthenticationPolicySpec>
-  auth_config();
-
  private:
   // The Http client config.
   ::istio::mixer::v1::config::client::HttpClientConfig config_pb_;

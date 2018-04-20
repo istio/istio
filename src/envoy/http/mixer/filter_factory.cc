@@ -14,7 +14,6 @@
  */
 
 #include "common/config/utility.h"
-#include "envoy/config/filter/http/jwt_authn/v2alpha/config.pb.h"
 #include "envoy/json/json_object.h"
 #include "envoy/registry/registry.h"
 #include "envoy/server/filter_config.h"
@@ -22,34 +21,12 @@
 #include "src/envoy/http/mixer/filter.h"
 #include "src/envoy/utils/config.h"
 
-using ::envoy::config::filter::http::jwt_authn::v2alpha::JwtAuthentication;
-using ::istio::mixer::v1::config::client::EndUserAuthenticationPolicySpec;
 using ::istio::mixer::v1::config::client::HttpClientConfig;
 using ::istio::mixer::v1::config::client::ServiceConfig;
 
 namespace Envoy {
 namespace Server {
 namespace Configuration {
-namespace {
-void ConvertAuthConfigProto(const EndUserAuthenticationPolicySpec& spec,
-                            JwtAuthentication& jwt_config) {
-  for (const auto& jwt : spec.jwts()) {
-    auto rule = jwt_config.add_rules();
-    rule->set_issuer(jwt.issuer());
-    for (const auto& aud : jwt.audiences()) {
-      rule->add_audiences(aud);
-    }
-    rule->mutable_remote_jwks()->mutable_http_uri()->set_uri(jwt.jwks_uri());
-    rule->mutable_remote_jwks()->mutable_http_uri()->set_cluster(
-        jwt.jwks_uri_envoy_cluster());
-    if (jwt.has_public_key_cache_duration()) {
-      *rule->mutable_remote_jwks()->mutable_cache_duration() =
-          jwt.public_key_cache_duration();
-    }
-    rule->set_forward(jwt.forward_jwt());
-  }
-}
-}  // namespace
 
 class MixerConfigFactory : public NamedHttpFilterConfigFactory {
  public:
@@ -86,26 +63,10 @@ class MixerConfigFactory : public NamedHttpFilterConfigFactory {
                                           FactoryContext& context) {
     std::unique_ptr<Http::Mixer::Config> config_obj(
         new Http::Mixer::Config(config_pb));
-
-    HttpFilterFactoryCb auth_filter_cb;
-    auto auth_config = config_obj->auth_config();
-    if (auth_config) {
-      auto& auth_factory =
-          Config::Utility::getAndCheckFactory<NamedHttpFilterConfigFactory>(
-              std::string("jwt-auth"));
-      JwtAuthentication proto_config;
-      ConvertAuthConfigProto(*auth_config, proto_config);
-      auth_filter_cb =
-          auth_factory.createFilterFactoryFromProto(proto_config, "", context);
-    }
-
     auto control_factory = std::make_shared<Http::Mixer::ControlFactory>(
         std::move(config_obj), context);
-    return [control_factory, auth_filter_cb](
+    return [control_factory](
                Http::FilterChainFactoryCallbacks& callbacks) -> void {
-      if (auth_filter_cb) {
-        auth_filter_cb(callbacks);
-      }
       std::shared_ptr<Http::Mixer::Filter> instance =
           std::make_shared<Http::Mixer::Filter>(control_factory->control());
       callbacks.addStreamDecoderFilter(
