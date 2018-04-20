@@ -775,6 +775,30 @@ TEST_F(JwtAuthenticatorTest, TestNoForwardPayloadHeader) {
   EXPECT_EQ(headers.size(), 1);
 }
 
+TEST_F(JwtAuthenticatorTest, TestInlineJwks) {
+  // Change the config to use local_jwks.inline_string
+  auto rule0 = config_.mutable_rules(0);
+  rule0->clear_remote_jwks();
+  auto local_jwks = rule0->mutable_local_jwks();
+  local_jwks->set_inline_string(
+      Base64::encode(kPublicKey.c_str(), kPublicKey.size()));
+
+  // recreate store and auth with modified config.
+  store_.reset(new JwtAuthStore(config_));
+  auth_.reset(new JwtAuthenticator(mock_cm_, *store_));
+
+  MockUpstream mock_pubkey(mock_cm_, "");
+  auto headers = TestHeaderMapImpl{{"Authorization", "Bearer " + kGoodToken}};
+
+  MockJwtAuthenticatorCallbacks mock_cb;
+  EXPECT_CALL(mock_cb, onDone(_)).WillOnce(Invoke([](const Status &status) {
+    ASSERT_EQ(status, Status::OK);
+  }));
+
+  auth_->Verify(headers, &mock_cb);
+  EXPECT_EQ(mock_pubkey.called_count(), 0);
+}
+
 }  // namespace JwtAuth
 }  // namespace Http
 }  // namespace Envoy

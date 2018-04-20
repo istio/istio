@@ -179,7 +179,7 @@ void JwtAuthenticator::onDestroy() {
 // Handle the public key fetch done event.
 void JwtAuthenticator::OnFetchPubkeyDone(const std::string& pubkey) {
   auto issuer = store_.pubkey_cache().LookupByIssuer(jwt_->Iss());
-  Status status = issuer->SetKey(pubkey);
+  Status status = issuer->SetRemoteJwks(pubkey);
   if (status != Status::OK) {
     DoneWithStatus(status);
   } else {
