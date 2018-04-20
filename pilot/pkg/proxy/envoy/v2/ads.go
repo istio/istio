@@ -165,6 +165,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 			if err != nil {
 				return err
 			}
+			nt.Metadata = model.ParseMetadata(discReq.Node.Metadata)
 			con.modelNode = &nt
 			if con.ConID == "" {
 				// first request

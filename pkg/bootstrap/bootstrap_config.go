@@ -192,7 +192,7 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	meta := map[string]string{}
 	for _, env := range os.Environ() {
 		if strings.HasPrefix(env, "ISTIO_META_") {
-			v := env[len("ISTIO_META"):]
+			v := env[len("ISTIO_META_"):]
 			parts := strings.SplitN(v, "=", 2)
 			if len(parts) == 2 {
 				meta[parts[0]] = parts[1]

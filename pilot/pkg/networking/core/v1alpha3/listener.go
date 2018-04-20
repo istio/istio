@@ -135,10 +135,16 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env model.Environmen
 			Cluster:    "Dummy",
 		}
 
+		var transparent *google_protobuf.BoolValue
+		if mode := node.Metadata["INTERCEPTION_MODE"]; mode == "TPROXY" {
+			transparent = &google_protobuf.BoolValue{true}
+		}
+
 		// add an extra listener that binds to the port that is the recipient of the iptables redirect
 		listeners = append(listeners, &xdsapi.Listener{
 			Name:           VirtualListenerName,
 			Address:        util.BuildAddress(WildcardAddress, uint32(mesh.ProxyListenPort)),
+			Transparent:    transparent,
 			UseOriginalDst: &google_protobuf.BoolValue{true},
 			FilterChains: []listener.FilterChain{
 				{
