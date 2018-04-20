@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
 )
 
@@ -241,7 +242,7 @@ func buildGatewayInboundHTTPRouteConfig(
 		log.Debugf("constructed http route config for port %d with no vhosts; omitting", port)
 		return nil
 	}
-
+	util.SortVirtualHosts(virtualHosts)
 	return &xdsapi.RouteConfiguration{
 		Name:             fmt.Sprintf("%d", port),
 		VirtualHosts:     virtualHosts,
