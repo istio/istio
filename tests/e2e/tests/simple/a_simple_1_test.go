@@ -212,7 +212,7 @@ func TestAuthWithHeaders(t *testing.T) {
 	podIstio := podList[0]
 	log.Infof("From client, non istio injected pod \"%s\" to istio pod \"%s\"", podNoIstio, podIstio)
 	// TODO: ipv6 fix
-	res, err := util.Shell("kubectl exec -n %s %s -- /usr/local/bin/fortio curl -H Host:echosrv2.%s:8088 http://%s:8088/debug", ns, podNoIstio, podIstio)
+	res, err := util.Shell("kubectl exec -n %s %s -- /usr/local/bin/fortio curl -H Host:echosrv2.%s:8088 http://%s:8088/debug", ns, podNoIstio, ns, podIstio)
 	if tc.Kube.AuthEnabled {
 		if err == nil {
 			t.Errorf("Running with auth on yet able to connect from non istio to istio (insecure): %v", res)
@@ -300,8 +300,9 @@ func Test503sWithBadClusters(t *testing.T) {
 	num200s := res.RetCodes[http.StatusOK]
 	numErrors := numRequests - num200s
 	// 1 or a handful of 503s (1 per connection) is maybe ok, but not much more
-	if numErrors > int64(opts.NumThreads)*2 {
-		t.Errorf("Not all %d requests were successful (%v)", numRequests, res.RetCodes)
+	threshold := int64(opts.NumThreads) * 2
+	if numErrors > threshold {
+		t.Errorf("%d greater than threshold %d requests were successful (%v)", numRequests, threshold, res.RetCodes)
 	}
 }
 
