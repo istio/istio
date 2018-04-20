@@ -45,11 +45,10 @@ SINGLE_MODE=false
 # Check https://github.com/istio/test-infra/blob/master/boskos/configs.yaml
 # for existing resources types
 RESOURCE_TYPE="${RESOURCE_TYPE:-gke-e2e-test}"
-OWNER='e2e-suite'
-INFO_PATH="$(mktemp /tmp/XXXXX.boskos.info)"
-FILE_LOG="$(mktemp /tmp/XXXXX.boskos.log)"
+OWNER="${OWNER:-e2e-suite}"
+PILOT_CLUSTER="${PILOT_CLUSTER:-}"
+USE_MASON_RESOURCE=${USE_MASON_RESOURCE:-True}
 
-E2E_ARGS=(--mason_info="${INFO_PATH}")
 
 source "${ROOT}/prow/lib.sh"
 source "${ROOT}/prow/mason_lib.sh"
@@ -60,7 +59,20 @@ function cleanup() {
   cat "${FILE_LOG}"
 }
 
-setup_and_export_git_sha
+if [[ "$USE_MASON_RESOURCE" == "True" ]]; then
+  INFO_PATH="$(mktemp /tmp/XXXXX.boskos.info)"
+  FILE_LOG="$(mktemp /tmp/XXXXX.boskos.log)"
+
+  E2E_ARGS=(--mason_info="${INFO_PATH}")
+
+  setup_and_export_git_sha
+
+  trap cleanup EXIT
+  get_resource "${RESOURCE_TYPE}" "${OWNER}" "${INFO_PATH}" "${FILE_LOG}"
+else
+  GIT_SHA=${HUB}
+fi
+
 
 if [ "${CI:-}" == 'bootstrap' ]; then
   # bootsrap upload all artifacts in _artifacts to the log bucket.
