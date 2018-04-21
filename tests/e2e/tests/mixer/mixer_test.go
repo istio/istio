@@ -48,7 +48,7 @@ const (
 	deploymentDir            = "kube"
 	rulesDir                 = "kube"
 	bookinfoYaml             = "bookinfo"
-	bookinfoYaml             = "bookinfo-gateway"
+	bookinfoGateway          = "bookinfo-gateway"
 	bookinfoRatingsv2Yaml    = "bookinfo-ratings-v2"
 	bookinfoDbYaml           = "bookinfo-db"
 	sleepYaml                = "samples/sleep/sleep"
@@ -87,7 +87,7 @@ var (
 	tc                 *testConfig
 	productPageTimeout = 60 * time.Second
 	rules              = []string{rateLimitRule, denialRule, ingressDenialRule, newTelemetryRule, routeAllRule,
-		routeReviewsVersionsRule, routeReviewsV3Rule, tcpDbRule, gatewayRule}
+		routeReviewsVersionsRule, routeReviewsV3Rule, tcpDbRule, bookinfoGateway}
 )
 
 func (t *testConfig) Setup() (err error) {
