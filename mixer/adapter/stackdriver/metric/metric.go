@@ -56,6 +56,7 @@ type (
 		createClient createClientFunc
 		metrics      map[string]*metric.Type
 		cfg          *config.Params
+		mg           *helper.MetadataGenerator
 	}
 
 	info struct {
@@ -68,7 +69,7 @@ type (
 		l   adapter.Logger
 		now func() time.Time // used to control time in tests
 
-		projectID  string
+		md         helper.Metadata
 		metricInfo map[string]info
 		client     bufferedClient
 		// We hold a ref for cleanup during Close()
@@ -104,8 +105,8 @@ var (
 )
 
 // NewBuilder returns a builder implementing the metric.HandlerBuilder interface.
-func NewBuilder() metric.HandlerBuilder {
-	return &builder{createClient: createClient}
+func NewBuilder(mg *helper.MetadataGenerator) metric.HandlerBuilder {
+	return &builder{createClient: createClient, mg: mg}
 }
 
 func createClient(cfg *config.Params) (*monitoring.MetricClient, error) {
@@ -126,6 +127,11 @@ func (b *builder) Validate() *adapter.ConfigErrors {
 // NewMetricsAspect provides an implementation for adapter.MetricsBuilder.
 func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
 	cfg := b.cfg
+	md := b.mg.GenerateMetadata()
+	if cfg.ProjectId == "" {
+		// Try to fill project ID if it is not provided with metadata.
+		cfg.ProjectId = md.ProjectID
+	}
 	types := make(map[string]info, len(b.metrics))
 	for name, t := range b.metrics {
 		i, found := cfg.MetricInfo[name]
@@ -169,8 +175,8 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 	h := &handler{
 		l:          env.Logger(),
 		now:        time.Now,
-		projectID:  cfg.ProjectId,
 		client:     buffered,
+		md:         md,
 		metricInfo: types,
 		ticker:     ticker,
 	}
@@ -178,8 +184,6 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 }
 
 func (h *handler) HandleMetric(_ context.Context, vals []*metric.Instance) error {
-	h.l.Infof("stackdriver.Record called with %d vals", len(vals))
-
 	// TODO: len(vals) is constant for config lifetime, consider pooling
 	data := make([]*monitoringpb.TimeSeries, 0, len(vals))
 	for _, val := range vals {
@@ -217,15 +221,17 @@ func (h *handler) HandleMetric(_ context.Context, vals []*metric.Instance) error
 		// The logging SDK has logic built in that does this for us: if a resource is not provided it fills in the global
 		// resource as a default. Since we don't have equivalent behavior for monitoring, we do it ourselves.
 		if val.MonitoredResourceType != "" {
+			labels := helper.ToStringMap(val.MonitoredResourceDimensions)
+			h.md.FillProjectMetadata(labels)
 			ts.Resource = &monitoredres.MonitoredResource{
 				Type:   val.MonitoredResourceType,
-				Labels: helper.ToStringMap(val.MonitoredResourceDimensions),
+				Labels: labels,
 			}
 		} else {
 			ts.Resource = &monitoredres.MonitoredResource{
 				Type: "global",
 				Labels: map[string]string{
-					"project_id": h.projectID,
+					"project_id": h.md.ProjectID,
 				},
 			}
 		}

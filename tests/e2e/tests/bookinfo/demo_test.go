@@ -15,276 +15,17 @@
 package e2e
 
 import (
-	"errors"
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"path/filepath"
-	"regexp"
-	"strings"
 	"testing"
 	"time"
-
-	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/util"
 )
-
-const (
-	u1                                 = "normal-user"
-	u2                                 = "test-user"
-	bookinfoSampleDir                  = "samples/bookinfo"
-	yamlExtension                      = "yaml"
-	deploymentDir                      = "kube"
-	routeRulesDir                      = "kube"
-	tutorialDir                        = "istio.io_tutorial"
-	bookinfoYaml                       = "bookinfo"
-	bookinfoRatingsv2Yaml              = "bookinfo-ratings-v2"
-	bookinfoRatingsMysqlYaml           = "bookinfo-ratings-v2-mysql"
-	bookinfoDbYaml                     = "bookinfo-db"
-	bookinfoMysqlYaml                  = "bookinfo-mysql"
-	bookinfoDetailsExternalServiceYaml = "bookinfo-details-v2"
-	modelDir                           = "tests/apps/bookinfo/output"
-	allRule                            = routeRulesDir + "/" + "route-rule-all-v1"
-	delayRule                          = routeRulesDir + "/" + "route-rule-ratings-test-delay"
-	tenRule                            = tutorialDir + "/" + "/route-rule-reviews-90-10"
-	twentyRule                         = tutorialDir + "/" + "route-rule-reviews-80-20"
-	fiftyRule                          = routeRulesDir + "/" + "route-rule-reviews-50-v3"
-	testRule                           = routeRulesDir + "/" + "route-rule-reviews-test-v2"
-	testDbRule                         = routeRulesDir + "/" + "route-rule-ratings-db"
-	testMysqlRule                      = routeRulesDir + "/" + "route-rule-ratings-mysql"
-	detailsExternalServiceRouteRule    = routeRulesDir + "/" + "route-rule-details-v2"
-	detailsExternalServiceEgressRule   = routeRulesDir + "/" + "egress-rule-google-apis"
-)
-
-var (
-	tc             *testConfig
-	testRetryTimes = 5
-	defaultRules   = []string{allRule}
-)
-
-type testConfig struct {
-	*framework.CommonConfig
-	rulesDir string
-}
-
-func getWithCookie(url string, cookies []http.Cookie) (*http.Response, error) {
-	// Declare http client
-	client := &http.Client{}
-
-	// Declare HTTP Method and Url
-	req, err := http.NewRequest(http.MethodGet, url, nil)
-	if err != nil {
-		return nil, err
-	}
-	for _, c := range cookies {
-		// Set cookie
-		req.AddCookie(&c)
-	}
-	return client.Do(req)
-}
-
-func closeResponseBody(r *http.Response) {
-	if err := r.Body.Close(); err != nil {
-		log.Errora(err)
-	}
-}
-
-func (t *testConfig) Setup() error {
-	//generate rule yaml files, replace "jason" with actual user
-	for _, rule := range []string{allRule, delayRule, tenRule, twentyRule, fiftyRule, testRule,
-		testDbRule, testMysqlRule, detailsExternalServiceRouteRule, detailsExternalServiceEgressRule} {
-		src := util.GetResourcePath(filepath.Join(bookinfoSampleDir, rule+"."+yamlExtension))
-		dest := filepath.Join(t.rulesDir, rule+"."+yamlExtension)
-		ori, err := ioutil.ReadFile(src)
-		if err != nil {
-			log.Errorf("Failed to read original rule file %s", src)
-			return err
-		}
-		content := string(ori)
-		content = strings.Replace(content, "jason", u2, -1)
-
-		err = os.MkdirAll(filepath.Dir(dest), 0700)
-		if err != nil {
-			log.Errorf("Failed to create the directory %s", filepath.Dir(dest))
-			return err
-		}
-
-		err = ioutil.WriteFile(dest, []byte(content), 0600)
-		if err != nil {
-			log.Errorf("Failed to write into new rule file %s", dest)
-			return err
-		}
-
-	}
-
-	if !util.CheckPodsRunning(tc.Kube.Namespace, tc.Kube.KubeConfig) {
-		return fmt.Errorf("can't get all pods running")
-	}
-
-	return setUpDefaultRouting()
-}
-
-func (t *testConfig) Teardown() error {
-	if err := deleteRules(defaultRules); err != nil {
-		// don't report errors if the rule being deleted doesn't exist
-		if notFound := strings.Contains(err.Error(), "not found"); notFound {
-			return nil
-		}
-		return err
-	}
-	return nil
-}
-
-func check(err error, msg string) {
-	if err != nil {
-		log.Errorf("%s. Error %s", msg, err)
-		os.Exit(-1)
-	}
-}
-
-func inspect(err error, fMsg, sMsg string, t *testing.T) {
-	if err != nil {
-		log.Errorf("%s. Error %s", fMsg, err)
-		t.Error(err)
-	} else if sMsg != "" {
-		log.Info(sMsg)
-	}
-}
-
-func setUpDefaultRouting() error {
-	if err := applyRules(defaultRules); err != nil {
-		return fmt.Errorf("could not apply rule '%s': %v", allRule, err)
-	}
-	standby := 0
-	for i := 0; i <= testRetryTimes; i++ {
-		time.Sleep(time.Duration(standby) * time.Second)
-		gateway, errGw := tc.Kube.Ingress()
-		if errGw != nil {
-			return errGw
-		}
-		resp, err := http.Get(fmt.Sprintf("%s/productpage", gateway))
-		if err != nil {
-			log.Infof("Error talking to productpage: %s", err)
-		} else {
-			log.Infof("Get from page: %d", resp.StatusCode)
-			if resp.StatusCode == http.StatusOK {
-				log.Info("Get response from product page!")
-				break
-			}
-			closeResponseBody(resp)
-		}
-		if i == testRetryTimes {
-			return errors.New("unable to set default route")
-		}
-		standby += 5
-		log.Errorf("Couldn't get to the bookinfo product page, trying again in %d second", standby)
-	}
-	log.Info("Success! Default route got expected response")
-	return nil
-}
-
-func checkRoutingResponse(user, version, gateway, modelFile string) (int, error) {
-	startT := time.Now()
-	cookies := []http.Cookie{
-		{
-			Name:  "foo",
-			Value: "bar",
-		},
-		{
-			Name:  "user",
-			Value: user,
-		},
-	}
-	resp, err := getWithCookie(fmt.Sprintf("%s/productpage", gateway), cookies)
-	if err != nil {
-		return -1, err
-	}
-	defer closeResponseBody(resp)
-	if resp.StatusCode != http.StatusOK {
-		return -1, fmt.Errorf("status code is %d", resp.StatusCode)
-	}
-	duration := int(time.Since(startT) / (time.Second / time.Nanosecond))
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return -1, err
-	}
-
-	if err = util.CompareToFile(body, modelFile); err != nil {
-		log.Errorf("Error: User %s in version %s didn't get expected response", user, version)
-		duration = -1
-	}
-	return duration, err
-}
-
-func checkHTTPResponse(user, gateway, expr string, count int) (int, error) {
-	resp, err := http.Get(fmt.Sprintf("%s/productpage", gateway))
-	if err != nil {
-		return -1, err
-	}
-
-	defer closeResponseBody(resp)
-	log.Infof("Get from page: %d", resp.StatusCode)
-	if resp.StatusCode != http.StatusOK {
-		log.Errorf("Get response from product page failed!")
-		return -1, fmt.Errorf("status code is %d", resp.StatusCode)
-	}
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return -1, err
-	}
-
-	if expr == "" {
-		return 1, nil
-	}
-
-	re, err := regexp.Compile(expr)
-	if err != nil {
-		return -1, err
-	}
-
-	ref := re.FindAll(body, -1)
-	if ref == nil {
-		log.Infof("%v", string(body))
-		return -1, fmt.Errorf("could not find %v in response", expr)
-	}
-	if count > 0 && len(ref) < count {
-		log.Infof("%v", string(body))
-		return -1, fmt.Errorf("could not find %v # of %v in response. found %v", count, expr, len(ref))
-	}
-	return 1, nil
-}
-
-func deleteRules(ruleKeys []string) error {
-	var err error
-	for _, ruleKey := range ruleKeys {
-		rule := filepath.Join(tc.rulesDir, ruleKey+"."+yamlExtension)
-		if e := util.KubeDelete(tc.Kube.Namespace, rule, tc.Kube.KubeConfig); e != nil {
-			err = multierror.Append(err, e)
-		}
-	}
-	log.Info("Waiting for rule to be cleaned up...")
-	time.Sleep(time.Duration(30) * time.Second)
-	return err
-}
-
-func applyRules(ruleKeys []string) error {
-	for _, ruleKey := range ruleKeys {
-		rule := filepath.Join(tc.rulesDir, ruleKey+"."+yamlExtension)
-		if err := util.KubeApply(tc.Kube.Namespace, rule, tc.Kube.KubeConfig); err != nil {
-			//log.Errorf("Kubectl apply %s failed", rule)
-			return err
-		}
-	}
-	log.Info("Waiting for rules to propagate...")
-	time.Sleep(time.Duration(30) * time.Second)
-	return nil
-}
 
 type userVersion struct {
 	user    string
@@ -318,15 +59,27 @@ func TestVersionRouting(t *testing.T) {
 		},
 	}
 
-	for _, rule := range rules {
-		doTestVersionRouting(t, rule)
+	for _, configVersion := range tf.ConfigVersions() {
+		testVersionRoutingRules(t, configVersion, rules)
 	}
 }
 
-func doTestVersionRouting(t *testing.T, rule versionRoutingRule) {
-	inspect(applyRules([]string{rule.key}), "failed to apply rules", "", t)
+func testVersionRoutingRules(t *testing.T, configVersion string, rules []versionRoutingRule) {
+	inspect(applyRules(configVersion, defaultRules), "failed to apply default rules", "", t)
 	defer func() {
-		inspect(deleteRules([]string{rule.key}), fmt.Sprintf("failed to delete rules"), "", t)
+		inspect(deleteRules(configVersion, defaultRules), "failed to delete default rules", "", t)
+	}()
+
+	for _, rule := range rules {
+		testVersionRoutingRule(t, configVersion, rule)
+	}
+}
+
+func testVersionRoutingRule(t *testing.T, configVersion string, rule versionRoutingRule) {
+	inspect(applyRules(configVersion, []string{rule.key}), "failed to apply rules", "", t)
+	defer func() {
+		inspect(deleteRules(configVersion, []string{rule.key}),
+			fmt.Sprintf("failed to delete rules"), "", t)
 	}()
 
 	for _, userVersion := range rule.userVersions {
@@ -340,10 +93,17 @@ func doTestVersionRouting(t *testing.T, rule versionRoutingRule) {
 }
 
 func TestFaultDelay(t *testing.T) {
-	var rules = []string{testRule, delayRule}
-	inspect(applyRules(rules), "failed to apply rules", "", t)
+
+	var rules = append([]string{testRule, delayRule}, defaultRules...)
+	for _, configVersion := range tf.ConfigVersions() {
+		doTestFaultDelay(t, configVersion, rules)
+	}
+}
+
+func doTestFaultDelay(t *testing.T, configVersion string, rules []string) {
+	inspect(applyRules(configVersion, rules), "failed to apply rules", "", t)
 	defer func() {
-		inspect(deleteRules(rules), "failed to delete rules", "", t)
+		inspect(deleteRules(configVersion, rules), "failed to delete rules", "", t)
 	}()
 	minDuration := 5
 	maxDuration := 8
@@ -378,6 +138,19 @@ type migrationRule struct {
 }
 
 func TestVersionMigration(t *testing.T) {
+	for _, configVersion := range tf.ConfigVersions() {
+		doTestVersionMigration(t, configVersion)
+	}
+}
+
+func doTestVersionMigration(t *testing.T, configVersion string) {
+	inspect(applyRules(configVersion, defaultRules), "failed to apply default rules", "", t)
+	defer func() {
+		// ignore the error that will happen since the fifty rule redefines
+		// "reviews-default" rule and is deleted
+		_ = deleteRules(configVersion, defaultRules)
+	}()
+
 	modelV2 := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v2.html"))
 	modelV3 := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v3.html"))
 
@@ -400,14 +173,15 @@ func TestVersionMigration(t *testing.T) {
 	}
 
 	for _, rule := range rules {
-		doTestVersionMigration(t, rule)
+		testVersionMigrationRule(t, configVersion, rule)
 	}
 }
 
-func doTestVersionMigration(t *testing.T, rule migrationRule) {
-	inspect(applyRules([]string{rule.key}), "failed to apply rules", "", t)
+func testVersionMigrationRule(t *testing.T, configVersion string, rule migrationRule) {
+	inspect(applyRules(configVersion, []string{rule.key}), "failed to apply rules", "", t)
 	defer func() {
-		inspect(deleteRules([]string{rule.key}), fmt.Sprintf("failed to delete rules"), "", t)
+		inspect(deleteRules(configVersion, []string{rule.key}),
+			fmt.Sprintf("failed to delete rules"), "", t)
 	}()
 	modelV1 := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v1.html"))
 	tolerance := 0.05
@@ -448,21 +222,16 @@ func doTestVersionMigration(t *testing.T, rule migrationRule) {
 		if isWithinPercentage(c1, totalShot, 1.0-rule.rate, tolerance) &&
 			isWithinPercentage(cVersionToMigrate, totalShot, rule.rate, tolerance) {
 			log.Infof(
-				"Success! Version migration acts as expected, "+
-					"old version hit %d, new version hit %d", c1, cVersionToMigrate)
+				"Success! Version migration acts as expected for rate %f, "+
+					"old version hit %d, new version hit %d", rule.rate, c1, cVersionToMigrate)
 			break
 		}
 
 		if i == testRetryTimes-1 {
-			t.Errorf("Failed version migration test, "+
-				"old version hit %d, new version hit %d", c1, cVersionToMigrate)
+			t.Errorf("Failed version migration test for rate %f, "+
+				"old version hit %d, new version hit %d", rule.rate, c1, cVersionToMigrate)
 		}
 	}
-}
-
-func getBookinfoResourcePath(resource string) string {
-	return util.GetResourcePath(filepath.Join(bookinfoSampleDir, deploymentDir,
-		resource+"."+yamlExtension))
 }
 
 func isWithinPercentage(count int, total int, rate float64, tolerance float64) bool {
@@ -471,48 +240,18 @@ func isWithinPercentage(count int, total int, rate float64, tolerance float64) b
 	return count >= minimum && count <= maximum
 }
 
-func setTestConfig() error {
-	cc, err := framework.NewCommonConfig("demo_test")
-	if err != nil {
-		return err
+func TestDbRoutingMongo(t *testing.T) {
+	var rules = []string{testDbRule}
+	for _, configVersion := range tf.ConfigVersions() {
+		doTestDbRoutingMongo(t, configVersion, rules)
 	}
-	tc = new(testConfig)
-	tc.CommonConfig = cc
-	tc.rulesDir, err = ioutil.TempDir(os.TempDir(), "demo_test")
-	if err != nil {
-		return err
-	}
-	demoApps := []framework.App{{AppYaml: getBookinfoResourcePath(bookinfoYaml),
-		KubeInject: true,
-	},
-		{AppYaml: getBookinfoResourcePath(bookinfoRatingsv2Yaml),
-			KubeInject: true,
-		},
-		{AppYaml: getBookinfoResourcePath(bookinfoRatingsMysqlYaml),
-			KubeInject: true,
-		},
-		{AppYaml: getBookinfoResourcePath(bookinfoDbYaml),
-			KubeInject: true,
-		},
-		{AppYaml: getBookinfoResourcePath(bookinfoMysqlYaml),
-			KubeInject: true,
-		},
-		{AppYaml: getBookinfoResourcePath(bookinfoDetailsExternalServiceYaml),
-			KubeInject: true,
-		},
-	}
-	for i := range demoApps {
-		tc.Kube.AppManager.AddApp(&demoApps[i])
-	}
-	return nil
 }
 
-func TestDbRoutingMongo(t *testing.T) {
+func doTestDbRoutingMongo(t *testing.T, configVersion string, rules []string) {
 	var err error
-	var rules = []string{testDbRule}
-	inspect(applyRules(rules), "failed to apply rules", "", t)
+	inspect(applyRules(configVersion, rules), "failed to apply rules", "", t)
 	defer func() {
-		inspect(deleteRules(rules), "failed to delete rules", "", t)
+		inspect(deleteRules(configVersion, rules), "failed to delete rules", "", t)
 	}()
 
 	// TODO: update the rating in the db and check the value on page
@@ -526,11 +265,18 @@ func TestDbRoutingMongo(t *testing.T) {
 }
 
 func TestDbRoutingMysql(t *testing.T) {
-	var err error
 	var rules = []string{testMysqlRule}
-	inspect(applyRules(rules), "failed to apply rules", "", t)
+
+	for _, configVersion := range tf.ConfigVersions() {
+		doTestDbRoutingMysql(t, configVersion, rules)
+	}
+}
+
+func doTestDbRoutingMysql(t *testing.T, configVersion string, rules []string) {
+	var err error
+	inspect(applyRules(configVersion, rules), "failed to apply rules", "", t)
 	defer func() {
-		inspect(deleteRules(rules), "failed to delete rules", "", t)
+		inspect(deleteRules(configVersion, rules), "failed to delete rules", "", t)
 	}()
 
 	// TODO: update the rating in the db and check the value on page
@@ -564,11 +310,22 @@ func TestVMExtendsIstio(t *testing.T) {
 }
 
 func TestExternalDetailsService(t *testing.T) {
-	var err error
+	if !tf.Egress {
+		t.Skipf("Skipping %s: egress=false", t.Name())
+	}
+
 	var rules = []string{detailsExternalServiceRouteRule, detailsExternalServiceEgressRule}
-	inspect(applyRules(rules), "failed to apply rules", "", t)
+
+	for _, configVersion := range tf.ConfigVersions() {
+		doTestExternalDetailsService(t, configVersion, rules)
+	}
+}
+
+func doTestExternalDetailsService(t *testing.T, configVersion string, rules []string) {
+	var err error
+	inspect(applyRules(configVersion, rules), "failed to apply rules", "", t)
 	defer func() {
-		inspect(deleteRules(rules), "failed to delete rules", "", t)
+		inspect(deleteRules(configVersion, rules), "failed to delete rules", "", t)
 	}()
 
 	isbnFetchedFromExternalService := "0486424618"
@@ -577,12 +334,4 @@ func TestExternalDetailsService(t *testing.T) {
 	inspect(
 		err, fmt.Sprintf("Failed external details routing! %s in v1", u1),
 		fmt.Sprintf("Success! Response matches with expected! %s", isbnFetchedFromExternalService), t)
-}
-
-func TestMain(m *testing.M) {
-	flag.Parse()
-	check(framework.InitLogging(), "cannot setup logging")
-	check(setTestConfig(), "could not create TestConfig")
-	tc.Cleanup.RegisterCleanable(tc)
-	os.Exit(tc.RunTest(m))
 }

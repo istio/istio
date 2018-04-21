@@ -38,15 +38,15 @@ const (
 var (
 
 	// TODO - Add diff option to get the difference between pilot's xDS API response and the proxy config
-	// TODO - Add a full mesh Pilot look up (e.g. All clusters, all endpoints, etc)
 	// TODO - Add support for non-default proxy config locations
 	// TODO - Add support for non-kube istio deployments
 	// TODO - Bring Endpoint and Pilot config types more inline with each other
 	configCmd = &cobra.Command{
-		Use:   "proxy-config <endpoint|pilot> <pod-name> [<configuration-type>]",
+		Use:   "proxy-config <endpoint|pilot> <pod-name|mesh> [<configuration-type>]",
 		Short: "Retrieves proxy configuration for the specified pod from the endpoint proxy or Pilot [kube only]",
 		Long: `
 Retrieves proxy configuration for the specified pod from the endpoint proxy or Pilot when running in Kubernetes.
+It is also able to retrieve the state of the entire mesh by using mesh instead of <pod-name>. This is only available when querying Pilot.
 
 Available configuration types:
 
@@ -60,8 +60,11 @@ Available configuration types:
 		Example: `# Retrieve all config for productpage-v1-bb8d5cbc7-k7qbm pod from the endpoint proxy
 istioctl proxy-config endpoint productpage-v1-bb8d5cbc7-k7qbm
 
-# Retrieve cluster config for productpage-v1-bb8d5cbc7-k7qbm pod from Pilot
-istioctl proxy-config pilot productpage-v1-bb8d5cbc7-k7qbm clusters
+# Retrieve eds config for productpage-v1-bb8d5cbc7-k7qbm pod from Pilot
+istioctl proxy-config pilot productpage-v1-bb8d5cbc7-k7qbm eds
+
+# Retrieve ads config for the mesh from Pilot
+istioctl proxy-config pilot mesh ads
 
 # Retrieve static config for productpage-v1-bb8d5cbc7-k7qbm pod in the application namespace from the endpoint proxy
 istioctl proxy-config endpoint -n application productpage-v1-bb8d5cbc7-k7qbm static`,
@@ -84,7 +87,12 @@ istioctl proxy-config endpoint -n application productpage-v1-bb8d5cbc7-k7qbm sta
 			}
 			switch location {
 			case "pilot":
-				proxyID := fmt.Sprintf("%v:%v", podName, ns)
+				var proxyID string
+				if podName == "mesh" {
+					proxyID = "all"
+				} else {
+					proxyID = fmt.Sprintf("%v:%v", podName, ns)
+				}
 				pilots, err := getPilotPods()
 				if err != nil {
 					return err

@@ -15,6 +15,8 @@ package v2_test
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"io/ioutil"
 	"testing"
 	"time"
@@ -23,14 +25,62 @@ import (
 	envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/tests/util"
 )
 
 func connectADS(t *testing.T, url string) ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient {
 	conn, err := grpc.Dial(url, grpc.WithInsecure())
+	if err != nil {
+		t.Fatal("Connection failed", err)
+	}
+
+	xds := ads.NewAggregatedDiscoveryServiceClient(conn)
+	edsstr, err := xds.StreamAggregatedResources(context.Background())
+	if err != nil {
+		t.Fatal("Rpc failed", err)
+	}
+	return edsstr
+}
+
+func connectADSS(t *testing.T, url string) ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient {
+	certDir := util.IstioSrc + "/tests/testdata/certs/default/"
+
+	clientCert, err := tls.LoadX509KeyPair(certDir+model.CertChainFilename,
+		certDir+model.KeyFilename)
+	if err != nil {
+		t.Fatal("Can't load client certs ", err)
+		return nil
+	}
+
+	serverCABytes, err := ioutil.ReadFile(certDir + model.RootCertFilename)
+	if err != nil {
+		t.Fatal("Can't load client certs ", err)
+		return nil
+	}
+	serverCAs := x509.NewCertPool()
+	if ok := serverCAs.AppendCertsFromPEM(serverCABytes); !ok {
+		t.Fatal("Can't load client certs ", err)
+		return nil
+	}
+
+	tlsCfg := &tls.Config{
+		Certificates: []tls.Certificate{clientCert},
+		RootCAs:      serverCAs,
+		ServerName:   "istio-pilot.istio-system.svc",
+	}
+
+	creds := credentials.NewTLS(tlsCfg)
+
+	opts := []grpc.DialOption{
+		// Verify Pilot cert and service account
+		grpc.WithTransportCredentials(creds),
+	}
+	conn, err := grpc.Dial(url, opts...)
 	if err != nil {
 		t.Fatal("Connection failed", err)
 	}
@@ -141,6 +191,24 @@ func TestAdsReconnect(t *testing.T) {
 		t.Fatal("Recv failed", err)
 	}
 	t.Log("Received ", m)
+}
+
+func TestTLS(t *testing.T) {
+	initLocalPilotTestEnv(t)
+	edsstr := connectADSS(t, util.MockPilotSecureAddr)
+	sendCDSReq(t, sidecarId(app3Ip, "app3"), edsstr)
+	_, err := adsReceive(edsstr, 3*time.Second)
+	if err != nil {
+		t.Error("Failed to receive with TLS connection ", err)
+	}
+
+	bootstrap.IstioCertDir = util.IstioSrc + "/tests/testdata/certs/default"
+	c, err := bootstrap.Checkin(true, util.MockPilotSecureAddr, "cluster", sidecarId(app3Ip, "app3"),
+		1*time.Second, 2)
+	if err != nil {
+		t.Fatal("Failed to checkin", err)
+	}
+	t.Log("AZ:", c.AvailabilityZone)
 }
 
 func adsReceive(ads ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, to time.Duration) (*xdsapi.DiscoveryResponse, error) {

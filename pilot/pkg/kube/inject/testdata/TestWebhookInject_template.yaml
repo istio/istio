@@ -4,6 +4,8 @@ initContainers:
 containers:
 - name: istio-proxy
   image: example.com/proxy:latest
+imagePullSecrets:
+- name: istio-image-pull-secrets
 volumes:
 - emptyDir:
     medium: Memory

@@ -15,9 +15,14 @@
 package framework
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"time"
+
+	"k8s.io/api/core/v1"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/log"
 )
@@ -45,4 +50,68 @@ func getKubeConfigFromFile(dirname string) (string, error) {
 		return "", nil
 	}
 	return remoteKube, nil
+}
+
+func (k *KubeInfo) generateRemoteIstio(src, dst string) error {
+	content, err := ioutil.ReadFile(src)
+	if err != nil {
+		log.Errorf("cannot read remote yaml file %s", src)
+		return err
+	}
+	getOpt := meta_v1.GetOptions{IncludeUninitialized: true}
+	var statsdEPS, pilotEPS, mixerEPS *v1.Endpoints
+
+	for i := 0; i <= 200; i++ {
+		pilotEPS, err = k.KubeClient.CoreV1().Endpoints(k.Namespace).Get("istio-pilot", getOpt)
+		if (len(pilotEPS.Subsets) != 0) && (err == nil) {
+			mixerEPS, err = k.KubeClient.CoreV1().Endpoints(k.Namespace).Get("istio-policy", getOpt)
+			if (len(mixerEPS.Subsets) != 0) && (err == nil) {
+				statsdEPS, err = k.KubeClient.CoreV1().Endpoints(k.Namespace).Get("istio-statsd-prom-bridge", getOpt)
+				if (len(statsdEPS.Subsets) != 0) && (err == nil) {
+					break
+				}
+			}
+		}
+		time.Sleep(time.Second * 1)
+	}
+	if err != nil {
+		err = fmt.Errorf("could not get endpoints from local cluster")
+		return err
+	}
+
+	var statsdIP, pilotIP, mixerIP string
+	if len(pilotEPS.Subsets[0].Addresses) != 0 {
+		pilotIP = pilotEPS.Subsets[0].Addresses[0].IP
+	} else if len(pilotEPS.Subsets[0].NotReadyAddresses) != 0 {
+		pilotIP = pilotEPS.Subsets[0].NotReadyAddresses[0].IP
+	} else {
+		err = fmt.Errorf("could not get endpoint addresses")
+		return err
+	}
+	if len(mixerEPS.Subsets[0].Addresses) != 0 {
+		mixerIP = mixerEPS.Subsets[0].Addresses[0].IP
+	} else if len(mixerEPS.Subsets[0].NotReadyAddresses) != 0 {
+		mixerIP = mixerEPS.Subsets[0].NotReadyAddresses[0].IP
+	} else {
+		err = fmt.Errorf("could not get endpoint addresses")
+		return err
+	}
+	if len(statsdEPS.Subsets[0].Addresses) != 0 {
+		statsdIP = statsdEPS.Subsets[0].Addresses[0].IP
+	} else if len(statsdEPS.Subsets[0].NotReadyAddresses) != 0 {
+		statsdIP = statsdEPS.Subsets[0].NotReadyAddresses[0].IP
+	} else {
+		err = fmt.Errorf("could not get endpoint addresses")
+		return err
+	}
+	log.Infof("istio-pilot IP = %s istio-policy IP = %s istio-statsd-prom-bridge IP = %s", pilotIP, mixerIP, statsdIP)
+	content = replacePattern(content, "istio-policy.istio-system", mixerIP)
+	content = replacePattern(content, "istio-pilot.istio-system", pilotIP)
+	content = replacePattern(content, "istio-statsd-prom-bridge.istio-system", statsdIP)
+	content = replacePattern(content, istioSystem, k.Namespace)
+	err = ioutil.WriteFile(dst, content, 0600)
+	if err != nil {
+		log.Errorf("cannot write remote into generated yaml file %s", dst)
+	}
+	return nil
 }

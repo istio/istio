@@ -1016,7 +1016,6 @@ func (m *Cluster_CommonLbConfig_ZoneAwareLbConfig) GetMinClusterSize() *google_p
 
 // Configuration for :ref:`locality weighted load balancing
 // <arch_overview_load_balancing_locality_weighted_lb>`
-// [#not-implemented-hide:]
 type Cluster_CommonLbConfig_LocalityWeightedLbConfig struct {
 }
 
