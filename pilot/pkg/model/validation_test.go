@@ -2266,7 +2266,7 @@ func TestValidateDestination(t *testing.T) {
 		valid       bool
 	}{
 		{name: "empty", destination: &networking.Destination{
-				// nothing
+		// nothing
 		}, valid: false},
 		{name: "simple", destination: &networking.Destination{
 			Host: "foo.bar",
@@ -2294,7 +2294,7 @@ func TestValidateHTTPRoute(t *testing.T) {
 		valid bool
 	}{
 		{name: "empty", route: &networking.HTTPRoute{
-				// nothing
+		// nothing
 		}, valid: false},
 		{name: "simple", route: &networking.HTTPRoute{
 			Route: []*networking.DestinationWeight{{
