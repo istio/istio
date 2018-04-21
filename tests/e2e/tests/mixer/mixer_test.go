@@ -48,6 +48,7 @@ const (
 	deploymentDir            = "kube"
 	rulesDir                 = "kube"
 	bookinfoYaml             = "bookinfo"
+	bookinfoYaml             = "bookinfo-gateway"
 	bookinfoRatingsv2Yaml    = "bookinfo-ratings-v2"
 	bookinfoDbYaml           = "bookinfo-db"
 	sleepYaml                = "samples/sleep/sleep"
@@ -86,7 +87,7 @@ var (
 	tc                 *testConfig
 	productPageTimeout = 60 * time.Second
 	rules              = []string{rateLimitRule, denialRule, ingressDenialRule, newTelemetryRule, routeAllRule,
-		routeReviewsVersionsRule, routeReviewsV3Rule, tcpDbRule}
+		routeReviewsVersionsRule, routeReviewsV3Rule, tcpDbRule, gatewayRule}
 )
 
 func (t *testConfig) Setup() (err error) {
@@ -138,9 +139,12 @@ func (t *testConfig) Setup() (err error) {
 }
 
 func createDefaultRoutingRules() error {
-	if err := createRouteRule(routeAllRule); err != nil {
-		return fmt.Errorf("could not create base routing rules: %v", err)
+	for _, rule := range []string{bookinfoGateway, routeAllRule} {
+		if err := createRouteRule(rule); err != nil {
+			return fmt.Errorf("could not create base routing rules: %v", err)
+		}
 	}
+
 	allowRuleSync()
 	return nil
 }

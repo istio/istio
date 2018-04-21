@@ -71,10 +71,10 @@ var (
 		Egress:   true,
 	}
 	testRetryTimes = 5
-	defaultRules   = []string{allRule}
+	defaultRules   = []string{allRule, bookinfoGateway}
 	allRules       = []string{allRule, delayRule, tenRule, twentyRule, fiftyRule, testRule,
 		testDbRule, testMysqlRule, detailsExternalServiceRouteRule,
-		detailsExternalServiceEgressRule}
+		detailsExternalServiceEgressRule, bookinfoGateway}
 )
 
 type testConfig struct {
