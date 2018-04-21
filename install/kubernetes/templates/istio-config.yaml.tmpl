@@ -56,6 +56,19 @@ data:
       drainDuration: 45s
       parentShutdownDuration: 1m0s
       #
+      # The mode used to redirect inbound connections to Envoy. This setting
+      # has no effect on outbound traffic: iptables REDIRECT is always used for
+      # outbound connections.
+      # If "REDIRECT", use iptables REDIRECT to NAT and redirect to Envoy.
+      # The "REDIRECT" mode loses source addresses during redirection.
+      # If "TPROXY", use iptables TPROXY to redirect to Envoy.
+      # The "TPROXY" mode preserves both the source and destination IP
+      # addresses and ports, so that they can be used for advanced filtering
+      # and manipulation.
+      # The "TPROXY" mode also configures the sidecar to run with the
+      # CAP_NET_ADMIN capability, which is required to use TPROXY.
+      interceptionMode: REDIRECT
+      #
       # Port where Envoy listens (on local host) for admin commands
       # You can exec into the istio-proxy container in a pod and
       # curl the admin port (curl http://localhost:15000/) to obtain

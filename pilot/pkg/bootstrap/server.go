@@ -253,15 +253,39 @@ func (s *Server) initMonitor(args *PilotArgs) error {
 }
 
 func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
+	// Initializing Cluster store
+	s.clusterStore = clusterregistry.NewClustersStore()
+
 	if args.Config.ClusterRegistriesConfigmap != "" {
-		s.clusterStore, err = clusterregistry.ReadClusters(s.kubeClient,
+		if err = clusterregistry.ReadClusters(s.kubeClient,
 			args.Config.ClusterRegistriesConfigmap,
-			args.Config.ClusterRegistriesNamespace)
+			args.Config.ClusterRegistriesNamespace,
+			s.clusterStore); err != nil {
+			return err
+		}
 		if s.clusterStore != nil {
 			log.Infof("clusters configuration %s", spew.Sdump(s.clusterStore))
 		}
 	}
+	// Should not start Secret Controller if Mock Registry is used
+	if !checkForMock(args.Service.Registries) {
+		// Starting Secret controller which will watch for Secret Objects and handle
+		// clientConfigs map dynamically
+		err = clusterregistry.StartSecretController(s.kubeClient, s.clusterStore, args.Config.ClusterRegistriesNamespace)
+	}
+
 	return err
+}
+
+// Check if Mock's registry exists in PilotArgs's Registries
+func checkForMock(registries []string) bool {
+	for _, r := range registries {
+		if strings.ToLower(r) == "mock" {
+			return true
+		}
+	}
+
+	return false
 }
 
 // GetMeshConfig fetches the ProxyMesh configuration from Kubernetes ConfigMap.
@@ -837,7 +861,7 @@ func (s *Server) secureGrpcStart(listener net.Listener) {
 
 		// This seems the only way to call setupHTTP2 - it may also be possible to set NextProto
 		// on a listener
-		s.ServeTLS(listener, certDir+model.CertChainFilename, certDir+model.KeyFilename)
+		_ = s.ServeTLS(listener, certDir+model.CertChainFilename, certDir+model.KeyFilename)
 
 		// The other way to set TLS - but you can't add http handlers, and the h2 stack is
 		// different.
