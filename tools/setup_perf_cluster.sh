@@ -53,7 +53,6 @@ else
   fi
 fi
 
-
 function update_gcp_opts() {
   export GCP_OPTS="--project $PROJECT --zone $ZONE"
 }
@@ -101,7 +100,7 @@ function run_on_vm() {
 
 function setup_vm() {
   Execute gcloud compute instances add-tags $VM_NAME $GCP_OPTS --tags https-server
-  run_on_vm '(sudo add-apt-repository ppa:gophers/archive > /dev/null && sudo apt-get update > /dev/null && sudo apt-get upgrade --no-install-recommends -y && sudo apt-get install --no-install-recommends -y golang-1.9-go make && mv .bashrc .bashrc.orig && (echo "export PATH=/usr/lib/go-1.9/bin:\$PATH:~/go/bin"; cat .bashrc.orig) > ~/.bashrc ) < /dev/null'
+  run_on_vm '(sudo add-apt-repository ppa:gophers/archive > /dev/null && sudo apt-get update > /dev/null && sudo apt-get upgrade --no-install-recommends -y && sudo apt-get install --no-install-recommends -y golang-1.10-go make && mv .bashrc .bashrc.orig && (echo "export PATH=/usr/lib/go-1.9/bin:\$PATH:~/go/bin"; cat .bashrc.orig) > ~/.bashrc ) < /dev/null'
 }
 
 function setup_vm_firewall() {
@@ -185,6 +184,33 @@ function get_fortio_k8s_ip() {
   echo "+++ In k8s fortio external ip: http://$FORTIO_K8S_IP:8080/fortio/"
 }
 
+function setup_istio_addons_ingress() {
+  cat <<_EOF_ | kubectl apply -n istio-system -f -
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: istio
+  name: istio-ingress
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /d/.*
+            backend:
+              serviceName: grafana
+              servicePort: http
+          - path: /public/.*
+            backend:
+              serviceName: grafana
+              servicePort: http
+          - path: /api/.*
+            backend:
+              serviceName: grafana
+              servicePort: http
+_EOF_
+}
+
 # Doesn't work somehow...
 function setup_non_istio_ingress2() {
   cat <<_EOF_ | kubectl apply -n fortio -f -
@@ -244,15 +270,17 @@ function get_istio_ingress_ip() {
   done
 
   echo "+++ In k8s istio ingress: http://$ISTIO_INGRESS_IP/fortio1/fortio/ and fortio2"
+  echo "+++ In k8s grafana: http://$ISTIO_INGRESS_IP/d/1/"
 }
 
 # Set default QPS to max qps
-if [[ $QPS == "" ]]; then
+if [ -z ${QPS+x} ] || [ $QPS == "" ]; then
+  echo "Setting default qps"
   QPS=-1
 fi
 
 # Set default run duration to 30s
-if [[ $DUR == "" ]]; then
+if [ -z ${DUR+x} ] || [ $DUR == "" ]; then
   DUR="30s"
 fi
 
@@ -420,6 +448,8 @@ function setup_istio_all() {
   install_istio_svc
   install_istio_ingress_rules
   install_istio_cache_busting_rule
+  install_istio_addons
+  setup_istio_addons_ingress
 }
 
 function setup_cluster_all() {
