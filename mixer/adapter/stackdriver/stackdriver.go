@@ -35,9 +35,8 @@ import (
 
 type (
 	builder struct {
-		m  metric.HandlerBuilder
-		l  logentry.HandlerBuilder
-		pf *helper.ProjectIDFiller
+		m metric.HandlerBuilder
+		l logentry.HandlerBuilder
 	}
 
 	handler struct {
@@ -56,7 +55,14 @@ var (
 
 // GetInfo returns the Info associated with this adapter implementation.
 func GetInfo() adapter.Info {
-	shouldFill := func(c *config.Params) bool { return c.ProjectId == "" && md.OnGCE() }
+	clusterNameFn := func() (string, error) {
+		cn, err := md.InstanceAttributeValue("cluster-name")
+		if err != nil {
+			return "", err
+		}
+		return cn, nil
+	}
+	mg := helper.NewMetadataGenerator(md.OnGCE, md.ProjectID, md.Zone, clusterNameFn)
 	return adapter.Info{
 		Name:        "stackdriver",
 		Impl:        "istio.io/istio/mixer/adapte/stackdriver",
@@ -67,7 +73,7 @@ func GetInfo() adapter.Info {
 		},
 		DefaultConfig: &config.Params{},
 		NewBuilder: func() adapter.HandlerBuilder {
-			return &builder{m: sdmetric.NewBuilder(), l: log.NewBuilder(), pf: helper.NewProjectIDFiller(shouldFill, md.ProjectID)}
+			return &builder{m: sdmetric.NewBuilder(mg), l: log.NewBuilder(mg)}
 		}}
 }
 
@@ -79,7 +85,6 @@ func (b *builder) SetLogEntryTypes(entries map[string]*logentry.Type) {
 	b.l.SetLogEntryTypes(entries)
 }
 func (b *builder) SetAdapterConfig(c adapter.Config) {
-	b.pf.FillProjectID(c)
 	b.m.SetAdapterConfig(c)
 	b.l.SetAdapterConfig(c)
 }
