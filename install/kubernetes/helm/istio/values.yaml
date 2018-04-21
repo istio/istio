@@ -391,81 +391,84 @@ servicegraph:
   # prometheus addres
   prometheusAddr: http://prometheus:9090
 
-zipkin:
+tracing:
   enabled: false
   replicaCount: 1
-  image:
-    repository: docker.io/openzipkin/zipkin
-    tag: 2.7
-    pullPolicy: IfNotPresent
+  provider: zipkin
   service:
     name: http
     type: ClusterIP
     externalPort: 9411
     internalPort: 9411
-  ingress:
-    enabled: false
-    # Used to create an Ingress record.
-    hosts:
-      - zipkin.local
-    annotations:
-      # kubernetes.io/ingress.class: nginx
-      # kubernetes.io/tls-acme: "true"
-    tls:
-      # Secrets must be manually created in the namespace.
-      # - secretName: zipkin-tls
-      #   hosts:
-      #     - zipkin.local
-  resources: {}
-    # limits:
-    #  cpu: 100m
-    #  memory: 128Mi
-    # requests:
-    #  cpu: 100m
-    #  memory: 128Mi
 
-jaeger:
-  enabled: false
-  replicaCount: 1
-  image:
-    repository: jaegertracing/all-in-one
-    tag: latest
-    pullPolicy: IfNotPresent
-  queryservice:
-    name: jaeger-query-http
-    externalPort: 16686
-    internalPort: 16686
-    type: LoadBalancer
-  collectorservice:
-    type: ClusterIP
-    nameHttp: jaeger-collector-http
-    externalHttpPort: 14268
-    internalHttpPort: 14268
-    nameTChannel: jaeger-collector-tchannel
-    externalTChannelPort: 14267
-    internalTChannelPort: 14267
-  zipkinservice:
-    name: jaeger-collector-zipkin
-    externalPort: 9411
-    internalPort: 9411
-    type: None
-  ingress:
-    enabled: false
-    # Used to create an Ingress record.
-    hosts:
-      - zipkin.local
-    annotations:
-      # kubernetes.io/ingress.class: nginx
-      # kubernetes.io/tls-acme: "true"
-    tls:
-      # Secrets must be manually created in the namespace.
-      # - secretName: zipkin-tls
-      #   hosts:
-      #     - zipkin.local
-  resources: {}
-    # limits:
-    #  cpu: 100m
-    #  memory: 128Mi
-    # requests:
-    #  cpu: 100m
-    #  memory: 128Mi
+  zipkin:
+    replicaCount: 1
+    image:
+      repository: docker.io/openzipkin/zipkin
+      tag: 2.7
+      pullPolicy: IfNotPresent
+    ingress:
+      enabled: false
+      # Used to create an Ingress record.
+      hosts:
+        - zipkin.local
+      annotations:
+        # kubernetes.io/ingress.class: nginx
+        # kubernetes.io/tls-acme: "true"
+      tls:
+        # Secrets must be manually created in the namespace.
+        # - secretName: zipkin-tls
+        #   hosts:
+        #     - zipkin.local
+    resources: {}
+      # limits:
+      #  cpu: 100m
+      #  memory: 128Mi
+      # requests:
+      #  cpu: 100m
+      #  memory: 128Mi
+
+  jaeger:
+    replicaCount: 1
+    image:
+      repository: jaegertracing/all-in-one
+      tag: latest
+      pullPolicy: IfNotPresent
+    queryservice:
+      name: jaeger-query-http
+      externalPort: 16686
+      internalPort: 16686
+      type: LoadBalancer
+    collectorservice:
+      type: ClusterIP
+      nameHttp: jaeger-collector-http
+      externalHttpPort: 14268
+      internalHttpPort: 14268
+      nameTChannel: jaeger-collector-tchannel
+      externalTChannelPort: 14267
+      internalTChannelPort: 14267
+    zipkinservice:
+      name: jaeger-collector-zipkin
+      externalPort: 9411
+      internalPort: 9411
+      type: None
+    ingress:
+      enabled: false
+      # Used to create an Ingress record.
+      hosts:
+        - zipkin.local
+      annotations:
+        # kubernetes.io/ingress.class: nginx
+        # kubernetes.io/tls-acme: "true"
+      tls:
+        # Secrets must be manually created in the namespace.
+        # - secretName: zipkin-tls
+        #   hosts:
+        #     - zipkin.local
+    resources: {}
+      # limits:
+      #  cpu: 100m
+      #  memory: 128Mi
+      # requests:
+      #  cpu: 100m
+      #  memory: 128Mi

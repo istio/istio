@@ -1,13 +1,14 @@
-{{- if .Values.ingress.enabled -}}
-{{- $serviceName := "jaeger" -}}
-{{- $servicePort := .Values.service.externalQueryPort -}}
+{{ if eq .Values.provider "zipkin" }}
+{{- if .Values.zipkin.ingress.enabled -}}
+{{- $serviceName := "zipkin" -}}
+{{- $servicePort := .Values.service.externalPort -}}
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
-  name: {{ template "jaeger.fullname" . }}
+  name: {{ template "zipkin.fullname" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "jaeger.name" . }}
+    app: {{ template "zipkin.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
@@ -31,3 +32,4 @@ spec:
 {{ toYaml .Values.ingress.tls | indent 4 }}
   {{- end -}}
 {{- end -}}
+{{ end }}

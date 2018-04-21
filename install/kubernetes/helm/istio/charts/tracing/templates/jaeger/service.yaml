@@ -1,3 +1,5 @@
+{{ if eq .Values.provider "jaeger" }}
+
 #
 # Copyright 2017-2018 The Jaeger Authors
 #
@@ -31,10 +33,10 @@ items:
       - name: query-http
         port: 80
         protocol: TCP
-        targetPort: {{ .Values.queryservice.internalPort }}
+        targetPort: {{ .Values.jaeger.queryservice.internalPort }}
     selector:
       jaeger-infra: jaeger-pod
-    type: {{ .Values.queryservice.type }}
+    type: {{ .Values.jaeger.queryservice.type }}
 - apiVersion: v1
   kind: Service
   metadata:
@@ -48,17 +50,17 @@ items:
       heritage: {{ .Release.Service }}
   spec:
     ports:
-    - name: {{ .Values.collectorservice.nameTChannel }}
-      port: {{ .Values.collectorservice.externalTChannelPort }}
+    - name: {{ .Values.jaeger.collectorservice.nameTChannel }}
+      port: {{ .Values.jaeger.collectorservice.externalTChannelPort }}
       protocol: TCP
-      targetPort: {{ .Values.collectorservice.internalTChannelPort }}
-    - name: {{ .Values.collectorservice.nameHttp }}
-      port: {{ .Values.collectorservice.externalHttpPort }}
-      targetPort: {{ .Values.collectorservice.internalHttpPort }}
+      targetPort: {{ .Values.jaeger.collectorservice.internalTChannelPort }}
+    - name: {{ .Values.jaeger.collectorservice.nameHttp }}
+      port: {{ .Values.jaeger.collectorservice.externalHttpPort }}
+      targetPort: {{ .Values.jaeger.collectorservice.internalHttpPort }}
       protocol: TCP
     selector:
       jaeger-infra: jaeger-pod
-    type: {{ .Values.collectorservice.type }}
+    type: {{ .Values.jaeger.collectorservice.type }}
 - apiVersion: v1
   kind: Service
   metadata:
@@ -87,22 +89,5 @@ items:
     clusterIP: None
     selector:
       jaeger-infra: jaeger-pod
-- apiVersion: v1
-  kind: Service
-  metadata:
-    name: zipkin
-    namespace: {{ .Release.Namespace }}
-    labels:
-      app: jaeger
-      chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-      release: {{ .Release.Name }}
-      heritage: {{ .Release.Service }}
-  spec:
-    ports:
-      - port: {{ .Values.zipkinservice.externalPort }}
-        targetPort: {{ .Values.zipkinservice.internalPort }}
-        protocol: TCP
-        name: {{ .Values.zipkinservice.name }}
-    clusterIP: None
-    selector:
-      jaeger-infra: jaeger-pod
+
+{{ end }}

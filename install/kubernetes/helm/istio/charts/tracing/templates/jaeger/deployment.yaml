@@ -1,3 +1,5 @@
+{{ if eq .Values.provider "jaeger" }}
+
 #
 # Copyright 2017-2018 The Jaeger Authors
 #
@@ -33,14 +35,15 @@ items:
       metadata:
         labels:
           app: jaeger
+          app: zipkin
           jaeger-infra: jaeger-pod
       spec:
           containers:
           -   env:
               - name: COLLECTOR_ZIPKIN_HTTP_PORT
                 value: "9411"
-              image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              image: "{{ .Values.jaeger.image.repository }}:{{ .Values.jaeger.image.tag }}"
+              imagePullPolicy: {{ .Values.jaeger.image.pullPolicy }}
               name: jaeger
               ports:
                 - containerPort: 5775
@@ -49,12 +52,14 @@ items:
                   protocol: UDP
                 - containerPort: 6832
                   protocol: UDP
-                - containerPort: {{ .Values.queryservice.internalPort }}
+                - containerPort: {{ .Values.jaeger.queryservice.internalPort }}
                   protocol: TCP
-                - containerPort: {{ .Values.zipkinservice.internalPort }}
+                - containerPort: {{ .Values.jaeger.zipkinservice.internalPort }}
                   protocol: TCP
               readinessProbe:
                 httpGet:
                   path: "/"
-                  port: {{ .Values.queryservice.internalPort }}
+                  port: {{ .Values.jaeger.queryservice.internalPort }}
                 initialDelaySeconds: 5
+
+{{ end }}

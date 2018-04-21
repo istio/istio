@@ -1,23 +1,24 @@
-{{- if .Values.ingress.enabled -}}
-{{- $serviceName := "zipkin" -}}
-{{- $servicePort := .Values.service.externalPort -}}
+{{ if eq .Values.provider "jaeger" }}
+{{- if .Values.jaeger.ingress.enabled -}}
+{{- $serviceName := "jaeger" -}}
+{{- $servicePort := .Values.service.externalQueryPort -}}
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
-  name: {{ template "zipkin.fullname" . }}
+  name: {{ template "jaeger.fullname" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "zipkin.name" . }}
+    app: {{ template "jaeger.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
   annotations:
-    {{- range $key, $value := .Values.ingress.annotations }}
+    {{- range $key, $value := .Values.jaeger.ingress.annotations }}
       {{ $key }}: {{ $value | quote }}
     {{- end }}
 spec:
   rules:
-    {{- range $host := .Values.ingress.hosts }}
+    {{- range $host := .Values.jaeger.ingress.hosts }}
     - host: {{ $host }}
       http:
         paths:
@@ -26,8 +27,9 @@ spec:
               serviceName: {{ $serviceName }}
               servicePort: {{ $servicePort }}
     {{- end -}}
-  {{- if .Values.ingress.tls }}
+  {{- if .Values.jaeger.ingress.tls }}
   tls:
-{{ toYaml .Values.ingress.tls | indent 4 }}
+{{ toYaml .Values.jaeger.ingress.tls | indent 4 }}
   {{- end -}}
+{{- end -}}
 {{- end -}}
