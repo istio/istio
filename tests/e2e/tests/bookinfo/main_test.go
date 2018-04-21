@@ -42,6 +42,7 @@ const (
 	deploymentDir                      = "kube"
 	routeRulesDir                      = "kube"
 	bookinfoYaml                       = "bookinfo"
+	bookinfoGateway                    = "bookinfo-gateway"
 	bookinfoRatingsv2Yaml              = "bookinfo-ratings-v2"
 	bookinfoRatingsMysqlYaml           = "bookinfo-ratings-v2-mysql"
 	bookinfoDbYaml                     = "bookinfo-db"
@@ -358,6 +359,11 @@ func setTestConfig() error {
 func TestMain(m *testing.M) {
 	flag.Parse()
 	check(framework.InitLogging(), "cannot setup logging")
+
+	if tf.V1alpha1 && tf.V1alpha3 {
+		check(errors.New("both v1alpha1 and v1alpha3 are requested"),
+			"cannot test both v1alpha1 and alpha3 simultaneously")
+	}
 
 	if tf.V1alpha3 {
 		allRules = append(allRules, reviewsDestinationRule)
