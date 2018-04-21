@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+<<<<<<< HEAD
 	"fmt"
 	"log"
 	"os"
@@ -19,6 +20,23 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	agent "istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/tests/util"
+=======
+	"istio.io/istio/pilot/pkg/bootstrap"
+	"github.com/golang/protobuf/ptypes"
+	"time"
+	"istio.io/istio/pilot/pkg/serviceregistry"
+	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v1"
+	"istio.io/istio/tests/util"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+
+	agent "istio.io/istio/pkg/bootstrap"
+
+	"log"
+	"os"
+	"istio.io/istio/mixer/test/client/env"
+	"os/signal"
+	"syscall"
+>>>>>>> a274e7ab2... More testing and adjustments
 )
 
 // hyperistio runs all istio components in one binary, using a directory based config by
@@ -72,6 +90,7 @@ func startMixer() error {
 		return err
 	}
 	srv.Start()
+<<<<<<< HEAD
 
 	go func() {
 		for {
@@ -80,11 +99,14 @@ func startMixer() error {
 		}
 	}()
 
+=======
+>>>>>>> a274e7ab2... More testing and adjustments
 	return nil
 }
 
 func startEnvoy() error {
 	cfg := &meshconfig.ProxyConfig{
+<<<<<<< HEAD
 		DiscoveryAddress:      "localhost:8080",
 		ConfigPath:            util.IstioOut,
 		BinaryPath:            util.IstioBin + "/envoy",
@@ -96,6 +118,18 @@ func startEnvoy() error {
 
 	}
 	cfgF, err := agent.WriteBootstrap(cfg, "sidecar~127.0.0.2~a~a", 1, []string{}, nil)
+=======
+		DiscoveryAddress: "localhost:8080",
+		ConfigPath: util.IstioOut,
+		BinaryPath: util.IstioBin + "/envoy",
+		ServiceCluster: "test",
+		CustomConfigFile: util.IstioSrc + "/tools/deb/envoy_bootstrap_v2.json",
+		DiscoveryRefreshDelay:ptypes.DurationProto(10 * time.Second), // crash if not set
+		ConnectTimeout:ptypes.DurationProto(5 * time.Second), // crash if not set
+		DrainDuration:ptypes.DurationProto(30*time.Second), // crash if 0
+	}
+	cfgF, err := agent.WriteBootstrap(cfg, "sidecar~127.0.0.1~a~a", 1, []string{}, nil)
+>>>>>>> a274e7ab2... More testing and adjustments
 	if err != nil {
 		return err
 	}
@@ -110,9 +144,12 @@ func startEnvoy() error {
 func startPilot() error {
 	stop := make(chan struct{})
 
+<<<<<<< HEAD
 	mcfg := model.DefaultMeshConfig()
 	mcfg.ProxyHttpPort = 15002
 
+=======
+>>>>>>> a274e7ab2... More testing and adjustments
 	// Create a test pilot discovery service configured to watch the tempDir.
 	args := bootstrap.PilotArgs{
 		Namespace: "testing",
@@ -135,11 +172,18 @@ func startPilot() error {
 			Registries: []string{
 				string(serviceregistry.MockRegistry)},
 		},
+<<<<<<< HEAD
 		MeshConfig: &mcfg,
 	}
 	bootstrap.FilepathWalkInterval = 5 * time.Second
 	// Static testdata, should include all configs we want to test.
 	args.Config.FileDir = util.IstioSrc + "/tests/testdata/config"
+=======
+	}
+	bootstrap.FilepathWalkInterval = 10 * time.Second
+	// Static testdata, should include all configs we want to test.
+	args.Config.FileDir = util.IstioSrc + "/tests/testdata"
+>>>>>>> a274e7ab2... More testing and adjustments
 
 	// Create and setup the controller.
 	s, err := bootstrap.NewServer(args)
@@ -154,3 +198,7 @@ func startPilot() error {
 	}
 	return nil
 }
+<<<<<<< HEAD
+=======
+
+>>>>>>> a274e7ab2... More testing and adjustments

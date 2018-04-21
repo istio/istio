@@ -1,0 +1,69 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: ExternalService
+metadata:
+  name: websocket-extsvc
+spec:
+   hosts:
+   - websocket.extsvc.com
+   ports:
+   - number: 9002
+     name: http
+     protocol: HTTP
+   discovery: STATIC
+   endpoints:
+    - address: 127.0.0.2
+      ports:
+        http: 8080
+
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: websocket
+spec:
+  host: webssocet.extsvc.com
+  subsets:
+    - name: v1
+      labels:
+        version: v1
+
+
+---
+
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: websocket-route
+spec:
+  hosts:
+    - websocket.extsvc.com
+  http:
+    - match:
+      - headers:
+          testwebsocket:
+            exact: enabled
+      route:
+      - destination:
+          host: websocket.extsvc.com
+          subset: v1
+      websocketUpgrade: true
+
+---
+
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: websocket-route2
+spec:
+  hosts:
+    - websocket2.extsvc.com
+  http:
+    - match:
+      - headers:
+          testwebsocket:
+            exact: enabled
+      route:
+      - destination:
+          host: websocket.extsvc.com
+          subset: v1
+      websocketUpgrade: true

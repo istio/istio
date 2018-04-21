@@ -87,6 +87,8 @@ func init() {
 		idx := strings.Index(current, "/src/istio.io/istio")
 		if idx > 0 {
 			IstioTop = current[0:idx]
+		} else {
+			IstioTop = current // launching from GOTOP (for example in goland)
 		}
 	}
 	if IstioSrc == "" {

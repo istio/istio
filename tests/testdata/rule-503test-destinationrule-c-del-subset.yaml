@@ -1,0 +1,14 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: destination-rule-c
+spec:
+  host: c
+  subsets:
+    # Always Add new subsets before deleting the old ones (make before break)
+    - name: v3
+      labels:
+        version: v1
+    - name: v4
+      labels:
+        version: v2
