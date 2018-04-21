@@ -214,7 +214,7 @@ func toLabelMap(names []string, variables map[string]interface{}) map[string]str
 		case string:
 			out[name] = vt
 		default:
-			out[name] = fmt.Sprintf("%v", v)
+			out[name] = fmt.Sprintf("%v", vt)
 		}
 	}
 	return out
