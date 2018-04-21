@@ -566,9 +566,16 @@ installgen:
 	install/updateVersion.sh -a ${HUB},${TAG}
 	$(MAKE) istio.yaml
 
-# A make target to generate all the YAML files
+# A make target to generate all the YAML files. This is used for the e2e and integration
+# tests.
 generate_yaml:
 	./install/updateVersion.sh -a ${HUB},${TAG}
+	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/istio.yaml
+	$(HELM) template --set global.tag=${TAG} \
+		  --namespace=istio-system \
+                  --set global.hub=${HUB} \
+		  --set zipkin.enabled=true --set zipkin.jaeger=true \
+		  install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
 
 $(HELM):
 	bin/init_helm.sh
@@ -597,6 +604,7 @@ generate_yaml-envoyv2_transition: $(HELM)
 	$(HELM) template --set global.tag=${TAG} \
 		  --namespace=istio-system \
                   --set global.hub=${HUB} \
+		  --set zipkin.enabled=true --set zipkin.jaeger=true \
 		  --values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
 		  install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
 

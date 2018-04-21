@@ -39,7 +39,6 @@ import (
 const (
 	yamlSuffix                       = ".yaml"
 	istioInstallDir                  = "install/kubernetes"
-	istioAddonsDir                   = "install/kubernetes/addons"
 	nonAuthInstallFile               = "istio.yaml"
 	authInstallFile                  = "istio-auth.yaml"
 	nonAuthInstallFileNamespace      = "istio-one-namespace.yaml"
@@ -81,10 +80,6 @@ var (
 	multiClusterDir           = flag.String("cluster_registry_dir", "", "Directory name for the cluster registry config")
 	galleyConfigValidatorFile = flag.String("galley_config_validator_file", defaultGalleyConfigValidatorFile, "Galley config validator yaml file")
 	useGalleyConfigValidator  = flag.Bool("use_galley_config_validator", false, "Use galley configuration validation webhook")
-
-	addons = []string{
-		"zipkin",
-	}
 )
 
 // KubeInfo gathers information for kubectl
@@ -102,7 +97,6 @@ type KubeInfo struct {
 	namespaceCreated bool
 	AuthEnabled      bool
 	RBACEnabled      bool
-	InstallAddons    bool
 
 	// Extra services to be excluded from MTLS
 	MTLSExcludedServices []string
@@ -250,12 +244,6 @@ func (k *KubeInfo) Setup() error {
 			return err
 		}
 
-		if k.InstallAddons {
-			if err = k.deployAddons(); err != nil {
-				log.Error("Failed to deploy istio addons")
-				return err
-			}
-		}
 		// Create the ingress secret.
 		certDir := util.GetResourcePath("./tests/testdata/certs")
 		certFile := filepath.Join(certDir, "cert.crt")
@@ -473,34 +461,6 @@ func (k *KubeInfo) deepCopy(src map[string][]string) map[string][]string {
 		newMap[k] = v
 	}
 	return newMap
-}
-
-func (k *KubeInfo) deployAddons() error {
-	for _, addon := range addons {
-		addonPath := filepath.Join(istioAddonsDir, fmt.Sprintf("%s.yaml", addon))
-		baseYamlFile := filepath.Join(k.ReleaseDir, addonPath)
-		content, err := ioutil.ReadFile(baseYamlFile)
-		if err != nil {
-			log.Errorf("Cannot read file %s", baseYamlFile)
-			return err
-		}
-
-		if !*clusterWide {
-			content = replacePattern(content, istioSystem, k.Namespace)
-		}
-
-		yamlFile := filepath.Join(k.TmpDir, "yaml", addon+".yaml")
-		err = ioutil.WriteFile(yamlFile, content, 0600)
-		if err != nil {
-			log.Errorf("Cannot write into file %s", yamlFile)
-		}
-
-		if err := util.KubeApply(k.Namespace, yamlFile, k.KubeConfig); err != nil {
-			log.Errorf("Kubectl apply %s failed", yamlFile)
-			return err
-		}
-	}
-	return nil
 }
 
 func (k *KubeInfo) deployIstio() error {
