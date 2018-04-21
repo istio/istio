@@ -113,6 +113,9 @@ oth:
 enm: request.reason
 si32: -20 
 si64: 200000002
+r_flt:
+  - 1.12
+  - 1.13
 `
 const dmm_out = `
 str: mystring
@@ -124,6 +127,9 @@ oth:
 enm: TWO
 si32: -20
 si64: 200000002
+r_flt:
+  - 1.12
+  - 1.13
 `
 
 type testdata struct {

@@ -218,7 +218,7 @@ func (c EncoderBuilder) buildMessage(md *descriptor.DescriptorProto, data map[in
 		}
 	}
 
-	// sorting is recommended, but not required.
+	// sorting is recommended
 	sort.Slice(me.fields, func(i, j int) bool {
 		return me.fields[i].number < me.fields[j].number
 	})
@@ -260,11 +260,10 @@ func (m messageEncoder) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
 	if m.skipEncodeLength {
 		return m.encodeNoLength(bag, ba)
 	}
-	l0 := len(ba)
 
+	l0 := len(ba)
 	// #pragma inline reserve varLength bytes
 	ba = extendSlice(ba, varLength)
-
 	l1 := len(ba)
 
 	if ba, err = m.encodeNoLength(bag, ba); err != nil {
@@ -272,7 +271,6 @@ func (m messageEncoder) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
 	}
 
 	length := len(ba) - l1
-
 	diff := proto.SizeVarint(uint64(length)) - varLength
 	// move data forward because we need more than varLength bytes
 	if diff > 0 {
