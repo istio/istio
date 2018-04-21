@@ -22,7 +22,6 @@ spec:
   - "*"
   gateways:
   - bookinfo-gateway
-  #- istio-ingressgateway 
   http:
   - match:
     - uri:
