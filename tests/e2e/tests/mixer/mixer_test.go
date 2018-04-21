@@ -48,7 +48,6 @@ const (
 	deploymentDir            = "kube"
 	rulesDir                 = "kube"
 	bookinfoYaml             = "bookinfo"
-	bookinfoGateway          = "bookinfo-gateway"
 	bookinfoRatingsv2Yaml    = "bookinfo-ratings-v2"
 	bookinfoDbYaml           = "bookinfo-db"
 	sleepYaml                = "samples/sleep/sleep"
@@ -60,6 +59,7 @@ const (
 	routeReviewsVersionsRule = rulesDir + "/" + "route-rule-reviews-v2-v3"
 	routeReviewsV3Rule       = rulesDir + "/" + "route-rule-reviews-v3"
 	tcpDbRule                = rulesDir + "/" + "route-rule-ratings-db"
+	bookinfoGateway          = routeRulesDir + "/" + "bookinfo-gateway"
 
 	prometheusPort   = "9090"
 	mixerMetricsPort = "42422"
