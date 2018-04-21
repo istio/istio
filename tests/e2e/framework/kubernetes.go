@@ -55,7 +55,7 @@ const (
 	defaultSidecarInjectorFile       = "istio-sidecar-injector.yaml"
 	ingressCertsName                 = "istio-ingress-certs"
 	defaultGalleyConfigValidatorFile = "istio-galley-config-validator.yaml"
-	maxDeploymentRolloutTime         = 240 * time.Second
+	maxDeploymentRolloutTime         = 480 * time.Second
 	mtlsExcludedServicesPattern      = "mtlsExcludedServices:\\s*\\[(.*)\\]"
 	helmServiceAccountFile           = "helm-service-account.yaml"
 	istioHelmInstallDir              = "install/kubernetes/helm/istio"
