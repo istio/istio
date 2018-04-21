@@ -189,6 +189,12 @@ func inspect(err error, fMsg, sMsg string, t *testing.T) {
 }
 
 func setUpDefaultRouting() error {
+	for _, configVersion := range tf.ConfigVersions() { // should be only one version applied, checked in TestMain
+		if err := applyRules(configVersion, defaultRules); err != nil {
+			return fmt.Errorf("could not apply rules '%s': %v", defaultRules, err)
+		}
+	}
+
 	standby := 0
 	for i := 0; i <= testRetryTimes; i++ {
 		time.Sleep(time.Duration(standby) * time.Second)

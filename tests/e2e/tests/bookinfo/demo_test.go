@@ -65,11 +65,6 @@ func TestVersionRouting(t *testing.T) {
 }
 
 func testVersionRoutingRules(t *testing.T, configVersion string, rules []versionRoutingRule) {
-	inspect(applyRules(configVersion, defaultRules), "failed to apply default rules", "", t)
-	defer func() {
-		inspect(deleteRules(configVersion, defaultRules), "failed to delete default rules", "", t)
-	}()
-
 	for _, rule := range rules {
 		testVersionRoutingRule(t, configVersion, rule)
 	}
@@ -93,8 +88,7 @@ func testVersionRoutingRule(t *testing.T, configVersion string, rule versionRout
 }
 
 func TestFaultDelay(t *testing.T) {
-
-	var rules = append([]string{testRule, delayRule}, defaultRules...)
+	var rules = []string{testRule, delayRule}
 	for _, configVersion := range tf.ConfigVersions() {
 		doTestFaultDelay(t, configVersion, rules)
 	}
@@ -144,13 +138,6 @@ func TestVersionMigration(t *testing.T) {
 }
 
 func doTestVersionMigration(t *testing.T, configVersion string) {
-	inspect(applyRules(configVersion, defaultRules), "failed to apply default rules", "", t)
-	defer func() {
-		// ignore the error that will happen since the fifty rule redefines
-		// "reviews-default" rule and is deleted
-		_ = deleteRules(configVersion, defaultRules)
-	}()
-
 	modelV2 := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v2.html"))
 	modelV3 := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v3.html"))
 
