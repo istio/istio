@@ -71,7 +71,7 @@ var (
 		Egress:   true,
 	}
 	testRetryTimes = 5
-	defaultRules   = []string{allRule, bookinfoGateway}
+	defaultRules   = []string{bookinfoGateway, allRule}
 	allRules       = []string{allRule, delayRule, tenRule, twentyRule, fiftyRule, testRule,
 		testDbRule, testMysqlRule, detailsExternalServiceRouteRule,
 		detailsExternalServiceEgressRule, bookinfoGateway}
