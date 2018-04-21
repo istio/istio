@@ -512,10 +512,13 @@ func (s *Server) makeCopilotMonitor(args *PilotArgs, configController model.Conf
 
 // createK8sServiceControllers creates all the k8s service controllers under this pilot
 func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Controller, args *PilotArgs) (err error) {
+	clusterID := string(serviceregistry.KubernetesRegistry)
+	log.Infof("Primary Cluster name: %s", clusterID)
 	kubectl := kube.NewController(s.kubeClient, args.Config.ControllerOptions)
 	serviceControllers.AddRegistry(
 		aggregate.Registry{
-			Name:             serviceregistry.KubernetesRegistry,
+			Name:             serviceregistry.ServiceRegistry(serviceregistry.KubernetesRegistry),
+			ClusterID:        clusterID,
 			ServiceDiscovery: kubectl,
 			ServiceAccounts:  kubectl,
 			Controller:       kubectl,
@@ -526,7 +529,7 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 		clusters := s.clusterStore.GetPilotClusters()
 		clientAccessConfigs := s.clusterStore.GetClientAccessConfigs()
 		for _, cluster := range clusters {
-			log.Infof("Cluster name: %s, AccessConfigFile: %s", clusterregistry.GetClusterName(cluster))
+			log.Infof("Cluster name: %s", clusterregistry.GetClusterID(cluster))
 			clusterClient := clientAccessConfigs[cluster.ObjectMeta.Name]
 			_, client, kuberr := kube.CreateInterfaceFromClusterConfig(&clusterClient)
 			if kuberr != nil {
@@ -537,7 +540,7 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 			serviceControllers.AddRegistry(
 				aggregate.Registry{
 					Name:             serviceregistry.KubernetesRegistry,
-					ClusterName:      clusterregistry.GetClusterName(cluster),
+					ClusterID:        clusterregistry.GetClusterID(cluster),
 					ServiceDiscovery: kubectl,
 					ServiceAccounts:  kubectl,
 					Controller:       kubectl,
@@ -598,7 +601,8 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			}
 			serviceControllers.AddRegistry(
 				aggregate.Registry{
-					Name:             serviceRegistry,
+					Name:             serviceregistry.ServiceRegistry(r),
+					ClusterID:        string(serviceregistry.ConsulRegistry),
 					ServiceDiscovery: conctl,
 					ServiceAccounts:  conctl,
 					Controller:       conctl,
@@ -608,7 +612,8 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			eurekaClient := eureka.NewClient(args.Service.Eureka.ServerURL)
 			serviceControllers.AddRegistry(
 				aggregate.Registry{
-					Name:             serviceRegistry,
+					Name:             serviceregistry.ServiceRegistry(r),
+					ClusterID:        string(serviceregistry.EurekaRegistry),
 					Controller:       eureka.NewController(eurekaClient, args.Service.Eureka.Interval),
 					ServiceDiscovery: eureka.NewServiceDiscovery(eurekaClient),
 					ServiceAccounts:  eureka.NewServiceAccounts(),
@@ -628,7 +633,8 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 				return multierror.Prefix(err, "creating cloud foundry client")
 			}
 			serviceControllers.AddRegistry(aggregate.Registry{
-				Name: serviceRegistry,
+				Name:      serviceregistry.ServiceRegistry(r),
+				ClusterID: string(serviceregistry.CloudFoundryRegistry),
 				Controller: &cloudfoundry.Controller{
 					Ticker: cloudfoundry.NewTicker(cfConfig.Copilot.PollInterval),
 					Client: client,
@@ -650,6 +656,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 	serviceControllers.AddRegistry(
 		aggregate.Registry{
 			Name:             "ExternalServices",
+			ClusterID:        "ExternalServices",
 			Controller:       external.NewController(s.configController),
 			ServiceDiscovery: external.NewServiceDiscovery(configStore),
 			ServiceAccounts:  external.NewServiceAccounts(),
@@ -679,6 +686,7 @@ func initMemoryRegistry(s *Server, serviceControllers *aggregate.Controller) {
 
 	registry1 := aggregate.Registry{
 		Name:             serviceregistry.ServiceRegistry("mockAdapter1"),
+		ClusterID:        "mockAdapter1",
 		ServiceDiscovery: discovery1,
 		ServiceAccounts:  discovery1,
 		Controller:       &mockController{},
@@ -686,6 +694,7 @@ func initMemoryRegistry(s *Server, serviceControllers *aggregate.Controller) {
 
 	registry2 := aggregate.Registry{
 		Name:             serviceregistry.ServiceRegistry("mockAdapter2"),
+		ClusterID:        "mockAdapter2",
 		ServiceDiscovery: discovery2,
 		ServiceAccounts:  discovery2,
 		Controller:       &mockController{},
