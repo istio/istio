@@ -71,8 +71,8 @@ func (cs *ClusterStore) GetClusterAccessConfig(cluster *k8s_cr.Cluster) *clientc
 	return &clusterAccessConfig
 }
 
-// GetClusterName returns a cluster's name
-func GetClusterName(cluster *k8s_cr.Cluster) string {
+// GetClusterID returns a cluster's ID
+func GetClusterID(cluster *k8s_cr.Cluster) string {
 	if cluster == nil {
 		return ""
 	}

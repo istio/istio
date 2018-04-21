@@ -108,7 +108,7 @@ func TestServiceDiscoveryGetProxyServiceInstances(t *testing.T) {
 
 	createExternalServices([]*networking.ExternalService{httpStatic, tcpStatic}, store, t)
 
-	instances, err := sd.GetProxyServiceInstances(model.Proxy{IPAddress: "2.2.2.2"})
+	instances, err := sd.GetProxyServiceInstances(&model.Proxy{IPAddress: "2.2.2.2"})
 	if err != nil {
 		t.Errorf("GetProxyServiceInstances() encountered unexpected error: %v", err)
 	}
