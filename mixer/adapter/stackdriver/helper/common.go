@@ -21,28 +21,67 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 )
 
-type shouldFillFn func(*config.Params) bool
-type projectIDFn func() (string, error)
+type shouldFillFn func() bool
+type metadataFn func() (string, error)
 
-// ProjectIDFiller checks and fills project id for stack adapter config.
-type ProjectIDFiller struct {
-	shouldFill shouldFillFn
-	projectID  projectIDFn
+// Metadata keeps metadata about the project which this stackdriver adapter is running on.
+type Metadata struct {
+	ProjectID   string
+	Location    string
+	ClusterName string
 }
 
-// NewProjectIDFiller creates a project id filler for stackdriver adapter config with the given functions.
-func NewProjectIDFiller(s shouldFillFn, p projectIDFn) *ProjectIDFiller {
-	return &ProjectIDFiller{s, p}
+// MetadataGenerator creates metadata based on the given metadata functions.
+type MetadataGenerator struct {
+	shouldFill    shouldFillFn
+	projectIDFn   metadataFn
+	locationFn    metadataFn
+	clusterNameFn metadataFn
 }
 
-// FillProjectID tries to fill project ID in adapter config if it is empty.
-func (p *ProjectIDFiller) FillProjectID(c adapter.Config) {
-	cfg := c.(*config.Params)
-	if !p.shouldFill(cfg) {
-		return
+// NewMetadataGenerator creates a MetadataGenerator with the given functions.
+func NewMetadataGenerator(shouldFill shouldFillFn, projectIDFn, locationFn, clusterNameFn metadataFn) *MetadataGenerator {
+	return &MetadataGenerator{
+		shouldFill:    shouldFill,
+		projectIDFn:   projectIDFn,
+		locationFn:    locationFn,
+		clusterNameFn: clusterNameFn,
 	}
-	if pid, err := p.projectID(); err == nil {
-		cfg.ProjectId = pid
+}
+
+// GenerateMetadata generates a Metadata struct if the condition is fulfilled.
+func (mg *MetadataGenerator) GenerateMetadata() Metadata {
+	var md Metadata
+	if !mg.shouldFill() {
+		return md
+	}
+	if pid, err := mg.projectIDFn(); err == nil {
+		md.ProjectID = pid
+	}
+	if l, err := mg.locationFn(); err == nil {
+		md.Location = l
+	}
+	if cn, err := mg.clusterNameFn(); err == nil {
+		md.ClusterName = cn
+	}
+	return md
+}
+
+// FillProjectMetadata fills project metadata for the given map if the key matches and the value is empty.
+func (md *Metadata) FillProjectMetadata(in map[string]string) {
+	for key, val := range in {
+		if val != "" {
+			continue
+		}
+		if key == "project_id" {
+			in[key] = md.ProjectID
+		}
+		if key == "location" {
+			in[key] = md.Location
+		}
+		if key == "cluster_name" {
+			in[key] = md.ClusterName
+		}
 	}
 }
 

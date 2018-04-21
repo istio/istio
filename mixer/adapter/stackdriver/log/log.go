@@ -48,6 +48,7 @@ type (
 		makeClient     makeClientFn
 		makeSyncClient makeSyncClientFn
 		types          map[string]*logentry.Type
+		mg             *helper.MetadataGenerator
 		cfg            *config.Params
 	}
 
@@ -75,8 +76,8 @@ var (
 )
 
 // NewBuilder returns a builder implementing the logentry.HandlerBuilder interface.
-func NewBuilder() logentry.HandlerBuilder {
-	return &builder{makeClient: logging.NewClient, makeSyncClient: logadmin.NewClient}
+func NewBuilder(mg *helper.MetadataGenerator) logentry.HandlerBuilder {
+	return &builder{makeClient: logging.NewClient, makeSyncClient: logadmin.NewClient, mg: mg}
 }
 
 func (b *builder) SetLogEntryTypes(types map[string]*logentry.Type) {
@@ -91,7 +92,12 @@ func (b *builder) Validate() *adapter.ConfigErrors {
 
 func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
 	logger := env.Logger()
+	md := b.mg.GenerateMetadata()
 	cfg := b.cfg
+	if cfg.ProjectId == "" {
+		// Try to fill project id with Metadata if it is not provided.
+		cfg.ProjectId = md.ProjectID
+	}
 	client, err := b.makeClient(context.Background(), cfg.ProjectId, helper.ToOpts(cfg)...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create stackdriver logging client: %v", err)
