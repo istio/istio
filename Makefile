@@ -571,11 +571,8 @@ installgen:
 generate_yaml:
 	./install/updateVersion.sh -a ${HUB},${TAG}
 	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/istio.yaml
-	$(HELM) template --set global.tag=${TAG} \
-		  --namespace=istio-system \
-                  --set global.hub=${HUB} \
-		  --set zipkin.enabled=true --set zipkin.jaeger=true \
-		  install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
+	$(MAKE) istio.yaml SET="--set zipkin.enabled=true --set zipkin.jaeger=true"
+	$(MAKE) istio-auth.yaml SET="--set zipkin.enabled=true --set zipkin.jaeger=true"
 
 $(HELM):
 	bin/init_helm.sh
@@ -590,7 +587,7 @@ istio-remote.yaml: $(HELM)
 # Ensure that values-$filename is present in install/kubernetes/helm/istio
 isti%.yaml: $(HELM)
 	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/$@
-	$(HELM) template --set global.tag=${TAG} \
+	$(HELM) template --set global.tag=${TAG}  ${SET} \
 		  --namespace=istio-system \
                   --set global.hub=${HUB} \
 		  --values install/kubernetes/helm/istio/values-$@ \
