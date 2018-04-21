@@ -371,11 +371,6 @@ func TestMain(m *testing.M) {
 			"cannot test both v1alpha1 and alpha3 simultaneously")
 	}
 
-	if tf.V1alpha3 {
-		allRules = append(allRules, reviewsDestinationRule)
-		defaultRules = append(defaultRules, reviewsDestinationRule)
-	}
-
 	check(setTestConfig(), "could not create TestConfig")
 	tc.Cleanup.RegisterCleanable(tc)
 	os.Exit(tc.RunTest(m))
