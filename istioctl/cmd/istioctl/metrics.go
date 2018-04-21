@@ -122,6 +122,7 @@ func run(c *cobra.Command, args []string) error {
 		return fmt.Errorf("failure running port forward process: %v", err)
 	case <-readyCh:
 		log.Debugf("port-forward to prometheus pod ready")
+		defer fw.Close()
 
 		promAPI, err := prometheusAPI(port)
 		if err != nil {
@@ -137,8 +138,6 @@ func run(c *cobra.Command, args []string) error {
 
 			printMetrics(sm)
 		}
-
-		fw.Close()
 		return nil
 	}
 }
