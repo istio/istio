@@ -16,6 +16,7 @@ package clusterregistry
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 
@@ -82,6 +83,49 @@ func GetClusterID(cluster *k8s_cr.Cluster) string {
 // GetPilotClusters return a list of clusters under this pilot, exclude PilotCfgStore
 func (cs *ClusterStore) GetPilotClusters() []*k8s_cr.Cluster {
 	return cs.clusters
+}
+
+// ReadClustersV2 reads multiple clusters based upon the label istio/multiCluster
+func ReadClustersV2(k8s kubernetes.Interface, cs *ClusterStore) (errList error) {
+	err := getClustersConfigsV2(k8s, cs)
+	if err != nil {
+		// Errors were encountered, but cluster store was populated
+		log.Errorf("The following errors were encountered during multicluster label processing: [ %v ]",
+			err)
+	}
+
+	return nil
+}
+
+// getClustersConfigsV2 reads mutiple clusters from secrets with labels
+func getClustersConfigsV2(k8s kubernetes.Interface, cs *ClusterStore) (errList error) {
+	podNameSpace := os.Getenv("POD_NAMESPACE")
+	clusterSecrets, err := k8s.CoreV1().Secrets(podNameSpace).List(metav1.ListOptions{
+		LabelSelector: mcLabel,
+	})
+
+	if err != nil {
+		return err
+	}
+	for _, secret := range clusterSecrets.Items {
+		cluster := k8s_cr.Cluster{}
+		kubeconfig, ok := secret.Data[secret.ObjectMeta.Name]
+		if !ok {
+			errList = multierror.Append(errList, fmt.Errorf("could not read secret %s error %v", secret.ObjectMeta.Name, err))
+			continue
+		}
+		clientConfig, err := clientcmd.Load(kubeconfig)
+		if err != nil {
+			errList = multierror.Append(errList, fmt.Errorf("could not load kubeconfig for secret %s error %v", secret.ObjectMeta.Name, err))
+			continue
+		}
+
+		cs.clientConfigs[secret.ObjectMeta.Name] = *clientConfig
+		cluster.ObjectMeta.Name = secret.ObjectMeta.Name
+		cs.clusters = append(cs.clusters, &cluster)
+	}
+
+	return
 }
 
 // ReadClusters reads multiple clusters from a ConfigMap

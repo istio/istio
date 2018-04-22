@@ -263,9 +263,12 @@ func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 			s.clusterStore); err != nil {
 			return err
 		}
-		if s.clusterStore != nil {
-			log.Infof("clusters configuration %s", spew.Sdump(s.clusterStore))
-		}
+	} else if err = clusterregistry.ReadClustersV2(s.kubeClient,
+		s.clusterStore); err != nil {
+		return err
+	}
+	if s.clusterStore != nil {
+		log.Infof("clusters configuration %s", spew.Sdump(s.clusterStore))
 	}
 	// Should not start Secret Controller if Mock Registry is used
 	if !checkForMock(args.Service.Registries) {
