@@ -413,7 +413,6 @@ tracing:
       # - secretName: zipkin-tls
       #   hosts:
       #     - zipkin.local
-
   zipkin:
     replicaCount: 1
     image:
@@ -427,7 +426,6 @@ tracing:
       # requests:
       #  cpu: 100m
       #  memory: 128Mi
-
   jaeger:
     replicaCount: 1
     image:
@@ -447,11 +445,6 @@ tracing:
       nameTChannel: jaeger-collector-tchannel
       externalTChannelPort: 14267
       internalTChannelPort: 14267
-    zipkinservice:
-      name: jaeger-collector-zipkin
-      externalPort: 9411
-      internalPort: 9411
-      type: None
     resources: {}
       # limits:
       #  cpu: 100m

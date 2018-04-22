@@ -41,7 +41,7 @@ items:
           containers:
           -   env:
               - name: COLLECTOR_ZIPKIN_HTTP_PORT
-                value: "9411"
+                value: "{{ .Values.service.internalPort }}"
               image: "{{ .Values.jaeger.image.repository }}:{{ .Values.jaeger.image.tag }}"
               imagePullPolicy: {{ .Values.jaeger.image.pullPolicy }}
               name: jaeger
@@ -54,7 +54,7 @@ items:
                   protocol: UDP
                 - containerPort: {{ .Values.jaeger.queryservice.internalPort }}
                   protocol: TCP
-                - containerPort: {{ .Values.jaeger.zipkinservice.internalPort }}
+                - containerPort: {{ .Values.service.internalPort }}
                   protocol: TCP
               readinessProbe:
                 httpGet:
