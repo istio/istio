@@ -197,7 +197,6 @@ func getIngressIPAndPort(serviceName, podLabel, namespace, kubeconfig string, is
 	//rp := regexp.MustCompile(`^[0-9]{1,5}$`) # Uncomment for minikube
 	var ingress string
 	retryFn := func(_ context.Context, i int) error {
-		var ingress string
 		var err error
 
 		if isNodePort {
