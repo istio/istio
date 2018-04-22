@@ -98,6 +98,10 @@ type KubeInfo struct {
 	ingress    string
 	ingressErr error
 
+	ingressGatewayLock sync.Mutex
+	ingressGateway     string
+	ingressGatewayErr  error
+
 	localCluster     bool
 	namespaceCreated bool
 	AuthEnabled      bool
@@ -324,6 +328,35 @@ func (k *KubeInfo) Ingress() (string, error) {
 	}
 
 	return k.ingress, k.ingressErr
+}
+
+// IngressGatewayOrFail lazily initialize ingress gateway and fail test if not found.
+func (k *KubeInfo) IngressGatewayOrFail(t *testing.T) string {
+	gw, err := k.IngressGateway()
+	if err != nil {
+		t.Fatalf("Unable to get ingress: %v", err)
+	}
+	return gw
+}
+
+// IngressGateway lazily initialize Ingress Gateway
+func (k *KubeInfo) IngressGateway() (string, error) {
+	k.ingressGatewayLock.Lock()
+	defer k.ingressGatewayLock.Unlock()
+
+	// Previously fetched ingress or failed.
+	if k.ingressGatewayErr != nil || len(k.ingressGateway) != 0 {
+		return k.ingressGateway, k.ingressGatewayErr
+	}
+
+	k.ingressGateway, k.ingressGatewayErr = util.GetIngressGateway(k.Namespace, k.KubeConfig)
+
+	// So far we only do http ingress gateway
+	if len(k.ingressGateway) > 0 {
+		k.ingressGateway = "http://" + k.ingressGateway
+	}
+
+	return k.ingressGateway, k.ingressGatewayErr
 }
 
 // Teardown clean up everything created by setup
