@@ -298,6 +298,17 @@ func extendSlice(ba []byte, n int) []byte {
 	return ba
 }
 
+func (m messageEncoder) encodeWithoutLength(bag attribute.Bag, ba []byte) ([]byte, error) {
+	var err error
+	for _, f := range m.fields {
+		ba, err = f.Encode(bag, ba)
+		if err != nil {
+			return nil, fmt.Errorf("field: %s - %v", f.name, err)
+		}
+	}
+	return ba, nil
+}
+
 // expected length of the varint encoded word
 // 2 byte words represent 2 ** 14 = 16K bytes
 // If message length is more, it involves an array copy
@@ -335,16 +346,6 @@ func (m messageEncoder) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
 	return ba, nil
 }
 
-func (m messageEncoder) encodeWithoutLength(bag attribute.Bag, ba []byte) ([]byte, error) {
-	var err error
-	for _, f := range m.fields {
-		ba, err = f.Encode(bag, ba)
-		if err != nil {
-			return nil, fmt.Errorf("field: %s - %v", f.name, err)
-		}
-	}
-	return ba, nil
-}
 
 func (f field) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
 	if f.protoKey != nil {

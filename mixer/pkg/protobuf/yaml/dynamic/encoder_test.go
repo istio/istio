@@ -113,6 +113,8 @@ oth:
 enm: request.reason
 si32: -20 
 si64: 200000002
+r_enm:
+  - connection.sent.bytes
 r_flt:
   - 1.12
   - 1.13
@@ -131,6 +133,8 @@ oth:
 enm: TWO
 si32: -20
 si64: 200000002
+r_enm:
+  - THREE
 r_flt:
   - 1.12
   - 1.13
@@ -248,6 +252,7 @@ func testMsg(t *testing.T, input string, output string, res protoyaml.Resolver, 
 		"response.size":  int64(200),
 		"response.code":  int64(662),
 		"source.service": "a.svc.cluster.local",
+		"connection.sent.bytes": int64(2),
 	})
 	ba, err = de.Encode(bag, ba)
 	if err != nil {

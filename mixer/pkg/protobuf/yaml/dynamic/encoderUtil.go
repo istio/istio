@@ -166,13 +166,13 @@ func Int64(v interface{}) (int64, bool) {
 	switch c := v.(type) {
 	case int:
 		return int64(c), true
+	case int64:
+		return int64(c), true
 	case int8:
 		return int64(c), true
 	case int16:
 		return int64(c), true
 	case int32:
-		return int64(c), true
-	case int64:
 		return int64(c), true
 	default:
 		return 0, false
@@ -290,14 +290,14 @@ func EncodeEnum(v interface{}, ba []byte, enumValues []*descriptor.EnumValueDesc
 		return EncodeEnumString(vs, ba, enumValues)
 	}
 
-	if vi, ok := v.(int); ok {
+	if vi, ok := Int64(v); ok {
 		return EncodeEnumInt(vi, ba, enumValues)
 	}
 
 	return nil, fmt.Errorf("unable to encode enum %v of type: %T", v, v)
 }
 
-func EncodeEnumInt(v int, ba []byte, enumValues []*descriptor.EnumValueDescriptorProto) ([]byte, error) {
+func EncodeEnumInt(v int64, ba []byte, enumValues []*descriptor.EnumValueDescriptorProto) ([]byte, error) {
 	for _, val := range enumValues {
 		if val.GetNumber() == int32(v) {
 			ba, _ = EncodeVarint(ba, uint64(val.GetNumber()))
