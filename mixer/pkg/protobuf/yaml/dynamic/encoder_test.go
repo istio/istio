@@ -114,6 +114,8 @@ enm: request.reason
 si32: -20 
 si64: 200000002
 r_enm:
+  - 0
+  - "'TWO'"
   - connection.sent.bytes
 r_flt:
   - 1.12
@@ -134,6 +136,8 @@ enm: TWO
 si32: -20
 si64: 200000002
 r_enm:
+  - ONE
+  - TWO
   - THREE
 r_flt:
   - 1.12
@@ -248,10 +252,10 @@ func testMsg(t *testing.T, input string, output string, res protoyaml.Resolver, 
 
 	ba = make([]byte, 0, 30)
 	bag := attribute.GetFakeMutableBagForTesting(map[string]interface{}{
-		"request.reason": "TWO",
-		"response.size":  int64(200),
-		"response.code":  int64(662),
-		"source.service": "a.svc.cluster.local",
+		"request.reason":        "TWO",
+		"response.size":         int64(200),
+		"response.code":         int64(662),
+		"source.service":        "a.svc.cluster.local",
 		"connection.sent.bytes": int64(2),
 	})
 	ba, err = de.Encode(bag, ba)

@@ -346,7 +346,6 @@ func (m messageEncoder) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
 	return ba, nil
 }
 
-
 func (f field) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
 	if f.protoKey != nil {
 		ba = append(ba, f.protoKey...)
