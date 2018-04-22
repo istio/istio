@@ -1,5 +1,4 @@
-{{ if eq .Values.provider "zipkin" }}
-{{- if .Values.zipkin.ingress.enabled -}}
+{{- if .Values.ingress.enabled -}}
 {{- $serviceName := "zipkin" -}}
 {{- $servicePort := .Values.service.externalPort -}}
 apiVersion: extensions/v1beta1
@@ -32,4 +31,3 @@ spec:
 {{ toYaml .Values.ingress.tls | indent 4 }}
   {{- end -}}
 {{- end -}}
-{{ end }}

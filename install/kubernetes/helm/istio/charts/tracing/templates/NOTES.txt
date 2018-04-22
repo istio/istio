@@ -1,7 +1,6 @@
-{{ if eq .Values.provider "zipkin" }}
 1. Get the application URL by running these commands:
-{{- if .Values.zipkin.ingress.enabled }}
-{{- range .Values.zipkin.ingress.hosts }}
+{{- if .Values.ingress.enabled }}
+{{- range .Values.ingress.hosts }}
   http://{{ . }}
 {{- end }}
 {{- else if contains "NodePort" .Values.service.type }}
@@ -18,4 +17,4 @@
   echo "Visit http://127.0.0.1:8080 to use your application"
   kubectl port-forward $POD_NAME 8080:{{ .Values.service.internalPort }}
 {{- end }}
-{{ end }}
+
