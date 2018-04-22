@@ -46,11 +46,8 @@ type (
 	field struct {
 		// proto key  -- EncodeVarInt ((field_number << 3) | wire_type)
 		protoKey []byte
-
-		// encodedData is available if the entire field can be encoded
-		// at compile time.
-		encodedData []byte
-
+		// if packed this is set to true
+		packed bool
 		// encoder is needed if encodedData is not available.
 		// packed fields have a list of encoders.
 		encoder []Encoder
@@ -59,8 +56,6 @@ type (
 		number int
 		// name for debug.
 		name string
-		// if packed this is set to true
-		packed bool
 	}
 
 	EncoderBuilder struct {
@@ -127,9 +122,6 @@ func (c EncoderBuilder) buildMessage(md *descriptor.DescriptorProto, data map[in
 			return nil, fmt.Errorf("field '%s' not found in message '%s'", k, md.GetName())
 		}
 
-		repeated := fd.IsRepeated()
-		packed := fd.IsPacked() || fd.IsPacked3()
-
 		switch fd.GetType() {
 		// primitives
 		case descriptor.FieldDescriptorProto_TYPE_DOUBLE,
@@ -145,52 +137,19 @@ func (c EncoderBuilder) buildMessage(md *descriptor.DescriptorProto, data map[in
 			descriptor.FieldDescriptorProto_TYPE_SFIXED64,
 			descriptor.FieldDescriptorProto_TYPE_SINT32,
 			descriptor.FieldDescriptorProto_TYPE_SINT64,
+			descriptor.FieldDescriptorProto_TYPE_ENUM,
 			descriptor.FieldDescriptorProto_TYPE_STRING:
-			if repeated && !packed {
+
+			packed := fd.IsPacked() || fd.IsPacked3()
+			if fd.IsRepeated() && !packed {
 				return nil, fmt.Errorf("unpacked primitives not supported")
 			}
 
 			var fld *field
-			if fld, err = c.handlePrimitiveField(v, fd, &me, isMap && k == "key"); err != nil {
+			if fld, err = c.handlePrimitiveField(v, fd, isMap && k == "key"); err != nil {
 				return nil, fmt.Errorf("unable to encode field: %v. %v", fd, err)
 			}
 			me.fields = append(me.fields, fld)
-
-		case descriptor.FieldDescriptorProto_TYPE_ENUM:
-			if repeated && !packed {
-				return nil, fmt.Errorf("unpacked primitives not supported")
-			}
-			var constString bool
-			var expr compiled.Expression
-			var vt v1beta1.ValueType
-
-			v, constString = transFormQuotedString(v)
-
-			if !(isMap && k == "key") && !constString { // do not use dynamic keys in maps.
-				expr, vt, err = ExtractExpression(v, c.compiler)
-			}
-
-			_ = vt
-
-			if err != nil {
-				return nil, fmt.Errorf("failed to process %v:%v %v", k, v, err)
-			}
-
-
-			fld := makeField(fd)
-			e := c.resolver.ResolveEnum(fd.GetTypeName())
-			if expr != nil {
-				fld.encoder = []Encoder{&eEnumEncoder{
-					expr:       expr,
-					enumValues: e.Value,
-				}}
-			} else if vs, ok := v.(string); ok {
-				if fld.encodedData, err = EncodeEnumString(vs, fld.encodedData, e.Value); err != nil {
-					return nil, fmt.Errorf("unable to encode: %v. %v", k, err)
-				}
-			}
-			me.fields = append(me.fields, fld)
-
 		case descriptor.FieldDescriptorProto_TYPE_MESSAGE:
 			m := c.resolver.ResolveMessage(fd.GetTypeName())
 			if m == nil {
@@ -203,7 +162,7 @@ func (c EncoderBuilder) buildMessage(md *descriptor.DescriptorProto, data map[in
 				if err != nil {
 					return nil, fmt.Errorf("unable to process: %v, %v", fd, err)
 				}
-			} else if repeated { // map entry is always repeated.
+			} else if fd.IsRepeated() { // map entry is always repeated.
 				ma, ok = v.([]interface{})
 				if !ok {
 					return nil, fmt.Errorf("unable to process: %v, got %T, want: []interface{}", fd, v)
@@ -232,8 +191,9 @@ func (c EncoderBuilder) buildMessage(md *descriptor.DescriptorProto, data map[in
 
 // handlePrimitiveField handles encoding of single and repeated packed primitives
 func (c EncoderBuilder) handlePrimitiveField(v interface{}, fd *descriptor.FieldDescriptorProto,
-		me1 *messageEncoder, static bool) (*field, error) {
+	static bool) (*field, error) {
 	fld := makeField(fd)
+	e := c.resolver.ResolveEnum(fd.GetTypeName())
 
 	va, packed := v.([]interface{})
 	if !packed {
@@ -248,8 +208,17 @@ func (c EncoderBuilder) handlePrimitiveField(v interface{}, fd *descriptor.Field
 		sval, isString := val.(string)
 
 		// if compiler is nil, everything is considered static
-		if static || isConstString || !isString || c.compiler == nil{
-			if enc, err = PrimitiveEncoder(val, fd); err != nil {
+		if static || isConstString || !isString || c.compiler == nil {
+
+			if fd.IsEnum() {
+				pe := &primitiveEncoder{name: fd.GetName()}
+				pe.encodedData, err = EncodeEnum(val, pe.encodedData, e.Value)
+				enc = pe
+			} else {
+				enc, err = PrimitiveEncoder(val, fd)
+			}
+
+			if err != nil {
 				return nil, fmt.Errorf("unable to build primitive encoder: %v. %v", val, err)
 			}
 		} else {
@@ -259,7 +228,20 @@ func (c EncoderBuilder) handlePrimitiveField(v interface{}, fd *descriptor.Field
 			if expr, vt, err = c.compiler.Compile(sval); err != nil {
 				return nil, err
 			}
-			if enc, err = PrimitiveEvalEncoder(expr, vt, fd); err != nil {
+
+			if fd.IsEnum() {
+				if !(vt == v1beta1.INT64 || vt == v1beta1.STRING) {
+					return nil, fmt.Errorf("unable to build eval encoder: enum %v for expression type:%v", val, vt)
+				}
+				enc = &eEnumEncoder{
+					expr:       expr,
+					enumValues: e.Value,
+				}
+			} else {
+				enc, err = PrimitiveEvalEncoder(expr, vt, fd)
+			}
+
+			if err != nil {
 				return nil, fmt.Errorf("unable to build eval encoder: %v. %v", val, err)
 			}
 		}
@@ -364,31 +346,9 @@ func (m messageEncoder) encodeWithoutLength(bag attribute.Bag, ba []byte) ([]byt
 	return ba, nil
 }
 
-
-type evalEncoder struct {
-	//TODO handle google.proto.Value type
-	useValueType bool
-	etype        descriptor.FieldDescriptorProto_Type
-	ex           compiled.Expression
-}
-
-func (e evalEncoder) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
-	v, err := e.ex.Evaluate(bag)
-	if err != nil {
-		return nil, err
-	}
-
-	return EncodePrimitive(v, e.etype, ba)
-}
-
 func (f field) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
 	if f.protoKey != nil {
 		ba = append(ba, f.protoKey...)
-	}
-
-	// if data was fully encoded just use it.
-	if f.encodedData != nil {
-		return append(ba, f.encodedData...), nil
 	}
 
 	// The following call happens when

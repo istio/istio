@@ -36,7 +36,7 @@ func makeField(fd *descriptor.FieldDescriptorProto) *field {
 		protoKey: protoKey(fieldNumber, wireType),
 		number:   fieldNumber,
 		name:     fd.GetName(),
-		packed: packed,
+		packed:   packed,
 	}
 }
 
@@ -283,6 +283,18 @@ func EncodeSInt64(v interface{}, ba []byte) ([]byte, error) {
 		return nil, badTypeError(v, "int")
 	}
 	return encodeZigzag64(ba, uint64(c)), nil
+}
+
+func EncodeEnum(v interface{}, ba []byte, enumValues []*descriptor.EnumValueDescriptorProto) ([]byte, error) {
+	if vs, ok := v.(string); ok {
+		return EncodeEnumString(vs, ba, enumValues)
+	}
+
+	if vi, ok := v.(int); ok {
+		return EncodeEnumInt(vi, ba, enumValues)
+	}
+
+	return nil, fmt.Errorf("unable to encode enum %v of type: %T", v, v)
 }
 
 func EncodeEnumInt(v int, ba []byte, enumValues []*descriptor.EnumValueDescriptorProto) ([]byte, error) {
