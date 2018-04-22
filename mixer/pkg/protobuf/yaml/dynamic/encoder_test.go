@@ -116,7 +116,11 @@ si64: 200000002
 r_flt:
   - 1.12
   - 1.13
+r_i64:
+  - response.code
+  - 770
 `
+
 const dmm_out = `
 str: mystring
 i64: 200
@@ -130,6 +134,9 @@ si64: 200000002
 r_flt:
   - 1.12
   - 1.13
+r_i64:
+  - 662
+  - 770
 `
 
 type testdata struct {
@@ -239,6 +246,7 @@ func testMsg(t *testing.T, input string, output string, res protoyaml.Resolver, 
 	bag := attribute.GetFakeMutableBagForTesting(map[string]interface{}{
 		"request.reason": "TWO",
 		"response.size":  int64(200),
+		"response.code":  int64(662),
 		"source.service": "a.svc.cluster.local",
 	})
 	ba, err = de.Encode(bag, ba)
@@ -254,13 +262,12 @@ func testMsg(t *testing.T, input string, output string, res protoyaml.Resolver, 
 	}
 
 	// confirm that codegen'd code direct unmarshal and unmarhal thru bytes yields the same result.
-	//g.Expect(ff1).Should(gomega.Equal(ff2))
 
 	_ = g
 	if !reflect.DeepEqual(ff2, ff1) {
 		s, _ := messagediff.PrettyDiff(ff2, ff1)
 		t.Logf("difference: %s", s)
-		t.Fatalf("%s\n got: %v\nwant: %v", s, ff2, ff1)
+		t.Fatalf("\n got: %v\nwant: %v", ff2, ff1)
 	}
 
 	t.Logf("ff2 = %v", ff2)

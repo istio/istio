@@ -43,11 +43,6 @@ type (
 		fields []*field
 	}
 
-	packedEncoder struct {
-		fieldSize int
-		fields    []*field
-	}
-
 	field struct {
 		// proto key  -- EncodeVarInt ((field_number << 3) | wire_type)
 		protoKey []byte
@@ -132,22 +127,8 @@ func (c EncoderBuilder) buildMessage(md *descriptor.DescriptorProto, data map[in
 			return nil, fmt.Errorf("field '%s' not found in message '%s'", k, md.GetName())
 		}
 
-		var constString bool
-		var expr compiled.Expression
-		var vt v1beta1.ValueType
-
-		v, constString = transFormQuotedString(v)
-
-		if !(isMap && k == "key") && !constString { // do not use dynamic keys in maps.
-			expr, vt, err = ExtractExpression(v, c.compiler)
-		}
-
-		if err != nil {
-			return nil, fmt.Errorf("failed to process %v:%v %v", k, v, err)
-		}
-
 		repeated := fd.IsRepeated()
-		//packed := fd.IsPacked() || fd.IsPacked3()
+		packed := fd.IsPacked() || fd.IsPacked3()
 
 		switch fd.GetType() {
 		// primitives
@@ -165,21 +146,37 @@ func (c EncoderBuilder) buildMessage(md *descriptor.DescriptorProto, data map[in
 			descriptor.FieldDescriptorProto_TYPE_SINT32,
 			descriptor.FieldDescriptorProto_TYPE_SINT64,
 			descriptor.FieldDescriptorProto_TYPE_STRING:
-			if repeated { // TODO
+			if repeated && !packed {
+				return nil, fmt.Errorf("unpacked primitives not supported")
 			}
-			fld := makeField(fd)
-			var enc Encoder
-			if expr != nil {
-				if enc, err = PrimitiveEvalEncoder(expr, vt, fd); err != nil {
-					return nil, fmt.Errorf("unable to build encoder: %v. %v", k, err)
-				}
-				fld.encoder = []Encoder{enc}
-			} else if fld.encodedData, err = PrimitiveEncode(v, fd, fld.encodedData); err != nil {
-				return nil, fmt.Errorf("unable to encode: %v. %v", k, err)
+
+			var fld *field
+			if fld, err = c.handlePrimitiveField(v, fd, &me, isMap && k == "key"); err != nil {
+				return nil, fmt.Errorf("unable to encode field: %v. %v", fd, err)
 			}
 			me.fields = append(me.fields, fld)
 
 		case descriptor.FieldDescriptorProto_TYPE_ENUM:
+			if repeated && !packed {
+				return nil, fmt.Errorf("unpacked primitives not supported")
+			}
+			var constString bool
+			var expr compiled.Expression
+			var vt v1beta1.ValueType
+
+			v, constString = transFormQuotedString(v)
+
+			if !(isMap && k == "key") && !constString { // do not use dynamic keys in maps.
+				expr, vt, err = ExtractExpression(v, c.compiler)
+			}
+
+			_ = vt
+
+			if err != nil {
+				return nil, fmt.Errorf("failed to process %v:%v %v", k, v, err)
+			}
+
+
 			fld := makeField(fd)
 			e := c.resolver.ResolveEnum(fd.GetTypeName())
 			if expr != nil {
@@ -216,7 +213,7 @@ func (c EncoderBuilder) buildMessage(md *descriptor.DescriptorProto, data map[in
 			}
 
 			// now maps, messages and repeated messages all look the same.
-			if err = c.handleMessageFields(ma, m, fd, &me); err != nil {
+			if err = c.handleMessageField(ma, m, fd, &me); err != nil {
 				return nil, err
 			}
 
@@ -233,7 +230,47 @@ func (c EncoderBuilder) buildMessage(md *descriptor.DescriptorProto, data map[in
 	return me, nil
 }
 
-func (c EncoderBuilder) handleMessageFields(ma []interface{}, m *descriptor.DescriptorProto,
+// handlePrimitiveField handles encoding of single and repeated packed primitives
+func (c EncoderBuilder) handlePrimitiveField(v interface{}, fd *descriptor.FieldDescriptorProto,
+		me1 *messageEncoder, static bool) (*field, error) {
+	fld := makeField(fd)
+
+	va, packed := v.([]interface{})
+	if !packed {
+		va = []interface{}{v}
+	}
+
+	for _, vl := range va {
+		var err error
+		var enc Encoder
+
+		val, isConstString := transFormQuotedString(vl)
+		sval, isString := val.(string)
+
+		// if compiler is nil, everything is considered static
+		if static || isConstString || !isString || c.compiler == nil{
+			if enc, err = PrimitiveEncoder(val, fd); err != nil {
+				return nil, fmt.Errorf("unable to build primitive encoder: %v. %v", val, err)
+			}
+		} else {
+			var expr compiled.Expression
+			var vt v1beta1.ValueType
+
+			if expr, vt, err = c.compiler.Compile(sval); err != nil {
+				return nil, err
+			}
+			if enc, err = PrimitiveEvalEncoder(expr, vt, fd); err != nil {
+				return nil, fmt.Errorf("unable to build eval encoder: %v. %v", val, err)
+			}
+		}
+
+		fld.encoder = append(fld.encoder, enc)
+	}
+
+	return fld, nil
+}
+
+func (c EncoderBuilder) handleMessageField(ma []interface{}, m *descriptor.DescriptorProto,
 	fd *descriptor.FieldDescriptorProto, me *messageEncoder) error {
 
 	for _, vv := range ma {
@@ -289,7 +326,7 @@ func (m messageEncoder) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
 	var err error
 
 	if m.skipEncodeLength {
-		return m.encodeNoLength(bag, ba)
+		return m.encodeWithoutLength(bag, ba)
 	}
 
 	l0 := len(ba)
@@ -297,7 +334,7 @@ func (m messageEncoder) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
 	ba = extendSlice(ba, varLength)
 	l1 := len(ba)
 
-	if ba, err = m.encodeNoLength(bag, ba); err != nil {
+	if ba, err = m.encodeWithoutLength(bag, ba); err != nil {
 		return nil, err
 	}
 
@@ -316,7 +353,7 @@ func (m messageEncoder) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
 	return ba, nil
 }
 
-func (m messageEncoder) encodeNoLength(bag attribute.Bag, ba []byte) ([]byte, error) {
+func (m messageEncoder) encodeWithoutLength(bag attribute.Bag, ba []byte) ([]byte, error) {
 	var err error
 	for _, f := range m.fields {
 		ba, err = f.Encode(bag, ba)
@@ -327,9 +364,6 @@ func (m messageEncoder) encodeNoLength(bag attribute.Bag, ba []byte) ([]byte, er
 	return ba, nil
 }
 
-func (p packedEncoder) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
-	return nil, nil
-}
 
 type evalEncoder struct {
 	//TODO handle google.proto.Value type
@@ -348,7 +382,6 @@ func (e evalEncoder) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
 }
 
 func (f field) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
-	// protoKey is nil for packed fields.
 	if f.protoKey != nil {
 		ba = append(ba, f.protoKey...)
 	}
@@ -363,12 +396,37 @@ func (f field) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
 	// 2. field is of type map
 	// 3. field is of Message
 	// In all cases Encode function must correctly set Length.
+
+	var l0 int
+	var l1 int
+
+	if f.packed {
+		l0 = len(ba)
+		// #pragma inline reserve varLength bytes
+		ba = extendSlice(ba, varLength)
+		l1 = len(ba)
+	}
+
 	var err error
 	for _, en := range f.encoder {
 		ba, err = en.Encode(bag, ba)
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	if f.packed {
+		length := len(ba) - l1
+		diff := proto.SizeVarint(uint64(length)) - varLength
+		// move data forward because we need more than varLength bytes
+		if diff > 0 {
+			ba = extendSlice(ba, diff)
+			// shift data down. This should rarely occur.
+			copy(ba[l1+diff:], ba[l1:])
+		}
+
+		// ignore return value. EncodeLength is writing in the middle of the array.
+		_ = EncodeVarintZeroExtend(ba[l0:l0], uint64(length), varLength)
 	}
 
 	return ba, nil

@@ -36,6 +36,7 @@ func makeField(fd *descriptor.FieldDescriptorProto) *field {
 		protoKey: protoKey(fieldNumber, wireType),
 		number:   fieldNumber,
 		name:     fd.GetName(),
+		packed: packed,
 	}
 }
 
@@ -304,6 +305,8 @@ func EncodeEnumString(v string, ba []byte, enumValues []*descriptor.EnumValueDes
 	return nil, fmt.Errorf("unknown value: %v, enum:%v", v, enumValues)
 }
 
+// transFormQuotedString removes quotes from strigs and returns true
+// if quotes were removed.
 func transFormQuotedString(v interface{}) (interface{}, bool) {
 	var ok bool
 	var s string
