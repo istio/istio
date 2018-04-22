@@ -183,14 +183,23 @@ func GetClusterSubnet() (string, error) {
 
 // GetIngress get istio ingress ip
 func GetIngress(namespace, kubeconfig string) (string, error) {
-	// for clusters without support of Kubernetes Ingress, for example for minikube, pass the last parameter true
 	return getIngressIPAndPort("istio-ingress", "ingress", namespace, kubeconfig, false)
+}
+
+// GetIngressGateway get istio ingress-gateway NodePort (with ip)
+func GetIngressGateway(namespace, kubeconfig string) (string, error) {
+	return getIngressIPAndPort("istio-ingressgateway", "ingressgateway", namespace, kubeconfig, true)
+}
+
+// GetIngressPod get istio ingress ip
+func GetIngressPod(namespace string, kubeconfig string) (string, error) {
+	return getIngressIPAndPort("istio-ingress", "ingress", namespace, kubeconfig, true)
 }
 
 func getIngressIPAndPort(serviceName, podLabel, namespace, kubeconfig string, isNodePort bool) (string, error) {
 	retry := Retrier{
-		BaseDelay: 1 * time.Second,
-		MaxDelay:  1 * time.Second,
+		BaseDelay: 5 * time.Second,
+		MaxDelay:  5 * time.Second,
 		Retries:   300, // ~5 minutes
 	}
 
@@ -289,47 +298,6 @@ func getServiceNodePort(serviceName, podLabel, namespace, kubeconfig string) (st
 	}
 
 	return ip + ":" + port, nil
-}
-
-// GetIngressPod get istio ingress ip
-func GetIngressPod(n string, kubeconfig string) (string, error) {
-	retry := Retrier{
-		BaseDelay: 5 * time.Second,
-		MaxDelay:  5 * time.Minute,
-		Retries:   20,
-	}
-	ipRegex := regexp.MustCompile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
-	portRegex := regexp.MustCompile(`^[0-9]+$`)
-	var ingress string
-	retryFn := func(_ context.Context, i int) error {
-		podIP, err := Shell("kubectl get pod -l istio=ingress "+
-			"-n %s -o jsonpath='{.items[0].status.hostIP}' --kubeconfig=%s", n, kubeconfig)
-		if err != nil {
-			return err
-		}
-		podPort, err := Shell("kubectl get svc istio-ingress "+
-			"-n %s -o jsonpath='{.spec.ports[0].nodePort}' --kubeconfig=%s", n, kubeconfig)
-		if err != nil {
-			return err
-		}
-		podIP = strings.Trim(podIP, "'")
-		podPort = strings.Trim(podPort, "'")
-		if ipRegex.FindString(podIP) == "" {
-			err = errors.New("unable to find ingress pod ip")
-			log.Warna(err)
-			return err
-		}
-		if portRegex.FindString(podPort) == "" {
-			err = errors.New("unable to find ingress pod port")
-			log.Warna(err)
-			return err
-		}
-		ingress = fmt.Sprintf("%s:%s", podIP, podPort)
-		log.Infof("Istio ingress: %s\n", ingress)
-		return nil
-	}
-	_, err := retry.Retry(context.Background(), retryFn)
-	return ingress, err
 }
 
 // GetIngressPodNames get the pod names for the Istio ingress deployment.
