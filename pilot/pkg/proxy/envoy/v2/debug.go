@@ -260,6 +260,7 @@ func (sd *MemServiceDiscovery) GetIstioServiceAccounts(hostname string, ports []
 // Can be combined with the push debug interface to reproduce changes.
 func (s *DiscoveryServer) registryz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
+	w.Header().Add("Content-Type", "application/json")
 	svcName := req.Form.Get("svc")
 	if svcName != "" {
 		data, err := ioutil.ReadAll(req.Body)
@@ -278,18 +279,22 @@ func (s *DiscoveryServer) registryz(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		return
 	}
+	fmt.Fprintln(w, "[")
 	for _, svc := range all {
 		b, err := json.MarshalIndent(svc, "", "  ")
 		if err != nil {
 			return
 		}
 		_, _ = w.Write(b)
+		fmt.Fprintln(w, ",")
 	}
+	fmt.Fprintln(w, "{}]")
 }
 
 // Endpoint debugging
 func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
+	w.Header().Add("Content-Type", "application/json")
 	svcName := req.Form.Get("svc")
 	if svcName != "" {
 		data, err := ioutil.ReadAll(req.Body)
@@ -339,7 +344,7 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 				_, _ = w.Write(b)
 				fmt.Fprint(w, ",\n")
 			}
-			fmt.Fprint(w, "\n{}],")
+			fmt.Fprint(w, "\n{}]},")
 		}
 	}
 	fmt.Fprint(w, "\n{}]\n")
@@ -347,6 +352,7 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 
 // Config debugging.
 func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
+	w.Header().Add("Content-Type", "application/json")
 	fmt.Fprintf(w, "\n[\n")
 	for _, typ := range s.env.IstioConfigStore.ConfigDescriptor() {
 		cfg, _ := s.env.IstioConfigStore.List(typ.Type, "")
@@ -366,6 +372,7 @@ func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 // It is mapped to /debug/adsz
 func adsz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
+	w.Header().Add("Content-Type", "application/json")
 	if req.Form.Get("debug") != "" {
 		adsDebug = req.Form.Get("debug") == "1"
 		return
@@ -453,12 +460,15 @@ func edsz(w http.ResponseWriter, req *http.Request) {
 		edsDebug = req.Form.Get("debug") == "1"
 		return
 	}
+	w.Header().Add("Content-Type", "application/json")
+
 	if req.Form.Get("push") != "" {
 		edsPushAll()
 	}
 
 	edsClusterMutex.Lock()
 	comma1 := false
+	fmt.Fprintln(w, "[")
 	for _, eds := range edsClusters {
 		if comma1 {
 			fmt.Fprint(w, ",\n")
@@ -471,6 +481,7 @@ func edsz(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 	}
+	fmt.Fprintln(w, "]")
 	edsClusterMutex.Unlock()
 }
 
@@ -478,6 +489,8 @@ func edsz(w http.ResponseWriter, req *http.Request) {
 // It is mapped to /debug/cdsz
 func cdsz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
+	w.Header().Add("Content-Type", "application/json")
+
 	adsClientsMutex.RLock()
 
 	fmt.Fprint(w, "[\n")

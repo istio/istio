@@ -1,0 +1,29 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: ExternalService
+metadata:
+  name: c
+spec:
+   hosts:
+   - c
+   ports:
+   - number: 80
+     name: http
+     protocol: HTTP
+   discovery: STATIC
+   endpoints:
+    - address: 127.0.0.1
+      ports:
+        http: 7072
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default-route
+spec:
+  hosts:
+    - c
+  http:
+    - route:
+      - destination:
+          host: c
+        weight: 100

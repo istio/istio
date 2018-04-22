@@ -145,6 +145,7 @@ type PilotArgs struct {
 	Config           ConfigArgs
 	Service          ServiceArgs
 	RDSv2            bool
+	MeshConfig       *meshconfig.MeshConfig
 }
 
 // Server contains the runtime configuration for the Pilot discovery service.
@@ -322,6 +323,10 @@ func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*v1.Confi
 // initMesh creates the mesh in the pilotConfig from the input arguments.
 func (s *Server) initMesh(args *PilotArgs) error {
 	// If a config file was specified, use it.
+	if args.MeshConfig != nil {
+		s.mesh = args.MeshConfig
+		return nil
+	}
 	var mesh *meshconfig.MeshConfig
 	if args.Mesh.ConfigFile != "" {
 		fileMesh, err := cmd.ReadMeshConfig(args.Mesh.ConfigFile)

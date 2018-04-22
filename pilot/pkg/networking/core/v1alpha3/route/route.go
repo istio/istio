@@ -19,6 +19,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
@@ -288,6 +289,9 @@ func translateRoute(in *networking.HTTPRoute,
 			}}
 	} else {
 		d := util.GogoDurationToDuration(in.Timeout)
+		if d == 0 {
+			d = 5 * time.Second
+		}
 		action := &route.RouteAction{
 			Cors:         translateCORSPolicy(in.CorsPolicy),
 			RetryPolicy:  translateRetryPolicy(in.Retries),

@@ -185,8 +185,16 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env model.Environmen
 					//rds:              RDSHttpProxy,
 					useRemoteAddress: useRemoteAddress,
 					direction:        traceOperation,
+					connectionManager: &http_conn.HttpConnectionManager{
+						HttpProtocolOptions: &core.Http1ProtocolOptions{
+							AllowAbsoluteUrl: &google_protobuf.BoolValue{
+								Value: true,
+							},
+						},
+					},
 				},
 			}},
+			bindToPort: true,
 		}
 		l := buildListener(opts)
 		if err := marshalFilters(l, opts, []plugin.FilterChain{{}}); err != nil {
@@ -493,6 +501,8 @@ type httpListenerOpts struct {
 	rds              string
 	useRemoteAddress bool
 	direction        http_conn.HttpConnectionManager_Tracing_OperationName
+	// If set, use this as a basis
+	connectionManager *http_conn.HttpConnectionManager
 }
 
 // filterChainOpts describes a filter chain: a set of filters with the same TLS context
@@ -530,17 +540,20 @@ func buildHTTPConnectionManager(mesh *meshconfig.MeshConfig, httpOpts *httpListe
 		refresh = 5 * time.Second
 	}
 
-	connectionManager := &http_conn.HttpConnectionManager{
-		CodecType: http_conn.AUTO,
-		AccessLog: []*accesslog.AccessLog{
-			{
-				Config: nil,
-			},
-		},
-		HttpFilters:      filters,
-		StatPrefix:       HTTPStatPrefix,
-		UseRemoteAddress: &google_protobuf.BoolValue{httpOpts.useRemoteAddress},
+	if httpOpts.connectionManager == nil {
+		httpOpts.connectionManager = &http_conn.HttpConnectionManager{}
 	}
+
+	connectionManager := httpOpts.connectionManager
+	connectionManager.CodecType = http_conn.AUTO
+	connectionManager.AccessLog = []*accesslog.AccessLog{
+		{
+			Config: nil,
+		},
+	}
+	connectionManager.HttpFilters = filters
+	connectionManager.StatPrefix = HTTPStatPrefix
+	connectionManager.UseRemoteAddress = &google_protobuf.BoolValue{httpOpts.useRemoteAddress}
 
 	// not enabled yet
 	if httpOpts.rds != "" {
