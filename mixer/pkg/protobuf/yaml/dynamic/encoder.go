@@ -149,21 +149,22 @@ func (c EncoderBuilder) buildMessage(md *descriptor.DescriptorProto, data map[in
 		repeated := fd.IsRepeated()
 		//packed := fd.IsPacked() || fd.IsPacked3()
 
-		if *fd.Type == descriptor.FieldDescriptorProto_TYPE_ENUM {
-			fld := makeField(fd)
-			e := c.resolver.ResolveEnum(fd.GetTypeName())
-			if expr != nil {
-				fld.encoder = []Encoder{&eEnumEncoder{
-					expr:       expr,
-					enumValues: e.Value,
-				}}
-			} else if vs, ok := v.(string); ok {
-				if fld.encodedData, err = EncodeEnumString(vs, fld.encodedData, e.Value); err != nil {
-					return nil, fmt.Errorf("unable to encode: %v. %v", k, err)
-				}
-			}
-			me.fields = append(me.fields, fld)
-		} else if fd.IsScalar() || fd.IsString() {
+		switch fd.GetType() {
+		// primitives
+		case descriptor.FieldDescriptorProto_TYPE_DOUBLE,
+			descriptor.FieldDescriptorProto_TYPE_FLOAT,
+			descriptor.FieldDescriptorProto_TYPE_INT64,
+			descriptor.FieldDescriptorProto_TYPE_UINT64,
+			descriptor.FieldDescriptorProto_TYPE_INT32,
+			descriptor.FieldDescriptorProto_TYPE_FIXED64,
+			descriptor.FieldDescriptorProto_TYPE_FIXED32,
+			descriptor.FieldDescriptorProto_TYPE_BOOL,
+			descriptor.FieldDescriptorProto_TYPE_UINT32,
+			descriptor.FieldDescriptorProto_TYPE_SFIXED32,
+			descriptor.FieldDescriptorProto_TYPE_SFIXED64,
+			descriptor.FieldDescriptorProto_TYPE_SINT32,
+			descriptor.FieldDescriptorProto_TYPE_SINT64,
+			descriptor.FieldDescriptorProto_TYPE_STRING:
 			if repeated { // TODO
 			}
 			fld := makeField(fd)
@@ -177,7 +178,23 @@ func (c EncoderBuilder) buildMessage(md *descriptor.DescriptorProto, data map[in
 				return nil, fmt.Errorf("unable to encode: %v. %v", k, err)
 			}
 			me.fields = append(me.fields, fld)
-		} else if *fd.Type == descriptor.FieldDescriptorProto_TYPE_MESSAGE { // MESSAGE, or map
+
+		case descriptor.FieldDescriptorProto_TYPE_ENUM:
+			fld := makeField(fd)
+			e := c.resolver.ResolveEnum(fd.GetTypeName())
+			if expr != nil {
+				fld.encoder = []Encoder{&eEnumEncoder{
+					expr:       expr,
+					enumValues: e.Value,
+				}}
+			} else if vs, ok := v.(string); ok {
+				if fld.encodedData, err = EncodeEnumString(vs, fld.encodedData, e.Value); err != nil {
+					return nil, fmt.Errorf("unable to encode: %v. %v", k, err)
+				}
+			}
+			me.fields = append(me.fields, fld)
+
+		case descriptor.FieldDescriptorProto_TYPE_MESSAGE:
 			m := c.resolver.ResolveMessage(fd.GetTypeName())
 			if m == nil {
 				return nil, fmt.Errorf("unable to resolve message '%s'", fd.GetTypeName())
@@ -198,22 +215,12 @@ func (c EncoderBuilder) buildMessage(md *descriptor.DescriptorProto, data map[in
 				ma = []interface{}{v}
 			}
 
-			// now maps, messages and repeated maps all look the same.
-			for _, vv := range ma {
-				var vq map[interface{}]interface{}
-				if vq, ok = vv.(map[interface{}]interface{}); !ok {
-					return nil, fmt.Errorf("unable to process: %v, got %T, want: map[string]interface{}", fd, vv)
-				}
-
-				var de Encoder
-				if de, err = c.buildMessage(m, vq, false); err != nil {
-					return nil, fmt.Errorf("unable to process: %v, %v", fd, err)
-				}
-				fld := makeField(fd)
-				fld.encoder = []Encoder{de}
-				me.fields = append(me.fields, fld) // create new fields ...
+			// now maps, messages and repeated messages all look the same.
+			if err = c.handleMessageFields(ma, m, fd, &me); err != nil {
+				return nil, err
 			}
-		} else {
+
+		default:
 			return nil, fmt.Errorf("field not supported '%v'", fd)
 		}
 	}
@@ -224,6 +231,30 @@ func (c EncoderBuilder) buildMessage(md *descriptor.DescriptorProto, data map[in
 	})
 
 	return me, nil
+}
+
+func (c EncoderBuilder) handleMessageFields(ma []interface{}, m *descriptor.DescriptorProto,
+	fd *descriptor.FieldDescriptorProto, me *messageEncoder) error {
+
+	for _, vv := range ma {
+		var ok bool
+
+		var vq map[interface{}]interface{}
+		if vq, ok = vv.(map[interface{}]interface{}); !ok {
+			return fmt.Errorf("unable to process: %v, got %T, want: map[string]interface{}", fd, vv)
+		}
+
+		var de Encoder
+		var err error
+		if de, err = c.buildMessage(m, vq, false); err != nil {
+			return fmt.Errorf("unable to process: %v, %v", fd, err)
+		}
+		fld := makeField(fd)
+		fld.encoder = []Encoder{de}
+		me.fields = append(me.fields, fld)
+	}
+
+	return nil
 }
 
 func convertMapToMapentry(data interface{}) ([]interface{}, error) {
