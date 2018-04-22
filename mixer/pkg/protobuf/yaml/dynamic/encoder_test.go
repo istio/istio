@@ -158,10 +158,200 @@ r_enm:
 str: "mystring"
 r_str:
 - abcd
-- "pqrs"
+- a.svc.cluster.local
 
 #### bool ####
 b: true
+r_b:
+- true
+- false
+- true
+
+#### double ####
+dbl: 123.456
+r_dbl:
+- 123.123
+- 456.456
+
+#### float ####
+flt: 1.12
+r_flt:
+- 1.12
+- 1.13
+
+#### int64 with negative val ####
+i64: 123
+r_i64:
+- 123
+
+#### int32 with negative val ####
+i32: 123
+r_i32:
+- -123
+
+#### uint64 ####
+ui64: 123
+r_ui64:
+- 123
+
+#### uint32 ####
+ui32: 123
+r_ui32:
+- 123
+
+#### fixed64 ####
+f64: 123
+r_f64:
+- 123
+
+#### sfixed64 ####
+sf64: 123
+r_sf64:
+- 123
+
+#### fixed32 ####
+f32: 123
+r_f32:
+- 123
+
+#### sfixed32 ####
+sf32: 123
+r_sf32:
+- 123
+
+#### sint32 ####
+si32: -123
+r_si32:
+- -789
+- 123
+
+#### sint64 ####
+si64: -123
+r_si64:
+- -789
+- 123
+
+## sub-message ##
+oth:
+  str: "mystring2"
+  i64: 33333
+  dbl: 333.333
+  b: true
+  inenum: INNERTHREE
+  inmsg:
+    str: "myinnerstring"
+    i64: 99
+    dbl: 99.99
+r_oth:
+  - str: "mystring2"
+    i64: 33333
+    dbl: 333.333
+    b: true
+    inenum: INNERTHREE
+    inmsg:
+      str: "myinnerstring"
+      i64: 99
+      dbl: 99.99
+  - str: "mystring3"
+    i64: 123
+    dbl: 333.333
+    b: true
+    inenum: INNERTHREE
+    inmsg:
+      str: "myinnerstring"
+      i64: 99
+      dbl: 99.99
+  - str: "mystring3"
+    i64: 123
+    dbl: 333.333
+    b: true
+    inenum: INNERTHREE
+    inmsg:
+      str: "myinnerstring"
+      i64: 99123
+      dbl: 99.99
+
+
+#### map[string]string ####
+map_str_str:
+  key1: val1
+  key2: val2
+
+#### map[string]message ####
+map_str_msg:
+  key1:
+    str: "mystring2"
+    i64: 33333
+    dbl: 333.333
+    b: true
+    inenum: INNERTHREE
+    inmsg:
+      str: "myinnerstring"
+      i64: 99
+      dbl: 99.99
+  key2:
+    str: "mystring2"
+    i64: 33333
+    dbl: 333.333
+    b: true
+    inenum: INNERTHREE
+    inmsg:
+      str: "myinnerstring"
+      i64: 99
+      dbl: 99.99
+
+#### map[int32]message ####
+map_i32_msg:
+  123:
+    str: "mystring2"
+    inmsg:
+      str: "myinnerstring"
+      i64: 99
+      dbl: 99.99
+  456:
+    str: "mystring2"
+
+### map[int64]double ####
+map_int64_double:
+  123: 123.111
+  456: 123.222
+
+## other maps ##
+map_str_float:
+    key1: 123
+map_str_uint64:
+    key1: 123
+map_str_uint32:
+    key1: 123
+map_str_fixed64:
+    key1: 123
+map_str_bool:
+    key1: true
+map_str_sfixed32:
+    key1: 123
+map_str_sfixed64:
+    key1: 123
+map_str_sint32:
+    key1: 123
+map_str_sint64:
+    key1: 123
+`
+
+const eveything_in = `
+enm: "'TWO'"
+
+r_enm:
+- request.reason
+- THREE
+
+#### string ####
+str: "mystring"
+r_str:
+- abcd
+- source.service
+
+#### bool ####
+b: test.bool
 r_b:
 - true
 - false
@@ -360,6 +550,14 @@ func TestDynamicEncoder(t *testing.T) {
 			output:   dmmOut,
 			compiler: compiler,
 		},
+		{
+			desc:     "metrics",
+			msg:      ".foo.Simple",
+			input:    eveything_in,
+			output:   eveything,
+			compiler: compiler,
+		},
+
 	} {
 		t.Run(td.desc, func(tt *testing.T) {
 			testMsg(tt, td.input, td.output, res, td.compiler, td.msg)
@@ -456,6 +654,7 @@ func testMsg(t *testing.T, input string, output string, res protoyaml.Resolver, 
 		"source.service":        "a.svc.cluster.local",
 		"connection.sent.bytes": int64(2),
 		"test.double":           float64(3.1417),
+		"test.bool": true,
 	})
 	ba, err = de.Encode(bag, ba)
 	if err != nil {
@@ -535,6 +734,7 @@ func statdardVocabulary() ast.AttributeDescriptorFinder {
 		"source.serviceAccount":           {ValueType: v1beta1.STRING},
 		"source.uid":                      {ValueType: v1beta1.STRING},
 		"source.user":                     {ValueType: v1beta1.STRING},
+		"test.bool":                     {ValueType: v1beta1.BOOL},
 		"test.double":                     {ValueType: v1beta1.DOUBLE},
 	}
 
