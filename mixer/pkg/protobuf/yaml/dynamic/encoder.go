@@ -58,11 +58,18 @@ type (
 		name string
 	}
 
+	// Compiler compiles expression and returns a value type.
+	Compiler interface {
+		// Compile type Compiler interface {compiles expression and returns a value type.
+		Compile(text string) (compiled.Expression, v1beta1.ValueType, error)
+	}
+
+	// EncoderBuilder builds encoder based on data
 	EncoderBuilder struct {
 		msgName     string
 		resolver    yaml.Resolver
 		data        map[interface{}]interface{}
-		compiler    compiled.Compiler
+		compiler    Compiler
 		skipUnknown bool
 	}
 )
@@ -98,7 +105,6 @@ func (c EncoderBuilder) buildMessage(md *descriptor.DescriptorProto, data map[in
 	isMap := md.GetOptions().GetMapEntry()
 
 	keys := make([]string, 0, len(data))
-
 	for kk := range data {
 		var k string
 		if k, ok = kk.(string); !ok {
@@ -106,10 +112,7 @@ func (c EncoderBuilder) buildMessage(md *descriptor.DescriptorProto, data map[in
 		}
 		keys = append(keys, k)
 	}
-
-	// This is off the data path.
-	// This way we get consistent log output.
-
+	// Ensure consistent log output.
 	sort.Strings(keys)
 
 	for _, k := range keys {
@@ -181,7 +184,7 @@ func (c EncoderBuilder) buildMessage(md *descriptor.DescriptorProto, data map[in
 		}
 	}
 
-	// sorting is recommended
+	// sorting fields is recommended
 	sort.Slice(me.fields, func(i, j int) bool {
 		return me.fields[i].number < me.fields[j].number
 	})
@@ -202,20 +205,21 @@ func (c EncoderBuilder) handlePrimitiveField(v interface{}, fd *descriptor.Field
 
 	for _, vl := range va {
 		var err error
-		var enc Encoder
 
 		val, isConstString := transFormQuotedString(vl)
 		sval, isString := val.(string)
+
+		var enc Encoder = nil
 
 		// if compiler is nil, everything is considered static
 		if static || isConstString || !isString || c.compiler == nil {
 
 			if fd.IsEnum() {
-				pe := &primitiveEncoder{name: fd.GetName()}
+				pe := &staticEncoder{name: fd.GetName()}
 				pe.encodedData, err = EncodeEnum(val, pe.encodedData, e.Value)
 				enc = pe
 			} else {
-				enc, err = PrimitiveEncoder(val, fd)
+				enc, err = BuildPrimitiveEncoder(val, fd)
 			}
 
 			if err != nil {
@@ -230,6 +234,7 @@ func (c EncoderBuilder) handlePrimitiveField(v interface{}, fd *descriptor.Field
 			}
 
 			if fd.IsEnum() {
+				// enums can be expressed as String or INT only
 				if !(vt == v1beta1.INT64 || vt == v1beta1.STRING) {
 					return nil, fmt.Errorf("unable to build eval encoder: enum %v for expression type:%v", val, vt)
 				}
@@ -238,7 +243,7 @@ func (c EncoderBuilder) handlePrimitiveField(v interface{}, fd *descriptor.Field
 					enumValues: e.Value,
 				}
 			} else {
-				enc, err = PrimitiveEvalEncoder(expr, vt, fd)
+				enc, err = BuildPrimitiveEvalEncoder(expr, vt, fd)
 			}
 
 			if err != nil {
