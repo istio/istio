@@ -75,7 +75,7 @@ func (m messageEncoder) encodeWithoutLength(bag attribute.Bag, ba []byte) ([]byt
 // expected length of the varint encoded word
 // 2 byte words represent 2 ** 14 = 16K bytes
 // If message length is more, it involves an array copy
-const varLength = 2
+const msgLength = 2
 
 // encode message including length of the message into []byte
 func (m messageEncoder) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
@@ -86,8 +86,8 @@ func (m messageEncoder) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
 	}
 
 	l0 := len(ba)
-	// #pragma inline reserve varLength bytes
-	ba = extendSlice(ba, varLength)
+	// #pragma inline reserve fieldLength bytes
+	ba = extendSlice(ba, msgLength)
 	l1 := len(ba)
 
 	if ba, err = m.encodeWithoutLength(bag, ba); err != nil {
@@ -95,8 +95,8 @@ func (m messageEncoder) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
 	}
 
 	length := len(ba) - l1
-	diff := proto.SizeVarint(uint64(length)) - varLength
-	// move data forward because we need more than varLength bytes
+	diff := proto.SizeVarint(uint64(length)) - msgLength
+	// move data forward because we need more than fieldLength bytes
 	if diff > 0 {
 		ba = extendSlice(ba, diff)
 		// shift data down. This should rarely occur.
@@ -104,10 +104,12 @@ func (m messageEncoder) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
 	}
 
 	// ignore return value. EncodeLength is writing in the middle of the array.
-	_ = EncodeVarintZeroExtend(ba[l0:l0], uint64(length), varLength)
+	_ = EncodeVarintZeroExtend(ba[l0:l0], uint64(length), msgLength)
 
 	return ba, nil
 }
+
+const fieldLength = 1
 
 func (f field) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
 	if f.protoKey != nil {
@@ -119,8 +121,8 @@ func (f field) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
 
 	if f.packed {
 		l0 = len(ba)
-		// #pragma inline reserve varLength bytes
-		ba = extendSlice(ba, varLength)
+		// #pragma inline reserve fieldLength bytes
+		ba = extendSlice(ba, fieldLength)
 		l1 = len(ba)
 	}
 
@@ -134,8 +136,8 @@ func (f field) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
 
 	if f.packed {
 		length := len(ba) - l1
-		diff := proto.SizeVarint(uint64(length)) - varLength
-		// move data forward because we need more than varLength bytes
+		diff := proto.SizeVarint(uint64(length)) - fieldLength
+		// move data forward because we need more than fieldLength bytes
 		if diff > 0 {
 			ba = extendSlice(ba, diff)
 			// shift data down. This should rarely occur.
@@ -143,7 +145,7 @@ func (f field) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
 		}
 
 		// ignore return value. EncodeLength is writing in the middle of the array.
-		_ = EncodeVarintZeroExtend(ba[l0:l0], uint64(length), varLength)
+		_ = EncodeVarintZeroExtend(ba[l0:l0], uint64(length), fieldLength)
 	}
 
 	return ba, nil

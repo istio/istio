@@ -225,7 +225,7 @@ func encodeString(s string, ba []byte) ([]byte, error) {
 
 // EncodeSInt32 encodes sint32 as zigzag
 func EncodeSInt32(v interface{}, ba []byte) ([]byte, error) {
-	c, ok := yaml.ToInt64(v)
+	c, ok := Int64(v)
 	if !ok {
 		return nil, badTypeError(v, "int")
 	}
@@ -234,7 +234,7 @@ func EncodeSInt32(v interface{}, ba []byte) ([]byte, error) {
 
 // EncodeSInt64 encodes sint64 as zigzag
 func EncodeSInt64(v interface{}, ba []byte) ([]byte, error) {
-	c, ok := yaml.ToInt64(v)
+	c, ok := Int64(v)
 	if !ok {
 		return nil, badTypeError(v, "int")
 	}
