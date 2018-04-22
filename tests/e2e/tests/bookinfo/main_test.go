@@ -193,33 +193,43 @@ func setUpDefaultRouting() error {
 		if err := applyRules(configVersion, defaultRules); err != nil {
 			return fmt.Errorf("could not apply rules '%s': %v", defaultRules, err)
 		}
-	}
+		standby := 0
+		for i := 0; i <= testRetryTimes; i++ {
+			time.Sleep(time.Duration(standby) * time.Second)
+			var gateway string
+			var errGw error
 
-	standby := 0
-	for i := 0; i <= testRetryTimes; i++ {
-		time.Sleep(time.Duration(standby) * time.Second)
-		gateway, errGw := tc.Kube.Ingress()
-		if errGw != nil {
-			return errGw
-		}
-		resp, err := http.Get(fmt.Sprintf("%s/productpage", gateway))
-		if err != nil {
-			log.Infof("Error talking to productpage: %s", err)
-		} else {
-			log.Infof("Get from page: %d", resp.StatusCode)
-			if resp.StatusCode == http.StatusOK {
-				log.Info("Get response from product page!")
-				break
+			if configVersion == "v1alpha3" {
+				gateway, errGw = tc.Kube.IngressGateway()
+			} else {
+				gateway, errGw = tc.Kube.Ingress()
 			}
-			closeResponseBody(resp)
+
+			if errGw != nil {
+				return errGw
+			}
+
+			resp, err := http.Get(fmt.Sprintf("%s/productpage", gateway))
+			if err != nil {
+				log.Infof("Error talking to productpage: %s", err)
+			} else {
+				log.Infof("Get from page: %d", resp.StatusCode)
+				if resp.StatusCode == http.StatusOK {
+					log.Info("Get response from product page!")
+					break
+				}
+				closeResponseBody(resp)
+			}
+			if i == testRetryTimes {
+				return errors.New("unable to set default route")
+			}
+			standby += 5
+			log.Errorf("Couldn't get to the bookinfo product page, trying again in %d second", standby)
 		}
-		if i == testRetryTimes {
-			return errors.New("unable to set default route")
-		}
-		standby += 5
-		log.Errorf("Couldn't get to the bookinfo product page, trying again in %d second", standby)
+
+		log.Info("Success! Default route got expected response")
+		return nil
 	}
-	log.Info("Success! Default route got expected response")
 	return nil
 }
 
@@ -378,4 +388,11 @@ func TestMain(m *testing.M) {
 
 func init() {
 	tf.Init()
+}
+
+func getIngressOrFail(t *testing.T, configVersion string) string {
+	if configVersion == "v1apha3" {
+		return tc.Kube.IngressGatewayOrFail(t)
+	}
+	return tc.Kube.IngressOrFail(t)
 }
