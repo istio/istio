@@ -62,7 +62,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env model.Environment, proxy
 		}
 	}
 	if proxy.Type == model.Sidecar {
-		instances, err := env.GetProxyServiceInstances(proxy)
+		instances, err := env.GetProxyServiceInstances(&proxy)
 		if err != nil {
 			log.Errorf("failed to get service proxy service instances: %v", err)
 			return nil, err

@@ -18,6 +18,7 @@ package adapter
 
 import (
 	circonus "istio.io/istio/mixer/adapter/circonus"
+	cloudwatch "istio.io/istio/mixer/adapter/cloudwatch"
 	denier "istio.io/istio/mixer/adapter/denier"
 	dogstatsd "istio.io/istio/mixer/adapter/dogstatsd"
 	fluentd "istio.io/istio/mixer/adapter/fluentd"
@@ -40,6 +41,7 @@ import (
 func Inventory() []adptr.InfoFn {
 	return []adptr.InfoFn{
 		circonus.GetInfo,
+		cloudwatch.GetInfo,
 		denier.GetInfo,
 		dogstatsd.GetInfo,
 		fluentd.GetInfo,
