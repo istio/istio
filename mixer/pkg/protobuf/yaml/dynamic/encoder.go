@@ -209,7 +209,7 @@ func (c EncoderBuilder) handlePrimitiveField(v interface{}, fd *descriptor.Field
 		val, isConstString := transFormQuotedString(vl)
 		sval, isString := val.(string)
 
-		var enc Encoder = nil
+		var enc Encoder
 
 		// if compiler is nil, everything is considered static
 		if static || isConstString || !isString || c.compiler == nil {
@@ -251,6 +251,7 @@ func (c EncoderBuilder) handlePrimitiveField(v interface{}, fd *descriptor.Field
 			}
 		}
 
+		// ASSERT(enc != nil)
 		fld.encoder = append(fld.encoder, enc)
 	}
 

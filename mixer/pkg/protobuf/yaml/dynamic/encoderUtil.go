@@ -43,7 +43,7 @@ func makeField(fd *descriptor.FieldDescriptorProto) *field {
 // EncodeVarintZeroExtend encodes x as Varint in ba. Ensures that encoding is at least
 // minBytes long.
 func EncodeVarintZeroExtend(ba []byte, x uint64, minBytes int) []byte {
-	bn := 0
+	var bn int
 	ba, bn = EncodeVarint(ba, x)
 	diff := minBytes - bn
 
@@ -111,12 +111,13 @@ func protoKey(fieldNumber int, wireType uint64) []byte {
 	return proto.EncodeVarint((uint64(fieldNumber) << 3) | wireType)
 }
 
+// Int64 typecasts input to int64 in a permissive way.
 func Int64(v interface{}) (int64, bool) {
 	switch c := v.(type) {
 	case int:
 		return int64(c), true
 	case int64:
-		return int64(c), true
+		return c, true
 	case int8:
 		return int64(c), true
 	case int16:

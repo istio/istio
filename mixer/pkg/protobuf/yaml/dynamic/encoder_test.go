@@ -125,7 +125,7 @@ r_i64:
   - 770
 `
 
-const dmm_out = `
+const dmmOut = `
 str: mystring
 i64: 200
 mapStrStr:
@@ -167,12 +167,12 @@ func TestDynamicEncoder(t *testing.T) {
 			desc:     "metrics",
 			msg:      ".foo.Simple",
 			input:    dmm,
-			output:   dmm_out,
+			output:   dmmOut,
 			compiler: compiler,
 		},
 	} {
 		t.Run(td.desc, func(tt *testing.T) {
-			testMsg(tt, td.input, td.output, res, td.compiler)
+			testMsg(tt, td.input, td.output, res, td.compiler, td.msg)
 		})
 	}
 }
@@ -208,12 +208,12 @@ func TestStaticEncoder(t *testing.T) {
 		},
 	} {
 		t.Run(td.desc, func(tt *testing.T) {
-			testMsg(tt, td.input, td.output, res, td.compiler)
+			testMsg(tt, td.input, td.output, res, td.compiler, td.msg)
 		})
 	}
 }
 
-func testMsg(t *testing.T, input string, output string, res protoyaml.Resolver, compiler compiled.Compiler) {
+func testMsg(t *testing.T, input string, output string, res protoyaml.Resolver, compiler compiled.Compiler, msgName string) {
 	g := gomega.NewGomegaWithT(t)
 
 	data := map[interface{}]interface{}{}
@@ -241,9 +241,12 @@ func testMsg(t *testing.T, input string, output string, res protoyaml.Resolver, 
 
 	t.Logf("ff1 = %v", ff1)
 	ba, err = ff1.Marshal()
+	if err != nil {
+		t.Fatalf("unable to marshal origin message: %v", err)
+	}
 	t.Logf("ba1 = [%d] %v", len(ba), ba)
 
-	db := NewEncoderBuilder(".foo.Simple", res, data, compiler, false)
+	db := NewEncoderBuilder(msgName, res, data, compiler, false)
 	de, err := db.Build()
 
 	if err != nil {
