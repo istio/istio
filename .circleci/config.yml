@@ -33,6 +33,7 @@ initWorkingDir: &initWorkingDir
     sudo mkdir -p /go/src/istio.io/istio
     sudo chown -R circleci /go
     mkdir -p /go/out/tests
+    mkdir -p /go/out/logs
     mkdir -p /home/circleci/logs
 
 recordZeroExitCodeIfTestPassed: &recordZeroExitCodeIfTestPassed
@@ -112,17 +113,11 @@ jobs:
             - TEST_ENV: minikube-none
             - GOPATH: /go
     steps:
-      - type: shell
-        name: Initialize Working Directory
-        pwd: /
-        command: |
-          sudo mkdir -p /go/src/istio.io/istio
-          sudo chown -R circleci /go
-          mkdir -p /go/out
-          mkdir /home/circleci/logs
+      - <<: *initWorkingDir
       - checkout
       - attach_workspace:
           at:  /go
+      - <<: *markJobStartsOnGCS
       - run: make sync
       - run: bin/testEnvRootMinikube.sh start
       - run:
@@ -134,7 +129,15 @@ jobs:
             make docker.all generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: PATH=$GOPATH/bin:$PATH make e2e_dashboard E2E_ARGS="--skip_cleanup -use_local_cluster -test.v"
+      - run:
+          command: |
+            PATH=$GOPATH/bin:$PATH \
+            E2E_ARGS="--skip_cleanup -use_local_cluster -test.v" \
+            make e2e_dashboard | tee -a /go/out/tests/build-log.txt
+      - <<: *recordZeroExitCodeIfTestPassed
+      - <<: *recordNonzeroExitCodeIfTestFailed
+      - <<: *dumpsysNonPilot
+      - <<: *markJobFinishesOnGCS
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
@@ -191,16 +194,11 @@ jobs:
             - TEST_ENV: minikube-none
             - GOPATH: /go
     steps:
-      - type: shell
-        name: Initialize Working Directory
-        pwd: /
-        command: |
-          sudo mkdir -p /go/src/istio.io/istio
-          sudo chown -R circleci /go
-          mkdir -p /home/circleci/logs
+      - <<: *initWorkingDir
       - checkout
       - attach_workspace:
           at:  /go
+      - <<: *markJobStartsOnGCS
       - run: make sync
       - run: bin/testEnvRootMinikube.sh start
       - run:
@@ -216,7 +214,11 @@ jobs:
             no_output_timeout: 20m
             when: always
             command: |
-              make e2e_bookinfo E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -test.v"
+              make e2e_bookinfo E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -test.v" | tee -a /go/out/tests/build-log.txt
+      - <<: *recordZeroExitCodeIfTestPassed
+      - <<: *recordNonzeroExitCodeIfTestFailed
+      - <<: *dumpsysNonPilot
+      - <<: *markJobFinishesOnGCS
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
@@ -229,17 +231,11 @@ jobs:
             - KUBECONFIG: /go/out/minikube.conf
             - TEST_ENV: minikube-none
     steps:
-      - type: shell
-        name: Initialize Working Directory
-        pwd: /
-        command: |
-          sudo mkdir -p /go/src/istio.io/istio
-          sudo chown -R circleci /go
-          mkdir -p /go/out/logs
-          mkdir -p /home/circleci/logs
+      - <<: *initWorkingDir
       - checkout
       - attach_workspace:
           at:  /go
+      - <<: *markJobStartsOnGCS
       - run: make sync
       - run: bin/testEnvRootMinikube.sh start
       - run:
@@ -256,11 +252,13 @@ jobs:
           # Run the test even if previous failed
           when: always
           command: |
-                make test/local/auth/e2e_pilot
+                make test/local/auth/e2e_pilot | tee -a /go/out/tests/build-log.txt
+      - <<: *recordZeroExitCodeIfTestPassed
+      - <<: *recordNonzeroExitCodeIfTestFailed
       - run:
           when: always
-          command: |
-            make dumpsys
+          command: make dumpsys
+      - <<: *markJobFinishesOnGCS
       - store_test_results:
           path: /go/out/tests
       - store_artifacts:
@@ -303,17 +301,11 @@ jobs:
             - TEST_ENV: minikube-none
             - ISTIO_PROXY_IMAGE: proxyv2
     steps:
-      - type: shell
-        name: Initialize Working Directory
-        pwd: /
-        command: |
-          sudo mkdir -p /go/src/istio.io/istio
-          sudo chown -R circleci /go
-          mkdir -p /go/out
-          mkdir -p /home/circleci/logs
+      - <<: *initWorkingDir
       - checkout
       - attach_workspace:
           at:  /go
+      - <<: *markJobStartsOnGCS
       - run: make sync
       - run: bin/testEnvRootMinikube.sh start
       - run:
@@ -330,11 +322,13 @@ jobs:
           # Run the test even if previous failed
           when: always
           command: |
-                make test/local/noauth/e2e_pilotv2
+                make test/local/noauth/e2e_pilotv2 | tee -a /go/out/tests/build-log.txt
+      - <<: *recordZeroExitCodeIfTestPassed
+      - <<: *recordNonzeroExitCodeIfTestFailed
       - run:
           when: always
-          command: |
-            make dumpsys
+          command: make dumpsys
+      - <<: *markJobFinishesOnGCS
       - store_test_results:
           path: /go/out/tests
       - store_artifacts:
@@ -349,17 +343,11 @@ jobs:
             - KUBECONFIG: /go/out/minikube.conf
             - TEST_ENV: minikube-none
     steps:
-      - type: shell
-        name: Initialize Working Directory
-        pwd: /
-        command: |
-          sudo mkdir -p /go/src/istio.io/istio
-          sudo chown -R circleci /go
-          mkdir -p /go/out
-          mkdir -p /home/circleci/logs
+      - <<: *initWorkingDir
       - checkout
       - attach_workspace:
           at:  /go
+      - <<: *markJobStartsOnGCS
       - run: make sync
       - run: bin/testEnvRootMinikube.sh start
       - run:
@@ -376,16 +364,14 @@ jobs:
           # Run the test even if previous failed
           when: always
           command: |
-                make e2e_pilot E2E_ARGS="--skip_cleanup --auth_enable=false --egress=false --v1alpha3=false"
+            E2E_ARGS="--skip_cleanup --auth_enable=false --egress=false --v1alpha3=false" \
+            make e2e_pilot | tee -a /go/out/tests/build-log.txt
+      - <<: *recordZeroExitCodeIfTestPassed
+      - <<: *recordNonzeroExitCodeIfTestFailed
       - run:
-          name: dumpsys
           when: always
-          command: |
-            # TODO: move to a make target 'dumpsys'.
-            kubectl get all -o wide --all-namespaces
-            kubectl cluster-info dump > /go/out/logs/cluster-info.dump.txt
-            kubectl describe pods -n pilot-noauth > /go/out/logs/pods-system.txt
-            cat /go/out/tests/*.raw | /go/bin/go-junit-report > /go/out/tests/test-report-noauth-v1alpha1-pilot.xml
+          command: make dumpsys
+      - <<: *markJobFinishesOnGCS
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
@@ -399,17 +385,11 @@ jobs:
             - KUBECONFIG: /go/out/minikube.conf
             - TEST_ENV: minikube-none
     steps:
-      - type: shell
-        name: Initialize Working Directory
-        pwd: /
-        command: |
-          sudo mkdir -p /go/src/istio.io/istio
-          sudo chown -R circleci /go
-          mkdir -p /go/out
-          mkdir -p /home/circleci/logs
+      - <<: *initWorkingDir
       - checkout
       - attach_workspace:
           at:  /go
+      - <<: *markJobStartsOnGCS
       - run: make sync
       - run: bin/testEnvRootMinikube.sh start
       - run:
@@ -426,16 +406,14 @@ jobs:
           # Run the test even if previous failed
           when: always
           command: |
-                make e2e_pilot E2E_ARGS="--skip_cleanup --auth_enable=true --egress=true --v1alpha3=false"
+            E2E_ARGS="--skip_cleanup --auth_enable=true --egress=true --v1alpha3=false" \
+            make e2e_pilot | tee -a /go/out/tests/build-log.txt
+      - <<: *recordZeroExitCodeIfTestPassed
+      - <<: *recordNonzeroExitCodeIfTestFailed
       - run:
-          name: dumpsys
           when: always
-          command: |
-            # TODO: move to a make target 'dumpsys'.
-            kubectl get all -o wide --all-namespaces
-            kubectl cluster-info dump > /go/out/logs/cluster-info.dump.txt
-            kubectl describe pods -n pilot-auth > /go/out/logs/pods-system.txt
-            /go/bin/go-junit-report </go/out/tests/test-report-auth-pilot-v1.raw > /go/out/tests/test-report-auth-pilot-v1.xml
+          command: make dumpsys
+      - <<: *markJobFinishesOnGCS
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
@@ -487,14 +465,18 @@ jobs:
     resource_class: xlarge
     steps:
       - checkout
+      - <<: *markJobStartsOnGCS
       - run: make sync
       - run:
           command: |
             mkdir -p /go/out/tests
-            trap "go-junit-report </go/out/tests/go-test-report.out > /go/out/tests/go-test-report.xml" EXIT
+            trap "go-junit-report </go/out/tests/build-log.txt > /go/out/tests/junit.xml" EXIT
             make localTestEnv
             set -o pipefail
-            make test T=-v | tee -a /go/out/tests/go-test-report.out
+            make test T=-v | tee -a /go/out/tests/build-log.txt
+      - <<: *recordZeroExitCodeIfTestPassed
+      - <<: *recordNonzeroExitCodeIfTestFailed
+      - <<: *markJobFinishesOnGCS
       - store_test_results:
           path: /go/out/tests
 
@@ -511,14 +493,18 @@ jobs:
     resource_class: xlarge
     steps:
       - checkout
+      - <<: *markJobStartsOnGCS
       - run:
           command: |
-            mkdir -p /go/out/racetests
-            trap "go-junit-report </go/out/racetests/go-racetest-report.out > /go/out/racetests/go-racetest-report.xml" EXIT
+            mkdir -p /go/out/tests
+            trap "go-junit-report </go/out/tests/build-log.txt > /go/out/tests/junit.xml" EXIT
             make localTestEnv
-            make -k pilot-racetest mixer-racetest broker-racetest security-racetest T=-v | tee -a /go/out/racetests/go-racetest-report.out
+            make -k pilot-racetest mixer-racetest broker-racetest security-racetest T=-v | tee -a /go/out/tests/build-log.txt
+      - <<: *recordZeroExitCodeIfTestPassed
+      - <<: *recordNonzeroExitCodeIfTestFailed
+      - <<: *markJobFinishesOnGCS
       - store_test_results:
-          path: /go/out/racetests
+          path: /go/out/tests
 
   benchcheck:
     <<: *defaults
