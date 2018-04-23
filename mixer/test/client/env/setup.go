@@ -78,6 +78,19 @@ func NewTestSetup(name uint16, t *testing.T) *TestSetup {
 	}
 }
 
+// NewTestSetupWithEnvoyConfig creates a new test setup with an Envoy config
+// "name" has to be defined in ports.go
+func NewTestSetupWithEnvoyConfig(name uint16, config string, t *testing.T) *TestSetup {
+	return &TestSetup{
+		t:             t,
+		mfConf:        GetDefaultMixerFilterConf(),
+		ports:         NewPorts(name),
+		testName:      name,
+		mfConfVersion: MixerFilterConfigV2,
+		EnvoyTemplate: config,
+	}
+}
+
 // MfConfig get Mixer filter config
 func (s *TestSetup) MfConfig() *MixerFilterConf {
 	return s.mfConf
