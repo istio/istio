@@ -8,19 +8,19 @@ spec:
    hosts:
    - c-weighted.extsvc.com
    ports:
-   - number: 9001
+   - number: 80
      name: http
      protocol: HTTP
    discovery: STATIC
    endpoints:
     - address: 127.0.0.2
       ports:
-        http: 8080
+        http: 7072
       labels:
         version: v1
     - address: 127.0.0.3
       ports:
-        http: 8081
+        http: 7074
       labels:
         version: v2
 ---

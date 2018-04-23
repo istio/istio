@@ -4,7 +4,7 @@ metadata:
   name: websocket-extsvc
 spec:
    hosts:
-   - websocket.extsvc.com
+   - websocket.test.istio.io
    ports:
    - number: 9002
      name: http
@@ -13,7 +13,9 @@ spec:
    endpoints:
     - address: 127.0.0.2
       ports:
-        http: 8080
+        http: 7072
+      labels:
+        version: v1
 
 ---
 apiVersion: networking.istio.io/v1alpha3
@@ -21,7 +23,7 @@ kind: DestinationRule
 metadata:
   name: websocket
 spec:
-  host: webssocet.extsvc.com
+  host: websocket.test.istio.io
   subsets:
     - name: v1
       labels:
@@ -36,7 +38,7 @@ metadata:
   name: websocket-route
 spec:
   hosts:
-    - websocket.extsvc.com
+    - websocket.test.istio.io
   http:
     - match:
       - headers:
@@ -44,8 +46,10 @@ spec:
             exact: enabled
       route:
       - destination:
-          host: websocket.extsvc.com
+          host: websocket.test.istio.io
           subset: v1
+          port:
+            number: 9002
       websocketUpgrade: true
 
 ---
@@ -64,6 +68,8 @@ spec:
             exact: enabled
       route:
       - destination:
-          host: websocket.extsvc.com
+          host: websocket.test.istio.io
           subset: v1
+          port:
+            number: 9002
       websocketUpgrade: true

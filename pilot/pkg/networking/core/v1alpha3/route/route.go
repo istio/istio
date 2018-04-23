@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // Headers with special meaning in Envoy
@@ -45,6 +46,24 @@ const (
 	// DefaultRoute is the default decorator
 	DefaultRoute = "default-route"
 )
+
+var (
+	// experiment on getting some monitoring on config errors.
+	noClusterMissingPort = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "pilot_route_cluster_no_port",
+		Help: "Routes with no clusters due to missing port.",
+	}, []string{"service"})
+
+	noClusterMissingService = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "pilot_route_nocluster_no_service",
+		Help: "Routes with no clusters due to missing service",
+	}, []string{"service"})
+)
+
+func init() {
+	prometheus.MustRegister(noClusterMissingPort)
+	prometheus.MustRegister(noClusterMissingService)
+}
 
 // GuardedHost is a context-dependent virtual host entry with guarded routes.
 type GuardedHost struct {
@@ -157,6 +176,7 @@ func translateVirtualHost(
 }
 
 // ConvertDestinationToCluster produces a cluster naming function using the config context.
+// defaultPort is the service port.
 func ConvertDestinationToCluster(serviceIndex map[string]*model.Service, defaultPort int) ClusterNameGenerator {
 	return func(destination *networking.Destination) (string, error) {
 		// detect if it is a service
@@ -164,12 +184,13 @@ func ConvertDestinationToCluster(serviceIndex map[string]*model.Service, default
 
 		// TODO: create clusters for non-service hostnames/IPs
 		if svc == nil {
+			noClusterMissingService.With(prometheus.Labels{"service":destination.String()}).Add(1)
 			return UnresolvedCluster, fmt.Errorf("no service named %q in set %v", destination.Host, serviceIndex)
 		}
 
 		// default port uses port number
 		svcPort, _ := svc.Ports.GetByPort(defaultPort)
-		log.Infof("got default port: %v", svcPort)
+		log.Infof("got default port: %v %v", svcPort, destination)
 		if destination.Port != nil {
 			switch selector := destination.Port.Port.(type) {
 			case *networking.PortSelector_Name:
@@ -182,7 +203,8 @@ func ConvertDestinationToCluster(serviceIndex map[string]*model.Service, default
 		}
 
 		if svcPort == nil {
-			log.Info("svcPort == nil => unresolved cluster")
+			noClusterMissingPort.With(prometheus.Labels{"service":destination.String()}).Add(1)
+			log.Infof("svcPort == nil => unresolved cluster %s %v", destination.Host, destination)
 			return UnresolvedCluster, fmt.Errorf("unknown port for service %q with no default port %d", destination.Host, defaultPort)
 		}
 

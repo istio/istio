@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -104,7 +103,6 @@ func RunProxy(config *meshconfig.ProxyConfig, node string, epoch int, configFnam
 	args = append(args, "--v2-config-only")
 
 	/* #nosec */
-	log.Print("Starting envoy ", config.BinaryPath, args)
 	cmd := exec.Command(config.BinaryPath, args...)
 	cmd.Stdout = outWriter
 	cmd.Stderr = errWriter

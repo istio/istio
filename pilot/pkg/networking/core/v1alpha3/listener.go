@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 const (
@@ -67,7 +68,19 @@ var (
 	// Very verbose output in the logs - full LDS response logged for each sidecar.
 	// Use /debug/ldsz instead.
 	verboseDebug = os.Getenv("PILOT_DUMP_ALPHA3") != ""
+
+	// TODO: gauge should be reset on refresh, not the best way to represent errors but better
+	// than nothing.
+	// TODO: add dimensions - namespace of rule, service, rule name
+	conflictingOutbound = prometheus.NewGauge(prometheus.GaugeOpts{
+		   		Name: "pilot_conf_out_listeners",
+		   		Help: "Number of conflicting listeners.",
+		   	})
 )
+
+func init() {
+	prometheus.MustRegister(conflictingOutbound)
+}
 
 // ListenersALPNProtocols denotes the the list of ALPN protocols that the listener
 // should expose
@@ -338,7 +351,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
 				if l, exists := listenerMap[listenerMapKey]; exists {
 					if !strings.HasPrefix(l.Name, "http") {
-						log.Warnf("Conflicting outbound listeners on %s: previous listener %s", listenerMapKey, l.Name)
+						conflictingOutbound.Add(1)
+						log.Warnf("Conflicting outbound listeners on %s: previous listener %s (%s %v)", listenerMapKey, clusterName, l.Name, l)
 					}
 					// Skip building listener for the same http port
 					continue
@@ -373,8 +387,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				}
 
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
-				if _, exists := listenerMap[listenerMapKey]; exists {
-					log.Warnf("Multiple TCP listener definitions for %s", listenerMapKey)
+				if n, exists := listenerMap[listenerMapKey]; exists {
+					log.Warnf("Multiple TCP listener definitions for %s %v %s", listenerMapKey, n, service.Hostname)
 					continue
 				}
 				listenerOpts.filterChainOpts = []*filterChainOpts{{
