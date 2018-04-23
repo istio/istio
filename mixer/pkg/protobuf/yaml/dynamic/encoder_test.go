@@ -795,3 +795,28 @@ func statdardVocabulary() ast.AttributeDescriptorFinder {
 
 	return ast.NewFinder(attrs)
 }
+
+func Test_Int64(t *testing.T) {
+	for _, tst := range []struct {
+		input  interface{}
+		output interface{}
+		found  bool
+	}{
+		{input: int(5), output: int64(5), found: true},
+		{input: int64(5), output: int64(5), found: true},
+		{input: 3.5, output: int64(3), found: false},
+		{input: 3.0, output: int64(3), found: true},
+	} {
+		name := fmt.Sprintf("%v-%v", tst.input, tst.found)
+		t.Run(name, func(t *testing.T) {
+			op, ok := Int64(tst.input)
+			if ok != tst.found {
+				t.Fatalf("error in ok got:%v, want:%v", ok, tst.found)
+			}
+
+			if op != tst.output {
+				t.Fatalf("error in output got:%v, want:%v", op, tst.output)
+			}
+		})
+	}
+}

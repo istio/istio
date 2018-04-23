@@ -118,6 +118,9 @@ func Int64(v interface{}) (int64, bool) {
 		return int64(c), true
 	case int64:
 		return c, true
+	case float64: // json only supports numbers.
+		ii := int64(c)
+		return ii, float64(ii) == c
 	default:
 		return 0, false
 	}
