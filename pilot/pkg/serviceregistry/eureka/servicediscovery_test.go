@@ -92,7 +92,7 @@ func TestServiceDiscoveryClientError(t *testing.T) {
 		t.Error("Instances() should return nil on error")
 	}
 
-	hostInstances, err := sd.GetProxyServiceInstances(model.Proxy{})
+	hostInstances, err := sd.GetProxyServiceInstances(&model.Proxy{})
 	if err == nil {
 		t.Error("GetProxyServiceInstances() should return error")
 	}
@@ -171,7 +171,7 @@ func TestServiceDiscoveryGetProxyServiceInstances(t *testing.T) {
 	}
 
 	for _, tt := range instanceTests {
-		instances, err := sd.GetProxyServiceInstances(tt.node)
+		instances, err := sd.GetProxyServiceInstances(&tt.node)
 		if err != nil {
 			t.Errorf("GetProxyServiceInstances() encountered unexpected error: %v", err)
 		}

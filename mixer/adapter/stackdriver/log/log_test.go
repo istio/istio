@@ -32,16 +32,21 @@ import (
 	"google.golang.org/genproto/googleapis/api/monitoredres"
 
 	"istio.io/istio/mixer/adapter/stackdriver/config"
+	"istio.io/istio/mixer/adapter/stackdriver/helper"
 	"istio.io/istio/mixer/pkg/adapter/test"
 	"istio.io/istio/mixer/template/logentry"
 )
+
+var dummyShouldFill = func() bool { return true }
+var dummyMetadataFn = func() (string, error) { return "", nil }
+var dummyMetadataGenerator = helper.NewMetadataGenerator(dummyShouldFill, dummyMetadataFn, dummyMetadataFn, dummyMetadataFn)
 
 func TestBuild(t *testing.T) {
 	b := &builder{makeClient: func(context.Context, string, ...option.ClientOption) (*logging.Client, error) {
 		return nil, errors.New("expected")
 	}, makeSyncClient: func(context.Context, string, ...option.ClientOption) (*logadmin.Client, error) {
 		return nil, errors.New("expected")
-	}}
+	}, mg: dummyMetadataGenerator}
 	b.SetLogEntryTypes(map[string]*logentry.Type{})
 	b.SetAdapterConfig(&config.Params{})
 	if _, err := b.Build(context.Background(), test.NewEnv(t)); err == nil {
@@ -77,7 +82,7 @@ func TestBuild(t *testing.T) {
 				return &logging.Client{}, nil
 			}, makeSyncClient: func(context.Context, string, ...option.ClientOption) (*logadmin.Client, error) {
 				return &logadmin.Client{}, nil
-			}}
+			}, mg: dummyMetadataGenerator}
 			b.SetLogEntryTypes(tt.types)
 			b.SetAdapterConfig(tt.cfg)
 			if _, err := b.Build(context.Background(), env); err != nil {
@@ -96,6 +101,43 @@ func TestBuild(t *testing.T) {
 				if !found {
 					t.Errorf("Expected to find log entry '%s', did not: %v", expected, logs)
 				}
+			}
+		})
+	}
+}
+
+func TestEmptyProjectID(t *testing.T) {
+	genMakeClientFn := func(want string) makeClientFn {
+		return func(ctx context.Context, projectID string, opts ...option.ClientOption) (*logging.Client, error) {
+			if projectID != want {
+				return nil, fmt.Errorf("want %v got %v", want, projectID)
+			}
+			return &logging.Client{}, nil
+		}
+	}
+
+	tests := []struct {
+		name  string
+		cfg   *config.Params
+		pidFn func() (string, error)
+		want  string
+	}{
+		{"empty", &config.Params{}, func() (string, error) { return "pid", nil }, "pid"},
+		{"filled", &config.Params{ProjectId: "projectID"}, func() (string, error) { return "pid", nil }, "projectID"},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
+			b := &builder{
+				makeClient: genMakeClientFn(tt.want),
+				makeSyncClient: func(context.Context, string, ...option.ClientOption) (*logadmin.Client, error) {
+					return &logadmin.Client{}, nil
+				},
+				mg: helper.NewMetadataGenerator(dummyShouldFill, tt.pidFn, dummyMetadataFn, dummyMetadataFn),
+			}
+			b.SetAdapterConfig(tt.cfg)
+			if _, err := b.Build(context.Background(), test.NewEnv(t)); err != nil {
+				t.Errorf("Unexpected project id: %v", err)
 			}
 		})
 	}

@@ -42,6 +42,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 		}, 2)
 
 	sctl.AddRegistry(aggregate.Registry{
+		ClusterID:        "v2-debug",
 		Name:             serviceregistry.ServiceRegistry("memAdapter"),
 		ServiceDiscovery: s.MemRegistry,
 		ServiceAccounts:  s.MemRegistry,
@@ -210,7 +211,7 @@ func (sd *MemServiceDiscovery) Instances(hostname string, ports []string,
 
 // GetProxyServiceInstances returns service instances associated with a node, resulting in
 // 'in' services.
-func (sd *MemServiceDiscovery) GetProxyServiceInstances(node model.Proxy) ([]*model.ServiceInstance, error) {
+func (sd *MemServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) ([]*model.ServiceInstance, error) {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
 	if sd.GetProxyServiceInstancesError != nil {
@@ -375,7 +376,7 @@ func adsz(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if proxyID := req.Form.Get("proxyID"); proxyID != "" {
+	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
 		writeADSForSidecar(w, proxyID)
 		return
 	}

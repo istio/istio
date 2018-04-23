@@ -64,5 +64,12 @@ fi
 # Update iptables, based on config file
 ${ISTIO_BIN_BASE}/istio-iptables.sh
 
+EXEC_USER=istio-proxy
+if [ "${ISTIO_INBOUND_INTERCEPTION_MODE}" = "TPROXY" ] ; then
+  # In order to allow redirect inbound traffic using TPROXY, run envoy with the CAP_NET_ADMIN capability.
+  # This allows configuring listeners with the "transparent" socket option set to true.
+  EXEC_USER=root
+fi
+
 # Will run: ${ISTIO_BIN_BASE}/envoy -c $ENVOY_CFG --restart-epoch 0 --drain-time-s 2 --parent-shutdown-time-s 3 --service-cluster $SVC --service-node 'sidecar~${ISTIO_SVC_IP}~${POD_NAME}.${NS}.svc.cluster.local~${NS}.svc.cluster.local' $ISTIO_DEBUG >${ISTIO_LOG_DIR}/istio.log" istio-proxy
-exec su -s /bin/bash -c "INSTANCE_IP=${ISTIO_SVC_IP} POD_NAME=${POD_NAME} POD_NAMESPACE=${NS} exec ${ISTIO_BIN_BASE}/pilot-agent proxy ${ISTIO_AGENT_FLAGS:-} --serviceCluster $SVC --discoveryAddress istio-pilot.${ISTIO_SYSTEM_NAMESPACE}:${ISTIO_PILOT_PORT} --controlPlaneAuthPolicy $CONTROL_PLANE_AUTH_POLICY 2> ${ISTIO_LOG_DIR}/istio.err.log > ${ISTIO_LOG_DIR}/istio.log" istio-proxy
+exec su -s /bin/bash -c "INSTANCE_IP=${ISTIO_SVC_IP} POD_NAME=${POD_NAME} POD_NAMESPACE=${NS} exec ${ISTIO_BIN_BASE}/pilot-agent proxy ${ISTIO_AGENT_FLAGS:-} --serviceCluster $SVC --discoveryAddress istio-pilot.${ISTIO_SYSTEM_NAMESPACE}:${ISTIO_PILOT_PORT} --controlPlaneAuthPolicy $CONTROL_PLANE_AUTH_POLICY 2> ${ISTIO_LOG_DIR}/istio.err.log > ${ISTIO_LOG_DIR}/istio.log" ${EXEC_USER}

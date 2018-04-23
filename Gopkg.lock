@@ -142,6 +142,8 @@
     "private/protocol/query/queryutil",
     "private/protocol/rest",
     "private/protocol/xml/xmlutil",
+    "service/cloudwatch",
+    "service/cloudwatch/cloudwatchiface",
     "service/sts"
   ]
   revision = "4b5324816e154564ef4e490842c2e40560971f75"
@@ -1588,6 +1590,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "8b86e4a11e9c6547ee298eb1602f982a3c3e428398c01e9a54dd2a7ee6aca36a"
+  inputs-digest = "9cf016f4a8a87414a82efb9176e5effaed32c3fa4a700331882cb167ba83703c"
   solver-name = "gps-cdcl"
   solver-version = 1
