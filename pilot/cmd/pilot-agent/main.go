@@ -45,24 +45,25 @@ var (
 	registry serviceregistry.ServiceRegistry
 
 	// proxy config flags (named identically)
-	configPath             string
-	binaryPath             string
-	serviceCluster         string
-	availabilityZone       string
-	drainDuration          time.Duration
-	parentShutdownDuration time.Duration
-	discoveryAddress       string
-	discoveryRefreshDelay  time.Duration
-	zipkinAddress          string
-	connectTimeout         time.Duration
-	statsdUDPAddress       string
-	proxyAdminPort         int
-	controlPlaneAuthPolicy string
-	customConfigFile       string
-	proxyLogLevel          string
-	concurrency            int
-	bootstrapv2            bool
-	templateFile           string
+	configPath               string
+	binaryPath               string
+	serviceCluster           string
+	availabilityZone         string
+	drainDuration            time.Duration
+	parentShutdownDuration   time.Duration
+	discoveryAddress         string
+	discoveryRefreshDelay    time.Duration
+	zipkinAddress            string
+	connectTimeout           time.Duration
+	statsdUDPAddress         string
+	proxyAdminPort           int
+	controlPlaneAuthPolicy   string
+	customConfigFile         string
+	proxyLogLevel            string
+	concurrency              int
+	bootstrapv2              bool
+	templateFile             string
+	disableInternalTelemetry bool
 
 	loggingOptions = log.DefaultOptions()
 
@@ -207,6 +208,9 @@ var (
 				if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
 					opts["ControlPlaneAuth"] = "enable"
 				}
+				if disableInternalTelemetry {
+					opts["DisableReportCalls"] = "true"
+				}
 				tmpl, err := template.ParseFiles(templateFile)
 				if err != nil {
 					return err
@@ -312,6 +316,8 @@ func init() {
 		"Use bootstrap v2")
 	proxyCmd.PersistentFlags().StringVar(&templateFile, "templateFile", "",
 		"Go template bootstrap config")
+	proxyCmd.PersistentFlags().BoolVar(&disableInternalTelemetry, "disableInternalTelemetry", false,
+		"Disable internal telemetry")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)

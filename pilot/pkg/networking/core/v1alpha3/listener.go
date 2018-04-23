@@ -91,7 +91,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env model.Environmen
 	mesh := env.Mesh
 	managementPorts := env.ManagementPorts(node.IPAddress)
 
-	proxyInstances, err := env.GetProxyServiceInstances(node)
+	proxyInstances, err := env.GetProxyServiceInstances(&node)
 	if err != nil {
 		return nil, err
 	}
@@ -360,8 +360,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				fallthrough
 			case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
 				if service.Resolution != model.Passthrough {
-					listenAddress = service.Address
-					addresses = []string{service.Address}
+					listenAddress = service.GetServiceAddressForProxy(&node)
+					addresses = []string{listenAddress}
 				}
 
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)

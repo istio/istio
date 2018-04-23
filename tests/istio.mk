@@ -194,4 +194,4 @@ dumpsys:
 	kubectl cluster-info dump > ${OUT_DIR}/logs/cluster-info.dump.txt
 	kubectl describe pods -n istio-system > ${OUT_DIR}/logs/pods-system.txt
 	kubectl logs -n istio-system -listio=pilot -c discovery
-	$(JUNIT_REPORT) <${OUT_DIR}/logs/test-report.raw >${OUT_DIR}/tests/test-report.xml
+	$(JUNIT_REPORT) <${OUT_DIR}/logs/test-report.raw >${OUT_DIR}/tests/junit.xml

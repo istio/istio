@@ -99,7 +99,7 @@ func portMatch(instance *model.ServiceInstance, portMap map[string]bool) bool {
 }
 
 // GetProxyServiceInstances lists service instances co-located with a given proxy
-func (d *externalDiscovery) GetProxyServiceInstances(node model.Proxy) ([]*model.ServiceInstance, error) {
+func (d *externalDiscovery) GetProxyServiceInstances(node *model.Proxy) ([]*model.ServiceInstance, error) {
 	// There is no proxy sitting next to google.com.  If supplied, istio will end up generating a full envoy
 	// configuration with routes to internal services, (listeners, etc.) for the external service
 	// (which does not exist in the cluster).
