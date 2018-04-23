@@ -60,6 +60,17 @@ spec:
         latency: latency
         localIp: sourceIp
         remoteIp: destinationIp
+      labelNames:
+      - sourceIp
+      - destinationIp
+      - sourceUser
+      - method
+      - url
+      - protocol
+      - responseCode
+      - responseSize
+      - requestSize
+      - latency
       sinkInfo:
         id: '<sink_id>'
         destination: '<sink_destination>'

@@ -353,7 +353,7 @@ func (c *Controller) Instances(hostname string, ports []string,
 }
 
 // GetProxyServiceInstances returns service instances co-located with a given proxy
-func (c *Controller) GetProxyServiceInstances(proxy model.Proxy) ([]*model.ServiceInstance, error) {
+func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
 	var out []*model.ServiceInstance
 	kubeNodes := make(map[string]*kubeServiceNode)
 	for _, item := range c.endpoints.informer.GetStore().List() {
@@ -362,7 +362,7 @@ func (c *Controller) GetProxyServiceInstances(proxy model.Proxy) ([]*model.Servi
 			for _, ea := range ss.Addresses {
 				if proxy.IPAddress == ea.IP {
 					if kubeNodes[ea.IP] == nil {
-						err := parseKubeServiceNode(ea.IP, &proxy, kubeNodes)
+						err := parseKubeServiceNode(ea.IP, proxy, kubeNodes)
 						if err != nil {
 							return out, err
 						}

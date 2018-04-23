@@ -111,6 +111,12 @@ func DeleteNamespace(n string, kubeconfig string) error {
 	return err
 }
 
+// DeleteDeployment deletes deployment from the specified namespace
+func DeleteDeployment(d string, n string, kubeconfig string) error {
+	_, err := Shell("kubectl delete deployment %s -n %s --kubeconfig=%s", d, n, kubeconfig)
+	return err
+}
+
 // NamespaceDeleted check if a kubernete namespace is deleted
 func NamespaceDeleted(n string, kubeconfig string) (bool, error) {
 	output, err := ShellSilent("kubectl get namespace %s -o name --kubeconfig=%s", n, kubeconfig)
@@ -524,8 +530,29 @@ func FetchAndSaveClusterLogs(namespace string, tempDir string, kubeconfig string
 			if err != nil {
 				return err
 			}
+
 			if _, err = f.WriteString(fmt.Sprintf("%s\n", dump)); err != nil {
 				return err
+			}
+
+			dump1, err := ShellMuteOutput(
+				fmt.Sprintf("kubectl logs %s -n %s -c %s -p --kubeconfig=%s", pod, namespace, container, kubeconfig))
+			if err != nil {
+				log.Infof("No previous log %v", err)
+			} else if len(dump1) > 0 {
+				filePath = filepath.Join(tempDir, fmt.Sprintf("%s_container:%s.prev.log", pod, container))
+				f1, err := os.Create(filePath)
+				if err != nil {
+					return err
+				}
+				defer func() {
+					if err = f1.Close(); err != nil {
+						log.Warnf("Error during closing file: %v\n", err)
+					}
+				}()
+				if _, err = f1.WriteString(fmt.Sprintf("%s\n", dump1)); err != nil {
+					return err
+				}
 			}
 		}
 		return nil
