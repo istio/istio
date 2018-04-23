@@ -24,6 +24,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/gogo/protobuf/types"
+	"github.com/hashicorp/go-multierror"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -69,6 +70,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 	merged := model.MergeGateways(gateways...)
 	log.Debugf("buildGatewayListeners: gateways after merging: %v", merged)
 
+	errs := &multierror.Error{}
 	listeners := make([]*xdsapi.Listener, 0, len(merged.Servers))
 	for portNumber, servers := range merged.Servers {
 		// TODO: this works because all Servers on the same port use the same protocol due to model.MergeGateways's implementation.
@@ -117,7 +119,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 
 		// Filters are serialized one time into an opaque struct once we have the complete list.
 		if err := marshalFilters(mutable.Listener, opts, mutable.FilterChains); err != nil {
-			log.Warn(err.Error())
+			errs = multierror.Append(errs, fmt.Errorf("omitting listener %q due to: %v", mutable.Listener.Name, err.Error()))
+			continue
 		}
 		if log.DebugEnabled() {
 			// pprint does JSON marshalling, so we skip it if debugging is not enabled
@@ -125,6 +128,14 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 				len(mutable.Listener.FilterChains), mutable.Listener)
 		}
 		listeners = append(listeners, mutable.Listener)
+	}
+	// We'll try to return any listeners we successfully marshaled; if we have none, we'll emit the error we built up
+	err = errs.ErrorOrNil()
+	if len(listeners) == 0 {
+		return listeners, err
+	} else if err != nil {
+		// we have some listeners to return, but we also have some errors; log them
+		log.Info(err.Error())
 	}
 	return listeners, nil
 }
