@@ -15,13 +15,14 @@
 package dynamic
 
 import (
-	"istio.io/istio/mixer/pkg/lang/compiled"
-	"istio.io/istio/mixer/pkg/attribute"
-	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
-	"istio.io/api/policy/v1beta1"
 	"fmt"
-)
 
+	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
+
+	"istio.io/api/policy/v1beta1"
+	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/lang/compiled"
+)
 
 type encoderFn func(bag attribute.Bag, ba []byte) ([]byte, error)
 type encoderDirectFn func(v interface{}, etype descriptor.FieldDescriptorProto_Type, ba []byte) ([]byte, error)
@@ -41,35 +42,34 @@ var eEncoderRegistry = make([]*eEncoderRegistryEntry, 19)
 
 func registerEncoder(name string, encodes []descriptor.FieldDescriptorProto_Type,
 	accepts v1beta1.ValueType, build buildEEncoderFn, encode encoderDirectFn) {
-	ent := &eEncoderRegistryEntry {
-		name: name,
+	ent := &eEncoderRegistryEntry{
+		name:    name,
 		encodes: encodes,
 		accepts: accepts,
-		build: build,
-		encode: encode,
+		build:   build,
+		encode:  encode,
 	}
 	for _, en := range encodes {
 		eEncoderRegistry[en] = ent
 	}
 }
 
-
 func init() {
 	registerEncoder("string", []descriptor.FieldDescriptorProto_Type{
 		descriptor.FieldDescriptorProto_TYPE_STRING},
-	v1beta1.STRING,
-	func(expr compiled.Expression) encoderFn {
-		return func(bag attribute.Bag, ba []byte) ([]byte, error) {
-			v, err := expr.EvaluateString(bag)
-			if err != nil {
-				return nil, err
+		v1beta1.STRING,
+		func(expr compiled.Expression) encoderFn {
+			return func(bag attribute.Bag, ba []byte) ([]byte, error) {
+				v, err := expr.EvaluateString(bag)
+				if err != nil {
+					return nil, err
+				}
+				return encodeString(v, ba)
 			}
-			return encodeString(v, ba)
-		}
-	},
-	func(v interface{}, _ descriptor.FieldDescriptorProto_Type, ba []byte) ([]byte, error) {
+		},
+		func(v interface{}, _ descriptor.FieldDescriptorProto_Type, ba []byte) ([]byte, error) {
 			return EncodeString(v, ba)
-	})
+		})
 }
 
 func init() {
@@ -181,7 +181,6 @@ func init() {
 		})
 }
 
-
 func init() {
 	registerEncoder("sint32", []descriptor.FieldDescriptorProto_Type{
 		descriptor.FieldDescriptorProto_TYPE_SINT32},
@@ -220,7 +219,7 @@ func init() {
 
 // Enum encoding on string.
 type eEnumEncoder struct {
-	expr compiled.Expression
+	expr       compiled.Expression
 	enumValues []*descriptor.EnumValueDescriptorProto
 }
 
@@ -254,13 +253,13 @@ func BuildPrimitiveEvalEncoder(expr compiled.Expression, vt v1beta1.ValueType, f
 
 	return &primEvalEncoder{
 		name: enc.name,
-		enc: enc.build(expr),
+		enc:  enc.build(expr),
 	}, nil
 }
 
 // staticEncoder for pre-encoded data
 type staticEncoder struct {
-	name string
+	name        string
 	encodedData []byte
 }
 
