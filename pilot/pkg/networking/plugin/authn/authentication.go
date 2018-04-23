@@ -286,12 +286,14 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 
 	for i := range mutable.Listener.FilterChains {
 		mutable.Listener.FilterChains[i].TlsContext = buildSidecarListenerTLSContext(authnPolicy)
-		// Adding Jwt filter and authn filter, if needed.
-		if filter := BuildJwtFilter(authnPolicy); filter != nil {
-			mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
-		}
-		if filter := BuildAuthNFilter(authnPolicy); filter != nil {
-			mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
+		if in.ListenerType == plugin.ListenerTypeHTTP {
+			// Adding Jwt filter and authn filter, if needed.
+			if filter := BuildJwtFilter(authnPolicy); filter != nil {
+				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
+			}
+			if filter := BuildAuthNFilter(authnPolicy); filter != nil {
+				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
+			}
 		}
 	}
 	return nil

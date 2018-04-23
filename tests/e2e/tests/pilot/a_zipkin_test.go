@@ -52,7 +52,8 @@ func TestZipkin(t *testing.T) {
 			// Check the zipkin server to verify the trace was received.
 			response := ClientRequest(
 				"t",
-				fmt.Sprintf("http://zipkin.%s:9411/api/v1/traces?limit=1000", tc.Kube.IstioSystemNamespace()),
+				fmt.Sprintf("http://zipkin.%s:9411/api/v1/traces?annotationQuery=guid:x-client-trace-id=%s",
+					tc.Kube.IstioSystemNamespace(), id),
 				1, "",
 			)
 
@@ -60,11 +61,12 @@ func TestZipkin(t *testing.T) {
 				return errAgain
 			}
 
-			// ensure that sent trace IDs are a subset of the trace IDs in Zipkin.
-			// this is inefficient, but the alternatives are ugly regexps or extensive JSON parsing.
-			if !strings.Contains(response.Body, id) {
+			// Check that the trace contains the id value (must occur more than once, as the
+			// response also contains the request URL with query parameter).
+			if strings.Count(response.Body, id) == 1 {
 				return errAgain
 			}
+
 			return nil
 		})
 	}
