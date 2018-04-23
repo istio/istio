@@ -152,14 +152,14 @@ func (r *jwksResolver) SetAuthenticationPolicyJwksURIs(policy *authn.Policy) err
 func (r *jwksResolver) GetPublicKey(jwksURI string) (string, error) {
 	now := time.Now()
 	if val, found := r.keyEntries.Load(jwksURI); found {
-		e := val.(*jwtPubKeyEntry)
+		e := val.(jwtPubKeyEntry)
 
 		// Return from cache if it's not expired.
 		if e.expireTime.After(now) {
 			// Update cached key's last used time.
 			e.lastUsedTime = now
 			r.keyEntries.Store(jwksURI, e)
-			return val.(*jwtPubKeyEntry).pubKey, nil
+			return e.pubKey, nil
 		}
 	}
 
@@ -170,7 +170,7 @@ func (r *jwksResolver) GetPublicKey(jwksURI string) (string, error) {
 	}
 
 	pubKey := string(resp)
-	r.keyEntries.Store(jwksURI, &jwtPubKeyEntry{
+	r.keyEntries.Store(jwksURI, jwtPubKeyEntry{
 		pubKey:       pubKey,
 		expireTime:   now.Add(r.expireDuration),
 		lastUsedTime: now,
@@ -216,6 +216,10 @@ func (r *jwksResolver) getRemoteContent(url string) ([]byte, error) {
 		_ = resp.Body.Close()
 	}()
 
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("unsuccessful response from %q", url)
+	}
+
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
@@ -245,7 +249,7 @@ func (r *jwksResolver) refresh(t time.Time) {
 	r.keyEntries.Range(func(key interface{}, value interface{}) bool {
 		now := time.Now()
 		jwksURI := key.(string)
-		e := value.(*jwtPubKeyEntry)
+		e := value.(jwtPubKeyEntry)
 
 		// Remove cached item if it hasn't been used for a while.
 		if now.Sub(e.lastUsedTime) >= r.evictionDuration {
@@ -267,11 +271,12 @@ func (r *jwksResolver) refresh(t time.Time) {
 				resp, err := r.getRemoteContent(jwksURI)
 				if err != nil {
 					log.Errorf("Cannot fetch JWT public key from %q", jwksURI)
+					r.keyEntries.Delete(jwksURI)
 					return
 				}
 				newPubKey := string(resp)
 
-				r.keyEntries.Store(jwksURI, &jwtPubKeyEntry{
+				r.keyEntries.Store(jwksURI, jwtPubKeyEntry{
 					pubKey:       newPubKey,
 					expireTime:   now.Add(r.expireDuration), // Update expireTime even if prev/current keys are the same.
 					lastUsedTime: e.lastUsedTime,            // keep original lastUsedTime.
