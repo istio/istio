@@ -31,13 +31,13 @@ import (
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	google_protobuf "github.com/gogo/protobuf/types"
+	"github.com/prometheus/client_golang/prometheus"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 const (
@@ -73,9 +73,9 @@ var (
 	// than nothing.
 	// TODO: add dimensions - namespace of rule, service, rule name
 	conflictingOutbound = prometheus.NewGauge(prometheus.GaugeOpts{
-		   		Name: "pilot_conf_out_listeners",
-		   		Help: "Number of conflicting listeners.",
-		   	})
+		Name: "pilot_conf_out_listeners",
+		Help: "Number of conflicting listeners.",
+	})
 )
 
 func init() {

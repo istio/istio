@@ -24,12 +24,12 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"github.com/gogo/protobuf/types"
+	"github.com/prometheus/client_golang/prometheus"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 // Headers with special meaning in Envoy
@@ -184,7 +184,7 @@ func ConvertDestinationToCluster(serviceIndex map[string]*model.Service, default
 
 		// TODO: create clusters for non-service hostnames/IPs
 		if svc == nil {
-			noClusterMissingService.With(prometheus.Labels{"service":destination.String()}).Add(1)
+			noClusterMissingService.With(prometheus.Labels{"service": destination.String()}).Add(1)
 			log.Infof("svc == nil => route with missing cluster %v", destination)
 			return UnresolvedCluster, fmt.Errorf("no service named %q in set %v", destination.Host, serviceIndex)
 		}
@@ -205,7 +205,7 @@ func ConvertDestinationToCluster(serviceIndex map[string]*model.Service, default
 		}
 
 		if svcPort == nil {
-			noClusterMissingPort.With(prometheus.Labels{"service":destination.String()}).Add(1)
+			noClusterMissingPort.With(prometheus.Labels{"service": destination.String()}).Add(1)
 			log.Infof("svcPort == nil => unresolved cluster %s %v", destination.Host, destination)
 			return UnresolvedCluster, fmt.Errorf("unknown port for service %q with no default port %d", destination.Host, defaultPort)
 		}

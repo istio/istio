@@ -12,7 +12,6 @@ import (
 	"github.com/golang/protobuf/ptypes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-
 	"istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
@@ -20,7 +19,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	agent "istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/tests/util"
-
 )
 
 // hyperistio runs all istio components in one binary, using a directory based config by

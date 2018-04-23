@@ -23,6 +23,7 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/gogo/protobuf/types"
+	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
@@ -43,6 +44,30 @@ var (
 	// reconnects after the 'new/restarted' envoy
 	adsSidecarIDConnectionsMap = map[string]map[string]*XdsConnection{}
 )
+
+var (
+	// experiment on getting some monitoring on config errors.
+	cdsReject = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "pilot_xds_cds_reject",
+		Help: "Pilot rejected CSD configs.",
+	}, []string{"node", "err"})
+
+	edsReject = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "pilot_xds_eds_reject",
+		Help: "Pilot rejected EDS.",
+	}, []string{"node", "err"})
+
+	ldsReject = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "pilot_xds_lds_reject",
+		Help: "Pilot rejected LDS.",
+	}, []string{"node", "err"})
+)
+
+func init() {
+	prometheus.MustRegister(cdsReject)
+	prometheus.MustRegister(edsReject)
+	prometheus.MustRegister(ldsReject)
+}
 
 // XdsConnection is a listener connection type.
 type XdsConnection struct {
@@ -178,6 +203,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					// Already received a cluster watch request, this is an ACK
 					if discReq.ErrorDetail != nil {
 						log.Warnf("ADS:CDS: ACK ERROR %v %s %v", peerAddr, con.ConID, discReq.String())
+						cdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
 					}
 					if adsDebug {
 						log.Infof("ADS:CDS: ACK %v %v", peerAddr, discReq.String())
@@ -198,6 +224,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					// Already received a cluster watch request, this is an ACK
 					if discReq.ErrorDetail != nil {
 						log.Warnf("ADS:LDS: ACK ERROR %v %s %v", peerAddr, con.modelNode.ID, discReq.String())
+						ldsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
 					}
 					if adsDebug {
 						log.Infof("ADS:LDS: ACK %v", discReq.String())
@@ -242,6 +269,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				if len(clusters) == len(con.Clusters) || len(clusters) == 0 {
 					if discReq.ErrorDetail != nil {
 						log.Warnf("ADS:EDS: ACK ERROR %v %s %v", peerAddr, con.ConID, discReq.String())
+						edsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
 					}
 					if edsDebug {
 						// Not logging full request, can be very long.
