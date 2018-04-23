@@ -15,6 +15,12 @@ if [ -z "$GCS_BUCKET_TOKEN" ]; then
 	exit 0
 fi
 
+if [ -z "$CIRCLE_PR_NUMBER" ] || [ -z "$CIRCLE_SHA1" ] || [ -z "$CIRCLE_PROJECT_USERNAME" ] \
+	|| [ -z "$CIRCLE_PROJECT_REPONAME" ] || [ -z "$CIRCLE_JOB" ] || [ -z "$CIRCLE_BUILD_NUM" ]; then
+	echo "Circle CI envs incomplete"
+	exit 0
+fi
+
 # The GCP service account for circle ci is only authorized to edit gs://istio-circleci bucket
 TMP_SA_JSON=$(mktemp /tmp/XXXXX.json)
 ENCRYPTED_SA_JSON="${ROOTDIR}/.circleci/accounts/istio-circle-ci.gcp.serviceaccount"
