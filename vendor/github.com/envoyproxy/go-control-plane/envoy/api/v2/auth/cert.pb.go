@@ -234,8 +234,15 @@ type CertificateValidationContext struct {
 	// See :ref:`the TLS overview <arch_overview_ssl_enabling_verification>` for a list of common
 	// system CA locations.
 	TrustedCa *envoy_api_v2_core.DataSource `protobuf:"bytes,1,opt,name=trusted_ca,json=trustedCa" json:"trusted_ca,omitempty"`
-	// If specified, Envoy will verify (pin) the hex-encoded SHA-256 hash of
+	// If specified, Envoy will verify (pin) the hex-encoded SHA-256 fingerprint of
 	// the presented certificate.
+	//
+	// For example, ``openssl`` can produce a SHA-256 fingerprint of an x509 certificate
+	// with the following command:
+	//
+	// .. code-block:: bash
+	//
+	//   $ openssl x509 -in path/to/client.crt -noout -fingerprint -sha256
 	VerifyCertificateHash []string `protobuf:"bytes,2,rep,name=verify_certificate_hash,json=verifyCertificateHash" json:"verify_certificate_hash,omitempty"`
 	// If specified, Envoy will verify (pin) base64-encoded SHA-256 hash of
 	// the Subject Public Key Information (SPKI) of the presented certificate.

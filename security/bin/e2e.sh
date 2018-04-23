@@ -49,10 +49,6 @@ if [[ -z $CERT_DIR ]]; then
   CERT_DIR=${SECURITY_ROOT}/docker
 fi
 
-if [[ "$HUB" =~ ^gcr\.io ]]; then
-  gcloud docker --authorize-only
-fi
-
 # Run integration tests
 go test -v istio.io/istio/security/tests/integration/certificateRotationTest $ARGS  \
 -kube-config=$HOME/.kube/config

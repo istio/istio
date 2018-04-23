@@ -24,8 +24,8 @@ import (
 
 // Registry specifies the collection of service registry related interfaces
 type Registry struct {
-	Name        serviceregistry.ServiceRegistry
-	ClusterName string
+	Name      serviceregistry.ServiceRegistry
+	ClusterID string
 	model.Controller
 	model.ServiceDiscovery
 	model.ServiceAccounts
@@ -62,6 +62,13 @@ func (c *Controller) Services() ([]*model.Service, error) {
 				if smap[s.Hostname] == nil {
 					services = append(services, s)
 					smap[s.Hostname] = s
+				}
+
+				if r.ClusterID != "" {
+					if smap[s.Hostname].Addresses == nil {
+						smap[s.Hostname].Addresses = make(map[string]string)
+					}
+					smap[s.Hostname].Addresses[r.ClusterID] = s.Address
 				}
 			}
 		}
@@ -123,15 +130,19 @@ func (c *Controller) Instances(hostname string, ports []string,
 }
 
 // GetProxyServiceInstances lists service instances co-located with a given proxy
-func (c *Controller) GetProxyServiceInstances(node model.Proxy) ([]*model.ServiceInstance, error) {
+func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.ServiceInstance, error) {
 	out := make([]*model.ServiceInstance, 0)
 	var errs error
+	// It doesn't make sense for a single proxy to be found in more than one registry.
+	// TODO: if otherwise, warning or else what to do about it.
 	for _, r := range c.registries {
 		instances, err := r.GetProxyServiceInstances(node)
 		if err != nil {
 			errs = multierror.Append(errs, err)
-		} else {
+		} else if len(instances) > 0 {
 			out = append(out, instances...)
+			node.ClusterID = r.ClusterID
+			break
 		}
 	}
 

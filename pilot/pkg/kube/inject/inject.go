@@ -33,7 +33,6 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 	"k8s.io/api/batch/v2alpha1"
-	"k8s.io/api/core/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -49,6 +48,7 @@ const (
 	sidecarAnnotationPolicyKey                        = "sidecar.istio.io/inject"
 	sidecarAnnotationStatusKey                        = "sidecar.istio.io/status"
 	sidecarAnnotationProxyImageOverride               = "sidecar.istio.io/proxyImage"
+	sidecarAnnotationInterceptionModeKey              = "sidecar.istio.io/interceptionMode"
 	sidecarAnnotationIncludeOutboundIPRangesPolicyKey = "traffic.sidecar.istio.io/includeOutboundIPRanges"
 	sidecarAnnotationExcludeOutboundIPRangesPolicyKey = "traffic.sidecar.istio.io/excludeOutboundIPRanges"
 	sidecarAnnotationIncludeInboundPortsPolicyKey     = "traffic.sidecar.istio.io/includeInboundPorts"
@@ -93,17 +93,17 @@ const (
 // SidecarInjectionSpec collects all container types and volumes for
 // sidecar mesh injection
 type SidecarInjectionSpec struct {
-	InitContainers   []v1.Container            `yaml:"initContainers"`
-	Containers       []v1.Container            `yaml:"containers"`
-	Volumes          []v1.Volume               `yaml:"volumes"`
-	ImagePullSecrets []v1.LocalObjectReference `yaml:"imagePullSecrets"`
+	InitContainers   []corev1.Container            `yaml:"initContainers"`
+	Containers       []corev1.Container            `yaml:"containers"`
+	Volumes          []corev1.Volume               `yaml:"volumes"`
+	ImagePullSecrets []corev1.LocalObjectReference `yaml:"imagePullSecrets"`
 }
 
 // SidecarTemplateData is the data object to which the templated
 // version of `SidecarInjectionSpec` is applied.
 type SidecarTemplateData struct {
 	ObjectMeta  *metav1.ObjectMeta
-	Spec        *v1.PodSpec
+	Spec        *corev1.PodSpec
 	ProxyConfig *meshconfig.ProxyConfig
 	MeshConfig  *meshconfig.MeshConfig
 }
@@ -202,6 +202,17 @@ func validatePortList(ports string) error {
 	return nil
 }
 
+// ValidateInterceptionMode validates the interceptionMode annotation
+func ValidateInterceptionMode(mode string) error {
+	switch mode {
+	case meshconfig.ProxyConfig_REDIRECT.String():
+	case meshconfig.ProxyConfig_TPROXY.String():
+	default:
+		return fmt.Errorf("interceptionMode invalid: %v", mode)
+	}
+	return nil
+}
+
 // ValidateIncludeIPRanges validates the includeIPRanges parameter
 func ValidateIncludeIPRanges(ipRanges string) error {
 	if ipRanges != "*" {
@@ -290,14 +301,16 @@ func injectRequired(ignored []string, namespacePolicy InjectionPolicy, podSpec *
 	}
 
 	log.Debugf("Sidecar injection policy for %v/%v: namespacePolicy:%v useDefault:%v inject:%v status:%q proxyImage:%q"+
-		"required:%v includeOutboundIPRanges:%v excludeOutboundIPRanges:%v includeInboundPorts:%v excludeInboundPorts:%v",
+		" interceptionMode:%v required:%v"+
+		" includeOutboundIPRanges:%v excludeOutboundIPRanges:%v includeInboundPorts:%v excludeInboundPorts:%v",
 		metadata.Namespace,
 		metadata.Name,
 		namespacePolicy,
 		useDefault,
 		inject,
-		annotations[sidecarAnnotationProxyImageOverride],
 		annotations[sidecarAnnotationStatusKey],
+		annotations[sidecarAnnotationProxyImageOverride],
+		annotationString(annotations, sidecarAnnotationInterceptionModeKey),
 		required,
 		annotationString(annotations, sidecarAnnotationIncludeOutboundIPRangesPolicyKey),
 		annotationString(annotations, sidecarAnnotationExcludeOutboundIPRangesPolicyKey),
@@ -339,6 +352,9 @@ func validateAnnotation(annotations map[string]string, key string, validateFunc 
 func validateAnnotations(metadata *metav1.ObjectMeta) error {
 	// Validate injection annotations, if present.
 	annotations := metadata.GetAnnotations()
+	if err := validateAnnotation(annotations, sidecarAnnotationInterceptionModeKey, ValidateInterceptionMode); err != nil {
+		return err
+	}
 	if err := validateAnnotation(annotations, sidecarAnnotationIncludeOutboundIPRangesPolicyKey, ValidateIncludeIPRanges); err != nil {
 		return err
 	}
@@ -351,7 +367,7 @@ func validateAnnotations(metadata *metav1.ObjectMeta) error {
 	return validateAnnotation(annotations, sidecarAnnotationExcludeInboundPortsPolicyKey, ValidateExcludeInboundPorts)
 }
 
-func injectionData(sidecarTemplate, version string, spec *v1.PodSpec, metadata *metav1.ObjectMeta, proxyConfig *meshconfig.ProxyConfig, meshConfig *meshconfig.MeshConfig) (*SidecarInjectionSpec, string, error) { // nolint: lll
+func injectionData(sidecarTemplate, version string, spec *corev1.PodSpec, metadata *metav1.ObjectMeta, proxyConfig *meshconfig.ProxyConfig, meshConfig *meshconfig.MeshConfig) (*SidecarInjectionSpec, string, error) { // nolint: lll
 	if err := validateAnnotations(metadata); err != nil {
 		return nil, "", err
 	}
@@ -463,10 +479,10 @@ func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in ru
 	out := in.DeepCopyObject()
 
 	var metadata *metav1.ObjectMeta
-	var podSpec *v1.PodSpec
+	var podSpec *corev1.PodSpec
 
 	// Handle Lists
-	if list, ok := out.(*v1.List); ok {
+	if list, ok := out.(*corev1.List); ok {
 		result := list
 
 		for i, item := range list.Items {
@@ -506,7 +522,7 @@ func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in ru
 			templateValue = templateValue.Elem()
 		}
 		metadata = templateValue.FieldByName("ObjectMeta").Addr().Interface().(*metav1.ObjectMeta)
-		podSpec = templateValue.FieldByName("Spec").Addr().Interface().(*v1.PodSpec)
+		podSpec = templateValue.FieldByName("Spec").Addr().Interface().(*corev1.PodSpec)
 	}
 
 	// Skip injection when host networking is enabled. The problem is

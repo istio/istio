@@ -272,13 +272,13 @@ func _SocketAddress_OneofSizer(msg proto.Message) (n int) {
 type BindConfig struct {
 	// The address to bind to when creating a socket.
 	SourceAddress SocketAddress `protobuf:"bytes,1,opt,name=source_address,json=sourceAddress" json:"source_address"`
-	// [#not-implemented-hide:] Whether to set the *IP_FREEBIND* option when
-	// creating the socket. When this flag is set to true, allows the
-	// :ref:`source_address <envoy_api_field_UpstreamBindConfig.source_address>`
-	// to be an IP address that is not configured on the system running Envoy.
-	// When this flag is set to false, the option *IP_FREEBIND* is disabled on the
-	// socket. When this flag is not set (default), the socket is not modified,
-	// i.e. the option is neither enabled nor disabled.
+	// Whether to set the *IP_FREEBIND* option when creating the socket. When this
+	// flag is set to true, allows the :ref:`source_address
+	// <envoy_api_field_UpstreamBindConfig.source_address>` to be an IP address
+	// that is not configured on the system running Envoy. When this flag is set
+	// to false, the option *IP_FREEBIND* is disabled on the socket. When this
+	// flag is not set (default), the socket is not modified, i.e. the option is
+	// neither enabled nor disabled.
 	Freebind *google_protobuf.BoolValue `protobuf:"bytes,2,opt,name=freebind" json:"freebind,omitempty"`
 }
 

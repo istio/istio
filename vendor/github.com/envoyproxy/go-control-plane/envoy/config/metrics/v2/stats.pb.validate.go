@@ -215,6 +215,8 @@ func (m *StatsdSink) Validate() error {
 		return nil
 	}
 
+	// no validation rules for Prefix
+
 	switch m.StatsdSpecifier.(type) {
 
 	case *StatsdSink_Address:

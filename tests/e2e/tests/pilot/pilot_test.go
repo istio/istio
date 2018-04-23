@@ -82,6 +82,8 @@ func setTestConfig() error {
 	}
 	tc.CommonConfig = cc
 
+	tc.Kube.InstallAddons = true // zipkin is used
+
 	// Add mTLS auth exclusion policy.
 	tc.Kube.MTLSExcludedServices = []string{fmt.Sprintf("fake-control.%s.svc.cluster.local", tc.Kube.Namespace)}
 
@@ -95,6 +97,9 @@ func setTestConfig() error {
 	apps := getApps(tc)
 	for i := range apps {
 		tc.Kube.AppManager.AddApp(&apps[i])
+		if tc.Kube.RemoteKubeConfig != "" {
+			tc.Kube.RemoteAppManager.AddApp(&apps[i])
+		}
 	}
 
 	// Extra system configuration required for the pilot tests.
@@ -161,7 +166,6 @@ type deployableConfig struct {
 // Setup pushes the config and waits for it to propagate to all nodes in the cluster.
 func (c *deployableConfig) Setup() error {
 	c.applied = []string{}
-
 	// Apply the configs.
 	for _, yamlFile := range c.YamlFiles {
 		if err := util.KubeApply(c.Namespace, yamlFile, c.kubeconfig); err != nil {

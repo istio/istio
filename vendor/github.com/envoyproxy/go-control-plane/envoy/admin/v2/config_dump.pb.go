@@ -41,7 +41,7 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 type ConfigDump struct {
 	// This map is serialized and dumped in its entirety at the /config_dump endpoint.
 	//
-	// Keys should be a short descriptor of the config object they map to. For example, envoy's HTTP
+	// Keys should be a short descriptor of the config object they map to. For example, Envoy's HTTP
 	// routing subsystem might use "routes" as the key for its config, for which it uses the message
 	// RouteConfigDump as defined below. In the future, the key will also be used to filter the output
 	// of the /config_dump endpoint.

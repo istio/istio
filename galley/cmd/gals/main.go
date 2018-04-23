@@ -18,7 +18,7 @@ import (
 	"os"
 
 	"istio.io/istio/galley/cmd/gals/cmd"
-	"istio.io/istio/mixer/cmd/shared"
+	"istio.io/istio/galley/cmd/shared"
 )
 
 func main() {

@@ -1,36 +1,32 @@
-# Pilot service for discovery
+
 apiVersion: v1
 kind: Service
 metadata:
   name: istio-pilot
   namespace: istio-system
-  labels:
-    istio: pilot
 spec:
   ports:
-  - port: 15005
-    name: https-discovery
-  - port: 15007
-    name: http-discovery
-    targetPort: 15007
   - port: 15003
-    name: http-old-discovery
+    name: http-old-discovery # mTLS or non-mTLS depending on auth setting
+  - port: 15005
+    name: https-discovery # always mTLS
+  - port: 15007
+    name: http-discovery # always plain-text
   - port: 15010
-    name: grpc-xds
+    name: grpc-xds # direct
+  - port: 15011
+    name: https-xds # mTLS or non-mTLS depending on auth setting
   - port: 8080
-    name: http-legacy-discovery
+    name: http-legacy-discovery # direct
   - port: 9093
     name: http-monitoring
-  - port: 443
-    name: admission-webhook
+  clusterIP: None
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: istio-policy
   namespace: istio-system
-  labels:
-    istio: mixer
 spec:
   ports:
   - name: tcp-plain
@@ -39,4 +35,28 @@ spec:
     port: 15004
   - name: http-monitoring
     port: 9093
+  - name: configapi
+    port: 9094
+  - name: statsd-prom
+    port: 9102
+  - name: statsd-udp
+    port: 9125
+    protocol: UDP
+  - name: prometheus
+    port: 42422
+  clusterIP: None
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-statsd-prom-bridge
+  namespace: istio-system
+spec:
+  ports:
+  - name: statsd-prom
+    port: 9102
+  - name: statsd-udp
+    port: 9125
+    protocol: UDP
+  clusterIP: None
 ---

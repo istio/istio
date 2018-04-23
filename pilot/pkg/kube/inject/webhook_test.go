@@ -234,32 +234,68 @@ func TestInject(t *testing.T) {
 			wantFile:  "TestWebhookInject.patch",
 		},
 		{
-			inputFile: "TestWebhookInject_no_volumes.yaml",
-			wantFile:  "TestWebhookInject_no_volumes.patch",
-		},
-		{
-			inputFile: "TestWebhookInject_no_containers_volumes.yaml",
-			wantFile:  "TestWebhookInject_no_containers_volumes.patch",
+			inputFile: "TestWebhookInject_no_initContainers.yaml",
+			wantFile:  "TestWebhookInject_no_initContainers.patch",
 		},
 		{
 			inputFile: "TestWebhookInject_no_containers.yaml",
 			wantFile:  "TestWebhookInject_no_containers.patch",
 		},
 		{
-			inputFile: "TestWebhookInject_no_initContainers.yaml",
-			wantFile:  "TestWebhookInject_no_initContainers.patch",
+			inputFile: "TestWebhookInject_no_volumes.yaml",
+			wantFile:  "TestWebhookInject_no_volumes.patch",
 		},
 		{
-			inputFile: "TestWebhookInject_no_initContainers_volumes.yaml",
-			wantFile:  "TestWebhookInject_no_initContainers_volumes.patch",
+			inputFile: "TestWebhookInject_no_imagePullSecrets.yaml",
+			wantFile:  "TestWebhookInject_no_imagePullSecrets.patch",
+		},
+		{
+			inputFile: "TestWebhookInject_no_volumes_imagePullSecrets.yaml",
+			wantFile:  "TestWebhookInject_no_volumes_imagePullSecrets.patch",
+		},
+		{
+			inputFile: "TestWebhookInject_no_containers_volumes_imagePullSecrets.yaml",
+			wantFile:  "TestWebhookInject_no_containers_volumes_imagePullSecrets.patch",
+		},
+		{
+			inputFile: "TestWebhookInject_no_containers_volumes.yaml",
+			wantFile:  "TestWebhookInject_no_containers_volumes.patch",
+		},
+		{
+			inputFile: "TestWebhookInject_no_containers_imagePullSecrets.yaml",
+			wantFile:  "TestWebhookInject_no_containers_imagePullSecrets.patch",
 		},
 		{
 			inputFile: "TestWebhookInject_no_initContainers_containers.yaml",
 			wantFile:  "TestWebhookInject_no_initContainers_containers.patch",
 		},
 		{
+			inputFile: "TestWebhookInject_no_initContainers_volumes.yaml",
+			wantFile:  "TestWebhookInject_no_initContainers_volumes.patch",
+		},
+		{
+			inputFile: "TestWebhookInject_no_initContainers_imagePullSecrets.yaml",
+			wantFile:  "TestWebhookInject_no_initContainers_imagePullSecrets.patch",
+		},
+		{
+			inputFile: "TestWebhookInject_no_containers_volumes_imagePullSecrets.yaml",
+			wantFile:  "TestWebhookInject_no_containers_volumes_imagePullSecrets.patch",
+		},
+		{
+			inputFile: "TestWebhookInject_no_initContainers_volumes_imagePullSecrets.yaml",
+			wantFile:  "TestWebhookInject_no_initContainers_volumes_imagePullSecrets.patch",
+		},
+		{
 			inputFile: "TestWebhookInject_no_initContainers_containers_volumes.yaml",
-			wantFile:  "TestWebhookInject_no_initcontainers_containers_volumes.patch",
+			wantFile:  "TestWebhookInject_no_initContainers_containers_volumes.patch",
+		},
+		{
+			inputFile: "TestWebhookInject_no_initContainers_containers_imagePullSecrets.yaml",
+			wantFile:  "TestWebhookInject_no_initContainers_containers_imagePullSecrets.patch",
+		},
+		{
+			inputFile: "TestWebhookInject_no_initContainers_containers_volumes_imagePullSecrets.yaml",
+			wantFile:  "TestWebhookInject_no_initcontainers_containers_volumes_imagePullSecrets.patch",
 		},
 		{
 			inputFile: "TestWebhookInject_replace.yaml",
@@ -652,10 +688,10 @@ func compareDeployments(got, want *extv1beta1.Deployment, t *testing.T) {
 	gotIstioProxy.TerminationMessagePolicy = wantIstioProxy.TerminationMessagePolicy
 	envVars := []corev1.EnvVar{}
 	for _, env := range gotIstioProxy.Env {
-		if env.Name != "ISTIO_META_POD_NAME" {
+		if env.ValueFrom != nil {
 			env.ValueFrom.FieldRef.APIVersion = ""
-			envVars = append(envVars, env)
 		}
+		envVars = append(envVars, env)
 	}
 	gotIstioProxy.Env = envVars
 
