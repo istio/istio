@@ -51,6 +51,24 @@ else
   if [[ -z "${PROJECT}" ]]; then
     Usage
   fi
+
+  while getopts ":sh" opt; do
+    case ${opt} in
+      s)
+        SKIP_CREATE="true"
+        ;;
+      h)
+        Usage
+        exit 0
+        ;;
+      \?)
+        echo "Invalid option: -$OPTARG" >&2
+        Usage
+        exit 1
+        ;;
+    esac
+  done
+
 fi
 
 
@@ -71,7 +89,6 @@ function ExecuteEval() {
 
 function create_cluster() {
   Execute gcloud container clusters create $CLUSTER_NAME $GCP_OPTS --machine-type=$MACHINE_TYPE --num-nodes=$NUM_NODES --no-enable-legacy-authorization
-  Execute gcloud container clusters get-credentials $CLUSTER_NAME $GCP_OPTS
 }
 
 function delete_cluster() {
@@ -395,9 +412,15 @@ function run_canonical_perf_test() {
     curl -s "${URL}" -o "${OUT_FILE}"
 }
 
-function setup_vm_all() {
+function create_vm_cluster_all() {
   update_gcp_opts
   create_vm
+  echo "Setting up CLUSTER_NAME=$CLUSTER_NAME for PROJECT=$PROJECT in ZONE=$ZONE, NUM_NODES=$NUM_NODES * MACHINE_TYPE=$MACHINE_TYPE"
+  create_cluster
+}
+
+function setup_vm_all() {
+  update_gcp_opts
   setup_vm
   setup_vm_firewall
   update_fortio_on_vm
@@ -413,8 +436,6 @@ function setup_istio_all() {
 }
 
 function setup_cluster_all() {
-  echo "Setting up CLUSTER_NAME=$CLUSTER_NAME for PROJECT=$PROJECT in ZONE=$ZONE, NUM_NODES=$NUM_NODES * MACHINE_TYPE=$MACHINE_TYPE"
-  create_cluster
   kubectl_setup
   install_non_istio_svc
   setup_non_istio_ingress
@@ -473,6 +494,9 @@ function check_image_versions() {
 if [[ $SOURCED == 0 ]]; then
   # Normal mode: all at once:
   update_gcp_opts
+  if [ "${SKIP_CREATE}" != "true" ]; then
+    create_vm_cluster_all
+  fi
   setup_all
 
 #update_fortio_on_vm
