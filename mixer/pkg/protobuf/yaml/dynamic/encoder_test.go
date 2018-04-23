@@ -342,12 +342,12 @@ enm: "'TWO'"
 
 r_enm:
 - request.reason
-- THREE
+- "'THREE'"
 
 #### string ####
-str: "mystring"
+str: "'mystring'"
 r_str:
-- abcd
+- "'abcd'"
 - source.service
 
 #### bool ####
@@ -423,83 +423,83 @@ r_si64:
 
 ## sub-message ##
 oth:
-  str: "mystring2"
+  str: "'mystring2'"
   i64: 33333
   dbl: 333.333
   b: true
-  inenum: INNERTHREE
+  inenum: "'INNERTHREE'"
   inmsg:
-    str: "myinnerstring"
+    str: "'myinnerstring'"
     i64: 99
     dbl: 99.99
 r_oth:
-  - str: "mystring2"
+  - str: "'mystring2'"
     i64: 33333
     dbl: 333.333
     b: true
-    inenum: INNERTHREE
+    inenum: "'INNERTHREE'"
     inmsg:
-      str: "myinnerstring"
+      str: "'myinnerstring'"
       i64: 99
       dbl: 99.99
-  - str: "mystring3"
+  - str: "'mystring3'"
     i64: 123
     dbl: 333.333
     b: true
-    inenum: INNERTHREE
+    inenum: "'INNERTHREE'"
     inmsg:
-      str: "myinnerstring"
+      str: "'myinnerstring'"
       i64: 99
       dbl: 99.99
-  - str: "mystring3"
+  - str: "'mystring3'"
     i64: 123
     dbl: 333.333
     b: true
-    inenum: INNERTHREE
+    inenum: "'INNERTHREE'"
     inmsg:
-      str: "myinnerstring"
+      str: "'myinnerstring'"
       i64: 99123
       dbl: 99.99
 
 
 #### map[string]string ####
 map_str_str:
-  key1: val1
-  key2: val2
+  key1: "'val1'"
+  key2: "'val2'"
 
 #### map[string]message ####
 map_str_msg:
   key1:
-    str: "mystring2"
+    str: "'mystring2'"
     i64: 33333
     dbl: 333.333
     b: true
-    inenum: INNERTHREE
+    inenum: "'INNERTHREE'"
     inmsg:
-      str: "myinnerstring"
+      str: "'myinnerstring'"
       i64: 99
       dbl: 99.99
   key2:
-    str: "mystring2"
+    str: "'mystring2'"
     i64: 33333
     dbl: 333.333
     b: true
-    inenum: INNERTHREE
+    inenum: "'INNERTHREE'"
     inmsg:
-      str: "myinnerstring"
+      str: "'myinnerstring'"
       i64: 99
       dbl: 99.99
 
 #### map[int32]message ####
 map_i32_msg:
   123:
-    str: "mystring2"
+    str: "'mystring2'"
     inmsg:
-      str: "myinnerstring"
+      str: "'myinnerstring'"
       i64: 99
       dbl: 99.99
   456:
-    str: "mystring2"
+    str: "'mystring2'"
 
 ### map[int64]double ####
 map_int64_double:
@@ -557,7 +557,6 @@ func TestDynamicEncoder(t *testing.T) {
 			output:   eveything,
 			compiler: compiler,
 		},
-
 	} {
 		t.Run(td.desc, func(tt *testing.T) {
 			testMsg(tt, td.input, td.output, res, td.compiler, td.msg)
@@ -654,7 +653,7 @@ func testMsg(t *testing.T, input string, output string, res protoyaml.Resolver, 
 		"source.service":        "a.svc.cluster.local",
 		"connection.sent.bytes": int64(2),
 		"test.double":           float64(3.1417),
-		"test.bool": true,
+		"test.bool":             true,
 	})
 	ba, err = de.Encode(bag, ba)
 	if err != nil {
@@ -734,7 +733,7 @@ func statdardVocabulary() ast.AttributeDescriptorFinder {
 		"source.serviceAccount":           {ValueType: v1beta1.STRING},
 		"source.uid":                      {ValueType: v1beta1.STRING},
 		"source.user":                     {ValueType: v1beta1.STRING},
-		"test.bool":                     {ValueType: v1beta1.BOOL},
+		"test.bool":                       {ValueType: v1beta1.BOOL},
 		"test.double":                     {ValueType: v1beta1.DOUBLE},
 	}
 
