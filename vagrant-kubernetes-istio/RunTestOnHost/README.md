@@ -50,7 +50,7 @@ You should push new images whenever you modify istio source code.
 E.g.
 ```bash
 cd $ISTIO/istio
-make e2e_simple E2E_ARGS="--use_local_cluster"
+make e2e_simple E2E_ARGS="--use_local_cluster" HUB=10.10.0.2:5000 TAG=latest
 ```
 You can keep repeating this step if you made any local changes and want to run e2e tests again.
 Add E2E_ARGS="--use_local_cluster" to all your e2e tests as tests are we are running a local cluster.
