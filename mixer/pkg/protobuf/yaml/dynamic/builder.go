@@ -35,33 +35,28 @@ type (
 
 	// Builder builds encoder based on data
 	Builder struct {
-		msgName     string
 		resolver    yaml.Resolver
-		data        map[interface{}]interface{}
 		compiler    Compiler
 		skipUnknown bool
 	}
 )
 
-// NewEncoderBuilder creates an Builder.
-func NewEncoderBuilder(msgName string, resolver yaml.Resolver, data map[interface{}]interface{},
-	compiler Compiler, skipUnknown bool) *Builder {
+// NewEncoderBuilder creates an EncoderBuilder.
+func NewEncoderBuilder(resolver yaml.Resolver, compiler Compiler, skipUnknown bool) *Builder {
 	return &Builder{
-		msgName:     msgName,
 		resolver:    resolver,
-		data:        data,
 		compiler:    compiler,
 		skipUnknown: skipUnknown}
 }
 
 // Build builds a DynamicEncoder
-func (c Builder) Build() (Encoder, error) {
-	m := c.resolver.ResolveMessage(c.msgName)
+func (c Builder) Build(msgName string, data map[interface{}]interface{}) (Encoder, error) {
+	m := c.resolver.ResolveMessage(msgName)
 	if m == nil {
-		return nil, fmt.Errorf("cannot resolve message '%s'", c.msgName)
+		return nil, fmt.Errorf("cannot resolve message '%s'", msgName)
 	}
 
-	return c.buildMessage(m, c.data, true)
+	return c.buildMessage(m, data, true)
 }
 
 func (c Builder) buildMessage(md *descriptor.DescriptorProto, data map[interface{}]interface{}, skipEncodeLength bool) (Encoder, error) {

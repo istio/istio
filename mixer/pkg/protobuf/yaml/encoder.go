@@ -16,12 +16,12 @@ package yaml
 
 import (
 	"fmt"
+	"io/ioutil"
 	"math"
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
-	"io/ioutil"
 )
 
 type (

@@ -661,8 +661,8 @@ func testMsg(t *testing.T, input string, output string, res protoyaml.Resolver, 
 	}
 	t.Logf("ba1 = [%d] %v", len(ba), ba)
 
-	db := NewEncoderBuilder(msgName, res, data, compiler, false)
-	de, err := db.Build()
+	db := NewEncoderBuilder(res, compiler, false)
+	de, err := db.Build(msgName, data)
 
 	if err != nil {
 		t.Fatalf("unable to build: %v", err)
