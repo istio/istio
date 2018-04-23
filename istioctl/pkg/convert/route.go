@@ -383,7 +383,7 @@ func RouteRuleRouteLabels(configs []model.Config) []model.Config {
 		rule, ok := destinationRules[host]
 		if !ok {
 			rule = &v1alpha3.DestinationRule{
-				Host: host,
+				Host:    host,
 				Subsets: make([]*v1alpha3.Subset, 0),
 			}
 
@@ -399,7 +399,7 @@ func RouteRuleRouteLabels(configs []model.Config) []model.Config {
 			out = append(out, model.Config{
 				ConfigMeta: model.ConfigMeta{
 					Type:      model.DestinationRule.Type,
-					Name:      host,
+					Name:      host + "-subsets",
 					Namespace: configs[0].Namespace,
 					Domain:    configs[0].Domain,
 				},
