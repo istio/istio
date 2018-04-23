@@ -1245,6 +1245,12 @@
   version = "v2.2.6"
 
 [[projects]]
+  name = "gopkg.in/d4l3k/messagediff.v1"
+  packages = ["."]
+  revision = "29f32d820d112dbd66e58492a6ffb7cc3106312b"
+  version = "v1.2.1"
+
+[[projects]]
   name = "gopkg.in/inf.v0"
   packages = ["."]
   revision = "d2d2541c53f18d2a059457998ce2876cc8e67cbf"

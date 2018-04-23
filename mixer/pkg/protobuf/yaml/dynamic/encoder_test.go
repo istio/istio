@@ -5,11 +5,11 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/d4l3k/messagediff"
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/onsi/gomega"
+	"gopkg.in/d4l3k/messagediff.v1"
 	yaml2 "gopkg.in/yaml.v2"
 
 	"istio.io/api/policy/v1beta1"
