@@ -131,6 +131,7 @@ e2e_bookinfo_envoyv2_v1alpha3: | istioctl test/local/noauth/e2e_bookinfo_envoyv2
 # make test/local/noauth/e2e_pilotv2 T=-test.run=TestPilot/ingress
 
 test/minikube/auth/e2e_simple: generate_yaml
+	mkdir -p ${OUT_DIR}/tests
 	set -o pipefail; go test -v -timeout 20m ./tests/e2e/tests/simple -args --auth_enable=true \
 	  --skip_cleanup  -use_local_cluster -cluster_wide \
 	  ${E2E_ARGS} ${EXTRA_E2E_ARGS}  ${T}\
@@ -193,4 +194,4 @@ dumpsys:
 	kubectl cluster-info dump > ${OUT_DIR}/logs/cluster-info.dump.txt
 	kubectl describe pods -n istio-system > ${OUT_DIR}/logs/pods-system.txt
 	kubectl logs -n istio-system -listio=pilot -c discovery
-	$(JUNIT_REPORT) <${OUT_DIR}/logs/test-report.raw >${OUT_DIR}/tests/test-report.xml
+	$(JUNIT_REPORT) <${OUT_DIR}/logs/test-report.raw >${OUT_DIR}/tests/junit.xml

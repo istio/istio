@@ -551,7 +551,11 @@ func ResolveHostname(meta ConfigMeta, svc *routing.IstioService) string {
 // to shortname of the service to FQDN
 func ResolveShortnameToFQDN(host string, meta ConfigMeta) string {
 	out := host
-
+	// Treat the wildcard host as fully qualified. Any other variant of a wildcard hostname will contain a `.` too,
+	// and skip the next if, so we only need to check for the literal wildcard itself.
+	if host == "*" {
+		return out
+	}
 	// if FQDN is specified, do not append domain or namespace to hostname
 	if !strings.Contains(host, ".") {
 		if meta.Namespace != "" {

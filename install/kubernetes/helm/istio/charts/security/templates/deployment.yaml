@@ -29,6 +29,7 @@ spec:
             - --grpc-port=8060
             - --grpc-hostname=citadel
             - --self-signed-ca=true
+            - --citadel-storage-namespace={{ .Release.Namespace }}
           resources:
 {{ toYaml .Values.resources | indent 12 }}
       affinity:

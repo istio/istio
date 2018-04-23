@@ -688,10 +688,10 @@ func compareDeployments(got, want *extv1beta1.Deployment, t *testing.T) {
 	gotIstioProxy.TerminationMessagePolicy = wantIstioProxy.TerminationMessagePolicy
 	envVars := []corev1.EnvVar{}
 	for _, env := range gotIstioProxy.Env {
-		if env.Name != "ISTIO_META_POD_NAME" {
+		if env.ValueFrom != nil {
 			env.ValueFrom.FieldRef.APIVersion = ""
-			envVars = append(envVars, env)
 		}
+		envVars = append(envVars, env)
 	}
 	gotIstioProxy.Env = envVars
 

@@ -50,6 +50,7 @@ install/kubernetes/istio.yaml
 install/kubernetes/istio-all.yaml
 samples/bookinfo/consul/bookinfo.sidecars.yaml
 samples/bookinfo/eureka/bookinfo.sidecars.yaml
+*.orig
 # Avoid accidental istio.VERSION changes
 istio.VERSION
 # Proxy generated proxy config in integration test

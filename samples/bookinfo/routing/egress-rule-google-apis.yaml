@@ -1,0 +1,21 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: ExternalService
+metadata:
+  name: googleapis
+spec:
+  hosts:
+  - "*.googleapis.com"
+  ports:
+  - number: 443
+    name: https
+    protocol: http
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: googleapis
+spec:
+  name: "*.googleapis.com"
+  trafficPolicy:
+    tls:
+      mode: SIMPLE # initiates HTTPS when talking to www.google.com

@@ -54,7 +54,7 @@ const (
 	defaultSidecarInjectorFile       = "istio-sidecar-injector.yaml"
 	ingressCertsName                 = "istio-ingress-certs"
 	defaultGalleyConfigValidatorFile = "istio-galley-config-validator.yaml"
-	maxDeploymentRolloutTime         = 240 * time.Second
+	maxDeploymentRolloutTime         = 480 * time.Second
 	mtlsExcludedServicesPattern      = "mtlsExcludedServices:\\s*\\[(.*)\\]"
 )
 
@@ -102,6 +102,7 @@ type KubeInfo struct {
 	namespaceCreated bool
 	AuthEnabled      bool
 	RBACEnabled      bool
+	InstallAddons    bool
 
 	// Extra services to be excluded from MTLS
 	MTLSExcludedServices []string
@@ -249,9 +250,11 @@ func (k *KubeInfo) Setup() error {
 			return err
 		}
 
-		if err = k.deployAddons(); err != nil {
-			log.Error("Failed to deploy istio addons")
-			return err
+		if k.InstallAddons {
+			if err = k.deployAddons(); err != nil {
+				log.Error("Failed to deploy istio addons")
+				return err
+			}
 		}
 		// Create the ingress secret.
 		certDir := util.GetResourcePath("./tests/testdata/certs")
@@ -548,11 +551,6 @@ func (k *KubeInfo) deployIstio() error {
 		// Create the local secrets and configmap to start pilot
 		if err := util.CreateMultiClusterSecrets(k.Namespace, k.KubeClient, k.RemoteKubeConfig); err != nil {
 			log.Errorf("Unable to create secrets on local cluster %s", err.Error())
-			return err
-		}
-		// Create the remote secrets. This is temporary until a better CA strategy is used
-		if err := k.createRemoteSecrets(); err != nil {
-			log.Errorf("Unable to create secrets on Remote cluster %s", err.Error())
 			return err
 		}
 

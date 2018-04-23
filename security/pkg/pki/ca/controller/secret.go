@@ -100,6 +100,8 @@ type SecretController struct {
 	// Controller and store for secret objects.
 	scrtController cache.Controller
 	scrtStore      cache.Store
+
+	monitoring monitoringMetrics
 }
 
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
@@ -122,6 +124,7 @@ func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, grac
 		core:             core,
 		forCA:            forCA,
 		dnsNames:         dnsNames,
+		monitoring:       newMonitoringMetrics(),
 	}
 
 	saLW := &cache.ListWatch{
@@ -174,12 +177,14 @@ func GetSecretName(saName string) string {
 func (sc *SecretController) saAdded(obj interface{}) {
 	acct := obj.(*v1.ServiceAccount)
 	sc.upsertSecret(acct.GetName(), acct.GetNamespace())
+	sc.monitoring.ServiceAccountCreation.Inc()
 }
 
 // Handles the event where a service account is deleted.
 func (sc *SecretController) saDeleted(obj interface{}) {
 	acct := obj.(*v1.ServiceAccount)
 	sc.deleteSecret(acct.GetName(), acct.GetNamespace())
+	sc.monitoring.ServiceAccountDeletion.Inc()
 }
 
 // Handles the event where a service account is updated.
@@ -284,6 +289,7 @@ func (sc *SecretController) scrtDeleted(obj interface{}) {
 	if sa, _ := sc.core.ServiceAccounts(scrt.GetNamespace()).Get(saName, metav1.GetOptions{}); sa != nil {
 		log.Errorf("Re-create deleted Istio secret for existing service account.")
 		sc.upsertSecret(saName, scrt.GetNamespace())
+		sc.monitoring.SecretDeletion.Inc()
 	}
 }
 
