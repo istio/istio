@@ -25,7 +25,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   creationTimestamp: null
-  name: c
+  name: c-subsets
   namespace: default
 spec:
   host: c
