@@ -14,7 +14,6 @@
 
 package yaml
 
-
 // ToFloat type casts input to float64 if it is possible.
 func ToFloat(v interface{}) (float64, bool) {
 	switch c := v.(type) {
