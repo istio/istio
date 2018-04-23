@@ -256,6 +256,10 @@ func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 	// Initializing Cluster store
 	s.clusterStore = clusterregistry.NewClustersStore()
 
+	// Drop from multicluster test cases if Mock Registry is used
+	if checkForMock(args.Service.Registries) {
+		return nil
+	}
 	if args.Config.ClusterRegistriesConfigmap != "" {
 		if err = clusterregistry.ReadClusters(s.kubeClient,
 			args.Config.ClusterRegistriesConfigmap,
@@ -263,16 +267,15 @@ func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 			s.clusterStore); err != nil {
 			return err
 		}
-		if s.clusterStore != nil {
-			log.Infof("clusters configuration %s", spew.Sdump(s.clusterStore))
-		}
+	} else if err = clusterregistry.ReadClustersV2(s.kubeClient,
+		s.clusterStore, args.Namespace); err != nil {
+		return err
 	}
-	// Should not start Secret Controller if Mock Registry is used
-	if !checkForMock(args.Service.Registries) {
-		// Starting Secret controller which will watch for Secret Objects and handle
-		// clientConfigs map dynamically
-		err = clusterregistry.StartSecretController(s.kubeClient, s.clusterStore, args.Config.ClusterRegistriesNamespace)
+	if s.clusterStore != nil {
+		log.Infof("clusters configuration %s", spew.Sdump(s.clusterStore))
 	}
+	// Start secret controller which watches for runtime secret Object changes and adds secrets dynamically
+	err = clusterregistry.StartSecretController(s.kubeClient, s.clusterStore, args.Config.ClusterRegistriesNamespace)
 
 	return err
 }
