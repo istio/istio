@@ -40,8 +40,12 @@ class ReportData : public ::istio::control::http::ReportData {
              uint64_t request_total_size)
       : headers_(headers),
         info_(info),
-        response_total_size_(headers->byteSize() + info.bytesSent()),
-        request_total_size_(request_total_size) {}
+        response_total_size_(info.bytesSent()),
+        request_total_size_(request_total_size) {
+    if (headers != nullptr) {
+      response_total_size_ += headers->byteSize();
+    }
+  }
 
   std::map<std::string, std::string> GetResponseHeaders() const override {
     if (headers_) {
