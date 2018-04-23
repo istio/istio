@@ -52,7 +52,7 @@ func DestinationPolicies(configs []model.Config) []model.Config {
 	for host, rule := range destinationRules {
 		out = append(out, model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:      model.VirtualService.Type,
+				Type:      model.DestinationRule.Type,
 				Name:      host,
 				Namespace: configs[0].Namespace,
 				Domain:    configs[0].Domain,

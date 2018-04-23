@@ -73,6 +73,12 @@ func TestCommand(t *testing.T) {
 
 		{in: []string{"egress-rule-wildcard-httpbin.yaml"},
 			out: "egress-rule-wildcard-httpbin.yaml"},
+
+		{in: []string{"destination-rule-helloworld.yaml"},
+			out: "destination-rule-helloworld.yaml"},
+
+		{in: []string{"route-rule-80-20.yaml"},
+			out: "route-rule-80-20.yaml"},
 	}
 
 	for _, tc := range tt {
