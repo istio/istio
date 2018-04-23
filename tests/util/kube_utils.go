@@ -267,7 +267,7 @@ func getIngress(name, namespace, kubeconfig string) (string, error) {
 
 func getServiceNodePort(serviceName, podLabel, namespace, kubeconfig string) (string, error) {
 	ip, err := Shell(
-		"kubectl get po -l %s -n %s -o jsonpath='{.status.loadBalancer.ingress[*].ip}' --kubeconfig=%s",
+		"kubectl get po -l istio=%s -n %s -o jsonpath='{.items[0].status.hostIP}' --kubeconfig=%s",
 		podLabel, namespace, kubeconfig)
 
 	if err != nil {
