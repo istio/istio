@@ -75,10 +75,13 @@ Vagrant.configure("2") do |config|
   config.vm.provision "shell", inline: <<-SHELL
      echo "provisioning vagrant vm..."
      apt-get update
+     echo "install git"
+     sudo apt-get install --quiet -y git
+     echo "install go"
      sudo curl -O https://dl.google.com/go/go1.10.1.linux-amd64.tar.gz
      sudo tar -xvf go1.10.1.linux-amd64.tar.gz
      sudo mv go /usr/local
-     kubectl apply -f /istio/tests/util/localregistry/localregistry.yaml
+     kubectl apply -f /istio.io/istio/tests/util/localregistry/localregistry.yaml
      kubectl get pods -n kube-system
   SHELL
 
