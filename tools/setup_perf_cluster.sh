@@ -71,7 +71,6 @@ function ExecuteEval() {
 
 function create_cluster() {
   Execute gcloud container clusters create $CLUSTER_NAME $GCP_OPTS --machine-type=$MACHINE_TYPE --num-nodes=$NUM_NODES --no-enable-legacy-authorization
-  Execute gcloud container clusters get-credentials $CLUSTER_NAME $GCP_OPTS
 }
 
 function delete_cluster() {
