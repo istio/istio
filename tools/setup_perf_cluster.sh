@@ -134,7 +134,8 @@ function install_istio() {
 }
 
 function install_istio_addons() {
-  Execute sh -c 'kubectl apply -f install/kubernetes/addons/prometheus.yaml'
+  # Starting in 0.8, prometheus is already in istio-auth.yaml
+  # Execute sh -c 'kubectl apply -f install/kubernetes/addons/prometheus.yaml'
   Execute sh -c 'kubectl apply -f install/kubernetes/addons/grafana.yaml'
 }
 
