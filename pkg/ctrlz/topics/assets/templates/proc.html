@@ -14,6 +14,16 @@
 
     <tbody>
         <tr>
+            <td># Threads</td>
+            <td id="Threads">{{.Threads}}</td>
+        </tr>
+
+        <tr>
+            <td># Goroutines</td>
+            <td id="Goroutines">{{.Goroutines}}</td>
+        </tr>
+
+        <tr>
             <td>Effective Group Id</td>
             <td>{{.Egid}}</td>
         </tr>
@@ -66,5 +76,37 @@
 </table>
 
 {{ template "last-refresh" .}}
+
+<script>
+    "use strict"
+
+    function refreshProcStats() {
+        var url = window.location.protocol + "//" + window.location.host + "/procj/";
+
+        var ajax = new XMLHttpRequest();
+        ajax.onload = onload;
+        ajax.onerror = onerror;
+        ajax.open("GET", url, true);
+        ajax.send();
+
+        function onload() {
+            if (this.status == 200) { // request succeeded
+                var pi = JSON.parse(this.responseText);
+                document.getElementById("Threads").innerText = pi.threads;
+                document.getElementById("Goroutines").innerText = pi.goroutines;
+
+                updateRefreshTime();
+            }
+        }
+
+        function onerror(e) {
+            console.error(e);
+        }
+    }
+
+    refreshProcStats();
+    window.setInterval(refreshProcStats, 1000);
+
+</script>
 
 {{ end }}

@@ -18,6 +18,7 @@ import (
 	"html/template"
 	"net/http"
 	"os"
+	"runtime"
 
 	"istio.io/istio/pkg/ctrlz/fw"
 )
@@ -39,32 +40,36 @@ func (procTopic) Prefix() string {
 }
 
 type procInfo struct {
-	Egid     int    `json:"egid"`
-	Euid     int    `json:"euid"`
-	Gid      int    `json:"gid"`
-	Groups   []int  `json:"groups"`
-	Pid      int    `json:"pid"`
-	Ppid     int    `json:"ppid"`
-	UID      int    `json:"uid"`
-	Wd       string `json:"wd"`
-	Hostname string `json:"hostname"`
-	TempDir  string `json:"tempdir"`
+	Egid       int    `json:"egid"`
+	Euid       int    `json:"euid"`
+	Gid        int    `json:"gid"`
+	Groups     []int  `json:"groups"`
+	Pid        int    `json:"pid"`
+	Ppid       int    `json:"ppid"`
+	UID        int    `json:"uid"`
+	Wd         string `json:"wd"`
+	Hostname   string `json:"hostname"`
+	TempDir    string `json:"tempdir"`
+	Threads    int    `json:"threads"`
+	Goroutines int    `json:"goroutines"`
 }
 
 func getProcInfo() *procInfo {
 	pi := procInfo{
-		Egid:    os.Getegid(),
-		Euid:    os.Geteuid(),
-		Gid:     os.Getgid(),
-		Pid:     os.Getpid(),
-		Ppid:    os.Getppid(),
-		UID:     os.Getuid(),
-		TempDir: os.TempDir(),
+		Egid:       os.Getegid(),
+		Euid:       os.Geteuid(),
+		Gid:        os.Getgid(),
+		Pid:        os.Getpid(),
+		Ppid:       os.Getppid(),
+		UID:        os.Getuid(),
+		TempDir:    os.TempDir(),
+		Goroutines: runtime.NumGoroutine(),
 	}
 
 	pi.Groups, _ = os.Getgroups()
 	pi.Wd, _ = os.Hostname()
 	pi.Hostname, _ = os.Hostname()
+	pi.Threads, _ = runtime.ThreadCreateProfile(nil)
 
 	return &pi
 }

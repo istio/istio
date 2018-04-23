@@ -1577,7 +1577,8 @@ var _assetsTemplates404Html = []byte(`{{ define "title" }}Page Not Found{{ end }
         The URL may be misspelled
     </div>
 </div>
-{{ end }}`)
+{{ end }}
+`)
 
 func assetsTemplates404HtmlBytes() ([]byte, error) {
 	return _assetsTemplates404Html, nil

@@ -3,8 +3,10 @@
 // assets/templates/args.html
 // assets/templates/env.html
 // assets/templates/mem.html
+// assets/templates/metrics.html
 // assets/templates/proc.html
 // assets/templates/scopes.html
+// assets/templates/version.html
 package topics
 
 import (
@@ -378,6 +380,120 @@ func assetsTemplatesMemHtml() (*asset, error) {
 	return a, nil
 }
 
+var _assetsTemplatesMetricsHtml = []byte(`{{ define "content" }}
+
+<p>
+    The set of metrics published by this process.
+</p>
+
+{{ range . }}
+    {{ if .Metrics }}
+        <h4>{{.Name}} [{{.Type}}]</h4>
+        <p>{{.Help}}</p>
+
+        {{ if eq .Type "GAUGE" "COUNTER" "UNTYPED" }}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Labels</th>
+                        <th>Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ range .Metrics }}
+                        <tr>
+                            <td>
+                                {{ range $k, $v := .Labels }}
+                                    {{$k}} : {{$v}}<br>
+                                {{ end }}
+                            </td>
+                            <td>
+                                {{.Value}}
+                            </td>
+                        </tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        {{ else }}
+            <table>
+                <thead>
+                <tr>
+                    <th>Labels</th>
+                    <th>Count</th>
+                    <th>Sum</th>
+                </tr>
+                </thead>
+                <tbody>
+                    {{ range .Metrics }}
+                        <tr>
+                            <td>
+                                {{ range $k, $v := .Labels }}
+                                    {{$k}} : {{$v}}<br>
+                                {{ end }}
+                            </td>
+                            <td>
+                                {{.Count}}
+                            </td>
+                            <td>
+                                {{.Sum}}
+                            </td>
+                        </tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        {{ end }}
+    {{ end }}
+{{ end }}
+
+{{ template "last-refresh" .}}
+
+<script>
+    "use strict"
+
+    function refreshMetrics() {
+        var url = window.location.protocol + "//" + window.location.host + "/metricj/";
+
+        var ajax = new XMLHttpRequest();
+        ajax.onload = onload;
+        ajax.onerror = onerror;
+        ajax.open("GET", url, true);
+        ajax.send();
+
+        function onload() {
+            if (this.status == 200) { // request succeeded
+                var families = JSON.parse(this.responseText);
+                updateRefreshTime();
+            }
+        }
+
+        function onerror(e) {
+            console.error(e);
+        }
+    }
+
+    refreshMetrics();
+//    window.setInterval(refreshMetrics, 1000);
+
+</script>
+
+{{ end }}
+`)
+
+func assetsTemplatesMetricsHtmlBytes() ([]byte, error) {
+	return _assetsTemplatesMetricsHtml, nil
+}
+
+func assetsTemplatesMetricsHtml() (*asset, error) {
+	bytes, err := assetsTemplatesMetricsHtmlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "assets/templates/metrics.html", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _assetsTemplatesProcHtml = []byte(`{{ define "content" }}
 
 <p>
@@ -393,6 +509,16 @@ var _assetsTemplatesProcHtml = []byte(`{{ define "content" }}
     </thead>
 
     <tbody>
+        <tr>
+            <td># Threads</td>
+            <td id="Threads">{{.Threads}}</td>
+        </tr>
+
+        <tr>
+            <td># Goroutines</td>
+            <td id="Goroutines">{{.Goroutines}}</td>
+        </tr>
+
         <tr>
             <td>Effective Group Id</td>
             <td>{{.Egid}}</td>
@@ -446,6 +572,38 @@ var _assetsTemplatesProcHtml = []byte(`{{ define "content" }}
 </table>
 
 {{ template "last-refresh" .}}
+
+<script>
+    "use strict"
+
+    function refreshProcStats() {
+        var url = window.location.protocol + "//" + window.location.host + "/procj/";
+
+        var ajax = new XMLHttpRequest();
+        ajax.onload = onload;
+        ajax.onerror = onerror;
+        ajax.open("GET", url, true);
+        ajax.send();
+
+        function onload() {
+            if (this.status == 200) { // request succeeded
+                var pi = JSON.parse(this.responseText);
+                document.getElementById("Threads").innerText = pi.threads;
+                document.getElementById("Goroutines").innerText = pi.goroutines;
+
+                updateRefreshTime();
+            }
+        }
+
+        function onerror(e) {
+            console.error(e);
+        }
+    }
+
+    refreshProcStats();
+    window.setInterval(refreshProcStats, 1000);
+
+</script>
 
 {{ end }}
 `)
@@ -688,6 +846,78 @@ func assetsTemplatesScopesHtml() (*asset, error) {
 	return a, nil
 }
 
+var _assetsTemplatesVersionHtml = []byte(`{{ define "content" }}
+
+<p>
+    Version information about this binary and runtime.
+</p>
+
+<table>
+    <thead>
+    <tr>
+        <th>Name</th>
+        <th>Value</th>
+    </tr>
+    </thead>
+
+    <tbody>
+        <tr>
+            <td>Version</td>
+            <td>{{.Version}}</td>
+        </tr>
+
+        <tr>
+            <td>Git Revision</td>
+            <td>{{.GitRevision}}</td>
+        </tr>
+
+        <tr>
+            <td>User</td>
+            <td>{{.User}}</td>
+        </tr>
+
+        <tr>
+            <td>Host</td>
+            <td>{{.Host}}</td>
+        </tr>
+
+        <tr>
+            <td>GolangVersion</td>
+            <td>{{.GolangVersion}}</td>
+        </tr>
+
+        <tr>
+            <td>DockerHub</td>
+            <td>{{.DockerHub}}</td>
+        </tr>
+
+        <tr>
+            <td>Build Status</td>
+            <td>{{.BuildStatus}}</td>
+        </tr>
+    </tbody>
+</table>
+
+{{ template "last-refresh" .}}
+
+{{ end }}
+`)
+
+func assetsTemplatesVersionHtmlBytes() ([]byte, error) {
+	return _assetsTemplatesVersionHtml, nil
+}
+
+func assetsTemplatesVersionHtml() (*asset, error) {
+	bytes, err := assetsTemplatesVersionHtmlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "assets/templates/version.html", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 // Asset loads and returns the asset for the given name.
 // It returns an error if the asset could not be found or
 // could not be loaded.
@@ -740,11 +970,13 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
-	"assets/templates/args.html":   assetsTemplatesArgsHtml,
-	"assets/templates/env.html":    assetsTemplatesEnvHtml,
-	"assets/templates/mem.html":    assetsTemplatesMemHtml,
-	"assets/templates/proc.html":   assetsTemplatesProcHtml,
-	"assets/templates/scopes.html": assetsTemplatesScopesHtml,
+	"assets/templates/args.html":    assetsTemplatesArgsHtml,
+	"assets/templates/env.html":     assetsTemplatesEnvHtml,
+	"assets/templates/mem.html":     assetsTemplatesMemHtml,
+	"assets/templates/metrics.html": assetsTemplatesMetricsHtml,
+	"assets/templates/proc.html":    assetsTemplatesProcHtml,
+	"assets/templates/scopes.html":  assetsTemplatesScopesHtml,
+	"assets/templates/version.html": assetsTemplatesVersionHtml,
 }
 
 // AssetDir returns the file names below a certain
@@ -790,11 +1022,13 @@ type bintree struct {
 var _bintree = &bintree{nil, map[string]*bintree{
 	"assets": &bintree{nil, map[string]*bintree{
 		"templates": &bintree{nil, map[string]*bintree{
-			"args.html":   &bintree{assetsTemplatesArgsHtml, map[string]*bintree{}},
-			"env.html":    &bintree{assetsTemplatesEnvHtml, map[string]*bintree{}},
-			"mem.html":    &bintree{assetsTemplatesMemHtml, map[string]*bintree{}},
-			"proc.html":   &bintree{assetsTemplatesProcHtml, map[string]*bintree{}},
-			"scopes.html": &bintree{assetsTemplatesScopesHtml, map[string]*bintree{}},
+			"args.html":    &bintree{assetsTemplatesArgsHtml, map[string]*bintree{}},
+			"env.html":     &bintree{assetsTemplatesEnvHtml, map[string]*bintree{}},
+			"mem.html":     &bintree{assetsTemplatesMemHtml, map[string]*bintree{}},
+			"metrics.html": &bintree{assetsTemplatesMetricsHtml, map[string]*bintree{}},
+			"proc.html":    &bintree{assetsTemplatesProcHtml, map[string]*bintree{}},
+			"scopes.html":  &bintree{assetsTemplatesScopesHtml, map[string]*bintree{}},
+			"version.html": &bintree{assetsTemplatesVersionHtml, map[string]*bintree{}},
 		}},
 	}},
 }}

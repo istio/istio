@@ -47,6 +47,8 @@ var allTopics = []fw.Topic{
 	topics.EnvTopic(),
 	topics.ProcTopic(),
 	topics.ArgsTopic(),
+	topics.VersionTopic(),
+	topics.MetricsTopic(),
 }
 
 func augmentLayout(layout *template.Template, page string) *template.Template {
@@ -69,7 +71,7 @@ func getLocalIP() string {
 	}
 
 	for _, address := range addrs {
-		// check the address type and if it is not a loopback the display it
+		// check the address type and if it is not a loopback then return it
 		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
 			if ipnet.IP.To4() != nil {
 				return ipnet.IP.String()
@@ -95,6 +97,11 @@ func getTopics() []topic {
 
 // Run starts up the ControlZ listeners.
 func Run(o *Options, customTopics []fw.Topic) {
+	if o.Port == 0 {
+		// disabled
+		return
+	}
+
 	for _, t := range customTopics {
 		allTopics = append(allTopics, t)
 	}
@@ -122,7 +129,7 @@ func Run(o *Options, customTopics []fw.Topic) {
 	registerHome(router, mainLayout)
 
 	s := &http.Server{
-		Addr:           fmt.Sprintf(":%d", o.Port),
+		Addr:           fmt.Sprintf("127.0.0.1:%d", o.Port),
 		Handler:        router,
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,

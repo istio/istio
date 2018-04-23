@@ -1,0 +1,97 @@
+{{ define "content" }}
+
+<p>
+    The set of metrics published by this process.
+</p>
+
+{{ range . }}
+    {{ if .Metrics }}
+        <h4>{{.Name}} [{{.Type}}]</h4>
+        <p>{{.Help}}</p>
+
+        {{ if eq .Type "GAUGE" "COUNTER" "UNTYPED" }}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Labels</th>
+                        <th>Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ range .Metrics }}
+                        <tr>
+                            <td>
+                                {{ range $k, $v := .Labels }}
+                                    {{$k}} : {{$v}}<br>
+                                {{ end }}
+                            </td>
+                            <td>
+                                {{.Value}}
+                            </td>
+                        </tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        {{ else }}
+            <table>
+                <thead>
+                <tr>
+                    <th>Labels</th>
+                    <th>Count</th>
+                    <th>Sum</th>
+                </tr>
+                </thead>
+                <tbody>
+                    {{ range .Metrics }}
+                        <tr>
+                            <td>
+                                {{ range $k, $v := .Labels }}
+                                    {{$k}} : {{$v}}<br>
+                                {{ end }}
+                            </td>
+                            <td>
+                                {{.Count}}
+                            </td>
+                            <td>
+                                {{.Sum}}
+                            </td>
+                        </tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        {{ end }}
+    {{ end }}
+{{ end }}
+
+{{ template "last-refresh" .}}
+
+<script>
+    "use strict"
+
+    function refreshMetrics() {
+        var url = window.location.protocol + "//" + window.location.host + "/metricj/";
+
+        var ajax = new XMLHttpRequest();
+        ajax.onload = onload;
+        ajax.onerror = onerror;
+        ajax.open("GET", url, true);
+        ajax.send();
+
+        function onload() {
+            if (this.status == 200) { // request succeeded
+                var families = JSON.parse(this.responseText);
+                updateRefreshTime();
+            }
+        }
+
+        function onerror(e) {
+            console.error(e);
+        }
+    }
+
+    refreshMetrics();
+//    window.setInterval(refreshMetrics, 1000);
+
+</script>
+
+{{ end }}
