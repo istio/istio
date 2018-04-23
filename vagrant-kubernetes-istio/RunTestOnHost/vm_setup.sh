@@ -19,7 +19,7 @@ vagrant ssh -c "mkdir -p /home/vagrant/go/src/istio.io"
 # Because at VM boot up stage synced folder setup comes before privision bootstrap.sh. 
 # Therefore directory $ISTIO in VM does not exist when Vagrant sets up synced folder.
 # We synced $ISTIO from host to /istio.io in VM, and create a softlink between /istio.io/istio and $ISTIO/istio.
-sudo ln -s /istio.io/istio/ /home/vagrant/go/src/istio.io/istio
+vagrant ssh -c "sudo ln -s /istio.io/istio/ /home/vagrant/go/src/istio.io/istio"
 
 # Adding insecure registry on VM.
 echo "Adding insecure registry to docker daemon in vagrant vm..."
