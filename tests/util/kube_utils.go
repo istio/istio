@@ -203,7 +203,6 @@ func getIngressIPAndPort(serviceName, podLabel, namespace, kubeconfig string, is
 		Retries:   300, // ~5 minutes
 	}
 
-	//rp := regexp.MustCompile(`^[0-9]{1,5}$`) # Uncomment for minikube
 	var ingress string
 	retryFn := func(_ context.Context, i int) error {
 		var err error
