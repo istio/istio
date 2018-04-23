@@ -350,7 +350,8 @@ func convertIstioService(service *v1alpha1.IstioService) string {
 
 // create an unique DNS1123 friendly string
 func labelsToSubsetName(labels model.Labels) string {
-	return strings.Replace(labels.String(), "=", "-", -1)
+	return strings.NewReplacer("=", "-",
+		".", "-").Replace(labels.String())
 }
 
 func convertGogoDuration(in *duration.Duration) *types.Duration {
@@ -358,4 +359,68 @@ func convertGogoDuration(in *duration.Duration) *types.Duration {
 		Seconds: in.Seconds,
 		Nanos:   in.Nanos,
 	}
+}
+
+// RouteRuleRouteLabels converts v1alpha1 route rule route labels to v1alpha3 destination rules
+func RouteRuleRouteLabels(configs []model.Config) []model.Config {
+	ruleConfigs := make([]model.Config, 0)
+	for _, config := range configs {
+		if config.Type == model.RouteRule.Type {
+			ruleConfigs = append(ruleConfigs, config)
+		}
+	}
+
+	model.SortRouteRules(ruleConfigs)
+
+	routeRules := make([]*v1alpha1.RouteRule, 0)
+	for _, ruleConfig := range ruleConfigs {
+		routeRules = append(routeRules, ruleConfig.Spec.(*v1alpha1.RouteRule))
+	}
+
+	destinationRules := make(map[string]*v1alpha3.DestinationRule) // host -> destination rule
+	for _, routeRule := range routeRules {
+		host := convertIstioService(routeRule.Destination)
+		rule, ok := destinationRules[host]
+		if !ok {
+			rule = &v1alpha3.DestinationRule{
+				Host: host,
+				Subsets: make([]*v1alpha3.Subset, 0),
+			}
+
+			destinationRules[host] = rule
+		}
+
+		rule.Subsets = append(rule.Subsets, convertRouteRuleLabels(routeRule)...)
+	}
+
+	out := make([]model.Config, 0)
+	for host, destinationRule := range destinationRules {
+		if len(destinationRule.Subsets) > 0 {
+			out = append(out, model.Config{
+				ConfigMeta: model.ConfigMeta{
+					Type:      model.DestinationRule.Type,
+					Name:      host,
+					Namespace: configs[0].Namespace,
+					Domain:    configs[0].Domain,
+				},
+				Spec: destinationRule,
+			})
+		}
+	}
+
+	return out
+}
+
+func convertRouteRuleLabels(in *v1alpha1.RouteRule) []*v1alpha3.Subset {
+
+	subsets := make([]*v1alpha3.Subset, 0)
+
+	for _, route := range in.Route {
+		subsets = append(subsets, &v1alpha3.Subset{
+			Name:   labelsToSubsetName(route.Labels),
+			Labels: route.Labels,
+		})
+	}
+
+	return subsets
 }

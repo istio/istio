@@ -131,7 +131,7 @@ func convertConfigs(readers []io.Reader, writer io.Writer) error {
 	out = append(out, convert.RouteRules(configs)...)
 	out = append(out, convert.EgressRules(configs)...)
 	// TODO: k8s ingress -> gateway?
-	// TODO: create missing destination rules/subsets?
+	out = append(out, convert.RouteRuleRouteLabels(configs)...)
 
 	writeYAMLOutput(configDescriptor, out, writer)
 
