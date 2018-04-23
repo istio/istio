@@ -10,7 +10,7 @@ The following instruction details the steps required to run E2E tests with a Vag
 
 1. Install
   * [virtual box](https://www.virtualbox.org/wiki/Downloads) - Verify `virtualbox` command opens up a virtual box window
-  * [docker](https://docs.docker.com/) - Verify `docker version` returns version >= 18.03.0-ce
+  * [docker](https://docs.docker.com/) - Verify `docker version` returns version >= 18.03.0-ce
   * [vagrant](https://www.vagrantup.com/downloads.html) - Verify `vagrant -v` returns version >= Vagrant 2.0.3
   * [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl) - Verify `kubectl version` returns both server and client versions
   * [curl](https://curl.haxx.se/)
