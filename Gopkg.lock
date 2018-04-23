@@ -963,7 +963,8 @@
     "thrift-gen/zipkincore",
     "transport",
     "transport/zipkin",
-    "utils"
+    "utils",
+    "zipkin"
   ]
   revision = "c107110d057826281414cb964f167bce5be17588"
   version = "v2.12.0"
