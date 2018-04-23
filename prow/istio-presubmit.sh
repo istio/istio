@@ -40,8 +40,6 @@ if [[ -n $(git diff) ]]; then
   git diff
 fi
 
-gcloud auth configure-docker -q
-
 # Upload images - needed by the subsequent tests
 time ISTIO_DOCKER_HUB="gcr.io/istio-testing" make push HUB="gcr.io/istio-testing" TAG="${GIT_SHA}"
 
