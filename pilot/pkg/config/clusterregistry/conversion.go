@@ -16,7 +16,6 @@ package clusterregistry
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"sync"
 
@@ -86,8 +85,8 @@ func (cs *ClusterStore) GetPilotClusters() []*k8s_cr.Cluster {
 }
 
 // ReadClustersV2 reads multiple clusters based upon the label istio/multiCluster
-func ReadClustersV2(k8s kubernetes.Interface, cs *ClusterStore) (errList error) {
-	err := getClustersConfigsV2(k8s, cs)
+func ReadClustersV2(k8s kubernetes.Interface, cs *ClusterStore, podNameSpace string) (errList error) {
+	err := getClustersConfigsV2(k8s, cs, podNameSpace)
 	if err != nil {
 		// Errors were encountered, but cluster store was populated
 		log.Errorf("The following errors were encountered during multicluster label processing: [ %v ]",
@@ -98,8 +97,7 @@ func ReadClustersV2(k8s kubernetes.Interface, cs *ClusterStore) (errList error) 
 }
 
 // getClustersConfigsV2 reads mutiple clusters from secrets with labels
-func getClustersConfigsV2(k8s kubernetes.Interface, cs *ClusterStore) (errList error) {
-	podNameSpace := os.Getenv("POD_NAMESPACE")
+func getClustersConfigsV2(k8s kubernetes.Interface, cs *ClusterStore, podNameSpace string) (errList error) {
 	clusterSecrets, err := k8s.CoreV1().Secrets(podNameSpace).List(metav1.ListOptions{
 		LabelSelector: mcLabel,
 	})

@@ -264,7 +264,7 @@ func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 			return err
 		}
 	} else if err = clusterregistry.ReadClustersV2(s.kubeClient,
-		s.clusterStore); err != nil {
+		s.clusterStore, args.Namespace); err != nil {
 		return err
 	}
 	if s.clusterStore != nil {
