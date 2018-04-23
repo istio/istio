@@ -547,7 +547,7 @@ type testdata struct {
 	input    string
 	output   string
 	msg      string
-	compiler compiled.Compiler
+	compiler Compiler
 }
 
 func TestDynamicEncoder(t *testing.T) {
@@ -628,7 +628,7 @@ func TestStaticEncoder(t *testing.T) {
 	}
 }
 
-func testMsg(t *testing.T, input string, output string, res protoyaml.Resolver, compiler compiled.Compiler, msgName string) {
+func testMsg(t *testing.T, input string, output string, res protoyaml.Resolver, compiler Compiler, msgName string) {
 	g := gomega.NewGomegaWithT(t)
 
 	data := map[interface{}]interface{}{}

@@ -45,7 +45,7 @@ type (
 
 // NewEncoderBuilder creates an Builder.
 func NewEncoderBuilder(msgName string, resolver yaml.Resolver, data map[interface{}]interface{},
-	compiler compiled.Compiler, skipUnknown bool) *Builder {
+	compiler Compiler, skipUnknown bool) *Builder {
 	return &Builder{
 		msgName:     msgName,
 		resolver:    resolver,
