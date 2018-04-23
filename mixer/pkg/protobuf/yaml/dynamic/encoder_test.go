@@ -1,3 +1,16 @@
+// Copyright 2018 Istio Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 package dynamic
 
 import (
@@ -601,6 +614,14 @@ func TestStaticEncoder(t *testing.T) {
 			input: eveything,
 		},
 	} {
+		fieldLength = 0
+		msgLength = 0
+		t.Run(td.desc+"-with-msg-copy", func(tt *testing.T) {
+			testMsg(tt, td.input, td.output, res, td.compiler, td.msg)
+		})
+
+		fieldLength = defaultFieldLength
+		msgLength = defaultMsgLength
 		t.Run(td.desc, func(tt *testing.T) {
 			testMsg(tt, td.input, td.output, res, td.compiler, td.msg)
 		})
@@ -684,6 +705,32 @@ func testMsg(t *testing.T, input string, output string, res protoyaml.Resolver, 
 
 	t.Logf("ff2 = %v", ff2)
 
+}
+
+func Test_transFormQuotedString(t *testing.T) {
+	for _, tst := range []struct {
+		input  interface{}
+		output interface{}
+		found  bool
+	}{
+		{input: `'abc'`, output: "abc", found: true},
+		{input: `.`, output: `.`, found: false},
+		{input: `'`, output: `'`, found: false},
+		{input: 23, output: 23, found: false},
+	} {
+		name := fmt.Sprintf("%v-%v", tst.input, tst.found)
+		t.Run(name, func(t *testing.T) {
+			op, ok := transFormQuotedString(tst.input)
+
+			if ok != tst.found {
+				t.Fatalf("error in ok got:%v, want:%v", ok, tst.found)
+			}
+
+			if op != tst.output {
+				t.Fatalf("error in output got:%v, want:%v", op, tst.output)
+			}
+		})
+	}
 }
 
 func statdardVocabulary() ast.AttributeDescriptorFinder {

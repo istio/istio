@@ -118,12 +118,6 @@ func Int64(v interface{}) (int64, bool) {
 		return int64(c), true
 	case int64:
 		return c, true
-	case int8:
-		return int64(c), true
-	case int16:
-		return int64(c), true
-	case int32:
-		return int64(c), true
 	default:
 		return 0, false
 	}
@@ -291,5 +285,5 @@ func transFormQuotedString(v interface{}) (interface{}, bool) {
 		(strings.HasPrefix(s, "\"") && strings.HasSuffix(s, "\"")) {
 		return s[1 : len(s)-1], true
 	}
-	return v, false
+	return s, false
 }

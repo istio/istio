@@ -75,7 +75,9 @@ func (m messageEncoder) encodeWithoutLength(bag attribute.Bag, ba []byte) ([]byt
 // expected length of the varint encoded word
 // 2 byte words represent 2 ** 14 = 16K bytes
 // If message length is more, it involves an array copy
-const msgLength = 2
+const defaultMsgLength = 2
+
+var msgLength = defaultMsgLength
 
 // encode message including length of the message into []byte
 func (m messageEncoder) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
@@ -109,7 +111,12 @@ func (m messageEncoder) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
 	return ba, nil
 }
 
-const fieldLength = 1
+// expected length of the varint encoded word
+// 2 byte words represent 2 ** 14 = 16K bytes
+// If the repeated field length is more, it involves an array copy
+const defaultFieldLength = 1
+
+var fieldLength = defaultFieldLength
 
 func (f field) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
 	if f.protoKey != nil {
