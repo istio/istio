@@ -378,7 +378,6 @@ func testService(t *testing.T) {
 	if res.Status != "200 OK" {
 		t.Error("Proxy failed ", res.Status)
 	}
-	select {}
 }
 
 // EnvoyStat is used to parse envoy stats

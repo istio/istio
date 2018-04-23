@@ -185,12 +185,14 @@ func ConvertDestinationToCluster(serviceIndex map[string]*model.Service, default
 		// TODO: create clusters for non-service hostnames/IPs
 		if svc == nil {
 			noClusterMissingService.With(prometheus.Labels{"service":destination.String()}).Add(1)
+			log.Infof("svc == nil => route with missing cluster %v", destination)
 			return UnresolvedCluster, fmt.Errorf("no service named %q in set %v", destination.Host, serviceIndex)
 		}
 
 		// default port uses port number
 		svcPort, _ := svc.Ports.GetByPort(defaultPort)
-		log.Infof("got default port: %v %v", svcPort, destination)
+		// Too verbose.
+		// log.Infof("got default port: %v %v", svcPort, destination)
 		if destination.Port != nil {
 			switch selector := destination.Port.Port.(type) {
 			case *networking.PortSelector_Name:
