@@ -381,12 +381,22 @@ jobs:
       - store_artifacts:
           path: /tmp
 
-  # Run nightly, to verify 'dep ensure' works
-  depdiff:
+  # Run nightly, to verify 'dep ensure --update' works
+  depupdate:
     <<: *defaults
     steps:
       - checkout
-      - run: make depend.diff
+      - run: make depend.update
+      - run: ( cd vendor ; git status  ) # just to see what changes
+      - run: make init build
+      - run:
+          name: Status and artifacts
+          command: make depend.status ISTIO_OUT=/go/out
+      - store_artifacts:
+          path: vendor/Gopkg.lock
+      - store_artifacts:
+          path: /go/out/dep.dot
+      # TODO: auto-commit Gopkg.lock if test is successful
 
   codecov:
     <<: *defaults
@@ -489,6 +499,8 @@ jobs:
       - checkout
       - run: make sync
       - run: make lint
+      # Make sure that any modification to vendor is correct.
+      - run: make depend.diff
 
   nightly:
     <<: *defaults
@@ -539,7 +551,7 @@ workflows:
                only:
                  - master
     jobs: #daisy chained steps ending with docker push
-      - depdiff
+      - depupdate
       - build
       - test
       - e2e-simple:
@@ -587,7 +599,7 @@ workflows:
                only:
                  - master
     jobs:
-      - depdiff
+      - depupdate
       - build
       - test
       - e2e-simple:
