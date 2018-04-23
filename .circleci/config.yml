@@ -414,7 +414,7 @@ jobs:
       - store_artifacts:
           path: /tmp
 
-  # Run nightly, to verify 'dep update' works
+  # Run nightly, to verify 'dep ensure --update' works
   depupdate:
     <<: *defaults
     steps:
@@ -532,6 +532,8 @@ jobs:
       - checkout
       - run: make sync
       - run: make lint
+      # Make sure that any modification to vendor is correct.
+      - run: make depend.diff
 
   nightly:
     <<: *defaults
