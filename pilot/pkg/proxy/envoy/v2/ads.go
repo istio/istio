@@ -61,6 +61,22 @@ var (
 		Name: "pilot_xds_lds_reject",
 		Help: "Pilot rejected LDS.",
 	}, []string{"node", "err"})
+
+	monServices = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "pilot_services",
+		Help: "Total services known to pilot",
+	})
+
+	monVServices = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "pilot_virt_services",
+		Help: "Total virtual services known to pilot",
+	})
+
+	xdsClients = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "pilot_xds",
+		Help: "Number of endpoints connected to this pilot using XDS",
+	})
+
 )
 
 func init() {

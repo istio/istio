@@ -446,6 +446,7 @@ func (s *DiscoveryServer) getOrAddEdsCluster(clusterName string) *EdsCluster {
 			FirstUse:   time.Now(),
 		}
 		edsClusters[clusterName] = c
+		xdsClients.Set(float64(len(edsClusters)))
 	}
 	return c
 }
@@ -479,6 +480,7 @@ func (s *DiscoveryServer) removeEdsCon(clusterName string, node string, connecti
 		edsClusterMutex.Lock()
 		defer edsClusterMutex.Unlock()
 		delete(edsClusters, clusterName)
+		xdsClients.Set(float64(len(edsClusters)))
 	}
 }
 

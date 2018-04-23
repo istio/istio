@@ -52,12 +52,12 @@ var (
 	noClusterMissingPort = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "pilot_route_cluster_no_port",
 		Help: "Routes with no clusters due to missing port.",
-	}, []string{"service"})
+	}, []string{"service", "rule"})
 
 	noClusterMissingService = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "pilot_route_nocluster_no_service",
 		Help: "Routes with no clusters due to missing service",
-	}, []string{"service"})
+	}, []string{"service", "rule"})
 )
 
 func init() {
@@ -178,14 +178,17 @@ func translateVirtualHost(
 // ConvertDestinationToCluster produces a cluster naming function using the config context.
 // defaultPort is the service port.
 func ConvertDestinationToCluster(serviceIndex map[string]*model.Service, defaultPort int) ClusterNameGenerator {
-	return func(destination *networking.Destination) (string, error) {
+	return func(destination *networking.Destination, vsvcName string,  in *networking.HTTPRoute) (string, error) {
 		// detect if it is a service
 		svc := serviceIndex[destination.Host]
 
 		// TODO: create clusters for non-service hostnames/IPs
 		if svc == nil {
-			noClusterMissingService.With(prometheus.Labels{"service": destination.String()}).Add(1)
-			log.Infof("svc == nil => route with missing cluster %v", destination)
+			noClusterMissingService.With(prometheus.Labels{
+				"service": destination.String(),
+				"rule": vsvcName,
+			}).Add(1)
+			log.Infof("svc == nil => route with missing cluster %s %v %v", vsvcName, destination, in)
 			return UnresolvedCluster, fmt.Errorf("no service named %q in set %v", destination.Host, serviceIndex)
 		}
 
@@ -205,8 +208,11 @@ func ConvertDestinationToCluster(serviceIndex map[string]*model.Service, default
 		}
 
 		if svcPort == nil {
-			noClusterMissingPort.With(prometheus.Labels{"service": destination.String()}).Add(1)
-			log.Infof("svcPort == nil => unresolved cluster %s %v", destination.Host, destination)
+			noClusterMissingPort.With(prometheus.Labels{
+				"service": destination.String(),
+				"rule": vsvcName,
+			}).Add(1)
+			log.Infof("svcPort == nil => unresolved cluster %s %s %v", vsvcName, destination.Host, destination)
 			return UnresolvedCluster, fmt.Errorf("unknown port for service %q with no default port %d", destination.Host, defaultPort)
 		}
 
@@ -216,7 +222,7 @@ func ConvertDestinationToCluster(serviceIndex map[string]*model.Service, default
 }
 
 // ClusterNameGenerator specifies cluster name for a destination
-type ClusterNameGenerator func(*networking.Destination) (string, error)
+type ClusterNameGenerator func(*networking.Destination,string,*networking.HTTPRoute) (string, error)
 
 // TranslateRoutes creates virtual host routes from the v1alpha3 config.
 // The rule should be adapted to destination names (outbound clusters).
@@ -344,7 +350,7 @@ func translateRoute(in *networking.HTTPRoute,
 		}
 
 		if in.Mirror != nil {
-			n, err := nameF(in.Mirror)
+			n, err := nameF(in.Mirror, operation, in)
 			if err != nil {
 				return nil, err
 			}
@@ -357,7 +363,7 @@ func translateRoute(in *networking.HTTPRoute,
 			if dst.Weight == 0 {
 				weight.Value = uint32(100)
 			}
-			n, err := nameF(dst.Destination)
+			n, err := nameF(dst.Destination, operation, in)
 			if err != nil {
 				// TODO: could we continue here rather than bailing?
 				return nil, err
