@@ -1,0 +1,21 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  creationTimestamp: null
+  name: helloworld-service
+  namespace: default
+spec:
+  host: helloworld-service
+  trafficPolicy:
+    connectionPool:
+      http:
+        http1MaxPendingRequests: 1
+        maxRequestsPerConnection: 1
+      tcp:
+        maxConnections: 1
+    outlierDetection:
+      http:
+        baseEjectionTime: 180.000s
+        consecutiveErrors: 1
+        interval: 1.000s
+        maxEjectionPercent: 100
