@@ -168,9 +168,9 @@ r_b:
 - true
 
 #### double ####
-dbl: 123.456
+dbl: 3.1417
 r_dbl:
-- 123.123
+- 3.1417
 - 456.456
 
 #### float ####
@@ -183,6 +183,7 @@ r_flt:
 i64: 123
 r_i64:
 - 123
+- -123
 
 #### int32 with negative val ####
 i32: 123
@@ -233,7 +234,7 @@ r_si64:
 
 ## sub-message ##
 oth:
-  str: "mystring2"
+  str: "a.svc.cluster.local"
   i64: 33333
   dbl: 333.333
   b: true
@@ -274,8 +275,8 @@ r_oth:
 
 #### map[string]string ####
 map_str_str:
-  key1: val1
-  key2: val2
+  key1: a.svc.cluster.local
+  key2: INNERTHREE
 
 #### map[string]message ####
 map_str_msg:
@@ -358,76 +359,77 @@ r_b:
 - true
 
 #### double ####
-dbl: 123.456
+dbl: test.double
 r_dbl:
-- 123.123
+- test.double
 - 456.456
 
 #### float ####
-flt: 1.12
+flt: test.float
 r_flt:
-- 1.12
+- test.float
 - 1.13
 
 #### int64 with negative val ####
-i64: 123
+i64: test.i32
 r_i64:
 - 123
+- test.i64
 
 #### int32 with negative val ####
-i32: 123
+i32: test.i32
 r_i32:
 - -123
 
 #### uint64 ####
-ui64: 123
+ui64: test.i32
 r_ui64:
 - 123
 
 #### uint32 ####
 ui32: 123
 r_ui32:
-- 123
+- test.i32
 
 #### fixed64 ####
 f64: 123
 r_f64:
-- 123
+- test.i32
 
 #### sfixed64 ####
-sf64: 123
+sf64: test.i32
 r_sf64:
 - 123
 
 #### fixed32 ####
 f32: 123
 r_f32:
-- 123
+- test.i32
 
 #### sfixed32 ####
-sf32: 123
+sf32: test.i32
 r_sf32:
 - 123
 
 #### sint32 ####
-si32: -123
+si32: test.i64
 r_si32:
 - -789
-- 123
+- test.i32
 
 #### sint64 ####
-si64: -123
+si64: test.i64
 r_si64:
 - -789
-- 123
+- test.i32
 
 ## sub-message ##
 oth:
-  str: "'mystring2'"
+  str: source.service
   i64: 33333
   dbl: 333.333
   b: true
-  inenum: "'INNERTHREE'"
+  inenum: request.path
   inmsg:
     str: "'myinnerstring'"
     i64: 99
@@ -446,7 +448,7 @@ r_oth:
     i64: 123
     dbl: 333.333
     b: true
-    inenum: "'INNERTHREE'"
+    inenum: request.path
     inmsg:
       str: "'myinnerstring'"
       i64: 99
@@ -464,8 +466,8 @@ r_oth:
 
 #### map[string]string ####
 map_str_str:
-  key1: "'val1'"
-  key2: "'val2'"
+  key1: source.service
+  key2: request.path
 
 #### map[string]message ####
 map_str_msg:
@@ -518,11 +520,11 @@ map_str_fixed64:
 map_str_bool:
     key1: true
 map_str_sfixed32:
-    key1: 123
+    key1: test.i32
 map_str_sfixed64:
     key1: 123
 map_str_sint32:
-    key1: 123
+    key1: test.i32
 map_str_sint64:
     key1: 123
 `
@@ -651,8 +653,12 @@ func testMsg(t *testing.T, input string, output string, res protoyaml.Resolver, 
 		"response.size":         int64(200),
 		"response.code":         int64(662),
 		"source.service":        "a.svc.cluster.local",
+		"request.path":          "INNERTHREE",
 		"connection.sent.bytes": int64(2),
 		"test.double":           float64(3.1417),
+		"test.float":            float64(1.12),
+		"test.i64":              int64(-123),
+		"test.i32":              int64(123),
 		"test.bool":             true,
 	})
 	ba, err = de.Encode(bag, ba)
@@ -735,6 +741,9 @@ func statdardVocabulary() ast.AttributeDescriptorFinder {
 		"source.user":                     {ValueType: v1beta1.STRING},
 		"test.bool":                       {ValueType: v1beta1.BOOL},
 		"test.double":                     {ValueType: v1beta1.DOUBLE},
+		"test.i32":                        {ValueType: v1beta1.INT64},
+		"test.i64":                        {ValueType: v1beta1.INT64},
+		"test.float":                      {ValueType: v1beta1.DOUBLE},
 	}
 
 	return ast.NewFinder(attrs)
