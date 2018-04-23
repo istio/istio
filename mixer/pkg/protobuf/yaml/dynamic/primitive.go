@@ -36,7 +36,7 @@ type eEncoderRegistryEntry struct {
 	encodes []descriptor.FieldDescriptorProto_Type
 }
 
-// 19 is the largest
+// 19 is the largest value for FieldDescriptorProto_Type.
 var eEncoderRegistry = make([]*eEncoderRegistryEntry, 19)
 
 func registerEncoder(name string, encodes []descriptor.FieldDescriptorProto_Type,
