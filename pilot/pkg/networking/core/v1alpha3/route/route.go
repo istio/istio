@@ -199,16 +199,13 @@ func ConvertDestinationToCluster(destination *networking.Destination, vsvcName s
 
 	// default port uses port number
 	svcPort, _ := svc.Ports.GetByPort(defaultPort)
-	// Too verbose.
-	// log.Infof("got default port: %v %v", svcPort, destination)
+
 	if destination.Port != nil {
 		switch selector := destination.Port.Port.(type) {
 		case *networking.PortSelector_Name:
 			svcPort, _ = svc.Ports.Get(selector.Name)
-			log.Infof("overwrote default %d by name to get port: %s %v", defaultPort, vsvcName, svcPort)
 		case *networking.PortSelector_Number:
 			svcPort, _ = svc.Ports.GetByPort(int(selector.Number))
-			log.Infof("overwrote default %d by number to get port: %s %v", defaultPort, vsvcName, svcPort)
 		}
 	}
 

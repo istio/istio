@@ -276,6 +276,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 
 		default:
 			log.Debugf("Unsupported inbound protocol %v for port %#v", protocol, instance.Endpoint.ServicePort)
+			continue
 		}
 
 		// call plugins
@@ -377,9 +378,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 						direction:        operation,
 					},
 				}}
-			default:
-				log.Infof("buildSidecarOutboundListeners: service %q has unknown protocol %#v, defaulting to TCP", service.Hostname, servicePort)
-				fallthrough
 			case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
 				if service.Resolution != model.Passthrough {
 					listenAddress = service.GetServiceAddressForProxy(&node)
@@ -394,6 +392,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				listenerOpts.filterChainOpts = []*filterChainOpts{{
 					networkFilters: buildOutboundNetworkFilters(clusterName, addresses, servicePort),
 				}}
+			default:
+				log.Infof("buildSidecarOutboundListeners: service %q has unknown protocol %#v", service.Hostname, servicePort)
+				continue
 			}
 
 			// call plugins

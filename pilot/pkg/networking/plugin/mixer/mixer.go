@@ -182,11 +182,11 @@ func buildMixerInboundTCPFilter(env *model.Environment, node *model.Proxy, insta
 	}
 }
 
-// buildMixerOutboundTCPFilter builds a filter with a v1 mixer config encapsulated as JSON in a proto.Struct for v2 consumption.
-func buildMixerOutboundTCPFilter(env *model.Environment, node *model.Proxy) listener.Filter {
-	// TODO(mostrowski): implementation
-	return listener.Filter{}
-}
+// // buildMixerOutboundTCPFilter builds a filter with a v1 mixer config encapsulated as JSON in a proto.Struct for v2 consumption.
+// func buildMixerOutboundTCPFilter(env *model.Environment, node *model.Proxy) listener.Filter {
+// 	// TODO(mostrowski): implementation
+// 	return listener.Filter{}
+// }
 
 // buildHTTPMixerFilterConfig builds a mixer HTTP filter config. Mixer filter uses outbound configuration by default
 // (forward attributes, but not invoke check calls)  ServiceInstances belong to the Node.
