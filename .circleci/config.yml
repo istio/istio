@@ -2,11 +2,10 @@ version: 2
 
 jobs:
   build:
-    environment:
     docker:
       - image: istio/ci:go1.9-bazel0.11
     environment:
-      - BAZEL_TEST_ARGS: "--test_env=ENVOY_IP_TEST_VERSIONS=v4only"
+      - BAZEL_TEST_ARGS: "--test_env=ENVOY_IP_TEST_VERSIONS=v4only --test_output=all"
     resource_class: xlarge
     steps:
       - checkout
@@ -37,12 +36,28 @@ jobs:
       - store_artifacts:
           path: /home/circleci/project/bazel-bin/src/envoy/mixer/envoy
           destination: /proxy/bin
-
-
-
+  macos:
+    macos:
+      xcode: "9.3.0"
+    environment:
+      - BAZEL_TEST_ARGS: "--test_env=ENVOY_IP_TEST_VERSIONS=v4only --test_output=all"
+    steps:
+      - run: sudo ntpdate -vu time.apple.com
+      - run: brew install automake bazel cmake coreutils go libtool wget
+      - checkout
+      - restore_cache:
+          keys:
+            - bazel-cache-{{ checksum "WORKSPACE" }}-macos
+      - run: rm ~/.gitconfig
+      - run: make test
+      - save_cache:
+          key: bazel-cache-{{ checksum "WORKSPACE" }}-macos
+          paths:
+            - /home/circleci/.cache/bazel
 
 workflows:
   version: 2
   all:
     jobs:
       - build
+      - macos
