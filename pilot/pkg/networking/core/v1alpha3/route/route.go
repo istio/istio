@@ -159,6 +159,7 @@ func translateVirtualHost(
 }
 
 // ConvertDestinationToCluster produces a cluster naming function using the config context.
+// defaultPort is the service port.
 func ConvertDestinationToCluster(serviceIndex map[string]*model.Service, defaultPort int) ClusterNameGenerator {
 	return func(destination *networking.Destination) (string, error) {
 		// detect if it is a service
@@ -171,15 +172,13 @@ func ConvertDestinationToCluster(serviceIndex map[string]*model.Service, default
 
 		// default port uses port number
 		svcPort, _ := svc.Ports.GetByPort(defaultPort)
-		log.Infof("got default port: %v", svcPort)
+
 		if destination.Port != nil {
 			switch selector := destination.Port.Port.(type) {
 			case *networking.PortSelector_Name:
 				svcPort, _ = svc.Ports.Get(selector.Name)
-				log.Infof("overwrote default by name to get port: %v", svcPort)
 			case *networking.PortSelector_Number:
 				svcPort, _ = svc.Ports.GetByPort(int(selector.Number))
-				log.Infof("overwrote default by number to get port: %v", svcPort)
 			}
 		}
 

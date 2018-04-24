@@ -185,8 +185,16 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env model.Environmen
 					//rds:              RDSHttpProxy,
 					useRemoteAddress: useRemoteAddress,
 					direction:        traceOperation,
+					connectionManager: &http_conn.HttpConnectionManager{
+						HttpProtocolOptions: &core.Http1ProtocolOptions{
+							AllowAbsoluteUrl: &google_protobuf.BoolValue{
+								Value: true,
+							},
+						},
+					},
 				},
 			}},
+			bindToPort: true,
 		}
 		l := buildListener(opts)
 		if err := marshalFilters(l, opts, []plugin.FilterChain{{}}); err != nil {
@@ -255,6 +263,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 
 		default:
 			log.Debugf("Unsupported inbound protocol %v for port %#v", protocol, instance.Endpoint.ServicePort)
+			continue
 		}
 
 		// call plugins
@@ -355,9 +364,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 						direction:        operation,
 					},
 				}}
-			default:
-				log.Infof("buildSidecarOutboundListeners: service %q has unknown protocol %#v, defaulting to TCP", service.Hostname, servicePort)
-				fallthrough
 			case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
 				if service.Resolution != model.Passthrough {
 					listenAddress = service.GetServiceAddressForProxy(&node)
@@ -365,13 +371,16 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				}
 
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
-				if _, exists := listenerMap[listenerMapKey]; exists {
-					log.Warnf("Multiple TCP listener definitions for %s", listenerMapKey)
+				if n, exists := listenerMap[listenerMapKey]; exists {
+					log.Warnf("Multiple TCP listener definitions for %s %v %s", listenerMapKey, n, service.Hostname)
 					continue
 				}
 				listenerOpts.filterChainOpts = []*filterChainOpts{{
 					networkFilters: buildOutboundNetworkFilters(clusterName, addresses, servicePort),
 				}}
+			default:
+				log.Infof("buildSidecarOutboundListeners: service %q has unknown protocol %#v", service.Hostname, servicePort)
+				continue
 			}
 
 			// call plugins
@@ -493,6 +502,8 @@ type httpListenerOpts struct {
 	rds              string
 	useRemoteAddress bool
 	direction        http_conn.HttpConnectionManager_Tracing_OperationName
+	// If set, use this as a basis
+	connectionManager *http_conn.HttpConnectionManager
 }
 
 // filterChainOpts describes a filter chain: a set of filters with the same TLS context
@@ -529,17 +540,20 @@ func buildHTTPConnectionManager(mesh *meshconfig.MeshConfig, httpOpts *httpListe
 		refresh = 5 * time.Second
 	}
 
-	connectionManager := &http_conn.HttpConnectionManager{
-		CodecType: http_conn.AUTO,
-		AccessLog: []*accesslog.AccessLog{
-			{
-				Config: nil,
-			},
-		},
-		HttpFilters:      filters,
-		StatPrefix:       HTTPStatPrefix,
-		UseRemoteAddress: &google_protobuf.BoolValue{httpOpts.useRemoteAddress},
+	if httpOpts.connectionManager == nil {
+		httpOpts.connectionManager = &http_conn.HttpConnectionManager{}
 	}
+
+	connectionManager := httpOpts.connectionManager
+	connectionManager.CodecType = http_conn.AUTO
+	connectionManager.AccessLog = []*accesslog.AccessLog{
+		{
+			Config: nil,
+		},
+	}
+	connectionManager.HttpFilters = filters
+	connectionManager.StatPrefix = HTTPStatPrefix
+	connectionManager.UseRemoteAddress = &google_protobuf.BoolValue{httpOpts.useRemoteAddress}
 
 	// not enabled yet
 	if httpOpts.rds != "" {
