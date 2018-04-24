@@ -33,6 +33,8 @@ type Interface struct {
 	callers   int32
 	shutdown  chan struct{}
 
+	EagerPanic bool
+
 	log     string
 	logLock sync.Mutex
 }
@@ -135,10 +137,20 @@ func (m *Interface) dequeueResponse() (r response) {
 	atomic.AddInt32(&m.callers, 1)
 
 	sh := false
-	select {
-	case <-m.shutdown:
-		sh = true
-	case r = <-m.responses:
+	if m.EagerPanic {
+		select {
+		case <-m.shutdown:
+			sh = true
+		case r = <-m.responses:
+		default:
+			panic("Unable to dequeue response")
+		}
+	} else {
+		select {
+		case <-m.shutdown:
+			sh = true
+		case r = <-m.responses:
+		}
 	}
 
 	atomic.AddInt32(&m.callers, -1)

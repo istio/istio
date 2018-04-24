@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
 
@@ -31,6 +32,7 @@ import (
 type Kube interface {
 	CustomResourceDefinitionInterface() (v1beta1.CustomResourceDefinitionInterface, error)
 	DynamicInterface(gv schema.GroupVersion, kind string, listKind string) (dynamic.Interface, error)
+	KubernetesInterface() (kubernetes.Interface, error)
 }
 
 type kube struct {
@@ -75,6 +77,11 @@ func (k *kube) DynamicInterface(gv schema.GroupVersion, kind, listKind string) (
 	}
 
 	return dynamic.NewClient(&configShallowCopy)
+}
+
+// KubernetesInterface returns a new kubernetes.Interface.
+func (k *kube) KubernetesInterface() (kubernetes.Interface, error) {
+	return kubernetes.NewForConfig(k.cfg)
 }
 
 func addTypeToScheme(s *runtime.Scheme, gv schema.GroupVersion, kind, listKind string) error {
