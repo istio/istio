@@ -45,7 +45,7 @@ func can() *cobra.Command {
 		Long: `
 This command lets you query whether a specific request will be allowed or denied under current Istio
 RBAC policies. It constructs a fake request with the custom subject and action specified in the command
-line to check if your Istio RBAC policies is working as expected. Note the fake request is only used
+line to check if your Istio RBAC policies are working as expected. Note the fake request is only used
 locally to evaluate the effect of the Istio RBAC policies, no actual request will be issued.
 
 METHOD is the HTTP method being taken, like GET, POST, etc. SERVICE is the service name the action
