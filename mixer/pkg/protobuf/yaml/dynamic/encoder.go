@@ -23,8 +23,10 @@ import (
 )
 
 type (
-	// Encoder transforms yaml that represents protobuf data into []byte
-	// The yaml representation may have dynamic content
+	// Encoder transforms yaml/json that represents protobuf data into []byte
+	// String values (rvalues) are treated as expressions that are evaluated
+	// using attribute bag at runtime.
+	// Quoted String values are treated as literals.
 	Encoder interface {
 		Encode(bag attribute.Bag, ba []byte) ([]byte, error)
 	}
@@ -35,10 +37,10 @@ type (
 		skipEncodeLength bool
 
 		// fields of the message.
-		fields []*field
+		fields []*fieldEncoder
 	}
 
-	field struct {
+	fieldEncoder struct {
 		// proto key  -- EncodeVarInt ((field_number << 3) | wire_type)
 		protoKey []byte
 		// if packed this is set to true
@@ -48,7 +50,7 @@ type (
 		// non-packed fields have one.
 		encoder []Encoder
 
-		// number fields are sorted by field number.
+		// number fields are sorted by fieldEncoder number.
 		number int
 		// name for debug.
 		name string
@@ -58,7 +60,7 @@ type (
 // extendSlice add small amount of data to a byte array.
 func extendSlice(ba []byte, n int) []byte {
 	for k := 0; k < n; k++ {
-		ba = append(ba, 0xff)
+		ba = append(ba, 0x0)
 	}
 	return ba
 }
@@ -68,7 +70,7 @@ func (m messageEncoder) encodeWithoutLength(bag attribute.Bag, ba []byte) ([]byt
 	for _, f := range m.fields {
 		ba, err = f.Encode(bag, ba)
 		if err != nil {
-			return nil, fmt.Errorf("field: %s - %v", f.name, err)
+			return nil, fmt.Errorf("fieldEncoder: %s - %v", f.name, err)
 		}
 	}
 	return ba, nil
@@ -82,57 +84,55 @@ const defaultMsgLengthSize = 2
 var msgLengthSize = defaultMsgLengthSize
 
 // encode message including length of the message into []byte
-func (m messageEncoder) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
+func (m messageEncoder) Encode(bag attribute.Bag, startOfDataIdx []byte) ([]byte, error) {
 	var err error
 
 	if m.skipEncodeLength {
-		return m.encodeWithoutLength(bag, ba)
+		return m.encodeWithoutLength(bag, startOfDataIdx)
 	}
 
-	l0 := len(ba)
+	prefixIdx := len(startOfDataIdx)
 	// #pragma inline reserve fieldLengthSize bytes
-	ba = extendSlice(ba, msgLengthSize)
-	l1 := len(ba)
+	startOfDataIdx = extendSlice(startOfDataIdx, msgLengthSize)
+	l1 := len(startOfDataIdx)
 
-	if ba, err = m.encodeWithoutLength(bag, ba); err != nil {
+	if startOfDataIdx, err = m.encodeWithoutLength(bag, startOfDataIdx); err != nil {
 		return nil, err
 	}
 
-	length := len(ba) - l1
+	length := len(startOfDataIdx) - l1
 	diff := proto.SizeVarint(uint64(length)) - msgLengthSize
 	// move data forward because we need more than fieldLengthSize bytes
 	if diff > 0 {
-		ba = extendSlice(ba, diff)
+		startOfDataIdx = extendSlice(startOfDataIdx, diff)
 		// shift data down. This should rarely occur.
-		copy(ba[l1+diff:], ba[l1:])
+		copy(startOfDataIdx[l1+diff:], startOfDataIdx[l1:])
 	}
 
 	// ignore return value. EncodeLength is writing in the middle of the array.
-	_ = EncodeVarintZeroExtend(ba[l0:l0], uint64(length), msgLengthSize)
+	_ = EncodeVarintZeroExtend(startOfDataIdx[prefixIdx:prefixIdx], uint64(length), msgLengthSize)
 
-	return ba, nil
+	return startOfDataIdx, nil
 }
 
 // expected length of the varint encoded word
 // 2 byte words represent 2 ** 14 = 16K bytes
-// If the repeated field length is more, it involves an array copy
+// If the repeated fieldEncoder length is more, it involves an array copy
 const defaultFieldLengthSize = 1
 
 var fieldLengthSize = defaultFieldLengthSize
 
-func (f field) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
-	if f.protoKey != nil {
-		ba = append(ba, f.protoKey...)
-	}
+func (f fieldEncoder) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
+	ba = append(ba, f.protoKey...)
 
-	var l0 int
-	var l1 int
+	var prefixIdx int
+	var startOfDataIdx int
 
 	if f.packed {
-		l0 = len(ba)
+		prefixIdx = len(ba)
 		// #pragma inline reserve fieldLengthSize bytes
 		ba = extendSlice(ba, fieldLengthSize)
-		l1 = len(ba)
+		startOfDataIdx = len(ba)
 	}
 
 	var err error
@@ -144,17 +144,17 @@ func (f field) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
 	}
 
 	if f.packed {
-		length := len(ba) - l1
+		length := len(ba) - startOfDataIdx
 		diff := proto.SizeVarint(uint64(length)) - fieldLengthSize
 		// move data forward because we need more than fieldLengthSize bytes
 		if diff > 0 {
 			ba = extendSlice(ba, diff)
 			// shift data down. This should rarely occur.
-			copy(ba[l1+diff:], ba[l1:])
+			copy(ba[startOfDataIdx+diff:], ba[startOfDataIdx:])
 		}
 
 		// ignore return value. EncodeLength is writing in the middle of the array.
-		_ = EncodeVarintZeroExtend(ba[l0:l0], uint64(length), fieldLengthSize)
+		_ = EncodeVarintZeroExtend(ba[prefixIdx:prefixIdx], uint64(length), fieldLengthSize)
 	}
 
 	return ba, nil

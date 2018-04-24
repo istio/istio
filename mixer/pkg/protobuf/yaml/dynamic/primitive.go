@@ -240,7 +240,7 @@ func (p primEvalEncoder) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
 	return p.enc(bag, ba)
 }
 
-// BuildPrimitiveEvalEncoder returns an eval encoder given an expression and a target field
+// BuildPrimitiveEvalEncoder returns an eval encoder given an expression and a target fieldEncoder
 func BuildPrimitiveEvalEncoder(expr compiled.Expression, vt v1beta1.ValueType, fld *descriptor.FieldDescriptorProto) (Encoder, error) {
 	enc := eEncoderRegistry[fld.GetType()]
 	if enc == nil {

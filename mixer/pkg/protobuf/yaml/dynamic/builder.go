@@ -84,24 +84,28 @@ func (c Builder) buildMessage(md *descriptor.DescriptorProto, data map[string]in
 			if c.skipUnknown {
 				continue
 			}
-			return nil, fmt.Errorf("field '%s' not found in message '%s'", k, md.GetName())
+			return nil, fmt.Errorf("fieldEncoder '%s' not found in message '%s'", k, md.GetName())
 		}
+
+		// if the message is a map, key is never
+		// treated as an expression.
+		noExpr := isMap && k == "key"
 
 		switch fd.GetType() {
 		case descriptor.FieldDescriptorProto_TYPE_STRING:
 			var ma []interface{}
 			if fd.IsRepeated() {
 				if ma, ok = v.([]interface{}); !ok {
-					return nil, fmt.Errorf("unable to process: %v, got %T, want: []interface{}", fd, v)
+					return nil, fmt.Errorf("unable to process %s:  %v, got %T, want: []interface{}", fd.GetName(), v, v)
 				}
 			} else {
 				ma = []interface{}{v}
 			}
 
 			for _, vv := range ma {
-				var fld *field
-				if fld, err = c.buildPrimitiveField(vv, fd, isMap && k == "key"); err != nil {
-					return nil, fmt.Errorf("unable to encode field: %v. %v", fd, err)
+				var fld *fieldEncoder
+				if fld, err = c.buildPrimitiveField(vv, fd, noExpr); err != nil {
+					return nil, fmt.Errorf("unable to encode fieldEncoder %s: %v. %v", fd.GetName(), v, err)
 				}
 				me.fields = append(me.fields, fld)
 			}
@@ -127,9 +131,9 @@ func (c Builder) buildMessage(md *descriptor.DescriptorProto, data map[string]in
 				return nil, fmt.Errorf("unpacked primitives not supported: %v", fd)
 			}
 
-			var fld *field
-			if fld, err = c.buildPrimitiveField(v, fd, isMap && k == "key"); err != nil {
-				return nil, fmt.Errorf("unable to encode field: %v. %v", fd, err)
+			var fld *fieldEncoder
+			if fld, err = c.buildPrimitiveField(v, fd, noExpr); err != nil {
+				return nil, fmt.Errorf("unable to encode fieldEncoder: %v. %v", fd, err)
 			}
 			me.fields = append(me.fields, fld)
 		case descriptor.FieldDescriptorProto_TYPE_MESSAGE:
@@ -159,7 +163,7 @@ func (c Builder) buildMessage(md *descriptor.DescriptorProto, data map[string]in
 			}
 
 		default:
-			return nil, fmt.Errorf("field not supported '%v'", fd)
+			return nil, fmt.Errorf("fieldEncoder not supported '%v'", fd)
 		}
 	}
 
@@ -178,6 +182,7 @@ func buildStaticEncoder(val interface{}, fd *descriptor.FieldDescriptorProto, e 
 
 	if fd.IsEnum() {
 		pe := &staticEncoder{name: fd.GetName()}
+		// EncodeEnum accepts strings and ints.
 		pe.encodedData, err = EncodeEnum(val, pe.encodedData, e.Value)
 		enc = pe
 	} else {
@@ -214,10 +219,10 @@ func buildDynamicEncoder(sval string, fd *descriptor.FieldDescriptorProto, e *de
 }
 
 // buildPrimitiveField handles encoding of single and repeated packed primitives
-func (c Builder) buildPrimitiveField(v interface{}, fd *descriptor.FieldDescriptorProto,
-	static bool) (*field, error) {
+// if noExpr is true create static encoder.
+func (c Builder) buildPrimitiveField(v interface{}, fd *descriptor.FieldDescriptorProto, noExpr bool) (*fieldEncoder, error) {
 	fld := makeField(fd)
-	e := c.resolver.ResolveEnum(fd.GetTypeName())
+	enum := c.resolver.ResolveEnum(fd.GetTypeName())
 
 	va, packed := v.([]interface{})
 	if !packed {
@@ -225,25 +230,24 @@ func (c Builder) buildPrimitiveField(v interface{}, fd *descriptor.FieldDescript
 	}
 
 	for _, vl := range va {
-
 		val, isConstString := transformQuotedString(vl)
 		sval, isString := val.(string)
 
 		var err error
 		var enc Encoder
 
-		// if compiler is nil, everything is considered static
-		if static || isConstString || !isString || c.compiler == nil {
-			enc, err = buildStaticEncoder(val, fd, e)
+		// if compiler is nil, everything is considered noExpr
+		if noExpr || isConstString || !isString || c.compiler == nil {
+			enc, err = buildStaticEncoder(val, fd, enum)
 		} else {
-			enc, err = buildDynamicEncoder(sval, fd, e, c.compiler)
+			enc, err = buildDynamicEncoder(sval, fd, enum, c.compiler)
 		}
 
 		if err != nil {
 			return nil, fmt.Errorf("unable to build primitve encoder for:%v %v. %v", fld.name, val, err)
 		}
 
-		// ASSERT(enc != nil)
+		// now enc != nil
 		fld.encoder = append(fld.encoder, enc)
 	}
 

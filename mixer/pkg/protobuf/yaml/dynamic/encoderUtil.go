@@ -26,14 +26,14 @@ import (
 	"istio.io/istio/mixer/pkg/protobuf/yaml"
 )
 
-func makeField(fd *descriptor.FieldDescriptorProto) *field {
+func makeField(fd *descriptor.FieldDescriptorProto) *fieldEncoder {
 	packed := fd.IsPacked() || fd.IsPacked3()
 	wireType := uint64(fd.WireType())
 	fieldNumber := int(fd.GetNumber())
 	if packed {
 		wireType = uint64(proto.WireBytes)
 	}
-	return &field{
+	return &fieldEncoder{
 		protoKey: protoKey(fieldNumber, wireType),
 		number:   fieldNumber,
 		name:     fd.GetName(),
@@ -110,7 +110,7 @@ func encodeZigzag64(buf []byte, x uint64) []byte {
 	return buf
 }
 
-// protoKey returns the key which is comprised of field number and wire type.
+// protoKey returns the key which is comprised of fieldEncoder number and wire type.
 func protoKey(fieldNumber int, wireType uint64) []byte {
 	buf := make([]byte, 0, 2) // this is enough to encode protokey
 	buf, _ = EncodeVarint(buf, (uint64(fieldNumber)<<3)|wireType)
