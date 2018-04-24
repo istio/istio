@@ -41,7 +41,7 @@ const deltaReportAttributesOkPost = `
   "connection.sent.bytes": 0,
   "connection.sent.bytes_total": 0,
   "connection.id": "*",
-	"connection.event": "continue"
+  "connection.event": "continue"
 }
 `
 const finalReportAttributesOkPost = `
@@ -64,7 +64,7 @@ const finalReportAttributesOkPost = `
   "connection.sent.bytes_total": 138,
   "connection.duration": "*",
   "connection.id": "*",
-	"connection.event": "continue"
+  "connection.event": "close"
 }
 `
 
