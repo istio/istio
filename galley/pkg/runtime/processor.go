@@ -18,6 +18,7 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+
 	"istio.io/istio/galley/pkg/api"
 	"istio.io/istio/galley/pkg/model"
 	"istio.io/istio/galley/pkg/model/generator"
@@ -163,7 +164,7 @@ func (in *Processor) generatePart(key model.ResourceKey) {
 	}
 	instances, rules := generator.Generate(res.Item.(*api.ServiceConfig), in.state.names)
 	in.state.parts[key] = &PartialMixerConfigState{
-		Rules: rules,
+		Rules:     rules,
 		Instances: instances,
 	}
 }

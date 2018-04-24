@@ -12,31 +12,30 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package rules
+package types
 
 import (
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	_ "istio.io/api/policy/v1beta1"
+	_ "istio.io/istio/galley/pkg/api"
+	"istio.io/istio/galley/pkg/kube/schema"
 )
 
-var Name = "rules"
-var SingularName = "rule"
-var Kind = "rule"
-var ListKind = "RuleList"
-var Version = "v1alpha2"
-var Group = "config.istio.io"
-
-var APIResource = v1.APIResource{
-	Name:         Name,
-	SingularName: SingularName,
-	Kind:         Kind,
-	Version:      Version,
-	Group:        Group,
-	Namespaced:   true,
+var Rule = &schema.Type{
+	"rule",
+	"rules",
+	"Rule",
+	"RuleList",
+	"config.istio.io",
+	"v1alpha2",
+	"istio.policy.v1beta1.Rule",
 }
 
-var GroupVersion = schema.GroupVersion{
-	Group:   APIResource.Group,
-	Version: APIResource.Version,
+var ServiceConfig = &schema.Type{
+	"serviceconfig",
+	"serviceconfigs",
+	"ServiceConfig",
+	"ServiceConfigList",
+	"config.istio.io",
+	"v1alpha2",
+	"istio.service.v1.ServiceConfig",
 }
-
