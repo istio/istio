@@ -49,7 +49,9 @@ const (
 	mcRemoteInstallFile              = "istio-remote.yaml"
 	istioSystem                      = "istio-system"
 	istioIngressServiceName          = "istio-ingress"
+	istioIngressLabel                = "ingress"
 	istioIngressGatewayServiceName   = "istio-ingressgateway"
+	istioIngressGatewayLabel         = "ingressgateway"
 	istioEgressGatewayServiceName    = "istio-egressgateway"
 	defaultSidecarInjectorFile       = "istio-sidecar-injector.yaml"
 	ingressCertsName                 = "istio-ingress-certs"
@@ -308,26 +310,7 @@ func (k *KubeInfo) IngressOrFail(t *testing.T) string {
 
 // Ingress lazily initialize ingress
 func (k *KubeInfo) Ingress() (string, error) {
-	k.inglock.Lock()
-	defer k.inglock.Unlock()
-
-	// Previously fetched ingress or failed.
-	if k.ingressErr != nil || len(k.ingress) != 0 {
-		return k.ingress, k.ingressErr
-	}
-
-	if k.localCluster {
-		k.ingress, k.ingressErr = util.GetIngressPod(k.Namespace, k.KubeConfig)
-	} else {
-		k.ingress, k.ingressErr = util.GetIngress(k.Namespace, k.KubeConfig)
-	}
-
-	// So far we only do http ingress
-	if len(k.ingress) > 0 {
-		k.ingress = "http://" + k.ingress
-	}
-
-	return k.ingress, k.ingressErr
+	return k.doGetIngress(istioIngressServiceName, istioIngressLabel, &k.inglock, &k.ingress, &k.ingressErr)
 }
 
 // IngressGatewayOrFail lazily initialize ingress gateway and fail test if not found.
@@ -341,22 +324,33 @@ func (k *KubeInfo) IngressGatewayOrFail(t *testing.T) string {
 
 // IngressGateway lazily initialize Ingress Gateway
 func (k *KubeInfo) IngressGateway() (string, error) {
-	k.ingressGatewayLock.Lock()
-	defer k.ingressGatewayLock.Unlock()
+	return k.doGetIngress(istioIngressGatewayServiceName, istioIngressGatewayLabel,
+		&k.ingressGatewayLock, &k.ingressGateway, &k.ingressGatewayErr)
+}
+
+func (k *KubeInfo) doGetIngress(serviceName string, podLabel string, lock *sync.Mutex,
+	ingress *string, ingressErr *error) (string, error) {
+	lock.Lock()
+	defer lock.Unlock()
 
 	// Previously fetched ingress or failed.
-	if k.ingressGatewayErr != nil || len(k.ingressGateway) != 0 {
-		return k.ingressGateway, k.ingressGatewayErr
+	if *ingressErr != nil || len(*ingress) != 0 {
+		return *ingress, *ingressErr
+	}
+	if k.localCluster {
+		*ingress, *ingressErr = util.GetIngress(serviceName, podLabel,
+			k.Namespace, k.KubeConfig, util.NodePortServiceType)
+	} else {
+		*ingress, *ingressErr = util.GetIngress(serviceName, podLabel,
+			k.Namespace, k.KubeConfig, util.LoadBalancerServiceType)
 	}
 
-	k.ingressGateway, k.ingressGatewayErr = util.GetIngressGateway(k.Namespace, k.KubeConfig)
-
-	// So far we only do http ingress gateway
-	if len(k.ingressGateway) > 0 {
-		k.ingressGateway = "http://" + k.ingressGateway
+	// So far we only do http ingress
+	if len(*ingress) > 0 {
+		*ingress = "http://" + *ingress
 	}
 
-	return k.ingressGateway, k.ingressGatewayErr
+	return *ingress, *ingressErr
 }
 
 // Teardown clean up everything created by setup

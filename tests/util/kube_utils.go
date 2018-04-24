@@ -183,22 +183,7 @@ func GetClusterSubnet() (string, error) {
 	return parts[1], nil
 }
 
-// GetIngress get istio ingress ip
-func GetIngress(namespace, kubeconfig string) (string, error) {
-	return getIngressIPAndPort("istio-ingress", "ingress", namespace, kubeconfig, false)
-}
-
-// GetIngressGateway get istio ingress-gateway NodePort (with ip)
-func GetIngressGateway(namespace, kubeconfig string) (string, error) {
-	return getIngressIPAndPort("istio-ingressgateway", "ingressgateway", namespace, kubeconfig, true)
-}
-
-// GetIngressPod get istio ingress ip
-func GetIngressPod(namespace string, kubeconfig string) (string, error) {
-	return getIngressIPAndPort("istio-ingress", "ingress", namespace, kubeconfig, true)
-}
-
-func getIngressIPAndPort(serviceName, podLabel, namespace, kubeconfig string, isNodePort bool) (string, error) {
+func GetIngress(serviceName, podLabel, namespace, kubeconfig string, serviceType string) (string, error) {
 	retry := Retrier{
 		BaseDelay: 5 * time.Second,
 		MaxDelay:  5 * time.Second,
@@ -209,10 +194,12 @@ func getIngressIPAndPort(serviceName, podLabel, namespace, kubeconfig string, is
 	retryFn := func(_ context.Context, i int) error {
 		var err error
 
-		if isNodePort {
+		if serviceType == NodePortServiceType {
 			ingress, err = getServiceNodePort(serviceName, podLabel, namespace, kubeconfig)
+		} else if serviceType == LoadBalancerServiceType {
+			ingress, err = getServiceLoadBalancer(serviceName, namespace, kubeconfig)
 		} else {
-			ingress, err = getIngress(serviceName, namespace, kubeconfig)
+			return fmt.Errorf("Unknown service type: %s", serviceType)
 		}
 
 		if err != nil {
@@ -249,7 +236,7 @@ func getIngressIPAndPort(serviceName, podLabel, namespace, kubeconfig string, is
 	}
 }
 
-func getIngress(name, namespace, kubeconfig string) (string, error) {
+func getServiceLoadBalancer(name, namespace, kubeconfig string) (string, error) {
 	ip, err := ShellSilent(
 		"kubectl get svc %s -n %s -o jsonpath='{.status.loadBalancer.ingress[*].ip}' --kubeconfig=%s",
 		name, namespace, kubeconfig)
