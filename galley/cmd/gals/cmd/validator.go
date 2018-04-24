@@ -22,7 +22,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/galley/cmd/shared"
-	"istio.io/istio/galley/pkg/crd/validation"
+	"istio.io/istio/galley/pkg/kube/validation"
 	"istio.io/istio/mixer/adapter"
 	"istio.io/istio/mixer/pkg/config"
 	"istio.io/istio/mixer/pkg/config/store"
@@ -83,8 +83,13 @@ func validatorCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 			return err
 		}
 
+		client, err := createInterface(flags.kubeConfig)
+		if err != nil {
+			return fmt.Errorf("failed to connect to Kubernetes API: %v", err)
+		}
+
 		timeout := time.After(time.Minute)
-		cl := common.client.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
+		cl := client.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
 		for {
 			webhooks := []string{pilotWebhookName, mixerWebhookName}
 			if err = util.PatchValidatingWebhookConfig(cl, webhookConfigName, webhooks, caCertPem); err == nil {

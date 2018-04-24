@@ -35,7 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"istio.io/istio/galley/pkg/crd/validation/testcerts"
+	"istio.io/istio/galley/pkg/kube/validation/testcerts"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"

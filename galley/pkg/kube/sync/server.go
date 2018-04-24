@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package server
+package sync
 
 import (
 	"errors"
@@ -22,9 +22,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/util/workqueue"
 
-	"istio.io/istio/galley/pkg/common"
-	"istio.io/istio/galley/pkg/crd"
-	"istio.io/istio/galley/pkg/resource"
+	"istio.io/istio/galley/pkg/kube"
+	"istio.io/istio/galley/pkg/kube/sync/crd"
+	"istio.io/istio/galley/pkg/kube/sync/resource"
 	"istio.io/istio/pkg/log"
 	// import GKE cluster authentication plugin
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -37,7 +37,7 @@ type Server struct {
 	started   bool
 
 	mapping      crd.Mapping
-	kube         common.Kube
+	kube         kube.Kube
 	resyncPeriod time.Duration
 
 	queue workqueue.RateLimitingInterface
@@ -64,12 +64,12 @@ type event struct {
 }
 
 // New returns a new instance of a Server.
-func New(k common.Kube, mapping crd.Mapping, resyncPeriod time.Duration) *Server {
+func New(k kube.Kube, mapping crd.Mapping, resyncPeriod time.Duration) *Server {
 	return newServer(k, mapping, resyncPeriod, nil)
 }
 
 func newServer(
-	k common.Kube, mapping crd.Mapping, resyncPeriod time.Duration, eventHook eventHookFn) *Server {
+	k kube.Kube, mapping crd.Mapping, resyncPeriod time.Duration, eventHook eventHookFn) *Server {
 
 	return &Server{
 		mapping:               mapping,

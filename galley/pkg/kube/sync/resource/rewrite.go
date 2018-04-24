@@ -17,7 +17,7 @@ package resource
 import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"istio.io/istio/galley/pkg/common"
+	"istio.io/istio/galley/pkg/kube/sync/common"
 )
 
 // rewrite does a generic rewrite of an unstructured custom resource.

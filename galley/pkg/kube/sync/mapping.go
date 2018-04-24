@@ -12,24 +12,29 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package crd
+package sync
 
 import (
-	"reflect"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	ext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-
-	"istio.io/istio/galley/pkg/common"
-	"istio.io/istio/pkg/log"
+	"istio.io/istio/galley/pkg/kube/sync/crd"
 )
 
-// Equals checks whether the given two CRDs are equal or not.
-func equals(c1 *ext.CustomResourceDefinition, c2 *ext.CustomResourceDefinition) bool {
-	result := common.MapEquals(c1.Labels, c2.Labels) &&
-		common.MapEquals(c1.Annotations, c2.Annotations, common.KnownAnnotations...) &&
-		reflect.DeepEqual(c1.Spec, c2.Spec)
+var mappingData = map[schema.GroupVersion]schema.GroupVersion{
+	{
+		Group:   "config.istio.io",
+		Version: "v1alpha2",
+	}: {
+		Group:   "internal.istio.io",
+		Version: "v1alpha2",
+	},
+}
 
-	log.Debugf("CRD Equality Check: %s (%v)", c1.Name, result)
-	return result
-
+// Mapping returns a mapping of v1 internal and public CRDs.
+func Mapping() crd.Mapping {
+	m, err := crd.NewMapping(mappingData)
+	if err != nil {
+		panic(err)
+	}
+	return m
 }

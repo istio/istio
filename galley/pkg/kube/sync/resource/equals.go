@@ -12,29 +12,19 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package server
+package resource
 
 import (
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	"reflect"
 
-	"istio.io/istio/galley/pkg/crd"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"istio.io/istio/galley/pkg/kube/sync/common"
 )
 
-var mappingData = map[schema.GroupVersion]schema.GroupVersion{
-	{
-		Group:   "config.istio.io",
-		Version: "v1alpha2",
-	}: {
-		Group:   "internal.istio.io",
-		Version: "v1alpha2",
-	},
-}
-
-// Mapping returns a mapping of v1 internal and public CRDs.
-func Mapping() crd.Mapping {
-	m, err := crd.NewMapping(mappingData)
-	if err != nil {
-		panic(err)
-	}
-	return m
+// Equals checks whether the given two CRDs are equal or not.
+func equals(u1 *unstructured.Unstructured, u2 *unstructured.Unstructured) bool {
+	return common.MapEquals(u1.GetLabels(), u2.GetLabels()) &&
+		common.MapEquals(u1.GetAnnotations(), u2.GetAnnotations(), common.KnownAnnotations...) &&
+		reflect.DeepEqual(u1.Object["spec"], u2.Object["spec"])
 }

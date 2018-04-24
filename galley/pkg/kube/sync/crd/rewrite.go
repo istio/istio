@@ -19,7 +19,7 @@ import (
 
 	ext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 
-	"istio.io/istio/galley/pkg/common"
+	"istio.io/istio/galley/pkg/kube/sync/common"
 	"istio.io/istio/pkg/log"
 )
 
