@@ -16,7 +16,7 @@ package model
 
 var Info = struct {
 	ServiceConfig ResourceInfo
-} {
+}{
 	ServiceConfig: ResourceInfo{
 		Kind: "ServiceConfig",
 	},

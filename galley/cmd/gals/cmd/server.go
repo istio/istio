@@ -16,11 +16,11 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
-	"istio.io/istio/galley/pkg/server"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/galley/cmd/shared"
 	"istio.io/istio/galley/pkg/kube"
+	"istio.io/istio/galley/pkg/server"
 	"istio.io/istio/pkg/cmd"
 )
 

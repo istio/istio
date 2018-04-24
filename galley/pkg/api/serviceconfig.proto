@@ -26,6 +26,8 @@ message ServiceConfig {
     repeated Rule rules = 2;
 
     repeated InstanceDecl instances = 3;
+
+    repeated Handler handlers = 4;
 }
 
 message Rule {
@@ -52,4 +54,8 @@ message InstanceDecl {
 
     string template = 2;
     google.protobuf.Struct params = 3;
+}
+
+message Handler {
+    string name = 1;
 }
