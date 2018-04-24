@@ -362,7 +362,7 @@ func convertGogoDuration(in *duration.Duration) *types.Duration {
 }
 
 // RouteRuleRouteLabels converts v1alpha1 route rule route labels to v1alpha3 destination rules
-func RouteRuleRouteLabels(configs []model.Config) []model.Config {
+func RouteRuleRouteLabels(generateds []model.Config, configs []model.Config) []model.Config {
 	ruleConfigs := make([]model.Config, 0)
 	for _, config := range configs {
 		if config.Type == model.RouteRule.Type {
@@ -378,32 +378,61 @@ func RouteRuleRouteLabels(configs []model.Config) []model.Config {
 	}
 
 	destinationRules := make(map[string]*v1alpha3.DestinationRule) // host -> destination rule
+
+	// Populate with DestinationRules that have already been generated
+	for _, generated := range generateds {
+		if generated.Type == model.DestinationRule.Type {
+			destinationRule := generated.Spec.(*v1alpha3.DestinationRule)
+			destinationRules[destinationRule.Host] = destinationRule
+		}
+	}
+
+	// Track rules for hosts we don't already have a DestinationRule for
+	newDestinationRules := make(map[string]*v1alpha3.DestinationRule) // host -> destination rule
+	
 	for _, routeRule := range routeRules {
 		host := convertIstioService(routeRule.Destination)
 		rule, ok := destinationRules[host]
 		if !ok {
+			// There is no existing DestinationRule to merge with; create a new one
 			rule = &v1alpha3.DestinationRule{
 				Host:    host,
 				Subsets: make([]*v1alpha3.Subset, 0),
 			}
 
 			destinationRules[host] = rule
+			newDestinationRules[host] = rule
 		}
 
-		rule.Subsets = append(rule.Subsets, convertRouteRuleLabels(routeRule)...)
+		// Merge required Subsets with existing Subsets
+		for _, subset := range convertRouteRuleLabels(routeRule) {
+			found := false
+			for _, candidate := range rule.Subsets {
+				if (candidate.Name == subset.Name) {
+					// A subset by this name already exists.  As the names are generated we expect labels to match
+					found = true
+					break;
+				}
+			}
+
+			if !found {
+				// We did not find an existing subset with the expected name; use the Subset converted from the Route
+				rule.Subsets = append(rule.Subsets, subset)
+			}
+		}
 	}
 
 	out := make([]model.Config, 0)
-	for host, destinationRule := range destinationRules {
-		if len(destinationRule.Subsets) > 0 {
+	for host, newDestinationRule := range newDestinationRules {
+		if len(newDestinationRule.Subsets) > 0 {
 			out = append(out, model.Config{
 				ConfigMeta: model.ConfigMeta{
 					Type:      model.DestinationRule.Type,
-					Name:      host + "-subsets",
+					Name:      host,
 					Namespace: configs[0].Namespace,
 					Domain:    configs[0].Domain,
 				},
-				Spec: destinationRule,
+				Spec: newDestinationRule,
 			})
 		}
 	}
