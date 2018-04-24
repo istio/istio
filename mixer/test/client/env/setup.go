@@ -34,12 +34,11 @@ type TestSetup struct {
 	mfConf *MixerFilterConf
 	ports  *Ports
 
-	envoy    *Envoy
-	mixer    *MixerServer
-	backend  *HTTPServer
-	testName uint16
-	stress   bool
-	//The configurations of the filters before the Mixer filter
+	envoy              *Envoy
+	mixer              *MixerServer
+	backend            *HTTPServer
+	testName           uint16
+	stress             bool
 	filtersBeforeMixer string
 	noMixer            bool
 	mfConfVersion      string
@@ -70,18 +69,6 @@ const MixerFilterConfigV2 = "\"v2\": "
 // NewTestSetup creates a new test setup
 // "name" has to be defined in ports.go
 func NewTestSetup(name uint16, t *testing.T) *TestSetup {
-	return &TestSetup{
-		t:             t,
-		mfConf:        GetDefaultMixerFilterConf(),
-		ports:         NewPorts(name),
-		testName:      name,
-		mfConfVersion: MixerFilterConfigV2,
-	}
-}
-
-// NewTestSetupWithAuthnConfig creates a new test setup with an Istio authn config
-// "name" has to be defined in ports.go
-func NewTestSetupWithAuthnConfig(name uint16, config string, t *testing.T) *TestSetup {
 	return &TestSetup{
 		t:             t,
 		mfConf:        GetDefaultMixerFilterConf(),

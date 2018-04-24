@@ -45,6 +45,8 @@ const authnConfig = `
 },
 `
 
+const respExpected = "Peer authentication failed."
+
 func TestAuthnPeerRejectNoJwt(t *testing.T) {
 	s := env.NewTestSetup(env.IstioAuthnTestPeerRejectNoJwt, t)
 	// In the Envoy config, requires a JWT for peer
@@ -63,12 +65,15 @@ func TestAuthnPeerRejectNoJwt(t *testing.T) {
 
 	// No jwt_auth header to be consumed by Istio authn filter.
 	// The request will be rejected by Istio authn filter.
-	code, _, err := env.HTTPGet(url)
+	code, resp, err := env.HTTPGet(url)
 	if err != nil {
 		t.Errorf("Failed in request %s: %v", tag, err)
 	}
 	// Verify that the http request is rejected
 	if code != 401 {
 		t.Errorf("Status code 401 is expected, got %d.", code)
+	}
+	if resp != respExpected {
+		t.Errorf("Expected response: %s, got %s.", respExpected, resp)
 	}
 }
