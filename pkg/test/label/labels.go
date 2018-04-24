@@ -15,10 +15,16 @@
 package label
 
 const (
+	// Integration label
 	Integration Label = "integration"
-	Unit        Label = "unit"
-	E2E         Label = "e2e"
-	Pilot       Label = "pilot"
-	Mixer       Label = "mixer"
-	LinuxOnly   Label = "linuxonly"
+	// Unit label
+	Unit Label = "unit"
+	// E2E label
+	E2E Label = "e2e"
+	// Pilot label
+	Pilot Label = "pilot"
+	// Mixer label
+	Mixer Label = "mixer"
+	// LinuxOnly label
+	LinuxOnly Label = "linuxonly"
 )

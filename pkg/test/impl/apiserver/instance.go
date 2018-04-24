@@ -14,7 +14,7 @@
 
 package apiserver
 
-// Models an APIServer instance. This is not directly used by the user, but it is meant to be used by
+// Instance models an instance of the APIServer. This is not directly used by the user, but it is meant to be used by
 // the test framework to interact with individual components.
 type Instance interface {
 }
