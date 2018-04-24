@@ -22,7 +22,6 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
-	"github.com/onsi/gomega"
 	diff "gopkg.in/d4l3k/messagediff.v1"
 
 	"istio.io/api/policy/v1beta1"
@@ -31,6 +30,7 @@ import (
 	"istio.io/istio/mixer/pkg/lang/compiled"
 	protoyaml "istio.io/istio/mixer/pkg/protobuf/yaml"
 	"istio.io/istio/mixer/pkg/protobuf/yaml/testdata/all"
+	"bytes"
 )
 
 func TestEncodeVarintZeroExtend(t *testing.T) {
@@ -548,6 +548,7 @@ type testdata struct {
 	output   string
 	msg      string
 	compiler Compiler
+	skipUnknown bool
 }
 
 func TestDynamicEncoder(t *testing.T) {
@@ -574,7 +575,7 @@ func TestDynamicEncoder(t *testing.T) {
 		},
 	} {
 		t.Run(td.desc, func(tt *testing.T) {
-			testMsg(tt, td.input, td.output, res, td.compiler, td.msg)
+			testMsg(tt, td.input, td.output, res, td.compiler, td.msg, td.skipUnknown)
 		})
 	}
 }
@@ -584,7 +585,6 @@ func TestStaticEncoder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	//compiler := compiled.NewBuilder(statdardVocabulary())
 	res := protoyaml.NewResolver(fds)
 
 	for _, td := range []testdata{
@@ -617,20 +617,19 @@ func TestStaticEncoder(t *testing.T) {
 		fieldLengthSize = 0
 		msgLengthSize = 0
 		t.Run(td.desc+"-with-msg-copy", func(tt *testing.T) {
-			testMsg(tt, td.input, td.output, res, td.compiler, td.msg)
+			testMsg(tt, td.input, td.output, res, td.compiler, td.msg, td.skipUnknown)
 		})
 
 		fieldLengthSize = defaultFieldLengthSize
 		msgLengthSize = defaultMsgLengthSize
 		t.Run(td.desc, func(tt *testing.T) {
-			testMsg(tt, td.input, td.output, res, td.compiler, td.msg)
+			testMsg(tt, td.input, td.output, res, td.compiler, td.msg, td.skipUnknown)
 		})
 	}
 }
 
-func testMsg(t *testing.T, input string, output string, res protoyaml.Resolver, compiler Compiler, msgName string) {
-	g := gomega.NewGomegaWithT(t)
-
+func testMsg(t *testing.T, input string, output string, res protoyaml.Resolver,
+	compiler Compiler, msgName string, skipUnknown bool) {
 	//data := map[interface{}]interface{}{}
 	data := map[string]interface{}{}
 	var err error
@@ -647,6 +646,16 @@ func testMsg(t *testing.T, input string, output string, res protoyaml.Resolver, 
 		t.Fatalf("failed to unmarshal: %v", err)
 	}
 
+	// build encoder
+	db := NewEncoderBuilder(res, compiler, skipUnknown)
+	de, err := db.Build(msgName, data)
+
+	if err != nil {
+		t.Fatalf("unable to build: %v", err)
+	}
+
+
+	// capture input via alternate process
 	op := input
 	if output != "" {
 		op = output
@@ -657,7 +666,8 @@ func testMsg(t *testing.T, input string, output string, res protoyaml.Resolver, 
 	}
 
 	ff1 := foo.Simple{}
-	if err = jsonpb.UnmarshalString(string(ba), &ff1); err != nil {
+	um := jsonpb.Unmarshaler{AllowUnknownFields: skipUnknown}
+	if err = um.Unmarshal(bytes.NewReader(ba), &ff1); err != nil {
 		t.Fatalf("failed to unmarshal: %v\n%v", err, string(ba))
 	}
 
@@ -668,12 +678,6 @@ func testMsg(t *testing.T, input string, output string, res protoyaml.Resolver, 
 	}
 	t.Logf("ba1 = [%d] %v", len(ba), ba)
 
-	db := NewEncoderBuilder(res, compiler, false)
-	de, err := db.Build(msgName, data)
-
-	if err != nil {
-		t.Fatalf("unable to build: %v", err)
-	}
 
 	ba = make([]byte, 0, 30)
 	bag := attribute.GetFakeMutableBagForTesting(map[string]interface{}{
@@ -703,7 +707,6 @@ func testMsg(t *testing.T, input string, output string, res protoyaml.Resolver, 
 
 	// confirm that codegen'd code direct unmarshal and unmarhal thru bytes yields the same result.
 
-	_ = g
 	if !reflect.DeepEqual(ff2, ff1) {
 		s, _ := diff.PrettyDiff(ff2, ff1)
 		t.Logf("difference: %s", s)
