@@ -385,7 +385,7 @@ zipkin:
   replicaCount: 1
   image:
     repository: docker.io/openzipkin/zipkin
-    tag: 2.6.0
+    tag: 2.7
     pullPolicy: IfNotPresent
   service:
     name: http
