@@ -47,10 +47,10 @@ const (
 	statusField          = 2
 	defaultClusterSubnet = "24"
 
-	// NodePortServiceType: NodePort type of Kubernetes Service
+	// NodePortServiceType NodePort type of Kubernetes Service
 	NodePortServiceType = "NodePort"
 
-	// LoadBalancerServiceType: LoadBalancer type of Kubernetes Service
+	// LoadBalancerServiceType LoadBalancer type of Kubernetes Service
 	LoadBalancerServiceType = "LoadBalancer"
 )
 
@@ -206,7 +206,7 @@ func GetIngress(serviceName, podLabel, namespace, kubeconfig string, serviceType
 		} else if serviceType == LoadBalancerServiceType {
 			ingress, err = getServiceLoadBalancer(serviceName, namespace, kubeconfig)
 		} else {
-			return fmt.Errorf("Unknown service type: %s", serviceType)
+			return fmt.Errorf("unknown service type: %s", serviceType)
 		}
 
 		if err != nil {
