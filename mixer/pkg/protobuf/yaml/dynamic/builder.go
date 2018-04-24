@@ -27,10 +27,10 @@ import (
 
 type (
 
-	// Compiler compiles expression and returns a value type.
+	// Compiler creates a compiled expression from a string expression
 	Compiler interface {
-		// Compile type Compiler interface {compiles expression and returns a value type.
-		Compile(text string) (compiled.Expression, v1beta1.ValueType, error)
+		// Compile creates a compiled expression from a string expression
+		Compile(expr string) (compiled.Expression, v1beta1.ValueType, error)
 	}
 
 	// Builder builds encoder based on data
@@ -49,8 +49,8 @@ func NewEncoderBuilder(resolver yaml.Resolver, compiler Compiler, skipUnknown bo
 		skipUnknown: skipUnknown}
 }
 
-// Build builds a DynamicEncoder
-func (c Builder) Build(msgName string, data map[interface{}]interface{}) (Encoder, error) {
+// Build builds an Encoder
+func (c Builder) Build(msgName string, data map[string]interface{}) (Encoder, error) {
 	m := c.resolver.ResolveMessage(msgName)
 	if m == nil {
 		return nil, fmt.Errorf("cannot resolve message '%s'", msgName)
@@ -59,8 +59,7 @@ func (c Builder) Build(msgName string, data map[interface{}]interface{}) (Encode
 	return c.buildMessage(m, data, true)
 }
 
-func (c Builder) buildMessage(md *descriptor.DescriptorProto, data map[interface{}]interface{}, skipEncodeLength bool) (Encoder, error) {
-	var err error
+func (c Builder) buildMessage(md *descriptor.DescriptorProto, data map[string]interface{}, skipEncodeLength bool) (Encoder, error) {
 	var ok bool
 
 	me := messageEncoder{
@@ -68,18 +67,17 @@ func (c Builder) buildMessage(md *descriptor.DescriptorProto, data map[interface
 	}
 	isMap := md.GetOptions().GetMapEntry()
 
+	// sort keys so that processing is done in a deterministic order.
+	// It makes logs deterministic.
 	keys := make([]string, 0, len(data))
-	for kk := range data {
-		var k string
-		if k, ok = kk.(string); !ok {
-			return nil, fmt.Errorf("error processing message '%s':%v got %T want string", md.GetName(), kk, kk)
-		}
+	for k := range data {
 		keys = append(keys, k)
 	}
-	// Ensure consistent log output.
 	sort.Strings(keys)
 
 	for _, k := range keys {
+		var err error
+
 		v := data[k]
 		fd := yaml.FindFieldByName(md, k)
 		if fd == nil {
@@ -228,7 +226,7 @@ func (c Builder) buildPrimitiveField(v interface{}, fd *descriptor.FieldDescript
 
 	for _, vl := range va {
 
-		val, isConstString := transFormQuotedString(vl)
+		val, isConstString := transformQuotedString(vl)
 		sval, isString := val.(string)
 
 		var err error
@@ -258,8 +256,8 @@ func (c Builder) buildMessageField(ma []interface{}, m *descriptor.DescriptorPro
 	for _, vv := range ma {
 		var ok bool
 
-		var vq map[interface{}]interface{}
-		if vq, ok = vv.(map[interface{}]interface{}); !ok {
+		var vq map[string]interface{}
+		if vq, ok = vv.(map[string]interface{}); !ok {
 			return fmt.Errorf("unable to process: %v, got %T, want: map[string]interface{}", fd, vv)
 		}
 
@@ -278,13 +276,13 @@ func (c Builder) buildMessageField(ma []interface{}, m *descriptor.DescriptorPro
 
 // convertMapToMapentry converts {k:v} into { "key": k, "value": v }
 func convertMapToMapentry(data interface{}) ([]interface{}, error) {
-	md, ok := data.(map[interface{}]interface{})
+	md, ok := data.(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("incorrect map type:%T, want:map[interface{}]interface{}", data)
+		return nil, fmt.Errorf("incorrect map type:%T, want:map[string]interface{}", data)
 	}
 	res := make([]interface{}, 0, len(md))
 	for k, v := range md {
-		res = append(res, map[interface{}]interface{}{
+		res = append(res, map[string]interface{}{
 			"key":   k,
 			"value": v,
 		})

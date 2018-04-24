@@ -17,6 +17,7 @@ package dynamic
 import (
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
@@ -123,9 +124,14 @@ func Int64(v interface{}) (int64, bool) {
 		return int64(c), true
 	case int64:
 		return c, true
-	case float64: // json only supports numbers.
+	case float64:
+		// json only supports 'number'
+		// therefore even integers are encoded as float
 		ii := int64(c)
 		return ii, float64(ii) == c
+	case string:
+		ii, err := strconv.ParseInt(c, 0, 64)
+		return ii, err == nil
 	default:
 		return 0, false
 	}
@@ -157,7 +163,7 @@ func EncodeFloat(v interface{}, ba []byte) ([]byte, error) {
 
 // EncodeInt encodes (U)INT(32/64)
 func EncodeInt(v interface{}, ba []byte) ([]byte, error) {
-	c, ok := yaml.ToInt64(v)
+	c, ok := Int64(v)
 	if !ok {
 		return nil, badTypeError(v, "int")
 	}
@@ -171,7 +177,7 @@ func encodeInt(v int64, ba []byte) ([]byte, error) {
 
 // EncodeFixed64 encodes FIXED64, SFIXED64
 func EncodeFixed64(v interface{}, ba []byte) ([]byte, error) {
-	c, ok := yaml.ToInt64(v)
+	c, ok := Int64(v)
 	if !ok {
 		return nil, badTypeError(v, "int")
 	}
@@ -181,7 +187,7 @@ func EncodeFixed64(v interface{}, ba []byte) ([]byte, error) {
 
 // EncodeFixed32 encodes FIXED32, SFIXED32
 func EncodeFixed32(v interface{}, ba []byte) ([]byte, error) {
-	c, ok := yaml.ToInt64(v)
+	c, ok := Int64(v)
 	if !ok {
 		return nil, badTypeError(v, "int")
 	}
@@ -276,9 +282,9 @@ func encodeEnumString(v string, ba []byte, enumValues []*descriptor.EnumValueDes
 	return nil, fmt.Errorf("unknown value: %v, enum:%v", v, enumValues)
 }
 
-// transFormQuotedString removes quotes from strings and returns true
+// transformQuotedString removes quotes from strings and returns true
 // if quotes were removed. constant strings are not expressions.
-func transFormQuotedString(v interface{}) (interface{}, bool) {
+func transformQuotedString(v interface{}) (interface{}, bool) {
 	var ok bool
 	var s string
 	if s, ok = v.(string); !ok {

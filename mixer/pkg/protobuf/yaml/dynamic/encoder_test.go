@@ -14,6 +14,7 @@
 package dynamic
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"testing"
@@ -22,8 +23,7 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/onsi/gomega"
-	messagediff "gopkg.in/d4l3k/messagediff.v1"
-	yaml2 "gopkg.in/yaml.v2"
+	"gopkg.in/d4l3k/messagediff.v1"
 
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/attribute"
@@ -631,14 +631,21 @@ func TestStaticEncoder(t *testing.T) {
 func testMsg(t *testing.T, input string, output string, res protoyaml.Resolver, compiler Compiler, msgName string) {
 	g := gomega.NewGomegaWithT(t)
 
-	data := map[interface{}]interface{}{}
+	//data := map[interface{}]interface{}{}
+	data := map[string]interface{}{}
 	var err error
+	var ba []byte
 
-	if err = yaml2.Unmarshal([]byte(input), data); err != nil {
-		t.Fatalf("unable to unmarshal: %v\n%s", err, input)
+	//if err = yaml2.Unmarshal([]byte(input), data); err != nil {
+	//	t.Fatalf("unable to unmarshal: %v\n%s", err, input)
+	//}
+	if ba, err = yaml.YAMLToJSON([]byte(input)); err != nil {
+		t.Fatalf("failed to marshal: %v", err)
 	}
 
-	var ba []byte
+	if err = json.Unmarshal(ba, &data); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
 
 	op := input
 	if output != "" {
@@ -720,7 +727,7 @@ func Test_transFormQuotedString(t *testing.T) {
 	} {
 		name := fmt.Sprintf("%v-%v", tst.input, tst.found)
 		t.Run(name, func(t *testing.T) {
-			op, ok := transFormQuotedString(tst.input)
+			op, ok := transformQuotedString(tst.input)
 
 			if ok != tst.found {
 				t.Fatalf("error in ok got:%v, want:%v", ok, tst.found)
