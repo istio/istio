@@ -51,11 +51,11 @@
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
-          - name: INSTANCE_IP
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: status.podIP
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.podIP
         resources:
 {{ toYaml $.Values.global.proxy.resources | indent 12 }}
         volumeMounts:
