@@ -15,8 +15,9 @@
 package test
 
 import (
-	"istio.io/istio/pkg/test/impl/apiserver"
 	"k8s.io/client-go/rest"
+
+	"istio.io/istio/pkg/test/impl/apiserver"
 )
 
 // Cluster dependency.
@@ -25,15 +26,19 @@ var Cluster = &ClusterDependency{exclusive: false}
 // ExclusiveCluster dependency.
 var ExclusiveCluster = &ClusterDependency{exclusive: true}
 
+// GKE dependency
 var GKE = &ClusterDependency{gke: true}
-var ExclusiveGKE = &ClusterDependency{exclusive:true, gke: true}
 
-// Represents a typed ClusterDependency dependency.
+// ExclusiveGKE dependency
+var ExclusiveGKE = &ClusterDependency{exclusive: true, gke: true}
+
+// ClusterDependency represents a typed ClusterDependency dependency.
 type ClusterDependency struct {
 	exclusive bool
-	gke bool
+	gke       bool
 }
 
+// Dependency is the default dependency
 var _ Dependency = &ClusterDependency{}
 
 func (a *ClusterDependency) String() string {
@@ -52,6 +57,7 @@ func (a *ClusterDependency) reset(interface{}) error {
 func (a *ClusterDependency) cleanup(interface{}) {
 }
 
+// GetConfig returns the configuration
 func (a *ClusterDependency) GetConfig() *rest.Config {
 	return nil
 }

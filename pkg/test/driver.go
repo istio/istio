@@ -21,12 +21,13 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
+
 	"istio.io/istio/pkg/test/impl/logging"
 	"istio.io/istio/pkg/test/impl/tmp"
 )
 
 const (
-	MaxTestIDLength = 30
+	maxTestIDLength = 30
 )
 
 // Internal singleton for storing test environment.
@@ -83,6 +84,6 @@ func generateRunID(testID string) string {
 	u = strings.Replace(u, "-", "", -1)
 	testID = strings.Replace(testID, "_", "-", -1)
 	// We want at least 6 characters of uuid padding
-	padding := MaxTestIDLength - len(testID)
-	return fmt.Sprintf("%driver-%driver", testID, u[0:padding])
+	padding := maxTestIDLength - len(testID)
+	return fmt.Sprintf("%s-%s", testID, u[0:padding])
 }
