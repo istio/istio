@@ -74,8 +74,9 @@ For example, if you want to debug a test, run that test in your host/vm.
 # In the VM/Host
 make e2e_simple E2E_ARGS="--use_local_cluster --skip_cleanup"
 ```
-Now, find the pid of the process say pilot-discovery that you want to debug. If you run test in VM, you need to ssh to VM first.
+Now, find the pid of the process say pilot-discovery that you want to debug.
 ```bash
+vagrant ssh
 ps -ef | grep pilot-discovery
 ```
 Then, you can run Delve
