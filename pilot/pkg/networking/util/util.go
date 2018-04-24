@@ -33,6 +33,11 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
+const (
+	// Blackhole cluster to catch traffic from routes with unresolved clusters. Traffic arriving here goes nowhere.
+	BlackholeCluster = "blackholeCluster"
+)
+
 //// convertAddressListToCidrList converts a list of IP addresses with cidr prefixes into envoy CIDR proto
 //func convertAddressListToCidrList(addresses []string) []*core.CidrRange {
 //	if addresses == nil {

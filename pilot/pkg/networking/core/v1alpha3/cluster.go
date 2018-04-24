@@ -72,6 +72,10 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env model.Environment, proxy
 		clusters = append(clusters, configgen.buildInboundClusters(env, proxy, instances, managementPorts)...)
 	}
 
+	// Add a blackhole cluster for catching traffic to unresolved routes
+	// DO NOT CALL PLUGINS for this cluster.
+	clusters = append(clusters, buildBlackholeCluster())
+
 	return clusters, nil // TODO: normalize/dedup/order
 }
 
@@ -362,6 +366,16 @@ func setUpstreamProtocol(cluster *v2.Cluster, port *model.Port) {
 	if port.Protocol.IsHTTP2() {
 		cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{}
 	}
+}
+
+// generates a cluster that sends traffic to dummy localport 0
+// This cluster is used to catch all traffic to unresolved destinations in virtual service
+func buildBlackholeCluster() *v2.Cluster {
+	cluster := &v2.Cluster{
+		Name: util.BlackholeCluster,
+		Type: v2.Cluster_STATIC,
+	}
+	return cluster
 }
 
 func buildDefaultCluster(env model.Environment, name string, discoveryType v2.Cluster_DiscoveryType,

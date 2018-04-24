@@ -38,9 +38,6 @@ const (
 )
 
 const (
-	// UnresolvedCluster for destinations pointing to unknown clusters.
-	UnresolvedCluster = "unresolved-cluster"
-
 	// DefaultRoute is the default decorator
 	DefaultRoute = "default-route"
 )
@@ -156,15 +153,15 @@ func translateVirtualHost(
 }
 
 // ConvertDestinationToCluster produces a cluster naming function using the config context.
-// defaultPort is the service port.
+// defaultPort is the service port. This function returns an error if the service cannot be
+// resolved by defaultPort
 func ConvertDestinationToCluster(serviceIndex map[string]*model.Service, defaultPort int) ClusterNameGenerator {
 	return func(destination *networking.Destination) (string, error) {
 		// detect if it is a service
 		svc := serviceIndex[destination.Host]
 
-		// TODO: create clusters for non-service hostnames/IPs
 		if svc == nil {
-			return UnresolvedCluster, fmt.Errorf("no service named %q in set %v", destination.Host, serviceIndex)
+			return util.BlackholeCluster, fmt.Errorf("no service named %q in set %v", destination.Host, serviceIndex)
 		}
 
 		// default port uses port number
@@ -180,8 +177,8 @@ func ConvertDestinationToCluster(serviceIndex map[string]*model.Service, default
 		}
 
 		if svcPort == nil {
-			log.Info("svcPort == nil => unresolved cluster")
-			return UnresolvedCluster, fmt.Errorf("unknown port for service %q with no default port %d", destination.Host, defaultPort)
+			log.Debuga("svcPort == nil => blackhole cluster")
+			return util.BlackholeCluster, fmt.Errorf("unknown port for service %q with no default port %d", destination.Host, defaultPort)
 		}
 
 		// use subsets if it is a service
@@ -208,9 +205,8 @@ func TranslateRoutes(
 	out := make([]route.Route, 0, len(rule.Http))
 	for _, http := range rule.Http {
 		if len(http.Match) == 0 {
-			if r, err := translateRoute(http, nil, port, operation, nameF, proxyLabels, gatewayNames); err != nil {
-				return nil, err
-			} else if r != nil {
+			r, err := translateRoute(http, nil, port, operation, nameF, proxyLabels, gatewayNames)
+			if r != nil && err == nil {
 				// this cannot be nil
 				out = append(out, *r)
 			}
@@ -219,7 +215,7 @@ func TranslateRoutes(
 			// TODO: https://github.com/istio/istio/issues/4239
 			for _, match := range http.Match {
 				if r, err := translateRoute(http, match, port, operation, nameF, proxyLabels, gatewayNames); err != nil {
-					return nil, err
+					continue
 				} else if r != nil {
 					out = append(out, *r)
 				}
@@ -227,6 +223,9 @@ func TranslateRoutes(
 		}
 	}
 
+	if len(out) == 0 {
+		return nil, fmt.Errorf("No routes matched")
+	}
 	return out, nil
 }
 
@@ -260,14 +259,17 @@ func translateRoute(in *networking.HTTPRoute,
 	proxyLabels model.LabelsCollection,
 	gatewayNames map[string]bool) (*route.Route, error) {
 
+	// When building routes, its okay if the target cluster cannot be
+	// resolved Traffic to such clusters will blackhole.
+
 	// Match by source labels/gateway names inside the match condition
 	if !sourceMatchHTTP(match, proxyLabels, gatewayNames) {
-		return nil, fmt.Errorf("no source match: %v", match)
+		return nil, nil
 	}
 
 	// Match by the destination port specified in the match condition
 	if match != nil && match.Port != 0 && match.Port != uint32(port) {
-		return nil, fmt.Errorf("no port match: expected port %q to have number %d", match.Port, port)
+		return nil, nil
 	}
 
 	out := &route.Route{
@@ -315,10 +317,7 @@ func translateRoute(in *networking.HTTPRoute,
 		}
 
 		if in.Mirror != nil {
-			n, err := nameF(in.Mirror)
-			if err != nil {
-				return nil, err
-			}
+			n, _ := nameF(in.Mirror)
 			action.RequestMirrorPolicy = &route.RouteAction_RequestMirrorPolicy{Cluster: n}
 		}
 
@@ -328,11 +327,7 @@ func translateRoute(in *networking.HTTPRoute,
 			if dst.Weight == 0 {
 				weight.Value = uint32(100)
 			}
-			n, err := nameF(dst.Destination)
-			if err != nil {
-				// TODO: could we continue here rather than bailing?
-				return nil, err
-			}
+			n, _ := nameF(dst.Destination)
 			weighted = append(weighted, &route.WeightedCluster_ClusterWeight{
 				Name:   n,
 				Weight: weight,
