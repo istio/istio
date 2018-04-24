@@ -190,7 +190,8 @@ func GetClusterSubnet() (string, error) {
 // GetIngress get istio ingress ip and port. Could relate to either Istio Ingress or to
 // Istio Ingress Gateway, by serviceName and podLabel. Handles two cases: when the Ingress/Ingress Gateway
 // Kubernetes Service is a LoadBalancer or NodePort (for tests within the  cluster, including for minikube)
-func GetIngress(serviceName, podLabel, namespace, kubeconfig string, serviceType string) (string, error) {
+func GetIngress(serviceName, podLabel, namespace, kubeconfig string, serviceType string,
+	isKubernetesIngress bool) (string, error) {
 	retry := Retrier{
 		BaseDelay: 5 * time.Second,
 		MaxDelay:  5 * time.Second,
@@ -204,7 +205,7 @@ func GetIngress(serviceName, podLabel, namespace, kubeconfig string, serviceType
 		if serviceType == NodePortServiceType {
 			ingress, err = getServiceNodePort(serviceName, podLabel, namespace, kubeconfig)
 		} else if serviceType == LoadBalancerServiceType {
-			ingress, err = getServiceLoadBalancer(serviceName, namespace, kubeconfig)
+			ingress, err = getServiceLoadBalancer(serviceName, namespace, kubeconfig, isKubernetesIngress)
 		} else {
 			return fmt.Errorf("unknown service type: %s", serviceType)
 		}
@@ -236,17 +237,18 @@ func GetIngress(serviceName, podLabel, namespace, kubeconfig string, serviceType
 		default:
 			response, err := ctxhttp.Get(ctx, client, ingressURL)
 			if err == nil {
-				log.Infof("Response %v %q received from %v", response.StatusCode, response.Status, ingressURL)
+				log.Infof("Response %v %q received from %v", response.StatusCode,
+					response.Status, ingressURL)
 				return ingress, nil
 			}
 		}
 	}
 }
 
-func getServiceLoadBalancer(name, namespace, kubeconfig string) (string, error) {
+func getServiceLoadBalancer(serviceName, namespace, kubeconfig string, isKubernetesIngress bool) (string, error) {
 	ip, err := ShellSilent(
 		"kubectl get svc %s -n %s -o jsonpath='{.status.loadBalancer.ingress[*].ip}' --kubeconfig=%s",
-		name, namespace, kubeconfig)
+		serviceName, namespace, kubeconfig)
 
 	if err != nil {
 		return "", err
@@ -258,7 +260,16 @@ func getServiceLoadBalancer(name, namespace, kubeconfig string) (string, error) 
 		return "", errors.New("ingress ip not available yet")
 	}
 
-	return ip, nil
+	if isKubernetesIngress { // no need to return port for Kubernetes Ingress Resource
+		return ip, nil
+	}
+
+	port, err := getServicePort(serviceName, namespace, kubeconfig)
+	if err != nil {
+		return "", err
+	}
+
+	return ip + ":" + port, nil
 }
 
 func getServiceNodePort(serviceName, podLabel, namespace, kubeconfig string) (string, error) {
