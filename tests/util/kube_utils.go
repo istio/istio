@@ -111,6 +111,12 @@ func DeleteNamespace(n string, kubeconfig string) error {
 	return err
 }
 
+// DeleteDeployment deletes deployment from the specified namespace
+func DeleteDeployment(d string, n string, kubeconfig string) error {
+	_, err := Shell("kubectl delete deployment %s -n %s --kubeconfig=%s", d, n, kubeconfig)
+	return err
+}
+
 // NamespaceDeleted check if a kubernete namespace is deleted
 func NamespaceDeleted(n string, kubeconfig string) (bool, error) {
 	output, err := ShellSilent("kubectl get namespace %s -o name --kubeconfig=%s", n, kubeconfig)

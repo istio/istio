@@ -74,6 +74,9 @@ static_resources:
               service_configs:
                 istio-policy.{{ .PodNamespace }}.svc.cluster.local:
                   disable_check_calls: true
+{{- if .DisableReportCalls }}
+                  disable_report_calls: true
+{{- end }}
                   mixer_attributes:
                     attributes:
                       destination.service:
