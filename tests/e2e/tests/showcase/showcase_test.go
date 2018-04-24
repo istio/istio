@@ -21,7 +21,9 @@ import (
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/charts"
+	"istio.io/istio/pkg/test/cluster"
 	"istio.io/istio/pkg/test/label"
+	"istio.io/istio/pkg/test/local"
 )
 
 // Capturing TestMain allows us to:
@@ -57,10 +59,12 @@ func TestRequirement_UnsatisfiedButSkipped(t *testing.T) {
 // Showcase using local components only, without a cluster.
 func TestDeployment_Local(t *testing.T) {
 	test.Tag(t, label.Integration)
-	test.Requires(t, test.ApiServer, test.Galley) // TODO: This seems explicit, but redundant
+	test.Requires(t, test.APIServer, test.Galley) // TODO: This seems explicit, but redundant
 
-	e := test.GetLocalEnvironment(t)
-	a := e.StartApiServer() // Direct call within the local environment.
+	e := &local.Environment{
+		T: t,
+	}
+	a := e.StartAPIServer() // Direct call within the local environment.
 	//cfg := a.Config() // Kube config to access the API Server directly.
 
 	g := e.StartGalley()
@@ -76,10 +80,12 @@ func TestDeployment_Helm(t *testing.T) {
 	test.Tag(t, label.Integration)
 	test.Requires(t, test.Cluster) // Specify that we need *a* Cluster (can be Minikube, GKE, K8s etc.)
 
-	e := test.GetClusterEnvironment(t)
+	e := &cluster.Environment{
+		T: t,
+	}
 	e.Deploy(charts.Istio) // Deploy a shrink-wrapped Helm chart to the cluster.
 
-	a := e.GetApiServer()                             // Get the singleton API Server
+	a := e.GetAPIServer()                             // Get the singleton API Server
 	g := e.GetIstioComponent(test.GalleyComponent)[0] // Get a list of Galley instances and pick the first one.
 
 	//cfg := a.Config() // Kube config to access the API Server directly.

@@ -27,8 +27,8 @@ import (
 // Run is a helper for executing test main with appropriate resource allocation/cleanup steps.
 // It allows us to do post-run cleanup, and flag parsing.
 func Run(testID string, m *testing.M) {
-	if len(testID) > MaxTestIDLength {
-		panic(fmt.Sprintf("test id cannot be longer than %d characters", MaxTestIDLength))
+	if len(testID) > maxTestIDLength {
+		panic(fmt.Sprintf("test id cannot be longer than %d characters", maxTestIDLength))
 	}
 
 	// TODO: Protect against double-run, invalid driverState etc.

@@ -14,11 +14,12 @@
 
 package helm
 
-// Represents a Helm deployment chart for testing purposes.
+// Chart represents a Helm deployment chart for testing purposes.
 type Chart struct {
 	name string
 }
 
+// LoadChart Creates a chart with the given name
 func LoadChart(name string) *Chart {
 	// TODO: Load chart
 	return &Chart{
@@ -26,11 +27,13 @@ func LoadChart(name string) *Chart {
 	}
 }
 
+// WithValuesFromFile loads the values from the given file into the chart
 func (c *Chart) WithValuesFromFile(name string) *Chart {
 	// TODO
 	return c
 }
 
+// Name returns the name of the chart
 func (c *Chart) Name() string {
 	return c.name
 }
