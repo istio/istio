@@ -428,7 +428,7 @@ func RouteRuleRouteLabels(generateds []model.Config, configs []model.Config) []m
 			out = append(out, model.Config{
 				ConfigMeta: model.ConfigMeta{
 					Type:      model.DestinationRule.Type,
-					Name:      host + "-subsets",
+					Name:      host,
 					Namespace: configs[0].Namespace,
 					Domain:    configs[0].Domain,
 				},
