@@ -27,7 +27,7 @@ func TestAuthNPolicy(t *testing.T) {
 
 	cfgs := &deployableConfig{
 		Namespace:  tc.Kube.Namespace,
-		YamlFiles:  []string{"testdata/v1alpha1/authn-policy.yaml.tmpl"},
+		YamlFiles:  []string{"testdata/authn/v1alpha1/authn-policy.yaml.tmpl"},
 		kubeconfig: tc.Kube.KubeConfig,
 	}
 	if err := cfgs.Setup(); err != nil {
@@ -70,7 +70,15 @@ func TestAuthNPolicy(t *testing.T) {
 }
 
 func TestAuthNJwt(t *testing.T) {
-	p := "testdata/v1alpha1/correct_jwt"
+	// V1alpha3 == true implies envoyv2, jwt authn doesn't work for v2 so skip it now.
+	if tc.V1alpha3 {
+		t.Skipf("Skipping %s: V1alpha3=true", t.Name())
+	}
+
+	// JWT token used is borrowed from https://github.com/istio/proxy/blob/master/src/envoy/http/jwt_auth/sample/correct_jwt.
+	// The Token expires in year 2132, issuer is 628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com.
+	// Test will fail if this service account is deleted.
+	p := "testdata/authn/v1alpha1/correct_jwt"
 	token, err := ioutil.ReadFile(p)
 	if err != nil {
 		t.Fatalf("failed to read %q", p)
@@ -79,7 +87,7 @@ func TestAuthNJwt(t *testing.T) {
 
 	cfgs := &deployableConfig{
 		Namespace:  tc.Kube.Namespace,
-		YamlFiles:  []string{"testdata/v1alpha1/authn-policy-jwt.yaml.tmpl"},
+		YamlFiles:  []string{"testdata/authn/v1alpha1/authn-policy-jwt.yaml.tmpl"},
 		kubeconfig: tc.Kube.KubeConfig,
 	}
 	if err := cfgs.Setup(); err != nil {
