@@ -15,12 +15,12 @@
 package logging
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/impl/tmp"
 )
@@ -31,13 +31,13 @@ var o = log.DefaultOptions()
 func init() {
 	c := cobra.Command{}
 	o.AttachCobraFlags(&c)
-	c.Flags().VisitAll(func (f *pflag.Flag) {
+	c.Flags().VisitAll(func(f *pflag.Flag) {
 		// TODO: Transfer
-		fmt.Sprintf("%v\n", f)
+		//fmt.Sprintf("%v\n", f)
 	})
 }
 
-// Initializes sets the logging directory.
+// Initialize sets the logging directory.
 // Should be called right after flag.Parse().
 func Initialize(runID string) error {
 	// Create a temporary directory for any logging files.
