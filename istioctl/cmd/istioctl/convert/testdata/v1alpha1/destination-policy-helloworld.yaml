@@ -6,7 +6,7 @@ spec:
   destination:
     name: helloworld-service
     labels:
-      version: v1
+      version: "1.0"
   circuitBreaker:
     simpleCb:
       maxConnections: 1
