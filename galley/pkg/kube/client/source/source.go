@@ -18,12 +18,13 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/galley/pkg/kube/client"
-	"istio.io/istio/galley/pkg/kube/client/serviceconfig"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/galley/pkg/change"
 	"istio.io/istio/galley/pkg/kube"
+	"istio.io/istio/galley/pkg/kube/client"
+	"istio.io/istio/galley/pkg/kube/convert"
+	"istio.io/istio/galley/pkg/kube/types"
 	"istio.io/istio/galley/pkg/model"
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/pkg/log"
@@ -43,14 +44,7 @@ func New(k kube.Kube, resyncPeriod time.Duration) (*Source, error) {
 		k: k,
 	}
 
-	scAccessor, err := client.NewAccessor(
-		k,
-		resyncPeriod,
-		serviceconfig.Name,
-		serviceconfig.GroupVersion,
-		serviceconfig.Kind,
-		serviceconfig.ListKind,
-		s.process)
+	scAccessor, err := client.NewAccessor(k, resyncPeriod, types.ServiceConfig, s.process)
 
 	if err != nil {
 		return nil, err
@@ -77,15 +71,20 @@ func (s *Source) Get(id model.ResourceKey) (model.Resource, error) {
 	parts := strings.Split(id.Name, "/")
 	ns := parts[0]
 	name := parts[1]
-	u, err := s.scAccessor.Client.Resource(&serviceconfig.APIResource, ns).Get(name, metav1.GetOptions{})
+	u, err := s.scAccessor.Client.Resource(types.ServiceConfig.APIResource(), ns).Get(name, metav1.GetOptions{})
+	if err != nil {
+		return model.Resource{}, err
+	}
+
+	item, err := convert.ToProto(types.ServiceConfig, u)
 	if err != nil {
 		return model.Resource{}, err
 	}
 
 	return model.Resource{
-		Key: model.ResourceKey{Kind:model.Info.ServiceConfig.Kind, Name: id.Name},
+		Key:     model.ResourceKey{Kind: model.Info.ServiceConfig.Kind, Name: id.Name},
 		Version: model.ResourceVersion(u.GetResourceVersion()),
-		Item: serviceconfig.FromUnstructured(u),
+		Item:    item,
 	}, nil
 }
 
@@ -104,12 +103,12 @@ func (s *Source) process(c *change.Info) {
 		log.Errorf("Unknown change kind: %v", c.Type)
 	}
 
-	rid := model.ResourceKey{ Kind: model.ResourceKind(serviceconfig.Kind), Name: c.Name }
+	rid := model.ResourceKey{Kind: model.ResourceKind(types.ServiceConfig.Kind), Name: c.Name}
 
 	e := runtime.Event{
-		Id:   rid,
+		Id:      rid,
 		Version: model.ResourceVersion(c.Version),
-		Kind: kind,
+		Kind:    kind,
 	}
 
 	log.Debugf("Dispatching source event: %v", e)

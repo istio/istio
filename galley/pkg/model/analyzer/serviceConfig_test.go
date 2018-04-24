@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/ghodss/yaml"
+
 	"istio.io/istio/galley/pkg/api"
 )
 

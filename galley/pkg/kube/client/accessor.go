@@ -22,13 +22,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/galley/pkg/change"
 	"istio.io/istio/galley/pkg/kube"
+	"istio.io/istio/galley/pkg/kube/schema"
 	"istio.io/istio/pkg/log"
 )
 
@@ -38,9 +38,7 @@ type Accessor struct {
 	// Lock for changing the running state of the Accessor
 	stateLock sync.Mutex
 
-	// name, API group and lastKnownVersion of the resource.
-	name string
-	gv   schema.GroupVersion
+	t *schema.Type
 
 	resyncPeriod time.Duration
 
@@ -49,9 +47,6 @@ type Accessor struct {
 
 	// The dynamic resource interface for accessing custom resources dynamically.
 	iface dynamic.ResourceInterface
-
-	// metadata about the resource (i.e. name, kind, group, lastKnownVersion etc.)
-	apiResource *metav1.APIResource
 
 	// stopCh is used to quiesce the background activity during shutdown
 	stopCh chan struct{}
@@ -63,34 +58,24 @@ type Accessor struct {
 	processor ChangeProcessorFn
 }
 
-func NewAccessor(kube kube.Kube, resyncPeriod time.Duration, name string, gv schema.GroupVersion,
-	kind string, listKind string, processor ChangeProcessorFn) (*Accessor, error) {
+func NewAccessor(kube kube.Kube, resyncPeriod time.Duration, t *schema.Type, processor ChangeProcessorFn) (*Accessor, error) {
 
-	log.Debugf("Creating a new resource Accessor for: name='%s', gv:'%v'", name, gv)
+	log.Debugf("Creating a new resource Accessor for: name='%s', gv:'%v'", t.Singular, t.GroupVersion())
 
 	var client dynamic.Interface
-	client, err := kube.DynamicInterface(gv, kind, listKind)
+	client, err := kube.DynamicInterface(t.GroupVersion(), t.Kind, t.ListKind)
 	if err != nil {
 		return nil, err
 	}
 
-	apiResource := &metav1.APIResource{
-		Name:       name,
-		Group:      gv.Group,
-		Version:    gv.Version,
-		Namespaced: true,
-		Kind:       kind,
-	}
-	iface := client.Resource(apiResource, "")
+	iface := client.Resource(t.APIResource(), "")
 
 	return &Accessor{
+		t:            t,
 		resyncPeriod: resyncPeriod,
-		name:         name,
-		gv:           gv,
 		iface:        iface,
 		Client:       client,
 		processor:    processor,
-		apiResource:  apiResource,
 	}, nil
 }
 
@@ -99,11 +84,11 @@ func (c *Accessor) Start() {
 	defer c.stateLock.Unlock()
 
 	if c.stopCh != nil {
-		log.Errorf("already synchronizing resources: name='%c', gv='%v'", c.name, c.gv)
+		log.Errorf("already synchronizing resources: name='%c', gv='%v'", c.t.Singular, c.t.GroupVersion())
 		return
 	}
 
-	log.Debugf("Starting Accessor for %s(%v)", c.name, c.gv)
+	log.Debugf("Starting Accessor for %s(%v)", c.t.Singular, c.t.GroupVersion())
 
 	c.stopCh = make(chan struct{})
 
@@ -141,9 +126,9 @@ func (c *Accessor) Start() {
 
 	// Wait for CRD cache sync.
 	if !cache.WaitForCacheSync(c.stopCh, c.informer.HasSynced) {
-		log.Warnf("Shutting down while waiting for Accessor cache sync %c(%v)", c.name, c.gv)
+		log.Warnf("Shutting down while waiting for Accessor cache sync %c(%v)", c.t.Singular, c.t.GroupVersion())
 	}
-	log.Debugf("Completed cache sync and listening. %s(%v)", c.name, c.gv)
+	log.Debugf("Completed cache sync and listening. %s(%v)", c.t.Singular, c.t.GroupVersion())
 
 	// Signal that full sync is done.
 	info := &change.Info{
@@ -191,7 +176,7 @@ func (c *Accessor) handleEvent(t change.Type, obj interface{}) {
 		Type:         t,
 		Name:         key,
 		Version:      object.GetResourceVersion(),
-		GroupVersion: c.gv,
+		GroupVersion: c.t.GroupVersion(),
 	}
 
 	log.Debugf("Dispatching Accessor event: %v", info)
