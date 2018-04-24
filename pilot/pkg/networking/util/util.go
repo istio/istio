@@ -34,7 +34,7 @@ import (
 )
 
 const (
-	// Blackhole cluster to catch traffic from routes with unresolved clusters. Traffic arriving here goes nowhere.
+	// BlackholeCluster to catch traffic from routes with unresolved clusters. Traffic arriving here goes nowhere.
 	BlackholeCluster = "blackholeCluster"
 )
 

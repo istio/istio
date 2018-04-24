@@ -156,12 +156,12 @@ func translateVirtualHost(
 // defaultPort is the service port. This function returns an error if the service cannot be
 // resolved by defaultPort
 func ConvertDestinationToCluster(serviceIndex map[string]*model.Service, defaultPort int) ClusterNameGenerator {
-	return func(destination *networking.Destination) (string, error) {
+	return func(destination *networking.Destination) string {
 		// detect if it is a service
 		svc := serviceIndex[destination.Host]
 
 		if svc == nil {
-			return util.BlackholeCluster, fmt.Errorf("no service named %q in set %v", destination.Host, serviceIndex)
+			return util.BlackholeCluster
 		}
 
 		// default port uses port number
@@ -178,16 +178,16 @@ func ConvertDestinationToCluster(serviceIndex map[string]*model.Service, default
 
 		if svcPort == nil {
 			log.Debuga("svcPort == nil => blackhole cluster")
-			return util.BlackholeCluster, fmt.Errorf("unknown port for service %q with no default port %d", destination.Host, defaultPort)
+			return util.BlackholeCluster
 		}
 
 		// use subsets if it is a service
-		return model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, svc.Hostname, svcPort), nil
+		return model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, svc.Hostname, svcPort)
 	}
 }
 
 // ClusterNameGenerator specifies cluster name for a destination
-type ClusterNameGenerator func(*networking.Destination) (string, error)
+type ClusterNameGenerator func(*networking.Destination) string
 
 // TranslateRoutes creates virtual host routes from the v1alpha3 config.
 // The rule should be adapted to destination names (outbound clusters).
@@ -224,7 +224,7 @@ func TranslateRoutes(
 	}
 
 	if len(out) == 0 {
-		return nil, fmt.Errorf("No routes matched")
+		return nil, fmt.Errorf("no routes matched")
 	}
 	return out, nil
 }
@@ -317,7 +317,7 @@ func translateRoute(in *networking.HTTPRoute,
 		}
 
 		if in.Mirror != nil {
-			n, _ := nameF(in.Mirror)
+			n := nameF(in.Mirror)
 			action.RequestMirrorPolicy = &route.RouteAction_RequestMirrorPolicy{Cluster: n}
 		}
 
@@ -327,7 +327,7 @@ func translateRoute(in *networking.HTTPRoute,
 			if dst.Weight == 0 {
 				weight.Value = uint32(100)
 			}
-			n, _ := nameF(dst.Destination)
+			n := nameF(dst.Destination)
 			weighted = append(weighted, &route.WeightedCluster_ClusterWeight{
 				Name:   n,
 				Weight: weight,
