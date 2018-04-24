@@ -40,19 +40,11 @@ func DestinationPolicies(configs []model.Config) []model.Config {
 		destinationRule.Subsets = append(destinationRule.Subsets, convertDestinationPolicy(policy))
 	}
 
-	// rewrite traffic policies where len(subsets) == 1
-	for _, rule := range destinationRules {
-		if len(rule.Subsets) == 1 {
-			rule.TrafficPolicy = rule.Subsets[0].TrafficPolicy
-			rule.Subsets = nil
-		}
-	}
-
 	out := make([]model.Config, 0)
 	for host, rule := range destinationRules {
 		out = append(out, model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:      model.VirtualService.Type,
+				Type:      model.DestinationRule.Type,
 				Name:      host,
 				Namespace: configs[0].Namespace,
 				Domain:    configs[0].Domain,
