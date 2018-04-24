@@ -414,14 +414,20 @@ func edsPushAll() {
 func (s *DiscoveryServer) addEdsCon(clusterName string, node string, connection *XdsConnection) {
 
 	c := s.getOrAddEdsCluster(clusterName)
-	c.mutex.Lock()
-	existing := c.EdsClients[node]
-	c.mutex.Unlock()
+	// TODO: left the code here so we can skip sending the already-sent clusters.
+	// See comments in ads - envoy keeps adding one cluster to the list (this seems new
+	// previous version sent all the clusters from CDS in bulk).
 
-	// May replace an existing connection
-	if existing != nil {
-		log.Warnf("Replacing existing connection %s %s old: %s", clusterName, node, existing.ConID)
-	}
+
+	//c.mutex.Lock()
+	//existing := c.EdsClients[node]
+	//c.mutex.Unlock()
+	//
+	//// May replace an existing connection: this happens when Envoy adds more clusters
+	//// one by one, creating new grpc requests each time it adds one more cluster.
+	//if existing != nil {
+	//	log.Warnf("Replacing existing connection %s %s old: %s", clusterName, node, existing.ConID)
+	//}
 	c.mutex.Lock()
 	c.EdsClients[node] = connection
 	c.mutex.Unlock()

@@ -287,15 +287,15 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 						log.Warnf("ADS:EDS: ACK ERROR %v %s %v", peerAddr, con.ConID, discReq.String())
 						edsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
 					}
-					if edsDebug {
-						// Not logging full request, can be very long.
-						log.Infof("ADS:EDS: ACK %s %s %s %s", peerAddr, con.ConID, discReq.VersionInfo, discReq.ResponseNonce)
-					}
 					if len(con.Clusters) > 0 {
 						// Already got a list of clusters to watch and has same length as the request, this is an ack
 						continue
 					}
 				}
+				// It appears current envoy keeps repeating the request with one more
+				// clusters. This result in verbose messages if a lot of clusters and
+				// endpoints are used. Not clear why envoy can't batch, it gets all CDS
+				// in one shot.
 				con.Clusters = clusters
 				for _, c := range con.Clusters {
 					s.addEdsCon(c, con.ConID, con)

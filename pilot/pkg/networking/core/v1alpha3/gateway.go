@@ -142,13 +142,9 @@ func createGatewayHTTPFilterChainOpts(
 		nameToServiceMap[svc.Hostname] = svc
 	}
 
-	nameF := func(port int) istio_route.ClusterNameGenerator {
-		return istio_route.ConvertDestinationToCluster(nameToServiceMap, port)
-	}
-
 	httpListeners := make([]*filterChainOpts, 0, len(servers))
 	for i, server := range servers {
-		routeCfg := buildGatewayInboundHTTPRouteConfig(env, nameF, gatewayNames, server)
+		routeCfg := buildGatewayInboundHTTPRouteConfig(env, nameToServiceMap, gatewayNames, server)
 		if routeCfg == nil {
 			log.Debugf("omitting HTTP listeners for port %d filter chain %d due to no routes", server.Port, i)
 			continue
@@ -211,8 +207,7 @@ func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamT
 }
 
 func buildGatewayInboundHTTPRouteConfig(
-	env model.Environment,
-	nameF func(int) istio_route.ClusterNameGenerator,
+	env model.Environment, serviceIndex map[string]*model.Service,
 	gatewayNames map[string]bool,
 	server *networking.Server) *xdsapi.RouteConfiguration {
 
@@ -223,7 +218,7 @@ func buildGatewayInboundHTTPRouteConfig(
 	for _, v := range virtualServices {
 		// TODO: I think this is the wrong port to use: we feed in the server's port (i.e. the gateway port), then use it
 		// to construct downstreams; I think we need to look up the service itself, and use the service's port.
-		routes, err := istio_route.TranslateRoutes(v, nameF(port), port, nil, gatewayNames)
+		routes, err := istio_route.TranslateRoutes(v, serviceIndex, port, nil, gatewayNames)
 		if err != nil {
 			log.Debugf("omitting routes for service %v due to error: %v", v, err)
 			continue

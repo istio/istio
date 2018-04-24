@@ -65,6 +65,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env mod
 }
 
 // BuildSidecarOutboundHTTPRouteConfig builds an outbound HTTP Route for sidecar.
+// Based on port, will determine all virtual hosts that listen on the port.
 func (configgen *ConfigGeneratorImpl) BuildSidecarOutboundHTTPRouteConfig(env model.Environment, node model.Proxy,
 	proxyInstances []*model.ServiceInstance, services []*model.Service, routeName string) *xdsapi.RouteConfiguration {
 
