@@ -17,7 +17,6 @@
 
 #include "common/common/logger.h"
 #include "envoy/access_log/access_log.h"
-#include "envoy/config/filter/http/jwt_authn/v2alpha/config.pb.h"
 #include "envoy/http/filter.h"
 #include "src/envoy/http/mixer/control.h"
 
