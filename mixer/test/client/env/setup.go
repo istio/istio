@@ -34,16 +34,15 @@ type TestSetup struct {
 	mfConf *MixerFilterConf
 	ports  *Ports
 
-	envoy         *Envoy
-	mixer         *MixerServer
-	backend       *HTTPServer
-	testName      uint16
-	stress        bool
-	faultInject   bool
-	authnInject   bool
-	authnConfig   string
-	noMixer       bool
-	mfConfVersion string
+	envoy    *Envoy
+	mixer    *MixerServer
+	backend  *HTTPServer
+	testName uint16
+	stress   bool
+	//The configurations of the filters before the Mixer filter
+	filtersBeforeMixer string
+	noMixer            bool
+	mfConfVersion      string
 
 	// EnvoyTemplate is the bootstrap config used by envoy.
 	EnvoyTemplate string
@@ -88,8 +87,6 @@ func NewTestSetupWithAuthnConfig(name uint16, config string, t *testing.T) *Test
 		mfConf:        GetDefaultMixerFilterConf(),
 		ports:         NewPorts(name),
 		testName:      name,
-		authnInject:   true,
-		authnConfig:   config,
 		mfConfVersion: MixerFilterConfigV2,
 	}
 }
@@ -159,15 +156,15 @@ func (s *TestSetup) SetNoMixer(no bool) {
 	s.noMixer = no
 }
 
-// SetFaultInject set FaultInject flag
-func (s *TestSetup) SetFaultInject(f bool) {
-	s.faultInject = f
+// SetFiltersBeforeMixer set the configurations of the filters before the Mixer filter
+func (s *TestSetup) SetFiltersBeforeMixer(filters string) {
+	s.filtersBeforeMixer = filters
 }
 
 // SetUp setups Envoy, Mixer, and Backend server for test.
 func (s *TestSetup) SetUp() error {
 	var err error
-	s.envoy, err = s.NewEnvoy(s.stress, s.faultInject, s.authnInject, s.authnConfig, s.mfConf, s.ports, s.epoch, s.mfConfVersion)
+	s.envoy, err = s.NewEnvoy(s.stress, s.filtersBeforeMixer, s.mfConf, s.ports, s.epoch, s.mfConfVersion)
 	if err != nil {
 		log.Printf("unable to create Envoy %v", err)
 	}
@@ -211,7 +208,7 @@ func (s *TestSetup) ReStartEnvoy() {
 	log.Printf("new allocated ports are %v:", s.ports)
 	var err error
 	s.epoch++
-	s.envoy, err = s.NewEnvoy(s.stress, s.faultInject, s.authnInject, s.authnConfig, s.mfConf, s.ports, s.epoch, s.mfConfVersion)
+	s.envoy, err = s.NewEnvoy(s.stress, s.filtersBeforeMixer, s.mfConf, s.ports, s.epoch, s.mfConfVersion)
 	if err != nil {
 		s.t.Errorf("unable to re-start Envoy %v", err)
 	} else {

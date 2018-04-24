@@ -32,11 +32,11 @@ type Envoy struct {
 }
 
 // NewEnvoy creates a new Envoy struct and starts envoy.
-func (s *TestSetup) NewEnvoy(stress, faultInject bool, authnInject bool, authnConfig string, mfConf *MixerFilterConf, ports *Ports, epoch int,
+func (s *TestSetup) NewEnvoy(stress bool, filtersBeforeMixer string, mfConf *MixerFilterConf, ports *Ports, epoch int,
 	confVersion string) (*Envoy, error) {
 	confPath := filepath.Join(util.IstioOut, fmt.Sprintf("config.conf.%v.json", ports.AdminPort))
 	log.Printf("Envoy config: in %v\n", confPath)
-	if err := s.CreateEnvoyConf(confPath, stress, faultInject, authnInject, authnConfig, mfConf, ports, confVersion); err != nil {
+	if err := s.CreateEnvoyConf(confPath, stress, filtersBeforeMixer, mfConf, ports, confVersion); err != nil {
 		return nil, err
 	}
 

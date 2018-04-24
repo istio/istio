@@ -26,19 +26,18 @@ import (
 )
 
 type confParam struct {
-	ClientPort       uint16
-	ServerPort       uint16
-	TCPProxyPort     uint16
-	AdminPort        uint16
-	MixerServer      string
-	Backend          string
-	ClientConfig     string
-	ServerConfig     string
-	TCPServerConfig  string
-	AccessLog        string
-	MixerRouteFlags  string
-	FaultFilter      string
-	IstioAuthnFilter string
+	ClientPort         uint16
+	ServerPort         uint16
+	TCPProxyPort       uint16
+	AdminPort          uint16
+	MixerServer        string
+	Backend            string
+	ClientConfig       string
+	ServerConfig       string
+	TCPServerConfig    string
+	AccessLog          string
+	MixerRouteFlags    string
+	FiltersBeforeMixer string
 
 	// Ports contains the allocated ports.
 	Ports    *Ports
@@ -48,19 +47,6 @@ type confParam struct {
 	// Options are additional config options for the template
 	Options map[string]interface{}
 }
-
-const allAbortFaultFilter = `
-               {
-                   "type": "decoder",
-                   "name": "fault",
-                   "config": {
-                       "abort": {
-                           "abort_percent": 100,
-                           "http_status": 503
-                       }
-                   }
-               },
-`
 
 // TODO: convert to v2, real clients use bootstrap v2 and all configs are switching !!!
 // The envoy config template
@@ -101,8 +87,7 @@ const envoyConfTempl = `
               }
             ],
             "filters": [
-{{.FaultFilter}}
-{{.IstioAuthnFilter}}
+{{.FiltersBeforeMixer}}
               {
                 "type": "decoder",
                 "name": "mixer",
@@ -266,7 +251,7 @@ func (c *confParam) write(outPath, confTmpl string) error {
 }
 
 // CreateEnvoyConf create envoy config.
-func (s *TestSetup) CreateEnvoyConf(path string, stress, faultInject bool, authnInject bool, authnConfig string, mfConfig *MixerFilterConf, ports *Ports,
+func (s *TestSetup) CreateEnvoyConf(path string, stress bool, filtersBeforeMixer string, mfConfig *MixerFilterConf, ports *Ports,
 	confVersion string) error {
 	c := &confParam{
 		ClientPort:      ports.ClientProxyPort,
@@ -290,11 +275,8 @@ func (s *TestSetup) CreateEnvoyConf(path string, stress, faultInject bool, authn
 	if stress {
 		c.AccessLog = "/dev/null"
 	}
-	if faultInject {
-		c.FaultFilter = allAbortFaultFilter
-	}
-	if authnInject {
-		c.IstioAuthnFilter = authnConfig
+	if len(filtersBeforeMixer) > 0 {
+		c.FiltersBeforeMixer = filtersBeforeMixer
 	}
 
 	confTmpl := envoyConfTempl

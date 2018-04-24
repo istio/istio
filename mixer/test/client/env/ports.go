@@ -45,6 +45,8 @@ const (
 	XDSTest
 	CheckReportIstioAuthnAttributesTestNoBoundToOrigin
 	CheckReportIstioAuthnAttributesTestBoundToOrigin
+	IstioAuthnTestOriginRejectNoJwt
+	IstioAuthnTestPeerRejectNoJwt
 
 	// The number of total tests. has to be the last one.
 	maxTestNum
