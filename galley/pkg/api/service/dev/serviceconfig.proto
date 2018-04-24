@@ -1,0 +1,88 @@
+// Copyright 2018 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+import "google/protobuf/struct.proto";
+import "istio/networking/v1alpha3/destination_rule.proto";
+import "istio/networking/v1alpha3/virtual_service.proto";
+
+package istio.service.dev;
+
+option go_package = "istio.io/istio/galley/pkg/api";
+
+// Producer service config. Each service can only have one service config resources.
+// If more than two resources are created, an errow will throw.
+message ProducerService {
+    ServiceSelector service = 1;
+
+    // host route/redirection that only applies to this service.
+    istio.networking.alpha3.virtual_service.VirtualService virtual = 2;
+    // destination route/redirection that only applies to this service.
+    istio.networking.alpha3.destiation_rule.DestinationRule destination = 3;
+    // gateway that applies to this service.
+    istio.networking.alpha3.gateway gateway = 3;
+
+    repeated Rule rules = 4;
+
+    repeated InstanceDecl instances = 5;
+}
+
+message ServiceSelector {
+    // REQUIRED. Short-names or a FQDN (i.e. has no dots in the name) of a service name.
+    // For short-names, the FQDN of the host would be derived based on the underlying
+    // platform.
+    //
+    // For example on Kubernetes, when hosts contains a short name, Istio will
+    // interpret the short name based on the namespace of the rule.  Thus, when a
+    // client applies a rule in the "default" namespace, containing a name
+    // "reviews", Istio will setup routes to the
+    // "reviews.default.svc.cluster.local" service. However, if a different name
+    // such as "reviews.sales" is used, it would be treated as a FQDN during
+    // virtual host matching.  In Consul, a plain service name would be resolved to
+    // the FQDN "reviews.service.consul".
+    //
+    // Note that the hosts field applies to both HTTP and TCP
+    // services. Service inside the mesh, i.e. those found in the service
+    // registry, must always be referred to using their alphanumeric
+    // names. IP addresses or CIDR prefixes are allowed as alias via the Gateway section.
+    string name = 1;
+}
+
+
+message Rule {
+    string match = 1;
+
+    repeated Action actions = 2;
+}
+
+message Action {
+    string handler = 1;
+
+    repeated Instance instances = 3;
+}
+
+message Instance {
+    string ref = 1;
+
+    string template = 2;
+    google.protobuf.Struct params = 3;
+}
+
+message InstanceDecl {
+    string name = 1;
+
+    string template = 2;
+    google.protobuf.Struct params = 3;
+}
