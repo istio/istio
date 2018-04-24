@@ -389,7 +389,7 @@ func RouteRuleRouteLabels(generateds []model.Config, configs []model.Config) []m
 
 	// Track rules for hosts we don't already have a DestinationRule for
 	newDestinationRules := make(map[string]*v1alpha3.DestinationRule) // host -> destination rule
-	
+
 	for _, routeRule := range routeRules {
 		host := convertIstioService(routeRule.Destination)
 		rule, ok := destinationRules[host]
@@ -408,10 +408,10 @@ func RouteRuleRouteLabels(generateds []model.Config, configs []model.Config) []m
 		for _, subset := range convertRouteRuleLabels(routeRule) {
 			found := false
 			for _, candidate := range rule.Subsets {
-				if (candidate.Name == subset.Name) {
+				if candidate.Name == subset.Name {
 					// A subset by this name already exists.  As the names are generated we expect labels to match
 					found = true
-					break;
+					break
 				}
 			}
 
