@@ -98,6 +98,8 @@ const reportAttributesOkGet = `
      "x-request-id": "*"
   },
   "request.size": 0,
+  "request.total_size": 553,
+  "response.total_size": 99,
   "response.time": "*",
   "response.size": 0,
   "response.duration": "*",
