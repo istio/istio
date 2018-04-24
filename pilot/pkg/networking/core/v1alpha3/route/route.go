@@ -205,18 +205,14 @@ func TranslateRoutes(
 	out := make([]route.Route, 0, len(rule.Http))
 	for _, http := range rule.Http {
 		if len(http.Match) == 0 {
-			r, err := translateRoute(http, nil, port, operation, nameF, proxyLabels, gatewayNames)
-			if r != nil && err == nil {
-				// this cannot be nil
+			if r := translateRoute(http, nil, port, operation, nameF, proxyLabels, gatewayNames); r != nil {
 				out = append(out, *r)
 			}
 			break // we have a rule with catch all match prefix: /. Other rules are of no use
 		} else {
 			// TODO: https://github.com/istio/istio/issues/4239
 			for _, match := range http.Match {
-				if r, err := translateRoute(http, match, port, operation, nameF, proxyLabels, gatewayNames); err != nil {
-					continue
-				} else if r != nil {
+				if r := translateRoute(http, match, port, operation, nameF, proxyLabels, gatewayNames); r != nil {
 					out = append(out, *r)
 				}
 			}
@@ -257,19 +253,19 @@ func translateRoute(in *networking.HTTPRoute,
 	operation string,
 	nameF ClusterNameGenerator,
 	proxyLabels model.LabelsCollection,
-	gatewayNames map[string]bool) (*route.Route, error) {
+	gatewayNames map[string]bool) *route.Route {
 
 	// When building routes, its okay if the target cluster cannot be
 	// resolved Traffic to such clusters will blackhole.
 
 	// Match by source labels/gateway names inside the match condition
 	if !sourceMatchHTTP(match, proxyLabels, gatewayNames) {
-		return nil, nil
+		return nil
 	}
 
 	// Match by the destination port specified in the match condition
 	if match != nil && match.Port != 0 && match.Port != uint32(port) {
-		return nil, nil
+		return nil
 	}
 
 	out := &route.Route{
@@ -345,7 +341,7 @@ func translateRoute(in *networking.HTTPRoute,
 			}
 		}
 	}
-	return out, nil
+	return out
 }
 
 // translateRouteMatch translates match condition
