@@ -322,9 +322,9 @@ func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string
 	}
 
 	certChainPEM := sc.ca.GetCAKeyCertBundle().GetCertChainPem()
-	certPEM, err := sc.ca.Sign(csrPEM, sc.certTTL, sc.forCA)
-	if err != nil {
-		return nil, nil, err
+	certPEM, signErr := sc.ca.Sign(csrPEM, sc.certTTL, sc.forCA)
+	if signErr != nil {
+		return nil, nil, signErr.FullError
 	}
 	certPEM = append(certPEM, certChainPEM...)
 

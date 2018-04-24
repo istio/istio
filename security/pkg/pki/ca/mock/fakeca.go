@@ -17,28 +17,29 @@ package mock
 import (
 	"time"
 
-	"istio.io/istio/security/pkg/pki/util"
+	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/pki/util/mock"
+	"istio.io/istio/security/pkg/util"
 )
 
 // FakeCA is a mock of CertificateAuthority.
 type FakeCA struct {
 	SignedCert    []byte
 	SignErr       error
-	KeyCertBundle util.KeyCertBundle
+	KeyCertBundle pkiutil.KeyCertBundle
 }
 
 // Sign returns the SignErr if SignErr is not nil, otherwise, it returns SignedCert.
-func (ca *FakeCA) Sign([]byte, time.Duration, bool) ([]byte, error) {
+func (ca *FakeCA) Sign([]byte, time.Duration, bool) ([]byte, *util.Error) {
 	if ca.SignErr != nil {
-		return nil, ca.SignErr
+		return nil, util.NewError("", ca.SignErr)
 	}
 	return ca.SignedCert, nil
 }
 
 // GetCAKeyCertBundle returns KeyCertBundle if KeyCertBundle is not nil, otherwise, it returns an empty
 // FakeKeyCertBundle.
-func (ca *FakeCA) GetCAKeyCertBundle() util.KeyCertBundle {
+func (ca *FakeCA) GetCAKeyCertBundle() pkiutil.KeyCertBundle {
 	if ca.KeyCertBundle == nil {
 		return &mock.FakeKeyCertBundle{}
 	}
