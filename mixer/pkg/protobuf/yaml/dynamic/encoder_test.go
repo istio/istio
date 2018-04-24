@@ -22,7 +22,7 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/onsi/gomega"
-	"gopkg.in/d4l3k/messagediff.v1"
+	messagediff "gopkg.in/d4l3k/messagediff.v1"
 	yaml2 "gopkg.in/yaml.v2"
 
 	"istio.io/api/policy/v1beta1"
@@ -160,7 +160,7 @@ r_i64:
   - 770
 `
 
-const eveything = `
+const everything = `
 enm: TWO
 
 r_enm:
@@ -351,7 +351,7 @@ map_str_sint64:
     key1: 123
 `
 
-const eveything_in = `
+const everythingIn = `
 enm: "'TWO'"
 
 r_enm:
@@ -568,8 +568,8 @@ func TestDynamicEncoder(t *testing.T) {
 		{
 			desc:     "metrics",
 			msg:      ".foo.Simple",
-			input:    eveything_in,
-			output:   eveything,
+			input:    everythingIn,
+			output:   everything,
 			compiler: compiler,
 		},
 	} {
@@ -611,17 +611,17 @@ func TestStaticEncoder(t *testing.T) {
 		{
 			desc:  "everything",
 			msg:   ".foo.Simple",
-			input: eveything,
+			input: everything,
 		},
 	} {
-		fieldLength = 0
-		msgLength = 0
+		fieldLengthSize = 0
+		msgLengthSize = 0
 		t.Run(td.desc+"-with-msg-copy", func(tt *testing.T) {
 			testMsg(tt, td.input, td.output, res, td.compiler, td.msg)
 		})
 
-		fieldLength = defaultFieldLength
-		msgLength = defaultMsgLength
+		fieldLengthSize = defaultFieldLengthSize
+		msgLengthSize = defaultMsgLengthSize
 		t.Run(td.desc, func(tt *testing.T) {
 			testMsg(tt, td.input, td.output, res, td.compiler, td.msg)
 		})

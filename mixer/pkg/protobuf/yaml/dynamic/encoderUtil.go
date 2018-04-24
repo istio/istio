@@ -63,6 +63,9 @@ func EncodeVarintZeroExtend(ba []byte, x uint64, minBytes int) []byte {
 	return ba
 }
 
+// The low level encoding functions are based on
+// https://github.com/gogo/protobuf/blob/master/proto/encode.go#Buffer
+
 // EncodeVarint -- encodeVarint no allocations
 func EncodeVarint(buf []byte, x uint64) ([]byte, int) {
 	ol := len(buf)
@@ -108,7 +111,9 @@ func encodeZigzag64(buf []byte, x uint64) []byte {
 
 // protoKey returns the key which is comprised of field number and wire type.
 func protoKey(fieldNumber int, wireType uint64) []byte {
-	return proto.EncodeVarint((uint64(fieldNumber) << 3) | wireType)
+	buf := make([]byte, 0, 2) // this is enough to encode protokey
+	buf, _ = EncodeVarint(buf, (uint64(fieldNumber)<<3)|wireType)
+	return buf
 }
 
 // Int64 typecasts input to int64 in a permissive way.

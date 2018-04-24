@@ -173,6 +173,48 @@ func (c Builder) buildMessage(md *descriptor.DescriptorProto, data map[interface
 	return me, nil
 }
 
+// buildStaticEncoder builds static encoder with special case for enum.
+func buildStaticEncoder(val interface{}, fd *descriptor.FieldDescriptorProto, e *descriptor.EnumDescriptorProto) (Encoder, error) {
+	var enc Encoder
+	var err error
+
+	if fd.IsEnum() {
+		pe := &staticEncoder{name: fd.GetName()}
+		pe.encodedData, err = EncodeEnum(val, pe.encodedData, e.Value)
+		enc = pe
+	} else {
+		enc, err = BuildPrimitiveEncoder(val, fd)
+	}
+
+	return enc, err
+}
+
+// buildDynamicEncoder builds dynamic encoder with special case for enum.
+func buildDynamicEncoder(sval string, fd *descriptor.FieldDescriptorProto, e *descriptor.EnumDescriptorProto, c Compiler) (Encoder, error) {
+	var err error
+
+	var expr compiled.Expression
+	var vt v1beta1.ValueType
+
+	if expr, vt, err = c.Compile(sval); err != nil {
+		return nil, err
+	}
+
+	if fd.IsEnum() {
+		// enums can be expressed as String or INT only
+		if !(vt == v1beta1.INT64 || vt == v1beta1.STRING) {
+			return nil, fmt.Errorf("unable to build eval encoder: enum %v for expression type:%v", sval, vt)
+		}
+
+		return &eEnumEncoder{
+			expr:       expr,
+			enumValues: e.Value,
+		}, nil
+	}
+
+	return BuildPrimitiveEvalEncoder(expr, vt, fd)
+}
+
 // buildPrimitiveField handles encoding of single and repeated packed primitives
 func (c Builder) buildPrimitiveField(v interface{}, fd *descriptor.FieldDescriptorProto,
 	static bool) (*field, error) {
@@ -185,51 +227,22 @@ func (c Builder) buildPrimitiveField(v interface{}, fd *descriptor.FieldDescript
 	}
 
 	for _, vl := range va {
-		var err error
 
 		val, isConstString := transFormQuotedString(vl)
 		sval, isString := val.(string)
 
+		var err error
 		var enc Encoder
 
 		// if compiler is nil, everything is considered static
 		if static || isConstString || !isString || c.compiler == nil {
-
-			if fd.IsEnum() {
-				pe := &staticEncoder{name: fd.GetName()}
-				pe.encodedData, err = EncodeEnum(val, pe.encodedData, e.Value)
-				enc = pe
-			} else {
-				enc, err = BuildPrimitiveEncoder(val, fd)
-			}
-
-			if err != nil {
-				return nil, fmt.Errorf("unable to build primitive encoder: %v. %v", val, err)
-			}
+			enc, err = buildStaticEncoder(val, fd, e)
 		} else {
-			var expr compiled.Expression
-			var vt v1beta1.ValueType
+			enc, err = buildDynamicEncoder(sval, fd, e, c.compiler)
+		}
 
-			if expr, vt, err = c.compiler.Compile(sval); err != nil {
-				return nil, err
-			}
-
-			if fd.IsEnum() {
-				// enums can be expressed as String or INT only
-				if !(vt == v1beta1.INT64 || vt == v1beta1.STRING) {
-					return nil, fmt.Errorf("unable to build eval encoder: enum %v for expression type:%v", val, vt)
-				}
-				enc = &eEnumEncoder{
-					expr:       expr,
-					enumValues: e.Value,
-				}
-			} else {
-				enc, err = BuildPrimitiveEvalEncoder(expr, vt, fd)
-			}
-
-			if err != nil {
-				return nil, fmt.Errorf("unable to build eval encoder: %v. %v", val, err)
-			}
+		if err != nil {
+			return nil, fmt.Errorf("unable to build primitve encoder for:%v %v. %v", fld.name, val, err)
 		}
 
 		// ASSERT(enc != nil)
