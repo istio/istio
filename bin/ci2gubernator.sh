@@ -2,10 +2,6 @@
 
 # Exit immediately for non zero status
 set -e
-# Check unset variables
-set -u
-# Print commands
-# set -x
 
 SCRIPTPATH="$(cd "$(dirname "$0")" ; pwd -P)"
 ROOTDIR="$(dirname ${SCRIPTPATH})"
