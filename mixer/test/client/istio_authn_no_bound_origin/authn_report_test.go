@@ -154,7 +154,7 @@ const secIstioAuthUserinfoHeaderValue = `
 
 func TestAuthnCheckReportAttributesNoBoundToOrigin(t *testing.T) {
 	// In the Envoy config, no binding to origin
-	s := env.NewTestSetupWithEnvoyConfig(env.CheckReportIstioAuthnAttributesTestNoBoundToOrigin,
+	s := env.NewTestSetupWithAuthnConfig(env.CheckReportIstioAuthnAttributesTestNoBoundToOrigin,
 		authnConfig, t)
 
 	env.SetStatsUpdateInterval(s.MfConfig(), 1)

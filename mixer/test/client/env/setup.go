@@ -80,9 +80,9 @@ func NewTestSetup(name uint16, t *testing.T) *TestSetup {
 	}
 }
 
-// NewTestSetupWithEnvoyConfig creates a new test setup with an Envoy config
+// NewTestSetupWithAuthnConfig creates a new test setup with an Istio authn config
 // "name" has to be defined in ports.go
-func NewTestSetupWithEnvoyConfig(name uint16, config string, t *testing.T) *TestSetup {
+func NewTestSetupWithAuthnConfig(name uint16, config string, t *testing.T) *TestSetup {
 	return &TestSetup{
 		t:             t,
 		mfConf:        GetDefaultMixerFilterConf(),
