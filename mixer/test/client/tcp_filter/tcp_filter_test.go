@@ -35,7 +35,7 @@ const checkAttributesOkPost = `
   "target.namespace": "XYZ222",
   "connection.mtls": false,
   "connection.id": "*",
-	"connection.event": "open"
+  "connection.event": "open"
 }
 `
 
