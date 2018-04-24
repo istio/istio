@@ -44,9 +44,13 @@ import (
 const (
 	podFailedGet = "Failed_Get"
 	// The index of STATUS field in kubectl CLI output.
-	statusField             = 2
-	defaultClusterSubnet    = "24"
-	NodePortServiceType     = "NodePort"
+	statusField          = 2
+	defaultClusterSubnet = "24"
+
+	// NodePortServiceType: NodePort type of Kubernetes Service
+	NodePortServiceType = "NodePort"
+
+	// LoadBalancerServiceType: LoadBalancer type of Kubernetes Service
 	LoadBalancerServiceType = "LoadBalancer"
 )
 
@@ -183,6 +187,9 @@ func GetClusterSubnet() (string, error) {
 	return parts[1], nil
 }
 
+// GetIngress get istio ingress ip and port. Could relate to either Istio Ingress or to
+// Istio Ingress Gateway, by serviceName and podLabel. Handles two cases: when the Ingress/Ingress Gateway
+// Kubernetes Service is a LoadBalancer or NodePort (for tests within the  cluster, including for minikube)
 func GetIngress(serviceName, podLabel, namespace, kubeconfig string, serviceType string) (string, error) {
 	retry := Retrier{
 		BaseDelay: 5 * time.Second,

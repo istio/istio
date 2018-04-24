@@ -328,7 +328,7 @@ func (k *KubeInfo) IngressGateway() (string, error) {
 		&k.ingressGatewayLock, &k.ingressGateway, &k.ingressGatewayErr)
 }
 
-func (k *KubeInfo) doGetIngress(serviceName string, podLabel string, lock *sync.Mutex,
+func (k *KubeInfo) doGetIngress(serviceName string, podLabel string, lock *sync.Locker,
 	ingress *string, ingressErr *error) (string, error) {
 	lock.Lock()
 	defer lock.Unlock()
