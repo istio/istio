@@ -16,6 +16,7 @@ package pilot
 
 import (
 	"fmt"
+	"io/ioutil"
 	"testing"
 )
 
@@ -66,4 +67,69 @@ func TestAuthNPolicy(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestAuthNJwt(t *testing.T) {
+	p := "testdata/v1alpha1/correct_jwt"
+	token, err := ioutil.ReadFile(p)
+	if err != nil {
+		t.Fatalf("failed to read %q", p)
+	}
+	validJwtToken := string(token)
+
+	cfgs := &deployableConfig{
+		Namespace:  tc.Kube.Namespace,
+		YamlFiles:  []string{"testdata/v1alpha1/authn-policy-jwt.yaml.tmpl"},
+		kubeconfig: tc.Kube.KubeConfig,
+	}
+	if err := cfgs.Setup(); err != nil {
+		t.Fatal(err)
+	}
+	defer cfgs.Teardown()
+
+	cases := []struct {
+		dst          string
+		src          string
+		path         string
+		port         string
+		validToken   string
+		invalidToken string
+		expect       string
+	}{
+		{dst: "a", src: "b", path: "/", port: "", validToken: "", invalidToken: "", expect: "200"},
+		{dst: "a", src: "c", path: "/xyz", port: "80", validToken: "", invalidToken: "", expect: "200"},
+
+		{dst: "b", src: "a", path: "/", port: "", validToken: "", invalidToken: "", expect: "200"},
+		{dst: "b", src: "a", path: "/xyz", port: "80", validToken: "", invalidToken: "", expect: "200"},
+		{dst: "b", src: "c", path: "/", port: "", validToken: validJwtToken, invalidToken: "", expect: "200"},
+		{dst: "b", src: "d", path: "/xyz", port: "8080", validToken: "", invalidToken: "testToken", expect: "200"},
+
+		{dst: "c", src: "a", path: "/", port: "80", validToken: validJwtToken, invalidToken: "", expect: "200"},
+		{dst: "c", src: "a", path: "/xyz", port: "8080", validToken: "", invalidToken: "invalidToken", expect: "401"},
+		{dst: "c", src: "b", path: "/test", port: "", validToken: "", invalidToken: "random", expect: "401"},
+		{dst: "c", src: "d", path: "/prefix", port: "80", validToken: validJwtToken, invalidToken: "", expect: "200"},
+
+		{dst: "d", src: "a", path: "/xyz", port: "", validToken: validJwtToken, invalidToken: "", expect: "200"},
+		{dst: "d", src: "b", path: "/", port: "80", validToken: "", invalidToken: "foo", expect: "401"},
+		{dst: "d", src: "c", path: "/", port: "8080", validToken: "", invalidToken: "bar", expect: "401"},
+	}
+
+	for _, c := range cases {
+		testName := fmt.Sprintf("%s->%s%s[%s]", c.src, c.dst, c.path, c.expect)
+		runRetriableTest(t, testName, defaultRetryBudget, func() error {
+			extra := ""
+			if c.validToken != "" {
+				extra = fmt.Sprintf("-key \"Authorization\" -val \"Bearer %s\"", c.validToken)
+			} else if c.invalidToken != "" {
+				extra = fmt.Sprintf("-key \"Authorization\" -val \"Bearer %s\"", c.invalidToken)
+			}
+
+			resp := ClientRequest(c.src, fmt.Sprintf("http://%s%s", c.dst, c.path), 1, extra)
+			if len(resp.Code) > 0 && resp.Code[0] == c.expect {
+				return nil
+			}
+
+			return errAgain
+		})
+	}
 }
