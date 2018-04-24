@@ -87,7 +87,7 @@ var (
 			}
 
 			// set values from registry platform
-			if role.IPAddress == "" {
+			if len(role.IPAddress) == 0 {
 				if registry == serviceregistry.KubernetesRegistry {
 					role.IPAddress = os.Getenv("INSTANCE_IP")
 				} else {
@@ -100,7 +100,7 @@ var (
 					role.IPAddress = ipAddr
 				}
 			}
-			if role.ID == "" {
+			if len(role.ID) == 0 {
 				if registry == serviceregistry.KubernetesRegistry {
 					role.ID = os.Getenv("POD_NAME") + "." + os.Getenv("POD_NAMESPACE")
 				} else if registry == serviceregistry.ConsulRegistry {
@@ -110,7 +110,7 @@ var (
 				}
 			}
 			pilotDomain := role.Domain
-			if role.Domain == "" {
+			if len(role.Domain) == 0 {
 				if registry == serviceregistry.KubernetesRegistry {
 					role.Domain = os.Getenv("POD_NAMESPACE") + ".svc.cluster.local"
 					pilotDomain = "cluster.local"
