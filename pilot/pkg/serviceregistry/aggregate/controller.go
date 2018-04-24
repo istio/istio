@@ -57,19 +57,19 @@ func (c *Controller) Services() ([]*model.Service, error) {
 		svcs, err := r.Services()
 		if err != nil {
 			errs = multierror.Append(errs, err)
-		} else {
-			for _, s := range svcs {
-				if smap[s.Hostname] == nil {
-					services = append(services, s)
-					smap[s.Hostname] = s
+			continue
+		}
+		for _, s := range svcs {
+			if r.ClusterID != "" {
+				if s.Addresses == nil {
+					s.Addresses = make(map[string]string)
 				}
+				s.Addresses[r.ClusterID] = s.Address
+			}
 
-				if r.ClusterID != "" {
-					if smap[s.Hostname].Addresses == nil {
-						smap[s.Hostname].Addresses = make(map[string]string)
-					}
-					smap[s.Hostname].Addresses[r.ClusterID] = s.Address
-				}
+			if smap[s.Hostname] == nil {
+				services = append(services, s)
+				smap[s.Hostname] = s
 			}
 		}
 	}
