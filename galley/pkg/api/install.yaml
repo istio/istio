@@ -1,14 +1,14 @@
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: serviceconfigs.config.istio.io
+  name: producerservice.config.istio.io
 spec:
   group: config.istio.io
   names:
-    kind: ServiceConfig
-    listKind: ServiceConfigList
-    plural: serviceconfigs
-    singular: serviceconfig
+    kind: ProducerService
+    listKind: ProducerServiceList
+    plural: producerservices
+    singular: producerservice
   scope: Namespaced
-  version: v1alpha2
+  version: dev
 

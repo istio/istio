@@ -1,0 +1,70 @@
+apiVersion: config.istio.io/dev
+kind: ProducerService
+metadata:
+  name: reviews
+spec:
+  serviceSelector:
+    name: reviews
+  virtual:
+    hosts:
+    - reviews
+    - uk.bookinfo.com
+    - eu.bookinfo.com
+    gateways: # if omitted, defaults to "mesh"
+    - bookinfo  # this must match a gateway app selector, or a gateway name (future)
+    - mesh
+    http:
+    - match:
+      - uri:
+          prefix: "/wpcatalog"
+      - uri:
+          prefix: "/consumercatalog"
+      rewrite:
+        uri: "/newcatalog"
+      route:
+      - destination:
+          host: reviews  # redundant.
+          subset: v2
+    - route:
+      - destination:
+          host: reviews  # redundant.
+          subset: v1
+    destination:
+       host: reviews  # redundant.
+       trafficPolicy:
+         loadBalancer:
+           simple: LEAST_CONN
+       subsets:
+       - name: v1
+         labels:
+           version: v1
+         trafficPolicy:
+           loadBalancer:
+             simple: ROUND_ROBIN
+       - name: v2
+         labels:
+           version: v2
+    gateway:
+      selector:
+         app: bookinfo
+      servers:
+      - port:
+          number: 80
+          name: http
+          protocol: HTTP
+        hosts:  # this must match one of the host definition in virtual host section.
+        - uk.bookinfo.com
+        - eu.bookinfo.com
+        tls:
+           httpsRedirect: true # sends 302 redirect for http requests
+      - port:
+          number: 443
+          name: https
+          protocol: HTTPS
+        hosts:  # this must match one of the host definition in virtual host section.
+        - uk.bookinfo.com
+        - eu.bookinfo.com
+        tls:
+          mode: SIMPLE #enables HTTPS on this port
+          serverCertificate: /etc/certs/servercert.pem
+          privateKey: /etc/certs/privatekey.pem
