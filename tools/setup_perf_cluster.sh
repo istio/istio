@@ -99,7 +99,7 @@ function run_on_vm() {
 
 function setup_vm() {
   Execute gcloud compute instances add-tags $VM_NAME $GCP_OPTS --tags https-server
-  run_on_vm '(sudo add-apt-repository ppa:gophers/archive > /dev/null && sudo apt-get update > /dev/null && sudo apt-get upgrade --no-install-recommends -y && sudo apt-get install --no-install-recommends -y golang-1.10-go make && mv .bashrc .bashrc.orig && (echo "export PATH=/usr/lib/go-1.9/bin:\$PATH:~/go/bin"; cat .bashrc.orig) > ~/.bashrc ) < /dev/null'
+  run_on_vm '(sudo add-apt-repository ppa:gophers/archive > /dev/null && sudo apt-get update > /dev/null && sudo apt-get upgrade --no-install-recommends -y && sudo apt-get install --no-install-recommends -y golang-1.10-go make && mv .bashrc .bashrc.orig && (echo "export PATH=/usr/lib/go-1.10/bin:\$PATH:~/go/bin"; cat .bashrc.orig) > ~/.bashrc ) < /dev/null'
 }
 
 function setup_vm_firewall() {
