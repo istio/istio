@@ -1,6 +1,6 @@
 # Builder version
-CI_VERSION ?= go1.10-k8s1.9-helm2.7.2-minikube0.25
-CI_HUB ?= istio
+CI_VERSION ?= go1.10-k8s1.9-helm2.7.2-minikube0.25-04232018
+CI_HUB ?= chxchx
 
 ci.image:
 	docker build -t ${CI_HUB}/ci:$(CI_VERSION) -f Dockerfile .

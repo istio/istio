@@ -66,3 +66,5 @@ RUN cd /tmp && \
     sudo mv linux-amd64/helm /usr/local/bin && \
     rm -rf helm.tgz linux-amd64
 
+# Tool used by circle ci to upload results to GCS in the format understanded by testgrid
+RUN go get -u istio.io/test-infra/toolbox/ci2gubernator
