@@ -18,28 +18,28 @@ import (
 	"istio.io/istio/pkg/test/impl/apiserver"
 )
 
-// ApiServer dependency. Depending on Linux v.driver. Mac, it will be satisfied in a different way.
-var ApiServer = &ApiServerDependency{}
+// APIServer dependency. Depending on Linux v.driver. Mac, it will be satisfied in a different way.
+var APIServer = &APIServerDependency{}
 
-// Represents a typed ApiServer dependency. Once initialized, the caller can access the API Server via
+// APIServerDependency represents a typed APIServer dependency. Once initialized, the caller can access the API Server via
 // GetConfig() method.
-type ApiServerDependency struct {
+type APIServerDependency struct {
 }
 
-var _ Dependency = &ApiServerDependency{}
+var _ Dependency = &APIServerDependency{}
 
-func (a *ApiServerDependency) String() string {
+func (a *APIServerDependency) String() string {
 	return "apiserver"
 }
 
-func (a *ApiServerDependency) initialize() (interface{}, error) {
+func (a *APIServerDependency) initialize() (interface{}, error) {
 	// Use the underlying platform-specific implementation to instantiate a new APIServer instance.
 	return apiserver.New()
 }
 
-func (a *ApiServerDependency) reset(interface{}) error {
+func (a *APIServerDependency) reset(interface{}) error {
 	return nil
 }
 
-func (a *ApiServerDependency) cleanup(interface{}) {
+func (a *APIServerDependency) cleanup(interface{}) {
 }
