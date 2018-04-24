@@ -769,7 +769,8 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 	}
 
 	if *localCluster {
-		content = []byte(strings.Replace(string(content), "LoadBalancer", "NodePort", 1))
+		content = []byte(strings.Replace(string(content), util.LoadBalancerServiceType,
+			util.NodePortServiceType, 1))
 	}
 
 	err = ioutil.WriteFile(dst, content, 0600)
