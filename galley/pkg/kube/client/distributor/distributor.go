@@ -20,40 +20,42 @@ import (
 
 	"github.com/google/uuid"
 	"gopkg.in/yaml.v2"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	"istio.io/istio/galley/pkg/api/distrib"
 	"istio.io/istio/galley/pkg/change"
 	"istio.io/istio/galley/pkg/kube"
 	"istio.io/istio/galley/pkg/kube/client"
-	"istio.io/istio/galley/pkg/kube/client/rules"
+	"istio.io/istio/galley/pkg/kube/convert"
+	"istio.io/istio/galley/pkg/kube/types"
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/pkg/log"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 )
 
 type Distributor struct {
 	lock sync.Mutex
-	k kube.Kube
+	k    kube.Kube
 
 	processIndicator sync.WaitGroup
 
-	rules *client.Accessor
+	rules     *client.Accessor
 	ruleState map[string]*info
 
 	current *distrib.MixerConfig
 }
 
 type state int
+
 const (
-	unknown  state = iota
+	unknown state = iota
 	synced
 	deleting
 	upserting
 )
+
 type info struct {
-	state state
+	state            state
 	lastKnownVersion string
 }
 
@@ -70,11 +72,8 @@ func New(k kube.Kube, resyncPeriod time.Duration) (*Distributor, error) {
 	rules, err := client.NewAccessor(
 		k,
 		resyncPeriod,
-		rules.Name,
-		rules.GroupVersion,
-		rules.Kind,
-		rules.ListKind,
-		func(c *change.Info){
+		types.Rule,
+		func(c *change.Info) {
 			d.processChange(c, d.ruleState)
 		})
 
@@ -95,7 +94,6 @@ func New(k kube.Kube, resyncPeriod time.Duration) (*Distributor, error) {
 func (d *Distributor) process() {
 	for {
 		d.processIndicator.Wait() // Wait until full sync
-
 	}
 }
 
@@ -118,12 +116,12 @@ func (d *Distributor) Dispatch(config *distrib.MixerConfig) error {
 
 	d.current = config
 
-	iface, err := d.k.DynamicInterface(rules.GroupVersion, rules.Kind, rules.ListKind)
+	iface, err := d.k.DynamicInterface(types.Rule.GroupVersion(), types.Rule.Singular, types.Rule.ListKind)
 	if err != nil {
 		return err
 	}
 
-	riface := iface.Resource(&rules.APIResource, "istio-system")
+	riface := iface.Resource(types.Rule.APIResource(), "istio-system")
 
 	err = riface.DeleteCollection(&metav1.DeleteOptions{}, metav1.ListOptions{})
 	if err != nil {
@@ -131,9 +129,13 @@ func (d *Distributor) Dispatch(config *distrib.MixerConfig) error {
 	}
 
 	for _, r := range config.Rules {
-		uns := toUnstructuredRule(r)
-		_, err := riface.Create(uns)
+		uns, err := toUnstructuredRule(r)
 		if err != nil {
+			log.Errorf("Error: %v", err)
+			return err
+		}
+
+		if _, err = riface.Create(uns); err != nil {
 			log.Errorf("Error: %v", err)
 			return err
 		}
@@ -142,33 +144,17 @@ func (d *Distributor) Dispatch(config *distrib.MixerConfig) error {
 	return nil
 }
 
-func toUnstructuredRule(r *distrib.Rule) *unstructured.Unstructured {
-	u := &unstructured.Unstructured{}
-
-	actions := make([]map[string]interface{}, len(r.Actions))
-	for i, a := range r.Actions {
-		act := make(map[string]interface{})
-		act["handler"] = a.Handler
-
-		insts := make([]string, len(a.Instances))
-		for j, in := range a.Instances {
-			insts[j] = in
-		}
-		act["instances"] = insts
-
-		actions[i] = act
+func toUnstructuredRule(r *distrib.Rule) (*unstructured.Unstructured, error) {
+	u, err := convert.ToUnstructured(types.Rule, r)
+	if err != nil {
+		return nil, err
 	}
 
-	spec := make(map[string]interface{})
-	spec["match"] = r.Match
-	spec["actions"] = actions
-
-	u.SetKind(rules.Kind)
-	u.SetAPIVersion(rules.GroupVersion.String())
-	u.SetName(uuid.New().String())
+	name := uuid.New().String()
+	u.SetName(name)
 	u.SetNamespace("istio-system")
-	u.Object["spec"] = spec
-	return u
+
+	return u, nil
 }
 
 func (d *Distributor) processChange(c *change.Info, states map[string]*info) {

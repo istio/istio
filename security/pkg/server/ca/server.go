@@ -48,6 +48,7 @@ type Server struct {
 	hostnames      []string
 	forCA          bool
 	port           int
+	monitoring     monitoringMetrics
 }
 
 // HandleCSR handles an incoming certificate signing request (CSR). It does
@@ -55,21 +56,25 @@ type Server struct {
 // and returns the resulting certificate. If not approved, reason for refusal
 // to sign is returned as part of the response object.
 func (s *Server) HandleCSR(ctx context.Context, request *pb.CsrRequest) (*pb.CsrResponse, error) {
+	s.monitoring.CSR.Inc()
 	caller := s.authenticate(ctx)
 	if caller == nil {
 		log.Warn("request authentication failure")
+		s.monitoring.AuthenticationError.Inc()
 		return nil, status.Error(codes.Unauthenticated, "request authenticate failure")
 	}
 
 	csr, err := util.ParsePemEncodedCSR(request.CsrPem)
 	if err != nil {
 		log.Warnf("CSR parsing error (error %v)", err)
+		s.monitoring.CSRParsingError.Inc()
 		return nil, status.Errorf(codes.InvalidArgument, "CSR parsing error (%v)", err)
 	}
 
 	_, err = util.ExtractIDs(csr.Extensions)
 	if err != nil {
 		log.Warnf("CSR identity extraction error (%v)", err)
+		s.monitoring.IDExtractionError.Inc()
 		return nil, status.Errorf(codes.InvalidArgument, "CSR identity extraction error (%v)", err)
 	}
 
@@ -77,6 +82,7 @@ func (s *Server) HandleCSR(ctx context.Context, request *pb.CsrRequest) (*pb.Csr
 	cert, err := s.ca.Sign(request.CsrPem, time.Duration(request.RequestedTtlMinutes)*time.Minute, s.forCA)
 	if err != nil {
 		log.Errorf("CSR signing error (%v)", err)
+		s.monitoring.CSRSignError.Inc()
 		return nil, status.Errorf(codes.Internal, "CSR signing error (%v)", err)
 	}
 
@@ -86,6 +92,7 @@ func (s *Server) HandleCSR(ctx context.Context, request *pb.CsrRequest) (*pb.Csr
 		CertChain:  certChainBytes,
 	}
 	log.Info("CSR successfully signed.")
+	s.monitoring.SuccessCertIssuance.Inc()
 
 	return response, nil
 }
@@ -140,6 +147,7 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []s
 		hostnames:      hostlist,
 		forCA:          forCA,
 		port:           port,
+		monitoring:     newMonitoringMetrics(),
 	}, nil
 }
 

@@ -107,7 +107,7 @@ func (sd *ServiceDiscovery) Instances(hostname string, ports []string, tagsList 
 // GetProxyServiceInstances returns all service instances running on a particular proxy
 // Cloud Foundry integration is currently ingress-only -- there is no sidecar support yet.
 // So this function always returns an empty slice.
-func (sd *ServiceDiscovery) GetProxyServiceInstances(proxy model.Proxy) ([]*model.ServiceInstance, error) {
+func (sd *ServiceDiscovery) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
 	return nil, nil
 }
 

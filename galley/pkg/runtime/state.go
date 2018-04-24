@@ -16,6 +16,7 @@ package runtime
 
 import (
 	"github.com/google/uuid"
+
 	"istio.io/istio/galley/pkg/api/distrib"
 	"istio.io/istio/galley/pkg/model"
 	"istio.io/istio/galley/pkg/model/common"
@@ -23,15 +24,15 @@ import (
 
 type MixerConfigState struct {
 	versions map[model.ResourceKey]model.ResourceVersion
-	parts map[model.ResourceKey]*PartialMixerConfigState
-	names *common.Uniquifier
+	parts    map[model.ResourceKey]*PartialMixerConfigState
+	names    *common.Uniquifier
 }
 
 func newMixerConfigState() *MixerConfigState {
 	return &MixerConfigState{
 		versions: make(map[model.ResourceKey]model.ResourceVersion),
-		parts: make(map[model.ResourceKey]*PartialMixerConfigState),
-		names: common.NewUniquifier(),
+		parts:    make(map[model.ResourceKey]*PartialMixerConfigState),
+		names:    common.NewUniquifier(),
 	}
 }
 
@@ -49,7 +50,6 @@ func (m *MixerConfigState) Generate() *distrib.MixerConfig {
 }
 
 type PartialMixerConfigState struct {
-	Rules []*distrib.Rule
+	Rules     []*distrib.Rule
 	Instances []*distrib.Instance
 }
-

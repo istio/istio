@@ -37,6 +37,8 @@ message ProducerService {
     repeated Rule rules = 4;
 
     repeated InstanceDecl instances = 5;
+
+    repeated Handler handlers = 4;
 }
 
 message ServiceSelector {
@@ -85,4 +87,8 @@ message InstanceDecl {
 
     string template = 2;
     google.protobuf.Struct params = 3;
+}
+
+message Handler {
+    string name = 1;
 }
