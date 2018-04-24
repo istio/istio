@@ -671,10 +671,13 @@ func CheckPodRunning(n, name string, kubeconfig string) error {
 		Retries:   6,
 	}
 
-	retryFn := func(i int) error {
-		pod := GetPodName(n, name, kubeconfig)
-		ready = true
-		if status := GetPodStatus(n, pod, kubeconfig); status != podRunning {
+	retryFn := func(_ context.Context, i int) error {
+		pod, err := GetPodName(n, name, kubeconfig)
+		if err != nil {
+			return err
+		}
+		ready := true
+		if status := GetPodStatus(n, pod, kubeconfig); status != "Running" {
 			log.Infof("%s in namespace %s is not running: %s", pod, n, status)
 			ready = false
 		}
@@ -684,11 +687,12 @@ func CheckPodRunning(n, name string, kubeconfig string) error {
 		}
 		return nil
 	}
-	_, err := retry.Retry(retryFn)
+	ctx := context.Background()
+	_, err := retry.Retry(ctx, retryFn)
 	if err != nil {
 		return err
 	}
-	log.Info("Get the pod name=%s running!", name)
+	log.Infof("Got the pod name=%s running!", name)
 	return nil
 }
 
