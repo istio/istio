@@ -151,7 +151,7 @@ func portMatch(instance *model.ServiceInstance, portMap map[string]bool) bool {
 }
 
 // GetProxyServiceInstances lists service instances co-located with a given proxy
-func (c *Controller) GetProxyServiceInstances(node model.Proxy) ([]*model.ServiceInstance, error) {
+func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.ServiceInstance, error) {
 	data, err := c.getServices()
 	if err != nil {
 		return nil, err

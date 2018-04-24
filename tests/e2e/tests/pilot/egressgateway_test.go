@@ -53,8 +53,11 @@ func TestEgressGateway(t *testing.T) {
 		for _, elt := range resp.Host {
 			count[elt] = count[elt] + 1
 		}
+		for _, elt := range resp.Code {
+			count[elt] = count[elt] + 1
+		}
 		log.Infof("request counts %v", count)
-		if count["eu.bookinfo.com"] >= 95 {
+		if count["eu.bookinfo.com"] >= 95 && count[httpOK] >= 95 {
 			return nil
 		}
 		return errAgain

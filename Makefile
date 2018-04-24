@@ -180,7 +180,7 @@ where-is-docker-tar:
 #-----------------------------------------------------------------------------
 # Target: depend
 #-----------------------------------------------------------------------------
-.PHONY: depend depend.status depend.update depend.cleanlock depend.update.full init
+.PHONY: depend depend.diff depend.update depend.cleanlock depend.update.full init
 
 # Parse out the x.y or x.y.z version and output a single value x*10000+y*100+z (e.g., 1.9 is 10900)
 # that allows the three components to be checked in a single comparison.
@@ -236,8 +236,9 @@ depend: init | $(ISTIO_OUT)
 $(ISTIO_OUT) $(ISTIO_BIN):
 	@mkdir -p $@
 
-$(ISTIO_OUT)/dep.png: $(ISTIO_OUT)/dep.dot
-	dot -T png < $(ISTIO_OUT)/dep.dot > $(ISTIO_OUT)/dep.png
+# Updates the dependencies and generates a git diff of the vendor files against HEAD.
+depend.diff: depend.update | $(ISTIO_OUT)
+	git diff HEAD --exit-code -- Gopkg.lock vendor > $(ISTIO_OUT)/dep.diff
 
 depend.update.full: depend.cleanlock depend.update
 
@@ -577,8 +578,6 @@ $(HELM):
 istio-remote.yaml: $(HELM)
 	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/$@
 	$(HELM) template --namespace=istio-system \
-		  --set global.pilotIp="pilotIpReplace" \
-		  --set global.mixerIp="mixerIpReplace" \
 		  install/kubernetes/helm/istio-remote >> install/kubernetes/$@
 
 # creates istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml
@@ -624,8 +623,6 @@ FILES_TO_CLEAN+=install/consul/istio.yaml \
                 install/kubernetes/istio-auth.yaml \
                 install/kubernetes/istio-citadel-plugin-certs.yaml \
                 install/kubernetes/istio-citadel-with-health-check.yaml \
-                install/kubernetes/istio-mixer-validator.yaml \
-                install/kubernetes/istio-mixer-with-health-check.yaml \
                 install/kubernetes/istio-one-namespace-auth.yaml \
                 install/kubernetes/istio-one-namespace.yaml \
                 install/kubernetes/istio.yaml \

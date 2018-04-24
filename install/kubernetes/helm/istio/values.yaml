@@ -95,12 +95,15 @@ ingress:
 # ingressgateway configuration
 #
 ingressgateway:
-  enabled: false
+  enabled: true
   serviceAccountName: istio-ingressgateway-service-account
   imagePullPolicy: IfNotPresent
   autoscaleMin: 1
   autoscaleMax: 1
   resources: {}
+  global:
+    proxy:
+      image: proxyv2
 # limits:
 #  cpu: 100m
 #  memory: 128Mi
@@ -140,12 +143,15 @@ ingressgateway:
 # egressgateway configuration
 #
 egressgateway:
-  enabled: false
+  enabled: true
   serviceAccountName: istio-egressgateway-service-account
   imagePullPolicy: IfNotPresent
   autoscaleMin: 1
   autoscaleMax: 1
   resources: {}
+  global:
+    proxy:
+      image: proxyv2
 # limits:
 #  cpu: 100m
 #  memory: 128Mi
@@ -379,7 +385,7 @@ zipkin:
   replicaCount: 1
   image:
     repository: docker.io/openzipkin/zipkin
-    tag: latest
+    tag: 2.7
     pullPolicy: IfNotPresent
   service:
     name: http

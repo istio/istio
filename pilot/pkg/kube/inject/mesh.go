@@ -26,6 +26,8 @@ initContainers:
   - [[ .MeshConfig.ProxyListenPort ]]
   - "-u"
   - {{ .SidecarProxyUID }}
+  - "-m"
+  - [[ or (index .ObjectMeta.Annotations "sidecar.istio.io/interceptionMode") .ProxyConfig.InterceptionMode.String ]]
   - "-i"
   [[ if (isset .ObjectMeta.Annotations "traffic.sidecar.istio.io/includeOutboundIPRanges") -]]
   - "[[ index .ObjectMeta.Annotations "traffic.sidecar.istio.io/includeOutboundIPRanges"]]"
@@ -131,20 +133,33 @@ containers:
     valueFrom:
       fieldRef:
         fieldPath: status.podIP
+  - name: ISTIO_META_POD_NAME
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.name
+  - name: ISTIO_META_INTERCEPTION_MODE
+    value: [[ or (index .ObjectMeta.Annotations "sidecar.istio.io/interceptionMode") .ProxyConfig.InterceptionMode.String ]]
   {{ if eq .ImagePullPolicy "" -}}
   imagePullPolicy: IfNotPresent
   {{ else -}}
   imagePullPolicy: {{ .ImagePullPolicy }}
   {{ end -}}
   securityContext:
-      {{ if eq .DebugMode true -}}
-      privileged: true
-      readOnlyRootFilesystem: false
-      {{ else -}}
-      privileged: false
-      readOnlyRootFilesystem: true
-      {{ end -}}
-      runAsUser: 1337
+    {{ if eq .DebugMode true -}}
+    privileged: true
+    readOnlyRootFilesystem: false
+    {{ else -}}
+    privileged: false
+    readOnlyRootFilesystem: true
+    [[ if eq (or (index .ObjectMeta.Annotations "sidecar.istio.io/interceptionMode") .ProxyConfig.InterceptionMode.String) "TPROXY" -]]
+    capabilities:
+      add:
+      - NET_ADMIN
+    [[ end -]]
+    {{ end -}}
+    [[ if ne (or (index .ObjectMeta.Annotations "sidecar.istio.io/interceptionMode") .ProxyConfig.InterceptionMode.String) "TPROXY" -]]
+    runAsUser: 1337
+    [[ end -]]
   restartPolicy: Always
   volumeMounts:
   - mountPath: /etc/istio/proxy

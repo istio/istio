@@ -51,6 +51,6 @@ services:
       - ./kubeconfig:/etc/istio/config/kubeconfig
 
   zipkin:
-    image: docker.io/openzipkin/zipkin:latest
+    image: docker.io/openzipkin/zipkin:2.7
     ports:
       - "9411:9411"

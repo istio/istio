@@ -59,6 +59,8 @@ func (m *GrpcJsonTranscoder) Validate() error {
 		}
 	}
 
+	// no validation rules for MatchIncomingRequestRoute
+
 	switch m.DescriptorSet.(type) {
 
 	case *GrpcJsonTranscoder_ProtoDescriptor:

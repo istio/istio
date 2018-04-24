@@ -9,7 +9,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"4fbf2c1a6e0e477a3172e490ac2ab1f961b6e3b15511e869d3a73925ebc432c6","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"ee86065a70dcebc36f06ca4f6889bd86d7d7704c57995d8d104baf773010f073","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: hello
@@ -63,6 +63,12 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
+        - name: ISTIO_META_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: ISTIO_META_INTERCEPTION_MODE
+          value: REDIRECT
         image: docker.io/istio/proxy_debug:unittest
         imagePullPolicy: IfNotPresent
         name: istio-proxy
@@ -83,6 +89,8 @@ spec:
         - "15001"
         - -u
         - "1337"
+        - -m
+        - REDIRECT
         - -i
         - '*'
         - -x

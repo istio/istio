@@ -89,6 +89,8 @@ func (m *Monitor) checkAndUpdate() {
 			m.createConfig(newConfig)
 			newIndex++
 		} else {
+			// version may change without content changing
+			oldConfig.ConfigMeta.ResourceVersion = newConfig.ConfigMeta.ResourceVersion
 			if !reflect.DeepEqual(oldConfig, newConfig) {
 				m.updateConfig(newConfig)
 			}
