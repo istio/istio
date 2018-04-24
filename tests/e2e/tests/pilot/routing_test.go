@@ -245,6 +245,21 @@ func TestRouteFaultInjection(t *testing.T) {
 	for _, version := range configVersions() {
 		// Invoke a function to scope the lifecycle of the deployed configs.
 		func() {
+			if version == "v1alpha3" {
+				destRule := "testdata/v1alpha3/destination-rule-c.yaml"
+				dRule := &deployableConfig{
+					Namespace:  tc.Kube.Namespace,
+					YamlFiles:  []string{destRule},
+					kubeconfig: tc.Kube.KubeConfig,
+				}
+				if err := dRule.Setup(); err != nil {
+					t.Fatal(err)
+				}
+				// Teardown after, but no need to wait, since a delay will be applied by either the next rule's
+				// Setup() or the Teardown() for the final rule.
+				defer dRule.TeardownNoDelay()
+			}
+
 			ruleYaml := fmt.Sprintf("testdata/%s/rule-fault-injection.yaml", version)
 			cfgs := &deployableConfig{
 				Namespace:  tc.Kube.Namespace,
