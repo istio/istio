@@ -82,17 +82,17 @@ docker.sidecar_injector: $(ISTIO_DOCKER)/sidecar-injector
 docker.proxy: tools/deb/envoy_bootstrap_tmpl.json
 docker.proxy: ${ISTIO_ENVOY_RELEASE_PATH}
 docker.proxy: $(ISTIO_OUT)/pilot-agent
-docker.proxy: pilot/docker/${DOCKER_PROXY_CFG}
+docker.proxy: pilot/docker/Dockerfile.proxy_debug
 docker.proxy: pilot/docker/envoy_pilot.yaml.tmpl
 docker.proxy: pilot/docker/envoy_policy.yaml.tmpl
 docker.proxy: pilot/docker/envoy_telemetry.yaml.tmpl
 	mkdir -p $(DOCKER_BUILD_TOP)/proxy
 	# Not using $^ to avoid 2 copies of envoy
-	cp tools/deb/envoy_bootstrap_tmpl.json $(ISTIO_OUT)/pilot-agent pilot/docker/${DOCKER_PROXY_CFG} $(DOCKER_BUILD_TOP)/proxy/
+	cp tools/deb/envoy_bootstrap_tmpl.json $(ISTIO_OUT)/pilot-agent pilot/docker/Dockerfile.proxy_debug $(DOCKER_BUILD_TOP)/proxy/
 	cp pilot/docker/*.yaml.tmpl $(DOCKER_BUILD_TOP)/proxy/
 	cp ${ISTIO_ENVOY_RELEASE_PATH} $(DOCKER_BUILD_TOP)/proxy/envoy
 	time (cd $(DOCKER_BUILD_TOP)/proxy && \
-		docker build -t $(HUB)/proxy:$(TAG) -f ${DOCKER_PROXY_CFG} .)
+		docker build -t $(HUB)/proxy:$(TAG) -f Dockerfile.proxy_debug .)
 
 docker.proxy_debug: tools/deb/envoy_bootstrap_tmpl.json
 docker.proxy_debug: ${ISTIO_ENVOY_DEBUG_PATH}
