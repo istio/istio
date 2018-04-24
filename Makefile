@@ -600,6 +600,19 @@ generate_yaml-envoyv2_transition: $(HELM)
 		  --values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
 		  install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
 
+# This is temporary. REMOVE ME after Envoy v2 transition
+# creates istio.yaml using values-envoyv2-transition.yaml
+generate_yaml-envoyv2_transition_loadbalancer_ingressgateway: $(HELM)
+	./install/updateVersion_orig.sh -a ${HUB},${TAG} >/dev/null 2>&1
+	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/istio.yaml
+	$(HELM) template --set global.tag=${TAG} \
+		  --namespace=istio-system \
+                  --set global.hub=${HUB} \
+		  --values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
+                  --set ingressgateway.service.type=LoadBalancer \
+		  --set ingress.enabled=false \
+		  install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
+
 deploy/all: $(HELM) istio-all.yaml
 	kubectl apply -n istio-system -f install/kubernetes/istio-all.yaml
 
