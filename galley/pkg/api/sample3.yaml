@@ -23,14 +23,14 @@ spec:
         uri: "/newcatalog"
       route:
       - destination:
-          host: reviews  # redundant.
+          host: reviews  # must be one of the host for this service.
           subset: v2
     - route:
       - destination:
-          host: reviews  # redundant.
+          host: reviews  # must be one of the host for this service.
           subset: v1
     destination:
-       host: reviews  # redundant.
+       host: reviews  # must be one of the host for this service.
        trafficPolicy:
          loadBalancer:
            simple: LEAST_CONN
@@ -52,7 +52,7 @@ spec:
           number: 80
           name: http
           protocol: HTTP
-        hosts:  # this must match one of the host definition in virtual host section.
+        hosts:  # this must match one of the hosts for this service.
         - uk.bookinfo.com
         - eu.bookinfo.com
         tls:
@@ -61,7 +61,7 @@ spec:
           number: 443
           name: https
           protocol: HTTPS
-        hosts:  # this must match one of the host definition in virtual host section.
+        hosts:  # this must match one of the hosts for this service.
         - uk.bookinfo.com
         - eu.bookinfo.com
         tls:
