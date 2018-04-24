@@ -23,7 +23,7 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/onsi/gomega"
-	"gopkg.in/d4l3k/messagediff.v1"
+	diff "gopkg.in/d4l3k/messagediff.v1"
 
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/attribute"
@@ -705,7 +705,7 @@ func testMsg(t *testing.T, input string, output string, res protoyaml.Resolver, 
 
 	_ = g
 	if !reflect.DeepEqual(ff2, ff1) {
-		s, _ := messagediff.PrettyDiff(ff2, ff1)
+		s, _ := diff.PrettyDiff(ff2, ff1)
 		t.Logf("difference: %s", s)
 		t.Fatalf("\n got: %v\nwant: %v", ff2, ff1)
 	}
