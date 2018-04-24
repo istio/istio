@@ -446,17 +446,17 @@ jobs:
     <<: *defaults
     steps:
       - checkout
-      - run: make depend.update
+      - run: mkdir -p /go/out
+      - run:
+          name: Updating all dependencies
+          command: dep ensure --update
       - run: ( cd vendor ; git status  ) # just to see what changes
       - run: make init build
       - run:
           name: Status and artifacts
-          command: make depend.status ISTIO_OUT=/go/out
-      - store_artifacts:
-          path: vendor/Gopkg.lock
+          command: dep status -dot > /go/out/dep.dot
       - store_artifacts:
           path: /go/out/dep.dot
-      # TODO: auto-commit Gopkg.lock if test is successful
 
   codecov:
     <<: *defaults
@@ -559,8 +559,12 @@ jobs:
       - checkout
       - run: make sync
       - run: make lint
-      # Make sure that any modification to vendor is correct.
-      - run: make depend.diff
+      # Make sure that any modification to vendor is correct. Always use the latest version of dep.
+      - run:
+          name: Creating vendor diff
+          command: make depend.diff ISTIO_OUT=/go/out
+      - store_artifacts:
+          path: /go/out/dep.diff
 
   nightly:
     <<: *defaults
