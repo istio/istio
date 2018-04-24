@@ -26,18 +26,19 @@ import (
 )
 
 type confParam struct {
-	ClientPort      uint16
-	ServerPort      uint16
-	TCPProxyPort    uint16
-	AdminPort       uint16
-	MixerServer     string
-	Backend         string
-	ClientConfig    string
-	ServerConfig    string
-	TCPServerConfig string
-	AccessLog       string
-	MixerRouteFlags string
-	FaultFilter     string
+	ClientPort       uint16
+	ServerPort       uint16
+	TCPProxyPort     uint16
+	AdminPort        uint16
+	MixerServer      string
+	Backend          string
+	ClientConfig     string
+	ServerConfig     string
+	TCPServerConfig  string
+	AccessLog        string
+	MixerRouteFlags  string
+	FaultFilter      string
+	IstioAuthnFilter string
 
 	// Ports contains the allocated ports.
 	Ports    *Ports
@@ -101,6 +102,7 @@ const envoyConfTempl = `
             ],
             "filters": [
 {{.FaultFilter}}
+{{.IstioAuthnFilter}}
               {
                 "type": "decoder",
                 "name": "mixer",
@@ -264,7 +266,7 @@ func (c *confParam) write(outPath, confTmpl string) error {
 }
 
 // CreateEnvoyConf create envoy config.
-func (s *TestSetup) CreateEnvoyConf(path string, stress, faultInject bool, mfConfig *MixerFilterConf, ports *Ports,
+func (s *TestSetup) CreateEnvoyConf(path string, stress, faultInject bool, authnInject bool, authnConfig string, mfConfig *MixerFilterConf, ports *Ports,
 	confVersion string) error {
 	c := &confParam{
 		ClientPort:      ports.ClientProxyPort,
@@ -290,6 +292,9 @@ func (s *TestSetup) CreateEnvoyConf(path string, stress, faultInject bool, mfCon
 	}
 	if faultInject {
 		c.FaultFilter = allAbortFaultFilter
+	}
+	if authnInject {
+		c.IstioAuthnFilter = authnConfig
 	}
 
 	confTmpl := envoyConfTempl

@@ -40,6 +40,8 @@ type TestSetup struct {
 	testName      uint16
 	stress        bool
 	faultInject   bool
+	authnInject   bool
+	authnConfig   string
 	noMixer       bool
 	mfConfVersion string
 
@@ -86,8 +88,9 @@ func NewTestSetupWithEnvoyConfig(name uint16, config string, t *testing.T) *Test
 		mfConf:        GetDefaultMixerFilterConf(),
 		ports:         NewPorts(name),
 		testName:      name,
+		authnInject:   true,
+		authnConfig:   config,
 		mfConfVersion: MixerFilterConfigV2,
-		EnvoyTemplate: config,
 	}
 }
 
@@ -164,7 +167,7 @@ func (s *TestSetup) SetFaultInject(f bool) {
 // SetUp setups Envoy, Mixer, and Backend server for test.
 func (s *TestSetup) SetUp() error {
 	var err error
-	s.envoy, err = s.NewEnvoy(s.stress, s.faultInject, s.mfConf, s.ports, s.epoch, s.mfConfVersion)
+	s.envoy, err = s.NewEnvoy(s.stress, s.faultInject, s.authnInject, s.authnConfig, s.mfConf, s.ports, s.epoch, s.mfConfVersion)
 	if err != nil {
 		log.Printf("unable to create Envoy %v", err)
 	}
@@ -208,7 +211,7 @@ func (s *TestSetup) ReStartEnvoy() {
 	log.Printf("new allocated ports are %v:", s.ports)
 	var err error
 	s.epoch++
-	s.envoy, err = s.NewEnvoy(s.stress, s.faultInject, s.mfConf, s.ports, s.epoch, s.mfConfVersion)
+	s.envoy, err = s.NewEnvoy(s.stress, s.faultInject, s.authnInject, s.authnConfig, s.mfConf, s.ports, s.epoch, s.mfConfVersion)
 	if err != nil {
 		s.t.Errorf("unable to re-start Envoy %v", err)
 	} else {

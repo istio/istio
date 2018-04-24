@@ -118,209 +118,27 @@ const reportAttributesOkGet = `
 }
 `
 
-// TODO: convert to v2, real clients use bootstrap v2 and all configs are switching !!!
-// The envoy config template with Istio authn filter that has no binding to origin
-const envoyConfTempl = `
+// The Istio authn envoy config
+const authnConfig = `
 {
-  "listeners": [
-    {
-      "address": "tcp://0.0.0.0:{{.ServerPort}}",
-      "bind_to_port": true,
-      "filters": [
+  "type": "decoder",
+  "name": "istio_authn",
+  "config": {
+    "policy": {
+      "origins": [
         {
-          "type": "read",
-          "name": "http_connection_manager",
-          "config": {
-            "codec_type": "auto",
-            "stat_prefix": "ingress_http",
-            "route_config": {
-              "virtual_hosts": [
-                {
-                  "name": "backend",
-                  "domains": ["*"],
-                  "routes": [
-                    {
-                      "timeout_ms": 0,
-                      "prefix": "/",
-                      "cluster": "service1",
-                      "opaque_config": {
-{{.MixerRouteFlags}}
-                      }
-                    }
-                  ]
-                }
-              ]
-            },
-            "access_log": [
-              {
-                "path": "{{.AccessLog}}"
-              }
-            ],
-            "filters": [
-{{.FaultFilter}}
-              {
-                "type": "decoder",
-                "name": "istio_authn",
-                "config": {
-                  "policy": {
-                    "origins": [
-                      {
-                        "jwt": {
-                          "issuer": "issuer@foo.com",
-                          "jwks_uri": "http://localhost:8081/"
-                        }
-                      }
-                    ]
-                  },
-                  "jwt_output_payload_locations": {
-                    "issuer@foo.com": "sec-istio-auth-jwt-output"
-                  }
-                }
-              }, 
-              {
-                "type": "decoder",
-                "name": "mixer",
-                "config": {
-{{.ServerConfig}}
-                }
-              },
-              {
-                "type": "decoder",
-                "name": "router",
-                "config": {}
-              }
-            ]
+          "jwt": {
+            "issuer": "issuer@foo.com",
+            "jwks_uri": "http://localhost:8081/"
           }
         }
       ]
     },
-    {
-      "address": "tcp://0.0.0.0:{{.ClientPort}}",
-      "bind_to_port": true,
-      "filters": [
-        {
-          "type": "read",
-          "name": "http_connection_manager",
-          "config": {
-            "codec_type": "auto",
-            "stat_prefix": "ingress_http",
-            "route_config": {
-              "virtual_hosts": [
-                {
-                  "name": "backend",
-                  "domains": ["*"],
-                  "routes": [
-                    {
-                      "timeout_ms": 0,
-                      "prefix": "/",
-                      "cluster": "service2",
-                      "opaque_config": {
-                      }
-                    }
-                  ]
-                }
-              ]
-            },
-            "access_log": [
-              {
-                "path": "{{.AccessLog}}"
-              }
-            ],
-            "filters": [
-              {
-                "type": "decoder",
-                "name": "mixer",
-                "config": {
-{{.ClientConfig}}
-                }
-              },
-              {
-                "type": "decoder",
-                "name": "router",
-                "config": {}
-              }
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "address": "tcp://0.0.0.0:{{.TCPProxyPort}}",
-      "bind_to_port": true,
-      "filters": [
-        {
-          "type": "both",
-          "name": "mixer",
-          "config": {
-{{.TCPServerConfig}}
-          }
-        },
-        {
-          "type": "read",
-          "name": "tcp_proxy",
-          "config": {
-            "stat_prefix": "tcp",
-            "route_config": {
-              "routes": [
-                {
-                  "cluster": "service1"
-                }
-              ]
-            }
-          }
-        }
-      ]
+    "jwt_output_payload_locations": {
+      "issuer@foo.com": "sec-istio-auth-jwt-output"
     }
-  ],
-  "admin": {
-    "access_log_path": "/dev/stdout",
-    "address": "tcp://0.0.0.0:{{.AdminPort}}"
-  },
-  "cluster_manager": {
-    "clusters": [
-      {
-        "name": "service1",
-        "connect_timeout_ms": 5000,
-        "type": "strict_dns",
-        "lb_type": "round_robin",
-        "hosts": [
-          {
-            "url": "tcp://{{.Backend}}"
-          }
-        ]
-      },
-      {
-        "name": "service2",
-        "connect_timeout_ms": 5000,
-        "type": "strict_dns",
-        "lb_type": "round_robin",
-        "hosts": [
-          {
-            "url": "tcp://localhost:{{.ServerPort}}"
-          }
-        ]
-      },
-      {
-        "name": "mixer_server",
-        "connect_timeout_ms": 5000,
-        "type": "strict_dns",
-	"circuit_breakers": {
-           "default": {
-	      "max_pending_requests": 10000,
-	      "max_requests": 10000
-            }
-	},
-        "lb_type": "round_robin",
-        "features": "http2",
-        "hosts": [
-          {
-            "url": "tcp://{{.MixerServer}}"
-          }
-        ]
-      }
-    ]
   }
-}
+},
 `
 
 const secIstioAuthUserInfoHeaderKey = "sec-istio-auth-jwt-output"
@@ -338,7 +156,7 @@ const secIstioAuthUserinfoHeaderValue = `
 func TestAuthnCheckReportAttributesNoBoundToOrigin(t *testing.T) {
 	// In the Envoy config, no binding to origin
 	s := env.NewTestSetupWithEnvoyConfig(env.CheckReportIstioAuthnAttributesTestNoBoundToOrigin,
-		envoyConfTempl, t)
+		authnConfig, t)
 
 	env.SetStatsUpdateInterval(s.MfConfig(), 1)
 	if err := s.SetUp(); err != nil {
