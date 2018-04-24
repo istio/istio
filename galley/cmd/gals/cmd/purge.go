@@ -39,7 +39,6 @@ func purgeCmd(fatalf shared.FormatFn) *cobra.Command {
 func purgeResources(fatalf shared.FormatFn) error {
 	config, err := clientcmd.BuildConfigFromFlags("", flags.kubeConfig)
 	if err != nil {
-		fatalf("Error getting Kube config: %v", err)
 		return err
 	}
 
