@@ -18,7 +18,7 @@ import "networking/v1alpha3/gateway.proto";
 
 package istio.networking.v1alpha3;
 
-option go_package = "istio.io/api/networking/v1alpha3";
+option go_package = "istio.io/istio/galley/pkg/api/networking/v1alpha3";
 
 // External service describes the endpoints, ports and protocols of a
 // white-listed set of mesh-external domains and IP blocks that services in

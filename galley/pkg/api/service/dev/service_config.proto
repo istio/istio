@@ -15,12 +15,13 @@
 syntax = "proto3";
 
 import "google/protobuf/struct.proto";
-import "istio/networking/v1alpha3/destination_rule.proto";
-import "istio/networking/v1alpha3/virtual_service.proto";
+import "networking/v1alpha3/destination_rule.proto";
+import "networking/v1alpha3/virtual_service.proto";
+import "networking/v1alpha3/gateway.proto";
 
 package istio.service.dev;
 
-option go_package = "istio.io/istio/galley/pkg/api";
+option go_package = "istio.io/istio/galley/pkg/api/service/dev";
 
 // Producer service config. Each service can only have one service config resources.
 // If more than two resources are created, an errow will throw.
@@ -28,17 +29,17 @@ message ProducerService {
     ServiceSelector service = 1;
 
     // host route/redirection that only applies to this service.
-    istio.networking.alpha3.virtual_service.VirtualService virtual = 2;
+    networking.v1alpha3.VirtualService virtual = 2;
     // destination route/redirection that only applies to this service.
-    istio.networking.alpha3.destiation_rule.DestinationRule destination = 3;
+    networking.v1alpha3.DestinationRule destination = 3;
     // gateway that applies to this service.
-    istio.networking.alpha3.gateway gateway = 3;
+    networking.v1alpha3.Gateway gateway = 4;
 
-    repeated Rule rules = 4;
+    repeated Rule rules = 5;
 
-    repeated InstanceDecl instances = 5;
+    repeated InstanceDecl instances = 6;
 
-    repeated Handler handlers = 4;
+    repeated Handler handlers = 7;
 }
 
 message ServiceSelector {
