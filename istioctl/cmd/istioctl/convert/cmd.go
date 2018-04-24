@@ -95,7 +95,7 @@ func Command() *cobra.Command {
 	}
 
 	cmd.PersistentFlags().StringSliceVarP(&inFilenames, "filenames", "f",
-		nil, "Input filename")
+		nil, "Input filenames")
 	cmd.PersistentFlags().StringVarP(&outFilename, "output", "o",
 		"-", "Output filename")
 
@@ -131,7 +131,7 @@ func convertConfigs(readers []io.Reader, writer io.Writer) error {
 	out = append(out, convert.RouteRules(configs)...)
 	out = append(out, convert.EgressRules(configs)...)
 	// TODO: k8s ingress -> gateway?
-	out = append(out, convert.RouteRuleRouteLabels(configs)...)
+	out = append(out, convert.RouteRuleRouteLabels(out, configs)...)
 
 	writeYAMLOutput(configDescriptor, out, writer)
 
