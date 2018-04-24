@@ -32,8 +32,6 @@ export MASTER_CLUSTER_IP=10.99.0.1
 # TODO: customize the ports and generate a local config
 export KUBECONFIG=${TOP}/src/istio.io/istio/.circleci/config
 
-# to indicate the purpose for downloading macos envoy binary
-export LOCAL_TEST=true
 ${ISTIO_GO}/bin/init.sh
 
 # Checked in certificates, to avoid regenerating them
