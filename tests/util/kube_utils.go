@@ -276,6 +276,15 @@ func getServiceNodePort(serviceName, podLabel, namespace, kubeconfig string) (st
 		return "", fmt.Errorf("the ip of %s is not available yet", serviceName)
 	}
 
+	port, err := getServicePort(serviceName, namespace, kubeconfig)
+	if err != nil {
+		return "", err
+	}
+
+	return ip + ":" + port, nil
+}
+
+func getServicePort(serviceName, namespace, kubeconfig string) (string, error) {
 	port, err := Shell(
 		"kubectl get svc %s -n %s -o jsonpath='{.spec.ports[0].nodePort}' --kubeconfig=%s",
 		serviceName, namespace, kubeconfig)
@@ -291,8 +300,7 @@ func getServiceNodePort(serviceName, podLabel, namespace, kubeconfig string) (st
 		log.Warna(err)
 		return "", err
 	}
-
-	return ip + ":" + port, nil
+	return port, nil
 }
 
 // GetIngressPodNames get the pod names for the Istio ingress deployment.
