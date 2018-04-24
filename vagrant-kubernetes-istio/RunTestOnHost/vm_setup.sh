@@ -7,14 +7,19 @@ vagrant ssh -c "echo export HUB=10.10.0.2:5000 >> ~/.bashrc"
 vagrant ssh -c "echo export TAG=latest >> ~/.bashrc"
 vagrant ssh -c "echo export GOPATH=/home/vagrant/go >> ~/.bashrc"
 vagrant ssh -c "echo export PATH=$PATH:/usr/local/go/bin:/go/bin:/home/vagrant/go/bin >> ~/.bashrc"
+vagrant ssh -c "echo export ISTIO=/home/vagrant/go/src/istio.io >> ~/.bashrc"
 vagrant ssh -c "source ~/.bashrc"
 
 #Setup delve on vagrant
 vagrant ssh -c "/usr/local/go/bin/go get github.com/derekparker/delve/cmd/dlv"
 
-#Create symbolic link between shared istio folder source at GOPATH, so that
-# delve can find it while debugging.
-vagrant ssh -c "sudo ln -s /go /home/vagrant/go"
+#Setup Istio Directory.
+vagrant ssh -c "mkdir -p /home/vagrant/go/src/istio.io"
+# We cannot directly set up synced folder between $ISTIO in host machine and $ISTIO in VM.
+# Because at VM boot up stage synced folder setup comes before privision bootstrap.sh. 
+# Therefore directory $ISTIO in VM does not exist when Vagrant sets up synced folder.
+# We synced $ISTIO from host to /istio.io in VM, and create a softlink between /istio.io/istio and $ISTIO/istio.
+vagrant ssh -c "sudo ln -s /istio.io/istio/ /home/vagrant/go/src/istio.io/istio"
 
 # Adding insecure registry on VM.
 echo "Adding insecure registry to docker daemon in vagrant vm..."
@@ -33,6 +38,9 @@ vagrant ssh -c "sudo sed -i 's/--admission-control=AlwaysAdmit,ServiceAccount/--
 vagrant ssh -c "sudo systemctl daemon-reload"
 vagrant ssh -c "sudo systemctl stop kube-apiserver"
 vagrant ssh -c "sudo systemctl restart kube-apiserver"
+echo "$(tput setaf 1)Make sure flag --allow-privileged=true is passed to both kubelet and apiserver.$(tput sgr 0)"
+ps -ef | grep kube
 vagrant reload
 vagrant ssh -c "kubectl get pods -n kube-system"
+vagrant ssh -c "cp /etc/kubeconfig.yml ~/.kube/config"
 

@@ -10,7 +10,7 @@ The following instruction details the steps required to run E2E tests with a Vag
 
 1. Install
   * [virtual box](https://www.virtualbox.org/wiki/Downloads) - Verify `virtualbox` command opens up a virtual box window
-  * [docker](https://docs.docker.com/) - Verify `docker version` returns version >= 18.03.0-ce
+  * [docker](https://docs.docker.com/) - Verify `docker version` returns version >= 18.03.0-ce
   * [vagrant](https://www.vagrantup.com/downloads.html) - Verify `vagrant -v` returns version >= Vagrant 2.0.3
   * [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl) - Verify `kubectl version` returns both server and client versions
   * [curl](https://curl.haxx.se/)
@@ -47,13 +47,25 @@ sh test_setup.sh
 You should push new images whenever you modify istio source code.
 
 ## 4. Run tests!
+### 1. Run tests on host machine
+You can issue test command on your host machine.
 E.g.
 ```bash
 cd $ISTIO/istio
-make e2e_simple E2E_ARGS="--use_local_cluster"
+make e2e_simple E2E_ARGS="--use_local_cluster" HUB=10.10.0.2:5000 TAG=latest
 ```
 You can keep repeating this step if you made any local changes and want to run e2e tests again.
 Add E2E_ARGS="--use_local_cluster" to all your e2e tests as tests are we are running a local cluster.
+### 2. Run tests on VM
+You can also ssh to VM and issue test command within the VM.
+E.g.
+```bash
+cd $ISTIO/istio/vagrant-kubernetes-istio/RunTestOnHost
+vagrant ssh
+# Inside VM
+cd $ISTIO/istio
+make e2e_simple E2E_ARGS="--use_local_cluster"
+```
 
 
 # Cleanup
