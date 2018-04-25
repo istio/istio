@@ -72,7 +72,7 @@ func TestZipkin(t *testing.T) {
 			// If first invocation (due to mixer check result caching), then check that the mixer
 			// span is also included in the trace
 			// a) Count the number of spans - should be 2, one for the invocation of service b, and the other for the
-			//			server span associated with the mixer check
+			//				server span associated with the mixer check
 			// b) Check that the trace data contains the mixer/check (part of the operation name for the server span)
 			// NOTE: We are also indirectly verifying that the mixer/check span is a child span of the service invocation, as
 			// the mixer/check span can only exist in this trace as a child span. If it wasn't a child span then it would be
