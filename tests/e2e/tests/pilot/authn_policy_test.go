@@ -21,7 +21,6 @@ import (
 )
 
 func TestAuthNPolicy(t *testing.T) {
-	// TODO(quanlin): enable test for v2 API after https://github.com/istio/istio/pull/5061 is in.
 	if !tc.Kube.AuthEnabled {
 		t.Skipf("Skipping %s: auth_enable=false", t.Name())
 	}
@@ -72,6 +71,7 @@ func TestAuthNPolicy(t *testing.T) {
 
 func TestAuthNJwt(t *testing.T) {
 	// V1alpha3 == true implies envoyv2, jwt authn doesn't work for v2 so skip it now.
+	// TODO(quanlin): enable test for v2 API after https://github.com/istio/istio/pull/5061 is in.
 	if tc.V1alpha3 {
 		t.Skipf("Skipping %s: V1alpha3=true", t.Name())
 	}
@@ -86,6 +86,7 @@ func TestAuthNJwt(t *testing.T) {
 	}
 	validJwtToken := string(token)
 
+	// Policy enforces JWT authn for service 'c' and 'd:80'.
 	cfgs := &deployableConfig{
 		Namespace:  tc.Kube.Namespace,
 		YamlFiles:  []string{"testdata/authn/v1alpha1/authn-policy-jwt.yaml.tmpl"},
@@ -99,32 +100,31 @@ func TestAuthNJwt(t *testing.T) {
 	cases := []struct {
 		dst          string
 		src          string
-		path         string
 		port         string
 		validToken   string
 		invalidToken string
 		expect       string
 	}{
-		{dst: "a", src: "b", path: "/", port: "", validToken: "", invalidToken: "", expect: "200"},
-		{dst: "a", src: "c", path: "/xyz", port: "80", validToken: "", invalidToken: "", expect: "200"},
+		{dst: "a", src: "b", port: "", validToken: "", invalidToken: "", expect: "200"},
+		{dst: "a", src: "c", port: "80", validToken: "", invalidToken: "", expect: "200"},
 
-		{dst: "b", src: "a", path: "/", port: "", validToken: "", invalidToken: "", expect: "200"},
-		{dst: "b", src: "a", path: "/xyz", port: "80", validToken: "", invalidToken: "", expect: "200"},
-		{dst: "b", src: "c", path: "/", port: "", validToken: validJwtToken, invalidToken: "", expect: "200"},
-		{dst: "b", src: "d", path: "/xyz", port: "8080", validToken: "", invalidToken: "testToken", expect: "200"},
+		{dst: "b", src: "a", port: "", validToken: "", invalidToken: "", expect: "200"},
+		{dst: "b", src: "a", port: "80", validToken: "", invalidToken: "", expect: "200"},
+		{dst: "b", src: "c", port: "", validToken: validJwtToken, invalidToken: "", expect: "200"},
+		{dst: "b", src: "d", port: "8080", validToken: "", invalidToken: "testToken", expect: "200"},
 
-		{dst: "c", src: "a", path: "/", port: "80", validToken: validJwtToken, invalidToken: "", expect: "200"},
-		{dst: "c", src: "a", path: "/xyz", port: "8080", validToken: "", invalidToken: "invalidToken", expect: "401"},
-		{dst: "c", src: "b", path: "/test", port: "", validToken: "", invalidToken: "random", expect: "401"},
-		{dst: "c", src: "d", path: "/prefix", port: "80", validToken: validJwtToken, invalidToken: "", expect: "200"},
+		{dst: "c", src: "a", port: "80", validToken: validJwtToken, invalidToken: "", expect: "200"},
+		{dst: "c", src: "a", port: "8080", validToken: "", invalidToken: "invalidToken", expect: "401"},
+		{dst: "c", src: "b", port: "", validToken: "", invalidToken: "random", expect: "401"},
+		{dst: "c", src: "d", port: "80", validToken: validJwtToken, invalidToken: "", expect: "200"},
 
-		{dst: "d", src: "a", path: "/xyz", port: "", validToken: validJwtToken, invalidToken: "", expect: "200"},
-		{dst: "d", src: "b", path: "/", port: "80", validToken: "", invalidToken: "foo", expect: "401"},
-		{dst: "d", src: "c", path: "/", port: "8080", validToken: "", invalidToken: "bar", expect: "401"},
+		{dst: "d", src: "a", port: "", validToken: validJwtToken, invalidToken: "", expect: "200"},
+		{dst: "d", src: "b", port: "80", validToken: "", invalidToken: "foo", expect: "401"},
+		{dst: "d", src: "c", port: "8080", validToken: "", invalidToken: "bar", expect: "401"},
 	}
 
 	for _, c := range cases {
-		testName := fmt.Sprintf("%s->%s%s[%s]", c.src, c.dst, c.path, c.expect)
+		testName := fmt.Sprintf("%s->%s[%s]", c.src, c.dst, c.expect)
 		runRetriableTest(t, testName, defaultRetryBudget, func() error {
 			extra := ""
 			if c.validToken != "" {
@@ -133,7 +133,7 @@ func TestAuthNJwt(t *testing.T) {
 				extra = fmt.Sprintf("-key \"Authorization\" -val \"Bearer %s\"", c.invalidToken)
 			}
 
-			resp := ClientRequest(c.src, fmt.Sprintf("http://%s%s", c.dst, c.path), 1, extra)
+			resp := ClientRequest(c.src, fmt.Sprintf("http://%s", c.dst), 1, extra)
 			if len(resp.Code) > 0 && resp.Code[0] == c.expect {
 				return nil
 			}
