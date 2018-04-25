@@ -3,18 +3,24 @@ package showcase
 import (
 	"testing"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/environment"
 )
 
+var cfg = ""
+
 func TestHTTPWithMTLS(t *testing.T) {
-	test.Requires(t, environment.Apps, environment.MTLS)
+	test.Requires(t, environment.Apps, environment.Pilot, environment.MTLS)
 
-	a := pilot.Apps.Get("a")
-	t := pilot.Apps.Get("t")
+	env := test.GetEnvironment(t)
+	env.Configure(cfg)
 
-	reqInfo := a.Call(t)
+	appa := env.GetApp("a")
+	appt := env.GetApp("t")
+
+	reqInfo := appa.Call(appt)
 
 	// Verify that the request was received by t
-	if err := t.Expect(reqInfo); err != nil {
+	if err := appt.Expect(reqInfo); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -22,20 +28,21 @@ func TestHTTPWithMTLS(t *testing.T) {
 func TestHTTPWithMTLSAndMixer(t *testing.T) {
 	test.Requires(t, environment.Mixer, environment.Pilot, environment.Apps, environment.MTLS)
 
-	env := environment.Get()
+	env := test.GetEnvironment(t)
+
 	env.Configure(cfg)
 
-	p := env.GetPilot()
+	_ = env.GetPilot()
 
 	m := env.GetMixer()
 
-	a := env.GetApp("a")
-	t := env.GetApp("t")
+	appa := env.GetApp("a")
+	appt := env.GetApp("t")
 
-	reqInfo := a.Call(t)
+	reqInfo := appa.Call(appt)
 
 	// Verify that the request was received by t
-	if err := t.Expect(reqInfo); err != nil {
+	if err := appt.Expect(reqInfo); err != nil {
 		t.Fatal(err)
 	}
 
