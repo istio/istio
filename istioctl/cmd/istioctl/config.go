@@ -91,7 +91,7 @@ istioctl proxy-config endpoint -n application productpage-v1-bb8d5cbc7-k7qbm sta
 				if podName == "mesh" {
 					proxyID = "all"
 				} else {
-					proxyID = fmt.Sprintf("%v:%v", podName, ns)
+					proxyID = fmt.Sprintf("%v.%v", podName, ns)
 				}
 				pilots, err := getPilotPods()
 				if err != nil {
