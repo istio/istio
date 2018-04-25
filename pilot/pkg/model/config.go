@@ -27,6 +27,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/model/test"
+	"istio.io/istio/pkg/log"
 )
 
 // ConfigMeta is metadata attached to each configuration unit.
@@ -690,6 +691,7 @@ func (store *istioConfigStore) ServiceEntries() []Config {
 func (store *istioConfigStore) VirtualServices(gateways map[string]bool) []Config {
 	configs, err := store.List(VirtualService.Type, NamespaceAll)
 	if err != nil {
+		log.Warnf("Could not load VirtualServices. Error:\n %s \n", err)
 		return nil
 	}
 
