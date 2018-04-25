@@ -98,42 +98,35 @@ func TestAuthNJwt(t *testing.T) {
 	defer cfgs.Teardown()
 
 	cases := []struct {
-		dst          string
-		src          string
-		port         string
-		validToken   string
-		invalidToken string
-		expect       string
+		dst    string
+		src    string
+		port   string
+		token  string
+		expect string
 	}{
-		{dst: "a", src: "b", port: "", validToken: "", invalidToken: "", expect: "200"},
-		{dst: "a", src: "c", port: "80", validToken: "", invalidToken: "", expect: "200"},
+		{dst: "a", src: "b", port: "", token: "", expect: "200"},
+		{dst: "a", src: "c", port: "80", token: "", expect: "200"},
 
-		{dst: "b", src: "a", port: "", validToken: "", invalidToken: "", expect: "200"},
-		{dst: "b", src: "a", port: "80", validToken: "", invalidToken: "", expect: "200"},
-		{dst: "b", src: "c", port: "", validToken: validJwtToken, invalidToken: "", expect: "200"},
-		{dst: "b", src: "d", port: "8080", validToken: "", invalidToken: "testToken", expect: "200"},
+		{dst: "b", src: "a", port: "", token: "", expect: "200"},
+		{dst: "b", src: "a", port: "80", token: "", expect: "200"},
+		{dst: "b", src: "c", port: "", token: validJwtToken, expect: "200"},
+		{dst: "b", src: "d", port: "8080", token: "testToken", expect: "200"},
 
-		{dst: "c", src: "a", port: "80", validToken: validJwtToken, invalidToken: "", expect: "200"},
-		{dst: "c", src: "a", port: "8080", validToken: "", invalidToken: "invalidToken", expect: "401"},
-		{dst: "c", src: "b", port: "", validToken: "", invalidToken: "random", expect: "401"},
-		{dst: "c", src: "d", port: "80", validToken: validJwtToken, invalidToken: "", expect: "200"},
+		{dst: "c", src: "a", port: "80", token: validJwtToken, expect: "200"},
+		{dst: "c", src: "a", port: "8080", token: "invalidToken", expect: "401"},
+		{dst: "c", src: "b", port: "", token: "random", expect: "401"},
+		{dst: "c", src: "d", port: "80", token: validJwtToken, expect: "200"},
 
-		{dst: "d", src: "a", port: "", validToken: validJwtToken, invalidToken: "", expect: "200"},
-		{dst: "d", src: "b", port: "80", validToken: "", invalidToken: "foo", expect: "401"},
-		{dst: "d", src: "c", port: "8080", validToken: "", invalidToken: "bar", expect: "401"},
+		{dst: "d", src: "a", port: "", token: validJwtToken, expect: "200"},
+		{dst: "d", src: "b", port: "80", token: "foo", expect: "401"},
+		{dst: "d", src: "c", port: "8080", token: "bar", expect: "200"},
 	}
 
 	for _, c := range cases {
 		testName := fmt.Sprintf("%s->%s[%s]", c.src, c.dst, c.expect)
 		runRetriableTest(t, testName, defaultRetryBudget, func() error {
-			extra := ""
-			if c.validToken != "" {
-				extra = fmt.Sprintf("-key \"Authorization\" -val \"Bearer %s\"", c.validToken)
-			} else if c.invalidToken != "" {
-				extra = fmt.Sprintf("-key \"Authorization\" -val \"Bearer %s\"", c.invalidToken)
-			}
-
-			resp := ClientRequest(c.src, fmt.Sprintf("http://%s", c.dst), 1, extra)
+			extra := fmt.Sprintf("-key \"Authorization\" -val \"Bearer %s\"", c.token)
+			resp := ClientRequest(c.src, fmt.Sprintf("http://%s:%s", c.dst, c.port), 1, extra)
 			if len(resp.Code) > 0 && resp.Code[0] == c.expect {
 				return nil
 			}
