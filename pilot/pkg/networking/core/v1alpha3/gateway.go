@@ -113,7 +113,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 				ProxyInstances: workloadInstances,
 			}
 			if err = p.OnOutboundListener(params, mutable); err != nil {
-				log.Warn(err.Error())
+				log.Warna("failed to build listener for gateway: ", err.Error())
 			}
 		}
 
