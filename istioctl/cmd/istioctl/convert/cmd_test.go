@@ -73,6 +73,23 @@ func TestCommand(t *testing.T) {
 
 		{in: []string{"egress-rule-wildcard-httpbin.yaml"},
 			out: "egress-rule-wildcard-httpbin.yaml"},
+
+		{in: []string{"destination-policy-helloworld.yaml"},
+			out: "destination-rule-helloworld.yaml"},
+
+		{in: []string{"route-rule-80-20.yaml"},
+			out: "route-rule-80-20.yaml"},
+
+		// Verify that we merge rather than duplicate when creating VirtualService+DestinationRule
+		{in: []string{"route-rule-80-20.yaml", "destination-policy-helloworld.yaml"},
+			out: "route-rule-80-20-with-destpolicy.yaml"},
+
+		// Verify the merging is correct if the rules arrive in a different order
+		{in: []string{"destination-policy-helloworld.yaml", "route-rule-80-20.yaml"},
+			out: "destination-rule-helloworld-with-80-20.yaml"},
+
+		{in: []string{"nolabel-destination-policy.yaml"},
+			out: "nolabel-destination-rule.yaml"},
 	}
 
 	for _, tc := range tt {
