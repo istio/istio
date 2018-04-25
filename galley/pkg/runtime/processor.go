@@ -19,7 +19,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"istio.io/istio/galley/pkg/api"
+	serviceconfig "istio.io/istio/galley/pkg/api/service/dev"
 	"istio.io/istio/galley/pkg/model"
 	"istio.io/istio/galley/pkg/model/generator"
 	"istio.io/istio/pkg/log"
@@ -162,7 +162,7 @@ func (in *Processor) generatePart(key model.ResourceKey) {
 		// TODO: Handle error case
 		panic(err)
 	}
-	instances, rules := generator.Generate(res.Item.(*api.ServiceConfig), in.state.names)
+	instances, rules := generator.Generate(res.Item.(*serviceconfig.ProducerService), in.state.names)
 	in.state.parts[key] = &PartialMixerConfigState{
 		Rules:     rules,
 		Instances: instances,

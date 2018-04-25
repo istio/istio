@@ -17,12 +17,12 @@ package generator
 import (
 	"fmt"
 
-	"istio.io/istio/galley/pkg/api"
 	"istio.io/istio/galley/pkg/api/distrib"
+	serviceconfig "istio.io/istio/galley/pkg/api/service/dev"
 	"istio.io/istio/galley/pkg/model/common"
 )
 
-func Generate(cfg *api.ServiceConfig, names *common.Uniquifier) (instances []*distrib.Instance, rules []*distrib.Rule) {
+func Generate(cfg *serviceconfig.ProducerService, names *common.Uniquifier) (instances []*distrib.Instance, rules []*distrib.Rule) {
 
 	for _, instance := range cfg.Instances {
 		inst := &distrib.Instance{}
@@ -40,7 +40,7 @@ func Generate(cfg *api.ServiceConfig, names *common.Uniquifier) (instances []*di
 
 		r.Match = rule.Match
 
-		serviceConstraint := fmt.Sprintf("destination.service == %q", cfg.Name)
+		serviceConstraint := fmt.Sprintf("destination.service == %q", cfg.GetService().GetName())
 		if r.Match == "" {
 			r.Match = serviceConstraint
 		} else {
