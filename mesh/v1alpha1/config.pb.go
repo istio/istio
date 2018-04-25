@@ -158,7 +158,7 @@ type MeshConfig_OutboundTrafficPolicy_Mode int32
 
 const (
 	// outbound traffic will be restricted to services defined in the service registry as well as those defined
-	// through ExternalServices
+	// through ServiceEntries
 	MeshConfig_OutboundTrafficPolicy_REGISTRY_ONLY MeshConfig_OutboundTrafficPolicy_Mode = 0
 	// outbound traffic to unknown destinations will be allowed
 	MeshConfig_OutboundTrafficPolicy_ALLOW_ANY MeshConfig_OutboundTrafficPolicy_Mode = 1
@@ -451,7 +451,7 @@ type MeshConfig struct {
 	// While the default mode should work out of the box, if your application uses one or more external services that
 	// are not known apriori, setting the policy to ALLOW_ANY will cause the sidecars to route traffic to the any
 	// requested destination.
-	// Users are strongly encouraged to use ExternalServices to explicitly declare any external dependencies,
+	// Users are strongly encouraged to use ServiceEntries to explicitly declare any external dependencies,
 	// instead of using allow_any.
 	OutboundTrafficPolicy *MeshConfig_OutboundTrafficPolicy `protobuf:"bytes,17,opt,name=outbound_traffic_policy,json=outboundTrafficPolicy" json:"outbound_traffic_policy,omitempty"`
 }
