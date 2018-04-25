@@ -125,15 +125,14 @@ func TestServicesForMultiCluster(t *testing.T) {
 	aggregateCtl := buildMockControllerForMultiCluster()
 	// List Services from aggregate controller
 	services, err := aggregateCtl.Services()
+	if err != nil {
+		t.Fatalf("Services() encountered unexpected error: %v", err)
+	}
 
 	// Set up ground truth hostname values
 	serviceMap := map[string]bool{
 		mock.HelloService.Hostname: false,
 		mock.WorldService.Hostname: false,
-	}
-
-	if err != nil {
-		t.Fatalf("Services() encountered unexpected error: %v", err)
 	}
 
 	svcCount := 0
@@ -146,7 +145,7 @@ func TestServicesForMultiCluster(t *testing.T) {
 	}
 
 	if svcCount != len(serviceMap) {
-		t.Fatal("Return services does not match ground truth")
+		t.Fatalf("Service map expected size %d, actual %v", svcCount, serviceMap)
 	}
 
 	//Now verify Addresses for each service
@@ -161,7 +160,7 @@ func TestServicesForMultiCluster(t *testing.T) {
 	}
 	for _, svc := range services {
 		if !reflect.DeepEqual(svc.Addresses, Addresses[svc.Hostname]) {
-			t.Fatal("Return service Addresses does not match ground truth")
+			t.Fatalf("Service %s addresses actual %v, expected %v", svc.Hostname, svc.Addresses, Addresses[svc.Hostname])
 		}
 	}
 	t.Logf("Return service Addresses match ground truth")
