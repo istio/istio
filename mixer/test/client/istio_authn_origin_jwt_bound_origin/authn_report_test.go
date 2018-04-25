@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package istioAuthnNoBoundOrigin
+package istioAuthnOriginJwtBoundOrigin
 
 import (
 	"encoding/base64"
@@ -53,6 +53,7 @@ const checkAttributesOkGet = `
      "x-request-id": "*"
   },
   "request.auth.audiences": "aud1",
+  "request.auth.principal": "issuer@foo.com/sub@foo.com",
   "request.auth.claims": {
      "iss": "issuer@foo.com", 
      "sub": "sub@foo.com",
@@ -62,7 +63,7 @@ const checkAttributesOkGet = `
 }
 `
 
-// Report attributes from a good GET request
+// Report attributes from a good GET request with Istio authn policy binding to origin
 const reportAttributesOkGet = `
 {
   "context.protocol": "http",
@@ -97,7 +98,7 @@ const reportAttributesOkGet = `
      "x-request-id": "*"
   },
   "request.size": 0,
-  "request.total_size": 517,
+  "request.total_size": 553,
   "response.total_size": 99,
   "response.time": "*",
   "response.size": 0,
@@ -110,6 +111,7 @@ const reportAttributesOkGet = `
      "server": "envoy"
   },
   "request.auth.audiences": "aud1",
+  "request.auth.principal": "issuer@foo.com/sub@foo.com",
   "request.auth.claims": {
      "iss": "issuer@foo.com", 
      "sub": "sub@foo.com",
@@ -133,7 +135,8 @@ const authnConfig = `
             "jwks_uri": "http://localhost:8081/"
           }
         }
-      ]
+      ],
+      "principal_binding": 1
     },
     "jwt_output_payload_locations": {
       "issuer@foo.com": "sec-istio-auth-jwt-output"
@@ -154,9 +157,9 @@ const secIstioAuthUserinfoHeaderValue = `
 }
 `
 
-func TestAuthnCheckReportAttributesNoBoundToOrigin(t *testing.T) {
-	s := env.NewTestSetup(env.CheckReportIstioAuthnAttributesTestNoBoundToOrigin, t)
-	// In the Envoy config, no binding to origin
+func TestAuthnCheckReportAttributesOriginJwtBoundToOrigin(t *testing.T) {
+	s := env.NewTestSetup(env.CheckReportIstioAuthnAttributesTestOriginJwtBoundToOrigin, t)
+	// In the Envoy config, principal_binding binds to origin
 	s.SetFiltersBeforeMixer(authnConfig)
 
 	env.SetStatsUpdateInterval(s.MfConfig(), 1)

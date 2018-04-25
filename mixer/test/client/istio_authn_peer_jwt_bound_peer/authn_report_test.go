@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package istioAuthnBoundOrigin
+package istioAuthnPeerJwtBoundPeer
 
 import (
 	"encoding/base64"
@@ -39,6 +39,8 @@ const checkAttributesOkGet = `
   "source.namespace": "XYZ11",
   "source.ip": "[127 0 0 1]",
   "source.port": "*",
+  "source.principal": "issuer@foo.com/sub@foo.com",
+  "source.user": "issuer@foo.com/sub@foo.com",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
@@ -63,7 +65,7 @@ const checkAttributesOkGet = `
 }
 `
 
-// Report attributes from a good GET request with Istio authn policy binding to origin
+// Report attributes from a good GET request with Istio authn policy
 const reportAttributesOkGet = `
 {
   "context.protocol": "http",
@@ -80,6 +82,8 @@ const reportAttributesOkGet = `
   "source.namespace": "XYZ11",
   "source.ip": "[127 0 0 1]",
   "source.port": "*",
+  "source.principal": "issuer@foo.com/sub@foo.com",
+  "source.user": "issuer@foo.com/sub@foo.com",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
   "target.name": "target-name",
@@ -98,7 +102,7 @@ const reportAttributesOkGet = `
      "x-request-id": "*"
   },
   "request.size": 0,
-  "request.total_size": 553,
+  "request.total_size": 589,
   "response.total_size": 99,
   "response.time": "*",
   "response.size": 0,
@@ -128,7 +132,7 @@ const authnConfig = `
   "name": "istio_authn",
   "config": {
     "policy": {
-      "origins": [
+      "peers": [
         {
           "jwt": {
             "issuer": "issuer@foo.com",
@@ -136,7 +140,7 @@ const authnConfig = `
           }
         }
       ],
-      "principal_binding": 1
+      "principal_binding": 0
     },
     "jwt_output_payload_locations": {
       "issuer@foo.com": "sec-istio-auth-jwt-output"
@@ -157,9 +161,9 @@ const secIstioAuthUserinfoHeaderValue = `
 }
 `
 
-func TestAuthnCheckReportAttributesBoundToOrigin(t *testing.T) {
-	s := env.NewTestSetup(env.CheckReportIstioAuthnAttributesTestBoundToOrigin, t)
-	// In the Envoy config, principal_binding binds to origin
+func TestAuthnCheckReportAttributesPeerJwtBoundToPeer(t *testing.T) {
+	s := env.NewTestSetup(env.CheckReportIstioAuthnAttributesTestPeerJwtBoundToPeer, t)
+	// In the Envoy config, principal_binding binds to peer
 	s.SetFiltersBeforeMixer(authnConfig)
 
 	env.SetStatsUpdateInterval(s.MfConfig(), 1)
