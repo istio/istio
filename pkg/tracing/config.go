@@ -55,6 +55,7 @@ import (
 	jaeger "github.com/uber/jaeger-client-go"
 	"github.com/uber/jaeger-client-go/transport"
 	"github.com/uber/jaeger-client-go/transport/zipkin"
+	zk "github.com/uber/jaeger-client-go/zipkin"
 	"go.uber.org/zap"
 
 	"istio.io/istio/pkg/log"
@@ -121,7 +122,17 @@ func configure(serviceName string, options *Options, nz newZipkin) (io.Closer, e
 		rep = jaeger.NewCompositeReporter(reporters...)
 	}
 
-	tracer, closer := jaeger.NewTracer(serviceName, sampler, rep, poolSpans)
+	var tracer ot.Tracer
+	var closer io.Closer
+
+	if options.ZipkinURL != "" {
+		zipkinPropagator := zk.NewZipkinB3HTTPHeaderPropagator()
+		injector := jaeger.TracerOptions.Injector(ot.HTTPHeaders, zipkinPropagator)
+		extractor := jaeger.TracerOptions.Extractor(ot.HTTPHeaders, zipkinPropagator)
+		tracer, closer = jaeger.NewTracer(serviceName, sampler, rep, poolSpans, injector, extractor)
+	} else {
+		tracer, closer = jaeger.NewTracer(serviceName, sampler, rep, poolSpans)
+	}
 
 	// NOTE: global side effect!
 	ot.SetGlobalTracer(tracer)
