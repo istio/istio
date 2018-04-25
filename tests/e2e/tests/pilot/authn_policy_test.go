@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"testing"
+
+	"istio.io/istio/pkg/log"
 )
 
 func TestAuthNPolicy(t *testing.T) {
@@ -72,9 +74,9 @@ func TestAuthNPolicy(t *testing.T) {
 func TestAuthNJwt(t *testing.T) {
 	// V1alpha3 == true implies envoyv2, jwt authn doesn't work for v2 so skip it now.
 	// TODO(quanlin): enable test for v2 API after https://github.com/istio/istio/pull/5061 is in.
-	if tc.V1alpha3 {
+	/*if tc.V1alpha3 {
 		t.Skipf("Skipping %s: V1alpha3=true", t.Name())
-	}
+	}*/
 
 	// JWT token used is borrowed from https://github.com/istio/proxy/blob/master/src/envoy/http/jwt_auth/sample/correct_jwt.
 	// The Token expires in year 2132, issuer is 628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com.
@@ -92,6 +94,11 @@ func TestAuthNJwt(t *testing.T) {
 		YamlFiles:  []string{"testdata/authn/v1alpha1/authn-policy-jwt.yaml.tmpl"},
 		kubeconfig: tc.Kube.KubeConfig,
 	}
+	if tc.V1alpha3 {
+		log.Info("++++++++++++++++++++++++++++++++++++++++++=V1alpha3")
+		cfgs.YamlFiles = []string{"testdata/authn/v1alpha3/authn-policy-jwt.yaml.tmpl"}
+	}
+
 	if err := cfgs.Setup(); err != nil {
 		t.Fatal(err)
 	}
