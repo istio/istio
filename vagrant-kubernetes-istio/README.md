@@ -101,3 +101,4 @@ sh host_cleanup.sh
 1. Click on the Daemon tag
 1. Remove `10.10.0.2:5000` from the "Insecure registries"
 1. Click the `Apply and Start` button in the bottom to restart Docker with the new setting
+
