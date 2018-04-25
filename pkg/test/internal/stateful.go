@@ -12,30 +12,14 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package environment
+package internal
 
-import "istio.io/istio/pkg/test"
+type Stateful interface {
 
-var MTLS = &mtls{}
+	Initialize() (interface{}, error)
 
-type mtls struct {
+	Reset(interface{}) error
 
+	Cleanup(interface{})
 }
 
-var _ test.Dependency = &mtls{}
-
-func (r *mtls) String() string {
-	return ""
-}
-
-func (r *mtls) Initialize() (interface{}, error) {
-	return nil, nil
-}
-
-func (r *mtls) Reset(interface{}) error {
-	return nil
-}
-
-func (r *mtls) Cleanup(interface{}) {
-
-}

@@ -12,30 +12,31 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package environment
+package dependency
 
-import "istio.io/istio/pkg/test"
+import "istio.io/istio/pkg/test/internal"
 
-var Apps = &apps{}
+var MTLS Dependency = &mtls{}
 
-type apps struct {
+type mtls struct {
 
 }
 
-var _ test.Dependency = &apps{}
+var _ Dependency = &mtls{}
+var _ internal.Stateful = &mtls{}
 
-func (a *apps) String() string {
+func (r *mtls) String() string {
 	return ""
 }
 
-func (a *apps) Initialize() (interface{}, error) {
+func (r *mtls) Initialize() (interface{}, error) {
 	return nil, nil
 }
 
-func (a *apps) Reset(interface{}) error {
+func (r *mtls) Reset(interface{}) error {
 	return nil
 }
 
-func (a *apps) Cleanup(interface{}) {
+func (r *mtls) Cleanup(interface{}) {
 
 }

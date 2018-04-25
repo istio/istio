@@ -12,30 +12,31 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package environment
+package dependency
 
-import "istio.io/istio/pkg/test"
+import "istio.io/istio/pkg/test/internal"
 
-var Mixer = &mixer{}
+var Pilot Dependency = &pilot{}
 
-type mixer struct {
+type pilot struct {
 
 }
 
-var _ test.Dependency = &mixer{}
+var _ Dependency = &pilot{}
+var _ internal.Stateful = &pilot{}
 
-func (a *mixer) String() string {
+func (a *pilot) String() string {
 	return ""
 }
 
-func (a *mixer) Initialize() (interface{}, error) {
+func (a *pilot) Initialize() (interface{}, error) {
 	return nil, nil
 }
 
-func (a *mixer) Reset(interface{}) error {
+func (a *pilot) Reset(interface{}) error {
 	return nil
 }
 
-func (a *mixer) Cleanup(interface{}) {
+func (a *pilot) Cleanup(interface{}) {
 
 }
