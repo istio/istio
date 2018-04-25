@@ -65,7 +65,7 @@ func convertDuration(d *duration.Duration) time.Duration {
 	return dur
 }
 
-func args(config *meshconfig.ProxyConfig, node, fname string, epoch int) []string {
+func args(config *meshconfig.ProxyConfig, node, fname string, epoch int, cliarg []string) []string {
 	startupArgs := []string{"-c", fname,
 		"--restart-epoch", fmt.Sprint(epoch),
 		"--drain-time-s", fmt.Sprint(int(convertDuration(config.DrainDuration) / time.Second)),
@@ -73,6 +73,10 @@ func args(config *meshconfig.ProxyConfig, node, fname string, epoch int) []strin
 		"--service-cluster", config.ServiceCluster,
 		"--service-node", node,
 		"--max-obj-name-len", fmt.Sprint(MaxClusterNameLength), // TODO: use MeshConfig.StatNameLength instead
+	}
+
+	for _, v := range cliarg {
+		startupArgs = append(startupArgs, v)
 	}
 
 	//startupArgs = append(startupArgs, proxy.extraArgs...)
@@ -92,10 +96,10 @@ func args(config *meshconfig.ProxyConfig, node, fname string, epoch int) []strin
 // The doneChan will be notified if the envoy process dies.
 // The returned process can be killed by the caller to terminate the proxy.
 func RunProxy(config *meshconfig.ProxyConfig, node string, epoch int, configFname string, doneChan chan error,
-	outWriter io.Writer, errWriter io.Writer) (*os.Process, error) {
+	outWriter io.Writer, errWriter io.Writer, cliarg []string) (*os.Process, error) {
 
 	// spin up a new Envoy process
-	args := args(config, node, configFname, epoch)
+	args := args(config, node, configFname, epoch, cliarg)
 	args = append(args, "--v2-config-only")
 
 	/* #nosec */
@@ -192,7 +196,7 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	meta := map[string]string{}
 	for _, env := range os.Environ() {
 		if strings.HasPrefix(env, "ISTIO_META_") {
-			v := env[len("ISTIO_META"):]
+			v := env[len("ISTIO_META_"):]
 			parts := strings.SplitN(v, "=", 2)
 			if len(parts) == 2 {
 				meta[parts[0]] = parts[1]

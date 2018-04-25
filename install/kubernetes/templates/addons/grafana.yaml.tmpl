@@ -4,6 +4,8 @@ kind: Service
 metadata:
   name: grafana
   namespace: {ISTIO_NAMESPACE}
+  annotations:
+    auth.istio.io/3000: NONE
 spec:
   ports:
   - port: 3000

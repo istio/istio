@@ -179,6 +179,7 @@ func TestSign(t *testing.T) {
 			port:           8080,
 			authorizer:     c.authorizer,
 			authenticators: c.authenticators,
+			monitoring:     newMonitoringMetrics(),
 		}
 		request := &pb.CsrRequest{CsrPem: []byte(c.csr)}
 

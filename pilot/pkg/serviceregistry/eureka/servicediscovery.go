@@ -90,7 +90,7 @@ func (sd *serviceDiscovery) Instances(hostname string, ports []string,
 }
 
 // GetProxyServiceInstances returns service instances co-located with a proxy
-func (sd *serviceDiscovery) GetProxyServiceInstances(proxy model.Proxy) ([]*model.ServiceInstance, error) {
+func (sd *serviceDiscovery) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
 	apps, err := sd.client.Applications()
 	if err != nil {
 		log.Warnf("could not list Eureka instances: %v", err)
@@ -104,6 +104,7 @@ func (sd *serviceDiscovery) GetProxyServiceInstances(proxy model.Proxy) ([]*mode
 			out = append(out, instance)
 		}
 	}
+
 	return out, nil
 }
 
