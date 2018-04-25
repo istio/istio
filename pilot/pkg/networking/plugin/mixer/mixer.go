@@ -132,7 +132,7 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConfigura
 					nr.PerFilterConfig = make(map[string]*types.Struct)
 				}
 				nr.PerFilterConfig[v1.MixerFilter] = util.MessageToStruct(
-					buildMixerPerRouteConfig(in.Env.Mesh.DisablePolicyChecks, forward, in.ServiceInstance.Service.Hostname))
+					buildMixerPerRouteConfig(in.Env.Mesh.DisablePolicyChecks, forward, in.ServiceInstance.Service.Hostname.String()))
 				nrs = append(nrs, nr)
 			}
 			nvh.Routes = nrs
@@ -206,8 +206,8 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 
 	// TODO: derive these port types.
 	transport := &mccpb.TransportConfig{
-		CheckCluster:  model.BuildSubsetKey(model.TrafficDirectionOutbound, "", mcs, &model.Port{Name: "http2-mixer"}),
-		ReportCluster: model.BuildSubsetKey(model.TrafficDirectionOutbound, "", mrs, &model.Port{Name: "http2-mixer"}),
+		CheckCluster:  model.BuildSubsetKey(model.TrafficDirectionOutbound, "", model.Hostname(mcs), &model.Port{Name: "http2-mixer"}),
+		ReportCluster: model.BuildSubsetKey(model.TrafficDirectionOutbound, "", model.Hostname(mrs), &model.Port{Name: "http2-mixer"}),
 	}
 
 	mxConfig := &mccpb.HttpClientConfig{

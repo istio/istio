@@ -245,13 +245,9 @@ func TestHostnameMatches(t *testing.T) {
 		{"wildcard matches anything", "*", "*", true},
 		{"wildcard matches anything", "*", "", true},
 
-		{"long wildcard matches short host", "*.foo.bar.baz", "baz", true},
+		{"wildcarded domain matches wildcarded subdomain", "*.com", "*.foo.com", true},
 
-		// TODO: with the current implementation, this test case fails but is clearly invalid. Do we care?
-		// We validate that all hostnames are valid wildcard-DNS names (which disallows non-leading '*'), so we should
-		// never see this case in the wild.
-		//{"non-leading wildcard",
-		//	"foo.*.com", "foo.*.com", false},
+		{"long wildcard matches short host", "*.foo.bar.baz", "baz", true},
 	}
 
 	for idx, tt := range tests {

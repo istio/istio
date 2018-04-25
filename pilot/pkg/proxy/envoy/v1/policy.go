@@ -61,7 +61,7 @@ func ApplyClusterPolicy(cluster *Cluster,
 	}
 
 	// apply destination policies
-	policyConfig := config.Policy(proxyInstances, model.Hostname(cluster.Hostname), cluster.labels)
+	policyConfig := config.Policy(proxyInstances, cluster.Hostname, cluster.labels)
 	if policyConfig == nil {
 		return
 	}

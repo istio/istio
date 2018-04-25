@@ -651,7 +651,7 @@ func TestResolveShortnameToFQDN(t *testing.T) {
 	tests := []struct {
 		name string
 		meta model.ConfigMeta
-		out  string
+		out  model.Hostname
 	}{
 		{
 			"*", model.ConfigMeta{}, "*",

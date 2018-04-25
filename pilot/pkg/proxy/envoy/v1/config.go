@@ -592,7 +592,7 @@ func buildDestinationHTTPRoutes(service *model.Service,
 
 		// collect route rules
 		useDefaultRoute := true
-		configs := store.RouteRules(proxyInstances, service.Hostname)
+		configs := store.RouteRules(proxyInstances, service.Hostname.String())
 		// sort for output uniqueness
 		model.SortRouteRules(configs)
 

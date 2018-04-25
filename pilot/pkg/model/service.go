@@ -361,33 +361,8 @@ func (h Hostname) String() string {
 //  Hostname("foo.com").Matches("foo.com") = true
 //  Hostname("foo.com").Matches("bar.com") = false
 //  Hostname("*.com").Matches("foo.com")   = true
-//  Hostname("foo.com").Matches("*.com")   = true // TODO: do we care as long as at least one is a wildcard?
+//  Hostname("foo.com").Matches("*.com")   = true
 func (h Hostname) Matches(o Hostname) bool {
-	// TODO: can we just strip off the leading * and compare suffixes?
-	//// at least one of the two is a wildcard hostname; the wildcard must be in the first section of the hostname,
-	//// so we'll walk both backwards ensuring they match until we get to the first segment of the shorter hostname
-	//hp, op := strings.Split(hs, "."), strings.Split(os, ".")
-	//i, j := len(hp), len(op)
-	//for ; i > 1 && j > 1; i, j = i-1, j-1 {
-	//	if hp[i] != op[j] {
-	//		return false
-	//	}
-	//}
-	//// we matched all the way to the wildcard segment, so now we compare the wildcard entry to the remainder of the
-	//// other hostname
-	//// note: the shorter hostname must be the wildcard hostname or the two cannot match
-	//var wildcardSegment, rest string
-	//if i < j {
-	//	// the wildcard must be the first character of the segment, so we trim it off
-	//	wildcardSegment = strings.TrimLeft(hp[i], "*")
-	//	rest = strings.Join(op[0:j], "")
-	//} else {
-	//	wildcardSegment = strings.TrimLeft(op[j], "*")
-	//	rest = strings.Join(hp[0:i], "")
-	//}
-	//// wildcards describe a prefix, so as long as the suffixes match we're happy
-	//return strings.HasSuffix(rest, wildcardSegment)
-
 	if !strings.Contains(string(h), "*") && !strings.Contains(string(o), "*") {
 		return h == o
 	}
