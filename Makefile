@@ -333,7 +333,6 @@ $(SECURITY_GO_BINS):
 
 .PHONY: build
 # Build will rebuild the go binaries.
-build: export USE_DOCKER=true
 build: depend $(PILOT_GO_BINS_SHORT) mixc mixs node_agent istio_ca flexvolume istioctl gals
 
 # The following are convenience aliases for most of the go targets

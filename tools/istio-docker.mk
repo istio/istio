@@ -16,6 +16,7 @@
 
 # Docker target will build the go binaries and package the docker for local testing.
 # It does not upload to a registry.
+docker: export USE_DOCKER=true
 docker: build test-bins docker.all
 
 $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
