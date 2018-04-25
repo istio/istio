@@ -29,7 +29,7 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/config/storetest"
-	testEnv "istio.io/istio/mixer/pkg/server"
+	"istio.io/istio/mixer/pkg/server"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/mixer/test/spyAdapter"
 )
@@ -57,7 +57,7 @@ func (tt *testData) run(t *testing.T, variety v1beta1.TemplateVariety, globalCfg
 	// Do common setup
 	adapterInfos, spyAdapters := constructAdapterInfos(tt.behaviors)
 
-	args := testEnv.DefaultArgs()
+	args := server.DefaultArgs()
 	args.APIPort = 0
 	args.MonitoringPort = 0
 	args.Templates = tt.templates
@@ -67,16 +67,16 @@ func (tt *testData) run(t *testing.T, variety v1beta1.TemplateVariety, globalCfg
 		t.Fatal(cerr)
 	}
 
-	env, err := testEnv.New(args)
+	s, err := server.New(args)
 	if err != nil {
 		t.Fatalf("fail to create mixer: %v", err)
 	}
 
-	env.Run()
+	s.Run()
 
-	defer closeHelper(env)
+	defer closeHelper(s)
 
-	conn, err := grpc.Dial(env.Addr().String(), grpc.WithInsecure())
+	conn, err := grpc.Dial(s.Addr().String(), grpc.WithInsecure())
 	if err != nil {
 		t.Fatalf("Unable to connect to gRPC server: %v", err)
 	}
