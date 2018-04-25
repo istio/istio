@@ -191,17 +191,11 @@ jobs:
             - TEST_ENV: minikube-none
             - GOPATH: /go
     steps:
-      - type: shell
-        name: Initialize Working Directory
-        pwd: /
-        command: |
-          sudo mkdir -p /go/src/istio.io/istio
-          sudo chown -R circleci /go
-          mkdir -p /go/out
-          mkdir /home/circleci/logs
+      - <<: *initWorkingDir
       - checkout
       - attach_workspace:
           at:  /go
+      - <<: *markJobStartsOnGCS
       - run: make sync
       - run: bin/testEnvRootMinikube.sh start
       - run:
@@ -214,15 +208,23 @@ jobs:
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run:
-            no_output_timeout: 20m
-            # Run the test even if previous failed
-            when: always
-            command: |
-                  make e2e_galley E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide --use_galley_config_validator -test.v"
+          no_output_timeout: 20m
+          # Run the test even if previous failed
+          when: always
+          name: make e2e_galley
+          command: |
+            E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide --use_galley_config_validator -test.v" \
+            make e2e_galley | tee -a /go/out/tests/build-log.txt
+      - <<: *recordZeroExitCodeIfTestPassed
+      - <<: *recordNonzeroExitCodeIfTestFailed
+      - <<: *dumpsysNonPilot
+      - <<: *markJobFinishesOnGCS
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
           path: /tmp
+      - store_test_results:
+          path: /go/out/tests
 
   e2e-bookinfo:
     <<: *integrationDefaults
