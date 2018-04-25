@@ -92,7 +92,7 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 
 	certPEM, signErr := c.ca.Sign(csrPEM, c.interval, false)
 	if signErr != nil {
-		return signErr.FullError
+		return signErr.(ca.Error)
 	}
 
 	// Store certificate chain and private key to generate CSR

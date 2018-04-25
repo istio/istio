@@ -368,8 +368,8 @@ func TestSignCSRTTLError(t *testing.T) {
 		t.Errorf("Expected null cert be obtained a non-null cert.")
 	}
 	expectedErr := "requested TTL 3h0m0s is greater than the max allowed TTL 2h0m0s"
-	if signErr.FullError.Error() != expectedErr {
-		t.Errorf("Expected error: %s but got error: %s.", signErr.FullError.Error(), expectedErr)
+	if signErr.(*Error).Error() != expectedErr {
+		t.Errorf("Expected error: %s but got error: %s.", signErr.(*Error).Error(), expectedErr)
 	}
 }
 

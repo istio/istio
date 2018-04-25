@@ -67,14 +67,14 @@ func (s *Server) HandleCSR(ctx context.Context, request *pb.CsrRequest) (*pb.Csr
 	csr, err := util.ParsePemEncodedCSR(request.CsrPem)
 	if err != nil {
 		log.Warnf("CSR Pem parsing error (error %v)", err)
-		s.monitoring.GetAuthzError("CSR Pem parsing error").Inc()
+		s.monitoring.CSRError.Inc()
 		return nil, status.Errorf(codes.InvalidArgument, "CSR parsing error (%v)", err)
 	}
 
 	_, err = util.ExtractIDs(csr.Extensions)
 	if err != nil {
 		log.Warnf("CSR identity extraction error (%v)", err)
-		s.monitoring.GetAuthzError("CSR identity extraction error").Inc()
+		s.monitoring.IDExtractionError.Inc()
 		return nil, status.Errorf(codes.InvalidArgument, "CSR identity extraction error (%v)", err)
 	}
 
@@ -83,9 +83,9 @@ func (s *Server) HandleCSR(ctx context.Context, request *pb.CsrRequest) (*pb.Csr
 	_, _, certChainBytes, _ := s.ca.GetCAKeyCertBundle().GetAll()
 	cert, signErr := s.ca.Sign(request.CsrPem, time.Duration(request.RequestedTtlMinutes)*time.Minute, s.forCA)
 	if signErr != nil {
-		log.Errorf("CSR signing error (%v)", signErr.FullError)
-		s.monitoring.GetCertSignError(signErr.ShortMessage).Inc()
-		return nil, status.Errorf(codes.Internal, "CSR signing error (%v)", signErr.FullError)
+		log.Errorf("CSR signing error (%v)", signErr.Error())
+		s.monitoring.GetCertSignError(signErr.(*ca.Error).ErrorType()).Inc()
+		return nil, status.Errorf(codes.Internal, "CSR signing error (%v)", signErr.(*ca.Error))
 	}
 
 	response := &pb.CsrResponse{
@@ -189,7 +189,7 @@ func (s *Server) applyServerCertificate() (*tls.Certificate, error) {
 
 	certPEM, signErr := s.ca.Sign(csrPEM, s.serverCertTTL, false)
 	if signErr != nil {
-		return nil, signErr.FullError
+		return nil, signErr.(*ca.Error)
 	}
 
 	cert, err := tls.X509KeyPair(certPEM, privPEM)

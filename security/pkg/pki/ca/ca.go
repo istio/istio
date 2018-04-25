@@ -25,8 +25,7 @@ import (
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
-	pkiutil "istio.io/istio/security/pkg/pki/util"
-	"istio.io/istio/security/pkg/util"
+	"istio.io/istio/security/pkg/pki/util"
 )
 
 const (
@@ -48,18 +47,18 @@ const (
 type cATypes int
 
 const (
-	// SelfSignedCA means the Istio CA uses a self signed certificate.
+	// selfSignedCA means the Istio CA uses a self signed certificate.
 	selfSignedCA cATypes = iota
-	// PluggedCertCA means the Istio CA uses a operator-specified key/cert.
+	// pluggedCertCA means the Istio CA uses a operator-specified key/cert.
 	pluggedCertCA
 )
 
 // CertificateAuthority contains methods to be supported by a CA.
 type CertificateAuthority interface {
 	// Sign generates a certificate for a workload or CA, from the given CSR and TTL.
-	Sign(csrPEM []byte, ttl time.Duration, forCA bool) ([]byte, *util.Error)
+	Sign(csrPEM []byte, ttl time.Duration, forCA bool) ([]byte, error)
 	// GetCAKeyCertBundle returns the KeyCertBundle used by CA.
-	GetCAKeyCertBundle() pkiutil.KeyCertBundle
+	GetCAKeyCertBundle() util.KeyCertBundle
 }
 
 // IstioCAOptions holds the configurations for creating an Istio CA.
@@ -70,7 +69,7 @@ type IstioCAOptions struct {
 	CertTTL    time.Duration
 	MaxCertTTL time.Duration
 
-	KeyCertBundle pkiutil.KeyCertBundle
+	KeyCertBundle util.KeyCertBundle
 
 	LivenessProbeOptions *probe.Options
 	ProbeCheckInterval   time.Duration
@@ -81,7 +80,7 @@ type IstioCA struct {
 	certTTL    time.Duration
 	maxCertTTL time.Duration
 
-	keyCertBundle pkiutil.KeyCertBundle
+	keyCertBundle util.KeyCertBundle
 
 	livenessProbe *probe.Probe
 }
@@ -100,19 +99,19 @@ func NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL time.Duration, o
 	if scrtErr != nil {
 		log.Infof("Failed to get secret (error: %s), will create one", scrtErr)
 
-		options := pkiutil.CertOptions{
+		options := util.CertOptions{
 			TTL:          caCertTTL,
 			Org:          org,
 			IsCA:         true,
 			IsSelfSigned: true,
 			RSAKeySize:   caKeySize,
 		}
-		pemCert, pemKey, ckErr := pkiutil.GenCertKeyFromOptions(options)
+		pemCert, pemKey, ckErr := util.GenCertKeyFromOptions(options)
 		if ckErr != nil {
 			return nil, fmt.Errorf("unable to generate CA cert and key for self-signed CA (%v)", ckErr)
 		}
 
-		if caOpts.KeyCertBundle, err = pkiutil.NewVerifiedKeyCertBundleFromPem(pemCert, pemKey, nil, pemCert); err != nil {
+		if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(pemCert, pemKey, nil, pemCert); err != nil {
 			return nil, fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
 		}
 
@@ -132,7 +131,7 @@ func NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL time.Duration, o
 			log.Errorf("Failed to write secret to CA (error: %s). This CA will not persist when restart.", err)
 		}
 	} else {
-		if caOpts.KeyCertBundle, err = pkiutil.NewVerifiedKeyCertBundleFromPem(caSecret.Data[cACertID],
+		if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(caSecret.Data[cACertID],
 			caSecret.Data[cAPrivateKeyID], nil, caSecret.Data[cACertID]); err != nil {
 			return nil, fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
 		}
@@ -149,7 +148,7 @@ func NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile
 		CertTTL:    certTTL,
 		MaxCertTTL: maxCertTTL,
 	}
-	if caOpts.KeyCertBundle, err = pkiutil.NewVerifiedKeyCertBundleFromFile(
+	if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromFile(
 		signingCertFile, signingKeyFile, certChainFile, rootCertFile); err != nil {
 		return nil, fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
 	}
@@ -171,26 +170,26 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 // Sign takes a PEM-encoded CSR and ttl, and returns a signed certificate. If forCA is true,
 // the signed certificate is a CA certificate, otherwise, it is a workload certificate.
 // TODO(myidpt): Add error code to identify the Sign error types.
-func (ca *IstioCA) Sign(csrPEM []byte, ttl time.Duration, forCA bool) ([]byte, *util.Error) {
+func (ca *IstioCA) Sign(csrPEM []byte, ttl time.Duration, forCA bool) ([]byte, error) {
 	signingCert, signingKey, _, _ := ca.keyCertBundle.GetAll()
 	if signingCert == nil {
-		return nil, util.NewError("Istio CA is not ready", fmt.Errorf("Istio CA is not ready")) // nolint
+		return nil, NewError(CANotReady, fmt.Errorf("Istio CA is not ready")) // nolint
 	}
 
-	csr, err := pkiutil.ParsePemEncodedCSR(csrPEM)
+	csr, err := util.ParsePemEncodedCSR(csrPEM)
 	if err != nil {
-		return nil, util.NewError("CSR Pem parsing error", err)
+		return nil, NewError(CSRError, err)
 	}
 
 	// If the requested TTL is greater than maxCertTTL, return an error
 	if ttl.Seconds() > ca.maxCertTTL.Seconds() {
-		return nil, util.NewError("TTL exceeds max TTL", fmt.Errorf(
+		return nil, NewError(TTLError, fmt.Errorf(
 			"requested TTL %s is greater than the max allowed TTL %s", ttl, ca.maxCertTTL))
 	}
 
-	certBytes, err := pkiutil.GenCertFromCSR(csr, signingCert, csr.PublicKey, *signingKey, ttl, forCA)
+	certBytes, err := util.GenCertFromCSR(csr, signingCert, csr.PublicKey, *signingKey, ttl, forCA)
 	if err != nil {
-		return nil, util.NewError("Cert generation error", err)
+		return nil, NewError(CertGenError, err)
 	}
 
 	block := &pem.Block{
@@ -203,6 +202,6 @@ func (ca *IstioCA) Sign(csrPEM []byte, ttl time.Duration, forCA bool) ([]byte, *
 }
 
 // GetCAKeyCertBundle returns the KeyCertBundle for the CA.
-func (ca *IstioCA) GetCAKeyCertBundle() pkiutil.KeyCertBundle {
+func (ca *IstioCA) GetCAKeyCertBundle() util.KeyCertBundle {
 	return ca.keyCertBundle
 }

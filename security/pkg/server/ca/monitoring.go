@@ -18,6 +18,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+// TODO: Add gRPC server monitoring.
+
 const (
 	errorlabel = "error"
 )
@@ -37,12 +39,19 @@ var (
 		Help:      "The number of authentication failures.",
 	}, []string{})
 
-	authzErrorCounts = prometheus.NewCounterVec(prometheus.CounterOpts{
+	csrParsingErrorCounts = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "citadel",
 		Subsystem: "server",
-		Name:      "authorization_failure_count",
-		Help:      "The number of authorization failures.",
-	}, []string{errorlabel})
+		Name:      "csr_parsing_err_count",
+		Help:      "The number of erorrs occurred when parsing the CSR.",
+	}, []string{})
+
+	idExtractionErrorCounts = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "citadel",
+		Subsystem: "server",
+		Name:      "id_extraction_err_count",
+		Help:      "The number of errors occurred when extracting the ID from CSR.",
+	}, []string{})
 
 	certSignErrorCounts = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "citadel",
@@ -62,33 +71,32 @@ var (
 func init() {
 	prometheus.MustRegister(csrCounts)
 	prometheus.MustRegister(authnErrorCounts)
-	prometheus.MustRegister(authzErrorCounts)
+	prometheus.MustRegister(csrParsingErrorCounts)
+	prometheus.MustRegister(idExtractionErrorCounts)
 	prometheus.MustRegister(certSignErrorCounts)
 	prometheus.MustRegister(successCounts)
 }
 
 // monitoringMetrics are counters for certificate signing related operations.
 type monitoringMetrics struct {
-	CSR            prometheus.Counter
-	AuthnError     prometheus.Counter
-	Success        prometheus.Counter
-	authzErrors    *prometheus.CounterVec
-	certSignErrors *prometheus.CounterVec
+	CSR               prometheus.Counter
+	AuthnError        prometheus.Counter
+	Success           prometheus.Counter
+	CSRError          prometheus.Counter
+	IDExtractionError prometheus.Counter
+	certSignErrors    *prometheus.CounterVec
 }
 
 // newMonitoringMetrics creates a new monitoringMetrics.
 func newMonitoringMetrics() monitoringMetrics {
 	return monitoringMetrics{
-		CSR:            csrCounts.With(prometheus.Labels{}),
-		AuthnError:     authnErrorCounts.With(prometheus.Labels{}),
-		Success:        successCounts.With(prometheus.Labels{}),
-		authzErrors:    authzErrorCounts,
-		certSignErrors: certSignErrorCounts,
+		CSR:               csrCounts.With(prometheus.Labels{}),
+		AuthnError:        authnErrorCounts.With(prometheus.Labels{}),
+		Success:           successCounts.With(prometheus.Labels{}),
+		CSRError:          csrParsingErrorCounts.With(prometheus.Labels{}),
+		IDExtractionError: idExtractionErrorCounts.With(prometheus.Labels{}),
+		certSignErrors:    certSignErrorCounts,
 	}
-}
-
-func (m *monitoringMetrics) GetAuthzError(err string) prometheus.Counter {
-	return m.authzErrors.With(prometheus.Labels{errorlabel: err})
 }
 
 func (m *monitoringMetrics) GetCertSignError(err string) prometheus.Counter {
