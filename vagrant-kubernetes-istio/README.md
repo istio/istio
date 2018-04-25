@@ -1,7 +1,7 @@
 The following instruction details the steps required to run E2E tests with a Vagrant VM on your local machine, so you can test and debug locally.
 
 # Benefits:
-1. Set up a local vagrant VM Environment once and run "make e2e_all E2E_ARGS="--use_local_cluster"" to run E2E tests from your development environment.
+1. Set up a local vagrant VM Environment once and run `make e2e_all E2E_ARGS="--use_local_cluster"` to run E2E tests from your development environment.
 1. No need to worry about kubernetes cluster setup. The scripts take care of that.
 
 # Prereqs:
