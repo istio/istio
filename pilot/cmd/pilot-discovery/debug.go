@@ -44,7 +44,7 @@ var (
 		Args:  cobra.MinimumNArgs(2),
 		RunE: func(c *cobra.Command, args []string) error {
 			d := &debug{
-				pilotAddress: "127.0.0.1:15007",
+				pilotAddress: "127.0.0.1:9093",
 				client:       &http.Client{},
 			}
 			return d.run(args)
