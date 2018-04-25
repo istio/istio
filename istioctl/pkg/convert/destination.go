@@ -94,6 +94,11 @@ func convertDestinationPolicy(in *v1alpha1.DestinationPolicy) *v1alpha3.Subset {
 		},
 	}
 
+	// We can't have an unnamed subset
+	if out.Name == "" {
+		out.Name = "default"
+	}
+
 	// TODO: in.Source
 	if in.Source != nil {
 		log.Warnf("Destination policy source not supported")

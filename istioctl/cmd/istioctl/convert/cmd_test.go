@@ -87,6 +87,9 @@ func TestCommand(t *testing.T) {
 		// Verify the merging is correct if the rules arrive in a different order
 		{in: []string{"destination-policy-helloworld.yaml", "route-rule-80-20.yaml"},
 			out: "destination-rule-helloworld-with-80-20.yaml"},
+
+		{in: []string{"nolabel-destination-policy.yaml"},
+			out: "nolabel-destination-rule.yaml"},
 	}
 
 	for _, tc := range tt {
