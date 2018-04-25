@@ -25,8 +25,10 @@ import (
 )
 
 const (
-	traceHeader = "X-Client-Trace-Id"
-	numTraces   = 5
+	traceHeader         = "X-Client-Trace-Id"
+	numTraces           = 5
+	mixerCheckOperation = "mixer/check"
+	traceIDField        = "\"traceId\""
 )
 
 func TestZipkin(t *testing.T) {
@@ -64,6 +66,19 @@ func TestZipkin(t *testing.T) {
 			// Check that the trace contains the id value (must occur more than once, as the
 			// response also contains the request URL with query parameter).
 			if strings.Count(response.Body, id) == 1 {
+				return errAgain
+			}
+
+			// If first invocation (due to mixer check result caching), then check that the mixer
+			// span is also included in the trace
+			// a) Count the number of spans - should be 2, one for the invocation of service b, and the other for the
+			//		server span associated with the mixer check
+			// b) Check that the trace data contains the mixer/check (part of the operation name for the server span)
+			// NOTE: We are also indirectly verifying that the mixer/check span is a child span of the service invocation, as
+			// the mixer/check span can only exist in this trace as a child span. If it wasn't a child span then it would be
+			// in a separate trace instance not retrieved by the query based on the single x-client-trace-id.
+			if i == 0 && (strings.Count(response.Body, traceIDField) != 2 ||
+				!strings.Contains(response.Body, mixerCheckOperation)) {
 				return errAgain
 			}
 
