@@ -54,7 +54,7 @@ func TestFloat(t *testing.T) {
 		},
 	} {
 		t.Run(td.n, func(tt *testing.T) {
-			got, gotOk := toFloat(td.in)
+			got, gotOk := ToFloat(td.in)
 			if !reflect.DeepEqual(got, td.expData) || td.expOK != gotOk {
 				t.Errorf("input '%T(%v)' got '%T(%v)', %t; want '%T(%v)', %t", td.in, td.in, got, got, gotOk,
 					td.expData, td.expData, td.expOK)
@@ -103,7 +103,7 @@ func TestInt(t *testing.T) {
 		},
 	} {
 		t.Run(td.n, func(tt *testing.T) {
-			got, gotOk := toInt64(td.in)
+			got, gotOk := ToInt64(td.in)
 			if !reflect.DeepEqual(got, td.expData) || td.expOK != gotOk {
 				t.Errorf("input '%T(%v)' got '%T(%v)', %t; want '%T(%v)', %t", td.in, td.in, got, got, gotOk,
 					td.expData, td.expData, td.expOK)
