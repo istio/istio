@@ -16,26 +16,26 @@ package types
 
 import (
 	_ "istio.io/api/policy/v1beta1"
-	_ "istio.io/istio/galley/pkg/api"
+	_ "istio.io/istio/galley/pkg/api/service/dev"
 	"istio.io/istio/galley/pkg/kube/schema"
 )
 
 var Rule = &schema.Type{
 	"rule",
 	"rules",
+	"config.istio.io",
+	"v1beta1",
 	"Rule",
 	"RuleList",
-	"config.istio.io",
-	"v1alpha2",
 	"istio.policy.v1beta1.Rule",
 }
 
 var ServiceConfig = &schema.Type{
-	"serviceconfig",
-	"serviceconfigs",
-	"ServiceConfig",
-	"ServiceConfigList",
+	"producerservice",
+	"producerservices",
 	"config.istio.io",
-	"v1alpha2",
-	"istio.service.v1.ServiceConfig",
+	"dev",
+	"ProducerService",
+	"ProducerServiceList",
+	"istio.service.dev.ProducerService",
 }
