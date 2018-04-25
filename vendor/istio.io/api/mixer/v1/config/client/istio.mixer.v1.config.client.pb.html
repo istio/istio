@@ -1,9 +1,8 @@
 ---
 title: Mixer Client
 overview: Configuration state for the Mixer client library
-location: https://istio.io/docs/reference/config/istio.mixer.v1.config.client.html
 layout: protoc-gen-docs
-number_of_entries: 25
+number_of_entries: 20
 ---
 <h2 id="APIKey">APIKey</h2>
 <section>
@@ -99,124 +98,6 @@ Each map element specifies one condition to match.</p>
       exact: SOURCE<em>UID
     request.http</em>method:
       exact: POST</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="EndUserAuthenticationPolicySpec">EndUserAuthenticationPolicySpec</h2>
-<section>
-<p>Determines how to apply auth policies for individual requests.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="EndUserAuthenticationPolicySpec.jwts">
-<td><code>jwts</code></td>
-<td><code><a href="#JWT">JWT[]</a></code></td>
-<td>
-<p>List of JWT rules to valide.</p>
-
-<p>If the request includes a JWT it must match one of the JWT listed
-here matched by the issuer. If validation is successfull the
-follow attributes are included in requests to the mixer:</p>
-
-<pre><code>request.auth.principal - The string of the issuer (`iss`) and
-subject (`sub`) claims within a JWT concatenated with “/”
-with a percent-encoded subject value
-
-request.auth.audiences - This should reflect the audience
-(`aud`) claim within matched JWT.
-
-request.auth.presenter - The authorized presenter of the
-credential. This value should reflect the optional Authorized
-Presenter (`azp`) claim within a JWT
-</code></pre>
-
-<p>If no match is found the request is rejected with HTTP status
-code 401.</p>
-
-<p>JWT validation is skipped if the user&rsquo;s traffic request does not
-include a JWT.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="EndUserAuthenticationPolicySpecBinding">EndUserAuthenticationPolicySpecBinding</h2>
-<section>
-<p>EndUserAuthenticationPolicySpecBinding defines the binding between
-EndUserAuthenticationPolicySpecs and one or more IstioService.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="EndUserAuthenticationPolicySpecBinding.services">
-<td><code>services</code></td>
-<td><code><a href="#IstioService">IstioService[]</a></code></td>
-<td>
-<p>REQUIRED. One or more services to map the listed
-EndUserAuthenticationPolicySpecs onto.</p>
-
-</td>
-</tr>
-<tr id="EndUserAuthenticationPolicySpecBinding.policies">
-<td><code>policies</code></td>
-<td><code><a href="#EndUserAuthenticationPolicySpecReference">EndUserAuthenticationPolicySpecReference[]</a></code></td>
-<td>
-<p>REQUIRED. One or more EndUserAuthenticationPolicySpecReference
-that should be mapped to the specified service(s).</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="EndUserAuthenticationPolicySpecReference">EndUserAuthenticationPolicySpecReference</h2>
-<section>
-<p>EndUserAuthenticationPolicySpecReference identifies a
-EndUserAuthenticationPolicySpec that is bound to a set of services.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="EndUserAuthenticationPolicySpecReference.name">
-<td><code>name</code></td>
-<td><code>string</code></td>
-<td>
-<p>REQUIRED. The short name of the
-EndUserAuthenticationPolicySpec. This is the resource name
-defined by the metadata name field.</p>
-
-</td>
-</tr>
-<tr id="EndUserAuthenticationPolicySpecReference.namespace">
-<td><code>namespace</code></td>
-<td><code>string</code></td>
-<td>
-<p>Optional namespace of the
-EndUserAuthenticationPolicySpec. Defaults to the value of the
-metadata namespace field.</p>
 
 </td>
 </tr>
@@ -606,173 +487,6 @@ The FQDN of the service is composed from the name, namespace, and implementation
 </tbody>
 </table>
 </section>
-<h2 id="JWT">JWT</h2>
-<section>
-<p>JSON Web Token (JWT) token format for authentication as defined by
-https://tools.ietf.org/html/rfc7519. See <a href="https://tools.ietf.org/html/rfc6749">OAuth
-2.0</a> and <a href="http://openid.net/connect">OIDC
-1.0</a> for how this is used in the whole
-authentication flow.</p>
-
-<p>Example,</p>
-
-<pre><code>issuer: https://example.com
-audiences:
-- bookstore_android.apps.googleusercontent.com
-  bookstore_web.apps.googleusercontent.com
-jwks_uri: https://example.com/.well-known/jwks.json
-</code></pre>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="JWT.issuer">
-<td><code>issuer</code></td>
-<td><code>string</code></td>
-<td>
-<p>Identifies the principal that issued the JWT. See
-https://tools.ietf.org/html/rfc7519#section-4.1.1
-Usually a URL or an email address.</p>
-
-<p>Example: https://securetoken.google.com
-Example: 1234567-compute@developer.gserviceaccount.com</p>
-
-</td>
-</tr>
-<tr id="JWT.audiences">
-<td><code>audiences</code></td>
-<td><code>string[]</code></td>
-<td>
-<p>The list of JWT
-<a href="https://tools.ietf.org/html/rfc7519#section-4.1.3">audiences</a>.
-that are allowed to access. A JWT containing any of these
-audiences will be accepted.</p>
-
-<p>The service name will be accepted if audiences is empty.</p>
-
-<p>Example:</p>
-
-<pre><code>audiences:
-- bookstore_android.apps.googleusercontent.com
-  bookstore_web.apps.googleusercontent.com
-</code></pre>
-
-</td>
-</tr>
-<tr id="JWT.jwks_uri">
-<td><code>jwksUri</code></td>
-<td><code>string</code></td>
-<td>
-<p>URL of the provider&rsquo;s public key set to validate signature of the
-JWT. See <a href="https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata">OpenID
-Discovery</a>.</p>
-
-<p>Optional if the key set document can either (a) be retrieved from
-<a href="https://openid.net/specs/openid-connect-discovery-1_0.html">OpenID
-Discovery</a> of
-the issuer or (b) inferred from the email domain of the issuer (e.g. a
-Google service account).</p>
-
-<p>Example: https://www.googleapis.com/oauth2/v1/certs</p>
-
-</td>
-</tr>
-<tr id="JWT.forward_jwt">
-<td><code>forwardJwt</code></td>
-<td><code>bool</code></td>
-<td>
-<p>If true, forward the entire base64 encoded JWT in the HTTP request.
-If false, remove the JWT from the HTTP request and do not forward to the
-application.</p>
-
-</td>
-</tr>
-<tr id="JWT.public_key_cache_duration">
-<td><code>publicKeyCacheDuration</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
-<td>
-<p>Duration after which the cached public key should be expired. The
-system wide default is applied if no duration is explicitly
-specified.</p>
-
-</td>
-</tr>
-<tr id="JWT.locations">
-<td><code>locations</code></td>
-<td><code><a href="#JWT.Location">JWT.Location[]</a></code></td>
-<td>
-<p>Zero or more locations to search for JWT in an HTTP request.</p>
-
-</td>
-</tr>
-<tr id="JWT.jwks_uri_envoy_cluster">
-<td><code>jwksUriEnvoyCluster</code></td>
-<td><code>string</code></td>
-<td>
-<p>This field is specific for Envoy proxy implementation.
-It is the cluster name in the Envoy config for the jwks_uri.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="JWT.Location">JWT.Location</h2>
-<section>
-<p>Defines where to extract the JWT from an HTTP request.</p>
-
-<p>If no explicit location is specified the following default
-locations are tried in order:</p>
-
-<pre><code>1) The Authorization header using the Bearer schema,
-   e.g. Authorization: Bearer &lt;token&gt;. (see
-   https://tools.ietf.org/html/rfc6750#section-2.1)
-
-2) `access_token` query parameter (see
-https://tools.ietf.org/html/rfc6750#section-2.3)
-</code></pre>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="JWT.Location.header" class="oneof oneof-start">
-<td><code>header</code></td>
-<td><code>string (oneof)</code></td>
-<td>
-<p>JWT is sent in a request header. <code>header</code> represents the
-header name.</p>
-
-<p>For example, if <code>header=x-goog-iap-jwt-assertion</code>, the header
-format will be x-goog-iap-jwt-assertion: <JWT>.</p>
-
-</td>
-</tr>
-<tr id="JWT.Location.query" class="oneof">
-<td><code>query</code></td>
-<td><code>string (oneof)</code></td>
-<td>
-<p>JWT is sent in a query parameter. <code>query</code> represents the
-query parameter name.</p>
-
-<p>For example, <code>query=jwt_token</code>.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
 <h2 id="NetworkFailPolicy">NetworkFailPolicy</h2>
 <section>
 <p>Specifies the behavior when the client is unable to connect to Mixer.</p>
@@ -812,7 +526,8 @@ query parameter name.</p>
 <tr id="NetworkFailPolicy.FailPolicy.FAIL_OPEN">
 <td><code>FAIL_OPEN</code></td>
 <td>
-<p>If network connection fails, request is allowed and delivered to the service.</p>
+<p>If network connection fails, request is allowed and delivered to the
+service.</p>
 
 </td>
 </tr>
@@ -1040,21 +755,14 @@ typically includes the &ldquo;destination.service&rdquo; attribute.</p>
 
 </td>
 </tr>
-<tr id="ServiceConfig.end_user_authn_spec">
-<td><code>endUserAuthnSpec</code></td>
-<td><code><a href="#EndUserAuthenticationPolicySpec">EndUserAuthenticationPolicySpec</a></code></td>
-<td>
-<p>End user authentication policy.</p>
-
-</td>
-</tr>
 <tr id="ServiceConfig.network_fail_policy">
 <td><code>networkFailPolicy</code></td>
 <td><code><a href="#NetworkFailPolicy">NetworkFailPolicy</a></code></td>
 <td>
 <p>Specifies the behavior when the client is unable to connect to Mixer.
 This is the service-level policy. It overrides
-<a href="#TransportConfig.network_fail_policy">mesh-level policy</a>.</p>
+[mesh-level
+policy][istio.mixer.v1.config.client.TransportConfig.network<em>fail</em>policy].</p>
 
 </td>
 </tr>

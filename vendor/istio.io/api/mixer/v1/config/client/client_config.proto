@@ -20,15 +20,15 @@ import "google/protobuf/duration.proto";
 import "mixer/v1/attributes.proto";
 import "mixer/v1/config/client/api_spec.proto";
 import "mixer/v1/config/client/quota.proto";
-import "mixer/v1/config/client/auth.proto";
 
 // $title: Mixer Client
 // $overview: Configuration state for the Mixer client library
-// $location: https://istio.io/docs/reference/config/istio.mixer.v1.config.client.html
+// $location:
+// https://istio.io/docs/reference/config/istio.mixer.v1.config.client.html
 
 package istio.mixer.v1.config.client;
 
-option go_package="istio.io/api/mixer/v1/config/client";
+option go_package = "istio.io/api/mixer/v1/config/client";
 
 option (gogoproto.goproto_getters_all) = false;
 option (gogoproto.equal_all) = false;
@@ -38,7 +38,8 @@ option (gogoproto.gostring_all) = false;
 message NetworkFailPolicy {
   // Describes the policy.
   enum FailPolicy {
-    // If network connection fails, request is allowed and delivered to the service.
+    // If network connection fails, request is allowed and delivered to the
+    // service.
     FAIL_OPEN = 0;
 
     // If network connection fails, request is rejected.
@@ -67,12 +68,10 @@ message ServiceConfig {
   // Quota specifications to generate quota requirements.
   repeated QuotaSpec quota_spec = 5;
 
-  // End user authentication policy.
-  EndUserAuthenticationPolicySpec end_user_authn_spec = 6;
-
   // Specifies the behavior when the client is unable to connect to Mixer.
-  // This is the service-level policy. It overrides 
-  // [mesh-level policy][istio.mixer.v1.config.client.TransportConfig.network_fail_policy].
+  // This is the service-level policy. It overrides
+  // [mesh-level
+  // policy][istio.mixer.v1.config.client.TransportConfig.network_fail_policy].
   NetworkFailPolicy network_fail_policy = 7;
 }
 
