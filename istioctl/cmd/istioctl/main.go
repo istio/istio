@@ -544,6 +544,7 @@ func init() {
 		"Output format. One of:yaml|short")
 
 	experimentalCmd.AddCommand(convert.Command())
+	experimentalCmd.AddCommand(Rbac())
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
