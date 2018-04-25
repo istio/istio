@@ -1,7 +1,7 @@
 apiVersion: networking.istio.io/v1alpha3
-kind: ExternalService
+kind: ServiceEntry
 metadata:
-  name: external-service-bookinfo
+  name: service-entry-bookinfo
 spec:
   hosts:
     - eu.bookinfo.com

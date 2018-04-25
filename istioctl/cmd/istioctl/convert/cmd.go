@@ -108,7 +108,7 @@ func convertConfigs(readers []io.Reader, writer io.Writer) error {
 		model.VirtualService,
 		model.Gateway,
 		model.EgressRule,
-		model.ExternalService,
+		model.ServiceEntry,
 		model.DestinationPolicy,
 		model.DestinationRule,
 		model.HTTPAPISpec,
@@ -200,8 +200,8 @@ func validateConfigs(configs []model.Config) error {
 			err = model.ValidateGateway(config.Spec)
 		case model.EgressRule.Type:
 			err = model.ValidateEgressRule(config.Spec)
-		case model.ExternalService.Type:
-			err = model.ValidateExternalService(config.Spec)
+		case model.ServiceEntry.Type:
+			err = model.ValidateServiceEntry(config.Spec)
 		case model.DestinationPolicy.Type:
 			err = model.ValidateDestinationPolicy(config.Spec)
 		case model.DestinationRule.Type:
