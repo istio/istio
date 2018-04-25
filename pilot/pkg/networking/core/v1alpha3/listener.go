@@ -131,8 +131,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env model.Environmen
 		// We need a dummy filter to fill in the filter stack for orig_dst listener
 		// TODO: Move to Listener filters and set up original dst filter there.
 		dummyTCPProxy := &tcp_proxy.TcpProxy{
-			StatPrefix: util.BlackholeCluster,
-			Cluster:    util.BlackholeCluster,
+			StatPrefix: util.BlackHoleCluster,
+			Cluster:    util.BlackHoleCluster,
 		}
 
 		var transparent *google_protobuf.BoolValue

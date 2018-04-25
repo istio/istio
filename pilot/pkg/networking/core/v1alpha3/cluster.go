@@ -74,7 +74,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env model.Environment, proxy
 
 	// Add a blackhole cluster for catching traffic to unresolved routes
 	// DO NOT CALL PLUGINS for this cluster.
-	clusters = append(clusters, buildBlackholeCluster())
+	clusters = append(clusters, buildBlackHoleCluster())
 
 	return clusters, nil // TODO: normalize/dedup/order
 }
@@ -370,10 +370,12 @@ func setUpstreamProtocol(cluster *v2.Cluster, port *model.Port) {
 
 // generates a cluster that sends traffic to dummy localport 0
 // This cluster is used to catch all traffic to unresolved destinations in virtual service
-func buildBlackholeCluster() *v2.Cluster {
+func buildBlackHoleCluster() *v2.Cluster {
 	cluster := &v2.Cluster{
-		Name: util.BlackholeCluster,
-		Type: v2.Cluster_STATIC,
+		Name:           util.BlackHoleCluster,
+		Type:           v2.Cluster_STATIC,
+		ConnectTimeout: defaultClusterConnectTimeout,
+		LbPolicy:       v2.Cluster_ROUND_ROBIN,
 	}
 	return cluster
 }

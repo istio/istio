@@ -161,7 +161,7 @@ func ConvertDestinationToCluster(serviceIndex map[string]*model.Service, default
 		svc := serviceIndex[destination.Host]
 
 		if svc == nil {
-			return util.BlackholeCluster
+			return util.BlackHoleCluster
 		}
 
 		// default port uses port number
@@ -178,7 +178,7 @@ func ConvertDestinationToCluster(serviceIndex map[string]*model.Service, default
 
 		if svcPort == nil {
 			log.Debuga("svcPort == nil => blackhole cluster")
-			return util.BlackholeCluster
+			return util.BlackHoleCluster
 		}
 
 		// use subsets if it is a service

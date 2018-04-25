@@ -14,8 +14,6 @@
 
 package util
 
-// TODO(mostrowski): move most of these functions to a lower level util pkg, they are not Pilot specific.
-
 import (
 	"bytes"
 	"strconv"
@@ -34,8 +32,8 @@ import (
 )
 
 const (
-	// BlackholeCluster to catch traffic from routes with unresolved clusters. Traffic arriving here goes nowhere.
-	BlackholeCluster = "blackholeCluster"
+	// BlackHoleCluster to catch traffic from routes with unresolved clusters. Traffic arriving here goes nowhere.
+	BlackHoleCluster = "BlackHoleCluster"
 )
 
 //// convertAddressListToCidrList converts a list of IP addresses with cidr prefixes into envoy CIDR proto
