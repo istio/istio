@@ -9,7 +9,7 @@ spec:
   - number: 80
     name: http
     protocol: HTTP
-  discovery: DNS
+  resolution: DNS
   endpoints:
   # Rather than relying on an external host that might become unreachable (causing test failures)
   # we can mock the external endpoint using service t which has no sidecar.

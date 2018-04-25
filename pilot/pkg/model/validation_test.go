@@ -2748,7 +2748,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Address: "lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
-			Discovery: networking.ServiceEntry_DNS,
+			Resolution: networking.ServiceEntry_DNS,
 		},
 			valid: true},
 
@@ -2762,7 +2762,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Address: "1.1.1.1", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
-			Discovery: networking.ServiceEntry_DNS,
+			Resolution: networking.ServiceEntry_DNS,
 		},
 			valid: true},
 
@@ -2773,7 +2773,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			Endpoints: []*networking.ServiceEntry_Endpoint{
 				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
-			Discovery: networking.ServiceEntry_DNS,
+			Resolution: networking.ServiceEntry_DNS,
 		},
 			valid: false},
 
@@ -2785,7 +2785,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			Endpoints: []*networking.ServiceEntry_Endpoint{
 				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
-			Discovery: networking.ServiceEntry_DNS,
+			Resolution: networking.ServiceEntry_DNS,
 		},
 			valid: false},
 
@@ -2799,7 +2799,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Address: "lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "in.google.com", Ports: map[string]uint32{"http-dne": 9080}},
 			},
-			Discovery: networking.ServiceEntry_DNS,
+			Resolution: networking.ServiceEntry_DNS,
 		},
 			valid: false},
 
@@ -2813,7 +2813,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Address: "*.lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "in.google.com", Ports: map[string]uint32{"http-dne": 9080}},
 			},
-			Discovery: networking.ServiceEntry_DNS,
+			Resolution: networking.ServiceEntry_DNS,
 		},
 			valid: false},
 
@@ -2824,7 +2824,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
 
-			Discovery: networking.ServiceEntry_DNS,
+			Resolution: networking.ServiceEntry_DNS,
 		},
 			valid: false},
 
@@ -2835,7 +2835,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
 
-			Discovery: networking.ServiceEntry_DNS,
+			Resolution: networking.ServiceEntry_DNS,
 		},
 			valid: true},
 
@@ -2845,7 +2845,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Discovery: networking.ServiceEntry_NONE,
+			Resolution: networking.ServiceEntry_NONE,
 		},
 			valid: true},
 
@@ -2858,7 +2858,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			Endpoints: []*networking.ServiceEntry_Endpoint{
 				{Address: "lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}},
 			},
-			Discovery: networking.ServiceEntry_NONE,
+			Resolution: networking.ServiceEntry_NONE,
 		},
 			valid: false},
 
@@ -2869,7 +2869,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
 
-			Discovery: networking.ServiceEntry_DNS,
+			Resolution: networking.ServiceEntry_DNS,
 		},
 			valid: false},
 
@@ -2883,7 +2883,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Address: "1.1.1.1", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "2.2.2.2", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
-			Discovery: networking.ServiceEntry_STATIC,
+			Resolution: networking.ServiceEntry_STATIC,
 		},
 			valid: true},
 
@@ -2897,7 +2897,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Address: "google.com", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "2.2.2.2", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
-			Discovery: networking.ServiceEntry_STATIC,
+			Resolution: networking.ServiceEntry_STATIC,
 		},
 			valid: false},
 
@@ -2907,7 +2907,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Discovery: networking.ServiceEntry_STATIC,
+			Resolution: networking.ServiceEntry_STATIC,
 		},
 			valid: false},
 
@@ -2921,7 +2921,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Address: "1.1.1.1", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "2.2.2.2", Ports: map[string]uint32{"http-dne": 9080}},
 			},
-			Discovery: networking.ServiceEntry_STATIC,
+			Resolution: networking.ServiceEntry_STATIC,
 		},
 			valid: false},
 
@@ -2931,7 +2931,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 80, Protocol: "http", Name: "http-conflict"},
 				{Number: 8080, Protocol: "http", Name: "http-conflict"},
 			},
-			Discovery: networking.ServiceEntry_NONE,
+			Resolution: networking.ServiceEntry_NONE,
 		},
 			valid: false},
 
@@ -2941,7 +2941,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 80, Protocol: "http", Name: "http-conflict1"},
 				{Number: 80, Protocol: "http", Name: "http-conflict2"},
 			},
-			Discovery: networking.ServiceEntry_NONE,
+			Resolution: networking.ServiceEntry_NONE,
 		},
 			valid: false},
 	}

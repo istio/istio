@@ -50,9 +50,9 @@ func EgressRules(configs []model.Config) []model.Config {
 		}
 
 		serviceEntries = append(serviceEntries, &v1alpha3.ServiceEntry{
-			Hosts:     []string{host},
-			Ports:     ports,
-			Discovery: v1alpha3.ServiceEntry_NONE,
+			Hosts:      []string{host},
+			Ports:      ports,
+			Resolution: v1alpha3.ServiceEntry_NONE,
 		})
 	}
 

@@ -36,7 +36,7 @@ func convertServices(serviceEntry *networking.ServiceEntry) []*model.Service {
 	out := make([]*model.Service, 0)
 
 	var resolution model.Resolution
-	switch serviceEntry.Discovery {
+	switch serviceEntry.Resolution {
 	case networking.ServiceEntry_NONE:
 		resolution = model.Passthrough
 	case networking.ServiceEntry_DNS:
@@ -96,7 +96,7 @@ func convertInstances(serviceEntry *networking.ServiceEntry) []*model.ServiceIns
 	for _, service := range convertServices(serviceEntry) {
 		for _, servicePort := range serviceEntry.Ports {
 			if len(serviceEntry.Endpoints) == 0 &&
-				serviceEntry.Discovery == networking.ServiceEntry_DNS {
+				serviceEntry.Resolution == networking.ServiceEntry_DNS {
 				// when service entry has discovery type DNS and no endpoints
 				// we create endpoints from service entry hosts field
 				for _, host := range serviceEntry.Hosts {

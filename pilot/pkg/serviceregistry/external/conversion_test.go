@@ -31,7 +31,7 @@ var httpNone = &networking.ServiceEntry{
 		{Number: 80, Name: "http-number", Protocol: "http"},
 		{Number: 8080, Name: "http2-number", Protocol: "http2"},
 	},
-	Discovery: networking.ServiceEntry_NONE,
+	Resolution: networking.ServiceEntry_NONE,
 }
 
 var tcpNone = &networking.ServiceEntry{
@@ -39,7 +39,7 @@ var tcpNone = &networking.ServiceEntry{
 	Ports: []*networking.Port{
 		{Number: 444, Name: "tcp-444", Protocol: "tcp"},
 	},
-	Discovery: networking.ServiceEntry_NONE,
+	Resolution: networking.ServiceEntry_NONE,
 }
 
 var httpStatic = &networking.ServiceEntry{
@@ -63,7 +63,7 @@ var httpStatic = &networking.ServiceEntry{
 			Labels:  map[string]string{"foo": "bar"},
 		},
 	},
-	Discovery: networking.ServiceEntry_STATIC,
+	Resolution: networking.ServiceEntry_STATIC,
 }
 
 var httpDNSnoEndpoints = &networking.ServiceEntry{
@@ -73,7 +73,7 @@ var httpDNSnoEndpoints = &networking.ServiceEntry{
 		{Number: 8080, Name: "http-alt-port", Protocol: "http"},
 	},
 
-	Discovery: networking.ServiceEntry_DNS,
+	Resolution: networking.ServiceEntry_DNS,
 }
 
 var httpDNS = &networking.ServiceEntry{
@@ -96,7 +96,7 @@ var httpDNS = &networking.ServiceEntry{
 			Labels:  map[string]string{"foo": "bar"},
 		},
 	},
-	Discovery: networking.ServiceEntry_DNS,
+	Resolution: networking.ServiceEntry_DNS,
 }
 
 var tcpDNS = &networking.ServiceEntry{
@@ -112,7 +112,7 @@ var tcpDNS = &networking.ServiceEntry{
 			Address: "in.google.com",
 		},
 	},
-	Discovery: networking.ServiceEntry_DNS,
+	Resolution: networking.ServiceEntry_DNS,
 }
 
 var tcpStatic = &networking.ServiceEntry{
@@ -128,7 +128,7 @@ var tcpStatic = &networking.ServiceEntry{
 			Address: "2.2.2.2",
 		},
 	},
-	Discovery: networking.ServiceEntry_STATIC,
+	Resolution: networking.ServiceEntry_STATIC,
 }
 
 func convertPortNameToProtocol(name string) model.Protocol {

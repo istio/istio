@@ -2142,7 +2142,7 @@ func ValidateServiceEntry(config proto.Message) (errs error) {
 		servicePortNumbers[port.Number] = true
 	}
 
-	switch serviceEntry.Discovery {
+	switch serviceEntry.Resolution {
 	case networking.ServiceEntry_NONE:
 		if len(serviceEntry.Endpoints) != 0 {
 			errs = appendErrors(errs, fmt.Errorf("no endpoints should be provided for discovery type none"))
@@ -2198,8 +2198,8 @@ func ValidateServiceEntry(config proto.Message) (errs error) {
 			}
 		}
 	default:
-		errs = appendErrors(errs, fmt.Errorf("unsupported discovery type %s",
-			networking.ServiceEntry_Discovery_name[int32(serviceEntry.Discovery)]))
+		errs = appendErrors(errs, fmt.Errorf("unsupported resolution type %s",
+			networking.ServiceEntry_Resolution_name[int32(serviceEntry.Resolution)]))
 	}
 
 	for _, port := range serviceEntry.Ports {
