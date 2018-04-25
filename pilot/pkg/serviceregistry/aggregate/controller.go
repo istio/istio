@@ -50,26 +50,29 @@ func (c *Controller) AddRegistry(registry Registry) {
 
 // Services lists services from all platforms
 func (c *Controller) Services() ([]*model.Service, error) {
-	smap := make(map[string]*model.Service)
+	smap := make(map[string]model.Service)
 	services := make([]*model.Service, 0)
 	var errs error
 	for _, r := range c.registries {
 		svcs, err := r.Services()
 		if err != nil {
 			errs = multierror.Append(errs, err)
-		} else {
-			for _, s := range svcs {
-				if smap[s.Hostname] == nil {
-					services = append(services, s)
-					smap[s.Hostname] = s
-				}
+			continue
+		}
+		for _, s := range svcs {
+			sp, ok := smap[s.Hostname]
+			if !ok {
+				sp = *s
+				smap[s.Hostname] = sp
+				services = append(services, &sp)
+			}
 
-				if r.ClusterID != "" {
-					if smap[s.Hostname].Addresses == nil {
-						smap[s.Hostname].Addresses = make(map[string]string)
-					}
-					smap[s.Hostname].Addresses[r.ClusterID] = s.Address
+			if r.ClusterID != "" {
+				if sp.Addresses == nil {
+					sp.Addresses = make(map[string]string)
 				}
+				sp.Addresses[r.ClusterID] = s.Address
+				smap[s.Hostname] = sp
 			}
 		}
 	}
