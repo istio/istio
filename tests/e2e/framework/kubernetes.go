@@ -624,7 +624,7 @@ func (k *KubeInfo) deployIstio() error {
 
 func (k *KubeInfo) deployTiller(yamlFileName string) error {
 	// apply helm service account
-	if err := util.KubeApply("kube-system", yamlFileName); err != nil {
+	if err := util.KubeApply("kube-system", yamlFileName, k.KubeConfig); err != nil {
 		log.Errorf("Failed to apply %s", yamlFileName)
 		return err
 	}
@@ -635,11 +635,7 @@ func (k *KubeInfo) deployTiller(yamlFileName string) error {
 		return err
 	}
 	// wait till tiller reaches running
-	if err := util.GetPodStatus("kube-system", "name=tiller", k.KubeConfig); err != nil {
-		return err
-	}
-
-	return nil
+	return util.CheckPodRunning("kube-system", "name=tiller", k.KubeConfig)
 }
 
 func (k *KubeInfo) deployIstioWithHelm() error {
