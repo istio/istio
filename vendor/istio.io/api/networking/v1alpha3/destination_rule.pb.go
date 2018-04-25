@@ -6,8 +6,8 @@
 
 	It is generated from these files:
 		networking/v1alpha3/destination_rule.proto
-		networking/v1alpha3/external_service.proto
 		networking/v1alpha3/gateway.proto
+		networking/v1alpha3/service_entry.proto
 		networking/v1alpha3/virtual_service.proto
 
 	It has these top-level messages:
@@ -18,10 +18,10 @@
 		ConnectionPoolSettings
 		OutlierDetection
 		TLSSettings
-		ExternalService
 		Gateway
 		Server
 		Port
+		ServiceEntry
 		VirtualService
 		Destination
 		HTTPRoute
@@ -130,9 +130,6 @@ func (TLSSettings_TLSmode) EnumDescriptor() ([]byte, []int) {
 	return fileDescriptorDestinationRule, []int{6, 0}
 }
 
-//
-// # Overview
-//
 // `DestinationRule` defines policies that apply to traffic intended for a
 // service after routing has occurred. These rules specify configuration
 // for load balancing, connection pool size from the sidecar, and outlier
@@ -202,7 +199,7 @@ type DestinationRule struct {
 	// REQUIRED. The name of a service from the service registry. Service
 	// names are looked up from the platform's service registry (e.g.,
 	// Kubernetes services, Consul services, etc.) and from the hosts
-	// declared by [ExternalServices](#ExternalService). Rules defined for
+	// declared by [ServiceEntries](#ServiceEntry). Rules defined for
 	// services that do not exist in the service registry will be ignored.
 	//
 	// *Note for Kubernetes users*: When short names are used (e.g. "reviews"
