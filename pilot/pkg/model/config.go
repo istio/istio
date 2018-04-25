@@ -253,7 +253,7 @@ type IstioConfigStore interface {
 	// destination service.  A rule must match at least one of the input service
 	// instances since the proxy does not distinguish between source instances in
 	// the request.
-	RouteRules(source []*ServiceInstance, destination Hostname) []Config
+	RouteRules(source []*ServiceInstance, destination string) []Config
 
 	// RouteRulesByDestination selects routing rules associated with destination
 	// service instances.  A rule must match at least one of the input
@@ -262,7 +262,7 @@ type IstioConfigStore interface {
 
 	// Policy returns a policy for a service version that match at least one of
 	// the source instances.  The labels must match precisely in the policy.
-	Policy(source []*ServiceInstance, destination Hostname, labels Labels) *Config
+	Policy(source []*ServiceInstance, destination string, labels Labels) *Config
 
 	// DestinationRule returns a destination rule for a service name in a given domain.
 	DestinationRule(hostname Hostname) *Config
@@ -619,7 +619,7 @@ func SortRouteRules(rules []Config) {
 	})
 }
 
-func (store *istioConfigStore) RouteRules(instances []*ServiceInstance, destination Hostname) []Config {
+func (store *istioConfigStore) RouteRules(instances []*ServiceInstance, destination string) []Config {
 	out := make([]Config, 0)
 	configs, err := store.List(RouteRule.Type, NamespaceAll)
 	if err != nil {
@@ -630,7 +630,7 @@ func (store *istioConfigStore) RouteRules(instances []*ServiceInstance, destinat
 		rule := config.Spec.(*routing.RouteRule)
 
 		// validate that rule match predicate applies to destination service
-		hostname := ResolveHostname(config.ConfigMeta, rule.Destination)
+		hostname := ResolveHostname(config.ConfigMeta, rule.Destination).String()
 		if hostname != destination {
 			continue
 		}
@@ -784,7 +784,7 @@ func (store *istioConfigStore) Gateways(workloadLabels LabelsCollection) []Confi
 	return out
 }
 
-func (store *istioConfigStore) Policy(instances []*ServiceInstance, destination Hostname, labels Labels) *Config {
+func (store *istioConfigStore) Policy(instances []*ServiceInstance, destination string, labels Labels) *Config {
 	configs, err := store.List(DestinationPolicy.Type, NamespaceAll)
 	if err != nil {
 		return nil
@@ -799,7 +799,7 @@ func (store *istioConfigStore) Policy(instances []*ServiceInstance, destination 
 			continue
 		}
 
-		if destination != ResolveHostname(config.ConfigMeta, policy.Destination) {
+		if destination != ResolveHostname(config.ConfigMeta, policy.Destination).String() {
 			continue
 		}
 
@@ -830,7 +830,7 @@ func (store *istioConfigStore) DestinationRule(hostname Hostname) *Config {
 
 	for _, config := range configs {
 		rule := config.Spec.(*networking.DestinationRule)
-		if ResolveShortnameToFQDN(rule.Host, config.ConfigMeta) == hostname {
+		if ResolveShortnameToFQDN(rule.Host, config.ConfigMeta).Matches(hostname) {
 			return &config
 		}
 	}
