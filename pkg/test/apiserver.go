@@ -32,14 +32,14 @@ func (a *APIServerDependency) String() string {
 	return "apiserver"
 }
 
-func (a *APIServerDependency) initialize() (interface{}, error) {
+func (a *APIServerDependency) Initialize() (interface{}, error) {
 	// Use the underlying platform-specific implementation to instantiate a new APIServer instance.
 	return apiserver.New()
 }
 
-func (a *APIServerDependency) reset(interface{}) error {
+func (a *APIServerDependency) Reset(interface{}) error {
 	return nil
 }
 
-func (a *APIServerDependency) cleanup(interface{}) {
+func (a *APIServerDependency) Cleanup(interface{}) {
 }

@@ -70,12 +70,12 @@ func setup(testID string) (err error) {
 	return
 }
 
-func cleanup() {
+func doCleanup() {
 	driver.Lock()
 	defer driver.Unlock()
 
 	for k, v := range driver.initializedDependencies {
-		k.cleanup(v)
+		k.Cleanup(v)
 	}
 }
 

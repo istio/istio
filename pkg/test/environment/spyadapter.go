@@ -1,3 +1,4 @@
+
 //  Copyright 2018 Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,23 +13,30 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package test
+package environment
 
-import (
-	"fmt"
-)
+import "istio.io/istio/pkg/test"
 
-// Dependency represents an external dependency that a test might need.
-type Dependency interface {
-	fmt.Stringer
+var RemoteSpyAdapter = &remoteAdapter{}
 
-	Initialize() (interface{}, error)
+type remoteAdapter struct {
 
-	Reset(interface{}) error
-
-	Cleanup(interface{})
-
-	// TODO: Sub-dependencies
 }
 
-// Some sample dependencies
+var _ test.Dependency = &remoteAdapter{}
+
+func (r *remoteAdapter) String() string {
+	return ""
+}
+
+func (r *remoteAdapter) Initialize() (interface{}, error) {
+	return nil, nil
+}
+
+func (r *remoteAdapter) Reset(interface{}) error {
+	return nil
+}
+
+func (r *remoteAdapter) Cleanup(interface{}) {
+
+}

@@ -45,16 +45,16 @@ func (a *ClusterDependency) String() string {
 	return "cluster"
 }
 
-func (a *ClusterDependency) initialize() (interface{}, error) {
+func (a *ClusterDependency) Initialize() (interface{}, error) {
 	// Use the underlying platform-specific implementation to instantiate a new APIServer instance.
 	return apiserver.New()
 }
 
-func (a *ClusterDependency) reset(interface{}) error {
+func (a *ClusterDependency) Reset(interface{}) error {
 	return nil
 }
 
-func (a *ClusterDependency) cleanup(interface{}) {
+func (a *ClusterDependency) Cleanup(interface{}) {
 }
 
 // GetConfig returns the configuration

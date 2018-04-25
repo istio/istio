@@ -17,22 +17,30 @@ package showcase
 import (
 	"testing"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/environment"
+	reportTmpl "istio.io/istio/mixer/test/spyAdapter/template/report"
 )
 
 func TestMixer_Report(t *testing.T) {
-	test.Requires(t, mixer.RemoteSpyAdapter)
+	test.Requires(t, environment.RemoteSpyAdapter)
 
-	m := mixer.Get()
+	env := test.GetEnvironment(t)
+	env.Configure(testConfig)
+
+	m := env.GetMixer()
 
 	//m.Configure(mixer.StandardConfig)
-	m.Configure(testConfig)
 
 	a := m.GetSpyAdapter()
 
 	err := m.Report(map[string]interface{}{
 		"target.name": "somesrvcname",
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 
+	// TODO: We should rationalize this.
 	found := a.Expect([]interface{}{
 		&reportTmpl.Instance{
 			Name:       "reportInstance.samplereport.istio-system",
@@ -81,4 +89,4 @@ spec:
     instances:
     - reportInstance.samplereport
 
-`)
+`
