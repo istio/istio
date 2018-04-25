@@ -25,7 +25,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: c-weighted
+  name: fault
 spec:
   host: c-weighted.extsvc.com
   subsets:

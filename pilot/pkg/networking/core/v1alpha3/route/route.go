@@ -225,9 +225,6 @@ func ConvertDestinationToCluster(destination *networking.Destination, vsvcName s
 }
 
 
-// ClusterNameGenerator specifies cluster name for a destination
-type ClusterNameGenerator func(*networking.Destination,string,*networking.HTTPRoute,map[string]*model.Service, int) (string, error)
-
 // TranslateRoutes creates virtual host routes from the v1alpha3 config.
 // The rule should be adapted to destination names (outbound clusters).
 // Each rule is guarded by source labels.

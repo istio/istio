@@ -35,6 +35,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // EDS returns the list of endpoints (IP:port and in future labels) associated with a real
@@ -178,9 +179,10 @@ func updateCluster(clusterName string, edsCluster *EdsCluster) {
 		return
 	}
 	locEps := localityLbEndpointsFromInstances(instances)
-	if len(instances) == 0 && edsDebug {
-		log.Infof("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, portName, labels)
+	if len(instances) == 0  {
+		log.Warnf("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, portName, labels)
 	}
+	edsInstances.With(prometheus.Labels{"cluster": clusterName}).Set(float64(len(instances)))
 	// There is a chance multiple goroutines will update the cluster at the same time.
 	// This could be prevented by a lock - but because the update may be slow, it may be
 	// better to accept the extra computations.
@@ -452,7 +454,6 @@ func (s *DiscoveryServer) getOrAddEdsCluster(clusterName string) *EdsCluster {
 			FirstUse:   time.Now(),
 		}
 		edsClusters[clusterName] = c
-		xdsClients.Set(float64(len(edsClusters)))
 	}
 	return c
 }
@@ -486,7 +487,6 @@ func (s *DiscoveryServer) removeEdsCon(clusterName string, node string, connecti
 		edsClusterMutex.Lock()
 		defer edsClusterMutex.Unlock()
 		delete(edsClusters, clusterName)
-		xdsClients.Set(float64(len(edsClusters)))
 	}
 }
 

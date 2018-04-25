@@ -57,6 +57,11 @@ var (
 		Help: "Pilot rejected EDS.",
 	}, []string{"node", "err"})
 
+	edsInstances = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "pilot_xds_eds_instances",
+		Help: "Instances for each cluster, as of last push. Zero instances is an error",
+	}, []string{"cluster"})
+
 	ldsReject = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "pilot_xds_lds_reject",
 		Help: "Pilot rejected LDS.",
@@ -83,6 +88,11 @@ func init() {
 	prometheus.MustRegister(cdsReject)
 	prometheus.MustRegister(edsReject)
 	prometheus.MustRegister(ldsReject)
+	prometheus.MustRegister(edsInstances)
+	prometheus.MustRegister(monServices)
+	prometheus.MustRegister(monVServices)
+	prometheus.MustRegister(xdsClients)
+
 }
 
 // XdsConnection is a listener connection type.
@@ -401,6 +411,7 @@ func (s *DiscoveryServer) addCon(conID string, con *XdsConnection) {
 	adsClientsMutex.Lock()
 	defer adsClientsMutex.Unlock()
 	adsClients[conID] = con
+	xdsClients.Set(float64(len(adsClients)))
 	if con.modelNode != nil {
 		if _, ok := adsSidecarIDConnectionsMap[con.modelNode.ID]; !ok {
 			adsSidecarIDConnectionsMap[con.modelNode.ID] = map[string]*XdsConnection{conID: con}
@@ -422,6 +433,7 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 		log.Errorf("ADS: Removing connection for non-existing node %v.", s)
 	}
 	delete(adsClients, conID)
+	xdsClients.Set(float64(len(adsClients)))
 	if con.modelNode != nil {
 		delete(adsSidecarIDConnectionsMap[con.modelNode.ID], conID)
 	}

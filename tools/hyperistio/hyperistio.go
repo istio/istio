@@ -100,8 +100,9 @@ func startEnvoy() error {
 		return err
 	}
 	stop := make(chan error)
-	agent.RunProxy(cfg, "node", 1, cfgF, stop, os.Stdout, os.Stderr, []string{
-		"--disable-hot-restart",
+	envoyLog, err := os.Create(util.IstioOut + "/envoy.log")
+	agent.RunProxy(cfg, "node", 1, cfgF, stop, envoyLog, envoyLog, []string{
+		"--disable-hot-restart", // "-l", "trace",
 	})
 
 	return nil
