@@ -47,6 +47,8 @@ const (
 	CheckReportIstioAuthnAttributesTestBoundToOrigin
 	IstioAuthnTestOriginRejectNoJwt
 	IstioAuthnTestPeerRejectNoJwt
+	IstioAuthnTestPeerRejectNoMtls
+	IstioAuthnTestPeerRejectNoTls
 
 	// The number of total tests. has to be the last one.
 	maxTestNum
