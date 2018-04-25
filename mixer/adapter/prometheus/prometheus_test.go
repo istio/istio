@@ -57,6 +57,7 @@ func newBuilder(s server) *builder {
 
 var (
 	gaugeNoLabels = &config.Params_MetricInfo{
+		Namespace:    "not-istio",
 		InstanceName: "/funky::gauge",
 		Description:  "funky all the time",
 		Kind:         config.GAUGE,
@@ -264,7 +265,7 @@ func TestFactory_BuildServerFail(t *testing.T) {
 
 func TestRegisterOrGet(t *testing.T) {
 	f := newBuilder(&testServer{})
-	gv := newGaugeVec("g1", "d1", []string{})
+	gv := newGaugeVec("test", "g1", "d1", []string{})
 	if _, err := registerOrGet(f.registry, gv); err != nil {
 		t.Fatalf("registerOrGet #1 returned error '%v'; want nil", err)
 	}
@@ -295,6 +296,7 @@ func TestFactory_Build_MetricDefinitionConflicts(t *testing.T) {
 	f := newBuilder(&testServer{})
 
 	gaugeWithLabels := &config.Params_MetricInfo{
+		Namespace:    "not-istio",
 		InstanceName: "/funky::gauge",
 		Description:  "funky all the time",
 		Kind:         config.GAUGE,
