@@ -134,7 +134,7 @@ metadata:
   name: accesslog
   namespace: {{ .Release.Namespace }}
 spec:
-  severity: '"Default"'
+  severity: '"Info"'
   timestamp: request.time
   variables:
     originIp: origin.ip | ip("0.0.0.0")
