@@ -112,7 +112,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 				Node:           &node,
 				ProxyInstances: workloadInstances,
 			}
-			if err := p.OnOutboundListener(params, mutable); err != nil {
+			if err = p.OnOutboundListener(params, mutable); err != nil {
 				log.Warn(err.Error())
 			}
 		}
