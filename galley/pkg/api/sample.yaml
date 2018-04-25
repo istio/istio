@@ -1,9 +1,10 @@
-apiVersion: config.istio.io/v1alpha2
-kind: ServiceConfig
+apiVersion: config.istio.io/dev
+kind: ProducerService
 metadata:
   name: foo
 spec:
-  name: foo # TODO: having name both in spec & metadata is redundant
+  serviceSelector:
+    name: foo
   rules:
     - match: foo == bar
       actions:

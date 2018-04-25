@@ -1,0 +1,880 @@
+// Copyright 2017 Istio Authors
+//
+//   Licensed under the Apache License, Version 2.0 (the "License");
+//   you may not use this file except in compliance with the License.
+//   You may obtain a copy of the License at
+//
+//       http://www.apache.org/licenses/LICENSE-2.0
+//
+//   Unless required by applicable law or agreed to in writing, software
+//   distributed under the License is distributed on an "AS IS" BASIS,
+//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//   See the License for the specific language governing permissions and
+//   limitations under the License.
+
+syntax = "proto3";
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/wrappers.proto";
+
+// $title: Route Rules Alpha 3
+// $overview: Configuration affecting traffic routing
+// $location: https://istio.io/docs/reference/config/istio.networking.v1alpha3.html
+
+// Configuration affecting traffic routing. Here are a few terms useful to define
+// in the context of traffic routing.
+//
+// *Service* a unit of application behavior bound to a unique name in a
+// service registry. Services consist of multiple network *endpoints*
+// implemented by workload instances running on pods, containers, VMs etc.
+//
+// *Service versions (subsets)* - In a continuous deployment scenario, for
+// a given service, there can be distinct subsets of instances running
+// different variants of the application binary. These variants are not
+// necessarily different API versions. They could be iterative changes to
+// the same service, deployed in different environments (prod, staging,
+// dev, etc.). Common scenarios where this occurs include A/B testing,
+// canary rollouts, etc. The choice of a particular version can be decided
+// based on various criterion (headers, url, etc.) and/or by weights
+// assigned to each version. Each service has a default version consisting
+// of all its instances.
+//
+// *Source* - A downstream client calling a service.
+//
+// *Host* - The address used by a client when attempting to connect to a
+// service.
+//
+// *Access model* - Applications address only the destination service
+// (Host) without knowledge of individual service versions (subsets). The
+// actual choice of the version is determined by the proxy/sidecar, enabling the
+// application code to decouple itself from the evolution of dependent
+// services.
+package istio.networking.v1alpha3;
+
+option go_package = "istio.io/istio/galley/pkg/api/networking/v1alpha3";
+
+// A VirtualService defines a set of traffic routing rules to apply when a host is
+// addressed. Each routing rule defines matching criteria for traffic of a specific
+// protocol. If the traffic is matched, then it is sent to a named destination service
+// (or subset/version of it) defined in the registry.
+//
+// The source of traffic can also be matched in a routing rule. This allows routing
+// to be customized for specific client contexts.
+//
+// The following example routes all HTTP traffic by default to
+// pods of the reviews service with label "version: v1". In addition,
+// HTTP requests containing /wpcatalog/, /consumercatalog/ url prefixes will
+// be rewritten to /newcatalog and sent to pods with label "version: v2". The
+// rules will be applied at the gateway named "bookinfo" as well as at all
+// the sidecars in the mesh (indicated by the reserved gateway name
+// "mesh").
+//
+//     apiVersion: networking.istio.io/v1alpha3
+//     kind: VirtualService
+//     metadata:
+//       name: reviews-route
+//     spec:
+//       hosts:
+//       - reviews
+//       gateways: # if omitted, defaults to "mesh"
+//       - bookinfo
+//       - mesh
+//       http:
+//       - match:
+//         - uri:
+//             prefix: "/wpcatalog"
+//         - uri:
+//             prefix: "/consumercatalog"
+//         rewrite:
+//           uri: "/newcatalog"
+//         route:
+//         - destination:
+//             host: reviews
+//             subset: v2
+//       - route:
+//         - destination:
+//             host: reviews
+//             subset: v1
+//
+// A subset/version of a route destination is identified with a reference
+// to a named service subset which must be declared in a corresponding
+// DestinationRule.
+//
+//     apiVersion: networking.istio.io/v1alpha3
+//     kind: DestinationRule
+//     metadata:
+//       name: reviews-destination
+//     spec:
+//       host: reviews
+//       subsets:
+//       - name: v1
+//         labels:
+//           version: v1
+//       - name: v2
+//         labels:
+//           version: v2
+//
+// A host name can be defined by only one VirtualService. A single
+// VirtualService can be used to describe traffic properties for multiple
+// HTTP and TCP ports.
+message VirtualService {
+  // REQUIRED. The destination address for traffic captured by this virtual
+  // service. Could be a DNS name with wildcard prefix or a CIDR
+  // prefix. Depending on the platform, short-names can also be used
+  // instead of a FQDN (i.e. has no dots in the name). In such a scenario,
+  // the FQDN of the host would be derived based on the underlying
+  // platform.
+  //
+  // For example on Kubernetes, when hosts contains a short name, Istio will
+  // interpret the short name based on the namespace of the rule. Thus, when a
+  // client namespace applies a rule in the "default" namespace containing a name
+  // "reviews, Istio will setup routes to the "reviews.default.svc.cluster.local"
+  // service. However, if a different name such as "reviews.sales.svc.cluster.local"
+  // is used, it would be treated as a FQDN during virtual host matching.
+  // In Consul, a plain service name would be resolved to the FQDN
+  // "reviews.service.consul".
+  //
+  // Note that the hosts field applies to both HTTP and TCP
+  // services. Service inside the mesh, i.e., those found in the service
+  // registry, must always be referred to using their alphanumeric
+  // names. IP addresses or CIDR prefixes are allowed only for services
+  // defined via the Gateway.
+  repeated string hosts = 1;
+
+  // The names of gateways and sidecars that should apply these routes. A
+  // single VirtualService is used for sidecars inside the mesh as well
+  // as for one or more gateways. The selection condition imposed by this field
+  // can be overridden using the source field in the match conditions of HTTP/TCP
+  // routes. The reserved word "mesh" is used to imply all the sidecars in
+  // the mesh. When this field is omitted, the default gateway ("mesh")
+  // will be used, which would apply the rule to all sidecars in the
+  // mesh. If a list of gateway names is provided, the rules will apply
+  // only to the gateways. To apply the rules to both gateways and sidecars,
+  // specify "mesh" as one of the gateway names.
+  repeated string gateways = 2;
+
+  // An ordered list of route rules for HTTP traffic.
+  // The first rule matching an incoming request is used.
+  repeated HTTPRoute http = 3;
+
+  // An ordered list of route rules for TCP traffic.
+  // The first rule matching an incoming request is used.
+  repeated TCPRoute tcp = 4;
+}
+
+// Destination indicates the network addressable service to which the
+// request/connection will be sent after processing a routing rule. The
+// destination.name should unambiguously refer to a service in the service
+// registry. It can be a short name or a fully qualified domain name from
+// the service registry, a resolvable DNS name, an IP address or a service
+// name from the service registry and a subset name. The order of inference
+// is as follows:
+//
+// 1. Service registry lookup. The entire name is looked up in the service
+// registry. If the lookup succeeds, the search terminates. The requests
+// will be routed to any instance of the service in the mesh. When the
+// service name consists of a single word, the FQDN will be constructed in
+// a platform specific manner. For example, in Kubernetes, the namespace
+// associated with the routing rule will be used to identify the service as
+// <servicename>.<rulenamespace>. However, if the service name contains
+// multiple words separated by a dot (e.g., reviews.prod), the name in its
+// entirety would be looked up in the service registry.
+//
+// 2. Runtime DNS lookup by the proxy. If step 1 fails, and the name is not
+// an IP address, it will be considered as a DNS name that is not in the
+// service registry (e.g., wikipedia.org). The sidecar/gateway will resolve
+// the DNS and load balance requests appropriately. See Envoy's strict_dns
+// for details.
+//
+// The following example routes all traffic by default to pods of the
+// reviews service with label "version: v1" (i.e., subset v1), and some
+// to subset v2, in a kubernetes environment.
+//
+//     apiVersion: networking.istio.io/v1alpha3
+//     kind: VirtualService
+//     metadata:
+//       name: reviews-route
+//     spec:
+//       hosts:
+//       - reviews # namespace is same as the client/caller's namespace
+//       http:
+//       - match:
+//         - uri:
+//             prefix: "/wpcatalog"
+//         - uri:
+//             prefix: "/consumercatalog"
+//         rewrite:
+//           uri: "/newcatalog"
+//         route:
+//         - destination:
+//             host: reviews
+//             subset: v2
+//       - route:
+//         - destination:
+//             host: reviews
+//             subset: v1
+//
+// And the associated DestinationRule
+//
+//     apiVersion: networking.istio.io/v1alpha3
+//     kind: DestinationRule
+//     metadata:
+//       name: reviews-destination
+//     spec:
+//       host: reviews
+//       subsets:
+//       - name: v1
+//         labels:
+//           version: v1
+//       - name: v2
+//         labels:
+//           version: v2
+//
+// The following VirtualService sets a timeout of 5s for all calls to
+// productpage.prod service. Notice that there are no subsets defined in
+// this rule. Istio will fetch all instances of productpage.prod service
+// from the service registry and populate the sidecar's load balancing
+// pool.
+//
+//     apiVersion: networking.istio.io/v1alpha3
+//     kind: VirtualService
+//     metadata:
+//       name: my-productpage-rule
+//     spec:
+//       hosts:
+//       - productpage.prod # in kubernetes, this applies only to prod namespace
+//       http:
+//       - timeout: 5s
+//         route:
+//         - destination:
+//             host: productpage.prod
+//
+// The following sets a timeout of 5s for all calls to the external
+// service wikipedia.org, as there is no internal service of that name.
+//
+//     apiVersion: networking.istio.io/v1alpha3
+//     kind: VirtualService
+//     metadata:
+//       name: my-wiki-rule
+//     spec:
+//       hosts:
+//       - wikipedia.org
+//       http:
+//       - timeout: 5s
+//         route:
+//         - destination:
+//             host: wikipedia.org
+//
+message Destination {
+  // REQUIRED. The host can be a short name or a fully qualified domain
+  // name from the service registry, a resolvable DNS name, or an IP
+  // address.
+  //
+  // If short names are used, the FQDN of the service will be resolved in a
+  // platform specific manner. For example in Kubernetes, when a route with a
+  // short name "reviews" in the destination in namespace "bookinfo" is applied,
+  // the final destination is resolved to reviews.bookinfo.svc.cluster.local. The
+  // sidecar will route to the IP
+  // addresses of the pods constituting the service. However, if the lookup
+  // fails, "reviews" is treated as an external service, such that the sidecar
+  // will dynamically resolve the DNS of the service name and route the request
+  // to the IP addresses returned by the DNS.
+  string host = 1;
+
+  // The name of a subset within the service. Applicable only to services
+  // within the mesh. The subset must be defined in a corresponding
+  // DestinationRule.
+  string subset = 2;
+
+  // Specifies the port on the destination. Many services only expose a
+  // single port or label ports with the protocols they support, in these
+  // cases it is not required to explicitly select the port. Note that
+  // selection priority is to first match by name and then match by number.
+  //
+  // Names must comply with DNS label syntax (rfc1035) and therefore cannot
+  // collide with numbers. If there are multiple ports on a service with
+  // the same protocol the names should be of the form <protocol-name>-<DNS
+  // label>.
+  PortSelector port = 3;
+
+  // DEPRECATED: Use `host` instead. Adding `name` back to prevent backward incompatibility with existing code inside
+  // istio.io/istio.
+  string name = 4;
+}
+
+// Describes match conditions and actions for routing HTTP/1.1, HTTP2, and
+// gRPC traffic. See VirtualService for usage examples.
+message HTTPRoute {
+  // Match conditions to be satisfied for the rule to be
+  // activated. All conditions inside a single match block have AND
+  // semantics, while the list of match blocks have OR semantics. The rule
+  // is matched if any one of the match blocks succeed.
+  repeated HTTPMatchRequest match = 1;
+
+  // A http rule can either redirect or forward (default) traffic. The
+  // forwarding target can be one of several versions of a service (see
+  // glossary in beginning of document). Weights associated with the
+  // service version determine the proportion of traffic it receives.
+  repeated DestinationWeight route = 2;
+
+  // A http rule can either redirect or forward (default) traffic. If
+  // traffic passthrough option is specified in the rule,
+  // route/redirect will be ignored. The redirect primitive can be used to
+  // send a HTTP 302 redirect to a different URI or Authority.
+  HTTPRedirect redirect = 3;
+
+  // Rewrite HTTP URIs and Authority headers. Rewrite cannot be used with
+  // Redirect primitive. Rewrite will be performed before forwarding.
+  HTTPRewrite rewrite = 4;
+
+  // Indicates that a HTTP/1.1 client connection to this particular route
+  // should be allowed (and expected) to upgrade to a WebSocket connection.
+  // The default is false. Istio's reference sidecar implementation (Envoy)
+  // expects the first request to this route to contain the WebSocket
+  // upgrade headers. Otherwise, the request will be rejected. Note that
+  // Websocket allows secondary protocol negotiation which may then be
+  // subject to further routing rules based on the protocol selected.
+  bool websocket_upgrade = 5;
+
+  // Timeout for HTTP requests.
+  google.protobuf.Duration timeout = 6;
+
+  // Retry policy for HTTP requests.
+  HTTPRetry retries = 7;
+
+  //Fault injection policy to apply on HTTP traffic.
+  HTTPFaultInjection fault = 8;
+
+  // Mirror HTTP traffic to a another destination in addition to forwarding
+  // the requests to the intended destination. Mirrored traffic is on a
+  // best effort basis where the sidecar/gateway will not wait for the
+  // mirrored cluster to respond before returning the response from the
+  // original destination.  Statistics will be generated for the mirrored
+  // destination.
+  Destination mirror = 9;
+
+  // Cross-Origin Resource Sharing policy (CORS). Refer to
+  // https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS
+  // for further details about cross origin resource sharing.
+  CorsPolicy cors_policy = 10;
+
+  // Additional HTTP headers to add before forwarding a request to the
+  // destination service.
+  map<string, string> append_headers = 11;
+}
+
+// Describes match conditions and actions for routing TCP traffic. The
+// following routing rule forwards traffic arriving at port 2379 named
+// Mongo from 172.17.16.* subnet to another Mongo server on port 5555.
+//
+//     apiVersion: networking.istio.io/v1alpha3
+//     kind: VirtualService
+//     metadata:
+//       name: bookinfo-Mongo
+//     spec:
+//       hosts:
+//       - myMongosrv 
+//       tcp:
+//       - match:
+//         - port:
+//             name: Mongo # only applies to ports named Mongo
+//           sourceSubnet: "172.17.16.0/24"
+//         route:
+//         - destination:
+//             host: mongo.prod
+//
+message TCPRoute {
+  // Match conditions to be satisfied for the rule to be
+  // activated. All conditions inside a single match block have AND
+  // semantics, while the list of match blocks have OR semantics. The rule
+  // is matched if any one of the match blocks succeed.
+  repeated L4MatchAttributes match = 1;
+
+  // The destination to which the connection should be forwarded to.
+  // Currently, only one destination is allowed for TCP services. When TCP
+  // weighted routing support is introduced in Envoy, multiple destinations
+  // with weights can be specified.
+  repeated DestinationWeight route = 2;
+}
+
+// HttpMatchRequest specifies a set of criterion to be met in order for the
+// rule to be applied to the HTTP request. For example, the following
+// restricts the rule to match only requests where the URL path
+// starts with /ratings/v2/ and the request contains a "cookie" with value
+// "user=jason".
+//
+//     apiVersion: networking.istio.io/v1alpha3
+//     kind: VirtualService
+//     metadata:
+//       name: ratings-route
+//     spec:
+//       hosts:
+//       - ratings
+//       http:
+//       - match:
+//         - headers:
+//             cookie:
+//               regex: "^(.*?;)?(user=jason)(;.*)?"
+//             uri:
+//               prefix: "/ratings/v2/"
+//         route: 
+//         - destination:
+//             host: ratings
+//
+// HTTPMatchRequest CANNOT be empty.
+message HTTPMatchRequest {
+  // URI to match
+  // values are case-sensitive and formatted as follows:
+  //
+  // *exact: "value"* or just *"value"* for exact string match
+  //
+  // *prefix: "value"* for prefix-based match
+  //
+  // *regex: "value"* for ECMAscript style regex-based match
+  //
+  StringMatch uri = 1;
+
+  // URI Scheme
+  // values are case-sensitive and formatted as follows:
+  //
+  // *exact: "value"* or just *"value"* for exact string match
+  //
+  // *prefix: "value"* for prefix-based match
+  //
+  // *regex: "value"* for ECMAscript style regex-based match
+  //
+  StringMatch scheme = 2;
+
+  // HTTP Method
+  // values are case-sensitive and formatted as follows:
+  //
+  // *exact: "value"* or just *"value"* for exact string match
+  //
+  // *prefix: "value"* for prefix-based match
+  //
+  // *regex: "value"* for ECMAscript style regex-based match
+  //
+  StringMatch method = 3;
+
+  // HTTP Authority
+  // values are case-sensitive and formatted as follows:
+  //
+  // *exact: "value"* or just *"value"* for exact string match
+  //
+  // *prefix: "value"* for prefix-based match
+  //
+  // *regex: "value"* for ECMAscript style regex-based match
+  //
+  StringMatch authority = 4;
+  
+  // The header keys must be lowercase and use hyphen as the separator,
+  // e.g. _x-request-id_.
+  //
+  // Header values are case-sensitive and formatted as follows:
+  //
+  // *exact: "value"* or just *"value"* for exact string match
+  //
+  // *prefix: "value"* for prefix-based match
+  //
+  // *regex: "value"* for ECMAscript style regex-based match
+  //
+  // *Note:* The keys _uri_, _scheme_, _method_, and _authority_ will be ignored.
+  map<string, StringMatch> headers = 5;
+
+  // Specifies the ports on the host that is being addressed. Many services
+  // only expose a single port or label ports with the protocols they support,
+  // in these cases it is not required to explicitly select the port. Note that
+  // selection priority is to first match by name and then match by number.
+  //
+  // Names must comply with DNS label syntax (rfc1035) and therefore cannot
+  // collide with numbers. If there are multiple ports on a service with the
+  // same protocol the names should be of the form <protocol-name>-<DNS label>.
+  PortSelector port = 6;
+
+  // One or more labels that constrain the applicability of a rule to
+  // workloads with the given labels. If the VirtualService has a list of
+  // gateways specified at the top, it should include the reserved gateway
+  // "mesh" in order for this field to be applicable.
+  map<string, string> source_labels = 7;
+
+  // Names of gateways where the rule should be applied to. Gateway names
+  // at the top of the VirtualService (if any) are overridden. The gateway match is
+  // independent of sourceLabels.
+  repeated string gateways = 8;
+}
+
+// Each routing rule is associated with one or more service versions (see
+// glossary in beginning of document). Weights associated with the version
+// determine the proportion of traffic it receives. For example, the
+// following rule will route 25% of traffic for the "reviews" service to
+// instances with the "v2" tag and the remaining traffic (i.e., 75%) to
+// "v1".
+//
+//     apiVersion: networking.istio.io/v1alpha3
+//     kind: VirtualService
+//     metadata:
+//       name: reviews-route
+//     spec:
+//       hosts:
+//       - reviews
+//       http:
+//       - route:
+//         - destination:
+//             host: reviews
+//             subset: v2
+//           weight: 25
+//         - destination:
+//             host: reviews
+//             subset: v1
+//           weight: 75
+//
+// And the associated DestinationRule
+//
+//     apiVersion: networking.istio.io/v1alpha3
+//     kind: DestinationRule
+//     metadata:
+//       name: reviews-destination
+//     spec:
+//       host: reviews
+//       subsets:
+//       - name: v1
+//         labels:
+//           version: v1
+//       - name: v2
+//         labels:
+//           version: v2
+//
+message DestinationWeight {
+  // REQUIRED. Destination uniquely identifies the instances of a service
+  // to which the request/connection should be forwarded to.
+  Destination destination = 1;
+
+  // REQUIRED. The proportion of traffic to be forwarded to the service
+  // version. (0-100). Sum of weights across destinations SHOULD BE == 100.
+  // If there is only destination in a rule, the weight value is assumed to
+  // be 100.
+  int32 weight = 2;
+}
+
+// L4 connection match attributes. Note that L4 connection matching support
+// is incomplete. 
+message L4MatchAttributes {
+  // IPv4 or IPv6 ip address of destination with optional subnet.  E.g.,
+  // a.b.c.d/xx form or just a.b.c.d. This is only valid when the
+  // destination service has several IPs and the application explicitly
+  // specifies a particular IP.
+  string destination_subnet = 1;
+
+  // Specifies the port on the host that is being addressed. Many services
+  // only expose a single port or label ports with the protocols they support,
+  // in these cases it is not required to explicitly select the port. Note that
+  // selection priority is to first match by name and then match by number.
+  //
+  // Names must comply with DNS label syntax (rfc1035) and therefore cannot
+  // collide with numbers. If there are multiple ports on a service with the
+  // same protocol the names should be of the form <protocol-name>-<DNS label>.
+  PortSelector port = 2;
+
+  // IPv4 or IPv6 ip address of source with optional subnet. E.g., a.b.c.d/xx 
+  // form or just a.b.c.d
+  string source_subnet = 3;
+
+  // One or more labels that constrain the applicability of a rule to
+  // workloads with the given labels. If the VirtualService has a list of
+  // gateways specified at the top, it should include the reserved gateway
+  // "mesh" in order for this field to be applicable.
+  map<string, string> source_labels = 4;
+
+  // Names of gateways where the rule should be applied to. Gateway names
+  // at the top of the VirtualService (if any) are overridden. The gateway match is
+  // independent of sourceLabels.
+  repeated string gateways = 5;
+}
+
+// HTTPRedirect can be used to send a 302 redirect response to the caller,
+// where the Authority/Host and the URI in the response can be swapped with
+// the specified values. For example, the following rule redirects
+// requests for /v1/getProductRatings API on the ratings service to
+// /v1/bookRatings provided by the bookratings service.
+//
+//     apiVersion: networking.istio.io/v1alpha3
+//     kind: VirtualService
+//     metadata:
+//       name: ratings-route
+//     spec:
+//       hosts:
+//       - ratings
+//       http:
+//       - match:
+//         - uri:
+//             exact: /v1/getProductRatings
+//       redirect:
+//         uri: /v1/bookRatings
+//         authority: bookratings.default.svc.cluster.local
+//       ...
+//
+message HTTPRedirect {
+  // On a redirect, overwrite the Path portion of the URL with this
+  // value. Note that the entire path will be replaced, irrespective of the
+  // request URI being matched as an exact path or prefix.
+  string uri = 1;
+   
+  // On a redirect, overwrite the Authority/Host portion of the URL with
+  // this value.
+  string authority = 2;
+}
+ 
+// HTTPRewrite can be used to rewrite specific parts of a HTTP request
+// before forwarding the request to the destination. Rewrite primitive can
+// be used only with the DestinationWeights. The following example
+// demonstrates how to rewrite the URL prefix for api call (/ratings) to
+// ratings service before making the actual API call.
+//
+//     apiVersion: networking.istio.io/v1alpha3
+//     kind: VirtualService
+//     metadata:
+//       name: ratings-route
+//     spec:
+//       hosts:
+//       - ratings
+//       http:
+//       - match:
+//         - uri:
+//             prefix: /ratings
+//         rewrite:
+//           uri: /v1/bookRatings
+//         route:
+//         - destination:
+//             host: ratings
+//             subset: v1
+//
+message HTTPRewrite {
+  // rewrite the path (or the prefix) portion of the URI with this
+  // value. If the original URI was matched based on prefix, the value
+  // provided in this field will replace the corresponding matched prefix.
+  string uri = 1;
+
+  // rewrite the Authority/Host header with this value.
+  string authority = 2;
+}
+
+// Describes how to match a given string in HTTP headers. Match is
+// case-sensitive.
+message StringMatch {
+  oneof match_type {
+
+    // exact string match
+    string exact = 1;
+
+    // prefix-based match
+    string prefix = 2;
+
+    // ECMAscript style regex-based match
+    string regex = 3;
+  }
+}
+
+// Describes the retry policy to use when a HTTP request fails. For
+// example, the following rule sets the maximum number of retries to 3 when
+// calling ratings:v1 service, with a 2s timeout per retry attempt.
+//
+//     apiVersion: networking.istio.io/v1alpha3
+//     kind: VirtualService
+//     metadata:
+//       name: ratings-route
+//     spec:
+//       hosts:
+//       - ratings
+//       http:
+//       - route:
+//         - destination:
+//             host: ratings
+//             subset: v1
+//         retries:
+//           attempts: 3
+//           perTryTimeout: 2s
+//
+message HTTPRetry {
+  // REQUIRED. Number of retries for a given request. The interval
+  // between retries will be determined automatically (25ms+). Actual
+  // number of retries attempted depends on the httpReqTimeout.
+  int32 attempts = 1;
+
+  // Timeout per retry attempt for a given request. format: 1h/1m/1s/1ms. MUST BE >=1ms.
+  google.protobuf.Duration per_try_timeout = 2;
+}
+
+// Describes the Cross-Origin Resource Sharing (CORS) policy, for a given
+// service. Refer to
+// https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS
+// for further details about cross origin resource sharing. For example,
+// the following rule restricts cross origin requests to those originating
+// from example.com domain using HTTP POST/GET, and sets the
+// Access-Control-Allow-Credentials header to false. In addition, it only
+// exposes X-Foo-bar header and sets an expiry period of 1 day.
+//
+//     apiVersion: networking.istio.io/v1alpha3
+//     kind: VirtualService
+//     metadata:
+//       name: ratings-route
+//     spec:
+//       hosts:
+//       - ratings
+//       http:
+//       - route:
+//         - destination:
+//             host: ratings
+//             subset: v1
+//         corsPolicy:
+//           allowOrigin:
+//           - example.com
+//           allowMethods:
+//           - POST
+//           - GET
+//           allowCredentials: false
+//           allowHeaders:
+//           - X-Foo-Bar
+//           maxAge: "1d"
+//
+message CorsPolicy {
+  // The list of origins that are allowed to perform CORS requests. The
+  // content will be serialized into the Access-Control-Allow-Origin
+  // header. Wildcard * will allow all origins.
+  repeated string allow_origin = 1;
+
+  // List of HTTP methods allowed to access the resource. The content will
+  // be serialized into the Access-Control-Allow-Methods header.
+  repeated string allow_methods = 2;
+
+  // List of HTTP headers that can be used when requesting the
+  // resource. Serialized to Access-Control-Allow-Methods header.
+  repeated string allow_headers = 3;
+
+  // A white list of HTTP headers that the browsers are allowed to
+  // access. Serialized into Access-Control-Expose-Headers header.
+  repeated string expose_headers = 4;
+
+  // Specifies how long the the results of a preflight request can be
+  // cached. Translates to the Access-Control-Max-Age header.
+  google.protobuf.Duration max_age = 5;
+
+  // Indicates whether the caller is allowed to send the actual request
+  // (not the preflight) using credentials. Translates to
+  // Access-Control-Allow-Credentials header.
+  google.protobuf.BoolValue allow_credentials = 6;
+}
+
+// HTTPFaultInjection can be used to specify one or more faults to inject
+// while forwarding http requests to the destination specified in a route.
+// Fault specification is part of a VirtualService rule. Faults include
+// aborting the Http request from downstream service, and/or delaying
+// proxying of requests. A fault rule MUST HAVE delay or abort or both.
+//
+// *Note:* Delay and abort faults are independent of one another, even if
+// both are specified simultaneously.
+message HTTPFaultInjection {
+  // Delay requests before forwarding, emulating various failures such as
+  // network issues, overloaded upstream service, etc.
+  Delay delay = 1;
+
+  // Abort Http request attempts and return error codes back to downstream
+  // service, giving the impression that the upstream service is faulty.
+  Abort abort = 2;
+
+  // Delay specification is used to inject latency into the request
+  // forwarding path. The following example will introduce a 5 second delay
+  // in 10% of the requests to the "v1" version of the "reviews"
+  // service from all pods with label env: prod
+  //
+  //     apiVersion: networking.istio.io/v1alpha3
+  //     kind: VirtualService
+  //     metadata:
+  //       name: reviews-route
+  //     spec:
+  //       hosts:
+  //       - reviews
+  //       http:
+  //       - match:
+  //         - sourceLabels:
+  //             env: prod
+  //         route:
+  //         - destination:
+  //             host: reviews
+  //             subset: v1
+  //         fault:
+  //           delay:
+  //             percent: 10
+  //             fixedDelay: 5s
+  //
+  // The _fixedDelay_ field is used to indicate the amount of delay in
+  // seconds. An optional _percent_ field, a value between 0 and 100, can
+  // be used to only delay a certain percentage of requests. If left
+  // unspecified, all request will be delayed.
+  message Delay {
+    // Percentage of requests on which the delay will be injected (0-100).
+    int32 percent = 1;
+
+    oneof http_delay_type {
+      // REQUIRED. Add a fixed delay before forwarding the request. Format:
+      // 1h/1m/1s/1ms. MUST be >=1ms.
+      google.protobuf.Duration fixed_delay = 2;
+
+      // (-- Add a delay (based on an exponential function) before forwarding
+      // the request. mean delay needed to derive the exponential delay
+      // values --)
+      google.protobuf.Duration exponential_delay = 3 ;
+    }
+  }
+
+  // Abort specification is used to prematurely abort a request with a
+  // pre-specified error code. The following example will return an HTTP
+  // 400 error code for 10% of the requests to the "ratings" service "v1".
+  //
+  //     apiVersion: networking.istio.io/v1alpha3
+  //     kind: VirtualService
+  //     metadata:
+  //       name: ratings-route
+  //     spec:
+  //       hosts:
+  //       - ratings
+  //       http:
+  //       - route:
+  //         - destination:
+  //             host: ratings
+  //             subset: v1
+  //         fault:
+  //           abort:
+  //             percent: 10
+  //             httpStatus: 400
+  //
+  // The _httpStatus_ field is used to indicate the HTTP status code to
+  // return to the caller. The optional _percent_ field, a value between 0
+  // and 100, is used to only abort a certain percentage of requests. If
+  // not specified, all requests are aborted.
+  message Abort {
+    // Percentage of requests to be aborted with the error code provided (0-100).
+    int32 percent = 1;
+
+    oneof error_type {
+      // REQUIRED. HTTP status code to use to abort the Http request.
+      int32 http_status = 2;
+
+      // (-- NOT IMPLEMENTED --)
+      string grpc_status = 3;
+
+      // (-- NOT IMPLEMENTED --)
+      string http2_error = 4;
+    }
+  }
+}
+
+// PortSelector specifies the name or number of a port to be used for
+// matching or selection for final routing.
+message PortSelector {
+  oneof port {
+    // Valid port number
+    uint32 number = 1;
+    // Port name
+    string name = 2;
+  }
+}
