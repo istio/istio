@@ -55,8 +55,8 @@ func Purge(k common.Kube, mapping crd.Mapping) error {
 			continue
 		}
 
-		if e := resource.DeleteAll(
-			k, c.Spec.Names.Plural, c.Spec.Names.Kind, c.Spec.Names.ListKind, destGv, nslist); e != nil {
+		e := resource.DeleteAll(k, c.Spec.Names.Plural, c.Spec.Names.Kind, c.Spec.Names.ListKind, destGv, nslist)
+		if e != nil {
 			log.Errorf("Deletion error: name='%s', err:'%v'", c.Name, e)
 			err = multierror.Append(err, e)
 		}
