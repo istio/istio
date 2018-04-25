@@ -247,6 +247,7 @@ depend.cleanlock:
 
 depend.update:
 	@echo "Running dep ensure with DEPARGS=$(DEPARGS)"
+	dep version
 	time dep ensure $(DEPARGS)
 
 ${GEN_CERT}:
