@@ -17,7 +17,6 @@ package resource
 import (
 	"errors"
 	"sync"
-	//	"sync"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -25,10 +24,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic/fake"
-	//	"k8s.io/client-go/rest"
 	dtesting "k8s.io/client-go/testing"
-	//
-	//	"istio.io/istio/galley/pkg/testing/mock"
+
 	"istio.io/istio/galley/pkg/testing/mock"
 	wmock "istio.io/istio/galley/pkg/testing/mock"
 )

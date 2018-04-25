@@ -70,7 +70,7 @@ services:
       - ./kubeconfig:/etc/istio/config/kubeconfig
 
   zipkin:
-    image: docker.io/openzipkin/zipkin:2.6.0
+    image: docker.io/openzipkin/zipkin:2.7
     networks:
       istiomesh:
         aliases:
