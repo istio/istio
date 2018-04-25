@@ -305,6 +305,12 @@ jobs:
           command: |
                 make test/local/noauth/e2e_pilotv2
       - run:
+          no_output_timeout: 20m
+          when: always
+          command: |
+            make localTestEnv
+            make test/local/cloudfoundry/e2e_pilotv2
+      - run:
           when: always
           command: |
             make dumpsys
