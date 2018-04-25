@@ -1,9 +1,8 @@
 The following instruction details the steps required to run E2E tests with a Vagrant VM on your local machine, so you can test and debug locally.
 
 # Benefits:
-1. Set up a local vagrant VM Environment once and run "make e2e_all" to run E2E tests from your development environment.
+1. Set up a local vagrant VM Environment once and run "make e2e_all E2E_ARGS="--use_local_cluster"" to run E2E tests from your development environment.
 1. No need to worry about kubernetes cluster setup. The scripts take care of that.
-1. TODO: Debug tests right from your development environment.
 
 # Prereqs:
 1. Set up Istio Dev envrionment using https://github.com/istio/istio/wiki/Dev-Guide.
@@ -55,7 +54,7 @@ cd $ISTIO/istio
 make e2e_simple E2E_ARGS="--use_local_cluster" HUB=10.10.0.2:5000 TAG=latest
 ```
 You can keep repeating this step if you made any local changes and want to run e2e tests again.
-Add E2E_ARGS="--use_local_cluster" to all your e2e tests as tests are we are running a local cluster.
+Add E2E_ARGS="--use_local_cluster" to all your e2e tests as we are running tests on a local cluster.
 ### 2. Run tests on VM
 You can also ssh to VM and issue test command within the VM.
 E.g.
