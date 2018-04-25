@@ -273,7 +273,7 @@ func (c Builder) buildMessageField(ma []interface{}, m *descriptor.DescriptorPro
 		var de Encoder
 		var err error
 		if de, err = c.buildMessage(m, vq, false); err != nil {
-			return fmt.Errorf("unable to process: %v, %v", fd, err)
+			return fmt.Errorf("unable to build message field: %v, %v", fd.GetName(), err)
 		}
 		fld := makeField(fd)
 		fld.encoder = []Encoder{de}

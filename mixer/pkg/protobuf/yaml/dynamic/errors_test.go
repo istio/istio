@@ -248,13 +248,20 @@ func TestBadEncodes(t *testing.T) {
 }
 
 type fakeres struct {
-	yaml.Resolver
 	resolveMessage func(name string) *descriptor.DescriptorProto
+	resolveEnum    func(name string) *descriptor.EnumDescriptorProto
 }
 
 func (f fakeres) ResolveMessage(name string) *descriptor.DescriptorProto {
 	if f.resolveMessage != nil {
 		return f.resolveMessage(name)
+	}
+	return nil
+}
+
+func (f fakeres) ResolveEnum(name string) *descriptor.EnumDescriptorProto {
+	if f.resolveEnum != nil {
+		return f.resolveEnum(name)
 	}
 	return nil
 }
@@ -396,6 +403,29 @@ func TestBuilderErrors(t *testing.T) {
 			skipUnknown: false,
 			err:         errors.New("want: map[string]interface{}"),
 			compiler:    compiler,
+		},
+		{
+			desc: "bad message input",
+			msg:  ".foo.Simple",
+			input: map[string]interface{}{"oth": map[string]interface{}{
+				"ienum": false,
+			}},
+			skipUnknown: false,
+			err:         errors.New("unable to build message field"),
+			compiler:    compiler,
+		},
+		{
+			desc:        "enum not found",
+			msg:         ".foo.Simple",
+			input:       map[string]interface{}{"enm": "origin.ip"},
+			skipUnknown: false,
+			err:         errors.New("unable to resolve enum"),
+			compiler:    compiler,
+			res: &fakeres{
+				resolveMessage: func(name string) *descriptor.DescriptorProto {
+					return res.ResolveMessage(name)
+				},
+			},
 		},
 	} {
 		t.Run(td.desc, func(t *testing.T) {
