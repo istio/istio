@@ -35,7 +35,7 @@ const checkAttributesOkPost = `
   "target.namespace": "XYZ222",
   "connection.mtls": false,
   "connection.id": "*",
-	"connection.event": "open"
+  "connection.event": "open"
 }
 `
 
@@ -60,7 +60,7 @@ const reportAttributesOkPost = `
   "connection.sent.bytes_total": 133,
   "connection.duration": "*",
   "connection.id": "*",
-	"connection.event": "open"
+  "connection.event": "close"
 }
 `
 
@@ -87,7 +87,7 @@ const reportAttributesFailPost = `
   "check.error_code": 16,
   "check.error_message": "UNAUTHENTICATED",
   "connection.id": "*",
-	"connection.event": "close"
+  "connection.event": "close"
 }
 `
 

@@ -145,6 +145,7 @@ type PilotArgs struct {
 	Config           ConfigArgs
 	Service          ServiceArgs
 	RDSv2            bool
+	MeshConfig       *meshconfig.MeshConfig
 }
 
 // Server contains the runtime configuration for the Pilot discovery service.
@@ -253,9 +254,17 @@ func (s *Server) initMonitor(args *PilotArgs) error {
 }
 
 func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
-	// Initializing Cluster store
 	s.clusterStore = clusterregistry.NewClustersStore()
 
+	if s.kubeClient == nil {
+		log.Infof("skipping cluster registries, no kube-client created")
+		return nil
+	}
+
+	// Drop from multicluster test cases if Mock Registry is used
+	if checkForMock(args.Service.Registries) {
+		return nil
+	}
 	if args.Config.ClusterRegistriesConfigmap != "" {
 		if err = clusterregistry.ReadClusters(s.kubeClient,
 			args.Config.ClusterRegistriesConfigmap,
@@ -263,16 +272,15 @@ func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 			s.clusterStore); err != nil {
 			return err
 		}
-		if s.clusterStore != nil {
-			log.Infof("clusters configuration %s", spew.Sdump(s.clusterStore))
-		}
+	} else if err = clusterregistry.ReadClustersV2(s.kubeClient,
+		s.clusterStore, args.Namespace); err != nil {
+		return err
 	}
-	// Should not start Secret Controller if Mock Registry is used
-	if !checkForMock(args.Service.Registries) {
-		// Starting Secret controller which will watch for Secret Objects and handle
-		// clientConfigs map dynamically
-		err = clusterregistry.StartSecretController(s.kubeClient, s.clusterStore, args.Config.ClusterRegistriesNamespace)
+	if s.clusterStore != nil {
+		log.Infof("clusters configuration %s", spew.Sdump(s.clusterStore))
 	}
+	// Start secret controller which watches for runtime secret Object changes and adds secrets dynamically
+	err = clusterregistry.StartSecretController(s.kubeClient, s.clusterStore, args.Config.ClusterRegistriesNamespace)
 
 	return err
 }
@@ -322,6 +330,10 @@ func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*v1.Confi
 // initMesh creates the mesh in the pilotConfig from the input arguments.
 func (s *Server) initMesh(args *PilotArgs) error {
 	// If a config file was specified, use it.
+	if args.MeshConfig != nil {
+		s.mesh = args.MeshConfig
+		return nil
+	}
 	var mesh *meshconfig.MeshConfig
 	if args.Mesh.ConfigFile != "" {
 		fileMesh, err := cmd.ReadMeshConfig(args.Mesh.ConfigFile)
@@ -378,19 +390,10 @@ func (s *Server) getKubeCfgFile(args *PilotArgs) (kubeCfgFile string) {
 
 // initKubeClient creates the k8s client if running in an k8s environment.
 func (s *Server) initKubeClient(args *PilotArgs) error {
-	needToCreateClient := false
+	var needToCreateClient bool
 	for _, r := range args.Service.Registries {
-		switch serviceregistry.ServiceRegistry(r) {
-		case serviceregistry.KubernetesRegistry:
+		if serviceregistry.ServiceRegistry(r) == serviceregistry.KubernetesRegistry {
 			needToCreateClient = true
-		case serviceregistry.ConsulRegistry:
-			needToCreateClient = true
-		case serviceregistry.EurekaRegistry:
-			needToCreateClient = true
-		case serviceregistry.CloudFoundryRegistry:
-			needToCreateClient = true
-		}
-		if needToCreateClient {
 			break
 		}
 	}
@@ -778,6 +781,8 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 		go func() {
 			<-stop
+			model.JwtKeyResolver.Close()
+
 			err = s.HTTPServer.Close()
 			if err != nil {
 				log.Warna(err)
