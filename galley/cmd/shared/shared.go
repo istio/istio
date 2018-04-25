@@ -13,10 +13,11 @@
 // limitations under the License.
 
 // Package shared contains types and functions that are used across the full
-// set of mixer commands.
+// set of galley commands.
 package shared
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 )
@@ -35,4 +36,10 @@ var Fatalf = func(format string, args ...interface{}) {
 // Printf is a FormatFn that prints the formatted string to os.Stdout.
 var Printf = func(format string, args ...interface{}) {
 	fmt.Printf(format+"\n", args...)
+}
+
+// Serialize the given object in nicely formatted JSON.
+func Serialize(v interface{}) string {
+	b, _ := json.MarshalIndent(v, "", "  ")
+	return string(b)
 }
