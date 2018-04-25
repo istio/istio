@@ -24,7 +24,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/gogo/protobuf/types"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -132,8 +132,10 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 	// We'll try to return any listeners we successfully marshaled; if we have none, we'll emit the error we built up
 	err = errs.ErrorOrNil()
 	if len(listeners) == 0 {
-		return listeners, err
-	} else if err != nil {
+		return []*xdsapi.Listener{}, err
+	}
+
+	if err != nil {
 		// we have some listeners to return, but we also have some errors; log them
 		log.Info(err.Error())
 	}
