@@ -15,10 +15,13 @@
 package model
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -106,6 +109,54 @@ func newJwksResolver(expireDuration, evictionDuration, refreshInterval time.Dura
 		},
 	}
 
+	if false {
+		log.Infof("*******************newJwksResolver secure")
+		certDir := os.Getenv("ISTIO_CERT_DIR")
+		if certDir == "" {
+			certDir = "/etc/certs"
+		}
+
+		chainCertFile := fmt.Sprintf("%v/%v", certDir, CertChainFilename)
+		chainKeyFile := fmt.Sprintf("%v/%v", certDir, KeyFilename)
+		chainCert, err := tls.LoadX509KeyPair(chainCertFile, chainKeyFile)
+		if err != nil {
+			log.Infof("Unable to load certs to talk to control plane: %v", err)
+		}
+		caCertFile := fmt.Sprintf("%v/%v", certDir, RootCertFilename)
+		caCert, err := ioutil.ReadFile(caCertFile)
+		if err != nil {
+			log.Infof("Unable to load ca root cert to talk to control plane: %v", err)
+		}
+		caCertPool := x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM(caCert)
+
+		tlsConfig := &tls.Config{
+			Certificates: []tls.Certificate{chainCert},
+			RootCAs:      caCertPool,
+		}
+		transport := &http.Transport{TLSClientConfig: tlsConfig}
+		ret.client = &http.Client{
+			Transport: transport,
+			Timeout:   jwksHTTPTimeOutInSec * time.Second,
+		}
+	} else {
+		if false {
+			ret.client = &http.Client{
+				Timeout: jwksHTTPTimeOutInSec * time.Second,
+			}
+		} else {
+			log.Infof("*******************newJwksResolver InsecureSkipVerify")
+
+			transport := &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			}
+			ret.client = &http.Client{
+				Transport: transport,
+				Timeout:   jwksHTTPTimeOutInSec * time.Second,
+			}
+		}
+	}
+
 	atomic.StoreUint64(&ret.keyChangedCount, 0)
 	go ret.refresher()
 
@@ -154,11 +205,16 @@ func (r *jwksResolver) GetPublicKey(jwksURI string) (string, error) {
 	if val, found := r.keyEntries.Load(jwksURI); found {
 		e := val.(jwtPubKeyEntry)
 
+		log.Infof("******************GetPublicKey found %+v", e)
+
 		// Return from cache if it's not expired.
 		if e.expireTime.After(now) {
 			// Update cached key's last used time.
 			e.lastUsedTime = now
 			r.keyEntries.Store(jwksURI, e)
+
+			log.Infof("******************GetPublicKey found unexpire %+v", e)
+
 			return e.pubKey, nil
 		}
 	}
@@ -166,6 +222,7 @@ func (r *jwksResolver) GetPublicKey(jwksURI string) (string, error) {
 	// Fetch key if it's not cached, or cached item is expired.
 	resp, err := r.getRemoteContent(jwksURI)
 	if err != nil {
+		log.Errorf("**************failed to get key from %q", jwksURI)
 		return "", err
 	}
 
@@ -208,23 +265,40 @@ func (r *jwksResolver) resolveJwksURIUsingOpenID(issuer string) (string, error) 
 }
 
 func (r *jwksResolver) getRemoteContent(url string) ([]byte, error) {
+	//resp, err := r.client.Get(url)
+	/*
+		resp, err := http.Get(url)
+		if err != nil {
+			log.Errorf("*************getRemoteContent get from %q get failed, %v", url, err)
+			return nil, err
+		}
+		defer func() {
+			_ = resp.Body.Close()
+		}() */
+
 	resp, err := r.client.Get(url)
 	if err != nil {
+		log.Errorf("*************resptest getRemoteContent get from %q get failed, %v", url, err)
 		return nil, err
 	}
 	defer func() {
 		_ = resp.Body.Close()
 	}()
 
+	log.Infof("***************************resptest getRemoteContent %+v", resp)
+
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		log.Errorf("*************getRemoteContent get from %q response code %d", url, resp.StatusCode)
 		return nil, fmt.Errorf("unsuccessful response from %q", url)
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
+		log.Errorf("*************getRemoteContent failed to read body %v", err)
 		return nil, err
 	}
 
+	log.Errorf("*************getRemoteContent body %v", body)
 	return body, nil
 }
 

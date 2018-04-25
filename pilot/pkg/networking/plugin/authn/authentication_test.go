@@ -485,6 +485,10 @@ func TestConvertPolicyToJwtConfigWithInlineKey(t *testing.T) {
 								Specifier: &core.DataSource_InlineString{
 									InlineString: test.JwtPubKey1,
 								},
+								/*
+									Specifier: &core.DataSource_InlineBytes{
+										InlineBytes: []byte(test.JwtPubKey1),
+									},,*/
 							},
 						},
 						Forward:              true,
@@ -563,6 +567,11 @@ func TestBuildJwtFilter(t *testing.T) {
 																		"inline_string": {
 																			Kind: &types.Value_StringValue{StringValue: test.JwtPubKey1},
 																		},
+																		/*
+
+																			"inline_bytes": {
+																				Kind: &types.Value_StringValue{StringValue: test.JwtPubKey1},
+																			},*/
 																	},
 																},
 															},
