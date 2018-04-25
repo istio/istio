@@ -84,35 +84,35 @@ const defaultMsgLengthSize = 2
 var msgLengthSize = defaultMsgLengthSize
 
 // encode message including length of the message into []byte
-func (m messageEncoder) Encode(bag attribute.Bag, startOfDataIdx []byte) ([]byte, error) {
+func (m messageEncoder) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
 	var err error
 
 	if m.skipEncodeLength {
-		return m.encodeWithoutLength(bag, startOfDataIdx)
+		return m.encodeWithoutLength(bag, ba)
 	}
 
-	prefixIdx := len(startOfDataIdx)
+	prefixIdx := len(ba)
 	// #pragma inline reserve fieldLengthSize bytes
-	startOfDataIdx = extendSlice(startOfDataIdx, msgLengthSize)
-	l1 := len(startOfDataIdx)
+	ba = extendSlice(ba, msgLengthSize)
+	l1 := len(ba)
 
-	if startOfDataIdx, err = m.encodeWithoutLength(bag, startOfDataIdx); err != nil {
+	if ba, err = m.encodeWithoutLength(bag, ba); err != nil {
 		return nil, err
 	}
 
-	length := len(startOfDataIdx) - l1
+	length := len(ba) - l1
 	diff := proto.SizeVarint(uint64(length)) - msgLengthSize
 	// move data forward because we need more than fieldLengthSize bytes
 	if diff > 0 {
-		startOfDataIdx = extendSlice(startOfDataIdx, diff)
+		ba = extendSlice(ba, diff)
 		// shift data down. This should rarely occur.
-		copy(startOfDataIdx[l1+diff:], startOfDataIdx[l1:])
+		copy(ba[l1+diff:], ba[l1:])
 	}
 
 	// ignore return value. EncodeLength is writing in the middle of the array.
-	_ = EncodeVarintZeroExtend(startOfDataIdx[prefixIdx:prefixIdx], uint64(length), msgLengthSize)
+	_ = EncodeVarintZeroExtend(ba[prefixIdx:prefixIdx], uint64(length), msgLengthSize)
 
-	return startOfDataIdx, nil
+	return ba, nil
 }
 
 // expected length of the varint encoded word

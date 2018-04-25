@@ -14,6 +14,7 @@
 package dynamic
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -30,7 +31,6 @@ import (
 	"istio.io/istio/mixer/pkg/lang/compiled"
 	protoyaml "istio.io/istio/mixer/pkg/protobuf/yaml"
 	"istio.io/istio/mixer/pkg/protobuf/yaml/testdata/all"
-	"bytes"
 )
 
 func TestEncodeVarintZeroExtend(t *testing.T) {
@@ -543,11 +543,11 @@ map_str_sint64:
 `
 
 type testdata struct {
-	desc     string
-	input    string
-	output   string
-	msg      string
-	compiler Compiler
+	desc        string
+	input       string
+	output      string
+	msg         string
+	compiler    Compiler
 	skipUnknown bool
 }
 
@@ -654,7 +654,6 @@ func testMsg(t *testing.T, input string, output string, res protoyaml.Resolver,
 		t.Fatalf("unable to build: %v", err)
 	}
 
-
 	// capture input via alternate process
 	op := input
 	if output != "" {
@@ -677,7 +676,6 @@ func testMsg(t *testing.T, input string, output string, res protoyaml.Resolver,
 		t.Fatalf("unable to marshal origin message: %v", err)
 	}
 	t.Logf("ba1 = [%d] %v", len(ba), ba)
-
 
 	ba = make([]byte, 0, 30)
 	bag := attribute.GetFakeMutableBagForTesting(map[string]interface{}{

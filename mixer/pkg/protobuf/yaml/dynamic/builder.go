@@ -163,7 +163,7 @@ func (c Builder) buildMessage(md *descriptor.DescriptorProto, data map[string]in
 			}
 
 		default:
-			return nil, fmt.Errorf("fieldEncoder not supported '%v'", fd)
+			return nil, fmt.Errorf("field type not supported '%v'", fd.GetType())
 		}
 	}
 
@@ -206,7 +206,7 @@ func buildDynamicEncoder(sval string, fd *descriptor.FieldDescriptorProto, e *de
 	if fd.IsEnum() {
 		// enums can be expressed as String or INT only
 		if !(vt == v1beta1.INT64 || vt == v1beta1.STRING) {
-			return nil, fmt.Errorf("unable to build eval encoder: enum %v for expression type:%v", sval, vt)
+			return nil, fmt.Errorf("field:%v enum %v is of type:%v. want INT64 or STRING", fd.GetName(), sval, vt)
 		}
 
 		return &eEnumEncoder{
@@ -223,6 +223,9 @@ func buildDynamicEncoder(sval string, fd *descriptor.FieldDescriptorProto, e *de
 func (c Builder) buildPrimitiveField(v interface{}, fd *descriptor.FieldDescriptorProto, noExpr bool) (*fieldEncoder, error) {
 	fld := makeField(fd)
 	enum := c.resolver.ResolveEnum(fd.GetTypeName())
+	if fd.IsEnum() && enum == nil {
+		return nil, fmt.Errorf("unable to resolve enum: %v for field %v", fd.GetTypeName(), fd.GetName())
+	}
 
 	va, packed := v.([]interface{})
 	if !packed {
