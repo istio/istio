@@ -310,8 +310,7 @@ func (k *KubeInfo) IngressOrFail(t *testing.T) string {
 
 // Ingress lazily initialize ingress
 func (k *KubeInfo) Ingress() (string, error) {
-	return k.doGetIngress(istioIngressServiceName, istioIngressLabel, true,
-		&k.inglock, &k.ingress, &k.ingressErr)
+	return k.doGetIngress(istioIngressServiceName, istioIngressLabel, &k.inglock, &k.ingress, &k.ingressErr)
 }
 
 // IngressGatewayOrFail lazily initialize ingress gateway and fail test if not found.
@@ -325,12 +324,12 @@ func (k *KubeInfo) IngressGatewayOrFail(t *testing.T) string {
 
 // IngressGateway lazily initialize Ingress Gateway
 func (k *KubeInfo) IngressGateway() (string, error) {
-	return k.doGetIngress(istioIngressGatewayServiceName, istioIngressGatewayLabel, false,
+	return k.doGetIngress(istioIngressGatewayServiceName, istioIngressGatewayLabel,
 		&k.ingressGatewayLock, &k.ingressGateway, &k.ingressGatewayErr)
 }
 
-func (k *KubeInfo) doGetIngress(serviceName string, podLabel string, isKubernetesIngress bool,
-	lock sync.Locker, ingress *string, ingressErr *error) (string, error) {
+func (k *KubeInfo) doGetIngress(serviceName string, podLabel string, lock sync.Locker,
+	ingress *string, ingressErr *error) (string, error) {
 	lock.Lock()
 	defer lock.Unlock()
 
@@ -340,10 +339,10 @@ func (k *KubeInfo) doGetIngress(serviceName string, podLabel string, isKubernete
 	}
 	if k.localCluster {
 		*ingress, *ingressErr = util.GetIngress(serviceName, podLabel,
-			k.Namespace, k.KubeConfig, util.NodePortServiceType, isKubernetesIngress)
+			k.Namespace, k.KubeConfig, util.NodePortServiceType)
 	} else {
 		*ingress, *ingressErr = util.GetIngress(serviceName, podLabel,
-			k.Namespace, k.KubeConfig, util.LoadBalancerServiceType, isKubernetesIngress)
+			k.Namespace, k.KubeConfig, util.LoadBalancerServiceType)
 	}
 
 	// So far we only do http ingress
