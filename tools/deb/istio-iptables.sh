@@ -41,6 +41,8 @@ function usage() {
   echo 'Using environment variables in $ISTIO_SIDECAR_CONFIG (default: /var/lib/istio/envoy/sidecar.env)'
 }
 
+set -x
+
 # Use a comma as the separator for multi-value arguments.
 IFS=,
 
@@ -210,7 +212,9 @@ if [ -n "${INBOUND_PORTS_INCLUDE}" ]; then
     table=nat
   fi
   iptables -t ${table} -N ISTIO_INBOUND
-  iptables -t ${table} -A PREROUTING -p tcp -j ISTIO_INBOUND
+
+  LOCAL_IP=`ip route get 8.8.8.8 | awk '{print $NF; exit}'`
+  iptables -t ${table} -A PREROUTING -p tcp -d $LOCAL_IP -j ISTIO_INBOUND
 
   if [ "${INBOUND_PORTS_INCLUDE}" == "*" ]; then
     # Makes sure SSH is not redirected
@@ -288,3 +292,4 @@ if [ -n "${OUTBOUND_IP_RANGES_INCLUDE}" ]; then
     iptables -t nat -A ISTIO_OUTPUT -j RETURN
   fi
 fi
+
