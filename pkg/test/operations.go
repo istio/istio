@@ -24,8 +24,8 @@ import (
 	"istio.io/istio/pkg/test/label"
 )
 
-// Run is a helper for executing test main with appropriate resource allocation/cleanup steps.
-// It allows us to do post-run cleanup, and flag parsing.
+// Run is a helper for executing test main with appropriate resource allocation/doCleanup steps.
+// It allows us to do post-run doCleanup, and flag parsing.
 func Run(testID string, m *testing.M) {
 	if len(testID) > maxTestIDLength {
 		panic(fmt.Sprintf("test id cannot be longer than %d characters", maxTestIDLength))
@@ -34,7 +34,7 @@ func Run(testID string, m *testing.M) {
 	// TODO: Protect against double-run, invalid driverState etc.
 	setup(testID)
 	rt := m.Run()
-	cleanup()
+	doCleanup()
 	os.Exit(rt)
 }
 
@@ -55,7 +55,7 @@ func Requires(t testing.TB, dependencies ...Dependency) {
 		instance, ok := driver.initializedDependencies[d]
 		if !ok {
 			var err error
-			if instance, err = d.initialize(); err != nil {
+			if instance, err = d.Initialize(); err != nil {
 				t.Fatalf("Unable to satisfy dependency '%v': %v", d, err)
 				return
 			}
@@ -63,7 +63,7 @@ func Requires(t testing.TB, dependencies ...Dependency) {
 		}
 
 		// If they are already satisfied, then signal a "reset", to ensure a clean, well-known driverState.
-		d.reset(instance)
+		d.Reset(instance)
 	}
 }
 

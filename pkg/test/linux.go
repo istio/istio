@@ -47,5 +47,5 @@ package test
 //	return nil
 //}
 //
-//func (l *linux) cleanup(interface{}) {
+//func (l *linux) doCleanup(interface{}) {
 //}

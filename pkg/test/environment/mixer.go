@@ -12,23 +12,30 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package test
+package environment
 
-import (
-	"fmt"
-)
+import "istio.io/istio/pkg/test"
 
-// Dependency represents an external dependency that a test might need.
-type Dependency interface {
-	fmt.Stringer
+var Mixer = &mixer{}
 
-	Initialize() (interface{}, error)
+type mixer struct {
 
-	Reset(interface{}) error
-
-	Cleanup(interface{})
-
-	// TODO: Sub-dependencies
 }
 
-// Some sample dependencies
+var _ test.Dependency = &mixer{}
+
+func (a *mixer) String() string {
+	return ""
+}
+
+func (a *mixer) Initialize() (interface{}, error) {
+	return nil, nil
+}
+
+func (a *mixer) Reset(interface{}) error {
+	return nil
+}
+
+func (a *mixer) Cleanup(interface{}) {
+
+}
