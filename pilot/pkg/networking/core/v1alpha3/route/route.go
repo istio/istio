@@ -20,7 +20,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	xdsfault "github.com/envoyproxy/go-control-plane/envoy/config/filter/fault/v2"
