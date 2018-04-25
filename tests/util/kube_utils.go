@@ -227,6 +227,9 @@ func GetIngress(n string, kubeconfig string) (string, error) {
 			ingress = ip + ":" + port
 		default:
 			ip, err = ShellSilent("kubectl get svc istio-ingress -n %s -o jsonpath='{.status.loadBalancer.ingress[*].ip}'", n)
+			if err != nil {
+				return err
+			}
 			ip = strings.Trim(ip, "'")
 			if ri.FindString(ip) == "" {
 				return errors.New("ingress ip not available yet")
