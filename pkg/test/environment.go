@@ -15,19 +15,52 @@
 package test
 
 import (
+	"testing"
+
 	"k8s.io/client-go/rest"
 )
 
 // Environment is a common interface for all testing environments
 type Environment interface {
+	Configure(config string) error
+	GetMixer() DeployedMixer
+	GetPilot() DeployedPilot
+
 	// GetAPIServer returns the deployed k8s API server
 	GetAPIServer() DeployedAPIServer
 	// GetIstioComponent gets the deployed configuration for all Istio components of the given kind.
 	GetIstioComponent(k DeployedServiceKind) []DeployedIstioComponent
+	GetApp(name string) DeployedApp
 }
 
 // Deployed represents a deployed component
 type Deployed interface {
+}
+
+type DeployedApp interface {
+	Deployed
+	Call(target DeployedApp) AppRequestInfo
+	Expect(info AppRequestInfo) error
+}
+
+type AppRequestInfo struct {
+
+}
+
+type DeployedMixer interface {
+	Deployed
+	GetSpyAdapter() SpyAdapter
+	Report(attributes map[string]interface{}) error
+	Expect(str string) error
+}
+
+type DeployedPilot interface {
+	Deployed
+}
+
+type SpyAdapter interface {
+	Expect(i []interface{}) bool
+
 }
 
 // DeployedAPIServer the configuration for a deployed k8s server
@@ -51,3 +84,7 @@ const (
 	// GalleyComponent enum value for Galley.
 	GalleyComponent = "galley"
 )
+
+func GetEnvironment(t *testing.T) Environment {
+	return nil
+}

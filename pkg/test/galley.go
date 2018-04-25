@@ -31,16 +31,16 @@ func (a *GalleyDependency) String() string {
 	return "galley"
 }
 
-func (a *GalleyDependency) initialize() (interface{}, error) {
+func (a *GalleyDependency) Initialize() (interface{}, error) {
 	// Use the underlying platform-specific implementation to instantiate a new APIServer instance.
 	return apiserver.New()
 }
 
-func (a *GalleyDependency) reset(interface{}) error {
+func (a *GalleyDependency) Reset(interface{}) error {
 	return nil
 }
 
-func (a *GalleyDependency) cleanup(interface{}) {
+func (a *GalleyDependency) Cleanup(interface{}) {
 }
 
 // GetConfig gets the configuration for a Galley dependency
