@@ -44,7 +44,7 @@ const authnConfig = `
 const respExpected = "Peer authentication failed."
 
 func TestAuthnPeerRejectNoTls(t *testing.T) {
-	s := env.NewTestSetup(env.IstioAuthnTestPeerRejectNoTls, t)
+	s := env.NewTestSetup(env.IstioAuthnTestPeerRejectNoTLS, t)
 	// In the Envoy config, requires TLS for peer
 	s.SetFiltersBeforeMixer(authnConfig)
 

@@ -50,7 +50,7 @@ const (
 	IstioAuthnTestOriginRejectNoJwt
 	IstioAuthnTestPeerRejectNoJwt
 	IstioAuthnTestPeerRejectNoMtls
-	IstioAuthnTestPeerRejectNoTls
+	IstioAuthnTestPeerRejectNoTLS
 
 	// The number of total tests. has to be the last one.
 	maxTestNum
