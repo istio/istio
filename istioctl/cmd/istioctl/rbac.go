@@ -48,7 +48,7 @@ RBAC policies. It constructs a fake request with the custom subject and action s
 line to check if your Istio RBAC policies are working as expected. Note the fake request is only used
 locally to evaluate the effect of the Istio RBAC policies, no actual request will be issued.
 
-METHOD is the HTTP method being taken, like GET, POST, etc. SERVICE is the service name the action
+METHOD is the HTTP method being taken, like GET, POST, etc. SERVICE is the short service name the action
 is being taken on. PATH is the HTTP path within the service.`,
 		Example: `# Query if user test is allowed to GET /v1/health of service rating.
 istioctl experimental rbac can -u test GET rating /v1/health
