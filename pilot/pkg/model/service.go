@@ -49,6 +49,10 @@ type Service struct {
 	// Address specifies the service IPv4 address of the load balancer
 	Address string `json:"address,omitempty"`
 
+	// Addresses specifies the service address of the load balancer
+	// in each of the clusters where the service resides
+	Addresses map[string]string `json:"addresses,omitempty"`
+
 	// Ports is the set of network ports where the service is listening for
 	// connections
 	Ports PortList `json:"ports,omitempty"`
@@ -322,7 +326,7 @@ type ServiceDiscovery interface {
 	// though with a different ServicePort and NetworkEndpoint for each.  If any of these overlapping
 	// services are not HTTP or H2-based, behavior is undefined, since the listener may not be able to
 	// determine the intended destination of a connection without a Host header on the request.
-	GetProxyServiceInstances(Proxy) ([]*ServiceInstance, error)
+	GetProxyServiceInstances(*Proxy) ([]*ServiceInstance, error)
 
 	// ManagementPorts lists set of management ports associated with an IPv4 address.
 	// These management ports are typically used by the platform for out of band management
@@ -581,4 +585,12 @@ func ParseLabelsString(s string) Labels {
 		}
 	}
 	return tag
+}
+
+// GetServiceAddressForProxy returns a Service's IP address specific to the cluster where the node resides
+func (s Service) GetServiceAddressForProxy(node *Proxy) string {
+	if node.ClusterID != "" && s.Addresses[node.ClusterID] != "" {
+		return s.Addresses[node.ClusterID]
+	}
+	return s.Address
 }

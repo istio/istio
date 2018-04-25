@@ -69,7 +69,7 @@ var (
 )
 
 const (
-	namespace = "istio"
+	defaultNS = "istio"
 )
 
 // getInfo returns the Info associated with this adapter.
@@ -146,6 +146,10 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 
 	var err error
 	for _, m := range newMetrics {
+		ns := defaultNS
+		if len(m.Namespace) > 0 {
+			ns = safeName(m.Namespace)
+		}
 		mname := m.InstanceName
 		if len(m.Name) != 0 {
 			mname = m.Name
@@ -154,21 +158,21 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		switch m.Kind {
 		case config.GAUGE:
 			// TODO: make prometheus use the keys of metric.Type.Dimensions as the label names and remove from config.
-			ci.c, err = registerOrGet(b.registry, newGaugeVec(mname, m.Description, m.LabelNames))
+			ci.c, err = registerOrGet(b.registry, newGaugeVec(ns, mname, m.Description, m.LabelNames))
 			if err != nil {
 				metricErr = multierror.Append(metricErr, fmt.Errorf("could not register metric: %v", err))
 				continue
 			}
 			b.metrics[m.InstanceName] = ci
 		case config.COUNTER:
-			ci.c, err = registerOrGet(b.registry, newCounterVec(mname, m.Description, m.LabelNames))
+			ci.c, err = registerOrGet(b.registry, newCounterVec(ns, mname, m.Description, m.LabelNames))
 			if err != nil {
 				metricErr = multierror.Append(metricErr, fmt.Errorf("could not register metric: %v", err))
 				continue
 			}
 			b.metrics[m.InstanceName] = ci
 		case config.DISTRIBUTION:
-			ci.c, err = registerOrGet(b.registry, newHistogramVec(mname, m.Description, m.LabelNames, m.Buckets))
+			ci.c, err = registerOrGet(b.registry, newHistogramVec(ns, mname, m.Description, m.LabelNames, m.Buckets))
 			if err != nil {
 				metricErr = multierror.Append(metricErr, fmt.Errorf("could not register metric: %v", err))
 				continue
@@ -229,7 +233,7 @@ func (h *handler) HandleMetric(_ context.Context, vals []*metric.Instance) error
 
 func (h *handler) Close() error { return h.srv.Close() }
 
-func newCounterVec(name, desc string, labels []string) *prometheus.CounterVec {
+func newCounterVec(namespace, name, desc string, labels []string) *prometheus.CounterVec {
 	if desc == "" {
 		desc = name
 	}
@@ -244,7 +248,7 @@ func newCounterVec(name, desc string, labels []string) *prometheus.CounterVec {
 	return c
 }
 
-func newGaugeVec(name, desc string, labels []string) *prometheus.GaugeVec {
+func newGaugeVec(namespace, name, desc string, labels []string) *prometheus.GaugeVec {
 	if desc == "" {
 		desc = name
 	}
@@ -259,7 +263,7 @@ func newGaugeVec(name, desc string, labels []string) *prometheus.GaugeVec {
 	return c
 }
 
-func newHistogramVec(name, desc string, labels []string, bucketDef *config.Params_MetricInfo_BucketsDefinition) *prometheus.HistogramVec {
+func newHistogramVec(namespace, name, desc string, labels []string, bucketDef *config.Params_MetricInfo_BucketsDefinition) *prometheus.HistogramVec {
 	if desc == "" {
 		desc = name
 	}

@@ -551,7 +551,11 @@ func ResolveHostname(meta ConfigMeta, svc *routing.IstioService) string {
 // to shortname of the service to FQDN
 func ResolveShortnameToFQDN(host string, meta ConfigMeta) string {
 	out := host
-
+	// Treat the wildcard host as fully qualified. Any other variant of a wildcard hostname will contain a `.` too,
+	// and skip the next if, so we only need to check for the literal wildcard itself.
+	if host == "*" {
+		return out
+	}
 	// if FQDN is specified, do not append domain or namespace to hostname
 	if !strings.Contains(host, ".") {
 		if meta.Namespace != "" {
@@ -702,6 +706,10 @@ func (store *istioConfigStore) VirtualServices(gateways map[string]bool) []Confi
 				if gateways[ResolveShortnameToFQDN(g, config.ConfigMeta)] {
 					out = append(out, config)
 					break
+				} else if g == IstioMeshGateway && gateways[g] {
+					// "mesh" gateway cannot be expanded into FQDN
+					out = append(out, config)
+					break
 				}
 			}
 		}
@@ -716,13 +724,17 @@ func (store *istioConfigStore) VirtualServices(gateways map[string]bool) []Confi
 		}
 		// resolve gateways to bind to
 		for i, g := range rule.Gateways {
-			rule.Gateways[i] = ResolveShortnameToFQDN(g, r.ConfigMeta)
+			if g != IstioMeshGateway {
+				rule.Gateways[i] = ResolveShortnameToFQDN(g, r.ConfigMeta)
+			}
 		}
 		// resolve host in http route.destination, route.mirror
 		for _, d := range rule.Http {
 			for _, m := range d.Match {
 				for i, g := range m.Gateways {
-					m.Gateways[i] = ResolveShortnameToFQDN(g, r.ConfigMeta)
+					if g != IstioMeshGateway {
+						m.Gateways[i] = ResolveShortnameToFQDN(g, r.ConfigMeta)
+					}
 				}
 			}
 			for _, w := range d.Route {
@@ -736,7 +748,9 @@ func (store *istioConfigStore) VirtualServices(gateways map[string]bool) []Confi
 		for _, d := range rule.Tcp {
 			for _, m := range d.Match {
 				for i, g := range m.Gateways {
-					m.Gateways[i] = ResolveShortnameToFQDN(g, r.ConfigMeta)
+					if g != IstioMeshGateway {
+						m.Gateways[i] = ResolveShortnameToFQDN(g, r.ConfigMeta)
+					}
 				}
 			}
 			for _, w := range d.Route {

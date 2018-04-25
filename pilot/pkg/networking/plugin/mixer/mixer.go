@@ -19,7 +19,6 @@ import (
 	"net"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
@@ -56,13 +55,17 @@ func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mutable
 	switch in.ListenerType {
 	case plugin.ListenerTypeHTTP:
 		for cnum := range mutable.FilterChains {
-			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, buildMixerHTTPFilter(env, node, proxyInstances, true))
+			m := buildMixerHTTPFilter(env, node, proxyInstances, true)
+			if m != nil {
+				mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, m)
+			}
 		}
 		return nil
 	case plugin.ListenerTypeTCP:
-		for cnum := range mutable.FilterChains {
-			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, buildMixerOutboundTCPFilter(env, node))
-		}
+		// Adding an empty filter prevents listeners from loading
+		//		for cnum := range mutable.FilterChains {
+		//			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, buildMixerOutboundTCPFilter(env, node))
+		//		}
 		return nil
 	}
 
@@ -84,7 +87,10 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 		return nil
 	case plugin.ListenerTypeTCP:
 		for cnum := range mutable.FilterChains {
-			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, buildMixerInboundTCPFilter(env, node, instance))
+			m := buildMixerInboundTCPFilter(env, node, instance)
+			if m != nil {
+				mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, *m)
+			}
 		}
 		return nil
 	}
@@ -122,14 +128,11 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConfigura
 			var nrs []route.Route
 			for _, r := range vh.Routes {
 				nr := r
-				if nr.Metadata == nil {
-					nr.Metadata = &core.Metadata{}
+				if nr.PerFilterConfig == nil {
+					nr.PerFilterConfig = make(map[string]*types.Struct)
 				}
-				if nr.Metadata.FilterMetadata == nil {
-					nr.Metadata.FilterMetadata = make(map[string]*types.Struct)
-				}
-				nr.Metadata.FilterMetadata[v1.MixerFilter] =
-					util.BuildProtoStruct(v1.BuildMixerOpaqueConfig(!in.Env.Mesh.DisablePolicyChecks, forward, in.ServiceInstance.Service.Hostname))
+				nr.PerFilterConfig[v1.MixerFilter] = util.MessageToStruct(
+					buildMixerPerRouteConfig(in.Env.Mesh.DisablePolicyChecks, forward, in.ServiceInstance.Service.Hostname))
 				nrs = append(nrs, nr)
 			}
 			nvh.Routes = nrs
@@ -142,7 +145,21 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConfigura
 	default:
 		log.Warn("Unknown listener type in mixer#OnOutboundRouteConfiguration")
 	}
+}
 
+func buildMixerPerRouteConfig(disableCheck, _ /*disableForward*/ bool, destinationService string) *mccpb.ServiceConfig {
+	out := &mccpb.ServiceConfig{
+		// Report calls are never disabled. Disable forward is currently not in the proto.
+		DisableCheckCalls: disableCheck,
+	}
+	if destinationService != "" {
+		out.MixerAttributes = &mpb.Attributes{}
+		out.MixerAttributes.Attributes = map[string]*mpb.Attributes_AttributeValue{
+			v1.AttrDestinationService: {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: destinationService}},
+		}
+	}
+
+	return out
 }
 
 // buildMixerHTTPFilter builds a filter with a v1 mixer config encapsulated as JSON in a proto.Struct for v2 consumption.
@@ -151,7 +168,7 @@ func buildMixerHTTPFilter(env *model.Environment, node *model.Proxy,
 	mesh := env.Mesh
 	config := env.IstioConfigStore
 	if mesh.MixerCheckServer == "" && mesh.MixerReportServer == "" {
-		return &http_conn.HttpFilter{}
+		return nil
 	}
 
 	c := buildHTTPMixerFilterConfig(mesh, *node, proxyInstances, outbound, config)
@@ -162,24 +179,24 @@ func buildMixerHTTPFilter(env *model.Environment, node *model.Proxy,
 }
 
 // buildMixerInboundTCPFilter builds a filter with a v1 mixer config encapsulated as JSON in a proto.Struct for v2 consumption.
-func buildMixerInboundTCPFilter(env *model.Environment, node *model.Proxy, instance *model.ServiceInstance) listener.Filter {
+func buildMixerInboundTCPFilter(env *model.Environment, node *model.Proxy, instance *model.ServiceInstance) *listener.Filter {
 	mesh := env.Mesh
 	if mesh.MixerCheckServer == "" && mesh.MixerReportServer == "" {
-		return listener.Filter{}
+		return nil
 	}
 
 	c := buildTCPMixerFilterConfig(mesh, *node, instance)
-	return listener.Filter{
+	return &listener.Filter{
 		Name:   v1.MixerFilter,
 		Config: util.MessageToStruct(c),
 	}
 }
 
-// buildMixerOutboundTCPFilter builds a filter with a v1 mixer config encapsulated as JSON in a proto.Struct for v2 consumption.
-func buildMixerOutboundTCPFilter(env *model.Environment, node *model.Proxy) listener.Filter {
-	// TODO(mostrowski): implementation
-	return listener.Filter{}
-}
+// // buildMixerOutboundTCPFilter builds a filter with a v1 mixer config encapsulated as JSON in a proto.Struct for v2 consumption.
+// func buildMixerOutboundTCPFilter(env *model.Environment, node *model.Proxy) listener.Filter {
+// 	// TODO(mostrowski): implementation
+// 	return listener.Filter{}
+// }
 
 // buildHTTPMixerFilterConfig builds a mixer HTTP filter config. Mixer filter uses outbound configuration by default
 // (forward attributes, but not invoke check calls)  ServiceInstances belong to the Node.
