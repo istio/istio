@@ -21,6 +21,7 @@ import (
 )
 
 func TestAuthNPolicy(t *testing.T) {
+	// TODO(quanlin): enable test for v2 API after https://github.com/istio/istio/pull/5061 is in.
 	if !tc.Kube.AuthEnabled {
 		t.Skipf("Skipping %s: auth_enable=false", t.Name())
 	}
