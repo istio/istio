@@ -195,34 +195,48 @@ func GetIngress(n string, kubeconfig string) (string, error) {
 		Retries:   300, // ~5 minutes
 	}
 	ri := regexp.MustCompile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
-	//rp := regexp.MustCompile(`^[0-9]{1,5}$`) # Uncomment for minikube
+	rp := regexp.MustCompile(`^[0-9]{1,5}$`)
 	var ingress string
 	retryFn := func(_ context.Context, i int) error {
-		ip, err := ShellSilent("kubectl get svc istio-ingress -n %s -o jsonpath='{.status.loadBalancer.ingress[*].ip}' --kubeconfig=%s", n, kubeconfig)
-		// For minikube, comment out the previous line and uncomment the following line
-		//ip, err := Shell("kubectl get po -l istio=ingress -n %s -o jsonpath='{.items[0].status.hostIP}' --kubeconfig=%s", n, kubeconfig)
-		if err != nil {
+		var ip string
+		svc, err := ShellSilent("kubectl get svc -l istio=ingress -n %s -o jsonpath='{.items[0].spec.type}'", n)
+		switch {
+		case err != nil:
 			return err
+		case svc == "NodePort":
+			// For implementations such as minikube that expose Istio Ingress using a NodePort.
+			var port string
+			ip, err = ShellSilent("kubectl get po -l istio=ingress -n %s -o jsonpath='{.items[0].status.hostIP}'", n)
+			if err != nil {
+				return err
+			}
+			ip = strings.Trim(ip, "'")
+			if ri.FindString(ip) == "" {
+				return errors.New("ingress ip not available yet")
+			}
+			port, err = ShellSilent("kubectl get svc istio-ingress -n %s -o jsonpath='{.spec.ports[0].nodePort}'", n)
+			if err != nil {
+				return err
+			}
+			port = strings.Trim(port, "'")
+			if rp.FindString(port) == "" {
+				err = fmt.Errorf("unable to find ingress port")
+				log.Warna(err)
+				return err
+			}
+			ingress = ip + ":" + port
+		default:
+			ip, err = ShellSilent("kubectl get svc istio-ingress -n %s -o jsonpath='{.status.loadBalancer.ingress[*].ip}'", n)
+			if err != nil {
+				return err
+			}
+			ip = strings.Trim(ip, "'")
+			if ri.FindString(ip) == "" {
+				return errors.New("ingress ip not available yet")
+			}
+			ingress = ip
 		}
-		ip = strings.Trim(ip, "'")
-		if ri.FindString(ip) == "" {
-			return errors.New("ingress ip not available yet")
-		}
-		ingress = ip
-		// For minikube, comment out the previous line and uncomment the following lines
-		//port, e := Shell("kubectl get svc istio-ingress -n %s -o jsonpath='{.spec.ports[0].nodePort}' --kubeconfig=%s", n, kubeconfig)
-		//if e != nil {
-		//	return e
-		//}
-		//port = strings.Trim(port, "'")
-		//if rp.FindString(port) == "" {
-		//	err = fmt.Errorf("unable to find ingress port")
-		//	log.Warn(err)
-		//	return err
-		//}
-		//ingress = ip + ":" + port
 		log.Infof("Istio ingress: %s", ingress)
-
 		return nil
 	}
 
