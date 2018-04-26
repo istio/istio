@@ -80,7 +80,7 @@ var (
 		model.VirtualService,
 		model.Gateway,
 		model.EgressRule,
-		model.ExternalService,
+		model.ServiceEntry,
 		model.DestinationPolicy,
 		model.DestinationRule,
 		model.HTTPAPISpec,
@@ -254,8 +254,12 @@ func (s *Server) initMonitor(args *PilotArgs) error {
 }
 
 func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
-	// Initializing Cluster store
 	s.clusterStore = clusterregistry.NewClustersStore()
+
+	if s.kubeClient == nil {
+		log.Infof("skipping cluster registries, no kube-client created")
+		return nil
+	}
 
 	// Drop from multicluster test cases if Mock Registry is used
 	if checkForMock(args.Service.Registries) {
@@ -386,19 +390,10 @@ func (s *Server) getKubeCfgFile(args *PilotArgs) (kubeCfgFile string) {
 
 // initKubeClient creates the k8s client if running in an k8s environment.
 func (s *Server) initKubeClient(args *PilotArgs) error {
-	needToCreateClient := false
+	var needToCreateClient bool
 	for _, r := range args.Service.Registries {
-		switch serviceregistry.ServiceRegistry(r) {
-		case serviceregistry.KubernetesRegistry:
+		if serviceregistry.ServiceRegistry(r) == serviceregistry.KubernetesRegistry {
 			needToCreateClient = true
-		case serviceregistry.ConsulRegistry:
-			needToCreateClient = true
-		case serviceregistry.EurekaRegistry:
-			needToCreateClient = true
-		case serviceregistry.CloudFoundryRegistry:
-			needToCreateClient = true
-		}
-		if needToCreateClient {
 			break
 		}
 	}
@@ -660,11 +655,11 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 	}
 	configStore := model.MakeIstioStore(s.configController)
 
-	// add external service registry to aggregator by default
+	// add service entry registry to aggregator by default
 	serviceControllers.AddRegistry(
 		aggregate.Registry{
-			Name:             "ExternalServices",
-			ClusterID:        "ExternalServices",
+			Name:             "ServiceEntries",
+			ClusterID:        "ServiceEntries",
 			Controller:       external.NewController(s.configController),
 			ServiceDiscovery: external.NewServiceDiscovery(configStore),
 			ServiceAccounts:  external.NewServiceAccounts(),
@@ -786,6 +781,8 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 		go func() {
 			<-stop
+			model.JwtKeyResolver.Close()
+
 			err = s.HTTPServer.Close()
 			if err != nil {
 				log.Warna(err)

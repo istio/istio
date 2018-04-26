@@ -268,6 +268,33 @@ jobs:
       - store_artifacts:
           path: /tmp
 
+  e2e-pilot-cloudfoundry-v1alpha3-v2:
+    <<: *defaults
+    steps:
+      - type: shell
+        name: Initialize Working Directory
+        pwd: /
+        command: |
+          sudo mkdir -p /go/src/istio.io/istio
+          sudo chown -R circleci /go
+          mkdir -p /go/out
+          mkdir -p /home/circleci/logs
+      - checkout
+      - attach_workspace:
+          at: /go
+      - run: make sync
+      - run:
+          no_output_timeout: 20m
+          when: always
+          command: |
+            export PATH=$GOPATH/bin:$PATH
+            make localTestEnv
+            make test/local/cloudfoundry/e2e_pilotv2
+      - store_artifacts:
+          path: /go/out/logs
+      - store_artifacts:
+          path: /tmp
+
   e2e-pilot-noauth-v1alpha3-v2:
     <<: *integrationDefaults
     environment:
@@ -678,7 +705,7 @@ workflows:
       - build
       - test
       - codecov:
-           requires:
+          requires:
             - build
       - e2e-mixer:
           requires:
@@ -693,5 +720,8 @@ workflows:
           requires:
             - test
       - e2e-pilot-noauth-v1alpha3-v2: #no auth+v1alpha3+v2
+          requires:
+            - build
+      - e2e-pilot-cloudfoundry-v1alpha3-v2:
           requires:
             - build

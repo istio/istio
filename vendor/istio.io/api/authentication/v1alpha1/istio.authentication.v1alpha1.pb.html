@@ -2,7 +2,7 @@
 title: Authentication Policy
 overview: Authentication policy for Istio services.
 layout: protoc-gen-docs
-number_of_entries: 8
+number_of_entries: 9
 ---
 <p>This package defines user-facing authentication policy.</p>
 
@@ -111,7 +111,8 @@ query parameter name.</p>
 </section>
 <h2 id="MutualTls">MutualTls</h2>
 <section>
-<p>mTLS authentication params.</p>
+<p>TLS authentication params.
+TODO: consider to give it a better name, maybe TlsParams?</p>
 
 <table class="message-fields">
 <thead>
@@ -126,11 +127,58 @@ query parameter name.</p>
 <td><code>allowTls</code></td>
 <td><code>bool</code></td>
 <td>
-<p>Set this flag to true to allow regular TLS (i.e without client x509
+<p>WILL BE DEPRECATED, if set, will translates to <code>TLS_PERMISSIVE</code> mode.
+Set this flag to true to allow regular TLS (i.e without client x509
 certificate). If request carries client certificate, identity will be
 extracted and used (set to peer identity). Otherwise, peer identity will
 be left unset.
 When the flag is false (default), request must have client certificate.</p>
+
+</td>
+</tr>
+<tr id="MutualTls.mode">
+<td><code>mode</code></td>
+<td><code><a href="#MutualTls.Mode">MutualTls.Mode</a></code></td>
+<td>
+<p>Defines the mode of mTLS authentication.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="MutualTls.Mode">MutualTls.Mode</h2>
+<section>
+<p>Defines the acceptable connection TLS mode.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="MutualTls.Mode.STRICT">
+<td><code>STRICT</code></td>
+<td>
+<p>Client cert must be presented, connection is in TLS.</p>
+
+</td>
+</tr>
+<tr id="MutualTls.Mode.TLS_PERMISSIVE">
+<td><code>TLS_PERMISSIVE</code></td>
+<td>
+<p>Connection must be in TLS, but client cert can be omitted.
+Request will not be fully authenticate if client cert is missing, but
+still be accepted.</p>
+
+</td>
+</tr>
+<tr id="MutualTls.Mode.PERMISSIVE">
+<td><code>PERMISSIVE</code></td>
+<td>
+<p>Connection can be either plaintext or TLS, and client cert can be omitted.</p>
 
 </td>
 </tr>

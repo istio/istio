@@ -19,12 +19,12 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
-// externalDiscovery communicates with ExternalService CRDs and monitors for changes
+// externalDiscovery communicates with ServiceEntry CRDs and monitors for changes
 type externalDiscovery struct {
 	store model.IstioConfigStore
 }
 
-// NewServiceDiscovery creates a new ExternalServices discovery service
+// NewServiceDiscovery creates a new ServiceEntry discovery service
 func NewServiceDiscovery(store model.IstioConfigStore) model.ServiceDiscovery {
 	return &externalDiscovery{
 		store: store,
@@ -34,9 +34,9 @@ func NewServiceDiscovery(store model.IstioConfigStore) model.ServiceDiscovery {
 // Services list declarations of all services in the system
 func (d *externalDiscovery) Services() ([]*model.Service, error) {
 	services := make([]*model.Service, 0)
-	for _, config := range d.store.ExternalServices() {
-		externalService := config.Spec.(*networking.ExternalService)
-		services = append(services, convertServices(externalService)...)
+	for _, config := range d.store.ServiceEntries() {
+		serviceEntry := config.Spec.(*networking.ServiceEntry)
+		services = append(services, convertServices(serviceEntry)...)
 	}
 
 	return services, nil
@@ -55,15 +55,15 @@ func (d *externalDiscovery) GetService(hostname string) (*model.Service, error) 
 
 func (d *externalDiscovery) getServices() []*model.Service {
 	services := make([]*model.Service, 0)
-	for _, config := range d.store.ExternalServices() {
-		externalService := config.Spec.(*networking.ExternalService)
-		services = append(services, convertServices(externalService)...)
+	for _, config := range d.store.ServiceEntries() {
+		serviceEntry := config.Spec.(*networking.ServiceEntry)
+		services = append(services, convertServices(serviceEntry)...)
 	}
 	return services
 }
 
 // ManagementPorts retries set of health check ports by instance IP.
-// This does not apply to External Service registry, as External Services do not
+// This does not apply to Service Entry registry, as Service entries do not
 // manage the service instances.
 func (d *externalDiscovery) ManagementPorts(addr string) model.PortList {
 	return nil
@@ -79,9 +79,9 @@ func (d *externalDiscovery) Instances(hostname string, ports []string,
 	}
 
 	out := []*model.ServiceInstance{}
-	for _, config := range d.store.ExternalServices() {
-		externalService := config.Spec.(*networking.ExternalService)
-		for _, instance := range convertInstances(externalService) {
+	for _, config := range d.store.ServiceEntries() {
+		serviceEntry := config.Spec.(*networking.ServiceEntry)
+		for _, instance := range convertInstances(serviceEntry) {
 			if instance.Service.Hostname == hostname &&
 				labels.HasSubsetOf(instance.Labels) &&
 				portMatch(instance, portMap) {
@@ -101,7 +101,7 @@ func portMatch(instance *model.ServiceInstance, portMap map[string]bool) bool {
 // GetProxyServiceInstances lists service instances co-located with a given proxy
 func (d *externalDiscovery) GetProxyServiceInstances(node *model.Proxy) ([]*model.ServiceInstance, error) {
 	// There is no proxy sitting next to google.com.  If supplied, istio will end up generating a full envoy
-	// configuration with routes to internal services, (listeners, etc.) for the external service
+	// configuration with routes to internal services, (listeners, etc.) for the service entry
 	// (which does not exist in the cluster).
 	return []*model.ServiceInstance{}, nil
 }

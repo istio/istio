@@ -15,7 +15,7 @@ data:
     template: |-
       initContainers:
       - name: istio-init
-        image: {{ .Values.global.hub }}/proxy_init:{{ .Values.global.tag }}
+        image: {{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}
         args:
         - "-p"
         - {{ "[[ .MeshConfig.ProxyListenPort ]]" }}

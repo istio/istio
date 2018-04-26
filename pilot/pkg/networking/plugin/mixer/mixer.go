@@ -19,7 +19,6 @@ import (
 	"net"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
@@ -129,14 +128,11 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConfigura
 			var nrs []route.Route
 			for _, r := range vh.Routes {
 				nr := r
-				if nr.Metadata == nil {
-					nr.Metadata = &core.Metadata{}
+				if nr.PerFilterConfig == nil {
+					nr.PerFilterConfig = make(map[string]*types.Struct)
 				}
-				if nr.Metadata.FilterMetadata == nil {
-					nr.Metadata.FilterMetadata = make(map[string]*types.Struct)
-				}
-				nr.Metadata.FilterMetadata[v1.MixerFilter] =
-					util.BuildProtoStruct(v1.BuildMixerOpaqueConfig(!in.Env.Mesh.DisablePolicyChecks, forward, in.ServiceInstance.Service.Hostname))
+				nr.PerFilterConfig[v1.MixerFilter] = util.MessageToStruct(
+					buildMixerPerRouteConfig(in.Env.Mesh.DisablePolicyChecks, forward, in.ServiceInstance.Service.Hostname))
 				nrs = append(nrs, nr)
 			}
 			nvh.Routes = nrs
@@ -149,7 +145,21 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConfigura
 	default:
 		log.Warn("Unknown listener type in mixer#OnOutboundRouteConfiguration")
 	}
+}
 
+func buildMixerPerRouteConfig(disableCheck, _ /*disableForward*/ bool, destinationService string) *mccpb.ServiceConfig {
+	out := &mccpb.ServiceConfig{
+		// Report calls are never disabled. Disable forward is currently not in the proto.
+		DisableCheckCalls: disableCheck,
+	}
+	if destinationService != "" {
+		out.MixerAttributes = &mpb.Attributes{}
+		out.MixerAttributes.Attributes = map[string]*mpb.Attributes_AttributeValue{
+			v1.AttrDestinationService: {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: destinationService}},
+		}
+	}
+
+	return out
 }
 
 // buildMixerHTTPFilter builds a filter with a v1 mixer config encapsulated as JSON in a proto.Struct for v2 consumption.
