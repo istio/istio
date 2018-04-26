@@ -12,23 +12,31 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package test
+package dependency
 
-import (
-	"fmt"
-)
+import "istio.io/istio/pkg/test/internal"
 
-// Dependency represents an external dependency that a test might need.
-type Dependency interface {
-	fmt.Stringer
+// Apps is a dependency on fake networked apps. This can be used to mimic traffic thru a mesh.
+var Apps Dependency = &apps{}
 
-	Initialize() (interface{}, error)
-
-	Reset(interface{}) error
-
-	Cleanup(interface{})
-
-	// TODO: Sub-dependencies
+type apps struct {
 }
 
-// Some sample dependencies
+var _ Dependency = &apps{}
+var _ internal.Stateful = &apps{}
+
+func (a *apps) String() string {
+	return "apps"
+}
+
+func (a *apps) Initialize() (interface{}, error) {
+	return nil, nil
+}
+
+func (a *apps) Reset(interface{}) error {
+	return nil
+}
+
+func (a *apps) Cleanup(interface{}) {
+
+}

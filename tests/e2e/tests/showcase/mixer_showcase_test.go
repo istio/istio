@@ -16,13 +16,14 @@ package showcase
 
 import (
 	"testing"
-	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/environment"
+
 	reportTmpl "istio.io/istio/mixer/test/spyAdapter/template/report"
+	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/dependency"
 )
 
 func TestMixer_Report(t *testing.T) {
-	test.Requires(t, environment.RemoteSpyAdapter)
+	test.Requires(t, dependency.RemoteSpyAdapter)
 
 	env := test.GetEnvironment(t)
 	env.Configure(testConfig)
@@ -54,8 +55,7 @@ func TestMixer_Report(t *testing.T) {
 	}
 }
 
-
-var testConfig = 	`
+var testConfig = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: fakeHandler
 metadata:
