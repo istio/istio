@@ -31,7 +31,8 @@ spec:
     spec:
       containers:
       - args:
-        - -P="8080 localhost:8080"
+        - --P
+        - 8080 localhost:8080
         image: istio/fortio:latest_release
         imagePullPolicy: Always
         livenessProbe:
