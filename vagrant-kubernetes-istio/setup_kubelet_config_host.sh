@@ -12,3 +12,4 @@ else
     fi
 fi
 vagrant ssh -c "cat ~/.kube/config" > ~/.kube/config
+sed -i 's/server: http:\/\/localhost:8080/server: http:\/\/localhost:'"$IstioKport"'/' ~/.kube/config

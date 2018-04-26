@@ -23,4 +23,4 @@ sudo systemctl restart docker
 echo "Set route rule to access VM"
 sudo ip route add 10.0.0.0/24 via 10.10.0.2
 
-echo "$(tput setaf 1)Please run docker info and make sure insecure registry address is updated to 10.10.0.2:5000$(tput sgr 0)"
+echo "$(tput setaf 1)Please run docker info and make sure insecure registry address is updated to 10.10.0.2:${IstioDport}$(tput sgr 0)"
