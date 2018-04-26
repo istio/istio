@@ -33,7 +33,8 @@ sh setup_host.sh
 1. Click on the Daemon tag
 1. Add `10.10.0.2:5000` to the "Insecure registries"
 1. Click the `Apply and Start` button in the bottom to restart Docker with the new setting
-![Docker Daemon on macOS](macos_docker_daemon.png)
+<img src="macos_docker_daemon.png" width="600"/>
+
 
 ## 3. Build istio images
 Push images from your local dev environment to the local registry on vagrant vm:
@@ -63,7 +64,7 @@ cd $ISTIO/istio
 make e2e_simple E2E_ARGS="--use_local_cluster"
 ```
 
-### 3. Debug with Delve
+### Debug with Delve
 You can try debugging Istio with debugger tool. vm_setup.sh already installs Delve into VM for us. To use Delve, we need process id of the binary we want to debug.
 For example, if you want to debug a test, run that test in your host/vm.
 ```bash
