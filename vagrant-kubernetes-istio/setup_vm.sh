@@ -1,5 +1,20 @@
 #!/bin/bash
 
+echo "Set up port forward on vagrant"
+read -p "Please enter a port to forward docker images to VM (default is 5000): " dport
+IstioDport=${dport:-5000}
+read -p "Please enter a port to forward kubelet requests to VM (default is 8080):" kport
+IstioKport=${kport:-8080}
+
+echo "export IstioDport=${IstioDport}"
+echo "export IstioKport=${IstioKport}"
+
+export IstioDport=$IstioDport
+export IstioKport=$IstioKport
+
+sed -i 's/config.vm.network \"forwarded_port\", guest: .*, host: .*, host_ip: \"10.10.0.2\"/config.vm.network \"forwarded_port\", guest: 5000, host: '"$IstioDport"', host_ip: \"10.10.0.2\"/' Vagrantfile
+sed -i 's/config.vm.network \"forwarded_port\", guest: 8080, host: .*/config.vm.network \"forwarded_port\", guest: 8080, host: '"$IstioKport"'/' Vagrantfile
+
 # Setup vagrant.
 echo "Setup vagrant"
 vagrant up --provider virtualbox

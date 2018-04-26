@@ -21,7 +21,7 @@ sh install_prereqs.sh
 # Steps
 ## 1. Set up Vagrant Environment
 ```bash
-sh setup_vm.sh
+. setup_vm.sh
 ```
 
 ## 2. Set up Docker daemon and kubectl on Host
