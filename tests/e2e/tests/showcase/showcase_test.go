@@ -20,10 +20,10 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/charts"
-	"istio.io/istio/pkg/test/cluster"
+	//"istio.io/istio/pkg/test/charts"
+	//"istio.io/istio/pkg/test/cluster"
+	"istio.io/istio/pkg/test/dependency"
 	"istio.io/istio/pkg/test/label"
-	"istio.io/istio/pkg/test/local"
 )
 
 // Capturing TestMain allows us to:
@@ -48,7 +48,7 @@ func TestCategorization(t *testing.T) {
 // In this case, the "APIServer" dependency will be initialized (once per running suite) and be available
 // for use.
 func TestRequirement_Cluster(t *testing.T) {
-	test.Requires(t, test.Cluster)
+	test.Requires(t, dependency.Cluster)
 }
 
 // A requirement that will cause failure on Mac. Tags can be used to filter out as well.
@@ -59,31 +59,21 @@ func TestRequirement_UnsatisfiedButSkipped(t *testing.T) {
 // Showcase using local components only, without a cluster.
 func TestDeployment_Local(t *testing.T) {
 	test.Tag(t, label.Integration)
-	test.Requires(t, test.APIServer, test.Galley) // TODO: This seems explicit, but redundant
+	test.Requires(t, dependency.Mixer, dependency.Pilot)
 
-	e := &local.Environment{
-		T: t,
-	}
-	a := e.StartAPIServer() // Direct call within the local environment.
-	//cfg := a.Config() // Kube config to access the API Server directly.
+	e := test.GetEnvironment(t)
+	e.Configure(`aaa`)
 
-	g := e.StartGalley()
-	m := e.StartMixer()
-
-	_ = m
-	_ = g
-	_ = a
-	//_ = cfg
+	m := e.GetMixer()
+	_ = m.Report(nil)
 }
 
 func TestDeployment_Helm(t *testing.T) {
 	test.Tag(t, label.Integration)
-	test.Requires(t, test.Cluster) // Specify that we need *a* Cluster (can be Minikube, GKE, K8s etc.)
+	test.Requires(t, dependency.Cluster) // Specify that we need *a* Cluster (can be Minikube, GKE, K8s etc.)
 
-	e := &cluster.Environment{
-		T: t,
-	}
-	e.Deploy(charts.Istio) // Deploy a shrink-wrapped Helm chart to the cluster.
+	e := test.GetEnvironment(t)
+	//e.Deploy(charts.Istio) // Deploy a shrink-wrapped Helm chart to the cluster.
 
 	a := e.GetAPIServer()                             // Get the singleton API Server
 	g := e.GetIstioComponent(test.GalleyComponent)[0] // Get a list of Galley instances and pick the first one.
@@ -97,14 +87,14 @@ func TestDeployment_Helm(t *testing.T) {
 
 func TestRequirement_ExclusiveCluster(t *testing.T) {
 	test.Tag(t, label.Integration)
-	test.Requires(t, test.ExclusiveCluster) // We need a cluster with exclusive access
+	test.Requires(t, dependency.ExclusiveCluster) // We need a cluster with exclusive access
 
 	// ....
 }
 
 func TestRequirement_GKE(t *testing.T) {
 	test.Tag(t, label.Integration)
-	test.Requires(t, test.GKE) // We specifically need GKE
+	test.Requires(t, dependency.GKE) // We specifically need GKE
 
 	// ....
 }
