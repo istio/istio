@@ -278,7 +278,7 @@ func Test503sDuringChanges(t *testing.T) {
 // This one may need to be fixed through some retries or health check
 // config/setup/policy in envoy (through pilot)
 func Test503sWithBadClusters(t *testing.T) {
-	t.Skip("Skipping Test503sWithBadClusters until bug #1038 is fixed") // TODO fix me!
+	t.Skip("Skipping Test503sWithBadClusters until bug #1038 is fixed") // TODO fix me! - test1
 	url := tc.Kube.IngressOrFail(t) + "/fortio/debug"
 	rulePath := util.GetResourcePath(routingRNPYaml)
 	go func() {
