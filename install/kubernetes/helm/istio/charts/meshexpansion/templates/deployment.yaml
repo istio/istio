@@ -1,38 +1,42 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: istio-ingress
+  name: meshexpansion
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "istio.name" . }}
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    app: meshexpansion
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
-    istio: ingress
+    istio: meshexpansion
 spec:
-  replicas: {{ .Values.replicaCount }}
+  replicas: {{ .Values.replicaCount  | print "1" }}
   template:
     metadata:
       labels:
-        istio: ingress
+        istio: meshexpansion
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
-      serviceAccountName: istio-ingress-service-account
+      serviceAccountName: meshexpansion
       containers:
-        - name: {{ template "istio.name" . }}
+        - name: app
           image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.imagev2 }}:{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
-            - containerPort: 80
-              containerPort: 443
+            {{- range $app := .Values.apps }}
+              - containerPort: {{ $app.externalPort }}
+            {{- end }}
+              - containerPort: 16006
+              - containerPort: 16060
+              - containerPort: 16053
+              - containerPort: 16010
+              - containerPort: 16011
+          #args: ["-c", "/etc/envoy/envoy.yaml", "-l", "debug", "--service-cluster", "istio-ingress", "--service-node" , "ingress~~istio-ingress.istio-system~istio-system.svc.cluster.local"]
           args:
           - proxy
-          - ingress
-          - -v
-          - "2"
-          - --discoveryRefreshDelay
-          - '1s' #discoveryRefreshDelay
+          - router
+          - --proxyLogLevel
+          - "debug"
           - --drainDuration
           - '45s' #drainDuration
           - --parentShutdownDuration
@@ -40,13 +44,11 @@ spec:
           - --connectTimeout
           - '10s' #connectTimeout
           - --serviceCluster
-          - istio-ingress
-          - --zipkinAddress
-          - zipkin:9411
+          - "meshexpansion"
+          - --templateFile
+          - "/etc/envoy/envoy.yaml"
           - --statsdUdpAddress
           - istio-statsd-prom-bridge:9125
-          - --proxyAdminPort
-          - "15000"
         {{- if .Values.global.controlPlaneSecurityEnabled }}
           - --controlPlaneAuthPolicy
           - MUTUAL_TLS
@@ -61,6 +63,8 @@ spec:
           resources:
 {{ toYaml .Values.resources | indent 12 }}
           env:
+          - name: ISTIO_BOOTSTRAP
+            value: "/etc/envoy/envoy.yaml"
           - name: POD_NAME
             valueFrom:
               fieldRef:
@@ -71,21 +75,27 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: metadata.namespace
+          - name: INSTANCE_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+          - name: ISTIO_META_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
           volumeMounts:
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
-          - name: ingress-certs
-            mountPath: /etc/istio/ingress-certs
-            readOnly: true
+          - name: envoyconfig
+            mountPath: /etc/envoy
       volumes:
       - name: istio-certs
         secret:
           secretName: "istio.default"
           optional: true
-      - name: ingress-certs
-        secret:
-          secretName: istio-ingress-certs
-          optional: true
+      - name: envoyconfig
+        configMap:
+            name: meshexpansion-envoy-config
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}

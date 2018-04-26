@@ -1,0 +1,33 @@
+# Internal load balancer currently specific to GKE. Annotations specific to other providers should be added
+# after they get tested.
+# This sets up a single IP for pilot, mixer, ca.
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-meshexpansion
+  namespace: {{ .Release.Namespace }}
+  # TODO: Add additional annotations, as they get tested.
+  annotations:
+    cloud.google.com/load-balancer-type: "internal"
+  labels:
+    istio: meshexpansion
+spec:
+  type: LoadBalancer
+  ports:
+  - name: https-grpc-pilot
+    port: 15011
+    targetPort: 16002
+  - name: grpc-ca-mtls
+    port: 8086
+    targetPort: 16003
+  - name: tcp-dns
+    port: 16005
+  # For upgrade from 0.2
+  - name: http-pilot-legacy
+    port: 8080
+    targetPort: 16001
+  - name: grpc-mixer
+    port: 9091
+    targetPort: 16004
+  selector:
+    istio: meshexpansion

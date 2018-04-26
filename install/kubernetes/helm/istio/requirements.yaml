@@ -7,6 +7,10 @@ dependencies:
     version: 0.8.0
     # repository: file://../ingress
     condition: ingress.enabled
+  - name: meshexpansion
+    version: 0.5.0
+    # repository: file://../meshexpansion
+    condition: meshexpansion.enabled
   - name: ingressgateway
     version: 0.8.0
     # repository: file://../ingressgateway

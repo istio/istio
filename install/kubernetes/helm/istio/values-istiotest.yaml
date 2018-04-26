@@ -1,0 +1,62 @@
+# Configuration overrides for deploying istio for testing
+
+global:
+  nodePort: true
+  imagePullPolicy: Always
+  proxy:
+    image: proxy_debug
+
+ingress:
+  service:
+    nodePort:
+      enabled: true
+  autoscaleMin: 1
+  autoscaleMax: 8
+  meshExpansion:
+    enabled: true
+
+  sni:
+    enabled: true
+    apps:
+    - name: httpbin.nightly.istio.io
+      shortName: httpbin
+
+  zvpn:
+    enabled: true
+    apps:
+    - externalPort: 9999
+      portName: http-9999
+
+
+prometheus:
+  enabled: true
+  ingress:
+    enabled: true
+  service:
+    nodePort:
+      enabled: true
+      port: 32090
+
+grafana:
+  enabled: true
+
+servicegraph:
+  enabled: true
+
+pilot:
+  resources:
+    limits:
+     cpu: 3000m
+     memory: 6Gi
+    requests:
+     cpu: 1600m
+     memory: 4Gi
+
+ingress:
+  resources:
+    limits:
+     cpu: 2000m
+     memory: 500Mi
+    requests:
+     cpu: 2000m
+     memory: 500Mi
