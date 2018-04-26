@@ -59,14 +59,16 @@ const (
 	routeReviewsVersionsRule = rulesDir + "/" + "route-rule-reviews-v2-v3"
 	routeReviewsV3Rule       = rulesDir + "/" + "route-rule-reviews-v3"
 	tcpDbRule                = rulesDir + "/" + "route-rule-ratings-db"
+	checkCacheHitRule        = rulesDir + "/" + "mixer-rule-check-cache-hit"
 
 	prometheusPort   = "9090"
 	mixerMetricsPort = "42422"
 	productPagePort  = "10000"
 
-	srcLabel          = "source_service"
-	destLabel         = "destination_service"
-	responseCodeLabel = "response_code"
+	srcLabel           = "source_service"
+	destLabel          = "destination_service"
+	responseCodeLabel  = "response_code"
+	checkCacheHitLabel = "check_cache_hit"
 
 	// This namespace is used by default in all mixer config documents.
 	// It will be replaced with the test namespace.
@@ -86,7 +88,7 @@ var (
 	tc                 *testConfig
 	productPageTimeout = 60 * time.Second
 	rules              = []string{rateLimitRule, denialRule, ingressDenialRule, newTelemetryRule, routeAllRule,
-		routeReviewsVersionsRule, routeReviewsV3Rule, tcpDbRule}
+		routeReviewsVersionsRule, routeReviewsV3Rule, tcpDbRule, checkCacheHitRule}
 )
 
 func (t *testConfig) Setup() (err error) {
@@ -497,19 +499,6 @@ func testDenials(t *testing.T, rule string) {
 
 // TestIngressCheckCache tests that check cache works in Ingress.
 func TestIngressCheckCache(t *testing.T) {
-	// Apply denial rule to istio-ingress, so that only request with ["x-user"] could go through.
-	// This is to make the test focus on ingress check cache.
-	t.Logf("block request through ingress if x-user header is missing")
-	if err := applyMixerRule(ingressDenialRule); err != nil {
-		fatalf(t, "could not create required mixer rule: %v", err)
-	}
-	defer func() {
-		if err := deleteMixerRule(ingressDenialRule); err != nil {
-			t.Logf("could not clear rule: %v", err)
-		}
-	}()
-	allowRuleSync()
-
 	// Visit product page through ingress should all be denied.
 	visit := func() error {
 		url := fmt.Sprintf("%s/productpage", tc.Kube.IngressOrFail(t))
@@ -532,7 +521,7 @@ func TestIngressCheckCache(t *testing.T) {
 		}
 		return nil
 	}
-	testCheckCache(t, visit)
+	testCheckCache(t, visit, "istio-ingress")
 }
 
 // TestCheckCache tests that check cache works within the mesh.
@@ -548,23 +537,30 @@ func TestCheckCache(t *testing.T) {
 	visit := func() error {
 		return visitWithApp(url, pod, "sleep", 100)
 	}
-	testCheckCache(t, visit)
+	testCheckCache(t, visit, "productpage")
 }
 
 // testCheckCache verifies check cache is used when calling the given visit function
 // by comparing the check call metric.
-func testCheckCache(t *testing.T, visit func() error) {
+func testCheckCache(t *testing.T, visit func() error, destSvc string) {
 	promAPI, err := promAPI()
 	if err != nil {
 		fatalf(t, "Could not build prometheus API client: %v", err)
 	}
 
+	if err = applyMixerRule(checkCacheHitRule); err != nil {
+		fatalf(t, "could not create required mixer rule: %v", err)
+	}
+	defer func() {
+		if err = deleteMixerRule(checkCacheHitRule); err != nil {
+			t.Logf("could not clear rule: %v", err)
+		}
+	}()
+	allowRuleSync()
+
 	// Get check cache hit baseline.
 	t.Log("Query prometheus to get baseline cache hits...")
-	prior, err := getCheckCacheHits(promAPI)
-	if err != nil {
-		fatalf(t, "Unable to retrieve valid cached hit number: %v", err)
-	}
+	prior := getCheckCacheHits(promAPI, destSvc)
 
 	t.Logf("Baseline cache hits: %v", prior)
 	t.Log("Start to call visit function...")
@@ -575,10 +571,7 @@ func testCheckCache(t *testing.T, visit func() error) {
 	allowPrometheusSync()
 	t.Log("Query promethus to get new cache hits number...")
 	// Get new check cache hit.
-	got, err := getCheckCacheHits(promAPI)
-	if err != nil {
-		fatalf(t, "Unable to retrieve valid cached hit number: %v", err)
-	}
+	got := getCheckCacheHits(promAPI, destSvc)
 	t.Logf("New cache hits: %v", got)
 
 	// At least 1 call should be cache hit.
@@ -965,42 +958,22 @@ func visitWithApp(url string, pod string, container string, num int) error {
 	return nil
 }
 
-// getCheckCacheHits returned the total number of check cache hits in this cluster.
-func getCheckCacheHits(promAPI v1.API) (float64, error) {
+// getCheckCacheHits returned the total number of check cache hits in proxy of the given service.
+func getCheckCacheHits(promAPI v1.API, destSvc string) float64 {
 	log.Info("Get number of cached check calls")
-	query := fmt.Sprintf("envoy_http_mixer_filter_total_check_calls")
+	query := fmt.Sprintf("istio_check_cache_hit{%s=\"%s\", %s=\"true\"}", destLabel, fqdn(destSvc), checkCacheHitLabel)
 	log.Infof("prometheus query: %s", query)
 	value, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
-		log.Infof("Could not get remote check calls metric from prometheus: %v", err)
-		return 0, nil
+		log.Infof("Could not find metric in prometheus, using 0 as value (msg: %v)", err)
+		return 0
 	}
-	totalCheck, err := vectorValue(value, map[string]string{})
+	cacheHit, err := vectorValue(value, map[string]string{})
 	if err != nil {
-		log.Infof("error getting total check, using 0 as value (msg: %v)", err)
-		totalCheck = 0
+		log.Infof("Error getting cache hit, using 0 as value (msg: %v)", err)
+		return 0
 	}
-
-	query = fmt.Sprintf("envoy_http_mixer_filter_total_remote_check_calls")
-	log.Infof("prometheus query: %s", query)
-	value, err = promAPI.Query(context.Background(), query, time.Now())
-	if err != nil {
-		log.Infof("Could not get remote check calls metric from prometheus: %v", err)
-		return 0, nil
-	}
-	remoteCheck, err := vectorValue(value, map[string]string{})
-	if err != nil {
-		log.Infof("error getting total check, using 0 as value (msg: %v)", err)
-		remoteCheck = 0
-	}
-
-	if remoteCheck > totalCheck {
-		// Remote check calls should always be less than or equal to total check calls.
-		return 0, fmt.Errorf("check call metric is invalid: remote check call %v is more than total check call %v", remoteCheck, totalCheck)
-	}
-	log.Infof("Total check call is %v and remote check call is %v", totalCheck, remoteCheck)
-	// number of cached check call is the gap between total check calls and remote check calls.
-	return totalCheck - remoteCheck, nil
+	return cacheHit
 }
 
 func fqdn(service string) string {
