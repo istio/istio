@@ -22,8 +22,10 @@ import (
 
 	"github.com/google/uuid"
 
+	"istio.io/istio/pkg/test/dependency"
 	"istio.io/istio/pkg/test/impl/logging"
 	"istio.io/istio/pkg/test/impl/tmp"
+	"istio.io/istio/pkg/test/internal"
 )
 
 const (
@@ -41,11 +43,11 @@ type driverState struct {
 
 	labels string
 
-	initializedDependencies map[Dependency]interface{}
+	initializedDependencies map[dependency.Dependency]interface{}
 }
 
 var driver = driverState{
-	initializedDependencies: make(map[Dependency]interface{}),
+	initializedDependencies: make(map[dependency.Dependency]interface{}),
 }
 
 // init registers the command-line flags that we can exposed for "go test".
@@ -75,7 +77,9 @@ func doCleanup() {
 	defer driver.Unlock()
 
 	for k, v := range driver.initializedDependencies {
-		k.Cleanup(v)
+		if s, ok := k.(internal.Stateful); ok {
+			s.Cleanup(v)
+		}
 	}
 }
 

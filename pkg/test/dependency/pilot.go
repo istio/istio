@@ -12,30 +12,31 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package environment
+package dependency
 
-import "istio.io/istio/pkg/test"
+import "istio.io/istio/pkg/test/internal"
 
-var MTLS = &mtls{}
+// Pilot indicates a dependency on Pilot.
+var Pilot Dependency = &pilot{}
 
-type mtls struct {
-
+type pilot struct {
 }
 
-var _ test.Dependency = &mtls{}
+var _ Dependency = &pilot{}
+var _ internal.Stateful = &pilot{}
 
-func (r *mtls) String() string {
+func (a *pilot) String() string {
 	return ""
 }
 
-func (r *mtls) Initialize() (interface{}, error) {
+func (a *pilot) Initialize() (interface{}, error) {
 	return nil, nil
 }
 
-func (r *mtls) Reset(interface{}) error {
+func (a *pilot) Reset(interface{}) error {
 	return nil
 }
 
-func (r *mtls) Cleanup(interface{}) {
+func (a *pilot) Cleanup(interface{}) {
 
 }
