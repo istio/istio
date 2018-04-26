@@ -80,7 +80,7 @@ func NewAdapterInfoRegistry(infos []*adapter.Info) (*adapterInfoRegistry, error)
 			continue
 		}
 
-		cfgFds, cfgProto, err := getAdapterCfgDescriptor(info.Config)
+		cfgFds, cfgProto, err := GetAdapterCfgDescriptor(info.Config)
 		if err != nil {
 			resultErr = multierror.Append(resultErr, err)
 			continue
@@ -164,37 +164,12 @@ func (r *adapterInfoRegistry) ingestTemplates(tmpls []string) ([]string, error) 
 	return tmplNames, resultErr
 }
 
-func decodeFds(base64Fds string) (*descriptor.FileDescriptorSet, error) {
-	var err error
-	var bytes []byte
-
-	reader := strings.NewReader(base64Fds)
-	decoder := base64.NewDecoder(base64.StdEncoding, reader)
-
-	if bytes, err = ioutil.ReadAll(decoder); err != nil {
-		return nil, err
-	}
-
-	fds := &descriptor.FileDescriptorSet{}
-	if err = proto.Unmarshal(bytes, fds); err != nil {
-		return nil, err
-	}
-
-	return fds, nil
-}
-
 func (r *adapterInfoRegistry) createTemplateMetadata(base64Tmpl string) (*TemplateMetadata, error) {
-	fds, err := decodeFds(base64Tmpl)
+
+	fds, tmplDesc, tmplName, err := GetTmplDesc(base64Tmpl)
 	if err != nil {
 		return nil, err
 	}
-
-	var tmplDesc *descriptor.FileDescriptorProto
-	var tmplName string
-	if tmplName, tmplDesc, err = getTmplFileDesc(fds.File); err != nil {
-		return nil, err
-	}
-
 	// TODO: if given template is already registered, pick the one that is superset. For now just overwrite; last one wins.
 	if old := r.GetTemplate(tmplName); old != nil {
 		// duplicate entry found TODO: how can we make this error better ??
@@ -206,15 +181,20 @@ func (r *adapterInfoRegistry) createTemplateMetadata(base64Tmpl string) (*Templa
 		FileDescSet:   fds}, nil
 }
 
-// Find the file that has the options TemplateVariety. There should only be one such file.
-func getTmplFileDesc(fds []*descriptor.FileDescriptorProto) (string, *descriptor.FileDescriptorProto, error) {
+// GetTmplDesc find a template descriptor
+func GetTmplDesc(base64Tmpl string) (*descriptor.FileDescriptorSet, *descriptor.FileDescriptorProto, string, error) {
+	fds, err := decodeFds(base64Tmpl)
+	if err != nil {
+		return nil, nil, "", err
+	}
+
 	var templateDescriptorProto *descriptor.FileDescriptorProto
-	for _, fd := range fds {
+	for _, fd := range fds.File {
 		if fd.GetOptions() == nil || !proto.HasExtension(fd.GetOptions(), tmpl.E_TemplateVariety) {
 			continue
 		}
 		if templateDescriptorProto != nil {
-			return "", nil, fmt.Errorf(
+			return nil, nil, "", fmt.Errorf(
 				"proto files %s and %s, both have the option %s. Only one proto file is allowed with this options",
 				fd.GetName(), templateDescriptorProto.GetName(), tmpl.E_TemplateVariety.Name)
 		}
@@ -222,32 +202,24 @@ func getTmplFileDesc(fds []*descriptor.FileDescriptorProto) (string, *descriptor
 	}
 
 	if templateDescriptorProto == nil {
-		return "", nil, fmt.Errorf("there has to be one proto file that has the extension %s", tmpl.E_TemplateVariety.Name)
+		return nil, nil, "", fmt.Errorf("there has to be one proto file that has the extension %s", tmpl.E_TemplateVariety.Name)
 	}
 
 	var tmplName string
 	if nameExt, err := proto.GetExtension(templateDescriptorProto.GetOptions(), tmpl.E_TemplateName); err != nil {
-		return "", nil, fmt.Errorf(
+		return nil, nil, "", fmt.Errorf(
 			"proto files %s is missing required template_name option", templateDescriptorProto.GetName())
 	} else if err := validateTmplName(*(nameExt.(*string))); err != nil {
-		return "", nil, err
+		return nil, nil, "", err
 	} else {
 		tmplName = *(nameExt.(*string))
 	}
 
-	return tmplName, templateDescriptorProto, nil
+	return fds, templateDescriptorProto, tmplName, nil
 }
 
-var pkgLaskSegRegex = regexp.MustCompile("^[a-zA-Z]+$")
-
-func validateTmplName(name string) error {
-	if !pkgLaskSegRegex.MatchString(name) {
-		return fmt.Errorf("the template name '%s' must match the regex '%s'", name, "^[a-zA-Z]+$")
-	}
-	return nil
-}
-
-func getAdapterCfgDescriptor(base64Tmpl string) (*descriptor.FileDescriptorSet, *descriptor.FileDescriptorProto, error) {
+// GetAdapterCfgDescriptor find an adapter configuration descriptor
+func GetAdapterCfgDescriptor(base64Tmpl string) (*descriptor.FileDescriptorSet, *descriptor.FileDescriptorProto, error) {
 	if base64Tmpl == "" {
 		// no cfg is allowed
 		return nil, nil, nil
@@ -265,6 +237,16 @@ func getAdapterCfgDescriptor(base64Tmpl string) (*descriptor.FileDescriptorSet, 
 
 	return fds, tmplDesc, nil
 }
+
+var pkgLaskSegRegex = regexp.MustCompile("^[a-zA-Z]+$")
+
+func validateTmplName(name string) error {
+	if !pkgLaskSegRegex.MatchString(name) {
+		return fmt.Errorf("the template name '%s' must match the regex '%s'", name, "^[a-zA-Z]+$")
+	}
+	return nil
+}
+
 // find the file that has the "Param" message
 func getAdapterConfigFileDesc(fds []*descriptor.FileDescriptorProto) *descriptor.FileDescriptorProto {
 	for _, fd := range fds {
@@ -276,4 +258,24 @@ func getAdapterConfigFileDesc(fds []*descriptor.FileDescriptorProto) *descriptor
 	}
 
 	return nil
+}
+
+// utils
+func decodeFds(base64Fds string) (*descriptor.FileDescriptorSet, error) {
+	var err error
+	var bytes []byte
+
+	reader := strings.NewReader(base64Fds)
+	decoder := base64.NewDecoder(base64.StdEncoding, reader)
+
+	if bytes, err = ioutil.ReadAll(decoder); err != nil {
+		return nil, err
+	}
+
+	fds := &descriptor.FileDescriptorSet{}
+	if err = proto.Unmarshal(bytes, fds); err != nil {
+		return nil, err
+	}
+
+	return fds, nil
 }
