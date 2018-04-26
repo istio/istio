@@ -12,30 +12,31 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package environment
+package dependency
 
-import "istio.io/istio/pkg/test"
+import "istio.io/istio/pkg/test/internal"
 
-var Mixer = &mixer{}
+// MTLS indicates a dependency on MTLS being enabled.
+var MTLS Dependency = &mtls{}
 
-type mixer struct {
-
+type mtls struct {
 }
 
-var _ test.Dependency = &mixer{}
+var _ Dependency = &mtls{}
+var _ internal.Stateful = &mtls{}
 
-func (a *mixer) String() string {
+func (r *mtls) String() string {
 	return ""
 }
 
-func (a *mixer) Initialize() (interface{}, error) {
+func (r *mtls) Initialize() (interface{}, error) {
 	return nil, nil
 }
 
-func (a *mixer) Reset(interface{}) error {
+func (r *mtls) Reset(interface{}) error {
 	return nil
 }
 
-func (a *mixer) Cleanup(interface{}) {
+func (r *mtls) Cleanup(interface{}) {
 
 }

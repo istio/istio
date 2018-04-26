@@ -12,52 +12,54 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package test
+package dependency
 
 import (
 	"k8s.io/client-go/rest"
 
 	"istio.io/istio/pkg/test/impl/apiserver"
+	"istio.io/istio/pkg/test/internal"
 )
 
 // Cluster dependency.
-var Cluster = &ClusterDependency{exclusive: false}
+var Cluster Dependency = &clusterDependency{exclusive: false}
 
 // ExclusiveCluster dependency.
-var ExclusiveCluster = &ClusterDependency{exclusive: true}
+var ExclusiveCluster Dependency = &clusterDependency{exclusive: true}
 
 // GKE dependency
-var GKE = &ClusterDependency{gke: true}
+var GKE Dependency = &clusterDependency{gke: true}
 
 // ExclusiveGKE dependency
-var ExclusiveGKE = &ClusterDependency{exclusive: true, gke: true}
+var ExclusiveGKE Dependency = &clusterDependency{exclusive: true, gke: true}
 
 // ClusterDependency represents a typed ClusterDependency dependency.
-type ClusterDependency struct {
+type clusterDependency struct {
 	exclusive bool
 	gke       bool
 }
 
 // Dependency is the default dependency
-var _ Dependency = &ClusterDependency{}
+var _ Dependency = &clusterDependency{}
+var _ internal.Stateful = &clusterDependency{}
 
-func (a *ClusterDependency) String() string {
+func (a *clusterDependency) String() string {
 	return "cluster"
 }
 
-func (a *ClusterDependency) Initialize() (interface{}, error) {
+func (a *clusterDependency) Initialize() (interface{}, error) {
 	// Use the underlying platform-specific implementation to instantiate a new APIServer instance.
 	return apiserver.New()
 }
 
-func (a *ClusterDependency) Reset(interface{}) error {
+func (a *clusterDependency) Reset(interface{}) error {
 	return nil
 }
 
-func (a *ClusterDependency) Cleanup(interface{}) {
+func (a *clusterDependency) Cleanup(interface{}) {
 }
 
 // GetConfig returns the configuration
-func (a *ClusterDependency) GetConfig() *rest.Config {
+func (a *clusterDependency) GetConfig() *rest.Config {
 	return nil
 }
