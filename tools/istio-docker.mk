@@ -16,8 +16,6 @@
 
 # Docker target will build the go binaries and package the docker for local testing.
 # It does not upload to a registry.
-docker: export USE_DOCKER=true
-docker: export GOOS=linux 
 docker: build test-bins docker.all
 
 $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
@@ -81,8 +79,6 @@ docker.eurekamirror: $(ISTIO_DOCKER)/pilot-test-eurekamirror
 docker.proxy_init: $(ISTIO_DOCKER)/istio-iptables.sh
 docker.sidecar_injector: $(ISTIO_DOCKER)/sidecar-injector
 
-docker.proxy: export USE_DOCKER=true
-docker.proxy: export GOOS=linux
 docker.proxy: tools/deb/envoy_bootstrap_tmpl.json
 docker.proxy: ${ISTIO_ENVOY_RELEASE_PATH}
 docker.proxy: $(ISTIO_OUT)/pilot-agent
@@ -98,8 +94,6 @@ docker.proxy: pilot/docker/envoy_telemetry.yaml.tmpl
 	time (cd $(DOCKER_BUILD_TOP)/proxy && \
 		docker build -t $(HUB)/proxy:$(TAG) -f ${DOCKER_PROXY_CFG} .)
 
-docker.proxy_debug: export USE_DOCKER=true
-docker.proxy_debug: export GOOS=linux 
 docker.proxy_debug: tools/deb/envoy_bootstrap_tmpl.json
 docker.proxy_debug: ${ISTIO_ENVOY_DEBUG_PATH}
 docker.proxy_debug: $(ISTIO_OUT)/pilot-agent
@@ -245,8 +239,6 @@ $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_PUSH_TARGETS+=push.$(TGT)))
 docker.tag: docker
 
 # Will build and push docker images.
-docker.push: export USE_DOCKER=true
-docker.push: export GOOS=linux 
 docker.push: $(DOCKER_PUSH_TARGETS)
 
 # Base image for 'debug' containers.
