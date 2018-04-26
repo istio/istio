@@ -110,6 +110,10 @@ func (ms *MockOpenIDDiscoveryServer) Start() error {
 func (ms *MockOpenIDDiscoveryServer) Stop() error {
 	atomic.StoreUint64(&ms.OpenIDHitNum, 0)
 	atomic.StoreUint64(&ms.PubKeyHitNum, 0)
+	if ms.server == nil {
+		return nil
+	}
+
 	return ms.server.Close()
 }
 
