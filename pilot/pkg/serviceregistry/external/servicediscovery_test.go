@@ -24,11 +24,11 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
-func createExternalServices(externalSvcs []*networking.ExternalService, store model.IstioConfigStore, t *testing.T) {
-	for _, svc := range externalSvcs {
+func createServiceEntries(serviceEntries []*networking.ServiceEntry, store model.IstioConfigStore, t *testing.T) {
+	for _, svc := range serviceEntries {
 		config := model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:      model.ExternalService.Type,
+				Type:      model.ServiceEntry.Type,
 				Name:      svc.Hosts[0],
 				Namespace: "default",
 				Domain:    "cluster.local",
@@ -38,14 +38,14 @@ func createExternalServices(externalSvcs []*networking.ExternalService, store mo
 
 		_, err := store.Create(config)
 		if err != nil {
-			t.Errorf("error occurred crearting ExternalService config: %v", err)
+			t.Errorf("error occurred crearting ServiceEntry config: %v", err)
 		}
 	}
 }
 
 func initConfigStore() model.IstioConfigStore {
 	configDescriptor := model.ConfigDescriptor{
-		model.ExternalService,
+		model.ServiceEntry,
 	}
 	store := memory.Make(configDescriptor)
 	configController := memory.NewController(store)
@@ -60,7 +60,7 @@ func TestServiceDiscoveryServices(t *testing.T) {
 		makeService("172.217.0.0_16", "172.217.0.0/16", map[string]int{"tcp-444": 444}, model.DNSLB),
 	}
 
-	createExternalServices([]*networking.ExternalService{httpDNS, tcpDNS}, store, t)
+	createServiceEntries([]*networking.ServiceEntry{httpDNS, tcpDNS}, store, t)
 
 	services, err := sd.Services()
 	if err != nil {
@@ -80,7 +80,7 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 	store := initConfigStore()
 	sd := NewServiceDiscovery(store)
 
-	createExternalServices([]*networking.ExternalService{httpDNS, tcpDNS}, store, t)
+	createServiceEntries([]*networking.ServiceEntry{httpDNS, tcpDNS}, store, t)
 
 	service, err := sd.GetService(hostDNE)
 	if err != nil {
@@ -106,7 +106,7 @@ func TestServiceDiscoveryGetProxyServiceInstances(t *testing.T) {
 	store := initConfigStore()
 	sd := NewServiceDiscovery(store)
 
-	createExternalServices([]*networking.ExternalService{httpStatic, tcpStatic}, store, t)
+	createServiceEntries([]*networking.ServiceEntry{httpStatic, tcpStatic}, store, t)
 
 	instances, err := sd.GetProxyServiceInstances(&model.Proxy{IPAddress: "2.2.2.2"})
 	if err != nil {
@@ -114,7 +114,7 @@ func TestServiceDiscoveryGetProxyServiceInstances(t *testing.T) {
 	}
 
 	if len(instances) != 0 {
-		t.Error("ExternalService registry should never return something for GetProxyServiceInstances()")
+		t.Error("ServiceEntry registry should never return something for GetProxyServiceInstances()")
 	}
 }
 
@@ -122,7 +122,7 @@ func TestServiceDiscoveryInstances(t *testing.T) {
 	store := initConfigStore()
 	sd := NewServiceDiscovery(store)
 
-	createExternalServices([]*networking.ExternalService{httpDNS, tcpDNS}, store, t)
+	createServiceEntries([]*networking.ServiceEntry{httpDNS, tcpDNS}, store, t)
 
 	expectedInstances := []*model.ServiceInstance{
 		makeInstance(httpDNS, "us.google.com", 7080, httpDNS.Ports[0], nil),

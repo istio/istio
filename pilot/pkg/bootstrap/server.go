@@ -80,7 +80,7 @@ var (
 		model.VirtualService,
 		model.Gateway,
 		model.EgressRule,
-		model.ExternalService,
+		model.ServiceEntry,
 		model.DestinationPolicy,
 		model.DestinationRule,
 		model.HTTPAPISpec,
@@ -655,11 +655,11 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 	}
 	configStore := model.MakeIstioStore(s.configController)
 
-	// add external service registry to aggregator by default
+	// add service entry registry to aggregator by default
 	serviceControllers.AddRegistry(
 		aggregate.Registry{
-			Name:             "ExternalServices",
-			ClusterID:        "ExternalServices",
+			Name:             "ServiceEntries",
+			ClusterID:        "ServiceEntries",
 			Controller:       external.NewController(s.configController),
 			ServiceDiscovery: external.NewServiceDiscovery(configStore),
 			ServiceAccounts:  external.NewServiceAccounts(),

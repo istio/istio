@@ -2115,67 +2115,67 @@ func validateHTTPRewrite(rewrite *networking.HTTPRewrite) error {
 	return nil
 }
 
-// ValidateExternalService validates a external service.
-func ValidateExternalService(config proto.Message) (errs error) {
-	externalService, ok := config.(*networking.ExternalService)
+// ValidateServiceEntry validates a service entry.
+func ValidateServiceEntry(config proto.Message) (errs error) {
+	serviceEntry, ok := config.(*networking.ServiceEntry)
 	if !ok {
-		return fmt.Errorf("cannot cast to external service")
+		return fmt.Errorf("cannot cast to service entry")
 	}
 
-	if len(externalService.Hosts) == 0 {
-		errs = appendErrors(errs, fmt.Errorf("external service must have at least one host"))
+	if len(serviceEntry.Hosts) == 0 {
+		errs = appendErrors(errs, fmt.Errorf("service entry must have at least one host"))
 	}
-	for _, host := range externalService.Hosts {
+	for _, host := range serviceEntry.Hosts {
 		errs = appendErrors(errs, validateHost(host))
 	}
 
 	servicePortNumbers := make(map[uint32]bool)
-	servicePorts := make(map[string]bool, len(externalService.Ports))
-	for _, port := range externalService.Ports {
+	servicePorts := make(map[string]bool, len(serviceEntry.Ports))
+	for _, port := range serviceEntry.Ports {
 		if servicePorts[port.Name] {
-			errs = appendErrors(errs, fmt.Errorf("external service port name %q already defined", port.Name))
+			errs = appendErrors(errs, fmt.Errorf("service entry port name %q already defined", port.Name))
 		}
 		servicePorts[port.Name] = true
 		if servicePortNumbers[port.Number] {
-			errs = appendErrors(errs, fmt.Errorf("external service port %d already defined", port.Number))
+			errs = appendErrors(errs, fmt.Errorf("service entry port %d already defined", port.Number))
 		}
 		servicePortNumbers[port.Number] = true
 	}
 
-	switch externalService.Discovery {
-	case networking.ExternalService_NONE:
-		if len(externalService.Endpoints) != 0 {
+	switch serviceEntry.Resolution {
+	case networking.ServiceEntry_NONE:
+		if len(serviceEntry.Endpoints) != 0 {
 			errs = appendErrors(errs, fmt.Errorf("no endpoints should be provided for discovery type none"))
 		}
-	case networking.ExternalService_STATIC:
-		if len(externalService.Endpoints) == 0 {
+	case networking.ServiceEntry_STATIC:
+		if len(serviceEntry.Endpoints) == 0 {
 			errs = appendErrors(errs,
-				fmt.Errorf("endpoints must be provided if external service discovery mode is static"))
+				fmt.Errorf("endpoints must be provided if service entry discovery mode is static"))
 		}
 
-		for _, endpoint := range externalService.Endpoints {
+		for _, endpoint := range serviceEntry.Endpoints {
 			errs = appendErrors(errs,
 				ValidateIPv4Address(endpoint.Address),
 				Labels(endpoint.Labels).Validate())
 
 			for name, port := range endpoint.Ports {
 				if !servicePorts[name] {
-					errs = appendErrors(errs, fmt.Errorf("endpoint port %v is not defined by the external service", port))
+					errs = appendErrors(errs, fmt.Errorf("endpoint port %v is not defined by the service entry", port))
 				}
 				errs = appendErrors(errs,
 					validatePortName(name),
 					ValidatePort(int(port)))
 			}
 		}
-	case networking.ExternalService_DNS:
-		if len(externalService.Endpoints) == 0 {
-			for _, host := range externalService.Hosts {
+	case networking.ServiceEntry_DNS:
+		if len(serviceEntry.Endpoints) == 0 {
+			for _, host := range serviceEntry.Hosts {
 				if err := ValidateFQDN(host); err != nil {
 					errs = appendErrors(errs,
 						fmt.Errorf("hosts must be FQDN if no endpoints are provided for discovery mode DNS"))
 				}
 			}
-			for _, port := range externalService.Ports {
+			for _, port := range serviceEntry.Ports {
 				if !ParseProtocol(port.Protocol).IsHTTP() {
 					errs = appendErrors(errs,
 						fmt.Errorf("if discovery type is DNS and no endpoints are provided all ports must be HTTP based"))
@@ -2183,14 +2183,14 @@ func ValidateExternalService(config proto.Message) (errs error) {
 			}
 		}
 
-		for _, endpoint := range externalService.Endpoints {
+		for _, endpoint := range serviceEntry.Endpoints {
 			errs = appendErrors(errs,
 				ValidateFQDN(endpoint.Address),
 				Labels(endpoint.Labels).Validate())
 
 			for name, port := range endpoint.Ports {
 				if !servicePorts[name] {
-					errs = appendErrors(errs, fmt.Errorf("endpoint port %v is not defined by the external service", port))
+					errs = appendErrors(errs, fmt.Errorf("endpoint port %v is not defined by the service entry", port))
 				}
 				errs = appendErrors(errs,
 					validatePortName(name),
@@ -2198,11 +2198,11 @@ func ValidateExternalService(config proto.Message) (errs error) {
 			}
 		}
 	default:
-		errs = appendErrors(errs, fmt.Errorf("unsupported discovery type %s",
-			networking.ExternalService_Discovery_name[int32(externalService.Discovery)]))
+		errs = appendErrors(errs, fmt.Errorf("unsupported resolution type %s",
+			networking.ServiceEntry_Resolution_name[int32(serviceEntry.Resolution)]))
 	}
 
-	for _, port := range externalService.Ports {
+	for _, port := range serviceEntry.Ports {
 		errs = appendErrors(errs,
 			validatePortName(port.Name),
 			validateProtocol(port.Protocol),
