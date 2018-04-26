@@ -673,7 +673,7 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	}
 
 	// helm install
-	err = util.HelmInstall(istioHelmInstallDir, "istio", "istio-system", setValue)
+	err = util.HelmInstall(workDir, "istio", "istio-system", setValue)
 	if err != nil {
 		log.Errorf("Helm install istio install failed %s, setValue=%s", istioHelmInstallDir, setValue)
 		return err
