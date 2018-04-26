@@ -20,7 +20,6 @@ package yaml
 
 import (
 	"bytes"
-	"io/ioutil"
 	"reflect"
 	"strings"
 	"testing"
@@ -28,7 +27,6 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 	yaml2 "gopkg.in/yaml.v2"
 
 	"istio.io/istio/mixer/pkg/protobuf/yaml/testdata/all"
@@ -382,9 +380,9 @@ type testdata struct {
 }
 
 func TestEncodeBytes(t *testing.T) {
-	fds, fdsLoadErr := getFileDescSet("testdata/all/types.descriptor")
-	if fdsLoadErr != nil {
-		t.Fatal(fdsLoadErr)
+	fds, err := GetFileDescSet("testdata/all/types.descriptor")
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	for _, td := range []testdata{
@@ -980,7 +978,7 @@ map_str_str:
 // into proto and therefore I cannot validate the unmarshalled data of custom marshalled bits using reflect.deepequals.
 // Therefore, for these two cases, we will unmarshal the encoded bytes and check for specific fields.
 func TestEncodeBytesForEnumMapVals(t *testing.T) {
-	fds, fdsLoadErr := getFileDescSet("testdata/all/types.descriptor")
+	fds, fdsLoadErr := GetFileDescSet("testdata/all/types.descriptor")
 	if fdsLoadErr != nil {
 		t.Fatal(fdsLoadErr)
 	}
@@ -1035,18 +1033,4 @@ map_fixed32_enum:
 			t.Errorf("map_str_enum[key2]=%v; want TWO", v)
 		}
 	}
-}
-
-func getFileDescSet(path string) (*descriptor.FileDescriptorSet, error) {
-	byts, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-
-	fds := &descriptor.FileDescriptorSet{}
-	if err = proto.Unmarshal(byts, fds); err != nil {
-		return nil, err
-	}
-
-	return fds, nil
 }
