@@ -82,7 +82,7 @@ Vagrant.configure("2") do |config|
      sudo tar -xvf go1.10.1.linux-amd64.tar.gz
      sudo mv go /usr/local
      sudo rm go1.10.1.linux-amd64.tar.gz
-     kubectl apply -f /istio.io/istio/tests/util/localregistry/localregistry.yaml
+     kubectl apply -f /istio.io/istio/vagrant-kubernetes-istio/localregistry.yaml
      kubectl get pods -n kube-system
   SHELL
 
