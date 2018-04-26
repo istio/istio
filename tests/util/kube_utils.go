@@ -150,7 +150,7 @@ func HelmInit(serviceAccount string) error {
 
 // HelmInstallDryRun helm install dry run from a chart for a given namespace
 func HelmInstallDryRun(chartDir, chartName, namespace, setValue string) error {
-	_, err := Shell("helm install --dry-run --debug %s --name %s --namespace %s --set %s", chartDir, chartName, namespace, setValue)
+	_, err := Shell("helm install --dry-run --debug %s --name %s --namespace %s %s", chartDir, chartName, namespace, setValue)
 	return err
 }
 
