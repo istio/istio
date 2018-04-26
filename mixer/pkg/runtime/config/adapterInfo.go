@@ -183,25 +183,6 @@ func decodeFds(base64Fds string) (*descriptor.FileDescriptorSet, error) {
 	return fds, nil
 }
 
-func getAdapterCfgDescriptor(base64Tmpl string) (*descriptor.FileDescriptorSet, *descriptor.FileDescriptorProto, error) {
-	if base64Tmpl == "" {
-		// no cfg is allowed
-		return nil, nil, nil
-	}
-
-	fds, err := decodeFds(base64Tmpl)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	var tmplDesc *descriptor.FileDescriptorProto
-	if tmplDesc = getAdapterConfigFileDesc(fds.File); tmplDesc == nil {
-		return nil, nil, fmt.Errorf("cannot find message named '%s' in the adapter configuration descriptor", adapterCfgMsgName)
-	}
-
-	return fds, tmplDesc, nil
-}
-
 func (r *adapterInfoRegistry) createTemplateMetadata(base64Tmpl string) (*TemplateMetadata, error) {
 	fds, err := decodeFds(base64Tmpl)
 	if err != nil {
@@ -223,19 +204,6 @@ func (r *adapterInfoRegistry) createTemplateMetadata(base64Tmpl string) (*Templa
 	return &TemplateMetadata{Name: tmplName,
 		FileDescProto: tmplDesc,
 		FileDescSet:   fds}, nil
-}
-
-// find the file that has the "Param" message
-func getAdapterConfigFileDesc(fds []*descriptor.FileDescriptorProto) *descriptor.FileDescriptorProto {
-	for _, fd := range fds {
-		for _, msg := range fd.GetMessageType() {
-			if msg.GetName() == adapterCfgMsgName {
-				return fd
-			}
-		}
-	}
-
-	return nil
 }
 
 // Find the file that has the options TemplateVariety. There should only be one such file.
@@ -276,5 +244,36 @@ func validateTmplName(name string) error {
 	if !pkgLaskSegRegex.MatchString(name) {
 		return fmt.Errorf("the template name '%s' must match the regex '%s'", name, "^[a-zA-Z]+$")
 	}
+	return nil
+}
+
+func getAdapterCfgDescriptor(base64Tmpl string) (*descriptor.FileDescriptorSet, *descriptor.FileDescriptorProto, error) {
+	if base64Tmpl == "" {
+		// no cfg is allowed
+		return nil, nil, nil
+	}
+
+	fds, err := decodeFds(base64Tmpl)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var tmplDesc *descriptor.FileDescriptorProto
+	if tmplDesc = getAdapterConfigFileDesc(fds.File); tmplDesc == nil {
+		return nil, nil, fmt.Errorf("cannot find message named '%s' in the adapter configuration descriptor", adapterCfgMsgName)
+	}
+
+	return fds, tmplDesc, nil
+}
+// find the file that has the "Param" message
+func getAdapterConfigFileDesc(fds []*descriptor.FileDescriptorProto) *descriptor.FileDescriptorProto {
+	for _, fd := range fds {
+		for _, msg := range fd.GetMessageType() {
+			if msg.GetName() == adapterCfgMsgName {
+				return fd
+			}
+		}
+	}
+
 	return nil
 }
