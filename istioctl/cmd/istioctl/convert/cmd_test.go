@@ -88,8 +88,8 @@ func TestCommand(t *testing.T) {
 		{in: []string{"destination-policy-helloworld.yaml", "route-rule-80-20.yaml"},
 			out: "destination-rule-helloworld-with-80-20.yaml"},
 
-		// {in: []string{"nolabel-destination-policy.yaml"},
-		// 	out: "nolabel-destination-rule.yaml"},
+		{in: []string{"nolabel-destination-policy.yaml"},
+			out: "nolabel-destination-rule.yaml"},
 	}
 
 	for _, tc := range tt {
