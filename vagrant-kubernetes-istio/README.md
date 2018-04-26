@@ -10,9 +10,10 @@
   * [docker](https://docs.docker.com/) - Verify `docker version` returns version >= 18.03.0-ce
   * [vagrant](https://www.vagrantup.com/downloads.html) - Verify `vagrant -v` returns version >= Vagrant 2.0.3
   * [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl) - Verify `kubectl version` returns both server and client versions
-  * [curl](https://curl.haxx.se/)
+  * [curl](https://curl.haxx.se/) - Verify `curl --help` prints the help information.
 
-You can run the following OS specific script to install all pre-requisites, or use it as a reference to install them manually.
+You can run the following script to check/install of all pre-requisites, or use it as a reference to install them manually.
+(This requires installation of [Homebrew](https://brew.sh) on macOS or apt-get and dpkg on Linux)
 
 ```bash
 sh install_prereqs.sh
@@ -103,3 +104,10 @@ sh cleanup_host.sh
 1. Remove `10.10.0.2:5000` from the "Insecure registries"
 1. Click the `Apply and Start` button in the bottom to restart Docker with the new setting
 
+# Troubleshooting
+If you have problem with `make docker` step in the step 3, please try to clean up all the built binaries and run the test setup script again.
+```sh
+cd $ISTIO/istio
+GOOS=linux make clean
+```
+The `GOOS=linux` is required when you are running setup on macOS.

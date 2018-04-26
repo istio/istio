@@ -44,4 +44,3 @@ vagrant reload
 vagrant ssh -c "kubectl get pods -n kube-system"
 vagrant ssh -c "mkdir ~/.kube/"
 vagrant ssh -c "cp /etc/kubeconfig.yml ~/.kube/config"
-
