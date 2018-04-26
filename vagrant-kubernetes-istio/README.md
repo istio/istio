@@ -53,7 +53,7 @@ make e2e_simple E2E_ARGS="--use_local_cluster" HUB=10.10.0.2:5000 TAG=latest
 Note the special arguments like **E2E_ARGS**, **HUB**, and **TAG**. They are required to run these tests with the local cluster and a local registry inside the VM. And you can run multiple E2E tests sequentially against the same VM.
 
 ### On VM
-You can also ssh to VM and issue test command within the VM.
+You can also ssh to VM and issue test commands within the VM.
 E.g.
 ```bash
 cd $ISTIO/istio/vagrant-kubernetes-istio
@@ -64,19 +64,22 @@ make e2e_simple E2E_ARGS="--use_local_cluster"
 ```
 
 ### 3. Debug with Delve
-[vm_setup.sh](vm_setup.sh) installs Delve in the VM. In order to debug Istio, we need the process ID of the binary in the VM.
-For example, find the PID of the pilot-discovery process to debug.
+You can try debugging Istio with debugger tool. vm_setup.sh already installs Delve into VM for us. To use Delve, we need process id of the binary we want to debug.
+For example, if you want to debug a test, run that test in your host/vm.
 ```bash
-vagrant ssh
-ps -ef | grep pilot-discovery
+# In the VM/Host
+make e2e_simple E2E_ARGS="--use_local_cluster --skip_cleanup"
 ```
-Then, run Delve
-```bash
-sudo -E env "PATH=$PATH" dlv attach <pid of pilot-discovery>
-```
-and kick of the tests from the host of VM.
-
-For more information, check [Debug an Istio container with Delve](https://github.com/istio/istio/wiki/Dev-Guide#debug-an-istio-container-with-delve).
+Now, find the pid of the process say pilot-discovery that you want to debug.
+ ```bash
+ vagrant ssh
+ ps -ef | grep pilot-discovery
+ ```
+Then, you can run Delve
+ ```bash
+ sudo -E env "PATH=$PATH" dlv attach <pid of pilot-discovery>
+ ```
+For more information, please check [Debug an Istio container with Delve](https://github.com/istio/istio/wiki/Dev-Guide#debug-an-istio-container-with-delve)
 
 # Cleanup
 To save the vagrant VM status:
