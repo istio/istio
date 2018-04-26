@@ -1,4 +1,3 @@
-
 //  Copyright 2018 Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,10 +16,10 @@ package dependency
 
 import "istio.io/istio/pkg/test/internal"
 
+// RemoteSpyAdapter indicates a dependency on the remote spy adapter.
 var RemoteSpyAdapter Dependency = &remoteAdapter{}
 
 type remoteAdapter struct {
-
 }
 
 var _ Dependency = &remoteAdapter{}

@@ -34,7 +34,11 @@ func Run(testID string, m *testing.M) {
 	}
 
 	// TODO: Protect against double-run, invalid driverState etc.
-	setup(testID)
+	err := setup(testID)
+	if err != nil {
+		fmt.Printf("Error performing setup: %v\n", err)
+		os.Exit(-1)
+	}
 	rt := m.Run()
 	doCleanup()
 	os.Exit(rt)
@@ -61,7 +65,10 @@ func Requires(t testing.TB, dependencies ...dependency.Dependency) {
 		instance, ok := driver.initializedDependencies[d]
 		if ok {
 			// If they are already satisfied, then signal a "reset", to ensure a clean, well-known driverState.
-			s.Reset(instance)
+			if err := s.Reset(instance); err != nil {
+				t.Fatalf("Unable to reset dependency '%v': %v", d, err)
+				return
+			}
 			continue
 		}
 

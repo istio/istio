@@ -16,7 +16,6 @@
 // design sketch.
 package showcase
 
-
 import (
 	"testing"
 
@@ -66,7 +65,7 @@ func TestDeployment_Local(t *testing.T) {
 	e.Configure(`aaa`)
 
 	m := e.GetMixer()
-	m.Report(nil)
+	_ = m.Report(nil)
 }
 
 func TestDeployment_Helm(t *testing.T) {

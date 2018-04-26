@@ -14,12 +14,16 @@
 
 package internal
 
+// Stateful is an interface for managing the life-cycle of stateful dependencies.
 type Stateful interface {
 
+	// Initialize the dependency. The returned value can be used to store state, and will be passed back
+	// for reset and cleanup.
 	Initialize() (interface{}, error)
 
+	// Reset will be called prior to the start of a test for resetting the state of the dependency, if needed.
 	Reset(interface{}) error
 
+	// Cleanup the dependency after a test run.
 	Cleanup(interface{})
 }
-

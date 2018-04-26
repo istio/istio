@@ -22,7 +22,7 @@ import (
 
 // Environment is a common interface for all testing environments
 type Environment interface {
-	Configure(config string) error
+	Configure(config string)
 	GetMixer() DeployedMixer
 	GetPilot() DeployedPilot
 
@@ -37,16 +37,18 @@ type Environment interface {
 type Deployed interface {
 }
 
+// DeployedApp represents a deployed fake App within the mesh.
 type DeployedApp interface {
 	Deployed
 	Call(target DeployedApp) AppRequestInfo
 	Expect(info AppRequestInfo) error
 }
 
+// AppRequestInfo contains metadata about a request that was performed through a fake App.
 type AppRequestInfo struct {
-
 }
 
+// DeployedMixer represents a deployed Mixer instance.
 type DeployedMixer interface {
 	Deployed
 	GetSpyAdapter() SpyAdapter
@@ -54,13 +56,14 @@ type DeployedMixer interface {
 	Expect(str string) error
 }
 
+// DeployedPilot represents a deployed Pilot instance.
 type DeployedPilot interface {
 	Deployed
 }
 
+// SpyAdapter represents a remote Spy Adapter for Mixer.
 type SpyAdapter interface {
 	Expect(i []interface{}) bool
-
 }
 
 // DeployedAPIServer the configuration for a deployed k8s server
@@ -85,6 +88,7 @@ const (
 	GalleyComponent = "galley"
 )
 
+// GetEnvironment returns the current, ambient environment.
 func GetEnvironment(t *testing.T) Environment {
 	return nil
 }

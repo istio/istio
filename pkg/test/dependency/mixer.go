@@ -16,17 +16,17 @@ package dependency
 
 import "istio.io/istio/pkg/test/internal"
 
+// Mixer indicates a dependency on Mixer.
 var Mixer Dependency = &mixer{}
 
 type mixer struct {
-
 }
 
 var _ Dependency = &mixer{}
 var _ internal.Stateful = &mixer{}
 
 func (a *mixer) String() string {
-	return ""
+	return "mixer"
 }
 
 func (a *mixer) Initialize() (interface{}, error) {

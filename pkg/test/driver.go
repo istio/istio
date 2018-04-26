@@ -21,11 +21,11 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
-	"istio.io/istio/pkg/test/dependency"
-	"istio.io/istio/pkg/test/internal"
 
+	"istio.io/istio/pkg/test/dependency"
 	"istio.io/istio/pkg/test/impl/logging"
 	"istio.io/istio/pkg/test/impl/tmp"
+	"istio.io/istio/pkg/test/internal"
 )
 
 const (

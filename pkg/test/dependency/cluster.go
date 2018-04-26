@@ -15,10 +15,10 @@
 package dependency
 
 import (
-	"istio.io/istio/pkg/test/internal"
 	"k8s.io/client-go/rest"
 
 	"istio.io/istio/pkg/test/impl/apiserver"
+	"istio.io/istio/pkg/test/internal"
 )
 
 // Cluster dependency.

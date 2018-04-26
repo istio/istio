@@ -16,10 +16,10 @@ package dependency
 
 import "istio.io/istio/pkg/test/internal"
 
+// MTLS indicates a dependency on MTLS being enabled.
 var MTLS Dependency = &mtls{}
 
 type mtls struct {
-
 }
 
 var _ Dependency = &mtls{}

@@ -16,10 +16,10 @@ package dependency
 
 import "istio.io/istio/pkg/test/internal"
 
+// Pilot indicates a dependency on Pilot.
 var Pilot Dependency = &pilot{}
 
 type pilot struct {
-
 }
 
 var _ Dependency = &pilot{}

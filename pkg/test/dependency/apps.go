@@ -16,17 +16,17 @@ package dependency
 
 import "istio.io/istio/pkg/test/internal"
 
+// Apps is a dependency on fake networked apps. This can be used to mimic traffic thru a mesh.
 var Apps Dependency = &apps{}
 
 type apps struct {
-
 }
 
 var _ Dependency = &apps{}
 var _ internal.Stateful = &apps{}
 
 func (a *apps) String() string {
-	return ""
+	return "apps"
 }
 
 func (a *apps) Initialize() (interface{}, error) {
