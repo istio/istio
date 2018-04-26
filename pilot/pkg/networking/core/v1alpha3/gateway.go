@@ -238,8 +238,9 @@ func buildGatewayInboundHTTPRouteConfig(
 	}
 
 	return &xdsapi.RouteConfiguration{
-		Name:         fmt.Sprintf("%d", port),
-		VirtualHosts: virtualHosts,
+		Name:             fmt.Sprintf("%d", port),
+		VirtualHosts:     virtualHosts,
+		ValidateClusters: boolFalse,
 	}
 }
 
