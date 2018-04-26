@@ -118,17 +118,6 @@ spec:
     app: echosrv
     extrap: oui
 ---
-# Third service, selecting the pod that does not have the extra port
-apiVersion: v1
-kind: Service
-metadata:
-  name: echosrv-no-extrap
-spec:
-  ports:
-  - port: 8080
-    name: http-echo
-  - port: 8079
-    name: grpc-ping
-  selector:
-    app: echosrv
-    extrap: non
+# We can't use a third service for the security open proxy issue as the issue
+# is only triggered using pod ip (service cluster ip + non existant port is not
+# routed)
