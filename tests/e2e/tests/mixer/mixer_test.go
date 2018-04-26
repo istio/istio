@@ -59,6 +59,7 @@ const (
 	routeReviewsVersionsRule = rulesDir + "/" + "route-rule-reviews-v2-v3"
 	routeReviewsV3Rule       = rulesDir + "/" + "route-rule-reviews-v3"
 	tcpDbRule                = rulesDir + "/" + "route-rule-ratings-db"
+	bookinfoGateway          = rulesDir + "/" + "bookinfo-gateway"
 
 	prometheusPort   = "9090"
 	mixerMetricsPort = "42422"
@@ -86,7 +87,7 @@ var (
 	tc                 *testConfig
 	productPageTimeout = 60 * time.Second
 	rules              = []string{rateLimitRule, denialRule, ingressDenialRule, newTelemetryRule, routeAllRule,
-		routeReviewsVersionsRule, routeReviewsV3Rule, tcpDbRule}
+		routeReviewsVersionsRule, routeReviewsV3Rule, tcpDbRule, bookinfoGateway}
 )
 
 func (t *testConfig) Setup() (err error) {
@@ -138,9 +139,12 @@ func (t *testConfig) Setup() (err error) {
 }
 
 func createDefaultRoutingRules() error {
-	if err := createRouteRule(routeAllRule); err != nil {
-		return fmt.Errorf("could not create base routing rules: %v", err)
+	for _, rule := range []string{bookinfoGateway, routeAllRule} {
+		if err := createRouteRule(rule); err != nil {
+			return fmt.Errorf("could not create base routing rules: %v", err)
+		}
 	}
+
 	allowRuleSync()
 	return nil
 }
