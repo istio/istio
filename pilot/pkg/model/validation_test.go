@@ -2732,224 +2732,224 @@ func TestValidateOutlierDetection(t *testing.T) {
 	}
 }
 
-func TestValidateExternalServices(t *testing.T) {
+func TestValidateServiceEntries(t *testing.T) {
 	cases := []struct {
 		name  string
-		in    networking.ExternalService
+		in    networking.ServiceEntry
 		valid bool
 	}{
-		{name: "discovery type DNS", in: networking.ExternalService{
+		{name: "discovery type DNS", in: networking.ServiceEntry{
 			Hosts: []string{"*.google.com"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ExternalService_Endpoint{
+			Endpoints: []*networking.ServiceEntry_Endpoint{
 				{Address: "lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
-			Discovery: networking.ExternalService_DNS,
+			Resolution: networking.ServiceEntry_DNS,
 		},
 			valid: true},
 
-		{name: "discovery type DNS, IP in endpoints", in: networking.ExternalService{
+		{name: "discovery type DNS, IP in endpoints", in: networking.ServiceEntry{
 			Hosts: []string{"*.google.com"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ExternalService_Endpoint{
+			Endpoints: []*networking.ServiceEntry_Endpoint{
 				{Address: "1.1.1.1", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
-			Discovery: networking.ExternalService_DNS,
+			Resolution: networking.ServiceEntry_DNS,
 		},
 			valid: true},
 
-		{name: "empty hosts", in: networking.ExternalService{
+		{name: "empty hosts", in: networking.ServiceEntry{
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 			},
-			Endpoints: []*networking.ExternalService_Endpoint{
+			Endpoints: []*networking.ServiceEntry_Endpoint{
 				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
-			Discovery: networking.ExternalService_DNS,
+			Resolution: networking.ServiceEntry_DNS,
 		},
 			valid: false},
 
-		{name: "bad hosts", in: networking.ExternalService{
+		{name: "bad hosts", in: networking.ServiceEntry{
 			Hosts: []string{"-"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 			},
-			Endpoints: []*networking.ExternalService_Endpoint{
+			Endpoints: []*networking.ServiceEntry_Endpoint{
 				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
-			Discovery: networking.ExternalService_DNS,
+			Resolution: networking.ServiceEntry_DNS,
 		},
 			valid: false},
 
-		{name: "undefined endpoint port", in: networking.ExternalService{
+		{name: "undefined endpoint port", in: networking.ServiceEntry{
 			Hosts: []string{"google.com"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 80, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ExternalService_Endpoint{
+			Endpoints: []*networking.ServiceEntry_Endpoint{
 				{Address: "lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "in.google.com", Ports: map[string]uint32{"http-dne": 9080}},
 			},
-			Discovery: networking.ExternalService_DNS,
+			Resolution: networking.ServiceEntry_DNS,
 		},
 			valid: false},
 
-		{name: "discovery type DNS, non-FQDN endpoint", in: networking.ExternalService{
+		{name: "discovery type DNS, non-FQDN endpoint", in: networking.ServiceEntry{
 			Hosts: []string{"*.google.com"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ExternalService_Endpoint{
+			Endpoints: []*networking.ServiceEntry_Endpoint{
 				{Address: "*.lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "in.google.com", Ports: map[string]uint32{"http-dne": 9080}},
 			},
-			Discovery: networking.ExternalService_DNS,
+			Resolution: networking.ServiceEntry_DNS,
 		},
 			valid: false},
 
-		{name: "discovery type DNS, non-FQDN host", in: networking.ExternalService{
+		{name: "discovery type DNS, non-FQDN host", in: networking.ServiceEntry{
 			Hosts: []string{"*.google.com"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
 
-			Discovery: networking.ExternalService_DNS,
+			Resolution: networking.ServiceEntry_DNS,
 		},
 			valid: false},
 
-		{name: "discovery type DNS, no endpoints", in: networking.ExternalService{
+		{name: "discovery type DNS, no endpoints", in: networking.ServiceEntry{
 			Hosts: []string{"google.com"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
 
-			Discovery: networking.ExternalService_DNS,
+			Resolution: networking.ServiceEntry_DNS,
 		},
 			valid: true},
 
-		{name: "discovery type none", in: networking.ExternalService{
+		{name: "discovery type none", in: networking.ServiceEntry{
 			Hosts: []string{"google.com"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Discovery: networking.ExternalService_NONE,
+			Resolution: networking.ServiceEntry_NONE,
 		},
 			valid: true},
 
-		{name: "discovery type none, endpoints provided", in: networking.ExternalService{
+		{name: "discovery type none, endpoints provided", in: networking.ServiceEntry{
 			Hosts: []string{"google.com"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ExternalService_Endpoint{
+			Endpoints: []*networking.ServiceEntry_Endpoint{
 				{Address: "lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}},
 			},
-			Discovery: networking.ExternalService_NONE,
+			Resolution: networking.ServiceEntry_NONE,
 		},
 			valid: false},
 
-		{name: "discovery type DNS, non-FQDN host", in: networking.ExternalService{
+		{name: "discovery type DNS, non-FQDN host", in: networking.ServiceEntry{
 			Hosts: []string{"*.google.com"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
 
-			Discovery: networking.ExternalService_DNS,
+			Resolution: networking.ServiceEntry_DNS,
 		},
 			valid: false},
 
-		{name: "discovery type static", in: networking.ExternalService{
+		{name: "discovery type static", in: networking.ServiceEntry{
 			Hosts: []string{"172.1.2.16/16"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ExternalService_Endpoint{
+			Endpoints: []*networking.ServiceEntry_Endpoint{
 				{Address: "1.1.1.1", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "2.2.2.2", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
-			Discovery: networking.ExternalService_STATIC,
+			Resolution: networking.ServiceEntry_STATIC,
 		},
 			valid: true},
 
-		{name: "discovery type static, FQDN in endpoints", in: networking.ExternalService{
+		{name: "discovery type static, FQDN in endpoints", in: networking.ServiceEntry{
 			Hosts: []string{"172.1.2.16/16"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ExternalService_Endpoint{
+			Endpoints: []*networking.ServiceEntry_Endpoint{
 				{Address: "google.com", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "2.2.2.2", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
-			Discovery: networking.ExternalService_STATIC,
+			Resolution: networking.ServiceEntry_STATIC,
 		},
 			valid: false},
 
-		{name: "discovery type static, missing endpoints", in: networking.ExternalService{
+		{name: "discovery type static, missing endpoints", in: networking.ServiceEntry{
 			Hosts: []string{"172.1.2.16/16"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Discovery: networking.ExternalService_STATIC,
+			Resolution: networking.ServiceEntry_STATIC,
 		},
 			valid: false},
 
-		{name: "discovery type static, bad endpoint port name", in: networking.ExternalService{
+		{name: "discovery type static, bad endpoint port name", in: networking.ServiceEntry{
 			Hosts: []string{"172.1.2.16/16"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ExternalService_Endpoint{
+			Endpoints: []*networking.ServiceEntry_Endpoint{
 				{Address: "1.1.1.1", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "2.2.2.2", Ports: map[string]uint32{"http-dne": 9080}},
 			},
-			Discovery: networking.ExternalService_STATIC,
+			Resolution: networking.ServiceEntry_STATIC,
 		},
 			valid: false},
 
-		{name: "discovery type none, conflicting port names", in: networking.ExternalService{
+		{name: "discovery type none, conflicting port names", in: networking.ServiceEntry{
 			Hosts: []string{"google.com"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-conflict"},
 				{Number: 8080, Protocol: "http", Name: "http-conflict"},
 			},
-			Discovery: networking.ExternalService_NONE,
+			Resolution: networking.ServiceEntry_NONE,
 		},
 			valid: false},
 
-		{name: "discovery type none, conflicting port numbers", in: networking.ExternalService{
+		{name: "discovery type none, conflicting port numbers", in: networking.ServiceEntry{
 			Hosts: []string{"google.com"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-conflict1"},
 				{Number: 80, Protocol: "http", Name: "http-conflict2"},
 			},
-			Discovery: networking.ExternalService_NONE,
+			Resolution: networking.ServiceEntry_NONE,
 		},
 			valid: false},
 	}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := ValidateExternalService(&c.in); (got == nil) != c.valid {
-				t.Errorf("ValidateExternalService got valid=%v but wanted valid=%v: %v",
+			if got := ValidateServiceEntry(&c.in); (got == nil) != c.valid {
+				t.Errorf("ValidateServiceEntry got valid=%v but wanted valid=%v: %v",
 					got == nil, c.valid, got)
 			}
 		})

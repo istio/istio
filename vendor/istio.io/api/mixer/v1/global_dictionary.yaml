@@ -237,3 +237,12 @@
 # check.error_code and error_message
 - check.error_code
 - check.error_message
+
+- request.total_size
+- response.total_size
+# TCP connection event attribute.
+- connection.event
+
+# whether mixer check and quota calls hit cache.
+- check.cache_hit
+- quota.cache_hit
