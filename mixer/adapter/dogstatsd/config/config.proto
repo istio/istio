@@ -35,8 +35,8 @@ message Params {
     // Default: localhost:8125
     string address = 1;
 
-    // Prefix to prepend to all metrics handled by the adapter. Metric "bar" with prefix "foo." becomes "foo.bar" in DataDog.
-    // Default: ""
+    // Prefix to prepend to all metrics handled by the adapter. Metric "bar" with prefix "foo." becomes "foo.bar" in DataDog. In order to make sure the metrics get populated into Datadog properly and avoid any billing issues, it's important to leave the metric prefix to its default value of 'istio.'
+    // Default: "istio."
     string prefix = 2;
 
     // Number of individual metrics to buffer before flushing metrics to the network. When buffered, metrics are flushed every 100ms or when the buffer is filled.
