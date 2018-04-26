@@ -143,17 +143,25 @@ func ConvertPolicyToJwtConfig(policy *authn.Policy, useInlinePublicKey bool) *jw
 		jwt.FromParams = policyJwt.JwtParams
 
 		if useInlinePublicKey {
+			log.Infof("********************************ConvertPolicyToJwtConfig policyJwt.JwksUri is %q", policyJwt.JwksUri)
 			jwtPubKey, err := model.JwtKeyResolver.GetPublicKey(policyJwt.JwksUri)
 			if err != nil {
 				log.Warnf("Failed to fetch jwt public key from %q", policyJwt.JwksUri)
 			}
 
+			log.Infof("********************************ConvertPolicyToJwtConfig get pubkey is %q", jwtPubKey)
+
 			// Put empty string in config even if above ResolveJwtPubKey fails.
 			jwt.JwksSourceSpecifier = &jwtfilter.JwtRule_LocalJwks{
 				LocalJwks: &core.DataSource{
+
 					Specifier: &core.DataSource_InlineString{
 						InlineString: jwtPubKey,
 					},
+					/*
+						Specifier: &core.DataSource_InlineBytes{
+							InlineBytes: []byte(jwtPubKey),
+						},*/
 				},
 			}
 		} else {
@@ -175,6 +183,7 @@ func ConvertPolicyToJwtConfig(policy *authn.Policy, useInlinePublicKey bool) *jw
 			}
 		}
 
+		log.Infof("*********************************ConvertPolicyToJwtConfig jwt %+v", jwt)
 		ret.Rules = append(ret.Rules, jwt)
 	}
 	return ret
