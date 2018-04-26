@@ -232,7 +232,7 @@ func GetIngress(serviceName, podLabel, namespace, kubeconfig string, serviceType
 
 	ctx := context.Background()
 
-	log.Info("Waiting for istio-ingress to get external IP")
+	log.Infof("Waiting for %s to get external IP", serviceName)
 	if _, err := retry.Retry(ctx, retryFn); err != nil {
 		return "", err
 	}
