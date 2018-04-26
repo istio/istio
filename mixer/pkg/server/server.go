@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/mixer/pkg/runtime/dispatcher"
 	"istio.io/istio/mixer/pkg/template"
+	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
 	"istio.io/istio/pkg/tracing"
@@ -197,6 +198,8 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		st.RegisterProbe(s.readinessProbe, "store")
 		s.readinessProbe.Start()
 	}
+
+	go ctrlz.Run(a.IntrospectionOptions, nil)
 
 	return s, nil
 }
