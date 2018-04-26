@@ -187,16 +187,30 @@ func GetClusterSubnet() (string, error) {
 	return parts[1], nil
 }
 
+func getRetrier(serviceType string) Retrier {
+	baseDelay := 1 * time.Second
+	maxDelay := 1 * time.Second
+	retries := 300 // ~5 minutes
+
+	if serviceType == NodePortServiceType {
+		baseDelay = 5 * time.Second
+		maxDelay = 5 * time.Second
+		retries = 20
+	}
+
+	return Retrier{
+		BaseDelay: baseDelay,
+		MaxDelay:  maxDelay,
+		Retries:   retries,
+	}
+}
+
 // GetIngress get istio ingress ip and port. Could relate to either Istio Ingress or to
 // Istio Ingress Gateway, by serviceName and podLabel. Handles two cases: when the Ingress/Ingress Gateway
 // Kubernetes Service is a LoadBalancer or NodePort (for tests within the  cluster, including for minikube)
 func GetIngress(serviceName, podLabel, namespace, kubeconfig string, serviceType string) (string, error) {
-	retry := Retrier{
-		BaseDelay: 5 * time.Second,
-		MaxDelay:  5 * time.Second,
-		Retries:   300, // ~5 minutes
-	}
 
+	retry := getRetrier(serviceType)
 	var ingress string
 	retryFn := func(_ context.Context, i int) error {
 		var err error
