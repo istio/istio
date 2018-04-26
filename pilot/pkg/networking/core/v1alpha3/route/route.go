@@ -41,9 +41,6 @@ const (
 )
 
 const (
-	// UnresolvedCluster for destinations pointing to unknown clusters.
-	UnresolvedCluster = "unresolved-cluster"
-
 	// DefaultRoute is the default decorator
 	DefaultRoute = "default-route"
 )
@@ -159,15 +156,15 @@ func translateVirtualHost(
 }
 
 // ConvertDestinationToCluster produces a cluster naming function using the config context.
-// defaultPort is the service port.
+// defaultPort is the service port. This function returns an error if the service cannot be
+// resolved by defaultPort
 func ConvertDestinationToCluster(serviceIndex map[string]*model.Service, defaultPort int) ClusterNameGenerator {
-	return func(destination *networking.Destination) (string, error) {
+	return func(destination *networking.Destination) string {
 		// detect if it is a service
 		svc := serviceIndex[destination.Host]
 
-		// TODO: create clusters for non-service hostnames/IPs
 		if svc == nil {
-			return UnresolvedCluster, fmt.Errorf("no service named %q in set %v", destination.Host, serviceIndex)
+			return util.BlackHoleCluster
 		}
 
 		// default port uses port number
@@ -183,17 +180,17 @@ func ConvertDestinationToCluster(serviceIndex map[string]*model.Service, default
 		}
 
 		if svcPort == nil {
-			log.Info("svcPort == nil => unresolved cluster")
-			return UnresolvedCluster, fmt.Errorf("unknown port for service %q with no default port %d", destination.Host, defaultPort)
+			log.Debuga("svcPort == nil => blackhole cluster")
+			return util.BlackHoleCluster
 		}
 
 		// use subsets if it is a service
-		return model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, svc.Hostname, svcPort), nil
+		return model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, svc.Hostname, svcPort)
 	}
 }
 
 // ClusterNameGenerator specifies cluster name for a destination
-type ClusterNameGenerator func(*networking.Destination) (string, error)
+type ClusterNameGenerator func(*networking.Destination) string
 
 // TranslateRoutes creates virtual host routes from the v1alpha3 config.
 // The rule should be adapted to destination names (outbound clusters).
@@ -211,25 +208,23 @@ func TranslateRoutes(
 	out := make([]route.Route, 0, len(rule.Http))
 	for _, http := range rule.Http {
 		if len(http.Match) == 0 {
-			if r, err := translateRoute(http, nil, port, operation, nameF, proxyLabels, gatewayNames); err != nil {
-				return nil, err
-			} else if r != nil {
-				// this cannot be nil
+			if r := translateRoute(http, nil, port, operation, nameF, proxyLabels, gatewayNames); r != nil {
 				out = append(out, *r)
 			}
 			break // we have a rule with catch all match prefix: /. Other rules are of no use
 		} else {
 			// TODO: https://github.com/istio/istio/issues/4239
 			for _, match := range http.Match {
-				if r, err := translateRoute(http, match, port, operation, nameF, proxyLabels, gatewayNames); err != nil {
-					return nil, err
-				} else if r != nil {
+				if r := translateRoute(http, match, port, operation, nameF, proxyLabels, gatewayNames); r != nil {
 					out = append(out, *r)
 				}
 			}
 		}
 	}
 
+	if len(out) == 0 {
+		return nil, fmt.Errorf("no routes matched")
+	}
 	return out, nil
 }
 
@@ -260,16 +255,19 @@ func translateRoute(in *networking.HTTPRoute,
 	operation string,
 	nameF ClusterNameGenerator,
 	proxyLabels model.LabelsCollection,
-	gatewayNames map[string]bool) (*route.Route, error) {
+	gatewayNames map[string]bool) *route.Route {
+
+	// When building routes, its okay if the target cluster cannot be
+	// resolved Traffic to such clusters will blackhole.
 
 	// Match by source labels/gateway names inside the match condition
 	if !sourceMatchHTTP(match, proxyLabels, gatewayNames) {
-		return nil, fmt.Errorf("no source match: %v", match)
+		return nil
 	}
 
 	// Match by the destination port specified in the match condition
 	if match != nil && match.Port != 0 && match.Port != uint32(port) {
-		return nil, fmt.Errorf("no port match: expected port %q to have number %d", match.Port, port)
+		return nil
 	}
 
 	out := &route.Route{
@@ -318,10 +316,7 @@ func translateRoute(in *networking.HTTPRoute,
 		}
 
 		if in.Mirror != nil {
-			n, err := nameF(in.Mirror)
-			if err != nil {
-				return nil, err
-			}
+			n := nameF(in.Mirror)
 			action.RequestMirrorPolicy = &route.RouteAction_RequestMirrorPolicy{Cluster: n}
 		}
 
@@ -331,11 +326,7 @@ func translateRoute(in *networking.HTTPRoute,
 			if dst.Weight == 0 {
 				weight.Value = uint32(100)
 			}
-			n, err := nameF(dst.Destination)
-			if err != nil {
-				// TODO: could we continue here rather than bailing?
-				return nil, err
-			}
+			n := nameF(dst.Destination)
 			weighted = append(weighted, &route.WeightedCluster_ClusterWeight{
 				Name:   n,
 				Weight: weight,
@@ -358,7 +349,7 @@ func translateRoute(in *networking.HTTPRoute,
 		out.PerFilterConfig[xdsutil.Fault] = util.BuildProtoStruct(translateFault(in.Fault))
 	}
 
-	return out, nil
+	return out
 }
 
 // translateRouteMatch translates match condition

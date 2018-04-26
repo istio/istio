@@ -15,3 +15,16 @@ spec:
         host: c
         subset: version-v1
       weight: 100
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  creationTimestamp: null
+  name: c
+  namespace: default
+spec:
+  host: c
+  subsets:
+  - labels:
+      version: v1
+    name: version-v1
