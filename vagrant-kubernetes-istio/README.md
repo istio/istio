@@ -15,18 +15,18 @@
 You can run the following OS specific script to install all pre-requisites, or use it as a reference to install them manually.
 
 ```bash
-sh prereqs.sh
+sh install_prereqs.sh
 ```
 
 # Steps
 ## 1. Set up Vagrant Environment
 ```bash
-sh vm_setup.sh
+sh setup_vm.sh
 ```
 
 ## 2. Set up Docker daemon and kubectl on Host
 ```bash
-sh host_setup.sh
+sh setup_host.sh
 ```
 **MacOS ONLY** Set up docker daemon in Docker UI.
 1. Open Docker and go to Preferences
@@ -38,7 +38,7 @@ sh host_setup.sh
 ## 3. Build istio images
 Push images from your local dev environment to the local registry on vagrant vm:
 ```bash
-sh test_setup.sh
+sh setup_test.sh
 ```
 You should push new images whenever you modify istio source code.
 
@@ -94,7 +94,7 @@ vagrant destroy
 
 To cleanup host settings only (restore kubectl and remove docker daemon setup)
 ```bash
-sh host_cleanup.sh
+sh cleanup_host.sh
 ```
 **MacOS ONLY** 
 1. Open Docker and go to Preferences
