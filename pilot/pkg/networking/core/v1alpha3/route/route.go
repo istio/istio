@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
+	"time"
 )
 
 // Headers with special meaning in Envoy
@@ -319,9 +320,12 @@ func translateRoute(in *networking.HTTPRoute,
 			}}
 	} else {
 		d := util.GogoDurationToDuration(in.Timeout)
-		//if d == 0 {
-		//	d = 5 * time.Second
-		//}
+		// timeout
+		//(Duration) Specifies the timeout for the route. If not specified, the default is 15s.
+		// Having it set to 0 may work as well.
+		if d == 0 {
+			d = 15 * time.Second
+		}
 		action := &route.RouteAction{
 			Cors:         translateCORSPolicy(in.CorsPolicy),
 			RetryPolicy:  translateRetryPolicy(in.Retries),
