@@ -12,30 +12,31 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package environment
+package dependency
 
-import "istio.io/istio/pkg/test"
+import "istio.io/istio/pkg/test/internal"
 
-var Apps = &apps{}
+// RemoteSpyAdapter indicates a dependency on the remote spy adapter.
+var RemoteSpyAdapter Dependency = &remoteAdapter{}
 
-type apps struct {
-
+type remoteAdapter struct {
 }
 
-var _ test.Dependency = &apps{}
+var _ Dependency = &remoteAdapter{}
+var _ internal.Stateful = &remoteAdapter{}
 
-func (a *apps) String() string {
+func (r *remoteAdapter) String() string {
 	return ""
 }
 
-func (a *apps) Initialize() (interface{}, error) {
+func (r *remoteAdapter) Initialize() (interface{}, error) {
 	return nil, nil
 }
 
-func (a *apps) Reset(interface{}) error {
+func (r *remoteAdapter) Reset(interface{}) error {
 	return nil
 }
 
-func (a *apps) Cleanup(interface{}) {
+func (r *remoteAdapter) Cleanup(interface{}) {
 
 }

@@ -12,30 +12,18 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package environment
+package internal
 
-import "istio.io/istio/pkg/test"
+// Stateful is an interface for managing the life-cycle of stateful dependencies.
+type Stateful interface {
 
-var Pilot = &pilot{}
+	// Initialize the dependency. The returned value can be used to store state, and will be passed back
+	// for reset and cleanup.
+	Initialize() (interface{}, error)
 
-type pilot struct {
+	// Reset will be called prior to the start of a test for resetting the state of the dependency, if needed.
+	Reset(interface{}) error
 
-}
-
-var _ test.Dependency = &pilot{}
-
-func (a *pilot) String() string {
-	return ""
-}
-
-func (a *pilot) Initialize() (interface{}, error) {
-	return nil, nil
-}
-
-func (a *pilot) Reset(interface{}) error {
-	return nil
-}
-
-func (a *pilot) Cleanup(interface{}) {
-
+	// Cleanup the dependency after a test run.
+	Cleanup(interface{})
 }

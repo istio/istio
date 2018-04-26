@@ -21,6 +21,8 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/istio/pkg/test/dependency"
+	"istio.io/istio/pkg/test/internal"
 	"istio.io/istio/pkg/test/label"
 )
 
@@ -32,7 +34,11 @@ func Run(testID string, m *testing.M) {
 	}
 
 	// TODO: Protect against double-run, invalid driverState etc.
-	setup(testID)
+	err := setup(testID)
+	if err != nil {
+		fmt.Printf("Error performing setup: %v\n", err)
+		os.Exit(-1)
+	}
 	rt := m.Run()
 	doCleanup()
 	os.Exit(rt)
@@ -45,25 +51,34 @@ func Ignore(t testing.TB, reason string) {
 
 // Requires ensures that the given dependencies will be satisfied. If they cannot, then the
 // test will fail.
-func Requires(t testing.TB, dependencies ...Dependency) {
+func Requires(t testing.TB, dependencies ...dependency.Dependency) {
 	driver.Lock()
 	defer driver.Unlock()
 
 	// Initialize dependencies only once.
 	for _, d := range dependencies {
-
-		instance, ok := driver.initializedDependencies[d]
+		s, ok := d.(internal.Stateful)
 		if !ok {
-			var err error
-			if instance, err = d.Initialize(); err != nil {
-				t.Fatalf("Unable to satisfy dependency '%v': %v", d, err)
-				return
-			}
-			driver.initializedDependencies[d] = instance
+			continue
 		}
 
-		// If they are already satisfied, then signal a "reset", to ensure a clean, well-known driverState.
-		d.Reset(instance)
+		instance, ok := driver.initializedDependencies[d]
+		if ok {
+			// If they are already satisfied, then signal a "reset", to ensure a clean, well-known driverState.
+			if err := s.Reset(instance); err != nil {
+				t.Fatalf("Unable to reset dependency '%v': %v", d, err)
+				return
+			}
+			continue
+		}
+
+		var err error
+		if instance, err = s.Initialize(); err != nil {
+			t.Fatalf("Unable to satisfy dependency '%v': %v", d, err)
+			return
+		}
+
+		driver.initializedDependencies[d] = instance
 	}
 }
 
