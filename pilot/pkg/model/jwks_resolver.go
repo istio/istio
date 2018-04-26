@@ -15,6 +15,7 @@
 package model
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -103,6 +104,11 @@ func newJwksResolver(expireDuration, evictionDuration, refreshInterval time.Dura
 		refreshInterval:  refreshInterval,
 		client: &http.Client{
 			Timeout: jwksHTTPTimeOutInSec * time.Second,
+
+			// TODO: pilot needs to support list of public root certs.
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			},
 		},
 	}
 
