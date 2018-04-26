@@ -47,7 +47,7 @@ func (e *Encoder) EncodeBytes(data map[string]interface{}, msgName string, skipU
 		return nil, fmt.Errorf("cannot resolve message '%s'", msgName)
 	}
 	for k, v := range data {
-		fd := FindFieldByName(message, k.(string))
+		fd := FindFieldByName(message, k)
 		if fd == nil {
 			if skipUnknown {
 				continue
