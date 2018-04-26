@@ -69,7 +69,7 @@ You can try debugging Istio with debugger tool. vm_setup.sh already installs Del
 For example, if you want to debug a test, run that test in your host/vm.
 ```bash
 # In the VM/Host
-make e2e_simple E2E_ARGS="--use_local_cluster --skip_cleanup"
+make e2e_simple E2E_ARGS="--use_local_cluster --skip_cleanup" HUB=10.10.0.2:5000 TAG=latest
 ```
 Now, find the pid of the process say pilot-discovery that you want to debug.
 ```bash
