@@ -270,8 +270,6 @@ jobs:
 
   e2e-pilot-cloudfoundry-v1alpha3-v2:
     <<: *integrationDefaults
-    environment:
-      - ISTIO_PROXY_IMAGE: proxyv2
     steps:
       - type: shell
         name: Initialize Working Directory
