@@ -22,7 +22,7 @@ if [ $? -ne 0 ]; then
     sudo sed -i -e 's/us.archive.ubuntu.com/archive.ubuntu.com/g' /etc/apt/sources.list
     sudo apt-get --quiet -y update
     sudo apt-get --quiet -y install curl
-    curl --help
+    curl --help > /dev/null
     if [ $? -ne 0 ]; then
       echo "curl could not be installed. Please install it and run this script again."
       exit 1
@@ -77,3 +77,7 @@ if [ $? -ne 0 ]; then
   chmod +x ./kubectl
   sudo mv ./kubectl /usr/local/bin/kubectl
 fi
+
+echo "Everything installed for you and you are ready to go!"
+
+

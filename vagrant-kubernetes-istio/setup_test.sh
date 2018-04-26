@@ -4,7 +4,7 @@
 vagrant up
 
 # Remove old imges.
-docker images -q |xargs docker rmi
+docker images 10.10.0.2:5000/*:latest -q | xargs docker rmi
 
 # Make and Push images to insecure local registry on VM.
 # Set GOOS=linux to make sure linux binaries are built on macOS
