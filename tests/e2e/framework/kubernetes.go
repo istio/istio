@@ -58,7 +58,7 @@ const (
 	maxDeploymentRolloutTime         = 480 * time.Second
 	mtlsExcludedServicesPattern      = "mtlsExcludedServices:\\s*\\[(.*)\\]"
 	helmServiceAccountFile           = "helm-service-account.yaml"
-	istioHelmInstallDir              = "install/kubernetes/helm/istio"
+	istioHelmInstallDir              = istioInstallDir + "/helm/istio"
 )
 
 var (
@@ -648,23 +648,24 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 
 	// construct setValue to pass into helm install
 	// mTLS
-	setValue := "global.securityEnabled=" + strconv.FormatBool(isSecurityOn)
+	setValue := "--set global.securityEnabled=" + strconv.FormatBool(isSecurityOn)
 	// side car injector
 	if *useAutomaticInjection {
-		setValue += ";sidecar-injector.enabled=true"
+		setValue += " --set sidecar-injector.enabled=true"
 	}
 	// hubs and tags replacement.
 	// Helm chart assumes hub and tag are the same among multiple istio components.
 	if *pilotHub != "" && *pilotTag != "" {
-		setValue = setValue + ";global.hub=" + *pilotHub + ";global.tag=" + *pilotTag
+		setValue = setValue + " --set global.hub=" + *pilotHub + " --set global.tag=" + *pilotTag
 	}
 
 	if !*clusterWide {
-		setValue += ";istiotesting.oneNameSpace=true"
+		setValue += " --set istiotesting.oneNameSpace=true"
 	}
 
 	// helm install dry run
-	err := util.HelmInstallDryRun(istioHelmInstallDir, "istio", "istio-system", setValue)
+	workDir := filepath.Join(k.ReleaseDir, istioHelmInstallDir)
+	err := util.HelmInstallDryRun(workDir, "istio", "istio-system", setValue)
 	if err != nil {
 		// dry run fail, let's fail early
 		log.Errorf("Helm dry run of istio install failed %s, setValue=%s", istioHelmInstallDir, setValue)

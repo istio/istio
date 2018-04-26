@@ -157,7 +157,7 @@ func HelmInstallDryRun(chartDir, chartName, namespace, setValue string) error {
 // HelmInstall helm install from a chart for a given namespace
 //       --set stringArray        set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
 func HelmInstall(chartDir, chartName, namespace, setValue string) error {
-	_, err := Shell("helm install %s --name %s --namespace %s --set %s", chartDir, chartName, namespace, setValue)
+	_, err := Shell("helm install %s --name %s --namespace %s %s", chartDir, chartName, namespace, setValue)
 	return err
 }
 
