@@ -14,8 +14,6 @@
 
 package util
 
-// TODO(mostrowski): move most of these functions to a lower level util pkg, they are not Pilot specific.
-
 import (
 	"bytes"
 	"strconv"
@@ -31,6 +29,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/json"
 
 	"istio.io/istio/pkg/log"
+)
+
+const (
+	// BlackHoleCluster to catch traffic from routes with unresolved clusters. Traffic arriving here goes nowhere.
+	BlackHoleCluster = "BlackHoleCluster"
 )
 
 //// convertAddressListToCidrList converts a list of IP addresses with cidr prefixes into envoy CIDR proto

@@ -83,8 +83,13 @@ func validatorCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 			return err
 		}
 
+		client, err := createInterface(flags.kubeConfig)
+		if err != nil {
+			return fmt.Errorf("failed to connect to Kubernetes API: %v", err)
+		}
+
 		timeout := time.After(time.Minute)
-		cl := common.client.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
+		cl := client.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
 		for {
 			webhooks := []string{pilotWebhookName, mixerWebhookName}
 			if err = util.PatchValidatingWebhookConfig(cl, webhookConfigName, webhooks, caCertPem); err == nil {

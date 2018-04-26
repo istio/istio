@@ -202,7 +202,9 @@ func TestAuthWithHeaders(t *testing.T) {
 		t.Fatalf("Unexpected to get %d pods when expecting 1. got %v", len(podList), podList)
 	}
 	podNoIstio := podList[0]
-	// Get the istio pod without extra unique port
+	// Get the istio pod without extra unique port. We can't use the service name or cluster ip as
+	// that vip only exists for declared host:port and the exploit relies on not having a listener
+	// for that port.
 	podList, err = getPodIPList(ns, "app=echosrv,extrap=no")
 	if err != nil {
 		t.Fatalf("kubectl failure to get deployment1 pod %v", err)

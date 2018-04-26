@@ -73,6 +73,7 @@ global:
 security:
   serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
+  image: citadel
   imagePullPolicy: IfNotPresent
   resources: {}
   # limits:

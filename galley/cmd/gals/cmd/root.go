@@ -17,6 +17,7 @@ package cmd
 import (
 	"flag"
 	"fmt"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
@@ -31,11 +32,8 @@ import (
 
 var (
 	flags = struct {
-		kubeConfig string
-	}{}
-
-	common = struct {
-		client kubernetes.Interface
+		kubeConfig   string
+		resyncPeriod time.Duration
 	}{}
 
 	loggingOptions = log.DefaultOptions()
@@ -61,11 +59,11 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 				return fmt.Errorf("%q is an invalid argument", args[0])
 			}
 
-			client, err := createInterface(flags.kubeConfig)
+			err := log.Configure(loggingOptions)
 			if err != nil {
-				return fmt.Errorf("failed to connect to Kubernetes API: %v", err)
+				return err
 			}
-			common.client = client
+
 			return nil
 		},
 	}
@@ -75,6 +73,11 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 	rootCmd.PersistentFlags().StringVar(&flags.kubeConfig, "kubeconfig", "",
 		"Use a Kubernetes configuration file instead of in-cluster configuration")
 
+	rootCmd.PersistentFlags().DurationVar(&flags.resyncPeriod, "resyncPeriod", 0,
+		"Resync period for rescanning Kubernetes resources")
+
+	rootCmd.AddCommand(purgeCmd(fatalf))
+	rootCmd.AddCommand(serverCmd(fatalf))
 	rootCmd.AddCommand(validatorCmd(printf, fatalf))
 	rootCmd.AddCommand(probeCmd(printf, fatalf))
 	rootCmd.AddCommand(version.CobraCommand())
