@@ -10,6 +10,23 @@ fi
 echo "Update homebrew..."
 brew update
 
+echo "Checking gsed"
+sed --help > /dev/null
+if [ $? -ne 0 ];
+then
+    echo "gsed is not installed. Install it from homebrew."
+    brew install gnu-sed
+    if [ $? -ne 0 ];
+    then
+        echo "Installation from brew fails. Please install it manually."
+        exit 1
+    else
+        echo "Done."
+    fi
+else
+    echo "gsed exists."
+fi
+
 echo "Checking curl"
 curl --help > /dev/null
 if [ $? -ne 0 ]; 
