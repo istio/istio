@@ -391,7 +391,7 @@ func init() {
 }
 
 func getIngressOrFail(t *testing.T, configVersion string) string {
-	if configVersion == "v1apha3" {
+	if configVersion == "v1alpha3" {
 		return tc.Kube.IngressGatewayOrFail(t)
 	}
 	return tc.Kube.IngressOrFail(t)
