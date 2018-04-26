@@ -287,6 +287,7 @@ jobs:
           no_output_timeout: 20m
           when: always
           command: |
+            export PATH=$GOPATH/bin:$PATH
             make localTestEnv
             make test/local/cloudfoundry/e2e_pilotv2
       - store_artifacts:
