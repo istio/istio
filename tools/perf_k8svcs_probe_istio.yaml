@@ -30,7 +30,9 @@ spec:
         app: echosrv1
     spec:
       containers:
-      - image: istio/fortio:latest_release
+      - args:
+        - -P="8080 localhost:8080"
+        image: istio/fortio:latest_release
         imagePullPolicy: Always
         livenessProbe:
           httpGet:

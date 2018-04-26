@@ -29,6 +29,8 @@ spec:
       - name: echosrv
         image: istio/fortio:latest_release
         imagePullPolicy: Always # needed despite what is documented to really get latest
+        args:
+        - -P="8080 localhost:8080"
         ports:
         - containerPort: 8080
         readinessProbe:
