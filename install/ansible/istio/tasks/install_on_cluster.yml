@@ -3,6 +3,15 @@
   when: not istio.auth
   ignore_errors: true
 
+- name: Replace mtlsExcludedServices in k8s manifests
+  lineinfile:
+    path: "{{ istio_dir }}/install/kubernetes/istio-auth.yaml"
+    regexp: '^(\s*mtlsExcludedServices:).*$'
+    line: "\\1 {{ istio.mtlsexcludedservices | to_json }}"
+    backrefs: yes
+    backup: yes
+  when: istio.auth and istio.mtlsexcludedservices is defined
+
 - name: Deploy Istio Auth from kubernetes file
   shell: "{{ cmd_path }} create -f {{ istio_dir }}/install/kubernetes/istio-auth.yaml"
   when: istio.auth
