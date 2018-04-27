@@ -67,7 +67,7 @@ type Service struct {
 	ServiceAccounts []string `json:"serviceaccounts,omitempty"`
 
 	// MeshExternal (if true) indicates that the service is external to the mesh.
-	// These services are defined using Istio's ExternalService spec.
+	// These services are defined using Istio's ServiceEntry spec.
 	MeshExternal bool
 
 	// LoadBalancingDisabled indicates that no load balancing should be done for this service.
@@ -76,7 +76,7 @@ type Service struct {
 
 	// Resolution indicates how the service instances need to be resolved before routing
 	// traffic. Most services in the service registry will use static load balancing wherein
-	// the proxy will decide the service instance that will receive the traffic. External services
+	// the proxy will decide the service instance that will receive the traffic. Service entries
 	// could either use DNS load balancing (i.e. proxy will query DNS server for the IP of the service)
 	// or use the passthrough model (i.e. proxy will forward the traffic to the network endpoint requested
 	// by the caller)

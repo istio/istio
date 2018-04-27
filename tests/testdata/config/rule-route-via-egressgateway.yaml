@@ -4,7 +4,7 @@ metadata:
   name: route-via-egressgateway
 spec:
   hosts:
-    - eu.bookinfo.com
+    - eu1.bookinfo.com
   gateways:
   # Pinned to both the sidecars (mesh) and egress gateway
   - istio-egressgateway

@@ -18,9 +18,6 @@ package istio.networking.v1alpha3;
 
 option go_package = "istio.io/api/networking/v1alpha3";
 
-//
-// # Overview
-//
 // `Gateway` describes a load balancer operating at the edge of the mesh
 // receiving incoming or outgoing HTTP/TCP connections. The specification
 // describes a set of ports that should be exposed, the type of protocol to
