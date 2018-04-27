@@ -16,12 +16,14 @@ package util
 
 import (
 	"bytes"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
@@ -185,4 +187,14 @@ func GogoDurationToDuration(d *types.Duration) time.Duration {
 		return 0
 	}
 	return dur
+}
+
+// SortVirtualHosts sorts a slice of virtual hosts by name.
+//
+// Envoy computes a hash of the listener which is affected by order of elements in the filter. Therefore
+// we sort virtual hosts by name before handing them back so the ordering is stable across HTTP Route Configs.
+func SortVirtualHosts(hosts []route.VirtualHost) {
+	sort.SliceStable(hosts, func(i, j int) bool {
+		return hosts[i].Name < hosts[j].Name
+	})
 }
