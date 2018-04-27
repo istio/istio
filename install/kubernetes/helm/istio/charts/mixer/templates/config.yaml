@@ -28,6 +28,8 @@ spec:
       valueType: STRING
     request.scheme:
       valueType: STRING
+    request.total_size:
+          valueType: INT64
     request.size:
       valueType: INT64
     request.time:
@@ -40,6 +42,8 @@ spec:
       valueType: DURATION
     response.headers:
       valueType: STRING_MAP
+    response.total_size:
+          valueType: INT64
     response.size:
       valueType: INT64
     response.time:
@@ -158,10 +162,11 @@ spec:
     requestSize: request.size | 0
     latency: response.duration | "0ms"
     connectionMtls: connection.mtls | false
-    useragent: request.useragent | ""
+    userAgent: request.useragent | ""
     responseTimestamp: response.time
-    tcpBytesReceived: connection.received.bytes | 0
-    tcpBytesSent: connection.sent.bytes | 0
+    receivedBytes: request.total_size | connection.received.bytes | 0
+    sentBytes: response.total_size | connection.sent.bytes | 0
+    referer: request.referer | ""
   monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"

@@ -225,11 +225,29 @@ func toReq(mapping *config.Params_LogInfo_HttpRequestMapping, variables map[stri
 		return nil
 	}
 
-	// Required to make the Stackdriver client lib not barf.
-	// TODO: see if we can plumb the URL through to here to populate this meaningfully.
-	req := &logging.HTTPRequest{
-		Request: &http.Request{URL: &url.URL{}},
+	reqUrl := &url.URL{}
+	if variables[mapping.Url] != nil {
+		if u, err := url.Parse(variables[mapping.Url].(string)); err == nil {
+			reqUrl = u
+		}
 	}
+	method := ""
+	if variables[mapping.Method] != nil {
+		method = variables[mapping.Method].(string)
+	}
+	var httpHeaders http.Header
+	httpHeaders = make(http.Header)
+	if variables[mapping.UserAgent] != nil {
+		httpHeaders.Add("User-Agent", variables[mapping.UserAgent].(string))
+	}
+	if variables[mapping.Referer] != nil {
+		httpHeaders.Add("Referer", variables[mapping.Referer].(string))
+	}
+	// Required to make the Stackdriver client lib not barf.
+	req := &logging.HTTPRequest{
+		Request: &http.Request{URL: reqUrl, Method: method, Header: httpHeaders},
+	}
+
 
 	reqs := variables[mapping.RequestSize]
 	if reqsize, ok := toInt64(reqs); ok {
@@ -241,9 +259,10 @@ func toReq(mapping *config.Params_LogInfo_HttpRequestMapping, variables map[stri
 		req.ResponseSize = respsize
 	}
 
+
 	code := variables[mapping.Status]
-	if status, ok := code.(int); ok {
-		req.Status = status
+	if status, ok := code.(int64); ok {
+		req.Status = int(status)
 	}
 
 	l := variables[mapping.Latency]
@@ -251,15 +270,8 @@ func toReq(mapping *config.Params_LogInfo_HttpRequestMapping, variables map[stri
 		req.Latency = latency
 	}
 
-	lip := variables[mapping.LocalIp]
-	if localip, ok := lip.(string); ok {
-		req.LocalIP = localip
-	}
-
-	rip := variables[mapping.RemoteIp]
-	if remoteip, ok := rip.(string); ok {
-		req.RemoteIP = remoteip
-	}
+	req.LocalIP = fmt.Sprintf("%v", variables[mapping.LocalIp])
+	req.RemoteIP = fmt.Sprintf("%v", variables[mapping.RemoteIp])
 	return req
 }
 
