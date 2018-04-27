@@ -17,6 +17,7 @@ package showcase
 import (
 	"testing"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/dependency"
 )
@@ -32,39 +33,18 @@ func TestHTTPWithMTLS(t *testing.T) {
 	appa := env.GetApp("a")
 	appt := env.GetApp("t")
 
-	reqInfo := appa.Call(appt)
-
-	// Verify that the request was received by t
-	if err := appt.Expect(reqInfo); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestHTTPWithMTLSAndMixer(t *testing.T) {
-	test.Requires(t, dependency.Mixer, dependency.Pilot, dependency.Apps, dependency.MTLS)
-
-	env := test.GetEnvironment(t)
-
-	env.Configure(cfg)
-
-	_ = env.GetPilot()
-
-	m := env.GetMixer()
-
-	appa := env.GetApp("a")
-	appt := env.GetApp("t")
-
-	reqInfo := appa.Call(appt)
-
-	// Verify that the request was received by t
-	if err := appt.Expect(reqInfo); err != nil {
-		t.Fatal(err)
-	}
-
-	err := m.Expect(`
-CHECK: "a" ....
-`)
-	if err != nil {
-		t.Fatal(err)
+	// Send requests to all of the HTTP endpoints.
+	endpoints := appt.EndpointsForProtocol(model.ProtocolHTTP)
+	for _, endpoint := range endpoints {
+		url := endpoint.MakeURL(false) + "/a"
+		t.Run(url, func(t *testing.T) {
+			result, err := appa.Call(url, 1, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !result.IsSuccess() {
+				t.Fatalf("HTTP Request unsuccessful: %s", result.Body)
+			}
+		})
 	}
 }
