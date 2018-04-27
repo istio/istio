@@ -325,9 +325,10 @@ func (o *Options) AttachCobraFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().BoolVar(&o.JSONEncoding, "log_as_json", o.JSONEncoding,
 		"Whether to format output as JSON or in plain console-friendly format")
 
-	if len(scopes) > 1 {
+	allScopes := Scopes()
+	if len(allScopes) > 1 {
 		s := ""
-		for name := range scopes {
+		for name := range allScopes {
 			if s != "" {
 				s = s + ", "
 			}
