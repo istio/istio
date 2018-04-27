@@ -138,10 +138,9 @@ func (s *DiscoveryServer) ClearCacheFunc() func() {
 		s.modelMutex.RLock()
 		log.Infof("XDS: Registry event, pushing. Services: %d, "+
 			"VirtualServices: %d, ConnectedEndpoints: %d", len(s.services), len(s.virtualServices), edsClientCount())
-		s.modelMutex.RUnlock()
-
 		monServices.Set(float64(len(s.services)))
 		monVServices.Set(float64(len(s.virtualServices)))
+		s.modelMutex.RUnlock()
 
 		PushAll()
 	}
