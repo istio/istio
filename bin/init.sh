@@ -44,8 +44,11 @@ export ISTIO_BIN=${ISTIO_BIN:-${GOPATH}/bin}
 # Set the architecture. Matches logic in the Makefile.
 export GOARCH=${GOARCH:-'amd64'}
 
-# Determine the OS. Matches logic in the Makefile.
-LOCAL_OS="`uname`"
+if [ "${LOCAL_OS}x" = "x" ]; then
+  # Determine the OS. Matches logic in the Makefile.
+  LOCAL_OS="`uname`"
+fi
+
 case $LOCAL_OS in
   'Linux')
     LOCAL_OS='linux'
@@ -135,7 +138,7 @@ if [ ! -f "$ISTIO_ENVOY_DEBUG_PATH" ] || [ ! -f "$ISTIO_ENVOY_RELEASE_PATH" ] ; 
     # Download release envoy binary.
     mkdir -p $ISTIO_ENVOY_RELEASE_DIR
     pushd $ISTIO_ENVOY_RELEASE_DIR
-    if [ "$LOCAL_OS" == "darwin" ]; then 
+    if [ "$LOCAL_OS" == "darwin" ]; then
        ISTIO_ENVOY_RELEASE_URL=${ISTIO_ENVOY_MAC_RELEASE_URL}
     fi
     echo "Downloading envoy release artifact: ${DOWNLOAD_COMMAND} ${ISTIO_ENVOY_RELEASE_URL}"
