@@ -40,7 +40,6 @@ type Validator struct {
 	templates       map[string]*template.Info
 	tc              checker.TypeChecker
 	af              ast.AttributeDescriptorFinder
-	infoRegistry    config.AdapterInfoRegistry
 	c               *validatorCache
 	donec           chan struct{}
 }
@@ -66,14 +65,6 @@ func New(tc checker.TypeChecker, identityAttribute string, s store.Store,
 		}
 		configData[k] = obj.Spec
 	}
-
-	adapterInfos := map[store.Key]*v1beta1.Info{}
-	for k, obj := range data {
-		if k.Kind == config.AdapterKind {
-			adapterInfos[k] = obj.Spec.(*v1beta1.Info)
-		}
-		configData[k] = obj.Spec
-	}
 	v := &Validator{
 		handlerBuilders: hb,
 		templates:       templateInfo,
@@ -86,10 +77,6 @@ func New(tc checker.TypeChecker, identityAttribute string, s store.Store,
 	}
 	go store.WatchChanges(ch, v.donec, time.Second, v.c.applyChanges)
 	v.af = v.newAttributeDescriptorFinder(manifests)
-	v.infoRegistry, err = v.newAdapterInfoRegistry(adapterInfos)
-	if err != nil {
-		log.Errorf("error when reading the adapter information from the store %v", err)
-	}
 	return v, nil
 }
 
@@ -108,21 +95,7 @@ func (v *Validator) refreshTypeChecker() {
 	v.af = v.newAttributeDescriptorFinder(manifests)
 }
 
-func (v *Validator) refreshAdapterInfos() {
-	adapterInfos := map[store.Key]*v1beta1.Info{}
-	v.c.forEach(func(key store.Key, spec proto.Message) {
-		if key.Kind == config.AdapterKind {
-			adapterInfos[key] = spec.(*v1beta1.Info)
-		}
-	})
-	var err error
-	v.infoRegistry, err = v.newAdapterInfoRegistry(adapterInfos)
-	if err != nil {
-		log.Errorf("error when reading the adapter information from the store %v", err)
-	}
-}
-
-func (v *Validator) getKey(value, namespace string) (store.Key, error) {
+func (v *Validator) formKey(value, namespace string) (store.Key, error) {
 	parts := strings.Split(value, ".")
 	if len(parts) < 2 {
 		return store.Key{}, fmt.Errorf("illformed %s", value)
@@ -151,22 +124,6 @@ func (v *Validator) newAttributeDescriptorFinder(manifests map[store.Key]*cpb.At
 	return ast.NewFinder(attrs)
 }
 
-func (v *Validator) newAdapterInfoRegistry(adapterInfos map[store.Key]*v1beta1.Info) (config.AdapterInfoRegistry, error) {
-	infos := make([]*v1beta1.Info, len(adapterInfos))
-	i := 0
-	for _, info := range adapterInfos {
-		infos[i] = info
-		i++
-	}
-	infoRef, err := config.NewAdapterInfoRegistry(infos)
-	if err != nil {
-		// return no-op registry. Therefore future validations that depend on registry don't need to do nil check.
-		noopReg, _ := config.NewAdapterInfoRegistry([]*v1beta1.Info{})
-		return noopReg, fmt.Errorf("validation failed for adapters %v: %v", infos, err)
-	}
-	return infoRef, nil
-}
-
 func (v *Validator) validateUpdateRule(namespace string, rule *cpb.Rule) error {
 	var errs error
 	if rule.Match != "" {
@@ -175,7 +132,7 @@ func (v *Validator) validateUpdateRule(namespace string, rule *cpb.Rule) error {
 		}
 	}
 	for i, action := range rule.Actions {
-		key, err := v.getKey(action.Handler, namespace)
+		key, err := v.formKey(action.Handler, namespace)
 		if err == nil {
 			if _, ok := v.handlerBuilders[key.Kind]; ok {
 				if _, ok = v.c.get(key); !ok {
@@ -192,7 +149,7 @@ func (v *Validator) validateUpdateRule(namespace string, rule *cpb.Rule) error {
 			})
 		}
 		for j, instance := range action.Instances {
-			key, err = v.getKey(instance, namespace)
+			key, err = v.formKey(instance, namespace)
 			if err == nil {
 				if _, ok := v.templates[key.Kind]; ok {
 					if _, ok = v.c.get(key); !ok {
@@ -221,7 +178,7 @@ func (v *Validator) validateHandlerDelete(hkey store.Key) error {
 		}
 		rule := spec.(*cpb.Rule)
 		for i, action := range rule.Actions {
-			key, err := v.getKey(action.Handler, rkey.Namespace)
+			key, err := v.formKey(action.Handler, rkey.Namespace)
 			if err != nil {
 				// invalid rules are already in the cache; simply log it and continue
 				log.Errorf("Invalid handler value %s in %s", action.Handler, rkey)
@@ -244,7 +201,7 @@ func (v *Validator) validateInstanceDelete(ikey store.Key) error {
 		rule := spec.(*cpb.Rule)
 		for i, action := range rule.Actions {
 			for j, instance := range action.Instances {
-				key, err := v.getKey(instance, rkey.Namespace)
+				key, err := v.formKey(instance, rkey.Namespace)
 				if err != nil {
 					// invalid rules are already in the cache; simply log it and continue
 					log.Errorf("Invalid handler value %s in %s", instance, rkey)
@@ -307,24 +264,10 @@ func (v *Validator) validateDelete(key store.Key) error {
 			<-time.After(validatedDataExpiration)
 			v.refreshTypeChecker()
 		}()
-	} else if key.Kind == config.AdapterKind {
-		adapterInfos := map[store.Key]*v1beta1.Info{}
-		v.c.forEach(func(k store.Key, spec proto.Message) {
-			if k.Kind == config.AdapterKind && k != key {
-				adapterInfos[k] = spec.(*v1beta1.Info)
-			}
-		})
-		infoRegistry, err := v.newAdapterInfoRegistry(adapterInfos)
-		if err != nil {
-			// this will never happen; adapter infos are leaf nodes and removing an already committed valid entry
-			// should never cause errors.
+	} else if key.Kind == config.TemplateKind {
+		if err := v.validateTemplateDelete(key); err != nil {
 			return err
 		}
-		v.infoRegistry = infoRegistry
-		go func() {
-			<-time.After(validatedDataExpiration)
-			v.refreshAdapterInfos()
-		}()
 	} else {
 		log.Debugf("don't know how to validate %s", key)
 	}
@@ -367,39 +310,13 @@ func (v *Validator) validateUpdate(ev *store.Event) error {
 			v.refreshTypeChecker()
 		}()
 	} else if adptInfo, ok := ev.Value.Spec.(*v1beta1.Info); ok && ev.Kind == config.AdapterKind {
-		adapterInfos := map[store.Key]*v1beta1.Info{}
-		v.c.forEach(func(k store.Key, spec proto.Message) {
-			if k.Kind == config.AdapterKind {
-				adapterInfos[k] = spec.(*v1beta1.Info)
-			}
-		})
-		adapterInfos[ev.Key] = adptInfo
-		infoRegistry, err := v.newAdapterInfoRegistry(adapterInfos)
-		if err != nil {
+		if err := v.validateUpdateAdapter(ev.Namespace, adptInfo); err != nil {
 			return err
 		}
-		v.infoRegistry = infoRegistry
-		go func() {
-			<-time.After(validatedDataExpiration)
-			v.refreshAdapterInfos()
-		}()
-	} else if adptInfo, ok := ev.Value.Spec.(*v1beta1.Info); ok && ev.Kind == config.TemplateKind {
-		adapterInfos := map[store.Key]*v1beta1.Info{}
-		v.c.forEach(func(k store.Key, spec proto.Message) {
-			if k.Kind == config.AdapterKind {
-				adapterInfos[k] = spec.(*v1beta1.Info)
-			}
-		})
-		adapterInfos[ev.Key] = adptInfo
-		infoRegistry, err := v.newAdapterInfoRegistry(adapterInfos)
-		if err != nil {
+	} else if tmpl, ok := ev.Value.Spec.(*v1beta1.Info); ok && ev.Kind == config.TemplateKind {
+		if _, _, _, err := config.GetTmplDesc(tmpl.Config); err != nil {
 			return err
 		}
-		v.infoRegistry = infoRegistry
-		go func() {
-			<-time.After(validatedDataExpiration)
-			v.refreshAdapterInfos()
-		}()
 	} else {
 		log.Debugf("don't know how to validate %s", ev.Key)
 	}
@@ -418,4 +335,55 @@ func (v *Validator) Validate(ev *store.Event) error {
 		v.c.putCache(ev)
 	}
 	return err
+}
+
+func (v *Validator) validateUpdateAdapter(namespace string, adptInfo *v1beta1.Info) error {
+	var errs error
+	if _, _, err := config.GetAdapterCfgDescriptor(adptInfo.Config); err != nil {
+		errs = multierror.Append(errs, &adapter.ConfigError{Field: "config", Underlying: err})
+	}
+
+	for i, tmpl := range adptInfo.Templates {
+		key, err := v.formKey(tmpl, namespace)
+		if err == nil {
+			if key.Kind != config.TemplateKind {
+				err = fmt.Errorf("%s is not a template", tmpl)
+			} else if _, ok := v.c.get(key); !ok {
+				err = fmt.Errorf("%s not found", tmpl)
+			}
+		}
+
+		if err != nil {
+			errs = multierror.Append(errs, &adapter.ConfigError{
+				Field:      fmt.Sprintf("templates[%d]", i),
+				Underlying: err,
+			})
+		}
+	}
+
+	return errs
+}
+
+func (v *Validator) validateTemplateDelete(ikey store.Key) error {
+	var errs error
+	v.c.forEach(func(rkey store.Key, spec proto.Message) {
+		if rkey.Kind != config.AdapterKind {
+			return
+		}
+		info := spec.(*v1beta1.Info)
+		for i, tmplName := range info.Templates {
+
+			key, err := v.formKey(tmplName, rkey.Namespace)
+			if err != nil {
+				// invalid rules are already in the cache; simply log it and continue
+				log.Errorf("invalid template name %s in adapter %s", tmplName, rkey)
+				continue
+			}
+			if key == ikey {
+				errs = multierror.Append(errs, fmt.Errorf("%s is referred by %s/templates[%d]", ikey, rkey, i))
+			}
+		}
+
+	})
+	return errs
 }

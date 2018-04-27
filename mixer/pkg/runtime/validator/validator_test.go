@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// nolint
+//go:generate protoc testdata/foo.proto -otestdata/foo.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
 package validator
 
 import (
@@ -27,6 +29,9 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
 
+	"bytes"
+	"encoding/base64"
+	"io/ioutil"
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	cpb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -35,6 +40,8 @@ import (
 	"istio.io/istio/mixer/pkg/lang/checker"
 	"istio.io/istio/mixer/pkg/template"
 )
+
+var fooTmpl = getFileDescSetBase64("testdata/foo.descriptor")
 
 // testAdapterConfig is a types.Struct instance which represents the
 // adapter config used in the mixer/testdata/config/listentry.yaml.
@@ -217,65 +224,130 @@ func TestValidator(t *testing.T) {
 			[]*store.Event{deleteEvent("kubernetes.attributemanifest.istio-system")},
 			false,
 		},
+
+		{
+			"add template",
+			[]*store.Event{updateEvent("metric.template.default", &v1beta1.Info{
+				Config: fooTmpl,
+			})},
+			true,
+		},
+		{
+			"add template bad descriptor",
+			[]*store.Event{updateEvent("metric.template.default", &v1beta1.Info{
+				Config: "bad base64 string",
+			})},
+			false,
+		},
+
 		{
 			"add new info valid",
 			[]*store.Event{updateEvent("testCR1.adapter.default", &v1beta1.Info{
 				Name:         "testAdapter",
 				Description:  "testAdapter description",
 				SessionBased: true,
+				Config:       "",
 			})},
 			true,
 		},
 		{
-			"add info error duplicate error",
+			"add new info bad cfg",
+			[]*store.Event{updateEvent("testCR1.adapter.default", &v1beta1.Info{
+				Name:         "testAdapter",
+				Description:  "testAdapter description",
+				SessionBased: true,
+				Config:       "bad cfg descriptor",
+			})},
+			false,
+		},
+		{
+			"add new info, valid template reference",
 			[]*store.Event{
+				updateEvent("mymetric.template.default", &v1beta1.Info{
+					Config: fooTmpl,
+				}),
 				updateEvent("testCR1.adapter.default", &v1beta1.Info{
 					Name:         "testAdapter",
 					Description:  "testAdapter description",
 					SessionBased: true,
+					Templates:    []string{"mymetric.template.default"},
+				})},
+			true,
+		},
+		{
+			"add new info, valid template reference, short tmpl name",
+			[]*store.Event{
+				updateEvent("mymetric.template.default", &v1beta1.Info{
+					Config: fooTmpl,
 				}),
-				updateEvent("testCR2.adapter.default", &v1beta1.Info{
+				updateEvent("testCR1.adapter.default", &v1beta1.Info{
 					Name:         "testAdapter",
 					Description:  "testAdapter description",
 					SessionBased: true,
+					Templates:    []string{"mymetric.template"},
+				})},
+			true,
+		},
+		{
+			"add new info bad template kind",
+			[]*store.Event{updateEvent("testCR1.adapter.default", &v1beta1.Info{
+				Name:         "testAdapter",
+				Description:  "testAdapter description",
+				SessionBased: true,
+				Templates:    []string{"foo.rule.default"},
+			})},
+			false,
+		},
+		{
+			"add new info bad template reference",
+			[]*store.Event{updateEvent("testCR1.adapter.default", &v1beta1.Info{
+				Name:         "testAdapter",
+				Description:  "testAdapter description",
+				SessionBased: true,
+				Templates:    []string{"notexists.template.default"},
+			})},
+			false,
+		},
+		{
+			"add new info, template reference not found",
+			[]*store.Event{updateEvent("testCR1.adapter.default", &v1beta1.Info{
+				Name:         "testAdapter",
+				Description:  "testAdapter description",
+				SessionBased: true,
+				Templates:    []string{"notexists.template.default"},
+			})},
+			false,
+		},
+		{
+			"delete template invalid",
+			[]*store.Event{
+				updateEvent("mymetric.template.default", &v1beta1.Info{
+					Config: fooTmpl,
 				}),
+				updateEvent("testCR1.adapter.default", &v1beta1.Info{
+					Name:         "testAdapter",
+					Description:  "testAdapter description",
+					SessionBased: true,
+					Templates:    []string{"mymetric.template"},
+				}),
+				deleteEvent("mymetric.template.default"),
 			},
 			false,
 		},
 		{
-			"add invalid info content for template descriptor",
-			[]*store.Event{updateEvent("testCR1.adapter.default", &v1beta1.Info{
-				Name:         "testAdapter",
-				Description:  "testAdapter description",
-				SessionBased: true,
-				Templates:    []string{"not a descriptor"},
-			})},
-			false,
-		},
-		{
-			"add invalid info content for adapter descriptor",
-			[]*store.Event{updateEvent("testCR1.adapter.default", &v1beta1.Info{
-				Name:         "testAdapter",
-				Description:  "testAdapter description",
-				SessionBased: true,
-				Config:       "not a descriptor",
-			})},
-			false,
-		},
-		{
-			"delete info valid",
+			"delete template valid sequence",
 			[]*store.Event{
+				updateEvent("mymetric.template.default", &v1beta1.Info{
+					Config: fooTmpl,
+				}),
 				updateEvent("testCR1.adapter.default", &v1beta1.Info{
 					Name:         "testAdapter",
 					Description:  "testAdapter description",
 					SessionBased: true,
-				}),
-				updateEvent("testCR2.adapter.default", &v1beta1.Info{
-					Name:         "testAdapter2",
-					Description:  "testAdapter description",
-					SessionBased: true,
+					Templates:    []string{"mymetric.template"},
 				}),
 				deleteEvent("testCR1.adapter.default"),
+				deleteEvent("mymetric.template.default"),
 			},
 			true,
 		},
@@ -283,7 +355,6 @@ func TestValidator(t *testing.T) {
 		t.Run(cc.title, func(tt *testing.T) {
 			v, err := getValidatorForTest()
 			v.refreshTypeChecker()
-			v.refreshAdapterInfos()
 			if err != nil {
 				tt.Fatal(err)
 			}
@@ -292,7 +363,6 @@ func TestValidator(t *testing.T) {
 			for _, ev := range cc.evs {
 				e := v.Validate(ev)
 				v.refreshTypeChecker()
-				v.refreshAdapterInfos()
 				result = multierror.Append(result, e)
 			}
 			ok := result.ErrorOrNil() == nil
@@ -365,4 +435,13 @@ func TestValidatorToRememberValidation(t *testing.T) {
 			}
 		})
 	}
+}
+
+func getFileDescSetBase64(path string) string {
+	byts, _ := ioutil.ReadFile(path)
+	var b bytes.Buffer
+	encoder := base64.NewEncoder(base64.StdEncoding, &b)
+	_, _ = encoder.Write(byts)
+	_ = encoder.Close()
+	return b.String()
 }
