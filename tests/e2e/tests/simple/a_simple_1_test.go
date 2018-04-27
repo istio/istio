@@ -214,7 +214,8 @@ func TestAuthWithHeaders(t *testing.T) {
 	podIstioIP := podList[0]
 	log.Infof("From client, non istio injected pod \"%s\" to istio pod \"%s\"", podNoIstio, podIstioIP)
 	// TODO: ipv6 fix
-	res, err := util.Shell("kubectl exec -n %s %s -- /usr/local/bin/fortio curl -H Host:echosrv-extrap.%s:8088 http://%s:8088/debug", ns, podNoIstio, ns, podIstioIP)
+	res, err := util.Shell("kubectl exec -n %s %s -- /usr/local/bin/fortio curl -H Host:echosrv-extrap.%s:8088 http://%s:8088/debug",
+		ns, podNoIstio, ns, podIstioIP)
 	if tc.Kube.AuthEnabled {
 		if err == nil {
 			t.Errorf("Running with auth on yet able to connect from non istio to istio (insecure): %v", res)
