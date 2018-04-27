@@ -139,7 +139,7 @@ loop:
 		default:
 		}
 
-		if retryCount%logPerRetries == 1 {
+		if log.DebugEnabled() && retryCount%logPerRetries == 1 {
 			remainingKinds := make([]string, 0, len(uncheckedKindsSet))
 			for kind := range uncheckedKindsSet {
 				remainingKinds = append(remainingKinds, kind)
