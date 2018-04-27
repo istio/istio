@@ -5,7 +5,8 @@ location: https://istio.io/docs/reference/config/istio.networking.v1alpha3.html
 layout: protoc-gen-docs
 number_of_entries: 39
 ---
-<h3 id="terms-and-definitions">Terms and Definitions</h3>
+<p>Configuration affecting traffic routing. Here are a few terms useful to define
+in the context of traffic routing.</p>
 
 <p><code>Service</code> a unit of application behavior bound to a unique name in a
 service registry. Services consist of multiple network <em>endpoints</em>
@@ -2139,7 +2140,7 @@ kind: DestinationRule
 metadata:
   name: mtls-mongocluster
 spec:
-  name: mymongodb.somedomain
+  host: mymongodb.somedomain
   trafficPolicy:
     tls:
       mode: MUTUAL
@@ -2169,7 +2170,7 @@ spec:
 </code></pre>
 
 <p>For HTTP based services, it is possible to create a VirtualService
-backed by multiple DNS addressible endpoints. In such a scenario, the
+backed by multiple DNS addressable endpoints. In such a scenario, the
 application can use the HTTP_PROXY environment variable to transparently
 reroute API calls for the VirtualService to a chosen backend. For
 example, the following configuration creates a non-existent external
@@ -2208,7 +2209,7 @@ kind: DestinationRule
 metadata:
   name: tls-foobar
 spec:
-  name: foo.bar.com
+  host: foo.bar.com
   trafficPolicy:
     tls:
       mode: SIMPLE # initiates HTTPS
@@ -2350,7 +2351,7 @@ service.</p>
 outside the mesh.  Location determines the behavior of several
 features, such as service-to-service mTLS authentication, policy
 enforcement, etc. When communicating with services outside the mesh,
-Istio&rsquo;s mTLS authentication is disabled, and policy enforcements are
+Istio&rsquo;s mTLS authentication is disabled, and policy enforcement is
 performed on the client-side as opposed to server-side.</p>
 
 <table class="enum-values">
