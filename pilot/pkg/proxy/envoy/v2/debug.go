@@ -42,6 +42,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 		}, 2)
 
 	sctl.AddRegistry(aggregate.Registry{
+		ClusterID:        "v2-debug",
 		Name:             serviceregistry.ServiceRegistry("memAdapter"),
 		ServiceDiscovery: s.MemRegistry,
 		ServiceAccounts:  s.MemRegistry,
@@ -210,7 +211,7 @@ func (sd *MemServiceDiscovery) Instances(hostname string, ports []string,
 
 // GetProxyServiceInstances returns service instances associated with a node, resulting in
 // 'in' services.
-func (sd *MemServiceDiscovery) GetProxyServiceInstances(node model.Proxy) ([]*model.ServiceInstance, error) {
+func (sd *MemServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) ([]*model.ServiceInstance, error) {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
 	if sd.GetProxyServiceInstancesError != nil {
@@ -414,31 +415,18 @@ func writeAllADS(w io.Writer) {
 	// Unfortunately we must use the jsonbp to encode part of the json - I'm sure there are
 	// better ways, but this is mainly for debugging.
 	fmt.Fprint(w, "[\n")
-	comma2 := false
+	comma := false
 	for _, c := range adsClients {
-		if comma2 {
+		if comma {
 			fmt.Fprint(w, ",\n")
 		} else {
-			comma2 = true
+			comma = true
 		}
-		fmt.Fprintf(w, "\n\n  {\"node\": \"%s\", \"addr\": \"%s\", \"connect\": \"%v\",\"listeners\":[\n", c.ConID, c.PeerAddr, c.Connect)
-		comma1 := false
-		for _, ls := range c.HTTPListeners {
-			if ls == nil {
-				log.Errorf("INVALID LISTENER NIL")
-				continue
-			}
-			if comma1 {
-				fmt.Fprint(w, ",\n")
-			} else {
-				comma1 = true
-			}
-			jsonm := &jsonpb.Marshaler{Indent: "  "}
-			dbgString, _ := jsonm.MarshalToString(ls)
-			if _, err := w.Write([]byte(dbgString)); err != nil {
-				return
-			}
-		}
+		fmt.Fprintf(w, "\n\n  {\"node\": \"%s\",\n \"addr\": \"%s\",\n \"connect\": \"%v\",\n \"listeners\":[\n", c.ConID, c.PeerAddr, c.Connect)
+		printListeners(w, c)
+		fmt.Fprint(w, "],\n")
+		fmt.Fprintf(w, ",\"clusters\":[\n")
+		printClusters(w, c)
 		fmt.Fprint(w, "]}\n")
 	}
 	fmt.Fprint(w, "]\n")
@@ -457,12 +445,12 @@ func edsz(w http.ResponseWriter, req *http.Request) {
 	}
 
 	edsClusterMutex.Lock()
-	comma1 := false
+	comma := false
 	for _, eds := range edsClusters {
-		if comma1 {
+		if comma {
 			fmt.Fprint(w, ",\n")
 		} else {
-			comma1 = true
+			comma = true
 		}
 		jsonm := &jsonpb.Marshaler{Indent: "  "}
 		dbgString, _ := jsonm.MarshalToString(eds.LoadAssignment)
@@ -480,34 +468,58 @@ func cdsz(w http.ResponseWriter, req *http.Request) {
 	adsClientsMutex.RLock()
 
 	fmt.Fprint(w, "[\n")
-	comma2 := false
+	comma := false
 	for _, c := range adsClients {
-		if comma2 {
+		if comma {
 			fmt.Fprint(w, ",\n")
 		} else {
-			comma2 = true
+			comma = true
 		}
 		fmt.Fprintf(w, "\n\n  {\"node\": \"%s\", \"addr\": \"%s\", \"connect\": \"%v\",\"Clusters\":[\n", c.ConID, c.PeerAddr, c.Connect)
-		comma1 := false
-		for _, cl := range c.HTTPClusters {
-			if cl == nil {
-				log.Errorf("INVALID Cluster NIL")
-				continue
-			}
-			if comma1 {
-				fmt.Fprint(w, ",\n")
-			} else {
-				comma1 = true
-			}
-			jsonm := &jsonpb.Marshaler{Indent: "  "}
-			dbgString, _ := jsonm.MarshalToString(cl)
-			if _, err := w.Write([]byte(dbgString)); err != nil {
-				return
-			}
-		}
+		printClusters(w, c)
 		fmt.Fprint(w, "]}\n")
 	}
 	fmt.Fprint(w, "]\n")
 
 	adsClientsMutex.RUnlock()
+}
+
+func printListeners(w io.Writer, c *XdsConnection) {
+	comma := false
+	for _, ls := range c.HTTPListeners {
+		if ls == nil {
+			log.Errorf("INVALID LISTENER NIL")
+			continue
+		}
+		if comma {
+			fmt.Fprint(w, ",\n")
+		} else {
+			comma = true
+		}
+		jsonm := &jsonpb.Marshaler{Indent: "  "}
+		dbgString, _ := jsonm.MarshalToString(ls)
+		if _, err := w.Write([]byte(dbgString)); err != nil {
+			return
+		}
+	}
+}
+
+func printClusters(w io.Writer, c *XdsConnection) {
+	comma := false
+	for _, cl := range c.HTTPClusters {
+		if cl == nil {
+			log.Errorf("INVALID Cluster NIL")
+			continue
+		}
+		if comma {
+			fmt.Fprint(w, ",\n")
+		} else {
+			comma = true
+		}
+		jsonm := &jsonpb.Marshaler{Indent: "  "}
+		dbgString, _ := jsonm.MarshalToString(cl)
+		if _, err := w.Write([]byte(dbgString)); err != nil {
+			return
+		}
+	}
 }

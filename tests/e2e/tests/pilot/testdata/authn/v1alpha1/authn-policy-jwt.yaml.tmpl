@@ -1,0 +1,15 @@
+apiVersion: "authentication.istio.io/v1alpha1"
+kind: "Policy"
+metadata:
+  name: "enable-jwt"
+spec:
+  targets:
+  - name: "c"
+  - name: "d"
+    ports:
+    - number: 80
+  origins:
+  - jwt:
+      issuer: "628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com"
+      jwksUri: "https://www.googleapis.com/service_accounts/v1/jwk/628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com"
+  principalBinding: USE_ORIGIN

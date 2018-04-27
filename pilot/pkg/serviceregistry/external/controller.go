@@ -28,7 +28,7 @@ type controller struct {
 	configStore      model.ConfigStoreCache
 }
 
-// NewController instantiates a new ExternalServices controller
+// NewController instantiates a new ServiceEntry controller
 func NewController(configStore model.ConfigStoreCache) model.Controller {
 	c := &controller{
 		serviceHandlers:  make([]serviceHandler, 0),
@@ -36,17 +36,17 @@ func NewController(configStore model.ConfigStoreCache) model.Controller {
 		configStore:      configStore,
 	}
 
-	configStore.RegisterEventHandler(model.ExternalService.Type, func(config model.Config, event model.Event) {
-		externalSvc := config.Spec.(*networking.ExternalService)
+	configStore.RegisterEventHandler(model.ServiceEntry.Type, func(config model.Config, event model.Event) {
+		serviceEntry := config.Spec.(*networking.ServiceEntry)
 
-		services := convertServices(externalSvc)
+		services := convertServices(serviceEntry)
 		for _, handler := range c.serviceHandlers {
 			for _, service := range services {
 				go handler(service, event)
 			}
 		}
 
-		instances := convertInstances(externalSvc)
+		instances := convertInstances(serviceEntry)
 		for _, handler := range c.instanceHandlers {
 			for _, instance := range instances {
 				go handler(instance, event)

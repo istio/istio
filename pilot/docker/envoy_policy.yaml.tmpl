@@ -67,6 +67,8 @@ static_resources:
               path: /dev/stdout
             name: envoy.file_access_log
           codec_type: HTTP2
+          http2_protocol_options:
+            max_concurrent_streams: 1073741824
           generate_request_id: true
           http_filters:
           - config:
@@ -74,6 +76,9 @@ static_resources:
               service_configs:
                 istio-policy.{{ .PodNamespace }}.svc.cluster.local:
                   disable_check_calls: true
+{{- if .DisableReportCalls }}
+                  disable_report_calls: true
+{{- end }}
                   mixer_attributes:
                     attributes:
                       destination.service:

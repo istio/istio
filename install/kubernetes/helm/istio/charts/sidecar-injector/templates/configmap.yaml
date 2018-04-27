@@ -11,11 +11,11 @@ metadata:
     istio: sidecar-injector
 data:
   config: |-
-    policy: enabled
+    policy: {{ .Values.policy }}
     template: |-
       initContainers:
       - name: istio-init
-        image: {{ .Values.global.hub }}/proxy_init:{{ .Values.global.tag }}
+        image: {{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}
         args:
         - "-p"
         - {{ "[[ .MeshConfig.ProxyListenPort ]]" }}
@@ -54,6 +54,19 @@ data:
             - NET_ADMIN
           privileged: true
         restartPolicy: Always
+      {{ if eq .Values.enableCoreDump true }}
+      - args:
+        - -c
+        - sysctl -w kernel.core_pattern=/etc/istio/proxy/core.%e.%p.%t && ulimit -c unlimited
+        command:
+          - /bin/sh
+        image: {{ .Values.global.hub }}/proxy_init:{{ .Values.global.tag }}
+        imagePullPolicy: IfNotPresent
+        name: enable-core-dump
+        resources: {}
+        securityContext:
+          privileged: true
+      {{ end }}
       containers:
       - name: istio-proxy
         image: {{ "[[ if (isset .ObjectMeta.Annotations \"sidecar.istio.io/proxyImage\") -]]" }}
@@ -141,3 +154,4 @@ data:
           {{ "[[ else -]]" }}
           secretName: {{ "[[ printf \"istio.%s\" .Spec.ServiceAccountName ]]"  }}
           {{ "[[ end -]]" }}
+

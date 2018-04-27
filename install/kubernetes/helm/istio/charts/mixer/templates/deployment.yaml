@@ -10,7 +10,7 @@
       {{- include "nodeaffinity" . | indent 6 }}
       containers:
       - name: mixer
-        image: "{{ $.Values.global.hub }}/mixer:{{ $.Values.global.tag }}"
+        image: "{{ $.Values.global.hub }}/{{ $.Values.image }}:{{ $.Values.global.tag }}"
         imagePullPolicy: {{ $.Values.imagePullPolicy }}
         ports:
         - containerPort: 9091
@@ -51,6 +51,11 @@
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.podIP
         resources:
 {{ toYaml $.Values.global.proxy.resources | indent 12 }}
         volumeMounts:
@@ -73,7 +78,7 @@
     {{- end }}
       containers:
       - name: mixer
-        image: "{{ $.Values.global.hub }}/mixer:{{ $.Values.global.tag }}"
+        image: "{{ $.Values.global.hub }}/{{ $.Values.image }}:{{ $.Values.global.tag }}"
         imagePullPolicy: {{ $.Values.imagePullPolicy }}
         ports:
         - containerPort: 9091

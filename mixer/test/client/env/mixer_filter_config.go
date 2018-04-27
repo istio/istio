@@ -163,15 +163,6 @@ func DisableTCPCheckReport(mfConf *mccpb.TcpClientConfig, disableCheck, disableR
 	mfConf.DisableReportCalls = disableReport
 }
 
-// AddJwtAuth add JWT auth.
-func AddJwtAuth(mfConf *MixerFilterConf, jwt *mccpb.JWT) {
-	mfConf.PerRouteConf.EndUserAuthnSpec = &mccpb.EndUserAuthenticationPolicySpec{}
-	mfConf.PerRouteConf.EndUserAuthnSpec.Jwts = append(mfConf.PerRouteConf.EndUserAuthnSpec.Jwts, jwt)
-
-	// Auth spec needs to add to service_configs map.
-	SetDefaultServiceConfigMap(mfConf)
-}
-
 // SetTCPReportInterval sets TCP filter report interval in seconds
 func SetTCPReportInterval(mfConf *mccpb.TcpClientConfig, reportInterval int64) {
 	if mfConf.ReportInterval == nil {

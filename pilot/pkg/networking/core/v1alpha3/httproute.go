@@ -86,6 +86,7 @@ func (configgen *ConfigGeneratorImpl) BuildSidecarOutboundHTTPRouteConfig(env mo
 				nameToServiceMap[svc.Hostname] = &model.Service{
 					Hostname:     svc.Hostname,
 					Address:      svc.Address,
+					Addresses:    svc.Addresses,
 					MeshExternal: svc.MeshExternal,
 					Ports:        []*model.Port{svcPort},
 				}
@@ -138,6 +139,7 @@ func (configgen *ConfigGeneratorImpl) BuildSidecarOutboundHTTPRouteConfig(env mo
 		virtualHosts = vHostPortMap[port]
 	}
 
+	util.SortVirtualHosts(virtualHosts)
 	out := &xdsapi.RouteConfiguration{
 		Name:             fmt.Sprintf("%d", port),
 		VirtualHosts:     virtualHosts,
@@ -164,11 +166,12 @@ func buildVirtualHostDomains(service *model.Service, port int, node model.Proxy)
 	domains = append(domains, generateAltVirtualHosts(service.Hostname, port, node.Domain)...)
 
 	if len(service.Address) > 0 {
+		svcAddr := service.GetServiceAddressForProxy(&node)
 		// add a vhost match for the IP (if its non CIDR)
-		cidr := util.ConvertAddressToCidr(service.Address)
+		cidr := util.ConvertAddressToCidr(svcAddr)
 		if cidr.PrefixLen.Value == 32 {
-			domains = append(domains, service.Address)
-			domains = append(domains, fmt.Sprintf("%s:%d", service.Address, port))
+			domains = append(domains, svcAddr)
+			domains = append(domains, fmt.Sprintf("%s:%d", svcAddr, port))
 		}
 	}
 	return domains

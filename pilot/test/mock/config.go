@@ -68,9 +68,9 @@ var (
 		},
 	}
 
-	ExampleExternalService = &networking.ExternalService{
-		Hosts:     []string{"*.google.com"},
-		Discovery: networking.ExternalService_NONE,
+	ExampleServiceEntry = &networking.ServiceEntry{
+		Hosts:      []string{"*.google.com"},
+		Resolution: networking.ServiceEntry_NONE,
 		Ports: []*networking.Port{
 			{Number: 80, Name: "http-name", Protocol: "http"},
 			{Number: 8080, Name: "http2-name", Protocol: "http2"},
@@ -450,7 +450,7 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 		{"RouteRule", model.RouteRule, ExampleRouteRule},
 		{"VirtualService", model.VirtualService, ExampleVirtualService},
 		{"DestinationRule", model.DestinationRule, ExampleDestinationRule},
-		{"ExternalService", model.ExternalService, ExampleExternalService},
+		{"ServiceEntry", model.ServiceEntry, ExampleServiceEntry},
 		{"Gatway", model.Gateway, ExampleGateway},
 		{"IngressRule", model.IngressRule, ExampleIngressRule},
 		{"EgressRule", model.EgressRule, ExampleEgressRule},
