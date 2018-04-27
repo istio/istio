@@ -394,7 +394,7 @@ servicegraph:
 tracing:
   enabled: false
   replicaCount: 1
-  provider: zipkin
+  provider: jaeger
   service:
     name: http
     type: ClusterIP
@@ -413,25 +413,11 @@ tracing:
       # - secretName: zipkin-tls
       #   hosts:
       #     - zipkin.local
-  zipkin:
-    replicaCount: 1
-    image:
-      repository: docker.io/openzipkin/zipkin
-      tag: 2.7
-      pullPolicy: IfNotPresent
-    resources: {}
-      # limits:
-      #  cpu: 100m
-      #  memory: 128Mi
-      # requests:
-      #  cpu: 100m
-      #  memory: 128Mi
   jaeger:
     replicaCount: 1
     image:
       repository: jaegertracing/all-in-one
       tag: latest
-      pullPolicy: IfNotPresent
     queryservice:
       name: jaeger-query-http
       externalPort: 16686
@@ -445,6 +431,18 @@ tracing:
       nameTChannel: jaeger-collector-tchannel
       externalTChannelPort: 14267
       internalTChannelPort: 14267
+    resources: {}
+      # limits:
+      #  cpu: 100m
+      #  memory: 128Mi
+      # requests:
+      #  cpu: 100m
+      #  memory: 128Mi
+  zipkin:
+    replicaCount: 1
+    image:
+      repository: docker.io/openzipkin/zipkin
+      tag: 2.7
     resources: {}
       # limits:
       #  cpu: 100m

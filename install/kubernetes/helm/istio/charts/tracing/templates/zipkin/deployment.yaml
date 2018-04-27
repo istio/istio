@@ -3,10 +3,10 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: zipkin
+  name: istio-tracing
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "zipkin.name" . }}
+    app: zipkin
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
@@ -22,7 +22,7 @@ spec:
       containers:
         - name: zipkin
           image: "{{ .Values.zipkin.image.repository }}:{{ .Values.zipkin.image.tag }}"
-          imagePullPolicy: {{ .Values.zipkin.image.pullPolicy }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
             - containerPort: {{ .Values.service.internalPort }}
           env:

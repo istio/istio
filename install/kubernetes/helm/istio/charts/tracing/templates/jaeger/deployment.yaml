@@ -20,10 +20,10 @@ items:
 - apiVersion: extensions/v1beta1
   kind: Deployment
   metadata:
-    name: jaeger-deployment
+    name: istio-tracing
     namespace: {{ .Release.Namespace }}
     labels:
-      app: {{ template "zipkin.name" . }}
+      app: jaeger
       chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
       release: {{ .Release.Name }}
       heritage: {{ .Release.Service }}
@@ -45,7 +45,7 @@ items:
             - name: COLLECTOR_ZIPKIN_HTTP_PORT
               value: "{{ .Values.service.internalPort }}"
             image: "{{ .Values.jaeger.image.repository }}:{{ .Values.jaeger.image.tag }}"
-            imagePullPolicy: {{ .Values.jaeger.image.pullPolicy }}
+            imagePullPolicy: {{ .Values.global.imagePullPolicy }}
             name: jaeger
             ports:
             - containerPort: 5775
