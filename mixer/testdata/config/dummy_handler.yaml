@@ -19,25 +19,3 @@ spec:
   # generated using command
   # DESC="list.descriptor"; protoc mixer/adapter/list/config/config.proto -o$DESC -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I. -I$GOPATH/src/istio.io/istio/vendor/github.com/gogo/protobuf; go run mixer/tools/toBase64/main.go $DESC
   config: "CqEFCiZtaXhlci9hZGFwdGVyL2xpc3QvY29uZmlnL2NvbmZpZy5wcm90bxITYWRhcHRlci5saXN0LmNvbmZpZxoeZ29vZ2xlL3Byb3RvYnVmL2R1cmF0aW9uLnByb3RvGhRnb2dvcHJvdG8vZ29nby5wcm90byKNBAoGUGFyYW1zEiEKDHByb3ZpZGVyX3VybBgBIAEoCVILcHJvdmlkZXJVcmwSTgoQcmVmcmVzaF9pbnRlcnZhbBgCIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbkIIyN4fAJjfHwFSD3JlZnJlc2hJbnRlcnZhbBI1CgN0dGwYAyABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb25CCMjeHwCY3x8BUgN0dGwSTgoQY2FjaGluZ19pbnRlcnZhbBgEIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbkIIyN4fAJjfHwFSD2NhY2hpbmdJbnRlcnZhbBIqChFjYWNoaW5nX3VzZV9jb3VudBgFIAEoBVIPY2FjaGluZ1VzZUNvdW50EhwKCW92ZXJyaWRlcxgGIAMoCVIJb3ZlcnJpZGVzEkgKCmVudHJ5X3R5cGUYByABKA4yKS5hZGFwdGVyLmxpc3QuY29uZmlnLlBhcmFtcy5MaXN0RW50cnlUeXBlUgllbnRyeVR5cGUSHAoJYmxhY2tsaXN0GAggASgIUglibGFja2xpc3QiVwoNTGlzdEVudHJ5VHlwZRILCgdTVFJJTkdTEAASHAoYQ0FTRV9JTlNFTlNJVElWRV9TVFJJTkdTEAESEAoMSVBfQUREUkVTU0VTEAISCQoFUkVHRVgQA0IUWgZjb25maWfI4R4AqOIeAPDhHgBiBnByb3RvMw=="
-
----
-
-apiVersion: "config.istio.io/v1alpha2"
-kind: handler
-metadata:
-  name: hdlr
-  namespace: istio-system
-spec:
-  # adapter name
-  adapter: "mytestadapter.adapter"
-  # adapter configuration
-  params:
-    fooint: 123
-    foostr: "testingstr"
-    foodouble: 1.2
-    foosubmsg:
-      bar: "barstr"
-    foomap:
-      1234: "barstrinmap"
-  connection:
-    address: "test.google.com"

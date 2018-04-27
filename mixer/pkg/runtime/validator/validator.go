@@ -19,7 +19,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/gogo/protobuf/proto"
 	multierror "github.com/hashicorp/go-multierror"
 
@@ -321,9 +320,6 @@ func (v *Validator) validateDelete(key store.Key) error {
 			// should never cause errors.
 			return err
 		}
-		if err := v.validateAdapterDelete(key); err != nil {
-			return err
-		}
 		v.infoRegistry = infoRegistry
 		go func() {
 			<-time.After(validatedDataExpiration)
@@ -353,24 +349,6 @@ func (v *Validator) validateUpdate(ev *store.Event) error {
 		if err := v.validateUpdateRule(ev.Namespace, rule); err != nil {
 			return err
 		}
-	} else if handler, ok := ev.Value.Spec.(*cpb.Handler); ok && ev.Kind == config.HandlerKind {
-		key, err := v.getKey(handler.Adapter, ev.Namespace)
-		if err != nil || key.Kind != config.AdapterKind {
-			return fmt.Errorf("adapter name '%s' does not reference to a valid 'adapter' kind resource", handler.Adapter)
-		}
-
-		//if adapter := v.infoRegistry.GetAdapter(handler.Adapter); adapter == nil {
-		// return fmt.Errorf("referenced adapter %s is not valid; only valid adapters are %v", handler.Adapter,
-		//	v.infoRegistry.GetAdapters())
-		//} else {
-		// things to validate
-		// 	Param is valid as per the adapter config descriptor
-		// 	TODO Connection info is valid
-		// 	TODO invoke the out of proc adapter call to validate config
-
-		params := handler.Params.(map[string]interface{})
-		fmt.Println(params)
-		//}
 	} else if manifest, ok := ev.Value.Spec.(*cpb.AttributeManifest); ok && ev.Kind == config.AttributeManifestKind {
 		manifests := map[store.Key]*cpb.AttributeManifest{}
 		v.c.forEach(func(k store.Key, spec proto.Message) {
@@ -388,19 +366,24 @@ func (v *Validator) validateUpdate(ev *store.Event) error {
 			<-time.After(validatedDataExpiration)
 			v.refreshTypeChecker()
 		}()
-	} else if handler, ok := ev.Value.Spec.(*cpb.Handler); ok && ev.Kind == config.HandlerKind {
-		// things to validate
-		// 	Param is valid as per the adapter config descriptor
-		// 	TODO Connection info is valid
-		// 	TODO invoke the out of proc adapter call to validate config
-		tmpParam := handler.Params.(map[string]interface{})
-		//params := make(map[interface{}]interface{}, len(tmpParam))
-		//for k,v := range tmpParam {
-		//	params[k] = v
-		//}
-		// convert params to (map[interface{}]interface{})
-		fmt.Println("++++", spew.Sdump(tmpParam))
 	} else if adptInfo, ok := ev.Value.Spec.(*v1beta1.Info); ok && ev.Kind == config.AdapterKind {
+		adapterInfos := map[store.Key]*v1beta1.Info{}
+		v.c.forEach(func(k store.Key, spec proto.Message) {
+			if k.Kind == config.AdapterKind {
+				adapterInfos[k] = spec.(*v1beta1.Info)
+			}
+		})
+		adapterInfos[ev.Key] = adptInfo
+		infoRegistry, err := v.newAdapterInfoRegistry(adapterInfos)
+		if err != nil {
+			return err
+		}
+		v.infoRegistry = infoRegistry
+		go func() {
+			<-time.After(validatedDataExpiration)
+			v.refreshAdapterInfos()
+		}()
+	} else if adptInfo, ok := ev.Value.Spec.(*v1beta1.Info); ok && ev.Kind == config.TemplateKind {
 		adapterInfos := map[store.Key]*v1beta1.Info{}
 		v.c.forEach(func(k store.Key, spec proto.Message) {
 			if k.Kind == config.AdapterKind {
@@ -435,26 +418,4 @@ func (v *Validator) Validate(ev *store.Event) error {
 		v.c.putCache(ev)
 	}
 	return err
-}
-
-// validate if we have any handler that references the to-be-deleted adapter
-// TODO also validate when template is deleted.
-func (v *Validator) validateAdapterDelete(ikey store.Key) error {
-	var errs error
-	v.c.forEach(func(rkey store.Key, spec proto.Message) {
-		if rkey.Kind != config.HandlerKind {
-			return
-		}
-		handler := spec.(*cpb.Handler)
-		key, err := v.getKey(handler.Adapter, rkey.Namespace)
-		if err != nil {
-			// invalid handlers are already in the cache; simply log it and continue
-			log.Errorf("invalid adapter value %s in %v", handler.Adapter, rkey)
-			return
-		}
-		if key == ikey {
-			errs = multierror.Append(errs, fmt.Errorf("cannot delete adapter %v as it is referenced by handler %v", ikey, rkey))
-		}
-	})
-	return errs
 }

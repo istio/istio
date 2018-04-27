@@ -47,6 +47,7 @@ func TestKindMap(t *testing.T) {
 		AttributeManifestKind: &cpb.AttributeManifest{},
 		AdapterKind:           &v1beta1.Info{},
 		HandlerKind:           &cpb.Handler{},
+		TemplateKind:          &v1beta1.Info{},
 	}
 
 	if !reflect.DeepEqual(km, want) {
