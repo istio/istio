@@ -61,16 +61,31 @@ spec:
         localIp: sourceIp
         remoteIp: destinationIp
       labelNames:
+      - originIp
       - sourceIp
-      - destinationIp
+      - sourceService
       - sourceUser
+      - sourceNamespace
+      - destinationIp
+      - destinationService
+      - destinationNamespace
+      - apiName
+      - apiVersion
+      - apiClaims
+      - apiKey
+      - requestOperation
+      - protocol
       - method
       - url
-      - protocol
       - responseCode
       - responseSize
       - requestSize
       - latency
+      - connectionMtls
+      - useragent
+      - responseTimestamp
+      - tcpBytesReceived
+      - tcpBytesSent
       sinkInfo:
         id: '<sink_id>'
         destination: '<sink_destination>'
@@ -98,7 +113,7 @@ metadata:
   name: stackdriverglobalmr
   namespace: istio-system
 spec:
-  severity: '"Default"'
+  severity: '"Info"'
   timestamp: request.time
   variables:
     sourceIp: source.ip | ip("0.0.0.0")

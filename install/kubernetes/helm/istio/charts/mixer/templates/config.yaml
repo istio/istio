@@ -134,20 +134,34 @@ metadata:
   name: accesslog
   namespace: {{ .Release.Namespace }}
 spec:
-  severity: '"Default"'
+  severity: '"Info"'
   timestamp: request.time
   variables:
+    originIp: origin.ip | ip("0.0.0.0")
     sourceIp: source.ip | ip("0.0.0.0")
+    sourceService: source.service | ""
+    sourceUser: source.user | source.uid | ""
+    sourceNamespace: source.namespace | ""
     destinationIp: destination.ip | ip("0.0.0.0")
-    sourceUser: source.user | ""
+    destinationService: destination.service | ""
+    destinationNamespace: destination.namespace | ""
+    apiName: api.service | ""
+    apiVersion: api.version | ""
+    apiClaims: request.headers["sec-istio-auth-userinfo"]| ""
+    apiKey: request.api_key | request.headers["x-api-key"] | ""
+    requestOperation: api.operation | ""
+    protocol: request.scheme | "http"
     method: request.method | ""
     url: request.path | ""
-    protocol: request.scheme | "http"
     responseCode: response.code | 0
     responseSize: response.size | 0
     requestSize: request.size | 0
     latency: response.duration | "0ms"
     connectionMtls: connection.mtls | false
+    useragent: request.useragent | ""
+    responseTimestamp: response.time
+    tcpBytesReceived: connection.received.bytes | 0
+    tcpBytesSent: connection.sent.bytes | 0
   monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
