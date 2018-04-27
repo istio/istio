@@ -4,7 +4,7 @@ metadata:
   name: zipkin
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "zipkin.name" . }}
+    app: zipkin
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}

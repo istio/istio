@@ -65,8 +65,6 @@ func makeTempClient(t *testing.T) (*crd.Client, string, func()) {
 		t.Fatalf(err.Error())
 	}
 
-	// the rest of the test can run in parallel
-	t.Parallel()
 	return cl, ns, func() { util.DeleteNamespace(client, ns) }
 }
 
