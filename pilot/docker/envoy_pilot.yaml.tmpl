@@ -135,6 +135,8 @@ static_resources:
               path: /dev/stdout
             name: envoy.file_access_log
           codec_type: HTTP2
+          http2_protocol_options:
+            max_concurrent_streams: 1073741824
           http_filters:
           - config:
               default_destination_service: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
