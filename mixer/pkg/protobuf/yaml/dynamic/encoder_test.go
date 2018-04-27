@@ -817,7 +817,7 @@ func Test_Int64(t *testing.T) {
 	} {
 		name := fmt.Sprintf("%v-%v", tst.input, tst.found)
 		t.Run(name, func(t *testing.T) {
-			op, ok := Int64(tst.input)
+			op, ok := protoyaml.ToInt64(tst.input)
 			if ok != tst.found {
 				t.Fatalf("error in ok got:%v, want:%v", ok, tst.found)
 			}

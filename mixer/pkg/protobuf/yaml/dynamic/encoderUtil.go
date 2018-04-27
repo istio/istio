@@ -17,7 +17,6 @@ package dynamic
 import (
 	"fmt"
 	"math"
-	"strconv"
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
@@ -117,26 +116,6 @@ func protoKey(fieldNumber int, wireType uint64) []byte {
 	return buf
 }
 
-// Int64 typecasts input to int64 in a permissive way.
-func Int64(v interface{}) (int64, bool) {
-	switch c := v.(type) {
-	case int:
-		return int64(c), true
-	case int64:
-		return c, true
-	case float64:
-		// json only supports 'number'
-		// therefore even integers are encoded as float
-		ii := int64(c)
-		return ii, float64(ii) == c
-	case string:
-		ii, err := strconv.ParseInt(c, 0, 64)
-		return ii, err == nil
-	default:
-		return 0, false
-	}
-}
-
 func badTypeError(v interface{}, wantType string) error {
 	return fmt.Errorf("badTypeError: value: '%v' is of type:%T, want:%s", v, v, wantType)
 }
@@ -163,7 +142,7 @@ func EncodeFloat(v interface{}, ba []byte) ([]byte, error) {
 
 // EncodeInt encodes (U)INT(32/64)
 func EncodeInt(v interface{}, ba []byte) ([]byte, error) {
-	c, ok := Int64(v)
+	c, ok := yaml.ToInt64(v)
 	if !ok {
 		return nil, badTypeError(v, "int")
 	}
@@ -177,7 +156,7 @@ func encodeInt(v int64, ba []byte) ([]byte, error) {
 
 // EncodeFixed64 encodes FIXED64, SFIXED64
 func EncodeFixed64(v interface{}, ba []byte) ([]byte, error) {
-	c, ok := Int64(v)
+	c, ok := yaml.ToInt64(v)
 	if !ok {
 		return nil, badTypeError(v, "int")
 	}
@@ -187,7 +166,7 @@ func EncodeFixed64(v interface{}, ba []byte) ([]byte, error) {
 
 // EncodeFixed32 encodes FIXED32, SFIXED32
 func EncodeFixed32(v interface{}, ba []byte) ([]byte, error) {
-	c, ok := Int64(v)
+	c, ok := yaml.ToInt64(v)
 	if !ok {
 		return nil, badTypeError(v, "int")
 	}
@@ -233,7 +212,7 @@ func encodeString(s string, ba []byte) ([]byte, error) {
 
 // EncodeSInt32 encodes sint32 as zigzag
 func EncodeSInt32(v interface{}, ba []byte) ([]byte, error) {
-	c, ok := Int64(v)
+	c, ok := yaml.ToInt64(v)
 	if !ok {
 		return nil, badTypeError(v, "int")
 	}
@@ -242,7 +221,7 @@ func EncodeSInt32(v interface{}, ba []byte) ([]byte, error) {
 
 // EncodeSInt64 encodes sint64 as zigzag
 func EncodeSInt64(v interface{}, ba []byte) ([]byte, error) {
-	c, ok := Int64(v)
+	c, ok := yaml.ToInt64(v)
 	if !ok {
 		return nil, badTypeError(v, "int")
 	}
@@ -255,7 +234,7 @@ func EncodeEnum(v interface{}, ba []byte, enumValues []*descriptor.EnumValueDesc
 		return encodeEnumString(vs, ba, enumValues)
 	}
 
-	if vi, ok := Int64(v); ok {
+	if vi, ok := yaml.ToInt64(v); ok {
 		return encodeEnumInt(vi, ba, enumValues)
 	}
 

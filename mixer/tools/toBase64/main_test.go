@@ -16,9 +16,8 @@
 package main
 
 import (
-	"io/ioutil"
-	//"os"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
