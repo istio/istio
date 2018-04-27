@@ -17,6 +17,7 @@ This file helps note down issues we have seen and how to debug them
    ```bash
    docker images -q |xargs docker rmi
    ```
+   
 1. setup_vm.sh chooses port 5000 to push docker images to VM, and 8080 to forward kubectl requests to VM. If any of these ports is already used by other applications, you can change the port.
   - Open Vagrantfile, find these two lines and change host port to the one you prefer. E.g. change `host: 5000` to `host: 5001`
   
