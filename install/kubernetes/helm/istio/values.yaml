@@ -188,6 +188,7 @@ egressgateway:
 #
 sidecar-injector:
   enabled: false
+  enableCoreDump: false
   serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
   image: sidecar_injector
@@ -215,6 +216,7 @@ sidecar-injector:
   #     Redirect only selected ports:            --includeInboundPorts="80,8080"
   includeInboundPorts: "*"
   excludeInboundPorts: ""
+  policy: enabled
 
 #
 # galley configuration
