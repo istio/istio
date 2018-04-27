@@ -28,8 +28,8 @@ var (
 )
 
 func init() {
-	proxyUrl, _ := url.Parse("http://localhost:15002")
-	client = &http.Client{Transport: &http.Transport{Proxy: http.ProxyURL(proxyUrl)}}
+	proxyURL, _ := url.Parse("http://localhost:15002")
+	client = &http.Client{Transport: &http.Transport{Proxy: http.ProxyURL(proxyURL)}}
 }
 
 // Minimal test to check the standalone server runs with some valid config.
@@ -69,7 +69,7 @@ func get(t *testing.T, url string) (string, error) {
 	ress := string(resdmp)
 	if res.StatusCode != 200 {
 		t.Error("Invalid response code ", res.StatusCode)
-		return "", fmt.Errorf("Invalid response code %d: %s", res.StatusCode, ress)
+		return "", fmt.Errorf("invalid response code %d: %s", res.StatusCode, ress)
 	}
 	return ress, nil
 }

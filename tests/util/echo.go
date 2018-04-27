@@ -38,14 +38,6 @@ import (
 	echopb "istio.io/istio/pilot/test/grpcecho"
 )
 
-// Pilot test handlers. Typically pilot runs http and grpc handlers on a list of ports,
-// using multiple pods (a,b,c,d,e,...) each with a different version and port order.
-//
-
-// The tests also allow using TLS on grpc port.
-
-// Extracted from pilot test and converted to in-process library.
-
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		// allow all connections by default
@@ -99,7 +91,7 @@ func (h *pilotTestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(r.FormValue("url")) > 0 {
-		EchoClientHandler(w, r)
+		echoClientHandler(w, r)
 		return
 	}
 
@@ -163,6 +155,7 @@ func (h *pilotTestHandler) WebSocketEcho(w http.ResponseWriter, r *http.Request)
 	}
 }
 
+// RunHTTP runs the http echo service.
 func RunHTTP(port int, version string) {
 	fmt.Printf("Listening HTTP1.1 on %v\n", port)
 	h := &pilotTestHandler{port: port, version: version}
@@ -171,6 +164,7 @@ func RunHTTP(port int, version string) {
 	}
 }
 
+// RunGRPC runs the GRPC service, with optional TLS
 func RunGRPC(port int, version, crt, key string) {
 	fmt.Printf("Listening GRPC on %v\n", port)
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
@@ -286,6 +280,7 @@ const (
 	hostKey = "Host"
 )
 
+// EchoClient controls the client
 type EchoClient struct {
 	count     int
 	timeout   time.Duration
@@ -474,17 +469,17 @@ func (ec *EchoClient) setupDefaultTest() (job, error) {
 		return ec.makeWebSocketRequest, nil
 	}
 
-	return nil, fmt.Errorf("Invalid URL %s", ec.url)
+	return nil, fmt.Errorf("invalid URL %s", ec.url)
 }
 
-func EchoClientHandler(w http.ResponseWriter, r *http.Request) {
+func echoClientHandler(w http.ResponseWriter, r *http.Request) {
 
 	//flag.IntVar(&count, "count", 1, "Number of times to make the request")
 	//flag.IntVar(&qps, "qps", 0, "Queries per second")
 	//flag.DurationVar(&timeout, "timeout", 15*time.Second, "Request timeout")
 	//flag.StringVar(&url, "url", "", "Specify URL")
 	//flag.StringVar(&headerKey, "key", "", "Header key (use Host for authority)")
-	//flag.StringVar(&headerVal, "val", "", "Header value")
+	//flag.StrinproxyUrlgVar(&headerVal, "val", "", "Header value")
 	//flag.StringVar(&caFile, "ca", "/cert.crt", "CA root cert file")
 	//flag.StringVar(&msg, "msg", "HelloWorld", "message to send (for websockets)")
 
@@ -517,8 +512,8 @@ func EchoClientHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer func() {
 		if ec.grpcConn != nil {
-			if err := ec.grpcConn.Close(); err != nil {
-				log.Println(err)
+			if err1 := ec.grpcConn.Close(); err1 != nil {
+				log.Println(err1)
 			}
 		}
 	}()
