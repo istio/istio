@@ -19,7 +19,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -200,12 +199,16 @@ func testVersionMigrationRule(t *testing.T, configVersion string, rule migration
 				log.Errora(err)
 				continue
 			}
-			if err = util.CompareToFile(body, modelV1); err == nil {
+
+			var c1CompareError, cVersionToMigrateError error
+			if c1CompareError = util.CompareToFile(body, modelV1); c1CompareError == nil {
 				c1++
-			} else if err = util.CompareToFile(body, rule.modelToMigrate); err == nil {
+			} else if cVersionToMigrateError = util.CompareToFile(body, rule.modelToMigrate); cVersionToMigrateError == nil {
 				cVersionToMigrate++
 			} else {
-				log.Errorf("received unexpected version: %s", strings.TrimSpace(string(body)))
+				log.Error("received unexpected version: %s")
+				log.Infof("comparing to the original version: %v", c1CompareError)
+				log.Infof("comparing to the version to migrate to: %v", cVersionToMigrateError)
 			}
 			closeResponseBody(resp)
 		}
