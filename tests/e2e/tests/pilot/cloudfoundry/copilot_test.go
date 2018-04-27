@@ -154,7 +154,9 @@ func TestWildcardHostEdgeRouterWithMockCopilot(t *testing.T) {
 	}
 
 	t.Log("run envoy...")
-	testEnv.SetUp()
+	if err := testEnv.SetUp(); err != nil {
+		t.Fatalf("Failed to setup test: %v", err)
+	}
 	defer testEnv.TearDown()
 
 	t.Log("curling the app with expected host header")

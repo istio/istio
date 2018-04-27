@@ -154,8 +154,11 @@ func (s *TestSetup) SetUp() error {
 	s.envoy, err = s.NewEnvoy(s.stress, s.faultInject, s.mfConf, s.ports, s.epoch, s.mfConfVersion)
 	if err != nil {
 		log.Printf("unable to create Envoy %v", err)
-	} else {
-		_ = s.envoy.Start()
+	}
+
+	err = s.envoy.Start()
+	if err != nil {
+		return err
 	}
 
 	if !s.noMixer {
