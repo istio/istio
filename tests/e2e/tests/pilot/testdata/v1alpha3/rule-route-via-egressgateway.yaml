@@ -21,7 +21,7 @@ spec:
             number: 80
         weight: 100
     - match:
-      - gateways: # from egress gateway, route to actual external service
+      - gateways: # from egress gateway, route to actual service entry
                   # for testing purposes, we route to service t
         - istio-egressgateway
         port: 80

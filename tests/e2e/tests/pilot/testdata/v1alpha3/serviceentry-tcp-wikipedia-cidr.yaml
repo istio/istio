@@ -6,7 +6,7 @@
 # 208.80.154.224/27
 
 apiVersion: networking.istio.io/v1alpha3
-kind: ExternalService
+kind: ServiceEntry
 metadata:
   name: wikipedia-range
 spec:
