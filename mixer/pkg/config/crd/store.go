@@ -17,7 +17,6 @@
 package crd
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -115,85 +114,66 @@ func (s *Store) Stop() {
 	close(s.donec)
 }
 
-// checkAndCreateCaches checks the presence of custom resource definitions through the discovery API,
-// and then create caches through lwBUilder which is in kinds. It retries as long as retryDone channel
-// is open.
-// Returns the created shared informers, and the list of kinds which are not created yet.
-func (s *Store) checkAndCreateCaches(
+// continuallyCheckAndCreateCaches checks the presence of custom resource
+// definitions through the discovery API, and then create caches through
+// lwBuilder which is in kinds. It retries until all kinds are cached or the
+// retryDone channel is closed.
+func (s *Store) continuallyCheckAndCacheResources(
+	kinds []string,
 	retryDone chan struct{},
 	d discovery.DiscoveryInterface,
-	lwBuilder listerWatcherBuilderInterface,
-	kinds []string) []string {
-	kindsSet := map[string]bool{}
-	for _, k := range kinds {
-		kindsSet[k] = true
+	lwBuilder listerWatcherBuilderInterface) {
+
+	uncheckedKindsSet := make(map[string]bool, len(kinds))
+	for _, kind := range kinds {
+		uncheckedKindsSet[kind] = true
 	}
+
 	informers := map[string]cache.SharedInformer{}
 	retryCount := 0
 loop:
-	for added := 0; added < len(kinds); {
+	for len(uncheckedKindsSet) > 0 {
 		select {
 		case <-retryDone:
 			break loop
 		default:
 		}
-		if retryCount > 0 {
-			if retryCount%logPerRetries == 1 {
-				remainingKeys := make([]string, 0, len(kinds))
-				for k := range kindsSet {
-					remainingKeys = append(remainingKeys, k)
-				}
-				log.Debugf("Retrying to fetch config: %+v", remainingKeys)
+
+		if retryCount%logPerRetries == 1 {
+			remainingKinds := make([]string, 0, len(uncheckedKindsSet))
+			for kind := range uncheckedKindsSet {
+				remainingKinds = append(remainingKinds, kind)
 			}
-			time.Sleep(s.retryInterval)
+			log.Debugf("Retrying to fetch config: %+v", remainingKinds)
 		}
+		time.Sleep(s.retryInterval)
 		retryCount++
+
 		resources, err := d.ServerResourcesForGroupVersion(apiGroupVersion)
 		if err != nil {
-			log.Debugf("Failed to obtain resources for CRD: %v", err)
-			continue
+			log.Errorf("Failed to obtain resources for CRD: %v", err)
 		}
-		s.cacheMutex.Lock()
-		for _, res := range resources.APIResources {
 
-			if _, ok := s.caches[res.Kind]; ok {
-				continue
-			}
-			if _, ok := kindsSet[res.Kind]; ok {
-				cl := lwBuilder.build(res)
-				informer := cache.NewSharedInformer(cl, &unstructured.Unstructured{}, 0)
-				s.caches[res.Kind] = informer.GetStore()
-				informers[res.Kind] = informer
-				delete(kindsSet, res.Kind)
-				informer.AddEventHandler(s)
-				go informer.Run(s.donec)
-				added++
+		for _, resource := range resources.APIResources {
+			kind := resource.Kind
+			if _, ok := uncheckedKindsSet[kind]; ok {
+				s.cacheResource(resource, lwBuilder, informers)
+				delete(uncheckedKindsSet, kind)
 			}
 		}
-		s.cacheMutex.Unlock()
 	}
 	<-waitForSynced(retryDone, informers)
-	remaining := make([]string, 0, len(kindsSet))
-	for k := range kindsSet {
-		remaining = append(remaining, k)
-	}
-	var err error
-	if len(remaining) > 0 {
-		err = fmt.Errorf("not yet ready: %+v", remaining)
-	}
-	s.SetAvailable(err)
-	return remaining
 }
 
 // Init implements store.StoreBackend interface.
-func (s *Store) Init(kinds []string) error {
+func (s *Store) Init(kinds []string) (err error) {
 	d, err := s.discoveryBuilder(s.conf)
 	if err != nil {
-		return err
+		return
 	}
 	lwBuilder, err := s.listerWatcherBuilder(s.conf)
 	if err != nil {
-		return err
+		return
 	}
 	s.caches = make(map[string]cache.Store, len(kinds))
 	timeout := time.After(s.retryTimeout)
@@ -203,12 +183,65 @@ func (s *Store) Init(kinds []string) error {
 		<-timeout
 		close(timeoutdone)
 	}()
-	remainingKinds := s.checkAndCreateCaches(timeoutdone, d, lwBuilder, kinds)
-	if len(remainingKinds) > 0 {
-		// Wait asynchronously for other kinds.
-		go s.checkAndCreateCaches(s.donec, d, lwBuilder, remainingKinds)
+
+	uncheckedKindsSet := make(map[string]bool, len(kinds))
+	for _, kind := range kinds {
+		uncheckedKindsSet[kind] = true
 	}
+
+	resources, err := d.ServerResourcesForGroupVersion(apiGroupVersion)
+	if err != nil {
+		log.Errorf("Failed to obtain resources for CRD: %v", err)
+	}
+
+	informers := map[string]cache.SharedInformer{}
+	for _, resource := range resources.APIResources {
+		kind := resource.Kind
+		if _, ok := uncheckedKindsSet[kind]; ok {
+			s.cacheResource(resource, lwBuilder, informers)
+			delete(uncheckedKindsSet, kind)
+		}
+	}
+	<-waitForSynced(timeoutdone, informers)
+	s.declareReadiness()
+
+	// unregisteredKinds are kinds which are not yet resources. These are not
+	// required to declare readiness, but will be checked for periodically and
+	// indefinitely.
+	unregisteredKinds := make([]string, 0, len(uncheckedKindsSet))
+	for kind := range uncheckedKindsSet {
+		unregisteredKinds = append(unregisteredKinds, kind)
+	}
+	go s.continuallyCheckAndCacheResources(
+		unregisteredKinds, s.donec, d, lwBuilder)
+
 	return nil
+}
+
+// cacheResource creates the cache for resource through lwBuilder and adds it to
+// informers, provided resource is not already in the caches.
+func (s *Store) cacheResource(
+	resource metav1.APIResource,
+	lwBuilder listerWatcherBuilderInterface,
+	informers map[string]cache.SharedInformer) {
+
+	kind := resource.Kind
+	if _, ok := s.caches[kind]; !ok {
+		cacheListerWatcher := lwBuilder.build(resource)
+		informer := cache.NewSharedInformer(
+			cacheListerWatcher, &unstructured.Unstructured{}, 0)
+		s.cacheMutex.Lock()
+		s.caches[kind] = informer.GetStore()
+		s.cacheMutex.Unlock()
+		informers[kind] = informer
+		informer.AddEventHandler(s)
+		go informer.Run(s.donec)
+	}
+}
+
+func (s *Store) declareReadiness() {
+	log.Debugf("Mixer store declaring readiness.")
+	s.SetAvailable(nil)
 }
 
 // Watch implements store.Backend interface.
