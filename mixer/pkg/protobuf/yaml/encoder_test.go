@@ -224,11 +224,6 @@ map_str_msg:
       i64: 99
       dbl: 99.99
 
-### map[int64]double ####
-#map_int64_double:
-#  123: 123.111
-#  456: 123.222
-
 ## other maps ##
 map_str_float:
     key1: 123
@@ -979,10 +974,6 @@ map_str_enum:
     THREE
   key2:
     TWO
-### map[fixed32]enum ####
-#map_fixed32_enum:
-#  123: THREE
-#  456: TWO
 `
 	td := testdata{
 		n:        "success",

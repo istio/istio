@@ -29,10 +29,6 @@ const AdapterKind = "adapter"
 // TemplateKind defines the config kind Name of mixer templates.
 const TemplateKind = "template"
 
-// HandlerKind defines the config kind Name of adapter handlers (name, adapter name, adapter-specific params,
-// connection information).
-const HandlerKind = "handler"
-
 // AttributeManifestKind define the config kind Name of attribute manifests.
 const AttributeManifestKind = "attributemanifest"
 
