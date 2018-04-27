@@ -71,13 +71,16 @@ func (s *TestSetup) NewEnvoy(stress, faultInject bool, mfConf *MixerFilterConf, 
 // Start starts the envoy process
 func (s *Envoy) Start() error {
 	err := s.cmd.Start()
-	if err == nil {
-		url := fmt.Sprintf("http://localhost:%v/server_info", s.ports.AdminPort)
-		WaitForHTTPServer(url)
-		WaitForPort(s.ports.ClientProxyPort)
-		WaitForPort(s.ports.ServerProxyPort)
+	if err != nil {
+		return err
 	}
-	return err
+
+	url := fmt.Sprintf("http://localhost:%v/server_info", s.ports.AdminPort)
+	WaitForHTTPServer(url)
+	WaitForPort(s.ports.ClientProxyPort)
+	WaitForPort(s.ports.ServerProxyPort)
+
+	return nil
 }
 
 // Stop stops the envoy process
