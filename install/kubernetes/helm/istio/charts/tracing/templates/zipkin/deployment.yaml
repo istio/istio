@@ -40,7 +40,7 @@ spec:
               path: /
               port: {{ .Values.service.internalPort }}
           resources:
-{{ toYaml .Values.resources | indent 12 }}
+{{ toYaml .Values.zipkin.resources | indent 12 }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
 {{ end }}

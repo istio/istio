@@ -37,29 +37,34 @@ items:
           app: jaeger
           app: zipkin
           jaeger-infra: jaeger-pod
+        annotations:
+          sidecar.istio.io/inject: "false"
       spec:
-          containers:
-          -   env:
-              - name: COLLECTOR_ZIPKIN_HTTP_PORT
-                value: "{{ .Values.service.internalPort }}"
-              image: "{{ .Values.jaeger.image.repository }}:{{ .Values.jaeger.image.tag }}"
-              imagePullPolicy: {{ .Values.jaeger.image.pullPolicy }}
-              name: jaeger
-              ports:
-                - containerPort: 5775
-                  protocol: UDP
-                - containerPort: 6831
-                  protocol: UDP
-                - containerPort: 6832
-                  protocol: UDP
-                - containerPort: {{ .Values.jaeger.queryservice.internalPort }}
-                  protocol: TCP
-                - containerPort: {{ .Values.service.internalPort }}
-                  protocol: TCP
-              readinessProbe:
-                httpGet:
-                  path: "/"
-                  port: {{ .Values.jaeger.queryservice.internalPort }}
-                initialDelaySeconds: 5
-
+        containers:
+          - env:
+            - name: COLLECTOR_ZIPKIN_HTTP_PORT
+              value: "{{ .Values.service.internalPort }}"
+            image: "{{ .Values.jaeger.image.repository }}:{{ .Values.jaeger.image.tag }}"
+            imagePullPolicy: {{ .Values.jaeger.image.pullPolicy }}
+            name: jaeger
+            ports:
+            - containerPort: 5775
+              protocol: UDP
+            - containerPort: 6831
+              protocol: UDP
+            - containerPort: 6832
+              protocol: UDP
+            - containerPort: {{ .Values.jaeger.queryservice.internalPort }}
+              protocol: TCP
+            - containerPort: {{ .Values.service.internalPort }}
+              protocol: TCP
+            readinessProbe:
+              httpGet:
+                path: "/"
+                port: {{ .Values.jaeger.queryservice.internalPort }}
+              initialDelaySeconds: 5
+            resources:
+{{ toYaml .Values.jaeger.resources | indent 14 }}
+        affinity:
+        {{- include "nodeaffinity" . | indent 8 }}
 {{ end }}
