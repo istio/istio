@@ -17,9 +17,12 @@
 package validator
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"io/ioutil"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -29,9 +32,6 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
 
-	"bytes"
-	"encoding/base64"
-	"io/ioutil"
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	cpb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
