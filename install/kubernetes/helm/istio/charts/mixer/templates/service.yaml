@@ -22,7 +22,7 @@ spec:
     port: 42422
 {{- end }}
   selector:
-    istio: mixer
+    istio: {{ $mname }}
     istio-mixer-type: {{ $mname }}
 ---
 {{- end }}

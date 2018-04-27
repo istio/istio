@@ -144,7 +144,7 @@ spec:
   template:
     metadata:
       labels:
-        istio: mixer
+        istio: {{ $mname }}
         istio-mixer-type: {{ $mname }}
       annotations:
         sidecar.istio.io/inject: "false"
