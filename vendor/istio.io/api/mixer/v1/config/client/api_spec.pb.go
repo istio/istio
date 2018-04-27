@@ -6,7 +6,6 @@
 
 	It is generated from these files:
 		mixer/v1/config/client/api_spec.proto
-		mixer/v1/config/client/auth.proto
 		mixer/v1/config/client/client_config.proto
 		mixer/v1/config/client/quota.proto
 		mixer/v1/config/client/service.proto
@@ -17,10 +16,6 @@
 		APIKey
 		HTTPAPISpecReference
 		HTTPAPISpecBinding
-		JWT
-		EndUserAuthenticationPolicySpec
-		EndUserAuthenticationPolicySpecReference
-		EndUserAuthenticationPolicySpecBinding
 		NetworkFailPolicy
 		ServiceConfig
 		TransportConfig
