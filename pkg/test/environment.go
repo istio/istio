@@ -15,9 +15,16 @@
 package test
 
 import (
+	"net/http"
 	"testing"
 
 	"k8s.io/client-go/rest"
+
+	"istio.io/istio/pilot/pkg/model"
+)
+
+const (
+	httpOK = "200"
 )
 
 // Environment is a common interface for all testing environments
@@ -40,12 +47,38 @@ type Deployed interface {
 // DeployedApp represents a deployed fake App within the mesh.
 type DeployedApp interface {
 	Deployed
-	Call(target DeployedApp) AppRequestInfo
-	Expect(info AppRequestInfo) error
+	Endpoints() []DeployedAppEndpoint
+	EndpointsForProtocol(protocol model.Protocol) []DeployedAppEndpoint
+	Call(url string, count int, headers http.Header) (AppCallResult, error)
 }
 
-// AppRequestInfo contains metadata about a request that was performed through a fake App.
-type AppRequestInfo struct {
+// DeployedAppEndpoint represents a single endpoint in a DeployedApp.
+type DeployedAppEndpoint interface {
+	Name() string
+	Owner() DeployedApp
+	Protocol() model.Protocol
+	MakeURL(useFullDomain bool) string
+}
+
+// AppCallResult provides details about the result of a call
+type AppCallResult struct {
+	// Body is the body of the response
+	Body string
+	// CallIDs is a list of unique identifiers for individual requests made.
+	CallIDs []string
+	// Version is the version of the resource in the response
+	Version []string
+	// Port is the port of the resource in the response
+	Port []string
+	// Code is the response code
+	ResponseCode []string
+	// Host is the host returned by the response
+	Host []string
+}
+
+// IsSuccess returns true if the request was successful
+func (r *AppCallResult) IsSuccess() bool {
+	return len(r.ResponseCode) > 0 && r.ResponseCode[0] == httpOK
 }
 
 // DeployedMixer represents a deployed Mixer instance.
