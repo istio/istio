@@ -37,13 +37,6 @@ type scopeInfo struct {
 	LogCallers      bool   `json:"log_callers"`
 }
 
-// BUGBUG: need to get from log package
-var allScopes = []*log.Scope{
-	log.RegisterScope("adapters", "", 0),
-	log.RegisterScope("attributes", "", 0),
-	log.RegisterScope("default", "", 0),
-}
-
 var levelToString = map[log.Level]string{
 	log.DebugLevel: "debug",
 	log.InfoLevel:  "info",
@@ -87,7 +80,8 @@ func (scopeTopic) Activate(context fw.TopicContext) {
 	tmpl := template.Must(context.Layout().Parse(string(MustAsset("assets/templates/scopes.html"))))
 
 	_ = context.HTMLRouter().NewRoute().HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		s := []scopeInfo{}
+		allScopes := log.Scopes()
+		s := make([]scopeInfo, 0, len(allScopes))
 		for _, scope := range allScopes {
 			s = append(s, *getScopeInfo(scope))
 		}
@@ -100,7 +94,9 @@ func (scopeTopic) Activate(context fw.TopicContext) {
 }
 
 func getAllScopes(w http.ResponseWriter, req *http.Request) {
-	scopeInfos := []scopeInfo{}
+	allScopes := log.Scopes()
+
+	scopeInfos := make([]scopeInfo, 0, len(allScopes))
 	for _, s := range allScopes {
 		scopeInfos = append(scopeInfos, *getScopeInfo(s))
 	}
@@ -112,11 +108,9 @@ func getScope(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	name := vars["scope"]
 
-	for _, s := range allScopes {
-		if s.Name() == name {
-			fw.RenderJSON(w, http.StatusOK, getScopeInfo(s))
-			return
-		}
+	if s := log.FindScope(name); s != nil {
+		fw.RenderJSON(w, http.StatusOK, getScopeInfo(s))
+		return
 	}
 
 	fw.RenderError(w, http.StatusBadRequest, fmt.Errorf("unknown scope name: %s", name))
@@ -132,22 +126,20 @@ func putScope(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	for _, s := range allScopes {
-		if s.Name() == name {
-			level, ok := stringToLevel[info.OutputLevel]
-			if ok {
-				s.SetOutputLevel(level)
-			}
-
-			level, ok = stringToLevel[info.StackTraceLevel]
-			if ok {
-				s.SetStackTraceLevel(level)
-			}
-
-			s.SetLogCallers(info.LogCallers)
-			w.WriteHeader(http.StatusAccepted)
-			return
+	if s := log.FindScope(name); s != nil {
+		level, ok := stringToLevel[info.OutputLevel]
+		if ok {
+			s.SetOutputLevel(level)
 		}
+
+		level, ok = stringToLevel[info.StackTraceLevel]
+		if ok {
+			s.SetStackTraceLevel(level)
+		}
+
+		s.SetLogCallers(info.LogCallers)
+		w.WriteHeader(http.StatusAccepted)
+		return
 	}
 
 	fw.RenderError(w, http.StatusBadRequest, fmt.Errorf("unknown scope name: %s", name))
