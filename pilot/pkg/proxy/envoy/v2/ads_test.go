@@ -18,6 +18,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"io/ioutil"
+	"os"
 	"testing"
 	"time"
 
@@ -31,7 +32,6 @@ import (
 	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/tests/util"
-	"os"
 )
 
 func connectADS(t *testing.T, url string) ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient {
@@ -232,7 +232,7 @@ func adsReceive(ads ads.AggregatedDiscoveryService_StreamAggregatedResourcesClie
 // Make a direct EDS grpc request to pilot, verify the result is as expected.
 func TestAdsEds(t *testing.T) {
 	if os.Getenv("RACE_TEST") == "true" {
-		t.Skip("Test fails in race testing")
+		t.Skip("Test fails in race testing. Fixing in #5258")
 	}
 	server := initLocalPilotTestEnv(t)
 
