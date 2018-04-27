@@ -402,7 +402,10 @@ func edsPushAll() {
 	edsClusterMutex.Unlock()
 
 	for clusterName, edsCluster := range tmpMap {
-		updateCluster(clusterName, edsCluster)
+		if err := updateCluster(clusterName, edsCluster); err != nil {
+			log.Errorf("updateCluster failed with clusterName %s", clusterName)
+			continue
+		}
 		edsCluster.mutex.Lock()
 		for _, edsCon := range edsCluster.EdsClients {
 			edsCon.pushChannel <- &XdsEvent{
