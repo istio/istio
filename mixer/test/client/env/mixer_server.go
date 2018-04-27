@@ -176,7 +176,7 @@ func (ts *MixerServer) GetReport() *attribute.MutableBag {
 	return <-ts.report.ch
 }
 
-// GetReport will return a received check
+// GetCheck will return a received check
 func (ts *MixerServer) GetCheck() *attribute.MutableBag {
 	return <-ts.check.ch
 }

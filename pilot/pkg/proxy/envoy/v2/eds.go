@@ -29,13 +29,13 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/gogo/protobuf/types"
+	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 // EDS returns the list of endpoints (IP:port and in future labels) associated with a real
@@ -179,7 +179,7 @@ func updateCluster(clusterName string, edsCluster *EdsCluster) {
 		return
 	}
 	locEps := localityLbEndpointsFromInstances(instances)
-	if len(instances) == 0  {
+	if len(instances) == 0 {
 		log.Warnf("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, portName, labels)
 	}
 	edsInstances.With(prometheus.Labels{"cluster": clusterName}).Set(float64(len(instances)))
@@ -419,7 +419,6 @@ func (s *DiscoveryServer) addEdsCon(clusterName string, node string, connection 
 	// TODO: left the code here so we can skip sending the already-sent clusters.
 	// See comments in ads - envoy keeps adding one cluster to the list (this seems new
 	// previous version sent all the clusters from CDS in bulk).
-
 
 	//c.mutex.Lock()
 	//existing := c.EdsClients[node]

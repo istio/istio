@@ -19,6 +19,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
+
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"github.com/gogo/protobuf/types"
@@ -28,7 +30,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
-	"time"
 )
 
 // Headers with special meaning in Envoy
@@ -177,7 +178,8 @@ func translateVirtualHost(
 
 // ConvertDestinationToCluster generate a cluster name for the route, or error if no cluster
 // can be found. Called by translateRule to determine if
-func ConvertDestinationToCluster(destination *networking.Destination, vsvcName string,  in *networking.HTTPRoute, serviceIndex map[string]*model.Service, defaultPort int) (string) {
+func ConvertDestinationToCluster(destination *networking.Destination, vsvcName string,
+	in *networking.HTTPRoute, serviceIndex map[string]*model.Service, defaultPort int) string {
 	// detect if it is a service
 	svc := serviceIndex[destination.Host]
 

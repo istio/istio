@@ -454,7 +454,7 @@ func edsz(w http.ResponseWriter, req *http.Request) {
 	}
 
 	edsClusterMutex.Lock()
-	comma1 := false
+	comma := false
 	fmt.Fprintln(w, "[")
 	for _, eds := range edsClusters {
 		if comma {

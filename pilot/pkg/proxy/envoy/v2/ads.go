@@ -81,7 +81,6 @@ var (
 		Name: "pilot_xds",
 		Help: "Number of endpoints connected to this pilot using XDS",
 	})
-
 )
 
 func init() {
