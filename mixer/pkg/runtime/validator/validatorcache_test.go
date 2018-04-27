@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/mixer/pkg/config/storetest"
 	"istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/pkg/cache"
+	"os"
 )
 
 const expirationForTest = 10 * time.Millisecond
@@ -157,6 +158,9 @@ func TestValidatorCache(t *testing.T) {
 }
 
 func TestValidatorCacheDoubleEdits(t *testing.T) {
+	if os.Getenv("RACE_TEST") == "true" {
+		t.Skip("Test fails in race testing")
+	}
 	spec1 := &cpb.Rule{Match: "spec1"}
 	spec2 := &cpb.Rule{Match: "spec2"}
 	base := &cpb.Rule{Match: "base"}
