@@ -129,6 +129,8 @@ func run(c *cobra.Command, args []string) error {
 			return err
 		}
 
+		printHeader()
+
 		services := args
 		for _, service := range services {
 			sm, err := metrics(promAPI, service)
@@ -258,13 +260,19 @@ func vectorValue(promAPI promv1.API, query string) (float64, error) {
 	}
 }
 
+func printHeader() {
+	w := tabwriter.NewWriter(os.Stdout, 13, 1, 2, ' ', tabwriter.AlignRight)
+	fmt.Fprintf(w, "%13sService\tTotal RPS\tError RPS\tP50 Latency\tP90 Latency\tP99 Latency\t\n", "")
+	w.Flush()
+}
+
 func printMetrics(sm serviceMetrics) {
-	w := tabwriter.NewWriter(os.Stdout, 0, 1, 2, ' ', 0)
-	fmt.Fprintf(w, "%s:\n", sm.service)
-	fmt.Fprintf(w, "\tTotal RPS: \t%f\n", sm.totalRPS)
-	fmt.Fprintf(w, "\tError RPS: \t%f\n", sm.errorRPS)
-	fmt.Fprintf(w, "\tP50 Latency: \t%s\n", sm.p50Latency)
-	fmt.Fprintf(w, "\tP90 Latency: \t%s\n", sm.p90Latency)
-	fmt.Fprintf(w, "\tP99 Latency: \t%s\n", sm.p99Latency)
+	w := tabwriter.NewWriter(os.Stdout, 13, 1, 2, ' ', tabwriter.AlignRight)
+	fmt.Fprintf(w, "%20s\t", sm.service)
+	fmt.Fprintf(w, "%.3f\t", sm.totalRPS)
+	fmt.Fprintf(w, "%.3f\t", sm.errorRPS)
+	fmt.Fprintf(w, "%s\t", sm.p50Latency)
+	fmt.Fprintf(w, "%s\t", sm.p90Latency)
+	fmt.Fprintf(w, "%s\t\n", sm.p99Latency)
 	w.Flush()
 }
