@@ -138,7 +138,7 @@ spec:
       - name: discovery
         image: {PILOT_HUB}/pilot:{PILOT_TAG}
         imagePullPolicy: IfNotPresent
-        args: ["discovery", "--admission-service", "istio-pilot"]
+        args: ["discovery"]
         ports:
         - containerPort: 8080
         - containerPort: 443
