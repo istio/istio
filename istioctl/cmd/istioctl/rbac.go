@@ -15,72 +15,19 @@
 package main
 
 import (
-	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/spf13/cobra"
 
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/mixer/adapter/rbac"
-	"istio.io/istio/mixer/template/authorization"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
 )
-
-type rbacLogger struct{}
-
-// Infof from adapter.Logger.
-func (l rbacLogger) Infof(format string, args ...interface{}) {
-	// Redirect info to debug for istioctl.
-	log.Debugf(format, args...)
-}
-
-// Warningf from adapter.Logger.
-func (l rbacLogger) Warningf(format string, args ...interface{}) {
-	log.Warnf(format, args...)
-}
-
-// Errorf from adapter.Logger.
-func (l rbacLogger) Errorf(format string, args ...interface{}) error {
-	s := fmt.Sprintf(format, args...)
-	log.Errorf(s)
-	return errors.New(s)
-}
-
-// Debugf from adapter.Logger.
-func (l rbacLogger) Debugf(format string, args ...interface{}) {
-	log.Debugf(format, args...)
-}
-
-// InfoEnabled from adapter.Logger.
-func (l rbacLogger) InfoEnabled() bool {
-	return false
-}
-
-// WarnEnabled from adapter.Logger.
-func (l rbacLogger) WarnEnabled() bool {
-	return false
-}
-
-// ErrorEnabled from adapter.Logger.
-func (l rbacLogger) ErrorEnabled() bool {
-	return false
-}
-
-// DebugEnabled from adapter.Logger.
-func (l rbacLogger) DebugEnabled() bool {
-	return false
-}
 
 // can allows user to query Istio RBAC effect for a specific request.
 func can() *cobra.Command {
-	instance := &authorization.Instance{
-		Subject: &authorization.Subject{},
-		Action:  &authorization.Action{},
-	}
-	subjectProperties := make([]string, 0)
-	actionProperties := make([]string, 0)
+	subject := rbac.SubjectArgs{}
+	action := rbac.ActionArgs{}
 
 	cmd := &cobra.Command{
 		Use:   "can METHOD SERVICE PATH",
@@ -100,20 +47,13 @@ istioctl experimental rbac can -u test GET rating /v1/health
 istioctl experimental rbac can -s service=product-page POST rating /data -a version=dev`,
 		Args: cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			instance.Action.Method = args[0]
-			instance.Action.Service = args[1]
-			instance.Action.Path = args[2]
+			action.Method = args[0]
+			action.Service = args[1]
+			action.Path = args[2]
 			if namespace == "" {
-				instance.Action.Namespace = "default"
+				action.Namespace = "default"
 			} else {
-				instance.Action.Namespace = namespace
-			}
-
-			if err := fillInstanceProperties(&instance.Subject.Properties, subjectProperties); err != nil {
-				return err
-			}
-			if err := fillInstanceProperties(&instance.Action.Properties, subjectProperties); err != nil {
-				return err
+				action.Namespace = namespace
 			}
 
 			rbacStore, err := newRbacStore()
@@ -121,7 +61,7 @@ istioctl experimental rbac can -s service=product-page POST rating /data -a vers
 				return fmt.Errorf("failed to create rbacStore: %v", err)
 			}
 
-			ret, err := rbacStore.CheckPermission(instance, rbacLogger{})
+			ret, err := rbacStore.Check(subject, action)
 			if err != nil {
 				return err
 			}
@@ -135,13 +75,13 @@ istioctl experimental rbac can -s service=product-page POST rating /data -a vers
 		},
 	}
 
-	cmd.Flags().StringVarP(&instance.Subject.User, "user", "u", "",
+	cmd.Flags().StringVarP(&subject.User, "user", "u", "",
 		"[Subject] User name/ID that the subject represents.")
-	cmd.Flags().StringVarP(&instance.Subject.Groups, "groups", "g", "",
+	cmd.Flags().StringVarP(&subject.Groups, "groups", "g", "",
 		"[Subject] Group name/ID that the subject represents.")
-	cmd.Flags().StringArrayVarP(&subjectProperties, "subject-properties", "s", []string{},
+	cmd.Flags().StringArrayVarP(&subject.Properties, "subject-properties", "s", []string{},
 		"[Subject] Additional data about the subject. Specified as name1=value1,name2=value2,...")
-	cmd.Flags().StringArrayVarP(&actionProperties, "action-properties", "a", []string{},
+	cmd.Flags().StringArrayVarP(&action.Properties, "action-properties", "a", []string{},
 		"[Action] Additional data about the action. Specified as name1=value1,name2=value2,...")
 	return cmd
 }
@@ -160,23 +100,6 @@ istioctl experimental rbac can -u test GET rating /v1/health`,
 
 	cmd.AddCommand(can())
 	return cmd
-}
-
-func fillInstanceProperties(properties *map[string]interface{}, arguments []string) error {
-	for _, arg := range arguments {
-		// Use the part before the first = as key and the remaining part as a string value, this is
-		// the only supported format of RBAC adapter for now.
-		split := strings.SplitN(arg, "=", 2)
-		if len(split) != 2 {
-			return fmt.Errorf("invalid property %v, the format should be: key=value", arg)
-		}
-		value, present := (*properties)[split[0]]
-		if present {
-			return fmt.Errorf("duplicate property %v, previous value %v", arg, value)
-		}
-		(*properties)[split[0]] = split[1]
-	}
-	return nil
 }
 
 func newRbacStore() (*rbac.ConfigStore, error) {
