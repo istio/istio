@@ -70,7 +70,7 @@ static_resources:
               name: istio-telemetry.{{ .PodNamespace }}.svc.cluster.local
               routes:
               - decorator:
-                  operation: Check
+                  operation: Report
                 match:
                   prefix: /
                 route:
