@@ -509,9 +509,10 @@ func ServiceKey(hostname string, servicePorts PortList, labelsList LabelsCollect
 // Deprecated
 func ParseServiceKey(s string) (hostname string, ports PortList, labels LabelsCollection) {
 	parts := strings.Split(s, "|")
-	hostname = parts[0]
+	hostname = parts[3]
 
 	var names []string
+
 	if len(parts) > 1 {
 		names = strings.Split(parts[1], ",")
 	} else {
