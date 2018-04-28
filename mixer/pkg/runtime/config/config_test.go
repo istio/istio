@@ -1387,7 +1387,8 @@ Instances:
 Rules:
 TemplateMetadata:
   Resource Name: metrictemplate.template.ns
-    Name: foo
+    Name: metrictemplate.template.ns
+    InternalPackageDerivedName: foo
 Attributes:
   template.attr: BOOL
 `,
@@ -1477,7 +1478,8 @@ AdapterMetadata:
   Templates: [metrictemplate.template.ns]
 TemplateMetadata:
   Resource Name:  metrictemplate.template.ns
-    Name:  foo
+    Name: metrictemplate.template.ns
+    InternalPackageDerivedName: foo
 Attributes:
   template.attr: BOOL
 `,

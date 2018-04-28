@@ -30,31 +30,16 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-// TemplateMetadata contains info about a template
-type TemplateMetadata struct {
-	Name          string
-	FileDescSet   *descriptor.FileDescriptorSet
-	FileDescProto *descriptor.FileDescriptorProto
-}
-
-// AdapterMetadata contains info about an adapter
-type AdapterMetadata struct {
-	Name               string
-	ConfigDescSet      *descriptor.FileDescriptorSet
-	ConfigDescProto    *descriptor.FileDescriptorProto
-	SupportedTemplates []string
-}
-
 // AdapterInfoRegistry to find metadata about templates and adapters
 type AdapterInfoRegistry interface {
-	GetAdapter(name string) *AdapterMetadata
-	GetTemplate(name string) *TemplateMetadata
+	GetAdapter(name string) *Adapter
+	GetTemplate(name string) *Template
 }
 
 // adapterInfoRegistry to ingest templates and adapters. It is single threaded.
 type adapterInfoRegistry struct {
-	adapters  map[string]*AdapterMetadata
-	templates map[string]*TemplateMetadata
+	adapters  map[string]*Adapter
+	templates map[string]*Template
 }
 
 const adapterCfgMsgName = "Params"
@@ -63,7 +48,7 @@ const adapterCfgMsgName = "Params"
 // Note: For adding built-in templates that are not associated with any adapters, supply the `Info` object with
 // only `templates`, leaving other fields to default empty.
 func NewAdapterInfoRegistry(infos []*adapter.Info) (*adapterInfoRegistry, error) {
-	r := &adapterInfoRegistry{make(map[string]*AdapterMetadata), make(map[string]*TemplateMetadata)}
+	r := &adapterInfoRegistry{make(map[string]*Adapter), make(map[string]*Template)}
 	var resultErr error
 	log.Debugf("registering %#v", infos)
 
@@ -90,7 +75,7 @@ func NewAdapterInfoRegistry(infos []*adapter.Info) (*adapterInfoRegistry, error)
 
 		// empty adapter name means just the template needs to be ingested.
 		if info.Name != "" {
-			r.adapters[info.Name] = &AdapterMetadata{SupportedTemplates: tmplNames, Name: info.Name, ConfigDescSet: cfgFds, ConfigDescProto: cfgProto}
+			r.adapters[info.Name] = &Adapter{SupportedTemplates: tmplNames, Name: info.Name, ConfigDescSet: cfgFds, ConfigDescProto: cfgProto}
 		}
 	}
 
@@ -102,7 +87,7 @@ func NewAdapterInfoRegistry(infos []*adapter.Info) (*adapterInfoRegistry, error)
 }
 
 // GetAdapterInfo returns a AdapterMetadata for a adapter with the given name.
-func (r *adapterInfoRegistry) GetAdapter(name string) *AdapterMetadata {
+func (r *adapterInfoRegistry) GetAdapter(name string) *Adapter {
 	if bi, found := r.adapters[name]; found {
 		return bi
 	}
@@ -110,7 +95,7 @@ func (r *adapterInfoRegistry) GetAdapter(name string) *AdapterMetadata {
 }
 
 // GetTemplate returns a TemplateMetadata for a template with the given name.
-func (r *adapterInfoRegistry) GetTemplate(name string) *TemplateMetadata {
+func (r *adapterInfoRegistry) GetTemplate(name string) *Template {
 	if bi, found := r.templates[name]; found {
 		return bi
 	}
@@ -120,7 +105,7 @@ func (r *adapterInfoRegistry) GetTemplate(name string) *TemplateMetadata {
 
 func (r *adapterInfoRegistry) ingestTemplates(tmpls []string) ([]string, error) {
 	var resultErr error
-	templates := make([]*TemplateMetadata, 0, len(tmpls))
+	templates := make([]*Template, 0, len(tmpls))
 	for _, tmpl := range tmpls {
 		tmplMeta, err := r.createTemplateMetadata(tmpl)
 		if err != nil {
@@ -137,13 +122,13 @@ func (r *adapterInfoRegistry) ingestTemplates(tmpls []string) ([]string, error) 
 	// No errors, so we can now safely ingest the templates
 	tmplNames := make([]string, 0, len(templates))
 	for _, tmplMeta := range templates {
-		r.templates[tmplMeta.Name] = tmplMeta
-		tmplNames = append(tmplNames, tmplMeta.Name)
+		r.templates[tmplMeta.InternalPackageDerivedName] = tmplMeta
+		tmplNames = append(tmplNames, tmplMeta.InternalPackageDerivedName)
 	}
 	return tmplNames, resultErr
 }
 
-func (r *adapterInfoRegistry) createTemplateMetadata(base64Tmpl string) (*TemplateMetadata, error) {
+func (r *adapterInfoRegistry) createTemplateMetadata(base64Tmpl string) (*Template, error) {
 
 	fds, tmplDesc, tmplName, err := GetTmplDesc(base64Tmpl)
 	if err != nil {
@@ -155,7 +140,7 @@ func (r *adapterInfoRegistry) createTemplateMetadata(base64Tmpl string) (*Templa
 		log.Errorf("duplicate registration for template '%s'; picking the last one", tmplName)
 	}
 
-	return &TemplateMetadata{Name: tmplName,
+	return &Template{InternalPackageDerivedName: tmplName,
 		FileDescProto: tmplDesc,
 		FileDescSet:   fds}, nil
 }

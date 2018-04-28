@@ -236,8 +236,8 @@ func (e *Ephemeral) processInstanceConfigs(counters Counters) map[string]*Instan
 	return instances
 }
 
-func (e *Ephemeral) processAdapterInfoConfigs(templates map[string]*TemplateMetadata, counters Counters) map[string]*AdapterMetadata {
-	result := map[string]*AdapterMetadata{}
+func (e *Ephemeral) processAdapterInfoConfigs(templates map[string]*Template, counters Counters) map[string]*Adapter {
+	result := map[string]*Adapter{}
 	log.Debug("Begin processing adapter info configurations.")
 	for adapterInfoKey, resource := range e.entries {
 		if adapterInfoKey.Kind != AdapterKind {
@@ -257,7 +257,7 @@ func (e *Ephemeral) processAdapterInfoConfigs(templates map[string]*TemplateMeta
 			counters.adapterInfoConfigError.Inc()
 			continue
 		}
-		adptMetadata := AdapterMetadata{
+		adptMetadata := Adapter{
 			Name:               adapterName,
 			ConfigDescSet:      fds,
 			ConfigDescProto:    desc,
@@ -394,8 +394,8 @@ func (e *Ephemeral) processRuleConfigs(
 
 	return rules
 }
-func (e *Ephemeral) processTemplateConfigs(counters Counters) map[string]*TemplateMetadata {
-	result := map[string]*TemplateMetadata{}
+func (e *Ephemeral) processTemplateConfigs(counters Counters) map[string]*Template {
+	result := map[string]*Template{}
 	log.Debug("Begin processing templates.")
 	for templateKey, resource := range e.entries {
 		if templateKey.Kind != TemplateKind {
@@ -415,10 +415,11 @@ func (e *Ephemeral) processTemplateConfigs(counters Counters) map[string]*Templa
 			counters.templateConfigError.Inc()
 			continue
 		}
-		tmplMetadata := TemplateMetadata{
-			Name:          name,
-			FileDescSet:   fds,
-			FileDescProto: desc,
+		tmplMetadata := Template{
+			Name: templateName,
+			InternalPackageDerivedName: name,
+			FileDescSet:                fds,
+			FileDescProto:              desc,
 		}
 		result[templateName] = &tmplMetadata
 	}
