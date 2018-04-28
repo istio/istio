@@ -25,7 +25,7 @@ type controller struct {
 	configState map[store.Key]*store.Resource
 
 	// Pointer to RBAC config store instance.
-	rbacStore *configStore
+	rbacStore *ConfigStore
 }
 
 // applyEvents applies given events to config state and then publishes a snapshot.
@@ -44,18 +44,18 @@ func (c *controller) applyEvents(events []*store.Event, env adapter.Env) {
 // processRBACRoles processes ServiceRole and ServiceRoleBinding CRDs and save them to
 // RBAC store data structure.
 func (c *controller) processRBACRoles(env adapter.Env) {
-	roles := make(rolesMapByNamespace)
+	roles := make(RolesMapByNamespace)
 
 	for k, obj := range c.configState {
 		if k.Kind == serviceRoleKind {
 			cfg := obj.Spec
 			roleSpec := cfg.(*rbacproto.ServiceRole)
-			rn := roles[k.Namespace]
-			if rn == nil {
-				rn = make(rolesByName)
-				roles[k.Namespace] = rn
+			err := roles.AddServiceRole(k.Name, k.Namespace, roleSpec)
+			if err != nil {
+				_ = env.Logger().Errorf("Failed to add ServiceRole: %v", err)
+				continue
 			}
-			rn[k.Name] = newRoleInfo(roleSpec)
+
 			env.Logger().Infof("Role namespace: %s, name: %s, spec: %v", k.Namespace, k.Name, roleSpec)
 		}
 	}
@@ -64,28 +64,14 @@ func (c *controller) processRBACRoles(env adapter.Env) {
 		if k.Kind == serviceRoleBindingKind {
 			cfg := obj.Spec
 			bindingSpec := cfg.(*rbacproto.ServiceRoleBinding)
-			roleKind := bindingSpec.GetRoleRef().GetKind()
 			roleName := bindingSpec.GetRoleRef().GetName()
 
-			if roleKind != serviceRoleKind {
-				_ = env.Logger().Errorf("RoleBinding %s has role kind %s, expected ServiceRole", k.Name, roleKind)
-			}
-			if roleName == "" {
-				_ = env.Logger().Errorf("RoleBinding %s does not refer to a valid role name", k.Name)
+			err := roles.AddServiceRoleBinding(k.Name, k.Namespace, bindingSpec)
+			if err != nil {
+				_ = env.Logger().Errorf("Failed to add ServiceRoleBinding: %v", err)
 				continue
 			}
 
-			rn := roles[k.Namespace]
-			if rn == nil {
-				_ = env.Logger().Errorf("RoleBinding %s is in a namespace (%s) that no valid role is defined", k.Name, k.Namespace)
-				continue
-			}
-			role := rn[roleName]
-			if role == nil {
-				_ = env.Logger().Errorf("RoleBinding %s is bound to a role that does not exist %s", k.Name, roleName)
-				continue
-			}
-			role.setBinding(k.Name, bindingSpec)
 			env.Logger().Infof("RoleBinding: %s for role %s, Spec: %v", k.Name, roleName, bindingSpec)
 		}
 	}
