@@ -509,6 +509,31 @@ func ServiceKey(hostname string, servicePorts PortList, labelsList LabelsCollect
 // Deprecated
 func ParseServiceKey(s string) (hostname string, ports PortList, labels LabelsCollection) {
 	parts := strings.Split(s, "|")
+	hostname = parts[0]
+
+	var names []string
+
+	if len(parts) > 1 {
+		names = strings.Split(parts[1], ",")
+	} else {
+		names = []string{""}
+	}
+
+	for _, name := range names {
+		ports = append(ports, &Port{Name: name})
+	}
+
+	if len(parts) > 2 && len(parts[2]) > 0 {
+		for _, tag := range strings.Split(parts[2], ";") {
+			labels = append(labels, ParseLabelsString(tag))
+		}
+	}
+	return
+}
+
+// ParseClusterNameKey parsing ClusterName
+func ParseClusterNameKey(s string) (hostname string, ports PortList, labels LabelsCollection) {
+	parts := strings.Split(s, "|")
 	hostname = parts[3]
 
 	var names []string

@@ -166,7 +166,7 @@ func updateCluster(clusterName string, edsCluster *EdsCluster) error {
 		portName = p.Name
 		labels = edsCluster.discovery.env.IstioConfigStore.SubsetToLabels(subsetName, hostname)
 	} else {
-		hostname, ports, labels = model.ParseServiceKey(clusterName)
+		hostname, ports, labels = model.ParseClusterNameKey(clusterName)
 		if len(ports) > 0 {
 			portName = ports.GetNames()[0]
 		}
