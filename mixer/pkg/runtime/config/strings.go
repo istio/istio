@@ -201,8 +201,8 @@ func writeTemplateMetadatas(w io.Writer, templates map[string]*TemplateMetadata)
 	for _, n := range names {
 		a := templates[n]
 
-		fmt.Fprintf(w, "  Name:      %s", a.Name)
-		fmt.Fprintln(w)
+		fmt.Fprintln(w, "  Resource Name: ", n)
+		fmt.Fprintln(w, "    Name: ", a.Name)
 	}
 }
 

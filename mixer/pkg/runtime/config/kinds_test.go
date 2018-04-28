@@ -46,7 +46,6 @@ func TestKindMap(t *testing.T) {
 		RulesKind:             &cpb.Rule{},
 		AttributeManifestKind: &cpb.AttributeManifest{},
 		AdapterKind:           &v1beta1.Info{},
-		HandlerKind:           &cpb.Handler{},
 		TemplateKind:          &v1beta1.Info{},
 	}
 

@@ -1355,8 +1355,95 @@ Attributes:
 `,
 	},
 	{
+		Name: "new templates",
+		Events1: []*store.Event{
+			{
+				Key: store.Key{
+					Name:      "metrictemplate",
+					Namespace: "ns",
+					Kind:      "template",
+				},
+				Type: store.Update,
+				Value: &store.Resource{
+					Spec: &adapter_model.Info{
+						Name:   "",
+						Config: fooTmpl,
+					},
+				},
+			},
+		},
+		E: `
+ID: 1
+Templates:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+Adapters:
+  Name: adapter1
+  Name: adapter2
+Handlers:
+Instances:
+Rules:
+TemplateMetadata:
+  Resource Name: metrictemplate.template.ns
+    Name: foo
+Attributes:
+  template.attr: BOOL
+`,
+	},
+	{
+		Name: "bad template descriptor is ignored",
+		Events1: []*store.Event{
+			{
+				Key: store.Key{
+					Name:      "metrictemplate",
+					Namespace: "ns",
+					Kind:      "template",
+				},
+				Type: store.Update,
+				Value: &store.Resource{
+					Spec: &adapter_model.Info{
+						Name:   "",
+						Config: "bad descriptor",
+					},
+				},
+			},
+		},
+		E: `
+ID: 1
+Templates:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+Adapters:
+  Name: adapter1
+  Name: adapter2
+Handlers:
+Instances:
+Rules:
+Attributes:
+  template.attr: BOOL
+`,
+	},
+	{
 		Name: "adapter info with templates",
 		Events1: []*store.Event{
+			{
+				Key: store.Key{
+					Name:      "metrictemplate",
+					Namespace: "ns",
+					Kind:      "template",
+				},
+				Type: store.Update,
+				Value: &store.Resource{
+					Spec: &adapter_model.Info{
+						Name:   "",
+						Config: fooTmpl,
+					},
+				},
+			},
 			{
 				Key: store.Key{
 					Name:      "adapterinfo1",
@@ -1367,7 +1454,7 @@ Attributes:
 				Value: &store.Resource{
 					Spec: &adapter_model.Info{
 						Name:      "adapter1",
-						Templates: []string{fooTmpl, barTmpl},
+						Templates: []string{"metrictemplate.template"},
 					},
 				},
 			},
@@ -1386,11 +1473,11 @@ Handlers:
 Instances:
 Rules:
 AdapterMetadata:
-  Name:      adapter1
-  Templates: [foo bar]
+  Name:      adapterinfo1.adapter.ns
+  Templates: [metrictemplate.template.ns]
 TemplateMetadata:
-  Name:      bar
-  Name:      foo
+  Resource Name:  metrictemplate.template.ns
+    Name:  foo
 Attributes:
   template.attr: BOOL
 `,
@@ -1426,14 +1513,14 @@ Handlers:
 Instances:
 Rules:
 AdapterMetadata:
-  Name:      adapter1
+  Name:      adapterinfo1.adapter.ns
   Templates: []
 Attributes:
   template.attr: BOOL
 `,
 	},
 	{
-		Name: "adapter info only templates",
+		Name: "adapter info bad adapter config",
 		Events1: []*store.Event{
 			{
 				Key: store.Key{
@@ -1444,22 +1531,7 @@ Attributes:
 				Type: store.Update,
 				Value: &store.Resource{
 					Spec: &adapter_model.Info{
-						Name:      "",
-						Templates: []string{fooTmpl, barTmpl},
-					},
-				},
-			},
-			{
-				Key: store.Key{
-					Name:      "adapterinfo2",
-					Namespace: "ns",
-					Kind:      "adapter",
-				},
-				Type: store.Update,
-				Value: &store.Resource{
-					Spec: &adapter_model.Info{
-						Name:      "",
-						Templates: []string{bazTmpl},
+						Config: "bad adapter config",
 					},
 				},
 			},
@@ -1477,16 +1549,12 @@ Adapters:
 Handlers:
 Instances:
 Rules:
-TemplateMetadata:
-  Name:      bar
-  Name:      baz
-  Name:      foo
 Attributes:
   template.attr: BOOL
 `,
 	},
 	{
-		Name: "adapter info bad templates",
+		Name: "adapter info bad template reference",
 		Events1: []*store.Event{
 			{
 				Key: store.Key{
@@ -1498,7 +1566,7 @@ Attributes:
 				Value: &store.Resource{
 					Spec: &adapter_model.Info{
 						Name:      "adapter1",
-						Templates: []string{"bad template descriptor"},
+						Templates: []string{"bad template reference"},
 					},
 				},
 			},
