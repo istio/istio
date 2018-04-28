@@ -1,0 +1,113 @@
+// Copyright 2018 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package cmd
+
+import (
+	"bytes"
+	"encoding/base64"
+	"io/ioutil"
+	"path/filepath"
+	"strings"
+	gotemplate "text/template"
+
+	"github.com/spf13/cobra"
+
+	"istio.io/istio/mixer/cmd/shared"
+	"istio.io/istio/mixer/pkg/runtime/config/constant"
+)
+
+func adapterCfgCmd(rawArgs []string, printf, fatalf shared.FormatFn) *cobra.Command {
+	var resName string
+	var ns string
+	var configFilePath string
+	var description string
+	var sessionBased bool
+	var templates []string
+
+	adapterCmd := &cobra.Command{
+		Use:   "adapter",
+		Short: "creates kubernetes configuration for an adapter",
+		Run: func(cmd *cobra.Command, args []string) {
+			createAdapterCr("mixgen "+strings.Join(rawArgs, " "), resName, ns, description, configFilePath,
+				sessionBased, templates, printf, fatalf)
+		},
+	}
+	adapterCmd.PersistentFlags().StringVarP(&resName, "name", "n", "", "name of the resource")
+	adapterCmd.PersistentFlags().StringVar(&ns, "namespace", constant.DefaultConfigNamespace, "namespace of the resource")
+	adapterCmd.PersistentFlags().StringVarP(&description, "description", "d", "",
+		"description of the adapter")
+	adapterCmd.PersistentFlags().StringVarP(&configFilePath, "config", "c", "",
+		"path to the adapter config's protobuf file descriptor set file "+
+			"(protobuf file descriptor set is created using `protoc -o <path to adapter config proto file> <Flags>`)")
+	adapterCmd.PersistentFlags().BoolVarP(&sessionBased, "session_based", "s", true,
+		"whether the adapter is session based or not. TODO link to the documentation")
+	adapterCmd.PersistentFlags().StringArrayVarP(&templates, "templates", "t", nil,
+		"supported template names")
+	return adapterCmd
+}
+
+func createAdapterCr(rawCommand string, name, namespace, description, config string, sessionBased bool, templates []string,
+	printf, fatalf shared.FormatFn) {
+	type adapterCRVar struct {
+		RawCommand   string
+		Name         string
+		Namespace    string
+		Description  string
+		Config       string
+		SessionBased bool
+		Templates    []string
+	}
+	adapterTmpl := `# this config is created through command
+# {{.RawCommand}}
+apiVersion: "config.istio.io/v1alpha2"
+kind: adapter
+metadata:
+  name: {{.Name}}
+  namespace: {{.Namespace}}
+spec:
+  description: {{.Description}}
+  session_based: {{.SessionBased}}
+  templates:
+  {{range .Templates -}}
+  - {{- .}}
+  {{end -}}
+  config: {{.Config}}
+---
+`
+
+	inPath, _ := filepath.Abs(config)
+	byts, err := ioutil.ReadFile(inPath)
+	if err != nil {
+		fatalf("unable to read file %s. %v", inPath, err)
+	}
+
+	adapterObj := &adapterCRVar{
+		RawCommand:   rawCommand,
+		Name:         name,
+		Namespace:    namespace,
+		Description:  description,
+		Config:       base64.StdEncoding.EncodeToString(byts),
+		SessionBased: sessionBased,
+		Templates:    templates,
+	}
+
+	t := gotemplate.New("adaptercr")
+	w := &bytes.Buffer{}
+	t, _ = t.Parse(adapterTmpl)
+	if err := t.Execute(w, adapterObj); err != nil {
+		fatalf("could not create adapter custom resource" + err.Error())
+	}
+	printf(w.String())
+}

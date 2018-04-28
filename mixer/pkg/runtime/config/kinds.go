@@ -20,6 +20,7 @@ import (
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	configpb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/runtime/config/constant"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
 )
@@ -37,11 +38,11 @@ func KindMap(adapterInfo map[string]*adapter.Info, templateInfo map[string]*temp
 		kindMap[kind] = info.DefaultConfig
 		log.Debugf("adapter kind: %s, %v", kind, info.DefaultConfig)
 	}
-	kindMap[RulesKind] = &configpb.Rule{}
-	log.Debugf("Rules config kind: %s", RulesKind)
-	kindMap[AttributeManifestKind] = &configpb.AttributeManifest{}
-	log.Debugf("Attribute manifest kind: %s", AttributeManifestKind)
-	kindMap[AdapterKind] = &v1beta1.Info{}
-	log.Debugf("Adapter info config kind: %s", RulesKind)
+	kindMap[constant.RulesKind] = &configpb.Rule{}
+	log.Debugf("Rules config kind: %s", constant.RulesKind)
+	kindMap[constant.AttributeManifestKind] = &configpb.AttributeManifest{}
+	log.Debugf("Attribute manifest kind: %s", constant.AttributeManifestKind)
+	kindMap[constant.AdapterKind] = &v1beta1.Info{}
+	log.Debugf("Adapter info config kind: %s", constant.RulesKind)
 	return kindMap
 }

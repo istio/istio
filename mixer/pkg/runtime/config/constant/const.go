@@ -18,21 +18,28 @@
 // The main purpose of this library is to create an object-model that simplifies queries and correctness checks that
 // the client code needs to deal with. This is accomplished by making sure the config state is fully resolved, and
 // incorporating otherwise complex queries within this package.
-package config
+package constant
 
-// RulesKind defines the config kind Name of mixer Rules.
-const RulesKind = "rule"
+// TODO merge all the mixer wide constants in this file.
+const (
+	// DefaultConfigNamespace holds istio wide configuration.
+	DefaultConfigNamespace = "istio-system"
 
-// AdapterKind defines the config kind Name of adapter infos (name, templates is consumes, its own configuration).
-const AdapterKind = "adapter"
+	// RulesKind defines the config kind Name of mixer Rules.
+	RulesKind = "rule"
 
-// AttributeManifestKind define the config kind Name of attribute manifests.
-const AttributeManifestKind = "attributemanifest"
+	// AdapterKind defines the config kind Name of adapter infos (name, templates is consumes, its own configuration).
+	AdapterKind = "adapter"
 
-// ContextProtocolTCP defines constant for tcp protocol.
-const ContextProtocolTCP = "tcp"
+	// AttributeManifestKind define the config kind Name of attribute manifests.
+	AttributeManifestKind = "attributemanifest"
 
-// ContextProtocolAttributeName is the attribute that defines the protocol context.
-const ContextProtocolAttributeName = "context.protocol"
+	// ContextProtocolTCP defines constant for tcp protocol.
+	ContextProtocolTCP = "tcp"
 
-const istioProtocol = "istio-protocol"
+	// ContextProtocolAttributeName is the attribute that defines the protocol context.
+	ContextProtocolAttributeName = "context.protocol"
+
+	// IstioProtocol denotes if the protocol is tcp or http
+	IstioProtocol = "istio-protocol"
+)

@@ -12,6 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package config is designed to listen to the config changes through the store and create a fully-resolved configuration
+// state that can be used by the rest of the runtime code.
+//
+// The main purpose of this library is to create an object-model that simplifies queries and correctness checks that
+// the client code needs to deal with. This is accomplished by making sure the config state is fully resolved, and
+// incorporating otherwise complex queries within this package.
 package config
 
 import (
@@ -22,6 +28,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"istio.io/api/mixer/adapter/model/v1beta1"
+	"istio.io/istio/mixer/pkg/runtime/config/constant"
 	config "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
@@ -154,7 +161,7 @@ func (e *Ephemeral) BuildSnapshot() (*Snapshot, error) {
 func (e *Ephemeral) processAttributeManifests(counters Counters, errs *multierror.Error) map[string]*config.AttributeManifest_AttributeInfo {
 	attrs := make(map[string]*config.AttributeManifest_AttributeInfo)
 	for k, obj := range e.entries {
-		if k.Kind != AttributeManifestKind {
+		if k.Kind != constant.AttributeManifestKind {
 			continue
 		}
 
@@ -262,7 +269,7 @@ func (e *Ephemeral) processAdapterInfoConfigs(counters Counters, errs *multierro
 	var adapterInfos []*v1beta1.Info
 
 	for adapterInfoKey, resource := range e.entries {
-		if adapterInfoKey.Kind != AdapterKind {
+		if adapterInfoKey.Kind != constant.AdapterKind {
 			continue
 		}
 		counters.adapterInfoConfig.Add(1)
@@ -294,7 +301,7 @@ func (e *Ephemeral) processRuleConfigs(
 	var rules []*RuleLegacy
 
 	for ruleKey, resource := range e.entries {
-		if ruleKey.Kind != RulesKind {
+		if ruleKey.Kind != constant.RulesKind {
 			continue
 		}
 		counters.ruleConfig.Add(1)
@@ -319,7 +326,7 @@ func (e *Ephemeral) processRuleConfigs(
 				// instead of skipping the rule, add it to the list. This ensures that the behavior will
 				// stay the same when this block is removed.
 			} else {
-				if ContextProtocolTCP == m[ContextProtocolAttributeName] {
+				if constant.ContextProtocolTCP == m[constant.ContextProtocolAttributeName] {
 					rt.protocol = protocolTCP
 				}
 			}
@@ -406,7 +413,7 @@ func appendErr(errs *multierror.Error, field string, counter prometheus.Counter,
 // resourceType maps labels to rule types.
 func resourceType(labels map[string]string) ResourceType {
 	rt := defaultResourcetype()
-	if ContextProtocolTCP == labels[istioProtocol] {
+	if constant.ContextProtocolTCP == labels[constant.IstioProtocol] {
 		rt.protocol = protocolTCP
 	}
 	return rt

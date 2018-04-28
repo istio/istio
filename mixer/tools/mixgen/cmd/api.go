@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package interfacegen
+package cmd
 
 import (
 	"bytes"
@@ -20,18 +20,67 @@ import (
 	"go/format"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"text/template"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
+	"github.com/spf13/cobra"
 	"golang.org/x/tools/imports"
 
+	"istio.io/istio/mixer/cmd/shared"
 	descriptor2 "istio.io/istio/mixer/pkg/protobuf/descriptor"
-	tmpl "istio.io/istio/mixer/tools/codegen/pkg/interfacegen/template"
 	"istio.io/istio/mixer/tools/codegen/pkg/modelgen"
 )
+
+func apiGenCmd(rawArgs []string, printf, fatalf shared.FormatFn) *cobra.Command {
+	var templateFile string
+	var outInterfaceFile string
+	var oAugmentedTmplFile string
+	var mappings []string
+	adapterCmd := &cobra.Command{
+		Use:   "api",
+		Short: "creates type and service definitions from a given template",
+		Run: func(cmd *cobra.Command, args []string) {
+			var err error
+
+			outInterfaceFile, err = filepath.Abs(outInterfaceFile)
+			if err != nil {
+				fatalf("Invalid path %s: %v", outInterfaceFile, err)
+			}
+			oAugmentedTmplFile, err = filepath.Abs(oAugmentedTmplFile)
+			if err != nil {
+				fatalf("Invalid path %s: %v", oAugmentedTmplFile, err)
+			}
+			importMapping := make(map[string]string)
+			for _, maps := range mappings {
+				m := strings.Split(maps, ":")
+				importMapping[strings.TrimSpace(m[0])] = strings.TrimSpace(m[1])
+			}
+
+			generator := Generator{OutInterfacePath: outInterfaceFile, OAugmentedTmplPath: oAugmentedTmplFile, ImptMap: importMapping}
+			if err := generator.Generate(templateFile); err != nil {
+				fatalf("%v", err)
+			}
+		},
+	}
+	adapterCmd.PersistentFlags().StringVarP(&templateFile, "template", "t", "", "Input "+
+		"template file path")
+
+	adapterCmd.PersistentFlags().StringVar(&outInterfaceFile, "go_out", "./generated.go", "Output "+
+		"file path for generated template based go types and interfaces.")
+
+	adapterCmd.PersistentFlags().StringVar(&oAugmentedTmplFile, "proto_out", "./generated_template.proto", "Output "+
+		"file path for generated template based proto messages and services.")
+
+	adapterCmd.PersistentFlags().StringArrayVarP(&mappings, "importmapping",
+		"m", []string{},
+		"colon separated mapping of proto import to Go package names."+
+			" -m google/protobuf/descriptor.proto:github.com/golang/protobuf/protoc-gen-go/descriptor")
+	return adapterCmd
+}
 
 const (
 	resourceMsgSuffix            = "Msg"
@@ -65,7 +114,7 @@ func valueTypeOrResMsg(ti modelgen.TypeInfo) bool {
 
 // Generate creates a Go interfaces for adapters to implement for a given Template.
 func (g *Generator) Generate(fdsFile string) error {
-	return g.generateInternal(fdsFile, tmpl.InterfaceTemplate, tmpl.AugmentedProtoTmpl)
+	return g.generateInternal(fdsFile, interfaceTemplate, augmentedProtoTmpl)
 }
 
 // Generate creates a Go interfaces for adapters to implement for a given Template.
