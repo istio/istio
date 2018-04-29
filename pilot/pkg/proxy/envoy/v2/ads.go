@@ -165,6 +165,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 			if err != nil {
 				return err
 			}
+			nt.Metadata = model.ParseMetadata(discReq.Node.Metadata)
 			con.modelNode = &nt
 			if con.ConID == "" {
 				// first request
@@ -390,7 +391,7 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection) error {
 	services = s.services
 	s.modelMutex.RUnlock()
 
-	proxyInstances, err := s.env.GetProxyServiceInstances(*con.modelNode)
+	proxyInstances, err := s.env.GetProxyServiceInstances(con.modelNode)
 	if err != nil {
 		log.Warnf("ADS: RDS: Failed to retrieve proxy service instances %v", err)
 		return err

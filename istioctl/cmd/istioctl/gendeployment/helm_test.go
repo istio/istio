@@ -15,37 +15,23 @@
 package gendeployment
 
 import (
-	"io/ioutil"
-	"path"
 	"testing"
+
+	"istio.io/istio/pilot/test/util"
 )
 
 func TestValuesFromInstallation(t *testing.T) {
-	tests := []struct {
+	cases := []struct {
 		name   string
 		in     *installation
 		golden string
 	}{
-		{"default", defaultInstall(), "default-values"},
+		{"default", defaultInstall(), "testdata/default-values.yaml.golden"},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			contents := valuesFromInstallation(tt.in)
-			want := readGolden(t, tt.golden)
-			if contents != want {
-				t.Fatalf("valuesFromInstallation(%v)\n got %q\nwant %q", tt.in, contents, want)
-			}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			contents := valuesFromInstallation(c.in)
+			util.CompareContent([]byte(contents), c.golden, t)
 		})
 	}
-}
-
-func readGolden(t *testing.T, name string) string {
-	t.Helper()
-
-	p := path.Join("testdata", name+".yaml.golden")
-	data, err := ioutil.ReadFile(p)
-	if err != nil {
-		t.Fatalf("failed to read %q", p)
-	}
-	return string(data)
 }

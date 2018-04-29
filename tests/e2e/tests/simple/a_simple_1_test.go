@@ -27,12 +27,14 @@ package simple
 import (
 	"bytes"
 	"flag"
+	"net/http"
 	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"istio.io/fortio/fhttp"
+	"istio.io/fortio/periodic"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/util"
@@ -41,6 +43,9 @@ import (
 const (
 	servicesYaml         = "tests/e2e/tests/simple/testdata/servicesToBeInjected.yaml"
 	nonInjectedYaml      = "tests/e2e/tests/simple/testdata/servicesNotInjected.yaml"
+	routingR1Yaml        = "tests/e2e/tests/simple/testdata/routingrule1.yaml"
+	routingR2Yaml        = "tests/e2e/tests/simple/testdata/routingrule2.yaml"
+	routingRNPYaml       = "tests/e2e/tests/simple/testdata/routingruleNoPods.yaml"
 	timeToWaitForPods    = 20 * time.Second
 	timeToWaitForIngress = 100 * time.Second
 )
@@ -169,7 +174,7 @@ func TestAuth(t *testing.T) {
 	}
 	pod := podList[0]
 	log.Infof("From client, non istio injected pod \"%s\"", pod)
-	res, err := util.Shell("kubectl exec -n %s %s -- /usr/local/bin/fortio load -qps 5 -t 1s http://echosrv.%s:8080/echo", ns, pod, ns)
+	res, err := util.Shell("kubectl exec -n %s %s -- /usr/local/bin/fortio curl http://echosrv.%s:8080/debug", ns, pod, ns)
 	if tc.Kube.AuthEnabled {
 		if err == nil {
 			t.Errorf("Running with auth on yet able to connect from non istio to istio (insecure): %v", res)
@@ -185,12 +190,145 @@ func TestAuth(t *testing.T) {
 	}
 }
 
+func TestAuthWithHeaders(t *testing.T) {
+	t.Skip("Skipping TestAuthWithHeaders until bug is fixed") // TODO: fix me !
+	ns := tc.Kube.Namespace
+	// Get the non istio pod
+	podList, err := getPodList(ns, "app=fortio-noistio")
+	if err != nil {
+		t.Fatalf("kubectl failure to get non istio pod %v", err)
+	}
+	if len(podList) != 1 {
+		t.Fatalf("Unexpected to get %d pods when expecting 1. got %v", len(podList), podList)
+	}
+	podNoIstio := podList[0]
+	// Get the istio pod without extra unique port. We can't use the service name or cluster ip as
+	// that vip only exists for declared host:port and the exploit relies on not having a listener
+	// for that port.
+	podList, err = getPodIPList(ns, "app=echosrv,extrap=non")
+	if err != nil {
+		t.Fatalf("kubectl failure to get deployment1 pod %v", err)
+	}
+	if len(podList) != 1 {
+		t.Fatalf("Unexpected to get %d pod ips when expecting 1. got %v", len(podList), podList)
+	}
+	podIstioIP := podList[0]
+	log.Infof("From client, non istio injected pod \"%s\" to istio pod \"%s\"", podNoIstio, podIstioIP)
+	// TODO: ipv6 fix
+	res, err := util.Shell("kubectl exec -n %s %s -- /usr/local/bin/fortio curl -H Host:echosrv-extrap.%s:8088 http://%s:8088/debug",
+		ns, podNoIstio, ns, podIstioIP)
+	if tc.Kube.AuthEnabled {
+		if err == nil {
+			t.Errorf("Running with auth on yet able to connect from non istio to istio (insecure): %v", res)
+		} else {
+			log.Infof("Got expected error with auth on and non istio->istio pod ip connection despite headers: %v", err)
+		}
+	} else {
+		// even with auth off this should fail and not proxy from 1 pod to another based on host header
+		if err == nil {
+			t.Errorf("Running with auth off but yet able to connect from non istio to istio pod ip with wrong port: %v", res)
+		} else {
+			log.Infof("Got expected error from non istio to istio pod ip without auth but with wrong port: %v", err)
+		}
+	}
+}
+
+func Test503sDuringChanges(t *testing.T) {
+	t.Skip("Skipping Test503sDuringChanges until bug #1038 is fixed") // TODO fix me!
+	url := tc.Kube.IngressOrFail(t) + "/fortio/debug"
+	rulePath1 := util.GetResourcePath(routingR1Yaml)
+	rulePath2 := util.GetResourcePath(routingR2Yaml)
+	go func() {
+		time.Sleep(9 * time.Second)
+		log.Infof("Changing rules mid run to v1/v2")
+		if err := tc.Kube.Istioctl.CreateRule(rulePath1); err != nil {
+			t.Errorf("istioctl rule create %s failed", routingR1Yaml)
+			return
+		}
+		time.Sleep(4 * time.Second)
+		log.Infof("Changing rules mid run to a/b")
+		if err := tc.Kube.Istioctl.CreateRule(rulePath2); err != nil {
+			t.Errorf("istioctl rule create %s failed", routingR1Yaml)
+			return
+		}
+		time.Sleep(4 * time.Second)
+		util.KubeDelete(tc.Kube.Namespace, rulePath1, tc.Kube.KubeConfig) // nolint:errcheck
+		util.KubeDelete(tc.Kube.Namespace, rulePath2, tc.Kube.KubeConfig) // nolint:errcheck
+	}()
+	// run at a low/moderate QPS for a while while changing the routing rules,
+	// check for any non 200s
+	opts := fhttp.HTTPRunnerOptions{
+		RunnerOptions: periodic.RunnerOptions{
+			QPS:        24, // 3 per second per connection
+			Duration:   30 * time.Second,
+			NumThreads: 8,
+		},
+	}
+	opts.URL = url
+	res, err := fhttp.RunHTTPTest(&opts)
+	if err != nil {
+		t.Fatalf("Generating traffic via fortio failed: %v", err)
+	}
+	numRequests := res.DurationHistogram.Count
+	num200s := res.RetCodes[http.StatusOK]
+	if num200s != numRequests {
+		t.Errorf("Not all %d requests were successful (%v)", numRequests, res.RetCodes)
+	}
+}
+
+// This one may need to be fixed through some retries or health check
+// config/setup/policy in envoy (through pilot)
+func Test503sWithBadClusters(t *testing.T) {
+	t.Skip("Skipping Test503sWithBadClusters until bug #1038 is fixed") // TODO fix me!
+	url := tc.Kube.IngressOrFail(t) + "/fortio/debug"
+	rulePath := util.GetResourcePath(routingRNPYaml)
+	go func() {
+		time.Sleep(9 * time.Second)
+		log.Infof("Changing rules with some non existent destination, mid run")
+		if err := tc.Kube.Istioctl.CreateRule(rulePath); err != nil {
+			t.Errorf("istioctl create rule %s failed", routingRNPYaml)
+			return
+		}
+	}()
+	defer tc.Kube.Istioctl.DeleteRule(rulePath) // nolint:errcheck
+	// run at a low/moderate QPS for a while while changing the routing rules,
+	// check for limited number of errors
+	opts := fhttp.HTTPRunnerOptions{
+		RunnerOptions: periodic.RunnerOptions{
+			QPS:        8,
+			Duration:   20 * time.Second,
+			NumThreads: 8,
+		},
+	}
+	opts.URL = url
+	res, err := fhttp.RunHTTPTest(&opts)
+	if err != nil {
+		t.Fatalf("Generating traffic via fortio failed: %v", err)
+	}
+	numRequests := res.DurationHistogram.Count
+	num200s := res.RetCodes[http.StatusOK]
+	numErrors := numRequests - num200s
+	// 1 or a handful of 503s (1 per connection) is maybe ok, but not much more
+	threshold := int64(opts.NumThreads) * 2
+	if numErrors > threshold {
+		t.Errorf("%d greater than threshold %d requests were successful (%v)", numRequests, threshold, res.RetCodes)
+	}
+}
+
 type fortioTemplate struct {
 	FortioImage string
 }
 
 func getPodList(namespace string, selector string) ([]string, error) {
 	pods, err := util.Shell("kubectl get pods -n %s -l %s -o jsonpath={.items[*].metadata.name}", namespace, selector)
+	if err != nil {
+		return nil, err
+	}
+	return strings.Split(pods, " "), nil
+}
+
+func getPodIPList(namespace string, selector string) ([]string, error) {
+	pods, err := util.Shell("kubectl get pods -n %s -l %s -o jsonpath={.items[*].status.podIP}", namespace, selector)
 	if err != nil {
 		return nil, err
 	}

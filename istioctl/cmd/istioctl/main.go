@@ -544,6 +544,7 @@ func init() {
 		"Output format. One of:yaml|short")
 
 	experimentalCmd.AddCommand(convert.Command())
+	experimentalCmd.AddCommand(Rbac())
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
@@ -666,7 +667,7 @@ func newClient() (*crd.Client, error) {
 		model.VirtualService,
 		model.Gateway,
 		model.EgressRule,
-		model.ExternalService,
+		model.ServiceEntry,
 		model.DestinationPolicy,
 		model.DestinationRule,
 		model.HTTPAPISpec,

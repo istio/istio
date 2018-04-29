@@ -60,7 +60,7 @@ metadata:
 spec:
   host: productpage
   subsets:
-  - host: v1
+  - name: v1
     labels:
       version: v1
 ---

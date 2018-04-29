@@ -21,13 +21,6 @@ ingress:
 istiotesting:
   oneNameSpace: false
 
-# needs gateway for testing
-ingressgateway:
-  enabled: true
-
-egressgateway:
-  enabled: true
-
 zipkin:
   enabled: true
 

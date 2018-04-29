@@ -32,14 +32,15 @@ bin/protoc-gen-docs*
 install/consul/istio.yaml
 install/eureka/istio.yaml
 install/kubernetes/addons/grafana.yaml
-install/kubernetes/addons/prometheus.yaml
 install/kubernetes/addons/servicegraph.yaml
 install/kubernetes/addons/zipkin-to-stackdriver.yaml
 install/kubernetes/addons/zipkin.yaml
 install/kubernetes/istio-auth.yaml
+install/kubernetes/istio-auth-multicluster.yaml
 install/kubernetes/istio-mixer-with-health-check.yaml
 install/kubernetes/istio-mixer-validator.yaml
 install/kubernetes/istio-citadel-plugin-certs.yaml
+install/kubernetes/istio-citadel-standalone.yaml
 install/kubernetes/istio-citadel-with-health-check.yaml
 install/kubernetes/istio-one-namespace-auth.yaml
 install/kubernetes/istio-one-namespace.yaml
@@ -48,8 +49,11 @@ install/kubernetes/istio-sidecar-injector-configmap-release.yaml
 install/kubernetes/istio-sidecar-injector.yaml
 install/kubernetes/istio.yaml
 install/kubernetes/istio-all.yaml
+install/kubernetes/istio-multicluster.yaml
+install/kubernetes/istio-remote.yaml
 samples/bookinfo/consul/bookinfo.sidecars.yaml
 samples/bookinfo/eureka/bookinfo.sidecars.yaml
+*.orig
 # Avoid accidental istio.VERSION changes
 istio.VERSION
 # Proxy generated proxy config in integration test

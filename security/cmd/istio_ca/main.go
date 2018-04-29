@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/security/pkg/registry"
 	"istio.io/istio/security/pkg/registry/kube"
 	caserver "istio.io/istio/security/pkg/server/ca"
+	"istio.io/istio/security/pkg/server/monitoring"
 )
 
 // TODO(myidpt): move the following constants to pkg/cmd.
@@ -70,7 +71,7 @@ const (
 	// The default initial interval between retries to send CSR to upstream CA.
 	defaultCSRInitialRetrialInterval = time.Second
 
-	// The default value of CSR retries for Istio CA to send CSR to upstream CA.
+	// The default value of CSR retries for Citadel to send CSR to upstream CA.
 	defaultCSRMaxRetries = 10
 
 	// The default issuer organization for self-signed CA certificate.
@@ -116,6 +117,11 @@ type cliOptions struct { // nolint: maligned
 	signCACerts bool
 
 	cAClientConfig caclient.Config
+
+	// Monitoring port number
+	monitoringPort int
+	// Enable profiling in monitoring
+	enableProfiling bool
 
 	// The path to the file which indicates the liveness of the server by its existence.
 	// This will be used for k8s liveness probe. If empty, it does nothing.
@@ -170,21 +176,21 @@ func init() {
 	flags := rootCmd.Flags()
 	// General configuration.
 	flags.StringVar(&opts.listenedNamespace, "listened-namespace", "",
-		"Select a namespace for the CA to listen to. If unspecified, Istio CA tries to use the ${"+
-			listenedNamespaceKey+"} environment variable. If neither is set, Istio CA listens to all namespaces.")
+		"Select a namespace for the CA to listen to. If unspecified, Citadel tries to use the ${"+
+			listenedNamespaceKey+"} environment variable. If neither is set, Citadel listens to all namespaces.")
 	flags.StringVar(&opts.istioCaStorageNamespace, "citadel-storage-namespace", "istio-system", "Namespace where "+
-		"the Istio CA pods is running. Will not be used if explicit file or other storage mechanism is specified.")
+		"the Citadel pod is running. Will not be used if explicit file or other storage mechanism is specified.")
 
 	flags.StringVar(&opts.kubeConfigFile, "kube-config", "",
 		"Specifies path to kubeconfig file. This must be specified when not running inside a Kubernetes pod.")
 
-	// Configuration if Istio CA accepts key/cert configured through arguments.
+	// Configuration if Citadel accepts key/cert configured through arguments.
 	flags.StringVar(&opts.certChainFile, "cert-chain", "", "Path to the certificate chain file")
 	flags.StringVar(&opts.signingCertFile, "signing-cert", "", "Path to the CA signing certificate file")
 	flags.StringVar(&opts.signingKeyFile, "signing-key", "", "Path to the CA signing key file")
 	flags.StringVar(&opts.rootCertFile, "root-cert", "", "Path to the root certificate file")
 
-	// Configuration if Istio CA acts as a self signed CA.
+	// Configuration if Citadel acts as a self signed CA.
 	flags.BoolVar(&opts.selfSignedCA, "self-signed-ca", false,
 		"Indicates whether to use auto-generated self-signed CA certificate. "+
 			"When set to true, the '--signing-cert' and '--signing-key' options are ignored.")
@@ -194,9 +200,9 @@ func init() {
 	flags.DurationVar(&opts.selfSignedCACertTTL, "self-signed-ca-cert-ttl", defaultSelfSignedCACertTTL,
 		"The TTL of self-signed CA root certificate")
 
-	// Upstream CA configuration if Istio CA interacts with upstream CA.
+	// Upstream CA configuration if Citadel interacts with upstream CA.
 	flags.StringVar(&opts.cAClientConfig.CAAddress, "upstream-ca-address", "", "The IP:port address of the upstream "+
-		"CA. When set, the CA will rely on the upstream Istio CA to provision its own certificate.")
+		"CA. When set, the CA will rely on the upstream Citadel to provision its own certificate.")
 	flags.StringVar(&opts.cAClientConfig.Org, "org", "", "Organization for the cert")
 	flags.DurationVar(&opts.cAClientConfig.RequestedCertTTL, "requested-ca-cert-ttl", defaultRequestedCACertTTL,
 		"The requested TTL for the workload")
@@ -217,10 +223,15 @@ func init() {
 	flags.StringVar(&opts.grpcHostname, "grpc-hostname", "istio-ca", "DEPRECATED, use --grpc-host-identites.")
 	flags.StringVar(&opts.grpcHosts, "grpc-host-identities", "istio-ca,istio-citadel",
 		"The list of hostnames for istio ca server, separated by comma.")
-	flags.IntVar(&opts.grpcPort, "grpc-port", 8060, "The port number for GRPC server. "+
-		"If unspecified, Istio CA will not server GRPC request.")
+	flags.IntVar(&opts.grpcPort, "grpc-port", 8060, "The port number for Citadel GRPC server. "+
+		"If unspecified, Citadel will not serve GRPC requests.")
 
-	flags.BoolVar(&opts.signCACerts, "sign-ca-certs", false, "Whether the CA signs certificates for other CAs")
+	flags.BoolVar(&opts.signCACerts, "sign-ca-certs", false, "Whether Citadel signs certificates for other CAs")
+
+	// Monitoring configuration
+	flags.IntVar(&opts.monitoringPort, "monitoring-port", 9093, "The port number for monitoring Citadel. "+
+		"If unspecified, Citadel will disable monitoring.")
+	flags.BoolVar(&opts.enableProfiling, "enable-profiling", false, "Enabling profiling when monitoring Citadel.")
 
 	// Liveness Probe configuration
 	flags.StringVar(&opts.LivenessProbeOptions.Path, "liveness-probe-path", "",
@@ -238,9 +249,9 @@ func init() {
 	rootCmd.AddCommand(version.CobraCommand())
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
-		Title:   "Istio CA",
+		Title:   "Citadel",
 		Section: "istio_ca CLI",
-		Manual:  "Istio CA",
+		Manual:  "Citadel",
 	}))
 
 	rootCmd.AddCommand(cmd.NewProbeCmd())
@@ -311,7 +322,7 @@ func runCA() {
 	sc, err := controller.NewSecretController(ca, opts.workloadCertTTL, opts.workloadCertGracePeriodRatio,
 		opts.workloadCertMinGracePeriod, cs.CoreV1(), opts.signCACerts, opts.listenedNamespace, webhooks)
 	if err != nil {
-		fatalf("failed to create secret controller: %v", err)
+		fatalf("Failed to create secret controller: %v", err)
 	}
 
 	stopCh := make(chan struct{})
@@ -324,7 +335,7 @@ func runCA() {
 		// add certificate identity to the identity registry for the liveness probe check
 		if registryErr := reg.AddMapping(probecontroller.LivenessProbeClientIdentity,
 			probecontroller.LivenessProbeClientIdentity); registryErr != nil {
-			log.Errorf("failed to add indentity mapping: %v", registryErr)
+			log.Errorf("Failed to add indentity mapping: %v", registryErr)
 		}
 
 		ch := make(chan struct{})
@@ -341,7 +352,7 @@ func runCA() {
 		hostnames := append(strings.Split(opts.grpcHosts, ","), fqdn())
 		caServer, startErr := caserver.New(ca, opts.maxWorkloadCertTTL, opts.signCACerts, hostnames, opts.grpcPort)
 		if startErr != nil {
-			fatalf("failed to create istio ca server: %v", startErr)
+			fatalf("Failed to create istio ca server: %v", startErr)
 		}
 		if serverErr := caServer.Run(); serverErr != nil {
 			// stop the registry-related controllers
@@ -351,24 +362,41 @@ func runCA() {
 		}
 	}
 
-	log.Info("Istio CA has started")
+	monitorErrCh := make(chan error)
+	// Start the monitoring server.
+	if opts.monitoringPort > 0 {
+		monitor, mErr := monitoring.NewMonitor(opts.monitoringPort, opts.enableProfiling)
+		if mErr != nil {
+			fatalf("Unable to setup monitoring: %v", mErr)
+		}
+		go monitor.Start(monitorErrCh)
+		log.Info("Citadel monitor has started.")
+		defer monitor.Close()
+	}
 
-	errCh := make(chan error)
-	rotator := caclient.KeyCertBundleRotator{}
+	log.Info("Citadel has started")
+
+	rotatorErrCh := make(chan error)
 	// Start CA client if the upstream CA address is specified.
 	if len(opts.cAClientConfig.CAAddress) != 0 {
 		rotator, creationErr := createKeyCertBundleRotator(ca.GetCAKeyCertBundle())
 		if creationErr != nil {
-			fatalf("failed to create CA key cert bundle rotator: %v", creationErr)
+			fatalf("Failed to create key cert bundle rotator: %v", creationErr)
 		}
-		go rotator.Start(errCh)
-		log.Info("Istio CA key cert bundle rotator has started")
+		go rotator.Start(rotatorErrCh)
+		log.Info("Key cert bundle rotator has started.")
+		defer rotator.Stop()
 	}
 
 	// Blocking until receives error.
-	err = <-errCh
-	rotator.Stop()
-	fatalf("Istio CA key cert bundle rotator failed: %v", err)
+	for {
+		select {
+		case <-monitorErrCh:
+			fatalf("Monitoring server error: %v", err)
+		case <-rotatorErrCh:
+			fatalf("Key cert bundle rotator error: %v", err)
+		}
+	}
 }
 
 func createClientset() *kubernetes.Clientset {
@@ -389,14 +417,14 @@ func createCA(core corev1.SecretsGetter) *ca.IstioCA {
 		caOpts, err = ca.NewSelfSignedIstioCAOptions(opts.selfSignedCACertTTL, opts.workloadCertTTL,
 			opts.maxWorkloadCertTTL, opts.selfSignedCAOrg, opts.istioCaStorageNamespace, core)
 		if err != nil {
-			fatalf("Failed to create a self-signed Istio CA (error: %v)", err)
+			fatalf("Failed to create a self-signed Citadel (error: %v)", err)
 		}
 	} else {
 		log.Info("Use certificate from argument as the CA certificate")
 		caOpts, err = ca.NewPluggedCertIstioCAOptions(opts.certChainFile, opts.signingCertFile, opts.signingKeyFile,
 			opts.rootCertFile, opts.workloadCertTTL, opts.maxWorkloadCertTTL)
 		if err != nil {
-			fatalf("Failed to create an Istio CA (error: %v)", err)
+			fatalf("Failed to create an Citadel (error: %v)", err)
 		}
 	}
 
@@ -405,7 +433,7 @@ func createCA(core corev1.SecretsGetter) *ca.IstioCA {
 
 	istioCA, err := ca.NewIstioCA(caOpts)
 	if err != nil {
-		log.Errorf("Failed to create an Istio CA (error: %v)", err)
+		log.Errorf("Failed to create an Citadel (error: %v)", err)
 	}
 
 	if opts.LivenessProbeOptions.IsValid() {

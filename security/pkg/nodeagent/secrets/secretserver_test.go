@@ -72,7 +72,7 @@ func TestNewSecretServer_FileMode(t *testing.T) {
 		bundleMap[host] = createBundle(t, host)
 	}
 	for _, host := range hosts {
-		b, _ := bundleMap[host]
+		b := bundleMap[host]
 		if err := ss.Put(host, b); err != nil {
 			t.Errorf("failed to save secret for %v, err %v", host, err)
 		}
@@ -80,7 +80,7 @@ func TestNewSecretServer_FileMode(t *testing.T) {
 
 	// Verify each identity has correct key certs saved in the file.
 	for _, host := range hosts {
-		b, _ := bundleMap[host]
+		b := bundleMap[host]
 		_, key, cert, root := b.GetAllPem()
 
 		keyBytes, err := ioutil.ReadFile(path.Join(dir, host, "key.pem"))

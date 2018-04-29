@@ -40,7 +40,7 @@ data:
         action: keep
         regex: {{ .Release.Namespace }};istio-statsd-prom-bridge;statsd-prom
 
-    - job_name: 'mixer-check'
+    - job_name: 'istio-policy'
       # Override the global default and scrape targets from this job every 5 seconds.
       scrape_interval: 5s
       # metrics_path defaults to '/metrics'
@@ -54,7 +54,7 @@ data:
         action: keep
         regex: {{ .Release.Namespace }};istio-policy;http-monitoring
 
-    - job_name: 'mixer-report'
+    - job_name: 'istio-telemetry'
       # Override the global default and scrape targets from this job every 5 seconds.
       scrape_interval: 5s
       # metrics_path defaults to '/metrics'

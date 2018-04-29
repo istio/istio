@@ -142,9 +142,6 @@ function merge_files() {
   ISTIO_CITADEL_PLUGIN_CERTS=$DEST/istio-citadel-plugin-certs.yaml
   ISTIO_CITADEL_HEALTH_CHECK=$DEST/istio-citadel-with-health-check.yaml
   ISTIO_CITADEL_STANDALONE=$DEST/istio-citadel-standalone.yaml
-  ISTIO_MIXER_HEALTH_CHECK=$DEST/istio-mixer-with-health-check.yaml
-  ISTIO_MIXER_VALIDATOR=$DEST/istio-mixer-validator.yaml
-
 
   if [ "$COMPONENT_FILES" = true ]; then
     echo "generating component files"
@@ -207,14 +204,6 @@ function merge_files() {
   echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $ISTIO_CITADEL_STANDALONE
   echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO_CITADEL_STANDALONE
   cat $SRC/istio-citadel-standalone.yaml.tmpl >> $ISTIO_CITADEL_STANDALONE
-
-  echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $ISTIO_MIXER_HEALTH_CHECK
-  echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO_MIXER_HEALTH_CHECK
-  cat $SRC/istio-mixer-with-health-check.yaml.tmpl >> $ISTIO_MIXER_HEALTH_CHECK
-
-  echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $ISTIO_MIXER_VALIDATOR
-  echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO_MIXER_VALIDATOR
-  cat $SRC/istio-mixer-validator.yaml.tmpl >> $ISTIO_MIXER_VALIDATOR
 }
 
 function update_version_file() {
@@ -260,8 +249,6 @@ function update_istio_install() {
   execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-pilot.yaml.tmpl
   execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ingress.yaml.tmpl
   execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-mixer.yaml.tmpl
-  execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-mixer-with-health-check.yaml.tmpl
-  execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-mixer-validator.yaml.tmpl
   execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-citadel.yaml.tmpl
   execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-citadel-one-namespace.yaml.tmpl
   execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-citadel-plugin-certs.yaml.tmpl
@@ -271,10 +258,7 @@ function update_istio_install() {
   execute_sed "s|image: {PILOT_HUB}/\(.*\):{PILOT_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-pilot.yaml.tmpl
   execute_sed "s|image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}|image: ${PROXY_HUB}/${PROXY_IMAGE}:${PROXY_TAG}|" istio-pilot.yaml.tmpl
   execute_sed "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" istio-mixer.yaml.tmpl
-  execute_sed "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" istio-mixer-with-health-check.yaml.tmpl
-  execute_sed "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" istio-mixer-validator.yaml.tmpl
   execute_sed "s|image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}|image: ${PROXY_HUB}/${PROXY_IMAGE}:${PROXY_TAG}|" istio-mixer.yaml.tmpl
-  execute_sed "s|image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}|image: ${PROXY_HUB}/${PROXY_IMAGE}:${PROXY_TAG}|" istio-mixer-with-health-check.yaml.tmpl
   execute_sed "s|image: {CITADEL_HUB}/\(.*\):{CITADEL_TAG}|image: ${CITADEL_HUB}/\1:${CITADEL_TAG}|" istio-citadel.yaml.tmpl
   execute_sed "s|image: {CITADEL_HUB}/\(.*\):{CITADEL_TAG}|image: ${CITADEL_HUB}/\1:${CITADEL_TAG}|" istio-citadel-one-namespace.yaml.tmpl
   execute_sed "s|image: {CITADEL_HUB}/\(.*\):{CITADEL_TAG}|image: ${CITADEL_HUB}/\1:${CITADEL_TAG}|" istio-citadel-plugin-certs.yaml.tmpl
@@ -292,7 +276,6 @@ function update_istio_addons() {
   execute_sed "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" grafana.yaml.tmpl
   execute_sed "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" servicegraph.yaml.tmpl
   sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" grafana.yaml.tmpl  > $DEST/grafana.yaml
-  sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" prometheus.yaml.tmpl > $DEST/prometheus.yaml
   sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" servicegraph.yaml.tmpl > $DEST/servicegraph.yaml
   sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" zipkin.yaml.tmpl > $DEST/zipkin.yaml
   sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" zipkin-to-stackdriver.yaml.tmpl > $DEST/zipkin-to-stackdriver.yaml

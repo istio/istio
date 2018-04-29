@@ -23,7 +23,7 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-// EgressRules converts v1alpha1 egress rules to v1alpha3 external services
+// EgressRules converts v1alpha1 egress rules to v1alpha3 service entries
 func EgressRules(configs []model.Config) []model.Config {
 	egressRules := make([]*v1alpha1.EgressRule, 0)
 	for _, config := range configs {
@@ -32,7 +32,7 @@ func EgressRules(configs []model.Config) []model.Config {
 		}
 	}
 
-	externalServices := make([]*v1alpha3.ExternalService, 0)
+	serviceEntries := make([]*v1alpha3.ServiceEntry, 0)
 	for _, egressRule := range egressRules {
 		host := convertIstioService(egressRule.Destination)
 
@@ -49,23 +49,23 @@ func EgressRules(configs []model.Config) []model.Config {
 			log.Warnf("Use egress proxy field not supported")
 		}
 
-		externalServices = append(externalServices, &v1alpha3.ExternalService{
-			Hosts:     []string{host},
-			Ports:     ports,
-			Discovery: v1alpha3.ExternalService_NONE,
+		serviceEntries = append(serviceEntries, &v1alpha3.ServiceEntry{
+			Hosts:      []string{host},
+			Ports:      ports,
+			Resolution: v1alpha3.ServiceEntry_NONE,
 		})
 	}
 
 	out := make([]model.Config, 0)
-	for _, externalService := range externalServices {
+	for _, serviceEntry := range serviceEntries {
 		out = append(out, model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:      model.ExternalService.Type,
-				Name:      externalService.Hosts[0],
+				Type:      model.ServiceEntry.Type,
+				Name:      serviceEntry.Hosts[0],
 				Namespace: configs[0].Namespace,
 				Domain:    configs[0].Domain,
 			},
-			Spec: externalService,
+			Spec: serviceEntry,
 		})
 	}
 

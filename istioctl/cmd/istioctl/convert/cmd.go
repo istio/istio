@@ -95,7 +95,7 @@ func Command() *cobra.Command {
 	}
 
 	cmd.PersistentFlags().StringSliceVarP(&inFilenames, "filenames", "f",
-		nil, "Input filename")
+		nil, "Input filenames")
 	cmd.PersistentFlags().StringVarP(&outFilename, "output", "o",
 		"-", "Output filename")
 
@@ -108,7 +108,7 @@ func convertConfigs(readers []io.Reader, writer io.Writer) error {
 		model.VirtualService,
 		model.Gateway,
 		model.EgressRule,
-		model.ExternalService,
+		model.ServiceEntry,
 		model.DestinationPolicy,
 		model.DestinationRule,
 		model.HTTPAPISpec,
@@ -131,7 +131,7 @@ func convertConfigs(readers []io.Reader, writer io.Writer) error {
 	out = append(out, convert.RouteRules(configs)...)
 	out = append(out, convert.EgressRules(configs)...)
 	// TODO: k8s ingress -> gateway?
-	// TODO: create missing destination rules/subsets?
+	out = append(out, convert.RouteRuleRouteLabels(out, configs)...)
 
 	writeYAMLOutput(configDescriptor, out, writer)
 
@@ -200,8 +200,8 @@ func validateConfigs(configs []model.Config) error {
 			err = model.ValidateGateway(config.Spec)
 		case model.EgressRule.Type:
 			err = model.ValidateEgressRule(config.Spec)
-		case model.ExternalService.Type:
-			err = model.ValidateExternalService(config.Spec)
+		case model.ServiceEntry.Type:
+			err = model.ValidateServiceEntry(config.Spec)
 		case model.DestinationPolicy.Type:
 			err = model.ValidateDestinationPolicy(config.Spec)
 		case model.DestinationRule.Type:

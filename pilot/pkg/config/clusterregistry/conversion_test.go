@@ -65,7 +65,6 @@ type clusterInfo struct {
 	Platform              string
 	AccessConfigSecret    string
 	AccessConfigNamespace string
-	PilotCfgStore         bool
 	ServerEndpointIP      string
 	ClientCidr            string
 }
@@ -82,17 +81,17 @@ type clusterConfig struct {
 func TestGetPilotClusters(t *testing.T) {
 	tests := []struct {
 		testName       string
-		cs             ClusterStore
+		cs             *ClusterStore
 		numberOfPilots int
 	}{
 		{
 			testName:       "No pilots in the store",
-			cs:             ClusterStore{},
+			cs:             &ClusterStore{},
 			numberOfPilots: 0,
 		},
 		{
 			testName: "3 out of 3 Pilot in the store",
-			cs: ClusterStore{
+			cs: &ClusterStore{
 				clusters: []*k8s_cr.Cluster{
 					{
 						ObjectMeta: metav1.ObjectMeta{
@@ -116,7 +115,7 @@ func TestGetPilotClusters(t *testing.T) {
 		},
 		{
 			testName: "3 out of 3 Pilot in the store",
-			cs: ClusterStore{
+			cs: &ClusterStore{
 				clusters: []*k8s_cr.Cluster{
 					{
 						ObjectMeta: metav1.ObjectMeta{
@@ -139,7 +138,6 @@ func TestGetPilotClusters(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-
 		numberOfPilots := len(test.cs.GetPilotClusters())
 		if numberOfPilots != test.numberOfPilots {
 			t.Errorf("Test '%s' failed, expected: %d number of Pilots, got: %d ", test.testName,
@@ -167,7 +165,6 @@ func TestGetClusterConfig(t *testing.T) {
 					PilotIP:               "2.2.2.2",
 					AccessConfigSecret:    "clusA",
 					AccessConfigNamespace: "istio-system",
-					PilotCfgStore:         true,
 					ServerEndpointIP:      "192.168.4.10",
 					ClientCidr:            "0.0.0.1/0",
 				},
@@ -184,24 +181,6 @@ func TestGetClusterConfig(t *testing.T) {
 			},
 			expectError: false,
 		},
-		{
-			testName:      "Invalid kind",
-			configMapName: "clusterregistry" + "-" + uuid.New(),
-			ci: []clusterInfo{
-				{
-					Kind:                  "Invalid",
-					Name:                  "clusA",
-					PilotIP:               "2.2.2.2",
-					AccessConfigSecret:    "clusA",
-					AccessConfigNamespace: "istio-system",
-					PilotCfgStore:         true,
-					ServerEndpointIP:      "192.168.4.10",
-					ClientCidr:            "0.0.0.1/0",
-				},
-			},
-			cc:          []clusterConfig{},
-			expectError: true,
-		},
 	}
 	e := env{}
 	err := e.setup()
@@ -210,6 +189,7 @@ func TestGetClusterConfig(t *testing.T) {
 	}
 	defer e.teardown()
 
+	cs := NewClustersStore()
 	client := fake.NewSimpleClientset()
 
 	for _, test := range tests {
@@ -219,7 +199,7 @@ func TestGetClusterConfig(t *testing.T) {
 		if err := buildSecret(client, test.cc); err != nil {
 			t.Errorf("Failed to build secret(s) with error: %v", err)
 		}
-		cs, err := getClustersConfigs(client, test.configMapName, "istio-system")
+		err := getClustersConfigs(client, test.configMapName, "istio-system", cs)
 		if err != nil && !test.expectError {
 			t.Errorf("Test '%s' failed, expected not to fail, but failed with error: %v", test.testName, err)
 			continue

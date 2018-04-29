@@ -11,16 +11,18 @@ metadata:
     istio: sidecar-injector
 data:
   config: |-
-    policy: enabled
+    policy: {{ .Values.policy }}
     template: |-
       initContainers:
       - name: istio-init
-        image: {{ .Values.global.hub }}/proxy_init:{{ .Values.global.tag }}
+        image: {{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}
         args:
         - "-p"
         - {{ "[[ .MeshConfig.ProxyListenPort ]]" }}
         - "-u"
         - 1337
+        - "-m"
+        - {{ "[[ or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String ]]" }}
         - "-i"
         {{ "[[ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeOutboundIPRanges\") -]]" }}
         {{ "- \"[[ index .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeOutboundIPRanges\"  ]]\"" }}
@@ -52,6 +54,19 @@ data:
             - NET_ADMIN
           privileged: true
         restartPolicy: Always
+      {{ if eq .Values.enableCoreDump true }}
+      - args:
+        - -c
+        - sysctl -w kernel.core_pattern=/etc/istio/proxy/core.%e.%p.%t && ulimit -c unlimited
+        command:
+          - /bin/sh
+        image: {{ .Values.global.hub }}/proxy_init:{{ .Values.global.tag }}
+        imagePullPolicy: IfNotPresent
+        name: enable-core-dump
+        resources: {}
+        securityContext:
+          privileged: true
+      {{ end }}
       containers:
       - name: istio-proxy
         image: {{ "[[ if (isset .ObjectMeta.Annotations \"sidecar.istio.io/proxyImage\") -]]" }}
@@ -107,11 +122,19 @@ data:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
+        - name: ISTIO_META_INTERCEPTION_MODE
+          value: {{ "[[ or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String ]]" }}
         imagePullPolicy: IfNotPresent
         securityContext:
             privileged: false
             readOnlyRootFilesystem: true
+            {{ "[[ if eq (or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String) \"TPROXY\" -]]" }}
+            capabilities:
+              add:
+              - NET_ADMIN
+            {{ "[[ else -]]" }}
             runAsUser: 1337
+            {{ "[[ end -]]" }}
         restartPolicy: Always
         volumeMounts:
         - mountPath: /etc/istio/proxy
@@ -131,3 +154,4 @@ data:
           {{ "[[ else -]]" }}
           secretName: {{ "[[ printf \"istio.%s\" .Spec.ServiceAccountName ]]"  }}
           {{ "[[ end -]]" }}
+

@@ -1,0 +1,35 @@
+# istio CA watching all namespaces
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-citadel
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "security.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    istio: citadel
+spec:
+  replicas: {{ .Values.replicaCount }}
+  template:
+    metadata:
+      labels:
+        istio: citadel
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: istio-citadel-service-account
+      containers:
+        - name: citadel
+          image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          args:
+            - --append-dns-names=true
+            - --grpc-port=8060
+            - --grpc-hostname=citadel
+            - --self-signed-ca=true
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}
