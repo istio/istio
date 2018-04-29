@@ -1,0 +1,3 @@
+# specify --set tags.integrated_citadel=false to generate a standalone citadel configuration
+tags:
+  integrated_citadel: false

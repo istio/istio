@@ -1,3 +1,4 @@
+{{- if .Values.integrated_citadel }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -17,3 +18,21 @@ spec:
       port: 9093
   selector:
     istio: citadel
+{{- else }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: standalone-citadel-ilb
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    cloud.google.com/load-balancer-type: "internal"
+  labels:
+    istio: standalone-citadel
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 8060
+    protocol: TCP
+  selector:
+    istio: standalone-citadel
+{{- end }}

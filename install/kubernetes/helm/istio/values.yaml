@@ -3,6 +3,11 @@
 # TODO: evaluate if we need individual overrides for each component version, istio
 # is not typically tested with a mix of versions. Only supported case is version upgrade.
 
+
+# specify --set tags.integrated_citadel=false to generate a standalone citadel configuration
+tags:
+  integrated_citadel: true
+
 # Common settings.
 global:
   # Default tag for Istio images.
@@ -75,7 +80,7 @@ istiotesting:
 # ingress configuration
 #
 ingress:
-  enabled: true
+#  enabled: true
   serviceAccountName: default
   imagePullPolicy: IfNotPresent
   autoscaleMin: 1
@@ -97,7 +102,7 @@ ingress:
 # ingressgateway configuration
 #
 ingressgateway:
-  enabled: true
+#  enabled: true
   serviceAccountName: istio-ingressgateway-service-account
   imagePullPolicy: IfNotPresent
   autoscaleMin: 1
@@ -145,7 +150,7 @@ ingressgateway:
 # egressgateway configuration
 #
 egressgateway:
-  enabled: true
+#  enabled: true
   serviceAccountName: istio-egressgateway-service-account
   imagePullPolicy: IfNotPresent
   autoscaleMin: 1
@@ -239,7 +244,7 @@ galley:
 # mixer configuration
 #
 mixer:
-  enabled: true
+#  enabled: true
   serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
   image: mixer
@@ -262,7 +267,7 @@ mixer:
 # pilot configuration
 #
 pilot:
-  enabled: true
+#  enabled: true
   serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
   image: pilot
