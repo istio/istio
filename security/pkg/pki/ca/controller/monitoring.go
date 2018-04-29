@@ -53,7 +53,7 @@ var (
 
 	certSignErrorCounts = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "citadel",
-		Subsystem: "server",
+		Subsystem: "secret_controller",
 		Name:      "csr_sign_err_count",
 		Help:      "The number of erorrs occurred when signing the CSR.",
 	}, []string{errorlabel})

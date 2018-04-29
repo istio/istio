@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -106,10 +107,15 @@ func (s *Server) Run() error {
 		return fmt.Errorf("cannot listen on port %d (error: %v)", s.port, err)
 	}
 
-	serverOption := s.createTLSServerOption()
+	var grpcOptions []grpc.ServerOption
+	grpcOptions = append(grpcOptions, s.createTLSServerOption())
+	grpcOptions = append(grpcOptions, grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor))
 
-	grpcServer := grpc.NewServer(serverOption)
+	grpcServer := grpc.NewServer(grpcOptions...)
 	pb.RegisterIstioCAServiceServer(grpcServer, s)
+
+	grpc_prometheus.EnableHandlingTimeHistogram()
+	grpc_prometheus.Register(grpcServer)
 
 	// grpcServer.Serve() is a blocking call, so run it in a goroutine.
 	go func() {

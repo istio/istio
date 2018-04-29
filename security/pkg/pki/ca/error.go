@@ -14,22 +14,23 @@
 
 package ca
 
-type errType int
+// ErrType defines the enum for CA error types.
+type ErrType int
 
 const (
 	// CANotReady means the CA is not ready to sign CSRs.
-	CANotReady errType = iota
+	CANotReady ErrType = iota
 	// CSRError means the CA cannot sign CSR due to CSR error.
 	CSRError
 	// TTLError means the required TTL is invalid.
 	TTLError
-	// CertGenError means an error happend during the certificate generation.
+	// CertGenError means an error happened during the certificate generation.
 	CertGenError
 )
 
 // Error encapsulates the short and long errors.
 type Error struct {
-	t   errType
+	t   ErrType
 	err error
 }
 
@@ -54,7 +55,7 @@ func (e Error) ErrorType() string {
 }
 
 // NewError creates a new Error instance.
-func NewError(t errType, err error) *Error {
+func NewError(t ErrType, err error) *Error {
 	return &Error{
 		t:   t,
 		err: err,
