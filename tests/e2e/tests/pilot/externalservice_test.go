@@ -40,13 +40,13 @@ func TestServiceEntry(t *testing.T) {
 		{
 			name:              "REACHABLE_httpbin.org",
 			config:            "testdata/v1alpha3/serviceentry-httpbin.yaml",
-			url:               "http://httpbin.org/headers",
+			url:               "http://www.httpbin.org/headers",
 			shouldBeReachable: true,
 		},
 		{
 			name:              "UNREACHABLE_httpbin.org_443",
 			config:            "testdata/v1alpha3/serviceentry-httpbin.yaml",
-			url:               "https://httpbin.org:443/headers",
+			url:               "https://www.httpbin.org:443/headers",
 			shouldBeReachable: false,
 		},
 		{
