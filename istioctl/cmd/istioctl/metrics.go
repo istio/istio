@@ -262,7 +262,7 @@ func vectorValue(promAPI promv1.API, query string) (float64, error) {
 
 func printHeader() {
 	w := tabwriter.NewWriter(os.Stdout, 13, 1, 2, ' ', tabwriter.AlignRight)
-	fmt.Fprintf(w, "%13sService\tTotal RPS\tError RPS\tP50 Latency\tP90 Latency\tP99 Latency\t\n", "")
+	fmt.Fprintf(w, "%13sSERVICE\tTOTAL RPS\tERROR RPS\tP50 LATENCY\tP90 LATENCY\tP99 LATENCY\t\n", "")
 	w.Flush()
 }
 
