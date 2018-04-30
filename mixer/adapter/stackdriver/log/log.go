@@ -248,7 +248,6 @@ func toReq(mapping *config.Params_LogInfo_HttpRequestMapping, variables map[stri
 		Request: &http.Request{URL: reqUrl, Method: method, Header: httpHeaders},
 	}
 
-
 	reqs := variables[mapping.RequestSize]
 	if reqsize, ok := toInt64(reqs); ok {
 		req.RequestSize = reqsize
@@ -258,7 +257,6 @@ func toReq(mapping *config.Params_LogInfo_HttpRequestMapping, variables map[stri
 	if respsize, ok := toInt64(resps); ok {
 		req.ResponseSize = respsize
 	}
-
 
 	code := variables[mapping.Status]
 	if status, ok := code.(int64); ok {
