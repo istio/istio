@@ -225,10 +225,10 @@ func toReq(mapping *config.Params_LogInfo_HttpRequestMapping, variables map[stri
 		return nil
 	}
 
-	reqUrl := &url.URL{}
+	reqURL := &url.URL{}
 	if variables[mapping.Url] != nil {
 		if u, err := url.Parse(variables[mapping.Url].(string)); err == nil {
-			reqUrl = u
+			reqURL = u
 		}
 	}
 	method := ""
@@ -245,7 +245,7 @@ func toReq(mapping *config.Params_LogInfo_HttpRequestMapping, variables map[stri
 	}
 	// Required to make the Stackdriver client lib not barf.
 	req := &logging.HTTPRequest{
-		Request: &http.Request{URL: reqUrl, Method: method, Header: httpHeaders},
+		Request: &http.Request{URL: reqURL, Method: method, Header: httpHeaders},
 	}
 
 	reqs := variables[mapping.RequestSize]
