@@ -50,7 +50,7 @@ func TestEgress(t *testing.T) {
 		{
 			name:              "REACHABLE_httpbin.org",
 			config:            "testdata/v1alpha1/egress-rule-httpbin.yaml",
-			url:               "http://httpbin.org/headers",
+			url:               "http://www.httpbin.org/headers",
 			shouldBeReachable: true,
 		},
 		{
@@ -59,7 +59,7 @@ func TestEgress(t *testing.T) {
 			// Note that we're using http (not https). We're relying on Envoy to convert the outbound call to
 			// TLS for us. This is currently the suggested way for the application to call an external TLS service.\
 			// If the application uses TLS, then no metrics will be collected for the request.
-			url:               "http://httpbin.org:443/headers",
+			url:               "http://www.httpbin.org:443/headers",
 			shouldBeReachable: false,
 		},
 		{

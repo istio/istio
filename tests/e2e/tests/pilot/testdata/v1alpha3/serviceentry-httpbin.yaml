@@ -4,7 +4,7 @@ metadata:
   name: httpbin
 spec:
   hosts:
-    - "httpbin.org"
+    - "www.httpbin.org"
   ports:
     - number: 80
       name: http-port

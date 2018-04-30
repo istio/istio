@@ -4,7 +4,7 @@ metadata:
   name: httpbin
 spec:
   destination:
-      service: "httpbin.org"
+      service: "www.httpbin.org"
   ports:
       - port: 80
         protocol: http
