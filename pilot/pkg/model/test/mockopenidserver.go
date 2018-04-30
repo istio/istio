@@ -85,7 +85,7 @@ func (ms *MockOpenIDDiscoveryServer) Start() error {
 	}()
 
 	wait := 300 * time.Millisecond
-	for try := 0; try < 3; try++ {
+	for try := 0; try < 5; try++ {
 		time.Sleep(wait)
 		// Try to call the server
 		if _, err := http.Get(fmt.Sprintf("%s/.well-known/openid-configuration", ms.URL)); err != nil {
