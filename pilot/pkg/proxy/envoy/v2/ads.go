@@ -384,7 +384,9 @@ func adsPushAll() {
 	// the update may be duplicated if multiple goroutines compute at the same time).
 	// In general this code is called from the 'event' callback that is throttled.
 	for clusterName, edsCluster := range cMap {
-		updateCluster(clusterName, edsCluster)
+		if err := updateCluster(clusterName, edsCluster); err != nil {
+			log.Errorf("updateCluster failed with clusterName %s", clusterName)
+		}
 	}
 
 	// Push config changes, iterating over connected envoys. This cover ADS and EDS(0.7), both share

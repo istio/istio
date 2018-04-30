@@ -4,20 +4,20 @@ global:
     enabled: false
   proxy:
     hub: gcr.io/istio-testing
-    tag: 0.4.0
+    tag: 0.7.1
     debug: false
   pilot:
     enabled: true
     hub: gcr.io/istio-testing
-    tag: 0.4.0
+    tag: 0.7.1
   security:
     enabled: true
     hub: gcr.io/istio-testing
-    tag: 0.4.0
+    tag: 0.7.1
   mixer:
     enabled: true
     hub: gcr.io/istio-testing
-    tag: 0.4.0
+    tag: 0.7.1
   ingress:
     use_nodeport: false
     nodeport_port: 0

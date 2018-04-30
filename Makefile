@@ -406,7 +406,7 @@ JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit-tests.xml
 test: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
 	set -o pipefail; \
-	$(MAKE) --keep-going common-test pilot-test mixer-test security-test broker-test galley-test \
+	$(MAKE) --keep-going common-test pilot-test mixer-test security-test broker-test galley-test istioctl-test \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 GOTEST_PARALLEL ?= '-test.parallel=4'
@@ -433,6 +433,10 @@ localTestEnvCleanup: test-bins
 .PHONY: pilot-test
 pilot-test: pilot-agent
 	go test -p 1 ${T} ./pilot/...
+
+.PHONY: istioctl-test
+istioctl-test: istioctl
+	go test -p 1 ${T} ./istioctl/...
 
 .PHONY: mixer-test
 MIXER_TEST_T ?= ${T} ${GOTEST_PARALLEL}
@@ -464,11 +468,15 @@ common-test:
 .PHONY: coverage
 
 # Run coverage tests
-coverage: pilot-coverage mixer-coverage security-coverage broker-coverage galley-coverage common-coverage
+coverage: pilot-coverage mixer-coverage security-coverage broker-coverage galley-coverage common-coverage istioctl-coverage
 
 .PHONY: pilot-coverage
 pilot-coverage:
 	bin/codecov.sh pilot
+
+.PHONY: istioctl-coverage
+istioctl-coverage:
+	bin/codecov.sh istioctl
 
 .PHONY: mixer-coverage
 mixer-coverage:
@@ -498,11 +506,15 @@ common-coverage:
 .PHONY: racetest
 
 # Run race tests
-racetest: pilot-racetest mixer-racetest security-racetest broker-racetest galley-test common-racetest
+racetest: pilot-racetest mixer-racetest security-racetest broker-racetest galley-test common-racetest istioctl-racetest
 
 .PHONY: pilot-racetest
 pilot-racetest: pilot-agent
 	RACE_TEST=true go test -p 1 ${T} -race ./pilot/...
+
+.PHONY: istioctl-racetest
+istioctl-racetest: istioctl
+	RACE_TEST=true go test -p 1 ${T} -race ./istioctl/...
 
 .PHONY: mixer-racetest
 mixer-racetest: mixs
