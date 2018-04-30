@@ -16,20 +16,20 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
+	"istio.io/istio/galley/pkg/server"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/galley/cmd/shared"
 	"istio.io/istio/galley/pkg/kube"
-	"istio.io/istio/galley/pkg/kube/sync"
 	"istio.io/istio/pkg/cmd"
 )
 
-func syncCmd(fatalf shared.FormatFn) *cobra.Command {
+func serverCmd(fatalf shared.FormatFn) *cobra.Command {
 	return &cobra.Command{
-		Use:   "sync",
-		Short: "Starts Galley as a syncing server",
+		Use:   "server",
+		Short: "Starts Galley as a server",
 		Run: func(cmd *cobra.Command, args []string) {
-			err := runSync(fatalf)
+			err := runServer(fatalf)
 			if err != nil {
 				fatalf("Error during startup: %v", err)
 			}
@@ -37,7 +37,7 @@ func syncCmd(fatalf shared.FormatFn) *cobra.Command {
 	}
 }
 
-func runSync(fatalf shared.FormatFn) error {
+func runServer(fatalf shared.FormatFn) error {
 	config, err := clientcmd.BuildConfigFromFlags("", flags.kubeConfig)
 	if err != nil {
 		fatalf("Error getting kube config: %v", err)
@@ -45,12 +45,13 @@ func runSync(fatalf shared.FormatFn) error {
 	}
 
 	kube := kube.NewKube(config)
-	s := sync.New(kube, sync.Mapping(), flags.resyncPeriod)
+	s, err := server.New(kube, flags.resyncPeriod)
+	if err != nil {
+		return err
+	}
 
 	stop := make(chan struct{})
-
 	s.Start()
-
 	cmd.WaitSignal(stop)
 	s.Stop()
 	return nil

@@ -24,7 +24,7 @@ import (
 
 func TestCheckServiceConfig(t *testing.T) {
 	tests := []struct {
-		config string
+		config   string
 		messages string
 	}{
 		{
@@ -70,7 +70,6 @@ instances:
 [E0001] Field cannot be empty: instance template
 `,
 		},
-
 	}
 
 	for _, tst := range tests {
@@ -86,7 +85,6 @@ instances:
 		})
 	}
 }
-
 
 func hydrateServiceConfig(t *testing.T, cfg string) *api.ServiceConfig {
 	r := api.ServiceConfig{}

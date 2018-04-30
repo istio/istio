@@ -26,4 +26,7 @@ const (
 
 	// Delete means a Kubernetes resource was deleted.
 	Delete
+
+	// FullSync means that the event source has gone through all the resources
+	FullSync
 )

@@ -78,6 +78,7 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 
 	rootCmd.AddCommand(purgeCmd(fatalf))
 	rootCmd.AddCommand(syncCmd(fatalf))
+	rootCmd.AddCommand(serverCmd(fatalf))
 	rootCmd.AddCommand(validatorCmd(printf, fatalf))
 	rootCmd.AddCommand(probeCmd(printf, fatalf))
 	rootCmd.AddCommand(version.CobraCommand())
