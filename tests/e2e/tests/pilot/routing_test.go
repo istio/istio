@@ -121,7 +121,7 @@ func TestRoutes(t *testing.T) {
 				op, err := tc.Kube.GetRoutes("a")
 				log.Infof("error: %v\n%s", err, op)
 				cfg, err := util.GetConfigs("destinationrules.networking.istio.io",
-					"virtualservices.networking.istio.io", "externalservices.networking.istio.io",
+					"virtualservices.networking.istio.io", "serviceentries.networking.istio.io",
 					"policies.authentication.istio.io")
 
 				log.Infof("config: %v\n%s", err, cfg)

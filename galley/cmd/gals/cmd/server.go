@@ -19,7 +19,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/galley/cmd/shared"
-	"istio.io/istio/galley/pkg/kube"
+	"istio.io/istio/galley/pkg/common"
 	"istio.io/istio/galley/pkg/server"
 	"istio.io/istio/pkg/cmd"
 )
@@ -40,18 +40,16 @@ func serverCmd(fatalf shared.FormatFn) *cobra.Command {
 func runServer(fatalf shared.FormatFn) error {
 	config, err := clientcmd.BuildConfigFromFlags("", flags.kubeConfig)
 	if err != nil {
-		fatalf("Error getting kube config: %v", err)
 		return err
 	}
 
-	kube := kube.NewKube(config)
-	s, err := server.New(kube, flags.resyncPeriod)
-	if err != nil {
-		return err
-	}
+	kube := common.NewKube(config)
+	s := server.New(kube, server.Mapping(), flags.resyncPeriod)
 
 	stop := make(chan struct{})
+
 	s.Start()
+
 	cmd.WaitSignal(stop)
 	s.Stop()
 	return nil

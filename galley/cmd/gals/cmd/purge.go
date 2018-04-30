@@ -19,8 +19,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/galley/cmd/shared"
-	"istio.io/istio/galley/pkg/kube"
-	"istio.io/istio/galley/pkg/kube/sync"
+	"istio.io/istio/galley/pkg/common"
+	"istio.io/istio/galley/pkg/server"
 )
 
 func purgeCmd(fatalf shared.FormatFn) *cobra.Command {
@@ -39,11 +39,10 @@ func purgeCmd(fatalf shared.FormatFn) *cobra.Command {
 func purgeResources(fatalf shared.FormatFn) error {
 	config, err := clientcmd.BuildConfigFromFlags("", flags.kubeConfig)
 	if err != nil {
-		fatalf("Error getting Kube config: %v", err)
 		return err
 	}
 
-	kube := kube.NewKube(config)
+	kube := common.NewKube(config)
 
-	return sync.Purge(kube, sync.Mapping())
+	return server.Purge(kube, server.Mapping())
 }

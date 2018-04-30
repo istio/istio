@@ -2,10 +2,6 @@
 
 # Exit immediately for non zero status
 set -e
-# Check unset variables
-set -u
-# Print commands
-# set -x
 
 SCRIPTPATH="$(cd "$(dirname "$0")" ; pwd -P)"
 ROOTDIR="$(dirname ${SCRIPTPATH})"
@@ -14,6 +10,22 @@ if [ -z "$GCS_BUCKET_TOKEN" ]; then
 	echo "GCS_BUCKET_TOKEN unavailible"
 	exit 0
 fi
+
+REQUIRED_CIRCLE_ENVS=(
+	CIRCLE_SHA1
+	CIRCLE_PROJECT_USERNAME
+	CIRCLE_PROJECT_REPONAME
+	CIRCLE_JOB
+	CIRCLE_BUILD_NUM
+	CIRCLE_PR_NUMBER
+)
+
+for env in "${REQUIRED_CIRCLE_ENVS[@]}"; do
+	if eval [ -z \$${env} ]; then
+		echo "${env} not defined"
+		exit 0
+	fi
+done
 
 # The GCP service account for circle ci is only authorized to edit gs://istio-circleci bucket
 TMP_SA_JSON=$(mktemp /tmp/XXXXX.json)

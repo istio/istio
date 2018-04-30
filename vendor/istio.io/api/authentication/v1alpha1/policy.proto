@@ -22,14 +22,33 @@ package istio.authentication.v1alpha1;
 
 option go_package = "istio.io/api/authentication/v1alpha1";
 
-// mTLS authentication params.
+// TLS authentication params.
+// TODO: consider to give it a better name, maybe TlsParams?
 message MutualTls {
+  // Defines the acceptable connection TLS mode.
+  enum Mode {
+    // Client cert must be presented, connection is in TLS.
+    STRICT = 0;
+
+    // Connection must be in TLS, but client cert can be omitted.
+    // Request will not be fully authenticate if client cert is missing, but
+    // still be accepted.
+    TLS_PERMISSIVE = 1;
+
+    // Connection can be either plaintext or TLS, and client cert can be omitted.
+    PERMISSIVE = 2;
+  };
+
+  // WILL BE DEPRECATED, if set, will translates to `TLS_PERMISSIVE` mode.
   // Set this flag to true to allow regular TLS (i.e without client x509
   // certificate). If request carries client certificate, identity will be
   // extracted and used (set to peer identity). Otherwise, peer identity will
   // be left unset.
   // When the flag is false (default), request must have client certificate.
   bool allow_tls = 1;
+
+  // Defines the mode of mTLS authentication.
+  Mode mode = 2;
 }
 
 // JSON Web Token (JWT) token format for authentication as defined by
