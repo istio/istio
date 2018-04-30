@@ -43,7 +43,7 @@ func KindMap(adapterInfo map[string]*adapter.Info, templateInfo map[string]*temp
 	log.Debugf("Attribute manifest kind: %s", AttributeManifestKind)
 	kindMap[AdapterKind] = &v1beta1.Info{}
 	log.Debugf("Adapter info config kind: %s", AdapterKind)
-	kindMap[TemplateKind] = &v1beta1.Info{}
+	kindMap[TemplateKind] = &v1beta1.Template{}
 	log.Debugf("Template config kind: %s", TemplateKind)
 	return kindMap
 }

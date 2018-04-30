@@ -1365,9 +1365,8 @@ Attributes:
 				},
 				Type: store.Update,
 				Value: &store.Resource{
-					Spec: &adapter_model.Info{
-						Name:   "",
-						Config: fooTmpl,
+					Spec: &adapter_model.Template{
+						Descriptor_: fooTmpl,
 					},
 				},
 			},
@@ -1404,9 +1403,8 @@ Attributes:
 				},
 				Type: store.Update,
 				Value: &store.Resource{
-					Spec: &adapter_model.Info{
-						Name:   "",
-						Config: "bad descriptor",
+					Spec: &adapter_model.Template{
+						Descriptor_: "bad descriptor",
 					},
 				},
 			},
@@ -1439,9 +1437,8 @@ Attributes:
 				},
 				Type: store.Update,
 				Value: &store.Resource{
-					Spec: &adapter_model.Info{
-						Name:   "",
-						Config: fooTmpl,
+					Spec: &adapter_model.Template{
+						Descriptor_: fooTmpl,
 					},
 				},
 			},

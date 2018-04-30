@@ -313,8 +313,8 @@ func (v *Validator) validateUpdate(ev *store.Event) error {
 		if err := v.validateUpdateAdapter(ev.Namespace, adptInfo); err != nil {
 			return err
 		}
-	} else if tmpl, ok := ev.Value.Spec.(*v1beta1.Info); ok && ev.Kind == config.TemplateKind {
-		if _, _, _, err := config.GetTmplDesc(tmpl.Config); err != nil {
+	} else if tmpl, ok := ev.Value.Spec.(*v1beta1.Template); ok && ev.Kind == config.TemplateKind {
+		if _, _, _, err := config.GetTmplDesc(tmpl.GetDescriptor_()); err != nil {
 			return err
 		}
 	} else {

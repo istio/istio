@@ -405,11 +405,11 @@ func (e *Ephemeral) processTemplateConfigs(counters Counters) map[string]*Templa
 		templateName := templateKey.String()
 
 		counters.templateConfig.Add(1)
-		cfg := resource.Spec.(*v1beta1.Info)
+		cfg := resource.Spec.(*v1beta1.Template)
 
 		log.Debugf("Processing incoming template: name='%s'\n%v", templateName, cfg)
 
-		fds, desc, name, err := GetTmplDesc(cfg.Config)
+		fds, desc, name, err := GetTmplDesc(cfg.Descriptor_)
 		if err != nil {
 			log.Errorf("unable to parse descriptor from template: name='%s'", templateName)
 			counters.templateConfigError.Inc()

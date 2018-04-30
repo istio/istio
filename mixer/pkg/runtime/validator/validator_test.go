@@ -227,15 +227,15 @@ func TestValidator(t *testing.T) {
 
 		{
 			"add template",
-			[]*store.Event{updateEvent("metric.template.default", &v1beta1.Info{
-				Config: fooTmpl,
+			[]*store.Event{updateEvent("metric.template.default", &v1beta1.Template{
+				Descriptor_: fooTmpl,
 			})},
 			true,
 		},
 		{
 			"add template bad descriptor",
-			[]*store.Event{updateEvent("metric.template.default", &v1beta1.Info{
-				Config: "bad base64 string",
+			[]*store.Event{updateEvent("metric.template.default", &v1beta1.Template{
+				Descriptor_: "bad base64 string",
 			})},
 			false,
 		},
@@ -263,8 +263,8 @@ func TestValidator(t *testing.T) {
 		{
 			"add new info, valid template reference",
 			[]*store.Event{
-				updateEvent("mymetric.template.default", &v1beta1.Info{
-					Config: fooTmpl,
+				updateEvent("mymetric.template.default", &v1beta1.Template{
+					Descriptor_: fooTmpl,
 				}),
 				updateEvent("testCR1.adapter.default", &v1beta1.Info{
 					Name:         "testAdapter",
@@ -277,8 +277,8 @@ func TestValidator(t *testing.T) {
 		{
 			"add new info, valid template reference, short tmpl name",
 			[]*store.Event{
-				updateEvent("mymetric.template.default", &v1beta1.Info{
-					Config: fooTmpl,
+				updateEvent("mymetric.template.default", &v1beta1.Template{
+					Descriptor_: fooTmpl,
 				}),
 				updateEvent("testCR1.adapter.default", &v1beta1.Info{
 					Name:         "testAdapter",
@@ -321,8 +321,8 @@ func TestValidator(t *testing.T) {
 		{
 			"delete template invalid",
 			[]*store.Event{
-				updateEvent("mymetric.template.default", &v1beta1.Info{
-					Config: fooTmpl,
+				updateEvent("mymetric.template.default", &v1beta1.Template{
+					Descriptor_: fooTmpl,
 				}),
 				updateEvent("testCR1.adapter.default", &v1beta1.Info{
 					Name:         "testAdapter",
@@ -337,8 +337,8 @@ func TestValidator(t *testing.T) {
 		{
 			"delete template valid sequence",
 			[]*store.Event{
-				updateEvent("mymetric.template.default", &v1beta1.Info{
-					Config: fooTmpl,
+				updateEvent("mymetric.template.default", &v1beta1.Template{
+					Descriptor_: fooTmpl,
 				}),
 				updateEvent("testCR1.adapter.default", &v1beta1.Info{
 					Name:         "testAdapter",
