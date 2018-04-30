@@ -30,7 +30,7 @@ const (
 // TODO: ensure this test is reliable (no timing issues) on different systems
 func TestController(t *testing.T) {
 	configDescriptor := model.ConfigDescriptor{
-		model.ExternalService,
+		model.ServiceEntry,
 	}
 	store := memory.Make(configDescriptor)
 	configController := memory.NewController(store)
@@ -74,7 +74,7 @@ func TestController(t *testing.T) {
 
 	config := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      model.ExternalService.Type,
+			Type:      model.ServiceEntry.Type,
 			Name:      "example",
 			Namespace: "default",
 			Domain:    "cluster.local",
@@ -84,7 +84,7 @@ func TestController(t *testing.T) {
 
 	_, err = configController.Create(config)
 	if err != nil {
-		t.Errorf("error occurred crearting ExternalService config: %v", err)
+		t.Errorf("error occurred crearting ServiceEntry config: %v", err)
 	}
 
 	time.Sleep(notifyThreshold)

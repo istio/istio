@@ -16,6 +16,7 @@ package yaml
 
 import (
 	"fmt"
+	"io/ioutil"
 	"math"
 	"strings"
 
@@ -46,7 +47,7 @@ func (e *Encoder) EncodeBytes(data map[interface{}]interface{}, msgName string, 
 		return nil, fmt.Errorf("cannot resolve message '%s'", msgName)
 	}
 	for k, v := range data {
-		fd := findFieldByName(message, k.(string))
+		fd := FindFieldByName(message, k.(string))
 		if fd == nil {
 			if skipUnknown {
 				continue
@@ -96,7 +97,7 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
 			_ = buffer.EncodeVarint(uint64(len(v) * 8))
 			for i, iface := range v {
-				c, ok := toFloat(iface)
+				c, ok := ToFloat(iface)
 				if !ok {
 					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "float64", iface)
 				}
@@ -120,7 +121,7 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			}
 
 			for i, iface := range v {
-				c, ok := toFloat(iface)
+				c, ok := ToFloat(iface)
 				if !ok {
 					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "float64", iface)
 				}
@@ -134,7 +135,7 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			//	i++
 			//	encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Dbl))))
 			//	i += 8
-			v, ok := toFloat(data)
+			v, ok := ToFloat(data)
 			if !ok {
 				return badTypeError(name, "float64", data)
 			}
@@ -163,7 +164,7 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
 			_ = buffer.EncodeVarint(uint64(len(v) * 4))
 			for i, iface := range v {
-				c, ok := toFloat(iface)
+				c, ok := ToFloat(iface)
 				if !ok {
 					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "float32", iface)
 				}
@@ -187,7 +188,7 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			}
 
 			for i, iface := range v {
-				c, ok := toFloat(iface)
+				c, ok := ToFloat(iface)
 				if !ok {
 					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "float32", iface)
 				}
@@ -203,7 +204,7 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			//	i++
 			//	encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(m.Flt))))
 			//	i += 4
-			v, ok := toFloat(data)
+			v, ok := ToFloat(data)
 			if !ok {
 				return badTypeError(name, "float32", data)
 			}
@@ -242,7 +243,7 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 
 			tmpBuffer := GetBuffer()
 			for i, iface := range v {
-				c, ok := toInt64(iface)
+				c, ok := ToInt64(iface)
 				if !ok {
 					PutBuffer(tmpBuffer)
 					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
@@ -268,7 +269,7 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			}
 
 			for i, iface := range v {
-				c, ok := toInt64(iface)
+				c, ok := ToInt64(iface)
 				if !ok {
 					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
 				}
@@ -281,7 +282,7 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			//	dAtA[i] = 0x18
 			//	i++
 			//	i = encodeVarintTypes(dAtA, i, uint64(m.I64))
-			v, ok := toInt64(data)
+			v, ok := ToInt64(data)
 			if !ok {
 				return badTypeError(name, "int", data)
 			}
@@ -309,7 +310,7 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
 			_ = buffer.EncodeVarint(uint64(len(v) * 8))
 			for i, iface := range v {
-				c, ok := toInt64(iface)
+				c, ok := ToInt64(iface)
 				if !ok {
 					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
 				}
@@ -332,7 +333,7 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			}
 
 			for i, iface := range v {
-				c, ok := toInt64(iface)
+				c, ok := ToInt64(iface)
 				if !ok {
 					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
 				}
@@ -348,7 +349,7 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			//	i++
 			//	encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.F64))
 			//	i += 8
-			v, ok := toInt64(data)
+			v, ok := ToInt64(data)
 			if !ok {
 				return badTypeError(name, "int", data)
 			}
@@ -376,7 +377,7 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
 			_ = buffer.EncodeVarint(uint64(len(v) * 4))
 			for i, iface := range v {
-				c, ok := toInt64(iface)
+				c, ok := ToInt64(iface)
 				if !ok {
 					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
 				}
@@ -399,7 +400,7 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			}
 
 			for i, iface := range v {
-				c, ok := toInt64(iface)
+				c, ok := ToInt64(iface)
 				if !ok {
 					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
 				}
@@ -415,7 +416,7 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			//	i++
 			//	encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(m.F32))
 			//	i += 4
-			v, ok := toInt64(data)
+			v, ok := ToInt64(data)
 			if !ok {
 				return badTypeError(name, "int", data)
 			}
@@ -587,7 +588,7 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 
 			tmpBuffer := GetBuffer()
 			for i, iface := range v {
-				c, ok := toInt64(iface)
+				c, ok := ToInt64(iface)
 				if !ok {
 					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
 				}
@@ -620,7 +621,7 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			}
 
 			for i, iface := range v {
-				c, ok := toInt64(iface)
+				c, ok := ToInt64(iface)
 				if !ok {
 					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
 				}
@@ -635,7 +636,7 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			//	dAtA[i] = 0x3
 			//	i++
 			//	i = encodeVarintTypes(dAtA, i, uint64((uint32(m.Si32)<<1)^uint32((m.Si32>>31))))
-			v, ok := toInt64(data)
+			v, ok := ToInt64(data)
 			if !ok {
 				return badTypeError(name, "int", data)
 			}
@@ -671,7 +672,7 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 
 			tmpBuffer := GetBuffer()
 			for i, iface := range v {
-				c, ok := toInt64(iface)
+				c, ok := ToInt64(iface)
 				if !ok {
 					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
 				}
@@ -703,7 +704,7 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			}
 
 			for i, iface := range v {
-				c, ok := toInt64(iface)
+				c, ok := ToInt64(iface)
 				if !ok {
 					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
 				}
@@ -718,7 +719,7 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			//	dAtA[i] = 0x3
 			//	i++
 			//	i = encodeVarintTypes(dAtA, i, uint64((uint64(m.Si64)<<1)^uint64((m.Si64>>63))))
-			v, ok := toInt64(data)
+			v, ok := ToInt64(data)
 			if !ok {
 				return badTypeError(name, "int", data)
 			}
@@ -1042,4 +1043,19 @@ func typeName(field *descriptor.FieldDescriptorProto) string {
 		typ = "int64"
 	}
 	return typ
+}
+
+// GetFileDescSet reads proto filedescriptor set from a given file.
+func GetFileDescSet(path string) (*descriptor.FileDescriptorSet, error) {
+	byts, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	fds := &descriptor.FileDescriptorSet{}
+	if err = proto.Unmarshal(byts, fds); err != nil {
+		return nil, err
+	}
+
+	return fds, nil
 }

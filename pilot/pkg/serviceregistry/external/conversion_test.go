@@ -25,30 +25,30 @@ import (
 	"istio.io/istio/pilot/test/util"
 )
 
-var httpNone = &networking.ExternalService{
+var httpNone = &networking.ServiceEntry{
 	Hosts: []string{"*.google.com"},
 	Ports: []*networking.Port{
 		{Number: 80, Name: "http-number", Protocol: "http"},
 		{Number: 8080, Name: "http2-number", Protocol: "http2"},
 	},
-	Discovery: networking.ExternalService_NONE,
+	Resolution: networking.ServiceEntry_NONE,
 }
 
-var tcpNone = &networking.ExternalService{
+var tcpNone = &networking.ServiceEntry{
 	Hosts: []string{"172.217.0.0/16"},
 	Ports: []*networking.Port{
 		{Number: 444, Name: "tcp-444", Protocol: "tcp"},
 	},
-	Discovery: networking.ExternalService_NONE,
+	Resolution: networking.ServiceEntry_NONE,
 }
 
-var httpStatic = &networking.ExternalService{
+var httpStatic = &networking.ServiceEntry{
 	Hosts: []string{"*.google.com"},
 	Ports: []*networking.Port{
 		{Number: 80, Name: "http-port", Protocol: "http"},
 		{Number: 8080, Name: "http-alt-port", Protocol: "http"},
 	},
-	Endpoints: []*networking.ExternalService_Endpoint{
+	Endpoints: []*networking.ServiceEntry_Endpoint{
 		{
 			Address: "2.2.2.2",
 			Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
@@ -63,26 +63,26 @@ var httpStatic = &networking.ExternalService{
 			Labels:  map[string]string{"foo": "bar"},
 		},
 	},
-	Discovery: networking.ExternalService_STATIC,
+	Resolution: networking.ServiceEntry_STATIC,
 }
 
-var httpDNSnoEndpoints = &networking.ExternalService{
+var httpDNSnoEndpoints = &networking.ServiceEntry{
 	Hosts: []string{"google.com"},
 	Ports: []*networking.Port{
 		{Number: 80, Name: "http-port", Protocol: "http"},
 		{Number: 8080, Name: "http-alt-port", Protocol: "http"},
 	},
 
-	Discovery: networking.ExternalService_DNS,
+	Resolution: networking.ServiceEntry_DNS,
 }
 
-var httpDNS = &networking.ExternalService{
+var httpDNS = &networking.ServiceEntry{
 	Hosts: []string{"*.google.com"},
 	Ports: []*networking.Port{
 		{Number: 80, Name: "http-port", Protocol: "http"},
 		{Number: 8080, Name: "http-alt-port", Protocol: "http"},
 	},
-	Endpoints: []*networking.ExternalService_Endpoint{
+	Endpoints: []*networking.ServiceEntry_Endpoint{
 		{
 			Address: "us.google.com",
 			Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
@@ -96,15 +96,15 @@ var httpDNS = &networking.ExternalService{
 			Labels:  map[string]string{"foo": "bar"},
 		},
 	},
-	Discovery: networking.ExternalService_DNS,
+	Resolution: networking.ServiceEntry_DNS,
 }
 
-var tcpDNS = &networking.ExternalService{
+var tcpDNS = &networking.ServiceEntry{
 	Hosts: []string{"172.217.0.0/16"},
 	Ports: []*networking.Port{
 		{Number: 444, Name: "tcp-444", Protocol: "tcp"},
 	},
-	Endpoints: []*networking.ExternalService_Endpoint{
+	Endpoints: []*networking.ServiceEntry_Endpoint{
 		{
 			Address: "lon.google.com",
 		},
@@ -112,15 +112,15 @@ var tcpDNS = &networking.ExternalService{
 			Address: "in.google.com",
 		},
 	},
-	Discovery: networking.ExternalService_DNS,
+	Resolution: networking.ServiceEntry_DNS,
 }
 
-var tcpStatic = &networking.ExternalService{
+var tcpStatic = &networking.ServiceEntry{
 	Hosts: []string{"172.217.0.0/16"},
 	Ports: []*networking.Port{
 		{Number: 444, Name: "tcp-444", Protocol: "tcp"},
 	},
-	Endpoints: []*networking.ExternalService_Endpoint{
+	Endpoints: []*networking.ServiceEntry_Endpoint{
 		{
 			Address: "1.1.1.1",
 		},
@@ -128,7 +128,7 @@ var tcpStatic = &networking.ExternalService{
 			Address: "2.2.2.2",
 		},
 	},
-	Discovery: networking.ExternalService_STATIC,
+	Resolution: networking.ServiceEntry_STATIC,
 }
 
 func convertPortNameToProtocol(name string) model.Protocol {
@@ -165,10 +165,10 @@ func makeService(hostname, address string, ports map[string]int, resolution mode
 	return svc
 }
 
-func makeInstance(externalSvc *networking.ExternalService, address string, port int,
+func makeInstance(serviceEntry *networking.ServiceEntry, address string, port int,
 	svcPort *networking.Port, labels map[string]string) *model.ServiceInstance {
 	return &model.ServiceInstance{
-		Service: convertServices(externalSvc)[0],
+		Service: convertServices(serviceEntry)[0],
 		Endpoint: model.NetworkEndpoint{
 			Address: address,
 			Port:    port,
@@ -185,53 +185,53 @@ func makeInstance(externalSvc *networking.ExternalService, address string, port 
 
 func TestConvertService(t *testing.T) {
 	serviceTests := []struct {
-		externalSvc *networking.ExternalService
+		externalSvc *networking.ServiceEntry
 		services    []*model.Service
 	}{
 		{
-			// external service http
+			// service entry http
 			externalSvc: httpNone,
 			services: []*model.Service{makeService("*.google.com", "",
 				map[string]int{"http-number": 80, "http2-number": 8080}, model.Passthrough),
 			},
 		},
 		{
-			// external service tcp
+			// service entry tcp
 			externalSvc: tcpNone,
 			services: []*model.Service{makeService("172.217.0.0_16", "172.217.0.0/16",
 				map[string]int{"tcp-444": 444}, model.Passthrough),
 			},
 		},
 		{
-			// external service http  static
+			// service entry http  static
 			externalSvc: httpStatic,
 			services: []*model.Service{makeService("*.google.com", "",
 				map[string]int{"http-port": 80, "http-alt-port": 8080}, model.ClientSideLB),
 			},
 		},
 		{
-			// external service DNS with no endpoints
+			// service entry DNS with no endpoints
 			externalSvc: httpDNSnoEndpoints,
 			services: []*model.Service{makeService("google.com", "",
 				map[string]int{"http-port": 80, "http-alt-port": 8080}, model.DNSLB),
 			},
 		},
 		{
-			// external service dns
+			// service entry dns
 			externalSvc: httpDNS,
 			services: []*model.Service{makeService("*.google.com", "",
 				map[string]int{"http-port": 80, "http-alt-port": 8080}, model.DNSLB),
 			},
 		},
 		{
-			// external service tcp DNS
+			// service entry tcp DNS
 			externalSvc: tcpDNS,
 			services: []*model.Service{makeService("172.217.0.0_16", "172.217.0.0/16",
 				map[string]int{"tcp-444": 444}, model.DNSLB),
 			},
 		},
 		{
-			// external service tcp static
+			// service entry tcp static
 			externalSvc: tcpStatic,
 			services: []*model.Service{makeService("172.217.0.0_16", "172.217.0.0/16",
 				map[string]int{"tcp-444": 444}, model.ClientSideLB),
@@ -249,7 +249,7 @@ func TestConvertService(t *testing.T) {
 
 func TestConvertInstances(t *testing.T) {
 	serviceInstanceTests := []struct {
-		externalSvc *networking.ExternalService
+		externalSvc *networking.ServiceEntry
 		out         []*model.ServiceInstance
 	}{
 		{
@@ -259,13 +259,13 @@ func TestConvertInstances(t *testing.T) {
 			out: []*model.ServiceInstance{},
 		},
 		{
-			// external service tcp
+			// service entry tcp
 			externalSvc: tcpNone,
 			// DNS type none means service should not have a registered instance
 			out: []*model.ServiceInstance{},
 		},
 		{
-			// external service static
+			// service entry static
 			externalSvc: httpStatic,
 			out: []*model.ServiceInstance{
 				makeInstance(httpStatic, "2.2.2.2", 7080, httpStatic.Ports[0], nil),
@@ -277,7 +277,7 @@ func TestConvertInstances(t *testing.T) {
 			},
 		},
 		{
-			// external service DNS with no endpoints
+			// service entry DNS with no endpoints
 			externalSvc: httpDNSnoEndpoints,
 			out: []*model.ServiceInstance{
 				makeInstance(httpDNSnoEndpoints, "google.com", 80, httpDNSnoEndpoints.Ports[0], nil),
@@ -285,7 +285,7 @@ func TestConvertInstances(t *testing.T) {
 			},
 		},
 		{
-			// external service dns
+			// service entry dns
 			externalSvc: httpDNS,
 			out: []*model.ServiceInstance{
 				makeInstance(httpDNS, "us.google.com", 7080, httpDNS.Ports[0], nil),
@@ -297,7 +297,7 @@ func TestConvertInstances(t *testing.T) {
 			},
 		},
 		{
-			// external service tcp DNS
+			// service entry tcp DNS
 			externalSvc: tcpDNS,
 			out: []*model.ServiceInstance{
 				makeInstance(tcpDNS, "lon.google.com", 444, tcpDNS.Ports[0], nil),
@@ -305,7 +305,7 @@ func TestConvertInstances(t *testing.T) {
 			},
 		},
 		{
-			// external service tcp static
+			// service entry tcp static
 			externalSvc: tcpStatic,
 			out: []*model.ServiceInstance{
 				makeInstance(tcpStatic, "1.1.1.1", 444, tcpStatic.Ports[0], nil),
