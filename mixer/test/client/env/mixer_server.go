@@ -154,6 +154,7 @@ func NewMixerServer(port uint16, stress bool) (*MixerServer, error) {
 }
 
 // Start starts the mixer server
+// TODO: Add a channel so this can return an error
 func (ts *MixerServer) Start() {
 	go func() {
 		err := ts.gs.Serve(ts.lis)

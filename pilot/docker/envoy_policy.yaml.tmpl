@@ -67,6 +67,8 @@ static_resources:
               path: /dev/stdout
             name: envoy.file_access_log
           codec_type: HTTP2
+          http2_protocol_options:
+            max_concurrent_streams: 1073741824
           generate_request_id: true
           http_filters:
           - config:

@@ -90,6 +90,19 @@ func FindScope(scope string) *Scope {
 	return s
 }
 
+// Scopes returns a snapshot of the currently defined set of scopes
+func Scopes() map[string]*Scope {
+	lock.Lock()
+	defer lock.Unlock()
+
+	s := make(map[string]*Scope, len(scopes))
+	for k, v := range scopes {
+		s[k] = v
+	}
+
+	return s
+}
+
 // Error outputs a message at error level.
 func (s *Scope) Error(msg string, fields ...zapcore.Field) {
 	if s.GetOutputLevel() >= ErrorLevel {

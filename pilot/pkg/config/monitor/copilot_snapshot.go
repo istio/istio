@@ -99,6 +99,11 @@ func (c *CopilotSnapshot) ReadConfigFiles() ([]*model.Config, error) {
 							{
 								Destination: &networking.Destination{
 									Host: hostname,
+									Port: &networking.PortSelector{
+										Port: &networking.PortSelector_Name{
+											Name: "http",
+										},
+									},
 								},
 							},
 						},

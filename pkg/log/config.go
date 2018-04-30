@@ -198,6 +198,9 @@ func updateScopes(options *Options, core zapcore.Core, errSink zapcore.WriteSync
 	syncFn.Store(core.Sync)
 	errorSink.Store(errSink)
 
+	// snapshot what's there
+	allScopes := Scopes()
+
 	// update the output levels of all scopes
 	levels := strings.Split(options.outputLevels, ",")
 	for _, sl := range levels {
@@ -206,7 +209,7 @@ func updateScopes(options *Options, core zapcore.Core, errSink zapcore.WriteSync
 			return err
 		}
 
-		if scope, ok := scopes[s]; ok {
+		if scope, ok := allScopes[s]; ok {
 			scope.SetOutputLevel(l)
 		} else {
 			return fmt.Errorf("unknown scope '%s' specified", s)
@@ -221,7 +224,7 @@ func updateScopes(options *Options, core zapcore.Core, errSink zapcore.WriteSync
 			return err
 		}
 
-		if scope, ok := scopes[s]; ok {
+		if scope, ok := allScopes[s]; ok {
 			scope.SetStackTraceLevel(l)
 		} else {
 			return fmt.Errorf("unknown scope '%s' specified", s)
@@ -235,7 +238,7 @@ func updateScopes(options *Options, core zapcore.Core, errSink zapcore.WriteSync
 			continue
 		}
 
-		if scope, ok := scopes[s]; ok {
+		if scope, ok := allScopes[s]; ok {
 			scope.SetLogCallers(true)
 		} else {
 			return fmt.Errorf("unknown scope '%s' specified", s)

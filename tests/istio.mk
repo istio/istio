@@ -165,9 +165,9 @@ test/local/noauth/e2e_pilotv2: generate_yaml-envoyv2_transition
 		| tee ${OUT_DIR}/logs/test-report.raw
 
 test/local/cloudfoundry/e2e_pilotv2:
-	@mkdir -p /go/out/logs
+	@mkdir -p ${OUT_DIR}/logs
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 20m ./tests/e2e/tests/pilot/cloudfoundry ${T} \
-		| tee ${OUT_DIR}/logs/test-report.raw
+		| tee ${OUT_DIR}/logs/test-report-cloudfoundry.raw
 
 test/local/noauth/e2e_bookinfo_envoyv2: generate_yaml-envoyv2_transition_loadbalancer_ingressgateway
 	@mkdir -p ${OUT_DIR}/logs
