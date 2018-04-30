@@ -309,16 +309,6 @@ func TestValidator(t *testing.T) {
 			false,
 		},
 		{
-			"add new info, template reference not found",
-			[]*store.Event{updateEvent("testCR1.adapter.default", &v1beta1.Info{
-				Name:         "testAdapter",
-				Description:  "testAdapter description",
-				SessionBased: true,
-				Templates:    []string{"notexists.template.default"},
-			})},
-			false,
-		},
-		{
 			"delete template invalid",
 			[]*store.Event{
 				updateEvent("mymetric.template.default", &v1beta1.Template{
