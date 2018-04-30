@@ -244,7 +244,7 @@ func TestNew(t *testing.T) {
 					Config:    fooTmpl, // does not contain "Param" msg
 				},
 			},
-			wantErrs: []string{"cannot find message named 'Param' in the adapter configuration descriptor"},
+			wantErrs: []string{"cannot find message named 'Params' in the adapter configuration descriptor"},
 		},
 		{
 			name: "error bad adapter config",
@@ -264,7 +264,7 @@ func TestNew(t *testing.T) {
 				infoCpy := info
 				infos[i] = &infoCpy
 			}
-			reg, err := newAdapterInfoRegistry(infos)
+			reg, err := NewAdapterInfoRegistry(infos)
 			if len(td.wantErrs) == 0 {
 				if err != nil {
 					t.Fatalf("want no error got '%v;", err)

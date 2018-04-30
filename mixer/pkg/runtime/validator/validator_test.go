@@ -12,11 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// nolint
+//go:generate protoc testdata/foo.proto -otestdata/foo.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
 package validator
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
+	"io/ioutil"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -24,7 +30,9 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/hashicorp/go-multierror"
 
+	"istio.io/api/mixer/adapter/model/v1beta1"
 	cpb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config"
@@ -32,6 +40,8 @@ import (
 	"istio.io/istio/mixer/pkg/lang/checker"
 	"istio.io/istio/mixer/pkg/template"
 )
+
+var fooTmpl = getFileDescSetBase64("testdata/foo.descriptor")
 
 // testAdapterConfig is a types.Struct instance which represents the
 // adapter config used in the mixer/testdata/config/listentry.yaml.
@@ -131,103 +141,234 @@ func deleteEvent(keystr string) *store.Event {
 func TestValidator(t *testing.T) {
 	for _, cc := range []struct {
 		title string
-		ev    *store.Event
+		evs   []*store.Event
 		ok    bool
 	}{
 		{
 			"new rule",
-			updateEvent("test.rule.default", &cpb.Rule{
+			[]*store.Event{updateEvent("test.rule.default", &cpb.Rule{
 				Actions: []*cpb.Action{
 					{Handler: "staticversion.listchecker.istio-system", Instances: []string{"appversion.listentry.istio-system"}},
-				}}),
+				}})},
 			true,
 		},
 		{
 			"update rule",
-			updateEvent("checkwl.rule.istio-system", &cpb.Rule{
+			[]*store.Event{updateEvent("checkwl.rule.istio-system", &cpb.Rule{
 				Actions: []*cpb.Action{
 					{Handler: "staticversion.listchecker", Instances: []string{"appversion.listentry"}},
-				}}),
+				}})},
 			true,
 		},
 		{
 			"delete rule",
-			deleteEvent("checkwl.rule.istio-system"),
+			[]*store.Event{deleteEvent("checkwl.rule.istio-system")},
 			true,
 		},
 		{
 			"invalid updating rule: match syntax error",
-			updateEvent("test.rule.default", &cpb.Rule{Match: "foo"}),
+			[]*store.Event{updateEvent("test.rule.default", &cpb.Rule{Match: "foo"})},
 			false,
 		},
 		{
 			"invalid updating rule: match type error",
-			updateEvent("test.rule.default", &cpb.Rule{Match: "1"}),
+			[]*store.Event{updateEvent("test.rule.default", &cpb.Rule{Match: "1"})},
 			false,
 		},
 		{
 			"invalid updating rule: reference not found",
-			updateEvent("test.rule.default", &cpb.Rule{Actions: []*cpb.Action{{Handler: "nonexistent.listchecker.istio-system"}}}),
+			[]*store.Event{updateEvent("test.rule.default", &cpb.Rule{Actions: []*cpb.Action{{Handler: "nonexistent.listchecker.istio-system"}}})},
 			false,
 		},
 		{
 			"adding adapter",
-			updateEvent("test.listchecker.default", testAdapterConfig),
+			[]*store.Event{updateEvent("test.listchecker.default", testAdapterConfig)},
 			true,
 		},
 		{
 			"adding instance",
-			updateEvent("test.listentry.default", &types.Struct{Fields: map[string]*types.Value{
+			[]*store.Event{updateEvent("test.listentry.default", &types.Struct{Fields: map[string]*types.Value{
 				"value": {Kind: &types.Value_StringValue{StringValue: "0"}},
-			}}),
+			}})},
 			true,
 		},
 		{
 			"adapter validation failure",
-			updateEvent("test.listchecker.default", &types.Struct{}),
+			[]*store.Event{updateEvent("test.listchecker.default", &types.Struct{})},
 			false,
 		},
 		{
 			"invalid instance",
-			updateEvent("test.listentry.default", &types.Struct{}),
+			[]*store.Event{updateEvent("test.listentry.default", &types.Struct{})},
 			false,
 		},
 		{
 			"invalid instance syntax",
-			updateEvent("test.listentry.default", &types.Struct{Fields: map[string]*types.Value{
+			[]*store.Event{updateEvent("test.listentry.default", &types.Struct{Fields: map[string]*types.Value{
 				"value": {Kind: &types.Value_StringValue{StringValue: ""}},
-			}}),
+			}})},
 			false,
 		},
 		{
 			"invalid delete handler",
-			deleteEvent("staticversion.listchecker.istio-system"),
+			[]*store.Event{deleteEvent("staticversion.listchecker.istio-system")},
 			false,
 		},
 		{
 			"invalid delete instance",
-			deleteEvent("appversion.listentry.istio-system"),
+			[]*store.Event{deleteEvent("appversion.listentry.istio-system")},
 			false,
 		},
 		{
 			"invalid removal of attributemanifest",
-			deleteEvent("kubernetes.attributemanifest.istio-system"),
+			[]*store.Event{deleteEvent("kubernetes.attributemanifest.istio-system")},
 			false,
+		},
+
+		{
+			"add template",
+			[]*store.Event{updateEvent("metric.template.default", &v1beta1.Template{
+				Descriptor_: fooTmpl,
+			})},
+			true,
+		},
+		{
+			"add template bad descriptor",
+			[]*store.Event{updateEvent("metric.template.default", &v1beta1.Template{
+				Descriptor_: "bad base64 string",
+			})},
+			false,
+		},
+
+		{
+			"add new info valid",
+			[]*store.Event{updateEvent("testCR1.adapter.default", &v1beta1.Info{
+				Name:         "testAdapter",
+				Description:  "testAdapter description",
+				SessionBased: true,
+				Config:       "",
+			})},
+			true,
+		},
+		{
+			"add new info bad cfg",
+			[]*store.Event{updateEvent("testCR1.adapter.default", &v1beta1.Info{
+				Name:         "testAdapter",
+				Description:  "testAdapter description",
+				SessionBased: true,
+				Config:       "bad cfg descriptor",
+			})},
+			false,
+		},
+		{
+			"add new info, valid template reference",
+			[]*store.Event{
+				updateEvent("mymetric.template.default", &v1beta1.Template{
+					Descriptor_: fooTmpl,
+				}),
+				updateEvent("testCR1.adapter.default", &v1beta1.Info{
+					Name:         "testAdapter",
+					Description:  "testAdapter description",
+					SessionBased: true,
+					Templates:    []string{"mymetric.template.default"},
+				})},
+			true,
+		},
+		{
+			"add new info, valid template reference, short tmpl name",
+			[]*store.Event{
+				updateEvent("mymetric.template.default", &v1beta1.Template{
+					Descriptor_: fooTmpl,
+				}),
+				updateEvent("testCR1.adapter.default", &v1beta1.Info{
+					Name:         "testAdapter",
+					Description:  "testAdapter description",
+					SessionBased: true,
+					Templates:    []string{"mymetric.template"},
+				})},
+			true,
+		},
+		{
+			"add new info bad template kind",
+			[]*store.Event{updateEvent("testCR1.adapter.default", &v1beta1.Info{
+				Name:         "testAdapter",
+				Description:  "testAdapter description",
+				SessionBased: true,
+				Templates:    []string{"foo.rule.default"},
+			})},
+			false,
+		},
+		{
+			"add new info bad template reference",
+			[]*store.Event{updateEvent("testCR1.adapter.default", &v1beta1.Info{
+				Name:         "testAdapter",
+				Description:  "testAdapter description",
+				SessionBased: true,
+				Templates:    []string{"notexists.template.default"},
+			})},
+			false,
+		},
+		{
+			"delete template invalid",
+			[]*store.Event{
+				updateEvent("mymetric.template.default", &v1beta1.Template{
+					Descriptor_: fooTmpl,
+				}),
+				updateEvent("testCR1.adapter.default", &v1beta1.Info{
+					Name:         "testAdapter",
+					Description:  "testAdapter description",
+					SessionBased: true,
+					Templates:    []string{"mymetric.template"},
+				}),
+				deleteEvent("mymetric.template.default"),
+			},
+			false,
+		},
+		{
+			"delete template valid sequence",
+			[]*store.Event{
+				updateEvent("mymetric.template.default", &v1beta1.Template{
+					Descriptor_: fooTmpl,
+				}),
+				updateEvent("testCR1.adapter.default", &v1beta1.Info{
+					Name:         "testAdapter",
+					Description:  "testAdapter description",
+					SessionBased: true,
+					Templates:    []string{"mymetric.template"},
+				}),
+				deleteEvent("testCR1.adapter.default"),
+				deleteEvent("mymetric.template.default"),
+			},
+			true,
 		},
 	} {
 		t.Run(cc.title, func(tt *testing.T) {
 			v, err := getValidatorForTest()
+			v.refreshTypeChecker()
 			if err != nil {
 				tt.Fatal(err)
 			}
 			defer v.Stop()
-			err = v.Validate(cc.ev)
-			ok := (err == nil)
+			var result *multierror.Error
+			for _, ev := range cc.evs {
+				e := v.Validate(ev)
+				v.refreshTypeChecker()
+				result = multierror.Append(result, e)
+			}
+			ok := result.ErrorOrNil() == nil
 			if cc.ok != ok {
-				tt.Errorf("Got %v, Want %v", err, cc.ok)
+				tt.Errorf("Got %v, Want %v", result.ErrorOrNil(), cc.ok)
 			}
 		})
 	}
+}
+
+func unmarshalJson(jsonStr string) map[string]interface{} {
+	var in map[string]interface{}
+	if err := json.Unmarshal([]byte(jsonStr), &in); err != nil {
+		return nil
+	}
+	return in
 }
 
 func TestValidatorToRememberValidation(t *testing.T) {
@@ -284,4 +425,13 @@ func TestValidatorToRememberValidation(t *testing.T) {
 			}
 		})
 	}
+}
+
+func getFileDescSetBase64(path string) string {
+	byts, _ := ioutil.ReadFile(path)
+	var b bytes.Buffer
+	encoder := base64.NewEncoder(base64.StdEncoding, &b)
+	_, _ = encoder.Write(byts)
+	_ = encoder.Close()
+	return b.String()
 }

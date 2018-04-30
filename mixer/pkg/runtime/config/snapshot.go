@@ -16,6 +16,7 @@ package config
 
 import (
 	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/lang/ast"
@@ -40,9 +41,9 @@ type (
 		Rules     []*Rule
 
 		//  Templates2 contains template descriptors loaded from the store
-		Templates2 map[string]*TemplateMetadata
+		Templates2 map[string]*Template
 		//  Adapters2 contains adapter metadata loaded from the store
-		Adapters2 map[string]*AdapterMetadata
+		Adapters2 map[string]*Adapter
 
 		// Perf Counters relevant to configuration.
 		Counters Counters
@@ -96,6 +97,31 @@ type (
 
 		// Instances that should be generated as part of invoking action.
 		Instances []*Instance
+	}
+
+	// Template contains info about a template
+	Template struct {
+		// Name of the template.
+		// Note this is the template's resource name and not the template's internal name that adapter developer
+		// uses to implement adapter service.
+		Name string
+
+		// InternalPackageDerivedName is the name of the template from adapter developer point of view.
+		// The service and functions implemented by the adapter is based on this name
+		// NOTE: This name derived from template proto package and not the resource name.
+		InternalPackageDerivedName string
+
+		FileDescSet   *descriptor.FileDescriptorSet
+		FileDescProto *descriptor.FileDescriptorProto
+	}
+
+	// Adapter contains info about an adapter
+	Adapter struct {
+		// Name of the adapter
+		Name               string
+		ConfigDescSet      *descriptor.FileDescriptorSet
+		ConfigDescProto    *descriptor.FileDescriptorProto
+		SupportedTemplates []string
 	}
 )
 

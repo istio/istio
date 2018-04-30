@@ -110,7 +110,9 @@ func (e *Ephemeral) BuildSnapshot() *Snapshot {
 
 	instances := e.processInstanceConfigs(counters)
 
-	adapterInfos := e.processAdapterInfoConfigs(counters)
+	templates := e.processTemplateConfigs(counters)
+
+	adapterInfos := e.processAdapterInfoConfigs(templates, counters)
 
 	rules := e.processRuleConfigs(handlers, instances, counters)
 
@@ -118,8 +120,8 @@ func (e *Ephemeral) BuildSnapshot() *Snapshot {
 		ID:         id,
 		Templates:  e.templates,
 		Adapters:   e.adapters,
-		Templates2: adapterInfos.templates,
-		Adapters2:  adapterInfos.adapters,
+		Templates2: templates,
+		Adapters2:  adapterInfos,
 		Attributes: ast.NewFinder(attributes),
 		Handlers:   handlers,
 		Instances:  instances,
@@ -234,31 +236,49 @@ func (e *Ephemeral) processInstanceConfigs(counters Counters) map[string]*Instan
 	return instances
 }
 
-func (e *Ephemeral) processAdapterInfoConfigs(counters Counters) *adapterInfoRegistry {
-
+func (e *Ephemeral) processAdapterInfoConfigs(templates map[string]*Template, counters Counters) map[string]*Adapter {
+	result := map[string]*Adapter{}
 	log.Debug("Begin processing adapter info configurations.")
-
-	var adapterInfos []*v1beta1.Info
-
 	for adapterInfoKey, resource := range e.entries {
 		if adapterInfoKey.Kind != AdapterKind {
 			continue
 		}
+
+		adapterName := adapterInfoKey.String()
+
 		counters.adapterInfoConfig.Add(1)
 		cfg := resource.Spec.(*v1beta1.Info)
-		log.Debugf("Processing incoming adapter info: name='%s'\n%s", adapterInfoKey.String(), cfg)
-		adapterInfos = append(adapterInfos, cfg)
-	}
 
-	log.Debugf("Total received adapter info: count=%d, value='%v'", len(adapterInfos), adapterInfos)
-	reg, err := newAdapterInfoRegistry(adapterInfos)
-	if err != nil {
-		log.Errorf("Error when reading adapter info='%v'", err)
-		counters.adapterInfoConfigError.Inc()
+		log.Debugf("Processing incoming adapter info: name='%s'\n%v", adapterName, cfg)
+
+		fds, desc, err := GetAdapterCfgDescriptor(cfg.Config)
+		if err != nil {
+			log.Errorf("unable to parse adapter configuration from adapter: name='%s'", adapterName)
+			counters.adapterInfoConfigError.Inc()
+			continue
+		}
+		adptMetadata := Adapter{
+			Name:               adapterName,
+			ConfigDescSet:      fds,
+			ConfigDescProto:    desc,
+			SupportedTemplates: make([]string, 0),
+		}
+		for _, tmpl := range cfg.Templates {
+			tmplName := canonicalize(tmpl, adapterInfoKey.Namespace)
+			if _, ok := templates[tmplName]; !ok {
+				log.Errorf("unable to find template '%s' in adapter '%s'", tmpl, adapterName)
+				counters.adapterInfoConfigError.Inc()
+				continue
+			} else {
+				adptMetadata.SupportedTemplates = append(adptMetadata.SupportedTemplates, tmplName)
+			}
+		}
+		if len(cfg.Templates) == len(adptMetadata.SupportedTemplates) {
+			// only record adapter if all templates are valid
+			result[adapterName] = &adptMetadata
+		}
 	}
-	log.Debugf("Total successfully ingested templates: count=%d, value='%v'", len(reg.templates), reg.templates)
-	log.Debugf("Total successfully ingested adapters: count=%d, value='%v'", len(reg.adapters), reg.adapters)
-	return reg
+	return result
 }
 
 func (e *Ephemeral) processRuleConfigs(
@@ -373,6 +393,37 @@ func (e *Ephemeral) processRuleConfigs(
 	}
 
 	return rules
+}
+func (e *Ephemeral) processTemplateConfigs(counters Counters) map[string]*Template {
+	result := map[string]*Template{}
+	log.Debug("Begin processing templates.")
+	for templateKey, resource := range e.entries {
+		if templateKey.Kind != TemplateKind {
+			continue
+		}
+
+		templateName := templateKey.String()
+
+		counters.templateConfig.Add(1)
+		cfg := resource.Spec.(*v1beta1.Template)
+
+		log.Debugf("Processing incoming template: name='%s'\n%v", templateName, cfg)
+
+		fds, desc, name, err := GetTmplDesc(cfg.Descriptor_)
+		if err != nil {
+			log.Errorf("unable to parse descriptor from template: name='%s'", templateName)
+			counters.templateConfigError.Inc()
+			continue
+		}
+		tmplMetadata := Template{
+			Name: templateName,
+			InternalPackageDerivedName: name,
+			FileDescSet:                fds,
+			FileDescProto:              desc,
+		}
+		result[templateName] = &tmplMetadata
+	}
+	return result
 }
 
 // resourceType maps labels to rule types.
