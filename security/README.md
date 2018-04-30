@@ -18,9 +18,9 @@ Istio supports services running on both Kubernetes containers and VM/bare-metal 
 
 ![overview](https://cdn.rawgit.com/istio/istio/master/security/overview.svg)
 
-As illustrated in the diagram, Istio Security leverages secret volume mount to deliver keys/certs from Istio CA to Kubernetes containers.
+As illustrated in the diagram, Istio Security leverages secret volume mount to deliver keys/certs from Istio Citadel (acting as Certificate Authority) to Kubernetes containers.
 For services running on VM/bare-metal machines, we introduce a node agent, which is a process running on each VM/bare-metal machine.
-It generates the private key and CSR (certificate signing request) locally, sends CSR to Istio CA for signing, and delivers the generated certificate together with the private key to Envoy.
+It generates the private key and CSR (certificate signing request) locally, sends CSR to Istio Citadel for signing, and delivers the generated certificate together with the private key to Envoy.
 
 ### Identity
 
@@ -55,7 +55,7 @@ Service-to-service communication is tunneled through the client side [Envoy](htt
 
 Istio v0.2 supports services running on both Kubernetes pods and VM/bare-metal machines. We use different key provisioning mechanisms for each scenario.
 
-For services running on Kubernetes pods, the per-cluster Istio CA (Certificate Authority) automates the key & certificate management process. It mainly performs four critical operations :
+For services running on Kubernetes pods, the per-cluster Istio Citadel automates the key & certificate management process. It mainly performs four critical operations :
 
 *   Generate a [SPIFFE](http://spiffe.io/docs/svid) key and certificate pair for each service account
 
@@ -65,7 +65,7 @@ For services running on Kubernetes pods, the per-cluster Istio CA (Certificate A
 
 *   Revoke a specific key and certificate pair when necessary
 
-For services running on VM/bare-metal machines, the above four operations are performed by Istio CA together with node agents.
+For services running on VM/bare-metal machines, the above four operations are performed by Istio Citadel together with node agents.
 
 ## Workflow
 
@@ -74,7 +74,7 @@ Once the key and certificate are deployed, the runtime phase is the same for the
 
 ### Deployment phase (Kubernetes Scenario)
 
-1.  Istio CA watches Kubernetes API Server, creates a [SPIFFE](https://spiffe.github.io/docs/svid) key and certificate pair for each of the existing and new service accounts, and sends them to API Server.
+1.  Istio Citadel watches Kubernetes API Server, creates a [SPIFFE](https://spiffe.github.io/docs/svid) key and certificate pair for each of the existing and new service accounts, and sends them to API Server.
 
 1.  When a pod is created, API Server mounts the key and certificate pair according to the service account using [Kubernetes secrets](https://kubernetes.io/docs/concepts/configuration/secret/).
 
@@ -86,13 +86,13 @@ which
 
 1.  Adding service account for the service using Kubernetes annotation.
 
-1.  Istio CA creates a gRPC service to take CSR request.
+1.  Istio Citadel creates a gRPC service to take CSR request.
 
-1.  Node agent creates the private key and CSR, sends the CSR to Istio CA for signing.
+1.  Node agent creates the private key and CSR, sends the CSR to Istio Citadel for signing.
 
-1.  Istio CA validates the credentials carried in the CSR, and signs the CSR to generate the certificate.
+1.  Istio Citadel validates the credentials carried in the CSR, and signs the CSR to generate the certificate.
 
-1.  Node agent puts the certificate received from CA and the private key to Envoy.
+1.  Node agent puts the certificate received from Citadel and the private key to Envoy.
 
 1.  The above CSR process repeats periodically for rotation.
 
@@ -113,15 +113,15 @@ In this section, we provide a few deployment guidelines and then discuss a real-
 
 *   If there are multiple service operators (a.k.a. [SREs](https://en.wikipedia.org/wiki/Site_reliability_engineering)) deploying different services in a cluster (typically in a medium- or large-size cluster), we recommend creating a separate [namespace](https://kubernetes.io/docs/tasks/administer-cluster/namespaces-walkthrough/) for each SRE team to isolate their access. For example, you could create a "team1-ns" namespace for team1, and "team2-ns" namespace for team2, such that both teams won't be able to access each other's services.
 
-*   If Istio CA is compromised, all its managed keys and certificates in the cluster may be exposed. We *strongly* recommend running Istio CA on a dedicated namespace (for example, istio-ca-ns), which only cluster admins have access to.
+*   If Istio Citadel is compromised, all its managed keys and certificates in the cluster may be exposed. We *strongly* recommend running Istio Citadel on a dedicated namespace (for example, istio-citadel-ns), which only cluster admins have access to.
 
 ### Example
 
 Let's consider a 3-tier application with three services: photo-frontend, photo-backend, and datastore. Photo-frontend and photo-backend services are managed by the photo SRE team while the datastore service is managed by the datastore SRE team. Photo-frontend can access photo-backend, and photo-backend can access datastore. However, photo-frontend cannot access datastore.
 
-In this scenario, a cluster admin creates 3 namespaces: istio-ca-ns, photo-ns, and datastore-ns. Admin has access to all namespaces, and each team only has
+In this scenario, a cluster admin creates 3 namespaces: istio-citadel-ns, photo-ns, and datastore-ns. Admin has access to all namespaces, and each team only has
 access to its own namespace. The photo SRE team creates 2 service accounts to run photo-frontend and photo-backend respectively in namespace photo-ns. The
 datastore SRE team creates 1 service account to run the datastore service in namespace datastore-ns. Moreover, we need to enforce the service access control
 in [Istio Mixer](https://istio.io/docs/concepts/policy-and-control/mixer.html) such that photo-frontend cannot access datastore.
 
-In this setup, Istio CA is able to provide keys and certificates management for all namespaces, and isolate microservice deployments from each other.
+In this setup, Istio Citadel is able to provide keys and certificates management for all namespaces, and isolate microservice deployments from each other.
