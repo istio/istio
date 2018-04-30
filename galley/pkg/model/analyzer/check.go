@@ -19,3 +19,9 @@ func checkEmpty(m *Messages, name string, txt string) {
 		m.emptyField(name)
 	}
 }
+
+func checkNull(m *Messages, name string, v interface{}) {
+	if v == nil {
+		m.emptyField(name)
+	}
+}

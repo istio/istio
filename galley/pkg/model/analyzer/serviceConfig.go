@@ -15,13 +15,13 @@
 package analyzer
 
 import (
-	"istio.io/istio/galley/pkg/api"
+	"istio.io/istio/galley/pkg/api/service/dev"
 )
 
-func CheckServiceConfig(config *api.ServiceConfig) *Messages {
+func CheckServiceConfig(config *dev.ProducerService) *Messages {
 	m := &Messages{}
 
-	checkEmpty(m, "service name", config.Name)
+	checkService(m, config.Service)
 
 	for _, instance := range config.Instances {
 		checkInstance(m, instance)
@@ -30,7 +30,16 @@ func CheckServiceConfig(config *api.ServiceConfig) *Messages {
 	return m
 }
 
-func checkInstance(m *Messages, instance *api.InstanceDecl) {
+func checkService(m *Messages, selector *dev.ServiceSelector) {
+	checkNull(m, "service", selector)
+	if selector == nil {
+		return
+	}
+
+	checkEmpty(m, "service name", selector.Name)
+}
+
+func checkInstance(m *Messages, instance *dev.InstanceDecl) {
 	checkEmpty(m, "instance name", instance.Name)
 	checkEmpty(m, "instance template", instance.Template)
 }

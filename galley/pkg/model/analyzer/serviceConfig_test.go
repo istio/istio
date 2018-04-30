@@ -20,7 +20,7 @@ import (
 
 	"github.com/ghodss/yaml"
 
-	"istio.io/istio/galley/pkg/api"
+	"istio.io/istio/galley/pkg/api/service/dev"
 )
 
 func TestCheckServiceConfig(t *testing.T) {
@@ -30,14 +30,16 @@ func TestCheckServiceConfig(t *testing.T) {
 	}{
 		{
 			config: `
-name: empty
+service:
+  name: empty
 `,
 			messages: ``,
 		},
 
 		{
 			config: `
-name:
+service:
+  name:
 `,
 			messages: `
 [E0001] Field cannot be empty: service name
@@ -87,8 +89,8 @@ instances:
 	}
 }
 
-func hydrateServiceConfig(t *testing.T, cfg string) *api.ServiceConfig {
-	r := api.ServiceConfig{}
+func hydrateServiceConfig(t *testing.T, cfg string) *dev.ProducerService {
+	r := dev.ProducerService{}
 	err := yaml.Unmarshal([]byte(cfg), &r)
 	if err != nil {
 		t.Fatalf("error hydrating service config: %v", err)

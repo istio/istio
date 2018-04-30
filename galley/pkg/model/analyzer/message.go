@@ -47,5 +47,5 @@ func (m *Message) String() string {
 		lvl = "E"
 	}
 
-	return fmt.Sprintf("[%s%#04d] %s%s", lvl, m.Code, m.Content, src)
+	return fmt.Sprintf("[%s%04d] %s%s", lvl, m.Code, m.Content, src)
 }
