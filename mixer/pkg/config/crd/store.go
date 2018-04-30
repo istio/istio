@@ -114,22 +114,18 @@ func (s *Store) Stop() {
 	close(s.donec)
 }
 
-// continuallyCheckAndCreateCaches checks the presence of custom resource
+// continuallyCheckAndCacheResources checks the presence of custom resource
 // definitions through the discovery API, and then create caches through
 // lwBuilder which is in kinds. It retries until all kinds are cached or the
 // retryDone channel is closed.
 func (s *Store) continuallyCheckAndCacheResources(
-	kinds []string,
+	uncheckedKindsSet map[string]bool,
 	retryDone chan struct{},
 	d discovery.DiscoveryInterface,
 	lwBuilder listerWatcherBuilderInterface) {
 
-	uncheckedKindsSet := make(map[string]bool, len(kinds))
-	for _, kind := range kinds {
-		uncheckedKindsSet[kind] = true
-	}
+	log.Infof("Continually checking for kinds: %v", uncheckedKindsSet)
 
-	informers := map[string]cache.SharedInformer{}
 	retryCount := 0
 loop:
 	for len(uncheckedKindsSet) > 0 {
@@ -149,20 +145,32 @@ loop:
 		time.Sleep(s.retryInterval)
 		retryCount++
 
-		resources, err := d.ServerResourcesForGroupVersion(apiGroupVersion)
-		if err != nil {
-			log.Errorf("Failed to obtain resources for CRD: %v", err)
-		}
+		s.checkAndCacheResources(uncheckedKindsSet, retryDone, d, lwBuilder)
+	}
+}
 
-		for _, resource := range resources.APIResources {
-			kind := resource.Kind
-			if _, ok := uncheckedKindsSet[kind]; ok {
-				s.cacheResource(resource, lwBuilder, informers)
-				delete(uncheckedKindsSet, kind)
-			}
+func (s *Store) checkAndCacheResources(
+	uncheckedKindsSet map[string]bool,
+	retryDone chan struct{},
+	d discovery.DiscoveryInterface,
+	lwBuilder listerWatcherBuilderInterface) (err error) {
+
+	resources, err := d.ServerResourcesForGroupVersion(apiGroupVersion)
+	if err != nil {
+		log.Errorf("Failed to obtain resources for CRD: %v", err)
+		return
+	}
+
+	informers := map[string]cache.SharedInformer{}
+	for _, resource := range resources.APIResources {
+		kind := resource.Kind
+		if _, ok := uncheckedKindsSet[kind]; ok {
+			s.cacheResource(resource, lwBuilder, informers)
+			delete(uncheckedKindsSet, kind)
 		}
 	}
 	<-waitForSynced(retryDone, informers)
+	return
 }
 
 // Init implements store.StoreBackend interface.
@@ -188,34 +196,17 @@ func (s *Store) Init(kinds []string) (err error) {
 	for _, kind := range kinds {
 		uncheckedKindsSet[kind] = true
 	}
-
-	resources, err := d.ServerResourcesForGroupVersion(apiGroupVersion)
+	err = s.checkAndCacheResources(uncheckedKindsSet, timeoutdone, d, lwBuilder)
 	if err != nil {
-		log.Errorf("Failed to obtain resources for CRD: %v", err)
+		return
 	}
-
-	informers := map[string]cache.SharedInformer{}
-	for _, resource := range resources.APIResources {
-		kind := resource.Kind
-		if _, ok := uncheckedKindsSet[kind]; ok {
-			s.cacheResource(resource, lwBuilder, informers)
-			delete(uncheckedKindsSet, kind)
-		}
-	}
-	<-waitForSynced(timeoutdone, informers)
 	s.declareReadiness()
 
-	// unregisteredKinds are kinds which are not yet resources. These are not
-	// required to declare readiness, but will be checked for periodically and
-	// indefinitely.
-	unregisteredKinds := make([]string, 0, len(uncheckedKindsSet))
-	for kind := range uncheckedKindsSet {
-		unregisteredKinds = append(unregisteredKinds, kind)
-	}
+	// Asynchronously continue looking for unregistered kinds.
 	go s.continuallyCheckAndCacheResources(
-		unregisteredKinds, s.donec, d, lwBuilder)
+		uncheckedKindsSet, s.donec, d, lwBuilder)
 
-	return nil
+	return
 }
 
 // cacheResource creates the cache for resource through lwBuilder and adds it to
