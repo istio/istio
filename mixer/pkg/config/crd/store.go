@@ -114,6 +114,14 @@ func (s *Store) Stop() {
 	close(s.donec)
 }
 
+func setToList(set map[string]bool) []string {
+	list := make([]string, 0, len(set))
+	for str := range set {
+		list = append(list, str)
+	}
+	return list
+}
+
 // continuallyCheckAndCacheResources checks the presence of custom resource
 // definitions through the discovery API, and then create caches through
 // lwBuilder which is in kinds. It retries until all kinds are cached or the
@@ -124,7 +132,8 @@ func (s *Store) continuallyCheckAndCacheResources(
 	d discovery.DiscoveryInterface,
 	lwBuilder listerWatcherBuilderInterface) {
 
-	log.Infof("Continually checking for kinds: %v", uncheckedKindsSet)
+	log.Infof("Asynchronously checking for %v on a %v interval.",
+		setToList(uncheckedKindsSet), s.retryInterval)
 
 	retryCount := 0
 loop:
@@ -135,12 +144,9 @@ loop:
 		default:
 		}
 
-		if log.DebugEnabled() && retryCount%logPerRetries == 1 {
-			remainingKinds := make([]string, 0, len(uncheckedKindsSet))
-			for kind := range uncheckedKindsSet {
-				remainingKinds = append(remainingKinds, kind)
-			}
-			log.Debugf("Retrying to fetch config: %+v", remainingKinds)
+		if retryCount%logPerRetries == 1 {
+			log.Debugf("Retrying to fetch config: %v",
+				setToList(uncheckedKindsSet))
 		}
 		time.Sleep(s.retryInterval)
 		retryCount++
