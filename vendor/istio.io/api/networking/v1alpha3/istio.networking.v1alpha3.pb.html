@@ -2874,15 +2874,28 @@ label>.</p>
 </tbody>
 </table>
 </section>
-<h2 id="VirtualService">VirtualService</h2>
+<h2 id="TrafficPolicy.PortTrafficPolicy">TrafficPolicy.PortTrafficPolicy</h2>
 <section>
 <p>A <code>VirtualService</code> defines a set of traffic routing rules to apply when a host is
 addressed. Each routing rule defines matching criteria for traffic of a specific
 protocol. If the traffic is matched, then it is sent to a named destination service
 (or subset/version of it) defined in the registry.</p>
 
-<p>The source of traffic can also be matched in a routing rule. This allows routing
-to be customized for specific client contexts.</p>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TrafficPolicy.PortTrafficPolicy.port">
+<td><code>port</code></td>
+<td><code><a href="#PortSelector">PortSelector</a></code></td>
+<td>
+<p>Specifies the port name or number of a port on the destination service
+on which this policy is being applied.</p>
 
 <p>The following example on Kubernetes, routes all HTTP traffic by default to
 pods of the reviews service with label &ldquo;version: v1&rdquo;. In addition,
