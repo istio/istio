@@ -29,7 +29,7 @@ type Info struct {
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// User-friendly description of the adapter.
 	Description string `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
-	// Base64 encoded proto descriptor of all the templates the adapter wants to serve.
+	// Names of the templates the adapter supports.
 	Templates []string `protobuf:"bytes,3,rep,name=templates" json:"templates,omitempty"`
 	// Base64 encoded proto descriptor of the adapter configuration.
 	Config string `protobuf:"bytes,4,opt,name=config,proto3" json:"config,omitempty"`
