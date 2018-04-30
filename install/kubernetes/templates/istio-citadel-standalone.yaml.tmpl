@@ -53,7 +53,7 @@ spec:
   template:
     metadata:
       labels:
-        istio: citadel
+        istio: standalone-citadel
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
@@ -64,13 +64,13 @@ spec:
         imagePullPolicy: IfNotPresent
         command: ["/usr/local/bin/istio_ca"]
         args:
-          - --istio-ca-storage-namespace={ISTIO_NAMESPACE}
+          - --citadel-storage-namespace={ISTIO_NAMESPACE}
           - --grpc-port=8060
-          - --grpc-hostname=istio-standalone-citadel
+          - --grpc-host-identities=istio-standalone-citadel
           - --self-signed-ca=true
           - --self-signed-ca-org=test-org
           - --self-signed-ca-cert-ttl=24000h
-          - --multicluster-ca=true # Whether Citadel issues certs for other Citadels.
+          - --sign-ca-certs=true # Whether Citadel issues certs for other Citadels.
           - --workload-cert-ttl=21h
           - --logtostderr
           - --stderrthreshold

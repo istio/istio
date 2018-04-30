@@ -209,7 +209,7 @@ func (b logToEnvLogger) Write(msg []byte) (int, error) {
 	} else if bytes.HasPrefix(msg, []byte("[WARN]")) {
 		b.env.Logger().Warningf(string(msg))
 	} else if bytes.HasPrefix(msg, []byte("[DEBUG]")) {
-		b.env.Logger().Infof(string(msg))
+		b.env.Logger().Debugf(string(msg))
 	} else {
 		b.env.Logger().Infof(string(msg))
 	}

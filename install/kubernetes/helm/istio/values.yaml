@@ -14,6 +14,8 @@ global:
   tag: circleci-nightly
   proxy:
     image: proxy
+  proxy_init:
+    image: proxy_init
 
   # imagePullPolicy is applied to istio control plane components.
   imagePullPolicy: IfNotPresent
@@ -186,8 +188,10 @@ egressgateway:
 #
 sidecar-injector:
   enabled: false
+  enableCoreDump: false
   serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
+  image: sidecar_injector
   imagePullPolicy: IfNotPresent
   resources: {}
   # limits:
@@ -212,6 +216,7 @@ sidecar-injector:
   #     Redirect only selected ports:            --includeInboundPorts="80,8080"
   includeInboundPorts: "*"
   excludeInboundPorts: ""
+  policy: enabled
 
 #
 # galley configuration
@@ -220,6 +225,7 @@ galley:
   enabled: false
   serviceAccountName: default
   replicaCount: 1
+  image: galley
   imagePullPolicy: IfNotPresent
   resources: {}
   # limits:
@@ -236,6 +242,7 @@ mixer:
   enabled: true
   serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
+  image: mixer
   imagePullPolicy: IfNotPresent
   resources: {}
   # limits:
@@ -258,6 +265,7 @@ pilot:
   enabled: true
   serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
+  image: pilot
   imagePullPolicy: IfNotPresent
   resources: {}
   # limits:
@@ -273,6 +281,7 @@ pilot:
 security:
   serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
+  image: citadel
   imagePullPolicy: IfNotPresent
   resources: {}
   # limits:
@@ -288,6 +297,7 @@ security:
 grafana:
   enabled: false
   replicaCount: 1
+  image: grafana
   imagePullPolicy: IfNotPresent
   service:
     name: http
@@ -351,6 +361,7 @@ prometheus:
 servicegraph:
   enabled: false
   replicaCount: 1
+  image: servicegraph
   imagePullPolicy: IfNotPresent
   service:
     name: http
