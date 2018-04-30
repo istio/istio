@@ -579,6 +579,7 @@ jobs:
           command: |
             if [ ! -z "${DOCKER_USER}" ] ; then
               echo "Pushing docker images"
+              export TAG=nightly-${CIRCLE_BRANCH}
               docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
               # The xenail debug image is built first, will be used in the next steps
               make docker.push.basedebug docker.all push
@@ -610,6 +611,8 @@ workflows:
              branches:
                only:
                  - master
+                 - release-0.8
+                 - dev-networking
     jobs: #daisy chained steps ending with docker push
       - depupdate
       - build
@@ -658,6 +661,8 @@ workflows:
              branches:
                only:
                  - master
+                 - release-0.8
+                 - dev-networking
     jobs:
       - depupdate
       - build
