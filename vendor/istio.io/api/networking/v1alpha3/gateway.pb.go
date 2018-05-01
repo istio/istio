@@ -46,9 +46,6 @@ func (Server_TLSOptions_TLSmode) EnumDescriptor() ([]byte, []int) {
 	return fileDescriptorGateway, []int{1, 0, 0}
 }
 
-//
-// # Overview
-//
 // `Gateway` describes a load balancer operating at the edge of the mesh
 // receiving incoming or outgoing HTTP/TCP connections. The specification
 // describes a set of ports that should be exposed, the type of protocol to

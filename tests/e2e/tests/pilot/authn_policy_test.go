@@ -16,6 +16,7 @@ package pilot
 
 import (
 	"fmt"
+	"io/ioutil"
 	"testing"
 )
 
@@ -26,7 +27,7 @@ func TestAuthNPolicy(t *testing.T) {
 
 	cfgs := &deployableConfig{
 		Namespace:  tc.Kube.Namespace,
-		YamlFiles:  []string{"testdata/v1alpha1/authn-policy.yaml.tmpl"},
+		YamlFiles:  []string{"testdata/authn/v1alpha1/authn-policy.yaml.tmpl"},
 		kubeconfig: tc.Kube.KubeConfig,
 	}
 	if err := cfgs.Setup(); err != nil {
@@ -66,4 +67,65 @@ func TestAuthNPolicy(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestAuthNJwt(t *testing.T) {
+	// JWT token used is borrowed from https://github.com/istio/proxy/blob/master/src/envoy/http/jwt_auth/sample/correct_jwt.
+	// The Token expires in year 2132, issuer is 628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com.
+	// Test will fail if this service account is deleted.
+	p := "testdata/authn/v1alpha1/correct_jwt"
+	token, err := ioutil.ReadFile(p)
+	if err != nil {
+		t.Fatalf("failed to read %q", p)
+	}
+	validJwtToken := string(token)
+
+	// Policy enforces JWT authn for service 'c' and 'd:80'.
+	cfgs := &deployableConfig{
+		Namespace:  tc.Kube.Namespace,
+		YamlFiles:  []string{"testdata/authn/v1alpha1/authn-policy-jwt.yaml.tmpl"},
+		kubeconfig: tc.Kube.KubeConfig,
+	}
+	if err := cfgs.Setup(); err != nil {
+		t.Fatal(err)
+	}
+	defer cfgs.Teardown()
+
+	cases := []struct {
+		dst    string
+		src    string
+		port   string
+		token  string
+		expect string
+	}{
+		{dst: "a", src: "b", port: "", token: "", expect: "200"},
+		{dst: "a", src: "c", port: "80", token: "", expect: "200"},
+
+		{dst: "b", src: "a", port: "", token: "", expect: "200"},
+		{dst: "b", src: "a", port: "80", token: "", expect: "200"},
+		{dst: "b", src: "c", port: "", token: validJwtToken, expect: "200"},
+		{dst: "b", src: "d", port: "8080", token: "testToken", expect: "200"},
+
+		{dst: "c", src: "a", port: "80", token: validJwtToken, expect: "200"},
+		{dst: "c", src: "a", port: "8080", token: "invalidToken", expect: "401"},
+		{dst: "c", src: "b", port: "", token: "random", expect: "401"},
+		{dst: "c", src: "d", port: "80", token: validJwtToken, expect: "200"},
+
+		{dst: "d", src: "a", port: "", token: validJwtToken, expect: "200"},
+		{dst: "d", src: "b", port: "80", token: "foo", expect: "401"},
+		{dst: "d", src: "c", port: "8080", token: "bar", expect: "200"},
+	}
+
+	for _, c := range cases {
+		testName := fmt.Sprintf("%s->%s[%s]", c.src, c.dst, c.expect)
+		runRetriableTest(t, testName, defaultRetryBudget, func() error {
+			extra := fmt.Sprintf("-key \"Authorization\" -val \"Bearer %s\"", c.token)
+			resp := ClientRequest(c.src, fmt.Sprintf("http://%s:%s", c.dst, c.port), 1, extra)
+			if len(resp.Code) > 0 && resp.Code[0] == c.expect {
+				return nil
+			}
+
+			return errAgain
+		})
+	}
 }

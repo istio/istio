@@ -22,9 +22,9 @@ import (
 )
 
 // To route all external traffic via Istio Egress gateway
-// 1. Add external services
+// 1. Add service entries
 // 2. Add egress gateway
-// 3. Add virtual service for each external service such that
+// 3. Add virtual service for each service entry such that
 //    3.a. Traffic from all sidecars (i.e. mesh gateway) goes to egress gateway svc
 //    3.b. Traffic from egress gateway goes to actual destination (in our case, its t)
 // The tests will only check for requests from a->t with host matching ext service
@@ -37,7 +37,7 @@ func TestEgressGateway(t *testing.T) {
 		Namespace: tc.Kube.Namespace,
 		YamlFiles: []string{
 			"testdata/v1alpha3/egressgateway.yaml",
-			"testdata/v1alpha3/external-service.yaml",
+			"testdata/v1alpha3/service-entry.yaml",
 			"testdata/v1alpha3/rule-route-via-egressgateway.yaml"},
 	}
 	if err := cfgs.Setup(); err != nil {

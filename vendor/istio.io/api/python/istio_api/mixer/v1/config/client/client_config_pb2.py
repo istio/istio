@@ -18,16 +18,15 @@ from google.protobuf import duration_pb2 as google_dot_protobuf_dot_duration__pb
 from mixer.v1 import attributes_pb2 as mixer_dot_v1_dot_attributes__pb2
 from mixer.v1.config.client import api_spec_pb2 as mixer_dot_v1_dot_config_dot_client_dot_api__spec__pb2
 from mixer.v1.config.client import quota_pb2 as mixer_dot_v1_dot_config_dot_client_dot_quota__pb2
-from mixer.v1.config.client import auth_pb2 as mixer_dot_v1_dot_config_dot_client_dot_auth__pb2
 
 
 DESCRIPTOR = _descriptor.FileDescriptor(
   name='mixer/v1/config/client/client_config.proto',
   package='istio.mixer.v1.config.client',
   syntax='proto3',
-  serialized_pb=_b('\n*mixer/v1/config/client/client_config.proto\x12\x1cistio.mixer.v1.config.client\x1a\x14gogoproto/gogo.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x19mixer/v1/attributes.proto\x1a%mixer/v1/config/client/api_spec.proto\x1a\"mixer/v1/config/client/quota.proto\x1a!mixer/v1/config/client/auth.proto\"\x8c\x01\n\x11NetworkFailPolicy\x12J\n\x06policy\x18\x01 \x01(\x0e\x32:.istio.mixer.v1.config.client.NetworkFailPolicy.FailPolicy\"+\n\nFailPolicy\x12\r\n\tFAIL_OPEN\x10\x00\x12\x0e\n\nFAIL_CLOSE\x10\x01\"\xa9\x03\n\rServiceConfig\x12\x1b\n\x13\x64isable_check_calls\x18\x01 \x01(\x08\x12\x1c\n\x14\x64isable_report_calls\x18\x02 \x01(\x08\x12\x34\n\x10mixer_attributes\x18\x03 \x01(\x0b\x32\x1a.istio.mixer.v1.Attributes\x12@\n\rhttp_api_spec\x18\x04 \x03(\x0b\x32).istio.mixer.v1.config.client.HTTPAPISpec\x12;\n\nquota_spec\x18\x05 \x03(\x0b\x32\'.istio.mixer.v1.config.client.QuotaSpec\x12Z\n\x13\x65nd_user_authn_spec\x18\x06 \x01(\x0b\x32=.istio.mixer.v1.config.client.EndUserAuthenticationPolicySpec\x12L\n\x13network_fail_policy\x18\x07 \x01(\x0b\x32/.istio.mixer.v1.config.client.NetworkFailPolicy\"\xa0\x02\n\x0fTransportConfig\x12\x1b\n\x13\x64isable_check_cache\x18\x01 \x01(\x08\x12\x1b\n\x13\x64isable_quota_cache\x18\x02 \x01(\x08\x12\x1c\n\x14\x64isable_report_batch\x18\x03 \x01(\x08\x12L\n\x13network_fail_policy\x18\x04 \x01(\x0b\x32/.istio.mixer.v1.config.client.NetworkFailPolicy\x12\x38\n\x15stats_update_interval\x18\x05 \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x15\n\rcheck_cluster\x18\x06 \x01(\t\x12\x16\n\x0ereport_cluster\x18\x07 \x01(\t\"\xa8\x03\n\x10HttpClientConfig\x12@\n\ttransport\x18\x01 \x01(\x0b\x32-.istio.mixer.v1.config.client.TransportConfig\x12[\n\x0fservice_configs\x18\x02 \x03(\x0b\x32\x42.istio.mixer.v1.config.client.HttpClientConfig.ServiceConfigsEntry\x12#\n\x1b\x64\x65\x66\x61ult_destination_service\x18\x03 \x01(\t\x12\x34\n\x10mixer_attributes\x18\x04 \x01(\x0b\x32\x1a.istio.mixer.v1.Attributes\x12\x36\n\x12\x66orward_attributes\x18\x05 \x01(\x0b\x32\x1a.istio.mixer.v1.Attributes\x1a\x62\n\x13ServiceConfigsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12:\n\x05value\x18\x02 \x01(\x0b\x32+.istio.mixer.v1.config.client.ServiceConfig:\x02\x38\x01\"\xc0\x02\n\x0fTcpClientConfig\x12@\n\ttransport\x18\x01 \x01(\x0b\x32-.istio.mixer.v1.config.client.TransportConfig\x12\x34\n\x10mixer_attributes\x18\x02 \x01(\x0b\x32\x1a.istio.mixer.v1.Attributes\x12\x1b\n\x13\x64isable_check_calls\x18\x03 \x01(\x08\x12\x1c\n\x14\x64isable_report_calls\x18\x04 \x01(\x08\x12\x46\n\x15\x63onnection_quota_spec\x18\x05 \x01(\x0b\x32\'.istio.mixer.v1.config.client.QuotaSpec\x12\x32\n\x0freport_interval\x18\x06 \x01(\x0b\x32\x19.google.protobuf.DurationB1Z#istio.io/api/mixer/v1/config/client\xc8\xe1\x1e\x00\xa8\xe2\x1e\x00\xf0\xe1\x1e\x00\x62\x06proto3')
+  serialized_pb=_b('\n*mixer/v1/config/client/client_config.proto\x12\x1cistio.mixer.v1.config.client\x1a\x14gogoproto/gogo.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x19mixer/v1/attributes.proto\x1a%mixer/v1/config/client/api_spec.proto\x1a\"mixer/v1/config/client/quota.proto\"\x8c\x01\n\x11NetworkFailPolicy\x12J\n\x06policy\x18\x01 \x01(\x0e\x32:.istio.mixer.v1.config.client.NetworkFailPolicy.FailPolicy\"+\n\nFailPolicy\x12\r\n\tFAIL_OPEN\x10\x00\x12\x0e\n\nFAIL_CLOSE\x10\x01\"\xcd\x02\n\rServiceConfig\x12\x1b\n\x13\x64isable_check_calls\x18\x01 \x01(\x08\x12\x1c\n\x14\x64isable_report_calls\x18\x02 \x01(\x08\x12\x34\n\x10mixer_attributes\x18\x03 \x01(\x0b\x32\x1a.istio.mixer.v1.Attributes\x12@\n\rhttp_api_spec\x18\x04 \x03(\x0b\x32).istio.mixer.v1.config.client.HTTPAPISpec\x12;\n\nquota_spec\x18\x05 \x03(\x0b\x32\'.istio.mixer.v1.config.client.QuotaSpec\x12L\n\x13network_fail_policy\x18\x07 \x01(\x0b\x32/.istio.mixer.v1.config.client.NetworkFailPolicy\"\xa0\x02\n\x0fTransportConfig\x12\x1b\n\x13\x64isable_check_cache\x18\x01 \x01(\x08\x12\x1b\n\x13\x64isable_quota_cache\x18\x02 \x01(\x08\x12\x1c\n\x14\x64isable_report_batch\x18\x03 \x01(\x08\x12L\n\x13network_fail_policy\x18\x04 \x01(\x0b\x32/.istio.mixer.v1.config.client.NetworkFailPolicy\x12\x38\n\x15stats_update_interval\x18\x05 \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x15\n\rcheck_cluster\x18\x06 \x01(\t\x12\x16\n\x0ereport_cluster\x18\x07 \x01(\t\"\xa8\x03\n\x10HttpClientConfig\x12@\n\ttransport\x18\x01 \x01(\x0b\x32-.istio.mixer.v1.config.client.TransportConfig\x12[\n\x0fservice_configs\x18\x02 \x03(\x0b\x32\x42.istio.mixer.v1.config.client.HttpClientConfig.ServiceConfigsEntry\x12#\n\x1b\x64\x65\x66\x61ult_destination_service\x18\x03 \x01(\t\x12\x34\n\x10mixer_attributes\x18\x04 \x01(\x0b\x32\x1a.istio.mixer.v1.Attributes\x12\x36\n\x12\x66orward_attributes\x18\x05 \x01(\x0b\x32\x1a.istio.mixer.v1.Attributes\x1a\x62\n\x13ServiceConfigsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12:\n\x05value\x18\x02 \x01(\x0b\x32+.istio.mixer.v1.config.client.ServiceConfig:\x02\x38\x01\"\xc0\x02\n\x0fTcpClientConfig\x12@\n\ttransport\x18\x01 \x01(\x0b\x32-.istio.mixer.v1.config.client.TransportConfig\x12\x34\n\x10mixer_attributes\x18\x02 \x01(\x0b\x32\x1a.istio.mixer.v1.Attributes\x12\x1b\n\x13\x64isable_check_calls\x18\x03 \x01(\x08\x12\x1c\n\x14\x64isable_report_calls\x18\x04 \x01(\x08\x12\x46\n\x15\x63onnection_quota_spec\x18\x05 \x01(\x0b\x32\'.istio.mixer.v1.config.client.QuotaSpec\x12\x32\n\x0freport_interval\x18\x06 \x01(\x0b\x32\x19.google.protobuf.DurationB1Z#istio.io/api/mixer/v1/config/client\xc8\xe1\x1e\x00\xa8\xe2\x1e\x00\xf0\xe1\x1e\x00\x62\x06proto3')
   ,
-  dependencies=[gogoproto_dot_gogo__pb2.DESCRIPTOR,google_dot_protobuf_dot_duration__pb2.DESCRIPTOR,mixer_dot_v1_dot_attributes__pb2.DESCRIPTOR,mixer_dot_v1_dot_config_dot_client_dot_api__spec__pb2.DESCRIPTOR,mixer_dot_v1_dot_config_dot_client_dot_quota__pb2.DESCRIPTOR,mixer_dot_v1_dot_config_dot_client_dot_auth__pb2.DESCRIPTOR,])
+  dependencies=[gogoproto_dot_gogo__pb2.DESCRIPTOR,google_dot_protobuf_dot_duration__pb2.DESCRIPTOR,mixer_dot_v1_dot_attributes__pb2.DESCRIPTOR,mixer_dot_v1_dot_config_dot_client_dot_api__spec__pb2.DESCRIPTOR,mixer_dot_v1_dot_config_dot_client_dot_quota__pb2.DESCRIPTOR,])
 
 
 
@@ -48,8 +47,8 @@ _NETWORKFAILPOLICY_FAILPOLICY = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   options=None,
-  serialized_start=365,
-  serialized_end=408,
+  serialized_start=330,
+  serialized_end=373,
 )
 _sym_db.RegisterEnumDescriptor(_NETWORKFAILPOLICY_FAILPOLICY)
 
@@ -81,8 +80,8 @@ _NETWORKFAILPOLICY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=268,
-  serialized_end=408,
+  serialized_start=233,
+  serialized_end=373,
 )
 
 
@@ -129,14 +128,7 @@ _SERVICECONFIG = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='end_user_authn_spec', full_name='istio.mixer.v1.config.client.ServiceConfig.end_user_authn_spec', index=5,
-      number=6, type=11, cpp_type=10, label=1,
-      has_default_value=False, default_value=None,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
-    _descriptor.FieldDescriptor(
-      name='network_fail_policy', full_name='istio.mixer.v1.config.client.ServiceConfig.network_fail_policy', index=6,
+      name='network_fail_policy', full_name='istio.mixer.v1.config.client.ServiceConfig.network_fail_policy', index=5,
       number=7, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
@@ -154,8 +146,8 @@ _SERVICECONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=411,
-  serialized_end=836,
+  serialized_start=376,
+  serialized_end=709,
 )
 
 
@@ -227,8 +219,8 @@ _TRANSPORTCONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=839,
-  serialized_end=1127,
+  serialized_start=712,
+  serialized_end=1000,
 )
 
 
@@ -265,8 +257,8 @@ _HTTPCLIENTCONFIG_SERVICECONFIGSENTRY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1456,
-  serialized_end=1554,
+  serialized_start=1329,
+  serialized_end=1427,
 )
 
 _HTTPCLIENTCONFIG = _descriptor.Descriptor(
@@ -323,8 +315,8 @@ _HTTPCLIENTCONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1130,
-  serialized_end=1554,
+  serialized_start=1003,
+  serialized_end=1427,
 )
 
 
@@ -389,8 +381,8 @@ _TCPCLIENTCONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1557,
-  serialized_end=1877,
+  serialized_start=1430,
+  serialized_end=1750,
 )
 
 _NETWORKFAILPOLICY.fields_by_name['policy'].enum_type = _NETWORKFAILPOLICY_FAILPOLICY
@@ -398,7 +390,6 @@ _NETWORKFAILPOLICY_FAILPOLICY.containing_type = _NETWORKFAILPOLICY
 _SERVICECONFIG.fields_by_name['mixer_attributes'].message_type = mixer_dot_v1_dot_attributes__pb2._ATTRIBUTES
 _SERVICECONFIG.fields_by_name['http_api_spec'].message_type = mixer_dot_v1_dot_config_dot_client_dot_api__spec__pb2._HTTPAPISPEC
 _SERVICECONFIG.fields_by_name['quota_spec'].message_type = mixer_dot_v1_dot_config_dot_client_dot_quota__pb2._QUOTASPEC
-_SERVICECONFIG.fields_by_name['end_user_authn_spec'].message_type = mixer_dot_v1_dot_config_dot_client_dot_auth__pb2._ENDUSERAUTHENTICATIONPOLICYSPEC
 _SERVICECONFIG.fields_by_name['network_fail_policy'].message_type = _NETWORKFAILPOLICY
 _TRANSPORTCONFIG.fields_by_name['network_fail_policy'].message_type = _NETWORKFAILPOLICY
 _TRANSPORTCONFIG.fields_by_name['stats_update_interval'].message_type = google_dot_protobuf_dot_duration__pb2._DURATION

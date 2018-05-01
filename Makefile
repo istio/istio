@@ -180,7 +180,7 @@ where-is-docker-tar:
 #-----------------------------------------------------------------------------
 # Target: depend
 #-----------------------------------------------------------------------------
-.PHONY: depend depend.diff depend.update depend.cleanlock depend.update.full init
+.PHONY: depend depend.diff init
 
 # Parse out the x.y or x.y.z version and output a single value x*10000+y*100+z (e.g., 1.9 is 10900)
 # that allows the three components to be checked in a single comparison.
@@ -230,24 +230,17 @@ ${ISTIO_ENVOY_DEBUG_PATH}: init
 ${ISTIO_ENVOY_RELEASE_PATH}: init
 
 # Pull depdendencies, based on the checked in Gopkg.lock file.
-# Developers must manually call make depend.update if adding new deps
+# Developers must manually run `dep ensure` if adding new deps
 depend: init | $(ISTIO_OUT)
 
 $(ISTIO_OUT) $(ISTIO_BIN):
 	@mkdir -p $@
 
-# Updates the dependencies and generates a git diff of the vendor files against HEAD.
-depend.diff: depend.update | $(ISTIO_OUT)
+# Used by CI to update the dependencies and generates a git diff of the vendor files against HEAD.
+depend.diff: $(ISTIO_OUT)
+	go get -u github.com/golang/dep/cmd/dep
+	dep ensure
 	git diff HEAD --exit-code -- Gopkg.lock vendor > $(ISTIO_OUT)/dep.diff
-
-depend.update.full: depend.cleanlock depend.update
-
-depend.cleanlock:
-	-rm Gopkg.lock
-
-depend.update:
-	@echo "Running dep ensure with DEPARGS=$(DEPARGS)"
-	time dep ensure $(DEPARGS)
 
 ${GEN_CERT}:
 	GOOS=$(GOOS_LOCAL) && GOARCH=$(GOARCH_LOCAL) && CGO_ENABLED=1 bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/generate_cert
@@ -405,7 +398,7 @@ JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit-tests.xml
 test: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
 	set -o pipefail; \
-	$(MAKE) --keep-going common-test pilot-test mixer-test security-test broker-test galley-test \
+	$(MAKE) --keep-going common-test pilot-test mixer-test security-test broker-test galley-test istioctl-test \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 GOTEST_PARALLEL ?= '-test.parallel=4'
@@ -432,6 +425,10 @@ localTestEnvCleanup: test-bins
 .PHONY: pilot-test
 pilot-test: pilot-agent
 	go test -p 1 ${T} ./pilot/...
+
+.PHONY: istioctl-test
+istioctl-test: istioctl
+	go test -p 1 ${T} ./istioctl/...
 
 .PHONY: mixer-test
 MIXER_TEST_T ?= ${T} ${GOTEST_PARALLEL}
@@ -463,11 +460,15 @@ common-test:
 .PHONY: coverage
 
 # Run coverage tests
-coverage: pilot-coverage mixer-coverage security-coverage broker-coverage galley-coverage common-coverage
+coverage: pilot-coverage mixer-coverage security-coverage broker-coverage galley-coverage common-coverage istioctl-coverage
 
 .PHONY: pilot-coverage
 pilot-coverage:
 	bin/codecov.sh pilot
+
+.PHONY: istioctl-coverage
+istioctl-coverage:
+	bin/codecov.sh istioctl
 
 .PHONY: mixer-coverage
 mixer-coverage:
@@ -497,11 +498,15 @@ common-coverage:
 .PHONY: racetest
 
 # Run race tests
-racetest: pilot-racetest mixer-racetest security-racetest broker-racetest galley-test common-racetest
+racetest: pilot-racetest mixer-racetest security-racetest broker-racetest galley-test common-racetest istioctl-racetest
 
 .PHONY: pilot-racetest
 pilot-racetest: pilot-agent
 	RACE_TEST=true go test -p 1 ${T} -race ./pilot/...
+
+.PHONY: istioctl-racetest
+istioctl-racetest: istioctl
+	RACE_TEST=true go test -p 1 ${T} -race ./istioctl/...
 
 .PHONY: mixer-racetest
 mixer-racetest: mixs
@@ -598,6 +603,19 @@ generate_yaml-envoyv2_transition: $(HELM)
 		  --namespace=istio-system \
                   --set global.hub=${HUB} \
 		  --values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
+		  install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
+
+# This is temporary. REMOVE ME after Envoy v2 transition
+# creates istio.yaml using values-envoyv2-transition.yaml
+generate_yaml-envoyv2_transition_loadbalancer_ingressgateway: $(HELM)
+	./install/updateVersion_orig.sh -a ${HUB},${TAG} >/dev/null 2>&1
+	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/istio.yaml
+	$(HELM) template --set global.tag=${TAG} \
+		  --namespace=istio-system \
+                  --set global.hub=${HUB} \
+		  --values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
+                  --set ingressgateway.service.type=LoadBalancer \
+		  --set ingress.enabled=false \
 		  install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
 
 deploy/all: $(HELM) istio-all.yaml

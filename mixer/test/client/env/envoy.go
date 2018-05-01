@@ -19,7 +19,10 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
+
+	"istio.io/istio/tests/util"
 )
 
 // Envoy stores data for Envoy process
@@ -31,11 +34,7 @@ type Envoy struct {
 // NewEnvoy creates a new Envoy struct and starts envoy.
 func (s *TestSetup) NewEnvoy(stress, faultInject bool, mfConf *MixerFilterConf, ports *Ports, epoch int,
 	confVersion string) (*Envoy, error) {
-	// Asssume test environment has copied latest envoy to $HOME/go/bin in bin/init.sh
-	// TODO: use util.IstioBin instead to reduce dependency on PATH
-	envoyPath := "envoy"
-	// TODO: use util.IstioOut, so generate config is saved
-	confPath := fmt.Sprintf("/tmp/config.conf.%v.json", ports.AdminPort)
+	confPath := filepath.Join(util.IstioOut, fmt.Sprintf("config.conf.%v.json", ports.AdminPort))
 	log.Printf("Envoy config: in %v\n", confPath)
 	if err := s.CreateEnvoyConf(confPath, stress, faultInject, mfConf, ports, confVersion); err != nil {
 		return nil, err
@@ -59,6 +58,7 @@ func (s *TestSetup) NewEnvoy(stress, faultInject bool, mfConf *MixerFilterConf, 
 		args = append(args, s.EnvoyParams...)
 	}
 	/* #nosec */
+	envoyPath := filepath.Join(util.IstioBin, "envoy")
 	cmd := exec.Command(envoyPath, args...)
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
@@ -71,13 +71,16 @@ func (s *TestSetup) NewEnvoy(stress, faultInject bool, mfConf *MixerFilterConf, 
 // Start starts the envoy process
 func (s *Envoy) Start() error {
 	err := s.cmd.Start()
-	if err == nil {
-		url := fmt.Sprintf("http://localhost:%v/server_info", s.ports.AdminPort)
-		WaitForHTTPServer(url)
-		WaitForPort(s.ports.ClientProxyPort)
-		WaitForPort(s.ports.ServerProxyPort)
+	if err != nil {
+		return err
 	}
-	return err
+
+	url := fmt.Sprintf("http://localhost:%v/server_info", s.ports.AdminPort)
+	WaitForHTTPServer(url)
+	WaitForPort(s.ports.ClientProxyPort)
+	WaitForPort(s.ports.ServerProxyPort)
+
+	return nil
 }
 
 // Stop stops the envoy process
