@@ -143,7 +143,7 @@ func GetByAddress(listeners []*xdsapi.Listener, addr string) *xdsapi.Listener {
 //	}
 //}
 
-// BuildProtoStruct builds a proto.Struct with the given value JSON encoded into a field called "value" in the struct.
+// BuildProtoStruct builds a proto.Struct with the given value.
 func BuildProtoStruct(value interface{}) *types.Struct {
 	data, err := json.Marshal(value)
 	if err != nil {
@@ -153,16 +153,7 @@ func BuildProtoStruct(value interface{}) *types.Struct {
 	if err := jsonpb.Unmarshal(bytes.NewReader(data), pbs); err != nil {
 		return &types.Struct{}
 	}
-
-	return &types.Struct{
-		Fields: map[string]*types.Value{
-			"value": {
-				Kind: &types.Value_StructValue{
-					StructValue: pbs,
-				},
-			},
-		},
-	}
+	return pbs
 }
 
 // MessageToStruct converts from proto message to proto Struct
