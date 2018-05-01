@@ -18,6 +18,8 @@
 #
 # Initialization script responsible for setting up port forwarding for Istio sidecar.
 
+set -x
+
 function usage() {
   echo "${0} -p PORT -u UID [-m mode] [-b ports] [-d ports] [-i CIDR] [-x CIDR] [-h]"
   echo ''
@@ -210,6 +212,7 @@ if [ -n "${INBOUND_PORTS_INCLUDE}" ]; then
     table=nat
   fi
   iptables -t ${table} -N ISTIO_INBOUND
+  ip6tables -t ${table} -N ISTIO_INBOUND
   iptables -t ${table} -A PREROUTING -p tcp -j ISTIO_INBOUND
 
   if [ "${INBOUND_PORTS_INCLUDE}" == "*" ]; then
@@ -237,8 +240,11 @@ if [ -n "${INBOUND_PORTS_INCLUDE}" ]; then
       if [ "${INBOUND_INTERCEPTION_MODE}" = "TPROXY" ]; then
         iptables -t mangle -A ISTIO_INBOUND -p tcp --dport ${port} -m socket -j ISTIO_DIVERT
         iptables -t mangle -A ISTIO_INBOUND -p tcp --dport ${port} -j ISTIO_TPROXY
+        ip6tables -t mangle -A ISTIO_INBOUND -p tcp --dport ${port} -m socket -j ISTIO_DIVERT
+        ip6tables -t mangle -A ISTIO_INBOUND -p tcp --dport ${port} -j ISTIO_TPROXY
       else
         iptables -t nat -A ISTIO_INBOUND -p tcp --dport ${port} -j ISTIO_REDIRECT
+        ip6tables -t nat -A ISTIO_INBOUND -p tcp --dport ${port} -j ISTIO_REDIRECT
       fi
     done
   fi
