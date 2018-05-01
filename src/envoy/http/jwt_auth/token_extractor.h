@@ -17,6 +17,7 @@
 
 #include "common/common/logger.h"
 #include "envoy/config/filter/http/jwt_authn/v2alpha/config.pb.h"
+#include "envoy/http/header_map.h"
 
 namespace Envoy {
 namespace Http {

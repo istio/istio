@@ -55,6 +55,7 @@ class Filter : public Http::StreamDecoderFilter,
   // Called when the request is completed.
   virtual void log(const HeaderMap* request_headers,
                    const HeaderMap* response_headers,
+                   const HeaderMap* response_trailers,
                    const RequestInfo::RequestInfo& request_info) override;
 
  private:

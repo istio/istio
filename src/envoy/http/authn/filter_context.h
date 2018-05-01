@@ -18,6 +18,8 @@
 #include "authentication/v1alpha1/policy.pb.h"
 #include "common/common/logger.h"
 #include "envoy/config/filter/http/authn/v2alpha1/config.pb.h"
+#include "envoy/http/header_map.h"
+#include "envoy/network/connection.h"
 #include "src/istio/authn/context.pb.h"
 
 namespace Envoy {

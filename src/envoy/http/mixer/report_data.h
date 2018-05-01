@@ -36,14 +36,17 @@ class ReportData : public ::istio::control::http::ReportData {
   uint64_t request_total_size_;
 
  public:
-  ReportData(const HeaderMap *headers, const RequestInfo::RequestInfo &info,
-             uint64_t request_total_size)
+  ReportData(const HeaderMap *headers, const HeaderMap *response_trailers,
+             const RequestInfo::RequestInfo &info, uint64_t request_total_size)
       : headers_(headers),
         info_(info),
         response_total_size_(info.bytesSent()),
         request_total_size_(request_total_size) {
     if (headers != nullptr) {
       response_total_size_ += headers->byteSize();
+    }
+    if (response_trailers != nullptr) {
+      response_total_size_ += response_trailers->byteSize();
     }
   }
 
