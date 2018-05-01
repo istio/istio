@@ -18,11 +18,7 @@
 [[projects]]
   branch = "master"
   name = "code.cloudfoundry.org/copilot"
-  packages = [
-    ".",
-    "api",
-    "testhelpers"
-  ]
+  packages = [".","api","testhelpers"]
   revision = "feb69363fff010ea48e1dacd38ca859528cfa0d4"
 
 [[projects]]
