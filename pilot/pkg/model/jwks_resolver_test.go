@@ -29,12 +29,10 @@ func TestResolveJwksURIUsingOpenID(t *testing.T) {
 
 	ms, err := test.NewServer()
 	if err != nil {
-		t.Errorf("failed to create mock server")
-		return
+		t.Fatal("failed to create mock server")
 	}
 	if err := ms.Start(); err != nil {
-		t.Errorf("failed to start mock server")
-		return
+		t.Fatal("failed to start mock server")
 	}
 	defer func() {
 		_ = ms.Stop()
@@ -87,13 +85,11 @@ func TestSetAuthenticationPolicyJwksURIs(t *testing.T) {
 
 	ms, err := test.NewServer()
 	if err != nil {
-		t.Errorf("failed to create mock server")
-		return
+		t.Fatal("failed to create mock server")
 	}
 
 	if err := ms.Start(); err != nil {
-		t.Errorf("failed to start mock server")
-		return
+		t.Fatal("failed to start mock server")
 	}
 	defer func() {
 		_ = ms.Stop()
@@ -173,12 +169,10 @@ func TestGetPublicKey(t *testing.T) {
 
 	ms, err := test.NewServer()
 	if err != nil {
-		t.Errorf("failed to create mock server")
-		return
+		t.Fatal("failed to create mock server")
 	}
 	if err := ms.Start(); err != nil {
-		t.Errorf("failed to start mock server")
-		return
+		t.Fatal("failed to start mock server")
 	}
 	defer func() {
 		_ = ms.Stop()
@@ -221,12 +215,10 @@ func TestJwtPubKeyRefresh(t *testing.T) {
 
 	ms, err := test.NewServer()
 	if err != nil {
-		t.Errorf("failed to create mock server")
-		return
+		t.Fatal("failed to create mock server")
 	}
 	if err := ms.Start(); err != nil {
-		t.Errorf("failed to start mock server")
-		return
+		t.Fatal("failed to start mock server")
 	}
 	defer func() {
 		_ = ms.Stop()
