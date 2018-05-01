@@ -561,25 +561,6 @@ func (k *KubeInfo) deployAddons() error {
 	return nil
 }
 
-func (k *KubeInfo) createCacerts(remoteCluster bool) (err error) {
-	kc := k.KubeConfig
-	cluster := "primary"
-	if remoteCluster {
-		kc = k.RemoteKubeConfig
-		cluster = "remote"
-	}
-	caCertFile := filepath.Join(k.ReleaseDir, caCertFileName)
-	caKeyFile := filepath.Join(k.ReleaseDir, caKeyFileName)
-	rootCertFile := filepath.Join(k.ReleaseDir, rootCertFileName)
-	certChainFile := filepath.Join(k.ReleaseDir, certChainFileName)
-	if _, err = util.Shell("kubectl create secret generic cacerts --kubeconfig=%s -n %s "+
-		"--from-file=%s --from-file=%s --from-file=%s --from-file=%s",
-		kc, k.Namespace, caCertFile, caKeyFile, rootCertFile, certChainFile); err == nil {
-		log.Infof("Created Cacerts with namespace %s in %s cluster", k.Namespace, cluster)
-	}
-	return err
-}
-
 func (k *KubeInfo) deployIstio() error {
 	istioYaml := nonAuthInstallFileNamespace
 	if *multiClusterDir != "" {
