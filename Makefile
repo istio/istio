@@ -210,7 +210,7 @@ init: check-tree check-go-version $(ISTIO_OUT)/istio_is_init
 # Note: in a branch, this will get the latest from master. In master it has no effect.
 # This should be run after a 'git fetch' (typically done in the checkout step in CI)
 git.pullmaster:
-	git merge master
+	git merge release-0.8
 
 # Sync target will pull from master and sync the modules. It is the first step of the
 # circleCI build, developers should call it periodically.
