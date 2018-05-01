@@ -34,6 +34,8 @@ initWorkingDir: &initWorkingDir
     sudo chown -R circleci /go
     mkdir -p /go/out/tests
     mkdir -p /home/circleci/logs
+    git config --global user.email "circleci@istio.io"
+    git config --global user.name "CircleCI"
 
 recordZeroExitCodeIfTestPassed: &recordZeroExitCodeIfTestPassed
   run:
