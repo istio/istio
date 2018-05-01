@@ -48,6 +48,9 @@ const (
 	routingRNPYaml       = "tests/e2e/tests/simple/testdata/routingruleNoPods.yaml"
 	timeToWaitForPods    = 20 * time.Second
 	timeToWaitForIngress = 100 * time.Second
+
+	// fortioVersion is the version of fortio used in the test. Update as needed.
+	fortioVersion = "0.10.0"
 )
 
 type testConfig struct {
@@ -346,7 +349,7 @@ func setTestConfig() error {
 	tag := os.Getenv("FORTIO_TAG")
 	image := hub + "/fortio:" + tag
 	if hub == "" || tag == "" {
-		image = "istio/fortio:latest_release"
+		image = "istio/fortio:" + fortioVersion
 	}
 	log.Infof("Fortio hub %s tag %s -> image %s", hub, tag, image)
 	services := []framework.App{
