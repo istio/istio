@@ -18,6 +18,9 @@ spec:
   - port: 8080
     name: http-pilot
     protocol: TCP
+  - port: 15010
+    name: grpc-pilot
+    protocol: TCP
   selector:
     istio: pilot
 ---
