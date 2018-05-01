@@ -74,6 +74,8 @@ e2e_simple: istioctl generate_yaml e2e_simple_run
 
 e2e_mixer: istioctl generate_yaml e2e_mixer_run
 
+e2e_galley: istioctl generate_yaml e2e_galley_run
+
 e2e_dashboard: istioctl generate_yaml e2e_dashboard_run
 
 e2e_bookinfo: istioctl generate_yaml e2e_bookinfo_run
@@ -90,6 +92,9 @@ e2e_simple_run:
 
 e2e_mixer_run:
 	go test -v -timeout 20m ./tests/e2e/tests/mixer -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
+
+e2e_galley_run:
+	go test -v -timeout 20m ./tests/e2e/tests/galley -args ${E2E_ARGS} ${EXTRA_E2E_ARGS} -use_galley_config_validator -cluster_wide
 
 e2e_dashboard_run:
 	go test -v -timeout 20m ./tests/e2e/tests/dashboard -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}

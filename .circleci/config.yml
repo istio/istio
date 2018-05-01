@@ -184,6 +184,48 @@ jobs:
       - store_test_results:
           path: /go/out/tests
 
+  e2e-galley:
+    <<: *integrationDefaults
+    environment:
+            - KUBECONFIG: /go/out/minikube.conf
+            - TEST_ENV: minikube-none
+            - GOPATH: /go
+    steps:
+      - <<: *initWorkingDir
+      - checkout
+      - attach_workspace:
+          at:  /go
+      - <<: *markJobStartsOnGCS
+      - run: make sync
+      - run: bin/testEnvRootMinikube.sh start
+      - run:
+          command: |
+            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
+              # Should only happen when re-running a job, and the workspace is gone
+              time make build test-bins
+            fi
+            make docker.all generate_yaml
+      - run: bin/testEnvRootMinikube.sh wait
+      - run: docker images
+      - run:
+          no_output_timeout: 20m
+          # Run the test even if previous failed
+          when: always
+          name: make e2e_galley
+          command: |
+            E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide --use_galley_config_validator -test.v" \
+            make e2e_galley | tee -a /go/out/tests/build-log.txt
+      - <<: *recordZeroExitCodeIfTestPassed
+      - <<: *recordNonzeroExitCodeIfTestFailed
+      - <<: *dumpsysNonPilot
+      - <<: *markJobFinishesOnGCS
+      - store_artifacts:
+          path: /home/circleci/logs
+      - store_artifacts:
+          path: /tmp
+      - store_test_results:
+          path: /go/out/tests
+
   e2e-bookinfo:
     <<: *integrationDefaults
     environment:
@@ -633,6 +675,10 @@ workflows:
           requires:
             - test
             - build
+      - e2e-galley:
+          requires:
+            - test
+            - build
       - e2e-pilot: #auth+v1alpha1
           requires:
             - test
@@ -687,6 +733,9 @@ workflows:
       - e2e-mixer:
           requires:
             - build
+      - e2e-galley:
+          requires:
+            - build
 
   # flaky:
   #   triggers:
@@ -717,6 +766,9 @@ workflows:
           requires:
             - build
       - e2e-mixer:
+          requires:
+            - build
+      - e2e-galley:
           requires:
             - build
       - e2e-pilot: #auth+v1alpha1

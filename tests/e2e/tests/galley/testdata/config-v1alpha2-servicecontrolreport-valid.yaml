@@ -1,0 +1,17 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: servicecontrolreport
+metadata:
+  name: valid-servicecontrolreport
+spec:
+  api_version : api.version | ""
+  api_operation : api.operation | ""
+  api_protocol : api.protocol | ""
+  api_service : api.service | ""
+  api_key : request.api_key | ""
+  request_time : request.time
+  request_method : request.method
+  request_path : request.path
+  request_bytes: request.size
+  response_time : response.time
+  response_code : response.code | 520
+  response_bytes : response.size | 0
