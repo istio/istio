@@ -1,0 +1,22 @@
+healthPort: true
+testHub: docker.io/istio
+testTag: latest
+
+# Namespace where istio control plane is installed.
+istioNamespace: istio-system
+
+fortioImage: istio/fortio:latest
+
+# Number of test cluster-IP services pointing to A. Used to create a realistic
+# number of k-8s managed endpoint sets
+# Each will create an envoy cluster and listener.
+testAServices: 10
+
+# Number of test 'rawVM' services pointing to unused IP addresses.
+# Each will create an envoy cluster and listener. They point to localhost:8080
+testVMServices: 10
+
+# Number of ingress routing rules, routing "/test/N/.*" to fortio.
+# Will generate envoy RDS for ingress.
+loadTestIngress: 5
+healthCheck: false

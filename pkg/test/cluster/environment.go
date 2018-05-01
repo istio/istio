@@ -30,6 +30,11 @@ type Environment struct {
 func (e *Environment) Deploy(c *helm.Chart) {
 }
 
+// DeployApps pushes the pilot test apps to the cluster.
+func (e *Environment) DeployApps() {
+	// TODO(nmittler):
+}
+
 // GetAPIServer returns the deployed k8s API server
 func (e *Environment) GetAPIServer() test.DeployedAPIServer {
 	return nil
