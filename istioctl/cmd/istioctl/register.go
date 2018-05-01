@@ -40,14 +40,14 @@ var (
 				}
 				portsList[i] = p
 			}
-			log.Infof("Registering for service '%s' ip '%s', ports list %v",
+			log.Debugf("Registering for service '%s' ip '%s', ports list %v",
 				svcName, ip, portsList)
 			if svcAcctAnn != "" {
 				annotations = append(annotations, fmt.Sprintf("%s=%s", kube.KubeServiceAccountsOnVMAnnotation, svcAcctAnn))
 			}
-			log.Infof("%d labels (%v) and %d annotations (%v)",
+			log.Debugf("%d labels (%v) and %d annotations (%v)",
 				len(labels), labels, len(annotations), annotations)
-			_, client, err := kube.CreateInterface(kubeconfig)
+			client, err := createInterface(kubeconfig)
 			if err != nil {
 				return err
 			}
