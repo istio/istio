@@ -37,8 +37,8 @@ Default: localhost:8125</p>
 <td><code>prefix</code></td>
 <td><code>string</code></td>
 <td>
-<p>Prefix to prepend to all metrics handled by the adapter. Metric &ldquo;bar&rdquo; with prefix &ldquo;foo.&rdquo; becomes &ldquo;foo.bar&rdquo; in DataDog.
-Default: &ldquo;&rdquo;</p>
+<p>Prefix to prepend to all metrics handled by the adapter. Metric &ldquo;bar&rdquo; with prefix &ldquo;foo.&rdquo; becomes &ldquo;foo.bar&rdquo; in DataDog. In order to make sure the metrics get populated into Datadog properly and avoid any billing issues, it&rsquo;s important to leave the metric prefix to its default value of &lsquo;istio.&rsquo;
+Default: &ldquo;istio.&rdquo;</p>
 
 </td>
 </tr>
