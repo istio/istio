@@ -161,7 +161,7 @@ func buildListeners(env model.Environment, node model.Proxy) (Listeners, error) 
 		}
 		var svc *model.Service
 		for _, s := range services {
-			if strings.HasPrefix(s.Hostname, "istio-ingress") {
+			if strings.HasPrefix(s.Hostname, env.Mesh.IngressService) {
 				svc = s
 				break
 			}
