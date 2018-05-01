@@ -17,7 +17,7 @@
 """Python script generates a JWT signed by a Google service account
 
 Example:
-./sa-jwt.py  --iss example-issuer --aud foo,bar --claims=email:foo@google.com,dead:beef key.json
+./sa-jwt.py  --iss example-issuer --aud foo,bar --claims=email:foo@google.com,dead:beef key.json 
 """
 import argparse
 import time
