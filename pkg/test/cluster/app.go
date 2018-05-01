@@ -170,6 +170,11 @@ func (a *app) Call(url string, count int, headers http.Header) (test.AppCallResu
 	return out, nil
 }
 
+// CallFortio implements the test.DeployedApp interface
+func (a *app) CallFortio(cmd string) (test.AppCallFortioResponse, error) {
+	return nil, nil
+}
+
 func toExtra(headers http.Header) string {
 	out := ""
 	for key, values := range headers {
