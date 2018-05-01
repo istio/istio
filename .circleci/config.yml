@@ -7,6 +7,9 @@ defaults: &defaults
     - image: istio/ci:go1.10-k8s1.9-helm2.7.2-minikube0.25
   environment:
     GOPATH: /go
+    EMAIL: circle@istio.io
+    GIT_AUTHOR_EMAIL: circle@istio.io
+    GIT_AUTHOR_NAME: circle@istio.io
 
 # org context settings. If developing on a clone, please configure:
 
@@ -23,6 +26,9 @@ integrationDefaults: &integrationDefaults
     HUB: docker.io/dnerepo
     TAG: dontpush
     GOPATH: /go
+    EMAIL: circle@istio.io
+    GIT_AUTHOR_EMAIL: circle@istio.io
+    GIT_AUTHOR_NAME: circle@istio.io
 
 # Common procedure to initialize working directory
 initWorkingDir: &initWorkingDir
@@ -34,8 +40,6 @@ initWorkingDir: &initWorkingDir
     sudo chown -R circleci /go
     mkdir -p /go/out/tests
     mkdir -p /home/circleci/logs
-    git config --global user.email "circleci@istio.io"
-    git config --global user.name "CircleCI"
 
 recordZeroExitCodeIfTestPassed: &recordZeroExitCodeIfTestPassed
   run:
