@@ -16,6 +16,8 @@ package model
 
 import (
 	"fmt"
+	"reflect"
+	"sort"
 	"testing"
 )
 
@@ -254,6 +256,57 @@ func TestHostnameMatches(t *testing.T) {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
 			if tt.out != tt.a.Matches(tt.b) {
 				t.Fatalf("%q.Matches(%q) = %t wanted %t", tt.a, tt.b, !tt.out, tt.out)
+			}
+		})
+	}
+}
+
+func TestHostnamesSortOrder(t *testing.T) {
+	tests := []struct {
+		in, want Hostnames
+	}{
+		// Prove we sort alphabetically:
+		{
+			Hostnames{"b", "a"},
+			Hostnames{"a", "b"},
+		},
+		{
+			Hostnames{"bb", "cc", "aa"},
+			Hostnames{"aa", "bb", "cc"},
+		},
+		// Prove we sort longest first, alphabetically:
+		{
+			Hostnames{"b", "a", "aa"},
+			Hostnames{"aa", "a", "b"},
+		},
+		{
+			Hostnames{"foo.com", "bar.com", "foo.bar.com"},
+			Hostnames{"foo.bar.com", "bar.com", "foo.com"},
+		},
+		// We sort wildcards last, always
+		{
+			Hostnames{"a", "*", "z"},
+			Hostnames{"a", "z", "*"},
+		},
+		{
+			Hostnames{"foo.com", "bar.com", "*.com"},
+			Hostnames{"bar.com", "foo.com", "*.com"},
+		},
+		{
+			Hostnames{"foo.com", "bar.com", "*.com", "*.foo.com", "*", "baz.bar.com"},
+			Hostnames{"baz.bar.com", "bar.com", "foo.com", "*.foo.com", "*.com", "*"},
+		},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("%d", idx), func(t *testing.T) {
+			// Save a copy to report errors with
+			tmp := make(Hostnames, len(tt.in))
+			copy(tmp, tt.in)
+
+			sort.Sort(tt.in)
+			if !reflect.DeepEqual(tt.in, tt.want) {
+				t.Fatalf("sort.Sort(%v) = %v, want %v", tmp, tt.in, tt.want)
 			}
 		})
 	}
