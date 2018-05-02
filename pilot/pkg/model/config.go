@@ -573,6 +573,18 @@ func ResolveShortnameToFQDN(host string, meta ConfigMeta) Hostname {
 	return Hostname(out)
 }
 
+// MostSpecificHost compares the elements of the stack to the needle, and returns the longest stack element matching the needle,
+// or false if no element in the stack matches the needle
+func MostSpecificHostMatch(needle Hostname, stack []Hostname) (Hostname, bool) {
+	sort.Sort(Hostnames(stack))
+	for _, h := range stack {
+		if needle == h || needle.Matches(h) {
+			return h, true
+		}
+	}
+	return "", false
+}
+
 // istioConfigStore provides a simple adapter for Istio configuration types
 // from the generic config registry
 type istioConfigStore struct {
@@ -657,7 +669,7 @@ func (store *istioConfigStore) RouteRulesByDestination(instances []*ServiceInsta
 		rule := config.Spec.(*routing.RouteRule)
 		destination := ResolveHostname(config.ConfigMeta, rule.Destination)
 		for _, instance := range instances {
-			if destination == instance.Service.Hostname {
+			if destination.Matches(instance.Service.Hostname) {
 				out = append(out, config)
 				break
 			}
@@ -703,6 +715,7 @@ func (store *istioConfigStore) VirtualServices(gateways map[string]bool) []Confi
 			}
 		} else {
 			for _, g := range rule.Gateways {
+				// note: Gateway names do _not_ use wildcard matching, so we do not use Hostname.Matches here
 				if gateways[ResolveShortnameToFQDN(g, config.ConfigMeta).String()] {
 					out = append(out, config)
 					break
@@ -828,13 +841,17 @@ func (store *istioConfigStore) DestinationRule(hostname Hostname) *Config {
 		return nil
 	}
 
-	for _, config := range configs {
-		rule := config.Spec.(*networking.DestinationRule)
-		if ResolveShortnameToFQDN(rule.Host, config.ConfigMeta).Matches(hostname) {
-			return &config
-		}
+	hosts := make([]Hostname, len(configs))
+	byHosts := make(map[Hostname]*Config, len(configs))
+	for i := range configs {
+		rule := configs[i].Spec.(*networking.DestinationRule)
+		hosts[i] = ResolveShortnameToFQDN(rule.Host, configs[i].ConfigMeta)
+		byHosts[hosts[i]] = &configs[i]
 	}
 
+	if c, ok := MostSpecificHostMatch(hostname, hosts); ok {
+		return byHosts[c]
+	}
 	return nil
 }
 

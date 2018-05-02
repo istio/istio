@@ -373,6 +373,43 @@ func (h Hostname) Matches(o Hostname) bool {
 	return strings.HasSuffix(longer, shorter)
 }
 
+// Hostnames is a collection of Hostname; it exists so it's easy to sort hostnames consistently across Pilot.
+// In a few locations we care about the order hostnames appear in Envoy config: primarily HTTP routes, but also in
+// gateways, and for SNI. In those locations, we sort hostnames longest to shortest with wildcards last.
+type Hostnames []Hostname
+
+// prove we implement the interface at compile time
+var _ sort.Interface = Hostnames{}
+
+func (h Hostnames) Len() int {
+	return len(h)
+}
+
+func (h Hostnames) Less(i, j int) bool {
+	a, b := h[i], h[j]
+	if len(a) == 0 && len(b) == 0 {
+		return true // doesn't matter, they're both the empty string
+	}
+	// we sort longest to shortest, alphabetically, with wildcards last
+	ai, aj := strings.Contains(a.String(), "*"), strings.Contains(b.String(), "*")
+	if ai && !aj {
+		// h[i] is a wildcard, but h[j] isn't; therefore h[j] < h[i]
+		return false
+	} else if !ai && aj {
+		// h[j] is a wildcard, but h[i] isn't; therefore h[i] < h[j]
+		return true
+	}
+	// they're either both wildcards, or both not; in either case we sort them longest to shortest, alphabetically
+	if len(a) == len(b) {
+		return a < b
+	}
+	return len(a) > len(b)
+}
+
+func (h Hostnames) Swap(i, j int) {
+	h[i], h[j] = h[j], h[i]
+}
+
 // SubsetOf is true if the tag has identical values for the keys
 func (l Labels) SubsetOf(that Labels) bool {
 	for k, v := range l {
