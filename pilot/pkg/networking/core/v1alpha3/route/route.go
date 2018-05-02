@@ -346,7 +346,7 @@ func translateRoute(in *networking.HTTPRoute,
 	}
 
 	if fault := in.Fault; fault != nil {
-		out.PerFilterConfig[xdsutil.Fault] = util.BuildProtoStruct(translateFault(in.Fault))
+		out.PerFilterConfig[xdsutil.Fault] = util.MessageToStruct(translateFault(in.Fault))
 	}
 
 	return out
