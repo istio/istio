@@ -18,7 +18,11 @@
 [[projects]]
   branch = "master"
   name = "code.cloudfoundry.org/copilot"
-  packages = [".","api","testhelpers"]
+  packages = [
+    ".",
+    "api",
+    "testhelpers"
+  ]
   revision = "feb69363fff010ea48e1dacd38ca859528cfa0d4"
 
 [[projects]]
@@ -1595,6 +1599,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "c25e8e2cc5eddf4836a976a82f23283e400bc7325a0a881ecc2e116bc6676ea5"
+  inputs-digest = "4160cda2de0241237d507eaeb9112afb071ff23097287b2d8e4fc3a0c0e602bc"
   solver-name = "gps-cdcl"
   solver-version = 1
