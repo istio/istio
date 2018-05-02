@@ -36,7 +36,7 @@ var httpNone = &networking.ServiceEntry{
 }
 
 var tcpNone = &networking.ServiceEntry{
-	Hosts:     []string{"tcpNone"},
+	Hosts:     []string{"tcpnone.com"},
 	Addresses: []string{"172.217.0.0/16"},
 	Ports: []*networking.Port{
 		{Number: 444, Name: "tcp-444", Protocol: "tcp"},
@@ -105,7 +105,7 @@ var httpDNS = &networking.ServiceEntry{
 }
 
 var tcpDNS = &networking.ServiceEntry{
-	Hosts:     []string{"tcpDNS"},
+	Hosts:     []string{"tcpdns.com"},
 	Addresses: []string{"172.217.0.0/16"},
 	Ports: []*networking.Port{
 		{Number: 444, Name: "tcp-444", Protocol: "tcp"},
@@ -123,7 +123,7 @@ var tcpDNS = &networking.ServiceEntry{
 }
 
 var tcpStatic = &networking.ServiceEntry{
-	Hosts:     []string{"tcpStatic"},
+	Hosts:     []string{"tcpstatic.com"},
 	Addresses: []string{"172.217.0.0/16"},
 	Ports: []*networking.Port{
 		{Number: 444, Name: "tcp-444", Protocol: "tcp"},
@@ -151,7 +151,7 @@ var httpNoneInternal = &networking.ServiceEntry{
 }
 
 var tcpNoneInternal = &networking.ServiceEntry{
-	Hosts:     []string{"tcpInternal"},
+	Hosts:     []string{"tcpinternal.com"},
 	Addresses: []string{"172.217.0.0/16"},
 	Ports: []*networking.Port{
 		{Number: 444, Name: "tcp-444", Protocol: "tcp"},
@@ -161,7 +161,7 @@ var tcpNoneInternal = &networking.ServiceEntry{
 }
 
 var multiAddrInternal = &networking.ServiceEntry{
-	Hosts:     []string{"tcp1", "tcp2"},
+	Hosts:     []string{"tcp1.com", "tcp2.com"},
 	Addresses: []string{"1.1.1.0/16", "2.2.2.0/16"},
 	Ports: []*networking.Port{
 		{Number: 444, Name: "tcp-444", Protocol: "tcp"},
@@ -237,7 +237,7 @@ func TestConvertService(t *testing.T) {
 		{
 			// service entry tcp
 			externalSvc: tcpNone,
-			services: []*model.Service{makeService("tcpNone", "172.217.0.0/16",
+			services: []*model.Service{makeService("tcpnone.com", "172.217.0.0/16",
 				map[string]int{"tcp-444": 444}, true, model.Passthrough),
 			},
 		},
@@ -265,14 +265,14 @@ func TestConvertService(t *testing.T) {
 		{
 			// service entry tcp DNS
 			externalSvc: tcpDNS,
-			services: []*model.Service{makeService("tcpDNS", "172.217.0.0/16",
+			services: []*model.Service{makeService("tcpdns.com", "172.217.0.0/16",
 				map[string]int{"tcp-444": 444}, true, model.DNSLB),
 			},
 		},
 		{
 			// service entry tcp static
 			externalSvc: tcpStatic,
-			services: []*model.Service{makeService("tcpStatic", "172.217.0.0/16",
+			services: []*model.Service{makeService("tcpstatic.com", "172.217.0.0/16",
 				map[string]int{"tcp-444": 444}, true, model.ClientSideLB),
 			},
 		},
@@ -286,7 +286,7 @@ func TestConvertService(t *testing.T) {
 		{
 			// service entry tcp internal
 			externalSvc: tcpNoneInternal,
-			services: []*model.Service{makeService("tcpInternal", "172.217.0.0/16",
+			services: []*model.Service{makeService("tcpinternal.com", "172.217.0.0/16",
 				map[string]int{"tcp-444": 444}, false, model.Passthrough),
 			},
 		},
@@ -294,13 +294,13 @@ func TestConvertService(t *testing.T) {
 			// service entry multiAddrInternal
 			externalSvc: multiAddrInternal,
 			services: []*model.Service{
-				makeService("tcp1", "1.1.1.0/16",
+				makeService("tcp1.com", "1.1.1.0/16",
 					map[string]int{"tcp-444": 444}, false, model.Passthrough),
-				makeService("tcp1", "2.2.2.0/16",
+				makeService("tcp1.com", "2.2.2.0/16",
 					map[string]int{"tcp-444": 444}, false, model.Passthrough),
-				makeService("tcp2", "1.1.1.0/16",
+				makeService("tcp2.com", "1.1.1.0/16",
 					map[string]int{"tcp-444": 444}, false, model.Passthrough),
-				makeService("tcp2", "2.2.2.0/16",
+				makeService("tcp2.com", "2.2.2.0/16",
 					map[string]int{"tcp-444": 444}, false, model.Passthrough),
 			},
 		},
