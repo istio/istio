@@ -23,12 +23,14 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
+// SubjectArgs contains information about the subject of a request.
 type SubjectArgs struct {
 	User       string
 	Groups     string
 	Properties []string
 }
 
+// ActionArgs contains information about the detail of a request.
 type ActionArgs struct {
 	Namespace  string
 	Service    string

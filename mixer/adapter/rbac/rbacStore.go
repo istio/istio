@@ -28,7 +28,7 @@ type authorizer interface {
 	CheckPermission(inst *authorization.Instance, logger adapter.Logger) (bool, error)
 }
 
-// Information about a ServiceRole and associated ServiceRoleBindings
+// RoleInfo contains information about a ServiceRole and associated ServiceRoleBindings.
 type RoleInfo struct {
 	// ServiceRole proto definition
 	Info *rbacproto.ServiceRole
@@ -37,10 +37,10 @@ type RoleInfo struct {
 	Bindings map[string]*rbacproto.ServiceRoleBinding
 }
 
-// maps role name to role info
+// RolesByName maps role name to role info
 type RolesByName map[string]*RoleInfo
 
-// maps namespace to a set of Roles in the namespace
+// RolesMapByNamespace maps namespace to a set of Roles in the namespace
 type RolesMapByNamespace map[string]RolesByName
 
 // ConfigStore contains all ServiceRole and ServiceRoleBinding information.
@@ -101,23 +101,23 @@ func (rs *RolesMapByNamespace) AddServiceRoleBinding(name, namespace string, pro
 	}
 
 	if proto.RoleRef.Kind != serviceRoleKind {
-		return fmt.Errorf("RoleBinding %s has role kind %s, expected %s",
+		return fmt.Errorf("roleBinding %s has role kind %s, expected %s",
 			name, proto.RoleRef.Kind, serviceRoleKind)
 	}
 
 	rolesByName := (*rs)[namespace]
 	if rolesByName == nil {
-		return fmt.Errorf("RoleBinding %s is in a namespace (%s) that no valid role is defined",
+		return fmt.Errorf("roleBinding %s is in a namespace (%s) that no valid role is defined",
 			name, namespace)
 	}
 
 	refName := proto.RoleRef.Name
 	roleInfo := rolesByName[refName]
 	if refName == "" {
-		return fmt.Errorf("RoleBinding %s does not refer to a valid role name", refName)
+		return fmt.Errorf("roleBinding %s does not refer to a valid role name", refName)
 	}
 	if roleInfo == nil {
-		return fmt.Errorf("RoleBinding %s is bound to a role that does not exist %s", name, refName)
+		return fmt.Errorf("roleBinding %s is bound to a role that does not exist %s", name, refName)
 	}
 
 	if _, present := roleInfo.Bindings[name]; present {

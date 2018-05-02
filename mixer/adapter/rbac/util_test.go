@@ -72,7 +72,7 @@ func TestUtil_createInstance(t *testing.T) {
 			}
 		} else {
 			if err == nil {
-				t.Errorf("%s: succeded but want error", tc.name)
+				t.Errorf("%s: succeeded but want error", tc.name)
 			}
 		}
 	}
