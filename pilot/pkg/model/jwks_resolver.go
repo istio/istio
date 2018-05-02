@@ -84,10 +84,10 @@ type jwksResolver struct {
 	// map key is jwksURI, map value is jwtPubKeyEntry.
 	keyEntries sync.Map
 
-	httpsClient   *http.Client
-	httpClient    *http.Client
-	closing       chan bool
-	refreshTicker *time.Ticker
+	secureHTTPClient *http.Client
+	httpClient       *http.Client
+	closing          chan bool
+	refreshTicker    *time.Ticker
 
 	expireDuration time.Duration
 
@@ -123,7 +123,7 @@ func newJwksResolver(expireDuration, evictionDuration, refreshInterval time.Dura
 	if err == nil {
 		caCertPool := x509.NewCertPool()
 		caCertPool.AppendCertsFromPEM(caCert)
-		ret.httpsClient = &http.Client{
+		ret.secureHTTPClient = &http.Client{
 			Timeout: jwksHTTPTimeOutInSec * time.Second,
 			Transport: &http.Transport{
 				TLSClientConfig: &tls.Config{
@@ -193,6 +193,7 @@ func (r *jwksResolver) GetPublicKey(jwksURI string) (string, error) {
 	// Fetch key if it's not cached, or cached item is expired.
 	resp, err := r.getRemoteContent(jwksURI)
 	if err != nil {
+		log.Errorf("Failed to fetch pubkey from %q: %v", jwksURI, err)
 		return "", err
 	}
 
@@ -216,6 +217,7 @@ func (r *jwksResolver) resolveJwksURIUsingOpenID(issuer string) (string, error) 
 	// Try to get jwks_uri through OpenID Discovery.
 	body, err := r.getRemoteContent(issuer + openIDDiscoveryCfgURLSuffix)
 	if err != nil {
+		log.Errorf("Failed to fetch jwks_uri from %q: %v", issuer+openIDDiscoveryCfgURLSuffix, err)
 		return "", err
 	}
 	var data map[string]interface{}
@@ -244,11 +246,11 @@ func (r *jwksResolver) getRemoteContent(uri string) ([]byte, error) {
 	client := r.httpClient
 	if strings.EqualFold(u.Scheme, "https") {
 		// https client may be uninitialized because of root CA bundle missing.
-		if r.httpsClient == nil {
+		if r.secureHTTPClient == nil {
 			return nil, fmt.Errorf("pilot does not support fetch public key through https endpoint %q", uri)
 		}
 
-		client = r.httpsClient
+		client = r.secureHTTPClient
 	}
 
 	resp, err := client.Get(uri)
@@ -313,7 +315,7 @@ func (r *jwksResolver) refresh(t time.Time) {
 
 				resp, err := r.getRemoteContent(jwksURI)
 				if err != nil {
-					log.Errorf("Cannot fetch JWT public key from %q", jwksURI)
+					log.Errorf("Cannot fetch JWT public key from %q, %v", jwksURI, err)
 					r.keyEntries.Delete(jwksURI)
 					return
 				}
