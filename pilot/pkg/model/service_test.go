@@ -248,6 +248,7 @@ func TestHostnameMatches(t *testing.T) {
 		{"wildcard matches anything", "*", "", true},
 
 		{"wildcarded domain matches wildcarded subdomain", "*.com", "*.foo.com", true},
+		{"wildcarded sub-domain does not match domain", "foo.com", "*.foo.com", false},
 
 		{"long wildcard matches short host", "*.foo.bar.baz", "baz", true},
 	}

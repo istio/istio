@@ -358,19 +358,29 @@ func (h Hostname) String() string {
 // - one or both are wildcarded (e.g. "*.foo.com"), in which case we use wildcard resolution rules
 // to determine if h is covered by o.
 // e.g.:
-//  Hostname("foo.com").Matches("foo.com") = true
-//  Hostname("foo.com").Matches("bar.com") = false
-//  Hostname("*.com").Matches("foo.com")   = true
-//  Hostname("foo.com").Matches("*.com")   = true
+//  Hostname("foo.com").Matches("foo.com")   = true
+//  Hostname("foo.com").Matches("bar.com")   = false
+//  Hostname("*.com").Matches("foo.com")     = true
+//  Hostname("*.com").Matches("foo.com")     = true
+//  Hostname("*.foo.com").Matches("foo.com") = false
 func (h Hostname) Matches(o Hostname) bool {
 	if !strings.Contains(string(h), "*") && !strings.Contains(string(o), "*") {
 		return h == o
 	}
+	la, sa := strings.Contains(string(h), "*"), strings.Contains(string(o), "*")
 	longer, shorter := strings.TrimLeft(string(h), "*"), strings.TrimLeft(string(o), "*")
 	if len(longer) < len(shorter) {
 		longer, shorter = shorter, longer
+		la, sa = sa, la
 	}
-	return strings.HasSuffix(longer, shorter)
+
+	matches := strings.HasSuffix(longer, shorter)
+	if matches && la && !sa && strings.TrimSuffix(longer, shorter) == "." {
+		// we match, but the longer is a wildcard and the shorter is not; we need to ensure we don't match input
+		// like `*.foo.com` to `foo.com` in that case (to avoid matching a domain literal to a wildcard subdomain)
+		return false
+	}
+	return matches
 }
 
 // Hostnames is a collection of Hostname; it exists so it's easy to sort hostnames consistently across Pilot.
