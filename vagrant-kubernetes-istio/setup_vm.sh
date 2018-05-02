@@ -42,6 +42,5 @@ echo "$(tput setaf 1)Make sure flag --allow-privileged=true is passed to both ku
 ps -ef | grep kube
 vagrant reload
 vagrant ssh -c "kubectl get pods -n kube-system"
-vagrant ssh -c "mkdir ~/.kube/"
+vagrant ssh -c "mkdir -p ~/.kube/"
 vagrant ssh -c "cp /etc/kubeconfig.yml ~/.kube/config"
-
