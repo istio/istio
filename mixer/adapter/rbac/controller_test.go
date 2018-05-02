@@ -96,7 +96,7 @@ func TestController_processRBACRoles(t *testing.T) {
 	}
 
 	if len(r.Roles) != 1 {
-		t.Fatalf("Got %d, want 1 instnace", len(r.Roles))
+		t.Fatalf("Got %d, want 1 instance", len(r.Roles))
 	}
 
 	roles := r.Roles["ns1"]
