@@ -135,6 +135,13 @@ data:
             runAsUser: 1337
             {{ "[[ end -]]" }}
         restartPolicy: Always
+        resources:
+          limits:
+            cpu: 100m
+            memory: 128Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
         volumeMounts:
         - mountPath: /etc/istio/proxy
           name: istio-envoy
