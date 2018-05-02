@@ -14,7 +14,7 @@
 
 package change
 
-// The type of the change.
+// Type of the change.
 type Type int
 
 const (
