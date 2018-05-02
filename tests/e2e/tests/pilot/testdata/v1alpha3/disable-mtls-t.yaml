@@ -1,3 +1,4 @@
+# This authn policy to disable mTLS for service "t" so that it can be used to 'fake' external service.
 apiVersion: "authentication.istio.io/v1alpha1"
 kind: "Policy"
 metadata:

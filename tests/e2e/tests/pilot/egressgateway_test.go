@@ -41,7 +41,7 @@ func TestEgressGateway(t *testing.T) {
 	cfgs := &deployableConfig{
 		Namespace: tc.Kube.Namespace,
 		YamlFiles: []string{
-			"testdata/v1alpha3/disable-mtls-t.yaml",
+			"testdata/v1alpha3/disable-mtls-t.yaml", // explicitly disable mTLS for service "t" so it won't be affected by mTLS global setting.
 			"testdata/v1alpha3/egressgateway.yaml",
 			"testdata/v1alpha3/service-entry.yaml",
 			"testdata/v1alpha3/rule-route-via-egressgateway.yaml"},
