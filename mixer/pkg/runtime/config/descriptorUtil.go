@@ -53,17 +53,15 @@ func GetTmplDescriptor(base64Tmpl string) (*descriptor.FileDescriptorSet, *descr
 		return nil, nil, "", fmt.Errorf("there has to be one proto file that has the extension %s", tmpl.E_TemplateVariety.Name)
 	}
 
-	var tmplName string
-	if nameExt, err := proto.GetExtension(tmplDescProto.GetOptions(), tmpl.E_TemplateName); err != nil {
+	var nameExt interface{}
+	if nameExt, err = proto.GetExtension(tmplDescProto.GetOptions(), tmpl.E_TemplateName); err != nil {
 		return nil, nil, "", fmt.Errorf(
 			"proto files %s is missing required template_name option", tmplDescProto.GetName())
-	} else if err := validateTmplName(*(nameExt.(*string))); err != nil {
+	} else if err = validateTmplName(*(nameExt.(*string))); err != nil {
 		return nil, nil, "", err
-	} else {
-		tmplName = *(nameExt.(*string))
 	}
 
-	return fds, tmplDescProto, tmplName, nil
+	return fds, tmplDescProto, *(nameExt.(*string)), nil
 }
 
 // GetAdapterCfgDescriptor find an adapter configuration descriptor
