@@ -89,5 +89,24 @@ items:
     clusterIP: None
     selector:
       jaeger-infra: jaeger-pod
-
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: tracing
+    namespace: {{ .Release.Namespace }}
+    labels:
+      app: jaeger
+      jaeger-infra: jaeger-service
+      chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+      release: {{ .Release.Name }}
+      heritage: {{ .Release.Service }}
+  spec:
+    ports:
+      - name: query-http
+        port: 80
+        protocol: TCP
+        targetPort: {{ .Values.jaeger.queryservice.internalPort }}
+    selector:
+      jaeger-infra: jaeger-pod
+    type: {{ .Values.jaeger.queryservice.type }}
 {{ end }}
