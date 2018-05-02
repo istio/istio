@@ -133,7 +133,8 @@ FilterHeadersStatus Filter::decodeHeaders(HeaderMap& headers, bool) {
   HeaderUpdate header_update(&headers);
   headers_ = &headers;
   cancel_check_ = handler_->Check(
-      &check_data, &header_update, control_.GetCheckTransport(&headers),
+      &check_data, &header_update,
+      control_.GetCheckTransport(decoder_callbacks_->activeSpan()),
       [this](const Status& status) { completeCheck(status); });
   initiating_call_ = false;
 

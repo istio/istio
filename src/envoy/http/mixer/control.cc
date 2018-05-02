@@ -42,8 +42,8 @@ Control::Control(const Config& config, Upstream::ClusterManager& cm,
 }
 
 Utils::CheckTransport::Func Control::GetCheckTransport(
-    const HeaderMap* headers) {
-  return Utils::CheckTransport::GetFunc(*check_client_factory_, headers);
+    Tracing::Span& parent_span) {
+  return Utils::CheckTransport::GetFunc(*check_client_factory_, parent_span);
 }
 
 // Call controller to get statistics.
