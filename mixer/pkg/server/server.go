@@ -141,7 +141,11 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	}
 
 	// get the network stuff setup
-	if s.listener, err = p.listen("tcp", fmt.Sprintf(":%d", a.APIPort)); err != nil {
+	address := fmt.Sprintf(":%d", a.APIPort)
+	if a.APIPortLocal {
+		address = fmt.Sprintf("127.0.0.1:%d", a.APIPort)
+	}
+	if s.listener, err = p.listen("tcp", address); err != nil {
 		_ = s.Close()
 		return nil, fmt.Errorf("unable to listen on socket: %v", err)
 	}

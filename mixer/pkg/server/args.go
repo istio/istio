@@ -87,6 +87,9 @@ type Args struct {
 	// Port to use for Mixer's gRPC API
 	APIPort uint16
 
+	// Bind gRPC API server to local interface only
+	APIPortLocal bool
+
 	// Port to use for exposing mixer self-monitoring information
 	MonitoringPort uint16
 
@@ -104,6 +107,7 @@ type Args struct {
 func DefaultArgs() *Args {
 	return &Args{
 		APIPort:                       9091,
+		APIPortLocal:                  true,
 		MonitoringPort:                9093,
 		MaxMessageSize:                1024 * 1024,
 		MaxConcurrentStreams:          1024,

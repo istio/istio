@@ -41,6 +41,8 @@ func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf,
 
 	serverCmd.PersistentFlags().Uint16VarP(&sa.APIPort, "port", "p", sa.APIPort,
 		"TCP port to use for Mixer's gRPC API")
+	serverCmd.PersistentFlags().BoolVarP(&sa.APIPortLocal, "portLocal", "", sa.APIPortLocal,
+		"If true, bind gRPC API port to the local interface only")
 	serverCmd.PersistentFlags().Uint16Var(&sa.MonitoringPort, "monitoringPort", sa.MonitoringPort,
 		"HTTP port to use for the exposing mixer self-monitoring information")
 	serverCmd.PersistentFlags().UintVarP(&sa.MaxMessageSize, "maxMessageSize", "", sa.MaxMessageSize,
