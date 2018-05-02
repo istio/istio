@@ -19,8 +19,6 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"time"
-
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"github.com/gogo/protobuf/types"
@@ -321,19 +319,19 @@ func translateRoute(in *networking.HTTPRoute,
 				},
 			}}
 	} else {
-		d := util.GogoDurationToDuration(in.Timeout)
-		// timeout
-		//(Duration) Specifies the timeout for the route. If not specified, the default is 15s.
-		// Having it set to 0 may work as well.
-		if d == 0 {
-			d = 15 * time.Second
-		}
 		action := &route.RouteAction{
 			Cors:         translateCORSPolicy(in.CorsPolicy),
 			RetryPolicy:  translateRetryPolicy(in.Retries),
-			Timeout:      &d,
 			UseWebsocket: &types.BoolValue{Value: in.WebsocketUpgrade},
 		}
+		if in.Timeout != nil {
+			d := util.GogoDurationToDuration(in.Timeout)
+			// timeout
+			//(Duration) Specifies the timeout for the route. If not specified, the default is 15s.
+			// Having it set to 0 may work as well.
+			action.Timeout = &d
+		}
+
 		out.Action = &route.Route_Route{Route: action}
 
 		if rewrite := in.Rewrite; rewrite != nil {
