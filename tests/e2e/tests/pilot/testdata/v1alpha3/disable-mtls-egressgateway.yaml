@@ -1,0 +1,8 @@
+# This authn policy to disable mTLS for egressgateway
+apiVersion: "authentication.istio.io/v1alpha1"
+kind: "Policy"
+metadata:
+  name: "disable-mtls-t"
+spec:
+  targets:
+  - name: "egressgateway"
