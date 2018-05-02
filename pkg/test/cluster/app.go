@@ -16,7 +16,6 @@ package cluster
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"regexp"
 	"strings"
@@ -32,7 +31,6 @@ import (
 
 const (
 	containerName = "app"
-	yamlSeparator = "---"
 	appLabel      = "app"
 )
 
@@ -88,43 +86,40 @@ type app struct {
 	endpoints   []*endpoint
 }
 
-// CreateApps reads the given yaml file and creates any deployed apps that it finds.
-func CreateApps(yamlFileName, namespace string) ([]test.DeployedApp, error) {
-	yamlDoc, err := ioutil.ReadFile(yamlFileName)
+func getApp(serviceName, namespace string) (test.DeployedApp, error) {
+	// Get the yaml config for the service
+	yamlBytes, err := util.ShellSilent("kubectl get svc %s -n %s -o yaml", serviceName, namespace)
 	if err != nil {
 		return nil, err
 	}
 
-	out := make([]test.DeployedApp, 0)
-
-	yamlParts := strings.Split(string(yamlDoc), yamlSeparator)
-	for _, part := range yamlParts {
-		decoder := scheme.Codecs.UniversalDeserializer()
-		obj, groupVersionKind, err := decoder.Decode([]byte(part), nil, nil)
-		if err != nil {
-			continue
-		}
-		if groupVersionKind.Kind == "Service" {
-			if service, ok := obj.(*corev1.Service); ok {
-				appName := service.Labels[appLabel]
-				if len(appName) > 0 {
-					a := &app{
-						serviceName: service.Name,
-						appName:     appName,
-						namespace:   namespace,
-					}
-					a.endpoints = endpoints(a, service)
-					out = append(out, a)
-				}
-			}
-		}
+	// Parse the returned config
+	decoder := scheme.Codecs.UniversalDeserializer()
+	obj, _, err := decoder.Decode([]byte(yamlBytes), nil, nil)
+	if err != nil {
+		return nil, err
 	}
 
-	if len(out) == 0 {
-		return nil, fmt.Errorf("no services found in %s", yamlFileName)
+	// Cast to a service
+	service, ok := obj.(*corev1.Service)
+	if !ok {
+		// This should never happen.
+		return nil, fmt.Errorf("returned object was not a service")
 	}
 
-	return out, nil
+	// Get the app name for this service.
+	appName := service.Labels[appLabel]
+	if len(appName) == 0 {
+		return nil, fmt.Errorf("service does not contain the 'app' label")
+	}
+
+	a := &app{
+		serviceName: service.Name,
+		appName:     appName,
+		namespace:   namespace,
+	}
+	a.endpoints = endpoints(a, service)
+	return a, nil
 }
 
 func endpoints(owner *app, service *corev1.Service) []*endpoint {
@@ -135,7 +130,7 @@ func endpoints(owner *app, service *corev1.Service) []*endpoint {
 			port: &model.Port{
 				Name:     servicePort.Name,
 				Port:     int(servicePort.Port),
-				Protocol: kube.ConvertProtocol(servicePort.Name, corev1.ProtocolTCP),
+				Protocol: kube.ConvertProtocol(servicePort.Name, servicePort.Protocol),
 			},
 		}
 	}

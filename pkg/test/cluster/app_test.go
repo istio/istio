@@ -22,8 +22,9 @@ import (
 
 // TODO(nmittler): Remove from final code. This is just helpful for initial debugging.
 
+// This will only work if you already have an environment deployed with apps.
 func TestCreateApps(t *testing.T) {
-	out, err := CreateApps("testdata/app-b-filled.yaml", "istio-system")
+	out, err := getApp("headless", "istio-test-app-xwqkc")
 	if err != nil {
 		t.Fatal(err)
 	}
