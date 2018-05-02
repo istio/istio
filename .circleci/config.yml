@@ -36,14 +36,6 @@ initWorkingDir: &initWorkingDir
     mkdir -p /go/out/logs
     mkdir -p /home/circleci/logs
 
-
-makeSync: &makeSync
-  run:
-      command: |
-        git config --global user.email "circleci@istio.io"
-        git config --global user.name "CircleCI"
-        make sync
-
 recordZeroExitCodeIfTestPassed: &recordZeroExitCodeIfTestPassed
   run:
     when: on_success
@@ -89,7 +81,7 @@ jobs:
       - attach_workspace:
           at:  /go
       - <<: *markJobStartsOnGCS
-      - <<: *makeSync
+      - run: make sync
       - run: bin/testEnvRootMinikube.sh start
       - run:
           command: |
@@ -125,8 +117,8 @@ jobs:
       - checkout
       - attach_workspace:
           at:  /go
-      - <<: *makeSync
       - <<: *markJobStartsOnGCS
+      - run: make sync
       - run: bin/testEnvRootMinikube.sh start
       - run:
           command: |
@@ -165,7 +157,7 @@ jobs:
       - attach_workspace:
           at:  /go
       - <<: *markJobStartsOnGCS
-      - <<: *makeSync
+      - run: make sync
       - run: bin/testEnvRootMinikube.sh start
       - run:
           command: |
@@ -206,8 +198,8 @@ jobs:
       - checkout
       - attach_workspace:
           at:  /go
-      - <<: *makeSync
       - <<: *markJobStartsOnGCS
+      - run: make sync
       - run: bin/testEnvRootMinikube.sh start
       - run:
           command: |
@@ -243,8 +235,8 @@ jobs:
       - checkout
       - attach_workspace:
           at:  /go
-      - <<: *makeSync
       - <<: *markJobStartsOnGCS
+      - run: make sync
       - run: bin/testEnvRootMinikube.sh start
       - run:
           command: |
@@ -288,7 +280,7 @@ jobs:
       - checkout
       - attach_workspace:
           at: /go
-      - <<: *makeSync
+      - run: make sync
       - run:
           no_output_timeout: 20m
           when: always
@@ -313,8 +305,8 @@ jobs:
       - checkout
       - attach_workspace:
           at:  /go
-      - <<: *makeSync
       - <<: *markJobStartsOnGCS
+      - run: make sync
       - run: bin/testEnvRootMinikube.sh start
       - run:
           command: |
@@ -355,8 +347,8 @@ jobs:
       - checkout
       - attach_workspace:
           at:  /go
-      - <<: *makeSync
       - <<: *markJobStartsOnGCS
+      - run: make sync
       - run: bin/testEnvRootMinikube.sh start
       - run:
           command: |
@@ -397,8 +389,8 @@ jobs:
       - checkout
       - attach_workspace:
           at:  /go
-      - <<: *makeSync
       - <<: *markJobStartsOnGCS
+      - run: make sync
       - run: bin/testEnvRootMinikube.sh start
       - run:
           command: |
@@ -473,8 +465,8 @@ jobs:
     resource_class: xlarge
     steps:
       - checkout
-      - <<: *makeSync
       - <<: *markJobStartsOnGCS
+      - run: make sync
       - run:
           command: |
             mkdir -p /go/out/tests
@@ -532,7 +524,7 @@ jobs:
     resource_class: xlarge
     steps:
       - checkout
-      - <<: *makeSync
+      - run: make sync
       - run: make build test-bins /go/bin/go-junit-report
       - persist_to_workspace:
           root: /go
@@ -551,7 +543,7 @@ jobs:
     resource_class: xlarge
     steps:
       - checkout
-      - <<: *makeSync
+      - run: make sync
       - run: make lint
       # Make sure that any modification to vendor is correct. Always use the latest version of dep.
       - run:
@@ -569,7 +561,7 @@ jobs:
       - checkout
       - attach_workspace:
           at:  /go
-      - <<: *makeSync
+      - run: make sync
       - setup_remote_docker:
           docker_layer_caching: true
       - run: make istio-archive
