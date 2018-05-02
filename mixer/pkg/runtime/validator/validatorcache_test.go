@@ -15,7 +15,6 @@
 package validator
 
 import (
-	"os"
 	"reflect"
 	"sort"
 	"testing"
@@ -158,9 +157,6 @@ func TestValidatorCache(t *testing.T) {
 }
 
 func TestValidatorCacheDoubleEdits(t *testing.T) {
-	if os.Getenv("RACE_TEST") == "true" {
-		t.Skip("Test fails in race testing. Fixing in #5259")
-	}
 	spec1 := &cpb.Rule{Match: "spec1"}
 	spec2 := &cpb.Rule{Match: "spec2"}
 	base := &cpb.Rule{Match: "base"}
