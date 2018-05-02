@@ -14,16 +14,16 @@
 
 package change
 
-// Type is the type of the change.
+// Type of the kubernetes resource changes.
 type Type int
 
 const (
-	// Add means a Kubernetes resource was added.
+	// A Kubernetes resource was added.
 	Add Type = iota
 
-	// Update means a Kubernetes resource was updated.
+	// A Kubernetes resource was updated.
 	Update
 
-	// Delete means a Kubernetes resource was deleted.
+	// A Kubernetes resource was deleted.
 	Delete
 )
