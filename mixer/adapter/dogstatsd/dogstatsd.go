@@ -58,12 +58,7 @@ func (b *builder) Build(_ context.Context, env adapter.Env) (adapter.Handler, er
 	if err != nil {
 		return nil, env.Logger().Errorf("Unable to create dogstatsd client: %v", err)
 	}
-
-	if !strings.HasSuffix(ac.Prefix, ".") {
-		client.Namespace = ac.Prefix + "."
-	} else {
-		client.Namespace = ac.Prefix
-	}
+	client.Namespace = ac.Prefix
 	client.Tags = flattenTags(ac.GlobalTags)
 
 	// Create an empty map if tags aren't provided
@@ -209,7 +204,7 @@ func GetInfo() adapter.Info {
 		NewBuilder: func() adapter.HandlerBuilder { return &builder{} },
 		DefaultConfig: &config.Params{
 			Address:      "localhost:8125",
-			Prefix:       "istio.",
+			Prefix:       "",
 			BufferLength: 0,
 			GlobalTags:   map[string]string{},
 		},
