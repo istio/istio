@@ -288,3 +288,10 @@ if [ -n "${OUTBOUND_IP_RANGES_INCLUDE}" ]; then
     iptables -t nat -A ISTIO_OUTPUT -j RETURN
   fi
 fi
+
+# Drop all IPv6 traffic.
+# TODO: support receiving IPv6 traffic in the same way as IPv4.
+ip6tables -F
+ip6tables -P INPUT DROP
+ip6tables -P OUTPUT DROP
+ip6tables -P FORWARD DROP
