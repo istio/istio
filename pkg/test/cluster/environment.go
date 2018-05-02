@@ -23,11 +23,18 @@ import (
 
 // Environment a cluster-based environment for testing.
 type Environment struct {
-	T testing.TB
+	T                    testing.TB
+	IstioSystemNamespace string
+	AppNamespace         string
 }
 
 // Deploy pushes the given helm configuration to the cluster.
 func (e *Environment) Deploy(c *helm.Chart) {
+}
+
+// DeployApps pushes the test apps to the cluster.
+func (e *Environment) DeployApps() {
+	// TODO(nmittler):
 }
 
 // GetAPIServer returns the deployed k8s API server
@@ -38,4 +45,19 @@ func (e *Environment) GetAPIServer() test.DeployedAPIServer {
 // GetIstioComponent gets the deployed configuration for all Istio components of the given kind.
 func (e *Environment) GetIstioComponent(k test.DeployedServiceKind) []test.DeployedIstioComponent {
 	return []test.DeployedIstioComponent{nil}
+}
+
+// GetApp implements the test.Environment interface
+func (e *Environment) GetApp(name string) (test.DeployedApp, error) {
+	return getApp(name, e.AppNamespace)
+}
+
+// GetAppOrFail implements the test.Environment interface
+func (e *Environment) GetAppOrFail(name string, t *testing.T) test.DeployedApp {
+	t.Helper()
+	a, err := getApp(name, e.AppNamespace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return a
 }

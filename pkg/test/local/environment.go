@@ -49,3 +49,14 @@ func (e *Environment) GetAPIServer() test.DeployedAPIServer {
 func (e *Environment) GetIstioComponent(k test.DeployedServiceKind) []test.DeployedIstioComponent {
 	return nil
 }
+
+// GetApp implements the test.Environment interface.
+func (e *Environment) GetApp(name string) (test.DeployedApp, error) {
+	return nil, nil
+}
+
+// GetAppOrFail implements the test.Environment interface.
+func (e *Environment) GetAppOrFail(name string, t *testing.T) test.DeployedApp {
+	t.Helper()
+	return nil
+}
