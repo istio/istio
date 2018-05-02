@@ -696,7 +696,7 @@ func TestMostSpecificHostMatch(t *testing.T) {
 		{[]model.Hostname{"*.foo.com", "foo.com"}, "foo.com", "foo.com"},
 		{[]model.Hostname{"*.foo.com", "foo.com"}, "*.foo.com", "foo.com"},
 
-		// this passes beacuse we sort alphabetically
+		// this passes because we sort alphabetically
 		{[]model.Hostname{"bar.com", "foo.com"}, "*.com", "bar.com"},
 	}
 
