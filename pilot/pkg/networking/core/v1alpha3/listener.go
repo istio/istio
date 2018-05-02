@@ -648,7 +648,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 // chain)
 func marshalFilters(l *xdsapi.Listener, opts buildListenerOpts, chains []plugin.FilterChain) error {
 	if len(opts.filterChainOpts) != len(chains) || len(chains) != len(l.FilterChains) || len(opts.filterChainOpts) == 0 {
-		return fmt.Errorf("must have same number of chains in: \nlistener: %d; %#v\nopts: %d; %#v\nchain: %d; %#v",
+		return fmt.Errorf("must have more than 0 chains, and the same number of chains in each of:\nlistener: %d; %#v\nopts: %d; %#v\nchain: %d; %#v",
 			len(l.FilterChains), l, len(opts.filterChainOpts), opts, len(chains), chains)
 	}
 

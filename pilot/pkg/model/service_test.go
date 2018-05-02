@@ -14,7 +14,12 @@
 
 package model
 
-import "testing"
+import (
+	"fmt"
+	"reflect"
+	"sort"
+	"testing"
+)
 
 var validServiceKeys = map[string]struct {
 	service Service
@@ -206,5 +211,103 @@ func TestParseProtocol(t *testing.T) {
 		if out != testPair.out {
 			t.Errorf("ParseProtocol(%q) => %q, want %q", testPair.name, out, testPair.out)
 		}
+	}
+}
+
+func TestHostnameMatches(t *testing.T) {
+	tests := []struct {
+		name string
+		a, b Hostname
+		out  bool
+	}{
+		{"empty", "", "", true},
+
+		{"non-wildcard domain",
+			"foo.com", "foo.com", true},
+		{"non-wildcard domain",
+			"bar.com", "foo.com", false},
+		{"non-wildcard domain - order doesn't matter",
+			"foo.com", "bar.com", false},
+
+		{"domain does not match subdomain",
+			"bar.foo.com", "foo.com", false},
+		{"domain does not match subdomain - order doesn't matter",
+			"foo.com", "bar.foo.com", false},
+
+		{"wildcard matches subdomains",
+			"*.com", "foo.com", true},
+		{"wildcard matches subdomains",
+			"*.com", "bar.com", true},
+		{"wildcard matches subdomains",
+			"*.foo.com", "bar.foo.com", true},
+
+		{"wildcard matches anything", "*", "foo.com", true},
+		{"wildcard matches anything", "*", "*.com", true},
+		{"wildcard matches anything", "*", "com", true},
+		{"wildcard matches anything", "*", "*", true},
+		{"wildcard matches anything", "*", "", true},
+
+		{"wildcarded domain matches wildcarded subdomain", "*.com", "*.foo.com", true},
+
+		{"long wildcard matches short host", "*.foo.bar.baz", "baz", true},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
+			if tt.out != tt.a.Matches(tt.b) {
+				t.Fatalf("%q.Matches(%q) = %t wanted %t", tt.a, tt.b, !tt.out, tt.out)
+			}
+		})
+	}
+}
+
+func TestHostnamesSortOrder(t *testing.T) {
+	tests := []struct {
+		in, want Hostnames
+	}{
+		// Prove we sort alphabetically:
+		{
+			Hostnames{"b", "a"},
+			Hostnames{"a", "b"},
+		},
+		{
+			Hostnames{"bb", "cc", "aa"},
+			Hostnames{"aa", "bb", "cc"},
+		},
+		// Prove we sort longest first, alphabetically:
+		{
+			Hostnames{"b", "a", "aa"},
+			Hostnames{"aa", "a", "b"},
+		},
+		{
+			Hostnames{"foo.com", "bar.com", "foo.bar.com"},
+			Hostnames{"foo.bar.com", "bar.com", "foo.com"},
+		},
+		// We sort wildcards last, always
+		{
+			Hostnames{"a", "*", "z"},
+			Hostnames{"a", "z", "*"},
+		},
+		{
+			Hostnames{"foo.com", "bar.com", "*.com"},
+			Hostnames{"bar.com", "foo.com", "*.com"},
+		},
+		{
+			Hostnames{"foo.com", "bar.com", "*.com", "*.foo.com", "*", "baz.bar.com"},
+			Hostnames{"baz.bar.com", "bar.com", "foo.com", "*.foo.com", "*.com", "*"},
+		},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("%d", idx), func(t *testing.T) {
+			// Save a copy to report errors with
+			tmp := make(Hostnames, len(tt.in))
+			copy(tmp, tt.in)
+
+			sort.Sort(tt.in)
+			if !reflect.DeepEqual(tt.in, tt.want) {
+				t.Fatalf("sort.Sort(%v) = %v, want %v", tmp, tt.in, tt.want)
+			}
+		})
 	}
 }
