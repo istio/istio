@@ -20,11 +20,14 @@ import (
 	"istio.io/istio/galley/pkg/api/distrib"
 )
 
+// Bundle represents a self-contained bundle of configuration, from which distributable fragments and manifest
+// can be generated from. The distributors should try to reduce the number of calls to Generate* methods, to
+// avoid causing excessive processing.
 type Bundle interface {
 	fmt.Stringer
 
 	GenerateManifest() *distrib.Manifest
-	GetFragments() []*distrib.Fragment
+	GenerateFragments() []*distrib.Fragment
 }
 
 type BundleVersion int64

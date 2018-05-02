@@ -12,6 +12,6 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package inmemory
-
-// TODO
+// Package runtime contains the runtime abstractions and machinery for config processing. It contains the
+// main control loop, as well as config generation and state-management code.
+package runtime

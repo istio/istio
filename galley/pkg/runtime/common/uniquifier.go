@@ -16,20 +16,24 @@ package common
 
 import "fmt"
 
+// Uniquifier makes unique identifiers within a given scope.
 type Uniquifier struct {
 	used map[string]bool
 }
 
+// NewUniquifier returns a new instance of Uniquifier.
 func NewUniquifier() *Uniquifier {
 	return &Uniquifier{
 		used: make(map[string]bool),
 	}
 }
 
+// Add a new name to the uniquifier.
 func (u *Uniquifier) Add(name string) {
 	u.used[name] = true
 }
 
+// Generate a new unique name with the given prefix.
 func (u *Uniquifier) Generate(prefix string) string {
 	name := prefix
 	discriminator := 0

@@ -83,15 +83,15 @@ func (s *Source) Get(id resource.Key) (resource.Entry, error) {
 
 	rid := resource.VersionedKey{
 		Key: resource.Key{
-			Kind: resource.Known.ProducerService.Kind,
+			Kind:     resource.ProducerServiceKind,
 			FullName: id.FullName,
 		},
-		Version:resource.Version(u.GetResourceVersion()),
+		Version: resource.Version(u.GetResourceVersion()),
 	}
 
-	return resource.Entry {
-		Id: rid,
-		Item:    item,
+	return resource.Entry{
+		Id:   rid,
+		Item: item,
 	}, nil
 }
 
@@ -112,15 +112,15 @@ func (s *Source) process(c *change.Info) {
 
 	rid := resource.VersionedKey{
 		Key: resource.Key{
-			Kind: resource.Kind(types.ProducerService.Kind),
+			Kind:     resource.Kind(types.ProducerService.Kind),
 			FullName: c.Name,
 		},
 		Version: resource.Version(c.Version),
 	}
 
 	e := provider.Event{
-		Id:      rid,
-		Kind:    kind,
+		Id:   rid,
+		Kind: kind,
 	}
 
 	log.Debugf("Dispatching source event: %v", e)

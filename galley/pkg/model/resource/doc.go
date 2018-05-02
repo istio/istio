@@ -12,10 +12,6 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package fragments
-
-const (
-	InstanceUrl = "http://istio.io/config/distribution/v1/istio.policy.v1beta1.Instance"
-
-	RuleUrl = "http://istio.io/config/distribution/v1/istio.policy.v1beta1.Rule"
-)
+// Package resource contains core abstract types for representing configuration resources. These types
+// are particularly geared towards resources coming from the provider interfaces.
+package resource

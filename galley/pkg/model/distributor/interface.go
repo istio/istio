@@ -14,12 +14,18 @@
 
 package distributor
 
+// Interface to be implemented by a distribution provider.
 type Interface interface {
+
+	// Initialize the distributor interface. After this call, the implementation should be ready to start
+	// distributing bundles of configuration.
 	Initialize() error
 
-	Start()
-
+	// Distribute the given bundle.
+	// TODO: Remove error
 	Distribute(b Bundle) error
 
+	// Shutdown the distribution interface.  The distribution system should stop distributing configuration,
+	// prior to graceful shutdown.
 	Shutdown()
 }

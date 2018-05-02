@@ -121,8 +121,8 @@ func (m *Action) GetInstances() []string {
 }
 
 type Instance struct {
-	Name     string                  `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Template string                  `protobuf:"bytes,2,opt,name=template,proto3" json:"template,omitempty"`
+	Name     string      `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Template string      `protobuf:"bytes,2,opt,name=template,proto3" json:"template,omitempty"`
 	Params   interface{} `protobuf:"bytes,3,opt,name=params" json:"params,omitempty"`
 }
 
@@ -153,10 +153,10 @@ func (m *Instance) GetParams() interface{} {
 }
 
 type Handler struct {
-	Name       string                  `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Adapter    string                  `protobuf:"bytes,2,opt,name=adapter,proto3" json:"adapter,omitempty"`
+	Name       string      `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Adapter    string      `protobuf:"bytes,2,opt,name=adapter,proto3" json:"adapter,omitempty"`
 	Params     interface{} `protobuf:"bytes,3,opt,name=params" json:"params,omitempty"`
-	Connection *Connection             `protobuf:"bytes,4,opt,name=connection" json:"connection,omitempty"`
+	Connection *Connection `protobuf:"bytes,4,opt,name=connection" json:"connection,omitempty"`
 }
 
 func (m *Handler) Reset()                    { *m = Handler{} }

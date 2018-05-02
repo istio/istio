@@ -12,6 +12,9 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package inmemory
+package resource
 
-// TODO
+const (
+	// ProducerServiceKind is the kind for ProducerService
+	ProducerServiceKind = Kind("ProducerService")
+)

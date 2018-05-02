@@ -31,7 +31,6 @@ func ProducerService(cfg *dev.ProducerService) message.List {
 	return m
 }
 
-
 func checkService(m *message.List, selector *dev.ServiceSelector) {
 	check.Nil(m, "service", selector)
 	if selector == nil {

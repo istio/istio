@@ -18,17 +18,29 @@ import (
 	"istio.io/istio/galley/pkg/model/resource"
 )
 
+// EventKind is the type of an event.
 type EventKind int
 
 const (
+	// None is a sentinel value. Should not be used.
 	None EventKind = iota
+
+	// Added indicates that a new resource has been added.
 	Added
+
+	// Updated indicates that an existing resource has been updated.
 	Updated
+
+	// Deleted indicates an existing resource has been deleted.
 	Deleted
+
+	// FullSync indicates that the initial state of the store has been published as a series of Added events.
+	// Events after FullSync are actual change events that the source-store has encountered.
 	FullSync
 )
 
+// Event represents a change that occured against a resource in the source config system.
 type Event struct {
-	Kind    EventKind
-	Id      resource.VersionedKey
+	Kind EventKind
+	Id   resource.VersionedKey
 }

@@ -12,13 +12,5 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package resource
-
-// Known contains information about known resources
-var Known = struct {
-	ProducerService Info
-}{
-	ProducerService: Info{
-		Kind: "ProducerService",
-	},
-}
+// Package distributor contains the main abstraction for the distribution mechanism.
+package distributor

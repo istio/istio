@@ -16,7 +16,6 @@ package resource
 
 import "github.com/gogo/protobuf/proto"
 
-
 // Kind is the name of a resource type.
 type Kind string
 

@@ -20,7 +20,6 @@ import (
 	"istio.io/istio/galley/pkg/api/distrib"
 	"istio.io/istio/galley/pkg/api/service/dev"
 	"istio.io/istio/galley/pkg/model/distributor"
-	"istio.io/istio/galley/pkg/model/distributor/fragments"
 	"istio.io/istio/galley/pkg/model/resource"
 	"istio.io/istio/galley/pkg/runtime/common"
 	"istio.io/istio/galley/pkg/runtime/generate"
@@ -45,18 +44,18 @@ type MixerFragment struct {
 }
 
 func newMixerState() *Mixer {
-	return &Mixer {
-		u: common.NewUniquifier(),
+	return &Mixer{
+		u:         common.NewUniquifier(),
 		fragments: make(map[resource.Key]*MixerFragment),
 	}
 }
 
 func (m *Mixer) GenerateManifest() *distrib.Manifest {
 	man := &distrib.Manifest{
-		Id: "TODO", // TODO: Generate a hash-based id.
+		Id:            "TODO",  // TODO: Generate a hash-based id.
 		ComponentType: "Mixer", // TODO: consts for Mixer
-		ComponentId: "", // TODO: Get ComponentId
-		FragmentIds: make([]string, 0, len(m.fragments)),
+		ComponentId:   "",      // TODO: Get ComponentId
+		FragmentIds:   make([]string, 0, len(m.fragments)),
 	}
 
 	for _, f := range m.fragments {
@@ -66,22 +65,22 @@ func (m *Mixer) GenerateManifest() *distrib.Manifest {
 	return man
 }
 
-func (m *Mixer) GetFragments() []*distrib.Fragment {
+func (m *Mixer) GenerateFragments() []*distrib.Fragment {
 	var result []*distrib.Fragment
 
 	for _, f := range m.fragments {
 		for _, in := range f.instances {
-			fr, err := buildFragment(f.id + "/" + in.Name, fragments.InstanceUrl, in)
+			fr, err := buildFragment(f.id+"/"+in.Name, distributor.InstanceUrl, in)
 			if err != nil {
 				// TODO
 				panic(err)
 			}
-			
+
 			result = append(result, fr)
 		}
-		
+
 		for _, r := range f.rules {
-			fr, err := buildFragment(f.id + "/" , fragments.RuleUrl, r) // TODO
+			fr, err := buildFragment(f.id+"/", distributor.RuleUrl, r) // TODO
 			if err != nil {
 				// TODO
 				panic(err)
@@ -128,16 +127,16 @@ func (m *Mixer) removeProducerService(key resource.VersionedKey) bool {
 func buildFragment(id string, url string, p proto.Message) (*distrib.Fragment, error) {
 	value, err := proto.Marshal(p)
 	if err != nil {
-		return nil, err	
+		return nil, err
 	}
-	
+
 	fr := &distrib.Fragment{
 		Id: id,
 		Content: &types.Any{
-			TypeUrl: fragments.RuleUrl,
-			Value: value,
+			TypeUrl: url,
+			Value:   value,
 		},
 	}
-	
+
 	return fr, nil
 }

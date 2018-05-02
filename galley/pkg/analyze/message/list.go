@@ -42,4 +42,3 @@ func (l *List) Add(e Entry) {
 
 	l.entries = append(l.entries, e)
 }
-

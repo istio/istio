@@ -13,6 +13,7 @@
 //  limitations under the License.
 //
 package generate
+
 // TODO: Enable this package after refactoring the generation model
 //
 //import (

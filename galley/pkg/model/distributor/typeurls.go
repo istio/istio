@@ -12,6 +12,12 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package inmemory
+package distributor
 
-// TODO
+const (
+	// InstanceUrl is the type URL for Instances within a fragment.
+	InstanceUrl = "http://istio.io/config/distribution/v1/istio.policy.v1beta1.Instance"
+
+	// RuleUrl is the type URL for Rules within a fragment.
+	RuleUrl = "http://istio.io/config/distribution/v1/istio.policy.v1beta1.Rule"
+)

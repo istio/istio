@@ -19,14 +19,16 @@ import (
 
 	"github.com/pkg/errors"
 	"istio.io/istio/galley/pkg/api/service/dev"
-	"istio.io/istio/galley/pkg/model/resource"
-	"istio.io/istio/galley/pkg/model/provider"
 	"istio.io/istio/galley/pkg/model/distributor"
+	"istio.io/istio/galley/pkg/model/provider"
+	"istio.io/istio/galley/pkg/model/resource"
 	"istio.io/istio/galley/pkg/runtime/state"
 
 	"istio.io/istio/pkg/log"
 )
 
+// Processor is the main control-loop for processing incoming config events and translating them into
+// component configuration
 type Processor struct {
 	stateLock sync.Mutex
 
@@ -42,6 +44,7 @@ type Processor struct {
 	watermark distributor.BundleVersion
 }
 
+// New returns a new instance of a Processor
 func New(source provider.Interface, distributor distributor.Interface) *Processor {
 	return &Processor{
 		source:      source,
@@ -49,6 +52,8 @@ func New(source provider.Interface, distributor distributor.Interface) *Processo
 	}
 }
 
+// Start the processor. This will cause processor to listen to incoming events from the provider
+// and publish component configuration via the distributor.
 func (in *Processor) Start() error {
 	log.Infof("Starting runtime...")
 	in.stateLock.Lock()
@@ -82,6 +87,7 @@ func (in *Processor) Start() error {
 	return nil
 }
 
+// Stop the processor.
 func (in *Processor) Stop() {
 	log.Infof("Stopping runtime...")
 	in.stateLock.Lock()

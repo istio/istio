@@ -34,6 +34,7 @@ func New() *Instance {
 	}
 }
 
+// ApplyProducerService applies the producer service to the current configuration state instance.
 func (in *Instance) ApplyProducerService(key resource.VersionedKey, s *dev.ProducerService) {
 	log.Debugf("Applying producer service: key='%v'", key)
 
@@ -45,6 +46,7 @@ func (in *Instance) ApplyProducerService(key resource.VersionedKey, s *dev.Produ
 	}
 }
 
+// RemoveProducerService removes the producer service from the current configuration state instance.
 func (in *Instance) RemoveProducerService(key resource.VersionedKey) {
 	log.Debugf("Removing producer service: key='%v'", key)
 
@@ -56,6 +58,7 @@ func (in *Instance) RemoveProducerService(key resource.VersionedKey) {
 	}
 }
 
+// GetNewBundles returns new bundles since the supplied since version.
 func (in *Instance) GetNewBundles(since distributor.BundleVersion) ([]distributor.Bundle, distributor.BundleVersion) {
 	var result []distributor.Bundle
 	version := since

@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/galley/pkg/runtime/common"
 )
 
+// MixerFragment generates a new Mixer config fragment from the supplied producer service.
 func MixerFragment(cfg *serviceconfig.ProducerService, names *common.Uniquifier) (instances []*distrib.Instance, rules []*distrib.Rule) {
 
 	for _, instance := range cfg.Instances {

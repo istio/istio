@@ -187,8 +187,8 @@ func (m *Action) GetInstances() []*Instance {
 }
 
 type Instance struct {
-	Ref      string                  `protobuf:"bytes,1,opt,name=ref,proto3" json:"ref,omitempty"`
-	Template string                  `protobuf:"bytes,2,opt,name=template,proto3" json:"template,omitempty"`
+	Ref      string      `protobuf:"bytes,1,opt,name=ref,proto3" json:"ref,omitempty"`
+	Template string      `protobuf:"bytes,2,opt,name=template,proto3" json:"template,omitempty"`
 	Params   interface{} `protobuf:"bytes,3,opt,name=params" json:"params,omitempty"`
 }
 
@@ -219,8 +219,8 @@ func (m *Instance) GetParams() interface{} {
 }
 
 type InstanceDecl struct {
-	Name     string                  `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Template string                  `protobuf:"bytes,2,opt,name=template,proto3" json:"template,omitempty"`
+	Name     string      `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Template string      `protobuf:"bytes,2,opt,name=template,proto3" json:"template,omitempty"`
 	Params   interface{} `protobuf:"bytes,3,opt,name=params" json:"params,omitempty"`
 }
 
