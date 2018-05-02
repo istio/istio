@@ -698,10 +698,13 @@ func TestMostSpecificHostMatch(t *testing.T) {
 
 		// this passes because we sort alphabetically
 		{[]model.Hostname{"bar.com", "foo.com"}, "*.com", "bar.com"},
+
+		{[]model.Hostname{"bar.com", "*.foo.com"}, "*foo.com", "*.foo.com"},
+		{[]model.Hostname{"foo.com", "*.foo.com"}, "*foo.com", "foo.com"},
 	}
 
 	for idx, tt := range tests {
-		t.Run(fmt.Sprintf("%d", idx), func(t *testing.T) {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.needle), func(t *testing.T) {
 			actual, found := model.MostSpecificHostMatch(tt.needle, tt.in)
 			if tt.want != "" && !found {
 				t.Fatalf("model.MostSpecificHostMatch(%q, %v) = %v, %t; want: %v", tt.needle, tt.in, actual, found, tt.want)
