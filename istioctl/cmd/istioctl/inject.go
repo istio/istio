@@ -25,13 +25,12 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/multierr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/pkg/kube/inject"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
 )
@@ -41,24 +40,11 @@ const (
 	injectConfigMapKey = "config"
 )
 
-func createInterface(kubeconfig string) (kubernetes.Interface, error) {
-	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	loadingRules.ExplicitPath = kubeconfig
-
-	clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
-	restConfig, err := clientConfig.ClientConfig()
-	if err != nil {
-		return nil, err
-	}
-	return kubernetes.NewForConfig(restConfig)
-}
-
 func getMeshConfigFromConfigMap(kubeconfig string) (*meshconfig.MeshConfig, error) {
-	client, err := createInterface(kubeconfig)
+	_, client, err := kube.CreateInterface(kubeconfig)
 	if err != nil {
 		return nil, err
 	}
-
 	config, err := client.CoreV1().ConfigMaps(istioNamespace).Get(meshConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("could not read valid configmap %q from namespace  %q: %v - "+
@@ -76,11 +62,10 @@ func getMeshConfigFromConfigMap(kubeconfig string) (*meshconfig.MeshConfig, erro
 }
 
 func getInjectConfigFromConfigMap(kubeconfig string) (string, error) {
-	client, err := createInterface(kubeconfig)
+	_, client, err := kube.CreateInterface(kubeconfig)
 	if err != nil {
 		return "", err
 	}
-
 	config, err := client.CoreV1().ConfigMaps(istioNamespace).Get(injectConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return "", fmt.Errorf("could not find valid configmap %q from namespace  %q: %v - "+
