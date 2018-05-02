@@ -12,30 +12,23 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package types
+package provider
 
 import (
-	_ "istio.io/api/policy/v1beta1"
-	_ "istio.io/istio/galley/pkg/api/service/dev"
-	"istio.io/istio/galley/pkg/kube/schema"
+	"istio.io/istio/galley/pkg/model/resource"
 )
 
-var Rule = &schema.Type{
-	"rule",
-	"rules",
-	"config.istio.io",
-	"v1beta1",
-	"Rule",
-	"RuleList",
-	"istio.policy.v1beta1.Rule",
-}
+type EventKind int
 
-var ProducerService = &schema.Type{
-	"producerservice",
-	"producerservices",
-	"config.istio.io",
-	"dev",
-	"ProducerService",
-	"ProducerServiceList",
-	"istio.service.dev.ProducerService",
+const (
+	None EventKind = iota
+	Added
+	Updated
+	Deleted
+	FullSync
+)
+
+type Event struct {
+	Kind    EventKind
+	Id      resource.VersionedKey
 }

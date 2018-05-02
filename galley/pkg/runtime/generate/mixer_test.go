@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 //
-package generator
+package generate
 // TODO: Enable this package after refactoring the generation model
 //
 //import (

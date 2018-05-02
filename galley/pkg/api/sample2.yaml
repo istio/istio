@@ -3,7 +3,7 @@ kind: ProducerService
 metadata:
   name: bar
 spec:
-  serviceSelector:
+  service:
     name: bar
   rules:
     - match: bar == 42

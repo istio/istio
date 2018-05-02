@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package analyzer
+package analyze
 
 import (
 	"strings"
@@ -78,12 +78,12 @@ instances:
 	for _, tst := range tests {
 		t.Run("", func(t *testing.T) {
 			cfg := hydrateServiceConfig(t, tst.config)
-			msgs := CheckServiceConfig(cfg)
+			msgs := ProducerService(cfg)
 			actual := msgs.String()
 			actual = strings.TrimSpace(actual)
 			expected := strings.TrimSpace(tst.messages)
 			if actual != expected {
-				t.Fatalf("Mismatch:\ngot:\n%v\nwanted:\n%v\n", actual, expected)
+				t.Fatalf("Mismatch:\ngot:\n%v\nwanted:\n%v\nfor:\n%s", actual, expected, tst.config)
 			}
 		})
 	}

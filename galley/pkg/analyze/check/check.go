@@ -12,12 +12,20 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package model
+package check
 
-var Info = struct {
-	ServiceConfig ResourceInfo
-}{
-	ServiceConfig: ResourceInfo{
-		Kind: "ServiceConfig",
-	},
+import "istio.io/istio/galley/pkg/analyze/message"
+
+// Empty checks whether the string is empty or not.
+func Empty(m *message.List, name string, txt string) {
+	if txt == "" {
+		m.Add(message.EmptyField(name))
+	}
+}
+
+// Nil checks whether the interface is nil or not.
+func Nil(m *message.List, name string, v interface{}) {
+	if v == nil {
+		m.Add(message.EmptyField(name))
+	}
 }

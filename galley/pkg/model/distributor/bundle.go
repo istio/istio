@@ -12,16 +12,19 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package analyzer
+package distributor
 
-func checkEmpty(m *Messages, name string, txt string) {
-	if txt == "" {
-		m.emptyField(name)
-	}
+import (
+	"fmt"
+
+	"istio.io/istio/galley/pkg/api/distrib"
+)
+
+type Bundle interface {
+	fmt.Stringer
+
+	GenerateManifest() *distrib.Manifest
+	GetFragments() []*distrib.Fragment
 }
 
-func checkNull(m *Messages, name string, v interface{}) {
-	if v == nil {
-		m.emptyField(name)
-	}
-}
+type BundleVersion int64

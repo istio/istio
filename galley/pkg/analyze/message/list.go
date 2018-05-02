@@ -12,30 +12,34 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package types
+package message
 
-import (
-	_ "istio.io/api/policy/v1beta1"
-	_ "istio.io/istio/galley/pkg/api/service/dev"
-	"istio.io/istio/galley/pkg/kube/schema"
-)
-
-var Rule = &schema.Type{
-	"rule",
-	"rules",
-	"config.istio.io",
-	"v1beta1",
-	"Rule",
-	"RuleList",
-	"istio.policy.v1beta1.Rule",
+// List contains an ordered set of messages.
+type List struct {
+	entries []Entry
 }
 
-var ProducerService = &schema.Type{
-	"producerservice",
-	"producerservices",
-	"config.istio.io",
-	"dev",
-	"ProducerService",
-	"ProducerServiceList",
-	"istio.service.dev.ProducerService",
+// String returns a string representation of the message set.
+func (l *List) String() string {
+	if l == nil {
+		return ""
+	}
+
+	result := ""
+	for _, msg := range l.entries {
+		result += msg.String()
+		result += "\n"
+	}
+
+	return result
 }
+
+// Add a new message entry to the list.
+func (l *List) Add(e Entry) {
+	if l == nil {
+		l = &List{}
+	}
+
+	l.entries = append(l.entries, e)
+}
+

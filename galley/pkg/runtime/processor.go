@@ -18,28 +18,31 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+	"istio.io/istio/galley/pkg/api/service/dev"
+	"istio.io/istio/galley/pkg/model/resource"
+	"istio.io/istio/galley/pkg/model/provider"
+	"istio.io/istio/galley/pkg/model/distributor"
+	"istio.io/istio/galley/pkg/runtime/state"
 
-	serviceconfig "istio.io/istio/galley/pkg/api/service/dev"
-	"istio.io/istio/galley/pkg/model"
-	"istio.io/istio/galley/pkg/model/generator"
 	"istio.io/istio/pkg/log"
 )
 
 type Processor struct {
 	stateLock sync.Mutex
 
-	source      Source
-	distributor Distributor
+	source      provider.Interface
+	distributor distributor.Interface
 
-	ch   chan Event
+	ch   chan provider.Event
 	done chan struct{}
 
 	processEnd sync.WaitGroup
 
-	state *MixerConfigState
+	st        *state.Instance
+	watermark distributor.BundleVersion
 }
 
-func New(source Source, distributor Distributor) *Processor {
+func New(source provider.Interface, distributor distributor.Interface) *Processor {
 	return &Processor{
 		source:      source,
 		distributor: distributor,
@@ -56,7 +59,8 @@ func (in *Processor) Start() error {
 		return errors.New("already started")
 	}
 
-	in.state = newMixerConfigState()
+	in.st = state.New()
+	in.watermark = 0
 
 	err := in.distributor.Initialize()
 	if err != nil {
@@ -99,7 +103,7 @@ func (in *Processor) Stop() {
 
 	in.ch = nil
 	in.done = nil
-	in.state = nil
+	in.st = nil
 }
 
 func (in *Processor) process() {
@@ -117,33 +121,29 @@ loop:
 	in.processEnd.Done()
 }
 
-func (in *Processor) processEvent(e Event) {
+func (in *Processor) processEvent(e provider.Event) {
 	log.Debugf("=== Incoming event: %v", e)
-	if e.Id.Kind != model.Info.ServiceConfig.Kind {
+	if e.Id.Kind != resource.Known.ProducerService.Kind {
+		log.Debugf("Skipping unknown resource kind: '%v'", e.Id.Kind)
 		return
 	}
 
 	switch e.Kind {
-	case Added, Updated:
-		if in.state.versions[e.Id] == e.Version {
-			// Already known, skip.
-			log.Debugf("resource/version is already known, skipping: %v/%v", e.Id, e.Version)
-			return
+	case provider.Added, provider.Updated:
+		res, err := in.source.Get(e.Id.Key)
+		if err != nil {
+			log.Errorf("get error: %v", err)
+			// TODO: Handle error case
+			panic(err)
 		}
+		// TODO: Support other types
+		ps := res.Item.(*dev.ProducerService)
+		in.st.ApplyProducerService(e.Id, ps)
 
-		in.state.versions[e.Id] = e.Version
-		in.generatePart(e.Id)
+	case provider.Deleted:
+		in.st.RemoveProducerService(e.Id)
 
-	case Deleted:
-		if _, ok := in.state.versions[e.Id]; !ok {
-			log.Debugf("resource/version is already deleted, skipping: %v/%v", e.Id, e.Version)
-			// Already deleted, skip.
-			return
-		}
-		delete(in.state.versions, e.Id)
-		delete(in.state.parts, e.Id)
-
-	case FullSync:
+	case provider.FullSync:
 		log.Debugf("starting distribution")
 		in.distributor.Start()
 		return
@@ -152,19 +152,9 @@ func (in *Processor) processEvent(e Event) {
 		log.Warnf("Unknown event: %s (%v)", e.Kind, e)
 	}
 
-	in.distributor.Dispatch(in.state.Generate())
-}
-
-func (in *Processor) generatePart(key model.ResourceKey) {
-	res, err := in.source.Get(key)
-	if err != nil {
-		log.Errorf("get error: %v", err)
-		// TODO: Handle error case
-		panic(err)
+	bundles, version := in.st.GetNewBundles(in.watermark)
+	for _, b := range bundles {
+		in.distributor.Distribute(b)
 	}
-	instances, rules := generator.Generate(res.Item.(*serviceconfig.ProducerService), in.state.names)
-	in.state.parts[key] = &PartialMixerConfigState{
-		Rules:     rules,
-		Instances: instances,
-	}
+	in.watermark = version
 }

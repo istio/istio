@@ -3,7 +3,7 @@ kind: ProducerService
 metadata:
   name: foo
 spec:
-  serviceSelector:
+  service:
     name: foo
   rules:
     - match: foo == bar

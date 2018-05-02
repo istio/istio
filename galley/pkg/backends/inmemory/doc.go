@@ -12,36 +12,5 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package analyzer
-
-import (
-	"fmt"
-)
-
-type Messages struct {
-	messages []Message
-}
-
-func (m *Messages) String() string {
-	result := ""
-	for _, msg := range m.messages {
-		result += msg.String()
-		result += "\n"
-	}
-
-	return result
-}
-
-func (m *Messages) append(level Level, code int, format string, params ...interface{}) {
-	msg := Message{
-		Level:   level,
-		Code:    code,
-		Content: fmt.Sprintf(format, params...),
-	}
-
-	m.messages = append(m.messages, msg)
-}
-
-func (m *Messages) emptyField(name string) {
-	m.append(Error, 1, "Field cannot be empty: %s", name)
-}
+// Package inmemory contains an in-memory implementation of model/provider and model/distributor.
+package inmemory

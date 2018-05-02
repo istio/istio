@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/galley/pkg/model/provider"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/galley/pkg/change"
@@ -25,26 +26,25 @@ import (
 	"istio.io/istio/galley/pkg/kube/client"
 	"istio.io/istio/galley/pkg/kube/convert"
 	"istio.io/istio/galley/pkg/kube/types"
-	"istio.io/istio/galley/pkg/model"
-	"istio.io/istio/galley/pkg/runtime"
+	"istio.io/istio/galley/pkg/model/resource"
 	"istio.io/istio/pkg/log"
 )
 
 type Source struct {
 	k  kube.Kube
-	ch chan runtime.Event
+	ch chan provider.Event
 
 	scAccessor *client.Accessor
 }
 
-var _ runtime.Source = &Source{}
+var _ provider.Interface = &Source{}
 
 func New(k kube.Kube, resyncPeriod time.Duration) (*Source, error) {
 	s := &Source{
 		k: k,
 	}
 
-	scAccessor, err := client.NewAccessor(k, resyncPeriod, types.ServiceConfig, s.process)
+	scAccessor, err := client.NewAccessor(k, resyncPeriod, types.ProducerService, s.process)
 
 	if err != nil {
 		return nil, err
@@ -54,8 +54,8 @@ func New(k kube.Kube, resyncPeriod time.Duration) (*Source, error) {
 	return s, nil
 }
 
-func (s *Source) Start() (chan runtime.Event, error) {
-	s.ch = make(chan runtime.Event, 1024)
+func (s *Source) Start() (chan provider.Event, error) {
+	s.ch = make(chan provider.Event, 1024)
 
 	s.scAccessor.Start()
 
@@ -67,47 +67,59 @@ func (s *Source) Stop() {
 	s.ch = nil
 }
 
-func (s *Source) Get(id model.ResourceKey) (model.Resource, error) {
-	parts := strings.Split(id.Name, "/")
+func (s *Source) Get(id resource.Key) (resource.Entry, error) {
+	parts := strings.Split(id.FullName, "/")
 	ns := parts[0]
 	name := parts[1]
-	u, err := s.scAccessor.Client.Resource(types.ServiceConfig.APIResource(), ns).Get(name, metav1.GetOptions{})
+	u, err := s.scAccessor.Client.Resource(types.ProducerService.APIResource(), ns).Get(name, metav1.GetOptions{})
 	if err != nil {
-		return model.Resource{}, err
+		return resource.Entry{}, err
 	}
 
-	item, err := convert.ToProto(types.ServiceConfig, u)
+	item, err := convert.ToProto(types.ProducerService, u)
 	if err != nil {
-		return model.Resource{}, err
+		return resource.Entry{}, err
 	}
 
-	return model.Resource{
-		Key:     model.ResourceKey{Kind: model.Info.ServiceConfig.Kind, Name: id.Name},
-		Version: model.ResourceVersion(u.GetResourceVersion()),
+	rid := resource.VersionedKey{
+		Key: resource.Key{
+			Kind: resource.Known.ProducerService.Kind,
+			FullName: id.FullName,
+		},
+		Version:resource.Version(u.GetResourceVersion()),
+	}
+
+	return resource.Entry {
+		Id: rid,
 		Item:    item,
 	}, nil
 }
 
 func (s *Source) process(c *change.Info) {
-	var kind runtime.EventKind
+	var kind provider.EventKind
 	switch c.Type {
 	case change.Add:
-		kind = runtime.Added
+		kind = provider.Added
 	case change.Update:
-		kind = runtime.Updated
+		kind = provider.Updated
 	case change.Delete:
-		kind = runtime.Deleted
+		kind = provider.Deleted
 	case change.FullSync:
-		kind = runtime.FullSync
+		kind = provider.FullSync
 	default:
 		log.Errorf("Unknown change kind: %v", c.Type)
 	}
 
-	rid := model.ResourceKey{Kind: model.ResourceKind(types.ServiceConfig.Kind), Name: c.Name}
+	rid := resource.VersionedKey{
+		Key: resource.Key{
+			Kind: resource.Kind(types.ProducerService.Kind),
+			FullName: c.Name,
+		},
+		Version: resource.Version(c.Version),
+	}
 
-	e := runtime.Event{
+	e := provider.Event{
 		Id:      rid,
-		Version: model.ResourceVersion(c.Version),
 		Kind:    kind,
 	}
 

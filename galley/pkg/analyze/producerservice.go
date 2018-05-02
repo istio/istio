@@ -12,34 +12,36 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package analyzer
+package analyze
 
 import (
+	"istio.io/istio/galley/pkg/analyze/check"
+	"istio.io/istio/galley/pkg/analyze/message"
 	"istio.io/istio/galley/pkg/api/service/dev"
 )
 
-func CheckServiceConfig(config *dev.ProducerService) *Messages {
-	m := &Messages{}
+func ProducerService(cfg *dev.ProducerService) message.List {
+	var m message.List
 
-	checkService(m, config.Service)
+	checkService(&m, cfg.Service)
 
-	for _, instance := range config.Instances {
-		checkInstance(m, instance)
+	for _, ins := range cfg.Instances {
+		checkInstance(&m, ins)
 	}
-
 	return m
 }
 
-func checkService(m *Messages, selector *dev.ServiceSelector) {
-	checkNull(m, "service", selector)
+
+func checkService(m *message.List, selector *dev.ServiceSelector) {
+	check.Nil(m, "service", selector)
 	if selector == nil {
 		return
 	}
 
-	checkEmpty(m, "service name", selector.Name)
+	check.Empty(m, "service name", selector.Name)
 }
 
-func checkInstance(m *Messages, instance *dev.InstanceDecl) {
-	checkEmpty(m, "instance name", instance.Name)
-	checkEmpty(m, "instance template", instance.Template)
+func checkInstance(m *message.List, instance *dev.InstanceDecl) {
+	check.Empty(m, "instance name", instance.Name)
+	check.Empty(m, "instance template", instance.Template)
 }

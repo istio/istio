@@ -12,28 +12,14 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package model
+package provider
 
-import "github.com/gogo/protobuf/proto"
+import (
+	"istio.io/istio/galley/pkg/model/resource"
+)
 
-type ResourceKind string
-type ResourceVersion string
-
-type ResourceKey struct {
-	Kind ResourceKind
-	Name string // TODO: Should this be namespace + Name?
-}
-
-func (r ResourceVersion) Equals(other ResourceVersion) bool {
-	return string(r) == string(other)
-}
-
-type Resource struct {
-	Key     ResourceKey
-	Version ResourceVersion
-	Item    proto.Message
-}
-
-type ResourceInfo struct {
-	Kind ResourceKind
+type Interface interface {
+	Start() (chan Event, error)
+	Stop()
+	Get(id resource.Key) (resource.Entry, error)
 }

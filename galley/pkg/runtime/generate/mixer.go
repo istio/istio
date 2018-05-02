@@ -12,17 +12,17 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package generator
+package generate
 
 import (
 	"fmt"
 
 	"istio.io/istio/galley/pkg/api/distrib"
 	serviceconfig "istio.io/istio/galley/pkg/api/service/dev"
-	"istio.io/istio/galley/pkg/model/common"
+	"istio.io/istio/galley/pkg/runtime/common"
 )
 
-func Generate(cfg *serviceconfig.ProducerService, names *common.Uniquifier) (instances []*distrib.Instance, rules []*distrib.Rule) {
+func MixerFragment(cfg *serviceconfig.ProducerService, names *common.Uniquifier) (instances []*distrib.Instance, rules []*distrib.Rule) {
 
 	for _, instance := range cfg.Instances {
 		inst := &distrib.Instance{}

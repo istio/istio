@@ -12,30 +12,4 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package types
-
-import (
-	_ "istio.io/api/policy/v1beta1"
-	_ "istio.io/istio/galley/pkg/api/service/dev"
-	"istio.io/istio/galley/pkg/kube/schema"
-)
-
-var Rule = &schema.Type{
-	"rule",
-	"rules",
-	"config.istio.io",
-	"v1beta1",
-	"Rule",
-	"RuleList",
-	"istio.policy.v1beta1.Rule",
-}
-
-var ProducerService = &schema.Type{
-	"producerservice",
-	"producerservices",
-	"config.istio.io",
-	"dev",
-	"ProducerService",
-	"ProducerServiceList",
-	"istio.service.dev.ProducerService",
-}
+package inmemory

@@ -12,30 +12,35 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package types
+package resource
 
-import (
-	_ "istio.io/api/policy/v1beta1"
-	_ "istio.io/istio/galley/pkg/api/service/dev"
-	"istio.io/istio/galley/pkg/kube/schema"
-)
+import "fmt"
 
-var Rule = &schema.Type{
-	"rule",
-	"rules",
-	"config.istio.io",
-	"v1beta1",
-	"Rule",
-	"RuleList",
-	"istio.policy.v1beta1.Rule",
+// TODO: Experimental
+
+type DispatchFn func(r Entry) error
+
+type Dispatcher struct {
+	fns       map[Kind]DispatchFn
+	defaultFn DispatchFn
 }
 
-var ProducerService = &schema.Type{
-	"producerservice",
-	"producerservices",
-	"config.istio.io",
-	"dev",
-	"ProducerService",
-	"ProducerServiceList",
-	"istio.service.dev.ProducerService",
+func (d *Dispatcher) Dispatch(r Entry) error {
+	if fn, ok := d.fns[r.Id.Kind]; ok {
+		return fn(r)
+	}
+
+	if d.defaultFn != nil {
+		return d.defaultFn(r)
+	}
+
+	return fmt.Errorf("no dispatcher found: %v", r.Id.Kind)
+}
+
+func (d *Dispatcher) SetDefault(fn DispatchFn) {
+	d.defaultFn = fn
+}
+
+func (d *Dispatcher) Set(kind Kind, fn DispatchFn) {
+	d.fns[kind] = fn
 }

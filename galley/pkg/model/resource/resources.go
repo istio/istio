@@ -12,40 +12,13 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package analyzer
+package resource
 
-import "fmt"
-
-type Level int
-
-const (
-	Info Level = iota
-	Warning
-	Error
-)
-
-type Message struct {
-	Level   Level
-	Content string
-	Source  string
-	Code    int
-}
-
-func (m *Message) String() string {
-	src := ""
-	if m.Source != "" {
-		src = "  " + m.Source
-	}
-
-	lvl := "?"
-	switch m.Level {
-	case Info:
-		lvl = "I"
-	case Warning:
-		lvl = "W"
-	case Error:
-		lvl = "E"
-	}
-
-	return fmt.Sprintf("[%s%04d] %s%s", lvl, m.Code, m.Content, src)
+// Known contains information about known resources
+var Known = struct {
+	ProducerService Info
+}{
+	ProducerService: Info{
+		Kind: "ProducerService",
+	},
 }

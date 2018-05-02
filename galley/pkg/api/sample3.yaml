@@ -3,7 +3,7 @@ kind: ProducerService
 metadata:
   name: reviews
 spec:
-  serviceSelector:
+  service:
     name: reviews
   virtual:
     hosts:

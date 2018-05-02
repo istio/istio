@@ -17,8 +17,9 @@ package server
 import (
 	"time"
 
+	"istio.io/istio/galley/pkg/backends/inmemory"
 	"istio.io/istio/galley/pkg/kube"
-	"istio.io/istio/galley/pkg/kube/client/distributor"
+	//"istio.io/istio/galley/pkg/kube/client/distributor"
 	"istio.io/istio/galley/pkg/kube/client/source"
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/pkg/log"
@@ -34,10 +35,11 @@ func New(k kube.Kube, resyncPeriod time.Duration) (*Server, error) {
 		return nil, err
 	}
 
-	dist, err := distributor.New(k, resyncPeriod)
-	if err != nil {
-		return nil, err
-	}
+	//dist, err := distributor.New(k, resyncPeriod)
+	//if err != nil {
+	//	return nil, err
+	//}
+	dist := inmemory.NewDistributor()
 	rt := runtime.New(src, dist)
 
 	s := &Server{

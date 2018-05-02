@@ -12,16 +12,14 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package runtime
+package distributor
 
-import "istio.io/istio/galley/pkg/api/distrib"
-
-type Distributor interface {
+type Interface interface {
 	Initialize() error
 
 	Start()
 
-	Dispatch(config *distrib.MixerConfig) error
+	Distribute(b Bundle) error
 
 	Shutdown()
 }

@@ -12,12 +12,40 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package runtime
+package message
 
-import "istio.io/istio/galley/pkg/model"
+import "fmt"
 
-type Source interface {
-	Start() (chan Event, error)
-	Stop()
-	Get(id model.ResourceKey) (model.Resource, error)
+type Level int
+
+const (
+	Info Level = iota
+	Warning
+	Error
+)
+
+type Entry struct {
+	Level   Level
+	Content string
+	Source  string
+	Code    int
+}
+
+func (e *Entry) String() string {
+	src := ""
+	if e.Source != "" {
+		src = "  " + e.Source
+	}
+
+	lvl := "?"
+	switch e.Level {
+	case Info:
+		lvl = "I"
+	case Warning:
+		lvl = "W"
+	case Error:
+		lvl = "E"
+	}
+
+	return fmt.Sprintf("[%s%04d] %s%s", lvl, e.Code, e.Content, src)
 }

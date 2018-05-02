@@ -12,22 +12,19 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package runtime
+package message
 
-import "istio.io/istio/galley/pkg/model"
+import "fmt"
 
-type EventKind int
+// EmptyField  message.
+func EmptyField(name string) Entry {
+	return entry(Error, 1, "Field cannot be empty: %s", name)
+}
 
-const (
-	None EventKind = iota
-	Added
-	Updated
-	Deleted
-	FullSync
-)
-
-type Event struct {
-	Kind    EventKind
-	Id      model.ResourceKey
-	Version model.ResourceVersion
+func entry(level Level, code int, format string, params ...interface{}) Entry {
+	return Entry{
+		Level:   level,
+		Code:    code,
+		Content: fmt.Sprintf(format, params...),
+	}
 }
