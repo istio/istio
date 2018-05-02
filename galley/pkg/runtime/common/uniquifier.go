@@ -14,9 +14,13 @@
 
 package common
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // Uniquifier makes unique identifiers within a given scope.
+// TODO: Better name
 type Uniquifier struct {
 	used map[string]bool
 }
@@ -28,23 +32,33 @@ func NewUniquifier() *Uniquifier {
 	}
 }
 
-// Add a new name to the uniquifier.
-func (u *Uniquifier) Add(name string) {
-	u.used[name] = true
+// Mangled returns a unique identifier, mangled from the given parts, and discriminated if necessary.
+func (u *Uniquifier) Mangled(parts ...string) string {
+	prefix := strings.Join(parts, "_")
+	return u.Discriminated(prefix, false)
 }
 
-// Generate a new unique name with the given prefix.
-func (u *Uniquifier) Generate(prefix string) string {
-	name := prefix
+// Discriminated returns a unique identifier that is discriminated by a suffix, if necessary.
+func (u *Uniquifier) Discriminated(identifier string, always bool) string {
+	name := identifier
 	discriminator := 0
 
-	for {
-		name = fmt.Sprintf("%s%d", prefix, discriminator)
-		discriminator++
+	if always {
+		name = discriminate(identifier, &discriminator)
+	}
 
-		if _, ok := u.used[name]; !ok {
+	for {
+		if _, contains := u.used[name]; !contains {
 			u.used[name] = true
 			return name
 		}
+
+		name = discriminate(identifier, &discriminator)
 	}
+}
+
+func discriminate(identifier string, discriminator *int) string {
+	s := fmt.Sprintf("%s%d", identifier, *discriminator)
+	*discriminator++
+	return s
 }

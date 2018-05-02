@@ -22,10 +22,12 @@ import (
 	"istio.io/istio/galley/pkg/model/distributor"
 	"istio.io/istio/galley/pkg/model/provider"
 	"istio.io/istio/galley/pkg/model/resource"
-	"istio.io/istio/galley/pkg/runtime/state"
+	st "istio.io/istio/galley/pkg/runtime/state"
 
 	"istio.io/istio/pkg/log"
 )
+
+var scope = log.RegisterScope("runtime", "Galley runtime", 0)
 
 // Processor is the main control-loop for processing incoming config events and translating them into
 // component configuration
@@ -35,12 +37,14 @@ type Processor struct {
 	source      provider.Interface
 	distributor distributor.Interface
 
-	ch   chan provider.Event
-	done chan struct{}
+	ch         chan provider.Event
+	done       chan struct{}
+	distribute bool
 
 	processEnd sync.WaitGroup
 
-	st        *state.Instance
+	// The current in-memory configuration state
+	state     *st.Instance
 	watermark distributor.BundleVersion
 }
 
@@ -54,113 +58,121 @@ func New(source provider.Interface, distributor distributor.Interface) *Processo
 
 // Start the processor. This will cause processor to listen to incoming events from the provider
 // and publish component configuration via the distributor.
-func (in *Processor) Start() error {
-	log.Infof("Starting runtime...")
-	in.stateLock.Lock()
-	defer in.stateLock.Unlock()
+func (p *Processor) Start() error {
+	scope.Info("Starting processor...")
 
-	if in.ch != nil {
-		log.Warnf("Already started")
+	p.stateLock.Lock()
+	defer p.stateLock.Unlock()
+
+	if p.ch != nil {
+		scope.Warn("Processor has already started")
 		return errors.New("already started")
 	}
 
-	in.st = state.New()
-	in.watermark = 0
+	p.state = st.New()
+	p.watermark = 0
+	p.distribute = false
 
-	err := in.distributor.Initialize()
+	err := p.distributor.Initialize()
 	if err != nil {
+		scope.Warnf("Unable to initialize distributor: %v", err)
 		return err
 	}
 
-	ch, err := in.source.Start()
+	ch, err := p.source.Start()
 	if err != nil {
-		in.distributor.Shutdown()
+		scope.Warnf("Unable to initialize provider: %v", err)
+		p.distributor.Shutdown()
 		return err
 	}
 
-	in.ch = ch
+	p.ch = ch
 
-	in.done = make(chan struct{})
-	in.processEnd.Add(1)
-	go in.process()
+	p.done = make(chan struct{})
+	p.processEnd.Add(1)
+	go p.process()
 
 	return nil
 }
 
 // Stop the processor.
-func (in *Processor) Stop() {
-	log.Infof("Stopping runtime...")
-	in.stateLock.Lock()
-	defer in.stateLock.Unlock()
+func (p *Processor) Stop() {
+	scope.Info("Stopping processor...")
+	p.stateLock.Lock()
+	defer p.stateLock.Unlock()
 
-	if in.ch == nil {
-		log.Warnf("Already stopped")
+	if p.ch == nil {
+		scope.Warnf("Processoer has already stopped")
 		return
 	}
 
-	in.source.Stop()
+	p.source.Stop()
 
-	close(in.done)
-	in.processEnd.Wait()
+	close(p.done)
+	p.processEnd.Wait()
 
-	in.distributor.Shutdown()
+	p.distributor.Shutdown()
 
-	close(in.ch)
+	close(p.ch)
 
-	in.ch = nil
-	in.done = nil
-	in.st = nil
+	p.ch = nil
+	p.done = nil
+	p.state = nil
+	p.distribute = false
 }
 
-func (in *Processor) process() {
+func (p *Processor) process() {
+	scope.Debugf("Starting process loop")
 loop:
 	for {
 		select {
-		case e := <-in.ch:
-			in.processEvent(e)
-		case <-in.done:
+		case e := <-p.ch:
+			p.processEvent(e)
+		case <-p.done:
 			break loop
 		}
 	}
 
-	log.Debugf("Exiting process loop")
-	in.processEnd.Done()
+	scope.Debugf("Exiting process loop")
+	p.processEnd.Done()
 }
 
-func (in *Processor) processEvent(e provider.Event) {
-	log.Debugf("=== Incoming event: %v", e)
-	if e.Id.Kind != resource.Known.ProducerService.Kind {
-		log.Debugf("Skipping unknown resource kind: '%v'", e.Id.Kind)
+func (p *Processor) processEvent(e provider.Event) {
+	scope.Debugf("Incoming source event: %v", e)
+
+	if e.Id.Kind != resource.ProducerServiceKind {
+		scope.Debugf("Skipping unknown resource kind: '%v'", e.Id.Kind)
 		return
 	}
 
 	switch e.Kind {
 	case provider.Added, provider.Updated:
-		res, err := in.source.Get(e.Id.Key)
+		res, err := p.source.Get(e.Id.Key)
 		if err != nil {
-			log.Errorf("get error: %v", err)
+			scope.Errorf("get error: %v", err)
 			// TODO: Handle error case
 			panic(err)
 		}
 		// TODO: Support other types
 		ps := res.Item.(*dev.ProducerService)
-		in.st.ApplyProducerService(e.Id, ps)
+		p.state.ApplyProducerService(e.Id, ps)
 
 	case provider.Deleted:
-		in.st.RemoveProducerService(e.Id)
+		p.state.RemoveProducerService(e.Id)
 
 	case provider.FullSync:
-		log.Debugf("starting distribution")
-		in.distributor.Start()
-		return
+		scope.Debugf("starting distribution after full sync")
+		p.distribute = true
 
 	default:
-		log.Warnf("Unknown event: %s (%v)", e.Kind, e)
+		scope.Warnf("Unknown provider event: %s (%v)", e.Kind, e)
 	}
 
-	bundles, version := in.st.GetNewBundles(in.watermark)
-	for _, b := range bundles {
-		in.distributor.Distribute(b)
+	if p.distribute {
+		bundles, version := p.state.GetNewBundles(p.watermark)
+		for _, b := range bundles {
+			p.distributor.Distribute(b)
+		}
+		p.watermark = version
 	}
-	in.watermark = version
 }

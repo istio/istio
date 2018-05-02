@@ -22,8 +22,7 @@ type Interface interface {
 	Initialize() error
 
 	// Distribute the given bundle.
-	// TODO: Remove error
-	Distribute(b Bundle) error
+	Distribute(b Bundle)
 
 	// Shutdown the distribution interface.  The distribution system should stop distributing configuration,
 	// prior to graceful shutdown.

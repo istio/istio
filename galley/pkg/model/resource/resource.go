@@ -14,7 +14,11 @@
 
 package resource
 
-import "github.com/gogo/protobuf/proto"
+import (
+	"fmt"
+
+	"github.com/gogo/protobuf/proto"
+)
 
 // Kind is the name of a resource type.
 type Kind string
@@ -47,3 +51,12 @@ type Info struct {
 }
 
 //  TODO: Do we need a "ref"? (i.e. VersionedKey + Origin config system identifier, for provenance).
+
+
+func (k Key) String() string {
+	return fmt.Sprintf("[Key](%s:%s)", k.Kind, k.FullName)
+}
+
+func (k VersionedKey) String() string {
+	return fmt.Sprintf("[VKey](%s:%s @%s)", k.Kind, k.FullName, k.Version)
+}

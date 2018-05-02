@@ -15,6 +15,8 @@
 package provider
 
 import (
+	"fmt"
+
 	"istio.io/istio/galley/pkg/model/resource"
 )
 
@@ -43,4 +45,8 @@ const (
 type Event struct {
 	Kind EventKind
 	Id   resource.VersionedKey
+}
+
+func (e Event) String() string {
+	return fmt.Sprintf("[Event](%d: %v)", e.Kind, e.Id)
 }

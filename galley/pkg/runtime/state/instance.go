@@ -21,7 +21,10 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
+var scope = log.RegisterScope("runtime", "Galley runtime", 0)
+
 // Instance is the total state instance.
+// TODO: Better name
 type Instance struct {
 	counter distributor.BundleVersion
 	mixers  []*Mixer
@@ -29,14 +32,15 @@ type Instance struct {
 
 // New returns a new Instance.
 func New() *Instance {
+	// TODO: This currently creates one mixer state. We should come up with a way to per-component states.
 	return &Instance{
-		mixers: []*Mixer{newMixerState()},
+		mixers: []*Mixer{newMixerState("")},
 	}
 }
 
 // ApplyProducerService applies the producer service to the current configuration state instance.
 func (in *Instance) ApplyProducerService(key resource.VersionedKey, s *dev.ProducerService) {
-	log.Debugf("Applying producer service: key='%v'", key)
+	scope.Debugf("Applying producer service: key='%v'", key)
 
 	for _, m := range in.mixers {
 		if m.applyProducerService(key, s) {
@@ -48,7 +52,7 @@ func (in *Instance) ApplyProducerService(key resource.VersionedKey, s *dev.Produ
 
 // RemoveProducerService removes the producer service from the current configuration state instance.
 func (in *Instance) RemoveProducerService(key resource.VersionedKey) {
-	log.Debugf("Removing producer service: key='%v'", key)
+	scope.Debugf("Removing producer service: key='%v'", key)
 
 	for _, m := range in.mixers {
 		if m.removeProducerService(key) {
@@ -60,6 +64,7 @@ func (in *Instance) RemoveProducerService(key resource.VersionedKey) {
 
 // GetNewBundles returns new bundles since the supplied since version.
 func (in *Instance) GetNewBundles(since distributor.BundleVersion) ([]distributor.Bundle, distributor.BundleVersion) {
+
 	var result []distributor.Bundle
 	version := since
 

@@ -28,8 +28,7 @@ func MixerFragment(cfg *serviceconfig.ProducerService, names *common.Uniquifier)
 	for _, instance := range cfg.Instances {
 		inst := &distrib.Instance{}
 
-		names.Add(instance.Name)
-		inst.Name = instance.Name
+		inst.Name = names.Discriminated(instance.Name, false)
 		inst.Template = instance.Template
 		inst.Params = instance.Params
 
@@ -62,7 +61,7 @@ func MixerFragment(cfg *serviceconfig.ProducerService, names *common.Uniquifier)
 				}
 
 				// Inline instance
-				inst.Name = names.Generate("_instance")
+				inst.Name = names.Discriminated("_instance", true)
 				inst.Template = instance.Template
 				inst.Params = instance.Params
 				instances = append(instances, inst)

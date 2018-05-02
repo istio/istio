@@ -15,26 +15,37 @@
 package state
 
 import (
+	"fmt"
+
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"istio.io/istio/galley/pkg/api/distrib"
 	"istio.io/istio/galley/pkg/api/service/dev"
+	"istio.io/istio/galley/pkg/model/component"
 	"istio.io/istio/galley/pkg/model/distributor"
 	"istio.io/istio/galley/pkg/model/resource"
 	"istio.io/istio/galley/pkg/runtime/common"
 	"istio.io/istio/galley/pkg/runtime/generate"
 )
 
+// Mixer state pertaining to a single Mixer instance.
 type Mixer struct {
-	version distributor.BundleVersion
-	u       *common.Uniquifier
+	// The unique id of the Mixer component that this config is destined for.
+	destination component.InstanceId
 
-	fragments map[resource.Key]*MixerFragment
+	// The current version number of the bundle.
+	version distributor.BundleVersion
+
+	// The uniquifier for uniquifying the names.
+	u *common.Uniquifier
+
+	// The current set of fragment sets
+	fragments map[resource.Key]*mixerFragmentSet
 }
 
 var _ distributor.Bundle = &Mixer{}
 
-type MixerFragment struct {
+type mixerFragmentSet struct {
 	id string // TODO: Calculate id in a stable way.
 	// The source configuration for this fragment
 	source resource.VersionedKey
@@ -43,18 +54,23 @@ type MixerFragment struct {
 	rules     []*distrib.Rule
 }
 
-func newMixerState() *Mixer {
+func newMixerState(componentId string) *Mixer {
 	return &Mixer{
-		u:         common.NewUniquifier(),
-		fragments: make(map[resource.Key]*MixerFragment),
+		destination: component.InstanceId{Kind: component.MixerKind, Name: componentId},
+		u:           common.NewUniquifier(),
+		fragments:   make(map[resource.Key]*mixerFragmentSet),
 	}
+}
+
+func (m *Mixer) Destination() component.InstanceId {
+	return m.destination
 }
 
 func (m *Mixer) GenerateManifest() *distrib.Manifest {
 	man := &distrib.Manifest{
-		Id:            "TODO",  // TODO: Generate a hash-based id.
-		ComponentType: "Mixer", // TODO: consts for Mixer
-		ComponentId:   "",      // TODO: Get ComponentId
+		Id:            "TODO", // TODO: Generate a hash-based id.
+		ComponentType: string(component.MixerKind),
+		ComponentId:   m.destination.Name,
 		FragmentIds:   make([]string, 0, len(m.fragments)),
 	}
 
@@ -94,8 +110,7 @@ func (m *Mixer) GenerateFragments() []*distrib.Fragment {
 }
 
 func (m *Mixer) String() string {
-	// TODO
-	return ""
+	return fmt.Sprintf("[state.Mixer](%s @%d, fragment#: %d)", m.destination, m.version, len(m.fragments))
 }
 
 func (m *Mixer) applyProducerService(key resource.VersionedKey, s *dev.ProducerService) bool {
@@ -105,7 +120,7 @@ func (m *Mixer) applyProducerService(key resource.VersionedKey, s *dev.ProducerS
 	}
 
 	instances, rules := generate.MixerFragment(s, m.u)
-	f = &MixerFragment{
+	f = &mixerFragmentSet{
 		source:    key,
 		instances: instances,
 		rules:     rules,
