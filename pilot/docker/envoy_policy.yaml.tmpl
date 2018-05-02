@@ -98,7 +98,7 @@ static_resources:
               name: istio-policy.{{ .PodNamespace }}.svc.cluster.local
               routes:
               - decorator:
-                  operation: Report
+                  operation: Check
                 match:
                   prefix: /
                 route:
