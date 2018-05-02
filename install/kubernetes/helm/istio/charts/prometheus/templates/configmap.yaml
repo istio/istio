@@ -146,6 +146,9 @@ data:
 
     # scrape config for service endpoints.
     - job_name: 'kubernetes-service-endpoints'
+{{ if not .Values.tracing.sampled }}
+      proxy_url: 'http://prometheus-nginx:9191'
+{{ end }}
       kubernetes_sd_configs:
       - role: endpoints
       relabel_configs:
@@ -176,6 +179,9 @@ data:
 
     # Example scrape config for pods
     - job_name: 'kubernetes-pods'
+{{ if not .Values.tracing.sampled }}
+      proxy_url: 'http://prometheus-nginx:9191'
+{{ end }}
       kubernetes_sd_configs:
       - role: pod
 
