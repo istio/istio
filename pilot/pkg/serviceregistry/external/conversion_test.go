@@ -169,6 +169,17 @@ var multiAddrInternal = &networking.ServiceEntry{
 	Resolution: networking.ServiceEntry_NONE,
 }
 
+var udsLocal = &networking.ServiceEntry{
+	Hosts: []string{"uds.cluster.local"},
+	Ports: []*networking.Port{
+		{Number: 6553, Name: "grpc-1", Protocol: "grpc"},
+	},
+	Endpoints: []*networking.ServiceEntry_Endpoint{
+		{Address: "unix:///test/sock"},
+	},
+	Resolution: networking.ServiceEntry_STATIC,
+}
+
 func convertPortNameToProtocol(name string) model.Protocol {
 	prefix := name
 	i := strings.Index(name, "-")
@@ -205,9 +216,14 @@ func makeService(hostname model.Hostname, address string, ports map[string]int, 
 
 func makeInstance(serviceEntry *networking.ServiceEntry, address string, port int,
 	svcPort *networking.Port, labels map[string]string) *model.ServiceInstance {
+	family := model.AddressFamilyTCP
+	if port == 0 {
+		family = model.AddressFamilyUnix
+	}
 	return &model.ServiceInstance{
 		Service: convertServices(serviceEntry)[0],
 		Endpoint: model.NetworkEndpoint{
+			Family:  family,
 			Address: address,
 			Port:    port,
 			ServicePort: &model.Port{
@@ -376,6 +392,13 @@ func TestConvertInstances(t *testing.T) {
 			out: []*model.ServiceInstance{
 				makeInstance(tcpStatic, "1.1.1.1", 444, tcpStatic.Ports[0], nil),
 				makeInstance(tcpStatic, "2.2.2.2", 444, tcpStatic.Ports[0], nil),
+			},
+		},
+		{
+			// service entry unix domain socket static
+			externalSvc: udsLocal,
+			out: []*model.ServiceInstance{
+				makeInstance(udsLocal, "/test/sock", 0, udsLocal.Ports[0], nil),
 			},
 		},
 	}

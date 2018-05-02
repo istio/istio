@@ -2841,6 +2841,18 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 			valid: true},
 
+		{name: "discovery type DNS, unix endpoint", in: networking.ServiceEntry{
+			Hosts: []string{"*.google.com"},
+			Ports: []*networking.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+			},
+			Endpoints: []*networking.ServiceEntry_Endpoint{
+				{Address: "unix:///lon/google/com"},
+			},
+			Resolution: networking.ServiceEntry_DNS,
+		},
+			valid: false},
+
 		{name: "discovery type none", in: networking.ServiceEntry{
 			Hosts: []string{"google.com"},
 			Ports: []*networking.Port{
@@ -2948,6 +2960,55 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 80, Protocol: "http", Name: "http-conflict2"},
 			},
 			Resolution: networking.ServiceEntry_NONE,
+		},
+			valid: false},
+
+		{name: "unix socket", in: networking.ServiceEntry{
+			Hosts: []string{"uds.cluster.local"},
+			Ports: []*networking.Port{
+				{Number: 6553, Protocol: "grpc", Name: "grpc-service1"},
+			},
+			Resolution: networking.ServiceEntry_STATIC,
+			Endpoints: []*networking.ServiceEntry_Endpoint{
+				{Address: "unix:///path/to/socket"},
+			},
+		},
+			valid: true},
+
+		{name: "unix socket, relative path", in: networking.ServiceEntry{
+			Hosts: []string{"uds.cluster.local"},
+			Ports: []*networking.Port{
+				{Number: 6553, Protocol: "grpc", Name: "grpc-service1"},
+			},
+			Resolution: networking.ServiceEntry_STATIC,
+			Endpoints: []*networking.ServiceEntry_Endpoint{
+				{Address: "unix://./relative/path.sock"},
+			},
+		},
+			valid: false},
+
+		{name: "unix socket, endpoint ports", in: networking.ServiceEntry{
+			Hosts: []string{"uds.cluster.local"},
+			Ports: []*networking.Port{
+				{Number: 6553, Protocol: "grpc", Name: "grpc-service1"},
+			},
+			Resolution: networking.ServiceEntry_STATIC,
+			Endpoints: []*networking.ServiceEntry_Endpoint{
+				{Address: "unix:///path/to/socket", Ports: map[string]uint32{"grpc-service1": 6553}},
+			},
+		},
+			valid: false},
+
+		{name: "unix socket, multiple service ports", in: networking.ServiceEntry{
+			Hosts: []string{"uds.cluster.local"},
+			Ports: []*networking.Port{
+				{Number: 6553, Protocol: "grpc", Name: "grpc-service1"},
+				{Number: 80, Protocol: "http", Name: "http-service2"},
+			},
+			Resolution: networking.ServiceEntry_STATIC,
+			Endpoints: []*networking.ServiceEntry_Endpoint{
+				{Address: "unix:///path/to/socket"},
+			},
 		},
 			valid: false},
 	}
@@ -3330,5 +3391,44 @@ func TestValidateServiceRoleBinding(t *testing.T) {
 		} else if err.Error() != c.expectErrMsg {
 			t.Errorf("ValidateServiceRoleBinding(%v): got %q but want %q\n", c.name, err.Error(), c.expectErrMsg)
 		}
+	}
+}
+
+func TestValidateNetworkEndpointAddress(t *testing.T) {
+	testCases := []struct {
+		name  string
+		ne    *NetworkEndpoint
+		valid bool
+	}{
+		{
+			"Unix OK",
+			&NetworkEndpoint{Family: AddressFamilyUnix, Address: "/absolute/path"},
+			true,
+		},
+		{
+			"IP OK",
+			&NetworkEndpoint{Address: "12.3.4.5", Port: 76},
+			true,
+		},
+		{
+			"Unix not absolute",
+			&NetworkEndpoint{Family: AddressFamilyUnix, Address: "./socket"},
+			false,
+		},
+		{
+			"IP invalid",
+			&NetworkEndpoint{Address: "260.3.4.5", Port: 76},
+			false,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateNetworkEndpointAddress(tc.ne)
+			if tc.valid && err != nil {
+				t.Fatalf("ValidateAddress() => want error nil got %v", err)
+			} else if !tc.valid && err == nil {
+				t.Fatalf("ValidateAddress() => want error got nil")
+			}
+		})
 	}
 }
