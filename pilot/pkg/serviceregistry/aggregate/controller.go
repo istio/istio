@@ -15,11 +15,12 @@
 package aggregate
 
 import (
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/log"
+	"sync"
 )
 
 // Registry specifies the collection of service registry related interfaces
@@ -59,6 +60,9 @@ func (c *Controller) Services() ([]*model.Service, error) {
 			errs = multierror.Append(errs, err)
 			continue
 		}
+		// Race condition: multiple threads may call Services, and multiple services
+		// may modify one of the service's cluster ID
+		var smutex sync.Mutex
 		for _, s := range svcs {
 			sp, ok := smap[s.Hostname]
 			if !ok {
@@ -68,11 +72,13 @@ func (c *Controller) Services() ([]*model.Service, error) {
 			}
 
 			if r.ClusterID != "" {
+				smutex.Lock()
 				if sp.Addresses == nil {
 					sp.Addresses = make(map[string]string)
 				}
 				sp.Addresses[r.ClusterID] = s.Address
 				smap[s.Hostname] = sp
+				smutex.Unlock()
 			}
 		}
 	}

@@ -164,7 +164,7 @@ test/local/noauth/e2e_pilotv2: generate_yaml-envoyv2_transition
 	${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} \
 		| tee -a ${OUT_DIR}/logs/test-report.raw
 	# Run the pilot controller tests
-	set -o pipefail; go test -v -timeout 20m ./tests/e2e/tests/controller ${E2E_ARGS} ${EXTRA_E2E_ARGS} | tee -a ${OUT_DIR}/logs/test-report.raw
+	set -o pipefail; go test -v -timeout 20m ./tests/e2e/tests/controller | tee -a ${OUT_DIR}/logs/test-report.raw
 
 test/local/cloudfoundry/e2e_pilotv2:
 	@mkdir -p ${OUT_DIR}/logs
