@@ -30,8 +30,8 @@ func TestHTTPWithMTLS(t *testing.T) {
 	env := test.GetEnvironment(t)
 	env.Configure(cfg)
 
-	appa := env.GetApp("a")
-	appt := env.GetApp("t")
+	appa := env.GetAppOrFail("a", t)
+	appt := env.GetAppOrFail("t", t)
 
 	// Send requests to all of the HTTP endpoints.
 	endpoints := appt.EndpointsForProtocol(model.ProtocolHTTP)

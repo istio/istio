@@ -37,7 +37,10 @@ type Environment interface {
 	GetAPIServer() DeployedAPIServer
 	// GetIstioComponent gets the deployed configuration for all Istio components of the given kind.
 	GetIstioComponent(k DeployedServiceKind) []DeployedIstioComponent
-	GetApp(name string) DeployedApp
+	// GetApp returns an app object for the given name.
+	GetApp(name string) (DeployedApp, error)
+	// GetAppOrFail attempts to return the app object for the given name, or fails the test if unsuccessful.
+	GetAppOrFail(name string, t *testing.T) DeployedApp
 }
 
 // Deployed represents a deployed component
