@@ -20,13 +20,18 @@ import (
 	"regexp"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes/scheme"
+
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/tests/util"
 )
 
 const (
 	containerName = "app"
+	appLabel      = "app"
 )
 
 var (
@@ -67,7 +72,7 @@ func (e *endpoint) MakeURL(useFullDomain bool) string {
 	case model.ProtocolHTTPS:
 		protocol = "https"
 	}
-	host := e.owner.name
+	host := e.owner.serviceName
 	if useFullDomain {
 		host += "." + e.owner.namespace
 	}
@@ -75,25 +80,61 @@ func (e *endpoint) MakeURL(useFullDomain bool) string {
 }
 
 type app struct {
-	name      string
-	namespace string
-	endpoints []*endpoint
+	serviceName string
+	appName     string
+	namespace   string
+	endpoints   []*endpoint
 }
 
-// NewApp creates a new app object from the given service config
-func NewApp(meta model.ConfigMeta, cfg model.Service) test.DeployedApp {
-	a := &app{}
-	a.name = meta.Name
-	a.namespace = meta.Namespace
-
-	for _, port := range cfg.Ports {
-		a.endpoints = append(a.endpoints, &endpoint{
-			owner: a,
-			port:  port,
-		})
+func getApp(serviceName, namespace string) (test.DeployedApp, error) {
+	// Get the yaml config for the service
+	yamlBytes, err := util.ShellSilent("kubectl get svc %s -n %s -o yaml", serviceName, namespace)
+	if err != nil {
+		return nil, err
 	}
 
-	return a
+	// Parse the returned config
+	decoder := scheme.Codecs.UniversalDeserializer()
+	obj, _, err := decoder.Decode([]byte(yamlBytes), nil, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Cast to a service
+	service, ok := obj.(*corev1.Service)
+	if !ok {
+		// This should never happen.
+		return nil, fmt.Errorf("returned object was not a service")
+	}
+
+	// Get the app name for this service.
+	appName := service.Labels[appLabel]
+	if len(appName) == 0 {
+		return nil, fmt.Errorf("service does not contain the 'app' label")
+	}
+
+	a := &app{
+		serviceName: service.Name,
+		appName:     appName,
+		namespace:   namespace,
+	}
+	a.endpoints = getEndpoints(a, service)
+	return a, nil
+}
+
+func getEndpoints(owner *app, service *corev1.Service) []*endpoint {
+	out := make([]*endpoint, len(service.Spec.Ports))
+	for i, servicePort := range service.Spec.Ports {
+		out[i] = &endpoint{
+			owner: owner,
+			port: &model.Port{
+				Name:     servicePort.Name,
+				Port:     int(servicePort.Port),
+				Protocol: kube.ConvertProtocol(servicePort.Name, servicePort.Protocol),
+			},
+		}
+	}
+	return out
 }
 
 // Endpoints implements the test.DeployedApp interface
@@ -188,7 +229,7 @@ func (a *app) requestURL(target *app, port *model.Port, includeDomain bool, path
 	case model.ProtocolHTTPS:
 		protocol = "https"
 	}
-	host := target.name
+	host := target.serviceName
 	if includeDomain {
 		host += "." + target.namespace
 	}
@@ -197,7 +238,7 @@ func (a *app) requestURL(target *app, port *model.Port, includeDomain bool, path
 
 func (a *app) pods() ([]string, error) {
 	res, err := util.Shell("kubectl get pods -n %s -l app=%s -o jsonpath='{range .items[*]}{@.metadata.name}{\"\\n\"}'",
-		a.namespace, a.name)
+		a.namespace, a.appName)
 	if err != nil {
 		return nil, err
 	}
@@ -211,7 +252,7 @@ func (a *app) pods() ([]string, error) {
 	}
 
 	if len(pods) == 0 {
-		return nil, fmt.Errorf("unable to find pods for App %s", a.name)
+		return nil, fmt.Errorf("unable to find pods for App %s", a.appName)
 	}
 	return pods, nil
 }
