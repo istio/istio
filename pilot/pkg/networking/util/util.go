@@ -15,7 +15,6 @@
 package util
 
 import (
-	"bytes"
 	"sort"
 	"strconv"
 	"strings"
@@ -25,10 +24,8 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"github.com/envoyproxy/go-control-plane/pkg/util"
-	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"k8s.io/apimachinery/pkg/util/json"
 
 	"istio.io/istio/pkg/log"
 )
