@@ -90,6 +90,10 @@ func TestCommand(t *testing.T) {
 
 		{in: []string{"nolabel-destination-policy.yaml"},
 			out: "nolabel-destination-rule.yaml"},
+
+		// Verify we can convert Kubernetes Istio Ingress
+		{in: []string{"myservice-ingress.yaml"},
+			out: "myservice-gateway.yaml"},
 	}
 
 	for _, tc := range tt {
