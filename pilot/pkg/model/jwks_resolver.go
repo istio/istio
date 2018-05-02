@@ -15,7 +15,6 @@
 package model
 
 import (
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -104,12 +103,6 @@ func newJwksResolver(expireDuration, evictionDuration, refreshInterval time.Dura
 		refreshInterval:  refreshInterval,
 		client: &http.Client{
 			Timeout: jwksHTTPTimeOutInSec * time.Second,
-
-			// TODO: pilot needs to include a collection of root CAs to make external
-			// https web request(https://github.com/istio/istio/issues/1419).
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-			},
 		},
 	}
 
