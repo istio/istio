@@ -118,11 +118,11 @@ func getApp(serviceName, namespace string) (test.DeployedApp, error) {
 		appName:     appName,
 		namespace:   namespace,
 	}
-	a.endpoints = endpoints(a, service)
+	a.endpoints = getEndpoints(a, service)
 	return a, nil
 }
 
-func endpoints(owner *app, service *corev1.Service) []*endpoint {
+func getEndpoints(owner *app, service *corev1.Service) []*endpoint {
 	out := make([]*endpoint, len(service.Spec.Ports))
 	for i, servicePort := range service.Spec.Ports {
 		out[i] = &endpoint{

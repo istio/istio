@@ -57,5 +57,6 @@ func (e *Environment) GetApp(name string) (test.DeployedApp, error) {
 
 // GetAppOrFail implements the test.Environment interface.
 func (e *Environment) GetAppOrFail(name string, t *testing.T) test.DeployedApp {
+	t.Helper()
 	return nil
 }

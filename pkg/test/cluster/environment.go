@@ -32,7 +32,7 @@ type Environment struct {
 func (e *Environment) Deploy(c *helm.Chart) {
 }
 
-// DeployApps pushes the pilot test apps to the cluster.
+// DeployApps pushes the test apps to the cluster.
 func (e *Environment) DeployApps() {
 	// TODO(nmittler):
 }
@@ -54,6 +54,7 @@ func (e *Environment) GetApp(name string) (test.DeployedApp, error) {
 
 // GetAppOrFail implements the test.Environment interface
 func (e *Environment) GetAppOrFail(name string, t *testing.T) test.DeployedApp {
+	t.Helper()
 	a, err := getApp(name, e.AppNamespace)
 	if err != nil {
 		t.Fatal(err)
