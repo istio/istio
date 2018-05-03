@@ -204,10 +204,15 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 	mcs, _, _ := net.SplitHostPort(mesh.MixerCheckServer)
 	mrs, _, _ := net.SplitHostPort(mesh.MixerReportServer)
 
+	pname := &model.Port{Name: "http2-mixer"}
+	if mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS {
+		pname = &model.Port{Name: "tcp-mtls"}
+	}
+
 	// TODO: derive these port types.
 	transport := &mccpb.TransportConfig{
-		CheckCluster:  model.BuildSubsetKey(model.TrafficDirectionOutbound, "", mcs, &model.Port{Name: "http2-mixer"}),
-		ReportCluster: model.BuildSubsetKey(model.TrafficDirectionOutbound, "", mrs, &model.Port{Name: "http2-mixer"}),
+		CheckCluster:  model.BuildSubsetKey(model.TrafficDirectionOutbound, "", mcs, pname),
+		ReportCluster: model.BuildSubsetKey(model.TrafficDirectionOutbound, "", mrs, pname),
 	}
 
 	mxConfig := &mccpb.HttpClientConfig{
