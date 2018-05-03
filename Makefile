@@ -614,6 +614,7 @@ generate_yaml-envoyv2_transition_auth: $(HELM)
           --set global.hub=${HUB} \
 		  --values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
 		  --set global.mtls.enabled=true \
+			--set global.controlPlaneSecurityEnabled=true \
 		  install/kubernetes/helm/istio >> install/kubernetes/istio-auth.yaml
 
 # This is temporary. REMOVE ME after Envoy v2 transition
