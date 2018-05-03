@@ -55,7 +55,7 @@ func convertServices(serviceEntry *networking.ServiceEntry) []*model.Service {
 				if _, _, cidrErr := net.ParseCIDR(address); cidrErr == nil || net.ParseIP(address) != nil {
 					out = append(out, &model.Service{
 						MeshExternal: serviceEntry.Location == networking.ServiceEntry_MESH_EXTERNAL,
-						Hostname:     host,
+						Hostname:     model.Hostname(host),
 						Address:      address,
 						Ports:        svcPorts,
 						Resolution:   resolution,
@@ -65,7 +65,7 @@ func convertServices(serviceEntry *networking.ServiceEntry) []*model.Service {
 		} else {
 			out = append(out, &model.Service{
 				MeshExternal: serviceEntry.Location == networking.ServiceEntry_MESH_EXTERNAL,
-				Hostname:     host,
+				Hostname:     model.Hostname(host),
 				Address:      "",
 				Ports:        svcPorts,
 				Resolution:   resolution,

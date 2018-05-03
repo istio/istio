@@ -107,7 +107,7 @@ func BuildInboundCluster(port int, protocol model.Protocol, timeout *duration.Du
 }
 
 // BuildOutboundCluster builds an outbound cluster.
-func BuildOutboundCluster(hostname string, port *model.Port, labels model.Labels, isExternal bool) *Cluster {
+func BuildOutboundCluster(hostname model.Hostname, port *model.Port, labels model.Labels, isExternal bool) *Cluster {
 	svc := model.Service{Hostname: hostname}
 	key := svc.Key(port, labels)
 	name := TruncateClusterName(OutboundClusterPrefix + key)
@@ -129,7 +129,7 @@ func BuildOutboundCluster(hostname string, port *model.Port, labels model.Labels
 		LbType:      DefaultLbType,
 		Hosts:       hosts,
 		outbound:    !isExternal, // outbound means outbound-in-mesh. The name to be refactored later.
-		Hostname:    hostname,
+		Hostname:    hostname.String(),
 		Port:        port,
 		labels:      labels,
 	}
@@ -317,7 +317,7 @@ func buildZipkinTracing() *Tracing {
 func BuildVirtualHost(svc *model.Service, port *model.Port, suffix []string, routes []*HTTPRoute) *VirtualHost {
 	hosts := make([]string, 0)
 	domains := make([]string, 0)
-	parts := strings.Split(svc.Hostname, ".")
+	parts := strings.Split(svc.Hostname.String(), ".")
 	shared := sharedHost(suffix, parts)
 
 	// if shared is "svc.cluster.local", then we can add "name.namespace", "name.namespace.svc", etc

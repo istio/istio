@@ -23,11 +23,12 @@ import (
 
 // Convert Eureka applications to services. If provided, only convert applications in the hostnames whitelist,
 // otherwise convert all.
-func convertServices(apps []*application, hostnames map[string]bool) map[string]*model.Service {
-	services := make(map[string]*model.Service)
+func convertServices(apps []*application, hostnames map[model.Hostname]bool) map[model.Hostname]*model.Service {
+	services := make(map[model.Hostname]*model.Service)
 	for _, app := range apps {
 		for _, instance := range app.Instances {
-			if len(hostnames) > 0 && !hostnames[instance.Hostname] {
+			hostname := model.Hostname(instance.Hostname)
+			if len(hostnames) > 0 && !hostnames[hostname] {
 				continue
 			}
 
@@ -40,17 +41,17 @@ func convertServices(apps []*application, hostnames map[string]bool) map[string]
 				continue
 			}
 
-			service := services[instance.Hostname]
+			service := services[hostname]
 			if service == nil {
 				service = &model.Service{
-					Hostname:     instance.Hostname,
+					Hostname:     model.Hostname(instance.Hostname),
 					Address:      "",
 					Ports:        make(model.PortList, 0),
 					ExternalName: "",
 					MeshExternal: false,
 					Resolution:   model.ClientSideLB,
 				}
-				services[instance.Hostname] = service
+				services[hostname] = service
 			}
 
 			protocol := convertProtocol(instance.Metadata)
@@ -75,11 +76,12 @@ func convertServices(apps []*application, hostnames map[string]bool) map[string]
 
 // Convert Eureka applications to service instances. The services argument must contain a map of hostnames to
 // services. Only service instances with a corresponding service are converted.
-func convertServiceInstances(services map[string]*model.Service, apps []*application) []*model.ServiceInstance {
+func convertServiceInstances(services map[model.Hostname]*model.Service, apps []*application) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	for _, app := range apps {
 		for _, instance := range app.Instances {
-			if services[instance.Hostname] == nil {
+			hostname := model.Hostname(instance.Hostname)
+			if services[hostname] == nil {
 				continue
 			}
 
@@ -94,7 +96,7 @@ func convertServiceInstances(services map[string]*model.Service, apps []*applica
 						Port:        port.Port,
 						ServicePort: port,
 					},
-					Service: services[instance.Hostname],
+					Service: services[hostname],
 					Labels:  convertLabels(instance.Metadata),
 				})
 			}
