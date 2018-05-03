@@ -56,17 +56,11 @@ markJobStartsOnGCS: &markJobStartsOnGCS
 markJobFinishesOnGCS: &markJobFinishesOnGCS
   run:
     when: always
-    command: bin/ci2gubernator.sh --exit_code=$(cat exit_code) --junit_xml=/go/out/tests/junit.xml
-
-dumpsysNonPilot: &dumpsysNonPilot
-  run:
-    name: dumpsys
-    when: always
     command: |
-      /go/bin/go-junit-report </go/out/tests/build-log.txt > /go/out/tests/junit.xml
-      kubectl get all -o wide --all-namespaces
-      kubectl cluster-info dump > /go/out/tests/cluster-info.dump.txt
-      kubectl describe pods -n istio-system > /go/out/tests/pods-system.txt
+      go-junit-report </go/out/tests/build-log.txt > /go/out/tests/junit.xml
+      make dumpsys || true
+      # TODO: upload the artifacts as well, for debugging !
+      bin/ci2gubernator.sh --exit_code=$(cat exit_code) --junit_xml=/go/out/tests/junit.xml
 
 jobs:
   e2e-simple:
@@ -95,7 +89,6 @@ jobs:
       - run: make test/minikube/auth/e2e_simple
       - <<: *recordZeroExitCodeIfTestPassed
       - <<: *recordNonzeroExitCodeIfTestFailed
-      - <<: *dumpsysNonPilot
       - <<: *markJobFinishesOnGCS
       - store_artifacts:
           path: /home/circleci/logs
@@ -137,7 +130,6 @@ jobs:
             make e2e_dashboard | tee -a /go/out/tests/build-log.txt
       - <<: *recordZeroExitCodeIfTestPassed
       - <<: *recordNonzeroExitCodeIfTestFailed
-      - <<: *dumpsysNonPilot
       - <<: *markJobFinishesOnGCS
       - store_artifacts:
           path: /home/circleci/logs
@@ -178,7 +170,6 @@ jobs:
             make test/local/e2e_mixer
       - <<: *recordZeroExitCodeIfTestPassed
       - <<: *recordNonzeroExitCodeIfTestFailed
-      - <<: *dumpsysNonPilot
       - <<: *markJobFinishesOnGCS
       - store_artifacts:
           path: /home/circleci/logs
