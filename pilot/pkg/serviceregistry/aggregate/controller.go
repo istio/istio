@@ -15,12 +15,13 @@
 package aggregate
 
 import (
+	"sync"
+
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/log"
-	"sync"
 )
 
 // Registry specifies the collection of service registry related interfaces
