@@ -31,7 +31,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 const (
@@ -51,7 +50,6 @@ var (
 		Name: "pilot_k8s_reg_events",
 		Help: "Events from k8s registry.",
 	}, []string{"type", "event"})
-
 )
 
 func init() {

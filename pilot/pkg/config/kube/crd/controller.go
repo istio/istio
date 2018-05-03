@@ -21,6 +21,7 @@ import (
 	"time"
 
 	multierror "github.com/hashicorp/go-multierror"
+	"github.com/prometheus/client_golang/prometheus"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
@@ -29,7 +30,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 // controller is a collection of synchronized resource watchers.
@@ -51,7 +51,6 @@ var (
 		Name: "pilot_k8s_cfg_events",
 		Help: "Events from k8s config.",
 	}, []string{"type", "event"})
-
 )
 
 func init() {
