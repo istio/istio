@@ -22,28 +22,33 @@ import (
 
 var scope = log.RegisterScope("inmemory", "inmemory config distributor/provider", 0)
 
+// Distributor is an in-memory implementation.
 type Distributor struct {
-	Bundles map[component.InstanceId]distributor.Bundle
+	Bundles map[component.InstanceID]distributor.Bundle
 }
 
 var _ distributor.Interface = &Distributor{}
 
+// NewDistributor returns a new instance of a Distributor.
 func NewDistributor() *Distributor {
 	return &Distributor{
-		Bundles: make(map[component.InstanceId]distributor.Bundle),
+		Bundles: make(map[component.InstanceID]distributor.Bundle),
 	}
 }
 
+// Initialize implements distribubor.Interface.Initialize.
 func (d *Distributor) Initialize() error {
 	scope.Infof("Initializing the in-memory distributor")
 
 	return nil
 }
 
+// Start implements distribubor.Interface.Start.
 func (d *Distributor) Start() {
 	scope.Infof("Starting the in-memory distributor")
 }
 
+// Distribute implements distribubor.Interface.Distribute.
 func (d *Distributor) Distribute(b distributor.Bundle) {
 	scope.Infof("Distributing bundle: %v", b)
 
@@ -57,6 +62,7 @@ func (d *Distributor) Distribute(b distributor.Bundle) {
 	d.Bundles[b.Destination()] = b
 }
 
+// Shutdown implements distribubor.Interface.Shutdown.
 func (d *Distributor) Shutdown() {
 	scope.Infof("Shutting down the in-memory distributor")
 }

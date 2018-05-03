@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 //
-package generate
+package generator
 
 // TODO: Enable this package after refactoring the generation model
 //
@@ -89,7 +89,7 @@ package generate
 //				}
 //			}
 //
-//			out.Id = "00000000-0000-0000-0000-000000000000" // normalize the id of the config.
+//			out.ID = "00000000-0000-0000-0000-000000000000" // normalize the id of the config.
 //			expected := hydrateMixerConfig(t, tst.mixer)
 //			if !reflect.DeepEqual(out, expected) {
 //				t.Fatalf("Mismatch\n got:\n'%v'\nwanted:\n'%v'\n",

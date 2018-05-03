@@ -12,34 +12,38 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package component
+package signature
 
-import "fmt"
-
-// Kind of a component.
-type Kind string
-
-const (
-	// MixerKind is the component kind of Mixer
-	MixerKind Kind = "mixer"
-
-	// PilotKind is the component kind of Pilot
-	PilotKind Kind = "pilot"
+import (
+	"github.com/gogo/protobuf/proto"
 )
 
-// InstanceID uniquely identifies an instance of a component.
-type InstanceID struct {
-	// The kind of the component
-	Kind Kind
+// OfProtos returns the signature of the given protos.
+func OfProtos(protos ...proto.Message) string {
+	builder := GetBuilder()
 
-	// The unique name of the component. If left empty, then it indicates all instances of a given kind.
-	Name string
+	for _, p := range protos {
+		builder.EncodeProto(p)
+	}
+
+	s := builder.Calculate()
+
+	builder.Done()
+
+	return s
 }
 
-func (in InstanceID) String() string {
-	name := in.Name
-	if name == "" {
-		name = "*"
+// OfStrings returns the signature of the given strings.
+func OfStrings(strs ...string) string {
+	builder := GetBuilder()
+
+	for _, s := range strs {
+		builder.EncodeString(s)
 	}
-	return fmt.Sprintf("[InstanceID](%s:%s)", in.Kind, name)
+
+	s := builder.Calculate()
+
+	builder.Done()
+
+	return s
 }

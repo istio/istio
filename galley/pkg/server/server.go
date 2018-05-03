@@ -19,26 +19,23 @@ import (
 
 	"istio.io/istio/galley/pkg/backends/inmemory"
 	"istio.io/istio/galley/pkg/kube"
-	//"istio.io/istio/galley/pkg/kube/client/distributor"
 	"istio.io/istio/galley/pkg/kube/client/source"
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/pkg/log"
 )
 
+// Server is the main server implementation of Galley.
 type Server struct {
 	rt *runtime.Processor
 }
 
+// New returns a new Server implementation.
 func New(k kube.Kube, resyncPeriod time.Duration) (*Server, error) {
 	src, err := source.New(k, resyncPeriod)
 	if err != nil {
 		return nil, err
 	}
 
-	//dist, err := distributor.New(k, resyncPeriod)
-	//if err != nil {
-	//	return nil, err
-	//}
 	dist := inmemory.NewDistributor()
 	rt := runtime.New(src, dist)
 
@@ -49,11 +46,13 @@ func New(k kube.Kube, resyncPeriod time.Duration) (*Server, error) {
 	return s, nil
 }
 
+// Start the server.
 func (s *Server) Start() error {
 	log.Info("Starting server...")
 	return s.rt.Start()
 }
 
+// Stop the server.
 func (s *Server) Stop() {
 	s.rt.Stop()
 }

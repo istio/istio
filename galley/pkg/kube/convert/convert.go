@@ -89,7 +89,7 @@ func toJSON(data interface{}) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	js, err := yaml.YAMLToJSON([]byte(yml))
+	js, err := yaml.YAMLToJSON(yml)
 	if err != nil {
 		return "", err
 	}

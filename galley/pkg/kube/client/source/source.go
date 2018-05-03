@@ -18,7 +18,6 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/galley/pkg/model/provider"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/galley/pkg/change"
@@ -26,21 +25,24 @@ import (
 	"istio.io/istio/galley/pkg/kube/client"
 	"istio.io/istio/galley/pkg/kube/convert"
 	"istio.io/istio/galley/pkg/kube/types"
+	"istio.io/istio/galley/pkg/model/provider"
 	"istio.io/istio/galley/pkg/model/resource"
 	"istio.io/istio/pkg/log"
 )
 
-type Source struct {
+// source is an implementation of provider.Interface.
+type source struct {
 	k  kube.Kube
 	ch chan provider.Event
 
 	scAccessor *client.Accessor
 }
 
-var _ provider.Interface = &Source{}
+var _ provider.Interface = &source{}
 
-func New(k kube.Kube, resyncPeriod time.Duration) (*Source, error) {
-	s := &Source{
+// New returns a Kubernetes implementation of provider.Interface.
+func New(k kube.Kube, resyncPeriod time.Duration) (provider.Interface, error) {
+	s := &source{
 		k: k,
 	}
 
@@ -54,7 +56,8 @@ func New(k kube.Kube, resyncPeriod time.Duration) (*Source, error) {
 	return s, nil
 }
 
-func (s *Source) Start() (chan provider.Event, error) {
+// Start implements provider.Interface
+func (s *source) Start() (chan provider.Event, error) {
 	s.ch = make(chan provider.Event, 1024)
 
 	s.scAccessor.Start()
@@ -62,12 +65,14 @@ func (s *Source) Start() (chan provider.Event, error) {
 	return s.ch, nil
 }
 
-func (s *Source) Stop() {
+// Stop implements provider.Interface
+func (s *source) Stop() {
 	s.scAccessor.Stop()
 	s.ch = nil
 }
 
-func (s *Source) Get(id resource.Key) (resource.Entry, error) {
+// Get implements provider.Interface
+func (s *source) Get(id resource.Key) (resource.Entry, error) {
 	parts := strings.Split(id.FullName, "/")
 	ns := parts[0]
 	name := parts[1]
@@ -90,12 +95,12 @@ func (s *Source) Get(id resource.Key) (resource.Entry, error) {
 	}
 
 	return resource.Entry{
-		Id:   rid,
+		ID:   rid,
 		Item: item,
 	}, nil
 }
 
-func (s *Source) process(c *change.Info) {
+func (s *source) process(c *change.Info) {
 	var kind provider.EventKind
 	switch c.Type {
 	case change.Add:
@@ -119,7 +124,7 @@ func (s *Source) process(c *change.Info) {
 	}
 
 	e := provider.Event{
-		Id:   rid,
+		ID:   rid,
 		Kind: kind,
 	}
 

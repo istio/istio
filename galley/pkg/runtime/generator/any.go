@@ -12,30 +12,21 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package types
+package generator
 
 import (
-	"istio.io/istio/galley/pkg/kube/schema"
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 )
 
-// Rule related metadata.
-var Rule = &schema.Type{
-	"rule",
-	"rules",
-	"config.istio.io",
-	"v1beta1",
-	"Rule",
-	"RuleList",
-	"istio.policy.v1beta1.Rule",
-}
+func buildAny(url string, p proto.Message) (*types.Any, error) {
+	value, err := proto.Marshal(p)
+	if err != nil {
+		return nil, err
+	}
 
-// ProducerService related metadata.
-var ProducerService = &schema.Type{
-	"producerservice",
-	"producerservices",
-	"config.istio.io",
-	"dev",
-	"ProducerService",
-	"ProducerServiceList",
-	"istio.service.dev.ProducerService",
+	return &types.Any{
+		TypeUrl: url,
+		Value:   value,
+	}, nil
 }

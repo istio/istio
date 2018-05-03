@@ -23,52 +23,51 @@ import (
 
 var scope = log.RegisterScope("runtime", "Galley runtime", 0)
 
-// Instance is the total state instance.
-// TODO: Better name
-type Instance struct {
+// Global is the total state instance.
+type Global struct {
 	counter distributor.BundleVersion
 	mixers  []*Mixer
 }
 
-// New returns a new Instance.
-func New() *Instance {
+// New returns a new Global.
+func New() *Global {
 	// TODO: This currently creates one mixer state. We should come up with a way to per-component states.
-	return &Instance{
+	return &Global{
 		mixers: []*Mixer{newMixerState("")},
 	}
 }
 
 // ApplyProducerService applies the producer service to the current configuration state instance.
-func (in *Instance) ApplyProducerService(key resource.VersionedKey, s *dev.ProducerService) {
+func (g *Global) ApplyProducerService(key resource.VersionedKey, s *dev.ProducerService) {
 	scope.Debugf("Applying producer service: key='%v'", key)
 
-	for _, m := range in.mixers {
+	for _, m := range g.mixers {
 		if m.applyProducerService(key, s) {
-			in.counter++
-			m.version = in.counter
+			g.counter++
+			m.version = g.counter
 		}
 	}
 }
 
 // RemoveProducerService removes the producer service from the current configuration state instance.
-func (in *Instance) RemoveProducerService(key resource.VersionedKey) {
+func (g *Global) RemoveProducerService(key resource.VersionedKey) {
 	scope.Debugf("Removing producer service: key='%v'", key)
 
-	for _, m := range in.mixers {
+	for _, m := range g.mixers {
 		if m.removeProducerService(key) {
-			in.counter++
-			m.version = in.counter
+			g.counter++
+			m.version = g.counter
 		}
 	}
 }
 
 // GetNewBundles returns new bundles since the supplied since version.
-func (in *Instance) GetNewBundles(since distributor.BundleVersion) ([]distributor.Bundle, distributor.BundleVersion) {
+func (g *Global) GetNewBundles(since distributor.BundleVersion) ([]distributor.Bundle, distributor.BundleVersion) {
 
 	var result []distributor.Bundle
 	version := since
 
-	for _, m := range in.mixers {
+	for _, m := range g.mixers {
 		if m.version <= since {
 			continue
 		}

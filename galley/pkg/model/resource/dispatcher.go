@@ -11,7 +11,7 @@
 ////  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 ////  See the License for the specific language governing permissions and
 ////  limitations under the License.
-//
+
 package resource
 
 //
@@ -27,7 +27,7 @@ package resource
 //}
 //
 //func (d *Dispatcher) Dispatch(r Entry) error {
-//	if fn, ok := d.fns[r.Id.Kind]; ok {
+//	if fn, ok := d.fns[r.ID.Kind]; ok {
 //		return fn(r)
 //	}
 //
@@ -35,7 +35,7 @@ package resource
 //		return d.defaultFn(r)
 //	}
 //
-//	return fmt.Errorf("no dispatcher found: %v", r.Id.Kind)
+//	return fmt.Errorf("no dispatcher found: %v", r.ID.Kind)
 //}
 //
 //func (d *Dispatcher) SetDefault(fn DispatchFn) {

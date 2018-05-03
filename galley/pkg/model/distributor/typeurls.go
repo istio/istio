@@ -15,9 +15,9 @@
 package distributor
 
 const (
-	// InstanceUrl is the type URL for Instances within a fragment.
-	InstanceUrl = "http://istio.io/config/distribution/v1/istio.policy.v1beta1.Instance"
+	// InstanceURL is the type URL for Instances within a fragment.
+	InstanceURL = "http://istio.io/config/distribution/v1/istio.policy.v1beta1.Instance"
 
-	// RuleUrl is the type URL for Rules within a fragment.
-	RuleUrl = "http://istio.io/config/distribution/v1/istio.policy.v1beta1.Rule"
+	// RuleURL is the type URL for Rules within a fragment.
+	RuleURL = "http://istio.io/config/distribution/v1/istio.policy.v1beta1.Rule"
 )

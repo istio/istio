@@ -18,12 +18,12 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+
 	"istio.io/istio/galley/pkg/api/service/dev"
 	"istio.io/istio/galley/pkg/model/distributor"
 	"istio.io/istio/galley/pkg/model/provider"
 	"istio.io/istio/galley/pkg/model/resource"
 	st "istio.io/istio/galley/pkg/runtime/state"
-
 	"istio.io/istio/pkg/log"
 )
 
@@ -44,7 +44,7 @@ type Processor struct {
 	processEnd sync.WaitGroup
 
 	// The current in-memory configuration state
-	state     *st.Instance
+	state     *st.Global
 	watermark distributor.BundleVersion
 }
 
@@ -140,14 +140,14 @@ loop:
 func (p *Processor) processEvent(e provider.Event) {
 	scope.Debugf("Incoming source event: %v", e)
 
-	if e.Id.Kind != resource.ProducerServiceKind {
-		scope.Debugf("Skipping unknown resource kind: '%v'", e.Id.Kind)
+	if e.ID.Kind != resource.ProducerServiceKind {
+		scope.Debugf("Skipping unknown resource kind: '%v'", e.ID.Kind)
 		return
 	}
 
 	switch e.Kind {
 	case provider.Added, provider.Updated:
-		res, err := p.source.Get(e.Id.Key)
+		res, err := p.source.Get(e.ID.Key)
 		if err != nil {
 			scope.Errorf("get error: %v", err)
 			// TODO: Handle error case
@@ -155,10 +155,10 @@ func (p *Processor) processEvent(e provider.Event) {
 		}
 		// TODO: Support other types
 		ps := res.Item.(*dev.ProducerService)
-		p.state.ApplyProducerService(e.Id, ps)
+		p.state.ApplyProducerService(e.ID, ps)
 
 	case provider.Deleted:
-		p.state.RemoveProducerService(e.Id)
+		p.state.RemoveProducerService(e.ID)
 
 	case provider.FullSync:
 		scope.Debugf("starting distribution after full sync")

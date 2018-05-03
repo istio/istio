@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package generate
+package generator
 
 import (
 	"fmt"
@@ -22,8 +22,11 @@ import (
 	"istio.io/istio/galley/pkg/runtime/common"
 )
 
-// MixerFragment generates a new Mixer config fragment from the supplied producer service.
-func MixerFragment(cfg *serviceconfig.ProducerService, names *common.Uniquifier) (instances []*distrib.Instance, rules []*distrib.Rule) {
+// GenerateMixerFragment generates a new Mixer config fragment from the supplied producer service.
+func GenerateMixerFragment(cfg *serviceconfig.ProducerService, names *common.Uniquifier) *MixerConfigFragment {
+
+	var instances []*distrib.Instance
+	var rules []*distrib.Rule
 
 	for _, instance := range cfg.Instances {
 		inst := &distrib.Instance{}
@@ -75,5 +78,5 @@ func MixerFragment(cfg *serviceconfig.ProducerService, names *common.Uniquifier)
 		rules = append(rules, &r)
 	}
 
-	return
+	return newMixerConfigFragment(instances, rules)
 }

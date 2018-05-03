@@ -20,6 +20,7 @@ import (
 	"istio.io/istio/galley/pkg/api/service/dev"
 )
 
+// ProducerService analyzes a ProducerService and returns the results.
 func ProducerService(cfg *dev.ProducerService) message.List {
 	var m message.List
 

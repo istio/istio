@@ -28,7 +28,7 @@ type Bundle interface {
 	fmt.Stringer
 
 	// The Destination component that this config bundle is intended for.
-	Destination() component.InstanceId
+	Destination() component.InstanceID
 
 	// GenerateManifest generates a distribution manifest for this bundle.
 	GenerateManifest() *distrib.Manifest
@@ -39,4 +39,5 @@ type Bundle interface {
 
 // BundleVersion is a unique version number for the bundle. As Bundle changes, the version number is
 // incremented.
+// TODO: This is not directly used in the internal API. We can move this to runtime.
 type BundleVersion int64

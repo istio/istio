@@ -41,12 +41,12 @@ const (
 	FullSync
 )
 
-// Event represents a change that occured against a resource in the source config system.
+// Event represents a change that occurred against a resource in the source config system.
 type Event struct {
 	Kind EventKind
-	Id   resource.VersionedKey
+	ID   resource.VersionedKey
 }
 
 func (e Event) String() string {
-	return fmt.Sprintf("[Event](%d: %v)", e.Kind, e.Id)
+	return fmt.Sprintf("[Event](%d: %v)", e.Kind, e.ID)
 }

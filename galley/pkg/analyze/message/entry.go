@@ -16,14 +16,19 @@ package message
 
 import "fmt"
 
+// Level is the severity level of a message.
 type Level int
 
 const (
+	// Info severity level.
 	Info Level = iota
+	// Warning severity level.
 	Warning
+	// Error severity level.
 	Error
 )
 
+// Entry is a message entry from the analyzer
 type Entry struct {
 	Level   Level
 	Content string
@@ -31,6 +36,7 @@ type Entry struct {
 	Code    int
 }
 
+// String returns a string representation of this entry.
 func (e *Entry) String() string {
 	src := ""
 	if e.Source != "" {

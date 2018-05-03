@@ -41,7 +41,7 @@ type VersionedKey struct {
 
 // Entry is the abstract representation of a versioned config resource in Istio.
 type Entry struct {
-	Id   VersionedKey
+	ID   VersionedKey
 	Item proto.Message
 }
 

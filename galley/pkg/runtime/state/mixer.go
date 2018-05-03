@@ -16,27 +16,23 @@ package state
 
 import (
 	"bytes"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"sort"
 
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"istio.io/istio/galley/pkg/api/distrib"
 	"istio.io/istio/galley/pkg/api/service/dev"
 	"istio.io/istio/galley/pkg/model/component"
 	"istio.io/istio/galley/pkg/model/distributor"
 	"istio.io/istio/galley/pkg/model/resource"
 	"istio.io/istio/galley/pkg/runtime/common"
-	"istio.io/istio/galley/pkg/runtime/generate"
+	"istio.io/istio/galley/pkg/runtime/generator"
+	"istio.io/istio/galley/pkg/runtime/signature"
 )
 
 // Mixer state pertaining to a single Mixer instance.
 type Mixer struct {
 	// The unique id of the Mixer component that this config is destined for.
-	destination component.InstanceId
+	destination component.InstanceID
 
 	// The current version number of the bundle.
 	version distributor.BundleVersion
@@ -45,32 +41,27 @@ type Mixer struct {
 	u *common.Uniquifier
 
 	// The current set of fragment sets
-	fragments map[resource.Key]*mixerFragmentSet
+	fragments map[resource.Key]*generator.MixerConfigFragment
+	versions  map[resource.VersionedKey]struct{}
 }
 
 var _ distributor.Bundle = &Mixer{}
 
-type mixerFragmentSet struct {
-	id string
-	// The source configuration for this fragment
-	source resource.VersionedKey
-
-	instances []*distrib.Instance
-	rules     []*distrib.Rule
-}
-
-func newMixerState(componentId string) *Mixer {
+func newMixerState(componentID string) *Mixer {
 	return &Mixer{
-		destination: component.InstanceId{Kind: component.MixerKind, Name: componentId},
+		destination: component.InstanceID{Kind: component.MixerKind, Name: componentID},
 		u:           common.NewUniquifier(),
-		fragments:   make(map[resource.Key]*mixerFragmentSet),
+		fragments:   make(map[resource.Key]*generator.MixerConfigFragment),
+		versions:    make(map[resource.VersionedKey]struct{}),
 	}
 }
 
-func (m *Mixer) Destination() component.InstanceId {
+// Destination is an implementation of distributor.Bundle.
+func (m *Mixer) Destination() component.InstanceID {
 	return m.destination
 }
 
+// GenerateManifest is an implementation of distributor.Bundle.
 func (m *Mixer) GenerateManifest() *distrib.Manifest {
 
 	man := &distrib.Manifest{
@@ -80,7 +71,7 @@ func (m *Mixer) GenerateManifest() *distrib.Manifest {
 	}
 
 	for _, f := range m.fragments {
-		man.FragmentIds = append(man.FragmentIds, f.id)
+		man.FragmentIds = append(man.FragmentIds, f.ID())
 	}
 
 	// Alpha sort strings for stable ordering.
@@ -91,62 +82,38 @@ func (m *Mixer) GenerateManifest() *distrib.Manifest {
 		buf.WriteString(id)
 	}
 
-	man.Id = calculateSignature(&buf)
+	man.Id = signature.OfStrings(man.FragmentIds...)
 
 	return man
 }
 
+// GenerateFragments is an implementation of distributor.Bundle.
 func (m *Mixer) GenerateFragments() []*distrib.Fragment {
 	var result []*distrib.Fragment
 
 	for _, f := range m.fragments {
-		var content []*types.Any
-
-		for _, in := range f.instances {
-			a, err := buildAny(distributor.InstanceUrl, in)
-			if err != nil {
-				// TODO
-				panic(err)
-			}
-
-			content = append(content, a)
-		}
-
-		for _, r := range f.rules {
-			a, err := buildAny(distributor.RuleUrl, r)
-			if err != nil {
-				// TODO
-				panic(err)
-			}
-
-			content = append(content, a)
-		}
-
-		fr := &distrib.Fragment{
-			Id:      f.id,
-			Content: content,
-		}
-
+		fr := f.Generate()
 		result = append(result, fr)
 	}
 
 	return result
 }
 
+// String is an implementation of distributor.Bundle.
 func (m *Mixer) String() string {
 	return fmt.Sprintf("[state.Mixer](%s @%d, fragment#: %d)", m.destination, m.version, len(m.fragments))
 }
 
 func (m *Mixer) applyProducerService(key resource.VersionedKey, s *dev.ProducerService) bool {
-	f, ok := m.fragments[key.Key]
-	if ok && f.source == key {
+	if _, ok := m.versions[key]; ok {
 		return false
 	}
 
-	instances, rules := generate.MixerFragment(s, m.u)
-	f = newMixerFragmentSet(key, instances, rules)
+	f := generator.GenerateMixerFragment(s, m.u)
 
+	m.versions[key] = struct{}{}
 	m.fragments[key.Key] = f
+
 	return true
 }
 
@@ -157,57 +124,4 @@ func (m *Mixer) removeProducerService(key resource.VersionedKey) bool {
 
 	delete(m.fragments, key.Key)
 	return true
-}
-
-func newMixerFragmentSet(source resource.VersionedKey, instances []*distrib.Instance, rules []*distrib.Rule) *mixerFragmentSet {
-	f := &mixerFragmentSet{
-		source:    source,
-		instances: instances,
-		rules:     rules,
-	}
-
-	var buf bytes.Buffer
-
-	for _, in := range f.instances {
-		encode(&buf, in)
-	}
-
-	for _, r := range f.rules {
-		encode(&buf, r)
-	}
-
-	id := calculateSignature(&buf)
-	f.id = id
-	return f
-}
-
-func buildAny(url string, p proto.Message) (*types.Any, error) {
-	value, err := proto.Marshal(p)
-	if err != nil {
-		return nil, err
-	}
-
-	return &types.Any{
-		TypeUrl: url,
-		Value:   value,
-	}, nil
-}
-
-func encode(b *bytes.Buffer, p proto.Message) {
-	// Marshal from proto to json bytes
-	m := jsonpb.Marshaler{}
-	str, err := m.MarshalToString(p)
-	if err != nil {
-		// TODO: Handle the error case
-		panic(err)
-	}
-	b.WriteString(str)
-}
-
-func calculateSignature(b *bytes.Buffer) string {
-	signature := sha256.Sum256(b.Bytes())
-
-	dst := make([]byte, hex.EncodedLen(len(signature)))
-	hex.Encode(dst, signature[:])
-	return string(dst)
 }

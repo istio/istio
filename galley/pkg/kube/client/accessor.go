@@ -32,8 +32,10 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
+// ChangeProcessorFn is a callback function that will receive change events back from accessor.
 type ChangeProcessorFn func(c *change.Info)
 
+// Accessor is a simplified client interface for listening/getting Kubernetes resources in an unstructured way.
 type Accessor struct {
 	// Lock for changing the running state of the Accessor
 	stateLock sync.Mutex
@@ -58,6 +60,7 @@ type Accessor struct {
 	processor ChangeProcessorFn
 }
 
+// NewAccessor returns a new instance of an Accessor.
 func NewAccessor(kube kube.Kube, resyncPeriod time.Duration, t *schema.Type, processor ChangeProcessorFn) (*Accessor, error) {
 
 	log.Debugf("Creating a new resource Accessor for: name='%s', gv:'%v'", t.Singular, t.GroupVersion())
@@ -79,12 +82,13 @@ func NewAccessor(kube kube.Kube, resyncPeriod time.Duration, t *schema.Type, pro
 	}, nil
 }
 
+// Start the accessor. This will commence listening and dispatching of events.
 func (c *Accessor) Start() {
 	c.stateLock.Lock()
 	defer c.stateLock.Unlock()
 
 	if c.stopCh != nil {
-		log.Errorf("already synchronizing resources: name='%c', gv='%v'", c.t.Singular, c.t.GroupVersion())
+		log.Errorf("already synchronizing resources: name='%s', gv='%v'", c.t.Singular, c.t.GroupVersion())
 		return
 	}
 
@@ -138,6 +142,7 @@ func (c *Accessor) Start() {
 	c.processor(info)
 }
 
+// Stop the accessor. This will stop publishing of events.
 func (c *Accessor) Stop() {
 	c.stateLock.Lock()
 	defer c.stateLock.Unlock()
