@@ -90,6 +90,18 @@ func TestCommand(t *testing.T) {
 
 		{in: []string{"nolabel-destination-policy.yaml"},
 			out: "nolabel-destination-rule.yaml"},
+
+		// Verify we can convert Kubernetes Istio Ingress
+		{in: []string{"myservice-ingress.yaml"},
+			out: "myservice-gateway.yaml"},
+
+		// Verify we can merge Ingresses
+		{in: []string{"myservice-ingress.yaml", "another-ingress.yaml"},
+			out: "merged-gateway.yaml"},
+
+		// Verify Ingress with regexp
+		{in: []string{"regex-ingress.yaml"},
+			out: "regex-gateway.yaml"},
 	}
 
 	for _, tc := range tt {
