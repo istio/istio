@@ -178,7 +178,7 @@ func convertPortNameToProtocol(name string) model.Protocol {
 	return model.ParseProtocol(prefix)
 }
 
-func makeService(hostname, address string, ports map[string]int, external bool, resolution model.Resolution) *model.Service {
+func makeService(hostname model.Hostname, address string, ports map[string]int, external bool, resolution model.Resolution) *model.Service {
 	svc := &model.Service{
 		Hostname:     hostname,
 		Address:      address,
