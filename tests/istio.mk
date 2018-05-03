@@ -153,7 +153,7 @@ test/minikube/noauth/e2e_simple: generate_yaml
 test/local/auth/e2e_pilot: generate_yaml
 	@mkdir -p ${OUT_DIR}/logs
 	set -o pipefail; go test -v -timeout 20m ./tests/e2e/tests/pilot \
-	--skip_cleanup --auth_enable=true --egress=false --v1alpha3=false --rbac_enable=false \
+	--skip_cleanup --auth_enable=true --egress=false --v1alpha3=false \
 	${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} \
 		| tee ${OUT_DIR}/logs/test-report.raw
 
