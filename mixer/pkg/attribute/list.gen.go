@@ -180,10 +180,5 @@ var (
 		"request.api_key",
 		"check.error_code",
 		"check.error_message",
-		"request.total_size",
-		"response.total_size",
-		"connection.event",
-		"check.cache_hit",
-		"quota.cache_hit",
     }
 )

@@ -145,9 +145,12 @@ if [ ! -f "$ISTIO_ENVOY_DEBUG_PATH" ] || [ ! -f "$ISTIO_ENVOY_RELEASE_PATH" ] ; 
     popd
 fi
 
-# copy debug envoy binary used for local tests such as ones in mixer/test/clients
-mkdir -p ${ISTIO_OUT}
-cp -f ${ISTIO_ENVOY_DEBUG_PATH} ${ISTIO_OUT}/envoy
+# TODO(nmittler): Remove once tests no longer use the envoy binary directly.
+if [ ! -f ${ISTIO_OUT}/envoy ] ; then
+    mkdir -p ${ISTIO_OUT}
+    # Make sure the envoy binary exists. This is only used for tests, so use the debug binary.
+    cp ${ISTIO_ENVOY_DEBUG_PATH} ${ISTIO_OUT}/envoy
+fi
 
 ${ROOT}/bin/init_helm.sh
 
