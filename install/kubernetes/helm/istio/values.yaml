@@ -21,7 +21,7 @@ global:
     image: proxy_init
 
   # imagePullPolicy is applied to istio control plane components.
-  imagePullPolicy: IfNotPresent
+  imagePullPolicy: Always
 
   # Not recommended for user to configure this. Hyperkube image to use when creating custom resources
   hyperkube:
@@ -80,7 +80,6 @@ istiotesting:
 ingress:
   enabled: true
   serviceAccountName: default
-  imagePullPolicy: IfNotPresent
   autoscaleMin: 1
   autoscaleMax: 1
   resources: {}
@@ -102,7 +101,6 @@ ingress:
 ingressgateway:
   enabled: true
   serviceAccountName: istio-ingressgateway-service-account
-  imagePullPolicy: IfNotPresent
   autoscaleMin: 1
   autoscaleMax: 1
   resources: {}
@@ -147,13 +145,9 @@ ingressgateway:
 egressgateway:
   enabled: true
   serviceAccountName: istio-egressgateway-service-account
-  imagePullPolicy: IfNotPresent
   autoscaleMin: 1
   autoscaleMax: 1
   resources: {}
-  global:
-    proxy:
-      image: proxyv2
 # limits:
 #  cpu: 100m
 #  memory: 128Mi
@@ -192,7 +186,6 @@ sidecar-injector:
   serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
   image: sidecar_injector
-  imagePullPolicy: IfNotPresent
   resources: {}
   # limits:
   #  cpu: 100m
@@ -226,7 +219,6 @@ galley:
   serviceAccountName: default
   replicaCount: 1
   image: galley
-  imagePullPolicy: IfNotPresent
   resources: {}
   # limits:
   #  cpu: 100m
@@ -243,7 +235,6 @@ mixer:
   serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
   image: mixer
-  imagePullPolicy: IfNotPresent
   resources: {}
   # limits:
   #  cpu: 100m
@@ -255,7 +246,6 @@ mixer:
   prometheusStatsdExporter:
     repository: prom/statsd-exporter
     tag: latest
-    imagePullPolicy: IfNotPresent
     resources: {}
 
 #
@@ -266,7 +256,6 @@ pilot:
   serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
   image: pilot
-  imagePullPolicy: IfNotPresent
   resources: {}
   # limits:
   #  cpu: 100m
@@ -282,7 +271,6 @@ security:
   serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
   image: citadel
-  imagePullPolicy: IfNotPresent
   resources: {}
   # limits:
   #  cpu: 100m
@@ -298,7 +286,6 @@ grafana:
   enabled: false
   replicaCount: 1
   image: grafana
-  imagePullPolicy: IfNotPresent
   service:
     name: http
     type: ClusterIP
@@ -332,7 +319,6 @@ prometheus:
   image:
     repository: docker.io/prom/prometheus
     tag: latest
-    pullPolicy: IfNotPresent
   ingress:
     enabled: false
     # Used to create an Ingress record.
@@ -362,7 +348,6 @@ servicegraph:
   enabled: false
   replicaCount: 1
   image: servicegraph
-  imagePullPolicy: IfNotPresent
   service:
     name: http
     type: ClusterIP
@@ -397,7 +382,6 @@ zipkin:
   image:
     repository: docker.io/openzipkin/zipkin
     tag: 2.7
-    pullPolicy: IfNotPresent
   service:
     name: http
     type: ClusterIP

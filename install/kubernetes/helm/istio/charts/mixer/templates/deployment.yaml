@@ -11,7 +11,7 @@
       containers:
       - name: mixer
         image: "{{ $.Values.global.hub }}/{{ $.Values.image }}:{{ $.Values.global.tag }}"
-        imagePullPolicy: {{ $.Values.imagePullPolicy }}
+        imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
         - containerPort: 9091
         - containerPort: 9093
@@ -79,7 +79,7 @@
       containers:
       - name: mixer
         image: "{{ $.Values.global.hub }}/{{ $.Values.image }}:{{ $.Values.global.tag }}"
-        imagePullPolicy: {{ $.Values.imagePullPolicy }}
+        imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
         - containerPort: 9091
         - containerPort: 9093
