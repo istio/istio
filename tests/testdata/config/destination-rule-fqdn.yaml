@@ -1,3 +1,4 @@
+# Fails if a service with the name exists: trusted_ca required !
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
@@ -7,5 +8,3 @@ spec:
   trafficPolicy:
     loadBalancer:
       simple: LEAST_CONN
-    tls:
-      mode: SIMPLE
