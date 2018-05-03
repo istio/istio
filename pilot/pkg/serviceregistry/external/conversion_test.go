@@ -105,8 +105,7 @@ var httpDNS = &networking.ServiceEntry{
 }
 
 var tcpDNS = &networking.ServiceEntry{
-	Hosts:     []string{"tcpdns.com"},
-	Addresses: []string{"172.217.0.0/16"},
+	Hosts: []string{"tcpdns.com"},
 	Ports: []*networking.Port{
 		{Number: 444, Name: "tcp-444", Protocol: "tcp"},
 	},
@@ -265,7 +264,7 @@ func TestConvertService(t *testing.T) {
 		{
 			// service entry tcp DNS
 			externalSvc: tcpDNS,
-			services: []*model.Service{makeService("tcpdns.com", "172.217.0.0/16",
+			services: []*model.Service{makeService("tcpdns.com", "",
 				map[string]int{"tcp-444": 444}, true, model.DNSLB),
 			},
 		},
