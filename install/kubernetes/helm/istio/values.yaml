@@ -14,6 +14,9 @@ global:
   tag: circleci-nightly
   proxy:
     image: proxy
+  # proxyv2 image is the image to use for networking alpha3 and envoy v2
+  proxyv2:
+    image: proxyv2
   proxy_init:
     image: proxy_init
 
@@ -103,9 +106,6 @@ ingressgateway:
   autoscaleMin: 1
   autoscaleMax: 1
   resources: {}
-  global:
-    proxy:
-      image: proxyv2
 # limits:
 #  cpu: 100m
 #  memory: 128Mi
@@ -117,7 +117,7 @@ ingressgateway:
     labels:
       istio: ingressgateway
     #namespace: istio-system
-    type: NodePort #change to ClusterIP or LoadBalancer if need be
+    type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
     ports:
       ## You can add custom gateway ports
     - port: 80
