@@ -489,9 +489,9 @@ func (s *DiscoveryServer) removeEdsCon(clusterName string, node string, connecti
 	}
 	delete(c.EdsClients, node)
 	if len(c.EdsClients) == 0 {
-		log.Infof("EDS: remove unused cluster node=%s cluster=%s all=%v", node, clusterName, edsClusters)
 		edsClusterMutex.Lock()
 		defer edsClusterMutex.Unlock()
+		log.Infof("EDS: remove unused cluster node=%s cluster=%s all=%v", node, clusterName, edsClusters)
 		delete(edsClusters, clusterName)
 	}
 }
