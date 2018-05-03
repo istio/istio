@@ -127,7 +127,7 @@ e2e_pilotv2_v1alpha3: | istioctl test/local/noauth/e2e_pilotv2
 e2e_bookinfo_envoyv2_v1alpha3: | istioctl test/local/noauth/e2e_bookinfo_envoyv2
 
 # This is used to keep a record of the test results.
-CAPTURE_LOG="| tee -a ${OUT_DIR}/tests/build-log.txt"
+CAPTURE_LOG=| tee -a ${OUT_DIR}/tests/build-log.txt
 
 ## Targets for fast local development and staged CI.
 # The test take a T argument. Example:
@@ -212,8 +212,9 @@ test/local/noauth/e2e_simple_pilotv2: generate_yaml-envoyv2_transition
 dumpsys:
 	@mkdir -p ${OUT_DIR}/tests
 	@mkdir -p ${OUT_DIR}/logs
-	kubectl get all -o wide --all-namespaces
+	kubectl get all -o wide --all-namespaces | tee ${OUT_DIR}/logs/kubectl_all.txt
+	kubectl get all -o yaml --all-namespaces > ${OUT_DIR}/logs/kubectl_all.yaml
 	kubectl cluster-info dump > ${OUT_DIR}/logs/cluster-info.dump.txt
 	kubectl describe pods -n istio-system > ${OUT_DIR}/logs/pods-system.txt
-	kubectl logs -n istio-system -listio=pilot -c discovery
-	$(JUNIT_REPORT) <${OUT_DIR}/tests/build-log.txt >${OUT_DIR}/tests/junit.xml
+	kubectl get event --all-namespaces -o wide > ${OUT_DIR}/logs/events.txt
+	kubectl logs -n istio-system -listio=pilot -c discovery > ${OUT_DIR}/logs/pilot.log
