@@ -90,7 +90,13 @@ spec:
         image: docker.io/istio/proxy:unittest
         imagePullPolicy: IfNotPresent
         name: istio-proxy
-        resources: {}
+        resources:
+          limits:
+            cpu: 100m
+            memory: 128Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
         securityContext:
           privileged: false
           readOnlyRootFilesystem: true
