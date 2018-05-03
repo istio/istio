@@ -52,7 +52,6 @@ type Info struct {
 
 //  TODO: Do we need a "ref"? (i.e. VersionedKey + Origin config system identifier, for provenance).
 
-
 func (k Key) String() string {
 	return fmt.Sprintf("[Key](%s:%s)", k.Kind, k.FullName)
 }

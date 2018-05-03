@@ -32,7 +32,7 @@ type Bundle interface {
 
 	// GenerateManifest generates a distribution manifest for this bundle.
 	GenerateManifest() *distrib.Manifest
-	
+
 	// GenerateFragments generates the fragments for this bundle.
 	GenerateFragments() []*distrib.Fragment
 }

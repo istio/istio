@@ -15,8 +15,13 @@
 package state
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"sort"
 
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"istio.io/istio/galley/pkg/api/distrib"
@@ -46,7 +51,7 @@ type Mixer struct {
 var _ distributor.Bundle = &Mixer{}
 
 type mixerFragmentSet struct {
-	id string // TODO: Calculate id in a stable way.
+	id string
 	// The source configuration for this fragment
 	source resource.VersionedKey
 
@@ -67,8 +72,8 @@ func (m *Mixer) Destination() component.InstanceId {
 }
 
 func (m *Mixer) GenerateManifest() *distrib.Manifest {
+
 	man := &distrib.Manifest{
-		Id:            "TODO", // TODO: Generate a hash-based id.
 		ComponentType: string(component.MixerKind),
 		ComponentId:   m.destination.Name,
 		FragmentIds:   make([]string, 0, len(m.fragments)),
@@ -78,6 +83,16 @@ func (m *Mixer) GenerateManifest() *distrib.Manifest {
 		man.FragmentIds = append(man.FragmentIds, f.id)
 	}
 
+	// Alpha sort strings for stable ordering.
+	sort.Strings(man.FragmentIds)
+
+	var buf bytes.Buffer
+	for _, id := range man.FragmentIds {
+		buf.WriteString(id)
+	}
+
+	man.Id = calculateSignature(&buf)
+
 	return man
 }
 
@@ -85,25 +100,34 @@ func (m *Mixer) GenerateFragments() []*distrib.Fragment {
 	var result []*distrib.Fragment
 
 	for _, f := range m.fragments {
+		var content []*types.Any
+
 		for _, in := range f.instances {
-			fr, err := buildFragment(f.id+"/"+in.Name, distributor.InstanceUrl, in)
+			a, err := buildAny(distributor.InstanceUrl, in)
 			if err != nil {
 				// TODO
 				panic(err)
 			}
 
-			result = append(result, fr)
+			content = append(content, a)
 		}
 
 		for _, r := range f.rules {
-			fr, err := buildFragment(f.id+"/", distributor.RuleUrl, r) // TODO
+			a, err := buildAny(distributor.RuleUrl, r)
 			if err != nil {
 				// TODO
 				panic(err)
 			}
 
-			result = append(result, fr)
+			content = append(content, a)
 		}
+
+		fr := &distrib.Fragment{
+			Id:      f.id,
+			Content: content,
+		}
+
+		result = append(result, fr)
 	}
 
 	return result
@@ -120,11 +144,7 @@ func (m *Mixer) applyProducerService(key resource.VersionedKey, s *dev.ProducerS
 	}
 
 	instances, rules := generate.MixerFragment(s, m.u)
-	f = &mixerFragmentSet{
-		source:    key,
-		instances: instances,
-		rules:     rules,
-	}
+	f = newMixerFragmentSet(key, instances, rules)
 
 	m.fragments[key.Key] = f
 	return true
@@ -139,19 +159,55 @@ func (m *Mixer) removeProducerService(key resource.VersionedKey) bool {
 	return true
 }
 
-func buildFragment(id string, url string, p proto.Message) (*distrib.Fragment, error) {
+func newMixerFragmentSet(source resource.VersionedKey, instances []*distrib.Instance, rules []*distrib.Rule) *mixerFragmentSet {
+	f := &mixerFragmentSet{
+		source:    source,
+		instances: instances,
+		rules:     rules,
+	}
+
+	var buf bytes.Buffer
+
+	for _, in := range f.instances {
+		encode(&buf, in)
+	}
+
+	for _, r := range f.rules {
+		encode(&buf, r)
+	}
+
+	id := calculateSignature(&buf)
+	f.id = id
+	return f
+}
+
+func buildAny(url string, p proto.Message) (*types.Any, error) {
 	value, err := proto.Marshal(p)
 	if err != nil {
 		return nil, err
 	}
 
-	fr := &distrib.Fragment{
-		Id: id,
-		Content: &types.Any{
-			TypeUrl: url,
-			Value:   value,
-		},
-	}
+	return &types.Any{
+		TypeUrl: url,
+		Value:   value,
+	}, nil
+}
 
-	return fr, nil
+func encode(b *bytes.Buffer, p proto.Message) {
+	// Marshal from proto to json bytes
+	m := jsonpb.Marshaler{}
+	str, err := m.MarshalToString(p)
+	if err != nil {
+		// TODO: Handle the error case
+		panic(err)
+	}
+	b.WriteString(str)
+}
+
+func calculateSignature(b *bytes.Buffer) string {
+	signature := sha256.Sum256(b.Bytes())
+
+	dst := make([]byte, hex.EncodedLen(len(signature)))
+	hex.Encode(dst, signature[:])
+	return string(dst)
 }

@@ -23,5 +23,5 @@ option go_package = "istio.io/istio/galley/pkg/api/distrib";
 message Fragment {
     string id = 1;
 
-    google.protobuf.Any content = 2;
+    repeated google.protobuf.Any content = 2;
 }
