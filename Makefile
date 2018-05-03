@@ -205,16 +205,9 @@ check-tree:
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
 init: check-tree check-go-version $(ISTIO_OUT)/istio_is_init
 
-# Merge master. To be used in CI or by developers, assumes the
-# remote is called 'origin' (git default). Will fail on conflicts
-# Note: in a branch, this will get the latest from master. In master it has no effect.
-# This should be run after a 'git fetch' (typically done in the checkout step in CI)
-git.pullmaster:
-	git merge master
-
 # Sync target will pull from master and sync the modules. It is the first step of the
 # circleCI build, developers should call it periodically.
-sync: git.pullmaster init
+sync: init
 	mkdir -p ${OUT_DIR}/logs
 
 # I tried to make this dependent on what I thought was the appropriate
@@ -604,6 +597,16 @@ generate_yaml-envoyv2_transition: $(HELM)
                   --set global.hub=${HUB} \
 		  --values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
 		  install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
+
+generate_yaml-envoyv2_transition_auth: $(HELM)
+	./install/updateVersion_orig.sh -a ${HUB},${TAG} >/dev/null 2>&1
+	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/istio-auth.yaml
+	$(HELM) template --set global.tag=${TAG} \
+		  --namespace=istio-system \
+          --set global.hub=${HUB} \
+		  --values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
+		  --set global.mtls.enabled=true \
+		  install/kubernetes/helm/istio >> install/kubernetes/istio-auth.yaml
 
 # This is temporary. REMOVE ME after Envoy v2 transition
 # creates istio.yaml using values-envoyv2-transition.yaml

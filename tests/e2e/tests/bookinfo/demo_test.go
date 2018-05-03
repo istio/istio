@@ -75,6 +75,7 @@ func testVersionRoutingRule(t *testing.T, configVersion string, rule versionRout
 	defer func() {
 		inspect(deleteRules(configVersion, []string{rule.key}),
 			fmt.Sprintf("failed to delete rules"), "", t)
+		inspect(applyRules(configVersion, defaultRules), "failed to apply rules", "", t)
 	}()
 
 	for _, userVersion := range rule.userVersions {
@@ -98,6 +99,7 @@ func doTestFaultDelay(t *testing.T, configVersion string, rules []string) {
 	inspect(applyRules(configVersion, rules), "failed to apply rules", "", t)
 	defer func() {
 		inspect(deleteRules(configVersion, rules), "failed to delete rules", "", t)
+		inspect(applyRules(configVersion, defaultRules), "failed to apply rules", "", t)
 	}()
 	minDuration := 5
 	maxDuration := 8
@@ -169,6 +171,7 @@ func testVersionMigrationRule(t *testing.T, configVersion string, rule migration
 	defer func() {
 		inspect(deleteRules(configVersion, []string{rule.key}),
 			fmt.Sprintf("failed to delete rules"), "", t)
+		inspect(applyRules(configVersion, defaultRules), "failed to apply rules", "", t)
 	}()
 	modelV1 := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v1.html"))
 	tolerance := 0.05
@@ -199,10 +202,16 @@ func testVersionMigrationRule(t *testing.T, configVersion string, rule migration
 				log.Errora(err)
 				continue
 			}
-			if err = util.CompareToFile(body, modelV1); err == nil {
+
+			var c1CompareError, cVersionToMigrateError error
+			if c1CompareError = util.CompareToFile(body, modelV1); c1CompareError == nil {
 				c1++
-			} else if err = util.CompareToFile(body, rule.modelToMigrate); err == nil {
+			} else if cVersionToMigrateError = util.CompareToFile(body, rule.modelToMigrate); cVersionToMigrateError == nil {
 				cVersionToMigrate++
+			} else {
+				log.Error("received unexpected version: %s")
+				log.Infof("comparing to the original version: %v", c1CompareError)
+				log.Infof("comparing to the version to migrate to: %v", cVersionToMigrateError)
 			}
 			closeResponseBody(resp)
 		}
@@ -240,6 +249,7 @@ func doTestDbRoutingMongo(t *testing.T, configVersion string, rules []string) {
 	inspect(applyRules(configVersion, rules), "failed to apply rules", "", t)
 	defer func() {
 		inspect(deleteRules(configVersion, rules), "failed to delete rules", "", t)
+		inspect(applyRules(configVersion, defaultRules), "failed to apply rules", "", t)
 	}()
 
 	// TODO: update the rating in the db and check the value on page
@@ -265,6 +275,7 @@ func doTestDbRoutingMysql(t *testing.T, configVersion string, rules []string) {
 	inspect(applyRules(configVersion, rules), "failed to apply rules", "", t)
 	defer func() {
 		inspect(deleteRules(configVersion, rules), "failed to delete rules", "", t)
+		inspect(applyRules(configVersion, defaultRules), "failed to apply rules", "", t)
 	}()
 
 	// TODO: update the rating in the db and check the value on page
@@ -314,6 +325,7 @@ func doTestExternalDetailsService(t *testing.T, configVersion string, rules []st
 	inspect(applyRules(configVersion, rules), "failed to apply rules", "", t)
 	defer func() {
 		inspect(deleteRules(configVersion, rules), "failed to delete rules", "", t)
+		inspect(applyRules(configVersion, defaultRules), "failed to apply rules", "", t)
 	}()
 
 	isbnFetchedFromExternalService := "0486424618"
