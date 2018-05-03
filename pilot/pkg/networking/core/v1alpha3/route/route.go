@@ -180,7 +180,7 @@ func translateVirtualHost(
 func ConvertDestinationToCluster(destination *networking.Destination, vsvcName string,
 	in *networking.HTTPRoute, serviceIndex map[model.Hostname]*model.Service, defaultPort int) string {
 	// detect if it is a service
-	svc := serviceIndex[destination.Host]
+	svc := serviceIndex[model.Hostname(destination.Host)]
 
 	if svc == nil {
 		if defaultPort != 80 {
@@ -228,8 +228,11 @@ func ConvertDestinationToCluster(destination *networking.Destination, vsvcName s
 // Each VirtualService is tried, with a list of services that listen on the port.
 // Error indicates the given virtualService can't be used on the port.
 func TranslateRoutes(
-	virtualService model.Config, serviceIndex map[string]*model.Service, port int,
-	proxyLabels model.LabelsCollection, gatewayNames map[string]bool) ([]route.Route, error) {
+	virtualService model.Config,
+	serviceIndex map[model.Hostname]*model.Service,
+	port int,
+	proxyLabels model.LabelsCollection,
+	gatewayNames map[string]bool) ([]route.Route, error) {
 
 	rule, ok := virtualService.Spec.(*networking.VirtualService)
 	if !ok { // should never happen
@@ -286,7 +289,7 @@ func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels model.Label
 func translateRoute(in *networking.HTTPRoute,
 	match *networking.HTTPMatchRequest, port int,
 	operation string,
-	serviceIndex map[string]*model.Service,
+	serviceIndex map[model.Hostname]*model.Service,
 	proxyLabels model.LabelsCollection,
 	gatewayNames map[string]bool) *route.Route {
 
