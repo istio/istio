@@ -29,6 +29,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/gogo/protobuf/types"
+	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
@@ -149,7 +150,7 @@ func newEndpoint(address string, port uint32) (*endpoint.LbEndpoint, error) {
 
 // updateCluster is called from the event (or global cache invalidation) to update
 // the endpoints for the cluster.
-func updateCluster(clusterName string, edsCluster *EdsCluster) {
+func updateCluster(clusterName string, edsCluster *EdsCluster) error {
 	// TODO: should we lock this as well ? Once we move to event-based it may not matter.
 	var hostname string
 	var ports model.PortList
@@ -158,7 +159,8 @@ func updateCluster(clusterName string, edsCluster *EdsCluster) {
 	var portName string
 
 	// This is a gross hack but Costin will insist on supporting everything from ancient Greece
-	if strings.Index(clusterName, "outbound") == 0 { //new style cluster names
+	if strings.Index(clusterName, "outbound") == 0 ||
+		strings.Index(clusterName, "inbound") == 0 { //new style cluster names
 		var p *model.Port
 		var subsetName string
 		_, subsetName, hostname, p = model.ParseSubsetKey(clusterName)
@@ -175,12 +177,13 @@ func updateCluster(clusterName string, edsCluster *EdsCluster) {
 	instances, err := edsCluster.discovery.env.ServiceDiscovery.Instances(hostname, ports.GetNames(), labels)
 	if err != nil {
 		log.Warnf("endpoints for service cluster %q returned error %q", clusterName, err)
-		return
+		return err
 	}
 	locEps := localityLbEndpointsFromInstances(instances)
-	if len(instances) == 0 && edsDebug {
-		log.Infof("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, portName, labels)
+	if len(instances) == 0 {
+		log.Warnf("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, portName, labels)
 	}
+	edsInstances.With(prometheus.Labels{"cluster": clusterName}).Set(float64(len(instances)))
 	// There is a chance multiple goroutines will update the cluster at the same time.
 	// This could be prevented by a lock - but because the update may be slow, it may be
 	// better to accept the extra computations.
@@ -194,7 +197,7 @@ func updateCluster(clusterName string, edsCluster *EdsCluster) {
 	if len(locEps) > 0 && edsCluster.NonEmptyTime.IsZero() {
 		edsCluster.NonEmptyTime = time.Now()
 	}
-
+	return nil
 }
 
 // LocalityLbEndpointsFromInstances returns a list of Envoy v2 LocalityLbEndpoints.
@@ -360,7 +363,10 @@ func (s *DiscoveryServer) pushEds(con *XdsConnection) error {
 		c := s.getOrAddEdsCluster(clusterName)
 		l := loadAssignment(c)
 		if l == nil { // fresh cluster
-			updateCluster(clusterName, c)
+			if err := updateCluster(clusterName, c); err != nil {
+				log.Errorf("error returned from updateCluster for cluster name %s, skipping it.", clusterName)
+				continue
+			}
 			l = loadAssignment(c)
 		}
 		endpoints += len(l.Endpoints)
@@ -399,7 +405,10 @@ func edsPushAll() {
 	edsClusterMutex.Unlock()
 
 	for clusterName, edsCluster := range tmpMap {
-		updateCluster(clusterName, edsCluster)
+		if err := updateCluster(clusterName, edsCluster); err != nil {
+			log.Errorf("updateCluster failed with clusterName %s", clusterName)
+			continue
+		}
 		edsCluster.mutex.Lock()
 		for _, edsCon := range edsCluster.EdsClients {
 			edsCon.pushChannel <- &XdsEvent{
@@ -414,14 +423,19 @@ func edsPushAll() {
 func (s *DiscoveryServer) addEdsCon(clusterName string, node string, connection *XdsConnection) {
 
 	c := s.getOrAddEdsCluster(clusterName)
-	c.mutex.Lock()
-	existing := c.EdsClients[node]
-	c.mutex.Unlock()
+	// TODO: left the code here so we can skip sending the already-sent clusters.
+	// See comments in ads - envoy keeps adding one cluster to the list (this seems new
+	// previous version sent all the clusters from CDS in bulk).
 
-	// May replace an existing connection
-	if existing != nil {
-		log.Warnf("Replacing existing connection %s %s old: %s", clusterName, node, existing.ConID)
-	}
+	//c.mutex.Lock()
+	//existing := c.EdsClients[node]
+	//c.mutex.Unlock()
+	//
+	//// May replace an existing connection: this happens when Envoy adds more clusters
+	//// one by one, creating new grpc requests each time it adds one more cluster.
+	//if existing != nil {
+	//	log.Warnf("Replacing existing connection %s %s old: %s", clusterName, node, existing.ConID)
+	//}
 	c.mutex.Lock()
 	c.EdsClients[node] = connection
 	c.mutex.Unlock()

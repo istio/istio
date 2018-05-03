@@ -23,6 +23,7 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/gogo/protobuf/types"
+	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
@@ -43,6 +44,55 @@ var (
 	// reconnects after the 'new/restarted' envoy
 	adsSidecarIDConnectionsMap = map[string]map[string]*XdsConnection{}
 )
+
+var (
+	// experiment on getting some monitoring on config errors.
+	cdsReject = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "pilot_xds_cds_reject",
+		Help: "Pilot rejected CSD configs.",
+	}, []string{"node", "err"})
+
+	edsReject = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "pilot_xds_eds_reject",
+		Help: "Pilot rejected EDS.",
+	}, []string{"node", "err"})
+
+	edsInstances = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "pilot_xds_eds_instances",
+		Help: "Instances for each cluster, as of last push. Zero instances is an error",
+	}, []string{"cluster"})
+
+	ldsReject = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "pilot_xds_lds_reject",
+		Help: "Pilot rejected LDS.",
+	}, []string{"node", "err"})
+
+	monServices = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "pilot_services",
+		Help: "Total services known to pilot",
+	})
+
+	monVServices = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "pilot_virt_services",
+		Help: "Total virtual services known to pilot",
+	})
+
+	xdsClients = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "pilot_xds",
+		Help: "Number of endpoints connected to this pilot using XDS",
+	})
+)
+
+func init() {
+	prometheus.MustRegister(cdsReject)
+	prometheus.MustRegister(edsReject)
+	prometheus.MustRegister(ldsReject)
+	prometheus.MustRegister(edsInstances)
+	prometheus.MustRegister(monServices)
+	prometheus.MustRegister(monVServices)
+	prometheus.MustRegister(xdsClients)
+
+}
 
 // XdsConnection is a listener connection type.
 type XdsConnection struct {
@@ -178,6 +228,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					// Already received a cluster watch request, this is an ACK
 					if discReq.ErrorDetail != nil {
 						log.Warnf("ADS:CDS: ACK ERROR %v %s %v", peerAddr, con.ConID, discReq.String())
+						cdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
 					}
 					if adsDebug {
 						log.Infof("ADS:CDS: ACK %v %v", peerAddr, discReq.String())
@@ -198,6 +249,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					// Already received a cluster watch request, this is an ACK
 					if discReq.ErrorDetail != nil {
 						log.Warnf("ADS:LDS: ACK ERROR %v %s %v", peerAddr, con.modelNode.ID, discReq.String())
+						ldsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
 					}
 					if adsDebug {
 						log.Infof("ADS:LDS: ACK %v", discReq.String())
@@ -242,16 +294,17 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				if len(clusters) == len(con.Clusters) || len(clusters) == 0 {
 					if discReq.ErrorDetail != nil {
 						log.Warnf("ADS:EDS: ACK ERROR %v %s %v", peerAddr, con.ConID, discReq.String())
-					}
-					if edsDebug {
-						// Not logging full request, can be very long.
-						log.Infof("ADS:EDS: ACK %s %s %s %s", peerAddr, con.ConID, discReq.VersionInfo, discReq.ResponseNonce)
+						edsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
 					}
 					if len(con.Clusters) > 0 {
 						// Already got a list of clusters to watch and has same length as the request, this is an ack
 						continue
 					}
 				}
+				// It appears current envoy keeps repeating the request with one more
+				// clusters. This result in verbose messages if a lot of clusters and
+				// endpoints are used. Not clear why envoy can't batch, it gets all CDS
+				// in one shot.
 				con.Clusters = clusters
 				for _, c := range con.Clusters {
 					s.addEdsCon(c, con.ConID, con)
@@ -331,7 +384,9 @@ func adsPushAll() {
 	// the update may be duplicated if multiple goroutines compute at the same time).
 	// In general this code is called from the 'event' callback that is throttled.
 	for clusterName, edsCluster := range cMap {
-		updateCluster(clusterName, edsCluster)
+		if err := updateCluster(clusterName, edsCluster); err != nil {
+			log.Errorf("updateCluster failed with clusterName %s", clusterName)
+		}
 	}
 
 	// Push config changes, iterating over connected envoys. This cover ADS and EDS(0.7), both share
@@ -357,6 +412,7 @@ func (s *DiscoveryServer) addCon(conID string, con *XdsConnection) {
 	adsClientsMutex.Lock()
 	defer adsClientsMutex.Unlock()
 	adsClients[conID] = con
+	xdsClients.Set(float64(len(adsClients)))
 	if con.modelNode != nil {
 		if _, ok := adsSidecarIDConnectionsMap[con.modelNode.ID]; !ok {
 			adsSidecarIDConnectionsMap[con.modelNode.ID] = map[string]*XdsConnection{conID: con}
@@ -378,6 +434,7 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 		log.Errorf("ADS: Removing connection for non-existing node %v.", s)
 	}
 	delete(adsClients, conID)
+	xdsClients.Set(float64(len(adsClients)))
 	if con.modelNode != nil {
 		delete(adsSidecarIDConnectionsMap[con.modelNode.ID], conID)
 	}

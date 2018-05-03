@@ -31,6 +31,7 @@ import (
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	google_protobuf "github.com/gogo/protobuf/types"
+	"github.com/prometheus/client_golang/prometheus"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -67,7 +68,19 @@ var (
 	// Very verbose output in the logs - full LDS response logged for each sidecar.
 	// Use /debug/ldsz instead.
 	verboseDebug = os.Getenv("PILOT_DUMP_ALPHA3") != ""
+
+	// TODO: gauge should be reset on refresh, not the best way to represent errors but better
+	// than nothing.
+	// TODO: add dimensions - namespace of rule, service, rule name
+	conflictingOutbound = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "pilot_conf_out_listeners",
+		Help: "Number of conflicting listeners.",
+	})
 )
+
+func init() {
+	prometheus.MustRegister(conflictingOutbound)
+}
 
 // ListenersALPNProtocols denotes the the list of ALPN protocols that the listener
 // should expose
@@ -339,7 +352,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
 				if l, exists := listenerMap[listenerMapKey]; exists {
 					if !strings.HasPrefix(l.Name, "http") {
-						log.Warnf("Conflicting outbound listeners on %s: previous listener %s", listenerMapKey, l.Name)
+						conflictingOutbound.Add(1)
+						log.Warnf("Conflicting outbound listeners on %s: previous listener %s (%s %v)", listenerMapKey, clusterName, l.Name, l)
 					}
 					// Skip building listener for the same http port
 					continue
