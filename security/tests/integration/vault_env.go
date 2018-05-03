@@ -17,6 +17,7 @@ package integration
 import (
 	"fmt"
 
+	"k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/pkg/log"
@@ -37,7 +38,9 @@ type (
 )
 
 const (
-	vaultName = "vault-server"
+	vaultName    = "vault"
+	vaultService = "vault-service"
+	vaultPort    = 8200
 )
 
 // NewVaultTestEnv creates the environment instance
@@ -82,6 +85,17 @@ func (env *VaultTestEnv) GetComponents() []framework.Component {
 				[]string{},
 				[]string{},
 			),
+			NewKubernetesService(
+				env.ClientSet,
+				env.NameSpace,
+				vaultService,
+				v1.ServiceTypeLoadBalancer,
+				vaultPort,
+				map[string]string{
+					"pod-group": vaultName + podGroupPostfix,
+				},
+				map[string]string{},
+			),
 		}
 	}
 	return env.comps
@@ -104,4 +118,9 @@ func (env *VaultTestEnv) Cleanup() error {
 		return retErr
 	}
 	return nil
+}
+
+// GetVaultIPAddress returns the external LoadBalancer IP address of the Vault testing service
+func (env *VaultTestEnv) GetVaultIPAddress() (string, error) {
+	return getServiceExternalIPAddress(env.ClientSet, env.NameSpace, vaultService)
 }
