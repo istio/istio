@@ -188,7 +188,7 @@ docker.flexvolumedriver: $(ISTIO_DOCKER)/flexvolume
 $(foreach FILE,$(FLEXVOLUMEDRIVER_FILES),$(eval docker.flexvolumedriver: $(ISTIO_DOCKER)/$(notdir $(FILE))))
 $(foreach FILE,$(NODE_AGENT_TEST_FILES),$(eval docker.node-agent-test: $(ISTIO_DOCKER)/$(notdir $(FILE))))
 
-SECURITY_DOCKER:=docker.citadel docker.citadel-test docker.node-agent docker.node-agent-test docker.flexvolumedriver
+SECURITY_DOCKER:=docker.citadel docker.citadel-test docker.node-agent docker.node-agent-test docker.flexvolumedriver docker.vault-test
 $(SECURITY_DOCKER): security/docker/Dockerfile$$(suffix $$@) | $(ISTIO_DOCKER)
 	$(DOCKER_RULE)
 
