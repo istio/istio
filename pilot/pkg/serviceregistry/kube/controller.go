@@ -21,6 +21,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -60,6 +61,17 @@ func init() {
 var (
 	azDebug = os.Getenv("VERBOSE_AZ_DEBUG") == "1"
 )
+
+var (
+	ipNotFound = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "pilot_no_ip",
+		Help: "Pods not found in the endpoint table, possibly invalid.",
+	}, []string{"node"})
+)
+
+func init() {
+	prometheus.MustRegister(ipNotFound)
+}
 
 // ControllerOptions stores the configurable attributes of a Controller.
 type ControllerOptions struct {
@@ -379,6 +391,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 					if kubeNodes[ea.IP] == nil {
 						err := parseKubeServiceNode(ea.IP, proxy, kubeNodes)
 						if err != nil {
+							log.Errorf("invalid service node %v %v %v", proxy.IPAddress, proxy.ID, err)
 							return out, err
 						}
 					}
@@ -424,6 +437,10 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 				}
 			}
 		}
+	}
+	if len(out) == 0 {
+		log.Errorf("ip not found, listeners will be broken %v %v", proxy.IPAddress, proxy.ID)
+		ipNotFound.With(prometheus.Labels{"node": proxy.ID}).Add(1)
 	}
 	return out, nil
 }
