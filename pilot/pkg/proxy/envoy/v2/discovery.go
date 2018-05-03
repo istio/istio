@@ -31,9 +31,7 @@ import (
 
 var (
 	// Failsafe to implement periodic refresh, in case events or cache invalidation fail.
-	// TODO: remove after events get enough testing
-	periodicRefreshDuration = os.Getenv("V2_REFRESH")
-	responseTickDuration    = time.Second * 15
+	periodicRefreshDuration = time.Second * 60
 
 	versionMutex sync.Mutex
 	// version is update by registry events.
@@ -85,9 +83,11 @@ func NewDiscoveryServer(env model.Environment, generator *v1alpha3.ConfigGenerat
 		ConfigGenerator: generator,
 	}
 
-	if len(periodicRefreshDuration) > 0 {
-		periodicRefresh()
+	envOverride := os.Getenv("V2_REFRESH")
+	if len(envOverride) > 0 {
+		periodicRefreshDuration, _ = time.ParseDuration(envOverride)
 	}
+	periodicRefresh()
 
 	return out
 }
@@ -104,12 +104,7 @@ func (s *DiscoveryServer) Register(rpcs *grpc.Server) {
 // ( will be removed after change detection is implemented, to double check all changes are
 // captured)
 func periodicRefresh() {
-	var err error
-	responseTickDuration, err = time.ParseDuration(periodicRefreshDuration)
-	if err != nil {
-		return
-	}
-	ticker := time.NewTicker(responseTickDuration)
+	ticker := time.NewTicker(periodicRefreshDuration)
 	defer ticker.Stop()
 	for range ticker.C {
 		PushAll()

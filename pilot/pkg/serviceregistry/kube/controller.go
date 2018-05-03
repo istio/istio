@@ -30,6 +30,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 const (
@@ -42,6 +43,19 @@ const (
 	// IstioConfigMap is used by default
 	IstioConfigMap = "istio"
 )
+
+var (
+	// experiment on getting some monitoring on config errors.
+	k8sEvents = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "pilot_k8s_reg_events",
+		Help: "Events from k8s registry.",
+	}, []string{"type", "event"})
+
+)
+
+func init() {
+	prometheus.MustRegister(k8sEvents)
+}
 
 var (
 	azDebug = os.Getenv("VERBOSE_AZ_DEBUG") == "1"
@@ -76,7 +90,8 @@ type cacheHandler struct {
 
 // NewController creates a new Kubernetes controller
 func NewController(client kubernetes.Interface, options ControllerOptions) *Controller {
-	log.Infof("Service controller watching namespace %q", options.WatchedNamespace)
+	log.Infof("Service controller watching namespace %q for service, endpoint, nodes and pods, refresh %d",
+		options.WatchedNamespace, options.ResyncPeriod)
 
 	// Queue requires a time duration for a retry delay after a handler error
 	out := &Controller{
@@ -85,7 +100,7 @@ func NewController(client kubernetes.Interface, options ControllerOptions) *Cont
 		queue:        NewQueue(1 * time.Second),
 	}
 
-	out.services = out.createInformer(&v1.Service{}, options.ResyncPeriod,
+	out.services = out.createInformer(&v1.Service{}, "Service", options.ResyncPeriod,
 		func(opts meta_v1.ListOptions) (runtime.Object, error) {
 			return client.CoreV1().Services(options.WatchedNamespace).List(opts)
 		},
@@ -93,7 +108,7 @@ func NewController(client kubernetes.Interface, options ControllerOptions) *Cont
 			return client.CoreV1().Services(options.WatchedNamespace).Watch(opts)
 		})
 
-	out.endpoints = out.createInformer(&v1.Endpoints{}, options.ResyncPeriod,
+	out.endpoints = out.createInformer(&v1.Endpoints{}, "Endpoints", options.ResyncPeriod,
 		func(opts meta_v1.ListOptions) (runtime.Object, error) {
 			return client.CoreV1().Endpoints(options.WatchedNamespace).List(opts)
 		},
@@ -101,7 +116,7 @@ func NewController(client kubernetes.Interface, options ControllerOptions) *Cont
 			return client.CoreV1().Endpoints(options.WatchedNamespace).Watch(opts)
 		})
 
-	out.nodes = out.createInformer(&v1.Node{}, options.ResyncPeriod,
+	out.nodes = out.createInformer(&v1.Node{}, "Node", options.ResyncPeriod,
 		func(opts meta_v1.ListOptions) (runtime.Object, error) {
 			return client.CoreV1().Nodes().List(opts)
 		},
@@ -109,7 +124,7 @@ func NewController(client kubernetes.Interface, options ControllerOptions) *Cont
 			return client.CoreV1().Nodes().Watch(opts)
 		})
 
-	out.pods = newPodCache(out.createInformer(&v1.Pod{}, options.ResyncPeriod,
+	out.pods = newPodCache(out.createInformer(&v1.Pod{}, "Pod", options.ResyncPeriod,
 		func(opts meta_v1.ListOptions) (runtime.Object, error) {
 			return client.CoreV1().Pods(options.WatchedNamespace).List(opts)
 		},
@@ -126,12 +141,6 @@ func (c *Controller) notify(obj interface{}, event model.Event) error {
 	if !c.HasSynced() {
 		return errors.New("waiting till full synchronization")
 	}
-	k, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
-	if err != nil {
-		log.Infof("Error retrieving key: %v", err)
-	} else {
-		log.Debugf("Event %s: key %#v", event, k)
-	}
 	return nil
 }
 
@@ -143,6 +152,7 @@ func (c *Controller) notify(obj interface{}, event model.Event) error {
 // See config/ingress for Ingress objects
 func (c *Controller) createInformer(
 	o runtime.Object,
+	otype string,
 	resyncPeriod time.Duration,
 	lf cache.ListFunc,
 	wf cache.WatchFunc) cacheHandler {
@@ -157,14 +167,19 @@ func (c *Controller) createInformer(
 		cache.ResourceEventHandlerFuncs{
 			// TODO: filtering functions to skip over un-referenced resources (perf)
 			AddFunc: func(obj interface{}) {
+				k8sEvents.With(prometheus.Labels{"type": otype, "event": "add"}).Add(1)
 				c.queue.Push(Task{handler: handler.Apply, obj: obj, event: model.EventAdd})
 			},
 			UpdateFunc: func(old, cur interface{}) {
 				if !reflect.DeepEqual(old, cur) {
+					k8sEvents.With(prometheus.Labels{"type": otype, "event": "update"}).Add(1)
 					c.queue.Push(Task{handler: handler.Apply, obj: cur, event: model.EventUpdate})
+				} else {
+					k8sEvents.With(prometheus.Labels{"type": otype, "event": "updateSame"}).Add(1)
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
+				k8sEvents.With(prometheus.Labels{"type": otype, "event": "add"}).Add(1)
 				c.queue.Push(Task{handler: handler.Apply, obj: obj, event: model.EventDelete})
 			},
 		})

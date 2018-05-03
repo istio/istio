@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // controller is a collection of synchronized resource watchers.
@@ -42,6 +43,19 @@ type controller struct {
 type cacheHandler struct {
 	informer cache.SharedIndexInformer
 	handler  *kube.ChainHandler
+}
+
+var (
+	// experiment on getting some monitoring on config errors.
+	k8sEvents = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "pilot_k8s_cfg_events",
+		Help: "Events from k8s config.",
+	}, []string{"type", "event"})
+
+)
+
+func init() {
+	prometheus.MustRegister(k8sEvents)
 }
 
 // NewController creates a new Kubernetes controller for CRDs
@@ -65,7 +79,7 @@ func NewController(client *Client, options kube.ControllerOptions) model.ConfigS
 }
 
 func (c *controller) addInformer(schema model.ProtoSchema, namespace string, resyncPeriod time.Duration) {
-	c.kinds[schema.Type] = c.createInformer(knownTypes[schema.Type].object.DeepCopyObject(), resyncPeriod,
+	c.kinds[schema.Type] = c.createInformer(knownTypes[schema.Type].object.DeepCopyObject(), schema.Type, resyncPeriod,
 		func(opts meta_v1.ListOptions) (result runtime.Object, err error) {
 			result = knownTypes[schema.Type].collection.DeepCopyObject()
 			rc, ok := c.client.clientset[apiVersion(&schema)]
@@ -109,6 +123,7 @@ func (c *controller) notify(obj interface{}, event model.Event) error {
 
 func (c *controller) createInformer(
 	o runtime.Object,
+	otype string,
 	resyncPeriod time.Duration,
 	lf cache.ListFunc,
 	wf cache.WatchFunc) cacheHandler {
@@ -124,14 +139,19 @@ func (c *controller) createInformer(
 		cache.ResourceEventHandlerFuncs{
 			// TODO: filtering functions to skip over un-referenced resources (perf)
 			AddFunc: func(obj interface{}) {
+				k8sEvents.With(prometheus.Labels{"type": otype, "event": "add"}).Add(1)
 				c.queue.Push(kube.NewTask(handler.Apply, obj, model.EventAdd))
 			},
 			UpdateFunc: func(old, cur interface{}) {
 				if !reflect.DeepEqual(old, cur) {
+					k8sEvents.With(prometheus.Labels{"type": otype, "event": "update"}).Add(1)
 					c.queue.Push(kube.NewTask(handler.Apply, cur, model.EventUpdate))
+				} else {
+					k8sEvents.With(prometheus.Labels{"type": otype, "event": "updateSame"}).Add(1)
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
+				k8sEvents.With(prometheus.Labels{"type": otype, "event": "add"}).Add(1)
 				c.queue.Push(kube.NewTask(handler.Apply, obj, model.EventDelete))
 			},
 		})
