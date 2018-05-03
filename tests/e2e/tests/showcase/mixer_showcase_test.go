@@ -17,42 +17,37 @@ package showcase
 import (
 	"testing"
 
-	reportTmpl "istio.io/istio/mixer/test/spyAdapter/template/report"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/dependency"
 )
 
 func TestMixer_Report(t *testing.T) {
-	test.Requires(t, dependency.RemoteSpyAdapter)
+	test.Requires(t, dependency.PolicyBackend)
 
 	env := test.GetEnvironment(t)
 	env.Configure(testConfig)
 
-	m := env.GetMixer()
+	be := env.GetPolicyBackend(t)
+	// TODO: Define how backend should behave when Mixer dispatches the request
+	// be.SetBehavior()
+	_ = be
 
-	//m.Configure(mixer.StandardConfig)
+	appa := env.GetAppOrFail("a", t)
+	result := appa.CallOrFail("appb", 1, nil, t)
 
-	a := m.GetSpyAdapter()
-
-	err := m.Report(map[string]interface{}{
-		"target.name": "somesrvcname",
-	})
-	if err != nil {
-		t.Fatal(err)
+	// assert call result
+	if !result.IsSuccess() {
+		t.Fatalf("Call should have succeeded")
 	}
 
-	// TODO: We should rationalize this.
-	found := a.Expect([]interface{}{
-		&reportTmpl.Instance{
-			Name:       "reportInstance.samplereport.istio-system",
-			Value:      int64(2),
-			Dimensions: map[string]interface{}{"source": "mysrc", "target_ip": "somesrvcname"},
-		},
-	})
-
-	if !found {
-		t.Fatalf("failed")
-	}
+	// TODO: Define how we can query the mock backend.
+	be.ExpectReport(t, `
+Name: reportInstance.samplereport.istio-system,
+Value: 2,
+Dimensions:
+	- source: mysrc
+	- target_ip: somesrvcname
+`)
 }
 
 var testConfig = `
