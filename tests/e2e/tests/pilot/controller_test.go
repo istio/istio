@@ -99,6 +99,7 @@ func TestUnknownConfig(t *testing.T) {
 }
 
 func TestControllerEvents(t *testing.T) {
+	t.Skipf("Skipping %s as its flakey in CircleCI", t.Name())
 	cl, ns, cleanup := makeTempClient(t)
 	defer cleanup()
 	ctl := crd.NewController(cl, kube.ControllerOptions{WatchedNamespace: ns, ResyncPeriod: resync})
@@ -106,6 +107,7 @@ func TestControllerEvents(t *testing.T) {
 }
 
 func TestControllerCacheFreshness(t *testing.T) {
+	t.Skipf("Skipping %s as its flakey in CircleCI", t.Name())
 	cl, ns, cleanup := makeTempClient(t)
 	defer cleanup()
 	ctl := crd.NewController(cl, kube.ControllerOptions{WatchedNamespace: ns, ResyncPeriod: resync})
@@ -113,6 +115,7 @@ func TestControllerCacheFreshness(t *testing.T) {
 }
 
 func TestControllerClientSync(t *testing.T) {
+	t.Skipf("Skipping %s as its flakey in CircleCI", t.Name())
 	cl, ns, cleanup := makeTempClient(t)
 	defer cleanup()
 	ctl := crd.NewController(cl, kube.ControllerOptions{WatchedNamespace: ns, ResyncPeriod: resync})
