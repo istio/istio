@@ -148,7 +148,7 @@ func (s *Service) Validate() error {
 	if len(s.Hostname) == 0 {
 		errs = multierror.Append(errs, fmt.Errorf("invalid empty hostname"))
 	}
-	parts := strings.Split(s.Hostname, ".")
+	parts := strings.Split(s.Hostname.String(), ".")
 	for _, part := range parts {
 		if !IsDNS1123Label(part) {
 			errs = multierror.Append(errs, fmt.Errorf("invalid hostname part: %q", part))
@@ -2126,7 +2126,10 @@ func ValidateServiceEntry(config proto.Message) (errs error) {
 		errs = appendErrors(errs, fmt.Errorf("service entry must have at least one host"))
 	}
 	for _, host := range serviceEntry.Hosts {
-		errs = appendErrors(errs, validateHost(host))
+		errs = appendErrors(errs, ValidateWildcardDomain(host))
+	}
+	for _, address := range serviceEntry.Addresses {
+		errs = appendErrors(errs, validateCIDR(address))
 	}
 
 	servicePortNumbers := make(map[uint32]bool)
