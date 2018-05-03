@@ -149,6 +149,7 @@ test/minikube/noauth/e2e_simple: generate_yaml
 # This will only (re)run the test - call "make docker istio.yaml" (or "make pilot docker.pilot" if
 # you only changed pilot) to build.
 # Note: This test is used by CircleCI as "e2e-pilot".
+# REQUIRED TEST for V1
 test/local/auth/e2e_pilot: generate_yaml
 	@mkdir -p ${OUT_DIR}/logs
 	set -o pipefail; go test -v -timeout 20m ./tests/e2e/tests/pilot \
