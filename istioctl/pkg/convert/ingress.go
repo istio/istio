@@ -17,20 +17,51 @@ package convert
 import (
 	"k8s.io/api/extensions/v1beta1"
 
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pilot/pkg/model"
 )
 
 // IstioIngresses converts K8s extensions/v1beta1 Ingresses with Istio rules to v1alpha3 gateway and virtual service
 func IstioIngresses(ingresses []*v1beta1.Ingress, domainSuffix string) ([]model.Config, error) {
-	
-	out := make([]model.Config, 0)
+
+	if len(ingresses) == 0 {
+		return make([]model.Config, 0), nil
+	}
+
+	gateways := make([]model.Config, 0)
+	virtualServices := make([]model.Config, 0)
 
 	for _, ingrezz := range ingresses {
 		gateway, virtualService := ingress.ConvertIngressV1alpha3(*ingrezz, domainSuffix)
-		out = append(out, gateway)
-		out = append(out, virtualService)
+		gateways = append(gateways, gateway)
+		virtualServices = append(virtualServices, virtualService)
 	}
+
+	// the gateways we generate for k8s ingress resources shouldn't overlay one another
+	// TODO find out if we need one Gateway per port/protocol or one Gateway total
+	merged := model.MergeGateways(gateways...)
+	allServers := make([]*networking.Server, 0)
+	for _, servers := range merged.Servers {
+		allServers = append(allServers, servers...)
+	}
+
+	// Convert the merged Gateway back into a model.Config
+	mergedGateway := model.Config{
+		ConfigMeta: gateways[0].ConfigMeta,
+		Spec: &networking.Gateway{
+			Servers:  allServers,
+			Selector: gateways[0].Spec.(*networking.Gateway).Selector,
+		},
+	}
+
+	// Ensure the VirtualServices all point to mergedGateway
+	for _, virtualService := range virtualServices {
+		virtualService.Spec.(*networking.VirtualService).Gateways[0] = mergedGateway.ConfigMeta.Name
+	}
+
+	out := []model.Config{mergedGateway}
+	out = append(out, virtualServices...)
 
 	return out, nil
 }

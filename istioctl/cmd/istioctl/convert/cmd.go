@@ -24,7 +24,6 @@ import (
 	"github.com/ghodss/yaml"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-
 	"k8s.io/api/extensions/v1beta1"
 
 	"istio.io/istio/istioctl/pkg/convert"
@@ -165,12 +164,12 @@ func readConfigs(readers []io.Reader) ([]model.Config, []*v1beta1.Ingress, error
 			return nil, nil, err
 		}
 
-		recognized := 0;
+		recognized := 0
 		for _, nonIstio := range kinds {
 			if nonIstio.Kind == "Ingress" &&
 				nonIstio.APIVersion == "extensions/v1beta1" &&
 				nonIstio.ObjectMeta.Annotations["kubernetes.io/ingress.class"] == "istio" {
-				
+
 				ingress, err := parseIngress(nonIstio)
 				if err != nil {
 					log.Errorf("Could not decode ingress %v: %v", nonIstio.Name, err)
@@ -194,7 +193,7 @@ func readConfigs(readers []io.Reader) ([]model.Config, []*v1beta1.Ingress, error
 			for kind := range kindsFound {
 				msg = multierror.Append(msg, fmt.Errorf("unsupported kind: %v", kind))
 			}
-			
+
 			return nil, nil, msg
 		}
 
@@ -260,8 +259,8 @@ func parseIngress(unparsed crd.IstioKind) (*v1beta1.Ingress, error) {
 	if err != nil {
 		return nil, multierror.Prefix(err, "can't reserialize Ingress")
 	}
-	
-	out := &v1beta1.Ingress{};
+
+	out := &v1beta1.Ingress{}
 	err = json.Unmarshal(b, out)
 	if err != nil {
 		return nil, multierror.Prefix(err, "can't deserialize as Ingress")
