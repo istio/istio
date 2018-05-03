@@ -44,12 +44,8 @@ initContainers:
   [[ if (isset .ObjectMeta.Annotations "traffic.sidecar.istio.io/includeInboundPorts") -]]
   - "[[ index .ObjectMeta.Annotations "traffic.sidecar.istio.io/includeInboundPorts" ]]"
   [[ else -]]
-  - [[ range .Spec.Containers -]]
-      [[ range .Ports -]]
-        [[ .ContainerPort -]],
-      [[ end -]]
-    [[ end -]]
-  [[ end ]]
+  - "{{ .IncludeInboundPorts }}"
+  [[ end -]]
   - "-d"
   [[ if (isset .ObjectMeta.Annotations "traffic.sidecar.istio.io/excludeInboundPorts") -]]
   - "[[ index .ObjectMeta.Annotations "traffic.sidecar.istio.io/excludeInboundPorts" ]]"
