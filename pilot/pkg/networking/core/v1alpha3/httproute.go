@@ -78,7 +78,7 @@ func (configgen *ConfigGeneratorImpl) BuildSidecarOutboundHTTPRouteConfig(env mo
 		}
 	}
 
-	nameToServiceMap := make(map[string]*model.Service)
+	nameToServiceMap := make(map[model.Hostname]*model.Service)
 	for _, svc := range services {
 		if port == 0 {
 			nameToServiceMap[svc.Hostname] = svc
@@ -163,8 +163,8 @@ func (configgen *ConfigGeneratorImpl) BuildSidecarOutboundHTTPRouteConfig(env mo
 // buildVirtualHostDomains generates the set of domain matches for a service being accessed from
 // a proxy node
 func buildVirtualHostDomains(service *model.Service, port int, node model.Proxy) []string {
-	domains := []string{service.Hostname, fmt.Sprintf("%s:%d", service.Hostname, port)}
-	domains = append(domains, generateAltVirtualHosts(service.Hostname, port, node.Domain)...)
+	domains := []string{service.Hostname.String(), fmt.Sprintf("%s:%d", service.Hostname, port)}
+	domains = append(domains, generateAltVirtualHosts(service.Hostname.String(), port, node.Domain)...)
 
 	if len(service.Address) > 0 {
 		svcAddr := service.GetServiceAddressForProxy(&node)
