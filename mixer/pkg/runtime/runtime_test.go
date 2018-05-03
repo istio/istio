@@ -245,7 +245,7 @@ func TestRuntime_InFlightRequestsDuringConfigChange(t *testing.T) {
 	rt.onConfigChange(events)
 
 	// start a dispatch session, which will block until we signal it to commence.
-	bag := attribute.GetFakeMutableBagForTesting(map[string]interface{}{
+	bag := attribute.GetMutableBagForTesting(map[string]interface{}{
 		"identityAttr": "svc.istio-system",
 	})
 	callComplete := false

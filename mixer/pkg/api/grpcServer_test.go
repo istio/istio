@@ -21,6 +21,7 @@ import (
 	"net"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gogo/googleapis/google/rpc"
 	"google.golang.org/grpc"
@@ -28,6 +29,7 @@ import (
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/checkcache"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime/dispatcher"
 	"istio.io/istio/mixer/pkg/status"
@@ -71,7 +73,7 @@ func (ts *testState) createGRPCServer() (string, error) {
 	ts.gp = pool.NewGoroutinePool(128, false)
 	ts.gp.AddWorkers(32)
 
-	ms := NewGRPCServer(ts, ts.gp)
+	ms := NewGRPCServer(ts, ts.gp, checkcache.New(10))
 	ts.s = ms.(*grpcServer)
 	mixerpb.RegisterMixerServer(ts.gs, ts.s)
 
@@ -179,16 +181,13 @@ func TestCheck(t *testing.T) {
 		}, nil
 	}
 
-	attr0 := mixerpb.CompressedAttributes{
-		Words: []string{"A1", "A2", "A3"},
-		Int64S: map[int32]int64{
-			-1: 25,
-			-2: 26,
-			-3: 27,
-		},
-	}
+	attr0 := attribute.GetProtoForTesting(map[string]interface{}{
+		"A1": 25.0,
+		"A2": 26.0,
+		"A3": 27.0,
+	})
 
-	request := mixerpb.CheckRequest{Attributes: attr0}
+	request := mixerpb.CheckRequest{Attributes: *attr0}
 	request.Quotas = make(map[string]mixerpb.CheckRequest_QuotaParams)
 	request.Quotas["RequestCount"] = mixerpb.CheckRequest_QuotaParams{Amount: 42}
 
@@ -249,6 +248,10 @@ func TestCheck(t *testing.T) {
 		t.Errorf("Got %v, expected success", err)
 	}
 
+	if err != nil {
+		t.Errorf("Got %v, expected success", err)
+	}
+
 	ts.preproc = func(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag) error {
 		responseBag.Set("genAttrGen", "genAttrGenValue")
 		return nil
@@ -264,6 +267,76 @@ func TestCheck(t *testing.T) {
 	chkRes, err := ts.client.Check(context.Background(), &request)
 	if err != nil || chkRes.Precondition.Status.Code != 0 {
 		t.Errorf("Got error; expect success: %v, %v", chkRes, err)
+	}
+}
+
+func TestCheckCachedDenial(t *testing.T) {
+	ts, err := prepTestState()
+	if err != nil {
+		t.Fatalf("Unable to prep test state: %v", err)
+	}
+	defer ts.cleanupTestState()
+
+	ts.check = func(ctx context.Context, requestBag attribute.Bag) (adapter.CheckResult, error) {
+		return adapter.CheckResult{
+			Status:        status.WithPermissionDenied("Not Implemented"),
+			ValidDuration: time.Hour * 1000,
+		}, nil
+	}
+
+	attr0 := attribute.GetProtoForTesting(map[string]interface{}{
+		"A1": 25.0,
+		"A2": 26.0,
+		"A3": 27.0,
+	})
+
+	request := mixerpb.CheckRequest{Attributes: *attr0}
+
+	// do this twice to try out cached denials
+	for i := 0; i < 2; i++ {
+		cr, err := ts.client.Check(context.Background(), &request)
+		if err != nil {
+			t.Errorf("Expecting success, got %v", err)
+		}
+
+		if status.IsOK(cr.Precondition.Status) {
+			t.Errorf("Expecting error, got OK")
+		}
+	}
+}
+
+func TestCheckCachedAllow(t *testing.T) {
+	ts, err := prepTestState()
+	if err != nil {
+		t.Fatalf("Unable to prep test state: %v", err)
+	}
+	defer ts.cleanupTestState()
+
+	ts.check = func(ctx context.Context, requestBag attribute.Bag) (adapter.CheckResult, error) {
+		return adapter.CheckResult{
+			Status:        status.OK,
+			ValidDuration: time.Hour * 1000,
+		}, nil
+	}
+
+	attr0 := attribute.GetProtoForTesting(map[string]interface{}{
+		"A1": 25.0,
+		"A2": 26.0,
+		"A3": 27.0,
+	})
+
+	request := mixerpb.CheckRequest{Attributes: *attr0}
+
+	// do this twice to try out cached denials
+	for i := 0; i < 2; i++ {
+		cr, err := ts.client.Check(context.Background(), &request)
+		if err != nil {
+			t.Errorf("Expecting success, got %v", err)
+		}
+
+		if !status.IsOK(cr.Precondition.Status) {
+			t.Errorf("Expecting OK, got error")
+		}
 	}
 }
 
@@ -286,16 +359,13 @@ func TestCheckQuota(t *testing.T) {
 		}, nil
 	}
 
-	attr0 := mixerpb.CompressedAttributes{
-		Words: []string{"A1", "A2", "A3"},
-		Int64S: map[int32]int64{
-			-1: 25,
-			-2: 26,
-			-3: 27,
-		},
-	}
+	attr0 := attribute.GetProtoForTesting(map[string]interface{}{
+		"A1": 25.0,
+		"A2": 26.0,
+		"A3": 27.0,
+	})
 
-	request := mixerpb.CheckRequest{Attributes: attr0}
+	request := mixerpb.CheckRequest{Attributes: *attr0}
 	request.Quotas = make(map[string]mixerpb.CheckRequest_QuotaParams)
 	request.Quotas["RequestCount"] = mixerpb.CheckRequest_QuotaParams{Amount: 42}
 
@@ -382,29 +452,20 @@ func TestReport(t *testing.T) {
 	}
 
 	// test out delta encoding of attributes
-	attr0 := mixerpb.CompressedAttributes{
-		Words: []string{"A1", "A2", "A3", "A4"},
-		Int64S: map[int32]int64{
-			-1: 25,
-			-2: 26,
-			-3: 27,
-			-4: 28,
-		},
-	}
+	attr0 := attribute.GetProtoForTesting(map[string]interface{}{
+		"A1": int64(25),
+		"A2": int64(26),
+		"A3": int64(27),
+		"A4": int64(28),
+	})
 
-	attr1 := mixerpb.CompressedAttributes{
-		Words: []string{"A1", "A2", "A3"},
-		Int64S: map[int32]int64{
-			-2: 42,
-		},
-	}
+	attr1 := attribute.GetProtoForTesting(map[string]interface{}{
+		"A2": int64(42),
+	})
 
-	attr2 := mixerpb.CompressedAttributes{
-		Words: []string{"A4"},
-		Int64S: map[int32]int64{
-			-1: 31415692,
-		},
-	}
+	attr2 := attribute.GetProtoForTesting(map[string]interface{}{
+		"A4": int64(31415692),
+	})
 
 	callCount := 0
 	ts.report = func(ctx context.Context, requestBag attribute.Bag) error {
@@ -419,7 +480,7 @@ func TestReport(t *testing.T) {
 		i4 := v4.(int64)
 
 		if callCount == 0 {
-			if i1 != 25 || i2 != 26 || i3 != 27 {
+			if i1 != 25.0 || i2 != 26 || i3 != 27 {
 				t.Errorf("Got %d %d %d, expected 25 26 27", i1, i2, i3)
 			}
 		} else if callCount == 1 {
@@ -437,7 +498,7 @@ func TestReport(t *testing.T) {
 		return nil
 	}
 
-	request = mixerpb.ReportRequest{Attributes: []mixerpb.CompressedAttributes{attr0, attr1, attr2}}
+	request = mixerpb.ReportRequest{Attributes: []mixerpb.CompressedAttributes{*attr0, *attr1, *attr2}}
 	_, _ = ts.client.Report(context.Background(), &request)
 
 	if callCount != 3 {
@@ -467,7 +528,7 @@ func TestReport(t *testing.T) {
 		},
 	}
 
-	request = mixerpb.ReportRequest{Attributes: []mixerpb.CompressedAttributes{attr0, badAttr}}
+	request = mixerpb.ReportRequest{Attributes: []mixerpb.CompressedAttributes{*attr0, badAttr}}
 	if _, err = ts.client.Report(context.Background(), &request); err == nil {
 		t.Errorf("Got success, expected failure")
 	}
