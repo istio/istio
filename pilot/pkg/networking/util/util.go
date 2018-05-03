@@ -15,7 +15,6 @@
 package util
 
 import (
-	"bytes"
 	"sort"
 	"strconv"
 	"strings"
@@ -25,10 +24,8 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"github.com/envoyproxy/go-control-plane/pkg/util"
-	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"k8s.io/apimachinery/pkg/util/json"
 
 	"istio.io/istio/pkg/log"
 )
@@ -142,28 +139,6 @@ func GetByAddress(listeners []*xdsapi.Listener, addr string) *xdsapi.Listener {
 //		},
 //	}
 //}
-
-// BuildProtoStruct builds a proto.Struct with the given value JSON encoded into a field called "value" in the struct.
-func BuildProtoStruct(value interface{}) *types.Struct {
-	data, err := json.Marshal(value)
-	if err != nil {
-		return &types.Struct{}
-	}
-	pbs := &types.Struct{}
-	if err := jsonpb.Unmarshal(bytes.NewReader(data), pbs); err != nil {
-		return &types.Struct{}
-	}
-
-	return &types.Struct{
-		Fields: map[string]*types.Value{
-			"value": {
-				Kind: &types.Value_StructValue{
-					StructValue: pbs,
-				},
-			},
-		},
-	}
-}
 
 // MessageToStruct converts from proto message to proto Struct
 func MessageToStruct(msg proto.Message) *types.Struct {
