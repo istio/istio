@@ -10,6 +10,9 @@ fi
 if [ ! -f /usr/local/bin/kubectl ]; then
    time curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/${K8S_VER}/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
 fi
+if [ ! -f /usr/local/bin/helm ]; then
+   curl -Lo helm.tgz https://storage.googleapis.com/kubernetes-helm/helm-v2.8.0-linux-amd64.tar.gz && tar -zxvf helm.tgz && chmod +x linux-amd64/helm && sudo mv linux-amd64/helm /usr/local/bin/
+fi
 
 
 export KUBECONFIG=${KUBECONFIG:-$GOPATH/minikube.conf}
@@ -38,7 +41,6 @@ function waitMinikube() {
     fi
     echo "Minikube is running"
 }
-
 
 # Requires sudo ! Start real kubernetes minikube with none driver
 function startMinikubeNone() {
