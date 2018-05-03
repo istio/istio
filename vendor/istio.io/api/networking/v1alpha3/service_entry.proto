@@ -59,7 +59,7 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //     metadata:
 //       name: mtls-mongocluster
 //     spec:
-//       name: mymongodb.somedomain
+//       host: mymongodb.somedomain
 //       trafficPolicy:
 //         tls:
 //           mode: MUTUAL
@@ -87,7 +87,7 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //       resolution: NONE
 //
 // For HTTP based services, it is possible to create a VirtualService
-// backed by multiple DNS addressible endpoints. In such a scenario, the
+// backed by multiple DNS addressable endpoints. In such a scenario, the
 // application can use the HTTP_PROXY environment variable to transparently
 // reroute API calls for the VirtualService to a chosen backend. For
 // example, the following configuration creates a non-existent external
@@ -125,7 +125,7 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //     metadata:
 //       name: tls-foobar
 //     spec:
-//       name: foo.bar.com
+//       host: foo.bar.com
 //       trafficPolicy:
 //         tls:
 //           mode: SIMPLE # initiates HTTPS
@@ -166,7 +166,7 @@ message ServiceEntry {
   // outside the mesh.  Location determines the behavior of several
   // features, such as service-to-service mTLS authentication, policy
   // enforcement, etc. When communicating with services outside the mesh,
-  // Istio's mTLS authentication is disabled, and policy enforcements are
+  // Istio's mTLS authentication is disabled, and policy enforcement is
   // performed on the client-side as opposed to server-side.
   enum Location {
     // Signifies that the service is external to the mesh. Typically used
