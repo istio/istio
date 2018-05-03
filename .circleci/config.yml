@@ -187,43 +187,6 @@ jobs:
       - store_test_results:
           path: /go/out/tests
 
-  e2e-bookinfo:
-    <<: *integrationDefaults
-    environment:
-            - KUBECONFIG: /go/out/minikube.conf
-            - TEST_ENV: minikube-none
-            - GOPATH: /go
-    steps:
-      - <<: *initWorkingDir
-      - checkout
-      - attach_workspace:
-          at:  /go
-      - <<: *markJobStartsOnGCS
-      - run: make sync
-      - run: bin/testEnvRootMinikube.sh start
-      - run:
-          command: |
-            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
-              # Should only happen when re-running a job, and the workspace is gone
-              time make build test-bins
-            fi
-            make docker.all generate_yaml
-      - run: bin/testEnvRootMinikube.sh wait
-      - run: docker images
-      - run:
-            no_output_timeout: 20m
-            when: always
-            command: |
-              make e2e_bookinfo E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -test.v" | tee -a /go/out/tests/build-log.txt
-      - <<: *recordZeroExitCodeIfTestPassed
-      - <<: *recordNonzeroExitCodeIfTestFailed
-      - <<: *dumpsysNonPilot
-      - <<: *markJobFinishesOnGCS
-      - store_artifacts:
-          path: /home/circleci/logs
-      - store_artifacts:
-          path: /tmp
-
   e2e-pilot: #auth + v1alpha1 + v1
     <<: *integrationDefaults
     environment:
@@ -409,48 +372,6 @@ jobs:
           when: always
           command: |
             E2E_ARGS="--skip_cleanup --auth_enable=false --egress=false --v1alpha3=false" \
-            make e2e_pilot | tee -a /go/out/tests/build-log.txt
-      - <<: *recordZeroExitCodeIfTestPassed
-      - <<: *recordNonzeroExitCodeIfTestFailed
-      - run:
-          when: always
-          command: make dumpsys
-      - <<: *markJobFinishesOnGCS
-      - store_artifacts:
-          path: /home/circleci/logs
-      - store_artifacts:
-          path: /tmp
-
-  # Until alpha1 is deprecated
-  e2e-pilot-auth-v1alpha1-egress:
-    <<: *integrationDefaults
-    environment:
-            - GOPATH: /go
-            - KUBECONFIG: /go/out/minikube.conf
-            - TEST_ENV: minikube-none
-    steps:
-      - <<: *initWorkingDir
-      - checkout
-      - attach_workspace:
-          at:  /go
-      - <<: *markJobStartsOnGCS
-      - run: make sync
-      - run: bin/testEnvRootMinikube.sh start
-      - run:
-          command: |
-            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
-              # Should only happen when re-running a job, and the workspace is gone
-              time make build test-bins
-            fi
-            make docker.all generate_yaml
-      - run: bin/testEnvRootMinikube.sh wait
-      - run: docker images
-      - run:
-          no_output_timeout: 20m
-          # Run the test even if previous failed
-          when: always
-          command: |
-            E2E_ARGS="--skip_cleanup --auth_enable=true --egress=true --v1alpha3=false" \
             make e2e_pilot | tee -a /go/out/tests/build-log.txt
       - <<: *recordZeroExitCodeIfTestPassed
       - <<: *recordNonzeroExitCodeIfTestFailed
@@ -655,25 +576,12 @@ workflows:
           requires:
             - test
             - build
-      - e2e-dashboard:
-          requires:
-            - test
-            - build
-      - e2e-mixer:
-          requires:
-            - test
-            - build
       - e2e-pilot: #auth+v1alpha1
           requires:
             - test
             - build
-      - e2e-pilot-noauth-v1alpha1-v1:
+      - e2e-pilot-auth-v1alpha3-v2: # auth+v1alpha3+v2
           requires:
-            - test
-            - build
-      - benchcheck:
-          requires:
-            - test
             - build
       # Compile for mac and arm
       - goxbuild:
@@ -684,8 +592,7 @@ workflows:
       - nightly:
           context: org-global
           requires:
-            - e2e-simple
-            - e2e-pilot
+            - build
 
   periodic:
     triggers:
@@ -717,25 +624,18 @@ workflows:
       - e2e-mixer:
           requires:
             - build
-
-  # flaky:
-  #   triggers:
-  #      - schedule:
-  #          cron: "20 8,16 * * *"
-  #          filters:
-  #            branches:
-  #              only:
-  #                - master
-  #   jobs:
-  #     - build
-  #     - racetest
-  #     - e2e-pilot-auth-v1alpha1-egress:
-  #         requires:
-  #           - build
-  #     # Bookinfo requires 3 nodes, not a good fit for CircleCI.
-  #     - e2e-bookinfo:
-  #         requires:
-  #           - build
+      - racetest:
+          requires:
+            - test
+      - e2e-pilot-noauth-v1alpha3-v2: # no auth+v1alpha3+v2
+          requires:
+            - build
+      - e2e-pilot-auth-v1alpha3-v2: # auth+v1alpha3+v2
+          requires:
+            - build
+      - e2e-pilot-cloudfoundry-v1alpha3-v2:
+          requires:
+            - build
 
   all:
     jobs:
@@ -762,8 +662,5 @@ workflows:
           requires:
             - build
       - e2e-pilot-auth-v1alpha3-v2: # auth+v1alpha3+v2
-          requires:
-            - build
-      - e2e-pilot-cloudfoundry-v1alpha3-v2:
           requires:
             - build
