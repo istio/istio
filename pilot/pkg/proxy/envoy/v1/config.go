@@ -161,7 +161,10 @@ func buildListeners(env model.Environment, node model.Proxy) (Listeners, error) 
 		}
 		var svc *model.Service
 		for _, s := range services {
-			if strings.HasPrefix(s.Hostname, "istio-ingress") {
+			// check that the ingress service name is the left-most label of the hostname
+			// hence the dot is contatenated. This way istio-ingress.istio-system will match,
+			// while istio-ingressgateway.istio-system will not match the if condition.
+			if strings.HasPrefix(s.Hostname, env.Mesh.IngressService+".") {
 				svc = s
 				break
 			}
