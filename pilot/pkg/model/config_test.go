@@ -175,9 +175,9 @@ func TestServiceKey(t *testing.T) {
 }
 
 func TestSubsetKey(t *testing.T) {
-	hostname := "hostname"
+	hostname := model.Hostname("hostname")
 	cases := []struct {
-		hostname string
+		hostname model.Hostname
 		subset   string
 		port     *model.Port
 		want     string
@@ -254,7 +254,7 @@ func TestResolveHostname(t *testing.T) {
 	cases := []struct {
 		meta model.ConfigMeta
 		svc  *routing.IstioService
-		want string
+		want model.Hostname
 	}{
 		{
 			meta: model.ConfigMeta{Namespace: "default", Domain: "cluster.local"},
@@ -427,14 +427,14 @@ func TestRouteRules(t *testing.T) {
 	if _, err := store.Create(config); err != nil {
 		t.Error(err)
 	}
-	if out := store.RouteRules([]*model.ServiceInstance{instance}, mock.WorldService.Hostname); len(out) != 1 ||
+	if out := store.RouteRules([]*model.ServiceInstance{instance}, mock.WorldService.Hostname.String()); len(out) != 1 ||
 		!reflect.DeepEqual(config.Spec, out[0].Spec) {
 		t.Errorf("RouteRules() => expected %#v but got %#v", config.Spec, out)
 	}
-	if out := store.RouteRules([]*model.ServiceInstance{instance}, mock.HelloService.Hostname); len(out) != 0 {
+	if out := store.RouteRules([]*model.ServiceInstance{instance}, mock.HelloService.Hostname.String()); len(out) != 0 {
 		t.Error("RouteRules() => expected no match for destination-matched rules")
 	}
-	if out := store.RouteRules(nil, mock.WorldService.Hostname); len(out) != 0 {
+	if out := store.RouteRules(nil, mock.WorldService.Hostname.String()); len(out) != 0 {
 		t.Error("RouteRules() => expected no match for source-matched rules")
 	}
 
@@ -449,7 +449,7 @@ func TestRouteRules(t *testing.T) {
 
 	// erroring out list
 	if out := model.MakeIstioStore(errorStore{}).RouteRules([]*model.ServiceInstance{instance},
-		mock.WorldService.Hostname); len(out) != 0 {
+		mock.WorldService.Hostname.String()); len(out) != 0 {
 		t.Errorf("RouteRules() => expected nil but got %v", out)
 	}
 	if out := model.MakeIstioStore(errorStore{}).RouteRulesByDestination([]*model.ServiceInstance{world}); len(out) != 0 {
@@ -529,22 +529,22 @@ func TestDestinationPolicy(t *testing.T) {
 	if _, err := store.Create(config1); err != nil {
 		t.Error(err)
 	}
-	if out := store.Policy(instances, mock.WorldService.Hostname, labels); out == nil ||
+	if out := store.Policy(instances, mock.WorldService.Hostname.String(), labels); out == nil ||
 		!reflect.DeepEqual(policy1, out.Spec) {
 		t.Errorf("Policy() => expected %#v but got %#v", policy1, out)
 	}
-	if out := store.Policy(instances, mock.HelloService.Hostname, labels); out != nil {
+	if out := store.Policy(instances, mock.HelloService.Hostname.String(), labels); out != nil {
 		t.Error("Policy() => expected no match for destination-matched policy")
 	}
-	if out := store.Policy(instances, mock.WorldService.Hostname, nil); out != nil {
+	if out := store.Policy(instances, mock.WorldService.Hostname.String(), nil); out != nil {
 		t.Error("Policy() => expected no match for labels-matched policy")
 	}
-	if out := store.Policy(nil, mock.WorldService.Hostname, labels); out != nil {
+	if out := store.Policy(nil, mock.WorldService.Hostname.String(), labels); out != nil {
 		t.Error("Policy() => expected no match for source-matched policy")
 	}
 
 	// erroring out list
-	if out := model.MakeIstioStore(errorStore{}).Policy(instances, mock.WorldService.Hostname, labels); out != nil {
+	if out := model.MakeIstioStore(errorStore{}).Policy(instances, mock.WorldService.Hostname.String(), labels); out != nil {
 		t.Errorf("Policy() => expected nil but got %v", out)
 	}
 }
@@ -602,7 +602,7 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 	}
 
 	cases := []struct {
-		hostname string
+		hostname model.Hostname
 		port     int
 		expected string
 	}{
@@ -651,7 +651,7 @@ func TestResolveShortnameToFQDN(t *testing.T) {
 	tests := []struct {
 		name string
 		meta model.ConfigMeta
-		out  string
+		out  model.Hostname
 	}{
 		{
 			"*", model.ConfigMeta{}, "*",
@@ -677,6 +677,39 @@ func TestResolveShortnameToFQDN(t *testing.T) {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.out), func(t *testing.T) {
 			if actual := model.ResolveShortnameToFQDN(tt.name, tt.meta); actual != tt.out {
 				t.Fatalf("model.ResolveShortnameToFQDN(%q, %v) = %q wanted %q", tt.name, tt.meta, actual, tt.out)
+			}
+		})
+	}
+}
+
+func TestMostSpecificHostMatch(t *testing.T) {
+	tests := []struct {
+		in     []model.Hostname
+		needle model.Hostname
+		want   model.Hostname
+	}{
+		{[]model.Hostname{}, "*", ""},
+		{[]model.Hostname{"*.com", "*.foo.com"}, "bar.foo.com", "*.foo.com"},
+		{[]model.Hostname{"*.com", "*.foo.com"}, "foo.com", "*.com"},
+		{[]model.Hostname{"*.com", "foo.com"}, "*.foo.com", "*.com"},
+
+		{[]model.Hostname{"*.foo.com", "foo.com"}, "foo.com", "foo.com"},
+		{[]model.Hostname{"*.foo.com", "foo.com"}, "*.foo.com", "*.foo.com"},
+
+		// this passes because we sort alphabetically
+		{[]model.Hostname{"bar.com", "foo.com"}, "*.com", "bar.com"},
+
+		{[]model.Hostname{"bar.com", "*.foo.com"}, "*foo.com", "*.foo.com"},
+		{[]model.Hostname{"foo.com", "*.foo.com"}, "*foo.com", "foo.com"},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.needle), func(t *testing.T) {
+			actual, found := model.MostSpecificHostMatch(tt.needle, tt.in)
+			if tt.want != "" && !found {
+				t.Fatalf("model.MostSpecificHostMatch(%q, %v) = %v, %t; want: %v", tt.needle, tt.in, actual, found, tt.want)
+			} else if actual != tt.want {
+				t.Fatalf("model.MostSpecificHostMatch(%q, %v) = %v, %t; want: %v", tt.needle, tt.in, actual, found, tt.want)
 			}
 		})
 	}

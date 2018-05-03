@@ -265,7 +265,7 @@ type IstioConfigStore interface {
 	Policy(source []*ServiceInstance, destination string, labels Labels) *Config
 
 	// DestinationRule returns a destination rule for a service name in a given domain.
-	DestinationRule(hostname string) *Config
+	DestinationRule(hostname Hostname) *Config
 
 	// VirtualServices lists all virtual services bound to the specified gateways
 	VirtualServices(gateways map[string]bool) []Config
@@ -274,7 +274,7 @@ type IstioConfigStore interface {
 	Gateways(workloadLabels LabelsCollection) []Config
 
 	// SubsetToLabels returns the labels associated with a subset of a given service.
-	SubsetToLabels(subsetName, hostname string) LabelsCollection
+	SubsetToLabels(subsetName string, hostname Hostname) LabelsCollection
 
 	// HTTPAPISpecByDestination selects Mixerclient HTTP API Specs
 	// associated with destination service instances.
@@ -290,7 +290,7 @@ type IstioConfigStore interface {
 	// the one with the most specific scope will be selected. If there are more than
 	// one with the same scope, the first one seen will be used (later, we should
 	// have validation at submitting time to prevent this scenario from happening)
-	AuthenticationPolicyByDestination(hostname string, port *Port) *Config
+	AuthenticationPolicyByDestination(hostname Hostname, port *Port) *Config
 }
 
 const (
@@ -524,7 +524,7 @@ var (
 // ResolveHostname uses metadata information to resolve a service reference to
 // a fully qualified hostname. The metadata namespace and domain are used as
 // fallback values to fill up the complete name.
-func ResolveHostname(meta ConfigMeta, svc *routing.IstioService) string {
+func ResolveHostname(meta ConfigMeta, svc *routing.IstioService) Hostname {
 	out := svc.Name
 	// if FQDN is specified, do not append domain or namespace to hostname
 	// Service field has precedence over Name
@@ -544,17 +544,17 @@ func ResolveHostname(meta ConfigMeta, svc *routing.IstioService) string {
 		}
 	}
 
-	return out
+	return Hostname(out)
 }
 
 // ResolveShortnameToFQDN uses metadata information to resolve a reference
 // to shortname of the service to FQDN
-func ResolveShortnameToFQDN(host string, meta ConfigMeta) string {
+func ResolveShortnameToFQDN(host string, meta ConfigMeta) Hostname {
 	out := host
 	// Treat the wildcard host as fully qualified. Any other variant of a wildcard hostname will contain a `.` too,
 	// and skip the next if, so we only need to check for the literal wildcard itself.
 	if host == "*" {
-		return out
+		return Hostname(out)
 	}
 	// if FQDN is specified, do not append domain or namespace to hostname
 	if !strings.Contains(host, ".") {
@@ -570,7 +570,19 @@ func ResolveShortnameToFQDN(host string, meta ConfigMeta) string {
 		}
 	}
 
-	return out
+	return Hostname(out)
+}
+
+// MostSpecificHostMatch compares the elements of the stack to the needle, and returns the longest stack element
+// matching the needle, or false if no element in the stack matches the needle.
+func MostSpecificHostMatch(needle Hostname, stack []Hostname) (Hostname, bool) {
+	sort.Sort(Hostnames(stack))
+	for _, h := range stack {
+		if needle.Matches(h) {
+			return h, true
+		}
+	}
+	return "", false
 }
 
 // istioConfigStore provides a simple adapter for Istio configuration types
@@ -630,7 +642,7 @@ func (store *istioConfigStore) RouteRules(instances []*ServiceInstance, destinat
 		rule := config.Spec.(*routing.RouteRule)
 
 		// validate that rule match predicate applies to destination service
-		hostname := ResolveHostname(config.ConfigMeta, rule.Destination)
+		hostname := ResolveHostname(config.ConfigMeta, rule.Destination).String()
 		if hostname != destination {
 			continue
 		}
@@ -657,7 +669,7 @@ func (store *istioConfigStore) RouteRulesByDestination(instances []*ServiceInsta
 		rule := config.Spec.(*routing.RouteRule)
 		destination := ResolveHostname(config.ConfigMeta, rule.Destination)
 		for _, instance := range instances {
-			if destination == instance.Service.Hostname {
+			if destination.Matches(instance.Service.Hostname) {
 				out = append(out, config)
 				break
 			}
@@ -703,7 +715,8 @@ func (store *istioConfigStore) VirtualServices(gateways map[string]bool) []Confi
 			}
 		} else {
 			for _, g := range rule.Gateways {
-				if gateways[ResolveShortnameToFQDN(g, config.ConfigMeta)] {
+				// note: Gateway names do _not_ use wildcard matching, so we do not use Hostname.Matches here
+				if gateways[ResolveShortnameToFQDN(g, config.ConfigMeta).String()] {
 					out = append(out, config)
 					break
 				} else if g == IstioMeshGateway && gateways[g] {
@@ -720,12 +733,12 @@ func (store *istioConfigStore) VirtualServices(gateways map[string]bool) []Confi
 		rule := r.Spec.(*networking.VirtualService)
 		// resolve top level hosts
 		for i, h := range rule.Hosts {
-			rule.Hosts[i] = ResolveShortnameToFQDN(h, r.ConfigMeta)
+			rule.Hosts[i] = ResolveShortnameToFQDN(h, r.ConfigMeta).String()
 		}
 		// resolve gateways to bind to
 		for i, g := range rule.Gateways {
 			if g != IstioMeshGateway {
-				rule.Gateways[i] = ResolveShortnameToFQDN(g, r.ConfigMeta)
+				rule.Gateways[i] = ResolveShortnameToFQDN(g, r.ConfigMeta).String()
 			}
 		}
 		// resolve host in http route.destination, route.mirror
@@ -733,15 +746,15 @@ func (store *istioConfigStore) VirtualServices(gateways map[string]bool) []Confi
 			for _, m := range d.Match {
 				for i, g := range m.Gateways {
 					if g != IstioMeshGateway {
-						m.Gateways[i] = ResolveShortnameToFQDN(g, r.ConfigMeta)
+						m.Gateways[i] = ResolveShortnameToFQDN(g, r.ConfigMeta).String()
 					}
 				}
 			}
 			for _, w := range d.Route {
-				w.Destination.Host = ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta)
+				w.Destination.Host = ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta).String()
 			}
 			if d.Mirror != nil {
-				d.Mirror.Host = ResolveShortnameToFQDN(d.Mirror.Host, r.ConfigMeta)
+				d.Mirror.Host = ResolveShortnameToFQDN(d.Mirror.Host, r.ConfigMeta).String()
 			}
 		}
 		//resolve host in tcp route.destination
@@ -749,12 +762,12 @@ func (store *istioConfigStore) VirtualServices(gateways map[string]bool) []Confi
 			for _, m := range d.Match {
 				for i, g := range m.Gateways {
 					if g != IstioMeshGateway {
-						m.Gateways[i] = ResolveShortnameToFQDN(g, r.ConfigMeta)
+						m.Gateways[i] = ResolveShortnameToFQDN(g, r.ConfigMeta).String()
 					}
 				}
 			}
 			for _, w := range d.Route {
-				w.Destination.Host = ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta)
+				w.Destination.Host = ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta).String()
 			}
 		}
 	}
@@ -799,7 +812,7 @@ func (store *istioConfigStore) Policy(instances []*ServiceInstance, destination 
 			continue
 		}
 
-		if destination != ResolveHostname(config.ConfigMeta, policy.Destination) {
+		if destination != ResolveHostname(config.ConfigMeta, policy.Destination).String() {
 			continue
 		}
 
@@ -822,23 +835,27 @@ func (store *istioConfigStore) Policy(instances []*ServiceInstance, destination 
 	return &out
 }
 
-func (store *istioConfigStore) DestinationRule(hostname string) *Config {
+func (store *istioConfigStore) DestinationRule(hostname Hostname) *Config {
 	configs, err := store.List(DestinationRule.Type, NamespaceAll)
 	if err != nil {
 		return nil
 	}
 
-	for _, config := range configs {
-		rule := config.Spec.(*networking.DestinationRule)
-		if ResolveShortnameToFQDN(rule.Host, config.ConfigMeta) == hostname {
-			return &config
-		}
+	hosts := make([]Hostname, len(configs))
+	byHosts := make(map[Hostname]*Config, len(configs))
+	for i := range configs {
+		rule := configs[i].Spec.(*networking.DestinationRule)
+		hosts[i] = ResolveShortnameToFQDN(rule.Host, configs[i].ConfigMeta)
+		byHosts[hosts[i]] = &configs[i]
 	}
 
+	if c, ok := MostSpecificHostMatch(hostname, hosts); ok {
+		return byHosts[c]
+	}
 	return nil
 }
 
-func (store *istioConfigStore) SubsetToLabels(subsetName, hostname string) LabelsCollection {
+func (store *istioConfigStore) SubsetToLabels(subsetName string, hostname Hostname) LabelsCollection {
 	// empty subset
 	if subsetName == "" {
 		return nil
@@ -953,9 +970,9 @@ func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance)
 	return out
 }
 
-func (store *istioConfigStore) AuthenticationPolicyByDestination(hostname string, port *Port) *Config {
+func (store *istioConfigStore) AuthenticationPolicyByDestination(hostname Hostname, port *Port) *Config {
 	// Hostname should be FQDN, so namespace can be extracted by parsing hostname.
-	parts := strings.Split(hostname, ".")
+	parts := strings.Split(string(hostname), ".")
 	if len(parts) < 2 {
 		// Bad hostname, return no policy.
 		return nil

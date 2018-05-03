@@ -152,7 +152,7 @@ func newEndpoint(address string, port uint32) (*endpoint.LbEndpoint, error) {
 // the endpoints for the cluster.
 func updateCluster(clusterName string, edsCluster *EdsCluster) error {
 	// TODO: should we lock this as well ? Once we move to event-based it may not matter.
-	var hostname string
+	var hostname model.Hostname
 	var ports model.PortList
 	var labels model.LabelsCollection
 	// Single port

@@ -123,7 +123,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environmen
 	return clusters
 }
 
-func updateEds(env model.Environment, cluster *v2.Cluster, serviceName string) {
+func updateEds(env model.Environment, cluster *v2.Cluster, serviceName model.Hostname) {
 	if cluster.Type != v2.Cluster_EDS {
 		return
 	}
