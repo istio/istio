@@ -20,11 +20,8 @@ import (
 	"testing"
 )
 
-func TestAuthNPolicy(t *testing.T) {
-	if !tc.Kube.AuthEnabled {
-		t.Skipf("Skipping %s: auth_enable=false", t.Name())
-	}
-
+func TestMTlsWithAuthNPolicy(t *testing.T) {
+	// This policy will enable mTLS for all namespace, and disable mTLS for c and d:80.
 	cfgs := &deployableConfig{
 		Namespace:  tc.Kube.Namespace,
 		YamlFiles:  []string{"testdata/authn/v1alpha1/authn-policy.yaml.tmpl"},
@@ -51,7 +48,7 @@ func TestAuthNPolicy(t *testing.T) {
 							resp := ClientRequest(src, reqURL, 1, "")
 							if src == "t" && (dst == "b" || (dst == "d" && port == "8080")) {
 								if len(resp.ID) == 0 {
-									// t cannot talk to b nor d:80
+									// t cannot talk to b nor d:8080
 									return nil
 								}
 								return errAgain

@@ -22,6 +22,9 @@ import (
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	xdsfault "github.com/envoyproxy/go-control-plane/envoy/config/filter/fault/v2"
+	xdshttpfault "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/fault/v2"
+	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -81,7 +84,7 @@ type GuardedHost struct {
 // Services are indexed by FQDN hostnames.
 // Cluster domain is used to resolve short service names (e.g. "svc.cluster.local").
 func TranslateVirtualHosts(
-	serviceConfigs []model.Config, services map[string]*model.Service, proxyLabels model.LabelsCollection, gatewayNames map[string]bool) []GuardedHost {
+	serviceConfigs []model.Config, services map[model.Hostname]*model.Service, proxyLabels model.LabelsCollection, gatewayNames map[string]bool) []GuardedHost {
 
 	out := make([]GuardedHost, 0)
 
@@ -91,7 +94,7 @@ func TranslateVirtualHosts(
 	}
 
 	// compute services missing service configs
-	missing := make(map[string]bool)
+	missing := make(map[model.Hostname]bool)
 	for fqdn := range services {
 		missing[fqdn] = true
 	}
@@ -120,15 +123,12 @@ func TranslateVirtualHosts(
 }
 
 // matchServiceHosts splits the virtual service hosts into services and literal hosts
-// The resulting list of 'literal hosts' are host names declared in the VirtualService that
-// don't have a matching [External]Service. The services result contains the hosts declared
-// by VirtualService that have a matching Service.
-func matchServiceHosts(in model.Config, serviceIndex map[string]*model.Service) ([]string, []*model.Service) {
+func matchServiceHosts(in model.Config, serviceIndex map[model.Hostname]*model.Service) ([]string, []*model.Service) {
 	rule := in.Spec.(*networking.VirtualService)
 	hosts := make([]string, 0)
 	services := make([]*model.Service, 0)
 	for _, host := range rule.Hosts {
-		if svc := serviceIndex[host]; svc != nil {
+		if svc := serviceIndex[model.Hostname(host)]; svc != nil {
 			services = append(services, svc)
 		} else {
 			hosts = append(hosts, host)
@@ -141,7 +141,7 @@ func matchServiceHosts(in model.Config, serviceIndex map[string]*model.Service) 
 // Called for each port to determine the list of vhosts on the given port.
 // It may return an empty list if no VirtualService rule has a matching service.
 func translateVirtualHost(
-	in model.Config, serviceIndex map[string]*model.Service, proxyLabels model.LabelsCollection, gatewayName map[string]bool) []GuardedHost {
+	in model.Config, serviceIndex map[model.Hostname]*model.Service, proxyLabels model.LabelsCollection, gatewayName map[string]bool) []GuardedHost {
 
 	hosts, services := matchServiceHosts(in, serviceIndex)
 	serviceByPort := make(map[int][]*model.Service)
@@ -178,9 +178,9 @@ func translateVirtualHost(
 // ConvertDestinationToCluster generate a cluster name for the route, or error if no cluster
 // can be found. Called by translateRule to determine if
 func ConvertDestinationToCluster(destination *networking.Destination, vsvcName string,
-	in *networking.HTTPRoute, serviceIndex map[string]*model.Service, defaultPort int) string {
+	in *networking.HTTPRoute, serviceIndex map[model.Hostname]*model.Service, defaultPort int) string {
 	// detect if it is a service
-	svc := serviceIndex[destination.Host]
+	svc := serviceIndex[model.Hostname(destination.Host)]
 
 	if svc == nil {
 		if defaultPort != 80 {
@@ -228,8 +228,11 @@ func ConvertDestinationToCluster(destination *networking.Destination, vsvcName s
 // Each VirtualService is tried, with a list of services that listen on the port.
 // Error indicates the given virtualService can't be used on the port.
 func TranslateRoutes(
-	virtualService model.Config, serviceIndex map[string]*model.Service, port int,
-	proxyLabels model.LabelsCollection, gatewayNames map[string]bool) ([]route.Route, error) {
+	virtualService model.Config,
+	serviceIndex map[model.Hostname]*model.Service,
+	port int,
+	proxyLabels model.LabelsCollection,
+	gatewayNames map[string]bool) ([]route.Route, error) {
 
 	rule, ok := virtualService.Spec.(*networking.VirtualService)
 	if !ok { // should never happen
@@ -283,11 +286,10 @@ func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels model.Label
 }
 
 // translateRoute translates HTTP routes
-// TODO: fault filters -- issue https://github.com/istio/api/issues/388
 func translateRoute(in *networking.HTTPRoute,
 	match *networking.HTTPMatchRequest, port int,
 	operation string,
-	serviceIndex map[string]*model.Service,
+	serviceIndex map[model.Hostname]*model.Service,
 	proxyLabels model.LabelsCollection,
 	gatewayNames map[string]bool) *route.Route {
 
@@ -309,6 +311,7 @@ func translateRoute(in *networking.HTTPRoute,
 		Decorator: &route.Decorator{
 			Operation: operation,
 		},
+		PerFilterConfig: make(map[string]*types.Struct),
 	}
 
 	if redirect := in.Redirect; redirect != nil {
@@ -383,6 +386,11 @@ func translateRoute(in *networking.HTTPRoute,
 			}
 		}
 	}
+
+	if fault := in.Fault; fault != nil {
+		out.PerFilterConfig[xdsutil.Fault] = util.MessageToStruct(translateFault(in.Fault))
+	}
+
 	return out
 }
 
@@ -503,4 +511,50 @@ func BuildDefaultHTTPRoute(clusterName string) *route.Route {
 			},
 		},
 	}
+}
+
+// translateFault translates networking.HTTPFaultInjection into Envoy's HTTPFault
+func translateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
+	if in == nil {
+		return nil
+	}
+
+	out := xdshttpfault.HTTPFault{}
+	if in.Delay != nil {
+		out.Delay = &xdsfault.FaultDelay{
+			Type:    xdsfault.FaultDelay_FIXED,
+			Percent: uint32(in.Delay.Percent),
+		}
+		switch d := in.Delay.HttpDelayType.(type) {
+		case *networking.HTTPFaultInjection_Delay_FixedDelay:
+			delayDuration := util.GogoDurationToDuration(d.FixedDelay)
+			out.Delay.FaultDelaySecifier = &xdsfault.FaultDelay_FixedDelay{
+				FixedDelay: &delayDuration,
+			}
+		default:
+			log.Warnf("Exponential faults are not yet supported")
+			out.Delay = nil
+		}
+	}
+
+	if in.Abort != nil {
+		out.Abort = &xdshttpfault.FaultAbort{
+			Percent: uint32(in.Abort.Percent),
+		}
+		switch a := in.Abort.ErrorType.(type) {
+		case *networking.HTTPFaultInjection_Abort_HttpStatus:
+			out.Abort.ErrorType = &xdshttpfault.FaultAbort_HttpStatus{
+				HttpStatus: uint32(a.HttpStatus),
+			}
+		default:
+			log.Warnf("Non-HTTP type abort faults are not yet supported")
+			out.Abort = nil
+		}
+	}
+
+	if out.Delay == nil && out.Abort == nil {
+		return nil
+	}
+
+	return &out
 }

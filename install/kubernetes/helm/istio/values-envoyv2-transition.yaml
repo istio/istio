@@ -5,7 +5,7 @@ global:
     image: proxyv2
 
   mtls:
-    enabled: true
+    enabled: false
 
 ingress:
   enabled: true

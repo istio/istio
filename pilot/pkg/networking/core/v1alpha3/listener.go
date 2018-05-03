@@ -544,9 +544,8 @@ type buildListenerOpts struct {
 func buildHTTPConnectionManager(mesh *meshconfig.MeshConfig, httpOpts *httpListenerOpts, httpFilters []*http_conn.HttpFilter) *http_conn.HttpConnectionManager {
 	filters := append(httpFilters,
 		&http_conn.HttpFilter{Name: xdsutil.CORS},
+		&http_conn.HttpFilter{Name: xdsutil.Fault},
 		&http_conn.HttpFilter{Name: xdsutil.Router},
-		// TODO: need alphav3 fault filters.
-		//buildFaultFilters(opts.config, opts.env, opts.proxy)...
 	)
 
 	refresh := time.Duration(mesh.RdsRefreshDelay.Seconds) * time.Second
@@ -662,7 +661,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 // chain)
 func marshalFilters(l *xdsapi.Listener, opts buildListenerOpts, chains []plugin.FilterChain) error {
 	if len(opts.filterChainOpts) != len(chains) || len(chains) != len(l.FilterChains) || len(opts.filterChainOpts) == 0 {
-		return fmt.Errorf("must have same number of chains in: \nlistener: %d; %#v\nopts: %d; %#v\nchain: %d; %#v",
+		return fmt.Errorf("must have more than 0 chains, and the same number of chains in each of:\nlistener: %d; %#v\nopts: %d; %#v\nchain: %d; %#v",
 			len(l.FilterChains), l, len(opts.filterChainOpts), opts, len(chains), chains)
 	}
 

@@ -614,6 +614,7 @@ generate_yaml-envoyv2_transition_auth: $(HELM)
           --set global.hub=${HUB} \
 		  --values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
 		  --set global.mtls.enabled=true \
+			--set global.controlPlaneSecurityEnabled=true \
 		  install/kubernetes/helm/istio >> install/kubernetes/istio-auth.yaml
 
 # This is temporary. REMOVE ME after Envoy v2 transition
@@ -628,6 +629,14 @@ generate_yaml-envoyv2_transition_loadbalancer_ingressgateway: $(HELM)
                   --set ingressgateway.service.type=LoadBalancer \
 		  --set ingress.enabled=false \
 		  install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
+	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/istio-auth.yaml
+	$(HELM) template --set global.tag=${TAG} \
+		  --namespace=istio-system \
+                  --set global.hub=${HUB} \
+		  --values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
+                  --set ingressgateway.service.type=LoadBalancer \
+		  --set ingress.enabled=false \
+		  install/kubernetes/helm/istio >> install/kubernetes/istio-auth.yaml
 
 deploy/all: $(HELM) istio-all.yaml
 	kubectl apply -n istio-system -f install/kubernetes/istio-all.yaml
