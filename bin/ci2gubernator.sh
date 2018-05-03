@@ -17,7 +17,6 @@ REQUIRED_CIRCLE_ENVS=(
 	CIRCLE_PROJECT_REPONAME
 	CIRCLE_JOB
 	CIRCLE_BUILD_NUM
-	CIRCLE_PR_NUMBER
 )
 
 for env in "${REQUIRED_CIRCLE_ENVS[@]}"; do
@@ -41,4 +40,4 @@ go get -u istio.io/test-infra/toolbox/ci2gubernator
 --repo=${CIRCLE_PROJECT_REPONAME} \
 --job=${CIRCLE_JOB} \
 --build_number=${CIRCLE_BUILD_NUM} \
---pr_number=${CIRCLE_PR_NUMBER}
+--pr_number=${CIRCLE_PR_NUMBER:-${CIRCLE_BRANCH}}
