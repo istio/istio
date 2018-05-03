@@ -294,14 +294,6 @@ jobs:
           when: always
           command: |
                 make test/local/auth/e2e_pilotv2
-      - run:
-          no_output_timeout: 20m
-          when: always
-          command: |
-            # This is a fast test (<1 min), it takes more time to prepare.
-            export PATH=$GOPATH/bin:$PATH
-            make localTestEnv
-            make test/local/cloudfoundry/e2e_pilotv2
       - <<: *recordZeroExitCodeIfTestPassed
       - <<: *recordNonzeroExitCodeIfTestFailed
       - run:
@@ -407,10 +399,17 @@ jobs:
       - run:
           command: |
             mkdir -p /go/out/tests
-            trap "go-junit-report </go/out/tests/build-log.txt > /go/out/tests/junit.xml" EXIT
             make localTestEnv
             set -o pipefail
             make test T=-v | tee -a /go/out/tests/build-log.txt
+      - run:
+          no_output_timeout: 20m
+          when: always
+          command: |
+            # This is a fast test (<1 min), it takes more time to prepare.
+            export PATH=$GOPATH/bin:$PATH
+            make localTestEnv
+            make test/local/cloudfoundry/e2e_pilotv2
       - <<: *recordZeroExitCodeIfTestPassed
       - <<: *recordNonzeroExitCodeIfTestFailed
       - <<: *markJobFinishesOnGCS
