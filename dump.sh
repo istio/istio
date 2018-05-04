@@ -4,7 +4,8 @@
 # Dumps:
 # - Logs of every container of every pod of every namespace.
 # - Resource configurations for ingress, endpoints, custom resource
-#   definitions, and "all" as defined by kubectl.
+#   definitions, configmaps, secrets (names only) and "all" as defined by
+#   kubectl.
 
 OUT_DIR="${1:-istio-dump}"
 LOG_DIR="${OUT_DIR}/logs"
@@ -46,8 +47,9 @@ dump_logs() {
 }
 
 dump_resources() {
+  mkdir -p "${OUT_DIR}"
   # Only works in Kubernetes 1.8.0 and above.
-  kubectl get --all-namespaces --export all,ingress,endpoints,customresourcedefinition -o yaml > "${RESOURCES_FILE}"
+  kubectl get --all-namespaces --export all,ingress,endpoints,customresourcedefinitions,configmaps,secrets -o yaml > "${RESOURCES_FILE}"
 }
 
 check_prerequisites kubectl
