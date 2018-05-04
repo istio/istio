@@ -87,6 +87,7 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 		Section: "gals CLI",
 		Manual:  "Istio Galley Server",
 	}))
+	rootCmd.AddCommand(watcheeCmd(fatalf))
 
 	loggingOptions.AttachCobraFlags(rootCmd)
 

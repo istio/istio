@@ -34,6 +34,7 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"istio.io/istio/pilot/pkg/config/watch"
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -115,6 +116,7 @@ type ConfigArgs struct {
 	CFConfig                   string
 	ControllerOptions          kube.ControllerOptions
 	FileDir                    string
+	WatchTarget                string
 }
 
 // ConsulArgs provides configuration for the Consul service registry.
@@ -426,7 +428,13 @@ func (c *mockController) Run(<-chan struct{}) {}
 
 // initConfigController creates the config controller in the pilotConfig.
 func (s *Server) initConfigController(args *PilotArgs) error {
-	if args.Config.FileDir != "" {
+	if args.Config.WatchTarget != "" {
+		watchController, err := watch.NewController(args.Config.WatchTarget, ConfigDescriptor)
+		if err != nil {
+			return err
+		}
+		s.configController = watchController
+	} else if args.Config.FileDir != "" {
 		store := memory.Make(ConfigDescriptor)
 		configController := memory.NewController(store)
 

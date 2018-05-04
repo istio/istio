@@ -93,6 +93,8 @@ func init() {
 	// Config Controller options
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.FileDir, "configDir", "",
 		"Directory to watch for updates to config yaml files. If specified, the files will be used as the source of config, rather than a CRD client.")
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.WatchTarget, "watchTarget", "",
+		"URL of entity to watch for configuration updates. If specified, the watch will be used as the source of config, rather than a CRD client.")
 	discoveryCmd.PersistentFlags().StringVarP(&serverArgs.Config.ControllerOptions.WatchedNamespace, "appNamespace",
 		"a", metav1.NamespaceAll,
 		"Restrict the applications namespace the controller manages; if not set, controller watches all namespaces")
