@@ -15,14 +15,16 @@
 #   limitations under the License.
 
 # set this to the new multicluster-e2e type
-RESOURCE_TYPE="${RESOURCE_TYPE:-gke-e2e-test}"
-OWNER=istio-pilot-multicluster-e2e
+export RESOURCE_TYPE="${RESOURCE_TYPE:-gke-e2e-test}"
+export OWNER=istio-pilot-multicluster-e2e
 
-SETUP_CLUSTERREG="True"
+export SETUP_CLUSTERREG="True"
+CLUSTERREG_DIR=${CLUSTERREG_DIR:-$(mktemp -d /tmp/clusterregXXX)}
+export CLUSTERREG_DIR=${CLUSTERREG_DIR}
 
-GIT_SHA=${GIT_SHA:-$TAG}
+export GIT_SHA=${GIT_SHA:-$TAG}
 
 # Run tests with auth disabled
 #make depend e2e_pilot HUB="${HUB}" TAG="${GIT_SHA}" TESTOPTS="--cluster-registry-dir $CLUSTERREG_DIR -use-sidecar-injector=false -use-admission-webhook=false -auth_enable=false -v1alpha3=false"
 echo 'Running pilot multi-cluster e2e tests (v1alpha1, noauth)'
-./prow/e2e-suite.sh --auth_enable=false --v1alpha3=false --use-sidecar-injector=false --use-admission-webhook=false --cluster-registry-dir=$CLUSTERREG_DIR --single_test e2e_pilot "$@"
+./prow/e2e-suite.sh --auth_enable=false --v1alpha3=false --cluster_registry_dir=$CLUSTERREG_DIR --single_test e2e_pilot "$@"
