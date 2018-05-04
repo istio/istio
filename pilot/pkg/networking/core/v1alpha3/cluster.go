@@ -24,6 +24,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -427,7 +428,12 @@ func buildDefaultTrafficPolicy(env model.Environment, discoveryType v2.Cluster_D
 	if discoveryType == v2.Cluster_ORIGINAL_DST {
 		lbPolicy = networking.LoadBalancerSettings_PASSTHROUGH
 	}
-
+	var tls *networking.TLSSettings
+	if env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS {
+		tls = &networking.TLSSettings{
+			Mode: networking.TLSSettings_ISTIO_MUTUAL,
+		}
+	}
 	return &networking.TrafficPolicy{
 		LoadBalancer: &networking.LoadBalancerSettings{
 			LbPolicy: &networking.LoadBalancerSettings_Simple{
@@ -442,5 +448,6 @@ func buildDefaultTrafficPolicy(env model.Environment, discoveryType v2.Cluster_D
 				},
 			},
 		},
+		Tls: tls,
 	}
 }
