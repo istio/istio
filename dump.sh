@@ -30,9 +30,16 @@ dump_logs() {
         mkdir -p "${LOG_DIR}/${namespace}/${pod}"
         LOG_FILE_HEAD="${LOG_DIR}/${namespace}/${pod}/${container}"
         LOG_FILE="${LOG_FILE_HEAD}.log"
-        LOG_FILE_PREVIOUS="${LOG_FILE_HEAD}_previous.log"
-        kubectl logs --namespace="${namespace}" "${pod}" "${container}" > "${LOG_FILE}"
-        kubectl logs --namespace="${namespace}" --previous "${pod}" "${container}" > "${LOG_FILE_PREVIOUS}" 2> /dev/null
+        LOG_PREVIOUS_FILE="${LOG_FILE_HEAD}_previous.log"
+        LOGS=$(kubectl logs --namespace="${namespace}" "${pod}" "${container}")
+        if [ ! -z "${LOGS}" ]; then
+          echo "${LOGS}" > "${LOG_FILE}"
+        fi
+        # TODO: Use restart count instead of ignoring errors.
+        PREVIOUS_LOGS=$(kubectl logs --namespace="${namespace}" --previous "${pod}" "${container}" 2> /dev/null)
+        if [ ! -z "${PREVIOUS_LOGS}" ]; then
+          echo "${PREVIOUS_LOGS}" > "${LOG_PREVIOUS_FILE}"
+        fi
       done
     done
   done
