@@ -37,55 +37,21 @@ CLUSTER_CREATED=false
 
 function setup_clusterreg () {
     # setup cluster-registries dir setup by mason
-    CLUSTERREG_DIR=${CLUSTERREG_DIR:-$HOME/.kube}
-
-    # These IP params don't really matter
-    PilotIP="1.1.1.1"
-    ClientCidr=1.1.1.0/24
-    ServerEndpointIP=1.1.1.1
-
-    PilotCfgStore=True
+    CLUSTERREG_DIR=${CLUSTERREG_DIR:-$(mktemp -d /tmp/clusterregXXX)}
 
     # mason dumps all the kubeconfigs into the same file but we need to use per cluster
     # files for the clusterregsitry config.  Create the separate files.
     #  -- if PILOT_CLUSTER not set, assume pilot install to be in the first cluster
+    PILOT_CLUSTER=${PILOT_CLUSTER:-$(kubectl config current-context)}
     unset IFS
     k_contexts=$(kubectl config get-contexts -o name)
     for context in $k_contexts; do
-        kubectl config use-context ${context}
-        kubectl config view --raw=true --minify=true > ${CLUSTERREG_DIR}/${context}.kconf
-
-        if [[ "$PILOT_CLUSTER" == "$context" ]]; then
-            PilotCfgStore=True
-        elif [[ "$PILOT_CLUSTER" != "" ]]; then
-            PilotCfgStore=False
+        if [[ "$PILOT_CLUSTER" != "$context" ]]; then
+            kubectl config use-context ${context}
+            kubectl config view --raw=true --minify=true > ${CLUSTERREG_DIR}/${context}.kconf
         fi
-
-        CLUSREG_CONTENT+=$(cat <<EOF
-
----
-
-apiVersion: clusterregistry.k8s.io/v1alpha1
-kind: Cluster
-metadata:
-  name: ${context}
-  annotations:
-    config.istio.io/pilotEndpoint: "${PilotIP}:9080"
-    config.istio.io/platform: "Kubernetes"
-    config.istio.io/pilotCfgStore: ${PilotCfgStore}
-    config.istio.io/accessConfigFile: ${context}.kconf
-spec:
-  kubernetesApiEndpoints:
-    serverEndpoints:
-      - clientCIDR: "${ClientCidr}"
-        serverAddress: "${ServerEndpointIP}"
-EOF
-)
-
-        PilotCfgStore=False
     done
-
-    echo "$CLUSREG_CONTENT" > ${CLUSTERREG_DIR}/multi_clus.yaml
+    kubectl config use-context $PILOT_CLUSTER
 }
 
 function delete_cluster () {
@@ -99,24 +65,22 @@ function delete_cluster () {
 }
 
 function setup_cluster() {
-  # use the first context in the list if not preset
-  if [[ "$PILOT_CLUSTER" == "" ]]; then
-    unset IFS
-    k_contexts=$(kubectl config get-contexts -o name)
-    for context in $k_contexts; do
-        if [[ "$PILOT_CLUSTER" == "" ]]; then
-            PILOT_CLUSTER=${context}
-        fi
-    done
-  fi
-  kubectl config use-context ${PILOT_CLUSTER}
+  # use current-context if pilot_cluster not set
+  PILOT_CLUSTER=${PILOT_CLUSTER:-$(kubectl config current-context)}
 
-  kubectl create clusterrolebinding prow-cluster-admin-binding\
-    --clusterrole=cluster-admin\
-    --user="${KUBE_USER}"
+  unset IFS
+  k_contexts=$(kubectl config get-contexts -o name)
+  for context in $k_contexts; do
+     kubectl config use-context ${context}
+
+     kubectl create clusterrolebinding prow-cluster-admin-binding\
+       --clusterrole=cluster-admin\
+       --user="${KUBE_USER}"
+  done
   if [[ "$SETUP_CLUSTERREG" == "True" ]]; then
       setup_clusterreg
   fi
+  kubectl config use-context $PILOT_CLUSTER
 }
 
 function check_cluster() {
