@@ -124,7 +124,7 @@ func convertConfigs(readers []io.Reader, writer io.Writer) error {
 		return err
 	}
 
-	if err := validateConfigs(configs); err != nil {
+	if err = validateConfigs(configs); err != nil {
 		return err
 	}
 
