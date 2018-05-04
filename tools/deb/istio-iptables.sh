@@ -289,13 +289,12 @@ if [ -n "${OUTBOUND_IP_RANGES_INCLUDE}" ]; then
   fi
 fi
 
-# If ENABLE_IPV6 is unset (default unset), restrict IPv6 traffic.
-if [ -z "${ENABLE_IPV6}" ]; then
-  # Drop all incoming traffic except the established connections.
-  # Drop all forward traffic.
+# If ENABLE_INBOUND_IPV6 is unset (default unset), restrict IPv6 traffic.
+set +o nounset
+if [ -z "${ENABLE_INBOUND_IPV6}" ]; then
+  # Drop all incoming and forward traffic.
   # TODO: support receiving IPv6 traffic in the same way as IPv4.
-  ip6tables -F
-  ip6tables -A INPUT -m state --state ESTABLISHED -j ACCEPT
-  ip6tables -A INPUT -j REJECT
-  ip6tables -P FORWARD DROP
+  ip6tables -F INPUT || true
+  ip6tables -A INPUT -m state --state ESTABLISHED -j ACCEPT || true
+  ip6tables -A INPUT -j REJECT || true
 fi
