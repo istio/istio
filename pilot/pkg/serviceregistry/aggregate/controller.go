@@ -15,6 +15,8 @@
 package aggregate
 
 import (
+	"sync"
+
 	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -50,7 +52,7 @@ func (c *Controller) AddRegistry(registry Registry) {
 
 // Services lists services from all platforms
 func (c *Controller) Services() ([]*model.Service, error) {
-	smap := make(map[string]model.Service)
+	smap := make(map[model.Hostname]*model.Service)
 	services := make([]*model.Service, 0)
 	var errs error
 	for _, r := range c.registries {
@@ -59,20 +61,25 @@ func (c *Controller) Services() ([]*model.Service, error) {
 			errs = multierror.Append(errs, err)
 			continue
 		}
+		// Race condition: multiple threads may call Services, and multiple services
+		// may modify one of the service's cluster ID
+		var smutex sync.Mutex
 		for _, s := range svcs {
 			sp, ok := smap[s.Hostname]
 			if !ok {
-				sp = *s
+				sp = s
 				smap[s.Hostname] = sp
-				services = append(services, &sp)
+				services = append(services, sp)
 			}
 
 			if r.ClusterID != "" {
+				smutex.Lock()
 				if sp.Addresses == nil {
 					sp.Addresses = make(map[string]string)
 				}
 				sp.Addresses[r.ClusterID] = s.Address
 				smap[s.Hostname] = sp
+				smutex.Unlock()
 			}
 		}
 	}
@@ -80,7 +87,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 }
 
 // GetService retrieves a service by hostname if exists
-func (c *Controller) GetService(hostname string) (*model.Service, error) {
+func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error) {
 	var errs error
 	for _, r := range c.registries {
 		service, err := r.GetService(hostname)
@@ -110,7 +117,7 @@ func (c *Controller) ManagementPorts(addr string) model.PortList {
 
 // Instances retrieves instances for a service and its ports that match
 // any of the supplied labels. All instances match an empty label list.
-func (c *Controller) Instances(hostname string, ports []string,
+func (c *Controller) Instances(hostname model.Hostname, ports []string,
 	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	var instances, tmpInstances []*model.ServiceInstance
 	var errs error
@@ -193,7 +200,7 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 }
 
 // GetIstioServiceAccounts implements model.ServiceAccounts operation
-func (c *Controller) GetIstioServiceAccounts(hostname string, ports []string) []string {
+func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []string) []string {
 	for _, r := range c.registries {
 		if svcAccounts := r.GetIstioServiceAccounts(hostname, ports); svcAccounts != nil {
 			return svcAccounts

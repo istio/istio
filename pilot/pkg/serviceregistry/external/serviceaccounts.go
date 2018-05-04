@@ -24,8 +24,8 @@ func NewServiceAccounts() model.ServiceAccounts {
 	return &serviceAccounts{}
 }
 
-// GetIstioServiceAccounts implements model.ServiceAccounts operation TODO
-func (sa *serviceAccounts) GetIstioServiceAccounts(hostname string, ports []string) []string {
+// GetIstioServiceAccounts implements model.ServiceAccounts operation TODOg
+func (sa *serviceAccounts) GetIstioServiceAccounts(hostname model.Hostname, ports []string) []string {
 	//for service entries, there is no istio auth, no service accounts, etc. It is just a
 	// service, with service instances, and dns.
 	return []string{}

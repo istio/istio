@@ -21,7 +21,8 @@ import "google/protobuf/wrappers.proto";
 // $overview: Configuration affecting traffic routing
 // $location: https://istio.io/docs/reference/config/istio.networking.v1alpha3.html
 
-// # Terms and Definitions
+// Configuration affecting traffic routing. Here are a few terms useful to define
+// in the context of traffic routing.
 //
 // `Service` a unit of application behavior bound to a unique name in a
 // service registry. Services consist of multiple network *endpoints*
