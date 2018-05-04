@@ -55,6 +55,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 	smap := make(map[model.Hostname]*model.Service)
 	services := make([]*model.Service, 0)
 	var errs error
+	var smutex sync.Mutex
 	for _, r := range c.registries {
 		svcs, err := r.Services()
 		if err != nil {
@@ -63,7 +64,6 @@ func (c *Controller) Services() ([]*model.Service, error) {
 		}
 		// Race condition: multiple threads may call Services, and multiple services
 		// may modify one of the service's cluster ID
-		var smutex sync.Mutex
 		for _, s := range svcs {
 			sp, ok := smap[s.Hostname]
 			if !ok {
