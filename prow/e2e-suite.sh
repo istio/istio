@@ -70,7 +70,7 @@ if [[ "$USE_MASON_RESOURCE" == "True" ]]; then
   trap cleanup EXIT
   get_resource "${RESOURCE_TYPE}" "${OWNER}" "${INFO_PATH}" "${FILE_LOG}"
 else
-  GIT_SHA=${HUB}
+  GIT_SHA=${GIT_SHA:-$TAG}
 fi
 
 
@@ -87,9 +87,6 @@ export TAG="${GIT_SHA}"
 
 make init
 
-trap cleanup EXIT
-get_resource "${RESOURCE_TYPE}" "${OWNER}" "${INFO_PATH}" "${FILE_LOG}"
-check_cluster
 setup_cluster
 
 # getopts only handles single character flags
