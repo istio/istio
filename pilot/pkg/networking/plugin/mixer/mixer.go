@@ -206,7 +206,7 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 
 	pname := &model.Port{Name: "http2-mixer"}
 	if mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS {
-		pname = &model.Port{Name: "tcp-mtls"}
+		pname = &model.Port{Name: "grpc-mtls"}
 	}
 
 	// TODO: derive these port types.
