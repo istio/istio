@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 # Uses kubectl to collect cluster information.
 # Dumps:
