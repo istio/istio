@@ -15,6 +15,7 @@
 package convert
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -23,6 +24,7 @@ import (
 	"github.com/ghodss/yaml"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
+	"k8s.io/api/extensions/v1beta1"
 
 	"istio.io/istio/istioctl/pkg/convert"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
@@ -117,7 +119,7 @@ func convertConfigs(readers []io.Reader, writer io.Writer) error {
 		model.QuotaSpecBinding,
 	}
 
-	configs, err := readConfigs(readers)
+	configs, ingresses, err := readConfigs(readers)
 	if err != nil {
 		return err
 	}
@@ -130,7 +132,12 @@ func convertConfigs(readers []io.Reader, writer io.Writer) error {
 	out = append(out, convert.DestinationPolicies(configs)...)
 	out = append(out, convert.RouteRules(configs)...)
 	out = append(out, convert.EgressRules(configs)...)
-	// TODO: k8s ingress -> gateway?
+	convertedIngresses, err := convert.IstioIngresses(ingresses, "")
+	if err == nil {
+		out = append(out, convertedIngresses...)
+	} else {
+		return multierror.Prefix(err, "Ingress rules invalid")
+	}
 	out = append(out, convert.RouteRuleRouteLabels(out, configs)...)
 
 	writeYAMLOutput(configDescriptor, out, writer)
@@ -142,25 +149,56 @@ func convertConfigs(readers []io.Reader, writer io.Writer) error {
 	return nil
 }
 
-func readConfigs(readers []io.Reader) ([]model.Config, error) {
+func readConfigs(readers []io.Reader) ([]model.Config, []*v1beta1.Ingress, error) {
 	out := make([]model.Config, 0)
+	outIngresses := make([]*v1beta1.Ingress, 0)
+
 	for _, reader := range readers {
 		data, err := ioutil.ReadAll(reader)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		configs, kinds, err := crd.ParseInputs(string(data))
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		if len(kinds) != 0 {
-			return nil, fmt.Errorf("unsupported kinds: %v", kinds)
+
+		recognized := 0
+		for _, nonIstio := range kinds {
+			if nonIstio.Kind == "Ingress" &&
+				nonIstio.APIVersion == "extensions/v1beta1" {
+
+				ingress, err := parseIngress(nonIstio)
+				if err != nil {
+					log.Errorf("Could not decode ingress %v: %v", nonIstio.Name, err)
+					continue
+				}
+
+				outIngresses = append(outIngresses, ingress)
+				recognized++
+			}
+		}
+
+		if len(kinds) > recognized {
+			// If convert-networking-config was asked to convert non-network things,
+			// like Deployments and Services, return a brief informative error
+			kindsFound := make(map[string]bool)
+			for _, kind := range kinds {
+				kindsFound[kind.Kind] = true
+			}
+
+			var msg error
+			for kind := range kindsFound {
+				msg = multierror.Append(msg, fmt.Errorf("unsupported kind: %v", kind))
+			}
+
+			return nil, nil, msg
 		}
 
 		out = append(out, configs...)
 	}
-	return out, nil
+	return out, outIngresses, nil
 }
 
 func writeYAMLOutput(descriptor model.ConfigDescriptor, configs []model.Config, writer io.Writer) {
@@ -212,4 +250,20 @@ func validateConfigs(configs []model.Config) error {
 		}
 	}
 	return errs
+}
+
+func parseIngress(unparsed crd.IstioKind) (*v1beta1.Ingress, error) {
+	// To convert unparsed to a v1beta1.Ingress Marshal into JSON and Unmarshal back
+	b, err := json.Marshal(unparsed)
+	if err != nil {
+		return nil, multierror.Prefix(err, "can't reserialize Ingress")
+	}
+
+	out := &v1beta1.Ingress{}
+	err = json.Unmarshal(b, out)
+	if err != nil {
+		return nil, multierror.Prefix(err, "can't deserialize as Ingress")
+	}
+
+	return out, nil
 }

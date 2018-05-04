@@ -217,16 +217,8 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) (model
 
 		for _, path := range rule.HTTP.Paths {
 			httpMatch := &networking.HTTPMatchRequest{
-				Uri: &networking.StringMatch{
-					MatchType: &networking.StringMatch_Regex{
-						Regex: path.Path,
-					},
-				},
-				Authority: &networking.StringMatch{
-					MatchType: &networking.StringMatch_Regex{
-						Regex: rule.Host,
-					},
-				},
+				Uri:       createStringMatch(path.Path),
+				Authority: createStringMatch(rule.Host),
 			}
 
 			httpRoute := ingressBackendToHTTPRoute(&path.Backend)
@@ -250,7 +242,7 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) (model
 			Type:      model.Gateway.Type,
 			Group:     model.Gateway.Group,
 			Version:   model.Gateway.Version,
-			Name:      model.IstioIngressGatewayName,
+			Name:      ingress.Name + "-" + model.IstioIngressGatewayName,
 			Namespace: model.IstioIngressNamespace,
 			Domain:    domainSuffix,
 		},
@@ -262,7 +254,7 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) (model
 			Type:      model.VirtualService.Type,
 			Group:     model.VirtualService.Group,
 			Version:   model.VirtualService.Version,
-			Name:      model.IstioIngressGatewayName,
+			Name:      ingress.Name + "-" + model.IstioIngressGatewayName,
 			Namespace: model.IstioIngressNamespace,
 			Domain:    domainSuffix,
 		},
@@ -324,5 +316,33 @@ func shouldProcessIngress(mesh *meshconfig.MeshConfig, ingress *v1beta1.Ingress)
 	default:
 		log.Warnf("invalid ingress synchronization mode: %v", mesh.IngressControllerMode)
 		return false
+	}
+}
+
+func createStringMatch(s string) *networking.StringMatch {
+	if s == "" {
+		return nil
+	}
+
+	// Replace "foo" with exact match
+	count := strings.Count(s, ".*")
+	if count == 0 {
+		return &networking.StringMatch{
+			MatchType: &networking.StringMatch_Exact{Exact: s},
+		}
+	}
+
+	// Replace "foo.*bar.*" and "foo.*bar" with regex match
+	if count > 1 || !strings.HasSuffix(s, ".*") {
+		return &networking.StringMatch{
+			MatchType: &networking.StringMatch_Regex{
+				Regex: s,
+			},
+		}
+	}
+
+	// Replace "foo.*" with a Prefix match
+	return &networking.StringMatch{
+		MatchType: &networking.StringMatch_Prefix{Prefix: strings.TrimSuffix(s, ".*")},
 	}
 }
