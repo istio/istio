@@ -255,7 +255,7 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 	initialRequestReceived := false
 
 	con := &XdsConnection{
-		pushChannel: make(chan *XdsEvent, 1),
+		pushChannel: make(chan *XdsEvent, 100),
 		PeerAddr:    peerAddr,
 		Clusters:    []string{},
 		Connect:     time.Now(),
@@ -409,13 +409,20 @@ func edsPushAll() {
 			log.Errorf("updateCluster failed with clusterName %s", clusterName)
 			continue
 		}
+		// Push on the channel will cause another goroutine to process the event, which may
+		// need the edsClusterLock. However the push channel may block, causing a deadlock.
 		edsCluster.mutex.Lock()
+		channels := make([]chan *XdsEvent, len(edsCluster.EdsClients))
 		for _, edsCon := range edsCluster.EdsClients {
-			edsCon.pushChannel <- &XdsEvent{
+			channels = append(channels, edsCon.pushChannel)
+		}
+		edsCluster.mutex.Unlock()
+
+		for _, c := range channels {
+			c <- &XdsEvent{
 				clusters: []string{clusterName},
 			}
 		}
-		edsCluster.mutex.Unlock()
 	}
 }
 
