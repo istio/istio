@@ -24,20 +24,28 @@ check_prerequisites() {
 dump_logs() {
   NAMESPACES=$(kubectl get namespaces -o=jsonpath="{.items[*].metadata.name}")
   for namespace in ${NAMESPACES}; do
-    PODS=$(kubectl get --namespace="${namespace}" pods -o=jsonpath='{.items[*].metadata.name}')
+    PODS=$(kubectl get --namespace="${namespace}" \
+        pods -o=jsonpath='{.items[*].metadata.name}')
     for pod in ${PODS}; do
-      CONTAINERS=$(kubectl get --namespace="${namespace}" pod "${pod}" -o=jsonpath='{.spec.containers[*].name}')
+      CONTAINERS=$(kubectl get --namespace="${namespace}" \
+          pod "${pod}" -o=jsonpath='{.spec.containers[*].name}')
       for container in ${CONTAINERS}; do
         mkdir -p "${LOG_DIR}/${namespace}/${pod}"
         LOG_FILE_HEAD="${LOG_DIR}/${namespace}/${pod}/${container}"
 
         LOG_FILE="${LOG_FILE_HEAD}.log"
-        kubectl logs --namespace="${namespace}" "${pod}" "${container}" > "${LOG_FILE}"
+        kubectl logs --namespace="${namespace}" "${pod}" "${container}" \
+            > "${LOG_FILE}"
 
-        LOG_PREVIOUS_FILE="${LOG_FILE_HEAD}_previous.log"
-        RESTART_COUNT=$(kubectl get --namespace="${namespace}" pod "${pod}" -o=jsonpath='{.status.containerStatuses[?(@.name == '\""${container}"\"')].restartCount}')
+        FILTER="?(@.name == \"${container}\")"
+        JSON_PATH='{.status.containerStatuses['"${FILTER}"'].restartCount}'
+        RESTART_COUNT=$(kubectl get --namespace="${namespace}" \
+            pod "${pod}" -o=jsonpath="${JSON_PATH}")
         if [ "${RESTART_COUNT}" -gt 0 ]; then
-          kubectl logs --namespace="${namespace}" --previous "${pod}" "${container}" 2> /dev/null > "${LOG_PREVIOUS_FILE}"
+          LOG_PREVIOUS_FILE="${LOG_FILE_HEAD}_previous.log"
+          kubectl logs --namespace="${namespace}" \
+              --previous "${pod}" "${container}" \
+              > "${LOG_PREVIOUS_FILE}"
         fi
       done
     done
@@ -47,7 +55,9 @@ dump_logs() {
 dump_resources() {
   mkdir -p "${OUT_DIR}"
   # Only works in Kubernetes 1.8.0 and above.
-  kubectl get --all-namespaces --export all,ingress,endpoints,customresourcedefinitions,configmaps,secrets -o yaml > "${RESOURCES_FILE}"
+  kubectl get --all-namespaces --export \
+      all,ingress,endpoints,customresourcedefinitions,configmaps,secrets \
+      -o yaml > "${RESOURCES_FILE}"
 }
 
 check_prerequisites kubectl
