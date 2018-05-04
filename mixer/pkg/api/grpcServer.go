@@ -78,18 +78,26 @@ func NewGRPCServer(dispatcher dispatcher.Dispatcher, gp *pool.GoroutinePool) mix
 // Check is the entry point for the external Check method
 func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRequest) (*mixerpb.CheckResponse, error) {
 	lg.Debugf("Check (GlobalWordCount:%d, DeduplicationID:%s, Quota:%v)", req.GlobalWordCount, req.DeduplicationId, req.Quotas)
-
 	lg.Debug("Dispatching Preprocess Check")
-
-	globalWordCount := int(req.GlobalWordCount)
 
 	// bag around the input proto that keeps track of reference attributes
 	protoBag := attribute.NewProtoBag(&req.Attributes, s.globalDict, s.globalWordList)
-	defer protoBag.Done()
 
 	// This holds the output state of preprocess operations
 	checkBag := attribute.GetMutableBag(protoBag)
-	defer checkBag.Done()
+
+	resp, err := s.check(legacyCtx, req, protoBag, checkBag)
+
+	protoBag.Done()
+	checkBag.Done()
+
+	return resp, err
+}
+
+func (s *grpcServer) check(legacyCtx legacyContext.Context, req *mixerpb.CheckRequest,
+	protoBag *attribute.ProtoBag, checkBag *attribute.MutableBag) (*mixerpb.CheckResponse, error) {
+
+	globalWordCount := int(req.GlobalWordCount)
 
 	if err := s.dispatcher.Preprocess(legacyCtx, protoBag, checkBag); err != nil {
 		err = fmt.Errorf("preprocessing attributes failed: %v", err)
@@ -208,9 +216,12 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 	// This holds the output state of preprocess operations, which ends up as a delta over the current accumBag.
 	reportBag := attribute.GetMutableBag(accumBag)
 
+	reportSpan, reportCtx := opentracing.StartSpanFromContext(legacyCtx, "Report")
+	reporter := s.dispatcher.GetReporter(reportCtx)
+
 	var err error
 	for i := 0; i < len(req.Attributes); i++ {
-		span, newctx := opentracing.StartSpanFromContext(legacyCtx, fmt.Sprintf("Attributes %d", i))
+		span, newctx := opentracing.StartSpanFromContext(reportCtx, fmt.Sprintf("attribute bag %d", i))
 
 		// the first attribute block is handled by the protoBag as a foundation,
 		// deltas are applied to the child bag (i.e. requestBag)
@@ -237,14 +248,13 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 		lg.Debuga("Attribute Bag: \n", reportBag)
 		lg.Debugf("Dispatching Report %d out of %d", i+1, len(req.Attributes))
 
-		err = s.dispatcher.Report(legacyCtx, reportBag)
+		err = reporter.Report(reportBag)
 		if err != nil {
 			span.LogFields(otlog.String("error", err.Error()))
 			span.Finish()
 			break
 		}
 
-		span.LogFields(otlog.String("success", "finished Report for attribute bag "+string(i)))
 		span.Finish()
 
 		// purge the effect of the Preprocess call so that the next time through everything is clean
@@ -254,6 +264,16 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 	reportBag.Done()
 	accumBag.Done()
 	protoBag.Done()
+
+	if err == nil {
+		err = reporter.Flush()
+	}
+	reporter.Done()
+
+	if err != nil {
+		reportSpan.LogFields(otlog.String("error", err.Error()))
+	}
+	reportSpan.Finish()
 
 	if err != nil {
 		lg.Errora("Report failed:", err.Error())
