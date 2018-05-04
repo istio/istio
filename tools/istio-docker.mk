@@ -69,7 +69,7 @@ $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
 # tell make which files are copied from the source tree
 DOCKER_FILES_FROM_SOURCE:=tools/deb/istio-iptables.sh docker/ca-certificates.tgz tools/deb/envoy_bootstrap_tmpl.json \
                           $(NODE_AGENT_TEST_FILES) $(FLEXVOLUMEDRIVER_FILES) $(GRAFANA_FILES) \
-                          pilot/docker/certs/cert.crt pilot/docker/certs/cert.key
+                          pilot/docker/certs/cert.crt pilot/docker/certs/cert.key pilot/docker/certs/cacert.pem
 $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
         $(eval $(ISTIO_DOCKER)/$(notdir $(FILE)): $(FILE) | $(ISTIO_DOCKER); cp $(FILE) $$(@D)))
 
@@ -131,7 +131,7 @@ docker.proxyv2: pilot/docker/envoy_telemetry.yaml.tmpl
 	time (cd $(DOCKER_BUILD_TOP)/proxyv2 && \
 		docker build -t $(HUB)/proxyv2:$(TAG) -f Dockerfile.proxy_debug .)
 
-docker.pilot: $(ISTIO_OUT)/pilot-discovery pilot/docker/Dockerfile.pilot
+docker.pilot: $(ISTIO_OUT)/pilot-discovery pilot/docker/certs/cacert.pem pilot/docker/Dockerfile.pilot
 	mkdir -p $(ISTIO_DOCKER)/pilot
 	cp $^ $(ISTIO_DOCKER)/pilot/
 	time (cd $(ISTIO_DOCKER)/pilot && \
