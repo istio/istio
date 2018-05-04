@@ -7,9 +7,9 @@
 #   definitions, configmaps, secrets (names only) and "all" as defined by
 #   kubectl.
 
-OUT_DIR="${1:-istio-dump}"
-LOG_DIR="${OUT_DIR}/logs"
-RESOURCES_FILE="${OUT_DIR}/resources.yaml"
+readonly OUT_DIR="${1:-istio-dump}"
+readonly LOG_DIR="${OUT_DIR}/logs"
+readonly RESOURCES_FILE="${OUT_DIR}/resources.yaml"
 
 check_prerequisites() {
   PREREQUISITES=$*
