@@ -87,12 +87,12 @@ func ConvertAddressToCidr(addr string) *core.CidrRange {
 //	return out
 //}
 
-// BuildAddress returns a SocketAddress with the given ip and port.
-func BuildAddress(ip string, port uint32) core.Address {
+// BuildAddress returns a SocketAddress with the given ip/hostname and port.
+func BuildAddress(ipOrHost string, port uint32) core.Address {
 	return core.Address{
 		Address: &core.Address_SocketAddress{
 			SocketAddress: &core.SocketAddress{
-				Address: ip,
+				Address: ipOrHost,
 				PortSpecifier: &core.SocketAddress_PortValue{
 					PortValue: port,
 				},

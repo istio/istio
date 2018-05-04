@@ -85,7 +85,16 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environmen
 	for _, service := range services {
 		config := env.DestinationRule(service.Hostname)
 		for _, port := range service.Ports {
-			hosts := buildClusterHosts(env, service, port)
+			var hosts []*core.Address
+			if proxy.Type == model.Router && service.MeshExternal {
+				// In case of Router (e.g. ingress/egress gateway) and external service, we want the service resolution
+				// to be DNS. The router can't use ORIGINAL_DST since, as opposed to a sidecar, it does not get the
+				// traffic by iptables so original_dst is not set.
+				service.Resolution = model.DNSLB
+				hosts = buildClusterHostsForRouterMeshExternal(service, port)
+			} else {
+				hosts = buildClusterHosts(env, service, port)
+			}
 
 			// create default cluster
 			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port)
@@ -154,6 +163,14 @@ func buildClusterHosts(env model.Environment, service *model.Service, port *mode
 		host := util.BuildAddress(instance.Endpoint.Address, uint32(instance.Endpoint.Port))
 		hosts = append(hosts, &host)
 	}
+
+	return hosts
+}
+
+func buildClusterHostsForRouterMeshExternal(service *model.Service, port *model.Port) []*core.Address {
+	hosts := make([]*core.Address, 0)
+	host := util.BuildAddress(service.Hostname, uint32(port.Port))
+	hosts = append(hosts, &host)
 
 	return hosts
 }
