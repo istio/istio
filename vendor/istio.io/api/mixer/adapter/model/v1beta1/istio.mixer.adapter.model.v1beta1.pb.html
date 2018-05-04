@@ -3,7 +3,7 @@ title: Mixer Adapter Model
 overview: Definitions used to create adapters and templates
 location: https://istio.io/docs/reference/api/mixer/istio.mixer.adapter.model.v1beta1.html
 layout: protoc-gen-docs
-number_of_entries: 23
+number_of_entries: 24
 ---
 <p>This package defines the service and types used by adapter code to serve requests from Mixer.
 This package also defines the types that are used to create Mixer templates.</p>
@@ -349,7 +349,7 @@ example: mycompany-denier</p>
 <td><code>templates</code></td>
 <td><code>string[]</code></td>
 <td>
-<p>Base64 encoded proto descriptor of all the templates the adapter wants to serve.</p>
+<p>Names of the templates the adapter supports.</p>
 
 </td>
 </tr>
@@ -501,6 +501,30 @@ If <code>QuotaParams.best_effort</code> is false, this will be either 0 or &gt;=
 <section>
 <p>Expresses the result of a report call.</p>
 
+</section>
+<h3 id="Template">Template</h3>
+<section>
+<p>Template provides the details of a mixer template.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Template.descriptor">
+<td><code>descriptor</code></td>
+<td><code>string</code></td>
+<td>
+<p>Base64 encoded proto descriptor of the template.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
 </section>
 <h3 id="TemplateVariety">TemplateVariety</h3>
 <section>
