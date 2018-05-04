@@ -206,10 +206,13 @@ test/local/noauth/e2e_simple_pilotv2: generate_yaml-envoyv2_transition
     ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} \
 		${CAPTURE_LOG}
 
+junit-report: ${ISTIO_BIN}/go-junit-report
+	${ISTIO_BIN}/go-junit-report </go/out/tests/build-log.txt > /go/out/tests/junit.xml
+
 # Dumpsys will get as much info as possible from the test cluster
 # Can be run after tests. It will also process the auto-saved log output
 # This assume istio runs in istio-system namespace, and 'skip-cleanup' was used in tests.
-dumpsys:
+dumpsys: ${ISTIO_BIN}/go-junit-report
 	@mkdir -p ${OUT_DIR}/tests
 	@mkdir -p ${OUT_DIR}/logs
 	kubectl get all -o wide --all-namespaces | tee ${OUT_DIR}/logs/kubectl_all.txt
