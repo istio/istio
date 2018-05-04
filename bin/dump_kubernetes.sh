@@ -12,8 +12,8 @@ readonly LOG_DIR="${OUT_DIR}/logs"
 readonly RESOURCES_FILE="${OUT_DIR}/resources.yaml"
 
 check_prerequisites() {
-  PREREQUISITES=$*
-  for prerequisite in ${PREREQUISITES}; do
+  local prerequisites=$*
+  for prerequisite in ${prerequisites}; do
     if ! command -v "${prerequisite}" > /dev/null; then
       echo "\"${prerequisite}\" is required. Please install it."
       return 1
@@ -22,30 +22,36 @@ check_prerequisites() {
 }
 
 dump_logs() {
-  NAMESPACES=$(kubectl get namespaces -o=jsonpath="{.items[*].metadata.name}")
-  for namespace in ${NAMESPACES}; do
-    PODS=$(kubectl get --namespace="${namespace}" \
+  local namespaces
+  namespaces=$(kubectl get \
+      namespaces -o=jsonpath="{.items[*].metadata.name}")
+  for namespace in ${namespaces}; do
+    local pods
+    pods=$(kubectl get --namespace="${namespace}" \
         pods -o=jsonpath='{.items[*].metadata.name}')
-    for pod in ${PODS}; do
-      CONTAINERS=$(kubectl get --namespace="${namespace}" \
+    for pod in ${pods}; do
+      local containers
+      containers=$(kubectl get --namespace="${namespace}" \
           pod "${pod}" -o=jsonpath='{.spec.containers[*].name}')
-      for container in ${CONTAINERS}; do
+      for container in ${containers}; do
         mkdir -p "${LOG_DIR}/${namespace}/${pod}"
-        LOG_FILE_HEAD="${LOG_DIR}/${namespace}/${pod}/${container}"
+        local log_file_head="${LOG_DIR}/${namespace}/${pod}/${container}"
 
-        LOG_FILE="${LOG_FILE_HEAD}.log"
+        local log_file="${log_file_head}.log"
         kubectl logs --namespace="${namespace}" "${pod}" "${container}" \
-            > "${LOG_FILE}"
+            > "${log_file}"
 
-        FILTER="?(@.name == \"${container}\")"
-        JSON_PATH='{.status.containerStatuses['"${FILTER}"'].restartCount}'
-        RESTART_COUNT=$(kubectl get --namespace="${namespace}" \
-            pod "${pod}" -o=jsonpath="${JSON_PATH}")
-        if [ "${RESTART_COUNT}" -gt 0 ]; then
-          LOG_PREVIOUS_FILE="${LOG_FILE_HEAD}_previous.log"
+        local filter="?(@.name == \"${container}\")"
+        local json_path='{.status.containerStatuses['${filter}'].restartCount}'
+        local restart_count
+        restart_count=$(kubectl get --namespace="${namespace}" \
+            pod "${pod}" -o=jsonpath="${json_path}")
+        if [ "${restart_count}" -gt 0 ]; then
+          local log_previous_file
+          log_previous_file="${log_file_head}_previous.log"
           kubectl logs --namespace="${namespace}" \
               --previous "${pod}" "${container}" \
-              > "${LOG_PREVIOUS_FILE}"
+              > "${log_previous_file}"
         fi
       done
     done
