@@ -358,8 +358,6 @@ INSTANTIATE_TEST_CASE_P(
 
 TEST_P(JwtVerificationFilterIntegrationTestWithInjectedJwtResult,
        InjectedJwtResultSanitized) {
-  // Issuer is not called by passing empty pubkey.
-  std::string pubkey = "";
   // Create a request without JWT.
   // With allow_missing_or_failed option being true, a request without JWT
   // will reach the backend. This is to test the injected JWT result.

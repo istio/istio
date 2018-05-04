@@ -38,7 +38,7 @@ git_repository(
 )
 
 # When updating envoy sha manually please update the sha in istio.deps file also
-ENVOY_SHA = "d338e45e31be628f19c895003d0aeee6be18d32f"
+ENVOY_SHA = "2b2c299144600fb9e525d21aabf39bf48e64fb1f"
 
 http_archive(
     name = "envoy",
@@ -60,8 +60,6 @@ load("@com_lyft_protoc_gen_validate//bazel:go_proto_library.bzl", "go_proto_repo
 go_proto_repositories(shared=0)
 go_rules_dependencies()
 go_register_toolchains()
-load("@io_bazel_rules_go//proto:def.bzl", "proto_register_toolchains")
-proto_register_toolchains()
 
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 git_repository(

@@ -26,8 +26,8 @@ namespace Configuration {
 
 class FilterFactory : public NamedNetworkFilterConfigFactory {
  public:
-  NetworkFilterFactoryCb createFilterFactory(const Json::Object& config_json,
-                                             FactoryContext& context) override {
+  Network::FilterFactoryCb createFilterFactory(
+      const Json::Object& config_json, FactoryContext& context) override {
     TcpClientConfig config_pb;
     if (!Utils::ReadV2Config(config_json, &config_pb) &&
         !Utils::ReadV1Config(config_json, &config_pb)) {
@@ -37,7 +37,7 @@ class FilterFactory : public NamedNetworkFilterConfigFactory {
     return createFilterFactory(config_pb, context);
   }
 
-  NetworkFilterFactoryCb createFilterFactoryFromProto(
+  Network::FilterFactoryCb createFilterFactoryFromProto(
       const Protobuf::Message& config, FactoryContext& context) override {
     return createFilterFactory(dynamic_cast<const TcpClientConfig&>(config),
                                context);
@@ -50,8 +50,8 @@ class FilterFactory : public NamedNetworkFilterConfigFactory {
   std::string name() override { return "mixer"; }
 
  private:
-  NetworkFilterFactoryCb createFilterFactory(const TcpClientConfig& config_pb,
-                                             FactoryContext& context) {
+  Network::FilterFactoryCb createFilterFactory(const TcpClientConfig& config_pb,
+                                               FactoryContext& context) {
     std::unique_ptr<Tcp::Mixer::Config> config_obj(
         new Tcp::Mixer::Config(config_pb));
 

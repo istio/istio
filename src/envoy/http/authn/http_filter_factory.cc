@@ -34,9 +34,9 @@ const std::string kAuthnFactoryName("istio_authn");
 class AuthnFilterConfig : public NamedHttpFilterConfigFactory,
                           public Logger::Loggable<Logger::Id::filter> {
  public:
-  HttpFilterFactoryCb createFilterFactory(const Json::Object& config,
-                                          const std::string&,
-                                          FactoryContext&) override {
+  Http::FilterFactoryCb createFilterFactory(const Json::Object& config,
+                                            const std::string&,
+                                            FactoryContext&) override {
     ENVOY_LOG(debug, "Called AuthnFilterConfig : {}", __func__);
 
     google::protobuf::util::Status status =
@@ -54,7 +54,7 @@ class AuthnFilterConfig : public NamedHttpFilterConfigFactory,
     }
   }
 
-  HttpFilterFactoryCb createFilterFactoryFromProto(
+  Http::FilterFactoryCb createFilterFactoryFromProto(
       const Protobuf::Message& proto_config, const std::string&,
       FactoryContext&) override {
     filter_config_ = dynamic_cast<const FilterConfig&>(proto_config);
@@ -69,7 +69,7 @@ class AuthnFilterConfig : public NamedHttpFilterConfigFactory,
   std::string name() override { return kAuthnFactoryName; }
 
  private:
-  HttpFilterFactoryCb createFilter() {
+  Http::FilterFactoryCb createFilter() {
     ENVOY_LOG(debug, "Called AuthnFilterConfig : {}", __func__);
 
     return [&](Http::FilterChainFactoryCallbacks& callbacks) -> void {
