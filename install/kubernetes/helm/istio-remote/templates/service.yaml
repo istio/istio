@@ -31,7 +31,7 @@ spec:
   ports:
   - name: tcp-plain
     port: 9091
-  - name: tcp-mtls
+  - name: grpc-mtls
     port: 15004
   - name: http-monitoring
     port: 9093

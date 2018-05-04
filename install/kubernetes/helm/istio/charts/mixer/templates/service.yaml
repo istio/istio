@@ -13,7 +13,7 @@ spec:
   ports:
   - name: http2-mixer
     port: 9091
-  - name: tcp-mtls
+  - name: grpc-mtls
     port: 15004
   - name: http-monitoring
     port: 9093
