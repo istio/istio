@@ -33,6 +33,10 @@ type Registry struct {
 	model.ServiceAccounts
 }
 
+var (
+	clusterAddreaaMutex sync.Mutex
+)
+
 // Controller aggregates data across different registries and monitors for changes
 type Controller struct {
 	registries []Registry
@@ -55,7 +59,6 @@ func (c *Controller) Services() ([]*model.Service, error) {
 	smap := make(map[model.Hostname]*model.Service)
 	services := make([]*model.Service, 0)
 	var errs error
-	var smutex sync.Mutex
 	for _, r := range c.registries {
 		svcs, err := r.Services()
 		if err != nil {
@@ -73,13 +76,13 @@ func (c *Controller) Services() ([]*model.Service, error) {
 			}
 
 			if r.ClusterID != "" {
-				smutex.Lock()
+				clusterAddreaaMutex.Lock()
 				if sp.Addresses == nil {
 					sp.Addresses = make(map[string]string)
 				}
 				sp.Addresses[r.ClusterID] = s.Address
 				smap[s.Hostname] = sp
-				smutex.Unlock()
+				clusterAddreaaMutex.Unlock()
 			}
 		}
 	}
