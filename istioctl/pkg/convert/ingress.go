@@ -39,7 +39,7 @@ func IstioIngresses(ingresses []*v1beta1.Ingress, domainSuffix string) ([]model.
 	}
 
 	merged := model.MergeGateways(gateways...)
-	
+
 	// Make a list of the servers but throw away servers on duplicate Ports
 	allServers := make([]*networking.Server, 0)
 	ports := make(map[uint32]bool)
