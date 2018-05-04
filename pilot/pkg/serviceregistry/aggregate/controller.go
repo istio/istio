@@ -71,7 +71,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 				smap[s.Hostname] = sp
 				services = append(services, sp)
 			}
-
+                        /* Disabled until the fix is merged.
 			if r.ClusterID != "" {
 				smutex.Lock()
 				if sp.Addresses == nil {
@@ -81,6 +81,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 				smap[s.Hostname] = sp
 				smutex.Unlock()
 			}
+			*/
 		}
 	}
 	return services, errs
