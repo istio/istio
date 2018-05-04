@@ -16,6 +16,7 @@ package util
 
 import (
 	"bytes"
+	base_json "encoding/json"
 	"sort"
 	"strconv"
 	"strings"
@@ -197,4 +198,13 @@ func SortVirtualHosts(hosts []route.VirtualHost) {
 	sort.SliceStable(hosts, func(i, j int) bool {
 		return hosts[i].Name < hosts[j].Name
 	})
+}
+
+// PrettySprint pretty sprints v.
+func PrettySprint(v interface{}) string {
+	j, err := base_json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return err.Error()
+	}
+	return string(j)
 }
