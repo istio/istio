@@ -21,7 +21,9 @@ global:
     image: proxy_init
 
   # imagePullPolicy is applied to istio control plane components.
-  imagePullPolicy: Always
+  # local tests require IfNotPresent, to avoid uploading to dockerhub.
+  # TODO: Switch to Always as default, and override in the local tests.
+  imagePullPolicy: IfNotPresent
 
   # Not recommended for user to configure this. Hyperkube image to use when creating custom resources
   hyperkube:
