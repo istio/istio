@@ -165,7 +165,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	}
 
 	con := &XdsConnection{
-		pushChannel:   make(chan *XdsEvent, 1),
+		pushChannel:   make(chan *XdsEvent, 100),
 		PeerAddr:      peerAddr,
 		Connect:       time.Now(),
 		HTTPListeners: []*xdsapi.Listener{},
