@@ -95,8 +95,8 @@ func (c *Controller) Services() ([]*model.Service, error) {
 				smap[s.Hostname] = sp
 			}
 		}
+		clusterAddressesMutex.Unlock()
 	}
-	clusterAddressesMutex.Unlock()
 	return services, errs
 }
 
