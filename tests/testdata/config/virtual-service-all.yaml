@@ -6,7 +6,8 @@ spec:
   hosts:
   - service3.default.svc.cluster.local
   - uk.bookinfo.com
-  - eu.bookinfo.com
+  # Bug: dup not rejected
+  #- eu1.bookinfo.com
   gateways:
   - my-gateway
   - mesh # applies to all the sidecars in the mesh
@@ -26,7 +27,7 @@ spec:
     route:
     - destination:
         port:
-          number: 80
+          number: 81
         host: service3.default.svc.cluster.local
         subset: v1
       weight: 80

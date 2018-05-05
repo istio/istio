@@ -22,7 +22,11 @@ import (
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	xdsfault "github.com/envoyproxy/go-control-plane/envoy/config/filter/fault/v2"
+	xdshttpfault "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/fault/v2"
+	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/types"
+	"github.com/prometheus/client_golang/prometheus"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -41,6 +45,24 @@ const (
 	// DefaultRoute is the default decorator
 	DefaultRoute = "default-route"
 )
+
+var (
+	// experiment on getting some monitoring on config errors.
+	noClusterMissingPort = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "pilot_route_cluster_no_port",
+		Help: "Routes with no clusters due to missing port.",
+	}, []string{"service", "rule"})
+
+	noClusterMissingService = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "pilot_route_nocluster_no_service",
+		Help: "Routes with no clusters due to missing service",
+	}, []string{"service", "rule"})
+)
+
+func init() {
+	prometheus.MustRegister(noClusterMissingPort)
+	prometheus.MustRegister(noClusterMissingService)
+}
 
 // GuardedHost is a context-dependent virtual host entry with guarded routes.
 type GuardedHost struct {
@@ -62,7 +84,7 @@ type GuardedHost struct {
 // Services are indexed by FQDN hostnames.
 // Cluster domain is used to resolve short service names (e.g. "svc.cluster.local").
 func TranslateVirtualHosts(
-	serviceConfigs []model.Config, services map[string]*model.Service, proxyLabels model.LabelsCollection, gatewayNames map[string]bool) []GuardedHost {
+	serviceConfigs []model.Config, services map[model.Hostname]*model.Service, proxyLabels model.LabelsCollection, gatewayNames map[string]bool) []GuardedHost {
 
 	out := make([]GuardedHost, 0)
 
@@ -72,7 +94,7 @@ func TranslateVirtualHosts(
 	}
 
 	// compute services missing service configs
-	missing := make(map[string]bool)
+	missing := make(map[model.Hostname]bool)
 	for fqdn := range services {
 		missing[fqdn] = true
 	}
@@ -101,12 +123,12 @@ func TranslateVirtualHosts(
 }
 
 // matchServiceHosts splits the virtual service hosts into services and literal hosts
-func matchServiceHosts(in model.Config, serviceIndex map[string]*model.Service) ([]string, []*model.Service) {
+func matchServiceHosts(in model.Config, serviceIndex map[model.Hostname]*model.Service) ([]string, []*model.Service) {
 	rule := in.Spec.(*networking.VirtualService)
 	hosts := make([]string, 0)
 	services := make([]*model.Service, 0)
 	for _, host := range rule.Hosts {
-		if svc := serviceIndex[host]; svc != nil {
+		if svc := serviceIndex[model.Hostname(host)]; svc != nil {
 			services = append(services, svc)
 		} else {
 			hosts = append(hosts, host)
@@ -116,8 +138,10 @@ func matchServiceHosts(in model.Config, serviceIndex map[string]*model.Service) 
 }
 
 // translateVirtualHost creates virtual hosts corresponding to a virtual service.
+// Called for each port to determine the list of vhosts on the given port.
+// It may return an empty list if no VirtualService rule has a matching service.
 func translateVirtualHost(
-	in model.Config, serviceIndex map[string]*model.Service, proxyLabels model.LabelsCollection, gatewayName map[string]bool) []GuardedHost {
+	in model.Config, serviceIndex map[model.Hostname]*model.Service, proxyLabels model.LabelsCollection, gatewayName map[string]bool) []GuardedHost {
 
 	hosts, services := matchServiceHosts(in, serviceIndex)
 	serviceByPort := make(map[int][]*model.Service)
@@ -135,15 +159,14 @@ func translateVirtualHost(
 	}
 
 	out := make([]GuardedHost, len(serviceByPort))
-	for port, services := range serviceByPort {
-		clusterNameGenerator := ConvertDestinationToCluster(serviceIndex, port)
-		routes, err := TranslateRoutes(in, clusterNameGenerator, port, proxyLabels, gatewayName)
+	for port, portServices := range serviceByPort {
+		routes, err := TranslateRoutes(in, serviceIndex, port, proxyLabels, gatewayName)
 		if err != nil || len(routes) == 0 {
 			continue
 		}
 		out = append(out, GuardedHost{
 			Port:     port,
-			Services: services,
+			Services: portServices,
 			Hosts:    hosts,
 			Routes:   routes,
 		})
@@ -152,67 +175,83 @@ func translateVirtualHost(
 	return out
 }
 
-// ConvertDestinationToCluster produces a cluster naming function using the config context.
-// defaultPort is the service port. This function returns an error if the service cannot be
-// resolved by defaultPort
-func ConvertDestinationToCluster(serviceIndex map[string]*model.Service, defaultPort int) ClusterNameGenerator {
-	return func(destination *networking.Destination) string {
-		// detect if it is a service
-		svc := serviceIndex[destination.Host]
+// ConvertDestinationToCluster generate a cluster name for the route, or error if no cluster
+// can be found. Called by translateRule to determine if
+func ConvertDestinationToCluster(destination *networking.Destination, vsvcName string,
+	in *networking.HTTPRoute, serviceIndex map[model.Hostname]*model.Service, defaultPort int) string {
+	// detect if it is a service
+	svc := serviceIndex[model.Hostname(destination.Host)]
 
-		if svc == nil {
-			return util.BlackHoleCluster
+	if svc == nil {
+		if defaultPort != 80 {
+			noClusterMissingService.With(prometheus.Labels{
+				"service": destination.String(),
+				"rule":    vsvcName,
+			}).Add(1)
+			log.Infof("svc == nil => route on %d with missing cluster %s %v %v", defaultPort, vsvcName, destination, in)
 		}
-
-		// default port uses port number
-		svcPort, _ := svc.Ports.GetByPort(defaultPort)
-
-		if destination.Port != nil {
-			switch selector := destination.Port.Port.(type) {
-			case *networking.PortSelector_Name:
-				svcPort, _ = svc.Ports.Get(selector.Name)
-			case *networking.PortSelector_Number:
-				svcPort, _ = svc.Ports.GetByPort(int(selector.Number))
-			}
-		}
-
-		if svcPort == nil {
-			log.Debuga("svcPort == nil => blackhole cluster")
-			return util.BlackHoleCluster
-		}
-
-		// use subsets if it is a service
-		return model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, svc.Hostname, svcPort)
+		return util.BlackHoleCluster
 	}
-}
 
-// ClusterNameGenerator specifies cluster name for a destination
-type ClusterNameGenerator func(*networking.Destination) string
+	// default port uses port number
+	svcPort, _ := svc.Ports.GetByPort(defaultPort)
+
+	if destination.Port != nil {
+		switch selector := destination.Port.Port.(type) {
+		case *networking.PortSelector_Name:
+			svcPort, _ = svc.Ports.Get(selector.Name)
+		case *networking.PortSelector_Number:
+			svcPort, _ = svc.Ports.GetByPort(int(selector.Number))
+		}
+	}
+
+	if svcPort == nil {
+		if defaultPort != 80 {
+			noClusterMissingPort.With(prometheus.Labels{
+				"service": destination.String(),
+				"rule":    vsvcName,
+			}).Add(1)
+			log.Infof("svcPort == nil => unresolved cluster %s %s %v", vsvcName, destination.Host, destination)
+		}
+		log.Debuga("svcPort == nil => blackhole cluster")
+		return util.BlackHoleCluster
+	}
+	// use subsets if it is a service
+	return model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, svc.Hostname, svcPort)
+}
 
 // TranslateRoutes creates virtual host routes from the v1alpha3 config.
 // The rule should be adapted to destination names (outbound clusters).
 // Each rule is guarded by source labels.
+//
+// This is called for each port to compute virtual hosts.
+// Each VirtualService is tried, with a list of services that listen on the port.
+// Error indicates the given virtualService can't be used on the port.
 func TranslateRoutes(
-	in model.Config, nameF ClusterNameGenerator, port int, proxyLabels model.LabelsCollection, gatewayNames map[string]bool) ([]route.Route, error) {
+	virtualService model.Config,
+	serviceIndex map[model.Hostname]*model.Service,
+	port int,
+	proxyLabels model.LabelsCollection,
+	gatewayNames map[string]bool) ([]route.Route, error) {
 
-	rule, ok := in.Spec.(*networking.VirtualService)
-	if !ok {
-		return nil, fmt.Errorf("in not a virtual service: %#v", in)
+	rule, ok := virtualService.Spec.(*networking.VirtualService)
+	if !ok { // should never happen
+		return nil, fmt.Errorf("in not a virtual service: %#v", virtualService)
 	}
 
-	operation := in.ConfigMeta.Name
+	operation := virtualService.ConfigMeta.Name
 
 	out := make([]route.Route, 0, len(rule.Http))
 	for _, http := range rule.Http {
 		if len(http.Match) == 0 {
-			if r := translateRoute(http, nil, port, operation, nameF, proxyLabels, gatewayNames); r != nil {
+			if r := translateRoute(http, nil, port, operation, serviceIndex, proxyLabels, gatewayNames); r != nil {
 				out = append(out, *r)
 			}
 			break // we have a rule with catch all match prefix: /. Other rules are of no use
 		} else {
 			// TODO: https://github.com/istio/istio/issues/4239
 			for _, match := range http.Match {
-				if r := translateRoute(http, match, port, operation, nameF, proxyLabels, gatewayNames); r != nil {
+				if r := translateRoute(http, match, port, operation, serviceIndex, proxyLabels, gatewayNames); r != nil {
 					out = append(out, *r)
 				}
 			}
@@ -247,11 +286,10 @@ func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels model.Label
 }
 
 // translateRoute translates HTTP routes
-// TODO: fault filters -- issue https://github.com/istio/api/issues/388
 func translateRoute(in *networking.HTTPRoute,
 	match *networking.HTTPMatchRequest, port int,
 	operation string,
-	nameF ClusterNameGenerator,
+	serviceIndex map[model.Hostname]*model.Service,
 	proxyLabels model.LabelsCollection,
 	gatewayNames map[string]bool) *route.Route {
 
@@ -273,6 +311,7 @@ func translateRoute(in *networking.HTTPRoute,
 		Decorator: &route.Decorator{
 			Operation: operation,
 		},
+		PerFilterConfig: make(map[string]*types.Struct),
 	}
 
 	if redirect := in.Redirect; redirect != nil {
@@ -284,13 +323,19 @@ func translateRoute(in *networking.HTTPRoute,
 				},
 			}}
 	} else {
-		d := util.GogoDurationToDuration(in.Timeout)
 		action := &route.RouteAction{
 			Cors:         translateCORSPolicy(in.CorsPolicy),
 			RetryPolicy:  translateRetryPolicy(in.Retries),
-			Timeout:      &d,
 			UseWebsocket: &types.BoolValue{Value: in.WebsocketUpgrade},
 		}
+		if in.Timeout != nil {
+			d := util.GogoDurationToDuration(in.Timeout)
+			// timeout
+			//(Duration) Specifies the timeout for the route. If not specified, the default is 15s.
+			// Having it set to 0 may work as well.
+			action.Timeout = &d
+		}
+
 		out.Action = &route.Route_Route{Route: action}
 
 		if rewrite := in.Rewrite; rewrite != nil {
@@ -313,7 +358,7 @@ func translateRoute(in *networking.HTTPRoute,
 		}
 
 		if in.Mirror != nil {
-			n := nameF(in.Mirror)
+			n := ConvertDestinationToCluster(in.Mirror, operation, in, serviceIndex, port)
 			action.RequestMirrorPolicy = &route.RouteAction_RequestMirrorPolicy{Cluster: n}
 		}
 
@@ -323,7 +368,7 @@ func translateRoute(in *networking.HTTPRoute,
 			if dst.Weight == 0 {
 				weight.Value = uint32(100)
 			}
-			n := nameF(dst.Destination)
+			n := ConvertDestinationToCluster(dst.Destination, operation, in, serviceIndex, port)
 			weighted = append(weighted, &route.WeightedCluster_ClusterWeight{
 				Name:   n,
 				Weight: weight,
@@ -341,6 +386,11 @@ func translateRoute(in *networking.HTTPRoute,
 			}
 		}
 	}
+
+	if fault := in.Fault; fault != nil {
+		out.PerFilterConfig[xdsutil.Fault] = util.MessageToStruct(translateFault(in.Fault))
+	}
+
 	return out
 }
 
@@ -461,4 +511,50 @@ func BuildDefaultHTTPRoute(clusterName string) *route.Route {
 			},
 		},
 	}
+}
+
+// translateFault translates networking.HTTPFaultInjection into Envoy's HTTPFault
+func translateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
+	if in == nil {
+		return nil
+	}
+
+	out := xdshttpfault.HTTPFault{}
+	if in.Delay != nil {
+		out.Delay = &xdsfault.FaultDelay{
+			Type:    xdsfault.FaultDelay_FIXED,
+			Percent: uint32(in.Delay.Percent),
+		}
+		switch d := in.Delay.HttpDelayType.(type) {
+		case *networking.HTTPFaultInjection_Delay_FixedDelay:
+			delayDuration := util.GogoDurationToDuration(d.FixedDelay)
+			out.Delay.FaultDelaySecifier = &xdsfault.FaultDelay_FixedDelay{
+				FixedDelay: &delayDuration,
+			}
+		default:
+			log.Warnf("Exponential faults are not yet supported")
+			out.Delay = nil
+		}
+	}
+
+	if in.Abort != nil {
+		out.Abort = &xdshttpfault.FaultAbort{
+			Percent: uint32(in.Abort.Percent),
+		}
+		switch a := in.Abort.ErrorType.(type) {
+		case *networking.HTTPFaultInjection_Abort_HttpStatus:
+			out.Abort.ErrorType = &xdshttpfault.FaultAbort_HttpStatus{
+				HttpStatus: uint32(a.HttpStatus),
+			}
+		default:
+			log.Warnf("Non-HTTP type abort faults are not yet supported")
+			out.Abort = nil
+		}
+	}
+
+	if out.Delay == nil && out.Abort == nil {
+		return nil
+	}
+
+	return &out
 }

@@ -21,6 +21,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -46,6 +47,17 @@ const (
 var (
 	azDebug = os.Getenv("VERBOSE_AZ_DEBUG") == "1"
 )
+
+var (
+	ipNotFound = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "pilot_no_ip",
+		Help: "Pods not found in the endpoint table, possibly invalid.",
+	}, []string{"node"})
+)
+
+func init() {
+	prometheus.MustRegister(ipNotFound)
+}
 
 // ControllerOptions stores the configurable attributes of a Controller.
 type ControllerOptions struct {
@@ -209,7 +221,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 }
 
 // GetService implements a service catalog operation
-func (c *Controller) GetService(hostname string) (*model.Service, error) {
+func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error) {
 	name, namespace, err := parseHostname(hostname)
 	if err != nil {
 		log.Infof("GetService(%s) => error %v", hostname, err)
@@ -282,7 +294,7 @@ func (c *Controller) ManagementPorts(addr string) model.PortList {
 }
 
 // Instances implements a service catalog operation
-func (c *Controller) Instances(hostname string, ports []string,
+func (c *Controller) Instances(hostname model.Hostname, ports []string,
 	labelsList model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	// Get actual service by name
 	name, namespace, err := parseHostname(hostname)
@@ -364,6 +376,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 					if kubeNodes[ea.IP] == nil {
 						err := parseKubeServiceNode(ea.IP, proxy, kubeNodes)
 						if err != nil {
+							log.Errorf("invalid service node %v %v %v", proxy.IPAddress, proxy.ID, err)
 							return out, err
 						}
 					}
@@ -410,6 +423,10 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 			}
 		}
 	}
+	if len(out) == 0 {
+		log.Errorf("ip not found, listeners will be broken %v %v", proxy.IPAddress, proxy.ID)
+		ipNotFound.With(prometheus.Labels{"node": proxy.ID}).Add(1)
+	}
 	return out, nil
 }
 
@@ -417,7 +434,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 // hostname. Each service account is encoded according to the SPIFFE VSID spec.
 // For example, a service account named "bar" in namespace "foo" is encoded as
 // "spiffe://cluster.local/ns/foo/sa/bar".
-func (c *Controller) GetIstioServiceAccounts(hostname string, ports []string) []string {
+func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []string) []string {
 	saSet := make(map[string]bool)
 
 	// Get the service accounts running service within Kubernetes. This is reflected by the pods that

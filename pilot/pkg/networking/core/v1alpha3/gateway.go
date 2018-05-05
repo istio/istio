@@ -113,7 +113,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 				ProxyInstances: workloadInstances,
 			}
 			if err = p.OnOutboundListener(params, mutable); err != nil {
-				log.Warn(err.Error())
+				log.Warna("failed to build listener for gateway: ", err.Error())
 			}
 		}
 
@@ -123,7 +123,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 			continue
 		}
 		if log.DebugEnabled() {
-			// pprint does JSON marshalling, so we skip it if debugging is not enabled
 			log.Debugf("buildGatewayListeners: constructed listener with %d filter chains:\n%v",
 				len(mutable.Listener.FilterChains), mutable.Listener)
 		}
@@ -151,18 +150,14 @@ func createGatewayHTTPFilterChainOpts(
 		return []*filterChainOpts{}
 	}
 
-	nameToServiceMap := make(map[string]*model.Service, len(services))
+	nameToServiceMap := make(map[model.Hostname]*model.Service, len(services))
 	for _, svc := range services {
 		nameToServiceMap[svc.Hostname] = svc
 	}
 
-	nameF := func(port int) istio_route.ClusterNameGenerator {
-		return istio_route.ConvertDestinationToCluster(nameToServiceMap, port)
-	}
-
 	httpListeners := make([]*filterChainOpts, 0, len(servers))
 	for i, server := range servers {
-		routeCfg := buildGatewayInboundHTTPRouteConfig(env, nameF, gatewayNames, server)
+		routeCfg := buildGatewayInboundHTTPRouteConfig(env, nameToServiceMap, gatewayNames, server)
 		if routeCfg == nil {
 			log.Debugf("omitting HTTP listeners for port %d filter chain %d due to no routes", server.Port, i)
 			continue
@@ -226,23 +221,33 @@ func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamT
 
 func buildGatewayInboundHTTPRouteConfig(
 	env model.Environment,
-	nameF func(int) istio_route.ClusterNameGenerator,
-	gatewayNames map[string]bool,
+	svcs map[model.Hostname]*model.Service,
+	gateways map[string]bool,
 	server *networking.Server) *xdsapi.RouteConfiguration {
+
+	hosts := make(map[model.Hostname]bool)
+	for _, host := range server.Hosts {
+		hosts[model.Hostname(host)] = true
+	}
 
 	port := int(server.Port.Number)
 	// TODO: WE DO NOT SUPPORT two gateways on same workload binding to same virtual service
-	virtualServices := env.VirtualServices(gatewayNames)
+	virtualServices := env.VirtualServices(gateways)
 	virtualHosts := make([]route.VirtualHost, 0, len(virtualServices))
 	for _, v := range virtualServices {
-		// TODO: I think this is the wrong port to use: we feed in the server's port (i.e. the gateway port), then use it
-		// to construct downstreams; I think we need to look up the service itself, and use the service's port.
-		routes, err := istio_route.TranslateRoutes(v, nameF(port), port, nil, gatewayNames)
+		vs := v.Spec.(*networking.VirtualService)
+		if !hostMatch(vs.Hosts, hosts) {
+			log.Debugf("omitting virtual service %q because its hosts don't match gateways %v server %d", v.Name, gateways, port)
+			continue
+		}
+		// TODO: we need to filter the hosts this produces by those exposed on the gateway. This impl exposes the full
+		// set of hosts of the virtual service, rather than just the subset that is listed on this server.
+		routes, err := istio_route.TranslateRoutes(v, svcs, port, nil, gateways)
 		if err != nil {
 			log.Debugf("omitting routes for service %v due to error: %v", v, err)
 			continue
 		}
-		domains := v.Spec.(*networking.VirtualService).Hosts
+		domains := vs.Hosts
 		host := route.VirtualHost{
 			Name:    fmt.Sprintf("%s:%d", v.Name, port),
 			Domains: domains,
@@ -288,9 +293,9 @@ func buildGatewayNetworkFilters(env model.Environment, server *networking.Server
 
 	dests := filterTCPDownstreams(env, server, gatewayNames)
 	// de-dupe destinations by hostname; we'll take a random destination if multiple claim the same host
-	byHost := make(map[string]*networking.Destination, len(dests))
+	byHost := make(map[model.Hostname]*networking.Destination, len(dests))
 	for _, dest := range dests {
-		byHost[dest.Host] = dest
+		byHost[model.Hostname(dest.Host)] = dest
 	}
 
 	filters := make([]listener.Filter, 0, len(byHost))
@@ -308,21 +313,16 @@ func buildGatewayNetworkFilters(env model.Environment, server *networking.Server
 // filterTCPDownstreams filters virtual services by gateway names, then determines if any match the (TCP) server
 // TODO: move up to more general location so this can be re-used in sidecars
 func filterTCPDownstreams(env model.Environment, server *networking.Server, gateways map[string]bool) []*networking.Destination {
-	hosts := make(map[string]bool, len(server.Hosts))
+	hosts := make(map[model.Hostname]bool, len(server.Hosts))
 	for _, host := range server.Hosts {
-		hosts[host] = true
+		hosts[model.Hostname(host)] = true
 	}
 
 	virtualServices := env.VirtualServices(gateways)
 	downstreams := make([]*networking.Destination, 0, len(virtualServices))
 	for _, spec := range virtualServices {
 		vsvc := spec.Spec.(*networking.VirtualService)
-		// TODO: real wildcard based matching; does code to do that not exist already?
-		match := false
-		for _, host := range vsvc.Hosts {
-			match = match || hosts[host]
-		}
-		if !match {
+		if !hostMatch(vsvc.Hosts, hosts) {
 			// the VirtualService's hosts don't include hosts advertised by server
 			continue
 		}
@@ -335,6 +335,17 @@ func filterTCPDownstreams(env model.Environment, server *networking.Server, gate
 		}
 	}
 	return downstreams
+}
+
+func hostMatch(hosts []string, serviceHosts map[model.Hostname]bool) bool {
+	for _, host := range hosts {
+		for h := range serviceHosts {
+			if h.Matches(model.Hostname(host)) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // TODO: move up to more general location so this can be re-used in other service matching
@@ -377,5 +388,5 @@ func gatherDestinations(weights []*networking.DestinationWeight) []*networking.D
 // TODO: move up to more general location so this can be re-used
 // TODO: should this try to use `istio_route.ConvertDestinationToCluster`?
 func destToClusterName(d *networking.Destination) string {
-	return model.BuildSubsetKey(model.TrafficDirectionOutbound, d.Subset, d.Host, &model.Port{Name: d.Port.GetName()})
+	return model.BuildSubsetKey(model.TrafficDirectionOutbound, d.Subset, model.Hostname(d.Host), &model.Port{Name: d.Port.GetName()})
 }

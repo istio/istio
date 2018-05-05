@@ -48,7 +48,7 @@ func (sd *ServiceDiscovery) Services() ([]*model.Service, error) {
 	port := sd.servicePort()
 	for hostname := range resp.Backends {
 		services = append(services, &model.Service{
-			Hostname:     hostname,
+			Hostname:     model.Hostname(hostname),
 			Ports:        []*model.Port{port},
 			MeshExternal: false,
 			Resolution:   model.ClientSideLB,
@@ -59,7 +59,7 @@ func (sd *ServiceDiscovery) Services() ([]*model.Service, error) {
 }
 
 // GetService implements a service catalog operation
-func (sd *ServiceDiscovery) GetService(hostname string) (*model.Service, error) {
+func (sd *ServiceDiscovery) GetService(hostname model.Hostname) (*model.Service, error) {
 	services, err := sd.Services()
 	if err != nil {
 		return nil, err
@@ -73,13 +73,13 @@ func (sd *ServiceDiscovery) GetService(hostname string) (*model.Service, error) 
 }
 
 // Instances implements a service catalog operation
-func (sd *ServiceDiscovery) Instances(hostname string, ports []string, tagsList model.LabelsCollection) ([]*model.ServiceInstance, error) {
+func (sd *ServiceDiscovery) Instances(hostname model.Hostname, ports []string, tagsList model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	resp, err := sd.Client.Routes(context.Background(), new(copilotapi.RoutesRequest))
 	if err != nil {
 		return nil, fmt.Errorf("getting instances: %s", err)
 	}
 	instances := make([]*model.ServiceInstance, 0, len(resp.GetBackends()))
-	backendSet, ok := resp.Backends[hostname]
+	backendSet, ok := resp.Backends[hostname.String()]
 	if !ok {
 		return nil, nil
 	}
