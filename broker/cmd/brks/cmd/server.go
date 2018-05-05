@@ -31,7 +31,7 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 	sa := &serverArgs{}
 	serverCmd := cobra.Command{
 		Use:   "server",
-		Short: "Starts Broker as a server",
+		Short: "Start Broker as a server",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			return nil
 		},
@@ -49,10 +49,10 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 
 func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
 	if osb, err := server.CreateServer(sa.kubeconfig); err != nil {
-		fatalf("Failed to create server: %s", err.Error())
+		fatalf("Failed to create broker server: %s", err.Error())
 	} else {
-		printf("Server started, listening on port %d", sa.port)
-		printf("CTL-C to break out of broker")
+		printf("Start broker server successfully, listening on port %d", sa.port)
+		printf("CTL-C to stop broker server")
 		osb.Start(sa.port)
 	}
 }
