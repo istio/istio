@@ -31,11 +31,11 @@ spec:
                 fieldPath: metadata.namespace
           livenessProbe:
             httpGet:
-              path: /
+              path: /health
               port: {{ .Values.service.internalPort }}
           readinessProbe:
             httpGet:
-              path: /
+              path: /health
               port: {{ .Values.service.internalPort }}
           resources:
 {{ toYaml .Values.resources | indent 12 }}
