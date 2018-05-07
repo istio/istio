@@ -24,6 +24,7 @@ import (
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
@@ -94,6 +95,12 @@ func init() {
 
 }
 
+type DiscoveryStream interface {
+	Send(*xdsapi.DiscoveryResponse) error
+	Recv() (*xdsapi.DiscoveryRequest, error)
+	grpc.ServerStream
+}
+
 // XdsConnection is a listener connection type.
 type XdsConnection struct {
 	// PeerAddr is the address of the client envoy, from network layer
@@ -112,6 +119,9 @@ type XdsConnection struct {
 	// same info can be sent to all clients, without recomputing.
 	pushChannel chan *XdsEvent
 
+	// doneChannel will be closed when the client is closed.
+	doneChannel chan int
+
 	// TODO: migrate other fields as needed from model.Proxy and replace it
 
 	//HttpConnectionManagers map[string]*http_conn.HttpConnectionManager
@@ -125,7 +135,8 @@ type XdsConnection struct {
 
 	// TODO: TcpListeners (may combine mongo/etc)
 
-	stream ads.AggregatedDiscoveryService_StreamAggregatedResourcesServer
+	// Both ADS and EDS streams implement this interface
+	stream DiscoveryStream
 
 	// Routes is the list of watched Routes.
 	Routes []string
@@ -148,6 +159,36 @@ type XdsEvent struct {
 	clusters []string
 }
 
+func newXdsConnection(peerAddr string, stream DiscoveryStream) *XdsConnection {
+	return &XdsConnection{
+		pushChannel:   make(chan *XdsEvent, 1),
+		doneChannel:   make(chan int, 1),
+		PeerAddr:      peerAddr,
+		Clusters:      []string{},
+		Connect:       time.Now(),
+		stream:        stream,
+		HTTPListeners: []*xdsapi.Listener{},
+		RouteConfigs:  map[string]*xdsapi.RouteConfiguration{},
+	}
+}
+
+func receiveThread(con *XdsConnection, reqChannel chan *xdsapi.DiscoveryRequest, errP *error) {
+	defer close(reqChannel) // indicates close of the remote side.
+	for {
+		req, err := con.stream.Recv()
+		if err != nil {
+			if status.Code(err) == codes.Canceled || err == io.EOF {
+				log.Infof("ADS: %q %s terminated %v", con.PeerAddr, con.ConID, err)
+				return
+			}
+			*errP = err
+			log.Errorf("ADS: %q %s terminated with errors %v", con.PeerAddr, con.ConID, err)
+			return
+		}
+		reqChannel <- req
+	}
+}
+
 // StreamAggregatedResources implements the ADS interface.
 func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
 	peerInfo, ok := peer.FromContext(stream.Context())
@@ -156,23 +197,15 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 		peerAddr = peerInfo.Addr.String()
 	}
 	var discReq *xdsapi.DiscoveryRequest
-	var receiveError error
-	reqChannel := make(chan *xdsapi.DiscoveryRequest, 1)
 
 	if s.services == nil {
 		// first call - lazy loading.
 		s.updateModel()
 	}
 
-	con := &XdsConnection{
-		pushChannel:   make(chan *XdsEvent, 1),
-		PeerAddr:      peerAddr,
-		Connect:       time.Now(),
-		HTTPListeners: []*xdsapi.Listener{},
-		RouteConfigs:  map[string]*xdsapi.RouteConfiguration{},
-		Clusters:      []string{},
-		stream:        stream,
-	}
+	con := newXdsConnection(peerAddr, stream)
+	defer close(con.doneChannel)
+
 	// Do not call: defer close(con.pushChannel) !
 	// the push channel will be garbage collected when the connection is no longer used.
 	// Closing the channel can cause subtle race conditions with push. According to the spec:
@@ -183,22 +216,10 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	// discovery requests and wait for push commands on config change, so we add a
 	// go routine. If go grpc adds gochannel support for streams this will not be needed.
 	// This also detects close.
-	go func() {
-		defer close(reqChannel) // indicates close of the remote side.
-		for {
-			req, err := stream.Recv()
-			if err != nil {
-				if status.Code(err) == codes.Canceled || err == io.EOF {
-					log.Infof("ADS: %q %s terminated %v", peerAddr, con.ConID, err)
-					return
-				}
-				receiveError = err
-				log.Errorf("ADS: %q %s terminated with errors %v", peerAddr, con.ConID, err)
-				return
-			}
-			reqChannel <- req
-		}
-	}()
+	var receiveError error
+	reqChannel := make(chan *xdsapi.DiscoveryRequest, 1)
+	go receiveThread(con, reqChannel, &receiveError)
+
 	for {
 		// Block until either a request is received or the ticker ticks
 		select {
@@ -404,7 +425,10 @@ func adsPushAll() {
 	// TODO: get service, serviceinstances, configs once, to avoid repeated redundant calls.
 	// TODO: indicate the specific events, to only push what changed.
 	for _, client := range tmpMap {
-		client.pushChannel <- &XdsEvent{}
+		select {
+		case client.pushChannel <- &XdsEvent{}:
+		case <-client.doneChannel:
+		}
 	}
 }
 

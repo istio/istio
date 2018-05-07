@@ -19,6 +19,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -136,24 +137,7 @@ func TestReconnect(t *testing.T) {
 
 // Make a direct EDS grpc request to pilot, verify the result is as expected.
 func directRequest(server *bootstrap.Server, t *testing.T) {
-	edsstr := connect(t)
-
-	res1, err := edsstr.Recv()
-	if err != nil {
-		t.Fatal("Recv failed", err)
-	}
-
-	if res1.TypeUrl != "type.googleapis.com/envoy.api.v2.ClusterLoadAssignment" {
-		t.Error("Expecting type.googleapis.com/envoy.api.v2.ClusterLoadAssignment got ", res1.TypeUrl)
-	}
-	if res1.Resources[0].TypeUrl != "type.googleapis.com/envoy.api.v2.ClusterLoadAssignment" {
-		t.Error("Expecting type.googleapis.com/envoy.api.v2.ClusterLoadAssignment got ", res1.Resources[0].TypeUrl)
-	}
-	cla := &xdsapi.ClusterLoadAssignment{}
-	err = cla.Unmarshal(res1.Resources[0].Value)
-	if err != nil {
-		t.Fatal("Failed to parse proto ", err)
-	}
+	edsstr, cla := singleRequest(server, t)
 	// TODO: validate VersionInfo and nonce once we settle on a scheme
 
 	ep := cla.Endpoints
@@ -167,7 +151,6 @@ func directRequest(server *bootstrap.Server, t *testing.T) {
 	if "127.0.0.1" != lbe[0].Endpoint.Address.GetSocketAddress().Address {
 		t.Error("Expecting 127.0.0.1 got ", lbe[0].Endpoint.Address.GetSocketAddress().Address)
 	}
-	t.Log(cla.String(), res1.String())
 
 	server.EnvoyXdsServer.MemRegistry.AddInstance("hello.default.svc.cluster.local", &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
@@ -187,11 +170,10 @@ func directRequest(server *bootstrap.Server, t *testing.T) {
 	v2.PushAll() // will trigger recompute and push
 	// This should happen in 15 seconds, for the periodic refresh
 	// TODO: verify push works
-	res1, err = edsstr.Recv()
+	_, err := edsstr.Recv()
 	if err != nil {
 		t.Fatal("Recv2 failed", err)
 	}
-	t.Log(res1.String())
 
 	// Need to run the debug test before we close - close will remove the cluster since
 	// nobody is watching.
@@ -200,12 +182,64 @@ func directRequest(server *bootstrap.Server, t *testing.T) {
 	_ = edsstr.CloseSend()
 }
 
+// Make a direct EDS grpc request to pilot, verify the result is as expected.
+func singleRequest(server *bootstrap.Server, t *testing.T) (xdsapi.EndpointDiscoveryService_StreamEndpointsClient,
+	*xdsapi.ClusterLoadAssignment) {
+	edsstr := connect(t)
+
+	res1, err := edsstr.Recv()
+	if err != nil {
+		t.Fatal("Recv failed", err)
+	}
+	if res1.TypeUrl != "type.googleapis.com/envoy.api.v2.ClusterLoadAssignment" {
+		t.Error("Expecting type.googleapis.com/envoy.api.v2.ClusterLoadAssignment got ", res1.TypeUrl)
+	}
+	if res1.Resources[0].TypeUrl != "type.googleapis.com/envoy.api.v2.ClusterLoadAssignment" {
+		t.Error("Expecting type.googleapis.com/envoy.api.v2.ClusterLoadAssignment got ", res1.Resources[0].TypeUrl)
+	}
+	cla := &xdsapi.ClusterLoadAssignment{}
+	err = cla.Unmarshal(res1.Resources[0].Value)
+	if err != nil {
+		t.Fatal("Failed to parse proto ", err)
+	}
+	return edsstr, cla
+}
+
+// Make a direct EDS grpc request to pilot, verify the result is as expected.
+func multipleRequest(server *bootstrap.Server, t *testing.T) {
+	wg := &sync.WaitGroup{}
+	n := 10
+	wg.Add(n)
+	for i := 0; i < n; i++ {
+		go func() {
+			// Connect and get initial response
+			edsstr, _ := singleRequest(server, t)
+			// Do multiple pushes
+			for j := 0; j < 10; j++ {
+				v2.PushAll()
+			}
+			for j := 0; j < 10; j++ {
+				_, err := edsstr.Recv()
+				if err != nil {
+					t.Fatal("Recv2 failed", err)
+				}
+			}
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
+}
+
 func TestEds(t *testing.T) {
 	initLocalPilotTestEnv(t)
 	server := util.EnsureTestServer()
 
 	t.Run("DirectRequest", func(t *testing.T) {
 		directRequest(server, t)
+	})
+	t.Run("MultipleRequest", func(t *testing.T) {
+		multipleRequest(server, t)
 	})
 
 }

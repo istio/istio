@@ -18,6 +18,8 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"io/ioutil"
+	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -93,10 +95,10 @@ func connectADSS(t *testing.T, url string) ads.AggregatedDiscoveryService_Stream
 	return edsstr
 }
 
-func sendEDSReq(t *testing.T, clusters []string, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) {
+func sendEDSReq(t *testing.T, clusters []string, ip string, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) {
 	err := edsstr.Send(&xdsapi.DiscoveryRequest{
 		Node: &envoy_api_v2_core1.Node{
-			Id: sidecarId(app3Ip, "app3"),
+			Id: sidecarId(ip, "app3"),
 		},
 		TypeUrl:       v2.EndpointType,
 		ResourceNames: clusters})
@@ -150,7 +152,7 @@ func sendCDSReq(t *testing.T, node string, edsstr ads.AggregatedDiscoveryService
 func TestAdsReconnectWithNonce(t *testing.T) {
 	_ = initLocalPilotTestEnv(t)
 	edsstr := connectADS(t, util.MockPilotGrpcAddr)
-	sendEDSReq(t, []string{"service3.default.svc.cluster.local|http"}, edsstr)
+	sendEDSReq(t, []string{"service3.default.svc.cluster.local|http"}, app3Ip, edsstr)
 	res, _ := adsReceive(edsstr, 5*time.Second)
 
 	// closes old process
@@ -158,7 +160,7 @@ func TestAdsReconnectWithNonce(t *testing.T) {
 
 	edsstr = connectADS(t, util.MockPilotGrpcAddr)
 	sendEDSReqReconnect(t, []string{"service3.default.svc.cluster.local|http"}, edsstr, res)
-	sendEDSReq(t, []string{"service3.default.svc.cluster.local|http"}, edsstr)
+	sendEDSReq(t, []string{"service3.default.svc.cluster.local|http"}, app3Ip, edsstr)
 	res, _ = adsReceive(edsstr, 5*time.Second)
 	_ = edsstr.CloseSend()
 
@@ -232,53 +234,68 @@ func adsReceive(ads ads.AggregatedDiscoveryService_StreamAggregatedResourcesClie
 func TestAdsEds(t *testing.T) {
 	server := initLocalPilotTestEnv(t)
 
-	edsstr := connectADS(t, util.MockPilotGrpcAddr)
-	// Old style cluster.
-	// TODO: convert tests (except eds) to new style.
-	sendEDSReq(t, []string{"service3.default.svc.cluster.local|http-main"}, edsstr)
+	wg := sync.WaitGroup{}
+	n := 10 // < 254
+	wg.Add(n)
+	for i := 0; i < n; i++ {
+		i := i
+		go func() {
+			edsstr := connectADS(t, util.MockPilotGrpcAddr)
+			// Old style cluster.
+			// TODO: convert tests (except eds) to new style.
+			sendEDSReq(t, []string{"service3.default.svc.cluster.local|http-main"},
+				"1.1.1."+strconv.Itoa(i), edsstr)
 
-	res1, err := adsReceive(edsstr, 5*time.Second)
-	if err != nil {
-		t.Fatal("Recv failed", err)
-	}
+			res1, err := adsReceive(edsstr, 5*time.Second)
+			if err != nil {
+				t.Fatal("Recv failed", err)
+			}
 
-	if res1.TypeUrl != "type.googleapis.com/envoy.api.v2.ClusterLoadAssignment" {
-		t.Error("Expecting type.googleapis.com/envoy.api.v2.ClusterLoadAssignment got ", res1.TypeUrl)
-	}
-	if res1.Resources[0].TypeUrl != "type.googleapis.com/envoy.api.v2.ClusterLoadAssignment" {
-		t.Error("Expecting type.googleapis.com/envoy.api.v2.ClusterLoadAssignment got ", res1.Resources[0].TypeUrl)
-	}
-	cla := &xdsapi.ClusterLoadAssignment{}
-	err = cla.Unmarshal(res1.Resources[0].Value)
-	if err != nil {
-		t.Fatal("Failed to parse proto ", err)
-	}
-	// TODO: validate VersionInfo and nonce once we settle on a scheme
+			if res1.TypeUrl != "type.googleapis.com/envoy.api.v2.ClusterLoadAssignment" {
+				t.Error("Expecting type.googleapis.com/envoy.api.v2.ClusterLoadAssignment got ", res1.TypeUrl)
+			}
+			if res1.Resources[0].TypeUrl != "type.googleapis.com/envoy.api.v2.ClusterLoadAssignment" {
+				t.Error("Expecting type.googleapis.com/envoy.api.v2.ClusterLoadAssignment got ", res1.Resources[0].TypeUrl)
+			}
+			cla := &xdsapi.ClusterLoadAssignment{}
+			err = cla.Unmarshal(res1.Resources[0].Value)
+			if err != nil {
+				t.Fatal("Failed to parse proto ", err)
+			}
+			// TODO: validate VersionInfo and nonce once we settle on a scheme
 
-	ep := cla.Endpoints
-	if len(ep) == 0 {
-		t.Fatal("No endpoints")
-	}
-	lbe := ep[0].LbEndpoints
-	if len(lbe) == 0 {
-		t.Fatal("No lb endpoints")
-	}
-	if "10.2.0.1" != lbe[0].Endpoint.Address.GetSocketAddress().Address {
-		t.Error("Expecting 10.2.0.1 got ", lbe[0].Endpoint.Address.GetSocketAddress().Address)
-	}
-	strResponse, _ := model.ToJSONWithIndent(res1, " ")
-	_ = ioutil.WriteFile(util.IstioOut+"/edsv2_sidecar.json", []byte(strResponse), 0644)
+			ep := cla.Endpoints
+			if len(ep) == 0 {
+				t.Fatal("No endpoints")
+			}
+			lbe := ep[0].LbEndpoints
+			if len(lbe) == 0 {
+				t.Fatal("No lb endpoints")
+			}
+			if "10.2.0.1" != lbe[0].Endpoint.Address.GetSocketAddress().Address {
+				t.Error("Expecting 10.2.0.1 got ", lbe[0].Endpoint.Address.GetSocketAddress().Address)
+			}
+			strResponse, _ := model.ToJSONWithIndent(res1, " ")
+			_ = ioutil.WriteFile(util.IstioOut+"/edsv2_sidecar.json", []byte(strResponse), 0644)
 
-	_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("service3.default.svc.cluster.local",
-		"http-main", 2080, "10.1.7.1", 1080)
-	v2.PushAll() // will trigger recompute and push
+			_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("service3.default.svc.cluster.local",
+				"http-main", 2080, "10.1.7.1", 1080)
 
-	res1, err = adsReceive(edsstr, 5*time.Second)
-	if err != nil {
-		t.Fatal("Recv2 failed", err)
+			// will trigger recompute and push for all clients - including some that may be closing
+			// This reproduced the 'push on closed connection' bug.
+			v2.PushAll()
+
+			res1, err = adsReceive(edsstr, 5*time.Second)
+			if err != nil {
+				t.Fatal("Recv2 failed", err)
+			}
+			if i == 0 {
+				strResponse, _ = model.ToJSONWithIndent(res1, " ")
+				_ = ioutil.WriteFile(util.IstioOut+"/edsv2_update.json", []byte(strResponse), 0644)
+			}
+			_ = edsstr.CloseSend()
+			wg.Done()
+		}()
 	}
-	strResponse, _ = model.ToJSONWithIndent(res1, " ")
-	_ = ioutil.WriteFile(util.IstioOut+"/edsv2_update.json", []byte(strResponse), 0644)
-
-	_ = edsstr.CloseSend()
+	wg.Wait()
 }

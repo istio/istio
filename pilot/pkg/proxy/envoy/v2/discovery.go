@@ -31,7 +31,8 @@ import (
 
 var (
 	// Failsafe to implement periodic refresh, in case events or cache invalidation fail.
-	periodicRefreshDuration = time.Second * 60
+	// Disabled by default.
+	periodicRefreshDuration = 0 * time.Second
 
 	versionMutex sync.Mutex
 	// version is update by registry events.
@@ -87,7 +88,9 @@ func NewDiscoveryServer(env model.Environment, generator *v1alpha3.ConfigGenerat
 	if len(envOverride) > 0 {
 		periodicRefreshDuration, _ = time.ParseDuration(envOverride)
 	}
-	go periodicRefresh()
+	if periodicRefreshDuration > 0 {
+		go periodicRefresh()
+	}
 
 	return out
 }
