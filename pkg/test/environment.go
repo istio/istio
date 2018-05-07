@@ -41,7 +41,14 @@ type Environment interface {
 	GetApp(name string) (DeployedApp, error)
 	// GetAppOrFail attempts to return the app object for the given name, or fails the test if unsuccessful.
 	GetAppOrFail(name string, t *testing.T) DeployedApp
-	GetFortioApp(name string) DeployedFortioApp
+
+	// GetFortioApp returns a Fortio App object for the given name.
+	GetFortioApp(name string) (DeployedFortioApp, error)
+	// GetFortioApp returns a Fortio App object for the given name, or fails the test if unsuccessful.
+	GetFortioAppOrFail(name string, t *testing.T) (DeployedFortioApp, error)
+
+	// GetFortioApps returns a set of Fortio Apps based on the given selector
+	GetFortioApps(selector string, t *testing.T) []DeployedFortioApp
 }
 
 // Deployed represents a deployed component
@@ -100,7 +107,7 @@ type DeployedPilot interface {
 
 type DeployedFortioApp interface {
 	Deployed
-	CallFortio(arg string, path sting) (AppFortioCallResponse, error)
+	CallFortio(arg string, path string) (AppFortioCallResponse, error)
 }
 
 // AppFortioCallResponse provides details about the result of a fortio call
