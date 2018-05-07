@@ -6,7 +6,7 @@ metadata:
   namespace: istio-system
 spec:
   selector:
-    istio: ingress
+    istio: ingressgateway
   servers:
   - hosts:
     - '*'
@@ -66,7 +66,7 @@ spec:
   http:
   - match:
     - uri:
-        regex: /foo/.*/bar/
+        exact: /foo/bar/
     route:
     - destination:
         host: anotherservice-service

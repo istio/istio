@@ -324,25 +324,17 @@ func createStringMatch(s string) *networking.StringMatch {
 		return nil
 	}
 
-	// Replace "foo" with exact match
-	count := strings.Count(s, ".*")
-	if count == 0 {
+	// Note that this implementation only converts prefix and exact matches, not regexps.
+
+	// Replace e.g. "foo.*" with prefix match
+	if strings.HasSuffix(s, ".*") {
 		return &networking.StringMatch{
-			MatchType: &networking.StringMatch_Exact{Exact: s},
+			MatchType: &networking.StringMatch_Prefix{Prefix: strings.TrimSuffix(s, ".*")},
 		}
 	}
 
-	// Replace "foo.*bar.*" and "foo.*bar" with regex match
-	if count > 1 || !strings.HasSuffix(s, ".*") {
-		return &networking.StringMatch{
-			MatchType: &networking.StringMatch_Regex{
-				Regex: s,
-			},
-		}
-	}
-
-	// Replace "foo.*" with a Prefix match
+	// Replace e.g. "foo" with a exact match
 	return &networking.StringMatch{
-		MatchType: &networking.StringMatch_Prefix{Prefix: strings.TrimSuffix(s, ".*")},
+		MatchType: &networking.StringMatch_Exact{Exact: s},
 	}
 }

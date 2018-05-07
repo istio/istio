@@ -8,7 +8,7 @@ spec:
   rules:
     - http:
         paths:
-          - path: /foo/.*/bar/
+          - path: /foo/bar/
             backend:
               serviceName: anotherservice-service
               servicePort: 7080

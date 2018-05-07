@@ -51,7 +51,7 @@ func IstioIngresses(ingresses []*v1beta1.Ingress, domainSuffix string) ([]model.
 		ConfigMeta: gateways[0].ConfigMeta,
 		Spec: &networking.Gateway{
 			Servers:  allServers,
-			Selector: gateways[0].Spec.(*networking.Gateway).Selector,
+			Selector: map[string]string{"istio": "ingressgateway"},
 		},
 	}
 
