@@ -14,6 +14,12 @@ spec:
       name: http-ingress-80
       number: 80
       protocol: HTTP
+  - hosts:
+    - '*'
+    port:
+      name: http-ingress-80
+      number: 80
+      protocol: HTTP
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
