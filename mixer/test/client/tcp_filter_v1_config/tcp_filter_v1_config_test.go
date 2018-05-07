@@ -103,7 +103,7 @@ var expectedStats = map[string]int{
 	"tcp_mixer_filter.total_report_calls":                2,
 }
 
-const debugTest = true
+const debugTest = false
 
 func TestTCPMixerFilterV1Config(t *testing.T) {
 	s := env.NewTestSetup(env.TCPMixerFilterV1ConfigTest, t)
