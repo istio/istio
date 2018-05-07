@@ -15,8 +15,10 @@ package v2_test
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -32,8 +34,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/tests/util"
-	"net"
-	"encoding/binary"
 )
 
 func connect(t *testing.T) xdsapi.EndpointDiscoveryService_StreamEndpointsClient {
@@ -188,7 +188,7 @@ func directRequest(server *bootstrap.Server, t *testing.T) {
 func connectAndSend(id int, t *testing.T) (xdsapi.EndpointDiscoveryService_StreamEndpointsClient,
 	*xdsapi.ClusterLoadAssignment) {
 
-		conn, err := grpc.Dial(util.MockPilotGrpcAddr, grpc.WithInsecure())
+	conn, err := grpc.Dial(util.MockPilotGrpcAddr, grpc.WithInsecure())
 	if err != nil {
 		t.Fatal("Connection failed", err)
 	}
@@ -198,7 +198,7 @@ func connectAndSend(id int, t *testing.T) (xdsapi.EndpointDiscoveryService_Strea
 	if err != nil {
 		t.Fatal("Rpc failed", err)
 	}
-	ipb := []byte{10,0,0,0}
+	ipb := []byte{10, 0, 0, 0}
 	binary.BigEndian.PutUint16(ipb[2:], uint16(id))
 	err = edsstr.Send(&xdsapi.DiscoveryRequest{
 		Node: &envoy_api_v2_core1.Node{
@@ -236,7 +236,7 @@ func multipleRequest(server *bootstrap.Server, t *testing.T) {
 		current := n
 		go func() {
 			// Connect and get initial response
-			edsstr, _ := connectAndSend(current + 2, t)
+			edsstr, _ := connectAndSend(current+2, t)
 			// Do multiple pushes
 			for j := 0; j < 10; j++ {
 				v2.PushAll()
