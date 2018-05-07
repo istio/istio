@@ -172,7 +172,8 @@ func WaitForPort(port uint16) {
 	serverPort := fmt.Sprintf("localhost:%v", port)
 	for i := 0; i < maxAttempts; i++ {
 		log.Println("Pinging port: ", serverPort)
-		_, err := net.Dial("tcp", serverPort)
+		fmt.Println("Pinging port: ", serverPort)
+		_, err := net.DialTimeout("tcp", serverPort, 3*time.Second)
 		if err == nil {
 			log.Println("The port is up and running...")
 			return

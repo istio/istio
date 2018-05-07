@@ -105,11 +105,14 @@ var expectedStats = map[string]int{
 
 func TestTCPMixerFilterV1Config(t *testing.T) {
 	s := env.NewTestSetup(env.TCPMixerFilterV1ConfigTest, t)
+
 	// Verify that Mixer TCP filter works properly when we change config version to V1 at Envoy.
 	fmt.Printf("s.SetMixerFilterConfVersion(env.MixerFilterConfigV1)\n")
 	s.SetMixerFilterConfVersion(env.MixerFilterConfigV1)
+
 	fmt.Printf("env.SetStatsUpdateInterval(s.MfConfig(), 1)\n")
 	env.SetStatsUpdateInterval(s.MfConfig(), 1)
+
 	if err := s.SetUp(); err != nil {
 		fmt.Printf("Failed to setup test: %v\n", err)
 		t.Fatalf("Failed to setup test: %v", err)
