@@ -20,8 +20,10 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -229,29 +231,78 @@ func connectAndSend(id int, t *testing.T) (xdsapi.EndpointDiscoveryService_Strea
 
 // Make a direct EDS grpc request to pilot, verify the result is as expected.
 func multipleRequest(server *bootstrap.Server, t *testing.T) {
+	wgConnect := &sync.WaitGroup{}
 	wg := &sync.WaitGroup{}
-	n := 10
+	// 1000 clients * 100 pushes = ~4 sec
+	n := 10 // clients
+	nPushes := 10
 	wg.Add(n)
+	wgConnect.Add(n)
+	rcvPush := int32(0)
+	rcvClients := int32(0)
 	for i := 0; i < n; i++ {
-		current := n
-		go func() {
+		current := i
+		go func(id int) {
 			// Connect and get initial response
-			edsstr, _ := connectAndSend(current+2, t)
+			edsstr, _ := connectAndSend(id+2, t)
+			defer edsstr.CloseSend()
+			wgConnect.Done()
 			// Do multiple pushes
-			for j := 0; j < 10; j++ {
-				v2.PushAll()
-			}
-			for j := 0; j < 10; j++ {
-				_, err := edsstr.Recv()
+			for j := 0; j < nPushes; j++ {
+
+				_, err := edsReceive(edsstr, 5*time.Second)
+				atomic.AddInt32(&rcvPush, 1)
 				if err != nil {
-					t.Fatal("Recv2 failed", err)
+					t.Error("Recv failed ", err, id, j)
 				}
 			}
+			atomic.AddInt32(&rcvClients, 1)
 			wg.Done()
-		}()
+		}(current)
+	}
+	wgConnect.Wait()
+	for j := 0; j < nPushes; j++ {
+		v2.PushAll()
 	}
 
-	wg.Wait()
+	ok := waitTimeout(wg, 30*time.Second)
+	if !ok {
+		t.Errorf("Failed to receive all responses %d %d", rcvClients, rcvPush)
+		buf := make([]byte, 1<<16)
+		runtime.Stack(buf, true)
+		fmt.Printf("%s", buf)
+	}
+}
+
+func edsReceive(eds xdsapi.EndpointDiscoveryService_StreamEndpointsClient, to time.Duration) (*xdsapi.DiscoveryResponse, error) {
+	done := make(chan int, 1)
+	t := time.NewTimer(to)
+	defer func() {
+		done <- 1
+	}()
+	go func() {
+		select {
+		case <-t.C:
+			_ = eds.CloseSend() // will result in adsRecv closing as well, interrupting the blocking recv
+		case <-done:
+			_ = t.Stop()
+		}
+	}()
+	return eds.Recv()
+}
+
+func waitTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
+	c := make(chan struct{})
+	go func() {
+		defer close(c)
+		wg.Wait()
+	}()
+	select {
+	case <-c:
+		return true
+	case <-time.After(timeout):
+		return false
+	}
 }
 
 func TestEds(t *testing.T) {
