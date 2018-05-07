@@ -41,7 +41,7 @@ check_prerequisites() {
   local prerequisites=$*
   for prerequisite in ${prerequisites}; do
     if ! command -v "${prerequisite}" > /dev/null; then
-      echo "\"${prerequisite}\" is required. Please install it."
+      error "\"${prerequisite}\" is required. Please install it."
       return 1
     fi
   done
