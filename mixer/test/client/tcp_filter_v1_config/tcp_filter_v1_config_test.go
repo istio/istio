@@ -106,42 +106,58 @@ var expectedStats = map[string]int{
 func TestTCPMixerFilterV1Config(t *testing.T) {
 	s := env.NewTestSetup(env.TCPMixerFilterV1ConfigTest, t)
 	// Verify that Mixer TCP filter works properly when we change config version to V1 at Envoy.
+	fmt.Printf("s.SetMixerFilterConfVersion(env.MixerFilterConfigV1)\n")
 	s.SetMixerFilterConfVersion(env.MixerFilterConfigV1)
+	fmt.Printf("env.SetStatsUpdateInterval(s.MfConfig(), 1)\n")
 	env.SetStatsUpdateInterval(s.MfConfig(), 1)
 	if err := s.SetUp(); err != nil {
+		fmt.Printf("Failed to setup test: %v\n", err)
 		t.Fatalf("Failed to setup test: %v", err)
 	}
 	defer s.TearDown()
 
 	// Make sure tcp port is ready before starting the test.
+	fmt.Printf("env.WaitForPort(s.Ports().TCPProxyPort)\n")
 	env.WaitForPort(s.Ports().TCPProxyPort)
 
 	url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().TCPProxyPort)
+	fmt.Printf("TestTCPMixerFilterV1Config(), http://localhost:%d/echo\n", s.Ports().TCPProxyPort)
 
 	// Issues a POST request.
 	tag := "OKPost"
 	if _, _, err := env.ShortLiveHTTPPost(url, "text/plain", "Hello World!"); err != nil {
+		fmt.Printf("Failed in request %s: %v\n", tag, err)
 		t.Errorf("Failed in request %s: %v", tag, err)
 	}
+	fmt.Printf("s.VerifyCheck(tag, checkAttributesOkPost)\n")
 	s.VerifyCheck(tag, checkAttributesOkPost)
+	fmt.Printf("s.VerifyReport(tag, reportAttributesOkPost)\n")
 	s.VerifyReport(tag, reportAttributesOkPost)
 
 	tag = "MixerFail"
+	fmt.Printf("s.SetMixerCheckStatus(rpc.Status{})\n")
 	s.SetMixerCheckStatus(rpc.Status{
 		Code: int32(rpc.UNAUTHENTICATED),
 	})
 	if _, _, err := env.ShortLiveHTTPPost(url, "text/plain", "Hello World!"); err == nil {
+		fmt.Printf("Expect request to fail %s: %v\n", tag, err)
 		t.Errorf("Expect request to fail %s: %v", tag, err)
 	}
 	// Reset to a positive one
+	fmt.Printf("s.SetMixerCheckStatus(rpc.Status{})\n")
 	s.SetMixerCheckStatus(rpc.Status{})
+	fmt.Printf("s.VerifyCheck(tag, checkAttributesOkPost)\n")
 	s.VerifyCheck(tag, checkAttributesOkPost)
+	fmt.Printf("s.VerifyReport(tag, reportAttributesOkPost)\n")
 	s.VerifyReport(tag, reportAttributesFailPost)
 
 	// Check stats for Check, Quota and report calls.
+	fmt.Printf("s.WaitForStatsUpdateAndGetStats(2)\n")
 	if respStats, err := s.WaitForStatsUpdateAndGetStats(2); err == nil {
+		fmt.Printf("s.VerifyStats(respStats, expectedStats)\n")
 		s.VerifyStats(respStats, expectedStats)
 	} else {
+		fmt.Printf("Failed to get stats from Envoy %v\n", err)
 		t.Errorf("Failed to get stats from Envoy %v", err)
 	}
 }
