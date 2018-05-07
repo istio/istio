@@ -91,3 +91,5 @@ then
 else
     echo "kubectl exists. Please make sure to update it to latest version."
 fi
+
+echo "Prerequisite check and installation process finishes."

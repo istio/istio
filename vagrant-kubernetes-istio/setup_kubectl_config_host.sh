@@ -1,8 +1,13 @@
 #!/bin/bash
 
 # Setting up kubectl on host to talk to kubernetest cluster on Vagrant VM.
+
+# Unset KUBECONFIG in case users set it point to a k8s cluster
+unset KUBECONFIG
+
+# Set kube config file on host
 echo "your old ~/.kube/config file can be found at ~/.kube/config_old"
-ls ~/.kube/config_old
+ls ~/.kube/config_old > /dev/null
 if [ $? -ne 0 ]; then
     cp ~/.kube/config ~/.kube/config_old
 else
