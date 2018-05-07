@@ -60,6 +60,11 @@ check_prerequisites() {
   done
 }
 
+dump_time() {
+  mkdir -p "${OUT_DIR}"
+  date -u > "${OUT_DIR}/DUMP_TIME"
+}
+
 dump_logs() {
   local namespaces
   namespaces=$(kubectl get \
@@ -114,6 +119,7 @@ dump_resources() {
 main() {
   parse_args "$@"
   check_prerequisites kubectl
+  dump_time
   dump_logs
   dump_resources
 }
