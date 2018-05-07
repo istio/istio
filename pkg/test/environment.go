@@ -41,6 +41,7 @@ type Environment interface {
 	GetApp(name string) (DeployedApp, error)
 	// GetAppOrFail attempts to return the app object for the given name, or fails the test if unsuccessful.
 	GetAppOrFail(name string, t *testing.T) DeployedApp
+	GetFortioApp(name string) DeployedFortioApp
 }
 
 // Deployed represents a deployed component
@@ -95,6 +96,17 @@ type DeployedMixer interface {
 // DeployedPilot represents a deployed Pilot instance.
 type DeployedPilot interface {
 	Deployed
+}
+
+type DeployedFortioApp interface {
+	Deployed
+	CallFortio(arg string, path sting) (AppFortioCallResponse, error)
+}
+
+// AppFortioCallResponse provides details about the result of a fortio call
+type AppFortioCallResponse struct {
+	// The raw content of the response
+	Raw string
 }
 
 // SpyAdapter represents a remote Spy Adapter for Mixer.
