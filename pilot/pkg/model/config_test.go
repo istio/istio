@@ -186,19 +186,19 @@ func TestSubsetKey(t *testing.T) {
 			hostname: "hostname",
 			subset:   "subset",
 			port:     &model.Port{Name: "http", Port: 80, Protocol: model.ProtocolHTTP},
-			want:     "outbound|http|subset|hostname",
+			want:     "outbound.http.subset.hostname",
 		},
 		{
 			hostname: "hostname",
 			subset:   "subset",
 			port:     &model.Port{Port: 80, Protocol: model.ProtocolHTTP},
-			want:     "outbound||subset|hostname",
+			want:     "outbound..subset.hostname",
 		},
 		{
 			hostname: "hostname",
 			subset:   "",
 			port:     &model.Port{Name: "http", Port: 80, Protocol: model.ProtocolHTTP},
-			want:     "outbound|http||hostname",
+			want:     "outbound.http._default_.hostname",
 		},
 	}
 

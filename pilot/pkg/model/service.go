@@ -612,15 +612,21 @@ func ParseServiceKey(s string) (hostname Hostname, ports PortList, labels Labels
 // BuildSubsetKey generates a unique string referencing service instances for a given service name, a subset and a port.
 // The proxy queries Pilot with this key to obtain the list of instances in a subset.
 func BuildSubsetKey(direction TrafficDirection, subsetName string, hostname Hostname, port *Port) string {
-	return fmt.Sprintf("%s|%s|%s|%s", direction, port.Name, subsetName, hostname)
+	if subsetName == "" {
+		subsetName = "_default_"
+	}
+	return fmt.Sprintf("%s.%s.%s.%s", direction, port.Name, subsetName, hostname)
 }
 
 // ParseSubsetKey is the inverse of the BuildSubsetKey method
 func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, hostname Hostname, port *Port) {
-	parts := strings.Split(s, "|")
+	parts := strings.SplitN(s, ".", 4)
 	direction = TrafficDirection(parts[0])
 	port = &Port{Name: parts[1]}
 	subsetName = parts[2]
+	if subsetName == "_default_" {
+		subsetName = ""
+	}
 	hostname = Hostname(parts[3])
 	return
 }
