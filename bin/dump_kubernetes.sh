@@ -16,6 +16,7 @@ usage() {
   error ""
   error "  -d, --output-directory   directory to output files; defaults to"
   error "                               \"istio-dump\""
+  error "  -q, --quiet              if present, do not log"
   exit 1
 }
 
@@ -26,6 +27,10 @@ parse_args() {
         local out_dir="${2}"
         shift 2 # Shift past option and value.
         ;;
+      -q|--quiet)
+        local quiet=true
+        shift # Shift past flag.
+        ;;
       *)
         usage
         ;;
@@ -33,6 +38,7 @@ parse_args() {
   done
 
   readonly OUT_DIR="${out_dir:-istio-dump}"
+  readonly QUIET="${quiet:-false}"
   readonly LOG_DIR="${OUT_DIR}/logs"
   readonly RESOURCES_FILE="${OUT_DIR}/resources.yaml"
 }
