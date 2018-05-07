@@ -103,6 +103,8 @@ var expectedStats = map[string]int{
 	"tcp_mixer_filter.total_report_calls":                2,
 }
 
+const debugTest = true
+
 func TestTCPMixerFilterV1Config(t *testing.T) {
 	s := env.NewTestSetup(env.TCPMixerFilterV1ConfigTest, t)
 
@@ -118,6 +120,10 @@ func TestTCPMixerFilterV1Config(t *testing.T) {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
 	defer s.TearDown()
+
+	if debugTest {
+		return
+	}
 
 	// Make sure tcp port is ready before starting the test.
 	fmt.Printf("env.WaitForPort(s.Ports().TCPProxyPort)\n")
