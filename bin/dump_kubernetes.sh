@@ -111,7 +111,11 @@ dump_resources() {
       -o yaml > "${RESOURCES_FILE}"
 }
 
-parse_args "$@"
-check_prerequisites kubectl
-dump_logs
-dump_resources
+main() {
+  parse_args "$@"
+  check_prerequisites kubectl
+  dump_logs
+  dump_resources
+}
+
+main "$@"
