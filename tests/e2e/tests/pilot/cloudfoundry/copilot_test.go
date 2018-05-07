@@ -133,12 +133,14 @@ func TestWildcardHostEdgeRouterWithMockCopilot(t *testing.T) {
 	nodeId := "router~x~x~x"
 
 	t.Log("create a new envoy test environment")
-	tmpl, err := ioutil.ReadFile(util.IstioSrc + "/tests/testdata/bootstrap_tmpl.json")
+	tmpl, err := ioutil.ReadFile(util.IstioSrc + "/tests/testdata/cf_bootstrap_tmpl.json")
 	if err != nil {
 		t.Fatal("Can't read bootstrap template", err)
 	}
 	testEnv := env.NewTestSetup(25, t)
 	testEnv.SetNoMixer(true)
+	testEnv.SetNoProxy(true)
+	testEnv.SetNoBackend(true)
 	testEnv.IstioSrc = util.IstioSrc
 	testEnv.IstioOut = util.IstioOut
 	testEnv.Ports().PilotGrpcPort = pilotGrpcPort
