@@ -42,11 +42,6 @@ func (e *Environment) GetAPIServer() test.DeployedAPIServer {
 	return nil
 }
 
-// GetIstioComponent gets the deployed configuration for all Istio components of the given kind.
-func (e *Environment) GetIstioComponent(k test.DeployedServiceKind) []test.DeployedIstioComponent {
-	return []test.DeployedIstioComponent{nil}
-}
-
 // GetApp implements the test.Environment interface
 func (e *Environment) GetApp(name string) (test.DeployedApp, error) {
 	return getApp(name, e.AppNamespace)

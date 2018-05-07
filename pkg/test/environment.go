@@ -35,8 +35,6 @@ type Environment interface {
 
 	// GetAPIServer returns the deployed k8s API server
 	GetAPIServer() DeployedAPIServer
-	// GetIstioComponent gets the deployed configuration for all Istio components of the given kind.
-	GetIstioComponent(k DeployedServiceKind) []DeployedIstioComponent
 	// GetApp returns an app object for the given name.
 	GetApp(name string) (DeployedApp, error)
 	// GetAppOrFail attempts to return the app object for the given name, or fails the test if unsuccessful.
@@ -141,11 +139,6 @@ type SpyAdapter interface {
 type DeployedAPIServer interface {
 	Deployed
 	Config() *rest.Config
-}
-
-// DeployedIstioComponent the configuration for a deployed Istio component
-type DeployedIstioComponent interface {
-	Deployed
 }
 
 // DeployedServiceKind an enum for the various types of deployed services

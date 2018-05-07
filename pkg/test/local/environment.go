@@ -30,23 +30,13 @@ func (e *Environment) StartAPIServer() test.DeployedAPIServer {
 	return nil
 }
 
-// StartGalley starts the Galley server
-func (e *Environment) StartGalley() test.DeployedIstioComponent {
-	return nil
-}
-
 // StartMixer starts the Mixer server
-func (e *Environment) StartMixer() test.DeployedIstioComponent {
+func (e *Environment) StartMixer() test.DeployedMixer {
 	return nil
 }
 
 // GetAPIServer returns the deployed k8s API server
 func (e *Environment) GetAPIServer() test.DeployedAPIServer {
-	return nil
-}
-
-// GetIstioComponent gets the deployed configuration for all Istio components of the given kind.
-func (e *Environment) GetIstioComponent(k test.DeployedServiceKind) []test.DeployedIstioComponent {
 	return nil
 }
 
