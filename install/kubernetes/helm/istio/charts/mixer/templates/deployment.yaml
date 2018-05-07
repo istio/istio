@@ -20,7 +20,6 @@
           - --port
           - "9092"
           - --portLocal
-          - "true"
           - --configStoreURL=k8s://
           - --configDefaultNamespace={{ $.Release.Namespace }}
           - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
@@ -93,7 +92,6 @@
           - --port
           - "9092"
           - --portLocal
-          - "true"
           - --configStoreURL=k8s://
           - --configDefaultNamespace={{ $.Release.Namespace }}
           - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
