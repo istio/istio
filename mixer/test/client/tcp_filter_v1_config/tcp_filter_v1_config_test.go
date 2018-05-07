@@ -119,19 +119,19 @@ func TestTCPMixerFilterV1Config(t *testing.T) {
 		fmt.Printf("Failed to setup test: %v\n", err)
 		t.Fatalf("Failed to setup test: %v", err)
 	}
-	// Verify that Mixer HTTP filter works properly when we change config version to V1 at Envoy.
-	s.SetMixerFilterConfVersion(env.MixerFilterConfigV1)
-	s.ReStartEnvoy()
+	//// Verify that Mixer HTTP filter works properly when we change config version to V1 at Envoy.
+	//s.SetMixerFilterConfVersion(env.MixerFilterConfigV1)
+	//s.ReStartEnvoy()
 
 	defer s.TearDown()
-
-	// Make sure tcp port is ready before starting the test.
-	fmt.Printf("env.WaitForPort(s.Ports().TCPProxyPort)\n")
-	env.WaitForPort(s.Ports().TCPProxyPort)
 
 	if debugTest {
 		return
 	}
+
+	// Make sure tcp port is ready before starting the test.
+	fmt.Printf("env.WaitForPort(s.Ports().TCPProxyPort)\n")
+	env.WaitForPort(s.Ports().TCPProxyPort)
 
 	url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().TCPProxyPort)
 	fmt.Printf("TestTCPMixerFilterV1Config(), http://localhost:%d/echo\n", s.Ports().TCPProxyPort)
