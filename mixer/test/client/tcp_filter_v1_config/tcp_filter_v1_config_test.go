@@ -103,7 +103,7 @@ var expectedStats = map[string]int{
 	"tcp_mixer_filter.total_report_calls":                2,
 }
 
-const debugTest = false
+const debugTest =  true
 
 func TestTCPMixerFilterV1Config(t *testing.T) {
 	s := env.NewTestSetup(env.TCPMixerFilterV1ConfigTest, t)
@@ -125,13 +125,13 @@ func TestTCPMixerFilterV1Config(t *testing.T) {
 
 	defer s.TearDown()
 
-	if debugTest {
-		return
-	}
-
 	// Make sure tcp port is ready before starting the test.
 	fmt.Printf("env.WaitForPort(s.Ports().TCPProxyPort)\n")
 	env.WaitForPort(s.Ports().TCPProxyPort)
+
+	if debugTest {
+		return
+	}
 
 	url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().TCPProxyPort)
 	fmt.Printf("TestTCPMixerFilterV1Config(), http://localhost:%d/echo\n", s.Ports().TCPProxyPort)
