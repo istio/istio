@@ -20,6 +20,13 @@ usage() {
   exit 1
 }
 
+log() {
+  local msg="${1}"
+  if [ "${QUIET}" = false ]; then
+    printf "%s\n" "${msg}"
+  fi
+}
+
 parse_args() {
   while [ "$#" -gt 0 ]; do
     case "${1}" in
@@ -66,6 +73,8 @@ dump_logs() {
       containers=$(kubectl get --namespace="${namespace}" \
           pod "${pod}" -o=jsonpath='{.spec.containers[*].name}')
       for container in ${containers}; do
+        log "Retrieving logs for ${namespace}/${pod}/${container}"
+
         mkdir -p "${LOG_DIR}/${namespace}/${pod}"
         local log_file_head="${LOG_DIR}/${namespace}/${pod}/${container}"
 
@@ -79,6 +88,8 @@ dump_logs() {
         restart_count=$(kubectl get --namespace="${namespace}" \
             pod "${pod}" -o=jsonpath="${json_path}")
         if [ "${restart_count}" -gt 0 ]; then
+          log "Retrieving previous logs for ${namespace}/${pod}/${container}"
+
           local log_previous_file
           log_previous_file="${log_file_head}_previous.log"
           kubectl logs --namespace="${namespace}" \
@@ -91,6 +102,8 @@ dump_logs() {
 }
 
 dump_resources() {
+  log "Retrieving resource configurations"
+
   mkdir -p "${OUT_DIR}"
   # Only works in Kubernetes 1.8.0 and above.
   kubectl get --all-namespaces --export \
