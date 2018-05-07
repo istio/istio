@@ -86,7 +86,7 @@ func NewDiscoveryServer(env model.Environment, generator *v1alpha3.ConfigGenerat
 	}
 
 	if len(periodicRefreshDuration) > 0 {
-		periodicRefresh()
+		go periodicRefresh()
 	}
 
 	return out
