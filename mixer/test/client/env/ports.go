@@ -42,6 +42,10 @@ const (
 	TCPMixerFilterPeriodicalReportTest
 	TCPMixerFilterTest
 	TCPMixerFilterV1ConfigTest
+	TCPMixerFilterV1ConfigTestDuplicate1
+	TCPMixerFilterV1ConfigTestDuplicate2
+	TCPMixerFilterV1ConfigTestDuplicate3
+	TCPMixerFilterV1ConfigTestDuplicate4
 	XDSTest
 
 	// The number of total tests. has to be the last one.
