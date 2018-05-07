@@ -32,6 +32,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/tests/util"
+	"net"
+	"encoding/binary"
 )
 
 func connect(t *testing.T) xdsapi.EndpointDiscoveryService_StreamEndpointsClient {
@@ -137,7 +139,7 @@ func TestReconnect(t *testing.T) {
 
 // Make a direct EDS grpc request to pilot, verify the result is as expected.
 func directRequest(server *bootstrap.Server, t *testing.T) {
-	edsstr, cla := singleRequest(server, t)
+	edsstr, cla := connectAndSend(1, t)
 	// TODO: validate VersionInfo and nonce once we settle on a scheme
 
 	ep := cla.Endpoints
@@ -183,9 +185,29 @@ func directRequest(server *bootstrap.Server, t *testing.T) {
 }
 
 // Make a direct EDS grpc request to pilot, verify the result is as expected.
-func singleRequest(server *bootstrap.Server, t *testing.T) (xdsapi.EndpointDiscoveryService_StreamEndpointsClient,
+func connectAndSend(id int, t *testing.T) (xdsapi.EndpointDiscoveryService_StreamEndpointsClient,
 	*xdsapi.ClusterLoadAssignment) {
-	edsstr := connect(t)
+
+		conn, err := grpc.Dial(util.MockPilotGrpcAddr, grpc.WithInsecure())
+	if err != nil {
+		t.Fatal("Connection failed", err)
+	}
+
+	xds := xdsapi.NewEndpointDiscoveryServiceClient(conn)
+	edsstr, err := xds.StreamEndpoints(context.Background())
+	if err != nil {
+		t.Fatal("Rpc failed", err)
+	}
+	ipb := []byte{10,0,0,0}
+	binary.BigEndian.PutUint16(ipb[2:], uint16(id))
+	err = edsstr.Send(&xdsapi.DiscoveryRequest{
+		Node: &envoy_api_v2_core1.Node{
+			Id: sidecarId(net.IP(ipb).String(), "app3"),
+		},
+		ResourceNames: []string{"hello.default.svc.cluster.local|http"}})
+	if err != nil {
+		t.Fatal("Send failed", err)
+	}
 
 	res1, err := edsstr.Recv()
 	if err != nil {
@@ -211,9 +233,10 @@ func multipleRequest(server *bootstrap.Server, t *testing.T) {
 	n := 10
 	wg.Add(n)
 	for i := 0; i < n; i++ {
+		current := n
 		go func() {
 			// Connect and get initial response
-			edsstr, _ := singleRequest(server, t)
+			edsstr, _ := connectAndSend(current + 2, t)
 			// Do multiple pushes
 			for j := 0; j < 10; j++ {
 				v2.PushAll()

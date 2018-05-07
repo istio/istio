@@ -214,17 +214,17 @@ func TestTLS(t *testing.T) {
 }
 
 func adsReceive(ads ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, to time.Duration) (*xdsapi.DiscoveryResponse, error) {
-	done := make(chan struct{}, 1)
+	done := make(chan int, 1)
 	t := time.NewTimer(to)
-	defer t.Stop()
+	defer func() {
+		done <- 1
+	}()
 	go func() {
 		select {
 		case <-t.C:
 			_ = ads.CloseSend() // will result in adsRecv closing as well, interrupting the blocking recv
 		case <-done:
-			if !t.Stop() {
-				<-t.C
-			}
+			_ = t.Stop()
 		}
 	}()
 	return ads.Recv()

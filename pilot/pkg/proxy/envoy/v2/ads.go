@@ -95,6 +95,8 @@ func init() {
 
 }
 
+// DiscoveryStream is a common interface for EDS and ADS. It also has a
+// shorter name.
 type DiscoveryStream interface {
 	Send(*xdsapi.DiscoveryResponse) error
 	Recv() (*xdsapi.DiscoveryRequest, error)

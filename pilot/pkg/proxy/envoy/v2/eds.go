@@ -299,7 +299,6 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 				log.Infof("EDS: REQ %s %v %v raw: %s ", con.ConID, con.Clusters, peerAddr, discReq.String())
 			}
 			con.Clusters = discReq.GetResourceNames()
-			con.ConID = con.ConID
 			initialRequestReceived = true
 
 			// In 0.7 EDS only listens for 1 cluster for each stream. In 0.8 EDS is no longer
