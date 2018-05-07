@@ -432,10 +432,10 @@ istioctl-test: istioctl
 	go test -p 1 ${T} ./istioctl/...
 
 .PHONY: mixer-test
-MIXER_TEST_T ?= ${T} ${GOTEST_PARALLEL}
+MIXER_TEST_T ?= ${T}
 mixer-test: mixs
 	# Some tests use relative path "testdata", must be run from mixer dir
-	(cd mixer; go test ${GOTEST_P} ./...)
+	(cd mixer; go test ${GOTEST_P} ${MIXER_TEST_T} ./...)
 
 .PHONY: broker-test
 broker-test: depend
