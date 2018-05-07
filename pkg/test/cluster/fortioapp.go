@@ -15,6 +15,9 @@
 package cluster
 
 import (
+	"fmt"
+	"strings"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/tests/util"
@@ -41,25 +44,31 @@ func NewFortioApp(meta model.ConfigMeta, serverAddress string, labels []string) 
 	return a
 }
 
+func getPods() ([]string, error) {
+	// TODO: This is just a shim here to make the code compile. Most likely we will have a better internal
+	// model and we won't need to do a getPods() call.
+	return nil, nil
+}
+
 // CallFortio implements the test.DeployedApp interface
-func (f *fortioapp) CallFortio(arg string, path string) (test.AppCallFortioResponse, error) {
+func (f *fortioapp) CallFortio(arg string, path string) (test.FortioAppCallResult, error) {
 	pods, err := getPods()
 	if err != nil {
-		return nil, err
+		return test.FortioAppCallResult{}, err
 	}
 	if len(pods) != 1 {
-		return nil, errors.New("Expected only one pod instance, but %d.", len(pods))
+		return test.FortioAppCallResult{}, fmt.Errorf("Expected only one pod instance, but %d.", len(pods))
 	}
 
 	pod := pods[0]
 
 	response, err := util.Shell("kubectl exec -n %s %s -c %s -- /usr/local/bin/fortio %s %s/%s", f.namespace, pod, f.name, f.serverAddress, arg, path)
 	if err != nil {
-		return nil, err
+		return test.FortioAppCallResult{}, err
 	}
 
-	out := test.AppCallFortioResponse{
-		raw: response,
+	out := test.FortioAppCallResult{
+		Raw: response,
 	}
 	return out, nil
 }
@@ -72,7 +81,7 @@ func (f *fortioapp) getPods() ([]string, error) {
 	return strings.Split(out, " "), nil
 }
 
-func (f *fortioapp) labelsToString() {
+func (f *fortioapp) labelsToString() string {
 	str := ""
 	for _, label := range f.labels {
 		str = str + label + ","

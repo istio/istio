@@ -105,13 +105,14 @@ type DeployedPilot interface {
 	Deployed
 }
 
+// DeployedFortioApp represents a deployed fake Fortio App within the mesh.
 type DeployedFortioApp interface {
 	Deployed
-	CallFortio(arg string, path string) (AppFortioCallResponse, error)
+	CallFortio(arg string, path string) (FortioAppCallResult, error)
 }
 
-// AppFortioCallResponse provides details about the result of a fortio call
-type AppFortioCallResponse struct {
+// FortioAppCallResult provides details about the result of a fortio call
+type FortioAppCallResult struct {
 	// The raw content of the response
 	Raw string
 }
