@@ -7,9 +7,35 @@
 #   definitions, configmaps, secrets (names only) and "all" as defined by
 #   kubectl.
 
-readonly OUT_DIR="${1:-istio-dump}"
-readonly LOG_DIR="${OUT_DIR}/logs"
-readonly RESOURCES_FILE="${OUT_DIR}/resources.yaml"
+error() {
+  echo "$*" >&2
+}
+
+usage() {
+  error "usage: dump_kubernetes.sh [options]"
+  error ""
+  error "  -d, --output-directory   directory to output files; defaults to"
+  error "                               \"istio-dump\""
+  exit 1
+}
+
+parse_args() {
+  while [ "$#" -gt 0 ]; do
+    case "${1}" in
+      -d|--output-directory)
+        local out_dir="${2}"
+        shift 2 # Shift past option and value.
+        ;;
+      *)
+        usage
+        ;;
+    esac
+  done
+
+  readonly OUT_DIR="${out_dir:-istio-dump}"
+  readonly LOG_DIR="${OUT_DIR}/logs"
+  readonly RESOURCES_FILE="${OUT_DIR}/resources.yaml"
+}
 
 check_prerequisites() {
   local prerequisites=$*
@@ -66,6 +92,7 @@ dump_resources() {
       -o yaml > "${RESOURCES_FILE}"
 }
 
+parse_args "$@"
 check_prerequisites kubectl
 dump_logs
 dump_resources
