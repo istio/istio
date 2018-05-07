@@ -119,6 +119,10 @@ func TestTCPMixerFilterV1Config(t *testing.T) {
 		fmt.Printf("Failed to setup test: %v\n", err)
 		t.Fatalf("Failed to setup test: %v", err)
 	}
+	// Verify that Mixer HTTP filter works properly when we change config version to V1 at Envoy.
+	s.SetMixerFilterConfVersion(env.MixerFilterConfigV1)
+	s.ReStartEnvoy()
+
 	defer s.TearDown()
 
 	if debugTest {
