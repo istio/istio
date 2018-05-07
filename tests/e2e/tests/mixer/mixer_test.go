@@ -44,8 +44,6 @@ import (
 )
 
 const (
-	u2 = "test-user"
-
 	bookinfoSampleDir     = "samples/bookinfo"
 	yamlExtension         = "yaml"
 	deploymentDir         = "kube"
@@ -89,16 +87,16 @@ var (
 	ingressName        = "ingress"
 	productPageTimeout = 60 * time.Second
 
-	rulesDir                 string
-	rateLimitRule            string
-	denialRule               string
-	ingressDenialRule        string
-	newTelemetryRule         string
-	routeAllRule             string
-	routeReviewsVersionsRule string
-	routeReviewsV3Rule       string
-	tcpDbRule                string
-	bookinfoGateway          string
+	rulesDir                 = "kube" // v1 rules directory by default
+	rateLimitRule            = "mixer-rule-ratings-ratelimit"
+	denialRule               = "mixer-rule-ratings-denial"
+	ingressDenialRule        = "mixer-rule-ingress-denial"
+	newTelemetryRule         = "mixer-rule-additional-telemetry"
+	routeAllRule             = "route-rule-all-v1"
+	routeReviewsVersionsRule = "route-rule-reviews-v2-v3"
+	routeReviewsV3Rule       = "route-rule-reviews-v3"
+	tcpDbRule                = "route-rule-ratings-db"
+	bookinfoGateway          = "bookinfo-gateway"
 
 	defaultRules []string
 	rules        []string
@@ -120,33 +118,25 @@ func (t *testConfig) Setup() (err error) {
 		}
 	}()
 
-	rulesDir = "kube"
 	if testFlags.V1alpha3 {
 		rulesDir = "routing"
 		ingressName = "ingressgateway"
 	}
-	rateLimitRule = filepath.Join(rulesDir, "mixer-rule-ratings-ratelimit")
-	denialRule = filepath.Join(rulesDir, "mixer-rule-ratings-denial")
-	ingressDenialRule = filepath.Join(rulesDir, "mixer-rule-ingress-denial")
-	newTelemetryRule = filepath.Join(rulesDir, "mixer-rule-additional-telemetry")
-	routeAllRule = filepath.Join(rulesDir, "route-rule-all-v1")
-	routeReviewsVersionsRule = filepath.Join(rulesDir, "route-rule-reviews-v2-v3")
-	routeReviewsV3Rule = filepath.Join(rulesDir, "route-rule-reviews-v3")
-	tcpDbRule = filepath.Join(rulesDir, "route-rule-ratings-db")
-	bookinfoGateway = filepath.Join(rulesDir, "bookinfo-gateway")
-
-	defaultRules = []string{routeAllRule, bookinfoGateway}
-	rules = []string{rateLimitRule, denialRule, ingressDenialRule, newTelemetryRule,
-		routeReviewsVersionsRule, routeReviewsV3Rule, tcpDbRule}
-
-	for _, rule := range defaultRules {
-		err = copyRuleToFilesystem(t, rule)
-		if err != nil {
-			return nil
-		}
+	drs := []*string{&routeAllRule, &bookinfoGateway}
+	rs := []*string{&rateLimitRule, &denialRule, &ingressDenialRule, &newTelemetryRule,
+		&routeReviewsVersionsRule, &routeReviewsV3Rule, &tcpDbRule}
+	for _, dr := range drs {
+		*dr = filepath.Join(rulesDir, *dr)
+		defaultRules = append(defaultRules, *dr)
+	}
+	for _, r := range rs {
+		*r = filepath.Join(rulesDir, *r)
+		rules = append(rules, *r)
 	}
 
-	for _, rule := range rules {
+	log.Infof("new rule %s", rateLimitRule)
+	log.Infof("Rules are default: %v, test-specific: %v", defaultRules, rules)
+	for _, rule := range append(defaultRules, rules...) {
 		err = copyRuleToFilesystem(t, rule)
 		if err != nil {
 			return nil
@@ -184,8 +174,6 @@ func copyRuleToFilesystem(t *testConfig, rule string) error {
 		return err
 	}
 	content := string(ori)
-	// TODO: is this needed and why?
-	content = strings.Replace(content, "jason", u2, -1)
 
 	err = os.MkdirAll(filepath.Dir(dest), 0700)
 	if err != nil {
@@ -436,7 +424,7 @@ func TestMetric(t *testing.T) {
 }
 
 func TestIngressMetric(t *testing.T) {
-	checkMetricReport(t, "istio-" + ingressName)
+	checkMetricReport(t, "istio-"+ingressName)
 }
 
 // checkMetricReport checks whether report works for the given service
