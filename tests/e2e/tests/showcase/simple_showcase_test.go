@@ -37,7 +37,7 @@ func TestSvcLoading(t *testing.T) {
 	arg := "load -qps 0 -t 10s "
 	// Test Loading
 	for _, app := range apps {
-		if _, err := app.CallFotio(arg, path); err != nil {
+		if _, err := app.CallFortio(arg, path); err != nil {
 			t.Fatal("Failed to run fortio %s.", err)
 		}
 	}
