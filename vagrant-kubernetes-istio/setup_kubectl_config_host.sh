@@ -19,3 +19,5 @@ else
     fi
 fi
 vagrant ssh -c "cat ~/.kube/config" > ~/.kube/config
+
+echo "kubectl setup done."
