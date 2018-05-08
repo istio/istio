@@ -17,8 +17,8 @@ spec:
     route:
     - destination:
         host: ratings
-        subset: v2
+        subset: v1
   - route:
     - destination:
         host: ratings
-        subset: v2
+        subset: v1
