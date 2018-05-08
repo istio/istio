@@ -17,7 +17,7 @@ package cluster
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/environment"
 )
 
 // Environment a cluster-based environment for testing.
@@ -27,7 +27,7 @@ type Environment struct {
 	AppNamespace         string
 }
 
-var _ test.Environment = &Environment{}
+var _ environment.Interface = &Environment{}
 
 // Configure applies the given configuration to the mesh.
 func (e *Environment) Configure(config string) {
@@ -36,24 +36,24 @@ func (e *Environment) Configure(config string) {
 }
 
 // GetMixer returns a deployed Mixer instance in the environment.
-func (e *Environment) GetMixer() test.DeployedMixer {
+func (e *Environment) GetMixer() environment.DeployedMixer {
 	// TODO
 	panic("Not yet implemented")
 }
 
 // GetPilot returns a deployed Pilot instance in the environment.
-func (e *Environment) GetPilot() test.DeployedPilot {
+func (e *Environment) GetPilot() environment.DeployedPilot {
 	// TODO
 	panic("Not yet implemented")
 }
 
 // GetApp returns a fake testing app object for the given name.
-func (e *Environment) GetApp(name string) (test.DeployedApp, error) {
+func (e *Environment) GetApp(name string) (environment.DeployedApp, error) {
 	return getApp(name, e.AppNamespace)
 }
 
 // GetAppOrFail returns a fake testing app object for the given name, or fails the test if unsuccessful.
-func (e *Environment) GetAppOrFail(name string, t *testing.T) test.DeployedApp {
+func (e *Environment) GetAppOrFail(name string, t *testing.T) environment.DeployedApp {
 	t.Helper()
 	a, err := getApp(name, e.AppNamespace)
 	if err != nil {
@@ -63,25 +63,25 @@ func (e *Environment) GetAppOrFail(name string, t *testing.T) test.DeployedApp {
 }
 
 // GetFortioApp returns a Fortio App object for the given name.
-func (e *Environment) GetFortioApp(name string) (test.DeployedFortioApp, error) {
+func (e *Environment) GetFortioApp(name string) (environment.DeployedFortioApp, error) {
 	// TODO
 	panic("Not yet implemented")
 }
 
 // GetFortioAppOrFail returns a Fortio App object for the given name, or fails the test if unsuccessful.
-func (e *Environment) GetFortioAppOrFail(name string, t *testing.T) (test.DeployedFortioApp, error) {
+func (e *Environment) GetFortioAppOrFail(name string, t *testing.T) (environment.DeployedFortioApp, error) {
 	// TODO
 	panic("Not yet implemented")
 }
 
 // GetFortioApps returns a set of Fortio Apps based on the given selector.
-func (e *Environment) GetFortioApps(selector string, t *testing.T) []test.DeployedFortioApp {
+func (e *Environment) GetFortioApps(selector string, t *testing.T) []environment.DeployedFortioApp {
 	// TODO
 	panic("Not yet implemented")
 }
 
 // GetPolicyBackendOrFail returns the mock policy backend that is used by Mixer for policy checks and reports.
-func (e *Environment) GetPolicyBackendOrFail(t *testing.T) test.DeployedPolicyBackend {
+func (e *Environment) GetPolicyBackendOrFail(t *testing.T) environment.DeployedPolicyBackend {
 	// TODO
 	panic("Not yet implemented")
 }
