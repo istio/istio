@@ -63,11 +63,14 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //           number: 9080
 //           name: http-wildcard
 //           protocol: HTTP
-//         # no hosts implies wildcard match
+//         hosts:
+//         - "*"
 //       - port:
-//           number: 2379 #to expose internal service via external port 2379
+//           number: 2379 # to expose internal service via external port 2379
 //           name: mongo
 //           protocol: MONGO
+//         hosts:
+//         - "*"
 //
 // The Gateway specification above describes the L4-L6 properties of a load
 // balancer. A `VirtualService` can then be bound to a gateway to control
@@ -166,6 +169,8 @@ message Gateway {
 //           number: 80
 //           name: http2
 //           protocol: HTTP2
+//         hosts:
+//         - "*"
 //
 // Another example
 //
@@ -181,6 +186,8 @@ message Gateway {
 //           number: 27018
 //           name: mongo
 //           protocol: MONGO
+//         hosts:
+//         - "*"
 //
 // The following is an example of TLS configuration for port 443
 //
@@ -196,6 +203,8 @@ message Gateway {
 //           number: 443
 //           name: https
 //           protocol: HTTPS
+//         hosts:
+//         - "*"
 //         tls:
 //           mode: SIMPLE
 //           serverCertificate: /etc/certs/server.pem
@@ -206,7 +215,8 @@ message Server {
   // connections
   Port port = 1;
 
-  // A list of hosts exposed by this gateway. While typically applicable to
+  // REQUIRED. A list of hosts exposed by this gateway. At least one
+  // host is required. While typically applicable to
   // HTTP services, it can also be used for TCP services using TLS with
   // SNI. Standard DNS wildcard prefix syntax is permitted.
   //
