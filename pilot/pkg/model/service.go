@@ -26,6 +26,7 @@ import (
 	"bytes"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	authn "istio.io/api/authentication/v1alpha1"
@@ -615,14 +616,26 @@ func BuildSubsetKey(direction TrafficDirection, subsetName string, hostname Host
 	if subsetName == "" {
 		subsetName = "_default_"
 	}
-	return fmt.Sprintf("%s.%s.%s.%s", direction, port.Name, subsetName, hostname)
+
+	portName := port.Name
+	if portName == "" {
+		portName = strconv.FormatInt(int64(port.Port), 10)
+	}
+
+	return fmt.Sprintf("%s.%s.%s.%s", direction, portName, subsetName, hostname)
 }
 
 // ParseSubsetKey is the inverse of the BuildSubsetKey method
 func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, hostname Hostname, port *Port) {
 	parts := strings.SplitN(s, ".", 4)
 	direction = TrafficDirection(parts[0])
-	port = &Port{Name: parts[1]}
+
+	if pi, err := strconv.ParseInt(parts[1], 10, 64); err == nil {
+		port = &Port{Port: int(pi)}
+	} else {
+		port = &Port{Name: parts[1]}
+	}
+
 	subsetName = parts[2]
 	if subsetName == "_default_" {
 		subsetName = ""
