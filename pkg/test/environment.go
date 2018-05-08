@@ -49,6 +49,9 @@ type Environment interface {
 
 	// GetFortioApps returns a set of Fortio Apps based on the given selector
 	GetFortioApps(selector string, t *testing.T) []DeployedFortioApp
+
+	// GetPolicyBackend returns the handle to a deployed fake policy backend.
+	GetPolicyBackend(t *testing.T) DeployedPolicyBackend
 }
 
 // Deployed represents a deployed component
@@ -61,6 +64,18 @@ type DeployedApp interface {
 	Endpoints() []DeployedAppEndpoint
 	EndpointsForProtocol(protocol model.Protocol) []DeployedAppEndpoint
 	Call(url string, count int, headers http.Header) (AppCallResult, error)
+	CallOrFail(url string, count int, headers http.Header, t *testing.T) AppCallResult
+}
+
+// DeployedPolicyBackend represents a deployed fake policy backend for Mixer.
+type DeployedPolicyBackend interface {
+	Deployed
+
+	// DenyCheck indicates that the policy backend should deny all incoming check requests.
+	DenyCheck(deny bool)
+
+	// ExpectReport checks that the backend has received the given report request.
+	ExpectReport(t *testing.T, expected string)
 }
 
 // DeployedAppEndpoint represents a single endpoint in a DeployedApp.

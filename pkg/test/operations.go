@@ -17,7 +17,6 @@ package test
 import (
 	"fmt"
 	"os"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -47,6 +46,11 @@ func Run(testID string, m *testing.M) {
 // Ignore the test with the given reason.
 func Ignore(t testing.TB, reason string) {
 	t.Skipf("Skipping(Ignored): %s", reason)
+}
+
+// SuiteRequires applies the given dependencies to all tests in the suite.
+func SuiteRequires(m *testing.M, dependencies ...dependency.Dependency) {
+	// TODO
 }
 
 // Requires ensures that the given dependencies will be satisfied. If they cannot, then the
@@ -82,6 +86,11 @@ func Requires(t testing.TB, dependencies ...dependency.Dependency) {
 	}
 }
 
+// SuiteTag tags all tests within the suite with the given labels. The user can filter using the labels.
+func SuiteTag(m *testing.M, labels ...label.Label) {
+	// TODO
+}
+
 // Tag the test with the given labels. The user can filter using the labels.
 // TODO: The polarity of this is a bit borked. If the test doesn't call Tag, then it won't get filtered out.
 func Tag(t testing.TB, labels ...label.Label) {
@@ -103,22 +112,7 @@ func Tag(t testing.TB, labels ...label.Label) {
 		}
 	}
 
-	if !skip {
-		checkWellknownLabels(t, labels...)
-	}
-
 	if skip && !t.Skipped() {
 		t.Skip("Skipping(Filtered): No matching label found")
-	}
-}
-
-func checkWellknownLabels(t testing.TB, labels ...label.Label) {
-	for _, l := range labels {
-		switch l {
-		case label.LinuxOnly:
-			if runtime.GOOS != "linux" {
-				t.Skipf("Skipping(Filtered): The operating system is not Linux: %s", runtime.GOOS)
-			}
-		}
 	}
 }

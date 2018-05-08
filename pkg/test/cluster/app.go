@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"testing"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -85,6 +86,8 @@ type app struct {
 	namespace   string
 	endpoints   []*endpoint
 }
+
+var _ test.DeployedApp = &app{}
 
 func getApp(serviceName, namespace string) (test.DeployedApp, error) {
 	// Get the yaml config for the service
@@ -209,6 +212,14 @@ func (a *app) Call(url string, count int, headers http.Header) (test.AppCallResu
 	}
 
 	return out, nil
+}
+
+func (a *app) CallOrFail(url string, count int, headers http.Header, t *testing.T) test.AppCallResult {
+	r, err := a.Call(url, count, headers)
+	if err != nil {
+		t.Fatalf("Call to app failed: app='%s', url='%s', err='%v'", a.appName, url, err)
+	}
+	return r
 }
 
 func toExtra(headers http.Header) string {
