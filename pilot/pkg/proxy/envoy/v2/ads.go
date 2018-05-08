@@ -47,6 +47,10 @@ var (
 )
 
 var (
+	timeZero time.Time
+)
+
+var (
 	// experiment on getting some monitoring on config errors.
 	cdsReject = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "pilot_xds_cds_reject",
@@ -151,6 +155,12 @@ type XdsConnection struct {
 	// added will be true if at least one discovery request was received, and the connection
 	// is added to the map of active.
 	added bool
+
+	// Time of last push
+	LastPush time.Time
+
+	// Time of last push failure.
+	LastPushFailure time.Time
 }
 
 // XdsEvent represents a config or registry event that results in a push.
@@ -427,10 +437,25 @@ func adsPushAll() {
 	// TODO: get service, serviceinstances, configs once, to avoid repeated redundant calls.
 	// TODO: indicate the specific events, to only push what changed.
 	for _, client := range tmpMap {
-		select {
-		case client.pushChannel <- &XdsEvent{}:
-		case <-client.doneChannel:
-		}
+		go func(client *XdsConnection) {
+			select {
+			case client.pushChannel <- &XdsEvent{}:
+				client.LastPush = time.Now()
+				client.LastPushFailure = timeZero
+			case <-client.doneChannel: // connection was closed
+			default:
+				// This may happen to some clients if the other side is in a bad state and can't receive.
+				// The tests were catching this - one of the client was not reading.
+				if client.LastPushFailure.IsZero() {
+					client.LastPushFailure = time.Now()
+					log.Infof("Failed to push, client busy %s", client.ConID)
+				} else {
+					if time.Since(client.LastPushFailure) > 10*time.Second {
+						log.Infof("Repeated failure to push, closing %s", client.ConID)
+					}
+				}
+			}
+		}(client)
 	}
 }
 

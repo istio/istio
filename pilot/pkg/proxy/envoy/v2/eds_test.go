@@ -18,6 +18,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net"
 	"net/http"
 	"runtime"
@@ -36,7 +37,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/tests/util"
-	"log"
 )
 
 func connect(t *testing.T) xdsapi.EndpointDiscoveryService_StreamEndpointsClient {
@@ -233,6 +233,12 @@ func connectAndSend(id int, t *testing.T) (xdsapi.EndpointDiscoveryService_Strea
 func multipleRequest(server *bootstrap.Server, t *testing.T) {
 	wgConnect := &sync.WaitGroup{}
 	wg := &sync.WaitGroup{}
+
+	// Bad client - will not read any response. This triggers Write to block, which should
+	// be detected
+	ads := connectADS(t, util.MockPilotGrpcAddr)
+	sendCDSReq(t, sidecarId(app3Ip, "app3"), ads)
+
 	// 1000 clients * 100 pushes = ~4 sec
 	n := 10 // clients
 	nPushes := 10
