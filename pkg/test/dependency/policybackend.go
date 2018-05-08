@@ -16,27 +16,27 @@ package dependency
 
 import "istio.io/istio/pkg/test/internal"
 
-// RemoteSpyAdapter indicates a dependency on the remote spy adapter.
-var RemoteSpyAdapter Dependency = &remoteAdapter{}
+// PolicyBackend indicates a dependency on the mock policy backend.
+var PolicyBackend Dependency = &policyBackend{}
 
-type remoteAdapter struct {
+type policyBackend struct {
 }
 
-var _ Dependency = &remoteAdapter{}
-var _ internal.Stateful = &remoteAdapter{}
+var _ Dependency = &policyBackend{}
+var _ internal.Stateful = &policyBackend{}
 
-func (r *remoteAdapter) String() string {
-	return ""
+func (r *policyBackend) String() string {
+	return "policyBackend"
 }
 
-func (r *remoteAdapter) Initialize() (interface{}, error) {
+func (r *policyBackend) Initialize() (interface{}, error) {
 	return nil, nil
 }
 
-func (r *remoteAdapter) Reset(interface{}) error {
+func (r *policyBackend) Reset(interface{}) error {
 	return nil
 }
 
-func (r *remoteAdapter) Cleanup(interface{}) {
+func (r *policyBackend) Cleanup(interface{}) {
 
 }

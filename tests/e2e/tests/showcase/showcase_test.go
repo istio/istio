@@ -19,9 +19,8 @@ package showcase
 import (
 	"testing"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test"
-	//"istio.io/istio/pkg/test/charts"
-	//"istio.io/istio/pkg/test/cluster"
 	"istio.io/istio/pkg/test/dependency"
 	"istio.io/istio/pkg/test/label"
 )
@@ -30,6 +29,12 @@ import (
 // - Do cleanup before exit
 // - process testing specific flags
 func TestMain(m *testing.M) {
+	// Tags all tests in the suite with this tag.
+	test.SuiteTag(m, label.Networking)
+
+	// Indicates that all tests in the suite requires a particular dependency.
+	test.SuiteRequires(m, dependency.GKE)
+
 	test.Run("showcase_test", m)
 }
 
@@ -39,62 +44,66 @@ func TestIgnored(t *testing.T) {
 }
 
 // Test categorization can be used to filter out tests.
-// Try running "go test -labels=integration" or "go test -labels=Pilot" etc.
+// Try running "go test -labels=networking" or "go test -labels=policy" etc.
 func TestCategorization(t *testing.T) {
-	test.Tag(t, label.Integration, label.Pilot, label.Mixer)
+	test.Tag(t, label.Networking)
 }
 
 // Requirement checks and ensures that the specified requirement can be satisfied.
-// In this case, the "APIServer" dependency will be initialized (once per running suite) and be available
-// for use.
-func TestRequirement_Cluster(t *testing.T) {
-	test.Requires(t, dependency.Cluster)
+// In this case, the "Apps" and "Pilot" dependencies will be initialized (once per running suite) and be
+// available for use.
+func TestRequirement_Apps(t *testing.T) {
+	test.Requires(t, dependency.Apps, dependency.Pilot)
+
 }
 
-// A requirement that will cause failure on Mac. Tags can be used to filter out as well.
-func TestRequirement_UnsatisfiedButSkipped(t *testing.T) {
-	test.Tag(t, label.LinuxOnly) // LinuxOnly is a special flag that causes the test to be skipped on non-Linux environments.
-}
-
-// Showcase using local components only, without a cluster.
-func TestDeployment_Local(t *testing.T) {
-	test.Tag(t, label.Integration)
-	test.Requires(t, dependency.Mixer, dependency.Pilot)
-
-	e := test.GetEnvironment(t)
-	e.Configure(`aaa`)
-
-	m := e.GetMixer()
-	_ = m.Report(nil)
-}
-
-func TestDeployment_Helm(t *testing.T) {
-	test.Tag(t, label.Integration)
-	test.Requires(t, dependency.Cluster) // Specify that we need *a* Cluster (can be Minikube, GKE, K8s etc.)
-
-	e := test.GetEnvironment(t)
-	//e.Deploy(charts.Istio) // Deploy a shrink-wrapped Helm chart to the cluster.
-
-	a := e.GetAPIServer()                             // Get the singleton API Server
-	g := e.GetIstioComponent(test.GalleyComponent)[0] // Get a list of Galley instances and pick the first one.
-
-	//cfg := a.Config() // Kube config to access the API Server directly.
-
-	_ = g
-	_ = a
-	//_ = cfg
-}
-
-func TestRequirement_ExclusiveCluster(t *testing.T) {
-	test.Tag(t, label.Integration)
-	test.Requires(t, dependency.ExclusiveCluster) // We need a cluster with exclusive access
-
-	// ....
-}
-
+// Require (specifically) a GKE cluster.
 func TestRequirement_GKE(t *testing.T) {
-	test.Tag(t, label.Integration)
 	test.Requires(t, dependency.GKE) // We specifically need GKE
 
 	// ....
+}
+
+func TestFull(t *testing.T) {
+	test.Requires(t, dependency.Apps, dependency.Pilot, dependency.Mixer, dependency.PolicyBackend)
+
+	// Environment is the main way to interact with Istio components and the testing apparatus. Environment
+	// encapsulates the specifics (i.e. whether it is based on local processes, or cluster) but exposes a
+	// uniform an API.
+	env := test.GetEnvironment(t)
+
+	// Configure the environment for this particular test.
+	cfg := `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+...
+`
+	env.Configure(cfg)
+
+	// Get handles to the fake applications to drive the test.
+	appa := env.GetAppOrFail("a", t)
+	appt := env.GetAppOrFail("t", t)
+
+	// Returns the fake policy backend that Mixer will use to check policies against.
+	policyBe := env.GetPolicyBackend(t)
+
+	// Prime the policy backend's behavior. It should deny all check requests.
+	policyBe.DenyCheck()
+
+	// Send requests to all of the HTTP endpoints. We expect the deny check to cause the HTTP requests to fail.
+	endpoints := appt.EndpointsForProtocol(model.ProtocolHTTP)
+	for _, endpoint := range endpoints {
+		url := endpoint.MakeURL(false) + "/a"
+		t.Run(url, func(t *testing.T) {
+			result, err := appa.Call(url, 1, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// We do not expect check calls to fail
+			if result.IsSuccess() {
+				t.Fatalf("HTTP Request unsuccessful: %s", result.Body)
+			}
+		})
+	}
 }
