@@ -231,6 +231,16 @@ func (l Labels) Validate() error {
 	return errs
 }
 
+// ValidateAddressMessageFQDN validate that an address proto message is a valid FQDN
+func ValidateAddressMessageFQDN(address *networking.Address) error {
+	_, ok := address.Address.(*networking.Address_Ip)
+	if !ok {
+		return fmt.Errorf("%s is not an IP address", address)
+	}
+	addr := address.GetIp()
+	return ValidateFQDN(addr)
+}
+
 // ValidateFQDN checks a fully-qualified domain name
 func ValidateFQDN(fqdn string) error {
 	return appendErrors(checkDNS1123Preconditions(fqdn), validateDNS1123Labels(fqdn))
@@ -518,6 +528,15 @@ func ValidateSubnet(subnet string) error {
 	return ValidateIPv4Subnet(subnet)
 }
 
+func validateAddressMessageCIDR(address *networking.Address) error {
+	_, ok := address.Address.(*networking.Address_Ip)
+	if !ok {
+		return fmt.Errorf("%s is not an IP address", address)
+	}
+	addr := address.GetIp()
+	return validateCIDR(addr)
+}
+
 // validateCIDR checks that a string is in "CIDR notation"
 func validateCIDR(cidr string) error {
 	// We expect a string in "CIDR notation", i.e. a.b.c.d/xx form
@@ -541,6 +560,16 @@ func ValidateIPv4Subnet(subnet string) error {
 		return validateCIDR(subnet)
 	}
 	return ValidateIPv4Address(subnet)
+}
+
+// ValidateAddressMessageIPv4 validates that an Address proto message is a valid IPv4 address
+func ValidateAddressMessageIPv4(address *networking.Address) error {
+	_, ok := address.Address.(*networking.Address_Ip)
+	if !ok {
+		return fmt.Errorf("%s is not an IP address", address)
+	}
+	addr := address.GetIp()
+	return ValidateIPv4Address(addr)
 }
 
 // ValidateIPv4Address validates that a string in "CIDR notation" or "Dot-decimal notation"
@@ -2129,7 +2158,7 @@ func ValidateServiceEntry(config proto.Message) (errs error) {
 		errs = appendErrors(errs, ValidateWildcardDomain(host))
 	}
 	for _, address := range serviceEntry.Addresses {
-		errs = appendErrors(errs, validateCIDR(address))
+		errs = appendErrors(errs, validateAddressMessageCIDR(address))
 	}
 
 	servicePortNumbers := make(map[uint32]bool)
@@ -2158,7 +2187,7 @@ func ValidateServiceEntry(config proto.Message) (errs error) {
 
 		for _, endpoint := range serviceEntry.Endpoints {
 			errs = appendErrors(errs,
-				ValidateIPv4Address(endpoint.Address),
+				ValidateAddressMessageIPv4(endpoint.Address),
 				Labels(endpoint.Labels).Validate())
 
 			for name, port := range endpoint.Ports {
@@ -2188,7 +2217,7 @@ func ValidateServiceEntry(config proto.Message) (errs error) {
 
 		for _, endpoint := range serviceEntry.Endpoints {
 			errs = appendErrors(errs,
-				ValidateFQDN(endpoint.Address),
+				ValidateAddressMessageFQDN(endpoint.Address),
 				Labels(endpoint.Labels).Validate())
 
 			for name, port := range endpoint.Ports {

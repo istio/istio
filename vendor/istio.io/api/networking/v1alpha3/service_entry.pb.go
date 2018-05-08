@@ -18,7 +18,7 @@ var _ = math.Inf
 // outside the mesh.  Location determines the behavior of several
 // features, such as service-to-service mTLS authentication, policy
 // enforcement, etc. When communicating with services outside the mesh,
-// Istio's mTLS authentication is disabled, and policy enforcement is
+// Istio's mTLS authentication is disabled, and policy enforcements are
 // performed on the client-side as opposed to server-side.
 type ServiceEntry_Location int32
 
@@ -76,7 +76,8 @@ const (
 	// will resolve the DNS address specified in the hosts field, if
 	// wildcards are not used. If endpoints are specified, the DNS
 	// addresses specified in the endpoints will be resolved to determine
-	// the destination IP address.
+	// the destination IP address. DNS resolution cannot be used with `unix`
+	// address endpoints.
 	ServiceEntry_DNS ServiceEntry_Resolution = 2
 )
 
@@ -119,7 +120,7 @@ func (ServiceEntry_Resolution) EnumDescriptor() ([]byte, []int) {
 //       hosts:
 //       - mymongodb.somedomain # not used
 //       addresses:
-//       - 192.192.192.192/24 # VIPs
+//       - {ip: 192.192.192.192/24} # VIPs
 //       ports:
 //       - number: 27018
 //         name: mongodb
@@ -127,8 +128,8 @@ func (ServiceEntry_Resolution) EnumDescriptor() ([]byte, []int) {
 //       location: MESH_INTERNAL
 //       resolution: STATIC
 //       endpoints:
-//       - address: 2.2.2.2
-//       - address: 3.3.3.3
+//       - address: {ip: 2.2.2.2}
+//       - address: {ip: 3.3.3.3}
 //
 // and the associated DestinationRule
 //
@@ -137,7 +138,7 @@ func (ServiceEntry_Resolution) EnumDescriptor() ([]byte, []int) {
 //     metadata:
 //       name: mtls-mongocluster
 //     spec:
-//       host: mymongodb.somedomain
+//       name: mymongodb.somedomain
 //       trafficPolicy:
 //         tls:
 //           mode: MUTUAL
@@ -164,8 +165,28 @@ func (ServiceEntry_Resolution) EnumDescriptor() ([]byte, []int) {
 //         protocol: HTTP
 //       resolution: NONE
 //
+// The following example demonstrates a service that is available via a
+// Unix Domain Socket on the host of the client. The resolution must be
+// set to STATIC to use unix address endpoints.
+//
+//     apiVersion: networking.istio.io/v1alpha3
+//     kind: ServiceEntry
+//     metadata:
+//       name: unix-domain-socket-example
+//     spec:
+//       hosts:
+//       - "example.unix.local"
+//       location: MESH_EXTERNAL
+//       ports:
+//       - number: 80
+//         name: http
+//         protocol: HTTP
+//       resolution: STATIC
+//       endpoints:
+//       - address: {unix: /var/run/example/socket}
+//
 // For HTTP based services, it is possible to create a VirtualService
-// backed by multiple DNS addressable endpoints. In such a scenario, the
+// backed by multiple DNS addressible endpoints. In such a scenario, the
 // application can use the HTTP_PROXY environment variable to transparently
 // reroute API calls for the VirtualService to a chosen backend. For
 // example, the following configuration creates a non-existent external
@@ -186,13 +207,13 @@ func (ServiceEntry_Resolution) EnumDescriptor() ([]byte, []int) {
 //         protocol: HTTP
 //       resolution: DNS
 //       endpoints:
-//       - address: us.foo.bar.com
+//       - address: {ip: us.foo.bar.com}
 //         ports:
 //           https: 8443
-//       - address: uk.foo.bar.com
+//       - address: {ip: uk.foo.bar.com}
 //         ports:
 //           https: 9443
-//       - address: in.foo.bar.com
+//       - address: {ip: in.foo.bar.com}
 //         ports:
 //           https: 7443
 //
@@ -203,7 +224,7 @@ func (ServiceEntry_Resolution) EnumDescriptor() ([]byte, []int) {
 //     metadata:
 //       name: tls-foobar
 //     spec:
-//       host: foo.bar.com
+//       name: foo.bar.com
 //       trafficPolicy:
 //         tls:
 //           mode: SIMPLE # initiates HTTPS
@@ -233,9 +254,11 @@ type ServiceEntry struct {
 	// which the service is being accessed must not be shared by any other
 	// service in the mesh. In other words, the sidecar will behave as a
 	// simple TCP proxy, forwarding incoming traffic on a specified port to
-	// the specified destination endpoint IP/host.
-	Addresses []string `protobuf:"bytes,2,rep,name=addresses" json:"addresses,omitempty"`
-	// REQUIRED. The ports associated with the external service.
+	// the specified destination endpoint IP/host. Unix addresses are not
+	// supported in this field.
+	Addresses []*Address `protobuf:"bytes,2,rep,name=addresses" json:"addresses,omitempty"`
+	// REQUIRED. The ports associated with the external service. If the
+	// Endpoints are `unix` addresses, there must be exactly one port.
 	Ports []*Port `protobuf:"bytes,3,rep,name=ports" json:"ports,omitempty"`
 	// Specify whether the service should be considered external to the mesh
 	// or part of the mesh.
@@ -259,7 +282,7 @@ func (m *ServiceEntry) GetHosts() []string {
 	return nil
 }
 
-func (m *ServiceEntry) GetAddresses() []string {
+func (m *ServiceEntry) GetAddresses() []*Address {
 	if m != nil {
 		return m.Addresses
 	}
@@ -298,12 +321,12 @@ func (m *ServiceEntry) GetEndpoints() []*ServiceEntry_Endpoint {
 // the mesh service.
 type ServiceEntry_Endpoint struct {
 	// REQUIRED: Address associated with the network endpoint without the
-	// port ( IP or fully qualified domain name without wildcards). Domain
-	// names can be used if and only if the resolution is set to DNS.
-	Address string `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
+	// port.  Domain names can be used if and only if the resolution is set
+	// to DNS, and must be fully-qualified without wildcards.
+	Address *Address `protobuf:"bytes,1,opt,name=address" json:"address,omitempty"`
 	// Set of ports associated with the endpoint. The ports must be
 	// associated with a port name that was declared as part of the
-	// service.
+	// service.  Do not use for `unix` addresses.
 	Ports map[string]uint32 `protobuf:"bytes,2,rep,name=ports" json:"ports,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3"`
 	// One or more labels associated with the endpoint.
 	Labels map[string]string `protobuf:"bytes,3,rep,name=labels" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
@@ -316,11 +339,11 @@ func (*ServiceEntry_Endpoint) Descriptor() ([]byte, []int) {
 	return fileDescriptorServiceEntry, []int{0, 0}
 }
 
-func (m *ServiceEntry_Endpoint) GetAddress() string {
+func (m *ServiceEntry_Endpoint) GetAddress() *Address {
 	if m != nil {
 		return m.Address
 	}
-	return ""
+	return nil
 }
 
 func (m *ServiceEntry_Endpoint) GetPorts() map[string]uint32 {
@@ -337,9 +360,128 @@ func (m *ServiceEntry_Endpoint) GetLabels() map[string]string {
 	return nil
 }
 
+// Address defines a destination for network or local socket traffic.
+type Address struct {
+	// REQUIRED: The address.
+	//
+	// Types that are valid to be assigned to Address:
+	//	*Address_Ip
+	//	*Address_Unix
+	Address isAddress_Address `protobuf_oneof:"address"`
+}
+
+func (m *Address) Reset()                    { *m = Address{} }
+func (m *Address) String() string            { return proto.CompactTextString(m) }
+func (*Address) ProtoMessage()               {}
+func (*Address) Descriptor() ([]byte, []int) { return fileDescriptorServiceEntry, []int{1} }
+
+type isAddress_Address interface {
+	isAddress_Address()
+	MarshalTo([]byte) (int, error)
+	Size() int
+}
+
+type Address_Ip struct {
+	Ip string `protobuf:"bytes,1,opt,name=ip,proto3,oneof"`
+}
+type Address_Unix struct {
+	Unix string `protobuf:"bytes,2,opt,name=unix,proto3,oneof"`
+}
+
+func (*Address_Ip) isAddress_Address()   {}
+func (*Address_Unix) isAddress_Address() {}
+
+func (m *Address) GetAddress() isAddress_Address {
+	if m != nil {
+		return m.Address
+	}
+	return nil
+}
+
+func (m *Address) GetIp() string {
+	if x, ok := m.GetAddress().(*Address_Ip); ok {
+		return x.Ip
+	}
+	return ""
+}
+
+func (m *Address) GetUnix() string {
+	if x, ok := m.GetAddress().(*Address_Unix); ok {
+		return x.Unix
+	}
+	return ""
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*Address) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _Address_OneofMarshaler, _Address_OneofUnmarshaler, _Address_OneofSizer, []interface{}{
+		(*Address_Ip)(nil),
+		(*Address_Unix)(nil),
+	}
+}
+
+func _Address_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*Address)
+	// address
+	switch x := m.Address.(type) {
+	case *Address_Ip:
+		_ = b.EncodeVarint(1<<3 | proto.WireBytes)
+		_ = b.EncodeStringBytes(x.Ip)
+	case *Address_Unix:
+		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
+		_ = b.EncodeStringBytes(x.Unix)
+	case nil:
+	default:
+		return fmt.Errorf("Address.Address has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _Address_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*Address)
+	switch tag {
+	case 1: // address.ip
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		x, err := b.DecodeStringBytes()
+		m.Address = &Address_Ip{x}
+		return true, err
+	case 2: // address.unix
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		x, err := b.DecodeStringBytes()
+		m.Address = &Address_Unix{x}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+func _Address_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*Address)
+	// address
+	switch x := m.Address.(type) {
+	case *Address_Ip:
+		n += proto.SizeVarint(1<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(len(x.Ip)))
+		n += len(x.Ip)
+	case *Address_Unix:
+		n += proto.SizeVarint(2<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(len(x.Unix)))
+		n += len(x.Unix)
+	case nil:
+	default:
+		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
+	}
+	return n
+}
+
 func init() {
 	proto.RegisterType((*ServiceEntry)(nil), "istio.networking.v1alpha3.ServiceEntry")
 	proto.RegisterType((*ServiceEntry_Endpoint)(nil), "istio.networking.v1alpha3.ServiceEntry.Endpoint")
+	proto.RegisterType((*Address)(nil), "istio.networking.v1alpha3.Address")
 	proto.RegisterEnum("istio.networking.v1alpha3.ServiceEntry_Location", ServiceEntry_Location_name, ServiceEntry_Location_value)
 	proto.RegisterEnum("istio.networking.v1alpha3.ServiceEntry_Resolution", ServiceEntry_Resolution_name, ServiceEntry_Resolution_value)
 }
@@ -374,18 +516,15 @@ func (m *ServiceEntry) MarshalTo(dAtA []byte) (int, error) {
 		}
 	}
 	if len(m.Addresses) > 0 {
-		for _, s := range m.Addresses {
+		for _, msg := range m.Addresses {
 			dAtA[i] = 0x12
 			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
+			i = encodeVarintServiceEntry(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
 			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
+			i += n
 		}
 	}
 	if len(m.Ports) > 0 {
@@ -440,11 +579,15 @@ func (m *ServiceEntry_Endpoint) MarshalTo(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if len(m.Address) > 0 {
+	if m.Address != nil {
 		dAtA[i] = 0xa
 		i++
-		i = encodeVarintServiceEntry(dAtA, i, uint64(len(m.Address)))
-		i += copy(dAtA[i:], m.Address)
+		i = encodeVarintServiceEntry(dAtA, i, uint64(m.Address.Size()))
+		n1, err := m.Address.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n1
 	}
 	if len(m.Ports) > 0 {
 		for k, _ := range m.Ports {
@@ -482,6 +625,47 @@ func (m *ServiceEntry_Endpoint) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
+func (m *Address) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Address) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Address != nil {
+		nn2, err := m.Address.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += nn2
+	}
+	return i, nil
+}
+
+func (m *Address_Ip) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	dAtA[i] = 0xa
+	i++
+	i = encodeVarintServiceEntry(dAtA, i, uint64(len(m.Ip)))
+	i += copy(dAtA[i:], m.Ip)
+	return i, nil
+}
+func (m *Address_Unix) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	dAtA[i] = 0x12
+	i++
+	i = encodeVarintServiceEntry(dAtA, i, uint64(len(m.Unix)))
+	i += copy(dAtA[i:], m.Unix)
+	return i, nil
+}
 func encodeVarintServiceEntry(dAtA []byte, offset int, v uint64) int {
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
@@ -501,8 +685,8 @@ func (m *ServiceEntry) Size() (n int) {
 		}
 	}
 	if len(m.Addresses) > 0 {
-		for _, s := range m.Addresses {
-			l = len(s)
+		for _, e := range m.Addresses {
+			l = e.Size()
 			n += 1 + l + sovServiceEntry(uint64(l))
 		}
 	}
@@ -530,8 +714,8 @@ func (m *ServiceEntry) Size() (n int) {
 func (m *ServiceEntry_Endpoint) Size() (n int) {
 	var l int
 	_ = l
-	l = len(m.Address)
-	if l > 0 {
+	if m.Address != nil {
+		l = m.Address.Size()
 		n += 1 + l + sovServiceEntry(uint64(l))
 	}
 	if len(m.Ports) > 0 {
@@ -550,6 +734,30 @@ func (m *ServiceEntry_Endpoint) Size() (n int) {
 			n += mapEntrySize + 1 + sovServiceEntry(uint64(mapEntrySize))
 		}
 	}
+	return n
+}
+
+func (m *Address) Size() (n int) {
+	var l int
+	_ = l
+	if m.Address != nil {
+		n += m.Address.Size()
+	}
+	return n
+}
+
+func (m *Address_Ip) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.Ip)
+	n += 1 + l + sovServiceEntry(uint64(l))
+	return n
+}
+func (m *Address_Unix) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.Unix)
+	n += 1 + l + sovServiceEntry(uint64(l))
 	return n
 }
 
@@ -628,7 +836,7 @@ func (m *ServiceEntry) Unmarshal(dAtA []byte) error {
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Addresses", wireType)
 			}
-			var stringLen uint64
+			var msglen int
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowServiceEntry
@@ -638,20 +846,22 @@ func (m *ServiceEntry) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				msglen |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
+			if msglen < 0 {
 				return ErrInvalidLengthServiceEntry
 			}
-			postIndex := iNdEx + intStringLen
+			postIndex := iNdEx + msglen
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Addresses = append(m.Addresses, string(dAtA[iNdEx:postIndex]))
+			m.Addresses = append(m.Addresses, &Address{})
+			if err := m.Addresses[len(m.Addresses)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
 			iNdEx = postIndex
 		case 3:
 			if wireType != 2 {
@@ -807,7 +1017,7 @@ func (m *ServiceEntry_Endpoint) Unmarshal(dAtA []byte) error {
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Address", wireType)
 			}
-			var stringLen uint64
+			var msglen int
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowServiceEntry
@@ -817,20 +1027,24 @@ func (m *ServiceEntry_Endpoint) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				msglen |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
+			if msglen < 0 {
 				return ErrInvalidLengthServiceEntry
 			}
-			postIndex := iNdEx + intStringLen
+			postIndex := iNdEx + msglen
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Address = string(dAtA[iNdEx:postIndex])
+			if m.Address == nil {
+				m.Address = &Address{}
+			}
+			if err := m.Address.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
 			iNdEx = postIndex
 		case 2:
 			if wireType != 2 {
@@ -1078,6 +1292,114 @@ func (m *ServiceEntry_Endpoint) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
+func (m *Address) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowServiceEntry
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Address: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Address: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Ip", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowServiceEntry
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthServiceEntry
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Address = &Address_Ip{string(dAtA[iNdEx:postIndex])}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Unix", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowServiceEntry
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthServiceEntry
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Address = &Address_Unix{string(dAtA[iNdEx:postIndex])}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipServiceEntry(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthServiceEntry
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
 func skipServiceEntry(dAtA []byte) (n int, err error) {
 	l := len(dAtA)
 	iNdEx := 0
@@ -1186,33 +1508,36 @@ var (
 func init() { proto.RegisterFile("networking/v1alpha3/service_entry.proto", fileDescriptorServiceEntry) }
 
 var fileDescriptorServiceEntry = []byte{
-	// 448 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x93, 0xcf, 0x6e, 0xd4, 0x30,
-	0x10, 0xc6, 0xeb, 0xa4, 0x9b, 0x6e, 0xa6, 0x14, 0x05, 0x8b, 0x83, 0x59, 0xa1, 0x25, 0xec, 0x85,
-	0x48, 0x48, 0xd9, 0xb2, 0x15, 0x52, 0xf9, 0x73, 0x29, 0x10, 0x89, 0x4a, 0x4b, 0x00, 0x6f, 0x0e,
-	0x88, 0x4b, 0xe5, 0x76, 0xad, 0xd6, 0x6a, 0x14, 0x47, 0xb6, 0xbb, 0x55, 0x9f, 0x82, 0x77, 0xe2,
-	0xc4, 0x91, 0x47, 0x40, 0xfb, 0x24, 0x68, 0x9d, 0x64, 0x93, 0x43, 0xa1, 0xed, 0x2d, 0x33, 0x99,
-	0xef, 0x37, 0xe3, 0x6f, 0x6c, 0x78, 0x56, 0x70, 0x73, 0x29, 0xd5, 0xb9, 0x28, 0x4e, 0xc7, 0x8b,
-	0x17, 0x2c, 0x2f, 0xcf, 0xd8, 0xde, 0x58, 0x73, 0xb5, 0x10, 0x27, 0xfc, 0x88, 0x17, 0x46, 0x5d,
-	0xc5, 0xa5, 0x92, 0x46, 0xe2, 0x47, 0x42, 0x1b, 0x21, 0xe3, 0xb6, 0x3c, 0x6e, 0xca, 0x07, 0x4f,
-	0xaf, 0x63, 0x9c, 0x32, 0xc3, 0x2f, 0x59, 0xad, 0x1e, 0xfd, 0xf0, 0xe0, 0xde, 0xac, 0xa2, 0x26,
-	0x2b, 0x28, 0x7e, 0x08, 0xbd, 0x33, 0xa9, 0x8d, 0x26, 0x28, 0x74, 0x23, 0x9f, 0x56, 0x01, 0x7e,
-	0x0c, 0x3e, 0x9b, 0xcf, 0x15, 0xd7, 0x9a, 0x6b, 0xe2, 0xd8, 0x3f, 0x6d, 0x02, 0xbf, 0x84, 0x5e,
-	0x29, 0x95, 0xd1, 0xc4, 0x0d, 0xdd, 0x68, 0x7b, 0xf2, 0x24, 0xfe, 0xe7, 0x48, 0xf1, 0x17, 0xa9,
-	0x0c, 0xad, 0xaa, 0xf1, 0x14, 0xfa, 0xb9, 0x3c, 0x61, 0x46, 0xc8, 0x82, 0x6c, 0x86, 0x28, 0xba,
-	0x3f, 0xd9, 0xfd, 0x8f, 0xb2, 0x3b, 0x65, 0x3c, 0xad, 0x75, 0x74, 0x4d, 0xc0, 0x14, 0x40, 0x71,
-	0x2d, 0xf3, 0x0b, 0xcb, 0xeb, 0x59, 0xde, 0xe4, 0xb6, 0x3c, 0xba, 0x56, 0xd2, 0x0e, 0x05, 0xa7,
-	0xe0, 0xf3, 0x62, 0x5e, 0x4a, 0x51, 0x18, 0x4d, 0x3c, 0x7b, 0xb8, 0x5b, 0x8f, 0x98, 0xd4, 0x42,
-	0xda, 0x22, 0x06, 0x3f, 0x1d, 0xe8, 0x37, 0x79, 0x4c, 0x60, 0xab, 0xb6, 0x90, 0xa0, 0x10, 0x45,
-	0x3e, 0x6d, 0x42, 0xfc, 0xb5, 0xf1, 0xd3, 0xb1, 0x2d, 0xdf, 0xdc, 0xb5, 0xa5, 0x75, 0x59, 0xdb,
-	0x5c, 0xe3, 0x75, 0x06, 0x5e, 0xce, 0x8e, 0x79, 0xde, 0xec, 0xe8, 0xed, 0x9d, 0x99, 0x53, 0x2b,
-	0xaf, 0xa0, 0x35, 0x6b, 0xb0, 0x0f, 0xd0, 0xb6, 0xc2, 0x01, 0xb8, 0xe7, 0xfc, 0xaa, 0x3e, 0xcc,
-	0xea, 0x73, 0x75, 0x99, 0x16, 0x2c, 0xbf, 0xe0, 0xc4, 0x09, 0x51, 0xb4, 0x43, 0xab, 0xe0, 0xb5,
-	0xb3, 0x8f, 0x06, 0xaf, 0x60, 0xbb, 0x03, 0xbc, 0x49, 0xea, 0x77, 0xa4, 0xa3, 0x5d, 0xe8, 0x37,
-	0xeb, 0xc7, 0x0f, 0x60, 0xe7, 0x53, 0x32, 0xfb, 0x78, 0x94, 0x7c, 0xcb, 0x12, 0x9a, 0x1e, 0x4c,
-	0x83, 0x8d, 0x75, 0xea, 0x30, 0xad, 0x53, 0x68, 0xf4, 0x1c, 0xa0, 0x5d, 0x30, 0xee, 0xc3, 0x66,
-	0xfa, 0x39, 0x4d, 0x82, 0x0d, 0x0c, 0xe0, 0xcd, 0xb2, 0x83, 0xec, 0xf0, 0x7d, 0x80, 0xf0, 0x16,
-	0xb8, 0x1f, 0xd2, 0x59, 0xe0, 0xbc, 0x8b, 0x7f, 0x2d, 0x87, 0xe8, 0xf7, 0x72, 0x88, 0xfe, 0x2c,
-	0x87, 0xe8, 0x7b, 0x58, 0xd9, 0x24, 0xe4, 0x98, 0x95, 0x62, 0x7c, 0xcd, 0x7b, 0x3a, 0xf6, 0xec,
-	0x43, 0xda, 0xfb, 0x1b, 0x00, 0x00, 0xff, 0xff, 0x9f, 0xa1, 0x1e, 0x0c, 0xb1, 0x03, 0x00, 0x00,
+	// 486 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x93, 0x41, 0x6f, 0xd3, 0x30,
+	0x14, 0x80, 0xeb, 0xa4, 0x4d, 0x9b, 0x37, 0x86, 0x82, 0xb5, 0x43, 0xe8, 0xa1, 0x84, 0x5c, 0xa8,
+	0x84, 0x94, 0x8e, 0x4e, 0x48, 0x03, 0x7a, 0xa0, 0x83, 0x48, 0x9d, 0x54, 0x02, 0xb8, 0x3d, 0x20,
+	0x2e, 0x53, 0xb6, 0x5a, 0x9b, 0xb5, 0x28, 0x8e, 0x62, 0xb7, 0x63, 0xff, 0x90, 0x23, 0x37, 0xae,
+	0xa8, 0x07, 0x7e, 0x07, 0xaa, 0x9d, 0x34, 0x3d, 0x8c, 0xad, 0xbd, 0xc5, 0x4f, 0xef, 0xfb, 0xf2,
+	0xfc, 0xde, 0x33, 0xbc, 0x48, 0xa9, 0xbc, 0xe1, 0xf9, 0x35, 0x4b, 0x2f, 0x7b, 0x8b, 0x57, 0x71,
+	0x92, 0x5d, 0xc5, 0x47, 0x3d, 0x41, 0xf3, 0x05, 0xbb, 0xa0, 0x67, 0x34, 0x95, 0xf9, 0x6d, 0x90,
+	0xe5, 0x5c, 0x72, 0xfc, 0x94, 0x09, 0xc9, 0x78, 0x50, 0xa5, 0x07, 0x65, 0x7a, 0xfb, 0xf9, 0x5d,
+	0x8e, 0xcb, 0x58, 0xd2, 0x9b, 0xb8, 0xa0, 0xfd, 0xdf, 0x16, 0x3c, 0x9a, 0x68, 0x6b, 0xb8, 0x92,
+	0xe2, 0x03, 0x68, 0x5c, 0x71, 0x21, 0x85, 0x8b, 0x3c, 0xb3, 0x6b, 0x13, 0x7d, 0xc0, 0xef, 0xc1,
+	0x8e, 0x67, 0xb3, 0x9c, 0x0a, 0x41, 0x85, 0x6b, 0x78, 0x66, 0x77, 0xaf, 0xef, 0x07, 0xff, 0xfd,
+	0x71, 0x30, 0xd4, 0xb9, 0xa4, 0x82, 0xf0, 0x6b, 0x68, 0x64, 0x3c, 0x97, 0xc2, 0x35, 0x15, 0xfd,
+	0xec, 0x1e, 0xfa, 0x0b, 0xcf, 0x25, 0xd1, 0xd9, 0x78, 0x0c, 0xad, 0x84, 0x5f, 0xc4, 0x92, 0xf1,
+	0xd4, 0xad, 0x7b, 0xa8, 0xfb, 0xb8, 0x7f, 0x78, 0x0f, 0xb9, 0x79, 0x93, 0x60, 0x5c, 0x70, 0x64,
+	0x6d, 0xc0, 0x04, 0x20, 0xa7, 0x82, 0x27, 0x73, 0xe5, 0x6b, 0x28, 0x5f, 0x7f, 0x5b, 0x1f, 0x59,
+	0x93, 0x64, 0xc3, 0x82, 0x23, 0xb0, 0x69, 0x3a, 0xcb, 0x38, 0x4b, 0xa5, 0x70, 0x2d, 0x75, 0xb9,
+	0xad, 0x4b, 0x0c, 0x0b, 0x90, 0x54, 0x8a, 0xf6, 0x5f, 0x03, 0x5a, 0x65, 0x1c, 0x0f, 0xa0, 0x59,
+	0xb4, 0xd0, 0x45, 0x1e, 0xda, 0xb2, 0xeb, 0x25, 0x82, 0xbf, 0x96, 0x3d, 0xd7, 0x13, 0x7b, 0xb7,
+	0x6b, 0x59, 0x6a, 0x12, 0x42, 0xc5, 0xca, 0x79, 0x4c, 0xc1, 0x4a, 0xe2, 0x73, 0x9a, 0x94, 0x73,
+	0x1c, 0xec, 0xec, 0x1c, 0x2b, 0x5c, 0x4b, 0x0b, 0x57, 0xfb, 0x18, 0xa0, 0xfa, 0x15, 0x76, 0xc0,
+	0xbc, 0xa6, 0xb7, 0xea, 0xc2, 0x36, 0x59, 0x7d, 0xae, 0x96, 0x72, 0x11, 0x27, 0x73, 0xea, 0x1a,
+	0x1e, 0xea, 0xee, 0x13, 0x7d, 0x78, 0x6b, 0x1c, 0xa3, 0xf6, 0x1b, 0xd8, 0xdb, 0x10, 0x3e, 0x84,
+	0xda, 0x1b, 0xa8, 0x7f, 0x08, 0xad, 0x72, 0x45, 0xf0, 0x13, 0xd8, 0xff, 0x14, 0x4e, 0x46, 0x67,
+	0xe1, 0xb7, 0x69, 0x48, 0xa2, 0xe1, 0xd8, 0xa9, 0xad, 0x43, 0xa7, 0x51, 0x11, 0x42, 0xfe, 0x4b,
+	0x80, 0x6a, 0x09, 0x70, 0x0b, 0xea, 0xd1, 0xe7, 0x28, 0x74, 0x6a, 0x18, 0xc0, 0x9a, 0x4c, 0x87,
+	0xd3, 0xd3, 0x0f, 0x0e, 0xc2, 0x4d, 0x30, 0x3f, 0x46, 0x13, 0xc7, 0xf0, 0x07, 0xd0, 0x2c, 0x06,
+	0x82, 0x1d, 0x30, 0x58, 0xa6, 0x8b, 0x1a, 0xd5, 0x88, 0xc1, 0x32, 0x7c, 0x00, 0xf5, 0x79, 0xca,
+	0x7e, 0xe8, 0xa2, 0x46, 0x35, 0xa2, 0x4e, 0x27, 0xf6, 0x7a, 0xda, 0x27, 0xc1, 0xcf, 0x65, 0x07,
+	0xfd, 0x5a, 0x76, 0xd0, 0x9f, 0x65, 0x07, 0x7d, 0xf7, 0x74, 0x93, 0x19, 0xef, 0xc5, 0x19, 0xeb,
+	0xdd, 0xf1, 0xaa, 0xcf, 0x2d, 0xf5, 0x9c, 0x8f, 0xfe, 0x05, 0x00, 0x00, 0xff, 0xff, 0xce, 0x78,
+	0xab, 0xc2, 0x37, 0x04, 0x00, 0x00,
 }
