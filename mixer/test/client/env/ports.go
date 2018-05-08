@@ -43,14 +43,6 @@ const (
 	TCPMixerFilterTest
 	TCPMixerFilterV1ConfigTest
 	XDSTest
-	CheckReportIstioAuthnAttributesTestOriginJwtBoundToOrigin
-	CheckReportIstioAuthnAttributesTestOriginJwtBoundToPeer
-	CheckReportIstioAuthnAttributesTestPeerJwtBoundToPeer
-	CheckReportIstioAuthnAttributesTestPeerJwtBoundToOrigin
-	IstioAuthnTestOriginRejectNoJwt
-	IstioAuthnTestPeerRejectNoJwt
-	IstioAuthnTestPeerRejectNoMtls
-	IstioAuthnTestPeerRejectNoTLS
 
 	// The number of total tests. has to be the last one.
 	maxTestNum
