@@ -3530,18 +3530,18 @@ func TestValidateRbacConfig(t *testing.T) {
 			expectErrMsg: "cannot cast to RbacConfig",
 		},
 		{
-			name: "unsupported mode ON_WITH_INCLUSION",
-			in: &rbac.RbacConfig{Mode: rbac.RbacConfig_ON_WITH_INCLUSION},
+			name:         "unsupported mode ON_WITH_INCLUSION",
+			in:           &rbac.RbacConfig{Mode: rbac.RbacConfig_ON_WITH_INCLUSION},
 			expectErrMsg: "rbac mode not implemented, currently only supports ON/OFF",
 		},
 		{
-			name: "unsupported mode ON_WITH_EXCLUSION",
-			in: &rbac.RbacConfig{Mode: rbac.RbacConfig_ON_WITH_EXCLUSION},
+			name:         "unsupported mode ON_WITH_EXCLUSION",
+			in:           &rbac.RbacConfig{Mode: rbac.RbacConfig_ON_WITH_EXCLUSION},
 			expectErrMsg: "rbac mode not implemented, currently only supports ON/OFF",
 		},
 		{
 			name: "success proto",
-			in: &rbac.RbacConfig{Mode: rbac.RbacConfig_ON},
+			in:   &rbac.RbacConfig{Mode: rbac.RbacConfig_ON},
 		},
 	}
 	for _, c := range cases {

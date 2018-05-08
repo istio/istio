@@ -20,8 +20,8 @@ package registry
 import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/plugin/authn"
-	"istio.io/istio/pilot/pkg/networking/plugin/mixer"
 	"istio.io/istio/pilot/pkg/networking/plugin/authz"
+	"istio.io/istio/pilot/pkg/networking/plugin/mixer"
 )
 
 // NewPlugins returns a slice of default Plugins.

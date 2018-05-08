@@ -15,11 +15,11 @@
 package authz
 
 import (
+	"reflect"
 	"testing"
 
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	"reflect"
 )
 
 func TestConvertRbacRulesToFilterConfig(t *testing.T) {
