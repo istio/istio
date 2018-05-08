@@ -234,11 +234,20 @@ func adsReceive(ads ads.AggregatedDiscoveryService_StreamAggregatedResourcesClie
 	return ads.Recv()
 }
 
-func testAdsUpdate(t *testing.T, server *pilotbootstrap.Server) {
+func TestAdsUpdate(t *testing.T) {
+	server := initLocalPilotTestEnv(t)
 	edsstr := connectADS(t, util.MockPilotGrpcAddr)
 	// Old style cluster.
 	// TODO: convert tests (except eds) to new style.
-	sendEDSReq(t, []string{"service3.default.svc.cluster.local|http-main"},
+	server.EnvoyXdsServer.MemRegistry.AddService("adsupdate.default.svc.cluster.local", &model.Service{
+		Hostname: "adsupdate.default.svc.cluster.local",
+		Address:  "10.10.0.1",
+		Ports:    testPorts(0),
+	})
+	_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("adsupdate.default.svc.cluster.local",
+		"http-main", 2080, "10.2.0.1", 1080)
+
+	sendEDSReq(t, []string{"adsupdate.default.svc.cluster.local|http-main"},
 		"1.1.1.1", edsstr)
 
 	res1, err := adsReceive(edsstr, 5*time.Second)
@@ -272,7 +281,7 @@ func testAdsUpdate(t *testing.T, server *pilotbootstrap.Server) {
 	strResponse, _ := model.ToJSONWithIndent(res1, " ")
 	_ = ioutil.WriteFile(util.IstioOut+"/edsv2_sidecar.json", []byte(strResponse), 0644)
 
-	_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("service3.default.svc.cluster.local",
+	_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("adsupdate.default.svc.cluster.local",
 		"http-main", 2080, "10.1.7.1", 1080)
 
 	// will trigger recompute and push for all clients - including some that may be closing
@@ -291,8 +300,6 @@ func testAdsUpdate(t *testing.T, server *pilotbootstrap.Server) {
 // Make a direct EDS grpc request to pilot, verify the result is as expected.
 func TestAdsEds(t *testing.T) {
 	server := initLocalPilotTestEnv(t)
-
-	testAdsUpdate(t, server)
 	testAdsMultiple(t, server)
 }
 
@@ -332,7 +339,7 @@ func testAdsMultiple(t *testing.T, server *pilotbootstrap.Server) {
 		go func() {
 			edsstr := connectADS(t, util.MockPilotGrpcAddr)
 			sendEDSReq(t, []string{"service3.default.svc.cluster.local|http-main"},
-				testIp(uint32(0x0a000000+i)), edsstr)
+				testIp(uint32(0x0a200000+i)), edsstr)
 
 			res1, err := adsReceive(edsstr, 5*time.Second)
 			if err != nil {
