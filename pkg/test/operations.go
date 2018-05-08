@@ -48,6 +48,7 @@ func Ignore(t testing.TB, reason string) {
 	t.Skipf("Skipping(Ignored): %s", reason)
 }
 
+// SuiteRequires applies the given dependencies to all tests in the suite.
 func SuiteRequires(m *testing.M, dependencies ...dependency.Dependency) {
 	// TODO
 }
@@ -85,6 +86,7 @@ func Requires(t testing.TB, dependencies ...dependency.Dependency) {
 	}
 }
 
+// SuiteTag tags all tests within the suite with the given labels. The user can filter using the labels.
 func SuiteTag(m *testing.M, labels ...label.Label) {
 	// TODO
 }

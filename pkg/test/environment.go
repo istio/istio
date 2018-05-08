@@ -49,8 +49,8 @@ type Environment interface {
 
 	// GetFortioApps returns a set of Fortio Apps based on the given selector
 	GetFortioApps(selector string, t *testing.T) []DeployedFortioApp
-	GetFortioApp(name string) DeployedFortioApp
 
+	// GetPolicyBackend returns the handle to a deployed fake policy backend.
 	GetPolicyBackend(t *testing.T) DeployedPolicyBackend
 }
 
@@ -72,8 +72,9 @@ type DeployedPolicyBackend interface {
 	Deployed
 
 	// DenyCheck indicates that the policy backend should deny all incoming check requests.
-	DenyCheck()
+	DenyCheck(deny bool)
 
+	// ExpectReport checks that the backend has received the given report request.
 	ExpectReport(t *testing.T, expected string)
 }
 
