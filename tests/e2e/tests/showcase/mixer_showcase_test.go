@@ -20,9 +20,11 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/dependency"
+	"istio.io/istio/pkg/test/label"
 )
 
 func TestMixer_Report(t *testing.T) {
+	test.Tag(t, label.Policy)
 	test.Requires(t, dependency.PolicyBackend)
 
 	env := test.GetEnvironment(t)
