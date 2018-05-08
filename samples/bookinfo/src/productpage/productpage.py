@@ -246,6 +246,8 @@ class Writer(object):
 
     def write(self, data):
         self.file.write(data)
+
+    def flush(self):
         self.file.flush()
 
 if __name__ == '__main__':
