@@ -15,31 +15,37 @@
 package test
 
 import (
-	"fmt"
 	"os"
-	"strings"
 	"testing"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/dependency"
-	"istio.io/istio/pkg/test/internal"
+	"istio.io/istio/pkg/test/environment"
+	"istio.io/istio/pkg/test/impl/driver"
 	"istio.io/istio/pkg/test/label"
 )
+
+var scope = log.RegisterScope("test-framework", "Logger for the test framework", 0)
+
+var d = driver.New()
 
 // Run is a helper for executing test main with appropriate resource allocation/doCleanup steps.
 // It allows us to do post-run doCleanup, and flag parsing.
 func Run(testID string, m *testing.M) {
-	if len(testID) > maxTestIDLength {
-		panic(fmt.Sprintf("test id cannot be longer than %d characters", maxTestIDLength))
-	}
+	args := *arguments
+	args.TestID = testID
+	args.M = m
 
-	// TODO: Protect against double-run, invalid driverState etc.
-	err := setup(testID)
-	if err != nil {
-		fmt.Printf("Error performing setup: %v\n", err)
+	if err := d.Initialize(&args); err != nil {
+		scope.Errorf("test.Run: initialization error: '%v'", err)
 		os.Exit(-1)
 	}
-	rt := m.Run()
-	doCleanup()
+
+	scope.Infof(">>> Beginning test run %s/%s", d.TestID(), d.RunID())
+
+	rt := d.Run()
+	scope.Infof("<<< Completing test run %s/%s", d.TestID(), d.RunID())
+
 	os.Exit(rt)
 }
 
@@ -48,71 +54,31 @@ func Ignore(t testing.TB, reason string) {
 	t.Skipf("Skipping(Ignored): %s", reason)
 }
 
-// SuiteRequires applies the given dependencies to all tests in the suite.
-func SuiteRequires(m *testing.M, dependencies ...dependency.Dependency) {
-	// TODO
+// SuiteRequires indicates that the whole suite requires particular dependencies.
+func SuiteRequires(_ *testing.M, dependencies ...dependency.Dependency) {
+	// TODO: should we use testing.M?
+	arguments.SuiteDependencies = append(arguments.SuiteDependencies, dependencies...)
 }
 
 // Requires ensures that the given dependencies will be satisfied. If they cannot, then the
 // test will fail.
 func Requires(t testing.TB, dependencies ...dependency.Dependency) {
-	driver.Lock()
-	defer driver.Unlock()
-
-	// Initialize dependencies only once.
-	for _, d := range dependencies {
-		s, ok := d.(internal.Stateful)
-		if !ok {
-			continue
-		}
-
-		instance, ok := driver.initializedDependencies[d]
-		if ok {
-			// If they are already satisfied, then signal a "reset", to ensure a clean, well-known driverState.
-			if err := s.Reset(instance); err != nil {
-				t.Fatalf("Unable to reset dependency '%v': %v", d, err)
-				return
-			}
-			continue
-		}
-
-		var err error
-		if instance, err = s.Initialize(); err != nil {
-			t.Fatalf("Unable to satisfy dependency '%v': %v", d, err)
-			return
-		}
-
-		driver.initializedDependencies[d] = instance
-	}
+	d.CheckDependencies(t, dependencies)
 }
 
-// SuiteTag tags all tests within the suite with the given labels. The user can filter using the labels.
-func SuiteTag(m *testing.M, labels ...label.Label) {
-	// TODO
+// SuiteTag tags all tests in the suite with the given labels.
+func SuiteTag(_ *testing.M, labels ...label.Label) {
+	// TODO: should we use testing.M?
+	arguments.SuiteLabels = append(arguments.SuiteLabels, labels...)
 }
 
 // Tag the test with the given labels. The user can filter using the labels.
 // TODO: The polarity of this is a bit borked. If the test doesn't call Tag, then it won't get filtered out.
 func Tag(t testing.TB, labels ...label.Label) {
-	driver.Lock()
-	defer driver.Unlock()
+	d.CheckLabels(t, labels)
+}
 
-	skip := false
-	if driver.labels != "" {
-		// Only filter if the labels are specified.
-		skip = true
-		for _, l := range labels {
-			allowed := strings.Split(driver.labels, ",")
-			for _, a := range allowed {
-				if label.Label(a) == l {
-					skip = false
-					break
-				}
-			}
-		}
-	}
-
-	if skip && !t.Skipped() {
-		t.Skip("Skipping(Filtered): No matching label found")
-	}
+// GetEnvironment returns the current, ambient environment.
+func GetEnvironment(t *testing.T) environment.Interface {
+	return d.GetEnvironment(t)
 }

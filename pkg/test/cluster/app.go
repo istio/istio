@@ -26,7 +26,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/environment"
 	"istio.io/istio/tests/util"
 )
 
@@ -36,7 +36,7 @@ const (
 )
 
 var (
-	nilResult    = test.AppCallResult{}
+	nilResult    = environment.AppCallResult{}
 	idRegex      = regexp.MustCompile("(?i)X-Request-Id=(.*)")
 	versionRegex = regexp.MustCompile("ServiceVersion=(.*)")
 	portRegex    = regexp.MustCompile("ServicePort=(.*)")
@@ -49,22 +49,22 @@ type endpoint struct {
 	owner *app
 }
 
-// Endpoints implements the test.DeployedAppEndpoint interface
+// Endpoints implements the environment.DeployedAppEndpoint interface
 func (e *endpoint) Name() string {
 	return e.port.Name
 }
 
-// Endpoints implements the test.DeployedAppEndpoint interface
-func (e *endpoint) Owner() test.DeployedApp {
+// Endpoints implements the environment.DeployedAppEndpoint interface
+func (e *endpoint) Owner() environment.DeployedApp {
 	return e.owner
 }
 
-// Endpoints implements the test.DeployedAppEndpoint interface
+// Endpoints implements the environment.DeployedAppEndpoint interface
 func (e *endpoint) Protocol() model.Protocol {
 	return e.port.Protocol
 }
 
-// Endpoints implements the test.DeployedAppEndpoint interface
+// Endpoints implements the environment.DeployedAppEndpoint interface
 func (e *endpoint) MakeURL(useFullDomain bool) string {
 	protocol := "http"
 	switch e.port.Protocol {
@@ -87,9 +87,9 @@ type app struct {
 	endpoints   []*endpoint
 }
 
-var _ test.DeployedApp = &app{}
+var _ environment.DeployedApp = &app{}
 
-func getApp(serviceName, namespace string) (test.DeployedApp, error) {
+func getApp(serviceName, namespace string) (environment.DeployedApp, error) {
 	// Get the yaml config for the service
 	yamlBytes, err := util.ShellSilent("kubectl get svc %s -n %s -o yaml", serviceName, namespace)
 	if err != nil {
@@ -140,18 +140,18 @@ func getEndpoints(owner *app, service *corev1.Service) []*endpoint {
 	return out
 }
 
-// Endpoints implements the test.DeployedApp interface
-func (a *app) Endpoints() []test.DeployedAppEndpoint {
-	out := make([]test.DeployedAppEndpoint, len(a.endpoints))
+// Endpoints implements the environment.DeployedApp interface
+func (a *app) Endpoints() []environment.DeployedAppEndpoint {
+	out := make([]environment.DeployedAppEndpoint, len(a.endpoints))
 	for i, e := range a.endpoints {
 		out[i] = e
 	}
 	return out
 }
 
-// EndpointsForProtocol implements the test.DeployedApp interface
-func (a *app) EndpointsForProtocol(protocol model.Protocol) []test.DeployedAppEndpoint {
-	out := make([]test.DeployedAppEndpoint, 0)
+// EndpointsForProtocol implements the environment.DeployedApp interface
+func (a *app) EndpointsForProtocol(protocol model.Protocol) []environment.DeployedAppEndpoint {
+	out := make([]environment.DeployedAppEndpoint, 0)
 	for _, e := range a.endpoints {
 		if e.Protocol() == protocol {
 			out = append(out, e)
@@ -160,8 +160,8 @@ func (a *app) EndpointsForProtocol(protocol model.Protocol) []test.DeployedAppEn
 	return out
 }
 
-// Call implements the test.DeployedApp interface
-func (a *app) Call(url string, count int, headers http.Header) (test.AppCallResult, error) {
+// Call implements the environment.DeployedApp interface
+func (a *app) Call(url string, count int, headers http.Header) (environment.AppCallResult, error) {
 	// Get the pod name of the source app
 	pods, err := a.pods()
 	if err != nil {
@@ -178,7 +178,7 @@ func (a *app) Call(url string, count int, headers http.Header) (test.AppCallResu
 	}
 
 	// Now convert the raw result to an AppCallDetails
-	out := test.AppCallResult{}
+	out := environment.AppCallResult{}
 	out.Body = res
 
 	ids := idRegex.FindAllStringSubmatch(res, -1)
@@ -214,7 +214,7 @@ func (a *app) Call(url string, count int, headers http.Header) (test.AppCallResu
 	return out, nil
 }
 
-func (a *app) CallOrFail(url string, count int, headers http.Header, t *testing.T) test.AppCallResult {
+func (a *app) CallOrFail(url string, count int, headers http.Header, t *testing.T) environment.AppCallResult {
 	r, err := a.Call(url, count, headers)
 	if err != nil {
 		t.Fatalf("Call to app failed: app='%s', url='%s', err='%v'", a.appName, url, err)
