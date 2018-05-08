@@ -27,31 +27,35 @@ const (
 	httpOK = "200"
 )
 
-// Environment is a common interface for all testing environments
+// Environment is a common interface for all testing environments.
 type Environment interface {
+
+	// Configure applies the given configuration to the mesh.
 	Configure(config string)
+
+	// GetMixer returns a deployed Mixer instance in the environment.
 	GetMixer() DeployedMixer
+
+	// GetPilot returns a deployed Pilot instance in the environment.
 	GetPilot() DeployedPilot
 
-	// GetAPIServer returns the deployed k8s API server
-	GetAPIServer() DeployedAPIServer
-	// GetIstioComponent gets the deployed configuration for all Istio components of the given kind.
-	GetIstioComponent(k DeployedServiceKind) []DeployedIstioComponent
-	// GetApp returns an app object for the given name.
+	// GetApp returns a fake testing app object for the given name.
 	GetApp(name string) (DeployedApp, error)
-	// GetAppOrFail attempts to return the app object for the given name, or fails the test if unsuccessful.
+	// GetAppOrFail returns a fake testing app object for the given name, or fails the test if unsuccessful.
 	GetAppOrFail(name string, t *testing.T) DeployedApp
 
 	// GetFortioApp returns a Fortio App object for the given name.
 	GetFortioApp(name string) (DeployedFortioApp, error)
-	// GetFortioApp returns a Fortio App object for the given name, or fails the test if unsuccessful.
+	// GetFortioAppOrFail returns a Fortio App object for the given name, or fails the test if unsuccessful.
 	GetFortioAppOrFail(name string, t *testing.T) (DeployedFortioApp, error)
 
-	// GetFortioApps returns a set of Fortio Apps based on the given selector
+	// TODO: We should remove this overload in favor of the previous two.
+
+	// GetFortioApps returns a set of Fortio Apps based on the given selector.
 	GetFortioApps(selector string, t *testing.T) []DeployedFortioApp
 
-	// GetPolicyBackend returns the handle to a deployed fake policy backend.
-	GetPolicyBackend(t *testing.T) DeployedPolicyBackend
+	// GetPolicyBackendOrFail returns the mock policy backend that is used by Mixer for policy checks and reports.
+	GetPolicyBackendOrFail(t *testing.T) DeployedPolicyBackend
 }
 
 // Deployed represents a deployed component
@@ -110,7 +114,6 @@ func (r *AppCallResult) IsSuccess() bool {
 // DeployedMixer represents a deployed Mixer instance.
 type DeployedMixer interface {
 	Deployed
-	GetSpyAdapter() SpyAdapter
 	Report(attributes map[string]interface{}) error
 	Expect(str string) error
 }
@@ -132,32 +135,11 @@ type FortioAppCallResult struct {
 	Raw string
 }
 
-// SpyAdapter represents a remote Spy Adapter for Mixer.
-type SpyAdapter interface {
-	Expect(i []interface{}) bool
-}
-
 // DeployedAPIServer the configuration for a deployed k8s server
 type DeployedAPIServer interface {
 	Deployed
 	Config() *rest.Config
 }
-
-// DeployedIstioComponent the configuration for a deployed Istio component
-type DeployedIstioComponent interface {
-	Deployed
-}
-
-// DeployedServiceKind an enum for the various types of deployed services
-type DeployedServiceKind string
-
-const (
-	//MixerComponent  = "mixer"
-	//PilotComponent  = "pilot"
-
-	// GalleyComponent enum value for Galley.
-	GalleyComponent = "galley"
-)
 
 // GetEnvironment returns the current, ambient environment.
 func GetEnvironment(t *testing.T) Environment {
