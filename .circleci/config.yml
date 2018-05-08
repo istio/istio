@@ -220,6 +220,36 @@ jobs:
       - store_artifacts:
           path: /tmp
 
+  e2e-pilot-cloudfoundry-v1alpha3-v2:
+    <<: *integrationDefaults
+    steps:
+      - type: shell
+        name: Initialize Working Directory
+        pwd: /
+        command: |
+          sudo mkdir -p /go/src/istio.io/istio
+          sudo chown -R circleci /go
+          mkdir -p /go/out
+          mkdir -p /home/circleci/logs
+      - checkout
+      - attach_workspace:
+          at: /go
+      - run: make sync
+      - run:
+          no_output_timeout: 20m
+          when: always
+          command: |
+            export PATH=$GOPATH/bin:$PATH
+            sudo apt update
+            sudo apt install -y iptables
+            sudo iptables -t nat -A OUTPUT -d 127.1.1.1/32 -p tcp -j REDIRECT --to-port 15001
+            make localTestEnv
+            make test/local/cloudfoundry/e2e_pilotv2
+      - store_artifacts:
+          path: /go/out/logs
+      - store_artifacts:
+          path: /tmp
+
   e2e-pilot-noauth-v1alpha3-v2:
     <<: *integrationDefaults
     environment:
@@ -409,7 +439,6 @@ jobs:
             # This is a fast test (<1 min), it takes more time to prepare.
             export PATH=$GOPATH/bin:$PATH
             make localTestEnv
-            make test/local/cloudfoundry/e2e_pilotv2
       - <<: *recordZeroExitCodeIfTestPassed
       - <<: *recordNonzeroExitCodeIfTestFailed
       - <<: *markJobFinishesOnGCS
@@ -631,5 +660,8 @@ workflows:
           requires:
             - build
       - e2e-pilot-auth-v1alpha3-v2: # auth+v1alpha3+v2
+          requires:
+            - build
+      - e2e-pilot-cloudfoundry-v1alpha3-v2:
           requires:
             - build
