@@ -1,4 +1,3 @@
-
 //  Copyright 2018 Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,28 +16,28 @@ package showcase
 
 import (
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/environment"
+	"istio.io/istio/pkg/test/dependency"
 	"testing"
 )
 
-var cfg = ""
+var svcCfg = ""
 
 // Reimplement TestSvc2Svc in a_simple-1_test.go
 func TestSvcLoading(t *testing.T) {
 	// This Requires statement should ensure that all elements are in runnig states
-	test.Requires(t, denpendency.FortioApps, dependency.Pilot)
+	test.Requires(t, dependency.FortioApps, dependency.Pilot)
 
 	env := test.GetEnvironment(t)
-	env.Configure(cfg)
+	env.Configure(svcCfg)
 
-	apps := env.GetFortioApp("app=echosrv")
+	apps := env.GetFortioApps("app=echosrv", t)
 
 	path := "/echo"
 	arg := "load -qps 0 -t 10s "
 	// Test Loading
 	for _, app := range apps {
 		if _, err := app.CallFortio(arg, path); err != nil {
-			t.Fatal("Failed to run fortio %s.", err)
+			t.Fatalf("Failed to run fortio %s.", err)
 		}
 	}
 }
