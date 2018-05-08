@@ -25,38 +25,62 @@ type Environment struct {
 	T testing.TB
 }
 
-// StartAPIServer starts the k8s API server
-func (e *Environment) StartAPIServer() test.DeployedAPIServer {
-	return nil
+var _ test.Environment = &Environment{}
+
+// Configure applies the given configuration to the mesh.
+func (e *Environment) Configure(config string) {
+	// TODO
+	panic("Not yet implemented")
 }
 
-// StartGalley starts the Galley server
-func (e *Environment) StartGalley() test.DeployedIstioComponent {
-	return nil
+// GetMixer returns a deployed Mixer instance in the environment.
+func (e *Environment) GetMixer() test.DeployedMixer {
+	// TODO
+	panic("Not yet implemented")
 }
 
-// StartMixer starts the Mixer server
-func (e *Environment) StartMixer() test.DeployedIstioComponent {
-	return nil
+// GetPilot returns a deployed Pilot instance in the environment.
+func (e *Environment) GetPilot() test.DeployedPilot {
+	// TODO
+	panic("Not yet implemented")
 }
 
-// GetAPIServer returns the deployed k8s API server
-func (e *Environment) GetAPIServer() test.DeployedAPIServer {
-	return nil
-}
-
-// GetIstioComponent gets the deployed configuration for all Istio components of the given kind.
-func (e *Environment) GetIstioComponent(k test.DeployedServiceKind) []test.DeployedIstioComponent {
-	return nil
-}
-
-// GetApp implements the test.Environment interface.
+// GetApp returns a fake testing app object for the given name.
 func (e *Environment) GetApp(name string) (test.DeployedApp, error) {
-	return nil, nil
+	// TODO
+	panic("Not yet implemented")
 }
 
-// GetAppOrFail implements the test.Environment interface.
+// GetAppOrFail returns a fake testing app object for the given name, or fails the test if unsuccessful.
 func (e *Environment) GetAppOrFail(name string, t *testing.T) test.DeployedApp {
 	t.Helper()
-	return nil
+	// TODO
+	panic("Not yet implemented")
+}
+
+// GetFortioApp returns a Fortio App object for the given name.
+func (e *Environment) GetFortioApp(name string) (test.DeployedFortioApp, error) {
+	// TODO
+	panic("Not yet implemented")
+}
+
+// GetFortioAppOrFail returns a Fortio App object for the given name, or fails the test if unsuccessful.
+func (e *Environment) GetFortioAppOrFail(name string, t *testing.T) (test.DeployedFortioApp, error) {
+	t.Helper()
+	// TODO
+	panic("Not yet implemented")
+}
+
+// GetFortioApps returns a set of Fortio Apps based on the given selector.
+func (e *Environment) GetFortioApps(selector string, t *testing.T) []test.DeployedFortioApp {
+	t.Helper()
+	// TODO
+	panic("Not yet implemented")
+}
+
+// GetPolicyBackendOrFail returns the mock policy backend that is used by Mixer for policy checks and reports.
+func (e *Environment) GetPolicyBackendOrFail(t *testing.T) test.DeployedPolicyBackend {
+	t.Helper()
+	// TODO
+	panic("Not yet implemented")
 }
