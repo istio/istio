@@ -421,14 +421,6 @@ localTestEnv: test-bins
 localTestEnvCleanup: test-bins
 	bin/testEnvLocalK8S.sh stop
 
-.PHONY: mixer-test
-MIXER_TEST_T ?= ${T} -count 1 -parallel 1 -p 1 -cpu 1
-mixer-test: mixs
-	# Some tests use relative path "testdata", must be run from mixer dir
-	pushd mixer
-	go test ${MIXER_TEST_T} ./...
-	popd
-
 # Temp. disable parallel test - flaky consul test.
 # https://github.com/istio/istio/issues/2318
 .PHONY: pilot-test
@@ -438,6 +430,14 @@ pilot-test: pilot-agent
 .PHONY: istioctl-test
 istioctl-test: istioctl
 	go test -p 1 ${T} ./istioctl/...
+
+.PHONY: mixer-test
+MIXER_TEST_T ?= ${T} -count 1 -parallel 1 -p 1 -cpu 1
+mixer-test: mixs
+	# Some tests use relative path "testdata", must be run from mixer dir
+	pushd mixer
+	go test ${MIXER_TEST_T} ./...
+	popd
 
 .PHONY: broker-test
 broker-test: depend
