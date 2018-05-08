@@ -57,7 +57,7 @@ func (s *DiscoveryServer) pushCds(node model.Proxy, con *XdsConnection) error {
 	response := con.clusters(rawClusters)
 	err = con.send(response)
 	if err != nil {
-		log.Warnf("CDS: Send failure, closing grpc %v", err)
+		log.Warnf("CDS: Send failure, closing grpc %s %v", node.ID, err)
 		pushes.With(prometheus.Labels{"type": "cds_senderr"}).Add(1)
 		return err
 	}

@@ -321,6 +321,7 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 		if len(con.Clusters) > 0 {
 			err := s.pushEds(con)
 			if err != nil {
+				log.Errorf("Closing EDS connection, failure to push %v", err)
 				return err
 			}
 		}

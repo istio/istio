@@ -163,6 +163,7 @@ func TestAdsReconnectWithNonce(t *testing.T) {
 	_ = edsstr.CloseSend()
 
 	edsstr = connectADS(t, util.MockPilotGrpcAddr)
+	defer edsstr.CloseSend()
 	sendEDSReqReconnect(t, []string{"service3.default.svc.cluster.local|http"}, edsstr, res)
 	sendEDSReq(t, []string{"service3.default.svc.cluster.local|http"}, app3Ip, edsstr)
 	res, _ = adsReceive(edsstr, 5*time.Second)
@@ -180,6 +181,7 @@ func TestAdsReconnect(t *testing.T) {
 
 	// envoy restarts and reconnects
 	edsstr2 := connectADS(t, util.MockPilotGrpcAddr)
+	defer edsstr2.CloseSend()
 	sendCDSReq(t, sidecarId(app3Ip, "app3"), edsstr2)
 	_, _ = adsReceive(edsstr2, 5*time.Second)
 
@@ -202,6 +204,7 @@ func TestAdsReconnect(t *testing.T) {
 func TestTLS(t *testing.T) {
 	initLocalPilotTestEnv(t)
 	edsstr := connectADSS(t, util.MockPilotSecureAddr)
+	defer edsstr.CloseSend()
 	sendCDSReq(t, sidecarId(app3Ip, "app3"), edsstr)
 	_, err := adsReceive(edsstr, 3*time.Second)
 	if err != nil {

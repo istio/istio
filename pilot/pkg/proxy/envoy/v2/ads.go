@@ -45,6 +45,15 @@ var (
 	// This is a map due to an edge case during envoy restart whereby the 'old' envoy
 	// reconnects after the 'new/restarted' envoy
 	adsSidecarIDConnectionsMap = map[string]map[string]*XdsConnection{}
+
+	// SendTimeout is the max time to wait for a ADS send to complete. This helps detect
+	// clients in a bad state (not reading). In future it may include checking for ACK
+	SendTimeout = 5 * time.Second
+
+	// PushTimeout is the time to wait for a push on a client. Pilot iterates over
+	// clients and pushes them serially for now, to avoid large CPU/memory spikes.
+	// We measure and reports cases where pusing a client takes longer.
+	PushTimeout = 5 * time.Second
 )
 
 var (
@@ -93,7 +102,7 @@ var (
 		Help: "Pilot write timeout",
 	})
 
-	pushTimeout = prometheus.NewCounter(prometheus.CounterOpts{
+	pushTimeouts = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "pilot_xds_push_timeout",
 		Help: "Pilot push timeout",
 	})
@@ -113,7 +122,7 @@ func init() {
 	prometheus.MustRegister(monVServices)
 	prometheus.MustRegister(xdsClients)
 	prometheus.MustRegister(writeTimeout)
-	prometheus.MustRegister(pushTimeout)
+	prometheus.MustRegister(pushTimeouts)
 	prometheus.MustRegister(pushes)
 }
 
@@ -458,14 +467,14 @@ func adsPushAll() {
 		// Using non-blocking push has problems if 2 pushes happen too close to each other
 		client := c
 		//go func(client *XdsConnection) {
-		to := time.After(5 * time.Second)
+		to := time.After(PushTimeout)
 		select {
 		case client.pushChannel <- &XdsEvent{}:
 			client.LastPush = time.Now()
 			client.LastPushFailure = timeZero
 		case <-client.doneChannel: // connection was closed
 		case <-to:
-			pushTimeout.Add(1)
+			pushTimeouts.Add(1)
 			//default:
 			// This may happen to some clients if the other side is in a bad state and can't receive.
 			// The tests were catching this - one of the client was not reading.
@@ -572,7 +581,7 @@ func routeDiscoveryResponse(ls []*xdsapi.RouteConfiguration, node model.Proxy) *
 func (con *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
 	done := make(chan error, 1)
 	// hardcoded for now - not sure if we need a setting
-	t := time.NewTimer(5 * time.Second)
+	t := time.NewTimer(SendTimeout)
 	go func() {
 		err := con.stream.Send(res)
 		done <- err

@@ -227,7 +227,7 @@ func multipleRequest(server *bootstrap.Server, t *testing.T) {
 	// Bad client - will not read any response. This triggers Write to block, which should
 	// be detected
 	ads := connectADS(t, util.MockPilotGrpcAddr)
-	sendCDSReq(t, sidecarId(app3Ip, "app3"), ads)
+	sendCDSReq(t, sidecarId(testIp(0x0a120001), "app3"), ads)
 
 	// 1000 clients * 100 pushes = ~4 sec
 	n := 10 // clients
@@ -243,16 +243,22 @@ func multipleRequest(server *bootstrap.Server, t *testing.T) {
 			edsstr, _ := connectAndSend(uint32(id+2), t)
 			defer edsstr.CloseSend()
 			wgConnect.Done()
+			defer wg.Done()
 			// Check we received all pushes
+			log.Println("Waiting for pushes ", id)
 			for j := 0; j < nPushes; j++ {
-				_, err := edsReceive(edsstr, 5*time.Second)
+				// The time must be larger than write timeout: if we run all tests
+				// and some are leaving uncleaned state the push will be slower.
+				_, err := edsReceive(edsstr, 15*time.Second)
 				atomic.AddInt32(&rcvPush, 1)
 				if err != nil {
+					log.Println("Recv failed", err, id, j)
 					t.Error("Recv failed ", err, id, j)
+					return
 				}
 			}
+			log.Println("Received all pushes ", id)
 			atomic.AddInt32(&rcvClients, 1)
-			wg.Done()
 		}(current)
 	}
 	ok := waitTimeout(wgConnect, 10*time.Second)
