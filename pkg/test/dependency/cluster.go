@@ -21,17 +21,8 @@ import (
 	"istio.io/istio/pkg/test/internal"
 )
 
-// Cluster dependency.
-var Cluster Dependency = &clusterDependency{exclusive: false}
-
-// ExclusiveCluster dependency.
-var ExclusiveCluster Dependency = &clusterDependency{exclusive: true}
-
 // GKE dependency
 var GKE Dependency = &clusterDependency{gke: true}
-
-// ExclusiveGKE dependency
-var ExclusiveGKE Dependency = &clusterDependency{exclusive: true, gke: true}
 
 // ClusterDependency represents a typed ClusterDependency dependency.
 type clusterDependency struct {

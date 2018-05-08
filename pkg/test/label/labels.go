@@ -15,16 +15,10 @@
 package label
 
 const (
-	// Integration label
-	Integration Label = "integration"
-	// Unit label
-	Unit Label = "unit"
-	// E2E label
-	E2E Label = "e2e"
-	// Pilot label
-	Pilot Label = "pilot"
-	// Mixer label
-	Mixer Label = "mixer"
-	// LinuxOnly label
-	LinuxOnly Label = "linuxonly"
+
+	// Policy label indicates that this test is for testing policy related functionality.
+	Policy Label = "policy"
+
+	// Networking label indicates that this test is for testing networking related functionality.
+	Networking Label = "networking"
 )
