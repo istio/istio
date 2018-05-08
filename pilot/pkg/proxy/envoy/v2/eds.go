@@ -361,8 +361,10 @@ func (s *DiscoveryServer) pushEds(con *XdsConnection) error {
 	err := con.send(response)
 	if err != nil {
 		log.Warnf("EDS: Send failure, closing grpc %v", err)
+		pushes.With(prometheus.Labels{"type": "eds_senderr"}).Add(1)
 		return err
 	}
+	pushes.With(prometheus.Labels{"type": "eds"}).Add(1)
 
 	if edsDebug {
 		log.Infof("EDS: PUSH for %s %q clusters %d endpoints %d empty %d %v",

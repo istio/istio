@@ -87,6 +87,21 @@ var (
 		Name: "pilot_xds",
 		Help: "Number of endpoints connected to this pilot using XDS",
 	})
+
+	writeTimeout = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "pilot_xds_write_timeout",
+		Help: "Pilot write timeout",
+	})
+
+	pushTimeout = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "pilot_xds_push_timeout",
+		Help: "Pilot push timeout",
+	})
+
+	pushes = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "pilot_xds_pushes",
+		Help: "Pilot push timeout",
+	}, []string{"type"})
 )
 
 func init() {
@@ -97,7 +112,9 @@ func init() {
 	prometheus.MustRegister(monServices)
 	prometheus.MustRegister(monVServices)
 	prometheus.MustRegister(xdsClients)
-
+	prometheus.MustRegister(writeTimeout)
+	prometheus.MustRegister(pushTimeout)
+	prometheus.MustRegister(pushes)
 }
 
 // DiscoveryStream is a common interface for EDS and ADS. It also has a
@@ -448,6 +465,7 @@ func adsPushAll() {
 			client.LastPushFailure = timeZero
 		case <-client.doneChannel: // connection was closed
 		case <-to:
+			pushTimeout.Add(1)
 			//default:
 			// This may happen to some clients if the other side is in a bad state and can't receive.
 			// The tests were catching this - one of the client was not reading.
@@ -508,6 +526,7 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection) error {
 	proxyInstances, err := s.env.GetProxyServiceInstances(con.modelNode)
 	if err != nil {
 		log.Warnf("ADS: RDS: Failed to retrieve proxy service instances %v", err)
+		pushes.With(prometheus.Labels{"type": "rds_conferr"}).Add(1)
 		return err
 	}
 
@@ -520,23 +539,22 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection) error {
 		rc = append(rc, r)
 		con.RouteConfigs[routeName] = r
 	}
-	response, err := routeDiscoveryResponse(rc, *con.modelNode)
-	if err != nil {
-		log.Warnf("ADS: RDS: config failure, closing grpc %v", err)
-		return err
-	}
+	response := routeDiscoveryResponse(rc, *con.modelNode)
 	err = con.send(response)
 	if err != nil {
 		log.Warnf("ADS: RDS: Send failure, closing grpc %v", err)
+		pushes.With(prometheus.Labels{"type": "rds_senderr"}).Add(1)
 		return err
 	}
+	pushes.With(prometheus.Labels{"type": "rds"}).Add(1)
+
 	if adsDebug {
 		log.Infof("ADS: RDS: PUSH for addr:%s routes:%d", con.PeerAddr, len(rc))
 	}
 	return nil
 }
 
-func routeDiscoveryResponse(ls []*xdsapi.RouteConfiguration, node model.Proxy) (*xdsapi.DiscoveryResponse, error) {
+func routeDiscoveryResponse(ls []*xdsapi.RouteConfiguration, node model.Proxy) *xdsapi.DiscoveryResponse {
 	resp := &xdsapi.DiscoveryResponse{
 		TypeUrl:     RouteType,
 		VersionInfo: versionInfo(),
@@ -547,7 +565,7 @@ func routeDiscoveryResponse(ls []*xdsapi.RouteConfiguration, node model.Proxy) (
 		resp.Resources = append(resp.Resources, *lr)
 	}
 
-	return resp, nil
+	return resp
 }
 
 // Send with timeout
@@ -561,7 +579,9 @@ func (con *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
 	}()
 	select {
 	case <-t.C:
+		// TODO: wait for ACK
 		log.Infof("Timeout writing %s", con.ConID)
+		writeTimeout.Add(1)
 		return errors.New("timeout sending")
 	case err, _ := <-done:
 		_ = t.Stop()
