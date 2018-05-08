@@ -1286,7 +1286,7 @@
   version = "v2.2.1"
 
 [[projects]]
-  branch = "master"
+  branch = "release-0.8"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
