@@ -41,6 +41,8 @@ type TestSetup struct {
 	stress        bool
 	faultInject   bool
 	noMixer       bool
+	noProxy       bool
+	noBackend     bool
 	mfConfVersion string
 
 	// EnvoyTemplate is the bootstrap config used by envoy.
@@ -148,17 +150,33 @@ func (s *TestSetup) SetFaultInject(f bool) {
 	s.faultInject = f
 }
 
+// SetNoProxy set NoProxy flag
+func (s *TestSetup) SetNoProxy(no bool) {
+	s.noProxy = no
+}
+
+// SetNoBackend set NoMixer flag
+func (s *TestSetup) SetNoBackend(no bool) {
+	s.noBackend = no
+}
+
 // SetUp setups Envoy, Mixer, and Backend server for test.
 func (s *TestSetup) SetUp() error {
 	var err error
 	s.envoy, err = s.NewEnvoy(s.stress, s.faultInject, s.mfConf, s.ports, s.epoch, s.mfConfVersion)
 	if err != nil {
 		log.Printf("unable to create Envoy %v", err)
+		return err
 	}
 
 	err = s.envoy.Start()
 	if err != nil {
 		return err
+	}
+
+	if !s.noProxy {
+		WaitForPort(s.ports.ClientProxyPort)
+		WaitForPort(s.ports.ServerProxyPort)
 	}
 
 	if !s.noMixer {
@@ -170,13 +188,16 @@ func (s *TestSetup) SetUp() error {
 		}
 	}
 
-	s.backend, err = NewHTTPServer(s.ports.BackendPort)
-	if err != nil {
-		log.Printf("unable to create HTTP server %v", err)
-	} else {
-		s.backend.Start()
+	if !s.noBackend {
+		s.backend, err = NewHTTPServer(s.ports.BackendPort)
+		if err != nil {
+			log.Printf("unable to create HTTP server %v", err)
+		} else {
+			s.backend.Start()
+		}
 	}
-	return err
+
+	return nil
 }
 
 // TearDown shutdown the servers.
@@ -185,7 +206,10 @@ func (s *TestSetup) TearDown() {
 	if s.mixer != nil {
 		s.mixer.Stop()
 	}
-	s.backend.Stop()
+
+	if s.backend != nil {
+		s.backend.Stop()
+	}
 }
 
 // ReStartEnvoy restarts Envoy
@@ -200,6 +224,11 @@ func (s *TestSetup) ReStartEnvoy() {
 		s.t.Errorf("unable to re-start Envoy %v", err)
 	} else {
 		_ = s.envoy.Start()
+
+		if !s.noProxy {
+			WaitForPort(s.ports.ClientProxyPort)
+			WaitForPort(s.ports.ServerProxyPort)
+		}
 	}
 }
 

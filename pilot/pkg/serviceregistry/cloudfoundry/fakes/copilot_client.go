@@ -7,8 +7,6 @@ import (
 	"code.cloudfoundry.org/copilot/api"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	// manually added this space to satisfy goimports -d --local istio.io
-	"istio.io/istio/pilot/pkg/config/monitor"
 )
 
 type CopilotClient struct {
@@ -116,6 +114,7 @@ func (fake *CopilotClient) HealthReturnsOnCall(i int, result1 *api.HealthRespons
 
 func (fake *CopilotClient) Routes(ctx context.Context, in *api.RoutesRequest, opts ...grpc.CallOption) (*api.RoutesResponse, error) {
 	fake.routesMutex.Lock()
+	defer fake.routesMutex.Unlock()
 	ret, specificReturn := fake.routesReturnsOnCall[len(fake.routesArgsForCall)]
 	fake.routesArgsForCall = append(fake.routesArgsForCall, struct {
 		ctx  context.Context
@@ -123,7 +122,6 @@ func (fake *CopilotClient) Routes(ctx context.Context, in *api.RoutesRequest, op
 		opts []grpc.CallOption
 	}{ctx, in, opts})
 	fake.recordInvocation("Routes", []interface{}{ctx, in, opts})
-	fake.routesMutex.Unlock()
 	if fake.RoutesStub != nil {
 		return fake.RoutesStub(ctx, in, opts...)
 	}
@@ -169,6 +167,7 @@ func (fake *CopilotClient) RoutesReturnsOnCall(i int, result1 *api.RoutesRespons
 
 func (fake *CopilotClient) InternalRoutes(ctx context.Context, in *api.InternalRoutesRequest, opts ...grpc.CallOption) (*api.InternalRoutesResponse, error) {
 	fake.internalRoutesMutex.Lock()
+	defer fake.internalRoutesMutex.Unlock()
 	ret, specificReturn := fake.internalRoutesReturnsOnCall[len(fake.internalRoutesArgsForCall)]
 	fake.internalRoutesArgsForCall = append(fake.internalRoutesArgsForCall, struct {
 		ctx  context.Context
@@ -176,7 +175,6 @@ func (fake *CopilotClient) InternalRoutes(ctx context.Context, in *api.InternalR
 		opts []grpc.CallOption
 	}{ctx, in, opts})
 	fake.recordInvocation("InternalRoutes", []interface{}{ctx, in, opts})
-	fake.internalRoutesMutex.Unlock()
 	if fake.InternalRoutesStub != nil {
 		return fake.InternalRoutesStub(ctx, in, opts...)
 	}
@@ -247,5 +245,3 @@ func (fake *CopilotClient) recordInvocation(key string, args []interface{}) {
 	}
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
-
-var _ monitor.CopilotClient = new(CopilotClient)
