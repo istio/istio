@@ -420,6 +420,11 @@ func buildDefaultCluster(env model.Environment, name string, discoveryType v2.Cl
 		Type:  discoveryType,
 		Hosts: hosts,
 	}
+
+	if discoveryType == v2.Cluster_STRICT_DNS || discoveryType == v2.Cluster_LOGICAL_DNS {
+		cluster.DnsLookupFamily = v2.Cluster_V4_ONLY
+	}
+
 	defaultTrafficPolicy := buildDefaultTrafficPolicy(env, discoveryType)
 	applyTrafficPolicy(cluster, defaultTrafficPolicy, nil)
 	return cluster
