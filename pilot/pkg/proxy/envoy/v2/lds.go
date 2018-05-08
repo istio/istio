@@ -34,7 +34,7 @@ func (s *DiscoveryServer) pushLds(node model.Proxy, con *XdsConnection) error {
 		log.Warnf("LDS: config failure, closing grpc %v", err)
 		return err
 	}
-	err = con.stream.Send(response)
+	err = con.send(response)
 	if err != nil {
 		log.Warnf("LDS: Send failure, closing grpc %v", err)
 		return err

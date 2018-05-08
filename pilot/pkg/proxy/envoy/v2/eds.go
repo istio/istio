@@ -358,7 +358,7 @@ func (s *DiscoveryServer) pushEds(con *XdsConnection) error {
 	}
 
 	response := s.endpoints(con.Clusters, resAny)
-	err := con.stream.Send(response)
+	err := con.send(response)
 	if err != nil {
 		log.Warnf("EDS: Send failure, closing grpc %v", err)
 		return err

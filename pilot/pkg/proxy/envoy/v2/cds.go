@@ -49,7 +49,7 @@ func (s *DiscoveryServer) pushCds(node model.Proxy, con *XdsConnection) error {
 
 	con.HTTPClusters = rawClusters
 	response := con.clusters(rawClusters)
-	err := con.stream.Send(response)
+	err := con.send(response)
 	if err != nil {
 		log.Warnf("CDS: Send failure, closing grpc %v", err)
 		return err

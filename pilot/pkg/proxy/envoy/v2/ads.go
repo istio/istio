@@ -31,6 +31,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
+	"errors"
 )
 
 var (
@@ -451,7 +452,8 @@ func adsPushAll() {
 					log.Infof("Failed to push, client busy %s", client.ConID)
 				} else {
 					if time.Since(client.LastPushFailure) > 10*time.Second {
-						log.Infof("Repeated failure to push, closing %s", client.ConID)
+						log.Infof("Repeated failure to push %s", client.ConID)
+						// unfortunately grpc go doesn't allow closing (unblocking) the stream.
 					}
 				}
 			}
@@ -519,7 +521,7 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection) error {
 		log.Warnf("ADS: RDS: config failure, closing grpc %v", err)
 		return err
 	}
-	err = con.stream.Send(response)
+	err = con.send(response)
 	if err != nil {
 		log.Warnf("ADS: RDS: Send failure, closing grpc %v", err)
 		return err
@@ -542,4 +544,24 @@ func routeDiscoveryResponse(ls []*xdsapi.RouteConfiguration, node model.Proxy) (
 	}
 
 	return resp, nil
+}
+
+// Send with timeout
+func (con *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
+	done := make(chan error, 1)
+	// hardcoded for now - not sure if we need a setting
+	t := time.NewTimer(5 * time.Second)
+	defer func() {
+		err := con.stream.Send(res)
+		done <- err
+	}()
+	select {
+		case <-t.C:
+			log.Infof("Timeout writing %s", con.ConID)
+			return errors.New("Timeout sending")
+		case err, _ := <- done:
+			_ = t.Stop()
+			return err
+	}
+	return nil
 }
