@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/tests/util"
+	"log"
 )
 
 func connect(t *testing.T) xdsapi.EndpointDiscoveryService_StreamEndpointsClient {
@@ -142,6 +143,7 @@ func TestReconnect(t *testing.T) {
 // Make a direct EDS grpc request to pilot, verify the result is as expected.
 func directRequest(server *bootstrap.Server, t *testing.T) {
 	edsstr, cla := connectAndSend(1, t)
+	defer edsstr.CloseSend()
 	// TODO: validate VersionInfo and nonce once we settle on a scheme
 
 	ep := cla.Endpoints
@@ -182,8 +184,6 @@ func directRequest(server *bootstrap.Server, t *testing.T) {
 	// Need to run the debug test before we close - close will remove the cluster since
 	// nobody is watching.
 	testEdsz(t)
-
-	_ = edsstr.CloseSend()
 }
 
 // Make a direct EDS grpc request to pilot, verify the result is as expected.
@@ -247,9 +247,8 @@ func multipleRequest(server *bootstrap.Server, t *testing.T) {
 			edsstr, _ := connectAndSend(id+2, t)
 			defer edsstr.CloseSend()
 			wgConnect.Done()
-			// Do multiple pushes
+			// Check we received all pushes
 			for j := 0; j < nPushes; j++ {
-
 				_, err := edsReceive(edsstr, 5*time.Second)
 				atomic.AddInt32(&rcvPush, 1)
 				if err != nil {
@@ -261,8 +260,10 @@ func multipleRequest(server *bootstrap.Server, t *testing.T) {
 		}(current)
 	}
 	wgConnect.Wait()
+	log.Println("Done connecting")
 	for j := 0; j < nPushes; j++ {
 		v2.PushAll()
+		log.Println("Push done ", j)
 	}
 
 	ok := waitTimeout(wg, 30*time.Second)
@@ -309,12 +310,8 @@ func TestEds(t *testing.T) {
 	initLocalPilotTestEnv(t)
 	server := util.EnsureTestServer()
 
-	t.Run("DirectRequest", func(t *testing.T) {
-		directRequest(server, t)
-	})
-	t.Run("MultipleRequest", func(t *testing.T) {
-		multipleRequest(server, t)
-	})
+	directRequest(server, t)
+	multipleRequest(server, t)
 
 }
 
