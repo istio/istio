@@ -292,7 +292,7 @@ fi
 # If ENABLE_INBOUND_IPV6 is unset (default unset), restrict IPv6 traffic.
 set +o nounset
 if [ -z "${ENABLE_INBOUND_IPV6}" ]; then
-  # Drop all incoming and forward traffic.
+  # Drop all inbound traffic except established connections.
   # TODO: support receiving IPv6 traffic in the same way as IPv4.
   ip6tables -F INPUT || true
   ip6tables -A INPUT -m state --state ESTABLISHED -j ACCEPT || true
