@@ -3518,3 +3518,40 @@ func TestValidateNetworkEndpointAddress(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateRbacConfig(t *testing.T) {
+	cases := []struct {
+		name         string
+		in           proto.Message
+		expectErrMsg string
+	}{
+		{
+			name:         "invalid proto",
+			expectErrMsg: "cannot cast to RbacConfig",
+		},
+		{
+			name: "unsupported mode ON_WITH_INCLUSION",
+			in: &rbac.RbacConfig{Mode: rbac.RbacConfig_ON_WITH_INCLUSION},
+			expectErrMsg: "rbac mode not implemented, currently only supports ON/OFF",
+		},
+		{
+			name: "unsupported mode ON_WITH_EXCLUSION",
+			in: &rbac.RbacConfig{Mode: rbac.RbacConfig_ON_WITH_EXCLUSION},
+			expectErrMsg: "rbac mode not implemented, currently only supports ON/OFF",
+		},
+		{
+			name: "success proto",
+			in: &rbac.RbacConfig{Mode: rbac.RbacConfig_ON},
+		},
+	}
+	for _, c := range cases {
+		err := ValidateRbacConfig(c.in)
+		if err == nil {
+			if len(c.expectErrMsg) != 0 {
+				t.Errorf("ValidateRbacConfig(%v): got nil but want %q\n", c.name, c.expectErrMsg)
+			}
+		} else if err.Error() != c.expectErrMsg {
+			t.Errorf("ValidateRbacConfig(%v): got %q but want %q\n", c.name, err.Error(), c.expectErrMsg)
+		}
+	}
+}

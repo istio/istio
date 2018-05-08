@@ -838,6 +838,7 @@ func newClient() (model.ConfigStore, error) {
 		model.AuthenticationPolicy,
 		model.ServiceRole,
 		model.ServiceRoleBinding,
+		model.RbacConfig,
 	}, "")
 }
 

@@ -25,11 +25,13 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
 )
 
 const (
 	// RbacFilterName is the name for the Rbac filter.
+	// TODO(yangminzhu): Update once the final name is decided.
 	RbacFilterName = "rbac-authz"
 )
 
@@ -51,13 +53,27 @@ func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mutable
 // Can be used to add additional filters (e.g., mixer filter) or add more stuff to the HTTP connection manager
 // on the inbound path
 func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+	rbacConfigs, err := in.Env.IstioConfigStore.List(model.RbacConfig.Type, kube.IstioNamespace)
+	if err != nil {
+		return fmt.Errorf("failed to get rbacConfig %v", err)
+	}
+	if len(rbacConfigs) != 1 {
+		return fmt.Errorf("found %d rbacConfigs, only supports 1 rbacConfig", len(rbacConfigs))
+	}
+	configProto := rbacConfigs[0].Spec.(*rbacproto.RbacConfig)
+	// TODO(yangminzhu): Supports ON_WITH_INCLUSION and ON_WITH_EXCLUSION.
+	if configProto.Mode != rbacproto.RbacConfig_ON {
+		log.Infof("rbac plugin disabled by rbacConfig %v", *configProto)
+		return nil
+	}
+
 	if in.Node.Type != model.Sidecar {
-		// The rbac filter only supports sidecar for now.
+		// Only supports sidecar proxy for now.
 		return nil
 	}
 
 	for i := range mutable.Listener.FilterChains {
-		// The rbac filter only supports HTTP listener for now.
+		// Only supports HTTP listener for now.
 		if in.ListenerType == plugin.ListenerTypeHTTP {
 			serviceName := in.ServiceInstance.Service.Hostname
 			if filter := buildHttpFilter(serviceName, in.Env.IstioConfigStore); filter != nil {
@@ -87,6 +103,8 @@ func (Plugin) OnOutboundCluster(env model.Environment, node model.Proxy, service
 	servicePort *model.Port, cluster *xdsapi.Cluster) {
 }
 
+// buildHttpFilter builds a http filter that enforces the rbac rules for the specified service in
+// the sidecar proxy.
 func buildHttpFilter(serviceName string, store model.IstioConfigStore) *http_conn.HttpFilter {
 	split := strings.Split(serviceName, ".")
 	if len(split) < 2 {
@@ -113,6 +131,7 @@ func buildHttpFilter(serviceName string, store model.IstioConfigStore) *http_con
 		return nil
 	}
 
+	log.Debugf("%s generated with config %v", RbacFilterName, *config)
 	return &http_conn.HttpFilter{
 		Name:   RbacFilterName,
 		Config: util.MessageToStruct(config),
@@ -120,13 +139,14 @@ func buildHttpFilter(serviceName string, store model.IstioConfigStore) *http_con
 }
 
 func convertRbacRulesToFilterConfig(service string, roles []model.Config, bindings []model.Config) (*RBAC, error) {
-	// roleToBinding maps ServiceRole name to a list of ServiceRoleBinding protos.
+	// roleToBinding maps ServiceRole to a list of ServiceRoleBindings.
 	roleToBinding := map[string][]*rbacproto.ServiceRoleBinding{}
 	for _, binding := range bindings {
 		proto := binding.Spec.(*rbacproto.ServiceRoleBinding)
 		refName := proto.RoleRef.Name
 		if refName == "" {
-			return nil, fmt.Errorf("invalid RoleRef.Name in binding: %v", proto)
+			log.Errorf("invalid RoleRef.Name in binding: %v", proto)
+			continue
 		}
 		roleToBinding[refName] = append(roleToBinding[refName], proto)
 	}
@@ -137,21 +157,23 @@ func convertRbacRulesToFilterConfig(service string, roles []model.Config, bindin
 		Policies: map[string]*Policy{},
 	}
 
-	// Constructs a policy for each ServiceRole.
 	for _, role := range roles {
+		// Constructs the policy for each ServiceRole.
 		policy := &Policy{
 			Permissions: []*Permission{},
 			Principals:  []*Principal{},
 		}
 
-		principal := convertToPrincipals(roleToBinding[role.Name])
+		principals := convertToPrincipals(roleToBinding[role.Name])
 		proto := role.Spec.(*rbacproto.ServiceRole)
 		hasPolicy := false
 		for _, rule := range proto.Rules {
 			if stringMatch(service, rule.Services) {
+				// Generates the policy if the service is matched to the services specified in ServiceRole.
 				policy.Permissions = append(policy.Permissions, convertToPermission(rule))
-				policy.Principals = principal
+				policy.Principals = principals
 				hasPolicy = true
+				log.Debugf("service %v matched role %v, generated policy %v", service, role.Name, *policy)
 			}
 		}
 

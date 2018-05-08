@@ -502,6 +502,15 @@ var (
 		Validate:    ValidateServiceRoleBinding,
 	}
 
+	RbacConfig = ProtoSchema{
+		Type:        "rbac-config",
+		Plural:      "rbac-configs",
+		Group:       "config",
+		Version:     istioAPIVersion,
+		MessageName: "istio.rbac.v1alpha1.RbacConfig",
+		Validate:    ValidateRbacConfig,
+	}
+
 	// IstioConfigTypes lists all Istio config types with schemas and validation
 	IstioConfigTypes = ConfigDescriptor{
 		RouteRule,
@@ -519,6 +528,7 @@ var (
 		AuthenticationPolicy,
 		ServiceRole,
 		ServiceRoleBinding,
+		RbacConfig,
 	}
 )
 

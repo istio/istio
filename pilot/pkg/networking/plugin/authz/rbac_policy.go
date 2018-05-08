@@ -1,5 +1,5 @@
-// Fake protobuf only used for POC implementation of local RBAC.
-// TODO(yangminzhu): Change to use the real protobuf definition in envoy-data-plane.
+// Fake proto only used for POC implementation of local RBAC.
+// TODO(yangminzhu): Change to use the real proto definition in envoy-data-plane.
 
 package authz
 
