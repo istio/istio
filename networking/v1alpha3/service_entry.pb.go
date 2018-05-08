@@ -111,58 +111,64 @@ func (ServiceEntry_Resolution) EnumDescriptor() ([]byte, []int) {
 // as any other service in the mesh. The associated DestinationRule is used
 // to initiate mTLS connections to the database instances.
 //
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: ServiceEntry
-//     metadata:
-//       name: external-svc-mongocluster
-//     spec:
-//       hosts:
-//       - mymongodb.somedomain # not used
-//       addresses:
-//       - 192.192.192.192/24 # VIPs
-//       ports:
-//       - number: 27018
-//         name: mongodb
-//         protocol: MONGO
-//       location: MESH_INTERNAL
-//       resolution: STATIC
-//       endpoints:
-//       - address: 2.2.2.2
-//       - address: 3.3.3.3
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: ServiceEntry
+// metadata:
+//   name: external-svc-mongocluster
+// spec:
+//   hosts:
+//   - mymongodb.somedomain # not used
+//   addresses:
+//   - 192.192.192.192/24 # VIPs
+//   ports:
+//   - number: 27018
+//     name: mongodb
+//     protocol: MONGO
+//   location: MESH_INTERNAL
+//   resolution: STATIC
+//   endpoints:
+//   - address: 2.2.2.2
+//   - address: 3.3.3.3
+// ```
 //
 // and the associated DestinationRule
 //
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: DestinationRule
-//     metadata:
-//       name: mtls-mongocluster
-//     spec:
-//       host: mymongodb.somedomain
-//       trafficPolicy:
-//         tls:
-//           mode: MUTUAL
-//           clientCertificate: /etc/certs/myclientcert.pem
-//           privateKey: /etc/certs/client_private_key.pem
-//           caCertificates: /etc/certs/rootcacerts.pem
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: DestinationRule
+// metadata:
+//   name: mtls-mongocluster
+// spec:
+//   host: mymongodb.somedomain
+//   trafficPolicy:
+//     tls:
+//       mode: MUTUAL
+//       clientCertificate: /etc/certs/myclientcert.pem
+//       privateKey: /etc/certs/client_private_key.pem
+//       caCertificates: /etc/certs/rootcacerts.pem
+// ```
 //
 // The following example demonstrates the use of wildcards in the hosts for
 // external services. If the connection has to be routed to the IP address
 // requested by the application (i.e. application resolves DNS and attempts
 // to connect to a specific IP), the discovery mode must be set to `NONE`.
 //
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: ServiceEntry
-//     metadata:
-//       name: external-svc-wildcard-example
-//     spec:
-//       hosts:
-//       - "*.bar.com"
-//       location: MESH_EXTERNAL
-//       ports:
-//       - number: 80
-//         name: http
-//         protocol: HTTP
-//       resolution: NONE
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: ServiceEntry
+// metadata:
+//   name: external-svc-wildcard-example
+// spec:
+//   hosts:
+//   - "*.bar.com"
+//   location: MESH_EXTERNAL
+//   ports:
+//   - number: 80
+//     name: http
+//     protocol: HTTP
+//   resolution: NONE
+// ```
 //
 // For HTTP based services, it is possible to create a VirtualService
 // backed by multiple DNS addressable endpoints. In such a scenario, the
@@ -172,41 +178,45 @@ func (ServiceEntry_Resolution) EnumDescriptor() ([]byte, []int) {
 // service called foo.bar.com backed by three domains: us.foo.bar.com:8443,
 // uk.foo.bar.com:9443, and in.foo.bar.com:7443
 //
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: ServiceEntry
-//     metadata:
-//       name: external-svc-dns
-//     spec:
-//       hosts:
-//       - foo.bar.com
-//       location: MESH_EXTERNAL
-//       ports:
-//       - number: 443
-//         name: https
-//         protocol: HTTP
-//       resolution: DNS
-//       endpoints:
-//       - address: us.foo.bar.com
-//         ports:
-//           https: 8443
-//       - address: uk.foo.bar.com
-//         ports:
-//           https: 9443
-//       - address: in.foo.bar.com
-//         ports:
-//           https: 7443
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: ServiceEntry
+// metadata:
+//   name: external-svc-dns
+// spec:
+//   hosts:
+//   - foo.bar.com
+//   location: MESH_EXTERNAL
+//   ports:
+//   - number: 443
+//     name: https
+//     protocol: HTTP
+//   resolution: DNS
+//   endpoints:
+//   - address: us.foo.bar.com
+//     ports:
+//       https: 8443
+//   - address: uk.foo.bar.com
+//     ports:
+//       https: 9443
+//   - address: in.foo.bar.com
+//     ports:
+//       https: 7443
+// ```
 //
 // and a DestinationRule to initiate TLS connections to the ServiceEntry.
 //
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: DestinationRule
-//     metadata:
-//       name: tls-foobar
-//     spec:
-//       host: foo.bar.com
-//       trafficPolicy:
-//         tls:
-//           mode: SIMPLE # initiates HTTPS
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: DestinationRule
+// metadata:
+//   name: tls-foobar
+// spec:
+//   host: foo.bar.com
+//   trafficPolicy:
+//     tls:
+//       mode: SIMPLE # initiates HTTPS
+// ```
 //
 // With HTTP_PROXY=http://localhost:443, calls from the application to
 // http://foo.bar.com will be upgraded to HTTPS and load balanced across
