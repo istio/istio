@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
@@ -177,10 +178,12 @@ func TestServiceKey(t *testing.T) {
 func TestSubsetKey(t *testing.T) {
 	hostname := model.Hostname("hostname")
 	cases := []struct {
+		got      string
 		hostname model.Hostname
 		subset   string
 		port     *model.Port
 		want     string
+		err      error
 	}{
 		{
 			hostname: "hostname",
@@ -200,19 +203,45 @@ func TestSubsetKey(t *testing.T) {
 			port:     &model.Port{Name: "http", Port: 80, Protocol: model.ProtocolHTTP},
 			want:     "outbound.http._default_.hostname",
 		},
+		{
+			want:   "badClusterKey",
+			subset: "",
+			port:   &model.Port{Name: "dontcare", Port: 80, Protocol: model.ProtocolHTTP},
+			got:    "badClusterKey",
+			err:    fmt.Errorf("malformed cluster-key"),
+		},
 	}
 
 	for _, c := range cases {
-		got := model.BuildSubsetKey(model.TrafficDirectionOutbound, c.subset, hostname, c.port)
-		if got != c.want {
-			t.Errorf("Failed: got %q want %q", got, c.want)
-		}
+		t.Run(c.want, func(t *testing.T) {
+			got := c.got
+			if got == "" {
+				got = model.BuildSubsetKey(model.TrafficDirectionOutbound, c.subset, hostname, c.port)
+				if got != c.want {
+					t.Errorf("Failed: got %q want %q", got, c.want)
+				}
+			}
+			// test parse subset key. ParseSubsetKey is the inverse of BuildSubsetKey
+			_, s, h, p, err := model.ParseSubsetKey(got)
 
-		// test parse subset key. ParseSubsetKey is the inverse of BuildSubsetKey
-		_, s, h, p := model.ParseSubsetKey(got)
-		if s != c.subset || h != c.hostname || p.Name != c.port.Name {
-			t.Errorf("Failed: got %s,%s,%s want %s,%s,%s", s, h, p.Name, c.subset, c.hostname, c.port.Name)
-		}
+			wantErr := c.err != nil
+			gotErr := err != nil
+
+			if gotErr != wantErr {
+				t.Fatalf("\n got: %v\nwant: %v", err, c.err)
+			}
+
+			if c.err != nil {
+				if !strings.Contains(err.Error(), c.err.Error()) {
+					t.Fatalf("\n got: %v\nwant: %v", err, c.err)
+				}
+				return
+			}
+
+			if s != c.subset || h != c.hostname || p.Name != c.port.Name {
+				t.Errorf("Failed: got %s,%s,%s want %s,%s,%s", s, h, p.Name, c.subset, c.hostname, c.port.Name)
+			}
+		})
 	}
 }
 

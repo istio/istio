@@ -610,11 +610,14 @@ func ParseServiceKey(s string) (hostname Hostname, ports PortList, labels Labels
 	return
 }
 
+// defaultSubsetName - Use this name for subset is not defined.
+const defaultSubsetName = "_default_"
+
 // BuildSubsetKey generates a unique string referencing service instances for a given service name, a subset and a port.
 // The proxy queries Pilot with this key to obtain the list of instances in a subset.
 func BuildSubsetKey(direction TrafficDirection, subsetName string, hostname Hostname, port *Port) string {
 	if subsetName == "" {
-		subsetName = "_default_"
+		subsetName = defaultSubsetName
 	}
 
 	portName := port.Name
@@ -626,8 +629,14 @@ func BuildSubsetKey(direction TrafficDirection, subsetName string, hostname Host
 }
 
 // ParseSubsetKey is the inverse of the BuildSubsetKey method
-func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, hostname Hostname, port *Port) {
+func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, hostname Hostname, port *Port, err error) {
 	parts := strings.SplitN(s, ".", 4)
+
+	if len(parts) != 4 {
+		return "", "", "", nil,
+			fmt.Errorf("malformed cluster-key %s, want: {direction}.{portName}.{subsetName}.{hostname}", s)
+	}
+
 	direction = TrafficDirection(parts[0])
 
 	if pi, err := strconv.ParseInt(parts[1], 10, 64); err == nil {
@@ -637,7 +646,7 @@ func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, ho
 	}
 
 	subsetName = parts[2]
-	if subsetName == "_default_" {
+	if subsetName == defaultSubsetName {
 		subsetName = ""
 	}
 	hostname = Hostname(parts[3])
