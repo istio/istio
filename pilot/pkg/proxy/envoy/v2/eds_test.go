@@ -185,7 +185,8 @@ func directRequest(server *bootstrap.Server, t *testing.T) {
 }
 
 // Make a direct EDS grpc request to pilot, verify the result is as expected.
-func connectAndSend(id int, t *testing.T) (xdsapi.EndpointDiscoveryService_StreamEndpointsClient,
+// id should be unique to avoid interference between tests.
+func connectAndSend(id int32, t *testing.T) (xdsapi.EndpointDiscoveryService_StreamEndpointsClient,
 	*xdsapi.ClusterLoadAssignment) {
 
 	conn, err := grpc.Dial(util.MockPilotGrpcAddr, grpc.WithInsecure())
@@ -200,7 +201,7 @@ func connectAndSend(id int, t *testing.T) (xdsapi.EndpointDiscoveryService_Strea
 	}
 	err = edsstr.Send(&xdsapi.DiscoveryRequest{
 		Node: &envoy_api_v2_core1.Node{
-			Id: sidecarId(testIp(id), "app3"),
+			Id: sidecarId(testIp(uint32(0x0a100000+id)), "app3"),
 		},
 		ResourceNames: []string{"hello.default.svc.cluster.local|http"}})
 	if err != nil {

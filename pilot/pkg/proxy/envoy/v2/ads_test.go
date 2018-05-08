@@ -312,9 +312,9 @@ func getLoadAssignment(res1 *xdsapi.DiscoveryResponse) (*xdsapi.ClusterLoadAssig
 	return cla, nil
 }
 
-func testIp(id int) string {
-	ipb := []byte{10, 0, 0, 0}
-	binary.BigEndian.PutUint16(ipb[2:], uint16(id))
+func testIp(id uint32) string {
+	ipb := []byte{0, 0, 0, 0}
+	binary.BigEndian.PutUint32(ipb, id)
 	return net.IP(ipb).String()
 }
 
@@ -332,7 +332,7 @@ func testAdsMultiple(t *testing.T, server *pilotbootstrap.Server) {
 		go func() {
 			edsstr := connectADS(t, util.MockPilotGrpcAddr)
 			sendEDSReq(t, []string{"service3.default.svc.cluster.local|http-main"},
-				testIp(i), edsstr)
+				testIp(uint32(0x0a000000+i)), edsstr)
 
 			res1, err := adsReceive(edsstr, 5*time.Second)
 			if err != nil {
