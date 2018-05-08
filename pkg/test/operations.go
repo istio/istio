@@ -70,7 +70,7 @@ func SuiteRequires(_ *testing.M, dependencies ...dependency.Dependency) {
 // Requires ensures that the given dependencies will be satisfied. If they cannot, then the
 // test will fail.
 func Requires(t testing.TB, dependencies ...dependency.Dependency) {
-	d.CheckDependencies(t, dependencies)
+	d.InitializeTestDependencies(t, dependencies)
 }
 
 // SuiteTag tags all tests in the suite with the given labels.

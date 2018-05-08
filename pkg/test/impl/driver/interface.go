@@ -40,8 +40,8 @@ type Interface interface {
 	// Run() method is execution.
 	GetEnvironment(t testing.TB) environment.Interface
 
-	// CheckDependencies checks and initializes the supplied dependencies appropriately.
-	CheckDependencies(t testing.TB, dependencies []dependency.Dependency)
+	// InitializeTestDependencies checks and initializes the supplied dependencies appropriately.
+	InitializeTestDependencies(t testing.TB, dependencies []dependency.Dependency)
 
 	// CheckLabels checks the labels against the user supplied filter, and skips the test if the labels
 	// do not match user supplied labels.
