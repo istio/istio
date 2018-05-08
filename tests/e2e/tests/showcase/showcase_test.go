@@ -85,7 +85,7 @@ kind: VirtualService
 	appt := env.GetAppOrFail("t", t)
 
 	// Returns the fake policy backend that Mixer will use to check policies against.
-	policyBe := env.GetPolicyBackend(t)
+	policyBe := env.GetPolicyBackendOrFail(t)
 
 	// Prime the policy backend's behavior. It should deny all check requests.
 	policyBe.DenyCheck()
