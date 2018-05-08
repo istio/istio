@@ -49,6 +49,7 @@ test --test_env=HEAPCHECK=normal --test_env=PPROF_PATH
 
 # Release builds
 build:release -c opt
+build:release --strip=always
 
 # Add compile option for all C++ files
 build --cxxopt -Wnon-virtual-dtor
