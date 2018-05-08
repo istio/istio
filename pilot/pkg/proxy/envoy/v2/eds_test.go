@@ -15,11 +15,9 @@ package v2_test
 
 import (
 	"context"
-	"encoding/binary"
 	"fmt"
 	"io/ioutil"
 	"log"
-	"net"
 	"net/http"
 	"runtime"
 	"strings"
@@ -200,11 +198,9 @@ func connectAndSend(id int, t *testing.T) (xdsapi.EndpointDiscoveryService_Strea
 	if err != nil {
 		t.Fatal("Rpc failed", err)
 	}
-	ipb := []byte{10, 0, 0, 0}
-	binary.BigEndian.PutUint16(ipb[2:], uint16(id))
 	err = edsstr.Send(&xdsapi.DiscoveryRequest{
 		Node: &envoy_api_v2_core1.Node{
-			Id: sidecarId(net.IP(ipb).String(), "app3"),
+			Id: sidecarId(testIp(id), "app3"),
 		},
 		ResourceNames: []string{"hello.default.svc.cluster.local|http"}})
 	if err != nil {
@@ -215,16 +211,9 @@ func connectAndSend(id int, t *testing.T) (xdsapi.EndpointDiscoveryService_Strea
 	if err != nil {
 		t.Fatal("Recv failed", err)
 	}
-	if res1.TypeUrl != "type.googleapis.com/envoy.api.v2.ClusterLoadAssignment" {
-		t.Error("Expecting type.googleapis.com/envoy.api.v2.ClusterLoadAssignment got ", res1.TypeUrl)
-	}
-	if res1.Resources[0].TypeUrl != "type.googleapis.com/envoy.api.v2.ClusterLoadAssignment" {
-		t.Error("Expecting type.googleapis.com/envoy.api.v2.ClusterLoadAssignment got ", res1.Resources[0].TypeUrl)
-	}
-	cla := &xdsapi.ClusterLoadAssignment{}
-	err = cla.Unmarshal(res1.Resources[0].Value)
+	cla, err := getLoadAssignment(res1)
 	if err != nil {
-		t.Fatal("Failed to parse proto ", err)
+		t.Fatal("Invalid EDS ", err)
 	}
 	return edsstr, cla
 }
@@ -265,14 +254,17 @@ func multipleRequest(server *bootstrap.Server, t *testing.T) {
 			wg.Done()
 		}(current)
 	}
-	wgConnect.Wait()
+	ok := waitTimeout(wgConnect, 10*time.Second)
+	if !ok {
+		t.Fatal("Failed to connect")
+	}
 	log.Println("Done connecting")
 	for j := 0; j < nPushes; j++ {
 		v2.PushAll()
 		log.Println("Push done ", j)
 	}
 
-	ok := waitTimeout(wg, 30*time.Second)
+	ok = waitTimeout(wg, 30*time.Second)
 	if !ok {
 		t.Errorf("Failed to receive all responses %d %d", rcvClients, rcvPush)
 		buf := make([]byte, 1<<16)

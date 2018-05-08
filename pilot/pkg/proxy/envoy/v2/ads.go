@@ -437,27 +437,31 @@ func adsPushAll() {
 	// It will include sending all configs that envoy is listening for, including EDS.
 	// TODO: get service, serviceinstances, configs once, to avoid repeated redundant calls.
 	// TODO: indicate the specific events, to only push what changed.
-	for _, client := range tmpMap {
-		go func(client *XdsConnection) {
-			select {
-			case client.pushChannel <- &XdsEvent{}:
-				client.LastPush = time.Now()
-				client.LastPushFailure = timeZero
-			case <-client.doneChannel: // connection was closed
-			default:
-				// This may happen to some clients if the other side is in a bad state and can't receive.
-				// The tests were catching this - one of the client was not reading.
-				if client.LastPushFailure.IsZero() {
-					client.LastPushFailure = time.Now()
-					log.Infof("Failed to push, client busy %s", client.ConID)
-				} else {
-					if time.Since(client.LastPushFailure) > 10*time.Second {
-						log.Infof("Repeated failure to push %s", client.ConID)
-						// unfortunately grpc go doesn't allow closing (unblocking) the stream.
-					}
+	for _, c := range tmpMap {
+		// Using non-blocking push has problems if 2 pushes happen too close to each other
+		client := c
+		//go func(client *XdsConnection) {
+		to := time.After(5 * time.Second)
+		select {
+		case client.pushChannel <- &XdsEvent{}:
+			client.LastPush = time.Now()
+			client.LastPushFailure = timeZero
+		case <-client.doneChannel: // connection was closed
+		case <-to:
+			//default:
+			// This may happen to some clients if the other side is in a bad state and can't receive.
+			// The tests were catching this - one of the client was not reading.
+			if client.LastPushFailure.IsZero() {
+				client.LastPushFailure = time.Now()
+				log.Infof("Failed to push, client busy %s", client.ConID)
+			} else {
+				if time.Since(client.LastPushFailure) > 10*time.Second {
+					log.Infof("Repeated failure to push %s", client.ConID)
+					// unfortunately grpc go doesn't allow closing (unblocking) the stream.
 				}
 			}
-		}(client)
+		}
+		//}(client)
 	}
 }
 
@@ -551,17 +555,16 @@ func (con *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
 	done := make(chan error, 1)
 	// hardcoded for now - not sure if we need a setting
 	t := time.NewTimer(5 * time.Second)
-	defer func() {
+	go func() {
 		err := con.stream.Send(res)
 		done <- err
 	}()
 	select {
 	case <-t.C:
 		log.Infof("Timeout writing %s", con.ConID)
-		return errors.New("Timeout sending")
+		return errors.New("timeout sending")
 	case err, _ := <-done:
 		_ = t.Stop()
 		return err
 	}
-	return nil
 }
