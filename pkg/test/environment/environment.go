@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package test
+package environment
 
 import (
 	"net/http"
@@ -27,8 +27,8 @@ const (
 	httpOK = "200"
 )
 
-// Environment is a common interface for all testing environments.
-type Environment interface {
+// Interface is a common interface for all testing environments.
+type Interface interface {
 
 	// Configure applies the given configuration to the mesh.
 	Configure(config string)
@@ -139,9 +139,4 @@ type FortioAppCallResult struct {
 type DeployedAPIServer interface {
 	Deployed
 	Config() *rest.Config
-}
-
-// GetEnvironment returns the current, ambient environment.
-func GetEnvironment(t *testing.T) Environment {
-	return nil
 }

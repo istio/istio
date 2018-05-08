@@ -15,9 +15,10 @@
 package showcase
 
 import (
+	"testing"
+
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/dependency"
-	"testing"
 )
 
 var svcCfg = ""
