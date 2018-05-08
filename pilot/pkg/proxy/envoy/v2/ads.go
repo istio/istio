@@ -15,6 +15,7 @@
 package v2
 
 import (
+	"errors"
 	"io"
 	"os"
 	"sync"
@@ -31,7 +32,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
-	"errors"
 )
 
 var (
@@ -556,12 +556,12 @@ func (con *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
 		done <- err
 	}()
 	select {
-		case <-t.C:
-			log.Infof("Timeout writing %s", con.ConID)
-			return errors.New("Timeout sending")
-		case err, _ := <- done:
-			_ = t.Stop()
-			return err
+	case <-t.C:
+		log.Infof("Timeout writing %s", con.ConID)
+		return errors.New("Timeout sending")
+	case err, _ := <-done:
+		_ = t.Stop()
+		return err
 	}
 	return nil
 }
