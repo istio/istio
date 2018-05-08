@@ -186,7 +186,7 @@ func directRequest(server *bootstrap.Server, t *testing.T) {
 
 // Make a direct EDS grpc request to pilot, verify the result is as expected.
 // id should be unique to avoid interference between tests.
-func connectAndSend(id int32, t *testing.T) (xdsapi.EndpointDiscoveryService_StreamEndpointsClient,
+func connectAndSend(id uint32, t *testing.T) (xdsapi.EndpointDiscoveryService_StreamEndpointsClient,
 	*xdsapi.ClusterLoadAssignment) {
 
 	conn, err := grpc.Dial(util.MockPilotGrpcAddr, grpc.WithInsecure())
@@ -240,7 +240,7 @@ func multipleRequest(server *bootstrap.Server, t *testing.T) {
 		current := i
 		go func(id int) {
 			// Connect and get initial response
-			edsstr, _ := connectAndSend(id+2, t)
+			edsstr, _ := connectAndSend(uint32(id+2), t)
 			defer edsstr.CloseSend()
 			wgConnect.Done()
 			// Check we received all pushes
