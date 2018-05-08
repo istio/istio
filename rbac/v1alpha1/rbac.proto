@@ -15,7 +15,7 @@
 syntax = "proto3";
 
 // $title: RBAC
-// $overview: Configuration for Role Based Access Control
+// $description: Configuration for Role Based Access Control
 // $location: https://istio.io/docs/reference/config/istio.rbac.v1alpha1.html
 
 // Istio RBAC (Role Based Access Control) defines ServiceRole and ServiceRoleBinding
