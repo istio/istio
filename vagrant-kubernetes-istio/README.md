@@ -13,7 +13,7 @@
   * [curl](https://curl.haxx.se/) - Verify `curl --help` prints the help information.
 
 You can run the following script to check/install of all pre-requisites, or use it as a reference to install them manually.
-(This requires installation of [Homebrew](https://brew.sh) on macOS or apt-get and dpkg on Linux)
+(This requires installation of [Homebrew](https://brew.sh) on macOS or debian based Linux distributions)
 
 ```bash
 sh install_prereqs.sh
