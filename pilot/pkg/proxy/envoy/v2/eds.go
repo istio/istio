@@ -17,7 +17,6 @@ package v2
 import (
 	"context"
 	"errors"
-	"io"
 	"net"
 	"os"
 	"strconv"
@@ -30,9 +29,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
-	"google.golang.org/grpc/status"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
@@ -254,32 +251,12 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 
 	initialRequestReceived := false
 
-	con := &XdsConnection{
-		pushChannel: make(chan *XdsEvent, 1),
-		PeerAddr:    peerAddr,
-		Clusters:    []string{},
-		Connect:     time.Now(),
-		stream:      stream,
-	}
+	con := newXdsConnection(peerAddr, stream)
+	defer close(con.doneChannel)
+
 	// node is the key used in the cluster map. It includes the pod name and an unique identifier,
 	// since multiple envoys may connect from the same pod.
-	var conID string
-	go func() {
-		defer close(reqChannel)
-		for {
-			req, err := stream.Recv()
-			if err != nil {
-				log.Errorf("EDS: close for client %s %q terminated with errors %v",
-					conID, peerAddr, err)
-				if status.Code(err) == codes.Canceled || err == io.EOF {
-					return
-				}
-				receiveError = err
-				return
-			}
-			reqChannel <- req
-		}
-	}()
+	go receiveThread(con, reqChannel, &receiveError)
 
 	for {
 		// Block until either a request is received or the ticker ticks
@@ -290,8 +267,8 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 			}
 
 			// Should not change. A node monitors multiple clusters
-			if conID == "" && discReq.Node != nil {
-				conID = connectionID(discReq.Node.Id)
+			if con.ConID == "" && discReq.Node != nil {
+				con.ConID = connectionID(discReq.Node.Id)
 			}
 
 			clusters2 := discReq.GetResourceNames()
@@ -309,34 +286,33 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 			if initialRequestReceived {
 				// TODO: once the deps are updated, log the ErrorCode if set (missing in current version)
 				if discReq.ErrorDetail != nil {
-					log.Warnf("EDS: ACK ERROR %v %s %v", peerAddr, conID, discReq.String())
+					log.Warnf("EDS: ACK ERROR %v %s %v", peerAddr, con.ConID, discReq.String())
 				}
 				if edsDebug {
-					log.Infof("EDS: ACK %s %s %s", conID, discReq.VersionInfo, con.Clusters)
+					log.Infof("EDS: ACK %s %s %s", con.ConID, discReq.VersionInfo, con.Clusters)
 				}
 				if len(con.Clusters) > 0 {
 					continue
 				}
 			}
 			if edsDebug {
-				log.Infof("EDS: REQ %s %v %v raw: %s ", conID, con.Clusters, peerAddr, discReq.String())
+				log.Infof("EDS: REQ %s %v %v raw: %s ", con.ConID, con.Clusters, peerAddr, discReq.String())
 			}
 			con.Clusters = discReq.GetResourceNames()
-			con.ConID = conID
 			initialRequestReceived = true
 
 			// In 0.7 EDS only listens for 1 cluster for each stream. In 0.8 EDS is no longer
 			// used.
 			for _, c := range con.Clusters {
-				s.addEdsCon(c, conID, con)
+				s.addEdsCon(c, con.ConID, con)
 			}
 
 			// Keep track of active EDS client. In 0.7 EDS push happened by pushing for all
 			// tracked clusters. In 0.8+ push happens by iterating active connections, in ADS.
 			if !con.added {
 				con.added = true
-				s.addCon(conID, con)
-				defer s.removeCon(conID, con)
+				s.addCon(con.ConID, con)
+				defer s.removeCon(con.ConID, con)
 			}
 
 		case <-con.pushChannel:
@@ -345,6 +321,7 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 		if len(con.Clusters) > 0 {
 			err := s.pushEds(con)
 			if err != nil {
+				log.Errorf("Closing EDS connection, failure to push %v", err)
 				return err
 			}
 		}
@@ -382,41 +359,19 @@ func (s *DiscoveryServer) pushEds(con *XdsConnection) error {
 	}
 
 	response := s.endpoints(con.Clusters, resAny)
-	err := con.stream.Send(response)
+	err := con.send(response)
 	if err != nil {
 		log.Warnf("EDS: Send failure, closing grpc %v", err)
+		pushes.With(prometheus.Labels{"type": "eds_senderr"}).Add(1)
 		return err
 	}
+	pushes.With(prometheus.Labels{"type": "eds"}).Add(1)
 
 	if edsDebug {
 		log.Infof("EDS: PUSH for %s %q clusters %d endpoints %d empty %d %v",
 			con.ConID, con.PeerAddr, len(con.Clusters), endpoints, emptyClusters, empty)
 	}
 	return nil
-}
-
-func edsPushAll() {
-	edsClusterMutex.Lock()
-	// Create a temp map to avoid locking the add/remove
-	tmpMap := map[string]*EdsCluster{}
-	for k, v := range edsClusters {
-		tmpMap[k] = v
-	}
-	edsClusterMutex.Unlock()
-
-	for clusterName, edsCluster := range tmpMap {
-		if err := updateCluster(clusterName, edsCluster); err != nil {
-			log.Errorf("updateCluster failed with clusterName %s", clusterName)
-			continue
-		}
-		edsCluster.mutex.Lock()
-		for _, edsCon := range edsCluster.EdsClients {
-			edsCon.pushChannel <- &XdsEvent{
-				clusters: []string{clusterName},
-			}
-		}
-		edsCluster.mutex.Unlock()
-	}
 }
 
 // addEdsCon will track the eds connection with clusters, for optimized event-based push and debug
