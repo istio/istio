@@ -26,11 +26,16 @@ ZONE=us-central1-f
 MACHINE_TYPE=n1-standard-4
 NUM_NODES=${NUM_NODES:-1}
 CLUSTER_NAME=
+USE_GKE=${USE_GKE:-True}
 
-IFS=';'
-VERSIONS=($(gcloud container get-server-config --project=${PROJECT_NAME} --zone=${ZONE} --format='value(validMasterVersions)'))
-unset IFS
-CLUSTER_VERSION="${VERSIONS[0]}"
+if [[ "$USE_GKE" == "True" ]]; then
+  IFS=';'
+  VERSIONS=($(gcloud container get-server-config --project=${PROJECT_NAME} --zone=${ZONE} --format='value(validMasterVersions)'))
+  unset IFS
+  CLUSTER_VERSION="${VERSIONS[0]}"
+else
+  CLUSTER_VERSION=$(kubectl version --short | grep Server | awk  '{ print $3 }')
+fi
 
 KUBE_USER="${KUBE_USER:-istio-prow-test-job@istio-testing.iam.gserviceaccount.com}"
 CLUSTER_CREATED=false
@@ -81,6 +86,41 @@ function setup_cluster() {
       setup_clusterreg
   fi
   kubectl config use-context $PILOT_CLUSTER
+
+  if [[ "$USE_GKE" == "True" ]]; then
+    ALL_CLUSTER_CIDRS=
+    for cidr in $(gcloud container clusters list --format='value(clusterIpv4Cidr)'); do
+      if [[ "$ALL_CLUSTER_CIDRS" != "" ]]; then
+        ALL_CLUSTER_CIDRS+=','
+      fi
+      ALL_CLUSTER_CIDRS+=$cidr
+    done
+    ALL_CLUSTER_NETTAGS=
+    for net_tag in $(gcloud compute instance-templates list --format='value(properties.tags.items)'); do
+      if [[ "$ALL_CLUSTER_NETTAGS" != "" ]]; then
+        ALL_CLUSTER_NETTAGS+=','
+      fi
+      ALL_CLUSTER_NETTAGS+=$net_tag
+    done
+    gcloud compute firewall-rules create istio-multicluster-test-pods --allow=tcp,udp,icmp,esp,ah,sctp --direction=INGRESS --priority=900 --source-ranges="$ALL_CLUSTER_CIDRS" --target-tags=$ALL_CLUSTER_NETTAGS --quiet
+  fi
+}
+
+function unsetup_clusters() {
+  # use current-context if pilot_cluster not set
+  PILOT_CLUSTER=${PILOT_CLUSTER:-$(kubectl config current-context)}
+
+  unset IFS
+  k_contexts=$(kubectl config get-contexts -o name)
+  for context in $k_contexts; do
+     kubectl config use-context ${context}
+
+     kubectl delete clusterrolebinding prow-cluster-admin-binding
+  done
+  kubectl config use-context $PILOT_CLUSTER
+  if [[ "$USE_GKE" == "True" ]]; then
+     gcloud compute firewall-rules delete istio-multicluster-test-pods --quiet
+  fi
 }
 
 function check_cluster() {
