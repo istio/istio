@@ -111,15 +111,15 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environmen
 			if config != nil {
 				destinationRule := config.Spec.(*networking.DestinationRule)
 				convertIstioMutual(destinationRule, upstreamServiceAccounts)
-				applyTrafficPolicy(defaultCluster, destinationRule.TrafficPolicy)
+				applyTrafficPolicy(defaultCluster, destinationRule.TrafficPolicy, port)
 
 				for _, subset := range destinationRule.Subsets {
 					subsetClusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port)
 					subsetCluster := buildDefaultCluster(env, subsetClusterName, convertResolution(service.Resolution), hosts)
 					updateEds(env, subsetCluster, service.Hostname)
 					setUpstreamProtocol(subsetCluster, port)
-					applyTrafficPolicy(subsetCluster, destinationRule.TrafficPolicy)
-					applyTrafficPolicy(subsetCluster, subset.TrafficPolicy)
+					applyTrafficPolicy(subsetCluster, destinationRule.TrafficPolicy, port)
+					applyTrafficPolicy(subsetCluster, subset.TrafficPolicy, port)
 					// call plugins
 					for _, p := range configgen.Plugins {
 						p.OnOutboundCluster(env, proxy, service, port, subsetCluster)
@@ -256,14 +256,43 @@ func buildIstioMutualTls(upstreamServiceAccount []string) *networking.TLSSetting
 	}
 }
 
-func applyTrafficPolicy(cluster *v2.Cluster, policy *networking.TrafficPolicy) {
+func applyTrafficPolicy(cluster *v2.Cluster, policy *networking.TrafficPolicy, port *model.Port) {
 	if policy == nil {
 		return
 	}
-	applyConnectionPool(cluster, policy.ConnectionPool)
-	applyOutlierDetection(cluster, policy.OutlierDetection)
-	applyLoadBalancer(cluster, policy.LoadBalancer)
-	applyUpstreamTLSSettings(cluster, policy.Tls)
+	connectionPool := policy.ConnectionPool
+	outlierDetection := policy.OutlierDetection
+	loadBalancer := policy.LoadBalancer
+	tls := policy.Tls
+
+	if port != nil && len(policy.PortLevelSettings) > 0 {
+		foundPort := false
+		for _, p := range policy.PortLevelSettings {
+			if p.Port != nil {
+				switch selector := p.Port.Port.(type) {
+				case *networking.PortSelector_Name:
+					if port.Name == selector.Name {
+						foundPort = true
+					}
+				case *networking.PortSelector_Number:
+					if uint32(port.Port) == selector.Number {
+						foundPort = true
+					}
+				}
+			}
+			if foundPort {
+				connectionPool = p.ConnectionPool
+				outlierDetection = p.OutlierDetection
+				loadBalancer = p.LoadBalancer
+				tls = p.Tls
+				break
+			}
+		}
+	}
+	applyConnectionPool(cluster, connectionPool)
+	applyOutlierDetection(cluster, outlierDetection)
+	applyLoadBalancer(cluster, loadBalancer)
+	applyUpstreamTLSSettings(cluster, tls)
 }
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
@@ -430,7 +459,7 @@ func buildDefaultCluster(env model.Environment, name string, discoveryType v2.Cl
 		Hosts: hosts,
 	}
 	defaultTrafficPolicy := buildDefaultTrafficPolicy(env, discoveryType)
-	applyTrafficPolicy(cluster, defaultTrafficPolicy)
+	applyTrafficPolicy(cluster, defaultTrafficPolicy, nil)
 	return cluster
 }
 
