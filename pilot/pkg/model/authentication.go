@@ -33,10 +33,10 @@ var JwtKeyResolver = newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionD
 // and/or service annotation. Once these legacy flags/config deprecated,
 // this function can be placed by a call to store.AuthenticationPolicyByDestination
 // directly.
-func GetConsolidateAuthenticationPolicy(env *Environment, mesh *meshconfig.MeshConfig, store IstioConfigStore, hostname Hostname, port *Port, labels Labels) *authn.Policy {
+func GetConsolidateAuthenticationPolicy(mesh *meshconfig.MeshConfig, store IstioConfigStore, hostname Hostname, port *Port, labels Labels) *authn.Policy {
 	log.Infof("*****************GetConsolidateAuthenticationPolicy hostname %+v, port %+v", hostname, *port)
 
-	config := store.AuthenticationPolicyByDestination(env, hostname, port, labels)
+	config := store.AuthenticationPolicyByDestination(hostname, port, labels)
 	if config != nil {
 		policy := config.Spec.(*authn.Policy)
 		if err := JwtKeyResolver.SetAuthenticationPolicyJwksURIs(policy); err == nil {

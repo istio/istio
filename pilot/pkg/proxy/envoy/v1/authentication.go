@@ -71,7 +71,7 @@ func buildJwksURIClustersForProxyInstances(mesh *meshconfig.MeshConfig,
 	}
 	var jwtSpecs []*authn.Jwt
 	for _, instance := range proxyInstances {
-		authnPolicy := model.GetConsolidateAuthenticationPolicy(nil, mesh, store, instance.Service.Hostname, instance.Endpoint.ServicePort, nil)
+		authnPolicy := model.GetConsolidateAuthenticationPolicy(mesh, store, instance.Service.Hostname, instance.Endpoint.ServicePort, instance.Labels)
 		jwtSpecs = append(jwtSpecs, authn_plugin.CollectJwtSpecs(authnPolicy)...)
 	}
 

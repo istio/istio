@@ -291,7 +291,7 @@ type IstioConfigStore interface {
 	// the one with the most specific scope will be selected. If there are more than
 	// one with the same scope, the first one seen will be used (later, we should
 	// have validation at submitting time to prevent this scenario from happening)
-	AuthenticationPolicyByDestination(env *Environment, hostname Hostname, port *Port, labels Labels) *Config
+	AuthenticationPolicyByDestination(hostname Hostname, port *Port, labels Labels) *Config
 }
 
 const (
@@ -972,7 +972,7 @@ func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance)
 	return out
 }
 
-func (store *istioConfigStore) AuthenticationPolicyByDestination(env *Environment, hostname Hostname, port *Port, labels Labels) *Config {
+func (store *istioConfigStore) AuthenticationPolicyByDestination(hostname Hostname, port *Port, instanceLabels Labels) *Config {
 	// Hostname should be FQDN, so namespace can be extracted by parsing hostname.
 	parts := strings.Split(string(hostname), ".")
 	if len(parts) < 2 {
@@ -1016,33 +1016,16 @@ func (store *istioConfigStore) AuthenticationPolicyByDestination(env *Environmen
 					}
 				}
 
-				if env != nil && labels != nil {
-					subSetMatch := false
-
-					config := env.DestinationRule(hostname)
-					log.Infof("*****************************hostName is %+v, get destination rule %+v", hostname, config)
-
-					destinationRule := config.Spec.(*networking.DestinationRule)
-					subsets := destinationRule.GetSubsets()
-					for _, subset := range subsets {
-						// List all subsets in destinationRule, and find the one that policy targets to.
-						if subset.Name != dest.Subset {
-							continue
-						}
-
-						log.Infof("*****************************subset %+v", subset)
-						// If subset's all labels matches labels in ServiceInstance.
-						subSetMatch = true
-						for k, v := range subset.Labels {
-							if labels[k] != v {
-								log.Infof("***************label key %q, label value in service instance %q, label value in desintation rule %q", k, labels[k], v)
-								subSetMatch = false
-								break
-							}
-						}
+				// If targetSelector.subset is set in the policy, return the policy only if current service instance belongs
+				// to the subset (by comparing the labels).
+				if dest.Subset != "" {
+					destRuleSubsetLabels := store.SubsetToLabels(dest.Subset, hostname)
+					if destRuleSubsetLabels == nil {
+						log.Infof("************************subset doesn't match")
+						continue
 					}
 
-					if !subSetMatch {
+					if !destRuleSubsetLabels[0].SubsetOf(instanceLabels) {
 						log.Infof("************************subset doesn't match")
 						continue
 					}
@@ -1050,12 +1033,46 @@ func (store *istioConfigStore) AuthenticationPolicyByDestination(env *Environmen
 					log.Infof("************************subset match")
 				}
 
+				/*
+					if env != nil && labels != nil {
+						subSetMatch := false
+
+						config := env.DestinationRule(hostname)
+						log.Infof("*****************************hostName is %+v, get destination rule %+v", hostname, config)
+
+						destinationRule := config.Spec.(*networking.DestinationRule)
+						subsets := destinationRule.GetSubsets()
+						for _, subset := range subsets {
+							// List all subsets in destinationRule, and find the one that policy targets to.
+							if subset.Name != dest.Subset {
+								continue
+							}
+
+							log.Infof("*****************************subset %+v", subset)
+							// If subset's all labels matches labels in ServiceInstance.
+							subSetMatch = true
+							for k, v := range subset.Labels {
+								if labels[k] != v {
+									log.Infof("***************label key %q, label value in service instance %q, label value in desintation rule %q", k, labels[k], v)
+									subSetMatch = false
+									break
+								}
+							}
+						}
+
+						if !subSetMatch {
+							log.Infof("************************subset doesn't match")
+							continue
+						}
+
+						log.Infof("************************subset match")
+					}*/
+
 				matchLevel = 3
 				break
 			}
 		} else {
 			// Match on namespace level.
-			log.Infof("********************match on namespace")
 			matchLevel = 2
 		}
 		// Swap output policy that is match in more specific scope.
@@ -1066,7 +1083,6 @@ func (store *istioConfigStore) AuthenticationPolicyByDestination(env *Environmen
 	}
 	// Zero-currentMatchLevel implies no config matching the destination found.
 	if currentMatchLevel == 0 {
-		log.Infof("*************************AuthenticationPolicyByDestination returns nil")
 		return nil
 	}
 	return &out

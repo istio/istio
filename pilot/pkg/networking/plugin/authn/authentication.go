@@ -302,7 +302,7 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 	log.Infof("********************OnInboundListener before GetConsolidateAuthenticationPolicy ServiceInstance Service is %+v \n", in.ServiceInstance.Service)
 
 	authnPolicy := model.GetConsolidateAuthenticationPolicy(
-		in.Env, in.Env.Mesh, in.Env.IstioConfigStore, in.ServiceInstance.Service.Hostname, in.ServiceInstance.Endpoint.ServicePort, in.ServiceInstance.Labels)
+		in.Env.Mesh, in.Env.IstioConfigStore, in.ServiceInstance.Service.Hostname, in.ServiceInstance.Endpoint.ServicePort, in.ServiceInstance.Labels)
 
 	if mutable.Listener == nil || (len(mutable.Listener.FilterChains) != len(mutable.FilterChains)) {
 		return fmt.Errorf("expected same number of filter chains in listener (%d) and mutable (%d)", len(mutable.Listener.FilterChains), len(mutable.FilterChains))
@@ -348,7 +348,7 @@ func (Plugin) OnOutboundCluster(env model.Environment, node model.Proxy, service
 		return
 	}
 
-	required, _ := RequireTLS(model.GetConsolidateAuthenticationPolicy(&env, mesh, config, service.Hostname, servicePort, nil))
+	required, _ := RequireTLS(model.GetConsolidateAuthenticationPolicy(mesh, config, service.Hostname, servicePort, nil))
 	if isDestinationExcludedForMTLS(service.Hostname.String(), mesh.MtlsExcludedServices) || !required {
 		return
 	}
