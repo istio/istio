@@ -45,6 +45,8 @@ type driver struct {
 	runID  string
 	m      *testing.M
 
+	running bool
+
 	initializedDependencies map[dependency.Dependency]interface{}
 }
 
@@ -59,7 +61,7 @@ func New() Interface {
 
 // Initialize implements same-named Interface method.
 func (d *driver) Initialize(a *Args) error {
-	log.Debugf("Enter: driver.Initialize (%s)", d.testID)
+	scope.Debugf("Enter: driver.Initialize (%s)", d.testID)
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
@@ -91,6 +93,13 @@ func (d *driver) Initialize(a *Args) error {
 		for _, p := range parts {
 			d.allowedLabels[label.Label(p)] = struct{}{}
 		}
+		scope.Debugf("Suite level labels: %s", a.Labels)
+	}
+
+	for _, dep := range a.SuiteDependencies {
+		if err := d.initializeDependency(dep); err != nil {
+			return fmt.Errorf("unable to initialize dependency '%v': %v", dep, err)
+		}
 	}
 
 	return nil
@@ -98,7 +107,7 @@ func (d *driver) Initialize(a *Args) error {
 
 // TestID implements same-named Interface method.
 func (d *driver) TestID() string {
-	log.Debugf("Enter: driver.TestID (%s)", d.testID)
+	scope.Debugf("Enter: driver.TestID (%s)", d.testID)
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
@@ -107,7 +116,7 @@ func (d *driver) TestID() string {
 
 // RunID implements same-named Interface method.
 func (d *driver) RunID() string {
-	log.Debugf("Enter: driver.RunID (%s)", d.testID)
+	scope.Debugf("Enter: driver.RunID (%s)", d.testID)
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
@@ -116,7 +125,7 @@ func (d *driver) RunID() string {
 
 // Run implements same-named Interface method.
 func (d *driver) Run() int {
-	log.Debugf("Enter: driver.Run (%s)", d.testID)
+	scope.Debugf("Enter: driver.Run (%s)", d.testID)
 	d.lock.Lock()
 
 	if d.testID == "" {
@@ -125,7 +134,13 @@ func (d *driver) Run() int {
 		return -1
 	}
 
-	// TODO: Check for multiple run-calls
+	if d.running {
+		d.lock.Unlock()
+		scope.Error("test driver is already running")
+		return -1
+	}
+
+	d.running = true
 
 	m := d.m
 	d.lock.Unlock()
@@ -137,56 +152,38 @@ func (d *driver) Run() int {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
+	d.running = false
+
 	d.doCleanup()
 	return rt
 }
 
 // GetEnvironment implements same-named Interface method.
 func (d *driver) GetEnvironment(t testing.TB) environment.Interface {
-	log.Debugf("Enter: driver.GetEnvironment (%s)", d.testID)
+	scope.Debugf("Enter: driver.GetEnvironment (%s)", d.testID)
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	// TODO
 	panic("Not yet implemented.")
 }
 
-// CheckDependencies implements same-named Interface method.
-func (d *driver) CheckDependencies(t testing.TB, dependencies []dependency.Dependency) {
-	log.Debugf("Enter: driver.CheckDependencies (%s)", d.testID)
+// InitializeTestDependencies implements same-named Interface method.
+func (d *driver) InitializeTestDependencies(t testing.TB, dependencies []dependency.Dependency) {
+	scope.Debugf("Enter: driver.InitializeTestDependencies (%s)", d.testID)
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
 	// Initialize dependencies only once.
 	for _, dep := range dependencies {
-		log.Debugf("dep: %v", dep)
-		s, ok := dep.(internal.Stateful)
-		if !ok {
-			continue
+		if err := d.initializeDependency(dep); err != nil {
+			t.Fatalf("unable to satisfy dependency '%v': %v", dep, err)
 		}
-
-		instance, ok := d.initializedDependencies[dep]
-		if ok {
-			// If they are already satisfied, then signal a "reset", to ensure a clean, well-known driverState.
-			if err := s.Reset(instance); err != nil {
-				t.Fatalf("Unable to reset dependency '%v': %v", dep, err)
-				return
-			}
-			continue
-		}
-
-		var err error
-		if instance, err = s.Initialize(); err != nil {
-			t.Fatalf("Unable to satisfy dependency '%v': %v", dep, err)
-			return
-		}
-
-		d.initializedDependencies[dep] = instance
 	}
 }
 
 // CheckLabels implements same-named Interface method.
 func (d *driver) CheckLabels(t testing.TB, labels []label.Label) {
-	log.Debugf("Enter: driver.CheckLabels (%s)", d.testID)
+	scope.Debugf("Enter: driver.CheckLabels (%s)", d.testID)
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
@@ -215,6 +212,31 @@ func (d *driver) doCleanup() {
 			s.Cleanup(v)
 		}
 	}
+}
+
+func (d *driver) initializeDependency(dep dependency.Dependency) error {
+	scope.Debugf("initializing dependency: %v", dep)
+	s, ok := dep.(internal.Stateful)
+	if !ok {
+		return nil
+	}
+
+	instance, ok := d.initializedDependencies[dep]
+	if ok {
+		// If they are already satisfied, then signal a "reset", to ensure a clean, well-known driverState.
+		if err := s.Reset(instance); err != nil {
+			return fmt.Errorf("unable to reset: %v", err)
+		}
+		return nil
+	}
+
+	var err error
+	if instance, err = s.Initialize(); err != nil {
+		return fmt.Errorf("dependency init error: %v", err)
+	}
+
+	d.initializedDependencies[dep] = instance
+	return nil
 }
 
 func generateRunID(testID string) string {
