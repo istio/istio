@@ -45,7 +45,12 @@ class GrpcTransport : public Grpc::TypedAsyncRequestCallbacks<ResponseType>,
                 ResponseType* response, Tracing::Span& parent_span,
                 istio::mixerclient::DoneFunc on_done);
 
-  void onCreateInitialMetadata(Http::HeaderMap&) override {}
+  void onCreateInitialMetadata(Http::HeaderMap& metadata) override {
+    // We generate cluster name contains invalid characters, so override the
+    // authority header temorarily until it can be specified via CDS.
+    // See https://github.com/envoyproxy/envoy/issues/3297 for details.
+    metadata.Host()->value("mixer", 5);
+  }
 
   void onSuccess(std::unique_ptr<ResponseType>&& response,
                  Tracing::Span& span) override;
