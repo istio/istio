@@ -88,14 +88,14 @@ kind: VirtualService
 	policyBe := env.GetPolicyBackendOrFail(t)
 
 	// Prime the policy backend's behavior. It should deny all check requests.
-	policyBe.DenyCheck()
+	policyBe.DenyCheck(true)
 
 	// Send requests to all of the HTTP endpoints. We expect the deny check to cause the HTTP requests to fail.
 	endpoints := appt.EndpointsForProtocol(model.ProtocolHTTP)
 	for _, endpoint := range endpoints {
-		url := endpoint.MakeURL(false) + "/a"
-		t.Run(url, func(t *testing.T) {
-			result, err := appa.Call(url, 1, nil)
+		u := endpoint.MakeURL()
+		t.Run(u.String(), func(t *testing.T) {
+			result, err := appa.Call(u, 1, nil)
 			if err != nil {
 				t.Fatal(err)
 			}

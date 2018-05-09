@@ -16,7 +16,7 @@ package dependency
 
 import "istio.io/istio/pkg/test/internal"
 
-// FortioApp indicates a dependency on FortioApps.
+// FortioApps indicates a dependency on FortioApps.
 var FortioApps Dependency = &fortioapps{}
 
 type fortioapps struct {
