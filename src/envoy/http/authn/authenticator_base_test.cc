@@ -55,10 +55,10 @@ class MockAuthenticatorBase : public AuthenticatorBase {
   MOCK_METHOD1(run, bool(Payload*));
 };
 
-class AuthenticatorBaseTest : public testing::Test,
-                              public Logger::Loggable<Logger::Id::filter> {
+class ValidateX509Test : public testing::TestWithParam<iaapi::MutualTls::Mode>,
+                         public Logger::Loggable<Logger::Id::filter> {
  public:
-  virtual ~AuthenticatorBaseTest() {}
+  virtual ~ValidateX509Test() {}
 
   Http::TestHeaderMapImpl request_headers_{};
   NiceMock<Envoy::Network::MockConnection> connection_{};
@@ -70,7 +70,10 @@ class AuthenticatorBaseTest : public testing::Test,
 
   MockAuthenticatorBase authenticator_{&filter_context_};
 
-  void SetUp() override { payload_ = new Payload(); }
+  void SetUp() override {
+    mtls_params_.set_mode(GetParam());
+    payload_ = new Payload();
+  }
 
   void TearDown() override { delete (payload_); }
 
@@ -81,51 +84,34 @@ class AuthenticatorBaseTest : public testing::Test,
   Payload default_payload_;
 };
 
-Http::TestHeaderMapImpl CreateTestHeaderMap(const std::string& header_key,
-                                            const std::string& header_value) {
-  // The base64 encoding is done through Base64::encode().
-  // If the test input has special chars, may need to use the counterpart of
-  // Base64UrlDecode().
-  std::string value_base64 =
-      Base64::encode(header_value.c_str(), header_value.size());
-  return Http::TestHeaderMapImpl{{header_key, value_base64}};
-}
-
-TEST_F(AuthenticatorBaseTest, ValidateMtlsOnPlaintextConnection) {
-  EXPECT_FALSE(authenticator_.validateX509(mtls_params_, payload_));
+TEST_P(ValidateX509Test, PlaintextConnection) {
+  // Should return false except mode is PERMISSIVE (accept plaintext)
+  if (GetParam() == iaapi::MutualTls::PERMISSIVE) {
+    EXPECT_TRUE(authenticator_.validateX509(mtls_params_, payload_));
+  } else {
+    EXPECT_FALSE(authenticator_.validateX509(mtls_params_, payload_));
+  }
   EXPECT_TRUE(MessageDifferencer::Equals(*payload_, default_payload_));
 }
 
-TEST_F(AuthenticatorBaseTest, ValidateTlsOnPlaintextConnection) {
-  mtls_params_.set_allow_tls(true);  // allow TLS connection
-  // When requiring TLS, plaintext connection should fail.
-  EXPECT_FALSE(authenticator_.validateX509(mtls_params_, payload_));
-  EXPECT_TRUE(MessageDifferencer::Equals(*payload_, default_payload_));
-}
-
-TEST_F(AuthenticatorBaseTest, ValidateMtlsOnSslConnectionWithNoPeerCert) {
+TEST_P(ValidateX509Test, SslConnectionWithNoPeerCert) {
   EXPECT_CALL(Const(connection_), ssl()).WillRepeatedly(Return(&ssl_));
   EXPECT_CALL(Const(ssl_), peerCertificatePresented())
       .Times(1)
       .WillOnce(Return(false));
 
-  EXPECT_FALSE(authenticator_.validateX509(mtls_params_, payload_));
+  // Should return false except mode is PERMISSIVE (accept plaintext) or
+  // TLS_PERMISSIVE
+  if (GetParam() == iaapi::MutualTls::PERMISSIVE ||
+      GetParam() == iaapi::MutualTls::TLS_PERMISSIVE) {
+    EXPECT_TRUE(authenticator_.validateX509(mtls_params_, payload_));
+  } else {
+    EXPECT_FALSE(authenticator_.validateX509(mtls_params_, payload_));
+  }
   EXPECT_TRUE(MessageDifferencer::Equals(*payload_, default_payload_));
 }
 
-TEST_F(AuthenticatorBaseTest, ValidateTlsOnSslConnectionWithNoPeerCert) {
-  mtls_params_.set_allow_tls(true);  // allow TLS connection
-  EXPECT_CALL(Const(connection_), ssl()).WillRepeatedly(Return(&ssl_));
-  EXPECT_CALL(Const(ssl_), peerCertificatePresented())
-      .Times(1)
-      .WillOnce(Return(false));
-
-  // When client certificate is not present on TLS, authentication should still
-  // succeed.
-  EXPECT_TRUE(authenticator_.validateX509(mtls_params_, payload_));
-}
-
-TEST_F(AuthenticatorBaseTest, ValidateMtlsOnSslConnectionWithPeerCert) {
+TEST_P(ValidateX509Test, SslConnectionWithPeerCert) {
   EXPECT_CALL(Const(connection_), ssl()).WillRepeatedly(Return(&ssl_));
   EXPECT_CALL(Const(ssl_), peerCertificatePresented())
       .Times(1)
@@ -137,20 +123,7 @@ TEST_F(AuthenticatorBaseTest, ValidateMtlsOnSslConnectionWithPeerCert) {
   EXPECT_EQ(payload_->x509().user(), "foo");
 }
 
-TEST_F(AuthenticatorBaseTest, ValidateTlsOnSslConnectionWithPeerCert) {
-  mtls_params_.set_allow_tls(true);  // allow TLS connection
-  EXPECT_CALL(Const(connection_), ssl()).WillRepeatedly(Return(&ssl_));
-  EXPECT_CALL(Const(ssl_), peerCertificatePresented())
-      .Times(1)
-      .WillOnce(Return(true));
-  EXPECT_CALL(ssl_, uriSanPeerCertificate()).Times(1).WillOnce(Return("foo"));
-  EXPECT_TRUE(authenticator_.validateX509(mtls_params_, payload_));
-  // When client certificate is present on TLS, authenticated attribute should
-  // be extracted.
-  EXPECT_EQ(payload_->x509().user(), "foo");
-}
-
-TEST_F(AuthenticatorBaseTest, ValidateMtlsOnSslConnectionWithPeerSpiffeCert) {
+TEST_P(ValidateX509Test, SslConnectionWithPeerSpiffeCert) {
   EXPECT_CALL(Const(connection_), ssl()).WillRepeatedly(Return(&ssl_));
   EXPECT_CALL(Const(ssl_), peerCertificatePresented())
       .Times(1)
@@ -165,23 +138,7 @@ TEST_F(AuthenticatorBaseTest, ValidateMtlsOnSslConnectionWithPeerSpiffeCert) {
   EXPECT_EQ(payload_->x509().user(), "foo");
 }
 
-TEST_F(AuthenticatorBaseTest, ValidateTlsOnSslConnectionWithPeerSpiffeCert) {
-  mtls_params_.set_allow_tls(true);  // allow TLS connection
-  EXPECT_CALL(Const(connection_), ssl()).WillRepeatedly(Return(&ssl_));
-  EXPECT_CALL(Const(ssl_), peerCertificatePresented())
-      .Times(1)
-      .WillOnce(Return(true));
-  EXPECT_CALL(ssl_, uriSanPeerCertificate())
-      .Times(1)
-      .WillOnce(Return("spiffe://foo"));
-  EXPECT_TRUE(authenticator_.validateX509(mtls_params_, payload_));
-  // When client certificate is present on TLS, authenticated attribute should
-  // be extracted.
-  EXPECT_EQ(payload_->x509().user(), "foo");
-}
-
-TEST_F(AuthenticatorBaseTest,
-       ValidateMtlsOnSslConnectionWithPeerMalformedSpiffeCert) {
+TEST_P(ValidateX509Test, SslConnectionWithPeerMalformedSpiffeCert) {
   EXPECT_CALL(Const(connection_), ssl()).WillRepeatedly(Return(&ssl_));
   EXPECT_CALL(Const(ssl_), peerCertificatePresented())
       .Times(1)
@@ -198,26 +155,49 @@ TEST_F(AuthenticatorBaseTest,
   EXPECT_EQ(payload_->x509().user(), "spiffe:foo");
 }
 
-TEST_F(AuthenticatorBaseTest,
-       ValidateTlsOnSslConnectionWithPeerMalformedSpiffeCert) {
-  mtls_params_.set_allow_tls(true);  // allow TLS connection
-  EXPECT_CALL(Const(connection_), ssl()).WillRepeatedly(Return(&ssl_));
-  EXPECT_CALL(Const(ssl_), peerCertificatePresented())
-      .Times(1)
-      .WillOnce(Return(true));
-  EXPECT_CALL(ssl_, uriSanPeerCertificate())
-      .Times(1)
-      .WillOnce(Return("spiffe:foo"));
-  EXPECT_TRUE(authenticator_.validateX509(mtls_params_, payload_));
-  // When client certificate is present on TLS and the spiffe subject format is
-  // wrong
-  // ("spiffe:foo" instead of "spiffe://foo"), the user attribute should be
-  // extracted.
-  EXPECT_EQ(payload_->x509().user(), "spiffe:foo");
-}
+INSTANTIATE_TEST_CASE_P(ValidateX509Tests, ValidateX509Test,
+                        testing::Values(iaapi::MutualTls::STRICT,
+                                        iaapi::MutualTls::TLS_PERMISSIVE,
+                                        iaapi::MutualTls::PERMISSIVE));
+
+class ValidateJwtTest : public testing::Test,
+                        public Logger::Loggable<Logger::Id::filter> {
+ public:
+  virtual ~ValidateJwtTest() {}
+
+  Http::TestHeaderMapImpl request_headers_{};
+  NiceMock<Envoy::Network::MockConnection> connection_{};
+  NiceMock<Envoy::Ssl::MockConnection> ssl_{};
+  FilterConfig filter_config_{};
+  FilterContext filter_context_{&request_headers_, &connection_,
+                                istio::envoy::config::filter::http::authn::
+                                    v2alpha1::FilterConfig::default_instance()};
+
+  MockAuthenticatorBase authenticator_{&filter_context_};
+
+  void SetUp() override { payload_ = new Payload(); }
+
+  void TearDown() override { delete (payload_); }
+
+  Http::TestHeaderMapImpl CreateTestHeaderMap(const std::string& header_key,
+                                              const std::string& header_value) {
+    // The base64 encoding is done through Base64::encode().
+    // If the test input has special chars, may need to use the counterpart of
+    // Base64UrlDecode().
+    std::string value_base64 =
+        Base64::encode(header_value.c_str(), header_value.size());
+    return Http::TestHeaderMapImpl{{header_key, value_base64}};
+  }
+
+ protected:
+  iaapi::MutualTls mtls_params_;
+  iaapi::Jwt jwt_;
+  Payload* payload_;
+  Payload default_payload_;
+};
 
 // TODO: more tests for Jwt.
-TEST_F(AuthenticatorBaseTest, ValidateJwtWithNoIstioAuthnConfig) {
+TEST_F(ValidateJwtTest, ValidateJwtWithNoIstioAuthnConfig) {
   jwt_.set_issuer("issuer@foo.com");
   // authenticator_ has empty Istio authn config
   // When there is empty Istio authn config, validateJwt() should return
@@ -226,7 +206,7 @@ TEST_F(AuthenticatorBaseTest, ValidateJwtWithNoIstioAuthnConfig) {
   EXPECT_TRUE(MessageDifferencer::Equals(*payload_, default_payload_));
 }
 
-TEST_F(AuthenticatorBaseTest, ValidateJwtWithNoIssuer) {
+TEST_F(ValidateJwtTest, NoIssuer) {
   // no issuer in jwt
   google::protobuf::util::JsonParseOptions options;
   FilterConfig filter_config;
@@ -250,7 +230,7 @@ TEST_F(AuthenticatorBaseTest, ValidateJwtWithNoIssuer) {
   EXPECT_TRUE(MessageDifferencer::Equals(*payload_, default_payload_));
 }
 
-TEST_F(AuthenticatorBaseTest, ValidateJwtWithEmptyJwtOutputPayloadLocations) {
+TEST_F(ValidateJwtTest, EmptyJwtOutputPayloadLocations) {
   jwt_.set_issuer("issuer@foo.com");
   Http::TestHeaderMapImpl request_headers_with_jwt = CreateTestHeaderMap(
       kSecIstioAuthUserInfoHeaderKey, kSecIstioAuthUserinfoHeaderValue);
@@ -274,7 +254,7 @@ TEST_F(AuthenticatorBaseTest, ValidateJwtWithEmptyJwtOutputPayloadLocations) {
   EXPECT_TRUE(MessageDifferencer::Equals(*payload_, default_payload_));
 }
 
-TEST_F(AuthenticatorBaseTest, ValidateJwtWithNoJwtInHeader) {
+TEST_F(ValidateJwtTest, NoJwtInHeader) {
   jwt_.set_issuer("issuer@foo.com");
   google::protobuf::util::JsonParseOptions options;
   FilterConfig filter_config;
@@ -297,7 +277,7 @@ TEST_F(AuthenticatorBaseTest, ValidateJwtWithNoJwtInHeader) {
   EXPECT_TRUE(MessageDifferencer::Equals(*payload_, default_payload_));
 }
 
-TEST_F(AuthenticatorBaseTest, ValidateJwtWithJwtInHeader) {
+TEST_F(ValidateJwtTest, JwtInHeader) {
   jwt_.set_issuer("issuer@foo.com");
   Http::TestHeaderMapImpl request_headers_with_jwt = CreateTestHeaderMap(
       "sec-istio-auth-jwt-output", kSecIstioAuthUserinfoHeaderValue);
