@@ -1017,56 +1017,17 @@ func (store *istioConfigStore) AuthenticationPolicyByDestination(hostname Hostna
 				}
 
 				// If targetSelector.subset is set in the policy, return the policy only if current service instance belongs
-				// to the subset (by comparing the labels).
-				if dest.Subset != "" {
+				// to the subset (by comparing the serviceinstance.labels and destinationRule.subset.labels).
+				if dest.Subset != "" && instanceLabels != nil {
 					destRuleSubsetLabels := store.SubsetToLabels(dest.Subset, hostname)
 					if destRuleSubsetLabels == nil {
-						log.Infof("************************subset doesn't match")
 						continue
 					}
 
 					if !destRuleSubsetLabels[0].SubsetOf(instanceLabels) {
-						log.Infof("************************subset doesn't match")
 						continue
 					}
-
-					log.Infof("************************subset match")
 				}
-
-				/*
-					if env != nil && labels != nil {
-						subSetMatch := false
-
-						config := env.DestinationRule(hostname)
-						log.Infof("*****************************hostName is %+v, get destination rule %+v", hostname, config)
-
-						destinationRule := config.Spec.(*networking.DestinationRule)
-						subsets := destinationRule.GetSubsets()
-						for _, subset := range subsets {
-							// List all subsets in destinationRule, and find the one that policy targets to.
-							if subset.Name != dest.Subset {
-								continue
-							}
-
-							log.Infof("*****************************subset %+v", subset)
-							// If subset's all labels matches labels in ServiceInstance.
-							subSetMatch = true
-							for k, v := range subset.Labels {
-								if labels[k] != v {
-									log.Infof("***************label key %q, label value in service instance %q, label value in desintation rule %q", k, labels[k], v)
-									subSetMatch = false
-									break
-								}
-							}
-						}
-
-						if !subSetMatch {
-							log.Infof("************************subset doesn't match")
-							continue
-						}
-
-						log.Infof("************************subset match")
-					}*/
 
 				matchLevel = 3
 				break

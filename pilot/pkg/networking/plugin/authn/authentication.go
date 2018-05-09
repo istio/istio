@@ -296,11 +296,6 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 		// Only care about sidecar.
 		return nil
 	}
-	log.Infof("********************OnInboundListener before GetConsolidateAuthenticationPolicy ServiceInstance ServiceInstance is %+v \n", in.ServiceInstance)
-	log.Infof("********************OnInboundListener before GetConsolidateAuthenticationPolicy ServiceInstance Endpoint is %+v \n", in.ServiceInstance.Endpoint)
-	log.Infof("********************OnInboundListener before GetConsolidateAuthenticationPolicy ServiceInstance Labels is %+v \n", in.ServiceInstance.Labels)
-	log.Infof("********************OnInboundListener before GetConsolidateAuthenticationPolicy ServiceInstance Service is %+v \n", in.ServiceInstance.Service)
-
 	authnPolicy := model.GetConsolidateAuthenticationPolicy(
 		in.Env.Mesh, in.Env.IstioConfigStore, in.ServiceInstance.Service.Hostname, in.ServiceInstance.Endpoint.ServicePort, in.ServiceInstance.Labels)
 

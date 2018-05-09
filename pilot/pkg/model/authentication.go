@@ -34,8 +34,6 @@ var JwtKeyResolver = newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionD
 // this function can be placed by a call to store.AuthenticationPolicyByDestination
 // directly.
 func GetConsolidateAuthenticationPolicy(mesh *meshconfig.MeshConfig, store IstioConfigStore, hostname Hostname, port *Port, labels Labels) *authn.Policy {
-	log.Infof("*****************GetConsolidateAuthenticationPolicy hostname %+v, port %+v", hostname, *port)
-
 	config := store.AuthenticationPolicyByDestination(hostname, port, labels)
 	if config != nil {
 		policy := config.Spec.(*authn.Policy)
