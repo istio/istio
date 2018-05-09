@@ -147,7 +147,7 @@ func (c *Controller) notify(obj interface{}, event model.Event) error {
 	return nil
 }
 
-// createInformer registers handers for a specific event.
+// createInformer registers handlers for a specific event.
 // Current implementation queues the events in queue.go, and the handler is run with
 // some throttling.
 // Used for Service, Endpoint, Node and Pod.
