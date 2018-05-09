@@ -85,7 +85,9 @@ func HTTPPost(url string, contentType string, reqBody string) (code int, respBod
 	}
 	respBody = string(body)
 	code = resp.StatusCode
-	log.Println(respBody)
+	if len(respBody) < 10240 {
+		log.Println(respBody)
+	}
 	return code, respBody, nil
 }
 
