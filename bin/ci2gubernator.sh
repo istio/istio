@@ -6,17 +6,18 @@ set -e
 SCRIPTPATH="$(cd "$(dirname "$0")" ; pwd -P)"
 ROOTDIR="$(dirname ${SCRIPTPATH})"
 
-if [ -z "$GCS_BUCKET_TOKEN" ]; then
-	echo "GCS_BUCKET_TOKEN unavailible"
+if [ -n "$CIRCLE_PULL_REQUEST" ]; then
+	echo "Presubmits are not uploaded to testgrid."
 	exit 0
 fi
 
-REQUIRED_CIRCLE_ENVS=(
+REQUIRED_ENVS=(
 	CIRCLE_SHA1
 	CIRCLE_PROJECT_USERNAME
 	CIRCLE_PROJECT_REPONAME
 	CIRCLE_JOB
 	CIRCLE_BUILD_NUM
+	GCS_BUCKET_TOKEN
 )
 
 for env in "${REQUIRED_CIRCLE_ENVS[@]}"; do
