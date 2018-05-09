@@ -14,7 +14,10 @@
 
 package dependency
 
-import "istio.io/istio/pkg/test/internal"
+import (
+	"istio.io/istio/pkg/test/environment"
+	"istio.io/istio/pkg/test/internal"
+)
 
 // PolicyBackend indicates a dependency on the mock policy backend.
 var PolicyBackend Dependency = &policyBackend{}
@@ -29,14 +32,14 @@ func (r *policyBackend) String() string {
 	return "policyBackend"
 }
 
-func (r *policyBackend) Initialize() (interface{}, error) {
+func (r *policyBackend) Initialize(env environment.Interface) (interface{}, error) {
 	return nil, nil
 }
 
-func (r *policyBackend) Reset(interface{}) error {
+func (r *policyBackend) Reset(env environment.Interface, state interface{}) error {
 	return nil
 }
 
-func (r *policyBackend) Cleanup(interface{}) {
+func (r *policyBackend) Cleanup(env environment.Interface, state interface{}) {
 
 }

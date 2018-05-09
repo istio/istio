@@ -14,7 +14,10 @@
 
 package dependency
 
-import "istio.io/istio/pkg/test/internal"
+import (
+	"istio.io/istio/pkg/test/environment"
+	"istio.io/istio/pkg/test/internal"
+)
 
 // Mixer indicates a dependency on Mixer.
 var Mixer Dependency = &mixer{}
@@ -29,14 +32,14 @@ func (a *mixer) String() string {
 	return "mixer"
 }
 
-func (a *mixer) Initialize() (interface{}, error) {
+func (a *mixer) Initialize(env environment.Interface) (interface{}, error) {
 	return nil, nil
 }
 
-func (a *mixer) Reset(interface{}) error {
+func (a *mixer) Reset(env environment.Interface, state interface{}) error {
 	return nil
 }
 
-func (a *mixer) Cleanup(interface{}) {
+func (a *mixer) Cleanup(env environment.Interface, state interface{}) {
 
 }

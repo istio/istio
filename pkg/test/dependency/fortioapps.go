@@ -14,7 +14,10 @@
 
 package dependency
 
-import "istio.io/istio/pkg/test/internal"
+import (
+	"istio.io/istio/pkg/test/environment"
+	"istio.io/istio/pkg/test/internal"
+)
 
 // FortioApps indicates a dependency on FortioApps.
 var FortioApps Dependency = &fortioapps{}
@@ -29,14 +32,14 @@ func (f *fortioapps) String() string {
 	return ""
 }
 
-func (f *fortioapps) Initialize() (interface{}, error) {
+func (f *fortioapps) Initialize(env environment.Interface) (interface{}, error) {
 	return nil, nil
 }
 
-func (f *fortioapps) Reset(interface{}) error {
+func (f *fortioapps) Reset(env environment.Interface, state interface{}) error {
 	return nil
 }
 
-func (f *fortioapps) Cleanup(interface{}) {
+func (f *fortioapps) Cleanup(env environment.Interface, state interface{}) {
 
 }

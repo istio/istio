@@ -14,7 +14,10 @@
 
 package dependency
 
-import "istio.io/istio/pkg/test/internal"
+import (
+	"istio.io/istio/pkg/test/environment"
+	"istio.io/istio/pkg/test/internal"
+)
 
 // Pilot indicates a dependency on Pilot.
 var Pilot Dependency = &pilot{}
@@ -29,14 +32,14 @@ func (a *pilot) String() string {
 	return ""
 }
 
-func (a *pilot) Initialize() (interface{}, error) {
+func (a *pilot) Initialize(env environment.Interface) (interface{}, error) {
 	return nil, nil
 }
 
-func (a *pilot) Reset(interface{}) error {
+func (a *pilot) Reset(env environment.Interface, state interface{}) error {
 	return nil
 }
 
-func (a *pilot) Cleanup(interface{}) {
+func (a *pilot) Cleanup(env environment.Interface, state interface{}) {
 
 }

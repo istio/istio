@@ -22,10 +22,14 @@ import (
 
 // Environment a local environment for testing.
 type Environment struct {
-	T testing.TB
 }
 
 var _ environment.Interface = &Environment{}
+
+// NewEnvironment returns a new instance of local environment.
+func NewEnvironment() (*Environment, error) {
+	return	&Environment{}, nil
+}
 
 // Configure applies the given configuration to the mesh.
 func (e *Environment) Configure(config string) {
