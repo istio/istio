@@ -198,15 +198,19 @@ func buildMixerInboundTCPFilter(env *model.Environment, node *model.Proxy, insta
 // 	return listener.Filter{}
 // }
 
+// defined in install/kubernetes/helm/istio/charts/mixer/templates/service.yaml
+const mixerPortName = "grpc-mixer"
+const mixerMTLSPortName = "grpc-mixer-mtls"
+
 // buildHTTPMixerFilterConfig builds a mixer HTTP filter config. Mixer filter uses outbound configuration by default
 // (forward attributes, but not invoke check calls)  ServiceInstances belong to the Node.
 func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, nodeInstances []*model.ServiceInstance, outboundRoute bool, config model.IstioConfigStore) *mccpb.HttpClientConfig { // nolint: lll
 	mcs, _, _ := net.SplitHostPort(mesh.MixerCheckServer)
 	mrs, _, _ := net.SplitHostPort(mesh.MixerReportServer)
 
-	pname := &model.Port{Name: "http2-mixer"}
+	pname := &model.Port{Name: mixerPortName}
 	if mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS {
-		pname = &model.Port{Name: "grpc-mtls"}
+		pname.Name = mixerMTLSPortName
 	}
 
 	// TODO: derive these port types.

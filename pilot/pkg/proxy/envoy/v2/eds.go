@@ -159,9 +159,9 @@ func updateCluster(clusterName string, edsCluster *EdsCluster) error {
 	var portName string
 
 	// This is a gross hack but Costin will insist on supporting everything from ancient Greece
-	// v2 names start with outbound or inbound
-	if strings.Index(clusterName, "outbound") == 0 ||
-		strings.Index(clusterName, "inbound") == 0 { //new style cluster names
+	// v2 names start with _{portName} or in.
+	if strings.HasPrefix(clusterName, model.InboundPrefix) ||
+		strings.HasPrefix(clusterName, "_") {
 		var p *model.Port
 		var subsetName string
 		var err error

@@ -610,46 +610,54 @@ func ParseServiceKey(s string) (hostname Hostname, ports PortList, labels Labels
 	return
 }
 
-// defaultSubsetName - Use this name for subset is not defined.
-const defaultSubsetName = "_default_"
+// InboundPrefix is the cluster name prefix for inbound clusters
+const InboundPrefix = "in."
 
 // BuildSubsetKey generates a unique string referencing service instances for a given service name, a subset and a port.
 // The proxy queries Pilot with this key to obtain the list of instances in a subset.
+// Inbound cluster names: in._{portName}._{subsetName}.hostname
+// Outbound is the default direction for clusters so it is elided from the clustername
+// Outbound: _{portName}._{subsetName}.hostname
+// If portName is not specified it is the same as the port Number
 func BuildSubsetKey(direction TrafficDirection, subsetName string, hostname Hostname, port *Port) string {
-	if subsetName == "" {
-		subsetName = defaultSubsetName
-	}
-
 	portName := port.Name
 	if portName == "" {
 		portName = strconv.FormatInt(int64(port.Port), 10)
 	}
 
-	return fmt.Sprintf("%s.%s.%s.%s", direction, portName, subsetName, hostname)
+	key := fmt.Sprintf("_%s._%s.%s", portName, subsetName, hostname)
+	if direction == TrafficDirectionOutbound {
+		return key
+	}
+
+	return InboundPrefix + key
 }
 
 // ParseSubsetKey is the inverse of the BuildSubsetKey method
 func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, hostname Hostname, port *Port, err error) {
-	parts := strings.SplitN(s, ".", 4)
+	direction = TrafficDirectionOutbound
+	if strings.HasPrefix(s, InboundPrefix) {
+		direction = TrafficDirectionInbound
+		s = s[len(InboundPrefix):]
+	}
 
-	if len(parts) != 4 {
+	parts := strings.SplitN(s, ".", 3)
+
+	if len(parts) != 3 || !strings.HasPrefix(parts[0], "_") || !strings.HasPrefix(parts[1], "_") {
 		return "", "", "", nil,
-			fmt.Errorf("malformed cluster-key %s, want: {direction}.{portName}.{subsetName}.{hostname}", s)
+			fmt.Errorf("malformed cluster-key %s, want form: {in.|''}_{portName}._{subsetName}.{hostname}", s)
 	}
 
-	direction = TrafficDirection(parts[0])
-
-	if pi, err := strconv.ParseInt(parts[1], 10, 64); err == nil {
-		port = &Port{Port: int(pi)}
-	} else {
-		port = &Port{Name: parts[1]}
+	// chop leading `_`
+	portName := parts[0][1:]
+	port = &Port{Name: portName}
+	if pi, err := strconv.ParseInt(portName, 10, 64); err == nil {
+		port.Port = int(pi)
 	}
 
-	subsetName = parts[2]
-	if subsetName == defaultSubsetName {
-		subsetName = ""
-	}
-	hostname = Hostname(parts[3])
+	// chop leading `_`
+	subsetName = parts[1][1:]
+	hostname = Hostname(parts[2])
 	return
 }
 
