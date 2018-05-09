@@ -111,6 +111,9 @@ func newJwksResolver(expireDuration, evictionDuration, refreshInterval time.Dura
 		refreshInterval:  refreshInterval,
 		httpClient: &http.Client{
 			Timeout: jwksHTTPTimeOutInSec * time.Second,
+		},
+		secureHTTPClient: &http.Client{
+			Timeout: jwksHTTPTimeOutInSec * time.Second,
 			Transport: &http.Transport{
 				TLSClientConfig: &tls.Config{
 					InsecureSkipVerify: true,

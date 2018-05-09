@@ -775,8 +775,8 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 		protocol := servicePort.Protocol
 		cluster := BuildInboundCluster(endpoint.Port, protocol, mesh.ConnectTimeout)
 		clusters = append(clusters, cluster)
-		authenticationPolicy := model.GetConsolidateAuthenticationPolicy(mesh,
-			config, instance.Service.Hostname, endpoint.ServicePort)
+		authenticationPolicy := model.GetConsolidateAuthenticationPolicy(nil, mesh,
+			config, instance.Service.Hostname, endpoint.ServicePort, nil)
 
 		var listener *Listener
 

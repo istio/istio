@@ -178,10 +178,12 @@ func resolveKubeConfigPath(kubeConfig string) string {
 }
 
 func main() {
-	podName := flag.String("pod", "", "pod name. If omit, pod name will be found from k8s registry using app label.")
+	//podName := flag.String("pod", "httpbin-v2-68f9d89f7d-cvtts", "pod name. If omit, pod name will be found from k8s registry using app label.")
+	podName := flag.String("pod", "httpbin-v1-7cf4bc5f49-zkqw9", "pod name. If omit, pod name will be found from k8s registry using app label.")
 	appName := flag.String("app", "", "app label. Should be set if pod name is not provided. It will be used to find "+
 		"the pod that has the same app label. Ignored if --pod is set.")
-	podIP := flag.String("ip", "", "pod IP. If omit, pod IP will be found from registry.")
+	//podIP := flag.String("ip", "10.8.1.7", "pod IP. If omit, pod IP will be found from registry.")
+	podIP := flag.String("ip", "10.8.3.8", "pod IP. If omit, pod IP will be found from registry.")
 	namespace := flag.String("namespace", "default", "namespace. Default is 'default'.")
 	kubeConfig := flag.String("kubeconfig", "~/.kube/config", "path to the kubeconfig file. Default is ~/.kube/config")
 	pilotURL := flag.String("pilot", "localhost:15010", "pilot address")
