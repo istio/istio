@@ -7,6 +7,7 @@ case "${OSTYPE}" in
     case "${DISTRO}" in
       Debian|Ubuntu)
         sh install_prereqs_debian.sh;;
+      *) echo "unsupported distro: ${DISTRO}" ;;
     esac;;
-  *) echo "unsupported: $OSTYPE" ;;
+  *) echo "unsupported: ${OSTYPE}" ;;
 esac
