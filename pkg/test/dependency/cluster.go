@@ -17,7 +17,6 @@ package dependency
 import (
 	"k8s.io/client-go/rest"
 
-	"istio.io/istio/pkg/test/impl/apiserver"
 	"istio.io/istio/pkg/test/internal"
 )
 
@@ -39,8 +38,8 @@ func (a *clusterDependency) String() string {
 }
 
 func (a *clusterDependency) Initialize() (interface{}, error) {
-	// Use the underlying platform-specific implementation to instantiate a new APIServer instance.
-	return apiserver.New()
+	// TODO
+	return nil, nil
 }
 
 func (a *clusterDependency) Reset(interface{}) error {
