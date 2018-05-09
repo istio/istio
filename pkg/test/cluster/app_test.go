@@ -18,15 +18,28 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
+
+	"istio.io/istio/pilot/pkg/model"
 )
 
 // TODO(nmittler): Remove from final code. This is just helpful for initial debugging.
 
-// This will only work if you already have an environment deployed with apps.
-func TestCreateApps(t *testing.T) {
-	out, err := getApp("headless", "istio-test-app-xwqkc")
-	if err != nil {
-		t.Fatal(err)
+// These methods will only work if you already have an environment deployed with apps.
+func TestHttp(t *testing.T) {
+	e := Environment{
+		AppNamespace: "istio-system",
 	}
-	spew.Dump(out)
+
+	a := e.GetAppOrFail("a", t)
+	b := e.GetAppOrFail("b", t)
+
+	endpoint := b.EndpointsForProtocol(model.ProtocolHTTP)[0]
+	u := endpoint.MakeURL()
+	u.Path = a.Name()
+
+	result := a.CallOrFail(u, 1, nil, t)
+	if !result.IsSuccess() {
+		t.Fatalf("HTTP Request unsuccessful: %s", result.Body)
+	}
+	spew.Dump(result)
 }

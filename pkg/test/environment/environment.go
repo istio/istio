@@ -16,6 +16,7 @@ package environment
 
 import (
 	"net/http"
+	"net/url"
 	"testing"
 
 	"k8s.io/client-go/rest"
@@ -65,10 +66,11 @@ type Deployed interface {
 // DeployedApp represents a deployed fake App within the mesh.
 type DeployedApp interface {
 	Deployed
+	Name() string
 	Endpoints() []DeployedAppEndpoint
 	EndpointsForProtocol(protocol model.Protocol) []DeployedAppEndpoint
-	Call(url string, count int, headers http.Header) (AppCallResult, error)
-	CallOrFail(url string, count int, headers http.Header, t *testing.T) AppCallResult
+	Call(u *url.URL, count int, headers http.Header) (AppCallResult, error)
+	CallOrFail(u *url.URL, count int, headers http.Header, t *testing.T) AppCallResult
 }
 
 // DeployedPolicyBackend represents a deployed fake policy backend for Mixer.
@@ -87,7 +89,8 @@ type DeployedAppEndpoint interface {
 	Name() string
 	Owner() DeployedApp
 	Protocol() model.Protocol
-	MakeURL(useFullDomain bool) string
+	MakeURL() *url.URL
+	MakeShortURL() *url.URL
 }
 
 // AppCallResult provides details about the result of a call

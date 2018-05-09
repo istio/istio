@@ -17,6 +17,7 @@ package showcase
 import (
 	"testing"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/dependency"
 )
@@ -33,7 +34,9 @@ func TestMixer_Report(t *testing.T) {
 	_ = be
 
 	appa := env.GetAppOrFail("a", t)
-	result := appa.CallOrFail("appb", 1, nil, t)
+	appb := env.GetAppOrFail("b", t)
+	u := appb.EndpointsForProtocol(model.ProtocolHTTP)[0].MakeURL()
+	result := appa.CallOrFail(u, 1, nil, t)
 
 	// assert call result
 	if !result.IsSuccess() {

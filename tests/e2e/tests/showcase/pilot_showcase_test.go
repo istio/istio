@@ -36,12 +36,9 @@ func TestHTTPWithMTLS(t *testing.T) {
 	// Send requests to all of the HTTP endpoints.
 	endpoints := appt.EndpointsForProtocol(model.ProtocolHTTP)
 	for _, endpoint := range endpoints {
-		url := endpoint.MakeURL(false) + "/a"
-		t.Run(url, func(t *testing.T) {
-			result, err := appa.Call(url, 1, nil)
-			if err != nil {
-				t.Fatal(err)
-			}
+		url := endpoint.MakeURL()
+		t.Run(url.String(), func(t *testing.T) {
+			result := appa.CallOrFail(url, 1, nil, t)
 			if !result.IsSuccess() {
 				t.Fatalf("HTTP Request unsuccessful: %s", result.Body)
 			}
