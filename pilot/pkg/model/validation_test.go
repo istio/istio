@@ -1113,6 +1113,7 @@ func TestValidateMatchCondition(t *testing.T) {
 
 func TestValidateEgressRuleDomain(t *testing.T) {
 	domains := map[string]bool{
+		"CNN.com":    true,
 		"cnn.com":    true,
 		"cnn..com":   false,
 		"10.0.0.100": true,
@@ -1142,6 +1143,7 @@ func TestValidateEgressRuleDomain(t *testing.T) {
 
 func TestValidateEgressRuleService(t *testing.T) {
 	services := map[string]bool{
+		"CNN.com":        true,
 		"cnn.com":        true,
 		"cnn..com":       false,
 		"10.0.0.100":     true,
