@@ -155,20 +155,24 @@ func updateCluster(clusterName string, edsCluster *EdsCluster) error {
 	// Single port
 	var portName string
 
-	// This is a gross hack but Costin will insist on supporting everything from ancient Greece
-	if strings.Index(clusterName, "outbound") == 0 ||
-		strings.Index(clusterName, "inbound") == 0 { //new style cluster names
+	// This is a gross hack but Costin will insist on supporting everything from ancient Greece.
+	// Will be removed after 0.8 - when we don't need to worry about v1/alpha1
+	// v1 clusters are named as:
+	//  [out.|in.]  hostname | port  ( multiple ports are possible in theory according to API, but they're unlikely to work)
+	//  [out.|in.]  hostname | port | labels,label
+	if strings.HasPrefix(clusterName, "out.") ||
+		strings.HasPrefix(clusterName, "in.") { //old style cluster names
+		hostname, ports, labels = model.ParseServiceKey(clusterName)
+		if len(ports) > 0 {
+			portName = ports.GetNames()[0]
+		}
+	} else {
 		var p *model.Port
 		var subsetName string
 		_, subsetName, hostname, p = model.ParseSubsetKey(clusterName)
 		ports = []*model.Port{p}
 		portName = p.Name
 		labels = edsCluster.discovery.env.IstioConfigStore.SubsetToLabels(subsetName, hostname)
-	} else {
-		hostname, ports, labels = model.ParseServiceKey(clusterName)
-		if len(ports) > 0 {
-			portName = ports.GetNames()[0]
-		}
 	}
 
 	instances, err := edsCluster.discovery.env.ServiceDiscovery.Instances(hostname, ports.GetNames(), labels)
