@@ -116,7 +116,6 @@ var (
 		Name: "pilot_xds_push_errors",
 		Help: "Number of errors (timeouts) pushing to sidecars.",
 	}, []string{"type"})
-
 )
 
 func init() {
