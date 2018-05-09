@@ -87,7 +87,8 @@ func (k *KubeInfo) generateRemoteIstio(src, dst string) error {
 
 	svcs := []string{"istio-pilot", "istio-policy", "istio-statsd-prom-bridge", "istio-ingress", "istio-telemetry"}
 	for _, svc := range svcs {
-		ip, err := k.getEndpointIPForService(svc)
+		var ip string
+		ip, err = k.getEndpointIPForService(svc)
 		if err == nil {
 			replaceStr := fmt.Sprintf("%s.istio-system", svc)
 			content = replacePattern(content, replaceStr, ip)
