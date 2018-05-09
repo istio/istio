@@ -16,8 +16,11 @@ package cluster
 
 import (
 	"fmt"
+	"net"
 	"net/http"
+	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -49,23 +52,32 @@ type endpoint struct {
 	owner *app
 }
 
-// Endpoints implements the environment.DeployedAppEndpoint interface
+// Name implements the environment.DeployedAppEndpoint interface
 func (e *endpoint) Name() string {
 	return e.port.Name
 }
 
-// Endpoints implements the environment.DeployedAppEndpoint interface
+// Owner implements the environment.DeployedAppEndpoint interface
 func (e *endpoint) Owner() environment.DeployedApp {
 	return e.owner
 }
 
-// Endpoints implements the environment.DeployedAppEndpoint interface
+// Protocol implements the environment.DeployedAppEndpoint interface
 func (e *endpoint) Protocol() model.Protocol {
 	return e.port.Protocol
 }
 
-// Endpoints implements the environment.DeployedAppEndpoint interface
-func (e *endpoint) MakeURL(useFullDomain bool) string {
+// MakeURL implements the environment.DeployedAppEndpoint interface
+func (e *endpoint) MakeURL() *url.URL {
+	return e.makeURL(true)
+}
+
+// MakeShortURL implements the environment.DeployedAppEndpoint interface
+func (e *endpoint) MakeShortURL() *url.URL {
+	return e.makeURL(false)
+}
+
+func (e *endpoint) makeURL(useFullDomain bool) *url.URL {
 	protocol := "http"
 	switch e.port.Protocol {
 	case model.ProtocolGRPC:
@@ -77,7 +89,10 @@ func (e *endpoint) MakeURL(useFullDomain bool) string {
 	if useFullDomain {
 		host += "." + e.owner.namespace
 	}
-	return fmt.Sprintf("%s://%s:%d", protocol, host, e.port.Port)
+	return &url.URL{
+		Scheme: protocol,
+		Host:   net.JoinHostPort(host, strconv.Itoa(e.port.Port)),
+	}
 }
 
 type app struct {
@@ -125,6 +140,10 @@ func getApp(serviceName, namespace string) (environment.DeployedApp, error) {
 	return a, nil
 }
 
+func (a *app) Name() string {
+	return a.serviceName
+}
+
 func getEndpoints(owner *app, service *corev1.Service) []*endpoint {
 	out := make([]*endpoint, len(service.Spec.Ports))
 	for i, servicePort := range service.Spec.Ports {
@@ -161,7 +180,7 @@ func (a *app) EndpointsForProtocol(protocol model.Protocol) []environment.Deploy
 }
 
 // Call implements the environment.DeployedApp interface
-func (a *app) Call(url string, count int, headers http.Header) (environment.AppCallResult, error) {
+func (a *app) Call(u *url.URL, count int, headers http.Header) (environment.AppCallResult, error) {
 	// Get the pod name of the source app
 	pods, err := a.pods()
 	if err != nil {
@@ -171,7 +190,7 @@ func (a *app) Call(url string, count int, headers http.Header) (environment.AppC
 
 	// Exec onto the pod and run the client application to make the request to the target service.
 	extra := toExtra(headers)
-	cmd := fmt.Sprintf("client -url %s -count %d %s", url, count, extra)
+	cmd := fmt.Sprintf("client -url %s -count %d %s", u.String(), count, extra)
 	res, err := util.Shell("kubectl exec %s -n %s -c %s -- %s ", pod, a.namespace, containerName, cmd)
 	if err != nil {
 		return nilResult, err
@@ -214,10 +233,10 @@ func (a *app) Call(url string, count int, headers http.Header) (environment.AppC
 	return out, nil
 }
 
-func (a *app) CallOrFail(url string, count int, headers http.Header, t *testing.T) environment.AppCallResult {
-	r, err := a.Call(url, count, headers)
+func (a *app) CallOrFail(u *url.URL, count int, headers http.Header, t *testing.T) environment.AppCallResult {
+	r, err := a.Call(u, count, headers)
 	if err != nil {
-		t.Fatalf("Call to app failed: app='%s', url='%s', err='%v'", a.appName, url, err)
+		t.Fatalf("Call to app failed: app='%s', url='%s', err='%v'", a.appName, u, err)
 	}
 	return r
 }

@@ -33,7 +33,7 @@ const (
 // Args is the set of arguments to the test driver.
 type Args struct {
 	// Labels is the comma-separated set of set of labels for selecting tests to run. Tests matching to
-	// at least one specifed label will be executed. If unspecified, all applicable tests will be executed.
+	// at least one specified label will be executed. If unspecified, all applicable tests will be executed.
 	Labels string
 
 	// Environment to run the tests in. By default, a local environment will be used.
