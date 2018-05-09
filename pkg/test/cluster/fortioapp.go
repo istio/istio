@@ -57,7 +57,7 @@ func (f *fortioapp) CallFortio(arg string, path string) (environment.FortioAppCa
 		return environment.FortioAppCallResult{}, err
 	}
 	if len(pods) != 1 {
-		return environment.FortioAppCallResult{}, fmt.Errorf("Expected only one pod instance, but %d.", len(pods))
+		return environment.FortioAppCallResult{}, fmt.Errorf("expected only one pod instance, but %d", len(pods))
 	}
 
 	pod := pods[0]
