@@ -15,6 +15,7 @@
 package external
 
 import (
+	"fmt"
 	"net"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -52,11 +53,12 @@ func convertServices(serviceEntry *networking.ServiceEntry) []*model.Service {
 	for _, host := range serviceEntry.Hosts {
 		if len(serviceEntry.Addresses) > 0 {
 			for _, address := range serviceEntry.Addresses {
-				if _, _, cidrErr := net.ParseCIDR(address); cidrErr == nil || net.ParseIP(address) != nil {
+				a, err := convertIPAddress(address)
+				if err == nil {
 					out = append(out, &model.Service{
 						MeshExternal: serviceEntry.Location == networking.ServiceEntry_MESH_EXTERNAL,
 						Hostname:     model.Hostname(host),
-						Address:      address,
+						Address:      a,
 						Ports:        svcPorts,
 						Resolution:   resolution,
 					})
@@ -76,6 +78,18 @@ func convertServices(serviceEntry *networking.ServiceEntry) []*model.Service {
 	return out
 }
 
+func convertIPAddress(address *networking.Address) (string, error) {
+	ipaddr, ok := address.GetAddress().(*networking.Address_Ip)
+	if !ok {
+		return "", fmt.Errorf("%s is not IP address type", address)
+	}
+	a := ipaddr.Ip
+	if _, _, cidrErr := net.ParseCIDR(a); cidrErr == nil || net.ParseIP(a) != nil {
+		return a, nil
+	}
+	return "", fmt.Errorf("%s is not a valid IP address or CIDR", a)
+}
+
 func convertEndpoint(service *model.Service, servicePort *networking.Port,
 	endpoint *networking.ServiceEntry_Endpoint) *model.ServiceInstance {
 
@@ -86,7 +100,7 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 
 	return &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
-			Address:     endpoint.Address,
+			Address:     endpoint.GetAddress().GetIp(),
 			Port:        int(instancePort),
 			ServicePort: convertPort(servicePort),
 		},

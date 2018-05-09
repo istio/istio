@@ -2732,6 +2732,10 @@ func TestValidateOutlierDetection(t *testing.T) {
 	}
 }
 
+func makeIPAddress(addr string) *networking.Address {
+	return &networking.Address{Address: &networking.Address_Ip{Ip: addr}}
+}
+
 func TestValidateServiceEntries(t *testing.T) {
 	cases := []struct {
 		name  string
@@ -2745,8 +2749,8 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
 			Endpoints: []*networking.ServiceEntry_Endpoint{
-				{Address: "lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}},
-				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
+				{Address: makeIPAddress("lon.google.com"), Ports: map[string]uint32{"http-valid1": 8080}},
+				{Address: makeIPAddress("in.google.com"), Ports: map[string]uint32{"http-valid2": 9080}},
 			},
 			Resolution: networking.ServiceEntry_DNS,
 		},
@@ -2759,8 +2763,8 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
 			Endpoints: []*networking.ServiceEntry_Endpoint{
-				{Address: "1.1.1.1", Ports: map[string]uint32{"http-valid1": 8080}},
-				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
+				{Address: makeIPAddress("1.1.1.1"), Ports: map[string]uint32{"http-valid1": 8080}},
+				{Address: makeIPAddress("in.google.com"), Ports: map[string]uint32{"http-valid2": 9080}},
 			},
 			Resolution: networking.ServiceEntry_DNS,
 		},
@@ -2771,7 +2775,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 			},
 			Endpoints: []*networking.ServiceEntry_Endpoint{
-				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
+				{Address: makeIPAddress("in.google.com"), Ports: map[string]uint32{"http-valid2": 9080}},
 			},
 			Resolution: networking.ServiceEntry_DNS,
 		},
@@ -2783,7 +2787,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 			},
 			Endpoints: []*networking.ServiceEntry_Endpoint{
-				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
+				{Address: makeIPAddress("in.google.com"), Ports: map[string]uint32{"http-valid2": 9080}},
 			},
 			Resolution: networking.ServiceEntry_DNS,
 		},
@@ -2796,8 +2800,8 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 80, Protocol: "http", Name: "http-valid2"},
 			},
 			Endpoints: []*networking.ServiceEntry_Endpoint{
-				{Address: "lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}},
-				{Address: "in.google.com", Ports: map[string]uint32{"http-dne": 9080}},
+				{Address: makeIPAddress("lon.google.com"), Ports: map[string]uint32{"http-valid1": 8080}},
+				{Address: makeIPAddress("in.google.com"), Ports: map[string]uint32{"http-dne": 9080}},
 			},
 			Resolution: networking.ServiceEntry_DNS,
 		},
@@ -2810,8 +2814,8 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
 			Endpoints: []*networking.ServiceEntry_Endpoint{
-				{Address: "*.lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}},
-				{Address: "in.google.com", Ports: map[string]uint32{"http-dne": 9080}},
+				{Address: makeIPAddress("*.lon.google.com"), Ports: map[string]uint32{"http-valid1": 8080}},
+				{Address: makeIPAddress("in.google.com"), Ports: map[string]uint32{"http-dne": 9080}},
 			},
 			Resolution: networking.ServiceEntry_DNS,
 		},
@@ -2856,7 +2860,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
 			Endpoints: []*networking.ServiceEntry_Endpoint{
-				{Address: "lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}},
+				{Address: makeIPAddress("lon.google.com"), Ports: map[string]uint32{"http-valid1": 8080}},
 			},
 			Resolution: networking.ServiceEntry_NONE,
 		},
@@ -2875,14 +2879,14 @@ func TestValidateServiceEntries(t *testing.T) {
 
 		{name: "discovery type static", in: networking.ServiceEntry{
 			Hosts:     []string{"google.com"},
-			Addresses: []string{"172.1.2.16/16"},
+			Addresses: []*networking.Address{makeIPAddress("172.1.2.16/16")},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
 			Endpoints: []*networking.ServiceEntry_Endpoint{
-				{Address: "1.1.1.1", Ports: map[string]uint32{"http-valid1": 8080}},
-				{Address: "2.2.2.2", Ports: map[string]uint32{"http-valid2": 9080}},
+				{Address: makeIPAddress("1.1.1.1"), Ports: map[string]uint32{"http-valid1": 8080}},
+				{Address: makeIPAddress("2.2.2.2"), Ports: map[string]uint32{"http-valid2": 9080}},
 			},
 			Resolution: networking.ServiceEntry_STATIC,
 		},
@@ -2890,14 +2894,14 @@ func TestValidateServiceEntries(t *testing.T) {
 
 		{name: "discovery type static, FQDN in endpoints", in: networking.ServiceEntry{
 			Hosts:     []string{"google.com"},
-			Addresses: []string{"172.1.2.16/16"},
+			Addresses: []*networking.Address{makeIPAddress("172.1.2.16/16")},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
 			Endpoints: []*networking.ServiceEntry_Endpoint{
-				{Address: "google.com", Ports: map[string]uint32{"http-valid1": 8080}},
-				{Address: "2.2.2.2", Ports: map[string]uint32{"http-valid2": 9080}},
+				{Address: makeIPAddress("google.com"), Ports: map[string]uint32{"http-valid1": 8080}},
+				{Address: makeIPAddress("2.2.2.2"), Ports: map[string]uint32{"http-valid2": 9080}},
 			},
 			Resolution: networking.ServiceEntry_STATIC,
 		},
@@ -2905,7 +2909,7 @@ func TestValidateServiceEntries(t *testing.T) {
 
 		{name: "discovery type static, missing endpoints", in: networking.ServiceEntry{
 			Hosts:     []string{"google.com"},
-			Addresses: []string{"172.1.2.16/16"},
+			Addresses: []*networking.Address{makeIPAddress("172.1.2.16/16")},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
@@ -2916,14 +2920,14 @@ func TestValidateServiceEntries(t *testing.T) {
 
 		{name: "discovery type static, bad endpoint port name", in: networking.ServiceEntry{
 			Hosts:     []string{"google.com"},
-			Addresses: []string{"172.1.2.16/16"},
+			Addresses: []*networking.Address{makeIPAddress("172.1.2.16/16")},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
 			Endpoints: []*networking.ServiceEntry_Endpoint{
-				{Address: "1.1.1.1", Ports: map[string]uint32{"http-valid1": 8080}},
-				{Address: "2.2.2.2", Ports: map[string]uint32{"http-dne": 9080}},
+				{Address: makeIPAddress("1.1.1.1"), Ports: map[string]uint32{"http-valid1": 8080}},
+				{Address: makeIPAddress("2.2.2.2"), Ports: map[string]uint32{"http-dne": 9080}},
 			},
 			Resolution: networking.ServiceEntry_STATIC,
 		},

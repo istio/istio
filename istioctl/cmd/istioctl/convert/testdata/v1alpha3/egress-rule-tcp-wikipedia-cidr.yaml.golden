@@ -6,7 +6,7 @@ metadata:
   namespace: default
 spec:
   addresses:
-  - 91.198.174.192/27
+  - ip: 91.198.174.192/27
   hosts:
   - wikipedia-range1
   ports:
@@ -22,7 +22,7 @@ metadata:
   namespace: default
 spec:
   addresses:
-  - 103.102.166.224/27
+  - ip: 103.102.166.224/27
   hosts:
   - wikipedia-range2
   ports:
@@ -38,7 +38,7 @@ metadata:
   namespace: default
 spec:
   addresses:
-  - 198.35.26.96/27
+  - ip: 198.35.26.96/27
   hosts:
   - wikipedia-range3
   ports:
@@ -54,7 +54,7 @@ metadata:
   namespace: default
 spec:
   addresses:
-  - 208.80.153.224/27
+  - ip: 208.80.153.224/27
   hosts:
   - wikipedia-range4
   ports:
@@ -70,7 +70,7 @@ metadata:
   namespace: default
 spec:
   addresses:
-  - 208.80.154.224/27
+  - ip: 208.80.154.224/27
   hosts:
   - wikipedia-range5
   ports:

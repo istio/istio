@@ -43,9 +43,9 @@ func EgressRules(configs []model.Config) []model.Config {
 	serviceEntries := make([]*v1alpha3.ServiceEntry, 0)
 	for _, config := range egressConfigs {
 		host := convertIstioService(config.egressRule.Destination)
-		var addresses []string
+		var addresses []*v1alpha3.Address
 		if model.ValidateIPv4Subnet(host) == nil {
-			addresses = []string{host}
+			addresses = []*v1alpha3.Address{{Address: &v1alpha3.Address_Ip{Ip: host}}}
 			host = config.name
 		}
 

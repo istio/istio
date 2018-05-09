@@ -37,7 +37,7 @@ var httpNone = &networking.ServiceEntry{
 
 var tcpNone = &networking.ServiceEntry{
 	Hosts:     []string{"tcpnone.com"},
-	Addresses: []string{"172.217.0.0/16"},
+	Addresses: []*networking.Address{makeIPAddress("172.217.0.0/16")},
 	Ports: []*networking.Port{
 		{Number: 444, Name: "tcp-444", Protocol: "tcp"},
 	},
@@ -53,15 +53,15 @@ var httpStatic = &networking.ServiceEntry{
 	},
 	Endpoints: []*networking.ServiceEntry_Endpoint{
 		{
-			Address: "2.2.2.2",
+			Address: makeIPAddress("2.2.2.2"),
 			Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
 		},
 		{
-			Address: "3.3.3.3",
+			Address: makeIPAddress("3.3.3.3"),
 			Ports:   map[string]uint32{"http-port": 1080},
 		},
 		{
-			Address: "4.4.4.4",
+			Address: makeIPAddress("4.4.4.4"),
 			Ports:   map[string]uint32{"http-port": 1080},
 			Labels:  map[string]string{"foo": "bar"},
 		},
@@ -88,15 +88,15 @@ var httpDNS = &networking.ServiceEntry{
 	},
 	Endpoints: []*networking.ServiceEntry_Endpoint{
 		{
-			Address: "us.google.com",
+			Address: makeIPAddress("us.google.com"),
 			Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
 		},
 		{
-			Address: "uk.google.com",
+			Address: makeIPAddress("uk.google.com"),
 			Ports:   map[string]uint32{"http-port": 1080},
 		},
 		{
-			Address: "de.google.com",
+			Address: makeIPAddress("de.google.com"),
 			Labels:  map[string]string{"foo": "bar"},
 		},
 	},
@@ -111,10 +111,10 @@ var tcpDNS = &networking.ServiceEntry{
 	},
 	Endpoints: []*networking.ServiceEntry_Endpoint{
 		{
-			Address: "lon.google.com",
+			Address: makeIPAddress("lon.google.com"),
 		},
 		{
-			Address: "in.google.com",
+			Address: makeIPAddress("in.google.com"),
 		},
 	},
 	Location:   networking.ServiceEntry_MESH_EXTERNAL,
@@ -123,16 +123,16 @@ var tcpDNS = &networking.ServiceEntry{
 
 var tcpStatic = &networking.ServiceEntry{
 	Hosts:     []string{"tcpstatic.com"},
-	Addresses: []string{"172.217.0.0/16"},
+	Addresses: []*networking.Address{makeIPAddress("172.217.0.0/16")},
 	Ports: []*networking.Port{
 		{Number: 444, Name: "tcp-444", Protocol: "tcp"},
 	},
 	Endpoints: []*networking.ServiceEntry_Endpoint{
 		{
-			Address: "1.1.1.1",
+			Address: makeIPAddress("1.1.1.1"),
 		},
 		{
-			Address: "2.2.2.2",
+			Address: makeIPAddress("2.2.2.2"),
 		},
 	},
 	Location:   networking.ServiceEntry_MESH_EXTERNAL,
@@ -151,7 +151,7 @@ var httpNoneInternal = &networking.ServiceEntry{
 
 var tcpNoneInternal = &networking.ServiceEntry{
 	Hosts:     []string{"tcpinternal.com"},
-	Addresses: []string{"172.217.0.0/16"},
+	Addresses: []*networking.Address{makeIPAddress("172.217.0.0/16")},
 	Ports: []*networking.Port{
 		{Number: 444, Name: "tcp-444", Protocol: "tcp"},
 	},
@@ -161,12 +161,16 @@ var tcpNoneInternal = &networking.ServiceEntry{
 
 var multiAddrInternal = &networking.ServiceEntry{
 	Hosts:     []string{"tcp1.com", "tcp2.com"},
-	Addresses: []string{"1.1.1.0/16", "2.2.2.0/16"},
+	Addresses: []*networking.Address{makeIPAddress("1.1.1.0/16"), makeIPAddress("2.2.2.0/16")},
 	Ports: []*networking.Port{
 		{Number: 444, Name: "tcp-444", Protocol: "tcp"},
 	},
 	Location:   networking.ServiceEntry_MESH_INTERNAL,
 	Resolution: networking.ServiceEntry_NONE,
+}
+
+func makeIPAddress(ip string) *networking.Address {
+	return &networking.Address{Address: &networking.Address_Ip{Ip: ip}}
 }
 
 func convertPortNameToProtocol(name string) model.Protocol {
