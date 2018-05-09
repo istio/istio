@@ -172,7 +172,7 @@ test/local/noauth/e2e_pilotv2: generate_yaml-envoyv2_transition
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 20m ./tests/e2e/tests/pilot \
 	--skip_cleanup --auth_enable=false --v1alpha3=true --egress=false --ingress=false --rbac_enable=true --v1alpha1=false --cluster_wide \
 	${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} \
-		| tee -a ${OUT_DIR}/logs/test-report.raw
+		${CAPTURE_LOG}
 	# Run the pilot controller tests
 	set -o pipefail; go test -v -timeout 20m ./tests/e2e/tests/controller ${CAPTURE_LOG}
 
@@ -189,7 +189,7 @@ test/local/auth/e2e_pilotv2: generate_yaml-envoyv2_transition_auth
 test/local/cloudfoundry/e2e_pilotv2:
 	@mkdir -p ${OUT_DIR}/logs
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 20m ./tests/e2e/tests/pilot/cloudfoundry ${T} \
-		| tee ${OUT_DIR}/logs/test-report-cloudfoundry.raw
+		${CAPTURE_LOG}
 
 test/local/noauth/e2e_bookinfo_envoyv2: generate_yaml-envoyv2_transition_loadbalancer_ingressgateway
 	@mkdir -p ${OUT_DIR}/logs
@@ -212,7 +212,7 @@ junit-report: ${ISTIO_BIN}/go-junit-report
 # Dumpsys will get as much info as possible from the test cluster
 # Can be run after tests. It will also process the auto-saved log output
 # This assume istio runs in istio-system namespace, and 'skip-cleanup' was used in tests.
-dumpsys: ${ISTIO_BIN}/go-junit-report
+dumpsys:
 	@mkdir -p ${OUT_DIR}/tests
 	@mkdir -p ${OUT_DIR}/logs
 	kubectl get all -o wide --all-namespaces | tee ${OUT_DIR}/logs/kubectl_all.txt
