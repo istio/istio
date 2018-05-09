@@ -345,7 +345,7 @@ func envoyInit(t *testing.T) {
 	// Other interesting values for CDS: cluster_added: 19, active_clusters
 	// cds.update_attempt: 2, cds.update_rejected, cds.version
 
-	if statsMap["cluster.outbound.http._default_.service3.default.svc.cluster.local.update_success"] < 1 {
+	if statsMap["cluster._http._.service3.default.svc.cluster.local.update_success"] < 1 {
 		t.Error("Failed sds updates")
 	}
 
