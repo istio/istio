@@ -275,9 +275,6 @@ func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 			s.clusterStore); err != nil {
 			return err
 		}
-	} else if err = clusterregistry.ReadClustersV2(s.kubeClient,
-		s.clusterStore, args.Namespace); err != nil {
-		return err
 	}
 	if s.clusterStore != nil {
 		log.Infof("clusters configuration %s", spew.Sdump(s.clusterStore))
