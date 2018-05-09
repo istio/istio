@@ -17,9 +17,8 @@
         - containerPort: 9093
         - containerPort: 42422
         args:
-          - --port
-          - "9092"
-          - --portLocal
+          - --address
+          - tcp://127.0.0.1:9092
           - --configStoreURL=k8s://
           - --configDefaultNamespace={{ $.Release.Namespace }}
           - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
@@ -89,9 +88,8 @@
         - containerPort: 9093
         - containerPort: 42422
         args:
-          - --port
-          - "9092"
-          - --portLocal
+          - --address
+          - tcp://127.0.0.1:9092
           - --configStoreURL=k8s://
           - --configDefaultNamespace={{ $.Release.Namespace }}
           - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
