@@ -86,7 +86,7 @@ func NewDiscoveryServer(env model.Environment, generator *v1alpha3.ConfigGenerat
 	}
 
 	if len(periodicRefreshDuration) > 0 {
-		periodicRefresh()
+		go periodicRefresh()
 	}
 
 	return out
@@ -138,6 +138,8 @@ func (s *DiscoveryServer) ClearCacheFunc() func() {
 		s.modelMutex.RLock()
 		log.Infof("XDS: Registry event, pushing. Services: %d, "+
 			"VirtualServices: %d, ConnectedEndpoints: %d", len(s.services), len(s.virtualServices), edsClientCount())
+		monServices.Set(float64(len(s.services)))
+		monVServices.Set(float64(len(s.virtualServices)))
 		s.modelMutex.RUnlock()
 
 		PushAll()

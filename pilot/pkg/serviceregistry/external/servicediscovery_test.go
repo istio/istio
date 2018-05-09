@@ -56,11 +56,11 @@ func TestServiceDiscoveryServices(t *testing.T) {
 	store := initConfigStore()
 	sd := NewServiceDiscovery(store)
 	expectedServices := []*model.Service{
-		makeService("*.google.com", "", map[string]int{"http-port": 80, "http-alt-port": 8080}, model.DNSLB),
-		makeService("172.217.0.0_16", "172.217.0.0/16", map[string]int{"tcp-444": 444}, model.DNSLB),
+		makeService("*.google.com", "", map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB),
+		makeService("tcpstatic.com", "172.217.0.0/16", map[string]int{"tcp-444": 444}, true, model.ClientSideLB),
 	}
 
-	createServiceEntries([]*networking.ServiceEntry{httpDNS, tcpDNS}, store, t)
+	createServiceEntries([]*networking.ServiceEntry{httpDNS, tcpStatic}, store, t)
 
 	services, err := sd.Services()
 	if err != nil {
@@ -80,9 +80,9 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 	store := initConfigStore()
 	sd := NewServiceDiscovery(store)
 
-	createServiceEntries([]*networking.ServiceEntry{httpDNS, tcpDNS}, store, t)
+	createServiceEntries([]*networking.ServiceEntry{httpDNS, tcpStatic}, store, t)
 
-	service, err := sd.GetService(hostDNE)
+	service, err := sd.GetService(model.Hostname(hostDNE))
 	if err != nil {
 		t.Errorf("GetService() encountered unexpected error: %v", err)
 	}
@@ -90,14 +90,14 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 		t.Errorf("GetService(%q) => should not exist, got %s", hostDNE, service.Hostname)
 	}
 
-	service, err = sd.GetService(host)
+	service, err = sd.GetService(model.Hostname(host))
 	if err != nil {
 		t.Errorf("GetService(%q) encountered unexpected error: %v", host, err)
 	}
 	if service == nil {
 		t.Errorf("GetService(%q) => should exist", host)
 	}
-	if service.Hostname != host {
+	if service.Hostname != model.Hostname(host) {
 		t.Errorf("GetService(%q) => %q, want %q", host, service.Hostname, host)
 	}
 }
@@ -122,7 +122,7 @@ func TestServiceDiscoveryInstances(t *testing.T) {
 	store := initConfigStore()
 	sd := NewServiceDiscovery(store)
 
-	createServiceEntries([]*networking.ServiceEntry{httpDNS, tcpDNS}, store, t)
+	createServiceEntries([]*networking.ServiceEntry{httpDNS, tcpStatic}, store, t)
 
 	expectedInstances := []*model.ServiceInstance{
 		makeInstance(httpDNS, "us.google.com", 7080, httpDNS.Ports[0], nil),

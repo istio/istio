@@ -126,7 +126,7 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 	localIp = getLocalIP()
 
 	// Service and endpoints for hello.default - used in v1 pilot tests
-	hostname := "hello.default.svc.cluster.local"
+	hostname := model.Hostname("hello.default.svc.cluster.local")
 	server.EnvoyXdsServer.MemRegistry.AddService(hostname, &model.Service{
 		Hostname: hostname,
 		Address:  "10.10.0.3",
@@ -345,7 +345,7 @@ func envoyInit(t *testing.T) {
 	// Other interesting values for CDS: cluster_added: 19, active_clusters
 	// cds.update_attempt: 2, cds.update_rejected, cds.version
 
-	if statsMap["cluster.outbound|custom||service3.default.svc.cluster.local.update_success"] < 1 {
+	if statsMap["cluster.outbound|http||service3.default.svc.cluster.local.update_success"] < 1 {
 		t.Error("Failed sds updates")
 	}
 

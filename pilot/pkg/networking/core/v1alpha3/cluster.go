@@ -92,24 +92,19 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environmen
 			defaultCluster := buildDefaultCluster(env, clusterName, convertResolution(service.Resolution), hosts)
 			updateEds(env, defaultCluster, service.Hostname)
 			setUpstreamProtocol(defaultCluster, port)
-			// call plugins
-			for _, p := range configgen.Plugins {
-				p.OnOutboundCluster(env, proxy, service, port, defaultCluster)
-			}
-
 			clusters = append(clusters, defaultCluster)
 
 			if config != nil {
 				destinationRule := config.Spec.(*networking.DestinationRule)
-				applyTrafficPolicy(defaultCluster, destinationRule.TrafficPolicy)
+				applyTrafficPolicy(defaultCluster, destinationRule.TrafficPolicy, port)
 
 				for _, subset := range destinationRule.Subsets {
 					subsetClusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port)
 					subsetCluster := buildDefaultCluster(env, subsetClusterName, convertResolution(service.Resolution), hosts)
 					updateEds(env, subsetCluster, service.Hostname)
 					setUpstreamProtocol(subsetCluster, port)
-					applyTrafficPolicy(subsetCluster, destinationRule.TrafficPolicy)
-					applyTrafficPolicy(subsetCluster, subset.TrafficPolicy)
+					applyTrafficPolicy(subsetCluster, destinationRule.TrafficPolicy, port)
+					applyTrafficPolicy(subsetCluster, subset.TrafficPolicy, port)
 					// call plugins
 					for _, p := range configgen.Plugins {
 						p.OnOutboundCluster(env, proxy, service, port, subsetCluster)
@@ -117,13 +112,18 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environmen
 					clusters = append(clusters, subsetCluster)
 				}
 			}
+
+			// call plugins for the default cluster
+			for _, p := range configgen.Plugins {
+				p.OnOutboundCluster(env, proxy, service, port, defaultCluster)
+			}
 		}
 	}
 
 	return clusters
 }
 
-func updateEds(env model.Environment, cluster *v2.Cluster, serviceName string) {
+func updateEds(env model.Environment, cluster *v2.Cluster, serviceName model.Hostname) {
 	if cluster.Type != v2.Cluster_EDS {
 		return
 	}
@@ -214,14 +214,45 @@ func convertResolution(resolution model.Resolution) v2.Cluster_DiscoveryType {
 	}
 }
 
-func applyTrafficPolicy(cluster *v2.Cluster, policy *networking.TrafficPolicy) {
+func applyTrafficPolicy(cluster *v2.Cluster, policy *networking.TrafficPolicy, port *model.Port) {
 	if policy == nil {
 		return
 	}
-	applyConnectionPool(cluster, policy.ConnectionPool)
-	applyOutlierDetection(cluster, policy.OutlierDetection)
-	applyLoadBalancer(cluster, policy.LoadBalancer)
-	applyUpstreamTLSSettings(cluster, policy.Tls)
+
+	connectionPool := policy.ConnectionPool
+	outlierDetection := policy.OutlierDetection
+	loadBalancer := policy.LoadBalancer
+	tls := policy.Tls
+
+	if port != nil && len(policy.PortLevelSettings) > 0 {
+		foundPort := false
+		for _, p := range policy.PortLevelSettings {
+			if p.Port != nil {
+				switch selector := p.Port.Port.(type) {
+				case *networking.PortSelector_Name:
+					if port.Name == selector.Name {
+						foundPort = true
+					}
+				case *networking.PortSelector_Number:
+					if uint32(port.Port) == selector.Number {
+						foundPort = true
+					}
+				}
+			}
+			if foundPort {
+				connectionPool = p.ConnectionPool
+				outlierDetection = p.OutlierDetection
+				loadBalancer = p.LoadBalancer
+				tls = p.Tls
+				break
+			}
+		}
+	}
+
+	applyConnectionPool(cluster, connectionPool)
+	applyOutlierDetection(cluster, outlierDetection)
+	applyLoadBalancer(cluster, loadBalancer)
+	applyUpstreamTLSSettings(cluster, tls)
 }
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
@@ -314,20 +345,29 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 		return
 	}
 
+	var certValidationContext *auth.CertificateValidationContext
+	var trustedCa *core.DataSource
+	if len(tls.CaCertificates) != 0 {
+		trustedCa = &core.DataSource{
+			Specifier: &core.DataSource_Filename{
+				Filename: tls.CaCertificates,
+			},
+		}
+	}
+	if trustedCa != nil || len(tls.SubjectAltNames) > 0 {
+		certValidationContext = &auth.CertificateValidationContext{
+			TrustedCa:            trustedCa,
+			VerifySubjectAltName: tls.SubjectAltNames,
+		}
+	}
+
 	switch tls.Mode {
 	case networking.TLSSettings_DISABLE:
 		// TODO: Need to make sure that authN does not override this setting
 	case networking.TLSSettings_SIMPLE:
 		cluster.TlsContext = &auth.UpstreamTlsContext{
 			CommonTlsContext: &auth.CommonTlsContext{
-				ValidationContext: &auth.CertificateValidationContext{
-					TrustedCa: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: tls.CaCertificates,
-						},
-					},
-					VerifySubjectAltName: tls.SubjectAltNames,
-				},
+				ValidationContext: certValidationContext,
 			},
 			Sni: tls.Sni,
 		}
@@ -348,14 +388,7 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 						},
 					},
 				},
-				ValidationContext: &auth.CertificateValidationContext{
-					TrustedCa: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: tls.CaCertificates,
-						},
-					},
-					VerifySubjectAltName: tls.SubjectAltNames,
-				},
+				ValidationContext: certValidationContext,
 			},
 			Sni: tls.Sni,
 		}
@@ -387,8 +420,13 @@ func buildDefaultCluster(env model.Environment, name string, discoveryType v2.Cl
 		Type:  discoveryType,
 		Hosts: hosts,
 	}
+
+	if discoveryType == v2.Cluster_STRICT_DNS || discoveryType == v2.Cluster_LOGICAL_DNS {
+		cluster.DnsLookupFamily = v2.Cluster_V4_ONLY
+	}
+
 	defaultTrafficPolicy := buildDefaultTrafficPolicy(env, discoveryType)
-	applyTrafficPolicy(cluster, defaultTrafficPolicy)
+	applyTrafficPolicy(cluster, defaultTrafficPolicy, nil)
 	return cluster
 }
 

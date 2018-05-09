@@ -61,7 +61,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 }
 
 // GetService retrieves a service by host name if it exists
-func (c *Controller) GetService(hostname string) (*model.Service, error) {
+func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error) {
 	// Get actual service by name
 	name, err := parseHostname(hostname)
 	if err != nil {
@@ -107,7 +107,7 @@ func (c *Controller) ManagementPorts(addr string) model.PortList {
 
 // Instances retrieves instances for a service and its ports that match
 // any of the supplied labels. All instances match an empty tag list.
-func (c *Controller) Instances(hostname string, ports []string,
+func (c *Controller) Instances(hostname model.Hostname, ports []string,
 	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	// Get actual service by name
 	name, err := parseHostname(hostname)
@@ -163,7 +163,11 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.Servi
 			return nil, err
 		}
 		for _, endpoint := range endpoints {
-			if node.IPAddress == endpoint.ServiceAddress {
+			addr := endpoint.ServiceAddress
+			if addr == "" {
+				addr = endpoint.Address
+			}
+			if node.IPAddress == addr {
 				out = append(out, convertInstance(endpoint))
 			}
 		}
@@ -196,7 +200,7 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 }
 
 // GetIstioServiceAccounts implements model.ServiceAccounts operation TODO
-func (c *Controller) GetIstioServiceAccounts(hostname string, ports []string) []string {
+func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []string) []string {
 	// Need to get service account of service registered with consul
 	// Currently Consul does not have service account or equivalent concept
 	// As a step-1, to enabling istio security in Consul, We assume all the services run in default service account
