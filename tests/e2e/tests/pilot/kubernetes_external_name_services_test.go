@@ -74,23 +74,25 @@ func TestRewriteExternalService(t *testing.T) {
 		},
 	}
 
-	for _, src := range srcPods {
-		for _, dst := range dstServices {
-			for _, domain := range []string{"", "." + tc.Kube.Namespace} {
-				reqURL := fmt.Sprintf("http://%s%s", dst.service, domain)
-				extra := ""
-				if !src.withIstioProxy {
-					extra = "-key Host -val " + dst.externalHost
-				}
-
-				testName := fmt.Sprintf("%s->%s%s", src.pod, dst.service, domain)
-				runRetriableTest(t, testName, defaultRetryBudget, func() error {
-					resp := ClientRequest(src.pod, reqURL, 1, extra)
-					if resp.IsHTTPOk() {
-						return nil
+	for cluster := range tc.Kube.Clusters {
+		for _, src := range srcPods {
+			for _, dst := range dstServices {
+				for _, domain := range []string{"", "." + tc.Kube.Namespace} {
+					reqURL := fmt.Sprintf("http://%s%s", dst.service, domain)
+					extra := ""
+					if !src.withIstioProxy {
+						extra = "-key Host -val " + dst.externalHost
 					}
-					return errAgain
-				})
+
+					testName := fmt.Sprintf("%s from %s cluster->%s%s", src.pod, cluster, dst.service, domain)
+					runRetriableTest(t, cluster, testName, defaultRetryBudget, func() error {
+						resp := ClientRequest(cluster, src.pod, reqURL, 1, extra)
+						if resp.IsHTTPOk() {
+							return nil
+						}
+						return errAgain
+					})
+				}
 			}
 		}
 	}
