@@ -91,23 +91,36 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environmen
 
 			// create default cluster
 			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port)
-			serviceAccounts := env.ServiceAccounts.GetIstioServiceAccounts(service.Hostname, []string{port.Name})
-			defaultCluster := buildDefaultCluster(env, clusterName, convertResolution(service.Resolution), hosts, serviceAccounts)
+			upstreamServiceAccounts := env.ServiceAccounts.GetIstioServiceAccounts(service.Hostname, []string{port.Name})
+			defaultCluster := buildDefaultCluster(env, clusterName, convertResolution(service.Resolution), hosts)
+
+			// set TLSSettings if configmap global settings specifies MUTUAL_TLS.
+			if env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS {
+				applyUpstreamTLSSettings(defaultCluster, buildIstioMutualTls(upstreamServiceAccounts))
+			}
+
 			updateEds(env, defaultCluster, service.Hostname)
 			setUpstreamProtocol(defaultCluster, port)
+			setUpMeshConfigAuthPolicy(defaultCluster, upstreamServiceAccounts)
+			// call plugins
+			for _, p := range configgen.Plugins {
+				p.OnOutboundCluster(env, proxy, service, port, defaultCluster)
+			}
+
 			clusters = append(clusters, defaultCluster)
 
 			if config != nil {
 				destinationRule := config.Spec.(*networking.DestinationRule)
-				applyTrafficPolicy(defaultCluster, destinationRule.TrafficPolicy, serviceAccounts)
+				convertIstioMutual(destinationRule, upstreamServiceAccounts)
+				applyTrafficPolicy(defaultCluster, destinationRule.TrafficPolicy)
 
 				for _, subset := range destinationRule.Subsets {
 					subsetClusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port)
-					subsetCluster := buildDefaultCluster(env, subsetClusterName, convertResolution(service.Resolution), hosts, serviceAccounts)
+					subsetCluster := buildDefaultCluster(env, subsetClusterName, convertResolution(service.Resolution), hosts)
 					updateEds(env, subsetCluster, service.Hostname)
 					setUpstreamProtocol(subsetCluster, port)
-					applyTrafficPolicy(subsetCluster, destinationRule.TrafficPolicy, serviceAccounts)
-					applyTrafficPolicy(subsetCluster, subset.TrafficPolicy, serviceAccounts)
+					applyTrafficPolicy(subsetCluster, destinationRule.TrafficPolicy)
+					applyTrafficPolicy(subsetCluster, subset.TrafficPolicy)
 					// call plugins
 					for _, p := range configgen.Plugins {
 						p.OnOutboundCluster(env, proxy, service, port, subsetCluster)
@@ -169,7 +182,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env model.Environment
 		// This cluster name is mainly for stats.
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", instance.Service.Hostname, instance.Endpoint.ServicePort)
 		address := util.BuildAddress("127.0.0.1", uint32(instance.Endpoint.Port))
-		localCluster := buildDefaultCluster(env, clusterName, v2.Cluster_STATIC, []*core.Address{&address}, nil)
+		localCluster := buildDefaultCluster(env, clusterName, v2.Cluster_STATIC, []*core.Address{&address})
 		setUpstreamProtocol(localCluster, instance.Endpoint.ServicePort)
 		// call plugins
 		for _, p := range configgen.Plugins {
@@ -197,7 +210,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env model.Environment
 	for _, port := range managementPorts {
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", ManagementClusterHostname, port)
 		address := util.BuildAddress("127.0.0.1", uint32(port.Port))
-		mgmtCluster := buildDefaultCluster(env, clusterName, v2.Cluster_STATIC, []*core.Address{&address}, nil)
+		mgmtCluster := buildDefaultCluster(env, clusterName, v2.Cluster_STATIC, []*core.Address{&address})
 		setUpstreamProtocol(mgmtCluster, port)
 		clusters = append(clusters, mgmtCluster)
 	}
@@ -217,14 +230,42 @@ func convertResolution(resolution model.Resolution) v2.Cluster_DiscoveryType {
 	}
 }
 
-func applyTrafficPolicy(cluster *v2.Cluster, policy *networking.TrafficPolicy, upstreamServiceAccounts []string) {
+// convertIstioMutual modifies fill in TLSSettings when the mode is `ISTIO_MUTUAL`.
+func convertIstioMutual(destinationRule *networking.DestinationRule, upstreamServiceAccount []string) {
+	tls := destinationRule.TrafficPolicy.Tls
+	if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
+		*tls = *buildIstioMutualTls(upstreamServiceAccount)
+	}
+	for _, subset := range destinationRule.Subsets {
+		if subset.TrafficPolicy.Tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
+			subset.TrafficPolicy.Tls = buildIstioMutualTls(upstreamServiceAccount)
+		}
+	}
+}
+
+// buildIstioMutualTls returns a `TLSSettings` for ISTIO_MUTUAL mode.
+func buildIstioMutualTls(upstreamServiceAccount []string) *networking.TLSSettings {
+	return &networking.TLSSettings{
+		Mode:              networking.TLSSettings_ISTIO_MUTUAL,
+		CaCertificates:    path.Join(model.AuthCertsPath, model.RootCertFilename),
+		ClientCertificate: path.Join(model.AuthCertsPath, model.CertChainFilename),
+		PrivateKey:        path.Join(model.AuthCertsPath, model.KeyFilename),
+		SubjectAltNames:   upstreamServiceAccount,
+	}
+}
+
+func setUpMeshConfigAuthPolicy(cluster *v2.Cluster, upstreamServiceAccount []string) {
+
+}
+
+func applyTrafficPolicy(cluster *v2.Cluster, policy *networking.TrafficPolicy) {
 	if policy == nil {
 		return
 	}
 	applyConnectionPool(cluster, policy.ConnectionPool)
 	applyOutlierDetection(cluster, policy.OutlierDetection)
 	applyLoadBalancer(cluster, policy.LoadBalancer)
-	applyUpstreamTLSSettings(cluster, policy.Tls, upstreamServiceAccounts)
+	applyUpstreamTLSSettings(cluster, policy.Tls)
 }
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
@@ -312,7 +353,7 @@ func applyLoadBalancer(cluster *v2.Cluster, lb *networking.LoadBalancerSettings)
 	// DO not do if else here. since lb.GetSimple returns a enum value (not pointer).
 }
 
-func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings, upstreamServiceAccounts []string) {
+func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) {
 	if tls == nil {
 		return
 	}
@@ -334,7 +375,7 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings, 
 			},
 			Sni: tls.Sni,
 		}
-	case networking.TLSSettings_MUTUAL:
+	case networking.TLSSettings_MUTUAL, networking.TLSSettings_ISTIO_MUTUAL:
 		cluster.TlsContext = &auth.UpstreamTlsContext{
 			CommonTlsContext: &auth.CommonTlsContext{
 				TlsCertificates: []*auth.TlsCertificate{
@@ -362,34 +403,6 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings, 
 			},
 			Sni: tls.Sni,
 		}
-	case networking.TLSSettings_ISTIO_MUTUAL:
-		// TODO(incfly): needs to change when SDS is ready.
-		cluster.TlsContext = &auth.UpstreamTlsContext{
-			CommonTlsContext: &auth.CommonTlsContext{
-				TlsCertificates: []*auth.TlsCertificate{
-					{
-						CertificateChain: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: path.Join(model.AuthCertsPath, model.CertChainFilename),
-							},
-						},
-						PrivateKey: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: path.Join(model.AuthCertsPath, model.KeyFilename),
-							},
-						},
-					},
-				},
-				ValidationContext: &auth.CertificateValidationContext{
-					TrustedCa: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: path.Join(model.AuthCertsPath, model.RootCertFilename),
-						},
-					},
-					VerifySubjectAltName: upstreamServiceAccounts,
-				},
-			},
-		}
 	}
 }
 
@@ -412,14 +425,14 @@ func buildBlackHoleCluster() *v2.Cluster {
 }
 
 func buildDefaultCluster(env model.Environment, name string, discoveryType v2.Cluster_DiscoveryType,
-	hosts []*core.Address, upstreamServiceAccounts []string) *v2.Cluster {
+	hosts []*core.Address) *v2.Cluster {
 	cluster := &v2.Cluster{
 		Name:  name,
 		Type:  discoveryType,
 		Hosts: hosts,
 	}
 	defaultTrafficPolicy := buildDefaultTrafficPolicy(env, discoveryType)
-	applyTrafficPolicy(cluster, defaultTrafficPolicy, upstreamServiceAccounts)
+	applyTrafficPolicy(cluster, defaultTrafficPolicy)
 	return cluster
 }
 
@@ -427,12 +440,6 @@ func buildDefaultTrafficPolicy(env model.Environment, discoveryType v2.Cluster_D
 	lbPolicy := DefaultLbType
 	if discoveryType == v2.Cluster_ORIGINAL_DST {
 		lbPolicy = networking.LoadBalancerSettings_PASSTHROUGH
-	}
-	var tls *networking.TLSSettings
-	if env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS {
-		tls = &networking.TLSSettings{
-			Mode: networking.TLSSettings_ISTIO_MUTUAL,
-		}
 	}
 	return &networking.TrafficPolicy{
 		LoadBalancer: &networking.LoadBalancerSettings{
@@ -448,6 +455,5 @@ func buildDefaultTrafficPolicy(env model.Environment, discoveryType v2.Cluster_D
 				},
 			},
 		},
-		Tls: tls,
 	}
 }
