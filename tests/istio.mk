@@ -187,7 +187,7 @@ test/local/auth/e2e_pilotv2: generate_yaml-envoyv2_transition_auth
 	set -o pipefail; go test -v -timeout 20m ./tests/e2e/tests/controller ${CAPTURE_LOG}
 
 test/local/cloudfoundry/e2e_pilotv2:
-	@mkdir -p ${OUT_DIR}/logs
+	@mkdir -p ${OUT_DIR}/tests
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 20m ./tests/e2e/tests/pilot/cloudfoundry ${T} \
 		${CAPTURE_LOG}
 
