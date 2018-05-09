@@ -17,8 +17,12 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
+	"runtime"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -136,24 +140,8 @@ func TestReconnect(t *testing.T) {
 
 // Make a direct EDS grpc request to pilot, verify the result is as expected.
 func directRequest(server *bootstrap.Server, t *testing.T) {
-	edsstr := connect(t)
-
-	res1, err := edsstr.Recv()
-	if err != nil {
-		t.Fatal("Recv failed", err)
-	}
-
-	if res1.TypeUrl != "type.googleapis.com/envoy.api.v2.ClusterLoadAssignment" {
-		t.Error("Expecting type.googleapis.com/envoy.api.v2.ClusterLoadAssignment got ", res1.TypeUrl)
-	}
-	if res1.Resources[0].TypeUrl != "type.googleapis.com/envoy.api.v2.ClusterLoadAssignment" {
-		t.Error("Expecting type.googleapis.com/envoy.api.v2.ClusterLoadAssignment got ", res1.Resources[0].TypeUrl)
-	}
-	cla := &xdsapi.ClusterLoadAssignment{}
-	err = cla.Unmarshal(res1.Resources[0].Value)
-	if err != nil {
-		t.Fatal("Failed to parse proto ", err)
-	}
+	edsstr, cla := connectAndSend(1, t)
+	defer edsstr.CloseSend()
 	// TODO: validate VersionInfo and nonce once we settle on a scheme
 
 	ep := cla.Endpoints
@@ -167,7 +155,6 @@ func directRequest(server *bootstrap.Server, t *testing.T) {
 	if "127.0.0.1" != lbe[0].Endpoint.Address.GetSocketAddress().Address {
 		t.Error("Expecting 127.0.0.1 got ", lbe[0].Endpoint.Address.GetSocketAddress().Address)
 	}
-	t.Log(cla.String(), res1.String())
 
 	server.EnvoyXdsServer.MemRegistry.AddInstance("hello.default.svc.cluster.local", &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
@@ -187,26 +174,149 @@ func directRequest(server *bootstrap.Server, t *testing.T) {
 	v2.PushAll() // will trigger recompute and push
 	// This should happen in 15 seconds, for the periodic refresh
 	// TODO: verify push works
-	res1, err = edsstr.Recv()
+	_, err := edsstr.Recv()
 	if err != nil {
 		t.Fatal("Recv2 failed", err)
 	}
-	t.Log(res1.String())
 
 	// Need to run the debug test before we close - close will remove the cluster since
 	// nobody is watching.
 	testEdsz(t)
+}
 
-	_ = edsstr.CloseSend()
+// Make a direct EDS grpc request to pilot, verify the result is as expected.
+// id should be unique to avoid interference between tests.
+func connectAndSend(id uint32, t *testing.T) (xdsapi.EndpointDiscoveryService_StreamEndpointsClient,
+	*xdsapi.ClusterLoadAssignment) {
+
+	conn, err := grpc.Dial(util.MockPilotGrpcAddr, grpc.WithInsecure())
+	if err != nil {
+		t.Fatal("Connection failed", err)
+	}
+
+	xds := xdsapi.NewEndpointDiscoveryServiceClient(conn)
+	edsstr, err := xds.StreamEndpoints(context.Background())
+	if err != nil {
+		t.Fatal("Rpc failed", err)
+	}
+	err = edsstr.Send(&xdsapi.DiscoveryRequest{
+		Node: &envoy_api_v2_core1.Node{
+			Id: sidecarId(testIp(uint32(0x0a100000+id)), "app3"),
+		},
+		ResourceNames: []string{"hello.default.svc.cluster.local|http"}})
+	if err != nil {
+		t.Fatal("Send failed", err)
+	}
+
+	res1, err := edsstr.Recv()
+	if err != nil {
+		t.Fatal("Recv failed", err)
+	}
+	cla, err := getLoadAssignment(res1)
+	if err != nil {
+		t.Fatal("Invalid EDS ", err)
+	}
+	return edsstr, cla
+}
+
+// Make a direct EDS grpc request to pilot, verify the result is as expected.
+func multipleRequest(server *bootstrap.Server, t *testing.T) {
+	wgConnect := &sync.WaitGroup{}
+	wg := &sync.WaitGroup{}
+
+	// Bad client - will not read any response. This triggers Write to block, which should
+	// be detected
+	ads := connectADS(t, util.MockPilotGrpcAddr)
+	sendCDSReq(t, sidecarId(testIp(0x0a120001), "app3"), ads)
+
+	// 1000 clients * 100 pushes = ~4 sec
+	n := 10 // clients
+	nPushes := 10
+	wg.Add(n)
+	wgConnect.Add(n)
+	rcvPush := int32(0)
+	rcvClients := int32(0)
+	for i := 0; i < n; i++ {
+		current := i
+		go func(id int) {
+			// Connect and get initial response
+			edsstr, _ := connectAndSend(uint32(id+2), t)
+			defer edsstr.CloseSend()
+			wgConnect.Done()
+			defer wg.Done()
+			// Check we received all pushes
+			log.Println("Waiting for pushes ", id)
+			for j := 0; j < nPushes; j++ {
+				// The time must be larger than write timeout: if we run all tests
+				// and some are leaving uncleaned state the push will be slower.
+				_, err := edsReceive(edsstr, 15*time.Second)
+				atomic.AddInt32(&rcvPush, 1)
+				if err != nil {
+					log.Println("Recv failed", err, id, j)
+					t.Error("Recv failed ", err, id, j)
+					return
+				}
+			}
+			log.Println("Received all pushes ", id)
+			atomic.AddInt32(&rcvClients, 1)
+		}(current)
+	}
+	ok := waitTimeout(wgConnect, 10*time.Second)
+	if !ok {
+		t.Fatal("Failed to connect")
+	}
+	log.Println("Done connecting")
+	for j := 0; j < nPushes; j++ {
+		v2.PushAll()
+		log.Println("Push done ", j)
+	}
+
+	ok = waitTimeout(wg, 30*time.Second)
+	if !ok {
+		t.Errorf("Failed to receive all responses %d %d", rcvClients, rcvPush)
+		buf := make([]byte, 1<<16)
+		runtime.Stack(buf, true)
+		fmt.Printf("%s", buf)
+	}
+}
+
+func edsReceive(eds xdsapi.EndpointDiscoveryService_StreamEndpointsClient, to time.Duration) (*xdsapi.DiscoveryResponse, error) {
+	done := make(chan int, 1)
+	t := time.NewTimer(to)
+	defer func() {
+		done <- 1
+	}()
+	go func() {
+		select {
+		case <-t.C:
+			_ = eds.CloseSend() // will result in adsRecv closing as well, interrupting the blocking recv
+		case <-done:
+			_ = t.Stop()
+		}
+	}()
+	return eds.Recv()
+}
+
+func waitTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
+	c := make(chan struct{})
+	go func() {
+		defer close(c)
+		wg.Wait()
+	}()
+	select {
+	case <-c:
+		return true
+	case <-time.After(timeout):
+		return false
+	}
 }
 
 func TestEds(t *testing.T) {
 	initLocalPilotTestEnv(t)
 	server := util.EnsureTestServer()
 
-	t.Run("DirectRequest", func(t *testing.T) {
-		directRequest(server, t)
-	})
+	directRequest(server, t)
+	multipleRequest(server, t)
 
 }
 
