@@ -260,7 +260,7 @@ func (s *TestSetup) CreateEnvoyConf(path string, stress bool, filtersBeforeMixer
 		AdminPort:       ports.AdminPort,
 		MixerServer:     fmt.Sprintf("localhost:%d", ports.MixerPort),
 		Backend:         fmt.Sprintf("localhost:%d", ports.BackendPort),
-		AccessLog:       "/dev/stdout",
+		AccessLog:       "/tmp/envoy-access.log",
 		ServerConfig:    getConfig(mfConfig.HTTPServerConf, confVersion),
 		ClientConfig:    getConfig(mfConfig.HTTPClientConf, confVersion),
 		TCPServerConfig: getConfig(mfConfig.TCPServerConf, confVersion),
