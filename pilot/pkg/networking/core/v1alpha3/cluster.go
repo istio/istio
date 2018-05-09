@@ -101,7 +101,6 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environmen
 
 			updateEds(env, defaultCluster, service.Hostname)
 			setUpstreamProtocol(defaultCluster, port)
-			setUpMeshConfigAuthPolicy(defaultCluster, upstreamServiceAccounts)
 			// call plugins
 			for _, p := range configgen.Plugins {
 				p.OnOutboundCluster(env, proxy, service, port, defaultCluster)
@@ -225,7 +224,7 @@ func convertResolution(resolution model.Resolution) v2.Cluster_DiscoveryType {
 	}
 }
 
-// convertIstioMutual modifies fill in TLSSettings when the mode is `ISTIO_MUTUAL`.
+// convertIstioMutual fills TLSSettings when the mode is `ISTIO_MUTUAL`.
 func convertIstioMutual(destinationRule *networking.DestinationRule, upstreamServiceAccount []string) {
 	tls := destinationRule.TrafficPolicy.Tls
 	if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
@@ -247,10 +246,6 @@ func buildIstioMutualTls(upstreamServiceAccount []string) *networking.TLSSetting
 		PrivateKey:        path.Join(model.AuthCertsPath, model.KeyFilename),
 		SubjectAltNames:   upstreamServiceAccount,
 	}
-}
-
-func setUpMeshConfigAuthPolicy(cluster *v2.Cluster, upstreamServiceAccount []string) {
-
 }
 
 func applyTrafficPolicy(cluster *v2.Cluster, policy *networking.TrafficPolicy) {
