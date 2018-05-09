@@ -25,13 +25,21 @@ import (
 	"istio.io/istio/pkg/test/label"
 )
 
-var scope = log.RegisterScope("test-framework", "Logger for the test framework", 0)
+var scope = log.RegisterScope("testframework", "Logger for the test framework", 0)
 
 var d = driver.New()
 
 // Run is a helper for executing test main with appropriate resource allocation/doCleanup steps.
 // It allows us to do post-run doCleanup, and flag parsing.
 func Run(testID string, m *testing.M) {
+	if err := processFlags(); err != nil {
+		scope.Errorf("test.Run: log options error: '%v'", err)
+		os.Exit(-1)
+	}
+
+	scope.Debugf("test.Run: command-line flags are parsed, and logging is initialized.")
+	scope.Debugf("test.Run: log options: %+v", logOptions)
+
 	args := *arguments
 	args.TestID = testID
 	args.M = m
@@ -41,10 +49,9 @@ func Run(testID string, m *testing.M) {
 		os.Exit(-1)
 	}
 
-	scope.Infof(">>> Beginning test run %s/%s", d.TestID(), d.RunID())
-
+	scope.Infof("test.Run >>> Beginning actual test run %s/%s", d.TestID(), d.RunID())
 	rt := d.Run()
-	scope.Infof("<<< Completing test run %s/%s", d.TestID(), d.RunID())
+	scope.Infof("test.Run <<< Completing actual test run %s/%s", d.TestID(), d.RunID())
 
 	os.Exit(rt)
 }
@@ -63,7 +70,7 @@ func SuiteRequires(_ *testing.M, dependencies ...dependency.Dependency) {
 // Requires ensures that the given dependencies will be satisfied. If they cannot, then the
 // test will fail.
 func Requires(t testing.TB, dependencies ...dependency.Dependency) {
-	d.CheckDependencies(t, dependencies)
+	d.InitializeTestDependencies(t, dependencies)
 }
 
 // SuiteTag tags all tests in the suite with the given labels.
