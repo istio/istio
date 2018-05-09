@@ -77,6 +77,42 @@ func TestGateway_HTTPIngress(t *testing.T) {
 	})
 }
 
+func TestGateway_HTTPSIngress(t *testing.T) {
+	if !tc.V1alpha3 {
+		t.Skipf("Skipping %s: v1alpha3=false", t.Name())
+	}
+
+	istioNamespace := tc.Kube.IstioSystemNamespace()
+	ingressGatewayServiceName := tc.Kube.IstioIngressGatewayService()
+
+	// Configure a route from us.bookinfo.com to "c-v2" only
+	cfgs := &deployableConfig{
+		Namespace: tc.Kube.Namespace,
+		YamlFiles: []string{
+			"testdata/v1alpha3/ingressgateway.yaml",
+			"testdata/v1alpha3/destination-rule-c.yaml",
+			"testdata/v1alpha3/rule-ingressgateway.yaml"},
+	}
+	if err := cfgs.Setup(); err != nil {
+		t.Fatal(err)
+	}
+	defer cfgs.Teardown()
+
+	runRetriableTest(t, "VersionRouting", defaultRetryBudget, func() error {
+		reqURL := fmt.Sprintf("https://%s.%s:443/c", ingressGatewayServiceName, istioNamespace)
+		resp := ClientRequest("t", reqURL, 100, "-key Host -val uk.bookinfo.com")
+		count := make(map[string]int)
+		for _, elt := range resp.Version {
+			count[elt] = count[elt] + 1
+		}
+		log.Infof("request counts %v", count)
+		if count["v2"] >= 95 {
+			return nil
+		}
+		return errAgain
+	})
+}
+
 func TestIngressGateway503DuringRuleChange(t *testing.T) {
 	if !tc.V1alpha3 {
 		t.Skipf("Skipping %s: v1alpha3=false", t.Name())
