@@ -86,7 +86,12 @@ func NewDiscoveryServer(env model.Environment, generator *v1alpha3.ConfigGenerat
 
 	envOverride := os.Getenv("V2_REFRESH")
 	if len(envOverride) > 0 {
-		periodicRefreshDuration, _ = time.ParseDuration(envOverride)
+		var err error
+		periodicRefreshDuration, err = time.ParseDuration(envOverride)
+		if err != nil {
+			log.Warn("Invalid value for V2_REFRESH")
+			periodicRefreshDuration = 0 // this is also he default, but setting it explicitly
+		}
 	}
 	if periodicRefreshDuration > 0 {
 		go periodicRefresh()

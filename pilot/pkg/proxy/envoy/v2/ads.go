@@ -111,6 +111,12 @@ var (
 		Name: "pilot_xds_pushes",
 		Help: "Pilot push timeout",
 	}, []string{"type"})
+
+	pushErrors = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "pilot_xds_push_errors",
+		Help: "Number of errors (timeouts) pushing to sidecars.",
+	}, []string{"type"})
+
 )
 
 func init() {
@@ -124,6 +130,7 @@ func init() {
 	prometheus.MustRegister(writeTimeout)
 	prometheus.MustRegister(pushTimeouts)
 	prometheus.MustRegister(pushes)
+	prometheus.MustRegister(pushErrors)
 }
 
 // DiscoveryStream is a common interface for EDS and ADS. It also has a
@@ -466,6 +473,9 @@ func adsPushAll() {
 	for _, c := range tmpMap {
 		// Using non-blocking push has problems if 2 pushes happen too close to each other
 		client := c
+		// TODO: this should be in a thread group, to do multiple pushes in parallel.
+		// Commented out - since we don't have throttling or rate control for push - need to experiment
+		// with larger clusters.
 		//go func(client *XdsConnection) {
 		to := time.After(PushTimeout)
 		select {
@@ -480,11 +490,13 @@ func adsPushAll() {
 			// The tests were catching this - one of the client was not reading.
 			if client.LastPushFailure.IsZero() {
 				client.LastPushFailure = time.Now()
-				log.Infof("Failed to push, client busy %s", client.ConID)
+				log.Warnf("Failed to push, client busy %s", client.ConID)
+				pushErrors.With(prometheus.Labels{"type": "short"}).Add(1)
 			} else {
 				if time.Since(client.LastPushFailure) > 10*time.Second {
-					log.Infof("Repeated failure to push %s", client.ConID)
+					log.Warnf("Repeated failure to push %s", client.ConID)
 					// unfortunately grpc go doesn't allow closing (unblocking) the stream.
+					pushErrors.With(prometheus.Labels{"type": "long"}).Add(1)
 				}
 			}
 		}
