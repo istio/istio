@@ -16,6 +16,8 @@ usage() {
   error ""
   error "  -d, --output-directory   directory to output files; defaults to"
   error "                               \"istio-dump\""
+  error "  -z, --archive            if present, archives and removes the output"
+  error "                               directory"
   error "  -q, --quiet              if present, do not log"
   exit 1
 }
@@ -34,6 +36,10 @@ parse_args() {
         local out_dir="${2}"
         shift 2 # Shift past option and value.
         ;;
+      -z|--archive)
+        local should_archive=true
+        shift # Shift past flag.
+        ;;
       -q|--quiet)
         local quiet=true
         shift # Shift past flag.
@@ -45,6 +51,7 @@ parse_args() {
   done
 
   readonly OUT_DIR="${out_dir:-istio-dump}"
+  readonly SHOULD_ARCHIVE="${should_archive:-false}"
   readonly QUIET="${quiet:-false}"
   readonly LOG_DIR="${OUT_DIR}/logs"
   readonly RESOURCES_FILE="${OUT_DIR}/resources.yaml"
@@ -116,12 +123,27 @@ dump_resources() {
       -o yaml > "${RESOURCES_FILE}"
 }
 
+archive() {
+  local parent_dir
+  parent_dir=$(dirname "${OUT_DIR}")
+  local dir
+  dir=$(basename "${OUT_DIR}")
+
+  pushd "${parent_dir}" > /dev/null
+  tar -czf "${dir}.tar.gz" "${dir}"
+  popd > /dev/null
+}
+
 main() {
   parse_args "$@"
   check_prerequisites kubectl
   dump_time
   dump_logs
   dump_resources
+  if [ "${SHOULD_ARCHIVE}" = true ] ; then
+    archive
+    rm -r "${OUT_DIR}"
+  fi
 }
 
 main "$@"
