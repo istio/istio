@@ -94,8 +94,8 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environmen
 			upstreamServiceAccounts := env.ServiceAccounts.GetIstioServiceAccounts(service.Hostname, []string{port.Name})
 			defaultCluster := buildDefaultCluster(env, clusterName, convertResolution(service.Resolution), hosts)
 
-			// set TLSSettings if configmap global settings specifies MUTUAL_TLS.
-			if env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS {
+			// set TLSSettings if configmap global settings specifies MUTUAL_TLS, and we skip external destination.
+			if env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS && !service.MeshExternal {
 				applyUpstreamTLSSettings(defaultCluster, buildIstioMutualTls(upstreamServiceAccounts))
 			}
 
@@ -224,16 +224,19 @@ func convertResolution(resolution model.Resolution) v2.Cluster_DiscoveryType {
 	}
 }
 
-// convertIstioMutual fills TLSSettings when the mode is `ISTIO_MUTUAL`.
+// convertIstioMutual fills key cert fields for all TLSSettings when the mode is `ISTIO_MUTUAL`.
 func convertIstioMutual(destinationRule *networking.DestinationRule, upstreamServiceAccount []string) {
-	tls := destinationRule.TrafficPolicy.Tls
-	if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
-		*tls = *buildIstioMutualTls(upstreamServiceAccount)
+	converter := func(tls *networking.TLSSettings) {
+		if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
+			*tls = *buildIstioMutualTls(upstreamServiceAccount)
+		}
+	}
+	converter(destinationRule.TrafficPolicy.Tls)
+	for _, portTLS := range destinationRule.TrafficPolicy.PortLevelSettings {
+		converter(portTLS.Tls)
 	}
 	for _, subset := range destinationRule.Subsets {
-		if subset.TrafficPolicy.Tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
-			subset.TrafficPolicy.Tls = buildIstioMutualTls(upstreamServiceAccount)
-		}
+		converter(subset.TrafficPolicy.Tls)
 	}
 }
 
