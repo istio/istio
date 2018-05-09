@@ -161,6 +161,8 @@ func TestAuthnCheckReportAttributesOriginJwtBoundToOrigin(t *testing.T) {
 	s := env.NewTestSetup(env.CheckReportIstioAuthnAttributesTestOriginJwtBoundToOrigin, t)
 	// In the Envoy config, principal_binding binds to origin
 	s.SetFiltersBeforeMixer(authnConfig)
+	// Disable the HotRestart of Envoy
+	s.SetDisableHotRestart(true)
 
 	env.SetStatsUpdateInterval(s.MfConfig(), 1)
 	if err := s.SetUp(); err != nil {

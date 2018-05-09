@@ -51,6 +51,8 @@ func TestAuthnOriginRejectNoJwt(t *testing.T) {
 	s := env.NewTestSetup(env.IstioAuthnTestOriginRejectNoJwt, t)
 	// In the Envoy config, requires a JWT for origin
 	s.SetFiltersBeforeMixer(authnConfig)
+	// Disable the HotRestart of Envoy
+	s.SetDisableHotRestart(true)
 
 	env.SetStatsUpdateInterval(s.MfConfig(), 1)
 	if err := s.SetUp(); err != nil {

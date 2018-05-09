@@ -51,6 +51,8 @@ func TestAuthnPeerRejectNoJwt(t *testing.T) {
 	s := env.NewTestSetup(env.IstioAuthnTestPeerRejectNoJwt, t)
 	// In the Envoy config, requires a JWT for peer
 	s.SetFiltersBeforeMixer(authnConfig)
+	// Disable the HotRestart of Envoy
+	s.SetDisableHotRestart(true)
 
 	env.SetStatsUpdateInterval(s.MfConfig(), 1)
 	if err := s.SetUp(); err != nil {

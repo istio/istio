@@ -33,7 +33,7 @@ type Envoy struct {
 
 // NewEnvoy creates a new Envoy struct and starts envoy.
 func (s *TestSetup) NewEnvoy(stress bool, filtersBeforeMixer string, mfConf *MixerFilterConf, ports *Ports, epoch int,
-	confVersion string) (*Envoy, error) {
+	confVersion string, disableHotRestart bool) (*Envoy, error) {
 	confPath := filepath.Join(util.IstioOut, fmt.Sprintf("config.conf.%v.json", ports.AdminPort))
 	log.Printf("Envoy config: in %v\n", confPath)
 	if err := s.CreateEnvoyConf(confPath, stress, filtersBeforeMixer, mfConf, ports, confVersion); err != nil {
@@ -53,6 +53,9 @@ func (s *TestSetup) NewEnvoy(stress bool, filtersBeforeMixer string, mfConf *Mix
 	} else {
 		// debug is far too verbose.
 		args = append(args, "-l", debugLevel, "--concurrency", "1")
+	}
+	if disableHotRestart {
+		args = append(args, "--disable-hot-restart")
 	}
 	if s.EnvoyParams != nil {
 		args = append(args, s.EnvoyParams...)
