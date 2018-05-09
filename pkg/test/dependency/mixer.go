@@ -15,14 +15,21 @@
 package dependency
 
 import (
+	"fmt"
+	"reflect"
+
+	"istio.io/istio/pkg/test/cluster"
 	"istio.io/istio/pkg/test/environment"
 	"istio.io/istio/pkg/test/internal"
+	"istio.io/istio/pkg/test/local"
 )
 
 // Mixer indicates a dependency on Mixer.
 var Mixer Dependency = &mixer{}
 
 type mixer struct {
+	cluster cluster.Internal
+	local   local.Internal
 }
 
 var _ Dependency = &mixer{}
@@ -33,7 +40,13 @@ func (a *mixer) String() string {
 }
 
 func (a *mixer) Initialize(env environment.Interface) (interface{}, error) {
-	return nil, nil
+	if c, ok := env.(cluster.Internal); ok {
+		return a.initializeCluster(c)
+	} else if l, ok := env.(local.Internal); ok {
+		return a.initializeLocal(l)
+	} else {
+		return nil, fmt.Errorf("unknown environment type: %v", reflect.TypeOf(env))
+	}
 }
 
 func (a *mixer) Reset(env environment.Interface, state interface{}) error {
@@ -42,4 +55,12 @@ func (a *mixer) Reset(env environment.Interface, state interface{}) error {
 
 func (a *mixer) Cleanup(env environment.Interface, state interface{}) {
 
+}
+
+func (a *mixer) initializeCluster(e cluster.Internal) (interface{}, error) {
+	return nil, nil
+}
+
+func (a *mixer) initializeLocal(e local.Internal) (interface{}, error) {
+	return nil, nil
 }

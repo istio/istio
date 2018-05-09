@@ -22,7 +22,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-// Environment a cluster-based environment for testing.
+// Environment a cluster-based environment for testing. It implements environment.Interface, and also
+// hosts publicly accessible methods that are specific to cluster environment.
 type Environment struct {
 	config *rest.Config
 
@@ -31,6 +32,7 @@ type Environment struct {
 }
 
 var _ environment.Interface = &Environment{}
+var _ Internal = &Environment{}
 
 // NewEnvironment returns a new instance of cluster environment.
 func NewEnvironment(kubeConfigPath string) (*Environment, error) {
@@ -39,7 +41,7 @@ func NewEnvironment(kubeConfigPath string) (*Environment, error) {
 		return nil, err
 	}
 
-	return	&Environment{
+	return &Environment{
 		config: config,
 	}, nil
 }

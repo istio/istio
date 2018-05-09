@@ -20,15 +20,17 @@ import (
 	"istio.io/istio/pkg/test/environment"
 )
 
-// Environment a local environment for testing.
+// Environment a local environment for testing. It implements environment.Interface, and also
+// hosts publicly accessible methods that are specific to local environment.
 type Environment struct {
 }
 
 var _ environment.Interface = &Environment{}
+var _ Internal = &Environment{}
 
 // NewEnvironment returns a new instance of local environment.
 func NewEnvironment() (*Environment, error) {
-	return	&Environment{}, nil
+	return &Environment{}, nil
 }
 
 // Configure applies the given configuration to the mesh.

@@ -26,7 +26,7 @@ var GKE Dependency = &clusterDependency{gke: true}
 
 // ClusterDependency represents a typed ClusterDependency dependency.
 type clusterDependency struct {
-	gke       bool
+	gke bool
 }
 
 // Dependency is the default dependency

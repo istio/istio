@@ -43,10 +43,10 @@ type driver struct {
 
 	allowedLabels map[label.Label]struct{}
 
-	testID string
-	runID  string
-	m      *testing.M
-	env   environment.Interface
+	testID  string
+	runID   string
+	m       *testing.M
+	env     environment.Interface
 	running bool
 
 	suiteDependencies []dependency.Dependency
