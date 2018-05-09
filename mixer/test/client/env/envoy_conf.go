@@ -184,7 +184,7 @@ const envoyConfTempl = `
     }
   ],
   "admin": {
-    "access_log_path": "/dev/stdout",
+    "access_log_path": "{{.AccessLog}}",
     "address": "tcp://0.0.0.0:{{.AdminPort}}"
   },
   "cluster_manager": {
