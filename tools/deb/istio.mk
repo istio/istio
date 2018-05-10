@@ -31,12 +31,13 @@ ISTIO_DEB_DEST:=${ISTIO_DEB_BIN}/istio-start.sh \
 		${ISTIO_DEB_BIN}/istio-iptables.sh \
 		/lib/systemd/system/istio.service \
 		/lib/systemd/system/istio-auth-node-agent.service \
-		/var/lib/istio/envoy/sidecar.env \
-		/var/lib/istio/envoy/envoy_bootstrap_tmpl.json
+		/var/lib/istio/envoy/sidecar.env
 
 $(foreach DEST,$(ISTIO_DEB_DEST),\
         $(eval ${ISTIO_OUT}/istio-sidecar.deb:   tools/deb/$(notdir $(DEST))) \
         $(eval SIDECAR_FILES+=src/istio.io/istio/tools/deb/$(notdir $(DEST))=$(DEST)))
+
+SIDECAR_FILES+=src/istio.io/istio/tools/deb/envoy_bootstrap_v2.json=/var/lib/istio/envoy/envoy_bootstrap_tmpl.json
 
 # original name used in 0.2 - will be updated to 'istio.deb' since it now includes all istio binaries.
 ISTIO_DEB_NAME ?= istio-sidecar
@@ -66,18 +67,36 @@ deb/fpm:
 		--depends iptables \
 		$(SIDECAR_FILES)
 
-# Install the deb in a docker image, for testing.
-deb/docker: ${ISTIO_OUT}/istio-sidecar.deb
-	mkdir -p ${ISTIO_OUT}/deb
-	cp tools/deb/Dockerfile ${ISTIO_OUT}/deb
-	cp ${ISTIO_OUT}/istio-sidecar.deb ${ISTIO_OUT}/deb/istio.deb
-	docker build -t istio_deb -f ${ISTIO_OUT}/deb/Dockerfile ${ISTIO_OUT}/deb/
+# Install the deb in a docker image, for testing of the install process.
+deb/docker: hyperistio
+	mkdir -p ${OUT_DIR}/deb
+	cp tools/deb/Dockerfile ${OUT_DIR}/deb
+	cp tests/testdata/config/*.yaml ${OUT_DIR}/deb
+	cp -a tests/testdata/certs ${OUT_DIR}/deb
+	cp ${ISTIO_OUT}/hyperistio ${OUT_DIR}/deb
+	cp ${ISTIO_OUT}/istio-sidecar.deb ${OUT_DIR}/deb/istio.deb
+	docker build -t istio_deb -f ${OUT_DIR}/deb/Dockerfile ${OUT_DIR}/deb/
 
-deb/test: deb/docker tools/deb/deb_test.sh
+deb/test:
 	docker run --cap-add=NET_ADMIN --rm -v ${ISTIO_GO}/tools/deb/deb_test.sh:/tmp/deb_test.sh istio_deb /tmp/deb_test.sh
+	#docker run --cap-add=NET_ADMIN --rm -v ${ISTIO_GO}/tools/deb/deb_test_auth.sh:/tmp/deb_test.sh istio_deb /tmp/deb_test.sh
 
-deb/docker-run: deb/docker tools/deb/deb_test.sh
-	docker run --cap-add=NET_ADMIN --rm -v ${ISTIO_GO}/tools/deb/deb_test.sh:/tmp/deb_test.sh -it istio_deb /bin/bash
+# Run the docker image including the installed debian, with access to all source
+# code.
+deb/docker-run:
+	docker run --cap-add=NET_ADMIN --rm \
+	  -v ${GO_TOP}:${GO_TOP} \
+      -w ${PWD} \
+      --add-host echo:10.1.1.1 \
+      --add-host istio-pilot.istio-system:127.0.0.1 \
+      -p 127.0.0.1:16001:8080 \
+      -p 127.0.0.1:16002:7070 \
+      -p 127.0.0.1:16003:7072 \
+      -p 127.0.0.1:16004:7073 \
+      -p 127.0.0.1:16005:7074 \
+      -p 127.0.0.1:16006:7075 \
+      -e GOPATH=${GOPATH} \
+      -it istio_deb /bin/bash
 
 .PHONY: \
 	deb \
