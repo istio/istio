@@ -237,6 +237,8 @@ func addMemberCluster(s *corev1.Secret, c *Controller) {
 				ServiceAccounts:  kubectl,
 				Controller:       kubectl,
 			})
+		stopCh := make(chan struct{})
+		go kubectl.Run(stopCh)
 	}
 	// TODO Add exporting a number of cluster to Prometheus
 	// for now for debbuging purposes, print it to the log.
