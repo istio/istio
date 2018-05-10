@@ -391,13 +391,10 @@ servicegraph:
   # prometheus addres
   prometheusAddr: http://prometheus:9090
 
-zipkin:
+tracing:
   enabled: false
   replicaCount: 1
-  image:
-    repository: docker.io/openzipkin/zipkin
-    tag: 2.7
-    pullPolicy: IfNotPresent
+  provider: jaeger
   service:
     name: http
     type: ClusterIP
@@ -416,10 +413,40 @@ zipkin:
       # - secretName: zipkin-tls
       #   hosts:
       #     - zipkin.local
-  resources: {}
-    # limits:
-    #  cpu: 100m
-    #  memory: 128Mi
-    # requests:
-    #  cpu: 100m
-    #  memory: 128Mi
+  jaeger:
+    replicaCount: 1
+    image:
+      repository: jaegertracing/all-in-one
+      tag: latest
+    queryservice:
+      name: jaeger-query-http
+      externalPort: 16686
+      internalPort: 16686
+      type: LoadBalancer
+    collectorservice:
+      type: ClusterIP
+      nameHttp: jaeger-collector-http
+      externalHttpPort: 14268
+      internalHttpPort: 14268
+      nameTChannel: jaeger-collector-tchannel
+      externalTChannelPort: 14267
+      internalTChannelPort: 14267
+    resources: {}
+      # limits:
+      #  cpu: 100m
+      #  memory: 128Mi
+      # requests:
+      #  cpu: 100m
+      #  memory: 128Mi
+  zipkin:
+    replicaCount: 1
+    image:
+      repository: docker.io/openzipkin/zipkin
+      tag: 2.7
+    resources: {}
+      # limits:
+      #  cpu: 100m
+      #  memory: 128Mi
+      # requests:
+      #  cpu: 100m
+      #  memory: 128Mi

@@ -1,10 +1,12 @@
+{{ if eq .Values.provider "zipkin" }}
+
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: zipkin
+  name: istio-tracing
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "zipkin.name" . }}
+    app: zipkin
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
@@ -19,8 +21,8 @@ spec:
     spec:
       containers:
         - name: zipkin
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          image: "{{ .Values.zipkin.image.repository }}:{{ .Values.zipkin.image.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
             - containerPort: {{ .Values.service.internalPort }}
           env:
@@ -38,6 +40,7 @@ spec:
               path: /
               port: {{ .Values.service.internalPort }}
           resources:
-{{ toYaml .Values.resources | indent 12 }}
+{{ toYaml .Values.zipkin.resources | indent 12 }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
+{{ end }}
