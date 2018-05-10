@@ -1,11 +1,11 @@
 This file helps note down issues we have seen and how to debug them
 
-1. If you have problem with `make docker` step in the step 3, please try to clean up all the built binaries and run the test setup script again.
-```sh
-cd $ISTIO/istio
-GOOS=linux make clean
-```
-The `GOOS=linux` is required when you are running setup on macOS.
+1. If you have problem with `make docker` step in the step 3, please try to clean up all the built binaries and run the test      setup script again.
+   ```sh
+   cd $ISTIO/istio
+   GOOS=linux make clean
+   ```
+   The `GOOS=linux` is required when you are running setup on macOS.
 1. When installing docker if you see errors about missing packages on linux, please download and then retry docker installation.
 1. If your prereqs installation, seems to be stuck, try restarting the box..
 1. When running tests, if you get "Bad Request" error
