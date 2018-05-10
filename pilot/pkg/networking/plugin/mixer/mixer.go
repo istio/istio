@@ -44,10 +44,6 @@ func NewPlugin() plugin.Plugin {
 
 // OnOutboundListener implements the Callbacks interface method.
 func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
-	if in.Service != nil && !in.Service.MeshExternal {
-		return nil
-	}
-
 	env := in.Env
 	node := in.Node
 	proxyInstances := in.ProxyInstances
