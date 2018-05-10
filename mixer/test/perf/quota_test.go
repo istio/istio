@@ -1,0 +1,479 @@
+// Copyright 2018 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package perftests
+
+import (
+	"testing"
+
+	istio_mixer_v1 "istio.io/api/mixer/v1"
+	"istio.io/istio/mixer/pkg/perf"
+	"istio.io/istio/mixer/test/spyAdapter"
+)
+
+func Benchmark_Quota_1Client_1Call(b *testing.B) {
+	settings, spyAdapter := settingsWithAdapterAndTmpls()
+	settings.RunMode = perf.InProcess
+
+	setup := perf.Setup{
+		Config: perf.Config{
+			Global:                  mixerGlobalCfg,
+			Service:                 noopQuota + attrGenToSpyAdapter,
+			IdentityAttribute:       "destination.service",
+			IdentityAttributeDomain: "svc.cluster.local",
+		},
+
+		Loads: []perf.Load{{
+			Multiplier: 1,
+			Requests: []perf.Request{
+				perf.BasicCheck{
+					Attributes: baseAttr,
+					Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+						"foo": {Amount: 1},
+					},
+				},
+			},
+		}},
+	}
+
+	perf.Run(b, &setup, settings)
+	failOnQuotaValidationErr(spyAdapter, b)
+}
+
+func Benchmark_Quota_1Client_5SameCalls(b *testing.B) {
+	settings, spyAdapter := settingsWithAdapterAndTmpls()
+	settings.RunMode = perf.InProcess
+
+	setup := perf.Setup{
+		Config: perf.Config{
+			Global:                  mixerGlobalCfg,
+			Service:                 noopQuota + attrGenToSpyAdapter,
+			IdentityAttribute:       "destination.service",
+			IdentityAttributeDomain: "svc.cluster.local",
+		},
+
+		Loads: []perf.Load{{
+			Multiplier: 5,
+			Requests: []perf.Request{
+				perf.BasicCheck{
+					Attributes: baseAttr,
+					Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+						"foo": {Amount: 1},
+					},
+				},
+			},
+		}},
+	}
+
+	perf.Run(b, &setup, settings)
+	failOnQuotaValidationErr(spyAdapter, b)
+}
+
+func Benchmark_Quota_1Client_5DifferentCalls(b *testing.B) {
+	settings, spyAdapter := settingsWithAdapterAndTmpls()
+	settings.RunMode = perf.InProcess
+
+	setup := perf.Setup{
+		Config: perf.Config{
+			Global:                  mixerGlobalCfg,
+			Service:                 noopQuota + attrGenToSpyAdapter,
+			IdentityAttribute:       "destination.service",
+			IdentityAttributeDomain: "svc.cluster.local",
+		},
+
+		Loads: []perf.Load{
+			{
+				Multiplier: 1,
+				Requests: []perf.Request{
+					perf.BasicCheck{
+						Attributes: attr1,
+						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"foo": {Amount: 1},
+						},
+					},
+					perf.BasicCheck{
+						Attributes: attr2,
+						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"foo": {Amount: 1},
+						},
+					},
+					perf.BasicCheck{
+						Attributes: attr3,
+						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"foo": {Amount: 1},
+						},
+					},
+					perf.BasicCheck{
+						Attributes: attr4,
+						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"foo": {Amount: 1},
+						},
+					},
+					perf.BasicCheck{
+						Attributes: attr5,
+						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"foo": {Amount: 1},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	perf.Run(b, &setup, settings)
+	failOnQuotaValidationErr(spyAdapter, b)
+}
+
+func Benchmark_Quota_4Clients_5SameCallsEach(b *testing.B) {
+	settings, spyAdapter := settingsWithAdapterAndTmpls()
+	settings.RunMode = perf.InProcess
+	setup := perf.Setup{
+		Config: perf.Config{
+			Global:                  mixerGlobalCfg,
+			Service:                 noopQuota + attrGenToSpyAdapter,
+			IdentityAttribute:       "destination.service",
+			IdentityAttributeDomain: "svc.cluster.local",
+		},
+
+		Loads: []perf.Load{
+			{
+				Multiplier: 5,
+				Requests: []perf.Request{
+					perf.BasicCheck{
+						Attributes: baseAttr,
+						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"foo": {Amount: 1},
+						},
+					},
+				},
+			},
+			{
+				Multiplier: 5,
+				Requests: []perf.Request{
+					perf.BasicCheck{
+						Attributes: baseAttr,
+						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"foo": {Amount: 1},
+						},
+					},
+				},
+			},
+			{
+				Multiplier: 5,
+				Requests: []perf.Request{
+					perf.BasicCheck{
+						Attributes: baseAttr,
+						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"foo": {Amount: 1},
+						},
+					},
+				},
+			},
+			{
+				Multiplier: 5,
+				Requests: []perf.Request{
+					perf.BasicCheck{
+						Attributes: baseAttr,
+						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"foo": {Amount: 1},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	perf.Run(b, &setup, settings)
+	failOnQuotaValidationErr(spyAdapter, b)
+}
+
+func Benchmark_Quota_4Clients_5DifferentCallsEach(b *testing.B) {
+	settings, spyAdapter := settingsWithAdapterAndTmpls()
+	settings.RunMode = perf.InProcess
+	setup := perf.Setup{
+		Config: perf.Config{
+			Global:                  mixerGlobalCfg,
+			Service:                 noopQuota + attrGenToSpyAdapter,
+			IdentityAttribute:       "destination.service",
+			IdentityAttributeDomain: "svc.cluster.local",
+		},
+
+		Loads: []perf.Load{
+			{
+				Multiplier: 1,
+				Requests: []perf.Request{
+					perf.BasicCheck{
+						Attributes: attr1,
+						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"foo": {Amount: 1},
+						},
+					},
+					perf.BasicCheck{
+						Attributes: attr2,
+						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"foo": {Amount: 1},
+						},
+					},
+					perf.BasicCheck{
+						Attributes: attr3,
+						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"foo": {Amount: 1},
+						},
+					},
+					perf.BasicCheck{
+						Attributes: attr4,
+						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"foo": {Amount: 1},
+						},
+					},
+					perf.BasicCheck{
+						Attributes: attr5,
+						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"foo": {Amount: 1},
+						},
+					},
+				},
+			},
+			{
+				Multiplier: 1,
+				Requests: []perf.Request{
+					perf.BasicCheck{
+						Attributes: attr1,
+						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"foo": {Amount: 1},
+						},
+					},
+					perf.BasicCheck{
+						Attributes: attr2,
+						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"foo": {Amount: 1},
+						},
+					},
+					perf.BasicCheck{
+						Attributes: attr3,
+						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"foo": {Amount: 1},
+						},
+					},
+					perf.BasicCheck{
+						Attributes: attr4,
+						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"foo": {Amount: 1},
+						},
+					},
+					perf.BasicCheck{
+						Attributes: attr5,
+						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"foo": {Amount: 1},
+						},
+					},
+				},
+			},
+			{
+				Multiplier: 1,
+				Requests: []perf.Request{
+					perf.BasicCheck{
+						Attributes: attr1,
+						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"foo": {Amount: 1},
+						},
+					},
+					perf.BasicCheck{
+						Attributes: attr2,
+						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"foo": {Amount: 1},
+						},
+					},
+					perf.BasicCheck{
+						Attributes: attr3,
+						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"foo": {Amount: 1},
+						},
+					},
+					perf.BasicCheck{
+						Attributes: attr4,
+						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"foo": {Amount: 1},
+						},
+					},
+					perf.BasicCheck{
+						Attributes: attr5,
+						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"foo": {Amount: 1},
+						},
+					},
+				},
+			},
+			{
+				Multiplier: 1,
+				Requests: []perf.Request{
+					perf.BasicCheck{
+						Attributes: attr1,
+						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"foo": {Amount: 1},
+						},
+					},
+					perf.BasicCheck{
+						Attributes: attr2,
+						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"foo": {Amount: 1},
+						},
+					},
+					perf.BasicCheck{
+						Attributes: attr3,
+						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"foo": {Amount: 1},
+						},
+					},
+					perf.BasicCheck{
+						Attributes: attr4,
+						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"foo": {Amount: 1},
+						},
+					},
+					perf.BasicCheck{
+						Attributes: attr5,
+						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"foo": {Amount: 1},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	perf.Run(b, &setup, settings)
+	failOnQuotaValidationErr(spyAdapter, b)
+}
+
+func Benchmark_Quota_4Clients_5SameCallsEach_1MilliSecSlowApa(b *testing.B) {
+	settings, spyAdapter := settingsWith1milliSecApaAdapterAndTmpls()
+	settings.RunMode = perf.InProcess
+	setup := perf.Setup{
+		Config: perf.Config{
+			Global:                  mixerGlobalCfg,
+			Service:                 noopQuota + attrGenToSpyAdapter,
+			IdentityAttribute:       "destination.service",
+			IdentityAttributeDomain: "svc.cluster.local",
+		},
+
+		Loads: []perf.Load{
+			{
+				Multiplier: 5,
+				Requests: []perf.Request{
+					perf.BasicCheck{
+						Attributes: baseAttr,
+						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"foo": {Amount: 1},
+						},
+					},
+				},
+			},
+			{
+				Multiplier: 5,
+				Requests: []perf.Request{
+					perf.BasicCheck{
+						Attributes: baseAttr,
+						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"foo": {Amount: 1},
+						},
+					},
+				},
+			},
+			{
+				Multiplier: 5,
+				Requests: []perf.Request{
+					perf.BasicCheck{
+						Attributes: baseAttr,
+						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"foo": {Amount: 1},
+						},
+					},
+				},
+			},
+			{
+				Multiplier: 5,
+				Requests: []perf.Request{
+					perf.BasicCheck{
+						Attributes: baseAttr,
+						Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+							"foo": {Amount: 1},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	perf.Run(b, &setup, settings)
+	failOnQuotaValidationErr(spyAdapter, b)
+}
+
+func failOnQuotaValidationErr(spyAdapter *spyAdapter.Adapter, b *testing.B) {
+	// validate all went as expected.
+	//
+	// based on the config, there must be, for each quota check call from client,
+	// * single attribute generation call
+	// * single quota check call
+	foundAttrGenCall := false
+	foundQuotaCall := false
+	for _, cc := range spyAdapter.HandlerData.CapturedCalls {
+		if cc.Name == "HandleSampleApaAttributes" && len(cc.Instances) == 1 {
+			foundAttrGenCall = true
+		}
+		if cc.Name == "HandleSampleQuota" && len(cc.Instances) == 1 {
+			foundQuotaCall = true
+		}
+	}
+
+	if !foundAttrGenCall || !foundQuotaCall {
+		b.Errorf("got spy adapter calls %v; want calls  with HandleSampleApaAttributes:1 & HandleSampleQuota:1",
+			spyAdapter.HandlerData.CapturedCalls)
+	}
+}
+
+const (
+	noopQuota = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: spyadapter
+metadata:
+  name: spyadapterHandler
+  namespace: istio-system
+spec:
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: samplequota
+metadata:
+  name: requestcount
+  namespace: istio-system
+spec:
+  dimensions:
+    source: source.labels["app"] | source.service | "unknown"
+    sourceVersion: source.labels["version"] | "unknown"
+    destination: destination.labels["app"] | destination.service | "unknown"
+    destinationVersion: destination.labels["version"] | "unknown"
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: quota
+  namespace: istio-system
+spec:
+  actions:
+  - handler: spyadapterHandler.spyadapter
+    instances:
+    - requestcount.samplequota
+---
+`
+)

@@ -54,17 +54,20 @@ TOLERANCE_PERCENT_TIME_PER_OP=50
 
 # Percent tolerance for allocated bytes per op
 # There is generally some variance in this number, presumably because of upfront costs or timings.
-TOLERANCE_PERCENT_BYTES_PER_OP=1
+TOLERANCE_PERCENT_BYTES_PER_OP=10
 
 # Percent tolerance for allocations per op
-# Start with 0, as this is one of the most stable numbers in the benchmarks.
-TOLERANCE_PERCENT_ALLOCS_PER_OP=0
+# Start with 5, as this is one of the most stable numbers in the benchmarks.
+TOLERANCE_PERCENT_ALLOCS_PER_OP=10
 
 # the location of this script
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 
 # the root folder for the project
 ROOT=${SCRIPTPATH}/..
+if ! [ -z "$1" ]; then
+    ROOT=$1
+fi
 
 # Search and find the baseline files within the project
 function findBaselineFiles() {
@@ -163,7 +166,7 @@ function compareBenchResults() {
             local ALLOCS_PER_OP_CMP=$(compareMetric "${BASELINE_ALLOCS_PER_OP}" "${RESULT_ALLOCS_PER_OP}" "${TOLERANCE_PERCENT_ALLOCS_PER_OP}")
 
             if [ "${TIME_PER_OP_CMP}" != "0" ] || [ "${BYTES_PER_OP_CMP}" != "0" ] || [ "${ALLOCS_PER_OP_CMP}" != "0" ]; then
-                echo "FAILED ${BENCH_NAME}"
+                echo "--FAILED ${BENCH_NAME}"
                 echo "Baseline:"
                 echo "   ${BASELINE_ENTRY}"
                 echo "Result:"
@@ -181,6 +184,7 @@ function compareBenchResults() {
                 if [ "${ALLOCS_PER_OP_CMP}" != "0" ]; then
                     echo -e "  ${RESULT_ALLOCS_PER_OP} allocs/op is not in range of: ${BASELINE_ALLOCS_PER_OP}   \t[tol: ${TOLERANCE_PERCENT_ALLOCS_PER_OP}%]"
                 fi
+                printf "\n\n"
             fi
         fi
     done
