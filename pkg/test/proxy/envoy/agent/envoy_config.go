@@ -76,7 +76,7 @@ static_resources:
             config: {}
           - name: envoy.router
             config: {}
-  {{ end -}}
+  {{- end -}}
 `
 )
 
