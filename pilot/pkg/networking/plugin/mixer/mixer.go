@@ -200,8 +200,8 @@ func buildMixerInboundTCPFilter(env *model.Environment, node *model.Proxy, insta
 
 // defined in install/kubernetes/helm/istio/charts/mixer/templates/service.yaml
 const (
-       mixerPortName     = "grpc-mixer"
-       mixerMTLSPortName = "grpc-mixer-mtls"
+	mixerPortName     = "grpc-mixer"
+	mixerMTLSPortName = "grpc-mixer-mtls"
 )
 
 // buildHTTPMixerFilterConfig builds a mixer HTTP filter config. Mixer filter uses outbound configuration by default
