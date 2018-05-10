@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	envoyConfigTemplateStr = `
+	envoyYamlTemplateStr = `
 {{- $serviceName := .ServiceName -}}
 admin:
   access_log_path: "/dev/null"
@@ -40,15 +40,15 @@ static_resources:
   {{ range $i, $p := .Ports -}}
   - name: {{$serviceName}}_{{$p.ServicePort}}
     connect_timeout: 0.25s
-    type: static
-    lb_policy: round_robin
+    type: STATIC
+    lb_policy: ROUND_ROBIN
     hosts:
     - socket_address:
         address: 127.0.0.1
         port_value: {{$p.ServicePort}}    
   {{ end -}}
   listeners:
-  {{ range $i, $p := .Ports -}}
+  {{- range $i, $p := .Ports }}
   - address:
       socket_address:
         address: 127.0.0.1
@@ -82,12 +82,12 @@ static_resources:
 
 var (
 	// The Template object parsed from the template string
-	envoyConfigTemplate = getEnvoyConfigTemplate()
+	envoyYamlTemplate = getEnvoyYamlTemplate()
 )
 
-func getEnvoyConfigTemplate() *template.Template {
+func getEnvoyYamlTemplate() *template.Template {
 	tmpl := template.New("istio_agent_envoy_config")
-	_, err := tmpl.Parse(envoyConfigTemplateStr)
+	_, err := tmpl.Parse(envoyYamlTemplateStr)
 	if err != nil {
 		log.Warn("unable to parse envoy bootstrap config")
 	}
@@ -105,7 +105,7 @@ func (b *envoyConfigBuilder) build() (*envoyConfig, error) {
 	// Apply the template with the current configuration
 	var filled bytes.Buffer
 	w := bufio.NewWriter(&filled)
-	if err := envoyConfigTemplate.Execute(w, b); err != nil {
+	if err := envoyYamlTemplate.Execute(w, b); err != nil {
 		return nil, err
 	}
 	if err := w.Flush(); err != nil {
@@ -126,18 +126,18 @@ func (b *envoyConfigBuilder) build() (*envoyConfig, error) {
 	}
 
 	// Create an output file to hold the generated configuration.
-	configFile, err := createTempfile(outDir, "istio_agent_envoy_config", ".yaml")
+	yamlFile, err := createTempfile(outDir, "istio_agent_envoy_config", ".yaml")
 	if err != nil {
 		cfg.dispose()
 		return nil, err
 	}
-	cfg.configFile = configFile
+	cfg.yamlFile = yamlFile
 
 	// Write the content of the file.
 	configBytes := filled.Bytes()
 	fmt.Println("NM: Envoy config:")
 	fmt.Println(string(configBytes))
-	if err := ioutil.WriteFile(configFile, configBytes, 0644); err != nil {
+	if err := ioutil.WriteFile(yamlFile, configBytes, 0644); err != nil {
 		cfg.dispose()
 		return nil, err
 	}
@@ -145,15 +145,15 @@ func (b *envoyConfigBuilder) build() (*envoyConfig, error) {
 }
 
 type envoyConfig struct {
-	ownedDir   string
-	configFile string
+	ownedDir string
+	yamlFile string
 }
 
 func (c *envoyConfig) dispose() {
 	if c.ownedDir != "" {
 		os.RemoveAll(c.ownedDir)
 	} else {
-		os.Remove(c.configFile)
+		os.Remove(c.yamlFile)
 	}
 }
 

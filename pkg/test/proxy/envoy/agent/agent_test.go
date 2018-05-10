@@ -16,43 +16,93 @@ package agent
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"testing"
-	"time"
 
 	"istio.io/istio/pilot/pkg/model"
 )
 
 func TestAgent(t *testing.T) {
-	a := Agent{
-		Config: Config{
-			ServiceName: "a",
-			Ports: []PortConfig{
-				{
-					Name:     "http",
-					Protocol: model.ProtocolHTTP,
+	agents := []*Agent{
+		{
+			Config: Config{
+				ServiceName: "serviceA",
+				Ports: []PortConfig{
+					{
+						Name:     "http-1",
+						Protocol: model.ProtocolHTTP,
+					},
+					{
+						Name:     "http-2",
+						Protocol: model.ProtocolHTTP,
+					},
+				},
+			},
+		},
+		{
+			Config: Config{
+				ServiceName: "serviceB",
+				Ports: []PortConfig{
+					{
+						Name:     "http",
+						Protocol: model.ProtocolHTTP,
+					},
+				},
+			},
+		},
+		{
+			Config: Config{
+				ServiceName: "serviceC",
+				Ports: []PortConfig{
+					{
+						Name:     "http",
+						Protocol: model.ProtocolHTTP,
+					},
+				},
+			},
+		},
+		{
+			Config: Config{
+				ServiceName: "serviceD",
+				Ports: []PortConfig{
+					{
+						Name:     "http-1",
+						Protocol: model.ProtocolHTTP,
+					},
+					{
+						Name:     "http-2",
+						Protocol: model.ProtocolHTTP,
+					},
+					{
+						Name:     "http-3",
+						Protocol: model.ProtocolHTTP,
+					},
 				},
 			},
 		},
 	}
 
-	if err := a.Start(); err != nil {
-		t.Fatal(err)
+	// Start all of the agents.
+	for _, agent := range agents {
+		if err := agent.Start(); err != nil {
+			t.Fatal(err)
+		}
+		defer agent.Stop()
 	}
 
-	time.Sleep(5 * time.Second)
-
-	fmt.Println("NM: Sending request")
-	response, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/a", a.GetPorts()[0].EnvoyPort))
-	if err != nil {
-		t.Fatal(err)
+	for _, agent := range agents {
+		t.Run(agent.Config.ServiceName, func(t *testing.T) {
+			for _, port := range agent.GetPorts() {
+				t.Run(port.Config.Name, func(t *testing.T) {
+					response, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d", port.EnvoyPort))
+					if err != nil {
+						t.Fatal(err)
+					}
+					if response.StatusCode != 200 {
+						t.Fatal(fmt.Errorf("unexpected status %d", response.StatusCode))
+					}
+				})
+			}
+		})
 	}
-	buf, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		t.Fatal(err)
-	}
-	fmt.Println("NM: Response=" + string(buf))
-
-	defer a.Stop()
 }
