@@ -41,7 +41,10 @@ if [ $? -ne 0 ]; then
       exit 1
     fi
     sudo apt-get install -f
+    # Check for more recent version and update
+    sudo apt-get install virtualbox
 fi
+
 
 #Install Docker
 echo "Checking and Installing Docker as required"
