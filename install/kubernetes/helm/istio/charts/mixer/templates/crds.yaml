@@ -7,6 +7,10 @@ metadata:
     app: {{ template "mixer.name" . }}
     package: istio.io.mixer
     istio: core
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   group: config.istio.io
   names:
@@ -25,6 +29,10 @@ metadata:
     app: {{ template "mixer.name" . }}
     package: istio.io.mixer
     istio: core
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   group: config.istio.io
   names:
@@ -43,6 +51,10 @@ metadata:
     app: {{ template "mixer.name" . }}
     package: circonus
     istio: mixer-adapter
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   group: config.istio.io
   names:
@@ -61,6 +73,10 @@ metadata:
     app: {{ template "mixer.name" . }}
     package: denier
     istio: mixer-adapter
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   group: config.istio.io
   names:
@@ -79,6 +95,10 @@ metadata:
     app: {{ template "mixer.name" . }}
     package: fluentd
     istio: mixer-adapter
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   group: config.istio.io
   names:
@@ -97,6 +117,10 @@ metadata:
     app: {{ template "mixer.name" . }}
     package: kubernetesenv
     istio: mixer-adapter
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   group: config.istio.io
   names:
@@ -115,6 +139,10 @@ metadata:
     app: {{ template "mixer.name" . }}
     package: listchecker
     istio: mixer-adapter
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   group: config.istio.io
   names:
@@ -133,6 +161,10 @@ metadata:
     app: {{ template "mixer.name" . }}
     package: memquota
     istio: mixer-adapter
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   group: config.istio.io
   names:
@@ -151,6 +183,10 @@ metadata:
     app: {{ template "mixer.name" . }}
     package: noop
     istio: mixer-adapter
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   group: config.istio.io
   names:
@@ -169,6 +205,10 @@ metadata:
     app: {{ template "mixer.name" . }}
     package: opa
     istio: mixer-adapter
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   group: config.istio.io
   names:
@@ -187,6 +227,10 @@ metadata:
     app: {{ template "mixer.name" . }}
     package: prometheus
     istio: mixer-adapter
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   group: config.istio.io
   names:
@@ -205,6 +249,10 @@ metadata:
     app: {{ template "mixer.name" . }}
     package: rbac
     istio: mixer-adapter
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   group: config.istio.io
   names:
@@ -223,6 +271,10 @@ metadata:
     app: {{ template "mixer.name" . }}
     package: servicecontrol
     istio: mixer-adapter
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   group: config.istio.io
   names:
@@ -241,6 +293,10 @@ metadata:
     app: {{ template "mixer.name" . }}
     package: solarwinds
     istio: mixer-adapter
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   group: config.istio.io
   names:
@@ -259,6 +315,10 @@ metadata:
     app: {{ template "mixer.name" . }}
     package: stackdriver
     istio: mixer-adapter
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   group: config.istio.io
   names:
@@ -277,6 +337,10 @@ metadata:
     app: {{ template "mixer.name" . }}
     package: statsd
     istio: mixer-adapter
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   group: config.istio.io
   names:
@@ -295,6 +359,10 @@ metadata:
     app: {{ template "mixer.name" . }}
     package: stdio
     istio: mixer-adapter
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   group: config.istio.io
   names:
@@ -313,6 +381,10 @@ metadata:
     app: {{ template "mixer.name" . }}
     package: apikey
     istio: mixer-instance
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   group: config.istio.io
   names:
@@ -331,6 +403,10 @@ metadata:
     app: {{ template "mixer.name" . }}
     package: authorization
     istio: mixer-instance
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   group: config.istio.io
   names:
@@ -349,6 +425,10 @@ metadata:
     app: {{ template "mixer.name" . }}
     package: checknothing
     istio: mixer-instance
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   group: config.istio.io
   names:
@@ -367,6 +447,10 @@ metadata:
     app: {{ template "mixer.name" . }}
     package: adapter.template.kubernetes
     istio: mixer-instance
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   group: config.istio.io
   names:
@@ -385,6 +469,10 @@ metadata:
     app: {{ template "mixer.name" . }}
     package: listentry
     istio: mixer-instance
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   group: config.istio.io
   names:
@@ -403,6 +491,10 @@ metadata:
     app: {{ template "mixer.name" . }}
     package: logentry
     istio: mixer-instance
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   group: config.istio.io
   names:
@@ -421,6 +513,10 @@ metadata:
     app: {{ template "mixer.name" . }}
     package: metric
     istio: mixer-instance
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   group: config.istio.io
   names:
@@ -439,6 +535,10 @@ metadata:
     app: {{ template "mixer.name" . }}
     package: quota
     istio: mixer-instance
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   group: config.istio.io
   names:
@@ -457,6 +557,10 @@ metadata:
     app: {{ template "mixer.name" . }}
     package: reportnothing
     istio: mixer-instance
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   group: config.istio.io
   names:
@@ -475,6 +579,10 @@ metadata:
     app: {{ template "mixer.name" . }}
     package: servicecontrolreport
     istio: mixer-instance
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   group: config.istio.io
   names:
@@ -493,6 +601,10 @@ metadata:
     app: {{ template "mixer.name" . }}
     package: tracespan
     istio: mixer-instance
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   group: config.istio.io
   names:
@@ -511,6 +623,10 @@ metadata:
     app: {{ template "mixer.name" . }}
     package: istio.io.mixer
     istio: rbac
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   group: config.istio.io
   names:
@@ -529,6 +645,10 @@ metadata:
     app: {{ template "mixer.name" . }}
     package: istio.io.mixer
     istio: rbac
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   group: config.istio.io
   names:

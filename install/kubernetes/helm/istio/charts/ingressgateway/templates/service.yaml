@@ -10,6 +10,12 @@ metadata:
     {{- range $key, $val := .Values.service.labels }}
     {{ $key }}: {{ $val }}
     {{- end }}
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+    kubernetes.io/cluster-service: "true"
+  {{- end }}
+
 spec:
   type: {{ .Values.service.type }}
   selector:

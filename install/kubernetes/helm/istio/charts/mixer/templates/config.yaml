@@ -4,6 +4,11 @@ kind: attributemanifest
 metadata:
   name: istioproxy
   namespace: {{ .Release.Namespace }}
+{{- if .Values.global.k8sAddon.enabled }}
+  labels:
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+{{- end }}
 spec:
   attributes:
     origin.ip:
@@ -93,6 +98,11 @@ kind: attributemanifest
 metadata:
   name: kubernetes
   namespace: {{ .Release.Namespace }}
+{{- if .Values.global.k8sAddon.enabled }}
+  labels:
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+{{- end }}
 spec:
   attributes:
     source.ip:
@@ -125,6 +135,11 @@ kind: stdio
 metadata:
   name: handler
   namespace: {{ .Release.Namespace }}
+{{- if .Values.global.k8sAddon.enabled }}
+  labels:
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+{{- end }}
 spec:
   outputAsJson: true
 ---
@@ -133,6 +148,11 @@ kind: logentry
 metadata:
   name: accesslog
   namespace: {{ .Release.Namespace }}
+{{- if .Values.global.k8sAddon.enabled }}
+  labels:
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+{{- end }}
 spec:
   severity: '"Default"'
   timestamp: request.time
@@ -155,6 +175,11 @@ kind: rule
 metadata:
   name: stdio
   namespace: {{ .Release.Namespace }}
+{{- if .Values.global.k8sAddon.enabled }}
+  labels:
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+{{- end }}
 spec:
   match: "true" # If omitted match is true.
   actions:
@@ -167,6 +192,11 @@ kind: metric
 metadata:
   name: requestcount
   namespace: {{ .Release.Namespace }}
+{{- if .Values.global.k8sAddon.enabled }}
+  labels:
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+{{- end }}
 spec:
   value: "1"
   dimensions:
@@ -183,6 +213,11 @@ kind: metric
 metadata:
   name: requestduration
   namespace: {{ .Release.Namespace }}
+{{- if .Values.global.k8sAddon.enabled }}
+  labels:
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+{{- end }}
 spec:
   value: response.duration | "0ms"
   dimensions:
@@ -199,6 +234,11 @@ kind: metric
 metadata:
   name: requestsize
   namespace: {{ .Release.Namespace }}
+{{- if .Values.global.k8sAddon.enabled }}
+  labels:
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+{{- end }}
 spec:
   value: request.size | 0
   dimensions:
@@ -215,6 +255,11 @@ kind: metric
 metadata:
   name: responsesize
   namespace: {{ .Release.Namespace }}
+{{- if .Values.global.k8sAddon.enabled }}
+  labels:
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+{{- end }}
 spec:
   value: response.size | 0
   dimensions:
@@ -233,6 +278,10 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     istio-protocol: tcp # needed so that mixer will only generate when context.protocol == tcp
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   value: connection.sent.bytes | 0
   dimensions:
@@ -250,6 +299,10 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     istio-protocol: tcp # needed so that mixer will only generate when context.protocol == tcp
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   value: connection.received.bytes | 0
   dimensions:
@@ -265,6 +318,11 @@ kind: prometheus
 metadata:
   name: handler
   namespace: {{ .Release.Namespace }}
+{{- if .Values.global.k8sAddon.enabled }}
+  labels:  
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+{{- end }}
 spec:
   metrics:
   - name: request_count
@@ -346,6 +404,10 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     istio-protocol: http
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   actions:
   - handler: handler.prometheus
@@ -362,6 +424,10 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     istio-protocol: tcp # needed so that mixer will only execute when context.protocol == TCP
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   actions:
   - handler: handler.prometheus
@@ -375,6 +441,11 @@ kind: kubernetesenv
 metadata:
   name: handler
   namespace: {{ .Release.Namespace }}
+{{- if .Values.global.k8sAddon.enabled }}
+  labels:
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+{{- end }}
 spec:
   # when running from mixer root, use the following config after adding a
   # symbolic link to a kubernetes config file via:
@@ -389,6 +460,11 @@ kind: rule
 metadata:
   name: kubeattrgenrulerule
   namespace: {{ .Release.Namespace }}
+{{- if .Values.global.k8sAddon.enabled }}
+  labels:
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+{{- end }}
 spec:
   actions:
   - handler: handler.kubernetesenv
@@ -400,6 +476,11 @@ kind: rule
 metadata:
   name: tcpkubeattrgenrulerule
   namespace: {{ .Release.Namespace }}
+{{- if .Values.global.k8sAddon.enabled }}
+  labels:
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+{{- end }}
 spec:
   match: context.protocol == "tcp"
   actions:
@@ -412,6 +493,11 @@ kind: kubernetes
 metadata:
   name: attributes
   namespace: {{ .Release.Namespace }}
+{{- if .Values.global.k8sAddon.enabled }}
+  labels:
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+{{- end }}
 spec:
   # Pass the required attribute data to the adapter
   source_uid: source.uid | ""

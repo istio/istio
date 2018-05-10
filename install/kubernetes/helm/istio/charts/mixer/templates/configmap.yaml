@@ -9,6 +9,10 @@ metadata:
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
     istio: mixer
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 data:
   mapping.conf: |-
 ---
@@ -23,6 +27,10 @@ metadata:
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
     istio: mixer
+{{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+{{- end }}
 data:
   custom-resources.yaml: |-
     {{- include "config.yaml.tpl" . | indent 4}}

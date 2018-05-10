@@ -4,6 +4,10 @@ kind: HorizontalPodAutoscaler
 metadata:
     name: istio-ingress
     namespace: {{ .Release.Namespace }}
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
     maxReplicas: {{ .Values.autoscaleMax }}
     minReplicas: {{ .Values.autoscaleMin }}
