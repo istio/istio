@@ -52,7 +52,7 @@ var (
 			ServiceName:    "reviews",
 			ServiceTags:    []string{"version|v1"},
 			ServiceAddress: "172.19.0.6",
-			ServicePort:    9080,
+			ServicePort:    9081,
 		},
 		{
 			Node:           "istio",
@@ -61,7 +61,7 @@ var (
 			ServiceName:    "reviews",
 			ServiceTags:    []string{"version|v2"},
 			ServiceAddress: "172.19.0.7",
-			ServicePort:    9080,
+			ServicePort:    9081,
 		},
 		{
 			Node:           "istio",
@@ -173,12 +173,13 @@ func TestInstances(t *testing.T) {
 		}
 	}
 
-	filterPort := 9080
+	filterPort := 9081
 	instances, err = controller.InstancesByPort(hostname, []int{filterPort}, model.LabelsCollection{})
 	if err != nil {
 		t.Errorf("client encountered error during Instances(): %v", err)
 	}
 	if len(instances) != 2 {
+		fmt.Println(instances)
 		t.Errorf("Instances() did not filter by port => %q, want 2", len(instances))
 	}
 	for _, inst := range instances {
