@@ -17,17 +17,39 @@ package cluster
 import (
 	"testing"
 
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+
 	"istio.io/istio/pkg/test/environment"
 )
 
-// Environment a cluster-based environment for testing.
+// Environment a cluster-based environment for testing. It implements environment.Interface, and also
+// hosts publicly accessible methods that are specific to cluster environment.
 type Environment struct {
-	T                    testing.TB
+	config *rest.Config
+
 	IstioSystemNamespace string
 	AppNamespace         string
 }
 
 var _ environment.Interface = &Environment{}
+var _ Internal = &Environment{}
+
+func (e *Environment) DoFoo() {
+	// TODO: Remove. Dummy method.
+}
+
+// NewEnvironment returns a new instance of cluster environment.
+func NewEnvironment(kubeConfigPath string) (*Environment, error) {
+	config, err := clientcmd.BuildConfigFromFlags("", kubeConfigPath)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Environment{
+		config: config,
+	}, nil
+}
 
 // Configure applies the given configuration to the mesh.
 func (e *Environment) Configure(config string) {

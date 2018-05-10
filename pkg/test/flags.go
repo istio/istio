@@ -22,6 +22,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/impl/driver"
 )
@@ -61,7 +62,10 @@ func processFlags() error {
 			return err
 		}
 	}
-	log.Configure(logOptions)
+
+	if err := log.Configure(logOptions); err != nil {
+		return err
+	}
 
 	if showHelp {
 		doShowHelp()
