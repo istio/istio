@@ -117,8 +117,9 @@ func TranslateVirtualHosts(plugins []plugin.Plugin, pluginParams *plugin.InputPa
 				for _, p := range plugins {
 					p.OnOutboundRoute(pluginParams, nil, map[string]*plugin.ClusterDescriptor{
 						cluster: {
-							Service: svc,
-							Port:    port,
+							Service:  fqdn,
+							Port:     port.Port,
+							Protocol: port.Protocol,
 						}}, defaultRoute)
 				}
 
@@ -232,9 +233,10 @@ func ConvertDestinationToCluster(destination *networking.Destination, vsvcName s
 	// use subsets if it is a service
 	return model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, svc.Hostname, svcPort),
 		&plugin.ClusterDescriptor{
-			Service: svc,
-			Subset:  destination.Subset,
-			Port:    svcPort,
+			Service:  svc.Hostname,
+			Subset:   destination.Subset,
+			Port:     svcPort.Port,
+			Protocol: svcPort.Protocol,
 		}
 }
 

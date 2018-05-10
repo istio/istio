@@ -89,14 +89,17 @@ type MutableObjects struct {
 
 // ClusterDescriptor is the upstream cluster metadata.
 type ClusterDescriptor struct {
-	// Service definition
-	Service *model.Service
+	// Service host name
+	Service model.Hostname
 
-	// Subset name if provided
+	// Subset name (optional)
 	Subset string
 
-	// Port descriptor
-	Port *model.Port
+	// Port number
+	Port int
+
+	// Port protocol
+	Protocol model.Protocol
 }
 
 // Plugin is called during the construction of a xdsapi.Listener which may alter the Listener in any
