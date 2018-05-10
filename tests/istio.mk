@@ -214,10 +214,4 @@ junit-report: ${ISTIO_BIN}/go-junit-report
 # This assume istio runs in istio-system namespace, and 'skip-cleanup' was used in tests.
 dumpsys:
 	@mkdir -p ${OUT_DIR}/tests
-	@mkdir -p ${OUT_DIR}/logs
-	kubectl get all -o wide --all-namespaces | tee ${OUT_DIR}/logs/kubectl_all.txt
-	kubectl get all -o yaml --all-namespaces > ${OUT_DIR}/logs/kubectl_all.yaml
-	kubectl cluster-info dump > ${OUT_DIR}/logs/cluster-info.dump.txt
-	kubectl describe pods -n istio-system > ${OUT_DIR}/logs/pods-system.txt
-	kubectl get event --all-namespaces -o wide > ${OUT_DIR}/logs/events.txt
-	kubectl logs -n istio-system -listio=pilot -c discovery > ${OUT_DIR}/logs/pilot.log
+	bin/dump_kubernetes.sh --output-directory ${OUT_DIR}/logs
