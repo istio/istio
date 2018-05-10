@@ -116,7 +116,7 @@ func TranslateVirtualHosts(plugins []plugin.Plugin, pluginParams *plugin.InputPa
 				// call plugins
 				for _, p := range plugins {
 					p.OnOutboundRoute(pluginParams, nil, map[string]*plugin.ClusterDescriptor{
-						cluster: &plugin.ClusterDescriptor{
+						cluster: {
 							Service: svc,
 							Port:    port,
 						}}, defaultRoute)
