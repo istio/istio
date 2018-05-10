@@ -107,7 +107,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environmen
 					applyTrafficPolicy(subsetCluster, subset.TrafficPolicy, port)
 					// call plugins
 					for _, p := range configgen.Plugins {
-						p.OnOutboundCluster(env, proxy, service, port, subsetCluster)
+						p.OnOutboundCluster(env, proxy, service, port, subset, subsetCluster)
 					}
 					clusters = append(clusters, subsetCluster)
 				}
@@ -115,7 +115,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environmen
 
 			// call plugins for the default cluster
 			for _, p := range configgen.Plugins {
-				p.OnOutboundCluster(env, proxy, service, port, defaultCluster)
+				p.OnOutboundCluster(env, proxy, service, port, nil, defaultCluster)
 			}
 		}
 	}

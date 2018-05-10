@@ -27,6 +27,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
+	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -99,7 +100,8 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 }
 
 // OnOutboundCluster implements the Plugin interface method.
-func (Plugin) OnOutboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
+func (Plugin) OnOutboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port,
+	subset *v1alpha3.Subset, cluster *xdsapi.Cluster) {
 }
 
 // OnInboundCluster implements the Plugin interface method.
@@ -108,6 +110,11 @@ func (Plugin) OnInboundCluster(env model.Environment, node model.Proxy, service 
 
 // OnOutboundRouteConfiguration implements the Plugin interface method.
 func (Plugin) OnOutboundRouteConfiguration(in *plugin.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
+}
+
+// OnOutboundRoute implements the Plugin interface method.
+func (Plugin) OnOutboundRoute(_ *plugin.InputParams, _ *v1alpha3.VirtualService,
+	_ map[string]*plugin.ClusterDescriptor, _ *route.Route) {
 }
 
 // oc := BuildMixerConfig(node, serviceName, dest, proxyInstances, config, mesh.DisablePolicyChecks, false)
