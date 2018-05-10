@@ -48,7 +48,7 @@ func newPodCache(ch cacheHandler) *PodCache {
 		pod := *obj.(*v1.Pod)
 		ip := pod.Status.PodIP
 
-		log.Printf("Handle pod %s in namespace %s -> %v", pod.Name, pod.Namespace, pod.Status.PodIP)
+		log.Printf("Handling event %s for pod %s in namespace %s -> %v", ev, pod.Name, pod.Namespace, ip)
 
 		if len(ip) > 0 {
 			key := KeyFunc(pod.Name, pod.Namespace)
