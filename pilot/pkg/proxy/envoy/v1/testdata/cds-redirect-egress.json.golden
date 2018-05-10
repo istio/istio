@@ -101,6 +101,12 @@
     "ssl_context": {}
    },
    {
+    "name": "out.default-passthrough",
+    "connect_timeout_ms": 1000,
+    "type": "original_dst",
+    "lb_type": "original_dst_lb"
+   },
+   {
     "name": "out.hello.default.svc.cluster.local|custom",
     "service_name": "hello.default.svc.cluster.local|custom",
     "connect_timeout_ms": 1000,

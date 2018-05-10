@@ -3,7 +3,22 @@
    {
     "address": "tcp://0.0.0.0:15001",
     "name": "virtual",
-    "filters": [],
+    "filters": [
+     {
+      "type": "read",
+      "name": "tcp_proxy",
+      "config": {
+       "stat_prefix": "tcp",
+       "route_config": {
+        "routes": [
+         {
+          "cluster": "out.default-passthrough"
+         }
+        ]
+       }
+      }
+     }
+    ],
     "bind_to_port": true,
     "use_original_dst": true
    },
