@@ -76,7 +76,7 @@ func (s *Server) Start() error {
 			return err
 		}
 		s.HTTPPorts[i] = p
-		fmt.Printf("Listening HTTP1.1 on %v\n", p)
+		fmt.Printf("Listening HTTP/1.1 on %v\n", p)
 
 		// Create the HTTP server.
 		h := handler{
