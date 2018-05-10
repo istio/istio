@@ -14,7 +14,10 @@
 
 package dependency
 
-import "istio.io/istio/pkg/test/internal"
+import (
+	"istio.io/istio/pkg/test/environment"
+	"istio.io/istio/pkg/test/internal"
+)
 
 // MTLS indicates a dependency on MTLS being enabled.
 var MTLS Dependency = &mtls{}
@@ -29,14 +32,14 @@ func (r *mtls) String() string {
 	return ""
 }
 
-func (r *mtls) Initialize() (interface{}, error) {
+func (r *mtls) Initialize(env environment.Interface) (interface{}, error) {
 	return nil, nil
 }
 
-func (r *mtls) Reset(interface{}) error {
+func (r *mtls) Reset(env environment.Interface, state interface{}) error {
 	return nil
 }
 
-func (r *mtls) Cleanup(interface{}) {
+func (r *mtls) Cleanup(env environment.Interface, state interface{}) {
 
 }
