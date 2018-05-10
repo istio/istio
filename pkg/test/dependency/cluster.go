@@ -17,6 +17,7 @@ package dependency
 import (
 	"k8s.io/client-go/rest"
 
+	"istio.io/istio/pkg/test/environment"
 	"istio.io/istio/pkg/test/internal"
 )
 
@@ -25,8 +26,7 @@ var GKE Dependency = &clusterDependency{gke: true}
 
 // ClusterDependency represents a typed ClusterDependency dependency.
 type clusterDependency struct {
-	exclusive bool
-	gke       bool
+	gke bool
 }
 
 // Dependency is the default dependency
@@ -37,16 +37,16 @@ func (a *clusterDependency) String() string {
 	return "cluster"
 }
 
-func (a *clusterDependency) Initialize() (interface{}, error) {
+func (a *clusterDependency) Initialize(env environment.Interface) (interface{}, error) {
 	// TODO
 	return nil, nil
 }
 
-func (a *clusterDependency) Reset(interface{}) error {
+func (a *clusterDependency) Reset(env environment.Interface, state interface{}) error {
 	return nil
 }
 
-func (a *clusterDependency) Cleanup(interface{}) {
+func (a *clusterDependency) Cleanup(env environment.Interface, state interface{}) {
 }
 
 // GetConfig returns the configuration

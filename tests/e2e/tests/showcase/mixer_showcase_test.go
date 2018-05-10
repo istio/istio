@@ -50,7 +50,9 @@ Value: 2,
 Dimensions:
 	- source: mysrc
 	- target_ip: somesrvcname
+    - request_id: ...
 `)
+	//be.ExpectReport(t).With("request_id: ,....")
 }
 
 var testConfig = `

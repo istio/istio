@@ -12,34 +12,10 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package dependency
+package local
 
-import (
-	"istio.io/istio/pkg/test/environment"
-	"istio.io/istio/pkg/test/internal"
-)
-
-// Pilot indicates a dependency on Pilot.
-var Pilot Dependency = &pilot{}
-
-type pilot struct {
-}
-
-var _ Dependency = &pilot{}
-var _ internal.Stateful = &pilot{}
-
-func (a *pilot) String() string {
-	return ""
-}
-
-func (a *pilot) Initialize(env environment.Interface) (interface{}, error) {
-	return nil, nil
-}
-
-func (a *pilot) Reset(env environment.Interface, state interface{}) error {
-	return nil
-}
-
-func (a *pilot) Cleanup(env environment.Interface, state interface{}) {
-
+// Internal interface defines internal implementation details of the environment that is used by the
+// test framework *only*. It should never be used directly in a test, or a test utility that resides with the
+// tests themselves.
+type Internal interface {
 }

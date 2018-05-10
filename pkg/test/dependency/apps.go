@@ -14,7 +14,10 @@
 
 package dependency
 
-import "istio.io/istio/pkg/test/internal"
+import (
+	"istio.io/istio/pkg/test/environment"
+	"istio.io/istio/pkg/test/internal"
+)
 
 // Apps is a dependency on fake networked apps. This can be used to mimic traffic thru a mesh.
 var Apps Dependency = &apps{}
@@ -29,14 +32,14 @@ func (a *apps) String() string {
 	return "apps"
 }
 
-func (a *apps) Initialize() (interface{}, error) {
+func (a *apps) Initialize(env environment.Interface) (interface{}, error) {
 	return nil, nil
 }
 
-func (a *apps) Reset(interface{}) error {
+func (a *apps) Reset(env environment.Interface, state interface{}) error {
 	return nil
 }
 
-func (a *apps) Cleanup(interface{}) {
+func (a *apps) Cleanup(env environment.Interface, state interface{}) {
 
 }
