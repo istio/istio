@@ -22,7 +22,7 @@
 // For example, ?codes=501:999,401:1 returns 500 99.9% of times and 401 0.1% of times.
 // For example, ?codes=500,200 returns 500 50% of times and 200 50% of times
 
-package main
+package echo
 
 import (
 	"bytes"
@@ -32,13 +32,11 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"os/signal"
 	"strconv"
 	"strings"
-	"syscall"
 
 	"github.com/gorilla/websocket"
-	flag "github.com/spf13/pflag"
+	"go.uber.org/multierr"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -47,13 +45,114 @@ import (
 	pb "istio.io/istio/pilot/test/grpcecho"
 )
 
-var (
-	ports     []int
-	grpcPorts []int
-	version   string
+// Server is a server that echos the request back to the caller
+type Server struct {
+	// HTTPPorts define the list of HTTP/1.1 ports to listen on.
+	HTTPPorts []int
+	// GRPCPorts define the list of GRPC (HTTP/2) ports to listen on.
+	GRPCPorts []int
+	// TLSCert defines the server-side TLS cert to use with GRPC.
+	TLSCert string
+	// TLSKey defines the server-side TLS key to use with GRPC.
+	TLSCKey string
+	// Version string
+	Version string
 
-	crt, key string
-)
+	httpServers []*http.Server
+	grpcServers []*grpc.Server
+}
+
+// Start starts the server
+func (s *Server) Start() error {
+	if err := s.Stop(); err != nil {
+		return err
+	}
+
+	s.httpServers = make([]*http.Server, len(s.HTTPPorts))
+	for i, port := range s.HTTPPorts {
+		// Listen on the given port and update the port if it changed from what was passed in.
+		listener, p, err := listenOnPort(port)
+		if err != nil {
+			return err
+		}
+		s.HTTPPorts[i] = p
+		fmt.Printf("Listening HTTP/1.1 on %v\n", p)
+
+		// Create the HTTP server.
+		h := handler{
+			port:    p,
+			version: s.Version,
+		}
+		srv := &http.Server{
+			Addr:    fmt.Sprintf(":%d", p),
+			Handler: h,
+		}
+		s.httpServers[i] = srv
+
+		// Start serving HTTP traffic.
+		go srv.Serve(listener)
+	}
+
+	s.grpcServers = make([]*grpc.Server, len(s.GRPCPorts))
+	for i, port := range s.GRPCPorts {
+		// Listen on the given port and update the port if it changed from what was passed in.
+		listener, p, err := listenOnPort(port)
+		if err != nil {
+			return err
+		}
+		s.GRPCPorts[i] = p
+		fmt.Printf("Listening GRPC on %v\n", p)
+
+		// Create the GRPC server.
+		h := handler{
+			port:    p,
+			version: s.Version,
+		}
+		var srv *grpc.Server
+		if s.TLSCert != "" && s.TLSCKey != "" {
+			// Create the TLS credentials
+			creds, errCreds := credentials.NewServerTLSFromFile(s.TLSCert, s.TLSCKey)
+			if errCreds != nil {
+				log.Fatalf("could not load TLS keys: %s", errCreds)
+			}
+			srv = grpc.NewServer(grpc.Creds(creds))
+		} else {
+			srv = grpc.NewServer()
+		}
+		pb.RegisterEchoTestServiceServer(srv, &h)
+		s.grpcServers[i] = srv
+
+		// Start serving GRPC traffic.
+		go srv.Serve(listener)
+	}
+
+	return nil
+}
+
+// Stop stops the server
+func (s *Server) Stop() error {
+	var err error
+	for _, srv := range s.httpServers {
+		err = multierr.Append(err, srv.Close())
+	}
+	s.httpServers = make([]*http.Server, 0)
+
+	for _, srv := range s.grpcServers {
+		srv.Stop()
+	}
+	s.grpcServers = make([]*grpc.Server, 0)
+	return err
+}
+
+func listenOnPort(port int) (net.Listener, int, error) {
+	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		return nil, 0, err
+	}
+
+	port = ln.Addr().(*net.TCPAddr).Port
+	return ln, port, nil
+}
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
@@ -62,16 +161,9 @@ var upgrader = websocket.Upgrader{
 	},
 } //defaults
 
-func init() {
-	flag.IntSliceVar(&ports, "port", []int{8080}, "HTTP/1.1 ports")
-	flag.IntSliceVar(&grpcPorts, "grpc", []int{7070}, "GRPC ports")
-	flag.StringVar(&version, "version", "", "Version string")
-	flag.StringVar(&crt, "crt", "", "gRPC TLS server-side certificate")
-	flag.StringVar(&key, "key", "", "gRPC TLS server-side key")
-}
-
 type handler struct {
-	port int
+	port    int
+	version string
 }
 
 // Imagine a pie of different flavors.
@@ -84,7 +176,7 @@ type codeAndSlices struct {
 
 func (h handler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 
-	body.WriteString("ServiceVersion=" + version + "\n")
+	body.WriteString("ServiceVersion=" + h.version + "\n")
 	body.WriteString("ServicePort=" + strconv.Itoa(h.port) + "\n")
 	body.WriteString("Method=" + r.Method + "\n")
 	body.WriteString("URL=" + r.URL.String() + "\n")
@@ -137,7 +229,7 @@ func (h handler) Echo(ctx context.Context, req *pb.EchoRequest) (*pb.EchoRespons
 			body.WriteString(key + "=" + strings.Join(vals, " ") + "\n")
 		}
 	}
-	body.WriteString("ServiceVersion=" + version + "\n")
+	body.WriteString("ServiceVersion=" + h.version + "\n")
 	body.WriteString("ServicePort=" + strconv.Itoa(h.port) + "\n")
 	body.WriteString("Echo=" + req.GetMessage())
 	return &pb.EchoResponse{Message: body.String()}, nil
@@ -172,52 +264,6 @@ func (h handler) WebSocketEcho(w http.ResponseWriter, r *http.Request) {
 		log.Println("websocket-echo write failed:", err)
 		return
 	}
-}
-
-func runHTTP(port int) {
-	fmt.Printf("Listening HTTP1.1 on %v\n", port)
-	h := handler{port: port}
-	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), h); err != nil {
-		log.Println(err.Error())
-	}
-}
-
-func runGRPC(port int) {
-	fmt.Printf("Listening GRPC on %v\n", port)
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
-	}
-	h := handler{port: port}
-
-	var grpcServer *grpc.Server
-	if crt != "" && key != "" {
-		// Create the TLS credentials
-		creds, errCreds := credentials.NewServerTLSFromFile(crt, key)
-		if errCreds != nil {
-			log.Fatalf("could not load TLS keys: %s", errCreds)
-		}
-		grpcServer = grpc.NewServer(grpc.Creds(creds))
-	} else {
-		grpcServer = grpc.NewServer()
-	}
-	pb.RegisterEchoTestServiceServer(grpcServer, &h)
-	if err = grpcServer.Serve(lis); err != nil {
-		log.Println(err.Error())
-	}
-}
-
-func main() {
-	flag.Parse()
-	for _, port := range ports {
-		go runHTTP(port)
-	}
-	for _, grpcPort := range grpcPorts {
-		go runGRPC(grpcPort)
-	}
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-	<-sigs
 }
 
 func setResponseFromCodes(request *http.Request, response http.ResponseWriter) error {
