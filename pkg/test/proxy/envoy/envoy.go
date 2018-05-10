@@ -16,18 +16,19 @@ package envoy
 
 import (
 	"fmt"
-	"go/build"
 	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"sync"
+
+	"istio.io/istio/pkg/test/util"
 )
 
 const (
 	// DefaultLogLevel the log level used for Envoy if not specified.
 	DefaultLogLevel = LogLevelTrace
-	maxBaseID       = 1024 * 16
 )
 
 // LogLevel represents the log level to use for Envoy.
@@ -50,6 +51,12 @@ const (
 	LogLevelOff = "off"
 )
 
+var (
+	idGenerator = &baseIDGenerator{
+		ids: make(map[uint32]byte),
+	}
+)
+
 // Envoy is a wrapper that simplifies running Envoy.
 type Envoy struct {
 	// ConfigFile (required) the v2 config file for Envoy.
@@ -62,7 +69,9 @@ type Envoy struct {
 	LogFilePath string
 	// LogLevel (optional) if provided, sets the log level for Envoy. If not set, DefaultLogLevel will be used.
 	LogLevel LogLevel
-	cmd      *exec.Cmd
+
+	cmd    *exec.Cmd
+	baseID uint32
 }
 
 // Start starts the Envoy process.
@@ -86,12 +95,17 @@ func (e *Envoy) Start() error {
 		}
 	}
 
+	// We need to make sure each envoy has a unique base ID in order to run multiple instances on the same
+	// machine.
+	e.takeBaseID()
+
 	// Run the envoy binary
 	args := e.getCommandArgs()
 	e.cmd = exec.Command(envoyPath, args...)
 	e.cmd.Stderr = os.Stderr
 	e.cmd.Stdout = os.Stdout
 	if err := e.cmd.Start(); err != nil {
+		e.returnBaseID()
 		return err
 	}
 	return nil
@@ -99,6 +113,9 @@ func (e *Envoy) Start() error {
 
 // Stop kills the Envoy process.
 func (e *Envoy) Stop() error {
+	// Make sure we return the base ID.
+	defer e.returnBaseID()
+
 	if e.cmd == nil || e.cmd.Process != nil {
 		// Wasn't previously started - nothing to do.
 		return nil
@@ -121,17 +138,23 @@ func (e *Envoy) validateCommandArgs() error {
 	return nil
 }
 
-func (e *Envoy) getCommandArgs() []string {
-	// We need to make sure each envoy has a unique base ID in order to run multiple instances on the same
-	// machine.
-	baseID := rand.Intn(maxBaseID) + 1
+func (e *Envoy) takeBaseID() {
+	e.baseID = idGenerator.takeBaseID()
+}
 
+func (e *Envoy) returnBaseID() {
+	idGenerator.returnBaseID(e.baseID)
+	// Restore the zero value.
+	e.baseID = 0
+}
+
+func (e *Envoy) getCommandArgs() []string {
 	// Prefix Envoy log entries with [ENVOY] to make them distinct from other logs if mixed within the same stream (e.g. stderr)
 	logFormat := "[ENVOY] [%Y-%m-%d %T.%e][%t][%l][%n] %v"
 
 	args := []string{
 		"--base-id",
-		strconv.Itoa(baseID),
+		strconv.FormatUint(uint64(e.baseID), 10),
 		// Always force v2 config.
 		"--v2-config-only",
 		"--config-path",
@@ -163,13 +186,8 @@ func checkFileExists(f string) error {
 }
 
 func getDefaultEnvoyBinaryPath() (string, error) {
-	istioOut, err := getIstioOut()
-	if err != nil {
-		return "", err
-	}
-
 	// Find all of the debug envoy binaries.
-	binDir := filepath.Join(istioOut, "debug")
+	binDir := filepath.Join(util.IstioOut, "debug")
 	binPrefix := filepath.Join(binDir, "envoy-debug-")
 	binPaths, err := filepath.Glob(binPrefix + "*")
 	if err != nil {
@@ -177,7 +195,7 @@ func getDefaultEnvoyBinaryPath() (string, error) {
 	}
 
 	if len(binPaths) == 0 {
-		return "", fmt.Errorf("unable to locate Envoy binary in dir %s", istioOut)
+		return "", fmt.Errorf("unable to locate Envoy binary in dir %s", util.IstioOut)
 	}
 
 	// Find the most recent debug binary.
@@ -199,14 +217,32 @@ func getDefaultEnvoyBinaryPath() (string, error) {
 	return latestBinPath, nil
 }
 
-func getIstioOut() (string, error) {
-	istioOut := os.Getenv("ISTIO_OUT")
-	if istioOut == "" {
-		ctx := build.Default
-		istioOut = fmt.Sprintf("%s/out/%s_%s", ctx.GOPATH, ctx.GOOS, ctx.GOARCH)
+// A little utility that helps to ensure that we don't re-use
+type baseIDGenerator struct {
+	m   sync.Mutex
+	ids map[uint32]byte
+}
+
+func (g *baseIDGenerator) takeBaseID() uint32 {
+	g.m.Lock()
+	defer g.m.Unlock()
+
+	// Retry until we find a baseID that's not currently in use.
+	for {
+		baseID := rand.Uint32()
+		// Don't allow 0, since we treat that as not-set.
+		if baseID > 0 {
+			_, ok := g.ids[baseID]
+			if !ok {
+				g.ids[baseID] = 1
+				return baseID
+			}
+		}
 	}
-	if err := checkFileExists(istioOut); err != nil {
-		return "", fmt.Errorf("unable to resolve ISTIO_OUT. Dir %s does not exist", istioOut)
-	}
-	return istioOut, nil
+}
+
+func (g *baseIDGenerator) returnBaseID(baseID uint32) {
+	g.m.Lock()
+	defer g.m.Unlock()
+	delete(g.ids, baseID)
 }
