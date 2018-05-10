@@ -15,8 +15,6 @@
 package external
 
 import (
-	"fmt"
-
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 )
@@ -74,8 +72,25 @@ func (d *externalDiscovery) ManagementPorts(addr string) model.PortList {
 // Instances retrieves instances for a service and its ports that match
 // any of the supplied labels. All instances match an empty tag list.
 func (d *externalDiscovery) Instances(hostname model.Hostname, ports []string,
-	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
-	return nil, fmt.Errorf("NOT IMPLEMENTED")
+labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
+	portMap := make(map[string]bool)
+	for _, port := range ports {
+		portMap[port] = true
+	}
+
+	out := []*model.ServiceInstance{}
+	for _, config := range d.store.ServiceEntries() {
+		serviceEntry := config.Spec.(*networking.ServiceEntry)
+		for _, instance := range convertInstances(serviceEntry) {
+			if instance.Service.Hostname == hostname &&
+				labels.HasSubsetOf(instance.Labels) &&
+				portMatchEnvoyV1(instance, portMap) {
+				out = append(out, instance)
+			}
+		}
+	}
+
+	return out, nil
 }
 
 // Instances retrieves instances for a service on the given ports with labels that
@@ -100,6 +115,11 @@ func (d *externalDiscovery) InstancesByPort(hostname model.Hostname, ports []int
 	}
 
 	return out, nil
+}
+
+// returns true if an instance's port matches with any in the provided list
+func portMatchEnvoyV1(instance *model.ServiceInstance, portMap map[string]bool) bool {
+	return len(portMap) == 0 || portMap[instance.Endpoint.ServicePort.Name]
 }
 
 // returns true if an instance's port matches with any in the provided list
