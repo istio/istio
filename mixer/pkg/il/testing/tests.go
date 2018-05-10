@@ -3598,6 +3598,7 @@ var istio06AttributeSet = map[string]*pb.AttributeManifest_AttributeInfo{
 	"request.auth.principal":          {ValueType: descriptor.STRING},
 	"request.auth.audiences":          {ValueType: descriptor.STRING},
 	"request.auth.presenter":          {ValueType: descriptor.STRING},
+	"request.auth.claims":             {ValueType: descriptor.STRING},
 	"request.api_key":                 {ValueType: descriptor.STRING},
 	"source.ip":                       {ValueType: descriptor.IP_ADDRESS},
 	"source.labels":                   {ValueType: descriptor.STRING_MAP},
