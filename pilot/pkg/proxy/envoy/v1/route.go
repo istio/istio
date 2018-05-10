@@ -193,7 +193,7 @@ func BuildHTTPRoute(config model.Config, service *model.Service, port *model.Por
 		cluster := BuildOutboundCluster(destination, port, nil, service.External())
 		route.Cluster = cluster.Name
 
-		v2clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", destination, port)
+		v2clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", destination, port.Port)
 		if envoyv2 {
 			route.Cluster = v2clusterName
 		}

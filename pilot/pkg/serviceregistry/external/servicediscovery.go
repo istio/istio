@@ -15,6 +15,8 @@
 package external
 
 import (
+	"fmt"
+
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 )
@@ -73,7 +75,14 @@ func (d *externalDiscovery) ManagementPorts(addr string) model.PortList {
 // any of the supplied labels. All instances match an empty tag list.
 func (d *externalDiscovery) Instances(hostname model.Hostname, ports []string,
 	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
-	portMap := make(map[string]bool)
+	return nil, fmt.Errorf("NOT IMPLEMENTED")
+}
+
+// Instances retrieves instances for a service on the given ports with labels that
+// match any of the supplied labels. All instances match an empty tag list.
+func (d *externalDiscovery) InstancesByPort(hostname model.Hostname, ports []int,
+	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
+	portMap := make(map[int]bool)
 	for _, port := range ports {
 		portMap[port] = true
 	}
@@ -94,8 +103,8 @@ func (d *externalDiscovery) Instances(hostname model.Hostname, ports []string,
 }
 
 // returns true if an instance's port matches with any in the provided list
-func portMatch(instance *model.ServiceInstance, portMap map[string]bool) bool {
-	return len(portMap) == 0 || portMap[instance.Endpoint.ServicePort.Name]
+func portMatch(instance *model.ServiceInstance, portMap map[int]bool) bool {
+	return len(portMap) == 0 || portMap[instance.Endpoint.ServicePort.Port]
 }
 
 // GetProxyServiceInstances lists service instances co-located with a given proxy

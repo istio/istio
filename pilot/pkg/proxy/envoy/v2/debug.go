@@ -209,6 +209,27 @@ func (sd *MemServiceDiscovery) Instances(hostname model.Hostname, ports []string
 	return instances, nil
 }
 
+// InstancesByPort filters the service instances by labels. This assumes single port, as is
+// used by EDS/ADS.
+func (sd *MemServiceDiscovery) InstancesByPort(hostname model.Hostname, ports []int,
+	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
+	sd.mutex.Lock()
+	defer sd.mutex.Unlock()
+	if sd.InstancesError != nil {
+		return nil, sd.InstancesError
+	}
+	if len(ports) != 1 {
+		log.Warna("Unexpected ports ", ports)
+		return nil, nil
+	}
+	key := hostname.String() + ":" + string(ports[0])
+	instances, ok := sd.instances[key]
+	if !ok {
+		return nil, nil
+	}
+	return instances, nil
+}
+
 // GetProxyServiceInstances returns service instances associated with a node, resulting in
 // 'in' services.
 func (sd *MemServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) ([]*model.ServiceInstance, error) {
@@ -313,7 +334,7 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 		svc, _ := s.env.ServiceDiscovery.Services()
 		for _, ss := range svc {
 			for _, p := range ss.Ports {
-				all, err := s.env.ServiceDiscovery.Instances(ss.Hostname, []string{p.Name}, nil)
+				all, err := s.env.ServiceDiscovery.InstancesByPort(ss.Hostname, []int{p.Port}, nil)
 				if err != nil {
 					return
 				}
@@ -331,7 +352,7 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprint(w, "[\n")
 	for _, ss := range svc {
 		for _, p := range ss.Ports {
-			all, err := s.env.ServiceDiscovery.Instances(ss.Hostname, []string{p.Name}, nil)
+			all, err := s.env.ServiceDiscovery.InstancesByPort(ss.Hostname, []int{p.Port}, nil)
 			if err != nil {
 				return
 			}

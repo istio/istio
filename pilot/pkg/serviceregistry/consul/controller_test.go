@@ -136,7 +136,7 @@ func TestInstances(t *testing.T) {
 	}
 
 	hostname := serviceHostname("reviews")
-	instances, err := controller.Instances(hostname, []string{}, model.LabelsCollection{})
+	instances, err := controller.InstancesByPort(hostname, []int{}, model.LabelsCollection{})
 	if err != nil {
 		t.Errorf("client encountered error during Instances(): %v", err)
 	}
@@ -152,7 +152,7 @@ func TestInstances(t *testing.T) {
 
 	filterTagKey := "version"
 	filterTagVal := "v3"
-	instances, err = controller.Instances(hostname, []string{}, model.LabelsCollection{
+	instances, err = controller.InstancesByPort(hostname, []int{}, model.LabelsCollection{
 		model.Labels{filterTagKey: filterTagVal},
 	})
 	if err != nil {
@@ -173,8 +173,8 @@ func TestInstances(t *testing.T) {
 		}
 	}
 
-	filterPort := "http"
-	instances, err = controller.Instances(hostname, []string{filterPort}, model.LabelsCollection{})
+	filterPort := 9080
+	instances, err = controller.InstancesByPort(hostname, []int{filterPort}, model.LabelsCollection{})
 	if err != nil {
 		t.Errorf("client encountered error during Instances(): %v", err)
 	}
@@ -182,7 +182,7 @@ func TestInstances(t *testing.T) {
 		t.Errorf("Instances() did not filter by port => %q, want 2", len(instances))
 	}
 	for _, inst := range instances {
-		if inst.Endpoint.ServicePort.Name != filterPort {
+		if inst.Endpoint.ServicePort.Port != filterPort {
 			t.Errorf("Instances() did not filter by port => %q, want %q",
 				inst.Endpoint.ServicePort.Name, filterPort)
 		}
@@ -197,7 +197,7 @@ func TestInstancesBadHostname(t *testing.T) {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
 
-	instances, err := controller.Instances("", []string{}, model.LabelsCollection{})
+	instances, err := controller.InstancesByPort("", []int{}, model.LabelsCollection{})
 	if err == nil {
 		t.Error("Instances() should return error when provided bad hostname")
 	}
@@ -215,7 +215,7 @@ func TestInstancesError(t *testing.T) {
 	}
 
 	ts.Server.Close()
-	instances, err := controller.Instances(serviceHostname("reviews"), []string{}, model.LabelsCollection{})
+	instances, err := controller.InstancesByPort(serviceHostname("reviews"), []int{}, model.LabelsCollection{})
 	if err == nil {
 		t.Error("Instances() should return error when client experiences connection problem")
 	}

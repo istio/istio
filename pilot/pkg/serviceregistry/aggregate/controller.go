@@ -153,6 +153,30 @@ func (c *Controller) Instances(hostname model.Hostname, ports []string,
 	return instances, errs
 }
 
+// InstancesByPort retrieves instances for a service on a given port that match
+// any of the supplied labels. All instances match an empty label list.
+func (c *Controller) InstancesByPort(hostname model.Hostname, ports []int,
+	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
+	var instances, tmpInstances []*model.ServiceInstance
+	var errs error
+	for _, r := range c.registries {
+		var err error
+		tmpInstances, err = r.InstancesByPort(hostname, ports, labels)
+		if err != nil {
+			errs = multierror.Append(errs, err)
+		} else if len(tmpInstances) > 0 {
+			if errs != nil {
+				log.Warnf("Instances() found match but encountered an error: %v", errs)
+			}
+			instances = append(instances, tmpInstances...)
+		}
+	}
+	if len(instances) > 0 {
+		errs = nil
+	}
+	return instances, errs
+}
+
 // GetProxyServiceInstances lists service instances co-located with a given proxy
 func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.ServiceInstance, error) {
 	out := make([]*model.ServiceInstance, 0)

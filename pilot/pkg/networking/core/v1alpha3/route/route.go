@@ -109,7 +109,7 @@ func TranslateVirtualHosts(
 		svc := services[fqdn]
 		for _, port := range svc.Ports {
 			if port.Protocol.IsHTTP() {
-				cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port)
+				cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port)
 				out = append(out, GuardedHost{
 					Port:     port.Port,
 					Services: []*model.Service{svc},
@@ -179,45 +179,19 @@ func translateVirtualHost(
 // can be found. Called by translateRule to determine if
 func ConvertDestinationToCluster(destination *networking.Destination, vsvcName string,
 	in *networking.HTTPRoute, serviceIndex map[model.Hostname]*model.Service, defaultPort int) string {
-	// detect if it is a service
-	svc := serviceIndex[model.Hostname(destination.Host)]
-
-	if svc == nil {
-		if defaultPort != 80 {
-			noClusterMissingService.With(prometheus.Labels{
-				"service": destination.String(),
-				"rule":    vsvcName,
-			}).Add(1)
-			log.Infof("svc == nil => route on %d with missing cluster %s %v %v", defaultPort, vsvcName, destination, in)
-		}
-		return util.BlackHoleCluster
-	}
-
-	// default port uses port number
-	svcPort, _ := svc.Ports.GetByPort(defaultPort)
-
+	port := defaultPort
 	if destination.Port != nil {
 		switch selector := destination.Port.Port.(type) {
+		// TODO: remove port name from route.Destination in the API
 		case *networking.PortSelector_Name:
-			svcPort, _ = svc.Ports.Get(selector.Name)
+			log.Debuga("name based destination ports are not allowed => blackhole cluster")
+			return util.BlackHoleCluster
 		case *networking.PortSelector_Number:
-			svcPort, _ = svc.Ports.GetByPort(int(selector.Number))
+			port = int(selector.Number)
 		}
 	}
 
-	if svcPort == nil {
-		if defaultPort != 80 {
-			noClusterMissingPort.With(prometheus.Labels{
-				"service": destination.String(),
-				"rule":    vsvcName,
-			}).Add(1)
-			log.Infof("svcPort == nil => unresolved cluster %s %s %v", vsvcName, destination.Host, destination)
-		}
-		log.Debuga("svcPort == nil => blackhole cluster")
-		return util.BlackHoleCluster
-	}
-	// use subsets if it is a service
-	return model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, svc.Hostname, svcPort)
+	return model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, model.Hostname(destination.Host), port)
 }
 
 // TranslateRoutes creates virtual host routes from the v1alpha3 config.
