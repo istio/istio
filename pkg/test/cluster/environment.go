@@ -17,9 +17,10 @@ package cluster
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/environment"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+
+	"istio.io/istio/pkg/test/environment"
 )
 
 // Environment a cluster-based environment for testing. It implements environment.Interface, and also
@@ -33,6 +34,10 @@ type Environment struct {
 
 var _ environment.Interface = &Environment{}
 var _ Internal = &Environment{}
+
+func (e *Environment) DoFoo() {
+	// TODO: Remove. Dummy method.
+}
 
 // NewEnvironment returns a new instance of cluster environment.
 func NewEnvironment(kubeConfigPath string) (*Environment, error) {

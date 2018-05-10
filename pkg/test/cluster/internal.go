@@ -18,4 +18,6 @@ package cluster
 // test framework *only*. It should never be used directly in a test, or a test utility that resides with the
 // tests themselves.
 type Internal interface {
+	// DoFoo is a dummy method to distinguish between clusters.
+	DoFoo()
 }

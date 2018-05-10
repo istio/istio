@@ -22,14 +22,14 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"istio.io/istio/pkg/test/cluster"
-	"istio.io/istio/pkg/test/local"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/test/cluster"
 	"istio.io/istio/pkg/test/dependency"
 	"istio.io/istio/pkg/test/environment"
 	"istio.io/istio/pkg/test/internal"
 	"istio.io/istio/pkg/test/label"
+	"istio.io/istio/pkg/test/local"
 )
 
 const (

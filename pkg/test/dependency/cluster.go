@@ -15,9 +15,9 @@
 package dependency
 
 import (
-	"istio.io/istio/pkg/test/environment"
 	"k8s.io/client-go/rest"
 
+	"istio.io/istio/pkg/test/environment"
 	"istio.io/istio/pkg/test/internal"
 )
 
