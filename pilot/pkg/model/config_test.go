@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
@@ -177,42 +178,82 @@ func TestServiceKey(t *testing.T) {
 func TestSubsetKey(t *testing.T) {
 	hostname := model.Hostname("hostname")
 	cases := []struct {
-		hostname model.Hostname
-		subset   string
-		port     *model.Port
-		want     string
+		gotOverride string
+		hostname    model.Hostname
+		subset      string
+		port        *model.Port
+		want        string
+		err         error
+		inbound     bool
 	}{
 		{
 			hostname: "hostname",
 			subset:   "subset",
 			port:     &model.Port{Name: "http", Port: 80, Protocol: model.ProtocolHTTP},
-			want:     "outbound|http|subset|hostname",
+			want:     "_http._subset.hostname",
 		},
 		{
 			hostname: "hostname",
 			subset:   "subset",
 			port:     &model.Port{Port: 80, Protocol: model.ProtocolHTTP},
-			want:     "outbound||subset|hostname",
+			want:     "_80._subset.hostname",
 		},
 		{
 			hostname: "hostname",
 			subset:   "",
 			port:     &model.Port{Name: "http", Port: 80, Protocol: model.ProtocolHTTP},
-			want:     "outbound|http||hostname",
+			want:     "_http._.hostname",
+		},
+		{
+			hostname: "hostname",
+			subset:   "",
+			port:     &model.Port{Name: "http", Port: 80, Protocol: model.ProtocolHTTP},
+			want:     "in._http._.hostname",
+			inbound:  true,
+		},
+		{
+			want:        "badClusterKey",
+			subset:      "",
+			port:        &model.Port{Name: "dontcare", Port: 80, Protocol: model.ProtocolHTTP},
+			gotOverride: "badClusterKey",
+			err:         fmt.Errorf("malformed cluster-key"),
 		},
 	}
 
 	for _, c := range cases {
-		got := model.BuildSubsetKey(model.TrafficDirectionOutbound, c.subset, hostname, c.port)
-		if got != c.want {
-			t.Errorf("Failed: got %q want %q", got, c.want)
-		}
+		t.Run(c.want, func(t *testing.T) {
+			var got string
+			var td model.TrafficDirection
+			if c.gotOverride != "" {
+				got = c.gotOverride
+			} else {
+				td = model.TrafficDirectionOutbound
+				if c.inbound {
+					td = model.TrafficDirectionInbound
+				}
+				got = model.BuildSubsetKey(td, c.subset, hostname, c.port)
+				if got != c.want {
+					t.Errorf("Failed: got %q want %q", got, c.want)
+				}
+			}
+			// test parse subset key. ParseSubsetKey is the inverse of BuildSubsetKey
+			gotTd, s, h, p, err := model.ParseSubsetKey(got)
 
-		// test parse subset key. ParseSubsetKey is the inverse of BuildSubsetKey
-		_, s, h, p := model.ParseSubsetKey(got)
-		if s != c.subset || h != c.hostname || p.Name != c.port.Name {
-			t.Errorf("Failed: got %s,%s,%s want %s,%s,%s", s, h, p.Name, c.subset, c.hostname, c.port.Name)
-		}
+			if got, want := c.err != nil, err != nil; got != want {
+				t.Fatalf("\n got: %v\nwant: %v", got, want)
+			}
+
+			if c.err != nil {
+				if !strings.Contains(err.Error(), c.err.Error()) {
+					t.Fatalf("\n got: %v\nwant: %v", err, c.err)
+				}
+				return
+			}
+
+			if s != c.subset || h != c.hostname || (c.port.Name != "" && (p.Name != c.port.Name)) || gotTd != td {
+				t.Errorf("Failed: got %s,%s,%s,%s want %s,%s,%s,%s", td, p.Name, s, h, gotTd, c.port.Name, c.subset, c.hostname)
+			}
+		})
 	}
 }
 

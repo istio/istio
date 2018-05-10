@@ -26,6 +26,7 @@ import (
 	"bytes"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	authn "istio.io/api/authentication/v1alpha1"
@@ -609,19 +610,54 @@ func ParseServiceKey(s string) (hostname Hostname, ports PortList, labels Labels
 	return
 }
 
+// InboundPrefix is the cluster name prefix for inbound clusters
+const InboundPrefix = "in."
+
 // BuildSubsetKey generates a unique string referencing service instances for a given service name, a subset and a port.
 // The proxy queries Pilot with this key to obtain the list of instances in a subset.
+// Inbound cluster names: in._{portName}._{subsetName}.hostname
+// Outbound is the default direction for clusters so it is elided from the clustername
+// Outbound: _{portName}._{subsetName}.hostname
+// If portName is not specified it is the same as the port Number
 func BuildSubsetKey(direction TrafficDirection, subsetName string, hostname Hostname, port *Port) string {
-	return fmt.Sprintf("%s|%s|%s|%s", direction, port.Name, subsetName, hostname)
+	portName := port.Name
+	if portName == "" {
+		portName = strconv.FormatInt(int64(port.Port), 10)
+	}
+
+	key := fmt.Sprintf("_%s._%s.%s", portName, subsetName, hostname)
+	if direction == TrafficDirectionOutbound {
+		return key
+	}
+
+	return InboundPrefix + key
 }
 
 // ParseSubsetKey is the inverse of the BuildSubsetKey method
-func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, hostname Hostname, port *Port) {
-	parts := strings.Split(s, "|")
-	direction = TrafficDirection(parts[0])
-	port = &Port{Name: parts[1]}
-	subsetName = parts[2]
-	hostname = Hostname(parts[3])
+func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, hostname Hostname, port *Port, err error) {
+	direction = TrafficDirectionOutbound
+	if strings.HasPrefix(s, InboundPrefix) {
+		direction = TrafficDirectionInbound
+		s = s[len(InboundPrefix):]
+	}
+
+	parts := strings.SplitN(s, ".", 3)
+
+	if len(parts) != 3 || !strings.HasPrefix(parts[0], "_") || !strings.HasPrefix(parts[1], "_") {
+		return "", "", "", nil,
+			fmt.Errorf("malformed cluster-key %s, want form: {in.|''}_{portName}._{subsetName}.{hostname}", s)
+	}
+
+	// chop leading `_`
+	portName := parts[0][1:]
+	port = &Port{Name: portName}
+	if pi, err := strconv.ParseInt(portName, 10, 64); err == nil {
+		port.Port = int(pi)
+	}
+
+	// chop leading `_`
+	subsetName = parts[1][1:]
+	hostname = Hostname(parts[2])
 	return
 }
 

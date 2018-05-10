@@ -156,11 +156,16 @@ func updateCluster(clusterName string, edsCluster *EdsCluster) error {
 	var portName string
 
 	// This is a gross hack but Costin will insist on supporting everything from ancient Greece
-	if strings.Index(clusterName, "outbound") == 0 ||
-		strings.Index(clusterName, "inbound") == 0 { //new style cluster names
+	// v2 names start with _{portName} or in.
+	if strings.HasPrefix(clusterName, model.InboundPrefix) ||
+		strings.HasPrefix(clusterName, "_") {
 		var p *model.Port
 		var subsetName string
-		_, subsetName, hostname, p = model.ParseSubsetKey(clusterName)
+		var err error
+		_, subsetName, hostname, p, err = model.ParseSubsetKey(clusterName)
+		if err != nil {
+			return err
+		}
 		ports = []*model.Port{p}
 		portName = p.Name
 		labels = edsCluster.discovery.env.IstioConfigStore.SubsetToLabels(subsetName, hostname)
