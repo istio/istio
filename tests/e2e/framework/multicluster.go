@@ -66,7 +66,7 @@ func (k *KubeInfo) getEndpointIPForService(svc string) (ip string, err error) {
 		}
 	}
 
-	if err == nil {
+	if err == nil && eps != nil {
 		if len(eps.Subsets[0].Addresses) != 0 {
 			ip = eps.Subsets[0].Addresses[0].IP
 		} else if len(eps.Subsets[0].NotReadyAddresses) != 0 {

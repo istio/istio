@@ -429,7 +429,7 @@ func (a *accessLogs) checkLogs(t *testing.T) {
 func (a *accessLogs) getAppPods(t *testing.T, app string) map[string][]string {
 	pods := make(map[string][]string)
 	if app == ingressAppName {
-		// Ingress is uses the "istio" label, not an "app" label.
+		// Ingress uses the "istio" label, not an "app" label.
 		ingressPods, err := util.GetIngressPodNames(tc.Kube.Namespace, tc.Kube.KubeConfig)
 		if err != nil {
 			t.Fatal(err)
