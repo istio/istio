@@ -196,3 +196,58 @@ message RoleRef {
   // object.
   string name = 2;
 }
+
+// RbacConfig defines the global config to control Istio RBAC behavior.
+// This Custom Resource is a singleton where only one Custom Resource should be created globally in
+// the mesh and the namespace should be the same to other Istio components, which usually is istio-system.
+// Note: This is enforced in both istioctl and server side, new Custom Resource will be rejected if found any
+// existing one, the user should either delete the existing one or change the existing one directly.
+//
+// Below is an example of RbacConfig object "istio-rbac-config" which enables Istio RBAC for all
+// services in the default namespace.
+//
+//     apiVersion: "config.istio.io/v1alpha1"
+//     kind: RbacConfig
+//     metadata:
+//       name: istio-rbac-config
+//       namespace: istio-system
+//     spec:
+//       mode: ON_WITH_INCLUSION
+//       inclusion:
+//         namespaces: [ "default" ]
+//
+message RbacConfig {
+  enum Mode {
+    // Disable Istio RBAC completely, any other config in RbacConfig will be ignored and Istio RBAC policies
+    // will not be enforced.
+    OFF = 0;
+    // Enable Istio RBAC for all services and namespaces.
+    ON = 1;
+    // Enable Istio RBAC only for services and namespaces specified in the inclusion field. Any other
+    // services and namespaces not in the inclusion field will not be enforced by Istio RBAC policies.
+    ON_WITH_INCLUSION = 2;
+    // Enable Istio RBAC for all services and namespaces except those specified in the exclusion field. Any other
+    // services and namespaces not in the exclusion field will be enforced by Istio RBAC policies.
+    ON_WITH_EXCLUSION = 3;
+  }
+
+  // Istio RBAC mode.
+  Mode mode = 1;
+
+  // Target defines a list of services or namespaces.
+  message Target {
+    // A list of services.
+    repeated string services = 1;
+
+    // A list of namespaces.
+    repeated string namespaces = 2;
+  }
+
+  // A list of services or namespaces that should be enforced by Istio RBAC policies. Note: This field have
+  // effect only when mode is ON_WITH_INCLUSION and will be ignored for any other modes.
+  Target inclusion = 2;
+
+  // A list of services or namespaces that should not be enforced by Istio RBAC policies. Note: This field have
+  // effect only when mode is ON_WITH_EXCLUSION and will be ignored for any other modes.
+  Target exclusion = 3;
+}

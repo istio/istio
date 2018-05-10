@@ -3,7 +3,7 @@ title: RBAC
 overview: Configuration for Role Based Access Control
 location: https://istio.io/docs/reference/config/istio.rbac.v1alpha1.html
 layout: protoc-gen-docs
-number_of_entries: 6
+number_of_entries: 9
 ---
 <p>Istio RBAC (Role Based Access Control) defines ServiceRole and ServiceRoleBinding
 objects.</p>
@@ -184,6 +184,142 @@ Exact match, prefix match, and suffix match are supported for constraint values.
 For example, the value &ldquo;v1alpha2&rdquo; matches
 &ldquo;v1alpha2&rdquo; (exact match), or &ldquo;v1<em>&rdquo; (prefix match),
 or &ldquo;</em>alpha2&rdquo; (suffix match).</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="RbacConfig">RbacConfig</h2>
+<section>
+<p>RbacConfig defines the global config to control Istio RBAC behavior.
+This Custom Resource is a singleton where only one Custom Resource should be created globally in
+the mesh and the namespace should be the same to other Istio components, which usually is istio-system.
+Note: This is enforced in both istioctl and server side, new Custom Resource will be rejected if found any
+existing one, the user should either delete the existing one or change the existing one directly.</p>
+
+<p>Below is an example of RbacConfig object &ldquo;istio-rbac-config&rdquo; which enables Istio RBAC for all
+services in the default namespace.</p>
+
+<pre><code>apiVersion: &quot;config.istio.io/v1alpha1&quot;
+kind: RbacConfig
+metadata:
+  name: istio-rbac-config
+  namespace: istio-system
+spec:
+  mode: ON_WITH_INCLUSION
+  inclusion:
+    namespaces: [ &quot;default&quot; ]
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="RbacConfig.mode">
+<td><code>mode</code></td>
+<td><code><a href="#RbacConfig.Mode">RbacConfig.Mode</a></code></td>
+<td>
+<p>Istio RBAC mode.</p>
+
+</td>
+</tr>
+<tr id="RbacConfig.inclusion">
+<td><code>inclusion</code></td>
+<td><code><a href="#RbacConfig.Target">RbacConfig.Target</a></code></td>
+<td>
+<p>A list of services or namespaces that should be enforced by Istio RBAC policies. Note: This field have
+effect only when mode is ON<em>WITH</em>INCLUSION and will be ignored for any other modes.</p>
+
+</td>
+</tr>
+<tr id="RbacConfig.exclusion">
+<td><code>exclusion</code></td>
+<td><code><a href="#RbacConfig.Target">RbacConfig.Target</a></code></td>
+<td>
+<p>A list of services or namespaces that should not be enforced by Istio RBAC policies. Note: This field have
+effect only when mode is ON<em>WITH</em>EXCLUSION and will be ignored for any other modes.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="RbacConfig.Mode">RbacConfig.Mode</h2>
+<section>
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="RbacConfig.Mode.OFF">
+<td><code>OFF</code></td>
+<td>
+<p>Disable Istio RBAC completely, any other config in RbacConfig will be ignored and Istio RBAC policies
+will not be enforced.</p>
+
+</td>
+</tr>
+<tr id="RbacConfig.Mode.ON">
+<td><code>ON</code></td>
+<td>
+<p>Enable Istio RBAC for all services and namespaces.</p>
+
+</td>
+</tr>
+<tr id="RbacConfig.Mode.ON_WITH_INCLUSION">
+<td><code>ON_WITH_INCLUSION</code></td>
+<td>
+<p>Enable Istio RBAC only for services and namespaces specified in the inclusion field. Any other
+services and namespaces not in the inclusion field will not be enforced by Istio RBAC policies.</p>
+
+</td>
+</tr>
+<tr id="RbacConfig.Mode.ON_WITH_EXCLUSION">
+<td><code>ON_WITH_EXCLUSION</code></td>
+<td>
+<p>Enable Istio RBAC for all services and namespaces except those specified in the exclusion field. Any other
+services and namespaces not in the exclusion field will be enforced by Istio RBAC policies.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="RbacConfig.Target">RbacConfig.Target</h2>
+<section>
+<p>Target defines a list of services or namespaces.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="RbacConfig.Target.services">
+<td><code>services</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>A list of services.</p>
+
+</td>
+</tr>
+<tr id="RbacConfig.Target.namespaces">
+<td><code>namespaces</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>A list of namespaces.</p>
 
 </td>
 </tr>

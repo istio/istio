@@ -49,13 +49,19 @@ const (
 	mcRemoteInstallFile              = "istio-remote.yaml"
 	istioSystem                      = "istio-system"
 	istioIngressServiceName          = "istio-ingress"
+	istioIngressLabel                = "ingress"
 	istioIngressGatewayServiceName   = "istio-ingressgateway"
+	istioIngressGatewayLabel         = "ingressgateway"
 	istioEgressGatewayServiceName    = "istio-egressgateway"
 	defaultSidecarInjectorFile       = "istio-sidecar-injector.yaml"
 	ingressCertsName                 = "istio-ingress-certs"
 	defaultGalleyConfigValidatorFile = "istio-galley-config-validator.yaml"
 	maxDeploymentRolloutTime         = 480 * time.Second
 	mtlsExcludedServicesPattern      = "mtlsExcludedServices:\\s*\\[(.*)\\]"
+	caCertFileName                   = "samples/certs/ca-cert.pem"
+	caKeyFileName                    = "samples/certs/ca-key.pem"
+	rootCertFileName                 = "samples/certs/root-cert.pem"
+	certChainFileName                = "samples/certs/cert-chain.pem"
 )
 
 var (
@@ -97,6 +103,10 @@ type KubeInfo struct {
 	inglock    sync.Mutex
 	ingress    string
 	ingressErr error
+
+	ingressGatewayLock sync.Mutex
+	ingressGateway     string
+	ingressGatewayErr  error
 
 	localCluster     bool
 	namespaceCreated bool
@@ -304,26 +314,47 @@ func (k *KubeInfo) IngressOrFail(t *testing.T) string {
 
 // Ingress lazily initialize ingress
 func (k *KubeInfo) Ingress() (string, error) {
-	k.inglock.Lock()
-	defer k.inglock.Unlock()
+	return k.doGetIngress(istioIngressServiceName, istioIngressLabel, &k.inglock, &k.ingress, &k.ingressErr)
+}
+
+// IngressGatewayOrFail lazily initialize ingress gateway and fail test if not found.
+func (k *KubeInfo) IngressGatewayOrFail(t *testing.T) string {
+	gw, err := k.IngressGateway()
+	if err != nil {
+		t.Fatalf("Unable to get ingress: %v", err)
+	}
+	return gw
+}
+
+// IngressGateway lazily initialize Ingress Gateway
+func (k *KubeInfo) IngressGateway() (string, error) {
+	return k.doGetIngress(istioIngressGatewayServiceName, istioIngressGatewayLabel,
+		&k.ingressGatewayLock, &k.ingressGateway, &k.ingressGatewayErr)
+}
+
+func (k *KubeInfo) doGetIngress(serviceName string, podLabel string, lock sync.Locker,
+	ingress *string, ingressErr *error) (string, error) {
+	lock.Lock()
+	defer lock.Unlock()
 
 	// Previously fetched ingress or failed.
-	if k.ingressErr != nil || len(k.ingress) != 0 {
-		return k.ingress, k.ingressErr
+	if *ingressErr != nil || len(*ingress) != 0 {
+		return *ingress, *ingressErr
 	}
-
 	if k.localCluster {
-		k.ingress, k.ingressErr = util.GetIngressPod(k.Namespace, k.KubeConfig)
+		*ingress, *ingressErr = util.GetIngress(serviceName, podLabel,
+			k.Namespace, k.KubeConfig, util.NodePortServiceType)
 	} else {
-		k.ingress, k.ingressErr = util.GetIngress(k.Namespace, k.KubeConfig)
+		*ingress, *ingressErr = util.GetIngress(serviceName, podLabel,
+			k.Namespace, k.KubeConfig, util.LoadBalancerServiceType)
 	}
 
 	// So far we only do http ingress
-	if len(k.ingress) > 0 {
-		k.ingress = "http://" + k.ingress
+	if len(*ingress) > 0 {
+		*ingress = "http://" + *ingress
 	}
 
-	return k.ingress, k.ingressErr
+	return *ingress, *ingressErr
 }
 
 // Teardown clean up everything created by setup
@@ -537,6 +568,11 @@ func (k *KubeInfo) deployIstio() error {
 		return err
 	}
 
+	if *multiClusterDir != "" {
+		if err := k.createCacerts(false); err != nil {
+			log.Infof("Failed to create Cacerts with namespace %s in primary cluster", k.Namespace)
+		}
+	}
 	if err := util.KubeApply(k.Namespace, testIstioYaml, k.KubeConfig); err != nil {
 		log.Errorf("Istio core %s deployment failed", testIstioYaml)
 		return err
@@ -552,6 +588,10 @@ func (k *KubeInfo) deployIstio() error {
 		if err := util.CreateMultiClusterSecrets(k.Namespace, k.KubeClient, k.RemoteKubeConfig); err != nil {
 			log.Errorf("Unable to create secrets on local cluster %s", err.Error())
 			return err
+		}
+
+		if err := k.createCacerts(true); err != nil {
+			log.Infof("Failed to create Cacerts with namespace %s in remote cluster", k.Namespace)
 		}
 
 		yamlDir := filepath.Join(istioInstallDir, mcRemoteInstallFile)
@@ -736,7 +776,8 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 	}
 
 	if *localCluster {
-		content = []byte(strings.Replace(string(content), "LoadBalancer", "NodePort", 1))
+		content = []byte(strings.Replace(string(content), util.LoadBalancerServiceType,
+			util.NodePortServiceType, 1))
 	}
 
 	err = ioutil.WriteFile(dst, content, 0600)

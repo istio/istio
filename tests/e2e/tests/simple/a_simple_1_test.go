@@ -202,8 +202,10 @@ func TestAuthWithHeaders(t *testing.T) {
 		t.Fatalf("Unexpected to get %d pods when expecting 1. got %v", len(podList), podList)
 	}
 	podNoIstio := podList[0]
-	// Get the istio pod without extra unique port
-	podList, err = getPodIPList(ns, "app=echosrv,extrap=no")
+	// Get the istio pod without extra unique port. We can't use the service name or cluster ip as
+	// that vip only exists for declared host:port and the exploit relies on not having a listener
+	// for that port.
+	podList, err = getPodIPList(ns, "app=echosrv,extrap=non")
 	if err != nil {
 		t.Fatalf("kubectl failure to get deployment1 pod %v", err)
 	}
@@ -213,7 +215,8 @@ func TestAuthWithHeaders(t *testing.T) {
 	podIstioIP := podList[0]
 	log.Infof("From client, non istio injected pod \"%s\" to istio pod \"%s\"", podNoIstio, podIstioIP)
 	// TODO: ipv6 fix
-	res, err := util.Shell("kubectl exec -n %s %s -- /usr/local/bin/fortio curl -H Host:echosrv2.%s:8088 http://%s:8088/debug", ns, podNoIstio, ns, podIstioIP)
+	res, err := util.Shell("kubectl exec -n %s %s -- /usr/local/bin/fortio curl -H Host:echosrv-extrap.%s:8088 http://%s:8088/debug",
+		ns, podNoIstio, ns, podIstioIP)
 	if tc.Kube.AuthEnabled {
 		if err == nil {
 			t.Errorf("Running with auth on yet able to connect from non istio to istio (insecure): %v", res)

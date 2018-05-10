@@ -15,10 +15,13 @@
 package model
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	authn "istio.io/api/authentication/v1alpha1"
@@ -33,7 +36,7 @@ const (
 	openIDDiscoveryCfgURLSuffix = "/.well-known/openid-configuration"
 
 	// OpenID Discovery web request timeout.
-	openIDDiscoveryHTTPTimeOutInSec = 5
+	jwksHTTPTimeOutInSec = 5
 
 	// JwksURI Cache expiration time duration, individual cached JwksURI item will be removed
 	// from cache after its duration expires.
@@ -42,20 +45,82 @@ const (
 	// JwksURI Cache eviction time duration, cache eviction is done on a periodic basis,
 	// jwksURICacheEviction specifies the frequency at which eviction activities take place.
 	jwksURICacheEviction = time.Minute * 30
+
+	// JwtPubKeyExpireDuration is the expire duration for JWT public key in the cache.
+	// After this duration expire, refresher job will fetch key for the cached item again.
+	JwtPubKeyExpireDuration = time.Hour
+
+	// JwtPubKeyEvictionDuration is the life duration for cached item.
+	// Cached item will be removed from the cache if it hasn't been used longer than JwtPubKeyEvictionDuration.
+	JwtPubKeyEvictionDuration = 24 * 7 * time.Hour
+
+	// JwtPubKeyRefreshInterval is the running interval of JWT pubKey refresh job.
+	JwtPubKeyRefreshInterval = time.Minute * 20
 )
 
-// jwksURIResolver is wrapper of expiringCache for jwksUri.
-type jwksURIResolver struct {
-	cache cache.ExpiringCache
+// jwtPubKeyEntry is a single cached entry for jwt public key.
+type jwtPubKeyEntry struct {
+	pubKey string
+
+	// Cached item will be fetched again by refresher job if (time.now >= expireTime).
+	expireTime time.Time
+
+	// Cached item's last used time, which is set in GetPublicKey.
+	lastUsedTime time.Time
 }
 
-// newJwksURIResolver creates new instance of jwksURIResolver.
-func newJwksURIResolver() jwksURIResolver {
-	return jwksURIResolver{cache.NewTTL(jwksURICacheExpiration, jwksURICacheEviction)}
+// jwksResolver is resolver for jwksURI and jwt public key.
+type jwksResolver struct {
+	// cache for jwksURI.
+	JwksURICache cache.ExpiringCache
+
+	// cache for JWT public key.
+	// map key is jwksURI, map value is jwtPubKeyEntry.
+	keyEntries sync.Map
+
+	client        *http.Client
+	closing       chan bool
+	refreshTicker *time.Ticker
+
+	expireDuration time.Duration
+
+	// Cached key will be removed from cache if (time.now - cachedItem.lastUsedTime >= evictionDuration), this prevents key cache growing indefinitely.
+	evictionDuration time.Duration
+
+	// Refresher job running interval.
+	refreshInterval time.Duration
+
+	// How may times refresh job has detected JWT public key change happened, used in unit test.
+	keyChangedCount uint64
+}
+
+// newJwksResolver creates new instance of jwksResolver.
+func newJwksResolver(expireDuration, evictionDuration, refreshInterval time.Duration) *jwksResolver {
+	ret := &jwksResolver{
+		JwksURICache:     cache.NewTTL(jwksURICacheExpiration, jwksURICacheEviction),
+		closing:          make(chan bool, 1),
+		expireDuration:   expireDuration,
+		evictionDuration: evictionDuration,
+		refreshInterval:  refreshInterval,
+		client: &http.Client{
+			Timeout: jwksHTTPTimeOutInSec * time.Second,
+
+			// TODO: pilot needs to include a collection of root CAs to make external
+			// https web request(https://github.com/istio/istio/issues/1419).
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			},
+		},
+	}
+
+	atomic.StoreUint64(&ret.keyChangedCount, 0)
+	go ret.refresher()
+
+	return ret
 }
 
 // Set jwks_uri through openID discovery if it's not set in auth policy.
-func (r *jwksURIResolver) SetAuthenticationPolicyJwksURIs(policy *authn.Policy) error {
+func (r *jwksResolver) SetAuthenticationPolicyJwksURIs(policy *authn.Policy) error {
 	if policy == nil {
 		return fmt.Errorf("invalid nil policy")
 	}
@@ -90,31 +155,49 @@ func (r *jwksURIResolver) SetAuthenticationPolicyJwksURIs(policy *authn.Policy) 
 	return nil
 }
 
-// Resolve jwks_uri through openID discovery and cache the jwks_uri for furture use.
-func (r *jwksURIResolver) resolveJwksURIUsingOpenID(issuer string) (string, error) {
+// GetPublicKey gets JWT public key and cache the key for future use.
+func (r *jwksResolver) GetPublicKey(jwksURI string) (string, error) {
+	now := time.Now()
+	if val, found := r.keyEntries.Load(jwksURI); found {
+		e := val.(jwtPubKeyEntry)
+
+		// Return from cache if it's not expired.
+		if e.expireTime.After(now) {
+			// Update cached key's last used time.
+			e.lastUsedTime = now
+			r.keyEntries.Store(jwksURI, e)
+			return e.pubKey, nil
+		}
+	}
+
+	// Fetch key if it's not cached, or cached item is expired.
+	resp, err := r.getRemoteContent(jwksURI)
+	if err != nil {
+		return "", err
+	}
+
+	pubKey := string(resp)
+	r.keyEntries.Store(jwksURI, jwtPubKeyEntry{
+		pubKey:       pubKey,
+		expireTime:   now.Add(r.expireDuration),
+		lastUsedTime: now,
+	})
+
+	return pubKey, nil
+}
+
+// Resolve jwks_uri through openID discovery and cache the jwks_uri for future use.
+func (r *jwksResolver) resolveJwksURIUsingOpenID(issuer string) (string, error) {
 	// Set policyJwt.JwksUri if the JwksUri could be found in cache.
-	if uri, found := r.cache.Get(issuer); found {
+	if uri, found := r.JwksURICache.Get(issuer); found {
 		return uri.(string), nil
 	}
 
 	// Try to get jwks_uri through OpenID Discovery.
-	discoveryURL := issuer + openIDDiscoveryCfgURLSuffix
-	client := &http.Client{
-		Timeout: openIDDiscoveryHTTPTimeOutInSec * time.Second,
-	}
-	resp, err := client.Get(discoveryURL)
+	body, err := r.getRemoteContent(issuer + openIDDiscoveryCfgURLSuffix)
 	if err != nil {
 		return "", err
 	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-
 	var data map[string]interface{}
 	if err := json.Unmarshal(body, &data); err != nil {
 		return "", err
@@ -126,7 +209,107 @@ func (r *jwksURIResolver) resolveJwksURIUsingOpenID(issuer string) (string, erro
 	}
 
 	// Set JwksUri in cache.
-	r.cache.Set(issuer, jwksURI)
+	r.JwksURICache.Set(issuer, jwksURI)
 
 	return jwksURI, nil
+}
+
+func (r *jwksResolver) getRemoteContent(url string) ([]byte, error) {
+	resp, err := r.client.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("unsuccessful response from %q", url)
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return body, nil
+}
+
+func (r *jwksResolver) refresher() {
+	// Wake up once in a while and refresh stale items.
+	r.refreshTicker = time.NewTicker(r.refreshInterval)
+	for {
+		select {
+		case now := <-r.refreshTicker.C:
+			r.refresh(now)
+		case <-r.closing:
+			r.refreshTicker.Stop()
+			return
+		}
+	}
+}
+
+func (r *jwksResolver) refresh(t time.Time) {
+	var wg sync.WaitGroup
+	hasChange := false
+
+	r.keyEntries.Range(func(key interface{}, value interface{}) bool {
+		now := time.Now()
+		jwksURI := key.(string)
+		e := value.(jwtPubKeyEntry)
+
+		// Remove cached item if it hasn't been used for a while.
+		if now.Sub(e.lastUsedTime) >= r.evictionDuration {
+			r.keyEntries.Delete(jwksURI)
+			return true
+		}
+
+		oldPubKey := e.pubKey
+
+		// key rotation: fetch JWT public key again if it's expired.
+		if e.expireTime.Before(t) {
+			// Increment the WaitGroup counter.
+			wg.Add(1)
+
+			go func() {
+				// Decrement the counter when the goroutine completes.
+				defer wg.Done()
+
+				resp, err := r.getRemoteContent(jwksURI)
+				if err != nil {
+					log.Errorf("Cannot fetch JWT public key from %q", jwksURI)
+					r.keyEntries.Delete(jwksURI)
+					return
+				}
+				newPubKey := string(resp)
+
+				r.keyEntries.Store(jwksURI, jwtPubKeyEntry{
+					pubKey:       newPubKey,
+					expireTime:   now.Add(r.expireDuration), // Update expireTime even if prev/current keys are the same.
+					lastUsedTime: e.lastUsedTime,            // keep original lastUsedTime.
+				})
+
+				if oldPubKey != newPubKey {
+					hasChange = true
+				}
+			}()
+		}
+
+		return true
+	})
+
+	// Wait for all go routine to complete.
+	wg.Wait()
+
+	if hasChange {
+		atomic.AddUint64(&r.keyChangedCount, 1)
+		// TODO(quanlin): send notification to update config and push config to sidecar.
+	}
+}
+
+// Shut down the refresher job.
+// TODO: may need to figure out the right place to call this function.
+// (right now calls it from initDiscoveryService in pkg/bootstrap/server.go).
+func (r *jwksResolver) Close() {
+	r.closing <- true
 }

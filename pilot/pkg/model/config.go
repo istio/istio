@@ -246,8 +246,8 @@ type IstioConfigStore interface {
 	// EgressRules lists all egress rules
 	EgressRules() []Config
 
-	// ExternalServices lists all external services
-	ExternalServices() []Config
+	// ServiceEntries lists all service entries
+	ServiceEntries() []Config
 
 	// RouteRules selects routing rules by source service instances and
 	// destination service.  A rule must match at least one of the input service
@@ -400,15 +400,15 @@ var (
 		Validate:    ValidateEgressRule,
 	}
 
-	// ExternalService describes external services
-	ExternalService = ProtoSchema{
-		Type:        "external-service",
-		Plural:      "external-services",
+	// ServiceEntry describes service entries
+	ServiceEntry = ProtoSchema{
+		Type:        "service-entry",
+		Plural:      "service-entries",
 		Group:       "networking",
 		Version:     "v1alpha3",
-		MessageName: "istio.networking.v1alpha3.ExternalService",
+		MessageName: "istio.networking.v1alpha3.ServiceEntry",
 		Gogo:        true,
-		Validate:    ValidateExternalService,
+		Validate:    ValidateServiceEntry,
 	}
 
 	// DestinationPolicy describes destination rules
@@ -508,7 +508,7 @@ var (
 		IngressRule,
 		Gateway,
 		EgressRule,
-		ExternalService,
+		ServiceEntry,
 		DestinationPolicy,
 		DestinationRule,
 		HTTPAPISpec,
@@ -675,8 +675,8 @@ func (store *istioConfigStore) EgressRules() []Config {
 	return configs
 }
 
-func (store *istioConfigStore) ExternalServices() []Config {
-	configs, err := store.List(ExternalService.Type, NamespaceAll)
+func (store *istioConfigStore) ServiceEntries() []Config {
+	configs, err := store.List(ServiceEntry.Type, NamespaceAll)
 	if err != nil {
 		return nil
 	}
