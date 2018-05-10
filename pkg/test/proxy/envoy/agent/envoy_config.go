@@ -26,7 +26,7 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-var (
+const (
 	envoyConfigTemplateStr = `
 {{- $serviceName := .ServiceName -}}
 admin:
@@ -78,7 +78,9 @@ static_resources:
             config: {}
   {{ end -}}
 `
+)
 
+var (
 	// The Template object parsed from the template string
 	envoyConfigTemplate = getEnvoyConfigTemplate()
 )
