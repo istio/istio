@@ -1,0 +1,78 @@
+{{ if not .Values.tracing.sampled }}
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: prometheus-nginx
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: prometheus-nginx
+    spec:
+{{- if .Values.global.rbacEnabled }}
+      serviceAccountName: prometheus
+{{ end }}
+      containers:
+      - image: nginx:latest
+        name: prometheus-nginx
+        ports:
+        - name: web
+          containerPort: 9191
+          protocol: TCP
+        volumeMounts:
+        - mountPath: "/etc/nginx"
+          name: config
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
+          limits:
+            cpu: 500m
+            memory: 2500Mi
+      volumes:
+      - emptyDir: {}
+        name: data
+      - configMap:
+          name: nginx
+        name: config
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx
+data:
+  nginx.conf: |
+    http {
+      proxy_http_version 1.1;
+      map $request $targetport {
+        ~^GET\ http://.*:([^/]*)/ "$1";
+      }
+      server {
+        listen 0.0.0.0:9191;
+        location / {
+          proxy_redirect off;
+          proxy_set_header X-B3-Sampled "0";
+          proxy_pass  $scheme://$host:$targetport$request_uri;
+        }
+      }
+    }
+    events {
+    }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-nginx
+spec:
+  type: LoadBalancer
+  ports:
+  - name: web
+    nodePort: 30910
+    port: 9191
+    protocol: TCP
+    targetPort: web
+  selector:
+    app: prometheus-nginx
+{{ end }}

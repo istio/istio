@@ -357,6 +357,8 @@ prometheus:
     nodePort:
       enabled: false
       port: 32090
+  tracing:
+    sampled: true
 
 servicegraph:
   enabled: false
