@@ -228,6 +228,7 @@ func addMemberCluster(s *corev1.Secret, c *Controller) {
 			ResyncPeriod:     c.resyncInterval,
 			DomainSuffix:     c.domainSufix,
 		})
+
 		c.serviceController.AddRegistry(
 			aggregate.Registry{
 				Name:             serviceregistry.KubernetesRegistry,

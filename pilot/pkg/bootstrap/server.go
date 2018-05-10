@@ -290,14 +290,6 @@ func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 	if s.clusterStore != nil {
 		log.Infof("clusters configuration %s", spew.Sdump(s.clusterStore))
 	}
-	// Start secret controller which watches for runtime secret Object changes and adds secrets dynamically
-	err = clusterregistry.StartSecretController(s.kubeClient,
-		s.clusterStore,
-		s.ServiceController,
-		args.Config.ClusterRegistriesNamespace,
-		args.Config.ControllerOptions.ResyncPeriod,
-		args.Config.ControllerOptions.WatchedNamespace,
-		args.Config.ControllerOptions.DomainSuffix)
 
 	return err
 }
@@ -568,6 +560,16 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 				})
 		}
 	}
+
+	// Start secret controller which watches for runtime secret Object changes and adds secrets dynamically
+	err = clusterregistry.StartSecretController(s.kubeClient,
+		s.clusterStore,
+		serviceControllers,
+		args.Config.ClusterRegistriesNamespace,
+		args.Config.ControllerOptions.ResyncPeriod,
+		args.Config.ControllerOptions.WatchedNamespace,
+		args.Config.ControllerOptions.DomainSuffix)
+
 	return
 }
 
