@@ -87,6 +87,9 @@ type Args struct {
 	// Port to use for Mixer's gRPC API
 	APIPort uint16
 
+	// Address to use for Mixer's gRPC API. This setting supercedes the API port setting.
+	APIAddress string
+
 	// Port to use for exposing mixer self-monitoring information
 	MonitoringPort uint16
 
@@ -142,6 +145,7 @@ func (a *Args) String() string {
 	fmt.Fprint(buf, "APIWorkerPoolSize: ", a.APIWorkerPoolSize, "\n")
 	fmt.Fprint(buf, "AdapterWorkerPoolSize: ", a.AdapterWorkerPoolSize, "\n")
 	fmt.Fprint(buf, "APIPort: ", a.APIPort, "\n")
+	fmt.Fprint(buf, "APIAddress: ", a.APIAddress, "\n")
 	fmt.Fprint(buf, "MonitoringPort: ", a.MonitoringPort, "\n")
 	fmt.Fprint(buf, "EnableProfiling: ", a.EnableProfiling, "\n")
 	fmt.Fprint(buf, "SingleThreaded: ", a.SingleThreaded, "\n")
