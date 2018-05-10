@@ -23,7 +23,6 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/gogo/protobuf/types"
-	"github.com/prometheus/common/log"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
@@ -32,6 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
+	"istio.io/istio/pkg/log"
 )
 
 // Plugin is a mixer plugin.
@@ -198,15 +198,21 @@ func buildMixerInboundTCPFilter(env *model.Environment, node *model.Proxy, insta
 // 	return listener.Filter{}
 // }
 
+// defined in install/kubernetes/helm/istio/charts/mixer/templates/service.yaml
+const (
+	mixerPortName     = "grpc-mixer"
+	mixerMTLSPortName = "grpc-mixer-mtls"
+)
+
 // buildHTTPMixerFilterConfig builds a mixer HTTP filter config. Mixer filter uses outbound configuration by default
 // (forward attributes, but not invoke check calls)  ServiceInstances belong to the Node.
 func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, nodeInstances []*model.ServiceInstance, outboundRoute bool, config model.IstioConfigStore) *mccpb.HttpClientConfig { // nolint: lll
 	mcs, _, _ := net.SplitHostPort(mesh.MixerCheckServer)
 	mrs, _, _ := net.SplitHostPort(mesh.MixerReportServer)
 
-	pname := &model.Port{Name: "http2-mixer"}
+	pname := &model.Port{Name: mixerPortName}
 	if mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS {
-		pname = &model.Port{Name: "tcp-mtls"}
+		pname = &model.Port{Name: mixerMTLSPortName}
 	}
 
 	// TODO: derive these port types.
