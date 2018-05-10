@@ -24,10 +24,12 @@ import (
 	"github.com/google/uuid"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/test/cluster"
 	"istio.io/istio/pkg/test/dependency"
 	"istio.io/istio/pkg/test/environment"
 	"istio.io/istio/pkg/test/internal"
 	"istio.io/istio/pkg/test/label"
+	"istio.io/istio/pkg/test/local"
 )
 
 const (
@@ -41,11 +43,13 @@ type driver struct {
 
 	allowedLabels map[label.Label]struct{}
 
-	testID string
-	runID  string
-	m      *testing.M
-
+	testID  string
+	runID   string
+	m       *testing.M
+	env     environment.Interface
 	running bool
+
+	suiteDependencies []dependency.Dependency
 
 	initializedDependencies map[dependency.Dependency]interface{}
 }
@@ -82,6 +86,27 @@ func (d *driver) Initialize(a *Args) error {
 	// 	return
 	// }
 	//
+
+	d.suiteDependencies = a.SuiteDependencies
+
+	var env environment.Interface
+	var err error
+	switch a.Environment {
+	case EnvLocal:
+		env, err = local.NewEnvironment()
+
+	case EnvKubernetes:
+		env, err = cluster.NewEnvironment(a.KubeConfig)
+
+	default:
+		return fmt.Errorf("unrecognized environment: %s", a.Environment)
+	}
+
+	if err != nil {
+		return fmt.Errorf("unable to initialize environment '%s': %v", a.Environment, err)
+	}
+	d.env = env
+
 	d.testID = a.TestID
 	d.runID = generateRunID(a.TestID)
 	d.m = a.M
@@ -94,12 +119,6 @@ func (d *driver) Initialize(a *Args) error {
 			d.allowedLabels[label.Label(p)] = struct{}{}
 		}
 		scope.Debugf("Suite level labels: %s", a.Labels)
-	}
-
-	for _, dep := range a.SuiteDependencies {
-		if err := d.initializeDependency(dep); err != nil {
-			return fmt.Errorf("unable to initialize dependency '%v': %v", dep, err)
-		}
 	}
 
 	return nil
@@ -137,7 +156,14 @@ func (d *driver) Run() int {
 	if d.running {
 		d.lock.Unlock()
 		scope.Error("test driver is already running")
-		return -1
+		return -2
+	}
+
+	for _, dep := range d.suiteDependencies {
+		if err := d.initializeDependency(dep); err != nil {
+			log.Errorf("Failed initializing dependency '%s': %v", dep, err)
+			return -3
+		}
 	}
 
 	d.running = true
@@ -160,18 +186,28 @@ func (d *driver) Run() int {
 
 // GetEnvironment implements same-named Interface method.
 func (d *driver) GetEnvironment(t testing.TB) environment.Interface {
+	t.Helper()
 	scope.Debugf("Enter: driver.GetEnvironment (%s)", d.testID)
 	d.lock.Lock()
 	defer d.lock.Unlock()
-	// TODO
-	panic("Not yet implemented.")
+
+	if !d.running {
+		t.Fatalf("Test driver is not running.")
+	}
+
+	return d.env
 }
 
 // InitializeTestDependencies implements same-named Interface method.
 func (d *driver) InitializeTestDependencies(t testing.TB, dependencies []dependency.Dependency) {
+	t.Helper()
 	scope.Debugf("Enter: driver.InitializeTestDependencies (%s)", d.testID)
 	d.lock.Lock()
 	defer d.lock.Unlock()
+
+	if !d.running {
+		t.Fatalf("Test driver is not running.")
+	}
 
 	// Initialize dependencies only once.
 	for _, dep := range dependencies {
@@ -183,9 +219,14 @@ func (d *driver) InitializeTestDependencies(t testing.TB, dependencies []depende
 
 // CheckLabels implements same-named Interface method.
 func (d *driver) CheckLabels(t testing.TB, labels []label.Label) {
+	t.Helper()
 	scope.Debugf("Enter: driver.CheckLabels (%s)", d.testID)
 	d.lock.Lock()
 	defer d.lock.Unlock()
+
+	if !d.running {
+		t.Fatalf("Test driver is not running.")
+	}
 
 	skip := false
 	if len(d.allowedLabels) > 0 {
@@ -209,7 +250,7 @@ func (d *driver) doCleanup() {
 
 	for k, v := range d.initializedDependencies {
 		if s, ok := k.(internal.Stateful); ok {
-			s.Cleanup(v)
+			s.Cleanup(d.env, v)
 		}
 	}
 }
@@ -224,14 +265,14 @@ func (d *driver) initializeDependency(dep dependency.Dependency) error {
 	instance, ok := d.initializedDependencies[dep]
 	if ok {
 		// If they are already satisfied, then signal a "reset", to ensure a clean, well-known driverState.
-		if err := s.Reset(instance); err != nil {
+		if err := s.Reset(d.env, instance); err != nil {
 			return fmt.Errorf("unable to reset: %v", err)
 		}
 		return nil
 	}
 
 	var err error
-	if instance, err = s.Initialize(); err != nil {
+	if instance, err = s.Initialize(d.env); err != nil {
 		return fmt.Errorf("dependency init error: %v", err)
 	}
 
