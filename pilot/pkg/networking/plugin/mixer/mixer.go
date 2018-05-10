@@ -266,6 +266,11 @@ func buildTCPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, in
 		pname = &model.Port{Name: mixerMTLSPortName}
 	}
 
+	transport := &mccpb.TransportConfig{
+		CheckCluster:  model.BuildSubsetKey(model.TrafficDirectionOutbound, "", model.Hostname(mcs), pname),
+		ReportCluster: model.BuildSubsetKey(model.TrafficDirectionOutbound, "", model.Hostname(mrs), pname),
+	}
+
 	mxConfig := &mccpb.TcpClientConfig{
 		MixerAttributes: &mpb.Attributes{
 			Attributes: attrs,
