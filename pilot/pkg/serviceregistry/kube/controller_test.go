@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/tests/k8s"
 )
 
@@ -70,7 +71,7 @@ func TestServices(t *testing.T) {
 
 	var sds model.ServiceDiscovery = ctl
 	makeService(testService, ns, cl, t)
-	util.Eventually("successfully list services", func() bool {
+	test.Eventually(t, "successfully list services", func() bool {
 		out, clientErr := sds.Services()
 		if clientErr != nil {
 			return false
@@ -85,7 +86,7 @@ func TestServices(t *testing.T) {
 			}
 		}
 		return false
-	}, t)
+	})
 
 	svc, err := sds.GetService(hostname)
 	if err != nil {
@@ -243,7 +244,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 	svcNode.IPAddress = "128.0.0.1"
 	svcNode.ID = "pod1.nsA"
 	svcNode.Domain = "nsA.svc.cluster.local"
-	services, err := controller.GetProxyServiceInstances(svcNode)
+	services, err := controller.GetProxyServiceInstances(&svcNode)
 	if err != nil {
 		t.Errorf("client encountered error during GetProxyServiceInstances(): %v", err)
 	}
@@ -259,7 +260,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 	}
 
 	svcNode.Domain = "nsWRONG.svc.cluster.local"
-	_, err = controller.GetProxyServiceInstances(svcNode)
+	_, err = controller.GetProxyServiceInstances(&svcNode)
 	if err == nil {
 		t.Errorf("GetProxyServiceInstances() should have returned error for unknown domain.")
 	}

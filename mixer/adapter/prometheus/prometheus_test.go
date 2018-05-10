@@ -57,10 +57,18 @@ func newBuilder(s server) *builder {
 
 var (
 	gaugeNoLabels = &config.Params_MetricInfo{
+		Namespace:    "not-istio",
 		InstanceName: "/funky::gauge",
 		Description:  "funky all the time",
 		Kind:         config.GAUGE,
 		LabelNames:   []string{},
+	}
+
+	noInstanceName = &config.Params_MetricInfo{
+		Name:        "newInstance",
+		Description: "funky all the time",
+		Kind:        config.GAUGE,
+		LabelNames:  []string{},
 	}
 
 	histogramNoLabels = &config.Params_MetricInfo{
@@ -108,6 +116,13 @@ var (
 		LabelNames:   []string{"bool", "string", "email"},
 	}
 
+	counterModified = &config.Params_MetricInfo{
+		InstanceName: "special_counter",
+		Description:  "count all the special tests",
+		Kind:         config.COUNTER,
+		LabelNames:   []string{}, // removed labels from "counter"
+	}
+
 	histogram = &config.Params_MetricInfo{
 		InstanceName: "happy_histogram_the_younger",
 		Description:  "fun with buckets",
@@ -149,6 +164,17 @@ var (
 	gaugeVal = newGaugeVal(gaugeNoLabels.InstanceName, int64(993))
 )
 
+func TestGetInfo(t *testing.T) {
+	i := GetInfo()
+	if i.Name != "prometheus" {
+		t.Fatalf("GetInfo().Name=%s; want %s", i.Name, "prometheus")
+	}
+
+	if !reflect.DeepEqual(i.SupportedTemplates, []string{metric.TemplateName}) {
+		t.Fatalf("GetInfo().SupportedTemplates=%v; want %v", i.SupportedTemplates, []string{metric.TemplateName})
+	}
+}
+
 func TestBuild(t *testing.T) {
 	f := newBuilder(&testServer{})
 
@@ -158,16 +184,20 @@ func TestBuild(t *testing.T) {
 	}{
 		{"No Metrics", []*config.Params_MetricInfo{}},
 		{"One Gauge", []*config.Params_MetricInfo{gaugeNoLabels}},
+		{"No Instance Name", []*config.Params_MetricInfo{noInstanceName}},
 		{"One Counter", []*config.Params_MetricInfo{counterNoLabels}},
 		{"Distribution", []*config.Params_MetricInfo{histogramNoLabels}},
 		{"Multiple Metrics", []*config.Params_MetricInfo{counterNoLabels, gaugeNoLabels, histogramNoLabels}},
 		{"With Labels", []*config.Params_MetricInfo{counter, histogram}},
+		{"counter With Labels modified", []*config.Params_MetricInfo{counterModified}},
 		{"No Descriptions", []*config.Params_MetricInfo{counterNoLabelsNoDesc, gaugeNoLabelsNoDesc, histogramNoLabelsNoDesc}},
 	}
 
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
 			f.SetAdapterConfig(makeConfig(v.metrics...))
+			f.SetMetricTypes(nil)
+			_ = f.Validate()
 			if _, err := f.Build(context.Background(), test.NewEnv(t)); err != nil {
 				t.Errorf("NewMetricsAspect() => unexpected error: %v", err)
 			}
@@ -233,6 +263,17 @@ func TestFactory_BuildServerFail(t *testing.T) {
 	}
 }
 
+func TestRegisterOrGet(t *testing.T) {
+	f := newBuilder(&testServer{})
+	gv := newGaugeVec("test", "g1", "d1", []string{})
+	if _, err := registerOrGet(f.registry, gv); err != nil {
+		t.Fatalf("registerOrGet #1 returned error '%v'; want nil", err)
+	}
+	if _, err := registerOrGet(f.registry, gv); err != nil {
+		t.Fatalf("registerOrGet #2 returned error '%v'; want nil", err)
+	}
+}
+
 func TestBuild_MetricDefinitionErrors(t *testing.T) {
 	f := newBuilder(&testServer{})
 	tests := []struct {
@@ -255,6 +296,7 @@ func TestFactory_Build_MetricDefinitionConflicts(t *testing.T) {
 	f := newBuilder(&testServer{})
 
 	gaugeWithLabels := &config.Params_MetricInfo{
+		Namespace:    "not-istio",
 		InstanceName: "/funky::gauge",
 		Description:  "funky all the time",
 		Kind:         config.GAUGE,
@@ -317,8 +359,12 @@ func TestProm_Record(t *testing.T) {
 			[]*config.Params_MetricInfo{counterNoLabels, gaugeNoLabels},
 			[]*metric.Instance{gaugeVal, newCounterVal(counterNoLabels.InstanceName, float64(16))}},
 		{"Int64", []*config.Params_MetricInfo{gaugeNoLabels}, []*metric.Instance{newGaugeVal(gaugeVal.Name, int64(8))}},
+		{"Int64WithLabels", []*config.Params_MetricInfo{counter},
+			[]*metric.Instance{counterVal}},
 		{"Duration", []*config.Params_MetricInfo{gaugeNoLabels}, []*metric.Instance{newGaugeVal(gaugeVal.Name, duration)}},
 		{"String", []*config.Params_MetricInfo{gaugeNoLabels}, []*metric.Instance{newGaugeVal(gaugeVal.Name, "8.243543")}},
+		{"histogram int64", []*config.Params_MetricInfo{histogramNoLabels},
+			[]*metric.Instance{newHistogramVal(histogramNoLabels.InstanceName, int64(8))}},
 	}
 
 	for _, v := range tests {
@@ -382,11 +428,16 @@ func TestProm_RecordFailures(t *testing.T) {
 		metrics []*config.Params_MetricInfo
 		values  []*metric.Instance
 	}{
-		{"Not Found", []*config.Params_MetricInfo{counterNoLabels}, []*metric.Instance{newGaugeVal(gaugeVal.Name, true)}},
-		{"Bool", []*config.Params_MetricInfo{gaugeNoLabels}, []*metric.Instance{newGaugeVal(gaugeVal.Name, true)}},
-		{"Text String (Gauge)", []*config.Params_MetricInfo{gaugeNoLabels}, []*metric.Instance{newGaugeVal(gaugeVal.Name, "not a value")}},
-		{"Text String (Counter)", []*config.Params_MetricInfo{counterNoLabels}, []*metric.Instance{newCounterVal(counterVal.Name, "not a value")}},
-		{"Text String (Histogram)", []*config.Params_MetricInfo{histogramNoLabels}, []*metric.Instance{newHistogramVal(histogramVal.Name, "not a value")}},
+		{"Not Found", []*config.Params_MetricInfo{counterNoLabels},
+			[]*metric.Instance{newGaugeVal(gaugeVal.Name, true)}},
+		{"Bool", []*config.Params_MetricInfo{gaugeNoLabels},
+			[]*metric.Instance{newGaugeVal(gaugeVal.Name, true)}},
+		{"Text String (Gauge)", []*config.Params_MetricInfo{gaugeNoLabels},
+			[]*metric.Instance{newGaugeVal(gaugeVal.Name, "not a value")}},
+		{"Text String (Counter)", []*config.Params_MetricInfo{counterNoLabels},
+			[]*metric.Instance{newCounterVal(counterNoLabels.InstanceName, "not a value")}},
+		{"Text String (Histogram)", []*config.Params_MetricInfo{histogram},
+			[]*metric.Instance{newHistogramVal(histogramVal.Name, "not a value")}},
 	}
 
 	for _, v := range tests {
@@ -403,6 +454,17 @@ func TestProm_RecordFailures(t *testing.T) {
 			}
 		})
 	}
+}
+
+type marshaler struct{}
+
+func (m marshaler) Marshal() ([]byte, error) {
+	return nil, errors.New("error")
+}
+
+func TestComputeSha(t *testing.T) {
+	// just ensure we don't panic
+	_ = computeSha(marshaler{}, test.NewEnv(t).Logger())
 }
 
 func metricValue(m *dto.Metric) float64 {

@@ -1,0 +1,12 @@
+apiVersion: v1
+name: egressgateway
+version: 0.8.0
+description: Helm chart for deploying Istio egress gateway
+keywords:
+  - istio
+  - egress
+  - gateway
+sources:
+  - http://github.com/istio/istio
+engine: gotpl
+icon: https://istio.io/favicons/android-192x192.png

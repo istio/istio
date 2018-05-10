@@ -34,11 +34,14 @@ const deltaReportAttributesOkPost = `
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
   "connection.mtls": false,
+  "check.cache_hit": false,
+  "quota.cache_hit": false,
   "connection.received.bytes": 191,
   "connection.received.bytes_total": 191,
   "connection.sent.bytes": 0,
   "connection.sent.bytes_total": 0,
-  "connection.id": "*"
+  "connection.id": "*",
+  "connection.event": "continue"
 }
 `
 const finalReportAttributesOkPost = `
@@ -53,12 +56,15 @@ const finalReportAttributesOkPost = `
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
   "connection.mtls": false,
+  "check.cache_hit": false,
+  "quota.cache_hit": false,
   "connection.received.bytes": 0,
   "connection.received.bytes_total": 191,
   "connection.sent.bytes": 138,
   "connection.sent.bytes_total": 138,
   "connection.duration": "*",
-  "connection.id": "*"
+  "connection.id": "*",
+  "connection.event": "close"
 }
 `
 

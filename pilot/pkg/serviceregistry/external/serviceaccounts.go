@@ -26,7 +26,7 @@ func NewServiceAccounts() model.ServiceAccounts {
 
 // GetIstioServiceAccounts implements model.ServiceAccounts operation TODO
 func (sa *serviceAccounts) GetIstioServiceAccounts(hostname string, ports []string) []string {
-	//for external services, there is no istio auth, no service accounts, etc. It is just a
+	//for service entries, there is no istio auth, no service accounts, etc. It is just a
 	// service, with service instances, and dns.
 	return []string{}
 }

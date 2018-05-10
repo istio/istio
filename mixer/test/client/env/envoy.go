@@ -19,7 +19,10 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
+
+	"istio.io/istio/tests/util"
 )
 
 // Envoy stores data for Envoy process
@@ -28,15 +31,18 @@ type Envoy struct {
 	ports *Ports
 }
 
-// NewEnvoy creates a new Envoy struct.
-func NewEnvoy(stress, faultInject bool, mfConf *MixerFilterConf, ports *Ports, epoch int,
+// NewEnvoy creates a new Envoy struct and starts envoy.
+func (s *TestSetup) NewEnvoy(stress, faultInject bool, mfConf *MixerFilterConf, ports *Ports, epoch int,
 	confVersion string) (*Envoy, error) {
-	// Asssume test environment has copied latest envoy to $HOME/go/bin in bin/init.sh
-	envoyPath := "envoy"
-	confPath := fmt.Sprintf("/tmp/config.conf.%v", ports.AdminPort)
+	confPath := filepath.Join(util.IstioOut, fmt.Sprintf("config.conf.%v.json", ports.AdminPort))
 	log.Printf("Envoy config: in %v\n", confPath)
-	if err := CreateEnvoyConf(confPath, stress, faultInject, mfConf, ports, confVersion); err != nil {
+	if err := s.CreateEnvoyConf(confPath, stress, faultInject, mfConf, ports, confVersion); err != nil {
 		return nil, err
+	}
+
+	debugLevel := os.Getenv("ENVOY_DEBUG")
+	if len(debugLevel) == 0 {
+		debugLevel = "info"
 	}
 
 	// Don't use hot-start, each Envoy re-start use different base-id
@@ -45,10 +51,14 @@ func NewEnvoy(stress, faultInject bool, mfConf *MixerFilterConf, ports *Ports, e
 	if stress {
 		args = append(args, "--concurrency", "10")
 	} else {
-		args = append(args, "-l", "debug", "--concurrency", "1")
+		// debug is far too verbose.
+		args = append(args, "-l", debugLevel, "--concurrency", "1")
 	}
-
+	if s.EnvoyParams != nil {
+		args = append(args, s.EnvoyParams...)
+	}
 	/* #nosec */
+	envoyPath := filepath.Join(util.IstioBin, "envoy")
 	cmd := exec.Command(envoyPath, args...)
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
@@ -61,13 +71,16 @@ func NewEnvoy(stress, faultInject bool, mfConf *MixerFilterConf, ports *Ports, e
 // Start starts the envoy process
 func (s *Envoy) Start() error {
 	err := s.cmd.Start()
-	if err == nil {
-		url := fmt.Sprintf("http://localhost:%v/server_info", s.ports.AdminPort)
-		WaitForHTTPServer(url)
-		WaitForPort(s.ports.ClientProxyPort)
-		WaitForPort(s.ports.ServerProxyPort)
+	if err != nil {
+		return err
 	}
-	return err
+
+	url := fmt.Sprintf("http://localhost:%v/server_info", s.ports.AdminPort)
+	WaitForHTTPServer(url)
+	WaitForPort(s.ports.ClientProxyPort)
+	WaitForPort(s.ports.ServerProxyPort)
+
+	return nil
 }
 
 // Stop stops the envoy process

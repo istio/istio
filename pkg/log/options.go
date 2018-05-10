@@ -16,11 +16,14 @@ package log
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
 
 const (
+	// DefaultScopeName defines the name of the default scope.
+	DefaultScopeName          = "default"
 	defaultOutputLevel        = InfoLevel
 	defaultStackTraceLevel    = NoneLevel
 	defaultOutputPath         = "stdout"
@@ -31,20 +34,36 @@ const (
 )
 
 // Level is an enumeration of all supported log levels.
-type Level string
+type Level int
 
 const (
-	// DebugLevel enables debug level logging
-	DebugLevel Level = "debug"
-	// InfoLevel enables info level logging
-	InfoLevel Level = "info"
-	// WarnLevel enables warn level logging
-	WarnLevel Level = "warn"
-	// ErrorLevel enables error level logging
-	ErrorLevel Level = "error"
 	// NoneLevel disables logging
-	NoneLevel Level = "none"
+	NoneLevel Level = iota
+	// ErrorLevel enables error level logging
+	ErrorLevel
+	// WarnLevel enables warn level logging
+	WarnLevel
+	// InfoLevel enables info level logging
+	InfoLevel
+	// DebugLevel enables debug level logging
+	DebugLevel
 )
+
+var levelToString = map[Level]string{
+	DebugLevel: "debug",
+	InfoLevel:  "info",
+	WarnLevel:  "warn",
+	ErrorLevel: "error",
+	NoneLevel:  "none",
+}
+
+var stringToLevel = map[string]Level{
+	"debug": DebugLevel,
+	"info":  InfoLevel,
+	"warn":  WarnLevel,
+	"error": ErrorLevel,
+	"none":  NoneLevel,
+}
 
 // Options defines the set of options supported by Istio's component logging package.
 type Options struct {
@@ -87,16 +106,14 @@ type Options struct {
 	// JSONEncoding controls whether the log is formatted as JSON.
 	JSONEncoding bool
 
-	// IncludeCallerSourceLocation determines whether log messages include the source location of the caller.
-	IncludeCallerSourceLocation bool
-
 	// LogGrpc indicates that Grpc logs should be captured. The default is true.
 	// This is not exposed through the command-line flags, as this flag is mainly useful for testing: Grpc
 	// stack will hold on to the logger even though it gets closed. This causes data races.
 	LogGrpc bool
 
-	stackTraceLevel string
-	outputLevel     string
+	outputLevels     string
+	logCallers       string
+	stackTraceLevels string
 }
 
 // DefaultOptions returns a new set of options, initialized to the defaults
@@ -107,55 +124,181 @@ func DefaultOptions() *Options {
 		RotationMaxSize:    defaultRotationMaxSize,
 		RotationMaxAge:     defaultRotationMaxAge,
 		RotationMaxBackups: defaultRotationMaxBackups,
-		outputLevel:        string(defaultOutputLevel),
-		stackTraceLevel:    string(defaultStackTraceLevel),
+		outputLevels:       DefaultScopeName + ":" + levelToString[defaultOutputLevel],
+		stackTraceLevels:   DefaultScopeName + ":" + levelToString[defaultStackTraceLevel],
 		LogGrpc:            true,
 	}
 }
 
-func isValid(level Level) bool {
-	switch level {
-	case DebugLevel, InfoLevel, WarnLevel, ErrorLevel, NoneLevel:
-		return true
-	default:
-		return false
+// SetOutputLevel sets the minimum log output level for a given scope.
+func (o *Options) SetOutputLevel(scope string, level Level) {
+	sl := scope + ":" + levelToString[level]
+	levels := strings.Split(o.outputLevels, ",")
+
+	if scope == DefaultScopeName {
+		// see if we have an entry without a scope prefix (which represents the default scope)
+		for i, ol := range levels {
+			if !strings.Contains(ol, ":") {
+				levels[i] = sl
+				o.outputLevels = strings.Join(levels, ",")
+				return
+			}
+		}
 	}
+
+	prefix := scope + ":"
+	for i, ol := range levels {
+		if strings.HasPrefix(ol, prefix) {
+			levels[i] = sl
+			o.outputLevels = strings.Join(levels, ",")
+			return
+		}
+	}
+
+	levels = append(levels, sl)
+	o.outputLevels = strings.Join(levels, ",")
 }
 
-// SetOutputLevel sets the minimum log output level.
-func (o *Options) SetOutputLevel(level Level) error {
-	if ok := isValid(level); !ok {
-		return fmt.Errorf("unknown output level: %v", level)
+// GetOutputLevel returns the minimum log output level for a given scope.
+func (o *Options) GetOutputLevel(scope string) (Level, error) {
+	levels := strings.Split(o.outputLevels, ",")
+
+	if scope == DefaultScopeName {
+		// see if we have an entry without a scope prefix (which represents the default scope)
+		for _, ol := range levels {
+			if !strings.Contains(ol, ":") {
+				_, l, err := convertScopedLevel(ol)
+				return l, err
+			}
+		}
 	}
-	o.outputLevel = string(level)
-	return nil
+
+	prefix := scope + ":"
+	for _, ol := range levels {
+		if strings.HasPrefix(ol, prefix) {
+			_, l, err := convertScopedLevel(ol)
+			return l, err
+		}
+	}
+
+	return NoneLevel, fmt.Errorf("no level defined for scope '%s'", scope)
 }
 
-// GetOutputLevel returns the minimum log output level.
-func (o *Options) GetOutputLevel() (Level, error) {
-	l := Level(o.outputLevel)
-	if ok := isValid(l); !ok {
-		return "", fmt.Errorf("unknown output level: %v", l)
+// SetStackTraceLevel sets the minimum stack tracing level for a given scope.
+func (o *Options) SetStackTraceLevel(scope string, level Level) {
+	sl := scope + ":" + levelToString[level]
+	levels := strings.Split(o.stackTraceLevels, ",")
+
+	if scope == DefaultScopeName {
+		// see if we have an entry without a scope prefix (which represents the default scope)
+		for i, ol := range levels {
+			if !strings.Contains(ol, ":") {
+				levels[i] = sl
+				o.stackTraceLevels = strings.Join(levels, ",")
+				return
+			}
+		}
 	}
-	return l, nil
+
+	prefix := scope + ":"
+	for i, ol := range levels {
+		if strings.HasPrefix(ol, prefix) {
+			levels[i] = sl
+			o.stackTraceLevels = strings.Join(levels, ",")
+			return
+		}
+	}
+
+	levels = append(levels, sl)
+	o.stackTraceLevels = strings.Join(levels, ",")
 }
 
-// SetStackTraceLevel sets the minimum stack trace capture level.
-func (o *Options) SetStackTraceLevel(level Level) error {
-	if ok := isValid(level); !ok {
-		return fmt.Errorf("unknown stack trace level: %v", level)
+// GetStackTraceLevel returns the minimum stack tracing level for a given scope.
+func (o *Options) GetStackTraceLevel(scope string) (Level, error) {
+	levels := strings.Split(o.stackTraceLevels, ",")
+
+	if scope == DefaultScopeName {
+		// see if we have an entry without a scope prefix (which represents the default scope)
+		for _, ol := range levels {
+			if !strings.Contains(ol, ":") {
+				_, l, err := convertScopedLevel(ol)
+				return l, err
+			}
+		}
 	}
-	o.stackTraceLevel = string(level)
-	return nil
+
+	prefix := scope + ":"
+	for _, ol := range levels {
+		if strings.HasPrefix(ol, prefix) {
+			_, l, err := convertScopedLevel(ol)
+			return l, err
+		}
+	}
+
+	return NoneLevel, fmt.Errorf("no level defined for scope '%s'", scope)
 }
 
-// GetStackTraceLevel returns the current stack trace level.
-func (o *Options) GetStackTraceLevel() (Level, error) {
-	l := Level(o.stackTraceLevel)
-	if ok := isValid(l); !ok {
-		return "", fmt.Errorf("unknown stack trace level: %v", l)
+// SetLogCallers sets whether to output the caller's source code location for a given scope.
+func (o *Options) SetLogCallers(scope string, include bool) {
+	scopes := strings.Split(o.logCallers, ",")
+
+	// remove any occurrence of the scope
+	for i, s := range scopes {
+		if s == scope {
+			scopes[i] = ""
+		}
 	}
-	return l, nil
+
+	if include {
+		// find a free slot if there is one
+		for i, s := range scopes {
+			if s == "" {
+				scopes[i] = scope
+				o.logCallers = strings.Join(scopes, ",")
+				return
+			}
+		}
+
+		scopes = append(scopes, scope)
+	}
+
+	o.logCallers = strings.Join(scopes, ",")
+}
+
+// GetLogCallers returns whether the caller's source code location is output for a given scope.
+func (o *Options) GetLogCallers(scope string) bool {
+	scopes := strings.Split(o.logCallers, ",")
+
+	for _, s := range scopes {
+		if s == scope {
+			return true
+		}
+	}
+
+	return false
+}
+
+func convertScopedLevel(sl string) (string, Level, error) {
+	var s string
+	var l string
+
+	pieces := strings.Split(sl, ":")
+	if len(pieces) == 1 {
+		s = DefaultScopeName
+		l = pieces[0]
+	} else if len(pieces) == 2 {
+		s = pieces[0]
+		l = pieces[1]
+	} else {
+		return "", NoneLevel, fmt.Errorf("invalid output level format '%s'", sl)
+	}
+
+	level, ok := stringToLevel[l]
+	if !ok {
+		return "", NoneLevel, fmt.Errorf("invalid output level '%s'", sl)
+	}
+
+	return s, level, nil
 }
 
 // AttachCobraFlags attaches a set of Cobra flags to the given Cobra command.
@@ -182,16 +325,58 @@ func (o *Options) AttachCobraFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().BoolVar(&o.JSONEncoding, "log_as_json", o.JSONEncoding,
 		"Whether to format output as JSON or in plain console-friendly format")
 
-	cmd.PersistentFlags().StringVar(&o.outputLevel, "log_output_level", o.outputLevel,
-		fmt.Sprintf("The minimum logging level of messages to output, can be one of %q, %q, %q, %q, or %q",
-			DebugLevel, InfoLevel, WarnLevel, ErrorLevel, NoneLevel))
+	allScopes := Scopes()
+	if len(allScopes) > 1 {
+		s := ""
+		for name := range allScopes {
+			if s != "" {
+				s = s + ", "
+			}
+			s = s + name
+		}
 
-	cmd.PersistentFlags().BoolVar(&o.IncludeCallerSourceLocation, "log_callers", o.IncludeCallerSourceLocation,
-		"Include caller information, useful for debugging")
+		cmd.PersistentFlags().StringVar(&o.outputLevels, "log_output_level", o.outputLevels,
+			fmt.Sprintf("Comma-separated minimum per-scope logging level of messages to output, in the form of "+
+				"<scope>:<level>,<scope>:<level>,... where scope can be one of [%s] and level can be one of [%s, %s, %s, %s, %s]",
+				s,
+				levelToString[DebugLevel],
+				levelToString[InfoLevel],
+				levelToString[WarnLevel],
+				levelToString[ErrorLevel],
+				levelToString[NoneLevel]))
 
-	cmd.PersistentFlags().StringVar(&o.stackTraceLevel, "log_stacktrace_level", o.stackTraceLevel,
-		fmt.Sprintf("The minimum logging level at which stack traces are captured, can be one of %q, %q, %q, %q, or %q",
-			DebugLevel, InfoLevel, WarnLevel, ErrorLevel, NoneLevel))
+		cmd.PersistentFlags().StringVar(&o.stackTraceLevels, "log_stacktrace_level", o.stackTraceLevels,
+			fmt.Sprintf("Comma-separated minimum per-scope logging level at which stack traces are captured, in the form of "+
+				"<scope>:<level>,<scope:level>,... where scope can be one of [%s] and level can be one of [%s, %s, %s, %s, %s]",
+				s,
+				levelToString[DebugLevel],
+				levelToString[InfoLevel],
+				levelToString[WarnLevel],
+				levelToString[ErrorLevel],
+				levelToString[NoneLevel]))
+
+		cmd.PersistentFlags().StringVar(&o.logCallers, "log_caller", o.logCallers,
+			fmt.Sprintf("Comma-separated list of scopes for which to include caller information, scopes can be any of [%s]", s))
+	} else {
+		cmd.PersistentFlags().StringVar(&o.outputLevels, "log_output_level", o.outputLevels,
+			fmt.Sprintf("The minimum logging level of messages to output,  can be one of [%s, %s, %s, %s, %s]",
+				levelToString[DebugLevel],
+				levelToString[InfoLevel],
+				levelToString[WarnLevel],
+				levelToString[ErrorLevel],
+				levelToString[NoneLevel]))
+
+		cmd.PersistentFlags().StringVar(&o.stackTraceLevels, "log_stacktrace_level", o.stackTraceLevels,
+			fmt.Sprintf("The minimum logging level at which stack traces are captured, can be one of [%s, %s, %s, %s, %s]",
+				levelToString[DebugLevel],
+				levelToString[InfoLevel],
+				levelToString[WarnLevel],
+				levelToString[ErrorLevel],
+				levelToString[NoneLevel]))
+
+		cmd.PersistentFlags().StringVar(&o.logCallers, "log_caller", o.logCallers,
+			"Comma-separated list of scopes for which to include called information, scopes can be any of [default]")
+	}
 
 	// NOTE: we don't currently expose a command-line option to control ErrorOutputPaths since it
 	// seems too esoteric.

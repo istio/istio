@@ -113,7 +113,9 @@ find samples install -type f \( \
   -name "*.yaml" \
   -o -name "cleanup*" \
   -o -name "*.md" \
+  -o -name "*.conf" \
   -o -name "*.pem" \
+  -o -name "*.tpl" \
   -o -name "kubeconfig" \
   -o -name "*.jinja*" \
   -o -name "webhook-create-signed-cert.sh" \
@@ -123,6 +125,15 @@ find samples install -type f \( \
 find install/tools -type f -exec ${CP} --parents {} "${COMMON_FILES_DIR}" \;
 find tools -type f -not -name "githubContrib*" -not -name ".*" -exec ${CP} --parents {} "${COMMON_FILES_DIR}" \;
 popd
+
+for unwanted_manifest in \
+    istio-one-namespace.yaml \
+    istio-one-namespace-auth.yaml \
+    istio-multicluster.yaml \
+    istio-auth-multicluster.yaml \
+    istio-remote.yaml; do
+  rm -f "${COMMON_FILES_DIR}/install/kubernetes/${unwanted_manifest}"
+done
 
 # Changing dir such that tar and zip files are
 # created with right hiereachy

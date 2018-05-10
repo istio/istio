@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright 2017 Istio Authors. All Rights Reserved.
+# Copyright 2017, 2018 Istio Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,3 +41,10 @@ touch /var/lib/istio/config/mesh
 
 chown istio-proxy.istio-proxy /var/lib/istio/envoy /var/lib/istio/config /var/log/istio /var/lib/istio/config/mesh /var/lib/istio/proxy
 chmod o+rx /usr/local/bin/{envoy,istioctl,pilot-agent,node_agent,mixs,pilot-discovery}
+
+# pilot-agent and envoy may run with effective uid 0 in order to run envoy with
+# CAP_NET_ADMIN, so any iptables rule matching on "-m owner --uid-owner
+# istio-proxy" will not match connections from those processes anymore.
+# Instead, rely on the process's effective gid being istio-proxy and create a
+# "-m owner --gid-owner istio-proxy" iptables rule in istio-iptables.sh.
+chmod 2755 /usr/local/bin/{envoy,pilot-agent}

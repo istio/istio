@@ -1,0 +1,68 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-galley
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "galley.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    istio: galley
+spec:
+  replicas: {{ .Values.replicaCount }}
+  template:
+    metadata:
+      labels:
+        istio: galley
+    spec:
+      serviceAccountName: istio-galley-service-account
+      containers:
+        - name: validator
+          image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports:
+          - containerPort: 443
+          command:
+          - /usr/local/bin/gals
+          - validator
+          - --webhook-name=istio-galley
+          - --pilot-webhook-name=pilot.validation.istio.io
+          - --mixer-webhook-name=mixer.validation.istio.io
+          - --caCertFile=/etc/istio/certs/root-cert.pem
+          - --tlsCertFile=/etc/istio/certs/cert-chain.pem
+          - --tlsKeyFile=/etc/istio/certs/key.pem
+          - --healthCheckInterval=2s
+          - --healthCheckFile=/health
+          volumeMounts:
+          - name: certs
+            mountPath: /etc/istio/certs
+            readOnly: true
+          livenessProbe:
+            exec:
+              command:
+                - /usr/local/bin/gals
+                - probe
+                - --probe-path=/health
+                - --interval=2s
+            initialDelaySeconds: 4
+            periodSeconds: 4
+          readinessProbe:
+            exec:
+              command:
+                - /usr/local/bin/gals
+                - probe
+                - --probe-path=/health
+                - --interval=2s
+            initialDelaySeconds: 4
+            periodSeconds: 4
+    {{- if .Values.nodeSelector }}
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+    {{- end }}
+      volumes:
+      - name: certs
+        secret:
+          secretName: istio.istio-galley-service-account
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}

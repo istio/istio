@@ -62,12 +62,6 @@ var (
 		ID:        "ingress.default",
 		Domain:    "default.svc.cluster.local",
 	}
-	Router = model.Proxy{
-		Type:      model.Router,
-		IPAddress: "10.3.3.5",
-		ID:        "router.default",
-		Domain:    "default.svc.cluster.local",
-	}
 )
 
 // NewDiscovery builds a mock ServiceDiscovery
@@ -263,7 +257,7 @@ func (sd *ServiceDiscovery) Instances(hostname string, ports []string,
 }
 
 // GetProxyServiceInstances implements discovery interface
-func (sd *ServiceDiscovery) GetProxyServiceInstances(node model.Proxy) ([]*model.ServiceInstance, error) {
+func (sd *ServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) ([]*model.ServiceInstance, error) {
 	if sd.GetProxyServiceInstancesError != nil {
 		return nil, sd.GetProxyServiceInstancesError
 	}

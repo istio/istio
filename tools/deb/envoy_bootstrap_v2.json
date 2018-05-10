@@ -1,4 +1,19 @@
 {
+  "node": {
+    "id": "{{ .nodeID }}",
+    "cluster": "{{ .cluster }}",
+{{ if .zone }}
+    "locality": {
+        "zone": "{{ .zone }}"
+    },
+{{ end }}
+    "metadata": {
+{{- range $a, $s := .meta }}
+          "{{$a}}": "{{$s}}",
+{{- end}}
+      "istio": "sidecar"
+    }
+  },
   "stats_config": {
     "use_all_default_tags": false
   },
@@ -13,42 +28,30 @@
   },
   "dynamic_resources": {
     "lds_config": {
-      "api_config_source": {
-        "api_type": "GRPC",
-        "refresh_delay": {{ .refresh_delay }},
-        "cluster_names": [
-          "xds-grpc"
-        ]
-      }
+        "ads": {}
     },
     "cds_config": {
-      "api_config_source": {
-        "api_type": "REST_LEGACY",
-        "refresh_delay": {{ .refresh_delay }},
-        "cluster_names": [
-          "rds"
-        ]
-      }
+        "ads": {}
     },
-    "deprecated_v1": {
-      "sds_config": {
-        "api_config_source": {
-          "api_type": "GRPC",
-          "refresh_delay": {{ .refresh_delay }},
-          "cluster_names": [
-            "xds-grpc"
-          ]
+    "ads_config": {
+      "api_type": "GRPC",
+      "refresh_delay": {{ .refresh_delay }},
+      "grpc_services": [
+        {
+          "envoy_grpc": {
+            "cluster_name": "xds-grpc"
+          }
         }
-      }
+      ]
     }
   },
   "static_resources": {
     "clusters": [
-      {
-        "name": "rds",
-        "type": "STRICT_DNS",
-        "connect_timeout": {{ .connect_timeout }},
-        "lb_policy": "ROUND_ROBIN",
+    {
+    "name": "xds-grpc",
+    "type": "STRICT_DNS",
+    "connect_timeout": {{ .connect_timeout }},
+    "lb_policy": "ROUND_ROBIN",
 {{ if eq .config.ControlPlaneAuthPolicy 1 }}
       "tls_context": {
         "common_tls_context": {
@@ -65,31 +68,34 @@
               "filename": "/etc/certs/root-cert.pem"
             },
             "verify_subject_alt_name": [
-            {{- range $a, $s := .pilot_SAN }}
+              {{- range $a, $s := .pilot_SAN }}
               "{{$s}}"
-            {{- end}}
+              {{- end}}
             ]
           }
         }
       },
 {{ end }}
-      "hosts": [
-          {
-            "socket_address": {{ .pilot_address }}
-          }
-        ]
-
-    },
-    {
-    "name": "xds-grpc",
-    "type": "STRICT_DNS",
-    "connect_timeout": {{ .connect_timeout }},
-    "lb_policy": "ROUND_ROBIN",
     "hosts": [
     {
     "socket_address": {{ .pilot_grpc_address }}
     }
     ],
+    "circuit_breakers": {
+        "thresholds": [
+      {
+        "priority": "default",
+        "max_connections": "100000",
+        "max_pending_requests": "100000",
+        "max_requests": "100000"
+      },
+      {
+        "priority": "high",
+        "max_connections": "100000",
+        "max_pending_requests": "100000",
+        "max_requests": "100000"
+      }]
+    },
     "http2_protocol_options": { }
     }
 

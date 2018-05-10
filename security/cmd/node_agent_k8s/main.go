@@ -19,15 +19,17 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 
-	"time"
-
-	nam "istio.io/istio/security/cmd/node_agent/management"
 	"istio.io/istio/security/cmd/node_agent/na"
 	"istio.io/istio/security/cmd/node_agent_k8s/workload/handler"
 	wlapi "istio.io/istio/security/cmd/node_agent_k8s/workloadapi"
+	"istio.io/istio/security/pkg/caclient"
+	"istio.io/istio/security/pkg/caclient/protocol"
+	"istio.io/istio/security/pkg/nodeagent/registry"
+	"istio.io/istio/security/pkg/platform"
 )
 
 const (
@@ -75,9 +77,8 @@ func init() {
 		"The requested TTL for the workload")
 	flags.IntVar(&cAClientConfig.RSAKeySize, "key-size", 2048, "Size of generated private key")
 
-	// TODO(incfly): is it better to check ca address reachability when program starts? Also refactor this address into some constants package.
 	flags.StringVar(&cAClientConfig.CAAddress, "ca-address",
-		"istio-ca.istio-system.svc.cluster.local:8060", "Istio CA address")
+		"istio-citadel.istio-system.svc.cluster.local:8060", "Istio CA address")
 
 	flags.StringVar(&cAClientConfig.Env, "env", "unspecified",
 		"Node Environment : unspecified | onprem | gcp | aws")
@@ -89,6 +90,7 @@ func init() {
 		"key", "/etc/certs/key.pem", "Node Agent private key file")
 	flags.StringVar(&cAClientConfig.RootCertFile, "root-cert",
 		"/etc/certs/root-cert.pem", "Root Certificate file")
+	flags.StringVar(&naConfig.SecretDirectory, "secret-dir", "/etc/certs/workload", "The default directory for file based SecretServer")
 }
 
 // creates the NodeAgent server to manage the workload identity provision.
@@ -98,13 +100,30 @@ func startManagement() {
 		SockFile:   CfgWldSockFile,
 		RegAPI:     wlapi.RegisterGrpc,
 	}
-	mgmtServer, err := nam.New(&naConfig)
+	ccfg := &naConfig.CAClientConfig
+	pc, err := platform.NewClient(ccfg.Env, ccfg.RootCertFile, ccfg.KeyFile, ccfg.CertChainFile, ccfg.CAAddress)
+	if err != nil {
+		log.Fatalf("failed to create platform client env %v err %v", ccfg.Env, err)
+	}
+	dialOpts, err := pc.GetDialOptions()
+	if err != nil {
+		log.Fatalf("failed to get dial options %v", err)
+	}
+	grpcConn, err := protocol.NewGrpcConnection(ccfg.CAAddress, dialOpts)
+	if err != nil {
+		log.Fatalf("failed to create create gRPC connection to CA %v %v", ccfg.CAAddress, err)
+	}
+	caClient, err := caclient.NewCAClient(pc, grpcConn, ccfg.CSRMaxRetries, ccfg.CSRInitialRetrialInterval)
+	if err != nil {
+		log.Fatalf("failed to create CAClient %v", err)
+	}
+	mgmtServer, err := registry.New(&naConfig, caClient)
 	if err != nil {
 		log.Fatalf("failed to create node agent management server %v", err)
 	}
 	sigc := make(chan os.Signal, 1)
 	signal.Notify(sigc, os.Interrupt, syscall.SIGTERM)
-	go func(s *nam.Server, c chan os.Signal) {
+	go func(s *registry.Server, c chan os.Signal) {
 		<-c
 		s.Stop()
 		s.WaitDone()

@@ -49,6 +49,10 @@ type Service struct {
 	// Address specifies the service IPv4 address of the load balancer
 	Address string `json:"address,omitempty"`
 
+	// Addresses specifies the service address of the load balancer
+	// in each of the clusters where the service resides
+	Addresses map[string]string `json:"addresses,omitempty"`
+
 	// Ports is the set of network ports where the service is listening for
 	// connections
 	Ports PortList `json:"ports,omitempty"`
@@ -56,23 +60,23 @@ type Service struct {
 	// ExternalName is only set for external services and holds the external
 	// service DNS name.  External services are name-based solution to represent
 	// external service instances as a service inside the cluster.
-	// TODO: this should be deprecated. it is made obsolete by the MeshExternal and Resolution flags.
+	// Deprecated : made obsolete by the MeshExternal and Resolution flags.
 	ExternalName string `json:"external"`
 
 	// ServiceAccounts specifies the service accounts that run the service.
 	ServiceAccounts []string `json:"serviceaccounts,omitempty"`
 
 	// MeshExternal (if true) indicates that the service is external to the mesh.
-	// These services are defined using Istio's ExternalService spec.
+	// These services are defined using Istio's ServiceEntry spec.
 	MeshExternal bool
 
 	// LoadBalancingDisabled indicates that no load balancing should be done for this service.
-	// TODO: this should be deprecated. it is made obsolete by the MeshExternal and Resolution flags.
+	// Deprecated : made obsolete by the MeshExternal and Resolution flags.
 	LoadBalancingDisabled bool `json:"-"`
 
 	// Resolution indicates how the service instances need to be resolved before routing
 	// traffic. Most services in the service registry will use static load balancing wherein
-	// the proxy will decide the service instance that will receive the traffic. External services
+	// the proxy will decide the service instance that will receive the traffic. Service entries
 	// could either use DNS load balancing (i.e. proxy will query DNS server for the IP of the service)
 	// or use the passthrough model (i.e. proxy will forward the traffic to the network endpoint requested
 	// by the caller)
@@ -154,9 +158,9 @@ const (
 	TrafficDirectionOutbound TrafficDirection = "outbound"
 )
 
-// ConvertCaseInsensitiveStringToProtocol converts a case-insensitive protocol to Protocol
-func ConvertCaseInsensitiveStringToProtocol(protocolAsString string) Protocol {
-	switch strings.ToLower(protocolAsString) {
+// ParseProtocol from string ignoring case
+func ParseProtocol(s string) Protocol {
+	switch strings.ToLower(s) {
 	case "tcp":
 		return ProtocolTCP
 	case "udp":
@@ -178,10 +182,30 @@ func ConvertCaseInsensitiveStringToProtocol(protocolAsString string) Protocol {
 	return ProtocolUnsupported
 }
 
+// IsHTTP2 is true for protocols that use HTTP/2 as transport protocol
+func (p Protocol) IsHTTP2() bool {
+	switch p {
+	case ProtocolHTTP2, ProtocolGRPC:
+		return true
+	default:
+		return false
+	}
+}
+
 // IsHTTP is true for protocols that use HTTP as transport protocol
 func (p Protocol) IsHTTP() bool {
 	switch p {
 	case ProtocolHTTP, ProtocolHTTP2, ProtocolGRPC:
+		return true
+	default:
+		return false
+	}
+}
+
+// IsTCP is true for protocols that use TCP as transport protocol
+func (p Protocol) IsTCP() bool {
+	switch p {
+	case ProtocolTCP, ProtocolHTTPS, ProtocolMongo, ProtocolRedis, ProtocolHTTP, ProtocolHTTP2, ProtocolGRPC:
 		return true
 	default:
 		return false
@@ -207,17 +231,17 @@ func (p Protocol) IsHTTP() bool {
 //  --> 172.16.0.1:33333 (with ServicePort pointing to 8080)
 type NetworkEndpoint struct {
 	// Address of the network endpoint, typically an IPv4 address
-	Address string `json:"ip_address,omitempty"`
+	Address string
 
 	// Port number where this instance is listening for connections This
 	// need not be the same as the port where the service is accessed.
 	// e.g., catalog.mystore.com:8080 -> 172.16.0.1:55446
-	Port int `json:"port"`
+	Port int
 
 	// Port declaration from the service declaration This is the port for
 	// the service associated with this instance (e.g.,
 	// catalog.mystore.com)
-	ServicePort *Port `json:"service_port"`
+	ServicePort *Port
 }
 
 // Labels is a non empty set of arbitrary strings. Each version of a service can
@@ -302,7 +326,7 @@ type ServiceDiscovery interface {
 	// though with a different ServicePort and NetworkEndpoint for each.  If any of these overlapping
 	// services are not HTTP or H2-based, behavior is undefined, since the listener may not be able to
 	// determine the intended destination of a connection without a Host header on the request.
-	GetProxyServiceInstances(Proxy) ([]*ServiceInstance, error)
+	GetProxyServiceInstances(*Proxy) ([]*ServiceInstance, error)
 
 	// ManagementPorts lists set of management ports associated with an IPv4 address.
 	// These management ports are typically used by the platform for out of band management
@@ -349,6 +373,22 @@ func (labels LabelsCollection) HasSubsetOf(that Labels) bool {
 	}
 	for _, label := range labels {
 		if label.SubsetOf(that) {
+			return true
+		}
+	}
+	return false
+}
+
+// IsSupersetOf returns true if the input labels are a subset set of any set of labels in a
+// collection
+func (labels LabelsCollection) IsSupersetOf(that Labels) bool {
+
+	if len(labels) == 0 {
+		return len(that) == 0
+	}
+
+	for _, label := range labels {
+		if that.SubsetOf(label) {
 			return true
 		}
 	}
@@ -499,7 +539,7 @@ func BuildSubsetKey(direction TrafficDirection, subsetName, hostname string, por
 // ParseSubsetKey is the inverse of the BuildSubsetKey method
 func ParseSubsetKey(s string) (direction TrafficDirection, subsetName, hostname string, port *Port) {
 	parts := strings.Split(s, "|")
-	// we ignore direction since its typically not used by the consuming functions
+	direction = TrafficDirection(parts[0])
 	port = &Port{Name: parts[1]}
 	subsetName = parts[2]
 	hostname = parts[3]
@@ -545,4 +585,12 @@ func ParseLabelsString(s string) Labels {
 		}
 	}
 	return tag
+}
+
+// GetServiceAddressForProxy returns a Service's IP address specific to the cluster where the node resides
+func (s Service) GetServiceAddressForProxy(node *Proxy) string {
+	if node.ClusterID != "" && s.Addresses[node.ClusterID] != "" {
+		return s.Addresses[node.ClusterID]
+	}
+	return s.Address
 }

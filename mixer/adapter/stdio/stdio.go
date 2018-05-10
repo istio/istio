@@ -35,17 +35,15 @@ import (
 )
 
 type (
-	zapBuilderFn func(options *config.Params) (*zap.Logger, func(), error)
-	getTimeFn    func() time.Time
-	writeFn      func(entry zapcore.Entry, fields []zapcore.Field) error
+	zapBuilderFn func(options *config.Params) (zapcore.Core, func(), error)
 
 	handler struct {
-		logger         *zap.Logger
 		closer         func()
 		severityLevels map[string]zapcore.Level
 		metricLevel    zapcore.Level
-		getTime        getTimeFn
-		write          writeFn
+		getTime        func() time.Time
+		write          func(entry zapcore.Entry, fields []zapcore.Field) error
+		sync           func() error
 		logEntryVars   map[string][]string
 		metricDims     map[string][]string
 	}
@@ -104,7 +102,7 @@ func (h *handler) HandleMetric(_ context.Context, instances []*metric.Instance) 
 }
 
 func (h *handler) Close() error {
-	_ = h.logger.Sync()
+	_ = h.sync()
 	h.closer()
 	return nil
 }
@@ -185,7 +183,7 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 }
 
 func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handler, error) {
-	return b.buildWithZapBuilder(context, env, newZapLogger)
+	return b.buildWithZapBuilder(context, env, newZapCore)
 }
 
 func (b *builder) buildWithZapBuilder(_ context.Context, _ adapter.Env, zb zapBuilderFn) (adapter.Handler, error) {
@@ -215,7 +213,7 @@ func (b *builder) buildWithZapBuilder(_ context.Context, _ adapter.Env, zb zapBu
 		dimLists[tn] = l
 	}
 
-	logger, closer, err := zb(b.adapterConfig)
+	core, closer, err := zb(b.adapterConfig)
 	if err != nil {
 		return nil, fmt.Errorf("could not build logger: %v", err)
 	}
@@ -228,10 +226,10 @@ func (b *builder) buildWithZapBuilder(_ context.Context, _ adapter.Env, zb zapBu
 	return &handler{
 		severityLevels: sl,
 		metricLevel:    levelToZap[b.adapterConfig.MetricLevel],
-		logger:         logger,
 		closer:         closer,
 		getTime:        time.Now,
-		write:          logger.Core().Write,
+		sync:           core.Sync,
+		write:          core.Write,
 		logEntryVars:   varLists,
 		metricDims:     dimLists,
 	}, nil

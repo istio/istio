@@ -19,10 +19,9 @@ package v1
 
 import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
 	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
+	authn_plugin "istio.io/istio/pilot/pkg/networking/plugin/authn"
 )
 
 func isDestinationExcludedForMTLS(serviceName string, mtlsExcludedServices []string) bool {
@@ -40,8 +39,7 @@ func ApplyClusterPolicy(cluster *Cluster,
 	proxyInstances []*model.ServiceInstance,
 	config model.IstioConfigStore,
 	mesh *meshconfig.MeshConfig,
-	accounts model.ServiceAccounts,
-	domain string) {
+	accounts model.ServiceAccounts) {
 	duration := protoDurationToMS(mesh.ConnectTimeout)
 	cluster.ConnectTimeoutMs = duration
 
@@ -53,8 +51,8 @@ func ApplyClusterPolicy(cluster *Cluster,
 	// Original DST cluster are used to route to services outside the mesh
 	// where Istio auth does not apply.
 	if cluster.Type != ClusterTypeOriginalDST {
-		if !isDestinationExcludedForMTLS(cluster.ServiceName, mesh.MtlsExcludedServices) &&
-			model.RequireTLS(model.GetConsolidateAuthenticationPolicy(mesh, config, cluster.Hostname, cluster.Port)) {
+		requireTLS, _ := authn_plugin.RequireTLS(model.GetConsolidateAuthenticationPolicy(mesh, config, cluster.Hostname, cluster.Port))
+		if !isDestinationExcludedForMTLS(cluster.ServiceName, mesh.MtlsExcludedServices) && requireTLS {
 			// apply auth policies
 			ports := model.PortList{cluster.Port}.GetNames()
 			serviceAccounts := accounts.GetIstioServiceAccounts(cluster.Hostname, ports)
@@ -64,10 +62,7 @@ func ApplyClusterPolicy(cluster *Cluster,
 
 	// apply destination policies
 	policyConfig := config.Policy(proxyInstances, cluster.Hostname, cluster.labels)
-
-	// if no policy is configured apply destination rule if one exists
 	if policyConfig == nil {
-		applyDestinationRule(config, cluster, domain)
 		return
 	}
 
@@ -121,131 +116,6 @@ func ApplyClusterPolicy(cluster *Cluster,
 		}
 		if cbconfig.HttpMaxEjectionPercent > 0 {
 			cluster.OutlierDetection.MaxEjectionPercent = int(cbconfig.HttpMaxEjectionPercent)
-		}
-	}
-}
-
-func applyLoadBalancePolicy(cluster *Cluster, policy *networking.LoadBalancerSettings) {
-	if policy == nil || cluster.Type == ClusterTypeOriginalDST {
-		return
-	}
-
-	if consistent := policy.GetConsistentHash(); consistent != nil {
-		// cluster.LbType = LbTypeRingHash
-		// TODO: need to set special values in the route config
-		// see: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing.html#ring-hash
-		log.Warn("Consistent hash load balancing type is not currently supported")
-	} else {
-		switch policy.GetSimple() {
-		case networking.LoadBalancerSettings_LEAST_CONN:
-			cluster.LbType = LbTypeLeastRequest
-		case networking.LoadBalancerSettings_RANDOM:
-			cluster.LbType = LbTypeRandom
-		case networking.LoadBalancerSettings_PASSTHROUGH:
-			cluster.LbType = LbTypeOriginalDST // FIXME: double-check
-		default:
-			cluster.LbType = LbTypeRoundRobin
-		}
-	}
-}
-
-func buildOutlierDetection(outlier *networking.OutlierDetection) *OutlierDetection {
-	if outlier != nil && outlier.Http != nil {
-		out := &OutlierDetection{
-			ConsecutiveErrors:  5,
-			IntervalMS:         10000, // 10s
-			BaseEjectionTimeMS: 30000, // 30s
-			MaxEjectionPercent: 10,
-		}
-
-		if outlier.Http.BaseEjectionTime != nil {
-			out.BaseEjectionTimeMS = protoDurationToMSGogo(outlier.Http.BaseEjectionTime)
-		}
-		if outlier.Http.ConsecutiveErrors > 0 {
-			out.ConsecutiveErrors = int(outlier.Http.ConsecutiveErrors)
-		}
-		if outlier.Http.Interval != nil {
-			out.IntervalMS = protoDurationToMSGogo(outlier.Http.Interval)
-		}
-		if outlier.Http.MaxEjectionPercent > 0 {
-			out.MaxEjectionPercent = int(outlier.Http.MaxEjectionPercent)
-		}
-
-		return out
-	}
-	return nil
-}
-
-func applyConnectionPool(cluster *Cluster, settings *networking.ConnectionPoolSettings) {
-	cluster.MaxRequestsPerConnection = 1024 // TODO: set during cluster construction?
-
-	if settings == nil {
-		return
-	}
-
-	// Envoy's circuit breaker is a combination of its circuit breaker (which is actually a bulk head) and
-	// outlier detection (which is per pod circuit breaker)
-	cluster.CircuitBreaker = &CircuitBreaker{
-		Default: DefaultCBPriority{
-			MaxConnections:     1024, // TODO: what is the Istio default?
-			MaxPendingRequests: 1024,
-			MaxRequests:        1024,
-			MaxRetries:         3,
-		},
-	}
-
-	if settings.Http != nil {
-		if settings.Http.Http2MaxRequests > 0 {
-			// Envoy only applies MaxRequests in HTTP/2 clusters
-			cluster.CircuitBreaker.Default.MaxRequests = int(settings.Http.Http2MaxRequests)
-		}
-		if settings.Http.Http1MaxPendingRequests > 0 {
-			// Envoy only applies MaxPendingRequests in HTTP/1.1 clusters
-			cluster.CircuitBreaker.Default.MaxPendingRequests = int(settings.Http.Http1MaxPendingRequests)
-		}
-
-		if settings.Http.MaxRequestsPerConnection > 0 {
-			cluster.MaxRequestsPerConnection = int(settings.Http.MaxRequestsPerConnection)
-		}
-
-		// FIXME: zero is a valid value if explicitly set, otherwise we want to use the default value of 3
-		if settings.Http.MaxRetries > 0 {
-			cluster.CircuitBreaker.Default.MaxRetries = int(settings.Http.MaxRetries)
-		}
-	}
-
-	if settings.Tcp != nil {
-		if settings.Tcp.ConnectTimeout != nil {
-			cluster.ConnectTimeoutMs = protoDurationToMSGogo(settings.Tcp.ConnectTimeout)
-		}
-
-		if settings.Tcp.MaxConnections > 0 {
-			cluster.CircuitBreaker.Default.MaxConnections = int(settings.Tcp.MaxConnections)
-		}
-	}
-}
-
-// TODO: write unit tests for sub-functions
-func applyTrafficPolicy(cluster *Cluster, policy *networking.TrafficPolicy) {
-	if policy == nil {
-		return
-	}
-	applyLoadBalancePolicy(cluster, policy.LoadBalancer)
-	applyConnectionPool(cluster, policy.ConnectionPool)
-	cluster.OutlierDetection = buildOutlierDetection(policy.OutlierDetection)
-}
-
-func applyDestinationRule(config model.IstioConfigStore, cluster *Cluster, domain string) {
-	destinationRuleConfig := config.DestinationRule(cluster.Hostname, domain)
-	if destinationRuleConfig != nil {
-		destinationRule := destinationRuleConfig.Spec.(*networking.DestinationRule)
-
-		applyTrafficPolicy(cluster, destinationRule.TrafficPolicy)
-		for _, subset := range destinationRule.Subsets {
-			if cluster.labels.Equals(subset.Labels) {
-				applyTrafficPolicy(cluster, subset.TrafficPolicy)
-				break
-			}
 		}
 	}
 }

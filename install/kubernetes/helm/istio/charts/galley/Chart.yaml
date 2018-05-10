@@ -1,0 +1,10 @@
+name: galley
+version: 0.8.0
+description: Helm chart for galley deployment
+keywords:
+  - istio
+  - galley
+sources:
+  - http://github.com/istio/istio
+engine: gotpl
+icon: https://istio.io/favicons/android-192x192.png

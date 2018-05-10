@@ -128,6 +128,7 @@ func NewHTTPServer(port uint16) (*HTTPServer, error) {
 }
 
 // Start starts the server
+// TODO: Add a channel so this can return an error
 func (s *HTTPServer) Start() {
 	go func() {
 		http.HandleFunc("/", handler)

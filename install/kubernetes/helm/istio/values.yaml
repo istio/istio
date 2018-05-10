@@ -14,6 +14,8 @@ global:
   tag: circleci-nightly
   proxy:
     image: proxy
+  proxy_init:
+    image: proxy_init
 
   # imagePullPolicy is applied to istio control plane components.
   imagePullPolicy: IfNotPresent
@@ -43,8 +45,31 @@ global:
   # create RBAC resources. Must be set for any cluster configured with rbac.
   rbacEnabled: true
 
+  ## imagePullSecrets for all ServiceAccount. Must be set for any clustser configured with privte docker registry.
+  # imagePullSecrets:
+  #   - name: "private-registry-key"
+
   # Default is 1 second
   refreshInterval: 10s
+
+  # Enable multicluster operation.  Must be set to true if multicluster operation
+  # is desired.
+  multicluster:
+    enabled: false
+
+  # Specify pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
+  #   0 - Never scheduled
+  #   1 - Least preferred
+  #   2 - No preference
+  #   3 - Most preferred
+  arch:
+    amd64: 2
+    s390x: 2
+    ppc64le: 2
+
+# Any customization for istio testing should be here
+istiotesting:
+  oneNameSpace: false
 
 #
 # ingress configuration
@@ -53,8 +78,8 @@ ingress:
   enabled: true
   serviceAccountName: default
   imagePullPolicy: IfNotPresent
-  autoscaleMin: 2
-  autoscaleMax: 8
+  autoscaleMin: 1
+  autoscaleMax: 1
   resources: {}
 # limits:
 #  cpu: 100m
@@ -62,19 +87,111 @@ ingress:
 # requests:
 #  cpu: 100m
 #  memory: 128Mi
-  nodeSelector: {}
   service:
+    loadBalancerIP: ""
     nodePort:
       enabled: false
       port: 32000
+
+#
+# ingressgateway configuration
+#
+ingressgateway:
+  enabled: true
+  serviceAccountName: istio-ingressgateway-service-account
+  imagePullPolicy: IfNotPresent
+  autoscaleMin: 1
+  autoscaleMax: 1
+  resources: {}
+  global:
+    proxy:
+      image: proxyv2
+# limits:
+#  cpu: 100m
+#  memory: 128Mi
+# requests:
+#  cpu: 100m
+#  memory: 128Mi
+  service:
+    name: istio-ingressgateway #DNS addressible
+    labels:
+      istio: ingressgateway
+    #namespace: istio-system
+    type: NodePort #change to ClusterIP or LoadBalancer if need be
+    ports:
+      ## You can add custom gateway ports
+    - port: 80
+      name: http
+      nodePort: 31380
+    - port: 443
+      name: https
+      nodePort: 31390
+    - port: 31400
+      name: tcp
+      nodePort: 31400
+  deployment:
+    labels:
+      istio: ingressgateway #will be added to pods and service
+    ports:
+    - containerPort: 80
+    - containerPort: 443
+    - containerPort: 31400
+  # secretVolumes: TODO
+  # - name: someName
+  #   mountPath: somePath
+  #   secretName: someName
+
+#
+# egressgateway configuration
+#
+egressgateway:
+  enabled: true
+  serviceAccountName: istio-egressgateway-service-account
+  imagePullPolicy: IfNotPresent
+  autoscaleMin: 1
+  autoscaleMax: 1
+  resources: {}
+  global:
+    proxy:
+      image: proxyv2
+# limits:
+#  cpu: 100m
+#  memory: 128Mi
+# requests:
+#  cpu: 100m
+#  memory: 128Mi
+  service:
+    name: istio-egressgateway #DNS addressible
+    labels:
+      istio: egressgateway
+    #namespace: istio-system
+    type: ClusterIP #change to NodePort or LoadBalancer if need be
+    ports:
+      ## You can add custom gateway ports
+    - port: 80
+      name: http
+    - port: 443
+      name: https
+  deployment:
+    labels:
+      istio: egressgateway #will be added to pods and service
+    ports:
+    - containerPort: 80
+    - containerPort: 443
+  # secretVolumes: TODO
+  # - name: someName
+  #   mountPath: somePath
+  #   secretName: someName
 
 #
 # sidecar-injector configuration
 #
 sidecar-injector:
   enabled: false
+  enableCoreDump: false
   serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
+  image: sidecar_injector
   imagePullPolicy: IfNotPresent
   resources: {}
   # limits:
@@ -83,14 +200,40 @@ sidecar-injector:
   # requests:
   #  cpu: 100m
   #  memory: 128Mi
-  nodeSelector: {}
 
   # istio egress capture whitelist
   # https://istio.io/docs/tasks/traffic-management/egress.html#calling-external-services-directly
   # example: includeIPRanges: "172.30.0.0/16,172.20.0.0/16"
   # would only capture egress traffic on those two IP Ranges, all other outbound traffic would
   # be allowed by the sidecar
-  includeIPRanges: {}
+  includeIPRanges: "*"
+  excludeIPRanges: ""
+
+  # istio ingress capture whitelist
+  # examples:
+  #     Redirect no inbound traffic to Envoy:    --includeInboundPorts=""
+  #     Redirect all inbound traffic to Envoy:   --includeInboundPorts="*"
+  #     Redirect only selected ports:            --includeInboundPorts="80,8080"
+  includeInboundPorts: "*"
+  excludeInboundPorts: ""
+  policy: enabled
+
+#
+# galley configuration
+#
+galley:
+  enabled: false
+  serviceAccountName: default
+  replicaCount: 1
+  image: galley
+  imagePullPolicy: IfNotPresent
+  resources: {}
+  # limits:
+  #  cpu: 100m
+  #  memory: 128Mi
+  # requests:
+  #  cpu: 100m
+  #  memory: 128Mi
 
 #
 # mixer configuration
@@ -99,6 +242,7 @@ mixer:
   enabled: true
   serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
+  image: mixer
   imagePullPolicy: IfNotPresent
   resources: {}
   # limits:
@@ -107,7 +251,6 @@ mixer:
   # requests:
   #  cpu: 100m
   #  memory: 128Mi
-  nodeSelector: {}
 
   prometheusStatsdExporter:
     repository: prom/statsd-exporter
@@ -122,6 +265,7 @@ pilot:
   enabled: true
   serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
+  image: pilot
   imagePullPolicy: IfNotPresent
   resources: {}
   # limits:
@@ -130,7 +274,6 @@ pilot:
   # requests:
   #  cpu: 100m
   #  memory: 128Mi
-  nodeSelector: {}
 
 #
 # security configuration
@@ -138,6 +281,7 @@ pilot:
 security:
   serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
+  image: citadel
   imagePullPolicy: IfNotPresent
   resources: {}
   # limits:
@@ -146,7 +290,6 @@ security:
   # requests:
   #  cpu: 100m
   #  memory: 128Mi
-  nodeSelector: {}
 
 #
 # addons configuration
@@ -154,6 +297,7 @@ security:
 grafana:
   enabled: false
   replicaCount: 1
+  image: grafana
   imagePullPolicy: IfNotPresent
   service:
     name: http
@@ -181,7 +325,6 @@ grafana:
     # requests:
     #  cpu: 100m
     #  memory: 128Mi
-  nodeSelector: {}
 
 prometheus:
   enabled: false
@@ -210,7 +353,6 @@ prometheus:
     # requests:
     #  cpu: 100m
     #  memory: 128Mi
-  nodeSelector: {}
   service:
     nodePort:
       enabled: false
@@ -219,6 +361,7 @@ prometheus:
 servicegraph:
   enabled: false
   replicaCount: 1
+  image: servicegraph
   imagePullPolicy: IfNotPresent
   service:
     name: http
@@ -245,7 +388,6 @@ servicegraph:
     # requests:
     #  cpu: 100m
     #  memory: 128Mi
-  nodeSelector: {}
   # prometheus addres
   prometheusAddr: http://prometheus:9090
 
@@ -254,7 +396,7 @@ zipkin:
   replicaCount: 1
   image:
     repository: docker.io/openzipkin/zipkin
-    tag: latest
+    tag: 2.7
     pullPolicy: IfNotPresent
   service:
     name: http
@@ -281,4 +423,3 @@ zipkin:
     # requests:
     #  cpu: 100m
     #  memory: 128Mi
-  nodeSelector: {}

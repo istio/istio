@@ -15,82 +15,107 @@
 package inject
 
 const (
-	parameterizedTemplateDelimBegin = "[["
-	parameterizedTemplateDelimEnd   = "]]"
-	parameterizedTemplate           = `
+	sidecarTemplateDelimBegin = "[["
+	sidecarTemplateDelimEnd   = "]]"
+	parameterizedTemplate     = `
 initContainers:
 - name: istio-init
-  image: [[ .InitImage ]]
+  image: {{ .InitImage }}
   args:
   - "-p"
-  - {{ .MeshConfig.ProxyListenPort }}
+  - [[ .MeshConfig.ProxyListenPort ]]
   - "-u"
-  - [[ .SidecarProxyUID ]]
-  [[ if ne .IncludeIPRanges "" -]]
+  - {{ .SidecarProxyUID }}
+  - "-m"
+  - [[ or (index .ObjectMeta.Annotations "sidecar.istio.io/interceptionMode") .ProxyConfig.InterceptionMode.String ]]
   - "-i"
-  - [[ .IncludeIPRanges ]]
-  [[ end -]]
-  [[ if eq .ImagePullPolicy "" -]]
-  imagePullPolicy: IfNotPresent
+  [[ if (isset .ObjectMeta.Annotations "traffic.sidecar.istio.io/includeOutboundIPRanges") -]]
+  - "[[ index .ObjectMeta.Annotations "traffic.sidecar.istio.io/includeOutboundIPRanges"]]"
   [[ else -]]
-  imagePullPolicy: [[ .ImagePullPolicy ]]
+  - "{{ .IncludeIPRanges }}"
   [[ end -]]
+  - "-x"
+  [[ if (isset .ObjectMeta.Annotations "traffic.sidecar.istio.io/excludeOutboundIPRanges") -]]
+  - "[[ index .ObjectMeta.Annotations "traffic.sidecar.istio.io/excludeOutboundIPRanges" ]]"
+  [[ else -]]
+  - "{{ .ExcludeIPRanges }}"
+  [[ end -]]
+  - "-b"
+  [[ if (isset .ObjectMeta.Annotations "traffic.sidecar.istio.io/includeInboundPorts") -]]
+  - "[[ index .ObjectMeta.Annotations "traffic.sidecar.istio.io/includeInboundPorts" ]]"
+  [[ else -]]
+  - "{{ .IncludeInboundPorts }}"
+  [[ end -]]
+  - "-d"
+  [[ if (isset .ObjectMeta.Annotations "traffic.sidecar.istio.io/excludeInboundPorts") -]]
+  - "[[ index .ObjectMeta.Annotations "traffic.sidecar.istio.io/excludeInboundPorts" ]]"
+  [[ else -]]
+  - "{{ .ExcludeInboundPorts }}"
+  [[ end -]]
+  {{ if eq .ImagePullPolicy "" -}}
+  imagePullPolicy: IfNotPresent
+  {{ else -}}
+  imagePullPolicy: {{ .ImagePullPolicy }}
+  {{ end -}}
   securityContext:
     capabilities:
       add:
       - NET_ADMIN
-    [[ if eq .DebugMode true -]]
+    {{ if eq .DebugMode true -}}
     privileged: true
-    [[ end -]]
+    {{ end -}}
   restartPolicy: Always
-[[ if eq .EnableCoreDump true -]]
+{{ if eq .EnableCoreDump true -}}
 - args:
   - -c
-  - sysctl -w kernel.core_pattern=/etc/istio/proxy/core.%e.%p.%t && ulimit -c
-    unlimited
+  - sysctl -w kernel.core_pattern=/etc/istio/proxy/core.%e.%p.%t && ulimit -c unlimited
   command:
   - /bin/sh
-  image: alpine
+  image: {{ .InitImage }}
   imagePullPolicy: IfNotPresent
   name: enable-core-dump
   resources: {}
   securityContext:
     privileged: true
-[[ end -]]
+{{ end -}}
 containers:
 - name: istio-proxy
-  image: [[ .ProxyImage ]]
+  image: [[ if (isset .ObjectMeta.Annotations "sidecar.istio.io/proxyImage") -]]
+  "[[ index .ObjectMeta.Annotations "sidecar.istio.io/proxyImage" ]]"
+  [[ else -]]
+  {{ .ProxyImage }}
+  [[ end -]]
   args:
   - proxy
   - sidecar
   - --configPath
-  - {{ .ProxyConfig.ConfigPath }}
+  - [[ .ProxyConfig.ConfigPath ]]
   - --binaryPath
-  - {{ .ProxyConfig.BinaryPath }}
+  - [[ .ProxyConfig.BinaryPath ]]
   - --serviceCluster
-  {{ if ne "" (index .ObjectMeta.Labels "app") -}}
-  - {{ index .ObjectMeta.Labels "app" }}
-  {{ else -}}
+  [[ if ne "" (index .ObjectMeta.Labels "app") -]]
+  - [[ index .ObjectMeta.Labels "app" ]]
+  [[ else -]]
   - "istio-proxy"
-  {{ end -}}
+  [[ end -]]
   - --drainDuration
-  - {{ formatDuration .ProxyConfig.DrainDuration }}
+  - [[ formatDuration .ProxyConfig.DrainDuration ]]
   - --parentShutdownDuration
-  - {{ formatDuration .ProxyConfig.ParentShutdownDuration }}
+  - [[ formatDuration .ProxyConfig.ParentShutdownDuration ]]
   - --discoveryAddress
-  - {{ .ProxyConfig.DiscoveryAddress }}
+  - [[ .ProxyConfig.DiscoveryAddress ]]
   - --discoveryRefreshDelay
-  - {{ formatDuration .ProxyConfig.DiscoveryRefreshDelay }}
+  - [[ formatDuration .ProxyConfig.DiscoveryRefreshDelay ]]
   - --zipkinAddress
-  - {{ .ProxyConfig.ZipkinAddress }}
+  - [[ .ProxyConfig.ZipkinAddress ]]
   - --connectTimeout
-  - {{ formatDuration .ProxyConfig.ConnectTimeout }}
+  - [[ formatDuration .ProxyConfig.ConnectTimeout ]]
   - --statsdUdpAddress
-  - {{ .ProxyConfig.StatsdUdpAddress }}
+  - [[ .ProxyConfig.StatsdUdpAddress ]]
   - --proxyAdminPort
-  - {{ .ProxyConfig.ProxyAdminPort }}
+  - [[ .ProxyConfig.ProxyAdminPort ]]
   - --controlPlaneAuthPolicy
-  - {{ .ProxyConfig.ControlPlaneAuthPolicy }}
+  - [[ .ProxyConfig.ControlPlaneAuthPolicy ]]
   env:
   - name: POD_NAME
     valueFrom:
@@ -104,20 +129,33 @@ containers:
     valueFrom:
       fieldRef:
         fieldPath: status.podIP
-  [[ if eq .ImagePullPolicy "" -]]
+  - name: ISTIO_META_POD_NAME
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.name
+  - name: ISTIO_META_INTERCEPTION_MODE
+    value: [[ or (index .ObjectMeta.Annotations "sidecar.istio.io/interceptionMode") .ProxyConfig.InterceptionMode.String ]]
+  {{ if eq .ImagePullPolicy "" -}}
   imagePullPolicy: IfNotPresent
-  [[ else -]]
-  imagePullPolicy: [[ .ImagePullPolicy ]]
-  [[ end -]]
+  {{ else -}}
+  imagePullPolicy: {{ .ImagePullPolicy }}
+  {{ end -}}
   securityContext:
-      [[ if eq .DebugMode true -]]
-      privileged: true
-      readOnlyRootFilesystem: false
-      [[ else -]]
-      privileged: false
-      readOnlyRootFilesystem: true
-      [[ end -]]
-      runAsUser: 1337
+    {{ if eq .DebugMode true -}}
+    privileged: true
+    readOnlyRootFilesystem: false
+    {{ else -}}
+    privileged: false
+    readOnlyRootFilesystem: true
+    [[ if eq (or (index .ObjectMeta.Annotations "sidecar.istio.io/interceptionMode") .ProxyConfig.InterceptionMode.String) "TPROXY" -]]
+    capabilities:
+      add:
+      - NET_ADMIN
+    [[ end -]]
+    {{ end -}}
+    [[ if ne (or (index .ObjectMeta.Annotations "sidecar.istio.io/interceptionMode") .ProxyConfig.InterceptionMode.String) "TPROXY" -]]
+    runAsUser: 1337
+    [[ end -]]
   restartPolicy: Always
   volumeMounts:
   - mountPath: /etc/istio/proxy
@@ -132,10 +170,10 @@ volumes:
 - name: istio-certs
   secret:
     optional: true
-    {{ if eq .Spec.ServiceAccountName "" -}}
+    [[ if eq .Spec.ServiceAccountName "" -]]
     secretName: istio.default
-    {{ else -}}
-    secretName: {{ printf "istio.%s" .Spec.ServiceAccountName }}
-    {{ end -}}
+    [[ else -]]
+    secretName: [[ printf "istio.%s" .Spec.ServiceAccountName ]]
+    [[ end -]]
 `
 )

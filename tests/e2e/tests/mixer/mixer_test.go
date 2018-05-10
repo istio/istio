@@ -18,7 +18,6 @@ package mixer
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -44,30 +43,38 @@ import (
 )
 
 const (
-	bookinfoYaml             = "samples/bookinfo/kube/bookinfo.yaml"
-	bookinfoRatingsv2Yaml    = "samples/bookinfo/kube/bookinfo-ratings-v2.yaml"
-	bookinfoDbYaml           = "samples/bookinfo/kube/bookinfo-db.yaml"
-	sleepYaml                = "samples/sleep/sleep.yaml"
-	rulesDir                 = "samples/bookinfo/kube"
-	rateLimitRule            = "mixer-rule-ratings-ratelimit.yaml"
-	denialRule               = "mixer-rule-ratings-denial.yaml"
-	ingressDenialRule        = "mixer-rule-ingress-denial.yaml"
-	newTelemetryRule         = "mixer-rule-additional-telemetry.yaml"
-	routeAllRule             = "route-rule-all-v1.yaml"
-	routeReviewsVersionsRule = "route-rule-reviews-v2-v3.yaml"
-	routeReviewsV3Rule       = "route-rule-reviews-v3.yaml"
-	tcpDbRule                = "route-rule-ratings-db.yaml"
+	bookinfoSampleDir        = "samples/bookinfo"
+	yamlExtension            = "yaml"
+	deploymentDir            = "kube"
+	rulesDir                 = "kube"
+	bookinfoYaml             = "bookinfo"
+	bookinfoRatingsv2Yaml    = "bookinfo-ratings-v2"
+	bookinfoDbYaml           = "bookinfo-db"
+	sleepYaml                = "samples/sleep/sleep"
+	rateLimitRule            = rulesDir + "/" + "mixer-rule-ratings-ratelimit"
+	denialRule               = rulesDir + "/" + "mixer-rule-ratings-denial"
+	ingressDenialRule        = rulesDir + "/" + "mixer-rule-ingress-denial"
+	newTelemetryRule         = rulesDir + "/" + "mixer-rule-additional-telemetry"
+	routeAllRule             = rulesDir + "/" + "route-rule-all-v1"
+	routeReviewsVersionsRule = rulesDir + "/" + "route-rule-reviews-v2-v3"
+	routeReviewsV3Rule       = rulesDir + "/" + "route-rule-reviews-v3"
+	tcpDbRule                = rulesDir + "/" + "route-rule-ratings-db"
+	bookinfoGateway          = rulesDir + "/" + "bookinfo-gateway"
 
 	prometheusPort   = "9090"
 	mixerMetricsPort = "42422"
 	productPagePort  = "10000"
 
+	srcLabel          = "source_service"
 	destLabel         = "destination_service"
 	responseCodeLabel = "response_code"
 
 	// This namespace is used by default in all mixer config documents.
 	// It will be replaced with the test namespace.
 	templateNamespace = "istio-system"
+
+	checkPath  = "/istio.mixer.v1.Mixer/Check"
+	reportPath = "/istio.mixer.v1.Mixer/Report"
 )
 
 type testConfig struct {
@@ -80,7 +87,7 @@ var (
 	tc                 *testConfig
 	productPageTimeout = 60 * time.Second
 	rules              = []string{rateLimitRule, denialRule, ingressDenialRule, newTelemetryRule, routeAllRule,
-		routeReviewsVersionsRule, routeReviewsV3Rule, tcpDbRule}
+		routeReviewsVersionsRule, routeReviewsV3Rule, tcpDbRule, bookinfoGateway}
 )
 
 func (t *testConfig) Setup() (err error) {
@@ -92,13 +99,20 @@ func (t *testConfig) Setup() (err error) {
 
 	var srcBytes []byte
 	for _, rule := range rules {
-		src := util.GetResourcePath(filepath.Join(rulesDir, rule))
-		dest := filepath.Join(t.rulesDir, rule)
+		src := util.GetResourcePath(filepath.Join(bookinfoSampleDir, rule+"."+yamlExtension))
+		dest := filepath.Join(t.rulesDir, rule+"."+yamlExtension)
 		srcBytes, err = ioutil.ReadFile(src)
 		if err != nil {
 			log.Errorf("Failed to read original rule file %s", src)
 			return err
 		}
+
+		err = os.MkdirAll(filepath.Dir(dest), 0700)
+		if err != nil {
+			log.Errorf("Failed to create the directory %s", filepath.Dir(dest))
+			return err
+		}
+
 		err = ioutil.WriteFile(dest, srcBytes, 0600)
 		if err != nil {
 			log.Errorf("Failed to write into new rule file %s", dest)
@@ -108,8 +122,8 @@ func (t *testConfig) Setup() (err error) {
 
 	err = createDefaultRoutingRules()
 
-	if !util.CheckPodsRunning(tc.Kube.Namespace) {
-		return fmt.Errorf("can't get all pods running")
+	if err = util.WaitForDeploymentsReady(tc.Kube.Namespace, time.Minute*2, tc.Kube.KubeConfig); err != nil {
+		return fmt.Errorf("pods not ready: %v", err)
 	}
 
 	// pre-warm the system. we don't care about what happens with this
@@ -125,9 +139,12 @@ func (t *testConfig) Setup() (err error) {
 }
 
 func createDefaultRoutingRules() error {
-	if err := createRouteRule(routeAllRule); err != nil {
-		return fmt.Errorf("could not create base routing rules: %v", err)
+	for _, rule := range []string{bookinfoGateway, routeAllRule} {
+		if err := createRouteRule(rule); err != nil {
+			return fmt.Errorf("could not create base routing rules: %v", err)
+		}
 	}
+
 	allowRuleSync()
 	return nil
 }
@@ -221,15 +238,15 @@ func (p *promProxy) portForward(labelSelector string, localPort string, remotePo
 func (p *promProxy) Setup() error {
 	var err error
 
-	if !util.CheckPodsRunning(tc.Kube.Namespace) {
-		return errors.New("could not establish prometheus proxy: pods not running")
+	if err = util.WaitForDeploymentsReady(tc.Kube.Namespace, time.Minute*2, tc.Kube.KubeConfig); err != nil {
+		return fmt.Errorf("could not establish prometheus proxy: pods not ready: %v", err)
 	}
 
 	if err = p.portForward("app=prometheus", prometheusPort, prometheusPort); err != nil {
 		return err
 	}
 
-	if err = p.portForward("istio=mixer", mixerMetricsPort, mixerMetricsPort); err != nil {
+	if err = p.portForward("istio-mixer-type=telemetry", mixerMetricsPort, mixerMetricsPort); err != nil {
 		return err
 	}
 
@@ -499,7 +516,25 @@ func TestIngressCheckCache(t *testing.T) {
 
 	// Visit product page through ingress should all be denied.
 	visit := func() error {
-		return visitProductPage(productPageTimeout, http.StatusForbidden)
+		url := fmt.Sprintf("%s/productpage", tc.Kube.IngressOrFail(t))
+		// Send 100 requests in a relative short time to make sure check cache will be used.
+		opts := fhttp.HTTPRunnerOptions{
+			RunnerOptions: periodic.RunnerOptions{
+				QPS:        10,
+				Exactly:    100,       // will make exactly 100 calls, so run for about 10 seconds
+				NumThreads: 5,         // get the same number of calls per connection (100/5=20)
+				Out:        os.Stderr, // only needed because of log capture issue
+			},
+			HTTPOptions: fhttp.HTTPOptions{
+				URL: url,
+			},
+		}
+
+		_, err := fhttp.RunHTTPTest(&opts)
+		if err != nil {
+			return fmt.Errorf("generating traffic via fortio failed: %v", err)
+		}
+		return nil
 	}
 	testCheckCache(t, visit)
 }
@@ -515,7 +550,7 @@ func TestCheckCache(t *testing.T) {
 
 	// visit calls product page health handler with sleep app.
 	visit := func() error {
-		return visitWithApp(url, pod, "sleep", http.StatusText(http.StatusOK))
+		return visitWithApp(url, pod, "sleep", 100)
 	}
 	testCheckCache(t, visit)
 }
@@ -536,12 +571,9 @@ func testCheckCache(t *testing.T, visit func() error) {
 	}
 
 	t.Logf("Baseline cache hits: %v", prior)
-	t.Log("Start to call visit function for 2 times...")
-	// Call visit for 2 times, which should check cache for 2 times.
-	for i := 0; i < 2; i++ {
-		if err = visit(); err != nil {
-			fatalf(t, "%v", err)
-		}
+	t.Log("Start to call visit function...")
+	if err = visit(); err != nil {
+		fatalf(t, "%v", err)
 	}
 
 	allowPrometheusSync()
@@ -716,6 +748,74 @@ func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
 	}
 }
 
+func TestMixerReportingToMixer(t *testing.T) {
+	// setup prometheus API
+	promAPI, err := promAPI()
+	if err != nil {
+		t.Fatalf("Could not build prometheus API client: %v", err)
+	}
+
+	// ensure that some traffic has gone through mesh successfully
+	if err = visitProductPage(productPageTimeout, http.StatusOK); err != nil {
+		fatalf(t, "Test app setup failure: %v", err)
+	}
+
+	log.Info("Successfully sent request(s) to productpage app through ingress.")
+	allowPrometheusSync()
+
+	t.Logf("Validating metrics with 'istio-policy' have been generated... ")
+	query := fmt.Sprintf("sum(istio_request_count{%s=\"%s\"}) by (%s)", destLabel, fqdn("istio-policy"), srcLabel)
+	t.Logf("Prometheus query: %s", query)
+	value, err := promAPI.Query(context.Background(), query, time.Now())
+	if err != nil {
+		t.Fatalf("Could not get metrics from prometheus: %v", err)
+	}
+
+	if value.Type() != model.ValVector {
+		t.Fatalf("Expected ValVector from prometheus, got %T", value)
+	}
+
+	if vec := value.(model.Vector); len(vec) < 2 {
+		t.Logf("Values for istio_request_count:\n%s", promDump(promAPI, "istio_request_count"))
+		t.Errorf("Expected at least two metrics with 'istio-policy' as the destination (srcs: istio-ingress, productpage), got %d", len(vec))
+	}
+
+	t.Logf("Validating metrics with 'istio-telemetry' have been generated... ")
+	query = fmt.Sprintf("sum(istio_request_count{%s=\"%s\"}) by (%s)", destLabel, fqdn("istio-telemetry"), srcLabel)
+	t.Logf("Prometheus query: %s", query)
+	value, err = promAPI.Query(context.Background(), query, time.Now())
+	if err != nil {
+		t.Fatalf("Could not get metrics from prometheus: %v", err)
+	}
+
+	if value.Type() != model.ValVector {
+		t.Fatalf("Expected ValVector from prometheus, got %T", value)
+	}
+
+	if vec := value.(model.Vector); len(vec) < 2 {
+		t.Logf("Values for istio_request_count:\n%s", promDump(promAPI, "istio_request_count"))
+		t.Errorf("Expected at least two metrics with 'istio-telemetry' as the destination (srcs: istio-ingress, productpage), got %d", len(vec))
+	}
+
+	mixerPod, err := podID("istio-mixer-type=telemetry")
+	if err != nil {
+		t.Fatalf("Could not retrieve istio-telemetry pod: %v", err)
+	}
+
+	t.Logf("Validating Mixer access logs show Check() and Report() calls...")
+
+	logs, err := util.Shell(`kubectl -n %s logs %s -c mixer --tail 1000 | grep -e "%s" -e "%s"`, tc.Kube.Namespace, mixerPod, checkPath, reportPath)
+	if err != nil {
+		t.Fatalf("Error retrieving istio-telemetry logs: %v", err)
+	}
+	wantLines := 4
+	gotLines := strings.Count(logs, "\n")
+	if gotLines < wantLines {
+		t.Errorf("Expected at least %v lines of Mixer-specific access logs, got %d", wantLines, gotLines)
+	}
+
+}
+
 func allowRuleSync() {
 	log.Info("Sleeping to allow rules to take effect...")
 	time.Sleep(1 * time.Minute)
@@ -858,17 +958,14 @@ func visitProductPage(timeout time.Duration, wantStatus int, headers ...*header)
 }
 
 // visitWithApp visits the given url by curl in the given container.
-func visitWithApp(url string, pod string, container string, code string) error {
-	cmd := fmt.Sprintf("kubectl exec %s -n %s -c %s -- curl -i -s %s", pod, tc.Kube.Namespace, container, url)
-	log.Infof("Visit %s with the following command: %v", url, cmd)
-	resp, err := util.Shell(cmd)
+func visitWithApp(url string, pod string, container string, num int) error {
+	cmd := fmt.Sprintf("kubectl exec %s -n %s -c %s -- bash -c 'for ((i=0; i<%d; i++)); do curl -m 0.1 -i -s %s; done'",
+		pod, tc.Kube.Namespace, container, num, url)
+	log.Infof("Visit %s for %d times with the following command: %v", url, num, cmd)
+	_, err := util.ShellMuteOutput(cmd)
 	if err != nil {
 		return fmt.Errorf("error excuting command: %s error: %v", cmd, err)
 	}
-	if !strings.Contains(resp, code) {
-		return fmt.Errorf("response: %v does not have wanted status code: %v", resp, code)
-	}
-	log.Infof("Response contains wanted status code %v.", code)
 	return nil
 }
 
@@ -905,7 +1002,7 @@ func getCheckCacheHits(promAPI v1.API) (float64, error) {
 		// Remote check calls should always be less than or equal to total check calls.
 		return 0, fmt.Errorf("check call metric is invalid: remote check call %v is more than total check call %v", remoteCheck, totalCheck)
 	}
-
+	log.Infof("Total check call is %v and remote check call is %v", totalCheck, remoteCheck)
 	// number of cached check call is the gap between total check calls and remote check calls.
 	return totalCheck - remoteCheck, nil
 }
@@ -915,18 +1012,18 @@ func fqdn(service string) string {
 }
 
 func createRouteRule(ruleName string) error {
-	rule := filepath.Join(tc.rulesDir, ruleName)
-	return util.KubeApply(tc.Kube.Namespace, rule)
+	rule := filepath.Join(tc.rulesDir, ruleName+"."+yamlExtension)
+	return util.KubeApply(tc.Kube.Namespace, rule, tc.Kube.KubeConfig)
 }
 
 func replaceRouteRule(ruleName string) error {
-	rule := filepath.Join(tc.rulesDir, ruleName)
-	return util.KubeApply(tc.Kube.Namespace, rule)
+	rule := filepath.Join(tc.rulesDir, ruleName+"."+yamlExtension)
+	return util.KubeApply(tc.Kube.Namespace, rule, tc.Kube.KubeConfig)
 }
 
 func deleteRouteRule(ruleName string) error {
-	rule := filepath.Join(tc.rulesDir, ruleName)
-	return util.KubeDelete(tc.Kube.Namespace, rule)
+	rule := filepath.Join(tc.rulesDir, ruleName+"."+yamlExtension)
+	return util.KubeDelete(tc.Kube.Namespace, rule, tc.Kube.KubeConfig)
 }
 
 func deleteMixerRule(ruleName string) error {
@@ -937,13 +1034,13 @@ func applyMixerRule(ruleName string) error {
 	return doMixerRule(ruleName, util.KubeApplyContents)
 }
 
-type kubeDo func(namespace string, contents string) error
+type kubeDo func(namespace string, contents string, kubeconfig string) error
 
 // doMixerRule
 // New mixer rules contain fully qualified pointers to other
 // resources, they must be replaced by the current namespace.
 func doMixerRule(ruleName string, do kubeDo) error {
-	rule := filepath.Join(tc.rulesDir, ruleName)
+	rule := filepath.Join(tc.rulesDir, ruleName+"."+yamlExtension)
 	cb, err := ioutil.ReadFile(rule)
 	if err != nil {
 		log.Errorf("Cannot read original yaml file %s", rule)
@@ -954,7 +1051,12 @@ func doMixerRule(ruleName string, do kubeDo) error {
 		return fmt.Errorf("%s must contain %s so the it can replaced", rule, templateNamespace)
 	}
 	contents = strings.Replace(contents, templateNamespace, tc.Kube.Namespace, -1)
-	return do(tc.Kube.Namespace, contents)
+	return do(tc.Kube.Namespace, contents, tc.Kube.KubeConfig)
+}
+
+func getBookinfoResourcePath(resource string) string {
+	return util.GetResourcePath(filepath.Join(bookinfoSampleDir, deploymentDir,
+		resource+"."+yamlExtension))
 }
 
 func setTestConfig() error {
@@ -971,19 +1073,19 @@ func setTestConfig() error {
 	tc.rulesDir = tmpDir
 	demoApps := []framework.App{
 		{
-			AppYaml:    util.GetResourcePath(bookinfoYaml),
+			AppYaml:    getBookinfoResourcePath(bookinfoYaml),
 			KubeInject: true,
 		},
 		{
-			AppYaml:    util.GetResourcePath(bookinfoRatingsv2Yaml),
+			AppYaml:    getBookinfoResourcePath(bookinfoRatingsv2Yaml),
 			KubeInject: true,
 		},
 		{
-			AppYaml:    util.GetResourcePath(bookinfoDbYaml),
+			AppYaml:    getBookinfoResourcePath(bookinfoDbYaml),
 			KubeInject: true,
 		},
 		{
-			AppYaml:    util.GetResourcePath(sleepYaml),
+			AppYaml:    util.GetResourcePath(sleepYaml + "." + yamlExtension),
 			KubeInject: true,
 		},
 	}

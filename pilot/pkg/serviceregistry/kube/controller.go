@@ -17,6 +17,7 @@ package kube
 import (
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"time"
 
@@ -40,6 +41,10 @@ const (
 	IstioNamespace = "istio-system"
 	// IstioConfigMap is used by default
 	IstioConfigMap = "istio"
+)
+
+var (
+	azDebug = os.Getenv("VERBOSE_AZ_DEBUG") == "1"
 )
 
 // ControllerOptions stores the configurable attributes of a Controller.
@@ -243,12 +248,16 @@ func (c *Controller) GetPodAZ(pod *v1.Pod) (string, bool) {
 	}
 	region, exists := node.(*v1.Node).Labels[NodeRegionLabel]
 	if !exists {
-		log.Warnf("unable to retrieve region label for pod: %v", pod.Name)
+		if azDebug {
+			log.Warnf("unable to retrieve region label for pod: %v", pod.Name)
+		}
 		return "", false
 	}
 	zone, exists := node.(*v1.Node).Labels[NodeZoneLabel]
 	if !exists {
-		log.Warnf("unable to retrieve zone label for pod: %v", pod.Name)
+		if azDebug {
+			log.Warnf("unable to retrieve zone label for pod: %v", pod.Name)
+		}
 		return "", false
 	}
 	return fmt.Sprintf("%v/%v", region, zone), true
@@ -344,7 +353,7 @@ func (c *Controller) Instances(hostname string, ports []string,
 }
 
 // GetProxyServiceInstances returns service instances co-located with a given proxy
-func (c *Controller) GetProxyServiceInstances(proxy model.Proxy) ([]*model.ServiceInstance, error) {
+func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
 	var out []*model.ServiceInstance
 	kubeNodes := make(map[string]*kubeServiceNode)
 	for _, item := range c.endpoints.informer.GetStore().List() {
@@ -356,7 +365,7 @@ func (c *Controller) GetProxyServiceInstances(proxy model.Proxy) ([]*model.Servi
 			for _, ea := range addrs {
 				if proxy.IPAddress == ea.IP {
 					if kubeNodes[ea.IP] == nil {
-						err := parseKubeServiceNode(ea.IP, &proxy, kubeNodes)
+						err := parseKubeServiceNode(ea.IP, proxy, kubeNodes)
 						if err != nil {
 							return out, err
 						}

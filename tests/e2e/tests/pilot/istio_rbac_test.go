@@ -16,70 +16,45 @@ package pilot
 
 import (
 	"fmt"
+	"testing"
 
-	"istio.io/istio/pkg/log"
-	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
+	"istio.io/istio/tests/util"
 )
-
-type istioRBAC struct {
-	*tutil.Environment
-	rbacEnableYaml string
-	rbacRulesYaml  string
-}
 
 const (
-	istioRBACEnableTmpl = "v1alpha2/istio-rbac-enable.yaml.tmpl"
-	istioRBACRulesTmpl  = "v1alpha2/istio-rbac-rules.yaml.tmpl"
+	rbacEnableTmpl = "testdata/v1alpha2/istio-rbac-enable.yaml.tmpl"
+	rbacRulesTmpl  = "testdata/v1alpha2/istio-rbac-rules.yaml.tmpl"
 )
 
-func (t *istioRBAC) String() string {
-	return "istio-rbac"
-}
-
-func (t *istioRBAC) Setup() error {
-	yamlEnable, err := t.Fill(istioRBACEnableTmpl, t.ToTemplateData())
+func TestRBAC(t *testing.T) {
+	if !tc.Kube.RBACEnabled {
+		t.Skipf("Skipping %s: rbac_enable=false", t.Name())
+	}
+	// Fill out the templates.
+	params := map[string]string{
+		"IstioNamespace": tc.Kube.IstioSystemNamespace(),
+		"Namespace":      tc.Kube.Namespace,
+	}
+	rbackEnableYaml, err := util.CreateAndFill(tc.Info.TempDir, rbacEnableTmpl, params)
 	if err != nil {
-		return err
+		t.Fatal(err)
 	}
-	yamlRules, err := t.Fill(istioRBACRulesTmpl, t.ToTemplateData())
+	rbackRulesYaml, err := util.CreateAndFill(tc.Info.TempDir, rbacRulesTmpl, params)
 	if err != nil {
-		return err
+		t.Fatal(err)
 	}
 
-	if err = t.KubeApply(yamlEnable, t.Config.IstioNamespace); err != nil {
-		log.Warn("Failed to enable istio RBAC")
-		return err
+	// Push all of the configs
+	cfgs := &deployableConfig{
+		Namespace:  tc.Kube.Namespace,
+		YamlFiles:  []string{rbackEnableYaml, rbackRulesYaml},
+		kubeconfig: tc.Kube.KubeConfig,
 	}
-	log.Info("Istio RBAC enabled")
-	t.rbacEnableYaml = yamlEnable
-
-	if err = t.KubeApply(yamlRules, t.Config.Namespace); err != nil {
-		log.Warn("Failed to apply istio RBAC rules")
-		return err
+	if err := cfgs.Setup(); err != nil {
+		t.Fatal(err)
 	}
-	log.Info("Istio RBAC rules applied")
-	t.rbacRulesYaml = yamlRules
+	defer cfgs.Teardown()
 
-	return nil
-}
-
-func (t *istioRBAC) Teardown() {
-	// It's safe to keep the rules for debugging purpose, they have no effect after the rbacEnableYaml
-	// is deleted.
-	if len(t.rbacRulesYaml) > 0 && !t.Config.SkipCleanup && !t.Config.SkipCleanupOnFailure {
-		if err := t.KubeDelete(t.rbacRulesYaml, t.Config.Namespace); err != nil {
-			log.Infof("Failed to delete istio RBAC rules: %v", err)
-		}
-	}
-
-	if len(t.rbacEnableYaml) > 0 {
-		if err := t.KubeDelete(t.rbacEnableYaml, t.Config.IstioNamespace); err != nil {
-			log.Errorf("Failed to disable istio RBAC: %v", err)
-		}
-	}
-}
-
-func (t *istioRBAC) Run() error {
 	cases := []struct {
 		dst    string
 		src    string
@@ -116,19 +91,14 @@ func (t *istioRBAC) Run() error {
 		{dst: "d", src: "c", path: "/", expect: "200"},
 	}
 
-	funcs := make(map[string]func() tutil.Status)
 	for _, req := range cases {
-		name := fmt.Sprintf("Istio RBAC: request for %+v", req)
-		funcs[name] = (func(src, dst, path, expect string) func() tutil.Status {
-			return func() tutil.Status {
-				resp := t.ClientRequest(src, fmt.Sprintf("http://%s%s", dst, path), 1, "")
-				if len(resp.Code) > 0 && resp.Code[0] == expect {
-					return nil
-				}
-				return tutil.ErrAgain
+		testName := fmt.Sprintf("%s->%s%s[%s]", req.src, req.dst, req.path, req.expect)
+		runRetriableTest(t, testName, defaultRetryBudget, func() error {
+			resp := ClientRequest(req.src, fmt.Sprintf("http://%s%s", req.dst, req.path), 1, "")
+			if len(resp.Code) > 0 && resp.Code[0] == req.expect {
+				return nil
 			}
-		})(req.src, req.dst, req.path, req.expect)
+			return errAgain
+		})
 	}
-
-	return tutil.Parallel(funcs)
 }

@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"hash"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"os/exec"
 	"path"
@@ -117,33 +116,20 @@ func (w *watcher) Reload() {
 // it has to use a reload due to limitations with envoy (az has to be passed in as a flag)
 func (w *watcher) retrieveAZ(ctx context.Context, delay time.Duration, retries int) {
 	if !model.IsApplicationNodeType(w.role.Type) {
-		log.Infof("Agent is proxy for %v component. This component does not require zone aware routing.", w.role.Type)
 		return
 	}
-	attempts := 0
-	for w.config.AvailabilityZone == "" && attempts <= retries {
-		time.Sleep(delay)
-		resp, err := http.Get(fmt.Sprintf("http://%v/v1/az/%v/%v", w.config.DiscoveryAddress, w.config.ServiceCluster, w.role.ServiceNode()))
-		if err != nil {
-			log.Infof("Unable to retrieve availability zone from pilot: %v", err)
-		} else {
-			body, err := ioutil.ReadAll(resp.Body)
-			if err != nil {
-				log.Infof("Unable to read availability zone response from pilot: %v", err)
-			}
-			if resp.StatusCode != http.StatusOK {
-				log.Infof("Received %v status from pilot when retrieving availability zone: %v", resp.StatusCode, string(body))
-			} else {
-				w.config.AvailabilityZone = string(body)
-				log.Infof("Proxy availability zone: %v", w.config.AvailabilityZone)
-				w.Reload()
-			}
-			_ = resp.Body.Close()
-		}
-		attempts++
+	if len(w.config.AvailabilityZone) > 0 {
+		return // already loaded
 	}
-	if w.config.AvailabilityZone == "" {
-		log.Info("Availability zone not set, proxy will default to not using zone aware routing.")
+
+	checkin, err := bootstrap.Checkin(w.config.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS,
+		w.config.DiscoveryAddress, w.config.ServiceCluster, w.role.ServiceNode(), delay, retries)
+	if err != nil {
+		log.Errorf("Failed to connect to pilot. Fallback to starting with defaults and no AZ %v", err)
+		// TODO: should we exit ? Envoy is unlikely to start without pilot.
+	} else {
+		w.config.AvailabilityZone = checkin.AvailabilityZone
+		w.Reload()
 	}
 }
 
@@ -322,7 +308,7 @@ func (proxy envoy) Run(config interface{}, epoch int, abort <-chan error) error 
 		// there is a custom configuration. Don't write our own config - but keep watching the certs.
 		fname = proxy.config.CustomConfigFile
 	} else if proxy.v2 {
-		out, err := bootstrap.WriteBootstrap(&proxy.config, epoch, proxy.pilotSAN, proxy.opts)
+		out, err := bootstrap.WriteBootstrap(&proxy.config, proxy.node, epoch, proxy.pilotSAN, proxy.opts)
 		if err != nil {
 			log.Errora("Failed to generate bootstrap config", err)
 			os.Exit(1) // Prevent infinite loop attempting to write the file, let k8s/systemd report

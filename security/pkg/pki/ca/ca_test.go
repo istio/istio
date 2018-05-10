@@ -90,7 +90,8 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	caNamespace := "default"
 	client := fake.NewSimpleClientset()
 
-	caopts, err := NewSelfSignedIstioCAOptions(caCertTTL, defaultCertTTL, maxCertTTL, org, caNamespace, client.CoreV1())
+	caopts, err := NewSelfSignedIstioCAOptions(caCertTTL, defaultCertTTL, maxCertTTL, org, caNamespace,
+		client.CoreV1())
 	if err != nil {
 		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
 	}
@@ -160,7 +161,8 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	org := "test.ca.org"
 	caNamespace := "default"
 
-	caopts, err := NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL, org, caNamespace, client.CoreV1())
+	caopts, err := NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL, org, caNamespace,
+		client.CoreV1())
 	if err != nil {
 		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
 	}
@@ -244,7 +246,7 @@ func TestSignCSRForWorkload(t *testing.T) {
 		t.Error(err)
 	}
 
-	ca, err := createCA(time.Hour)
+	ca, err := createCA(time.Hour, false)
 	if err != nil {
 		t.Error(err)
 	}
@@ -300,7 +302,7 @@ func TestSignCSRForCA(t *testing.T) {
 		t.Error(err)
 	}
 
-	ca, err := createCA(365 * 24 * time.Hour)
+	ca, err := createCA(365*24*time.Hour, true)
 	if err != nil {
 		t.Error(err)
 	}
@@ -354,7 +356,7 @@ func TestSignCSRTTLError(t *testing.T) {
 		t.Error(err)
 	}
 
-	ca, err := createCA(2 * time.Hour)
+	ca, err := createCA(2*time.Hour, false)
 	if err != nil {
 		t.Error(err)
 	}
@@ -371,7 +373,7 @@ func TestSignCSRTTLError(t *testing.T) {
 	}
 }
 
-func createCA(maxTTL time.Duration) (CertificateAuthority, error) {
+func createCA(maxTTL time.Duration, multicluster bool) (*IstioCA, error) {
 	// Generate root CA key and cert.
 	rootCAOpts := util.CertOptions{
 		IsCA:         true,

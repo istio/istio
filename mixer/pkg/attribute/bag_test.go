@@ -779,9 +779,98 @@ func TestFakeMutableBag(t *testing.T) {
 	}
 }
 
+func TestGlobalList(t *testing.T) {
+	l := GlobalList()
+
+	// check that there's a known string in there...
+	for _, s := range l {
+		if s == "destination.service" {
+			return
+		}
+	}
+
+	t.Error("Did not find destination.service")
+}
+
+func TestReset(t *testing.T) {
+	mb := GetMutableBag(nil)
+	defer mb.Done()
+
+	mb.Set("some", "value")
+	mb.Reset()
+
+	if len(mb.Names()) != 0 {
+		t.Errorf("Got %v, expected %v", mb.Names(), []string{})
+	}
+}
+
+func TestDelete(t *testing.T) {
+	parent := GetMutableBag(nil)
+	defer parent.Done()
+	child := GetMutableBag(parent)
+	defer child.Done()
+
+	parent.Set("parent", true)
+	child.Set("parent", false)
+
+	if len(child.Names()) != 1 {
+		t.Errorf("Got %v, expected %v", len(child.Names()), 1)
+	}
+
+	v, found := child.Get("parent")
+	if !found {
+		t.Error("Failed to retrieve attribute")
+	}
+	isParent, isBool := v.(bool)
+	if !isBool || isParent {
+		t.Error("Failed to retrieve bool attribute from child")
+	}
+
+	child.Delete("parent")
+
+	v, found = child.Get("parent")
+	if !found {
+		t.Error("Failed to retrieve attribute after Delete")
+	}
+	isParent, isBool = v.(bool)
+	if !isBool || !isParent {
+		t.Error("Failed to retrieve bool attribute from parent after Delete")
+	}
+}
+
+func TestParentRoundTrip(t *testing.T) {
+	parent := GetMutableBag(nil)
+	child := GetMutableBag(parent)
+
+	parent.Set("parent", true)
+	child.Set("child", true)
+
+	var pb mixerpb.CompressedAttributes
+	child.ToProto(&pb, nil, 0)
+
+	mb, err := GetBagFromProto(&pb, nil)
+	if err != nil {
+		t.Errorf("failed to get bag from protobuf: %v", err)
+	}
+	names := mb.Names()
+
+	if len(names) != len(child.Names()) {
+		t.Errorf("missing attributes after round-trip. Got %v, expected %v", names, child.Names())
+	}
+
+	for _, k := range names {
+		pre, _ := child.Get(k)
+		post, _ := mb.Get(k)
+		if !reflect.DeepEqual(post, pre) {
+			t.Errorf("Got %v, expected %v for attribute %s", post, pre, k)
+		}
+	}
+}
+
 func init() {
 	// bump up the log level so log-only logic runs during the tests, for correctness and coverage.
 	o := log.DefaultOptions()
-	_ = o.SetOutputLevel(log.DebugLevel)
+	o.SetOutputLevel(log.DefaultScopeName, log.DebugLevel)
+	o.SetOutputLevel(scope.Name(), log.DebugLevel)
 	_ = log.Configure(o)
 }

@@ -15,6 +15,8 @@ data:
         - {{ .MeshConfig.ProxyListenPort }}
         - "-u"
         - 1337
+        - "-m"
+        - {{ .ProxyConfig.InterceptionMode.String }}
         imagePullPolicy: IfNotPresent
         securityContext:
           capabilities:
@@ -25,11 +27,10 @@ data:
       - args:
         - -c
         #/etc/istio/proxy value here matches ConfigPathDir const in context.go
-        - sysctl -w kernel.core_pattern=/etc/istio/proxy/core.%e.%p.%t && ulimit -c
-          unlimited
+        - sysctl -w kernel.core_pattern=/etc/istio/proxy/core.%e.%p.%t && ulimit -c unlimited
         command:
         - /bin/sh
-        image: alpine
+        image: {PROXY_HUB}/proxy_init:{PROXY_TAG}
         imagePullPolicy: IfNotPresent
         name: enable-core-dump
         resources: {}
@@ -82,11 +83,19 @@ data:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
+        - name: ISTIO_META_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: ISTIO_META_INTERCEPTION_MODE
+          value: {{ .ProxyConfig.InterceptionMode.String }}
         imagePullPolicy: IfNotPresent
         securityContext:
-            privileged: true
-            readOnlyRootFilesystem: false
-            runAsUser: 1337
+          privileged: true
+          readOnlyRootFilesystem: false
+          {{ if ne .ProxyConfig.InterceptionMode.String "TPROXY" -}}
+          runAsUser: 1337
+          {{ end -}}
         restartPolicy: Always
         volumeMounts:
         - mountPath: /etc/istio/proxy

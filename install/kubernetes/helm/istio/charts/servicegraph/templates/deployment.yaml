@@ -2,6 +2,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: servicegraph
+  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "servicegraph.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
@@ -18,7 +19,7 @@ spec:
     spec:
       containers:
         - name: servicegraph
-          image: "{{ .Values.global.hub }}/servicegraph:{{ .Values.global.tag }}"
+          image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.imagePullPolicy }}
           ports:
             - containerPort: {{ .Values.service.internalPort }}
@@ -34,7 +35,5 @@ spec:
 #              port: {{ .Values.service.internalPort }}
           resources:
 {{ toYaml .Values.resources | indent 12 }}
-    {{- if .Values.nodeSelector }}
-      nodeSelector:
-{{ toYaml .Values.nodeSelector | indent 8 }}
-    {{- end }}
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}

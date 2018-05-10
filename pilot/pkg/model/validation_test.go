@@ -1739,219 +1739,6 @@ func TestValidateQuotaSpecBinding(t *testing.T) {
 	}
 }
 
-func TestValidateEndUserAuthenticationPolicySpec(t *testing.T) {
-	var (
-	//
-	)
-	cases := []struct {
-		name  string
-		in    proto.Message
-		valid bool
-	}{
-		{
-			name: "no jwt",
-			in:   &mccpb.EndUserAuthenticationPolicySpec{Jwts: []*mccpb.JWT{}},
-		},
-		{
-			name: "invalid issuer",
-			in: &mccpb.EndUserAuthenticationPolicySpec{
-				Jwts: []*mccpb.JWT{{
-					Audiences:              []string{"audience_foo.example.com"},
-					JwksUri:                "https://www.example.com/oauth/v1/certs",
-					PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
-					Locations: []*mccpb.JWT_Location{{
-						Scheme: &mccpb.JWT_Location_Header{Header: "x-goog-iap-jwt-assertion"},
-					}},
-				}},
-			},
-		},
-		{
-			name: "invalid audiences",
-			in: &mccpb.EndUserAuthenticationPolicySpec{
-				Jwts: []*mccpb.JWT{{
-					Issuer:                 "https://issuer.example.com",
-					Audiences:              []string{""},
-					JwksUri:                "https://www.example.com/oauth/v1/certs",
-					PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
-					Locations: []*mccpb.JWT_Location{{
-						Scheme: &mccpb.JWT_Location_Header{Header: "x-goog-iap-jwt-assertion"},
-					}},
-				}},
-			},
-		},
-		{
-			name: "missing jwks_uri",
-			in: &mccpb.EndUserAuthenticationPolicySpec{
-				Jwts: []*mccpb.JWT{{
-					Issuer:                 "https://issuer.example.com",
-					Audiences:              []string{"audience_foo.example.com"},
-					PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
-					Locations: []*mccpb.JWT_Location{{
-						Scheme: &mccpb.JWT_Location_Header{Header: "x-goog-iap-jwt-assertion"},
-					}},
-				}},
-			},
-		},
-		{
-			name: " jwks_uri with missing scheme",
-			in: &mccpb.EndUserAuthenticationPolicySpec{
-				Jwts: []*mccpb.JWT{{
-					Issuer:                 "https://issuer.example.com",
-					Audiences:              []string{"audience_foo.example.com"},
-					JwksUri:                "www.example.com/oauth/v1/certs",
-					PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
-					Locations: []*mccpb.JWT_Location{{
-						Scheme: &mccpb.JWT_Location_Header{Header: "x-goog-iap-jwt-assertion"},
-					}},
-				}},
-			},
-		},
-		{
-			name: " jwks_uri invalid url",
-			in: &mccpb.EndUserAuthenticationPolicySpec{
-				Jwts: []*mccpb.JWT{{
-					Issuer:                 "https://issuer.example.com",
-					Audiences:              []string{"audience_foo.example.com"},
-					JwksUri:                ":foo",
-					PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
-					Locations: []*mccpb.JWT_Location{{
-						Scheme: &mccpb.JWT_Location_Header{Header: "x-goog-iap-jwt-assertion"},
-					}},
-				}},
-			},
-		},
-		{
-			name: "invalid duration",
-			in: &mccpb.EndUserAuthenticationPolicySpec{
-				Jwts: []*mccpb.JWT{{
-					Issuer:    "https://issuer.example.com",
-					Audiences: []string{"audience_foo.example.com"},
-					JwksUri:   "https://www.example.com/oauth/v1/certs",
-					PublicKeyCacheDuration: &types.Duration{
-						Seconds: -1,
-					},
-					Locations: []*mccpb.JWT_Location{{
-						Scheme: &mccpb.JWT_Location_Header{Header: "x-goog-iap-jwt-assertion"},
-					}},
-				}},
-			},
-		},
-		{
-			name: "invalid location header",
-			in: &mccpb.EndUserAuthenticationPolicySpec{
-				Jwts: []*mccpb.JWT{{
-					Issuer:                 "https://issuer.example.com",
-					Audiences:              []string{"audience_foo.example.com"},
-					JwksUri:                "https://www.example.com/oauth/v1/certs",
-					PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
-					Locations:              []*mccpb.JWT_Location{{Scheme: &mccpb.JWT_Location_Header{}}},
-				}},
-			},
-		},
-		{
-			name: "invalid location query",
-			in: &mccpb.EndUserAuthenticationPolicySpec{
-				Jwts: []*mccpb.JWT{{
-					Issuer:                 "https://issuer.example.com",
-					Audiences:              []string{"audience_foo.example.com"},
-					JwksUri:                "https://www.example.com/oauth/v1/certs",
-					PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
-					Locations:              []*mccpb.JWT_Location{{Scheme: &mccpb.JWT_Location_Query{}}},
-				}},
-			},
-		},
-		{
-			name: "valid with https jwks_uri",
-			in: &mccpb.EndUserAuthenticationPolicySpec{
-				Jwts: []*mccpb.JWT{{
-					Issuer:                 "https://issuer.example.com",
-					Audiences:              []string{"audience_foo.example.com"},
-					JwksUri:                "https://www.example.com/oauth/v1/certs",
-					PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
-					Locations: []*mccpb.JWT_Location{{
-						Scheme: &mccpb.JWT_Location_Header{Header: "x-goog-iap-jwt-assertion"},
-					}},
-				}},
-			},
-			valid: true,
-		},
-		{
-			name: "valid with http jwks_uri",
-			in: &mccpb.EndUserAuthenticationPolicySpec{
-				Jwts: []*mccpb.JWT{{
-					Issuer:                 "https://issuer.example.com",
-					Audiences:              []string{"audience_foo.example.com"},
-					JwksUri:                "http://www.example.com/oauth/v1/certs",
-					PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
-					Locations: []*mccpb.JWT_Location{{
-						Scheme: &mccpb.JWT_Location_Header{Header: "x-goog-iap-jwt-assertion"},
-					}},
-				}},
-			},
-			valid: true,
-		},
-	}
-	for _, c := range cases {
-		if got := ValidateEndUserAuthenticationPolicySpec(c.in); (got == nil) != c.valid {
-			t.Errorf("ValidateEndUserAuthenticationPolicySpec(%v): got(%v) != want(%v): %v", c.name, got == nil, c.valid, got)
-		}
-	}
-}
-
-func TestValidateEndUserAuthenticationPolicySpecBinding(t *testing.T) {
-	var (
-		validEndUserAuthenticationPolicySpecRef   = &mccpb.EndUserAuthenticationPolicySpecReference{Name: "foo", Namespace: "bar"}
-		invalidEndUserAuthenticationPolicySpecRef = &mccpb.EndUserAuthenticationPolicySpecReference{Name: "foo", Namespace: "--bar"}
-	)
-	cases := []struct {
-		name  string
-		in    proto.Message
-		valid bool
-	}{
-		{
-			name: "no service",
-			in: &mccpb.EndUserAuthenticationPolicySpecBinding{
-				Services: []*mccpb.IstioService{},
-				Policies: []*mccpb.EndUserAuthenticationPolicySpecReference{validEndUserAuthenticationPolicySpecRef},
-			},
-		},
-		{
-			name: "invalid service",
-			in: &mccpb.EndUserAuthenticationPolicySpecBinding{
-				Services: []*mccpb.IstioService{invalidService},
-				Policies: []*mccpb.EndUserAuthenticationPolicySpecReference{validEndUserAuthenticationPolicySpecRef},
-			},
-		},
-		{
-			name: "no spec",
-			in: &mccpb.EndUserAuthenticationPolicySpecBinding{
-				Services: []*mccpb.IstioService{validService},
-				Policies: []*mccpb.EndUserAuthenticationPolicySpecReference{},
-			},
-		},
-		{
-			name: "invalid spec",
-			in: &mccpb.EndUserAuthenticationPolicySpecBinding{
-				Services: []*mccpb.IstioService{validService},
-				Policies: []*mccpb.EndUserAuthenticationPolicySpecReference{invalidEndUserAuthenticationPolicySpecRef},
-			},
-		},
-		{
-			name: "valid",
-			in: &mccpb.EndUserAuthenticationPolicySpecBinding{
-				Services: []*mccpb.IstioService{validService},
-				Policies: []*mccpb.EndUserAuthenticationPolicySpecReference{validEndUserAuthenticationPolicySpecRef},
-			},
-			valid: true,
-		},
-	}
-	for _, c := range cases {
-		if got := ValidateEndUserAuthenticationPolicySpecBinding(c.in); (got == nil) != c.valid {
-			t.Errorf("ValidateEndUserAuthenticationPolicySpecBinding(%v): got(%v) != want(%v): %v", c.name, got == nil, c.valid, got)
-		}
-	}
-}
-
 func TestValidateGateway(t *testing.T) {
 	tests := []struct {
 		name string
@@ -2215,6 +2002,34 @@ func TestValidateTlsOptions(t *testing.T) {
 	}
 }
 
+func TestValidateHost(t *testing.T) {
+	testCases := []struct {
+		host  string
+		valid bool
+	}{
+		{host: "", valid: false},
+		{host: "*", valid: true},
+		{host: "hello.world", valid: true},
+		{host: "*.world", valid: true},
+		{host: "h*.world", valid: false},
+		{host: "h*-abcdef.world", valid: true}, // special-case wildcard for Envoy
+		{host: "hello.*", valid: false},        // wildcard can only exist in first label
+		{host: "hello.world!", valid: false},
+		{host: "   ", valid: false},
+		{host: "127.0.0.1", valid: true},
+		{host: "192.168.100.14/32", valid: true},
+		{host: "192.168.100.14/24", valid: true},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.host, func(t *testing.T) {
+			if err := validateHost(tt.host); (err == nil && !tt.valid) || (err != nil && tt.valid) {
+				t.Fatalf("validateHost(%q) err=\"%v\", wanted valid=%v", tt.host, err, tt.valid)
+			}
+		})
+	}
+}
+
 func TestValidateHTTPHeaderName(t *testing.T) {
 	testCases := []struct {
 		name  string
@@ -2444,6 +2259,149 @@ func TestValidateHTTPRewrite(t *testing.T) {
 	}
 }
 
+func TestValidateDestination(t *testing.T) {
+	testCases := []struct {
+		name        string
+		destination *networking.Destination
+		valid       bool
+	}{
+		{name: "empty", destination: &networking.Destination{ // nothing
+		}, valid:                                             false},
+		{name: "simple", destination: &networking.Destination{
+			Host: "foo.bar",
+		}, valid: true},
+		{name: "full", destination: &networking.Destination{
+			Host:   "foo.bar",
+			Subset: "shiny",
+			Port:   &networking.PortSelector{Port: &networking.PortSelector_Number{Number: 5000}},
+		}, valid: true},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := validateDestination(tc.destination); (err == nil) != tc.valid {
+				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
+			}
+		})
+	}
+}
+
+func TestValidateHTTPRoute(t *testing.T) {
+	testCases := []struct {
+		name  string
+		route *networking.HTTPRoute
+		valid bool
+	}{
+		{name: "empty", route: &networking.HTTPRoute{ // nothing
+		}, valid:                                     false},
+		{name: "simple", route: &networking.HTTPRoute{
+			Route: []*networking.DestinationWeight{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+			}},
+		}, valid: true},
+		{name: "no destination", route: &networking.HTTPRoute{
+			Route: []*networking.DestinationWeight{{
+				Destination: nil,
+			}},
+		}, valid: false},
+		{name: "weighted", route: &networking.HTTPRoute{
+			Route: []*networking.DestinationWeight{{
+				Destination: &networking.Destination{Host: "foo.baz.south"},
+				Weight:      25,
+			}, {
+				Destination: &networking.Destination{Host: "foo.baz.east"},
+				Weight:      75,
+			}},
+		}, valid: true},
+		{name: "bad total weight", route: &networking.HTTPRoute{
+			Route: []*networking.DestinationWeight{{
+				Destination: &networking.Destination{Host: "foo.baz.south"},
+				Weight:      55,
+			}, {
+				Destination: &networking.Destination{Host: "foo.baz.east"},
+				Weight:      50,
+			}},
+		}, valid: false},
+		{name: "simple redirect", route: &networking.HTTPRoute{
+			Redirect: &networking.HTTPRedirect{
+				Uri:       "/lerp",
+				Authority: "foo.biz",
+			},
+		}, valid: true},
+		{name: "conflicting redirect and route", route: &networking.HTTPRoute{
+			Route: []*networking.DestinationWeight{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+			}},
+			Redirect: &networking.HTTPRedirect{
+				Uri:       "/lerp",
+				Authority: "foo.biz",
+			},
+		}, valid: false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := validateHTTPRoute(tc.route); (err == nil) != tc.valid {
+				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
+			}
+		})
+	}
+}
+
+// TODO: add TCP test cases once it is implemented
+func TestValidateVirtualService(t *testing.T) {
+	testCases := []struct {
+		name  string
+		in    proto.Message
+		valid bool
+	}{
+		{name: "simple", in: &networking.VirtualService{
+			Hosts: []string{"foo.bar"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.DestinationWeight{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: true},
+		{name: "no hosts", in: &networking.VirtualService{
+			Hosts: nil,
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.DestinationWeight{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: false},
+		{name: "bad host", in: &networking.VirtualService{
+			Hosts: []string{"foo.ba!r"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.DestinationWeight{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: false},
+		{name: "no tcp or http routing", in: &networking.VirtualService{
+			Hosts: []string{"foo.bar"},
+		}, valid: false},
+		{name: "bad gateway", in: &networking.VirtualService{
+			Hosts:    []string{"foo.bar"},
+			Gateways: []string{"b@dgateway"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.DestinationWeight{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := ValidateVirtualService(tc.in); (err == nil) != tc.valid {
+				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
+			}
+		})
+	}
+}
+
 func TestValidateDestinationRule(t *testing.T) {
 	cases := []struct {
 		name  string
@@ -2451,7 +2409,7 @@ func TestValidateDestinationRule(t *testing.T) {
 		valid bool
 	}{
 		{name: "simple destination rule", in: &networking.DestinationRule{
-			Name: "reviews",
+			Host: "reviews",
 			Subsets: []*networking.Subset{
 				{Name: "v1", Labels: map[string]string{"version": "v1"}},
 				{Name: "v2", Labels: map[string]string{"version": "v2"}},
@@ -2459,7 +2417,7 @@ func TestValidateDestinationRule(t *testing.T) {
 		}, valid: true},
 
 		{name: "missing destination name", in: &networking.DestinationRule{
-			Name: "",
+			Host: "",
 			Subsets: []*networking.Subset{
 				{Name: "v1", Labels: map[string]string{"version": "v1"}},
 				{Name: "v2", Labels: map[string]string{"version": "v2"}},
@@ -2467,7 +2425,7 @@ func TestValidateDestinationRule(t *testing.T) {
 		}, valid: false},
 
 		{name: "missing subset name", in: &networking.DestinationRule{
-			Name: "reviews",
+			Host: "reviews",
 			Subsets: []*networking.Subset{
 				{Name: "", Labels: map[string]string{"version": "v1"}},
 				{Name: "v2", Labels: map[string]string{"version": "v2"}},
@@ -2475,7 +2433,7 @@ func TestValidateDestinationRule(t *testing.T) {
 		}, valid: false},
 
 		{name: "valid traffic policy, top level", in: &networking.DestinationRule{
-			Name: "reviews",
+			Host: "reviews",
 			TrafficPolicy: &networking.TrafficPolicy{
 				LoadBalancer: &networking.LoadBalancerSettings{
 					LbPolicy: &networking.LoadBalancerSettings_Simple{
@@ -2497,7 +2455,7 @@ func TestValidateDestinationRule(t *testing.T) {
 		}, valid: true},
 
 		{name: "invalid traffic policy, top level", in: &networking.DestinationRule{
-			Name: "reviews",
+			Host: "reviews",
 			TrafficPolicy: &networking.TrafficPolicy{
 				LoadBalancer: &networking.LoadBalancerSettings{
 					LbPolicy: &networking.LoadBalancerSettings_Simple{
@@ -2516,7 +2474,7 @@ func TestValidateDestinationRule(t *testing.T) {
 		}, valid: false},
 
 		{name: "valid traffic policy, subset level", in: &networking.DestinationRule{
-			Name: "reviews",
+			Host: "reviews",
 			Subsets: []*networking.Subset{
 				{Name: "v1", Labels: map[string]string{"version": "v1"},
 					TrafficPolicy: &networking.TrafficPolicy{
@@ -2539,7 +2497,7 @@ func TestValidateDestinationRule(t *testing.T) {
 		}, valid: true},
 
 		{name: "invalid traffic policy, subset level", in: &networking.DestinationRule{
-			Name: "reviews",
+			Host: "reviews",
 			Subsets: []*networking.Subset{
 				{Name: "v1", Labels: map[string]string{"version": "v1"},
 					TrafficPolicy: &networking.TrafficPolicy{
@@ -2559,7 +2517,7 @@ func TestValidateDestinationRule(t *testing.T) {
 		}, valid: false},
 
 		{name: "valid traffic policy, both levels", in: &networking.DestinationRule{
-			Name: "reviews",
+			Host: "reviews",
 			TrafficPolicy: &networking.TrafficPolicy{
 				LoadBalancer: &networking.LoadBalancerSettings{
 					LbPolicy: &networking.LoadBalancerSettings_Simple{
@@ -2774,224 +2732,224 @@ func TestValidateOutlierDetection(t *testing.T) {
 	}
 }
 
-func TestValidateExternalServices(t *testing.T) {
+func TestValidateServiceEntries(t *testing.T) {
 	cases := []struct {
 		name  string
-		in    networking.ExternalService
+		in    networking.ServiceEntry
 		valid bool
 	}{
-		{name: "discovery type DNS", in: networking.ExternalService{
+		{name: "discovery type DNS", in: networking.ServiceEntry{
 			Hosts: []string{"*.google.com"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ExternalService_Endpoint{
+			Endpoints: []*networking.ServiceEntry_Endpoint{
 				{Address: "lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
-			Discovery: networking.ExternalService_DNS,
+			Resolution: networking.ServiceEntry_DNS,
 		},
 			valid: true},
 
-		{name: "discovery type DNS, IP in endpoints", in: networking.ExternalService{
+		{name: "discovery type DNS, IP in endpoints", in: networking.ServiceEntry{
 			Hosts: []string{"*.google.com"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ExternalService_Endpoint{
+			Endpoints: []*networking.ServiceEntry_Endpoint{
 				{Address: "1.1.1.1", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
-			Discovery: networking.ExternalService_DNS,
+			Resolution: networking.ServiceEntry_DNS,
 		},
 			valid: true},
 
-		{name: "empty hosts", in: networking.ExternalService{
+		{name: "empty hosts", in: networking.ServiceEntry{
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 			},
-			Endpoints: []*networking.ExternalService_Endpoint{
+			Endpoints: []*networking.ServiceEntry_Endpoint{
 				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
-			Discovery: networking.ExternalService_DNS,
+			Resolution: networking.ServiceEntry_DNS,
 		},
 			valid: false},
 
-		{name: "bad hosts", in: networking.ExternalService{
+		{name: "bad hosts", in: networking.ServiceEntry{
 			Hosts: []string{"-"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 			},
-			Endpoints: []*networking.ExternalService_Endpoint{
+			Endpoints: []*networking.ServiceEntry_Endpoint{
 				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
-			Discovery: networking.ExternalService_DNS,
+			Resolution: networking.ServiceEntry_DNS,
 		},
 			valid: false},
 
-		{name: "undefined endpoint port", in: networking.ExternalService{
+		{name: "undefined endpoint port", in: networking.ServiceEntry{
 			Hosts: []string{"google.com"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 80, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ExternalService_Endpoint{
+			Endpoints: []*networking.ServiceEntry_Endpoint{
 				{Address: "lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "in.google.com", Ports: map[string]uint32{"http-dne": 9080}},
 			},
-			Discovery: networking.ExternalService_DNS,
+			Resolution: networking.ServiceEntry_DNS,
 		},
 			valid: false},
 
-		{name: "discovery type DNS, non-FQDN endpoint", in: networking.ExternalService{
+		{name: "discovery type DNS, non-FQDN endpoint", in: networking.ServiceEntry{
 			Hosts: []string{"*.google.com"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ExternalService_Endpoint{
+			Endpoints: []*networking.ServiceEntry_Endpoint{
 				{Address: "*.lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "in.google.com", Ports: map[string]uint32{"http-dne": 9080}},
 			},
-			Discovery: networking.ExternalService_DNS,
+			Resolution: networking.ServiceEntry_DNS,
 		},
 			valid: false},
 
-		{name: "discovery type DNS, non-FQDN host", in: networking.ExternalService{
+		{name: "discovery type DNS, non-FQDN host", in: networking.ServiceEntry{
 			Hosts: []string{"*.google.com"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
 
-			Discovery: networking.ExternalService_DNS,
+			Resolution: networking.ServiceEntry_DNS,
 		},
 			valid: false},
 
-		{name: "discovery type DNS, no endpoints", in: networking.ExternalService{
+		{name: "discovery type DNS, no endpoints", in: networking.ServiceEntry{
 			Hosts: []string{"google.com"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
 
-			Discovery: networking.ExternalService_DNS,
+			Resolution: networking.ServiceEntry_DNS,
 		},
 			valid: true},
 
-		{name: "discovery type none", in: networking.ExternalService{
+		{name: "discovery type none", in: networking.ServiceEntry{
 			Hosts: []string{"google.com"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Discovery: networking.ExternalService_NONE,
+			Resolution: networking.ServiceEntry_NONE,
 		},
 			valid: true},
 
-		{name: "discovery type none, endpoints provided", in: networking.ExternalService{
+		{name: "discovery type none, endpoints provided", in: networking.ServiceEntry{
 			Hosts: []string{"google.com"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ExternalService_Endpoint{
+			Endpoints: []*networking.ServiceEntry_Endpoint{
 				{Address: "lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}},
 			},
-			Discovery: networking.ExternalService_NONE,
+			Resolution: networking.ServiceEntry_NONE,
 		},
 			valid: false},
 
-		{name: "discovery type DNS, non-FQDN host", in: networking.ExternalService{
+		{name: "discovery type DNS, non-FQDN host", in: networking.ServiceEntry{
 			Hosts: []string{"*.google.com"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
 
-			Discovery: networking.ExternalService_DNS,
+			Resolution: networking.ServiceEntry_DNS,
 		},
 			valid: false},
 
-		{name: "discovery type static", in: networking.ExternalService{
+		{name: "discovery type static", in: networking.ServiceEntry{
 			Hosts: []string{"172.1.2.16/16"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ExternalService_Endpoint{
+			Endpoints: []*networking.ServiceEntry_Endpoint{
 				{Address: "1.1.1.1", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "2.2.2.2", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
-			Discovery: networking.ExternalService_STATIC,
+			Resolution: networking.ServiceEntry_STATIC,
 		},
 			valid: true},
 
-		{name: "discovery type static, FQDN in endpoints", in: networking.ExternalService{
+		{name: "discovery type static, FQDN in endpoints", in: networking.ServiceEntry{
 			Hosts: []string{"172.1.2.16/16"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ExternalService_Endpoint{
+			Endpoints: []*networking.ServiceEntry_Endpoint{
 				{Address: "google.com", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "2.2.2.2", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
-			Discovery: networking.ExternalService_STATIC,
+			Resolution: networking.ServiceEntry_STATIC,
 		},
 			valid: false},
 
-		{name: "discovery type static, missing endpoints", in: networking.ExternalService{
+		{name: "discovery type static, missing endpoints", in: networking.ServiceEntry{
 			Hosts: []string{"172.1.2.16/16"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Discovery: networking.ExternalService_STATIC,
+			Resolution: networking.ServiceEntry_STATIC,
 		},
 			valid: false},
 
-		{name: "discovery type static, bad endpoint port name", in: networking.ExternalService{
+		{name: "discovery type static, bad endpoint port name", in: networking.ServiceEntry{
 			Hosts: []string{"172.1.2.16/16"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ExternalService_Endpoint{
+			Endpoints: []*networking.ServiceEntry_Endpoint{
 				{Address: "1.1.1.1", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "2.2.2.2", Ports: map[string]uint32{"http-dne": 9080}},
 			},
-			Discovery: networking.ExternalService_STATIC,
+			Resolution: networking.ServiceEntry_STATIC,
 		},
 			valid: false},
 
-		{name: "discovery type none, conflicting port names", in: networking.ExternalService{
+		{name: "discovery type none, conflicting port names", in: networking.ServiceEntry{
 			Hosts: []string{"google.com"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-conflict"},
 				{Number: 8080, Protocol: "http", Name: "http-conflict"},
 			},
-			Discovery: networking.ExternalService_NONE,
+			Resolution: networking.ServiceEntry_NONE,
 		},
 			valid: false},
 
-		{name: "discovery type none, conflicting port numbers", in: networking.ExternalService{
+		{name: "discovery type none, conflicting port numbers", in: networking.ServiceEntry{
 			Hosts: []string{"google.com"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-conflict1"},
 				{Number: 80, Protocol: "http", Name: "http-conflict2"},
 			},
-			Discovery: networking.ExternalService_NONE,
+			Resolution: networking.ServiceEntry_NONE,
 		},
 			valid: false},
 	}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := ValidateExternalService(&c.in); (got == nil) != c.valid {
-				t.Errorf("ValidateExternalService got valid=%v but wanted valid=%v: %v",
+			if got := ValidateServiceEntry(&c.in); (got == nil) != c.valid {
+				t.Errorf("ValidateServiceEntry got valid=%v but wanted valid=%v: %v",
 					got == nil, c.valid, got)
 			}
 		})
@@ -3058,9 +3016,85 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 			valid: true,
 		},
 		{
+			name: "Bad JkwsURI",
+			in: &authn.Policy{
+				Origins: []*authn.OriginAuthenticationMethod{
+					{
+						Jwt: &authn.Jwt{
+							Issuer:     "istio.io",
+							JwksUri:    "secure.istio.io/oauth/v1/certs",
+							JwtHeaders: []string{"x-goog-iap-jwt-assertion"},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "Bad JkwsURI Port",
+			in: &authn.Policy{
+				Origins: []*authn.OriginAuthenticationMethod{
+					{
+						Jwt: &authn.Jwt{
+							Issuer:     "istio.io",
+							JwksUri:    "https://secure.istio.io:not-a-number/oauth/v1/certs",
+							JwtHeaders: []string{"x-goog-iap-jwt-assertion"},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "Duplicate Jwt issuers",
+			in: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{{
+					Params: &authn.PeerAuthenticationMethod_Jwt{
+						Jwt: &authn.Jwt{
+							Issuer:     "istio.io",
+							JwksUri:    "https://secure.istio.io/oauth/v1/certs",
+							JwtHeaders: []string{"x-goog-iap-jwt-assertion"},
+						},
+					},
+				}},
+				Origins: []*authn.OriginAuthenticationMethod{
+					{
+						Jwt: &authn.Jwt{
+							Issuer:     "istio.io",
+							JwksUri:    "https://secure.istio.io/oauth/v1/certs",
+							JwtHeaders: []string{"x-goog-iap-jwt-assertion"},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
 			name: "Just binding",
 			in: &authn.Policy{
 				PrincipalBinding: authn.PrincipalBinding_USE_ORIGIN,
+			},
+			valid: true,
+		},
+		{
+			name: "Bad target name",
+			in: &authn.Policy{
+				Targets: []*authn.TargetSelector{
+					{
+						Name: "foo.bar",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "Good target name",
+			in: &authn.Policy{
+				Targets: []*authn.TargetSelector{
+					{
+						Name: "good-service-name",
+					},
+				},
 			},
 			valid: true,
 		},

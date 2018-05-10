@@ -12,7 +12,7 @@
 set -ex
 
 SECURITY_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
-DOCKER_IMAGE="istio-ca,istio-ca-test,node-agent,node-agent-test,flexvolumedriver"
+DOCKER_IMAGE="citadel,citadel-test,node-agent,node-agent-test,flexvolumedriver"
 
 ARGS=""
 HUB=""
@@ -47,10 +47,6 @@ ARGS="$ARGS --hub $HUB"
 
 if [[ -z $CERT_DIR ]]; then
   CERT_DIR=${SECURITY_ROOT}/docker
-fi
-
-if [[ "$HUB" =~ ^gcr\.io ]]; then
-  gcloud docker --authorize-only
 fi
 
 # Run integration tests

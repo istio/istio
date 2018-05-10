@@ -91,6 +91,8 @@ fi
 ISTIO_ENVOY_VERSION=${ISTIO_ENVOY_VERSION:-${PROXY_REPO_SHA}}
 ISTIO_ENVOY_DEBUG_URL=${ISTIO_ENVOY_DEBUG_URL:-https://storage.googleapis.com/istio-build/proxy/envoy-debug-${ISTIO_ENVOY_VERSION}.tar.gz}
 ISTIO_ENVOY_RELEASE_URL=${ISTIO_ENVOY_RELEASE_URL:-https://storage.googleapis.com/istio-build/proxy/envoy-alpha-${ISTIO_ENVOY_VERSION}.tar.gz}
+# TODO Change url when official envoy release for MAC is available
+ISTIO_ENVOY_MAC_RELEASE_URL=${ISTIO_ENVOY_MAC_RELEASE_URL:-https://storage.googleapis.com/istio-on-macos/releases/0.7.1/istio-proxy-0.7.1-macos.tar.gz}
 
 # Normally set by the Makefile.
 # Variables for the extracted debug/release Envoy artifacts.
@@ -112,6 +114,9 @@ if [ ! -f "$ISTIO_ENVOY_DEBUG_PATH" ] || [ ! -f "$ISTIO_ENVOY_RELEASE_PATH" ] ; 
     # Download debug envoy binary.
     mkdir -p $ISTIO_ENVOY_DEBUG_DIR
     pushd $ISTIO_ENVOY_DEBUG_DIR
+    if [ "$LOCAL_OS" == "darwin" ]; then
+       ISTIO_ENVOY_DEBUG_URL=${ISTIO_ENVOY_MAC_RELEASE_URL}
+    fi
     echo "Downloading envoy debug artifact: ${DOWNLOAD_COMMAND} ${ISTIO_ENVOY_DEBUG_URL}"
     time ${DOWNLOAD_COMMAND} ${ISTIO_ENVOY_DEBUG_URL} - | tar xz
     cp usr/local/bin/envoy $ISTIO_ENVOY_DEBUG_PATH
@@ -121,13 +126,15 @@ if [ ! -f "$ISTIO_ENVOY_DEBUG_PATH" ] || [ ! -f "$ISTIO_ENVOY_RELEASE_PATH" ] ; 
     # Download release envoy binary.
     mkdir -p $ISTIO_ENVOY_RELEASE_DIR
     pushd $ISTIO_ENVOY_RELEASE_DIR
+    if [ "$LOCAL_OS" == "darwin" ]; then 
+       ISTIO_ENVOY_RELEASE_URL=${ISTIO_ENVOY_MAC_RELEASE_URL}
+    fi
     echo "Downloading envoy release artifact: ${DOWNLOAD_COMMAND} ${ISTIO_ENVOY_RELEASE_URL}"
     time ${DOWNLOAD_COMMAND} ${ISTIO_ENVOY_RELEASE_URL} - | tar xz
     cp usr/local/bin/envoy $ISTIO_ENVOY_RELEASE_PATH
     rm -rf usr
     popd
 fi
-
 
 # TODO(nmittler): Remove once tests no longer use the envoy binary directly.
 if [ ! -f ${ISTIO_OUT}/envoy ] || ! cmp ${ISTIO_ENVOY_DEBUG_PATH} ${ISTIO_OUT}/envoy ; then
@@ -137,17 +144,9 @@ if [ ! -f ${ISTIO_OUT}/envoy ] || ! cmp ${ISTIO_ENVOY_DEBUG_PATH} ${ISTIO_OUT}/e
 fi
 
 sha256sum ${ISTIO_OUT}/envoy || true
-
 ${ISTIO_OUT}/envoy --version
 
-if [ ! -f /usr/local/bin/helm -a ! -f ${ISTIO_OUT}/helm ] ; then
-    # Install helm. Please keep it in sync with .circleci
-    cd /tmp && \
-        curl -Lo /tmp/helm.tgz https://storage.googleapis.com/kubernetes-helm/helm-${HELM_VER}-linux-amd64.tar.gz && \
-        tar xfz helm.tgz && \
-        mv linux-amd64/helm ${ISTIO_OUT}/helm && \
-        rm -rf helm.tgz linux-amd64
-fi
+${ROOT}/bin/init_helm.sh
 
 # TODO(nmittler): Remove once tests no longer use the envoy binary directly.
 # circleCI expects this in the bin directory

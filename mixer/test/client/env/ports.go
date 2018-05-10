@@ -24,9 +24,11 @@ import (
 
 // All tests should be listed here to get their test ids
 const (
-	CheckCacheTest uint16 = iota
+	CheckCacheHitTest uint16 = iota
+	CheckCacheTest
 	CheckReportAttributesTest
 	CheckReportDisableTest
+	CheckReportLargePostRequestTest
 	DisableCheckCacheTest
 	DisableTCPCheckCallsTest
 	FailedRequestTest
@@ -34,12 +36,13 @@ const (
 	JWTAuthTest
 	MixerInternalFailTest
 	NetworkFailureTest
-	ReportBatchTest
-	TCPMixerFilterTest
 	QuotaCacheTest
 	QuotaCallTest
+	ReportBatchTest
 	TCPMixerFilterPeriodicalReportTest
+	TCPMixerFilterTest
 	TCPMixerFilterV1ConfigTest
+	XDSTest
 
 	// The number of total tests. has to be the last one.
 	maxTestNum
@@ -61,6 +64,10 @@ type Ports struct {
 	AdminPort       uint16
 	MixerPort       uint16
 	BackendPort     uint16
+
+	// Pilot ports, used when testing mixer-pilot integration.
+	PilotGrpcPort uint16
+	PilotHTTPPort uint16
 }
 
 func allocPortBase(name uint16) uint16 {

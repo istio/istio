@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Tests of routing rules to outbound traffic defined by egress rules
-
 package pilot
 
 import (
@@ -22,294 +20,364 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
+	"testing"
 
-	multierror "github.com/hashicorp/go-multierror"
-
-	"istio.io/istio/pkg/log"
-	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
+	"istio.io/istio/tests/util"
 )
 
-type routingToEgress struct {
-	*tutil.Environment
-}
-
-func (t *routingToEgress) String() string {
-	return "routing-rules-to-egress"
-}
-
-func (t *routingToEgress) Setup() error {
-	return nil
-}
-
-func (t *routingToEgress) Run() error {
-	// egress rules are v1alpha1
-	if !t.Config.V1alpha1 {
-		return nil
+func TestEgressRouteFaultInjection(t *testing.T) {
+	if !tc.Egress {
+		t.Skipf("Skipping %s: egress=false", t.Name())
 	}
+	// egress rules are v1alpha1
+	if !tc.V1alpha1 {
+		t.Skipf("Skipping %s: v1alpha1=false", t.Name())
+	}
+
+	var cfgs *deployableConfig
+	applyRuleFunc := func(t *testing.T, yamlFiles []string) {
+		// Delete the previous rule if there was one. No delay on the teardown, since we're going to apply
+		// a delay when we push the new config.
+		if cfgs != nil {
+			if err := cfgs.TeardownNoDelay(); err != nil {
+				t.Fatal(err)
+			}
+			cfgs = nil
+		}
+
+		// Apply the new rule
+		cfgs = &deployableConfig{
+			Namespace:  tc.Kube.Namespace,
+			YamlFiles:  yamlFiles,
+			kubeconfig: tc.Kube.KubeConfig,
+		}
+		if err := cfgs.Setup(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Upon function exit, delete the active rule.
+	defer func() {
+		if cfgs != nil {
+			_ = cfgs.Teardown()
+		}
+	}()
+
 	cases := []struct {
-		description   string
-		configEgress  []string
-		configRouting string
-		routingData   map[string]string
-		check         func() error
+		testName        string
+		egressConfig    string
+		routingTemplate string
+		url             string
+		routingParams   map[string]string
 	}{
 		// Fault Injection
 		{
-			description:   "inject a http fault in traffic to httpbin.org",
-			configEgress:  []string{"v1alpha1/egress-rule-httpbin.yaml.tmpl"},
-			configRouting: "v1alpha1/rule-fault-injection-to-egress.yaml.tmpl",
-			routingData: map[string]string{
+			testName:        "httpbin",
+			egressConfig:    "testdata/v1alpha1/egress-rule-httpbin.yaml",
+			routingTemplate: "testdata/v1alpha1/rule-fault-injection-to-egress.yaml.tmpl",
+			routingParams: map[string]string{
 				"service": "httpbin.org",
 			},
-			check: func() error {
-				return t.verifyFaultInjectionByResponseCode("a", "http://httpbin.org", 418)
-			},
+			url: "http://httpbin.org",
 		},
 		{
-			description:   "inject a http fault in traffic to *.httpbin.org",
-			configEgress:  []string{"v1alpha1/egress-rule-wildcard-httpbin.yaml.tmpl"},
-			configRouting: "v1alpha1/rule-fault-injection-to-egress.yaml.tmpl",
-			routingData: map[string]string{
+			testName:        "*.httpbin",
+			egressConfig:    "testdata/v1alpha1/egress-rule-wildcard-httpbin.yaml",
+			routingTemplate: "testdata/v1alpha1/rule-fault-injection-to-egress.yaml.tmpl",
+			routingParams: map[string]string{
 				"service": "*.httpbin.org",
 			},
-			check: func() error {
-				return t.verifyFaultInjectionByResponseCode("a", "http://www.httpbin.org", 418)
-			},
+			url: "http://www.httpbin.org",
 		},
 		{
-			description:   "inject a http fault in traffic to google.com",
-			configEgress:  []string{"v1alpha1/egress-rule-google.yaml.tmpl"},
-			configRouting: "v1alpha1/rule-fault-injection-to-egress.yaml.tmpl",
-			routingData: map[string]string{
+			testName:        "google",
+			egressConfig:    "testdata/v1alpha1/egress-rule-google.yaml",
+			routingTemplate: "testdata/v1alpha1/rule-fault-injection-to-egress.yaml.tmpl",
+			routingParams: map[string]string{
 				"service": "*google.com",
 			},
-			check: func() error {
-				return t.verifyFaultInjectionByResponseCode("a", "http://www.google.com:443", 418)
-			},
+			url: "http://www.google.com:443",
 		},
-		// Append Headers
+	}
+
+	for _, c := range cases {
+		// Run case in a function to scope the configuration changes.
+		func() {
+			// Fill out the routing template
+			routingYaml, err := util.CreateAndFill(tc.Info.TempDir, c.routingTemplate, c.routingParams)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Push all of the configs
+			applyRuleFunc(t, []string{c.egressConfig, routingYaml})
+
+			runRetriableTest(t, c.testName, 3, func() error {
+				resp := ClientRequest("a", c.url, 1, "")
+
+				statusCode := ""
+				if len(resp.Code) > 0 {
+					statusCode = resp.Code[0]
+				}
+
+				expectedRespCode := 418
+				if strconv.Itoa(expectedRespCode) != statusCode {
+					return fmt.Errorf("fault injection verification failed: status code %s, expected status code %d",
+						statusCode, expectedRespCode)
+				}
+				return nil
+			})
+		}()
+	}
+}
+
+func TestEgressRouteHeaders(t *testing.T) {
+	if !tc.Egress {
+		t.Skipf("Skipping %s: egress=false", t.Name())
+	}
+	// egress rules are v1alpha1
+	if !tc.V1alpha1 {
+		t.Skipf("Skipping %s: v1alpha1=false", t.Name())
+	}
+
+	// Push all of the configs
+	cfgs := &deployableConfig{
+		Namespace: tc.Kube.Namespace,
+		YamlFiles: []string{
+			"testdata/v1alpha1/egress-rule-httpbin.yaml",
+			"testdata/v1alpha1/rule-route-append-headers-httpbin.yaml"},
+		kubeconfig: tc.Kube.KubeConfig,
+	}
+	if err := cfgs.Setup(); err != nil {
+		t.Fatal(err)
+	}
+	defer cfgs.Teardown()
+
+	runRetriableTest(t, "httpbin", 3,
+		func() error {
+			resp := ClientRequest("a", "http://httpbin.org/headers", 1, "")
+
+			containsAllExpectedHeaders := true
+
+			headers := []string{
+				"\"istio-custom-header1\": \"user-defined-value1\"",
+				"\"istio-custom-header2\": \"user-defined-value2\""}
+			for _, header := range headers {
+				if !strings.Contains(strings.ToLower(resp.Body), header) {
+					containsAllExpectedHeaders = false
+				}
+			}
+
+			if !containsAllExpectedHeaders {
+				return fmt.Errorf("headers verification failed: headers: %s, expected headers: %s",
+					resp.Body, headers)
+			}
+			return nil
+		})
+}
+
+func TestEgressRouteRedirectRewrite(t *testing.T) {
+	if !tc.Egress {
+		t.Skipf("Skipping %s: egress=false", t.Name())
+	}
+	// egress rules are v1alpha1
+	if !tc.V1alpha1 {
+		t.Skipf("Skipping %s: v1alpha1=false", t.Name())
+	}
+
+	var cfgs *deployableConfig
+	applyRuleFunc := func(t *testing.T, yamlFiles []string) {
+		// Delete the previous rule if there was one. No delay on the teardown, since we're going to apply
+		// a delay when we push the new config.
+		if cfgs != nil {
+			if err := cfgs.TeardownNoDelay(); err != nil {
+				t.Fatal(err)
+			}
+			cfgs = nil
+		}
+
+		// Apply the new rule
+		cfgs = &deployableConfig{
+			Namespace:  tc.Kube.Namespace,
+			YamlFiles:  yamlFiles,
+			kubeconfig: tc.Kube.KubeConfig,
+		}
+		if err := cfgs.Setup(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Upon function exit, delete the active rule.
+	defer func() {
+		if cfgs != nil {
+			_ = cfgs.Teardown()
+		}
+	}()
+
+	cases := []struct {
+		testName        string
+		egressConfig    []string
+		routingTemplate string
+		routingParams   map[string]string
+		url             string
+		targetHost      string
+		targetPath      string
+	}{
 		{
-			description:   "append http headers in traffic to httpbin.org",
-			configEgress:  []string{"v1alpha1/egress-rule-httpbin.yaml.tmpl"},
-			configRouting: "v1alpha1/rule-route-append-headers-httpbin.yaml.tmpl",
-			routingData:   nil,
-			check: func() error {
-				return t.verifyRequestHeaders("a", "http://httpbin.org/headers",
-					map[string]string{
-						"istio-custom-header1": "user-defined-value1",
-						"istio-custom-header2": "user-defined-value2",
-					})
-			},
-		},
-		// Redirect
-		{
-			description:   "redirect traffic from httpbin.org/post to httpbin.org/get",
-			configEgress:  []string{"v1alpha1/egress-rule-httpbin.yaml.tmpl"},
-			configRouting: "v1alpha1/rule-redirect-to-egress.yaml.tmpl",
-			routingData: map[string]string{
+			testName:        "REDIRECT[httbin/post->httpbin/get]",
+			egressConfig:    []string{"testdata/v1alpha1/egress-rule-httpbin.yaml"},
+			routingTemplate: "testdata/v1alpha1/rule-redirect-to-egress.yaml.tmpl",
+			routingParams: map[string]string{
 				"service":   "httpbin.org",
 				"from":      "/post",
 				"to":        "/get",
 				"authority": "httpbin.org",
 			},
-			check: func() error {
-				return t.verifyEgressRedirectRewrite("a", "http://httpbin.org/post", "httpbin.org", "/get")
-			},
+			url:        "http://httpbin.org/post",
+			targetHost: "httpbin.org",
+			targetPath: "/get",
 		},
 		{
-			description:   "redirect traffic from httpbin.org/post to *.httpbin.org/get",
-			configEgress:  []string{"v1alpha1/egress-rule-httpbin.yaml.tmpl", "v1alpha1/egress-rule-wildcard-httpbin.yaml.tmpl"},
-			configRouting: "v1alpha1/rule-redirect-to-egress.yaml.tmpl",
-			routingData: map[string]string{
+			testName: "REDIRECT[httpbin/post->*.httpbin/get]",
+			egressConfig: []string{
+				"testdata/v1alpha1/egress-rule-httpbin.yaml",
+				"testdata/v1alpha1/egress-rule-wildcard-httpbin.yaml",
+			},
+			routingTemplate: "testdata/v1alpha1/rule-redirect-to-egress.yaml.tmpl",
+			routingParams: map[string]string{
 				"service":   "httpbin.org",
 				"from":      "/post",
 				"to":        "/get",
 				"authority": "www.httpbin.org",
 			},
-			check: func() error {
-				return t.verifyEgressRedirectRewrite("a", "http://httpbin.org/post", "www.httpbin.org", "/get")
-			},
+			url:        "http://httpbin.org/post",
+			targetHost: "www.httpbin.org",
+			targetPath: "/get",
 		},
 		{
-			description:   "redirect traffic from *.httpbin.org/post to httpbin.org/get",
-			configEgress:  []string{"v1alpha1/egress-rule-httpbin.yaml.tmpl", "v1alpha1/egress-rule-wildcard-httpbin.yaml.tmpl"},
-			configRouting: "v1alpha1/rule-redirect-to-egress.yaml.tmpl",
-			routingData: map[string]string{
+			testName: "REDIRECT[*.httpbin/post->httpbin/get]",
+			egressConfig: []string{
+				"testdata/v1alpha1/egress-rule-httpbin.yaml",
+				"testdata/v1alpha1/egress-rule-wildcard-httpbin.yaml",
+			},
+			routingTemplate: "testdata/v1alpha1/rule-redirect-to-egress.yaml.tmpl",
+			routingParams: map[string]string{
 				"service":   "*.httpbin.org",
 				"from":      "/post",
 				"to":        "/get",
 				"authority": "httpbin.org",
 			},
-			check: func() error {
-				return t.verifyEgressRedirectRewrite("a", "http://www.httpbin.org/post", "httpbin.org", "/get")
-			},
+			url:        "http://www.httpbin.org/post",
+			targetHost: "httpbin.org",
+			targetPath: "/get",
 		},
 		{
-			description:   "redirect traffic from google.com/post to httpbin.org/get",
-			configEgress:  []string{"v1alpha1/egress-rule-google.yaml.tmpl", "v1alpha1/egress-rule-httpbin.yaml.tmpl"},
-			configRouting: "v1alpha1/rule-redirect-to-egress.yaml.tmpl",
-			routingData: map[string]string{
+			testName: "REDIRECT[google/post->httpbin/get]",
+			egressConfig: []string{
+				"testdata/v1alpha1/egress-rule-google.yaml",
+				"testdata/v1alpha1/egress-rule-httpbin.yaml",
+			},
+			routingTemplate: "testdata/v1alpha1/rule-redirect-to-egress.yaml.tmpl",
+			routingParams: map[string]string{
 				"service":   "*google.com",
 				"from":      "/post",
 				"to":        "/get",
 				"authority": "httpbin.org",
 			},
-			check: func() error {
-				return t.verifyEgressRedirectRewrite("a", "http://www.google.com:443/post", "httpbin.org", "/get")
-			},
+			url:        "http://www.google.com:443/post",
+			targetHost: "httpbin.org",
+			targetPath: "/get",
 		},
 		// Rewrite
 		{
-			description:   "rewrite traffic from httpbin.org/post to httpbin.org/get",
-			configEgress:  []string{"v1alpha1/egress-rule-httpbin.yaml.tmpl"},
-			configRouting: "v1alpha1/rule-rewrite-to-egress.yaml.tmpl",
-			routingData: map[string]string{
+			testName:        "REWRITE[httpbin/post->httpbin/get]",
+			egressConfig:    []string{"testdata/v1alpha1/egress-rule-httpbin.yaml"},
+			routingTemplate: "testdata/v1alpha1/rule-rewrite-to-egress.yaml.tmpl",
+			routingParams: map[string]string{
 				"service":   "httpbin.org",
 				"from":      "/post",
 				"to":        "/get",
 				"authority": "httpbin.org",
 			},
-			check: func() error {
-				return t.verifyEgressRedirectRewrite("a", "http://httpbin.org/post", "httpbin.org", "/get")
-			},
+			url:        "http://httpbin.org/post",
+			targetHost: "httpbin.org",
+			targetPath: "/get",
 		},
 		{
-			description:   "rewrite traffic from httpbin.org/post to *.httpbin.org/get",
-			configEgress:  []string{"v1alpha1/egress-rule-httpbin.yaml.tmpl", "v1alpha1/egress-rule-wildcard-httpbin.yaml.tmpl"},
-			configRouting: "v1alpha1/rule-rewrite-to-egress.yaml.tmpl",
-			routingData: map[string]string{
+			testName: "REWRITE[httpbin/post->*/httpbin/get]",
+			egressConfig: []string{
+				"testdata/v1alpha1/egress-rule-httpbin.yaml",
+				"testdata/v1alpha1/egress-rule-wildcard-httpbin.yaml",
+			},
+			routingTemplate: "testdata/v1alpha1/rule-rewrite-to-egress.yaml.tmpl",
+			routingParams: map[string]string{
 				"service":   "httpbin.org",
 				"from":      "/post",
 				"to":        "/get",
 				"authority": "www.httpbin.org",
 			},
-			check: func() error {
-				return t.verifyEgressRedirectRewrite("a", "http://httpbin.org/post", "www.httpbin.org", "/get")
-			},
+			url:        "http://httpbin.org/post",
+			targetHost: "www.httpbin.org",
+			targetPath: "/get",
 		},
 		{
-			description:   "rewrite traffic from *.httpbin.org/post to httpbin.org/get",
-			configEgress:  []string{"v1alpha1/egress-rule-httpbin.yaml.tmpl", "v1alpha1/egress-rule-wildcard-httpbin.yaml.tmpl"},
-			configRouting: "v1alpha1/rule-rewrite-to-egress.yaml.tmpl",
-			routingData: map[string]string{
+			testName: "REWRITE[*.httpbin/post->httpbin/get]",
+			egressConfig: []string{
+				"testdata/v1alpha1/egress-rule-httpbin.yaml",
+				"testdata/v1alpha1/egress-rule-wildcard-httpbin.yaml",
+			},
+			routingTemplate: "testdata/v1alpha1/rule-rewrite-to-egress.yaml.tmpl",
+			routingParams: map[string]string{
 				"service":   "*.httpbin.org",
 				"from":      "/post",
 				"to":        "/get",
 				"authority": "httpbin.org",
 			},
-			check: func() error {
-				return t.verifyEgressRedirectRewrite("a", "http://www.httpbin.org/post", "httpbin.org", "/get")
-			},
+			url:        "http://www.httpbin.org/post",
+			targetHost: "httpbin.org",
+			targetPath: "/get",
 		},
 	}
 
-	var errs error
-	for _, cs := range cases {
-		tutil.Tlog("Checking routing rule to egress rule test", cs.description)
-		for _, configEgress := range cs.configEgress {
-			if err := t.ApplyConfig(configEgress, nil); err != nil {
-				return err
+	for _, c := range cases {
+		// Run case in a function to scope the configuration changes.
+		func() {
+			// Fill out the routing template.
+			routingYaml, err := util.CreateAndFill(tc.Info.TempDir, c.routingTemplate, c.routingParams)
+			if err != nil {
+				t.Fatal(err)
 			}
-		}
-		if err := t.ApplyConfig(cs.configRouting, cs.routingData); err != nil {
-			return err
-		}
 
-		if err := tutil.Repeat(cs.check, 3, time.Second); err != nil {
-			log.Infof("Failed the test with %v", err)
-			errs = multierror.Append(errs, multierror.Prefix(err, cs.description))
-		} else {
-			log.Info("Success!")
-		}
+			// Push all of the configs
+			applyRuleFunc(t, append(c.egressConfig, routingYaml))
 
-		if err := t.DeleteConfig(cs.configRouting, cs.routingData); err != nil {
-			return err
-		}
-		for _, configEgress := range cs.configEgress {
-			if err := t.DeleteConfig(configEgress, nil); err != nil {
-				return err
-			}
-		}
+			runRetriableTest(t, c.testName, 3, func() error {
+				resp := ClientRequest("a", c.url, 1, "")
+				if !resp.IsHTTPOk() {
+					return fmt.Errorf("redirect verification failed: response status code: %v, expected 200",
+						resp.Code)
+				}
+
+				var actualRedirection string
+				if matches := regexp.MustCompile(`(?i)"url": "(.*)"`).FindStringSubmatch(resp.Body); len(matches) >= 2 {
+					actualRedirection = matches[1]
+				}
+
+				u, err := url.Parse(actualRedirection)
+				if err != nil {
+					return fmt.Errorf("url.Parse failed: %v", err)
+				}
+
+				if u.Host != c.targetHost {
+					return fmt.Errorf("location header contains Host=%v, expected Host=%v",
+						u.Host, c.targetHost)
+				}
+
+				if u.Path != c.targetPath {
+					return fmt.Errorf("location header contains Path=%v, expected Path=%v",
+						u.Path, c.targetPath)
+				}
+
+				return nil
+			})
+		}()
 	}
-	return errs
-}
-
-func (t *routingToEgress) Teardown() {
-	log.Info("Cleaning up route rules to egress rules...")
-	if err := t.DeleteAllConfigs(); err != nil {
-		log.Warna(err)
-	}
-}
-
-func (t *routingToEgress) verifyFaultInjectionByResponseCode(src, url string, respCode int) error {
-	log.Infof("Making 1 request (%s) from %s...\n", url, src)
-
-	resp := t.ClientRequest(src, url, 1, "")
-
-	statusCode := ""
-	if len(resp.Code) > 0 {
-		statusCode = resp.Code[0]
-	}
-
-	if strconv.Itoa(respCode) != statusCode {
-		return fmt.Errorf("fault injection verification failed: status code %s, expected status code %d",
-			statusCode, respCode)
-	}
-	return nil
-}
-
-func (t *routingToEgress) verifyRequestHeaders(src, httpbinURL string, expectedHeaders map[string]string) error {
-	log.Infof("Making 1 request (%s) from %s...\n", httpbinURL, src)
-
-	resp := t.ClientRequest(src, httpbinURL, 1, "")
-
-	containsAllExpectedHeaders := true
-
-	headerFormat := "\"%s\": \"%s\""
-	for name, value := range expectedHeaders {
-		headerContent := fmt.Sprintf(headerFormat, name, value)
-		if !strings.Contains(strings.ToLower(resp.Body), strings.ToLower(headerContent)) {
-			containsAllExpectedHeaders = false
-		}
-	}
-
-	if !containsAllExpectedHeaders {
-		return fmt.Errorf("headers verification failed: headers: %s, expected headers: %s",
-			resp.Body, expectedHeaders)
-	}
-	return nil
-}
-
-//verifyEgressRedirectRewrite verifies if the http redirect/rewrite was setup properly
-func (t *routingToEgress) verifyEgressRedirectRewrite(src, dstURL, targetHost, targetPath string) error {
-	log.Infof("Making 1 request (%s) from %s...\n", dstURL, src)
-
-	resp := t.ClientRequest(src, dstURL, 1, "")
-	if !resp.IsHTTPOk() {
-		return fmt.Errorf("redirect verification failed: response status code: %v, expected 200",
-			resp.Code)
-	}
-
-	var actualRedirection string
-	if matches := regexp.MustCompile(`(?i)"url": "(.*)"`).FindStringSubmatch(resp.Body); len(matches) >= 2 {
-		actualRedirection = matches[1]
-	}
-
-	u, err := url.Parse(actualRedirection)
-	if err != nil {
-		return fmt.Errorf("redirect verification failed: url.Parse failed: %v", err)
-	}
-
-	if u.Host != targetHost {
-		return fmt.Errorf("redirect verification failed: location header contains Host=%v, expected Host=%v",
-			u.Host, targetHost)
-	}
-
-	if u.Path != targetPath {
-		return fmt.Errorf("redirect verification failed: location header contains Path=%v, expected Path=%v",
-			u.Path, targetPath)
-	}
-
-	return nil
 }

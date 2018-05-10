@@ -12,76 +12,126 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Routing tests
-
 package pilot
 
 import (
 	"fmt"
-
-	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
+	"io/ioutil"
+	"testing"
 )
 
-type authnPolicy struct {
-	*tutil.Environment
-}
-
-func (r *authnPolicy) String() string {
-	return "authn-policy"
-}
-
-func (r *authnPolicy) Setup() error {
-	return nil
-}
-
-func (r *authnPolicy) Teardown() {}
-
-func (r *authnPolicy) Run() error {
-	// This authentication policy will:
-	// - Enable mTLS for the whole namespace.
-	// - But disable mTLS for service c (all ports) and d port 80.
-	if err := r.ApplyConfig("v1alpha1/authn-policy.yaml.tmpl", nil); err != nil {
-		return err
+func TestAuthNPolicy(t *testing.T) {
+	if !tc.Kube.AuthEnabled {
+		t.Skipf("Skipping %s: auth_enable=false", t.Name())
 	}
-	return r.makeRequests()
-}
 
-// makeRequests executes requests in pods and collects request ids per pod to check against access logs
-func (r *authnPolicy) makeRequests() error {
+	cfgs := &deployableConfig{
+		Namespace:  tc.Kube.Namespace,
+		YamlFiles:  []string{"testdata/authn/v1alpha1/authn-policy.yaml.tmpl"},
+		kubeconfig: tc.Kube.KubeConfig,
+	}
+	if err := cfgs.Setup(); err != nil {
+		t.Fatal(err)
+	}
+	defer cfgs.Teardown()
+
 	srcPods := []string{"a", "t"}
 	dstPods := []string{"b", "c", "d"}
-	funcs := make(map[string]func() tutil.Status)
-	// Given the policy, the expected behavior is:
-	// - a (with proxy) can talk to all destination that also have proxy, as mTLS will be
-	// configured matchingly between them.
-	// - t (without proxy) can NOT talk to b and d port 80 as mTLS is on for those destinations.
-	// - However, t can still talk to c and d:8080 as mTLS is off for those.
-	for _, src := range srcPods {
-		for _, dst := range dstPods {
-			for _, port := range []string{"", ":80", ":8080"} {
-				for _, domain := range []string{"", "." + r.Config.Namespace} {
-					name := fmt.Sprintf("Request from %s to %s%s%s", src, dst, domain, port)
-					funcs[name] = (func(src, dst, port, domain string) func() tutil.Status {
-						url := fmt.Sprintf("http://%s%s%s/%s", dst, domain, port, src)
-						return func() tutil.Status {
-							resp := r.ClientRequest(src, url, 1, "")
-							if src == "t" && (dst == "b" || (dst == "d" && port == ":8080")) {
+	ports := []string{"", "80", "8080"}
+
+	// Run all request tests.
+	t.Run("request", func(t *testing.T) {
+		for _, src := range srcPods {
+			for _, dst := range dstPods {
+				for _, port := range ports {
+					for _, domain := range []string{"", "." + tc.Kube.Namespace} {
+						testName := fmt.Sprintf("%s->%s%s_%s", src, dst, domain, port)
+						runRetriableTest(t, testName, defaultRetryBudget, func() error {
+							reqURL := fmt.Sprintf("http://%s%s:%s/%s", dst, domain, port, src)
+							resp := ClientRequest(src, reqURL, 1, "")
+							if src == "t" && (dst == "b" || (dst == "d" && port == "8080")) {
 								if len(resp.ID) == 0 {
 									// t cannot talk to b nor d:80
 									return nil
 								}
-								return tutil.ErrAgain
+								return errAgain
 							}
 							// Request should return successfully (status 200)
 							if resp.IsHTTPOk() {
 								return nil
 							}
-							return tutil.ErrAgain
-						}
-					})(src, dst, port, domain)
+							return errAgain
+						})
+					}
 				}
 			}
 		}
+	})
+}
+
+func TestAuthNJwt(t *testing.T) {
+	// V1alpha3 == true implies envoyv2, jwt authn doesn't work for v2 so skip it now.
+	// TODO(quanlin): enable test for v2 API after https://github.com/istio/istio/pull/5061 is in.
+	if tc.V1alpha3 {
+		t.Skipf("Skipping %s: V1alpha3=true", t.Name())
 	}
-	return tutil.Parallel(funcs)
+
+	// JWT token used is borrowed from https://github.com/istio/proxy/blob/master/src/envoy/http/jwt_auth/sample/correct_jwt.
+	// The Token expires in year 2132, issuer is 628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com.
+	// Test will fail if this service account is deleted.
+	p := "testdata/authn/v1alpha1/correct_jwt"
+	token, err := ioutil.ReadFile(p)
+	if err != nil {
+		t.Fatalf("failed to read %q", p)
+	}
+	validJwtToken := string(token)
+
+	// Policy enforces JWT authn for service 'c' and 'd:80'.
+	cfgs := &deployableConfig{
+		Namespace:  tc.Kube.Namespace,
+		YamlFiles:  []string{"testdata/authn/v1alpha1/authn-policy-jwt.yaml.tmpl"},
+		kubeconfig: tc.Kube.KubeConfig,
+	}
+	if err := cfgs.Setup(); err != nil {
+		t.Fatal(err)
+	}
+	defer cfgs.Teardown()
+
+	cases := []struct {
+		dst    string
+		src    string
+		port   string
+		token  string
+		expect string
+	}{
+		{dst: "a", src: "b", port: "", token: "", expect: "200"},
+		{dst: "a", src: "c", port: "80", token: "", expect: "200"},
+
+		{dst: "b", src: "a", port: "", token: "", expect: "200"},
+		{dst: "b", src: "a", port: "80", token: "", expect: "200"},
+		{dst: "b", src: "c", port: "", token: validJwtToken, expect: "200"},
+		{dst: "b", src: "d", port: "8080", token: "testToken", expect: "200"},
+
+		{dst: "c", src: "a", port: "80", token: validJwtToken, expect: "200"},
+		{dst: "c", src: "a", port: "8080", token: "invalidToken", expect: "401"},
+		{dst: "c", src: "b", port: "", token: "random", expect: "401"},
+		{dst: "c", src: "d", port: "80", token: validJwtToken, expect: "200"},
+
+		{dst: "d", src: "a", port: "", token: validJwtToken, expect: "200"},
+		{dst: "d", src: "b", port: "80", token: "foo", expect: "401"},
+		{dst: "d", src: "c", port: "8080", token: "bar", expect: "200"},
+	}
+
+	for _, c := range cases {
+		testName := fmt.Sprintf("%s->%s[%s]", c.src, c.dst, c.expect)
+		runRetriableTest(t, testName, defaultRetryBudget, func() error {
+			extra := fmt.Sprintf("-key \"Authorization\" -val \"Bearer %s\"", c.token)
+			resp := ClientRequest(c.src, fmt.Sprintf("http://%s:%s", c.dst, c.port), 1, extra)
+			if len(resp.Code) > 0 && resp.Code[0] == c.expect {
+				return nil
+			}
+
+			return errAgain
+		})
+	}
 }

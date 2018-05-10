@@ -14,6 +14,7 @@
 #
 # The script must be run/sourced from the parent of the tools/ directory
 #
+
 PROJECT=${PROJECT:-$(gcloud config list --format 'value(core.project)' 2>/dev/null)}
 ZONE=${ZONE:-us-east4-b}
 CLUSTER_NAME=${CLUSTER_NAME:-istio-perf}
@@ -51,7 +52,6 @@ else
     Usage
   fi
 fi
-
 
 function update_gcp_opts() {
   export GCP_OPTS="--project $PROJECT --zone $ZONE"
@@ -99,7 +99,7 @@ function run_on_vm() {
 
 function setup_vm() {
   Execute gcloud compute instances add-tags $VM_NAME $GCP_OPTS --tags https-server
-  run_on_vm '(sudo add-apt-repository ppa:gophers/archive > /dev/null && sudo apt-get update > /dev/null && sudo apt-get upgrade --no-install-recommends -y && sudo apt-get install --no-install-recommends -y golang-1.9-go make && mv .bashrc .bashrc.orig && (echo "export PATH=/usr/lib/go-1.9/bin:\$PATH:~/go/bin"; cat .bashrc.orig) > ~/.bashrc ) < /dev/null'
+  run_on_vm '(sudo add-apt-repository ppa:gophers/archive > /dev/null && sudo apt-get update > /dev/null && sudo apt-get upgrade --no-install-recommends -y && sudo apt-get install --no-install-recommends -y golang-1.10-go make && mv .bashrc .bashrc.orig && (echo "export PATH=/usr/lib/go-1.10/bin:\$PATH:~/go/bin"; cat .bashrc.orig) > ~/.bashrc ) < /dev/null'
 }
 
 function setup_vm_firewall() {
@@ -111,7 +111,7 @@ function delete_vm_firewall() {
 }
 
 function update_fortio_on_vm() {
-  run_on_vm 'go get istio.io/fortio && cd go/src/istio.io/fortio && git fetch && git checkout latest_release && make submodule-sync && go build -o ~/go/bin/fortio -ldflags "-X istio.io/fortio/version.tag=$(git describe --tag --match v\*) -X istio.io/fortio/version.buildInfo=$(git rev-parse HEAD)" . && sudo setcap 'cap_net_bind_service=+ep' `which fortio` && fortio version'
+  run_on_vm 'go get istio.io/fortio && cd go/src/istio.io/fortio && git fetch --tags && git checkout latest_release && make submodule-sync && go build -o ~/go/bin/fortio -ldflags "-X istio.io/fortio/version.tag=$(git describe --tag --match v\*) -X istio.io/fortio/version.buildInfo=$(git rev-parse HEAD)" . && sudo setcap 'cap_net_bind_service=+ep' `which fortio` && fortio version'
 }
 
 function run_fortio_on_vm() {
@@ -130,6 +130,12 @@ function install_istio() {
   Execute sh -c 'kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user="$(gcloud config get-value core/account)"'
   # Use the non debug ingress and remove the -v "2"
   Execute sh -c 'sed -e "s/_debug//g" install/kubernetes/istio-auth.yaml | egrep -v -e "- (-v|\"2\")" | kubectl apply -f -'
+}
+
+function install_istio_addons() {
+  # Starting in 0.8, prometheus is already in istio-auth.yaml
+  # Execute sh -c 'kubectl apply -f install/kubernetes/addons/prometheus.yaml'
+  Execute sh -c 'kubectl apply -f install/kubernetes/addons/grafana.yaml'
 }
 
 # assumes run from istio/ (or release) directory
@@ -169,7 +175,40 @@ function install_istio_cache_busting_rule() {
 
 function get_fortio_k8s_ip() {
   FORTIO_K8S_IP=$(kubectl -n $FORTIO_NAMESPACE get svc -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
+  while [[ -z "${FORTIO_K8S_IP}" ]]
+  do
+    echo sleeping to get FORTIO_K8S_IP $FORTIO_K8S_IP
+    sleep 5
+    FORTIO_K8S_IP=$(kubectl -n $FORTIO_NAMESPACE get svc -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
+  done
   echo "+++ In k8s fortio external ip: http://$FORTIO_K8S_IP:8080/fortio/"
+}
+
+function setup_istio_addons_ingress() {
+  cat <<_EOF_ | kubectl apply -n istio-system -f -
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: istio
+  name: istio-ingress
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /d/.*
+            backend:
+              serviceName: grafana
+              servicePort: http
+          - path: /public/.*
+            backend:
+              serviceName: grafana
+              servicePort: http
+          - path: /api/.*
+            backend:
+              serviceName: grafana
+              servicePort: http
+_EOF_
 }
 
 # Doesn't work somehow...
@@ -210,40 +249,101 @@ _EOF_
 
 function get_non_istio_ingress_ip() {
   K8S_INGRESS_IP=$(kubectl -n $FORTIO_NAMESPACE get ingress -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
+  while [[ -z "${K8S_INGRESS_IP}" ]]
+  do
+    echo sleeping to get K8S_INGRESS_IP ${K8S_INGRESS_IP}
+    sleep 5
+    K8S_INGRESS_IP=$(kubectl -n $FORTIO_NAMESPACE get ingress -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
+  done
+
 #  echo "+++ In k8s non istio ingress: http://$K8S_INGRESS_IP/fortio1/fortio/ and fortio2"
   echo "+++ In k8s non istio ingress: http://$K8S_INGRESS_IP/fortio/"
 }
 
 function get_istio_ingress_ip() {
   ISTIO_INGRESS_IP=$(kubectl -n $ISTIO_NAMESPACE get ingress -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
+  while [[ -z "${ISTIO_INGRESS_IP}" ]]
+  do
+    echo sleeping to get ISTIO_INGRESS_IP ${ISTIO_INGRESS_IP}
+    sleep 5
+    ISTIO_INGRESS_IP=$(kubectl -n $ISTIO_NAMESPACE get ingress -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
+  done
+
   echo "+++ In k8s istio ingress: http://$ISTIO_INGRESS_IP/fortio1/fortio/ and fortio2"
+  echo "+++ In k8s grafana: http://$ISTIO_INGRESS_IP/d/1/"
+}
+
+# Set default QPS to max qps
+if [ -z ${QPS+x} ] || [ $QPS == "" ]; then
+  echo "Setting default qps"
+  QPS=-1
+fi
+
+# Set default run duration to 30s
+if [ -z ${DUR+x} ] || [ $DUR == "" ]; then
+  DUR="30s"
+fi
+
+function get_istio_version() {
+  kubectl describe pods -n istio|grep /proxy:|head -1 | awk -F: '{print $3}'
+}
+
+function get_json_file_name() {
+  BASE="${1}"
+  if [[ $TS == "" ]]; then
+    TS=$(date +'%Y-%m-%d-%H-%M')
+  fi
+  if [[ $VERSION == "" ]]; then
+    VERSION=$(get_istio_version)
+  fi
+  QPSSTR="qps_${QPS}"
+  if [[ $QPSSTR == "qps_-1" ]]; then
+    QPSSTR="qps_max"
+  fi
+  LABELS="$BASE $QPSSTR $VERSION"
+  FNAME=$QPSSTR-$BASE-$VERSION-$TS
+  file_escape
+  label_escape
+  echo $FNAME
+}
+
+function file_escape() {
+  FNAME=$(echo $FNAME|sed -e "s/ /_/g")
+}
+
+function label_escape() {
+  LABELS=$(echo $LABELS|sed -e "s/ /+/g")
 }
 
 function run_fortio_test1() {
   echo "Using default loadbalancer, no istio:"
-  Execute curl "$VM_URL?json=on&save=on&qps=-1&t=30s&c=48&load=Start&url=http://$FORTIO_K8S_IP:8080/echo"
+  Execute curl "$VM_URL?json=on&save=on&qps=$QPS&t=$DUR&c=48&load=Start&url=http://$FORTIO_K8S_IP:8080/echo"
 }
 function run_fortio_test2() {
   echo "Using default ingress, no istio:"
-  Execute curl "$VM_URL?json=on&save=on&qps=-1&t=30s&c=48&load=Start&url=http://$K8S_INGRESS_IP/echo"
-}
-function run_fortio_test_istio_ingress1() {
-  echo "Using istio ingress to fortio1:"
-  ExecuteEval curl -s "$VM_URL?labels=ingress+to+f1\&json=on\&save=on\&qps=-1\&t=30s\&c=48\&load=Start\&url=http://$ISTIO_INGRESS_IP/fortio1/echo" \| tee ing-to-f1.json \| grep ActualQPS
-}
-function run_fortio_test_istio_ingress2() {
-  echo "Using istio ingress to fortio2:"
-  ExecuteEval curl -s "$VM_URL?labels=ingress+to+f2\&json=on\&save=on\&qps=-1\&t=30s\&c=48\&load=Start\&url=http://$ISTIO_INGRESS_IP/fortio2/echo" \| tee ing-to-f2.json \| grep ActualQPS
-}
-function run_fortio_test_istio_1_2() {
-  echo "Using istio f1 to f2:"
-  ExecuteEval curl -s "http://$ISTIO_INGRESS_IP/fortio1/fortio/?labels=f1+to+f2\&json=on\&save=on\&qps=-1\&t=30s\&c=48\&load=Start\&url=http://echosrv2:8080/echo" \| tee f1-to-f2.json \| grep ActualQPS
-}
-function run_fortio_test_istio_2_1() {
-  echo "Using istio f2 to f1:"
-  ExecuteEval curl -s "http://$ISTIO_INGRESS_IP/fortio2/fortio/?labels=f2+to+f1\&json=on\&save=on\&qps=-1\&t=30s\&c=48\&load=Start\&url=http://echosrv1:8080/echo" \| tee f2-to-f1.json \| grep ActualQPS
+  Execute curl "$VM_URL?json=on&save=on&qps=$QPS&t=$DUR&c=48&load=Start&url=http://$K8S_INGRESS_IP/echo"
 }
 
+function run_fortio_test_istio_ingress1() {
+  get_json_file_name "ingress to s1"
+  echo "Using istio ingress to fortio1, saving to $FNAME"
+  ExecuteEval curl -s "$VM_URL?labels=$LABELS\&json=on\&save=on\&qps=$QPS\&t=$DUR\&c=48\&load=Start\&url=http://$ISTIO_INGRESS_IP/fortio1/echo" \| tee $FNAME.json \| grep ActualQPS
+}
+function run_fortio_test_istio_ingress2() {
+  get_json_file_name "ingress to s2"
+  echo "Using istio ingress to fortio2, saving to $FNAME"
+  ExecuteEval curl -s "$VM_URL?labels=$LABELS\&json=on\&save=on\&qps=$QPS\&t=$DUR\&c=48\&load=Start\&url=http://$ISTIO_INGRESS_IP/fortio2/echo" \| tee $FNAME.json \| grep ActualQPS
+}
+function run_fortio_test_istio_1_2() {
+  get_json_file_name "s1 to s2"
+  echo "Using istio f1 to f2, saving to $FNAME"
+  ExecuteEval curl -s "http://$ISTIO_INGRESS_IP/fortio1/fortio/?labels=$LABELS\&json=on\&save=on\&qps=$QPS\&t=$DUR\&c=48\&load=Start\&url=http://echosrv2:8080/echo" \| tee $FNAME.json \| grep ActualQPS
+}
+function run_fortio_test_istio_2_1() {
+  get_json_file_name "s2 to s1"
+  echo "Using istio f2 to f1, saving to $FNAME"
+  ExecuteEval curl -s "http://$ISTIO_INGRESS_IP/fortio2/fortio/?labels=$LABELS\&json=on\&save=on\&qps=$QPS\&t=$DUR\&c=48\&load=Start\&url=http://echosrv1:8080/echo" \| tee $FNAME.json \| grep ActualQPS
+}
 
 # Run canonical perf tests.
 # The following parameters can be supplied:
@@ -348,6 +448,8 @@ function setup_istio_all() {
   install_istio_svc
   install_istio_ingress_rules
   install_istio_cache_busting_rule
+  install_istio_addons
+  setup_istio_addons_ingress
 }
 
 function setup_cluster_all() {
@@ -382,19 +484,31 @@ function get_ips() {
   get_istio_ingress_ip
 }
 
-function run_tests() {
-  update_gcp_opts
-  get_ips
-#  run_fortio_test1
-#  run_fortio_test2
+function run_4_tests() {
   run_fortio_test_istio_ingress1
   run_fortio_test_istio_ingress2
   run_fortio_test_istio_1_2
   run_fortio_test_istio_2_1
+}
+
+function run_tests() {
+  update_gcp_opts
+  get_ips
+  VERSION="" # reset in case it changed
+  TS="" # reset once per set
+  QPS=-1
+  run_4_tests
+  QPS=400
+  TS="" # reset once per set
+  run_4_tests
   echo "Graph the results:"
   fortio report &
 }
 
+
+function check_image_versions() {
+  kubectl get pods --all-namespaces -o jsonpath="{..image}" | tr -s '[[:space:]]' '\n' | sort | uniq -c | grep -v -e google.containers
+}
 
 if [[ $SOURCED == 0 ]]; then
   # Normal mode: all at once:

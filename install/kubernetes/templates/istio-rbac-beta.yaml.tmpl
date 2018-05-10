@@ -47,6 +47,9 @@ rules:
 - apiGroups: ["*"]
   resources: ["configmaps"]
   verbs: ["get", "list", "watch"]
+- apiGroups: ["admissionregistration.k8s.io"]
+  resources: ["mutatingwebhookconfigurations"]
+  verbs: ["get", "list", "watch", "patch"]
 ---
 # Mixer CRD needs to watch and list CRDs
 # It also uses discovery API to discover Kinds of config.istio.io
@@ -88,7 +91,7 @@ rules:
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
-  name: istio-ca-{ISTIO_NAMESPACE}
+  name: istio-citadel-{ISTIO_NAMESPACE}
 rules:
 - apiGroups: [""]
   resources: ["secrets"]
@@ -141,18 +144,18 @@ roleRef:
   name: istio-sidecar-injector-{ISTIO_NAMESPACE}
   apiGroup: rbac.authorization.k8s.io
 ---
-# Grant permissions to the CA.
+# Grant permissions to Citadel.
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
-  name: istio-ca-role-binding-{ISTIO_NAMESPACE}
+  name: istio-citadel-role-binding-{ISTIO_NAMESPACE}
 subjects:
 - kind: ServiceAccount
-  name: istio-ca-service-account
+  name: istio-citadel-service-account
   namespace: {ISTIO_NAMESPACE}
 roleRef:
   kind: ClusterRole
-  name: istio-ca-{ISTIO_NAMESPACE}
+  name: istio-citadel-{ISTIO_NAMESPACE}
   apiGroup: rbac.authorization.k8s.io
 ---
 # Grant permissions to the Ingress controller.

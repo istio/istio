@@ -33,6 +33,18 @@ option (gogoproto.gostring_all) = false;
 message Params {
     // Describes how a metric should be represented in Prometheus.
     message MetricInfo {
+        // next unused: 8
+
+        // Optional. The namespace is used as a prefix on the metric names.
+        // An example: for a metric named "request_count" with a namespace of "istio",
+        // the full metric name becomes "istio_request_count".
+        // NOTE: The specificed namespace should be a prometheus-safe name. If not, the adapter
+        // will attempt to convert the namespace to a prometheus-safe name.
+        // NOTE: Changing the value for this will potentially impact downstream integrations
+        // and should be used with caution.  
+        // Default value: "istio".
+        string namespace = 7;
+
         // Recommended. The name is used to register the prometheus metric.
         // It must be unique across all prometheus metrics as prometheus does not allow duplicate names.
         // If name is not specified a sanitized version of instance_name is used.

@@ -29,11 +29,6 @@ $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 
 # static files/directories that are copied from source tree
 
-PROXY_JSON_FILES:=pilot/docker/envoy_pilot.json \
-                  pilot/docker/envoy_pilot_auth.json \
-                  pilot/docker/envoy_mixer.json \
-                  pilot/docker/envoy_mixer_auth.json
-
 NODE_AGENT_TEST_FILES:=security/docker/start_app.sh \
                        security/docker/app.js
 
@@ -67,8 +62,9 @@ $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key: ${GEN_CERT} $(IST
 # tell make which files are copied form go/out
 DOCKER_FILES_FROM_ISTIO_OUT:=pilot-test-client pilot-test-server pilot-test-eurekamirror \
                              pilot-discovery pilot-agent sidecar-injector servicegraph mixs \
-                             istio_ca flexvolume node_agent multicluster_ca \
-			     proxy-ready
+                             istio_ca flexvolume node_agent gals
+
+DOCKER_FILES_FROM_ISTIO_OUT+=proxy-ready
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT)/$(FILE) | $(ISTIO_DOCKER); cp $$< $$(@D)))
 
@@ -77,63 +73,75 @@ $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
 # 	cp $$< $$(@D))
 
 # tell make which files are copied from the source tree
-DOCKER_FILES_FROM_SOURCE:=pilot/docker/prepare_proxy.sh docker/ca-certificates.tgz tools/deb/envoy_bootstrap_tmpl.json \
-                          $(PROXY_JSON_FILES) $(NODE_AGENT_TEST_FILES) $(FLEXVOLUMEDRIVER_FILES) $(GRAFANA_FILES) \
+DOCKER_FILES_FROM_SOURCE:=tools/deb/istio-iptables.sh docker/ca-certificates.tgz tools/deb/envoy_bootstrap_tmpl.json \
+                          $(NODE_AGENT_TEST_FILES) $(FLEXVOLUMEDRIVER_FILES) $(GRAFANA_FILES) \
                           pilot/docker/certs/cert.crt pilot/docker/certs/cert.key
 $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
         $(eval $(ISTIO_DOCKER)/$(notdir $(FILE)): $(FILE) | $(ISTIO_DOCKER); cp $(FILE) $$(@D)))
 
-# Copy the envoy images, but use standard file names (without the version) in docker
-$(ISTIO_DOCKER)/envoy: ${ISTIO_ENVOY_RELEASE_PATH} | $(ISTIO_DOCKER); cp ${ISTIO_ENVOY_RELEASE_PATH} $(ISTIO_DOCKER)/envoy
-$(ISTIO_DOCKER)/envoy-debug: ${ISTIO_ENVOY_DEBUG_PATH} | $(ISTIO_DOCKER); cp ${ISTIO_ENVOY_DEBUG_PATH} $(ISTIO_DOCKER)/envoy-debug
-
-# pilot docker images
+# pilot docker imagesDOCKER_BUILD_TOP
 
 docker.eurekamirror: $(ISTIO_DOCKER)/pilot-test-eurekamirror
-docker.proxy_init: $(ISTIO_DOCKER)/prepare_proxy.sh
+docker.proxy_init: $(ISTIO_DOCKER)/istio-iptables.sh
 docker.sidecar_injector: $(ISTIO_DOCKER)/sidecar-injector
 
+docker.proxy: $(ISTIO_OUT)/proxy-ready
 docker.proxy: tools/deb/envoy_bootstrap_tmpl.json
 docker.proxy: ${ISTIO_ENVOY_RELEASE_PATH}
-docker.proxy: $(ISTIO_OUT)/pilot-agent ${PROXY_JSON_FILES}
-docker.proxy: $(ISTIO_OUT)/proxy-ready
-docker.proxy: pilot/docker/Dockerfile.proxy pilot/docker/Dockerfile.proxy_debug
-	mkdir -p $(ISTIO_DOCKER)/proxy
-	cp $^ $(ISTIO_DOCKER)/proxy/
-ifeq ($(DEBUG_IMAGE),1)
-	cp ${ISTIO_ENVOY_DEBUG_PATH} $(ISTIO_DOCKER)/proxyd/envoy
-	time (cd $(ISTIO_DOCKER)/proxy && \
-		docker build -t $(HUB)$(HUB_IMG_DELIM)proxy$(IMG_TAG_DELIM)$(TAG) -f Dockerfile.proxy_debug .)
-else
-	cp ${ISTIO_ENVOY_RELEASE_PATH} $(ISTIO_DOCKER)/proxy/envoy
-	time (cd $(ISTIO_DOCKER)/proxy && \
-		docker build -t $(HUB)$(HUB_IMG_DELIM)proxy$(IMG_TAG_DELIM)$(TAG) -f Dockerfile.proxy .)
-endif
+docker.proxy: $(ISTIO_OUT)/pilot-agent
+docker.proxy: pilot/docker/${DOCKER_PROXY_CFG}
+docker.proxy: pilot/docker/envoy_pilot.yaml.tmpl
+docker.proxy: pilot/docker/envoy_policy.yaml.tmpl
+docker.proxy: pilot/docker/envoy_telemetry.yaml.tmpl
+	mkdir -p $(DOCKER_BUILD_TOP)/proxy
+	# Not using $^ to avoid 2 copies of envoy
+	cp tools/deb/envoy_bootstrap_tmpl.json $(ISTIO_OUT)/pilot-agent pilot/docker/${DOCKER_PROXY_CFG} $(DOCKER_BUILD_TOP)/proxy/
+	cp $(ISTIO_OUT)/proxy-ready $(DOCKER_BUILD_TOP)/proxy/
+	cp pilot/docker/*.yaml.tmpl $(DOCKER_BUILD_TOP)/proxy/
+	cp ${ISTIO_ENVOY_RELEASE_PATH} $(DOCKER_BUILD_TOP)/proxy/envoy
+	time (cd $(DOCKER_BUILD_TOP)/proxy && \
+		docker build -t $(HUB)$(HUB_IMG_DELIM)proxy$(IMG_TAG_DELIM)$(TAG) -f ${DOCKER_PROXY_CFG} .)
 
+docker.proxy_debug: $(ISTIO_OUT)/proxy-ready
 docker.proxy_debug: tools/deb/envoy_bootstrap_tmpl.json
 docker.proxy_debug: ${ISTIO_ENVOY_DEBUG_PATH}
-docker.proxy_debug: $(ISTIO_OUT)/pilot-agent ${PROXY_JSON_FILES}
-docker.proxy_debug: $(ISTIO_OUT)/proxy-ready
+docker.proxy_debug: $(ISTIO_OUT)/pilot-agent
 docker.proxy_debug: pilot/docker/Dockerfile.proxy_debug
-	mkdir -p $(ISTIO_DOCKER)/proxyd
-	cp ${ISTIO_ENVOY_DEBUG_PATH} $(ISTIO_DOCKER)/proxyd/envoy
-	cp $^ $(ISTIO_DOCKER)/proxyd/
-	time (cd $(ISTIO_DOCKER)/proxyd && \
+docker.proxy_debug: pilot/docker/envoy_pilot.yaml.tmpl
+docker.proxy_debug: pilot/docker/envoy_policy.yaml.tmpl
+docker.proxy_debug: pilot/docker/envoy_telemetry.yaml.tmpl
+	mkdir -p $(DOCKER_BUILD_TOP)/proxyd
+	cp ${ISTIO_ENVOY_DEBUG_PATH} $(DOCKER_BUILD_TOP)/proxyd/envoy
+	cp pilot/docker/*.yaml.tmpl $(DOCKER_BUILD_TOP)/proxyd/
+	# Not using $^ to avoid 2 copies of envoy
+	cp tools/deb/envoy_bootstrap_tmpl.json $(ISTIO_OUT)/pilot-agent pilot/docker/Dockerfile.proxy_debug $(DOCKER_BUILD_TOP)/proxyd/
+	cp $(ISTIO_OUT)/proxy-ready $(DOCKER_BUILD_TOP)/proxyd/
+	time (cd $(DOCKER_BUILD_TOP)/proxyd && \
 		docker build -t $(HUB)$(HUB_IMG_DELIM)proxy_debug$(IMG_TAG_DELIM)$(TAG) -f Dockerfile.proxy_debug .)
 
 # Target to build a proxy image with v2 interfaces enabled. Partial implementation, but
 # will scale better and have v2-specific features. Not built automatically until it passes
 # all tests. Developers working on v2 are currently expected to call this manually as
 # make docker.proxyv2; docker push ${HUB}/proxy:${TAG}
-docker.proxyv2: tools/deb/envoy_bootstrap_v2.json ${PROXY_JSON_FILES}
-docker.proxyv2: $(ISTIO_OUT)/envoy
+docker.proxyv2: tools/deb/envoy_bootstrap_v2.json
+docker.proxyv2: ${ISTIO_ENVOY_RELEASE_PATH}
 docker.proxyv2: $(ISTIO_OUT)/pilot-agent
 docker.proxyv2: pilot/docker/Dockerfile.proxy pilot/docker/Dockerfile.proxy_debug
-	mkdir -p $(ISTIO_DOCKER_BASE)/proxy
-	cp $^ $(ISTIO_DOCKER_BASE)/proxy/
-	cp $(ISTIO_DOCKER_BASE)/proxy/envoy_bootstrap_v2.json $(ISTIO_DOCKER_BASE)/proxy/envoy_bootstrap_tmpl.json
-	time (cd $(ISTIO_DOCKER_BASE)/proxy && \
-		docker build -t $(HUB)$(HUB_IMG_DELIM)proxy$(IMG_TAG_DELIM)$(TAG) -f Dockerfile.proxy_debug .)
+docker.proxyv2: pilot/docker/envoy_pilot.yaml.tmpl
+docker.proxyv2: pilot/docker/envoy_policy.yaml.tmpl
+docker.proxyv2: pilot/docker/envoy_telemetry.yaml.tmpl
+	mkdir -p $(DOCKER_BUILD_TOP)/proxyv2
+	# Not using $^ to avoid 2 copies of envoy
+	cp $(ISTIO_OUT)/pilot-agent \
+		pilot/docker/Dockerfile.proxy_debug $(DOCKER_BUILD_TOP)/proxyv2/
+	# api v2 doesn't need special ready status
+	cp /bin/true $(DOCKER_BUILD_TOP)/proxyv2/proxy-ready
+	cp ${ISTIO_ENVOY_RELEASE_PATH} $(DOCKER_BUILD_TOP)/proxyv2/envoy
+	cp pilot/docker/*.yaml.tmpl $(DOCKER_BUILD_TOP)/proxyv2/
+	# Use v2 as default
+	cp tools/deb/envoy_bootstrap_v2.json $(DOCKER_BUILD_TOP)/proxyv2/envoy_bootstrap_tmpl.json
+	time (cd $(DOCKER_BUILD_TOP)/proxyv2 && \
+		docker build -t $(HUB)$(HUB_IMG_DELIM)proxyv2$(IMG_TAG_DELIM)$(TAG) -f Dockerfile.proxy_debug .)
 
 docker.pilot: $(ISTIO_OUT)/pilot-discovery pilot/docker/Dockerfile.pilot
 	mkdir -p $(ISTIO_DOCKER)/pilot
@@ -175,19 +183,24 @@ $(MIXER_DOCKER): mixer/docker/Dockerfile$$(suffix $$@) \
 		$(ISTIO_DOCKER)/ca-certificates.tgz $(ISTIO_DOCKER)/mixs | $(ISTIO_DOCKER)
 	$(DOCKER_RULE)
 
+# galley docker images
+
+GALLEY_DOCKER:=docker.galley
+$(GALLEY_DOCKER): galley/docker/Dockerfile$$(suffix $$@) $(ISTIO_DOCKER)/gals | $(ISTIO_DOCKER)
+	$(DOCKER_RULE)
+
 # security docker images
 
-docker.istio-ca:        $(ISTIO_DOCKER)/istio_ca     $(ISTIO_DOCKER)/ca-certificates.tgz
-docker.istio-ca-test:   $(ISTIO_DOCKER)/istio_ca.crt $(ISTIO_DOCKER)/istio_ca.key
+docker.citadel:         $(ISTIO_DOCKER)/istio_ca     $(ISTIO_DOCKER)/ca-certificates.tgz
+docker.citadel-test:    $(ISTIO_DOCKER)/istio_ca.crt $(ISTIO_DOCKER)/istio_ca.key
 docker.node-agent:      $(ISTIO_DOCKER)/node_agent
 docker.node-agent-test: $(ISTIO_DOCKER)/node_agent $(ISTIO_DOCKER)/istio_ca.key \
                         $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key
-docker.multicluster-ca: $(ISTIO_DOCKER)/multicluster_ca
 docker.flexvolumedriver: $(ISTIO_DOCKER)/flexvolume
 $(foreach FILE,$(FLEXVOLUMEDRIVER_FILES),$(eval docker.flexvolumedriver: $(ISTIO_DOCKER)/$(notdir $(FILE))))
 $(foreach FILE,$(NODE_AGENT_TEST_FILES),$(eval docker.node-agent-test: $(ISTIO_DOCKER)/$(notdir $(FILE))))
 
-SECURITY_DOCKER:=docker.istio-ca docker.istio-ca-test docker.node-agent docker.node-agent-test docker.multicluster-ca docker.flexvolumedriver
+SECURITY_DOCKER:=docker.citadel docker.citadel-test docker.node-agent docker.node-agent-test docker.flexvolumedriver
 $(SECURITY_DOCKER): security/docker/Dockerfile$$(suffix $$@) | $(ISTIO_DOCKER)
 	$(DOCKER_RULE)
 
@@ -197,7 +210,7 @@ $(foreach FILE,$(GRAFANA_FILES),$(eval docker.grafana: $(ISTIO_DOCKER)/$(notdir 
 docker.grafana: addons/grafana/Dockerfile$$(suffix $$@) $(GRAFANA_FILES) $(ISTIO_DOCKER)/dashboards
 	$(DOCKER_RULE)
 
-DOCKER_TARGETS:=docker.pilot docker.proxy docker.proxy_debug docker.app $(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER) docker.grafana
+DOCKER_TARGETS:=docker.pilot docker.proxy docker.proxy_debug docker.proxyv2 docker.app $(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER) docker.grafana $(GALLEY_DOCKER)
 
 DOCKER_RULE=time (cp $< $(ISTIO_DOCKER)/ && cd $(ISTIO_DOCKER) && \
             docker build -t $(HUB)$(HUB_IMG_DELIM)$(subst docker.,,$@)$(IMG_TAG_DELIM)$(TAG) -f Dockerfile$(suffix $@) .)
@@ -220,15 +233,11 @@ $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_TAR_TARGETS+=tar.$(TGT)))
 # this target saves a tar.gz of each docker image to ${ISTIO_OUT}/docker/
 docker.save: $(DOCKER_TAR_TARGETS)
 
-# if first part of URL (i.e., hostname) is gcr.io then use gcloud for push
-$(if $(findstring gcr.io,$(firstword $(subst /, ,$(HUB)))),\
-        $(eval DOCKER_PUSH_CMD:=gcloud docker -- push),$(eval DOCKER_PUSH_CMD:=docker push))
-
 # for each docker.XXX target create a push.docker.XXX target that pushes
 # the local docker image to another hub
 # a possible optimization is to use tag.$(TGT) as a dependency to do the tag for us
 $(foreach TGT,$(DOCKER_TARGETS),$(eval push.$(TGT): | $(TGT) ; \
-        time ($(DOCKER_PUSH_CMD) $(HUB)$(HUB_IMG_DELIM)$(subst docker.,,$(TGT))$(IMG_TAG_DELIM)$(TAG))))
+        time (docker push $(HUB)$(HUB_IMG_DELIM)$(subst docker.,,$(TGT))$(IMG_TAG_DELIM)$(TAG))))
 
 # create a DOCKER_PUSH_TARGETS that's each of DOCKER_TARGETS with a push. prefix
 DOCKER_PUSH_TARGETS:=

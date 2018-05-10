@@ -60,6 +60,21 @@ spec:
         latency: latency
         localIp: sourceIp
         remoteIp: destinationIp
+      labelNames:
+      - sourceIp
+      - destinationIp
+      - sourceUser
+      - method
+      - url
+      - protocol
+      - responseCode
+      - responseSize
+      - requestSize
+      - latency
+      sinkInfo:
+        id: '<sink_id>'
+        destination: '<sink_destination>'
+        filter: '<log_filter>'
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
