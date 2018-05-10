@@ -201,7 +201,7 @@ func buildMixerInboundTCPFilter(env *model.Environment, node *model.Proxy, insta
 // defined in install/kubernetes/helm/istio/charts/mixer/templates/service.yaml
 const (
 	//mixerPortName       = "grpc-mixer"
-	mixerPortNumber     = 9091
+	mixerPortNumber = 9091
 	//mixerMTLSPortName   = "grpc-mixer-mtls"
 	mixerMTLSPortNumber = 15004
 )
