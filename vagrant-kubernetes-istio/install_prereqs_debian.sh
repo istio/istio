@@ -32,7 +32,8 @@ fi
 # Install virtualbox.
 echo "Checking and Installing Virtualbox as required"
 virtualbox --help > /dev/null
-if [ $? -ne 0 ]; then
+if [ $? -ne 0 ]; 
+then
     curl -L https://download.virtualbox.org/virtualbox/5.2.10/virtualbox-5.2_5.2.10-122088~Ubuntu~trusty_amd64.deb --output virtualbox.deb
     sudo dpkg -i virtualbox.deb
     if [ $? -ne 0 ]; then
@@ -43,6 +44,21 @@ if [ $? -ne 0 ]; then
     sudo apt-get install -f
     # Check for more recent version and update
     sudo apt-get install virtualbox
+    if [ $? -ne 0 ]; then
+      echo "Looks like virtual box update failed. Please try manually. "
+      exit 1
+    else
+      echo "virtual box install done!"
+    fi
+else
+    echo "Looks like virtual is installed. Checking if it can be upgraded."
+    sudo apt-get install virtualbox
+    if [ $? -ne 0 ]; then
+      echo "Looks like virtual box update failed. Please try manually. "
+      exit 1
+    else
+      echo "virtual box install done!"
+    fi
 fi
 
 
