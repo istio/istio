@@ -96,11 +96,16 @@ function setup_cluster() {
       ALL_CLUSTER_CIDRS+=$cidr
     done
     ALL_CLUSTER_NETTAGS=
-    for net_tag in $(gcloud compute instance-templates list --format='value(properties.tags.items)'); do
-      if [[ "$ALL_CLUSTER_NETTAGS" != "" ]]; then
-        ALL_CLUSTER_NETTAGS+=','
+    for net_tag in $(gcloud compute instances list --format=json | jq '.[].tags.items[0]' | tr -d '"'); do
+      if [[ "$ALL_CLUSTER_NETTAGS" =~ .*"$net_tag".* ]]; then
+        # tag isn't unique so don't add
+        echo "$net_tag isn't unique"
+      else
+        if [[ "$ALL_CLUSTER_NETTAGS" != "" ]]; then
+          ALL_CLUSTER_NETTAGS+=','
+        fi
+        ALL_CLUSTER_NETTAGS+=$net_tag
       fi
-      ALL_CLUSTER_NETTAGS+=$net_tag
     done
     gcloud compute firewall-rules create istio-multicluster-test-pods --allow=tcp,udp,icmp,esp,ah,sctp --direction=INGRESS --priority=900 --source-ranges="$ALL_CLUSTER_CIDRS" --target-tags=$ALL_CLUSTER_NETTAGS --quiet
   fi
