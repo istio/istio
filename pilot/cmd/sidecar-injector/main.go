@@ -134,11 +134,8 @@ func patchCert() error {
 func createClientset(kubeconfigFile string) (*kubernetes.Clientset, error) {
 	var err error
 	var c *rest.Config
-	if kubeconfigFile != "" {
-		c, err = clientcmd.BuildConfigFromFlags("", kubeconfigFile)
-	} else {
-		c, err = rest.InClusterConfig()
-	}
+	c, err = clientcmd.BuildConfigFromFlags("", kubeconfigFile)
+
 	if err != nil {
 		return nil, err
 	}
