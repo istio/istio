@@ -28,3 +28,12 @@ istiotesting:
 
 prometheus:
   enabled: true
+
+grafana:
+  enabled: true
+
+zipkin:
+  enabled: true
+
+servicegraph:
+  enabled: true
