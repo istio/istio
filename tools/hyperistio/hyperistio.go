@@ -35,6 +35,10 @@ import (
 	"istio.io/istio/tests/util"
 )
 
+var (
+	runEnvoy = flag.Bool("envoy", true, "Start envoy")
+)
+
 // hyperistio runs all istio components in one binary, using a directory based config by
 // default. It is intended for testing/debugging/prototyping.
 func main() {
@@ -72,9 +76,11 @@ func startAll() error {
 	go util.RunGRPC(7073, "v1", "", "")
 	go util.RunHTTP(7074, "v2")
 	go util.RunGRPC(7075, "v2", "", "")
-	err = startEnvoy()
-	if err != nil {
-		return err
+	if *runEnvoy {
+		err = startEnvoy()
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
