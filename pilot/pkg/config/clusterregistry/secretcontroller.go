@@ -32,6 +32,7 @@ import (
 	k8s_cr "k8s.io/cluster-registry/pkg/apis/clusterregistry/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/model"
+	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v1"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
@@ -58,6 +59,7 @@ type Controller struct {
 	domainSufix       string
 	resyncInterval    time.Duration
 	serviceController *aggregate.Controller
+	discoveryService  *envoy.DiscoveryService
 }
 
 // NewController returns a new secret controller
@@ -66,6 +68,7 @@ func NewController(
 	namespace string,
 	cs *ClusterStore,
 	serviceController *aggregate.Controller,
+	discoveryService *envoy.DiscoveryService,
 	resyncInterval time.Duration,
 	watchedNamespace string,
 	domainSufix string) *Controller {
@@ -96,6 +99,7 @@ func NewController(
 		domainSufix:       domainSufix,
 		resyncInterval:    resyncInterval,
 		serviceController: serviceController,
+		discoveryService:  discoveryService,
 	}
 
 	log.Info("Setting up event handlers")
@@ -143,12 +147,13 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 func StartSecretController(k8s kubernetes.Interface,
 	cs *ClusterStore,
 	serviceController *aggregate.Controller,
+	discoveryService *envoy.DiscoveryService,
 	namespace string,
 	resyncInterval time.Duration,
 	watchedNamespace,
 	domainSufix string) error {
 	stopCh := make(chan struct{})
-	controller := NewController(k8s, namespace, cs, serviceController, resyncInterval, watchedNamespace, domainSufix)
+	controller := NewController(k8s, namespace, cs, serviceController, discoveryService, resyncInterval, watchedNamespace, domainSufix)
 
 	go controller.Run(stopCh)
 
@@ -239,8 +244,8 @@ func addMemberCluster(s *corev1.Secret, c *Controller) {
 				Controller:       kubectl,
 			})
 		stopCh := make(chan struct{})
-		kubectl.AppendServiceHandler(func(*model.Service, model.Event) { log.Info("><SB> AppendServiceHandler was called") })
-		kubectl.AppendInstanceHandler(func(*model.ServiceInstance, model.Event) { log.Info("><SB> AppendInstanceHandler was called") })
+		_ = kubectl.AppendServiceHandler(func(*model.Service, model.Event) { c.discoveryService.ClearCache() })
+		_ = kubectl.AppendInstanceHandler(func(*model.ServiceInstance, model.Event) { c.discoveryService.ClearCache() })
 
 		go kubectl.Run(stopCh)
 	}

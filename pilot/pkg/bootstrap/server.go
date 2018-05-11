@@ -227,6 +227,9 @@ func NewServer(args PilotArgs) (*Server, error) {
 	if err := s.initMonitor(&args); err != nil {
 		return nil, err
 	}
+	if err := s.initMultiClusterController(&args); err != nil {
+		return nil, err
+	}
 
 	return s, nil
 }
@@ -298,6 +301,17 @@ func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 func checkForMock(registries []string) bool {
 	for _, r := range registries {
 		if strings.ToLower(r) == "mock" {
+			return true
+		}
+	}
+
+	return false
+}
+
+// Check if Kubernetes registry exists in PilotArgs's Registries
+func checkForKubernetes(registries []string) bool {
+	for _, r := range registries {
+		if strings.ToLower(r) == "kubernetes" {
 			return true
 		}
 	}
@@ -561,15 +575,23 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 		}
 	}
 
-	// Start secret controller which watches for runtime secret Object changes and adds secrets dynamically
-	err = clusterregistry.StartSecretController(s.kubeClient,
-		s.clusterStore,
-		serviceControllers,
-		args.Config.ClusterRegistriesNamespace,
-		args.Config.ControllerOptions.ResyncPeriod,
-		args.Config.ControllerOptions.WatchedNamespace,
-		args.Config.ControllerOptions.DomainSuffix)
+	return
+}
 
+// initMultiClusterController initializes multi cluster controller
+// currently implemented only for kubernetes registries
+func (s *Server) initMultiClusterController(args *PilotArgs) (err error) {
+	if checkForKubernetes(args.Service.Registries) {
+		// Start secret controller which watches for runtime secret Object changes and adds secrets dynamically
+		err = clusterregistry.StartSecretController(s.kubeClient,
+			s.clusterStore,
+			s.ServiceController,
+			s.DiscoveryService,
+			args.Config.ClusterRegistriesNamespace,
+			args.Config.ControllerOptions.ResyncPeriod,
+			args.Config.ControllerOptions.WatchedNamespace,
+			args.Config.ControllerOptions.DomainSuffix)
+	}
 	return
 }
 
