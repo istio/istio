@@ -177,8 +177,8 @@ func translateVirtualHost(
 
 // GetDestinationCluster generate a cluster name for the route, or error if no cluster
 // can be found. Called by translateRule to determine if
-func GetDestinationCluster(destination *networking.Destination, service *model.Service, defaultPort int) string {
-	port := defaultPort
+func GetDestinationCluster(destination *networking.Destination, service *model.Service, listenerPort int) string {
+	port := listenerPort
 	if destination.Port != nil {
 		switch selector := destination.Port.Port.(type) {
 		// TODO: remove port name from route.Destination in the API
@@ -189,7 +189,7 @@ func GetDestinationCluster(destination *networking.Destination, service *model.S
 			port = int(selector.Number)
 		}
 	} else {
-		// if service only has one port defined, use that as the port, otherwise use defaultPort
+		// if service only has one port defined, use that as the port, otherwise use default listenerPort
 		if service != nil && len(service.Ports) == 1 {
 			port = service.Ports[0].Port
 		}
