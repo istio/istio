@@ -179,11 +179,8 @@ type Server struct {
 }
 
 func createInterface(kubeconfig string) (kubernetes.Interface, error) {
-	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	loadingRules.ExplicitPath = kubeconfig
+	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 
-	clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
-	restConfig, err := clientConfig.ClientConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -417,6 +414,7 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 
 		kubeCfgFile := s.getKubeCfgFile(args)
 		client, kuberr = createInterface(kubeCfgFile)
+
 		if kuberr != nil {
 			return multierror.Prefix(kuberr, "failed to connect to Kubernetes API.")
 		}

@@ -70,11 +70,7 @@ func ResolveConfig(kubeconfig string) (string, error) {
 
 // CreateInterface is a helper function to create Kubernetes interface from kubeconfig file
 func CreateInterface(kubeconfig string) (kubernetes.Interface, error) {
-	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	loadingRules.ExplicitPath = kubeconfig
-
-	clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
-	restConfig, err := clientConfig.ClientConfig()
+	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
 		return nil, err
 	}
