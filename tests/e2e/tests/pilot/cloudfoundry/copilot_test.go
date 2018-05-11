@@ -34,6 +34,7 @@ import (
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
 	"google.golang.org/grpc"
+
 	"istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/serviceregistry/cloudfoundry"
 	"istio.io/istio/tests/e2e/tests/pilot/cloudfoundry/mock"
