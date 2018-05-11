@@ -305,7 +305,9 @@ func buildGatewayNetworkFilters(env model.Environment, server *networking.Server
 			log.Debugf("failed to retrieve service for destination %q: %v", host, err)
 			continue
 		}
-		filters = append(filters, buildOutboundNetworkFilters(destToClusterName(dest), []string{upstream.Address}, port)...)
+		filters = append(filters, buildOutboundNetworkFilters(
+			istio_route.GetDestinationCluster(dest, upstream, int(server.Port.Number)),
+			[]string{upstream.Address}, port)...)
 	}
 	return filters
 }
@@ -383,10 +385,4 @@ func gatherDestinations(weights []*networking.DestinationWeight) []*networking.D
 		dests = append(dests, w.Destination)
 	}
 	return dests
-}
-
-// TODO: move up to more general location so this can be re-used
-// TODO: should this try to use `istio_route.ConvertDestinationToCluster`?
-func destToClusterName(d *networking.Destination) string {
-	return model.BuildSubsetKey(model.TrafficDirectionOutbound, d.Subset, model.Hostname(d.Host), int(d.Port.GetNumber()))
 }

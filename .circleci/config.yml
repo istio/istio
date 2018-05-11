@@ -240,9 +240,6 @@ jobs:
           when: always
           command: |
             export PATH=$GOPATH/bin:$PATH
-            sudo apt update
-            sudo apt install -y iptables
-            sudo iptables -t nat -A OUTPUT -d 127.1.1.1/32 -p tcp -j REDIRECT --to-port 15001
             make localTestEnv
             make test/local/cloudfoundry/e2e_pilotv2
       - store_artifacts:

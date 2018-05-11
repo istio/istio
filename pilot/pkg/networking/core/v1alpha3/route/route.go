@@ -175,11 +175,10 @@ func translateVirtualHost(
 	return out
 }
 
-// ConvertDestinationToCluster generate a cluster name for the route, or error if no cluster
+// GetDestinationCluster generate a cluster name for the route, or error if no cluster
 // can be found. Called by translateRule to determine if
-func ConvertDestinationToCluster(destination *networking.Destination, vsvcName string,
-	in *networking.HTTPRoute, serviceIndex map[model.Hostname]*model.Service, defaultPort int) string {
-	port := defaultPort
+func GetDestinationCluster(destination *networking.Destination, service *model.Service, listenerPort int) string {
+	port := listenerPort
 	if destination.Port != nil {
 		switch selector := destination.Port.Port.(type) {
 		// TODO: remove port name from route.Destination in the API
@@ -188,6 +187,11 @@ func ConvertDestinationToCluster(destination *networking.Destination, vsvcName s
 			return util.BlackHoleCluster
 		case *networking.PortSelector_Number:
 			port = int(selector.Number)
+		}
+	} else {
+		// if service only has one port defined, use that as the port, otherwise use default listenerPort
+		if service != nil && len(service.Ports) == 1 {
+			port = service.Ports[0].Port
 		}
 	}
 
@@ -332,7 +336,7 @@ func translateRoute(in *networking.HTTPRoute,
 		}
 
 		if in.Mirror != nil {
-			n := ConvertDestinationToCluster(in.Mirror, operation, in, serviceIndex, port)
+			n := GetDestinationCluster(in.Mirror, serviceIndex[model.Hostname(in.Mirror.Host)], port)
 			action.RequestMirrorPolicy = &route.RouteAction_RequestMirrorPolicy{Cluster: n}
 		}
 
@@ -342,7 +346,7 @@ func translateRoute(in *networking.HTTPRoute,
 			if dst.Weight == 0 {
 				weight.Value = uint32(100)
 			}
-			n := ConvertDestinationToCluster(dst.Destination, operation, in, serviceIndex, port)
+			n := GetDestinationCluster(dst.Destination, serviceIndex[model.Hostname(dst.Destination.Host)], port)
 			weighted = append(weighted, &route.WeightedCluster_ClusterWeight{
 				Name:   n,
 				Weight: weight,

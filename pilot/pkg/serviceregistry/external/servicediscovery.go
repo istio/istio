@@ -72,7 +72,7 @@ func (d *externalDiscovery) ManagementPorts(addr string) model.PortList {
 // Instances retrieves instances for a service and its ports that match
 // any of the supplied labels. All instances match an empty tag list.
 func (d *externalDiscovery) Instances(hostname model.Hostname, ports []string,
-labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
+	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	portMap := make(map[string]bool)
 	for _, port := range ports {
 		portMap[port] = true
