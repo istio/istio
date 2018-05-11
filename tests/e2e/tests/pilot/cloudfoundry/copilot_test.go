@@ -21,21 +21,18 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 	"time"
-
 	"code.cloudfoundry.org/copilot/api"
 	"code.cloudfoundry.org/copilot/testhelpers"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
 	"google.golang.org/grpc"
-
 	"istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/serviceregistry/cloudfoundry"
 	"istio.io/istio/tests/e2e/tests/pilot/cloudfoundry/mock"
@@ -340,7 +337,7 @@ func runPilot(copilotConfigFile, istioConfigDir string, grpcPort, debugPort int)
 		"--port", fmt.Sprintf("%d", debugPort),
 	)
 
-	return gexec.Start(pilotCmd, os.Stdout, os.Stdout) // change these to os.Stdout when debugging
+	return gexec.Start(pilotCmd, nil, nil) // change these to os.Stdout when debugging
 }
 
 func curlPilot(apiEndpoint string) (string, error) {
