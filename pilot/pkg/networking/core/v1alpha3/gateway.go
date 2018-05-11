@@ -386,9 +386,3 @@ func gatherDestinations(weights []*networking.DestinationWeight) []*networking.D
 	}
 	return dests
 }
-
-// TODO: move up to more general location so this can be re-used
-// TODO: should this try to use `istio_route.ConvertDestinationToCluster`?
-func destToClusterName(d *networking.Destination) string {
-	return model.BuildSubsetKey(model.TrafficDirectionOutbound, d.Subset, model.Hostname(d.Host), int(d.Port.GetNumber()))
-}
