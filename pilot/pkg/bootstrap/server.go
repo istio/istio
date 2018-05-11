@@ -547,7 +547,7 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 		for _, cluster := range clusters {
 			log.Infof("Cluster name: %s", clusterregistry.GetClusterID(cluster))
 			clusterClient := clientAccessConfigs[cluster.ObjectMeta.Name]
-			_, client, kuberr := kube.CreateInterfaceFromClusterConfig(&clusterClient)
+			client, kuberr := kube.CreateInterfaceFromClusterConfig(&clusterClient)
 			if kuberr != nil {
 				err = multierror.Append(err, multierror.Prefix(kuberr, fmt.Sprintf("failed to connect to Access API with access config: %s", cluster.ObjectMeta.Name)))
 			}

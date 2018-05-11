@@ -22,7 +22,6 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
@@ -69,48 +68,18 @@ func ResolveConfig(kubeconfig string) (string, error) {
 	return kubeconfig, nil
 }
 
-// CreateInterface is a helper function to create Kubernetes interface from kubeconfig file
-func CreateInterface(kubeconfig string) (*rest.Config, kubernetes.Interface, error) {
-	kube, err := ResolveConfig(kubeconfig)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if kube == "" {
-		// Servicing InCLuster case
-		restConfig, err1 := rest.InClusterConfig()
-		if err1 == nil {
-			client, err2 := kubernetes.NewForConfig(restConfig)
-			if err2 == nil {
-				return restConfig, client, nil
-			}
-			return nil, nil, err2
-		}
-		return nil, nil, err1
-	}
-	clusterConfig, err := clientcmd.LoadFromFile(kube)
-	if err != nil {
-		return nil, nil, err
-	}
-	return createInterface(clusterConfig)
-}
-
 // CreateInterfaceFromClusterConfig is a helper function to create Kubernetes interface from in memory cluster config struct
-func CreateInterfaceFromClusterConfig(clusterConfig *clientcmdapi.Config) (*rest.Config, kubernetes.Interface, error) {
+func CreateInterfaceFromClusterConfig(clusterConfig *clientcmdapi.Config) (kubernetes.Interface, error) {
 	return createInterface(clusterConfig)
 }
 
 // createInterface is new function which creates rest config and kubernetes interface
 // from passed cluster's config struct
-func createInterface(clusterConfig *clientcmdapi.Config) (*rest.Config, kubernetes.Interface, error) {
+func createInterface(clusterConfig *clientcmdapi.Config) (kubernetes.Interface, error) {
 	clientConfig := clientcmd.NewDefaultClientConfig(*clusterConfig, &clientcmd.ConfigOverrides{})
 	rest, err := clientConfig.ClientConfig()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	client, err := kubernetes.NewForConfig(rest)
-	if err != nil {
-		return nil, nil, err
-	}
-	return rest, client, nil
+	return kubernetes.NewForConfig(rest)
 }

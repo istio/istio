@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/wait"
 	// import GKE cluster authentication plugin
+
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	// import OIDC cluster authentication plugin, e.g. for Tectonic
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
@@ -137,11 +138,15 @@ func (rc *restClient) createRESTConfig(kubeconfig string) (config *rest.Config, 
 	if kubeconfig == "" {
 		config, err = rest.InClusterConfig()
 	} else {
-		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
+		loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+		loadingRules.ExplicitPath = kubeconfig
+
+		clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
+		config, err = clientConfig.ClientConfig()
 	}
 
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	config.GroupVersion = &rc.apiVersion
