@@ -189,7 +189,7 @@ func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamT
 		return nil
 	}
 
-	return &auth.DownstreamTlsContext{
+	tlsContext := &auth.DownstreamTlsContext{
 		CommonTlsContext: &auth.CommonTlsContext{
 			TlsCertificates: []*auth.TlsCertificate{
 				{
@@ -205,18 +205,36 @@ func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamT
 					},
 				},
 			},
-			ValidationContext: &auth.CertificateValidationContext{
-				TrustedCa: &core.DataSource{
-					Specifier: &core.DataSource_Filename{
-						Filename: server.Tls.CaCertificates,
-					},
-				},
-				VerifySubjectAltName: server.Tls.SubjectAltNames,
-			},
-			AlpnProtocols: ListenersALPNProtocols,
+			ValidationContext: buildGatewayListnerTLSValidationContext(server.Tls),
+			AlpnProtocols:     ListenersALPNProtocols,
 		},
 		RequireSni: boolTrue,
 	}
+
+	return tlsContext
+}
+
+func buildGatewayListnerTLSValidationContext(tls *networking.Server_TLSOptions) *auth.CertificateValidationContext {
+	if tls == nil {
+		return nil
+	}
+
+	var trustedCa *core.DataSource
+	if len(tls.CaCertificates) != 0 {
+		trustedCa = &core.DataSource{
+			Specifier: &core.DataSource_Filename{
+				Filename: tls.CaCertificates,
+			},
+		}
+	}
+
+	if len(tls.CaCertificates) != 0 || len(tls.SubjectAltNames) != 0 {
+		return &auth.CertificateValidationContext{
+			TrustedCa:            trustedCa,
+			VerifySubjectAltName: tls.SubjectAltNames,
+		}
+	}
+	return nil
 }
 
 func buildGatewayInboundHTTPRouteConfig(
