@@ -38,7 +38,9 @@ import (
 const (
 	// DefaultLogLevel the log level used for Envoy if not specified.
 	DefaultLogLevel = LogLevelTrace
-	startTimeout    = 20 * time.Second
+
+	healthCheckTimeout  = 10 * time.Second
+	healthCheckInterval = 100 * time.Millisecond
 )
 
 // LogLevel represents the log level to use for Envoy.
@@ -146,29 +148,7 @@ func (e *Envoy) Start() (err error) {
 		return err
 	}
 
-	endTime := time.Now().Add(startTimeout)
-	for {
-		// Sleep a short before attempting to connect to Envoy.
-		time.Sleep(1 * time.Second)
-
-		var info ServerInfo
-		info, err = e.GetServerInfo()
-		if err == nil {
-			if info.HealthCheckState == HealthCheckLive {
-				// It's running, we can return now.
-				break
-			}
-		}
-
-		// Stop trying after the timeout
-		if time.Now().After(endTime) {
-			err = fmt.Errorf("failed to start envoy after %ds. Error: %v", startTimeout/time.Second, err)
-			return err
-		}
-		// Retry
-	}
-
-	return nil
+	return e.waitForHealthCheckLive()
 }
 
 // Stop kills the Envoy process.
@@ -253,6 +233,29 @@ func (e *Envoy) GetServerInfo() (ServerInfo, error) {
 		TotalUptime:                  time.Second * time.Duration(totalUptime),
 		CurrentHotRestartEpoch:       currentHotRestartEpoch,
 	}, nil
+}
+
+func (e *Envoy) waitForHealthCheckLive() error {
+	endTime := time.Now().Add(healthCheckTimeout)
+	for {
+		var info ServerInfo
+		info, err := e.GetServerInfo()
+		if err == nil {
+			if info.HealthCheckState == HealthCheckLive {
+				// It's running, we can return now.
+				return nil
+			}
+		}
+
+		// Stop trying after the timeout
+		if time.Now().After(endTime) {
+			err = fmt.Errorf("failed to start envoy after %ds. Error: %v", healthCheckTimeout/time.Second, err)
+			return err
+		}
+
+		// Sleep a short before retry.
+		time.Sleep(healthCheckInterval)
+	}
 }
 
 func (e *Envoy) validateCommandArgs() error {

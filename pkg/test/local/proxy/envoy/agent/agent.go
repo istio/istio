@@ -22,7 +22,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/server/echo"
-	"istio.io/istio/pkg/test/proxy/envoy"
+	"istio.io/istio/pkg/test/local/proxy/envoy"
 )
 
 // PortConfig contains meta information about a port
@@ -50,8 +50,9 @@ type Port struct {
 
 // Agent bootstraps a local service/Envoy combination.
 type Agent struct {
-	Config         Config
-	env            *envoy.Envoy
+	Config Config
+	env    *envoy.Envoy
+	// TODO(nmittler): Abstract out an interface for a backend service needed by this agent.
 	service        *echo.Server
 	envoyConfig    *envoyConfig
 	envoyAdminPort int
