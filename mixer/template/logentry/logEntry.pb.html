@@ -1,19 +1,12 @@
 ---
 title: Log Entry
-overview: A template that represents a single runtime log entry.
-location: https://istio.io/docs/reference/config/template/logentry.html
+description: A template that represents a single runtime log entry.
+location: https://istio.io/docs/reference/config/policy-and-telemetry/templates/logentry.html
 layout: protoc-gen-docs
+redirect_from: /docs/reference/config/template/logentry.html
 number_of_entries: 3
 ---
 <p>The <code>logentry</code> template represents an individual entry within a log.</p>
-
-<h2 id="Template">Template</h2>
-<section>
-<p>The <code>logentry</code> template represents an individual entry within a log.</p>
-
-<p>When writing the configuration, the value for the fields associated with this template can either be a
-literal or an <a href="https://istio.io/docs/reference/config/mixer/expression-language.html">expression</a>. Please note that if the datatype of a field is not istio.mixer.adapter.model.v1beta1.Value,
-then the expression&rsquo;s <a href="https://istio.io/docs/reference/config/mixer/expression-language.html#type-checking">inferred type</a> must match the datatype of the field.</p>
 
 <p>Example config:</p>
 
@@ -38,6 +31,14 @@ spec:
     latency: response.duration | &quot;0ms&quot;
   monitored_resource_type: '&quot;UNSPECIFIED&quot;'
 </code></pre>
+
+<h2 id="Template">Template</h2>
+<section>
+<p>The <code>logentry</code> template represents an individual entry within a log.</p>
+
+<p>When writing the configuration, the value for the fields associated with this template can either be a
+literal or an <a href="https://istio.io/docs//reference/config/policy-and-telemetry/expression-language.html">expression</a>. Please note that if the datatype of a field is not istio.mixer.adapter.model.v1beta1.Value,
+then the expression&rsquo;s <a href="https://istio.io/docs//reference/config/policy-and-telemetry/expression-language.html#type-checking">inferred type</a> must match the datatype of the field.</p>
 
 <table class="message-fields">
 <thead>

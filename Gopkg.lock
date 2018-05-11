@@ -643,7 +643,7 @@
   branch = "master"
   name = "github.com/istio/tools"
   packages = ["protoc-gen-docs"]
-  revision = "d107f7deed6a878efd3adc307bc6f197f78b20e6"
+  revision = "9c791034d4da535b3e19df1f2421a98d484825ad"
 
 [[projects]]
   name = "github.com/jmespath/go-jmespath"

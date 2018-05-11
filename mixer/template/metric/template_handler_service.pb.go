@@ -7,13 +7,8 @@
 	The `metric` template is designed to let you describe runtime metric to dispatch to
 	monitoring backends.
 
-	The `metric` template represents a single piece of data to report.
-
-	When writing the configuration, the value for the fields associated with this template can either be a
-	literal or an [expression](https://istio.io/docs/reference/config/mixer/expression-language.html). Please note that if the datatype of a field is not istio.mixer.adapter.model.v1beta1.Value,
-	then the expression's [inferred type](https://istio.io/docs/reference/config/mixer/expression-language.html#type-checking) must match the datatype of the field.
-
 	Example config:
+
 	```yaml
 	apiVersion: "config.istio.io/v1alpha2"
 	kind: metric
@@ -30,6 +25,12 @@
 	    response_code: response.code | 200
 	  monitored_resource_type: '"UNSPECIFIED"'
 	```
+
+	The `metric` template represents a single piece of data to report.
+
+	When writing the configuration, the value for the fields associated with this template can either be a
+	literal or an [expression](https://istio.io/docs//reference/config/policy-and-telemetry/expression-language.html). Please note that if the datatype of a field is not istio.mixer.adapter.model.v1beta1.Value,
+	then the expression's [inferred type](https://istio.io/docs//reference/config/policy-and-telemetry/expression-language.html#type-checking) must match the datatype of the field.
 
 	It is generated from these files:
 		mixer/template/metric/template_handler_service.proto

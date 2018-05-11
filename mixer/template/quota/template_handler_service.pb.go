@@ -6,13 +6,8 @@
 
 	The `quota` template represents an item for which to check quota.
 
-	The `quota` template represents a piece of data to check Quota for.
-
-	When writing the configuration, the value for the fields associated with this template can either be a
-	literal or an [expression](https://istio.io/docs/reference/config/mixer/expression-language.html). Please note that if the datatype of a field is not istio.mixer.adapter.model.v1beta1.Value,
-	then the expression's [inferred type](https://istio.io/docs/reference/config/mixer/expression-language.html#type-checking) must match the datatype of the field.
-
 	Example config:
+
 	```
 	apiVersion: "config.istio.io/v1alpha2"
 	kind: quota
@@ -26,6 +21,12 @@
 	    destination: destination.labels["app"] | destination.service | "unknown"
 	    destinationVersion: destination.labels["version"] | "unknown"
 	```
+
+	The `quota` template represents a piece of data to check Quota for.
+
+	When writing the configuration, the value for the fields associated with this template can either be a
+	literal or an [expression](https://istio.io/docs//reference/config/policy-and-telemetry/expression-language.html). Please note that if the datatype of a field is not istio.mixer.adapter.model.v1beta1.Value,
+	then the expression's [inferred type](https://istio.io/docs//reference/config/policy-and-telemetry/expression-language.html#type-checking) must match the datatype of the field.
 
 	It is generated from these files:
 		mixer/template/quota/template_handler_service.proto

@@ -7,12 +7,8 @@
 	The `kubernetes` template holds data that controls the production of Kubernetes-specific
 	attributes.
 
-	The `kubernetes` template represents data used to generate kubernetes-derived attributes.
-
-	The values provided controls the manner in which the kubernetesenv adapter discovers and
-	generates values related to pod information.
-
 	Example config:
+
 	```yaml
 	apiVersion: "config.istio.io/v1alpha2"
 	kind: kubernetes
@@ -39,6 +35,11 @@
 	    destination.service: $out.destination_service
 	    destination.serviceAccount: $out.destination_service_account_name
 	```
+
+	The `kubernetes` template represents data used to generate kubernetes-derived attributes.
+
+	The values provided controls the manner in which the kubernetesenv adapter discovers and
+	generates values related to pod information.
 
 	It is generated from these files:
 		mixer/adapter/kubernetesenv/template/template_handler_service.proto

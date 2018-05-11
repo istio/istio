@@ -7,11 +7,8 @@
 	The `servicecontrolreport` template is used by the [Google Service Control](https://istio.io/docs/reference/config/adapters/servicecontrol.html)
 	adapter.
 
-	A template used by Google Service Control (servicecontrol) adapter. The adapter
-	generates metrics and logentry for each request based on the data point
-	defined by this template.
+	Example config:
 
-	Config example:
 	```yaml
 	apiVersion: "config.istio.io/v1alpha2"
 	kind: servicecontrolreport
@@ -33,6 +30,10 @@
 	  response_bytes : response.size | 0
 	  response_latency : response.duration | "0ms"
 	```
+
+	A template used by Google Service Control (servicecontrol) adapter. The adapter
+	generates metrics and logentry for each request based on the data point
+	defined by this template.
 
 	It is generated from these files:
 		mixer/adapter/servicecontrol/template/servicecontrolreport/template_handler_service.proto

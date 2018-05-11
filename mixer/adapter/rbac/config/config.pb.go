@@ -7,6 +7,8 @@
 	The `rbac` adapter provides Role-Based Access Control (RBAC) functionality for
 	for services within the Istio mesh.
 
+	This adapter supports the [authorization template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/authorization.html).
+
 	It is generated from these files:
 		mixer/adapter/rbac/config/config.proto
 
