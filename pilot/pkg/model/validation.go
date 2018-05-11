@@ -42,7 +42,7 @@ import (
 
 const (
 	dns1123LabelMaxLength int    = 63
-	dns1123LabelFmt       string = "[a-z0-9]([-a-z0-9]*[a-z0-9])?"
+	dns1123LabelFmt       string = "[a-zA-Z0-9]([-a-z-A-Z0-9]*[a-zA-Z0-9])?"
 	// a wild-card prefix is an '*', a normal DNS1123 label with a leading '*' or '*-', or a normal DNS1123 label
 	wildcardPrefix string = `\*|(\*|\*-)?(` + dns1123LabelFmt + `)`
 
