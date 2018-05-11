@@ -152,35 +152,40 @@ func updateCluster(clusterName string, edsCluster *EdsCluster) error {
 	var hostname model.Hostname
 	var ports model.PortList
 	var labels model.LabelsCollection
-	// Single port
-	var portName string
+	var instances []*model.ServiceInstance
+	var err error
 
 	// This is a gross hack but Costin will insist on supporting everything from ancient Greece
 	if strings.Index(clusterName, "outbound") == 0 ||
 		strings.Index(clusterName, "inbound") == 0 { //new style cluster names
-		var p *model.Port
+		var p int
 		var subsetName string
 		_, subsetName, hostname, p = model.ParseSubsetKey(clusterName)
-		ports = []*model.Port{p}
-		portName = p.Name
 		labels = edsCluster.discovery.env.IstioConfigStore.SubsetToLabels(subsetName, hostname)
+		instances, err = edsCluster.discovery.env.ServiceDiscovery.InstancesByPort(hostname, []int{p}, labels)
+		if len(instances) == 0 {
+			log.Infof("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, p, labels)
+		}
+		edsInstances.With(prometheus.Labels{"cluster": clusterName}).Set(float64(len(instances)))
 	} else {
 		hostname, ports, labels = model.ParseServiceKey(clusterName)
+		var portName string
 		if len(ports) > 0 {
 			portName = ports.GetNames()[0]
 		}
+		instances, err = edsCluster.discovery.env.ServiceDiscovery.Instances(hostname, ports.GetNames(), labels)
+		if len(instances) == 0 && edsDebug {
+			log.Infof("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, portName, labels)
+		}
+		edsInstances.With(prometheus.Labels{"cluster": clusterName}).Set(float64(len(instances)))
 	}
 
-	instances, err := edsCluster.discovery.env.ServiceDiscovery.Instances(hostname, ports.GetNames(), labels)
 	if err != nil {
 		log.Warnf("endpoints for service cluster %q returned error %q", clusterName, err)
 		return err
 	}
 	locEps := localityLbEndpointsFromInstances(instances)
-	if len(instances) == 0 {
-		log.Warnf("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, portName, labels)
-	}
-	edsInstances.With(prometheus.Labels{"cluster": clusterName}).Set(float64(len(instances)))
+
 	// There is a chance multiple goroutines will update the cluster at the same time.
 	// This could be prevented by a lock - but because the update may be slow, it may be
 	// better to accept the extra computations.
