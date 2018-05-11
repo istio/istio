@@ -177,8 +177,8 @@ func translateVirtualHost(
 
 // ConvertDestinationToCluster generate a cluster name for the route, or error if no cluster
 // can be found. Called by translateRule to determine if
-func ConvertDestinationToCluster(destination *networking.Destination, vsvcName string,
-	in *networking.HTTPRoute, serviceIndex map[model.Hostname]*model.Service, defaultPort int) string {
+func ConvertDestinationToCluster(destination *networking.Destination, _ string,
+	_ *networking.HTTPRoute, serviceIndex map[model.Hostname]*model.Service, defaultPort int) string {
 	port := defaultPort
 	if destination.Port != nil {
 		switch selector := destination.Port.Port.(type) {
@@ -188,6 +188,13 @@ func ConvertDestinationToCluster(destination *networking.Destination, vsvcName s
 			return util.BlackHoleCluster
 		case *networking.PortSelector_Number:
 			port = int(selector.Number)
+		}
+	} else {
+		if service, exists := serviceIndex[model.Hostname(destination.Host)]; exists {
+			// if service only has one port defined, use that as the port, otherwise use defaultPort from listener
+			if len(service.Ports) == 1 {
+				port = service.Ports[0].Port
+			}
 		}
 	}
 
