@@ -68,6 +68,19 @@ func ResolveConfig(kubeconfig string) (string, error) {
 	return kubeconfig, nil
 }
 
+// CreateInterface is a helper function to create Kubernetes interface from kubeconfig file
+func CreateInterface(kubeconfig string) (kubernetes.Interface, error) {
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	loadingRules.ExplicitPath = kubeconfig
+
+	clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
+	restConfig, err := clientConfig.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+	return kubernetes.NewForConfig(restConfig)
+}
+
 // CreateInterfaceFromClusterConfig is a helper function to create Kubernetes interface from in memory cluster config struct
 func CreateInterfaceFromClusterConfig(clusterConfig *clientcmdapi.Config) (kubernetes.Interface, error) {
 	return createInterface(clusterConfig)
