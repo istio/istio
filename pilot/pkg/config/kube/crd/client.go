@@ -134,15 +134,7 @@ func (rc *restClient) init(kubeconfig string) error {
 
 // createRESTConfig for cluster API server, pass empty config file for in-cluster
 func (rc *restClient) createRESTConfig(kubeconfig string) (config *rest.Config, err error) {
-	if kubeconfig == "" {
-		config, err = rest.InClusterConfig()
-	} else {
-		loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-		loadingRules.ExplicitPath = kubeconfig
-
-		clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
-		config, err = clientConfig.ClientConfig()
-	}
+	config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
 
 	if err != nil {
 		return nil, err
