@@ -382,7 +382,7 @@ func (k *KubeInfo) Teardown() error {
 	}
 	if *installer == "helm" {
 		// clean up using helm
-		err := util.HelmDelete(k.Namespace)
+		err := util.HelmDelete("istio")
 		if err != nil {
 			return nil
 		}
@@ -698,7 +698,7 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 
 	// helm install dry run
 	workDir := filepath.Join(k.ReleaseDir, istioHelmInstallDir)
-	err := util.HelmInstallDryRun(workDir, k.Namespace, k.Namespace, setValue)
+	err := util.HelmInstallDryRun(workDir, "istio", k.Namespace, setValue)
 	if err != nil {
 		// dry run fail, let's fail early
 		log.Errorf("Helm dry run of istio install failed %s, setValue=%s", istioHelmInstallDir, setValue)
@@ -706,7 +706,7 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	}
 
 	// helm install
-	err = util.HelmInstall(workDir, k.Namespace, k.Namespace, setValue)
+	err = util.HelmInstall(workDir, "istio", k.Namespace, setValue)
 	if err != nil {
 		log.Errorf("Helm install istio install failed %s, setValue=%s", istioHelmInstallDir, setValue)
 		return err
