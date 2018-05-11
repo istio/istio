@@ -97,7 +97,7 @@ func (sd *ServiceDiscovery) GetService(hostname model.Hostname) (*model.Service,
 
 // Instances implements a service catalog operation
 func (sd *ServiceDiscovery) Instances(hostname model.Hostname, _ []string, _ model.LabelsCollection) ([]*model.ServiceInstance, error) {
-	return nil, errors.New("Not implemented. Use InstancesByPort instead")
+	return nil, errors.New("not implemented. use InstancesByPort instead")
 }
 
 // InstancesByPort implements a service catalog operation
