@@ -23,7 +23,7 @@
     "api",
     "testhelpers"
   ]
-  revision = "feb69363fff010ea48e1dacd38ca859528cfa0d4"
+  revision = "94d9a77d88daf011a4991bf982d16ebd34ecf2c8"
 
 [[projects]]
   name = "github.com/Azure/go-autorest"
@@ -1599,6 +1599,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "4160cda2de0241237d507eaeb9112afb071ff23097287b2d8e4fc3a0c0e602bc"
+  inputs-digest = "fb4376dfd57c5e5f74a9aa1a37b4eded3a697974bfd1058333c698099426b718"
   solver-name = "gps-cdcl"
   solver-version = 1

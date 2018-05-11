@@ -25,7 +25,7 @@ spec:
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
             - containerPort: 80
-              containerPort: 443
+            - containerPort: 443
           args:
           - proxy
           - ingress

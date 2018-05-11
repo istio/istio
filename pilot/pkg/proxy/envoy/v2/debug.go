@@ -450,7 +450,7 @@ func edsz(w http.ResponseWriter, req *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 
 	if req.Form.Get("push") != "" {
-		edsPushAll()
+		PushAll()
 	}
 
 	edsClusterMutex.Lock()

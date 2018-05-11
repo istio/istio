@@ -158,6 +158,8 @@ func TestAuthnCheckReportAttributesOriginJwtNoBoundToOrigin(t *testing.T) {
 	s := env.NewTestSetup(env.CheckReportIstioAuthnAttributesTestOriginJwtBoundToPeer, t)
 	// In the Envoy config, no binding to origin, binds to peer by default.
 	s.SetFiltersBeforeMixer(authnConfig)
+	// Disable the HotRestart of Envoy
+	s.SetDisableHotRestart(true)
 
 	env.SetStatsUpdateInterval(s.MfConfig(), 1)
 	if err := s.SetUp(); err != nil {
