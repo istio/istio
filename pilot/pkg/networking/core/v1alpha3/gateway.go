@@ -226,7 +226,7 @@ func buildGatewayListnerTLSValidationContext(tls *networking.Server_TLSOptions) 
 		}
 	}
 
-	if len(tls.CaCertificates) != 0 || len(tls.SubjectAltNames) != 0 {
+	if trustedCa != nil || len(tls.SubjectAltNames) != 0 {
 		return &auth.CertificateValidationContext{
 			TrustedCa:            trustedCa,
 			VerifySubjectAltName: tls.SubjectAltNames,
