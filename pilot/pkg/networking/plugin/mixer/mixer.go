@@ -200,8 +200,10 @@ func buildMixerInboundTCPFilter(env *model.Environment, node *model.Proxy, insta
 
 // defined in install/kubernetes/helm/istio/charts/mixer/templates/service.yaml
 const (
-	mixerPortName     = "grpc-mixer"
-	mixerMTLSPortName = "grpc-mixer-mtls"
+	//mixerPortName       = "grpc-mixer"
+	mixerPortNumber = 9091
+	//mixerMTLSPortName   = "grpc-mixer-mtls"
+	mixerMTLSPortNumber = 15004
 )
 
 // buildHTTPMixerFilterConfig builds a mixer HTTP filter config. Mixer filter uses outbound configuration by default
@@ -210,15 +212,15 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 	mcs, _, _ := net.SplitHostPort(mesh.MixerCheckServer)
 	mrs, _, _ := net.SplitHostPort(mesh.MixerReportServer)
 
-	pname := &model.Port{Name: mixerPortName}
+	port := mixerPortNumber
 	if mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS {
-		pname = &model.Port{Name: mixerMTLSPortName}
+		port = mixerMTLSPortNumber
 	}
 
 	// TODO: derive these port types.
 	transport := &mccpb.TransportConfig{
-		CheckCluster:  model.BuildSubsetKey(model.TrafficDirectionOutbound, "", model.Hostname(mcs), pname),
-		ReportCluster: model.BuildSubsetKey(model.TrafficDirectionOutbound, "", model.Hostname(mrs), pname),
+		CheckCluster:  model.BuildSubsetKey(model.TrafficDirectionOutbound, "", model.Hostname(mcs), port),
+		ReportCluster: model.BuildSubsetKey(model.TrafficDirectionOutbound, "", model.Hostname(mrs), port),
 	}
 
 	mxConfig := &mccpb.HttpClientConfig{

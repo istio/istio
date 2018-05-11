@@ -256,6 +256,32 @@ func (sd *ServiceDiscovery) Instances(hostname model.Hostname, ports []string,
 	return out, sd.InstancesError
 }
 
+// InstancesByPort implements discovery interface
+func (sd *ServiceDiscovery) InstancesByPort(hostname model.Hostname, ports []int,
+	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
+	if sd.InstancesError != nil {
+		return nil, sd.InstancesError
+	}
+	service, ok := sd.services[hostname]
+	if !ok {
+		return nil, sd.InstancesError
+	}
+	out := make([]*model.ServiceInstance, 0)
+	if service.External() {
+		return out, sd.InstancesError
+	}
+	for _, num := range ports {
+		if port, ok := service.Ports.GetByPort(num); ok {
+			for v := 0; v < sd.versions; v++ {
+				if labels.HasSubsetOf(map[string]string{"version": fmt.Sprintf("v%d", v)}) {
+					out = append(out, MakeInstance(service, port, v, "zone/region"))
+				}
+			}
+		}
+	}
+	return out, sd.InstancesError
+}
+
 // GetProxyServiceInstances implements discovery interface
 func (sd *ServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) ([]*model.ServiceInstance, error) {
 	if sd.GetProxyServiceInstancesError != nil {

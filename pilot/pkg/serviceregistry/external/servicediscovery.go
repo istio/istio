@@ -84,6 +84,30 @@ func (d *externalDiscovery) Instances(hostname model.Hostname, ports []string,
 		for _, instance := range convertInstances(serviceEntry) {
 			if instance.Service.Hostname == hostname &&
 				labels.HasSubsetOf(instance.Labels) &&
+				portMatchEnvoyV1(instance, portMap) {
+				out = append(out, instance)
+			}
+		}
+	}
+
+	return out, nil
+}
+
+// Instances retrieves instances for a service on the given ports with labels that
+// match any of the supplied labels. All instances match an empty tag list.
+func (d *externalDiscovery) InstancesByPort(hostname model.Hostname, ports []int,
+	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
+	portMap := make(map[int]bool)
+	for _, port := range ports {
+		portMap[port] = true
+	}
+
+	out := []*model.ServiceInstance{}
+	for _, config := range d.store.ServiceEntries() {
+		serviceEntry := config.Spec.(*networking.ServiceEntry)
+		for _, instance := range convertInstances(serviceEntry) {
+			if instance.Service.Hostname == hostname &&
+				labels.HasSubsetOf(instance.Labels) &&
 				portMatch(instance, portMap) {
 				out = append(out, instance)
 			}
@@ -94,8 +118,13 @@ func (d *externalDiscovery) Instances(hostname model.Hostname, ports []string,
 }
 
 // returns true if an instance's port matches with any in the provided list
-func portMatch(instance *model.ServiceInstance, portMap map[string]bool) bool {
+func portMatchEnvoyV1(instance *model.ServiceInstance, portMap map[string]bool) bool {
 	return len(portMap) == 0 || portMap[instance.Endpoint.ServicePort.Name]
+}
+
+// returns true if an instance's port matches with any in the provided list
+func portMatch(instance *model.ServiceInstance, portMap map[int]bool) bool {
+	return len(portMap) == 0 || portMap[instance.Endpoint.ServicePort.Port]
 }
 
 // GetProxyServiceInstances lists service instances co-located with a given proxy
