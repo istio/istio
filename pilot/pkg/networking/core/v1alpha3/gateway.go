@@ -189,7 +189,7 @@ func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamT
 		return nil
 	}
 
-	tlsContext := &auth.DownstreamTlsContext{
+	return &auth.DownstreamTlsContext{
 		CommonTlsContext: &auth.CommonTlsContext{
 			TlsCertificates: []*auth.TlsCertificate{
 				{
@@ -210,8 +210,6 @@ func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamT
 		},
 		RequireSni: boolTrue,
 	}
-
-	return tlsContext
 }
 
 func buildGatewayListnerTLSValidationContext(tls *networking.Server_TLSOptions) *auth.CertificateValidationContext {
