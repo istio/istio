@@ -27,6 +27,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+
 	"code.cloudfoundry.org/copilot/api"
 	"code.cloudfoundry.org/copilot/testhelpers"
 	"github.com/onsi/gomega"
