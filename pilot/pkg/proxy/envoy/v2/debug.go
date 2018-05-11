@@ -135,7 +135,7 @@ func (sd *MemServiceDiscovery) AddInstance(service model.Hostname, instance *mod
 	instance.Service = svc
 	sd.ip2instance[instance.Endpoint.Address] = []*model.ServiceInstance{instance}
 
-	key := fmt.Sprintf("%s:%s", service, instance.Endpoint.ServicePort.Name)
+	key := fmt.Sprintf("%s:%d", service, instance.Endpoint.ServicePort.Port)
 	instanceList := sd.instances[key]
 	if instanceList == nil {
 		instanceList = []*model.ServiceInstance{instance}
@@ -222,7 +222,7 @@ func (sd *MemServiceDiscovery) InstancesByPort(hostname model.Hostname, ports []
 		log.Warna("Unexpected ports ", ports)
 		return nil, nil
 	}
-	key := hostname.String() + ":" + string(ports[0])
+	key := fmt.Sprintf("%s:%d", hostname.String(), ports[0])
 	instances, ok := sd.instances[key]
 	if !ok {
 		return nil, nil
