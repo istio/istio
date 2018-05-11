@@ -175,10 +175,9 @@ func translateVirtualHost(
 	return out
 }
 
-// ConvertDestinationToCluster generate a cluster name for the route, or error if no cluster
+// GetDestinationCluster generate a cluster name for the route, or error if no cluster
 // can be found. Called by translateRule to determine if
-func ConvertDestinationToCluster(destination *networking.Destination, _ string,
-	_ *networking.HTTPRoute, serviceIndex map[model.Hostname]*model.Service, defaultPort int) string {
+func GetDestinationCluster(destination *networking.Destination, service *model.Service, defaultPort int) string {
 	port := defaultPort
 	if destination.Port != nil {
 		switch selector := destination.Port.Port.(type) {
@@ -190,11 +189,9 @@ func ConvertDestinationToCluster(destination *networking.Destination, _ string,
 			port = int(selector.Number)
 		}
 	} else {
-		if service, exists := serviceIndex[model.Hostname(destination.Host)]; exists {
-			// if service only has one port defined, use that as the port, otherwise use defaultPort from listener
-			if len(service.Ports) == 1 {
-				port = service.Ports[0].Port
-			}
+		// if service only has one port defined, use that as the port, otherwise use defaultPort
+		if service != nil && len(service.Ports) == 1 {
+			port = service.Ports[0].Port
 		}
 	}
 
@@ -339,7 +336,7 @@ func translateRoute(in *networking.HTTPRoute,
 		}
 
 		if in.Mirror != nil {
-			n := ConvertDestinationToCluster(in.Mirror, operation, in, serviceIndex, port)
+			n := GetDestinationCluster(in.Mirror, serviceIndex[model.Hostname(in.Mirror.Host)], port)
 			action.RequestMirrorPolicy = &route.RouteAction_RequestMirrorPolicy{Cluster: n}
 		}
 
@@ -349,7 +346,7 @@ func translateRoute(in *networking.HTTPRoute,
 			if dst.Weight == 0 {
 				weight.Value = uint32(100)
 			}
-			n := ConvertDestinationToCluster(dst.Destination, operation, in, serviceIndex, port)
+			n := GetDestinationCluster(dst.Destination, serviceIndex[model.Hostname(dst.Destination.Host)], port)
 			weighted = append(weighted, &route.WeightedCluster_ClusterWeight{
 				Name:   n,
 				Weight: weight,
