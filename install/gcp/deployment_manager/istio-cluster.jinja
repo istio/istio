@@ -86,7 +86,7 @@ resources:
           # and https://github.com/istio/issues/issues/261) we have to force an earlier
           # version of kubectl than 1.10.0. 
           KUBECTL=/usr/local/bin/kubectl
-          curl -L -o $KUBECTL https://storage.googleapis.com/kubernetes-release/release/v1.9.6/bin/linux/amd64/kubectl
+          curl -L -o $KUBECTL https://storage.googleapis.com/kubernetes-release/release/v1.9.7/bin/linux/amd64/kubectl
           chmod +x /usr/local/bin/kubectl
           export HOME=/root
           gcloud components update -q
