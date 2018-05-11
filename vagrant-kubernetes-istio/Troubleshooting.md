@@ -1,6 +1,7 @@
 This file helps note down issues we have seen and how to debug them
 
-1. If you have problem with `make docker` step in the "Build istio images" Step-3 in [Readme](README.md), please try to clean    up all the built binaries and run the test setup script again.
+1. If you have problem with the `make docker` step in the [Build istio images]((README.md#Build-istio-images) in 
+   [Readme](README.md), please try to clean up all the built binaries and run the test setup script again.
    ```sh
    cd $ISTIO/istio
    GOOS=linux make clean
