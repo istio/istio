@@ -31,6 +31,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	k8s_cr "k8s.io/cluster-registry/pkg/apis/clusterregistry/v1alpha1"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
@@ -238,6 +239,9 @@ func addMemberCluster(s *corev1.Secret, c *Controller) {
 				Controller:       kubectl,
 			})
 		stopCh := make(chan struct{})
+		kubectl.AppendServiceHandler(func(*model.Service, model.Event) { log.Info("><SB> AppendServiceHandler was called") })
+		kubectl.AppendInstanceHandler(func(*model.ServiceInstance, model.Event) { log.Info("><SB> AppendInstanceHandler was called") })
+
 		go kubectl.Run(stopCh)
 	}
 	// TODO Add exporting a number of cluster to Prometheus
