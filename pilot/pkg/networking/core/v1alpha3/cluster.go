@@ -396,7 +396,12 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 
 func setUpstreamProtocol(cluster *v2.Cluster, port *model.Port) {
 	if port.Protocol.IsHTTP2() {
-		cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{}
+		cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{
+			// Envoy default value of 100 is too low for data path.
+			MaxConcurrentStreams: &types.UInt32Value{
+				Value: 1073741824,
+			},
+		}
 	}
 }
 
