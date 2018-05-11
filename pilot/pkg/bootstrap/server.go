@@ -180,7 +180,7 @@ type Server struct {
 
 func createInterface(kubeconfig string) (kubernetes.Interface, error) {
 	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
-  
+
 	if err != nil {
 		return nil, err
 	}

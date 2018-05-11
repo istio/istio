@@ -26,7 +26,6 @@ import (
 	"github.com/spf13/cobra/doc"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/pilot/pkg/kube/inject"
@@ -132,9 +131,7 @@ func patchCert() error {
 }
 
 func createClientset(kubeconfigFile string) (*kubernetes.Clientset, error) {
-	var err error
-	var c *rest.Config
-	c, err = clientcmd.BuildConfigFromFlags("", kubeconfigFile)
+	c, err := clientcmd.BuildConfigFromFlags("", kubeconfigFile)
 
 	if err != nil {
 		return nil, err
