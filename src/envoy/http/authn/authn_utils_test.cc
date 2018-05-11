@@ -14,6 +14,7 @@
  */
 #include "src/envoy/http/authn/authn_utils.h"
 #include "common/common/base64.h"
+#include "common/common/utility.h"
 #include "src/envoy/http/authn/test_utils.h"
 #include "test/test_common/utility.h"
 
@@ -91,7 +92,8 @@ TEST(AuthnUtilsTest, GetJwtPayloadFromHeaderTest) {
         key: "some-other-string-claims"
         value: "some-claims-kept"
       }
-    )",
+      raw_claims: ")" +
+          StringUtil::escape(kSecIstioAuthUserinfoHeaderValue) + R"(")",
       &expected_payload));
   // The payload returned from GetJWTPayloadFromHeaders() should be the same as
   // the expected.
@@ -121,7 +123,9 @@ TEST(AuthnUtilsTest, GetJwtPayloadFromHeaderWithNoAudTest) {
         key: "some-other-string-claims"
         value: "some-claims-kept"
       }
-    )",
+      raw_claims: ")" +
+          StringUtil::escape(kSecIstioAuthUserInfoHeaderWithNoAudValue) +
+          R"(")",
       &expected_payload));
   // The payload returned from GetJWTPayloadFromHeaders() should be the same as
   // the expected. When there is no aud,  the aud is not saved in the payload
@@ -154,7 +158,9 @@ TEST(AuthnUtilsTest, GetJwtPayloadFromHeaderWithTwoAudTest) {
         key: "some-other-string-claims"
         value: "some-claims-kept"
       }
-    )",
+      raw_claims: ")" +
+          StringUtil::escape(kSecIstioAuthUserInfoHeaderWithTwoAudValue) +
+          R"(")",
       &expected_payload));
 
   // The payload returned from GetJWTPayloadFromHeaders() should be the same as
