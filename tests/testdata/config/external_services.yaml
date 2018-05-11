@@ -1,5 +1,5 @@
 apiVersion: networking.istio.io/v1alpha3
-kind: ExternalService
+kind: ServiceEntry
 metadata:
   name: external-svc-extsvc
 spec:
@@ -9,7 +9,7 @@ spec:
    - number: 1443
      name: extsvc-http
      protocol: HTTP # not HTTPS.
-   discovery: DNS
+   resolution: DNS
 
 ---
 
@@ -27,7 +27,7 @@ spec:
 ---
 
 apiVersion: networking.istio.io/v1alpha3
-kind: ExternalService
+kind: ServiceEntry
 metadata:
   name: external-svc-ports
 spec:
@@ -42,12 +42,12 @@ spec:
    - number: 8443
      name: https-ports2
      protocol: HTTP
-   discovery: DNS
+   resolution: DNS
 
 ---
 
 apiVersion: networking.istio.io/v1alpha3
-kind: ExternalService
+kind: ServiceEntry
 metadata:
   name: external-svc-dst
 spec:
@@ -58,13 +58,13 @@ spec:
    - number: 8001
      name: extsvc-http
      protocol: HTTP
-   discovery: NONE
+   resolution: NONE
 
 ---
 
 
 apiVersion: networking.istio.io/v1alpha3
-kind: ExternalService
+kind: ServiceEntry
 metadata:
   name: external-svc-ep
 spec:
@@ -74,7 +74,7 @@ spec:
    - number: 8002
      name: extsvc-http
      protocol: HTTP
-   discovery: STATIC
+   resolution: STATIC
    endpoints:
     - address: 127.0.0.2
       ports:
@@ -86,7 +86,7 @@ spec:
 #---
 #
 #apiVersion: networking.istio.io/v1alpha3
-#kind: ExternalService
+#kind: ServiceEntry
 #metadata:
 #  name: external-svc-dns-ep
 #spec:
@@ -96,7 +96,7 @@ spec:
 #   - number: 8003
 #     name: extsvc-http
 #     protocol: HTTP
-#   discovery: DNS
+#   resolution: DNS
 #   endpoints:
 #    - address: dnsep1.weekly.istio.io
 #      ports:

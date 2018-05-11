@@ -170,6 +170,7 @@ type Server struct {
 	GRPCServer       *grpc.Server
 	secureGRPCServer *grpc.Server
 	DiscoveryService *envoy.DiscoveryService
+	istioConfigStore 		 model.IstioConfigStore
 
 	// An in-memory service discovery, enabled if 'mock' registry is added.
 	// Currently used for tests.
@@ -666,17 +667,19 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			return multierror.Prefix(nil, "Service registry "+r+" is not supported.")
 		}
 	}
-	configStore := model.MakeIstioStore(s.configController)
+	// TODO: use the existing one !
+	s.istioConfigStore = model.MakeIstioStore(s.configController)
+	serviceEntryStore := external.NewServiceDiscovery(s.configController, s.istioConfigStore)
 
 	// add service entry registry to aggregator by default
-	serviceControllers.AddRegistry(
-		aggregate.Registry{
-			Name:             "ServiceEntries",
-			ClusterID:        "ServiceEntries",
-			Controller:       external.NewController(s.configController),
-			ServiceDiscovery: external.NewServiceDiscovery(configStore),
-			ServiceAccounts:  external.NewServiceAccounts(),
-		})
+	serviceEntryRegistry := aggregate.Registry{
+		Name:             "ServiceEntries",
+		ClusterID:        "ServiceEntries",
+		Controller:       serviceEntryStore,
+		ServiceDiscovery: serviceEntryStore,
+		ServiceAccounts:  serviceEntryStore,
+	}
+	serviceControllers.AddRegistry(serviceEntryRegistry)
 
 	s.ServiceController = serviceControllers
 
@@ -722,7 +725,7 @@ func initMemoryRegistry(s *Server, serviceControllers *aggregate.Controller) {
 func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	environment := model.Environment{
 		Mesh:             s.mesh,
-		IstioConfigStore: model.MakeIstioStore(s.configController),
+		IstioConfigStore: s.istioConfigStore,
 		ServiceDiscovery: s.ServiceController,
 		ServiceAccounts:  s.ServiceController,
 		MixerSAN:         s.mixerSAN,

@@ -20,10 +20,17 @@ deb: ${ISTIO_OUT}/istio-sidecar.deb
 # Base directory for istio binaries. Likely to change !
 ISTIO_DEB_BIN=/usr/local/bin
 
-ISTIO_DEB_DEPS:=envoy pilot-agent pilot-discovery node_agent istioctl mixs istio_ca
-SIDECAR_FILES:=
+ISTIO_DEB_DEPS:=pilot-discovery istioctl mixs istio_ca
+ISTIO_FILES:=
 # subst is used to turn an absolute path into the relative path that fpm seems to expect
 $(foreach DEP,$(ISTIO_DEB_DEPS),\
+        $(eval ${ISTIO_OUT}/istio.deb: $(ISTIO_OUT)/$(DEP)) \
+        $(eval ISTIO_FILES+=$(subst $(GO_TOP)/,,$(ISTIO_OUT))/$(DEP)=$(ISTIO_DEB_BIN)/$(DEP)) )
+
+SIDECAR_DEB_DEPS:=envoy pilot-agent node_agent
+SIDECAR_FILES:=
+# subst is used to turn an absolute path into the relative path that fpm seems to expect
+$(foreach DEP,$(SIDECAR_DEB_DEPS),\
         $(eval ${ISTIO_OUT}/istio-sidecar.deb: $(ISTIO_OUT)/$(DEP)) \
         $(eval SIDECAR_FILES+=$(subst $(GO_TOP)/,,$(ISTIO_OUT))/$(DEP)=$(ISTIO_DEB_BIN)/$(DEP)) )
 
@@ -51,7 +58,7 @@ ISTIO_DEB_NAME ?= istio-sidecar
 ${ISTIO_OUT}/istio-sidecar.deb: | ${ISTIO_OUT}
 	$(MAKE) deb/fpm
 
-# This got way too complex - used only to run fpm in a container.
+# Package the sidecar deb file.
 deb/fpm:
 	rm -f ${ISTIO_OUT}/istio-sidecar.deb
 	fpm -s dir -t deb -n ${ISTIO_DEB_NAME} -p ${ISTIO_OUT}/istio-sidecar.deb --version ${VERSION} -C ${GO_TOP} -f \
@@ -62,34 +69,54 @@ deb/fpm:
 		--after-install tools/deb/postinst.sh \
 		--config-files /var/lib/istio/envoy/envoy_bootstrap_tmpl.json \
 		--config-files /var/lib/istio/envoy/sidecar.env \
-		--description "Istio" \
+		--description "Istio Sidecar" \
 		--depends iproute2 \
 		--depends iptables \
 		$(SIDECAR_FILES)
 
+${ISTIO_OUT}/istio.deb:
+	rm -f ${ISTIO_OUT}/istio.deb
+	fpm -s dir -t deb -n istio -p ${ISTIO_OUT}/istio.deb --version ${VERSION} -C ${GO_TOP} -f \
+		--url http://istio.io  \
+		--license Apache \
+		--vendor istio.io \
+		--maintainer istio@istio.io \
+		--description "Istio" \
+		$(ISTIO_FILES)
+
 # Install the deb in a docker image, for testing of the install process.
-deb/docker: hyperistio
+deb/docker: hyperistio build deb/fpm ${ISTIO_OUT}/istio.deb
 	mkdir -p ${OUT_DIR}/deb
-	cp tools/deb/Dockerfile ${OUT_DIR}/deb
+	cp tools/deb/Dockerfile tools/deb/deb_test.sh ${OUT_DIR}/deb
 	cp tests/testdata/config/*.yaml ${OUT_DIR}/deb
 	cp -a tests/testdata/certs ${OUT_DIR}/deb
 	cp ${ISTIO_OUT}/hyperistio ${OUT_DIR}/deb
-	cp ${ISTIO_OUT}/istio-sidecar.deb ${OUT_DIR}/deb/istio.deb
+	cp ${ISTIO_OUT}/istio-sidecar.deb ${OUT_DIR}/deb/istio-sidecar.deb
+	cp ${ISTIO_OUT}/istio.deb ${OUT_DIR}/deb/istio.deb
 	docker build -t istio_deb -f ${OUT_DIR}/deb/Dockerfile ${OUT_DIR}/deb/
 
 deb/test:
 	docker run --cap-add=NET_ADMIN --rm -v ${ISTIO_GO}/tools/deb/deb_test.sh:/tmp/deb_test.sh istio_deb /tmp/deb_test.sh
-	#docker run --cap-add=NET_ADMIN --rm -v ${ISTIO_GO}/tools/deb/deb_test_auth.sh:/tmp/deb_test.sh istio_deb /tmp/deb_test.sh
+
+# For the test, by default use a local pilot.
+PILOT_IP ?= 127.0.0.1
 
 # Run the docker image including the installed debian, with access to all source
-# code.
-deb/docker-run:
+# code. Useful for debugging/experiments with iptables.
+#
+# Before running:
+# docker network create --subnet=172.18.0.0/16 istiotest
+# The IP of the docker matches the byon-docker service entry
+deb/run/docker:
 	docker run --cap-add=NET_ADMIN --rm \
 	  -v ${GO_TOP}:${GO_TOP} \
       -w ${PWD} \
+      --net istiotest --ip 172.18.0.3 \
       --add-host echo:10.1.1.1 \
-      --add-host istio-pilot.istio-system:127.0.0.1 \
-      -p 127.0.0.1:16001:8080 \
+      --add-host byon.test.istio.io:10.1.1.2 \
+      --add-host byon-docker.test.istio.io:10.1.1.2 \
+      --add-host istio-pilot.istio-system:${PILOT_IP} \
+      -p 127.0.0.1:16001:15007 \
       -p 127.0.0.1:16002:7070 \
       -p 127.0.0.1:16003:7072 \
       -p 127.0.0.1:16004:7073 \
@@ -98,11 +125,19 @@ deb/docker-run:
       -e GOPATH=${GOPATH} \
       -it istio_deb /bin/bash
 
+# Similar with above, but using a pilot running on the local machine
+deb/run/docker-debug:
+	$(MAKE) deb/run/docker PILOT_IP=
+
+#
+deb/docker-run: deb/docker deb/run/docker
+
 .PHONY: \
 	deb \
 	deb/build-in-docker \
 	deb/docker \
 	deb/docker-run \
+	deb/run/docker \
 	deb/fpm \
 	deb/test \
 	sidecar.deb

@@ -54,7 +54,7 @@ func initConfigStore() model.IstioConfigStore {
 
 func TestServiceDiscoveryServices(t *testing.T) {
 	store := initConfigStore()
-	sd := NewServiceDiscovery(store)
+	sd := NewServiceDiscovery(nil, store)
 	expectedServices := []*model.Service{
 		makeService("*.google.com", "", map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB),
 		makeService("tcpstatic.com", "172.217.0.0/16", map[string]int{"tcp-444": 444}, true, model.ClientSideLB),
@@ -78,7 +78,7 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 	hostDNE := "does.not.exist.local"
 
 	store := initConfigStore()
-	sd := NewServiceDiscovery(store)
+	sd := NewServiceDiscovery(nil, store)
 
 	createServiceEntries([]*networking.ServiceEntry{httpDNS, tcpStatic}, store, t)
 
@@ -104,7 +104,7 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 
 func TestServiceDiscoveryGetProxyServiceInstances(t *testing.T) {
 	store := initConfigStore()
-	sd := NewServiceDiscovery(store)
+	sd := NewServiceDiscovery(nil, store)
 
 	createServiceEntries([]*networking.ServiceEntry{httpStatic, tcpStatic}, store, t)
 
@@ -120,7 +120,7 @@ func TestServiceDiscoveryGetProxyServiceInstances(t *testing.T) {
 
 func TestServiceDiscoveryInstances(t *testing.T) {
 	store := initConfigStore()
-	sd := NewServiceDiscovery(store)
+	sd := NewServiceDiscovery(nil, store)
 
 	createServiceEntries([]*networking.ServiceEntry{httpDNS, tcpStatic}, store, t)
 
