@@ -94,7 +94,7 @@ func TestAgent(t *testing.T) {
 		t.Run(agent.Config.ServiceName, func(t *testing.T) {
 			for _, port := range agent.GetPorts() {
 				t.Run(port.Config.Name, func(t *testing.T) {
-					response, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d", port.EnvoyPort))
+					response, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d", port.ProxyPort))
 					if err != nil {
 						t.Fatal(err)
 					}

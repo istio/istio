@@ -44,18 +44,18 @@ type Config struct {
 // Port contains the port mapping for a single configured port
 type Port struct {
 	Config      PortConfig
-	EnvoyPort   int
+	ProxyPort   int
 	ServicePort int
 }
 
 // Agent bootstraps a local service/Envoy combination.
 type Agent struct {
 	Config Config
-	env    *envoy.Envoy
+	proxy  *envoy.Envoy
 	// TODO(nmittler): Abstract out an interface for a backend service needed by this agent.
 	service        *echo.Server
-	envoyConfig    *envoyConfig
-	envoyAdminPort int
+	proxyConfig    *proxyConfig
+	proxyAdminPort int
 	ports          []Port
 }
 
@@ -66,7 +66,7 @@ func (a *Agent) Start() (err error) {
 	}
 
 	// Generate the port mappings between Envoy and the backend service.
-	a.envoyAdminPort, a.ports, err = a.createPorts()
+	a.proxyAdminPort, a.ports, err = a.createPorts()
 	if err != nil {
 		return err
 	}
@@ -87,7 +87,7 @@ func (a *Agent) GetPorts() []Port {
 
 // GetEnvoyAdminPort returns the admin port for Envoy after the Agent has been started.
 func (a *Agent) GetEnvoyAdminPort() int {
-	return a.envoyAdminPort
+	return a.proxyAdminPort
 }
 
 func (a *Agent) startService() error {
@@ -119,9 +119,9 @@ func (a *Agent) stopService() error {
 
 func (a *Agent) startEnvoy() (err error) {
 	// Create the configuration object
-	a.envoyConfig, err = (&envoyConfigBuilder{
+	a.proxyConfig, err = (&proxyConfigBuilder{
 		ServiceName: a.Config.ServiceName,
-		AdminPort:   a.envoyAdminPort,
+		AdminPort:   a.proxyAdminPort,
 		Ports:       a.ports,
 		tmpDir:      a.Config.TmpDir,
 	}).build()
@@ -130,19 +130,19 @@ func (a *Agent) startEnvoy() (err error) {
 	}
 
 	// Create and start envoy with the configuration
-	a.env = &envoy.Envoy{
-		YamlFile: a.envoyConfig.yamlFile,
+	a.proxy = &envoy.Envoy{
+		YamlFile: a.proxyConfig.yamlFile,
 	}
-	return a.env.Start()
+	return a.proxy.Start()
 }
 
 func (a *Agent) stopEnvoy() (err error) {
-	if a.env != nil {
-		err = a.env.Stop()
+	if a.proxy != nil {
+		err = a.proxy.Stop()
 	}
-	if a.envoyConfig != nil {
-		a.envoyConfig.dispose()
-		a.envoyConfig = nil
+	if a.proxyConfig != nil {
+		a.proxyConfig.dispose()
+		a.proxyConfig = nil
 	}
 	return err
 }
@@ -164,7 +164,7 @@ func (a *Agent) createPorts() (adminPort int, ports []Port, err error) {
 		ports[i] = Port{
 			Config:      a.Config.Ports[i],
 			ServicePort: servicePort,
-			EnvoyPort:   envoyPort,
+			ProxyPort:   envoyPort,
 		}
 	}
 	return

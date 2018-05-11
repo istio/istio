@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	envoyYamlTemplateStr = `
+	proxyYamlTemplateStr = `
 {{- $serviceName := .ServiceName -}}
 admin:
   access_log_path: "/dev/null"
@@ -52,7 +52,7 @@ static_resources:
   - address:
       socket_address:
         address: 127.0.0.1
-        port_value: {{$p.EnvoyPort}}
+        port_value: {{$p.ProxyPort}}
     use_original_dst: true
     filter_chains:
     - filters:
@@ -61,7 +61,7 @@ static_resources:
           codec_type: auto
           stat_prefix: ingress_http
           route_config:
-            name: {{$p.EnvoyPort}}_to_{{$serviceName}}_{{$p.ServicePort}}
+            name: {{$p.ProxyPort}}_to_{{$serviceName}}_{{$p.ServicePort}}
             virtual_hosts:
             - name: {{$serviceName}}
               domains:
@@ -82,37 +82,37 @@ static_resources:
 
 var (
 	// The Template object parsed from the template string
-	envoyYamlTemplate = getEnvoyYamlTemplate()
+	proxyYamlTemplate = getProxyYamlTemplate()
 )
 
-func getEnvoyYamlTemplate() *template.Template {
-	tmpl := template.New("istio_agent_envoy_config")
-	_, err := tmpl.Parse(envoyYamlTemplateStr)
+func getProxyYamlTemplate() *template.Template {
+	tmpl := template.New("istio_agent_proxy_config")
+	_, err := tmpl.Parse(proxyYamlTemplateStr)
 	if err != nil {
-		log.Warn("unable to parse envoy bootstrap config")
+		log.Warn("unable to parse proxy bootstrap config")
 	}
 	return tmpl
 }
 
-type envoyConfigBuilder struct {
+type proxyConfigBuilder struct {
 	ServiceName string
 	AdminPort   int
 	Ports       []Port
 	tmpDir      string
 }
 
-func (b *envoyConfigBuilder) build() (*envoyConfig, error) {
+func (b *proxyConfigBuilder) build() (*proxyConfig, error) {
 	// Apply the template with the current configuration
 	var filled bytes.Buffer
 	w := bufio.NewWriter(&filled)
-	if err := envoyYamlTemplate.Execute(w, b); err != nil {
+	if err := proxyYamlTemplate.Execute(w, b); err != nil {
 		return nil, err
 	}
 	if err := w.Flush(); err != nil {
 		return nil, err
 	}
 
-	cfg := &envoyConfig{}
+	cfg := &proxyConfig{}
 
 	// Create a temporary output directory if not provided.
 	outDir := b.tmpDir
@@ -126,7 +126,7 @@ func (b *envoyConfigBuilder) build() (*envoyConfig, error) {
 	}
 
 	// Create an output file to hold the generated configuration.
-	yamlFile, err := createTempfile(outDir, "istio_agent_envoy_config", ".yaml")
+	yamlFile, err := createTempfile(outDir, "istio_agent_proxy_config", ".yaml")
 	if err != nil {
 		cfg.dispose()
 		return nil, err
@@ -144,12 +144,12 @@ func (b *envoyConfigBuilder) build() (*envoyConfig, error) {
 	return cfg, nil
 }
 
-type envoyConfig struct {
+type proxyConfig struct {
 	ownedDir string
 	yamlFile string
 }
 
-func (c *envoyConfig) dispose() {
+func (c *proxyConfig) dispose() {
 	if c.ownedDir != "" {
 		os.RemoveAll(c.ownedDir)
 	} else {
