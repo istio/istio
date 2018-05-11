@@ -370,11 +370,12 @@ func testService(t *testing.T) {
 	client := &http.Client{Transport: &http.Transport{Proxy: http.ProxyURL(proxyUrl)}}
 
 	res, err := client.Get("http://local.default.svc.cluster.local")
-	resdmp, _ := httputil.DumpResponse(res, true)
-	t.Log(string(resdmp))
 	if err != nil {
 		t.Error("Failed to access proxy", err)
+		return
 	}
+	resdmp, _ := httputil.DumpResponse(res, true)
+	t.Log(string(resdmp))
 	if res.Status != "200 OK" {
 		t.Error("Proxy failed ", res.Status)
 	}
