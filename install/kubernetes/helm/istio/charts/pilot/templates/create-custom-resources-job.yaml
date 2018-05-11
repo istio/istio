@@ -1,0 +1,38 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: istio-pilot-create-cr
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-delete-policy": hook-succeeded
+  labels:
+    app: istio-pilot
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  template:
+    metadata:
+      name: istio-pilot-create-cr
+      labels:
+        app: istio-pilot
+        release: {{ .Release.Name }}
+    spec:
+      serviceAccountName: istio-pilot-service-account
+      containers:
+        - name: hyperkube
+          image: "{{ .Values.global.hyperkube.repository }}:{{ .Values.global.hyperkube.tag }}"
+          command:
+            - ./kubectl
+            - apply
+            - -f
+            - /tmp/pilot/custom-resources.yaml
+          volumeMounts:
+            - mountPath: "/tmp/pilot"
+              name: tmp-configmap-pilot
+      volumes:
+        - name: tmp-configmap-pilot
+          configMap:
+            name: istio-pilot-custom-resources
+      restartPolicy: Never # CRD might take some time till they are available to consume
