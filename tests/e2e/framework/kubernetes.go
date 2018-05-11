@@ -190,10 +190,10 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		if err != nil {
 			return nil, err
 		}
-		if _, kubeClient, err = kube.CreateInterface(kubeConfig); err != nil {
+		if kubeClient, err = kube.CreateInterface(kubeConfig); err != nil {
 			return nil, err
 		}
-		if _, remoteKubeClient, err = kube.CreateInterface(remoteKubeConfig); err != nil {
+		if remoteKubeClient, err = kube.CreateInterface(remoteKubeConfig); err != nil {
 			return nil, err
 		}
 
