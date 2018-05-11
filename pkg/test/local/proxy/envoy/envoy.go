@@ -15,13 +15,22 @@
 package envoy
 
 import (
+	"bytes"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
+	"time"
+
+	"github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2"
+	"github.com/ghodss/yaml"
+	"github.com/gogo/protobuf/jsonpb"
 
 	"istio.io/istio/pkg/test/util"
 )
@@ -29,6 +38,9 @@ import (
 const (
 	// DefaultLogLevel the log level used for Envoy if not specified.
 	DefaultLogLevel = LogLevelTrace
+
+	healthCheckTimeout  = 10 * time.Second
+	healthCheckInterval = 100 * time.Millisecond
 )
 
 // LogLevel represents the log level to use for Envoy.
@@ -51,16 +63,37 @@ const (
 	LogLevelOff = "off"
 )
 
+// HealthCheckState represents a health checking state returned from /server_info
+type HealthCheckState string
+
+const (
+	// HealthCheckLive indicates Envoy is live and ready to serve requests
+	HealthCheckLive HealthCheckState = "live"
+	// HealthCheckDraining indicates Envoy is not currently capable of serving requests
+	HealthCheckDraining HealthCheckState = "draining"
+)
+
 var (
 	idGenerator = &baseIDGenerator{
 		ids: make(map[uint32]byte),
 	}
+	nilServerInfo = ServerInfo{}
 )
+
+// ServerInfo is the result of a request to /server_info
+type ServerInfo struct {
+	ProcessName                  string
+	CompiledSHABuildType         string
+	HealthCheckState             HealthCheckState
+	CurrentHotRestartEpochUptime time.Duration
+	TotalUptime                  time.Duration
+	CurrentHotRestartEpoch       int
+}
 
 // Envoy is a wrapper that simplifies running Envoy.
 type Envoy struct {
-	// ConfigFile (required) the v2 config file for Envoy.
-	ConfigFile string
+	// YamlFile (required) the v2 yaml config file for Envoy.
+	YamlFile string
 	// BinPath (optional) the path to the Envoy binary. If not set, uses the debug binary under ISTIO_OUT. If the
 	// ISTIO_OUT environment variable is not set, the default location under GOPATH is assumed. If ISTIO_OUT contains
 	// multiple debug binaries, the most recent file is used.
@@ -70,25 +103,32 @@ type Envoy struct {
 	// LogLevel (optional) if provided, sets the log level for Envoy. If not set, DefaultLogLevel will be used.
 	LogLevel LogLevel
 
-	cmd    *exec.Cmd
-	baseID uint32
+	cmd       *exec.Cmd
+	baseID    uint32
+	adminPort int
 }
 
 // Start starts the Envoy process.
-func (e *Envoy) Start() error {
-	// Stop if already started.
-	if err := e.Stop(); err != nil {
+func (e *Envoy) Start() (err error) {
+	// If there is an error upon exiting this function, stop the server.
+	defer func() {
+		if err != nil {
+			e.Stop()
+		}
+	}()
+
+	if err = e.validateCommandArgs(); err != nil {
 		return err
 	}
 
-	if err := e.validateCommandArgs(); err != nil {
+	e.adminPort, err = parseAdminPort(e.YamlFile)
+	if err != nil {
 		return err
 	}
 
 	envoyPath := e.BinPath
 	if envoyPath == "" {
 		// No binary specified, assume a default location under ISTIO_OUT
-		var err error
 		envoyPath, err = getDefaultEnvoyBinaryPath()
 		if err != nil {
 			return err
@@ -104,11 +144,11 @@ func (e *Envoy) Start() error {
 	e.cmd = exec.Command(envoyPath, args...)
 	e.cmd.Stderr = os.Stderr
 	e.cmd.Stdout = os.Stdout
-	if err := e.cmd.Start(); err != nil {
-		e.returnBaseID()
+	if err = e.cmd.Start(); err != nil {
 		return err
 	}
-	return nil
+
+	return e.waitForHealthCheckLive()
 }
 
 // Stop kills the Envoy process.
@@ -125,6 +165,99 @@ func (e *Envoy) Stop() error {
 	return e.cmd.Process.Kill()
 }
 
+func parseAdminPort(configFile string) (int, error) {
+	yamlBytes, err := ioutil.ReadFile(configFile)
+	if err != nil {
+		return 0, err
+	}
+	json, err := yaml.YAMLToJSON(yamlBytes)
+	if err != nil {
+		return 0, err
+	}
+	bootstrap := v2.Bootstrap{}
+	err = jsonpb.Unmarshal(bytes.NewReader(json), &bootstrap)
+	if err != nil {
+		return 0, err
+	}
+	return int(bootstrap.Admin.Address.GetSocketAddress().GetPortValue()), nil
+}
+
+// GetAdminPort returns the admin port for the Envoy server.
+func (e *Envoy) GetAdminPort() int {
+	return e.adminPort
+}
+
+// GetServerInfo a structure representing a call to /server_info
+func (e *Envoy) GetServerInfo() (ServerInfo, error) {
+	requestURL := fmt.Sprintf("http://127.0.0.1:%d/server_info", e.adminPort)
+	response, err := http.Get(requestURL)
+	if err != nil {
+		fmt.Println(err)
+		return nilServerInfo, err
+	}
+	defer response.Body.Close()
+
+	bodyBytes, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return nilServerInfo, err
+	}
+
+	body := strings.TrimSpace(string(bodyBytes))
+	fmt.Println("NM: /server_info returned:")
+	fmt.Println(body)
+	parts := strings.Split(body, " ")
+	if len(parts) != 6 {
+		return nilServerInfo, fmt.Errorf("call to /server_info returned invalid response: %s", body)
+	}
+
+	currentHotRestartEpochUptime, err := strconv.Atoi(parts[3])
+	if err != nil {
+		return nilServerInfo, err
+	}
+
+	totalUptime, err := strconv.Atoi(parts[4])
+	if err != nil {
+		return nilServerInfo, err
+	}
+
+	currentHotRestartEpoch, err := strconv.Atoi(parts[5])
+	if err != nil {
+		return nilServerInfo, err
+	}
+
+	return ServerInfo{
+		ProcessName:                  parts[0],
+		CompiledSHABuildType:         parts[1],
+		HealthCheckState:             HealthCheckState(parts[2]),
+		CurrentHotRestartEpochUptime: time.Second * time.Duration(currentHotRestartEpochUptime),
+		TotalUptime:                  time.Second * time.Duration(totalUptime),
+		CurrentHotRestartEpoch:       currentHotRestartEpoch,
+	}, nil
+}
+
+func (e *Envoy) waitForHealthCheckLive() error {
+	endTime := time.Now().Add(healthCheckTimeout)
+	for {
+		var info ServerInfo
+		info, err := e.GetServerInfo()
+		if err == nil {
+			if info.HealthCheckState == HealthCheckLive {
+				// It's running, we can return now.
+				return nil
+			}
+		}
+
+		// Stop trying after the timeout
+		if time.Now().After(endTime) {
+			err = fmt.Errorf("failed to start envoy after %ds. Error: %v", healthCheckTimeout/time.Second, err)
+			return err
+		}
+
+		// Sleep a short before retry.
+		time.Sleep(healthCheckInterval)
+	}
+}
+
 func (e *Envoy) validateCommandArgs() error {
 	if e.BinPath != "" {
 		// Ensure the binary exists.
@@ -132,7 +265,7 @@ func (e *Envoy) validateCommandArgs() error {
 			return fmt.Errorf("specified Envoy binary does not exist: %s", e.BinPath)
 		}
 	}
-	if e.ConfigFile == "" {
+	if e.YamlFile == "" {
 		return fmt.Errorf("configFile must be specified before running Envoy")
 	}
 	return nil
@@ -158,7 +291,7 @@ func (e *Envoy) getCommandArgs() []string {
 		// Always force v2 config.
 		"--v2-config-only",
 		"--config-path",
-		e.ConfigFile,
+		e.YamlFile,
 		"--log-level",
 		string(e.getLogLevel()),
 		"--log-format",

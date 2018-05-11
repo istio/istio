@@ -22,7 +22,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/server/echo"
-	"istio.io/istio/pkg/test/proxy/envoy"
+	"istio.io/istio/pkg/test/local/proxy/envoy"
 )
 
 // PortConfig contains meta information about a port
@@ -44,17 +44,18 @@ type Config struct {
 // Port contains the port mapping for a single configured port
 type Port struct {
 	Config      PortConfig
-	EnvoyPort   int
+	ProxyPort   int
 	ServicePort int
 }
 
 // Agent bootstraps a local service/Envoy combination.
 type Agent struct {
-	Config         Config
-	e              *envoy.Envoy
-	app            *echo.Server
-	envoyConfig    *envoyConfig
-	envoyAdminPort int
+	Config Config
+	proxy  *envoy.Envoy
+	// TODO(nmittler): Abstract out an interface for a backend service needed by this agent.
+	service        *echo.Server
+	proxyConfig    *proxyConfig
+	proxyAdminPort int
 	ports          []Port
 }
 
@@ -65,7 +66,7 @@ func (a *Agent) Start() (err error) {
 	}
 
 	// Generate the port mappings between Envoy and the backend service.
-	a.envoyAdminPort, a.ports, err = a.createPorts()
+	a.proxyAdminPort, a.ports, err = a.createPorts()
 	if err != nil {
 		return err
 	}
@@ -75,18 +76,8 @@ func (a *Agent) Start() (err error) {
 
 // Stop stops Envoy and the service.
 func (a *Agent) Stop() error {
-	var err error
-	if a.e != nil {
-		err = a.e.Stop()
-	}
-	if a.app != nil {
-		err = multierr.Append(err, a.app.Stop())
-	}
-	if a.envoyConfig != nil {
-		a.envoyConfig.dispose()
-		a.envoyConfig = nil
-	}
-	return err
+	err := a.stopService()
+	return multierr.Append(err, a.stopEnvoy())
 }
 
 // GetPorts returns the list of runtime ports after the Agent has been started.
@@ -96,7 +87,7 @@ func (a *Agent) GetPorts() []Port {
 
 // GetEnvoyAdminPort returns the admin port for Envoy after the Agent has been started.
 func (a *Agent) GetEnvoyAdminPort() int {
-	return a.envoyAdminPort
+	return a.proxyAdminPort
 }
 
 func (a *Agent) startService() error {
@@ -110,20 +101,27 @@ func (a *Agent) startService() error {
 		}
 	}
 
-	a.app = &echo.Server{
+	a.service = &echo.Server{
 		HTTPPorts: make([]int, len(a.Config.Ports)),
 		TLSCert:   a.Config.TLSCert,
 		TLSCKey:   a.Config.TLSCKey,
 		Version:   a.Config.Version,
 	}
-	return a.app.Start()
+	return a.service.Start()
+}
+
+func (a *Agent) stopService() error {
+	if a.service != nil {
+		return a.service.Stop()
+	}
+	return nil
 }
 
 func (a *Agent) startEnvoy() (err error) {
 	// Create the configuration object
-	a.envoyConfig, err = (&envoyConfigBuilder{
+	a.proxyConfig, err = (&proxyConfigBuilder{
 		ServiceName: a.Config.ServiceName,
-		AdminPort:   a.envoyAdminPort,
+		AdminPort:   a.proxyAdminPort,
 		Ports:       a.ports,
 		tmpDir:      a.Config.TmpDir,
 	}).build()
@@ -132,10 +130,21 @@ func (a *Agent) startEnvoy() (err error) {
 	}
 
 	// Create and start envoy with the configuration
-	a.e = &envoy.Envoy{
-		ConfigFile: a.envoyConfig.configFile,
+	a.proxy = &envoy.Envoy{
+		YamlFile: a.proxyConfig.yamlFile,
 	}
-	return a.e.Start()
+	return a.proxy.Start()
+}
+
+func (a *Agent) stopEnvoy() (err error) {
+	if a.proxy != nil {
+		err = a.proxy.Stop()
+	}
+	if a.proxyConfig != nil {
+		a.proxyConfig.dispose()
+		a.proxyConfig = nil
+	}
+	return err
 }
 
 func (a *Agent) createPorts() (adminPort int, ports []Port, err error) {
@@ -143,7 +152,7 @@ func (a *Agent) createPorts() (adminPort int, ports []Port, err error) {
 		return
 	}
 
-	servicePorts := a.app.HTTPPorts
+	servicePorts := a.service.HTTPPorts
 	ports = make([]Port, len(servicePorts))
 	for i, servicePort := range servicePorts {
 		var envoyPort int
@@ -155,7 +164,7 @@ func (a *Agent) createPorts() (adminPort int, ports []Port, err error) {
 		ports[i] = Port{
 			Config:      a.Config.Ports[i],
 			ServicePort: servicePort,
-			EnvoyPort:   envoyPort,
+			ProxyPort:   envoyPort,
 		}
 	}
 	return
