@@ -15,6 +15,7 @@
 package cloudfoundry
 
 import (
+	"errors"
 	"fmt"
 
 	copilotapi "code.cloudfoundry.org/copilot/api"
@@ -96,6 +97,11 @@ func (sd *ServiceDiscovery) GetService(hostname model.Hostname) (*model.Service,
 
 // Instances implements a service catalog operation
 func (sd *ServiceDiscovery) Instances(hostname model.Hostname, _ []string, _ model.LabelsCollection) ([]*model.ServiceInstance, error) {
+	return nil, errors.New("Not implemented. Use InstancesByPort instead")
+}
+
+// InstancesByPort implements a service catalog operation
+func (sd *ServiceDiscovery) InstancesByPort(hostname model.Hostname, _ []int, _ model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	resp, err := sd.Client.Routes(context.Background(), new(copilotapi.RoutesRequest))
 	if err != nil {
 		return nil, fmt.Errorf("getting routes: %s", err)
@@ -153,11 +159,6 @@ func (sd *ServiceDiscovery) Instances(hostname model.Hostname, _ []string, _ mod
 	}
 
 	return instances, nil
-}
-
-// InstancesByPort implements a service catalog operation
-func (sd *ServiceDiscovery) InstancesByPort(hostname model.Hostname, _ []int, _ model.LabelsCollection) ([]*model.ServiceInstance, error) {
-	return sd.Instances(hostname, nil, nil)
 }
 
 // GetProxyServiceInstances returns all service instances running on a particular proxy
