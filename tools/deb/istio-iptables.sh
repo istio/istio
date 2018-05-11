@@ -124,10 +124,11 @@ iptables -t nat -D OUTPUT -p tcp -j ISTIO_OUTPUT 2>/dev/null
 # Flush and delete the istio chains.
 iptables -t nat -F ISTIO_OUTPUT 2>/dev/null
 iptables -t nat -X ISTIO_OUTPUT 2>/dev/null
-iptables -t nat -F ISTIO_REDIRECT 2>/dev/null
-iptables -t nat -X ISTIO_REDIRECT 2>/dev/null
 iptables -t nat -F ISTIO_INBOUND 2>/dev/null
 iptables -t nat -X ISTIO_INBOUND 2>/dev/null
+# Must be last, the others refer to it
+iptables -t nat -F ISTIO_REDIRECT 2>/dev/null
+iptables -t nat -X ISTIO_REDIRECT 2>/dev/null
 iptables -t mangle -F ISTIO_INBOUND 2>/dev/null
 iptables -t mangle -X ISTIO_INBOUND 2>/dev/null
 iptables -t mangle -F ISTIO_DIVERT 2>/dev/null
