@@ -611,6 +611,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		case serviceregistry.MockRegistry:
 			initMemoryRegistry(s, serviceControllers)
 		case serviceregistry.KubernetesRegistry:
+			// TODO Since controllers are built dynamically, createK8sServiceControllers can be removed
 			if err := s.createK8sServiceControllers(serviceControllers, args); err != nil {
 				return err
 			}
