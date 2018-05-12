@@ -170,7 +170,7 @@ type Server struct {
 	GRPCServer       *grpc.Server
 	secureGRPCServer *grpc.Server
 	DiscoveryService *envoy.DiscoveryService
-	istioConfigStore 		 model.IstioConfigStore
+	istioConfigStore model.IstioConfigStore
 
 	// An in-memory service discovery, enabled if 'mock' registry is added.
 	// Currently used for tests.

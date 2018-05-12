@@ -116,6 +116,8 @@ deb/run/docker:
       --add-host byon.test.istio.io:10.1.1.2 \
       --add-host byon-docker.test.istio.io:10.1.1.2 \
       --add-host istio-pilot.istio-system:${PILOT_IP} \
+      -e ISTIO_SERVICE_CIDR=10.1.1.0/24 \
+      -e ISTIO_INBOUND_PORTS=7070,7072,7073,7074,7075 \
       -p 127.0.0.1:16001:15007 \
       -p 127.0.0.1:16002:7070 \
       -p 127.0.0.1:16003:7072 \
