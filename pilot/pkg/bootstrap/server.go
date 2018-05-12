@@ -179,11 +179,8 @@ type Server struct {
 }
 
 func createInterface(kubeconfig string) (kubernetes.Interface, error) {
-	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	loadingRules.ExplicitPath = kubeconfig
+	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 
-	clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
-	restConfig, err := clientConfig.ClientConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -417,6 +414,7 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 
 		kubeCfgFile := s.getKubeCfgFile(args)
 		client, kuberr = createInterface(kubeCfgFile)
+
 		if kuberr != nil {
 			return multierror.Prefix(kuberr, "failed to connect to Kubernetes API.")
 		}
@@ -547,7 +545,7 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 		for _, cluster := range clusters {
 			log.Infof("Cluster name: %s", clusterregistry.GetClusterID(cluster))
 			clusterClient := clientAccessConfigs[cluster.ObjectMeta.Name]
-			_, client, kuberr := kube.CreateInterfaceFromClusterConfig(&clusterClient)
+			client, kuberr := kube.CreateInterfaceFromClusterConfig(&clusterClient)
 			if kuberr != nil {
 				err = multierror.Append(err, multierror.Prefix(kuberr, fmt.Sprintf("failed to connect to Access API with access config: %s", cluster.ObjectMeta.Name)))
 			}

@@ -400,7 +400,7 @@ func podKey(pod *v1.Pod) string {
 func main() {
 	flag.Parse()
 
-	_, client, err := kube.CreateInterface(kubeconfig)
+	client, err := kube.CreateInterface(kubeconfig)
 	if err != nil {
 		log.Println(err)
 		return
