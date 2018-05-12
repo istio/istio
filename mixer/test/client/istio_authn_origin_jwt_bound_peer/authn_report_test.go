@@ -22,8 +22,43 @@ import (
 	"istio.io/istio/mixer/test/client/env"
 )
 
+// The Istio authn envoy config
+const authnConfig = `
+{
+  "type": "decoder",
+  "name": "istio_authn",
+  "config": {
+    "policy": {
+      "origins": [
+        {
+          "jwt": {
+            "issuer": "issuer@foo.com",
+            "jwks_uri": "http://localhost:8081/"
+          }
+        }
+      ]
+    },
+    "jwt_output_payload_locations": {
+      "issuer@foo.com": "sec-istio-auth-jwt-output"
+    }
+  }
+},
+`
+
+const secIstioAuthUserInfoHeaderKey = "sec-istio-auth-jwt-output"
+
+const secIstioAuthUserinfoHeaderValue = `
+{
+  "iss": "issuer@foo.com",
+  "sub": "sub@foo.com",
+  "aud": "aud1",
+  "non-string-will-be-ignored": 1512754205,
+  "some-other-string-claims": "some-claims-kept"
+}
+`
+
 // Check attributes from a good GET request
-const checkAttributesOkGet = `
+var checkAttributesOkGet = `
 {
   "context.protocol": "http",
   "mesh1.ip": "[1 1 1 1]",
@@ -54,16 +89,18 @@ const checkAttributesOkGet = `
   },
   "request.auth.audiences": "aud1",
   "request.auth.claims": {
-     "iss": "issuer@foo.com", 
+     "iss": "issuer@foo.com",
      "sub": "sub@foo.com",
      "aud": "aud1",
      "some-other-string-claims": "some-claims-kept"
-  }
+  },
+	"request.auth.raw_claims": ` + fmt.Sprintf("%q", secIstioAuthUserinfoHeaderValue) +
+	`
 }
 `
 
 // Report attributes from a good GET request
-const reportAttributesOkGet = `
+var reportAttributesOkGet = `
 {
   "context.protocol": "http",
   "mesh1.ip": "[1 1 1 1]",
@@ -97,7 +134,7 @@ const reportAttributesOkGet = `
      "x-request-id": "*"
   },
   "request.size": 0,
-  "request.total_size": 517,
+  "request.total_size": 741,
   "response.total_size": 99,
   "response.time": "*",
   "response.size": 0,
@@ -111,46 +148,13 @@ const reportAttributesOkGet = `
   },
   "request.auth.audiences": "aud1",
   "request.auth.claims": {
-     "iss": "issuer@foo.com", 
+     "iss": "issuer@foo.com",
      "sub": "sub@foo.com",
      "aud": "aud1",
      "some-other-string-claims": "some-claims-kept"
-  }
-}
-`
-
-// The Istio authn envoy config
-const authnConfig = `
-{
-  "type": "decoder",
-  "name": "istio_authn",
-  "config": {
-    "policy": {
-      "origins": [
-        {
-          "jwt": {
-            "issuer": "issuer@foo.com",
-            "jwks_uri": "http://localhost:8081/"
-          }
-        }
-      ]
-    },
-    "jwt_output_payload_locations": {
-      "issuer@foo.com": "sec-istio-auth-jwt-output"
-    }
-  }
-},
-`
-
-const secIstioAuthUserInfoHeaderKey = "sec-istio-auth-jwt-output"
-
-const secIstioAuthUserinfoHeaderValue = `
-{
-  "iss": "issuer@foo.com",
-  "sub": "sub@foo.com",
-  "aud": "aud1",
-  "non-string-will-be-ignored": 1512754205,
-  "some-other-string-claims": "some-claims-kept"
+  },
+	"request.auth.raw_claims": ` + fmt.Sprintf("%q", secIstioAuthUserinfoHeaderValue) +
+	`
 }
 `
 
