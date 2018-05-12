@@ -331,6 +331,8 @@ type ServiceDiscovery interface {
 	//
 	// Similar concepts apply for calling this function with a specific
 	// port, hostname and labels.
+	//
+	// Introduced in Istio 0.8. It is only called with 1 port.
 	InstancesByPort(hostname Hostname, ports []int, labels LabelsCollection) ([]*ServiceInstance, error)
 
 	// GetProxyServiceInstances returns the service instances that co-located with a given Proxy

@@ -91,6 +91,7 @@ deb/docker: hyperistio build deb/fpm ${ISTIO_OUT}/istio.deb
 	cp tests/testdata/config/*.yaml ${OUT_DIR}/deb
 	cp -a tests/testdata/certs ${OUT_DIR}/deb
 	cp ${ISTIO_OUT}/hyperistio ${OUT_DIR}/deb
+	cp ${GOPATH}/bin/{kube-apiserver,etcd,kubectl} ${OUT_DIR}/deb
 	cp ${ISTIO_OUT}/istio-sidecar.deb ${OUT_DIR}/deb/istio-sidecar.deb
 	cp ${ISTIO_OUT}/istio.deb ${OUT_DIR}/deb/istio.deb
 	docker build -t istio_deb -f ${OUT_DIR}/deb/Dockerfile ${OUT_DIR}/deb/
@@ -99,7 +100,11 @@ deb/test:
 	docker run --cap-add=NET_ADMIN --rm -v ${ISTIO_GO}/tools/deb/deb_test.sh:/tmp/deb_test.sh istio_deb /tmp/deb_test.sh
 
 # For the test, by default use a local pilot.
+# Set it to 172.18.0.1 to run against a pilot or hyperistio running in IDE.
+# You may need to enable 15007 in the local machine firewall for this to work.
 PILOT_IP ?= 127.0.0.1
+
+# TODO: docker compose ?
 
 # Run the docker image including the installed debian, with access to all source
 # code. Useful for debugging/experiments with iptables.

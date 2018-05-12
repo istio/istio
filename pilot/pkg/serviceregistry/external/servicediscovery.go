@@ -22,6 +22,10 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
+// TODO: move this out of 'external' package. Either 'serviceentry' package or
+// merge with aggregate (caching, events), and possibly merge both into the
+// config directory, for a single top-level cache and event system.
+
 type serviceHandler func(*model.Service, model.Event)
 type instanceHandler func(*model.ServiceInstance, model.Event)
 
@@ -87,17 +91,23 @@ func NewServiceDiscovery(callbacks model.ConfigStoreCache, store model.IstioConf
 	return c
 }
 
+// AppendServiceHandler is an over-complicated way to add the v1 cache invalidation.
+// In <0.8 pilot it is not usingthe event or service param.
 // Deprecated: post 0.8 we're planning to use direct interface
 func (d *ServiceEntryStore) AppendServiceHandler(f func(*model.Service, model.Event)) error {
 	d.serviceHandlers = append(d.serviceHandlers, f)
 	return nil
 }
 
+// AppendInstanceHandler is an over-complicated way to add the v1 cache invalidation.
+// In <0.8 pilot it is not usingthe event or service param.
+// Deprecated: post 0.8 we're planning to use direct interface
 func (d *ServiceEntryStore) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
 	d.instanceHandlers = append(d.instanceHandlers, f)
 	return nil
 }
 
+// Run is used by some controllers to execute background jobs after init is done.
 func (d *ServiceEntryStore) Run(stop <-chan struct{}) {}
 
 // Services list declarations of all services in the system
@@ -140,6 +150,12 @@ func (d *ServiceEntryStore) ManagementPorts(addr string) model.PortList {
 
 // Instances retrieves instances for a service and its ports that match
 // any of the supplied labels. All instances match an empty tag list.
+// This is only called from v1 code paths - which don't support ServiceEntry,
+// so it production it should never happen in v1/alpha1 case
+// However, since we implement this method, v1 users will still get the ServiceEntry.
+// This contradicts the general migration policy of keeping alpha3 separated, but
+// may help in cases where mesh expansion is moved with some workloads still using
+// v1.
 func (d *ServiceEntryStore) Instances(hostname model.Hostname, ports []string,
 	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	portMap := make(map[string]bool)
@@ -162,7 +178,7 @@ func (d *ServiceEntryStore) Instances(hostname model.Hostname, ports []string,
 	return out, nil
 }
 
-// Instances retrieves instances for a service on the given ports with labels that
+// InstancesByPort retrieves instances for a service on the given ports with labels that
 // match any of the supplied labels. All instances match an empty tag list.
 func (d *ServiceEntryStore) InstancesByPort(hostname model.Hostname, ports []int,
 	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
@@ -176,6 +192,22 @@ func (d *ServiceEntryStore) InstancesByPort(hostname model.Hostname, ports []int
 	d.storeMutex.RLock()
 	defer d.storeMutex.RUnlock()
 	out := []*model.ServiceInstance{}
+
+	//if strings.HasPrefix(hostname.String(), "*") {
+	//	for hn, s := range d.instances {
+	//
+	//		for _, instance := range s {
+	//			if instance.Service.Hostname == hostname &&
+	//					labels.HasSubsetOf(instance.Labels) &&
+	//					portMatch(instance, portMap) {
+	//				out = append(out, instance)
+	//			}
+	//			out = append(out, s...)
+	//		}
+	//	}
+	//
+	//}
+
 	instances, found := d.instances[hostname.String()]
 	if found {
 		for _, instance := range instances {
@@ -184,7 +216,6 @@ func (d *ServiceEntryStore) InstancesByPort(hostname model.Hostname, ports []int
 				portMatch(instance, portMap) {
 				out = append(out, instance)
 			}
-			out = append(out, instances...)
 		}
 	}
 
