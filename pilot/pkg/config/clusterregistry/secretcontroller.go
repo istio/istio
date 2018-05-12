@@ -228,7 +228,7 @@ func addMemberCluster(s *corev1.Secret, c *Controller) {
 		}
 		c.cs.clientConfigs[s.ObjectMeta.Name] = *clientConfig
 		c.cs.clusters = append(c.cs.clusters, &cluster)
-		_, client, _ := kube.CreateInterfaceFromClusterConfig(clientConfig)
+		client, _ := kube.CreateInterfaceFromClusterConfig(clientConfig)
 		kubectl := kube.NewController(client, kube.ControllerOptions{
 			WatchedNamespace: c.watchedNamespace,
 			ResyncPeriod:     c.resyncInterval,
