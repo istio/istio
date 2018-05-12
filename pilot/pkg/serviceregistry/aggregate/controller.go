@@ -65,7 +65,9 @@ func (c *Controller) Services() ([]*model.Service, error) {
 
 	services := make([]*model.Service, 0)
 	var errs error
-
+	// Locking Registries list while walking it to prevent inconsistent results
+	c.storeLock.Lock()
+	defer c.storeLock.Unlock()
 	for _, r := range c.registries {
 		svcs, err := r.Services()
 		if err != nil {
