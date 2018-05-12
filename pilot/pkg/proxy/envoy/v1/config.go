@@ -916,7 +916,7 @@ func buildEgressVirtualHost(serviceName string, destination model.Hostname,
 	}
 
 	if protocolToHandle == model.ProtocolHTTP2 {
-		externalTrafficCluster.Features = ClusterFeatureHTTP2
+		externalTrafficCluster.MakeHTTP2()
 	}
 
 	if protocolToHandle == model.ProtocolHTTPS {

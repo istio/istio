@@ -101,7 +101,7 @@ func BuildInboundCluster(port int, protocol model.Protocol, timeout *duration.Du
 		Hosts:            []Host{{URL: fmt.Sprintf("tcp://%s:%d", "127.0.0.1", port)}},
 	}
 	if protocol == model.ProtocolGRPC || protocol == model.ProtocolHTTP2 {
-		cluster.Features = ClusterFeatureHTTP2
+		cluster.MakeHTTP2()
 	}
 	return cluster
 }
@@ -135,7 +135,7 @@ func BuildOutboundCluster(hostname model.Hostname, port *model.Port, labels mode
 	}
 
 	if port.Protocol == model.ProtocolGRPC || port.Protocol == model.ProtocolHTTP2 {
-		cluster.Features = ClusterFeatureHTTP2
+		cluster.MakeHTTP2()
 	}
 	return cluster
 }
