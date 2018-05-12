@@ -35,7 +35,7 @@ import (
 
 func makeClient(t *testing.T) kubernetes.Interface {
 	kubeconfig := k8s.Kubeconfig("/config")
-	_, cl, err := CreateInterface(kubeconfig)
+	cl, err := CreateInterface(kubeconfig)
 	if err != nil {
 		t.Fatal(err)
 	}
