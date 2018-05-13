@@ -126,6 +126,9 @@
      "private_key_file": "/etc/certs/key.pem",
      "ca_cert_file": "/etc/certs/root-cert.pem",
      "verify_subject_alt_name": []
+    },
+    "http2_settings": {
+     "max_concurrent_streams": 1073741824
     }
    },
    {
@@ -139,6 +142,9 @@
      "private_key_file": "/etc/certs/key.pem",
      "ca_cert_file": "/etc/certs/root-cert.pem",
      "verify_subject_alt_name": []
+    },
+    "http2_settings": {
+     "max_concurrent_streams": 1073741824
     }
    },
    {
@@ -177,7 +183,10 @@
      {
       "url": "tcp://httpbin.default.svc.cluster.local:80"
      }
-    ]
+    ],
+    "http2_settings": {
+     "max_concurrent_streams": 1073741824
+    }
    },
    {
     "name": "out.httpsbin.default.svc.cluster.local|https",
@@ -221,6 +230,9 @@
       "spiffe://cluster.local/ns/default/sa/serviceaccount1",
       "spiffe://cluster.local/ns/default/sa/serviceaccount2"
      ]
+    },
+    "http2_settings": {
+     "max_concurrent_streams": 1073741824
     }
    },
    {
@@ -237,6 +249,9 @@
       "spiffe://cluster.local/ns/default/sa/serviceaccount1",
       "spiffe://cluster.local/ns/default/sa/serviceaccount2"
      ]
+    },
+    "http2_settings": {
+     "max_concurrent_streams": 1073741824
     }
    },
    {

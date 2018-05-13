@@ -159,14 +159,20 @@
     "service_name": "hello.default.svc.cluster.local|http",
     "connect_timeout_ms": 1000,
     "type": "sds",
-    "lb_type": "round_robin"
+    "lb_type": "round_robin",
+    "http2_settings": {
+     "max_concurrent_streams": 1073741824
+    }
    },
    {
     "name": "out.hello.default.svc.cluster.local|http-status",
     "service_name": "hello.default.svc.cluster.local|http-status",
     "connect_timeout_ms": 1000,
     "type": "sds",
-    "lb_type": "round_robin"
+    "lb_type": "round_robin",
+    "http2_settings": {
+     "max_concurrent_streams": 1073741824
+    }
    },
    {
     "name": "out.hello.default.svc.cluster.local|mongo",
@@ -192,7 +198,10 @@
      {
       "url": "tcp://httpbin.default.svc.cluster.local:80"
      }
-    ]
+    ],
+    "http2_settings": {
+     "max_concurrent_streams": 1073741824
+    }
    },
    {
     "name": "out.httpsbin.default.svc.cluster.local|https",
@@ -220,6 +229,9 @@
     "type": "sds",
     "lb_type": "random",
     "max_requests_per_connection": 500,
+    "http2_settings": {
+     "max_concurrent_streams": 1073741824
+    },
     "circuit_breakers": {
      "default": {
       "max_connections": 100,
@@ -240,7 +252,10 @@
     "service_name": "world.default.svc.cluster.local|http-status|version=v1",
     "connect_timeout_ms": 1000,
     "type": "sds",
-    "lb_type": "round_robin"
+    "lb_type": "round_robin",
+    "http2_settings": {
+     "max_concurrent_streams": 1073741824
+    }
    },
    {
     "name": "out.world.default.svc.cluster.local|http|version=v0",
@@ -249,6 +264,9 @@
     "type": "sds",
     "lb_type": "random",
     "max_requests_per_connection": 500,
+    "http2_settings": {
+     "max_concurrent_streams": 1073741824
+    },
     "circuit_breakers": {
      "default": {
       "max_connections": 100,
@@ -269,7 +287,10 @@
     "service_name": "world.default.svc.cluster.local|http|version=v1",
     "connect_timeout_ms": 1000,
     "type": "sds",
-    "lb_type": "round_robin"
+    "lb_type": "round_robin",
+    "http2_settings": {
+     "max_concurrent_streams": 1073741824
+    }
    },
    {
     "name": "out.world.default.svc.cluster.local|mongo",

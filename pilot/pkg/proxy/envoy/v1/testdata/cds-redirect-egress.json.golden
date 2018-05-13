@@ -114,14 +114,20 @@
     "service_name": "hello.default.svc.cluster.local|http",
     "connect_timeout_ms": 1000,
     "type": "sds",
-    "lb_type": "round_robin"
+    "lb_type": "round_robin",
+    "http2_settings": {
+     "max_concurrent_streams": 1073741824
+    }
    },
    {
     "name": "out.hello.default.svc.cluster.local|http-status",
     "service_name": "hello.default.svc.cluster.local|http-status",
     "connect_timeout_ms": 1000,
     "type": "sds",
-    "lb_type": "round_robin"
+    "lb_type": "round_robin",
+    "http2_settings": {
+     "max_concurrent_streams": 1073741824
+    }
    },
    {
     "name": "out.hello.default.svc.cluster.local|mongo",
@@ -147,7 +153,10 @@
      {
       "url": "tcp://httpbin.default.svc.cluster.local:80"
      }
-    ]
+    ],
+    "http2_settings": {
+     "max_concurrent_streams": 1073741824
+    }
    },
    {
     "name": "out.httpsbin.default.svc.cluster.local|https",
@@ -173,14 +182,20 @@
     "service_name": "world.default.svc.cluster.local|http",
     "connect_timeout_ms": 1000,
     "type": "sds",
-    "lb_type": "round_robin"
+    "lb_type": "round_robin",
+    "http2_settings": {
+     "max_concurrent_streams": 1073741824
+    }
    },
    {
     "name": "out.world.default.svc.cluster.local|http-status",
     "service_name": "world.default.svc.cluster.local|http-status",
     "connect_timeout_ms": 1000,
     "type": "sds",
-    "lb_type": "round_robin"
+    "lb_type": "round_robin",
+    "http2_settings": {
+     "max_concurrent_streams": 1073741824
+    }
    },
    {
     "name": "out.world.default.svc.cluster.local|mongo",
