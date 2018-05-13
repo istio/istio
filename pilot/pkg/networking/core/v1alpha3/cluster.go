@@ -399,7 +399,7 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 // setUpstreamProtocol sets cluster protocol to h2 if port protocol is h2,
 // or if upgrade to h2 is requested.
 func setUpstreamProtocol(cluster *v2.Cluster, port *model.Port, upgrade bool) {
-	if upgrade || port.Protocol.IsHTTP2() {
+	if (upgrade && port.Protocol == model.ProtocolHTTP) || port.Protocol.IsHTTP2() {
 		cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{
 			// Envoy default value of 100 is too low for data path.
 			MaxConcurrentStreams: &types.UInt32Value{
