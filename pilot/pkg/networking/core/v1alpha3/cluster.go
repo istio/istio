@@ -91,7 +91,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environmen
 			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 			defaultCluster := buildDefaultCluster(env, clusterName, convertResolution(service.Resolution), hosts)
 			updateEds(env, defaultCluster, service.Hostname)
-			// upgrade to http to h2 for internal service.
+			// upgrade http to h2 for internal service.
 			setUpstreamProtocol(defaultCluster, port, !service.External())
 			clusters = append(clusters, defaultCluster)
 
@@ -103,7 +103,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environmen
 					subsetClusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
 					subsetCluster := buildDefaultCluster(env, subsetClusterName, convertResolution(service.Resolution), hosts)
 					updateEds(env, subsetCluster, service.Hostname)
-					// upgrade to http to h2 for internal service.
+					// upgrade http to h2 for internal service.
 					setUpstreamProtocol(subsetCluster, port, !service.External())
 					applyTrafficPolicy(subsetCluster, destinationRule.TrafficPolicy, port)
 					applyTrafficPolicy(subsetCluster, subset.TrafficPolicy, port)
