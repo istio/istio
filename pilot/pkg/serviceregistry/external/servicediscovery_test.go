@@ -130,7 +130,7 @@ func TestServiceDiscoveryInstances(t *testing.T) {
 		makeInstance(httpDNS, "de.google.com", 8080, httpDNS.Ports[1], map[string]string{"foo": "bar"}),
 	}
 
-	instances, err := sd.InstancesByPort("*.google.com", nil, nil)
+	instances, err := sd.InstancesByPort("*.google.com", 0, nil)
 	if err != nil {
 		t.Errorf("Instances() encountered unexpected error: %v", err)
 	}
@@ -154,7 +154,7 @@ func TestServiceDiscoveryInstances1Port(t *testing.T) {
 		makeInstance(httpDNS, "de.google.com", 80, httpDNS.Ports[0], map[string]string{"foo": "bar"}),
 	}
 
-	instances, err := sd.InstancesByPort("*.google.com", []int{80}, nil)
+	instances, err := sd.InstancesByPort("*.google.com", 80, nil)
 	if err != nil {
 		t.Errorf("Instances() encountered unexpected error: %v", err)
 	}
