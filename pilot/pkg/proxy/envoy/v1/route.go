@@ -134,7 +134,9 @@ func BuildOutboundCluster(hostname model.Hostname, port *model.Port, labels mode
 		labels:      labels,
 	}
 
-	if port.Protocol == model.ProtocolGRPC || port.Protocol == model.ProtocolHTTP2 {
+	// use h2 outbound cluster for h2/grpc.
+	// Upgrade to h2 for http within the mesh.
+	if port.Protocol == model.ProtocolHTTP || port.Protocol == model.ProtocolGRPC || port.Protocol == model.ProtocolHTTP2 {
 		cluster.MakeHTTP2()
 	}
 	return cluster
