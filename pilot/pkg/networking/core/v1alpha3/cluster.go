@@ -91,7 +91,8 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environmen
 			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 			defaultCluster := buildDefaultCluster(env, clusterName, convertResolution(service.Resolution), hosts)
 			updateEds(env, defaultCluster, service.Hostname)
-			setUpstreamProtocol(defaultCluster, port)
+			// upgrade to http to h2 for internal service.
+			setUpstreamProtocol(defaultCluster, port, !service.External())
 			clusters = append(clusters, defaultCluster)
 
 			if config != nil {
@@ -102,7 +103,8 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environmen
 					subsetClusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
 					subsetCluster := buildDefaultCluster(env, subsetClusterName, convertResolution(service.Resolution), hosts)
 					updateEds(env, subsetCluster, service.Hostname)
-					setUpstreamProtocol(subsetCluster, port)
+					// upgrade to http to h2 for internal service.
+					setUpstreamProtocol(subsetCluster, port, !service.External())
 					applyTrafficPolicy(subsetCluster, destinationRule.TrafficPolicy, port)
 					applyTrafficPolicy(subsetCluster, subset.TrafficPolicy, port)
 					// call plugins
@@ -166,7 +168,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env model.Environment
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
 		address := util.BuildAddress("127.0.0.1", uint32(instance.Endpoint.Port))
 		localCluster := buildDefaultCluster(env, clusterName, v2.Cluster_STATIC, []*core.Address{&address})
-		setUpstreamProtocol(localCluster, instance.Endpoint.ServicePort)
+		setUpstreamProtocol(localCluster, instance.Endpoint.ServicePort, false)
 		// call plugins
 		for _, p := range configgen.Plugins {
 			p.OnInboundCluster(env, proxy, instance.Service, instance.Endpoint.ServicePort, localCluster)
@@ -194,7 +196,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env model.Environment
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", ManagementClusterHostname, port.Port)
 		address := util.BuildAddress("127.0.0.1", uint32(port.Port))
 		mgmtCluster := buildDefaultCluster(env, clusterName, v2.Cluster_STATIC, []*core.Address{&address})
-		setUpstreamProtocol(mgmtCluster, port)
+		setUpstreamProtocol(mgmtCluster, port, false)
 		clusters = append(clusters, mgmtCluster)
 	}
 	return clusters
@@ -394,8 +396,10 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 	}
 }
 
-func setUpstreamProtocol(cluster *v2.Cluster, port *model.Port) {
-	if port.Protocol.IsHTTP2() {
+// setUpstreamProtocol sets cluster protocol to h2 if port protocol is h2,
+// or if upgrade to h2 is requested.
+func setUpstreamProtocol(cluster *v2.Cluster, port *model.Port, upgrade bool) {
+	if upgrade || port.Protocol.IsHTTP2() {
 		cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{
 			// Envoy default value of 100 is too low for data path.
 			MaxConcurrentStreams: &types.UInt32Value{
