@@ -188,27 +188,12 @@ func (d *ServiceEntryStore) InstancesByPort(hostname model.Hostname, port int,
 	defer d.storeMutex.RUnlock()
 	out := []*model.ServiceInstance{}
 
-	//if strings.HasPrefix(hostname.String(), "*") {
-	//	for hn, s := range d.instances {
-	//
-	//		for _, instance := range s {
-	//			if instance.Service.Hostname == hostname &&
-	//					labels.HasSubsetOf(instance.Labels) &&
-	//					portMatch(instance, portMap) {
-	//				out = append(out, instance)
-	//			}
-	//			out = append(out, s...)
-	//		}
-	//	}
-	//
-	//}
-
 	instances, found := d.instances[hostname.String()]
 	if found {
 		for _, instance := range instances {
 			if instance.Service.Hostname == hostname &&
 				labels.HasSubsetOf(instance.Labels) &&
-				portMatchSingle(instance, portMap) {
+				portMatchSingle(instance, port) {
 				out = append(out, instance)
 			}
 		}
