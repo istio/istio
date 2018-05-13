@@ -286,6 +286,24 @@ type ServiceInstance struct {
 	ServiceAccount   string          `json:"serviceaccount,omitempty"`
 }
 
+const (
+	// AZLabel indicates the region/zone of an instance. It is used if the native
+	// registry doesn't provide one.
+	AZLabel = "istio-az"
+)
+
+// GetAZ returns the availability zone from an instance.
+// - k8s: region/zone, extracted from node's failure-domain.beta.kubernetes.io/{region,zone}
+// - consul: defaults to 'instance.Datacenter'
+//
+// This is used by EDS to group the endpoints by AZ and by .
+func (si *ServiceInstance) GetAZ() string {
+	if si.AvailabilityZone != "" {
+		return si.AvailabilityZone
+	}
+	return si.Labels[AZLabel]
+}
+
 // ServiceDiscovery enumerates Istio service instances.
 type ServiceDiscovery interface {
 	// Services list declarations of all services in the system
@@ -333,7 +351,10 @@ type ServiceDiscovery interface {
 	// port, hostname and labels.
 	//
 	// Introduced in Istio 0.8. It is only called with 1 port.
-	InstancesByPort(hostname Hostname, ports []int, labels LabelsCollection) ([]*ServiceInstance, error)
+	// CDS (clusters.go) calls it for building 'dnslb' type clusters.
+	// EDS calls it for building the endpoints result.
+	// Consult istio-dev before using this for anything else (except debugging/tools)
+	InstancesByPort(hostname Hostname, servicePort int, labels LabelsCollection) ([]*ServiceInstance, error)
 
 	// GetProxyServiceInstances returns the service instances that co-located with a given Proxy
 	//

@@ -180,13 +180,8 @@ func (d *ServiceEntryStore) Instances(hostname model.Hostname, ports []string,
 
 // InstancesByPort retrieves instances for a service on the given ports with labels that
 // match any of the supplied labels. All instances match an empty tag list.
-func (d *ServiceEntryStore) InstancesByPort(hostname model.Hostname, ports []int,
+func (d *ServiceEntryStore) InstancesByPort(hostname model.Hostname, port int,
 	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
-	// Should be a single port
-	portMap := make(map[int]bool)
-	for _, port := range ports {
-		portMap[port] = true
-	}
 	d.update()
 
 	d.storeMutex.RLock()
@@ -213,7 +208,7 @@ func (d *ServiceEntryStore) InstancesByPort(hostname model.Hostname, ports []int
 		for _, instance := range instances {
 			if instance.Service.Hostname == hostname &&
 				labels.HasSubsetOf(instance.Labels) &&
-				portMatch(instance, portMap) {
+				portMatchSingle(instance, portMap) {
 				out = append(out, instance)
 			}
 		}
@@ -267,6 +262,11 @@ func portMatch(instance *model.ServiceInstance, portMap map[int]bool) bool {
 	return len(portMap) == 0 || portMap[instance.Endpoint.ServicePort.Port]
 }
 
+// returns true if an instance's port matches with any in the provided list
+func portMatchSingle(instance *model.ServiceInstance, port int) bool {
+	return port == 0 || port == instance.Endpoint.ServicePort.Port
+}
+
 // GetProxyServiceInstances lists service instances co-located with a given proxy
 func (d *ServiceEntryStore) GetProxyServiceInstances(node *model.Proxy) ([]*model.ServiceInstance, error) {
 	d.update()
@@ -284,5 +284,5 @@ func (d *ServiceEntryStore) GetProxyServiceInstances(node *model.Proxy) ([]*mode
 func (d *ServiceEntryStore) GetIstioServiceAccounts(hostname model.Hostname, ports []string) []string {
 	//for service entries, there is no istio auth, no service accounts, etc. It is just a
 	// service, with service instances, and dns.
-	return []string{}
+	return nil
 }
