@@ -67,7 +67,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 	var errs error
 	// Locking Registries list while walking it to prevent inconsistent results
 	c.storeLock.RLock()
-	defer c.storeLock.Unlock()
+	defer c.storeLock.RUnlock()
 	for _, r := range c.registries {
 		svcs, err := r.Services()
 		if err != nil {
@@ -110,7 +110,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error) {
 	var errs error
 	c.storeLock.RLock()
-	defer c.storeLock.Unlock()
+	defer c.storeLock.RUnlock()
 	for _, r := range c.registries {
 		service, err := r.GetService(hostname)
 		if err != nil {
@@ -130,7 +130,7 @@ func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error)
 // Return on the first hit.
 func (c *Controller) ManagementPorts(addr string) model.PortList {
 	c.storeLock.RLock()
-	defer c.storeLock.Unlock()
+	defer c.storeLock.RUnlock()
 	for _, r := range c.registries {
 		if portList := r.ManagementPorts(addr); portList != nil {
 			return portList
@@ -146,7 +146,7 @@ func (c *Controller) Instances(hostname model.Hostname, ports []string,
 	var instances, tmpInstances []*model.ServiceInstance
 	var errs error
 	c.storeLock.RLock()
-	defer c.storeLock.Unlock()
+	defer c.storeLock.RUnlock()
 	for _, r := range c.registries {
 		var err error
 		tmpInstances, err = r.Instances(hostname, ports, labels)
@@ -172,7 +172,7 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, port int,
 	var instances, tmpInstances []*model.ServiceInstance
 	var errs error
 	c.storeLock.RLock()
-	defer c.storeLock.Unlock()
+	defer c.storeLock.RUnlock()
 	for _, r := range c.registries {
 		var err error
 		tmpInstances, err = r.InstancesByPort(hostname, port, labels)
@@ -198,7 +198,7 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.Servi
 	// It doesn't make sense for a single proxy to be found in more than one registry.
 	// TODO: if otherwise, warning or else what to do about it.
 	c.storeLock.RLock()
-	defer c.storeLock.Unlock()
+	defer c.storeLock.RUnlock()
 	for _, r := range c.registries {
 		instances, err := r.GetProxyServiceInstances(node)
 		if err != nil {
@@ -234,7 +234,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 // AppendServiceHandler implements a service catalog operation
 func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) error {
 	c.storeLock.RLock()
-	defer c.storeLock.Unlock()
+	defer c.storeLock.RUnlock()
 	for _, r := range c.registries {
 		if err := r.AppendServiceHandler(f); err != nil {
 			log.Infof("Fail to append service handler to adapter %s", r.Name)
@@ -247,7 +247,7 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 // AppendInstanceHandler implements a service instance catalog operation
 func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
 	c.storeLock.RLock()
-	defer c.storeLock.Unlock()
+	defer c.storeLock.RUnlock()
 	for _, r := range c.registries {
 		if err := r.AppendInstanceHandler(f); err != nil {
 			log.Infof("Fail to append instance handler to adapter %s", r.Name)
@@ -260,7 +260,7 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 // GetIstioServiceAccounts implements model.ServiceAccounts operation
 func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []string) []string {
 	c.storeLock.RLock()
-	defer c.storeLock.Unlock()
+	defer c.storeLock.RUnlock()
 	for _, r := range c.registries {
 		if svcAccounts := r.GetIstioServiceAccounts(hostname, ports); svcAccounts != nil {
 			return svcAccounts
