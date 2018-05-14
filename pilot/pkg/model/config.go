@@ -592,7 +592,9 @@ type istioConfigStore struct {
 	ConfigStore
 }
 
-// MakeIstioStore creates a wrapper around a store
+// MakeIstioStore creates a wrapper around a store.
+// In pilot it is initialized with a ConfigStoreCache, tests only use
+// a regular ConfigStore.
 func MakeIstioStore(store ConfigStore) IstioConfigStore {
 	return &istioConfigStore{store}
 }

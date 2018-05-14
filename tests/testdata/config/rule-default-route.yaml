@@ -1,5 +1,5 @@
 apiVersion: networking.istio.io/v1alpha3
-kind: ExternalService
+kind: ServiceEntry
 metadata:
   name: c
 spec:
@@ -9,7 +9,7 @@ spec:
    - number: 80
      name: http
      protocol: HTTP
-   discovery: STATIC
+   resolution: STATIC
    endpoints:
     - address: 127.0.0.1
       ports:

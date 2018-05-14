@@ -51,7 +51,7 @@ func TestController(t *testing.T) {
 		return c
 	}
 
-	ctl := NewController(configController)
+	ctl := NewServiceDiscovery(configController, model.MakeIstioStore(configController))
 	err := ctl.AppendInstanceHandler(func(instance *model.ServiceInstance, event model.Event) { incrementCount() })
 	if err != nil {
 		t.Errorf("AppendInstanceHandler() => %q", err)
@@ -64,7 +64,6 @@ func TestController(t *testing.T) {
 
 	stop := make(chan struct{})
 	go configController.Run(stop)
-	go ctl.Run(stop)
 	defer close(stop)
 
 	time.Sleep(notifyThreshold)
