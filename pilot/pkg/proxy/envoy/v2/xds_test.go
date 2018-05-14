@@ -30,6 +30,7 @@ import (
 	testenv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/tests/util"
 )
 
@@ -316,6 +317,9 @@ func testPorts(base int) []*model.Port {
 
 // Test XDS with real envoy and with mixer.
 func TestEnvoy(t *testing.T) {
+	// This test is for http/1.1 so disable h2 upgrade
+	v1alpha3.H2Upgrade = false
+
 	initLocalPilotTestEnv(t)
 	startEnvoy(t)
 	// Make sure tcp port is ready before starting the test.

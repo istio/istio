@@ -15,6 +15,7 @@
 package v1alpha3
 
 import (
+	"os"
 	"time"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -396,10 +397,13 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 	}
 }
 
+// H2Upgrade - if H2_UPGRADE is set to "0", auto upgrade will not be done.
+var H2Upgrade = os.Getenv("H2_UPGRADE") != "0"
+
 // setUpstreamProtocol sets cluster protocol to h2 if port protocol is h2,
 // or if upgrade to h2 is requested.
 func setUpstreamProtocol(cluster *v2.Cluster, port *model.Port, upgrade bool) {
-	if (upgrade && port.Protocol == model.ProtocolHTTP) || port.Protocol.IsHTTP2() {
+	if (upgrade && H2Upgrade && port.Protocol == model.ProtocolHTTP) || port.Protocol.IsHTTP2() {
 		cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{
 			// Envoy default value of 100 is too low for data path.
 			MaxConcurrentStreams: &types.UInt32Value{
