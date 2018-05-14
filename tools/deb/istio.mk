@@ -102,7 +102,8 @@ deb/test:
 # For the test, by default use a local pilot.
 # Set it to 172.18.0.1 to run against a pilot or hyperistio running in IDE.
 # You may need to enable 15007 in the local machine firewall for this to work.
-PILOT_IP ?= 127.0.0.1
+DEB_PILOT_IP ?= 127.0.0.1
+DEB_CMD ?= /bin/bash
 
 # TODO: docker compose ?
 
@@ -120,9 +121,10 @@ deb/run/docker:
       --add-host echo:10.1.1.1 \
       --add-host byon.test.istio.io:10.1.1.2 \
       --add-host byon-docker.test.istio.io:10.1.1.2 \
-      --add-host istio-pilot.istio-system:${PILOT_IP} \
-      -e ISTIO_SERVICE_CIDR=10.1.1.0/24 \
+      --add-host istio-pilot.istio-system:${DEB_PILOT_IP} \
+      ${DEB_ENV} -e ISTIO_SERVICE_CIDR=10.1.1.0/24 \
       -e ISTIO_INBOUND_PORTS=7070,7072,7073,7074,7075 \
+      -e PILOT_CERT_DIR=/var/lib/istio/pilot \
       -p 127.0.0.1:16001:15007 \
       -p 127.0.0.1:16002:7070 \
       -p 127.0.0.1:16003:7072 \
@@ -130,7 +132,38 @@ deb/run/docker:
       -p 127.0.0.1:16005:7074 \
       -p 127.0.0.1:16006:7075 \
       -e GOPATH=${GOPATH} \
-      -it istio_deb /bin/bash
+      -it istio_deb ${DEB_CMD}
+
+# Second container, can run at the same time
+deb/run/docker2:
+	docker run --cap-add=NET_ADMIN --rm \
+	  -v ${GO_TOP}:${GO_TOP} \
+      -w ${PWD} \
+      --net istiotest --ip 172.18.0.4 \
+      --add-host echo:10.1.1.1 \
+      --add-host byon.test.istio.io:10.1.1.2 \
+      --add-host byon-docker.test.istio.io:10.1.1.2 \
+      --add-host istio-pilot.istio-system:${DEB_PILOT_IP} \
+      ${DEB_ENV} -e ISTIO_SERVICE_CIDR=10.1.1.0/24 \
+      -e ISTIO_INBOUND_PORTS=7070,7072,7073,7074,7075 \
+      -e PILOT_CERT_DIR=/var/lib/istio/pilot \
+      -p 127.0.0.1:13001:15007 \
+      -p 127.0.0.1:13002:7070 \
+      -p 127.0.0.1:13003:7072 \
+      -p 127.0.0.1:13004:7073 \
+      -p 127.0.0.1:13005:7074 \
+      -p 127.0.0.1:13006:7075 \
+      -e GOPATH=${GOPATH} \
+      -it istio_deb ${DEB_CMD}
+
+deb/run/debug:
+	$(MAKE) deb/run/docker DEB_ENV="-e DEB_PILOT_IP="
+
+deb/run/tproxy:
+	$(MAKE) deb/run/docker2 DEB_ENV="-e ISTIO_INBOUND_INTERCEPTION_MODE=TPROXY"
+
+deb/run/mtls:
+	$(MAKE) deb/run/docker DEB_ENV="-e ISTIO_PILOT_PORT=15005 -e ISTIO_CP_AUTH=MUTUAL_TLS"
 
 # Similar with above, but using a pilot running on the local machine
 deb/run/docker-debug:

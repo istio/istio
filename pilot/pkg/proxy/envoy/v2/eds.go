@@ -18,7 +18,6 @@ import (
 	"context"
 	"errors"
 	"net"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -32,7 +31,6 @@ import (
 	"google.golang.org/grpc/peer"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
 )
 
 // EDS returns the list of endpoints (IP:port and in future labels) associated with a real
@@ -59,11 +57,6 @@ import (
 // we may only need to search in a small list.
 
 var (
-	// It doesn't appear the logging framework has support for per-component logging, yet
-	// we need to be able to debug EDS2.
-	// Default is enabled (not set: "" != "0")
-	edsDebug = os.Getenv("PILOT_DEBUG_EDS") != "0"
-
 	edsClusterMutex sync.Mutex
 	edsClusters     = map[string]*EdsCluster{}
 
@@ -174,8 +167,8 @@ func updateCluster(clusterName string, edsCluster *EdsCluster) error {
 			portName = ports.GetNames()[0]
 		}
 		instances, err = edsCluster.discovery.env.ServiceDiscovery.Instances(hostname, ports.GetNames(), labels)
-		if len(instances) == 0 && edsDebug {
-			log.Infof("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, portName, labels)
+		if len(instances) == 0 {
+			log.Warnf("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, portName, labels)
 		}
 		edsInstances.With(prometheus.Labels{"cluster": clusterName}).Set(float64(len(instances)))
 	}
@@ -293,16 +286,12 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 				if discReq.ErrorDetail != nil {
 					log.Warnf("EDS: ACK ERROR %v %s %v", peerAddr, con.ConID, discReq.String())
 				}
-				if edsDebug {
-					log.Infof("EDS: ACK %s %s %s", con.ConID, discReq.VersionInfo, con.Clusters)
-				}
+				log.Debugf("EDS: ACK %s %s %s", con.ConID, discReq.VersionInfo, con.Clusters)
 				if len(con.Clusters) > 0 {
 					continue
 				}
 			}
-			if edsDebug {
-				log.Infof("EDS: REQ %s %v %v raw: %s ", con.ConID, con.Clusters, peerAddr, discReq.String())
-			}
+			log.Infof("EDS: REQ %s %v %v raw: %s ", con.ConID, con.Clusters, peerAddr, discReq.String())
 			con.Clusters = discReq.GetResourceNames()
 			initialRequestReceived = true
 
@@ -372,10 +361,8 @@ func (s *DiscoveryServer) pushEds(con *XdsConnection) error {
 	}
 	pushes.With(prometheus.Labels{"type": "eds"}).Add(1)
 
-	if edsDebug {
-		log.Infof("EDS: PUSH for %s %q clusters %d endpoints %d empty %d %v",
-			con.ConID, con.PeerAddr, len(con.Clusters), endpoints, emptyClusters, empty)
-	}
+	log.Infof("EDS: PUSH for %s %q clusters %d endpoints %d empty %d %v",
+		con.ConID, con.PeerAddr, len(con.Clusters), endpoints, emptyClusters, empty)
 	return nil
 }
 
@@ -442,9 +429,7 @@ func (s *DiscoveryServer) removeEdsCon(clusterName string, node string, connecti
 		return
 	}
 	if oldcon != connection {
-		if edsDebug {
-			log.Infof("EDS: Envoy restart %s %v, cleanup old connection %v", node, connection.PeerAddr, oldcon.PeerAddr)
-		}
+		log.Infof("EDS: Envoy restart %s %v, cleanup old connection %v", node, connection.PeerAddr, oldcon.PeerAddr)
 		return
 	}
 	delete(c.EdsClients, node)

@@ -20,7 +20,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
 )
 
 // clusters aggregate a DiscoveryResponse for pushing.
@@ -63,10 +62,8 @@ func (s *DiscoveryServer) pushCds(node model.Proxy, con *XdsConnection) error {
 	}
 	pushes.With(prometheus.Labels{"type": "cds"}).Add(1)
 
-	if adsDebug {
-		// The response can't be easily read due to 'any' marshalling.
-		log.Infof("CDS: PUSH for %s %q, Response: %d",
-			node, con.PeerAddr, len(rawClusters))
-	}
+	// The response can't be easily read due to 'any' marshalling.
+	log.Infof("CDS: PUSH for %s %q, Response: %d",
+		node, con.PeerAddr, len(rawClusters))
 	return nil
 }

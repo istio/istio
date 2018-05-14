@@ -18,17 +18,6 @@
 #
 # Test for istio debian. Will run in a docker image where the .deb has been installed.
 
-export ISTIO_SERVICE_CIDR=10.1.1.0/24
-
-# Echo server
-export ISTIO_INBOUND_PORTS=7070,7072,7073,7074,7075
-
-# Try out with TPROXY - the auth variant uses redirect
-#export ISTIO_INBOUND_INTERCEPTION_MODE=TPROXY
-
-#export ISTIO_PILOT_PORT=15005
-#export ISTIO_CP_AUTH=MUTUAL_TLS
-
 
 /usr/local/bin/hyperistio --envoy=false &
 sleep 1
@@ -36,8 +25,10 @@ sleep 1
 bash -x /usr/local/bin/istio-start.sh &
 sleep 1
 
-curl localhost:15000/stats
 # Will go to local machine
 su -s /bin/bash -c "curl -v byon-docker.test.istio.io:7072" istio-test
+
 curl localhost:15000/stats
+
+curl istio-pilot.istio-system:15007/debug/endpointz
 

@@ -17,7 +17,6 @@ package v2
 import (
 	"errors"
 	"io"
-	"os"
 	"sync"
 	"time"
 
@@ -31,11 +30,11 @@ import (
 	"google.golang.org/grpc/status"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
+	istiolog "istio.io/istio/pkg/log"
 )
 
 var (
-	adsDebug = os.Getenv("PILOT_DEBUG_ADS") != "0"
+	log = istiolog.RegisterScope("ads", "ads debugging", 0)
 
 	// adsClients reflect active gRPC channels, for both ADS and EDS.
 	adsClients      = map[string]*XdsConnection{}
@@ -296,14 +295,10 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 						log.Warnf("ADS:CDS: ACK ERROR %v %s %v", peerAddr, con.ConID, discReq.String())
 						cdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
 					}
-					if adsDebug {
-						log.Infof("ADS:CDS: ACK %v %v", peerAddr, discReq.String())
-					}
+					log.Debugf("ADS:CDS: ACK %v %v", peerAddr, discReq.String())
 					continue
 				}
-				if adsDebug {
-					log.Infof("ADS:CDS: REQ %s %v raw: %s ", con.ConID, peerAddr, discReq.String())
-				}
+				log.Infof("ADS:CDS: REQ %s %v raw: %s ", con.ConID, peerAddr, discReq.String())
 				con.CDSWatch = true
 				err := s.pushCds(*con.modelNode, con)
 				if err != nil {
@@ -317,14 +312,10 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 						log.Warnf("ADS:LDS: ACK ERROR %v %s %v", peerAddr, con.modelNode.ID, discReq.String())
 						ldsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
 					}
-					if adsDebug {
-						log.Infof("ADS:LDS: ACK %v", discReq.String())
-					}
+					log.Debugf("ADS:LDS: ACK %v", discReq.String())
 					continue
 				}
-				if adsDebug {
-					log.Infof("ADS:LDS: REQ %s %v", con.ConID, peerAddr)
-				}
+				log.Infof("ADS:LDS: REQ %s %v", con.ConID, peerAddr)
 				con.LDSWatch = true
 				err := s.pushLds(*con.modelNode, con)
 				if err != nil {
@@ -337,19 +328,15 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					if discReq.ErrorDetail != nil {
 						log.Warnf("ADS:RDS: ACK ERROR %v %s %v", peerAddr, con.ConID, discReq.String())
 					}
-					if adsDebug {
-						// Not logging full request, can be very long.
-						log.Infof("ADS:RDS: ACK %s %s %s %s", peerAddr, con.ConID, discReq.VersionInfo, discReq.ResponseNonce)
-					}
+					// Not logging full request, can be very long.
+					log.Debugf("ADS:RDS: ACK %s %s %s %s", peerAddr, con.ConID, discReq.VersionInfo, discReq.ResponseNonce)
 					if len(con.Routes) > 0 {
 						// Already got a list of routes to watch and has same length as the request, this is an ack
 						continue
 					}
 				}
 				con.Routes = routes
-				if adsDebug {
-					log.Infof("ADS:RDS: REQ %s %s routes: %d", peerAddr, con.ConID, len(con.Routes))
-				}
+				log.Infof("ADS:RDS: REQ %s %s routes: %d", peerAddr, con.ConID, len(con.Routes))
 				err := s.pushRoute(con)
 				if err != nil {
 					return err
@@ -375,9 +362,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				for _, c := range con.Clusters {
 					s.addEdsCon(c, con.ConID, con)
 				}
-				if adsDebug {
-					log.Infof("ADS:EDS: REQ %s %s clusters: %d", peerAddr, con.ConID, len(con.Clusters))
-				}
+				log.Infof("ADS:EDS: REQ %s %s clusters: %d", peerAddr, con.ConID, len(con.Clusters))
 				err := s.pushEds(con)
 				if err != nil {
 					return err
@@ -577,9 +562,7 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection) error {
 	}
 	pushes.With(prometheus.Labels{"type": "rds"}).Add(1)
 
-	if adsDebug {
-		log.Infof("ADS: RDS: PUSH for addr:%s routes:%d", con.PeerAddr, len(rc))
-	}
+	log.Infof("ADS: RDS: PUSH for addr:%s routes:%d", con.PeerAddr, len(rc))
 	return nil
 }
 

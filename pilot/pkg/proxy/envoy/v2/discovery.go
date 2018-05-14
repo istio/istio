@@ -26,13 +26,12 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
-	"istio.io/istio/pkg/log"
 )
 
 var (
 	// Failsafe to implement periodic refresh, in case events or cache invalidation fail.
 	// Disabled by default.
-	periodicRefreshDuration = 0 * time.Second
+	periodicRefreshDuration = 60 * time.Second
 
 	versionMutex sync.Mutex
 	// version is update by registry events.

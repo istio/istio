@@ -62,6 +62,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
+	"istio.io/istio/pkg/ctrlz"
 )
 
 const (
@@ -809,6 +810,8 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 		return err
 	})
+
+	go ctrlz.Run(ctrlz.DefaultOptions(), nil)
 
 	return nil
 }

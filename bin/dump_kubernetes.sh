@@ -121,6 +121,10 @@ dump_resources() {
   kubectl get --all-namespaces --export \
       all,ingresses,endpoints,customresourcedefinitions,configmaps,secrets,events \
       -o yaml > "${RESOURCES_FILE}"
+
+  kubectl cluster-info dump > ${OUT_DIR}/logs/cluster-info.dump.txt
+  kubectl describe pods -n istio-system > ${OUT_DIR}/logs/pods-system.txt
+  kubectl get event --all-namespaces -o wide > ${OUT_DIR}/logs/events.txt
 }
 
 archive() {
@@ -140,6 +144,7 @@ main() {
   dump_time
   dump_logs
   dump_resources
+
   if [ "${SHOULD_ARCHIVE}" = true ] ; then
     archive
     rm -r "${OUT_DIR}"

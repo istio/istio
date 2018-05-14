@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
-	"istio.io/istio/pkg/log"
 )
 
 // memregistry is based on mock/discovery - it is used for testing and debugging v2.
@@ -390,10 +389,6 @@ func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 func adsz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
 	w.Header().Add("Content-Type", "application/json")
-	if req.Form.Get("debug") != "" {
-		adsDebug = req.Form.Get("debug") == "1"
-		return
-	}
 	if req.Form.Get("push") != "" {
 		adsPushAll()
 		fmt.Fprintf(w, "Pushed to %d servers", len(adsClients))
@@ -460,10 +455,6 @@ func writeAllADS(w io.Writer) {
 // It is mapped to /debug/edsz on the monitor port (9093).
 func edsz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
-	if req.Form.Get("debug") != "" {
-		edsDebug = req.Form.Get("debug") == "1"
-		return
-	}
 	w.Header().Add("Content-Type", "application/json")
 
 	if req.Form.Get("push") != "" {

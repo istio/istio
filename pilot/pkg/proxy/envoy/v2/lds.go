@@ -20,7 +20,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
 )
 
 func (s *DiscoveryServer) pushLds(node model.Proxy, con *XdsConnection) error {
@@ -40,9 +39,7 @@ func (s *DiscoveryServer) pushLds(node model.Proxy, con *XdsConnection) error {
 	}
 	pushes.With(prometheus.Labels{"type": "lds"}).Add(1)
 
-	if adsDebug {
-		log.Infof("LDS: PUSH for node:%s addr:%q listeners:%d", node, con.PeerAddr, len(ls))
-	}
+	log.Infof("LDS: PUSH for node:%s addr:%q listeners:%d", node, con.PeerAddr, len(ls))
 	return nil
 }
 
