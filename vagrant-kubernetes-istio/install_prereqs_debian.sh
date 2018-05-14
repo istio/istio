@@ -20,7 +20,6 @@ echo "Checking and Installing Curl as required"
 curl --help > /dev/null
 if [ $? -ne 0 ]; then
     sudo sed -i -e 's/us.archive.ubuntu.com/archive.ubuntu.com/g' /etc/apt/sources.list
-    sudo apt-get --quiet -y update
     sudo apt-get --quiet -y install curl
     curl --help > /dev/null
     if [ $? -ne 0 ]; then
@@ -41,23 +40,24 @@ then
       echo "Please install those packages and then run this script again."
       exit 1
     fi
-    sudo apt-get install -f
+    sudo apt-get --quite -y install -f
     # Check for more recent version and update
-    sudo apt-get install virtualbox
+    sudo apt-get --quite -y install virtualbox
+    ver = 
     if [ $? -ne 0 ]; then
-      echo "Looks like virtual box update failed. Please try manually. "
+      echo "Looks like virtual box update failed. Please try manually. Current Version: `VBoxManage -v`"
       exit 1
     else
-      echo "virtual box install done!"
+      echo "virtual box install done! Current Version: `VBoxManage -v`"
     fi
 else
     echo "Looks like virtual is installed. Checking if it can be upgraded."
-    sudo apt-get install virtualbox
+    sudo apt-get --quite -y install virtualbox
     if [ $? -ne 0 ]; then
-      echo "Looks like virtual box update failed. Please try manually. "
+      echo "Looks like virtual box update failed. Please try manually. Current Version: `VBoxManage -v`"
       exit 1
     else
-      echo "virtual box install done!"
+      echo "virtual box install done! Current Version: `VBoxManage -v`"
     fi
 fi
 
