@@ -32,7 +32,7 @@ var (
 	ExtHTTPSService = MakeExternalHTTPSService("httpsbin.default.svc.cluster.local",
 		"httpbin.org", "")
 	Discovery = &ServiceDiscovery{
-		services: map[string]*model.Service{
+		services: map[model.Hostname]*model.Service{
 			HelloService.Hostname:   HelloService,
 			WorldService.Hostname:   WorldService,
 			ExtHTTPService.Hostname: ExtHTTPService,
@@ -65,7 +65,7 @@ var (
 )
 
 // NewDiscovery builds a mock ServiceDiscovery
-func NewDiscovery(services map[string]*model.Service, versions int) *ServiceDiscovery {
+func NewDiscovery(services map[model.Hostname]*model.Service, versions int) *ServiceDiscovery {
 	return &ServiceDiscovery{
 		services: services,
 		versions: versions,
@@ -73,7 +73,7 @@ func NewDiscovery(services map[string]*model.Service, versions int) *ServiceDisc
 }
 
 // MakeService creates a mock service
-func MakeService(hostname, address string) *model.Service {
+func MakeService(hostname model.Hostname, address string) *model.Service {
 	return &model.Service{
 		Hostname: hostname,
 		Address:  address,
@@ -109,7 +109,7 @@ func MakeService(hostname, address string) *model.Service {
 }
 
 // MakeExternalHTTPService creates mock external service
-func MakeExternalHTTPService(hostname, external string, address string) *model.Service {
+func MakeExternalHTTPService(hostname, external model.Hostname, address string) *model.Service {
 	return &model.Service{
 		Hostname:     hostname,
 		Address:      address,
@@ -124,7 +124,7 @@ func MakeExternalHTTPService(hostname, external string, address string) *model.S
 }
 
 // MakeExternalHTTPSService creates mock external service
-func MakeExternalHTTPSService(hostname, external string, address string) *model.Service {
+func MakeExternalHTTPSService(hostname, external model.Hostname, address string) *model.Service {
 	return &model.Service{
 		Hostname:     hostname,
 		Address:      address,
@@ -188,7 +188,7 @@ func MakeIP(service *model.Service, version int) string {
 
 // ServiceDiscovery is a mock discovery interface
 type ServiceDiscovery struct {
-	services                      map[string]*model.Service
+	services                      map[model.Hostname]*model.Service
 	versions                      int
 	WantGetProxyServiceInstances  []*model.ServiceInstance
 	ServicesError                 error
@@ -205,7 +205,7 @@ func (sd *ServiceDiscovery) ClearErrors() {
 	sd.GetProxyServiceInstancesError = nil
 }
 
-func (sd *ServiceDiscovery) AddService(name string, svc *model.Service) {
+func (sd *ServiceDiscovery) AddService(name model.Hostname, svc *model.Service) {
 	sd.services[name] = svc
 }
 
@@ -222,7 +222,7 @@ func (sd *ServiceDiscovery) Services() ([]*model.Service, error) {
 }
 
 // GetService implements discovery interface
-func (sd *ServiceDiscovery) GetService(hostname string) (*model.Service, error) {
+func (sd *ServiceDiscovery) GetService(hostname model.Hostname) (*model.Service, error) {
 	if sd.GetServiceError != nil {
 		return nil, sd.GetServiceError
 	}
@@ -231,7 +231,7 @@ func (sd *ServiceDiscovery) GetService(hostname string) (*model.Service, error) 
 }
 
 // Instances implements discovery interface
-func (sd *ServiceDiscovery) Instances(hostname string, ports []string,
+func (sd *ServiceDiscovery) Instances(hostname model.Hostname, ports []string,
 	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	if sd.InstancesError != nil {
 		return nil, sd.InstancesError
@@ -250,6 +250,30 @@ func (sd *ServiceDiscovery) Instances(hostname string, ports []string,
 				if labels.HasSubsetOf(map[string]string{"version": fmt.Sprintf("v%d", v)}) {
 					out = append(out, MakeInstance(service, port, v, "zone/region"))
 				}
+			}
+		}
+	}
+	return out, sd.InstancesError
+}
+
+// InstancesByPort implements discovery interface
+func (sd *ServiceDiscovery) InstancesByPort(hostname model.Hostname, num int,
+	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
+	if sd.InstancesError != nil {
+		return nil, sd.InstancesError
+	}
+	service, ok := sd.services[hostname]
+	if !ok {
+		return nil, sd.InstancesError
+	}
+	out := make([]*model.ServiceInstance, 0)
+	if service.External() {
+		return out, sd.InstancesError
+	}
+	if port, ok := service.Ports.GetByPort(num); ok {
+		for v := 0; v < sd.versions; v++ {
+			if labels.HasSubsetOf(map[string]string{"version": fmt.Sprintf("v%d", v)}) {
+				out = append(out, MakeInstance(service, port, v, "zone/region"))
 			}
 		}
 	}
@@ -293,7 +317,7 @@ func (sd *ServiceDiscovery) ManagementPorts(addr string) model.PortList {
 }
 
 // GetIstioServiceAccounts gets the Istio service accounts for a service hostname.
-func (sd *ServiceDiscovery) GetIstioServiceAccounts(hostname string, ports []string) []string {
+func (sd *ServiceDiscovery) GetIstioServiceAccounts(hostname model.Hostname, ports []string) []string {
 	if hostname == "world.default.svc.cluster.local" {
 		return []string{
 			"spiffe://cluster.local/ns/default/sa/serviceaccount1",

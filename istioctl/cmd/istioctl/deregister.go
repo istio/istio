@@ -31,7 +31,7 @@ var (
 			ip := args[1]
 			log.Infof("De-registering for service '%s' ip '%s'",
 				svcName, ip)
-			_, client, err := kube.CreateInterface(kubeconfig)
+			client, err := createInterface(kubeconfig)
 			if err != nil {
 				return err
 			}

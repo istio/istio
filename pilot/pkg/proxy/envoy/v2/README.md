@@ -1,22 +1,22 @@
-
 # Debug interface
 
-Debugging for v2 is a bit different - we no longer use a cache.
+The debug handlers are configured on the monitoring port (default 9093) as well
+as on the http port (8080).
 
-The debug handlers are configured on the monitoring port (default 9093).
 
 ```bash
 
-PILOT=istio-pilot:9093
+PILOT=istio-pilot.istio-system:9093
 
+# What is sent to envoy
+# Listeners and routes
+curl $PILOT/debug/adsz
+
+# Endpoints
 curl $PILOT/debug/edsz
-curl $PILOT/debug/ldsz
+
+# Clusters
 curl $PILOT/debug/cdsz
-
-
-
-# General metrics
-curl $PILOT/metrics 
 
 
 ```
@@ -24,12 +24,30 @@ curl $PILOT/metrics
 Each handler takes an extra parameter, "debug=0|1" which flips the verbosity of the 
 messages for that component (similar with envoy).
 
-Each handler takes an extra parameter "push=1", which triggers a config push to all
-connected endpoints.
+An extra parameter "push=1" triggers a config push to all connected endpoints.
 
 Handlers should list, in json format:
 - one entry for each connected envoy
 - the timestamp of the connection
+
+In addition, Pilot debug interface can show pilot's internal view of the config:
+
+```bash
+
+
+# General metrics
+curl $PILOT/metrics
+
+# All services/external services from all registries
+curl $PILOT/debug/registryz
+
+# All endpoints
+curl $PILOT/debug/endpointz[?brief=1]
+
+# All configs.
+curl $PILOT/debug/configz
+
+```
 
 Example for EDS:
 

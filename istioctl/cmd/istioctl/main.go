@@ -581,11 +581,11 @@ func main() {
 func protoSchema(configClient *crd.Client, typ string) (model.ProtoSchema, error) {
 	for _, desc := range configClient.ConfigDescriptor() {
 		switch typ {
+		case crd.ResourceName(desc.Type), crd.ResourceName(desc.Plural):
+			return desc, nil
 		case desc.Type, desc.Plural: // legacy hyphenated resources names
 			return model.ProtoSchema{}, fmt.Errorf("%q not recognized. Please use non-hyphenated resource name %q",
 				typ, crd.ResourceName(typ))
-		case crd.ResourceName(desc.Type), crd.ResourceName(desc.Plural):
-			return desc, nil
 		}
 	}
 	return model.ProtoSchema{}, fmt.Errorf("configuration type %s not found, the types are %v",
@@ -703,11 +703,7 @@ func preprocMixerConfig(configs []crd.IstioKind) error {
 }
 
 func restConfig() (config *rest.Config, err error) {
-	if kubeconfig == "" {
-		config, err = rest.InClusterConfig()
-	} else {
-		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
-	}
+	config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
 
 	if err != nil {
 		return

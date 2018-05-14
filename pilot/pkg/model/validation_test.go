@@ -1113,6 +1113,7 @@ func TestValidateMatchCondition(t *testing.T) {
 
 func TestValidateEgressRuleDomain(t *testing.T) {
 	domains := map[string]bool{
+		"CNN.com":    true,
 		"cnn.com":    true,
 		"cnn..com":   false,
 		"10.0.0.100": true,
@@ -1142,6 +1143,7 @@ func TestValidateEgressRuleDomain(t *testing.T) {
 
 func TestValidateEgressRuleService(t *testing.T) {
 	services := map[string]bool{
+		"CNN.com":        true,
 		"cnn.com":        true,
 		"cnn..com":       false,
 		"10.0.0.100":     true,
@@ -2874,7 +2876,8 @@ func TestValidateServiceEntries(t *testing.T) {
 			valid: false},
 
 		{name: "discovery type static", in: networking.ServiceEntry{
-			Hosts: []string{"172.1.2.16/16"},
+			Hosts:     []string{"google.com"},
+			Addresses: []string{"172.1.2.16/16"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
@@ -2888,7 +2891,8 @@ func TestValidateServiceEntries(t *testing.T) {
 			valid: true},
 
 		{name: "discovery type static, FQDN in endpoints", in: networking.ServiceEntry{
-			Hosts: []string{"172.1.2.16/16"},
+			Hosts:     []string{"google.com"},
+			Addresses: []string{"172.1.2.16/16"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
@@ -2902,7 +2906,8 @@ func TestValidateServiceEntries(t *testing.T) {
 			valid: false},
 
 		{name: "discovery type static, missing endpoints", in: networking.ServiceEntry{
-			Hosts: []string{"172.1.2.16/16"},
+			Hosts:     []string{"google.com"},
+			Addresses: []string{"172.1.2.16/16"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
@@ -2912,7 +2917,8 @@ func TestValidateServiceEntries(t *testing.T) {
 			valid: false},
 
 		{name: "discovery type static, bad endpoint port name", in: networking.ServiceEntry{
-			Hosts: []string{"172.1.2.16/16"},
+			Hosts:     []string{"google.com"},
+			Addresses: []string{"172.1.2.16/16"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
