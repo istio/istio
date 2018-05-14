@@ -80,8 +80,8 @@ type Params struct {
 	// Address of the dogstatsd server.
 	// Default: localhost:8125
 	Address string `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
-	// Prefix to prepend to all metrics handled by the adapter. Metric "bar" with prefix "foo." becomes "foo.bar" in DataDog.
-	// Default: ""
+	// Prefix to prepend to all metrics handled by the adapter. Metric "bar" with prefix "foo." becomes "foo.bar" in DataDog. In order to make sure the metrics get populated into Datadog properly and avoid any billing issues, it's important to leave the metric prefix to its default value of 'istio.'
+	// Default: "istio."
 	Prefix string `protobuf:"bytes,2,opt,name=prefix,proto3" json:"prefix,omitempty"`
 	// Number of individual metrics to buffer before flushing metrics to the network. When buffered, metrics are flushed every 100ms or when the buffer is filled.
 	// When buffer is 0, metrics are not buffered.

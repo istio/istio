@@ -61,6 +61,10 @@ const (
 	mtlsExcludedServicesPattern      = "mtlsExcludedServices:\\s*\\[(.*)\\]"
 	helmServiceAccountFile           = "helm-service-account.yaml"
 	istioHelmInstallDir              = istioInstallDir + "/helm/istio"
+	caCertFileName                   = "samples/certs/ca-cert.pem"
+	caKeyFileName                    = "samples/certs/ca-key.pem"
+	rootCertFileName                 = "samples/certs/root-cert.pem"
+	certChainFileName                = "samples/certs/cert-chain.pem"
 )
 
 var (
@@ -591,6 +595,11 @@ func (k *KubeInfo) deployIstio() error {
 		return err
 	}
 
+	if *multiClusterDir != "" {
+		if err := k.createCacerts(false); err != nil {
+			log.Infof("Failed to create Cacerts with namespace %s in primary cluster", k.Namespace)
+		}
+	}
 	if err := util.KubeApply(k.Namespace, testIstioYaml, k.KubeConfig); err != nil {
 		log.Errorf("Istio core %s deployment failed", testIstioYaml)
 		return err
@@ -606,6 +615,10 @@ func (k *KubeInfo) deployIstio() error {
 		if err := util.CreateMultiClusterSecrets(k.Namespace, k.KubeClient, k.RemoteKubeConfig); err != nil {
 			log.Errorf("Unable to create secrets on local cluster %s", err.Error())
 			return err
+		}
+
+		if err := k.createCacerts(true); err != nil {
+			log.Infof("Failed to create Cacerts with namespace %s in remote cluster", k.Namespace)
 		}
 
 		yamlDir := filepath.Join(istioInstallDir, mcRemoteInstallFile)
