@@ -155,13 +155,13 @@ func (c *Controller) Instances(hostname model.Hostname, ports []string,
 
 // InstancesByPort retrieves instances for a service on a given port that match
 // any of the supplied labels. All instances match an empty label list.
-func (c *Controller) InstancesByPort(hostname model.Hostname, ports []int,
+func (c *Controller) InstancesByPort(hostname model.Hostname, port int,
 	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	var instances, tmpInstances []*model.ServiceInstance
 	var errs error
 	for _, r := range c.registries {
 		var err error
-		tmpInstances, err = r.InstancesByPort(hostname, ports, labels)
+		tmpInstances, err = r.InstancesByPort(hostname, port, labels)
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		} else if len(tmpInstances) > 0 {

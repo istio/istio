@@ -535,6 +535,15 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 	}
 }
 
+// getServicesForEndpoint returns the list of services associated with a node.
+// Currently using the node endpoint IP.
+func (s *DiscoveryServer) getServicesForEndpoint(node *model.Proxy) ([]*model.ServiceInstance, error) {
+	// TODO: cache the results, this is a pretty slow operation and called few times per
+	// push
+	proxyInstances, err := s.env.GetProxyServiceInstances(node)
+	return proxyInstances, err
+}
+
 func (s *DiscoveryServer) pushRoute(con *XdsConnection) error {
 	rc := []*xdsapi.RouteConfiguration{}
 
@@ -543,7 +552,7 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection) error {
 	services = s.services
 	s.modelMutex.RUnlock()
 
-	proxyInstances, err := s.env.GetProxyServiceInstances(con.modelNode)
+	proxyInstances, err := s.getServicesForEndpoint(con.modelNode)
 	if err != nil {
 		log.Warnf("ADS: RDS: Failed to retrieve proxy service instances %v", err)
 		pushes.With(prometheus.Labels{"type": "rds_conferr"}).Add(1)

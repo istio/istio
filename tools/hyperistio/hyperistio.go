@@ -141,7 +141,7 @@ func startPilot() error {
 	args := bootstrap.PilotArgs{
 		Namespace: "testing",
 		DiscoveryOptions: envoy.DiscoveryServiceOptions{
-			Port:            8080,
+			Port:            15007,
 			GrpcAddr:        ":15010",
 			EnableCaching:   true,
 			EnableProfiling: true,
@@ -163,8 +163,11 @@ func startPilot() error {
 	}
 	bootstrap.FilepathWalkInterval = 5 * time.Second
 	// Static testdata, should include all configs we want to test.
-	args.Config.FileDir = util.IstioSrc + "/tests/testdata/config"
-
+	args.Config.FileDir = os.Getenv("ISTIO_CONFIG")
+	if args.Config.FileDir == "" {
+		args.Config.FileDir = util.IstioSrc + "/tests/testdata/config"
+	}
+	log.Println("Using mock configs: ", args.Config.FileDir)
 	// Create and setup the controller.
 	s, err := bootstrap.NewServer(args)
 	if err != nil {
