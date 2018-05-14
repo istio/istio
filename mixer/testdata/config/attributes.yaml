@@ -79,6 +79,8 @@ spec:
         valueType: STRING
       request.auth.audiences:
         valueType: STRING
+      request.auth.claims:
+        valueType: STRING_MAP
       request.auth.presenter:
         valueType: STRING
       request.api_key:
