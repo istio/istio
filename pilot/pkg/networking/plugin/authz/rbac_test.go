@@ -18,6 +18,9 @@ import (
 	"reflect"
 	"testing"
 
+	policy "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha"
+	"github.com/envoyproxy/go-control-plane/envoy/type"
+
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 )
@@ -84,54 +87,54 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 		},
 	}
 
-	policy1 := &Policy{
-		Permissions: []*Permission{{
-			Paths: []*StringMatch{
-				{MatchPattern: &StringMatch_Suffix{"/suffix"}},
-				{MatchPattern: &StringMatch_Prefix{"/prefix"}},
-				{MatchPattern: &StringMatch_Simple{"/exact"}},
-				{MatchPattern: &StringMatch_Regex{"*"}}},
+	policy1 := &policy.Policy{
+		Permissions: []*policy.Permission{{
+			Paths: []*envoy_type.StringMatch{
+				{MatchPattern: &envoy_type.StringMatch_Suffix{"/suffix"}},
+				{MatchPattern: &envoy_type.StringMatch_Prefix{"/prefix"}},
+				{MatchPattern: &envoy_type.StringMatch_Simple{"/exact"}},
+				{MatchPattern: &envoy_type.StringMatch_Regex{"*"}}},
 			Methods: []string{
 				"GET", "POST",
 			},
 		},
 		},
-		Principals: []*Principal{
-			{Authenticated: &Principal_Authenticated{Name: "user"}},
+		Principals: []*policy.Principal{
+			{Authenticated: &policy.Principal_Authenticated{Name: "user"}},
 		},
 	}
 
-	policy2 := &Policy{
-		Permissions: []*Permission{{
-			Conditions: []*Permission_Condition{
+	policy2 := &policy.Policy{
+		Permissions: []*policy.Permission{{
+			Conditions: []*policy.Permission_Condition{
 				{
-					ConditionSpec: &Permission_Condition_Header{
-						Header: &MapEntryMatch{
+					ConditionSpec: &policy.Permission_Condition_Header{
+						Header: &policy.MapEntryMatch{
 							Key: "key1",
-							Values: []*StringMatch{
-								{MatchPattern: &StringMatch_Prefix{"prefix"}},
-								{MatchPattern: &StringMatch_Suffix{"suffix"}}}},
+							Values: []*envoy_type.StringMatch{
+								{MatchPattern: &envoy_type.StringMatch_Prefix{"prefix"}},
+								{MatchPattern: &envoy_type.StringMatch_Suffix{"suffix"}}}},
 					},
 				},
 				{
-					ConditionSpec: &Permission_Condition_Header{
-						Header: &MapEntryMatch{
+					ConditionSpec: &policy.Permission_Condition_Header{
+						Header: &policy.MapEntryMatch{
 							Key: "key2",
-							Values: []*StringMatch{
-								{MatchPattern: &StringMatch_Simple{"simple"}},
-								{MatchPattern: &StringMatch_Regex{"*"}}}},
+							Values: []*envoy_type.StringMatch{
+								{MatchPattern: &envoy_type.StringMatch_Simple{"simple"}},
+								{MatchPattern: &envoy_type.StringMatch_Regex{"*"}}}},
 					},
 				},
 			}},
 		},
-		Principals: []*Principal{{
-			Attributes: []*Principal_Attribute{
+		Principals: []*policy.Principal{{
+			Attributes: []*policy.Principal_Attribute{
 				{
-					AttributeSpec: &Principal_Attribute_Header{
-						Header: &MapEntryMatch{
+					AttributeSpec: &policy.Principal_Attribute_Header{
+						Header: &policy.MapEntryMatch{
 							Key: "key",
-							Values: []*StringMatch{
-								{MatchPattern: &StringMatch_Simple{"value"}},
+							Values: []*envoy_type.StringMatch{
+								{MatchPattern: &envoy_type.StringMatch_Simple{"value"}},
 							}},
 					},
 				},
@@ -140,23 +143,23 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 		},
 	}
 
-	expectRbac1 := &RBAC{
-		Action: RBAC_ALLOW,
-		Policies: map[string]*Policy{
+	expectRbac1 := &policy.RBAC{
+		Action: policy.RBAC_ALLOW,
+		Policies: map[string]*policy.Policy{
 			"service-role-1": policy1,
 			"service-role-2": policy2,
 		},
 	}
-	expectRbac2 := &RBAC{
-		Action: RBAC_ALLOW,
-		Policies: map[string]*Policy{
+	expectRbac2 := &policy.RBAC{
+		Action: policy.RBAC_ALLOW,
+		Policies: map[string]*policy.Policy{
 			"service-role-2": policy2,
 		},
 	}
 	testCases := []struct {
 		name    string
 		service string
-		rbac    *RBAC
+		rbac    *policy.RBAC
 	}{
 		{
 			name:    "prefix matched service",

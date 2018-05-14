@@ -312,8 +312,11 @@ func (m *Cluster) Validate() error {
 
 	// no validation rules for CloseConnectionsOnHostHealthFailure
 
+<<<<<<< HEAD
 	// no validation rules for DrainConnectionsOnHostRemoval
 
+=======
+>>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	switch m.LbConfig.(type) {
 
 	case *Cluster_RingHashLbConfig_:

@@ -191,7 +191,14 @@ func init() {
 }
 func (this *StringMatch) Equal(that interface{}) bool {
 	if that == nil {
+<<<<<<< HEAD
 		return this == nil
+=======
+		if this == nil {
+			return true
+		}
+		return false
+>>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	}
 
 	that1, ok := that.(*StringMatch)
@@ -204,7 +211,14 @@ func (this *StringMatch) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
+<<<<<<< HEAD
 		return this == nil
+=======
+		if this == nil {
+			return true
+		}
+		return false
+>>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	} else if this == nil {
 		return false
 	}
@@ -221,7 +235,14 @@ func (this *StringMatch) Equal(that interface{}) bool {
 }
 func (this *StringMatch_Simple) Equal(that interface{}) bool {
 	if that == nil {
+<<<<<<< HEAD
 		return this == nil
+=======
+		if this == nil {
+			return true
+		}
+		return false
+>>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	}
 
 	that1, ok := that.(*StringMatch_Simple)
@@ -234,7 +255,14 @@ func (this *StringMatch_Simple) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
+<<<<<<< HEAD
 		return this == nil
+=======
+		if this == nil {
+			return true
+		}
+		return false
+>>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	} else if this == nil {
 		return false
 	}
@@ -245,7 +273,14 @@ func (this *StringMatch_Simple) Equal(that interface{}) bool {
 }
 func (this *StringMatch_Prefix) Equal(that interface{}) bool {
 	if that == nil {
+<<<<<<< HEAD
 		return this == nil
+=======
+		if this == nil {
+			return true
+		}
+		return false
+>>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	}
 
 	that1, ok := that.(*StringMatch_Prefix)
@@ -258,7 +293,14 @@ func (this *StringMatch_Prefix) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
+<<<<<<< HEAD
 		return this == nil
+=======
+		if this == nil {
+			return true
+		}
+		return false
+>>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	} else if this == nil {
 		return false
 	}
@@ -269,7 +311,14 @@ func (this *StringMatch_Prefix) Equal(that interface{}) bool {
 }
 func (this *StringMatch_Suffix) Equal(that interface{}) bool {
 	if that == nil {
+<<<<<<< HEAD
 		return this == nil
+=======
+		if this == nil {
+			return true
+		}
+		return false
+>>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	}
 
 	that1, ok := that.(*StringMatch_Suffix)
@@ -282,7 +331,14 @@ func (this *StringMatch_Suffix) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
+<<<<<<< HEAD
 		return this == nil
+=======
+		if this == nil {
+			return true
+		}
+		return false
+>>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	} else if this == nil {
 		return false
 	}
@@ -293,7 +349,14 @@ func (this *StringMatch_Suffix) Equal(that interface{}) bool {
 }
 func (this *StringMatch_Regex) Equal(that interface{}) bool {
 	if that == nil {
+<<<<<<< HEAD
 		return this == nil
+=======
+		if this == nil {
+			return true
+		}
+		return false
+>>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	}
 
 	that1, ok := that.(*StringMatch_Regex)
@@ -306,7 +369,14 @@ func (this *StringMatch_Regex) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
+<<<<<<< HEAD
 		return this == nil
+=======
+		if this == nil {
+			return true
+		}
+		return false
+>>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	} else if this == nil {
 		return false
 	}

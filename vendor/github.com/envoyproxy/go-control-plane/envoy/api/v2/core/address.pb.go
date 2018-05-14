@@ -621,6 +621,45 @@ func (this *SocketAddress_NamedPort) Equal(that interface{}) bool {
 	return true
 }
 func (this *TcpKeepalive) Equal(that interface{}) bool {
+<<<<<<< HEAD
+=======
+	if that == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	}
+
+	that1, ok := that.(*TcpKeepalive)
+	if !ok {
+		that2, ok := that.(TcpKeepalive)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	} else if this == nil {
+		return false
+	}
+	if !this.KeepaliveProbes.Equal(that1.KeepaliveProbes) {
+		return false
+	}
+	if !this.KeepaliveTime.Equal(that1.KeepaliveTime) {
+		return false
+	}
+	if !this.KeepaliveInterval.Equal(that1.KeepaliveInterval) {
+		return false
+	}
+	return true
+}
+func (this *BindConfig) Equal(that interface{}) bool {
+>>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	if that == nil {
 		return this == nil
 	}
