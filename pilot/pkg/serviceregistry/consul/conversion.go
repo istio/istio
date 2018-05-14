@@ -94,7 +94,7 @@ func convertService(endpoints []*api.CatalogService) *model.Service {
 		Hostname:     serviceHostname(name),
 		Address:      addr,
 		Ports:        svcPorts,
-		ExternalName: externalName,
+		ExternalName: model.Hostname(externalName),
 		MeshExternal: meshExternal,
 		Resolution:   resolution,
 	}
@@ -131,7 +131,7 @@ func convertInstance(instance *api.CatalogService) *model.ServiceInstance {
 			Address:  instance.ServiceAddress,
 			Ports:    model.PortList{port},
 			// TODO ExternalName come from metadata?
-			ExternalName: externalName,
+			ExternalName: model.Hostname(externalName),
 			MeshExternal: meshExternal,
 			Resolution:   resolution,
 		},
@@ -140,15 +140,15 @@ func convertInstance(instance *api.CatalogService) *model.ServiceInstance {
 }
 
 // serviceHostname produces FQDN for a consul service
-func serviceHostname(name string) string {
+func serviceHostname(name string) model.Hostname {
 	// TODO include datacenter in Hostname?
 	// consul DNS uses "redis.service.us-east-1.consul" -> "[<optional_tag>].<svc>.service.[<optional_datacenter>].consul"
-	return fmt.Sprintf("%s.service.consul", name)
+	return model.Hostname(fmt.Sprintf("%s.service.consul", name))
 }
 
 // parseHostname extracts service name from the service hostname
-func parseHostname(hostname string) (name string, err error) {
-	parts := strings.Split(hostname, ".")
+func parseHostname(hostname model.Hostname) (name string, err error) {
+	parts := strings.Split(hostname.String(), ".")
 	if len(parts) < 1 || parts[0] == "" {
 		err = fmt.Errorf("missing service name from the service hostname %q", hostname)
 		return

@@ -88,6 +88,8 @@ spec:
       valueType: STRING
     request.auth.presenter:
       valueType: STRING
+    request.auth.claims:
+      valueType: STRING_MAP
     request.api_key:
       valueType: STRING
 

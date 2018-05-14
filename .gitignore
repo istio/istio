@@ -1,3 +1,5 @@
+# git history files
+.history_rewritten_*
 # Eclipse artifacts
 .project
 .pydevproject

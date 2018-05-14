@@ -14,10 +14,15 @@ global:
   tag: circleci-nightly
   proxy:
     image: proxy
+  # proxyv2 image is the image to use for networking alpha3 and envoy v2
+  proxyv2:
+    image: proxyv2
   proxy_init:
     image: proxy_init
 
   # imagePullPolicy is applied to istio control plane components.
+  # local tests require IfNotPresent, to avoid uploading to dockerhub.
+  # TODO: Switch to Always as default, and override in the local tests.
   imagePullPolicy: IfNotPresent
 
   # Not recommended for user to configure this. Hyperkube image to use when creating custom resources
@@ -77,7 +82,6 @@ istiotesting:
 ingress:
   enabled: true
   serviceAccountName: default
-  imagePullPolicy: IfNotPresent
   autoscaleMin: 1
   autoscaleMax: 1
   resources: {}
@@ -99,13 +103,9 @@ ingress:
 ingressgateway:
   enabled: true
   serviceAccountName: istio-ingressgateway-service-account
-  imagePullPolicy: IfNotPresent
   autoscaleMin: 1
   autoscaleMax: 1
   resources: {}
-  global:
-    proxy:
-      image: proxyv2
 # limits:
 #  cpu: 100m
 #  memory: 128Mi
@@ -117,7 +117,7 @@ ingressgateway:
     labels:
       istio: ingressgateway
     #namespace: istio-system
-    type: NodePort #change to ClusterIP or LoadBalancer if need be
+    type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
     ports:
       ## You can add custom gateway ports
     - port: 80
@@ -147,13 +147,9 @@ ingressgateway:
 egressgateway:
   enabled: true
   serviceAccountName: istio-egressgateway-service-account
-  imagePullPolicy: IfNotPresent
   autoscaleMin: 1
   autoscaleMax: 1
   resources: {}
-  global:
-    proxy:
-      image: proxyv2
 # limits:
 #  cpu: 100m
 #  memory: 128Mi
@@ -188,10 +184,10 @@ egressgateway:
 #
 sidecar-injector:
   enabled: false
+  enableCoreDump: false
   serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
   image: sidecar_injector
-  imagePullPolicy: IfNotPresent
   resources: {}
   # limits:
   #  cpu: 100m
@@ -215,6 +211,7 @@ sidecar-injector:
   #     Redirect only selected ports:            --includeInboundPorts="80,8080"
   includeInboundPorts: "*"
   excludeInboundPorts: ""
+  policy: enabled
 
 #
 # galley configuration
@@ -224,7 +221,6 @@ galley:
   serviceAccountName: default
   replicaCount: 1
   image: galley
-  imagePullPolicy: IfNotPresent
   resources: {}
   # limits:
   #  cpu: 100m
@@ -241,7 +237,6 @@ mixer:
   serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
   image: mixer
-  imagePullPolicy: IfNotPresent
   resources: {}
   # limits:
   #  cpu: 100m
@@ -253,7 +248,6 @@ mixer:
   prometheusStatsdExporter:
     repository: prom/statsd-exporter
     tag: latest
-    imagePullPolicy: IfNotPresent
     resources: {}
 
 #
@@ -264,7 +258,6 @@ pilot:
   serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
   image: pilot
-  imagePullPolicy: IfNotPresent
   resources: {}
   # limits:
   #  cpu: 100m
@@ -280,7 +273,6 @@ security:
   serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
   image: citadel
-  imagePullPolicy: IfNotPresent
   resources: {}
   # limits:
   #  cpu: 100m
@@ -296,7 +288,6 @@ grafana:
   enabled: false
   replicaCount: 1
   image: grafana
-  imagePullPolicy: IfNotPresent
   service:
     name: http
     type: ClusterIP
@@ -330,7 +321,6 @@ prometheus:
   image:
     repository: docker.io/prom/prometheus
     tag: latest
-    pullPolicy: IfNotPresent
   ingress:
     enabled: false
     # Used to create an Ingress record.
@@ -360,7 +350,6 @@ servicegraph:
   enabled: false
   replicaCount: 1
   image: servicegraph
-  imagePullPolicy: IfNotPresent
   service:
     name: http
     type: ClusterIP
@@ -395,7 +384,6 @@ zipkin:
   image:
     repository: docker.io/openzipkin/zipkin
     tag: 2.7
-    pullPolicy: IfNotPresent
   service:
     name: http
     type: ClusterIP

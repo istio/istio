@@ -625,9 +625,9 @@ message L4MatchAttributes {
 //       - match:
 //         - uri:
 //             exact: /v1/getProductRatings
-//       redirect:
-//         uri: /v1/bookRatings
-//         authority: newratings.default.svc.cluster.local
+//         redirect:
+//           uri: /v1/bookRatings
+//           authority: newratings.default.svc.cluster.local
 //       ...
 //
 message HTTPRedirect {

@@ -205,16 +205,9 @@ check-tree:
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
 init: check-tree check-go-version $(ISTIO_OUT)/istio_is_init
 
-# Merge master. To be used in CI or by developers, assumes the
-# remote is called 'origin' (git default). Will fail on conflicts
-# Note: in a branch, this will get the latest from master. In master it has no effect.
-# This should be run after a 'git fetch' (typically done in the checkout step in CI)
-git.pullmaster:
-	git merge master
-
 # Sync target will pull from master and sync the modules. It is the first step of the
 # circleCI build, developers should call it periodically.
-sync: git.pullmaster init
+sync: init
 	mkdir -p ${OUT_DIR}/logs
 
 # I tried to make this dependent on what I thought was the appropriate
@@ -406,7 +399,7 @@ JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit-tests.xml
 test: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
 	set -o pipefail; \
-	$(MAKE) --keep-going common-test pilot-test mixer-test security-test broker-test galley-test \
+	$(MAKE) --keep-going common-test pilot-test mixer-test security-test broker-test galley-test istioctl-test \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 GOTEST_PARALLEL ?= '-test.parallel=4'
@@ -419,6 +412,9 @@ PILOT_TEST_BINS:=${ISTIO_OUT}/pilot-test-server ${ISTIO_OUT}/pilot-test-client $
 
 $(PILOT_TEST_BINS):
 	CGO_ENABLED=0 go build ${GOSTATIC} -o $@ istio.io/istio/$(subst -,/,$(@F))
+
+hyperistio:
+	CGO_ENABLED=0 go build ${GOSTATIC} -o ${ISTIO_OUT}/hyperistio istio.io/istio/tools/hyperistio
 
 test-bins: $(PILOT_TEST_BINS)
 
@@ -433,6 +429,10 @@ localTestEnvCleanup: test-bins
 .PHONY: pilot-test
 pilot-test: pilot-agent
 	go test -p 1 ${T} ./pilot/...
+
+.PHONY: istioctl-test
+istioctl-test: istioctl
+	go test -p 1 ${T} ./istioctl/...
 
 .PHONY: mixer-test
 MIXER_TEST_T ?= ${T} ${GOTEST_PARALLEL}
@@ -464,11 +464,15 @@ common-test:
 .PHONY: coverage
 
 # Run coverage tests
-coverage: pilot-coverage mixer-coverage security-coverage broker-coverage galley-coverage common-coverage
+coverage: pilot-coverage mixer-coverage security-coverage broker-coverage galley-coverage common-coverage istioctl-coverage
 
 .PHONY: pilot-coverage
 pilot-coverage:
 	bin/codecov.sh pilot
+
+.PHONY: istioctl-coverage
+istioctl-coverage:
+	bin/codecov.sh istioctl
 
 .PHONY: mixer-coverage
 mixer-coverage:
@@ -498,11 +502,15 @@ common-coverage:
 .PHONY: racetest
 
 # Run race tests
-racetest: pilot-racetest mixer-racetest security-racetest broker-racetest galley-test common-racetest
+racetest: pilot-racetest mixer-racetest security-racetest broker-racetest galley-test common-racetest istioctl-racetest
 
 .PHONY: pilot-racetest
 pilot-racetest: pilot-agent
 	RACE_TEST=true go test -p 1 ${T} -race ./pilot/...
+
+.PHONY: istioctl-racetest
+istioctl-racetest: istioctl
+	RACE_TEST=true go test -p 1 ${T} -race ./istioctl/...
 
 .PHONY: mixer-racetest
 mixer-racetest: mixs
@@ -601,6 +609,17 @@ generate_yaml-envoyv2_transition: $(HELM)
 		  --values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
 		  install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
 
+generate_yaml-envoyv2_transition_auth: $(HELM)
+	./install/updateVersion_orig.sh -a ${HUB},${TAG} >/dev/null 2>&1
+	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/istio-auth.yaml
+	$(HELM) template --set global.tag=${TAG} \
+		  --namespace=istio-system \
+          --set global.hub=${HUB} \
+		  --values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
+		  --set global.mtls.enabled=true \
+			--set global.controlPlaneSecurityEnabled=true \
+		  install/kubernetes/helm/istio >> install/kubernetes/istio-auth.yaml
+
 # This is temporary. REMOVE ME after Envoy v2 transition
 # creates istio.yaml using values-envoyv2-transition.yaml
 generate_yaml-envoyv2_transition_loadbalancer_ingressgateway: $(HELM)
@@ -613,6 +632,15 @@ generate_yaml-envoyv2_transition_loadbalancer_ingressgateway: $(HELM)
                   --set ingressgateway.service.type=LoadBalancer \
 		  --set ingress.enabled=false \
 		  install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
+	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/istio-auth.yaml
+	$(HELM) template --set global.tag=${TAG} \
+		  --namespace=istio-system \
+                  --set global.hub=${HUB} \
+		  --values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
+                  --set ingressgateway.service.type=LoadBalancer \
+		  --set ingress.enabled=false \
+		  --set global.mtls.enabled=true \
+		  install/kubernetes/helm/istio >> install/kubernetes/istio-auth.yaml
 
 deploy/all: $(HELM) istio-all.yaml
 	kubectl apply -n istio-system -f install/kubernetes/istio-all.yaml

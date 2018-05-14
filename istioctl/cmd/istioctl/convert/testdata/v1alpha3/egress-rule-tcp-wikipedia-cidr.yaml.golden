@@ -2,11 +2,13 @@ apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   creationTimestamp: null
-  name: 91.198.174.192/27
+  name: wikipedia-range1
   namespace: default
 spec:
-  hosts:
+  addresses:
   - 91.198.174.192/27
+  hosts:
+  - wikipedia-range1
   ports:
   - name: tcp-443
     number: 443
@@ -16,11 +18,13 @@ apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   creationTimestamp: null
-  name: 103.102.166.224/27
+  name: wikipedia-range2
   namespace: default
 spec:
-  hosts:
+  addresses:
   - 103.102.166.224/27
+  hosts:
+  - wikipedia-range2
   ports:
   - name: tcp-443
     number: 443
@@ -30,11 +34,13 @@ apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   creationTimestamp: null
-  name: 198.35.26.96/27
+  name: wikipedia-range3
   namespace: default
 spec:
-  hosts:
+  addresses:
   - 198.35.26.96/27
+  hosts:
+  - wikipedia-range3
   ports:
   - name: tcp-443
     number: 443
@@ -44,11 +50,13 @@ apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   creationTimestamp: null
-  name: 208.80.153.224/27
+  name: wikipedia-range4
   namespace: default
 spec:
-  hosts:
+  addresses:
   - 208.80.153.224/27
+  hosts:
+  - wikipedia-range4
   ports:
   - name: tcp-443
     number: 443
@@ -58,11 +66,13 @@ apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   creationTimestamp: null
-  name: 208.80.154.224/27
+  name: wikipedia-range5
   namespace: default
 spec:
-  hosts:
+  addresses:
   - 208.80.154.224/27
+  hosts:
+  - wikipedia-range5
   ports:
   - name: tcp-443
     number: 443

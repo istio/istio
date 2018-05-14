@@ -70,7 +70,7 @@ var (
 	rootCmd = &cobra.Command{
 		Use:   "pilot-agent",
 		Short: "Istio Pilot agent",
-		Long:  "Istio Pilot provides management plane functionality to the Istio service mesh and Istio Mixer.",
+		Long:  "Istio Pilot agent runs in the side car or gateway container and bootstraps envoy.",
 	}
 
 	proxyCmd = &cobra.Command{
