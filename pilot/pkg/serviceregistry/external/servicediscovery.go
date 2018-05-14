@@ -243,11 +243,6 @@ func portMatchEnvoyV1(instance *model.ServiceInstance, portMap map[string]bool) 
 }
 
 // returns true if an instance's port matches with any in the provided list
-func portMatch(instance *model.ServiceInstance, portMap map[int]bool) bool {
-	return len(portMap) == 0 || portMap[instance.Endpoint.ServicePort.Port]
-}
-
-// returns true if an instance's port matches with any in the provided list
 func portMatchSingle(instance *model.ServiceInstance, port int) bool {
 	return port == 0 || port == instance.Endpoint.ServicePort.Port
 }
