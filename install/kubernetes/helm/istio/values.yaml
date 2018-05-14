@@ -423,3 +423,17 @@ zipkin:
     # requests:
     #  cpu: 100m
     #  memory: 128Mi
+
+#
+# zipkin-to-stackdriver configuration
+#
+zipkin-to-stackdriver:
+  enabled: false
+  replicaCount: 1
+  service:
+    name: zipkin
+    externalPort: 9411
+    internalPort: 9411
+  image:
+    repository: gcr.io/stackdriver-trace-docker/zipkin-collector
+    pullPolicy: IfNotPresent
