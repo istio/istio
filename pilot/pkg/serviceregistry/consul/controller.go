@@ -15,6 +15,7 @@
 package consul
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/hashicorp/consul/api"
@@ -109,6 +110,13 @@ func (c *Controller) ManagementPorts(addr string) model.PortList {
 // any of the supplied labels. All instances match an empty tag list.
 func (c *Controller) Instances(hostname model.Hostname, ports []string,
 	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
+	return nil, fmt.Errorf("NOT IMPLEMENTED")
+}
+
+// InstancesByPort retrieves instances for a service that match
+// any of the supplied labels. All instances match an empty tag list.
+func (c *Controller) InstancesByPort(hostname model.Hostname, ports []int,
+	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	// Get actual service by name
 	name, err := parseHostname(hostname)
 	if err != nil {
@@ -116,7 +124,7 @@ func (c *Controller) Instances(hostname model.Hostname, ports []string,
 		return nil, err
 	}
 
-	portMap := make(map[string]bool)
+	portMap := make(map[int]bool)
 	for _, port := range ports {
 		portMap[port] = true
 	}
@@ -138,12 +146,12 @@ func (c *Controller) Instances(hostname model.Hostname, ports []string,
 }
 
 // returns true if an instance's port matches with any in the provided list
-func portMatch(instance *model.ServiceInstance, portMap map[string]bool) bool {
+func portMatch(instance *model.ServiceInstance, portMap map[int]bool) bool {
 	if len(portMap) == 0 {
 		return true
 	}
 
-	if portMap[instance.Endpoint.ServicePort.Name] {
+	if portMap[instance.Endpoint.ServicePort.Port] {
 		return true
 	}
 

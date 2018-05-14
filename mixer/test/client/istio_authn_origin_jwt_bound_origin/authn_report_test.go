@@ -22,105 +22,6 @@ import (
 	"istio.io/istio/mixer/test/client/env"
 )
 
-// Check attributes from a good GET request
-const checkAttributesOkGet = `
-{
-  "context.protocol": "http",
-  "mesh1.ip": "[1 1 1 1]",
-  "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
-  "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
-  "request.host": "*",
-  "request.path": "/echo",
-  "request.time": "*",
-  "request.useragent": "Go-http-client/1.1",
-  "request.method": "GET",
-  "request.scheme": "http",
-  "source.uid": "POD11",
-  "source.namespace": "XYZ11",
-  "source.ip": "[127 0 0 1]",
-  "source.port": "*",
-  "target.name": "target-name",
-  "target.user": "target-user",
-  "target.uid": "POD222",
-  "target.namespace": "XYZ222",
-  "connection.mtls": false,
-  "request.headers": {
-     ":method": "GET",
-     ":path": "/echo",
-     ":authority": "*",
-     "x-forwarded-proto": "http",
-     "x-istio-attributes": "-",
-     "x-request-id": "*"
-  },
-  "request.auth.audiences": "aud1",
-  "request.auth.principal": "issuer@foo.com/sub@foo.com",
-  "request.auth.claims": {
-     "iss": "issuer@foo.com", 
-     "sub": "sub@foo.com",
-     "aud": "aud1",
-     "some-other-string-claims": "some-claims-kept"
-  }
-}
-`
-
-// Report attributes from a good GET request with Istio authn policy binding to origin
-const reportAttributesOkGet = `
-{
-  "context.protocol": "http",
-  "mesh1.ip": "[1 1 1 1]",
-  "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
-  "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
-  "request.host": "*",
-  "request.path": "/echo",
-  "request.time": "*",
-  "request.useragent": "Go-http-client/1.1",
-  "request.method": "GET",
-  "request.scheme": "http",
-  "source.uid": "POD11",
-  "source.namespace": "XYZ11",
-  "source.ip": "[127 0 0 1]",
-  "source.port": "*",
-  "destination.ip": "[127 0 0 1]",
-  "destination.port": "*",
-  "target.name": "target-name",
-  "target.user": "target-user",
-  "target.uid": "POD222",
-  "target.namespace": "XYZ222",
-  "connection.mtls": false,
-  "check.cache_hit": false,
-  "quota.cache_hit": false,
-  "request.headers": {
-     ":method": "GET",
-     ":path": "/echo",
-     ":authority": "*",
-     "x-forwarded-proto": "http",
-     "x-istio-attributes": "-",
-     "x-request-id": "*"
-  },
-  "request.size": 0,
-  "request.total_size": 553,
-  "response.total_size": 99,
-  "response.time": "*",
-  "response.size": 0,
-  "response.duration": "*",
-  "response.code": 200,
-  "response.headers": {
-     "date": "*",
-     "content-length": "0",
-     ":status": "200",
-     "server": "envoy"
-  },
-  "request.auth.audiences": "aud1",
-  "request.auth.principal": "issuer@foo.com/sub@foo.com",
-  "request.auth.claims": {
-     "iss": "issuer@foo.com", 
-     "sub": "sub@foo.com",
-     "aud": "aud1",
-     "some-other-string-claims": "some-claims-kept"
-  }
-}
-`
-
 // The Istio authn envoy config
 const authnConfig = `
 {
@@ -154,6 +55,109 @@ const secIstioAuthUserinfoHeaderValue = `
   "aud": "aud1",
   "non-string-will-be-ignored": 1512754205,
   "some-other-string-claims": "some-claims-kept"
+}
+`
+
+// Check attributes from a good GET request
+var checkAttributesOkGet = `
+{
+  "context.protocol": "http",
+  "mesh1.ip": "[1 1 1 1]",
+  "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
+  "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
+  "request.host": "*",
+  "request.path": "/echo",
+  "request.time": "*",
+  "request.useragent": "Go-http-client/1.1",
+  "request.method": "GET",
+  "request.scheme": "http",
+  "source.uid": "POD11",
+  "source.namespace": "XYZ11",
+  "source.ip": "[127 0 0 1]",
+  "source.port": "*",
+  "target.name": "target-name",
+  "target.user": "target-user",
+  "target.uid": "POD222",
+  "target.namespace": "XYZ222",
+  "connection.mtls": false,
+  "request.headers": {
+     ":method": "GET",
+     ":path": "/echo",
+     ":authority": "*",
+     "x-forwarded-proto": "http",
+     "x-istio-attributes": "-",
+     "x-request-id": "*"
+  },
+  "request.auth.audiences": "aud1",
+  "request.auth.principal": "issuer@foo.com/sub@foo.com",
+  "request.auth.claims": {
+     "iss": "issuer@foo.com",
+     "sub": "sub@foo.com",
+     "aud": "aud1",
+     "some-other-string-claims": "some-claims-kept"
+  },
+	"request.auth.raw_claims": ` + fmt.Sprintf("%q", secIstioAuthUserinfoHeaderValue) +
+	`
+}
+`
+
+// Report attributes from a good GET request with Istio authn policy binding to origin
+var reportAttributesOkGet = `
+{
+  "context.protocol": "http",
+  "mesh1.ip": "[1 1 1 1]",
+  "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
+  "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
+  "request.host": "*",
+  "request.path": "/echo",
+  "request.time": "*",
+  "request.useragent": "Go-http-client/1.1",
+  "request.method": "GET",
+  "request.scheme": "http",
+  "source.uid": "POD11",
+  "source.namespace": "XYZ11",
+  "source.ip": "[127 0 0 1]",
+  "source.port": "*",
+  "destination.ip": "[127 0 0 1]",
+  "destination.port": "*",
+  "target.name": "target-name",
+  "target.user": "target-user",
+  "target.uid": "POD222",
+  "target.namespace": "XYZ222",
+  "connection.mtls": false,
+  "check.cache_hit": false,
+  "quota.cache_hit": false,
+  "request.headers": {
+     ":method": "GET",
+     ":path": "/echo",
+     ":authority": "*",
+     "x-forwarded-proto": "http",
+     "x-istio-attributes": "-",
+     "x-request-id": "*"
+  },
+  "request.size": 0,
+  "request.total_size": 777,
+  "response.total_size": 99,
+  "response.time": "*",
+  "response.size": 0,
+  "response.duration": "*",
+  "response.code": 200,
+  "response.headers": {
+     "date": "*",
+     "content-length": "0",
+     ":status": "200",
+     "server": "envoy"
+  },
+  "request.auth.audiences": "aud1",
+  "request.auth.principal": "issuer@foo.com/sub@foo.com",
+  "request.auth.claims": {
+     "iss": "issuer@foo.com",
+     "sub": "sub@foo.com",
+     "aud": "aud1",
+     "some-other-string-claims": "some-claims-kept"
+  },
+	"request.auth.raw_claims": ` + fmt.Sprintf("%q", secIstioAuthUserinfoHeaderValue) +
+	`
 }
 `
 
