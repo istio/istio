@@ -322,8 +322,9 @@ func buildGatewayNetworkFilters(env model.Environment, server *networking.Server
 			log.Debugf("failed to retrieve service for destination %q: %v", host, err)
 			continue
 		}
+		cluster, _ := istio_route.GetDestinationCluster(dest, upstream, int(server.Port.Number))
 		filters = append(filters, buildOutboundNetworkFilters(
-			istio_route.GetDestinationCluster(dest, upstream, int(server.Port.Number)),
+			cluster,
 			[]string{upstream.Address}, port)...)
 	}
 	return filters
