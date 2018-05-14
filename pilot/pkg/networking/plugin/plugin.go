@@ -89,7 +89,7 @@ type MutableObjects struct {
 
 // ClusterDescriptor is the upstream cluster metadata.
 type ClusterDescriptor struct {
-	// Service host name
+	// Service host name (fully-qualified)
 	Service model.Hostname
 
 	// Subset name (optional)
@@ -97,9 +97,6 @@ type ClusterDescriptor struct {
 
 	// Port number
 	Port int
-
-	// Port protocol
-	Protocol model.Protocol
 }
 
 // Plugin is called during the construction of a xdsapi.Listener which may alter the Listener in any
