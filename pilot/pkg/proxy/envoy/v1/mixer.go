@@ -355,6 +355,43 @@ func serviceConfig(serviceName string, dest *model.ServiceInstance, config model
 	return sc
 }
 
+func BuildHSFMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, instance *model.ServiceInstance, nodeInstances []*model.ServiceInstance, config model.IstioConfigStore) *FilterMixerConfig {
+    filter := &FilterMixerConfig{
+        MixerAttributes: map[string]string{
+            AttrDestinationIP:  role.IPAddress,
+            AttrDestinationUID: "kubernetes://" + role.ID,
+        },
+    }
+    attrs := standardNodeAttributes(AttrDestinationPrefix, role.IPAddress, role.ID, nodeInstances[0].Labels) //nil)
+    attrs[AttrDestinationService] = &mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_StringValue{instance.Service.Hostname}}
+
+    v2 := &mccpb.TcpClientConfig{
+        MixerAttributes: &mpb.Attributes{
+            Attributes: attrs,
+        },
+        Transport: &mccpb.TransportConfig{
+            CheckCluster:  MixerCheckClusterName,
+            ReportCluster: MixerReportClusterName,
+        },
+        DisableCheckCalls: mesh.DisablePolicyChecks,
+    }
+
+	quotaSpecs := config.QuotaSpecByDestination(nodeInstances[0])
+	model.SortQuotaSpec(quotaSpecs)
+	for _, config := range quotaSpecs {
+		v2.ConnectionQuotaSpec = config.Spec.(*mccpb.QuotaSpec)
+	}
+
+    if v2JSONMap, err := model.ToJSONMap(v2); err != nil {
+        log.Warnf("Could not encode v2 TCP mixerclient filter for node %q: %v", role, err)
+    } else {
+        filter.V2 = v2JSONMap
+
+    }
+    return filter
+}
+
+
 // BuildTCPMixerFilterConfig builds a TCP filter config for inbound requests.
 func BuildTCPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, instance *model.ServiceInstance) *FilterMixerConfig {
 	filter := &FilterMixerConfig{
@@ -363,7 +400,6 @@ func BuildTCPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, in
 			AttrDestinationUID: "kubernetes://" + role.ID,
 		},
 	}
-
 	attrs := standardNodeAttributes(AttrDestinationPrefix, role.IPAddress, role.ID, nil)
 	attrs[AttrDestinationService] = &mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_StringValue{instance.Service.Hostname}}
 

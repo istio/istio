@@ -1014,7 +1014,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 			routeConfig := &HTTPRouteConfig{ValidateClusters: ValidateClusters, VirtualHosts: []*VirtualHost{host}}
 
 			if protocol == model.ProtocolHSF {
-				listener = buildHSFInboundListener(buildHTTPListenerOpts{
+				opts := buildHTTPListenerOpts{
 					mesh:             mesh,
 					proxy:            node,
 					proxyInstances:   proxyInstances,
@@ -1027,7 +1027,17 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 					outboundListener: false,
 					store:            config,
 					authnPolicy:      authenticationPolicy,
-				})
+				}
+				listener = buildHSFInboundListener(opts)
+				if opts.mesh.MixerCheckServer != "" || opts.mesh.MixerReportServer != "" {
+					//mixerConfig := BuildHTTPMixerFilterConfig(opts.mesh, opts.proxy, opts.proxyInstances, opts.outboundListener, opts.store)
+					filter := &NetworkFilter{
+						Type:   both,
+						Name:   MixerFilter,
+						Config: BuildHSFMixerFilterConfig(mesh, node, instance, opts.proxyInstances, opts.store),
+					}
+					listener.Filters = append([]*NetworkFilter{filter}, listener.Filters...)
+				}
 			}else {
 				listener = buildHTTPListener(buildHTTPListenerOpts{
 					mesh:             mesh,

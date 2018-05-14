@@ -175,7 +175,6 @@ func (e *Ephemeral) processAttributeManifests(counters Counters) map[string]*con
 
 func (e *Ephemeral) processHandlerConfigs(counters Counters) map[string]*Handler {
 	handlers := make(map[string]*Handler, len(e.adapters))
-
 	for key, resource := range e.entries {
 		var info *adapter.Info
 		var found bool
@@ -203,7 +202,6 @@ func (e *Ephemeral) processHandlerConfigs(counters Counters) map[string]*Handler
 
 func (e *Ephemeral) processInstanceConfigs(counters Counters) map[string]*Instance {
 	instances := make(map[string]*Instance, len(e.templates))
-
 	for key, resource := range e.entries {
 		var info *template.Info
 		var found bool
@@ -237,7 +235,6 @@ func (e *Ephemeral) processRuleConfigs(
 	log.Debug("Begin processing rule configurations.")
 
 	var rules []*Rule
-
 	for ruleKey, resource := range e.entries {
 		if ruleKey.Kind != RulesKind {
 			continue
