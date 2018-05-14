@@ -37,6 +37,7 @@ import (
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd"
@@ -175,6 +176,15 @@ type Server struct {
 	MemoryServiceDiscovery *mock.ServiceDiscovery
 
 	mux *http.ServeMux
+}
+
+func createInterface(kubeconfig string) (kubernetes.Interface, error) {
+	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+
+	if err != nil {
+		return nil, err
+	}
+	return kubernetes.NewForConfig(restConfig)
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
@@ -403,7 +413,8 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 		var kuberr error
 
 		kubeCfgFile := s.getKubeCfgFile(args)
-		_, client, kuberr = kube.CreateInterface(kubeCfgFile)
+		client, kuberr = createInterface(kubeCfgFile)
+
 		if kuberr != nil {
 			return multierror.Prefix(kuberr, "failed to connect to Kubernetes API.")
 		}
@@ -534,7 +545,7 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 		for _, cluster := range clusters {
 			log.Infof("Cluster name: %s", clusterregistry.GetClusterID(cluster))
 			clusterClient := clientAccessConfigs[cluster.ObjectMeta.Name]
-			_, client, kuberr := kube.CreateInterfaceFromClusterConfig(&clusterClient)
+			client, kuberr := kube.CreateInterfaceFromClusterConfig(&clusterClient)
 			if kuberr != nil {
 				err = multierror.Append(err, multierror.Prefix(kuberr, fmt.Sprintf("failed to connect to Access API with access config: %s", cluster.ObjectMeta.Name)))
 			}

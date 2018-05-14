@@ -182,7 +182,7 @@ func TestServiceDiscovery_Instances_Filtering(t *testing.T) {
 	state.mockClient.RoutesReturns(routesResponse, nil)
 	state.mockClient.InternalRoutesReturns(internalRoutesResponse, nil)
 
-	instances, err := state.serviceDiscovery.Instances("process-guid-a.cfapps.io", nil, nil)
+	instances, err := state.serviceDiscovery.InstancesByPort("process-guid-a.cfapps.io", nil, nil)
 	g.Expect(err).To(gomega.BeNil())
 
 	servicePort := &model.Port{
@@ -214,7 +214,7 @@ func TestServiceDiscovery_Instances_Filtering(t *testing.T) {
 		},
 	}))
 
-	instances, err = state.serviceDiscovery.Instances("something.apps.internal", nil, nil)
+	instances, err = state.serviceDiscovery.InstancesByPort("something.apps.internal", nil, nil)
 	g.Expect(err).To(gomega.BeNil())
 
 	g.Expect(instances).To(gomega.ConsistOf([]*model.ServiceInstance{
@@ -249,7 +249,7 @@ func TestServiceDiscovery_Instances_NotFound(t *testing.T) {
 
 	state.mockClient.RoutesReturns(routesResponse, nil)
 
-	instances, err := state.serviceDiscovery.Instances("non-existent.cfapps.io", nil, nil)
+	instances, err := state.serviceDiscovery.InstancesByPort("non-existent.cfapps.io", nil, nil)
 	g.Expect(err).To(gomega.BeNil())
 	g.Expect(instances).To(gomega.BeEmpty())
 }
@@ -260,7 +260,7 @@ func TestServiceDiscovery_Instances_ClientRoutesError(t *testing.T) {
 
 	state.mockClient.RoutesReturns(nil, errors.New("potato"))
 
-	serviceModel, err := state.serviceDiscovery.Instances("process-guid-b.cfapps.io", nil, nil)
+	serviceModel, err := state.serviceDiscovery.InstancesByPort("process-guid-b.cfapps.io", nil, nil)
 
 	g.Expect(err).To(gomega.MatchError("getting routes: potato"))
 	g.Expect(serviceModel).To(gomega.BeNil())
@@ -272,7 +272,7 @@ func TestServiceDiscovery_Instances_ClientInternalRoutesError(t *testing.T) {
 
 	state.mockClient.InternalRoutesReturns(nil, errors.New("banana"))
 
-	serviceModel, err := state.serviceDiscovery.Instances("something.apps.internal", nil, nil)
+	serviceModel, err := state.serviceDiscovery.InstancesByPort("something.apps.internal", nil, nil)
 
 	g.Expect(err).To(gomega.MatchError("getting internal routes: banana"))
 	g.Expect(serviceModel).To(gomega.BeNil())

@@ -205,18 +205,34 @@ func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamT
 					},
 				},
 			},
-			ValidationContext: &auth.CertificateValidationContext{
-				TrustedCa: &core.DataSource{
-					Specifier: &core.DataSource_Filename{
-						Filename: server.Tls.CaCertificates,
-					},
-				},
-				VerifySubjectAltName: server.Tls.SubjectAltNames,
-			},
-			AlpnProtocols: ListenersALPNProtocols,
+			ValidationContext: buildGatewayListnerTLSValidationContext(server.Tls),
+			AlpnProtocols:     ListenersALPNProtocols,
 		},
 		RequireSni: boolTrue,
 	}
+}
+
+func buildGatewayListnerTLSValidationContext(tls *networking.Server_TLSOptions) *auth.CertificateValidationContext {
+	if tls == nil {
+		return nil
+	}
+
+	var trustedCa *core.DataSource
+	if len(tls.CaCertificates) != 0 {
+		trustedCa = &core.DataSource{
+			Specifier: &core.DataSource_Filename{
+				Filename: tls.CaCertificates,
+			},
+		}
+	}
+
+	if trustedCa != nil || len(tls.SubjectAltNames) != 0 {
+		return &auth.CertificateValidationContext{
+			TrustedCa:            trustedCa,
+			VerifySubjectAltName: tls.SubjectAltNames,
+		}
+	}
+	return nil
 }
 
 func buildGatewayInboundHTTPRouteConfig(
@@ -306,7 +322,9 @@ func buildGatewayNetworkFilters(env model.Environment, server *networking.Server
 			log.Debugf("failed to retrieve service for destination %q: %v", host, err)
 			continue
 		}
-		filters = append(filters, buildOutboundNetworkFilters(destToClusterName(dest), []string{upstream.Address}, port)...)
+		filters = append(filters, buildOutboundNetworkFilters(
+			istio_route.GetDestinationCluster(dest, upstream, int(server.Port.Number)),
+			[]string{upstream.Address}, port)...)
 	}
 	return filters
 }
@@ -384,10 +402,4 @@ func gatherDestinations(weights []*networking.DestinationWeight) []*networking.D
 		dests = append(dests, w.Destination)
 	}
 	return dests
-}
-
-// TODO: move up to more general location so this can be re-used
-// TODO: should this try to use `istio_route.ConvertDestinationToCluster`?
-func destToClusterName(d *networking.Destination) string {
-	return model.BuildSubsetKey(model.TrafficDirectionOutbound, d.Subset, model.Hostname(d.Host), &model.Port{Name: d.Port.GetName()})
 }

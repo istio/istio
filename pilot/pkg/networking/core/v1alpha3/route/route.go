@@ -110,16 +110,15 @@ func TranslateVirtualHosts(plugins []plugin.Plugin, pluginParams *plugin.InputPa
 		svc := services[fqdn]
 		for _, port := range svc.Ports {
 			if port.Protocol.IsHTTP() {
-				cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port)
+				cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port)
 				defaultRoute := BuildDefaultHTTPRoute(cluster)
 
 				// call plugins
 				for _, p := range plugins {
 					p.OnOutboundRoute(pluginParams, nil, map[string]*plugin.ClusterDescriptor{
 						cluster: {
-							Service:  fqdn,
-							Port:     port.Port,
-							Protocol: port.Protocol,
+							Service: fqdn,
+							Port:    port.Port,
 						}}, defaultRoute)
 				}
 
@@ -189,54 +188,32 @@ func translateVirtualHost(
 	return out
 }
 
-// ConvertDestinationToCluster generate a cluster name for the route, or error if no cluster
+// GetDestinationCluster generate a cluster name for the route, or error if no cluster
 // can be found. Called by translateRule to determine if
-func ConvertDestinationToCluster(destination *networking.Destination, vsvcName string,
-	in *networking.HTTPRoute, serviceIndex map[model.Hostname]*model.Service, defaultPort int) (string, *plugin.ClusterDescriptor) {
-	// detect if it is a service
-	svc := serviceIndex[model.Hostname(destination.Host)]
-
-	if svc == nil {
-		if defaultPort != 80 {
-			noClusterMissingService.With(prometheus.Labels{
-				"service": destination.String(),
-				"rule":    vsvcName,
-			}).Add(1)
-			log.Infof("svc == nil => route on %d with missing cluster %s %v %v", defaultPort, vsvcName, destination, in)
-		}
-		return util.BlackHoleCluster, nil
-	}
-
-	// default port uses port number
-	svcPort, _ := svc.Ports.GetByPort(defaultPort)
-
+func GetDestinationCluster(destination *networking.Destination, service *model.Service, listenerPort int) (string, *plugin.ClusterDescriptor) {
+	port := listenerPort
 	if destination.Port != nil {
 		switch selector := destination.Port.Port.(type) {
+		// TODO: remove port name from route.Destination in the API
 		case *networking.PortSelector_Name:
-			svcPort, _ = svc.Ports.Get(selector.Name)
+			log.Debuga("name based destination ports are not allowed => blackhole cluster")
+			return util.BlackHoleCluster, nil
 		case *networking.PortSelector_Number:
-			svcPort, _ = svc.Ports.GetByPort(int(selector.Number))
+			port = int(selector.Number)
+		}
+	} else {
+		// if service only has one port defined, use that as the port, otherwise use default listenerPort
+		if service != nil && len(service.Ports) == 1 {
+			port = service.Ports[0].Port
 		}
 	}
 
-	if svcPort == nil {
-		if defaultPort != 80 {
-			noClusterMissingPort.With(prometheus.Labels{
-				"service": destination.String(),
-				"rule":    vsvcName,
-			}).Add(1)
-			log.Infof("svcPort == nil => unresolved cluster %s %s %v", vsvcName, destination.Host, destination)
-		}
-		log.Debuga("svcPort == nil => blackhole cluster")
-		return util.BlackHoleCluster, nil
-	}
 	// use subsets if it is a service
-	return model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, svc.Hostname, svcPort),
+	return model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, model.Hostname(destination.Host), port),
 		&plugin.ClusterDescriptor{
-			Service:  svc.Hostname,
-			Subset:   destination.Subset,
-			Port:     svcPort.Port,
-			Protocol: svcPort.Protocol,
+			Service: model.Hostname(destination.Host),
+			Subset:  destination.Subset,
+			Port:    port,
 		}
 }
 
@@ -383,7 +360,7 @@ func translateRoute(
 		}
 
 		if in.Mirror != nil {
-			n, desc := ConvertDestinationToCluster(in.Mirror, operation, in, serviceIndex, port)
+			n, desc := GetDestinationCluster(in.Mirror, serviceIndex[model.Hostname(in.Mirror.Host)], port)
 			if desc != nil {
 				descriptors[n] = desc
 			}
@@ -396,7 +373,7 @@ func translateRoute(
 			if dst.Weight == 0 {
 				weight.Value = uint32(100)
 			}
-			n, desc := ConvertDestinationToCluster(dst.Destination, operation, in, serviceIndex, port)
+			n, desc := GetDestinationCluster(dst.Destination, serviceIndex[model.Hostname(dst.Destination.Host)], port)
 			if desc != nil {
 				descriptors[n] = desc
 			}

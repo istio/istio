@@ -59,7 +59,7 @@ func makeClient(t *testing.T, desc model.ConfigDescriptor) (*crd.Client, error) 
 
 // makeTempClient allocates a namespace and cleans it up on test completion
 func makeTempClient(t *testing.T) (*crd.Client, string, func()) {
-	_, client, err := kube.CreateInterface(os.Getenv("KUBECONFIG"))
+	client, err := kube.CreateInterface(os.Getenv("KUBECONFIG"))
 	if err != nil {
 		t.Fatal(err)
 	}

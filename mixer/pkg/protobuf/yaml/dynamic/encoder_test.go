@@ -770,6 +770,7 @@ func statdardVocabulary() ast.AttributeDescriptorFinder {
 		"request.auth.audiences":          {ValueType: v1beta1.STRING},
 		"request.auth.presenter":          {ValueType: v1beta1.STRING},
 		"request.auth.principal":          {ValueType: v1beta1.STRING},
+		"request.auth.claims":             {ValueType: v1beta1.STRING_MAP},
 		"request.headers":                 {ValueType: v1beta1.STRING_MAP},
 		"request.host":                    {ValueType: v1beta1.STRING},
 		"request.id":                      {ValueType: v1beta1.STRING},

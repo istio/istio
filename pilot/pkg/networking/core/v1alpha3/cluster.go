@@ -85,10 +85,10 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environmen
 	for _, service := range services {
 		config := env.DestinationRule(service.Hostname)
 		for _, port := range service.Ports {
-			hosts := buildClusterHosts(env, service, port)
+			hosts := buildClusterHosts(env, service, port.Port)
 
 			// create default cluster
-			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port)
+			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 			defaultCluster := buildDefaultCluster(env, clusterName, convertResolution(service.Resolution), hosts)
 			updateEds(env, defaultCluster, service.Hostname)
 			setUpstreamProtocol(defaultCluster, port)
@@ -99,7 +99,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environmen
 				applyTrafficPolicy(defaultCluster, destinationRule.TrafficPolicy, port)
 
 				for _, subset := range destinationRule.Subsets {
-					subsetClusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port)
+					subsetClusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
 					subsetCluster := buildDefaultCluster(env, subsetClusterName, convertResolution(service.Resolution), hosts)
 					updateEds(env, subsetCluster, service.Hostname)
 					setUpstreamProtocol(subsetCluster, port)
@@ -137,13 +137,12 @@ func updateEds(env model.Environment, cluster *v2.Cluster, serviceName model.Hos
 	}
 }
 
-func buildClusterHosts(env model.Environment, service *model.Service, port *model.Port) []*core.Address {
+func buildClusterHosts(env model.Environment, service *model.Service, port int) []*core.Address {
 	if service.Resolution != model.DNSLB {
 		return nil
 	}
 
-	// FIXME port name not required if only one port
-	instances, err := env.Instances(service.Hostname, []string{port.Name}, nil)
+	instances, err := env.InstancesByPort(service.Hostname, []int{port}, nil)
 	if err != nil {
 		log.Errorf("failed to retrieve instances for %s: %v", service.Hostname, err)
 		return nil
@@ -164,7 +163,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env model.Environment
 	clusters := make([]*v2.Cluster, 0)
 	for _, instance := range instances {
 		// This cluster name is mainly for stats.
-		clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", instance.Service.Hostname, instance.Endpoint.ServicePort)
+		clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
 		address := util.BuildAddress("127.0.0.1", uint32(instance.Endpoint.Port))
 		localCluster := buildDefaultCluster(env, clusterName, v2.Cluster_STATIC, []*core.Address{&address})
 		setUpstreamProtocol(localCluster, instance.Endpoint.ServicePort)
@@ -192,7 +191,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env model.Environment
 
 	// Add a passthrough cluster for traffic to management ports (health check ports)
 	for _, port := range managementPorts {
-		clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", ManagementClusterHostname, port)
+		clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", ManagementClusterHostname, port.Port)
 		address := util.BuildAddress("127.0.0.1", uint32(port.Port))
 		mgmtCluster := buildDefaultCluster(env, clusterName, v2.Cluster_STATIC, []*core.Address{&address})
 		setUpstreamProtocol(mgmtCluster, port)
@@ -397,7 +396,12 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 
 func setUpstreamProtocol(cluster *v2.Cluster, port *model.Port) {
 	if port.Protocol.IsHTTP2() {
-		cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{}
+		cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{
+			// Envoy default value of 100 is too low for data path.
+			MaxConcurrentStreams: &types.UInt32Value{
+				Value: 1073741824,
+			},
+		}
 	}
 }
 

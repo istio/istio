@@ -42,11 +42,8 @@ const (
 )
 
 func createInterface(kubeconfig string) (kubernetes.Interface, error) {
-	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	loadingRules.ExplicitPath = kubeconfig
+	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 
-	clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
-	restConfig, err := clientConfig.ClientConfig()
 	if err != nil {
 		return nil, err
 	}
