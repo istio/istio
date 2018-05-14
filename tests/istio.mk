@@ -124,11 +124,14 @@ e2e_pilot: istioctl generate_yaml
 
 e2e_pilotv2_v1alpha3: | istioctl test/local/noauth/e2e_pilotv2
 
+e2e_bookinfo_envoyv2_v1alpha3: | istioctl test/local/noauth/e2e_bookinfo_envoyv2
+
 ## Targets for fast local development and staged CI.
 # The test take a T argument. Example:
 # make test/local/noauth/e2e_pilotv2 T=-test.run=TestPilot/ingress
 
 test/minikube/auth/e2e_simple: generate_yaml
+	mkdir -p ${OUT_DIR}/tests
 	set -o pipefail; go test -v -timeout 20m ./tests/e2e/tests/simple -args --auth_enable=true \
 	  --skip_cleanup  -use_local_cluster -cluster_wide \
 	  ${E2E_ARGS} ${EXTRA_E2E_ARGS}  ${T}\
@@ -157,14 +160,21 @@ test/local/auth/e2e_pilot: generate_yaml
 test/local/noauth/e2e_pilotv2: generate_yaml-envoyv2_transition
 	@mkdir -p ${OUT_DIR}/logs
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 20m ./tests/e2e/tests/pilot \
- 	--skip_cleanup --auth_enable=false --v1alpha3=true --egress=false --ingress=false --rbac_enable=false --v1alpha1=false --cluster_wide \
+ 	--skip_cleanup --auth_enable=false --v1alpha3=true --egress=false --ingress=false --rbac_enable=true --v1alpha1=false --cluster_wide \
 	${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} \
 		| tee ${OUT_DIR}/logs/test-report.raw
 
 test/local/cloudfoundry/e2e_pilotv2:
-	@mkdir -p /go/out/logs
+	@mkdir -p ${OUT_DIR}/logs
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 20m ./tests/e2e/tests/pilot/cloudfoundry ${T} \
-		| tee ${OUT_DIR}/logs/test-report.raw
+		| tee ${OUT_DIR}/logs/test-report-cloudfoundry.raw
+
+test/local/noauth/e2e_bookinfo_envoyv2: generate_yaml-envoyv2_transition_loadbalancer_ingressgateway
+	@mkdir -p ${OUT_DIR}/logs
+	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 20m ./tests/e2e/tests/bookinfo \
+	--skip_cleanup --auth_enable=false --v1alpha3=true --egress=false --ingress=false --rbac_enable=false \
+	--v1alpha1=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} \
+                | tee ${OUT_DIR}/logs/test-report.raw
 
 # v1alpha3+envoyv2 test without MTLS (not implemented yet). Still in progress, for tracking
 test/local/noauth/e2e_simple_pilotv2: generate_yaml-envoyv2_transition
@@ -184,4 +194,4 @@ dumpsys:
 	kubectl cluster-info dump > ${OUT_DIR}/logs/cluster-info.dump.txt
 	kubectl describe pods -n istio-system > ${OUT_DIR}/logs/pods-system.txt
 	kubectl logs -n istio-system -listio=pilot -c discovery
-	$(JUNIT_REPORT) <${OUT_DIR}/logs/test-report.raw >${OUT_DIR}/tests/test-report.xml
+	$(JUNIT_REPORT) <${OUT_DIR}/logs/test-report.raw >${OUT_DIR}/tests/junit.xml

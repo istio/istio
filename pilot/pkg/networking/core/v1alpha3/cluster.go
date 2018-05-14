@@ -62,7 +62,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env model.Environment, proxy
 		}
 	}
 	if proxy.Type == model.Sidecar {
-		instances, err := env.GetProxyServiceInstances(proxy)
+		instances, err := env.GetProxyServiceInstances(&proxy)
 		if err != nil {
 			log.Errorf("failed to get service proxy service instances: %v", err)
 			return nil, err
@@ -71,6 +71,10 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env model.Environment, proxy
 		managementPorts := env.ManagementPorts(proxy.IPAddress)
 		clusters = append(clusters, configgen.buildInboundClusters(env, proxy, instances, managementPorts)...)
 	}
+
+	// Add a blackhole cluster for catching traffic to unresolved routes
+	// DO NOT CALL PLUGINS for this cluster.
+	clusters = append(clusters, buildBlackHoleCluster())
 
 	return clusters, nil // TODO: normalize/dedup/order
 }
@@ -92,6 +96,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environmen
 			for _, p := range configgen.Plugins {
 				p.OnOutboundCluster(env, proxy, service, port, defaultCluster)
 			}
+
 			clusters = append(clusters, defaultCluster)
 
 			if config != nil {
@@ -361,6 +366,18 @@ func setUpstreamProtocol(cluster *v2.Cluster, port *model.Port) {
 	if port.Protocol.IsHTTP2() {
 		cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{}
 	}
+}
+
+// generates a cluster that sends traffic to dummy localport 0
+// This cluster is used to catch all traffic to unresolved destinations in virtual service
+func buildBlackHoleCluster() *v2.Cluster {
+	cluster := &v2.Cluster{
+		Name:           util.BlackHoleCluster,
+		Type:           v2.Cluster_STATIC,
+		ConnectTimeout: defaultClusterConnectTimeout,
+		LbPolicy:       v2.Cluster_ROUND_ROBIN,
+	}
+	return cluster
 }
 
 func buildDefaultCluster(env model.Environment, name string, discoveryType v2.Cluster_DiscoveryType,

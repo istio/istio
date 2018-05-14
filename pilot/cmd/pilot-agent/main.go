@@ -45,24 +45,25 @@ var (
 	registry serviceregistry.ServiceRegistry
 
 	// proxy config flags (named identically)
-	configPath             string
-	binaryPath             string
-	serviceCluster         string
-	availabilityZone       string
-	drainDuration          time.Duration
-	parentShutdownDuration time.Duration
-	discoveryAddress       string
-	discoveryRefreshDelay  time.Duration
-	zipkinAddress          string
-	connectTimeout         time.Duration
-	statsdUDPAddress       string
-	proxyAdminPort         int
-	controlPlaneAuthPolicy string
-	customConfigFile       string
-	proxyLogLevel          string
-	concurrency            int
-	bootstrapv2            bool
-	templateFile           string
+	configPath               string
+	binaryPath               string
+	serviceCluster           string
+	availabilityZone         string
+	drainDuration            time.Duration
+	parentShutdownDuration   time.Duration
+	discoveryAddress         string
+	discoveryRefreshDelay    time.Duration
+	zipkinAddress            string
+	connectTimeout           time.Duration
+	statsdUDPAddress         string
+	proxyAdminPort           int
+	controlPlaneAuthPolicy   string
+	customConfigFile         string
+	proxyLogLevel            string
+	concurrency              int
+	bootstrapv2              bool
+	templateFile             string
+	disableInternalTelemetry bool
 
 	loggingOptions = log.DefaultOptions()
 
@@ -86,7 +87,7 @@ var (
 			}
 
 			// set values from registry platform
-			if role.IPAddress == "" {
+			if len(role.IPAddress) == 0 {
 				if registry == serviceregistry.KubernetesRegistry {
 					role.IPAddress = os.Getenv("INSTANCE_IP")
 				} else {
@@ -99,7 +100,7 @@ var (
 					role.IPAddress = ipAddr
 				}
 			}
-			if role.ID == "" {
+			if len(role.ID) == 0 {
 				if registry == serviceregistry.KubernetesRegistry {
 					role.ID = os.Getenv("POD_NAME") + "." + os.Getenv("POD_NAMESPACE")
 				} else if registry == serviceregistry.ConsulRegistry {
@@ -109,7 +110,7 @@ var (
 				}
 			}
 			pilotDomain := role.Domain
-			if role.Domain == "" {
+			if len(role.Domain) == 0 {
 				if registry == serviceregistry.KubernetesRegistry {
 					role.Domain = os.Getenv("POD_NAMESPACE") + ".svc.cluster.local"
 					pilotDomain = "cluster.local"
@@ -206,6 +207,9 @@ var (
 				opts["PodNamespace"] = os.Getenv("POD_NAMESPACE")
 				if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
 					opts["ControlPlaneAuth"] = "enable"
+				}
+				if disableInternalTelemetry {
+					opts["DisableReportCalls"] = "true"
 				}
 				tmpl, err := template.ParseFiles(templateFile)
 				if err != nil {
@@ -312,6 +316,8 @@ func init() {
 		"Use bootstrap v2")
 	proxyCmd.PersistentFlags().StringVar(&templateFile, "templateFile", "",
 		"Go template bootstrap config")
+	proxyCmd.PersistentFlags().BoolVar(&disableInternalTelemetry, "disableInternalTelemetry", false,
+		"Disable internal telemetry")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)

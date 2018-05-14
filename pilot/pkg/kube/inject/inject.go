@@ -48,6 +48,7 @@ const (
 	sidecarAnnotationPolicyKey                        = "sidecar.istio.io/inject"
 	sidecarAnnotationStatusKey                        = "sidecar.istio.io/status"
 	sidecarAnnotationProxyImageOverride               = "sidecar.istio.io/proxyImage"
+	sidecarAnnotationInterceptionModeKey              = "sidecar.istio.io/interceptionMode"
 	sidecarAnnotationIncludeOutboundIPRangesPolicyKey = "traffic.sidecar.istio.io/includeOutboundIPRanges"
 	sidecarAnnotationExcludeOutboundIPRangesPolicyKey = "traffic.sidecar.istio.io/excludeOutboundIPRanges"
 	sidecarAnnotationIncludeInboundPortsPolicyKey     = "traffic.sidecar.istio.io/includeInboundPorts"
@@ -201,6 +202,17 @@ func validatePortList(ports string) error {
 	return nil
 }
 
+// ValidateInterceptionMode validates the interceptionMode annotation
+func ValidateInterceptionMode(mode string) error {
+	switch mode {
+	case meshconfig.ProxyConfig_REDIRECT.String():
+	case meshconfig.ProxyConfig_TPROXY.String():
+	default:
+		return fmt.Errorf("interceptionMode invalid: %v", mode)
+	}
+	return nil
+}
+
 // ValidateIncludeIPRanges validates the includeIPRanges parameter
 func ValidateIncludeIPRanges(ipRanges string) error {
 	if ipRanges != "*" {
@@ -289,14 +301,16 @@ func injectRequired(ignored []string, namespacePolicy InjectionPolicy, podSpec *
 	}
 
 	log.Debugf("Sidecar injection policy for %v/%v: namespacePolicy:%v useDefault:%v inject:%v status:%q proxyImage:%q"+
-		"required:%v includeOutboundIPRanges:%v excludeOutboundIPRanges:%v includeInboundPorts:%v excludeInboundPorts:%v",
+		" interceptionMode:%v required:%v"+
+		" includeOutboundIPRanges:%v excludeOutboundIPRanges:%v includeInboundPorts:%v excludeInboundPorts:%v",
 		metadata.Namespace,
 		metadata.Name,
 		namespacePolicy,
 		useDefault,
 		inject,
-		annotations[sidecarAnnotationProxyImageOverride],
 		annotations[sidecarAnnotationStatusKey],
+		annotations[sidecarAnnotationProxyImageOverride],
+		annotationString(annotations, sidecarAnnotationInterceptionModeKey),
 		required,
 		annotationString(annotations, sidecarAnnotationIncludeOutboundIPRangesPolicyKey),
 		annotationString(annotations, sidecarAnnotationExcludeOutboundIPRangesPolicyKey),
@@ -338,6 +352,9 @@ func validateAnnotation(annotations map[string]string, key string, validateFunc 
 func validateAnnotations(metadata *metav1.ObjectMeta) error {
 	// Validate injection annotations, if present.
 	annotations := metadata.GetAnnotations()
+	if err := validateAnnotation(annotations, sidecarAnnotationInterceptionModeKey, ValidateInterceptionMode); err != nil {
+		return err
+	}
 	if err := validateAnnotation(annotations, sidecarAnnotationIncludeOutboundIPRangesPolicyKey, ValidateIncludeIPRanges); err != nil {
 		return err
 	}

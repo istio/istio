@@ -91,7 +91,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env model.Environmen
 	mesh := env.Mesh
 	managementPorts := env.ManagementPorts(node.IPAddress)
 
-	proxyInstances, err := env.GetProxyServiceInstances(node)
+	proxyInstances, err := env.GetProxyServiceInstances(&node)
 	if err != nil {
 		return nil, err
 	}
@@ -131,14 +131,20 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env model.Environmen
 		// We need a dummy filter to fill in the filter stack for orig_dst listener
 		// TODO: Move to Listener filters and set up original dst filter there.
 		dummyTCPProxy := &tcp_proxy.TcpProxy{
-			StatPrefix: "Dummy",
-			Cluster:    "Dummy",
+			StatPrefix: util.BlackHoleCluster,
+			Cluster:    util.BlackHoleCluster,
+		}
+
+		var transparent *google_protobuf.BoolValue
+		if mode := node.Metadata["INTERCEPTION_MODE"]; mode == "TPROXY" {
+			transparent = &google_protobuf.BoolValue{true}
 		}
 
 		// add an extra listener that binds to the port that is the recipient of the iptables redirect
 		listeners = append(listeners, &xdsapi.Listener{
 			Name:           VirtualListenerName,
 			Address:        util.BuildAddress(WildcardAddress, uint32(mesh.ProxyListenPort)),
+			Transparent:    transparent,
 			UseOriginalDst: &google_protobuf.BoolValue{true},
 			FilterChains: []listener.FilterChain{
 				{
@@ -179,8 +185,16 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env model.Environmen
 					//rds:              RDSHttpProxy,
 					useRemoteAddress: useRemoteAddress,
 					direction:        traceOperation,
+					connectionManager: &http_conn.HttpConnectionManager{
+						HttpProtocolOptions: &core.Http1ProtocolOptions{
+							AllowAbsoluteUrl: &google_protobuf.BoolValue{
+								Value: true,
+							},
+						},
+					},
 				},
 			}},
+			bindToPort: true,
 		}
 		l := buildListener(opts)
 		if err := marshalFilters(l, opts, []plugin.FilterChain{{}}); err != nil {
@@ -249,6 +263,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 
 		default:
 			log.Debugf("Unsupported inbound protocol %v for port %#v", protocol, instance.Endpoint.ServicePort)
+			continue
 		}
 
 		// call plugins
@@ -262,6 +277,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 				ListenerType:    listenerType,
 				Env:             &env,
 				Node:            &node,
+				ProxyInstances:  proxyInstances,
 				ServiceInstance: instance,
 			}
 			if err := p.OnInboundListener(params, mutable); err != nil {
@@ -348,23 +364,23 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 						direction:        operation,
 					},
 				}}
-			default:
-				log.Infof("buildSidecarOutboundListeners: service %q has unknown protocol %#v, defaulting to TCP", service.Hostname, servicePort)
-				fallthrough
 			case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
 				if service.Resolution != model.Passthrough {
-					listenAddress = service.Address
-					addresses = []string{service.Address}
+					listenAddress = service.GetServiceAddressForProxy(&node)
+					addresses = []string{listenAddress}
 				}
 
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
-				if _, exists := listenerMap[listenerMapKey]; exists {
-					log.Warnf("Multiple TCP listener definitions for %s", listenerMapKey)
+				if n, exists := listenerMap[listenerMapKey]; exists {
+					log.Warnf("Multiple TCP listener definitions for %s %v %s", listenerMapKey, n, service.Hostname)
 					continue
 				}
 				listenerOpts.filterChainOpts = []*filterChainOpts{{
 					networkFilters: buildOutboundNetworkFilters(clusterName, addresses, servicePort),
 				}}
+			default:
+				log.Infof("buildSidecarOutboundListeners: service %q has unknown protocol %#v", service.Hostname, servicePort)
+				continue
 			}
 
 			// call plugins
@@ -378,10 +394,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 
 			for _, p := range configgen.Plugins {
 				params := &plugin.InputParams{
-					ListenerType: plugin.ModelProtocolToListenerType(servicePort.Protocol),
-					Env:          &env,
-					Node:         &node,
-					Service:      service,
+					ListenerType:   plugin.ModelProtocolToListenerType(servicePort.Protocol),
+					Env:            &env,
+					Node:           &node,
+					ProxyInstances: proxyInstances,
+					Service:        service,
 				}
 
 				if err := p.OnOutboundListener(params, mutable); err != nil {
@@ -485,6 +502,8 @@ type httpListenerOpts struct {
 	rds              string
 	useRemoteAddress bool
 	direction        http_conn.HttpConnectionManager_Tracing_OperationName
+	// If set, use this as a basis
+	connectionManager *http_conn.HttpConnectionManager
 }
 
 // filterChainOpts describes a filter chain: a set of filters with the same TLS context
@@ -522,17 +541,20 @@ func buildHTTPConnectionManager(mesh *meshconfig.MeshConfig, httpOpts *httpListe
 		refresh = 5 * time.Second
 	}
 
-	connectionManager := &http_conn.HttpConnectionManager{
-		CodecType: http_conn.AUTO,
-		AccessLog: []*accesslog.AccessLog{
-			{
-				Config: nil,
-			},
-		},
-		HttpFilters:      filters,
-		StatPrefix:       HTTPStatPrefix,
-		UseRemoteAddress: &google_protobuf.BoolValue{httpOpts.useRemoteAddress},
+	if httpOpts.connectionManager == nil {
+		httpOpts.connectionManager = &http_conn.HttpConnectionManager{}
 	}
+
+	connectionManager := httpOpts.connectionManager
+	connectionManager.CodecType = http_conn.AUTO
+	connectionManager.AccessLog = []*accesslog.AccessLog{
+		{
+			Config: nil,
+		},
+	}
+	connectionManager.HttpFilters = filters
+	connectionManager.StatPrefix = HTTPStatPrefix
+	connectionManager.UseRemoteAddress = &google_protobuf.BoolValue{httpOpts.useRemoteAddress}
 
 	// not enabled yet
 	if httpOpts.rds != "" {

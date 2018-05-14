@@ -136,6 +136,13 @@ message ProxyConfig {
 
 // MeshConfig defines mesh-wide variables shared by all Envoy instances in the
 // Istio service mesh.
+//
+// NOTE: This configuration type should be used for the low-level global
+// configuration, such as component addresses and port numbers. It should not
+// be used for the features of the mesh that can be scoped by service or by
+// namespace. Some of the fields in the mesh config are going to be deprecated
+// and replaced with several individual configuration types (for example,
+// tracing configuration).
 message MeshConfig {
   // Address of the server that will be used by the proxies for policy
   // check calls. By using different names for mixerCheckServer and
@@ -242,7 +249,7 @@ message MeshConfig {
   message OutboundTrafficPolicy {
     enum Mode {
       // outbound traffic will be restricted to services defined in the service registry as well as those defined
-      // through ExternalServices
+      // through ServiceEntries
       REGISTRY_ONLY = 0;
       // outbound traffic to unknown destinations will be allowed
       ALLOW_ANY = 1;
@@ -257,47 +264,9 @@ message MeshConfig {
   // While the default mode should work out of the box, if your application uses one or more external services that
   // are not known apriori, setting the policy to ALLOW_ANY will cause the sidecars to route traffic to the any
   // requested destination.
-  // Users are strongly encouraged to use ExternalServices to explicitly declare any external dependencies,
+  // Users are strongly encouraged to use ServiceEntries to explicitly declare any external dependencies,
   // instead of using allow_any.
   OutboundTrafficPolicy outbound_traffic_policy = 17;
 
-  // RbacConfig defines the global config to control Istio RBAC behavior.
-  message RbacConfig {
-    enum Mode {
-      // Disable Istio RBAC completely, any other config in RbacConfig will be ignored and Istio RBAC policies
-      // will not be enforced.
-      OFF = 0;
-      // Enable Istio RBAC for all services and namespaces.
-      ON = 1;
-      // Enable Istio RBAC only for services and namespaces specified in the inclusion field. Any other
-      // services and namespaces not in the inclusion field will not be enforced by Istio RBAC policies.
-      ON_WITH_INCLUSION = 2;
-      // Enable Istio RBAC for all services and namespaces except those specified in the exclusion field. Any other
-      // services and namespaces not in the exclusion field will be enforced by Istio RBAC policies.
-      ON_WITH_EXCLUSION = 3;
-    }
-
-    // Istil RBAC mode.
-    Mode mode = 1;
-
-    // Target defines a list of services or namespaces.
-    message Target {
-      // A list of services.
-      repeated string services = 1;
-
-      // A list of namespaces.
-      repeated string namespaces = 2;
-    }
-
-    // A list of services or namespaces that should be enforced by Istio RBAC policies. Note: This field have
-    // effect only when the mode is set to ON_WITH_INCLUSION and will be ignored in any other cases.
-    Target inclusion = 2;
-
-    // A list of services or namespaces that should not be enforced by Istio RBAC policies. Note: This field have
-    // effect only when the mode is set to ON_WITH_EXCLUSION and will be ignored in any other cases.
-    Target exclusion = 3;
-  }
-
-  // The global config to control Istio RBAC behavior.
-  RbacConfig rbac_config = 18;
+  reserved 18;
 }

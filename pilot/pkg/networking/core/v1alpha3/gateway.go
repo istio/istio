@@ -24,11 +24,13 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/gogo/protobuf/types"
+	multierror "github.com/hashicorp/go-multierror"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
 )
 
@@ -48,7 +50,7 @@ var (
 
 func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
 	// collect workload labels
-	workloadInstances, err := env.GetProxyServiceInstances(node)
+	workloadInstances, err := env.GetProxyServiceInstances(&node)
 	if err != nil {
 		log.Errora("Failed to get gateway instances for router ", node.ID, err)
 		return nil, err
@@ -68,6 +70,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 	merged := model.MergeGateways(gateways...)
 	log.Debugf("buildGatewayListeners: gateways after merging: %v", merged)
 
+	errs := &multierror.Error{}
 	listeners := make([]*xdsapi.Listener, 0, len(merged.Servers))
 	for portNumber, servers := range merged.Servers {
 		// TODO: this works because all Servers on the same port use the same protocol due to model.MergeGateways's implementation.
@@ -104,18 +107,20 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 		}
 		for _, p := range configgen.Plugins {
 			params := &plugin.InputParams{
-				ListenerType: listenerType,
-				Env:          &env,
-				Node:         &node,
+				ListenerType:   listenerType,
+				Env:            &env,
+				Node:           &node,
+				ProxyInstances: workloadInstances,
 			}
-			if err := p.OnOutboundListener(params, mutable); err != nil {
+			if err = p.OnOutboundListener(params, mutable); err != nil {
 				log.Warn(err.Error())
 			}
 		}
 
 		// Filters are serialized one time into an opaque struct once we have the complete list.
-		if err := marshalFilters(mutable.Listener, opts, mutable.FilterChains); err != nil {
-			log.Warn(err.Error())
+		if err = marshalFilters(mutable.Listener, opts, mutable.FilterChains); err != nil {
+			errs = multierror.Append(errs, fmt.Errorf("omitting listener %q due to: %v", mutable.Listener.Name, err.Error()))
+			continue
 		}
 		if log.DebugEnabled() {
 			// pprint does JSON marshalling, so we skip it if debugging is not enabled
@@ -123,6 +128,16 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 				len(mutable.Listener.FilterChains), mutable.Listener)
 		}
 		listeners = append(listeners, mutable.Listener)
+	}
+	// We'll try to return any listeners we successfully marshaled; if we have none, we'll emit the error we built up
+	err = errs.ErrorOrNil()
+	if len(listeners) == 0 {
+		return []*xdsapi.Listener{}, err
+	}
+
+	if err != nil {
+		// we have some listeners to return, but we also have some errors; log them
+		log.Info(err.Error())
 	}
 	return listeners, nil
 }
@@ -240,10 +255,11 @@ func buildGatewayInboundHTTPRouteConfig(
 		log.Debugf("constructed http route config for port %d with no vhosts; omitting", port)
 		return nil
 	}
-
+	util.SortVirtualHosts(virtualHosts)
 	return &xdsapi.RouteConfiguration{
-		Name:         fmt.Sprintf("%d", port),
-		VirtualHosts: virtualHosts,
+		Name:             fmt.Sprintf("%d", port),
+		VirtualHosts:     virtualHosts,
+		ValidateClusters: boolFalse,
 	}
 }
 
@@ -329,14 +345,9 @@ func l4Match(predicates []*networking.L4MatchAttributes, server *networking.Serv
 		// TODO: implement more matches, like CIDR ranges, etc.
 
 		// if there's no port predicate, portMatch is true; otherwise we evaluate the port predicate against the server's port
-		portMatch := match.Port == nil
-		if match.Port != nil {
-			switch p := match.Port.Port.(type) {
-			case *networking.PortSelector_Name:
-				portMatch = server.Port.Name == p.Name
-			case *networking.PortSelector_Number:
-				portMatch = server.Port.Number == p.Number
-			}
+		portMatch := match.Port == 0
+		if match.Port != 0 {
+			portMatch = server.Port.Number == match.Port
 		}
 
 		// similarly, if there's no gateway predicate, gatewayMatch is true; otherwise we match against the gateways for this workload

@@ -14,6 +14,8 @@ global:
   tag: circleci-nightly
   proxy:
     image: proxy
+  proxy_init:
+    image: proxy_init
 
   # imagePullPolicy is applied to istio control plane components.
   imagePullPolicy: IfNotPresent
@@ -95,12 +97,15 @@ ingress:
 # ingressgateway configuration
 #
 ingressgateway:
-  enabled: false
+  enabled: true
   serviceAccountName: istio-ingressgateway-service-account
   imagePullPolicy: IfNotPresent
   autoscaleMin: 1
   autoscaleMax: 1
   resources: {}
+  global:
+    proxy:
+      image: proxyv2
 # limits:
 #  cpu: 100m
 #  memory: 128Mi
@@ -140,12 +145,15 @@ ingressgateway:
 # egressgateway configuration
 #
 egressgateway:
-  enabled: false
+  enabled: true
   serviceAccountName: istio-egressgateway-service-account
   imagePullPolicy: IfNotPresent
   autoscaleMin: 1
   autoscaleMax: 1
   resources: {}
+  global:
+    proxy:
+      image: proxyv2
 # limits:
 #  cpu: 100m
 #  memory: 128Mi
@@ -180,8 +188,10 @@ egressgateway:
 #
 sidecar-injector:
   enabled: false
+  enableCoreDump: false
   serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
+  image: sidecar_injector
   imagePullPolicy: IfNotPresent
   resources: {}
   # limits:
@@ -206,6 +216,7 @@ sidecar-injector:
   #     Redirect only selected ports:            --includeInboundPorts="80,8080"
   includeInboundPorts: "*"
   excludeInboundPorts: ""
+  policy: enabled
 
 #
 # galley configuration
@@ -214,6 +225,7 @@ galley:
   enabled: false
   serviceAccountName: default
   replicaCount: 1
+  image: galley
   imagePullPolicy: IfNotPresent
   resources: {}
   # limits:
@@ -230,6 +242,7 @@ mixer:
   enabled: true
   serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
+  image: mixer
   imagePullPolicy: IfNotPresent
   resources: {}
   # limits:
@@ -252,6 +265,7 @@ pilot:
   enabled: true
   serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
+  image: pilot
   imagePullPolicy: IfNotPresent
   resources: {}
   # limits:
@@ -267,6 +281,7 @@ pilot:
 security:
   serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
+  image: citadel
   imagePullPolicy: IfNotPresent
   resources: {}
   # limits:
@@ -282,6 +297,7 @@ security:
 grafana:
   enabled: false
   replicaCount: 1
+  image: grafana
   imagePullPolicy: IfNotPresent
   service:
     name: http
@@ -345,6 +361,7 @@ prometheus:
 servicegraph:
   enabled: false
   replicaCount: 1
+  image: servicegraph
   imagePullPolicy: IfNotPresent
   service:
     name: http
@@ -379,7 +396,7 @@ zipkin:
   replicaCount: 1
   image:
     repository: docker.io/openzipkin/zipkin
-    tag: latest
+    tag: 2.7
     pullPolicy: IfNotPresent
   service:
     name: http

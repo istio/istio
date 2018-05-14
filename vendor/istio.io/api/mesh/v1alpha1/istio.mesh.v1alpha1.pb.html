@@ -4,7 +4,7 @@ overview: Configuration affecting the service mesh as a whole
 location: https://istio.io/docs/reference/config/istio.mesh.v1alpha1.html
 layout: protoc-gen-docs
 redirect_from: /docs/reference/config/service-mesh.html
-number_of_entries: 11
+number_of_entries: 8
 ---
 <h2 id="AuthenticationPolicy">AuthenticationPolicy</h2>
 <section>
@@ -50,6 +50,13 @@ policy.</p>
 <section>
 <p>MeshConfig defines mesh-wide variables shared by all Envoy instances in the
 Istio service mesh.</p>
+
+<p>NOTE: This configuration type should be used for the low-level global
+configuration, such as component addresses and port numbers. It should not
+be used for the features of the mesh that can be scoped by service or by
+namespace. Some of the fields in the mesh config are going to be deprecated
+and replaced with several individual configuration types (for example,
+tracing configuration).</p>
 
 <table class="message-fields">
 <thead>
@@ -222,16 +229,8 @@ use mixer<em>check and mixer</em>report.</p>
 While the default mode should work out of the box, if your application uses one or more external services that
 are not known apriori, setting the policy to ALLOW<em>ANY will cause the sidecars to route traffic to the any
 requested destination.
-Users are strongly encouraged to use ExternalServices to explicitly declare any external dependencies,
+Users are strongly encouraged to use ServiceEntries to explicitly declare any external dependencies,
 instead of using allow</em>any.</p>
-
-</td>
-</tr>
-<tr id="MeshConfig.rbac_config">
-<td><code>rbacConfig</code></td>
-<td><code><a href="#MeshConfig.RbacConfig">MeshConfig.RbacConfig</a></code></td>
-<td>
-<p>The global config to control Istio RBAC behavior.</p>
 
 </td>
 </tr>
@@ -343,7 +342,7 @@ cloud-provided ingress controller).</p>
 <td><code>REGISTRY_ONLY</code></td>
 <td>
 <p>outbound traffic will be restricted to services defined in the service registry as well as those defined
-through ExternalServices</p>
+through ServiceEntries</p>
 
 </td>
 </tr>
@@ -358,124 +357,6 @@ through ExternalServices</p>
 <td><code>VIRTUAL_SERVICE_ONLY</code></td>
 <td>
 <p>not implemented. outbound traffic will be restricted to destinations defined in VirtualServices only</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="MeshConfig.RbacConfig">MeshConfig.RbacConfig</h2>
-<section>
-<p>RbacConfig defines the global config to control Istio RBAC behavior.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="MeshConfig.RbacConfig.mode">
-<td><code>mode</code></td>
-<td><code><a href="#MeshConfig.RbacConfig.Mode">MeshConfig.RbacConfig.Mode</a></code></td>
-<td>
-<p>Istil RBAC mode.</p>
-
-</td>
-</tr>
-<tr id="MeshConfig.RbacConfig.inclusion">
-<td><code>inclusion</code></td>
-<td><code><a href="#MeshConfig.RbacConfig.Target">MeshConfig.RbacConfig.Target</a></code></td>
-<td>
-<p>A list of services or namespaces that should be enforced by Istio RBAC policies. Note: This field have
-effect only when the mode is set to ON<em>WITH</em>INCLUSION and will be ignored in any other cases.</p>
-
-</td>
-</tr>
-<tr id="MeshConfig.RbacConfig.exclusion">
-<td><code>exclusion</code></td>
-<td><code><a href="#MeshConfig.RbacConfig.Target">MeshConfig.RbacConfig.Target</a></code></td>
-<td>
-<p>A list of services or namespaces that should not be enforced by Istio RBAC policies. Note: This field have
-effect only when the mode is set to ON<em>WITH</em>EXCLUSION and will be ignored in any other cases.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="MeshConfig.RbacConfig.Mode">MeshConfig.RbacConfig.Mode</h2>
-<section>
-<table class="enum-values">
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="MeshConfig.RbacConfig.Mode.OFF">
-<td><code>OFF</code></td>
-<td>
-<p>Disable Istio RBAC completely, any other config in RbacConfig will be ignored and Istio RBAC policies
-will not be enforced.</p>
-
-</td>
-</tr>
-<tr id="MeshConfig.RbacConfig.Mode.ON">
-<td><code>ON</code></td>
-<td>
-<p>Enable Istio RBAC for all services and namespaces.</p>
-
-</td>
-</tr>
-<tr id="MeshConfig.RbacConfig.Mode.ON_WITH_INCLUSION">
-<td><code>ON_WITH_INCLUSION</code></td>
-<td>
-<p>Enable Istio RBAC only for services and namespaces specified in the inclusion field. Any other
-services and namespaces not in the inclusion field will not be enforced by Istio RBAC policies.</p>
-
-</td>
-</tr>
-<tr id="MeshConfig.RbacConfig.Mode.ON_WITH_EXCLUSION">
-<td><code>ON_WITH_EXCLUSION</code></td>
-<td>
-<p>Enable Istio RBAC for all services and namespaces except those specified in the exclusion field. Any other
-services and namespaces not in the exclusion field will be enforced by Istio RBAC policies.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="MeshConfig.RbacConfig.Target">MeshConfig.RbacConfig.Target</h2>
-<section>
-<p>Target defines a list of services or namespaces.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="MeshConfig.RbacConfig.Target.services">
-<td><code>services</code></td>
-<td><code>string[]</code></td>
-<td>
-<p>A list of services.</p>
-
-</td>
-</tr>
-<tr id="MeshConfig.RbacConfig.Target.namespaces">
-<td><code>namespaces</code></td>
-<td><code>string[]</code></td>
-<td>
-<p>A list of namespaces.</p>
 
 </td>
 </tr>

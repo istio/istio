@@ -24,6 +24,49 @@ integrationDefaults: &integrationDefaults
     TAG: dontpush
     GOPATH: /go
 
+# Common procedure to initialize working directory
+initWorkingDir: &initWorkingDir
+  type: shell
+  name: Initialize Working Directory
+  pwd: /
+  command: |
+    sudo mkdir -p /go/src/istio.io/istio
+    sudo chown -R circleci /go
+    mkdir -p /go/out/tests
+    mkdir -p /home/circleci/logs
+
+recordZeroExitCodeIfTestPassed: &recordZeroExitCodeIfTestPassed
+  run:
+    when: on_success
+    name: Record zero exit code as test passed
+    command: echo 0 > exit_code
+
+recordNonzeroExitCodeIfTestFailed: &recordNonzeroExitCodeIfTestFailed
+  run:
+    when: on_fail
+    name: Record nonzero exit code as test failed
+    command: echo 1 > exit_code
+
+markJobStartsOnGCS: &markJobStartsOnGCS
+  run:
+    when: always
+    command: bin/ci2gubernator.sh --job_starts
+
+markJobFinishesOnGCS: &markJobFinishesOnGCS
+  run:
+    when: always
+    command: bin/ci2gubernator.sh --exit_code=$(cat exit_code) --junit_xml=/go/out/tests/junit.xml
+
+dumpsysNonPilot: &dumpsysNonPilot
+  run:
+    name: dumpsys
+    when: always
+    command: |
+      /go/bin/go-junit-report </go/out/tests/build-log.txt > /go/out/tests/junit.xml
+      kubectl get all -o wide --all-namespaces
+      kubectl cluster-info dump > /go/out/tests/cluster-info.dump.txt
+      kubectl describe pods -n istio-system > /go/out/tests/pods-system.txt
+
 jobs:
   e2e-simple:
     <<: *integrationDefaults
@@ -32,17 +75,11 @@ jobs:
             - TEST_ENV: minikube-none
             - GOPATH: /go
     steps:
-      - type: shell
-        name: Initialize Working Directory
-        pwd: /
-        command: |
-          sudo mkdir -p /go/src/istio.io/istio
-          sudo chown -R circleci /go
-          mkdir -p /go/out
-          mkdir /home/circleci/logs
+      - <<: *initWorkingDir
       - checkout
       - attach_workspace:
           at:  /go
+      - <<: *markJobStartsOnGCS
       - run: make sync
       - run: bin/testEnvRootMinikube.sh start
       - run:
@@ -54,17 +91,11 @@ jobs:
             make docker.all generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: make test/minikube/noauth/e2e_simple
-      - run:
-          name: dumpsys
-          when: always
-          command: |
-            mkdir -p /go/out/logs
-            # TODO: move to a make target 'dumpsys'.
-            kubectl get all -o wide --all-namespaces
-            kubectl cluster-info dump > /go/out/logs/cluster-info.dump.txt
-            kubectl describe pods -n istio-system > /go/out/logs/pods-system.txt
-            /go/bin/go-junit-report </go/out/tests/test-report-noauth-simple.raw > /go/out/tests/test-report-noauth-simple.xml
+      - run: make test/minikube/auth/e2e_simple | tee -a /go/out/tests/build-log.txt
+      - <<: *recordZeroExitCodeIfTestPassed
+      - <<: *recordNonzeroExitCodeIfTestFailed
+      - <<: *dumpsysNonPilot
+      - <<: *markJobFinishesOnGCS
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
@@ -118,17 +149,11 @@ jobs:
             - TEST_ENV: minikube-none
             - GOPATH: /go
     steps:
-      - type: shell
-        name: Initialize Working Directory
-        pwd: /
-        command: |
-          sudo mkdir -p /go/src/istio.io/istio
-          sudo chown -R circleci /go
-          mkdir -p /go/out
-          mkdir /home/circleci/logs
+      - <<: *initWorkingDir
       - checkout
       - attach_workspace:
           at:  /go
+      - <<: *markJobStartsOnGCS
       - run: make sync
       - run: bin/testEnvRootMinikube.sh start
       - run:
@@ -141,15 +166,23 @@ jobs:
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run:
-            no_output_timeout: 20m
-            # Run the test even if previous failed
-            when: always
-            command: |
-                  make e2e_mixer E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -test.v"
+          no_output_timeout: 20m
+          # Run the test even if previous failed
+          when: always
+          name: make e2e_mixer
+          command: |
+            E2E_ARGS="--skip_cleanup -use_local_cluster -cluster_wide -test.v" \
+            make e2e_mixer | tee -a /go/out/tests/build-log.txt
+      - <<: *recordZeroExitCodeIfTestPassed
+      - <<: *recordNonzeroExitCodeIfTestFailed
+      - <<: *dumpsysNonPilot
+      - <<: *markJobFinishesOnGCS
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
           path: /tmp
+      - store_test_results:
+          path: /go/out/tests
 
   e2e-bookinfo:
     <<: *integrationDefaults
@@ -230,6 +263,33 @@ jobs:
             make dumpsys
       - store_test_results:
           path: /go/out/tests
+      - store_artifacts:
+          path: /go/out/logs
+      - store_artifacts:
+          path: /tmp
+
+  e2e-pilot-cloudfoundry-v1alpha3-v2:
+    <<: *defaults
+    steps:
+      - type: shell
+        name: Initialize Working Directory
+        pwd: /
+        command: |
+          sudo mkdir -p /go/src/istio.io/istio
+          sudo chown -R circleci /go
+          mkdir -p /go/out
+          mkdir -p /home/circleci/logs
+      - checkout
+      - attach_workspace:
+          at: /go
+      - run: make sync
+      - run:
+          no_output_timeout: 20m
+          when: always
+          command: |
+            export PATH=$GOPATH/bin:$PATH
+            make localTestEnv
+            make test/local/cloudfoundry/e2e_pilotv2
       - store_artifacts:
           path: /go/out/logs
       - store_artifacts:
@@ -381,22 +441,22 @@ jobs:
       - store_artifacts:
           path: /tmp
 
-  # Run nightly, to verify 'dep update' works
+  # Run nightly, to verify 'dep ensure --update' works
   depupdate:
     <<: *defaults
     steps:
       - checkout
-      - run: make depend.update
+      - run: mkdir -p /go/out
+      - run:
+          name: Updating all dependencies
+          command: dep ensure --update
       - run: ( cd vendor ; git status  ) # just to see what changes
       - run: make init build
       - run:
           name: Status and artifacts
-          command: make depend.status ISTIO_OUT=/go/out
-      - store_artifacts:
-          path: vendor/Gopkg.lock
+          command: dep status -dot > /go/out/dep.dot
       - store_artifacts:
           path: /go/out/dep.dot
-      # TODO: auto-commit Gopkg.lock if test is successful
 
   codecov:
     <<: *defaults
@@ -499,6 +559,12 @@ jobs:
       - checkout
       - run: make sync
       - run: make lint
+      # Make sure that any modification to vendor is correct. Always use the latest version of dep.
+      - run:
+          name: Creating vendor diff
+          command: make depend.diff ISTIO_OUT=/go/out
+      - store_artifacts:
+          path: /go/out/dep.diff
 
   nightly:
     <<: *defaults
@@ -517,6 +583,7 @@ jobs:
           command: |
             if [ ! -z "${DOCKER_USER}" ] ; then
               echo "Pushing docker images"
+              export TAG=nightly-${CIRCLE_BRANCH}
               docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
               # The xenail debug image is built first, will be used in the next steps
               make docker.push.basedebug docker.all push
@@ -548,6 +615,8 @@ workflows:
              branches:
                only:
                  - master
+                 - release-0.8
+                 - dev-networking
     jobs: #daisy chained steps ending with docker push
       - depupdate
       - build
@@ -596,6 +665,8 @@ workflows:
              branches:
                only:
                  - master
+                 - release-0.8
+                 - dev-networking
     jobs:
       - depupdate
       - build
@@ -643,7 +714,7 @@ workflows:
       - build
       - test
       - codecov:
-           requires:
+          requires:
             - build
       - e2e-mixer:
           requires:
@@ -658,5 +729,8 @@ workflows:
           requires:
             - test
       - e2e-pilot-noauth-v1alpha3-v2: #no auth+v1alpha3+v2
+          requires:
+            - build
+      - e2e-pilot-cloudfoundry-v1alpha3-v2:
           requires:
             - build

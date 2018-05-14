@@ -24,8 +24,11 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
+const all = "all"
+
 type debug struct {
 	pilotAddress string
+	client       *http.Client
 }
 
 var (
@@ -41,7 +44,8 @@ var (
 		Args:  cobra.MinimumNArgs(2),
 		RunE: func(c *cobra.Command, args []string) error {
 			d := &debug{
-				pilotAddress: "127.0.0.1:15007",
+				pilotAddress: "127.0.0.1:9093",
+				client:       &http.Client{},
 			}
 			return d.run(args)
 		},
@@ -55,9 +59,9 @@ func (d *debug) run(args []string) error {
 		return err
 	}
 
-	if configType == "all" {
+	if configType == all {
 		for ct := range configTypes {
-			if ct != "all" {
+			if ct != all {
 				if err := d.printConfig(ct, proxyID); err != nil {
 					return err
 				}
@@ -70,7 +74,16 @@ func (d *debug) run(args []string) error {
 
 func (d *debug) printConfig(typ, proxyID string) error {
 	log.Infof("Retrieving %v for %q", typ, proxyID)
-	resp, err := http.Get(fmt.Sprintf("http://%v/debug/%s", d.pilotAddress, configTypes[typ]))
+	req, err := http.NewRequest("GET", fmt.Sprintf("http://%v/debug/%s", d.pilotAddress, configTypes[typ]), nil)
+	if err != nil {
+		return err
+	}
+	if proxyID != all {
+		q := req.URL.Query()
+		q.Add("proxyID", proxyID)
+		req.URL.RawQuery = q.Encode()
+	}
+	resp, err := d.client.Do(req)
 	if err != nil {
 		return err
 	}

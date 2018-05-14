@@ -64,9 +64,18 @@ const (
 )
 
 // DNSNameEntry stores the service name and namespace to construct the DNS id.
+// Service accounts matching the ServiceName and Namespace will have additional DNS SANs:
+// ServiceName.Namespace.svc, ServiceName.Namespace and optionall CustomDomain.
+// This is intended for control plane and trusted services.
 type DNSNameEntry struct {
+	// ServiceName is the name of the service account to match
 	ServiceName string
-	Namespace   string
+
+	// Namespace restricts to a specific namespace.
+	Namespace string
+
+	// CustomDomain allows adding a user-defined domain.
+	CustomDomains []string
 }
 
 // SecretController manages the service accounts' secrets that contains Istio keys and certificates.
@@ -91,6 +100,8 @@ type SecretController struct {
 	// Controller and store for secret objects.
 	scrtController cache.Controller
 	scrtStore      cache.Store
+
+	monitoring monitoringMetrics
 }
 
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
@@ -113,6 +124,7 @@ func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, grac
 		core:             core,
 		forCA:            forCA,
 		dnsNames:         dnsNames,
+		monitoring:       newMonitoringMetrics(),
 	}
 
 	saLW := &cache.ListWatch{
@@ -165,12 +177,14 @@ func GetSecretName(saName string) string {
 func (sc *SecretController) saAdded(obj interface{}) {
 	acct := obj.(*v1.ServiceAccount)
 	sc.upsertSecret(acct.GetName(), acct.GetNamespace())
+	sc.monitoring.ServiceAccountCreation.Inc()
 }
 
 // Handles the event where a service account is deleted.
 func (sc *SecretController) saDeleted(obj interface{}) {
 	acct := obj.(*v1.ServiceAccount)
 	sc.deleteSecret(acct.GetName(), acct.GetNamespace())
+	sc.monitoring.ServiceAccountDeletion.Inc()
 }
 
 // Handles the event where a service account is updated.
@@ -275,15 +289,25 @@ func (sc *SecretController) scrtDeleted(obj interface{}) {
 	if sa, _ := sc.core.ServiceAccounts(scrt.GetNamespace()).Get(saName, metav1.GetOptions{}); sa != nil {
 		log.Errorf("Re-create deleted Istio secret for existing service account.")
 		sc.upsertSecret(saName, scrt.GetNamespace())
+		sc.monitoring.SecretDeletion.Inc()
 	}
 }
 
 func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string) ([]byte, []byte, error) {
 	id := fmt.Sprintf("%s://cluster.local/ns/%s/sa/%s", util.URIScheme, saNamespace, saName)
 	if sc.dnsNames != nil {
+		// Control plane components in same namespace.
 		if e, ok := sc.dnsNames[saName]; ok {
 			if e.Namespace == saNamespace {
+				// Example: istio-pilot.istio-system.svc, istio-pilot.istio-system
 				id += "," + fmt.Sprintf("%s.%s.svc", e.ServiceName, e.Namespace)
+				id += "," + fmt.Sprintf("%s.%s", e.ServiceName, e.Namespace)
+			}
+		}
+		// Custom overrides using CLI
+		if e, ok := sc.dnsNames[saName+"."+saName]; ok {
+			for _, d := range e.CustomDomains {
+				id += "," + d
 			}
 		}
 	}

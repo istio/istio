@@ -142,6 +142,8 @@
     "private/protocol/query/queryutil",
     "private/protocol/rest",
     "private/protocol/xml/xmlutil",
+    "service/cloudwatch",
+    "service/cloudwatch/cloudwatchiface",
     "service/sts"
   ]
   revision = "4b5324816e154564ef4e490842c2e40560971f75"
@@ -269,7 +271,7 @@
     "envoy/type",
     "pkg/util"
   ]
-  revision = "9fdf4bd79736a87c78b3d48b7baa84ea24be1c1a"
+  revision = "5f52d064b948cc3a39451b20055e173597d3885e"
 
 [[projects]]
   name = "github.com/evanphx/json-patch"
@@ -961,7 +963,8 @@
     "thrift-gen/zipkincore",
     "transport",
     "transport/zipkin",
-    "utils"
+    "utils",
+    "zipkin"
   ]
   revision = "c107110d057826281414cb964f167bce5be17588"
   version = "v2.12.0"
@@ -1242,6 +1245,12 @@
   version = "v2.2.6"
 
 [[projects]]
+  name = "gopkg.in/d4l3k/messagediff.v1"
+  packages = ["."]
+  revision = "29f32d820d112dbd66e58492a6ffb7cc3106312b"
+  version = "v1.2.1"
+
+[[projects]]
   name = "gopkg.in/inf.v0"
   packages = ["."]
   revision = "d2d2541c53f18d2a059457998ce2876cc8e67cbf"
@@ -1291,7 +1300,7 @@
     "rbac/v1alpha1",
     "routing/v1alpha1"
   ]
-  revision = "bf7eff00d3dede110dbe8b2f8fb09d778c9948ce"
+  revision = "f2b64e6cf3f3bb9ae8eb29338706db3247266809"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1509,6 +1518,7 @@
     "tools/leaderelection/resourcelock",
     "tools/metrics",
     "tools/pager",
+    "tools/portforward",
     "tools/record",
     "tools/reference",
     "tools/remotecommand",
@@ -1588,6 +1598,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "8b86e4a11e9c6547ee298eb1602f982a3c3e428398c01e9a54dd2a7ee6aca36a"
+  inputs-digest = "91cf79201f8069b021b986cb835258635094a71f6954a8f245cf239378ddb225"
   solver-name = "gps-cdcl"
   solver-version = 1

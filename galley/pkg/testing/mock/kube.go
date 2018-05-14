@@ -18,6 +18,7 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/galley/pkg/common"
 )
@@ -71,6 +72,25 @@ func (k *Kube) DynamicInterface(gv schema.GroupVersion, kind string, listKind st
 	return iface, err
 }
 
+// KubernetesInterface implementation.
+func (k *Kube) KubernetesInterface() (kubernetes.Interface, error) {
+	if len(k.response1) == 0 {
+		panic("No more responses left")
+	}
+
+	r1 := k.response1[0]
+	err := k.response2[0]
+	k.response1 = k.response1[1:]
+	k.response2 = k.response2[1:]
+
+	var iface kubernetes.Interface
+	if r1 != nil {
+		iface = r1.(kubernetes.Interface)
+	}
+	return iface, err
+}
+
+// AddResponse adds a new response to this mock.
 func (k *Kube) AddResponse(r1 interface{}, r2 error) {
 	k.response1 = append(k.response1, r1)
 	k.response2 = append(k.response2, r2)

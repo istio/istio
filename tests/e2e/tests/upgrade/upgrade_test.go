@@ -232,7 +232,19 @@ func applyRules(ruleKeys []string) error {
 	return nil
 }
 
+func pruneDeprecatedResources() {
+	if err := util.DeleteDeployment("istio-ca", tc.Kube.Namespace, tc.Kube.KubeConfig); err != nil {
+		log.Warnf("Delete deployment istio-ca failed %q", err)
+	}
+	if err := util.DeleteDeployment("istio-mixer", tc.Kube.Namespace, tc.Kube.KubeConfig); err != nil {
+		log.Warnf("Delete deployment istio-mixer failed %q", err)
+	}
+}
+
 func upgradeControlPlane() error {
+	if baseConfig.Kube.BaseVersion <= "0.7.1" {
+		pruneDeprecatedResources()
+	}
 	// Generate and deploy Isito yaml files.
 	err := targetConfig.Kube.Setup()
 	if err != nil {
