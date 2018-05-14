@@ -831,7 +831,10 @@ spec:
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
 <p>One or more labels that indicate a specific set of pods/VMs
-on which this gateway configuration should be applied.</p>
+on which this gateway configuration should be applied.
+The scope of label search is platform dependent.
+On Kubernetes, for example, the scope includes pods running in
+all reachable namespaces.</p>
 
 </td>
 </tr>

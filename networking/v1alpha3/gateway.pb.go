@@ -182,6 +182,9 @@ type Gateway struct {
 	Servers []*Server `protobuf:"bytes,1,rep,name=servers" json:"servers,omitempty"`
 	// One or more labels that indicate a specific set of pods/VMs
 	// on which this gateway configuration should be applied.
+	// The scope of label search is platform dependent.
+	// On Kubernetes, for example, the scope includes pods running in
+	// all reachable namespaces.
 	Selector map[string]string `protobuf:"bytes,2,rep,name=selector" json:"selector,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 }
 
