@@ -105,9 +105,4 @@ sh cleanup_host.sh
 1. Click the `Apply and Start` button in the bottom to restart Docker with the new setting
 
 # Troubleshooting
-If you have problem with `make docker` step in the step 3, please try to clean up all the built binaries and run the test setup script again.
-```sh
-cd $ISTIO/istio
-GOOS=linux make clean
-```
-The `GOOS=linux` is required when you are running setup on macOS.
+Please refer [Troubleshooting](Troubleshooting.md) doc for information on this.

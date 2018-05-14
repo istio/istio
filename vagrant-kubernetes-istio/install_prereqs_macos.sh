@@ -58,7 +58,15 @@ then
     	echo "Done."
     fi
 else
-    echo "virtualbox exists. Please make sure to update it to latest version."
+    echo "virtualbox is installed. Checking and upgrading if a newer version exists."
+    brew cask reinstall --force virtualbox
+    if [ $? -ne 0 ]; 
+    then
+    	echo "Installation from brew fails. Please install it manually."
+        exit 1
+    else
+    	echo "Done."
+    fi
 fi
 
 echo "Checking vagrant..."
@@ -84,10 +92,14 @@ kubectl --help > /dev/null
 if [ $? -ne 0 ]; 
 then
     echo "kubectl is not installed. Installing the lastest stable release..."
-    curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/darwin/amd64/kubectl
-    chmod +x ./kubectl
-    sudo mv ./kubectl /usr/local/bin/kubectl
-    echo "Done."
+    brew install kubectl
+    if [ $? -ne 0 ]; 
+    then
+    	echo "Installation from brew fails. Please install it manually."
+        exit 1
+    else
+    	echo "Done."
+    fi
 else
     echo "kubectl exists. Please make sure to update it to latest version."
 fi
