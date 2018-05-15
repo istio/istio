@@ -28,7 +28,6 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
-	"istio.io/istio/pkg/ctrlz"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -37,6 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/collateral"
+	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
 )
