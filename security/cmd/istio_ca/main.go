@@ -451,18 +451,9 @@ func createCA(core corev1.SecretsGetter) *ca.IstioCA {
 }
 
 func generateConfig() *rest.Config {
-	if opts.kubeConfigFile != "" {
-		c, err := clientcmd.BuildConfigFromFlags("", opts.kubeConfigFile)
-		if err != nil {
-			fatalf("Failed to create a config object from file %s, (error %v)", opts.kubeConfigFile, err)
-		}
-		return c
-	}
-
-	// When `kubeConfigFile` is unspecified, use the in-cluster configuration.
-	c, err := rest.InClusterConfig()
+	c, err := clientcmd.BuildConfigFromFlags("", opts.kubeConfigFile)
 	if err != nil {
-		fatalf("Failed to create a in-cluster config (error: %s)", err)
+		fatalf("Failed to create a config (error: %s)", err)
 	}
 	return c
 }

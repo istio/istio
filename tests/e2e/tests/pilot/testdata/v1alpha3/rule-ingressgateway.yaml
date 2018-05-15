@@ -13,5 +13,5 @@ spec:
           host: c
           subset: v2
           port:
-            name: http
+            number: 80
         weight: 100

@@ -23,21 +23,34 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
+type egressConfig struct {
+	name       string
+	egressRule *v1alpha1.EgressRule
+}
+
 // EgressRules converts v1alpha1 egress rules to v1alpha3 service entries
 func EgressRules(configs []model.Config) []model.Config {
-	egressRules := make([]*v1alpha1.EgressRule, 0)
+
+	egressConfigs := make([]egressConfig, 0)
 	for _, config := range configs {
 		if config.Type == model.EgressRule.Type {
-			egressRules = append(egressRules, config.Spec.(*v1alpha1.EgressRule))
+			egressConfigs = append(egressConfigs, egressConfig{
+				name:       config.Name,
+				egressRule: config.Spec.(*v1alpha1.EgressRule)})
 		}
 	}
 
 	serviceEntries := make([]*v1alpha3.ServiceEntry, 0)
-	for _, egressRule := range egressRules {
-		host := convertIstioService(egressRule.Destination)
+	for _, config := range egressConfigs {
+		host := convertIstioService(config.egressRule.Destination)
+		var addresses []string
+		if model.ValidateIPv4Subnet(host) == nil {
+			addresses = []string{host}
+			host = config.name
+		}
 
 		ports := make([]*v1alpha3.Port, 0)
-		for _, egressPort := range egressRule.Ports {
+		for _, egressPort := range config.egressRule.Ports {
 			ports = append(ports, &v1alpha3.Port{
 				Name:     fmt.Sprintf("%s-%d", egressPort.Protocol, egressPort.Port),
 				Protocol: egressPort.Protocol,
@@ -45,12 +58,13 @@ func EgressRules(configs []model.Config) []model.Config {
 			})
 		}
 
-		if egressRule.UseEgressProxy {
+		if config.egressRule.UseEgressProxy {
 			log.Warnf("Use egress proxy field not supported")
 		}
 
 		serviceEntries = append(serviceEntries, &v1alpha3.ServiceEntry{
 			Hosts:      []string{host},
+			Addresses:  addresses,
 			Ports:      ports,
 			Resolution: v1alpha3.ServiceEntry_NONE,
 		})
