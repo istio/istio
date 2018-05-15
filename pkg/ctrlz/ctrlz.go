@@ -134,7 +134,7 @@ func Run(o *Options, customTopics []fw.Topic) {
 	}
 
 	s := &http.Server{
-		Addr:           fmt.Sprintf("%s:%d", o.Address, o.Port),
+		Addr:           fmt.Sprintf("%s:%d", addr, o.Port),
 		Handler:        router,
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
