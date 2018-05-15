@@ -54,7 +54,7 @@ func initConfigStore() model.IstioConfigStore {
 
 func TestServiceDiscoveryServices(t *testing.T) {
 	store := initConfigStore()
-	sd := NewServiceDiscovery(store)
+	sd := NewServiceDiscovery(nil, store)
 	expectedServices := []*model.Service{
 		makeService("*.google.com", "", map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB),
 		makeService("tcpstatic.com", "172.217.0.0/16", map[string]int{"tcp-444": 444}, true, model.ClientSideLB),
@@ -78,7 +78,7 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 	hostDNE := "does.not.exist.local"
 
 	store := initConfigStore()
-	sd := NewServiceDiscovery(store)
+	sd := NewServiceDiscovery(nil, store)
 
 	createServiceEntries([]*networking.ServiceEntry{httpDNS, tcpStatic}, store, t)
 
@@ -104,23 +104,20 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 
 func TestServiceDiscoveryGetProxyServiceInstances(t *testing.T) {
 	store := initConfigStore()
-	sd := NewServiceDiscovery(store)
+	sd := NewServiceDiscovery(nil, store)
 
 	createServiceEntries([]*networking.ServiceEntry{httpStatic, tcpStatic}, store, t)
 
-	instances, err := sd.GetProxyServiceInstances(&model.Proxy{IPAddress: "2.2.2.2"})
+	_, err := sd.GetProxyServiceInstances(&model.Proxy{IPAddress: "2.2.2.2"})
 	if err != nil {
 		t.Errorf("GetProxyServiceInstances() encountered unexpected error: %v", err)
 	}
-
-	if len(instances) != 0 {
-		t.Error("ServiceEntry registry should never return something for GetProxyServiceInstances()")
-	}
 }
 
+// Keeping this test for legacy - but it never happens in real life.
 func TestServiceDiscoveryInstances(t *testing.T) {
 	store := initConfigStore()
-	sd := NewServiceDiscovery(store)
+	sd := NewServiceDiscovery(nil, store)
 
 	createServiceEntries([]*networking.ServiceEntry{httpDNS, tcpStatic}, store, t)
 
@@ -133,7 +130,31 @@ func TestServiceDiscoveryInstances(t *testing.T) {
 		makeInstance(httpDNS, "de.google.com", 8080, httpDNS.Ports[1], map[string]string{"foo": "bar"}),
 	}
 
-	instances, err := sd.Instances("*.google.com", nil, nil)
+	instances, err := sd.InstancesByPort("*.google.com", 0, nil)
+	if err != nil {
+		t.Errorf("Instances() encountered unexpected error: %v", err)
+	}
+	sortServiceInstances(instances)
+	sortServiceInstances(expectedInstances)
+	if err := compare(t, instances, expectedInstances); err != nil {
+		t.Error(err)
+	}
+}
+
+// Keeping this test for legacy - but it never happens in real life.
+func TestServiceDiscoveryInstances1Port(t *testing.T) {
+	store := initConfigStore()
+	sd := NewServiceDiscovery(nil, store)
+
+	createServiceEntries([]*networking.ServiceEntry{httpDNS, tcpStatic}, store, t)
+
+	expectedInstances := []*model.ServiceInstance{
+		makeInstance(httpDNS, "us.google.com", 7080, httpDNS.Ports[0], nil),
+		makeInstance(httpDNS, "uk.google.com", 1080, httpDNS.Ports[0], nil),
+		makeInstance(httpDNS, "de.google.com", 80, httpDNS.Ports[0], map[string]string{"foo": "bar"}),
+	}
+
+	instances, err := sd.InstancesByPort("*.google.com", 80, nil)
 	if err != nil {
 		t.Errorf("Instances() encountered unexpected error: %v", err)
 	}

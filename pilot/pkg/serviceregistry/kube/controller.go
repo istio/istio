@@ -377,6 +377,78 @@ func (c *Controller) Instances(hostname model.Hostname, ports []string,
 	return nil, nil
 }
 
+// InstancesByPort implements a service catalog operation
+func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
+	labelsList model.LabelsCollection) ([]*model.ServiceInstance, error) {
+	// Get actual service by name
+	name, namespace, err := parseHostname(hostname)
+	if err != nil {
+		log.Infof("parseHostname(%s) => error %v", hostname, err)
+		return nil, err
+	}
+
+	item, exists := c.serviceByKey(name, namespace)
+	if !exists {
+		return nil, nil
+	}
+
+	// Locate all ports in the actual service
+
+	svc := convertService(*item, c.domainSuffix)
+	if svc == nil {
+		return nil, nil
+	}
+
+	svcPortEntry, exists := svc.Ports.GetByPort(reqSvcPort)
+	if !exists && reqSvcPort != 0 {
+		return nil, nil
+	}
+
+	for _, item := range c.endpoints.informer.GetStore().List() {
+		ep := *item.(*v1.Endpoints)
+		if ep.Name == name && ep.Namespace == namespace {
+			var out []*model.ServiceInstance
+			for _, ss := range ep.Subsets {
+				for _, ea := range ss.Addresses {
+					labels, _ := c.pods.labelsByIP(ea.IP)
+					// check that one of the input labels is a subset of the labels
+					if !labelsList.HasSubsetOf(labels) {
+						continue
+					}
+
+					pod, exists := c.pods.getPodByIP(ea.IP)
+					az, sa := "", ""
+					if exists {
+						az, _ = c.GetPodAZ(pod)
+						sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
+					}
+
+					// identify the port by name. K8S EndpointPort uses the service port name
+					for _, port := range ss.Ports {
+						if port.Name == "" || // 'name optional if single port is defined'
+							reqSvcPort == 0 || // return all ports (mostly used by tests/debug)
+							svcPortEntry.Name == port.Name {
+							out = append(out, &model.ServiceInstance{
+								Endpoint: model.NetworkEndpoint{
+									Address:     ea.IP,
+									Port:        int(port.Port),
+									ServicePort: svcPortEntry,
+								},
+								Service:          svc,
+								Labels:           labels,
+								AvailabilityZone: az,
+								ServiceAccount:   sa,
+							})
+						}
+					}
+				}
+			}
+			return out, nil
+		}
+	}
+	return nil, nil
+}
+
 // GetProxyServiceInstances returns service instances co-located with a given proxy
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
 	var out []*model.ServiceInstance

@@ -135,7 +135,7 @@ func (sd *MemServiceDiscovery) AddInstance(service model.Hostname, instance *mod
 	instance.Service = svc
 	sd.ip2instance[instance.Endpoint.Address] = []*model.ServiceInstance{instance}
 
-	key := fmt.Sprintf("%s:%s", service, instance.Endpoint.ServicePort.Name)
+	key := fmt.Sprintf("%s:%d", service, instance.Endpoint.ServicePort.Port)
 	instanceList := sd.instances[key]
 	if instanceList == nil {
 		instanceList = []*model.ServiceInstance{instance}
@@ -202,6 +202,23 @@ func (sd *MemServiceDiscovery) Instances(hostname model.Hostname, ports []string
 		return nil, nil
 	}
 	key := hostname.String() + ":" + ports[0]
+	instances, ok := sd.instances[key]
+	if !ok {
+		return nil, nil
+	}
+	return instances, nil
+}
+
+// InstancesByPort filters the service instances by labels. This assumes single port, as is
+// used by EDS/ADS.
+func (sd *MemServiceDiscovery) InstancesByPort(hostname model.Hostname, port int,
+	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
+	sd.mutex.Lock()
+	defer sd.mutex.Unlock()
+	if sd.InstancesError != nil {
+		return nil, sd.InstancesError
+	}
+	key := fmt.Sprintf("%s:%d", hostname.String(), port)
 	instances, ok := sd.instances[key]
 	if !ok {
 		return nil, nil
@@ -313,14 +330,14 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 		svc, _ := s.env.ServiceDiscovery.Services()
 		for _, ss := range svc {
 			for _, p := range ss.Ports {
-				all, err := s.env.ServiceDiscovery.Instances(ss.Hostname, []string{p.Name}, nil)
+				all, err := s.env.ServiceDiscovery.InstancesByPort(ss.Hostname, p.Port, nil)
 				if err != nil {
 					return
 				}
 				for _, svc := range all {
 					fmt.Fprintf(w, "%s:%s %s:%d %v %v %s\n", ss.Hostname,
 						p.Name, svc.Endpoint.Address, svc.Endpoint.Port, svc.Labels,
-						svc.AvailabilityZone, svc.ServiceAccount)
+						svc.GetAZ(), svc.ServiceAccount)
 				}
 			}
 		}
@@ -331,7 +348,7 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprint(w, "[\n")
 	for _, ss := range svc {
 		for _, p := range ss.Ports {
-			all, err := s.env.ServiceDiscovery.Instances(ss.Hostname, []string{p.Name}, nil)
+			all, err := s.env.ServiceDiscovery.InstancesByPort(ss.Hostname, p.Port, nil)
 			if err != nil {
 				return
 			}

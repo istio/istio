@@ -138,7 +138,8 @@ func buildMixerCluster(mesh *meshconfig.MeshConfig, mixerSAN []string, server, c
 		},
 	}
 
-	cluster.Features = ClusterFeatureHTTP2
+	cluster.MakeHTTP2()
+
 	// apply auth policies
 	switch mesh.DefaultConfig.ControlPlaneAuthPolicy {
 	case meshconfig.AuthenticationPolicy_NONE:

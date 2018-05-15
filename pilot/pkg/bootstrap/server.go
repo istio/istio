@@ -170,6 +170,7 @@ type Server struct {
 	GRPCServer       *grpc.Server
 	secureGRPCServer *grpc.Server
 	DiscoveryService *envoy.DiscoveryService
+	istioConfigStore model.IstioConfigStore
 
 	// An in-memory service discovery, enabled if 'mock' registry is added.
 	// Currently used for tests.
@@ -179,11 +180,8 @@ type Server struct {
 }
 
 func createInterface(kubeconfig string) (kubernetes.Interface, error) {
-	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	loadingRules.ExplicitPath = kubeconfig
+	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 
-	clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
-	restConfig, err := clientConfig.ClientConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -417,6 +415,7 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 
 		kubeCfgFile := s.getKubeCfgFile(args)
 		client, kuberr = createInterface(kubeCfgFile)
+
 		if kuberr != nil {
 			return multierror.Prefix(kuberr, "failed to connect to Kubernetes API.")
 		}
@@ -547,7 +546,7 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 		for _, cluster := range clusters {
 			log.Infof("Cluster name: %s", clusterregistry.GetClusterID(cluster))
 			clusterClient := clientAccessConfigs[cluster.ObjectMeta.Name]
-			_, client, kuberr := kube.CreateInterfaceFromClusterConfig(&clusterClient)
+			client, kuberr := kube.CreateInterfaceFromClusterConfig(&clusterClient)
 			if kuberr != nil {
 				err = multierror.Append(err, multierror.Prefix(kuberr, fmt.Sprintf("failed to connect to Access API with access config: %s", cluster.ObjectMeta.Name)))
 			}
@@ -666,17 +665,19 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			return multierror.Prefix(nil, "Service registry "+r+" is not supported.")
 		}
 	}
-	configStore := model.MakeIstioStore(s.configController)
+	// TODO: use the existing one !
+	s.istioConfigStore = model.MakeIstioStore(s.configController)
+	serviceEntryStore := external.NewServiceDiscovery(s.configController, s.istioConfigStore)
 
 	// add service entry registry to aggregator by default
-	serviceControllers.AddRegistry(
-		aggregate.Registry{
-			Name:             "ServiceEntries",
-			ClusterID:        "ServiceEntries",
-			Controller:       external.NewController(s.configController),
-			ServiceDiscovery: external.NewServiceDiscovery(configStore),
-			ServiceAccounts:  external.NewServiceAccounts(),
-		})
+	serviceEntryRegistry := aggregate.Registry{
+		Name:             "ServiceEntries",
+		ClusterID:        "ServiceEntries",
+		Controller:       serviceEntryStore,
+		ServiceDiscovery: serviceEntryStore,
+		ServiceAccounts:  serviceEntryStore,
+	}
+	serviceControllers.AddRegistry(serviceEntryRegistry)
 
 	s.ServiceController = serviceControllers
 
@@ -722,7 +723,7 @@ func initMemoryRegistry(s *Server, serviceControllers *aggregate.Controller) {
 func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	environment := model.Environment{
 		Mesh:             s.mesh,
-		IstioConfigStore: model.MakeIstioStore(s.configController),
+		IstioConfigStore: s.istioConfigStore,
 		ServiceDiscovery: s.ServiceController,
 		ServiceAccounts:  s.ServiceController,
 		MixerSAN:         s.mixerSAN,
