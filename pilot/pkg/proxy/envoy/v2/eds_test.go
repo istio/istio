@@ -197,7 +197,7 @@ func connectAndSend(id uint32, t *testing.T) (xdsapi.EndpointDiscoveryService_St
 		Node: &envoy_api_v2_core1.Node{
 			Id: sidecarId(testIp(uint32(0x0a100000+id)), "app3"),
 		},
-		ResourceNames: []string{"hello.default.svc.cluster.local|80"}})
+		ResourceNames: []string{"hello.default.svc.cluster.local|http"}})
 	if err != nil {
 		t.Fatal("Send failed", err)
 	}
@@ -414,7 +414,7 @@ func testEdsz(t *testing.T) {
 	}
 	statusStr := string(data)
 
-	if !strings.Contains(statusStr, "\"hello.default.svc.cluster.local|80\"") {
+	if !strings.Contains(statusStr, "\"hello.default.svc.cluster.local|http\"") {
 		t.Fatal("Mock hello service not found ", statusStr)
 	}
 }
