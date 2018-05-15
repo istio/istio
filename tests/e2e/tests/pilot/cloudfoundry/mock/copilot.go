@@ -22,8 +22,26 @@ import (
 )
 
 type CopilotHandler struct {
-	RoutesResponseData map[string]*api.BackendSet
-	mutex              sync.Mutex
+	RoutesResponseData         map[string]*api.BackendSet
+	InternalRoutesResponseData []*api.InternalRouteWithBackends
+	mutex                      sync.Mutex
+}
+
+func (h *CopilotHandler) PopulateInternalRoute(port int, hostname, vip, ip string) {
+	h.mutex.Lock()
+	defer h.mutex.Unlock()
+	h.InternalRoutesResponseData = append(h.InternalRoutesResponseData, &api.InternalRouteWithBackends{
+		Hostname: hostname,
+		Vip:      vip,
+		Backends: &api.BackendSet{
+			Backends: []*api.Backend{
+				{
+					Address: ip,
+					Port:    uint32(port),
+				},
+			},
+		},
+	})
 }
 
 func (h *CopilotHandler) PopulateRoute(host string, ipAddr string, port int) {
@@ -43,6 +61,14 @@ func (h *CopilotHandler) PopulateRoute(host string, ipAddr string, port int) {
 func (h *CopilotHandler) Health(context.Context, *api.HealthRequest) (*api.HealthResponse, error) {
 	return &api.HealthResponse{
 		Healthy: true,
+	}, nil
+}
+
+func (h *CopilotHandler) InternalRoutes(context.Context, *api.InternalRoutesRequest) (*api.InternalRoutesResponse, error) {
+	h.mutex.Lock()
+	defer h.mutex.Unlock()
+	return &api.InternalRoutesResponse{
+		InternalRoutes: h.InternalRoutesResponseData,
 	}, nil
 }
 

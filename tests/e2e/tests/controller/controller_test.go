@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package pilot
+package controller
 
 import (
 	"log"
@@ -26,6 +26,14 @@ import (
 	"istio.io/istio/pilot/test/mock"
 	"istio.io/istio/pilot/test/util"
 )
+
+// Package controller tests the pilot controller using a k8s cluster or standalone apiserver.
+// It needs to be separate from pilot tests - it may interfere with the pilot tests by creating
+// test resources that may confuse other istio tests or it may be confused by other tests.
+// This test can be run in an IDE against local apiserver, if you have run bin/testEnvLocalK8S.sh
+
+// TODO: make changes to k8s ( endpoints in particular ) and verify the proper generation of events.
+// This test relies on mocks.
 
 const (
 	resync = 1 * time.Second
@@ -51,7 +59,7 @@ func makeClient(t *testing.T, desc model.ConfigDescriptor) (*crd.Client, error) 
 
 // makeTempClient allocates a namespace and cleans it up on test completion
 func makeTempClient(t *testing.T) (*crd.Client, string, func()) {
-	_, client, err := kube.CreateInterface(os.Getenv("KUBECONFIG"))
+	client, err := kube.CreateInterface(os.Getenv("KUBECONFIG"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,16 +78,34 @@ func makeTempClient(t *testing.T) (*crd.Client, string, func()) {
 	return cl, ns, func() { util.DeleteNamespace(client, ns) }
 }
 
-func TestStoreInvariant(t *testing.T) {
+func TestTempWorkspace(t *testing.T) {
 	client, ns, cleanup := makeTempClient(t)
 	defer cleanup()
+
+	t.Run("StoreInvariant", func(t *testing.T) {
+		storeInvariant(t, client, ns)
+	})
+	t.Run("istioConfig", func(t *testing.T) {
+		istioConfig(t, client, ns)
+	})
+	t.Run("controllerEvents", func(t *testing.T) {
+		controllerEvents(t, client, ns)
+	})
+	t.Run("controllerClientSync", func(t *testing.T) {
+		controllerClientSync(t, client, ns)
+	})
+	t.Run("controllerCacheFreshness", func(t *testing.T) {
+		controllerCacheFreshness(t, client, ns)
+	})
+
+}
+
+func storeInvariant(t *testing.T, client *crd.Client, ns string) {
 	mock.CheckMapInvariant(client, t, ns, 5)
 	log.Println("Check Map Invariant done")
 }
 
-func TestIstioConfig(t *testing.T) {
-	client, ns, cleanup := makeTempClient(t)
-	defer cleanup()
+func istioConfig(t *testing.T, client *crd.Client, ns string) {
 	mock.CheckIstioConfigTypes(client, ns, t)
 }
 
@@ -98,23 +124,17 @@ func TestUnknownConfig(t *testing.T) {
 	}
 }
 
-func TestControllerEvents(t *testing.T) {
-	cl, ns, cleanup := makeTempClient(t)
-	defer cleanup()
+func controllerEvents(t *testing.T, cl *crd.Client, ns string) {
 	ctl := crd.NewController(cl, kube.ControllerOptions{WatchedNamespace: ns, ResyncPeriod: resync})
 	mock.CheckCacheEvents(cl, ctl, ns, 5, t)
 }
 
-func TestControllerCacheFreshness(t *testing.T) {
-	cl, ns, cleanup := makeTempClient(t)
-	defer cleanup()
+func controllerCacheFreshness(t *testing.T, cl *crd.Client, ns string) {
 	ctl := crd.NewController(cl, kube.ControllerOptions{WatchedNamespace: ns, ResyncPeriod: resync})
 	mock.CheckCacheFreshness(ctl, ns, t)
 }
 
-func TestControllerClientSync(t *testing.T) {
-	cl, ns, cleanup := makeTempClient(t)
-	defer cleanup()
+func controllerClientSync(t *testing.T, cl *crd.Client, ns string) {
 	ctl := crd.NewController(cl, kube.ControllerOptions{WatchedNamespace: ns, ResyncPeriod: resync})
 	mock.CheckCacheSync(cl, ctl, ns, 5, t)
 }

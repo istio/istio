@@ -31,9 +31,8 @@ import (
 
 var (
 	// Failsafe to implement periodic refresh, in case events or cache invalidation fail.
-	// TODO: remove after events get enough testing
-	periodicRefreshDuration = os.Getenv("V2_REFRESH")
-	responseTickDuration    = time.Second * 15
+	// Disabled by default.
+	periodicRefreshDuration = 60 * time.Second
 
 	versionMutex sync.Mutex
 	// version is update by registry events.
@@ -85,8 +84,17 @@ func NewDiscoveryServer(env model.Environment, generator *v1alpha3.ConfigGenerat
 		ConfigGenerator: generator,
 	}
 
-	if len(periodicRefreshDuration) > 0 {
-		periodicRefresh()
+	envOverride := os.Getenv("V2_REFRESH")
+	if len(envOverride) > 0 {
+		var err error
+		periodicRefreshDuration, err = time.ParseDuration(envOverride)
+		if err != nil {
+			log.Warn("Invalid value for V2_REFRESH")
+			periodicRefreshDuration = 0 // this is also he default, but setting it explicitly
+		}
+	}
+	if periodicRefreshDuration > 0 {
+		go periodicRefresh()
 	}
 
 	return out
@@ -104,12 +112,7 @@ func (s *DiscoveryServer) Register(rpcs *grpc.Server) {
 // ( will be removed after change detection is implemented, to double check all changes are
 // captured)
 func periodicRefresh() {
-	var err error
-	responseTickDuration, err = time.ParseDuration(periodicRefreshDuration)
-	if err != nil {
-		return
-	}
-	ticker := time.NewTicker(responseTickDuration)
+	ticker := time.NewTicker(periodicRefreshDuration)
 	defer ticker.Stop()
 	for range ticker.C {
 		PushAll()
@@ -138,6 +141,8 @@ func (s *DiscoveryServer) ClearCacheFunc() func() {
 		s.modelMutex.RLock()
 		log.Infof("XDS: Registry event, pushing. Services: %d, "+
 			"VirtualServices: %d, ConnectedEndpoints: %d", len(s.services), len(s.virtualServices), edsClientCount())
+		monServices.Set(float64(len(s.services)))
+		monVServices.Set(float64(len(s.virtualServices)))
 		s.modelMutex.RUnlock()
 
 		PushAll()

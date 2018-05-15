@@ -60,14 +60,18 @@ func NewController(
 
 	secretsInformer := cache.NewSharedIndexInformer(&cache.ListWatch{
 		ListFunc: func(opts meta_v1.ListOptions) (runtime.Object, error) {
+			opts.LabelSelector = mcLabel + "=true"
 			return kubeclientset.CoreV1().Secrets(namespace).List(opts)
 		},
 		WatchFunc: func(opts meta_v1.ListOptions) (watch.Interface, error) {
+			opts.LabelSelector = mcLabel + "=true"
 			return kubeclientset.CoreV1().Secrets(namespace).Watch(opts)
-		}},
+		},
+	},
 		&corev1.Secret{},
 		0,
 		cache.Indexers{})
+
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
 	controller := &Controller{
@@ -86,14 +90,6 @@ func NewController(
 			if err == nil {
 				queue.Add(key)
 			}
-		},
-		UpdateFunc: func(old, new interface{}) {
-			key, _ := cache.MetaNamespaceKeyFunc(new)
-			log.Infof("Processing update: %s", key)
-			// TODO Add Secret Update handler, it will allow detect Secret key rotation
-			//			if err == nil {
-			//				queue.Add(key)
-			//			}
 		},
 		DeleteFunc: func(obj interface{}) {
 			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
@@ -177,25 +173,9 @@ func (c *Controller) processItem(key string) error {
 		c.secretDelete(key)
 		return nil
 	}
-	secret := obj.(*corev1.Secret)
-	if secret.ObjectMeta.CreationTimestamp.Sub(serverStartTime).Seconds() > 0 {
-		c.secretAdd(obj)
-		return nil
-	}
+	c.secretAdd(obj)
 
 	return nil
-}
-
-func checkSecret(s *corev1.Secret) bool {
-	lv, ok := s.Labels[mcLabel]
-	if !ok {
-		return false
-	}
-	if strings.ToLower(lv) != "true" {
-		return false
-	}
-
-	return ok
 }
 
 func addMemberCluster(s *corev1.Secret, cs *ClusterStore) {
@@ -234,16 +214,19 @@ func deleteMemberCluster(s string, cs *ClusterStore) {
 	if _, ok := cs.clientConfigs[s]; ok {
 		log.Infof("Deleting cluster member: %s", s)
 		delete(cs.clientConfigs, s)
-		// TODO add deleting corresponding k8s_cr.Cluster object from the slice
+		for i, c := range cs.clusters {
+			if c.ObjectMeta.Name == s {
+				cs.clusters = append(cs.clusters[:i], cs.clusters[i+1:]...)
+				break
+			}
+		}
 	}
 	log.Infof("Number of clusters in the cluster store: %d", len(cs.clientConfigs))
 }
 
 func (c *Controller) secretAdd(obj interface{}) {
 	s := obj.(*corev1.Secret)
-	if checkSecret(s) {
-		addMemberCluster(s, c.cs)
-	}
+	addMemberCluster(s, c.cs)
 }
 
 func (c *Controller) secretDelete(key string) {
