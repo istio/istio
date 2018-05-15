@@ -257,7 +257,7 @@ func (sd *ServiceDiscovery) Instances(hostname model.Hostname, ports []string,
 }
 
 // InstancesByPort implements discovery interface
-func (sd *ServiceDiscovery) InstancesByPort(hostname model.Hostname, ports []int,
+func (sd *ServiceDiscovery) InstancesByPort(hostname model.Hostname, num int,
 	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	if sd.InstancesError != nil {
 		return nil, sd.InstancesError
@@ -270,12 +270,10 @@ func (sd *ServiceDiscovery) InstancesByPort(hostname model.Hostname, ports []int
 	if service.External() {
 		return out, sd.InstancesError
 	}
-	for _, num := range ports {
-		if port, ok := service.Ports.GetByPort(num); ok {
-			for v := 0; v < sd.versions; v++ {
-				if labels.HasSubsetOf(map[string]string{"version": fmt.Sprintf("v%d", v)}) {
-					out = append(out, MakeInstance(service, port, v, "zone/region"))
-				}
+	if port, ok := service.Ports.GetByPort(num); ok {
+		for v := 0; v < sd.versions; v++ {
+			if labels.HasSubsetOf(map[string]string{"version": fmt.Sprintf("v%d", v)}) {
+				out = append(out, MakeInstance(service, port, v, "zone/region"))
 			}
 		}
 	}
