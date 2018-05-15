@@ -101,7 +101,8 @@ func (sd *ServiceDiscovery) Instances(hostname model.Hostname, _ []string, _ mod
 }
 
 // InstancesByPort implements a service catalog operation
-func (sd *ServiceDiscovery) InstancesByPort(hostname model.Hostname, _ []int, _ model.LabelsCollection) ([]*model.ServiceInstance, error) {
+// TODO: this is likely broken, since port is ignored  ! May still work for simple cases.
+func (sd *ServiceDiscovery) InstancesByPort(hostname model.Hostname, _ int, _ model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	resp, err := sd.Client.Routes(context.Background(), new(copilotapi.RoutesRequest))
 	if err != nil {
 		return nil, fmt.Errorf("getting routes: %s", err)

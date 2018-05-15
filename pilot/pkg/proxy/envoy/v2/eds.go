@@ -162,7 +162,7 @@ func updateCluster(clusterName string, edsCluster *EdsCluster) error {
 		var subsetName string
 		_, subsetName, hostname, p = model.ParseSubsetKey(clusterName)
 		labels = edsCluster.discovery.env.IstioConfigStore.SubsetToLabels(subsetName, hostname)
-		instances, err = edsCluster.discovery.env.ServiceDiscovery.InstancesByPort(hostname, []int{p}, labels)
+		instances, err = edsCluster.discovery.env.ServiceDiscovery.InstancesByPort(hostname, p, labels)
 		if len(instances) == 0 {
 			log.Infof("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, p, labels)
 		}
@@ -216,12 +216,12 @@ func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []endp
 		}
 		// TODO: Need to accommodate region, zone and subzone. Older Pilot datamodel only has zone = availability zone.
 		// Once we do that, the key must be a | separated tupple.
-		locality := instance.AvailabilityZone
+		locality := instance.GetAZ()
 		locLbEps, found := localityEpMap[locality]
 		if !found {
 			locLbEps = &endpoint.LocalityLbEndpoints{
 				Locality: &core.Locality{
-					Zone: instance.AvailabilityZone,
+					Zone: locality,
 				},
 			}
 			localityEpMap[locality] = locLbEps

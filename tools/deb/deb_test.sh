@@ -34,6 +34,10 @@ export ISTIO_INBOUND_PORTS=7070,7072,7073,7074,7075
 sleep 1
 
 bash -x /usr/local/bin/istio-start.sh &
-sleep 3
+sleep 1
+
+curl localhost:15000/stats
+# Will go to local machine
+su -s /bin/bash -c "curl -v byon-docker.test.istio.io:7072" istio-test
 curl localhost:15000/stats
 
