@@ -30,7 +30,7 @@ import (
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime/dispatcher"
 	"istio.io/istio/mixer/pkg/status"
-	istio_log "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // We have a slightly messy situation around the use of context objects. gRPC stubs are
@@ -57,7 +57,7 @@ const (
 	defaultValidUseCount = 200
 )
 
-var log = istio_log.RegisterScope("dispatcher", "Dispatcher messages.", 0)
+var lg = log.RegisterScope("api", "API dispatcher messages.", 0)
 
 // NewGRPCServer creates a gRPC serving stack.
 func NewGRPCServer(dispatcher dispatcher.Dispatcher, gp *pool.GoroutinePool) mixerpb.MixerServer {
@@ -77,7 +77,7 @@ func NewGRPCServer(dispatcher dispatcher.Dispatcher, gp *pool.GoroutinePool) mix
 
 // Check is the entry point for the external Check method
 func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRequest) (*mixerpb.CheckResponse, error) {
-	log.Debug("Dispatching Preprocess Check")
+	lg.Debug("Dispatching Preprocess Check")
 
 	globalWordCount := int(req.GlobalWordCount)
 
@@ -91,13 +91,13 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 
 	if err := s.dispatcher.Preprocess(legacyCtx, protoBag, checkBag); err != nil {
 		err = fmt.Errorf("preprocessing attributes failed: %v", err)
-		log.Errora("Check failed:", err.Error())
+		lg.Errora("Check failed:", err.Error())
 		return nil, grpc.Errorf(codes.Internal, err.Error())
 	}
 
-	log.Debug("Dispatching to main adapters after running processors")
-	log.Debuga("Attribute Bag: \n", checkBag)
-	log.Debug("Dispatching Check")
+	lg.Debug("Dispatching to main adapters after running processors")
+	lg.Debuga("Attribute Bag: \n", checkBag)
+	lg.Debug("Dispatching Check")
 
 	// snapshot the state after we've called the APAs so that we can reuse it
 	// for every check + quota call.
@@ -106,7 +106,7 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 	cr, err := s.dispatcher.Check(legacyCtx, checkBag)
 	if err != nil {
 		err = fmt.Errorf("performing check operation failed: %v", err)
-		log.Errora("Check failed:", err.Error())
+		lg.Errora("Check failed:", err.Error())
 		return nil, grpc.Errorf(codes.Internal, err.Error())
 	}
 
@@ -118,9 +118,9 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 	}
 
 	if status.IsOK(cr.Status) {
-		log.Debug("Check approved")
+		lg.Debug("Check approved")
 	} else {
-		log.Debugf("Check denied: %v", cr.Status)
+		lg.Debugf("Check denied: %v", cr.Status)
 	}
 
 	resp := &mixerpb.CheckResponse{
@@ -146,7 +146,7 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 			// restore to the post-APA state
 			protoBag.RestoreReferencedAttributes(snapApa)
 
-			log.Debuga("Dispatching Quota: ", qma.Quota)
+			lg.Debuga("Dispatching Quota: ", qma.Quota)
 
 			crqr := mixerpb.CheckResponse_QuotaResult{}
 
@@ -154,7 +154,7 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 			qr, err = s.dispatcher.Quota(legacyCtx, checkBag, qma)
 			if err != nil {
 				err = fmt.Errorf("performing quota alloc failed: %v", err)
-				log.Errora("Quota failure:", err.Error())
+				lg.Errora("Quota failure:", err.Error())
 				// we continue the quota loop even after this error
 			} else if qr == nil {
 				// If qma.Quota does not apply to this request give the client what it asked for.
@@ -163,13 +163,13 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 				crqr.GrantedAmount = qma.Amount
 			} else {
 				if !status.IsOK(qr.Status) {
-					log.Debugf("Quota denied: %v", qr.Status)
+					lg.Debugf("Quota denied: %v", qr.Status)
 				}
 				crqr.ValidDuration = qr.ValidDuration
 				crqr.GrantedAmount = qr.Amount
 			}
 
-			log.Debugf("Quota '%s' result: %#v", qma.Quota, crqr)
+			lg.Debugf("Quota '%s' result: %#v", qma.Quota, crqr)
 
 			crqr.ReferencedAttributes = protoBag.GetReferencedAttributes(s.globalDict, globalWordCount)
 			resp.Quotas[name] = crqr
@@ -220,7 +220,7 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 			}
 		}
 
-		log.Debug("Dispatching Preprocess")
+		lg.Debug("Dispatching Preprocess")
 
 		if err = s.dispatcher.Preprocess(newctx, accumBag, reportBag); err != nil {
 			err = fmt.Errorf("preprocessing attributes failed: %v", err)
@@ -229,9 +229,9 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 			break
 		}
 
-		log.Debug("Dispatching to main adapters after running preprocessors")
-		log.Debuga("Attribute Bag: \n", reportBag)
-		log.Debugf("Dispatching Report %d out of %d", i, len(req.Attributes))
+		lg.Debug("Dispatching to main adapters after running preprocessors")
+		lg.Debuga("Attribute Bag: \n", reportBag)
+		lg.Debugf("Dispatching Report %d out of %d", i, len(req.Attributes))
 
 		err = s.dispatcher.Report(legacyCtx, reportBag)
 		if err != nil {
@@ -252,7 +252,7 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 	protoBag.Done()
 
 	if err != nil {
-		log.Errora("Report failed:", err.Error())
+		lg.Errora("Report failed:", err.Error())
 		return nil, grpc.Errorf(codes.InvalidArgument, err.Error())
 	}
 
