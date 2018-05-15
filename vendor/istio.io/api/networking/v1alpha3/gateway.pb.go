@@ -91,11 +91,14 @@ func (Server_TLSOptions_TLSmode) EnumDescriptor() ([]byte, []int) {
 //           number: 9080
 //           name: http-wildcard
 //           protocol: HTTP
-//         # no hosts implies wildcard match
+//         hosts:
+//         - "*"
 //       - port:
-//           number: 2379 #to expose internal service via external port 2379
+//           number: 2379 # to expose internal service via external port 2379
 //           name: mongo
 //           protocol: MONGO
+//         hosts:
+//         - "*"
 //
 // The Gateway specification above describes the L4-L6 properties of a load
 // balancer. A `VirtualService` can then be bound to a gateway to control
@@ -175,6 +178,9 @@ type Gateway struct {
 	Servers []*Server `protobuf:"bytes,1,rep,name=servers" json:"servers,omitempty"`
 	// One or more labels that indicate a specific set of pods/VMs
 	// on which this gateway configuration should be applied.
+	// The scope of label search is platform dependent.
+	// On Kubernetes, for example, the scope includes pods running in
+	// all reachable namespaces.
 	Selector map[string]string `protobuf:"bytes,2,rep,name=selector" json:"selector,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 }
 
@@ -212,6 +218,8 @@ func (m *Gateway) GetSelector() map[string]string {
 //           number: 80
 //           name: http2
 //           protocol: HTTP2
+//         hosts:
+//         - "*"
 //
 // Another example
 //
@@ -227,6 +235,8 @@ func (m *Gateway) GetSelector() map[string]string {
 //           number: 27018
 //           name: mongo
 //           protocol: MONGO
+//         hosts:
+//         - "*"
 //
 // The following is an example of TLS configuration for port 443
 //
@@ -242,6 +252,8 @@ func (m *Gateway) GetSelector() map[string]string {
 //           number: 443
 //           name: https
 //           protocol: HTTPS
+//         hosts:
+//         - "*"
 //         tls:
 //           mode: SIMPLE
 //           serverCertificate: /etc/certs/server.pem
@@ -251,7 +263,8 @@ type Server struct {
 	// REQUIRED: The Port on which the proxy should listen for incoming
 	// connections
 	Port *Port `protobuf:"bytes,1,opt,name=port" json:"port,omitempty"`
-	// A list of hosts exposed by this gateway. While typically applicable to
+	// REQUIRED. A list of hosts exposed by this gateway. At least one
+	// host is required. While typically applicable to
 	// HTTP services, it can also be used for TCP services using TLS with
 	// SNI. Standard DNS wildcard prefix syntax is permitted.
 	//

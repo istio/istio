@@ -112,8 +112,8 @@ func TestCloudFoundrySnapshot(t *testing.T) {
 						Destination: &networking.Destination{
 							Host: matchHostname,
 							Port: &networking.PortSelector{
-								Port: &networking.PortSelector_Name{
-									Name: "http",
+								Port: &networking.PortSelector_Number{
+									Number: 8080,
 								},
 							},
 						},
@@ -189,8 +189,8 @@ func TestCloudFoundrySnapshotVirtualServiceCache(t *testing.T) {
 					Destination: &networking.Destination{
 						Host: "some-external-route.example.com",
 						Port: &networking.PortSelector{
-							Port: &networking.PortSelector_Name{
-								Name: "http",
+							Port: &networking.PortSelector_Number{
+								Number: 8080,
 							},
 						},
 					},

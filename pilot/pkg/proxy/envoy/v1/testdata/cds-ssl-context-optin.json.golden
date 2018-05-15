@@ -190,7 +190,9 @@
       "url": "tcp://istio-mixer.istio-system:9091"
      }
     ],
-    "features": "http2",
+    "http2_settings": {
+     "max_concurrent_streams": 1073741824
+    },
     "circuit_breakers": {
      "default": {
       "max_pending_requests": 10000,
@@ -208,7 +210,9 @@
       "url": "tcp://istio-mixer.istio-system:9091"
      }
     ],
-    "features": "http2",
+    "http2_settings": {
+     "max_concurrent_streams": 1073741824
+    },
     "circuit_breakers": {
      "default": {
       "max_pending_requests": 10000,
