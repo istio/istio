@@ -211,18 +211,14 @@ func (sd *MemServiceDiscovery) Instances(hostname model.Hostname, ports []string
 
 // InstancesByPort filters the service instances by labels. This assumes single port, as is
 // used by EDS/ADS.
-func (sd *MemServiceDiscovery) InstancesByPort(hostname model.Hostname, ports []int,
+func (sd *MemServiceDiscovery) InstancesByPort(hostname model.Hostname, port int,
 	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
 	if sd.InstancesError != nil {
 		return nil, sd.InstancesError
 	}
-	if len(ports) != 1 {
-		log.Warna("Unexpected ports ", ports)
-		return nil, nil
-	}
-	key := fmt.Sprintf("%s:%d", hostname.String(), ports[0])
+	key := fmt.Sprintf("%s:%d", hostname.String(), port)
 	instances, ok := sd.instances[key]
 	if !ok {
 		return nil, nil
@@ -334,14 +330,14 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 		svc, _ := s.env.ServiceDiscovery.Services()
 		for _, ss := range svc {
 			for _, p := range ss.Ports {
-				all, err := s.env.ServiceDiscovery.InstancesByPort(ss.Hostname, []int{p.Port}, nil)
+				all, err := s.env.ServiceDiscovery.InstancesByPort(ss.Hostname, p.Port, nil)
 				if err != nil {
 					return
 				}
 				for _, svc := range all {
 					fmt.Fprintf(w, "%s:%s %s:%d %v %v %s\n", ss.Hostname,
 						p.Name, svc.Endpoint.Address, svc.Endpoint.Port, svc.Labels,
-						svc.AvailabilityZone, svc.ServiceAccount)
+						svc.GetAZ(), svc.ServiceAccount)
 				}
 			}
 		}
@@ -352,7 +348,7 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprint(w, "[\n")
 	for _, ss := range svc {
 		for _, p := range ss.Ports {
-			all, err := s.env.ServiceDiscovery.InstancesByPort(ss.Hostname, []int{p.Port}, nil)
+			all, err := s.env.ServiceDiscovery.InstancesByPort(ss.Hostname, p.Port, nil)
 			if err != nil {
 				return
 			}

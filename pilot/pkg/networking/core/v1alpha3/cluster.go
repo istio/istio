@@ -142,7 +142,7 @@ func buildClusterHosts(env model.Environment, service *model.Service, port int) 
 		return nil
 	}
 
-	instances, err := env.InstancesByPort(service.Hostname, []int{port}, nil)
+	instances, err := env.InstancesByPort(service.Hostname, port, nil)
 	if err != nil {
 		log.Errorf("failed to retrieve instances for %s: %v", service.Hostname, err)
 		return nil
