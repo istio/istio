@@ -44,7 +44,6 @@
 - source.uid
 - source.namespace
 - source.labels
-# source.user is to be deprecated, please refer to the attribute source.principal
 - source.user
 
 # target.* attributes have been renamed to destination.*
@@ -247,6 +246,3 @@
 # whether mixer check and quota calls hit cache.
 - check.cache_hit
 - quota.cache_hit
-
-- source.principal
-- request.auth.claims  

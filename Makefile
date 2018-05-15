@@ -413,6 +413,9 @@ PILOT_TEST_BINS:=${ISTIO_OUT}/pilot-test-server ${ISTIO_OUT}/pilot-test-client $
 $(PILOT_TEST_BINS):
 	CGO_ENABLED=0 go build ${GOSTATIC} -o $@ istio.io/istio/$(subst -,/,$(@F))
 
+hyperistio:
+	CGO_ENABLED=0 go build ${GOSTATIC} -o ${ISTIO_OUT}/hyperistio istio.io/istio/tools/hyperistio
+
 test-bins: $(PILOT_TEST_BINS)
 
 localTestEnv: test-bins
@@ -636,6 +639,7 @@ generate_yaml-envoyv2_transition_loadbalancer_ingressgateway: $(HELM)
 		  --values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
                   --set ingressgateway.service.type=LoadBalancer \
 		  --set ingress.enabled=false \
+		  --set global.mtls.enabled=true \
 		  install/kubernetes/helm/istio >> install/kubernetes/istio-auth.yaml
 
 deploy/all: $(HELM) istio-all.yaml

@@ -15,6 +15,7 @@
 package consul
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/hashicorp/consul/api"
@@ -109,16 +110,18 @@ func (c *Controller) ManagementPorts(addr string) model.PortList {
 // any of the supplied labels. All instances match an empty tag list.
 func (c *Controller) Instances(hostname model.Hostname, ports []string,
 	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
+	return nil, fmt.Errorf("NOT IMPLEMENTED")
+}
+
+// InstancesByPort retrieves instances for a service that match
+// any of the supplied labels. All instances match an empty tag list.
+func (c *Controller) InstancesByPort(hostname model.Hostname, port int,
+	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	// Get actual service by name
 	name, err := parseHostname(hostname)
 	if err != nil {
 		log.Infof("parseHostname(%s) => error %v", hostname, err)
 		return nil, err
-	}
-
-	portMap := make(map[string]bool)
-	for _, port := range ports {
-		portMap[port] = true
 	}
 
 	endpoints, err := c.getCatalogService(name, nil)
@@ -129,7 +132,7 @@ func (c *Controller) Instances(hostname model.Hostname, ports []string,
 	instances := []*model.ServiceInstance{}
 	for _, endpoint := range endpoints {
 		instance := convertInstance(endpoint)
-		if labels.HasSubsetOf(instance.Labels) && portMatch(instance, portMap) {
+		if labels.HasSubsetOf(instance.Labels) && portMatch(instance, port) {
 			instances = append(instances, instance)
 		}
 	}
@@ -138,16 +141,8 @@ func (c *Controller) Instances(hostname model.Hostname, ports []string,
 }
 
 // returns true if an instance's port matches with any in the provided list
-func portMatch(instance *model.ServiceInstance, portMap map[string]bool) bool {
-	if len(portMap) == 0 {
-		return true
-	}
-
-	if portMap[instance.Endpoint.ServicePort.Name] {
-		return true
-	}
-
-	return false
+func portMatch(instance *model.ServiceInstance, port int) bool {
+	return port == 0 || port == instance.Endpoint.ServicePort.Port
 }
 
 // GetProxyServiceInstances lists service instances co-located with a given proxy

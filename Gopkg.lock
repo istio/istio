@@ -23,7 +23,7 @@
     "api",
     "testhelpers"
   ]
-  revision = "feb69363fff010ea48e1dacd38ca859528cfa0d4"
+  revision = "94d9a77d88daf011a4991bf982d16ebd34ecf2c8"
 
 [[projects]]
   name = "github.com/Azure/go-autorest"
@@ -1286,7 +1286,7 @@
   version = "v2.2.1"
 
 [[projects]]
-  branch = "master"
+  branch = "release-0.8"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
@@ -1301,7 +1301,7 @@
     "rbac/v1alpha1",
     "routing/v1alpha1"
   ]
-  revision = "170445541e5b5a1515b52c9c9596570220679a27"
+  revision = "636ea68d62bf143ee9f8067a31a7824804613440"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1599,6 +1599,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "4160cda2de0241237d507eaeb9112afb071ff23097287b2d8e4fc3a0c0e602bc"
+  inputs-digest = "5e03fa4c1446924473cf821bf8ce4f9289079b988d735b58bb5da233f87760fb"
   solver-name = "gps-cdcl"
   solver-version = 1

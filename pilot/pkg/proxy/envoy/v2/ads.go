@@ -15,6 +15,7 @@
 package v2
 
 import (
+	"errors"
 	"io"
 	"os"
 	"sync"
@@ -24,6 +25,7 @@ import (
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
@@ -43,6 +45,19 @@ var (
 	// This is a map due to an edge case during envoy restart whereby the 'old' envoy
 	// reconnects after the 'new/restarted' envoy
 	adsSidecarIDConnectionsMap = map[string]map[string]*XdsConnection{}
+
+	// SendTimeout is the max time to wait for a ADS send to complete. This helps detect
+	// clients in a bad state (not reading). In future it may include checking for ACK
+	SendTimeout = 5 * time.Second
+
+	// PushTimeout is the time to wait for a push on a client. Pilot iterates over
+	// clients and pushes them serially for now, to avoid large CPU/memory spikes.
+	// We measure and reports cases where pusing a client takes longer.
+	PushTimeout = 5 * time.Second
+)
+
+var (
+	timeZero time.Time
 )
 
 var (
@@ -81,6 +96,26 @@ var (
 		Name: "pilot_xds",
 		Help: "Number of endpoints connected to this pilot using XDS",
 	})
+
+	writeTimeout = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "pilot_xds_write_timeout",
+		Help: "Pilot write timeout",
+	})
+
+	pushTimeouts = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "pilot_xds_push_timeout",
+		Help: "Pilot push timeout",
+	})
+
+	pushes = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "pilot_xds_pushes",
+		Help: "Pilot push timeout",
+	}, []string{"type"})
+
+	pushErrors = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "pilot_xds_push_errors",
+		Help: "Number of errors (timeouts) pushing to sidecars.",
+	}, []string{"type"})
 )
 
 func init() {
@@ -91,7 +126,18 @@ func init() {
 	prometheus.MustRegister(monServices)
 	prometheus.MustRegister(monVServices)
 	prometheus.MustRegister(xdsClients)
+	prometheus.MustRegister(writeTimeout)
+	prometheus.MustRegister(pushTimeouts)
+	prometheus.MustRegister(pushes)
+	prometheus.MustRegister(pushErrors)
+}
 
+// DiscoveryStream is a common interface for EDS and ADS. It also has a
+// shorter name.
+type DiscoveryStream interface {
+	Send(*xdsapi.DiscoveryResponse) error
+	Recv() (*xdsapi.DiscoveryRequest, error)
+	grpc.ServerStream
 }
 
 // XdsConnection is a listener connection type.
@@ -112,6 +158,9 @@ type XdsConnection struct {
 	// same info can be sent to all clients, without recomputing.
 	pushChannel chan *XdsEvent
 
+	// doneChannel will be closed when the client is closed.
+	doneChannel chan int
+
 	// TODO: migrate other fields as needed from model.Proxy and replace it
 
 	//HttpConnectionManagers map[string]*http_conn.HttpConnectionManager
@@ -125,7 +174,8 @@ type XdsConnection struct {
 
 	// TODO: TcpListeners (may combine mongo/etc)
 
-	stream ads.AggregatedDiscoveryService_StreamAggregatedResourcesServer
+	// Both ADS and EDS streams implement this interface
+	stream DiscoveryStream
 
 	// Routes is the list of watched Routes.
 	Routes []string
@@ -138,6 +188,12 @@ type XdsConnection struct {
 	// added will be true if at least one discovery request was received, and the connection
 	// is added to the map of active.
 	added bool
+
+	// Time of last push
+	LastPush time.Time
+
+	// Time of last push failure.
+	LastPushFailure time.Time
 }
 
 // XdsEvent represents a config or registry event that results in a push.
@@ -148,6 +204,36 @@ type XdsEvent struct {
 	clusters []string
 }
 
+func newXdsConnection(peerAddr string, stream DiscoveryStream) *XdsConnection {
+	return &XdsConnection{
+		pushChannel:   make(chan *XdsEvent, 1),
+		doneChannel:   make(chan int, 1),
+		PeerAddr:      peerAddr,
+		Clusters:      []string{},
+		Connect:       time.Now(),
+		stream:        stream,
+		HTTPListeners: []*xdsapi.Listener{},
+		RouteConfigs:  map[string]*xdsapi.RouteConfiguration{},
+	}
+}
+
+func receiveThread(con *XdsConnection, reqChannel chan *xdsapi.DiscoveryRequest, errP *error) {
+	defer close(reqChannel) // indicates close of the remote side.
+	for {
+		req, err := con.stream.Recv()
+		if err != nil {
+			if status.Code(err) == codes.Canceled || err == io.EOF {
+				log.Infof("ADS: %q %s terminated %v", con.PeerAddr, con.ConID, err)
+				return
+			}
+			*errP = err
+			log.Errorf("ADS: %q %s terminated with errors %v", con.PeerAddr, con.ConID, err)
+			return
+		}
+		reqChannel <- req
+	}
+}
+
 // StreamAggregatedResources implements the ADS interface.
 func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
 	peerInfo, ok := peer.FromContext(stream.Context())
@@ -156,23 +242,15 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 		peerAddr = peerInfo.Addr.String()
 	}
 	var discReq *xdsapi.DiscoveryRequest
-	var receiveError error
-	reqChannel := make(chan *xdsapi.DiscoveryRequest, 1)
 
 	if s.services == nil {
 		// first call - lazy loading.
 		s.updateModel()
 	}
 
-	con := &XdsConnection{
-		pushChannel:   make(chan *XdsEvent, 1),
-		PeerAddr:      peerAddr,
-		Connect:       time.Now(),
-		HTTPListeners: []*xdsapi.Listener{},
-		RouteConfigs:  map[string]*xdsapi.RouteConfiguration{},
-		Clusters:      []string{},
-		stream:        stream,
-	}
+	con := newXdsConnection(peerAddr, stream)
+	defer close(con.doneChannel)
+
 	// Do not call: defer close(con.pushChannel) !
 	// the push channel will be garbage collected when the connection is no longer used.
 	// Closing the channel can cause subtle race conditions with push. According to the spec:
@@ -183,22 +261,10 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	// discovery requests and wait for push commands on config change, so we add a
 	// go routine. If go grpc adds gochannel support for streams this will not be needed.
 	// This also detects close.
-	go func() {
-		defer close(reqChannel) // indicates close of the remote side.
-		for {
-			req, err := stream.Recv()
-			if err != nil {
-				if status.Code(err) == codes.Canceled || err == io.EOF {
-					log.Infof("ADS: %q %s terminated %v", peerAddr, con.ConID, err)
-					return
-				}
-				receiveError = err
-				log.Errorf("ADS: %q %s terminated with errors %v", peerAddr, con.ConID, err)
-				return
-			}
-			reqChannel <- req
-		}
-	}()
+	var receiveError error
+	reqChannel := make(chan *xdsapi.DiscoveryRequest, 1)
+	go receiveThread(con, reqChannel, &receiveError)
+
 	for {
 		// Block until either a request is received or the ticker ticks
 		select {
@@ -403,8 +469,37 @@ func adsPushAll() {
 	// It will include sending all configs that envoy is listening for, including EDS.
 	// TODO: get service, serviceinstances, configs once, to avoid repeated redundant calls.
 	// TODO: indicate the specific events, to only push what changed.
-	for _, client := range tmpMap {
-		client.pushChannel <- &XdsEvent{}
+	for _, c := range tmpMap {
+		// Using non-blocking push has problems if 2 pushes happen too close to each other
+		client := c
+		// TODO: this should be in a thread group, to do multiple pushes in parallel.
+		// Commented out - since we don't have throttling or rate control for push - need to experiment
+		// with larger clusters.
+		//go func(client *XdsConnection) {
+		to := time.After(PushTimeout)
+		select {
+		case client.pushChannel <- &XdsEvent{}:
+			client.LastPush = time.Now()
+			client.LastPushFailure = timeZero
+		case <-client.doneChannel: // connection was closed
+		case <-to:
+			pushTimeouts.Add(1)
+			//default:
+			// This may happen to some clients if the other side is in a bad state and can't receive.
+			// The tests were catching this - one of the client was not reading.
+			if client.LastPushFailure.IsZero() {
+				client.LastPushFailure = time.Now()
+				log.Warnf("Failed to push, client busy %s", client.ConID)
+				pushErrors.With(prometheus.Labels{"type": "short"}).Add(1)
+			} else {
+				if time.Since(client.LastPushFailure) > 10*time.Second {
+					log.Warnf("Repeated failure to push %s", client.ConID)
+					// unfortunately grpc go doesn't allow closing (unblocking) the stream.
+					pushErrors.With(prometheus.Labels{"type": "long"}).Add(1)
+				}
+			}
+		}
+		//}(client)
 	}
 }
 
@@ -440,6 +535,15 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 	}
 }
 
+// getServicesForEndpoint returns the list of services associated with a node.
+// Currently using the node endpoint IP.
+func (s *DiscoveryServer) getServicesForEndpoint(node *model.Proxy) ([]*model.ServiceInstance, error) {
+	// TODO: cache the results, this is a pretty slow operation and called few times per
+	// push
+	proxyInstances, err := s.env.GetProxyServiceInstances(node)
+	return proxyInstances, err
+}
+
 func (s *DiscoveryServer) pushRoute(con *XdsConnection) error {
 	rc := []*xdsapi.RouteConfiguration{}
 
@@ -448,9 +552,10 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection) error {
 	services = s.services
 	s.modelMutex.RUnlock()
 
-	proxyInstances, err := s.env.GetProxyServiceInstances(con.modelNode)
+	proxyInstances, err := s.getServicesForEndpoint(con.modelNode)
 	if err != nil {
 		log.Warnf("ADS: RDS: Failed to retrieve proxy service instances %v", err)
+		pushes.With(prometheus.Labels{"type": "rds_conferr"}).Add(1)
 		return err
 	}
 
@@ -463,23 +568,22 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection) error {
 		rc = append(rc, r)
 		con.RouteConfigs[routeName] = r
 	}
-	response, err := routeDiscoveryResponse(rc, *con.modelNode)
-	if err != nil {
-		log.Warnf("ADS: RDS: config failure, closing grpc %v", err)
-		return err
-	}
-	err = con.stream.Send(response)
+	response := routeDiscoveryResponse(rc, *con.modelNode)
+	err = con.send(response)
 	if err != nil {
 		log.Warnf("ADS: RDS: Send failure, closing grpc %v", err)
+		pushes.With(prometheus.Labels{"type": "rds_senderr"}).Add(1)
 		return err
 	}
+	pushes.With(prometheus.Labels{"type": "rds"}).Add(1)
+
 	if adsDebug {
 		log.Infof("ADS: RDS: PUSH for addr:%s routes:%d", con.PeerAddr, len(rc))
 	}
 	return nil
 }
 
-func routeDiscoveryResponse(ls []*xdsapi.RouteConfiguration, node model.Proxy) (*xdsapi.DiscoveryResponse, error) {
+func routeDiscoveryResponse(ls []*xdsapi.RouteConfiguration, node model.Proxy) *xdsapi.DiscoveryResponse {
 	resp := &xdsapi.DiscoveryResponse{
 		TypeUrl:     RouteType,
 		VersionInfo: versionInfo(),
@@ -490,5 +594,26 @@ func routeDiscoveryResponse(ls []*xdsapi.RouteConfiguration, node model.Proxy) (
 		resp.Resources = append(resp.Resources, *lr)
 	}
 
-	return resp, nil
+	return resp
+}
+
+// Send with timeout
+func (con *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
+	done := make(chan error, 1)
+	// hardcoded for now - not sure if we need a setting
+	t := time.NewTimer(SendTimeout)
+	go func() {
+		err := con.stream.Send(res)
+		done <- err
+	}()
+	select {
+	case <-t.C:
+		// TODO: wait for ACK
+		log.Infof("Timeout writing %s", con.ConID)
+		writeTimeout.Add(1)
+		return errors.New("timeout sending")
+	case err, _ := <-done:
+		_ = t.Stop()
+		return err
+	}
 }

@@ -15,6 +15,8 @@
 package eureka
 
 import (
+	"fmt"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
@@ -62,15 +64,17 @@ func (sd *serviceDiscovery) GetService(hostname model.Hostname) (*model.Service,
 // Instances implements a service catalog operation
 func (sd *serviceDiscovery) Instances(hostname model.Hostname, ports []string,
 	tagsList model.LabelsCollection) ([]*model.ServiceInstance, error) {
+	return nil, fmt.Errorf("NOT IMPLEMENTED")
+}
+
+// InstancesByPort implements a service catalog operation
+func (sd *serviceDiscovery) InstancesByPort(hostname model.Hostname, port int,
+	tagsList model.LabelsCollection) ([]*model.ServiceInstance, error) {
 
 	apps, err := sd.client.Applications()
 	if err != nil {
 		log.Warnf("could not list Eureka instances: %v", err)
 		return nil, err
-	}
-	portSet := make(map[string]bool)
-	for _, port := range ports {
-		portSet[port] = true
 	}
 	services := convertServices(apps, map[model.Hostname]bool{hostname: true})
 
@@ -80,7 +84,7 @@ func (sd *serviceDiscovery) Instances(hostname model.Hostname, ports []string,
 			continue
 		}
 
-		if len(portSet) > 0 && !portSet[instance.Endpoint.ServicePort.Name] {
+		if port != 0 && port != instance.Endpoint.ServicePort.Port {
 			continue
 		}
 

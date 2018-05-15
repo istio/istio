@@ -47,6 +47,8 @@ func TestAuthnPeerRejectNoMtls(t *testing.T) {
 	s := env.NewTestSetup(env.IstioAuthnTestPeerRejectNoMtls, t)
 	// In the Envoy config, requires mTLS for peer
 	s.SetFiltersBeforeMixer(authnConfig)
+	// Disable the HotRestart of Envoy
+	s.SetDisableHotRestart(true)
 
 	env.SetStatsUpdateInterval(s.MfConfig(), 1)
 	if err := s.SetUp(); err != nil {
