@@ -40,6 +40,7 @@ var (
 // Controller aggregates data across different registries and monitors for changes
 type Controller struct {
 	registries []Registry
+	storeLock  sync.RWMutex
 }
 
 // NewController creates a new Aggregate controller
@@ -51,6 +52,8 @@ func NewController() *Controller {
 
 // AddRegistry adds registries into the aggregated controller
 func (c *Controller) AddRegistry(registry Registry) {
+	c.storeLock.Lock()
+	defer c.storeLock.Unlock()
 	c.registries = append(c.registries, registry)
 }
 
@@ -62,6 +65,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 
 	services := make([]*model.Service, 0)
 	var errs error
+	// Locking Registries list while walking it to prevent inconsistent results
 	for _, r := range c.registries {
 		svcs, err := r.Services()
 		if err != nil {

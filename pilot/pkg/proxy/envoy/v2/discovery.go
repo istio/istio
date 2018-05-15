@@ -32,7 +32,7 @@ import (
 var (
 	// Failsafe to implement periodic refresh, in case events or cache invalidation fail.
 	// Disabled by default.
-	periodicRefreshDuration = 0 * time.Second
+	periodicRefreshDuration = 60 * time.Second
 
 	versionMutex sync.Mutex
 	// version is update by registry events.
