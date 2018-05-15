@@ -34,6 +34,7 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"istio.io/istio/pkg/ctrlz"
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -146,6 +147,7 @@ type PilotArgs struct {
 	Service          ServiceArgs
 	RDSv2            bool
 	MeshConfig       *meshconfig.MeshConfig
+	CtrlZOptions     *ctrlz.Options
 }
 
 // Server contains the runtime configuration for the Pilot discovery service.
@@ -213,6 +215,8 @@ func NewServer(args PilotArgs) (*Server, error) {
 	if err := s.initMonitor(&args); err != nil {
 		return nil, err
 	}
+
+	go ctrlz.Run(args.CtrlZOptions, nil)
 
 	return s, nil
 }
