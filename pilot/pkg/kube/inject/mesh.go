@@ -145,9 +145,6 @@ containers:
   imagePullPolicy: {{ .ImagePullPolicy }}
   {{ end -}}
   resources:
-    limits:
-      cpu: 100m
-      memory: 128Mi
     requests:
       cpu: 100m
       memory: 128Mi
