@@ -12,7 +12,7 @@ spec:
 {{- if .Values.service.loadBalancerIP }}
   loadBalancerIP: "{{ .Values.service.loadBalancerIP }}"
 {{- end }}
-  type: LoadBalancer
+  type: {{ .Values.service.type }}
   ports:
   - port: 80
     name: http

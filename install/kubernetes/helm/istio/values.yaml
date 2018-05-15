@@ -93,9 +93,7 @@ ingress:
 #  memory: 128Mi
   service:
     loadBalancerIP: ""
-    nodePort:
-      enabled: false
-      port: 32000
+    type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
 
 #
 # ingressgateway configuration
