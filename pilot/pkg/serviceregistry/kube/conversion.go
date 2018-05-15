@@ -97,7 +97,7 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 		addr = svc.Spec.ClusterIP
 	}
 
-	resolution := model.ClientSideLB
+	resolution := model.ClientSideDynamicLB
 	meshExternal := false
 	loadBalancingDisabled := false
 

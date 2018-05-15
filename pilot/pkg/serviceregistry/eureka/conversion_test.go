@@ -285,8 +285,9 @@ func makeService(hostname model.Hostname, ports []int, protocols []model.Protoco
 	}
 
 	return &model.Service{
-		Hostname: hostname,
-		Ports:    portList,
+		Hostname:   hostname,
+		Ports:      portList,
+		Resolution: model.ClientSideDynamicLB,
 	}
 }
 
