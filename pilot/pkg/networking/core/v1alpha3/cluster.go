@@ -339,7 +339,7 @@ func applyLoadBalancer(cluster *v2.Cluster, lb *networking.LoadBalancerSettings)
 	// DO not do if else here. since lb.GetSimple returns a enum value (not pointer).
 }
 
-// ClusterALPNProtocols, try h2 first and then http/1.1
+// ClusterALPNProtocols - try h2 first and then http/1.1
 var ClusterALPNProtocols = []string{"h2", "http/1.1"}
 
 func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) {
