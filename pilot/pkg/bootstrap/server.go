@@ -216,7 +216,9 @@ func NewServer(args PilotArgs) (*Server, error) {
 		return nil, err
 	}
 
-	go ctrlz.Run(args.CtrlZOptions, nil)
+	if args.CtrlZOptions != nil {
+		go ctrlz.Run(args.CtrlZOptions, nil)
+	}
 
 	return s, nil
 }
