@@ -127,26 +127,28 @@ e2e_pilotv2_v1alpha3: | istioctl test/local/noauth/e2e_pilotv2
 e2e_bookinfo_envoyv2_v1alpha3: | istioctl test/local/noauth/e2e_bookinfo_envoyv2
 
 # This is used to keep a record of the test results.
-CAPTURE_LOG=| tee -a ${OUT_DIR}/tests/build-log.txt
+CAPTURE_LOG_FILE=CAPTURE_LOG=| tee -a ${OUT_DIR}/tests/build-log.txt
 
 ## Targets for fast local development and staged CI.
 # The test take a T argument. Example:
 # make test/local/noauth/e2e_pilotv2 T=-test.run=TestPilot/ingress
 
-test/local/e2e_mixer: istioctl generate_yaml
+
+$(OUT_DIR):
+	@mkdir -p ${OUT_DIR}/{logs,tests}
+
+test/local/e2e_mixer: $(OUT_DIR) istioctl generate_yaml
 	set -o pipefail; go test -v -timeout 20m ./tests/e2e/tests/mixer -args \
 		--skip_cleanup  -use_local_cluster -cluster_wide -test.v ${E2E_ARGS} ${EXTRA_E2E_ARGS} \
 		${CAPTURE_LOG}
 
 
-test/minikube/auth/e2e_simple: generate_yaml
-	mkdir -p ${OUT_DIR}/tests
+test/minikube/auth/e2e_simple: $(OUT_DIR) generate_yaml
 	set -o pipefail; go test -v -timeout 20m ./tests/e2e/tests/simple -args --auth_enable=true \
 		--skip_cleanup  -use_local_cluster -cluster_wide \
 		${E2E_ARGS} ${EXTRA_E2E_ARGS}  ${T} ${TESTOPTS} ${CAPTURE_LOG}
 
-test/minikube/noauth/e2e_simple: generate_yaml
-	mkdir -p ${OUT_DIR}/tests
+test/minikube/noauth/e2e_simple: $(OUT_DIR) generate_yaml
 	set -o pipefail; go test -v -timeout 20m ./tests/e2e/tests/simple -args --auth_enable=false \
 		--skip_cleanup  -use_local_cluster -cluster_wide -test.v \
 		${E2E_ARGS} ${EXTRA_E2E_ARGS} ${T} ${TESTOPTS} ${CAPTURE_LOG}
@@ -157,15 +159,13 @@ test/minikube/noauth/e2e_simple: generate_yaml
 # you only changed pilot) to build.
 # Note: This test is used by CircleCI as "e2e-pilot".
 # REQUIRED TEST for V1
-test/local/auth/e2e_pilot: generate_yaml
-	@mkdir -p ${OUT_DIR}/logs
+test/local/auth/e2e_pilot: $(OUT_DIR) generate_yaml
 	set -o pipefail; go test -v -timeout 20m ./tests/e2e/tests/pilot \
 		--skip_cleanup --auth_enable=true --egress=false --v1alpha3=false --rbac_enable=true \
 		${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 # v1alpha3+envoyv2 test without MTLS
-test/local/noauth/e2e_pilotv2: generate_yaml-envoyv2_transition
-	@mkdir -p ${OUT_DIR}/logs
+test/local/noauth/e2e_pilotv2: $(OUT_DIR) generate_yaml-envoyv2_transition
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 20m ./tests/e2e/tests/pilot \
 		--skip_cleanup --auth_enable=false --v1alpha3=true --egress=false --ingress=false --rbac_enable=true --v1alpha1=false --cluster_wide \
 		${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
@@ -173,16 +173,14 @@ test/local/noauth/e2e_pilotv2: generate_yaml-envoyv2_transition
 	set -o pipefail; go test -v -timeout 20m ./tests/e2e/tests/controller ${CAPTURE_LOG}
 
 # v1alpha3+envoyv2 test with MTLS
-test/local/auth/e2e_pilotv2: generate_yaml-envoyv2_transition_auth
-	@mkdir -p ${OUT_DIR}/logs
+test/local/auth/e2e_pilotv2: $(OUT_DIR) generate_yaml-envoyv2_transition_auth
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 20m ./tests/e2e/tests/pilot \
 		--skip_cleanup --auth_enable=true --v1alpha3=true --egress=false --ingress=false --rbac_enable=true --v1alpha1=false --cluster_wide \
 		${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 	# Run the pilot controller tests
 	set -o pipefail; go test -v -timeout 20m ./tests/e2e/tests/controller ${CAPTURE_LOG}
 
-test/local/cloudfoundry/e2e_pilotv2:
-	@mkdir -p ${OUT_DIR}/tests
+test/local/cloudfoundry/e2e_pilotv2: $(OUT_DIR)
 	sudo apt update
 	sudo apt install -y iptables
 	sudo iptables -t nat -A OUTPUT -d 127.1.1.1/32 -p tcp -j REDIRECT --to-port 15001
@@ -190,15 +188,13 @@ test/local/cloudfoundry/e2e_pilotv2:
 		${CAPTURE_LOG}
 	sudo iptables -t nat -F
 
-test/local/noauth/e2e_bookinfo_envoyv2: generate_yaml-envoyv2_transition_loadbalancer_ingressgateway
-	@mkdir -p ${OUT_DIR}/logs
+test/local/noauth/e2e_bookinfo_envoyv2: $(OUT_DIR) generate_yaml-envoyv2_transition_loadbalancer_ingressgateway
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 20m ./tests/e2e/tests/bookinfo \
 		--skip_cleanup --auth_enable=true --v1alpha3=true --egress=true --ingress=false --rbac_enable=false \
 		--v1alpha1=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 # v1alpha3+envoyv2 test without MTLS (not implemented yet). Still in progress, for tracking
-test/local/noauth/e2e_simple_pilotv2: generate_yaml-envoyv2_transition
-	@mkdir -p ${OUT_DIR}/logs
+test/local/noauth/e2e_simple_pilotv2: $(OUT_DIR) generate_yaml-envoyv2_transition
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 20m ./tests/e2e/tests/simple \
 		--skip_cleanup --auth_enable=true ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
@@ -208,6 +204,5 @@ junit-report: ${ISTIO_BIN}/go-junit-report
 # Dumpsys will get as much info as possible from the test cluster
 # Can be run after tests. It will also process the auto-saved log output
 # This assume istio runs in istio-system namespace, and 'skip-cleanup' was used in tests.
-dumpsys:
-	@mkdir -p ${OUT_DIR}/tests
+dumpsys: $(OUT_DIR)
 	bin/dump_kubernetes.sh --output-directory ${OUT_DIR}/logs
