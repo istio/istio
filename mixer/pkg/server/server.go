@@ -212,7 +212,7 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		s.readinessProbe.Start()
 	}
 
-	go ctrlz.Run(ctrlz.DefaultOptions(), nil)
+	go ctrlz.Run(a.IntrospectionOptions, nil)
 
 	return s, nil
 }

@@ -6,12 +6,12 @@
 # Common settings.
 global:
   # Default tag for Istio images.
-  hub: docker.io/istionightly
+  hub: istio.io/istio
 
   # Default tag for Istio images.
   # Should track latest released version.
   # Currently using nightly build, for testing
-  tag: circleci-nightly
+  tag: 0.8.latest
   proxy:
     image: proxy
   # proxyv2 image is the image to use for networking alpha3 and envoy v2
