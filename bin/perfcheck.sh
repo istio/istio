@@ -54,11 +54,11 @@ TOLERANCE_PERCENT_TIME_PER_OP=50
 
 # Percent tolerance for allocated bytes per op
 # There is generally some variance in this number, presumably because of upfront costs or timings.
-TOLERANCE_PERCENT_BYTES_PER_OP=10
+TOLERANCE_PERCENT_BYTES_PER_OP=1
 
 # Percent tolerance for allocations per op
-# Start with 5, as this is one of the most stable numbers in the benchmarks.
-TOLERANCE_PERCENT_ALLOCS_PER_OP=10
+# Start with 0, as this is one of the most stable numbers in the benchmarks.
+TOLERANCE_PERCENT_ALLOCS_PER_OP=0
 
 # the location of this script
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )

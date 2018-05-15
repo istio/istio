@@ -17,6 +17,7 @@ package e2e
 import (
 	"context"
 	"io"
+	"log"
 	"reflect"
 	"testing"
 
@@ -31,7 +32,6 @@ import (
 	testEnv "istio.io/istio/mixer/pkg/server"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/mixer/test/spyAdapter"
-	"istio.io/istio/pkg/log"
 )
 
 type testData struct {
@@ -56,10 +56,8 @@ type expectedAttrRef struct {
 func (tt *testData) run(t *testing.T, variety v1beta1.TemplateVariety, globalCfg string) {
 	// Do common setup
 	adapterInfos, spyAdapters := constructAdapterInfos(tt.behaviors)
-	lo := log.DefaultOptions()
-	lo.SetOutputLevel(log.DefaultScopeName, log.DebugLevel)
+
 	args := testEnv.DefaultArgs()
-	args.LoggingOptions = lo
 	args.APIPort = 0
 	args.MonitoringPort = 0
 	args.Templates = tt.templates
@@ -203,7 +201,7 @@ func (tt *testData) checkReferencedAttributes(t *testing.T, actual *istio_mixer_
 func closeHelper(c io.Closer) {
 	err := c.Close()
 	if err != nil {
-		log.Errorf("%v", err)
+		log.Fatal(err)
 	}
 }
 
