@@ -68,6 +68,7 @@ bool AuthnUtils::GetJWTPayloadFromHeaders(
               jwt_payload_key.get(), value);
     return false;
   }
+  *payload->mutable_raw_claims() = payload_str;
   ::google::protobuf::Map< ::std::string, ::std::string>* claims =
       payload->mutable_claims();
   Envoy::Json::ObjectSharedPtr json_obj;

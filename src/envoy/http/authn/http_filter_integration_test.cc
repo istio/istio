@@ -214,7 +214,8 @@ TEST_P(AuthenticationFilterIntegrationTest, CheckAuthnResultIsExpected) {
                "aud": "bookstore-esp-echo.cloudendpointsapis.com",
                "iss": "628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com",
                "sub": "628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com"
-              }
+              },
+              raw_claims: "{\"iss\":\"628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com\",\"sub\":\"628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com\",\"aud\":\"bookstore-esp-echo.cloudendpointsapis.com\",\"iat\":1512754205,\"exp\":5112754205}"
             }
           }
       )",

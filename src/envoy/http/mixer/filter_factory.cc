@@ -30,9 +30,9 @@ namespace Configuration {
 
 class MixerConfigFactory : public NamedHttpFilterConfigFactory {
  public:
-  HttpFilterFactoryCb createFilterFactory(const Json::Object& config_json,
-                                          const std::string& prefix,
-                                          FactoryContext& context) override {
+  Http::FilterFactoryCb createFilterFactory(const Json::Object& config_json,
+                                            const std::string& prefix,
+                                            FactoryContext& context) override {
     HttpClientConfig config_pb;
     if (!Utils::ReadV2Config(config_json, &config_pb) &&
         !Utils::ReadV1Config(config_json, &config_pb)) {
@@ -42,7 +42,7 @@ class MixerConfigFactory : public NamedHttpFilterConfigFactory {
     return createFilterFactory(config_pb, prefix, context);
   }
 
-  HttpFilterFactoryCb createFilterFactoryFromProto(
+  Http::FilterFactoryCb createFilterFactoryFromProto(
       const Protobuf::Message& proto_config, const std::string& prefix,
       FactoryContext& context) override {
     return createFilterFactory(
@@ -58,7 +58,9 @@ class MixerConfigFactory : public NamedHttpFilterConfigFactory {
   }
 
   Router::RouteSpecificFilterConfigConstSharedPtr
-  createRouteSpecificFilterConfig(const Protobuf::Message& config) override {
+  createRouteSpecificFilterConfig(
+      const Protobuf::Message& config,
+      Envoy::Server::Configuration::FactoryContext&) override {
     auto obj = std::make_shared<Http::Mixer::PerRouteServiceConfig>();
     // TODO: use downcastAndValidate once client_config.proto adds validate
     // rules.
@@ -70,9 +72,9 @@ class MixerConfigFactory : public NamedHttpFilterConfigFactory {
   std::string name() override { return "mixer"; }
 
  private:
-  HttpFilterFactoryCb createFilterFactory(const HttpClientConfig& config_pb,
-                                          const std::string&,
-                                          FactoryContext& context) {
+  Http::FilterFactoryCb createFilterFactory(const HttpClientConfig& config_pb,
+                                            const std::string&,
+                                            FactoryContext& context) {
     std::unique_ptr<Http::Mixer::Config> config_obj(
         new Http::Mixer::Config(config_pb));
     auto control_factory = std::make_shared<Http::Mixer::ControlFactory>(

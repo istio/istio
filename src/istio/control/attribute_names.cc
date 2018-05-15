@@ -78,6 +78,7 @@ const char AttributeName::kRequestAuthPrincipal[] = "request.auth.principal";
 const char AttributeName::kRequestAuthAudiences[] = "request.auth.audiences";
 const char AttributeName::kRequestAuthPresenter[] = "request.auth.presenter";
 const char AttributeName::kRequestAuthClaims[] = "request.auth.claims";
+const char AttributeName::kRequestAuthRawClaims[] = "request.auth.raw_claims";
 
 }  // namespace control
 }  // namespace istio

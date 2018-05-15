@@ -85,6 +85,7 @@ struct AttributeName {
   static const char kRequestAuthAudiences[];
   static const char kRequestAuthPresenter[];
   static const char kRequestAuthClaims[];
+  static const char kRequestAuthRawClaims[];
 };
 
 }  // namespace control

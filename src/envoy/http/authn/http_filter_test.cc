@@ -35,11 +35,18 @@ using testing::NiceMock;
 using testing::StrictMock;
 using testing::_;
 
+namespace iaapi = istio::authentication::v1alpha1;
+
 namespace Envoy {
 namespace Http {
 namespace Istio {
 namespace AuthN {
 namespace {
+
+const char ingoreBothPolicy[] = R"(
+  peer_is_optional: true
+  origin_is_optional: true
+)";
 
 // Create a fake authenticator for test. This authenticator do nothing except
 // making the authentication fail.
@@ -74,8 +81,9 @@ class MockAuthenticationFilter : public AuthenticationFilter {
  public:
   // We'll use fake authenticator for test, so policy is not really needed. Use
   // default config for simplicity.
-  MockAuthenticationFilter()
-      : AuthenticationFilter(FilterConfig::default_instance()) {}
+  MockAuthenticationFilter(const FilterConfig& filter_config)
+      : AuthenticationFilter(filter_config) {}
+
   ~MockAuthenticationFilter(){};
 
   MOCK_METHOD1(createPeerAuthenticator,
@@ -95,9 +103,11 @@ class AuthenticationFilterTest : public testing::Test {
   }
 
  protected:
-  StrictMock<MockAuthenticationFilter> filter_;
-  NiceMock<Http::MockStreamDecoderFilterCallbacks> decoder_callbacks_;
+  FilterConfig filter_config_ = FilterConfig::default_instance();
+
   Http::TestHeaderMapImpl request_headers_;
+  StrictMock<MockAuthenticationFilter> filter_{filter_config_};
+  NiceMock<Http::MockStreamDecoderFilterCallbacks> decoder_callbacks_;
 };
 
 TEST_F(AuthenticationFilterTest, PeerFail) {
@@ -149,6 +159,15 @@ TEST_F(AuthenticationFilterTest, AllPass) {
       Utils::Authentication::FetchResultFromHeader(request_headers_, &authn));
   EXPECT_TRUE(TestUtility::protoEqual(
       TestUtilities::AuthNResultFromString(R"(peer_user: "foo")"), authn));
+}
+
+TEST_F(AuthenticationFilterTest, IgnoreBothFail) {
+  iaapi::Policy policy_;
+  ASSERT_TRUE(
+      Protobuf::TextFormat::ParseFromString(ingoreBothPolicy, &policy_));
+  *filter_config_.mutable_policy() = policy_;
+  EXPECT_EQ(Http::FilterHeadersStatus::Continue,
+            filter_.decodeHeaders(request_headers_, true));
 }
 
 }  // namespace

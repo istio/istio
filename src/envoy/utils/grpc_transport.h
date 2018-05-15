@@ -39,14 +39,18 @@ class GrpcTransport : public Grpc::TypedAsyncRequestCallbacks<ResponseType>,
       istio::mixerclient::DoneFunc on_done)>;
 
   static Func GetFunc(Grpc::AsyncClientFactory& factory,
-                      const Http::HeaderMap* headers = nullptr);
+                      Tracing::Span& parent_span);
 
   GrpcTransport(Grpc::AsyncClientPtr async_client, const RequestType& request,
-                const Http::HeaderMap* headers, ResponseType* response,
+                ResponseType* response, Tracing::Span& parent_span,
                 istio::mixerclient::DoneFunc on_done);
 
-  // Grpc::AsyncRequestCallbacks<ResponseType>
-  void onCreateInitialMetadata(Http::HeaderMap& metadata) override;
+  void onCreateInitialMetadata(Http::HeaderMap& metadata) override {
+    // We generate cluster name contains invalid characters, so override the
+    // authority header temorarily until it can be specified via CDS.
+    // See https://github.com/envoyproxy/envoy/issues/3297 for details.
+    metadata.Host()->value("mixer", 5);
+  }
 
   void onSuccess(std::unique_ptr<ResponseType>&& response,
                  Tracing::Span& span) override;
@@ -60,7 +64,6 @@ class GrpcTransport : public Grpc::TypedAsyncRequestCallbacks<ResponseType>,
   static const google::protobuf::MethodDescriptor& descriptor();
 
   Grpc::AsyncClientPtr async_client_;
-  const Http::HeaderMap* headers_;
   ResponseType* response_;
   ::istio::mixerclient::DoneFunc on_done_;
   Grpc::AsyncRequest* request_{};

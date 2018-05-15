@@ -133,7 +133,8 @@ FilterHeadersStatus Filter::decodeHeaders(HeaderMap& headers, bool) {
   HeaderUpdate header_update(&headers);
   headers_ = &headers;
   cancel_check_ = handler_->Check(
-      &check_data, &header_update, control_.GetCheckTransport(&headers),
+      &check_data, &header_update,
+      control_.GetCheckTransport(decoder_callbacks_->activeSpan()),
       [this](const Status& status) { completeCheck(status); });
   initiating_call_ = false;
 
@@ -211,6 +212,7 @@ void Filter::onDestroy() {
 
 void Filter::log(const HeaderMap* request_headers,
                  const HeaderMap* response_headers,
+                 const HeaderMap* response_trailers,
                  const RequestInfo::RequestInfo& request_info) {
   ENVOY_LOG(debug, "Called Mixer::Filter : {}", __func__);
   if (!handler_) {
@@ -227,7 +229,8 @@ void Filter::log(const HeaderMap* request_headers,
     handler_->ExtractRequestAttributes(&check_data);
   }
   // response trailer header is not counted to response total size.
-  ReportData report_data(response_headers, request_info, request_total_size_);
+  ReportData report_data(response_headers, response_trailers, request_info,
+                         request_total_size_);
   handler_->Report(&report_data);
 }
 

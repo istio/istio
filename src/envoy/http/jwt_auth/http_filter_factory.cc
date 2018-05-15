@@ -27,15 +27,15 @@ namespace Configuration {
 
 class JwtVerificationFilterConfig : public NamedHttpFilterConfigFactory {
  public:
-  HttpFilterFactoryCb createFilterFactory(const Json::Object& config,
-                                          const std::string&,
-                                          FactoryContext& context) override {
+  Http::FilterFactoryCb createFilterFactory(const Json::Object& config,
+                                            const std::string&,
+                                            FactoryContext& context) override {
     JwtAuthentication proto_config;
     MessageUtil::loadFromJson(config.asJsonString(), proto_config);
     return createFilter(proto_config, context);
   }
 
-  HttpFilterFactoryCb createFilterFactoryFromProto(
+  Http::FilterFactoryCb createFilterFactoryFromProto(
       const Protobuf::Message& proto_config, const std::string&,
       FactoryContext& context) override {
     return createFilter(
@@ -51,8 +51,8 @@ class JwtVerificationFilterConfig : public NamedHttpFilterConfigFactory {
   std::string name() override { return "jwt-auth"; }
 
  private:
-  HttpFilterFactoryCb createFilter(const JwtAuthentication& proto_config,
-                                   FactoryContext& context) {
+  Http::FilterFactoryCb createFilter(const JwtAuthentication& proto_config,
+                                     FactoryContext& context) {
     auto store_factory = std::make_shared<Http::JwtAuth::JwtAuthStoreFactory>(
         proto_config, context);
     Upstream::ClusterManager& cm = context.clusterManager();

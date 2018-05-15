@@ -35,6 +35,11 @@ message JwtPayload {
 
   // Only raw JWT string claims are kept.
   map<string, string> claims = 5;
+
+  // All original claims in JsonString format, which can be parsed into json
+  // object (map) to access other claims that not cover with the string claims
+  // map above.
+  string raw_claims = 6;
 }
 
 // Container to hold authenticated attributes from X509 (mTLS).
