@@ -609,8 +609,6 @@ generate_yaml-envoyv2_transition: $(HELM)
 		  --values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
 		  install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
 
-generate_yaml-envoyv2_transition_auth: $(HELM)
-	./install/updateVersion_orig.sh -a ${HUB},${TAG} >/dev/null 2>&1
 	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/istio-auth.yaml
 	$(HELM) template --set global.tag=${TAG} \
 		  --namespace=istio-system \
