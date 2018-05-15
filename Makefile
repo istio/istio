@@ -609,6 +609,7 @@ generate_yaml-envoyv2_transition: $(HELM)
 		  --values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
 		  install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
 
+<<<<<<< HEAD
 generate_yaml-envoyv2_transition_auth: $(HELM)
 	./install/updateVersion_orig.sh -a ${HUB},${TAG} >/dev/null 2>&1
 	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/istio-auth.yaml
@@ -642,6 +643,8 @@ generate_yaml-envoyv2_transition_loadbalancer_ingressgateway: $(HELM)
 		  --set global.mtls.enabled=true \
 		  install/kubernetes/helm/istio >> install/kubernetes/istio-auth.yaml
 
+=======
+>>>>>>> parent of a453938... [WIP] refactor bookinfo to use different gateway definitions for envoy v1/routing v1alpha1 and envoy v2/routing v1alpha3  (#5113)
 deploy/all: $(HELM) istio-all.yaml
 	kubectl apply -n istio-system -f install/kubernetes/istio-all.yaml
 

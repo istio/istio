@@ -195,7 +195,7 @@ test/local/cloudfoundry/e2e_pilotv2:
 		${CAPTURE_LOG}
 	sudo iptables -t nat -F
 
-test/local/noauth/e2e_bookinfo_envoyv2: generate_yaml-envoyv2_transition_loadbalancer_ingressgateway
+test/local/noauth/e2e_bookinfo_envoyv2: generate_yaml-envoyv2_transition
 	@mkdir -p ${OUT_DIR}/logs
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 20m ./tests/e2e/tests/bookinfo \
 	--skip_cleanup --auth_enable=true --v1alpha3=true --egress=true --ingress=false --rbac_enable=false \
