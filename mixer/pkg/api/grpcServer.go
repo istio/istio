@@ -30,7 +30,7 @@ import (
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime/dispatcher"
 	"istio.io/istio/mixer/pkg/status"
-	"istio.io/istio/pkg/log"
+	istio_log "istio.io/istio/pkg/log"
 )
 
 // We have a slightly messy situation around the use of context objects. gRPC stubs are
@@ -56,6 +56,8 @@ const (
 	// defaultValidUseCount is the default number of calls for which a check or quota result is valid.
 	defaultValidUseCount = 200
 )
+
+var log = istio_log.RegisterScope("dispatcher", "Dispatcher messages.", 0)
 
 // NewGRPCServer creates a gRPC serving stack.
 func NewGRPCServer(dispatcher dispatcher.Dispatcher, gp *pool.GoroutinePool) mixerpb.MixerServer {
