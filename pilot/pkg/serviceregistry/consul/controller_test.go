@@ -136,7 +136,7 @@ func TestInstances(t *testing.T) {
 	}
 
 	hostname := serviceHostname("reviews")
-	instances, err := controller.InstancesByPort(hostname, []int{}, model.LabelsCollection{})
+	instances, err := controller.InstancesByPort(hostname, 0, model.LabelsCollection{})
 	if err != nil {
 		t.Errorf("client encountered error during Instances(): %v", err)
 	}
@@ -152,7 +152,7 @@ func TestInstances(t *testing.T) {
 
 	filterTagKey := "version"
 	filterTagVal := "v3"
-	instances, err = controller.InstancesByPort(hostname, []int{}, model.LabelsCollection{
+	instances, err = controller.InstancesByPort(hostname, 0, model.LabelsCollection{
 		model.Labels{filterTagKey: filterTagVal},
 	})
 	if err != nil {
@@ -174,7 +174,7 @@ func TestInstances(t *testing.T) {
 	}
 
 	filterPort := 9081
-	instances, err = controller.InstancesByPort(hostname, []int{filterPort}, model.LabelsCollection{})
+	instances, err = controller.InstancesByPort(hostname, filterPort, model.LabelsCollection{})
 	if err != nil {
 		t.Errorf("client encountered error during Instances(): %v", err)
 	}
@@ -198,7 +198,7 @@ func TestInstancesBadHostname(t *testing.T) {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
 
-	instances, err := controller.InstancesByPort("", []int{}, model.LabelsCollection{})
+	instances, err := controller.InstancesByPort("", 0, model.LabelsCollection{})
 	if err == nil {
 		t.Error("Instances() should return error when provided bad hostname")
 	}
@@ -216,7 +216,7 @@ func TestInstancesError(t *testing.T) {
 	}
 
 	ts.Server.Close()
-	instances, err := controller.InstancesByPort(serviceHostname("reviews"), []int{}, model.LabelsCollection{})
+	instances, err := controller.InstancesByPort(serviceHostname("reviews"), 0, model.LabelsCollection{})
 	if err == nil {
 		t.Error("Instances() should return error when client experiences connection problem")
 	}
