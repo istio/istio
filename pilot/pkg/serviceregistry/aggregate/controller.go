@@ -57,14 +57,6 @@ func (c *Controller) AddRegistry(registry Registry) {
 	c.registries = append(c.registries, registry)
 }
 
-// GetRegistries safely gets a slice of registries
-func (c *Controller) GetRegistries() []Registry {
-	c.storeLock.RLock()
-	defer c.storeLock.RUnlock()
-	registries := c.registries
-	return registries
-}
-
 // Services lists services from all platforms
 func (c *Controller) Services() ([]*model.Service, error) {
 	// smap is a map of hostname (string) to service, used to identify services that
@@ -74,7 +66,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 	services := make([]*model.Service, 0)
 	var errs error
 	// Locking Registries list while walking it to prevent inconsistent results
-	for _, r := range c.GetRegistries() {
+	for _, r := range c.registries {
 		svcs, err := r.Services()
 		if err != nil {
 			errs = multierror.Append(errs, err)
@@ -115,7 +107,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 // GetService retrieves a service by hostname if exists
 func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error) {
 	var errs error
-	for _, r := range c.GetRegistries() {
+	for _, r := range c.registries {
 		service, err := r.GetService(hostname)
 		if err != nil {
 			errs = multierror.Append(errs, err)
@@ -133,7 +125,7 @@ func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error)
 // ManagementPorts retrieves set of health check ports by instance IP
 // Return on the first hit.
 func (c *Controller) ManagementPorts(addr string) model.PortList {
-	for _, r := range c.GetRegistries() {
+	for _, r := range c.registries {
 		if portList := r.ManagementPorts(addr); portList != nil {
 			return portList
 		}
@@ -147,7 +139,7 @@ func (c *Controller) Instances(hostname model.Hostname, ports []string,
 	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	var instances, tmpInstances []*model.ServiceInstance
 	var errs error
-	for _, r := range c.GetRegistries() {
+	for _, r := range c.registries {
 		var err error
 		tmpInstances, err = r.Instances(hostname, ports, labels)
 		if err != nil {
@@ -171,7 +163,7 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, port int,
 	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	var instances, tmpInstances []*model.ServiceInstance
 	var errs error
-	for _, r := range c.GetRegistries() {
+	for _, r := range c.registries {
 		var err error
 		tmpInstances, err = r.InstancesByPort(hostname, port, labels)
 		if err != nil {
@@ -195,7 +187,7 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.Servi
 	var errs error
 	// It doesn't make sense for a single proxy to be found in more than one registry.
 	// TODO: if otherwise, warning or else what to do about it.
-	for _, r := range c.GetRegistries() {
+	for _, r := range c.registries {
 		instances, err := r.GetProxyServiceInstances(node)
 		if err != nil {
 			errs = multierror.Append(errs, err)
@@ -219,7 +211,7 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.Servi
 // Run starts all the controllers
 func (c *Controller) Run(stop <-chan struct{}) {
 
-	for _, r := range c.GetRegistries() {
+	for _, r := range c.registries {
 		go r.Run(stop)
 	}
 
@@ -229,7 +221,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 // AppendServiceHandler implements a service catalog operation
 func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) error {
-	for _, r := range c.GetRegistries() {
+	for _, r := range c.registries {
 		if err := r.AppendServiceHandler(f); err != nil {
 			log.Infof("Fail to append service handler to adapter %s", r.Name)
 			return err
@@ -240,7 +232,7 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 
 // AppendInstanceHandler implements a service instance catalog operation
 func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
-	for _, r := range c.GetRegistries() {
+	for _, r := range c.registries {
 		if err := r.AppendInstanceHandler(f); err != nil {
 			log.Infof("Fail to append instance handler to adapter %s", r.Name)
 			return err
@@ -251,7 +243,7 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 
 // GetIstioServiceAccounts implements model.ServiceAccounts operation
 func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []string) []string {
-	for _, r := range c.GetRegistries() {
+	for _, r := range c.registries {
 		if svcAccounts := r.GetIstioServiceAccounts(hostname, ports); svcAccounts != nil {
 			return svcAccounts
 		}
