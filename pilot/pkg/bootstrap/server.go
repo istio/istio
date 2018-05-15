@@ -227,6 +227,9 @@ func NewServer(args PilotArgs) (*Server, error) {
 	if err := s.initMonitor(&args); err != nil {
 		return nil, err
 	}
+	if err := s.initMultiClusterController(&args); err != nil {
+		return nil, err
+	}
 
 	return s, nil
 }
@@ -290,8 +293,6 @@ func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 	if s.clusterStore != nil {
 		log.Infof("clusters configuration %s", spew.Sdump(s.clusterStore))
 	}
-	// Start secret controller which watches for runtime secret Object changes and adds secrets dynamically
-	err = clusterregistry.StartSecretController(s.kubeClient, s.clusterStore, args.Config.ClusterRegistriesNamespace)
 
 	return err
 }
@@ -300,6 +301,17 @@ func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 func checkForMock(registries []string) bool {
 	for _, r := range registries {
 		if strings.ToLower(r) == "mock" {
+			return true
+		}
+	}
+
+	return false
+}
+
+// Check if Kubernetes registry exists in PilotArgs's Registries
+func checkForKubernetes(registries []string) bool {
+	for _, r := range registries {
+		if strings.ToLower(r) == "kubernetes" {
 			return true
 		}
 	}
@@ -562,6 +574,24 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 				})
 		}
 	}
+
+	return
+}
+
+// initMultiClusterController initializes multi cluster controller
+// currently implemented only for kubernetes registries
+func (s *Server) initMultiClusterController(args *PilotArgs) (err error) {
+	if checkForKubernetes(args.Service.Registries) {
+		// Start secret controller which watches for runtime secret Object changes and adds secrets dynamically
+		err = clusterregistry.StartSecretController(s.kubeClient,
+			s.clusterStore,
+			s.ServiceController,
+			s.DiscoveryService,
+			args.Config.ClusterRegistriesNamespace,
+			args.Config.ControllerOptions.ResyncPeriod,
+			args.Config.ControllerOptions.WatchedNamespace,
+			args.Config.ControllerOptions.DomainSuffix)
+	}
 	return
 }
 
@@ -581,6 +611,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		case serviceregistry.MockRegistry:
 			initMemoryRegistry(s, serviceControllers)
 		case serviceregistry.KubernetesRegistry:
+			// TODO Since controllers are built dynamically, createK8sServiceControllers can be removed
 			if err := s.createK8sServiceControllers(serviceControllers, args); err != nil {
 				return err
 			}
