@@ -123,7 +123,7 @@ if [ ! -f "$ISTIO_ENVOY_DEBUG_PATH" ] || [ ! -f "$ISTIO_ENVOY_RELEASE_PATH" ] ; 
     # Download debug envoy binary.
     mkdir -p $ISTIO_ENVOY_DEBUG_DIR
     pushd $ISTIO_ENVOY_DEBUG_DIR
-    if [ "$LOCAL_OS" == "darwin" ]; then
+    if [ "$LOCAL_OS" == "darwin" -a "x$GOOS" == "x" ]; then
        ISTIO_ENVOY_DEBUG_URL=${ISTIO_ENVOY_MAC_RELEASE_URL}
     fi
     echo "Downloading envoy debug artifact: ${DOWNLOAD_COMMAND} ${ISTIO_ENVOY_DEBUG_URL}"
@@ -135,7 +135,7 @@ if [ ! -f "$ISTIO_ENVOY_DEBUG_PATH" ] || [ ! -f "$ISTIO_ENVOY_RELEASE_PATH" ] ; 
     # Download release envoy binary.
     mkdir -p $ISTIO_ENVOY_RELEASE_DIR
     pushd $ISTIO_ENVOY_RELEASE_DIR
-    if [ "$LOCAL_OS" == "darwin" ]; then 
+    if [ "$LOCAL_OS" == "darwin" -a "x$GOOS" == "x" ]; then
        ISTIO_ENVOY_RELEASE_URL=${ISTIO_ENVOY_MAC_RELEASE_URL}
     fi
     echo "Downloading envoy release artifact: ${DOWNLOAD_COMMAND} ${ISTIO_ENVOY_RELEASE_URL}"

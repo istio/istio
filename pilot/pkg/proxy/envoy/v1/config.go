@@ -620,7 +620,7 @@ func buildDestinationHTTPRoutes(service *model.Service,
 			// default route for the destination is always the lowest priority route
 			cluster := BuildOutboundCluster(service.Hostname, servicePort, nil, service.External())
 			if envoyv2 {
-				cluster.Name = model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, servicePort)
+				cluster.Name = model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, servicePort.Port)
 			}
 			routes = append(routes, BuildDefaultRoute(cluster))
 		}
@@ -916,7 +916,7 @@ func buildEgressVirtualHost(serviceName string, destination model.Hostname,
 	}
 
 	if protocolToHandle == model.ProtocolHTTP2 {
-		externalTrafficCluster.Features = ClusterFeatureHTTP2
+		externalTrafficCluster.MakeHTTP2()
 	}
 
 	if protocolToHandle == model.ProtocolHTTPS {

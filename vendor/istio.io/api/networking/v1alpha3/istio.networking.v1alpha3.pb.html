@@ -5,8 +5,7 @@ location: https://istio.io/docs/reference/config/istio.networking.v1alpha3.html
 layout: protoc-gen-docs
 number_of_entries: 39
 ---
-<p>Configuration affecting traffic routing. Here are a few terms useful to define
-in the context of traffic routing.</p>
+<h3 id="terms-and-definitions">Terms and Definitions</h3>
 
 <p><code>Service</code> a unit of application behavior bound to a unique name in a
 service registry. Services consist of multiple network <em>endpoints</em>
@@ -724,11 +723,14 @@ spec:
       number: 9080
       name: http-wildcard
       protocol: HTTP
-    # no hosts implies wildcard match
+    hosts:
+    - &quot;*&quot;
   - port:
-      number: 2379 #to expose internal service via external port 2379
+      number: 2379 # to expose internal service via external port 2379
       name: mongo
       protocol: MONGO
+    hosts:
+    - &quot;*&quot;
 </code></pre>
 
 <p>The Gateway specification above describes the L4-L6 properties of a load
@@ -828,7 +830,10 @@ spec:
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
 <p>One or more labels that indicate a specific set of pods/VMs
-on which this gateway configuration should be applied.</p>
+on which this gateway configuration should be applied.
+The scope of label search is platform dependent.
+On Kubernetes, for example, the scope includes pods running in
+all reachable namespaces.</p>
 
 </td>
 </tr>
@@ -1201,9 +1206,9 @@ spec:
   - match:
     - uri:
         exact: /v1/getProductRatings
-  redirect:
-    uri: /v1/bookRatings
-    authority: newratings.default.svc.cluster.local
+    redirect:
+      uri: /v1/bookRatings
+      authority: newratings.default.svc.cluster.local
   ...
 </code></pre>
 
@@ -1903,6 +1908,8 @@ spec:
       number: 80
       name: http2
       protocol: HTTP2
+    hosts:
+    - &quot;*&quot;
 </code></pre>
 
 <p>Another example</p>
@@ -1919,6 +1926,8 @@ spec:
       number: 27018
       name: mongo
       protocol: MONGO
+    hosts:
+    - &quot;*&quot;
 </code></pre>
 
 <p>The following is an example of TLS configuration for port 443</p>
@@ -1935,6 +1944,8 @@ spec:
       number: 443
       name: https
       protocol: HTTPS
+    hosts:
+    - &quot;*&quot;
     tls:
       mode: SIMPLE
       serverCertificate: /etc/certs/server.pem
@@ -1963,7 +1974,8 @@ connections</p>
 <td><code>hosts</code></td>
 <td><code>string[]</code></td>
 <td>
-<p>A list of hosts exposed by this gateway. While typically applicable to
+<p>REQUIRED. A list of hosts exposed by this gateway. At least one
+host is required. While typically applicable to
 HTTP services, it can also be used for TCP services using TLS with
 SNI. Standard DNS wildcard prefix syntax is permitted.</p>
 
@@ -2140,7 +2152,7 @@ kind: DestinationRule
 metadata:
   name: mtls-mongocluster
 spec:
-  host: mymongodb.somedomain
+  name: mymongodb.somedomain
   trafficPolicy:
     tls:
       mode: MUTUAL
@@ -2170,7 +2182,7 @@ spec:
 </code></pre>
 
 <p>For HTTP based services, it is possible to create a VirtualService
-backed by multiple DNS addressable endpoints. In such a scenario, the
+backed by multiple DNS addressible endpoints. In such a scenario, the
 application can use the HTTP_PROXY environment variable to transparently
 reroute API calls for the VirtualService to a chosen backend. For
 example, the following configuration creates a non-existent external
@@ -2209,7 +2221,7 @@ kind: DestinationRule
 metadata:
   name: tls-foobar
 spec:
-  host: foo.bar.com
+  name: foo.bar.com
   trafficPolicy:
     tls:
       mode: SIMPLE # initiates HTTPS
@@ -2351,7 +2363,7 @@ service.</p>
 outside the mesh.  Location determines the behavior of several
 features, such as service-to-service mTLS authentication, policy
 enforcement, etc. When communicating with services outside the mesh,
-Istio&rsquo;s mTLS authentication is disabled, and policy enforcement is
+Istio&rsquo;s mTLS authentication is disabled, and policy enforcements are
 performed on the client-side as opposed to server-side.</p>
 
 <table class="enum-values">
@@ -2648,18 +2660,6 @@ spec:
       mode: SIMPLE
 </code></pre>
 
-<p>The following rule configures a client to use Istio mutual TLS when talking
-to rating services.
-    apiVersion: networking.istio.io/v1alpha3
-    kind: DestinationRule
-    metadata:
-      name: ratings-istio-mtls
-    spec:
-      host: ratings.prod.svc.cluster.local
-      trafficPolicy:
-        tls:
-          mode: ISTIO_MUTUAL</p>
-
 <table class="message-fields">
 <thead>
 <tr>
@@ -2683,8 +2683,7 @@ using TLS. The value of this field determines how TLS is enforced.</p>
 <td><code>string</code></td>
 <td>
 <p>REQUIRED if mode is <code>MUTUAL</code>. The path to the file holding the
-client-side TLS certificate to use.
-Should be empty if mode is <code>ISTIO_MUTUAL</code>.</p>
+client-side TLS certificate to use.</p>
 
 </td>
 </tr>
@@ -2693,8 +2692,7 @@ Should be empty if mode is <code>ISTIO_MUTUAL</code>.</p>
 <td><code>string</code></td>
 <td>
 <p>REQUIRED if mode is <code>MUTUAL</code>. The path to the file holding the
-client&rsquo;s private key.
-Should be empty if mode is <code>ISTIO_MUTUAL</code>.</p>
+client&rsquo;s private key.</p>
 
 </td>
 </tr>
@@ -2704,8 +2702,7 @@ Should be empty if mode is <code>ISTIO_MUTUAL</code>.</p>
 <td>
 <p>OPTIONAL: The path to the file containing certificate authority
 certificates to use in verifying a presented server certificate. If
-omitted, the proxy will not verify the server&rsquo;s certificate.
-Should be empty if mode is <code>ISTIO_MUTUAL</code>.</p>
+omitted, the proxy will not verify the server&rsquo;s certificate.</p>
 
 </td>
 </tr>
@@ -2715,8 +2712,7 @@ Should be empty if mode is <code>ISTIO_MUTUAL</code>.</p>
 <td>
 <p>A list of alternate names to verify the subject identity in the
 certificate. If specified, the proxy will verify that the server
-certificate&rsquo;s subject alt name matches one of the specified values.
-Should be empty if mode is <code>ISTIO_MUTUAL</code>.</p>
+certificate&rsquo;s subject alt name matches one of the specified values.</p>
 
 </td>
 </tr>
@@ -2724,8 +2720,7 @@ Should be empty if mode is <code>ISTIO_MUTUAL</code>.</p>
 <td><code>sni</code></td>
 <td><code>string</code></td>
 <td>
-<p>SNI string to present to the server during TLS handshake.
-Should be empty if mode is <code>ISTIO_MUTUAL</code>.</p>
+<p>SNI string to present to the server during TLS handshake.</p>
 
 </td>
 </tr>
@@ -2763,17 +2758,6 @@ Should be empty if mode is <code>ISTIO_MUTUAL</code>.</p>
 <td>
 <p>Secure connections to the upstream using mutual TLS by presenting
 client certificates for authentication.</p>
-
-</td>
-</tr>
-<tr id="TLSSettings.TLSmode.ISTIO_MUTUAL">
-<td><code>ISTIO_MUTUAL</code></td>
-<td>
-<p>Secure connections to the upstream using mutual TLS by presenting
-client certificates for authentication.
-Compared to Mutual mode, this mode uses certificates generated
-automatically by Istio for mTLS authentication. When this mode is
-used, all other fields in <code>TLSSettings</code> should be empty.</p>
 
 </td>
 </tr>

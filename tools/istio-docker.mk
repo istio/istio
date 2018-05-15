@@ -109,27 +109,27 @@ docker.proxy_debug: pilot/docker/envoy_telemetry.yaml.tmpl
 	time (cd $(DOCKER_BUILD_TOP)/proxyd && \
 		docker build -t $(HUB)/proxy_debug:$(TAG) -f Dockerfile.proxy_debug .)
 
+# The file must be named 'envoy', depends on the release.
+${ISTIO_ENVOY_RELEASE_DIR}/envoy: ${ISTIO_ENVOY_RELEASE_PATH}
+	mkdir -p $(DOCKER_BUILD_TOP)/proxyv2
+	cp ${ISTIO_ENVOY_RELEASE_PATH} ${ISTIO_ENVOY_RELEASE_DIR}/envoy
+
 # Target to build a proxy image with v2 interfaces enabled. Partial implementation, but
 # will scale better and have v2-specific features. Not built automatically until it passes
 # all tests. Developers working on v2 are currently expected to call this manually as
 # make docker.proxyv2; docker push ${HUB}/proxy:${TAG}
 docker.proxyv2: tools/deb/envoy_bootstrap_v2.json
-docker.proxyv2: ${ISTIO_ENVOY_RELEASE_PATH}
+docker.proxyv2: $(ISTIO_ENVOY_RELEASE_DIR)/envoy
 docker.proxyv2: $(ISTIO_OUT)/pilot-agent
-docker.proxyv2: pilot/docker/Dockerfile.proxy pilot/docker/Dockerfile.proxy_debug
+docker.proxyv2: pilot/docker/Dockerfile.proxyv2
 docker.proxyv2: pilot/docker/envoy_pilot.yaml.tmpl
 docker.proxyv2: pilot/docker/envoy_policy.yaml.tmpl
+docker.proxyv2: tools/deb/istio-iptables.sh
 docker.proxyv2: pilot/docker/envoy_telemetry.yaml.tmpl
 	mkdir -p $(DOCKER_BUILD_TOP)/proxyv2
-	# Not using $^ to avoid 2 copies of envoy
-	cp $(ISTIO_OUT)/pilot-agent \
-		pilot/docker/Dockerfile.proxy_debug $(DOCKER_BUILD_TOP)/proxyv2/
-	cp ${ISTIO_ENVOY_RELEASE_PATH} $(DOCKER_BUILD_TOP)/proxyv2/envoy
-	cp pilot/docker/*.yaml.tmpl $(DOCKER_BUILD_TOP)/proxyv2/
-	# Use v2 as default
-	cp tools/deb/envoy_bootstrap_v2.json $(DOCKER_BUILD_TOP)/proxyv2/envoy_bootstrap_tmpl.json
+	cp $^ $(DOCKER_BUILD_TOP)/proxyv2/
 	time (cd $(DOCKER_BUILD_TOP)/proxyv2 && \
-		docker build -t $(HUB)/proxyv2:$(TAG) -f Dockerfile.proxy_debug .)
+		docker build -t $(HUB)/proxyv2:$(TAG) -f Dockerfile.proxyv2 .)
 
 docker.pilot: $(ISTIO_OUT)/pilot-discovery pilot/docker/certs/cacert.pem pilot/docker/Dockerfile.pilot
 	mkdir -p $(ISTIO_DOCKER)/pilot
