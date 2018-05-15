@@ -339,6 +339,9 @@ func applyLoadBalancer(cluster *v2.Cluster, lb *networking.LoadBalancerSettings)
 	// DO not do if else here. since lb.GetSimple returns a enum value (not pointer).
 }
 
+// ClusterALPNProtocols, try h2 first and then http/1.1
+var ClusterALPNProtocols = []string{"h2", "http/1.1"}
+
 func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) {
 	if tls == nil {
 		return
@@ -367,6 +370,7 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 		cluster.TlsContext = &auth.UpstreamTlsContext{
 			CommonTlsContext: &auth.CommonTlsContext{
 				ValidationContext: certValidationContext,
+				AlpnProtocols:     ClusterALPNProtocols,
 			},
 			Sni: tls.Sni,
 		}
@@ -388,20 +392,31 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 					},
 				},
 				ValidationContext: certValidationContext,
+				AlpnProtocols:     ClusterALPNProtocols,
 			},
 			Sni: tls.Sni,
 		}
+	}
+
+	if tls.Mode != networking.TLSSettings_DISABLE {
+		// alpn is set for TLS, so specify h2 configuration.
+		addHTTP2Options(cluster)
 	}
 }
 
 func setUpstreamProtocol(cluster *v2.Cluster, port *model.Port) {
 	if port.Protocol.IsHTTP2() {
-		cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{
-			// Envoy default value of 100 is too low for data path.
-			MaxConcurrentStreams: &types.UInt32Value{
-				Value: 1073741824,
-			},
-		}
+		addHTTP2Options(cluster)
+	}
+}
+
+// addHTTP2Options makes cluster of type http2
+func addHTTP2Options(cluster *v2.Cluster) {
+	cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{
+		// Envoy default value of 100 is too low for data path.
+		MaxConcurrentStreams: &types.UInt32Value{
+			Value: 1073741824,
+		},
 	}
 }
 
