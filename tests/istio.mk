@@ -127,7 +127,7 @@ e2e_pilotv2_v1alpha3: | istioctl test/local/noauth/e2e_pilotv2
 e2e_bookinfo_envoyv2_v1alpha3: | istioctl test/local/noauth/e2e_bookinfo_envoyv2
 
 # This is used to keep a record of the test results.
-CAPTURE_LOG_FILE=CAPTURE_LOG=| tee -a ${OUT_DIR}/tests/build-log.txt
+CAPTURE_LOG=| tee -a ${OUT_DIR}/tests/build-log.txt
 
 ## Targets for fast local development and staged CI.
 # The test take a T argument. Example:
