@@ -41,7 +41,7 @@ func convertServices(serviceEntry *networking.ServiceEntry) []*model.Service {
 	case networking.ServiceEntry_DNS:
 		resolution = model.DNSLB
 	case networking.ServiceEntry_STATIC:
-		resolution = model.ClientSideLB
+		resolution = model.ClientSideStaticLB
 	}
 
 	svcPorts := make(model.PortList, 0, len(serviceEntry.Ports))

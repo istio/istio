@@ -49,7 +49,7 @@ func convertServices(apps []*application, hostnames map[model.Hostname]bool) map
 					Ports:        make(model.PortList, 0),
 					ExternalName: "",
 					MeshExternal: false,
-					Resolution:   model.ClientSideLB,
+					Resolution:   model.ClientSideDynamicLB,
 				}
 				services[hostname] = service
 			}

@@ -202,8 +202,8 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env model.Environment
 
 func convertResolution(resolution model.Resolution) v2.Cluster_DiscoveryType {
 	switch resolution {
-	case model.ClientSideLB:
-		return v2.Cluster_EDS
+	case model.ClientSideStaticLB:
+		return v2.Cluster_STATIC
 	case model.DNSLB:
 		return v2.Cluster_STRICT_DNS
 	case model.Passthrough:

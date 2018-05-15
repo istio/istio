@@ -244,7 +244,7 @@ func TestConvertService(t *testing.T) {
 			// service entry http  static
 			externalSvc: httpStatic,
 			services: []*model.Service{makeService("*.google.com", "",
-				map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.ClientSideLB),
+				map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.ClientSideStaticLB),
 			},
 		},
 		{
@@ -272,7 +272,7 @@ func TestConvertService(t *testing.T) {
 			// service entry tcp static
 			externalSvc: tcpStatic,
 			services: []*model.Service{makeService("tcpstatic.com", "172.217.0.0/16",
-				map[string]int{"tcp-444": 444}, true, model.ClientSideLB),
+				map[string]int{"tcp-444": 444}, true, model.ClientSideStaticLB),
 			},
 		},
 		{

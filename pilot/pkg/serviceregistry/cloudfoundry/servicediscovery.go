@@ -53,7 +53,7 @@ func (sd *ServiceDiscovery) Services() ([]*model.Service, error) {
 			Hostname:     model.Hostname(hostname),
 			Ports:        []*model.Port{port},
 			MeshExternal: false,
-			Resolution:   model.ClientSideLB,
+			Resolution:   model.ClientSideDynamicLB,
 		})
 	}
 
@@ -74,7 +74,7 @@ func (sd *ServiceDiscovery) Services() ([]*model.Service, error) {
 			Address:      internalRoute.Vip,
 			Ports:        []*model.Port{internalRouteServicePort},
 			MeshExternal: false,
-			Resolution:   model.ClientSideLB,
+			Resolution:   model.ClientSideDynamicLB,
 		})
 	}
 
@@ -122,7 +122,7 @@ func (sd *ServiceDiscovery) InstancesByPort(hostname model.Hostname, _ int, _ mo
 				Hostname:     hostname,
 				Ports:        []*model.Port{port},
 				MeshExternal: false,
-				Resolution:   model.ClientSideLB,
+				Resolution:   model.ClientSideDynamicLB,
 			},
 		})
 	}
@@ -152,7 +152,7 @@ func (sd *ServiceDiscovery) InstancesByPort(hostname model.Hostname, _ int, _ mo
 						Address:      internalRoute.Vip,
 						Ports:        []*model.Port{internalRouteServicePort},
 						MeshExternal: false,
-						Resolution:   model.ClientSideLB,
+						Resolution:   model.ClientSideDynamicLB,
 					},
 				})
 			}

@@ -92,8 +92,10 @@ type Service struct {
 type Resolution int
 
 const (
-	// ClientSideLB implies that the proxy will decide the endpoint from its local lb pool
-	ClientSideLB Resolution = iota
+	// ClientSideDynamicLB implies that the proxy will decide the endpoint from its local lb pool from EDS
+	ClientSideDynamicLB Resolution = iota
+	// ClientSideStaticLB implies that the proxy will decide the endpoint from its local lb pool of static IPs
+	ClientSideStaticLB
 	// DNSLB implies that the proxy will resolve a DNS address and forward to the resolved address
 	DNSLB
 	// Passthrough implies that the proxy should forward traffic to the destination IP requested by the caller

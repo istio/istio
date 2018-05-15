@@ -61,7 +61,7 @@ func convertService(endpoints []*api.CatalogService) *model.Service {
 	name, addr, externalName := "", "", ""
 
 	meshExternal := false
-	resolution := model.ClientSideLB
+	resolution := model.ClientSideDynamicLB
 
 	ports := make(map[int]*model.Port)
 	for _, endpoint := range endpoints {
@@ -112,7 +112,7 @@ func convertInstance(instance *api.CatalogService) *model.ServiceInstance {
 	}
 
 	meshExternal := false
-	resolution := model.ClientSideLB
+	resolution := model.ClientSideDynamicLB
 	externalName := instance.NodeMeta[externalTagName]
 	if externalName != "" {
 		meshExternal = true

@@ -110,17 +110,20 @@ func TestServiceDiscovery_Services(t *testing.T) {
 	g.Expect(serviceModels).To(gomega.HaveLen(3))
 	g.Expect(serviceModels).To(gomega.ConsistOf([]*model.Service{
 		{
-			Hostname: "process-guid-a.cfapps.io",
-			Ports:    []*model.Port{{Port: defaultServicePort, Protocol: model.ProtocolHTTP, Name: "http"}},
+			Hostname:   "process-guid-a.cfapps.io",
+			Resolution: model.ClientSideDynamicLB,
+			Ports:      []*model.Port{{Port: defaultServicePort, Protocol: model.ProtocolHTTP, Name: "http"}},
 		},
 		{
-			Hostname: "process-guid-b.cfapps.io",
-			Ports:    []*model.Port{{Port: defaultServicePort, Protocol: model.ProtocolHTTP, Name: "http"}},
+			Hostname:   "process-guid-b.cfapps.io",
+			Resolution: model.ClientSideDynamicLB,
+			Ports:      []*model.Port{{Port: defaultServicePort, Protocol: model.ProtocolHTTP, Name: "http"}},
 		},
 		{
-			Hostname: "something.apps.internal",
-			Address:  "127.1.1.1",
-			Ports:    []*model.Port{{Port: defaultServicePort, Protocol: model.ProtocolTCP, Name: "tcp"}},
+			Hostname:   "something.apps.internal",
+			Resolution: model.ClientSideDynamicLB,
+			Address:    "127.1.1.1",
+			Ports:      []*model.Port{{Port: defaultServicePort, Protocol: model.ProtocolTCP, Name: "tcp"}},
 		},
 	}))
 }
@@ -146,8 +149,9 @@ func TestServiceDiscovery_GetService_Success(t *testing.T) {
 
 	g.Expect(err).To(gomega.BeNil())
 	g.Expect(serviceModel).To(gomega.Equal(&model.Service{
-		Hostname: "process-guid-b.cfapps.io",
-		Ports:    []*model.Port{{Port: defaultServicePort, Protocol: model.ProtocolHTTP, Name: "http"}},
+		Hostname:   "process-guid-b.cfapps.io",
+		Resolution: model.ClientSideDynamicLB,
+		Ports:      []*model.Port{{Port: defaultServicePort, Protocol: model.ProtocolHTTP, Name: "http"}},
 	}))
 }
 
@@ -191,8 +195,9 @@ func TestServiceDiscovery_Instances_Filtering(t *testing.T) {
 		Name:     "http",
 	}
 	service := &model.Service{
-		Hostname: "process-guid-a.cfapps.io",
-		Ports:    []*model.Port{servicePort},
+		Hostname:   "process-guid-a.cfapps.io",
+		Resolution: model.ClientSideDynamicLB,
+		Ports:      []*model.Port{servicePort},
 	}
 
 	g.Expect(instances).To(gomega.ConsistOf([]*model.ServiceInstance{
@@ -229,8 +234,9 @@ func TestServiceDiscovery_Instances_Filtering(t *testing.T) {
 				},
 			},
 			Service: &model.Service{
-				Hostname: "something.apps.internal",
-				Address:  "127.1.1.1",
+				Hostname:   "something.apps.internal",
+				Address:    "127.1.1.1",
+				Resolution: model.ClientSideDynamicLB,
 				Ports: []*model.Port{
 					{
 						Port:     defaultServicePort,
