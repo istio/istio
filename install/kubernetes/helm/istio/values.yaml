@@ -6,7 +6,7 @@
 # Common settings.
 global:
   # Default tag for Istio images.
-  hub: istio.io/istio
+  hub: docker.io/istio
 
   # Default tag for Istio images.
   # Should track latest released version.
