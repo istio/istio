@@ -873,9 +873,11 @@ func (s *Server) secureGrpcStart(listener net.Listener) {
 				VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 					// For now accept any certs - pilot is not authenticating the caller, TLS used for
 					// privacy
-					//log.Infof("Certificate received %V", verifiedChains)
+					log.Infof("Certificate received %V", verifiedChains)
 					return nil
 				},
+				NextProtos: []string{"h2","http/1.1"},
+				//ClientAuth: tls.NoClientCert,
 				//ClientAuth: tls.RequestClientCert,
 				ClientAuth: tls.RequireAndVerifyClientCert,
 				ClientCAs:  caCertPool,
