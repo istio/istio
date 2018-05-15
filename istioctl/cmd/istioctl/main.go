@@ -703,11 +703,7 @@ func preprocMixerConfig(configs []crd.IstioKind) error {
 }
 
 func restConfig() (config *rest.Config, err error) {
-	if kubeconfig == "" {
-		config, err = rest.InClusterConfig()
-	} else {
-		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
-	}
+	config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
 
 	if err != nil {
 		return

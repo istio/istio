@@ -180,21 +180,25 @@ test/local/noauth/e2e_pilotv2: generate_yaml-envoyv2_transition
 test/local/auth/e2e_pilotv2: generate_yaml-envoyv2_transition_auth
 	@mkdir -p ${OUT_DIR}/logs
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 20m ./tests/e2e/tests/pilot \
- 	--skip_cleanup --auth_enable=true --v1alpha3=true --egress=false --ingress=false --rbac_enable=false --v1alpha1=false --cluster_wide \
+	--skip_cleanup --auth_enable=true --v1alpha3=true --egress=false --ingress=false --rbac_enable=true --v1alpha1=false --cluster_wide \
 	${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} \
 		${CAPTURE_LOG}
 	# Run the pilot controller tests
 	set -o pipefail; go test -v -timeout 20m ./tests/e2e/tests/controller ${CAPTURE_LOG}
 
 test/local/cloudfoundry/e2e_pilotv2:
-	@mkdir -p ${OUT_DIR}/logs
+	@mkdir -p ${OUT_DIR}/tests
+	sudo apt update
+	sudo apt install -y iptables
+	sudo iptables -t nat -A OUTPUT -d 127.1.1.1/32 -p tcp -j REDIRECT --to-port 15001
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 20m ./tests/e2e/tests/pilot/cloudfoundry ${T} \
 		${CAPTURE_LOG}
+	sudo iptables -t nat -F
 
 test/local/noauth/e2e_bookinfo_envoyv2: generate_yaml-envoyv2_transition_loadbalancer_ingressgateway
 	@mkdir -p ${OUT_DIR}/logs
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 20m ./tests/e2e/tests/bookinfo \
-	--skip_cleanup --auth_enable=true --v1alpha3=true --egress=false --ingress=false --rbac_enable=false \
+	--skip_cleanup --auth_enable=true --v1alpha3=true --egress=true --ingress=false --rbac_enable=false \
 	--v1alpha1=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} \
                 ${CAPTURE_LOG}
 
@@ -214,10 +218,4 @@ junit-report: ${ISTIO_BIN}/go-junit-report
 # This assume istio runs in istio-system namespace, and 'skip-cleanup' was used in tests.
 dumpsys:
 	@mkdir -p ${OUT_DIR}/tests
-	@mkdir -p ${OUT_DIR}/logs
-	kubectl get all -o wide --all-namespaces | tee ${OUT_DIR}/logs/kubectl_all.txt
-	kubectl get all -o yaml --all-namespaces > ${OUT_DIR}/logs/kubectl_all.yaml
-	kubectl cluster-info dump > ${OUT_DIR}/logs/cluster-info.dump.txt
-	kubectl describe pods -n istio-system > ${OUT_DIR}/logs/pods-system.txt
-	kubectl get event --all-namespaces -o wide > ${OUT_DIR}/logs/events.txt
-	kubectl logs -n istio-system -listio=pilot -c discovery > ${OUT_DIR}/logs/pilot.log
+	bin/dump_kubernetes.sh --output-directory ${OUT_DIR}/logs

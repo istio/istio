@@ -1,6 +1,6 @@
 # Attempt to use all possible fields in DestinationRule
 apiVersion: networking.istio.io/v1alpha3
-kind: ExternalService
+kind: ServiceEntry
 metadata:
   name: destall
 spec:
@@ -10,7 +10,7 @@ spec:
    - number: 81
      name: http
      protocol: HTTP
-   discovery: STATIC
+   resolution: STATIC
    endpoints:
     - address: 127.0.0.2
       ports:

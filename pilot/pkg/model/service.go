@@ -26,6 +26,7 @@ import (
 	"bytes"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	authn "istio.io/api/authentication/v1alpha1"
@@ -285,6 +286,24 @@ type ServiceInstance struct {
 	ServiceAccount   string          `json:"serviceaccount,omitempty"`
 }
 
+const (
+	// AZLabel indicates the region/zone of an instance. It is used if the native
+	// registry doesn't provide one.
+	AZLabel = "istio-az"
+)
+
+// GetAZ returns the availability zone from an instance.
+// - k8s: region/zone, extracted from node's failure-domain.beta.kubernetes.io/{region,zone}
+// - consul: defaults to 'instance.Datacenter'
+//
+// This is used by EDS to group the endpoints by AZ and by .
+func (si *ServiceInstance) GetAZ() string {
+	if si.AvailabilityZone != "" {
+		return si.AvailabilityZone
+	}
+	return si.Labels[AZLabel]
+}
+
 // ServiceDiscovery enumerates Istio service instances.
 type ServiceDiscovery interface {
 	// Services list declarations of all services in the system
@@ -310,7 +329,32 @@ type ServiceDiscovery interface {
 	//
 	// Similar concepts apply for calling this function with a specific
 	// port, hostname and labels.
+	// Deprecated: made obsolete by InstancesByPort
 	Instances(hostname Hostname, ports []string, labels LabelsCollection) ([]*ServiceInstance, error)
+
+	// InstancesByPort retrieves instances for a service on the given ports with labels that match
+	// any of the supplied labels. All instances match an empty tag list.
+	//
+	// For example, consider the example of catalog.mystore.com as described in NetworkEndpoints
+	// Instances(catalog.myservice.com, 80) ->
+	//      --> NetworkEndpoint(172.16.0.1:8888), Service(catalog.myservice.com), Labels(foo=bar)
+	//      --> NetworkEndpoint(172.16.0.2:8888), Service(catalog.myservice.com), Labels(foo=bar)
+	//      --> NetworkEndpoint(172.16.0.3:8888), Service(catalog.myservice.com), Labels(kitty=cat)
+	//      --> NetworkEndpoint(172.16.0.4:8888), Service(catalog.myservice.com), Labels(kitty=cat)
+	//
+	// Calling Instances with specific labels returns a trimmed list.
+	// e.g., Instances(catalog.myservice.com, 80, foo=bar) ->
+	//      --> NetworkEndpoint(172.16.0.1:8888), Service(catalog.myservice.com), Labels(foo=bar)
+	//      --> NetworkEndpoint(172.16.0.2:8888), Service(catalog.myservice.com), Labels(foo=bar)
+	//
+	// Similar concepts apply for calling this function with a specific
+	// port, hostname and labels.
+	//
+	// Introduced in Istio 0.8. It is only called with 1 port.
+	// CDS (clusters.go) calls it for building 'dnslb' type clusters.
+	// EDS calls it for building the endpoints result.
+	// Consult istio-dev before using this for anything else (except debugging/tools)
+	InstancesByPort(hostname Hostname, servicePort int, labels LabelsCollection) ([]*ServiceInstance, error)
 
 	// GetProxyServiceInstances returns the service instances that co-located with a given Proxy
 	//
@@ -611,15 +655,15 @@ func ParseServiceKey(s string) (hostname Hostname, ports PortList, labels Labels
 
 // BuildSubsetKey generates a unique string referencing service instances for a given service name, a subset and a port.
 // The proxy queries Pilot with this key to obtain the list of instances in a subset.
-func BuildSubsetKey(direction TrafficDirection, subsetName string, hostname Hostname, port *Port) string {
-	return fmt.Sprintf("%s|%s|%s|%s", direction, port.Name, subsetName, hostname)
+func BuildSubsetKey(direction TrafficDirection, subsetName string, hostname Hostname, port int) string {
+	return fmt.Sprintf("%s|%d|%s|%s", direction, port, subsetName, hostname)
 }
 
 // ParseSubsetKey is the inverse of the BuildSubsetKey method
-func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, hostname Hostname, port *Port) {
+func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, hostname Hostname, port int) {
 	parts := strings.Split(s, "|")
 	direction = TrafficDirection(parts[0])
-	port = &Port{Name: parts[1]}
+	port, _ = strconv.Atoi(parts[1])
 	subsetName = parts[2]
 	hostname = Hostname(parts[3])
 	return

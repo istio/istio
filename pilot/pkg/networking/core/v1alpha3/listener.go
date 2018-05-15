@@ -332,7 +332,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 	for _, service := range services {
 		for _, servicePort := range service.Ports {
 			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "",
-				service.Hostname, servicePort)
+				service.Hostname, servicePort.Port)
 
 			listenAddress := WildcardAddress
 			var addresses []string

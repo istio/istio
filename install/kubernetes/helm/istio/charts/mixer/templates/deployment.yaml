@@ -13,10 +13,12 @@
         image: "{{ $.Values.global.hub }}/{{ $.Values.image }}:{{ $.Values.global.tag }}"
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
-        - containerPort: 9091
+        - containerPort: 9092
         - containerPort: 9093
         - containerPort: 42422
         args:
+          - --address
+          - tcp://127.0.0.1:9092
           - --configStoreURL=k8s://
           - --configDefaultNamespace={{ $.Release.Namespace }}
           - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
@@ -26,6 +28,7 @@
         image: "{{ $.Values.global.hub }}/{{ $.Values.global.proxyv2.image }}:{{ $.Values.global.tag }}"
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
+        - containerPort: 9091
         - containerPort: 15004
         args:
         - proxy
@@ -81,10 +84,12 @@
         image: "{{ $.Values.global.hub }}/{{ $.Values.image }}:{{ $.Values.global.tag }}"
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
-        - containerPort: 9091
+        - containerPort: 9092
         - containerPort: 9093
         - containerPort: 42422
         args:
+          - --address
+          - tcp://127.0.0.1:9092
           - --configStoreURL=k8s://
           - --configDefaultNamespace={{ $.Release.Namespace }}
           - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
@@ -94,6 +99,7 @@
         image: "{{ $.Values.global.hub }}/{{ $.Values.global.proxy.image }}:{{ $.Values.global.tag }}"
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
+        - containerPort: 9091
         - containerPort: 15004
         args:
         - proxy
