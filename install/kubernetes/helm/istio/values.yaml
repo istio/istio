@@ -136,10 +136,7 @@ ingressgateway:
     - containerPort: 80
     - containerPort: 443
     - containerPort: 31400
-  # secretVolumes: TODO
-  # - name: someName
-  #   mountPath: somePath
-  #   secretName: someName
+    secretVolumes: []
 
 #
 # egressgateway configuration

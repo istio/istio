@@ -89,10 +89,21 @@ spec:
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
+          {{- range .Values.deployment.secretVolumes }}
+          - name: {{.name }}
+            mountPath: {{.mountPath | quote}}
+            readOnly: true
+          {{- end }}
       volumes:
       - name: istio-certs
         secret:
           secretName: "istio.default"
           optional: true
+      {{- range .Values.deployment.secretVolumes }}
+      - name: {{.name }}
+        secret:
+          secretName: {{.secretName | quote}}
+          optional: true
+      {{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
