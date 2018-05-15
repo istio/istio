@@ -10,8 +10,7 @@ global:
 ingress:
   enabled: true
   service:
-    nodePort:
-      enabled: true
+    type: NodePort
   autoscaleMin: 1
   autoscaleMax: 8
   meshExpansion:
