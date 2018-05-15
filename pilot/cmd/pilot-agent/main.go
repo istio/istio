@@ -28,6 +28,7 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
+	"istio.io/istio/pkg/ctrlz"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -66,6 +67,8 @@ var (
 	disableInternalTelemetry bool
 
 	loggingOptions = log.DefaultOptions()
+
+	ctrlzOptions = ctrlz.DefaultOptions()
 
 	rootCmd = &cobra.Command{
 		Use:   "pilot-agent",
@@ -242,6 +245,8 @@ var (
 			ctx, cancel := context.WithCancel(context.Background())
 			go watcher.Run(ctx)
 
+			go ctrlz.Run(ctrlzOptions, nil)
+
 			stop := make(chan struct{})
 			cmd.WaitSignal(stop)
 			<-stop
@@ -321,6 +326,9 @@ func init() {
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
+
+	// Attach the Istio Ctrlz options to the command.
+	ctrlzOptions.AttachCobraFlags(rootCmd)
 
 	cmd.AddFlags(rootCmd)
 

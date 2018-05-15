@@ -21,6 +21,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
+	"istio.io/istio/pkg/ctrlz"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
@@ -36,6 +37,8 @@ var (
 
 	loggingOptions = log.DefaultOptions()
 
+	ctrlzOptions = ctrlz.DefaultOptions()
+
 	rootCmd = &cobra.Command{
 		Use:   "pilot-discovery",
 		Short: "Istio Pilot",
@@ -49,6 +52,8 @@ var (
 			if err := log.Configure(loggingOptions); err != nil {
 				return err
 			}
+
+			serverArgs.CtrlZOptions = ctrlzOptions
 
 			// Create the stop channel for all of the servers.
 			stop := make(chan struct{})
@@ -128,6 +133,9 @@ func init() {
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
+
+	// Attach the Istio Ctrlz options to the command.
+	ctrlzOptions.AttachCobraFlags(rootCmd)
 
 	cmd.AddFlags(rootCmd)
 
