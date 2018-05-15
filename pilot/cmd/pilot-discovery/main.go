@@ -53,8 +53,6 @@ var (
 				return err
 			}
 
-			serverArgs.CtrlZOptions = ctrlzOptions
-
 			// Create the stop channel for all of the servers.
 			stop := make(chan struct{})
 
@@ -136,6 +134,7 @@ func init() {
 
 	// Attach the Istio Ctrlz options to the command.
 	ctrlzOptions.AttachCobraFlags(rootCmd)
+	serverArgs.CtrlZOptions = ctrlzOptions
 
 	cmd.AddFlags(rootCmd)
 
