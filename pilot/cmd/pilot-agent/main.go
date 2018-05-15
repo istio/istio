@@ -36,7 +36,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/collateral"
-	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
 )
@@ -67,8 +66,6 @@ var (
 	disableInternalTelemetry bool
 
 	loggingOptions = log.DefaultOptions()
-
-	ctrlzOptions = ctrlz.DefaultOptions()
 
 	rootCmd = &cobra.Command{
 		Use:   "pilot-agent",
@@ -245,8 +242,6 @@ var (
 			ctx, cancel := context.WithCancel(context.Background())
 			go watcher.Run(ctx)
 
-			go ctrlz.Run(ctrlzOptions, nil)
-
 			stop := make(chan struct{})
 			cmd.WaitSignal(stop)
 			<-stop
@@ -326,9 +321,6 @@ func init() {
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
-
-	// Attach the Istio Ctrlz options to the command.
-	ctrlzOptions.AttachCobraFlags(rootCmd)
 
 	cmd.AddFlags(rootCmd)
 
