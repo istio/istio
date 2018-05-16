@@ -25,7 +25,7 @@ usage() {
 log() {
   local msg="${1}"
   if [ "${QUIET}" = false ]; then
-    printf "%s\n" "${msg}"
+    printf '%s\n' "${msg}"
   fi
 }
 
@@ -124,29 +124,30 @@ dump_resources() {
 }
 
 dump_pilot_url(){
-  pilot_pod=$1
-  shift
-  url=$1
-  shift
-  dname=$1
-  shift
+  local pilot_pod=$1
+  local url=$2
+  local dname=$3
+  local outfile
 
-  local outfile="${dname}/$(basename ${url})"
-  echo "fetching ${url} from pilot"
-  kubectl --namespace istio-system exec -i -t ${pilot_pod} -c istio-proxy -- curl http://localhost:8080/${url} > ${outfile}
+  outfile="${dname}/$(basename "${url}")"
+
+  log "Fetching ${url} from pilot"
+  kubectl --namespace istio-system exec -i -t "${pilot_pod}" -c istio-proxy -- curl "http://localhost:8080/${url}" > "${outfile}"
 }
 
 dump_pilot() {
   local pilot_pod
-  PILOT_DIR=${OUT_DIR}/pilot
-  mkdir -p ${PILOT_DIR}
+  local pilot_dir
 
-  pilot_pod=$(kubectl --namespace istio-system get pods -listio=pilot -o=jsonpath={.items[0].metadata.name})
+  pilot_dir="${OUT_DIR}/pilot"
+  mkdir -p "${pilot_dir}"
 
-  dump_pilot_url ${pilot_pod} debug/configz ${PILOT_DIR}
-  dump_pilot_url ${pilot_pod} debug/endpointz ${PILOT_DIR}
-  dump_pilot_url ${pilot_pod} debug/adsz ${PILOT_DIR}
-  dump_pilot_url ${pilot_pod} metrics ${PILOT_DIR}
+  pilot_pod=$(kubectl --namespace istio-system get pods -listio=pilot -o=jsonpath='{.items[0].metadata.name}')
+
+  dump_pilot_url "${pilot_pod}" debug/configz "${pilot_dir}"
+  dump_pilot_url "${pilot_pod}" debug/endpointz "${pilot_dir}"
+  dump_pilot_url "${pilot_pod}" debug/adsz "${pilot_dir}"
+  dump_pilot_url "${pilot_pod}" metrics "${pilot_dir}"
 }
 
 archive() {
@@ -155,10 +156,11 @@ archive() {
   local dir
   dir=$(basename "${OUT_DIR}")
 
-  pushd "${parent_dir}" > /dev/null
+  pushd "${parent_dir}" > /dev/null || exit
   tar -czf "${dir}.tar.gz" "${dir}"
-  popd > /dev/null
-  echo "Wrote ${parent_dir}/${dir}.tar.gz"
+  popd > /dev/null || exit
+
+  log "Wrote ${parent_dir}/${dir}.tar.gz"
 }
 
 main() {
@@ -172,7 +174,7 @@ main() {
     archive
     rm -r "${OUT_DIR}"
   fi
-  echo "Wrote to ${OUT_DIR}"
+  log "Wrote to ${OUT_DIR}"
 }
 
 main "$@"
