@@ -131,6 +131,13 @@ func startEnvoy() error {
 	return nil
 }
 
+// startPilot with defaults:
+// - http port 15007
+// - grpc on 15010
+// - grpcs in 15011 - certs from PILOT_CERT_DIR or ./tests/testdata/certs/pilot
+// - mixer set to localhost:9091 (runs in-process),
+//-  http proxy on 15002 (so tests can be run without iptables)
+//- config from $ISTIO_CONFIG dir (defaults to in-source tests/testdata/config)
 func startPilot() error {
 	stop := make(chan struct{})
 
@@ -143,6 +150,7 @@ func startPilot() error {
 		DiscoveryOptions: envoy.DiscoveryServiceOptions{
 			Port:            15007,
 			GrpcAddr:        ":15010",
+			SecureGrpcAddr:  ":15011",
 			EnableCaching:   true,
 			EnableProfiling: true,
 		},
@@ -161,6 +169,8 @@ func startPilot() error {
 		},
 		MeshConfig: &mcfg,
 	}
+	bootstrap.PilotCertDir = util.IstioSrc + "/tests/testdata/certs/pilot"
+
 	bootstrap.FilepathWalkInterval = 5 * time.Second
 	// Static testdata, should include all configs we want to test.
 	args.Config.FileDir = os.Getenv("ISTIO_CONFIG")
