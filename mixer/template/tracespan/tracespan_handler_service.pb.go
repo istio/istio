@@ -61,14 +61,12 @@ import istio_mixer_adapter_model_v1beta11 "istio.io/api/mixer/adapter/model/v1be
 import istio_mixer_adapter_model_v1beta12 "istio.io/api/mixer/adapter/model/v1beta1"
 import istio_policy_v1beta1 "istio.io/api/policy/v1beta1"
 
-import (
-	context "golang.org/x/net/context"
-	grpc "google.golang.org/grpc"
-)
+import context "golang.org/x/net/context"
+import grpc "google.golang.org/grpc"
 
 import strings "strings"
 import reflect "reflect"
-import github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
+import sortkeys "github.com/gogo/protobuf/sortkeys"
 
 import io "io"
 
@@ -712,7 +710,7 @@ func (this *InstanceMsg) String() string {
 	for k, _ := range this.SpanTags {
 		keysForSpanTags = append(keysForSpanTags, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForSpanTags)
+	sortkeys.Strings(keysForSpanTags)
 	mapStringForSpanTags := "map[string]*istio_mixer_adapter_model_v1beta12.Value{"
 	for _, k := range keysForSpanTags {
 		mapStringForSpanTags += fmt.Sprintf("%v: %v,", k, this.SpanTags[k])
@@ -739,7 +737,7 @@ func (this *Type) String() string {
 	for k, _ := range this.SpanTags {
 		keysForSpanTags = append(keysForSpanTags, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForSpanTags)
+	sortkeys.Strings(keysForSpanTags)
 	mapStringForSpanTags := "map[string]istio_policy_v1beta1.ValueType{"
 	for _, k := range keysForSpanTags {
 		mapStringForSpanTags += fmt.Sprintf("%v: %v,", k, this.SpanTags[k])
@@ -759,7 +757,7 @@ func (this *InstanceParam) String() string {
 	for k, _ := range this.SpanTags {
 		keysForSpanTags = append(keysForSpanTags, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForSpanTags)
+	sortkeys.Strings(keysForSpanTags)
 	mapStringForSpanTags := "map[string]string{"
 	for _, k := range keysForSpanTags {
 		mapStringForSpanTags += fmt.Sprintf("%v: %v,", k, this.SpanTags[k])

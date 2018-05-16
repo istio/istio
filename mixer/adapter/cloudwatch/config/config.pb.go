@@ -7,9 +7,7 @@
 	The CloudWatch adapter enables Istio to deliver metrics to
 	[Amazon CloudWatch](https://aws.amazon.com/cloudwatch/).
 
-	To push metrics to CloudWatch using this adapter you need create an IAM user
-	that has permissions to call cloudwatch APIs. The credentials for the user
-	need to be available on the instance the adapter is running on
+	To push metrics to CloudWatch using this adapter you must provide AWS credentials the AWS SDK.
 	(see [AWS docs](https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/setup-credentials.html)).
 
 	To activate the CloudWatch adapter, operators need to provide configuration for the
@@ -34,7 +32,7 @@ import strconv "strconv"
 
 import strings "strings"
 import reflect "reflect"
-import github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
+import sortkeys "github.com/gogo/protobuf/sortkeys"
 
 import io "io"
 
@@ -202,10 +200,7 @@ func (x Params_MetricDatum_Unit) String() string {
 }
 func (this *Params) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Params)
@@ -218,10 +213,7 @@ func (this *Params) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -240,10 +232,7 @@ func (this *Params) Equal(that interface{}) bool {
 }
 func (this *Params_MetricDatum) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Params_MetricDatum)
@@ -256,10 +245,7 @@ func (this *Params_MetricDatum) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -279,7 +265,7 @@ func (this *Params) GoString() string {
 	for k, _ := range this.MetricInfo {
 		keysForMetricInfo = append(keysForMetricInfo, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForMetricInfo)
+	sortkeys.Strings(keysForMetricInfo)
 	mapStringForMetricInfo := "map[string]*Params_MetricDatum{"
 	for _, k := range keysForMetricInfo {
 		mapStringForMetricInfo += fmt.Sprintf("%#v: %#v,", k, this.MetricInfo[k])
@@ -446,7 +432,7 @@ func (this *Params) String() string {
 	for k, _ := range this.MetricInfo {
 		keysForMetricInfo = append(keysForMetricInfo, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForMetricInfo)
+	sortkeys.Strings(keysForMetricInfo)
 	mapStringForMetricInfo := "map[string]*Params_MetricDatum{"
 	for _, k := range keysForMetricInfo {
 		mapStringForMetricInfo += fmt.Sprintf("%v: %v,", k, this.MetricInfo[k])

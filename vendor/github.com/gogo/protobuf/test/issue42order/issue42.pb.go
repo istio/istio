@@ -18,7 +18,7 @@ import fmt "fmt"
 import math "math"
 import _ "github.com/gogo/protobuf/gogoproto"
 
-import encoding_binary "encoding/binary"
+import binary "encoding/binary"
 
 import io "io"
 
@@ -105,7 +105,7 @@ func (m *UnorderedFields) MarshalTo(dAtA []byte) (int, error) {
 	if m.B != nil {
 		dAtA[i] = 0x9
 		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(*m.B))
+		binary.LittleEndian.PutUint64(dAtA[i:], uint64(*m.B))
 		i += 8
 	}
 	if m.A != nil {
@@ -137,7 +137,7 @@ func (m *OrderedFields) MarshalTo(dAtA []byte) (int, error) {
 	if m.B != nil {
 		dAtA[i] = 0x9
 		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(*m.B))
+		binary.LittleEndian.PutUint64(dAtA[i:], uint64(*m.B))
 		i += 8
 	}
 	if m.A != nil {
@@ -350,7 +350,7 @@ func (m *UnorderedFields) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
 			m.B = &v
 		case 10:
@@ -432,7 +432,7 @@ func (m *OrderedFields) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
 			m.B = &v
 		case 10:
