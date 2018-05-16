@@ -60,7 +60,7 @@ func (c *Controller) AddRegistry(registry Registry) {
 	c.registries = registries
 }
 
-// DeleteRegistry deletes registries into the aggregated controller
+// DeleteRegistry deletes specified registry from the aggregated controller
 func (c *Controller) DeleteRegistry(registry Registry) {
 	c.storeLock.Lock()
 	defer c.storeLock.Unlock()
