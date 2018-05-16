@@ -158,18 +158,18 @@ func TestEgressRouteHeaders(t *testing.T) {
 
 			containsAllExpectedHeaders := true
 
-			headers := []string{
-				"\"istio-custom-header1\": \"user-defined-value1\"",
-				"\"istio-custom-header2\": \"user-defined-value2\""}
-			for _, header := range headers {
-				if !strings.Contains(strings.ToLower(resp.Body), header) {
+			expectedHeadersRegex := []string{
+					`"istio-custom-header1":\s*"user-defined-value1"`,
+					`"istio-custom-header2":\s*"user-defined-value2"`}
+			for _, header := range expectedHeadersRegex {
+				if !regexp.MustCompile(header).MatchString(resp.Body) {
 					containsAllExpectedHeaders = false
 				}
 			}
 
 			if !containsAllExpectedHeaders {
-				return fmt.Errorf("headers verification failed: headers: %s, expected headers: %s",
-					resp.Body, headers)
+				return fmt.Errorf("headers verification failed: headers: %s, expected headersRegexp: %s",
+					resp.Body, expectedHeadersRegex)
 			}
 			return nil
 		})
@@ -357,7 +357,7 @@ func TestEgressRouteRedirectRewrite(t *testing.T) {
 				}
 
 				var actualRedirection string
-				if matches := regexp.MustCompile(`(?i)"url": "(.*)"`).FindStringSubmatch(resp.Body); len(matches) >= 2 {
+				if matches := regexp.MustCompile(`(?i)"url":\s*"(.*)"`).FindStringSubmatch(resp.Body); len(matches) >= 2 {
 					actualRedirection = matches[1]
 				}
 
