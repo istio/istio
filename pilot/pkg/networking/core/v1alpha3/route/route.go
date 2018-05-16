@@ -158,7 +158,7 @@ func translateVirtualHost(
 		serviceByPort[80] = nil
 	}
 
-	out := make([]GuardedHost, len(serviceByPort))
+	out := make([]GuardedHost, 0, len(serviceByPort))
 	for port, portServices := range serviceByPort {
 		routes, err := TranslateRoutes(in, serviceIndex, port, proxyLabels, gatewayName)
 		if err != nil || len(routes) == 0 {

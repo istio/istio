@@ -151,6 +151,7 @@ type PilotArgs struct {
 	Service          ServiceArgs
 	RDSv2            bool
 	MeshConfig       *meshconfig.MeshConfig
+	CtrlZOptions     *ctrlz.Options
 }
 
 // Server contains the runtime configuration for the Pilot discovery service.
@@ -230,6 +231,10 @@ func NewServer(args PilotArgs) (*Server, error) {
 	}
 	if err := s.initMultiClusterController(&args); err != nil {
 		return nil, err
+	}
+
+	if args.CtrlZOptions != nil {
+		go ctrlz.Run(args.CtrlZOptions, nil)
 	}
 
 	return s, nil

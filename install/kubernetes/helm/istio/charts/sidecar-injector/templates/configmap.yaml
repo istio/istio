@@ -135,6 +135,8 @@ data:
             runAsUser: 1337
             {{ "[[ end -]]" }}
         restartPolicy: Always
+        resources:
+{{ toYaml .Values.global.proxy.resources | indent 10 }}
         volumeMounts:
         - mountPath: /etc/istio/proxy
           name: istio-envoy

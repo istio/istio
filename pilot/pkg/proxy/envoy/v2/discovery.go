@@ -162,7 +162,7 @@ func (s *DiscoveryServer) updateModel() {
 		log.Errorf("XDS: failed to update virtual services %v", err)
 	} else {
 		s.virtualServiceConfigs = vservices
-		s.virtualServices = make([]*networking.VirtualService, len(vservices))
+		s.virtualServices = make([]*networking.VirtualService, 0, len(vservices))
 		for _, ss := range vservices {
 			s.virtualServices = append(s.virtualServices, ss.Spec.(*networking.VirtualService))
 		}
