@@ -229,7 +229,7 @@ func (h *handler) findPod(uid string) (*v1.Pod, bool) {
 	podKey := keyFromUID(uid)
 	pod, found := h.pods.GetPod(podKey)
 	if !found {
-		h.env.Logger().Warningf("could not find pod for (uid: %s, key: %s)", uid, podKey)
+		h.env.Logger().Debugf("could not find pod for (uid: %s, key: %s)", uid, podKey)
 	}
 	return pod, found
 }
@@ -322,14 +322,14 @@ func (h *handler) fillOriginAttrs(p *v1.Pod, o *ktmpl.Output, params *config.Par
 		if err == nil {
 			o.SetOriginService(n)
 		} else {
-			h.env.Logger().Warningf("OriginService not set: %v", err)
+			h.env.Logger().Debugf("OriginService not set: %v", err)
 		}
 	} else if app, found := p.Labels[params.PodLabelForIstioComponentService]; found {
 		n, err := canonicalName(app, p.Namespace, params.ClusterDomainName)
 		if err == nil {
 			o.SetOriginService(n)
 		} else {
-			h.env.Logger().Warningf("OriginService not set: %v", err)
+			h.env.Logger().Debugf("OriginService not set: %v", err)
 		}
 	}
 }
@@ -358,14 +358,14 @@ func (h *handler) fillDestinationAttrs(p *v1.Pod, o *ktmpl.Output, params *confi
 		if err == nil {
 			o.SetDestinationService(n)
 		} else {
-			h.env.Logger().Warningf("DestinationService not set: %v", err)
+			h.env.Logger().Debugf("DestinationService not set: %v", err)
 		}
 	} else if app, found := p.Labels[params.PodLabelForIstioComponentService]; found {
 		n, err := canonicalName(istioComponentName(app), p.Namespace, params.ClusterDomainName)
 		if err == nil {
 			o.SetDestinationService(n)
 		} else {
-			h.env.Logger().Warningf("DestinationService not set: %v", err)
+			h.env.Logger().Debugf("DestinationService not set: %v", err)
 		}
 	}
 }
@@ -394,14 +394,14 @@ func (h *handler) fillSourceAttrs(p *v1.Pod, o *ktmpl.Output, params *config.Par
 		if err == nil {
 			o.SetSourceService(n)
 		} else {
-			h.env.Logger().Warningf("SourceService not set: %v", err)
+			h.env.Logger().Debugf("SourceService not set: %v", err)
 		}
 	} else if app, found := p.Labels[params.PodLabelForIstioComponentService]; found {
 		n, err := canonicalName(istioComponentName(app), p.Namespace, params.ClusterDomainName)
 		if err == nil {
 			o.SetSourceService(n)
 		} else {
-			h.env.Logger().Warningf("SourceService not set: %v", err)
+			h.env.Logger().Debugf("SourceService not set: %v", err)
 		}
 	}
 }
