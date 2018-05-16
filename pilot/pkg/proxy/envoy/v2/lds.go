@@ -25,7 +25,7 @@ import (
 func (s *DiscoveryServer) pushLds(node model.Proxy, con *XdsConnection) error {
 	ls, err := s.ConfigGenerator.BuildListeners(s.env, node)
 	if err != nil {
-		log.Warnf("ADS: config failure, closing grpc %v", err)
+		adsLog.Warnf("ADS: config failure, closing grpc %v", err)
 		pushes.With(prometheus.Labels{"type": "lds_builderr"}).Add(1)
 		return err
 	}
@@ -33,13 +33,13 @@ func (s *DiscoveryServer) pushLds(node model.Proxy, con *XdsConnection) error {
 	response := ldsDiscoveryResponse(ls, node)
 	err = con.send(response)
 	if err != nil {
-		log.Warnf("LDS: Send failure, closing grpc %v", err)
+		adsLog.Warnf("LDS: Send failure, closing grpc %v", err)
 		pushes.With(prometheus.Labels{"type": "lds_senderr"}).Add(1)
 		return err
 	}
 	pushes.With(prometheus.Labels{"type": "lds"}).Add(1)
 
-	log.Infof("LDS: PUSH for node:%s addr:%q listeners:%d", node, con.PeerAddr, len(ls))
+	adsLog.Infof("LDS: PUSH for node:%s addr:%q listeners:%d", node, con.PeerAddr, len(ls))
 	return nil
 }
 
@@ -52,7 +52,7 @@ func ldsDiscoveryResponse(ls []*xdsapi.Listener, node model.Proxy) *xdsapi.Disco
 	}
 	for _, ll := range ls {
 		if ll == nil {
-			log.Errora("Nil listener ", ll)
+			adsLog.Errora("Nil listener ", ll)
 			continue
 		}
 		lr, _ := types.MarshalAny(ll)

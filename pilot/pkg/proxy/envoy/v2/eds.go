@@ -157,7 +157,7 @@ func updateCluster(clusterName string, edsCluster *EdsCluster) error {
 		labels = edsCluster.discovery.env.IstioConfigStore.SubsetToLabels(subsetName, hostname)
 		instances, err = edsCluster.discovery.env.ServiceDiscovery.InstancesByPort(hostname, p, labels)
 		if len(instances) == 0 {
-			log.Infof("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, p, labels)
+			adsLog.Infof("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, p, labels)
 		}
 		edsInstances.With(prometheus.Labels{"cluster": clusterName}).Set(float64(len(instances)))
 	} else {
@@ -168,13 +168,13 @@ func updateCluster(clusterName string, edsCluster *EdsCluster) error {
 		}
 		instances, err = edsCluster.discovery.env.ServiceDiscovery.Instances(hostname, ports.GetNames(), labels)
 		if len(instances) == 0 {
-			log.Warnf("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, portName, labels)
+			adsLog.Warnf("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, portName, labels)
 		}
 		edsInstances.With(prometheus.Labels{"cluster": clusterName}).Set(float64(len(instances)))
 	}
 
 	if err != nil {
-		log.Warnf("endpoints for service cluster %q returned error %q", clusterName, err)
+		adsLog.Warnf("endpoints for service cluster %q returned error %q", clusterName, err)
 		return err
 	}
 	locEps := localityLbEndpointsFromInstances(instances)
@@ -204,7 +204,7 @@ func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []endp
 	for _, instance := range instances {
 		lbEp, err := newEndpoint(instance.Endpoint.Address, (uint32)(instance.Endpoint.Port))
 		if err != nil {
-			log.Errorf("EDS: unexpected pilot model endpoint v1 to v2 conversion: %v", err)
+			adsLog.Errorf("EDS: unexpected pilot model endpoint v1 to v2 conversion: %v", err)
 			continue
 		}
 		// TODO: Need to accommodate region, zone and subzone. Older Pilot datamodel only has zone = availability zone.
@@ -274,7 +274,7 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 				if len(clusters2) > len(con.Clusters) {
 					// This doesn't happen with current envoy - but should happen in future, there is no reason
 					// to keep so many open grpc streams (one per cluster, for each envoy)
-					log.Infof("EDS: Multiple clusters monitoring %v -> %v %s", con.Clusters, clusters2, discReq.String())
+					adsLog.Infof("EDS: Multiple clusters monitoring %v -> %v %s", con.Clusters, clusters2, discReq.String())
 					initialRequestReceived = false // treat this as an initial request (updates monitoring state)
 				}
 			}
@@ -284,14 +284,14 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 			if initialRequestReceived {
 				// TODO: once the deps are updated, log the ErrorCode if set (missing in current version)
 				if discReq.ErrorDetail != nil {
-					log.Warnf("EDS: ACK ERROR %v %s %v", peerAddr, con.ConID, discReq.String())
+					adsLog.Warnf("EDS: ACK ERROR %v %s %v", peerAddr, con.ConID, discReq.String())
 				}
-				log.Debugf("EDS: ACK %s %s %s", con.ConID, discReq.VersionInfo, con.Clusters)
+				adsLog.Debugf("EDS: ACK %s %s %s", con.ConID, discReq.VersionInfo, con.Clusters)
 				if len(con.Clusters) > 0 {
 					continue
 				}
 			}
-			log.Infof("EDS: REQ %s %v %v raw: %s ", con.ConID, con.Clusters, peerAddr, discReq.String())
+			adsLog.Infof("EDS: REQ %s %v %v raw: %s ", con.ConID, con.Clusters, peerAddr, discReq.String())
 			con.Clusters = discReq.GetResourceNames()
 			initialRequestReceived = true
 
@@ -315,7 +315,7 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 		if len(con.Clusters) > 0 {
 			err := s.pushEds(con)
 			if err != nil {
-				log.Errorf("Closing EDS connection, failure to push %v", err)
+				adsLog.Errorf("Closing EDS connection, failure to push %v", err)
 				return err
 			}
 		}
@@ -335,7 +335,7 @@ func (s *DiscoveryServer) pushEds(con *XdsConnection) error {
 		l := loadAssignment(c)
 		if l == nil { // fresh cluster
 			if err := updateCluster(clusterName, c); err != nil {
-				log.Errorf("error returned from updateCluster for cluster name %s, skipping it.", clusterName)
+				adsLog.Errorf("error returned from updateCluster for cluster name %s, skipping it.", clusterName)
 				continue
 			}
 			l = loadAssignment(c)
@@ -355,13 +355,13 @@ func (s *DiscoveryServer) pushEds(con *XdsConnection) error {
 	response := s.endpoints(con.Clusters, resAny)
 	err := con.send(response)
 	if err != nil {
-		log.Warnf("EDS: Send failure, closing grpc %v", err)
+		adsLog.Warnf("EDS: Send failure, closing grpc %v", err)
 		pushes.With(prometheus.Labels{"type": "eds_senderr"}).Add(1)
 		return err
 	}
 	pushes.With(prometheus.Labels{"type": "eds"}).Add(1)
 
-	log.Infof("EDS: PUSH for %s %q clusters %d endpoints %d empty %d %v",
+	adsLog.Infof("EDS: PUSH for %s %q clusters %d endpoints %d empty %d %v",
 		con.ConID, con.PeerAddr, len(con.Clusters), endpoints, emptyClusters, empty)
 	return nil
 }
@@ -416,7 +416,7 @@ func (s *DiscoveryServer) getOrAddEdsCluster(clusterName string) *EdsCluster {
 func (s *DiscoveryServer) removeEdsCon(clusterName string, node string, connection *XdsConnection) {
 	c := s.getEdsCluster(clusterName)
 	if c == nil {
-		log.Warnf("EDS: missing cluster %s", clusterName)
+		adsLog.Warnf("EDS: missing cluster %s", clusterName)
 		return
 	}
 
@@ -425,18 +425,18 @@ func (s *DiscoveryServer) removeEdsCon(clusterName string, node string, connecti
 
 	oldcon := c.EdsClients[node]
 	if oldcon == nil {
-		log.Warnf("EDS: Envoy restart %s %v, cleanup old connection missing %v", node, connection.PeerAddr, c.EdsClients)
+		adsLog.Warnf("EDS: Envoy restart %s %v, cleanup old connection missing %v", node, connection.PeerAddr, c.EdsClients)
 		return
 	}
 	if oldcon != connection {
-		log.Infof("EDS: Envoy restart %s %v, cleanup old connection %v", node, connection.PeerAddr, oldcon.PeerAddr)
+		adsLog.Infof("EDS: Envoy restart %s %v, cleanup old connection %v", node, connection.PeerAddr, oldcon.PeerAddr)
 		return
 	}
 	delete(c.EdsClients, node)
 	if len(c.EdsClients) == 0 {
 		edsClusterMutex.Lock()
 		defer edsClusterMutex.Unlock()
-		log.Infof("EDS: remove unused cluster node=%s cluster=%s all=%v", node, clusterName, edsClusters)
+		adsLog.Infof("EDS: remove unused cluster node=%s cluster=%s all=%v", node, clusterName, edsClusters)
 		delete(edsClusters, clusterName)
 	}
 }

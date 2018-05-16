@@ -34,7 +34,7 @@ import (
 )
 
 var (
-	log = istiolog.RegisterScope("ads", "ads debugging", 0)
+	adsLog = istiolog.RegisterScope("ads", "ads debugging", 0)
 
 	// adsClients reflect active gRPC channels, for both ADS and EDS.
 	adsClients      = map[string]*XdsConnection{}
@@ -222,11 +222,11 @@ func receiveThread(con *XdsConnection, reqChannel chan *xdsapi.DiscoveryRequest,
 		req, err := con.stream.Recv()
 		if err != nil {
 			if status.Code(err) == codes.Canceled || err == io.EOF {
-				log.Infof("ADS: %q %s terminated %v", con.PeerAddr, con.ConID, err)
+				adsLog.Infof("ADS: %q %s terminated %v", con.PeerAddr, con.ConID, err)
 				return
 			}
 			*errP = err
-			log.Errorf("ADS: %q %s terminated with errors %v", con.PeerAddr, con.ConID, err)
+			adsLog.Errorf("ADS: %q %s terminated with errors %v", con.PeerAddr, con.ConID, err)
 			return
 		}
 		reqChannel <- req
@@ -273,7 +273,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				return receiveError
 			}
 			if discReq.Node.Id == "" {
-				log.Infof("Missing node id %s", discReq.String())
+				adsLog.Infof("Missing node id %s", discReq.String())
 				continue
 			}
 			nt, err := model.ParseServiceNode(discReq.Node.Id)
@@ -292,13 +292,13 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				if con.CDSWatch {
 					// Already received a cluster watch request, this is an ACK
 					if discReq.ErrorDetail != nil {
-						log.Warnf("ADS:CDS: ACK ERROR %v %s %v", peerAddr, con.ConID, discReq.String())
+						adsLog.Warnf("ADS:CDS: ACK ERROR %v %s %v", peerAddr, con.ConID, discReq.String())
 						cdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
 					}
-					log.Debugf("ADS:CDS: ACK %v %v", peerAddr, discReq.String())
+					adsLog.Debugf("ADS:CDS: ACK %v %v", peerAddr, discReq.String())
 					continue
 				}
-				log.Infof("ADS:CDS: REQ %s %v raw: %s ", con.ConID, peerAddr, discReq.String())
+				adsLog.Infof("ADS:CDS: REQ %s %v raw: %s ", con.ConID, peerAddr, discReq.String())
 				con.CDSWatch = true
 				err := s.pushCds(*con.modelNode, con)
 				if err != nil {
@@ -309,13 +309,13 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				if con.LDSWatch {
 					// Already received a cluster watch request, this is an ACK
 					if discReq.ErrorDetail != nil {
-						log.Warnf("ADS:LDS: ACK ERROR %v %s %v", peerAddr, con.modelNode.ID, discReq.String())
+						adsLog.Warnf("ADS:LDS: ACK ERROR %v %s %v", peerAddr, con.modelNode.ID, discReq.String())
 						ldsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
 					}
-					log.Debugf("ADS:LDS: ACK %v", discReq.String())
+					adsLog.Debugf("ADS:LDS: ACK %v", discReq.String())
 					continue
 				}
-				log.Infof("ADS:LDS: REQ %s %v", con.ConID, peerAddr)
+				adsLog.Infof("ADS:LDS: REQ %s %v", con.ConID, peerAddr)
 				con.LDSWatch = true
 				err := s.pushLds(*con.modelNode, con)
 				if err != nil {
@@ -326,17 +326,17 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				routes := discReq.GetResourceNames()
 				if len(routes) == len(con.Routes) || len(routes) == 0 {
 					if discReq.ErrorDetail != nil {
-						log.Warnf("ADS:RDS: ACK ERROR %v %s %v", peerAddr, con.ConID, discReq.String())
+						adsLog.Warnf("ADS:RDS: ACK ERROR %v %s %v", peerAddr, con.ConID, discReq.String())
 					}
 					// Not logging full request, can be very long.
-					log.Debugf("ADS:RDS: ACK %s %s %s %s", peerAddr, con.ConID, discReq.VersionInfo, discReq.ResponseNonce)
+					adsLog.Debugf("ADS:RDS: ACK %s %s %s %s", peerAddr, con.ConID, discReq.VersionInfo, discReq.ResponseNonce)
 					if len(con.Routes) > 0 {
 						// Already got a list of routes to watch and has same length as the request, this is an ack
 						continue
 					}
 				}
 				con.Routes = routes
-				log.Infof("ADS:RDS: REQ %s %s routes: %d", peerAddr, con.ConID, len(con.Routes))
+				adsLog.Infof("ADS:RDS: REQ %s %s routes: %d", peerAddr, con.ConID, len(con.Routes))
 				err := s.pushRoute(con)
 				if err != nil {
 					return err
@@ -346,7 +346,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				clusters := discReq.GetResourceNames()
 				if len(clusters) == len(con.Clusters) || len(clusters) == 0 {
 					if discReq.ErrorDetail != nil {
-						log.Warnf("ADS:EDS: ACK ERROR %v %s %v", peerAddr, con.ConID, discReq.String())
+						adsLog.Warnf("ADS:EDS: ACK ERROR %v %s %v", peerAddr, con.ConID, discReq.String())
 						edsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
 					}
 					if len(con.Clusters) > 0 {
@@ -362,14 +362,14 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				for _, c := range con.Clusters {
 					s.addEdsCon(c, con.ConID, con)
 				}
-				log.Infof("ADS:EDS: REQ %s %s clusters: %d", peerAddr, con.ConID, len(con.Clusters))
+				adsLog.Infof("ADS:EDS: REQ %s %s clusters: %d", peerAddr, con.ConID, len(con.Clusters))
 				err := s.pushEds(con)
 				if err != nil {
 					return err
 				}
 
 			default:
-				log.Warnf("ADS: Unknown watched resources %s", discReq.String())
+				adsLog.Warnf("ADS: Unknown watched resources %s", discReq.String())
 			}
 
 			if !con.added {
@@ -436,7 +436,7 @@ func adsPushAll() {
 	// In general this code is called from the 'event' callback that is throttled.
 	for clusterName, edsCluster := range cMap {
 		if err := updateCluster(clusterName, edsCluster); err != nil {
-			log.Errorf("updateCluster failed with clusterName %s", clusterName)
+			adsLog.Errorf("updateCluster failed with clusterName %s", clusterName)
 		}
 	}
 
@@ -474,11 +474,11 @@ func adsPushAll() {
 			// The tests were catching this - one of the client was not reading.
 			if client.LastPushFailure.IsZero() {
 				client.LastPushFailure = time.Now()
-				log.Warnf("Failed to push, client busy %s", client.ConID)
+				adsLog.Warnf("Failed to push, client busy %s", client.ConID)
 				pushErrors.With(prometheus.Labels{"type": "short"}).Add(1)
 			} else {
 				if time.Since(client.LastPushFailure) > 10*time.Second {
-					log.Warnf("Repeated failure to push %s", client.ConID)
+					adsLog.Warnf("Repeated failure to push %s", client.ConID)
 					// unfortunately grpc go doesn't allow closing (unblocking) the stream.
 					pushErrors.With(prometheus.Labels{"type": "long"}).Add(1)
 				}
@@ -511,7 +511,7 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 	}
 
 	if adsClients[conID] == nil {
-		log.Errorf("ADS: Removing connection for non-existing node %v.", s)
+		adsLog.Errorf("ADS: Removing connection for non-existing node %v.", s)
 	}
 	delete(adsClients, conID)
 	xdsClients.Set(float64(len(adsClients)))
@@ -539,7 +539,7 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection) error {
 
 	proxyInstances, err := s.getServicesForEndpoint(con.modelNode)
 	if err != nil {
-		log.Warnf("ADS: RDS: Failed to retrieve proxy service instances %v", err)
+		adsLog.Warnf("ADS: RDS: Failed to retrieve proxy service instances %v", err)
 		pushes.With(prometheus.Labels{"type": "rds_conferr"}).Add(1)
 		return err
 	}
@@ -556,13 +556,13 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection) error {
 	response := routeDiscoveryResponse(rc, *con.modelNode)
 	err = con.send(response)
 	if err != nil {
-		log.Warnf("ADS: RDS: Send failure, closing grpc %v", err)
+		adsLog.Warnf("ADS: RDS: Send failure, closing grpc %v", err)
 		pushes.With(prometheus.Labels{"type": "rds_senderr"}).Add(1)
 		return err
 	}
 	pushes.With(prometheus.Labels{"type": "rds"}).Add(1)
 
-	log.Infof("ADS: RDS: PUSH for addr:%s routes:%d", con.PeerAddr, len(rc))
+	adsLog.Infof("ADS: RDS: PUSH for addr:%s routes:%d", con.PeerAddr, len(rc))
 	return nil
 }
 
@@ -592,7 +592,7 @@ func (con *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
 	select {
 	case <-t.C:
 		// TODO: wait for ACK
-		log.Infof("Timeout writing %s", con.ConID)
+		adsLog.Infof("Timeout writing %s", con.ConID)
 		writeTimeout.Add(1)
 		return errors.New("timeout sending")
 	case err, _ := <-done:

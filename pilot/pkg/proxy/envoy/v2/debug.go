@@ -197,7 +197,7 @@ func (sd *MemServiceDiscovery) Instances(hostname model.Hostname, ports []string
 		return nil, sd.InstancesError
 	}
 	if len(ports) != 1 {
-		log.Warna("Unexpected ports ", ports)
+		adsLog.Warna("Unexpected ports ", ports)
 		return nil, nil
 	}
 	key := hostname.String() + ":" + ports[0]
@@ -509,7 +509,7 @@ func printListeners(w io.Writer, c *XdsConnection) {
 	comma := false
 	for _, ls := range c.HTTPListeners {
 		if ls == nil {
-			log.Errorf("INVALID LISTENER NIL")
+			adsLog.Errorf("INVALID LISTENER NIL")
 			continue
 		}
 		if comma {
@@ -529,7 +529,7 @@ func printClusters(w io.Writer, c *XdsConnection) {
 	comma := false
 	for _, cl := range c.HTTPClusters {
 		if cl == nil {
-			log.Errorf("INVALID Cluster NIL")
+			adsLog.Errorf("INVALID Cluster NIL")
 			continue
 		}
 		if comma {
