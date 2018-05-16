@@ -26,19 +26,19 @@ type LocalRegistry struct {
 	active     bool
 	Kubeconfig string
 	file       string
-	hub    	   string
-	tag 		   string
+	hub        string
+	tag        string
 }
 
 // NewLocalRegistry creates a new LocalRegistry
 func NewLocalRegistry(namespace string, istioctl *Istioctl, file, kubeconfig, hub, tag string) *LocalRegistry {
-	return &LocalRegistry {
+	return &LocalRegistry{
 		namespace:  namespace,
 		istioctl:   istioctl,
 		Kubeconfig: kubeconfig,
-		file:	file,
-		hub:		hub,
-		tag:		tag,
+		file:       file,
+		hub:        hub,
+		tag:        tag,
 	}
 }
 
@@ -51,11 +51,11 @@ func (l *LocalRegistry) Setup() error {
 		log.Errorf("Kubectl apply %s failed", l.Kubeconfig)
 		return err
 	}
-	
+
 	if err := l.build(); err != nil {
 		return err
 	}
-	
+
 	if err := l.push(); err != nil {
 		return err
 	}
