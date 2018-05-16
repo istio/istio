@@ -3,43 +3,68 @@ dependencies:
     version: 0.8.0
     # repository: file://../sidecar-injector
     condition: sidecar-injector.enabled
+    tags:
+      - integrated_citadel
   - name: ingress
     version: 0.8.0
     # repository: file://../ingress
     condition: ingress.enabled
+    tags:
+      - integrated_citadel
   - name: ingressgateway
     version: 0.8.0
     # repository: file://../ingressgateway
     condition: ingressgateway.enabled
+    tags:
+      - integrated_citadel
   - name: egressgateway
     version: 0.8.0
     # repository: file://../egressgateway
     condition: egressgateway.enabled
+    tags:
+      - integrated_citadel
   - name: mixer
     version: 0.8.0
     # repository: file://../mixer
     condition: mixer.enabled
+    tags:
+      - integrated_citadel
   - name: pilot
     version: 0.8.0
     # repository: file://../pilot
     condition: pilot.enabled
+    tags:
+      - integrated_citadel
   - name: grafana
     version: 0.1.0
     # repository: file://../addons/grafana
     condition: grafana.enabled
+    tags:
+      - integrated_citadel
   - name: prometheus
     version: 0.1.0
     # repository: file://../addons/prometheus
     condition: prometheus.enabled
+    tags:
+      - integrated_citadel
   - name: servicegraph
     version: 0.1.0
     # repository: file://../addons/servicegraph
     condition: servicegraph.enabled
+    tags:
+      - integrated_citadel
   - name: zipkin
     version: 0.1.0
     # repository: file://../addons/zipkin
     condition: zipkin.enabled
+    tags:
+      - integrated_citadel
   - name: galley
     version: 0.8.0
-    # repository: file://../sidecar-injector
+    # repository: file://../galley
     condition: galley.enabled
+    tags:
+      - integrated_citadel
+  - name: security
+    version: 0.8.0
+    # repository: file://../security

@@ -2,14 +2,22 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
+{{- if .Values.integrated_citadel }}
   name: istio-citadel
+{{- else }}
+  name: istio-standalone-citadel
+{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "security.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
+{{- if .Values.integrated_citadel }}
     istio: citadel
+{{- else }}
+    istio: standalone-citadel
+{{- end }}
 spec:
   replicas: {{ .Values.replicaCount }}
   template:
@@ -25,11 +33,22 @@ spec:
           image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           args:
-            - --append-dns-names=true
             - --grpc-port=8060
-            - --grpc-hostname=citadel
             - --self-signed-ca=true
-            - --citadel-storage-namespace={{ .Release.Namespace }}
+            - --citadel-storage-namespace={{ .Release.Namesapce }}
+{{- if .Values.integrated_citadel }}
+            - --append-dns-names=true
+            - --grpc-hostname=citadel
+{{- else }}
+            - --grpc-host-identities=istio-standalone-citadel
+            - --self-signed-ca-org=test-org
+            - --self-signed-ca-cert-ttl=24000h
+            - --sign-ca-certs=true
+            - --workload-cert-ttl=21h
+            - --logtostderr
+            - --stderrthreshold
+            - INFO
+{{- end }}
           resources:
 {{ toYaml .Values.resources | indent 12 }}
       affinity:
