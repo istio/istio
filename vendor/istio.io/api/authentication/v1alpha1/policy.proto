@@ -15,7 +15,7 @@
 syntax = "proto3";
 
 // $title: Authentication Policy
-// $overview: Authentication policy for Istio services.
+// $description: Authentication policy for Istio services.
 
 // This package defines user-facing authentication policy.
 package istio.authentication.v1alpha1;

@@ -23,7 +23,7 @@ import _ "github.com/gogo/protobuf/types"
 
 import time "time"
 
-import github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
+import types "github.com/gogo/protobuf/types"
 
 import strings "strings"
 import reflect "reflect"
@@ -128,8 +128,8 @@ func (m *Params) MarshalTo(dAtA []byte) (int, error) {
 	}
 	dAtA[i] = 0x12
 	i++
-	i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.CacheRefreshDuration)))
-	n1, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.CacheRefreshDuration, dAtA[i:])
+	i = encodeVarintConfig(dAtA, i, uint64(types.SizeOfStdDuration(m.CacheRefreshDuration)))
+	n1, err := types.StdDurationMarshalTo(m.CacheRefreshDuration, dAtA[i:])
 	if err != nil {
 		return 0, err
 	}
@@ -187,7 +187,7 @@ func (m *Params) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovConfig(uint64(l))
 	}
-	l = github_com_gogo_protobuf_types.SizeOfStdDuration(m.CacheRefreshDuration)
+	l = types.SizeOfStdDuration(m.CacheRefreshDuration)
 	n += 1 + l + sovConfig(uint64(l))
 	l = len(m.ClusterDomainName)
 	if l > 0 {
@@ -332,7 +332,7 @@ func (m *Params) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(&m.CacheRefreshDuration, dAtA[iNdEx:postIndex]); err != nil {
+			if err := types.StdDurationUnmarshal(&m.CacheRefreshDuration, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
