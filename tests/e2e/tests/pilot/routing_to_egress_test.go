@@ -19,7 +19,6 @@ import (
 	"net/url"
 	"regexp"
 	"strconv"
-	"strings"
 	"testing"
 
 	"istio.io/istio/tests/util"
@@ -159,8 +158,8 @@ func TestEgressRouteHeaders(t *testing.T) {
 			containsAllExpectedHeaders := true
 
 			expectedHeadersRegex := []string{
-					`"istio-custom-header1":\s*"user-defined-value1"`,
-					`"istio-custom-header2":\s*"user-defined-value2"`}
+				`"istio-custom-header1":\s*"user-defined-value1"`,
+				`"istio-custom-header2":\s*"user-defined-value2"`}
 			for _, header := range expectedHeadersRegex {
 				if !regexp.MustCompile(header).MatchString(resp.Body) {
 					containsAllExpectedHeaders = false
