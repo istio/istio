@@ -55,16 +55,13 @@ func NewController() *Controller {
 func (c *Controller) AddRegistry(registry Registry) {
 	c.storeLock.Lock()
 	defer c.storeLock.Unlock()
-	registries := c.registries
-	registries = append(registries, registry)
-	c.registries = registries
+	c.registries = append(c.registries, registry)
 }
 
 // DeleteRegistry deletes specified registry from the aggregated controller
 func (c *Controller) DeleteRegistry(registry Registry) {
 	c.storeLock.Lock()
 	defer c.storeLock.Unlock()
-	registries := c.registries
 	if len(c.registries) == 0 {
 		log.Warnf("Registry list is empty, nothing to delete")
 		return
@@ -74,15 +71,18 @@ func (c *Controller) DeleteRegistry(registry Registry) {
 		log.Warnf("Registry is not found in the registries list, nothing to delete")
 		return
 	}
-	registries = append(registries[:index], registries[index+1:]...)
-	c.registries = registries
+	c.registries = append(c.registries[:index], c.registries[index+1:]...)
 }
 
 // GetRegistries returns a copy of all registries
 func (c *Controller) GetRegistries() []Registry {
 	c.storeLock.Lock()
 	defer c.storeLock.Unlock()
-	registries := c.registries
+	registries := make([]Registry, len(c.registries))
+	l := reflect.Copy(reflect.ValueOf(registries), reflect.ValueOf(c.registries))
+	if l != len(c.registries) {
+		log.Warnf("The length of copied Registry slice does not match the original.")
+	}
 	return registries
 }
 
