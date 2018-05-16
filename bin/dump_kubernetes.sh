@@ -25,7 +25,7 @@ usage() {
 log() {
   local msg="${1}"
   if [ "${QUIET}" = false ]; then
-    printf "%s\n" "${msg}"
+    printf '%s\n' "${msg}"
   fi
 }
 
@@ -123,27 +123,58 @@ dump_resources() {
       -o yaml > "${RESOURCES_FILE}"
 }
 
+dump_pilot_url(){
+  local pilot_pod=$1
+  local url=$2
+  local dname=$3
+  local outfile
+
+  outfile="${dname}/$(basename "${url}")"
+
+  log "Fetching ${url} from pilot"
+  kubectl --namespace istio-system exec -i -t "${pilot_pod}" -c istio-proxy -- curl "http://localhost:8080/${url}" > "${outfile}"
+}
+
+dump_pilot() {
+  local pilot_pod
+  local pilot_dir
+
+  pilot_dir="${OUT_DIR}/pilot"
+  mkdir -p "${pilot_dir}"
+
+  pilot_pod=$(kubectl --namespace istio-system get pods -listio=pilot -o=jsonpath='{.items[0].metadata.name}')
+
+  dump_pilot_url "${pilot_pod}" debug/configz "${pilot_dir}"
+  dump_pilot_url "${pilot_pod}" debug/endpointz "${pilot_dir}"
+  dump_pilot_url "${pilot_pod}" debug/adsz "${pilot_dir}"
+  dump_pilot_url "${pilot_pod}" metrics "${pilot_dir}"
+}
+
 archive() {
   local parent_dir
   parent_dir=$(dirname "${OUT_DIR}")
   local dir
   dir=$(basename "${OUT_DIR}")
 
-  pushd "${parent_dir}" > /dev/null
+  pushd "${parent_dir}" > /dev/null || exit
   tar -czf "${dir}.tar.gz" "${dir}"
-  popd > /dev/null
+  popd > /dev/null || exit
+
+  log "Wrote ${parent_dir}/${dir}.tar.gz"
 }
 
 main() {
   parse_args "$@"
   check_prerequisites kubectl
   dump_time
+  dump_pilot
   dump_logs
   dump_resources
   if [ "${SHOULD_ARCHIVE}" = true ] ; then
     archive
     rm -r "${OUT_DIR}"
   fi
+  log "Wrote to ${OUT_DIR}"
 }
 
 main "$@"
