@@ -511,30 +511,3 @@ func TestDeleteRegistry(t *testing.T) {
 		t.Fatalf("Expected length of the registries slice should be 1, got %d", l)
 	}
 }
-
-func TestGetRegistries(t *testing.T) {
-	registries := []Registry{
-		{
-			Name:      "registry1",
-			ClusterID: "cluster1",
-		},
-		{
-			Name:      "registry2",
-			ClusterID: "cluster2",
-		},
-	}
-	ctrl := NewController()
-	for _, r := range registries {
-		ctrl.AddRegistry(r)
-	}
-	result := ctrl.GetRegistries()
-	if len(ctrl.registries) != len(result) {
-		t.Fatal("Length of the original registries slice does not match to returned by GetRegistries.")
-	}
-
-	for i := range result {
-		if !reflect.DeepEqual(result[i], ctrl.registries[i]) {
-			t.Fatal("The original registries slice and resulting slice supposed to be identical.")
-		}
-	}
-}

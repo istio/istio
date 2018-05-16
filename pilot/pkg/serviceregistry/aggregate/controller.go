@@ -15,7 +15,6 @@
 package aggregate
 
 import (
-	"reflect"
 	"sync"
 
 	multierror "github.com/hashicorp/go-multierror"
@@ -74,22 +73,33 @@ func (c *Controller) DeleteRegistry(registry Registry) {
 	c.registries = append(c.registries[:index], c.registries[index+1:]...)
 }
 
-// GetRegistries returns a copy of all registries
-func (c *Controller) GetRegistries() []Registry {
-	c.storeLock.Lock()
-	defer c.storeLock.Unlock()
-	registries := make([]Registry, len(c.registries))
-	l := reflect.Copy(reflect.ValueOf(registries), reflect.ValueOf(c.registries))
-	if l != len(c.registries) {
-		log.Warnf("The length of copied Registry slice does not match the original.")
+// RegistryElement is used to send Registry over a channel
+type RegistryElement struct {
+	index int
+	Registry
+}
+
+// GetRegistry returns Registry element in a protected maner
+func (c *Controller) GetRegistry() <-chan RegistryElement {
+	ch := make(chan RegistryElement)
+
+	f := func() {
+		c.storeLock.Lock()
+		defer c.storeLock.Unlock()
+		for index, value := range c.registries {
+			ch <- RegistryElement{index, value}
+		}
+		close(ch)
 	}
-	return registries
+	go f()
+
+	return ch
 }
 
 // GetRegistryIndex returns the index of a registry
 func (c *Controller) GetRegistryIndex(registry Registry) (int, bool) {
 	for i, r := range c.registries {
-		if reflect.DeepEqual(registry, r) {
+		if r.ClusterID == registry.ClusterID {
 			return i, true
 		}
 	}
@@ -105,7 +115,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 	services := make([]*model.Service, 0)
 	var errs error
 	// Locking Registries list while walking it to prevent inconsistent results
-	for _, r := range c.GetRegistries() {
+	for r := range c.GetRegistry() {
 		svcs, err := r.Services()
 		if err != nil {
 			errs = multierror.Append(errs, err)
@@ -146,7 +156,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 // GetService retrieves a service by hostname if exists
 func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error) {
 	var errs error
-	for _, r := range c.GetRegistries() {
+	for r := range c.GetRegistry() {
 		service, err := r.GetService(hostname)
 		if err != nil {
 			errs = multierror.Append(errs, err)
@@ -164,7 +174,7 @@ func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error)
 // ManagementPorts retrieves set of health check ports by instance IP
 // Return on the first hit.
 func (c *Controller) ManagementPorts(addr string) model.PortList {
-	for _, r := range c.GetRegistries() {
+	for r := range c.GetRegistry() {
 		if portList := r.ManagementPorts(addr); portList != nil {
 			return portList
 		}
@@ -178,7 +188,7 @@ func (c *Controller) Instances(hostname model.Hostname, ports []string,
 	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	var instances, tmpInstances []*model.ServiceInstance
 	var errs error
-	for _, r := range c.GetRegistries() {
+	for r := range c.GetRegistry() {
 		var err error
 		tmpInstances, err = r.Instances(hostname, ports, labels)
 		if err != nil {
@@ -202,7 +212,7 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, port int,
 	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	var instances, tmpInstances []*model.ServiceInstance
 	var errs error
-	for _, r := range c.GetRegistries() {
+	for r := range c.GetRegistry() {
 		var err error
 		tmpInstances, err = r.InstancesByPort(hostname, port, labels)
 		if err != nil {
@@ -226,7 +236,7 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.Servi
 	var errs error
 	// It doesn't make sense for a single proxy to be found in more than one registry.
 	// TODO: if otherwise, warning or else what to do about it.
-	for _, r := range c.GetRegistries() {
+	for r := range c.GetRegistry() {
 		instances, err := r.GetProxyServiceInstances(node)
 		if err != nil {
 			errs = multierror.Append(errs, err)
@@ -250,7 +260,7 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.Servi
 // Run starts all the controllers
 func (c *Controller) Run(stop <-chan struct{}) {
 
-	for _, r := range c.GetRegistries() {
+	for r := range c.GetRegistry() {
 		go r.Run(stop)
 	}
 
@@ -260,7 +270,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 // AppendServiceHandler implements a service catalog operation
 func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) error {
-	for _, r := range c.GetRegistries() {
+	for r := range c.GetRegistry() {
 		if err := r.AppendServiceHandler(f); err != nil {
 			log.Infof("Fail to append service handler to adapter %s", r.Name)
 			return err
@@ -271,7 +281,7 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 
 // AppendInstanceHandler implements a service instance catalog operation
 func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
-	for _, r := range c.GetRegistries() {
+	for r := range c.GetRegistry() {
 		if err := r.AppendInstanceHandler(f); err != nil {
 			log.Infof("Fail to append instance handler to adapter %s", r.Name)
 			return err
@@ -282,7 +292,7 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 
 // GetIstioServiceAccounts implements model.ServiceAccounts operation
 func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []string) []string {
-	for _, r := range c.GetRegistries() {
+	for r := range c.GetRegistry() {
 		if svcAccounts := r.GetIstioServiceAccounts(hostname, ports); svcAccounts != nil {
 			return svcAccounts
 		}
