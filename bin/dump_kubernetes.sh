@@ -123,6 +123,32 @@ dump_resources() {
       -o yaml > "${RESOURCES_FILE}"
 }
 
+dump_pilot_url(){
+  pilot_pod=$1
+  shift
+  url=$1
+  shift
+  dname=$1
+  shift
+
+  local outfile="${dname}/$(basename ${url})"
+  echo "fetching ${url} from pilot"
+  kubectl --namespace istio-system exec -i -t ${pilot_pod} -c istio-proxy -- curl http://localhost:8080/${url} > ${outfile}
+}
+
+dump_pilot() {
+  local pilot_pod
+  PILOT_DIR=${OUT_DIR}/pilot
+  mkdir -p ${PILOT_DIR}
+
+  pilot_pod=$(kubectl --namespace istio-system get pods -listio=pilot -o=jsonpath={.items[0].metadata.name})
+
+  dump_pilot_url ${pilot_pod} debug/configz ${PILOT_DIR}
+  dump_pilot_url ${pilot_pod} debug/endpointz ${PILOT_DIR}
+  dump_pilot_url ${pilot_pod} debug/adsz ${PILOT_DIR}
+  dump_pilot_url ${pilot_pod} metrics ${PILOT_DIR}
+}
+
 archive() {
   local parent_dir
   parent_dir=$(dirname "${OUT_DIR}")
@@ -132,18 +158,21 @@ archive() {
   pushd "${parent_dir}" > /dev/null
   tar -czf "${dir}.tar.gz" "${dir}"
   popd > /dev/null
+  echo "Wrote ${parent_dir}/${dir}.tar.gz"
 }
 
 main() {
   parse_args "$@"
   check_prerequisites kubectl
   dump_time
+  dump_pilot
   dump_logs
   dump_resources
   if [ "${SHOULD_ARCHIVE}" = true ] ; then
     archive
     rm -r "${OUT_DIR}"
   fi
+  echo "Wrote to ${OUT_DIR}"
 }
 
 main "$@"
