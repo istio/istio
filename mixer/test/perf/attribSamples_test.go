@@ -15,7 +15,8 @@
 package perftests
 
 var (
-	// nolint:deadcode
+
+	// one sample set of attributes that are passed by the envoy in the bookinfo example.
 	baseAttr = map[string]interface{}{
 		"source.service":      "AcmeService",
 		"response.code":       int64(111),
@@ -48,9 +49,8 @@ var (
 		"source.uid":    "kubernetes://productpage-v1-7bbb998d94-g85pc.default",
 	}
 
-	// attr1-through-5 replaces source, destination, request.size and response.code attributes to `1-to-5` prefix based
+	// attr1-through-5 replaces baseAttr's source, destination, request.size and response.code attributes to `1-to-5` prefix based
 	// values
-	// nolint:deadcode
 	attr1 = replaceAttrs(baseAttr, map[string]interface{}{
 		"source.service":      "AcmeService1",
 		"source.labels":       map[string]string{"version": "111"},
@@ -60,7 +60,6 @@ var (
 		"request.size":        int64(111),
 	})
 
-	// nolint:deadcode
 	attr2 = replaceAttrs(baseAttr, map[string]interface{}{
 		"source.service":      "AcmeService2",
 		"source.labels":       map[string]string{"version": "222"},
@@ -70,7 +69,6 @@ var (
 		"request.size":        int64(222),
 	})
 
-	// nolint:deadcode
 	attr3 = replaceAttrs(baseAttr, map[string]interface{}{
 		"source.service":      "AcmeService3",
 		"source.labels":       map[string]string{"version": "333"},
@@ -80,7 +78,6 @@ var (
 		"request.size":        int64(333),
 	})
 
-	// nolint:deadcode
 	attr4 = replaceAttrs(baseAttr, map[string]interface{}{
 		"source.service":      "AcmeService4",
 		"source.labels":       map[string]string{"version": "444"},
@@ -90,7 +87,6 @@ var (
 		"request.size":        int64(444),
 	})
 
-	// nolint:deadcode
 	attr5 = replaceAttrs(baseAttr, map[string]interface{}{
 		"source.service":      "AcmeService5",
 		"source.labels":       map[string]string{"version": "555"},

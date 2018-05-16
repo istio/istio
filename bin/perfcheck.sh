@@ -65,13 +65,14 @@ SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 
 # the root folder for the project
 ROOT=${SCRIPTPATH}/..
+TARGET_DIR=${ROOT}
 if ! [ -z "$1" ]; then
-    ROOT=$1
+    TARGET_DIR=$1
 fi
 
 # Search and find the baseline files within the project
 function findBaselineFiles() {
-    find ${ROOT} -name ${BASELINE_FILENAME}
+    find ${TARGET_DIR} -name ${BASELINE_FILENAME}
 }
 
 # load the baseline file with the name as first parameter

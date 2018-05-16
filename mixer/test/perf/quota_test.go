@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/mixer/test/spyAdapter"
 )
 
+// Tests single quota call into Mixer that dispatches instances to multiple noop inproc adapters.
 func Benchmark_Quota_1Client_1Call(b *testing.B) {
 	settings, spyAdapter := settingsWithAdapterAndTmpls()
 	settings.RunMode = perf.InProcess
@@ -29,7 +30,7 @@ func Benchmark_Quota_1Client_1Call(b *testing.B) {
 	setup := perf.Setup{
 		Config: perf.Config{
 			Global:                  mixerGlobalCfg,
-			Service:                 noopQuota + attrGenToSpyAdapter,
+			Service:                 quotaInstToSpyAdapter + attrGenToSpyAdapter,
 			IdentityAttribute:       "destination.service",
 			IdentityAttributeDomain: "svc.cluster.local",
 		},
@@ -48,9 +49,10 @@ func Benchmark_Quota_1Client_1Call(b *testing.B) {
 	}
 
 	perf.Run(b, &setup, settings)
-	failOnQuotaValidationErr(spyAdapter, b)
+	validateQuotaBehavior(spyAdapter, b)
 }
 
+// Tests 5 synchronous identical quota call into Mixer that dispatches instances to multiple noop inproc adapters.
 func Benchmark_Quota_1Client_5SameCalls(b *testing.B) {
 	settings, spyAdapter := settingsWithAdapterAndTmpls()
 	settings.RunMode = perf.InProcess
@@ -58,7 +60,7 @@ func Benchmark_Quota_1Client_5SameCalls(b *testing.B) {
 	setup := perf.Setup{
 		Config: perf.Config{
 			Global:                  mixerGlobalCfg,
-			Service:                 noopQuota + attrGenToSpyAdapter,
+			Service:                 quotaInstToSpyAdapter + attrGenToSpyAdapter,
 			IdentityAttribute:       "destination.service",
 			IdentityAttributeDomain: "svc.cluster.local",
 		},
@@ -77,9 +79,10 @@ func Benchmark_Quota_1Client_5SameCalls(b *testing.B) {
 	}
 
 	perf.Run(b, &setup, settings)
-	failOnQuotaValidationErr(spyAdapter, b)
+	validateQuotaBehavior(spyAdapter, b)
 }
 
+// Tests 5 synchronous different quota call into Mixer that dispatches instances to multiple noop inproc adapters.
 func Benchmark_Quota_1Client_5DifferentCalls(b *testing.B) {
 	settings, spyAdapter := settingsWithAdapterAndTmpls()
 	settings.RunMode = perf.InProcess
@@ -87,7 +90,7 @@ func Benchmark_Quota_1Client_5DifferentCalls(b *testing.B) {
 	setup := perf.Setup{
 		Config: perf.Config{
 			Global:                  mixerGlobalCfg,
-			Service:                 noopQuota + attrGenToSpyAdapter,
+			Service:                 quotaInstToSpyAdapter + attrGenToSpyAdapter,
 			IdentityAttribute:       "destination.service",
 			IdentityAttributeDomain: "svc.cluster.local",
 		},
@@ -132,16 +135,18 @@ func Benchmark_Quota_1Client_5DifferentCalls(b *testing.B) {
 	}
 
 	perf.Run(b, &setup, settings)
-	failOnQuotaValidationErr(spyAdapter, b)
+	validateQuotaBehavior(spyAdapter, b)
 }
 
+// Tests 4 async client, each sending 5 identical quota call into Mixer that dispatches instances to
+// multiple noop inproc adapters.
 func Benchmark_Quota_4Clients_5SameCallsEach(b *testing.B) {
 	settings, spyAdapter := settingsWithAdapterAndTmpls()
 	settings.RunMode = perf.InProcess
 	setup := perf.Setup{
 		Config: perf.Config{
 			Global:                  mixerGlobalCfg,
-			Service:                 noopQuota + attrGenToSpyAdapter,
+			Service:                 quotaInstToSpyAdapter + attrGenToSpyAdapter,
 			IdentityAttribute:       "destination.service",
 			IdentityAttributeDomain: "svc.cluster.local",
 		},
@@ -195,16 +200,18 @@ func Benchmark_Quota_4Clients_5SameCallsEach(b *testing.B) {
 	}
 
 	perf.Run(b, &setup, settings)
-	failOnQuotaValidationErr(spyAdapter, b)
+	validateQuotaBehavior(spyAdapter, b)
 }
 
+// Tests 4 async client, each sending 5 different quota call into Mixer that dispatches instances to
+// multiple noop inproc adapters.
 func Benchmark_Quota_4Clients_5DifferentCallsEach(b *testing.B) {
 	settings, spyAdapter := settingsWithAdapterAndTmpls()
 	settings.RunMode = perf.InProcess
 	setup := perf.Setup{
 		Config: perf.Config{
 			Global:                  mixerGlobalCfg,
-			Service:                 noopQuota + attrGenToSpyAdapter,
+			Service:                 quotaInstToSpyAdapter + attrGenToSpyAdapter,
 			IdentityAttribute:       "destination.service",
 			IdentityAttributeDomain: "svc.cluster.local",
 		},
@@ -354,16 +361,18 @@ func Benchmark_Quota_4Clients_5DifferentCallsEach(b *testing.B) {
 	}
 
 	perf.Run(b, &setup, settings)
-	failOnQuotaValidationErr(spyAdapter, b)
+	validateQuotaBehavior(spyAdapter, b)
 }
 
+// Tests 4 async client, each sending 5 identical quota call into Mixer that dispatches instances to
+// multiple noop inproc adapters. The APA in this case is a slow by 1ms.
 func Benchmark_Quota_4Clients_5SameCallsEach_1MilliSecSlowApa(b *testing.B) {
 	settings, spyAdapter := settingsWith1milliSecApaAdapterAndTmpls()
 	settings.RunMode = perf.InProcess
 	setup := perf.Setup{
 		Config: perf.Config{
 			Global:                  mixerGlobalCfg,
-			Service:                 noopQuota + attrGenToSpyAdapter,
+			Service:                 quotaInstToSpyAdapter + attrGenToSpyAdapter,
 			IdentityAttribute:       "destination.service",
 			IdentityAttributeDomain: "svc.cluster.local",
 		},
@@ -417,10 +426,10 @@ func Benchmark_Quota_4Clients_5SameCallsEach_1MilliSecSlowApa(b *testing.B) {
 	}
 
 	perf.Run(b, &setup, settings)
-	failOnQuotaValidationErr(spyAdapter, b)
+	validateQuotaBehavior(spyAdapter, b)
 }
 
-func failOnQuotaValidationErr(spyAdapter *spyAdapter.Adapter, b *testing.B) {
+func validateQuotaBehavior(spyAdapter *spyAdapter.Adapter, b *testing.B) {
 	// validate all went as expected.
 	//
 	// based on the config, there must be, for each quota check call from client,
@@ -444,7 +453,8 @@ func failOnQuotaValidationErr(spyAdapter *spyAdapter.Adapter, b *testing.B) {
 }
 
 const (
-	noopQuota = `
+	// contains 1 rules that pass 1 instance to a quota adapter
+	quotaInstToSpyAdapter = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: spyadapter
 metadata:

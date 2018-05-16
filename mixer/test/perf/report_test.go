@@ -18,11 +18,13 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/perf"
 	"istio.io/istio/mixer/test/spyAdapter"
 	"istio.io/istio/mixer/test/spyAdapter/template"
 )
 
+// Tests single report call into Mixer that dispatches report instances to multiple noop inproc adapters.
 func Benchmark_Report_1Client_1Call(b *testing.B) {
 	settings, spyAdapter := settingsWithAdapterAndTmpls()
 	settings.RunMode = perf.InProcess
@@ -30,7 +32,7 @@ func Benchmark_Report_1Client_1Call(b *testing.B) {
 	setup := perf.Setup{
 		Config: perf.Config{
 			Global:                  mixerGlobalCfg,
-			Service:                 logentryToNoop1 + metricsToSpyAdapter + attrGenToSpyAdapter,
+			Service:                 logentryToNoop + metricsToSpyAdapter + attrGenToSpyAdapter,
 			IdentityAttribute:       "destination.service",
 			IdentityAttributeDomain: "svc.cluster.local",
 		},
@@ -47,16 +49,17 @@ func Benchmark_Report_1Client_1Call(b *testing.B) {
 
 	perf.Run(b, &setup, settings)
 
-	failOnReportValidationErr(spyAdapter, b)
+	validateReportBehavior(spyAdapter, b)
 }
 
+// Tests 5 synchronous identical report call into Mixer that dispatches report instances to multiple noop inproc adapters.
 func Benchmark_Report_1Client_5SameCalls(b *testing.B) {
 	settings, spyAdapter := settingsWithAdapterAndTmpls()
 	settings.RunMode = perf.InProcess
 	setup := perf.Setup{
 		Config: perf.Config{
 			Global:                  mixerGlobalCfg,
-			Service:                 logentryToNoop1 + metricsToSpyAdapter + attrGenToSpyAdapter,
+			Service:                 logentryToNoop + metricsToSpyAdapter + attrGenToSpyAdapter,
 			IdentityAttribute:       "destination.service",
 			IdentityAttributeDomain: "svc.cluster.local",
 		},
@@ -73,16 +76,17 @@ func Benchmark_Report_1Client_5SameCalls(b *testing.B) {
 
 	perf.Run(b, &setup, settings)
 
-	failOnReportValidationErr(spyAdapter, b)
+	validateReportBehavior(spyAdapter, b)
 }
 
+// Tests 5 synchronous different report call into Mixer that dispatches report instances to multiple noop inproc adapters.
 func Benchmark_Report_1Client_5DifferentCalls(b *testing.B) {
 	settings, spyAdapter := settingsWithAdapterAndTmpls()
 	settings.RunMode = perf.InProcess
 	setup := perf.Setup{
 		Config: perf.Config{
 			Global:                  mixerGlobalCfg,
-			Service:                 logentryToNoop1 + metricsToSpyAdapter + attrGenToSpyAdapter,
+			Service:                 logentryToNoop + metricsToSpyAdapter + attrGenToSpyAdapter,
 			IdentityAttribute:       "destination.service",
 			IdentityAttributeDomain: "svc.cluster.local",
 		},
@@ -113,16 +117,18 @@ func Benchmark_Report_1Client_5DifferentCalls(b *testing.B) {
 
 	perf.Run(b, &setup, settings)
 
-	failOnReportValidationErr(spyAdapter, b)
+	validateReportBehavior(spyAdapter, b)
 }
 
+// Tests 4 async client, each sending 5 synchronous identical report call into Mixer that dispatches report instances to
+// multiple noop inproc adapters.
 func Benchmark_Report_4Clients_5SameCallsEach(b *testing.B) {
 	settings, spyAdapter := settingsWithAdapterAndTmpls()
 	settings.RunMode = perf.InProcess
 	setup := perf.Setup{
 		Config: perf.Config{
 			Global:                  mixerGlobalCfg,
-			Service:                 logentryToNoop1 + metricsToSpyAdapter + attrGenToSpyAdapter,
+			Service:                 logentryToNoop + metricsToSpyAdapter + attrGenToSpyAdapter,
 			IdentityAttribute:       "destination.service",
 			IdentityAttributeDomain: "svc.cluster.local",
 		},
@@ -165,16 +171,18 @@ func Benchmark_Report_4Clients_5SameCallsEach(b *testing.B) {
 
 	perf.Run(b, &setup, settings)
 
-	failOnReportValidationErr(spyAdapter, b)
+	validateReportBehavior(spyAdapter, b)
 }
 
+// Tests 4 async client, each sending 5 different report call into Mixer that dispatches report instances to
+// multiple noop inproc adapters.
 func Benchmark_Report_4Clients_5DifferentCallsEach(b *testing.B) {
 	settings, spyAdapter := settingsWithAdapterAndTmpls()
 	settings.RunMode = perf.InProcess
 	setup := perf.Setup{
 		Config: perf.Config{
 			Global:                  mixerGlobalCfg,
-			Service:                 logentryToNoop1 + metricsToSpyAdapter + attrGenToSpyAdapter,
+			Service:                 logentryToNoop + metricsToSpyAdapter + attrGenToSpyAdapter,
 			IdentityAttribute:       "destination.service",
 			IdentityAttributeDomain: "svc.cluster.local",
 		},
@@ -265,16 +273,18 @@ func Benchmark_Report_4Clients_5DifferentCallsEach(b *testing.B) {
 
 	perf.Run(b, &setup, settings)
 
-	failOnReportValidationErr(spyAdapter, b)
+	validateReportBehavior(spyAdapter, b)
 }
 
+// Tests 4 async client, each sending 5 identical report call into Mixer that dispatches report instances to
+// multiple noop inproc adapters. The APA in this case is a slow by 1ms.
 func Benchmark_Report_4Clients_5SameCallsEach_1MilliSecSlowApa(b *testing.B) {
 	settings, spyAdapter := settingsWith1milliSecApaAdapterAndTmpls()
 	settings.RunMode = perf.InProcess
 	setup := perf.Setup{
 		Config: perf.Config{
 			Global:                  mixerGlobalCfg,
-			Service:                 logentryToNoop1 + metricsToSpyAdapter + attrGenToSpyAdapter,
+			Service:                 logentryToNoop + metricsToSpyAdapter + attrGenToSpyAdapter,
 			IdentityAttribute:       "destination.service",
 			IdentityAttributeDomain: "svc.cluster.local",
 		},
@@ -317,11 +327,12 @@ func Benchmark_Report_4Clients_5SameCallsEach_1MilliSecSlowApa(b *testing.B) {
 
 	perf.Run(b, &setup, settings)
 
-	failOnReportValidationErr(spyAdapter, b)
+	validateReportBehavior(spyAdapter, b)
 }
 
 const (
-	logentryToNoop1 = `
+	// contains 2 rules that pass logentry instances to a noop handler.
+	logentryToNoop = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: noop
 metadata:
@@ -403,6 +414,7 @@ spec:
 ---
 `
 
+	// contains 2 rules that pass instances to the same handler.
 	metricsToSpyAdapter = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: samplereport
@@ -569,6 +581,7 @@ spec:
 ---
 `
 
+	// contains 1 rules that pass instances to a apa adapter
 	attrGenToSpyAdapter = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: spyadapter
@@ -733,8 +746,8 @@ spec:
 
 func settingsWithAdapterAndTmpls() (perf.Settings, *spyAdapter.Adapter) {
 	setting := baseSettings
-
-	a := spyAdapter.NewSpyAdapter(spyAdapter.AdapterBehavior{Name: "spyadapter"})
+	a := spyAdapter.NewSpyAdapter(spyAdapter.AdapterBehavior{Name: "spyadapter", Handler: spyAdapter.HandlerBehavior{
+		HandleSampleCheckResult: adapter.CheckResult{ValidUseCount: 10000, ValidDuration: 5 * time.Minute}}})
 	setting.Adapters = append(setting.Adapters, a.GetAdptInfoFn())
 	for k, v := range template.SupportedTmplInfo {
 		setting.Templates[k] = v
@@ -746,7 +759,8 @@ func settingsWith1milliSecApaAdapterAndTmpls() (perf.Settings, *spyAdapter.Adapt
 	setting := baseSettings
 
 	a := spyAdapter.NewSpyAdapter(spyAdapter.AdapterBehavior{Name: "spyadapter",
-		Handler: spyAdapter.HandlerBehavior{GenerateSampleApaSleep: time.Millisecond}})
+		Handler: spyAdapter.HandlerBehavior{GenerateSampleApaSleep: time.Millisecond,
+			HandleSampleCheckResult: adapter.CheckResult{ValidUseCount: 10000, ValidDuration: 5 * time.Minute}}})
 	setting.Adapters = append(setting.Adapters, a.GetAdptInfoFn())
 	for k, v := range template.SupportedTmplInfo {
 		setting.Templates[k] = v
@@ -754,7 +768,7 @@ func settingsWith1milliSecApaAdapterAndTmpls() (perf.Settings, *spyAdapter.Adapt
 	return setting, a
 }
 
-func failOnReportValidationErr(spyAdapter *spyAdapter.Adapter, b *testing.B) {
+func validateReportBehavior(spyAdapter *spyAdapter.Adapter, b *testing.B) {
 	// validate all went as expected. Note: logentry goes to the noop adapter so we cannot inspect that. However,
 	// anything that is going to spy adapter, based on the config below, can be inspected.
 	//

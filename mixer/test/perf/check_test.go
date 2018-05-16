@@ -21,6 +21,7 @@ import (
 	"istio.io/istio/mixer/test/spyAdapter"
 )
 
+// Tests single check call into Mixer that dispatches instances to multiple noop inproc adapters.
 func Benchmark_Check_1Client_1Call(b *testing.B) {
 	settings, spyAdapter := settingsWithAdapterAndTmpls()
 	settings.RunMode = perf.InProcess
@@ -28,7 +29,7 @@ func Benchmark_Check_1Client_1Call(b *testing.B) {
 	setup := perf.Setup{
 		Config: perf.Config{
 			Global:                  mixerGlobalCfg,
-			Service:                 noopListChecker + attrGenToSpyAdapter,
+			Service:                 checkInstToSpyAdapter + attrGenToSpyAdapter,
 			IdentityAttribute:       "destination.service",
 			IdentityAttributeDomain: "svc.cluster.local",
 		},
@@ -44,9 +45,10 @@ func Benchmark_Check_1Client_1Call(b *testing.B) {
 	}
 
 	perf.Run(b, &setup, settings)
-	failOnCheckValidationErr(spyAdapter, b)
+	validateCheckBehavior(spyAdapter, b)
 }
 
+// Tests 5 synchronous identical check call into Mixer that dispatches instances to multiple noop inproc adapters.
 func Benchmark_Check_1Client_5SameCalls(b *testing.B) {
 	settings, spyAdapter := settingsWithAdapterAndTmpls()
 	settings.RunMode = perf.InProcess
@@ -54,7 +56,7 @@ func Benchmark_Check_1Client_5SameCalls(b *testing.B) {
 	setup := perf.Setup{
 		Config: perf.Config{
 			Global:                  mixerGlobalCfg,
-			Service:                 noopListChecker + attrGenToSpyAdapter,
+			Service:                 checkInstToSpyAdapter + attrGenToSpyAdapter,
 			IdentityAttribute:       "destination.service",
 			IdentityAttributeDomain: "svc.cluster.local",
 		},
@@ -70,9 +72,10 @@ func Benchmark_Check_1Client_5SameCalls(b *testing.B) {
 	}
 
 	perf.Run(b, &setup, settings)
-	failOnCheckValidationErr(spyAdapter, b)
+	validateCheckBehavior(spyAdapter, b)
 }
 
+// Tests 5 synchronous different check call into Mixer that dispatches instances to multiple noop inproc adapters.
 func Benchmark_Check_1Client_5DifferentCalls(b *testing.B) {
 	settings, spyAdapter := settingsWithAdapterAndTmpls()
 	settings.RunMode = perf.InProcess
@@ -80,7 +83,7 @@ func Benchmark_Check_1Client_5DifferentCalls(b *testing.B) {
 	setup := perf.Setup{
 		Config: perf.Config{
 			Global:                  mixerGlobalCfg,
-			Service:                 noopListChecker + attrGenToSpyAdapter,
+			Service:                 checkInstToSpyAdapter + attrGenToSpyAdapter,
 			IdentityAttribute:       "destination.service",
 			IdentityAttributeDomain: "svc.cluster.local",
 		},
@@ -110,16 +113,18 @@ func Benchmark_Check_1Client_5DifferentCalls(b *testing.B) {
 	}
 
 	perf.Run(b, &setup, settings)
-	failOnCheckValidationErr(spyAdapter, b)
+	validateCheckBehavior(spyAdapter, b)
 }
 
+// Tests 4 async client, each sending 5 identical check call into Mixer that dispatches instances to
+// multiple noop inproc adapters.
 func Benchmark_Check_4Clients_5SameCallsEach(b *testing.B) {
 	settings, spyAdapter := settingsWithAdapterAndTmpls()
 	settings.RunMode = perf.InProcess
 	setup := perf.Setup{
 		Config: perf.Config{
 			Global:                  mixerGlobalCfg,
-			Service:                 noopListChecker + attrGenToSpyAdapter,
+			Service:                 checkInstToSpyAdapter + attrGenToSpyAdapter,
 			IdentityAttribute:       "destination.service",
 			IdentityAttributeDomain: "svc.cluster.local",
 		},
@@ -161,16 +166,18 @@ func Benchmark_Check_4Clients_5SameCallsEach(b *testing.B) {
 	}
 
 	perf.Run(b, &setup, settings)
-	failOnCheckValidationErr(spyAdapter, b)
+	validateCheckBehavior(spyAdapter, b)
 }
 
+// Tests 4 async client, each sending 5 different check call into Mixer that dispatches instances to
+// multiple noop inproc adapters.
 func Benchmark_Check_4Clients_5DifferentCallsEach(b *testing.B) {
 	settings, spyAdapter := settingsWithAdapterAndTmpls()
 	settings.RunMode = perf.InProcess
 	setup := perf.Setup{
 		Config: perf.Config{
 			Global:                  mixerGlobalCfg,
-			Service:                 noopListChecker + attrGenToSpyAdapter,
+			Service:                 checkInstToSpyAdapter + attrGenToSpyAdapter,
 			IdentityAttribute:       "destination.service",
 			IdentityAttributeDomain: "svc.cluster.local",
 		},
@@ -260,16 +267,18 @@ func Benchmark_Check_4Clients_5DifferentCallsEach(b *testing.B) {
 	}
 
 	perf.Run(b, &setup, settings)
-	failOnCheckValidationErr(spyAdapter, b)
+	validateCheckBehavior(spyAdapter, b)
 }
 
+// Tests 4 async client, each sending 5 identical check call into Mixer that dispatches instances to
+// multiple noop inproc adapters. The APA in this case is a slow by 1ms.
 func Benchmark_Check_4Clients_5SameCallsEach_1MilliSecSlowApa(b *testing.B) {
 	settings, spyAdapter := settingsWith1milliSecApaAdapterAndTmpls()
 	settings.RunMode = perf.InProcess
 	setup := perf.Setup{
 		Config: perf.Config{
 			Global:                  mixerGlobalCfg,
-			Service:                 noopListChecker + attrGenToSpyAdapter,
+			Service:                 checkInstToSpyAdapter + attrGenToSpyAdapter,
 			IdentityAttribute:       "destination.service",
 			IdentityAttributeDomain: "svc.cluster.local",
 		},
@@ -311,10 +320,10 @@ func Benchmark_Check_4Clients_5SameCallsEach_1MilliSecSlowApa(b *testing.B) {
 	}
 
 	perf.Run(b, &setup, settings)
-	failOnCheckValidationErr(spyAdapter, b)
+	validateCheckBehavior(spyAdapter, b)
 }
 
-func failOnCheckValidationErr(spyAdapter *spyAdapter.Adapter, b *testing.B) {
+func validateCheckBehavior(spyAdapter *spyAdapter.Adapter, b *testing.B) {
 	// validate all went as expected.
 	//
 	// based on the config, there must be, for each Check call from client,
@@ -338,7 +347,8 @@ func failOnCheckValidationErr(spyAdapter *spyAdapter.Adapter, b *testing.B) {
 }
 
 const (
-	noopListChecker = `
+	// contains 1 rules that pass 1 instance to a check adapter
+	checkInstToSpyAdapter = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: spyadapter
 metadata:
