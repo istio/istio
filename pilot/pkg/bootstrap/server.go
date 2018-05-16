@@ -847,8 +847,6 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		return err
 	})
 
-	go ctrlz.Run(ctrlz.DefaultOptions(), nil)
-
 	return nil
 }
 
