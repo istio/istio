@@ -285,6 +285,8 @@ func upgradeSidecars() error {
 }
 
 func TestUpgrade(t *testing.T) {
+        t.Skip("https://github.com/istio/istio/issues/4937")
+
 	err := upgradeControlPlane()
 	inspect(err, "Failed to upgrade control plane", "Control plane upgraded.", t)
 	if err != nil {
