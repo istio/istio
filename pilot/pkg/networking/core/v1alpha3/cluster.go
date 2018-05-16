@@ -339,8 +339,12 @@ func applyLoadBalancer(cluster *v2.Cluster, lb *networking.LoadBalancerSettings)
 	// DO not do if else here. since lb.GetSimple returns a enum value (not pointer).
 }
 
-// ClusterALPNProtocols - try h2 first and then http/1.1
-var ClusterALPNProtocols = []string{"h2", "http/1.1"}
+// InMeshALPNProtocols - try istio first and then h2
+// After envoy supports client side ALPN negotiation, this should be "istio", "h2", "http/1.1"
+var InMeshALPNProtocols = []string{"istio", "h2"}
+
+// ALPNH2Only specifies that the cluster only supports h2 via alpn.
+var ALPNH2Only = []string{"h2"}
 
 func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) {
 	if tls == nil {
@@ -370,9 +374,14 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 		cluster.TlsContext = &auth.UpstreamTlsContext{
 			CommonTlsContext: &auth.CommonTlsContext{
 				ValidationContext: certValidationContext,
-				AlpnProtocols:     ClusterALPNProtocols,
 			},
 			Sni: tls.Sni,
+		}
+		// This is already an h2 cluster, advertise it with alpn.
+		if cluster.Http2ProtocolOptions != nil {
+			// advertising h2 ensures that h2 is used and it is not downgraded to http/1.1
+			// empty alpn usually defaults to http/1.1
+			cluster.TlsContext.CommonTlsContext.AlpnProtocols = ALPNH2Only
 		}
 	case networking.TLSSettings_MUTUAL:
 		cluster.TlsContext = &auth.UpstreamTlsContext{
@@ -392,14 +401,10 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 					},
 				},
 				ValidationContext: certValidationContext,
-				AlpnProtocols:     ClusterALPNProtocols,
+				AlpnProtocols:     InMeshALPNProtocols,
 			},
 			Sni: tls.Sni,
 		}
-	}
-
-	if tls.Mode != networking.TLSSettings_DISABLE {
-		// alpn is set for TLS, so specify h2 configuration.
 		addHTTP2Options(cluster)
 	}
 }
@@ -412,11 +417,14 @@ func setUpstreamProtocol(cluster *v2.Cluster, port *model.Port) {
 
 // addHTTP2Options makes cluster of type http2
 func addHTTP2Options(cluster *v2.Cluster) {
-	cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{
+	if cluster.Http2ProtocolOptions == nil {
+		// do not squash other h2 options if already present.
+		cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{}
+	}
+
+	cluster.Http2ProtocolOptions.MaxConcurrentStreams = &types.UInt32Value{
 		// Envoy default value of 100 is too low for data path.
-		MaxConcurrentStreams: &types.UInt32Value{
-			Value: 1073741824,
-		},
+		Value: 1073741824,
 	}
 }
 
