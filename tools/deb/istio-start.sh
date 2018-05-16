@@ -42,8 +42,12 @@ ISTIO_SYSTEM_NAMESPACE=${ISTIO_SYSTEM_NAMESPACE:-istio-system}
 # The default matches the default istio.yaml - use sidecar.env to override this if you
 # enable auth. This requires node-agent to be running.
 ISTIO_PILOT_PORT=${ISTIO_PILOT_PORT:-8080}
-ISTIO_CP_AUTH=${ISTIO_CP_AUTH:-NONE}
 
+# If set, add the flag
+CONTROL_PLANE_AUTH_POLICY=""
+if [ ! -z "${ISTIO_CP_AUTH:-}" ]; then
+  CONTROL_PLANE_AUTH_POLICY="--controlPlaneAuthPolicy ${ISTIO_CP_AUTH}"
+fi
 
 if [ -z "${ISTIO_SVC_IP:-}" ]; then
   ISTIO_SVC_IP=$(hostname --ip-address)
@@ -72,4 +76,8 @@ if [ "${ISTIO_INBOUND_INTERCEPTION_MODE}" = "TPROXY" ] ; then
 fi
 
 # Will run: ${ISTIO_BIN_BASE}/envoy -c $ENVOY_CFG --restart-epoch 0 --drain-time-s 2 --parent-shutdown-time-s 3 --service-cluster $SVC --service-node 'sidecar~${ISTIO_SVC_IP}~${POD_NAME}.${NS}.svc.cluster.local~${NS}.svc.cluster.local' $ISTIO_DEBUG >${ISTIO_LOG_DIR}/istio.log" istio-proxy
-exec su -s /bin/bash -c "INSTANCE_IP=${ISTIO_SVC_IP} POD_NAME=${POD_NAME} POD_NAMESPACE=${NS} exec ${ISTIO_BIN_BASE}/pilot-agent proxy ${ISTIO_AGENT_FLAGS:-} --serviceCluster $SVC --discoveryAddress istio-pilot.${ISTIO_SYSTEM_NAMESPACE}:${ISTIO_PILOT_PORT} --controlPlaneAuthPolicy $CONTROL_PLANE_AUTH_POLICY 2> ${ISTIO_LOG_DIR}/istio.err.log > ${ISTIO_LOG_DIR}/istio.log" ${EXEC_USER}
+exec su -s /bin/bash -c "INSTANCE_IP=${ISTIO_SVC_IP} POD_NAME=${POD_NAME} POD_NAMESPACE=${NS} exec ${ISTIO_BIN_BASE}/pilot-agent proxy ${ISTIO_AGENT_FLAGS:-} \
+    --serviceCluster $SVC \
+    --discoveryAddress istio-pilot.${ISTIO_SYSTEM_NAMESPACE}:${ISTIO_PILOT_PORT} \
+    $CONTROL_PLANE_AUTH_POLICY \
+    2> ${ISTIO_LOG_DIR}/istio.err.log > ${ISTIO_LOG_DIR}/istio.log" ${EXEC_USER}

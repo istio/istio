@@ -39,15 +39,14 @@ data:
         {{ "[[ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeInboundPorts\") -]]" }}
         {{ "- \"[[ index .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeInboundPorts\"  ]]\"" }}
         {{ "[[ else -]]" }}
-        - "{{ .Values.includeInboundPorts }}"
-        {{ "[[ end -]]" }}
+        - {{ "[[ range .Spec.Containers -]][[ range .Ports -]][[ .ContainerPort -]], [[ end -]][[ end -]][[ end]]" }}
         - "-d"
         {{ "[[ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/excludeInboundPorts\") -]]" }}
         {{ "- \"[[ index .ObjectMeta.Annotations \"traffic.sidecar.istio.io/excludeInboundPorts\" ]]\"" }}
         {{ "[[ else -]]" }}
         - "{{ .Values.excludeInboundPorts }}"
         {{ "[[ end -]]" }}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         securityContext:
           capabilities:
             add:
@@ -124,7 +123,7 @@ data:
               fieldPath: metadata.name
         - name: ISTIO_META_INTERCEPTION_MODE
           value: {{ "[[ or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String ]]" }}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         securityContext:
             privileged: false
             readOnlyRootFilesystem: true

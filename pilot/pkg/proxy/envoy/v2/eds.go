@@ -17,7 +17,6 @@ package v2
 import (
 	"context"
 	"errors"
-	"io"
 	"net"
 	"os"
 	"strconv"
@@ -29,9 +28,8 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/gogo/protobuf/types"
-	"google.golang.org/grpc/codes"
+	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc/peer"
-	"google.golang.org/grpc/status"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
@@ -149,38 +147,45 @@ func newEndpoint(address string, port uint32) (*endpoint.LbEndpoint, error) {
 
 // updateCluster is called from the event (or global cache invalidation) to update
 // the endpoints for the cluster.
-func updateCluster(clusterName string, edsCluster *EdsCluster) {
+func updateCluster(clusterName string, edsCluster *EdsCluster) error {
 	// TODO: should we lock this as well ? Once we move to event-based it may not matter.
-	var hostname string
+	var hostname model.Hostname
 	var ports model.PortList
 	var labels model.LabelsCollection
-	// Single port
-	var portName string
+	var instances []*model.ServiceInstance
+	var err error
 
 	// This is a gross hack but Costin will insist on supporting everything from ancient Greece
-	if strings.Index(clusterName, "outbound") == 0 { //new style cluster names
-		var p *model.Port
+	if strings.Index(clusterName, "outbound") == 0 ||
+		strings.Index(clusterName, "inbound") == 0 { //new style cluster names
+		var p int
 		var subsetName string
 		_, subsetName, hostname, p = model.ParseSubsetKey(clusterName)
-		ports = []*model.Port{p}
-		portName = p.Name
 		labels = edsCluster.discovery.env.IstioConfigStore.SubsetToLabels(subsetName, hostname)
+		instances, err = edsCluster.discovery.env.ServiceDiscovery.InstancesByPort(hostname, p, labels)
+		if len(instances) == 0 {
+			log.Infof("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, p, labels)
+		}
+		edsInstances.With(prometheus.Labels{"cluster": clusterName}).Set(float64(len(instances)))
 	} else {
 		hostname, ports, labels = model.ParseServiceKey(clusterName)
+		var portName string
 		if len(ports) > 0 {
 			portName = ports.GetNames()[0]
 		}
+		instances, err = edsCluster.discovery.env.ServiceDiscovery.Instances(hostname, ports.GetNames(), labels)
+		if len(instances) == 0 && edsDebug {
+			log.Infof("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, portName, labels)
+		}
+		edsInstances.With(prometheus.Labels{"cluster": clusterName}).Set(float64(len(instances)))
 	}
 
-	instances, err := edsCluster.discovery.env.ServiceDiscovery.Instances(hostname, ports.GetNames(), labels)
 	if err != nil {
 		log.Warnf("endpoints for service cluster %q returned error %q", clusterName, err)
-		return
+		return err
 	}
 	locEps := localityLbEndpointsFromInstances(instances)
-	if len(instances) == 0 && edsDebug {
-		log.Infof("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, portName, labels)
-	}
+
 	// There is a chance multiple goroutines will update the cluster at the same time.
 	// This could be prevented by a lock - but because the update may be slow, it may be
 	// better to accept the extra computations.
@@ -194,7 +199,7 @@ func updateCluster(clusterName string, edsCluster *EdsCluster) {
 	if len(locEps) > 0 && edsCluster.NonEmptyTime.IsZero() {
 		edsCluster.NonEmptyTime = time.Now()
 	}
-
+	return nil
 }
 
 // LocalityLbEndpointsFromInstances returns a list of Envoy v2 LocalityLbEndpoints.
@@ -211,12 +216,12 @@ func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []endp
 		}
 		// TODO: Need to accommodate region, zone and subzone. Older Pilot datamodel only has zone = availability zone.
 		// Once we do that, the key must be a | separated tupple.
-		locality := instance.AvailabilityZone
+		locality := instance.GetAZ()
 		locLbEps, found := localityEpMap[locality]
 		if !found {
 			locLbEps = &endpoint.LocalityLbEndpoints{
 				Locality: &core.Locality{
-					Zone: instance.AvailabilityZone,
+					Zone: locality,
 				},
 			}
 			localityEpMap[locality] = locLbEps
@@ -251,32 +256,12 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 
 	initialRequestReceived := false
 
-	con := &XdsConnection{
-		pushChannel: make(chan *XdsEvent, 1),
-		PeerAddr:    peerAddr,
-		Clusters:    []string{},
-		Connect:     time.Now(),
-		stream:      stream,
-	}
+	con := newXdsConnection(peerAddr, stream)
+	defer close(con.doneChannel)
+
 	// node is the key used in the cluster map. It includes the pod name and an unique identifier,
 	// since multiple envoys may connect from the same pod.
-	var conID string
-	go func() {
-		defer close(reqChannel)
-		for {
-			req, err := stream.Recv()
-			if err != nil {
-				log.Errorf("EDS: close for client %s %q terminated with errors %v",
-					conID, peerAddr, err)
-				if status.Code(err) == codes.Canceled || err == io.EOF {
-					return
-				}
-				receiveError = err
-				return
-			}
-			reqChannel <- req
-		}
-	}()
+	go receiveThread(con, reqChannel, &receiveError)
 
 	for {
 		// Block until either a request is received or the ticker ticks
@@ -287,8 +272,8 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 			}
 
 			// Should not change. A node monitors multiple clusters
-			if conID == "" && discReq.Node != nil {
-				conID = connectionID(discReq.Node.Id)
+			if con.ConID == "" && discReq.Node != nil {
+				con.ConID = connectionID(discReq.Node.Id)
 			}
 
 			clusters2 := discReq.GetResourceNames()
@@ -306,34 +291,33 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 			if initialRequestReceived {
 				// TODO: once the deps are updated, log the ErrorCode if set (missing in current version)
 				if discReq.ErrorDetail != nil {
-					log.Warnf("EDS: ACK ERROR %v %s %v", peerAddr, conID, discReq.String())
+					log.Warnf("EDS: ACK ERROR %v %s %v", peerAddr, con.ConID, discReq.String())
 				}
 				if edsDebug {
-					log.Infof("EDS: ACK %s %s %s", conID, discReq.VersionInfo, con.Clusters)
+					log.Infof("EDS: ACK %s %s %s", con.ConID, discReq.VersionInfo, con.Clusters)
 				}
 				if len(con.Clusters) > 0 {
 					continue
 				}
 			}
 			if edsDebug {
-				log.Infof("EDS: REQ %s %v %v raw: %s ", conID, con.Clusters, peerAddr, discReq.String())
+				log.Infof("EDS: REQ %s %v %v raw: %s ", con.ConID, con.Clusters, peerAddr, discReq.String())
 			}
 			con.Clusters = discReq.GetResourceNames()
-			con.ConID = conID
 			initialRequestReceived = true
 
 			// In 0.7 EDS only listens for 1 cluster for each stream. In 0.8 EDS is no longer
 			// used.
 			for _, c := range con.Clusters {
-				s.addEdsCon(c, conID, con)
+				s.addEdsCon(c, con.ConID, con)
 			}
 
 			// Keep track of active EDS client. In 0.7 EDS push happened by pushing for all
 			// tracked clusters. In 0.8+ push happens by iterating active connections, in ADS.
 			if !con.added {
 				con.added = true
-				s.addCon(conID, con)
-				defer s.removeCon(conID, con)
+				s.addCon(con.ConID, con)
+				defer s.removeCon(con.ConID, con)
 			}
 
 		case <-con.pushChannel:
@@ -342,6 +326,7 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 		if len(con.Clusters) > 0 {
 			err := s.pushEds(con)
 			if err != nil {
+				log.Errorf("Closing EDS connection, failure to push %v", err)
 				return err
 			}
 		}
@@ -360,7 +345,10 @@ func (s *DiscoveryServer) pushEds(con *XdsConnection) error {
 		c := s.getOrAddEdsCluster(clusterName)
 		l := loadAssignment(c)
 		if l == nil { // fresh cluster
-			updateCluster(clusterName, c)
+			if err := updateCluster(clusterName, c); err != nil {
+				log.Errorf("error returned from updateCluster for cluster name %s, skipping it.", clusterName)
+				continue
+			}
 			l = loadAssignment(c)
 		}
 		endpoints += len(l.Endpoints)
@@ -376,11 +364,13 @@ func (s *DiscoveryServer) pushEds(con *XdsConnection) error {
 	}
 
 	response := s.endpoints(con.Clusters, resAny)
-	err := con.stream.Send(response)
+	err := con.send(response)
 	if err != nil {
 		log.Warnf("EDS: Send failure, closing grpc %v", err)
+		pushes.With(prometheus.Labels{"type": "eds_senderr"}).Add(1)
 		return err
 	}
+	pushes.With(prometheus.Labels{"type": "eds"}).Add(1)
 
 	if edsDebug {
 		log.Infof("EDS: PUSH for %s %q clusters %d endpoints %d empty %d %v",
@@ -389,39 +379,23 @@ func (s *DiscoveryServer) pushEds(con *XdsConnection) error {
 	return nil
 }
 
-func edsPushAll() {
-	edsClusterMutex.Lock()
-	// Create a temp map to avoid locking the add/remove
-	tmpMap := map[string]*EdsCluster{}
-	for k, v := range edsClusters {
-		tmpMap[k] = v
-	}
-	edsClusterMutex.Unlock()
-
-	for clusterName, edsCluster := range tmpMap {
-		updateCluster(clusterName, edsCluster)
-		edsCluster.mutex.Lock()
-		for _, edsCon := range edsCluster.EdsClients {
-			edsCon.pushChannel <- &XdsEvent{
-				clusters: []string{clusterName},
-			}
-		}
-		edsCluster.mutex.Unlock()
-	}
-}
-
 // addEdsCon will track the eds connection with clusters, for optimized event-based push and debug
 func (s *DiscoveryServer) addEdsCon(clusterName string, node string, connection *XdsConnection) {
 
 	c := s.getOrAddEdsCluster(clusterName)
-	c.mutex.Lock()
-	existing := c.EdsClients[node]
-	c.mutex.Unlock()
+	// TODO: left the code here so we can skip sending the already-sent clusters.
+	// See comments in ads - envoy keeps adding one cluster to the list (this seems new
+	// previous version sent all the clusters from CDS in bulk).
 
-	// May replace an existing connection
-	if existing != nil {
-		log.Warnf("Replacing existing connection %s %s old: %s", clusterName, node, existing.ConID)
-	}
+	//c.mutex.Lock()
+	//existing := c.EdsClients[node]
+	//c.mutex.Unlock()
+	//
+	//// May replace an existing connection: this happens when Envoy adds more clusters
+	//// one by one, creating new grpc requests each time it adds one more cluster.
+	//if existing != nil {
+	//	log.Warnf("Replacing existing connection %s %s old: %s", clusterName, node, existing.ConID)
+	//}
 	c.mutex.Lock()
 	c.EdsClients[node] = connection
 	c.mutex.Unlock()
@@ -475,9 +449,9 @@ func (s *DiscoveryServer) removeEdsCon(clusterName string, node string, connecti
 	}
 	delete(c.EdsClients, node)
 	if len(c.EdsClients) == 0 {
-		log.Infof("EDS: remove unused cluster node=%s cluster=%s all=%v", node, clusterName, edsClusters)
 		edsClusterMutex.Lock()
 		defer edsClusterMutex.Unlock()
+		log.Infof("EDS: remove unused cluster node=%s cluster=%s all=%v", node, clusterName, edsClusters)
 		delete(edsClusters, clusterName)
 	}
 }
