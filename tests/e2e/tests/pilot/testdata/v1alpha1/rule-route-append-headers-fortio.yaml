@@ -4,7 +4,7 @@ metadata:
   name: httpbin-append-headers
 spec:
   destination:
-    service: "httpbin.org"
+    service: "fortio.istio.io"
   appendHeaders:
     istio-custom-header1: user-defined-value1
     istio-custom-header2: user-defined-value2
