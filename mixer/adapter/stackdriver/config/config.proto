@@ -188,6 +188,14 @@ message Params {
             string local_ip = 5;
             // template variable name to map into HTTPRequest.RemoteIP
             string remote_ip = 6;
+            // template variable name to map into HTTPRequest.Request.Url
+            string url = 7;
+            // template variable name to map into HTTPRequest.RequestMethod
+            string method = 8;
+            // template variable name to map into HTTPRequest.UserAgent
+            string user_agent = 9;
+            // template variable name to map into HTTPRequest.Referer
+            string referer = 10;
         }
         // If an HttpRequestMapping is provided, a HttpRequest object will be filled out for this log entry using the
         // variables named in the mapping to populate the fields of the request struct from the instance's variables.
