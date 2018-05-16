@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
-	"istio.io/istio/pkg/log"
 )
 
 // memregistry is based on mock/discovery - it is used for testing and debugging v2.
@@ -198,7 +197,7 @@ func (sd *MemServiceDiscovery) Instances(hostname model.Hostname, ports []string
 		return nil, sd.InstancesError
 	}
 	if len(ports) != 1 {
-		log.Warna("Unexpected ports ", ports)
+		adsLog.Warna("Unexpected ports ", ports)
 		return nil, nil
 	}
 	key := hostname.String() + ":" + ports[0]
@@ -390,10 +389,6 @@ func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 func adsz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
 	w.Header().Add("Content-Type", "application/json")
-	if req.Form.Get("debug") != "" {
-		adsDebug = req.Form.Get("debug") == "1"
-		return
-	}
 	if req.Form.Get("push") != "" {
 		adsPushAll()
 		fmt.Fprintf(w, "Pushed to %d servers", len(adsClients))
@@ -460,10 +455,6 @@ func writeAllADS(w io.Writer) {
 // It is mapped to /debug/edsz on the monitor port (9093).
 func edsz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
-	if req.Form.Get("debug") != "" {
-		edsDebug = req.Form.Get("debug") == "1"
-		return
-	}
 	w.Header().Add("Content-Type", "application/json")
 
 	if req.Form.Get("push") != "" {
@@ -518,7 +509,7 @@ func printListeners(w io.Writer, c *XdsConnection) {
 	comma := false
 	for _, ls := range c.HTTPListeners {
 		if ls == nil {
-			log.Errorf("INVALID LISTENER NIL")
+			adsLog.Errorf("INVALID LISTENER NIL")
 			continue
 		}
 		if comma {
@@ -538,7 +529,7 @@ func printClusters(w io.Writer, c *XdsConnection) {
 	comma := false
 	for _, cl := range c.HTTPClusters {
 		if cl == nil {
-			log.Errorf("INVALID Cluster NIL")
+			adsLog.Errorf("INVALID Cluster NIL")
 			continue
 		}
 		if comma {

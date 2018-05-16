@@ -5,13 +5,15 @@
 
 # Common settings.
 global:
-  # Default tag for Istio images.
-  hub: docker.io/istionightly
+  # Default repository for Istio images.
+  # Releases are published to docker hub under 'istio' project.
+  # Daily builds from prow are on gcr.io, and nightly builds from circle on
+  # docker.io/istionightly
+  hub: docker.io/istio
 
   # Default tag for Istio images.
-  # Should track latest released version.
-  # Currently using nightly build, for testing
-  tag: circleci-nightly
+  # Should track latest released version in the branch.
+  tag: 0.8.latest
   proxy:
     image: proxy
     resources:

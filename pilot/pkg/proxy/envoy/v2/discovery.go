@@ -26,7 +26,6 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
-	"istio.io/istio/pkg/log"
 )
 
 var (
@@ -89,7 +88,7 @@ func NewDiscoveryServer(env model.Environment, generator *v1alpha3.ConfigGenerat
 		var err error
 		periodicRefreshDuration, err = time.ParseDuration(envOverride)
 		if err != nil {
-			log.Warn("Invalid value for V2_REFRESH")
+			adsLog.Warn("Invalid value for V2_REFRESH")
 			periodicRefreshDuration = 0 // this is also he default, but setting it explicitly
 		}
 	}
@@ -139,7 +138,7 @@ func (s *DiscoveryServer) ClearCacheFunc() func() {
 		s.updateModel()
 
 		s.modelMutex.RLock()
-		log.Infof("XDS: Registry event, pushing. Services: %d, "+
+		adsLog.Infof("XDS: Registry event, pushing. Services: %d, "+
 			"VirtualServices: %d, ConnectedEndpoints: %d", len(s.services), len(s.virtualServices), edsClientCount())
 		monServices.Set(float64(len(s.services)))
 		monVServices.Set(float64(len(s.virtualServices)))
@@ -154,13 +153,13 @@ func (s *DiscoveryServer) updateModel() {
 	defer s.modelMutex.Unlock()
 	services, err := s.env.Services()
 	if err != nil {
-		log.Errorf("XDS: failed to update services %v", err)
+		adsLog.Errorf("XDS: failed to update services %v", err)
 	} else {
 		s.services = services
 	}
 	vservices, err := s.env.List(model.VirtualService.Type, model.NamespaceAll)
 	if err != nil {
-		log.Errorf("XDS: failed to update virtual services %v", err)
+		adsLog.Errorf("XDS: failed to update virtual services %v", err)
 	} else {
 		s.virtualServiceConfigs = vservices
 		s.virtualServices = make([]*networking.VirtualService, 0, len(vservices))
