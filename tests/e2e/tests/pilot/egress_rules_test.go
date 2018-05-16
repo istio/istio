@@ -48,31 +48,25 @@ func TestEgress(t *testing.T) {
 			shouldBeReachable: true,
 		},
 		{
-			name:              "REACHABLE_httpbin.org",
-			config:            "testdata/v1alpha1/egress-rule-httpbin.yaml",
-			url:               "http://httpbin.org/headers",
+			name:              "REACHABLE_fortio.istio.io",
+			config:            "testdata/v1alpha1/egress-rule-fortio.yaml",
+			url:               "http://fortio.istio.io/debug",
 			shouldBeReachable: true,
 		},
 		{
-			name:   "UNREACHABLE_httpbin.org_443",
-			config: "testdata/v1alpha1/egress-rule-httpbin.yaml",
+			name:   "UNREACHABLE_fortio.istio.io_443",
+			config: "testdata/v1alpha1/egress-rule-fortio.yaml",
 			// Note that we're using http (not https). We're relying on Envoy to convert the outbound call to
 			// TLS for us. This is currently the suggested way for the application to call an external TLS service.\
 			// If the application uses TLS, then no metrics will be collected for the request.
-			url:               "http://httpbin.org:443/headers",
+			url:               "http://fortio.istio.io:443/debug",
 			shouldBeReachable: false,
 		},
 		{
-			name:              "REACHABLE_www.httpbin.org",
-			config:            "testdata/v1alpha1/egress-rule-wildcard-httpbin.yaml",
-			url:               "http://www.httpbin.org/headers",
+			name:              "REACHABLE_fortio.istio.io",
+			config:            "testdata/v1alpha1/egress-rule-wildcard-istio.yaml",
+			url:               "http://fortio.istio.io/debug",
 			shouldBeReachable: true,
-		},
-		{
-			name:              "UNREACHABLE_httpbin.org",
-			config:            "testdata/v1alpha1/egress-rule-wildcard-httpbin.yaml",
-			url:               "http://httpbin.org/headers",
-			shouldBeReachable: false,
 		},
 		{
 			name:              "REACHABLE_wikipedia",

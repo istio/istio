@@ -71,22 +71,22 @@ func TestEgressRouteFaultInjection(t *testing.T) {
 	}{
 		// Fault Injection
 		{
-			testName:        "httpbin",
-			egressConfig:    "testdata/v1alpha1/egress-rule-httpbin.yaml",
+			testName:        "fortio",
+			egressConfig:    "testdata/v1alpha1/egress-rule-fortio.yaml",
 			routingTemplate: "testdata/v1alpha1/rule-fault-injection-to-egress.yaml.tmpl",
 			routingParams: map[string]string{
-				"service": "httpbin.org",
+				"service": "fortio.istio.io",
 			},
-			url: "http://httpbin.org",
+			url: "http://fortio.istio.io/debug",
 		},
 		{
-			testName:        "*.httpbin",
-			egressConfig:    "testdata/v1alpha1/egress-rule-wildcard-httpbin.yaml",
+			testName:        "*.istio.io",
+			egressConfig:    "testdata/v1alpha1/egress-rule-wildcard-istio.yaml",
 			routingTemplate: "testdata/v1alpha1/rule-fault-injection-to-egress.yaml.tmpl",
 			routingParams: map[string]string{
-				"service": "*.httpbin.org",
+				"service": "*.istio.io",
 			},
-			url: "http://www.httpbin.org",
+			url: "http://fortio.istio.io/debug",
 		},
 		{
 			testName:        "google",
@@ -143,8 +143,8 @@ func TestEgressRouteHeaders(t *testing.T) {
 	cfgs := &deployableConfig{
 		Namespace: tc.Kube.Namespace,
 		YamlFiles: []string{
-			"testdata/v1alpha1/egress-rule-httpbin.yaml",
-			"testdata/v1alpha1/rule-route-append-headers-httpbin.yaml"},
+			"testdata/v1alpha1/egress-rule-fortio.yaml",
+			"testdata/v1alpha1/rule-route-append-headers-fortio.yaml"},
 		kubeconfig: tc.Kube.KubeConfig,
 	}
 	if err := cfgs.Setup(); err != nil {
@@ -152,9 +152,9 @@ func TestEgressRouteHeaders(t *testing.T) {
 	}
 	defer cfgs.Teardown()
 
-	runRetriableTest(t, "httpbin", 3,
+	runRetriableTest(t, "fortio", 3,
 		func() error {
-			resp := ClientRequest("a", "http://httpbin.org/headers", 1, "")
+			resp := ClientRequest("a", "http://fortio.istio.io/debug", 1, "")
 
 			containsAllExpectedHeaders := true
 
@@ -222,118 +222,84 @@ func TestEgressRouteRedirectRewrite(t *testing.T) {
 		targetPath      string
 	}{
 		{
-			testName:        "REDIRECT[httbin/post->httpbin/get]",
-			egressConfig:    []string{"testdata/v1alpha1/egress-rule-httpbin.yaml"},
+			testName:        "REDIRECT[fortio/redirect_e2e_test->fortio/debug]",
+			egressConfig:    []string{"testdata/v1alpha1/egress-rule-fortio.yaml"},
 			routingTemplate: "testdata/v1alpha1/rule-redirect-to-egress.yaml.tmpl",
 			routingParams: map[string]string{
-				"service":   "httpbin.org",
-				"from":      "/post",
-				"to":        "/get",
-				"authority": "httpbin.org",
+				"service":   "fortio.istio.io",
+				"from":      "/redirect_e2e_test",
+				"to":        "/debug",
+				"authority": "fortio.istio.io",
 			},
-			url:        "http://httpbin.org/post",
-			targetHost: "httpbin.org",
-			targetPath: "/get",
+			url:        "http://fortio.istio.io/redirect_e2e_test",
+			targetHost: "fortio.istio.io",
+			targetPath: "/debug",
 		},
 		{
-			testName: "REDIRECT[httpbin/post->*.httpbin/get]",
+			testName: "REDIRECT[archive/redirect_e2e_test->*.istio/debug]",
 			egressConfig: []string{
-				"testdata/v1alpha1/egress-rule-httpbin.yaml",
-				"testdata/v1alpha1/egress-rule-wildcard-httpbin.yaml",
+				"testdata/v1alpha1/egress-rule-fortio.yaml",
+				"testdata/v1alpha1/egress-rule-wildcard-istio.yaml",
 			},
 			routingTemplate: "testdata/v1alpha1/rule-redirect-to-egress.yaml.tmpl",
 			routingParams: map[string]string{
-				"service":   "httpbin.org",
-				"from":      "/post",
-				"to":        "/get",
-				"authority": "www.httpbin.org",
+				"service":   "archive.istio.io",
+				"from":      "/redirect_e2e_test",
+				"to":        "/debug",
+				"authority": "fortio.istio.io",
 			},
-			url:        "http://httpbin.org/post",
-			targetHost: "www.httpbin.org",
-			targetPath: "/get",
+			url:        "http://archive.istio.io/redirect_e2e_test",
+			targetHost: "fortio.istio.io",
+			targetPath: "/debug",
 		},
 		{
-			testName: "REDIRECT[*.httpbin/post->httpbin/get]",
+			testName: "REDIRECT[*.istio/redirect_e2e_test->fortio/debug]",
 			egressConfig: []string{
-				"testdata/v1alpha1/egress-rule-httpbin.yaml",
-				"testdata/v1alpha1/egress-rule-wildcard-httpbin.yaml",
+				"testdata/v1alpha1/egress-rule-fortio.yaml",
+				"testdata/v1alpha1/egress-rule-wildcard-istio.yaml",
 			},
 			routingTemplate: "testdata/v1alpha1/rule-redirect-to-egress.yaml.tmpl",
 			routingParams: map[string]string{
-				"service":   "*.httpbin.org",
-				"from":      "/post",
-				"to":        "/get",
-				"authority": "httpbin.org",
+				"service":   "*.istio.io",
+				"from":      "/redirect_e2e_test",
+				"to":        "/debug",
+				"authority": "fortio.istio.io",
 			},
-			url:        "http://www.httpbin.org/post",
-			targetHost: "httpbin.org",
-			targetPath: "/get",
+			url:        "http://archive.istio.io/redirect_e2e_test",
+			targetHost: "fortio.istio.io",
+			targetPath: "/debug",
 		},
 		{
-			testName: "REDIRECT[google/post->httpbin/get]",
+			testName: "REDIRECT[google/post->fortio/debug]",
 			egressConfig: []string{
 				"testdata/v1alpha1/egress-rule-google.yaml",
-				"testdata/v1alpha1/egress-rule-httpbin.yaml",
+				"testdata/v1alpha1/egress-rule-fortio.yaml",
 			},
 			routingTemplate: "testdata/v1alpha1/rule-redirect-to-egress.yaml.tmpl",
 			routingParams: map[string]string{
 				"service":   "*google.com",
 				"from":      "/post",
-				"to":        "/get",
-				"authority": "httpbin.org",
+				"to":        "/debug",
+				"authority": "fortio.istio.io",
 			},
 			url:        "http://www.google.com:443/post",
-			targetHost: "httpbin.org",
-			targetPath: "/get",
+			targetHost: "fortio.istio.io",
+			targetPath: "/debug",
 		},
 		// Rewrite
 		{
-			testName:        "REWRITE[httpbin/post->httpbin/get]",
+			testName:        "REWRITE[fortio/rewrite_e2e_test->fortio/debug]",
 			egressConfig:    []string{"testdata/v1alpha1/egress-rule-httpbin.yaml"},
 			routingTemplate: "testdata/v1alpha1/rule-rewrite-to-egress.yaml.tmpl",
 			routingParams: map[string]string{
-				"service":   "httpbin.org",
-				"from":      "/post",
-				"to":        "/get",
-				"authority": "httpbin.org",
+				"service":   "fortio.istio.io",
+				"from":      "/rewrite_e2e_test",
+				"to":        "/debug",
+				"authority": "fortio.istio.io",
 			},
-			url:        "http://httpbin.org/post",
-			targetHost: "httpbin.org",
-			targetPath: "/get",
-		},
-		{
-			testName: "REWRITE[httpbin/post->*/httpbin/get]",
-			egressConfig: []string{
-				"testdata/v1alpha1/egress-rule-httpbin.yaml",
-				"testdata/v1alpha1/egress-rule-wildcard-httpbin.yaml",
-			},
-			routingTemplate: "testdata/v1alpha1/rule-rewrite-to-egress.yaml.tmpl",
-			routingParams: map[string]string{
-				"service":   "httpbin.org",
-				"from":      "/post",
-				"to":        "/get",
-				"authority": "www.httpbin.org",
-			},
-			url:        "http://httpbin.org/post",
-			targetHost: "www.httpbin.org",
-			targetPath: "/get",
-		},
-		{
-			testName: "REWRITE[*.httpbin/post->httpbin/get]",
-			egressConfig: []string{
-				"testdata/v1alpha1/egress-rule-httpbin.yaml",
-				"testdata/v1alpha1/egress-rule-wildcard-httpbin.yaml",
-			},
-			routingTemplate: "testdata/v1alpha1/rule-rewrite-to-egress.yaml.tmpl",
-			routingParams: map[string]string{
-				"service":   "*.httpbin.org",
-				"from":      "/post",
-				"to":        "/get",
-				"authority": "httpbin.org",
-			},
-			url:        "http://www.httpbin.org/post",
-			targetHost: "httpbin.org",
-			targetPath: "/get",
+			url:        "http://fortio.istio.io/rewrite_e2e_test",
+			targetHost: "fortio.istio.io",
+			targetPath: "/debug",
 		},
 	}
 

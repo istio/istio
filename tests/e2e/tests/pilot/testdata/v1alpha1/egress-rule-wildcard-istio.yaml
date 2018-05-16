@@ -1,10 +1,10 @@
 apiVersion: config.istio.io/v1alpha2
 kind: EgressRule
 metadata:
-  name: httpbin-wildcard
+  name: fortio-wildcard
 spec:
   destination:
-      service: "*.httpbin.org"
+      service: "*.istio.io"
   ports:
       - port: 80
         protocol: http
