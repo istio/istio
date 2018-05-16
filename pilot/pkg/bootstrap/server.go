@@ -60,6 +60,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/eureka"
 	"istio.io/istio/pilot/pkg/serviceregistry/external"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
 )
@@ -150,6 +151,7 @@ type PilotArgs struct {
 	Service          ServiceArgs
 	RDSv2            bool
 	MeshConfig       *meshconfig.MeshConfig
+	CtrlZOptions     *ctrlz.Options
 }
 
 // Server contains the runtime configuration for the Pilot discovery service.
@@ -226,6 +228,10 @@ func NewServer(args PilotArgs) (*Server, error) {
 	}
 	if err := s.initMonitor(&args); err != nil {
 		return nil, err
+	}
+
+	if args.CtrlZOptions != nil {
+		go ctrlz.Run(args.CtrlZOptions, nil)
 	}
 
 	return s, nil
