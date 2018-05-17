@@ -23,6 +23,7 @@ spec:
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
             - containerPort: {{ .Values.service.internalPort }}
+            - containerPort: {{ .Values.service.uiPort }}
           env:
           - name: POD_NAMESPACE
             valueFrom:
