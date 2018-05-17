@@ -163,10 +163,10 @@ func getClustersConfigs(k8s kubernetes.Interface, configMapName, configMapNamesp
 				secretName, secretNamespace, key, err))
 			continue
 		}
-		key := Metadata{Name: cluster.ObjectMeta.Name, Namespace: cluster.ObjectMeta.Namespace}
-		log.Infof("><SB> Cluster's key: %+v", key)
-		cs.rc[key].Client = clientConfig
-		cs.rc[key].Cluster = &cluster
+		s := Metadata{Name: cluster.ObjectMeta.Name, Namespace: cluster.ObjectMeta.Namespace}
+		cs.rc[s] = &RemoteCluster{}
+		cs.rc[s].Client = clientConfig
+		cs.rc[s].Cluster = &cluster
 	}
 
 	return
