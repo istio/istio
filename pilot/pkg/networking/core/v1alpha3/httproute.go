@@ -101,10 +101,16 @@ func (configgen *ConfigGeneratorImpl) BuildSidecarOutboundHTTPRouteConfig(env mo
 		proxyLabels = append(proxyLabels, w.Labels)
 	}
 
+	in := &plugin.InputParams{
+		ListenerType: plugin.ListenerTypeHTTP,
+		Env:          &env,
+		Node:         &node,
+	}
+
 	// Get list of virtual services bound to the mesh gateway
 	meshGateway := map[string]bool{model.IstioMeshGateway: true}
 	virtualServices := env.VirtualServices(meshGateway)
-	guardedHosts := istio_route.TranslateVirtualHosts(virtualServices, nameToServiceMap, proxyLabels, meshGateway)
+	guardedHosts := istio_route.TranslateVirtualHosts(configgen.Plugins, in, virtualServices, nameToServiceMap, proxyLabels, meshGateway)
 	vHostPortMap := make(map[int][]route.VirtualHost)
 
 	for _, guardedHost := range guardedHosts {
@@ -149,11 +155,6 @@ func (configgen *ConfigGeneratorImpl) BuildSidecarOutboundHTTPRouteConfig(env mo
 
 	// call plugins
 	for _, p := range configgen.Plugins {
-		in := &plugin.InputParams{
-			ListenerType: plugin.ListenerTypeHTTP,
-			Env:          &env,
-			Node:         &node,
-		}
 		p.OnOutboundRouteConfiguration(in, out)
 	}
 

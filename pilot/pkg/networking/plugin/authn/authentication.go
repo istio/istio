@@ -21,6 +21,7 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	jwtfilter "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/gogo/protobuf/proto"
@@ -28,6 +29,7 @@ import (
 
 	authn "istio.io/api/authentication/v1alpha1"
 	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
+	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -327,13 +329,18 @@ func (Plugin) OnInboundCluster(env model.Environment, node model.Proxy, service 
 func (Plugin) OnOutboundRouteConfiguration(in *plugin.InputParams, route *xdsapi.RouteConfiguration) {
 }
 
+// OnOutboundRoute implements the Plugin interface method.
+func (Plugin) OnOutboundRoute(_ *plugin.InputParams, _ *v1alpha3.VirtualService,
+	_ map[string]*plugin.ClusterDescriptor, _ *route.Route) {
+}
+
 // OnInboundRouteConfiguration implements the Plugin interface method.
 func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, route *xdsapi.RouteConfiguration) {
 }
 
 // OnOutboundCluster implements the Plugin interface method.
 func (Plugin) OnOutboundCluster(env model.Environment, node model.Proxy, service *model.Service,
-	servicePort *model.Port, cluster *xdsapi.Cluster) {
+	servicePort *model.Port, _ *v1alpha3.Subset, cluster *xdsapi.Cluster) {
 	mesh := env.Mesh
 	config := env.IstioConfigStore
 

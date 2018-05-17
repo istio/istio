@@ -17,8 +17,10 @@ package plugin
 import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 
+	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -85,6 +87,18 @@ type MutableObjects struct {
 	FilterChains []FilterChain
 }
 
+// ClusterDescriptor is the upstream cluster metadata.
+type ClusterDescriptor struct {
+	// Service host name (fully-qualified)
+	Service model.Hostname
+
+	// Subset name (optional)
+	Subset string
+
+	// Port number
+	Port int
+}
+
 // Plugin is called during the construction of a xdsapi.Listener which may alter the Listener in any
 // way. Examples include AuthenticationPlugin that sets up mTLS authentication on the inbound Listener
 // and outbound Cluster, the mixer plugin that sets up policy checks on the inbound listener, etc.
@@ -99,6 +113,7 @@ type Plugin interface {
 
 	// OnOutboundCluster is called whenever a new cluster is added to the CDS output.
 	OnOutboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port,
+		subset *v1alpha3.Subset,
 		cluster *xdsapi.Cluster)
 
 	// OnInboundCluster is called whenever a new cluster is added to the CDS output.
@@ -108,6 +123,12 @@ type Plugin interface {
 	// OnOutboundRouteConfiguration is called whenever a new set of virtual hosts (a set of virtual hosts with routes) is
 	// added to RDS in the outbound path.
 	OnOutboundRouteConfiguration(in *InputParams, routeConfiguration *xdsapi.RouteConfiguration)
+
+	// OnOutboundRoute is called for every HTTP route in route configurations.
+	OnOutboundRoute(in *InputParams,
+		virtualService *v1alpha3.VirtualService,
+		clusterDescriptors map[string]*ClusterDescriptor,
+		route *route.Route)
 
 	// OnInboundRouteConfiguration is called whenever a new set of virtual hosts are added to the inbound path.
 	OnInboundRouteConfiguration(in *InputParams, routeConfiguration *xdsapi.RouteConfiguration)

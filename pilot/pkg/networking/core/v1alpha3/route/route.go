@@ -30,6 +30,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
 )
@@ -83,14 +84,14 @@ type GuardedHost struct {
 // TranslateVirtualHosts creates the entire routing table for Istio v1alpha3 configs.
 // Services are indexed by FQDN hostnames.
 // Cluster domain is used to resolve short service names (e.g. "svc.cluster.local").
-func TranslateVirtualHosts(
+func TranslateVirtualHosts(plugins []plugin.Plugin, pluginParams *plugin.InputParams,
 	serviceConfigs []model.Config, services map[model.Hostname]*model.Service, proxyLabels model.LabelsCollection, gatewayNames map[string]bool) []GuardedHost {
 
 	out := make([]GuardedHost, 0)
 
 	// translate all virtual service configs
 	for _, config := range serviceConfigs {
-		out = append(out, translateVirtualHost(config, services, proxyLabels, gatewayNames)...)
+		out = append(out, translateVirtualHost(plugins, pluginParams, config, services, proxyLabels, gatewayNames)...)
 	}
 
 	// compute services missing service configs
@@ -110,10 +111,21 @@ func TranslateVirtualHosts(
 		for _, port := range svc.Ports {
 			if port.Protocol.IsHTTP() {
 				cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port)
+				defaultRoute := BuildDefaultHTTPRoute(cluster)
+
+				// call plugins
+				for _, p := range plugins {
+					p.OnOutboundRoute(pluginParams, nil, map[string]*plugin.ClusterDescriptor{
+						cluster: {
+							Service: fqdn,
+							Port:    port.Port,
+						}}, defaultRoute)
+				}
+
 				out = append(out, GuardedHost{
 					Port:     port.Port,
 					Services: []*model.Service{svc},
-					Routes:   []route.Route{*BuildDefaultHTTPRoute(cluster)},
+					Routes:   []route.Route{*defaultRoute},
 				})
 			}
 		}
@@ -141,6 +153,7 @@ func matchServiceHosts(in model.Config, serviceIndex map[model.Hostname]*model.S
 // Called for each port to determine the list of vhosts on the given port.
 // It may return an empty list if no VirtualService rule has a matching service.
 func translateVirtualHost(
+	plugins []plugin.Plugin, pluginParams *plugin.InputParams,
 	in model.Config, serviceIndex map[model.Hostname]*model.Service, proxyLabels model.LabelsCollection, gatewayName map[string]bool) []GuardedHost {
 
 	hosts, services := matchServiceHosts(in, serviceIndex)
@@ -160,7 +173,7 @@ func translateVirtualHost(
 
 	out := make([]GuardedHost, 0, len(serviceByPort))
 	for port, portServices := range serviceByPort {
-		routes, err := TranslateRoutes(in, serviceIndex, port, proxyLabels, gatewayName)
+		routes, err := TranslateRoutes(plugins, pluginParams, in, serviceIndex, port, proxyLabels, gatewayName)
 		if err != nil || len(routes) == 0 {
 			continue
 		}
@@ -177,14 +190,14 @@ func translateVirtualHost(
 
 // GetDestinationCluster generate a cluster name for the route, or error if no cluster
 // can be found. Called by translateRule to determine if
-func GetDestinationCluster(destination *networking.Destination, service *model.Service, listenerPort int) string {
+func GetDestinationCluster(destination *networking.Destination, service *model.Service, listenerPort int) (string, *plugin.ClusterDescriptor) {
 	port := listenerPort
 	if destination.Port != nil {
 		switch selector := destination.Port.Port.(type) {
 		// TODO: remove port name from route.Destination in the API
 		case *networking.PortSelector_Name:
 			log.Debuga("name based destination ports are not allowed => blackhole cluster")
-			return util.BlackHoleCluster
+			return util.BlackHoleCluster, nil
 		case *networking.PortSelector_Number:
 			port = int(selector.Number)
 		}
@@ -195,7 +208,13 @@ func GetDestinationCluster(destination *networking.Destination, service *model.S
 		}
 	}
 
-	return model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, model.Hostname(destination.Host), port)
+	// use subsets if it is a service
+	return model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, model.Hostname(destination.Host), port),
+		&plugin.ClusterDescriptor{
+			Service: model.Hostname(destination.Host),
+			Subset:  destination.Subset,
+			Port:    port,
+		}
 }
 
 // TranslateRoutes creates virtual host routes from the v1alpha3 config.
@@ -206,6 +225,7 @@ func GetDestinationCluster(destination *networking.Destination, service *model.S
 // Each VirtualService is tried, with a list of services that listen on the port.
 // Error indicates the given virtualService can't be used on the port.
 func TranslateRoutes(
+	plugins []plugin.Plugin, pluginParams *plugin.InputParams,
 	virtualService model.Config,
 	serviceIndex map[model.Hostname]*model.Service,
 	port int,
@@ -222,14 +242,14 @@ func TranslateRoutes(
 	out := make([]route.Route, 0, len(rule.Http))
 	for _, http := range rule.Http {
 		if len(http.Match) == 0 {
-			if r := translateRoute(http, nil, port, operation, serviceIndex, proxyLabels, gatewayNames); r != nil {
+			if r := translateRoute(plugins, pluginParams, rule, http, nil, port, operation, serviceIndex, proxyLabels, gatewayNames); r != nil {
 				out = append(out, *r)
 			}
 			break // we have a rule with catch all match prefix: /. Other rules are of no use
 		} else {
 			// TODO: https://github.com/istio/istio/issues/4239
 			for _, match := range http.Match {
-				if r := translateRoute(http, match, port, operation, serviceIndex, proxyLabels, gatewayNames); r != nil {
+				if r := translateRoute(plugins, pluginParams, rule, http, match, port, operation, serviceIndex, proxyLabels, gatewayNames); r != nil {
 					out = append(out, *r)
 				}
 			}
@@ -264,7 +284,9 @@ func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels model.Label
 }
 
 // translateRoute translates HTTP routes
-func translateRoute(in *networking.HTTPRoute,
+func translateRoute(
+	plugins []plugin.Plugin, pluginParams *plugin.InputParams, rule *networking.VirtualService,
+	in *networking.HTTPRoute,
 	match *networking.HTTPMatchRequest, port int,
 	operation string,
 	serviceIndex map[model.Hostname]*model.Service,
@@ -291,6 +313,8 @@ func translateRoute(in *networking.HTTPRoute,
 		},
 		PerFilterConfig: make(map[string]*types.Struct),
 	}
+
+	descriptors := make(map[string]*plugin.ClusterDescriptor)
 
 	if redirect := in.Redirect; redirect != nil {
 		out.Action = &route.Route_Redirect{
@@ -336,7 +360,10 @@ func translateRoute(in *networking.HTTPRoute,
 		}
 
 		if in.Mirror != nil {
-			n := GetDestinationCluster(in.Mirror, serviceIndex[model.Hostname(in.Mirror.Host)], port)
+			n, desc := GetDestinationCluster(in.Mirror, serviceIndex[model.Hostname(in.Mirror.Host)], port)
+			if desc != nil {
+				descriptors[n] = desc
+			}
 			action.RequestMirrorPolicy = &route.RouteAction_RequestMirrorPolicy{Cluster: n}
 		}
 
@@ -346,7 +373,10 @@ func translateRoute(in *networking.HTTPRoute,
 			if dst.Weight == 0 {
 				weight.Value = uint32(100)
 			}
-			n := GetDestinationCluster(dst.Destination, serviceIndex[model.Hostname(dst.Destination.Host)], port)
+			n, desc := GetDestinationCluster(dst.Destination, serviceIndex[model.Hostname(dst.Destination.Host)], port)
+			if desc != nil {
+				descriptors[n] = desc
+			}
 			weighted = append(weighted, &route.WeightedCluster_ClusterWeight{
 				Name:   n,
 				Weight: weight,
@@ -367,6 +397,11 @@ func translateRoute(in *networking.HTTPRoute,
 
 	if fault := in.Fault; fault != nil {
 		out.PerFilterConfig[xdsutil.Fault] = util.MessageToStruct(translateFault(in.Fault))
+	}
+
+	// call plugins
+	for _, p := range plugins {
+		p.OnOutboundRoute(pluginParams, rule, descriptors, out)
 	}
 
 	return out

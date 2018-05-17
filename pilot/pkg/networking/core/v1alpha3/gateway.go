@@ -260,7 +260,8 @@ func buildGatewayInboundHTTPRouteConfig(
 		}
 		// TODO: we need to filter the hosts this produces by those exposed on the gateway. This impl exposes the full
 		// set of hosts of the virtual service, rather than just the subset that is listed on this server.
-		routes, err := istio_route.TranslateRoutes(v, svcs, port, nil, gateways)
+		// TODO: gateway does not invoke route callbacks
+		routes, err := istio_route.TranslateRoutes(nil, nil, v, svcs, port, nil, gateways)
 		if err != nil {
 			log.Debugf("omitting routes for service %v due to error: %v", v, err)
 			continue
@@ -323,8 +324,9 @@ func buildGatewayNetworkFilters(env model.Environment, server *networking.Server
 			log.Debugf("failed to retrieve service for destination %q: %v", host, err)
 			continue
 		}
+		cluster, _ := istio_route.GetDestinationCluster(dest, upstream, int(server.Port.Number))
 		filters = append(filters, buildOutboundNetworkFilters(
-			istio_route.GetDestinationCluster(dest, upstream, int(server.Port.Number)),
+			cluster,
 			[]string{upstream.Address}, port)...)
 	}
 	return filters
