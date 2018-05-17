@@ -53,9 +53,9 @@ type Service struct {
 	// Address specifies the service IPv4 address of the load balancer
 	Address string `json:"address,omitempty"`
 
-	// Addresses specifies the service address of the load balancer
+	// MulticlusterAddresses specifies the service address of the load balancer
 	// in each of the clusters where the service resides
-	Addresses map[string]string `json:"addresses,omitempty"`
+	MulticlusterAddresses map[string]string `json:"multicluster-addresses,omitempty"`
 
 	// Ports is the set of network ports where the service is listening for
 	// connections
@@ -711,8 +711,8 @@ func ParseLabelsString(s string) Labels {
 
 // GetServiceAddressForProxy returns a Service's IP address specific to the cluster where the node resides
 func (s Service) GetServiceAddressForProxy(node *Proxy) string {
-	if node.ClusterID != "" && s.Addresses[node.ClusterID] != "" {
-		return s.Addresses[node.ClusterID]
+	if node.ClusterID != "" && s.MulticlusterAddresses[node.ClusterID] != "" {
+		return s.MulticlusterAddresses[node.ClusterID]
 	}
 	return s.Address
 }

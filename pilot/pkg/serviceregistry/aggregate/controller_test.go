@@ -151,8 +151,8 @@ func TestServicesForMultiCluster(t *testing.T) {
 		t.Fatalf("Service map expected size %d, actual %v", svcCount, serviceMap)
 	}
 
-	//Now verify Addresses for each service
-	Addresses := map[model.Hostname]map[string]string{
+	//Now verify MulticlusterAddresses for each service
+	MulticlusterAddresses := map[model.Hostname]map[string]string{
 		mock.HelloService.Hostname: {
 			"cluster-1": "10.1.1.0",
 			"cluster-2": "10.1.2.0",
@@ -162,11 +162,11 @@ func TestServicesForMultiCluster(t *testing.T) {
 		},
 	}
 	for _, svc := range services {
-		if !reflect.DeepEqual(svc.Addresses, Addresses[svc.Hostname]) {
-			t.Fatalf("Service %s addresses actual %v, expected %v", svc.Hostname, svc.Addresses, Addresses[svc.Hostname])
+		if !reflect.DeepEqual(svc.MulticlusterAddresses, MulticlusterAddresses[svc.Hostname]) {
+			t.Fatalf("Service %s MulticlusterAddresses actual %v, expected %v", svc.Hostname, svc.MulticlusterAddresses, MulticlusterAddresses[svc.Hostname])
 		}
 	}
-	t.Logf("Return service Addresses match ground truth")
+	t.Logf("Return service MulticlusterAddresses match ground truth")
 }
 
 func TestServices(t *testing.T) {

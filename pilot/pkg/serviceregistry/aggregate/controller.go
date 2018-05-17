@@ -92,10 +92,10 @@ func (c *Controller) Services() ([]*model.Service, error) {
 			// TODO: what is this used for ? Do we want to support multiple VIPs, or
 			// only use the 'primary' VIP ?
 			if r.ClusterID != "" {
-				if sp.Addresses == nil {
-					sp.Addresses = make(map[string]string)
+				if sp.MulticlusterAddresses == nil {
+					sp.MulticlusterAddresses = make(map[string]string)
 				}
-				sp.Addresses[r.ClusterID] = s.Address
+				sp.MulticlusterAddresses[r.ClusterID] = s.Address
 				smap[s.Hostname] = sp
 			}
 		}
