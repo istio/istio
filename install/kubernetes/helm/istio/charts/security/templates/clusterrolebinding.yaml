@@ -16,4 +16,40 @@ subjects:
   - kind: ServiceAccount
     name: istio-citadel-service-account
     namespace: {{ .Release.Namespace }}
+{{- if .Values.global.rbacPSPEnabled }}
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: istio-privileged-psp-users-{{ .Release.Namespace }}
+subjects:
+  - kind: ServiceAccount
+    name: istio-ca-service-account
+    namespace: {{ .Release.Namespace }}
+  - kind: ServiceAccount
+    name: istio-egressgateway-service-account
+    namespace: {{ .Release.Namespace }}
+  - kind: ServiceAccount
+    name: istio-ingressgateway-service-account
+    namespace: {{ .Release.Namespace }}
+  - kind: ServiceAccount
+    name: istio-ingress-service-account
+    namespace: {{ .Release.Namespace }}
+  - kind: ServiceAccount
+    name: istio-mixer-service-account
+    namespace: {{ .Release.Namespace }}
+  - kind: ServiceAccount
+    name: istio-mixer-validator-service-account
+    namespace: {{ .Release.Namespace }}
+  - kind: ServiceAccount
+    name: istio-pilot-service-account
+    namespace: {{ .Release.Namespace }}
+  - kind: ServiceAccount
+    name: istio-sidecar-injector-service-account
+    namespace: {{ .Release.Namespace }}
+roleRef:
+   apiGroup: rbac.authorization.k8s.io
+   kind: ClusterRole
+   name: istio:privileged-psp-user-{{ .Release.Namespace }}
+{{- end }}
 {{- end }}

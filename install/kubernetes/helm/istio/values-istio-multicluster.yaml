@@ -11,6 +11,8 @@ global:
 
   # create RBAC resources. Must be set for any cluster configured with rbac.
   rbacEnabled: true
+  # create RBAC resources for clusters with Pod Security Policy enabled.
+  rbacPSPEnabled: false
 
   ## imagePullSecrets for all ServiceAccount. Must be set for any clustser configured with privte docker registry.
   # imagePullSecrets:
