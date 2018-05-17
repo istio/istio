@@ -56,7 +56,6 @@ function gen_file() {
 
 if [[ ! -z ${ISTIO_RELEASE:-} ]]; then
     for target in istio-demo.yaml istio-demo-auth.yaml; do
-        echo XXXXXXXXXXXXXXX $target
         gen_file $target ${DEST_DIR}
     done
 else
