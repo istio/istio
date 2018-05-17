@@ -21,6 +21,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	routing "istio.io/api/routing/v1alpha1"
@@ -364,5 +365,29 @@ func TestProtoSchemaConversions(t *testing.T) {
 	}
 	if _, err = routeRuleSchema.FromJSON(":"); err == nil {
 		t.Errorf("should produce an error")
+	}
+}
+
+func TestApplyJSON(t *testing.T) {
+	cases := []struct {
+		in   string
+		want *meshconfig.MeshConfig
+	}{
+		{
+			in:   `{"enableTracing": true}`,
+			want: &meshconfig.MeshConfig{EnableTracing: true},
+		},
+		{
+			in:   `{"enableTracing": true, "unknownField": "unknownValue"}`,
+			want: &meshconfig.MeshConfig{EnableTracing: true},
+		},
+	}
+	for _, c := range cases {
+		var got meshconfig.MeshConfig
+		if err := model.ApplyJSON(c.in, &got); err != nil {
+			t.Errorf("ApplyJSON(%v) failed: %v", c.in, err)
+		} else if !reflect.DeepEqual(&got, c.want) {
+			t.Errorf("ApplyJSON(%v): got %v want %v", c.in, &got, c.want)
+		}
 	}
 }
