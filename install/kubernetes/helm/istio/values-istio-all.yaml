@@ -22,3 +22,6 @@ servicegraph:
 
 prometheus:
   enabled: true
+
+zipkin-to-stackdriver:
+  enabled: true

@@ -17,6 +17,7 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
+      serviceAccountName: grafana
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
@@ -41,10 +42,10 @@ spec:
           resources:
 {{ toYaml .Values.resources | indent 12 }}
           volumeMounts:
-          - name: data
+          - name: grafana-data
             mountPath: /data/grafana
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       volumes:
-      - name: data
+      - name: grafana-data
         emptyDir: {}

@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: zipkin-to-stackdriver
+spec:
+  ports:
+    - port: {{ .Values.service.externalPort }}
+      name: {{ .Values.service.name }}
+  selector:
+    app: zipkin-to-stackdriver

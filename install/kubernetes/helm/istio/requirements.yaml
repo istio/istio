@@ -43,3 +43,7 @@ dependencies:
     version: 0.8.0
     # repository: file://../sidecar-injector
     condition: galley.enabled
+  - name: zipkin-to-stackdriver
+    version: 0.1.0
+    # repository: file://../zipkin-to-stackdriver
+    condition: zipkin-to-stackdriver.enabled
