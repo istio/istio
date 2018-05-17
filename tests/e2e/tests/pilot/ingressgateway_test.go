@@ -71,6 +71,7 @@ func TestIngressGateway503DuringRuleChange(t *testing.T) {
 	if !tc.V1alpha3 {
 		t.Skipf("Skipping %s: v1alpha3=false", t.Name())
 	}
+	t.Skip("https://github.com/istio/istio/issues/5652")
 
 	istioNamespace := tc.Kube.IstioSystemNamespace()
 	ingressGatewayServiceName := tc.Kube.IstioIngressGatewayService()
@@ -133,6 +134,7 @@ func TestIngressGateway503DuringRuleChange(t *testing.T) {
 	time.Sleep(2 * time.Second)
 	go func() {
 		reqURL := fmt.Sprintf("http://%s.%s/c", ingressGatewayServiceName, istioNamespace)
+		// 500 requests @20 qps = 25s. This is the minimum required to cover all rule changes below.
 		resp = ClientRequest("t", reqURL, 500, "-key Host -val uk.bookinfo.com -qps 20")
 		waitChan <- 1
 	}()
