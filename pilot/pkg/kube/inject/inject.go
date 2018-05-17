@@ -436,7 +436,7 @@ func IntoResourceFile(sidecarTemplate string, meshconfig *meshconfig.MeshConfig,
 
 		var updated []byte
 		if err == nil {
-			outObject, err := intoObject(sidecarTemplate, meshconfig, obj) // nolint: vetshadow
+			outObject, err := IntoObject(sidecarTemplate, meshconfig, obj) // nolint: vetshadow
 			if err != nil {
 				return err
 			}
@@ -475,7 +475,7 @@ func fromRawToObject(raw []byte) (runtime.Object, error) {
 	return obj, nil
 }
 
-func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in runtime.Object) (interface{}, error) {
+func IntoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in runtime.Object) (interface{}, error) {
 	out := in.DeepCopyObject()
 
 	var metadata *metav1.ObjectMeta
@@ -494,7 +494,7 @@ func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in ru
 				return nil, err
 			}
 
-			r, err := intoObject(sidecarTemplate, meshconfig, obj) // nolint: vetshadow
+			r, err := IntoObject(sidecarTemplate, meshconfig, obj) // nolint: vetshadow
 			if err != nil {
 				return nil, err
 			}
