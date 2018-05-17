@@ -7,11 +7,8 @@
 	The `checknothing` template represents an empty block of data, which can useful
 	in different testing scenarios.
 
-	CheckNothing represents an empty block of data that is used for Check-capable
-	adapters which don't require any parameters. This is primarily intended for testing
-	scenarios.
-
 	Example config:
+
 	```yaml
 	apiVersion: "config.istio.io/v1alpha2"
 	kind: checknothing
@@ -20,6 +17,10 @@
 	  namespace: istio-system
 	spec:
 	```
+
+	CheckNothing represents an empty block of data that is used for Check-capable
+	adapters which don't require any parameters. This is primarily intended for testing
+	scenarios.
 
 	It is generated from these files:
 		mixer/template/checknothing/template_handler_service.proto

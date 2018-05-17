@@ -4,14 +4,10 @@
 /*
 	Package tracespan is a generated protocol buffer package.
 
-
 	TraceSpan represents an individual span within a distributed trace.
 
-	When writing the configuration, the value for the fields associated with this template can either be a
-	literal or an [expression](https://istio.io/docs/reference/config/mixer/expression-language.html). Please note that if the datatype of a field is not istio.mixer.adapter.model.v1beta1.Value,
-	then the expression's [inferred type](https://istio.io/docs/reference/config/mixer/expression-language.html#type-checking) must match the datatype of the field.
-
 	Example config:
+
 	```
 	apiVersion: "config.istio.io/v1alpha2"
 	kind: tracespan
@@ -39,6 +35,12 @@
 
 	See also: [Distributed Tracing](https://istio.io/docs/tasks/telemetry/distributed-tracing.html)
 	for information on tracing within Istio.
+
+	TraceSpan represents an individual span within a distributed trace.
+
+	When writing the configuration, the value for the fields associated with this template can either be a
+	literal or an [expression](https://istio.io/docs//reference/config/policy-and-telemetry/expression-language.html). Please note that if the datatype of a field is not istio.mixer.adapter.model.v1beta1.Value,
+	then the expression's [inferred type](https://istio.io/docs//reference/config/policy-and-telemetry/expression-language.html#type-checking) must match the datatype of the field.
 
 	It is generated from these files:
 		mixer/template/tracespan/tracespan_handler_service.proto

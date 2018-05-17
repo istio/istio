@@ -7,6 +7,9 @@
 	The `stackdriver` adapter enables Istio to deliver log and metric data to the
 	[Stackdriver](https://cloud.google.com/stackdriver/) logging and monitoring backend.
 
+	This adapter supports the [metric template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric.html),
+	and the [logentry template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/logentry.html).
+
 	It is generated from these files:
 		mixer/adapter/stackdriver/config/config.proto
 

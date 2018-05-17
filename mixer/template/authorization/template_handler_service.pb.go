@@ -7,14 +7,6 @@
 	The `authorization` template defines parameters for performing policy
 	enforcement within Istio. It is primarily concerned with enabling Mixer
 
-	The `authorization` template defines parameters for performing policy
-	enforcement within Istio. It is primarily concerned with enabling Mixer
-	adapters to make decisions about who is allowed to do what.
-	In this template, the "who" is defined in a Subject message. The "what" is
-	defined in an Action message. During a Mixer Check call, these values
-	will be populated based on configuration from request attributes and
-	passed to individual authorization adapters to adjudicate.
-
 	Example config:
 
 	```yaml
@@ -37,6 +29,14 @@
 	   properties:
 	     version: destination.labels[version] | ""
 	 ```
+
+	The `authorization` template defines parameters for performing policy
+	enforcement within Istio. It is primarily concerned with enabling Mixer
+	adapters to make decisions about who is allowed to do what.
+	In this template, the "who" is defined in a Subject message. The "what" is
+	defined in an Action message. During a Mixer Check call, these values
+	will be populated based on configuration from request attributes and
+	passed to individual authorization adapters to adjudicate.
 
 	It is generated from these files:
 		mixer/template/authorization/template_handler_service.proto
