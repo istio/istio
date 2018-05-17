@@ -82,6 +82,20 @@ data:
         action: keep
         regex: {{ .Release.Namespace }};istio-pilot;http-monitoring
 
+    - job_name: 'citadel'
+      # Override the global default and scrape targets from this job every 5 seconds.
+      scrape_interval: 5s
+      # metrics_path defaults to '/metrics'
+      # scheme defaults to 'http'.
+
+      kubernetes_sd_configs:
+      - role: endpoints
+
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: {{ .Release.Namespace }};istio-citadel;http-monitoring
+
     # scrape config for API servers
     - job_name: 'kubernetes-apiservers'
       kubernetes_sd_configs:
