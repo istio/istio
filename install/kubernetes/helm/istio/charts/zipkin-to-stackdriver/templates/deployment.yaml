@@ -19,7 +19,7 @@ spec:
       containers:
         - name: zipkin-to-stackdriver
           image: "{{ .Values.image.repository }}"
-          imagePullPolicy: {{.Values.global.image.pullpolicy}}
+          imagePullPolicy: {{.Values.global.imagePullPolicy}}
           ports:
             - containerPort: {{ .Values.service.internalPort }}
             - name: zipkin
