@@ -17,6 +17,7 @@ package env
 import (
 	"fmt"
 	"io/ioutil"
+	"istio.io/fortio/fhttp"
 	"log"
 	"net"
 	"net/http"
@@ -85,9 +86,7 @@ func HTTPPost(url string, contentType string, reqBody string) (code int, respBod
 	}
 	respBody = string(body)
 	code = resp.StatusCode
-	if len(respBody) < 10240 {
-		log.Println(respBody)
-	}
+	log.Println(fhttp.DebugSummary(body, 512))
 	return code, respBody, nil
 }
 
