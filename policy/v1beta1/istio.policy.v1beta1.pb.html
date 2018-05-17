@@ -3,7 +3,8 @@ title: Rules
 description: Describes the rules used to configure Mixer's policy and telemetry features.
 location: https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html
 layout: protoc-gen-docs
-number_of_entries: 9
+generator: protoc-gen-docs
+number_of_entries: 8
 ---
 <p>Describes the rules used to configure Mixer&rsquo;s policy and telemetry features.</p>
 
@@ -286,7 +287,7 @@ implementation name is typically a constant in its code.</p>
 </tr>
 <tr id="Handler.params">
 <td><code>params</code></td>
-<td><code><a href="#google.protobuf.Struct">google.protobuf.Struct</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#struct">google.protobuf.Struct</a></code></td>
 <td>
 <p>Optional. Depends on adapter implementation. Struct representation of a
 proto defined by the adapter implementation; this varies depending on the value of field <code>adapter</code>.</p>
@@ -358,7 +359,7 @@ The value must match the name of the available template in scope.</p>
 </tr>
 <tr id="Instance.params">
 <td><code>params</code></td>
-<td><code><a href="#google.protobuf.Struct">google.protobuf.Struct</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#struct">google.protobuf.Struct</a></code></td>
 <td>
 <p>Required. Depends on referenced template. Struct representation of a
 proto defined by the template; this varies depending on the value of field <code>template</code>.</p>
@@ -519,37 +520,6 @@ fields of other descriptors.</p>
 <td><code>STRING_MAP</code></td>
 <td>
 <p>A map string -&gt; string, typically used by headers.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="google.protobuf.Struct">google.protobuf.Struct</h2>
-<section>
-<p><code>Struct</code> represents a structured data value, consisting of fields
-which map to dynamically typed values. In some languages, <code>Struct</code>
-might be supported by a native representation. For example, in
-scripting languages like JS a struct is represented as an
-object. The details of that representation are described together
-with the proto support for the language.</p>
-
-<p>The JSON representation for <code>Struct</code> is JSON object.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="google.protobuf.Struct.fields">
-<td><code>fields</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#google.protobuf.Value">google.protobuf.Value</a>&gt;</code></td>
-<td>
-<p>Unordered map of dynamically typed values.</p>
 
 </td>
 </tr>
