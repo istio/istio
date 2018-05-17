@@ -4,7 +4,7 @@ metadata:
   name: zipkin
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "zipkin.name" . }}
+    app: jaeger
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
@@ -20,4 +20,4 @@ spec:
       protocol: TCP
       targetPort: {{ .Values.service.uiPort }}
   selector:
-    app: zipkin
+    app: jaeger

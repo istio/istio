@@ -390,6 +390,8 @@ servicegraph:
 
 zipkin:
   enabled: false
+  jaeger:
+    enabled: false
   replicaCount: 1
   image:
     # TODO: switch name to tracing or other fix to reflect jaeger as the
