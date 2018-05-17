@@ -251,3 +251,6 @@
 - source.principal
 - request.auth.claims
 - request.auth.raw_claims
+
+# whether request is sent over mTLS enabled downstream connection.
+- connection.mtls
