@@ -143,9 +143,9 @@ ingressgateway:
     - containerPort: 443
     - containerPort: 31400
     secretVolumes:
-    - name: ingress-certs
-      secretName: istio-ingress-certs
-      mountPath: /etc/istio/ingress-certs
+    - name: ingressgateway-certs
+      secretName: istio-ingressgateway-certs
+      mountPath: /etc/istio/ingressgateway-certs
 
 #
 # egressgateway configuration
