@@ -5,6 +5,11 @@ kind: ClusterRole
 metadata:
   name: prometheus-{{ .Release.Namespace }}
   namespace: {{ .Release.Namespace }}
+{{- if .Values.global.k8sAddon.enabled }}
+  labels:
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+{{- end }}
 rules:
 - apiGroups: [""]
   resources:
@@ -26,6 +31,11 @@ kind: ClusterRoleBinding
 metadata:
   name: prometheus-{{ .Release.Namespace }}
   namespace: {{ .Release.Namespace }}
+{{- if .Values.global.k8sAddon.enabled }}
+  labels:
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+{{- end }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

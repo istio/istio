@@ -5,6 +5,8 @@
 
 # Common settings.
 global:
+  k8sAddon:
+    enabled: true
   # Default tag for Istio images.
   hub: docker.io/istionightly
 

@@ -8,6 +8,10 @@ metadata:
     chart: {{ .Chart.Name }}-{{ .Chart.Version }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 rules:
 - apiGroups: ["*"]
   resources: ["configmaps"]

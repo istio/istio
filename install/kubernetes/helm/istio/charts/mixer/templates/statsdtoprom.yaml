@@ -10,6 +10,11 @@ metadata:
     chart: {{ $.Chart.Name }}-{{ $.Chart.Version | replace "+" "_" }}
     release: {{ $.Release.Name }}
     istio: {{ $statsdname }}
+  {{- if $.Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+    kubernetes.io/cluster-service: "true"
+  {{- end }}
 spec:
   ports:
   - name: statsd-prom
@@ -31,6 +36,10 @@ metadata:
     chart: {{ $.Chart.Name }}-{{ $.Chart.Version | replace "+" "_" }}
     release: {{ $.Release.Name }}
     istio: mixer
+  {{- if $.Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   template:
     metadata:

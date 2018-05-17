@@ -11,6 +11,11 @@ metadata:
     {{- range $key, $val := .Values.service.labels }}
     {{ $key }}: {{ $val }}
     {{- end }}
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
+
 spec:
   replicas: {{ .Values.replicaCount }}
   template:
@@ -19,6 +24,10 @@ spec:
         {{- range $key, $val := .Values.deployment.labels }}
         {{ $key }}: {{ $val }}
         {{- end }}
+      {{- if .Values.global.k8sAddon.enabled }}
+        k8s-app: istio
+        addonmanager.kubernetes.io/mode: Reconcile
+      {{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
     spec:

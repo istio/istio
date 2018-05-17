@@ -7,6 +7,11 @@ metadata:
     prometheus.io/scrape: 'true'
   labels:
     name: prometheus
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+    kubernetes.io/cluster-service: "true"
+  {{- end }}
 spec:
   selector:
     app: prometheus
@@ -25,6 +30,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     name: prometheus
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+    kubernetes.io/cluster-service: "true"
+  {{- end }}
 spec:
   type: NodePort
   ports:

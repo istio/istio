@@ -6,6 +6,10 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: prometheus
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
   annotations:
     {{- range $key, $value := .Values.ingress.annotations }}
       {{ $key }}: {{ $value | quote }}

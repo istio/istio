@@ -10,6 +10,10 @@ metadata:
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
     istio: pilot
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
   annotations:
     checksum/config-volume: {{ template "istio.configmap.checksum" . }}
 spec:

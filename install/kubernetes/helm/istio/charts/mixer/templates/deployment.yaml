@@ -150,6 +150,10 @@ metadata:
     chart: {{ $.Chart.Name }}-{{ $.Chart.Version | replace "+" "_" }}
     release: {{ $.Release.Name }}
     istio: mixer
+  {{- if $.Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   replicas: {{ $.Values.replicaCount }}
   template:

@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: {{ .Values.service.name }}
-  namespace: {{ .Values.service.namespace | default .Release.Namespace }}    
+  namespace: {{ .Values.service.namespace | default .Release.Namespace }}
   labels:
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
@@ -10,6 +10,11 @@ metadata:
     {{- range $key, $val := .Values.service.labels }}
     {{ $key }}: {{ $val }}
     {{- end }}
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+    kubernetes.io/cluster-service: "true"
+  {{- end }}
 spec:
   type: {{ .Values.service.type }}
   selector:

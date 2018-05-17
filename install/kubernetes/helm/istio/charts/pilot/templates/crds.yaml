@@ -4,6 +4,10 @@ metadata:
   name: destinationpolicies.config.istio.io
   labels:
     app: istio-pilot
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   group: config.istio.io
   names:
@@ -20,6 +24,10 @@ metadata:
   name: egressrules.config.istio.io
   labels:
     app: istio-pilot
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   group: config.istio.io
   names:
@@ -36,6 +44,10 @@ metadata:
   name: routerules.config.istio.io
   labels:
     app: istio-pilot
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   group: config.istio.io
   names:
@@ -52,6 +64,10 @@ metadata:
   name: virtualservices.networking.istio.io
   labels:
     app: istio-pilot
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   group: networking.istio.io
   names:
@@ -68,6 +84,10 @@ metadata:
   name: destinationrules.networking.istio.io
   labels:
     app: istio-pilot
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   group: networking.istio.io
   names:
@@ -84,6 +104,10 @@ metadata:
   name: serviceentries.networking.istio.io
   labels:
     app: istio-pilot
+  {{- if .Values.global.k8sAddon.enabled }}
+    k8s-app: istio
+    addonmanager.kubernetes.io/mode: Reconcile
+  {{- end }}
 spec:
   group: networking.istio.io
   names:
