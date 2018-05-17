@@ -18,6 +18,7 @@ global:
     image: proxy_init
 
   # imagePullPolicy is applied to istio control plane components.
+  # this is a unified pull policy which is used for new contribes.
   imagePullPolicy: IfNotPresent
 
   # Not recommended for user to configure this. Hyperkube image to use when creating custom resources
@@ -436,4 +437,3 @@ zipkin-to-stackdriver:
     internalPort: 9411
   image:
     repository: gcr.io/stackdriver-trace-docker/zipkin-collector
-    pullPolicy: IfNotPresent
