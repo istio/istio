@@ -341,6 +341,7 @@ func applyLoadBalancer(cluster *v2.Cluster, lb *networking.LoadBalancerSettings)
 
 // InMeshALPNProtocols - try istio first and then h2
 // After envoy supports client side ALPN negotiation, this should be "istio", "h2", "http/1.1"
+// "istio" alpn value indicates in-mesh traffic at the TLS layer.
 var InMeshALPNProtocols = []string{"istio", "h2"}
 
 // ALPNH2Only specifies that the cluster only supports h2 via alpn.
