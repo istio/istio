@@ -24,15 +24,13 @@ import (
 )
 
 const (
-	defaultTag          = "0.7.1"
+	defaultTag          = "0.8.latest"
 	defaultHyperkubeTag = "v1.7.6_coreos.0"
 )
 
 // Command returns the "gen-deploy" subcommand for istioctl.
 func Command(istioNamespaceFlag *string) *cobra.Command {
 	var (
-		features          *[]string
-		out               string
 		helmChartLocation string
 		valuesPath        string
 	)
@@ -41,41 +39,28 @@ func Command(istioNamespaceFlag *string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "gen-deploy",
 		Short: "Generates the configuration for Istio's control plane.",
-		Long: "istioctl gen-deploy produces deployment files to run the minimum Istio control for the set of " +
-			"features requested by the --feature flag. If no features are provided, we create deployments for the " +
-			"default control plane: Pilot, Mixer, CA, and Ingress Proxies, with mTLS enabled.",
-		Example: `istioctl gen-deploy --features routing,policy,sidecar-injector -o helm`,
+		Long: "istioctl gen-deploy produces deployment files to run the Istio.",
+		Example: `istioctl gen-deploy --values myvalues.yaml`,
 		RunE: func(c *cobra.Command, args []string) error {
-			if err := install.setFeatures(*features); err != nil {
-				return err
-			}
 			install.Namespace = *istioNamespaceFlag
-			switch strings.ToLower(out) {
-			case "helm":
-				_, err := fmt.Fprint(os.Stdout, valuesFromInstallation(install))
+			// TODO: this is NOT merged with the values.yaml from helm directory.
+
+			values, err := getValues(valuesPath, install)
+			if err != nil {
 				return err
-			case "yaml":
-				values, err := getValues(valuesPath, install)
-				if err != nil {
-					return err
-				}
-				rendered, err := yamlFromInstallation(values, *istioNamespaceFlag, helmChartLocation)
-				if err != nil {
-					return err
-				}
-				_, err = fmt.Fprint(os.Stdout, rendered)
-				return err
-			default:
-				return fmt.Errorf("unsupported output %q", out)
 			}
+			rendered, err := yamlFromInstallation(values, *istioNamespaceFlag, helmChartLocation)
+			if err != nil {
+				return err
+			}
+			_, err = fmt.Fprint(os.Stdout, rendered)
+			return err
 		},
 	}
 
 	cmd.PersistentFlags().StringVar(&valuesPath, "values", "", "Path to the Helm values.yaml file used to render YAML "+
 		"deployments locally when --out=yaml. Flag values are ignored in favor of using the file directly.")
 
-	features = cmd.PersistentFlags().StringArrayP("features", "f", []string{},
-		`List of Istio features to enable. Accepts any combination of "mtls", "telemetry", "routing", "ingress", "policy", "sidecar-injector".`)
 	cmd.PersistentFlags().StringVar(&install.Hub, "hub", install.Hub, "The container registry to pull Istio images from")
 	cmd.PersistentFlags().StringVar(&install.MixerTag, "mixer-tag", install.MixerTag, "The tag to use to pull the `mixer` container")
 	cmd.PersistentFlags().StringVar(&install.PilotTag, "pilot-tag", install.PilotTag, "The tag to use to pull the `pilot-discovery` container")
@@ -85,8 +70,6 @@ func Command(istioNamespaceFlag *string) *cobra.Command {
 	cmd.PersistentFlags().Uint16Var(&install.NodePort, "ingress-node-port", install.NodePort,
 		"If provided, Istio ingress proxies will run as a NodePort service mapped to the port provided by this flag. "+
 			"Note that this flag is ignored unless the \"ingress\" feature flag is provided too.")
-	cmd.PersistentFlags().StringVarP(&out, "out", "o", "helm", "Output format. Acceptable values are"+
-		"'helm' to produce contents of values.yaml or 'helm' to produces Kubernetes deployments")
 
 	// TODO: figure out how we want to package up the charts with the binary to make this easy
 	cmd.PersistentFlags().StringVar(&helmChartLocation, "helm-chart-dir", ".",
@@ -105,7 +88,7 @@ func Command(istioNamespaceFlag *string) *cobra.Command {
 
 func getValues(path string, i *installation) (string, error) {
 	if path == "" {
-		return valuesFromInstallation(i), nil
+		return "", nil
 	}
 
 	out, err := ioutil.ReadFile(path)
