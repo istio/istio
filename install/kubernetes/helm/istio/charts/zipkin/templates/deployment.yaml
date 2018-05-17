@@ -23,20 +23,23 @@ spec:
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
             - containerPort: {{ .Values.service.internalPort }}
+            - containerPort: {{ .Values.service.uiPort }}
           env:
           - name: POD_NAMESPACE
             valueFrom:
               fieldRef:
                 apiVersion: v1
                 fieldPath: metadata.namespace
+          - name: COLLECTOR_ZIPKIN_HTTP_PORT
+            value: "{{ .Values.service.internalPort }}"
           livenessProbe:
             httpGet:
               path: /
-              port: {{ .Values.service.internalPort }}
+              port: {{ .Values.service.uiPort }}
           readinessProbe:
             httpGet:
               path: /
-              port: {{ .Values.service.internalPort }}
+              port: {{ .Values.service.uiPort }}
           resources:
 {{ toYaml .Values.resources | indent 12 }}
       affinity:
