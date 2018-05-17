@@ -1,0 +1,33 @@
+{{ define "content" }}
+
+{{ with $context := . }}
+
+    {{ if ne $context.Error "" }}
+        <b>{{$context.Error}}</b>
+    {{else}}
+        <p> Collection {{ $context.Collection }} </p>
+
+        <table>
+            <thead>
+            <tr>
+                <th>Index</th>
+                <th>Item</th>
+            </tr>
+            </thead>
+
+            <tbody>
+                 {{ range $index, $key := $context.Keys }}
+                <tr>
+                    <td>{{$index}}</td>
+                    <td><a href="{{$context.Collection}}/{{$key}}">{{$key}}</a></td>
+                </tr>
+                {{ end }}
+            </tbody>
+        </table>
+    {{end}}
+
+{{end}}
+
+{{ template "last-refresh" .}}
+
+{{ end }}
