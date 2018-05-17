@@ -68,12 +68,13 @@ func TestServiceEntry(t *testing.T) {
 		//	url:               "https://www.wikipedia.org",
 		//	shouldBeReachable: true,
 		//},
-		{
-			name:              "UNREACHABLE_cnn",
-			config:            "testdata/v1alpha3/serviceentry-tcp-wikipedia-cidr.yaml",
-			url:               "https://cnn.com",
-			shouldBeReachable: false,
-		},
+		// TODO: Uncomment once https://github.com/istio/istio/issues/5498 is solved
+		//{
+		//	name:              "UNREACHABLE_cnn",
+		//	config:            "testdata/v1alpha3/serviceentry-tcp-wikipedia-cidr.yaml",
+		//	url:               "https://cnn.com",
+		//	shouldBeReachable: false,
+		//},
 	}
 
 	var cfgs *deployableConfig
