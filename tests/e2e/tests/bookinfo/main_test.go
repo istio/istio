@@ -82,6 +82,10 @@ type testConfig struct {
 	rulesDir string
 }
 
+func init() {
+	tf.Init()
+}
+
 func getWithCookie(url string, cookies []http.Cookie) (*http.Response, error) {
 	// Declare http client
 	client := &http.Client{}
@@ -384,10 +388,6 @@ func TestMain(m *testing.M) {
 	check(setTestConfig(), "could not create TestConfig")
 	tc.Cleanup.RegisterCleanable(tc)
 	os.Exit(tc.RunTest(m))
-}
-
-func init() {
-	tf.Init()
 }
 
 func getIngressOrFail(t *testing.T, configVersion string) string {
