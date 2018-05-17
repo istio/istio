@@ -87,7 +87,7 @@ function setup_cluster() {
   fi
   kubectl config use-context $PILOT_CLUSTER
 
-  if [[ "$USE_GKE" == "True" ]]; then
+  if [[ "$USE_GKE" == "True" && "$SETUP_CLUSTERREG" == "True" ]]; then
     ALL_CLUSTER_CIDRS=
     for cidr in $(gcloud container clusters list --format='value(clusterIpv4Cidr)'); do
       if [[ "$ALL_CLUSTER_CIDRS" != "" ]]; then
@@ -123,7 +123,7 @@ function unsetup_clusters() {
      kubectl delete clusterrolebinding prow-cluster-admin-binding
   done
   kubectl config use-context $PILOT_CLUSTER
-  if [[ "$USE_GKE" == "True" ]]; then
+  if [[ "$USE_GKE" == "True" && "$SETUP_CLUSTERREG" == "True" ]]; then
      gcloud compute firewall-rules delete istio-multicluster-test-pods --quiet
   fi
 }
