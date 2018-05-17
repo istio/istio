@@ -6,9 +6,7 @@
 
 	The `apikey` template represents a single API key, which is used for authorization checks.
 
-	The `apikey` template represents a single API key, used to authorize API calls.
-
-	Sample config:
+	Example config:
 
 	```yaml
 	apiVersion: "config.istio.io/v1alpha2"
@@ -23,6 +21,8 @@
 	  api_key: api.key | ""
 	  timestamp: request.time
 	```
+
+	The `apikey` template represents a single API key, used to authorize API calls.
 
 	It is generated from these files:
 		mixer/template/apikey/template_handler_service.proto

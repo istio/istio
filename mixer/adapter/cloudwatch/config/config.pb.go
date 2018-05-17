@@ -16,6 +16,8 @@
 	The handler configuration must contain the same metrics as the instance configuration.
 	The metrics specified in both instance and handler configurations will be sent to CloudWatch.
 
+	This adapter supports the [metric template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric.html).
+
 	It is generated from these files:
 		mixer/adapter/cloudwatch/config/config.proto
 

@@ -7,6 +7,10 @@
 	The `denier` adapter is designed to always return a denial to precondition
 	checks. You can specify the exact error to return for these denials.
 
+	This adapter supports the [checknothing template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/checknothing.html),
+	the [listentry template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/listentry.html),
+	and the [quota template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/quota.html).
+
 	It is generated from these files:
 		mixer/adapter/denier/config/config.proto
 
