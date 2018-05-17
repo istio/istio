@@ -85,14 +85,11 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 			bindToPort: true,
 			protocol:   protocol,
 		}
-		listenerType := plugin.ModelProtocolToListenerType(protocol)
-		switch listenerType {
-		case plugin.ListenerTypeHTTP:
+		switch protocol {
+		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC, model.ProtocolHTTPS:
 			opts.filterChainOpts = createGatewayHTTPFilterChainOpts(env, servers, merged.Names)
-		case plugin.ListenerTypeTCP:
+		case model.ProtocolTCP, model.ProtocolMongo:
 			opts.filterChainOpts = createGatewayTCPFilterChainOpts(env, servers, merged.Names)
-		default:
-			log.Warnf("unknown listener type %v in buildGatewayListeners", listenerType)
 		}
 
 		// one filter chain => 0 or 1 certs => SNI not required
@@ -100,6 +97,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 			opts.filterChainOpts[0].tlsContext.RequireSni = boolFalse
 		}
 
+		listenerType := plugin.ModelProtocolToListenerType(protocol)
 		l := buildListener(opts)
 		mutable := &plugin.MutableObjects{
 			Listener: l,

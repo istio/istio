@@ -18,7 +18,6 @@ package mixer
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -44,13 +43,23 @@ import (
 )
 
 const (
-	bookinfoSampleDir     = "samples/bookinfo"
-	yamlExtension         = "yaml"
-	deploymentDir         = "kube"
-	bookinfoYaml          = "bookinfo"
-	bookinfoRatingsv2Yaml = "bookinfo-ratings-v2"
-	bookinfoDbYaml        = "bookinfo-db"
-	sleepYaml             = "samples/sleep/sleep"
+	bookinfoSampleDir        = "samples/bookinfo"
+	yamlExtension            = "yaml"
+	deploymentDir            = "kube"
+	rulesDir                 = "kube"
+	bookinfoYaml             = "bookinfo"
+	bookinfoRatingsv2Yaml    = "bookinfo-ratings-v2"
+	bookinfoDbYaml           = "bookinfo-db"
+	sleepYaml                = "samples/sleep/sleep"
+	rateLimitRule            = rulesDir + "/" + "mixer-rule-ratings-ratelimit"
+	denialRule               = rulesDir + "/" + "mixer-rule-ratings-denial"
+	ingressDenialRule        = rulesDir + "/" + "mixer-rule-ingress-denial"
+	newTelemetryRule         = rulesDir + "/" + "mixer-rule-additional-telemetry"
+	routeAllRule             = rulesDir + "/" + "route-rule-all-v1"
+	routeReviewsVersionsRule = rulesDir + "/" + "route-rule-reviews-v2-v3"
+	routeReviewsV3Rule       = rulesDir + "/" + "route-rule-reviews-v3"
+	tcpDbRule                = rulesDir + "/" + "route-rule-ratings-db"
+	bookinfoGateway          = rulesDir + "/" + "bookinfo-gateway"
 
 	prometheusPort   = "9090"
 	mixerMetricsPort = "42422"
@@ -66,51 +75,21 @@ const (
 
 	checkPath  = "/istio.mixer.v1.Mixer/Check"
 	reportPath = "/istio.mixer.v1.Mixer/Report"
-
-	testRetryTimes = 5
 )
 
 type testConfig struct {
 	*framework.CommonConfig
+
 	rulesDir string
 }
 
 var (
-	tc        *testConfig
-	testFlags = &framework.TestFlags{
-		V1alpha1: true,  //implies envoyv1
-		V1alpha3: false, //implies envoyv2
-		Ingress:  true,
-		Egress:   true,
-	}
-	configVersion      = ""
-	ingressName        = "ingress"
+	tc                 *testConfig
 	productPageTimeout = 60 * time.Second
-
-	rulesDir                 = "kube" // v1 rules directory by default
-	rateLimitRule            = "mixer-rule-ratings-ratelimit"
-	denialRule               = "mixer-rule-ratings-denial"
-	ingressDenialRule        = "mixer-rule-ingress-denial"
-	newTelemetryRule         = "mixer-rule-additional-telemetry"
-	routeAllRule             = "route-rule-all-v1"
-	routeReviewsVersionsRule = "route-rule-reviews-v2-v3"
-	routeReviewsV3Rule       = "route-rule-reviews-v3"
-	tcpDbRule                = "route-rule-ratings-db"
-	bookinfoGateway          = "bookinfo-gateway"
-
-	defaultRules []string
-	rules        []string
+	rules              = []string{rateLimitRule, denialRule, ingressDenialRule, newTelemetryRule, routeAllRule,
+		routeReviewsVersionsRule, routeReviewsV3Rule, tcpDbRule, bookinfoGateway}
 )
 
-func init() {
-	testFlags.Init()
-	if len(testFlags.ConfigVersions()) != 1 {
-		panic(fmt.Sprintf("must set exactly one of v1alpha1 or v1alpha3, have %v", testFlags.ConfigVersions()))
-	}
-	configVersion = testFlags.ConfigVersions()[0]
-}
-
-// Setup is called from framework package init().
 func (t *testConfig) Setup() (err error) {
 	defer func() {
 		if err != nil {
@@ -118,39 +97,34 @@ func (t *testConfig) Setup() (err error) {
 		}
 	}()
 
-	if testFlags.V1alpha3 {
-		rulesDir = "routing"
-		ingressName = "ingressgateway"
-	}
-	drs := []*string{&routeAllRule, &bookinfoGateway}
-	rs := []*string{&rateLimitRule, &denialRule, &ingressDenialRule, &newTelemetryRule,
-		&routeReviewsVersionsRule, &routeReviewsV3Rule, &tcpDbRule}
-	for _, dr := range drs {
-		*dr = filepath.Join(rulesDir, *dr)
-		defaultRules = append(defaultRules, *dr)
-	}
-	for _, r := range rs {
-		*r = filepath.Join(rulesDir, *r)
-		rules = append(rules, *r)
-	}
-
-	log.Infof("new rule %s", rateLimitRule)
-	log.Infof("Rules are default: %v, test-specific: %v", defaultRules, rules)
-	for _, rule := range append(defaultRules, rules...) {
-		err = copyRuleToFilesystem(t, rule)
+	var srcBytes []byte
+	for _, rule := range rules {
+		src := util.GetResourcePath(filepath.Join(bookinfoSampleDir, rule+"."+yamlExtension))
+		dest := filepath.Join(t.rulesDir, rule+"."+yamlExtension)
+		srcBytes, err = ioutil.ReadFile(src)
 		if err != nil {
-			return nil
+			log.Errorf("Failed to read original rule file %s", src)
+			return err
+		}
+
+		err = os.MkdirAll(filepath.Dir(dest), 0700)
+		if err != nil {
+			log.Errorf("Failed to create the directory %s", filepath.Dir(dest))
+			return err
+		}
+
+		err = ioutil.WriteFile(dest, srcBytes, 0600)
+		if err != nil {
+			log.Errorf("Failed to write into new rule file %s", dest)
+			return err
 		}
 	}
 
-	if !util.CheckPodsRunning(tc.Kube.Namespace, tc.Kube.KubeConfig) {
-		return fmt.Errorf("can't get all pods running")
-	}
+	err = createDefaultRoutingRules()
 
-	if err = setupDefaultRouting(); err != nil {
-		return err
+	if err = util.WaitForDeploymentsReady(tc.Kube.Namespace, time.Minute*2, tc.Kube.KubeConfig); err != nil {
+		return fmt.Errorf("pods not ready: %v", err)
 	}
-	allowRuleSync()
 
 	// pre-warm the system. we don't care about what happens with this
 	// request, but we want Mixer, etc., to be ready to go when the actual
@@ -164,88 +138,14 @@ func (t *testConfig) Setup() (err error) {
 	return
 }
 
-func copyRuleToFilesystem(t *testConfig, rule string) error {
-	src := getSourceRulePath(rule)
-	dest := getDestinationRulePath(t, rule)
-	log.Infof("Copying rule %s from %s to %s", rule, src, dest)
-	ori, err := ioutil.ReadFile(src)
-	if err != nil {
-		log.Errorf("Failed to read original rule file %s", src)
-		return err
-	}
-	content := string(ori)
-
-	err = os.MkdirAll(filepath.Dir(dest), 0700)
-	if err != nil {
-		log.Errorf("Failed to create the directory %s", filepath.Dir(dest))
-		return err
-	}
-
-	err = ioutil.WriteFile(dest, []byte(content), 0600)
-	if err != nil {
-		log.Errorf("Failed to write into new rule file %s", dest)
-		return err
-	}
-
-	return nil
-}
-
-func getSourceRulePath(rule string) string {
-	return util.GetResourcePath(filepath.Join(bookinfoSampleDir, rule+"."+yamlExtension))
-}
-
-func getDestinationRulePath(t *testConfig, rule string) string {
-	return filepath.Join(t.rulesDir, rule+"."+yamlExtension)
-}
-
-func setupDefaultRouting() error {
-	log.Infof("setupDefaultRouting for %s", configVersion)
-	if err := applyRules(defaultRules); err != nil {
-		return fmt.Errorf("could not apply rules '%s': %v", defaultRules, err)
-	}
-	standby := 0
-	for i := 0; i <= testRetryTimes; i++ {
-		time.Sleep(time.Duration(standby) * time.Second)
-		var gateway string
-		var errGw error
-
-		gateway, errGw = getIngressOrGateway()
-		if errGw != nil {
-			return errGw
-		}
-
-		resp, err := http.Get(fmt.Sprintf("%s/productpage", gateway))
-		if err != nil {
-			log.Infof("Error talking to productpage: %s", err)
-		} else {
-			log.Infof("Get from page: %d", resp.StatusCode)
-			if resp.StatusCode == http.StatusOK {
-				log.Info("Get response from product page!")
-				break
-			}
-			closeResponseBody(resp)
-		}
-		if i == testRetryTimes {
-			return errors.New("unable to set default route")
-		}
-		standby += 5
-		log.Errorf("Couldn't get to the bookinfo product page, trying again in %d second", standby)
-	}
-
-	log.Info("Success! Default route got expected response")
-	return nil
-}
-
-func applyRules(ruleKeys []string) error {
-	for _, ruleKey := range ruleKeys {
-		rule := getDestinationRulePath(tc, ruleKey)
-		if err := util.KubeApply(tc.Kube.Namespace, rule, tc.Kube.KubeConfig); err != nil {
-			//log.Errorf("Kubectl apply %s failed", rule)
-			return err
+func createDefaultRoutingRules() error {
+	for _, rule := range []string{bookinfoGateway, routeAllRule} {
+		if err := createRouteRule(rule); err != nil {
+			return fmt.Errorf("could not create base routing rules: %v", err)
 		}
 	}
-	log.Info("Waiting for rules to propagate...")
-	time.Sleep(time.Duration(30) * time.Second)
+
+	allowRuleSync()
 	return nil
 }
 
@@ -274,7 +174,7 @@ func newPromProxy(namespace string) *promProxy {
 func dumpK8Env() {
 	_, _ = util.Shell("kubectl --namespace %s get pods -o wide", tc.Kube.Namespace)
 
-	podLogs("istio="+ingressName, "istio-"+ingressName)
+	podLogs("istio=ingress", "istio-ingress")
 	podLogs("istio=mixer", "mixer")
 	podLogs("istio=pilot", "discovery")
 	podLogs("app=productpage", "istio-proxy")
@@ -371,44 +271,6 @@ func TestMain(m *testing.M) {
 	os.Exit(tc.RunTest(m))
 }
 
-func setTestConfig() error {
-	cc, err := framework.NewCommonConfig("mixer_test")
-	if err != nil {
-		return err
-	}
-	tc = new(testConfig)
-	tc.CommonConfig = cc
-	tmpDir, err := ioutil.TempDir(os.TempDir(), "mixer_test")
-	if err != nil {
-		return err
-	}
-	tc.rulesDir = tmpDir
-	demoApps := []framework.App{
-		{
-			AppYaml:    getBookinfoResourcePath(bookinfoYaml),
-			KubeInject: true,
-		},
-		{
-			AppYaml:    getBookinfoResourcePath(bookinfoRatingsv2Yaml),
-			KubeInject: true,
-		},
-		{
-			AppYaml:    getBookinfoResourcePath(bookinfoDbYaml),
-			KubeInject: true,
-		},
-		{
-			AppYaml:    util.GetResourcePath(sleepYaml + "." + yamlExtension),
-			KubeInject: true,
-		},
-	}
-	for i := range demoApps {
-		tc.Kube.AppManager.AddApp(&demoApps[i])
-	}
-	mp := newPromProxy(tc.Kube.Namespace)
-	tc.Cleanup.RegisterCleanable(mp)
-	return nil
-}
-
 func fatalf(t *testing.T, format string, args ...interface{}) {
 	dumpK8Env()
 	t.Fatalf(format, args...)
@@ -424,7 +286,7 @@ func TestMetric(t *testing.T) {
 }
 
 func TestIngressMetric(t *testing.T) {
-	checkMetricReport(t, "istio-"+ingressName)
+	checkMetricReport(t, "istio-ingress")
 }
 
 // checkMetricReport checks whether report works for the given service
@@ -654,7 +516,7 @@ func TestIngressCheckCache(t *testing.T) {
 
 	// Visit product page through ingress should all be denied.
 	visit := func() error {
-		url := fmt.Sprintf("%s/productpage", getIngressOrFail(t))
+		url := fmt.Sprintf("%s/productpage", tc.Kube.IngressOrFail(t))
 		// Send 100 requests in a relative short time to make sure check cache will be used.
 		opts := fhttp.HTTPRunnerOptions{
 			RunnerOptions: periodic.RunnerOptions{
@@ -675,13 +537,6 @@ func TestIngressCheckCache(t *testing.T) {
 		return nil
 	}
 	testCheckCache(t, visit)
-}
-
-func getIngressOrFail(t *testing.T) string {
-	if testFlags.V1alpha3 {
-		return tc.Kube.IngressGatewayOrFail(t)
-	}
-	return tc.Kube.IngressOrFail(t)
 }
 
 // TestCheckCache tests that check cache works within the mesh.
@@ -738,12 +593,6 @@ func testCheckCache(t *testing.T, visit func() error) {
 }
 
 func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
-	// TODO: enable this for v2
-	if testFlags.V1alpha3 {
-		log.Info("Skipping this test for v1alpha3")
-		return
-	}
-
 	if err := replaceRouteRule(routeReviewsV3Rule); err != nil {
 		fatalf(t, "Could not create replace reviews routing rule: %v", err)
 	}
@@ -790,7 +639,7 @@ func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
 
 	t.Log("Sending traffic...")
 
-	url := fmt.Sprintf("%s/productpage", getIngressOrGatewayOrFail(t))
+	url := fmt.Sprintf("%s/productpage", tc.Kube.IngressOrFail(t))
 
 	// run at a high enough QPS (here 10) to ensure that enough
 	// traffic is generated to trigger 429s from the 1 QPS rate limit rule
@@ -900,12 +749,6 @@ func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
 }
 
 func TestMixerReportingToMixer(t *testing.T) {
-	// TODO: enable this for v2
-	if testFlags.V1alpha3 {
-		log.Info("Skipping this test for v1alpha3")
-		return
-	}
-
 	// setup prometheus API
 	promAPI, err := promAPI()
 	if err != nil {
@@ -1077,27 +920,13 @@ func get(clnt *http.Client, url string, headers ...*header) (status int, content
 	return
 }
 
-func getIngressOrGateway() (string, error) {
-	if testFlags.V1alpha3 {
-		return tc.Kube.IngressGateway()
-	}
-	return tc.Kube.Ingress()
-}
-
-func getIngressOrGatewayOrFail(t *testing.T) string {
-	if testFlags.V1alpha3 {
-		return tc.Kube.IngressGatewayOrFail(t)
-	}
-	return tc.Kube.IngressOrFail(t)
-}
-
 func visitProductPage(timeout time.Duration, wantStatus int, headers ...*header) error {
 	start := time.Now()
 	clnt := &http.Client{
 		Timeout: 1 * time.Minute,
 	}
 
-	gateway, err := getIngressOrGateway()
+	gateway, err := tc.Kube.Ingress()
 	if err != nil {
 		return err
 	}
@@ -1228,6 +1057,44 @@ func doMixerRule(ruleName string, do kubeDo) error {
 func getBookinfoResourcePath(resource string) string {
 	return util.GetResourcePath(filepath.Join(bookinfoSampleDir, deploymentDir,
 		resource+"."+yamlExtension))
+}
+
+func setTestConfig() error {
+	cc, err := framework.NewCommonConfig("mixer_test")
+	if err != nil {
+		return err
+	}
+	tc = new(testConfig)
+	tc.CommonConfig = cc
+	tmpDir, err := ioutil.TempDir(os.TempDir(), "mixer_test")
+	if err != nil {
+		return err
+	}
+	tc.rulesDir = tmpDir
+	demoApps := []framework.App{
+		{
+			AppYaml:    getBookinfoResourcePath(bookinfoYaml),
+			KubeInject: true,
+		},
+		{
+			AppYaml:    getBookinfoResourcePath(bookinfoRatingsv2Yaml),
+			KubeInject: true,
+		},
+		{
+			AppYaml:    getBookinfoResourcePath(bookinfoDbYaml),
+			KubeInject: true,
+		},
+		{
+			AppYaml:    util.GetResourcePath(sleepYaml + "." + yamlExtension),
+			KubeInject: true,
+		},
+	}
+	for i := range demoApps {
+		tc.Kube.AppManager.AddApp(&demoApps[i])
+	}
+	mp := newPromProxy(tc.Kube.Namespace)
+	tc.Cleanup.RegisterCleanable(mp)
+	return nil
 }
 
 func check(err error, msg string) {
