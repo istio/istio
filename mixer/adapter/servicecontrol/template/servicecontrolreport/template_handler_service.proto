@@ -19,12 +19,9 @@ syntax = "proto3";
 
 // The `servicecontrolreport` template is used by the [Google Service Control](https://istio.io/docs/reference/config/adapters/servicecontrol.html)
 // adapter.
-//
-// A template used by Google Service Control (servicecontrol) adapter. The adapter
-// generates metrics and logentry for each request based on the data point
-// defined by this template.
 // 
-// Config example:
+// Example config:
+// 
 // ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
 // kind: servicecontrolreport
@@ -46,6 +43,10 @@ syntax = "proto3";
 //   response_bytes : response.size | 0
 //   response_latency : response.duration | "0ms"
 // ```
+//
+// A template used by Google Service Control (servicecontrol) adapter. The adapter
+// generates metrics and logentry for each request based on the data point
+// defined by this template.
 package servicecontrolreport;
 
 

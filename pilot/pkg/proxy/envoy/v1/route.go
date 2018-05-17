@@ -101,13 +101,13 @@ func BuildInboundCluster(port int, protocol model.Protocol, timeout *duration.Du
 		Hosts:            []Host{{URL: fmt.Sprintf("tcp://%s:%d", "127.0.0.1", port)}},
 	}
 	if protocol == model.ProtocolGRPC || protocol == model.ProtocolHTTP2 {
-		cluster.Features = ClusterFeatureHTTP2
+		cluster.MakeHTTP2()
 	}
 	return cluster
 }
 
 // BuildOutboundCluster builds an outbound cluster.
-func BuildOutboundCluster(hostname string, port *model.Port, labels model.Labels, isExternal bool) *Cluster {
+func BuildOutboundCluster(hostname model.Hostname, port *model.Port, labels model.Labels, isExternal bool) *Cluster {
 	svc := model.Service{Hostname: hostname}
 	key := svc.Key(port, labels)
 	name := TruncateClusterName(OutboundClusterPrefix + key)
@@ -129,13 +129,13 @@ func BuildOutboundCluster(hostname string, port *model.Port, labels model.Labels
 		LbType:      DefaultLbType,
 		Hosts:       hosts,
 		outbound:    !isExternal, // outbound means outbound-in-mesh. The name to be refactored later.
-		Hostname:    hostname,
+		Hostname:    hostname.String(),
 		Port:        port,
 		labels:      labels,
 	}
 
 	if port.Protocol == model.ProtocolGRPC || port.Protocol == model.ProtocolHTTP2 {
-		cluster.Features = ClusterFeatureHTTP2
+		cluster.MakeHTTP2()
 	}
 	return cluster
 }
@@ -193,7 +193,7 @@ func BuildHTTPRoute(config model.Config, service *model.Service, port *model.Por
 		cluster := BuildOutboundCluster(destination, port, nil, service.External())
 		route.Cluster = cluster.Name
 
-		v2clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", destination, port)
+		v2clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", destination, port.Port)
 		if envoyv2 {
 			route.Cluster = v2clusterName
 		}
@@ -317,7 +317,7 @@ func buildZipkinTracing() *Tracing {
 func BuildVirtualHost(svc *model.Service, port *model.Port, suffix []string, routes []*HTTPRoute) *VirtualHost {
 	hosts := make([]string, 0)
 	domains := make([]string, 0)
-	parts := strings.Split(svc.Hostname, ".")
+	parts := strings.Split(svc.Hostname.String(), ".")
 	shared := sharedHost(suffix, parts)
 
 	// if shared is "svc.cluster.local", then we can add "name.namespace", "name.namespace.svc", etc

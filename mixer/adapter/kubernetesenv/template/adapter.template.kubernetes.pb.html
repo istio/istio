@@ -1,12 +1,40 @@
 ---
 title: Kubernetes
-overview: A template that is used to control the production of Kubernetes-specific attributes.
-location: https://istio.io/docs/reference/config/template/kubernetes.html
+description: A template that is used to control the production of Kubernetes-specific attributes.
+location: https://istio.io/docs/reference/config/policy-and-telemetry/templates/kubernetes.html
 layout: protoc-gen-docs
 number_of_entries: 3
 ---
 <p>The <code>kubernetes</code> template holds data that controls the production of Kubernetes-specific
 attributes.</p>
+
+<p>Example config:</p>
+
+<pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha2&quot;
+kind: kubernetes
+metadata:
+  name: attributes
+  namespace: istio-system
+spec:
+  # Pass the required attribute data to the adapter
+  source_uid: source.uid | &quot;&quot;
+  source_ip: source.ip | ip(&quot;0.0.0.0&quot;) # default to unspecified ip addr
+  destination_uid: destination.uid | &quot;&quot;
+  destination_ip: destination.ip | ip(&quot;0.0.0.0&quot;) # default to unspecified ip addr
+  attribute_bindings:
+    # Fill the new attributes from the adapter produced output.
+    # $out refers to an instance of OutputTemplate message
+    source.ip: $out.source_pod_ip
+    source.labels: $out.source_labels
+    source.namespace: $out.source_namespace
+    source.service: $out.source_service
+    source.serviceAccount: $out.source_service_account_name
+    destination.ip: $out.destination_pod_ip
+    destination.labels: $out.destination_labels
+    destination.namespace: $out.destination_mamespace
+    destination.service: $out.destination_service
+    destination.serviceAccount: $out.destination_service_account_name
+</code></pre>
 
 <h2 id="OutputTemplate">OutputTemplate</h2>
 <section>
@@ -200,34 +228,6 @@ to assign values to the generated attributes using the <code>$out.&lt;field name
 <p>The values provided controls the manner in which the kubernetesenv adapter discovers and
 generates values related to pod information.</p>
 
-<p>Example config:</p>
-
-<pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha2&quot;
-kind: kubernetes
-metadata:
-  name: attributes
-  namespace: istio-system
-spec:
-  # Pass the required attribute data to the adapter
-  source_uid: source.uid | &quot;&quot;
-  source_ip: source.ip | ip(&quot;0.0.0.0&quot;) # default to unspecified ip addr
-  destination_uid: destination.uid | &quot;&quot;
-  destination_ip: destination.ip | ip(&quot;0.0.0.0&quot;) # default to unspecified ip addr
-  attribute_bindings:
-    # Fill the new attributes from the adapter produced output.
-    # $out refers to an instance of OutputTemplate message
-    source.ip: $out.source_pod_ip
-    source.labels: $out.source_labels
-    source.namespace: $out.source_namespace
-    source.service: $out.source_service
-    source.serviceAccount: $out.source_service_account_name
-    destination.ip: $out.destination_pod_ip
-    destination.labels: $out.destination_labels
-    destination.namespace: $out.destination_mamespace
-    destination.service: $out.destination_service
-    destination.serviceAccount: $out.destination_service_account_name
-</code></pre>
-
 <table class="message-fields">
 <thead>
 <tr>
@@ -292,4 +292,23 @@ spec:
 <section>
 <p>IPAddress is used inside templates for fields that are of ValueType &ldquo;IP_ADDRESS&rdquo;</p>
 
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="istio.mixer.adapter.model.v1beta1.IPAddress.value">
+<td><code>value</code></td>
+<td><code>bytes</code></td>
+<td>
+<p>IPAddress encoded as bytes.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
 </section>

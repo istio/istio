@@ -38,7 +38,7 @@ import (
 func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller) {
 	// For debugging and load testing v2 we add an memory registry.
 	s.MemRegistry = NewMemServiceDiscovery(
-		map[string]*model.Service{ // mock.HelloService.Hostname: mock.HelloService,
+		map[model.Hostname]*model.Service{ // mock.HelloService.Hostname: mock.HelloService,
 		}, 2)
 
 	sctl.AddRegistry(aggregate.Registry{
@@ -59,7 +59,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 }
 
 // NewMemServiceDiscovery builds an in-memory MemServiceDiscovery
-func NewMemServiceDiscovery(services map[string]*model.Service, versions int) *MemServiceDiscovery {
+func NewMemServiceDiscovery(services map[model.Hostname]*model.Service, versions int) *MemServiceDiscovery {
 	return &MemServiceDiscovery{
 		services:    services,
 		versions:    versions,
@@ -91,7 +91,7 @@ func (c *memServiceController) Run(<-chan struct{}) {}
 
 // MemServiceDiscovery is a mock discovery interface
 type MemServiceDiscovery struct {
-	services map[string]*model.Service
+	services map[model.Hostname]*model.Service
 	// Endpoints table. Key is the fqdn of the service, ':', port
 	instances                     map[string][]*model.ServiceInstance
 	ip2instance                   map[string][]*model.ServiceInstance
@@ -116,7 +116,7 @@ func (sd *MemServiceDiscovery) ClearErrors() {
 }
 
 // AddService adds an in-memory service.
-func (sd *MemServiceDiscovery) AddService(name string, svc *model.Service) {
+func (sd *MemServiceDiscovery) AddService(name model.Hostname, svc *model.Service) {
 	sd.mutex.Lock()
 	sd.services[name] = svc
 	sd.mutex.Unlock()
@@ -124,7 +124,7 @@ func (sd *MemServiceDiscovery) AddService(name string, svc *model.Service) {
 }
 
 // AddInstance adds an in-memory instance.
-func (sd *MemServiceDiscovery) AddInstance(service string, instance *model.ServiceInstance) {
+func (sd *MemServiceDiscovery) AddInstance(service model.Hostname, instance *model.ServiceInstance) {
 	// WIP: add enough code to allow tests and load tests to work
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
@@ -135,7 +135,7 @@ func (sd *MemServiceDiscovery) AddInstance(service string, instance *model.Servi
 	instance.Service = svc
 	sd.ip2instance[instance.Endpoint.Address] = []*model.ServiceInstance{instance}
 
-	key := fmt.Sprintf("%s:%s", service, instance.Endpoint.ServicePort.Name)
+	key := fmt.Sprintf("%s:%d", service, instance.Endpoint.ServicePort.Port)
 	instanceList := sd.instances[key]
 	if instanceList == nil {
 		instanceList = []*model.ServiceInstance{instance}
@@ -146,7 +146,7 @@ func (sd *MemServiceDiscovery) AddInstance(service string, instance *model.Servi
 }
 
 // AddEndpoint adds an endpoint to a service.
-func (sd *MemServiceDiscovery) AddEndpoint(service, servicePortName string, servicePort int, address string, port int) *model.ServiceInstance {
+func (sd *MemServiceDiscovery) AddEndpoint(service model.Hostname, servicePortName string, servicePort int, address string, port int) *model.ServiceInstance {
 	instance := &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
 			Address: address,
@@ -178,7 +178,7 @@ func (sd *MemServiceDiscovery) Services() ([]*model.Service, error) {
 }
 
 // GetService implements discovery interface
-func (sd *MemServiceDiscovery) GetService(hostname string) (*model.Service, error) {
+func (sd *MemServiceDiscovery) GetService(hostname model.Hostname) (*model.Service, error) {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
 	if sd.GetServiceError != nil {
@@ -190,7 +190,7 @@ func (sd *MemServiceDiscovery) GetService(hostname string) (*model.Service, erro
 
 // Instances filters the service instances by labels. This assumes single port, as is
 // used by EDS/ADS.
-func (sd *MemServiceDiscovery) Instances(hostname string, ports []string,
+func (sd *MemServiceDiscovery) Instances(hostname model.Hostname, ports []string,
 	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
@@ -201,7 +201,24 @@ func (sd *MemServiceDiscovery) Instances(hostname string, ports []string,
 		log.Warna("Unexpected ports ", ports)
 		return nil, nil
 	}
-	key := hostname + ":" + ports[0]
+	key := hostname.String() + ":" + ports[0]
+	instances, ok := sd.instances[key]
+	if !ok {
+		return nil, nil
+	}
+	return instances, nil
+}
+
+// InstancesByPort filters the service instances by labels. This assumes single port, as is
+// used by EDS/ADS.
+func (sd *MemServiceDiscovery) InstancesByPort(hostname model.Hostname, port int,
+	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
+	sd.mutex.Lock()
+	defer sd.mutex.Unlock()
+	if sd.InstancesError != nil {
+		return nil, sd.InstancesError
+	}
+	key := fmt.Sprintf("%s:%d", hostname.String(), port)
 	instances, ok := sd.instances[key]
 	if !ok {
 		return nil, nil
@@ -244,7 +261,7 @@ func (sd *MemServiceDiscovery) ManagementPorts(addr string) model.PortList {
 }
 
 // GetIstioServiceAccounts gets the Istio service accounts for a service hostname.
-func (sd *MemServiceDiscovery) GetIstioServiceAccounts(hostname string, ports []string) []string {
+func (sd *MemServiceDiscovery) GetIstioServiceAccounts(hostname model.Hostname, ports []string) []string {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
 	if hostname == "world.default.svc.cluster.local" {
@@ -260,6 +277,7 @@ func (sd *MemServiceDiscovery) GetIstioServiceAccounts(hostname string, ports []
 // Can be combined with the push debug interface to reproduce changes.
 func (s *DiscoveryServer) registryz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
+	w.Header().Add("Content-Type", "application/json")
 	svcName := req.Form.Get("svc")
 	if svcName != "" {
 		data, err := ioutil.ReadAll(req.Body)
@@ -271,25 +289,29 @@ func (s *DiscoveryServer) registryz(w http.ResponseWriter, req *http.Request) {
 		if err != nil {
 			return
 		}
-		s.MemRegistry.AddService(svcName, svc)
+		s.MemRegistry.AddService(model.Hostname(svcName), svc)
 	}
 
 	all, err := s.env.ServiceDiscovery.Services()
 	if err != nil {
 		return
 	}
+	fmt.Fprintln(w, "[")
 	for _, svc := range all {
 		b, err := json.MarshalIndent(svc, "", "  ")
 		if err != nil {
 			return
 		}
 		_, _ = w.Write(b)
+		fmt.Fprintln(w, ",")
 	}
+	fmt.Fprintln(w, "{}]")
 }
 
 // Endpoint debugging
 func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
+	w.Header().Add("Content-Type", "application/json")
 	svcName := req.Form.Get("svc")
 	if svcName != "" {
 		data, err := ioutil.ReadAll(req.Body)
@@ -301,21 +323,21 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 		if err != nil {
 			return
 		}
-		s.MemRegistry.AddInstance(svcName, svc)
+		s.MemRegistry.AddInstance(model.Hostname(svcName), svc)
 	}
 	brief := req.Form.Get("brief")
 	if brief != "" {
 		svc, _ := s.env.ServiceDiscovery.Services()
 		for _, ss := range svc {
 			for _, p := range ss.Ports {
-				all, err := s.env.ServiceDiscovery.Instances(ss.Hostname, []string{p.Name}, nil)
+				all, err := s.env.ServiceDiscovery.InstancesByPort(ss.Hostname, p.Port, nil)
 				if err != nil {
 					return
 				}
 				for _, svc := range all {
 					fmt.Fprintf(w, "%s:%s %s:%d %v %v %s\n", ss.Hostname,
 						p.Name, svc.Endpoint.Address, svc.Endpoint.Port, svc.Labels,
-						svc.AvailabilityZone, svc.ServiceAccount)
+						svc.GetAZ(), svc.ServiceAccount)
 				}
 			}
 		}
@@ -326,7 +348,7 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprint(w, "[\n")
 	for _, ss := range svc {
 		for _, p := range ss.Ports {
-			all, err := s.env.ServiceDiscovery.Instances(ss.Hostname, []string{p.Name}, nil)
+			all, err := s.env.ServiceDiscovery.InstancesByPort(ss.Hostname, p.Port, nil)
 			if err != nil {
 				return
 			}
@@ -339,7 +361,7 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 				_, _ = w.Write(b)
 				fmt.Fprint(w, ",\n")
 			}
-			fmt.Fprint(w, "\n{}],")
+			fmt.Fprint(w, "\n{}]},")
 		}
 	}
 	fmt.Fprint(w, "\n{}]\n")
@@ -347,6 +369,7 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 
 // Config debugging.
 func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
+	w.Header().Add("Content-Type", "application/json")
 	fmt.Fprintf(w, "\n[\n")
 	for _, typ := range s.env.IstioConfigStore.ConfigDescriptor() {
 		cfg, _ := s.env.IstioConfigStore.List(typ.Type, "")
@@ -366,6 +389,7 @@ func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 // It is mapped to /debug/adsz
 func adsz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
+	w.Header().Add("Content-Type", "application/json")
 	if req.Form.Get("debug") != "" {
 		adsDebug = req.Form.Get("debug") == "1"
 		return
@@ -440,12 +464,15 @@ func edsz(w http.ResponseWriter, req *http.Request) {
 		edsDebug = req.Form.Get("debug") == "1"
 		return
 	}
+	w.Header().Add("Content-Type", "application/json")
+
 	if req.Form.Get("push") != "" {
-		edsPushAll()
+		PushAll()
 	}
 
 	edsClusterMutex.Lock()
 	comma := false
+	fmt.Fprintln(w, "[")
 	for _, eds := range edsClusters {
 		if comma {
 			fmt.Fprint(w, ",\n")
@@ -458,6 +485,7 @@ func edsz(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 	}
+	fmt.Fprintln(w, "]")
 	edsClusterMutex.Unlock()
 }
 
@@ -465,6 +493,8 @@ func edsz(w http.ResponseWriter, req *http.Request) {
 // It is mapped to /debug/cdsz
 func cdsz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
+	w.Header().Add("Content-Type", "application/json")
+
 	adsClientsMutex.RLock()
 
 	fmt.Fprint(w, "[\n")
