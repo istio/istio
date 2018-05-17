@@ -45,6 +45,7 @@ type Controller struct {
 
 // NewController creates a new Aggregate controller
 func NewController() *Controller {
+	log.Infof("><SB> Aggregate Controller NewController was called")
 	return &Controller{
 		registries: make([]Registry, 0),
 	}
@@ -52,20 +53,21 @@ func NewController() *Controller {
 
 // AddRegistry adds registries into the aggregated controller
 func (c *Controller) AddRegistry(registry Registry) {
+	log.Infof("><SB> Aggregate Controller add registry")
 	c.storeLock.Lock()
 	defer c.storeLock.Unlock()
 	c.registries = append(c.registries, registry)
 }
 
 // DeleteRegistry deletes specified registry from the aggregated controller
-func (c *Controller) DeleteRegistry(registry Registry) {
+func (c *Controller) DeleteRegistry(clusterID string) {
 	c.storeLock.Lock()
 	defer c.storeLock.Unlock()
 	if len(c.registries) == 0 {
 		log.Warnf("Registry list is empty, nothing to delete")
 		return
 	}
-	index, ok := c.GetRegistryIndex(registry)
+	index, ok := c.GetRegistryIndex(clusterID)
 	if !ok {
 		log.Warnf("Registry is not found in the registries list, nothing to delete")
 		return
@@ -73,33 +75,20 @@ func (c *Controller) DeleteRegistry(registry Registry) {
 	c.registries = append(c.registries[:index], c.registries[index+1:]...)
 }
 
-// RegistryElement is used to send Registry over a channel
-type RegistryElement struct {
-	index int
-	Registry
-}
+// GetRegistries returns a copy of all registries
+func (c *Controller) GetRegistries() []Registry {
+	c.storeLock.Lock()
+	defer c.storeLock.Unlock()
 
-// GetRegistry returns Registry element in a protected maner
-func (c *Controller) GetRegistry() <-chan RegistryElement {
-	ch := make(chan RegistryElement)
-
-	f := func() {
-		c.storeLock.Lock()
-		defer c.storeLock.Unlock()
-		for index, value := range c.registries {
-			ch <- RegistryElement{index, value}
-		}
-		close(ch)
-	}
-	go f()
-
-	return ch
+	registries := make([]Registry, len(c.registries))
+	copy(registries, c.registries)
+	return registries
 }
 
 // GetRegistryIndex returns the index of a registry
-func (c *Controller) GetRegistryIndex(registry Registry) (int, bool) {
+func (c *Controller) GetRegistryIndex(clusterID string) (int, bool) {
 	for i, r := range c.registries {
-		if r.ClusterID == registry.ClusterID {
+		if r.ClusterID == clusterID {
 			return i, true
 		}
 	}
@@ -108,6 +97,7 @@ func (c *Controller) GetRegistryIndex(registry Registry) (int, bool) {
 
 // Services lists services from all platforms
 func (c *Controller) Services() ([]*model.Service, error) {
+	log.Infof("><SB> Aggregate Controller's Services method was called")
 	// smap is a map of hostname (string) to service, used to identify services that
 	// are installed in multiple clusters.
 	smap := make(map[model.Hostname]*model.Service)
@@ -115,7 +105,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 	services := make([]*model.Service, 0)
 	var errs error
 	// Locking Registries list while walking it to prevent inconsistent results
-	for r := range c.GetRegistry() {
+	for _, r := range c.GetRegistries() {
 		svcs, err := r.Services()
 		if err != nil {
 			errs = multierror.Append(errs, err)
@@ -155,8 +145,9 @@ func (c *Controller) Services() ([]*model.Service, error) {
 
 // GetService retrieves a service by hostname if exists
 func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error) {
+	log.Infof("><SB> Aggregate Controller's GetService called")
 	var errs error
-	for r := range c.GetRegistry() {
+	for _, r := range c.GetRegistries() {
 		service, err := r.GetService(hostname)
 		if err != nil {
 			errs = multierror.Append(errs, err)
@@ -174,7 +165,8 @@ func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error)
 // ManagementPorts retrieves set of health check ports by instance IP
 // Return on the first hit.
 func (c *Controller) ManagementPorts(addr string) model.PortList {
-	for r := range c.GetRegistry() {
+	log.Infof("><SB> Aggregate Controller's ManagementPorts called")
+	for _, r := range c.GetRegistries() {
 		if portList := r.ManagementPorts(addr); portList != nil {
 			return portList
 		}
@@ -186,9 +178,10 @@ func (c *Controller) ManagementPorts(addr string) model.PortList {
 // any of the supplied labels. All instances match an empty label list.
 func (c *Controller) Instances(hostname model.Hostname, ports []string,
 	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
+	log.Infof("><SB> Aggregate Controller's Instances called")
 	var instances, tmpInstances []*model.ServiceInstance
 	var errs error
-	for r := range c.GetRegistry() {
+	for _, r := range c.GetRegistries() {
 		var err error
 		tmpInstances, err = r.Instances(hostname, ports, labels)
 		if err != nil {
@@ -210,9 +203,10 @@ func (c *Controller) Instances(hostname model.Hostname, ports []string,
 // any of the supplied labels. All instances match an empty label list.
 func (c *Controller) InstancesByPort(hostname model.Hostname, port int,
 	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
+	log.Infof("><SB> Aggregate Controller's InstancesByPort called")
 	var instances, tmpInstances []*model.ServiceInstance
 	var errs error
-	for r := range c.GetRegistry() {
+	for _, r := range c.GetRegistries() {
 		var err error
 		tmpInstances, err = r.InstancesByPort(hostname, port, labels)
 		if err != nil {
@@ -232,11 +226,12 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, port int,
 
 // GetProxyServiceInstances lists service instances co-located with a given proxy
 func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.ServiceInstance, error) {
+	log.Infof("><SB> Aggregate Controller's GetProxyServiceInstances called")
 	out := make([]*model.ServiceInstance, 0)
 	var errs error
 	// It doesn't make sense for a single proxy to be found in more than one registry.
 	// TODO: if otherwise, warning or else what to do about it.
-	for r := range c.GetRegistry() {
+	for _, r := range c.GetRegistries() {
 		instances, err := r.GetProxyServiceInstances(node)
 		if err != nil {
 			errs = multierror.Append(errs, err)
@@ -259,8 +254,8 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.Servi
 
 // Run starts all the controllers
 func (c *Controller) Run(stop <-chan struct{}) {
-
-	for r := range c.GetRegistry() {
+	log.Infof("><SB> Aggregate Controller started")
+	for _, r := range c.GetRegistries() {
 		go r.Run(stop)
 	}
 
@@ -270,7 +265,8 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 // AppendServiceHandler implements a service catalog operation
 func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) error {
-	for r := range c.GetRegistry() {
+	log.Infof("><SB> Aggregate Controller's AppendServiceHandler called")
+	for _, r := range c.GetRegistries() {
 		if err := r.AppendServiceHandler(f); err != nil {
 			log.Infof("Fail to append service handler to adapter %s", r.Name)
 			return err
@@ -281,7 +277,8 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 
 // AppendInstanceHandler implements a service instance catalog operation
 func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
-	for r := range c.GetRegistry() {
+	log.Infof("><SB> Aggregate Controller's AppendInstanceHandler called")
+	for _, r := range c.GetRegistries() {
 		if err := r.AppendInstanceHandler(f); err != nil {
 			log.Infof("Fail to append instance handler to adapter %s", r.Name)
 			return err
@@ -292,7 +289,8 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 
 // GetIstioServiceAccounts implements model.ServiceAccounts operation
 func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []string) []string {
-	for r := range c.GetRegistry() {
+	log.Infof("><SB> Aggregate Controller's  GetIstioServiceAccounts called")
+	for _, r := range c.GetRegistries() {
 		if svcAccounts := r.GetIstioServiceAccounts(hostname, ports); svcAccounts != nil {
 			return svcAccounts
 		}

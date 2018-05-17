@@ -210,6 +210,7 @@ func (c *Controller) HasSynced() bool {
 
 // Run all controllers until a signal is received
 func (c *Controller) Run(stop <-chan struct{}) {
+	log.Infof("><SB> Q/S/E/P/N controller started")
 	go c.queue.Run(stop)
 	go c.services.informer.Run(stop)
 	go c.endpoints.informer.Run(stop)
@@ -222,6 +223,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 // Services implements a service catalog operation
 func (c *Controller) Services() ([]*model.Service, error) {
+	log.Infof("><SB> Q/S/E/P/N controller's Services method was called")
 	list := c.services.informer.GetStore().List()
 	out := make([]*model.Service, 0, len(list))
 
@@ -235,6 +237,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 
 // GetService implements a service catalog operation
 func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error) {
+	log.Infof("><SB> Q/S/E/P/N controller's GetServices method was called")
 	name, namespace, err := parseHostname(hostname)
 	if err != nil {
 		log.Infof("GetService(%s) => error %v", hostname, err)
@@ -290,6 +293,7 @@ func (c *Controller) GetPodAZ(pod *v1.Pod) (string, bool) {
 
 // ManagementPorts implements a service catalog operation
 func (c *Controller) ManagementPorts(addr string) model.PortList {
+	log.Infof("><SB> Q/S/E/P/N controller's ManagementPorts method was called")
 	pod, exists := c.pods.getPodByIP(addr)
 	if !exists {
 		return nil
@@ -309,6 +313,7 @@ func (c *Controller) ManagementPorts(addr string) model.PortList {
 // Instances implements a service catalog operation
 func (c *Controller) Instances(hostname model.Hostname, ports []string,
 	labelsList model.LabelsCollection) ([]*model.ServiceInstance, error) {
+	log.Infof("><SB> Q/S/E/P/N controller's Instances method was called")
 	// Get actual service by name
 	name, namespace, err := parseHostname(hostname)
 	if err != nil {
@@ -380,6 +385,7 @@ func (c *Controller) Instances(hostname model.Hostname, ports []string,
 // InstancesByPort implements a service catalog operation
 func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 	labelsList model.LabelsCollection) ([]*model.ServiceInstance, error) {
+	log.Infof("><SB> Q/S/E/P/N controller's InstancesByPort method was called")
 	// Get actual service by name
 	name, namespace, err := parseHostname(hostname)
 	if err != nil {
@@ -451,6 +457,7 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 
 // GetProxyServiceInstances returns service instances co-located with a given proxy
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
+	log.Infof("><SB> Q/S/E/P/N controller's GetProxyServiceInstances method was called")
 	var out []*model.ServiceInstance
 	kubeNodes := make(map[string]*kubeServiceNode)
 	for _, item := range c.endpoints.informer.GetStore().List() {
@@ -520,6 +527,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 // For example, a service account named "bar" in namespace "foo" is encoded as
 // "spiffe://cluster.local/ns/foo/sa/bar".
 func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []string) []string {
+	log.Infof("><SB> Q/S/E/P/N controller's GetIstioServiceAccounts method was called")
 	saSet := make(map[string]bool)
 
 	// Get the service accounts running service within Kubernetes. This is reflected by the pods that
@@ -561,6 +569,7 @@ func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []st
 
 // AppendServiceHandler implements a service catalog operation
 func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) error {
+	log.Infof("><SB> Q/S/E/P/N controller's AppendServiceHandler method was called")
 	c.services.handler.Append(func(obj interface{}, event model.Event) error {
 		svc := *obj.(*v1.Service)
 
@@ -581,6 +590,7 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 
 // AppendInstanceHandler implements a service catalog operation
 func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
+	log.Infof("><SB> Q/S/E/P/N controller's AppendInstanceHandler method was called")
 	c.endpoints.handler.Append(func(obj interface{}, event model.Event) error {
 		ep := *obj.(*v1.Endpoints)
 

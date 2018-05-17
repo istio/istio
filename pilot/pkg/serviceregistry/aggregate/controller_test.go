@@ -18,7 +18,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"sync"
 	"testing"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -27,9 +26,7 @@ import (
 )
 
 // MockController specifies a mock Controller for testing
-type MockController struct {
-	storeLock sync.RWMutex
-}
+type MockController struct{}
 
 func (c *MockController) AppendServiceHandler(f func(*model.Service, model.Event)) error {
 	return nil
@@ -506,8 +503,35 @@ func TestDeleteRegistry(t *testing.T) {
 	for _, r := range registries {
 		ctrl.AddRegistry(r)
 	}
-	ctrl.DeleteRegistry(registries[0])
+	ctrl.DeleteRegistry(registries[0].ClusterID)
 	if l := len(ctrl.registries); l != 1 {
 		t.Fatalf("Expected length of the registries slice should be 1, got %d", l)
+	}
+}
+
+func TestGetRegistries(t *testing.T) {
+	registries := []Registry{
+		{
+			Name:      "registry1",
+			ClusterID: "cluster1",
+		},
+		{
+			Name:      "registry2",
+			ClusterID: "cluster2",
+		},
+	}
+	ctrl := NewController()
+	for _, r := range registries {
+		ctrl.AddRegistry(r)
+	}
+	result := ctrl.GetRegistries()
+	if len(ctrl.registries) != len(result) {
+		t.Fatal("Length of the original registries slice does not match to returned by GetRegistries.")
+	}
+
+	for i := range result {
+		if !reflect.DeepEqual(result[i], ctrl.registries[i]) {
+			t.Fatal("The original registries slice and resulting slice supposed to be identical.")
+		}
 	}
 }
