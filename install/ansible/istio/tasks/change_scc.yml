@@ -7,3 +7,4 @@
     - istio-pilot-service-account
     - istio-mixer-service-account
     - istio-ca-service-account
+    - istio-sidecar-injector-service-account

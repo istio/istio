@@ -1,0 +1,44 @@
+- block:
+    - name: Replace kubectl with oc
+      replace:
+        path: "{{ istio_dir }}/install/kubernetes/{{ item }}"
+        regexp: kubectl
+        replace: oc
+      with_items:
+        - webhook-create-signed-cert.sh
+        - webhook-patch-ca-bundle.sh
+    - name: Replace oc certificate with oc adm certificate
+      replace:
+        path: "{{ istio_dir }}/install/kubernetes/{{ item }}"
+        regexp: oc certificate
+        replace: oc adm certificate
+      with_items:
+        - webhook-create-signed-cert.sh
+        - webhook-patch-ca-bundle.sh
+  when:
+    - cluster_flavour == 'ocp'
+    - istio_version_to_use < minimum_istio_version_for_webhook_certificates
+
+
+- block:
+    - name: Create signed certificate
+      shell: "{{ istio_dir }}/install/kubernetes/webhook-create-signed-cert.sh --service istio-sidecar-injector --namespace istio-system --secret sidecar-injector-certs"
+
+    - name: Install the sidecar injection configmap
+      shell: "{{ cmd_path }} apply -f {{ istio_dir }}/install/kubernetes/istio-sidecar-injector-configmap-release.yaml"
+
+    - name: Set caBundle in the webhook install YAML
+      shell: "cat {{ istio_dir }}/install/kubernetes/istio-sidecar-injector.yaml | {{ istio_dir }}/install/kubernetes/webhook-patch-ca-bundle.sh > {{ istio_dir }}/install/kubernetes/istio-sidecar-injector-with-ca-bundle.yaml"
+
+    - name: Install the sidecar injector webhook
+      shell: "{{ cmd_path }} apply -f {{ istio_dir }}/install/kubernetes/istio-sidecar-injector-with-ca-bundle.yaml"
+  when: istio_version_to_use < minimum_istio_version_for_webhook_certificates
+
+- block:
+    - name: Install the sidecar injection configmap
+      shell: "{{ cmd_path }} apply -f {{ istio_dir }}/install/kubernetes/istio-sidecar-injector-configmap-release.yaml"
+
+    - name: Install the sidecar injector webhook
+      shell: "{{ cmd_path }} apply -f {{ istio_dir }}/install/kubernetes/istio-sidecar.yaml"
+  when: istio_version_to_use >= minimum_istio_version_for_webhook_certificates
+
