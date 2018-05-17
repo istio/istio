@@ -75,25 +75,5 @@ items:
     clusterIP: None
     selector:
       app: jaeger
-- apiVersion: v1
-  kind: Service
-  metadata:
-    name: tracing
-    namespace: {{ .Release.Namespace }}
-    labels:
-      app: jaeger
-      jaeger-infra: jaeger-service
-      chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-      release: {{ .Release.Name }}
-      heritage: {{ .Release.Service }}
-  spec:
-    ports:
-      - name: query-http
-        port: 80
-        protocol: TCP
-        targetPort: {{ .Values.service.uiPort }}
-    selector:
-      app: jaeger
-    type: LoadBalancer
 {{ end }}
 
