@@ -372,7 +372,7 @@ ${ISTIO_OUT}/archive: istioctl-all LICENSE README.md install/updateVersion.sh re
 	cp README.md ${ISTIO_OUT}/archive
 	cp -r tools ${ISTIO_OUT}/archive
 	cp bin/dump_kubernetes.sh ${ISTIO_OUT}/archive
-	install/updateVersion.sh -a "$(ISTIO_DOCKER_HUB),$(VERSION)" \
+	ISTIO_RELEASE=1 install/updateVersion.sh -a "$(ISTIO_DOCKER_HUB),$(VERSION)" \
 		-P "$(ISTIO_URL)/deb" \
 		-d "${ISTIO_OUT}/archive"
 	release/create_release_archives.sh -v "$(VERSION)" -o "${ISTIO_OUT}/archive"
@@ -640,9 +640,6 @@ generate_yaml-envoyv2_transition_loadbalancer_ingressgateway: $(HELM)
 		--set ingress.enabled=false \
 		--set global.mtls.enabled=true \
 		install/kubernetes/helm/istio >> install/kubernetes/istio-auth.yaml
-
-deploy/all: $(HELM) istio-all.yaml
-	kubectl apply -n istio-system -f install/kubernetes/istio-all.yaml
 
 # Generate the install files, using istioctl.
 # TODO: make sure they match, pass all tests.

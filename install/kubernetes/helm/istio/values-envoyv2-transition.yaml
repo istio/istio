@@ -16,10 +16,6 @@ ingress:
   meshExpansion:
     enabled: false
 
-# Any customization for istio testing should be here
-istiotesting:
-  oneNameSpace: false
-
 zipkin:
   enabled: true
 
