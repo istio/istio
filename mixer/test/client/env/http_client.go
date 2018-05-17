@@ -17,13 +17,14 @@ package env
 import (
 	"fmt"
 	"io/ioutil"
-	"istio.io/fortio/fhttp"
 	"log"
 	"net"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	"istio.io/fortio/fhttp"
 )
 
 // HTTP client time out in second.
