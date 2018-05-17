@@ -227,6 +227,9 @@ func NewServer(args PilotArgs) (*Server, error) {
 	if err := s.initMonitor(&args); err != nil {
 		return nil, err
 	}
+	if err := s.initMultiClusterController(&args); err != nil {
+		return nil, err
+	}
 
 	return s, nil
 }
@@ -290,8 +293,6 @@ func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 	if s.clusterStore != nil {
 		log.Infof("clusters configuration %s", spew.Sdump(s.clusterStore))
 	}
-	// Start secret controller which watches for runtime secret Object changes and adds secrets dynamically
-	err = clusterregistry.StartSecretController(s.kubeClient, s.clusterStore, args.Config.ClusterRegistriesNamespace)
 
 	return err
 }
@@ -300,6 +301,17 @@ func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 func checkForMock(registries []string) bool {
 	for _, r := range registries {
 		if strings.ToLower(r) == "mock" {
+			return true
+		}
+	}
+
+	return false
+}
+
+// Check if Kubernetes registry exists in PilotArgs's Registries
+func checkForKubernetes(registries []string) bool {
+	for _, r := range registries {
+		if strings.ToLower(r) == "kubernetes" {
 			return true
 		}
 	}
@@ -526,41 +538,59 @@ func (s *Server) makeCopilotMonitor(args *PilotArgs, configController model.Conf
 }
 
 // createK8sServiceControllers creates all the k8s service controllers under this pilot
-func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Controller, args *PilotArgs) (err error) {
-	clusterID := string(serviceregistry.KubernetesRegistry)
-	log.Infof("Primary Cluster name: %s", clusterID)
-	kubectl := kube.NewController(s.kubeClient, args.Config.ControllerOptions)
-	serviceControllers.AddRegistry(
-		aggregate.Registry{
-			Name:             serviceregistry.ServiceRegistry(serviceregistry.KubernetesRegistry),
-			ClusterID:        clusterID,
-			ServiceDiscovery: kubectl,
-			ServiceAccounts:  kubectl,
-			Controller:       kubectl,
-		})
+// func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Controller, args *PilotArgs) (err error) {
+//	clusterID := string(serviceregistry.KubernetesRegistry)
+//	log.Infof("Primary Cluster name: %s", clusterID)
+//	kubectl := kube.NewController(s.kubeClient, args.Config.ControllerOptions)
+//	serviceControllers.AddRegistry(
+//		aggregate.Registry{
+//			Name:             serviceregistry.ServiceRegistry(serviceregistry.KubernetesRegistry),
+//			ClusterID:        clusterID,
+//			ServiceDiscovery: kubectl,
+//			ServiceAccounts:  kubectl,
+//			Controller:       kubectl,
+//		})
 
-	// Add clusters under the same pilot
-	if s.clusterStore != nil {
-		clusters := s.clusterStore.GetPilotClusters()
-		clientAccessConfigs := s.clusterStore.GetClientAccessConfigs()
-		for _, cluster := range clusters {
-			log.Infof("Cluster name: %s", clusterregistry.GetClusterID(cluster))
-			clusterClient := clientAccessConfigs[cluster.ObjectMeta.Name]
-			client, kuberr := kube.CreateInterfaceFromClusterConfig(&clusterClient)
-			if kuberr != nil {
-				err = multierror.Append(err, multierror.Prefix(kuberr, fmt.Sprintf("failed to connect to Access API with access config: %s", cluster.ObjectMeta.Name)))
-			}
+// Add clusters under the same pilot
+//	if s.clusterStore != nil {
+//		clusters := s.clusterStore.GetPilotClusters()
+//		clientAccessConfigs := s.clusterStore.GetClientAccessConfigs()
+//		for _, cluster := range clusters {
+//			log.Infof("Cluster name: %s", clusterregistry.GetClusterID(cluster))
+//			clusterClient := clientAccessConfigs[cluster.ObjectMeta.Name]
+//			client, kuberr := kube.CreateInterfaceFromClusterConfig(&clusterClient)
+//			if kuberr != nil {
+//				err = multierror.Append(err, multierror.Prefix(kuberr, fmt.Sprintf("failed to connect to Access API with access config: %s", cluster.ObjectMeta.Name)))
+//			}
+//
+//			kubectl := kube.NewController(client, args.Config.ControllerOptions)
+//			serviceControllers.AddRegistry(
+//				aggregate.Registry{
+//					Name:             serviceregistry.KubernetesRegistry,
+//					ClusterID:        clusterregistry.GetClusterID(cluster),
+//					ServiceDiscovery: kubectl,
+//					ServiceAccounts:  kubectl,
+//					Controller:       kubectl,
+//				})
+//		}
+//	}
+//
+//	return
+//}
 
-			kubectl := kube.NewController(client, args.Config.ControllerOptions)
-			serviceControllers.AddRegistry(
-				aggregate.Registry{
-					Name:             serviceregistry.KubernetesRegistry,
-					ClusterID:        clusterregistry.GetClusterID(cluster),
-					ServiceDiscovery: kubectl,
-					ServiceAccounts:  kubectl,
-					Controller:       kubectl,
-				})
-		}
+// initMultiClusterController initializes multi cluster controller
+// currently implemented only for kubernetes registries
+func (s *Server) initMultiClusterController(args *PilotArgs) (err error) {
+	if checkForKubernetes(args.Service.Registries) {
+		// Start secret controller which watches for runtime secret Object changes and adds secrets dynamically
+		err = clusterregistry.StartSecretController(s.kubeClient,
+			s.clusterStore,
+			s.ServiceController,
+			s.DiscoveryService,
+			args.Config.ClusterRegistriesNamespace,
+			args.Config.ControllerOptions.ResyncPeriod,
+			args.Config.ControllerOptions.WatchedNamespace,
+			args.Config.ControllerOptions.DomainSuffix)
 	}
 	return
 }
@@ -581,9 +611,10 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		case serviceregistry.MockRegistry:
 			initMemoryRegistry(s, serviceControllers)
 		case serviceregistry.KubernetesRegistry:
-			if err := s.createK8sServiceControllers(serviceControllers, args); err != nil {
-				return err
-			}
+			// TODO Since controllers are built dynamically, createK8sServiceControllers can be removed
+			//			if err := s.createK8sServiceControllers(serviceControllers, args); err != nil {
+			//				return err
+			//			}
 			if s.mesh.IngressControllerMode != meshconfig.MeshConfig_OFF {
 				// Wrap the config controller with a cache.
 				configController, err := configaggregate.MakeCache([]model.ConfigStoreCache{
