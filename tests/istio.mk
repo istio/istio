@@ -168,7 +168,7 @@ test/local/auth/e2e_pilot: out_dir generate_yaml
 # v1alpha3+envoyv2 test without MTLS
 test/local/noauth/e2e_pilotv2: out_dir generate_yaml-envoyv2_transition
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 20m ./tests/e2e/tests/pilot \
-		--skip_cleanup --auth_enable=false --v1alpha3=true --egress=false --ingress=false --rbac_enable=true --v1alpha1=false --cluster_wide \
+		--skip_cleanup --auth_enable=false --v1alpha3=true --egress=true --ingress=false --rbac_enable=true --v1alpha1=false --cluster_wide \
 		${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 	# Run the pilot controller tests
 	set -o pipefail; go test -v -timeout 20m ./tests/e2e/tests/controller ${CAPTURE_LOG}
