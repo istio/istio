@@ -223,9 +223,9 @@ egressgateway:
   #   secretName: someName
 
 #
-# sidecar-injector configuration
+# sidecar-injector webhook configuration
 #
-sidecar-injector:
+sidecarInjectorWebhook:
   enabled: false
 
 #
