@@ -82,7 +82,7 @@ var expectedStats = map[string]int{
 
 func TestTCPMixerFilterPeriodicalReport(t *testing.T) {
 	// https://github.com/istio/istio/issues/5696 skip all TCP tests.
-	return;
+	return
 
 	s := env.NewTestSetup(env.TCPMixerFilterPeriodicalReportTest, t)
 	env.SetTCPReportInterval(s.MfConfig().TCPServerConf, 2)
