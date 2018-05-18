@@ -344,7 +344,7 @@ func (Plugin) OnOutboundCluster(env model.Environment, node model.Proxy, service
 	}
 
 	required, _ := RequireTLS(model.GetConsolidateAuthenticationPolicy(mesh, config, service.Hostname, servicePort))
-	if isDestinationExcludedForMTLS(service.Hostname, mesh.MtlsExcludedServices) || !required {
+	if isDestinationExcludedForMTLS(service.Hostname.String(), mesh.MtlsExcludedServices) || !required {
 		return
 	}
 
@@ -373,8 +373,11 @@ func (Plugin) OnOutboundCluster(env model.Environment, node model.Proxy, service
 						Filename: model.AuthCertsPath + model.RootCertFilename,
 					},
 				},
-				VerifySubjectAltName: serviceAccounts,
 			},
 		},
+	}
+	// TODO: what happens if it's an empty list ?
+	if serviceAccounts != nil {
+		cluster.TlsContext.CommonTlsContext.ValidationContext.VerifySubjectAltName = serviceAccounts
 	}
 }

@@ -850,16 +850,20 @@ func TestValidateProxyAddress(t *testing.T) {
 }
 
 func TestValidateDuration(t *testing.T) {
-	durations := map[duration.Duration]bool{
-		{Seconds: 1}:              true,
-		{Seconds: 1, Nanos: -1}:   false,
-		{Seconds: -11, Nanos: -1}: false,
-		{Nanos: 1}:                false,
-		{Seconds: 1, Nanos: 1}:    false,
+	cases := []struct {
+		duration duration.Duration
+		expected bool
+	}{
+		{duration.Duration{Seconds: 1}, true},
+		{duration.Duration{Seconds: 1, Nanos: -1}, false},
+		{duration.Duration{Seconds: -11, Nanos: -1}, false},
+		{duration.Duration{Nanos: 1}, false},
+		{duration.Duration{Seconds: 1, Nanos: 1}, false},
 	}
-	for duration, valid := range durations {
-		if got := ValidateDuration(&duration); (got == nil) != valid {
-			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, valid, got, duration)
+
+	for _, c := range cases {
+		if got := ValidateDuration(&c.duration); (got == nil) != c.expected {
+			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, c.expected, got, c.duration)
 		}
 	}
 }
@@ -927,27 +931,35 @@ func TestValidateParentAndDrain(t *testing.T) {
 }
 
 func TestValidateRefreshDelay(t *testing.T) {
-	durations := map[duration.Duration]bool{
-		{Seconds: 1}:     true,
-		{Seconds: 36001}: false,
-		{Nanos: 1}:       false,
+	cases := []struct {
+		duration duration.Duration
+		expected bool
+	}{
+		{duration.Duration{Seconds: 1}, true},
+		{duration.Duration{Seconds: 36001}, false},
+		{duration.Duration{Nanos: 1}, false},
 	}
-	for duration, valid := range durations {
-		if got := ValidateRefreshDelay(&duration); (got == nil) != valid {
-			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, valid, got, duration)
+
+	for _, c := range cases {
+		if got := ValidateRefreshDelay(&c.duration); (got == nil) != c.expected {
+			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, c.expected, got, c.duration)
 		}
 	}
 }
 
 func TestValidateConnectTimeout(t *testing.T) {
-	durations := map[duration.Duration]bool{
-		{Seconds: 1}:   true,
-		{Seconds: 31}:  false,
-		{Nanos: 99999}: false,
+	cases := []struct {
+		duration duration.Duration
+		expected bool
+	}{
+		{duration.Duration{Seconds: 1}, true},
+		{duration.Duration{Seconds: 31}, false},
+		{duration.Duration{Nanos: 99999}, false},
 	}
-	for duration, valid := range durations {
-		if got := ValidateConnectTimeout(&duration); (got == nil) != valid {
-			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, valid, got, duration)
+
+	for _, c := range cases {
+		if got := ValidateConnectTimeout(&c.duration); (got == nil) != c.expected {
+			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, c.expected, got, c.duration)
 		}
 	}
 }
@@ -1070,7 +1082,7 @@ func TestValidateIstioService(t *testing.T) {
 
 	for _, svc := range services {
 		if got := ValidateIstioService(&svc.Service); (got == nil) != svc.Valid {
-			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %s",
+			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v",
 				got == nil, svc.Valid, got, svc.Service)
 		}
 	}
@@ -1113,6 +1125,7 @@ func TestValidateMatchCondition(t *testing.T) {
 
 func TestValidateEgressRuleDomain(t *testing.T) {
 	domains := map[string]bool{
+		"CNN.com":    true,
 		"cnn.com":    true,
 		"cnn..com":   false,
 		"10.0.0.100": true,
@@ -1142,6 +1155,7 @@ func TestValidateEgressRuleDomain(t *testing.T) {
 
 func TestValidateEgressRuleService(t *testing.T) {
 	services := map[string]bool{
+		"CNN.com":        true,
 		"cnn.com":        true,
 		"cnn..com":       false,
 		"10.0.0.100":     true,
@@ -2874,7 +2888,8 @@ func TestValidateServiceEntries(t *testing.T) {
 			valid: false},
 
 		{name: "discovery type static", in: networking.ServiceEntry{
-			Hosts: []string{"172.1.2.16/16"},
+			Hosts:     []string{"google.com"},
+			Addresses: []string{"172.1.2.16/16"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
@@ -2888,7 +2903,8 @@ func TestValidateServiceEntries(t *testing.T) {
 			valid: true},
 
 		{name: "discovery type static, FQDN in endpoints", in: networking.ServiceEntry{
-			Hosts: []string{"172.1.2.16/16"},
+			Hosts:     []string{"google.com"},
+			Addresses: []string{"172.1.2.16/16"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
@@ -2902,7 +2918,8 @@ func TestValidateServiceEntries(t *testing.T) {
 			valid: false},
 
 		{name: "discovery type static, missing endpoints", in: networking.ServiceEntry{
-			Hosts: []string{"172.1.2.16/16"},
+			Hosts:     []string{"google.com"},
+			Addresses: []string{"172.1.2.16/16"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
@@ -2912,7 +2929,8 @@ func TestValidateServiceEntries(t *testing.T) {
 			valid: false},
 
 		{name: "discovery type static, bad endpoint port name", in: networking.ServiceEntry{
-			Hosts: []string{"172.1.2.16/16"},
+			Hosts:     []string{"google.com"},
+			Addresses: []string{"172.1.2.16/16"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},

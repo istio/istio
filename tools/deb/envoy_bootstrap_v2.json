@@ -36,8 +36,12 @@
     "ads_config": {
       "api_type": "GRPC",
       "refresh_delay": {{ .refresh_delay }},
-      "cluster_names": [
-        "xds-grpc"
+      "grpc_services": [
+        {
+          "envoy_grpc": {
+            "cluster_name": "xds-grpc"
+          }
+        }
       ]
     }
   },

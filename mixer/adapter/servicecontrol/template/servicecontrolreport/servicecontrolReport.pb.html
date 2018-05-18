@@ -1,20 +1,15 @@
 ---
 title: Service Control Report
-overview: A template used by the Google Service Control adapter.
-location: https://istio.io/docs/reference/config/template/servicecontrolreport.html
+description: A template used by the Google Service Control adapter.
+location: https://istio.io/docs/reference/config/policy-and-telemetry/templates/servicecontrolreport.html
 layout: protoc-gen-docs
+redirect_from: /docs/reference/config/adapters/servicecontrolreport.html
 number_of_entries: 3
 ---
 <p>The <code>servicecontrolreport</code> template is used by the <a href="https://istio.io/docs/reference/config/adapters/servicecontrol.html">Google Service Control</a>
 adapter.</p>
 
-<h2 id="Template">Template</h2>
-<section>
-<p>A template used by Google Service Control (servicecontrol) adapter. The adapter
-generates metrics and logentry for each request based on the data point
-defined by this template.</p>
-
-<p>Config example:</p>
+<p>Example config:</p>
 
 <pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha2&quot;
 kind: servicecontrolreport
@@ -36,6 +31,12 @@ spec:
   response_bytes : response.size | 0
   response_latency : response.duration | &quot;0ms&quot;
 </code></pre>
+
+<h2 id="Template">Template</h2>
+<section>
+<p>A template used by Google Service Control (servicecontrol) adapter. The adapter
+generates metrics and logentry for each request based on the data point
+defined by this template.</p>
 
 <table class="message-fields">
 <thead>
@@ -131,9 +132,47 @@ spec:
 <section>
 <p>Duration is used inside templates for fields that are of ValueType &ldquo;DURATION&rdquo;</p>
 
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="istio.mixer.adapter.model.v1beta1.Duration.value">
+<td><code>value</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>Duration encoded as google.protobuf.Duration.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
 </section>
 <h2 id="istio.mixer.adapter.model.v1beta1.TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</h2>
 <section>
 <p>TimeStamp is used inside templates for fields that are of ValueType &ldquo;TIMESTAMP&rdquo;</p>
 
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="istio.mixer.adapter.model.v1beta1.TimeStamp.value">
+<td><code>value</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#timestamp">google.protobuf.Timestamp</a></code></td>
+<td>
+<p>TimeStamp encoded as google.protobuf.Timestamp.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
 </section>

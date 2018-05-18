@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
@@ -141,9 +142,21 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	}
 
 	// get the network stuff setup
-	if s.listener, err = p.listen("tcp", fmt.Sprintf(":%d", a.APIPort)); err != nil {
+	network := "tcp"
+	address := fmt.Sprintf(":%d", a.APIPort)
+	if a.APIAddress != "" {
+		idx := strings.Index(a.APIAddress, "://")
+		if idx < 0 {
+			address = a.APIAddress
+		} else {
+			network = a.APIAddress[:idx]
+			address = a.APIAddress[idx+3:]
+		}
+	}
+
+	if s.listener, err = p.listen(network, address); err != nil {
 		_ = s.Close()
-		return nil, fmt.Errorf("unable to listen on socket: %v", err)
+		return nil, fmt.Errorf("unable to listen: %v", err)
 	}
 
 	st := a.ConfigStore
