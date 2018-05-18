@@ -17,13 +17,30 @@
 ################################################################################
 #
 set -ex
+# The bucket name to store proxy binary
+DST="gs://istio-build/proxy"
+
+function usage() {
+  echo "$0
+    -d  The bucket name to store proxy binary (optional)"
+  exit 1
+}
+
+while getopts d: arg ; do
+  case "${arg}" in
+    d) DST="${OPTARG}";;
+    *) usage;;
+  esac
+done
+
+echo "Destination bucket: $DST"
+
+# The bucket name to store proxy binary
+# DST="gs://istio-build/proxy"
 
 # Make sure to this script on x86_64 Ubuntu Xenial
 UBUNTU_RELEASE=${UBUNTU_RELEASE:-$(lsb_release -c -s)}
 [[ "${UBUNTU_RELEASE}" == 'xenial' ]] || { echo 'must run on Ubuntu Xenial'; exit 1; }
-
-# The bucket name to store proxy binary
-DST="gs://istio-build/proxy"
 
 # The proxy binary name.
 SHA="$(git rev-parse --verify HEAD)"
