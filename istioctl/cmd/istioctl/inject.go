@@ -267,6 +267,9 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 					return err
 				}
 			} else {
+				if !emitTemplate {
+					return errors.New("one of injectConfigFile, injectConfigMapName, or emitTemplate is required")
+				}
 				if sidecarTemplate, err = inject.GenerateTemplateFromParams(&inject.Params{
 					InitImage:           inject.InitImageName(hub, tag, debugMode),
 					ProxyImage:          inject.ProxyImageName(hub, tag, debugMode),
