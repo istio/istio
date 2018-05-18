@@ -900,12 +900,6 @@ func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
 }
 
 func TestMixerReportingToMixer(t *testing.T) {
-	// TODO: enable this for v2
-	if testFlags.V1alpha3 {
-		log.Info("Skipping this test for v1alpha3")
-		return
-	}
-
 	// setup prometheus API
 	promAPI, err := promAPI()
 	if err != nil {
