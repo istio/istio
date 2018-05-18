@@ -63,6 +63,7 @@ deb/fpm:
 	rm -f ${ISTIO_OUT}/istio-sidecar.deb
 	#remove leading charecters since debian version expects to start with digit
 	DEB_VERSION=$(shell echo $(VERSION) | sed 's/^[a-z]*-//')
+	@echo deb_version is $(DEB_VERSION)
 	fpm -s dir -t deb -n ${ISTIO_DEB_NAME} -p ${ISTIO_OUT}/istio-sidecar.deb --version $(DEB_VERSION) -C ${GO_TOP} -f \
 		--url http://istio.io  \
 		--license Apache \
