@@ -45,8 +45,9 @@ type Controller struct {
 
 // NewController creates a new Aggregate controller
 func NewController() *Controller {
+
 	return &Controller{
-		registries: make([]Registry, 0),
+		registries: []Registry{},
 	}
 }
 
@@ -55,7 +56,8 @@ func (c *Controller) AddRegistry(registry Registry) {
 	c.storeLock.Lock()
 	defer c.storeLock.Unlock()
 
-	registries := make([]Registry, len(c.registries)+1)
+	registries := []Registry{}
+	registries = c.registries
 	registries = append(registries, registry)
 	c.registries = registries
 }
@@ -74,7 +76,8 @@ func (c *Controller) DeleteRegistry(clusterID string) {
 		log.Warnf("Registry is not found in the registries list, nothing to delete")
 		return
 	}
-	registries := make([]Registry, len(c.registries))
+	registries := []Registry{}
+	registries = c.registries
 	registries = append(registries[:index], registries[index+1:]...)
 	c.registries = registries
 }
