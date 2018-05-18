@@ -58,10 +58,13 @@ ISTIO_DEB_NAME ?= istio-sidecar
 ${ISTIO_OUT}/istio-sidecar.deb: | ${ISTIO_OUT}
 	$(MAKE) deb/fpm
 
+#remove leading charecters since debian version expects to start with digit
+DEB_VERSION := $(shell echo $(VERSION) | sed 's/^[a-z]*-//')
+
 # Package the sidecar deb file.
 deb/fpm:
 	rm -f ${ISTIO_OUT}/istio-sidecar.deb
-	fpm -s dir -t deb -n ${ISTIO_DEB_NAME} -p ${ISTIO_OUT}/istio-sidecar.deb --version ${VERSION} -C ${GO_TOP} -f \
+	fpm -s dir -t deb -n ${ISTIO_DEB_NAME} -p ${ISTIO_OUT}/istio-sidecar.deb --version $(DEB_VERSION) -C ${GO_TOP} -f \
 		--url http://istio.io  \
 		--license Apache \
 		--vendor istio.io \
@@ -76,7 +79,7 @@ deb/fpm:
 
 ${ISTIO_OUT}/istio.deb:
 	rm -f ${ISTIO_OUT}/istio.deb
-	fpm -s dir -t deb -n istio -p ${ISTIO_OUT}/istio.deb --version ${VERSION} -C ${GO_TOP} -f \
+	fpm -s dir -t deb -n istio -p ${ISTIO_OUT}/istio.deb --version $(DEB_VERSION) -C ${GO_TOP} -f \
 		--url http://istio.io  \
 		--license Apache \
 		--vendor istio.io \
