@@ -37,9 +37,9 @@ func Command(istioNamespaceFlag *string) *cobra.Command {
 
 	install := defaultInstall()
 	cmd := &cobra.Command{
-		Use:   "gen-deploy",
-		Short: "Generates the configuration for Istio's control plane.",
-		Long: "istioctl gen-deploy produces deployment files to run the Istio.",
+		Use:     "gen-deploy",
+		Short:   "Generates the configuration for Istio's control plane.",
+		Long:    "istioctl gen-deploy produces deployment files to run the Istio.",
 		Example: `istioctl gen-deploy --values myvalues.yaml`,
 		RunE: func(c *cobra.Command, args []string) error {
 			install.Namespace = *istioNamespaceFlag
