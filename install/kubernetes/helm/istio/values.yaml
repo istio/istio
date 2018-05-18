@@ -116,8 +116,9 @@ ingressgateway:
     name: istio-ingressgateway #DNS addressible
     labels:
       istio: ingressgateway
-    #namespace: istio-system
-    type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
+    # namespace: istio-system
+    type: LoadBalancer # change to NodePort or ClusterIP if need be
+    loadBalancerIP: ""
     ports:
       ## You can add custom gateway ports
     - port: 80
