@@ -44,6 +44,11 @@ func NewPlugin() plugin.Plugin {
 
 // OnOutboundListener implements the Callbacks interface method.
 func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+	// TODO: remove this bypass when https://github.com/istio/istio/issues/5694 is closed.
+	if in.Node.Type == model.Router {
+		return nil
+	}
+
 	env := in.Env
 	node := in.Node
 	proxyInstances := in.ProxyInstances
@@ -66,6 +71,11 @@ func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mutable
 
 // OnInboundListener implements the Callbacks interface method.
 func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+	// TODO: remove this bypass when https://github.com/istio/istio/issues/5694 is closed.
+	if in.Node.Type == model.Router {
+		return nil
+	}
+
 	env := in.Env
 	node := in.Node
 	proxyInstances := in.ProxyInstances
