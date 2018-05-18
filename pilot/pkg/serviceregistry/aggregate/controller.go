@@ -56,8 +56,7 @@ func (c *Controller) AddRegistry(registry Registry) {
 	c.storeLock.Lock()
 	defer c.storeLock.Unlock()
 
-	registries := []Registry{}
-	registries = c.registries
+	registries := c.registries
 	registries = append(registries, registry)
 	c.registries = registries
 }
@@ -76,8 +75,7 @@ func (c *Controller) DeleteRegistry(clusterID string) {
 		log.Warnf("Registry is not found in the registries list, nothing to delete")
 		return
 	}
-	registries := []Registry{}
-	registries = c.registries
+	registries := c.registries
 	registries = append(registries[:index], registries[index+1:]...)
 	c.registries = registries
 }
