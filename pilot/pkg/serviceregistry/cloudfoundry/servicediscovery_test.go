@@ -222,7 +222,7 @@ func TestServiceDiscovery_Instances_Filtering(t *testing.T) {
 				ServicePort: servicePort,
 			},
 			Service: service,
-			Labels:  model.Labels{"cfroute": "process-guid-a.cfapps.io/other/path"},
+			Labels:  model.Labels{"cf-service-instance": "5c33031c3bea379160c9bed9f59b4bdd"},
 		},
 		{
 			Endpoint: model.NetworkEndpoint{
@@ -231,7 +231,7 @@ func TestServiceDiscovery_Instances_Filtering(t *testing.T) {
 				ServicePort: servicePort,
 			},
 			Service: service,
-			Labels:  model.Labels{"cfroute": "process-guid-a.cfapps.io/some/path"},
+			Labels:  model.Labels{"cf-service-instance": "2e5e1643567d8ed5097dc14115908f7a"},
 		},
 	}))
 
