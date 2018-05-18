@@ -52,11 +52,7 @@ func TestCloudFoundrySnapshot(t *testing.T) {
 		},
 	}
 
-	routesResponses := []*copilotapi.RoutesResponse{
-		&copilotapi.RoutesResponse{
-			Routes: routes,
-		},
-	}
+	routesResponses := []*copilotapi.RoutesResponse{{Routes: routes}}
 
 	copilotSnapshot, err := bootstrap(routesResponses)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
