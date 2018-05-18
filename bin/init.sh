@@ -123,7 +123,7 @@ if [ ! -f "$ISTIO_ENVOY_DEBUG_PATH" ] || [ ! -f "$ISTIO_ENVOY_RELEASE_PATH" ] ; 
     # Download debug envoy binary.
     mkdir -p $ISTIO_ENVOY_DEBUG_DIR
     pushd $ISTIO_ENVOY_DEBUG_DIR
-    if [ "$LOCAL_OS" == "darwin" ]; then
+    if [ "$LOCAL_OS" == "darwin" -a "x$GOOS" == "x" ]; then
        ISTIO_ENVOY_DEBUG_URL=${ISTIO_ENVOY_MAC_RELEASE_URL}
     fi
     echo "Downloading envoy debug artifact: ${DOWNLOAD_COMMAND} ${ISTIO_ENVOY_DEBUG_URL}"
@@ -135,7 +135,7 @@ if [ ! -f "$ISTIO_ENVOY_DEBUG_PATH" ] || [ ! -f "$ISTIO_ENVOY_RELEASE_PATH" ] ; 
     # Download release envoy binary.
     mkdir -p $ISTIO_ENVOY_RELEASE_DIR
     pushd $ISTIO_ENVOY_RELEASE_DIR
-    if [ "$LOCAL_OS" == "darwin" ]; then 
+    if [ "$LOCAL_OS" == "darwin" -a "x$GOOS" == "x" ]; then
        ISTIO_ENVOY_RELEASE_URL=${ISTIO_ENVOY_MAC_RELEASE_URL}
     fi
     echo "Downloading envoy release artifact: ${DOWNLOAD_COMMAND} ${ISTIO_ENVOY_RELEASE_URL}"
@@ -145,12 +145,9 @@ if [ ! -f "$ISTIO_ENVOY_DEBUG_PATH" ] || [ ! -f "$ISTIO_ENVOY_RELEASE_PATH" ] ; 
     popd
 fi
 
-# TODO(nmittler): Remove once tests no longer use the envoy binary directly.
-if [ ! -f ${ISTIO_OUT}/envoy ] ; then
-    mkdir -p ${ISTIO_OUT}
-    # Make sure the envoy binary exists. This is only used for tests, so use the debug binary.
-    cp ${ISTIO_ENVOY_DEBUG_PATH} ${ISTIO_OUT}/envoy
-fi
+# copy debug envoy binary used for local tests such as ones in mixer/test/clients
+mkdir -p ${ISTIO_OUT}
+cp -f ${ISTIO_ENVOY_DEBUG_PATH} ${ISTIO_OUT}/envoy
 
 ${ROOT}/bin/init_helm.sh
 

@@ -7,6 +7,10 @@
 	The `servicecontrol` adapter delivers logs and metrics to
 	[Google Service Control](https://cloud.google.com/service-control).
 
+	This adapter supports the [servicecontrolreport template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/servicecontrolreport.html),
+	the [quota template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/quota.html),
+	and the [apikey template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/apikey.html).
+
 	It is generated from these files:
 		mixer/adapter/servicecontrol/config/config.proto
 

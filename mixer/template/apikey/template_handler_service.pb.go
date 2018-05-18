@@ -6,9 +6,7 @@
 
 	The `apikey` template represents a single API key, which is used for authorization checks.
 
-	The `apikey` template represents a single API key, used to authorize API calls.
-
-	Sample config:
+	Example config:
 
 	```yaml
 	apiVersion: "config.istio.io/v1alpha2"
@@ -23,6 +21,8 @@
 	  api_key: api.key | ""
 	  timestamp: request.time
 	```
+
+	The `apikey` template represents a single API key, used to authorize API calls.
 
 	It is generated from these files:
 		mixer/template/apikey/template_handler_service.proto
@@ -44,10 +44,8 @@ import google_protobuf1 "github.com/gogo/protobuf/types"
 import istio_mixer_adapter_model_v1beta11 "istio.io/api/mixer/adapter/model/v1beta1"
 import istio_mixer_adapter_model_v1beta12 "istio.io/api/mixer/adapter/model/v1beta1"
 
-import (
-	context "golang.org/x/net/context"
-	grpc "google.golang.org/grpc"
-)
+import context "golang.org/x/net/context"
+import grpc "google.golang.org/grpc"
 
 import strings "strings"
 import reflect "reflect"

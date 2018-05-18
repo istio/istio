@@ -15,11 +15,14 @@
 syntax = "proto3";
 
 // $title: Datadog
-// $overview: Adapter to deliver metrics to a dogstatsd agent for delivery to DataDog
-// $location: https://istio.io/docs/reference/config/adapters/datadog.html
+// $description: Adapter to deliver metrics to a dogstatsd agent for delivery to DataDog
+// $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/datadog.html
+// $front_matter: redirect_from: /docs/reference/config/adapters/datadog.html
 
 // The `dogstatsd` adapter is designed to deliver Istio metric instances to a
 // listening [DataDog](https://www.datadoghq.com/) agent.
+//
+// This adapter supports the [metric template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric.html).
 package adapter.dogstatsd.config;
 
 import "gogoproto/gogo.proto";
