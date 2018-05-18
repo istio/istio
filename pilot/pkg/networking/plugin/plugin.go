@@ -37,9 +37,9 @@ const (
 // ModelProtocolToListenerType converts from a model.Protocol to its corresponding plugin.ListenerType
 func ModelProtocolToListenerType(protocol model.Protocol) ListenerType {
 	switch protocol {
-	case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC:
+	case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC, model.ProtocolHTTPS:
 		return ListenerTypeHTTP
-	case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
+	case model.ProtocolTCP, model.ProtocolMongo:
 		return ListenerTypeTCP
 	default:
 		return ListenerTypeUnknown

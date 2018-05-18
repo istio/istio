@@ -195,13 +195,6 @@ test/local/auth/e2e_bookinfo_envoyv2: out_dir generate_yaml-envoyv2_transition_l
 		--skip_cleanup --auth_enable=true --v1alpha3=true --egress=true --ingress=false --rbac_enable=false \
 		--v1alpha1=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
-test/local/noauth/e2e_mixer_envoyv2: generate_yaml-envoyv2_transition_loadbalancer_ingressgateway
-	@mkdir -p ${OUT_DIR}/logs
-	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 20m ./tests/e2e/tests/mixer \
-	--skip_cleanup --auth_enable=false --v1alpha3=true --egress=false --ingress=false --rbac_enable=false \
-	--v1alpha1=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} \
-                | tee ${OUT_DIR}/logs/test-report.raw
-
 # v1alpha3+envoyv2 test without MTLS (not implemented yet). Still in progress, for tracking
 test/local/noauth/e2e_simple_pilotv2: out_dir generate_yaml-envoyv2_transition
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 20m ./tests/e2e/tests/simple \
