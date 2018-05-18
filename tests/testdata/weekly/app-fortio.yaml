@@ -1,0 +1,87 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: echosrv
+spec:
+  ports:
+  - port: 8080
+    name: http-echo
+  - port: 8079
+    name: grpc-ping
+  selector:
+    app: echosrv
+
+
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: echosrv-deployment
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: echosrv
+    spec:
+      containers:
+      - name: echosrv
+        image: istio/fortio:latest
+        ports:
+         - containerPort: 8080
+         - containerPort: 8079
+        args:
+          - server
+
+        resources:
+          requests:
+            cpu: 800m
+            memory: "1G"
+          limits:
+            cpu: 1000m
+            memory: "1G"
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: echosrv2
+spec:
+  ports:
+  - port: 8080
+    name: http-echo
+  - port: 8079
+    name: grpc-ping
+  selector:
+    app: echosrv2
+
+
+---
+apiVersion: apps/v1beta1
+# 2 pods for service inside the cluster, will get istio injected
+kind: Deployment
+metadata:
+  name: echosrv2-deployment
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: echosrv2
+    spec:
+      containers:
+      - name: echosrv
+        image: istio/fortio:latest
+        ports:
+         - containerPort: 8080
+         - containerPort: 8079
+        args:
+          - server
+        resources:
+          requests:
+            cpu: 1000m
+            memory: "1G"
+          limits:
+            cpu: 1000m
+            memory: "1G"

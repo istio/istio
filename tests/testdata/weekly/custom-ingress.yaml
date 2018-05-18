@@ -1,0 +1,378 @@
+# This is normal Istio ingress, with a custom Envoy config to handle TCP services and additional
+# custom configurations.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: custom-ingress
+  namespace: istio-system
+  labels:
+    istio: customingress
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    name: http
+  - port: 443
+    name: https
+  - port: 5201
+    name: iperf3
+  - port: 5202
+    name: iperf3-raw
+  - port: 15005
+    name: http-pilot
+  - port: 15006
+    name: grpc-mixer
+  - port: 15007
+    name: grpc-ca
+  selector:
+    istio: customingress
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: envoy-config
+  namespace: istio-system
+data:
+  envoy.conf: |-
+    {
+      "listeners": [
+        {
+          "address": "tcp://0.0.0.0:80",
+          "name": "http_0.0.0.0_80",
+          "filters": [
+            {
+              "type": "read",
+              "name": "http_connection_manager",
+              "config": {
+                "codec_type": "auto",
+                "stat_prefix": "http",
+                "generate_request_id": true,
+                "use_remote_address": true,
+                "tracing": {
+                  "operation_name": "egress"
+                },
+                "rds": {
+                  "cluster": "rds",
+                  "route_config_name": "80",
+                  "refresh_delay_ms": 1000
+                },
+                "filters": [
+                  {
+                    "type": "decoder",
+                    "name": "mixer",
+                    "config": {
+                      "mixer_attributes": {
+                        "destination.ip": "",
+                        "destination.uid": "kubernetes://istio-ingress-4019532693-q4g32.istio-system"
+                      },
+                      "forward_attributes": {
+                        "source.ip": "",
+                        "source.uid": "kubernetes://istio-ingress-4019532693-q4g32.istio-system"
+                      },
+                      "quota_name": "RequestCount"
+                    }
+                  },
+                  {
+                    "type": "decoder",
+                    "name": "router",
+                    "config": {}
+                  }
+                ],
+                "access_log": [
+                  {
+                    "path": "/dev/stdout"
+                  }
+                ]
+              }
+            }
+          ],
+          "bind_to_port": true
+        },
+        {
+          "address": "tcp://0.0.0.0:15005",
+          "name": "tcp_pilot",
+          "filters": [
+            {
+              "type": "read",
+              "name": "tcp_proxy",
+              "config": {
+                "stat_prefix": "tcp_pilot",
+                "route_config": {
+                  "routes": [
+                    {
+                      "cluster": "out.pilot"
+                    }
+                  ]
+                }
+              }
+            }
+          ],
+          "bind_to_port": true
+        },
+        {
+          "address": "tcp://0.0.0.0:15006",
+          "name": "tcp_mixer",
+          "filters": [
+            {
+              "type": "read",
+              "name": "tcp_proxy",
+              "config": {
+                "stat_prefix": "tcp_mixer",
+                "route_config": {
+                  "routes": [
+                    {
+                      "cluster": "out.mixer"
+                    }
+                  ]
+                }
+              }
+            }
+          ],
+          "bind_to_port": true
+        },
+        {
+          "address": "tcp://0.0.0.0:15007",
+          "name": "tcp_ca",
+          "filters": [
+            {
+              "type": "read",
+              "name": "tcp_proxy",
+              "config": {
+                "stat_prefix": "tcp_ca",
+                "route_config": {
+                  "routes": [
+                    {
+                      "cluster": "out.ca"
+                    }
+                  ]
+                }
+              }
+            }
+          ],
+          "bind_to_port": true
+        },
+        {
+          "address": "tcp://0.0.0.0:5201",
+          "name": "tcp_10.77.24.84_5201",
+          "filters": [
+            {
+              "type": "read",
+              "name": "tcp_proxy",
+              "config": {
+                "stat_prefix": "iperf3",
+                "route_config": {
+                  "routes": [
+                    {
+                      "cluster": "out.iperf3"
+                    }
+                  ]
+                }
+              }
+            }
+          ],
+          "bind_to_port": true
+        },
+        {
+          "address": "tcp://0.0.0.0:5202",
+          "name": "tcp_10.77.24.84_5202",
+          "filters": [
+            {
+              "type": "read",
+              "name": "tcp_proxy",
+              "config": {
+                "stat_prefix": "iperf3raw",
+                "route_config": {
+                  "routes": [
+                    {
+                      "cluster": "out.iperf3raw"
+                    }
+                  ]
+                }
+              }
+            }
+          ],
+          "bind_to_port": true
+        }
+      ],
+      "admin": {
+        "access_log_path": "/dev/stdout",
+        "address": "tcp://127.0.0.1:15000"
+      },
+      "cluster_manager": {
+        "clusters": [
+          {
+            "name": "out.iperf3",
+            "service_name": "iperf3.istio-test.svc.cluster.local|tcp",
+            "connect_timeout_ms": 1000,
+            "type": "sds",
+            "lb_type": "round_robin"
+          },
+          {
+                      "name": "out.iperf3raw",
+                      "service_name": "iperf3-raw.istio-test.svc.cluster.local|tcp",
+                      "connect_timeout_ms": 1000,
+                      "type": "sds",
+                      "lb_type": "round_robin"
+          },
+          {
+             "name": "out.pilot",
+             "service_name": "istio-pilot.istio-system.svc.cluster.local|http-discovery",
+             "connect_timeout_ms": 1000,
+             "type": "sds",
+             "lb_type": "round_robin"
+          },
+          {
+             "name": "out.mixer",
+             "service_name": "istio-mixer.istio-system.svc.cluster.local|grpc",
+             "connect_timeout_ms": 1000,
+             "type": "sds",
+             "lb_type": "round_robin"
+          },
+          {
+             "name": "out.ca",
+             "service_name": "istio-ca-ilb.istio-system.svc.cluster.local|grpc",
+             "connect_timeout_ms": 1000,
+             "type": "sds",
+             "lb_type": "round_robin"
+          },
+           {
+            "name": "rds",
+            "connect_timeout_ms": 1000,
+            "type": "strict_dns",
+            "lb_type": "round_robin",
+            "hosts": [
+              {
+                "url": "tcp://istio-pilot:8080"
+              }
+            ]
+          },
+          {
+            "name": "lds",
+            "connect_timeout_ms": 1000,
+            "type": "strict_dns",
+            "lb_type": "round_robin",
+            "hosts": [
+              {
+                "url": "tcp://istio-pilot:8080"
+              }
+            ]
+          }
+        ],
+        "sds": {
+          "cluster": {
+            "name": "sds",
+            "connect_timeout_ms": 1000,
+            "type": "strict_dns",
+            "lb_type": "round_robin",
+            "hosts": [
+              {
+                "url": "tcp://istio-pilot:8080"
+              }
+            ]
+          },
+          "refresh_delay_ms": 1000
+        },
+        "cds": {
+          "cluster": {
+            "name": "cds",
+            "connect_timeout_ms": 1000,
+            "type": "strict_dns",
+            "lb_type": "round_robin",
+            "hosts": [
+              {
+                "url": "tcp://istio-pilot:8080"
+              }
+            ]
+          },
+          "refresh_delay_ms": 1000
+        }
+      }
+    }
+
+---
+
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-customingress
+  namespace: istio-system
+  annotations:
+    sidecar.istio.io/inject: "false"
+    keel.sh/pollSchedule: "@every 10m"
+  labels:
+    # Will auto-update on gcr.io pushes
+    keel.sh/policy: force
+    keel.sh/trigger: poll
+
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        istio: customingress
+    spec:
+      serviceAccountName: istio-ingress-service-account
+      containers:
+      - name: istio-ingress
+        # Manually start envoy, without using manager, so we can override the config.
+        command: ["/usr/local/bin/envoy"]
+        image: istionightly/proxyv2:nightly-release-0.8
+        #image: docker.io/istio/envoy
+        #  "-l", "debug",
+        args: ["-c", "/etc/envoy/envoy.conf", "--service-cluster", "istio-proxy", "--service-node" , "ingress~~istio-ingress-4019532693-q4g32.istio-system~istio-system.svc.cluster.local"]
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+        - containerPort: 443
+        - containerPort: 5201
+        - containerPort: 5202
+        - containerPort: 15005
+        - containerPort: 15006
+        - containerPort: 15007
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: VER
+          value: "1"
+        - name: RELOAD
+          value: "2"
+        volumeMounts:
+        - name: istio-certs
+          mountPath: /etc/certs
+          readOnly: true
+        - mountPath: /etc/envoy
+          name: envoyconfig
+        - name: ingress-certs
+          mountPath: /etc/istio/ingress-certs
+          readOnly: true
+        resources:
+          requests:
+            cpu: 1500m
+            memory: "1G"
+          limits:
+            cpu: 2000m
+            memory: "2G"
+      volumes:
+      - name: istio-certs
+        secret:
+          secretName: istio.default
+          optional: true
+      - name: ingress-certs
+        secret:
+          secretName: istio-ingress-certs
+          optional: true
+      - name: envoyconfig
+        configMap:
+            name: envoy-config
+
+---
