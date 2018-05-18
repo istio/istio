@@ -123,6 +123,44 @@ attribute_matches {
 }
 )";
 
+const char kStringMapReferencedText[] = R"(
+words: "map-key1"
+words: "map-key2"
+words: "map-key3"
+words: "exact-subkey4"
+words: "exact-subkey5"
+words: "absence-subkey6"
+words: "absence-subkey7"
+attribute_matches {
+  name: -1,
+  condition: EXACT,
+}
+attribute_matches {
+  name: -2,
+  map_key: -4,
+  condition: EXACT,
+}
+attribute_matches {
+  name: -2,
+  map_key: -5,
+  condition: EXACT,
+}
+attribute_matches {
+  name: -2,
+  map_key: -6,
+  condition: ABSENCE,
+}
+attribute_matches {
+  name: -2,
+  map_key: -7,
+  condition: ABSENCE,
+}
+attribute_matches {
+  name: -3,
+  condition: ABSENCE,
+}
+)";
+
 TEST(ReferencedTest, FillSuccessTest) {
   ::istio::mixer::v1::ReferencedAttributes pb;
   ASSERT_TRUE(TextFormat::ParseFromString(kReferencedText, &pb));
@@ -213,6 +251,54 @@ TEST(ReferencedTest, OKSignature1Test) {
 
   EXPECT_EQ(utils::MD5::DebugString(signature),
             "751b028b2e2c230ef9c4e59ac556ca04");
+}
+
+TEST(ReferencedTest, StringMapReferencedTest) {
+  std::map<std::string, std::string> string_map_base = {
+      {"subkey3", "subvalue3"},
+      {"exact-subkey4", "subvalue4"},
+      {"exact-subkey5", "subvalue5"},
+  };
+  ::istio::mixer::v1::Attributes attrs;
+  utils::AttributesBuilder(&attrs).AddString("map-key1", "value1");
+  utils::AttributesBuilder(&attrs).AddStringMap("map-key2",
+                                                std::move(string_map_base));
+
+  ::istio::mixer::v1::ReferencedAttributes pb;
+  ASSERT_TRUE(TextFormat::ParseFromString(kStringMapReferencedText, &pb));
+  Referenced referenced;
+  EXPECT_TRUE(referenced.Fill(attrs, pb));
+
+  std::string signature;
+  EXPECT_TRUE(referenced.Signature(attrs, "extra", &signature));
+  EXPECT_EQ(utils::MD5::DebugString(signature),
+            "bc055468af1a0d4d03ec7f6fa2265b9b");
+
+  // negative test: map-key3 must absence
+  ::istio::mixer::v1::Attributes attr1(attrs);
+  utils::AttributesBuilder(&attr1).AddString("map-key3", "this");
+  EXPECT_FALSE(referenced.Signature(attr1, "extra", &signature));
+
+  // negative test: map-key1 must exist
+  ::istio::mixer::v1::Attributes attr2(attrs);
+  attr2.mutable_attributes()->erase("map-key1");
+  EXPECT_FALSE(referenced.Signature(attr2, "extra", &signature));
+
+  // Negative tests: have a absent sub-key
+  std::map<std::string, std::string> string_map3(string_map_base);
+  string_map3["absence-subkey6"] = "subvalue6";
+  ::istio::mixer::v1::Attributes attr3(attrs);
+  utils::AttributesBuilder(&attr3).AddStringMap("map-key2",
+                                                std::move(string_map3));
+  EXPECT_FALSE(referenced.Signature(attr3, "extra", &signature));
+
+  // Negative tests: miss exact sub-key
+  std::map<std::string, std::string> string_map4(string_map_base);
+  string_map4.erase("exact-subkey4");
+  ::istio::mixer::v1::Attributes attr4(attrs);
+  utils::AttributesBuilder(&attr4).AddStringMap("map-key2",
+                                                std::move(string_map4));
+  EXPECT_FALSE(referenced.Signature(attr4, "extra", &signature));
 }
 
 }  // namespace

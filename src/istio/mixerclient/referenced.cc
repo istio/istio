@@ -117,8 +117,16 @@ bool Referenced::Fill(const Attributes &attributes,
 bool Referenced::Signature(const Attributes &attributes,
                            const std::string &extra_key,
                            std::string *signature) const {
-  const auto &attributes_map = attributes.attributes();
+  if (!CheckAbsentKeys(attributes) || !CheckExactKeys(attributes)) {
+    return false;
+  }
 
+  CalculateSignature(attributes, extra_key, signature);
+  return true;
+}
+
+bool Referenced::CheckAbsentKeys(const Attributes &attributes) const {
+  const auto &attributes_map = attributes.attributes();
   for (std::size_t i = 0; i < absence_keys_.size(); ++i) {
     const auto &key = absence_keys_[i];
     const auto it = attributes_map.find(key.name);
@@ -127,7 +135,7 @@ bool Referenced::Signature(const Attributes &attributes,
     }
 
     const Attributes_AttributeValue &value = it->second;
-    // if an "absence" key exists for a non stringMap attribute, return false
+    // If an "absence" key exists for a non StringMap attribute, return false
     // for mis-match.
     if (value.value_case() != Attributes_AttributeValue::kStringMapValue) {
       return false;
@@ -142,26 +150,63 @@ bool Referenced::Signature(const Attributes &attributes,
       if (smap.find(map_key) != smap.end()) {
         return false;
       }
-      // break loop if at the end or keyname changes.
+      // Break loop if at the end or at different key
       if (i + 1 == absence_keys_.size() ||
           absence_keys_[i + 1].name != key.name) {
         break;
       }
 
       map_key = absence_keys_[++i].map_key;
-
     } while (true);
   }
+  return true;
+}
 
-  utils::MD5 hasher;
-
+bool Referenced::CheckExactKeys(const Attributes &attributes) const {
+  const auto &attributes_map = attributes.attributes();
   for (std::size_t i = 0; i < exact_keys_.size(); ++i) {
     const auto &key = exact_keys_[i];
     const auto it = attributes_map.find(key.name);
-    // if an "exact" attribute not present, return false for mismatch.
+    // If an "exact" attribute not present, return false for mismatch.
     if (it == attributes_map.end()) {
       return false;
     }
+
+    const Attributes_AttributeValue &value = it->second;
+    if (value.value_case() == Attributes_AttributeValue::kStringMapValue) {
+      std::string map_key = key.map_key;
+      const auto &smap = value.string_map_value().entries();
+      // Since exact_keys_ are sorted by key.name,
+      // continue processing stringMaps until a new name is found.
+      do {
+        const auto sub_it = smap.find(map_key);
+        // exact match of map_key is missing
+        if (sub_it == smap.end()) {
+          return false;
+        }
+
+        // break loop if at the end or keyname changes.
+        if (i + 1 == exact_keys_.size() ||
+            exact_keys_[i + 1].name != key.name) {
+          break;
+        }
+
+        map_key = exact_keys_[++i].map_key;
+      } while (true);
+    }
+  }
+  return true;
+}
+
+void Referenced::CalculateSignature(const Attributes &attributes,
+                                    const std::string &extra_key,
+                                    std::string *signature) const {
+  const auto &attributes_map = attributes.attributes();
+
+  utils::MD5 hasher;
+  for (std::size_t i = 0; i < exact_keys_.size(); ++i) {
+    const auto &key = exact_keys_[i];
+    const auto it = attributes_map.find(key.name);
 
     hasher.Update(it->first);
     hasher.Update(kDelimiter, kDelimiterLength);
@@ -207,10 +252,6 @@ bool Referenced::Signature(const Attributes &attributes,
         // continue processing stringMaps until a new name is found.
         do {
           const auto sub_it = smap.find(map_key);
-          // exact match of map_key is missing
-          if (sub_it == smap.end()) {
-            return false;
-          }
 
           hasher.Update(sub_it->first);
           hasher.Update(kDelimiter, kDelimiterLength);
@@ -234,7 +275,6 @@ bool Referenced::Signature(const Attributes &attributes,
   hasher.Update(extra_key);
 
   *signature = hasher.Digest();
-  return true;
 }
 
 std::string Referenced::Hash() const {

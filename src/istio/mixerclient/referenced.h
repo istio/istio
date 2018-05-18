@@ -49,6 +49,17 @@ class Referenced {
   std::string DebugString() const;
 
  private:
+  // Return true if all absent keys are not in the attributes.
+  bool CheckAbsentKeys(const ::istio::mixer::v1::Attributes &attributes) const;
+
+  // Return true if all exact keys are in the attributes.
+  bool CheckExactKeys(const ::istio::mixer::v1::Attributes &attributes) const;
+
+  // Do the actual signature calculation.
+  void CalculateSignature(const ::istio::mixer::v1::Attributes &attributes,
+                          const std::string &extra_key,
+                          std::string *signature) const;
+
   // Holds reference to an attribute and potentially a map key
   struct AttributeRef {
     // name of the attribute
