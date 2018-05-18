@@ -26,7 +26,7 @@ func TestMixer_Report(t *testing.T) {
 	test.Requires(t, dependency.PolicyBackend)
 
 	env := test.GetEnvironment(t)
-	env.Configure(testConfig)
+	env.Configure(t, testConfig)
 
 	be := env.GetPolicyBackendOrFail(t)
 	// TODO: Define how backend should behave when Mixer dispatches the request
