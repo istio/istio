@@ -2178,12 +2178,13 @@ func ValidateServiceEntry(config proto.Message) (errs error) {
 						fmt.Errorf("hosts must be FQDN if no endpoints are provided for discovery mode DNS"))
 				}
 			}
-			for _, port := range serviceEntry.Ports {
-				if !ParseProtocol(port.Protocol).IsHTTP() {
-					errs = appendErrors(errs,
-						fmt.Errorf("if discovery type is DNS and no endpoints are provided all ports must be HTTP based"))
-				}
-			}
+			//for _, port := range serviceEntry.Ports {
+			//	// TODO: @isaiah/@greghanson why?
+			//	if !ParseProtocol(port.Protocol).IsHTTP() {
+			//		errs = appendErrors(errs,
+			//			fmt.Errorf("if discovery type is DNS and no endpoints are provided all ports must be HTTP based"))
+			//	}
+			//}
 		}
 
 		for _, endpoint := range serviceEntry.Endpoints {

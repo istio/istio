@@ -2864,17 +2864,6 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 			valid: false},
 
-		{name: "discovery type DNS, non-FQDN host", in: networking.ServiceEntry{
-			Hosts: []string{"*.google.com"},
-			Ports: []*networking.Port{
-				{Number: 80, Protocol: "http", Name: "http-valid1"},
-				{Number: 8080, Protocol: "http", Name: "http-valid2"},
-			},
-
-			Resolution: networking.ServiceEntry_DNS,
-		},
-			valid: false},
-
 		{name: "discovery type static", in: networking.ServiceEntry{
 			Hosts:     []string{"google.com"},
 			Addresses: []string{"172.1.2.16/16"},

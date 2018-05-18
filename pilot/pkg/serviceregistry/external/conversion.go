@@ -66,7 +66,7 @@ func convertServices(serviceEntry *networking.ServiceEntry) []*model.Service {
 			out = append(out, &model.Service{
 				MeshExternal: serviceEntry.Location == networking.ServiceEntry_MESH_EXTERNAL,
 				Hostname:     model.Hostname(host),
-				Address:      "",
+				Address:      "0.0.0.0",
 				Ports:        svcPorts,
 				Resolution:   resolution,
 			})

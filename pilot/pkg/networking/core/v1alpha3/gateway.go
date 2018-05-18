@@ -77,6 +77,11 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 		// When Envoy supports filter chain matching, we'll have to group the ports by number and protocol, so this logic will
 		// no longer work.
 		protocol := model.ParseProtocol(servers[0].Port.Protocol)
+		if protocol == model.ProtocolHTTPS {
+			// Gateway terminates TLS connection. So, its effectively a H2 listener.
+			protocol = model.ProtocolHTTP2
+		}
+
 		opts := buildListenerOpts{
 			env:        env,
 			proxy:      node,
