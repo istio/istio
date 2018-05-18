@@ -544,45 +544,21 @@ func (s *Server) makeCopilotMonitor(args *PilotArgs, configController model.Conf
 }
 
 // createK8sServiceControllers creates all the k8s service controllers under this pilot
-// func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Controller, args *PilotArgs) (err error) {
-//	clusterID := string(serviceregistry.KubernetesRegistry)
-//	log.Infof("Primary Cluster name: %s", clusterID)
-//	kubectl := kube.NewController(s.kubeClient, args.Config.ControllerOptions)
-//	serviceControllers.AddRegistry(
-//		aggregate.Registry{
-//			Name:             serviceregistry.ServiceRegistry(serviceregistry.KubernetesRegistry),
-//			ClusterID:        clusterID,
-//			ServiceDiscovery: kubectl,
-//			ServiceAccounts:  kubectl,
-//			Controller:       kubectl,
-//		})
+func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Controller, args *PilotArgs) (err error) {
+	clusterID := string(serviceregistry.KubernetesRegistry)
+	log.Infof("Primary Cluster name: %s", clusterID)
+	kubectl := kube.NewController(s.kubeClient, args.Config.ControllerOptions)
+	serviceControllers.AddRegistry(
+		aggregate.Registry{
+			Name:             serviceregistry.ServiceRegistry(serviceregistry.KubernetesRegistry),
+			ClusterID:        clusterID,
+			ServiceDiscovery: kubectl,
+			ServiceAccounts:  kubectl,
+			Controller:       kubectl,
+		})
 
-// Add clusters under the same pilot
-//	if s.clusterStore != nil {
-//		clusters := s.clusterStore.GetPilotClusters()
-//		clientAccessConfigs := s.clusterStore.GetClientAccessConfigs()
-//		for _, cluster := range clusters {
-//			log.Infof("Cluster name: %s", clusterregistry.GetClusterID(cluster))
-//			clusterClient := clientAccessConfigs[cluster.ObjectMeta.Name]
-//			client, kuberr := kube.CreateInterfaceFromClusterConfig(&clusterClient)
-//			if kuberr != nil {
-//				err = multierror.Append(err, multierror.Prefix(kuberr, fmt.Sprintf("failed to connect to Access API with access config: %s", cluster.ObjectMeta.Name)))
-//			}
-//
-//			kubectl := kube.NewController(client, args.Config.ControllerOptions)
-//			serviceControllers.AddRegistry(
-//				aggregate.Registry{
-//					Name:             serviceregistry.KubernetesRegistry,
-//					ClusterID:        clusterregistry.GetClusterID(cluster),
-//					ServiceDiscovery: kubectl,
-//					ServiceAccounts:  kubectl,
-//					Controller:       kubectl,
-//				})
-//		}
-//	}
-//
-//	return
-//}
+	return
+}
 
 // initMultiClusterController initializes multi cluster controller
 // currently implemented only for kubernetes registries
@@ -617,10 +593,10 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		case serviceregistry.MockRegistry:
 			initMemoryRegistry(s, serviceControllers)
 		case serviceregistry.KubernetesRegistry:
-			// TODO Since controllers are built dynamically, createK8sServiceControllers can be removed
-			//			if err := s.createK8sServiceControllers(serviceControllers, args); err != nil {
-			//				return err
-			//			}
+
+			if err := s.createK8sServiceControllers(serviceControllers, args); err != nil {
+				return err
+			}
 			if s.mesh.IngressControllerMode != meshconfig.MeshConfig_OFF {
 				// Wrap the config controller with a cache.
 				configController, err := configaggregate.MakeCache([]model.ConfigStoreCache{
