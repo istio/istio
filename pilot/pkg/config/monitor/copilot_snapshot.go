@@ -156,13 +156,18 @@ func (c *CopilotSnapshot) ReadConfigFiles() ([]*model.Config, error) {
 	}
 	cachedHashedRoutes.Sort()
 
-	var destinationRuleConfigs []*model.Config
-	for _, rule := range c.destinationRules {
-		destinationRuleConfigs = append(destinationRuleConfigs, rule)
+	var ruleHashes sort.StringSlice
+	for hash := range c.destinationRules {
+		ruleHashes = append(ruleHashes, hash)
 	}
+	ruleHashes.Sort()
 
-	configs := collectConfigs(c.virtualServices, cachedHashedRoutes, resp)
-	configs = append(configs, destinationRuleConfigs...)
+	var configs []*model.Config
+	vs := collectConfigs(c.virtualServices, cachedHashedRoutes, resp)
+	dr := collectConfigs(c.destinationRules, ruleHashes, resp)
+
+	configs = append(configs, vs...)
+	configs = append(configs, dr...)
 
 	return configs, nil
 }

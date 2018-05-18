@@ -16,10 +16,7 @@ package monitor_test
 
 import (
 	"context"
-	"crypto/md5"
 	"errors"
-	"fmt"
-	"io"
 	"testing"
 	"time"
 
@@ -32,6 +29,11 @@ import (
 	"istio.io/istio/pilot/pkg/config/monitor"
 	"istio.io/istio/pilot/pkg/config/monitor/fakes"
 	"istio.io/istio/pilot/pkg/model"
+)
+
+const (
+	routeHashOne = "13c6cf41252f79cff042e4cf812f055c"
+	routeHashTwo = "52ef1929b781773628c530351c90b608"
 )
 
 func TestCloudFoundrySnapshot(t *testing.T) {
@@ -50,13 +52,6 @@ func TestCloudFoundrySnapshot(t *testing.T) {
 			Path:     "/other/path",
 			Backends: nil,
 		},
-	}
-
-	var routeHashes []string
-	for _, route := range routes {
-		h := md5.New()
-		io.WriteString(h, fmt.Sprintf("%s%s", route.Hostname, route.Path))
-		routeHashes = append(routeHashes, fmt.Sprintf("%x", h.Sum(nil)))
 	}
 
 	mockCopilotClient.RoutesReturns(&copilotapi.RoutesResponse{
@@ -148,8 +143,8 @@ func TestCloudFoundrySnapshot(t *testing.T) {
 			},
 		}))
 		g.Expect(destination.Subset).To(gomega.SatisfyAny(
-			gomega.Equal(routeHashes[0]),
-			gomega.Equal(routeHashes[1]),
+			gomega.Equal(routeHashOne),
+			gomega.Equal(routeHashTwo),
 		))
 	}
 
@@ -159,13 +154,91 @@ func TestCloudFoundrySnapshot(t *testing.T) {
 		g.Expect(rule.Host).To(gomega.Equal("some-external-route.example.com"))
 		g.Expect(rule.Subsets).To(gomega.HaveLen(1))
 		g.Expect(rule.Subsets[0].Name).To(gomega.SatisfyAny(
-			gomega.Equal(routeHashes[0]),
-			gomega.Equal(routeHashes[1]),
+			gomega.Equal(routeHashOne),
+			gomega.Equal(routeHashTwo),
 		))
 		g.Expect(rule.Subsets[0].Labels).To(gomega.SatisfyAny(
-			gomega.Equal(map[string]string{"cf-service-instance": routeHashes[0]}),
-			gomega.Equal(map[string]string{"cf-service-instance": routeHashes[1]}),
+			gomega.Equal(map[string]string{"cf-service-instance": routeHashOne}),
+			gomega.Equal(map[string]string{"cf-service-instance": routeHashTwo}),
 		))
+	}
+}
+
+func TestCloudFoundrySnapshotDestinationRuleCache(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	mockCopilotClient := &fakes.CopilotClient{}
+
+	mockCopilotClient.RoutesReturnsOnCall(0, &copilotapi.RoutesResponse{
+		Routes: []*copilotapi.RouteWithBackends{
+			{
+				Hostname: "some-external-route.example.com",
+				Path:     "/some/path",
+				Backends: nil,
+			},
+			{
+				Hostname: "some-other-external-route.example.com",
+				Path:     "/other/path",
+				Backends: nil,
+			},
+		},
+	}, nil)
+
+	mockCopilotClient.RoutesReturnsOnCall(1, &copilotapi.RoutesResponse{
+		Routes: []*copilotapi.RouteWithBackends{
+			{
+				Hostname: "some-external-route.example.com",
+				Path:     "/some/path",
+				Backends: nil,
+			},
+		},
+	}, nil)
+
+	configDescriptor := model.ConfigDescriptor{
+		model.DestinationRule,
+		model.Gateway,
+	}
+	store := memory.Make(configDescriptor)
+	timeout := 20 * time.Millisecond
+	copilotSnapshot := monitor.NewCopilotSnapshot(store, mockCopilotClient, []string{".internal"}, timeout)
+
+	gatewayConfigs := []model.Config{
+		{
+			ConfigMeta: model.ConfigMeta{
+				Name: "some-gateway",
+				Type: "gateway",
+			},
+			Spec: &networking.Gateway{
+				Servers: []*networking.Server{
+					{
+						Port: &networking.Port{
+							Number:   80,
+							Protocol: "HTTP",
+						},
+						Hosts: []string{"*.example.com"},
+					},
+				},
+			},
+		},
+	}
+
+	for _, gatewayConfig := range gatewayConfigs {
+		_, err := store.Create(gatewayConfig)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+	}
+
+	configs, _ := copilotSnapshot.ReadConfigFiles()
+	g.Expect(configs).To(gomega.HaveLen(4))
+
+	configs, _ = copilotSnapshot.ReadConfigFiles()
+	g.Expect(configs).To(gomega.HaveLen(2))
+
+	for _, config := range configs {
+		if destinationRule, ok := config.Spec.(*networking.DestinationRule); ok {
+			g.Expect(destinationRule.GetHost()).To(gomega.Equal("some-external-route.example.com"))
+			g.Expect(destinationRule.GetSubsets()[0].Labels).To(
+				gomega.Equal(map[string]string{"cf-service-instance": routeHashOne}))
+		}
 	}
 }
 
