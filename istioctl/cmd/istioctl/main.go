@@ -626,7 +626,7 @@ func readInputs() ([]model.Config, []crd.IstioKind, error) {
 // Print a simple list of names
 func printShortOutput(_ *crd.Client, configList []model.Config) {
 	var w tabwriter.Writer
-	w.Init(os.Stdout, 0, 8, 0, '\t', 0)
+	w.Init(os.Stdout, 10, 4, 3, ' ', 0)
 	fmt.Fprintf(&w, "NAME\tKIND\tNAMESPACE\n")
 	for _, c := range configList {
 		kind := fmt.Sprintf("%s.%s.%s",
