@@ -90,7 +90,7 @@ metadata:
 spec:
   groups:
   - system:authenticated
-  request: $(cat ${tmpdir}/server.csr | base64 | tr -d '\n')
+  request: $(cat ${tmpdir}/server.csr | openssl base64 | tr -d '\n')
   usages:
   - digital signature
   - key encipherment
