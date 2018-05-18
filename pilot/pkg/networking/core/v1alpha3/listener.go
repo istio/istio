@@ -449,7 +449,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 			}
 
 			if log.DebugEnabled() && len(mutable.Listener.FilterChains) > 1 || currentListener != nil {
-				numChains := 0
+				var numChains int
 				if currentListener != nil {
 					numChains = len(currentListener.FilterChains)
 				} else {
@@ -685,7 +685,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 // chain)
 func marshalFilters(l *xdsapi.Listener, opts buildListenerOpts, chains []plugin.FilterChain) error {
 	if len(opts.filterChainOpts) == 0 {
-		return fmt.Errorf("must have more than 0 chains in listener: %#v\n", l)
+		return fmt.Errorf("must have more than 0 chains in listener: %#v", l)
 	}
 
 	for i, chain := range chains {
