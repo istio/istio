@@ -120,7 +120,7 @@ function istio_provision_certs() {
   if [[ -n "$NS" ]] ; then
     NS="-n $NS"
   fi
-  local B64_DECODE=${BASE64_DECODE:-base64 --decode}
+  local B64_DECODE=${BASE64_DECODE:-openssl base64 -d}
   kubectl get $NS secret $CERT_NAME -o jsonpath='{.data.root-cert\.pem}' | $B64_DECODE   > root-cert.pem
   echo "Generated root-cert.pem. It should be installed on /etc/certs"
   if [ "$ALL" == "all" ] ; then
