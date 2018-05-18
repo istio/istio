@@ -39,8 +39,6 @@ const (
 func TestCloudFoundrySnapshot(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
-	mockCopilotClient := &fakes.CopilotClient{}
-
 	routes := []*copilotapi.RouteWithBackends{
 		{
 			Hostname: "some-external-route.example.com",
@@ -54,59 +52,14 @@ func TestCloudFoundrySnapshot(t *testing.T) {
 		},
 	}
 
-	mockCopilotClient.RoutesReturns(&copilotapi.RoutesResponse{
-		Routes: routes,
-	}, nil)
-
-	configDescriptor := model.ConfigDescriptor{
-		model.VirtualService,
-		model.Gateway,
-	}
-	store := memory.Make(configDescriptor)
-	timeout := 20 * time.Millisecond
-	copilotSnapshot := monitor.NewCopilotSnapshot(store, mockCopilotClient, []string{".internal"}, timeout)
-
-	gatewayConfigs := []model.Config{
-		{
-			ConfigMeta: model.ConfigMeta{
-				Name: "some-gateway",
-				Type: "gateway",
-			},
-			Spec: &networking.Gateway{
-				Servers: []*networking.Server{
-					{
-						Port: &networking.Port{
-							Number:   80,
-							Protocol: "HTTP",
-						},
-						Hosts: []string{"*.example.com"},
-					},
-				},
-			},
-		},
-		{
-			ConfigMeta: model.ConfigMeta{
-				Name: "some-other-gateway",
-				Type: "gateway",
-			},
-			Spec: &networking.Gateway{
-				Servers: []*networking.Server{
-					{
-						Port: &networking.Port{
-							Number:   80,
-							Protocol: "HTTP",
-						},
-						Hosts: []string{"*"},
-					},
-				},
-			},
+	routesResponses := []*copilotapi.RoutesResponse{
+		&copilotapi.RoutesResponse{
+			Routes: routes,
 		},
 	}
 
-	for _, gatewayConfig := range gatewayConfigs {
-		_, err := store.Create(gatewayConfig)
-		g.Expect(err).NotTo(gomega.HaveOccurred())
-	}
+	copilotSnapshot, err := bootstrap(routesResponses)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
 
 	configs, _ := copilotSnapshot.ReadConfigFiles()
 	g.Expect(configs).To(gomega.HaveLen(4))
@@ -167,65 +120,33 @@ func TestCloudFoundrySnapshot(t *testing.T) {
 func TestCloudFoundrySnapshotDestinationRuleCache(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
-	mockCopilotClient := &fakes.CopilotClient{}
-
-	mockCopilotClient.RoutesReturnsOnCall(0, &copilotapi.RoutesResponse{
-		Routes: []*copilotapi.RouteWithBackends{
-			{
-				Hostname: "some-external-route.example.com",
-				Path:     "/some/path",
-				Backends: nil,
-			},
-			{
-				Hostname: "some-other-external-route.example.com",
-				Path:     "/other/path",
-				Backends: nil,
-			},
-		},
-	}, nil)
-
-	mockCopilotClient.RoutesReturnsOnCall(1, &copilotapi.RoutesResponse{
-		Routes: []*copilotapi.RouteWithBackends{
-			{
-				Hostname: "some-external-route.example.com",
-				Path:     "/some/path",
-				Backends: nil,
-			},
-		},
-	}, nil)
-
-	configDescriptor := model.ConfigDescriptor{
-		model.DestinationRule,
-		model.Gateway,
-	}
-	store := memory.Make(configDescriptor)
-	timeout := 20 * time.Millisecond
-	copilotSnapshot := monitor.NewCopilotSnapshot(store, mockCopilotClient, []string{".internal"}, timeout)
-
-	gatewayConfigs := []model.Config{
+	routesResponses := []*copilotapi.RoutesResponse{
 		{
-			ConfigMeta: model.ConfigMeta{
-				Name: "some-gateway",
-				Type: "gateway",
+			Routes: []*copilotapi.RouteWithBackends{
+				{
+					Hostname: "some-external-route.example.com",
+					Path:     "/some/path",
+					Backends: nil,
+				},
+				{
+					Hostname: "some-other-external-route.example.com",
+					Path:     "/other/path",
+					Backends: nil,
+				},
 			},
-			Spec: &networking.Gateway{
-				Servers: []*networking.Server{
-					{
-						Port: &networking.Port{
-							Number:   80,
-							Protocol: "HTTP",
-						},
-						Hosts: []string{"*.example.com"},
-					},
+		},
+		{
+			Routes: []*copilotapi.RouteWithBackends{
+				{
+					Hostname: "some-external-route.example.com",
+					Path:     "/some/path",
+					Backends: nil,
 				},
 			},
 		},
 	}
-
-	for _, gatewayConfig := range gatewayConfigs {
-		_, err := store.Create(gatewayConfig)
-		g.Expect(err).NotTo(gomega.HaveOccurred())
-	}
+	copilotSnapshot, err := bootstrap(routesResponses)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	configs, _ := copilotSnapshot.ReadConfigFiles()
 	g.Expect(configs).To(gomega.HaveLen(4))
@@ -245,62 +166,31 @@ func TestCloudFoundrySnapshotDestinationRuleCache(t *testing.T) {
 func TestCloudFoundrySnapshotVirtualServiceCache(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
-	mockCopilotClient := &fakes.CopilotClient{}
-
-	mockCopilotClient.RoutesReturnsOnCall(0, &copilotapi.RoutesResponse{
-		Routes: []*copilotapi.RouteWithBackends{
-			{
-				Hostname: "some-external-route.example.com",
-				Backends: nil,
-			},
-			{
-				Hostname: "some-other-external-route.example.com",
-				Backends: nil,
-			},
-		},
-	}, nil)
-
-	mockCopilotClient.RoutesReturnsOnCall(1, &copilotapi.RoutesResponse{
-		Routes: []*copilotapi.RouteWithBackends{
-			{
-				Hostname: "some-external-route.example.com",
-				Backends: nil,
-			},
-		},
-	}, nil)
-
-	configDescriptor := model.ConfigDescriptor{
-		model.VirtualService,
-		model.Gateway,
-	}
-	store := memory.Make(configDescriptor)
-	timeout := 20 * time.Millisecond
-	copilotSnapshot := monitor.NewCopilotSnapshot(store, mockCopilotClient, []string{".internal"}, timeout)
-
-	gatewayConfigs := []model.Config{
+	routesResponses := []*copilotapi.RoutesResponse{
 		{
-			ConfigMeta: model.ConfigMeta{
-				Name: "some-gateway",
-				Type: "gateway",
+			Routes: []*copilotapi.RouteWithBackends{
+				{
+					Hostname: "some-external-route.example.com",
+					Backends: nil,
+				},
+				{
+					Hostname: "some-other-external-route.example.com",
+					Backends: nil,
+				},
 			},
-			Spec: &networking.Gateway{
-				Servers: []*networking.Server{
-					{
-						Port: &networking.Port{
-							Number:   80,
-							Protocol: "HTTP",
-						},
-						Hosts: []string{"*.example.com"},
-					},
+		},
+		{
+			Routes: []*copilotapi.RouteWithBackends{
+				{
+					Hostname: "some-external-route.example.com",
+					Backends: nil,
 				},
 			},
 		},
 	}
 
-	for _, gatewayConfig := range gatewayConfigs {
-		_, err := store.Create(gatewayConfig)
-		g.Expect(err).NotTo(gomega.HaveOccurred())
-	}
+	copilotSnapshot, err := bootstrap(routesResponses)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	virtualServices, _ := copilotSnapshot.ReadConfigFiles()
 	g.Expect(virtualServices).To(gomega.HaveLen(2))
@@ -336,7 +226,7 @@ func TestCloudFoundrySnapshotConnectionError(t *testing.T) {
 	configDescriptor := model.ConfigDescriptor{}
 	store := memory.Make(configDescriptor)
 	timeout := 4 * time.Millisecond
-	copilotSnapshot := monitor.NewCopilotSnapshot(store, mockCopilotClient, []string{".internal"}, timeout)
+	copilotSnapshot := monitor.NewCopilotSnapshot(store, mockCopilotClient, timeout)
 
 	virtualServices, err := copilotSnapshot.ReadConfigFiles()
 	g.Expect(err).To(gomega.HaveOccurred())
@@ -355,9 +245,71 @@ func TestCloudFoundrySnapshotTimeoutError(t *testing.T) {
 	configDescriptor := model.ConfigDescriptor{}
 	store := memory.Make(configDescriptor)
 	timeout := 1 * time.Millisecond
-	copilotSnapshot := monitor.NewCopilotSnapshot(store, mockCopilotClient, []string{".internal"}, timeout)
+	copilotSnapshot := monitor.NewCopilotSnapshot(store, mockCopilotClient, timeout)
 
 	virtualServices, err := copilotSnapshot.ReadConfigFiles()
 	g.Expect(err).To(gomega.BeAssignableToTypeOf(context.DeadlineExceeded))
 	g.Expect(virtualServices).To(gomega.BeNil())
+}
+
+func bootstrap(routeResponses []*copilotapi.RoutesResponse) (*monitor.CopilotSnapshot, error) {
+	mockCopilotClient := &fakes.CopilotClient{}
+
+	for idx, response := range routeResponses {
+		mockCopilotClient.RoutesReturnsOnCall(idx, response, nil)
+	}
+
+	configDescriptor := model.ConfigDescriptor{
+		model.DestinationRule,
+		model.Gateway,
+	}
+	store := memory.Make(configDescriptor)
+	timeout := 20 * time.Millisecond
+	copilotSnapshot := monitor.NewCopilotSnapshot(store, mockCopilotClient, timeout)
+
+	gatewayConfigs := []model.Config{
+		{
+			ConfigMeta: model.ConfigMeta{
+				Name: "some-gateway",
+				Type: "gateway",
+			},
+			Spec: &networking.Gateway{
+				Servers: []*networking.Server{
+					{
+						Port: &networking.Port{
+							Number:   80,
+							Protocol: "HTTP",
+						},
+						Hosts: []string{"*.example.com"},
+					},
+				},
+			},
+		},
+		{
+			ConfigMeta: model.ConfigMeta{
+				Name: "some-other-gateway",
+				Type: "gateway",
+			},
+			Spec: &networking.Gateway{
+				Servers: []*networking.Server{
+					{
+						Port: &networking.Port{
+							Number:   80,
+							Protocol: "HTTP",
+						},
+						Hosts: []string{"*"},
+					},
+				},
+			},
+		},
+	}
+
+	for _, gatewayConfig := range gatewayConfigs {
+		_, err := store.Create(gatewayConfig)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return copilotSnapshot, nil
 }

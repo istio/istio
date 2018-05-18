@@ -47,7 +47,7 @@ type CopilotSnapshot struct {
 // The store is required to discover any existing gateways: the generated config will reference those gateways
 // The client is used to discover Cloud Foundry Routes from Copilot
 // The snapshot will not return routes for any hostnames which end with strings on the hostnameBlacklist
-func NewCopilotSnapshot(store model.ConfigStore, client CopilotClient, _ []string, timeout time.Duration) *CopilotSnapshot {
+func NewCopilotSnapshot(store model.ConfigStore, client CopilotClient, timeout time.Duration) *CopilotSnapshot {
 	return &CopilotSnapshot{
 		store:            store,
 		client:           client,

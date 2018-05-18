@@ -532,7 +532,7 @@ func (s *Server) makeCopilotMonitor(args *PilotArgs, configController model.Conf
 		return multierror.Prefix(err, "creating cloud foundry client")
 	}
 
-	copilotSnapshot := configmonitor.NewCopilotSnapshot(configController, client, []string{".internal"}, CopilotTimeout)
+	copilotSnapshot := configmonitor.NewCopilotSnapshot(configController, client, CopilotTimeout)
 	copilotMonitor := configmonitor.NewMonitor(configController, 1*time.Second, copilotSnapshot.ReadConfigFiles)
 
 	s.addStartFunc(func(stop chan struct{}) error {
