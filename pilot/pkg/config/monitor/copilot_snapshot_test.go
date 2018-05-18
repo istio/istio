@@ -16,7 +16,10 @@ package monitor_test
 
 import (
 	"context"
+	"crypto/md5"
 	"errors"
+	"fmt"
+	"io"
 	"testing"
 	"time"
 
@@ -36,12 +39,28 @@ func TestCloudFoundrySnapshot(t *testing.T) {
 
 	mockCopilotClient := &fakes.CopilotClient{}
 
-	mockCopilotClient.RoutesReturns(&copilotapi.RoutesResponse{
-		Backends: map[string]*copilotapi.BackendSet{
-			"some-external-route.example.com":       nil,
-			"some-other-external-route.example.com": nil,
-			"some-internal-route.apps.internal":     nil,
+	routes := []*copilotapi.RouteWithBackends{
+		{
+			Hostname: "some-external-route.example.com",
+			Path:     "/some/path",
+			Backends: nil,
 		},
+		{
+			Hostname: "some-external-route.example.com",
+			Path:     "/other/path",
+			Backends: nil,
+		},
+	}
+
+	var routeHashes []string
+	for _, route := range routes {
+		h := md5.New()
+		io.WriteString(h, fmt.Sprintf("%s%s", route.Hostname, route.Path))
+		routeHashes = append(routeHashes, fmt.Sprintf("%x", h.Sum(nil)))
+	}
+
+	mockCopilotClient.RoutesReturns(&copilotapi.RoutesResponse{
+		Routes: routes,
 	}, nil)
 
 	configDescriptor := model.ConfigDescriptor{
@@ -94,33 +113,59 @@ func TestCloudFoundrySnapshot(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 	}
 
-	virtualServices, _ := copilotSnapshot.ReadConfigFiles()
-	g.Expect(virtualServices).To(gomega.HaveLen(2))
+	configs, _ := copilotSnapshot.ReadConfigFiles()
+	g.Expect(configs).To(gomega.HaveLen(4))
 
-	for _, untypedConfig := range virtualServices {
-		c := untypedConfig.Spec.(*networking.VirtualService)
+	var virtualServices []*networking.VirtualService
+	var destinationRules []*networking.DestinationRule
+	for _, untypedConfig := range configs {
+		if virtualService, ok := untypedConfig.Spec.(*networking.VirtualService); ok {
+			virtualServices = append(virtualServices, virtualService)
+		} else {
+			destinationRules = append(destinationRules, untypedConfig.Spec.(*networking.DestinationRule))
+		}
+	}
 
-		g.Expect(c.Hosts).To(gomega.HaveLen(1))
-		matchHostname := c.Hosts[0]
+	for _, virtualService := range virtualServices {
+		g.Expect(virtualService.Hosts).To(gomega.HaveLen(1))
+		matchHostname := virtualService.Hosts[0]
 
-		g.Expect(c.Gateways).To(gomega.ConsistOf([]string{"some-gateway", "some-other-gateway"}))
+		g.Expect(virtualService.Gateways).To(gomega.ConsistOf([]string{"some-gateway", "some-other-gateway"}))
 
-		g.Expect(c.Http).To(gomega.Equal([]*networking.HTTPRoute{
-			{
-				Route: []*networking.DestinationWeight{
-					{
-						Destination: &networking.Destination{
-							Host: matchHostname,
-							Port: &networking.PortSelector{
-								Port: &networking.PortSelector_Number{
-									Number: 8080,
-								},
-							},
-						},
-					},
-				},
+		g.Expect(virtualService.Http).To(gomega.HaveLen(1))
+		g.Expect(virtualService.Http[0].Match).To(gomega.HaveLen(1))
+
+		g.Expect(virtualService.Http[0].Match[0].Uri.GetPrefix()).To(gomega.SatisfyAny(
+			gomega.Equal("/some/path"),
+			gomega.Equal("/other/path"),
+		))
+		g.Expect(virtualService.Http[0].Route).To(gomega.HaveLen(1))
+		destination := virtualService.Http[0].Route[0].Destination
+		g.Expect(destination.Host).To(gomega.Equal(matchHostname))
+		g.Expect(destination.Port).To(gomega.Equal(&networking.PortSelector{
+			Port: &networking.PortSelector_Number{
+				Number: 8080,
 			},
 		}))
+		g.Expect(destination.Subset).To(gomega.SatisfyAny(
+			gomega.Equal(routeHashes[0]),
+			gomega.Equal(routeHashes[1]),
+		))
+	}
+
+	g.Expect(destinationRules).To(gomega.HaveLen(2))
+
+	for _, rule := range destinationRules {
+		g.Expect(rule.Host).To(gomega.Equal("some-external-route.example.com"))
+		g.Expect(rule.Subsets).To(gomega.HaveLen(1))
+		g.Expect(rule.Subsets[0].Name).To(gomega.SatisfyAny(
+			gomega.Equal(routeHashes[0]),
+			gomega.Equal(routeHashes[1]),
+		))
+		g.Expect(rule.Subsets[0].Labels).To(gomega.SatisfyAny(
+			gomega.Equal(map[string]string{"cf-service-instance": routeHashes[0]}),
+			gomega.Equal(map[string]string{"cf-service-instance": routeHashes[1]}),
+		))
 	}
 }
 
@@ -130,15 +175,24 @@ func TestCloudFoundrySnapshotVirtualServiceCache(t *testing.T) {
 	mockCopilotClient := &fakes.CopilotClient{}
 
 	mockCopilotClient.RoutesReturnsOnCall(0, &copilotapi.RoutesResponse{
-		Backends: map[string]*copilotapi.BackendSet{
-			"some-external-route.example.com":                 nil,
-			"some-other-external-route-to-delete.example.com": nil,
+		Routes: []*copilotapi.RouteWithBackends{
+			{
+				Hostname: "some-external-route.example.com",
+				Backends: nil,
+			},
+			{
+				Hostname: "some-other-external-route.example.com",
+				Backends: nil,
+			},
 		},
 	}, nil)
 
 	mockCopilotClient.RoutesReturnsOnCall(1, &copilotapi.RoutesResponse{
-		Backends: map[string]*copilotapi.BackendSet{
-			"some-external-route.example.com": nil,
+		Routes: []*copilotapi.RouteWithBackends{
+			{
+				Hostname: "some-external-route.example.com",
+				Backends: nil,
+			},
 		},
 	}, nil)
 
