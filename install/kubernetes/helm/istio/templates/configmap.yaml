@@ -33,6 +33,10 @@ data:
     mixerReportServer: istio-telemetry.{{ .Release.Namespace }}.svc.cluster.local:15004
     # This is the ingress service name, update if you used a different name
     ingressService: istio-ingress
+
+    # Set to /dev/null to disable access log.
+    # Set to /dev/stdout to see access log in the 'istio-proxy' container logs
+    accessLogFile: /dev/null
     #
     # Along with discoveryRefreshDelay, this setting determines how
     # frequently should Envoy fetch and update its internal configuration

@@ -1,0 +1,63 @@
+# This replaces the "auth.istio.io/8080: MUTUAL_TLS|NONE" service annotation
+apiVersion: "authentication.istio.io/v1alpha1"
+kind: "Policy"
+metadata:
+  name: "fortio-mtls"
+spec:
+  peers:
+  - mtls:
+    # Default is STRICT
+    mode: TLS_PERMISSIVE
+  peer_is_optional: true
+  targets:
+  # Must be short name of service
+  - name: "fortio-tls"
+    # subsets: "v2"
+    ports:
+    # name also supported
+    # TODO: this should be target port (container)
+    - number: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fortio-tls
+spec:
+  ports:
+  - port: 8080
+    name: http-echo
+  - port: 8081
+    targetPort: 8080
+    name: http-echo1
+  - port: 8079
+    name: grpc-ping
+  selector:
+    istio: fortio-tls
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: fortio-tls
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: fortio-tls
+        version: tls
+    spec:
+      containers:
+      - name: fortio
+        image: istio/fortio:latest
+        ports:
+         - containerPort: 8080
+         - containerPort: 8079
+        args:
+          - server
+        resources:
+          requests:
+            cpu: 800m
+            memory: "1G"
+          limits:
+            cpu: 1000m
+            memory: "1G"

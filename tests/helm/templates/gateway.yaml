@@ -1,4 +1,4 @@
-# kubectl apply -n istio-system ...
+# Gateway config, and associated virtual services
 
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
@@ -13,14 +13,26 @@ spec:
       name: http
       protocol: HTTP
     hosts:
-    - "prom.v08.istio.webinf.info"
-    - "grafana.v08.istio.webinf.info"
-    - "pilot.v08.istio.webinf.info"
-    - "fortio.v08.istio.webinf.info"
-    - "fortio2.v08.istio.webinf.info"
-    - "fortioraw.v08.istio.webinf.info"
-    - "bookinfo.v08.istio.webinf.info"
-    - "httpbin.v08.istio.webinf.info"
+    - "prom.{{ .Values.domain }}"
+    - "grafana.{{ .Values.domain }}"
+    - "pilot.{{ .Values.domain }}"
+    - "fortio.{{ .Values.domain }}"
+    - "fortio2.{{ .Values.domain }}"
+    - "fortioraw.{{ .Values.domain }}"
+    - "bookinfo.{{ .Values.domain }}"
+    - "httpbin.{{ .Values.domain }}"
+  - port:
+      number: 5203
+      protocol: TCP
+      name: tcp-iperf
+    hosts:
+    - "*"
+  - port:
+      number: 5202
+      protocol: TCP
+      name: tcp-iperfraw
+    hosts:
+    - "*"
 
 ---
 
@@ -30,7 +42,7 @@ metadata:
   name: pilot
 spec:
   hosts:
-  - "pilot.v08.istio.webinf.info"
+  - "pilot.{{ .Values.domain }}"
   gateways:
   - istio08-gateway
   http:
@@ -48,7 +60,7 @@ metadata:
   name: httpbin
 spec:
   hosts:
-  - "httpbin.v08.istio.webinf.info"
+  - "httpbin.{{ .Values.domain }}"
   gateways:
   - istio08-gateway
   http:
@@ -65,7 +77,7 @@ metadata:
   name: grafana
 spec:
   hosts:
-  - "grafana.v08.istio.webinf.info"
+  - "grafana.{{ .Values.domain }}"
   gateways:
   - istio08-gateway
   http:
@@ -84,7 +96,7 @@ metadata:
   name: prom
 spec:
   hosts:
-  - "prom.v08.istio.webinf.info"
+  - "prom.{{ .Values.domain }}"
   gateways:
   - istio08-gateway
   http:
@@ -101,7 +113,7 @@ metadata:
   name: bookinfo
 spec:
   hosts:
-  - "bookinfo.v08.istio.webinf.info"
+  - "bookinfo.{{ .Values.domain }}"
   gateways:
   - istio08-gateway
   http:
@@ -119,13 +131,13 @@ metadata:
   name: fortio
 spec:
   hosts:
-  - "fortioraw.v08.istio.webinf.info"
+  - "fortioraw.{{.Values.domain}}"
   gateways:
   - istio08-gateway
   http:
   - route:
     - destination:
-        host: echosrv.raw.svc.cluster.local
+        host: fortio-noistio.test.svc.cluster.local
         port:
           number: 8080
 
@@ -137,7 +149,7 @@ metadata:
   name: fortioistio
 spec:
   hosts:
-  - "fortio.v08.istio.webinf.info"
+  - "fortio.{{ .Values.domain }}"
   gateways:
   - istio08-gateway
   http:
@@ -156,7 +168,7 @@ metadata:
   name: fortio2istio
 spec:
   hosts:
-  - "fortio2.v08.istio.webinf.info"
+  - "fortio2.{{ .Values.domain }}"
   gateways:
   - istio08-gateway
   http:
@@ -165,3 +177,40 @@ spec:
         host: echosrv2.test.svc.cluster.local
         port:
           number: 8080
+
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: pilot
+spec:
+  hosts:
+  - "pilot.{{ .Values.domain }}"
+  gateways:
+  - istio08-gateway
+  http:
+  - route:
+    - destination:
+        host: istio-pilot.istio-system.svc.cluster.local
+        port:
+          number: 8080
+
+---
+
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: iperf
+spec:
+  hosts:
+  - "iperf.{{ .Values.domain }}"
+  gateways:
+  - istio08-gateway
+  tcp:
+  - route:
+    - destination:
+        host: iperf3.test.svc.cluster.local
+        port:
+          number: 5202
+
+---
