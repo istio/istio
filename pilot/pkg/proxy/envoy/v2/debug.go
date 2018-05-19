@@ -60,11 +60,12 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 // NewMemServiceDiscovery builds an in-memory MemServiceDiscovery
 func NewMemServiceDiscovery(services map[model.Hostname]*model.Service, versions int) *MemServiceDiscovery {
 	return &MemServiceDiscovery{
-		services:    services,
-		versions:    versions,
-		controller:  &memServiceController{},
-		instances:   map[string][]*model.ServiceInstance{},
-		ip2instance: map[string][]*model.ServiceInstance{},
+		services:            services,
+		versions:            versions,
+		controller:          &memServiceController{},
+		instancesByPortNum:  map[string][]*model.ServiceInstance{},
+		instancesByPortName: map[string][]*model.ServiceInstance{},
+		ip2instance:         map[string][]*model.ServiceInstance{},
 	}
 }
 
@@ -92,7 +93,8 @@ func (c *memServiceController) Run(<-chan struct{}) {}
 type MemServiceDiscovery struct {
 	services map[model.Hostname]*model.Service
 	// Endpoints table. Key is the fqdn of the service, ':', port
-	instances                     map[string][]*model.ServiceInstance
+	instancesByPortNum            map[string][]*model.ServiceInstance
+	instancesByPortName           map[string][]*model.ServiceInstance
 	ip2instance                   map[string][]*model.ServiceInstance
 	versions                      int
 	WantGetProxyServiceInstances  []*model.ServiceInstance
@@ -135,13 +137,12 @@ func (sd *MemServiceDiscovery) AddInstance(service model.Hostname, instance *mod
 	sd.ip2instance[instance.Endpoint.Address] = []*model.ServiceInstance{instance}
 
 	key := fmt.Sprintf("%s:%d", service, instance.Endpoint.ServicePort.Port)
-	instanceList := sd.instances[key]
-	if instanceList == nil {
-		instanceList = []*model.ServiceInstance{instance}
-		sd.instances[key] = instanceList
-		return
-	}
-	sd.instances[key] = append(instanceList, instance)
+	instanceList := sd.instancesByPortNum[key]
+	sd.instancesByPortNum[key] = append(instanceList, instance)
+
+	key = fmt.Sprintf("%s:%s", service, instance.Endpoint.ServicePort.Name)
+	instanceList = sd.instancesByPortName[key]
+	sd.instancesByPortName[key] = append(instanceList, instance)
 }
 
 // AddEndpoint adds an endpoint to a service.
@@ -201,7 +202,7 @@ func (sd *MemServiceDiscovery) Instances(hostname model.Hostname, ports []string
 		return nil, nil
 	}
 	key := hostname.String() + ":" + ports[0]
-	instances, ok := sd.instances[key]
+	instances, ok := sd.instancesByPortName[key]
 	if !ok {
 		return nil, nil
 	}
@@ -218,7 +219,7 @@ func (sd *MemServiceDiscovery) InstancesByPort(hostname model.Hostname, port int
 		return nil, sd.InstancesError
 	}
 	key := fmt.Sprintf("%s:%d", hostname.String(), port)
-	instances, ok := sd.instances[key]
+	instances, ok := sd.instancesByPortNum[key]
 	if !ok {
 		return nil, nil
 	}
@@ -334,8 +335,8 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 					return
 				}
 				for _, svc := range all {
-					fmt.Fprintf(w, "%s:%s %s:%d %v %v %s\n", ss.Hostname,
-						p.Name, svc.Endpoint.Address, svc.Endpoint.Port, svc.Labels,
+					fmt.Fprintf(w, "%s:%s %v %s:%d %v %v %s\n", ss.Hostname,
+						p.Name, svc.Endpoint.Family, svc.Endpoint.Address, svc.Endpoint.Port, svc.Labels,
 						svc.GetAZ(), svc.ServiceAccount)
 				}
 			}

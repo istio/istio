@@ -294,7 +294,7 @@ istioctl get virtualservice bookinfo
 					strings.Join(supportedTypes(configClient), ", "))
 			}
 
-			typ, err := protoSchema(configClient, args[0])
+			typ, err := protoSchema(configClient, strings.ToLower(args[0]))
 			if err != nil {
 				c.Println(c.UsageString())
 				return err
@@ -354,7 +354,7 @@ istioctl delete virtualservice bookinfo
 					c.Println(c.UsageString())
 					return fmt.Errorf("provide configuration type and name or -f option")
 				}
-				typ, err := protoSchema(configClient, args[0])
+				typ, err := protoSchema(configClient, strings.ToLower(args[0]))
 				if err != nil {
 					return err
 				}

@@ -38,45 +38,39 @@ import (
 )
 
 func connect(t *testing.T) xdsapi.EndpointDiscoveryService_StreamEndpointsClient {
-	conn, err := grpc.Dial(util.MockPilotGrpcAddr, grpc.WithInsecure())
-	if err != nil {
-		t.Fatal("Connection failed", err)
-	}
-
-	xds := xdsapi.NewEndpointDiscoveryServiceClient(conn)
-	edsstr, err := xds.StreamEndpoints(context.Background())
-	if err != nil {
-		t.Fatal("Rpc failed", err)
-	}
-	err = edsstr.Send(&xdsapi.DiscoveryRequest{
+	req := &xdsapi.DiscoveryRequest{
 		Node: &envoy_api_v2_core1.Node{
 			Id: sidecarId(app3Ip, "app3"),
 		},
-		ResourceNames: []string{"hello.default.svc.cluster.local|http"}})
-	if err != nil {
-		t.Fatal("Send failed", err)
+		ResourceNames: []string{"hello.default.svc.cluster.local|http"},
 	}
-	return edsstr
+	return connectWithRequest(req, t)
 }
 
 func reconnect(res *xdsapi.DiscoveryResponse, t *testing.T) xdsapi.EndpointDiscoveryService_StreamEndpointsClient {
-	conn, err := grpc.Dial(util.MockPilotGrpcAddr, grpc.WithInsecure())
-	if err != nil {
-		t.Fatal("Connection failed", err)
-	}
-
-	xds := xdsapi.NewEndpointDiscoveryServiceClient(conn)
-	edsstr, err := xds.StreamEndpoints(context.Background())
-	if err != nil {
-		t.Fatal("Rpc failed", err)
-	}
-	err = edsstr.Send(&xdsapi.DiscoveryRequest{
+	req := &xdsapi.DiscoveryRequest{
 		Node: &envoy_api_v2_core1.Node{
 			Id: sidecarId(app3Ip, "app3"),
 		},
 		VersionInfo:   res.VersionInfo,
 		ResponseNonce: res.Nonce,
-		ResourceNames: []string{"hello.default.svc.cluster.local|http"}})
+		ResourceNames: []string{"hello.default.svc.cluster.local|http"},
+	}
+	return connectWithRequest(req, t)
+}
+
+func connectWithRequest(r *xdsapi.DiscoveryRequest, t *testing.T) xdsapi.EndpointDiscoveryService_StreamEndpointsClient {
+	conn, err := grpc.Dial(util.MockPilotGrpcAddr, grpc.WithInsecure())
+	if err != nil {
+		t.Fatal("Connection failed", err)
+	}
+
+	xds := xdsapi.NewEndpointDiscoveryServiceClient(conn)
+	edsstr, err := xds.StreamEndpoints(context.Background())
+	if err != nil {
+		t.Fatal("Rpc failed", err)
+	}
+	err = edsstr.Send(r)
 	if err != nil {
 		t.Fatal("Send failed", err)
 	}
@@ -203,7 +197,7 @@ func connectAndSend(id uint32, t *testing.T) (xdsapi.EndpointDiscoveryService_St
 		Node: &envoy_api_v2_core1.Node{
 			Id: sidecarId(testIp(uint32(0x0a100000+id)), "app3"),
 		},
-		ResourceNames: []string{"hello.default.svc.cluster.local|80"}})
+		ResourceNames: []string{"hello.default.svc.cluster.local|http"}})
 	if err != nil {
 		t.Fatal("Send failed", err)
 	}
@@ -311,13 +305,96 @@ func waitTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
 	}
 }
 
+func udsRequest(server *bootstrap.Server, t *testing.T) {
+	udsPath := "/var/run/test/socket"
+	server.EnvoyXdsServer.MemRegistry.AddService("localuds.cluster.local", &model.Service{
+		Hostname: "localuds.cluster.local",
+		Ports: model.PortList{
+			{
+				Name:                 "grpc",
+				Port:                 0,
+				Protocol:             model.ProtocolGRPC,
+				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+			},
+		},
+		MeshExternal: true,
+		Resolution:   model.ClientSideLB,
+	})
+	server.EnvoyXdsServer.MemRegistry.AddInstance("localuds.cluster.local", &model.ServiceInstance{
+		Endpoint: model.NetworkEndpoint{
+			Family:  model.AddressFamilyUnix,
+			Address: udsPath,
+			Port:    0,
+			ServicePort: &model.Port{
+				Name:                 "grpc",
+				Port:                 0,
+				Protocol:             model.ProtocolGRPC,
+				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+			},
+		},
+		Labels:           map[string]string{"socket": "unix"},
+		AvailabilityZone: "localhost",
+	})
+
+	req := &xdsapi.DiscoveryRequest{
+		Node: &envoy_api_v2_core1.Node{
+			Id: sidecarId(app3Ip, "app3"),
+		},
+		ResourceNames: []string{"localuds.cluster.local|grpc"},
+	}
+	edsstr := connectWithRequest(req, t)
+
+	cla := &xdsapi.ClusterLoadAssignment{}
+	// Race condition in the server might cause it to send a Resource with no endpoints at first, so retry once more if
+	// that happens.
+	for i := 0; i < 2; i++ {
+		res, err := edsstr.Recv()
+		if err != nil {
+			t.Fatal("Recv2 failed", err)
+		}
+		t.Log(res.String())
+		if len(res.Resources) != 1 {
+			t.Fatalf("expected 1 resources got %d", len(res.Resources))
+		}
+		err = cla.Unmarshal(res.Resources[0].Value)
+		if err != nil {
+			t.Fatal("Failed to parse proto ", err)
+		}
+		t.Log(cla.String())
+		if len(cla.Endpoints) != 1 {
+			if i == 1 {
+				// Second attempt, fail test case
+				t.Fatalf("expected 1 endpoint but got %d", len(cla.Endpoints))
+			}
+			log.Println(fmt.Sprintf("expected 1 endpoint but got %d, retrying", len(cla.Endpoints)))
+			continue
+		}
+		break
+	}
+	ep0 := cla.Endpoints[0]
+	if len(ep0.LbEndpoints) != 1 {
+		t.Fatalf("expected 1 LB endpoint but got %d", len(ep0.LbEndpoints))
+	}
+	lbep := ep0.LbEndpoints[0]
+	path := lbep.GetEndpoint().GetAddress().GetPipe().GetPath()
+	if path != udsPath {
+		t.Fatalf("expected Pipe to %s, got %s", udsPath, path)
+	}
+}
+
 func TestEds(t *testing.T) {
 	initLocalPilotTestEnv(t)
 	server := util.EnsureTestServer()
 
-	directRequest(server, t)
-	multipleRequest(server, t)
-
+	t.Run("DirectRequest", func(t *testing.T) {
+		directRequest(server, t)
+	})
+	t.Run("MultipleRequest", func(t *testing.T) {
+		multipleRequest(server, t)
+	})
+	t.Run("UDSRequest", func(t *testing.T) {
+		udsRequest(server, t)
+	})
 }
 
 // Verify the endpoint debug interface is installed and returns some string.
@@ -337,7 +414,7 @@ func testEdsz(t *testing.T) {
 	}
 	statusStr := string(data)
 
-	if !strings.Contains(statusStr, "\"hello.default.svc.cluster.local|80\"") {
+	if !strings.Contains(statusStr, "\"hello.default.svc.cluster.local|http\"") {
 		t.Fatal("Mock hello service not found ", statusStr)
 	}
 }
