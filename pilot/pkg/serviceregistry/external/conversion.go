@@ -16,6 +16,7 @@ package external
 
 import (
 	"net"
+	"strings"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -78,15 +79,25 @@ func convertServices(serviceEntry *networking.ServiceEntry) []*model.Service {
 
 func convertEndpoint(service *model.Service, servicePort *networking.Port,
 	endpoint *networking.ServiceEntry_Endpoint) *model.ServiceInstance {
-
-	instancePort := endpoint.Ports[servicePort.Name]
-	if instancePort == 0 {
-		instancePort = servicePort.Number
+	var instancePort uint32
+	var family model.AddressFamily
+	addr := endpoint.GetAddress()
+	if strings.HasPrefix(addr, model.UnixAddressPrefix) {
+		instancePort = 0
+		family = model.AddressFamilyUnix
+		addr = strings.TrimPrefix(addr, model.UnixAddressPrefix)
+	} else {
+		instancePort = endpoint.Ports[servicePort.Name]
+		if instancePort == 0 {
+			instancePort = servicePort.Number
+		}
+		family = model.AddressFamilyTCP
 	}
 
 	return &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
-			Address:     endpoint.Address,
+			Address:     addr,
+			Family:      family,
 			Port:        int(instancePort),
 			ServicePort: convertPort(servicePort),
 		},
