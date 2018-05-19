@@ -17,7 +17,6 @@ package v2
 import (
 	"context"
 	"errors"
-	"net"
 	"strconv"
 	"strings"
 	"sync"
@@ -31,6 +30,7 @@ import (
 	"google.golang.org/grpc/peer"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 )
 
 // EDS returns the list of endpoints (IP:port and in future labels) associated with a real
@@ -112,25 +112,15 @@ func loadAssignment(c *EdsCluster) *xdsapi.ClusterLoadAssignment {
 	return c.LoadAssignment
 }
 
-func newEndpoint(address string, port uint32) (*endpoint.LbEndpoint, error) {
-	ipAddr := net.ParseIP(address)
-	if ipAddr == nil {
-		return nil, errors.New("Invalid IP address " + address)
+func newEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpoint, error) {
+	err := model.ValidateNetworkEndpointAddress(e)
+	if err != nil {
+		return nil, err
 	}
+	addr := util.GetNetworkEndpointAddress(e)
 	ep := &endpoint.LbEndpoint{
 		Endpoint: &endpoint.Endpoint{
-			Address: &core.Address{
-				Address: &core.Address_SocketAddress{
-					&core.SocketAddress{
-						Address:    address,
-						Ipv4Compat: ipAddr.To4() != nil,
-						Protocol:   core.TCP,
-						PortSpecifier: &core.SocketAddress_PortValue{
-							PortValue: port,
-						},
-					},
-				},
-			},
+			Address: &addr,
 		},
 	}
 
@@ -202,7 +192,7 @@ func updateCluster(clusterName string, edsCluster *EdsCluster) error {
 func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []endpoint.LocalityLbEndpoints {
 	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
 	for _, instance := range instances {
-		lbEp, err := newEndpoint(instance.Endpoint.Address, (uint32)(instance.Endpoint.Port))
+		lbEp, err := newEndpoint(&instance.Endpoint)
 		if err != nil {
 			adsLog.Errorf("EDS: unexpected pilot model endpoint v1 to v2 conversion: %v", err)
 			continue
