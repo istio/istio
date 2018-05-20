@@ -50,7 +50,7 @@ import (
 
 const (
 	helmChartDirectory     = "../../../../install/kubernetes/helm/istio"
-	helmConfigMapKey       = "istio/charts/sidecar-injector/templates/configmap.yaml"
+	helmConfigMapKey       = "istio/templates/sidecar-injector-configmap.yaml"
 	helmValuesFile         = "values.yaml"
 	yamlSeparator          = "\n---"
 	minimalSidecarTemplate = `
