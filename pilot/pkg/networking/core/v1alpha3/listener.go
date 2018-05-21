@@ -212,8 +212,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env model.Environmen
 		l := buildListener(opts)
 		if err := marshalFilters(l, opts, []plugin.FilterChain{{}}); err != nil {
 			log.Warna("buildSidecarListeners ", err.Error())
+		} else {
+			listeners = append(listeners, l)
 		}
-		listeners = append(listeners, l)
 		// TODO: need inbound listeners in HTTP_PROXY case, with dedicated ingress listener.
 	}
 
@@ -256,10 +257,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 			// Skip building listener for the same ip port
 			continue
 		}
-
-		switch protocol {
-		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC:
-			listenerType = plugin.ListenerTypeHTTP
+		listenerType = plugin.ModelProtocolToListenerType(protocol)
+		switch listenerType {
+		case plugin.ListenerTypeHTTP:
 			listenerOpts.filterChainOpts = []*filterChainOpts{{
 				httpOpts: &httpListenerOpts{
 					routeConfig:      configgen.buildSidecarInboundHTTPRouteConfig(env, node, instance),
@@ -268,14 +268,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 					direction:        http_conn.INGRESS,
 				}},
 			}
-		case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
-			listenerType = plugin.ListenerTypeTCP
+		case plugin.ListenerTypeTCP:
 			listenerOpts.filterChainOpts = []*filterChainOpts{{
 				networkFilters: buildInboundNetworkFilters(instance),
 			}}
 
 		default:
-			log.Debugf("Unsupported inbound protocol %v for port %#v", protocol, instance.Endpoint.ServicePort)
+			log.Warnf("Unsupported inbound protocol %v for port %#v", protocol, instance.Endpoint.ServicePort)
 			continue
 		}
 
@@ -300,11 +299,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 		// Filters are serialized one time into an opaque struct once we have the complete list.
 		if err := marshalFilters(mutable.Listener, listenerOpts, mutable.FilterChains); err != nil {
 			log.Warna("buildSidecarInboundListeners ", err.Error())
+		} else {
+			listeners = append(listeners, mutable.Listener)
+			listenerMap[listenerMapKey] = mutable.Listener
 		}
-
-		listeners = append(listeners, mutable.Listener)
-		listenerMap[listenerMapKey] = mutable.Listener
-
 	}
 	return listeners
 }
@@ -346,9 +344,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				protocol:       servicePort.Protocol,
 			}
 
-			switch servicePort.Protocol {
+			switch plugin.ModelProtocolToListenerType(servicePort.Protocol) {
 			// TODO: Set SNI for HTTPS
-			case model.ProtocolHTTP2, model.ProtocolHTTP, model.ProtocolGRPC:
+			case plugin.ListenerTypeHTTP:
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
 				if l, exists := listenerMap[listenerMapKey]; exists {
 					if !strings.HasPrefix(l.Name, "http") {
@@ -378,7 +376,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 						direction:        operation,
 					},
 				}}
-			case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
+			case plugin.ListenerTypeTCP:
 				if service.Resolution != model.Passthrough {
 					listenAddress = service.GetServiceAddressForProxy(&node)
 					addresses = []string{listenAddress}
@@ -393,7 +391,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 					networkFilters: buildOutboundNetworkFilters(clusterName, addresses, servicePort),
 				}}
 			default:
-				log.Infof("buildSidecarOutboundListeners: service %q has unknown protocol %#v", service.Hostname, servicePort)
+				log.Warnf("buildSidecarOutboundListeners: service %q has unknown protocol %#v", service.Hostname, servicePort)
 				continue
 			}
 
@@ -423,6 +421,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 			// Filters are serialized one time into an opaque struct once we have the complete list.
 			if err := marshalFilters(mutable.Listener, listenerOpts, mutable.FilterChains); err != nil {
 				log.Warna("buildSidecarOutboundListeners: ", err.Error())
+				continue
 			}
 
 			// By default we require SNI; if there's only one filter chain then we know there's either 0 or 1 cert,
@@ -498,8 +497,9 @@ func buildMgmtPortListeners(managementPorts model.PortList, managementIP string)
 			// TODO: should we call plugins for the admin port listeners too? We do everywhere else we contruct listeners.
 			if err := marshalFilters(l, listenerOpts, []plugin.FilterChain{{}}); err != nil {
 				log.Warna("buildMgmtPortListeners ", err.Error())
+			} else {
+				listeners = append(listeners, l)
 			}
-			listeners = append(listeners, l)
 		default:
 			log.Warnf("Unsupported inbound protocol %v for management port %#v",
 				mPort.Protocol, mPort)

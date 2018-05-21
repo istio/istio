@@ -12,37 +12,14 @@ spec:
 {{- if .Values.service.loadBalancerIP }}
   loadBalancerIP: "{{ .Values.service.loadBalancerIP }}"
 {{- end }}
-  type: LoadBalancer
-  ports:
-  - port: 80
-    name: http
-  - port: 443
-    name: https
+  type: {{ .Values.service.type }}
   selector:
     istio: ingress
-
+  ports:
+    {{- range $key, $val := .Values.service.ports }}
+    -
+      {{- range $pkey, $pval := $val }}
+      {{ $pkey}}: {{ $pval }}
+      {{- end }}
+    {{- end }}  
 ---
-{{- if .Values.service.nodePort.enabled }}
-# Using separate ingress for nodeport, to avoid conflict with pilot e2e test configs.
-apiVersion: v1
-kind: Service
-metadata:
-  name: istio-ingress-nodeport
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: {{ template "istio.name" . }}
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
-    istio: ingress
-spec:
-  type: NodePort
-  ports:
-  - port: 80
-    nodePort: {{ .Values.service.nodePort.port }}
-    name: http
-  - port: 443
-    name: https
-  selector:
-    istio: ingress
-{{- end }}

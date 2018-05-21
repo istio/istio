@@ -1,4 +1,4 @@
-# This is used to generate istio-auth-multicluster.yaml
+# This is used to generate istio-auth-multicluster.yaml, used for CI/CD.
 global:
   # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
   # propagated, not recommended for tests.
@@ -9,9 +9,6 @@ global:
     # destination rules or service annotations.
     enabled: true
 
-  # create RBAC resources. Must be set for any cluster configured with rbac.
-  rbacEnabled: true
-
   ## imagePullSecrets for all ServiceAccount. Must be set for any clustser configured with privte docker registry.
   # imagePullSecrets:
   #   - name: "private-registry-key"
@@ -21,9 +18,6 @@ global:
 
   multicluster:
     enabled: true
-
-istiotesting:
-  oneNameSpace: false
 
 prometheus:
   enabled: true

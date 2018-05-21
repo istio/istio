@@ -156,7 +156,7 @@ func sendCDSReq(t *testing.T, node string, edsstr ads.AggregatedDiscoveryService
 func TestAdsReconnectWithNonce(t *testing.T) {
 	_ = initLocalPilotTestEnv(t)
 	edsstr := connectADS(t, util.MockPilotGrpcAddr)
-	sendEDSReq(t, []string{"service3.default.svc.cluster.local|80"}, app3Ip, edsstr)
+	sendEDSReq(t, []string{"service3.default.svc.cluster.local|http"}, app3Ip, edsstr)
 	res, _ := adsReceive(edsstr, 5*time.Second)
 
 	// closes old process
@@ -164,8 +164,8 @@ func TestAdsReconnectWithNonce(t *testing.T) {
 
 	edsstr = connectADS(t, util.MockPilotGrpcAddr)
 	defer edsstr.CloseSend()
-	sendEDSReqReconnect(t, []string{"service3.default.svc.cluster.local|80"}, edsstr, res)
-	sendEDSReq(t, []string{"service3.default.svc.cluster.local|80"}, app3Ip, edsstr)
+	sendEDSReqReconnect(t, []string{"service3.default.svc.cluster.local|http"}, edsstr, res)
+	sendEDSReq(t, []string{"service3.default.svc.cluster.local|http"}, app3Ip, edsstr)
 	res, _ = adsReceive(edsstr, 5*time.Second)
 	_ = edsstr.CloseSend()
 
@@ -250,7 +250,7 @@ func TestAdsUpdate(t *testing.T) {
 	_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("adsupdate.default.svc.cluster.local",
 		"http-main", 2080, "10.2.0.1", 1080)
 
-	sendEDSReq(t, []string{"adsupdate.default.svc.cluster.local|2080"},
+	sendEDSReq(t, []string{"adsupdate.default.svc.cluster.local|http-main"},
 		"1.1.1.1", edsstr)
 
 	res1, err := adsReceive(edsstr, 5*time.Second)
@@ -341,7 +341,7 @@ func testAdsMultiple(t *testing.T, server *pilotbootstrap.Server) {
 		i := i
 		go func() {
 			edsstr := connectADS(t, util.MockPilotGrpcAddr)
-			sendEDSReq(t, []string{"service3.default.svc.cluster.local|1080"},
+			sendEDSReq(t, []string{"service3.default.svc.cluster.local|http-main"},
 				testIp(uint32(0x0a200000+i)), edsstr)
 
 			res1, err := adsReceive(edsstr, 5*time.Second)

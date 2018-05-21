@@ -20,7 +20,7 @@ export ISTIO_GO
 SHELL := /bin/bash
 
 # Current version, updated after a release.
-VERSION ?= 0.5.0
+VERSION ?= 0.8-dev
 
 # locations where artifacts are stored
 ISTIO_DOCKER_HUB ?= docker.io/istio
@@ -199,8 +199,8 @@ ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED):
 .PHONY: check-tree
 check-tree:
 	@if [ "$(ISTIO_GO)" != "$(GO_TOP)/src/istio.io/istio" ]; then \
-       echo Istio not found in GOPATH/src/istio.io. Make sure to clone Istio on that path. $(ISTIO_GO) not under $(GO_TOP) ; \
-       exit 1; fi
+		echo Istio not found in GOPATH/src/istio.io. Make sure to clone Istio on that path. $(ISTIO_GO) not under $(GO_TOP) ; \
+		exit 1; fi
 
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
 init: check-tree check-go-version $(ISTIO_OUT)/istio_is_init
@@ -371,9 +371,10 @@ ${ISTIO_OUT}/archive: istioctl-all LICENSE README.md install/updateVersion.sh re
 	cp LICENSE ${ISTIO_OUT}/archive
 	cp README.md ${ISTIO_OUT}/archive
 	cp -r tools ${ISTIO_OUT}/archive
-	install/updateVersion.sh -a "$(ISTIO_DOCKER_HUB),$(VERSION)" \
-                                 -P "$(ISTIO_URL)/deb" \
-                                 -d "${ISTIO_OUT}/archive"
+	cp bin/dump_kubernetes.sh ${ISTIO_OUT}/archive
+	ISTIO_RELEASE=1 install/updateVersion.sh -a "$(ISTIO_DOCKER_HUB),$(VERSION)" \
+		-P "$(ISTIO_URL)/deb" \
+		-d "${ISTIO_OUT}/archive"
 	release/create_release_archives.sh -v "$(VERSION)" -o "${ISTIO_OUT}/archive"
 
 # istioctl-install builds then installs istioctl into $GOPATH/BIN
@@ -586,17 +587,17 @@ $(HELM):
 istio-remote.yaml: $(HELM)
 	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/$@
 	$(HELM) template --namespace=istio-system \
-		  install/kubernetes/helm/istio-remote >> install/kubernetes/$@
+		install/kubernetes/helm/istio-remote >> install/kubernetes/$@
 
 # creates istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml
 # Ensure that values-$filename is present in install/kubernetes/helm/istio
 isti%.yaml: $(HELM)
 	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/$@
 	$(HELM) template --set global.tag=${TAG} \
-		  --namespace=istio-system \
-                  --set global.hub=${HUB} \
-		  --values install/kubernetes/helm/istio/values-$@ \
-		  install/kubernetes/helm/istio >> install/kubernetes/$@
+		--namespace=istio-system \
+		--set global.hub=${HUB} \
+		--values install/kubernetes/helm/istio/values-$@ \
+		install/kubernetes/helm/istio >> install/kubernetes/$@
 
 # This is temporary. REMOVE ME after Envoy v2 transition
 # creates istio.yaml using values-envoyv2-transition.yaml
@@ -604,21 +605,19 @@ generate_yaml-envoyv2_transition: $(HELM)
 	./install/updateVersion_orig.sh -a ${HUB},${TAG} >/dev/null 2>&1
 	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/istio.yaml
 	$(HELM) template --set global.tag=${TAG} \
-		  --namespace=istio-system \
-                  --set global.hub=${HUB} \
-		  --values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
-		  install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
+		--namespace=istio-system \
+		--set global.hub=${HUB} \
+		--values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
+		install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
 
-generate_yaml-envoyv2_transition_auth: $(HELM)
-	./install/updateVersion_orig.sh -a ${HUB},${TAG} >/dev/null 2>&1
 	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/istio-auth.yaml
 	$(HELM) template --set global.tag=${TAG} \
-		  --namespace=istio-system \
-          --set global.hub=${HUB} \
-		  --values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
-		  --set global.mtls.enabled=true \
-			--set global.controlPlaneSecurityEnabled=true \
-		  install/kubernetes/helm/istio >> install/kubernetes/istio-auth.yaml
+		--namespace=istio-system \
+		--set global.hub=${HUB} \
+		--values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
+		--set global.mtls.enabled=true \
+		--set global.controlPlaneSecurityEnabled=true \
+		install/kubernetes/helm/istio >> install/kubernetes/istio-auth.yaml
 
 # This is temporary. REMOVE ME after Envoy v2 transition
 # creates istio.yaml using values-envoyv2-transition.yaml
@@ -626,24 +625,21 @@ generate_yaml-envoyv2_transition_loadbalancer_ingressgateway: $(HELM)
 	./install/updateVersion_orig.sh -a ${HUB},${TAG} >/dev/null 2>&1
 	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/istio.yaml
 	$(HELM) template --set global.tag=${TAG} \
-		  --namespace=istio-system \
-                  --set global.hub=${HUB} \
-		  --values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
-                  --set ingressgateway.service.type=LoadBalancer \
-		  --set ingress.enabled=false \
-		  install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
+		--namespace=istio-system \
+		--set global.hub=${HUB} \
+		--values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
+		--set ingressgateway.service.type=LoadBalancer \
+		--set ingress.enabled=false \
+		install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
 	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/istio-auth.yaml
 	$(HELM) template --set global.tag=${TAG} \
-		  --namespace=istio-system \
-                  --set global.hub=${HUB} \
-		  --values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
-                  --set ingressgateway.service.type=LoadBalancer \
-		  --set ingress.enabled=false \
-		  --set global.mtls.enabled=true \
-		  install/kubernetes/helm/istio >> install/kubernetes/istio-auth.yaml
-
-deploy/all: $(HELM) istio-all.yaml
-	kubectl apply -n istio-system -f install/kubernetes/istio-all.yaml
+		--namespace=istio-system \
+		--set global.hub=${HUB} \
+		--values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
+		--set ingressgateway.service.type=LoadBalancer \
+		--set ingress.enabled=false \
+		--set global.mtls.enabled=true \
+		install/kubernetes/helm/istio >> install/kubernetes/istio-auth.yaml
 
 # Generate the install files, using istioctl.
 # TODO: make sure they match, pass all tests.
