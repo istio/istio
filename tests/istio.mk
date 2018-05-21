@@ -1,5 +1,4 @@
 # Use in-cluster local registry for e2e tests
-export LOCALREG=true
 export LOCALREG_FILE=${ISTIO}/tests/util/localregistry/localregistry.yaml
 
 # Test-specific targets, included from top Makefile

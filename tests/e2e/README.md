@@ -96,6 +96,20 @@ make push
 
 ```
 
+**Option 1.5:** Build your own images and use an in-cluster registry
+
+```
+# Set up env vars in .istiorc.mk
+cat .istiorc.mk
+LOCALREG=true
+HUB="10.10.0.2:5000"
+TAG=latest
+```
+# Setting the LOCALREG var will notify the e2e test targets to bring up the local registry within cluster and
+# build/push images onto it.
+
+# After the test is done, the registry will be cleanup automatically.
+
 **Option 2:** Already committed changes to istio/istio master branch
 NOTE: SHA used as TAG is one that is already committed on istio/istio. You can pick any SHA you want.
 ```
