@@ -141,9 +141,26 @@ var (
 				Http: []*networking.HTTPRoute{
 					{
 						Match: []*networking.HTTPMatchRequest{
-						//	{ &networking.HTTPMatchRequest{
-						//			Uri: &networking.StringMatch{ StringMatch_Exact{ "/productpage" } },
-						//		} },
+							{
+								Uri: &networking.StringMatch{
+									&networking.StringMatch_Exact{"/productpage"},
+								},
+							},
+							{
+								Uri: &networking.StringMatch{
+									&networking.StringMatch_Exact{"/login"},
+								},
+							},
+							{
+								Uri: &networking.StringMatch{
+									&networking.StringMatch_Exact{"/logout"},
+								},
+							},
+							{
+								Uri: &networking.StringMatch{
+									&networking.StringMatch_Prefix{"/api/v1/products"},
+								},
+							},
 						},
 						Route: []*networking.DestinationWeight{
 							{
