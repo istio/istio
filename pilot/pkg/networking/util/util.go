@@ -16,6 +16,7 @@ package util
 
 import (
 	base_json "encoding/json"
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -28,6 +29,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
 
@@ -99,6 +101,23 @@ func BuildAddress(ip string, port uint32) core.Address {
 				},
 			},
 		},
+	}
+}
+
+// BuildPipeAddress returns a Pipe address with the given path.
+func BuildPipeAddress(path string) core.Address {
+	return core.Address{Address: &core.Address_Pipe{Pipe: &core.Pipe{Path: path}}}
+}
+
+// GetNetworkEndpointAddress returns an Envoy v2 API `Address` that represents this NetworkEndpoint
+func GetNetworkEndpointAddress(n *model.NetworkEndpoint) core.Address {
+	switch n.Family {
+	case model.AddressFamilyTCP:
+		return BuildAddress(n.Address, uint32(n.Port))
+	case model.AddressFamilyUnix:
+		return BuildPipeAddress(n.Address)
+	default:
+		panic(fmt.Sprintf("unhandled Family %v", n.Family))
 	}
 }
 

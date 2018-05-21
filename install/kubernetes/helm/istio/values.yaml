@@ -280,6 +280,7 @@ pilot:
 # security configuration
 #
 security:
+  enabled: true
   serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
   image: citadel
@@ -388,12 +389,12 @@ servicegraph:
   # prometheus addres
   prometheusAddr: http://prometheus:9090
 
-zipkin:
+tracing:
   enabled: false
+  jaeger:
+    enabled: false
   replicaCount: 1
   image:
-    # TODO: switch name to tracing or other fix to reflect jaeger as the
-    #       default tracing option
     repository: jaegertracing/all-in-one
     tag: 1.4.1
   service:
