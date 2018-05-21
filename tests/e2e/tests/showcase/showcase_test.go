@@ -78,7 +78,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 ...
 `
-	env.Configure(cfg)
+	env.Configure(t, cfg)
 
 	// Get handles to the fake applications to drive the test.
 	appa := env.GetAppOrFail("a", t)
