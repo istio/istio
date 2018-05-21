@@ -96,7 +96,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environmen
 
 			// set TLSSettings if configmap global settings specifies MUTUAL_TLS, and we skip external destination.
 			if env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS && !service.MeshExternal {
-				applyUpstreamTLSSettings(defaultCluster, buildIstioMutualTls(upstreamServiceAccounts))
+				applyUpstreamTLSSettings(defaultCluster, buildIstioMutualTLS(upstreamServiceAccounts))
 			}
 
 			updateEds(env, defaultCluster, service.Hostname)
@@ -230,7 +230,7 @@ func convertIstioMutual(destinationRule *networking.DestinationRule, upstreamSer
 			return
 		}
 		if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
-			*tls = *buildIstioMutualTls(upstreamServiceAccount)
+			*tls = *buildIstioMutualTLS(upstreamServiceAccount)
 		}
 	}
 
@@ -247,8 +247,8 @@ func convertIstioMutual(destinationRule *networking.DestinationRule, upstreamSer
 	}
 }
 
-// buildIstioMutualTls returns a `TLSSettings` for ISTIO_MUTUAL mode.
-func buildIstioMutualTls(upstreamServiceAccount []string) *networking.TLSSettings {
+// buildIstioMutualTLS returns a `TLSSettings` for ISTIO_MUTUAL mode.
+func buildIstioMutualTLS(upstreamServiceAccount []string) *networking.TLSSettings {
 	return &networking.TLSSettings{
 		Mode:              networking.TLSSettings_ISTIO_MUTUAL,
 		CaCertificates:    path.Join(model.AuthCertsPath, model.RootCertFilename),
