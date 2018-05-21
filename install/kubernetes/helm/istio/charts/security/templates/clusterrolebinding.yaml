@@ -16,8 +16,9 @@ subjects:
   - kind: ServiceAccount
     name: istio-citadel-service-account
     namespace: {{ .Release.Namespace }}
----
+
 {{- if $.Values.cleanUpOldCA }}
+---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: RoleBinding
 metadata:
