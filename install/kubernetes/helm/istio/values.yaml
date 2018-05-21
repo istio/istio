@@ -290,6 +290,7 @@ security:
   # requests:
   #  cpu: 100m
   #  memory: 128Mi
+  cleanUpOldCA: true
 
 #
 # addons configuration
