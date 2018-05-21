@@ -32,31 +32,37 @@ const (
 type Interface interface {
 
 	// Configure applies the given configuration to the mesh.
-	Configure(config string)
+	Configure(tb testing.TB, config string)
+
+	// TODO: Implement Configure overload that can consume config from a directory
 
 	// GetMixer returns a deployed Mixer instance in the environment.
-	GetMixer() DeployedMixer
+	GetMixer() (DeployedMixer, error)
+	// GetMixerOrFail returns a deployed Mixer instance in the environment, or fails the test if unsuccessful.
+	GetMixerOrFail(t testing.TB) DeployedMixer
 
 	// GetPilot returns a deployed Pilot instance in the environment.
-	GetPilot() DeployedPilot
+	GetPilot() (DeployedPilot, error)
+	// GetPilotOrFail returns a deployed Pilot instance in the environment, or fails the test if unsuccessful.
+	GetPilotOrFail(t testing.TB) DeployedPilot
 
 	// GetApp returns a fake testing app object for the given name.
 	GetApp(name string) (DeployedApp, error)
 	// GetAppOrFail returns a fake testing app object for the given name, or fails the test if unsuccessful.
-	GetAppOrFail(name string, t *testing.T) DeployedApp
+	GetAppOrFail(name string, t testing.TB) DeployedApp
 
 	// GetFortioApp returns a Fortio App object for the given name.
 	GetFortioApp(name string) (DeployedFortioApp, error)
 	// GetFortioAppOrFail returns a Fortio App object for the given name, or fails the test if unsuccessful.
-	GetFortioAppOrFail(name string, t *testing.T) (DeployedFortioApp, error)
+	GetFortioAppOrFail(name string, t testing.TB) DeployedFortioApp
 
 	// TODO: We should remove this overload in favor of the previous two.
 
 	// GetFortioApps returns a set of Fortio Apps based on the given selector.
-	GetFortioApps(selector string, t *testing.T) []DeployedFortioApp
+	GetFortioApps(selector string, t testing.TB) []DeployedFortioApp
 
 	// GetPolicyBackendOrFail returns the mock policy backend that is used by Mixer for policy checks and reports.
-	GetPolicyBackendOrFail(t *testing.T) DeployedPolicyBackend
+	GetPolicyBackendOrFail(t testing.TB) DeployedPolicyBackend
 }
 
 // Deployed represents a deployed component
@@ -70,7 +76,7 @@ type DeployedApp interface {
 	Endpoints() []DeployedAppEndpoint
 	EndpointsForProtocol(protocol model.Protocol) []DeployedAppEndpoint
 	Call(u *url.URL, count int, headers http.Header) (AppCallResult, error)
-	CallOrFail(u *url.URL, count int, headers http.Header, t *testing.T) AppCallResult
+	CallOrFail(u *url.URL, count int, headers http.Header, t testing.TB) AppCallResult
 }
 
 // DeployedPolicyBackend represents a deployed fake policy backend for Mixer.
@@ -81,7 +87,7 @@ type DeployedPolicyBackend interface {
 	DenyCheck(deny bool)
 
 	// ExpectReport checks that the backend has received the given report request.
-	ExpectReport(t *testing.T, expected string)
+	ExpectReport(t testing.TB, expected string)
 }
 
 // DeployedAppEndpoint represents a single endpoint in a DeployedApp.
