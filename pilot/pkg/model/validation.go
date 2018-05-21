@@ -30,6 +30,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 	multierror "github.com/hashicorp/go-multierror"
+	"github.com/prometheus/common/model"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -1845,8 +1846,28 @@ func ValidateVirtualService(msg proto.Message) (errs error) {
 	if len(virtualService.Hosts) == 0 {
 		errs = appendErrors(errs, fmt.Errorf("virtual service must have at least one host"))
 	}
+
+	allHostsValid := true
 	for _, host := range virtualService.Hosts {
-		errs = appendErrors(errs, validateHost(host))
+		if err := validateHost(host); err != nil {
+			errs = appendErrors(errs, validateHost(host))
+			allHostsValid = false
+		}
+	}
+
+	// Check for duplicate hosts
+	// Duplicates include literal duplicates as well as wildcard duplicates
+	// E.g., *.foo.com, and *.com are duplicates in the same virtual service
+	if allHostsValid {
+		for i :=0; i <len(virtualService.Hosts); i++ {
+			hostI := Hostname(virtualService.Hosts[i])
+			for j := i + 1; j < len(virtualService.Hosts); j++ {
+				hostJ := Hostname(virtualService.Hosts[j])
+				if hostI.Matches(hostJ) {
+					errs = appendErrors(errs, fmt.Errorf("Duplicate hosts %s & %s", hostI, hostJ))
+				}
+			}
+		}
 	}
 
 	if len(virtualService.Http) == 0 && len(virtualService.Tcp) == 0 {

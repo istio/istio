@@ -2365,6 +2365,14 @@ func TestValidateVirtualService(t *testing.T) {
 				}},
 			}},
 		}, valid: true},
+		{name: "duplicate hosts", in: &networking.VirtualService{
+			Hosts: []string{"*.foo.bar", "*.bar"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.DestinationWeight{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: false},
 		{name: "no hosts", in: &networking.VirtualService{
 			Hosts: nil,
 			Http: []*networking.HTTPRoute{{
