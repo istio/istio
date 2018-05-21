@@ -49,9 +49,10 @@ func Run(testID string, m *testing.M) {
 		os.Exit(-1)
 	}
 
-	scope.Infof("test.Run >>> Beginning actual test run %s/%s", d.TestID(), d.RunID())
+	ctx := d.GetContext()
+	scope.Infof("test.Run >>> Beginning actual test run %s/%s", ctx.TestID(), ctx.RunID())
 	rt := d.Run()
-	scope.Infof("test.Run <<< Completing actual test run %s/%s", d.TestID(), d.RunID())
+	scope.Infof("test.Run <<< Completing actual test run %s/%s", ctx.TestID(), ctx.RunID())
 
 	os.Exit(rt)
 }

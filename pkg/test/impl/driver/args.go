@@ -26,7 +26,7 @@ const (
 	// EnvKubernetes is the kubernetes environment
 	EnvKubernetes = "kubernetes"
 
-	// EnvLocal is the loal environment
+	// EnvLocal is the local environment
 	EnvLocal = "local"
 )
 
@@ -53,6 +53,10 @@ type Args struct {
 
 	// SuiteLabels is the set of labels that is attached to the suite.
 	SuiteLabels []label.Label
+
+	// Local working directory root for creating temporary directories / files in. If left empty,
+	// os.TempDir() will be used.
+	WorkDir string
 }
 
 // DefaultArgs returns the default set of arguments.
