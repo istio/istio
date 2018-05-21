@@ -233,7 +233,7 @@ func (a *app) Call(u *url.URL, count int, headers http.Header) (environment.AppC
 	return out, nil
 }
 
-func (a *app) CallOrFail(u *url.URL, count int, headers http.Header, t *testing.T) environment.AppCallResult {
+func (a *app) CallOrFail(u *url.URL, count int, headers http.Header, t testing.TB) environment.AppCallResult {
 	r, err := a.Call(u, count, headers)
 	if err != nil {
 		t.Fatalf("Call to app failed: app='%s', url='%s', err='%v'", a.appName, u, err)

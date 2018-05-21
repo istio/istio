@@ -29,7 +29,7 @@ func TestSvcLoading(t *testing.T) {
 	test.Requires(t, dependency.FortioApps, dependency.Pilot)
 
 	env := test.GetEnvironment(t)
-	env.Configure(svcCfg)
+	env.Configure(t, svcCfg)
 
 	apps := env.GetFortioApps("app=echosrv", t)
 
