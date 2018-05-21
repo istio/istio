@@ -26,7 +26,6 @@ global:
     enableCoreDump: false
     serviceAccountName: default # used only if RBAC is not enabled
     replicaCount: 1
-    image: sidecar_injector
     resources:
       requests:
         cpu: 100m
@@ -227,6 +226,8 @@ egressgateway:
 #
 sidecarInjectorWebhook:
   enabled: true
+  image: sidecar_injector
+
 
 #
 # galley configuration
