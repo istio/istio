@@ -16,6 +16,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"regexp"
@@ -36,10 +37,6 @@ import (
 type sortedConfigStore struct {
 	store model.ConfigStore
 }
-
-const (
-	istioAPIVersion = "v1alpha2"
-)
 
 var (
 	testRouteRules = []model.Config{
@@ -189,7 +186,7 @@ func TestGet(t *testing.T) {
 	}{
 		{ // case 0
 			[]model.Config{},
-			[]string{"routerules"},
+			strings.Split("get routerules", " "),
 			`No resources found.
 `,
 			regexp.MustCompile("^$"),
@@ -197,7 +194,7 @@ func TestGet(t *testing.T) {
 		},
 		{ // case 1
 			testRouteRules,
-			[]string{"routerules"},
+			strings.Split("get routerules", " "),
 			`NAME      KIND                        NAMESPACE
 a         RouteRule.config.v1alpha2   default
 b         RouteRule.config.v1alpha2   default
@@ -209,7 +206,7 @@ d         RouteRule.config.v1alpha2   default
 		},
 		{ // case 2
 			testGateways,
-			[]string{"gateways"},
+			strings.Split("get gateways", " "),
 			`NAME               KIND                          NAMESPACE
 bookinfo-gateway   Gateway.networking.v1alpha3   default
 `,
@@ -218,7 +215,7 @@ bookinfo-gateway   Gateway.networking.v1alpha3   default
 		},
 		{ // case 3
 			testVirtualServices,
-			[]string{"virtualservices"},
+			strings.Split("get virtualservices", " "),
 			`NAME       KIND                                 NAMESPACE
 bookinfo   VirtualService.networking.v1alpha3   default
 `,
@@ -227,7 +224,7 @@ bookinfo   VirtualService.networking.v1alpha3   default
 		},
 		{
 			[]model.Config{},
-			[]string{"invalid"},
+			strings.Split("get invalid", " "),
 			"",
 			regexp.MustCompile("^Usage:.*"),
 			true, // "istioctl get invalid" should fail
@@ -239,18 +236,22 @@ bookinfo   VirtualService.networking.v1alpha3   default
 		clientFactory = mockClientFactoryGenerator(c.configs)
 
 		// run getCmd capturing output
-		stdOutput, errOutput, fErr := captureOutput(
+		var out bytes.Buffer
+		rootCmd.SetOutput(&out)
+		rootCmd.SetArgs(c.args)
+
+		file = "" // Clear, because we re-use
+
+		stdOutput, fErr := captureStdout(
 			func() error {
-				err := rootCmd.PersistentPreRunE(getCmd, c.args)
+				rootCmd.SetArgs(c.args)
+				err := rootCmd.Execute()
 				if err != nil {
-					return multierror.Prefix(err, "Could not prerun GET command")
-				}
-				err = getCmd.RunE(getCmd, c.args)
-				if err != nil {
-					return multierror.Prefix(err, "Could not run GET command")
+					return multierror.Prefix(err, fmt.Sprintf("Could not run command %v", c.args))
 				}
 				return nil
 			})
+		errOutput := out.String()
 
 		if c.wantOutput != stdOutput {
 			t.Errorf("Stdout didn't match for case %d \"istioctl get %v\": Expected %q, got %q.  Stderr was %q",
@@ -278,23 +279,20 @@ func TestCreate(t *testing.T) {
 	cases := []struct {
 		configs       []model.Config
 		args          []string
-		filename      string
 		wantOutput    *regexp.Regexp
 		wantError     *regexp.Regexp
 		wantException bool
 	}{
 		{ // case 0 -- invalid doesn't provide -f filename
 			[]model.Config{},
-			[]string{"routerules"},
-			"",
+			strings.Split("create routerules", " "),
 			regexp.MustCompile("^$"),
 			regexp.MustCompile("^Usage:.*"),
 			true,
 		},
 		{ // case 1
 			[]model.Config{},
-			[]string{},
-			"convert/testdata/v1alpha1/route-rule-80-20.yaml",
+			strings.Split("create -f convert/testdata/v1alpha1/route-rule-80-20.yaml", " "), // todo add -f
 			regexp.MustCompile("^Created config route-rule/default/route-rule-80-20.*"),
 			regexp.MustCompile("^$"),
 			false,
@@ -305,22 +303,23 @@ func TestCreate(t *testing.T) {
 		// Override the client factory used by main.go
 		clientFactory = mockClientFactoryGenerator(c.configs)
 
-		// set the filename
-		file = c.filename
+		// run postCmd capturing output
+		var out bytes.Buffer
+		rootCmd.SetOutput(&out)
+		rootCmd.SetArgs(c.args)
 
-		// run getCmd capturing output
-		stdOutput, errOutput, fErr := captureOutput(
+		file = "" // Clear, because we re-use
+
+		stdOutput, fErr := captureStdout(
 			func() error {
-				err := rootCmd.PersistentPreRunE(postCmd, c.args)
+				rootCmd.SetArgs(c.args)
+				err := rootCmd.Execute()
 				if err != nil {
-					return multierror.Prefix(err, "Could not prerun CREATE command")
-				}
-				err = postCmd.RunE(postCmd, c.args)
-				if err != nil {
-					return multierror.Prefix(err, "Could not run CREATE command")
+					return multierror.Prefix(err, fmt.Sprintf("Could not run command %v", c.args))
 				}
 				return nil
 			})
+		errOutput := out.String()
 
 		if !c.wantOutput.MatchString(stdOutput) {
 			t.Errorf("Stdout didn't match for create case %d \"istioctl create %v\": Expected %v, got %q.  Stderr was %q",
@@ -348,15 +347,13 @@ func TestReplace(t *testing.T) {
 	cases := []struct {
 		configs       []model.Config
 		args          []string
-		filename      string
 		wantOutput    string
 		wantError     *regexp.Regexp
 		wantException bool
 	}{
 		{ // case 0 -- invalid doesn't provide -f
 			[]model.Config{},
-			[]string{"routerules"},
-			"",
+			strings.Split("replace routerules", " "),
 			"",
 			regexp.MustCompile("^Usage:.*"),
 			true,
@@ -367,19 +364,24 @@ func TestReplace(t *testing.T) {
 		// Override the client factory used by main.go
 		clientFactory = mockClientFactoryGenerator(c.configs)
 
-		// run getCmd capturing output
-		stdOutput, errOutput, fErr := captureOutput(
+		// run putCmd capturing output
+		var out bytes.Buffer
+		rootCmd.SetOutput(&out)
+		rootCmd.SetArgs(c.args)
+		// fErr := rootCmd.Execute()
+
+		file = "" // Clear, because we re-use
+
+		stdOutput, fErr := captureStdout(
 			func() error {
-				err := rootCmd.PersistentPreRunE(putCmd, c.args)
+				rootCmd.SetArgs(c.args)
+				err := rootCmd.Execute()
 				if err != nil {
-					return multierror.Prefix(err, "Could not prerun REPLACE command")
-				}
-				err = putCmd.RunE(putCmd, c.args)
-				if err != nil {
-					return multierror.Prefix(err, "Could not run REPLACE command")
+					return multierror.Prefix(err, fmt.Sprintf("Could not run command %v", c.args))
 				}
 				return nil
 			})
+		errOutput := out.String()
 
 		if c.wantOutput != stdOutput {
 			t.Errorf("Stdout didn't match for case %d \"istioctl replace %v\": Expected %q, got %q.  Stderr was %q",
@@ -407,34 +409,39 @@ func TestDelete(t *testing.T) {
 	cases := []struct {
 		configs       []model.Config
 		args          []string
-		filename      string
 		wantOutput    string
 		wantError     *regexp.Regexp
 		wantException bool
 	}{
 		{ // case 0
 			[]model.Config{},
-			[]string{"routerule", "unknown"},
+			strings.Split("delete routerule unknown", " "),
 			"",
-			"",
-			regexp.MustCompile("^$"),
+			regexp.MustCompile("^Error: 1 error occurred:\n\n\\* cannot delete unknown: item not found\n$"),
 			true,
 		},
 		{ // case 1
 			testRouteRules,
-			[]string{"routerule", "a"},
-			"",
+			strings.Split("delete routerule a", " "),
 			`Deleted config: routerule a
 `,
 			regexp.MustCompile("^$"),
 			false,
 		},
-		{ // case 2 - delete by filename of istio config which doesn't exist
+		{ // case 1
 			testRouteRules,
-			[]string{},
-			"convert/testdata/v1alpha1/route-rule-80-20.yaml",
-			"",
+			strings.Split("delete routerule a b", " "),
+			`Deleted config: routerule a
+Deleted config: routerule b
+`,
 			regexp.MustCompile("^$"),
+			false,
+		},
+		{ // case 3 - delete by filename of istio config which doesn't exist
+			testRouteRules,
+			strings.Split("delete -f convert/testdata/v1alpha1/route-rule-80-20.yaml", " "),
+			"",
+			regexp.MustCompile("^Error: 1 error occurred:\n\n\\* cannot delete route-rule/default/route-rule-80-20: item not found\n$"),
 			true,
 		},
 	}
@@ -443,22 +450,24 @@ func TestDelete(t *testing.T) {
 		// Override the client factory used by main.go
 		clientFactory = mockClientFactoryGenerator(c.configs)
 
-		// set the filename
-		file = c.filename
+		// run deleteCmd capturing output
+		var out bytes.Buffer
+		rootCmd.SetOutput(&out)
+		rootCmd.SetArgs(c.args)
+		// fErr := rootCmd.Execute()
 
-		// run getCmd capturing output
-		stdOutput, errOutput, fErr := captureOutput(
+		file = "" // Clear, because we re-use
+
+		stdOutput, fErr := captureStdout(
 			func() error {
-				err := rootCmd.PersistentPreRunE(deleteCmd, c.args)
+				rootCmd.SetArgs(c.args)
+				err := rootCmd.Execute()
 				if err != nil {
-					return multierror.Prefix(err, "Could not prerun DELETE command")
-				}
-				err = deleteCmd.RunE(deleteCmd, c.args)
-				if err != nil {
-					return multierror.Prefix(err, "Could not run DELETE command")
+					return multierror.Prefix(err, fmt.Sprintf("Could not run command %v", c.args))
 				}
 				return nil
 			})
+		errOutput := out.String()
 
 		if c.wantOutput != stdOutput {
 			t.Errorf("Stdout didn't match for delete case %d \"istioctl delete %v\": Expected %q, got %q.  Stderr was %q",
@@ -506,15 +515,11 @@ func mockClientFactoryGenerator(configs []model.Config) func() (model.ConfigStor
 	return outFactory
 }
 
-// captureOutput invokes f capturing the output sent to stderr and stdout
-func captureOutput(f func() error) (string, string, error) {
+// captureStdout invokes f capturing the output sent to stderr and stdout
+func captureStdout(f func() error) (string, error) {
 	origStdout := os.Stdout
 	rOut, wOut, _ := os.Pipe()
 	os.Stdout = wOut
-
-	origStderr := os.Stderr
-	rErr, wErr, _ := os.Pipe()
-	os.Stderr = wErr
 
 	errF := f()
 
@@ -525,22 +530,11 @@ func captureOutput(f func() error) (string, string, error) {
 		outChannel <- buf.String()
 	}()
 
-	errChannel := make(chan string)
-	go func() {
-		var buf bytes.Buffer
-		io.Copy(&buf, rErr)
-		errChannel <- buf.String()
-	}()
-
 	wOut.Close()
 	os.Stdout = origStdout
 	capturedOutput := <-outChannel
 
-	wErr.Close()
-	os.Stderr = origStderr
-	capturedError := <-errChannel
-
-	return capturedOutput, capturedError, errF
+	return capturedOutput, errF
 }
 
 func (cs sortedConfigStore) Create(config model.Config) (string, error) {
@@ -562,6 +556,7 @@ func (cs sortedConfigStore) ConfigDescriptor() model.ConfigDescriptor {
 	return cs.store.ConfigDescriptor()
 }
 
+// List() is a facade that always returns cs.store items sorted by name/namespace
 func (cs sortedConfigStore) List(typ, namespace string) ([]model.Config, error) {
 	out, err := cs.store.List(typ, namespace)
 	if err != nil {
