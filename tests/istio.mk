@@ -1,4 +1,4 @@
-# Use in-cluster local registry for e2e tests
+# File path to local registry for e2e tests
 export LOCALREG_FILE=${ISTIO}/tests/util/localregistry/localregistry.yaml
 
 # Test-specific targets, included from top Makefile
@@ -72,8 +72,6 @@ DEFAULT_UPGRADE_E2E_ARGS += --base_version=${LAST_RELEASE}
 DEFAULT_UPGRADE_E2E_ARGS += --target_version=""
 UPGRADE_E2E_ARGS ?= ${DEFAULT_UPGRADE_E2E_ARGS}
 
-# Setup for e2e tests using local registry
-
 # deploy local registry pod, build and push images
 localregistry_setup:
 	ifeq (${LOCALREG},true)
@@ -84,7 +82,7 @@ localregistry_setup:
 # Simple e2e test using fortio, approx 2 min
 e2e_simple: istioctl generate_yaml localregistry_setup e2e_simple_run
 
-e2e_mixer: istioctl generate_yaml localregistry_setup e2e_mixer_run
+e2e_mixer: istioctl generate_yaml  localregistry_setup e2e_mixer_run
 
 e2e_dashboard: istioctl generate_yaml localregistry_setup e2e_dashboard_run
 
