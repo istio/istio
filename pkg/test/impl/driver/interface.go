@@ -18,7 +18,6 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/dependency"
-	"istio.io/istio/pkg/test/environment"
 	"istio.io/istio/pkg/test/internal"
 	"istio.io/istio/pkg/test/label"
 )
@@ -33,10 +32,6 @@ type Interface interface {
 
 	// GetContext returns the internal test context.
 	GetContext() internal.TestContext
-
-	// GetEnvironment returns the ambient testing environment. This must be called from tests, while the
-	// Run() method is execution.
-	GetEnvironment(t testing.TB) environment.Interface
 
 	// InitializeTestDependencies checks and initializes the supplied dependencies appropriately.
 	InitializeTestDependencies(t testing.TB, dependencies []dependency.Dependency)

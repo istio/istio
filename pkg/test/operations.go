@@ -86,7 +86,14 @@ func Tag(t testing.TB, labels ...label.Label) {
 	d.CheckLabels(t, labels)
 }
 
-// GetEnvironment returns the current, ambient environment.
+// Environment returns the current, ambient environment.
 func GetEnvironment(t testing.TB) environment.Interface {
-	return d.GetEnvironment(t)
+	t.Helper()
+
+	e := d.GetContext().Environment()
+	if e == nil {
+		t.Fatalf("Test driver is not running.")
+	}
+
+	return e
 }

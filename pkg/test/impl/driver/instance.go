@@ -186,18 +186,17 @@ func (d *driver) GetContext() internal.TestContext {
 	return d
 }
 
-// GetEnvironment implements same-named Interface method.
-func (d *driver) GetEnvironment(t testing.TB) environment.Interface {
-	t.Helper()
-	scope.Debugf("Enter: driver.GetEnvironment (%s)", d.testID)
+// Environment implements same-named Interface method.
+func (d *driver) GetEnvironment() environment.Interface {
+	scope.Debugf("Enter: driver.Environment (%s)", d.testID)
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
-	if !d.running {
-		t.Fatalf("Test driver is not running.")
+	if d.running {
+		return d.env
 	}
 
-	return d.env
+	return nil
 }
 
 // InitializeTestDependencies implements same-named Interface method.
