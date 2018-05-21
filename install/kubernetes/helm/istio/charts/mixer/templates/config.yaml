@@ -90,6 +90,8 @@ spec:
       valueType: STRING
     request.auth.claims:
       valueType: STRING_MAP
+    request.auth.raw_claims:
+      valueType: STRING
     request.api_key:
       valueType: STRING
 
