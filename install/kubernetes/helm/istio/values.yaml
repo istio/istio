@@ -21,9 +21,8 @@ global:
         cpu: 100m
         memory: 128Mi
 
-  # istio-sidecar-injector configmap stores configuration for sidecar injection.
-  # This config map is used by istioctl kube-inject and the injector webhook.
-  sidecarInjectorConfig:
+    # istio-sidecar-injector configmap stores configuration for sidecar injection.
+    # This config map is used by istioctl kube-inject and the injector webhook.
     enableCoreDump: false
     serviceAccountName: default # used only if RBAC is not enabled
     replicaCount: 1
@@ -226,7 +225,7 @@ egressgateway:
 # sidecar-injector webhook configuration
 #
 sidecarInjectorWebhook:
-  enabled: false
+  enabled: true
 
 #
 # galley configuration
