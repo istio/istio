@@ -16,9 +16,13 @@ package util
 
 import (
 	"bytes"
+	"io"
+	"io/ioutil"
 	"log"
 	"net"
 	"os"
+	"path"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -29,6 +33,11 @@ import (
 	"istio.io/istio/pilot/pkg/bootstrap"
 	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v1"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+)
+
+var (
+	tmpPrefix     = "pilot.config."
+	configFileDir = "/tests/testdata/config"
 )
 
 var (
@@ -154,8 +163,13 @@ func setup() error {
 				string(serviceregistry.MockRegistry)},
 		},
 	}
-	// Static testdata, should include all configs we want to test.
-	args.Config.FileDir = IstioSrc + "/tests/testdata/config"
+
+	tmpDir, err := ioutil.TempDir(os.TempDir(), tmpPrefix)
+	if err != nil {
+		return err
+	}
+	fsRoot = tmpDir
+	args.Config.FileDir = fsRoot
 
 	bootstrap.PilotCertDir = IstioSrc + "/tests/testdata/certs/pilot"
 
@@ -199,6 +213,88 @@ func setup() error {
 	// TODO(nmittler): Change to polling health endpoint once https://github.com/istio/istio/pull/2002 lands.
 	time.Sleep(time.Second)
 
+	return nil
+}
+
+// ApplyAllRules applies all .yaml files located in testdata dir
+func ApplyAllRules() error {
+	rules := []string{}
+	err := filepath.Walk(path.Join(IstioSrc, configFileDir), func(path string, info os.FileInfo, err error) error {
+		if info.IsDir() {
+			return nil
+		}
+		if filepath.Ext(path) == ".yaml" {
+			rules = append(rules, info.Name())
+			return nil
+		}
+
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	if err := ApplyRuleFiles(rules); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// ApplyRuleFiles applies a list of rule files
+func ApplyRuleFiles(files []string) error {
+	fileCopy := func(fileName string) error {
+		srcPath := path.Join(IstioSrc, configFileDir, fileName)
+		_, err := os.Stat(srcPath)
+		if err != nil {
+			return err
+		}
+
+		from, err := os.Open(srcPath)
+		if err != nil {
+			return err
+		}
+		defer from.Close()
+
+		to, err := os.OpenFile(path.Join(fsRoot, fileName), os.O_RDWR|os.O_CREATE, 0666)
+		if err != nil {
+			return err
+		}
+		defer to.Close()
+
+		_, err = io.Copy(to, from)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	for _, file := range files {
+		if err := fileCopy(file); err != nil {
+			return err
+		}
+	}
+
+	// Ensure config file watcher picks up changes
+	time.Sleep(time.Second)
+	return nil
+}
+
+// DeleteRuleFiles remove a list of file names
+func DeleteRuleFiles(files []string) error {
+	for _, file := range files {
+		srcPath := path.Join(fsRoot, file)
+		_, err := os.Stat(srcPath)
+		if err != nil {
+			// rule file does not exist
+			return err
+		}
+
+		err = os.Remove(srcPath)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

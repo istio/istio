@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/tests/util"
+	//pilotutil "istio.io/istio/pilot/test/util"
 )
 
 var (
@@ -101,6 +102,16 @@ func gatewayId(ip string) string {
 
 func ingressId(ip string) string {
 	return fmt.Sprintf("ingress~%s~istio-ingress-7cd767fcb4-kl6gt.pilot-noauth-system~pilot-noauth-system.svc.cluster.local", ip)
+}
+
+func compareResponse(body []byte, file string, t *testing.T) {
+	err := ioutil.WriteFile(file, body, 0644)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	// TODO golden files to be added in separate PR
+	//pilotutil.CompareYAML(file, t)
 }
 
 // initLocalPilotTestEnv creates a local, in process Pilot with XDSv2 support and a set
@@ -321,8 +332,15 @@ func TestEnvoy(t *testing.T) {
 	// Make sure tcp port is ready before starting the test.
 	testenv.WaitForPort(testEnv.Ports().TCPProxyPort)
 
+	if err := util.ApplyAllRules(); err != nil {
+		t.Errorf("Failed to apply rule files: %v", err)
+	}
+
 	t.Run("envoyInit", envoyInit)
 	t.Run("service", testService)
+	t.Run("cdsz", testCDSZ)
+	t.Run("edsz", testEDSZ)
+	t.Run("adsz", testADSZ)
 }
 
 // envoyInit verifies envoy has accepted the config from pilot by checking the stats.
@@ -380,6 +398,45 @@ func testService(t *testing.T) {
 	if res.Status != "200 OK" {
 		t.Error("Proxy failed ", res.Status)
 	}
+}
+
+func testCDSZ(t *testing.T) {
+	debugURL := fmt.Sprintf("http://localhost:%d/debug/cdsz", testEnv.Ports().PilotHTTPPort)
+	res, err := http.Get(debugURL)
+	if err != nil {
+		t.Fatal("Failed to get cds dump", err)
+	}
+	cdszBytes, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		t.Fatal("Failed to read cdsz")
+	}
+	compareResponse(cdszBytes, "goldens/cdsz.json", t)
+}
+
+func testEDSZ(t *testing.T) {
+	debugURL := fmt.Sprintf("http://localhost:%d/debug/edsz", testEnv.Ports().PilotHTTPPort)
+	res, err := http.Get(debugURL)
+	if err != nil {
+		t.Fatal("Failed to get eds dump", err)
+	}
+	edszBytes, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		t.Fatal("Failed to read edsz")
+	}
+	compareResponse(edszBytes, "goldens/edsz.json", t)
+}
+
+func testADSZ(t *testing.T) {
+	debugURL := fmt.Sprintf("http://localhost:%d/debug/adsz", testEnv.Ports().PilotHTTPPort)
+	res, err := http.Get(debugURL)
+	if err != nil {
+		t.Fatal("Failed to get ads dump", err)
+	}
+	adszBytes, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		t.Fatal("Failed to read adsz")
+	}
+	compareResponse(adszBytes, "goldens/adsz.json", t)
 }
 
 // EnvoyStat is used to parse envoy stats

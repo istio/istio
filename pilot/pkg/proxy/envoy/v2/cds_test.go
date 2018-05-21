@@ -24,22 +24,24 @@ import (
 func TestCDS(t *testing.T) {
 	initLocalPilotTestEnv(t)
 
-	cdsr := connectADS(t, util.MockPilotGrpcAddr)
-	sendCDSReq(t, sidecarId(app3Ip, "app3"), cdsr)
+	t.Run("sidecar no rules", func(t *testing.T) {
+		cdsr := connectADS(t, util.MockPilotGrpcAddr)
+		sendCDSReq(t, sidecarId(app3Ip, "app3"), cdsr)
 
-	res, err := cdsr.Recv()
-	if err != nil {
-		t.Fatal("Failed to receive CDS", err)
-		return
-	}
+		res, err := cdsr.Recv()
+		if err != nil {
+			t.Fatal("Failed to receive CDS", err)
+			return
+		}
 
-	strResponse, _ := model.ToJSONWithIndent(res, " ")
-	_ = ioutil.WriteFile(util.IstioOut+"/cdsv2_sidecar.json", []byte(strResponse), 0644)
+		strResponse, _ := model.ToJSONWithIndent(res, " ")
+		_ = ioutil.WriteFile(util.IstioOut + "/cdsv2_sidecar.json", []byte(strResponse), 0644)
 
-	t.Log("CDS response", strResponse)
-	if len(res.Resources) == 0 {
-		t.Fatal("No response")
-	}
+		t.Log("CDS response", strResponse)
+		if len(res.Resources) == 0 {
+			t.Fatal("No response")
+		}
+	})
 
 	// TODO: dump the response resources, compare with some golden once it's stable
 	// check that each mocked service and destination rule has a corresponding resource
