@@ -60,28 +60,28 @@ const (
 	mtlsExcludedServicesPattern      = "mtlsExcludedServices:\\s*\\[(.*)\\]"
 	// Default values for local test env setup
 	localRegistryFile      = "tests/util/localregistry/localregistry.yaml"
-	localRegistryHub       = "10.10.0.2:5000"
-	localRegistryTag       = "latest"
 	localRegistryNamespace = "kube-system"
 )
 
 var (
-	namespace    = flag.String("namespace", "", "Namespace to use for testing (empty to create/delete temporary one)")
-	mixerHub     = flag.String("mixer_hub", os.Getenv("HUB"), "Mixer hub")
-	mixerTag     = flag.String("mixer_tag", os.Getenv("TAG"), "Mixer tag")
-	pilotHub     = flag.String("pilot_hub", os.Getenv("HUB"), "Pilot hub")
-	pilotTag     = flag.String("pilot_tag", os.Getenv("TAG"), "Pilot tag")
-	proxyHub     = flag.String("proxy_hub", os.Getenv("HUB"), "Proxy hub")
-	proxyTag     = flag.String("proxy_tag", os.Getenv("TAG"), "Proxy tag")
-	caHub        = flag.String("ca_hub", os.Getenv("HUB"), "Ca hub")
-	caTag        = flag.String("ca_tag", os.Getenv("TAG"), "Ca tag")
-	galleyHub    = flag.String("galley_hub", os.Getenv("HUB"), "Galley hub")
-	galleyTag    = flag.String("galley_tag", os.Getenv("TAG"), "Galley tag")
-	authEnable   = flag.Bool("auth_enable", false, "Enable auth")
-	rbacEnable   = flag.Bool("rbac_enable", true, "Enable rbac")
-	localCluster = flag.Bool("use_local_cluster", false,
+	namespace        = flag.String("namespace", "", "Namespace to use for testing (empty to create/delete temporary one)")
+	mixerHub         = flag.String("mixer_hub", os.Getenv("HUB"), "Mixer hub")
+	mixerTag         = flag.String("mixer_tag", os.Getenv("TAG"), "Mixer tag")
+	pilotHub         = flag.String("pilot_hub", os.Getenv("HUB"), "Pilot hub")
+	pilotTag         = flag.String("pilot_tag", os.Getenv("TAG"), "Pilot tag")
+	proxyHub         = flag.String("proxy_hub", os.Getenv("HUB"), "Proxy hub")
+	proxyTag         = flag.String("proxy_tag", os.Getenv("TAG"), "Proxy tag")
+	caHub            = flag.String("ca_hub", os.Getenv("HUB"), "Ca hub")
+	caTag            = flag.String("ca_tag", os.Getenv("TAG"), "Ca tag")
+	galleyHub        = flag.String("galley_hub", os.Getenv("HUB"), "Galley hub")
+	galleyTag        = flag.String("galley_tag", os.Getenv("TAG"), "Galley tag")
+	localRegistryHub = flag.String("local_registry_hub", os.Getenv("HUB"), "Local Registry hub")
+	localRegistryTag = flag.String("local_registry_tag", os.Getenv("TAG"), "Local Registry tag")
+	authEnable       = flag.Bool("auth_enable", false, "Enable auth")
+	rbacEnable       = flag.Bool("rbac_enable", true, "Enable rbac")
+	localCluster     = flag.Bool("use_local_cluster", false,
 		"Whether the cluster is local or not (i.e. the test is running within the cluster). If running on minikube, this should be set to true.")
-	localRegistry             = flag.Bool("use_local_registry", false, "Use in-cluster docker registry for testing")
+	localRegistry             = flag.Bool("use_local_registry", os.Getenv("LOCALREG"), "Use in-cluster docker registry for testing")
 	skipSetup                 = flag.Bool("skip_setup", false, "Skip namespace creation and istio cluster setup")
 	sidecarInjectorFile       = flag.String("sidecar_injector_file", defaultSidecarInjectorFile, "Sidecar injector yaml file")
 	clusterWide               = flag.Bool("cluster_wide", false, "Run cluster wide tests")

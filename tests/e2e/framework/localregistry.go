@@ -46,19 +46,6 @@ func NewLocalRegistry(namespace string, istioctl *Istioctl, file, kubeconfig, hu
 // Deploy the local registry to the cluster
 func (l *LocalRegistry) Setup() error {
 	l.active = true
-	// deploy local registry to cluster
-	if err := util.KubeApply(l.namespace, l.file, l.Kubeconfig); err != nil {
-		log.Errorf("Kubectl apply %s failed", l.Kubeconfig)
-		return err
-	}
-
-	if err := l.build(); err != nil {
-		return err
-	}
-
-	if err := l.push(); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -69,31 +56,5 @@ func (l *LocalRegistry) Teardown() error {
 		return err
 	}
 	l.active = false
-	return nil
-}
-
-// Build builds all required images for the test
-func (l *LocalRegistry) build() error {
-	// Use cmd to call make to build images
-	res, err := util.Shell("GOOS=linux make docker HUB=%s TAG=%s", l.hub, l.tag)
-	if err != nil {
-		log.Infof("Image building process failed: %s", res)
-		return err
-	} else {
-		log.Infof("Images for test are successfully built.")
-	}
-	return nil
-}
-
-// Push pushes all images to the localregistry
-func (l *LocalRegistry) push() error {
-	// Use cmd to call make to push images to the local registry
-	res, err := util.Shell("GOOS=linux make push HUB=%s TAG=%s", l.hub, l.tag)
-	if err != nil {
-		log.Infof("Image push process failed: %s", res)
-		return err
-	} else {
-		log.Infof("Images for test are successfully pushed to local registry.")
-	}
 	return nil
 }
