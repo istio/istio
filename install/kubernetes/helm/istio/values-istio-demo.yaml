@@ -7,8 +7,6 @@
 # --set ingressgateway.service.type=NodePort
 global:
   #nodePort: true
-  proxy:
-    image: proxyv2
 
 ingress:
   # Ingress is used for migration, for alpha3 we expect ingressgateway

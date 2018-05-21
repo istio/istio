@@ -15,7 +15,7 @@ global:
   # Should track latest released version in the branch.
   tag: 0.8.latest
   proxy:
-    image: proxy
+    image: proxyv2
     resources:
       requests:
         cpu: 100m
