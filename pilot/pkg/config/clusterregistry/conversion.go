@@ -59,10 +59,7 @@ type RemoteCluster struct {
 
 // ClusterStore is a collection of clusters
 type ClusterStore struct {
-	rc map[Metadata]*RemoteCluster
-
-	//	clusters      []*k8s_cr.Cluster
-	//	clientConfigs map[string]clientcmdapi.Config
+	rc        map[Metadata]*RemoteCluster
 	storeLock sync.RWMutex
 }
 
@@ -96,11 +93,6 @@ func GetClusterID(cluster *k8s_cr.Cluster) string {
 	}
 	return cluster.ObjectMeta.Name
 }
-
-// GetPilotClusters return a list of clusters under this pilot, exclude PilotCfgStore
-// func (cs *ClusterStore) GetPilotClusters() []*k8s_cr.Cluster {
-//	return cs.clusters
-// }
 
 // ReadClusters reads multiple clusters from a ConfigMap
 func ReadClusters(k8s kubernetes.Interface, configMapName string,

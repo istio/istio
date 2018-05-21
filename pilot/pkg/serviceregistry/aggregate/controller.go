@@ -78,6 +78,7 @@ func (c *Controller) DeleteRegistry(clusterID string) {
 	registries := c.registries
 	registries = append(registries[:index], registries[index+1:]...)
 	c.registries = registries
+	log.Infof("Registry for the cluster %s has been deleted.", clusterID)
 }
 
 // GetRegistries returns a copy of all registries
