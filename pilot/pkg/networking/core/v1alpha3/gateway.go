@@ -78,8 +78,17 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 		// no longer work.
 		protocol := model.ParseProtocol(servers[0].Port.Protocol)
 		if protocol == model.ProtocolHTTPS {
-			// Gateway terminates TLS connection. So, its effectively a H2 listener.
-			protocol = model.ProtocolHTTP2
+			// Gateway terminates TLS connection if TLS mode is not Passthrough So, its effectively a H2 listener.
+			// This is complicated. We have multiple servers. One of these servers could have passthrough HTTPS while
+			// others could be a simple/mutual TLS.
+			// The code as it is, is not capable of handling this mixed listener type and set up the proper SNI chains
+			// such that the passthrough ones go through a TCP proxy while others get terminated and go through http connection
+			// manager. Ideally, the merge gateway function should take care of this and intelligently create multiple
+			// groups of servers based on their TLS types as well. For now, we simply assume that if HTTPS,
+			// and the first server in the group is not a passthrough, then this is a HTTP connection manager.
+			if servers[0].Tls != nil && servers[0].Tls.Mode != networking.Server_TLSOptions_PASSTHROUGH {
+				protocol = model.ProtocolHTTP2
+			}
 		}
 
 		opts := buildListenerOpts{
