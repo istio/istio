@@ -27,13 +27,14 @@ global:
     serviceAccountName: default # used only if RBAC is not enabled
     replicaCount: 1
     image: sidecar_injector
-    resources: {}
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
     # limits:
     #  cpu: 100m
     #  memory: 128Mi
-    # requests:
-    #  cpu: 100m
-    #  memory: 128Mi
+
 
     # istio egress capture whitelist
     # https://istio.io/docs/tasks/traffic-management/egress.html#calling-external-services-directly
