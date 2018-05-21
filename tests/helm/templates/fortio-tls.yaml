@@ -18,6 +18,24 @@ spec:
     # TODO: this should be target port (container)
     - number: 8080
 ---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: fortio-tls
+spec:
+  host:  fortio-tls.test.svc.cluster.local
+  trafficPolicy:
+    tls:
+      # Equivalent with ISTIO_MUTUAL
+      mode: MUTUAL
+      client_certificate: /etc/certs/cert-chain.pem
+      private_key: /etc/certs/key.pem
+      ca_certificates: /etc/certs/root-cert.pem
+      subject_alt_names:
+      - spiffe://cluster.local/ns/test/sa/default
+
+
+---
 apiVersion: v1
 kind: Service
 metadata:
@@ -42,6 +60,9 @@ spec:
   replicas: 1
   template:
     metadata:
+      annotations:
+        sidecar.istio.io/controlPlaneAuthPolicy: MUTUAL_TLS
+        sidecar.istio.io/discoveryAddress: istio-pilot.istio-system:15005
       labels:
         app: fortio-tls
         version: tls
