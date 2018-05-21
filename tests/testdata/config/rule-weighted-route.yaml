@@ -1,7 +1,7 @@
 # Self-contained local test for weighted routes
 # TODO: start services/template for the 2 ports.
 apiVersion: networking.istio.io/v1alpha3
-kind: ExternalService
+kind: ServiceEntry
 metadata:
   name: weighted-extsvc
 spec:
@@ -11,7 +11,7 @@ spec:
    - number: 80
      name: http
      protocol: HTTP
-   discovery: STATIC
+   resolution: STATIC
    endpoints:
     - address: 127.0.0.2
       ports:

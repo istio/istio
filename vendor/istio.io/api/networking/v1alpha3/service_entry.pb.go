@@ -18,7 +18,7 @@ var _ = math.Inf
 // outside the mesh.  Location determines the behavior of several
 // features, such as service-to-service mTLS authentication, policy
 // enforcement, etc. When communicating with services outside the mesh,
-// Istio's mTLS authentication is disabled, and policy enforcement is
+// Istio's mTLS authentication is disabled, and policy enforcements are
 // performed on the client-side as opposed to server-side.
 type ServiceEntry_Location int32
 
@@ -137,7 +137,7 @@ func (ServiceEntry_Resolution) EnumDescriptor() ([]byte, []int) {
 //     metadata:
 //       name: mtls-mongocluster
 //     spec:
-//       host: mymongodb.somedomain
+//       name: mymongodb.somedomain
 //       trafficPolicy:
 //         tls:
 //           mode: MUTUAL
@@ -165,7 +165,7 @@ func (ServiceEntry_Resolution) EnumDescriptor() ([]byte, []int) {
 //       resolution: NONE
 //
 // For HTTP based services, it is possible to create a VirtualService
-// backed by multiple DNS addressable endpoints. In such a scenario, the
+// backed by multiple DNS addressible endpoints. In such a scenario, the
 // application can use the HTTP_PROXY environment variable to transparently
 // reroute API calls for the VirtualService to a chosen backend. For
 // example, the following configuration creates a non-existent external
@@ -203,7 +203,7 @@ func (ServiceEntry_Resolution) EnumDescriptor() ([]byte, []int) {
 //     metadata:
 //       name: tls-foobar
 //     spec:
-//       host: foo.bar.com
+//       name: foo.bar.com
 //       trafficPolicy:
 //         tls:
 //           mode: SIMPLE # initiates HTTPS

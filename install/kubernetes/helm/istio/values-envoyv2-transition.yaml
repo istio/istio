@@ -10,19 +10,17 @@ global:
 ingress:
   enabled: true
   service:
-    nodePort:
-      enabled: true
+    type: NodePort
   autoscaleMin: 1
   autoscaleMax: 8
   meshExpansion:
     enabled: false
 
-# Any customization for istio testing should be here
-istiotesting:
-  oneNameSpace: false
-
 zipkin:
   enabled: true
 
 sidecar-injector:
+  enabled: true
+
+prometheus:
   enabled: true

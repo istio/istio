@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"path"
 	"regexp"
 	"strconv"
 	"strings"
@@ -42,7 +43,7 @@ import (
 
 const (
 	dns1123LabelMaxLength int    = 63
-	dns1123LabelFmt       string = "[a-z0-9]([-a-z0-9]*[a-z0-9])?"
+	dns1123LabelFmt       string = "[a-zA-Z0-9]([-a-z-A-Z0-9]*[a-zA-Z0-9])?"
 	// a wild-card prefix is an '*', a normal DNS1123 label with a leading '*' or '*-', or a normal DNS1123 label
 	wildcardPrefix string = `\*|(\*|\*-)?(` + dns1123LabelFmt + `)`
 
@@ -61,6 +62,10 @@ const (
 	drainTimeMax          = time.Hour
 	parentShutdownTimeMax = time.Hour
 )
+
+// UnixAddressPrefix is the prefix used to indicate an address is for a Unix Domain socket. It is used in
+// ServiceEntry.Endpoint.Address message.
+const UnixAddressPrefix = "unix://"
 
 var (
 	dns1123LabelRegexp   = regexp.MustCompile("^" + dns1123LabelFmt + "$")
@@ -555,6 +560,19 @@ func ValidateIPv4Address(addr string) error {
 		return fmt.Errorf("%v is not a valid IPv4 address", addr)
 	}
 
+	return nil
+}
+
+// ValidateUnixAddress validates that the string is a valid unix domain socket path.
+func ValidateUnixAddress(addr string) error {
+	if len(addr) == 0 {
+		return errors.New("unix address must not be empty")
+	}
+	// Note that we use path, not path/filepath even though a domain socket path is a file path.  We don't want the
+	// Pilot output to depend on which OS Pilot is run on, so we always use Unix-style forward slashes.
+	if !path.IsAbs(addr) {
+		return fmt.Errorf("%s is not an absolute path", addr)
+	}
 	return nil
 }
 
@@ -2156,19 +2174,29 @@ func ValidateServiceEntry(config proto.Message) (errs error) {
 				fmt.Errorf("endpoints must be provided if service entry discovery mode is static"))
 		}
 
+		unixEndpoint := false
 		for _, endpoint := range serviceEntry.Endpoints {
-			errs = appendErrors(errs,
-				ValidateIPv4Address(endpoint.Address),
-				Labels(endpoint.Labels).Validate())
-
-			for name, port := range endpoint.Ports {
-				if !servicePorts[name] {
-					errs = appendErrors(errs, fmt.Errorf("endpoint port %v is not defined by the service entry", port))
+			addr := endpoint.GetAddress()
+			if strings.HasPrefix(addr, UnixAddressPrefix) {
+				unixEndpoint = true
+				errs = appendErrors(errs, ValidateUnixAddress(strings.TrimPrefix(addr, UnixAddressPrefix)))
+				if len(endpoint.Ports) != 0 {
+					errs = appendErrors(errs, fmt.Errorf("unix endpoint %s must not include ports", addr))
 				}
-				errs = appendErrors(errs,
-					validatePortName(name),
-					ValidatePort(int(port)))
+			} else {
+				errs = appendErrors(errs, ValidateIPv4Address(addr))
+
+				for name, port := range endpoint.Ports {
+					if !servicePorts[name] {
+						errs = appendErrors(errs, fmt.Errorf("endpoint port %v is not defined by the service entry", port))
+					}
+				}
 			}
+			errs = appendErrors(errs, Labels(endpoint.Labels).Validate())
+
+		}
+		if unixEndpoint && len(serviceEntry.Ports) != 1 {
+			errs = appendErrors(errs, errors.New("exactly 1 service port required for unix endpoints"))
 		}
 	case networking.ServiceEntry_DNS:
 		if len(serviceEntry.Endpoints) == 0 {
@@ -2245,4 +2273,21 @@ func appendErrors(err error, errs ...error) error {
 		err = appendError(err, err2)
 	}
 	return err
+}
+
+// ValidateNetworkEndpointAddress checks the Address field of a NetworkEndpoint. If the family is TCP, it checks the
+// address is a valid IP address. If the family is Unix, it checks the address is a valid socket file path.
+func ValidateNetworkEndpointAddress(n *NetworkEndpoint) error {
+	switch n.Family {
+	case AddressFamilyTCP:
+		ipAddr := net.ParseIP(n.Address)
+		if ipAddr == nil {
+			return errors.New("invalid IP address " + n.Address)
+		}
+	case AddressFamilyUnix:
+		return ValidateUnixAddress(n.Address)
+	default:
+		panic(fmt.Sprintf("unhandled Family %v", n.Family))
+	}
+	return nil
 }

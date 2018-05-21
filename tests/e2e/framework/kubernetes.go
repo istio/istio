@@ -190,10 +190,10 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		if err != nil {
 			return nil, err
 		}
-		if _, kubeClient, err = kube.CreateInterface(kubeConfig); err != nil {
+		if kubeClient, err = kube.CreateInterface(kubeConfig); err != nil {
 			return nil, err
 		}
-		if _, remoteKubeClient, err = kube.CreateInterface(remoteKubeConfig); err != nil {
+		if remoteKubeClient, err = kube.CreateInterface(remoteKubeConfig); err != nil {
 			return nil, err
 		}
 
@@ -382,7 +382,7 @@ func (k *KubeInfo) Teardown() error {
 	}
 	if *installer == "helm" {
 		// clean up using helm
-		err := util.HelmDelete("istio")
+		err := util.HelmDelete(k.Namespace)
 		if err != nil {
 			return nil
 		}
@@ -675,7 +675,7 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 
 	// construct setValue to pass into helm install
 	// mTLS
-	setValue := "--set global.securityEnabled=" + strconv.FormatBool(isSecurityOn)
+	setValue := "--set global.mtls.enabled=" + strconv.FormatBool(isSecurityOn)
 	// side car injector
 	if *useAutomaticInjection {
 		setValue += " --set sidecar-injector.enabled=true"
@@ -698,7 +698,7 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 
 	// helm install dry run
 	workDir := filepath.Join(k.ReleaseDir, istioHelmInstallDir)
-	err := util.HelmInstallDryRun(workDir, "istio", k.Namespace, setValue)
+	err := util.HelmInstallDryRun(workDir, k.Namespace, k.Namespace, setValue)
 	if err != nil {
 		// dry run fail, let's fail early
 		log.Errorf("Helm dry run of istio install failed %s, setValue=%s", istioHelmInstallDir, setValue)
@@ -706,7 +706,7 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	}
 
 	// helm install
-	err = util.HelmInstall(workDir, "istio", k.Namespace, setValue)
+	err = util.HelmInstall(workDir, k.Namespace, k.Namespace, setValue)
 	if err != nil {
 		log.Errorf("Helm install istio install failed %s, setValue=%s", istioHelmInstallDir, setValue)
 		return err

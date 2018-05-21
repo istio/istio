@@ -16,7 +16,6 @@ package controller
 
 import (
 	"log"
-	"os"
 	"testing"
 	"time"
 
@@ -40,7 +39,7 @@ const (
 )
 
 func makeClient(t *testing.T, desc model.ConfigDescriptor) (*crd.Client, error) {
-	cl, err := crd.NewClient(os.Getenv("KUBECONFIG"), desc, "")
+	cl, err := crd.NewClient("", desc, "")
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +58,11 @@ func makeClient(t *testing.T, desc model.ConfigDescriptor) (*crd.Client, error) 
 
 // makeTempClient allocates a namespace and cleans it up on test completion
 func makeTempClient(t *testing.T) (*crd.Client, string, func()) {
-	_, client, err := kube.CreateInterface(os.Getenv("KUBECONFIG"))
+	kubeconfig, err := kube.ResolveConfig("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	client, err := kube.CreateInterface(kubeconfig)
 	if err != nil {
 		t.Fatal(err)
 	}

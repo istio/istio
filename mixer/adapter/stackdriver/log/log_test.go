@@ -207,7 +207,7 @@ func TestHandleLogEntry(t *testing.T) {
 				Variables: map[string]interface{}{
 					"foo":      "bar",
 					"time":     fmt.Sprintf("%v", now),
-					"status":   200,
+					"status":   int64(200),
 					"localip":  "127.0.0.1",
 					"remoteip": "1.0.0.127",
 					"latency":  time.Second,
@@ -228,7 +228,7 @@ func TestHandleLogEntry(t *testing.T) {
 						Latency:      time.Second,
 						RequestSize:  123,
 						ResponseSize: 456,
-						Request:      &http.Request{URL: &url.URL{}},
+						Request:      &http.Request{URL: &url.URL{}, Method: "", Header: make(http.Header)},
 					},
 				},
 			}},

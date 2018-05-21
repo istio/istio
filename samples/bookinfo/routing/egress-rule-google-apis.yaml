@@ -15,7 +15,7 @@ kind: DestinationRule
 metadata:
   name: googleapis
 spec:
-  name: "*.googleapis.com"
+  host: "*.googleapis.com"
   trafficPolicy:
     tls:
       mode: SIMPLE # initiates HTTPS when talking to www.google.com

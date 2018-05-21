@@ -26,14 +26,12 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
-	"istio.io/istio/pkg/log"
 )
 
 var (
 	// Failsafe to implement periodic refresh, in case events or cache invalidation fail.
-	// TODO: remove after events get enough testing
-	periodicRefreshDuration = os.Getenv("V2_REFRESH")
-	responseTickDuration    = time.Second * 15
+	// Disabled by default.
+	periodicRefreshDuration = 60 * time.Second
 
 	versionMutex sync.Mutex
 	// version is update by registry events.
@@ -85,8 +83,17 @@ func NewDiscoveryServer(env model.Environment, generator *v1alpha3.ConfigGenerat
 		ConfigGenerator: generator,
 	}
 
-	if len(periodicRefreshDuration) > 0 {
-		periodicRefresh()
+	envOverride := os.Getenv("V2_REFRESH")
+	if len(envOverride) > 0 {
+		var err error
+		periodicRefreshDuration, err = time.ParseDuration(envOverride)
+		if err != nil {
+			adsLog.Warn("Invalid value for V2_REFRESH")
+			periodicRefreshDuration = 0 // this is also he default, but setting it explicitly
+		}
+	}
+	if periodicRefreshDuration > 0 {
+		go periodicRefresh()
 	}
 
 	return out
@@ -104,12 +111,7 @@ func (s *DiscoveryServer) Register(rpcs *grpc.Server) {
 // ( will be removed after change detection is implemented, to double check all changes are
 // captured)
 func periodicRefresh() {
-	var err error
-	responseTickDuration, err = time.ParseDuration(periodicRefreshDuration)
-	if err != nil {
-		return
-	}
-	ticker := time.NewTicker(responseTickDuration)
+	ticker := time.NewTicker(periodicRefreshDuration)
 	defer ticker.Stop()
 	for range ticker.C {
 		PushAll()
@@ -136,7 +138,7 @@ func (s *DiscoveryServer) ClearCacheFunc() func() {
 		s.updateModel()
 
 		s.modelMutex.RLock()
-		log.Infof("XDS: Registry event, pushing. Services: %d, "+
+		adsLog.Infof("XDS: Registry event, pushing. Services: %d, "+
 			"VirtualServices: %d, ConnectedEndpoints: %d", len(s.services), len(s.virtualServices), edsClientCount())
 		monServices.Set(float64(len(s.services)))
 		monVServices.Set(float64(len(s.virtualServices)))
@@ -151,16 +153,16 @@ func (s *DiscoveryServer) updateModel() {
 	defer s.modelMutex.Unlock()
 	services, err := s.env.Services()
 	if err != nil {
-		log.Errorf("XDS: failed to update services %v", err)
+		adsLog.Errorf("XDS: failed to update services %v", err)
 	} else {
 		s.services = services
 	}
 	vservices, err := s.env.List(model.VirtualService.Type, model.NamespaceAll)
 	if err != nil {
-		log.Errorf("XDS: failed to update virtual services %v", err)
+		adsLog.Errorf("XDS: failed to update virtual services %v", err)
 	} else {
 		s.virtualServiceConfigs = vservices
-		s.virtualServices = make([]*networking.VirtualService, len(vservices))
+		s.virtualServices = make([]*networking.VirtualService, 0, len(vservices))
 		for _, ss := range vservices {
 			s.virtualServices = append(s.virtualServices, ss.Spec.(*networking.VirtualService))
 		}

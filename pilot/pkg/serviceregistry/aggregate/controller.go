@@ -33,9 +33,14 @@ type Registry struct {
 	model.ServiceAccounts
 }
 
+var (
+	clusterAddressesMutex sync.Mutex
+)
+
 // Controller aggregates data across different registries and monitors for changes
 type Controller struct {
 	registries []Registry
+	storeLock  sync.RWMutex
 }
 
 // NewController creates a new Aggregate controller
@@ -47,14 +52,20 @@ func NewController() *Controller {
 
 // AddRegistry adds registries into the aggregated controller
 func (c *Controller) AddRegistry(registry Registry) {
+	c.storeLock.Lock()
+	defer c.storeLock.Unlock()
 	c.registries = append(c.registries, registry)
 }
 
 // Services lists services from all platforms
 func (c *Controller) Services() ([]*model.Service, error) {
+	// smap is a map of hostname (string) to service, used to identify services that
+	// are installed in multiple clusters.
 	smap := make(map[model.Hostname]*model.Service)
+
 	services := make([]*model.Service, 0)
 	var errs error
+	// Locking Registries list while walking it to prevent inconsistent results
 	for _, r := range c.registries {
 		svcs, err := r.Services()
 		if err != nil {
@@ -63,25 +74,32 @@ func (c *Controller) Services() ([]*model.Service, error) {
 		}
 		// Race condition: multiple threads may call Services, and multiple services
 		// may modify one of the service's cluster ID
-		var smutex sync.Mutex
+		clusterAddressesMutex.Lock()
 		for _, s := range svcs {
 			sp, ok := smap[s.Hostname]
 			if !ok {
+				// First time we see a service. The result will have a single service per hostname
+				// The first cluster will be listed first, so the services in the primary cluster
+				// will be used for default settings. If a service appears in multiple clusters,
+				// the order is less clear.
 				sp = s
 				smap[s.Hostname] = sp
 				services = append(services, sp)
 			}
 
+			// If the registry has a cluster ID, keep track of the cluster and the
+			// local address inside the cluster.
+			// TODO: what is this used for ? Do we want to support multiple VIPs, or
+			// only use the 'primary' VIP ?
 			if r.ClusterID != "" {
-				smutex.Lock()
 				if sp.Addresses == nil {
 					sp.Addresses = make(map[string]string)
 				}
 				sp.Addresses[r.ClusterID] = s.Address
 				smap[s.Hostname] = sp
-				smutex.Unlock()
 			}
 		}
+		clusterAddressesMutex.Unlock()
 	}
 	return services, errs
 }
@@ -124,6 +142,30 @@ func (c *Controller) Instances(hostname model.Hostname, ports []string,
 	for _, r := range c.registries {
 		var err error
 		tmpInstances, err = r.Instances(hostname, ports, labels)
+		if err != nil {
+			errs = multierror.Append(errs, err)
+		} else if len(tmpInstances) > 0 {
+			if errs != nil {
+				log.Warnf("Instances() found match but encountered an error: %v", errs)
+			}
+			instances = append(instances, tmpInstances...)
+		}
+	}
+	if len(instances) > 0 {
+		errs = nil
+	}
+	return instances, errs
+}
+
+// InstancesByPort retrieves instances for a service on a given port that match
+// any of the supplied labels. All instances match an empty label list.
+func (c *Controller) InstancesByPort(hostname model.Hostname, port int,
+	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
+	var instances, tmpInstances []*model.ServiceInstance
+	var errs error
+	for _, r := range c.registries {
+		var err error
+		tmpInstances, err = r.InstancesByPort(hostname, port, labels)
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		} else if len(tmpInstances) > 0 {

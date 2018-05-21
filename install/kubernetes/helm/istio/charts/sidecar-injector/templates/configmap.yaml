@@ -46,7 +46,7 @@ data:
         {{ "[[ else -]]" }}
         - "{{ .Values.excludeInboundPorts }}"
         {{ "[[ end -]]" }}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         securityContext:
           capabilities:
             add:
@@ -123,7 +123,7 @@ data:
               fieldPath: metadata.name
         - name: ISTIO_META_INTERCEPTION_MODE
           value: {{ "[[ or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String ]]" }}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         securityContext:
             privileged: false
             readOnlyRootFilesystem: true
@@ -135,6 +135,8 @@ data:
             runAsUser: 1337
             {{ "[[ end -]]" }}
         restartPolicy: Always
+        resources:
+{{ toYaml .Values.global.proxy.resources | indent 10 }}
         volumeMounts:
         - mountPath: /etc/istio/proxy
           name: istio-envoy

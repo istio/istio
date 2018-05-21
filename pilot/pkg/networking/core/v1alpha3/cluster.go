@@ -87,7 +87,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environmen
 	for _, service := range services {
 		config := env.DestinationRule(service.Hostname)
 		for _, port := range service.Ports {
-			hosts := buildClusterHosts(env, service, port)
+			hosts := buildClusterHosts(env, service, port.Port)
 
 			// create default cluster
 			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port)
@@ -109,7 +109,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environmen
 				applyTrafficPolicy(defaultCluster, destinationRule.TrafficPolicy, port)
 
 				for _, subset := range destinationRule.Subsets {
-					subsetClusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port)
+					subsetClusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
 					subsetCluster := buildDefaultCluster(env, subsetClusterName, convertResolution(service.Resolution), hosts)
 					updateEds(env, subsetCluster, service.Hostname)
 					setUpstreamProtocol(subsetCluster, port)
@@ -147,13 +147,12 @@ func updateEds(env model.Environment, cluster *v2.Cluster, serviceName model.Hos
 	}
 }
 
-func buildClusterHosts(env model.Environment, service *model.Service, port *model.Port) []*core.Address {
+func buildClusterHosts(env model.Environment, service *model.Service, port int) []*core.Address {
 	if service.Resolution != model.DNSLB {
 		return nil
 	}
 
-	// FIXME port name not required if only one port
-	instances, err := env.Instances(service.Hostname, []string{port.Name}, nil)
+	instances, err := env.InstancesByPort(service.Hostname, port, nil)
 	if err != nil {
 		log.Errorf("failed to retrieve instances for %s: %v", service.Hostname, err)
 		return nil
@@ -174,7 +173,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env model.Environment
 	clusters := make([]*v2.Cluster, 0)
 	for _, instance := range instances {
 		// This cluster name is mainly for stats.
-		clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", instance.Service.Hostname, instance.Endpoint.ServicePort)
+		clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
 		address := util.BuildAddress("127.0.0.1", uint32(instance.Endpoint.Port))
 		localCluster := buildDefaultCluster(env, clusterName, v2.Cluster_STATIC, []*core.Address{&address})
 		setUpstreamProtocol(localCluster, instance.Endpoint.ServicePort)
@@ -202,7 +201,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env model.Environment
 
 	// Add a passthrough cluster for traffic to management ports (health check ports)
 	for _, port := range managementPorts {
-		clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", ManagementClusterHostname, port)
+		clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", ManagementClusterHostname, port.Port)
 		address := util.BuildAddress("127.0.0.1", uint32(port.Port))
 		mgmtCluster := buildDefaultCluster(env, clusterName, v2.Cluster_STATIC, []*core.Address{&address})
 		setUpstreamProtocol(mgmtCluster, port)
@@ -375,9 +374,33 @@ func applyLoadBalancer(cluster *v2.Cluster, lb *networking.LoadBalancerSettings)
 	// DO not do if else here. since lb.GetSimple returns a enum value (not pointer).
 }
 
+// InMeshALPNProtocols - try istio first and then h2
+// After envoy supports client side ALPN negotiation, this should be "istio", "h2", "http/1.1"
+// "istio" alpn value indicates in-mesh traffic at the TLS layer.
+var InMeshALPNProtocols = []string{"istio", "h2"}
+
+// ALPNH2Only specifies that the cluster only supports h2 via alpn.
+var ALPNH2Only = []string{"h2"}
+
 func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) {
 	if tls == nil {
 		return
+	}
+
+	var certValidationContext *auth.CertificateValidationContext
+	var trustedCa *core.DataSource
+	if len(tls.CaCertificates) != 0 {
+		trustedCa = &core.DataSource{
+			Specifier: &core.DataSource_Filename{
+				Filename: tls.CaCertificates,
+			},
+		}
+	}
+	if trustedCa != nil || len(tls.SubjectAltNames) > 0 {
+		certValidationContext = &auth.CertificateValidationContext{
+			TrustedCa:            trustedCa,
+			VerifySubjectAltName: tls.SubjectAltNames,
+		}
 	}
 
 	switch tls.Mode {
@@ -386,18 +409,17 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 	case networking.TLSSettings_SIMPLE:
 		cluster.TlsContext = &auth.UpstreamTlsContext{
 			CommonTlsContext: &auth.CommonTlsContext{
-				ValidationContext: &auth.CertificateValidationContext{
-					TrustedCa: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: tls.CaCertificates,
-						},
-					},
-					VerifySubjectAltName: tls.SubjectAltNames,
-				},
+				ValidationContext: certValidationContext,
 			},
 			Sni: tls.Sni,
 		}
 	case networking.TLSSettings_MUTUAL, networking.TLSSettings_ISTIO_MUTUAL:
+		// This is already an h2 cluster, advertise it with alpn.
+		if cluster.Http2ProtocolOptions != nil {
+			// advertising h2 ensures that h2 is used and it is not downgraded to http/1.1
+			// empty alpn usually defaults to http/1.1
+			cluster.TlsContext.CommonTlsContext.AlpnProtocols = ALPNH2Only
+		}
 		cluster.TlsContext = &auth.UpstreamTlsContext{
 			CommonTlsContext: &auth.CommonTlsContext{
 				TlsCertificates: []*auth.TlsCertificate{
@@ -414,23 +436,31 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 						},
 					},
 				},
-				ValidationContext: &auth.CertificateValidationContext{
-					TrustedCa: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: tls.CaCertificates,
-						},
-					},
-					VerifySubjectAltName: tls.SubjectAltNames,
-				},
+				ValidationContext: certValidationContext,
+				AlpnProtocols:     InMeshALPNProtocols,
 			},
 			Sni: tls.Sni,
 		}
+		addHTTP2Options(cluster)
 	}
 }
 
 func setUpstreamProtocol(cluster *v2.Cluster, port *model.Port) {
 	if port.Protocol.IsHTTP2() {
+		addHTTP2Options(cluster)
+	}
+}
+
+// addHTTP2Options makes cluster of type http2
+func addHTTP2Options(cluster *v2.Cluster) {
+	if cluster.Http2ProtocolOptions == nil {
+		// do not squash other h2 options if already present.
 		cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{}
+	}
+
+	cluster.Http2ProtocolOptions.MaxConcurrentStreams = &types.UInt32Value{
+		// Envoy default value of 100 is too low for data path.
+		Value: 1073741824,
 	}
 }
 
@@ -453,6 +483,11 @@ func buildDefaultCluster(env model.Environment, name string, discoveryType v2.Cl
 		Type:  discoveryType,
 		Hosts: hosts,
 	}
+
+	if discoveryType == v2.Cluster_STRICT_DNS || discoveryType == v2.Cluster_LOGICAL_DNS {
+		cluster.DnsLookupFamily = v2.Cluster_V4_ONLY
+	}
+
 	defaultTrafficPolicy := buildDefaultTrafficPolicy(env, discoveryType)
 	applyTrafficPolicy(cluster, defaultTrafficPolicy, nil)
 	return cluster

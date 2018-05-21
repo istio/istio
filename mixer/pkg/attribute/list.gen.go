@@ -185,5 +185,9 @@ var (
 		"connection.event",
 		"check.cache_hit",
 		"quota.cache_hit",
+		"source.principal",
+		"request.auth.claims",
+		"request.auth.raw_claims",
+		"connection.mtls",
     }
 )

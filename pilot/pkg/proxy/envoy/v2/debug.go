@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
-	"istio.io/istio/pkg/log"
 )
 
 // memregistry is based on mock/discovery - it is used for testing and debugging v2.
@@ -61,11 +60,12 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 // NewMemServiceDiscovery builds an in-memory MemServiceDiscovery
 func NewMemServiceDiscovery(services map[model.Hostname]*model.Service, versions int) *MemServiceDiscovery {
 	return &MemServiceDiscovery{
-		services:    services,
-		versions:    versions,
-		controller:  &memServiceController{},
-		instances:   map[string][]*model.ServiceInstance{},
-		ip2instance: map[string][]*model.ServiceInstance{},
+		services:            services,
+		versions:            versions,
+		controller:          &memServiceController{},
+		instancesByPortNum:  map[string][]*model.ServiceInstance{},
+		instancesByPortName: map[string][]*model.ServiceInstance{},
+		ip2instance:         map[string][]*model.ServiceInstance{},
 	}
 }
 
@@ -93,7 +93,8 @@ func (c *memServiceController) Run(<-chan struct{}) {}
 type MemServiceDiscovery struct {
 	services map[model.Hostname]*model.Service
 	// Endpoints table. Key is the fqdn of the service, ':', port
-	instances                     map[string][]*model.ServiceInstance
+	instancesByPortNum            map[string][]*model.ServiceInstance
+	instancesByPortName           map[string][]*model.ServiceInstance
 	ip2instance                   map[string][]*model.ServiceInstance
 	versions                      int
 	WantGetProxyServiceInstances  []*model.ServiceInstance
@@ -135,14 +136,13 @@ func (sd *MemServiceDiscovery) AddInstance(service model.Hostname, instance *mod
 	instance.Service = svc
 	sd.ip2instance[instance.Endpoint.Address] = []*model.ServiceInstance{instance}
 
-	key := fmt.Sprintf("%s:%s", service, instance.Endpoint.ServicePort.Name)
-	instanceList := sd.instances[key]
-	if instanceList == nil {
-		instanceList = []*model.ServiceInstance{instance}
-		sd.instances[key] = instanceList
-		return
-	}
-	sd.instances[key] = append(instanceList, instance)
+	key := fmt.Sprintf("%s:%d", service, instance.Endpoint.ServicePort.Port)
+	instanceList := sd.instancesByPortNum[key]
+	sd.instancesByPortNum[key] = append(instanceList, instance)
+
+	key = fmt.Sprintf("%s:%s", service, instance.Endpoint.ServicePort.Name)
+	instanceList = sd.instancesByPortName[key]
+	sd.instancesByPortName[key] = append(instanceList, instance)
 }
 
 // AddEndpoint adds an endpoint to a service.
@@ -198,11 +198,28 @@ func (sd *MemServiceDiscovery) Instances(hostname model.Hostname, ports []string
 		return nil, sd.InstancesError
 	}
 	if len(ports) != 1 {
-		log.Warna("Unexpected ports ", ports)
+		adsLog.Warna("Unexpected ports ", ports)
 		return nil, nil
 	}
 	key := hostname.String() + ":" + ports[0]
-	instances, ok := sd.instances[key]
+	instances, ok := sd.instancesByPortName[key]
+	if !ok {
+		return nil, nil
+	}
+	return instances, nil
+}
+
+// InstancesByPort filters the service instances by labels. This assumes single port, as is
+// used by EDS/ADS.
+func (sd *MemServiceDiscovery) InstancesByPort(hostname model.Hostname, port int,
+	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
+	sd.mutex.Lock()
+	defer sd.mutex.Unlock()
+	if sd.InstancesError != nil {
+		return nil, sd.InstancesError
+	}
+	key := fmt.Sprintf("%s:%d", hostname.String(), port)
+	instances, ok := sd.instancesByPortNum[key]
 	if !ok {
 		return nil, nil
 	}
@@ -313,14 +330,14 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 		svc, _ := s.env.ServiceDiscovery.Services()
 		for _, ss := range svc {
 			for _, p := range ss.Ports {
-				all, err := s.env.ServiceDiscovery.Instances(ss.Hostname, []string{p.Name}, nil)
+				all, err := s.env.ServiceDiscovery.InstancesByPort(ss.Hostname, p.Port, nil)
 				if err != nil {
 					return
 				}
 				for _, svc := range all {
-					fmt.Fprintf(w, "%s:%s %s:%d %v %v %s\n", ss.Hostname,
-						p.Name, svc.Endpoint.Address, svc.Endpoint.Port, svc.Labels,
-						svc.AvailabilityZone, svc.ServiceAccount)
+					fmt.Fprintf(w, "%s:%s %v %s:%d %v %v %s\n", ss.Hostname,
+						p.Name, svc.Endpoint.Family, svc.Endpoint.Address, svc.Endpoint.Port, svc.Labels,
+						svc.GetAZ(), svc.ServiceAccount)
 				}
 			}
 		}
@@ -331,7 +348,7 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprint(w, "[\n")
 	for _, ss := range svc {
 		for _, p := range ss.Ports {
-			all, err := s.env.ServiceDiscovery.Instances(ss.Hostname, []string{p.Name}, nil)
+			all, err := s.env.ServiceDiscovery.InstancesByPort(ss.Hostname, p.Port, nil)
 			if err != nil {
 				return
 			}
@@ -373,10 +390,6 @@ func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 func adsz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
 	w.Header().Add("Content-Type", "application/json")
-	if req.Form.Get("debug") != "" {
-		adsDebug = req.Form.Get("debug") == "1"
-		return
-	}
 	if req.Form.Get("push") != "" {
 		adsPushAll()
 		fmt.Fprintf(w, "Pushed to %d servers", len(adsClients))
@@ -443,14 +456,10 @@ func writeAllADS(w io.Writer) {
 // It is mapped to /debug/edsz on the monitor port (9093).
 func edsz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
-	if req.Form.Get("debug") != "" {
-		edsDebug = req.Form.Get("debug") == "1"
-		return
-	}
 	w.Header().Add("Content-Type", "application/json")
 
 	if req.Form.Get("push") != "" {
-		edsPushAll()
+		PushAll()
 	}
 
 	edsClusterMutex.Lock()
@@ -501,7 +510,7 @@ func printListeners(w io.Writer, c *XdsConnection) {
 	comma := false
 	for _, ls := range c.HTTPListeners {
 		if ls == nil {
-			log.Errorf("INVALID LISTENER NIL")
+			adsLog.Errorf("INVALID LISTENER NIL")
 			continue
 		}
 		if comma {
@@ -521,7 +530,7 @@ func printClusters(w io.Writer, c *XdsConnection) {
 	comma := false
 	for _, cl := range c.HTTPClusters {
 		if cl == nil {
-			log.Errorf("INVALID Cluster NIL")
+			adsLog.Errorf("INVALID Cluster NIL")
 			continue
 		}
 		if comma {

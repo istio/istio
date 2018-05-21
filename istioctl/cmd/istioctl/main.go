@@ -96,10 +96,13 @@ system.
 
 Available routing and traffic management configuration types:
 
-	[routerule ingressrule egressrule destinationpolicy]
+	[virtualservice gateway destinationrule serviceentry httpapispec httpapispecbinding quotaspec quotaspecbinding servicerole servicerolebinding policy]
 
-See https://istio.io/docs/reference/ for an overview of routing rules
-and destination policies.
+Legacy routing and traffic management configuration types:
+
+	[routerule egressrule destinationpolicy]
+
+See https://istio.io/docs/reference/ for an overview of Istio routing.
 
 `,
 		PersistentPreRunE: istioPersistentPreRunE,
@@ -271,14 +274,14 @@ and destination policies.
 	getCmd = &cobra.Command{
 		Use:   "get <type> [<name>]",
 		Short: "Retrieve policies and rules",
-		Example: `# List all route rules
-istioctl get routerules
+		Example: `# List all virtual services
+istioctl get virtualservices
 
-# List all destination policies
-istioctl get destinationpolicies
+# List all destination rules
+istioctl get destinationrules
 
-# Get a specific rule named productpage-default
-istioctl get routerule productpage-default
+# Get a specific virtual service named bookinfo
+istioctl get virtualservice bookinfo
 `,
 		RunE: func(c *cobra.Command, args []string) error {
 			configClient, err := newClient()
@@ -291,7 +294,7 @@ istioctl get routerule productpage-default
 					strings.Join(supportedTypes(configClient), ", "))
 			}
 
-			typ, err := protoSchema(configClient, args[0])
+			typ, err := protoSchema(configClient, strings.ToLower(args[0]))
 			if err != nil {
 				c.Println(c.UsageString())
 				return err
@@ -337,8 +340,8 @@ istioctl get routerule productpage-default
 		Example: `# Delete a rule using the definition in example-routing.yaml.
 istioctl delete -f example-routing.yaml
 
-# Delete the rule productpage-default
-istioctl delete routerule productpage-default
+# Delete the virtual service bookinfo
+istioctl delete virtualservice bookinfo
 `,
 		RunE: func(c *cobra.Command, args []string) error {
 			configClient, errs := newClient()
@@ -351,7 +354,7 @@ istioctl delete routerule productpage-default
 					c.Println(c.UsageString())
 					return fmt.Errorf("provide configuration type and name or -f option")
 				}
-				typ, err := protoSchema(configClient, args[0])
+				typ, err := protoSchema(configClient, strings.ToLower(args[0]))
 				if err != nil {
 					return err
 				}
@@ -623,7 +626,7 @@ func readInputs() ([]model.Config, []crd.IstioKind, error) {
 // Print a simple list of names
 func printShortOutput(_ *crd.Client, configList []model.Config) {
 	var w tabwriter.Writer
-	w.Init(os.Stdout, 0, 8, 0, '\t', 0)
+	w.Init(os.Stdout, 10, 4, 3, ' ', 0)
 	fmt.Fprintf(&w, "NAME\tKIND\tNAMESPACE\n")
 	for _, c := range configList {
 		kind := fmt.Sprintf("%s.%s.%s",
@@ -703,11 +706,7 @@ func preprocMixerConfig(configs []crd.IstioKind) error {
 }
 
 func restConfig() (config *rest.Config, err error) {
-	if kubeconfig == "" {
-		config, err = rest.InClusterConfig()
-	} else {
-		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
-	}
+	config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
 
 	if err != nil {
 		return
