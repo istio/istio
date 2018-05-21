@@ -90,7 +90,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environmen
 			hosts := buildClusterHosts(env, service, port.Port)
 
 			// create default cluster
-			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port)
+			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 			upstreamServiceAccounts := env.ServiceAccounts.GetIstioServiceAccounts(service.Hostname, []string{port.Name})
 			defaultCluster := buildDefaultCluster(env, clusterName, convertResolution(service.Resolution), hosts)
 
@@ -226,16 +226,24 @@ func convertResolution(resolution model.Resolution) v2.Cluster_DiscoveryType {
 // convertIstioMutual fills key cert fields for all TLSSettings when the mode is `ISTIO_MUTUAL`.
 func convertIstioMutual(destinationRule *networking.DestinationRule, upstreamServiceAccount []string) {
 	converter := func(tls *networking.TLSSettings) {
+		if tls == nil {
+			return
+		}
 		if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
 			*tls = *buildIstioMutualTls(upstreamServiceAccount)
 		}
 	}
-	converter(destinationRule.TrafficPolicy.Tls)
-	for _, portTLS := range destinationRule.TrafficPolicy.PortLevelSettings {
-		converter(portTLS.Tls)
+
+	if destinationRule.TrafficPolicy != nil {
+		converter(destinationRule.TrafficPolicy.Tls)
+		for _, portTLS := range destinationRule.TrafficPolicy.PortLevelSettings {
+			converter(portTLS.Tls)
+		}
 	}
 	for _, subset := range destinationRule.Subsets {
-		converter(subset.TrafficPolicy.Tls)
+		if subset.TrafficPolicy != nil {
+			converter(subset.TrafficPolicy.Tls)
+		}
 	}
 }
 
