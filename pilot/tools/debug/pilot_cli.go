@@ -73,6 +73,7 @@ type PodInfo struct {
 	Namespace string
 	IP        string
 	AppLabel  string
+	NodeType  string
 }
 
 func (p *PodInfo) populatePodNameAndIP(kubeconfig string) bool {
@@ -115,10 +116,16 @@ func (p *PodInfo) populatePodNameAndIP(kubeconfig string) bool {
 }
 
 func (p PodInfo) makeNodeID() string {
+	if p.NodeType != "" {
+		return fmt.Sprintf("%s~%s~%s.%s~%s.svc.cluster.local", p.NodeType, p.IP, p.Name, p.Namespace, p.Namespace)
+	}
 	return fmt.Sprintf("sidecar~%s~%s.%s~%s.svc.cluster.local", p.IP, p.Name, p.Namespace, p.Namespace)
 }
 
-func makeNodeID(pod, namespace, ip string) string {
+func makeNodeID(nodeType, pod, namespace, ip string) string {
+	if nodeType != "" {
+		return fmt.Sprintf("%s~%s~%s.%s~%s.svc.cluster.local", nodeType, ip, pod, namespace, namespace)
+	}
 	return fmt.Sprintf("sidecar~%s~%s.%s~%s.svc.cluster.local", ip, pod, namespace, namespace)
 }
 
@@ -182,6 +189,7 @@ func main() {
 	appName := flag.String("app", "", "app label. Should be set if pod name is not provided. It will be used to find "+
 		"the pod that has the same app label. Ignored if --pod is set.")
 	podIP := flag.String("ip", "", "pod IP. If omit, pod IP will be found from registry.")
+	nodeType := flag.String("nodetype", "", "sidecar, ingress, router. Default sidecar.")
 	namespace := flag.String("namespace", "default", "namespace. Default is 'default'.")
 	kubeConfig := flag.String("kubeconfig", "~/.kube/config", "path to the kubeconfig file. Default is ~/.kube/config")
 	pilotURL := flag.String("pilot", "localhost:15010", "pilot address")
@@ -207,6 +215,7 @@ func main() {
 		IP:        *podIP,
 		Namespace: *namespace,
 		AppLabel:  *appName,
+		NodeType:  *nodeType,
 	}
 	if !podInfo.populatePodNameAndIP(resolveKubeConfigPath(*kubeConfig)) {
 		return
