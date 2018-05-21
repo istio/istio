@@ -101,6 +101,7 @@ Status CheckCache::Check(const Attributes &attributes, Tick time_now) {
     return Status(Code::NOT_FOUND, "");
   }
 
+  std::lock_guard<std::mutex> lock(cache_mutex_);
   for (const auto &it : referenced_map_) {
     const Referenced &reference = it.second;
     std::string signature;
@@ -108,7 +109,6 @@ Status CheckCache::Check(const Attributes &attributes, Tick time_now) {
       continue;
     }
 
-    std::lock_guard<std::mutex> lock(cache_mutex_);
     CheckLRUCache::ScopedLookup lookup(cache_.get(), signature);
     if (lookup.Found()) {
       CacheElem *elem = lookup.value();
