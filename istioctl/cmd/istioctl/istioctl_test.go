@@ -229,7 +229,7 @@ bookinfo   VirtualService.networking.v1alpha3   default
 			[]model.Config{},
 			[]string{"invalid"},
 			"",
-			regexp.MustCompile("Usage:.*"),
+			regexp.MustCompile("^Usage:.*"),
 			true, // "istioctl get invalid" should fail
 		},
 	}
@@ -243,11 +243,11 @@ bookinfo   VirtualService.networking.v1alpha3   default
 			func() error {
 				err := rootCmd.PersistentPreRunE(getCmd, c.args)
 				if err != nil {
-					return multierror.Prefix(err, "Could not prerun command")
+					return multierror.Prefix(err, "Could not prerun GET command")
 				}
 				err = getCmd.RunE(getCmd, c.args)
 				if err != nil {
-					return multierror.Prefix(err, "Could not run command")
+					return multierror.Prefix(err, "Could not run GET command")
 				}
 				return nil
 			})
@@ -260,6 +260,214 @@ bookinfo   VirtualService.networking.v1alpha3   default
 
 		if !c.wantError.MatchString(errOutput) {
 			t.Errorf("Stderr didn't match for case %d %v: Expected %v, got %q", i, c.args, c.wantError, errOutput)
+		}
+
+		if c.wantException {
+			if fErr == nil {
+				t.Errorf("Wanted an exception for case %d %v, didn't get one, output was %q", i, c.args, stdOutput)
+			}
+		} else {
+			if fErr != nil {
+				t.Errorf("Unwanted exception for case %d %v: %v", i, c.args, fErr)
+			}
+		}
+	}
+}
+
+func TestCreate(t *testing.T) {
+	cases := []struct {
+		configs       []model.Config
+		args          []string
+		filename      string
+		wantOutput    *regexp.Regexp
+		wantError     *regexp.Regexp
+		wantException bool
+	}{
+		{ // case 0 -- invalid doesn't provide -f filename
+			[]model.Config{},
+			[]string{"routerules"},
+			"",
+			regexp.MustCompile("^$"),
+			regexp.MustCompile("^Usage:.*"),
+			true,
+		},
+		{ // case 1
+			[]model.Config{},
+			[]string{},
+			"convert/testdata/v1alpha1/route-rule-80-20.yaml",
+			regexp.MustCompile("^Created config route-rule/default/route-rule-80-20.*"),
+			regexp.MustCompile("^$"),
+			false,
+		},
+	}
+
+	for i, c := range cases {
+		// Override the client factory used by main.go
+		clientFactory = mockClientFactoryGenerator(c.configs)
+
+		// set the filename
+		file = c.filename
+
+		// run getCmd capturing output
+		stdOutput, errOutput, fErr := captureOutput(
+			func() error {
+				err := rootCmd.PersistentPreRunE(postCmd, c.args)
+				if err != nil {
+					return multierror.Prefix(err, "Could not prerun CREATE command")
+				}
+				err = postCmd.RunE(postCmd, c.args)
+				if err != nil {
+					return multierror.Prefix(err, "Could not run CREATE command")
+				}
+				return nil
+			})
+
+		if !c.wantOutput.MatchString(stdOutput) {
+			t.Errorf("Stdout didn't match for create case %d \"istioctl create %v\": Expected %v, got %q.  Stderr was %q",
+				i, strings.Join(c.args, " "),
+				c.wantOutput, stdOutput, errOutput)
+		}
+
+		if !c.wantError.MatchString(errOutput) {
+			t.Errorf("Stderr didn't match for create case %d %v: Expected %v, got %q", i, c.args, c.wantError, errOutput)
+		}
+
+		if c.wantException {
+			if fErr == nil {
+				t.Errorf("Wanted an exception for case %d %v, didn't get one, output was %q", i, c.args, stdOutput)
+			}
+		} else {
+			if fErr != nil {
+				t.Errorf("Unwanted exception for case %d %v: %v", i, c.args, fErr)
+			}
+		}
+	}
+}
+
+func TestReplace(t *testing.T) {
+	cases := []struct {
+		configs       []model.Config
+		args          []string
+		filename      string
+		wantOutput    string
+		wantError     *regexp.Regexp
+		wantException bool
+	}{
+		{ // case 0 -- invalid doesn't provide -f
+			[]model.Config{},
+			[]string{"routerules"},
+			"",
+			"",
+			regexp.MustCompile("^Usage:.*"),
+			true,
+		},
+	}
+
+	for i, c := range cases {
+		// Override the client factory used by main.go
+		clientFactory = mockClientFactoryGenerator(c.configs)
+
+		// run getCmd capturing output
+		stdOutput, errOutput, fErr := captureOutput(
+			func() error {
+				err := rootCmd.PersistentPreRunE(putCmd, c.args)
+				if err != nil {
+					return multierror.Prefix(err, "Could not prerun REPLACE command")
+				}
+				err = putCmd.RunE(putCmd, c.args)
+				if err != nil {
+					return multierror.Prefix(err, "Could not run REPLACE command")
+				}
+				return nil
+			})
+
+		if c.wantOutput != stdOutput {
+			t.Errorf("Stdout didn't match for case %d \"istioctl replace %v\": Expected %q, got %q.  Stderr was %q",
+				i, strings.Join(c.args, " "),
+				c.wantOutput, stdOutput, errOutput)
+		}
+
+		if !c.wantError.MatchString(errOutput) {
+			t.Errorf("Stderr didn't match for case %d %v: Expected %v, got %q", i, c.args, c.wantError, errOutput)
+		}
+
+		if c.wantException {
+			if fErr == nil {
+				t.Errorf("Wanted an exception for case %d %v, didn't get one, output was %q", i, c.args, stdOutput)
+			}
+		} else {
+			if fErr != nil {
+				t.Errorf("Unwanted exception for case %d %v: %v", i, c.args, fErr)
+			}
+		}
+	}
+}
+
+func TestDelete(t *testing.T) {
+	cases := []struct {
+		configs       []model.Config
+		args          []string
+		filename      string
+		wantOutput    string
+		wantError     *regexp.Regexp
+		wantException bool
+	}{
+		{ // case 0
+			[]model.Config{},
+			[]string{"routerule", "unknown"},
+			"",
+			"",
+			regexp.MustCompile("^$"),
+			true,
+		},
+		{ // case 1
+			testRouteRules,
+			[]string{"routerule", "a"},
+			"",
+			`Deleted config: routerule a
+`,
+			regexp.MustCompile("^$"),
+			false,
+		},
+		{ // case 2 - delete by filename of istio config which doesn't exist
+			testRouteRules,
+			[]string{},
+			"convert/testdata/v1alpha1/route-rule-80-20.yaml",
+			"",
+			regexp.MustCompile("^$"),
+			true,
+		},
+	}
+
+	for i, c := range cases {
+		// Override the client factory used by main.go
+		clientFactory = mockClientFactoryGenerator(c.configs)
+
+		// set the filename
+		file = c.filename
+
+		// run getCmd capturing output
+		stdOutput, errOutput, fErr := captureOutput(
+			func() error {
+				err := rootCmd.PersistentPreRunE(deleteCmd, c.args)
+				if err != nil {
+					return multierror.Prefix(err, "Could not prerun DELETE command")
+				}
+				err = deleteCmd.RunE(deleteCmd, c.args)
+				if err != nil {
+					return multierror.Prefix(err, "Could not run DELETE command")
+				}
+				return nil
+			})
+
+		if c.wantOutput != stdOutput {
+			t.Errorf("Stdout didn't match for delete case %d \"istioctl delete %v\": Expected %q, got %q.  Stderr was %q",
+				i, strings.Join(c.args, " "),
+				c.wantOutput, stdOutput, errOutput)
+		}
+
+		if !c.wantError.MatchString(errOutput) {
+			t.Errorf("Stderr didn't match for delete case %d %v: Expected %v, got %q", i, c.args, c.wantError, errOutput)
 		}
 
 		if c.wantException {
