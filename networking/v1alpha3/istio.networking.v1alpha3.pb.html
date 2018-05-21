@@ -2660,6 +2660,18 @@ spec:
       mode: SIMPLE
 </code></pre>
 
+<p>The following rule configures a client to use Istio mutual TLS when talking
+to rating services.
+    apiVersion: networking.istio.io/v1alpha3
+    kind: DestinationRule
+    metadata:
+      name: ratings-istio-mtls
+    spec:
+      host: ratings.prod.svc.cluster.local
+      trafficPolicy:
+        tls:
+          mode: ISTIO_MUTUAL</p>
+
 <table class="message-fields">
 <thead>
 <tr>
@@ -2683,7 +2695,8 @@ using TLS. The value of this field determines how TLS is enforced.</p>
 <td><code>string</code></td>
 <td>
 <p>REQUIRED if mode is <code>MUTUAL</code>. The path to the file holding the
-client-side TLS certificate to use.</p>
+client-side TLS certificate to use.
+Should be empty if mode is <code>ISTIO_MUTUAL</code>.</p>
 
 </td>
 </tr>
@@ -2692,7 +2705,8 @@ client-side TLS certificate to use.</p>
 <td><code>string</code></td>
 <td>
 <p>REQUIRED if mode is <code>MUTUAL</code>. The path to the file holding the
-client&rsquo;s private key.</p>
+client&rsquo;s private key.
+Should be empty if mode is <code>ISTIO_MUTUAL</code>.</p>
 
 </td>
 </tr>
@@ -2702,7 +2716,8 @@ client&rsquo;s private key.</p>
 <td>
 <p>OPTIONAL: The path to the file containing certificate authority
 certificates to use in verifying a presented server certificate. If
-omitted, the proxy will not verify the server&rsquo;s certificate.</p>
+omitted, the proxy will not verify the server&rsquo;s certificate.
+Should be empty if mode is <code>ISTIO_MUTUAL</code>.</p>
 
 </td>
 </tr>
@@ -2712,7 +2727,8 @@ omitted, the proxy will not verify the server&rsquo;s certificate.</p>
 <td>
 <p>A list of alternate names to verify the subject identity in the
 certificate. If specified, the proxy will verify that the server
-certificate&rsquo;s subject alt name matches one of the specified values.</p>
+certificate&rsquo;s subject alt name matches one of the specified values.
+Should be empty if mode is <code>ISTIO_MUTUAL</code>.</p>
 
 </td>
 </tr>
@@ -2720,7 +2736,8 @@ certificate&rsquo;s subject alt name matches one of the specified values.</p>
 <td><code>sni</code></td>
 <td><code>string</code></td>
 <td>
-<p>SNI string to present to the server during TLS handshake.</p>
+<p>SNI string to present to the server during TLS handshake.
+Should be empty if mode is <code>ISTIO_MUTUAL</code>.</p>
 
 </td>
 </tr>
@@ -2758,6 +2775,17 @@ certificate&rsquo;s subject alt name matches one of the specified values.</p>
 <td>
 <p>Secure connections to the upstream using mutual TLS by presenting
 client certificates for authentication.</p>
+
+</td>
+</tr>
+<tr id="TLSSettings.TLSmode.ISTIO_MUTUAL">
+<td><code>ISTIO_MUTUAL</code></td>
+<td>
+<p>Secure connections to the upstream using mutual TLS by presenting
+client certificates for authentication.
+Compared to Mutual mode, this mode uses certificates generated
+automatically by Istio for mTLS authentication. When this mode is
+used, all other fields in <code>TLSSettings</code> should be empty.</p>
 
 </td>
 </tr>
