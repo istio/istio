@@ -74,6 +74,9 @@ var (
 	// output format (yaml or short)
 	outputFormat string
 
+	// Create a model.ConfigStore (or mockCrdClient)
+	clientFactory = newClient
+
 	loggingOptions = log.DefaultOptions()
 
 	// all resources will be migrated out of config.istio.io to their own api group mapping to package path.
@@ -129,8 +132,8 @@ See https://istio.io/docs/reference/ for an overview of Istio routing.
 					return err
 				}
 
-				var configClient *crd.Client
-				if configClient, err = newClient(); err != nil {
+				var configClient model.ConfigStore
+				if configClient, err = clientFactory(); err != nil {
 					return err
 				}
 				var rev string
@@ -199,8 +202,8 @@ See https://istio.io/docs/reference/ for an overview of Istio routing.
 					return err
 				}
 
-				var configClient *crd.Client
-				if configClient, err = newClient(); err != nil {
+				var configClient model.ConfigStore
+				if configClient, err = clientFactory(); err != nil {
 					return err
 				}
 				// fill up revision
@@ -284,7 +287,7 @@ istioctl get destinationrules
 istioctl get virtualservice bookinfo
 `,
 		RunE: func(c *cobra.Command, args []string) error {
-			configClient, err := newClient()
+			configClient, err := clientFactory()
 			if err != nil {
 				return err
 			}
@@ -319,7 +322,7 @@ istioctl get virtualservice bookinfo
 				return nil
 			}
 
-			var outputters = map[string](func(*crd.Client, []model.Config)){
+			var outputters = map[string](func(model.ConfigStore, []model.Config)){
 				"yaml":  printYamlOutput,
 				"short": printShortOutput,
 			}
@@ -344,7 +347,7 @@ istioctl delete -f example-routing.yaml
 istioctl delete virtualservice bookinfo
 `,
 		RunE: func(c *cobra.Command, args []string) error {
-			configClient, errs := newClient()
+			configClient, errs := clientFactory()
 			if errs != nil {
 				return errs
 			}
@@ -581,7 +584,7 @@ func main() {
 }
 
 // The protoSchema is based on the kind (for example "routerule" or "destinationpolicy")
-func protoSchema(configClient *crd.Client, typ string) (model.ProtoSchema, error) {
+func protoSchema(configClient model.ConfigStore, typ string) (model.ProtoSchema, error) {
 	for _, desc := range configClient.ConfigDescriptor() {
 		switch typ {
 		case crd.ResourceName(desc.Type), crd.ResourceName(desc.Plural):
@@ -624,7 +627,7 @@ func readInputs() ([]model.Config, []crd.IstioKind, error) {
 }
 
 // Print a simple list of names
-func printShortOutput(_ *crd.Client, configList []model.Config) {
+func printShortOutput(_ model.ConfigStore, configList []model.Config) {
 	var w tabwriter.Writer
 	w.Init(os.Stdout, 10, 4, 3, ' ', 0)
 	fmt.Fprintf(&w, "NAME\tKIND\tNAMESPACE\n")
@@ -640,7 +643,7 @@ func printShortOutput(_ *crd.Client, configList []model.Config) {
 }
 
 // Print as YAML
-func printYamlOutput(configClient *crd.Client, configList []model.Config) {
+func printYamlOutput(configClient model.ConfigStore, configList []model.Config) {
 	descriptor := configClient.ConfigDescriptor()
 	for _, config := range configList {
 		schema, exists := descriptor.GetByType(config.Type)
@@ -663,7 +666,7 @@ func printYamlOutput(configClient *crd.Client, configList []model.Config) {
 	}
 }
 
-func newClient() (*crd.Client, error) {
+func newClient() (model.ConfigStore, error) {
 	// TODO: use model.IstioConfigTypes once model.IngressRule is deprecated
 	return crd.NewClient(kubeconfig, model.ConfigDescriptor{
 		model.RouteRule,
@@ -683,7 +686,7 @@ func newClient() (*crd.Client, error) {
 	}, "")
 }
 
-func supportedTypes(configClient *crd.Client) []string {
+func supportedTypes(configClient model.ConfigStore) []string {
 	types := configClient.ConfigDescriptor().Types()
 	for i := range types {
 		types[i] = crd.ResourceName(types[i])
