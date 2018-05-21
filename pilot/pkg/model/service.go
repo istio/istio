@@ -100,8 +100,8 @@ const (
 	Passthrough
 )
 
-// IPADDR_ANY constant for empty IP address
-const IPADDR_ANY = "0.0.0.0"
+// UnspecifiedIp constant for empty IP address
+const UnspecifiedIp = "0.0.0.0"
 
 // Port represents a network port where a service is listening for
 // connections. The port should be annotated with the type of protocol

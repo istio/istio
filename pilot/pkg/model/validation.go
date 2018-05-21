@@ -1834,7 +1834,7 @@ func validateAuthNPolicyTarget(target *authn.TargetSelector) (errs error) {
 
 	// AuthN policy target (host)name must be a shortname
 	if !IsDNS1123Label(target.Name) {
-		errs = multierror.Append(errs, fmt.Errorf("taget name %q must be a valid label", target.Name))
+		errs = multierror.Append(errs, fmt.Errorf("target name %q must be a valid label", target.Name))
 	}
 
 	if target.Subset != "" {
@@ -1881,7 +1881,7 @@ func ValidateVirtualService(msg proto.Message) (errs error) {
 			for j := i + 1; j < len(virtualService.Hosts); j++ {
 				hostJ := Hostname(virtualService.Hosts[j])
 				if hostI.Matches(hostJ) {
-					errs = appendErrors(errs, fmt.Errorf("Duplicate hosts %s & %s", hostI, hostJ))
+					errs = appendErrors(errs, fmt.Errorf("duplicate hosts in virtual service: %s & %s", hostI, hostJ))
 				}
 			}
 		}

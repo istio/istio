@@ -54,7 +54,7 @@ func TestEgressGateway(t *testing.T) {
 	runRetriableTest(t, "RouteViaEgressGateway", defaultRetryBudget, func() error {
 		// We use an arbitrary IP to ensure that the test fails if networking logic is implemented incorrectly
 		reqURL := fmt.Sprintf("http://1.1.1.1/bookinfo")
-		resp := ClientRequest("a", reqURL, 100, "-key Host -val eu.bookinfo.com")
+		resp := ClientRequest("a", reqURL, 100, "-key Host -val scooby.eu.bookinfo.com")
 		count := make(map[string]int)
 		for _, elt := range resp.Host {
 			count[elt] = count[elt] + 1
@@ -63,7 +63,7 @@ func TestEgressGateway(t *testing.T) {
 			count[elt] = count[elt] + 1
 		}
 		log.Infof("request counts %v", count)
-		if count["eu.bookinfo.com"] >= 95 && count[httpOK] >= 95 {
+		if count["scooby.eu.bookinfo.com"] >= 95 && count[httpOK] >= 95 {
 			return nil
 		}
 		return errAgain
