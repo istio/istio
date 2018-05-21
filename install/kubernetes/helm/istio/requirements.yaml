@@ -3,6 +3,10 @@ dependencies:
     version: 0.8.0
     # repository: file://../sidecar-injector
     condition: sidecar-injector.enabled
+  - name: security
+    version: 0.8.0
+    # repository: file://../security
+    condition: security.enabled
   - name: ingress
     version: 0.8.0
     # repository: file://../ingress
