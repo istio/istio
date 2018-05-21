@@ -18,8 +18,10 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	policy "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha"
 	"github.com/envoyproxy/go-control-plane/envoy/type"
+	"github.com/gogo/protobuf/types"
 
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -46,8 +48,10 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 					{
 						Services: []string{"*"},
 						Constraints: []*rbacproto.AccessRule_Constraint{
-							{Key: "key1", Values: []string{"prefix*", "*suffix"}},
-							{Key: "key2", Values: []string{"simple", "*"}},
+							{Key: "destination.port", Values: []string{"80", "443"}},
+							{Key: "destination.ip", Values: []string{"192.1.2.0/24", "2001:db8::/28"}},
+							{Key: "request.header[key1]", Values: []string{"prefix*", "*suffix"}},
+							{Key: "request.header[key2]", Values: []string{"simple", "*"}},
 						},
 					},
 				},
@@ -75,7 +79,9 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				Subjects: []*rbacproto.Subject{
 					{
 						Properties: map[string]string{
-							"key": "value",
+							"request.header[key]": "value",
+							"source.service":      "service-name",
+							"source.ip":           "192.1.2.0/24,2001:db8::/28",
 						},
 					},
 				},
@@ -108,6 +114,23 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 		Permissions: []*policy.Permission{{
 			Conditions: []*policy.Permission_Condition{
 				{
+					ConditionSpec: &policy.Permission_Condition_DestinationPorts{
+						DestinationPorts: &policy.PortMatch{
+							Ports: []uint32{80, 443},
+						},
+					},
+				},
+				{
+					ConditionSpec: &policy.Permission_Condition_DestinationIps{
+						DestinationIps: &policy.IpMatch{
+							Cidrs: []*core.CidrRange{
+								{AddressPrefix: "192.1.2.0", PrefixLen: &types.UInt32Value{Value: 24}},
+								{AddressPrefix: "2001:db8::", PrefixLen: &types.UInt32Value{Value: 28}},
+							},
+						},
+					},
+				},
+				{
 					ConditionSpec: &policy.Permission_Condition_Header{
 						Header: &policy.MapEntryMatch{
 							Key: "key1",
@@ -134,8 +157,23 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 						Header: &policy.MapEntryMatch{
 							Key: "key",
 							Values: []*envoy_type.StringMatch{
-								{MatchPattern: &envoy_type.StringMatch_Simple{"value"}},
+								{MatchPattern: &envoy_type.StringMatch_Simple{Simple: "value"}},
 							}},
+					},
+				},
+				{
+					AttributeSpec: &policy.Principal_Attribute_SourceIps{
+						SourceIps: &policy.IpMatch{
+							Cidrs: []*core.CidrRange{
+								{AddressPrefix: "192.1.2.0", PrefixLen: &types.UInt32Value{Value: 24}},
+								{AddressPrefix: "2001:db8::", PrefixLen: &types.UInt32Value{Value: 28}},
+							},
+						},
+					},
+				},
+				{
+					AttributeSpec: &policy.Principal_Attribute_Service{
+						Service: "service-name",
 					},
 				},
 			},
