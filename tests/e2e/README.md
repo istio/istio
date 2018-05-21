@@ -96,6 +96,22 @@ make push
 
 ```
 
+```
+#If you wish to make use of local registry inside the local k8s cluster, please do the following setup:
+
+# Deploy the local registry to your cluster
+kubectl apply -f tests/util/localregistry/localregistry.yaml
+
+# Setup env and HUB directed to the local registry
+export LOCALREG=true
+export HUB="10.10.0.2:5000"
+export TAG=latest
+# Value of TAG can be set based on your preferences
+
+# Build and push images to your local registry
+GOOS=linux make docker push
+```
+
 **Option 2:** Already committed changes to istio/istio master branch
 NOTE: SHA used as TAG is one that is already committed on istio/istio. You can pick any SHA you want.
 ```
