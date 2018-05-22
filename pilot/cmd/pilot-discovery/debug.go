@@ -99,7 +99,7 @@ func (d *debug) printConfig(typ, proxyID string) error {
 	} else if resp.StatusCode == 404 {
 		fmt.Fprintf(os.Stderr, "proxy not connected to this Pilot instance")
 	} else {
-		fmt.Fprintf(os.Stderr, "received %v status from Pilot: %v", resp.StatusCode, string(bytes))
+		return fmt.Errorf("received %v status from Pilot: %v", resp.StatusCode, string(bytes))
 	}
 	return nil
 }
