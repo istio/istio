@@ -24,6 +24,17 @@ func TestAuthExclusion(t *testing.T) {
 		t.Skipf("Skipping %s: auth_enable=false", t.Name())
 	}
 
+	// This policy will enable mTLS for all namespace, and disable mTLS for c and d:80.
+	cfgs := &deployableConfig{
+		Namespace:  tc.Kube.Namespace,
+		YamlFiles:  []string{"testdata/authn/destination-rule-exclude.yaml.tmpl"},
+		kubeconfig: tc.Kube.KubeConfig,
+	}
+	if err := cfgs.Setup(); err != nil {
+		t.Fatal(err)
+	}
+	defer cfgs.Teardown()
+
 	// fake-control service doesn't have sidecar, and is excluded from mTLS so
 	// client with sidecar should never use mTLS when talking to it. As the result,
 	// all request will works, as if mesh authentication is NONE.

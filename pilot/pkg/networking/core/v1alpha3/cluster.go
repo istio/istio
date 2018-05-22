@@ -414,6 +414,8 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 	switch tls.Mode {
 	case networking.TLSSettings_DISABLE:
 		// TODO: Need to make sure that authN does not override this setting
+		// We remove the TlsContext because it can be written because of configmap.MTLS settings.
+		cluster.TlsContext = nil
 	case networking.TLSSettings_SIMPLE:
 		cluster.TlsContext = &auth.UpstreamTlsContext{
 			CommonTlsContext: &auth.CommonTlsContext{
