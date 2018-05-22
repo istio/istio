@@ -86,7 +86,7 @@ func Tag(t testing.TB, labels ...label.Label) {
 	d.CheckLabels(t, labels)
 }
 
-// Environment returns the current, ambient environment.
+// GetEnvironment returns the current, ambient environment.
 func GetEnvironment(t testing.TB) environment.Interface {
 	t.Helper()
 

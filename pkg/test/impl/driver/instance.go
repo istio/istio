@@ -187,7 +187,7 @@ func (d *driver) GetContext() internal.TestContext {
 }
 
 // Environment implements same-named Interface method.
-func (d *driver) GetEnvironment() environment.Interface {
+func (d *driver) Environment() environment.Interface {
 	scope.Debugf("Enter: driver.Environment (%s)", d.testID)
 	d.lock.Lock()
 	defer d.lock.Unlock()
