@@ -4,14 +4,14 @@ metadata:
   name: istio-sidecar-injector
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "sidecar-injector.name" . }}
+    app: {{ template "istio.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
     istio: sidecar-injector
 data:
   config: |-
-    policy: {{ .Values.policy }}
+    policy: {{ .Values.global.proxy.policy }}
     template: |-
       initContainers:
       - name: istio-init
@@ -27,13 +27,13 @@ data:
         {{ "[[ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeOutboundIPRanges\") -]]" }}
         {{ "- \"[[ index .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeOutboundIPRanges\"  ]]\"" }}
         {{ "[[ else -]]" }}
-        - "{{ .Values.includeIPRanges }}"
+        - "{{ .Values.global.proxy.includeIPRanges }}"
         {{ "[[ end -]]" }}
         - "-x"
         {{ "[[ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/excludeOutboundIPRanges\") -]]" }}
         {{ "- \"[[ index .ObjectMeta.Annotations \"traffic.sidecar.istio.io/excludeOutboundIPRanges\"  ]]\"" }}
         {{ "[[ else -]]" }}
-        - "{{ .Values.excludeIPRanges }}"
+        - "{{ .Values.global.proxy.excludeIPRanges }}"
         {{ "[[ end -]]" }}
         - "-b"
         {{ "[[ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeInboundPorts\") -]]" }}
@@ -44,7 +44,7 @@ data:
         {{ "[[ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/excludeInboundPorts\") -]]" }}
         {{ "- \"[[ index .ObjectMeta.Annotations \"traffic.sidecar.istio.io/excludeInboundPorts\" ]]\"" }}
         {{ "[[ else -]]" }}
-        - "{{ .Values.excludeInboundPorts }}"
+        - "{{ .Values.global.proxy.excludeInboundPorts }}"
         {{ "[[ end -]]" }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         securityContext:
@@ -53,7 +53,7 @@ data:
             - NET_ADMIN
           privileged: true
         restartPolicy: Always
-      {{ if eq .Values.enableCoreDump true }}
+      {{ if eq .Values.global.proxy.enableCoreDump true }}
       - args:
         - -c
         - sysctl -w kernel.core_pattern=/etc/istio/proxy/core.%e.%p.%t && ulimit -c unlimited
