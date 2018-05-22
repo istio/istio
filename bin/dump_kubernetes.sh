@@ -55,6 +55,7 @@ parse_args() {
   readonly QUIET="${quiet:-false}"
   readonly LOG_DIR="${OUT_DIR}/logs"
   readonly RESOURCES_FILE="${OUT_DIR}/resources.yaml"
+  readonly ISTIO_RESOURCES_FILE="${OUT_DIR}/istio-resources.yaml"
 }
 
 check_prerequisites() {
@@ -121,6 +122,13 @@ dump_resources() {
   kubectl get --all-namespaces --export \
       all,ingresses,endpoints,customresourcedefinitions,configmaps,secrets,events \
       -o yaml > "${RESOURCES_FILE}"
+
+  local istio_resources
+  # Join CRDs by comma. awk adds comma and sed removes the last.
+  # https://stackoverflow.com/questions/8714355/bash-turning-multi-line-string-into-single-comma-separated
+  istio_resources=$(kubectl get crd --no-headers \
+      | awk -vORS=, '{ print $1 }' | sed 's/,$/\n/')
+  kubectl get "${istio_resources}" -o yaml > "${ISTIO_RESOURCES_FILE}"
 
   kubectl cluster-info dump > ${OUT_DIR}/logs/cluster-info.dump.txt
   kubectl describe pods -n istio-system > ${OUT_DIR}/logs/pods-system.txt
