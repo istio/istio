@@ -61,9 +61,15 @@ func TestServiceEntry(t *testing.T) {
 			url:               "http://httpbin.org/headers",
 			shouldBeReachable: false,
 		},
+		{
+			name:              "REACHABLE_wikipedia_sni",
+			config:            "testdata/v1alpha3/serviceentry-tcp-wikipedia-sni.yaml",
+			url:               "https://www.wikipedia.org",
+			shouldBeReachable: true,
+		},
 		// FIXME: re-enable once we get this working
 		//{
-		//	name:              "REACHABLE_wikipedia",
+		//	name:              "REACHABLE_wikipedia_range",
 		//	config:            "testdata/v1alpha3/serviceentry-tcp-wikipedia-cidr.yaml",
 		//	url:               "https://www.wikipedia.org",
 		//	shouldBeReachable: true,
