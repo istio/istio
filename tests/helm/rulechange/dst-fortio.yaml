@@ -1,9 +1,10 @@
+# 2 versions
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: destination-rule-service3
+  name: fortio503
 spec:
-  name: service3.default.svc.cluster.local
+  host: fortio503
   subsets:
     - name: v1
       labels:
@@ -11,3 +12,4 @@ spec:
     - name: v2
       labels:
         version: v2
+---
