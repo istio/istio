@@ -117,6 +117,8 @@ spec:
       valueType: STRING
     source.namespace:
       valueType: STRING
+    source.owner:
+      valueType: STRING      
     source.service:  # DEPRECATED
       valueType: STRING
     source.serviceAccount:
@@ -129,16 +131,14 @@ spec:
       valueType: STRING
     source.workload.namespace:
       valueType: STRING
-    source.workload.labels:
-      valueType: STRING_MAP
-    source.workload.metadata:
-      valueType: STRING_MAP
     destination.ip:
       valueType: IP_ADDRESS
     destination.labels:
       valueType: STRING_MAP
     destination.metadata:
       valueType: STRING_MAP
+    destination.owner:
+      valueType: STRING
     destination.name:
       valueType: STRING
     destination.namespace:
@@ -151,10 +151,6 @@ spec:
       valueType: STRING
     destination.service.namespace:
       valueType: STRING
-    destination.service.labels:
-      valueType: STRING_MAP
-    destination.service.metadata:
-      valueType: STRING_MAP
     destination.service.host:
       valueType: STRING
     destination.serviceAccount:
@@ -165,10 +161,6 @@ spec:
       valueType: STRING
     destination.workload.namespace:
       valueType: STRING
-    destination.workload.labels:
-      valueType: STRING_MAP
-    destination.workload.metadata:
-      valueType: STRING_MAP
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: stdio
