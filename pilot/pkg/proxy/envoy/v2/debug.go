@@ -403,10 +403,14 @@ func adsz(w http.ResponseWriter, req *http.Request) {
 	writeAllADS(w)
 }
 
-func writeADSForSidecar(w io.Writer, proxyID string) {
+func writeADSForSidecar(w http.ResponseWriter, proxyID string) {
 	adsClientsMutex.RLock()
 	defer adsClientsMutex.RUnlock()
-	connections := adsSidecarIDConnectionsMap[proxyID]
+	connections, ok := adsSidecarIDConnectionsMap[proxyID]
+	if !ok {
+		w.WriteHeader(404)
+		return
+	}
 	for _, conn := range connections {
 		for _, ls := range conn.HTTPListeners {
 			jsonm := &jsonpb.Marshaler{Indent: "  "}
@@ -464,20 +468,24 @@ func edsz(w http.ResponseWriter, req *http.Request) {
 
 	edsClusterMutex.Lock()
 	comma := false
-	fmt.Fprintln(w, "[")
-	for _, eds := range edsClusters {
-		if comma {
-			fmt.Fprint(w, ",\n")
-		} else {
-			comma = true
+	if len(edsClusters) > 0 {
+		fmt.Fprintln(w, "[")
+		for _, eds := range edsClusters {
+			if comma {
+				fmt.Fprint(w, ",\n")
+			} else {
+				comma = true
+			}
+			jsonm := &jsonpb.Marshaler{Indent: "  "}
+			dbgString, _ := jsonm.MarshalToString(eds.LoadAssignment)
+			if _, err := w.Write([]byte(dbgString)); err != nil {
+				return
+			}
 		}
-		jsonm := &jsonpb.Marshaler{Indent: "  "}
-		dbgString, _ := jsonm.MarshalToString(eds.LoadAssignment)
-		if _, err := w.Write([]byte(dbgString)); err != nil {
-			return
-		}
+		fmt.Fprintln(w, "]")
+	} else {
+		w.WriteHeader(404)
 	}
-	fmt.Fprintln(w, "]")
 	edsClusterMutex.Unlock()
 }
 
