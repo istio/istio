@@ -67,35 +67,36 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 // [here](https://github.com/googleapis/gnostic/blob/master/examples/v2.0/yaml/petstore-simple.yaml)
 // can be represented with the following HTTPAPISpec.
 //
-//     apiVersion: config.istio.io/v1alpha2
-//     kind: HTTPAPISpec
-//     metadata:
-//       name: petstore
-//       namespace: default
-//     spec:
-//       attributes:
-//         api.service: petstore.swagger.io
-//         api.version: 1.0.0
-//       patterns:
-//       - attributes:
-//           api.operation: findPets
-//         httpMethod: GET
-//         uriTemplate: /api/pets
-//       - attributes:
-//           api.operation: addPet
-//         httpMethod: POST
-//         uriTemplate: /api/pets
-//       - attributes:
-//           api.operation: findPetById
-//         httpMethod: GET
-//         uriTemplate: /api/pets/{id}
-//       - attributes:
-//           api.operation: deletePet
-//         httpMethod: DELETE
-//         uriTemplate: /api/pets/{id}
-//       api_keys:
-//       - query: api-key
-//
+// ```yaml
+// apiVersion: config.istio.io/v1alpha2
+// kind: HTTPAPISpec
+// metadata:
+//   name: petstore
+//   namespace: default
+// spec:
+//   attributes:
+//     api.service: petstore.swagger.io
+//     api.version: 1.0.0
+//   patterns:
+//   - attributes:
+//       api.operation: findPets
+//     httpMethod: GET
+//     uriTemplate: /api/pets
+//   - attributes:
+//       api.operation: addPet
+//     httpMethod: POST
+//     uriTemplate: /api/pets
+//   - attributes:
+//       api.operation: findPetById
+//     httpMethod: GET
+//     uriTemplate: /api/pets/{id}
+//   - attributes:
+//       api.operation: deletePet
+//     httpMethod: DELETE
+//     uriTemplate: /api/pets/{id}
+//   api_keys:
+//   - query: api-key
+// ```
 type HTTPAPISpec struct {
 	// List of attributes that are generated when *any* of the HTTP
 	// patterns match. This list typically includes the "api.service"
@@ -125,12 +126,13 @@ func (*HTTPAPISpec) Descriptor() ([]byte, []int) { return fileDescriptorApiSpec,
 // addition, the top-level list of attributes in the HTTPAPISpec is also
 // generated.
 //
-//     pattern:
-//     - attributes
-//         api.operation: doFooBar
-//       httpMethod: GET
-//       uriTemplate: /foo/bar
-//
+// ```yaml
+// pattern:
+// - attributes
+//     api.operation: doFooBar
+//   httpMethod: GET
+//   uriTemplate: /foo/bar
+// ```
 type HTTPAPISpecPattern struct {
 	// List of attributes that are generated if the HTTP request matches
 	// the specified http_method and uri_template. This typically
@@ -404,9 +406,10 @@ func _APIKey_OneofSizer(msg proto.Message) (n int) {
 // IstioService. For example, the following defines an
 // HTTPAPISpecReference for service `foo` in namespace `bar`.
 //
-//     - name: foo
-//       namespace: bar
-//
+// ```yaml
+// - name: foo
+//   namespace: bar
+// ```
 type HTTPAPISpecReference struct {
 	// REQUIRED. The short name of the HTTPAPISpec. This is the resource
 	// name defined by the metadata name field.
@@ -424,19 +427,20 @@ func (*HTTPAPISpecReference) Descriptor() ([]byte, []int) { return fileDescripto
 // IstioService. For example, the following establishes a binding
 // between the HTTPAPISpec `petstore` and service `foo` in namespace `bar`.
 //
-//     apiVersion: config.istio.io/v1alpha2
-//     kind: HTTPAPISpecBinding
-//     metadata:
-//       name: my-binding
-//       namespace: default
-//     spec:
-//       services:
-//       - name: foo
-//         namespace: bar
-//       api_specs:
-//       - name: petstore
-//         namespace: default
-//
+// ```yaml
+// apiVersion: config.istio.io/v1alpha2
+// kind: HTTPAPISpecBinding
+// metadata:
+//   name: my-binding
+//   namespace: default
+// spec:
+//   services:
+//   - name: foo
+//     namespace: bar
+//   api_specs:
+//   - name: petstore
+//     namespace: default
+// ```
 type HTTPAPISpecBinding struct {
 	// REQUIRED. One or more services to map the listed HTTPAPISpec onto.
 	Services []*IstioService `protobuf:"bytes,1,rep,name=services" json:"services,omitempty"`
