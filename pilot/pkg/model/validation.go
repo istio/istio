@@ -1888,7 +1888,7 @@ func ValidateVirtualService(msg proto.Message) (errs error) {
 	}
 
 	if len(virtualService.Http) == 0 && len(virtualService.Tcp) == 0 {
-		errs = appendErrors(errs, fmt.Errorf("http o0r tcp must be provided in virtual service"))
+		errs = appendErrors(errs, fmt.Errorf("http or tcp must be provided in virtual service"))
 	}
 	for _, httpRoute := range virtualService.Http {
 		errs = appendErrors(errs, validateHTTPRoute(httpRoute))
