@@ -403,10 +403,14 @@ func adsz(w http.ResponseWriter, req *http.Request) {
 	writeAllADS(w)
 }
 
-func writeADSForSidecar(w io.Writer, proxyID string) {
+func writeADSForSidecar(w http.ResponseWriter, proxyID string) {
 	adsClientsMutex.RLock()
 	defer adsClientsMutex.RUnlock()
-	connections := adsSidecarIDConnectionsMap[proxyID]
+	connections, ok := adsSidecarIDConnectionsMap[proxyID]
+	if !ok {
+		w.WriteHeader(404)
+		return
+	}
 	for _, conn := range connections {
 		for _, ls := range conn.HTTPListeners {
 			jsonm := &jsonpb.Marshaler{Indent: "  "}
