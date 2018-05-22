@@ -22,6 +22,8 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"os"
 	"strings"
 	"testing"
@@ -46,6 +48,7 @@ const (
 	netcatYaml     = "tests/e2e/tests/dashboard/netcat-rules.yaml"
 
 	prometheusPort = "9090"
+	proxyAdminPort = "15000"
 )
 
 var (
@@ -134,6 +137,7 @@ func TestDashboards(t *testing.T) {
 
 			if t.Failed() {
 				logMixerMetrics(t, testCase.metricHost, testCase.metricPort)
+				dumpProxyStats(t)
 			}
 		})
 	}
@@ -540,6 +544,71 @@ func logMixerMetrics(t *testing.T, service string, port int) {
 		return
 	}
 	t.Logf("GET http://%s.%s:%d/metrics:\n%v", service, ns, port, resp)
+}
+
+func dumpProxyStats(t *testing.T) {
+	ns := tc.Kube.Namespace
+	pods, err := podList(ns, "app=echosrv")
+	if err != nil || len(pods) < 1 {
+		t.Logf("Failure dump proxy stats, cannot get pod: %v", err)
+		return
+	}
+
+	portFwdCmd := fmt.Sprintf("kubectl port-forward %s %s:%s -n %s", pods[0], proxyAdminPort, proxyAdminPort, tc.Kube.Namespace)
+	log.Info(portFwdCmd)
+	proc, err := util.RunBackground(portFwdCmd)
+	if err != nil {
+		log.Errorf("Failed to port forward: %s", err)
+		return
+	}
+	log.Infof("running echosrv port-forward in background, pid = %d", proc.Pid)
+	// Sleep to allow port-forward to finish.
+	time.Sleep(10 * time.Second)
+	defer func() {
+		err := proc.Kill()
+		if err != nil {
+			log.Errorf("Failed to kill port-forward process, pid: %d", proc.Pid)
+		}
+	}()
+	url := fmt.Sprintf("http://localhost:%s/stats", proxyAdminPort)
+	clnt := &http.Client{Timeout: 1 * time.Minute}
+	status, resp, err := get(clnt, url)
+	if err != nil {
+		t.Logf("could not retrieve proxy stats: %v", err)
+		return
+	}
+	t.Logf("GET %s status: %v, response: \n%v", url, status, resp)
+}
+
+func get(clnt *http.Client, url string) (status int, contents string, err error) {
+	var req *http.Request
+	req, err = http.NewRequest("GET", url, nil)
+	if err != nil {
+		return 0, "", err
+	}
+
+	resp, err := clnt.Do(req)
+	if err != nil {
+		log.Warnf("Error communicating with %s: %v", url, err)
+	} else {
+		defer closeResponseBody(resp)
+		log.Infof("Get from %s: %s (%d)", url, resp.Status, resp.StatusCode)
+		var ba []byte
+		ba, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			log.Warnf("Unable to connect to read from %s: %v", url, err)
+			return
+		}
+		contents = string(ba)
+		status = resp.StatusCode
+	}
+	return
+}
+
+func closeResponseBody(r *http.Response) {
+	if err := r.Body.Close(); err != nil {
+		log.Errora(err)
+	}
 }
 
 type logger interface {
