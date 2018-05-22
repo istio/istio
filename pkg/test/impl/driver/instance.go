@@ -41,6 +41,8 @@ var scope = log.RegisterScope("driver", "Logger for the test framework driver", 
 type driver struct {
 	lock sync.Mutex
 
+	args *Args
+
 	allowedLabels map[label.Label]struct{}
 
 	testID  string
@@ -55,6 +57,7 @@ type driver struct {
 }
 
 var _ Interface = &driver{}
+var _ internal.TestContext = &driver{}
 
 // New returns a new driver instance.
 func New() Interface {
@@ -69,34 +72,28 @@ func (d *driver) Initialize(a *Args) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
-	if err := a.Validate(); err != nil {
-		return err
-	}
-
 	if d.testID != "" {
 		return errors.New("test driver is already initialized")
 	}
 
-	// TODO
-	// if driv.tmpDir, err = tmp.Create(driv.runID); err != nil {
-	// 	return
-	// }
-	//
-	// if err = logging.Initialize(driv.runID); err != nil {
-	// 	return
-	// }
-	//
+	// Make a copy of the args
+	args := &(*a)
+	if err := args.Validate(); err != nil {
+		return err
+	}
+	d.args = args
 
-	d.suiteDependencies = a.SuiteDependencies
+	d.suiteDependencies = args.SuiteDependencies
 
 	var env environment.Interface
 	var err error
+
 	switch a.Environment {
 	case EnvLocal:
-		env, err = local.NewEnvironment()
+		env, err = local.NewEnvironment(d)
 
 	case EnvKubernetes:
-		env, err = cluster.NewEnvironment(a.KubeConfig)
+		env, err = cluster.NewEnvironment(d, a.KubeConfig)
 
 	default:
 		return fmt.Errorf("unrecognized environment: %s", a.Environment)
@@ -107,18 +104,18 @@ func (d *driver) Initialize(a *Args) error {
 	}
 	d.env = env
 
-	d.testID = a.TestID
-	d.runID = generateRunID(a.TestID)
-	d.m = a.M
+	d.testID = args.TestID
+	d.runID = generateRunID(args.TestID)
+	d.m = args.M
 
-	if a.Labels != "" {
+	if args.Labels != "" {
 		d.allowedLabels = make(map[label.Label]struct{})
 
-		parts := strings.Split(a.Labels, ",")
+		parts := strings.Split(args.Labels, ",")
 		for _, p := range parts {
 			d.allowedLabels[label.Label(p)] = struct{}{}
 		}
-		scope.Debugf("Suite level labels: %s", a.Labels)
+		scope.Debugf("Suite level labels: %s", args.Labels)
 	}
 
 	return nil
@@ -184,18 +181,22 @@ func (d *driver) Run() int {
 	return rt
 }
 
-// GetEnvironment implements same-named Interface method.
-func (d *driver) GetEnvironment(t testing.TB) environment.Interface {
-	t.Helper()
-	scope.Debugf("Enter: driver.GetEnvironment (%s)", d.testID)
+// GetContext returns the internal test context.
+func (d *driver) GetContext() internal.TestContext {
+	return d
+}
+
+// Environment implements same-named Interface method.
+func (d *driver) Environment() environment.Interface {
+	scope.Debugf("Enter: driver.Environment (%s)", d.testID)
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
-	if !d.running {
-		t.Fatalf("Test driver is not running.")
+	if d.running {
+		return d.env
 	}
 
-	return d.env
+	return nil
 }
 
 // InitializeTestDependencies implements same-named Interface method.
@@ -243,6 +244,11 @@ func (d *driver) CheckLabels(t testing.TB, labels []label.Label) {
 	if skip && !t.Skipped() {
 		t.Skip("Skipping(Filtered): No matching label found")
 	}
+}
+
+// CreateTmpDirectory implementation.
+func (d *driver) CreateTmpDirectory(name string) (string, error) {
+	return createTmpDirectory(d.args.WorkDir, d.runID, name)
 }
 
 func (d *driver) doCleanup() {
