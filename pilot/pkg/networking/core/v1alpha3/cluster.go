@@ -422,12 +422,6 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 			Sni: tls.Sni,
 		}
 	case networking.TLSSettings_MUTUAL, networking.TLSSettings_ISTIO_MUTUAL:
-		// This is already an h2 cluster, advertise it with alpn.
-		if cluster.Http2ProtocolOptions != nil {
-			// advertising h2 ensures that h2 is used and it is not downgraded to http/1.1
-			// empty alpn usually defaults to http/1.1
-			cluster.TlsContext.CommonTlsContext.AlpnProtocols = ALPNH2Only
-		}
 		cluster.TlsContext = &auth.UpstreamTlsContext{
 			CommonTlsContext: &auth.CommonTlsContext{
 				TlsCertificates: []*auth.TlsCertificate{
@@ -448,6 +442,12 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 				AlpnProtocols:     InMeshALPNProtocols,
 			},
 			Sni: tls.Sni,
+		}
+		// This is already an h2 cluster, advertise it with alpn.
+		if cluster.Http2ProtocolOptions != nil {
+			// advertising h2 ensures that h2 is used and it is not downgraded to http/1.1
+			// empty alpn usually defaults to http/1.1
+			cluster.TlsContext.CommonTlsContext.AlpnProtocols = ALPNH2Only
 		}
 		addHTTP2Options(cluster)
 	}
