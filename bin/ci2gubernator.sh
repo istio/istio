@@ -27,9 +27,7 @@ TMP_SA_JSON=$(mktemp /tmp/XXXXX.json)
 ENCRYPTED_SA_JSON="${ROOTDIR}/.circleci/accounts/istio-circle-ci.gcp.serviceaccount"
 openssl aes-256-cbc -d -in "${ENCRYPTED_SA_JSON}" -out "${TMP_SA_JSON}" -k "${GCS_BUCKET_TOKEN}" -md sha256
 
-# go get -u istio.io/test-infra/toolbox/ci2gubernator
-curl -L -o /tmp/ci2gubernator https://storage.googleapis.com/istio-tools/ci2gubernator/ci2gubernator
-chmod +x /tmp/ci2gubernator
+go get -u istio.io/test-infra/toolbox/ci2gubernator
 
 ARGS=(
 	--service_account="${TMP_SA_JSON}" \
@@ -45,4 +43,4 @@ if [ -n "$CIRCLE_PULL_REQUEST" ]; then
 	ARGS+=(--stage=presubmit)
 fi
 
-/tmp/ci2gubernator ${@} ${ARGS[@]}
+/go/bin/ci2gubernator ${@} ${ARGS[@]}
