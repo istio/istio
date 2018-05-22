@@ -458,7 +458,6 @@ message OutlierDetection {
 // The following rule configures a client to use Istio mutual TLS when talking
 // to rating services.
 //
-
 // ```yaml
 // apiVersion: networking.istio.io/v1alpha3
 // kind: DestinationRule
