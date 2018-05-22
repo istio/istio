@@ -1,9 +1,9 @@
-name: sidecar-injector
+name: sidecarInjectorWebhook
 version: 0.8.0
-description: Helm chart for sidecar injector deployment
+description: Helm chart for sidecar injector webhook deployment
 keywords:
   - istio
-  - sidecar-injector
+  - sidecarInjectorWebhook
 sources:
   - http://github.com/istio/istio
 engine: gotpl
