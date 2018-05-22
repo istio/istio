@@ -2185,6 +2185,27 @@ spec:
   resolution: NONE
 </code></pre>
 
+<p>The following example demonstrates a service that is available via a
+Unix Domain Socket on the host of the client. The resolution must be
+set to STATIC to use unix address endpoints.</p>
+
+<pre><code>apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: unix-domain-socket-example
+spec:
+  hosts:
+  - &quot;example.unix.local&quot;
+  location: MESH_EXTERNAL
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+  endpoints:
+  - address: unix:///var/run/example/socket
+</code></pre>
+
 <p>For HTTP based services, it is possible to create a VirtualService
 backed by multiple DNS addressible endpoints. In such a scenario, the
 application can use the HTTP_PROXY environment variable to transparently
@@ -2275,7 +2296,8 @@ solely based on the destination port. In such scenarios, the port on
 which the service is being accessed must not be shared by any other
 service in the mesh. In other words, the sidecar will behave as a
 simple TCP proxy, forwarding incoming traffic on a specified port to
-the specified destination endpoint IP/host.</p>
+the specified destination endpoint IP/host. Unix domain socket
+addresses are not supported in this field.</p>
 
 </td>
 </tr>
@@ -2283,7 +2305,9 @@ the specified destination endpoint IP/host.</p>
 <td><code>ports</code></td>
 <td><code><a href="#Port">Port[]</a></code></td>
 <td>
-<p>REQUIRED. The ports associated with the external service.</p>
+<p>REQUIRED. The ports associated with the external service. If the
+Endpoints are unix domain socket addresses, there must be exactly one
+port.</p>
 
 </td>
 </tr>
@@ -2335,8 +2359,9 @@ the mesh service.</p>
 <td><code>string</code></td>
 <td>
 <p>REQUIRED: Address associated with the network endpoint without the
-port ( IP or fully qualified domain name without wildcards). Domain
-names can be used if and only if the resolution is set to DNS.</p>
+port.  Domain names can be used if and only if the resolution is set
+to DNS, and must be fully-qualified without wildcards. Use the form
+unix:///absolute/path/to/socket for unix domain socket endpoints.</p>
 
 </td>
 </tr>
@@ -2346,7 +2371,7 @@ names can be used if and only if the resolution is set to DNS.</p>
 <td>
 <p>Set of ports associated with the endpoint. The ports must be
 associated with a port name that was declared as part of the
-service.</p>
+service. Do not use for unix:// addresses.</p>
 
 </td>
 </tr>
@@ -2447,7 +2472,8 @@ during request processing. If no endpoints are specified, the proxy
 will resolve the DNS address specified in the hosts field, if
 wildcards are not used. If endpoints are specified, the DNS
 addresses specified in the endpoints will be resolved to determine
-the destination IP address.</p>
+the destination IP address.  DNS resolution cannot be used with unix
+domain socket endpoints.</p>
 
 </td>
 </tr>
