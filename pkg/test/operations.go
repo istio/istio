@@ -49,9 +49,10 @@ func Run(testID string, m *testing.M) {
 		os.Exit(-1)
 	}
 
-	scope.Infof("test.Run >>> Beginning actual test run %s/%s", d.TestID(), d.RunID())
+	ctx := d.GetContext()
+	scope.Infof("test.Run >>> Beginning actual test run %s/%s", ctx.TestID(), ctx.RunID())
 	rt := d.Run()
-	scope.Infof("test.Run <<< Completing actual test run %s/%s", d.TestID(), d.RunID())
+	scope.Infof("test.Run <<< Completing actual test run %s/%s", ctx.TestID(), ctx.RunID())
 
 	os.Exit(rt)
 }
@@ -87,5 +88,12 @@ func Tag(t testing.TB, labels ...label.Label) {
 
 // GetEnvironment returns the current, ambient environment.
 func GetEnvironment(t testing.TB) environment.Interface {
-	return d.GetEnvironment(t)
+	t.Helper()
+
+	e := d.GetContext().Environment()
+	if e == nil {
+		t.Fatalf("Test driver is not running.")
+	}
+
+	return e
 }
