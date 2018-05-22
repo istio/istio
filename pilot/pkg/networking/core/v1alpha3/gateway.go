@@ -201,9 +201,27 @@ func createGatewayHTTPFilterChainOpts(
 }
 
 func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamTlsContext {
-	if server.Tls == nil {
-		return nil
+	if server.Tls == nil || server.Tls.Mode == networking.Server_TLSOptions_PASSTHROUGH {
+		return nil // We don't need to setup TLS context for passthrough mode
 	}
+
+	var certValidationContext *auth.CertificateValidationContext
+	var trustedCa *core.DataSource
+	if len(server.Tls.CaCertificates) != 0 {
+		trustedCa = &core.DataSource{
+			Specifier: &core.DataSource_Filename{
+				Filename: server.Tls.CaCertificates,
+			},
+		}
+	}
+	if trustedCa != nil || len(server.Tls.SubjectAltNames) > 0 {
+		certValidationContext = &auth.CertificateValidationContext{
+			TrustedCa:            trustedCa,
+			VerifySubjectAltName: server.Tls.SubjectAltNames,
+		}
+	}
+
+	requireClientCert := server.Tls.Mode == networking.Server_TLSOptions_MUTUAL
 
 	return &auth.DownstreamTlsContext{
 		CommonTlsContext: &auth.CommonTlsContext{
@@ -221,34 +239,14 @@ func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamT
 					},
 				},
 			},
-			ValidationContext: buildGatewayListnerTLSValidationContext(server.Tls),
+			ValidationContext: certValidationContext,
 			AlpnProtocols:     ListenersALPNProtocols,
+		},
+		RequireClientCertificate: &types.BoolValue{
+			Value: requireClientCert,
 		},
 		RequireSni: boolTrue,
 	}
-}
-
-func buildGatewayListnerTLSValidationContext(tls *networking.Server_TLSOptions) *auth.CertificateValidationContext {
-	if tls == nil {
-		return nil
-	}
-
-	var trustedCa *core.DataSource
-	if len(tls.CaCertificates) != 0 {
-		trustedCa = &core.DataSource{
-			Specifier: &core.DataSource_Filename{
-				Filename: tls.CaCertificates,
-			},
-		}
-	}
-
-	if trustedCa != nil || len(tls.SubjectAltNames) != 0 {
-		return &auth.CertificateValidationContext{
-			TrustedCa:            trustedCa,
-			VerifySubjectAltName: tls.SubjectAltNames,
-		}
-	}
-	return nil
 }
 
 func buildGatewayInboundHTTPRouteConfig(
