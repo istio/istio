@@ -850,16 +850,37 @@ func TestValidateProxyAddress(t *testing.T) {
 }
 
 func TestValidateDuration(t *testing.T) {
-	durations := map[duration.Duration]bool{
-		{Seconds: 1}:              true,
-		{Seconds: 1, Nanos: -1}:   false,
-		{Seconds: -11, Nanos: -1}: false,
-		{Nanos: 1}:                false,
-		{Seconds: 1, Nanos: 1}:    false,
+	type durationCheck struct {
+		duration *duration.Duration
+		isValid  bool
 	}
-	for duration, valid := range durations {
-		if got := ValidateDuration(&duration); (got == nil) != valid {
-			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, valid, got, duration)
+
+	checks := []durationCheck{
+		{
+			duration: &duration.Duration{Seconds: 1},
+			isValid:  true,
+		},
+		{
+			duration: &duration.Duration{Seconds: 1, Nanos: -1},
+			isValid:  false,
+		},
+		{
+			duration: &duration.Duration{Seconds: -11, Nanos: -1},
+			isValid:  false,
+		},
+		{
+			duration: &duration.Duration{Nanos: 1},
+			isValid:  false,
+		},
+		{
+			duration: &duration.Duration{Seconds: 1, Nanos: 1},
+			isValid:  false,
+		},
+	}
+
+	for _, check := range checks {
+		if got := ValidateDuration(check.duration); (got == nil) != check.isValid {
+			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, check.isValid, got, check.duration)
 		}
 	}
 }
@@ -927,27 +948,57 @@ func TestValidateParentAndDrain(t *testing.T) {
 }
 
 func TestValidateRefreshDelay(t *testing.T) {
-	durations := map[duration.Duration]bool{
-		{Seconds: 1}:     true,
-		{Seconds: 36001}: false,
-		{Nanos: 1}:       false,
+	type durationCheck struct {
+		duration *duration.Duration
+		isValid  bool
 	}
-	for duration, valid := range durations {
-		if got := ValidateRefreshDelay(&duration); (got == nil) != valid {
-			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, valid, got, duration)
+
+	checks := []durationCheck{
+		{
+			duration: &duration.Duration{Seconds: 1},
+			isValid:  true,
+		},
+		{
+			duration: &duration.Duration{Seconds: 36001},
+			isValid:  false,
+		},
+		{
+			duration: &duration.Duration{Nanos: 1},
+			isValid:  false,
+		},
+	}
+
+	for _, check := range checks {
+		if got := ValidateRefreshDelay(check.duration); (got == nil) != check.isValid {
+			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, check.isValid, got, check.duration)
 		}
 	}
 }
 
 func TestValidateConnectTimeout(t *testing.T) {
-	durations := map[duration.Duration]bool{
-		{Seconds: 1}:   true,
-		{Seconds: 31}:  false,
-		{Nanos: 99999}: false,
+	type durationCheck struct {
+		duration *duration.Duration
+		isValid  bool
 	}
-	for duration, valid := range durations {
-		if got := ValidateConnectTimeout(&duration); (got == nil) != valid {
-			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, valid, got, duration)
+
+	checks := []durationCheck{
+		{
+			duration: &duration.Duration{Seconds: 1},
+			isValid:  true,
+		},
+		{
+			duration: &duration.Duration{Seconds: 31},
+			isValid:  false,
+		},
+		{
+			duration: &duration.Duration{Nanos: 99999},
+			isValid:  false,
+		},
+	}
+
+	for _, check := range checks {
+		if got := ValidateConnectTimeout(check.duration); (got == nil) != check.isValid {
+			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, check.isValid, got, check.duration)
 		}
 	}
 }
