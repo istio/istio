@@ -4,6 +4,9 @@
 package v1alpha1 // import "istio.io/api/routing/v1alpha1"
 
 /*
+**Note: This version of the traffic management API has been deprecated and will
+not be supported after Istio 0.8.**
+
 Configuration affecting traffic routing. Here are a few terms useful to define
 in the context of routing rules.
 
@@ -147,7 +150,7 @@ func (m *RouteRule) Reset()         { *m = RouteRule{} }
 func (m *RouteRule) String() string { return proto.CompactTextString(m) }
 func (*RouteRule) ProtoMessage()    {}
 func (*RouteRule) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_rule_a603b5959ecb0973, []int{0}
+	return fileDescriptor_route_rule_b41d704105a8bd5c, []int{0}
 }
 func (m *RouteRule) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RouteRule.Unmarshal(m, b)
@@ -291,7 +294,7 @@ func (m *IstioService) Reset()         { *m = IstioService{} }
 func (m *IstioService) String() string { return proto.CompactTextString(m) }
 func (*IstioService) ProtoMessage()    {}
 func (*IstioService) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_rule_a603b5959ecb0973, []int{1}
+	return fileDescriptor_route_rule_b41d704105a8bd5c, []int{1}
 }
 func (m *IstioService) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_IstioService.Unmarshal(m, b)
@@ -393,7 +396,7 @@ func (m *MatchCondition) Reset()         { *m = MatchCondition{} }
 func (m *MatchCondition) String() string { return proto.CompactTextString(m) }
 func (*MatchCondition) ProtoMessage()    {}
 func (*MatchCondition) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_rule_a603b5959ecb0973, []int{2}
+	return fileDescriptor_route_rule_b41d704105a8bd5c, []int{2}
 }
 func (m *MatchCondition) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_MatchCondition.Unmarshal(m, b)
@@ -472,7 +475,7 @@ func (m *MatchRequest) Reset()         { *m = MatchRequest{} }
 func (m *MatchRequest) String() string { return proto.CompactTextString(m) }
 func (*MatchRequest) ProtoMessage()    {}
 func (*MatchRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_rule_a603b5959ecb0973, []int{3}
+	return fileDescriptor_route_rule_b41d704105a8bd5c, []int{3}
 }
 func (m *MatchRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_MatchRequest.Unmarshal(m, b)
@@ -543,7 +546,7 @@ func (m *DestinationWeight) Reset()         { *m = DestinationWeight{} }
 func (m *DestinationWeight) String() string { return proto.CompactTextString(m) }
 func (*DestinationWeight) ProtoMessage()    {}
 func (*DestinationWeight) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_rule_a603b5959ecb0973, []int{4}
+	return fileDescriptor_route_rule_b41d704105a8bd5c, []int{4}
 }
 func (m *DestinationWeight) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DestinationWeight.Unmarshal(m, b)
@@ -603,7 +606,7 @@ func (m *L4MatchAttributes) Reset()         { *m = L4MatchAttributes{} }
 func (m *L4MatchAttributes) String() string { return proto.CompactTextString(m) }
 func (*L4MatchAttributes) ProtoMessage()    {}
 func (*L4MatchAttributes) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_rule_a603b5959ecb0973, []int{5}
+	return fileDescriptor_route_rule_b41d704105a8bd5c, []int{5}
 }
 func (m *L4MatchAttributes) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_L4MatchAttributes.Unmarshal(m, b)
@@ -674,7 +677,7 @@ func (m *HTTPRedirect) Reset()         { *m = HTTPRedirect{} }
 func (m *HTTPRedirect) String() string { return proto.CompactTextString(m) }
 func (*HTTPRedirect) ProtoMessage()    {}
 func (*HTTPRedirect) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_rule_a603b5959ecb0973, []int{6}
+	return fileDescriptor_route_rule_b41d704105a8bd5c, []int{6}
 }
 func (m *HTTPRedirect) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HTTPRedirect.Unmarshal(m, b)
@@ -747,7 +750,7 @@ func (m *HTTPRewrite) Reset()         { *m = HTTPRewrite{} }
 func (m *HTTPRewrite) String() string { return proto.CompactTextString(m) }
 func (*HTTPRewrite) ProtoMessage()    {}
 func (*HTTPRewrite) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_rule_a603b5959ecb0973, []int{7}
+	return fileDescriptor_route_rule_b41d704105a8bd5c, []int{7}
 }
 func (m *HTTPRewrite) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HTTPRewrite.Unmarshal(m, b)
@@ -797,7 +800,7 @@ func (m *StringMatch) Reset()         { *m = StringMatch{} }
 func (m *StringMatch) String() string { return proto.CompactTextString(m) }
 func (*StringMatch) ProtoMessage()    {}
 func (*StringMatch) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_rule_a603b5959ecb0973, []int{8}
+	return fileDescriptor_route_rule_b41d704105a8bd5c, []int{8}
 }
 func (m *StringMatch) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_StringMatch.Unmarshal(m, b)
@@ -974,7 +977,7 @@ func (m *HTTPTimeout) Reset()         { *m = HTTPTimeout{} }
 func (m *HTTPTimeout) String() string { return proto.CompactTextString(m) }
 func (*HTTPTimeout) ProtoMessage()    {}
 func (*HTTPTimeout) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_rule_a603b5959ecb0973, []int{9}
+	return fileDescriptor_route_rule_b41d704105a8bd5c, []int{9}
 }
 func (m *HTTPTimeout) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HTTPTimeout.Unmarshal(m, b)
@@ -1121,7 +1124,7 @@ func (m *HTTPTimeout_SimpleTimeoutPolicy) Reset()         { *m = HTTPTimeout_Sim
 func (m *HTTPTimeout_SimpleTimeoutPolicy) String() string { return proto.CompactTextString(m) }
 func (*HTTPTimeout_SimpleTimeoutPolicy) ProtoMessage()    {}
 func (*HTTPTimeout_SimpleTimeoutPolicy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_rule_a603b5959ecb0973, []int{9, 0}
+	return fileDescriptor_route_rule_b41d704105a8bd5c, []int{9, 0}
 }
 func (m *HTTPTimeout_SimpleTimeoutPolicy) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HTTPTimeout_SimpleTimeoutPolicy.Unmarshal(m, b)
@@ -1187,7 +1190,7 @@ func (m *HTTPRetry) Reset()         { *m = HTTPRetry{} }
 func (m *HTTPRetry) String() string { return proto.CompactTextString(m) }
 func (*HTTPRetry) ProtoMessage()    {}
 func (*HTTPRetry) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_rule_a603b5959ecb0973, []int{10}
+	return fileDescriptor_route_rule_b41d704105a8bd5c, []int{10}
 }
 func (m *HTTPRetry) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HTTPRetry.Unmarshal(m, b)
@@ -1335,7 +1338,7 @@ func (m *HTTPRetry_SimpleRetryPolicy) Reset()         { *m = HTTPRetry_SimpleRet
 func (m *HTTPRetry_SimpleRetryPolicy) String() string { return proto.CompactTextString(m) }
 func (*HTTPRetry_SimpleRetryPolicy) ProtoMessage()    {}
 func (*HTTPRetry_SimpleRetryPolicy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_rule_a603b5959ecb0973, []int{10, 0}
+	return fileDescriptor_route_rule_b41d704105a8bd5c, []int{10, 0}
 }
 func (m *HTTPRetry_SimpleRetryPolicy) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HTTPRetry_SimpleRetryPolicy.Unmarshal(m, b)
@@ -1435,7 +1438,7 @@ func (m *CorsPolicy) Reset()         { *m = CorsPolicy{} }
 func (m *CorsPolicy) String() string { return proto.CompactTextString(m) }
 func (*CorsPolicy) ProtoMessage()    {}
 func (*CorsPolicy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_rule_a603b5959ecb0973, []int{11}
+	return fileDescriptor_route_rule_b41d704105a8bd5c, []int{11}
 }
 func (m *CorsPolicy) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CorsPolicy.Unmarshal(m, b)
@@ -1519,10 +1522,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("routing/v1alpha1/route_rule.proto", fileDescriptor_route_rule_a603b5959ecb0973)
+	proto.RegisterFile("routing/v1alpha1/route_rule.proto", fileDescriptor_route_rule_b41d704105a8bd5c)
 }
 
-var fileDescriptor_route_rule_a603b5959ecb0973 = []byte{
+var fileDescriptor_route_rule_b41d704105a8bd5c = []byte{
 	// 1250 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x57, 0xdd, 0x72, 0xdb, 0x44,
 	0x14, 0xae, 0x9d, 0xd8, 0x8e, 0x8f, 0x1d, 0x93, 0x2c, 0x9d, 0x8e, 0xea, 0x81, 0x36, 0x75, 0x81,

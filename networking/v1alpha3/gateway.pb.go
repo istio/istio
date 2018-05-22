@@ -210,7 +210,6 @@ func (m *Gateway) GetSelector() map[string]string {
 // `Server` describes the properties of the proxy on a given load balancer
 // port. For example,
 //
-
 // ```yaml
 // apiVersion: networking.istio.io/v1alpha3
 // kind: Gateway

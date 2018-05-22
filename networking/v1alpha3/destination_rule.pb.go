@@ -882,47 +882,6 @@ func (m *OutlierDetection_HTTPSettings) GetMaxEjectionPercent() int32 {
 	return 0
 }
 
-// SSL/TLS related settings for upstream connections. See Envoy's [TLS
-// context](https://www.envoyproxy.io/docs/envoy/latest/api-v1/cluster_manager/cluster_ssl.html#config-cluster-manager-cluster-ssl)
-// for more details. These settings are common to both HTTP and TCP upstreams.
-//
-// For example, the following rule configures a client to use mutual TLS
-// for connections to upstream database cluster.
-//
-// ```yaml
-// apiVersion: networking.istio.io/v1alpha3
-// kind: DestinationRule
-// metadata:
-//   name: db-mtls
-// spec:
-//   host: mydbserver.prod.svc.cluster.local
-//   trafficPolicy:
-//     tls:
-//       mode: MUTUAL
-//       clientCertificate: /etc/certs/myclientcert.pem
-//       privateKey: /etc/certs/client_private_key.pem
-//       caCertificates: /etc/certs/rootcacerts.pem
-// ```
-//
-// The following rule configures a client to use TLS when talking to a
-// foreign service whose domain matches *.foo.com.
-//
-// ```yaml
-// apiVersion: networking.istio.io/v1alpha3
-// kind: DestinationRule
-// metadata:
-//   name: tls-foo
-// spec:
-//   host: "*.foo.com"
-//   trafficPolicy:
-//     tls:
-//       mode: SIMPLE
-// ```
-//
-// The following rule configures a client to use Istio mutual TLS when talking
-// to rating services.
-//
-
 // ```yaml
 // apiVersion: networking.istio.io/v1alpha3
 // kind: DestinationRule
