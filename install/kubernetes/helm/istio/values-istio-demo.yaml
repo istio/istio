@@ -23,7 +23,7 @@ sidecarInjectorWebhook:
 grafana:
   enabled: true
 
-zipkin:
+tracing:
   enabled: true
 
 servicegraph:
