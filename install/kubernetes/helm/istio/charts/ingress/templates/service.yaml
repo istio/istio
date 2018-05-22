@@ -3,6 +3,10 @@ kind: Service
 metadata:
   name: istio-ingress
   namespace: {{ .Release.Namespace }}
+{{- if .Values.service.annotations }}
+  annotations:
+{{ toYaml .Values.service.annotations | indent 4 }}
+{{- end }}
   labels:
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}

@@ -3,8 +3,10 @@ kind: Service
 metadata:
   name: prometheus
   namespace: {{ .Release.Namespace }}
+{{- if .Values.service.annotations }}
   annotations:
-    prometheus.io/scrape: 'true'
+{{ toYaml .Values.service.annotations | indent 4 }}
+{{- end }}
   labels:
     name: prometheus
 spec:
