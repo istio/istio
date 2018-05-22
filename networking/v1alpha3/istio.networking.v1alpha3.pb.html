@@ -2657,6 +2657,44 @@ with weights can be specified.</p>
 </section>
 <h2 id="TLSSettings">TLSSettings</h2>
 <section>
+<p>SSL/TLS related settings for upstream connections. See Envoy&rsquo;s <a href="https://www.envoyproxy.io/docs/envoy/latest/api-v1/cluster_manager/cluster_ssl.html#config-cluster-manager-cluster-ssl">TLS
+context</a>
+for more details. These settings are common to both HTTP and TCP upstreams.</p>
+
+<p>For example, the following rule configures a client to use mutual TLS
+for connections to upstream database cluster.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: db-mtls
+spec:
+  host: mydbserver.prod.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: MUTUAL
+      clientCertificate: /etc/certs/myclientcert.pem
+      privateKey: /etc/certs/client_private_key.pem
+      caCertificates: /etc/certs/rootcacerts.pem
+</code></pre>
+
+<p>The following rule configures a client to use TLS when talking to a
+foreign service whose domain matches *.foo.com.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: tls-foo
+spec:
+  host: &quot;*.foo.com&quot;
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+</code></pre>
+
+<p>The following rule configures a client to use Istio mutual TLS when talking
+to rating services.</p>
+
 <pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
