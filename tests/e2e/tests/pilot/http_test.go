@@ -20,6 +20,8 @@ import (
 )
 
 func TestHttp(t *testing.T) {
+	// TODO(incfly): need to figure out this one.
+
 	srcPods := []string{"a", "b", "t"}
 	dstPods := []string{"a", "b"}
 	ports := []string{"", "80", "8080"}
@@ -33,6 +35,16 @@ func TestHttp(t *testing.T) {
 		// We expect request from non-envoy client ("t") to d:80 should always fail,
 		// while to d:8080 should always success.
 		dstPods = append(dstPods, "d")
+
+		cfgs := &deployableConfig{
+			Namespace:  tc.Kube.Namespace,
+			YamlFiles:  []string{"testdata/authn/destination-rule-d8080.yaml.tmpl"},
+			kubeconfig: tc.Kube.KubeConfig,
+		}
+		if err := cfgs.Setup(); err != nil {
+			t.Fatal(err)
+		}
+		defer cfgs.Teardown()
 	}
 
 	logs := newAccessLogs()
