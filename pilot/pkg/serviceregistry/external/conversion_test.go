@@ -245,7 +245,7 @@ func TestConvertService(t *testing.T) {
 		{
 			// service entry http
 			externalSvc: httpNone,
-			services: []*model.Service{makeService("*.google.com", "",
+			services: []*model.Service{makeService("*.google.com", model.UnspecifiedIP,
 				map[string]int{"http-number": 80, "http2-number": 8080}, true, model.Passthrough),
 			},
 		},
@@ -259,28 +259,28 @@ func TestConvertService(t *testing.T) {
 		{
 			// service entry http  static
 			externalSvc: httpStatic,
-			services: []*model.Service{makeService("*.google.com", "",
+			services: []*model.Service{makeService("*.google.com", model.UnspecifiedIP,
 				map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.ClientSideLB),
 			},
 		},
 		{
 			// service entry DNS with no endpoints
 			externalSvc: httpDNSnoEndpoints,
-			services: []*model.Service{makeService("google.com", "",
+			services: []*model.Service{makeService("google.com", model.UnspecifiedIP,
 				map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB),
 			},
 		},
 		{
 			// service entry dns
 			externalSvc: httpDNS,
-			services: []*model.Service{makeService("*.google.com", "",
+			services: []*model.Service{makeService("*.google.com", model.UnspecifiedIP,
 				map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB),
 			},
 		},
 		{
 			// service entry tcp DNS
 			externalSvc: tcpDNS,
-			services: []*model.Service{makeService("tcpdns.com", "",
+			services: []*model.Service{makeService("tcpdns.com", model.UnspecifiedIP,
 				map[string]int{"tcp-444": 444}, true, model.DNSLB),
 			},
 		},
@@ -294,7 +294,7 @@ func TestConvertService(t *testing.T) {
 		{
 			// service entry http internal
 			externalSvc: httpNoneInternal,
-			services: []*model.Service{makeService("*.google.com", "",
+			services: []*model.Service{makeService("*.google.com", model.UnspecifiedIP,
 				map[string]int{"http-number": 80, "http2-number": 8080}, false, model.Passthrough),
 			},
 		},
