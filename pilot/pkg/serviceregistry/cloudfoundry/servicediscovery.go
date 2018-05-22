@@ -15,8 +15,10 @@
 package cloudfoundry
 
 import (
+	"crypto/md5"
 	"errors"
 	"fmt"
+	"io"
 
 	copilotapi "code.cloudfoundry.org/copilot/api"
 	"golang.org/x/net/context"
@@ -45,12 +47,12 @@ func (sd *ServiceDiscovery) Services() ([]*model.Service, error) {
 	if err != nil {
 		return nil, fmt.Errorf("getting services: %s", err)
 	}
-	services := make([]*model.Service, 0, len(resp.GetBackends()))
+	services := make([]*model.Service, 0, len(resp.GetRoutes()))
 
 	port := sd.servicePort()
-	for hostname := range resp.Backends {
+	for _, route := range resp.GetRoutes() {
 		services = append(services, &model.Service{
-			Hostname:     model.Hostname(hostname),
+			Hostname:     model.Hostname(route.Hostname),
 			Ports:        []*model.Port{port},
 			MeshExternal: false,
 			Resolution:   model.ClientSideLB,
@@ -107,24 +109,45 @@ func (sd *ServiceDiscovery) InstancesByPort(hostname model.Hostname, _ int, _ mo
 	if err != nil {
 		return nil, fmt.Errorf("getting routes: %s", err)
 	}
-	instances := make([]*model.ServiceInstance, 0)
-	backendSet := resp.GetBackends()[hostname.String()]
-	for _, backend := range backendSet.GetBackends() {
-		port := sd.servicePort()
 
-		instances = append(instances, &model.ServiceInstance{
-			Endpoint: model.NetworkEndpoint{
-				Address:     backend.Address,
-				Port:        int(backend.Port),
-				ServicePort: port,
-			},
-			Service: &model.Service{
-				Hostname:     hostname,
-				Ports:        []*model.Port{port},
-				MeshExternal: false,
-				Resolution:   model.ClientSideLB,
-			},
-		})
+	instances := make([]*model.ServiceInstance, 0)
+	var matchedRoutes []*copilotapi.RouteWithBackends
+	for _, route := range resp.GetRoutes() {
+		if route.Hostname == hostname.String() {
+			matchedRoutes = append(matchedRoutes, route)
+		}
+	}
+	for _, matchedRoute := range matchedRoutes {
+		backends := matchedRoute.GetBackends()
+		if backends == nil {
+			continue
+		}
+
+		for _, backend := range backends.GetBackends() {
+			port := sd.servicePort()
+
+			inst := &model.ServiceInstance{
+				Endpoint: model.NetworkEndpoint{
+					Address:     backend.Address,
+					Port:        int(backend.Port),
+					ServicePort: port,
+				},
+				Service: &model.Service{
+					Hostname:     hostname,
+					Ports:        []*model.Port{port},
+					MeshExternal: false,
+					Resolution:   model.ClientSideLB,
+				},
+			}
+
+			if matchedRoute.GetPath() != "" {
+				h := md5.New()
+				io.WriteString(h, fmt.Sprintf("%s%s", matchedRoute.GetHostname(), matchedRoute.GetPath()))
+				inst.Labels = model.Labels{"cf-service-instance": fmt.Sprintf("%x", h.Sum(nil))}
+			}
+
+			instances = append(instances, inst)
+		}
 	}
 
 	internalRoutesResp, err := sd.Client.InternalRoutes(context.Background(), new(copilotapi.InternalRoutesRequest))

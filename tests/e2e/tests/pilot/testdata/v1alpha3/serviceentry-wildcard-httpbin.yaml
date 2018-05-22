@@ -9,3 +9,4 @@ spec:
     - number: 80
       name: http-port
       protocol: HTTP
+  resolution: NONE

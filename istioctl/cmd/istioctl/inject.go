@@ -339,14 +339,14 @@ func init() {
 			"The default policy is IfNotPresent.")
 	injectCmd.PersistentFlags().StringVar(&includeIPRanges, "includeIPRanges", inject.DefaultIncludeIPRanges,
 		"Comma separated list of IP ranges in CIDR form. If set, only redirect outbound traffic to Envoy for "+
-			"these IP ranges. All outbound traffic can be redirected with the wildcard character '*'. Defaults to '*'.")
+			"these IP ranges. All outbound traffic can be redirected with the wildcard character '*'.")
 	injectCmd.PersistentFlags().StringVar(&excludeIPRanges, "excludeIPRanges", "",
 		"Comma separated list of IP ranges in CIDR form. If set, outbound traffic will not be redirected for "+
 			"these IP ranges. Exclusions are only applied if configured to redirect all outbound traffic. By "+
 			"default, no IP ranges are excluded.")
 	injectCmd.PersistentFlags().StringVar(&includeInboundPorts, "includeInboundPorts", inject.DefaultIncludeInboundPorts,
 		"Comma separated list of inbound ports for which traffic is to be redirected to Envoy. All ports can "+
-			"be redirected with the wildcard character '*'. Defaults to '*'.")
+			"be redirected with the wildcard character '*'.")
 	injectCmd.PersistentFlags().StringVar(&excludeInboundPorts, "excludeInboundPorts", "",
 		"Comma separated list of inbound ports. If set, inbound traffic will not be redirected for those "+
 			"ports. Exclusions are only applied if configured to redirect all inbound traffic. By default, no ports "+

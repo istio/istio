@@ -1,8 +1,8 @@
 dependencies:
-  - name: sidecar-injector
+  - name: sidecarInjectorWebhook
     version: 0.8.0
-    # repository: file://../sidecar-injector
-    condition: sidecar-injector.enabled
+    # repository: file://../sidecarInjectorWebhook
+    condition: sidecarInjectorWebhook.enabled
   - name: security
     version: 0.8.0
     # repository: file://../security
@@ -44,5 +44,5 @@ dependencies:
     condition: tracing.enabled
   - name: galley
     version: 0.8.0
-    # repository: file://../sidecar-injector
+    # repository: file://../galley
     condition: galley.enabled

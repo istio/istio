@@ -11,7 +11,7 @@ metadata:
   name: wikipedia-range
 spec:
   hosts:
-  - "wikipedia.org"
+  - www.wikipedia.org
   addresses:
     - 91.198.174.192/27
     - 103.102.166.224/27
@@ -22,3 +22,4 @@ spec:
     - number: 443
       protocol: TCP
       name: tcp-port
+  resolution: NONE

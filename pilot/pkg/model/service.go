@@ -100,6 +100,9 @@ const (
 	Passthrough
 )
 
+// UnspecifiedIP constant for empty IP address
+const UnspecifiedIP = "0.0.0.0"
+
 // Port represents a network port where a service is listening for
 // connections. The port should be annotated with the type of protocol
 // used by the port.

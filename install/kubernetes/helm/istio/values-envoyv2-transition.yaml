@@ -19,7 +19,7 @@ ingress:
 zipkin:
   enabled: true
 
-sidecar-injector:
+sidecarInjectorWebhook:
   enabled: true
 
 prometheus:

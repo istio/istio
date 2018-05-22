@@ -77,6 +77,8 @@ func NewGRPCServer(dispatcher dispatcher.Dispatcher, gp *pool.GoroutinePool) mix
 
 // Check is the entry point for the external Check method
 func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRequest) (*mixerpb.CheckResponse, error) {
+	lg.Debugf("Check (GlobalWordCount:%d, DeduplicationID:%s, Quota:%v)", req.GlobalWordCount, req.DeduplicationId, req.Quotas)
+
 	lg.Debug("Dispatching Preprocess Check")
 
 	globalWordCount := int(req.GlobalWordCount)
@@ -183,6 +185,8 @@ var reportResp = &mixerpb.ReportResponse{}
 
 // Report is the entry point for the external Report method
 func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.ReportRequest) (*mixerpb.ReportResponse, error) {
+	lg.Debugf("Report (Count: %d)", len(req.Attributes))
+
 	if len(req.Attributes) == 0 {
 		// early out
 		return reportResp, nil
@@ -231,7 +235,7 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 
 		lg.Debug("Dispatching to main adapters after running preprocessors")
 		lg.Debuga("Attribute Bag: \n", reportBag)
-		lg.Debugf("Dispatching Report %d out of %d", i, len(req.Attributes))
+		lg.Debugf("Dispatching Report %d out of %d", i+1, len(req.Attributes))
 
 		err = s.dispatcher.Report(legacyCtx, reportBag)
 		if err != nil {
