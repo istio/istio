@@ -391,7 +391,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 					networkFilters: buildOutboundNetworkFilters(clusterName, addresses, servicePort),
 				}}
 			default:
-				log.Warnf("buildSidecarOutboundListeners: service %q has unknown protocol %#v", service.Hostname, servicePort)
+				// UDP or other protocols: no need to log, it's too noisy
 				continue
 			}
 
