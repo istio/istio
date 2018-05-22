@@ -76,6 +76,9 @@ func processFlags() error {
 }
 
 func attachFlags(stringVar func(*string, string, string, string), boolVar func(*bool, string, bool, string)) {
+	stringVar(&arguments.WorkDir, "work_dir", "",
+		"Local working directory for creating logs/temp files. If left empty, os.TempDir() is used.")
+
 	stringVar(&arguments.Labels, "labels", arguments.Labels,
 		"Only run tests with the given labels")
 
