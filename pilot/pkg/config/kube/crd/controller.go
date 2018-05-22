@@ -266,7 +266,7 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 	oldMap := InvalidCRDs.Load()
 	if oldMap != nil {
 		oldMap.(*sync.Map).Range(func(key, value interface{}) bool {
-			k8sErrors.With(prometheus.Labels{"key": key.(string)}).Set(1)
+			k8sErrors.With(prometheus.Labels{"name": key.(string)}).Set(1)
 			return true
 		})
 	}
@@ -288,7 +288,7 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 			// the rest should still be processed.
 			// TODO: find a way to reset and represent the error !!
 			newErrors.Store(key, err)
-			k8sErrors.With(prometheus.Labels{"key": key}).Set(1)
+			k8sErrors.With(prometheus.Labels{"name": key}).Set(1)
 		} else {
 			out = append(out, *config)
 		}
