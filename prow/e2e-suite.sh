@@ -78,6 +78,9 @@ for ((i=1; i<=$#; i++)); do
         -s|--single_test) SINGLE_MODE=true; ((i++)); SINGLE_TEST=${!i}
         continue
         ;;
+        --use_galley_config_validator)
+        TEST_TARGETS+=(e2e_galley)
+        ;;
     esac
     E2E_ARGS+=( ${!i} )
 done

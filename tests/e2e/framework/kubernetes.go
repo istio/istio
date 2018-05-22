@@ -38,33 +38,32 @@ import (
 )
 
 const (
-	yamlSuffix                       = ".yaml"
-	istioInstallDir                  = "install/kubernetes"
-	istioAddonsDir                   = "install/kubernetes/addons"
-	nonAuthInstallFile               = "istio.yaml"
-	authInstallFile                  = "istio-auth.yaml"
-	nonAuthInstallFileNamespace      = "istio-one-namespace.yaml"
-	authInstallFileNamespace         = "istio-one-namespace-auth.yaml"
-	mcNonAuthInstallFileNamespace    = "istio-multicluster.yaml"
-	mcAuthInstallFileNamespace       = "istio-auth-multicluster.yaml"
-	mcRemoteInstallFile              = "istio-remote.yaml"
-	istioSystem                      = "istio-system"
-	istioIngressServiceName          = "istio-ingress"
-	istioIngressLabel                = "ingress"
-	istioIngressGatewayServiceName   = "istio-ingressgateway"
-	istioIngressGatewayLabel         = "ingressgateway"
-	istioEgressGatewayServiceName    = "istio-egressgateway"
-	defaultSidecarInjectorFile       = "istio-sidecar-injector.yaml"
-	ingressCertsName                 = "istio-ingress-certs"
-	defaultGalleyConfigValidatorFile = "istio-galley-config-validator.yaml"
-	maxDeploymentRolloutTime         = 480 * time.Second
-	mtlsExcludedServicesPattern      = "mtlsExcludedServices:\\s*\\[(.*)\\]"
-	helmServiceAccountFile           = "helm-service-account.yaml"
-	istioHelmInstallDir              = istioInstallDir + "/helm/istio"
-	caCertFileName                   = "samples/certs/ca-cert.pem"
-	caKeyFileName                    = "samples/certs/ca-key.pem"
-	rootCertFileName                 = "samples/certs/root-cert.pem"
-	certChainFileName                = "samples/certs/cert-chain.pem"
+	yamlSuffix                     = ".yaml"
+	istioInstallDir                = "install/kubernetes"
+	istioAddonsDir                 = "install/kubernetes/addons"
+	nonAuthInstallFile             = "istio.yaml"
+	authInstallFile                = "istio-auth.yaml"
+	nonAuthInstallFileNamespace    = "istio-one-namespace.yaml"
+	authInstallFileNamespace       = "istio-one-namespace-auth.yaml"
+	mcNonAuthInstallFileNamespace  = "istio-multicluster.yaml"
+	mcAuthInstallFileNamespace     = "istio-auth-multicluster.yaml"
+	mcRemoteInstallFile            = "istio-remote.yaml"
+	istioSystem                    = "istio-system"
+	istioIngressServiceName        = "istio-ingress"
+	istioIngressLabel              = "ingress"
+	istioIngressGatewayServiceName = "istio-ingressgateway"
+	istioIngressGatewayLabel       = "ingressgateway"
+	istioEgressGatewayServiceName  = "istio-egressgateway"
+	defaultSidecarInjectorFile     = "istio-sidecar-injector.yaml"
+	ingressCertsName               = "istio-ingress-certs"
+	maxDeploymentRolloutTime       = 480 * time.Second
+	mtlsExcludedServicesPattern    = "mtlsExcludedServices:\\s*\\[(.*)\\]"
+	helmServiceAccountFile         = "helm-service-account.yaml"
+	istioHelmInstallDir            = istioInstallDir + "/helm/istio"
+	caCertFileName                 = "samples/certs/ca-cert.pem"
+	caKeyFileName                  = "samples/certs/ca-key.pem"
+	rootCertFileName               = "samples/certs/root-cert.pem"
+	certChainFileName              = "samples/certs/cert-chain.pem"
 )
 
 var (
@@ -83,14 +82,13 @@ var (
 	rbacEnable   = flag.Bool("rbac_enable", true, "Enable rbac")
 	localCluster = flag.Bool("use_local_cluster", false,
 		"Whether the cluster is local or not (i.e. the test is running within the cluster). If running on minikube, this should be set to true.")
-	skipSetup                 = flag.Bool("skip_setup", false, "Skip namespace creation and istio cluster setup")
-	sidecarInjectorFile       = flag.String("sidecar_injector_file", defaultSidecarInjectorFile, "Sidecar injector yaml file")
-	clusterWide               = flag.Bool("cluster_wide", false, "Run cluster wide tests")
-	imagePullPolicy           = flag.String("image_pull_policy", "", "Specifies an override for the Docker image pull policy to be used")
-	multiClusterDir           = flag.String("cluster_registry_dir", "", "Directory name for the cluster registry config")
-	galleyConfigValidatorFile = flag.String("galley_config_validator_file", defaultGalleyConfigValidatorFile, "Galley config validator yaml file")
-	useGalleyConfigValidator  = flag.Bool("use_galley_config_validator", false, "Use galley configuration validation webhook")
-	installer                 = flag.String("installer", "kubectl", "Istio installer, default to kubectl, or helm ")
+	skipSetup                = flag.Bool("skip_setup", false, "Skip namespace creation and istio cluster setup")
+	sidecarInjectorFile      = flag.String("sidecar_injector_file", defaultSidecarInjectorFile, "Sidecar injector yaml file")
+	clusterWide              = flag.Bool("cluster_wide", false, "Run cluster wide tests")
+	imagePullPolicy          = flag.String("image_pull_policy", "", "Specifies an override for the Docker image pull policy to be used")
+	multiClusterDir          = flag.String("cluster_registry_dir", "", "Directory name for the cluster registry config")
+	useGalleyConfigValidator = flag.Bool("use_galley_config_validator", false, "Use galley configuration validation webhook")
+	installer                = flag.String("installer", "kubectl", "Istio installer, default to kubectl, or helm ")
 
 	addons = []string{
 		"zipkin",
@@ -140,6 +138,30 @@ type KubeInfo struct {
 	RemoteKubeConfig string
 	RemoteKubeClient kubernetes.Interface
 	RemoteAppManager *AppManager
+}
+
+func getClusterWideInstallFile() string {
+	const (
+		nonAuthInstallFile           = "istio.yaml"
+		authInstallFile              = "istio-auth.yaml"
+		nonAuthWithGalleyInstallFile = "istio-galley.yaml"
+		authWithGalleyInstallFile    = "istio-auth-galley.yaml"
+	)
+	var istioYaml string
+	if *authEnable {
+		if *useGalleyConfigValidator {
+			istioYaml = authWithGalleyInstallFile
+		} else {
+			istioYaml = authInstallFile
+		}
+	} else {
+		if *useGalleyConfigValidator {
+			istioYaml = nonAuthWithGalleyInstallFile
+		} else {
+			istioYaml = nonAuthInstallFile
+		}
+	}
+	return istioYaml
 }
 
 // newKubeInfo create a new KubeInfo by given temp dir and runID
@@ -400,21 +422,8 @@ func (k *KubeInfo) Teardown() error {
 			}
 		}
 
-		if *useGalleyConfigValidator {
-			testGalleyConfigValidatorYAML := filepath.Join(k.TmpDir, "yaml", *galleyConfigValidatorFile)
-
-			if err := util.KubeDelete(k.Namespace, testGalleyConfigValidatorYAML, k.KubeConfig); err != nil {
-				log.Errorf("Istio galley config validator %s deletion failed", testGalleyConfigValidatorYAML)
-				return err
-			}
-		}
-
 		if *clusterWide {
-			// for cluster-wide, we can verify the uninstall
-			istioYaml := nonAuthInstallFile
-			if *authEnable {
-				istioYaml = authInstallFile
-			}
+			istioYaml := getClusterWideInstallFile()
 
 			testIstioYaml := filepath.Join(k.TmpDir, "yaml", istioYaml)
 
@@ -567,17 +576,16 @@ func (k *KubeInfo) deployIstio() error {
 		istioYaml = mcNonAuthInstallFileNamespace
 	}
 	if *clusterWide {
-		if *authEnable {
-			istioYaml = authInstallFile
-		} else {
-			istioYaml = nonAuthInstallFile
-		}
+		istioYaml = getClusterWideInstallFile()
 	} else {
 		if *authEnable {
 			istioYaml = authInstallFileNamespace
 			if *multiClusterDir != "" {
 				istioYaml = mcAuthInstallFileNamespace
 			}
+		}
+		if *useGalleyConfigValidator {
+			return errors.New("cannot enable useGalleyConfigValidator in one namespace tests")
 		}
 	}
 
@@ -647,18 +655,6 @@ func (k *KubeInfo) deployIstio() error {
 		}
 	}
 
-	if *useGalleyConfigValidator {
-		baseConfigValidatorYAML := util.GetResourcePath(filepath.Join(istioInstallDir, *galleyConfigValidatorFile))
-		testConfigValidatorYAML := filepath.Join(k.TmpDir, "yaml", *galleyConfigValidatorFile)
-		if err := k.generateGalleyConfigValidator(baseConfigValidatorYAML, testConfigValidatorYAML); err != nil {
-			log.Errorf("Generating galley config validator yaml failed")
-			return err
-		}
-		if err := util.KubeApply(k.Namespace, testConfigValidatorYAML, k.KubeConfig); err != nil {
-			log.Errorf("Istio galley config validator %s deployment failed", testConfigValidatorYAML)
-			return err
-		}
-	}
 	return util.CheckDeployments(k.Namespace, maxDeploymentRolloutTime, k.KubeConfig)
 }
 

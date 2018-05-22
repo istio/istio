@@ -54,7 +54,11 @@ function gen_file() {
     fi
 }
 
-for target in istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml istio-multicluster.yaml istio-auth-multicluster.yaml istio-remote.yaml;do
+TARGETS="istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml"
+TARGETS+=" istio-multicluster.yaml istio-auth-multicluster.yaml istio-remote.yaml"
+TARGETS+=" istio-galley.yaml istio-auth-galley.yaml"
+
+for target in ${TARGETS}; do
     gen_file $target ${DEST_DIR}
 done
 
