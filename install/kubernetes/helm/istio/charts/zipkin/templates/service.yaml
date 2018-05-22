@@ -3,6 +3,10 @@ kind: Service
 metadata:
   name: zipkin
   namespace: {{ .Release.Namespace }}
+{{- if .Values.service.annotations }}
+  annotations:
+{{ toYaml .Values.service.annotations | indent 4 }}
+{{- end }}
   labels:
     app: {{ template "zipkin.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}

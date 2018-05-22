@@ -92,6 +92,7 @@ ingress:
 #  cpu: 100m
 #  memory: 128Mi
   service:
+    annotations: {}
     loadBalancerIP: ""
     nodePort:
       enabled: false
@@ -114,6 +115,7 @@ ingressgateway:
 #  memory: 128Mi
   service:
     name: istio-ingressgateway #DNS addressible
+    annotations: {}
     labels:
       istio: ingressgateway
     #namespace: istio-system
@@ -158,6 +160,7 @@ egressgateway:
 #  memory: 128Mi
   service:
     name: istio-egressgateway #DNS addressible
+    annotations: {}
     labels:
       istio: egressgateway
     #namespace: istio-system
@@ -342,6 +345,8 @@ prometheus:
     #  cpu: 100m
     #  memory: 128Mi
   service:
+    annotations:
+      prometheus.io/scrape: 'true'
     nodePort:
       enabled: false
       port: 32090
@@ -355,6 +360,7 @@ servicegraph:
     type: ClusterIP
     externalPort: 8088
     internalPort: 8088
+    annotations: {}
   ingress:
     enabled: false
     # Used to create an Ingress record.
@@ -389,6 +395,7 @@ zipkin:
     type: ClusterIP
     externalPort: 9411
     internalPort: 9411
+    annotations: {}
   ingress:
     enabled: false
     # Used to create an Ingress record.
