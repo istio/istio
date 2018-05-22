@@ -33,3 +33,5 @@ spec:
           port:
             number: 80
         weight: 100
+      appendHeaders:
+        handled-by-egress-gateway: "true"

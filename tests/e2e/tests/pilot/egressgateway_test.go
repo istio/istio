@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"testing"
 
+	"strings"
+
 	"istio.io/istio/pkg/log"
 )
 
@@ -57,13 +59,14 @@ func TestEgressGateway(t *testing.T) {
 		resp := ClientRequest("a", reqURL, 100, "-key Host -val scooby.eu.bookinfo.com")
 		count := make(map[string]int)
 		for _, elt := range resp.Host {
-			count[elt] = count[elt] + 1
+			count[elt]++
 		}
 		for _, elt := range resp.Code {
-			count[elt] = count[elt] + 1
+			count[elt]++
 		}
+		handledByEgress := strings.Count(resp.Body, "Handled-By-Egress-Gateway=true")
 		log.Infof("request counts %v", count)
-		if count["scooby.eu.bookinfo.com"] >= 95 && count[httpOK] >= 95 {
+		if count["scooby.eu.bookinfo.com"] >= 95 && count[httpOK] >= 95 && handledByEgress >= 95 {
 			return nil
 		}
 		return errAgain
