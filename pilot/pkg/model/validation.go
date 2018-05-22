@@ -1888,7 +1888,7 @@ func ValidateVirtualService(msg proto.Message) (errs error) {
 	}
 
 	if len(virtualService.Http) == 0 && len(virtualService.Tcp) == 0 {
-		errs = appendErrors(errs, fmt.Errorf("http or tcp must be provided in virtual service"))
+		errs = appendErrors(errs, fmt.Errorf("http o0r tcp must be provided in virtual service"))
 	}
 	for _, httpRoute := range virtualService.Http {
 		errs = appendErrors(errs, validateHTTPRoute(httpRoute))
@@ -2226,13 +2226,6 @@ func ValidateServiceEntry(config proto.Message) (errs error) {
 						fmt.Errorf("hosts must be FQDN if no endpoints are provided for discovery mode DNS"))
 				}
 			}
-			//for _, port := range serviceEntry.Ports {
-			//	// TODO: @isaiah/@greghanson why?
-			//	if !ParseProtocol(port.Protocol).IsHTTP() {
-			//		errs = appendErrors(errs,
-			//			fmt.Errorf("if discovery type is DNS and no endpoints are provided all ports must be HTTP based"))
-			//	}
-			//}
 		}
 
 		for _, endpoint := range serviceEntry.Endpoints {
