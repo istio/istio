@@ -60,6 +60,8 @@ message ServiceConfig {
 
   // Send these attributes to Mixer in both Check and Report. This
   // typically includes the "destination.service" attribute.
+  // In case of a per-route override, per-route attributes take precedence
+  // over the attributes supplied in the client configuration.
   Attributes mixer_attributes = 3;
 
   // HTTP API specifications to generate API attributes.
@@ -73,6 +75,20 @@ message ServiceConfig {
   // [mesh-level
   // policy][istio.mixer.v1.config.client.TransportConfig.network_fail_policy].
   NetworkFailPolicy network_fail_policy = 7;
+
+  // Default attributes to forward to upstream. This typically
+  // includes the "source.ip" and "source.uid" attributes.
+  // In case of a per-route override, per-route attributes take precedence
+  // over the attributes supplied in the client configuration.
+  //
+  // Forwarded attributes take precedence over the static Mixer attributes.
+  // The full order of application is as follows:
+  // 1. static Mixer attributes from the filter config;
+  // 2. static Mixer attributes from the route config;
+  // 3. forwarded attributes from the source filter config (if any);
+  // 4. forwarded attributes from the source route config (if any);
+  // 5. derived attributes from the request metadata.
+  Attributes forward_attributes = 8;
 }
 
 // Defines the transport config on how to call Mixer.

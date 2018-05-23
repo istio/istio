@@ -735,7 +735,9 @@ metadata namespace field.</p>
 <td><code><a href="#istio.mixer.v1.Attributes">istio.mixer.v1.Attributes</a></code></td>
 <td>
 <p>Send these attributes to Mixer in both Check and Report. This
-typically includes the &ldquo;destination.service&rdquo; attribute.</p>
+typically includes the &ldquo;destination.service&rdquo; attribute.
+In case of a per-route override, per-route attributes take precedence
+over the attributes supplied in the client configuration.</p>
 
 </td>
 </tr>
@@ -763,6 +765,25 @@ typically includes the &ldquo;destination.service&rdquo; attribute.</p>
 This is the service-level policy. It overrides
 [mesh-level
 policy][istio.mixer.v1.config.client.TransportConfig.network<em>fail</em>policy].</p>
+
+</td>
+</tr>
+<tr id="ServiceConfig.forward_attributes">
+<td><code>forwardAttributes</code></td>
+<td><code><a href="#istio.mixer.v1.Attributes">istio.mixer.v1.Attributes</a></code></td>
+<td>
+<p>Default attributes to forward to upstream. This typically
+includes the &ldquo;source.ip&rdquo; and &ldquo;source.uid&rdquo; attributes.
+In case of a per-route override, per-route attributes take precedence
+over the attributes supplied in the client configuration.</p>
+
+<p>Forwarded attributes take precedence over the static Mixer attributes.
+The full order of application is as follows:
+1. static Mixer attributes from the filter config;
+2. static Mixer attributes from the route config;
+3. forwarded attributes from the source filter config (if any);
+4. forwarded attributes from the source route config (if any);
+5. derived attributes from the request metadata.</p>
 
 </td>
 </tr>
