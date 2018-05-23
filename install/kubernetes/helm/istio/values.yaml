@@ -396,12 +396,12 @@ servicegraph:
   # prometheus addres
   prometheusAddr: http://prometheus:9090
 
-tracing:
+zipkin:
   enabled: false
-  jaeger:
-    enabled: false
   replicaCount: 1
   image:
+    # TODO: switch name to tracing or other fix to reflect jaeger as the
+    #       default tracing option
     repository: jaegertracing/all-in-one
     tag: 1.4.1
   service:

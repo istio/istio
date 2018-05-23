@@ -39,9 +39,10 @@ dependencies:
     version: 0.1.0
     # repository: file://../addons/servicegraph
     condition: servicegraph.enabled
-  - name: tracing
+  - name: zipkin
     version: 0.1.0
-    condition: tracing.enabled
+    # repository: file://../addons/zipkin
+    condition: zipkin.enabled
   - name: galley
     version: 0.8.0
     # repository: file://../galley
