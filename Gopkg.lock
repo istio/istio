@@ -23,7 +23,7 @@
     "api",
     "testhelpers"
   ]
-  revision = "fb28eb02defe910369ffcd34a6f5c9235d983cf0"
+  revision = "1e7e324f8366ded261140272c9e44d0ee681bdbf"
 
 [[projects]]
   name = "github.com/Azure/go-autorest"
