@@ -54,23 +54,44 @@ spec:
     stackdriverglobalmr.logentry.istio-system:
       payloadTemplate: '{{or (.sourceIp) "-"}} - {{or (.sourceUser) "-"}} [{{or (.timestamp.Format "02/Jan/2006:15:04:05 -0700") "-"}}] "{{or (.method) "-"}} {{or (.url) "-"}} {{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}}'
       httpMapping:
+        url: url
         status: responseCode
         requestSize: requestSize
         responseSize: responseSize
         latency: latency
         localIp: sourceIp
         remoteIp: destinationIp
+        method: method
+        userAgent: userAgent
+        referer: referer
       labelNames:
+      - originIp
       - sourceIp
       - destinationIp
+      - sourceService
       - sourceUser
+      - sourceNamespace
+      - destinationIp
+      - destinationService
+      - destinationNamespace
+      - apiName
+      - apiVersion
+      - apiClaims
+      - apiKey
+      - requestOperation
+      - protocol
       - method
       - url
-      - protocol
       - responseCode
       - responseSize
       - requestSize
       - latency
+      - connectionMtls
+      - userAgent
+      - responseTimestamp
+      - receivedBytes
+      - sentBytes
+      - referer
       sinkInfo:
         id: '<sink_id>'
         destination: '<sink_destination>'
@@ -98,19 +119,35 @@ metadata:
   name: stackdriverglobalmr
   namespace: istio-system
 spec:
-  severity: '"Default"'
+  severity: '"Info"'
   timestamp: request.time
   variables:
+    originIp: origin.ip | ip("0.0.0.0")
     sourceIp: source.ip | ip("0.0.0.0")
+    sourceService: source.service | ""
+    sourceUser: source.user | source.uid | ""
+    sourceNamespace: source.namespace | ""
     destinationIp: destination.ip | ip("0.0.0.0")
-    sourceUser: source.user | ""
+    destinationService: destination.service | ""
+    destinationNamespace: destination.namespace | ""
+    apiName: api.service | ""
+    apiVersion: api.version | ""
+    apiClaims: request.headers["sec-istio-auth-userinfo"]| ""
+    apiKey: request.api_key | request.headers["x-api-key"] | ""
+    requestOperation: api.operation | ""
+    protocol: request.scheme | "http"
     method: request.method | ""
     url: request.path | ""
-    protocol: request.scheme | "http"
     responseCode: response.code | 0
     responseSize: response.size | 0
     requestSize: request.size | 0
     latency: response.duration | "0ms"
+    connectionMtls: connection.mtls | false
+    userAgent: request.useragent | ""
+    responseTimestamp: response.time
+    receivedBytes: request.total_size | connection.received.bytes | 0
+    sentBytes: response.total_size | connection.sent.bytes | 0
+    referer: request.referer | ""
   # The Monitored Resource must match a Stackdriver Monitored resource type defined at:
   #     https://cloud.google.com/monitoring/api/resources
   # Sending invalid MRs will result in the entire metric entry being rejected.

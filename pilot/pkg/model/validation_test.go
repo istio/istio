@@ -850,20 +850,37 @@ func TestValidateProxyAddress(t *testing.T) {
 }
 
 func TestValidateDuration(t *testing.T) {
-	cases := []struct {
-		duration duration.Duration
-		expected bool
-	}{
-		{duration.Duration{Seconds: 1}, true},
-		{duration.Duration{Seconds: 1, Nanos: -1}, false},
-		{duration.Duration{Seconds: -11, Nanos: -1}, false},
-		{duration.Duration{Nanos: 1}, false},
-		{duration.Duration{Seconds: 1, Nanos: 1}, false},
+	type durationCheck struct {
+		duration *duration.Duration
+		isValid  bool
 	}
 
-	for _, c := range cases {
-		if got := ValidateDuration(&c.duration); (got == nil) != c.expected {
-			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, c.expected, got, c.duration)
+	checks := []durationCheck{
+		{
+			duration: &duration.Duration{Seconds: 1},
+			isValid:  true,
+		},
+		{
+			duration: &duration.Duration{Seconds: 1, Nanos: -1},
+			isValid:  false,
+		},
+		{
+			duration: &duration.Duration{Seconds: -11, Nanos: -1},
+			isValid:  false,
+		},
+		{
+			duration: &duration.Duration{Nanos: 1},
+			isValid:  false,
+		},
+		{
+			duration: &duration.Duration{Seconds: 1, Nanos: 1},
+			isValid:  false,
+		},
+	}
+
+	for _, check := range checks {
+		if got := ValidateDuration(check.duration); (got == nil) != check.isValid {
+			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, check.isValid, got, check.duration)
 		}
 	}
 }
@@ -931,35 +948,57 @@ func TestValidateParentAndDrain(t *testing.T) {
 }
 
 func TestValidateRefreshDelay(t *testing.T) {
-	cases := []struct {
-		duration duration.Duration
-		expected bool
-	}{
-		{duration.Duration{Seconds: 1}, true},
-		{duration.Duration{Seconds: 36001}, false},
-		{duration.Duration{Nanos: 1}, false},
+	type durationCheck struct {
+		duration *duration.Duration
+		isValid  bool
 	}
 
-	for _, c := range cases {
-		if got := ValidateRefreshDelay(&c.duration); (got == nil) != c.expected {
-			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, c.expected, got, c.duration)
+	checks := []durationCheck{
+		{
+			duration: &duration.Duration{Seconds: 1},
+			isValid:  true,
+		},
+		{
+			duration: &duration.Duration{Seconds: 36001},
+			isValid:  false,
+		},
+		{
+			duration: &duration.Duration{Nanos: 1},
+			isValid:  false,
+		},
+	}
+
+	for _, check := range checks {
+		if got := ValidateRefreshDelay(check.duration); (got == nil) != check.isValid {
+			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, check.isValid, got, check.duration)
 		}
 	}
 }
 
 func TestValidateConnectTimeout(t *testing.T) {
-	cases := []struct {
-		duration duration.Duration
-		expected bool
-	}{
-		{duration.Duration{Seconds: 1}, true},
-		{duration.Duration{Seconds: 31}, false},
-		{duration.Duration{Nanos: 99999}, false},
+	type durationCheck struct {
+		duration *duration.Duration
+		isValid  bool
 	}
 
-	for _, c := range cases {
-		if got := ValidateConnectTimeout(&c.duration); (got == nil) != c.expected {
-			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, c.expected, got, c.duration)
+	checks := []durationCheck{
+		{
+			duration: &duration.Duration{Seconds: 1},
+			isValid:  true,
+		},
+		{
+			duration: &duration.Duration{Seconds: 31},
+			isValid:  false,
+		},
+		{
+			duration: &duration.Duration{Nanos: 99999},
+			isValid:  false,
+		},
+	}
+
+	for _, check := range checks {
+		if got := ValidateConnectTimeout(check.duration); (got == nil) != check.isValid {
+			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, check.isValid, got, check.duration)
 		}
 	}
 }
@@ -2377,6 +2416,14 @@ func TestValidateVirtualService(t *testing.T) {
 				}},
 			}},
 		}, valid: true},
+		{name: "duplicate hosts", in: &networking.VirtualService{
+			Hosts: []string{"*.foo.bar", "*.bar"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.DestinationWeight{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: false},
 		{name: "no hosts", in: &networking.VirtualService{
 			Hosts: nil,
 			Http: []*networking.HTTPRoute{{
@@ -2853,6 +2900,18 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 			valid: true},
 
+		{name: "discovery type DNS, unix endpoint", in: networking.ServiceEntry{
+			Hosts: []string{"*.google.com"},
+			Ports: []*networking.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+			},
+			Endpoints: []*networking.ServiceEntry_Endpoint{
+				{Address: "unix:///lon/google/com"},
+			},
+			Resolution: networking.ServiceEntry_DNS,
+		},
+			valid: false},
+
 		{name: "discovery type none", in: networking.ServiceEntry{
 			Hosts: []string{"google.com"},
 			Ports: []*networking.Port{
@@ -2873,17 +2932,6 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Address: "lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}},
 			},
 			Resolution: networking.ServiceEntry_NONE,
-		},
-			valid: false},
-
-		{name: "discovery type DNS, non-FQDN host", in: networking.ServiceEntry{
-			Hosts: []string{"*.google.com"},
-			Ports: []*networking.Port{
-				{Number: 80, Protocol: "http", Name: "http-valid1"},
-				{Number: 8080, Protocol: "http", Name: "http-valid2"},
-			},
-
-			Resolution: networking.ServiceEntry_DNS,
 		},
 			valid: false},
 
@@ -2960,6 +3008,55 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 80, Protocol: "http", Name: "http-conflict2"},
 			},
 			Resolution: networking.ServiceEntry_NONE,
+		},
+			valid: false},
+
+		{name: "unix socket", in: networking.ServiceEntry{
+			Hosts: []string{"uds.cluster.local"},
+			Ports: []*networking.Port{
+				{Number: 6553, Protocol: "grpc", Name: "grpc-service1"},
+			},
+			Resolution: networking.ServiceEntry_STATIC,
+			Endpoints: []*networking.ServiceEntry_Endpoint{
+				{Address: "unix:///path/to/socket"},
+			},
+		},
+			valid: true},
+
+		{name: "unix socket, relative path", in: networking.ServiceEntry{
+			Hosts: []string{"uds.cluster.local"},
+			Ports: []*networking.Port{
+				{Number: 6553, Protocol: "grpc", Name: "grpc-service1"},
+			},
+			Resolution: networking.ServiceEntry_STATIC,
+			Endpoints: []*networking.ServiceEntry_Endpoint{
+				{Address: "unix://./relative/path.sock"},
+			},
+		},
+			valid: false},
+
+		{name: "unix socket, endpoint ports", in: networking.ServiceEntry{
+			Hosts: []string{"uds.cluster.local"},
+			Ports: []*networking.Port{
+				{Number: 6553, Protocol: "grpc", Name: "grpc-service1"},
+			},
+			Resolution: networking.ServiceEntry_STATIC,
+			Endpoints: []*networking.ServiceEntry_Endpoint{
+				{Address: "unix:///path/to/socket", Ports: map[string]uint32{"grpc-service1": 6553}},
+			},
+		},
+			valid: false},
+
+		{name: "unix socket, multiple service ports", in: networking.ServiceEntry{
+			Hosts: []string{"uds.cluster.local"},
+			Ports: []*networking.Port{
+				{Number: 6553, Protocol: "grpc", Name: "grpc-service1"},
+				{Number: 80, Protocol: "http", Name: "http-service2"},
+			},
+			Resolution: networking.ServiceEntry_STATIC,
+			Endpoints: []*networking.ServiceEntry_Endpoint{
+				{Address: "unix:///path/to/socket"},
+			},
 		},
 			valid: false},
 	}
@@ -3342,5 +3439,44 @@ func TestValidateServiceRoleBinding(t *testing.T) {
 		} else if err.Error() != c.expectErrMsg {
 			t.Errorf("ValidateServiceRoleBinding(%v): got %q but want %q\n", c.name, err.Error(), c.expectErrMsg)
 		}
+	}
+}
+
+func TestValidateNetworkEndpointAddress(t *testing.T) {
+	testCases := []struct {
+		name  string
+		ne    *NetworkEndpoint
+		valid bool
+	}{
+		{
+			"Unix OK",
+			&NetworkEndpoint{Family: AddressFamilyUnix, Address: "/absolute/path"},
+			true,
+		},
+		{
+			"IP OK",
+			&NetworkEndpoint{Address: "12.3.4.5", Port: 76},
+			true,
+		},
+		{
+			"Unix not absolute",
+			&NetworkEndpoint{Family: AddressFamilyUnix, Address: "./socket"},
+			false,
+		},
+		{
+			"IP invalid",
+			&NetworkEndpoint{Address: "260.3.4.5", Port: 76},
+			false,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateNetworkEndpointAddress(tc.ne)
+			if tc.valid && err != nil {
+				t.Fatalf("ValidateAddress() => want error nil got %v", err)
+			} else if !tc.valid && err == nil {
+				t.Fatalf("ValidateAddress() => want error got nil")
+			}
+		})
 	}
 }

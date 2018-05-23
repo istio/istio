@@ -3,6 +3,7 @@ title: Route Rules v1alpha3
 description: Configuration affecting traffic routing
 location: https://istio.io/docs/reference/config/istio.networking.v1alpha3.html
 layout: protoc-gen-docs
+generator: protoc-gen-docs
 number_of_entries: 39
 ---
 <p>Configuration affecting traffic routing. Here are a few terms useful to define
@@ -745,7 +746,7 @@ the forwarding of traffic arriving at a particular host or gateway port.</p>
 an internal reviews service on port 9080. In addition, requests
 containing the cookie &ldquo;user: dev-123&rdquo; will be sent to special port 7777
 in the qa version. The same rule is also applicable inside the mesh for
-requests to the r&rdquo;eviews.prod.svc.cluster.local&rdquo; service. This rule is
+requests to the &ldquo;reviews.prod.svc.cluster.local&rdquo; service. This rule is
 applicable across ports 443, 9080. Note that &ldquo;http://uk.bookinfo.com&rdquo;
 gets redirected to &ldquo;https://uk.bookinfo.com&rdquo; (i.e. 80 redirects to 443).</p>
 
@@ -1978,7 +1979,11 @@ connections</p>
 <p>REQUIRED. A list of hosts exposed by this gateway. At least one
 host is required. While typically applicable to
 HTTP services, it can also be used for TCP services using TLS with
-SNI. Standard DNS wildcard prefix syntax is permitted.</p>
+SNI. May contain a wildcard prefix for the bottom-level domain of
+a domain name, e.g.<code>*.example.com</code>. Note that <code>prod.example.com</code>
+will be matched by the <code>prod.example.com</code> and <code>*.example.com</code> host
+names, but <strong>not</strong> by <code>*prod.example.com</code>, <code>*rod.example.com</code>,
+<code>*example.com</code>, <code>*.com</code> or <code>*</code>.</p>
 
 <p><strong>Note</strong>: A <code>VirtualService</code> that is bound to a gateway must have one
 or more hosts that match the hosts specified in a server. The match
@@ -2182,6 +2187,27 @@ spec:
   resolution: NONE
 </code></pre>
 
+<p>The following example demonstrates a service that is available via a
+Unix Domain Socket on the host of the client. The resolution must be
+set to STATIC to use unix address endpoints.</p>
+
+<pre><code>apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: unix-domain-socket-example
+spec:
+  hosts:
+  - &quot;example.unix.local&quot;
+  location: MESH_EXTERNAL
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+  endpoints:
+  - address: unix:///var/run/example/socket
+</code></pre>
+
 <p>For HTTP based services, it is possible to create a VirtualService
 backed by multiple DNS addressable endpoints. In such a scenario, the
 application can use the HTTP_PROXY environment variable to transparently
@@ -2272,7 +2298,8 @@ solely based on the destination port. In such scenarios, the port on
 which the service is being accessed must not be shared by any other
 service in the mesh. In other words, the sidecar will behave as a
 simple TCP proxy, forwarding incoming traffic on a specified port to
-the specified destination endpoint IP/host.</p>
+the specified destination endpoint IP/host. Unix domain socket
+addresses are not supported in this field.</p>
 
 </td>
 </tr>
@@ -2280,7 +2307,9 @@ the specified destination endpoint IP/host.</p>
 <td><code>ports</code></td>
 <td><code><a href="#Port">Port[]</a></code></td>
 <td>
-<p>REQUIRED. The ports associated with the external service.</p>
+<p>REQUIRED. The ports associated with the external service. If the
+Endpoints are unix domain socket addresses, there must be exactly one
+port.</p>
 
 </td>
 </tr>
@@ -2332,8 +2361,9 @@ the mesh service.</p>
 <td><code>string</code></td>
 <td>
 <p>REQUIRED: Address associated with the network endpoint without the
-port ( IP or fully qualified domain name without wildcards). Domain
-names can be used if and only if the resolution is set to DNS.</p>
+port.  Domain names can be used if and only if the resolution is set
+to DNS, and must be fully-qualified without wildcards. Use the form
+unix:///absolute/path/to/socket for unix domain socket endpoints.</p>
 
 </td>
 </tr>
@@ -2343,7 +2373,7 @@ names can be used if and only if the resolution is set to DNS.</p>
 <td>
 <p>Set of ports associated with the endpoint. The ports must be
 associated with a port name that was declared as part of the
-service.</p>
+service. Do not use for unix:// addresses.</p>
 
 </td>
 </tr>
@@ -2444,7 +2474,8 @@ during request processing. If no endpoints are specified, the proxy
 will resolve the DNS address specified in the hosts field, if
 wildcards are not used. If endpoints are specified, the DNS
 addresses specified in the endpoints will be resolved to determine
-the destination IP address.</p>
+the destination IP address.  DNS resolution cannot be used with unix
+domain socket endpoints.</p>
 
 </td>
 </tr>

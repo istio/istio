@@ -480,6 +480,7 @@ func (s *dispatchState) beginSpan(ctx context.Context) (opentracing.Span, contex
 func (s *dispatchState) completeSpan(span opentracing.Span, duration time.Duration, err error) {
 	if s.session.trace {
 		logToDispatchSpan(span, s.destination.Template.Name, s.destination.HandlerName, s.destination.AdapterName, err)
+		span.Finish()
 	}
 	s.destination.Counters.Update(duration, err != nil)
 }

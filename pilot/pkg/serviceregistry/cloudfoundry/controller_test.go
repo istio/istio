@@ -34,28 +34,34 @@ func TestController_Caching(t *testing.T) {
 	ticker := make(fakeTicker)
 	client := &fakes.CopilotClient{}
 	client.RoutesReturns(&api.RoutesResponse{
-		Backends: map[string]*api.BackendSet{
-			"process-guid-a.cfapps.internal": {
-				Backends: []*api.Backend{
-					{
-						Address: "10.10.1.5",
-						Port:    61005,
-					},
-					{
-						Address: "10.0.40.2",
-						Port:    61008,
+		Routes: []*api.RouteWithBackends{
+			{
+				Hostname: "process-guid-a.cfapps.internal",
+				Backends: &api.BackendSet{
+					Backends: []*api.Backend{
+						{
+							Address: "10.10.1.5",
+							Port:    61005,
+						},
+						{
+							Address: "10.0.40.2",
+							Port:    61008,
+						},
 					},
 				},
 			},
-			"process-guid-b.cfapps.internal": {
-				Backends: []*api.Backend{
-					{
-						Address: "10.0.50.4",
-						Port:    61009,
-					},
-					{
-						Address: "10.0.60.2",
-						Port:    61001,
+			{
+				Hostname: "process-guid-b.cfapps.internal",
+				Backends: &api.BackendSet{
+					Backends: []*api.Backend{
+						{
+							Address: "10.0.50.4",
+							Port:    61009,
+						},
+						{
+							Address: "10.0.60.2",
+							Port:    61001,
+						},
 					},
 				},
 			},
@@ -105,28 +111,34 @@ func TestController_Caching(t *testing.T) {
 
 	// checking that all handlers are called again when the cache is invalidated
 	client.RoutesReturns(&api.RoutesResponse{
-		Backends: map[string]*api.BackendSet{
-			"other-process-guid-a.cfapps.internal": {
-				Backends: []*api.Backend{
-					{
-						Address: "10.10.2.6",
-						Port:    61006,
-					},
-					{
-						Address: "10.0.41.3",
-						Port:    61009,
+		Routes: []*api.RouteWithBackends{
+			{
+				Hostname: "other-process-guid-a.cfapps.internal",
+				Backends: &api.BackendSet{
+					Backends: []*api.Backend{
+						{
+							Address: "10.10.2.6",
+							Port:    61006,
+						},
+						{
+							Address: "10.0.41.3",
+							Port:    61009,
+						},
 					},
 				},
 			},
-			"process-guid-b.cfapps.internal": {
-				Backends: []*api.Backend{
-					{
-						Address: "10.0.50.4",
-						Port:    61009,
-					},
-					{
-						Address: "10.0.60.2",
-						Port:    61001,
+			{
+				Hostname: "process-guid-b.cfapps.internal",
+				Backends: &api.BackendSet{
+					Backends: []*api.Backend{
+						{
+							Address: "10.0.50.4",
+							Port:    61009,
+						},
+						{
+							Address: "10.0.60.2",
+							Port:    61001,
+						},
 					},
 				},
 			},

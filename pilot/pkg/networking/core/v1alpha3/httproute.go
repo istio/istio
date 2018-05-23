@@ -166,7 +166,7 @@ func buildVirtualHostDomains(service *model.Service, port int, node model.Proxy)
 	domains := []string{service.Hostname.String(), fmt.Sprintf("%s:%d", service.Hostname, port)}
 	domains = append(domains, generateAltVirtualHosts(service.Hostname.String(), port, node.Domain)...)
 
-	if len(service.Address) > 0 {
+	if len(service.Address) > 0 && service.Address != model.UnspecifiedIP {
 		svcAddr := service.GetServiceAddressForProxy(&node)
 		// add a vhost match for the IP (if its non CIDR)
 		cidr := util.ConvertAddressToCidr(svcAddr)
