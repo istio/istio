@@ -20,8 +20,6 @@ import (
 )
 
 func TestHttp(t *testing.T) {
-	// TODO(incfly): need to figure out this one.
-
 	srcPods := []string{"a", "b", "t"}
 	dstPods := []string{"a", "b"}
 	ports := []string{"", "80", "8080"}
