@@ -1,20 +1,13 @@
 ---
 title: Metric
-overview: A template that represents a single runtime metric.
-location: https://istio.io/docs/reference/config/template/metric.html
+description: A template that represents a single runtime metric.
+location: https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric.html
 layout: protoc-gen-docs
+redirect_from: /docs/reference/config/template/metric.html
 number_of_entries: 2
 ---
 <p>The <code>metric</code> template is designed to let you describe runtime metric to dispatch to
 monitoring backends.</p>
-
-<h2 id="Template">Template</h2>
-<section>
-<p>The <code>metric</code> template represents a single piece of data to report.</p>
-
-<p>When writing the configuration, the value for the fields associated with this template can either be a
-literal or an <a href="https://istio.io/docs/reference/config/mixer/expression-language.html">expression</a>. Please note that if the datatype of a field is not istio.mixer.adapter.model.v1beta1.Value,
-then the expression&rsquo;s <a href="https://istio.io/docs/reference/config/mixer/expression-language.html#type-checking">inferred type</a> must match the datatype of the field.</p>
 
 <p>Example config:</p>
 
@@ -33,6 +26,14 @@ spec:
     response_code: response.code | 200
   monitored_resource_type: '&quot;UNSPECIFIED&quot;'
 </code></pre>
+
+<h2 id="Template">Template</h2>
+<section>
+<p>The <code>metric</code> template represents a single piece of data to report.</p>
+
+<p>When writing the configuration, the value for the fields associated with this template can either be a
+literal or an <a href="https://istio.io/docs//reference/config/policy-and-telemetry/expression-language.html">expression</a>. Please note that if the datatype of a field is not istio.mixer.adapter.model.v1beta1.Value,
+then the expression&rsquo;s <a href="https://istio.io/docs//reference/config/policy-and-telemetry/expression-language.html#type-checking">inferred type</a> must match the datatype of the field.</p>
 
 <table class="message-fields">
 <thead>

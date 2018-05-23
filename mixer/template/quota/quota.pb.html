@@ -1,19 +1,12 @@
 ---
 title: Quota
-overview: A template that represents a quota allocation request
-location: https://istio.io/docs/reference/config/template/quota.html
+description: A template that represents a quota allocation request
+location: https://istio.io/docs/reference/config/policy-and-telemetry/templates/quota.html
 layout: protoc-gen-docs
+redirect_from: /docs/reference/config/template/quota.html
 number_of_entries: 2
 ---
 <p>The <code>quota</code> template represents an item for which to check quota.</p>
-
-<h2 id="Template">Template</h2>
-<section>
-<p>The <code>quota</code> template represents a piece of data to check Quota for.</p>
-
-<p>When writing the configuration, the value for the fields associated with this template can either be a
-literal or an <a href="https://istio.io/docs/reference/config/mixer/expression-language.html">expression</a>. Please note that if the datatype of a field is not istio.mixer.adapter.model.v1beta1.Value,
-then the expression&rsquo;s <a href="https://istio.io/docs/reference/config/mixer/expression-language.html#type-checking">inferred type</a> must match the datatype of the field.</p>
 
 <p>Example config:</p>
 
@@ -29,6 +22,14 @@ spec:
     destination: destination.labels[&quot;app&quot;] | destination.service | &quot;unknown&quot;
     destinationVersion: destination.labels[&quot;version&quot;] | &quot;unknown&quot;
 </code></pre>
+
+<h2 id="Template">Template</h2>
+<section>
+<p>The <code>quota</code> template represents a piece of data to check Quota for.</p>
+
+<p>When writing the configuration, the value for the fields associated with this template can either be a
+literal or an <a href="https://istio.io/docs//reference/config/policy-and-telemetry/expression-language.html">expression</a>. Please note that if the datatype of a field is not istio.mixer.adapter.model.v1beta1.Value,
+then the expression&rsquo;s <a href="https://istio.io/docs//reference/config/policy-and-telemetry/expression-language.html#type-checking">inferred type</a> must match the datatype of the field.</p>
 
 <table class="message-fields">
 <thead>

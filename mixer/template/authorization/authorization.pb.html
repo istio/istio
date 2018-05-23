@@ -1,12 +1,35 @@
 ---
 title: Authorization
-overview: A template used to represent an access control query.
-location: https://istio.io/docs/reference/config/template/authorization.html
+description: A template used to represent an access control query.
+location: https://istio.io/docs/reference/config/policy-and-telemetry/templates/authorization.html
 layout: protoc-gen-docs
+redirect_from: /docs/reference/config/template/authorization.html
 number_of_entries: 4
 ---
 <p>The <code>authorization</code> template defines parameters for performing policy
 enforcement within Istio. It is primarily concerned with enabling Mixer</p>
+
+<p>Example config:</p>
+
+<pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha2&quot;
+kind: authorization
+metadata:
+  name: authinfo
+  namespace: istio-system
+spec:
+ subject:
+   user: source.user | request.auth.token[user] | &quot;&quot;
+   groups: request.auth.token[groups]
+   properties:
+    iss: request.auth.token[&quot;iss&quot;]
+ action:
+   namespace: destination.namespace | &quot;default&quot;
+   service: destination.service | &quot;&quot;
+   path: request.path | &quot;/&quot;
+   method: request.method | &quot;post&quot;
+   properties:
+     version: destination.labels[version] | &quot;&quot;
+</code></pre>
 
 <h2 id="Action">Action</h2>
 <section>
@@ -117,28 +140,6 @@ In this template, the &ldquo;who&rdquo; is defined in a Subject message. The &ld
 defined in an Action message. During a Mixer Check call, these values
 will be populated based on configuration from request attributes and
 passed to individual authorization adapters to adjudicate.</p>
-
-<p>Example config:</p>
-
-<pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha2&quot;
-kind: authorization
-metadata:
-  name: authinfo
-  namespace: istio-system
-spec:
- subject:
-   user: source.user | request.auth.token[user] | &quot;&quot;
-   groups: request.auth.token[groups]
-   properties:
-    iss: request.auth.token[&quot;iss&quot;]
- action:
-   namespace: destination.namespace | &quot;default&quot;
-   service: destination.service | &quot;&quot;
-   path: request.path | &quot;/&quot;
-   method: request.method | &quot;post&quot;
-   properties:
-     version: destination.labels[version] | &quot;&quot;
-</code></pre>
 
 <table class="message-fields">
 <thead>
