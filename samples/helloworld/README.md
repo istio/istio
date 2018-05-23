@@ -30,7 +30,7 @@ Follow the [instructions](https://preliminary.istio.io/docs/tasks/traffic-manage
 
 ```bash
 export GATEWAY_URL=$INGRESS_HOST:$INGRESS_PORT
-curl http://$HELLOWORLD_URL/hello
+curl http://$GATEWAY_URL/hello
 ```
 
 ## Autoscale the services
