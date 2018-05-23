@@ -11,7 +11,7 @@ repo_dir = .
 docker_gen = /usr/bin/protoc -I/protobuf -I$(repo_dir)
 out_path = $(OUT_PATH)
 else
-gen_img := gcr.io/istio-testing/protoc:2018-03-03
+gen_img := gcr.io/istio-testing/protoc:2018-05-17
 pwd := $(shell pwd)
 mount_dir := /src
 repo_dir := istio.io/api
@@ -70,7 +70,7 @@ gogoslick_plugin := $(gogoslick_plugin_prefix)$(gogo_mapping):$(out_path)
 # protoc_gen_docs
 ########################
 
-protoc_gen_docs_plugin := --docs_out=warnings=true,mode=jekyll_html:$(repo_dir)/
+protoc_gen_docs_plugin := --docs_out=warnings=true,mode=html_fragment_with_front_matter:$(repo_dir)/
 
 #####################
 # Generation Rules
@@ -112,7 +112,7 @@ generate-broker-python: $(broker_v1_pb_pythons)
 
 $(broker_v1_pb_pythons): $(broker_v1_protos)
 	## Generate python/istio_api/broker/dev/*_pb2.py
-	@$(docker_gen) $(protoc_gen_python_plugin) $(broker_v1_path) $^
+	@$(docker_gen) $(protoc_gen_python_plugin) $^
 
 clean-broker:
 	rm -f $(broker_v1_pb_gos)
@@ -138,7 +138,7 @@ generate-mesh-python: $(mesh_pb_pythons)
 
 $(mesh_pb_pythons): $(mesh_protos)
 	## Generate python/istio_api/mesh/v1alpha1/*_pb2.py
-	@$(docker_gen) $(protoc_gen_python_plugin) $(mesh_path) $^
+	@$(docker_gen) $(protoc_gen_python_plugin) $^
 
 clean-mesh:
 	rm -f $(mesh_pb_gos)
@@ -211,19 +211,19 @@ generate-mixer-python: \
 
 $(mixer_v1_pb_pythons): $(mixer_v1_protos)
 	## Generate python/istio_api/mixer/v1/*_pb2.py
-	@$(docker_gen) $(protoc_gen_python_plugin) $(mixer_v1_path) $^
+	@$(docker_gen) $(protoc_gen_python_plugin) $^
 
 $(mixer_config_client_pb_pythons): $(mixer_config_client_protos)
 	## Generate python/istio_api/mixer/v1/config/client/*_pb2.py
-	@$(docker_gen) $(protoc_gen_python_plugin) $(mixer_config_client_path) $^
+	@$(docker_gen) $(protoc_gen_python_plugin) $^
 
 $(mixer_adapter_model_v1beta1_pb_pythons): $(mixer_adapter_model_v1beta1_protos)
 	## Generate python/istio_api/mixer/adapter/model/v1beta1/*_pb2.py
-	@$(docker_gen) $(protoc_gen_python_plugin) $(mixer_adapter_model_v1beta1_path) $^
+	@$(docker_gen) $(protoc_gen_python_plugin) $^
 
 $(policy_v1beta1_pb_pythons): $(policy_v1beta1_protos)
 	## Generate python/istio_api/policy/v1beta1/*_pb2.py
-	@$(docker_gen) $(protoc_gen_python_plugin) $(policy_v1beta1_path) $^
+	@$(docker_gen) $(protoc_gen_python_plugin) $^
 	## Generate python/istio_api/policy/v1beta1/cfg_pb2.py
 	@$(docker_gen) $(protoc_gen_python_plugin) policy/v1beta1/cfg.proto
 
@@ -261,11 +261,11 @@ generate-routing-python: $(routing_v1alpha1_pb_pythons) $(routing_v1alpha3_pb_py
 
 $(routing_v1alpha1_pb_pythons): $(routing_v1alpha1_protos)
 	## Generate python/istio_api/routing/v1alpha1/*_pb2.py
-	@$(docker_gen) $(protoc_gen_python_plugin) $(routing_v1alpha1_path) $^
+	@$(docker_gen) $(protoc_gen_python_plugin) $^
 
 $(routing_v1alpha3_pb_pythons): $(routing_v1alpha3_protos)
 	## Generate python/istio_api/networking/v1alpha3/*_pb2.py
-	@$(docker_gen) $(protoc_gen_python_plugin) $(routing_v1alpha3_path) $^
+	@$(docker_gen) $(protoc_gen_python_plugin) $^
 
 clean-routing:
 	rm -f $(routing_v1alpha1_pb_gos) $(routing_v1alpha3_pb_gos)
@@ -291,7 +291,7 @@ generate-rbac-python: $(rbac_v1alpha1_protos)
 
 $(rbac_v1alpha1_pb_pythons): $(rbac_v1alpha1_protos)
 	## Generate python/istio_api/rbac/v1alpha1/*_pb2.py
-	@$(docker_gen) $(protoc_gen_python_plugin) $(rbac_v1alpha1_path) $^
+	@$(docker_gen) $(protoc_gen_python_plugin) $^
 
 clean-rbac:
 	rm -f $(rbac_v1alpha1_pb_gos)
@@ -318,7 +318,7 @@ generate-authn-python: $(authn_v1alpha1_pb_pythons)
 
 $(authn_v1alpha1_pb_pythons): $(authn_v1alpha1_protos)
 	## Generate python/istio_api/authentication/v1alpha1/*_pb2.py
-	@$(docker_gen) $(protoc_gen_python_plugin) $(authn_v1alpha1_path) $^
+	@$(docker_gen) $(protoc_gen_python_plugin) $^
 
 clean-authn:
 	rm -f $(authn_v1alpha1_pb_gos)

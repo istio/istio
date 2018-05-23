@@ -3,13 +3,7 @@ title: traceSpan
 layout: protoc-gen-docs
 number_of_entries: 3
 ---
-<h2 id="Template">Template</h2>
-<section>
 <p>TraceSpan represents an individual span within a distributed trace.</p>
-
-<p>When writing the configuration, the value for the fields associated with this template can either be a
-literal or an <a href="https://istio.io/docs/reference/config/mixer/expression-language.html">expression</a>. Please note that if the datatype of a field is not istio.mixer.adapter.model.v1beta1.Value,
-then the expression&rsquo;s <a href="https://istio.io/docs/reference/config/mixer/expression-language.html#type-checking">inferred type</a> must match the datatype of the field.</p>
 
 <p>Example config:</p>
 
@@ -39,6 +33,14 @@ spec:
 
 <p>See also: <a href="https://istio.io/docs/tasks/telemetry/distributed-tracing.html">Distributed Tracing</a>
 for information on tracing within Istio.</p>
+
+<h2 id="Template">Template</h2>
+<section>
+<p>TraceSpan represents an individual span within a distributed trace.</p>
+
+<p>When writing the configuration, the value for the fields associated with this template can either be a
+literal or an <a href="https://istio.io/docs//reference/config/policy-and-telemetry/expression-language.html">expression</a>. Please note that if the datatype of a field is not istio.mixer.adapter.model.v1beta1.Value,
+then the expression&rsquo;s <a href="https://istio.io/docs//reference/config/policy-and-telemetry/expression-language.html#type-checking">inferred type</a> must match the datatype of the field.</p>
 
 <table class="message-fields">
 <thead>

@@ -7,6 +7,9 @@
 	The `stackdriver` adapter enables Istio to deliver log and metric data to the
 	[Stackdriver](https://cloud.google.com/stackdriver/) logging and monitoring backend.
 
+	This adapter supports the [metric template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric.html),
+	and the [logentry template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/logentry.html).
+
 	It is generated from these files:
 		mixer/adapter/stackdriver/config/config.proto
 
@@ -24,12 +27,12 @@ import _ "github.com/gogo/protobuf/types"
 
 import time "time"
 
-import encoding_binary "encoding/binary"
-import github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
+import binary "encoding/binary"
+import types "github.com/gogo/protobuf/types"
 
 import strings "strings"
 import reflect "reflect"
-import github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
+import sortkeys "github.com/gogo/protobuf/sortkeys"
 
 import io "io"
 
@@ -584,8 +587,8 @@ func (m *Params) MarshalTo(dAtA []byte) (int, error) {
 	}
 	dAtA[i] = 0x1a
 	i++
-	i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.PushInterval)))
-	n1, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.PushInterval, dAtA[i:])
+	i = encodeVarintConfig(dAtA, i, uint64(types.SizeOfStdDuration(m.PushInterval)))
+	n1, err := types.StdDurationMarshalTo(m.PushInterval, dAtA[i:])
 	if err != nil {
 		return 0, err
 	}
@@ -818,13 +821,13 @@ func (m *Params_MetricInfo_BucketsDefinition_Linear) MarshalTo(dAtA []byte) (int
 	if m.Width != 0 {
 		dAtA[i] = 0x11
 		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Width))))
+		binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Width))))
 		i += 8
 	}
 	if m.Offset != 0 {
 		dAtA[i] = 0x19
 		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Offset))))
+		binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Offset))))
 		i += 8
 	}
 	return i, nil
@@ -853,13 +856,13 @@ func (m *Params_MetricInfo_BucketsDefinition_Exponential) MarshalTo(dAtA []byte)
 	if m.GrowthFactor != 0 {
 		dAtA[i] = 0x11
 		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.GrowthFactor))))
+		binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.GrowthFactor))))
 		i += 8
 	}
 	if m.Scale != 0 {
 		dAtA[i] = 0x19
 		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Scale))))
+		binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Scale))))
 		i += 8
 	}
 	return i, nil
@@ -886,7 +889,7 @@ func (m *Params_MetricInfo_BucketsDefinition_Explicit) MarshalTo(dAtA []byte) (i
 		i = encodeVarintConfig(dAtA, i, uint64(len(m.Bounds)*8))
 		for _, num := range m.Bounds {
 			f10 := math.Float64bits(float64(num))
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(f10))
+			binary.LittleEndian.PutUint64(dAtA[i:], uint64(f10))
 			i += 8
 		}
 	}
@@ -1086,7 +1089,7 @@ func (m *Params) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovConfig(uint64(l))
 	}
-	l = github_com_gogo_protobuf_types.SizeOfStdDuration(m.PushInterval)
+	l = types.SizeOfStdDuration(m.PushInterval)
 	n += 1 + l + sovConfig(uint64(l))
 	if m.Creds != nil {
 		n += m.Creds.Size()
@@ -1344,7 +1347,7 @@ func (this *Params) String() string {
 	for k, _ := range this.MetricInfo {
 		keysForMetricInfo = append(keysForMetricInfo, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForMetricInfo)
+	sortkeys.Strings(keysForMetricInfo)
 	mapStringForMetricInfo := "map[string]*Params_MetricInfo{"
 	for _, k := range keysForMetricInfo {
 		mapStringForMetricInfo += fmt.Sprintf("%v: %v,", k, this.MetricInfo[k])
@@ -1354,7 +1357,7 @@ func (this *Params) String() string {
 	for k, _ := range this.LogInfo {
 		keysForLogInfo = append(keysForLogInfo, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForLogInfo)
+	sortkeys.Strings(keysForLogInfo)
 	mapStringForLogInfo := "map[string]*Params_LogInfo{"
 	for _, k := range keysForLogInfo {
 		mapStringForLogInfo += fmt.Sprintf("%v: %v,", k, this.LogInfo[k])
@@ -1653,7 +1656,7 @@ func (m *Params) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(&m.PushInterval, dAtA[iNdEx:postIndex]); err != nil {
+			if err := types.StdDurationUnmarshal(&m.PushInterval, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -2355,7 +2358,7 @@ func (m *Params_MetricInfo_BucketsDefinition_Linear) Unmarshal(dAtA []byte) erro
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
 			m.Width = float64(math.Float64frombits(v))
 		case 3:
@@ -2366,7 +2369,7 @@ func (m *Params_MetricInfo_BucketsDefinition_Linear) Unmarshal(dAtA []byte) erro
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
 			m.Offset = float64(math.Float64frombits(v))
 		default:
@@ -2446,7 +2449,7 @@ func (m *Params_MetricInfo_BucketsDefinition_Exponential) Unmarshal(dAtA []byte)
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
 			m.GrowthFactor = float64(math.Float64frombits(v))
 		case 3:
@@ -2457,7 +2460,7 @@ func (m *Params_MetricInfo_BucketsDefinition_Exponential) Unmarshal(dAtA []byte)
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
 			m.Scale = float64(math.Float64frombits(v))
 		default:
@@ -2516,7 +2519,7 @@ func (m *Params_MetricInfo_BucketsDefinition_Explicit) Unmarshal(dAtA []byte) er
 				if (iNdEx + 8) > l {
 					return io.ErrUnexpectedEOF
 				}
-				v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+				v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 				iNdEx += 8
 				v2 := float64(math.Float64frombits(v))
 				m.Bounds = append(m.Bounds, v2)
@@ -2548,7 +2551,7 @@ func (m *Params_MetricInfo_BucketsDefinition_Explicit) Unmarshal(dAtA []byte) er
 					if (iNdEx + 8) > l {
 						return io.ErrUnexpectedEOF
 					}
-					v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+					v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 					iNdEx += 8
 					v2 := float64(math.Float64frombits(v))
 					m.Bounds = append(m.Bounds, v2)

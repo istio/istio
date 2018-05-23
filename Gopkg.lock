@@ -379,8 +379,8 @@
     "sortkeys",
     "types"
   ]
-  revision = "342cbe0a04158f6dcb03ca0079991a51a4248c02"
-  version = "v0.5"
+  revision = "1adfc126b41513cc696b209667c8656ea7aac67c"
+  version = "v1.0.0"
 
 [[projects]]
   branch = "master"
@@ -643,7 +643,7 @@
   branch = "master"
   name = "github.com/istio/tools"
   packages = ["protoc-gen-docs"]
-  revision = "d107f7deed6a878efd3adc307bc6f197f78b20e6"
+  revision = "9c791034d4da535b3e19df1f2421a98d484825ad"
 
 [[projects]]
   name = "github.com/jmespath/go-jmespath"
@@ -1286,7 +1286,7 @@
   version = "v2.2.1"
 
 [[projects]]
-  branch = "release-0.8"
+  branch = "master"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
@@ -1301,7 +1301,7 @@
     "rbac/v1alpha1",
     "routing/v1alpha1"
   ]
-  revision = "7d7710a0533b543527897badc342c50eb169c83e"
+  revision = "19931a466ebb486cd3d0af42704ff7665a4c3c7f"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1599,6 +1599,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "5e03fa4c1446924473cf821bf8ce4f9289079b988d735b58bb5da233f87760fb"
+  inputs-digest = "0f782b2e9cfe3436c9b2d9fafe130823f30e876330a802b86d117aed074311e5"
   solver-name = "gps-cdcl"
   solver-version = 1

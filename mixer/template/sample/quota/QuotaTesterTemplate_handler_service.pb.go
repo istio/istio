@@ -31,16 +31,14 @@ import istio_mixer_adapter_model_v1beta11 "istio.io/api/mixer/adapter/model/v1be
 import istio_policy_v1beta1 "istio.io/api/policy/v1beta1"
 import istio_mixer_adapter_model_v1beta12 "istio.io/api/mixer/adapter/model/v1beta1"
 
-import (
-	context "golang.org/x/net/context"
-	grpc "google.golang.org/grpc"
-)
+import context "golang.org/x/net/context"
+import grpc "google.golang.org/grpc"
 
-import encoding_binary "encoding/binary"
+import binary "encoding/binary"
 
 import strings "strings"
 import reflect "reflect"
-import github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
+import sortkeys "github.com/gogo/protobuf/sortkeys"
 
 import io "io"
 
@@ -511,7 +509,7 @@ func (m *Res1Msg) MarshalTo(dAtA []byte) (int, error) {
 	if m.DoublePrimitive != 0 {
 		dAtA[i] = 0x29
 		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.DoublePrimitive))))
+		binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.DoublePrimitive))))
 		i += 8
 	}
 	if len(m.StringPrimitive) > 0 {
@@ -1438,7 +1436,7 @@ func (this *InstanceMsg) String() string {
 	for k, _ := range this.Dimensions {
 		keysForDimensions = append(keysForDimensions, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForDimensions)
+	sortkeys.Strings(keysForDimensions)
 	mapStringForDimensions := "map[string]*istio_mixer_adapter_model_v1beta12.Value{"
 	for _, k := range keysForDimensions {
 		mapStringForDimensions += fmt.Sprintf("%v: %v,", k, this.Dimensions[k])
@@ -1448,7 +1446,7 @@ func (this *InstanceMsg) String() string {
 	for k, _ := range this.BoolMap {
 		keysForBoolMap = append(keysForBoolMap, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForBoolMap)
+	sortkeys.Strings(keysForBoolMap)
 	mapStringForBoolMap := "map[string]bool{"
 	for _, k := range keysForBoolMap {
 		mapStringForBoolMap += fmt.Sprintf("%v: %v,", k, this.BoolMap[k])
@@ -1471,7 +1469,7 @@ func (this *Res1Msg) String() string {
 	for k, _ := range this.Dimensions {
 		keysForDimensions = append(keysForDimensions, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForDimensions)
+	sortkeys.Strings(keysForDimensions)
 	mapStringForDimensions := "map[string]*istio_mixer_adapter_model_v1beta12.Value{"
 	for _, k := range keysForDimensions {
 		mapStringForDimensions += fmt.Sprintf("%v: %v,", k, this.Dimensions[k])
@@ -1481,7 +1479,7 @@ func (this *Res1Msg) String() string {
 	for k, _ := range this.Int64Map {
 		keysForInt64Map = append(keysForInt64Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForInt64Map)
+	sortkeys.Strings(keysForInt64Map)
 	mapStringForInt64Map := "map[string]int64{"
 	for _, k := range keysForInt64Map {
 		mapStringForInt64Map += fmt.Sprintf("%v: %v,", k, this.Int64Map[k])
@@ -1491,7 +1489,7 @@ func (this *Res1Msg) String() string {
 	for k, _ := range this.Res2Map {
 		keysForRes2Map = append(keysForRes2Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForRes2Map)
+	sortkeys.Strings(keysForRes2Map)
 	mapStringForRes2Map := "map[string]*Res2Msg{"
 	for _, k := range keysForRes2Map {
 		mapStringForRes2Map += fmt.Sprintf("%v: %v,", k, this.Res2Map[k])
@@ -1521,7 +1519,7 @@ func (this *Res2Msg) String() string {
 	for k, _ := range this.Dimensions {
 		keysForDimensions = append(keysForDimensions, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForDimensions)
+	sortkeys.Strings(keysForDimensions)
 	mapStringForDimensions := "map[string]*istio_mixer_adapter_model_v1beta12.Value{"
 	for _, k := range keysForDimensions {
 		mapStringForDimensions += fmt.Sprintf("%v: %v,", k, this.Dimensions[k])
@@ -1543,7 +1541,7 @@ func (this *Type) String() string {
 	for k, _ := range this.Dimensions {
 		keysForDimensions = append(keysForDimensions, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForDimensions)
+	sortkeys.Strings(keysForDimensions)
 	mapStringForDimensions := "map[string]istio_policy_v1beta1.ValueType{"
 	for _, k := range keysForDimensions {
 		mapStringForDimensions += fmt.Sprintf("%v: %v,", k, this.Dimensions[k])
@@ -1564,7 +1562,7 @@ func (this *Res1Type) String() string {
 	for k, _ := range this.Dimensions {
 		keysForDimensions = append(keysForDimensions, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForDimensions)
+	sortkeys.Strings(keysForDimensions)
 	mapStringForDimensions := "map[string]istio_policy_v1beta1.ValueType{"
 	for _, k := range keysForDimensions {
 		mapStringForDimensions += fmt.Sprintf("%v: %v,", k, this.Dimensions[k])
@@ -1574,7 +1572,7 @@ func (this *Res1Type) String() string {
 	for k, _ := range this.Res2Map {
 		keysForRes2Map = append(keysForRes2Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForRes2Map)
+	sortkeys.Strings(keysForRes2Map)
 	mapStringForRes2Map := "map[string]*Res2Type{"
 	for _, k := range keysForRes2Map {
 		mapStringForRes2Map += fmt.Sprintf("%v: %v,", k, this.Res2Map[k])
@@ -1597,7 +1595,7 @@ func (this *Res2Type) String() string {
 	for k, _ := range this.Dimensions {
 		keysForDimensions = append(keysForDimensions, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForDimensions)
+	sortkeys.Strings(keysForDimensions)
 	mapStringForDimensions := "map[string]istio_policy_v1beta1.ValueType{"
 	for _, k := range keysForDimensions {
 		mapStringForDimensions += fmt.Sprintf("%v: %v,", k, this.Dimensions[k])
@@ -1618,7 +1616,7 @@ func (this *InstanceParam) String() string {
 	for k, _ := range this.Dimensions {
 		keysForDimensions = append(keysForDimensions, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForDimensions)
+	sortkeys.Strings(keysForDimensions)
 	mapStringForDimensions := "map[string]string{"
 	for _, k := range keysForDimensions {
 		mapStringForDimensions += fmt.Sprintf("%v: %v,", k, this.Dimensions[k])
@@ -1628,7 +1626,7 @@ func (this *InstanceParam) String() string {
 	for k, _ := range this.BoolMap {
 		keysForBoolMap = append(keysForBoolMap, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForBoolMap)
+	sortkeys.Strings(keysForBoolMap)
 	mapStringForBoolMap := "map[string]string{"
 	for _, k := range keysForBoolMap {
 		mapStringForBoolMap += fmt.Sprintf("%v: %v,", k, this.BoolMap[k])
@@ -1650,7 +1648,7 @@ func (this *Res1InstanceParam) String() string {
 	for k, _ := range this.Dimensions {
 		keysForDimensions = append(keysForDimensions, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForDimensions)
+	sortkeys.Strings(keysForDimensions)
 	mapStringForDimensions := "map[string]string{"
 	for _, k := range keysForDimensions {
 		mapStringForDimensions += fmt.Sprintf("%v: %v,", k, this.Dimensions[k])
@@ -1660,7 +1658,7 @@ func (this *Res1InstanceParam) String() string {
 	for k, _ := range this.Int64Map {
 		keysForInt64Map = append(keysForInt64Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForInt64Map)
+	sortkeys.Strings(keysForInt64Map)
 	mapStringForInt64Map := "map[string]string{"
 	for _, k := range keysForInt64Map {
 		mapStringForInt64Map += fmt.Sprintf("%v: %v,", k, this.Int64Map[k])
@@ -1670,7 +1668,7 @@ func (this *Res1InstanceParam) String() string {
 	for k, _ := range this.Res2Map {
 		keysForRes2Map = append(keysForRes2Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForRes2Map)
+	sortkeys.Strings(keysForRes2Map)
 	mapStringForRes2Map := "map[string]*Res2InstanceParam{"
 	for _, k := range keysForRes2Map {
 		mapStringForRes2Map += fmt.Sprintf("%v: %v,", k, this.Res2Map[k])
@@ -1700,7 +1698,7 @@ func (this *Res2InstanceParam) String() string {
 	for k, _ := range this.Dimensions {
 		keysForDimensions = append(keysForDimensions, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForDimensions)
+	sortkeys.Strings(keysForDimensions)
 	mapStringForDimensions := "map[string]string{"
 	for _, k := range keysForDimensions {
 		mapStringForDimensions += fmt.Sprintf("%v: %v,", k, this.Dimensions[k])
@@ -2476,7 +2474,7 @@ func (m *Res1Msg) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
 			m.DoublePrimitive = float64(math.Float64frombits(v))
 		case 6:
