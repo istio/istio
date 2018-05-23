@@ -94,10 +94,6 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environmen
 			upstreamServiceAccounts := env.ServiceAccounts.GetIstioServiceAccounts(service.Hostname, []string{port.Name})
 			defaultCluster := buildDefaultCluster(env, clusterName, convertResolution(service.Resolution), hosts)
 
-			// set TLSSettings if configmap global settings specifies MUTUAL_TLS, and we skip external destination.
-			if env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS && !service.MeshExternal {
-				applyUpstreamTLSSettings(defaultCluster, buildIstioMutualTLS(upstreamServiceAccounts))
-			}
 
 			updateEds(env, defaultCluster, service.Hostname)
 			setUpstreamProtocol(defaultCluster, port)
@@ -120,6 +116,11 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environmen
 						p.OnOutboundCluster(env, proxy, service, port, subsetCluster)
 					}
 					clusters = append(clusters, subsetCluster)
+				}
+			} else {
+				// set TLSSettings if configmap global settings specifies MUTUAL_TLS, and we skip external destination.
+				if env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS && !service.MeshExternal {
+					applyUpstreamTLSSettings(defaultCluster, buildIstioMutualTLS(upstreamServiceAccounts))
 				}
 			}
 
