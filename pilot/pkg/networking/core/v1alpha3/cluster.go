@@ -428,6 +428,10 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 			},
 			Sni: tls.Sni,
 		}
+		if cluster.Http2ProtocolOptions != nil {
+			// This is HTTP/2 cluster, advertise it with ALPN.
+			cluster.TlsContext.CommonTlsContext.AlpnProtocols = ALPNH2Only
+		}
 	case networking.TLSSettings_MUTUAL, networking.TLSSettings_ISTIO_MUTUAL:
 		cluster.TlsContext = &auth.UpstreamTlsContext{
 			CommonTlsContext: &auth.CommonTlsContext{
