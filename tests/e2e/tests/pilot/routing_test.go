@@ -174,7 +174,7 @@ func TestRoutes(t *testing.T) {
 	for _, version := range configVersions() {
 		t.Run(version, func(t *testing.T) {
 			if version == "v1alpha3" {
-				destRule := "testdata/v1alpha3/destination-rule-c.yaml"
+				destRule := fillTemplate(tc, "testdata/v1alpha3/destination-rule-c.yaml")
 				cfgs := &deployableConfig{
 					Namespace:  tc.Kube.Namespace,
 					YamlFiles:  []string{destRule},
