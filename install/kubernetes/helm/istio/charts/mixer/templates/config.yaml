@@ -465,7 +465,7 @@ metadata:
   name: istio-policy
   namespace: {{ .Release.Namespace }}
 spec:
-  name: istio-policy.{{ .Release.Namespace }}.svc.cluster.local
+  host: istio-policy.{{ .Release.Namespace }}.svc.cluster.local
   trafficPolicy:
     connectionPool:
       http:
@@ -478,7 +478,7 @@ metadata:
   name: istio-telemetry
   namespace: {{ .Release.Namespace }}
 spec:
-  name: istio-telemetry.{{ .Release.Namespace }}.svc.cluster.local
+  host: istio-telemetry.{{ .Release.Namespace }}.svc.cluster.local
   trafficPolicy:
     connectionPool:
       http:
