@@ -105,12 +105,12 @@ func ingressId(ip string) string {
 }
 
 func compareResponse(body []byte, file string, t *testing.T) {
-	err := ioutil.WriteFile(file, body, 0644)
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
-
 	// TODO golden files to be added in separate PR
+	//err := ioutil.WriteFile(file, body, 0644)
+	//if err != nil {
+	//	t.Fatalf(err.Error())
+	//}
+	//
 	//pilotutil.CompareYAML(file, t)
 }
 

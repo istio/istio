@@ -35,7 +35,7 @@ func TestCDS(t *testing.T) {
 		}
 
 		strResponse, _ := model.ToJSONWithIndent(res, " ")
-		_ = ioutil.WriteFile(util.IstioOut + "/cdsv2_sidecar.json", []byte(strResponse), 0644)
+		_ = ioutil.WriteFile(util.IstioOut+"/cdsv2_sidecar.json", []byte(strResponse), 0644)
 
 		t.Log("CDS response", strResponse)
 		if len(res.Resources) == 0 {
