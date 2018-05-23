@@ -85,11 +85,11 @@ func (configgen *ConfigGeneratorImpl) BuildSidecarOutboundHTTPRouteConfig(env mo
 		} else {
 			if svcPort, exists := svc.Ports.GetByPort(port); exists {
 				nameToServiceMap[svc.Hostname] = &model.Service{
-					Hostname:              svc.Hostname,
-					Address:               svc.Address,
-					MulticlusterAddresses: svc.MulticlusterAddresses,
-					MeshExternal:          svc.MeshExternal,
-					Ports:                 []*model.Port{svcPort},
+					Hostname:     svc.Hostname,
+					Address:      svc.Address,
+					ClusterVIPs:  svc.ClusterVIPs,
+					MeshExternal: svc.MeshExternal,
+					Ports:        []*model.Port{svcPort},
 				}
 			}
 		}
