@@ -80,8 +80,11 @@ func TestAuthNJwt(t *testing.T) {
 	// Policy enforces JWT authn for service 'c' and 'd:80'.
 	cfgs := &deployableConfig{
 		Namespace:  tc.Kube.Namespace,
-		YamlFiles:  []string{"testdata/authn/v1alpha1/authn-policy-jwt.yaml.tmpl", "testdata/authn/destination-rule-authjwt.yaml.tmpl"},
+		YamlFiles:  []string{"testdata/authn/v1alpha1/authn-policy-jwt.yaml.tmpl"},
 		kubeconfig: tc.Kube.KubeConfig,
+	}
+	if tc.Kube.AuthEnabled {
+		cfgs.YamlFiles = append(cfgs.YamlFiles, "testdata/authn/destination-rule-authjwt.yaml.tmpl")
 	}
 	if err := cfgs.Setup(); err != nil {
 		t.Fatal(err)
