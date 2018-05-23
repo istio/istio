@@ -21,6 +21,36 @@ global:
         cpu: 100m
         memory: 128Mi
 
+    # istio-sidecar-injector configmap stores configuration for sidecar injection.
+    # This config map is used by istioctl kube-inject and the injector webhook.
+    enableCoreDump: false
+    serviceAccountName: default # used only if RBAC is not enabled
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+    # limits:
+    #  cpu: 100m
+    #  memory: 128Mi
+
+    # istio egress capture whitelist
+    # https://istio.io/docs/tasks/traffic-management/egress.html#calling-external-services-directly
+    # example: includeIPRanges: "172.30.0.0/16,172.20.0.0/16"
+    # would only capture egress traffic on those two IP Ranges, all other outbound traffic would
+    # be allowed by the sidecar
+    includeIPRanges: "*"
+    excludeIPRanges: ""
+
+    # istio ingress capture whitelist
+    # examples:
+    #     Redirect no inbound traffic to Envoy:    --includeInboundPorts=""
+    #     Redirect all inbound traffic to Envoy:   --includeInboundPorts="*"
+    #     Redirect only selected ports:            --includeInboundPorts="80,8080"
+    includeInboundPorts: "*"
+    excludeInboundPorts: ""
+    policy: enabled
+
   proxy_init:
     image: proxy_init
 
@@ -187,38 +217,12 @@ egressgateway:
   #   secretName: someName
 
 #
-# sidecar-injector configuration
+# sidecar-injector webhook configuration
 #
-sidecar-injector:
-  enabled: false
-  enableCoreDump: false
-  serviceAccountName: default # used only if RBAC is not enabled
-  replicaCount: 1
+sidecarInjectorWebhook:
+  enabled: true
   image: sidecar_injector
-  resources: {}
-  # limits:
-  #  cpu: 100m
-  #  memory: 128Mi
-  # requests:
-  #  cpu: 100m
-  #  memory: 128Mi
 
-  # istio egress capture whitelist
-  # https://istio.io/docs/tasks/traffic-management/egress.html#calling-external-services-directly
-  # example: includeIPRanges: "172.30.0.0/16,172.20.0.0/16"
-  # would only capture egress traffic on those two IP Ranges, all other outbound traffic would
-  # be allowed by the sidecar
-  includeIPRanges: "*"
-  excludeIPRanges: ""
-
-  # istio ingress capture whitelist
-  # examples:
-  #     Redirect no inbound traffic to Envoy:    --includeInboundPorts=""
-  #     Redirect all inbound traffic to Envoy:   --includeInboundPorts="*"
-  #     Redirect only selected ports:            --includeInboundPorts="80,8080"
-  includeInboundPorts: "*"
-  excludeInboundPorts: ""
-  policy: enabled
 
 #
 # galley configuration
@@ -288,6 +292,7 @@ security:
   # requests:
   #  cpu: 100m
   #  memory: 128Mi
+  cleanUpOldCA: true
 
 #
 # addons configuration

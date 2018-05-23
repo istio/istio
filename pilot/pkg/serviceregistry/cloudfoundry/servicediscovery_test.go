@@ -29,28 +29,43 @@ import (
 const defaultServicePort = 8080
 
 var routesResponse = &api.RoutesResponse{
-	Backends: map[string]*api.BackendSet{
-		"process-guid-a.cfapps.io": {
-			Backends: []*api.Backend{
-				{
-					Address: "10.10.1.5",
-					Port:    61005,
-				},
-				{
-					Address: "10.0.40.2",
-					Port:    61008,
+	Routes: []*api.RouteWithBackends{
+		{
+			Hostname: "process-guid-a.cfapps.io",
+			Path:     "/other/path",
+			Backends: &api.BackendSet{
+				Backends: []*api.Backend{
+					{
+						Address: "10.10.1.5",
+						Port:    61005,
+					},
 				},
 			},
 		},
-		"process-guid-b.cfapps.io": {
-			Backends: []*api.Backend{
-				{
-					Address: "10.0.50.4",
-					Port:    61009,
+		{
+			Hostname: "process-guid-b.cfapps.io",
+			Backends: &api.BackendSet{
+				Backends: []*api.Backend{
+					{
+						Address: "10.0.50.4",
+						Port:    61009,
+					},
+					{
+						Address: "10.0.60.2",
+						Port:    61001,
+					},
 				},
-				{
-					Address: "10.0.60.2",
-					Port:    61001,
+			},
+		},
+		{
+			Hostname: "process-guid-a.cfapps.io",
+			Path:     "/some/path",
+			Backends: &api.BackendSet{
+				Backends: []*api.Backend{
+					{
+						Address: "10.0.40.2",
+						Port:    61008,
+					},
 				},
 			},
 		},
@@ -107,8 +122,12 @@ func TestServiceDiscovery_Services(t *testing.T) {
 	g.Expect(err).To(gomega.BeNil())
 
 	// it returns an Istio service for each Diego process
-	g.Expect(serviceModels).To(gomega.HaveLen(3))
+	g.Expect(serviceModels).To(gomega.HaveLen(4))
 	g.Expect(serviceModels).To(gomega.ConsistOf([]*model.Service{
+		{
+			Hostname: "process-guid-a.cfapps.io",
+			Ports:    []*model.Port{{Port: defaultServicePort, Protocol: model.ProtocolHTTP, Name: "http"}},
+		},
 		{
 			Hostname: "process-guid-a.cfapps.io",
 			Ports:    []*model.Port{{Port: defaultServicePort, Protocol: model.ProtocolHTTP, Name: "http"}},
@@ -203,6 +222,7 @@ func TestServiceDiscovery_Instances_Filtering(t *testing.T) {
 				ServicePort: servicePort,
 			},
 			Service: service,
+			Labels:  model.Labels{"cf-service-instance": "5c33031c3bea379160c9bed9f59b4bdd"},
 		},
 		{
 			Endpoint: model.NetworkEndpoint{
@@ -211,6 +231,7 @@ func TestServiceDiscovery_Instances_Filtering(t *testing.T) {
 				ServicePort: servicePort,
 			},
 			Service: service,
+			Labels:  model.Labels{"cf-service-instance": "2e5e1643567d8ed5097dc14115908f7a"},
 		},
 	}))
 
