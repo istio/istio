@@ -116,8 +116,7 @@ class JwtVerificationFilterIntegrationTest
     IntegrationCodecClientPtr codec_client;
     FakeHttpConnectionPtr fake_upstream_connection_issuer;
     FakeHttpConnectionPtr fake_upstream_connection_backend;
-    IntegrationStreamDecoderPtr response(
-        new IntegrationStreamDecoder(*dispatcher_));
+    IntegrationStreamDecoderPtr response;
     FakeStreamPtr request_stream_issuer;
     FakeStreamPtr request_stream_backend;
 
@@ -125,12 +124,12 @@ class JwtVerificationFilterIntegrationTest
 
     // Send a request to Envoy.
     if (!request_body.empty()) {
-      Http::StreamEncoder& encoder =
-          codec_client->startRequest(request_headers, *response);
+      auto encoder_decoder = codec_client->startRequest(request_headers);
       Buffer::OwnedImpl body(request_body);
-      codec_client->sendData(encoder, body, true);
+      codec_client->sendData(encoder_decoder.first, body, true);
+      response = std::move(encoder_decoder.second);
     } else {
-      codec_client->makeHeaderOnlyRequest(request_headers, *response);
+      response = codec_client->makeHeaderOnlyRequest(request_headers);
     }
 
     // Empty issuer_response_body indicates issuer will not be called.
@@ -372,7 +371,7 @@ TEST_P(JwtVerificationFilterIntegrationTestWithInjectedJwtResult,
   FakeStreamPtr request_stream_backend;
   codec_client = makeHttpConnection(lookupPort("http"));
   // Send a request to Envoy.
-  codec_client->makeHeaderOnlyRequest(headers, *response);
+  response = codec_client->makeHeaderOnlyRequest(headers);
   fake_upstream_connection_backend =
       fake_upstreams_[0]->waitForHttpConnection(*dispatcher_);
   request_stream_backend =

@@ -62,16 +62,17 @@ TEST_P(AuthenticationFilterIntegrationTest, EmptyPolicy) {
   createTestServer("src/envoy/http/authn/testdata/envoy_empty.conf", {"http"});
   codec_client_ =
       makeHttpConnection(makeClientConnection((lookupPort("http"))));
-  codec_client_->makeHeaderOnlyRequest(default_request_headers_, *response_);
+  auto response =
+      codec_client_->makeHeaderOnlyRequest(default_request_headers_);
   // Wait for request to upstream[0] (backend)
   waitForNextUpstreamRequest(0);
   // Send backend response.
   upstream_request_->encodeHeaders(Http::TestHeaderMapImpl{{":status", "200"}},
                                    true);
 
-  response_->waitForEndStream();
-  EXPECT_TRUE(response_->complete());
-  EXPECT_STREQ("200", response_->headers().Status()->value().c_str());
+  response->waitForEndStream();
+  EXPECT_TRUE(response->complete());
+  EXPECT_STREQ("200", response->headers().Status()->value().c_str());
 }
 
 TEST_P(AuthenticationFilterIntegrationTest, SourceMTlsFail) {
@@ -82,13 +83,14 @@ TEST_P(AuthenticationFilterIntegrationTest, SourceMTlsFail) {
   // would be rejected.
   codec_client_ =
       makeHttpConnection(makeClientConnection((lookupPort("http"))));
-  codec_client_->makeHeaderOnlyRequest(default_request_headers_, *response_);
+  auto response =
+      codec_client_->makeHeaderOnlyRequest(default_request_headers_);
 
   // Request is rejected, there will be no upstream request (thus no
   // waitForNextUpstreamRequest).
-  response_->waitForEndStream();
-  EXPECT_TRUE(response_->complete());
-  EXPECT_STREQ("401", response_->headers().Status()->value().c_str());
+  response->waitForEndStream();
+  EXPECT_TRUE(response->complete());
+  EXPECT_STREQ("401", response->headers().Status()->value().c_str());
 }
 
 // TODO (diemtvu/lei-tang): add test for MTls success.
@@ -102,13 +104,14 @@ TEST_P(AuthenticationFilterIntegrationTest, OriginJwtRequiredHeaderNoJwtFail) {
   // would be rejected.
   codec_client_ =
       makeHttpConnection(makeClientConnection((lookupPort("http"))));
-  codec_client_->makeHeaderOnlyRequest(default_request_headers_, *response_);
+  auto response =
+      codec_client_->makeHeaderOnlyRequest(default_request_headers_);
 
   // Request is rejected, there will be no upstream request (thus no
   // waitForNextUpstreamRequest).
-  response_->waitForEndStream();
-  EXPECT_TRUE(response_->complete());
-  EXPECT_STREQ("401", response_->headers().Status()->value().c_str());
+  response->waitForEndStream();
+  EXPECT_TRUE(response->complete());
+  EXPECT_STREQ("401", response->headers().Status()->value().c_str());
 }
 
 TEST_P(AuthenticationFilterIntegrationTest, CheckValidJwtPassAuthentication) {
@@ -120,7 +123,8 @@ TEST_P(AuthenticationFilterIntegrationTest, CheckValidJwtPassAuthentication) {
   // the authentication should succeed.
   codec_client_ =
       makeHttpConnection(makeClientConnection((lookupPort("http"))));
-  codec_client_->makeHeaderOnlyRequest(request_headers_with_jwt_, *response_);
+  auto response =
+      codec_client_->makeHeaderOnlyRequest(request_headers_with_jwt_);
 
   // Wait for request to upstream[0] (backend)
   waitForNextUpstreamRequest(0);
@@ -128,9 +132,9 @@ TEST_P(AuthenticationFilterIntegrationTest, CheckValidJwtPassAuthentication) {
   upstream_request_->encodeHeaders(Http::TestHeaderMapImpl{{":status", "200"}},
                                    true);
 
-  response_->waitForEndStream();
-  EXPECT_TRUE(response_->complete());
-  EXPECT_STREQ("200", response_->headers().Status()->value().c_str());
+  response->waitForEndStream();
+  EXPECT_TRUE(response->complete());
+  EXPECT_STREQ("200", response->headers().Status()->value().c_str());
 }
 
 TEST_P(AuthenticationFilterIntegrationTest, CheckConsumedJwtHeadersAreRemoved) {
@@ -164,11 +168,12 @@ TEST_P(AuthenticationFilterIntegrationTest, CheckConsumedJwtHeadersAreRemoved) {
   // should be generated.
   codec_client_ =
       makeHttpConnection(makeClientConnection((lookupPort("http"))));
-  codec_client_->makeHeaderOnlyRequest(
-      request_headers_with_jwt_at_specified_location, *response_);
+  auto response = codec_client_->makeHeaderOnlyRequest(
+      request_headers_with_jwt_at_specified_location);
 
   // Wait for request to upstream[0] (backend)
   waitForNextUpstreamRequest(0);
+  response->waitForEndStream();
 
   // After Istio authn, the JWT headers consumed by Istio authn should have
   // been removed.
@@ -185,10 +190,12 @@ TEST_P(AuthenticationFilterIntegrationTest, CheckAuthnResultIsExpected) {
   // should be generated.
   codec_client_ =
       makeHttpConnection(makeClientConnection((lookupPort("http"))));
-  codec_client_->makeHeaderOnlyRequest(request_headers_with_jwt_, *response_);
+  auto response =
+      codec_client_->makeHeaderOnlyRequest(request_headers_with_jwt_);
 
   // Wait for request to upstream[0] (backend)
   waitForNextUpstreamRequest(0);
+  response->waitForEndStream();
 
   // Authn result should be as expected
   const Envoy::Http::HeaderString &header_value =

@@ -70,8 +70,8 @@ void JwtVerificationFilter::onDone(const JwtAuth::Status& status) {
     // verification failed
     Code code = Code(401);  // Unauthorized
     // return failure reason as message body
-    Utility::sendLocalReply(*decoder_callbacks_, false, code,
-                            JwtAuth::StatusToString(status));
+    decoder_callbacks_->sendLocalReply(code, JwtAuth::StatusToString(status),
+                                       nullptr);
     return;
   }
 

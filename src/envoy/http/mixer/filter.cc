@@ -186,8 +186,8 @@ void Filter::completeCheck(const Status& status) {
   if (!status.ok() && state_ != Responded) {
     state_ = Responded;
     int status_code = ::istio::utils::StatusHttpCode(status.error_code());
-    Utility::sendLocalReply(*decoder_callbacks_, false, Code(status_code),
-                            status.ToString());
+    decoder_callbacks_->sendLocalReply(Code(status_code), status.ToString(),
+                                       nullptr);
     return;
   }
 

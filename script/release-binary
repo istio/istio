@@ -44,13 +44,27 @@ UBUNTU_RELEASE=${UBUNTU_RELEASE:-$(lsb_release -c -s)}
 
 # The proxy binary name.
 SHA="$(git rev-parse --verify HEAD)"
-BINARY_NAME="envoy-alpha-${SHA}.tar.gz"
-SHA256_NAME="envoy-alpha-${SHA}.sha256"
+
+BINARY_NAME="envoy-symbol-${SHA}.tar.gz"
+SHA256_NAME="envoy-symbol-${SHA}.sha256"
 
 # If binary already exists skip.
 gsutil stat "${DST}/${BINARY_NAME}" \
   && { echo 'Binary already exists'; exit 0; } \
   || echo 'Building a new binary.'
+
+# Build the release binary with symbol
+bazel --batch build --config=release-symbol //src/envoy:envoy_tar
+BAZEL_TARGET="bazel-bin/src/envoy/envoy_tar.tar.gz"
+cp -f "${BAZEL_TARGET}" "${BINARY_NAME}"
+sha256sum "${BINARY_NAME}" > "${SHA256_NAME}"
+
+# Copy it to the bucket.
+echo "Copying ${BINARY_NAME} ${SHA256_NAME} to ${DST}/"
+gsutil cp "${BINARY_NAME}" "${SHA256_NAME}" "${DST}/"
+
+BINARY_NAME="envoy-alpha-${SHA}.tar.gz"
+SHA256_NAME="envoy-alpha-${SHA}.sha256"
 
 # Build the release binary
 bazel --batch build --config=release //src/envoy:envoy_tar

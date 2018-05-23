@@ -107,8 +107,8 @@ UpstreamAltsTransportSocketConfigFactory::createTransportSocketFactory(
 
 Network::TransportSocketFactoryPtr
 DownstreamAltsTransportSocketConfigFactory::createTransportSocketFactory(
-    const std::string &, const std::vector<std::string> &, bool,
-    const Protobuf::Message &message, TransportSocketFactoryContext &) {
+    const Protobuf::Message &message, TransportSocketFactoryContext &,
+    const std::vector<std::string> &) {
   auto config =
       MessageUtil::downcastAndValidate<const envoy::security::v2::AltsSocket &>(
           message);
