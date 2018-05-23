@@ -13,7 +13,7 @@ global:
   # Currently using nightly build, for testing
   tag: circleci-nightly
   proxy:
-    image: proxy
+    image: proxyv2
   # proxyv2 image is the image to use for networking alpha3 and envoy v2
   proxyv2:
     image: proxyv2
