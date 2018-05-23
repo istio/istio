@@ -6,12 +6,8 @@ set -e
 SCRIPTPATH="$(cd "$(dirname "$0")" ; pwd -P)"
 ROOTDIR="$(dirname ${SCRIPTPATH})"
 
-if [ -z "$GCS_BUCKET_TOKEN" ]; then
-	echo "GCS_BUCKET_TOKEN unavailible"
-	exit 0
-fi
-
-REQUIRED_CIRCLE_ENVS=(
+REQUIRED_ENVS=(
+	GCS_BUCKET_TOKEN
 	CIRCLE_SHA1
 	CIRCLE_PROJECT_USERNAME
 	CIRCLE_PROJECT_REPONAME
@@ -19,7 +15,7 @@ REQUIRED_CIRCLE_ENVS=(
 	CIRCLE_BUILD_NUM
 )
 
-for env in "${REQUIRED_CIRCLE_ENVS[@]}"; do
+for env in "${REQUIRED_ENVS[@]}"; do
 	if eval [ -z \$${env} ]; then
 		echo "${env} not defined"
 		exit 0
@@ -33,11 +29,18 @@ openssl aes-256-cbc -d -in "${ENCRYPTED_SA_JSON}" -out "${TMP_SA_JSON}" -k "${GC
 
 go get -u istio.io/test-infra/toolbox/ci2gubernator
 
-/go/bin/ci2gubernator ${@} \
---service_account="${TMP_SA_JSON}" \
---sha=${CIRCLE_BRANCH}/${CIRCLE_SHA1} \
---org=${CIRCLE_PROJECT_USERNAME} \
---repo=${CIRCLE_PROJECT_REPONAME} \
---job=${CIRCLE_JOB} \
---build_number=${CIRCLE_BUILD_NUM} \
---pr_number=${CIRCLE_PR_NUMBER:-0}
+ARGS=(
+	--service_account="${TMP_SA_JSON}" \
+	--sha=${CIRCLE_BRANCH}/${CIRCLE_SHA1} \
+	--org=${CIRCLE_PROJECT_USERNAME} \
+	--repo=${CIRCLE_PROJECT_REPONAME} \
+	--job=${CIRCLE_JOB} \
+	--build_number=${CIRCLE_BUILD_NUM} \
+	--pr_number=${CIRCLE_PR_NUMBER:-0}
+)
+
+if [ -n "$CIRCLE_PULL_REQUEST" ]; then
+	ARGS+=(--stage=presubmit)
+fi
+
+/go/bin/ci2gubernator ${@} ${ARGS[@]}

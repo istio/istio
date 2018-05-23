@@ -325,7 +325,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 	proxyInstances []*model.ServiceInstance, services []*model.Service) []*xdsapi.Listener {
 
 	var tcpListeners, httpListeners []*xdsapi.Listener
-
+	var currentListener *xdsapi.Listener
 	listenerMap := make(map[string]*xdsapi.Listener)
 	for _, service := range services {
 		for _, servicePort := range service.Ports {
@@ -345,7 +345,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 			}
 
 			switch plugin.ModelProtocolToListenerType(servicePort.Protocol) {
-			// TODO: Set SNI for HTTPS
 			case plugin.ListenerTypeHTTP:
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
 				if l, exists := listenerMap[listenerMapKey]; exists {
@@ -383,20 +382,33 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				}
 
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
-				if n, exists := listenerMap[listenerMapKey]; exists {
-					log.Warnf("Multiple TCP listener definitions for %s %v %s", listenerMapKey, n, service.Hostname)
-					continue
+				var exists bool
+				if currentListener, exists = listenerMap[listenerMapKey]; exists {
+					// Check if this is HTTPS port collision. If so, we can use SNI to differentiate
+					if servicePort.Protocol != model.ProtocolHTTPS {
+						log.Warnf("Multiple TCP listener definitions for %s %v %s", listenerMapKey, currentListener, service.Hostname)
+						continue
+					}
 				}
-				listenerOpts.filterChainOpts = []*filterChainOpts{{
+				filterChainOption := &filterChainOpts{
 					networkFilters: buildOutboundNetworkFilters(clusterName, addresses, servicePort),
-				}}
+				}
+
+				// TODO (@rshriram): This is not sufficient. There are other TCP protocols that use SNI, that need to be tackled.
+				if servicePort.Protocol == model.ProtocolHTTPS {
+					filterChainOption.sniHosts = []string{service.Hostname.String()}
+				}
+
+				listenerOpts.filterChainOpts = []*filterChainOpts{filterChainOption}
 			default:
-				log.Warnf("buildSidecarOutboundListeners: service %q has unknown protocol %#v", service.Hostname, servicePort)
+				// UDP or other protocols: no need to log, it's too noisy
 				continue
 			}
 
-			// call plugins
+			// Even if we have a non empty current listener, lets build the new listener with the filter chains
+			// In the end, we will merge the filter chains
 
+			// call plugins
 			listenerOpts.ip = listenAddress
 			l := buildListener(listenerOpts)
 			mutable := &plugin.MutableObjects{
@@ -426,12 +438,24 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 
 			// By default we require SNI; if there's only one filter chain then we know there's either 0 or 1 cert,
 			// therefore SNI is not required.
+			// This won't be true for HTTPS outbound listeners that are simply getting forwarded
 			if len(mutable.Listener.FilterChains) == 1 && mutable.Listener.FilterChains[0].TlsContext != nil {
 				mutable.Listener.FilterChains[0].TlsContext.RequireSni = boolFalse
 			}
 
-			if log.DebugEnabled() && len(mutable.Listener.FilterChains) > 1 {
-				log.Debuga("buildSidecarOutboundListeners: multiple filter chain listener: ", mutable.Listener.Name)
+			if currentListener != nil {
+				// merge the newly built listener with the existing listener
+				currentListener.FilterChains = append(currentListener.FilterChains, mutable.Listener.FilterChains...)
+			}
+
+			if log.DebugEnabled() && len(mutable.Listener.FilterChains) > 1 || currentListener != nil {
+				var numChains int
+				if currentListener != nil {
+					numChains = len(currentListener.FilterChains)
+				} else {
+					numChains = len(mutable.Listener.FilterChains)
+				}
+				log.Debugf("buildSidecarOutboundListeners: multiple filter chain listener %s with %d chains", mutable.Listener.Name, numChains)
 			}
 
 			listenerMap[listenerMapKey] = mutable.Listener
@@ -660,9 +684,8 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 // we should encapsulate them some way to ensure they remain consistent (mainly that in each an index refers to the same
 // chain)
 func marshalFilters(l *xdsapi.Listener, opts buildListenerOpts, chains []plugin.FilterChain) error {
-	if len(opts.filterChainOpts) != len(chains) || len(chains) != len(l.FilterChains) || len(opts.filterChainOpts) == 0 {
-		return fmt.Errorf("must have more than 0 chains, and the same number of chains in each of:\nlistener: %d; %#v\nopts: %d; %#v\nchain: %d; %#v",
-			len(l.FilterChains), l, len(opts.filterChainOpts), opts, len(chains), chains)
+	if len(opts.filterChainOpts) == 0 {
+		return fmt.Errorf("must have more than 0 chains in listener: %#v", l)
 	}
 
 	for i, chain := range chains {

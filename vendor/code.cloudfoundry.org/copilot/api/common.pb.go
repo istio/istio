@@ -12,14 +12,42 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+
 type HealthResponse struct {
-	Healthy bool `protobuf:"varint,1,opt,name=healthy" json:"healthy,omitempty"`
+	Healthy              bool     `protobuf:"varint,1,opt,name=healthy" json:"healthy,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *HealthResponse) Reset()                    { *m = HealthResponse{} }
-func (m *HealthResponse) String() string            { return proto.CompactTextString(m) }
-func (*HealthResponse) ProtoMessage()               {}
-func (*HealthResponse) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{0} }
+func (m *HealthResponse) Reset()         { *m = HealthResponse{} }
+func (m *HealthResponse) String() string { return proto.CompactTextString(m) }
+func (*HealthResponse) ProtoMessage()    {}
+func (*HealthResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_common_0f3768ffb41805b9, []int{0}
+}
+func (m *HealthResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_HealthResponse.Unmarshal(m, b)
+}
+func (m *HealthResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_HealthResponse.Marshal(b, m, deterministic)
+}
+func (dst *HealthResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HealthResponse.Merge(dst, src)
+}
+func (m *HealthResponse) XXX_Size() int {
+	return xxx_messageInfo_HealthResponse.Size(m)
+}
+func (m *HealthResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_HealthResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_HealthResponse proto.InternalMessageInfo
 
 func (m *HealthResponse) GetHealthy() bool {
 	if m != nil {
@@ -29,21 +57,43 @@ func (m *HealthResponse) GetHealthy() bool {
 }
 
 type HealthRequest struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *HealthRequest) Reset()                    { *m = HealthRequest{} }
-func (m *HealthRequest) String() string            { return proto.CompactTextString(m) }
-func (*HealthRequest) ProtoMessage()               {}
-func (*HealthRequest) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{1} }
+func (m *HealthRequest) Reset()         { *m = HealthRequest{} }
+func (m *HealthRequest) String() string { return proto.CompactTextString(m) }
+func (*HealthRequest) ProtoMessage()    {}
+func (*HealthRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_common_0f3768ffb41805b9, []int{1}
+}
+func (m *HealthRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_HealthRequest.Unmarshal(m, b)
+}
+func (m *HealthRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_HealthRequest.Marshal(b, m, deterministic)
+}
+func (dst *HealthRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HealthRequest.Merge(dst, src)
+}
+func (m *HealthRequest) XXX_Size() int {
+	return xxx_messageInfo_HealthRequest.Size(m)
+}
+func (m *HealthRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_HealthRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_HealthRequest proto.InternalMessageInfo
 
 func init() {
 	proto.RegisterType((*HealthResponse)(nil), "api.HealthResponse")
 	proto.RegisterType((*HealthRequest)(nil), "api.HealthRequest")
 }
 
-func init() { proto.RegisterFile("common.proto", fileDescriptor2) }
+func init() { proto.RegisterFile("common.proto", fileDescriptor_common_0f3768ffb41805b9) }
 
-var fileDescriptor2 = []byte{
+var fileDescriptor_common_0f3768ffb41805b9 = []byte{
 	// 94 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0x49, 0xce, 0xcf, 0xcd,
 	0xcd, 0xcf, 0xd3, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0x4e, 0x2c, 0xc8, 0x54, 0xd2, 0xe2,

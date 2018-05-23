@@ -15,13 +15,13 @@ ingress:
 prometheus:
   enabled: true
 
-sidecar-injector:
+sidecarInjectorWebhook:
   enabled: true
 
 grafana:
   enabled: true
 
-zipkin:
+tracing:
   enabled: true
 
 servicegraph:

@@ -77,6 +77,20 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 		// When Envoy supports filter chain matching, we'll have to group the ports by number and protocol, so this logic will
 		// no longer work.
 		protocol := model.ParseProtocol(servers[0].Port.Protocol)
+		if protocol == model.ProtocolHTTPS {
+			// Gateway terminates TLS connection if TLS mode is not Passthrough So, its effectively a H2 listener.
+			// This is complicated. We have multiple servers. One of these servers could have passthrough HTTPS while
+			// others could be a simple/mutual TLS.
+			// The code as it is, is not capable of handling this mixed listener type and set up the proper SNI chains
+			// such that the passthrough ones go through a TCP proxy while others get terminated and go through http connection
+			// manager. Ideally, the merge gateway function should take care of this and intelligently create multiple
+			// groups of servers based on their TLS types as well. For now, we simply assume that if HTTPS,
+			// and the first server in the group is not a passthrough, then this is a HTTP connection manager.
+			if servers[0].Tls != nil && servers[0].Tls.Mode != networking.Server_TLSOptions_PASSTHROUGH {
+				protocol = model.ProtocolHTTP2
+			}
+		}
+
 		opts := buildListenerOpts{
 			env:        env,
 			proxy:      node,
@@ -187,9 +201,27 @@ func createGatewayHTTPFilterChainOpts(
 }
 
 func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamTlsContext {
-	if server.Tls == nil {
-		return nil
+	if server.Tls == nil || server.Tls.Mode == networking.Server_TLSOptions_PASSTHROUGH {
+		return nil // We don't need to setup TLS context for passthrough mode
 	}
+
+	var certValidationContext *auth.CertificateValidationContext
+	var trustedCa *core.DataSource
+	if len(server.Tls.CaCertificates) != 0 {
+		trustedCa = &core.DataSource{
+			Specifier: &core.DataSource_Filename{
+				Filename: server.Tls.CaCertificates,
+			},
+		}
+	}
+	if trustedCa != nil || len(server.Tls.SubjectAltNames) > 0 {
+		certValidationContext = &auth.CertificateValidationContext{
+			TrustedCa:            trustedCa,
+			VerifySubjectAltName: server.Tls.SubjectAltNames,
+		}
+	}
+
+	requireClientCert := server.Tls.Mode == networking.Server_TLSOptions_MUTUAL
 
 	return &auth.DownstreamTlsContext{
 		CommonTlsContext: &auth.CommonTlsContext{
@@ -207,34 +239,14 @@ func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamT
 					},
 				},
 			},
-			ValidationContext: buildGatewayListnerTLSValidationContext(server.Tls),
+			ValidationContext: certValidationContext,
 			AlpnProtocols:     ListenersALPNProtocols,
+		},
+		RequireClientCertificate: &types.BoolValue{
+			Value: requireClientCert,
 		},
 		RequireSni: boolTrue,
 	}
-}
-
-func buildGatewayListnerTLSValidationContext(tls *networking.Server_TLSOptions) *auth.CertificateValidationContext {
-	if tls == nil {
-		return nil
-	}
-
-	var trustedCa *core.DataSource
-	if len(tls.CaCertificates) != 0 {
-		trustedCa = &core.DataSource{
-			Specifier: &core.DataSource_Filename{
-				Filename: tls.CaCertificates,
-			},
-		}
-	}
-
-	if trustedCa != nil || len(tls.SubjectAltNames) != 0 {
-		return &auth.CertificateValidationContext{
-			TrustedCa:            trustedCa,
-			VerifySubjectAltName: tls.SubjectAltNames,
-		}
-	}
-	return nil
 }
 
 func buildGatewayInboundHTTPRouteConfig(

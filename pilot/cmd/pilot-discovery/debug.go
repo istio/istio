@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -73,7 +74,6 @@ func (d *debug) run(args []string) error {
 }
 
 func (d *debug) printConfig(typ, proxyID string) error {
-	log.Infof("Retrieving %v for %q", typ, proxyID)
 	req, err := http.NewRequest("GET", fmt.Sprintf("http://%v/debug/%s", d.pilotAddress, configTypes[typ]), nil)
 	if err != nil {
 		return err
@@ -96,6 +96,8 @@ func (d *debug) printConfig(typ, proxyID string) error {
 	bytes, _ := ioutil.ReadAll(resp.Body)
 	if resp.StatusCode == 200 {
 		fmt.Println(string(bytes))
+	} else if resp.StatusCode == 404 {
+		fmt.Fprintf(os.Stderr, "proxy not connected to this Pilot instance")
 	} else {
 		return fmt.Errorf("received %v status from Pilot: %v", resp.StatusCode, string(bytes))
 	}
