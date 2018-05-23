@@ -669,8 +669,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	}
 
 	return &xdsapi.Listener{
-		// protocol is either TCP or HTTP
-		Name:         fmt.Sprintf("%s_%s_%d", protocolToListenerPrefix(opts.protocol), opts.ip, opts.port),
+		Name:         fmt.Sprintf("%s_%d", opts.ip, opts.port),
 		Address:      util.BuildAddress(opts.ip, uint32(opts.port)),
 		FilterChains: filterChains,
 		DeprecatedV1: deprecatedV1,
