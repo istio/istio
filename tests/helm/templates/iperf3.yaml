@@ -42,7 +42,6 @@ metadata:
 spec:
   peers:
   - mtls:
-    mode: TLS_PERMISSIVE
   peer_is_optional: true
   targets:
   - name: "iperf3-tls"

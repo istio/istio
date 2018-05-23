@@ -5,9 +5,7 @@ metadata:
   name: "fortio-mtls"
 spec:
   peers:
-  - mtls:
-    # Default is STRICT
-    mode: TLS_PERMISSIVE
+  - mtls: {}
   peer_is_optional: true
   targets:
   # Must be short name of service
@@ -50,7 +48,7 @@ spec:
   - port: 8079
     name: grpc-ping
   selector:
-    istio: fortio-tls
+    app: fortio-tls
 ---
 apiVersion: apps/v1beta1
 kind: Deployment

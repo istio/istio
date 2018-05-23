@@ -253,7 +253,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 
 		listenerMapKey := fmt.Sprintf("%s:%d", endpoint.Address, endpoint.Port)
 		if l, exists := listenerMap[listenerMapKey]; exists {
-			log.Warnf("Conflicting inbound listeners on %s: previous listener %s", listenerMapKey, l.Name)
+			log.Warnf("Conflicting inbound listeners on %s %s: previous listener %s %V",
+				node.ID, listenerMapKey, l.Name, proxyInstances)
 			// Skip building listener for the same ip port
 			continue
 		}
@@ -391,7 +392,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 					networkFilters: buildOutboundNetworkFilters(clusterName, addresses, servicePort),
 				}}
 			default:
-				log.Warnf("buildSidecarOutboundListeners: service %q has unknown protocol %#v", service.Hostname, servicePort)
+				// UDP or other protocols: no need to log, it's too noisy
 				continue
 			}
 

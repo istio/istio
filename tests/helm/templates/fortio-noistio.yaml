@@ -56,7 +56,7 @@ spec:
 apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
-  name: raw-cli-deployment
+  name: fortio-noistio1
 spec:
   replicas: 1
   template:

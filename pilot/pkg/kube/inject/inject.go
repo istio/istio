@@ -367,6 +367,10 @@ func validateAnnotations(metadata *metav1.ObjectMeta) error {
 	return validateAnnotation(annotations, sidecarAnnotationExcludeInboundPortsPolicyKey, ValidateExcludeInboundPorts)
 }
 
+// injectionData is the common function to inject a pod with a template. Both webhook and manual
+// injection call this, after finding the pods to be injected.
+// The template will have access to 'formatDuration', 'isset' functions, PodSpec as "spec",
+// pod metadata as "metadata", mesh proxy config object as "proxyConfig" and mesh config as "meshConfig"
 func injectionData(sidecarTemplate, version string, spec *corev1.PodSpec, metadata *metav1.ObjectMeta, proxyConfig *meshconfig.ProxyConfig, meshConfig *meshconfig.MeshConfig) (*SidecarInjectionSpec, string, error) { // nolint: lll
 	if err := validateAnnotations(metadata); err != nil {
 		return nil, "", err

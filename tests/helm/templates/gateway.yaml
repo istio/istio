@@ -155,7 +155,7 @@ spec:
   http:
   - route:
     - destination:
-        host: echosrv.test.svc.cluster.local
+        host: fortiov1.test.svc.cluster.local
         port:
           number: 8080
 
@@ -174,7 +174,7 @@ spec:
   http:
   - route:
     - destination:
-        host: echosrv2.test.svc.cluster.local
+        host: fortio-tls.test.svc.cluster.local
         port:
           number: 8080
 

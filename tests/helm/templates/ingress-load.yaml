@@ -1,3 +1,4 @@
+# Creates a set number of ingress routes, to test ingress scalability.
 {{ $v := int .Values.loadTestIngress }}
 # {{ $v }}
 {{ range $i, $e := until $v }}
@@ -13,7 +14,7 @@ spec:
         paths:
           - path: /test/{{ $i }}/.*
             backend:
-              serviceName: echosrv
-              servicePort: http-echo
+              serviceName: a
+              servicePort: http
 ---
 {{ end }}

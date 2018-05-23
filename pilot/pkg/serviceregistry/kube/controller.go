@@ -31,6 +31,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
+	"sort"
 )
 
 const (
@@ -453,6 +454,7 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
 	var out []*model.ServiceInstance
 	kubeNodes := make(map[string]*kubeServiceNode)
+	svcPortMap := make(map[string][]*model.ServiceInstance)
 	for _, item := range c.endpoints.informer.GetStore().List() {
 		ep := *item.(*v1.Endpoints)
 		for _, ss := range ep.Subsets {
@@ -492,7 +494,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 								continue
 							}
 						}
-						out = append(out, &model.ServiceInstance{
+						si := &model.ServiceInstance{
 							Endpoint: model.NetworkEndpoint{
 								Address:     ea.IP,
 								Port:        int(port.Port),
@@ -502,7 +504,10 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 							Labels:           labels,
 							AvailabilityZone: az,
 							ServiceAccount:   sa,
-						})
+						}
+						out = append(out,si)
+						key := fmt.Sprint("%s:%d", svc.Hostname, port.Port)
+						svcPortMap[key] = append(svcPortMap[key], si)
 					}
 				}
 			}
@@ -511,6 +516,27 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 	if len(out) == 0 {
 		log.Errorf("ip not found, listeners will be broken %v %v", proxy.IPAddress, proxy.ID)
 		ipNotFound.With(prometheus.Labels{"node": proxy.ID}).Add(1)
+	}
+	// TODO: use pod annotation or node metadata to find the canonical service
+	needsSort := false
+	for k, v := range svcPortMap {
+		if len(v) > 1 {
+			needsSort = true
+			log.Warnf("Multiple services %s for pod %s, defaulting to %s %V",
+				k, proxy.ID, out[0].Service.Hostname.String(), v)
+		}
+	}
+
+	if needsSort {
+		canonical := proxy.Metadata["svc"]
+		sort.Slice(out, func(i, j int) bool {
+			if out[i].Service.Hostname.String() == canonical {
+				// If user annotated the pod or is passing an explicit node metadata, that will be
+				// sorted on top
+				return false
+			}
+			return out[i].Service.Hostname.String() < out[j].Service.Hostname.String()
+		})
 	}
 	return out, nil
 }

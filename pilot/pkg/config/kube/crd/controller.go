@@ -20,7 +20,6 @@ import (
 	"reflect"
 	"time"
 
-	multierror "github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -30,6 +29,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
+	"sync"
+	"sync/atomic"
 )
 
 // controller is a collection of synchronized resource watchers.
@@ -51,6 +52,15 @@ var (
 		Name: "pilot_k8s_cfg_events",
 		Help: "Events from k8s config.",
 	}, []string{"type", "event"})
+
+	k8sErrors = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "pilot_k8s_object_errors",
+		Help: "Errors converting k8s CRDs",
+	}, []string{"name"})
+
+	// InvalidCRDs contains a sync.Map keyed by the namespace/name of the entry, and has the error as value.
+	// It can be used by tools like ctrlz to display the errors.
+	InvalidCRDs atomic.Value
 )
 
 func init() {
@@ -250,8 +260,16 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 		return nil, fmt.Errorf("missing type %q", typ)
 	}
 
+	var newErrors sync.Map
 	var errs error
 	out := make([]model.Config, 0)
+	oldMap := InvalidCRDs.Load()
+	if oldMap != nil {
+		oldMap.(*sync.Map).Range(func(key, value interface{}) bool {
+			k8sErrors.With(prometheus.Labels{"name": key.(string)}).Set(1)
+			return true
+		})
+	}
 	for _, data := range c.kinds[typ].informer.GetStore().List() {
 		item, ok := data.(IstioObject)
 		if !ok {
@@ -264,10 +282,17 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 
 		config, err := ConvertObject(schema, item, c.client.domainSuffix)
 		if err != nil {
-			errs = multierror.Append(errs, err)
+			key := item.GetObjectMeta().Namespace + "/" + item.GetObjectMeta().Name
+			log.Errorf("Failed to convert %s object, ignoring: %s %v %v", typ, key, err, item.GetSpec())
+			// DO NOT RETURN ERROR: if a single object is bad, it'll be ignored (with a log message), but
+			// the rest should still be processed.
+			// TODO: find a way to reset and represent the error !!
+			newErrors.Store(key, err)
+			k8sErrors.With(prometheus.Labels{"name": key}).Set(1)
 		} else {
 			out = append(out, *config)
 		}
 	}
+	InvalidCRDs.Store(&newErrors)
 	return out, errs
 }
