@@ -246,7 +246,7 @@ func TestRouteFaultInjection(t *testing.T) {
 		// Invoke a function to scope the lifecycle of the deployed configs.
 		func() {
 			if version == "v1alpha3" {
-				destRule := "testdata/v1alpha3/destination-rule-c.yaml"
+				destRule := fillTemplate(tc, "testdata/v1alpha3/destination-rule-c.yaml")
 				dRule := &deployableConfig{
 					Namespace:  tc.Kube.Namespace,
 					YamlFiles:  []string{destRule},
