@@ -118,7 +118,7 @@ func (ServiceEntry_Resolution) EnumDescriptor() ([]byte, []int) {
 //       name: external-svc-mongocluster
 //     spec:
 //       hosts:
-//       - mymongodb.somedomain # not used
+//       - mymongodb.somedomain
 //       addresses:
 //       - 192.192.192.192/24 # VIPs
 //       ports:

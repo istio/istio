@@ -288,15 +288,9 @@ type Destination struct {
 	// within the mesh. The subset must be defined in a corresponding
 	// DestinationRule.
 	Subset string `protobuf:"bytes,2,opt,name=subset,proto3" json:"subset,omitempty"`
-	// Specifies the port on the host that is being addressed. Many services
-	// only expose a single port or label ports with the protocols they support,
-	// in these cases it is not required to explicitly select the port. Note that
-	// selection priority is to first match by name and then match by number.
-	//
-	// Names must comply with DNS label syntax (rfc1035) and therefore cannot
-	// collide with numbers. If there are multiple ports on a service with
-	// the same protocol the names should be of the form <protocol-name>-<DNS
-	// label>.
+	// Specifies the port on the host that is being addressed. If a service
+	// exposes only a single port it is not required to explicitly select the
+	// port.
 	Port *PortSelector `protobuf:"bytes,3,opt,name=port" json:"port,omitempty"`
 }
 
@@ -1599,7 +1593,7 @@ func _HTTPFaultInjection_Abort_OneofSizer(msg proto.Message) (n int) {
 	return n
 }
 
-// PortSelector specifies the name or number of a port to be used for
+// PortSelector specifies the number of a port to be used for
 // matching or selection for final routing.
 type PortSelector struct {
 	// Types that are valid to be assigned to Port:

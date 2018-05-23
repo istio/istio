@@ -440,15 +440,9 @@ DestinationRule.</p>
 <td><code>port</code></td>
 <td><code><a href="#PortSelector">PortSelector</a></code></td>
 <td>
-<p>Specifies the port on the host that is being addressed. Many services
-only expose a single port or label ports with the protocols they support,
-in these cases it is not required to explicitly select the port. Note that
-selection priority is to first match by name and then match by number.</p>
-
-<p>Names must comply with DNS label syntax (rfc1035) and therefore cannot
-collide with numbers. If there are multiple ports on a service with
-the same protocol the names should be of the form <protocol-name>-<DNS
-label>.</p>
+<p>Specifies the port on the host that is being addressed. If a service
+exposes only a single port it is not required to explicitly select the
+port.</p>
 
 </td>
 </tr>
@@ -935,22 +929,6 @@ not specified, all requests are aborted.</p>
 
 </td>
 </tr>
-<tr id="HTTPFaultInjection.Abort.grpc_status" class="oneof">
-<td><code>grpcStatus</code></td>
-<td><code>string (oneof)</code></td>
-<td>
-<p>(&ndash; NOT IMPLEMENTED &ndash;)</p>
-
-</td>
-</tr>
-<tr id="HTTPFaultInjection.Abort.http2_error" class="oneof">
-<td><code>http2Error</code></td>
-<td><code>string (oneof)</code></td>
-<td>
-<p>(&ndash; NOT IMPLEMENTED &ndash;)</p>
-
-</td>
-</tr>
 </tbody>
 </table>
 </section>
@@ -1010,16 +988,6 @@ unspecified, all request will be delayed.</p>
 <td>
 <p>REQUIRED. Add a fixed delay before forwarding the request. Format:
 1h/1m/1s/1ms. MUST be &gt;=1ms.</p>
-
-</td>
-</tr>
-<tr id="HTTPFaultInjection.Delay.exponential_delay" class="oneof">
-<td><code>exponentialDelay</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration (oneof)</a></code></td>
-<td>
-<p>(&ndash; Add a delay (based on an exponential function) before forwarding
-the request. mean delay needed to derive the exponential delay
-values &ndash;)</p>
 
 </td>
 </tr>
@@ -1860,7 +1828,7 @@ TCP-TLS is used to indicate secure connections to non HTTP services.</p>
 </section>
 <h2 id="PortSelector">PortSelector</h2>
 <section>
-<p>PortSelector specifies the name or number of a port to be used for
+<p>PortSelector specifies the number of a port to be used for
 matching or selection for final routing.</p>
 
 <table class="message-fields">
@@ -1877,14 +1845,6 @@ matching or selection for final routing.</p>
 <td><code>uint32 (oneof)</code></td>
 <td>
 <p>Valid port number</p>
-
-</td>
-</tr>
-<tr id="PortSelector.name" class="oneof">
-<td><code>name</code></td>
-<td><code>string (oneof)</code></td>
-<td>
-<p>Port name</p>
 
 </td>
 </tr>
@@ -2135,7 +2095,7 @@ metadata:
   name: external-svc-mongocluster
 spec:
   hosts:
-  - mymongodb.somedomain # not used
+  - mymongodb.somedomain
   addresses:
   - 192.192.192.192/24 # VIPs
   ports:
