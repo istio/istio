@@ -339,6 +339,18 @@ func applyLoadBalancer(cluster *v2.Cluster, lb *networking.LoadBalancerSettings)
 	// DO not do if else here. since lb.GetSimple returns a enum value (not pointer).
 }
 
+// ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
+var ALPNH2Only = []string{"h2"}
+
+// ALPNInMeshH2 advertises that Proxy is going to use HTTP/2 when talking to the in-mesh cluster.
+// The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.
+// Once Envoy supports client-side ALPN negotiation, this should be {"istio", "h2", "http/1.1"}.
+var ALPNInMeshH2 = []string{"istio", "h2"}
+
+// ALPNInMesh advertises that Proxy is going to talk to the in-mesh cluster.
+// The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.
+var ALPNInMesh = []string{"istio"}
+
 func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) {
 	if tls == nil {
 		return
@@ -370,6 +382,10 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 			},
 			Sni: tls.Sni,
 		}
+		if cluster.Http2ProtocolOptions != nil {
+			// This is HTTP/2 cluster, advertise it with ALPN.
+			cluster.TlsContext.CommonTlsContext.AlpnProtocols = ALPNH2Only
+		}
 	case networking.TLSSettings_MUTUAL:
 		cluster.TlsContext = &auth.UpstreamTlsContext{
 			CommonTlsContext: &auth.CommonTlsContext{
@@ -390,6 +406,13 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 				ValidationContext: certValidationContext,
 			},
 			Sni: tls.Sni,
+		}
+		if cluster.Http2ProtocolOptions != nil {
+			// This is HTTP/2 in-mesh cluster, advertise it with ALPN.
+			cluster.TlsContext.CommonTlsContext.AlpnProtocols = ALPNInMeshH2
+		} else {
+			// This is in-mesh cluster, advertise it with ALPN.
+			cluster.TlsContext.CommonTlsContext.AlpnProtocols = ALPNInMesh
 		}
 	}
 }
