@@ -18,6 +18,3 @@ zipkin:
 
 sidecar-injector:
   enabled: true
-
-prometheus:
-  enabled: true

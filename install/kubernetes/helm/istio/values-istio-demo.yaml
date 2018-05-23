@@ -26,6 +26,3 @@ zipkin:
 
 servicegraph:
   enabled: true
-
-prometheus:
-  enabled: true
