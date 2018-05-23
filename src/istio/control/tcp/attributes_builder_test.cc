@@ -68,12 +68,6 @@ attributes {
   }
 }
 attributes {
-  key: "source.port"
-  value {
-    int64_value: 8080
-  }
-}
-attributes {
   key: "source.principal"
   value {
     string_value: "test_user"

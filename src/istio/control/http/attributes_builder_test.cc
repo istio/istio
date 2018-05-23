@@ -84,18 +84,6 @@ attributes {
   }
 }
 attributes {
-  key: "source.ip"
-  value {
-    bytes_value: "1.2.3.4"
-  }
-}
-attributes {
-  key: "source.port"
-  value {
-    int64_value: 8080
-  }
-}
-attributes {
   key: "connection.mtls"
   value {
     bool_value: true
@@ -290,12 +278,6 @@ TEST(AttributesBuilderTest, TestForwardAttributes) {
 
 TEST(AttributesBuilderTest, TestCheckAttributes) {
   ::testing::NiceMock<MockCheckData> mock_data;
-  EXPECT_CALL(mock_data, GetSourceIpPort(_, _))
-      .WillOnce(Invoke([](std::string *ip, int *port) -> bool {
-        *ip = "1.2.3.4";
-        *port = 8080;
-        return true;
-      }));
   EXPECT_CALL(mock_data, GetSourceUser(_))
       .WillOnce(Invoke([](std::string *user) -> bool {
         *user = "test_user";
@@ -356,12 +338,6 @@ TEST(AttributesBuilderTest, TestCheckAttributes) {
 
 TEST(AttributesBuilderTest, TestCheckAttributesWithAuthNResult) {
   ::testing::NiceMock<MockCheckData> mock_data;
-  EXPECT_CALL(mock_data, GetSourceIpPort(_, _))
-      .WillOnce(Invoke([](std::string *ip, int *port) -> bool {
-        *ip = "1.2.3.4";
-        *port = 8080;
-        return true;
-      }));
   EXPECT_CALL(mock_data, IsMutualTLS()).WillOnce(Invoke([]() -> bool {
     return true;
   }));

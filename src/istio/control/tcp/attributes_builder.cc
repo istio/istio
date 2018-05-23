@@ -33,9 +33,10 @@ void AttributesBuilder::ExtractCheckAttributes(CheckData* check_data) {
 
   std::string source_ip;
   int source_port;
+  // TODO(kuat): there is no way to propagate source IP in TCP, so we auto-set
+  // it
   if (check_data->GetSourceIpPort(&source_ip, &source_port)) {
     builder.AddBytes(AttributeName::kSourceIp, source_ip);
-    builder.AddInt64(AttributeName::kSourcePort, source_port);
   }
 
   // TODO(diemtvu): add TCP authn filter similar to http case, and use authn
@@ -91,9 +92,14 @@ void AttributesBuilder::ExtractReportAttributes(
 
   std::string dest_ip;
   int dest_port;
+  // Do not overwrite destination IP and port if it has already been set.
   if (report_data->GetDestinationIpPort(&dest_ip, &dest_port)) {
-    builder.AddBytes(AttributeName::kDestinationIp, dest_ip);
-    builder.AddInt64(AttributeName::kDestinationPort, dest_port);
+    if (!builder.HasAttribute(AttributeName::kDestinationIp)) {
+      builder.AddBytes(AttributeName::kDestinationIp, dest_ip);
+    }
+    if (!builder.HasAttribute(AttributeName::kDestinationPort)) {
+      builder.AddInt64(AttributeName::kDestinationPort, dest_port);
+    }
   }
 
   builder.AddTimestamp(AttributeName::kContextTime,
