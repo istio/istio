@@ -46,6 +46,11 @@ func TestCloudFoundrySnapshot(t *testing.T) {
 			Backends:        nil,
 			CapiProcessGuid: "some-guid-z",
 		},
+		{
+			Hostname:        "other.example.com",
+			Backends:        nil,
+			CapiProcessGuid: "some-guid-x",
+		},
 	}
 
 	routesResponses := []*copilotapi.RoutesResponse{{Routes: routes}}
@@ -54,13 +59,13 @@ func TestCloudFoundrySnapshot(t *testing.T) {
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
 	configs, _ := copilotSnapshot.ReadConfigFiles()
-	g.Expect(configs).To(gomega.HaveLen(2))
+	g.Expect(configs).To(gomega.HaveLen(4))
 
 	splitConfigs := split(configs)
 	var virtualServices = splitConfigs.virtualServices
 	var destinationRules = splitConfigs.destinationRules
 
-	virtualService := virtualServices[0]
+	virtualService := virtualServices[1]
 	g.Expect(virtualService.Hosts[0]).To(gomega.Equal("some-external-route.example.com"))
 	g.Expect(virtualService.Gateways).To(gomega.ConsistOf([]string{"some-gateway", "some-other-gateway"}))
 
@@ -107,9 +112,9 @@ func TestCloudFoundrySnapshot(t *testing.T) {
 		},
 	}))
 
-	g.Expect(destinationRules).To(gomega.HaveLen(1))
+	g.Expect(destinationRules).To(gomega.HaveLen(2))
 
-	rule := destinationRules[0]
+	rule := destinationRules[1]
 
 	g.Expect(rule.Host).To(gomega.Equal("some-external-route.example.com"))
 	g.Expect(rule.Subsets).To(gomega.HaveLen(2))

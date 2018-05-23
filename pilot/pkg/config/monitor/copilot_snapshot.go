@@ -17,6 +17,7 @@ package monitor
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	copilotapi "code.cloudfoundry.org/copilot/api"
@@ -123,6 +124,8 @@ func (c *CopilotSnapshot) ReadConfigFiles() ([]*model.Config, error) {
 	for _, rule := range destinationRules {
 		configs = append(configs, rule)
 	}
+
+	sort.Slice(configs, func(i, j int) bool { return configs[i].Key() < configs[j].Key() })
 
 	return configs, nil
 }
