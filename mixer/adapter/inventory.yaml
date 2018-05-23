@@ -1,4 +1,5 @@
 circonus: "istio.io/istio/mixer/adapter/circonus"
+bypass: "istio.io/istio/mixer/adapter/bypass"
 denier: "istio.io/istio/mixer/adapter/denier"
 dogstatsd: "istio.io/istio/mixer/adapter/dogstatsd"
 fluentd: "istio.io/istio/mixer/adapter/fluentd"
