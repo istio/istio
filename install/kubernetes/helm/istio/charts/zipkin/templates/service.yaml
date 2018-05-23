@@ -15,9 +15,5 @@ spec:
       targetPort: {{ .Values.service.internalPort }}
       protocol: TCP
       name: {{ .Values.service.name }}
-    - port: 80
-      name: query-http
-      protocol: TCP
-      targetPort: {{ .Values.service.uiPort }}
   selector:
     app: zipkin
