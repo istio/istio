@@ -16,11 +16,20 @@ package pilot
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/tests/util"
 )
+
+func fillTemplate(tc *testConfig, templateFile string) string {
+	outYaml, _ := util.CreateAndFill(tc.Info.TempDir, templateFile, map[string]string{
+		"globalMTlsEnable": strconv.FormatBool(tc.Kube.AuthEnabled),
+	})
+	return outYaml
+}
 
 // The gateway is just another service.
 // So we try to reach this gateway from service t (without sidecar)
@@ -44,7 +53,7 @@ func TestGateway_HTTPIngress(t *testing.T) {
 		Namespace: tc.Kube.Namespace,
 		YamlFiles: []string{
 			"testdata/v1alpha3/ingressgateway.yaml",
-			"testdata/v1alpha3/destination-rule-c.yaml",
+			fillTemplate(tc, "testdata/v1alpha3/destination-rule-c.yaml"),
 			"testdata/v1alpha3/rule-ingressgateway.yaml"},
 	}
 	if err := cfgs.Setup(); err != nil {
@@ -83,7 +92,7 @@ func TestIngressGateway503DuringRuleChange(t *testing.T) {
 	// Add subsets
 	newDestRule := &deployableConfig{
 		Namespace: tc.Kube.Namespace,
-		YamlFiles: []string{"testdata/v1alpha3/rule-503test-destinationrule-c.yaml"},
+		YamlFiles: []string{fillTemplate(tc, "testdata/v1alpha3/rule-503test-destinationrule-c.yaml")},
 	}
 
 	// route to subsets
@@ -94,7 +103,7 @@ func TestIngressGateway503DuringRuleChange(t *testing.T) {
 
 	addMoreSubsets := &deployableConfig{
 		Namespace: tc.Kube.Namespace,
-		YamlFiles: []string{"testdata/v1alpha3/rule-503test-destinationrule-c-add-subset.yaml"},
+		YamlFiles: []string{fillTemplate(tc, "testdata/v1alpha3/rule-503test-destinationrule-c-add-subset.yaml")},
 	}
 
 	routeToNewSubsets := &deployableConfig{
@@ -104,7 +113,7 @@ func TestIngressGateway503DuringRuleChange(t *testing.T) {
 
 	deleteOldSubsets := &deployableConfig{
 		Namespace: tc.Kube.Namespace,
-		YamlFiles: []string{"testdata/v1alpha3/rule-503test-destinationrule-c-del-subset.yaml"},
+		YamlFiles: []string{fillTemplate(tc, "testdata/v1alpha3/rule-503test-destinationrule-c-del-subset.yaml")},
 	}
 
 	waitChan := make(chan int)
