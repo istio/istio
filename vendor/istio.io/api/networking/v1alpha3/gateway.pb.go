@@ -112,7 +112,7 @@ func (Server_TLSOptions_TLSmode) EnumDescriptor() ([]byte, []int) {
 // an internal reviews service on port 9080. In addition, requests
 // containing the cookie "user: dev-123" will be sent to special port 7777
 // in the qa version. The same rule is also applicable inside the mesh for
-// requests to the r"eviews.prod.svc.cluster.local" service. This rule is
+// requests to the "reviews.prod.svc.cluster.local" service. This rule is
 // applicable across ports 443, 9080. Note that "http://uk.bookinfo.com"
 // gets redirected to "https://uk.bookinfo.com" (i.e. 80 redirects to 443).
 //
@@ -275,7 +275,11 @@ type Server struct {
 	// REQUIRED. A list of hosts exposed by this gateway. At least one
 	// host is required. While typically applicable to
 	// HTTP services, it can also be used for TCP services using TLS with
-	// SNI. Standard DNS wildcard prefix syntax is permitted.
+	// SNI. May contain a wildcard prefix for the bottom-level domain of
+	// a domain name, e.g.`*.example.com`. Note that `prod.example.com`
+	// will be matched by the `prod.example.com` and `*.example.com` host
+	// names, but **not** by `*prod.example.com`, `*rod.example.com`,
+	// `*example.com`, `*.com` or `*`.
 	//
 	// **Note**: A `VirtualService` that is bound to a gateway must have one
 	// or more hosts that match the hosts specified in a server. The match

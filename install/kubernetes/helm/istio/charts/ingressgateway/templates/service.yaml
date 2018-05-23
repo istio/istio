@@ -11,6 +11,9 @@ metadata:
     {{ $key }}: {{ $val }}
     {{- end }}
 spec:
+{{- if .Values.service.loadBalancerIP }}
+  loadBalancerIP: "{{ .Values.service.loadBalancerIP }}"
+{{- end }}
   type: {{ .Values.service.type }}
   selector:
     {{- range $key, $val := .Values.deployment.labels }}

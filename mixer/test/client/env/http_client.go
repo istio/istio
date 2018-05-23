@@ -23,6 +23,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"istio.io/fortio/fhttp"
 )
 
 // HTTP client time out in second.
@@ -85,7 +87,7 @@ func HTTPPost(url string, contentType string, reqBody string) (code int, respBod
 	}
 	respBody = string(body)
 	code = resp.StatusCode
-	log.Println(respBody)
+	log.Println(fhttp.DebugSummary(body, 512))
 	return code, respBody, nil
 }
 

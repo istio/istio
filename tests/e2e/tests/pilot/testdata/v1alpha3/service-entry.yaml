@@ -4,7 +4,7 @@ metadata:
   name: service-entry-bookinfo
 spec:
   hosts:
-    - eu.bookinfo.com
+    - "*.eu.bookinfo.com"
   ports:
   - number: 80
     name: http

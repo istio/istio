@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sync"
 	"testing"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -26,7 +27,9 @@ import (
 )
 
 // MockController specifies a mock Controller for testing
-type MockController struct{}
+type MockController struct {
+	storeLock sync.RWMutex
+}
 
 func (c *MockController) AppendServiceHandler(f func(*model.Service, model.Event)) error {
 	return nil

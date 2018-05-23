@@ -49,6 +49,7 @@ const (
 	cfRouteOne          = "public.example.com"
 	cfRouteTwo          = "public2.example.com"
 	cfInternalRoute     = "something.apps.internal"
+	cfPath              = "/some/path"
 	publicPort          = 10080
 	backendPort         = 61005
 	backendPort2        = 61006
@@ -101,8 +102,8 @@ func TestWildcardHostEdgeRouterWithMockCopilot(t *testing.T) {
 	mockCopilot, err := bootMockCopilotInBackground(copilotAddr, copilotTLSConfig, quitCopilotServer)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	mockCopilot.PopulateRoute(cfRouteOne, "127.0.0.1", backendPort)
-	mockCopilot.PopulateRoute(cfRouteTwo, "127.0.0.1", backendPort2)
+	mockCopilot.PopulateRoute(cfRouteOne, "127.0.0.1", backendPort, cfPath)
+	mockCopilot.PopulateRoute(cfRouteTwo, "127.0.0.1", backendPort2, "")
 	mockCopilot.PopulateInternalRoute(internalBackendPort, cfInternalRoute, "127.1.1.1", "127.0.0.1")
 
 	err = testState.copilotConfig.Save(testState.copilotConfigFilePath)
@@ -195,21 +196,42 @@ func TestWildcardHostEdgeRouterWithMockCopilot(t *testing.T) {
 
 	t.Log("curling the app with expected host header")
 	g.Eventually(func() error {
-		respData, err := curlApp(fmt.Sprintf("http://127.0.0.1:%d", publicPort), cfRouteOne)
+		hostRoute := url.URL{
+			Host: cfRouteOne,
+		}
+
+		endpoint := url.URL{
+			Scheme: "http",
+			Host:   fmt.Sprintf("127.0.0.1:%d", publicPort),
+			Path:   cfPath,
+		}
+
+		respData, err := curlApp(endpoint, hostRoute)
 		if err != nil {
 			return err
 		}
+
 		if !strings.Contains(respData, "hello") {
 			return fmt.Errorf("unexpected response data: %s", respData)
 		}
-		if !strings.Contains(respData, cfRouteOne) {
+
+		if !strings.Contains(respData, hostRoute.Host) {
 			return fmt.Errorf("unexpected response data: %s", respData)
 		}
 		return nil
 	}, "300s", "1s").Should(gomega.Succeed())
 
 	g.Eventually(func() error {
-		respData, err := curlApp(fmt.Sprintf("http://127.0.0.1:%d", publicPort), cfRouteTwo)
+		hostRoute := url.URL{
+			Host: cfRouteTwo,
+		}
+
+		endpoint := url.URL{
+			Scheme: "http",
+			Host:   fmt.Sprintf("127.0.0.1:%d", publicPort),
+		}
+
+		respData, err := curlApp(endpoint, hostRoute)
 		if err != nil {
 			return err
 		}
@@ -223,7 +245,16 @@ func TestWildcardHostEdgeRouterWithMockCopilot(t *testing.T) {
 	}, "300s", "1s").Should(gomega.Succeed())
 
 	g.Eventually(func() error {
-		respData, err := curlApp(fmt.Sprintf("http://127.1.1.1:%d", 8080), cfInternalRoute)
+		hostRoute := url.URL{
+			Host: cfInternalRoute,
+		}
+
+		endpoint := url.URL{
+			Scheme: "http",
+			Host:   "127.1.1.1:8080",
+		}
+
+		respData, err := curlApp(endpoint, hostRoute)
 		if err != nil {
 			return err
 		}
@@ -286,9 +317,7 @@ func (testState *testState) tearDown() {
 }
 
 func bootMockCopilotInBackground(listenAddress string, tlsConfig *tls.Config, quit <-chan struct{}) (*mock.CopilotHandler, error) {
-	handler := &mock.CopilotHandler{
-		RoutesResponseData: make(map[string]*api.BackendSet),
-	}
+	handler := &mock.CopilotHandler{}
 	l, err := tls.Listen("tcp", listenAddress, tlsConfig)
 	if err != nil {
 		return nil, err
@@ -354,12 +383,13 @@ func curlPilot(apiEndpoint string) (string, error) {
 	return string(respBytes), nil
 }
 
-func curlApp(endpoint, hostHeader string) (string, error) {
-	req, err := http.NewRequest("GET", endpoint, nil)
+func curlApp(endpoint, hostRoute url.URL) (string, error) {
+	req, err := http.NewRequest("GET", endpoint.String(), nil)
 	if err != nil {
 		return "", err
 	}
-	req.Host = hostHeader
+
+	req.Host = hostRoute.Host
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return "", err

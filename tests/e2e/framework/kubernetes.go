@@ -688,7 +688,7 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 
 	// construct setValue to pass into helm install
 	// mTLS
-	setValue := "--set global.securityEnabled=" + strconv.FormatBool(isSecurityOn)
+	setValue := "--set global.mtls.enabled=" + strconv.FormatBool(isSecurityOn)
 	// side car injector
 	if *useAutomaticInjection {
 		setValue += " --set sidecar-injector.enabled=true"

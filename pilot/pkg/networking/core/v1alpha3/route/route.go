@@ -128,9 +128,19 @@ func matchServiceHosts(in model.Config, serviceIndex map[model.Hostname]*model.S
 	hosts := make([]string, 0)
 	services := make([]*model.Service, 0)
 	for _, host := range rule.Hosts {
-		if svc := serviceIndex[model.Hostname(host)]; svc != nil {
-			services = append(services, svc)
-		} else {
+		// Say host is *.global
+		vsHostname := model.Hostname(host)
+		foundSvcMatch := false
+		// TODO: Optimize me. This is O(n2) or worse. Need to prune at top level in config
+		// Say we have services *.foo.global, *.bar.global
+		for svcHost, svc := range serviceIndex {
+			// *.foo.global matches *.global
+			if svcHost.Matches(vsHostname) {
+				services = append(services, svc)
+				foundSvcMatch = true
+			}
+		}
+		if !foundSvcMatch {
 			hosts = append(hosts, host)
 		}
 	}
@@ -158,7 +168,7 @@ func translateVirtualHost(
 		serviceByPort[80] = nil
 	}
 
-	out := make([]GuardedHost, len(serviceByPort))
+	out := make([]GuardedHost, 0, len(serviceByPort))
 	for port, portServices := range serviceByPort {
 		routes, err := TranslateRoutes(in, serviceIndex, port, proxyLabels, gatewayName)
 		if err != nil || len(routes) == 0 {

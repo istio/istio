@@ -32,6 +32,7 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/onsi/gomega"
+	msgdiff "gopkg.in/d4l3k/messagediff.v1"
 	"k8s.io/api/admission/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	extv1beta1 "k8s.io/api/extensions/v1beta1"
@@ -50,7 +51,7 @@ import (
 
 const (
 	helmChartDirectory     = "../../../../install/kubernetes/helm/istio"
-	helmConfigMapKey       = "istio/charts/sidecar-injector/templates/configmap.yaml"
+	helmConfigMapKey       = "istio/templates/sidecar-injector-configmap.yaml"
 	helmValuesFile         = "values.yaml"
 	yamlSeparator          = "\n---"
 	minimalSidecarTemplate = `
@@ -703,6 +704,10 @@ func compareDeployments(got, want *extv1beta1.Deployment, t *testing.T) {
 
 func fatalDeploymentsNotEqual(message string, got, want *extv1beta1.Deployment, t *testing.T) {
 	t.Helper()
+
+	s, _ := msgdiff.PrettyDiff(got, want)
+	t.Logf("difference: %s", s)
+
 	gotJSON := toJSON(got, t)
 	wantJSON := toJSON(want, t)
 	t.Fatalf("%s\nWanted: %s\nGot: %s", message, string(wantJSON), string(gotJSON))
