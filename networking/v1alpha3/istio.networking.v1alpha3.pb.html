@@ -1937,11 +1937,9 @@ connections</p>
 <p>REQUIRED. A list of hosts exposed by this gateway. At least one
 host is required. While typically applicable to
 HTTP services, it can also be used for TCP services using TLS with
-SNI. May contain a wildcard prefix for the bottom-level domain of
-a domain name, e.g.<code>*.example.com</code>. Note that <code>prod.example.com</code>
-will be matched by the <code>prod.example.com</code> and <code>*.example.com</code> host
-names, but <strong>not</strong> by <code>*prod.example.com</code>, <code>*rod.example.com</code>,
-<code>*example.com</code>, <code>*.com</code> or <code>*</code>.</p>
+SNI. May contain a wildcard prefix for the bottom-level component of
+a domain name. For example <code>*.foo.com</code> matches <code>bar.foo.com</code>
+and <code>*.com</code> matches <code>bar.foo.com</code>, <code>example.com</code>, and so on.</p>
 
 <p><strong>Note</strong>: A <code>VirtualService</code> that is bound to a gateway must have one
 or more hosts that match the hosts specified in a server. The match
