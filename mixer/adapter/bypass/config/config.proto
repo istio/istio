@@ -26,6 +26,7 @@ syntax = "proto3";
 package adapter.bypass.config;
 
 import "gogoproto/gogo.proto";
+import "google/protobuf/any.proto";
 
 option go_package = "config";
 option (gogoproto.goproto_getters_all) = false;
@@ -36,4 +37,7 @@ option (gogoproto.gostring_all) = false;
 message Params {
     // The backend address for the remote policy backend.
     string backend_address = 1;
+
+    // The actual config parameters to send to the remote backend.
+    google.protobuf.Any params = 2;
 }

@@ -57,11 +57,6 @@ func (b *builder) SetAdapterConfig(cfg adapter.Config)    { b.params = cfg.(*con
 func (b *builder) Validate() (ce *adapter.ConfigErrors)   { return }
 func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handler, error) {
 
-	any, err := toAny(b.params)
-	if err != nil {
-		return nil, err
-	}
-
 	conn, err := grpc.Dial(b.params.BackendAddress, grpc.WithInsecure())
 	if err != nil {
 		return nil, err
@@ -71,7 +66,7 @@ func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handl
 	metricClient := metric.NewHandleMetricServiceClient(conn)
 
 	req := v1beta1.CreateSessionRequest{
-		AdapterConfig: any,
+		AdapterConfig: b.params.Params,
 	}
 
 	resp, err := infraClient.CreateSession(context, &req)
@@ -80,7 +75,7 @@ func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handl
 	}
 
 	return &handler{
-		configAny:    any,
+		config:       b.params.Params,
 		session:      resp.SessionId,
 		env:          env,
 		conn:         conn,
@@ -90,7 +85,7 @@ func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handl
 }
 
 type handler struct {
-	configAny    *types.Any
+	config       *types.Any
 	session      string
 	env          adapter.Env
 	conn         *grpc.ClientConn
@@ -102,7 +97,7 @@ func (h *handler) HandleMetric(ctx context.Context, instances []*metric.Instance
 	request := metric.HandleMetricRequest{}
 
 	request.DedupId = newDedupID()
-	request.AdapterConfig = h.configAny
+	request.AdapterConfig = h.config
 
 	for _, ins := range instances {
 		value, err := convertValue(ins.Value)
