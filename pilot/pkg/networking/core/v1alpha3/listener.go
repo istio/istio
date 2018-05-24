@@ -355,7 +355,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				if l, exists := listenerMap[listenerMapKey]; exists {
 					if !listenerTypeMap[listenerMapKey].IsHTTP() {
 						conflictingOutbound.Add(1)
-						log.Warnf("Conflicting listener types (%v current and new %v) on %s previous listener for target cluster %s is (%s %v)",
+						log.Warnf("buildSidecarOutboundListeners: listener conflict (%v current and new %v) on %s, destination:%s, current Listener: (%s %v)",
 							servicePort.Protocol, listenerTypeMap[listenerMapKey], listenerMapKey, clusterName, l.Name, l)
 					}
 					// Skip building listener for the same http port
@@ -393,8 +393,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 					// Check if this is HTTPS port collision. If so, we can use SNI to differentiate
 					if !listenerTypeMap[listenerMapKey].IsTCP() || servicePort.Protocol != model.ProtocolHTTPS {
 						conflictingOutbound.Add(1)
-						log.Warnf("Multiple TCP listener definitions (current %v and new %v) for %s %v %s",
-							listenerTypeMap[listenerMapKey], servicePort.Protocol, listenerMapKey, currentListener, service.Hostname)
+						log.Warnf("buildSidecarOutboundListeners: listener conflict (%v current and new %v) on %s, destination:%s, current Listener: (%s %v)",
+							servicePort.Protocol, listenerTypeMap[listenerMapKey], listenerMapKey, clusterName, currentListener.Name, currentListener)
 						continue
 					}
 				}
