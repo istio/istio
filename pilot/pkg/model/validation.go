@@ -1855,6 +1855,10 @@ func ValidateVirtualService(msg proto.Message) (errs error) {
 	}
 
 	appliesToMesh := false
+	if len(virtualService.Gateways) == 0 {
+		appliesToMesh = true
+	}
+
 	for _, gateway := range virtualService.Gateways {
 		if !IsDNS1123Label(gateway) {
 			errs = appendErrors(errs, fmt.Errorf("gateway is not a valid DNS1123 label: %v", gateway))
