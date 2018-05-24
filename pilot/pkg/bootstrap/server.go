@@ -557,30 +557,6 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 			Controller:       kubectl,
 		})
 
-	// Add clusters under the same pilot
-	if s.clusterStore != nil {
-		clusters := s.clusterStore.GetPilotClusters()
-		clientAccessConfigs := s.clusterStore.GetClientAccessConfigs()
-		for _, cluster := range clusters {
-			log.Infof("Cluster name: %s", clusterregistry.GetClusterID(cluster))
-			clusterClient := clientAccessConfigs[cluster.ObjectMeta.Name]
-			client, kuberr := kube.CreateInterfaceFromClusterConfig(&clusterClient)
-			if kuberr != nil {
-				err = multierror.Append(err, multierror.Prefix(kuberr, fmt.Sprintf("failed to connect to Access API with access config: %s", cluster.ObjectMeta.Name)))
-			}
-
-			kubectl := kube.NewController(client, args.Config.ControllerOptions)
-			serviceControllers.AddRegistry(
-				aggregate.Registry{
-					Name:             serviceregistry.KubernetesRegistry,
-					ClusterID:        clusterregistry.GetClusterID(cluster),
-					ServiceDiscovery: kubectl,
-					ServiceAccounts:  kubectl,
-					Controller:       kubectl,
-				})
-		}
-	}
-
 	return
 }
 
@@ -617,7 +593,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		case serviceregistry.MockRegistry:
 			initMemoryRegistry(s, serviceControllers)
 		case serviceregistry.KubernetesRegistry:
-			// TODO Since controllers are built dynamically, createK8sServiceControllers can be removed
+
 			if err := s.createK8sServiceControllers(serviceControllers, args); err != nil {
 				return err
 			}
