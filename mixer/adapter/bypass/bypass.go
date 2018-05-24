@@ -16,9 +16,6 @@
 
 package bypass
 
-// NOTE: This adapter will eventually be auto-generated so that it automatically supports all templates
-//       known to Mixer. For now, it's manually curated.
-
 import (
 	"context"
 
