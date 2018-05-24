@@ -46,7 +46,10 @@ func (e *Environment) Initialize(ctx *internal.TestContext) error {
 // InitializeDependency is called when a new dependency is encountered during test run.
 func (e *Environment) InitializeDependency(ctx *internal.TestContext, d dependency.Instance) (interface{}, error) {
 	switch d {
-	// TODO
+	case dependency.Mixer:
+		return newMixer(ctx)
+	case dependency.PolicyBackend:
+		return newPolicyBackend(ctx)
 	default:
 		return nil, fmt.Errorf("unrecognized dependency: %v", d)
 	}

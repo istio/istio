@@ -33,7 +33,7 @@ func TestMain(m *testing.M) {
 	test.SuiteTag(m, label.Networking)
 
 	// Indicates that all tests in the suite requires a particular dependency.
-	test.SuiteRequires(m, dependency.GKE)
+	//test.SuiteRequires(m, dependency.GKE)
 
 	test.Run("showcase_test", m)
 }
