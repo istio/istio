@@ -40,6 +40,9 @@ class ServiceContext {
   // Add static mixer attributes.
   void AddStaticAttributes(RequestContext* request) const;
 
+  // Inject a header that contains the static forwarded attributes.
+  void InjectForwardedAttributes(HeaderUpdate* header_update) const;
+
   // Add api attributes from api_spec.
   void AddApiAttributes(CheckData* check_data, RequestContext* request) const;
 

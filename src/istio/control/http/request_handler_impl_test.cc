@@ -54,12 +54,28 @@ service_configs {
         }
       }
     }
+    forward_attributes {
+      attributes {
+        key: "source-key-override"
+        value {
+          string_value: "service-value"
+        }
+      }
+    }
   }
 }
 default_destination_service: ":default"
 mixer_attributes {
   attributes {
     key: "global-key"
+    value {
+      string_value: "global-value"
+    }
+  }
+}
+forward_attributes {
+  attributes {
+    key: "source-key-override"
     value {
       string_value: "global-value"
     }
@@ -215,7 +231,16 @@ TEST_F(RequestHandlerImplTest, TestDefaultRouteAttributes) {
         return nullptr;
       }));
 
-  // destionation.server is empty, will use default one
+  // Attribute is forwarded: route override
+  EXPECT_CALL(mock_header, AddIstioAttributes(_))
+      .WillOnce(Invoke([](const std::string& data) {
+        Attributes forwarded_attr;
+        EXPECT_TRUE(forwarded_attr.ParseFromString(data));
+        auto map = forwarded_attr.attributes();
+        EXPECT_EQ(map["source-key-override"].string_value(), "service-value");
+      }));
+
+  // destination.server is empty, will use default one
   Controller::PerRouteConfig config;
   auto handler = controller_->CreateRequestHandler(config);
   handler->Check(&mock_data, &mock_header, nullptr, nullptr);
@@ -230,6 +255,7 @@ TEST_F(RequestHandlerImplTest, TestRouteAttributes) {
   ServiceConfig route_config;
   auto map3 = route_config.mutable_mixer_attributes()->mutable_attributes();
   (*map3)["route1-key"].set_string_value("route1-value");
+  (*map3)["global-key"].set_string_value("service-value");
   SetServiceConfig("route1", route_config);
 
   // Check should be called.
@@ -239,12 +265,20 @@ TEST_F(RequestHandlerImplTest, TestRouteAttributes) {
                           TransportCheckFunc transport,
                           CheckDoneFunc on_done) -> CancelFunc {
         auto map = attributes.attributes();
-        EXPECT_EQ(map["global-key"].string_value(), "global-value");
+        EXPECT_EQ(map["global-key"].string_value(), "service-value");
         EXPECT_EQ(map["route1-key"].string_value(), "route1-value");
         return nullptr;
       }));
 
-  // destionation.server is empty, will use default one
+  // Attribute is forwarded: global
+  EXPECT_CALL(mock_header, AddIstioAttributes(_))
+      .WillOnce(Invoke([](const std::string& data) {
+        Attributes forwarded_attr;
+        EXPECT_TRUE(forwarded_attr.ParseFromString(data));
+        auto map = forwarded_attr.attributes();
+        EXPECT_EQ(map["source-key-override"].string_value(), "global-value");
+      }));
+
   Controller::PerRouteConfig config;
   config.destination_service = "route1";
   auto handler = controller_->CreateRequestHandler(config);

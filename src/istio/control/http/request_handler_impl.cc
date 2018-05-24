@@ -48,14 +48,8 @@ CancelFunc RequestHandlerImpl::Check(CheckData* check_data,
                                      TransportCheckFunc transport,
                                      DoneFunc on_done) {
   ExtractRequestAttributes(check_data);
-
-  if (service_context_->client_context()->config().has_forward_attributes()) {
-    AttributesBuilder::ForwardAttributes(
-        service_context_->client_context()->config().forward_attributes(),
-        header_update);
-  } else {
-    header_update->RemoveIstioAttributes();
-  }
+  header_update->RemoveIstioAttributes();
+  service_context_->InjectForwardedAttributes(header_update);
 
   if (!service_context_->enable_mixer_check()) {
     on_done(Status::OK);
