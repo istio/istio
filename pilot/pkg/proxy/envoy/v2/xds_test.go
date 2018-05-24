@@ -316,6 +316,12 @@ func testPorts(base int) []*model.Port {
 
 // Test XDS with real envoy and with mixer.
 func TestEnvoy(t *testing.T) {
+	defer func() {
+		if testEnv != nil {
+			testEnv.TearDown()
+		}
+	}()
+
 	initLocalPilotTestEnv(t)
 	startEnvoy(t)
 	// Make sure tcp port is ready before starting the test.
@@ -418,12 +424,6 @@ func getLocalIP() string {
 }
 func TestMain(m *testing.M) {
 	flag.Parse()
-	defer func() {
-		if testEnv != nil {
-			testEnv.TearDown()
-		}
-	}()
-
 	// Run all tests.
 	os.Exit(m.Run())
 }
