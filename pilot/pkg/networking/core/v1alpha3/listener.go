@@ -473,11 +473,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 
 	for name, l := range listenerMap {
 		ltype := listenerTypeMap[name]
-		if err := l.Validate(); err != nil {
-			log.Warnf("buildSidecarOutboundListeners: error validating listener %s (type %v): %v", name, ltype, err)
-			invalidOutboundListeners.Add(1)
-			continue
-		}
+		//if err := l.Validate(); err != nil {
+		//	log.Warnf("buildSidecarOutboundListeners: error validating listener %s (type %v): %v", name, ltype, err)
+		//	invalidOutboundListeners.Add(1)
+		//	continue
+		//}
 		if ltype.IsTCP() {
 			tcpListeners = append(tcpListeners, l)
 		} else {

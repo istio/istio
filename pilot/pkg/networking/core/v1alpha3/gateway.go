@@ -140,11 +140,11 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 			continue
 		}
 
-		if err = mutable.Listener.Validate(); err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("gateway listener %s validation failed: %v", mutable.Listener.Name, err.Error()))
-			continue
-		}
-
+		//if err = mutable.Listener.Validate(); err != nil {
+		//	errs = multierror.Append(errs, fmt.Errorf("gateway listener %s validation failed: %v", mutable.Listener.Name, err.Error()))
+		//	continue
+		//}
+		//
 		if log.DebugEnabled() {
 			log.Debugf("buildGatewayListeners: constructed listener with %d filter chains:\n%v",
 				len(mutable.Listener.FilterChains), mutable.Listener)
@@ -154,7 +154,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 	// We'll try to return any listeners we successfully marshaled; if we have none, we'll emit the error we built up
 	err = errs.ErrorOrNil()
 	if len(listeners) == 0 {
-		return []*xdsapi.Listener{}, err
+		log.Error(err.Error())
+		return []*xdsapi.Listener{}, nil
 	}
 
 	if err != nil {
@@ -294,25 +295,23 @@ func buildGatewayInboundHTTPRouteConfig(
 	}
 
 	if len(virtualHosts) == 0 {
-		log.Debugf("constructed http route config for port %d with no vhosts; omitting", port)
-		return nil
-		//log.Debugf("constructed http route config for port %d with no vhosts; Setting up a default 404 vhost", port)
-		//virtualHosts = append(virtualHosts, route.VirtualHost{
-		//	Name:    fmt.Sprintf("blackhole:%d", port),
-		//	Domains: []string{"*"},
-		//	Routes: []route.Route{
-		//		{
-		//			Match: route.RouteMatch{
-		//				PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
-		//			},
-		//			Action: &route.Route_DirectResponse{
-		//				DirectResponse: &route.DirectResponseAction{
-		//					Status: 404,
-		//				},
-		//			},
-		//		},
-		//	},
-		//})
+		log.Debugf("constructed http route config for port %d with no vhosts; Setting up a default 404 vhost", port)
+		virtualHosts = append(virtualHosts, route.VirtualHost{
+			Name:    fmt.Sprintf("blackhole:%d", port),
+			Domains: []string{"*"},
+			Routes: []route.Route{
+				{
+					Match: route.RouteMatch{
+						PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
+					},
+					Action: &route.Route_DirectResponse{
+						DirectResponse: &route.DirectResponseAction{
+							Status: 404,
+						},
+					},
+				},
+			},
+		})
 	}
 	util.SortVirtualHosts(virtualHosts)
 	return &xdsapi.RouteConfiguration{
