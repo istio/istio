@@ -139,10 +139,12 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 			errs = multierror.Append(errs, fmt.Errorf("omitting listener %q due to: %v", mutable.Listener.Name, err.Error()))
 			continue
 		}
+
 		if err = mutable.Listener.Validate(); err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("listener %s validation failed: %v", mutable.Listener.Name, err.Error()))
 			continue
 		}
+
 		if log.DebugEnabled() {
 			log.Debugf("buildGatewayListeners: constructed listener with %d filter chains:\n%v",
 				len(mutable.Listener.FilterChains), mutable.Listener)

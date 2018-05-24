@@ -83,6 +83,7 @@ var (
 
 func init() {
 	prometheus.MustRegister(conflictingOutbound)
+	prometheus.MustRegister(invalidOutboundListeners)
 }
 
 // ListenersALPNProtocols denotes the the list of ALPN protocols that the listener
@@ -309,15 +310,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 	}
 	return listeners
 }
-
-const (
-	// ListenerTypeUnknown is an unknown type of listener.
-	ListenerTypeUnknown = iota
-	// ListenerTypeTCP is a TCP listener.
-	ListenerTypeTCP
-	// ListenerTypeHTTP is an HTTP listener.
-	ListenerTypeHTTP
-)
 
 // buildSidecarOutboundListeners generates http and tcp listeners for outbound connections from the service instance
 // TODO(github.com/istio/pilot/issues/237)
