@@ -15,6 +15,10 @@
 package handler
 
 import (
+	"bytes"
+	"fmt"
+	"sort"
+
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/protobuf/yaml/dynamic"
@@ -184,4 +188,23 @@ var emptyTable = &Table{}
 // Empty returns an empty table instance.
 func Empty() *Table {
 	return emptyTable
+}
+
+// String implementation.
+func (t *Table) String() string {
+	var b bytes.Buffer
+
+	var names []string
+	for i := range t.entries {
+		names = append(names, i)
+	}
+
+	sort.Strings(names)
+
+	for i, name := range names {
+		e := t.entries[name]
+		fmt.Fprintf(&b, "[%d] %s(%s) {%v}\n", i, e.Name, e.Adapter.Name, e.Signature)
+	}
+
+	return b.String()
 }
