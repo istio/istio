@@ -265,6 +265,10 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 						"-o=jsonpath='{.data.config}' > /tmp/injectConfigFile.yaml")
 				}
 
+				if hub == "" || tag == "" {
+					return fmt.Errorf("hub and tag are both required. got hub: '%v', tag: '%v'", hub, tag)
+				}
+
 				if sidecarTemplate, err = inject.GenerateTemplateFromParams(&inject.Params{
 					InitImage:           inject.InitImageName(hub, tag, debugMode),
 					ProxyImage:          inject.ProxyImageName(hub, tag, debugMode),
