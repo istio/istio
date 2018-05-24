@@ -2452,6 +2452,15 @@ func TestValidateVirtualService(t *testing.T) {
 				}},
 			}},
 		}, valid: false},
+		{name: "wildcard for mesh gateway", in: &networking.VirtualService{
+			Hosts:    []string{"*"},
+			Gateways: []string{"mesh", "somegateway"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.DestinationWeight{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: false},
 	}
 
 	for _, tc := range testCases {
