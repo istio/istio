@@ -15,8 +15,10 @@
 package local
 
 import (
+	"fmt"
 	"testing"
 
+	"istio.io/istio/pkg/test/dependency"
 	"istio.io/istio/pkg/test/environment"
 	"istio.io/istio/pkg/test/internal"
 )
@@ -24,29 +26,51 @@ import (
 // Environment a local environment for testing. It implements environment.Interface, and also
 // hosts publicly accessible methods that are specific to local environment.
 type Environment struct {
-	ctx internal.TestContext
+	ctx *internal.TestContext
 }
 
 var _ environment.Interface = &Environment{}
-var _ Internal = &Environment{}
+var _ internal.Environment = &Environment{}
 
 // NewEnvironment returns a new instance of local environment.
-func NewEnvironment(ctx internal.TestContext) (*Environment, error) {
-	return &Environment{
-		ctx: ctx,
-	}, nil
+func NewEnvironment() (*Environment, error) {
+	return &Environment{}, nil
+}
+
+// Initialize the environment. This is called once during the lifetime of the suite.
+func (e *Environment) Initialize(ctx *internal.TestContext) error {
+	e.ctx = ctx
+	return nil
+}
+
+// InitializeDependency is called when a new dependency is encountered during test run.
+func (e *Environment) InitializeDependency(ctx *internal.TestContext, d dependency.Instance) (interface{}, error) {
+	switch d {
+	// TODO
+	default:
+		return nil, fmt.Errorf("unrecognized dependency: %v", d)
+	}
 }
 
 // Configure applies the given configuration to the mesh.
 func (e *Environment) Configure(t testing.TB, config string) {
-	// TODO
-	panic("Not yet implemented")
+	for _, d := range e.ctx.Tracker().All() {
+		if configurable, ok := d.(internal.Configurable); ok {
+			err := configurable.ApplyConfig(config)
+			if err != nil {
+				t.Fatalf("Error applying configuration to dependencies: %v", err)
+			}
+		}
+	}
 }
 
 // GetMixer returns a deployed Mixer instance in the environment.
 func (e *Environment) GetMixer() (environment.DeployedMixer, error) {
-	// TODO
-	panic("Not yet implemented")
+	s, err := e.get(dependency.Mixer)
+	if err != nil {
+		return nil, err
+	}
+	return s.(environment.DeployedMixer), nil
 }
 
 // GetMixerOrFail returns a deployed Mixer instance in the environment, or fails the test if unsuccessful.
@@ -118,6 +142,22 @@ func (e *Environment) GetFortioApps(selector string, t testing.TB) []environment
 // GetPolicyBackendOrFail returns the mock policy backend that is used by Mixer for policy checks and reports.
 func (e *Environment) GetPolicyBackendOrFail(t testing.TB) environment.DeployedPolicyBackend {
 	t.Helper()
-	// TODO
-	panic("Not yet implemented")
+	return e.getOrFail(t, dependency.PolicyBackend).(environment.DeployedPolicyBackend)
+}
+
+func (e *Environment) get(dep dependency.Instance) (interface{}, error) {
+	s, ok := e.ctx.Tracker()[dep]
+	if !ok {
+		return nil, fmt.Errorf("dependency not initialized: %v", dep)
+	}
+
+	return s, nil
+}
+
+func (e *Environment) getOrFail(t testing.TB, dep dependency.Instance) interface{} {
+	s, ok := e.ctx.Tracker()[dep]
+	if !ok {
+		t.Fatalf("Dependency not initialized: %v", dep)
+	}
+	return s
 }

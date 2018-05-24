@@ -15,11 +15,13 @@
 package cluster
 
 import (
+	"fmt"
 	"testing"
 
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
+	"istio.io/istio/pkg/test/dependency"
 	"istio.io/istio/pkg/test/environment"
 	"istio.io/istio/pkg/test/internal"
 )
@@ -28,22 +30,16 @@ import (
 // hosts publicly accessible methods that are specific to cluster environment.
 type Environment struct {
 	config *rest.Config
-	ctx    internal.TestContext
 
 	IstioSystemNamespace string
 	AppNamespace         string
 }
 
 var _ environment.Interface = &Environment{}
-var _ Internal = &Environment{}
-
-// DoFoo is a fake method that should be removed.
-func (e *Environment) DoFoo() {
-	// TODO: Remove. Dummy method.
-}
+var _ internal.Environment = &Environment{}
 
 // NewEnvironment returns a new instance of cluster environment.
-func NewEnvironment(ctx internal.TestContext, kubeConfigPath string) (*Environment, error) {
+func NewEnvironment(kubeConfigPath string) (*Environment, error) {
 	config, err := clientcmd.BuildConfigFromFlags("", kubeConfigPath)
 	if err != nil {
 		return nil, err
@@ -51,8 +47,21 @@ func NewEnvironment(ctx internal.TestContext, kubeConfigPath string) (*Environme
 
 	return &Environment{
 		config: config,
-		ctx:    ctx,
 	}, nil
+}
+
+// Initialize the environment. This is called once during the lifetime of the suite.
+func (e *Environment) Initialize(ctx *internal.TestContext) error {
+	return nil
+}
+
+// InitializeDependency is called when a new dependency is encountered during test run.
+func (e *Environment) InitializeDependency(ctx *internal.TestContext, d dependency.Instance) (interface{}, error) {
+	switch d {
+	// TODO
+	default:
+		return nil, fmt.Errorf("unrecognized dependency: %v", d)
+	}
 }
 
 // Configure applies the given configuration to the mesh.
