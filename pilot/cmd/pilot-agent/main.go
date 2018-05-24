@@ -23,6 +23,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"sync"
 	"text/template"
 	"time"
 
@@ -35,6 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy"
 	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v1"
+	"istio.io/istio/pilot/pkg/proxyexporter"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/collateral"
@@ -68,6 +70,8 @@ var (
 	disableInternalTelemetry bool
 
 	loggingOptions = log.DefaultOptions()
+
+	exportCfg = proxyexporter.DefaultOptions()
 
 	rootCmd = &cobra.Command{
 		Use:   "pilot-agent",
@@ -235,6 +239,13 @@ var (
 				}
 			}
 
+			exportCfg.StatsdUDPAddress = statsdUDPAddress
+
+			exporter, err := proxyexporter.New(*exportCfg)
+			if err != nil {
+				return err
+			}
+
 			var envoyProxy proxy.Proxy
 			if bootstrapv2 {
 				// Using a different constructor - the code will likely be refactored / split from the v1,
@@ -248,10 +259,18 @@ var (
 			ctx, cancel := context.WithCancel(context.Background())
 			go watcher.Run(ctx)
 
+			wg := sync.WaitGroup{}
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				exporter.Run(ctx)
+			}()
+
 			stop := make(chan struct{})
 			cmd.WaitSignal(stop)
 			<-stop
 			cancel()
+			wg.Wait()
 			return nil
 		},
 	}
@@ -324,6 +343,11 @@ func init() {
 		"Go template bootstrap config")
 	proxyCmd.PersistentFlags().BoolVar(&disableInternalTelemetry, "disableInternalTelemetry", false,
 		"Disable internal telemetry")
+
+	proxyCmd.PersistentFlags().StringVar(&exportCfg.AgentAddress, "aspenAgentAddress", exportCfg.AgentAddress,
+		"IP Address and Port of the aspenmesh agent HTTP api")
+	proxyCmd.PersistentFlags().DurationVar(&exportCfg.PollInterval, "exportPollInterval", exportCfg.PollInterval,
+		"Number of seconds between updates.")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
