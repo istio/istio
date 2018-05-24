@@ -22,9 +22,11 @@ package bypass
 import (
 	"context"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"go.uber.org/multierr"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/istio/mixer/adapter/bypass/config"
@@ -47,29 +49,86 @@ func GetInfo() adapter.Info {
 }
 
 type builder struct {
+	conn        *grpc.ClientConn
+	infraClient v1beta1.InfrastructureBackendClient
+
+	metricTypes map[string]*metric.Type
+
 	params *config.Params
 }
 
 var _ metric.HandlerBuilder = &builder{}
 
-func (b *builder) SetMetricTypes(map[string]*metric.Type) {}
-func (b *builder) SetAdapterConfig(cfg adapter.Config)    { b.params = cfg.(*config.Params) }
-func (b *builder) Validate() (ce *adapter.ConfigErrors)   { return }
-func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handler, error) {
+func (b *builder) SetMetricTypes(metricTypes map[string]*metric.Type) {
+	b.metricTypes = metricTypes
+}
 
-	conn, err := grpc.Dial(b.params.BackendAddress, grpc.WithInsecure())
-	if err != nil {
-		return nil, err
+func (b *builder) SetAdapterConfig(cfg adapter.Config) {
+	b.params = cfg.(*config.Params)
+}
+
+func (b *builder) Validate() (ce *adapter.ConfigErrors) {
+	if b.conn == nil {
+		conn, err := grpc.Dial(b.params.BackendAddress, grpc.WithInsecure())
+		if err != nil {
+			ce = ce.Appendf("backend_address", "Unable to connect: %v", err)
+			return
+		}
+		b.conn = conn
+		b.infraClient = v1beta1.NewInfrastructureBackendClient(b.conn)
 	}
 
-	infraClient := v1beta1.NewInfrastructureBackendClient(conn)
-	metricClient := metric.NewHandleMetricServiceClient(conn)
+	var metricTypes map[string]*types.Any
+	if b.metricTypes != nil {
+		metricTypes = make(map[string]*types.Any)
+		for k, v := range b.metricTypes {
+			by, err := proto.Marshal(v)
+			if err != nil {
+				ce = ce.Appendf("infrerred_types", "Error marshalling to any: %v", err)
+				return
+			}
+			metricTypes[k] = &types.Any{
+				Value:   by,
+				TypeUrl: proto.MessageName(v), // TODO: Is this the right URL to use?
+			}
+		}
+	}
+	req := v1beta1.ValidateRequest{
+		AdapterConfig: b.params.Params,
+		InferredTypes: metricTypes,
+	}
+
+	resp, err := b.infraClient.Validate(context.TODO(), &req)
+	if err != nil {
+		ce = ce.Appendf("params", "error during validation: %v", err)
+		return
+	}
+
+	if resp.Status.Code != int32(codes.OK) {
+		ce = ce.Appendf("params", "validation error: %s", resp.Status.Message)
+		return
+	}
+
+	return
+}
+
+func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handler, error) {
+	if b.conn == nil {
+		conn, err := grpc.Dial(b.params.BackendAddress, grpc.WithInsecure())
+		if err != nil {
+			return nil, err
+		}
+		b.conn = conn
+		b.infraClient = v1beta1.NewInfrastructureBackendClient(b.conn)
+	}
+
+	metricClient := metric.NewHandleMetricServiceClient(b.conn)
 
 	req := v1beta1.CreateSessionRequest{
 		AdapterConfig: b.params.Params,
 	}
 
-	resp, err := infraClient.CreateSession(context, &req)
+	resp, err := b.infraClient.CreateSession(context, &req)
 	if err != nil {
 		return nil, err
 	}
@@ -78,8 +137,8 @@ func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handl
 		config:       b.params.Params,
 		session:      resp.SessionId,
 		env:          env,
-		conn:         conn,
-		infraClient:  infraClient,
+		conn:         b.conn,
+		infraClient:  b.infraClient,
 		metricClient: metricClient,
 	}, nil
 }
