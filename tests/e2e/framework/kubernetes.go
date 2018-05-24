@@ -81,7 +81,7 @@ var (
 	rbacEnable       = flag.Bool("rbac_enable", true, "Enable rbac")
 	localCluster     = flag.Bool("use_local_cluster", false,
 		"Whether the cluster is local or not (i.e. the test is running within the cluster). If running on minikube, this should be set to true.")
-	localRegistry             = flag.Bool("use_local_registry", os.Getenv("LOCALREG"), "Use in-cluster docker registry for testing")
+	localRegistry             = flag.Bool("use_local_registry", true, "Use in-cluster docker registry for testing")
 	skipSetup                 = flag.Bool("skip_setup", false, "Skip namespace creation and istio cluster setup")
 	sidecarInjectorFile       = flag.String("sidecar_injector_file", defaultSidecarInjectorFile, "Sidecar injector yaml file")
 	clusterWide               = flag.Bool("cluster_wide", false, "Run cluster wide tests")
@@ -208,8 +208,12 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 	a := NewAppManager(tmpDir, *namespace, i, kubeConfig)
 
 	var l *LocalRegistry
+	if os.Getenv("LOCALREG") == "false" {
+		*localRegistry = false
+	}
+
 	if *localRegistry {
-		l = NewLocalRegistry(localRegistryNamespace, i, localRegistryFile, kubeConfig, localRegistryHub, localRegistryTag)
+		l = NewLocalRegistry(localRegistryNamespace, i, localRegistryFile, kubeConfig, *localRegistryHub, *localRegistryTag)
 	}
 
 	log.Infof("Using release dir: %s", releaseDir)

@@ -74,10 +74,13 @@ UPGRADE_E2E_ARGS ?= ${DEFAULT_UPGRADE_E2E_ARGS}
 
 # deploy local registry pod, build and push images
 localregistry_setup:
-	ifeq (${LOCALREG},true)
+ifeq ($(LOCALREG),true)
+	echo "Deploying local registry onto cluster..."
 	kubectl apply -f ${LOCALREG_FILE}
-	GOOS=linux docker docker.push
-	endif
+	sh ${ISTIO}/tests/check_localregistry.sh
+	GOOS=linux make docker
+	GOOS=linux make docker.push
+endif
 
 # Simple e2e test using fortio, approx 2 min
 e2e_simple: istioctl generate_yaml localregistry_setup e2e_simple_run
