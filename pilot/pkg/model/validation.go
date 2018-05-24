@@ -1878,7 +1878,7 @@ func ValidateVirtualService(msg proto.Message) (errs error) {
 			errs = appendErrors(errs, validateHost(host))
 			allHostsValid = false
 		} else if appliesToMesh && host == "*" {
-			errs = appendErrors(errs, fmt.Errorf("Wildcard host * is not allowed for virtual services bound to the mesh gateway"))
+			errs = appendErrors(errs, fmt.Errorf("wildcard host * is not allowed for virtual services bound to the mesh gateway"))
 			allHostsValid = false
 		}
 	}
