@@ -467,6 +467,10 @@ metadata:
 spec:
   host: istio-policy.{{ .Release.Namespace }}.svc.cluster.local
   trafficPolicy:
+    {{- if .Values.global.controlPlaneSecurityEnabled }}
+    tls:
+      mode: ISTIO_MUTUAL
+    {{- end}}
     connectionPool:
       http:
         http2MaxRequests: 10000
@@ -480,6 +484,10 @@ metadata:
 spec:
   host: istio-telemetry.{{ .Release.Namespace }}.svc.cluster.local
   trafficPolicy:
+    {{- if .Values.global.controlPlaneSecurityEnabled }}
+    tls:
+      mode: ISTIO_MUTUAL
+    {{- end}}
     connectionPool:
       http:
         http2MaxRequests: 10000
