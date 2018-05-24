@@ -233,4 +233,8 @@ This filter will intercept a tcp connection:
 * All mixer settings described above can be used here.
 * disable_tcp_check_calls is a tcp filter specific config to disable check for tcp connection.
 
+## How to override destination.uid for upstream hosts
 
+You can set metadata field `uid` for filter `mixer` to a string value in the
+per-host metadata in the EDS response. That will override the value of the
+attribute `destination.uid` sent to the telemetry service.

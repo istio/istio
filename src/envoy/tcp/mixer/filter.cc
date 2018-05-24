@@ -163,6 +163,13 @@ bool Filter::GetDestinationIpPort(std::string* str_ip, int* port) const {
   }
   return false;
 }
+bool Filter::GetDestinationUID(std::string* uid) const {
+  if (filter_callbacks_->upstreamHost()) {
+    return Utils::GetDestinationUID(
+        filter_callbacks_->upstreamHost()->metadata(), uid);
+  }
+  return false;
+}
 void Filter::GetReportInfo(
     ::istio::control::tcp::ReportData::ReportInfo* data) const {
   data->received_bytes = received_bytes_;

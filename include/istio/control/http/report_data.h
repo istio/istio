@@ -44,6 +44,9 @@ class ReportData {
   virtual void GetReportInfo(ReportInfo* info) const = 0;
 
   virtual bool GetDestinationIpPort(std::string* ip, int* port) const = 0;
+
+  // Get upstream host UID. This value overrides the value in the report bag.
+  virtual bool GetDestinationUID(std::string* uid) const = 0;
 };
 
 }  // namespace http

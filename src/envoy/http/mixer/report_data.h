@@ -77,6 +77,13 @@ class ReportData : public ::istio::control::http::ReportData {
     }
     return false;
   }
+
+  bool GetDestinationUID(std::string *uid) const override {
+    if (info_.upstreamHost()) {
+      return Utils::GetDestinationUID(info_.upstreamHost()->metadata(), uid);
+    }
+    return false;
+  }
 };
 
 }  // namespace Mixer

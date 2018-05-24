@@ -58,6 +58,7 @@ struct AttributeName {
 
   static const char kDestinationIp[];
   static const char kDestinationPort[];
+  static const char kDestinationUID[];
   static const char kConnectionReceviedBytes[];
   static const char kConnectionReceviedTotalBytes[];
   static const char kConnectionSendBytes[];

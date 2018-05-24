@@ -171,6 +171,11 @@ void AttributesBuilder::ExtractReportAttributes(ReportData *report_data) {
     }
   }
 
+  std::string uid;
+  if (report_data->GetDestinationUID(&uid)) {
+    builder.AddString(AttributeName::kDestinationUID, uid);
+  }
+
   std::map<std::string, std::string> headers =
       report_data->GetResponseHeaders();
   builder.AddStringMap(AttributeName::kResponseHeaders, headers);

@@ -157,6 +157,12 @@ attributes {
     int64_value: 8080
   }
 }
+attributes {
+  key: "destination.uid"
+  value {
+    string_value: "pod1.ns2"
+  }
+}
 )";
 
 const char kDeltaOneReportAttributes[] = R"(
@@ -207,6 +213,12 @@ attributes {
   key: "destination.port"
   value {
     int64_value: 8080
+  }
+}
+attributes {
+  key: "destination.uid"
+  value {
+    string_value: "pod1.ns2"
   }
 }
 )";
@@ -261,6 +273,12 @@ attributes {
     int64_value: 8080
   }
 }
+attributes {
+  key: "destination.uid"
+  value {
+    string_value: "pod1.ns2"
+  }
+}
 )";
 
 void ClearContextTime(RequestContext* request) {
@@ -312,6 +330,12 @@ TEST(AttributesBuilderTest, TestReportAttributes) {
       .WillRepeatedly(Invoke([](std::string* ip, int* port) -> bool {
         *ip = "1.2.3.4";
         *port = 8080;
+        return true;
+      }));
+  EXPECT_CALL(mock_data, GetDestinationUID(_))
+      .Times(3)
+      .WillRepeatedly(Invoke([](std::string* uid) -> bool {
+        *uid = "pod1.ns2";
         return true;
       }));
   EXPECT_CALL(mock_data, GetReportInfo(_))

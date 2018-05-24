@@ -39,6 +39,9 @@ class ReportData {
     std::chrono::nanoseconds duration;
   };
   virtual void GetReportInfo(ReportInfo* info) const = 0;
+
+  // Get upstream host UID. This value overrides the value in the report bag.
+  virtual bool GetDestinationUID(std::string* uid) const = 0;
 };
 
 }  // namespace tcp

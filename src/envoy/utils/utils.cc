@@ -17,6 +17,7 @@
 #include "mixer/v1/attributes.pb.h"
 
 using ::google::protobuf::Message;
+using ::google::protobuf::Struct;
 using ::google::protobuf::util::Status;
 
 namespace Envoy {
@@ -25,6 +26,12 @@ namespace Utils {
 namespace {
 
 const std::string kSPIFFEPrefix("spiffe://");
+
+// Per-host opaque data field
+const std::string kPerHostMixer("mixer");
+
+// Attribute field for per-host data override
+const std::string kMetadataDestinationUID("uid");
 
 }  // namespace
 
@@ -68,6 +75,21 @@ bool GetIpPort(const Network::Address::Ip* ip, std::string* str_ip, int* port) {
     }
   }
   return false;
+}
+
+bool GetDestinationUID(const envoy::api::v2::core::Metadata& metadata,
+                       std::string* uid) {
+  const auto filter_it = metadata.filter_metadata().find(kPerHostMixer);
+  if (filter_it == metadata.filter_metadata().end()) {
+    return false;
+  }
+  const Struct& struct_pb = filter_it->second;
+  const auto fields_it = struct_pb.fields().find(kMetadataDestinationUID);
+  if (fields_it == struct_pb.fields().end()) {
+    return false;
+  }
+  *uid = fields_it->second.string_value();
+  return true;
 }
 
 bool GetSourceUser(const Network::Connection* connection, std::string* user) {

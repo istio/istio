@@ -32,6 +32,10 @@ std::map<std::string, std::string> ExtractHeaders(
 // Get ip and port from Envoy ip.
 bool GetIpPort(const Network::Address::Ip* ip, std::string* str_ip, int* port);
 
+// Get destination.uid attribute value from metadata.
+bool GetDestinationUID(const envoy::api::v2::core::Metadata& metadata,
+                       std::string* uid);
+
 // Get user id from ssl.
 bool GetSourceUser(const Network::Connection* connection, std::string* user);
 

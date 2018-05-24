@@ -45,9 +45,10 @@ const char AttributeName::kResponseTime[] = "response.time";
 // Downstream tcp connection: source ip/port.
 const char AttributeName::kSourceIp[] = "source.ip";
 const char AttributeName::kSourcePort[] = "source.port";
-// Upstream tcp connection: destionation ip/port.
+// Upstream tcp connection: destination ip/port.
 const char AttributeName::kDestinationIp[] = "destination.ip";
 const char AttributeName::kDestinationPort[] = "destination.port";
+const char AttributeName::kDestinationUID[] = "destination.uid";
 const char AttributeName::kConnectionReceviedBytes[] =
     "connection.received.bytes";
 const char AttributeName::kConnectionReceviedTotalBytes[] =

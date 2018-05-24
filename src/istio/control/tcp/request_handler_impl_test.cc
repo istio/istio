@@ -102,6 +102,7 @@ TEST_F(RequestHandlerImplTest, TestHandlerCheck) {
 TEST_F(RequestHandlerImplTest, TestHandlerReport) {
   ::testing::NiceMock<MockReportData> mock_data;
   EXPECT_CALL(mock_data, GetDestinationIpPort(_, _)).Times(1);
+  EXPECT_CALL(mock_data, GetDestinationUID(_)).Times(1);
   EXPECT_CALL(mock_data, GetReportInfo(_)).Times(1);
 
   // Report should be called.

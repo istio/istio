@@ -411,6 +411,11 @@ TEST(AttributesBuilderTest, TestReportAttributes) {
         *port = 8080;
         return true;
       }));
+  EXPECT_CALL(mock_data, GetDestinationUID(_))
+      .WillOnce(Invoke([](std::string *uid) -> bool {
+        *uid = "pod1.ns2";
+        return true;
+      }));
   EXPECT_CALL(mock_data, GetResponseHeaders())
       .WillOnce(Invoke([]() -> std::map<std::string, std::string> {
         std::map<std::string, std::string> map;
@@ -441,6 +446,8 @@ TEST(AttributesBuilderTest, TestReportAttributes) {
   Attributes expected_attributes;
   ASSERT_TRUE(
       TextFormat::ParseFromString(kReportAttributes, &expected_attributes));
+  (*expected_attributes.mutable_attributes())[AttributeName::kDestinationUID]
+      .set_string_value("pod1.ns2");
   EXPECT_TRUE(
       MessageDifferencer::Equals(request.attributes, expected_attributes));
 }
