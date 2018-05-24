@@ -19,7 +19,6 @@ import (
 	"net"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/google/uuid"
 
@@ -126,18 +125,4 @@ func convertMapValue(value map[string]interface{}) (map[string]*v1beta1.Value, e
 
 func newDedupID() string {
 	return uuid.New().String()
-}
-
-func toAny(m proto.Message) (*types.Any, error) {
-	value, err := proto.Marshal(m)
-	if err != nil {
-		return nil, err
-	}
-
-	typeURL := proto.MessageName(m)
-
-	return &types.Any{
-		Value:   value,
-		TypeUrl: typeURL,
-	}, nil
 }

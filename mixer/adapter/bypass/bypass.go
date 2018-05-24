@@ -31,7 +31,10 @@ import (
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/istio/mixer/adapter/bypass/config"
 	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/template/checknothing"
 	"istio.io/istio/mixer/template/metric"
+	"istio.io/istio/mixer/template/quota"
+	"istio.io/istio/mixer/template/reportnothing"
 )
 
 // GetInfo returns the Info associated with this adapter implementation.
@@ -41,7 +44,10 @@ func GetInfo() adapter.Info {
 		Impl:        "istio.io/istio/mixer/adapter/bypass",
 		Description: "Calls gRPC backends via the inline adapter model (useful for testing)",
 		SupportedTemplates: []string{
+			checknothing.TemplateName,
+			reportnothing.TemplateName,
 			metric.TemplateName,
+			quota.TemplateName,
 		},
 		DefaultConfig: &config.Params{},
 		NewBuilder:    func() adapter.HandlerBuilder { return &builder{} },
@@ -52,15 +58,33 @@ type builder struct {
 	conn        *grpc.ClientConn
 	infraClient v1beta1.InfrastructureBackendClient
 
-	metricTypes map[string]*metric.Type
+	checknothingTypes  map[string]*checknothing.Type
+	reportnothingTypes map[string]*reportnothing.Type
+	metricTypes        map[string]*metric.Type
+	quotaTypes         map[string]*quota.Type
 
 	params *config.Params
 }
 
+var _ checknothing.HandlerBuilder = &builder{}
+var _ reportnothing.HandlerBuilder = &builder{}
 var _ metric.HandlerBuilder = &builder{}
+var _ quota.HandlerBuilder = &builder{}
+
+func (b *builder) SetCheckNothingTypes(checknothingTypes map[string]*checknothing.Type) {
+	b.checknothingTypes = checknothingTypes
+}
+
+func (b *builder) SetReportNothingTypes(reportnothingTypes map[string]*reportnothing.Type) {
+	b.reportnothingTypes = reportnothingTypes
+}
 
 func (b *builder) SetMetricTypes(metricTypes map[string]*metric.Type) {
 	b.metricTypes = metricTypes
+}
+
+func (b *builder) SetQuotaTypes(quotaTypes map[string]*quota.Type) {
+	b.quotaTypes = quotaTypes
 }
 
 func (b *builder) SetAdapterConfig(cfg adapter.Config) {
@@ -78,24 +102,35 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 		b.infraClient = v1beta1.NewInfrastructureBackendClient(b.conn)
 	}
 
-	var metricTypes map[string]*types.Any
-	if b.metricTypes != nil {
-		metricTypes = make(map[string]*types.Any)
-		for k, v := range b.metricTypes {
-			by, err := proto.Marshal(v)
-			if err != nil {
-				ce = ce.Appendf("infrerred_types", "Error marshalling to any: %v", err)
-				return
-			}
-			metricTypes[k] = &types.Any{
-				Value:   by,
-				TypeUrl: proto.MessageName(v), // TODO: Is this the right URL to use?
-			}
+	anyTypes := make(map[string]*types.Any)
+	setAny := func(k string, v proto.Message) {
+		by, err := proto.Marshal(v)
+		if err != nil {
+			ce = ce.Appendf("infrerred_types", "Error marshalling to any: %v", err)
+			return
+		}
+		anyTypes[k] = &types.Any{
+			Value:   by,
+			TypeUrl: proto.MessageName(v), // TODO: Is this the right URL to use?
 		}
 	}
+
+	for k, v := range b.checknothingTypes {
+		setAny(k, v)
+	}
+	for k, v := range b.reportnothingTypes {
+		setAny(k, v)
+	}
+	for k, v := range b.metricTypes {
+		setAny(k, v)
+	}
+	for k, v := range b.quotaTypes {
+		setAny(k, v)
+	}
+
 	req := v1beta1.ValidateRequest{
 		AdapterConfig: b.params.Params,
-		InferredTypes: metricTypes,
+		InferredTypes: anyTypes,
 	}
 
 	resp, err := b.infraClient.Validate(context.TODO(), &req)
@@ -122,8 +157,6 @@ func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handl
 		b.infraClient = v1beta1.NewInfrastructureBackendClient(b.conn)
 	}
 
-	metricClient := metric.NewHandleMetricServiceClient(b.conn)
-
 	req := v1beta1.CreateSessionRequest{
 		AdapterConfig: b.params.Params,
 	}
@@ -134,22 +167,73 @@ func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handl
 	}
 
 	return &handler{
-		config:       b.params.Params,
-		session:      resp.SessionId,
-		env:          env,
-		conn:         b.conn,
-		infraClient:  b.infraClient,
-		metricClient: metricClient,
+		config:              b.params.Params,
+		session:             resp.SessionId,
+		env:                 env,
+		conn:                b.conn,
+		infraClient:         b.infraClient,
+		checknothingClient:  checknothing.NewHandleCheckNothingServiceClient(b.conn),
+		reportnothingClient: reportnothing.NewHandleReportNothingServiceClient(b.conn),
+		metricClient:        metric.NewHandleMetricServiceClient(b.conn),
+		quotaClient:         quota.NewHandleQuotaServiceClient(b.conn),
 	}, nil
 }
 
 type handler struct {
-	config       *types.Any
-	session      string
-	env          adapter.Env
-	conn         *grpc.ClientConn
-	infraClient  v1beta1.InfrastructureBackendClient
-	metricClient metric.HandleMetricServiceClient
+	config              *types.Any
+	session             string
+	env                 adapter.Env
+	conn                *grpc.ClientConn
+	infraClient         v1beta1.InfrastructureBackendClient
+	checknothingClient  checknothing.HandleCheckNothingServiceClient
+	reportnothingClient reportnothing.HandleReportNothingServiceClient
+	metricClient        metric.HandleMetricServiceClient
+	quotaClient         quota.HandleQuotaServiceClient
+}
+
+var _ checknothing.Handler = &handler{}
+var _ reportnothing.Handler = &handler{}
+var _ metric.Handler = &handler{}
+var _ quota.Handler = &handler{}
+
+func (h *handler) HandleCheckNothing(ctx context.Context, instance *checknothing.Instance) (adapter.CheckResult, error) {
+	request := checknothing.HandleCheckNothingRequest{}
+
+	request.DedupId = newDedupID()
+	request.AdapterConfig = h.config
+
+	request.Instance = &checknothing.InstanceMsg{
+		Name: instance.Name,
+	}
+
+	result := adapter.CheckResult{}
+	response, err := h.checknothingClient.HandleCheckNothing(ctx, &request)
+	if err == nil {
+		result.Status = response.Status
+		result.ValidDuration = response.ValidDuration
+		result.ValidUseCount = response.ValidUseCount
+	}
+
+	return result, err
+}
+
+func (h *handler) HandleReportNothing(ctx context.Context, instances []*reportnothing.Instance) error {
+	request := reportnothing.HandleReportNothingRequest{}
+
+	request.DedupId = newDedupID()
+	request.AdapterConfig = h.config
+
+	for _, ins := range instances {
+		instance := &reportnothing.InstanceMsg{
+			Name: ins.Name,
+		}
+
+		request.Instances = append(request.Instances, instance)
+	}
+
+	_, err := h.reportnothingClient.HandleReportNothing(ctx, &request)
+
+	return err
 }
 
 func (h *handler) HandleMetric(ctx context.Context, instances []*metric.Instance) error {
@@ -179,6 +263,33 @@ func (h *handler) HandleMetric(ctx context.Context, instances []*metric.Instance
 	_, err := h.metricClient.HandleMetric(ctx, &request)
 
 	return err
+}
+
+func (h *handler) HandleQuota(ctx context.Context, instance *quota.Instance, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
+	request := quota.HandleQuotaRequest{}
+
+	request.DedupId = newDedupID()
+	request.AdapterConfig = h.config
+
+	result := adapter.QuotaResult{}
+
+	dimensions, err := convertMapValue(instance.Dimensions)
+	if err != nil {
+		return result, err
+	}
+
+	request.Instance = &quota.InstanceMsg{
+		Name:       instance.Name,
+		Dimensions: dimensions,
+	}
+
+	response, err := h.quotaClient.HandleQuota(ctx, &request)
+	if err == nil {
+		result.ValidDuration = response.Quotas[instance.Name].ValidDuration
+		result.Amount = response.Quotas[instance.Name].GrantedAmount
+	}
+
+	return result, err
 }
 
 func (h *handler) Close() error {
