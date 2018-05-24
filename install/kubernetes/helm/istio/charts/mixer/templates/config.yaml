@@ -468,8 +468,11 @@ spec:
   host: istio-policy.{{ .Release.Namespace }}.svc.cluster.local
   trafficPolicy:
     {{- if .Values.global.controlPlaneSecurityEnabled }}
-    tls:
-      mode: ISTIO_MUTUAL
+    portLevelSettings:
+    - port:
+        name: grpc-mixer-mtls
+      tls:
+        mode: ISTIO_MUTUAL
     {{- end}}
     connectionPool:
       http:
