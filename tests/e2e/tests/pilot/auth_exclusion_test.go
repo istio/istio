@@ -25,9 +25,9 @@ func TestAuthExclusion(t *testing.T) {
 	}
 
 	if tc.V1alpha3 {
-			// While the mesh config turned on mTLS globally, this DestinationRule lets the client opt-out
-			// the mTLS when talking to fake-control service.
-			cfgs := &deployableConfig{
+		// While the mesh config turned on mTLS globally, this DestinationRule lets the client opt-out
+		// the mTLS when talking to fake-control service.
+		cfgs := &deployableConfig{
 			Namespace:  tc.Kube.Namespace,
 			YamlFiles:  []string{"testdata/authn/destination-rule-exclude.yaml.tmpl"},
 			kubeconfig: tc.Kube.KubeConfig,
