@@ -651,9 +651,21 @@ func buildHTTPConnectionManager(mesh *meshconfig.MeshConfig, httpOpts *httpListe
 func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	filterChains := make([]listener.FilterChain, 0, len(opts.filterChainOpts))
 	for _, chain := range opts.filterChainOpts {
-		match := &listener.FilterChainMatch{}
+		var match *listener.FilterChainMatch
+
 		if len(chain.sniHosts) > 0 {
-			match.SniDomains = chain.sniHosts
+			fullWildcardFound := false
+			for _, h := range chain.sniHosts {
+				if h == "*" {
+					fullWildcardFound = true
+					// If we have a host with *, it effectively means match anything, i.e.
+					// no SNI based matching for this host.
+					break
+				}
+			}
+			if !fullWildcardFound {
+				match = &listener.FilterChainMatch{SniDomains: chain.sniHosts}
+			}
 		}
 		filterChains = append(filterChains, listener.FilterChain{
 			FilterChainMatch: match,
@@ -669,8 +681,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	}
 
 	return &xdsapi.Listener{
-		// protocol is either TCP or HTTP
-		Name:         fmt.Sprintf("%s_%s_%d", protocolToListenerPrefix(opts.protocol), opts.ip, opts.port),
+		Name:         fmt.Sprintf("%s_%d", opts.ip, opts.port),
 		Address:      util.BuildAddress(opts.ip, uint32(opts.port)),
 		FilterChains: filterChains,
 		DeprecatedV1: deprecatedV1,
@@ -713,11 +724,4 @@ func marshalFilters(l *xdsapi.Listener, opts buildListenerOpts, chains []plugin.
 		}
 	}
 	return nil
-}
-
-func protocolToListenerPrefix(p model.Protocol) string {
-	if p.IsHTTP() {
-		return "http"
-	}
-	return "tcp"
 }
