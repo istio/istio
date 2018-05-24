@@ -212,9 +212,6 @@ func main() {
 	pilotURL := flag.String("pilot", "localhost:15010", "pilot address")
 	configType := flag.String("type", "lds", "lds, cds, or eds. Default lds.")
 	resources := flag.String("res", "", "Resource(s) to get config for. Should be pod name or app label for lds and cds type. For eds, it is comma separated list of cluster name.")
-	// lds := flag.String("lds", "", "Pod name or app label to get LDS for")
-	// cds := flag.String("cds", "", "Pod name or app label to get CDS for")
-	// eds := flag.String("eds", "", "Comma separated list of EDS resources to get")
 	outputFile := flag.String("out", "", "output file. Leave blank to go to stdout")
 	flag.Parse()
 
