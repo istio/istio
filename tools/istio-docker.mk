@@ -58,7 +58,7 @@ $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key: ${GEN_CERT} $(IST
 # tell make which files are copied form go/out
 DOCKER_FILES_FROM_ISTIO_OUT:=pilot-test-client pilot-test-server pilot-test-eurekamirror \
                              pilot-discovery pilot-agent sidecar-injector servicegraph mixs \
-                             istio_ca flexvolume node_agent gals
+                             istio_ca flexvolume node_agent node_agent_k8s gals
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT)/$(FILE) | $(ISTIO_DOCKER); cp $$< $$(@D)))
 
@@ -182,13 +182,14 @@ $(GALLEY_DOCKER): galley/docker/Dockerfile$$(suffix $$@) $(ISTIO_DOCKER)/gals | 
 docker.citadel:         $(ISTIO_DOCKER)/istio_ca     $(ISTIO_DOCKER)/ca-certificates.tgz
 docker.citadel-test:    $(ISTIO_DOCKER)/istio_ca.crt $(ISTIO_DOCKER)/istio_ca.key
 docker.node-agent:      $(ISTIO_DOCKER)/node_agent
+docker.node-agent-k8s:  $(ISTIO_DOCKER)/node_agent_k8s
 docker.node-agent-test: $(ISTIO_DOCKER)/node_agent $(ISTIO_DOCKER)/istio_ca.key \
                         $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key
 docker.flexvolumedriver: $(ISTIO_DOCKER)/flexvolume
 $(foreach FILE,$(FLEXVOLUMEDRIVER_FILES),$(eval docker.flexvolumedriver: $(ISTIO_DOCKER)/$(notdir $(FILE))))
 $(foreach FILE,$(NODE_AGENT_TEST_FILES),$(eval docker.node-agent-test: $(ISTIO_DOCKER)/$(notdir $(FILE))))
 
-SECURITY_DOCKER:=docker.citadel docker.citadel-test docker.node-agent docker.node-agent-test docker.flexvolumedriver
+SECURITY_DOCKER:=docker.citadel docker.citadel-test docker.node-agent docker.node-agent-test docker.node-agent-k8s docker.flexvolumedriver
 $(SECURITY_DOCKER): security/docker/Dockerfile$$(suffix $$@) | $(ISTIO_DOCKER)
 	$(DOCKER_RULE)
 

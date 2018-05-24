@@ -322,13 +322,13 @@ servicegraph:
 ${ISTIO_OUT}/servicegraph:
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./addons/$(@F)/cmd/server
 
-SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca ${ISTIO_OUT}/flexvolume
+SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent {ISTIO_OUT}/node_agent_k8s ${ISTIO_OUT}/istio_ca ${ISTIO_OUT}/flexvolume
 $(SECURITY_GO_BINS):
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
 .PHONY: build
 # Build will rebuild the go binaries.
-build: depend $(PILOT_GO_BINS_SHORT) mixc mixs node_agent istio_ca flexvolume istioctl gals
+build: depend $(PILOT_GO_BINS_SHORT) mixc mixs node_agent node_agent_k8s istio_ca flexvolume istioctl gals
 
 # The following are convenience aliases for most of the go targets
 # The first block is for aliases that are the same as the actual binary,
@@ -344,6 +344,10 @@ citadel:
 node-agent:
 	bin/gobuild.sh ${ISTIO_OUT}/node-agent istio.io/istio/pkg/version ./security/cmd/node_agent
 
+.PHONY: node-agent-k8s
+node-agent-k8s:
+	bin/gobuild.sh ${ISTIO_OUT}/node-agent-k8s istio.io/istio/pkg/version ./security/cmd/node_agent_k8s
+
 .PHONY: flexvolumedriver
 flexvolumedriver:
 	bin/gobuild.sh ${ISTIO_OUT}/flexvolume istio.io/istio/pkg/version ./security/cmd/flexvolume
@@ -351,8 +355,8 @@ flexvolumedriver:
 .PHONY: pilot
 pilot: pilot-discovery
 
-.PHONY: node_agent istio_ca flexvolume
-node_agent istio_ca flexvolume:
+.PHONY: node_agent node_agent_k8s istio_ca flexvolume
+node_agent node_agent_k8s istio_ca flexvolume:
 	bin/gobuild.sh ${ISTIO_OUT}/$@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
