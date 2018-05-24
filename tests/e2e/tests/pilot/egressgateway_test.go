@@ -35,10 +35,8 @@ func TestEgressGateway(t *testing.T) {
 	}
 
 	// In authn enable test, mTLS is enabled globally, which mean all clients will use TLS
-	// to talk to egress-gateway. However, in 0.8 implementation, gateway TLS setting doesn't
-	// infer from authn policy, and thus need to be set via gateway API, or disable mTLS for
-	// egress-gateway. For this test, we choose the second option by deploying authn policy
-	// that disable mTLS for egress-gateway.
+	// to talk to egress-gateway. We need to explicitly specify the TLSMode to DISABLE in the
+	// DestinationRule to the gateway.
 	cfgs := &deployableConfig{
 		Namespace: tc.Kube.Namespace,
 		YamlFiles: []string{

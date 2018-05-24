@@ -24,7 +24,8 @@ import (
 	"istio.io/istio/tests/util"
 )
 
-func fillTemplate(tc *testConfig, templateFile string) string {
+// maybeAddTLSForDestinationRule fills the DestinationRule template if the mTLS is turned on globally.
+func maybeAddTLSForDestinationRule(tc *testConfig, templateFile string) string {
 	outYaml, _ := util.CreateAndFill(tc.Info.TempDir, templateFile, map[string]string{
 		"globalMTlsEnable": strconv.FormatBool(tc.Kube.AuthEnabled),
 	})
@@ -53,7 +54,7 @@ func TestGateway_HTTPIngress(t *testing.T) {
 		Namespace: tc.Kube.Namespace,
 		YamlFiles: []string{
 			"testdata/v1alpha3/ingressgateway.yaml",
-			fillTemplate(tc, "testdata/v1alpha3/destination-rule-c.yaml"),
+			maybeAddTLSForDestinationRule(tc, "testdata/v1alpha3/destination-rule-c.yaml"),
 			"testdata/v1alpha3/rule-ingressgateway.yaml"},
 	}
 	if err := cfgs.Setup(); err != nil {
@@ -92,7 +93,7 @@ func TestIngressGateway503DuringRuleChange(t *testing.T) {
 	// Add subsets
 	newDestRule := &deployableConfig{
 		Namespace: tc.Kube.Namespace,
-		YamlFiles: []string{fillTemplate(tc, "testdata/v1alpha3/rule-503test-destinationrule-c.yaml")},
+		YamlFiles: []string{maybeAddTLSForDestinationRule(tc, "testdata/v1alpha3/rule-503test-destinationrule-c.yaml")},
 	}
 
 	// route to subsets
@@ -103,7 +104,7 @@ func TestIngressGateway503DuringRuleChange(t *testing.T) {
 
 	addMoreSubsets := &deployableConfig{
 		Namespace: tc.Kube.Namespace,
-		YamlFiles: []string{fillTemplate(tc, "testdata/v1alpha3/rule-503test-destinationrule-c-add-subset.yaml")},
+		YamlFiles: []string{maybeAddTLSForDestinationRule(tc, "testdata/v1alpha3/rule-503test-destinationrule-c-add-subset.yaml")},
 	}
 
 	routeToNewSubsets := &deployableConfig{
@@ -113,7 +114,7 @@ func TestIngressGateway503DuringRuleChange(t *testing.T) {
 
 	deleteOldSubsets := &deployableConfig{
 		Namespace: tc.Kube.Namespace,
-		YamlFiles: []string{fillTemplate(tc, "testdata/v1alpha3/rule-503test-destinationrule-c-del-subset.yaml")},
+		YamlFiles: []string{maybeAddTLSForDestinationRule(tc, "testdata/v1alpha3/rule-503test-destinationrule-c-del-subset.yaml")},
 	}
 
 	waitChan := make(chan int)
