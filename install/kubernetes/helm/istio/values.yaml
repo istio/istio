@@ -218,10 +218,13 @@ egressgateway:
     ports:
     - containerPort: 80
     - containerPort: 443
-  # secretVolumes: TODO
-  # - name: someName
-  #   mountPath: somePath
-  #   secretName: someName
+    secretVolumes:
+    - name: egressgateway-certs
+      secretName: istio-egressgateway-certs
+      mountPath: /etc/istio/egressgateway-certs
+    - name: egressgateway-ca-certs
+      secretName: istio-egressgateway-ca-certs
+      mountPath: /etc/istio/egressgateway-ca-certs
 
 #
 # sidecar-injector webhook configuration
