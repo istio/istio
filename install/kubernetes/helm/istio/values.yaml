@@ -391,7 +391,7 @@ servicegraph:
   # prometheus addres
   prometheusAddr: http://prometheus:9090
 
-zipkin:
+tracing:
   enabled: false
   replicaCount: 1
   image:
