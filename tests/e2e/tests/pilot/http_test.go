@@ -34,15 +34,17 @@ func TestHttp(t *testing.T) {
 		// while to d:8080 should always success.
 		dstPods = append(dstPods, "d")
 
-		cfgs := &deployableConfig{
-			Namespace:  tc.Kube.Namespace,
-			YamlFiles:  []string{"testdata/authn/destination-rule-d8080.yaml.tmpl"},
-			kubeconfig: tc.Kube.KubeConfig,
+		if tc.V1alpha3 {
+			cfgs := &deployableConfig{
+				Namespace:  tc.Kube.Namespace,
+				YamlFiles:  []string{"testdata/authn/destination-rule-d8080.yaml.tmpl"},
+				kubeconfig: tc.Kube.KubeConfig,
+			}
+			if err := cfgs.Setup(); err != nil {
+				t.Fatal(err)
+			}
+			defer cfgs.Teardown()
 		}
-		if err := cfgs.Setup(); err != nil {
-			t.Fatal(err)
-		}
-		defer cfgs.Teardown()
 	}
 
 	logs := newAccessLogs()
