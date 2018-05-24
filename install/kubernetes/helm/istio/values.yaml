@@ -15,7 +15,7 @@ global:
   # Should track latest released version in the branch.
   tag: 0.8.latest
   proxy:
-    image: proxy
+    image: proxyv2
     resources:
       requests:
         cpu: 100m
@@ -34,7 +34,6 @@ global:
     #  cpu: 100m
     #  memory: 128Mi
 
-
     # istio egress capture whitelist
     # https://istio.io/docs/tasks/traffic-management/egress.html#calling-external-services-directly
     # example: includeIPRanges: "172.30.0.0/16,172.20.0.0/16"
@@ -52,10 +51,6 @@ global:
     excludeInboundPorts: ""
     policy: enabled
 
-
-  # proxyv2 image is the image to use for networking alpha3 and envoy v2
-  proxyv2:
-    image: proxyv2
   proxy_init:
     image: proxy_init
 
