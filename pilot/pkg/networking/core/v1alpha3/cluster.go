@@ -94,7 +94,6 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environmen
 			upstreamServiceAccounts := env.ServiceAccounts.GetIstioServiceAccounts(service.Hostname, []string{port.Name})
 			defaultCluster := buildDefaultCluster(env, clusterName, convertResolution(service.Resolution), hosts)
 
-
 			updateEds(env, defaultCluster, service.Hostname)
 			setUpstreamProtocol(defaultCluster, port)
 			clusters = append(clusters, defaultCluster)
