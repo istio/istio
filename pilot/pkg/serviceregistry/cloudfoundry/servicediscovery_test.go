@@ -41,6 +41,7 @@ var routesResponse = &api.RoutesResponse{
 					},
 				},
 			},
+			CapiProcessGuid: "some-guid-a",
 		},
 		{
 			Hostname: "process-guid-b.cfapps.io",
@@ -56,10 +57,10 @@ var routesResponse = &api.RoutesResponse{
 					},
 				},
 			},
+			CapiProcessGuid: "some-guid-b",
 		},
 		{
-			Hostname: "process-guid-a.cfapps.io",
-			Path:     "/some/path",
+			Hostname: "process-guid-z.cfapps.io",
 			Backends: &api.BackendSet{
 				Backends: []*api.Backend{
 					{
@@ -68,6 +69,7 @@ var routesResponse = &api.RoutesResponse{
 					},
 				},
 			},
+			CapiProcessGuid: "some-guid-z",
 		},
 	},
 }
@@ -129,11 +131,11 @@ func TestServiceDiscovery_Services(t *testing.T) {
 			Ports:    []*model.Port{{Port: defaultServicePort, Protocol: model.ProtocolHTTP, Name: "http"}},
 		},
 		{
-			Hostname: "process-guid-a.cfapps.io",
+			Hostname: "process-guid-b.cfapps.io",
 			Ports:    []*model.Port{{Port: defaultServicePort, Protocol: model.ProtocolHTTP, Name: "http"}},
 		},
 		{
-			Hostname: "process-guid-b.cfapps.io",
+			Hostname: "process-guid-z.cfapps.io",
 			Ports:    []*model.Port{{Port: defaultServicePort, Protocol: model.ProtocolHTTP, Name: "http"}},
 		},
 		{
@@ -222,16 +224,7 @@ func TestServiceDiscovery_Instances_Filtering(t *testing.T) {
 				ServicePort: servicePort,
 			},
 			Service: service,
-			Labels:  model.Labels{"cf-service-instance": "5c33031c3bea379160c9bed9f59b4bdd"},
-		},
-		{
-			Endpoint: model.NetworkEndpoint{
-				Address:     "10.0.40.2",
-				Port:        61008,
-				ServicePort: servicePort,
-			},
-			Service: service,
-			Labels:  model.Labels{"cf-service-instance": "2e5e1643567d8ed5097dc14115908f7a"},
+			Labels:  model.Labels{"cfapp": "some-guid-a"},
 		},
 	}))
 
