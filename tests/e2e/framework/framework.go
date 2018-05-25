@@ -110,6 +110,10 @@ func NewCommonConfigWithVersion(testID, version string) (*CommonConfig, error) {
 		c.Cleanup.RegisterCleanable(c.Kube.RemoteAppManager)
 	}
 
+	if c.Kube.localRegistry {
+		c.Cleanup.RegisterCleanable(c.Kube.LocalRegistry)
+	}
+
 	return c, nil
 }
 

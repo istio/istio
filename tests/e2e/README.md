@@ -75,12 +75,29 @@ kubectl create clusterrolebinding myname-cluster-admin-binding    --clusterrole=
 
 ## Step 4: Export test script variables
 
-**Option 1:** Build your own images.
+**Option 1:** Build your own images and use an in-cluster registry.
+# This allows you to set up a private docker registry within the cluster without connection to a remote one.
+# Please fill in the ip address of the registry in <registry-ip> of HUB value, 5000 is the exposed port of the registry.
+# For local registry in vagrant-kubernetes-istio settings, registry ip should be 10.10.0.2
+
+```
+# Set up env vars in .istiorc.mk
+cat .istiorc.mk
+LOCALREG=true
+HUB="<registry ip>:5000"
+TAG=latest
+
+# Such settings will let test targets know to deploy local registry into cluster and build/push images to it.
+# After the test is done, the registry will be cleanup by default.
+```
+
+**Option 2:** Build your own images and use a remote registry.
 
 ```
 # Customize .istiorc.mk (at the top of the istio.io/istio source tree) with your HUB and optional TAG
 # it allows you to customize Makefile rules. For example:
 cat .istiorc.mk
+LOCALREG=false
 HUB=costinm
 TAG=mybranch
 
@@ -96,14 +113,15 @@ make push
 
 ```
 
-**Option 2:** Already committed changes to istio/istio master branch
+**Option 3:** Already committed changes to istio/istio master branch
 NOTE: SHA used as TAG is one that is already committed on istio/istio. You can pick any SHA you want.
 ```
+export LOCALREG=false
 export HUB="gcr.io/istio-testing"
 export TAG="d0142e1afe41c18917018e2fa85ab37254f7e0ca"
 ```
 
-**Option 3:** Testing local changes
+**Option 4:** Testing local changes
 
 If you want to test on uncommitted changes to master istio:
 * Create a PR with your change.
@@ -115,6 +133,7 @@ be a SHA which you need to copy and set it as a GIT_SHA. Example from a log: the
 
 * Then set the export variables again
 ```
+export LOCALREG=false
 export HUB="gcr.io/istio-testing"
 export TAG="<sha copied from the logs of istio-presubmit.sh>"
 ```
