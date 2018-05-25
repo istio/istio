@@ -77,6 +77,7 @@ type ControllerOptions struct {
 	WatchedNamespace string
 	ResyncPeriod     time.Duration
 	DomainSuffix     string
+	InstanceID       string
 }
 
 // Controller is a collection of synchronized resource watchers

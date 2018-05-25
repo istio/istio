@@ -103,6 +103,16 @@ func init() {
 		"Controller resync interval")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ControllerOptions.DomainSuffix, "domain", "cluster.local",
 		"DNS domain suffix")
+
+	defaultID := "<unknown>"
+	podName := os.Getenv("POD_NAME")
+	podNamespace := os.Getenv("POD_NAMESPACE")
+	if podName != "" && podNamespace != "" {
+		defaultID = fmt.Sprintf("k8s://%s.%s", podName, podNamespace)
+	}
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ControllerOptions.InstanceID, "id", defaultID,
+		"Unique ID of the discovery service. If not provided uses k8s://${POD_NAME}.${POD_NAMESPACE}")
+
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Service.Consul.ServerURL, "consulserverURL", "",
 		"URL for the Consul server")
 	discoveryCmd.PersistentFlags().DurationVar(&serverArgs.Service.Consul.Interval, "consulserverInterval", 2*time.Second,

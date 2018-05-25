@@ -25,6 +25,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
@@ -36,9 +37,10 @@ import (
 // controller is a collection of synchronized resource watchers.
 // Caches are thread-safe
 type controller struct {
-	client *Client
-	queue  kube.Queue
-	kinds  map[string]cacheHandler
+	instanceID string
+	client     *Client
+	queue      kube.Queue
+	kinds      map[string]cacheHandler
 }
 
 type cacheHandler struct {
@@ -58,13 +60,18 @@ var (
 		Help: "Errors converting k8s CRDs",
 	}, []string{"name"})
 
+	k8sResourceVersions = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "pilot_k8s_resource_versions",
+		Help: "Applied CRD resource versions",
+	}, []string{"gvk", "name", "namespace", "resourceVersion", "instanceID"})
+
 	// InvalidCRDs contains a sync.Map keyed by the namespace/name of the entry, and has the error as value.
 	// It can be used by tools like ctrlz to display the errors.
 	InvalidCRDs atomic.Value
 )
 
 func init() {
-	prometheus.MustRegister(k8sEvents)
+	prometheus.MustRegister(k8sEvents, k8sResourceVersions)
 }
 
 // NewController creates a new Kubernetes controller for CRDs
@@ -74,9 +81,10 @@ func NewController(client *Client, options kube.ControllerOptions) model.ConfigS
 
 	// Queue requires a time duration for a retry delay after a handler error
 	out := &controller{
-		client: client,
-		queue:  kube.NewQueue(1 * time.Second),
-		kinds:  make(map[string]cacheHandler),
+		client:     client,
+		queue:      kube.NewQueue(1 * time.Second),
+		kinds:      make(map[string]cacheHandler),
+		instanceID: options.InstanceID,
 	}
 
 	// add stores for CRD kinds
@@ -130,6 +138,35 @@ func (c *controller) notify(obj interface{}, event model.Event) error {
 	return nil
 }
 
+func (c *controller) updateResourceVersionMetric(otype string, obj interface{}, add bool) {
+	// TODO: object updates are missing the TypeMeta values. Construct the correct
+	// GVK from the explicit model type.
+	typ, ok := model.IstioConfigTypes.GetByType(otype)
+	if !ok {
+		return
+	}
+	gvk := schema.GroupVersionKind{
+		Group:   typ.Group,
+		Version: typ.Version,
+		Kind:    KabobCaseToCamelCase(typ.Type),
+	}
+
+	item, _ := obj.(IstioObject)
+	metadata := item.GetObjectMeta()
+	labels := prometheus.Labels{
+		"gvk":             gvk.String(),
+		"name":            metadata.GetName(),
+		"namespace":       metadata.GetNamespace(),
+		"resourceVersion": metadata.GetResourceVersion(),
+		"instanceID":      c.instanceID,
+	}
+	var value float64
+	if add {
+		value = 1
+	}
+	k8sResourceVersions.With(labels).Set(value)
+}
+
 func (c *controller) createInformer(
 	o runtime.Object,
 	otype string,
@@ -148,11 +185,15 @@ func (c *controller) createInformer(
 		cache.ResourceEventHandlerFuncs{
 			// TODO: filtering functions to skip over un-referenced resources (perf)
 			AddFunc: func(obj interface{}) {
+				c.updateResourceVersionMetric(otype, obj, true)
+
 				k8sEvents.With(prometheus.Labels{"type": otype, "event": "add"}).Add(1)
 				c.queue.Push(kube.NewTask(handler.Apply, obj, model.EventAdd))
 			},
 			UpdateFunc: func(old, cur interface{}) {
 				if !reflect.DeepEqual(old, cur) {
+					c.updateResourceVersionMetric(otype, old, false)
+					c.updateResourceVersionMetric(otype, cur, true)
 					k8sEvents.With(prometheus.Labels{"type": otype, "event": "update"}).Add(1)
 					c.queue.Push(kube.NewTask(handler.Apply, cur, model.EventUpdate))
 				} else {
@@ -160,6 +201,8 @@ func (c *controller) createInformer(
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
+				c.updateResourceVersionMetric(otype, obj, false)
+
 				k8sEvents.With(prometheus.Labels{"type": otype, "event": "add"}).Add(1)
 				c.queue.Push(kube.NewTask(handler.Apply, obj, model.EventDelete))
 			},
