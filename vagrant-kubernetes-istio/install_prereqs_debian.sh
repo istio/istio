@@ -72,7 +72,7 @@ if [ $? -ne 0 ]; then
       echo "Looks like docker installation failed."
       echo "Please install it manually and then run this script again."
       exit 1
-    fi
+  fi
 fi
 
 # Install vagrant.
@@ -85,7 +85,7 @@ if [ $? -ne 0 ]; then
       echo "Looks like vagrant installation failed."
       echo "Please install it manually and then run this script again."
       exit 1
-    fi
+  fi
 fi
 
 # Install kubectl
