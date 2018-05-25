@@ -291,7 +291,7 @@ type IstioConfigStore interface {
 	// the one with the most specific scope will be selected. If there are more than
 	// one with the same scope, the first one seen will be used (later, we should
 	// have validation at submitting time to prevent this scenario from happening)
-	AuthenticationPolicyByDestination(hostname Hostname, port *Port) *Config
+	AuthenticationPolicyByDestination(hostname Hostname, port *Port, labels Labels) *Config
 }
 
 const (
@@ -974,7 +974,7 @@ func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance)
 	return out
 }
 
-func (store *istioConfigStore) AuthenticationPolicyByDestination(hostname Hostname, port *Port) *Config {
+func (store *istioConfigStore) AuthenticationPolicyByDestination(hostname Hostname, port *Port, instanceLabels Labels) *Config {
 	// Hostname should be FQDN, so namespace can be extracted by parsing hostname.
 	parts := strings.Split(string(hostname), ".")
 	if len(parts) < 2 {
@@ -1014,6 +1014,19 @@ func (store *istioConfigStore) AuthenticationPolicyByDestination(hostname Hostna
 					}
 					if !portMatched {
 						// Port does not match with any of port selector, skip to next target selector.
+						continue
+					}
+				}
+
+				// If targetSelector.subset is set in the policy, return the policy only if current service instance belongs
+				// to the subset (by comparing the serviceinstance.labels and destinationRule.subset.labels).
+				if dest.Subset != "" && instanceLabels != nil {
+					destRuleSubsetLabels := store.SubsetToLabels(dest.Subset, hostname)
+					if destRuleSubsetLabels == nil {
+						continue
+					}
+
+					if !destRuleSubsetLabels[0].SubsetOf(instanceLabels) {
 						continue
 					}
 				}

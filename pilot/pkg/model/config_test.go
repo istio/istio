@@ -625,7 +625,7 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 	for _, testCase := range cases {
 		port := &model.Port{Port: testCase.port}
 		expected := authNPolicies[testCase.expected]
-		out := store.AuthenticationPolicyByDestination(testCase.hostname, port)
+		out := store.AuthenticationPolicyByDestination(testCase.hostname, port, nil)
 		if out == nil {
 			if expected != nil {
 				t.Errorf("AutheticationPolicy(%s:%d) => expected %#v but got nil",

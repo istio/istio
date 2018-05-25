@@ -145,7 +145,7 @@ func ConvertPolicyToJwtConfig(policy *authn.Policy, useInlinePublicKey bool) *jw
 		if useInlinePublicKey {
 			jwtPubKey, err := model.JwtKeyResolver.GetPublicKey(policyJwt.JwksUri)
 			if err != nil {
-				log.Warnf("Failed to fetch jwt public key from %q", policyJwt.JwksUri)
+				log.Warnf("Failed to fetch jwt public key from %q: %v", policyJwt.JwksUri, err)
 			}
 
 			// Put empty string in config even if above ResolveJwtPubKey fails.
@@ -297,7 +297,7 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 		return nil
 	}
 	authnPolicy := model.GetConsolidateAuthenticationPolicy(
-		in.Env.Mesh, in.Env.IstioConfigStore, in.ServiceInstance.Service.Hostname, in.ServiceInstance.Endpoint.ServicePort)
+		in.Env.Mesh, in.Env.IstioConfigStore, in.ServiceInstance.Service.Hostname, in.ServiceInstance.Endpoint.ServicePort, in.ServiceInstance.Labels)
 
 	if mutable.Listener == nil || (len(mutable.Listener.FilterChains) != len(mutable.FilterChains)) {
 		return fmt.Errorf("expected same number of filter chains in listener (%d) and mutable (%d)", len(mutable.Listener.FilterChains), len(mutable.FilterChains))
@@ -343,7 +343,7 @@ func (Plugin) OnOutboundCluster(env model.Environment, node model.Proxy, service
 		return
 	}
 
-	required, _ := RequireTLS(model.GetConsolidateAuthenticationPolicy(mesh, config, service.Hostname, servicePort))
+	required, _ := RequireTLS(model.GetConsolidateAuthenticationPolicy(mesh, config, service.Hostname, servicePort, nil))
 	if isDestinationExcludedForMTLS(service.Hostname.String(), mesh.MtlsExcludedServices) || !required {
 		return
 	}

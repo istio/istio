@@ -51,7 +51,8 @@ func ApplyClusterPolicy(cluster *Cluster,
 	// Original DST cluster are used to route to services outside the mesh
 	// where Istio auth does not apply.
 	if cluster.Type != ClusterTypeOriginalDST {
-		requireTLS, _ := authn_plugin.RequireTLS(model.GetConsolidateAuthenticationPolicy(mesh, config, model.Hostname(cluster.Hostname), cluster.Port))
+		requireTLS, _ := authn_plugin.RequireTLS(model.GetConsolidateAuthenticationPolicy(
+			mesh, config, model.Hostname(cluster.Hostname), cluster.Port, cluster.labels))
 		if !isDestinationExcludedForMTLS(cluster.ServiceName, mesh.MtlsExcludedServices) && requireTLS {
 			// apply auth policies
 			ports := model.PortList{cluster.Port}.GetNames()
