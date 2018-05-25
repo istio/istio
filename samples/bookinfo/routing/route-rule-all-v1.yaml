@@ -59,6 +59,9 @@ metadata:
   name: productpage
 spec:
   host: productpage
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
   subsets:
   - name: v1
     labels:
@@ -71,6 +74,9 @@ metadata:
   name: reviews
 spec:
   host: reviews
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
   subsets:
   - name: v1
     labels:
@@ -88,6 +94,9 @@ metadata:
   name: ratings
 spec:
   host: ratings
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
   subsets:
   - name: v1
     labels:
@@ -108,6 +117,9 @@ metadata:
   name: details
 spec:
   host: details
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
   subsets:
   - name: v1
     labels:
