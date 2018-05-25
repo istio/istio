@@ -9,5 +9,3 @@ case "$OSTYPE" in
   *)        echo "unsupported: $OSTYPE" 
 	;;
 esac
-
-echo "Cleanup done."
