@@ -110,11 +110,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 			continue
 		}
 
-		// one filter chain => 0 or 1 certs => SNI not required
-		if len(opts.filterChainOpts) == 1 && opts.filterChainOpts[0].tlsContext != nil {
-			opts.filterChainOpts[0].tlsContext.RequireSni = boolFalse
-		}
-
 		l := buildListener(opts)
 		mutable := &plugin.MutableObjects{
 			Listener: l,
@@ -253,7 +248,6 @@ func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamT
 		RequireClientCertificate: &types.BoolValue{
 			Value: requireClientCert,
 		},
-		RequireSni: boolTrue,
 	}
 }
 
