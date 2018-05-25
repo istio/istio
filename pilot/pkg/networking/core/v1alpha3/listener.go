@@ -349,6 +349,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				protocol:       servicePort.Protocol,
 			}
 
+			currentListener = nil
+
 			switch plugin.ModelProtocolToListenerType(servicePort.Protocol) {
 			case plugin.ListenerTypeHTTP:
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
@@ -679,19 +681,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 				}
 			}
 			if !fullWildcardFound {
-				match = &listener.FilterChainMatch{
-					SniDomains:    chain.sniHosts,
-					PrefixRanges:  nil,
-					AddressSuffix: "",
-					SuffixLen: &google_protobuf.UInt32Value{
-						Value: 0,
-					},
-					SourcePrefixRanges: nil,
-					SourcePorts:        nil,
-					DestinationPort: &google_protobuf.UInt32Value{
-						Value: 0,
-					},
-				}
+				match = &listener.FilterChainMatch{SniDomains: chain.sniHosts}
 			}
 		}
 		filterChains = append(filterChains, listener.FilterChain{
