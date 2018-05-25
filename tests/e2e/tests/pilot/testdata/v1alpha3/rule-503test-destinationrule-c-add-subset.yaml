@@ -4,6 +4,11 @@ metadata:
   name: destination-rule-c
 spec:
   host: c
+  {{if eq .globalMTlsEnable "true"}}
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+  {{end}}
   subsets:
     - name: v1
       labels:
