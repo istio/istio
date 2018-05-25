@@ -63,7 +63,7 @@ if [ $? -ne 0 ]; then
       echo "Looks like docker installation failed."
       echo "Please install it manually and then run this script again."
       exit 1
-    fi
+  fi
 fi
 
 # Install minikube.
@@ -75,7 +75,7 @@ if [ $? -ne 0 ]; then
       echo "Looks like minikube installation failed."
       echo "Please install it manually and then run this script again."
       exit 1
-    fi
+  fi
 fi
 
 echo "Everything installed for you and you are ready to go!"
