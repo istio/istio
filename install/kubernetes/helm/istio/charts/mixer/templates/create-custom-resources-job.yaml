@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: istio-mixer-create-cr-account
+  name: istio-mixer-post-install-account
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
@@ -13,7 +13,7 @@ metadata:
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
-  name: istio-mixer-cr-{{ .Release.Namespace }}
+  name: istio-mixer-post-install-{{ .Release.Namespace }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
@@ -37,7 +37,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
-  name: istio-mixer-cr-role-binding-{{ .Release.Namespace }}
+  name: istio-mixer-post-install-role-binding-{{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version }}
@@ -46,10 +46,10 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istio-mixer-cr-{{ .Release.Namespace }}
+  name: istio-mixer-post-install-{{ .Release.Namespace }}
 subjects:
   - kind: ServiceAccount
-    name: istio-mixer-create-cr-account
+    name: istio-mixer-post-install-account
     namespace: {{ .Release.Namespace }}
 ---
 {{- end }}
@@ -57,7 +57,7 @@ subjects:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: istio-mixer-create-cr
+  name: istio-mixer-post-install
   namespace: {{ .Release.Namespace }}
   annotations:
     "helm.sh/hook": post-install
@@ -70,12 +70,12 @@ metadata:
 spec:
   template:
     metadata:
-      name: istio-mixer-create-cr
+      name: istio-mixer-post-install
       labels:
         app: {{ template "mixer.name" . }}
         release: {{ .Release.Name }}
     spec:
-      serviceAccountName: istio-mixer-create-cr-account
+      serviceAccountName: istio-mixer-post-install-account
       containers:
         - name: hyperkube
           image: "{{ .Values.global.hyperkube.repository }}:{{ .Values.global.hyperkube.tag }}"
