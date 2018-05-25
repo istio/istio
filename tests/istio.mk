@@ -1,3 +1,6 @@
+# File path to local registry for e2e tests
+export LOCALREG_FILE=${ISTIO}/tests/util/localregistry/localregistry.yaml
+
 # Test-specific targets, included from top Makefile
 ifeq (${TEST_ENV},minikube)
 
@@ -70,19 +73,29 @@ DEFAULT_UPGRADE_E2E_ARGS += --target_version=""
 UPGRADE_E2E_ARGS ?= ${DEFAULT_UPGRADE_E2E_ARGS}
 
 # Simple e2e test using fortio, approx 2 min
-e2e_simple: istioctl generate_yaml e2e_simple_run
+e2e_simple: istioctl generate_yaml localregistry_setup e2e_simple_run
 
-e2e_mixer: istioctl generate_yaml e2e_mixer_run
+e2e_mixer: istioctl generate_yaml localregistry_setup e2e_mixer_run
 
-e2e_dashboard: istioctl generate_yaml e2e_dashboard_run
+e2e_dashboard: istioctl generate_yaml localregistry_setup e2e_dashboard_run
 
-e2e_bookinfo: istioctl generate_yaml e2e_bookinfo_run
+e2e_bookinfo: istioctl generate_yaml localregistry_setup e2e_bookinfo_run
 
-e2e_upgrade: istioctl generate_yaml e2e_upgrade_run
+e2e_upgrade: istioctl generate_yaml localregistry_setup e2e_upgrade_run
 
-e2e_version_skew: istioctl generate_yaml e2e_version_skew_run
+e2e_version_skew: istioctl generate_yaml localregistry_setup e2e_version_skew_run
 
-e2e_all: istioctl generate_yaml e2e_all_run
+e2e_all: istioctl generate_yaml localregistry_setup e2e_all_run
+
+# deploy local registry pod, build and push images
+localregistry_setup:
+ifeq ($(LOCALREG),true)
+	echo "Deploying local registry onto cluster..."
+	kubectl apply -f ${LOCALREG_FILE}
+	sh ${ISTIO}/tests/check_localregistry.sh
+	GOOS=linux make docker
+	GOOS=linux make docker.push
+endif
 
 # *_run targets do not rebuild the artifacts and test with whatever is given
 e2e_simple_run:

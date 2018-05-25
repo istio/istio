@@ -65,6 +65,9 @@ const (
 	caKeyFileName                    = "samples/certs/ca-key.pem"
 	rootCertFileName                 = "samples/certs/root-cert.pem"
 	certChainFileName                = "samples/certs/cert-chain.pem"
+	// Default values for local test env setup
+	localRegistryFile      = "tests/util/localregistry/localregistry.yaml"
+	localRegistryNamespace = "kube-system"
 )
 
 var (
@@ -83,6 +86,7 @@ var (
 	rbacEnable   = flag.Bool("rbac_enable", true, "Enable rbac")
 	localCluster = flag.Bool("use_local_cluster", false,
 		"Whether the cluster is local or not (i.e. the test is running within the cluster). If running on minikube, this should be set to true.")
+	localRegistry             = flag.Bool("use_local_registry", true, "Use in-cluster docker registry for testing")
 	skipSetup                 = flag.Bool("skip_setup", false, "Skip namespace creation and istio cluster setup")
 	sidecarInjectorFile       = flag.String("sidecar_injector_file", defaultSidecarInjectorFile, "Sidecar injector yaml file")
 	clusterWide               = flag.Bool("cluster_wide", false, "Run cluster wide tests")
@@ -113,6 +117,7 @@ type KubeInfo struct {
 	ingressGatewayErr  error
 
 	localCluster     bool
+	localRegistry    bool
 	namespaceCreated bool
 	AuthEnabled      bool
 	RBACEnabled      bool
@@ -125,6 +130,8 @@ type KubeInfo struct {
 	Istioctl *Istioctl
 	// App Manager
 	AppManager *AppManager
+	// Local Registry
+	LocalRegistry *LocalRegistry
 
 	// Release directory
 	ReleaseDir string
@@ -206,6 +213,15 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 
 	a := NewAppManager(tmpDir, *namespace, i, kubeConfig)
 
+	var l *LocalRegistry
+	if os.Getenv("LOCALREG") == "false" {
+		*localRegistry = false
+	}
+
+	if *localRegistry {
+		l = NewLocalRegistry(localRegistryNamespace, i, localRegistryFile, kubeConfig, *localRegistryHub, *localRegistryTag)
+	}
+
 	log.Infof("Using release dir: %s", releaseDir)
 	return &KubeInfo{
 		Namespace:        *namespace,
@@ -213,8 +229,10 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		TmpDir:           tmpDir,
 		yamlDir:          yamlDir,
 		localCluster:     *localCluster,
+		localRegistry:    *localRegistry,
 		Istioctl:         i,
 		AppManager:       a,
+		LocalRegistry:    l,
 		RemoteAppManager: aRemote,
 		AuthEnabled:      *authEnable,
 		RBACEnabled:      *rbacEnable,
