@@ -755,7 +755,7 @@ func (v *Validator) getTemplate(tKey string, ns string) (store.Key, *v1beta1.Tem
 	var ok bool
 	var template proto.Message
 	if template, ok = v.c.get(tmplKey); !ok || tmplKey.Kind != config.TemplateKind {
-		return store.Key{}, nil, fmt.Errorf("template %s not found ", tmplKey)
+		return store.Key{}, nil, fmt.Errorf("template %s not found ", tKey)
 	}
 	return tmplKey, template.(*v1beta1.Template), err
 }
@@ -764,12 +764,12 @@ func (v *Validator) getAdapter(aKey string, ns string) (store.Key, *v1beta1.Info
 	adptKey, err := v.formKey(aKey, config.AdapterKind, ns)
 	if err != nil {
 		// invalid adapter entry are already in the cache; simply log it and continue
-		return store.Key{}, nil, fmt.Errorf("invalid adapter value %s", adptKey)
+		return store.Key{}, nil, fmt.Errorf("invalid adapter value %s", aKey)
 	}
 	var ok bool
 	var info proto.Message
 	if info, ok = v.c.get(adptKey); !ok || adptKey.Kind != config.AdapterKind {
-		return store.Key{}, nil, fmt.Errorf("adapter %s not found ", adptKey)
+		return store.Key{}, nil, fmt.Errorf("adapter %s not found ", aKey)
 	}
 	return adptKey, info.(*v1beta1.Info), err
 }
@@ -783,7 +783,7 @@ func (v *Validator) getInstance(iKey string, ns string) (store.Key, *cpb.Instanc
 	var ok bool
 	var instance proto.Message
 	if instance, ok = v.c.get(instKey); !ok || instKey.Kind != config.InstanceKind {
-		return store.Key{}, nil, fmt.Errorf("instance %s not found ", instKey)
+		return store.Key{}, nil, fmt.Errorf("instance %s not found ", iKey)
 	}
 	return instKey, instance.(*cpb.Instance), err
 }

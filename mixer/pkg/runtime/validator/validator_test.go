@@ -319,7 +319,8 @@ badFld: "s1stringVal"
 		},
 		{
 			"invalid updating rule: reference not found",
-			[]*store.Event{updateEvent("test.rule.default", &cpb.Rule{Actions: []*cpb.Action{{Handler: "nonexistent.listchecker.istio-system"}}})},
+			[]*store.Event{updateEvent("test.rule.default",
+				&cpb.Rule{Actions: []*cpb.Action{{Handler: "nonexistent.listchecker.istio-system"}}})},
 			false,
 			"",
 		},
@@ -677,7 +678,16 @@ badFld: "s1stringVal"
 				Params:  adapter1Params,
 			})},
 			false,
-			"handler[h1.handler.default]: adapter broken.adapter.default not found",
+			"handler[h1.handler.default]: adapter broken.default not found",
+		},
+		{
+			"add handler - broken adapter reference",
+			[]*store.Event{updateEvent("h1.handler.default", &cpb.Handler{
+				Adapter: "broken.default.extra3.extra4",
+				Params:  adapter1Params,
+			})},
+			false,
+			"handler[h1.handler.default]: invalid adapter value broken.default.extra3.extra4",
 		},
 		{
 			"add handler - bad param content",
@@ -766,7 +776,7 @@ badFld: "s1stringVal"
 				}),
 			},
 			false,
-			"instance[i1.instance.default]: template notExist.template.default not found",
+			"instance[i1.instance.default]: template notExist.default not found",
 		},
 		{
 			"add instance - bad template string",
@@ -777,7 +787,7 @@ badFld: "s1stringVal"
 				}),
 			},
 			false,
-			"instance[i1.instance.default]: template oneWordNotValidRef.template.default not found",
+			"instance[i1.instance.default]: template oneWordNotValidRef not found",
 		},
 		{
 			"add instance - bad content",
@@ -802,6 +812,16 @@ badFld: "s1stringVal"
 				})),
 			true,
 			"",
+		},
+		{
+			"update instance - bad template",
+			append(validCfg,
+				updateEvent("i1.instance.default", &cpb.Instance{
+					Template: "t1.default.extra1.extra2",
+					Params:   tmpl1InstanceParam,
+				})),
+			false,
+			"instance[i1.instance.default]: invalid template value t1.default.extra1.extra2",
 		},
 		{
 			"update instance ( change template ) - break rule",
@@ -963,7 +983,7 @@ badFld: "s1stringVal"
 				}),
 			},
 			false,
-			"actions[0].instances[0] 'doesnotexist.default': instance doesnotexist.instance.default not found ",
+			"actions[0].instances[0] 'doesnotexist.default': instance doesnotexist.default not found",
 		},
 		{
 			"add rule - bad instance string",
@@ -994,8 +1014,7 @@ badFld: "s1stringVal"
 				}),
 			},
 			false,
-			"actions[0].instances[0] 'onewordNotAValidInstRef': instance " +
-				"onewordNotAValidInstRef.instance.default not found",
+			"actions[0].instances[0] 'onewordNotAValidInstRef': instance onewordNotAValidInstRef not found",
 		},
 		{
 			"add rule - bad instance kind",
@@ -1121,7 +1140,25 @@ badFld: "s1stringVal"
 				}),
 			),
 			false,
-			"actions[0].instances[0] 'inotexist.default': instance inotexist.instance.default not found",
+			" actions[0].instances[0] 'inotexist.default': instance inotexist.default not found",
+		},
+		{
+			"update rule - bad instance",
+			append(validCfg,
+				updateEvent("r1.rule.default", &cpb.Rule{
+					Match: "true",
+					Actions: []*cpb.Action{
+						{
+							Handler: "h1.default",
+							Instances: []string{
+								"i1.default.extra3.extra4",
+							},
+						},
+					},
+				}),
+			),
+			false,
+			"actions[0].instances[0] 'i1.default.extra3.extra4': invalid instance value i1.default.extra3.extra4",
 		},
 		{
 			"add rule - bad handler",
