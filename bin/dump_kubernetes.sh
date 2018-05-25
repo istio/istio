@@ -129,7 +129,7 @@ dump_resources() {
       | cut -d ' ' -f 1 \
       | tr '\n' ',' \
       | sed 's/,$//')
-  kubectl get "${istio_resources}" -o yaml > "${ISTIO_RESOURCES_FILE}"
+  kubectl get "${istio_resources}" --all-namespaces -o yaml > "${ISTIO_RESOURCES_FILE}"
 
   kubectl cluster-info dump > ${OUT_DIR}/logs/cluster-info.dump.txt
   kubectl describe pods -n istio-system > ${OUT_DIR}/logs/pods-system.txt
