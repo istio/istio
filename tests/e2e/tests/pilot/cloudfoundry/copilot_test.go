@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -368,7 +369,7 @@ func runPilot(copilotConfigFile, istioConfigDir string, grpcPort, debugPort int)
 		"--port", fmt.Sprintf("%d", debugPort),
 	)
 
-	return gexec.Start(pilotCmd, nil, nil) // change these to os.Stdout when debugging
+	return gexec.Start(pilotCmd, os.Stdout, os.Stderr) // change these to os.Stdout when debugging
 }
 
 func curlPilot(apiEndpoint string) (string, error) {
