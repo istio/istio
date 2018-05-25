@@ -153,6 +153,12 @@ abc: "abcstring"
 	var adapter1Params map[string]interface{}
 	_ = json.Unmarshal(adpt1Bytes, &adapter1Params)
 
+	adpt2Bytes, _ := yaml.YAMLToJSON([]byte(`
+pqr: "abcstring"
+`))
+	var adapter2Params map[string]interface{}
+	_ = json.Unmarshal(adpt2Bytes, &adapter2Params)
+
 	invalidBytes, _ := yaml.YAMLToJSON([]byte(`
 fildNotFound: "abcstring"
 `))
@@ -177,7 +183,7 @@ badFld: "s1stringVal"
 	var badInstanceParamIn map[string]interface{}
 	_ = json.Unmarshal(badInstance, &badInstanceParamIn)
 
-	validRulesHandlerInstances := []*store.Event{
+	validCfg := []*store.Event{
 		updateEvent("t1.template.default", &v1beta1.Template{
 			Descriptor_: tmpl1Base64Str,
 		}),
@@ -207,6 +213,68 @@ badFld: "s1stringVal"
 			},
 		}),
 	}
+
+	validCfgMixShortLongName := []*store.Event{
+		updateEvent("t1.template.default", &v1beta1.Template{
+			Descriptor_: tmpl1Base64Str,
+		}),
+		updateEvent("t2.template.default", &v1beta1.Template{
+			Descriptor_: tmpl2Base64Str,
+		}),
+		updateEvent("a1.adapter.default", &v1beta1.Info{
+			Description:  "testAdapter description",
+			SessionBased: true,
+			Config:       adpt1DescBase64,
+			Templates:    []string{"t1", "t2.default"},
+		}),
+		updateEvent("a2.adapter.default", &v1beta1.Info{
+			Description:  "testAdapter description",
+			SessionBased: true,
+			Config:       adpt2DescBase64,
+			Templates:    []string{"t2.default"},
+		}),
+		updateEvent("h1.handler.default", &cpb.Handler{
+			Adapter: "a1.default",
+			Params:  adapter1Params,
+		}),
+		updateEvent("h2.handler.default", &cpb.Handler{
+			Adapter: "a2",
+			Params:  adapter2Params,
+		}),
+		updateEvent("i1.instance.default", &cpb.Instance{
+			Template: "t1.default",
+			Params:   tmpl1InstanceParam,
+		}),
+		updateEvent("i2.instance.default", &cpb.Instance{
+			Template: "t2",
+			Params:   tmpl2InstanceParam,
+		}),
+
+		updateEvent("r1.rule.default", &cpb.Rule{
+			Match: "true",
+			Actions: []*cpb.Action{
+				{
+					Handler: "h1.default",
+					Instances: []string{
+						"i1.default",
+						"i2",
+					},
+				},
+			},
+		}),
+		updateEvent("r2.rule.default", &cpb.Rule{
+			Match: "true",
+			Actions: []*cpb.Action{
+				{
+					Handler: "h2.default",
+					Instances: []string{
+						"i2",
+					},
+				},
+			},
+		}),
+	}
+
 	for _, cc := range []struct {
 		title   string
 		evs     []*store.Event
@@ -504,7 +572,7 @@ badFld: "s1stringVal"
 		},
 		{
 			"update adapter",
-			append(validRulesHandlerInstances,
+			append(validCfg,
 				updateEvent("a1.adapter.default", &v1beta1.Info{
 					Description:  "testAdapter description",
 					SessionBased: true,
@@ -516,7 +584,7 @@ badFld: "s1stringVal"
 		},
 		{
 			"update adapter supported template- break routed instances",
-			append(validRulesHandlerInstances,
+			append(validCfg,
 				updateEvent("a1.adapter.default", &v1beta1.Info{
 					Description:  "testAdapter description 22",
 					SessionBased: true,
@@ -530,7 +598,7 @@ badFld: "s1stringVal"
 		},
 		{
 			"update adapter cfg - break handler",
-			append(validRulesHandlerInstances,
+			append(validCfg,
 				updateEvent("a1.adapter.default", &v1beta1.Info{
 					Description:  "testAdapter description",
 					SessionBased: true,
@@ -600,7 +668,7 @@ badFld: "s1stringVal"
 				Params:  adapter1Params,
 			})},
 			false,
-			"handler[h1.handler.default]: not.an.adapter is not a adapter",
+			"handler[h1.handler.default]: adapter not.an.adapter not found",
 		},
 		{
 			"add handler - bad adapter reference",
@@ -609,7 +677,7 @@ badFld: "s1stringVal"
 				Params:  adapter1Params,
 			})},
 			false,
-			"handler[h1.handler.default]: broken.default not found",
+			"handler[h1.handler.default]: adapter broken.adapter.default not found",
 		},
 		{
 			"add handler - bad param content",
@@ -627,7 +695,7 @@ badFld: "s1stringVal"
 		},
 		{
 			"update handler",
-			append(validRulesHandlerInstances,
+			append(validCfg,
 				updateEvent("h1.handler.default", &cpb.Handler{
 					Adapter: "a1.default",
 					Params:  nil,
@@ -637,7 +705,7 @@ badFld: "s1stringVal"
 		},
 		{
 			"update handler's adapter - break supported tmpls",
-			append(validRulesHandlerInstances,
+			append(validCfg,
 				updateEvent("a2.adapter.default", &v1beta1.Info{
 					Description:  "testAdapter description",
 					SessionBased: true,
@@ -655,7 +723,7 @@ badFld: "s1stringVal"
 		},
 		{
 			"delete handler",
-			append(validRulesHandlerInstances,
+			append(validCfg,
 				deleteEvent("r1.rule.default"),
 				deleteEvent("h1.handler.default"),
 			),
@@ -727,7 +795,7 @@ badFld: "s1stringVal"
 		},
 		{
 			"update instance",
-			append(validRulesHandlerInstances,
+			append(validCfg,
 				updateEvent("i1.instance.default", &cpb.Instance{
 					Template: "t1.default",
 					Params:   tmpl1InstanceParam,
@@ -737,7 +805,7 @@ badFld: "s1stringVal"
 		},
 		{
 			"update instance ( change template ) - break rule",
-			append(validRulesHandlerInstances,
+			append(validCfg,
 				updateEvent("t2.template.default", &v1beta1.Template{
 					Descriptor_: tmpl2Base64Str,
 				}),
@@ -753,7 +821,7 @@ badFld: "s1stringVal"
 		},
 		{
 			"delete handler - break rule",
-			append(validRulesHandlerInstances,
+			append(validCfg,
 				deleteEvent("h1.handler.default"),
 			),
 			false,
@@ -761,7 +829,7 @@ badFld: "s1stringVal"
 		},
 		{
 			"delete instance",
-			append(validRulesHandlerInstances,
+			append(validCfg,
 				deleteEvent("r1.rule.default"),
 				deleteEvent("i1.instance.default"),
 			),
@@ -771,7 +839,7 @@ badFld: "s1stringVal"
 
 		{
 			"delete instance - break rule",
-			append(validRulesHandlerInstances,
+			append(validCfg,
 				deleteEvent("i1.instance.default"),
 			),
 			false,
@@ -781,7 +849,13 @@ badFld: "s1stringVal"
 		// rule
 		{
 			"add rule",
-			validRulesHandlerInstances,
+			validCfg,
+			true,
+			"",
+		},
+		{
+			"add rule mix short and long reference names",
+			validCfgMixShortLongName,
 			true,
 			"",
 		},
@@ -997,7 +1071,7 @@ badFld: "s1stringVal"
 		},
 		{
 			"update rule",
-			append(validRulesHandlerInstances,
+			append(validCfg,
 				updateEvent("r1.rule.default", &cpb.Rule{
 					Match: "true",
 					Actions: []*cpb.Action{
@@ -1015,7 +1089,7 @@ badFld: "s1stringVal"
 		},
 		{
 			"update rule - break handler",
-			append(validRulesHandlerInstances,
+			append(validCfg,
 				updateEvent("r1.rule.default", &cpb.Rule{
 					Match: "true",
 					Actions: []*cpb.Action{
@@ -1033,7 +1107,7 @@ badFld: "s1stringVal"
 		},
 		{
 			"update rule - break instance",
-			append(validRulesHandlerInstances,
+			append(validCfg,
 				updateEvent("r1.rule.default", &cpb.Rule{
 					Match: "true",
 					Actions: []*cpb.Action{
@@ -1051,7 +1125,7 @@ badFld: "s1stringVal"
 		},
 		{
 			"add rule - bad handler",
-			append(validRulesHandlerInstances,
+			append(validCfg,
 				updateEvent("r1.rule.default", &cpb.Rule{
 					Match: "true",
 					Actions: []*cpb.Action{
