@@ -391,17 +391,20 @@ servicegraph:
   # prometheus addres
   prometheusAddr: http://prometheus:9090
 
-zipkin:
+tracing:
   enabled: false
+  jaeger:
+    enabled: false
   replicaCount: 1
   image:
-    repository: docker.io/openzipkin/zipkin
-    tag: 2.7
+    repository: jaegertracing/all-in-one
+    tag: 1.4.1
   service:
     name: http
     type: ClusterIP
     externalPort: 9411
     internalPort: 9411
+    uiPort: 16686
   ingress:
     enabled: false
     # Used to create an Ingress record.
