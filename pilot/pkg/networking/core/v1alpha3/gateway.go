@@ -140,11 +140,11 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 			continue
 		}
 
-		//if err = mutable.Listener.Validate(); err != nil {
-		//	errs = multierror.Append(errs, fmt.Errorf("gateway listener %s validation failed: %v", mutable.Listener.Name, err.Error()))
-		//	continue
-		//}
-		//
+		if err = mutable.Listener.Validate(); err != nil {
+			errs = multierror.Append(errs, fmt.Errorf("gateway listener %s validation failed: %v", mutable.Listener.Name, err.Error()))
+			continue
+		}
+
 		if log.DebugEnabled() {
 			log.Debugf("buildGatewayListeners: constructed listener with %d filter chains:\n%v",
 				len(mutable.Listener.FilterChains), mutable.Listener)
@@ -154,7 +154,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 	// We'll try to return any listeners we successfully marshaled; if we have none, we'll emit the error we built up
 	err = errs.ErrorOrNil()
 	if len(listeners) == 0 {
-		log.Error(err.Error())
+		log.Errorf("buildGatewayListeners: Have zero listeners: %v", err.Error())
 		return []*xdsapi.Listener{}, nil
 	}
 
@@ -194,7 +194,7 @@ func createGatewayHTTPFilterChainOpts(
 			}
 		}
 		o := &filterChainOpts{
-			sniHosts:   server.Hosts,
+			sniHosts:   getSNIHosts(server),
 			tlsContext: buildGatewayListenerTLSContext(server),
 			httpOpts: &httpListenerOpts{
 				routeConfig:      routeCfg,
@@ -327,7 +327,7 @@ func createGatewayTCPFilterChainOpts(
 	opts := make([]*filterChainOpts, 0, len(servers))
 	for _, server := range servers {
 		opts = append(opts, &filterChainOpts{
-			sniHosts:       server.Hosts,
+			sniHosts:       getSNIHosts(server),
 			tlsContext:     buildGatewayListenerTLSContext(server),
 			networkFilters: buildGatewayNetworkFilters(env, server, gatewayNames),
 		})
@@ -438,4 +438,11 @@ func gatherDestinations(weights []*networking.DestinationWeight) []*networking.D
 		dests = append(dests, w.Destination)
 	}
 	return dests
+}
+
+func getSNIHosts(server *networking.Server) []string {
+	if server.Tls == nil {
+		return nil
+	}
+	return server.Hosts
 }
