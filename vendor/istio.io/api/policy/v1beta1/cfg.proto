@@ -17,9 +17,9 @@ syntax = "proto3";
 import "google/protobuf/struct.proto";
 import "policy/v1beta1/value_type.proto";
 
-// $title: Policy and Telemetry Rules
-// $overview: Describes the rules used to configure Mixer's policy and telemetry features.
-// $location: https://istio.io/docs/reference/config/istio.policy.v1beta1.html
+// $title: Rules
+// $description: Describes the rules used to configure Mixer's policy and telemetry features.
+// $location: https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html
 
 // Describes the rules used to configure Mixer's policy and telemetry features.
 package istio.policy.v1beta1;

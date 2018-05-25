@@ -7,6 +7,8 @@ Package config is a generated protocol buffer package.
 The `fluentd` adapter is designed to deliver Istio log entries to a
 listening [fluentd](https://www.fluentd.org) daemon.
 
+This adapter supports the [logentry template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/logentry.html).
+
 It is generated from these files:
 	mixer/adapter/fluentd/config/config.proto
 

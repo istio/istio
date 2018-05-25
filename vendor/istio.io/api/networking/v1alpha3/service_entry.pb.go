@@ -18,7 +18,7 @@ var _ = math.Inf
 // outside the mesh.  Location determines the behavior of several
 // features, such as service-to-service mTLS authentication, policy
 // enforcement, etc. When communicating with services outside the mesh,
-// Istio's mTLS authentication is disabled, and policy enforcements are
+// Istio's mTLS authentication is disabled, and policy enforcement is
 // performed on the client-side as opposed to server-side.
 type ServiceEntry_Location int32
 
@@ -76,7 +76,8 @@ const (
 	// will resolve the DNS address specified in the hosts field, if
 	// wildcards are not used. If endpoints are specified, the DNS
 	// addresses specified in the endpoints will be resolved to determine
-	// the destination IP address.
+	// the destination IP address.  DNS resolution cannot be used with unix
+	// domain socket endpoints.
 	ServiceEntry_DNS ServiceEntry_Resolution = 2
 )
 
@@ -111,102 +112,133 @@ func (ServiceEntry_Resolution) EnumDescriptor() ([]byte, []int) {
 // as any other service in the mesh. The associated DestinationRule is used
 // to initiate mTLS connections to the database instances.
 //
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: ServiceEntry
-//     metadata:
-//       name: external-svc-mongocluster
-//     spec:
-//       hosts:
-//       - mymongodb.somedomain # not used
-//       addresses:
-//       - 192.192.192.192/24 # VIPs
-//       ports:
-//       - number: 27018
-//         name: mongodb
-//         protocol: MONGO
-//       location: MESH_INTERNAL
-//       resolution: STATIC
-//       endpoints:
-//       - address: 2.2.2.2
-//       - address: 3.3.3.3
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: ServiceEntry
+// metadata:
+//   name: external-svc-mongocluster
+// spec:
+//   hosts:
+//   - mymongodb.somedomain # not used
+//   addresses:
+//   - 192.192.192.192/24 # VIPs
+//   ports:
+//   - number: 27018
+//     name: mongodb
+//     protocol: MONGO
+//   location: MESH_INTERNAL
+//   resolution: STATIC
+//   endpoints:
+//   - address: 2.2.2.2
+//   - address: 3.3.3.3
+// ```
 //
 // and the associated DestinationRule
 //
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: DestinationRule
-//     metadata:
-//       name: mtls-mongocluster
-//     spec:
-//       name: mymongodb.somedomain
-//       trafficPolicy:
-//         tls:
-//           mode: MUTUAL
-//           clientCertificate: /etc/certs/myclientcert.pem
-//           privateKey: /etc/certs/client_private_key.pem
-//           caCertificates: /etc/certs/rootcacerts.pem
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: DestinationRule
+// metadata:
+//   name: mtls-mongocluster
+// spec:
+//   host: mymongodb.somedomain
+//   trafficPolicy:
+//     tls:
+//       mode: MUTUAL
+//       clientCertificate: /etc/certs/myclientcert.pem
+//       privateKey: /etc/certs/client_private_key.pem
+//       caCertificates: /etc/certs/rootcacerts.pem
+// ```
 //
 // The following example demonstrates the use of wildcards in the hosts for
 // external services. If the connection has to be routed to the IP address
 // requested by the application (i.e. application resolves DNS and attempts
 // to connect to a specific IP), the discovery mode must be set to `NONE`.
 //
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: ServiceEntry
+// metadata:
+//   name: external-svc-wildcard-example
+// spec:
+//   hosts:
+//   - "*.bar.com"
+//   location: MESH_EXTERNAL
+//   ports:
+//   - number: 80
+//     name: http
+//     protocol: HTTP
+//   resolution: NONE
+// ```
+//
+//
+// The following example demonstrates a service that is available via a
+// Unix Domain Socket on the host of the client. The resolution must be
+// set to STATIC to use unix address endpoints.
+//
 //     apiVersion: networking.istio.io/v1alpha3
 //     kind: ServiceEntry
 //     metadata:
-//       name: external-svc-wildcard-example
+//       name: unix-domain-socket-example
 //     spec:
 //       hosts:
-//       - "*.bar.com"
+//       - "example.unix.local"
 //       location: MESH_EXTERNAL
 //       ports:
 //       - number: 80
 //         name: http
 //         protocol: HTTP
-//       resolution: NONE
+//       resolution: STATIC
+//       endpoints:
+//       - address: unix:///var/run/example/socket
 //
 // For HTTP based services, it is possible to create a VirtualService
-// backed by multiple DNS addressible endpoints. In such a scenario, the
+// backed by multiple DNS addressable endpoints. In such a scenario, the
 // application can use the HTTP_PROXY environment variable to transparently
 // reroute API calls for the VirtualService to a chosen backend. For
 // example, the following configuration creates a non-existent external
 // service called foo.bar.com backed by three domains: us.foo.bar.com:8443,
 // uk.foo.bar.com:9443, and in.foo.bar.com:7443
 //
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: ServiceEntry
-//     metadata:
-//       name: external-svc-dns
-//     spec:
-//       hosts:
-//       - foo.bar.com
-//       location: MESH_EXTERNAL
-//       ports:
-//       - number: 443
-//         name: https
-//         protocol: HTTP
-//       resolution: DNS
-//       endpoints:
-//       - address: us.foo.bar.com
-//         ports:
-//           https: 8443
-//       - address: uk.foo.bar.com
-//         ports:
-//           https: 9443
-//       - address: in.foo.bar.com
-//         ports:
-//           https: 7443
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: ServiceEntry
+// metadata:
+//   name: external-svc-dns
+// spec:
+//   hosts:
+//   - foo.bar.com
+//   location: MESH_EXTERNAL
+//   ports:
+//   - number: 443
+//     name: https
+//     protocol: HTTP
+//   resolution: DNS
+//   endpoints:
+//   - address: us.foo.bar.com
+//     ports:
+//       https: 8443
+//   - address: uk.foo.bar.com
+//     ports:
+//       https: 9443
+//   - address: in.foo.bar.com
+//     ports:
+//       https: 7443
+// ```
 //
 // and a DestinationRule to initiate TLS connections to the ServiceEntry.
 //
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: DestinationRule
-//     metadata:
-//       name: tls-foobar
-//     spec:
-//       name: foo.bar.com
-//       trafficPolicy:
-//         tls:
-//           mode: SIMPLE # initiates HTTPS
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: DestinationRule
+// metadata:
+//   name: tls-foobar
+// spec:
+//   host: foo.bar.com
+//   trafficPolicy:
+//     tls:
+//       mode: SIMPLE # initiates HTTPS
+// ```
 //
 // With HTTP_PROXY=http://localhost:443, calls from the application to
 // http://foo.bar.com will be upgraded to HTTPS and load balanced across
@@ -233,9 +265,12 @@ type ServiceEntry struct {
 	// which the service is being accessed must not be shared by any other
 	// service in the mesh. In other words, the sidecar will behave as a
 	// simple TCP proxy, forwarding incoming traffic on a specified port to
-	// the specified destination endpoint IP/host.
+	// the specified destination endpoint IP/host. Unix domain socket
+	// addresses are not supported in this field.
 	Addresses []string `protobuf:"bytes,2,rep,name=addresses" json:"addresses,omitempty"`
-	// REQUIRED. The ports associated with the external service.
+	// REQUIRED. The ports associated with the external service. If the
+	// Endpoints are unix domain socket addresses, there must be exactly one
+	// port.
 	Ports []*Port `protobuf:"bytes,3,rep,name=ports" json:"ports,omitempty"`
 	// Specify whether the service should be considered external to the mesh
 	// or part of the mesh.
@@ -298,12 +333,13 @@ func (m *ServiceEntry) GetEndpoints() []*ServiceEntry_Endpoint {
 // the mesh service.
 type ServiceEntry_Endpoint struct {
 	// REQUIRED: Address associated with the network endpoint without the
-	// port ( IP or fully qualified domain name without wildcards). Domain
-	// names can be used if and only if the resolution is set to DNS.
+	// port.  Domain names can be used if and only if the resolution is set
+	// to DNS, and must be fully-qualified without wildcards. Use the form
+	// unix:///absolute/path/to/socket for unix domain socket endpoints.
 	Address string `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
 	// Set of ports associated with the endpoint. The ports must be
 	// associated with a port name that was declared as part of the
-	// service.
+	// service. Do not use for unix:// addresses.
 	Ports map[string]uint32 `protobuf:"bytes,2,rep,name=ports" json:"ports,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3"`
 	// One or more labels associated with the endpoint.
 	Labels map[string]string `protobuf:"bytes,3,rep,name=labels" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`

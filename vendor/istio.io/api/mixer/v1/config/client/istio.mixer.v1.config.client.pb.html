@@ -1,7 +1,7 @@
 ---
-title: Mixer Client
-overview: Configuration state for the Mixer client library
+title: istio.mixer.v1.config.client
 layout: protoc-gen-docs
+generator: protoc-gen-docs
 number_of_entries: 20
 ---
 <h2 id="APIKey">APIKey</h2>
@@ -120,7 +120,7 @@ Istio. For example, a simple petstore API described by OpenAPIv2
 <a href="https://github.com/googleapis/gnostic/blob/master/examples/v2.0/yaml/petstore-simple.yaml">here</a>
 can be represented with the following HTTPAPISpec.</p>
 
-<pre><code>apiVersion: config.istio.io/v1alpha2
+<pre><code class="language-yaml">apiVersion: config.istio.io/v1alpha2
 kind: HTTPAPISpec
 metadata:
   name: petstore
@@ -202,7 +202,7 @@ i.e. &lsquo;OR&rsquo; semantics.</p>
 IstioService. For example, the following establishes a binding
 between the HTTPAPISpec <code>petstore</code> and service <code>foo</code> in namespace <code>bar</code>.</p>
 
-<pre><code>apiVersion: config.istio.io/v1alpha2
+<pre><code class="language-yaml">apiVersion: config.istio.io/v1alpha2
 kind: HTTPAPISpecBinding
 metadata:
   name: my-binding
@@ -254,7 +254,7 @@ generated if both the http<em>method and uri</em>template match. In
 addition, the top-level list of attributes in the HTTPAPISpec is also
 generated.</p>
 
-<pre><code>pattern:
+<pre><code class="language-yaml">pattern:
 - attributes
     api.operation: doFooBar
   httpMethod: GET
@@ -331,7 +331,7 @@ typically used for establishing bindings between an HTTPAPISpec and an
 IstioService. For example, the following defines an
 HTTPAPISpecReference for service <code>foo</code> in namespace <code>bar</code>.</p>
 
-<pre><code>- name: foo
+<pre><code class="language-yaml">- name: foo
   namespace: bar
 </code></pre>
 
@@ -735,7 +735,9 @@ metadata namespace field.</p>
 <td><code><a href="#istio.mixer.v1.Attributes">istio.mixer.v1.Attributes</a></code></td>
 <td>
 <p>Send these attributes to Mixer in both Check and Report. This
-typically includes the &ldquo;destination.service&rdquo; attribute.</p>
+typically includes the &ldquo;destination.service&rdquo; attribute.
+In case of a per-route override, per-route attributes take precedence
+over the attributes supplied in the client configuration.</p>
 
 </td>
 </tr>
@@ -763,6 +765,25 @@ typically includes the &ldquo;destination.service&rdquo; attribute.</p>
 This is the service-level policy. It overrides
 [mesh-level
 policy][istio.mixer.v1.config.client.TransportConfig.network<em>fail</em>policy].</p>
+
+</td>
+</tr>
+<tr id="ServiceConfig.forward_attributes">
+<td><code>forwardAttributes</code></td>
+<td><code><a href="#istio.mixer.v1.Attributes">istio.mixer.v1.Attributes</a></code></td>
+<td>
+<p>Default attributes to forward to upstream. This typically
+includes the &ldquo;source.ip&rdquo; and &ldquo;source.uid&rdquo; attributes.
+In case of a per-route override, per-route attributes take precedence
+over the attributes supplied in the client configuration.</p>
+
+<p>Forwarded attributes take precedence over the static Mixer attributes.
+The full order of application is as follows:
+1. static Mixer attributes from the filter config;
+2. static Mixer attributes from the route config;
+3. forwarded attributes from the source filter config (if any);
+4. forwarded attributes from the source route config (if any);
+5. derived attributes from the request metadata.</p>
 
 </td>
 </tr>
@@ -961,6 +982,16 @@ handle report calls.</p>
 
 <p>NOTE: Any value other than the default &ldquo;mixer_server&rdquo; will require the
 Istio Grafana dashboards to be reconfigured to use the new name.</p>
+
+</td>
+</tr>
+<tr id="TransportConfig.attributes_for_mixer_proxy">
+<td><code>attributesForMixerProxy</code></td>
+<td><code><a href="#istio.mixer.v1.Attributes">istio.mixer.v1.Attributes</a></code></td>
+<td>
+<p>Default attributes to forward to mixer upstream. This typically
+includes the &ldquo;source.ip&rdquo; and &ldquo;source.uid&rdquo; attributes. These
+attributes are consumed by the proxy in front of mixer.</p>
 
 </td>
 </tr>
