@@ -89,26 +89,101 @@ func (b *builder) SetAdapterConfig(cfg adapter.Config) {
 }
 
 func (b *builder) Validate() (ce *adapter.ConfigErrors) {
+	if err := b.ensureConn(); err != nil {
+		ce = ce.Appendf("backend_address", "Unable to connect: %v", err)
+		return
+	}
+
+	anyTypes, err := b.getInferredTypes()
+	if err != nil {
+		ce = ce.Appendf("infrerred_types", "Error marshalling to any: %v", err)
+		return
+	}
+
+	req := v1beta1.ValidateRequest{
+		AdapterConfig: b.params.Params,
+		InferredTypes: anyTypes,
+	}
+
+	if b.params.SessionBased {
+		resp, err := b.infraClient.Validate(context.TODO(), &req)
+		if err != nil {
+			ce = ce.Appendf("params", "error during validation: %v", err)
+			return
+		}
+
+		if resp.Status.Code != int32(codes.OK) {
+			ce = ce.Appendf("params", "validation error: $d/%s", resp.Status.Code, resp.Status.Message)
+			return
+		}
+	}
+
+	return
+}
+
+func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handler, error) {
+	if err := b.ensureConn(); err != nil {
+		return nil, err
+	}
+
+	anyTypes, err := b.getInferredTypes()
+	if err != nil {
+		return nil, err
+	}
+	req := v1beta1.CreateSessionRequest{
+		AdapterConfig: b.params.Params,
+		InferredTypes: anyTypes,
+	}
+
+	sessionID := ""
+	if b.params.SessionBased {
+		resp, err := b.infraClient.CreateSession(context, &req)
+		if err != nil {
+			return nil, err
+		}
+		sessionID = resp.SessionId
+	}
+
+	return &handler{
+		params:              b.params,
+		session:             sessionID,
+		env:                 env,
+		conn:                b.conn,
+		infraClient:         b.infraClient,
+		checknothingClient:  checknothing.NewHandleCheckNothingServiceClient(b.conn),
+		reportnothingClient: reportnothing.NewHandleReportNothingServiceClient(b.conn),
+		metricClient:        metric.NewHandleMetricServiceClient(b.conn),
+		quotaClient:         quota.NewHandleQuotaServiceClient(b.conn),
+	}, nil
+}
+
+func (b *builder) ensureConn() error {
 	if b.conn == nil {
 		conn, err := grpc.Dial(b.params.BackendAddress, grpc.WithInsecure())
 		if err != nil {
-			ce = ce.Appendf("backend_address", "Unable to connect: %v", err)
-			return
+			return err
 		}
 		b.conn = conn
-		b.infraClient = v1beta1.NewInfrastructureBackendClient(b.conn)
+
+		if b.params.SessionBased {
+			b.infraClient = v1beta1.NewInfrastructureBackendClient(b.conn)
+		}
 	}
 
-	anyTypes := make(map[string]*types.Any)
+	return nil
+}
+
+func (b *builder) getInferredTypes() (result map[string]*types.Any, err error) {
+	result = make(map[string]*types.Any)
 	setAny := func(k string, v proto.Message) {
-		by, err := proto.Marshal(v)
+		by, e := proto.Marshal(v)
 		if err != nil {
-			ce = ce.Appendf("infrerred_types", "Error marshalling to any: %v", err)
+			err = e
 			return
 		}
-		anyTypes[k] = &types.Any{
+		result[k] = &types.Any{
 			Value:   by,
-			TypeUrl: proto.MessageName(v), // TODO: Is this the right URL to use?
+			TypeUrl: proto.MessageName(v),
 		}
 	}
 
@@ -125,59 +200,11 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 		setAny(k, v)
 	}
 
-	req := v1beta1.ValidateRequest{
-		AdapterConfig: b.params.Params,
-		InferredTypes: anyTypes,
-	}
-
-	resp, err := b.infraClient.Validate(context.TODO(), &req)
-	if err != nil {
-		ce = ce.Appendf("params", "error during validation: %v", err)
-		return
-	}
-
-	if resp.Status.Code != int32(codes.OK) {
-		ce = ce.Appendf("params", "validation error: %s", resp.Status.Message)
-		return
-	}
-
 	return
 }
 
-func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handler, error) {
-	if b.conn == nil {
-		conn, err := grpc.Dial(b.params.BackendAddress, grpc.WithInsecure())
-		if err != nil {
-			return nil, err
-		}
-		b.conn = conn
-		b.infraClient = v1beta1.NewInfrastructureBackendClient(b.conn)
-	}
-
-	req := v1beta1.CreateSessionRequest{
-		AdapterConfig: b.params.Params,
-	}
-
-	resp, err := b.infraClient.CreateSession(context, &req)
-	if err != nil {
-		return nil, err
-	}
-
-	return &handler{
-		config:              b.params.Params,
-		session:             resp.SessionId,
-		env:                 env,
-		conn:                b.conn,
-		infraClient:         b.infraClient,
-		checknothingClient:  checknothing.NewHandleCheckNothingServiceClient(b.conn),
-		reportnothingClient: reportnothing.NewHandleReportNothingServiceClient(b.conn),
-		metricClient:        metric.NewHandleMetricServiceClient(b.conn),
-		quotaClient:         quota.NewHandleQuotaServiceClient(b.conn),
-	}, nil
-}
-
 type handler struct {
-	config              *types.Any
+	params              *config.Params
 	session             string
 	env                 adapter.Env
 	conn                *grpc.ClientConn
@@ -197,7 +224,9 @@ func (h *handler) HandleCheckNothing(ctx context.Context, instance *checknothing
 	request := checknothing.HandleCheckNothingRequest{}
 
 	request.DedupId = newDedupID()
-	request.AdapterConfig = h.config
+	if !h.params.SessionBased {
+		request.AdapterConfig = h.params.Params
+	}
 
 	request.Instance = &checknothing.InstanceMsg{
 		Name: instance.Name,
@@ -218,7 +247,9 @@ func (h *handler) HandleReportNothing(ctx context.Context, instances []*reportno
 	request := reportnothing.HandleReportNothingRequest{}
 
 	request.DedupId = newDedupID()
-	request.AdapterConfig = h.config
+	if !h.params.SessionBased {
+		request.AdapterConfig = h.params.Params
+	}
 
 	for _, ins := range instances {
 		instance := &reportnothing.InstanceMsg{
@@ -237,7 +268,9 @@ func (h *handler) HandleMetric(ctx context.Context, instances []*metric.Instance
 	request := metric.HandleMetricRequest{}
 
 	request.DedupId = newDedupID()
-	request.AdapterConfig = h.config
+	if !h.params.SessionBased {
+		request.AdapterConfig = h.params.Params
+	}
 
 	for _, ins := range instances {
 		value, err := convertValue(ins.Value)
@@ -266,7 +299,9 @@ func (h *handler) HandleQuota(ctx context.Context, instance *quota.Instance, arg
 	request := quota.HandleQuotaRequest{}
 
 	request.DedupId = newDedupID()
-	request.AdapterConfig = h.config
+	if !h.params.SessionBased {
+		request.AdapterConfig = h.params.Params
+	}
 
 	result := adapter.QuotaResult{}
 
@@ -278,6 +313,14 @@ func (h *handler) HandleQuota(ctx context.Context, instance *quota.Instance, arg
 	request.Instance = &quota.InstanceMsg{
 		Name:       instance.Name,
 		Dimensions: dimensions,
+	}
+
+	request.QuotaRequest = &v1beta1.QuotaRequest{
+		Quotas: make(map[string]v1beta1.QuotaRequest_QuotaParams),
+	}
+	request.QuotaRequest.Quotas[instance.Name] = v1beta1.QuotaRequest_QuotaParams{
+		Amount:     args.QuotaAmount,
+		BestEffort: args.BestEffort,
 	}
 
 	response, err := h.quotaClient.HandleQuota(ctx, &request)

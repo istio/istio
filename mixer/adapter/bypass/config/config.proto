@@ -15,14 +15,20 @@
 syntax = "proto3";
 
 // $title: Bypass
-// $description: Adapter for connecting to gRPC based remote adapters via the inline adapter model.
+// $description: Adapter for connecting to gRPC based remote adapters via the inline adapter model for a
+// fixed set of templates.
 // $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/bypass.html
 // $front_matter: redirect_from: /docs/reference/config/adapters/bypass.html
 
 // The `bypass` adapter makes it possible to connect to gRPC based remote adapters using the inline adapter
 // model.
 //
-// This adapter supports the [metric template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric.html).
+// This adapter supports the following templates:
+// [metric](https://istio.io/docs/reference/config/template/metric.html).
+// [checknothing](https://istio.io/docs/reference/config/template/checknothing.html).
+// [reportnothing](https://istio.io/docs/reference/config/template/reportnothing.html).
+// [quota](https://istio.io/docs/reference/config/template/quota.html).
+//
 package adapter.bypass.config;
 
 import "gogoproto/gogo.proto";
@@ -40,4 +46,7 @@ message Params {
 
     // The actual config parameters to send to the remote backend.
     google.protobuf.Any params = 2;
+
+    // Indicates whether the protocol is session based or not.
+    bool session_based  = 3;
 }
