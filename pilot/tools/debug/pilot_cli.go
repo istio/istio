@@ -28,18 +28,22 @@
 // pilot-discovery discovery --kubeconfig=${HOME}/.kube/config
 // ```
 //
-// Then, to get LDS config, run:
+// To get LDS or CDS, use -type lds or -type cds, and provide the pod id or app label. For example:
 // ```bash
-// go run pilot_cli.go -pod <POD_NAME> -ip <POD_IP> -type lds
+// go run pilot_cli.go -type lds -res httpbin-5766dd474b-2hlnx
+// go run pilot_cli.go -type lds -res httpbin
 // ```
-// Use cds | eds | rds for other config types.
+// Note If more than one pod match with the app label, one will be picked arbitrarily.
 //
-// For more convience, you can provide the path to kubeconfig to find pod IP automatically,
-// and even pod name (using --app flag to find the first pod that has matching app label). The default
-// value for kubeconfig path is .kube/config in home folder (works for Linux only).
+// For EDS, provide comma-separated-list of clusters. For example:
 // ```bash
-// go run ./pilot/debug/pilot_cli.go -pod <POD_NAME> -kubeconfig path/to/kube/config
-// go run ./pilot/debug/pilot_cli.go -app <APP_LABEL> -kubeconfig path/to/kube/config
+// go run ./pilot/tools/debug/pilot_cli.go -type eds -res "inbound|http||sleep.default.svc.cluster.local,outbound|http||httpbin.default.svc.cluster.local"
+// ```
+//
+// Script requires kube config in order to connect to k8s registry to get pod information (for LDS and CDS type). The default
+// value for kubeconfig path is .kube/config in home folder (works for Linux only). It can be changed via -kubeconfig flag.
+// ```bash
+// go run ./pilot/debug/pilot_cli.go -type lds -res httpbin -kubeconfig path/to/kube/config
 // ```
 
 package main
@@ -72,54 +76,51 @@ type PodInfo struct {
 	Name      string
 	Namespace string
 	IP        string
-	AppLabel  string
 }
 
-func (p *PodInfo) populatePodNameAndIP(kubeconfig string) bool {
-	if p.Name != "" && p.IP != "" {
-		// Already set, nothing to do.
-		return true
-	}
+func NewPodInfo(nameOrAppLabel string, kubeconfig string) *PodInfo {
 	log.Infof("Using kube config at %s", kubeconfig)
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
 		log.Errorf(err.Error())
-		return false
+		return nil
 	}
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		log.Errorf(err.Error())
-		return false
+		return nil
 	}
-	pods, err := clientset.Core().Pods(p.Namespace).List(meta_v1.ListOptions{})
+	pods, err := clientset.Core().Pods("").List(meta_v1.ListOptions{})
 	if err != nil {
 		log.Errorf(err.Error())
-		return false
+		return nil
 	}
 
 	for _, pod := range pods.Items {
-		if p.Name != "" && pod.Name == p.Name {
-			log.Infof("Found pod %q~%s matching name %q", pod.Name, pod.Status.PodIP, p.Name)
-			p.IP = pod.Status.PodIP
-			return true
+		log.Infof("pod %q", pod.Name)
+		if pod.Name == nameOrAppLabel {
+			log.Infof("Found pod %s.%s~%s matching name %q", pod.Name, pod.Namespace, pod.Status.PodIP, nameOrAppLabel)
+			return &PodInfo{
+				Name:      pod.Name,
+				Namespace: pod.Namespace,
+				IP:        pod.Status.PodIP,
+			}
 		}
-		if app, ok := pod.ObjectMeta.Labels["app"]; ok && app == p.AppLabel {
-			log.Infof("Found pod %q~%s matching app label %q", pod.Name, pod.Status.PodIP, p.AppLabel)
-			p.Name = pod.Name
-			p.IP = pod.Status.PodIP
-			return true
+		if app, ok := pod.ObjectMeta.Labels["app"]; ok && app == nameOrAppLabel {
+			log.Infof("Found pod %s.%s~%s matching app label %q", pod.Name, pod.Namespace, pod.Status.PodIP, nameOrAppLabel)
+			return &PodInfo{
+				Name:      pod.Name,
+				Namespace: pod.Namespace,
+				IP:        pod.Status.PodIP,
+			}
 		}
 	}
-	log.Warnf("Cannot find pod matching %v in registry.", p)
-	return false
+	log.Warnf("Cannot find pod with name or app label matching %q in registry.", nameOrAppLabel)
+	return nil
 }
 
 func (p PodInfo) makeNodeID() string {
 	return fmt.Sprintf("sidecar~%s~%s.%s~%s.svc.cluster.local", p.IP, p.Name, p.Namespace, p.Namespace)
-}
-
-func makeNodeID(pod, namespace, ip string) string {
-	return fmt.Sprintf("sidecar~%s~%s.%s~%s.svc.cluster.local", ip, pod, namespace, namespace)
 }
 
 func configTypeToTypeURL(configType string) string {
@@ -145,7 +146,7 @@ func (p PodInfo) makeRequest(configType string) *xdsapi.DiscoveryRequest {
 		TypeUrl: configTypeToTypeURL(configType)}
 }
 
-func request(pilotURL string, req *xdsapi.DiscoveryRequest) *xdsapi.DiscoveryResponse {
+func (p PodInfo) getResource(pilotURL string, configType string) *xdsapi.DiscoveryResponse {
 	conn, err := grpc.Dial(pilotURL, grpc.WithInsecure())
 	if err != nil {
 		panic(err.Error())
@@ -154,6 +155,35 @@ func request(pilotURL string, req *xdsapi.DiscoveryRequest) *xdsapi.DiscoveryRes
 
 	adsClient := ads.NewAggregatedDiscoveryServiceClient(conn)
 	stream, err := adsClient.StreamAggregatedResources(context.Background())
+	if err != nil {
+		panic(err.Error())
+	}
+	err = stream.Send(p.makeRequest(configType))
+	if err != nil {
+		panic(err.Error())
+	}
+	res, err := stream.Recv()
+	if err != nil {
+		panic(err.Error())
+	}
+	return res
+}
+
+func makeEDSRequest(resources string) *xdsapi.DiscoveryRequest {
+	return &xdsapi.DiscoveryRequest{
+		ResourceNames: strings.Split(resources, ","),
+	}
+}
+
+func edsRequest(pilotURL string, req *xdsapi.DiscoveryRequest) *xdsapi.DiscoveryResponse {
+	conn, err := grpc.Dial(pilotURL, grpc.WithInsecure())
+	if err != nil {
+		panic(err.Error())
+	}
+	defer conn.Close()
+
+	adsClient := xdsapi.NewEndpointDiscoveryServiceClient(conn)
+	stream, err := adsClient.StreamEndpoints(context.Background())
 	if err != nil {
 		panic(err.Error())
 	}
@@ -178,41 +208,24 @@ func resolveKubeConfigPath(kubeConfig string) string {
 }
 
 func main() {
-	podName := flag.String("pod", "", "pod name. If omit, pod name will be found from k8s registry using app label.")
-	appName := flag.String("app", "", "app label. Should be set if pod name is not provided. It will be used to find "+
-		"the pod that has the same app label. Ignored if --pod is set.")
-	podIP := flag.String("ip", "", "pod IP. If omit, pod IP will be found from registry.")
-	namespace := flag.String("namespace", "default", "namespace. Default is 'default'.")
 	kubeConfig := flag.String("kubeconfig", "~/.kube/config", "path to the kubeconfig file. Default is ~/.kube/config")
 	pilotURL := flag.String("pilot", "localhost:15010", "pilot address")
-	configType := flag.String("type", "lds", "lds, cds, rds or eds. Default lds.")
-	outputFile := flag.String("output", "", "output file. Leave blank to go to stdout")
+	configType := flag.String("type", "lds", "lds, cds, or eds. Default lds.")
+	resources := flag.String("res", "", "Resource(s) to get config for. Should be pod name or app label for lds and cds type. For eds, it is comma separated list of cluster name.")
+	outputFile := flag.String("out", "", "output file. Leave blank to go to stdout")
 	flag.Parse()
 
-	if *podName == "" && *appName == "" {
-		log.Error("Either --pod or --app should be set.")
-		return
-	}
-	if *namespace == "" {
-		log.Error("--namespace cannot be empty")
-		return
-	}
-	if *pilotURL == "" {
-		log.Error("--pilot cannot be empy")
-		return
+	var resp *xdsapi.DiscoveryResponse
+	if *configType == "lds" || *configType == "cds" {
+		pod := NewPodInfo(*resources, resolveKubeConfigPath(*kubeConfig))
+		resp = pod.getResource(*pilotURL, *configType)
+	} else if *configType == "eds" {
+		resp = edsRequest(*pilotURL, makeEDSRequest(*resources))
+	} else {
+		log.Errorf("Unknown config type: %q", *configType)
+		os.Exit(1)
 	}
 
-	podInfo := PodInfo{
-		Name:      *podName,
-		IP:        *podIP,
-		Namespace: *namespace,
-		AppLabel:  *appName,
-	}
-	if !podInfo.populatePodNameAndIP(resolveKubeConfigPath(*kubeConfig)) {
-		return
-	}
-
-	resp := request(*pilotURL, podInfo.makeRequest(*configType))
 	strResponse, _ := model.ToJSONWithIndent(resp, " ")
 	if outputFile == nil || *outputFile == "" {
 		fmt.Printf("%v\n", strResponse)
