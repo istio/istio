@@ -19,8 +19,8 @@ spec:
       serviceAccountName: istio-galley-service-account
       containers:
         - name: validator
-          image: "{{ .Values.global.hub }}/galley:{{ .Values.global.tag }}"
-          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
           - containerPort: 443
           command:

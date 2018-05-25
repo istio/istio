@@ -28,7 +28,7 @@ type model struct {
 	packages       []*packageDescriptor
 }
 
-func newModel(request *plugin.CodeGeneratorRequest) (*model, error) {
+func newModel(request *plugin.CodeGeneratorRequest, perFile bool) (*model, error) {
 	m := &model{
 		allFilesByName: make(map[string]*fileDescriptor, len(request.ProtoFile)),
 	}
@@ -44,7 +44,7 @@ func newModel(request *plugin.CodeGeneratorRequest) (*model, error) {
 	// create all the package descriptors
 	var allFiles []*fileDescriptor
 	for pkg, files := range filesByPackage {
-		p := newPackageDescriptor(pkg, files)
+		p := newPackageDescriptor(pkg, files, perFile)
 		m.packages = append(m.packages, p)
 
 		for _, f := range p.files {

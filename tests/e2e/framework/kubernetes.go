@@ -23,6 +23,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -49,13 +50,21 @@ const (
 	mcRemoteInstallFile              = "istio-remote.yaml"
 	istioSystem                      = "istio-system"
 	istioIngressServiceName          = "istio-ingress"
+	istioIngressLabel                = "ingress"
 	istioIngressGatewayServiceName   = "istio-ingressgateway"
+	istioIngressGatewayLabel         = "ingressgateway"
 	istioEgressGatewayServiceName    = "istio-egressgateway"
 	defaultSidecarInjectorFile       = "istio-sidecar-injector.yaml"
 	ingressCertsName                 = "istio-ingress-certs"
 	defaultGalleyConfigValidatorFile = "istio-galley-config-validator.yaml"
 	maxDeploymentRolloutTime         = 480 * time.Second
 	mtlsExcludedServicesPattern      = "mtlsExcludedServices:\\s*\\[(.*)\\]"
+	helmServiceAccountFile           = "helm-service-account.yaml"
+	istioHelmInstallDir              = istioInstallDir + "/helm/istio"
+	caCertFileName                   = "samples/certs/ca-cert.pem"
+	caKeyFileName                    = "samples/certs/ca-key.pem"
+	rootCertFileName                 = "samples/certs/root-cert.pem"
+	certChainFileName                = "samples/certs/cert-chain.pem"
 )
 
 var (
@@ -81,6 +90,7 @@ var (
 	multiClusterDir           = flag.String("cluster_registry_dir", "", "Directory name for the cluster registry config")
 	galleyConfigValidatorFile = flag.String("galley_config_validator_file", defaultGalleyConfigValidatorFile, "Galley config validator yaml file")
 	useGalleyConfigValidator  = flag.Bool("use_galley_config_validator", false, "Use galley configuration validation webhook")
+	installer                 = flag.String("installer", "kubectl", "Istio installer, default to kubectl, or helm ")
 
 	addons = []string{
 		"zipkin",
@@ -97,6 +107,10 @@ type KubeInfo struct {
 	inglock    sync.Mutex
 	ingress    string
 	ingressErr error
+
+	ingressGatewayLock sync.Mutex
+	ingressGateway     string
+	ingressGatewayErr  error
 
 	localCluster     bool
 	namespaceCreated bool
@@ -180,10 +194,10 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		if err != nil {
 			return nil, err
 		}
-		if _, kubeClient, err = kube.CreateInterface(kubeConfig); err != nil {
+		if kubeClient, err = kube.CreateInterface(kubeConfig); err != nil {
 			return nil, err
 		}
-		if _, remoteKubeClient, err = kube.CreateInterface(remoteKubeConfig); err != nil {
+		if remoteKubeClient, err = kube.CreateInterface(remoteKubeConfig); err != nil {
 			return nil, err
 		}
 
@@ -245,15 +259,31 @@ func (k *KubeInfo) Setup() error {
 	}
 
 	if !*skipSetup {
-		if err = k.deployIstio(); err != nil {
-			log.Error("Failed to deploy Istio.")
-			return err
-		}
-
-		if k.InstallAddons {
-			if err = k.deployAddons(); err != nil {
-				log.Error("Failed to deploy istio addons")
+		if *installer == "helm" {
+			// install helm tiller first
+			yamlDir := filepath.Join(istioInstallDir+"/helm", helmServiceAccountFile)
+			baseHelmServiceAccountYaml := filepath.Join(k.ReleaseDir, yamlDir)
+			if err = k.deployTiller(baseHelmServiceAccountYaml); err != nil {
+				log.Error("Failed to deploy helm tiller.")
 				return err
+			}
+
+			// install istio using helm
+			if err = k.deployIstioWithHelm(); err != nil {
+				log.Error("Failed to deploy Istio with helm.")
+				return err
+			}
+		} else {
+			if err = k.deployIstio(); err != nil {
+				log.Error("Failed to deploy Istio.")
+				return err
+			}
+
+			if k.InstallAddons {
+				if err = k.deployAddons(); err != nil {
+					log.Error("Failed to deploy istio addons")
+					return err
+				}
 			}
 		}
 		// Create the ingress secret.
@@ -304,26 +334,47 @@ func (k *KubeInfo) IngressOrFail(t *testing.T) string {
 
 // Ingress lazily initialize ingress
 func (k *KubeInfo) Ingress() (string, error) {
-	k.inglock.Lock()
-	defer k.inglock.Unlock()
+	return k.doGetIngress(istioIngressServiceName, istioIngressLabel, &k.inglock, &k.ingress, &k.ingressErr)
+}
+
+// IngressGatewayOrFail lazily initialize ingress gateway and fail test if not found.
+func (k *KubeInfo) IngressGatewayOrFail(t *testing.T) string {
+	gw, err := k.IngressGateway()
+	if err != nil {
+		t.Fatalf("Unable to get ingress: %v", err)
+	}
+	return gw
+}
+
+// IngressGateway lazily initialize Ingress Gateway
+func (k *KubeInfo) IngressGateway() (string, error) {
+	return k.doGetIngress(istioIngressGatewayServiceName, istioIngressGatewayLabel,
+		&k.ingressGatewayLock, &k.ingressGateway, &k.ingressGatewayErr)
+}
+
+func (k *KubeInfo) doGetIngress(serviceName string, podLabel string, lock sync.Locker,
+	ingress *string, ingressErr *error) (string, error) {
+	lock.Lock()
+	defer lock.Unlock()
 
 	// Previously fetched ingress or failed.
-	if k.ingressErr != nil || len(k.ingress) != 0 {
-		return k.ingress, k.ingressErr
+	if *ingressErr != nil || len(*ingress) != 0 {
+		return *ingress, *ingressErr
 	}
-
 	if k.localCluster {
-		k.ingress, k.ingressErr = util.GetIngressPod(k.Namespace, k.KubeConfig)
+		*ingress, *ingressErr = util.GetIngress(serviceName, podLabel,
+			k.Namespace, k.KubeConfig, util.NodePortServiceType)
 	} else {
-		k.ingress, k.ingressErr = util.GetIngress(k.Namespace, k.KubeConfig)
+		*ingress, *ingressErr = util.GetIngress(serviceName, podLabel,
+			k.Namespace, k.KubeConfig, util.LoadBalancerServiceType)
 	}
 
 	// So far we only do http ingress
-	if len(k.ingress) > 0 {
-		k.ingress = "http://" + k.ingress
+	if len(*ingress) > 0 {
+		*ingress = "http://" + *ingress
 	}
 
-	return k.ingress, k.ingressErr
+	return *ingress, *ingressErr
 }
 
 // Teardown clean up everything created by setup
@@ -333,63 +384,70 @@ func (k *KubeInfo) Teardown() error {
 	if *skipSetup || *skipCleanup {
 		return nil
 	}
-
-	if *useAutomaticInjection {
-		testSidecarInjectorYAML := filepath.Join(k.TmpDir, "yaml", *sidecarInjectorFile)
-
-		if err := util.KubeDelete(k.Namespace, testSidecarInjectorYAML, k.KubeConfig); err != nil {
-			log.Errorf("Istio sidecar injector %s deletion failed", testSidecarInjectorYAML)
-			return err
-		}
-	}
-
-	if *useGalleyConfigValidator {
-		testGalleyConfigValidatorYAML := filepath.Join(k.TmpDir, "yaml", *galleyConfigValidatorFile)
-
-		if err := util.KubeDelete(k.Namespace, testGalleyConfigValidatorYAML, k.KubeConfig); err != nil {
-			log.Errorf("Istio galley config validator %s deletion failed", testGalleyConfigValidatorYAML)
-			return err
-		}
-	}
-
-	if *clusterWide {
-		// for cluster-wide, we can verify the uninstall
-		istioYaml := nonAuthInstallFile
-		if *authEnable {
-			istioYaml = authInstallFile
-		}
-
-		testIstioYaml := filepath.Join(k.TmpDir, "yaml", istioYaml)
-
-		if err := util.KubeDelete(k.Namespace, testIstioYaml, k.KubeConfig); err != nil {
-			log.Infof("Safe to ignore resource not found errors in kubectl delete -f %s", testIstioYaml)
+	if *installer == "helm" {
+		// clean up using helm
+		err := util.HelmDelete(k.Namespace)
+		if err != nil {
+			return nil
 		}
 	} else {
-		if err := util.DeleteNamespace(k.Namespace, k.KubeConfig); err != nil {
-			log.Errorf("Failed to delete namespace %s", k.Namespace)
-			return err
-		}
-		if *multiClusterDir != "" {
-			if err := util.DeleteNamespace(k.Namespace, k.RemoteKubeConfig); err != nil {
-				log.Errorf("Failed to delete namespace %s on remote cluster", k.Namespace)
+		if *useAutomaticInjection {
+			testSidecarInjectorYAML := filepath.Join(k.TmpDir, "yaml", *sidecarInjectorFile)
+
+			if err := util.KubeDelete(k.Namespace, testSidecarInjectorYAML, k.KubeConfig); err != nil {
+				log.Errorf("Istio sidecar injector %s deletion failed", testSidecarInjectorYAML)
 				return err
 			}
 		}
 
-		// ClusterRoleBindings are not namespaced and need to be deleted separately
-		if _, err := util.Shell("kubectl get --kubeconfig=%s clusterrolebinding -o jsonpath={.items[*].metadata.name}"+
-			"|xargs -n 1|fgrep %s|xargs kubectl delete --kubeconfig=%s clusterrolebinding", k.KubeConfig,
-			k.Namespace, k.KubeConfig); err != nil {
-			log.Errorf("Failed to delete clusterrolebindings associated with namespace %s", k.Namespace)
-			return err
+		if *useGalleyConfigValidator {
+			testGalleyConfigValidatorYAML := filepath.Join(k.TmpDir, "yaml", *galleyConfigValidatorFile)
+
+			if err := util.KubeDelete(k.Namespace, testGalleyConfigValidatorYAML, k.KubeConfig); err != nil {
+				log.Errorf("Istio galley config validator %s deletion failed", testGalleyConfigValidatorYAML)
+				return err
+			}
 		}
 
-		// ClusterRoles are not namespaced and need to be deleted separately
-		if _, err := util.Shell("kubectl get --kubeconfig=%s clusterrole -o jsonpath={.items[*].metadata.name}"+
-			"|xargs -n 1|fgrep %s|xargs kubectl delete --kubeconfig=%s clusterrole", k.KubeConfig,
-			k.Namespace, k.KubeConfig); err != nil {
-			log.Errorf("Failed to delete clusterroles associated with namespace %s", k.Namespace)
-			return err
+		if *clusterWide {
+			// for cluster-wide, we can verify the uninstall
+			istioYaml := nonAuthInstallFile
+			if *authEnable {
+				istioYaml = authInstallFile
+			}
+
+			testIstioYaml := filepath.Join(k.TmpDir, "yaml", istioYaml)
+
+			if err := util.KubeDelete(k.Namespace, testIstioYaml, k.KubeConfig); err != nil {
+				log.Infof("Safe to ignore resource not found errors in kubectl delete -f %s", testIstioYaml)
+			}
+		} else {
+			if err := util.DeleteNamespace(k.Namespace, k.KubeConfig); err != nil {
+				log.Errorf("Failed to delete namespace %s", k.Namespace)
+				return err
+			}
+			if *multiClusterDir != "" {
+				if err := util.DeleteNamespace(k.Namespace, k.RemoteKubeConfig); err != nil {
+					log.Errorf("Failed to delete namespace %s on remote cluster", k.Namespace)
+					return err
+				}
+			}
+
+			// ClusterRoleBindings are not namespaced and need to be deleted separately
+			if _, err := util.Shell("kubectl get --kubeconfig=%s clusterrolebinding -o jsonpath={.items[*].metadata.name}"+
+				"|xargs -n 1|fgrep %s|xargs kubectl delete --kubeconfig=%s clusterrolebinding", k.KubeConfig,
+				k.Namespace, k.KubeConfig); err != nil {
+				log.Errorf("Failed to delete clusterrolebindings associated with namespace %s", k.Namespace)
+				return err
+			}
+
+			// ClusterRoles are not namespaced and need to be deleted separately
+			if _, err := util.Shell("kubectl get --kubeconfig=%s clusterrole -o jsonpath={.items[*].metadata.name}"+
+				"|xargs -n 1|fgrep %s|xargs kubectl delete --kubeconfig=%s clusterrole", k.KubeConfig,
+				k.Namespace, k.KubeConfig); err != nil {
+				log.Errorf("Failed to delete clusterroles associated with namespace %s", k.Namespace)
+				return err
+			}
 		}
 	}
 
@@ -537,6 +595,11 @@ func (k *KubeInfo) deployIstio() error {
 		return err
 	}
 
+	if *multiClusterDir != "" {
+		if err := k.createCacerts(false); err != nil {
+			log.Infof("Failed to create Cacerts with namespace %s in primary cluster", k.Namespace)
+		}
+	}
 	if err := util.KubeApply(k.Namespace, testIstioYaml, k.KubeConfig); err != nil {
 		log.Errorf("Istio core %s deployment failed", testIstioYaml)
 		return err
@@ -552,6 +615,10 @@ func (k *KubeInfo) deployIstio() error {
 		if err := util.CreateMultiClusterSecrets(k.Namespace, k.KubeClient, k.RemoteKubeConfig); err != nil {
 			log.Errorf("Unable to create secrets on local cluster %s", err.Error())
 			return err
+		}
+
+		if err := k.createCacerts(true); err != nil {
+			log.Infof("Failed to create Cacerts with namespace %s in remote cluster", k.Namespace)
 		}
 
 		yamlDir := filepath.Join(istioInstallDir, mcRemoteInstallFile)
@@ -593,6 +660,72 @@ func (k *KubeInfo) deployIstio() error {
 		}
 	}
 	return util.CheckDeployments(k.Namespace, maxDeploymentRolloutTime, k.KubeConfig)
+}
+
+func (k *KubeInfo) deployTiller(yamlFileName string) error {
+	// apply helm service account
+	if err := util.KubeApply("kube-system", yamlFileName, k.KubeConfig); err != nil {
+		log.Errorf("Failed to apply %s", yamlFileName)
+		return err
+	}
+
+	// deploy tiller, helm cli is already available
+	if err := util.HelmInit("tiller"); err != nil {
+		log.Errorf("Failed to init helm tiller ")
+		return err
+	}
+	// wait till tiller reaches running
+	return util.CheckPodRunning("kube-system", "name=tiller", k.KubeConfig)
+}
+
+func (k *KubeInfo) deployIstioWithHelm() error {
+	// install istio helm chart, which includes addon
+	isSecurityOn := false
+	if *authEnable {
+		// enable mTLS
+		isSecurityOn = true
+	}
+
+	// construct setValue to pass into helm install
+	// mTLS
+	setValue := "--set global.mtls.enabled=" + strconv.FormatBool(isSecurityOn)
+	// side car injector
+	if *useAutomaticInjection {
+		setValue += " --set sidecar-injector.enabled=true"
+	}
+	// hubs and tags replacement.
+	// Helm chart assumes hub and tag are the same among multiple istio components.
+	if *pilotHub != "" && *pilotTag != "" {
+		setValue = setValue + " --set global.hub=" + *pilotHub + " --set global.tag=" + *pilotTag
+	}
+
+	if !*clusterWide {
+		setValue += " --set istiotesting.oneNameSpace=true"
+	}
+
+	// create the namespace
+	if err := util.CreateNamespace(k.Namespace, k.KubeConfig); err != nil {
+		log.Errorf("Unable to create namespace %s: %s", k.Namespace, err.Error())
+		return err
+	}
+
+	// helm install dry run
+	workDir := filepath.Join(k.ReleaseDir, istioHelmInstallDir)
+	err := util.HelmInstallDryRun(workDir, k.Namespace, k.Namespace, setValue)
+	if err != nil {
+		// dry run fail, let's fail early
+		log.Errorf("Helm dry run of istio install failed %s, setValue=%s", istioHelmInstallDir, setValue)
+		return err
+	}
+
+	// helm install
+	err = util.HelmInstall(workDir, k.Namespace, k.Namespace, setValue)
+	if err != nil {
+		log.Errorf("Helm install istio install failed %s, setValue=%s", istioHelmInstallDir, setValue)
+		return err
+	}
+
+	return nil
 }
 
 func updateInjectImage(name, module, hub, tag string, content []byte) []byte {
@@ -736,7 +869,8 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 	}
 
 	if *localCluster {
-		content = []byte(strings.Replace(string(content), "LoadBalancer", "NodePort", 1))
+		content = []byte(strings.Replace(string(content), util.LoadBalancerServiceType,
+			util.NodePortServiceType, 1))
 	}
 
 	err = ioutil.WriteFile(dst, content, 0600)

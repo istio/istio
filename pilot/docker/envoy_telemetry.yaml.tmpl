@@ -16,9 +16,9 @@ static_resources:
     hosts:
     - socket_address:
         address: 127.0.0.1
-        port_value: 9091
+        port_value: 9092
     http2_protocol_options: {}
-    name: in.9091
+    name: in.9092
   - connect_timeout: 1.000s
     hosts:
     - socket_address:
@@ -39,6 +39,8 @@ static_resources:
               path: /dev/stdout
             name: envoy.file_access_log
           codec_type: HTTP2
+          http2_protocol_options:
+            max_concurrent_streams: 1073741824
           generate_request_id: true
           http_filters:
           - config:
@@ -57,7 +59,7 @@ static_resources:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
               transport:
                 check_cluster: mixer_check_server
-                report_cluster: in.9091
+                report_cluster: in.9092
             name: mixer
           - name: envoy.router
           route_config:
@@ -68,11 +70,11 @@ static_resources:
               name: istio-telemetry.{{ .PodNamespace }}.svc.cluster.local
               routes:
               - decorator:
-                  operation: Check
+                  operation: Report
                 match:
                   prefix: /
                 route:
-                  cluster: in.9091
+                  cluster: in.9092
                   timeout: 0.000s
           stat_prefix: "15004"
           tracing: {}
@@ -93,6 +95,59 @@ static_resources:
         require_client_certificate: true
 {{- end }}
     name: "15004"
+  - address:
+      socket_address:
+        address: 0.0.0.0
+        port_value: 9091
+    filter_chains:
+    - filters:
+      - config:
+          access_log:
+          - config:
+              path: /dev/stdout
+            name: envoy.file_access_log
+          codec_type: HTTP2
+          http2_protocol_options:
+            max_concurrent_streams: 1073741824
+          generate_request_id: true
+          http_filters:
+          - config:
+              default_destination_service: istio-telemetry.{{ .PodNamespace }}.svc.cluster.local
+              service_configs:
+                istio-telemetry.{{ .PodNamespace }}.svc.cluster.local:
+                  disable_check_calls: true
+{{- if .DisableReportCalls }}
+                  disable_report_calls: true
+{{- end }}
+                  mixer_attributes:
+                    attributes:
+                      destination.service:
+                        string_value: istio-telemetry.{{ .PodNamespace }}.svc.cluster.local
+                      destination.uid:
+                        string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
+              transport:
+                check_cluster: mixer_check_server
+                report_cluster: in.9092
+            name: mixer
+          - name: envoy.router
+          route_config:
+            name: "9091"
+            virtual_hosts:
+            - domains:
+              - '*'
+              name: istio-telemetry.{{ .PodNamespace }}.svc.cluster.local
+              routes:
+              - decorator:
+                  operation: Report
+                match:
+                  prefix: /
+                route:
+                  cluster: in.9092
+                  timeout: 0.000s
+          stat_prefix: "9091"
+          tracing: {}
+        name: envoy.http_connection_manager
+    name: "9091"
 tracing:
   http:
     config:

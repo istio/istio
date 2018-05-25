@@ -72,7 +72,7 @@ data:
       # and manipulation.
       # The "TPROXY" mode also configures the sidecar to run with the
       # CAP_NET_ADMIN capability, which is required to use TPROXY.
-      interceptionMode: REDIRECT
+      #interceptionMode: REDIRECT
       #
       # Port where Envoy listens (on local host) for admin commands
       # You can exec into the istio-proxy container in a pod and

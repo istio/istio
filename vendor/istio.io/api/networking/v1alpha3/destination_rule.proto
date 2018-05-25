@@ -20,9 +20,6 @@ package istio.networking.v1alpha3;
 
 option go_package = "istio.io/api/networking/v1alpha3";
 
-//
-// # Overview
-//
 // `DestinationRule` defines policies that apply to traffic intended for a
 // service after routing has occurred. These rules specify configuration
 // for load balancing, connection pool size from the sidecar, and outlier
@@ -30,15 +27,17 @@ option go_package = "istio.io/api/networking/v1alpha3";
 // balancing pool. For example, a simple load balancing policy for the
 // ratings service would look as follows:
 //
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: DestinationRule
-//     metadata:
-//       name: bookinfo-ratings
-//     spec:
-//       host: ratings.prod.svc.cluster.local
-//       trafficPolicy:
-//         loadBalancer:
-//           simple: LEAST_CONN
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: DestinationRule
+// metadata:
+//   name: bookinfo-ratings
+// spec:
+//   host: ratings.prod.svc.cluster.local
+//   trafficPolicy:
+//     loadBalancer:
+//       simple: LEAST_CONN
+// ```
 //
 // Version specific policies can be specified by defining a named
 // `subset` and overriding the settings specified at the service level. The
@@ -46,22 +45,24 @@ option go_package = "istio.io/api/networking/v1alpha3";
 // going to a subset named testversion that is composed of endpoints (e.g.,
 // pods) with labels (version:v3).
 //
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: DestinationRule
-//     metadata:
-//       name: bookinfo-ratings
-//     spec:
-//       host: ratings.prod.svc.cluster.local
-//       trafficPolicy:
-//         loadBalancer:
-//           simple: LEAST_CONN
-//       subsets:
-//       - name: testversion
-//         labels:
-//           version: v3
-//         trafficPolicy:
-//           loadBalancer:
-//             simple: ROUND_ROBIN
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: DestinationRule
+// metadata:
+//   name: bookinfo-ratings
+// spec:
+//   host: ratings.prod.svc.cluster.local
+//   trafficPolicy:
+//     loadBalancer:
+//       simple: LEAST_CONN
+//   subsets:
+//   - name: testversion
+//     labels:
+//       version: v3
+//     trafficPolicy:
+//       loadBalancer:
+//         simple: ROUND_ROBIN
+// ```
 //
 // **Note:** Policies specified for subsets will not take effect until
 // a route rule explicitly sends traffic to this subset.
@@ -71,28 +72,29 @@ option go_package = "istio.io/api/networking/v1alpha3";
 // traffic to port 80, while uses a round robin load balancing setting for
 // traffic to the port 9080.
 //
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: DestinationRule
-//     metadata:
-//       name: bookinfo-ratings-port
-//     spec:
-//       host: ratings.prod.svc.cluster.local
-//       trafficPolicy: # Apply to all ports
-//         portLevelSettings:
-//         - port:
-//             number: 80
-//           loadBalancer:
-//             simple: LEAST_CONN
-//         - port:
-//             number: 9080
-//           loadBalancer:
-//             simple: ROUND_ROBIN
-//
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: DestinationRule
+// metadata:
+//   name: bookinfo-ratings-port
+// spec:
+//   host: ratings.prod.svc.cluster.local
+//   trafficPolicy: # Apply to all ports
+//     portLevelSettings:
+//     - port:
+//         number: 80
+//       loadBalancer:
+//         simple: LEAST_CONN
+//     - port:
+//         number: 9080
+//       loadBalancer:
+//         simple: ROUND_ROBIN
+// ```
 message DestinationRule {
   // REQUIRED. The name of a service from the service registry. Service
   // names are looked up from the platform's service registry (e.g.,
   // Kubernetes services, Consul services, etc.) and from the hosts
-  // declared by [ExternalServices](#ExternalService). Rules defined for
+  // declared by [ServiceEntries](#ServiceEntry). Rules defined for
   // services that do not exist in the service registry will be ignored.
   //
   // *Note for Kubernetes users*: When short names are used (e.g. "reviews"
@@ -172,22 +174,24 @@ message TrafficPolicy {
 // subset named testversion that is composed of endpoints (e.g., pods) with
 // labels (version:v3).
 //
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: DestinationRule
-//     metadata:
-//       name: bookinfo-ratings
-//     spec:
-//       host: ratings.prod.svc.cluster.local
-//       trafficPolicy:
-//         loadBalancer:
-//           simple: LEAST_CONN
-//       subsets:
-//       - name: testversion
-//         labels:
-//           version: v3
-//         trafficPolicy:
-//           loadBalancer:
-//             simple: ROUND_ROBIN
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: DestinationRule
+// metadata:
+//   name: bookinfo-ratings
+// spec:
+//   host: ratings.prod.svc.cluster.local
+//   trafficPolicy:
+//     loadBalancer:
+//       simple: LEAST_CONN
+//   subsets:
+//   - name: testversion
+//     labels:
+//       version: v3
+//     trafficPolicy:
+//       loadBalancer:
+//         simple: ROUND_ROBIN
+// ```
 //
 // **Note:** Policies specified for subsets will not take effect until
 // a route rule explicitly sends traffic to this subset.
@@ -215,30 +219,33 @@ message Subset {
 // For example, the following rule uses a round robin load balancing policy
 // for all traffic going to the ratings service.
 //
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: DestinationRule
-//     metadata:
-//       name: bookinfo-ratings
-//     spec:
-//       host: ratings.prod.svc.cluster.local
-//       trafficPolicy:
-//         loadBalancer:
-//           simple: ROUND_ROBIN
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: DestinationRule
+// metadata:
+//   name: bookinfo-ratings
+// spec:
+//   host: ratings.prod.svc.cluster.local
+//   trafficPolicy:
+//     loadBalancer:
+//       simple: ROUND_ROBIN
+// ```
 //
 // The following example uses the consistent hashing based load balancer
 // for the same ratings service using the Cookie header as the hash key.
-// 
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: DestinationRule
-//     metadata:
-//       name: bookinfo-ratings
-//     spec:
-//       host: ratings.prod.svc.cluster.local
-//       trafficPolicy:
-//         loadBalancer:
-//           consistentHash:
-//             http_header: Cookie
 //
+// ```yaml
+//  apiVersion: networking.istio.io/v1alpha3
+//  kind: DestinationRule
+//  metadata:
+//    name: bookinfo-ratings
+//  spec:
+//    host: ratings.prod.svc.cluster.local
+//    trafficPolicy:
+//      loadBalancer:
+//        consistentHash:
+//          http_header: Cookie
+// ```
 message LoadBalancerSettings {
   // Standard load balancing algorithms that require no tuning.
   enum SimpleLB {
@@ -303,18 +310,19 @@ message LoadBalancerSettings {
 // For example, the following rule sets a limit of 100 connections to redis
 // service called myredissrv with a connect timeout of 30ms
 //
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: DestinationRule
-//     metadata:
-//       name: bookinfo-redis
-//     spec:
-//       host: myredissrv.prod.svc.cluster.local
-//       trafficPolicy:
-//         connectionPool:
-//           tcp:
-//             maxConnections: 100
-//             connectTimeout: 30ms
-//
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: DestinationRule
+// metadata:
+//   name: bookinfo-redis
+// spec:
+//   host: myredissrv.prod.svc.cluster.local
+//   trafficPolicy:
+//     connectionPool:
+//       tcp:
+//         maxConnections: 100
+//         connectTimeout: 30ms
+// ```
 message ConnectionPoolSettings {
   // Settings common to both HTTP and TCP upstream connections.
   message TCPSettings {
@@ -363,25 +371,26 @@ message ConnectionPoolSettings {
 // scanned every 5 mins, such that any host that fails 7 consecutive times
 // with 5XX error code will be ejected for 15 minutes.
 //
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: DestinationRule
-//     metadata:
-//       name: reviews-cb-policy
-//     spec:
-//       host: reviews.prod.svc.cluster.local
-//       trafficPolicy:
-//         connectionPool:
-//           tcp:
-//             maxConnections: 100
-//           http:
-//             http2MaxRequests: 1000
-//             maxRequestsPerConnection: 10
-//         outlierDetection:
-//           http:
-//             consecutiveErrors: 7
-//             interval: 5m
-//             baseEjectionTime: 15m
-//
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: DestinationRule
+// metadata:
+//   name: reviews-cb-policy
+// spec:
+//   host: reviews.prod.svc.cluster.local
+//   trafficPolicy:
+//     connectionPool:
+//       tcp:
+//         maxConnections: 100
+//       http:
+//         http2MaxRequests: 1000
+//         maxRequestsPerConnection: 10
+//     outlierDetection:
+//       http:
+//         consecutiveErrors: 7
+//         interval: 5m
+//         baseEjectionTime: 15m
+// ```
 message OutlierDetection {
   // Outlier detection settings for HTTP1.1/HTTP2/GRPC connections.
   message HTTPSettings {
@@ -416,32 +425,50 @@ message OutlierDetection {
 // For example, the following rule configures a client to use mutual TLS
 // for connections to upstream database cluster.
 //
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: DestinationRule
-//     metadata:
-//       name: db-mtls
-//     spec:
-//       host: mydbserver.prod.svc.cluster.local
-//       trafficPolicy:
-//         tls:
-//           mode: MUTUAL
-//           clientCertificate: /etc/certs/myclientcert.pem
-//           privateKey: /etc/certs/client_private_key.pem
-//           caCertificates: /etc/certs/rootcacerts.pem
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: DestinationRule
+// metadata:
+//   name: db-mtls
+// spec:
+//   host: mydbserver.prod.svc.cluster.local
+//   trafficPolicy:
+//     tls:
+//       mode: MUTUAL
+//       clientCertificate: /etc/certs/myclientcert.pem
+//       privateKey: /etc/certs/client_private_key.pem
+//       caCertificates: /etc/certs/rootcacerts.pem
+// ```
 //
 // The following rule configures a client to use TLS when talking to a
 // foreign service whose domain matches *.foo.com.
 //
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: DestinationRule
-//     metadata:
-//       name: tls-foo
-//     spec:
-//       host: "*.foo.com"
-//       trafficPolicy:
-//         tls:
-//           mode: SIMPLE
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: DestinationRule
+// metadata:
+//   name: tls-foo
+// spec:
+//   host: "*.foo.com"
+//   trafficPolicy:
+//     tls:
+//       mode: SIMPLE
+// ```
 //
+// The following rule configures a client to use Istio mutual TLS when talking
+// to rating services.
+//
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: DestinationRule
+// metadata:
+//   name: ratings-istio-mtls
+// spec:
+//   host: ratings.prod.svc.cluster.local
+//   trafficPolicy:
+//     tls:
+//       mode: ISTIO_MUTUAL
+// ```
 message TLSSettings {
   // TLS connection mode
   enum TLSmode {
@@ -454,6 +481,13 @@ message TLSSettings {
     // Secure connections to the upstream using mutual TLS by presenting
     // client certificates for authentication.
     MUTUAL = 2;
+
+    // Secure connections to the upstream using mutual TLS by presenting
+    // client certificates for authentication.
+    // Compared to Mutual mode, this mode uses certificates generated
+    // automatically by Istio for mTLS authentication. When this mode is
+    // used, all other fields in `TLSSettings` should be empty.
+    ISTIO_MUTUAL = 3;
   };
 
   // REQUIRED: Indicates whether connections to this port should be secured
@@ -462,22 +496,27 @@ message TLSSettings {
 
   // REQUIRED if mode is `MUTUAL`. The path to the file holding the
   // client-side TLS certificate to use.
+  // Should be empty if mode is `ISTIO_MUTUAL`.
   string client_certificate = 2;
 
   // REQUIRED if mode is `MUTUAL`. The path to the file holding the
   // client's private key.
+  // Should be empty if mode is `ISTIO_MUTUAL`.
   string private_key = 3;
 
   // OPTIONAL: The path to the file containing certificate authority
   // certificates to use in verifying a presented server certificate. If
   // omitted, the proxy will not verify the server's certificate.
+  // Should be empty if mode is `ISTIO_MUTUAL`.
   string ca_certificates = 4;
 
   // A list of alternate names to verify the subject identity in the
   // certificate. If specified, the proxy will verify that the server
   // certificate's subject alt name matches one of the specified values.
+  // Should be empty if mode is `ISTIO_MUTUAL`.
   repeated string subject_alt_names = 5;
 
   // SNI string to present to the server during TLS handshake.
+  // Should be empty if mode is `ISTIO_MUTUAL`.
   string sni = 6;
 }

@@ -23,7 +23,7 @@
     "api",
     "testhelpers"
   ]
-  revision = "feb69363fff010ea48e1dacd38ca859528cfa0d4"
+  revision = "fb28eb02defe910369ffcd34a6f5c9235d983cf0"
 
 [[projects]]
   name = "github.com/Azure/go-autorest"
@@ -263,6 +263,7 @@
     "envoy/api/v2/route",
     "envoy/config/filter/accesslog/v2",
     "envoy/config/filter/fault/v2",
+    "envoy/config/filter/http/fault/v2",
     "envoy/config/filter/http/jwt_authn/v2alpha",
     "envoy/config/filter/network/http_connection_manager/v2",
     "envoy/config/filter/network/mongo_proxy/v2",
@@ -378,8 +379,8 @@
     "sortkeys",
     "types"
   ]
-  revision = "342cbe0a04158f6dcb03ca0079991a51a4248c02"
-  version = "v0.5"
+  revision = "1adfc126b41513cc696b209667c8656ea7aac67c"
+  version = "v1.0.0"
 
 [[projects]]
   branch = "master"
@@ -409,8 +410,8 @@
     "ptypes/timestamp",
     "ptypes/wrappers"
   ]
-  revision = "925541529c1fa6821df4e44ce2723319eb2be768"
-  version = "v1.0.0"
+  revision = "b4deda0973fb4c70b50d226b1af49f3da59f5265"
+  version = "v1.1.0"
 
 [[projects]]
   branch = "master"
@@ -642,7 +643,7 @@
   branch = "master"
   name = "github.com/istio/tools"
   packages = ["protoc-gen-docs"]
-  revision = "d107f7deed6a878efd3adc307bc6f197f78b20e6"
+  revision = "9c791034d4da535b3e19df1f2421a98d484825ad"
 
 [[projects]]
   name = "github.com/jmespath/go-jmespath"
@@ -963,7 +964,8 @@
     "thrift-gen/zipkincore",
     "transport",
     "transport/zipkin",
-    "utils"
+    "utils",
+    "zipkin"
   ]
   revision = "c107110d057826281414cb964f167bce5be17588"
   version = "v2.12.0"
@@ -1244,6 +1246,12 @@
   version = "v2.2.6"
 
 [[projects]]
+  name = "gopkg.in/d4l3k/messagediff.v1"
+  packages = ["."]
+  revision = "29f32d820d112dbd66e58492a6ffb7cc3106312b"
+  version = "v1.2.1"
+
+[[projects]]
   name = "gopkg.in/inf.v0"
   packages = ["."]
   revision = "d2d2541c53f18d2a059457998ce2876cc8e67cbf"
@@ -1293,7 +1301,7 @@
     "rbac/v1alpha1",
     "routing/v1alpha1"
   ]
-  revision = "7ce921cbefab9040f6737bdc161831b532dcad90"
+  revision = "19931a466ebb486cd3d0af42704ff7665a4c3c7f"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1511,6 +1519,7 @@
     "tools/leaderelection/resourcelock",
     "tools/metrics",
     "tools/pager",
+    "tools/portforward",
     "tools/record",
     "tools/reference",
     "tools/remotecommand",
@@ -1590,6 +1599,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "9cf016f4a8a87414a82efb9176e5effaed32c3fa4a700331882cb167ba83703c"
+  inputs-digest = "0f782b2e9cfe3436c9b2d9fafe130823f30e876330a802b86d117aed074311e5"
   solver-name = "gps-cdcl"
   solver-version = 1

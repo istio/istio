@@ -21,10 +21,8 @@ import google_rpc "github.com/gogo/googleapis/google/rpc"
 import strings "strings"
 import reflect "reflect"
 
-import (
-	context "golang.org/x/net/context"
-	grpc "google.golang.org/grpc"
-)
+import context "golang.org/x/net/context"
+import grpc "google.golang.org/grpc"
 
 import io "io"
 
@@ -138,10 +136,7 @@ func init() {
 }
 func (this *NodeAgentMgmtResponse) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*NodeAgentMgmtResponse)
@@ -154,10 +149,7 @@ func (this *NodeAgentMgmtResponse) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -168,10 +160,7 @@ func (this *NodeAgentMgmtResponse) Equal(that interface{}) bool {
 }
 func (this *WorkloadInfo) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*WorkloadInfo)
@@ -184,10 +173,7 @@ func (this *WorkloadInfo) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -201,10 +187,7 @@ func (this *WorkloadInfo) Equal(that interface{}) bool {
 }
 func (this *WorkloadInfo_WorkloadAttributes) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*WorkloadInfo_WorkloadAttributes)
@@ -217,10 +200,7 @@ func (this *WorkloadInfo_WorkloadAttributes) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}

@@ -16,15 +16,16 @@ package pilot
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"istio.io/istio/pkg/log"
 )
 
 // To route all external traffic via Istio Egress gateway
-// 1. Add external services
+// 1. Add service entries
 // 2. Add egress gateway
-// 3. Add virtual service for each external service such that
+// 3. Add virtual service for each service entry such that
 //    3.a. Traffic from all sidecars (i.e. mesh gateway) goes to egress gateway svc
 //    3.b. Traffic from egress gateway goes to actual destination (in our case, its t)
 // The tests will only check for requests from a->t with host matching ext service
@@ -33,11 +34,17 @@ func TestEgressGateway(t *testing.T) {
 		t.Skipf("Skipping %s: v1alpha3=false", t.Name())
 	}
 
+	// In authn enable test, mTLS is enabled globally, which mean all clients will use TLS
+	// to talk to egress-gateway. However, in 0.8 implementation, gateway TLS setting doesn't
+	// infer from authn policy, and thus need to be set via gateway API, or disable mTLS for
+	// egress-gateway. For this test, we choose the second option by deploying authn policy
+	// that disable mTLS for egress-gateway.
 	cfgs := &deployableConfig{
 		Namespace: tc.Kube.Namespace,
 		YamlFiles: []string{
+			"testdata/v1alpha3/disable-mtls-egressgateway.yaml",
 			"testdata/v1alpha3/egressgateway.yaml",
-			"testdata/v1alpha3/external-service.yaml",
+			"testdata/v1alpha3/service-entry.yaml",
 			"testdata/v1alpha3/rule-route-via-egressgateway.yaml"},
 	}
 	if err := cfgs.Setup(); err != nil {
@@ -48,13 +55,17 @@ func TestEgressGateway(t *testing.T) {
 	runRetriableTest(t, "RouteViaEgressGateway", defaultRetryBudget, func() error {
 		// We use an arbitrary IP to ensure that the test fails if networking logic is implemented incorrectly
 		reqURL := fmt.Sprintf("http://1.1.1.1/bookinfo")
-		resp := ClientRequest("a", reqURL, 100, "-key Host -val eu.bookinfo.com")
+		resp := ClientRequest("a", reqURL, 100, "-key Host -val scooby.eu.bookinfo.com")
 		count := make(map[string]int)
 		for _, elt := range resp.Host {
-			count[elt] = count[elt] + 1
+			count[elt]++
 		}
+		for _, elt := range resp.Code {
+			count[elt]++
+		}
+		handledByEgress := strings.Count(resp.Body, "Handled-By-Egress-Gateway=true")
 		log.Infof("request counts %v", count)
-		if count["eu.bookinfo.com"] >= 95 {
+		if count["scooby.eu.bookinfo.com"] >= 95 && count[httpOK] >= 95 && handledByEgress >= 95 {
 			return nil
 		}
 		return errAgain

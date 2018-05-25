@@ -4,7 +4,7 @@ metadata:
   name: route-via-egressgateway
 spec:
   hosts:
-    - eu.bookinfo.com
+    - "*.bookinfo.com"
   gateways:
   # Pinned to both the sidecars (mesh) and egress gateway
   - istio-egressgateway
@@ -13,15 +13,25 @@ spec:
     - match:
       - gateways:
         - mesh # from sidecars, route to egress gateway service
+        port: 80
       route:
       - destination:
-          host: istio-egressgateway
+          host: istio-egressgateway.istio-system.svc.cluster.local
+          port:
+            number: 80
         weight: 100
     - match:
-      - gateways: # from egress gateway, route to actual external service
+      - gateways: # from egress gateway, route to actual service entry
                   # for testing purposes, we route to service t
         - istio-egressgateway
+        authority:
+          regex: ".*?[.]eu[.]bookinfo[.]com"
+        port: 80
       route:
       - destination:
-          host: eu.bookinfo.com
+          host: "*.eu.bookinfo.com"
+          port:
+            number: 80
         weight: 100
+      appendHeaders:
+        handled-by-egress-gateway: "true"

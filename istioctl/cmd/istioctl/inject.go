@@ -25,12 +25,13 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/multierr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/pkg/kube/inject"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
 )
@@ -40,11 +41,20 @@ const (
 	injectConfigMapKey = "config"
 )
 
-func getMeshConfigFromConfigMap(kubeconfig string) (*meshconfig.MeshConfig, error) {
-	_, client, err := kube.CreateInterface(kubeconfig)
+func createInterface(kubeconfig string) (kubernetes.Interface, error) {
+	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
 		return nil, err
 	}
+	return kubernetes.NewForConfig(restConfig)
+}
+
+func getMeshConfigFromConfigMap(kubeconfig string) (*meshconfig.MeshConfig, error) {
+	client, err := createInterface(kubeconfig)
+	if err != nil {
+		return nil, err
+	}
+
 	config, err := client.CoreV1().ConfigMaps(istioNamespace).Get(meshConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("could not read valid configmap %q from namespace  %q: %v - "+
@@ -62,10 +72,11 @@ func getMeshConfigFromConfigMap(kubeconfig string) (*meshconfig.MeshConfig, erro
 }
 
 func getInjectConfigFromConfigMap(kubeconfig string) (string, error) {
-	_, client, err := kube.CreateInterface(kubeconfig)
+	client, err := createInterface(kubeconfig)
 	if err != nil {
 		return "", err
 	}
+
 	config, err := client.CoreV1().ConfigMaps(istioNamespace).Get(injectConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return "", fmt.Errorf("could not find valid configmap %q from namespace  %q: %v - "+
@@ -327,14 +338,14 @@ func init() {
 			"The default policy is IfNotPresent.")
 	injectCmd.PersistentFlags().StringVar(&includeIPRanges, "includeIPRanges", inject.DefaultIncludeIPRanges,
 		"Comma separated list of IP ranges in CIDR form. If set, only redirect outbound traffic to Envoy for "+
-			"these IP ranges. All outbound traffic can be redirected with the wildcard character '*'. Defaults to '*'.")
+			"these IP ranges. All outbound traffic can be redirected with the wildcard character '*'.")
 	injectCmd.PersistentFlags().StringVar(&excludeIPRanges, "excludeIPRanges", "",
 		"Comma separated list of IP ranges in CIDR form. If set, outbound traffic will not be redirected for "+
 			"these IP ranges. Exclusions are only applied if configured to redirect all outbound traffic. By "+
 			"default, no IP ranges are excluded.")
 	injectCmd.PersistentFlags().StringVar(&includeInboundPorts, "includeInboundPorts", inject.DefaultIncludeInboundPorts,
 		"Comma separated list of inbound ports for which traffic is to be redirected to Envoy. All ports can "+
-			"be redirected with the wildcard character '*'. Defaults to '*'.")
+			"be redirected with the wildcard character '*'.")
 	injectCmd.PersistentFlags().StringVar(&excludeInboundPorts, "excludeInboundPorts", "",
 		"Comma separated list of inbound ports. If set, inbound traffic will not be redirected for those "+
 			"ports. Exclusions are only applied if configured to redirect all inbound traffic. By default, no ports "+

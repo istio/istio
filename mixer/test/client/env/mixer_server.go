@@ -154,6 +154,7 @@ func NewMixerServer(port uint16, stress bool) (*MixerServer, error) {
 }
 
 // Start starts the mixer server
+// TODO: Add a channel so this can return an error
 func (ts *MixerServer) Start() {
 	go func() {
 		err := ts.gs.Serve(ts.lis)
@@ -169,4 +170,14 @@ func (ts *MixerServer) Stop() {
 	log.Printf("Stop Mixer server\n")
 	ts.gs.Stop()
 	log.Printf("Stop Mixer server  -- Done\n")
+}
+
+// GetReport will return a received report
+func (ts *MixerServer) GetReport() *attribute.MutableBag {
+	return <-ts.report.ch
+}
+
+// GetCheck will return a received check
+func (ts *MixerServer) GetCheck() *attribute.MutableBag {
+	return <-ts.check.ch
 }

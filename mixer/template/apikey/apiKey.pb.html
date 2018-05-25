@@ -1,17 +1,14 @@
 ---
 title: API Key
-overview: A template that represents a single API key.
-location: https://istio.io/docs/reference/config/template/apikey.html
+description: A template that represents a single API key.
+location: https://istio.io/docs/reference/config/policy-and-telemetry/templates/apikey.html
 layout: protoc-gen-docs
+redirect_from: /docs/reference/config/template/apikey.html
 number_of_entries: 2
 ---
 <p>The <code>apikey</code> template represents a single API key, which is used for authorization checks.</p>
 
-<h2 id="Template">Template</h2>
-<section>
-<p>The <code>apikey</code> template represents a single API key, used to authorize API calls.</p>
-
-<p>Sample config:</p>
+<p>Example config:</p>
 
 <pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha2&quot;
 kind: apikey
@@ -25,6 +22,10 @@ spec:
   api_key: api.key | &quot;&quot;
   timestamp: request.time
 </code></pre>
+
+<h2 id="Template">Template</h2>
+<section>
+<p>The <code>apikey</code> template represents a single API key, used to authorize API calls.</p>
 
 <table class="message-fields">
 <thead>
@@ -82,4 +83,23 @@ spec:
 <section>
 <p>TimeStamp is used inside templates for fields that are of ValueType &ldquo;TIMESTAMP&rdquo;</p>
 
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="istio.mixer.adapter.model.v1beta1.TimeStamp.value">
+<td><code>value</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#timestamp">google.protobuf.Timestamp</a></code></td>
+<td>
+<p>TimeStamp encoded as google.protobuf.Timestamp.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
 </section>

@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sync"
 	"testing"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -26,7 +27,9 @@ import (
 )
 
 // MockController specifies a mock Controller for testing
-type MockController struct{}
+type MockController struct {
+	storeLock sync.RWMutex
+}
 
 func (c *MockController) AppendServiceHandler(f func(*model.Service, model.Event)) error {
 	return nil
@@ -43,13 +46,13 @@ var discovery2 *mock.ServiceDiscovery
 
 func buildMockController() *Controller {
 	discovery1 = mock.NewDiscovery(
-		map[string]*model.Service{
+		map[model.Hostname]*model.Service{
 			mock.HelloService.Hostname:   mock.HelloService,
 			mock.ExtHTTPService.Hostname: mock.ExtHTTPService,
 		}, 2)
 
 	discovery2 = mock.NewDiscovery(
-		map[string]*model.Service{
+		map[model.Hostname]*model.Service{
 			mock.WorldService.Hostname:    mock.WorldService,
 			mock.ExtHTTPSService.Hostname: mock.ExtHTTPSService,
 		}, 2)
@@ -77,12 +80,12 @@ func buildMockController() *Controller {
 
 func buildMockControllerForMultiCluster() *Controller {
 	discovery1 = mock.NewDiscovery(
-		map[string]*model.Service{
+		map[model.Hostname]*model.Service{
 			mock.HelloService.Hostname: mock.MakeService("hello.default.svc.cluster.local", "10.1.1.0"),
 		}, 2)
 
 	discovery2 = mock.NewDiscovery(
-		map[string]*model.Service{
+		map[model.Hostname]*model.Service{
 			mock.HelloService.Hostname: mock.MakeService("hello.default.svc.cluster.local", "10.1.2.0"),
 			mock.WorldService.Hostname: mock.WorldService,
 		}, 2)
@@ -125,15 +128,14 @@ func TestServicesForMultiCluster(t *testing.T) {
 	aggregateCtl := buildMockControllerForMultiCluster()
 	// List Services from aggregate controller
 	services, err := aggregateCtl.Services()
-
-	// Set up ground truth hostname values
-	serviceMap := map[string]bool{
-		mock.HelloService.Hostname: false,
-		mock.WorldService.Hostname: false,
-	}
-
 	if err != nil {
 		t.Fatalf("Services() encountered unexpected error: %v", err)
+	}
+
+	// Set up ground truth hostname values
+	serviceMap := map[model.Hostname]bool{
+		mock.HelloService.Hostname: false,
+		mock.WorldService.Hostname: false,
 	}
 
 	svcCount := 0
@@ -146,11 +148,11 @@ func TestServicesForMultiCluster(t *testing.T) {
 	}
 
 	if svcCount != len(serviceMap) {
-		t.Fatal("Return services does not match ground truth")
+		t.Fatalf("Service map expected size %d, actual %v", svcCount, serviceMap)
 	}
 
 	//Now verify Addresses for each service
-	Addresses := map[string]map[string]string{
+	Addresses := map[model.Hostname]map[string]string{
 		mock.HelloService.Hostname: {
 			"cluster-1": "10.1.1.0",
 			"cluster-2": "10.1.2.0",
@@ -161,7 +163,7 @@ func TestServicesForMultiCluster(t *testing.T) {
 	}
 	for _, svc := range services {
 		if !reflect.DeepEqual(svc.Addresses, Addresses[svc.Hostname]) {
-			t.Fatal("Return service Addresses does not match ground truth")
+			t.Fatalf("Service %s addresses actual %v, expected %v", svc.Hostname, svc.Addresses, Addresses[svc.Hostname])
 		}
 	}
 	t.Logf("Return service Addresses match ground truth")
@@ -173,7 +175,7 @@ func TestServices(t *testing.T) {
 	services, err := aggregateCtl.Services()
 
 	// Set up ground truth hostname values
-	serviceMap := map[string]bool{
+	serviceMap := map[model.Hostname]bool{
 		mock.HelloService.Hostname:    false,
 		mock.ExtHTTPService.Hostname:  false,
 		mock.WorldService.Hostname:    false,

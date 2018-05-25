@@ -14,6 +14,10 @@ if [[ -z $SKIP_INIT ]];then
   bin/init.sh
 fi
 
+echo 'Checking Pilot types generation ....'
+bin/check_pilot_codegen.sh
+echo 'Pilot types generation OK'
+
 echo 'Running format/imports check ....'
 bin/fmt.sh -c
 echo 'Format/imports check OK'
@@ -39,6 +43,10 @@ popd
 
 $gometalinter --config=./mixer/tools/adapterlinter/gometalinter.json ./mixer/adapter/...
 echo 'gometalinter on adapters OK'
+
+echo 'Running helm lint on istio & istio-remote ....'
+helm lint ./install/kubernetes/helm/{istio,istio-remote}
+echo 'helm lint on istio & istio-remote OK'
 
 echo 'Checking Grafana dashboards'
 bin/check_dashboards.sh

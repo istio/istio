@@ -1,5 +1,5 @@
 apiVersion: networking.istio.io/v1alpha3
-kind: ExternalService
+kind: ServiceEntry
 metadata:
   name: googleapis
 spec:
@@ -15,7 +15,7 @@ kind: DestinationRule
 metadata:
   name: googleapis
 spec:
-  name: "*.googleapis.com"
+  host: "*.googleapis.com"
   trafficPolicy:
     tls:
       mode: SIMPLE # initiates HTTPS when talking to www.google.com

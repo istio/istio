@@ -36,8 +36,12 @@
     "ads_config": {
       "api_type": "GRPC",
       "refresh_delay": {{ .refresh_delay }},
-      "cluster_names": [
-        "xds-grpc"
+      "grpc_services": [
+        {
+          "envoy_grpc": {
+            "cluster_name": "xds-grpc"
+          }
+        }
       ]
     }
   },
@@ -51,6 +55,7 @@
 {{ if eq .config.ControlPlaneAuthPolicy 1 }}
       "tls_context": {
         "common_tls_context": {
+          "alpn_protocols": "h2",
           "tls_certificates": {
             "certificate_chain": {
               "filename": "/etc/certs/cert-chain.pem"

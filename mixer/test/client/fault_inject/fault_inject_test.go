@@ -60,13 +60,28 @@ const reportAttributes = `
      "content-length": "18",
      ":status": "503",
      "server": "envoy"
-  }
+  },
+  "response.total_size": "*",
+  "request.total_size": 0
 }
+`
+
+const allAbortFaultFilter = `
+               {
+                   "type": "decoder",
+                   "name": "fault",
+                   "config": {
+                       "abort": {
+                           "abort_percent": 100,
+                           "http_status": 503
+                       }
+                   }
+               },
 `
 
 func TestFaultInject(t *testing.T) {
 	s := env.NewTestSetup(env.FaultInjectTest, t)
-	s.SetFaultInject(true)
+	s.SetFiltersBeforeMixer(allAbortFaultFilter)
 	// fault injection filer is before mixer filter.
 	// If a request is rejected, per-route service config could not
 	// be used, has to use default service_configs map to send Report.
