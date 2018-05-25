@@ -28,7 +28,7 @@ set -u
 # Print commands
 set -x
 
-RESOURCE_TYPE="gke-e2e-test-1-10"
+export RESOURCE_TYPE="gke-e2e-test-1-10"
 
 echo 'Running e2e with rbac, with auth Tests'
 ./prow/e2e-suite.sh --test_vm --auth_enable "$@"
