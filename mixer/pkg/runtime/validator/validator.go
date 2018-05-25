@@ -99,23 +99,68 @@ func (v *Validator) refreshTypeChecker() {
 	v.af = v.newAttributeDescriptorFinder(manifests)
 }
 
-func (v *Validator) formKey(value, namespace string) (store.Key, error) {
-	parts := strings.Split(value, ".")
-	if len(parts) < 2 {
-		return store.Key{}, fmt.Errorf("illformed %s", value)
-	}
-	key := store.Key{
-		Kind: parts[1],
-		Name: parts[0],
-	}
-	if len(parts) == 2 {
-		key.Namespace = namespace
-	} else if len(parts) == 3 {
-		key.Namespace = parts[2]
+func (v *Validator) formKey(value, kind, namespace string) (store.Key, error) {
+	if kind == "" {
+		// Old style config where the kind needs to be part of the reference. example "request-count.metric"
+		// only allowed references are <name>.<kind>.<namespace> or <name>.<kind>
+		parts := strings.Split(value, ".")
+		if len(parts) < 2 {
+			return store.Key{}, fmt.Errorf("illformed %s", value)
+		}
+		key := store.Key{
+			Kind: parts[1],
+			Name: parts[0],
+		}
+		if len(parts) == 2 {
+			key.Namespace = namespace
+		} else if len(parts) == 3 {
+			key.Namespace = parts[2]
+		} else {
+			return store.Key{}, fmt.Errorf("illformed %s, too many parts", value)
+		}
+		return key, nil
 	} else {
-		return store.Key{}, fmt.Errorf("illformed %s, too many parts", value)
+		// In new style config the kind is implied and *must* not be specified in the reference.
+		// only allowed references are <name> or <name>.<namespace>
+		parts := strings.Split(value, ".")
+		switch len(parts) {
+		case 1:
+			if kind == "" {
+				return store.Key{}, fmt.Errorf("illformed %s", value)
+			}
+			return store.Key{
+				Name:      parts[0],
+				Kind:      kind,
+				Namespace: namespace,
+			}, nil
+		case 2:
+			// this case is ambiguous between old config model and new; we don't know if 2nd part
+			// is the kind or the namespace.
+			// First try new style config where 2nd part is the namespace and kind is implied
+			tmpKey := store.Key{
+				Name:      parts[0],
+				Kind:      kind,
+				Namespace: parts[1],
+			}
+			if false {
+				// If first attempt failed, assume it is the old style config where second part is the kind.
+				tmpKey = store.Key{
+					Name:      parts[0],
+					Kind:      parts[1],
+					Namespace: namespace,
+				}
+			}
+			return tmpKey, nil
+		case 3:
+			return store.Key{
+				Name:      parts[0],
+				Kind:      parts[1],
+				Namespace: parts[2],
+			}, nil
+		default:
+			return store.Key{}, fmt.Errorf("illformed %s", value)
+		}
 	}
-	return key, nil
 }
 
 func (v *Validator) newAttributeDescriptorFinder(manifests map[store.Key]*cpb.AttributeManifest) ast.AttributeDescriptorFinder {
@@ -136,13 +181,16 @@ func (v *Validator) validateUpdateRule(namespace string, rule *cpb.Rule) error {
 		}
 	}
 	for i, action := range rule.Actions {
-		key, err := v.formKey(action.Handler, namespace)
+		key, err := v.formKey(action.Handler, config.HandlerKind, namespace)
 		if err != nil {
-			errs = multierror.Append(errs, &adapter.ConfigError{
-				Field:      fmt.Sprintf("actions[%d].handler", i),
-				Underlying: err,
-			})
-			continue
+			key, err = v.formKey(action.Handler, "", namespace)
+			if err != nil {
+				errs = multierror.Append(errs, &adapter.ConfigError{
+					Field:      fmt.Sprintf("actions[%d].handler", i),
+					Underlying: err,
+				})
+				continue
+			}
 		}
 		if key.Kind != "handler" {
 			if _, ok := v.handlerBuilders[key.Kind]; ok {
@@ -159,7 +207,7 @@ func (v *Validator) validateUpdateRule(namespace string, rule *cpb.Rule) error {
 				})
 			}
 			for j, instance := range action.Instances {
-				key, err = v.formKey(instance, namespace)
+				key, err = v.formKey(instance, "", namespace)
 				if err == nil {
 					if _, ok := v.templates[key.Kind]; ok {
 						if _, ok = v.c.get(key); !ok {
@@ -186,7 +234,14 @@ func (v *Validator) validateUpdateRule(namespace string, rule *cpb.Rule) error {
 				continue
 			}
 
-			supportedTmpls := info.Templates
+			supportedTmpls, err := v.getFQns(info.Templates, config.TemplateKind, namespace)
+			if err != nil {
+				errs = multierror.Append(errs, &adapter.ConfigError{
+					Field:      fmt.Sprintf("actions[%d].handler.adapter.templates '%s'", i, aKey),
+					Underlying: err,
+				})
+				continue
+			}
 			for j, instance := range action.Instances {
 				_, inst, err := v.getInstance(instance, namespace)
 				if err != nil {
@@ -197,18 +252,43 @@ func (v *Validator) validateUpdateRule(namespace string, rule *cpb.Rule) error {
 					continue
 				}
 
-				if !contains(supportedTmpls, inst.Template) {
+				tKey, err := v.formKey(inst.Template, config.TemplateKind, namespace)
+				if err != nil {
+					errs = multierror.Append(errs, &adapter.ConfigError{
+						Field:      fmt.Sprintf("actions[%d].instances[%d].template '%s'", i, j, instance),
+						Underlying: err,
+					})
+					continue
+				}
+
+				if !contains(supportedTmpls, tKey.String()) {
 					errs = multierror.Append(errs, &adapter.ConfigError{
 						Field: fmt.Sprintf("actions[%d].instances[%d].Template '%s'", i, j, inst.Template),
 						Underlying: fmt.Errorf("actions[%d].handler.adapter '%s' does not "+
 							"support template '%s'. Only supported templates are %s", i,
-							aKey, inst.Template, strings.Join(supportedTmpls, ",")),
+							aKey, inst.Template, strings.Join(info.Templates, ",")),
 					})
 				}
 			}
 		}
 	}
 	return errs
+}
+
+func (v *Validator) getFQns(refs []string, kind, ns string) ([]string, error) {
+	fqns := make([]string, 0, len(refs))
+	var errs error
+
+	for _, s := range refs {
+		key, err := v.formKey(s, kind, ns)
+		if err != nil {
+			errs = multierror.Append(errs, err)
+			continue
+		}
+		fqns = append(fqns, key.String())
+	}
+
+	return fqns, errs
 }
 
 func (v *Validator) validateManifests(af ast.AttributeDescriptorFinder) error {
@@ -350,7 +430,7 @@ func (v *Validator) validateUpdateTemplate(tKey store.Key, namespace string, tmp
 	}
 
 	// validate if instance's param is still valid upon template update
-	instances := v.getInstances(tKey.String())
+	instances := v.getInstances(tKey.String(), namespace)
 	compiler := compiled.NewBuilder(v.af)
 	resolver := yaml.NewResolver(fds)
 	b := dynamic.NewEncoderBuilder(
@@ -376,11 +456,11 @@ func (v *Validator) validateTemplateDelete(ikey store.Key) error {
 	v.c.forEach(func(key store.Key, spec proto.Message) {
 		if key.Kind == config.AdapterKind {
 			info := spec.(*v1beta1.Info)
-			for i, tmplName := range info.Templates {
-				tKey, err := v.formKey(tmplName, key.Namespace)
+			for i, tmplRef := range info.Templates {
+				tKey, err := v.formKey(tmplRef, config.TemplateKind, key.Namespace)
 				if err != nil {
 					// invalid rules are already in the cache; simply log it and continue
-					log.Errorf("invalid template name %s in adapter %s", tmplName, key)
+					log.Errorf("invalid template name %s in adapter %s", tmplRef, key)
 					continue
 				}
 				if tKey == ikey {
@@ -393,7 +473,7 @@ func (v *Validator) validateTemplateDelete(ikey store.Key) error {
 
 		if key.Kind == config.InstanceKind {
 			instance := spec.(*cpb.Instance)
-			iKey, err := v.formKey(instance.Template, key.Namespace)
+			iKey, err := v.formKey(instance.Template, config.TemplateKind, key.Namespace)
 			if err != nil {
 				// invalid rules are already in the cache; simply log it and continue
 				log.Errorf("invalid template name %s in instance %s", instance.Template, key)
@@ -407,27 +487,29 @@ func (v *Validator) validateTemplateDelete(ikey store.Key) error {
 	return errs
 }
 
-func (v *Validator) validateUpdateAdapter(adptKey store.Key, namespace string, adptInfo *v1beta1.Info) error {
+func (v *Validator) validateUpdateAdapter(adptKey store.Key, namespace string, info *v1beta1.Info) error {
 	var errs error
 
 	// Check descriptor string is correct
 	var fds *descriptor.FileDescriptorSet
 	var fdp *descriptor.FileDescriptorProto
 	var err error
-	if fds, fdp, err = config.GetAdapterCfgDescriptor(adptInfo.Config); err != nil {
+	if fds, fdp, err = config.GetAdapterCfgDescriptor(info.Config); err != nil {
 		errs = multierror.Append(errs, &adapter.ConfigError{Field: fmt.Sprintf("adapter[%s].config", adptKey),
 			Underlying: err})
 	}
 
 	// Check referenced templates are correct
-	if err := v.validateAdapterTemplateRef(adptInfo, namespace); err != nil {
+	var supportedTmpls []string
+	if supportedTmpls, err = v.validateAdapterTemplateRef(info, namespace); err != nil {
 		errs = multierror.Append(errs, err)
+		return errs
 	}
 
 	// Change in adapter info can affect the descriptor and/or the
 	// supported templates, resulting into breaking the handler and/or the instances routed to the adapter.
 	// We need to validate both
-	refHandlers := v.getHandlers(adptKey.String())
+	refHandlers := v.getHandlers(adptKey, namespace)
 	for hkey, hdl := range refHandlers {
 		// Check param is not broken
 		if err := validateEncodeBytes(hdl.Params, fds, getParamsMsgFullName(fdp)); err != nil {
@@ -436,9 +518,9 @@ func (v *Validator) validateUpdateAdapter(adptKey store.Key, namespace string, a
 		}
 
 		// Check routed instances are still supported
-		refAction := v.getActionsFromHandler(hkey.String())
+		refAction := v.getActionsFromHandler(hkey.String(), namespace)
 		for id, action := range refAction {
-			if err := v.validateRoutedInstancesAreSupported(action, namespace, adptInfo.Templates,
+			if err := v.validateRoutedInstancesAreSupported(action, namespace, supportedTmpls,
 				adptKey.String()); err != nil {
 				errs = multierror.Append(errs,
 					&adapter.ConfigError{Field: fmt.Sprintf("%s.instances", id),
@@ -456,7 +538,7 @@ func (v *Validator) validateAdapterDelete(aKey store.Key) error {
 	v.c.forEach(func(hKey store.Key, spec proto.Message) {
 		if hKey.Kind == config.HandlerKind {
 			hdl := spec.(*cpb.Handler)
-			k, err := v.formKey(hdl.Adapter, hKey.Namespace)
+			k, err := v.formKey(hdl.Adapter, config.AdapterKind, hKey.Namespace)
 			if err != nil {
 				// invalid handler is already in the cache; simply log it and continue
 				log.Errorf("invalid adapter name %s in handler %s", hdl.Adapter, hKey)
@@ -483,7 +565,7 @@ func (v *Validator) validateUpdateInstance(iKey store.Key, ns string, instance *
 	}
 
 	// make sure adapter to which the updated instance is dispatched supports the template of the instance.
-	actions := v.getActionsFromInstances(iKey.String())
+	actions := v.getActionsFromInstances(iKey, ns)
 	for id, action := range actions {
 		if akey, adpt, err := v.getAdapterFromHandler(action.Handler, ns); err != nil {
 			errs = multierror.Append(errs, &adapter.ConfigError{
@@ -512,11 +594,14 @@ func (v *Validator) validateInstanceDelete(ikey store.Key) error {
 		rule := spec.(*cpb.Rule)
 		for i, action := range rule.Actions {
 			for j, instance := range action.Instances {
-				key, err := v.formKey(instance, rkey.Namespace)
+				key, err := v.formKey(instance, config.InstanceKind, rkey.Namespace)
 				if err != nil {
-					// invalid rules are already in the cache; simply log it and continue
-					log.Errorf("Invalid handler value %s in %s", instance, rkey)
-					continue
+					key, err = v.formKey(instance, "", rkey.Namespace)
+					if err != nil {
+						// invalid rules are already in the cache; simply log it and continue
+						log.Errorf("Invalid handler value %s in %s", instance, rkey)
+						continue
+					}
 				}
 				if key == ikey {
 					errs = multierror.Append(errs, fmt.Errorf("%s is referred by %s/actions[%d].instances[%d]",
@@ -538,12 +623,22 @@ func (v *Validator) validateUpdateHandler(hkey store.Key, namespace string, hand
 			Field:      fmt.Sprintf("handler[%s]", hkey),
 			Underlying: err,
 		})
+		return errs
 	}
 
 	// make sure existing rules are not broken in case the handler points to a new/incompatible adapter.
-	refAction := v.getActionsFromHandler(hkey.String())
+	refAction := v.getActionsFromHandler(hkey.String(), namespace)
+	supportedTmpls, err := v.getFQns(info.Templates, config.TemplateKind, namespace)
+	if err != nil {
+		errs = multierror.Append(errs, &adapter.ConfigError{
+			Field:      fmt.Sprintf("handler[%s].adapter %s", hkey, adapterKey),
+			Underlying: err,
+		})
+		return errs
+	}
+
 	for id, action := range refAction {
-		if err = v.validateRoutedInstancesAreSupported(action, namespace, info.Templates, adapterKey.String()); err != nil {
+		if err = v.validateRoutedInstancesAreSupported(action, namespace, supportedTmpls, adapterKey.String()); err != nil {
 			errs = multierror.Append(errs,
 				&adapter.ConfigError{
 					Field:      fmt.Sprintf("%s.instances", id),
@@ -564,7 +659,15 @@ func (v *Validator) validateHandlerDelete(hkey store.Key) error {
 		}
 		rule := spec.(*cpb.Rule)
 		for i, action := range rule.Actions {
-			key, err := v.formKey(action.Handler, rkey.Namespace)
+			key, err := v.formKey(action.Handler, config.HandlerKind, rkey.Namespace)
+			if err != nil {
+				key, err = v.formKey(action.Handler, "", rkey.Namespace)
+				if err != nil {
+					// invalid rules are already in the cache; simply log it and continue
+					log.Errorf("Invalid handler value %s in %s", action.Handler, rkey)
+					continue
+				}
+			}
 			if err != nil {
 				// invalid rules are already in the cache; simply log it and continue
 				log.Errorf("Invalid handler value %s in %s", action.Handler, rkey)
@@ -592,15 +695,19 @@ func (v *Validator) Validate(ev *store.Event) error {
 	return err
 }
 
-func (v *Validator) validateAdapterTemplateRef(adptInfo *v1beta1.Info, namespace string) error {
+func (v *Validator) validateAdapterTemplateRef(adptInfo *v1beta1.Info, namespace string) ([]string, error) {
+
 	var errs error
+	tmplsFQNs := make([]string, 0)
 	for i, tmpl := range adptInfo.Templates {
-		key, err := v.formKey(tmpl, namespace)
+		key, err := v.formKey(tmpl, config.TemplateKind, namespace)
 		if err == nil {
 			if key.Kind != config.TemplateKind {
 				err = fmt.Errorf("%s is not a template", tmpl)
 			} else if _, ok := v.c.get(key); !ok {
 				err = fmt.Errorf("%s not found", tmpl)
+			} else {
+				tmplsFQNs = append(tmplsFQNs, key.String())
 			}
 		}
 
@@ -611,12 +718,12 @@ func (v *Validator) validateAdapterTemplateRef(adptInfo *v1beta1.Info, namespace
 			})
 		}
 	}
-	return errs
+	return tmplsFQNs, errs
 }
 
 func (v *Validator) validateHandlerAdapterRef(handler *cpb.Handler, namespace string) (store.Key, *v1beta1.Info, error) {
 	// TODO. NOTE: adapter name must be a fqn. ??
-	adapterKey, err := v.formKey(handler.Adapter, namespace)
+	adapterKey, err := v.formKey(handler.Adapter, config.AdapterKind, namespace)
 	var info *v1beta1.Info
 	if err == nil {
 		if adapterKey.Kind != config.AdapterKind {
@@ -689,7 +796,7 @@ func (v *Validator) validateRoutedInstancesAreSupported(action *cpb.Action, name
 }
 
 func (v *Validator) getTemplate(tKey string, ns string) (store.Key, *v1beta1.Template, error) {
-	tmplKey, err := v.formKey(tKey, ns)
+	tmplKey, err := v.formKey(tKey, config.TemplateKind, ns)
 	if err != nil {
 		// invalid template entry are already in the cache; simply log it and continue
 		return store.Key{}, nil, fmt.Errorf("invalid template value %s", tKey)
@@ -703,7 +810,7 @@ func (v *Validator) getTemplate(tKey string, ns string) (store.Key, *v1beta1.Tem
 }
 
 func (v *Validator) getInstance(iKey string, ns string) (store.Key, *cpb.Instance, error) {
-	instKey, err := v.formKey(iKey, ns)
+	instKey, err := v.formKey(iKey, config.InstanceKind, ns)
 	if err != nil {
 		// invalid instance entry are already in the cache; simply log it and continue
 		return store.Key{}, nil, fmt.Errorf("invalid instance value %s", iKey)
@@ -716,14 +823,15 @@ func (v *Validator) getInstance(iKey string, ns string) (store.Key, *cpb.Instanc
 	return instKey, instance.(*cpb.Instance), err
 }
 
-func (v *Validator) getHandlers(aKeyStr string) map[store.Key]*cpb.Handler {
+func (v *Validator) getHandlers(aKey store.Key, namespace string) map[store.Key]*cpb.Handler {
 	refHandlers := make(map[store.Key]*cpb.Handler)
 	v.c.forEach(func(hKey store.Key, spec proto.Message) {
 		if hKey.Kind != config.HandlerKind {
 			return
 		}
 		handler := spec.(*cpb.Handler)
-		if handler.Adapter != aKeyStr {
+		aKeyRef, _ := v.formKey(handler.Adapter, config.AdapterKind, namespace)
+		if aKeyRef != aKey {
 			return
 		}
 
@@ -733,11 +841,11 @@ func (v *Validator) getHandlers(aKeyStr string) map[store.Key]*cpb.Handler {
 	return refHandlers
 }
 
-func (v *Validator) getAdapterFromHandler(hkey string, ns string) (store.Key, *v1beta1.Info, error) {
-	hdlKey, err := v.formKey(hkey, ns)
+func (v *Validator) getAdapterFromHandler(hRef string, ns string) (store.Key, *v1beta1.Info, error) {
+	hdlKey, err := v.formKey(hRef, config.HandlerKind, ns)
 	if err != nil {
 		// invalid handler entry are already in the cache
-		return store.Key{}, nil, fmt.Errorf("%s is not a valid handler: %v", hkey, err)
+		return store.Key{}, nil, fmt.Errorf("%s is not a valid handler: %v", hRef, err)
 	}
 	var ok bool
 	var hdl proto.Message
@@ -745,11 +853,11 @@ func (v *Validator) getAdapterFromHandler(hkey string, ns string) (store.Key, *v
 		return store.Key{}, nil, fmt.Errorf("handler %s not found ", hdlKey)
 	}
 
-	aKey := hdl.(*cpb.Handler).Adapter
-	adptKey, err := v.formKey(aKey, ns)
+	aRef := hdl.(*cpb.Handler).Adapter
+	adptKey, err := v.formKey(aRef, config.AdapterKind, ns)
 	if err != nil {
 		// invalid handler entry are already in the cache
-		return store.Key{}, nil, fmt.Errorf("handler[%s].adapter %s is not a valid adapter: %v", hdlKey, aKey, err)
+		return store.Key{}, nil, fmt.Errorf("handler[%s].adapter %s is not a valid adapter: %v", hdlKey, aRef, err)
 	}
 	var adpt proto.Message
 	if adpt, ok = v.c.get(adptKey); !ok || adptKey.Kind != config.AdapterKind {
@@ -759,14 +867,18 @@ func (v *Validator) getAdapterFromHandler(hkey string, ns string) (store.Key, *v
 	return adptKey, adpt.(*v1beta1.Info), err
 }
 
-func (v *Validator) getInstances(tmplKeyStr string) map[store.Key]*cpb.Instance {
+func (v *Validator) getInstances(tmplKeyStr string, namespace string) map[store.Key]*cpb.Instance {
 	refInstances := make(map[store.Key]*cpb.Instance)
 	v.c.forEach(func(iKey store.Key, spec proto.Message) {
 		if iKey.Kind != config.InstanceKind {
 			return
 		}
 		inst := spec.(*cpb.Instance)
-		if inst.Template != tmplKeyStr {
+		tmplRef, err := v.formKey(inst.Template, config.TemplateKind, namespace)
+		if err != nil {
+			return
+		}
+		if tmplRef.String() != tmplKeyStr {
 			return
 		}
 
@@ -776,7 +888,7 @@ func (v *Validator) getInstances(tmplKeyStr string) map[store.Key]*cpb.Instance 
 	return refInstances
 }
 
-func (v *Validator) getActionsFromHandler(hKeyStr string) map[string]*cpb.Action {
+func (v *Validator) getActionsFromHandler(hKeyStr, namespace string) map[string]*cpb.Action {
 	refAction := make(map[string]*cpb.Action)
 	v.c.forEach(func(rkey store.Key, spec proto.Message) {
 		if rkey.Kind != config.RulesKind {
@@ -784,7 +896,8 @@ func (v *Validator) getActionsFromHandler(hKeyStr string) map[string]*cpb.Action
 		}
 		rule := spec.(*cpb.Rule)
 		for i, action := range rule.Actions {
-			if action.Handler != hKeyStr {
+			hRef, _ := v.formKey(action.Handler, config.HandlerKind, namespace)
+			if hRef.String() != hKeyStr {
 				continue
 			}
 			refAction[fmt.Sprintf("rule[%s].actions[%d]", rkey, i)] = action
@@ -793,7 +906,7 @@ func (v *Validator) getActionsFromHandler(hKeyStr string) map[string]*cpb.Action
 	return refAction
 }
 
-func (v *Validator) getActionsFromInstances(iKeyStr string) map[string]*cpb.Action {
+func (v *Validator) getActionsFromInstances(iKey store.Key, namespace string) map[string]*cpb.Action {
 	refAction := make(map[string]*cpb.Action)
 	v.c.forEach(func(rkey store.Key, spec proto.Message) {
 		if rkey.Kind != config.RulesKind {
@@ -801,7 +914,11 @@ func (v *Validator) getActionsFromInstances(iKeyStr string) map[string]*cpb.Acti
 		}
 		rule := spec.(*cpb.Rule)
 		for i, action := range rule.Actions {
-			if !contains(action.Instances, iKeyStr) {
+			instances, err := v.getFQns(action.Instances, config.InstanceKind, namespace)
+			if err != nil {
+				continue
+			}
+			if !contains(instances, iKey.String()) {
 				continue
 			}
 			refAction[fmt.Sprintf("rule[%s].actions[%d]", rkey, i)] = action

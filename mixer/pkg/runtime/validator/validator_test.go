@@ -185,23 +185,23 @@ badFld: "s1stringVal"
 			Description:  "testAdapter description",
 			SessionBased: true,
 			Config:       adpt1DescBase64,
-			Templates:    []string{"t1.template.default"},
+			Templates:    []string{"t1.default"},
 		}),
 		updateEvent("h1.handler.default", &cpb.Handler{
-			Adapter: "a1.adapter.default",
+			Adapter: "a1.default",
 			Params:  adapter1Params,
 		}),
 		updateEvent("i1.instance.default", &cpb.Instance{
-			Template: "t1.template.default",
+			Template: "t1.default",
 			Params:   tmpl1InstanceParam,
 		}),
 		updateEvent("r1.rule.default", &cpb.Rule{
 			Match: "true",
 			Actions: []*cpb.Action{
 				{
-					Handler: "h1.handler.default",
+					Handler: "h1.default",
 					Instances: []string{
-						"i1.instance.default",
+						"i1.default",
 					},
 				},
 			},
@@ -213,100 +213,100 @@ badFld: "s1stringVal"
 		ok      bool
 		wantErr string
 	}{
-		{
-			"new rule",
-			[]*store.Event{updateEvent("test.rule.default", &cpb.Rule{
-				Actions: []*cpb.Action{
-					{Handler: "staticversion.listchecker.istio-system", Instances: []string{"appversion.listentry.istio-system"}},
-				}})},
-			true,
-			"",
-		},
-		{
-			"update rule",
-			[]*store.Event{updateEvent("checkwl.rule.istio-system", &cpb.Rule{
-				Actions: []*cpb.Action{
-					{Handler: "staticversion.listchecker", Instances: []string{"appversion.listentry"}},
-				}})},
-			true,
-			"",
-		},
-		{
-			"delete rule",
-			[]*store.Event{deleteEvent("checkwl.rule.istio-system")},
-			true,
-			"",
-		},
-		{
-			"invalid updating rule: match syntax error",
-			[]*store.Event{updateEvent("test.rule.default", &cpb.Rule{Match: "foo"})},
-			false,
-			"",
-		},
-		{
-			"invalid updating rule: match type error",
-			[]*store.Event{updateEvent("test.rule.default", &cpb.Rule{Match: "1"})},
-			false,
-			"",
-		},
-		{
-			"invalid updating rule: reference not found",
-			[]*store.Event{updateEvent("test.rule.default", &cpb.Rule{Actions: []*cpb.Action{{Handler: "nonexistent.listchecker.istio-system"}}})},
-			false,
-			"",
-		},
-		{
-			"adding adapter",
-			[]*store.Event{updateEvent("test.listchecker.default", testAdapterConfig)},
-			true,
-			"",
-		},
-		{
-			"adding instance",
-			[]*store.Event{updateEvent("test.listentry.default", &types.Struct{Fields: map[string]*types.Value{
-				"value": {Kind: &types.Value_StringValue{StringValue: "0"}},
-			}})},
-			true,
-			"",
-		},
-		{
-			"adapter validation failure",
-			[]*store.Event{updateEvent("test.listchecker.default", &types.Struct{})},
-			false,
-			"",
-		},
-		{
-			"invalid instance",
-			[]*store.Event{updateEvent("test.listentry.default", &types.Struct{})},
-			false,
-			"",
-		},
-		{
-			"invalid instance syntax",
-			[]*store.Event{updateEvent("test.listentry.default", &types.Struct{Fields: map[string]*types.Value{
-				"value": {Kind: &types.Value_StringValue{StringValue: ""}},
-			}})},
-			false,
-			"",
-		},
-		{
-			"invalid delete handler",
-			[]*store.Event{deleteEvent("staticversion.listchecker.istio-system")},
-			false,
-			"",
-		},
-		{
-			"invalid delete instance",
-			[]*store.Event{deleteEvent("appversion.listentry.istio-system")},
-			false,
-			"",
-		},
-		{
-			"invalid removal of attributemanifest",
-			[]*store.Event{deleteEvent("kubernetes.attributemanifest.istio-system")},
-			false,
-			"",
-		},
+		//		{
+		//			"new rule",
+		//			[]*store.Event{updateEvent("test.rule.default", &cpb.Rule{
+		//				Actions: []*cpb.Action{
+		//					{Handler: "staticversion.listchecker.istio-system", Instances: []string{"appversion.listentry.istio-system"}},
+		//				}})},
+		//			true,
+		//			"",
+		//		},
+		//		{
+		//			"update rule",
+		//			[]*store.Event{updateEvent("checkwl.rule.istio-system", &cpb.Rule{
+		//				Actions: []*cpb.Action{
+		//					{Handler: "staticversion.listchecker", Instances: []string{"appversion.listentry"}},
+		//				}})},
+		//			true,
+		//			"",
+		//		},
+		//		{
+		//			"delete rule",
+		//			[]*store.Event{deleteEvent("checkwl.rule.istio-system")},
+		//			true,
+		//			"",
+		//		},
+		//		{
+		//			"invalid updating rule: match syntax error",
+		//			[]*store.Event{updateEvent("test.rule.default", &cpb.Rule{Match: "foo"})},
+		//			false,
+		//			"",
+		//		},
+		//		{
+		//			"invalid updating rule: match type error",
+		//			[]*store.Event{updateEvent("test.rule.default", &cpb.Rule{Match: "1"})},
+		//			false,
+		//			"",
+		//		},
+		//		{
+		//			"invalid updating rule: reference not found",
+		//			[]*store.Event{updateEvent("test.rule.default", &cpb.Rule{Actions: []*cpb.Action{{Handler: "nonexistent.listchecker.istio-system"}}})},
+		//			false,
+		//			"",
+		//		},
+		//		{
+		//			"adding adapter",
+		//			[]*store.Event{updateEvent("test.listchecker.default", testAdapterConfig)},
+		//			true,
+		//			"",
+		//		},
+		//		{
+		//			"adding instance",
+		//			[]*store.Event{updateEvent("test.listentry.default", &types.Struct{Fields: map[string]*types.Value{
+		//				"value": {Kind: &types.Value_StringValue{StringValue: "0"}},
+		//			}})},
+		//			true,
+		//			"",
+		//		},
+		//		{
+		//			"adapter validation failure",
+		//			[]*store.Event{updateEvent("test.listchecker.default", &types.Struct{})},
+		//			false,
+		//			"",
+		//		},
+		//		{
+		//			"invalid instance",
+		//			[]*store.Event{updateEvent("test.listentry.default", &types.Struct{})},
+		//			false,
+		//			"",
+		//		},
+		//		{
+		//			"invalid instance syntax",
+		//			[]*store.Event{updateEvent("test.listentry.default", &types.Struct{Fields: map[string]*types.Value{
+		//				"value": {Kind: &types.Value_StringValue{StringValue: ""}},
+		//			}})},
+		//			false,
+		//			"",
+		//		},
+		//		{
+		//			"invalid delete handler",
+		//			[]*store.Event{deleteEvent("staticversion.listchecker.istio-system")},
+		//			false,
+		//			"",
+		//		},
+		//		{
+		//			"invalid delete instance",
+		//			[]*store.Event{deleteEvent("appversion.listentry.istio-system")},
+		//			false,
+		//			"",
+		//		},
+		//		{
+		//			"invalid removal of attributemanifest",
+		//			[]*store.Event{deleteEvent("kubernetes.attributemanifest.istio-system")},
+		//			false,
+		//			"",
+		//		},
 
 		// Templates
 		{
@@ -327,10 +327,10 @@ badFld: "s1stringVal"
 					Description:  "testAdapter description",
 					SessionBased: true,
 					Config:       adpt1DescBase64,
-					Templates:    []string{"t1.template.default"},
+					Templates:    []string{"t1.default"},
 				}),
 				updateEvent("i1.instance.default", &cpb.Instance{
-					Template: "t1.template.default",
+					Template: "t1.default",
 					Params:   tmpl1InstanceParam,
 				}),
 				updateEvent("t1.template.default", &v1beta1.Template{
@@ -355,7 +355,7 @@ badFld: "s1stringVal"
 					Descriptor_: tmpl1Base64Str,
 				}),
 				updateEvent("i1.instance.default", &cpb.Instance{
-					Template: "t1.template.default",
+					Template: "t1.default",
 					Params:   tmpl1InstanceParam,
 				}),
 				updateEvent("t1.template.default", &v1beta1.Template{
@@ -375,7 +375,7 @@ badFld: "s1stringVal"
 					Name:         "testAdapter",
 					Description:  "testAdapter description",
 					SessionBased: true,
-					Templates:    []string{"mymetric.template"},
+					Templates:    []string{"mymetric.default"},
 				}),
 				deleteEvent("testCR1.adapter.default"),
 				deleteEvent("mymetric.template.default"),
@@ -393,7 +393,7 @@ badFld: "s1stringVal"
 					Name:         "testAdapter",
 					Description:  "testAdapter description",
 					SessionBased: true,
-					Templates:    []string{"mymetric.template"},
+					Templates:    []string{"mymetric.default"},
 				}),
 				deleteEvent("mymetric.template.default"),
 			},
@@ -407,7 +407,7 @@ badFld: "s1stringVal"
 					Descriptor_: tmpl1Base64Str,
 				}),
 				updateEvent("testCR1.instance.default", &cpb.Instance{
-					Template: "mymetric.template.default",
+					Template: "mymetric.default",
 				}),
 				deleteEvent("mymetric.template.default"),
 			},
@@ -448,7 +448,7 @@ badFld: "s1stringVal"
 					Name:         "testAdapter",
 					Description:  "testAdapter description",
 					SessionBased: true,
-					Templates:    []string{"mymetric.template.default"},
+					Templates:    []string{"mymetric.default"},
 				})},
 			true,
 			"",
@@ -463,7 +463,7 @@ badFld: "s1stringVal"
 					Name:         "testAdapter",
 					Description:  "testAdapter description",
 					SessionBased: true,
-					Templates:    []string{"mymetric.template"},
+					Templates:    []string{"mymetric.default"},
 				})},
 			true,
 			"",
@@ -474,10 +474,10 @@ badFld: "s1stringVal"
 				Name:         "testAdapter",
 				Description:  "testAdapter description",
 				SessionBased: true,
-				Templates:    []string{"notATemplate.rule.default"},
+				Templates:    []string{"notATemplate.rule"},
 			})},
 			false,
-			"notATemplate.rule.default is not a template",
+			"notATemplate.rule not found",
 		},
 		{
 			"add adapter - bad template reference",
@@ -485,10 +485,22 @@ badFld: "s1stringVal"
 				Name:         "testAdapter",
 				Description:  "testAdapter description",
 				SessionBased: true,
-				Templates:    []string{"notexists.template.default"},
+				Templates:    []string{"notexists.default"},
 			})},
 			false,
-			"notexists.template.default not found",
+			"notexists.default not found",
+		},
+		{
+			"update adapter",
+			append(validRulesHandlerInstances,
+				updateEvent("a1.adapter.default", &v1beta1.Info{
+					Description:  "testAdapter description",
+					SessionBased: true,
+					Config:       adpt1DescBase64,
+					Templates:    []string{"t1.default"},
+				})),
+			true,
+			"",
 		},
 		{
 			"update adapter supported template- break routed instances",
@@ -511,7 +523,7 @@ badFld: "s1stringVal"
 					Description:  "testAdapter description",
 					SessionBased: true,
 					Config:       adpt2DescBase64,
-					Templates:    []string{"t1.template.default"},
+					Templates:    []string{"t1.default"},
 				}),
 			),
 			false,
@@ -526,7 +538,7 @@ badFld: "s1stringVal"
 					Config:       adpt1DescBase64,
 				}),
 				updateEvent("h1.handler.default", &cpb.Handler{
-					Adapter: "a1.adapter.default",
+					Adapter: "a1.default",
 					Params:  adapter1Params,
 				}),
 				deleteEvent("h1.handler.default"),
@@ -545,7 +557,7 @@ badFld: "s1stringVal"
 					Templates:    []string{},
 				}),
 				updateEvent("h1.handler.default", &cpb.Handler{
-					Adapter: "a1.adapter.default",
+					Adapter: "a1.default",
 					Params:  adapter1Params,
 				}),
 				deleteEvent("a1.adapter.default"),
@@ -563,7 +575,7 @@ badFld: "s1stringVal"
 				SessionBased: true,
 				Config:       adpt1DescBase64,
 			}), updateEvent("h1.handler.default", &cpb.Handler{
-				Adapter: "a1.adapter.default",
+				Adapter: "a1.default",
 				Params:  adapter1Params,
 			})},
 			true,
@@ -576,16 +588,16 @@ badFld: "s1stringVal"
 				Params:  adapter1Params,
 			})},
 			false,
-			"not.an.adapter is not a adapter",
+			"handler[h1.handler.default]: not.an.adapter is not a adapter",
 		},
 		{
 			"add handler - bad adapter reference",
 			[]*store.Event{updateEvent("h1.handler.default", &cpb.Handler{
-				Adapter: "broken.adapter.default",
+				Adapter: "broken.default",
 				Params:  adapter1Params,
 			})},
 			false,
-			"broken.adapter.default not found",
+			"handler[h1.handler.default]: broken.default not found",
 		},
 		{
 			"add handler - bad param content",
@@ -595,7 +607,7 @@ badFld: "s1stringVal"
 				SessionBased: true,
 				Config:       adpt1DescBase64,
 			}), updateEvent("h1.handler.default", &cpb.Handler{
-				Adapter: "a1.adapter.default",
+				Adapter: "a1.default",
 				Params:  invalidHandlerParams,
 			})},
 			false,
@@ -605,7 +617,7 @@ badFld: "s1stringVal"
 			"update handler",
 			append(validRulesHandlerInstances,
 				updateEvent("h1.handler.default", &cpb.Handler{
-					Adapter: "a1.adapter.default",
+					Adapter: "a1.default",
 					Params:  nil,
 				})),
 			true,
@@ -622,7 +634,7 @@ badFld: "s1stringVal"
 					Templates: []string{},
 				}),
 				updateEvent("h1.handler.default", &cpb.Handler{
-					Adapter: "a2.adapter.default",
+					Adapter: "a2.default",
 					Params:  adapter1Params,
 				})),
 			false,
@@ -647,7 +659,7 @@ badFld: "s1stringVal"
 					Descriptor_: tmpl1Base64Str,
 				}),
 				updateEvent("i1.instance.default", &cpb.Instance{
-					Template: "t1.template.default",
+					Template: "t1.default",
 					Params:   tmpl1InstanceParam,
 				}),
 			},
@@ -669,7 +681,7 @@ badFld: "s1stringVal"
 			"add instance - bad template reference",
 			[]*store.Event{
 				updateEvent("i1.instance.default", &cpb.Instance{
-					Template: "notExist.template.default",
+					Template: "notExist.default",
 					Params:   tmpl1InstanceParam,
 				}),
 			},
@@ -685,7 +697,7 @@ badFld: "s1stringVal"
 				}),
 			},
 			false,
-			"instance[i1.instance.default]: invalid template value oneWordNotValidRef",
+			"instance[i1.instance.default]: template oneWordNotValidRef.template.default not found",
 		},
 		{
 			"add instance - bad content",
@@ -694,7 +706,7 @@ badFld: "s1stringVal"
 					Descriptor_: tmpl1Base64Str,
 				}),
 				updateEvent("i1.instance.default", &cpb.Instance{
-					Template: "t1.template.default",
+					Template: "t1.default",
 					Params:   badInstanceParamIn,
 				}),
 			},
@@ -705,7 +717,7 @@ badFld: "s1stringVal"
 			"update instance",
 			append(validRulesHandlerInstances,
 				updateEvent("i1.instance.default", &cpb.Instance{
-					Template: "t1.template.default",
+					Template: "t1.default",
 					Params:   tmpl1InstanceParam,
 				})),
 			true,
@@ -718,14 +730,14 @@ badFld: "s1stringVal"
 					Descriptor_: tmpl2Base64Str,
 				}),
 				updateEvent("i1.instance.default", &cpb.Instance{
-					Template: "t2.template.default",
+					Template: "t2.default",
 					Params:   tmpl2InstanceParam,
 				}),
 			),
 			false,
 			"rule[r1.rule.default].actions[0].handler.adapter 'a1.adapter.default': " +
-				"instance[i1.instance.default].Template 't2.template.default' is not supported by adapter of the handler" +
-				" to which the instance is routed",
+				"instance[i1.instance.default].Template 't2.default' is not supported by adapter of the handler " +
+				"to which the instance is routed",
 		},
 		{
 			"delete handler - break rule",
@@ -768,23 +780,23 @@ badFld: "s1stringVal"
 					Descriptor_: tmpl1Base64Str,
 				}),
 				updateEvent("i1.instance.default", &cpb.Instance{
-					Template: "t1.template.default",
+					Template: "t1.default",
 					Params:   tmpl1InstanceParam,
 				}),
 				updateEvent("r1.rule.default", &cpb.Rule{
 					Match: "true",
 					Actions: []*cpb.Action{
 						{
-							Handler: "doesNotExist.handler.default",
+							Handler: "doesNotExist.default",
 							Instances: []string{
-								"i1.instance.default",
+								"i1.default",
 							},
 						},
 					},
 				}),
 			},
 			false,
-			"actions[0].handler 'doesNotExist.handler.default': handler doesNotExist.handler.default not found",
+			"actions[0].handler 'doesNotExist.default': handler doesNotExist.handler.default not found",
 		},
 		{
 			"add rule - bad handler kind",
@@ -793,23 +805,23 @@ badFld: "s1stringVal"
 					Descriptor_: tmpl1Base64Str,
 				}),
 				updateEvent("i1.instance.default", &cpb.Instance{
-					Template: "t1.template.default",
+					Template: "t1.default",
 					Params:   tmpl1InstanceParam,
 				}),
 				updateEvent("r1.rule.default", &cpb.Rule{
 					Match: "true",
 					Actions: []*cpb.Action{
 						{
-							Handler: "not.a.handler",
+							Handler: "not.handler",
 							Instances: []string{
-								"i1.instance.default",
+								"i1.default",
 							},
 						},
 					},
 				}),
 			},
 			false,
-			"actions[0].handler: a is not a handler",
+			"actions[0].handler 'not.handler': handler not.handler.handler not found",
 		},
 		{
 			"add rule - bad handler string",
@@ -818,7 +830,7 @@ badFld: "s1stringVal"
 					Descriptor_: tmpl1Base64Str,
 				}),
 				updateEvent("i1.instance.default", &cpb.Instance{
-					Template: "t1.template.default",
+					Template: "t1.default",
 					Params:   tmpl1InstanceParam,
 				}),
 				updateEvent("r1.rule.default", &cpb.Rule{
@@ -827,14 +839,14 @@ badFld: "s1stringVal"
 						{
 							Handler: "oneWordNotAValidRef",
 							Instances: []string{
-								"i1.instance.default",
+								"i1.default",
 							},
 						},
 					},
 				}),
 			},
 			false,
-			"actions[0].handler: illformed oneWordNotAValidRef",
+			"actions[0].handler 'oneWordNotAValidRef': handler oneWordNotAValidRef.handler.default not found",
 		},
 		{
 			"add rule - bad instance reference",
@@ -846,26 +858,26 @@ badFld: "s1stringVal"
 					Description:  "testAdapter description",
 					SessionBased: true,
 					Config:       adpt1DescBase64,
-					Templates:    []string{"t1.template.default"},
+					Templates:    []string{"t1.default"},
 				}),
 				updateEvent("h1.handler.default", &cpb.Handler{
-					Adapter: "a1.adapter.default",
+					Adapter: "a1.default",
 					Params:  adapter1Params,
 				}),
 				updateEvent("r1.rule.default", &cpb.Rule{
 					Match: "true",
 					Actions: []*cpb.Action{
 						{
-							Handler: "h1.handler.default",
+							Handler: "h1.default",
 							Instances: []string{
-								"doesnotexist.instance.default",
+								"doesnotexist.default",
 							},
 						},
 					},
 				}),
 			},
 			false,
-			"'doesnotexist.instance.default': instance doesnotexist.instance.default not found",
+			"actions[0].instances[0] 'doesnotexist.default': instance doesnotexist.instance.default not found ",
 		},
 		{
 			"add rule - bad instance string",
@@ -877,17 +889,17 @@ badFld: "s1stringVal"
 					Description:  "testAdapter description",
 					SessionBased: true,
 					Config:       adpt1DescBase64,
-					Templates:    []string{"t1.template.default"},
+					Templates:    []string{"t1.default"},
 				}),
 				updateEvent("h1.handler.default", &cpb.Handler{
-					Adapter: "a1.adapter.default",
+					Adapter: "a1.default",
 					Params:  adapter1Params,
 				}),
 				updateEvent("r1.rule.default", &cpb.Rule{
 					Match: "true",
 					Actions: []*cpb.Action{
 						{
-							Handler: "h1.handler.default",
+							Handler: "h1.default",
 							Instances: []string{
 								"onewordNotAValidInstRef",
 							},
@@ -896,7 +908,8 @@ badFld: "s1stringVal"
 				}),
 			},
 			false,
-			"actions[0].instances[0] 'onewordNotAValidInstRef': invalid instance value onewordNotAValidInstRef",
+			"actions[0].instances[0] 'onewordNotAValidInstRef': instance " +
+				"onewordNotAValidInstRef.instance.default not found",
 		},
 		{
 			"add rule - bad instance kind",
@@ -908,17 +921,17 @@ badFld: "s1stringVal"
 					Description:  "testAdapter description",
 					SessionBased: true,
 					Config:       adpt1DescBase64,
-					Templates:    []string{"t1.template.default"},
+					Templates:    []string{"t1.default"},
 				}),
 				updateEvent("h1.handler.default", &cpb.Handler{
-					Adapter: "a1.adapter.default",
+					Adapter: "a1.default",
 					Params:  adapter1Params,
 				}),
 				updateEvent("r1.rule.default", &cpb.Rule{
 					Match: "true",
 					Actions: []*cpb.Action{
 						{
-							Handler: "h1.handler.default",
+							Handler: "h1.default",
 							Instances: []string{
 								"not.a.instance",
 							},
@@ -927,7 +940,7 @@ badFld: "s1stringVal"
 				}),
 			},
 			false,
-			"'not.a.instance': instance not.a.instance not found",
+			"actions[0].instances[0] 'not.a.instance': instance not.a.instance not found",
 		},
 
 		{
@@ -943,33 +956,86 @@ badFld: "s1stringVal"
 					Description:  "testAdapter description",
 					SessionBased: true,
 					Config:       adpt1DescBase64,
-					Templates:    []string{"t1.template.default"},
+					Templates:    []string{"t1.default"},
 				}),
 				updateEvent("h1.handler.default", &cpb.Handler{
-					Adapter: "a1.adapter.default",
+					Adapter: "a1.default",
 					Params:  adapter1Params,
 				}),
 				updateEvent("i1.instance.default", &cpb.Instance{
-					Template: "t2.template.default",
+					Template: "t2.default",
 					Params:   tmpl1InstanceParam,
 				}),
 				updateEvent("r1.rule.default", &cpb.Rule{
 					Match: "true",
 					Actions: []*cpb.Action{
 						{
-							Handler: "h1.handler.default",
+							Handler: "h1.default",
 							Instances: []string{
 								// i1 is instance for template t2; but handler supports template t1.
-								"i1.instance.default",
+								"i1.default",
 							},
 						},
 					},
 				}),
 			},
 			false,
-			"actions[0].instances[0].Template 't2.template.default': actions[0].handler.adapter " +
-				"'a1.adapter.default' does not support template 't2.template.default'. " +
-				"Only supported templates are t1.template.default",
+			"actions[0].instances[0].Template 't2.default': actions[0].handler.adapter 'a1.adapter.default' " +
+				"does not support template 't2.default'. Only supported templates are t1.default",
+		},
+		{
+			"update rule",
+			append(validRulesHandlerInstances,
+				updateEvent("r1.rule.default", &cpb.Rule{
+					Match: "true",
+					Actions: []*cpb.Action{
+						{
+							Handler: "h1.default",
+							Instances: []string{
+								"i1.default",
+							},
+						},
+					},
+				}),
+			),
+			true,
+			"",
+		},
+		{
+			"update rule - break handler",
+			append(validRulesHandlerInstances,
+				updateEvent("r1.rule.default", &cpb.Rule{
+					Match: "true",
+					Actions: []*cpb.Action{
+						{
+							Handler: "hnotexists.default",
+							Instances: []string{
+								"i1.default",
+							},
+						},
+					},
+				}),
+			),
+			false,
+			"actions[0].handler 'hnotexists.default': handler hnotexists.handler.default not found",
+		},
+		{
+			"update rule - break instance",
+			append(validRulesHandlerInstances,
+				updateEvent("r1.rule.default", &cpb.Rule{
+					Match: "true",
+					Actions: []*cpb.Action{
+						{
+							Handler: "h1.default",
+							Instances: []string{
+								"inotexist.default",
+							},
+						},
+					},
+				}),
+			),
+			false,
+			"actions[0].instances[0] 'inotexist.default': instance inotexist.instance.default not found",
 		},
 	} {
 		t.Run(cc.title, func(tt *testing.T) {
