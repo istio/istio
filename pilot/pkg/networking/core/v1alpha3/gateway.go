@@ -35,11 +35,7 @@ import (
 )
 
 var (
-	// TODO: extract these two into istio.io/pkg/proto/{bool.go or types.go or values.go}
-	boolTrue = &types.BoolValue{
-		Value: true,
-	}
-
+	// TODO: extract this into istio.io/pkg/proto/{bool.go or types.go or values.go}
 	boolFalse = &types.BoolValue{
 		Value: false,
 	}
