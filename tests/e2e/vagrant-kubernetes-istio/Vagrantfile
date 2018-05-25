@@ -78,10 +78,10 @@ Vagrant.configure("2") do |config|
      echo "install git"
      sudo apt-get install --quiet -y git
      echo "install go"
-     sudo curl -O $(curl -s https://golang.org/dl/#stable | grep -io 'https://dl.google.com/go/[a-z0-9\.\-]*' | grep linux-amd64 | head -1)
-     sudo tar -xf go1.10.1.linux-amd64.tar.gz
+     sudo curl -o go.linux-amd64.tar.gz $(curl -s https://golang.org/dl/#stable | grep -io 'https://dl.google.com/go/[a-z0-9\.\-]*' | grep linux-amd64 | head -1)
+     sudo tar -xf go.linux-amd64.tar.gz
      sudo mv go /usr/local
-     sudo rm go1.10.1.linux-amd64.tar.gz
+     sudo rm go.linux-amd64.tar.gz
      kubectl apply -f /istio.io/istio/tests/util/localregistry/localregistry.yaml
      kubectl get pods -n kube-system
   SHELL
