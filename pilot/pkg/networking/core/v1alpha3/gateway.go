@@ -35,11 +35,7 @@ import (
 )
 
 var (
-	// TODO: extract these two into istio.io/pkg/proto/{bool.go or types.go or values.go}
-	boolTrue = &types.BoolValue{
-		Value: true,
-	}
-
+	// TODO: extract this into istio.io/pkg/proto/{bool.go or types.go or values.go}
 	boolFalse = &types.BoolValue{
 		Value: false,
 	}
@@ -108,11 +104,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 		default:
 			log.Warnf("buildGatewayListeners: unknown listener type %v", listenerType)
 			continue
-		}
-
-		// one filter chain => 0 or 1 certs => SNI not required
-		if len(opts.filterChainOpts) == 1 && opts.filterChainOpts[0].tlsContext != nil {
-			opts.filterChainOpts[0].tlsContext.RequireSni = boolFalse
 		}
 
 		l := buildListener(opts)
@@ -253,7 +244,6 @@ func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamT
 		RequireClientCertificate: &types.BoolValue{
 			Value: requireClientCert,
 		},
-		RequireSni: boolTrue,
 	}
 }
 
