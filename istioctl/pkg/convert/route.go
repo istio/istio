@@ -190,7 +190,11 @@ func convertRedirect(in *v1alpha1.HTTPRedirect) *v1alpha3.HTTPRedirect {
 		return nil
 	}
 
-	out := v1alpha3.HTTPRedirect(*in) // structs are identical
+	out := v1alpha3.HTTPRedirect{
+		Uri:       in.Uri,
+		Authority: in.Authority,
+	}
+
 	return &out
 }
 
@@ -199,7 +203,10 @@ func convertRewrite(in *v1alpha1.HTTPRewrite) *v1alpha3.HTTPRewrite {
 		return nil
 	}
 
-	out := v1alpha3.HTTPRewrite(*in) // structs are identical
+	out := v1alpha3.HTTPRewrite{
+		Uri:       in.Uri,
+		Authority: in.Authority,
+	}
 	return &out
 }
 

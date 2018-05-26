@@ -120,10 +120,7 @@ func (this *Dropped) VerboseEqual(that interface{}) error {
 }
 func (this *Dropped) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Dropped)
@@ -136,10 +133,7 @@ func (this *Dropped) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -186,10 +180,7 @@ func (this *DroppedWithoutGetters) VerboseEqual(that interface{}) error {
 }
 func (this *DroppedWithoutGetters) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*DroppedWithoutGetters)
@@ -202,10 +193,7 @@ func (this *DroppedWithoutGetters) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -252,10 +240,7 @@ func (this *Kept) VerboseEqual(that interface{}) error {
 }
 func (this *Kept) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Kept)
@@ -268,10 +253,7 @@ func (this *Kept) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}

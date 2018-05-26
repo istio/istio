@@ -15,11 +15,14 @@
 syntax = "proto3";
 
 // $title: Redis Quota
-// $overview: Adapter for a Redis-based quota management system.
-// $location: https://istio.io/docs/reference/config/adapters/redisquota.html
+// $description: Adapter for a Redis-based quota management system.
+// $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/redisquota.html
+// $front_matter: redirect_from: /docs/reference/config/adapters/redisquota.html
 
 // The `redisquota` adapter can be used to support Istio's quota management
 // system. It depends on a Redis server to store quota values.
+//
+// This adapter supports the [quota template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/quota.html).
 package adapter.redisquota.config;
 
 import "google/protobuf/duration.proto";
