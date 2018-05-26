@@ -63,7 +63,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 
 	gateways := env.Gateways(workloadLabels)
 	if len(gateways) == 0 {
-		log.Debuga("no gateways for router", node.ID)
+		log.Debuga("buildGatewayListeners: no gateways for router", node.ID)
 		return []*xdsapi.Listener{}, nil
 	}
 
@@ -106,7 +106,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 		case plugin.ListenerTypeTCP:
 			opts.filterChainOpts = createGatewayTCPFilterChainOpts(env, servers, merged.Names)
 		default:
-			log.Warnf("unknown listener type %v in buildGatewayListeners", listenerType)
+			log.Warnf("buildGatewayListeners: unknown listener type %v", listenerType)
+			continue
 		}
 
 		// one filter chain => 0 or 1 certs => SNI not required
@@ -129,15 +130,21 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 				ProxyInstances: workloadInstances,
 			}
 			if err = p.OnOutboundListener(params, mutable); err != nil {
-				log.Warna("failed to build listener for gateway: ", err.Error())
+				log.Warna("buildGatewayListeners: failed to build listener for gateway: ", err.Error())
 			}
 		}
 
 		// Filters are serialized one time into an opaque struct once we have the complete list.
 		if err = marshalFilters(mutable.Listener, opts, mutable.FilterChains); err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("omitting listener %q due to: %v", mutable.Listener.Name, err.Error()))
+			errs = multierror.Append(errs, fmt.Errorf("gateway omitting listener %q due to: %v", mutable.Listener.Name, err.Error()))
 			continue
 		}
+
+		if err = mutable.Listener.Validate(); err != nil {
+			errs = multierror.Append(errs, fmt.Errorf("gateway listener %s validation failed: %v", mutable.Listener.Name, err.Error()))
+			continue
+		}
+
 		if log.DebugEnabled() {
 			log.Debugf("buildGatewayListeners: constructed listener with %d filter chains:\n%v",
 				len(mutable.Listener.FilterChains), mutable.Listener)
@@ -147,7 +154,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 	// We'll try to return any listeners we successfully marshaled; if we have none, we'll emit the error we built up
 	err = errs.ErrorOrNil()
 	if len(listeners) == 0 {
-		return []*xdsapi.Listener{}, err
+		log.Errorf("buildGatewayListeners: Have zero listeners: %v", err.Error())
+		return []*xdsapi.Listener{}, nil
 	}
 
 	if err != nil {
@@ -186,7 +194,7 @@ func createGatewayHTTPFilterChainOpts(
 			}
 		}
 		o := &filterChainOpts{
-			sniHosts:   server.Hosts,
+			sniHosts:   getSNIHosts(server),
 			tlsContext: buildGatewayListenerTLSContext(server),
 			httpOpts: &httpListenerOpts{
 				routeConfig:      routeCfg,
@@ -287,8 +295,23 @@ func buildGatewayInboundHTTPRouteConfig(
 	}
 
 	if len(virtualHosts) == 0 {
-		log.Debugf("constructed http route config for port %d with no vhosts; omitting", port)
-		return nil
+		log.Debugf("constructed http route config for port %d with no vhosts; Setting up a default 404 vhost", port)
+		virtualHosts = append(virtualHosts, route.VirtualHost{
+			Name:    fmt.Sprintf("blackhole:%d", port),
+			Domains: []string{"*"},
+			Routes: []route.Route{
+				{
+					Match: route.RouteMatch{
+						PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
+					},
+					Action: &route.Route_DirectResponse{
+						DirectResponse: &route.DirectResponseAction{
+							Status: 404,
+						},
+					},
+				},
+			},
+		})
 	}
 	util.SortVirtualHosts(virtualHosts)
 	return &xdsapi.RouteConfiguration{
@@ -304,7 +327,7 @@ func createGatewayTCPFilterChainOpts(
 	opts := make([]*filterChainOpts, 0, len(servers))
 	for _, server := range servers {
 		opts = append(opts, &filterChainOpts{
-			sniHosts:       server.Hosts,
+			sniHosts:       getSNIHosts(server),
 			tlsContext:     buildGatewayListenerTLSContext(server),
 			networkFilters: buildGatewayNetworkFilters(env, server, gatewayNames),
 		})
@@ -321,7 +344,7 @@ func buildGatewayNetworkFilters(env model.Environment, server *networking.Server
 		Protocol: model.ParseProtocol(server.Port.Protocol),
 	}
 
-	dests := filterTCPDownstreams(env, server, gatewayNames)
+	dests := getVirtualServiceTCPDestinations(env, server, gatewayNames)
 	// de-dupe destinations by hostname; we'll take a random destination if multiple claim the same host
 	byHost := make(map[model.Hostname]*networking.Destination, len(dests))
 	for _, dest := range dests {
@@ -342,9 +365,9 @@ func buildGatewayNetworkFilters(env model.Environment, server *networking.Server
 	return filters
 }
 
-// filterTCPDownstreams filters virtual services by gateway names, then determines if any match the (TCP) server
+// getVirtualServiceTCPDestinations filters virtual services by gateway names, then determines if any match the (TCP) server
 // TODO: move up to more general location so this can be re-used in sidecars
-func filterTCPDownstreams(env model.Environment, server *networking.Server, gateways map[string]bool) []*networking.Destination {
+func getVirtualServiceTCPDestinations(env model.Environment, server *networking.Server, gateways map[string]bool) []*networking.Destination {
 	hosts := make(map[model.Hostname]bool, len(server.Hosts))
 	for _, host := range server.Hosts {
 		hosts[model.Hostname(host)] = true
@@ -415,4 +438,11 @@ func gatherDestinations(weights []*networking.DestinationWeight) []*networking.D
 		dests = append(dests, w.Destination)
 	}
 	return dests
+}
+
+func getSNIHosts(server *networking.Server) []string {
+	if server.Tls == nil {
+		return nil
+	}
+	return server.Hosts
 }

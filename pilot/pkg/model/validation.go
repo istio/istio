@@ -1854,9 +1854,17 @@ func ValidateVirtualService(msg proto.Message) (errs error) {
 		return errors.New("cannot cast to virtual service")
 	}
 
+	appliesToMesh := false
+	if len(virtualService.Gateways) == 0 {
+		appliesToMesh = true
+	}
+
 	for _, gateway := range virtualService.Gateways {
 		if !IsDNS1123Label(gateway) {
 			errs = appendErrors(errs, fmt.Errorf("gateway is not a valid DNS1123 label: %v", gateway))
+		}
+		if gateway == IstioMeshGateway {
+			appliesToMesh = true
 		}
 	}
 
@@ -1868,6 +1876,9 @@ func ValidateVirtualService(msg proto.Message) (errs error) {
 	for _, host := range virtualService.Hosts {
 		if err := validateHost(host); err != nil {
 			errs = appendErrors(errs, validateHost(host))
+			allHostsValid = false
+		} else if appliesToMesh && host == "*" {
+			errs = appendErrors(errs, fmt.Errorf("wildcard host * is not allowed for virtual services bound to the mesh gateway"))
 			allHostsValid = false
 		}
 	}

@@ -24,6 +24,20 @@ func TestAuthExclusion(t *testing.T) {
 		t.Skipf("Skipping %s: auth_enable=false", t.Name())
 	}
 
+	if tc.V1alpha3 {
+		// While the mesh config turned on mTLS globally, this DestinationRule lets the client opt-out
+		// the mTLS when talking to fake-control service.
+		cfgs := &deployableConfig{
+			Namespace:  tc.Kube.Namespace,
+			YamlFiles:  []string{"testdata/authn/destination-rule-exclude.yaml.tmpl"},
+			kubeconfig: tc.Kube.KubeConfig,
+		}
+		if err := cfgs.Setup(); err != nil {
+			t.Fatal(err)
+		}
+		defer cfgs.Teardown()
+	}
+
 	// fake-control service doesn't have sidecar, and is excluded from mTLS so
 	// client with sidecar should never use mTLS when talking to it. As the result,
 	// all request will works, as if mesh authentication is NONE.

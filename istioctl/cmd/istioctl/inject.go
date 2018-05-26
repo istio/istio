@@ -20,6 +20,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"strings"
 
 	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
@@ -251,21 +252,22 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 			}
 
 			var sidecarTemplate string
-			if injectConfigFile != "" {
-				injectionConfig, err := ioutil.ReadFile(injectConfigFile) // nolint: vetshadow
-				if err != nil {
-					return err
+
+			// hub and tag params only work with ISTIOCTL_USE_BUILTIN_DEFAULTS
+			// so must be specified together. hub and tag no longer have defaults.
+			if hub != "" || tag != "" {
+				// ISTIOCTL_USE_BUILTIN_DEFAULTS is used to have legacy behaviour.
+				if !getBoolEnv("ISTIOCTL_USE_BUILTIN_DEFAULTS", false) {
+					return errors.New("one of injectConfigFile or injectConfigMapName is required\n" +
+						"use the following command to get the current injector file\n" +
+						"kubectl -n istio-system get configmap istio-sidecar-injector " +
+						"-o=jsonpath='{.data.config}' > /tmp/injectConfigFile.yaml")
 				}
-				var config inject.Config
-				if err := yaml.Unmarshal(injectionConfig, &config); err != nil {
-					return err
+
+				if hub == "" || tag == "" {
+					return fmt.Errorf("hub and tag are both required. got hub: '%v', tag: '%v'", hub, tag)
 				}
-				sidecarTemplate = config.Template
-			} else if injectConfigMapName != "" {
-				if sidecarTemplate, err = getInjectConfigFromConfigMap(kubeconfig); err != nil {
-					return err
-				}
-			} else {
+
 				if sidecarTemplate, err = inject.GenerateTemplateFromParams(&inject.Params{
 					InitImage:           inject.InitImageName(hub, tag, debugMode),
 					ProxyImage:          inject.ProxyImageName(hub, tag, debugMode),
@@ -281,6 +283,21 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 					ExcludeInboundPorts: excludeInboundPorts,
 					DebugMode:           debugMode,
 				}); err != nil {
+					return err
+				}
+
+			} else if injectConfigFile != "" {
+				injectionConfig, err := ioutil.ReadFile(injectConfigFile) // nolint: vetshadow
+				if err != nil {
+					return err
+				}
+				var config inject.Config
+				if err := yaml.Unmarshal(injectionConfig, &config); err != nil {
+					return err
+				}
+				sidecarTemplate = config.Template
+			} else {
+				if sidecarTemplate, err = getInjectConfigFromConfigMap(kubeconfig); err != nil {
 					return err
 				}
 			}
@@ -303,11 +320,23 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 	}
 )
 
+func getBoolEnv(key string, defaultVal bool) bool {
+	if svalue, ok := os.LookupEnv(key); ok {
+		return strings.ToLower(svalue) == "true" || svalue == "1"
+	}
+	return defaultVal
+}
+
+const (
+	defaultMeshConfigMapName   = "istio"
+	defaultInjectConfigMapName = "istio-sidecar-injector"
+)
+
 func init() {
 	rootCmd.AddCommand(injectCmd)
 
-	injectCmd.PersistentFlags().StringVar(&hub, "hub", version.Info.DockerHub, "Docker hub")
-	injectCmd.PersistentFlags().StringVar(&tag, "tag", version.Info.Version, "Docker tag")
+	injectCmd.PersistentFlags().StringVar(&hub, "hub", "", "Docker hub")
+	injectCmd.PersistentFlags().StringVar(&tag, "tag", "", "Docker tag")
 
 	injectCmd.PersistentFlags().StringVar(&meshConfigFile, "meshConfigFile", "",
 		"mesh configuration filename. Takes precedence over --meshConfigMapName if set")
@@ -315,6 +344,7 @@ func init() {
 		"injection configuration filename. Cannot be used with --injectConfigMapName")
 
 	injectCmd.PersistentFlags().BoolVar(&emitTemplate, "emitTemplate", false, "Emit sidecar template based on parameterized flags")
+	injectCmd.PersistentFlags().MarkHidden("emitTemplate")
 
 	injectCmd.PersistentFlags().StringVarP(&inFilename, "filename", "f",
 		"", "Input Kubernetes resource filename")
@@ -330,6 +360,7 @@ func init() {
 	// settings (i.e. sysctl kernel.*) affect all pods in a node and
 	// require privileges. This option should only be used by the cluster
 	// admin (see https://kubernetes.io/docs/concepts/cluster-administration/sysctl-cluster/)
+	// injector specific params are deprecated
 	injectCmd.PersistentFlags().BoolVar(&enableCoreDump, "coreDump",
 		true, "Enable/Disable core dumps in injected Envoy sidecar (--coreDump=true affects "+
 			"all pods in a node and should only be used the cluster admin)")
@@ -352,9 +383,15 @@ func init() {
 			"are excluded.")
 	injectCmd.PersistentFlags().BoolVar(&debugMode, "debug", false, "Use debug images and settings for the sidecar")
 
-	injectCmd.PersistentFlags().StringVar(&meshConfigMapName, "meshConfigMapName", "istio",
+	deprecatedFlags := []string{"coreDump", "imagePullPolicy", "includeIPRanges", "excludeIPRanges", "hub", "tag",
+		"includeInboundPorts", "excludeInboundPorts", "debug", "verbosity", "sidecarProxyUID", "setVersionString"}
+	for _, opt := range deprecatedFlags {
+		injectCmd.PersistentFlags().MarkDeprecated(opt, "Use --injectConfigMapName or --injectConfigFile instead")
+	}
+
+	injectCmd.PersistentFlags().StringVar(&meshConfigMapName, "meshConfigMapName", defaultMeshConfigMapName,
 		fmt.Sprintf("ConfigMap name for Istio mesh configuration, key should be %q", configMapKey))
-	injectCmd.PersistentFlags().StringVar(&injectConfigMapName, "injectConfigMapName", "",
+	injectCmd.PersistentFlags().StringVar(&injectConfigMapName, "injectConfigMapName", defaultInjectConfigMapName,
 		fmt.Sprintf("ConfigMap name for Istio sidecar injection, key should be %q."+
 			"This option overrides any other sidecar injection config options, eg. --hub",
 			injectConfigMapKey))
