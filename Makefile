@@ -183,7 +183,7 @@ where-is-docker-tar:
 #-----------------------------------------------------------------------------
 # Target: depend
 #-----------------------------------------------------------------------------
-.PHONY: depend depend.diff depend.update depend.cleanlock depend.update.full init
+.PHONY: depend depend.diff init
 
 # Parse out the x.y or x.y.z version and output a single value x*10000+y*100+z (e.g., 1.9 is 10900)
 # that allows the three components to be checked in a single comparison.
@@ -226,25 +226,17 @@ ${ISTIO_ENVOY_DEBUG_PATH}: init
 ${ISTIO_ENVOY_RELEASE_PATH}: init
 
 # Pull depdendencies, based on the checked in Gopkg.lock file.
-# Developers must manually call make depend.update if adding new deps
+# Developers must manually run `dep ensure` if adding new deps
 depend: init | $(ISTIO_OUT)
 
 $(ISTIO_OUT) $(ISTIO_BIN):
 	@mkdir -p $@
 
-# Updates the dependencies and generates a git diff of the vendor files against HEAD.
-depend.diff: depend.update | $(ISTIO_OUT)
+# Used by CI to update the dependencies and generates a git diff of the vendor files against HEAD.
+depend.diff: $(ISTIO_OUT)
+	go get -u github.com/golang/dep/cmd/dep
+	dep ensure
 	git diff HEAD --exit-code -- Gopkg.lock vendor > $(ISTIO_OUT)/dep.diff
-
-depend.update.full: depend.cleanlock depend.update
-
-depend.cleanlock:
-	-rm Gopkg.lock
-
-depend.update:
-	@echo "Running dep ensure with DEPARGS=$(DEPARGS)"
-	dep version
-	time dep ensure $(DEPARGS)
 
 ${GEN_CERT}:
 	GOOS=$(GOOS_LOCAL) && GOARCH=$(GOARCH_LOCAL) && CGO_ENABLED=1 bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/generate_cert

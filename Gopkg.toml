@@ -119,11 +119,11 @@ required = [
 
 [[constraint]]
   name = "github.com/gogo/protobuf"
-  version = "0.5.0"
+  version = "1.0.0"
 
 [[constraint]]
   name = "github.com/golang/protobuf"
-  version = "1.0.0"
+  version = "1.1.0"
 
 [[constraint]]
   branch = "master"
@@ -287,7 +287,7 @@ required = [
 
 [[constraint]]
   name = "istio.io/api"
-  branch = "release-0.8"
+  branch = "master"
 
 # fortio is latest tagged by default
 
