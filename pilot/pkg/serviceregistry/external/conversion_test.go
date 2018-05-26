@@ -71,7 +71,7 @@ var httpStatic = &networking.ServiceEntry{
 }
 
 var httpDNSnoEndpoints = &networking.ServiceEntry{
-	Hosts: []string{"google.com"},
+	Hosts: []string{"google.com", "www.wikipedia.org"},
 	Ports: []*networking.Port{
 		{Number: 80, Name: "http-port", Protocol: "http"},
 		{Number: 8080, Name: "http-alt-port", Protocol: "http"},
@@ -220,8 +220,17 @@ func makeInstance(serviceEntry *networking.ServiceEntry, address string, port in
 	if port == 0 {
 		family = model.AddressFamilyUnix
 	}
+
+	services := convertServices(serviceEntry)
+	svc := services[0] // default
+	for _, s := range services {
+		if s.Hostname.String() == address {
+			svc = s
+			break
+		}
+	}
 	return &model.ServiceInstance{
-		Service: convertServices(serviceEntry)[0],
+		Service: svc,
 		Endpoint: model.NetworkEndpoint{
 			Family:  family,
 			Address: address,
@@ -266,8 +275,11 @@ func TestConvertService(t *testing.T) {
 		{
 			// service entry DNS with no endpoints
 			externalSvc: httpDNSnoEndpoints,
-			services: []*model.Service{makeService("google.com", model.UnspecifiedIP,
-				map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB),
+			services: []*model.Service{
+				makeService("google.com", model.UnspecifiedIP,
+					map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB),
+				makeService("www.wikipedia.org", model.UnspecifiedIP,
+					map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB),
 			},
 		},
 		{
@@ -364,6 +376,8 @@ func TestConvertInstances(t *testing.T) {
 			out: []*model.ServiceInstance{
 				makeInstance(httpDNSnoEndpoints, "google.com", 80, httpDNSnoEndpoints.Ports[0], nil),
 				makeInstance(httpDNSnoEndpoints, "google.com", 8080, httpDNSnoEndpoints.Ports[1], nil),
+				makeInstance(httpDNSnoEndpoints, "www.wikipedia.org", 80, httpDNSnoEndpoints.Ports[0], nil),
+				makeInstance(httpDNSnoEndpoints, "www.wikipedia.org", 8080, httpDNSnoEndpoints.Ports[1], nil),
 			},
 		},
 		{
