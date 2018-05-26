@@ -15,10 +15,8 @@
 package cloudfoundry
 
 import (
-	"crypto/md5"
 	"errors"
 	"fmt"
-	"io"
 
 	copilotapi "code.cloudfoundry.org/copilot/api"
 	"golang.org/x/net/context"
@@ -140,11 +138,7 @@ func (sd *ServiceDiscovery) InstancesByPort(hostname model.Hostname, _ int, _ mo
 				},
 			}
 
-			if matchedRoute.GetPath() != "" {
-				h := md5.New()
-				io.WriteString(h, fmt.Sprintf("%s%s", matchedRoute.GetHostname(), matchedRoute.GetPath()))
-				inst.Labels = model.Labels{"cf-service-instance": fmt.Sprintf("%x", h.Sum(nil))}
-			}
+			inst.Labels = model.Labels{"cfapp": matchedRoute.GetCapiProcessGuid()}
 
 			instances = append(instances, inst)
 		}

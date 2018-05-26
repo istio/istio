@@ -234,7 +234,7 @@ func (p Protocol) IsHTTP() bool {
 // IsTCP is true for protocols that use TCP as transport protocol
 func (p Protocol) IsTCP() bool {
 	switch p {
-	case ProtocolTCP, ProtocolHTTPS, ProtocolMongo, ProtocolRedis, ProtocolHTTP, ProtocolHTTP2, ProtocolGRPC:
+	case ProtocolTCP, ProtocolHTTPS, ProtocolMongo, ProtocolRedis:
 		return true
 	default:
 		return false
