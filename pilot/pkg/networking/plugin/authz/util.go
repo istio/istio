@@ -16,82 +16,14 @@ package authz
 
 import (
 	"fmt"
-	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	policyproto "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"github.com/envoyproxy/go-control-plane/envoy/type"
 	"github.com/gogo/protobuf/types"
 )
-
-const (
-	sourceIP        = "source.ip"
-	sourceService   = "source.service"
-	requestHeader   = "request.header"
-	destinationIP   = "destination.ip"
-	destinationPort = "destination.port"
-)
-
-func convertToPermissionCondition(k string, v []string) (*policyproto.Permission_Condition, error) {
-	switch k {
-	case destinationPort:
-		if ports, err := convertToPortMatch(v); err != nil {
-			return nil, err
-		} else {
-			return &policyproto.Permission_Condition{
-				ConditionSpec: &policyproto.Permission_Condition_DestinationPorts{DestinationPorts: ports},
-			}, nil
-		}
-	case destinationIP:
-		if ips, err := convertToIPMatch(v); err != nil {
-			return nil, err
-		} else {
-			return &policyproto.Permission_Condition{
-				ConditionSpec: &policyproto.Permission_Condition_DestinationIps{DestinationIps: ips},
-			}, nil
-		}
-	default:
-		if header, err := convertToMapEntryMatch(requestHeader, k, v); err != nil {
-			return nil, err
-		} else {
-			return &policyproto.Permission_Condition{
-				ConditionSpec: &policyproto.Permission_Condition_Header{Header: header},
-			}, nil
-		}
-	}
-}
-
-func convertToPrincipalAttribute(k, v string) (*policyproto.Principal_Attribute, error) {
-	switch k {
-	case sourceService:
-		if v == "" {
-			return nil, fmt.Errorf("empty service name")
-		} else {
-			return &policyproto.Principal_Attribute{
-				AttributeSpec: &policyproto.Principal_Attribute_Service{Service: v},
-			}, nil
-		}
-	case sourceIP:
-		if ips, err := convertToIPMatch(strings.Split(v, ",")); err != nil {
-			return nil, err
-		} else {
-			return &policyproto.Principal_Attribute{
-				AttributeSpec: &policyproto.Principal_Attribute_SourceIps{SourceIps: ips},
-			}, nil
-		}
-	default:
-		// Do not split the value for header as we only supports a single value each header.
-		if header, err := convertToMapEntryMatch(requestHeader, k, []string{v}); err != nil {
-			return nil, err
-		} else {
-			return &policyproto.Principal_Attribute{
-				AttributeSpec: &policyproto.Principal_Attribute_Header{Header: header},
-			}, nil
-		}
-	}
-}
 
 // convertToStringMatch converts a string to a StringMatch, it supports four types of conversion:
 // 1. Wild caracter match. i.e. "*" is converted to a regular expression match of "*"
@@ -144,52 +76,44 @@ func suffixMatch(a string, pattern string) bool {
 	return strings.HasSuffix(a, pattern)
 }
 
-func convertToPortMatch(v []string) (*policyproto.PortMatch, error) {
-	portMatch := &policyproto.PortMatch{}
-	for _, port := range v {
-		p, err := strconv.ParseUint(port, 10, 32)
-		if err != nil || p < 0 {
-			return nil, fmt.Errorf("invalid port %s: %v", port, err)
-		}
-		portMatch.Ports = append(portMatch.Ports, uint32(p))
+func convertToCidr(v string) (*core.CidrRange, error) {
+	splits := strings.Split(v, "/")
+	if len(splits) != 2 {
+		return nil, fmt.Errorf("invalid cidr range: %s", v)
 	}
-	return portMatch, nil
+	prefixLen, err := strconv.ParseUint(splits[1], 10, 32)
+	if err != nil || prefixLen < 0 {
+		return nil, fmt.Errorf("invalid prefix length in cidr range: %s: %v", splits[1], err)
+	}
+	return &core.CidrRange{
+		AddressPrefix: splits[0],
+		PrefixLen:     &types.UInt32Value{Value: uint32(prefixLen)},
+	}, nil
 }
 
-func convertToIPMatch(v []string) (*policyproto.IpMatch, error) {
-	ipMatch := &policyproto.IpMatch{}
-	for _, cidr := range v {
-		splits := strings.Split(cidr, "/")
-		if len(splits) != 2 {
-			return nil, fmt.Errorf("invalid CIDR range: %s", cidr)
-		}
-
-		prefixLen, err := strconv.ParseUint(splits[1], 10, 32)
-		if err != nil || prefixLen < 0 {
-			return nil, fmt.Errorf("invalid prefix length in CIDR range: %s: %v", splits[1], err)
-		}
-
-		ipMatch.Cidrs = append(ipMatch.Cidrs, &core.CidrRange{
-			AddressPrefix: splits[0],
-			PrefixLen:     &types.UInt32Value{Value: uint32(prefixLen)},
-		})
+func convertToPort(v string) (uint32, error) {
+	p, err := strconv.ParseUint(v, 10, 32)
+	if err != nil || p < 0 || p > 65535 {
+		return 0, fmt.Errorf("invalid port %s: %v", v, err)
 	}
-	return ipMatch, nil
+	return uint32(p), nil
 }
 
-func convertToMapEntryMatch(prefix, k string, v []string) (*policyproto.MapEntryMatch, error) {
-	// Regular expression to match the key that is made from a prefix and header name in the format
-	// prefix[HEADER_NAME], e.g. request.header[USER-ID].
-	keyRegex := fmt.Sprintf(`^%s\[(\S+)\]$`, prefix)
-	headers := regexp.MustCompile(keyRegex).FindStringSubmatch(k)
-	// headers[1] contains the actual extracted header name, e.g. USER-ID.
-	if len(headers) != 2 || headers[1] == "" {
-		return nil, fmt.Errorf("invalid header format, the format should be %s[KeyName]", prefix)
+func convertToHeaderMatcher(k, v string) *route.HeaderMatcher {
+	//TODO(yangminzhu): Update the HeaderMatcher to support prefix and suffix match.
+	if strings.Contains(v, "*") {
+		return &route.HeaderMatcher{
+			Name: k,
+			HeaderMatchSpecifier: &route.HeaderMatcher_RegexMatch{
+				RegexMatch: "^" + strings.Replace(v, "*", ".*", -1) + "$",
+			},
+		}
+	} else {
+		return &route.HeaderMatcher{
+			Name: k,
+			HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
+				ExactMatch: v,
+			},
+		}
 	}
-
-	mapEntryMatch := &policyproto.MapEntryMatch{Key: headers[1]}
-	for _, s := range v {
-		mapEntryMatch.Values = append(mapEntryMatch.Values, convertToStringMatch(s))
-	}
-	return mapEntryMatch, nil
 }

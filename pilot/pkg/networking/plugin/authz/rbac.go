@@ -22,7 +22,6 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	policyproto "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha"
-	"github.com/envoyproxy/go-control-plane/envoy/type"
 
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -35,7 +34,19 @@ import (
 const (
 	// RbacFilterName is the name for the Rbac filter.
 	// TODO(yangminzhu): Update once the final name is decided.
-	RbacFilterName = "rbac-authz"
+	RbacFilterName = "envoy.filters.http.rbac"
+
+	sourceIP        = "source.ip"
+	sourceService   = "source.service"
+	destinationIP   = "destination.ip"
+	destinationPort = "destination.port"
+	userHeader      = ":user"
+	methodHeader    = ":method"
+	pathHeader      = ":path"
+	//TODO(yangminzhu): Update the key after the final header name of service is decided.
+	serviceHeader       = ":service"
+	requestHeaderPrefix = "request.header["
+	requestHeaderSuffix = "]"
 )
 
 // Plugin implements Istio RBAC authz
@@ -153,7 +164,7 @@ func convertRbacRulesToFilterConfig(service string, roles []model.Config, bindin
 		bindingProto := binding.Spec.(*rbacproto.ServiceRoleBinding)
 		roleName := bindingProto.RoleRef.Name
 		if roleName == "" {
-			log.Errorf("ignoring invalid binding with empty RoleRef.Name: %v", *bindingProto)
+			log.Errorf("ignored invalid binding with empty RoleRef.Name: %v", *bindingProto)
 			continue
 		}
 		roleToBinding[roleName] = append(roleToBinding[roleName], bindingProto)
@@ -196,33 +207,38 @@ func convertRbacRulesToFilterConfig(service string, roles []model.Config, bindin
 
 // convertToPermission converts a single AccessRule to a Permission.
 func convertToPermission(rule *rbacproto.AccessRule) *policyproto.Permission {
-	permission := &policyproto.Permission{}
+	rules := &policyproto.Permission_AndRules{
+		AndRules: &policyproto.Permission_Set{
+			Rules: make([]*policyproto.Permission, 0),
+		},
+	}
 
 	if len(rule.Methods) > 0 {
-		permission.Methods = make([]string, len(rule.Methods))
-		copy(permission.Methods, rule.Methods)
+		methodRule := permissionForKeyValues(":method", rule.Methods)
+		if methodRule != nil {
+			rules.AndRules.Rules = append(rules.AndRules.Rules, methodRule)
+		}
 	}
 
 	if len(rule.Paths) > 0 {
-		permission.Paths = make([]*envoy_type.StringMatch, 0)
-		for _, path := range rule.Paths {
-			permission.Paths = append(permission.Paths, convertToStringMatch(path))
+		pathRule := permissionForKeyValues(":path", rule.Paths)
+		if pathRule != nil {
+			rules.AndRules.Rules = append(rules.AndRules.Rules, pathRule)
 		}
 	}
 
 	if len(rule.Constraints) > 0 {
-		conditions := make([]*policyproto.Permission_Condition, 0)
-		for _, v := range rule.Constraints {
-			if cond, err := convertToPermissionCondition(v.Key, v.Values); err != nil {
-				log.Errorf("ignoring invalid rule condition (%s, %v): %v", v.Key, v.Values, err)
-			} else {
-				conditions = append(conditions, cond)
+		// Constraint rule is matched with AND semantics, it's invalid if 2 constraints have the same
+		// key and this should already be caught in validation stage.
+		for _, constraint := range rule.Constraints {
+			p := permissionForKeyValues(constraint.Key, constraint.Values)
+			if p != nil {
+				rules.AndRules.Rules = append(rules.AndRules.Rules, p)
 			}
 		}
-		permission.Conditions = conditions
 	}
 
-	return permission
+	return &policyproto.Permission{Rule: rules}
 }
 
 // convertToPrincipals converts a list of subjects to principals.
@@ -238,37 +254,134 @@ func convertToPrincipals(bindings []*rbacproto.ServiceRoleBinding) []*policyprot
 
 // convertToPrincipal converts a single subject to principal.
 func convertToPrincipal(subject *rbacproto.Subject) *policyproto.Principal {
-	principal := &policyproto.Principal{}
-
-	if subject.Group != "" {
-		log.Errorf("ignoring group %s, not supported for now", subject.Group)
-	}
-	attributes := make([]*policyproto.Principal_Attribute, 0)
-
-	// Use a separate keys list to make sure the map iteration order is stable, so that the generated
-	// config is stable.
-	var keys []string
-	for k := range subject.Properties {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		v := subject.Properties[k]
-		if attr, err := convertToPrincipalAttribute(k, v); err != nil {
-			log.Errorf("ignoring invalid subject attribute (%s, %s): %v", k, v, err)
-		} else {
-			attributes = append(attributes, attr)
-		}
-	}
-	if len(attributes) > 0 {
-		principal.Attributes = attributes
+	ids := &policyproto.Principal_AndIds{
+		AndIds: &policyproto.Principal_Set{
+			Ids: make([]*policyproto.Principal, 0),
+		},
 	}
 
 	if subject.User != "" {
-		principal.Authenticated = &policyproto.Principal_Authenticated{
-			Name: subject.User,
+		id := principalForKeyValue(userHeader, subject.User)
+		if id != nil {
+			ids.AndIds.Ids = append(ids.AndIds.Ids, id)
 		}
 	}
 
-	return principal
+	if subject.Group != "" {
+		log.Errorf("ignored Subject.group %s, not implemented", subject.Group)
+	}
+
+	if len(subject.Properties) != 0 {
+		// Use a separate key list to make sure the map iteration order is stable, so that the generated
+		// config is stable.
+		var keys []string
+		for k := range subject.Properties {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+
+		for _, k := range keys {
+			v, _ := subject.Properties[k]
+			id := principalForKeyValue(k, v)
+			if id != nil {
+				ids.AndIds.Ids = append(ids.AndIds.Ids, id)
+			}
+		}
+	}
+
+	return &policyproto.Principal{Identifier: ids}
+}
+
+func permissionForKeyValues(key string, values []string) *policyproto.Permission {
+	var converter func(string) (*policyproto.Permission, error)
+	switch {
+	case key == destinationIP:
+		converter = func(v string) (*policyproto.Permission, error) {
+			if cidr, err := convertToCidr(v); err != nil {
+				return nil, err
+			} else {
+				return &policyproto.Permission{
+					Rule: &policyproto.Permission_DestinationIp{DestinationIp: cidr},
+				}, nil
+			}
+		}
+	case key == destinationPort:
+		converter = func(v string) (*policyproto.Permission, error) {
+			if port, err := convertToPort(v); err != nil {
+				return nil, err
+			} else {
+				return &policyproto.Permission{
+					Rule: &policyproto.Permission_DestinationPort{DestinationPort: port},
+				}, nil
+			}
+		}
+	case key == pathHeader || key == methodHeader:
+		converter = func(v string) (*policyproto.Permission, error) {
+			return &policyproto.Permission{
+				Rule: &policyproto.Permission_Header{
+					Header: convertToHeaderMatcher(key, v),
+				},
+			}, nil
+		}
+	case strings.HasPrefix(key, requestHeaderPrefix) && strings.HasSuffix(key, requestHeaderSuffix):
+		header := strings.TrimSuffix(strings.TrimPrefix(key, requestHeaderPrefix), requestHeaderSuffix)
+		converter = func(v string) (*policyproto.Permission, error) {
+			return &policyproto.Permission{
+				Rule: &policyproto.Permission_Header{
+					Header: convertToHeaderMatcher(header, v),
+				},
+			}, nil
+		}
+	default:
+		log.Errorf("ignored unsupported constraint key: %s", key)
+		return nil
+	}
+
+	orRules := &policyproto.Permission_OrRules{
+		OrRules: &policyproto.Permission_Set{
+			Rules: make([]*policyproto.Permission, 0),
+		},
+	}
+	for _, v := range values {
+		if p, err := converter(v); err != nil {
+			log.Errorf("ignored invalid constraint value: %v", err)
+		} else {
+			orRules.OrRules.Rules = append(orRules.OrRules.Rules, p)
+		}
+	}
+
+	return &policyproto.Permission{Rule: orRules}
+}
+
+func principalForKeyValue(key, value string) *policyproto.Principal {
+	switch {
+	case key == userHeader:
+		return &policyproto.Principal{
+			Identifier: &policyproto.Principal_Authenticated_{
+				Authenticated: &policyproto.Principal_Authenticated{Name: value}},
+		}
+	case key == sourceIP:
+		cidr, err := convertToCidr(value)
+		if err != nil {
+			log.Errorf("ignored invalid source ip value: %v", err)
+			return nil
+		}
+		return &policyproto.Principal{Identifier: &policyproto.Principal_SourceIp{SourceIp: cidr}}
+	case key == sourceService:
+		return &policyproto.Principal{
+			Identifier: &policyproto.Principal_Header{
+				Header: convertToHeaderMatcher(serviceHeader, value),
+			},
+		}
+	case strings.HasPrefix(key, requestHeaderPrefix) && strings.HasSuffix(key, requestHeaderSuffix):
+		header := strings.TrimSuffix(strings.TrimPrefix(key, requestHeaderPrefix), requestHeaderSuffix)
+		return &policyproto.Principal{
+			Identifier: &policyproto.Principal_Header{
+				Header: convertToHeaderMatcher(header, value),
+			},
+		}
+	default:
+		log.Errorf("ignored unsupported property key: %s", key)
+		return nil
+	}
 }

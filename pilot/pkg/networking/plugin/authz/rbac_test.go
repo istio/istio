@@ -19,8 +19,8 @@ import (
 	"testing"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	policy "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha"
-	"github.com/envoyproxy/go-control-plane/envoy/type"
 	"github.com/gogo/protobuf/types"
 
 	rbacproto "istio.io/api/rbac/v1alpha1"
@@ -81,7 +81,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 						Properties: map[string]string{
 							"request.header[key]": "value",
 							"source.service":      "service-name",
-							"source.ip":           "192.1.2.0/24,2001:db8::/28",
+							"source.ip":           "192.1.2.0/24",
 						},
 					},
 				},
@@ -95,90 +95,249 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 
 	policy1 := &policy.Policy{
 		Permissions: []*policy.Permission{{
-			Paths: []*envoy_type.StringMatch{
-				{MatchPattern: &envoy_type.StringMatch_Suffix{"/suffix"}},
-				{MatchPattern: &envoy_type.StringMatch_Prefix{"/prefix"}},
-				{MatchPattern: &envoy_type.StringMatch_Simple{"/exact"}},
-				{MatchPattern: &envoy_type.StringMatch_Regex{"*"}}},
-			Methods: []string{
-				"GET", "POST",
+			Rule: &policy.Permission_AndRules{
+				AndRules: &policy.Permission_Set{
+					Rules: []*policy.Permission{
+						{
+							Rule: &policy.Permission_OrRules{
+								OrRules: &policy.Permission_Set{
+									Rules: []*policy.Permission{
+										{
+											Rule: &policy.Permission_Header{
+												Header: &route.HeaderMatcher{
+													Name: ":method",
+													HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
+														ExactMatch: "GET",
+													},
+												},
+											},
+										},
+										{
+											Rule: &policy.Permission_Header{
+												Header: &route.HeaderMatcher{
+													Name: ":method",
+													HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
+														ExactMatch: "POST",
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+						{
+							Rule: &policy.Permission_OrRules{
+								OrRules: &policy.Permission_Set{
+									Rules: []*policy.Permission{
+										{
+											Rule: &policy.Permission_Header{
+												Header: &route.HeaderMatcher{
+													Name: ":path",
+													HeaderMatchSpecifier: &route.HeaderMatcher_RegexMatch{
+														RegexMatch: "^.*/suffix$",
+													},
+												},
+											},
+										},
+										{
+											Rule: &policy.Permission_Header{
+												Header: &route.HeaderMatcher{
+													Name: ":path",
+													HeaderMatchSpecifier: &route.HeaderMatcher_RegexMatch{
+														RegexMatch: "^/prefix.*$",
+													},
+												},
+											},
+										},
+										{
+											Rule: &policy.Permission_Header{
+												Header: &route.HeaderMatcher{
+													Name: ":path",
+													HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
+														ExactMatch: "/exact",
+													},
+												},
+											},
+										},
+										{
+											Rule: &policy.Permission_Header{
+												Header: &route.HeaderMatcher{
+													Name: ":path",
+													HeaderMatchSpecifier: &route.HeaderMatcher_RegexMatch{
+														RegexMatch: "^.*$",
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
 			},
 		},
 		},
-		Principals: []*policy.Principal{
-			{Authenticated: &policy.Principal_Authenticated{Name: "user"}},
-		},
+		Principals: []*policy.Principal{{
+			Identifier: &policy.Principal_AndIds{
+				AndIds: &policy.Principal_Set{
+					Ids: []*policy.Principal{
+						{
+							Identifier: &policy.Principal_Authenticated_{
+								Authenticated: &policy.Principal_Authenticated{
+									Name: "user",
+								},
+							},
+						},
+					},
+				},
+			},
+		}},
 	}
 
 	policy2 := &policy.Policy{
 		Permissions: []*policy.Permission{{
-			Conditions: []*policy.Permission_Condition{
-				{
-					ConditionSpec: &policy.Permission_Condition_DestinationPorts{
-						DestinationPorts: &policy.PortMatch{
-							Ports: []uint32{80, 443},
-						},
-					},
-				},
-				{
-					ConditionSpec: &policy.Permission_Condition_DestinationIps{
-						DestinationIps: &policy.IpMatch{
-							Cidrs: []*core.CidrRange{
-								{AddressPrefix: "192.1.2.0", PrefixLen: &types.UInt32Value{Value: 24}},
-								{AddressPrefix: "2001:db8::", PrefixLen: &types.UInt32Value{Value: 28}},
+			Rule: &policy.Permission_AndRules{
+				AndRules: &policy.Permission_Set{
+					Rules: []*policy.Permission{
+						{
+							Rule: &policy.Permission_OrRules{
+								OrRules: &policy.Permission_Set{
+									Rules: []*policy.Permission{
+										{
+											Rule: &policy.Permission_DestinationPort{
+												DestinationPort: 80,
+											},
+										},
+										{
+											Rule: &policy.Permission_DestinationPort{
+												DestinationPort: 443,
+											},
+										},
+									},
+								},
 							},
 						},
-					},
-				},
-				{
-					ConditionSpec: &policy.Permission_Condition_Header{
-						Header: &policy.MapEntryMatch{
-							Key: "key1",
-							Values: []*envoy_type.StringMatch{
-								{MatchPattern: &envoy_type.StringMatch_Prefix{"prefix"}},
-								{MatchPattern: &envoy_type.StringMatch_Suffix{"suffix"}}}},
-					},
-				},
-				{
-					ConditionSpec: &policy.Permission_Condition_Header{
-						Header: &policy.MapEntryMatch{
-							Key: "key2",
-							Values: []*envoy_type.StringMatch{
-								{MatchPattern: &envoy_type.StringMatch_Simple{"simple"}},
-								{MatchPattern: &envoy_type.StringMatch_Regex{"*"}}}},
-					},
-				},
-			}},
-		},
-		Principals: []*policy.Principal{{
-			Attributes: []*policy.Principal_Attribute{
-				{
-					AttributeSpec: &policy.Principal_Attribute_Header{
-						Header: &policy.MapEntryMatch{
-							Key: "key",
-							Values: []*envoy_type.StringMatch{
-								{MatchPattern: &envoy_type.StringMatch_Simple{Simple: "value"}},
-							}},
-					},
-				},
-				{
-					AttributeSpec: &policy.Principal_Attribute_SourceIps{
-						SourceIps: &policy.IpMatch{
-							Cidrs: []*core.CidrRange{
-								{AddressPrefix: "192.1.2.0", PrefixLen: &types.UInt32Value{Value: 24}},
-								{AddressPrefix: "2001:db8::", PrefixLen: &types.UInt32Value{Value: 28}},
+						{
+							Rule: &policy.Permission_OrRules{
+								OrRules: &policy.Permission_Set{
+									Rules: []*policy.Permission{
+										{
+											Rule: &policy.Permission_DestinationIp{
+												DestinationIp: &core.CidrRange{
+													AddressPrefix: "192.1.2.0",
+													PrefixLen:     &types.UInt32Value{Value: 24},
+												},
+											},
+										},
+										{
+											Rule: &policy.Permission_DestinationIp{
+												DestinationIp: &core.CidrRange{
+													AddressPrefix: "2001:db8::",
+													PrefixLen:     &types.UInt32Value{Value: 28},
+												},
+											}},
+									},
+								},
 							},
 						},
-					},
-				},
-				{
-					AttributeSpec: &policy.Principal_Attribute_Service{
-						Service: "service-name",
+						{
+							Rule: &policy.Permission_OrRules{
+								OrRules: &policy.Permission_Set{
+									Rules: []*policy.Permission{
+										{
+											Rule: &policy.Permission_Header{
+												Header: &route.HeaderMatcher{
+													Name: "key1",
+													HeaderMatchSpecifier: &route.HeaderMatcher_RegexMatch{
+														RegexMatch: "^prefix.*$",
+													},
+												},
+											},
+										},
+										{
+											Rule: &policy.Permission_Header{
+												Header: &route.HeaderMatcher{
+													Name: "key1",
+													HeaderMatchSpecifier: &route.HeaderMatcher_RegexMatch{
+														RegexMatch: "^.*suffix$",
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+						{
+							Rule: &policy.Permission_OrRules{
+								OrRules: &policy.Permission_Set{
+									Rules: []*policy.Permission{
+										{
+											Rule: &policy.Permission_Header{
+												Header: &route.HeaderMatcher{
+													Name: "key2",
+													HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
+														ExactMatch: "simple",
+													},
+												},
+											},
+										},
+										{
+											Rule: &policy.Permission_Header{
+												Header: &route.HeaderMatcher{
+													Name: "key2",
+													HeaderMatchSpecifier: &route.HeaderMatcher_RegexMatch{
+														RegexMatch: "^.*$",
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
 					},
 				},
 			},
-		},
-		},
+		}},
+		Principals: []*policy.Principal{{
+			Identifier: &policy.Principal_AndIds{
+				AndIds: &policy.Principal_Set{
+					Ids: []*policy.Principal{
+						{
+							Identifier: &policy.Principal_Header{
+								Header: &route.HeaderMatcher{
+									Name: "key",
+									HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
+										ExactMatch: "value",
+									},
+								},
+							},
+						},
+						{
+							Identifier: &policy.Principal_SourceIp{
+								SourceIp: &core.CidrRange{
+									AddressPrefix: "192.1.2.0",
+									PrefixLen:     &types.UInt32Value{Value: 24},
+								},
+							},
+						},
+						{
+							Identifier: &policy.Principal_Header{
+								Header: &route.HeaderMatcher{
+									Name: ":service",
+									HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
+										ExactMatch: "service-name",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}},
 	}
 
 	expectRbac1 := &policy.RBAC{
