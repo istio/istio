@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 )
 
 var exitCode int
@@ -70,7 +69,6 @@ func doAllDirs(args []string) []string {
 	for _, r := range rpts {
 		reports = append(reports, r.msg)
 	}
-	sort.Strings(reports)
 	return reports
 }
 

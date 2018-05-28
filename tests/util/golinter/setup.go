@@ -21,10 +21,12 @@ import (
 	"strings"
 )
 
-var whitelistedPaths = []string{
-	"../counter/e2e/subdir_1/counte2e_subdir1_test.go",
-	"../counter/e2e/subdir_1/subdir_2/",
-}
+// whitelistedPaths contains paths of files and directories that skip linting.
+// Paths could be relevant paths or absolute paths.
+// For example,
+// ../../../mixer/test/client/check_cache/check_cache_test.go
+// ../../../mixer/test/client/check_cache_hit/
+var whitelistedPaths = []string{}
 
 // forbiddenFunctionCall lists all the forbidden functions in <package name>.<method name> format.
 var forbiddenFunctionCalls = []string{

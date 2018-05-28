@@ -20,6 +20,7 @@ import (
 	"go/parser"
 	"go/token"
 	"log"
+	"strings"
 )
 
 // LintReport stores report after processing a file.
@@ -162,13 +163,14 @@ func (lt *Linter) isIdent(expr ast.Expr, ident string) bool {
 }
 
 func (lt *Linter) scanMandatoryFunctionCallInTest(af *ast.File) {
+	// Collect all test functions with prefix "Test".
 	testFuncs := []*ast.FuncDecl{}
 	for _, d := range af.Decls {
-		if fn, isFn := d.(*ast.FuncDecl); isFn {
+		if fn, isFn := d.(*ast.FuncDecl); isFn && strings.HasPrefix(fn.Name.Name, "Test") {
 			testFuncs = append(testFuncs, fn)
 		}
 	}
-	// Checks each test function named TestXxx.
+	// Checks each test function with prefix "Test".
 	for _, function := range testFuncs {
 		// log.Printf("-- function %s", function.Name.String())
 		if !lt.hasMandatoryCall(function.Body.List) {
