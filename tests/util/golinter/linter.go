@@ -157,11 +157,6 @@ func (lt *Linter) isForbiddenCall(expr ast.Expr, fn string) bool {
 	return false
 }
 
-func (lt *Linter) isIdent(expr ast.Expr, ident string) bool {
-	id, ok := expr.(*ast.Ident)
-	return ok && id.Name == ident
-}
-
 func (lt *Linter) scanMandatoryFunctionCallInTest(af *ast.File) {
 	// Collect all test functions with prefix "Test".
 	testFuncs := []*ast.FuncDecl{}
