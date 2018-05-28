@@ -425,3 +425,20 @@ tracing:
     # requests:
     #  cpu: 100m
     #  memory: 128Mi
+
+kiali:
+  enabled: false
+  replicaCount: 1
+  image:
+    repository: kiali/kiali
+    tag: 0.3.0.Alpha
+  resources: {}
+    # limits:
+    #  cpu: 100m
+    #  memory: 128Mi
+    # requests:
+    #  cpu: 100m
+    #  memory: 128Mi
+  dashboard:
+    username: admin
+    password: admin

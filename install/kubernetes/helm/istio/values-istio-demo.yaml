@@ -26,3 +26,6 @@ tracing:
 
 servicegraph:
   enabled: true
+
+kiali:
+  enabled: true
