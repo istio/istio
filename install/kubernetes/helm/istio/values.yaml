@@ -395,10 +395,12 @@ tracing:
   enabled: false
   jaeger:
     enabled: false
+    memory:
+      max_traces: 50000
   replicaCount: 1
   image:
     repository: jaegertracing/all-in-one
-    tag: 1.4.1
+    tag: 1.5.0
   service:
     name: http
     type: ClusterIP
