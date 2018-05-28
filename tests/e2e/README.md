@@ -197,13 +197,12 @@ delay and version migration. Each test case applies specific rules for itself an
 
 You can build and run this or any single test manually with the same options when testing specific version of master, mixer or istioctl
 
-# Running E2E tests on your local Vagrant VM
-[vagrant-kubernetes-istio/README](vagrant-kubernetes-istio/README.md) introduces how to set up a Vagrant VM environment on your local machine and run E2E tests on the local VM.
- This helps you to test and debug locally.
+# Running E2E tests using a local VM
+E2E tests can be run on your local machines as well. It helps local testing and debuging.
 
-# Running E2E tests on your local Minikube VM
-[minikube-kubernetes-istio/README](minikube-kubernetes-istio/README.md) introduces how to set up a Minikube VM environment on your local machine and run E2E tests on the local VM.
- This helps you to test and debug locally.
+See [vagrant/README](local/vagrant/README.md) for instructions to set up a local Vagrant VM environment to run E2E tests.
+
+And see [minikube/README](local/minikube/README.md) for instructions to set up a Minikube VM environment to run E2E tests.
  
 # Writing tests
 
