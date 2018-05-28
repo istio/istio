@@ -94,7 +94,7 @@ func TestRequireTls(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		if got, params := RequireTLS(c.in); got != c.expected || !reflect.DeepEqual(c.expectedParams, params) {
+		if got, params := RequireTLS(c.in, model.Sidecar); got != c.expected || !reflect.DeepEqual(c.expectedParams, params) {
 			t.Errorf("%s: requireTLS(%v): got(%v, %v) != want(%v, %v)\n", c.name, c.in, got, params, c.expected, c.expectedParams)
 		}
 	}
@@ -711,7 +711,7 @@ func TestConvertPolicyToAuthNFilterConfig(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		if got := ConvertPolicyToAuthNFilterConfig(c.in); !reflect.DeepEqual(c.expected, got) {
+		if got := ConvertPolicyToAuthNFilterConfig(c.in, model.Sidecar); !reflect.DeepEqual(c.expected, got) {
 			t.Errorf("Test case %s: expected\n%#v\n, got\n%#v", c.name, c.expected.String(), got.String())
 		}
 	}
@@ -722,6 +722,7 @@ func TestBuildAuthNFilter(t *testing.T) {
 		in                   *authn.Policy
 		expectedFilterConfig *authn_filter.FilterConfig
 	}{
+
 		{
 			in:                   nil,
 			expectedFilterConfig: nil,
@@ -762,7 +763,7 @@ func TestBuildAuthNFilter(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		got := BuildAuthNFilter(c.in)
+		got := BuildAuthNFilter(c.in, model.Sidecar)
 		if got == nil {
 			if c.expectedFilterConfig != nil {
 				t.Errorf("BuildAuthNFilter(%#v), got: nil, wanted filter with config %s", c.in, c.expectedFilterConfig.String())
@@ -900,7 +901,7 @@ func TestBuildSidecarListenerTLSContex(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		if got := buildSidecarListenerTLSContext(c.in, nil); !reflect.DeepEqual(c.expected, got) {
+		if got := buildSidecarListenerTLSContext(c.in, model.Sidecar); !reflect.DeepEqual(c.expected, got) {
 			t.Errorf("Test case %s: expected\n%#v\n, got\n%#v", c.name, c.expected.String(), got.String())
 		}
 	}

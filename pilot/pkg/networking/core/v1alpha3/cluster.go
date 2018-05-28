@@ -118,7 +118,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environmen
 				}
 			} else {
 				// set TLSSettings if configmap global settings specifies MUTUAL_TLS, and we skip external destination.
-				if env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS && !service.MeshExternal {
+				if env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS && !service.MeshExternal && proxy.Type == model.Sidecar {
 					applyUpstreamTLSSettings(defaultCluster, buildIstioMutualTLS(upstreamServiceAccounts))
 				}
 			}

@@ -150,3 +150,36 @@ func TestAuthNJwt(t *testing.T) {
 		})
 	}
 }
+
+func TestGatewayIngress_AuthN_JWT(t *testing.T) {
+	if !tc.V1alpha3 || tc.Kube.AuthEnabled {
+		t.Skipf("Skipping %s: v1alpha3=false", t.Name())
+	}
+
+	istioNamespace := tc.Kube.IstioSystemNamespace()
+	ingressGatewayServiceName := tc.Kube.IstioIngressGatewayService()
+
+	// Configure a route from us.bookinfo.com to "c-v2" only
+	cfgs := &deployableConfig{
+		Namespace: tc.Kube.Namespace,
+		YamlFiles: []string{
+			"testdata/v1alpha3/ingressgateway.yaml",
+			maybeAddTLSForDestinationRule(tc, "testdata/v1alpha3/destination-rule-c.yaml"),
+			"testdata/v1alpha3/rule-ingressgateway.yaml",
+			"testdata/authn/v1alpha1/authn-policy-ingressgateway-jwt.yaml"},
+	}
+
+	if err := cfgs.Setup(); err != nil {
+		t.Fatal(err)
+	}
+	defer cfgs.Teardown()
+
+	runRetriableTest(t, "GatewayIngress_AuthN_JWT", defaultRetryBudget, func() error {
+		reqURL := fmt.Sprintf("http://%s.%s/c", ingressGatewayServiceName, istioNamespace)
+		resp := ClientRequest("t", reqURL, 1, "-key Host -val uk.bookinfo.com")
+		if len(resp.Code) > 0 && resp.Code[0] == "401" {
+			return nil
+		}
+		return errAgain
+	})
+}

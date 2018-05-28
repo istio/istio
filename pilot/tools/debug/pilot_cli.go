@@ -290,8 +290,23 @@ func main() {
 	kubeConfig := flag.String("kubeconfig", "~/.kube/config", "path to the kubeconfig file. Default is ~/.kube/config")
 	pilotURL := flag.String("pilot", "", "pilot address. Will try port forward if not provided.")
 	configType := flag.String("type", "lds", "lds, cds, or eds. Default lds.")
+<<<<<<< HEAD
+<<<<<<< HEAD
 	proxyType := flag.String("proxytype", "", "sidecar, ingress, router.")
 	resources := flag.String("res", "", "Resource(s) to get config for. Should be pod name or app label or istio label for lds and cds type. For eds, it is comma separated list of cluster name.")
+=======
+<<<<<<< HEAD
+	proxyType := flag.String("proxytype", "sidecar", "sidecar, ingress, router. Default sidecar.")
+	resources := flag.String("res", "", "Resource(s) to get config for. Should be pod name or app label for lds and cds type. For eds, it is comma separated list of cluster name.")
+=======
+	resources := flag.String("res", "istio-ingressgateway-8b76d5856-2qkk7", "Resource(s) to get config for. Should be pod name or app label for lds and cds type. For eds, it is comma separated list of cluster name.")
+	//resources := flag.String("res", "httpbin-7459cd8fd6-prlkn", "Resource(s) to get config for. Should be pod name or app label for lds and cds type. For eds, it is comma separated list of cluster name.")
+>>>>>>> ingress authn policy poc
+>>>>>>> 7bcace159... ingress authn policy poc
+=======
+	proxyType := flag.String("proxytype", "sidecar", "sidecar, ingress, router. Default sidecar.")
+	resources := flag.String("res", "", "Resource(s) to get config for. Should be pod name or app label for lds and cds type. For eds, it is comma separated list of cluster name.")
+>>>>>>> e519d82da... add integration test
 	outputFile := flag.String("out", "", "output file. Leave blank to go to stdout")
 	flag.Parse()
 
