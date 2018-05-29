@@ -160,11 +160,11 @@ func (c *controller) updateResourceVersionMetric(otype string, obj interface{}, 
 		"resourceVersion": metadata.GetResourceVersion(),
 		"instanceID":      c.instanceID,
 	}
-	var value float64
 	if add {
-		value = 1
+		k8sResourceVersions.With(labels).Set(1)
+	} else {
+		k8sResourceVersions.Delete(labels)
 	}
-	k8sResourceVersions.With(labels).Set(value)
 }
 
 func (c *controller) createInformer(
