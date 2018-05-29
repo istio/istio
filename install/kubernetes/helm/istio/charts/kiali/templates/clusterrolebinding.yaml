@@ -11,9 +11,9 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istio-kiali-{{ .Release.Namespace }}
+  name: kiali
 subjects:
 - kind: ServiceAccount
-  name: istio-kiali-service-account
+  name: kiali-service-account
   namespace: {{ .Release.Namespace }}
 {{- end }
