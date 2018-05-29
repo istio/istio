@@ -9,7 +9,7 @@ Additional overview of what myapa is etc..
 package istio.mixer.adapter.MyApa;
 
 import "mixer/adapter/model/v1beta1/extensions.proto";
-import "mixer/adapter/model/v1beta1/type.proto";
+import "policy/v1beta1/type.proto";
 
 option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR;
 
@@ -26,9 +26,9 @@ message Template {
 
     map<string, string> dimensions = 5;
 
-    istio.mixer.adapter.model.v1beta1.TimeStamp timeStamp = 6;
+    istio.policy.v1beta1.TimeStamp timeStamp = 6;
 
-    istio.mixer.adapter.model.v1beta1.Duration duration = 7;
+    istio.policy.v1beta1.Duration duration = 7;
 }
 
 /* my outputtemplate
@@ -45,7 +45,7 @@ message OutputTemplate {
 
     map<string, string> dimensions = 5;
 
-    istio.mixer.adapter.model.v1beta1.TimeStamp timeStamp = 6;
+    istio.policy.v1beta1.TimeStamp timeStamp = 6;
 
-    istio.mixer.adapter.model.v1beta1.Duration duration = 7;
+    istio.policy.v1beta1.Duration duration = 7;
 }
