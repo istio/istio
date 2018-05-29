@@ -2,7 +2,7 @@
 set -e
 set -u
 
-SCRIPTPATH=$(cd "$(dirname "$0")" && pwd)
+SCRIPTPATH=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 ROOTDIR=$(cd "$(dirname "${SCRIPTPATH}")" && pwd)
 DIR="./..."
 CODECOV_SKIP="${ROOTDIR}/codecov.skip"
