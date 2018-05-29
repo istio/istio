@@ -5,17 +5,16 @@ die () {
   exit 1
 }
 
-WD=$(dirname $0)
-WD=$(cd $WD; pwd)
-ROOT=$(dirname $WD)
+WD=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd --physical)
+ROOT=$(cd "$(dirname "${WD}")" && pwd --physical)
 
-if [ ! -e $ROOT/Gopkg.lock ]; then
+if [ ! -e "$ROOT/Gopkg.lock" ]; then
   echo "Please run 'dep ensure' first"
   exit 1
 fi
 
-GOGO_VERSION=$(sed -n '/gogo\/protobuf/,/\[\[projects/p' $ROOT/Gopkg.lock | grep 'version =' | sed -e 's/^[^\"]*\"//g' -e 's/\"//g')
-GENDOCS_VERSION=$(sed -n '/protoc-gen-docs/,/\[\[projects/p' $ROOT/Gopkg.lock | grep revision | sed -e 's/^[^\"]*\"//g' -e 's/\"//g')
+GOGO_VERSION=$(sed -n '/gogo\/protobuf/,/\[\[projects/p' "$ROOT/Gopkg.lock" | grep 'version =' | sed -e 's/^[^\"]*\"//g' -e 's/\"//g')
+GENDOCS_VERSION=$(sed -n '/protoc-gen-docs/,/\[\[projects/p' "$ROOT/Gopkg.lock" | grep revision | sed -e 's/^[^\"]*\"//g' -e 's/\"//g')
 
 set -e
 
@@ -39,7 +38,7 @@ while getopts ':f:o:p:i:t:' flag; do
   case "${flag}" in
     f) $opttemplate && die "Cannot use proto file option (-f) with template file option (-t)"
        optproto=true
-       file+="/${OPTARG}" 
+       file+="/${OPTARG}"
        ;;
     o) outdir="${OPTARG}" ;;
     p) protoc="${OPTARG}" ;;
@@ -55,7 +54,7 @@ done
 # echo "outdir: ${outdir}"
 
 # Ensure expected GOPATH setup
-if [ $ROOT != "${GOPATH-$HOME/go}/src/istio.io/istio" ]; then
+if [ "$ROOT" != "${GOPATH-$HOME/go}/src/istio.io/istio" ]; then
   die "Istio not found in GOPATH/src/istio.io/"
 fi
 
@@ -65,34 +64,34 @@ PROTOC_PATH=$(which protoc)
  fi
 
 GOGOPROTO_PATH=vendor/github.com/gogo/protobuf
-GOGOSLICK=protoc-gen-gogoslick
+GOGOSLICK="protoc-gen-gogoslick"
 GOGOSLICK_PATH=$ROOT/$GOGOPROTO_PATH/$GOGOSLICK
-GENDOCS=protoc-gen-docs
+GENDOCS="protoc-gen-docs"
 GENDOCS_PATH=vendor/github.com/istio/tools/$GENDOCS
 
-if [ ! -e $ROOT/bin/$GOGOSLICK-$GOGO_VERSION ]; then
+if [ ! -e "$ROOT/bin/$GOGOSLICK-$GOGO_VERSION" ]; then
 echo "Building protoc-gen-gogoslick..."
-pushd $ROOT
-go build --pkgdir $GOGOSLICK_PATH -o $ROOT/bin/$GOGOSLICK-$GOGO_VERSION ./$GOGOPROTO_PATH/$GOGOSLICK
+pushd "$ROOT"
+go build --pkgdir "$GOGOSLICK_PATH" -o "$ROOT/bin/$GOGOSLICK-$GOGO_VERSION" ./$GOGOPROTO_PATH/$GOGOSLICK
 popd
 echo "Done."
 fi
 
-if [ ! -e $ROOT/bin/$GENDOCS-$GENDOCS_VERSION ]; then
+if [ ! -e "$ROOT/bin/$GENDOCS-$GENDOCS_VERSION" ]; then
 echo "Building protoc-gen-docs..."
-pushd $ROOT/$GENDOCS_PATH
-go build --pkgdir $GENDOCS_PATH -o $ROOT/bin/$GENDOCS-$GENDOCS_VERSION
+pushd "$ROOT/$GENDOCS_PATH"
+go build --pkgdir "$GENDOCS_PATH" -o "$ROOT/bin/$GENDOCS-$GENDOCS_VERSION"
 popd
 echo "Done."
 fi
 
-PROTOC_MIN_VERSION=protoc-min-version
+PROTOC_MIN_VERSION="protoc-min-version"
 MIN_VERSION_PATH=$ROOT/$GOGOPROTO_PATH/$PROTOC_MIN_VERSION
 
-if [ ! -e $ROOT/bin/$PROTOC_MIN_VERSION-$GOGO_VERSION ]; then
+if [ ! -e "$ROOT/bin/$PROTOC_MIN_VERSION-$GOGO_VERSION" ]; then
 echo "Building protoc-min-version..."
-pushd $ROOT
-go build --pkgdir $MIN_VERSION_PATH -o $ROOT/bin/$PROTOC_MIN_VERSION-$GOGO_VERSION ./$GOGOPROTO_PATH/$PROTOC_MIN_VERSION
+pushd "$ROOT"
+go build --pkgdir "$MIN_VERSION_PATH" -o "$ROOT/bin/$PROTOC_MIN_VERSION-$GOGO_VERSION" ./$GOGOPROTO_PATH/$PROTOC_MIN_VERSION
 popd
 echo "Done."
 fi
@@ -169,25 +168,25 @@ if [ "$opttemplate" = true ]; then
   templatePG=${template/.proto/$pb_go}
   # generate the descriptor set for the intermediate artifacts
   DESCRIPTOR="--include_imports --include_source_info --descriptor_set_out=$templateDS"
-  err=`$protoc $DESCRIPTOR $IMPORTS $PLUGIN $GENDOCS_PLUGIN_TEMPLATE $template`
+  err=$($protoc "$DESCRIPTOR" "$IMPORTS" "$PLUGIN" "$GENDOCS_PLUGIN_TEMPLATE" "$template")
   if [ ! -z "$err" ]; then
     die "template generation failure: $err";
   fi
 
-  go run $GOPATH/src/istio.io/istio/mixer/tools/codegen/cmd/mixgenproc/main.go $templateDS -o $templateHG -t $templateHSP $TMPL_GEN_MAP
+  go run "$GOPATH/src/istio.io/istio/mixer/tools/codegen/cmd/mixgenproc/main.go" "$templateDS" -o "$templateHG" -t "$templateHSP" "$TMPL_GEN_MAP"
 
-  err=`$protoc $IMPORTS $TMPL_PLUGIN $templateHSP`
+  err=$($protoc "$IMPORTS" "$TMPL_PLUGIN" "$templateHSP")
   if [ ! -z "$err" ]; then
     die "template generation failure: $err";
   fi
 
-  rm $templatePG
+  rm "$templatePG"
 
   exit 0
 fi
 
 # handle simple protoc-based generation
-err=`$protoc $IMPORTS $PLUGIN $GENDOCS_PLUGIN_FILE $file`
-if [ ! -z "$err" ]; then 
-  die "generation failure: $err"; 
+err=$($protoc "$IMPORTS" "$PLUGIN" "$GENDOCS_PLUGIN_FILE" "$file")
+if [ ! -z "$err" ]; then
+  die "generation failure: $err";
 fi

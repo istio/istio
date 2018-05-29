@@ -8,23 +8,23 @@
 
 set -o errexit
 
-WD=$(dirname $0)
-WD=$(cd $WD; pwd)
-ROOT=$(dirname $WD)
+WD=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd --physical)
+ROOT=$(cd "$(dirname "${SCRIPTPATH}")" && pwd --physical)
 if [[ $ROOT == */.git ]]; then
     ROOT=$ROOT/..
 fi
-
-export GOPATH=$(cd $ROOT/../..)
-export PATH=$GOPATH/bin:$PATH
+GOPATH=$(cd "$ROOT/../.." && pwd --physical)
+export GOPATH
+PATH=$GOPATH/bin:$PATH
+export PATH
 
 # Not running under git commit
 # install handler
 if [[ -z ${GIT_AUTHOR_DATE} ]];then
-    cd $ROOT/.git/hooks/
-    if !([[ -e pre-commit ]] || [[ -h pre-commit ]]); then
+    cd "$ROOT/.git/hooks/"
+    if ! ([[ -e pre-commit ]] || [[ -h pre-commit ]]); then
         echo "Installing pre-commit hook"
-        ln -s $ROOT/bin/pre-commit
+        ln -s "$ROOT/bin/pre-commit"
     else
         echo "Hook already installed"
     fi
@@ -33,8 +33,8 @@ fi
 
 # If we don't have a branch then we're in a detached state (e.g. mid
 # rebase) and don't want to execute our checks.
-BRANCH_NAME=$(git branch | grep '*' | sed 's/* //')
-if [ $BRANCH_NAME != '(no branch)' ]; then
-    cd $ROOT
+BRANCH_NAME=$(git branch | grep '\*' | sed 's/* //')
+if [ "$BRANCH_NAME" != '(no branch)' ]; then
+    cd "$ROOT"
     make precommit
 fi
