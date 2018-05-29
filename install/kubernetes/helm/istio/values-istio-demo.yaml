@@ -6,7 +6,7 @@
 # --set global.nodePort=true
 # --set ingressgateway.service.type=NodePort
 global:
-  #nodePort: true
+  nodePort: false
 
 ingress:
   # Ingress is used for migration, for alpha3 we expect ingressgateway

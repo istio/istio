@@ -2175,7 +2175,12 @@ func ValidateServiceEntry(config proto.Message) (errs error) {
 		errs = appendErrors(errs, fmt.Errorf("service entry must have at least one host"))
 	}
 	for _, host := range serviceEntry.Hosts {
-		errs = appendErrors(errs, ValidateWildcardDomain(host))
+		// Full wildcard or short names are not allowed in the service entry.
+		if host == "*" || !strings.Contains(host, ".") {
+			errs = appendErrors(errs, fmt.Errorf("invalid host %s", host))
+		} else {
+			errs = appendErrors(errs, ValidateWildcardDomain(host))
+		}
 	}
 	for _, address := range serviceEntry.Addresses {
 		errs = appendErrors(errs, validateCIDR(address))

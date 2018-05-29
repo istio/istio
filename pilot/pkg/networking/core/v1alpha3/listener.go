@@ -349,6 +349,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				protocol:       servicePort.Protocol,
 			}
 
+			currentListener = nil
+
 			switch plugin.ModelProtocolToListenerType(servicePort.Protocol) {
 			case plugin.ListenerTypeHTTP:
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
@@ -448,16 +450,15 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				continue
 			}
 
-			// By default we require SNI; if there's only one filter chain then we know there's either 0 or 1 cert,
-			// therefore SNI is not required.
-			// This won't be true for HTTPS outbound listeners that are simply getting forwarded
-			if len(mutable.Listener.FilterChains) == 1 && mutable.Listener.FilterChains[0].TlsContext != nil {
-				mutable.Listener.FilterChains[0].TlsContext.RequireSni = boolFalse
-			}
-
 			if currentListener != nil {
 				// merge the newly built listener with the existing listener
-				currentListener.FilterChains = append(currentListener.FilterChains, mutable.Listener.FilterChains...)
+				newFilterChains := make([]listener.FilterChain, 0, len(currentListener.FilterChains)+len(mutable.Listener.FilterChains))
+				newFilterChains = append(newFilterChains, currentListener.FilterChains...)
+				newFilterChains = append(newFilterChains, mutable.Listener.FilterChains...)
+				currentListener.FilterChains = newFilterChains
+			} else {
+				listenerMap[listenerMapKey] = mutable.Listener
+				listenerTypeMap[listenerMapKey] = servicePort.Protocol
 			}
 
 			if log.DebugEnabled() && len(mutable.Listener.FilterChains) > 1 || currentListener != nil {
@@ -469,9 +470,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				}
 				log.Debugf("buildSidecarOutboundListeners: multiple filter chain listener %s with %d chains", mutable.Listener.Name, numChains)
 			}
-
-			listenerMap[listenerMapKey] = mutable.Listener
-			listenerTypeMap[listenerMapKey] = servicePort.Protocol
 		}
 	}
 
