@@ -86,6 +86,10 @@ static_resources:
                         string_value: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
                       destination.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
+                      destination.ip:
+                        bytes_value: {{ .PodIP }}
+                      destination.port:
+                        int64_value: 15003
               transport:
                 check_cluster: mixer_check_server
                 report_cluster: mixer_report_server
@@ -152,6 +156,10 @@ static_resources:
                         string_value: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
                       destination.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
+                      destination.ip:
+                        bytes_value: {{ .PodIP }}
+                      destination.port:
+                        int64_value: 15011
               transport:
                 check_cluster: mixer_check_server
                 report_cluster: mixer_report_server
@@ -213,6 +221,10 @@ static_resources:
                         string_value: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
                       destination.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
+                      destination.ip:
+                        bytes_value: {{ .PodIP }}
+                      destination.port:
+                        int64_value: 15005
               transport:
                 check_cluster: mixer_check_server
                 report_cluster: mixer_report_server
@@ -274,6 +286,10 @@ static_resources:
                         string_value: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
                       destination.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
+                      destination.ip:
+                        bytes_value: {{ .PodIP }}
+                      destination.port:
+                        int64_value: 15007
               transport:
                 check_cluster: mixer_check_server
                 report_cluster: mixer_report_server

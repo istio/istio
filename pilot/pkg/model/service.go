@@ -100,6 +100,9 @@ const (
 	Passthrough
 )
 
+// UnspecifiedIP constant for empty IP address
+const UnspecifiedIP = "0.0.0.0"
+
 // Port represents a network port where a service is listening for
 // connections. The port should be annotated with the type of protocol
 // used by the port.
@@ -151,6 +154,28 @@ const (
 	// ProtocolUnsupported - value to signify that the protocol is unsupported
 	ProtocolUnsupported Protocol = "UnsupportedProtocol"
 )
+
+// AddressFamily indicates the kind of transport used to reach a NetworkEndpoint
+type AddressFamily int
+
+const (
+	// AddressFamilyTCP represents an address that connects to a TCP endpoint. It consists of an IP address or host and
+	// a port number.
+	AddressFamilyTCP AddressFamily = iota
+	// AddressFamilyUnix represents an address that connects to a Unix Domain Socket. It consists of a socket file path.
+	AddressFamilyUnix
+)
+
+func (f AddressFamily) String() string {
+	switch f {
+	case AddressFamilyTCP:
+		return "tcp"
+	case AddressFamilyUnix:
+		return "unix"
+	default:
+		return fmt.Sprintf("%d", f)
+	}
+}
 
 // TrafficDirection defines whether traffic exists a service instance or enters a service instance
 type TrafficDirection string
@@ -209,7 +234,7 @@ func (p Protocol) IsHTTP() bool {
 // IsTCP is true for protocols that use TCP as transport protocol
 func (p Protocol) IsTCP() bool {
 	switch p {
-	case ProtocolTCP, ProtocolHTTPS, ProtocolMongo, ProtocolRedis, ProtocolHTTP, ProtocolHTTP2, ProtocolGRPC:
+	case ProtocolTCP, ProtocolHTTPS, ProtocolMongo, ProtocolRedis:
 		return true
 	default:
 		return false
@@ -234,12 +259,18 @@ func (p Protocol) IsTCP() bool {
 //  --> 172.16.0.1:54546 (with ServicePort pointing to 80) and
 //  --> 172.16.0.1:33333 (with ServicePort pointing to 8080)
 type NetworkEndpoint struct {
-	// Address of the network endpoint, typically an IPv4 address
+	// Family indicates what type of endpoint, such as TCP or Unix Domain Socket.
+	Family AddressFamily
+
+	// Address of the network endpoint. If Family is `AddressFamilyTCP`, it is
+	// typically an IPv4 address. If Family is `AddressFamilyUnix`, it is the
+	// path to the domain socket.
 	Address string
 
 	// Port number where this instance is listening for connections This
 	// need not be the same as the port where the service is accessed.
 	// e.g., catalog.mystore.com:8080 -> 172.16.0.1:55446
+	// Ignored for `AddressFamilyUnix`.
 	Port int
 
 	// Port declaration from the service declaration This is the port for

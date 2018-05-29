@@ -54,13 +54,15 @@ function gen_file() {
     fi
 }
 
-TARGETS="istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml"
-TARGETS+=" istio-multicluster.yaml istio-auth-multicluster.yaml istio-remote.yaml"
-TARGETS+=" istio-galley.yaml istio-auth-galley.yaml"
-
-for target in ${TARGETS}; do
-    gen_file $target ${DEST_DIR}
-done
+if [[ ! -z ${ISTIO_RELEASE:-} ]]; then
+    for target in istio-demo.yaml istio-demo-auth.yaml; do
+        gen_file $target ${DEST_DIR}
+    done
+else
+    for target in istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml istio-multicluster.yaml istio-auth-multicluster.yaml istio-remote.yaml istio-galley.yaml istio-auth-galley.yaml;do
+        gen_file $target ${DEST_DIR}
+    done
+fi
 
 # run something like
 # helm template install/kubernetes/helm/istio -x templates/namespace.yaml

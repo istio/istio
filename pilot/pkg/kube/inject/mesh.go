@@ -144,6 +144,10 @@ containers:
   {{ else -}}
   imagePullPolicy: {{ .ImagePullPolicy }}
   {{ end -}}
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
   securityContext:
     {{ if eq .DebugMode true -}}
     privileged: true

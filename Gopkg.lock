@@ -23,7 +23,7 @@
     "api",
     "testhelpers"
   ]
-  revision = "94d9a77d88daf011a4991bf982d16ebd34ecf2c8"
+  revision = "1e7e324f8366ded261140272c9e44d0ee681bdbf"
 
 [[projects]]
   name = "github.com/Azure/go-autorest"
@@ -1301,7 +1301,7 @@
     "rbac/v1alpha1",
     "routing/v1alpha1"
   ]
-  revision = "269a4923e88255bb5cad97e3ff97f3f09ab78442"
+  revision = "e01d1410438cb9003b02252a1aad0b718a0f2811"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1317,8 +1317,8 @@
     "ui",
     "version"
   ]
-  revision = "e50943e8e525197f36f9b4f81464615c063a0a65"
-  version = "v0.9.0"
+  revision = "d17e45b4f794ac1722747d7cfbcbe0479722868a"
+  version = "v0.11.0"
 
 [[projects]]
   name = "k8s.io/api"

@@ -6,6 +6,7 @@ FROM istionightly/base_debug
 COPY hyperistio kube-apiserver etcd kubectl /usr/local/bin/
 COPY *.yaml /var/lib/istio/config/
 COPY certs/ /var/lib/istio/
+COPY certs/default/* /etc/certs/
 
 COPY istio.deb /tmp
 COPY istio-sidecar.deb /tmp

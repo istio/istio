@@ -5,18 +5,52 @@
 
 # Common settings.
 global:
-  # Default tag for Istio images.
-  hub: docker.io/istionightly
+  # Default repository for Istio images.
+  # Releases are published to docker hub under 'istio' project.
+  # Daily builds from prow are on gcr.io, and nightly builds from circle on
+  # docker.io/istionightly
+  hub: docker.io/istio
 
   # Default tag for Istio images.
-  # Should track latest released version.
-  # Currently using nightly build, for testing
-  tag: circleci-nightly
+  # Should track latest released version in the branch.
+  tag: 0.8.latest
   proxy:
-    image: proxy
-  # proxyv2 image is the image to use for networking alpha3 and envoy v2
-  proxyv2:
     image: proxyv2
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+    # istio-sidecar-injector configmap stores configuration for sidecar injection.
+    # This config map is used by istioctl kube-inject and the injector webhook.
+    enableCoreDump: false
+    serviceAccountName: default # used only if RBAC is not enabled
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+    # limits:
+    #  cpu: 100m
+    #  memory: 128Mi
+
+    # istio egress capture whitelist
+    # https://istio.io/docs/tasks/traffic-management/egress.html#calling-external-services-directly
+    # example: includeIPRanges: "172.30.0.0/16,172.20.0.0/16"
+    # would only capture egress traffic on those two IP Ranges, all other outbound traffic would
+    # be allowed by the sidecar
+    includeIPRanges: "*"
+    excludeIPRanges: ""
+
+    # istio ingress capture whitelist
+    # examples:
+    #     Redirect no inbound traffic to Envoy:    --includeInboundPorts=""
+    #     Redirect all inbound traffic to Envoy:   --includeInboundPorts="*"
+    #     Redirect only selected ports:            --includeInboundPorts="80,8080"
+    includeInboundPorts: "*"
+    excludeInboundPorts: ""
+    policy: enabled
+
   proxy_init:
     image: proxy_init
 
@@ -29,9 +63,6 @@ global:
   hyperkube:
     repository: quay.io/coreos/hyperkube
     tag: v1.7.6_coreos.0
-
-  # Install istio CA.
-  securityEnabled: true
 
   # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
   # propagated, not recommended for tests.
@@ -93,10 +124,15 @@ ingress:
 #  memory: 128Mi
   service:
     loadBalancerIP: ""
-    nodePort:
-      enabled: false
-      port: 32000
-
+    type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
+    ports:
+    - port: 80
+      name: http
+      nodePort: 32000
+    - port: 443
+      name: https
+    selector:
+      istio: ingress
 #
 # ingressgateway configuration
 #
@@ -117,6 +153,7 @@ ingressgateway:
     labels:
       istio: ingressgateway
     #namespace: istio-system
+    loadBalancerIP: ""
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
     ports:
       ## You can add custom gateway ports
@@ -136,10 +173,10 @@ ingressgateway:
     - containerPort: 80
     - containerPort: 443
     - containerPort: 31400
-  # secretVolumes: TODO
-  # - name: someName
-  #   mountPath: somePath
-  #   secretName: someName
+    secretVolumes:
+    - name: ingressgateway-certs
+      secretName: istio-ingressgateway-certs
+      mountPath: /etc/istio/ingressgateway-certs
 
 #
 # egressgateway configuration
@@ -180,38 +217,12 @@ egressgateway:
   #   secretName: someName
 
 #
-# sidecar-injector configuration
+# sidecar-injector webhook configuration
 #
-sidecar-injector:
-  enabled: false
-  enableCoreDump: false
-  serviceAccountName: default # used only if RBAC is not enabled
-  replicaCount: 1
+sidecarInjectorWebhook:
+  enabled: true
   image: sidecar_injector
-  resources: {}
-  # limits:
-  #  cpu: 100m
-  #  memory: 128Mi
-  # requests:
-  #  cpu: 100m
-  #  memory: 128Mi
 
-  # istio egress capture whitelist
-  # https://istio.io/docs/tasks/traffic-management/egress.html#calling-external-services-directly
-  # example: includeIPRanges: "172.30.0.0/16,172.20.0.0/16"
-  # would only capture egress traffic on those two IP Ranges, all other outbound traffic would
-  # be allowed by the sidecar
-  includeIPRanges: "*"
-  excludeIPRanges: ""
-
-  # istio ingress capture whitelist
-  # examples:
-  #     Redirect no inbound traffic to Envoy:    --includeInboundPorts=""
-  #     Redirect all inbound traffic to Envoy:   --includeInboundPorts="*"
-  #     Redirect only selected ports:            --includeInboundPorts="80,8080"
-  includeInboundPorts: "*"
-  excludeInboundPorts: ""
-  policy: enabled
 
 #
 # galley configuration
@@ -270,6 +281,7 @@ pilot:
 # security configuration
 #
 security:
+  enabled: true
   serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
   image: citadel
@@ -280,6 +292,7 @@ security:
   # requests:
   #  cpu: 100m
   #  memory: 128Mi
+  cleanUpOldCA: true
 
 #
 # addons configuration
@@ -316,7 +329,7 @@ grafana:
     #  memory: 128Mi
 
 prometheus:
-  enabled: false
+  enabled: true
   replicaCount: 1
   image:
     repository: docker.io/prom/prometheus
@@ -324,8 +337,8 @@ prometheus:
   ingress:
     enabled: false
     # Used to create an Ingress record.
-    hosts:
-      - prometheus.local
+    #hosts:
+    #  - prometheus.local
     annotations:
       # kubernetes.io/ingress.class: nginx
       # kubernetes.io/tls-acme: "true"
@@ -378,17 +391,20 @@ servicegraph:
   # prometheus addres
   prometheusAddr: http://prometheus:9090
 
-zipkin:
+tracing:
   enabled: false
+  jaeger:
+    enabled: false
   replicaCount: 1
   image:
-    repository: docker.io/openzipkin/zipkin
-    tag: 2.7
+    repository: jaegertracing/all-in-one
+    tag: 1.4.1
   service:
     name: http
     type: ClusterIP
     externalPort: 9411
     internalPort: 9411
+    uiPort: 16686
   ingress:
     enabled: false
     # Used to create an Ingress record.

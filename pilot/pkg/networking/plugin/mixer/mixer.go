@@ -44,10 +44,6 @@ func NewPlugin() plugin.Plugin {
 
 // OnOutboundListener implements the Callbacks interface method.
 func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
-	if in.Service == nil || !in.Service.MeshExternal {
-		return nil
-	}
-
 	env := in.Env
 	node := in.Node
 	proxyInstances := in.ProxyInstances
@@ -62,10 +58,6 @@ func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mutable
 		}
 		return nil
 	case plugin.ListenerTypeTCP:
-		// Adding an empty filter prevents listeners from loading
-		//		for cnum := range mutable.FilterChains {
-		//			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, buildMixerOutboundTCPFilter(env, node))
-		//		}
 		return nil
 	}
 
@@ -132,7 +124,7 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConfigura
 					nr.PerFilterConfig = make(map[string]*types.Struct)
 				}
 				nr.PerFilterConfig[v1.MixerFilter] = util.MessageToStruct(
-					buildMixerPerRouteConfig(in.Env.Mesh.DisablePolicyChecks, forward, in.ServiceInstance.Service.Hostname.String()))
+					buildMixerPerRouteConfig(in, false, forward, in.ServiceInstance.Service.Hostname.String()))
 				nrs = append(nrs, nr)
 			}
 			nvh.Routes = nrs
@@ -147,16 +139,34 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConfigura
 	}
 }
 
-func buildMixerPerRouteConfig(disableCheck, _ /*disableForward*/ bool, destinationService string) *mccpb.ServiceConfig {
-	out := &mccpb.ServiceConfig{
-		// Report calls are never disabled. Disable forward is currently not in the proto.
-		DisableCheckCalls: disableCheck,
-	}
+func buildMixerPerRouteConfig(in *plugin.InputParams, outboundRoute bool, _ /*disableForward*/ bool, destinationService string) *mccpb.ServiceConfig {
+	role := in.Node
+	nodeInstances := in.ProxyInstances
+	disableCheck := in.Env.Mesh.DisablePolicyChecks
+	config := in.Env.IstioConfigStore
+
+	out := v1.ServiceConfig(in.Service.Hostname.String(), in.ServiceInstance, config, disableCheck, false)
+	// Report calls are never disabled. Disable forward is currently not in the proto.
+	out.DisableCheckCalls = disableCheck
+
 	if destinationService != "" {
 		out.MixerAttributes = &mpb.Attributes{}
 		out.MixerAttributes.Attributes = map[string]*mpb.Attributes_AttributeValue{
 			v1.AttrDestinationService: {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: destinationService}},
 		}
+	}
+
+	var labels map[string]string
+	// Note: instances are all running on mode.Node named 'role'
+	// So instance labels are the workload / Node labels.
+	if len(nodeInstances) > 0 {
+		labels = nodeInstances[0].Labels
+	}
+
+	if !outboundRoute || role.Type == model.Router {
+		// for outboundRoutes there are no default MixerAttributes except for gateway.
+		// specific MixerAttributes are in per route configuration.
+		v1.AddStandardNodeAttributes(out.MixerAttributes.Attributes, v1.AttrDestinationPrefix, role.IPAddress, role.ID, labels)
 	}
 
 	return out
@@ -191,12 +201,6 @@ func buildMixerInboundTCPFilter(env *model.Environment, node *model.Proxy, insta
 		Config: util.MessageToStruct(c),
 	}
 }
-
-// // buildMixerOutboundTCPFilter builds a filter with a v1 mixer config encapsulated as JSON in a proto.Struct for v2 consumption.
-// func buildMixerOutboundTCPFilter(env *model.Environment, node *model.Proxy) listener.Filter {
-// 	// TODO(mostrowski): implementation
-// 	return listener.Filter{}
-// }
 
 // defined in install/kubernetes/helm/istio/charts/mixer/templates/service.yaml
 const (
@@ -239,8 +243,8 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 		mxConfig.DefaultDestinationService = nodeInstances[0].Service.Hostname.String()
 	}
 
-	if !outboundRoute {
-		// for outboundRoutes there are no default MixerAttributes
+	if !outboundRoute || role.Type == model.Router {
+		// for outboundRoutes there are no default MixerAttributes except for gateway.
 		// specific MixerAttributes are in per route configuration.
 		v1.AddStandardNodeAttributes(mxConfig.MixerAttributes.Attributes, v1.AttrDestinationPrefix, role.IPAddress, role.ID, labels)
 	}
@@ -254,9 +258,14 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 		addStandardNodeAttributes(mxConfig.ForwardAttributes.Attributes, v1.AttrSourcePrefix, role.IPAddress, role.ID, labels)
 	}
 
+	// gateway case is special because upstream listeners are considered outbound, however we don't want to
+	// automatically disable policy / report.
+	disablePolicy := (outboundRoute && role.Type != model.Router) || mesh.DisablePolicyChecks
+	disableReport := outboundRoute && role.Type != model.Router
+
 	for _, instance := range nodeInstances {
 		mxConfig.ServiceConfigs[instance.Service.Hostname.String()] = v1.ServiceConfig(instance.Service.Hostname.String(), instance, config,
-			outboundRoute || mesh.DisablePolicyChecks, outboundRoute)
+			disablePolicy, disableReport)
 	}
 
 	return mxConfig
@@ -267,14 +276,24 @@ func buildTCPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, in
 	attrs := v1.StandardNodeAttributes(v1.AttrDestinationPrefix, role.IPAddress, role.ID, nil)
 	attrs[v1.AttrDestinationService] = &mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_StringValue{instance.Service.Hostname.String()}}
 
+	mcs, _, _ := net.SplitHostPort(mesh.MixerCheckServer)
+	mrs, _, _ := net.SplitHostPort(mesh.MixerReportServer)
+
+	port := mixerPortNumber
+	if mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS {
+		port = mixerMTLSPortNumber
+	}
+
+	transport := &mccpb.TransportConfig{
+		CheckCluster:  model.BuildSubsetKey(model.TrafficDirectionOutbound, "", model.Hostname(mcs), port),
+		ReportCluster: model.BuildSubsetKey(model.TrafficDirectionOutbound, "", model.Hostname(mrs), port),
+	}
+
 	mxConfig := &mccpb.TcpClientConfig{
 		MixerAttributes: &mpb.Attributes{
 			Attributes: attrs,
 		},
-		Transport: &mccpb.TransportConfig{
-			CheckCluster:  v1.MixerCheckClusterName,
-			ReportCluster: v1.MixerReportClusterName,
-		},
+		Transport:         transport,
 		DisableCheckCalls: mesh.DisablePolicyChecks,
 	}
 

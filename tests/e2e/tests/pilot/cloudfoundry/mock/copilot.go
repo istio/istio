@@ -16,13 +16,17 @@ package mock
 
 import (
 	"context"
+	"crypto/md5"
+	"fmt"
+	"io"
 	"sync"
+	"time"
 
 	"code.cloudfoundry.org/copilot/api"
 )
 
 type CopilotHandler struct {
-	RoutesResponseData         map[string]*api.BackendSet
+	RoutesResponseData         []*api.RouteWithBackends
 	InternalRoutesResponseData []*api.InternalRouteWithBackends
 	mutex                      sync.Mutex
 }
@@ -44,18 +48,24 @@ func (h *CopilotHandler) PopulateInternalRoute(port int, hostname, vip, ip strin
 	})
 }
 
-func (h *CopilotHandler) PopulateRoute(host string, ipAddr string, port int) {
+func (h *CopilotHandler) PopulateRoute(host string, ipAddr string, port int, path string) {
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
-	backendSet := h.RoutesResponseData[host]
-	if backendSet == nil {
-		backendSet = &api.BackendSet{}
-	}
-	backendSet.Backends = append(backendSet.Backends, &api.Backend{
-		Address: ipAddr,
-		Port:    uint32(port),
+	hasher := md5.New()
+	io.WriteString(hasher, time.Now().String())
+	h.RoutesResponseData = append(h.RoutesResponseData, &api.RouteWithBackends{
+		Hostname: host,
+		Path:     path,
+		Backends: &api.BackendSet{
+			Backends: []*api.Backend{
+				{
+					Address: ipAddr,
+					Port:    uint32(port),
+				},
+			},
+		},
+		CapiProcessGuid: fmt.Sprintf("%x", hasher.Sum(nil)),
 	})
-	h.RoutesResponseData[host] = backendSet
 }
 
 func (h *CopilotHandler) Health(context.Context, *api.HealthRequest) (*api.HealthResponse, error) {
@@ -76,6 +86,6 @@ func (h *CopilotHandler) Routes(context.Context, *api.RoutesRequest) (*api.Route
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
 	return &api.RoutesResponse{
-		Backends: h.RoutesResponseData,
+		Routes: h.RoutesResponseData,
 	}, nil
 }

@@ -9,7 +9,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"ca16ee49bcf3f39b63512ec8c1101d269f16defd9d32dd3dd03137b475b21bbc","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"ef45c669244a3eabff6c390b4c0e67d63a4a74013cab0abbbac12f963c94c468","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: hello
@@ -72,7 +72,10 @@ spec:
         image: docker.io/istio/proxy_debug:unittest
         imagePullPolicy: IfNotPresent
         name: istio-proxy
-        resources: {}
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
         securityContext:
           privileged: true
           readOnlyRootFilesystem: false
