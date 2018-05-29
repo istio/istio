@@ -1,5 +1,7 @@
 #/bin/bash
 
+
+
 function testIstioSystem() {
    pushd $TOP/src/istio.io/istio
    helm -n istio-system template \
@@ -35,22 +37,26 @@ function testApply() {
    popd
 }
 
+# Setup DNS entries - currently using gcloud
+# Requires DNS_PROJECT, DNS_DOMAIN and DNS_ZONE to be set
+# For example, DNS_DOMAIN can be istio.example.com and DNS_ZONE istiozone.
+# You need to either buy a domain from google or set the DNS to point to gcp.
+# Similar scripts can setup DNS using a different provider
 function testCreateDNS() {
-    D=${1-.istio.webinf.info.}
-    P=${2}
-    gcloud dns --project=costin-istio record-sets transaction start --zone=istiotest
 
-    gcloud dns --project=costin-istio record-sets transaction add ingress08.$D --name=grafana.v08.$D --ttl=300 --type=CNAME --zone=istiotest
-    gcloud dns --project=costin-istio record-sets transaction add ingress08.$D --name=prom.v08.$D --ttl=300 --type=CNAME --zone=istiotest
-    gcloud dns --project=costin-istio record-sets transaction add ingress08.$D --name=fortio2.v08.$D --ttl=300 --type=CNAME --zone=istiotest
-    gcloud dns --project=costin-istio record-sets transaction add ingress08.$D --name=pilot.v08.$D --ttl=300 --type=CNAME --zone=istiotest
-    gcloud dns --project=costin-istio record-sets transaction add ingress08.$D --name=fortio.v08.$D --ttl=300 --type=CNAME --zone=istiotest
-    gcloud dns --project=costin-istio record-sets transaction add ingress08.$D --name=fortioraw.v08.$D --ttl=300 --type=CNAME --zone=istiotest
-    gcloud dns --project=costin-istio record-sets transaction add ingress08.$D --name=bookinfo.v08.$D --ttl=300 --type=CNAME --zone=istiotest
-    gcloud dns --project=costin-istio record-sets transaction add ingress08.$D --name=httpbin.v08.$D --ttl=300 --type=CNAME --zone=istiotest
-    gcloud dns --project=costin-istio record-sets transaction add ingress08.$D --name=citadel.v08.$D --ttl=300 --type=CNAME --zone=istiotest
-    gcloud dns --project=costin-istio record-sets transaction add ingress08.$D --name=mixer.v08.$D --ttl=300 --type=CNAME --zone=istiotest
+    gcloud dns --project=$DNS_PROJECT record-sets transaction start --zone=$DNS_ZONE
 
-    gcloud dns --project=costin-istio record-sets transaction execute --zone=istiotest
+    gcloud dns --project=$DNS_PROJECT record-sets transaction add ingress08.$DNS_DOMAIN --name=grafana.v08.$DNS_DOMAIN --ttl=300 --type=CNAME --zone=$DNS_ZONE
+    gcloud dns --project=$DNS_PROJECT record-sets transaction add ingress08.$DNS_DOMAIN --name=prom.v08.$DNS_DOMAIN --ttl=300 --type=CNAME --zone=$DNS_ZONE
+    gcloud dns --project=$DNS_PROJECT record-sets transaction add ingress08.$DNS_DOMAIN --name=fortio2.v08.$DNS_DOMAIN --ttl=300 --type=CNAME --zone=$DNS_ZONE
+    gcloud dns --project=$DNS_PROJECT record-sets transaction add ingress08.$DNS_DOMAIN --name=pilot.v08.$DNS_DOMAIN --ttl=300 --type=CNAME --zone=$DNS_ZONE
+    gcloud dns --project=$DNS_PROJECT record-sets transaction add ingress08.$DNS_DOMAIN --name=fortio.v08.$DNS_DOMAIN --ttl=300 --type=CNAME --zone=$DNS_ZONE
+    gcloud dns --project=$DNS_PROJECT record-sets transaction add ingress08.$DNS_DOMAIN --name=fortioraw.v08.$DNS_DOMAIN --ttl=300 --type=CNAME --zone=$DNS_ZONE
+    gcloud dns --project=$DNS_PROJECT record-sets transaction add ingress08.$DNS_DOMAIN --name=bookinfo.v08.$DNS_DOMAIN --ttl=300 --type=CNAME --zone=$DNS_ZONE
+    gcloud dns --project=$DNS_PROJECT record-sets transaction add ingress08.$DNS_DOMAIN --name=httpbin.v08.$DNS_DOMAIN --ttl=300 --type=CNAME --zone=$DNS_ZONE
+    gcloud dns --project=$DNS_PROJECT record-sets transaction add ingress08.$DNS_DOMAIN --name=citadel.v08.$DNS_DOMAIN --ttl=300 --type=CNAME --zone=$DNS_ZONE
+    gcloud dns --project=$DNS_PROJECT record-sets transaction add ingress08.$DNS_DOMAIN --name=mixer.v08.$DNS_DOMAIN --ttl=300 --type=CNAME --zone=$DNS_ZONE
+
+    gcloud dns --project=$DNS_PROJECT record-sets transaction execute --zone=$DNS_ZONE
 }
 
