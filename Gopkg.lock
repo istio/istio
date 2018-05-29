@@ -1317,8 +1317,8 @@
     "ui",
     "version"
   ]
-  revision = "e50943e8e525197f36f9b4f81464615c063a0a65"
-  version = "v0.9.0"
+  revision = "d17e45b4f794ac1722747d7cfbcbe0479722868a"
+  version = "v0.11.0"
 
 [[projects]]
   name = "k8s.io/api"
