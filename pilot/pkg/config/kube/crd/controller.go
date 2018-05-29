@@ -17,7 +17,9 @@ package crd
 import (
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -64,6 +66,7 @@ var (
 		Name: "pilot_k8s_resource_versions",
 		Help: "Applied CRD resource versions",
 	}, []string{"gvk", "name", "namespace", "resourceVersion", "instanceID"})
+	k8sResourceVersionsDisabled, _ = strconv.ParseBool(os.Getenv("K8S_RESOURCE_VERSIONS_METRIC_DISABLED"))
 
 	// InvalidCRDs contains a sync.Map keyed by the namespace/name of the entry, and has the error as value.
 	// It can be used by tools like ctrlz to display the errors.
@@ -71,13 +74,22 @@ var (
 )
 
 func init() {
-	prometheus.MustRegister(k8sEvents, k8sResourceVersions)
+	prometheus.MustRegister(k8sEvents)
+	if !k8sResourceVersionsDisabled {
+		prometheus.MustRegister(k8sResourceVersions)
+	}
 }
 
 // NewController creates a new Kubernetes controller for CRDs
 // Use "" for namespace to listen for all namespace changes
 func NewController(client *Client, options kube.ControllerOptions) model.ConfigStoreCache {
 	log.Infof("CRD controller watching namespaces %q", options.WatchedNamespace)
+
+	if k8sResourceVersionsDisabled {
+		log.Infof("pilot_k8s_resource_versions gauge disabled")
+	} else {
+		log.Infof("pilot_k8s_resource_versions gauge enabled")
+	}
 
 	// Queue requires a time duration for a retry delay after a handler error
 	out := &controller{
