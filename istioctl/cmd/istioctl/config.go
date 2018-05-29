@@ -24,7 +24,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
 
 	"istio.io/istio/pkg/log"
@@ -135,7 +134,7 @@ func createCoreV1Client() (*rest.RESTClient, error) {
 }
 
 func defaultRestConfig() (*rest.Config, error) {
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	config, err := BuildClientConfig("", kubeconfig)
 	if err != nil {
 		return nil, err
 	}
