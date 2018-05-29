@@ -5,6 +5,10 @@
 
 # Source the file with: ". envsetup.sh"
 
+# Disable checking external files when using source command.
+# shellcheck disable=SC1090
+# shellcheck disable=SC1091
+
 TOP=$(cd ../../.. && pwd --physical)
 export TOP
 
