@@ -828,7 +828,7 @@ func BuildClientConfig(masterURL, kubeconfigPath string) (*rest.Config, error) {
 		}
 		log.Warnf("error creating inClusterConfig, falling back to default config: ", err)
 	}
-	configs := filepath.SplitList(kubeconfig)
+	configs := filepath.SplitList(kubeconfigPath)
 	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		&clientcmd.ClientConfigLoadingRules{Precedence: configs},
 		&clientcmd.ConfigOverrides{ClusterInfo: clientcmdapi.Cluster{Server: ""}}).ClientConfig()
