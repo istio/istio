@@ -21,3 +21,7 @@ global:
 
 istiotesting:
   oneNameSpace: true
+
+tracing:
+  enabled: true
+
