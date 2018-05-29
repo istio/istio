@@ -61,7 +61,7 @@ TOLERANCE_PERCENT_BYTES_PER_OP=1
 TOLERANCE_PERCENT_ALLOCS_PER_OP=0
 
 # the location of this script
-SCRIPTPATH=$(cd "$(dirname "$0")" && pwd)
+SCRIPTPATH=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 # the root folder for the project
 ROOT=$(cd "$(dirname "${SCRIPTPATH}")" && pwd)

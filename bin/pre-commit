@@ -8,7 +8,7 @@
 
 set -o errexit
 
-WD=$(cd "$(dirname "$0")" && pwd)
+WD=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 ROOT=$(cd "$(dirname "${SCRIPTPATH}")" && pwd)
 if [[ $ROOT == */.git ]]; then
     ROOT=$ROOT/..

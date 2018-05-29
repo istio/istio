@@ -5,7 +5,7 @@ die () {
   exit 1
 }
 
-WD=$(cd "$(dirname "$0")" && pwd)
+WD=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 ROOT=$(cd "$(dirname "${WD}")" && pwd)
 
 if [ ! -e "$ROOT/Gopkg.lock" ]; then

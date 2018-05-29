@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SCRIPTPATH=$(cd "$(dirname "$0")" && pwd)
+SCRIPTPATH=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 ROOTDIR=$(cd "$(dirname "${SCRIPTPATH}")" && pwd)
 pushd "$ROOTDIR"
 

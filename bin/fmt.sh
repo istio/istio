@@ -4,7 +4,7 @@
 # fmt.sh -c check only.
 
 set -e
-SCRIPTPATH=$(cd "$(dirname "$0")" && pwd)
+SCRIPTPATH=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 check=false
 

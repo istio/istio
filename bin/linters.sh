@@ -1,7 +1,7 @@
 #!/bin/bash
 set -ex
 
-SCRIPTPATH=$(cd "$(dirname "$0")" && pwd)
+SCRIPTPATH=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 WORKSPACE=$(cd "$(dirname "${SCRIPTPATH}")" && pwd)
 
 cd "${WORKSPACE}"

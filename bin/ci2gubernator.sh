@@ -3,7 +3,7 @@
 # Exit immediately for non zero status
 set -e
 
-SCRIPTPATH=$(cd "$(dirname "$0")" && pwd)
+SCRIPTPATH=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 ROOTDIR=$(cd "$(dirname "${SCRIPTPATH}")" && pwd)
 
 REQUIRED_ENVS=(
