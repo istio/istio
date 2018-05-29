@@ -16,7 +16,9 @@ spec:
       labels:
         istio: galley
     spec:
+{{- if .Values.global.rbacEnabled }}
       serviceAccountName: istio-galley-service-account
+{{- end }}
       containers:
         - name: validator
           image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
