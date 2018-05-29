@@ -18,8 +18,8 @@
 # Init script downloads or updates envoy and the go dependencies. Called from Makefile, which sets
 # the needed environment variables.
 
-ROOT=$(cd $(dirname $0)/..; pwd)
-ISTIO_GO=$ROOT
+SCRIPTPATH=$(cd "$(dirname "$0")" && pwd)
+ROOT=$(cd "$(dirname "${SCRIPTPATH}")" && pwd)
 
 set -o errexit
 set -o nounset
@@ -31,11 +31,9 @@ set -x # echo on
 # TODO(nmittler): Remove these variables and require that this script be run from the Makefile
 
 # Set GOPATH to match the expected layout
-GO_TOP=$(cd $(dirname $0)/../../../..; pwd)
+GO_TOP=$(cd "$(dirname "$0")/../../../.." && pwd)
 
 export OUT_DIR=${OUT_DIR:-${GO_TOP}/out}
-
-HELM_VER=v2.7.2
 
 export GOPATH=${GOPATH:-$GO_TOP}
 # Normally set by Makefile
@@ -45,7 +43,7 @@ export ISTIO_BIN=${ISTIO_BIN:-${GOPATH}/bin}
 export GOARCH=${GOARCH:-'amd64'}
 
 # Determine the OS. Matches logic in the Makefile.
-LOCAL_OS="`uname`"
+LOCAL_OS="$(uname)"
 case $LOCAL_OS in
   'Linux')
     LOCAL_OS='linux'
@@ -92,8 +90,9 @@ set_download_command () {
     exit 1
 }
 
-if [ -z ${PROXY_REPO_SHA:-} ] ; then
-  export PROXY_REPO_SHA=$(grep PROXY_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
+if [ -z "${PROXY_REPO_SHA:-}" ] ; then
+  PROXY_REPO_SHA=$(grep PROXY_REPO_SHA istio.deps -A 4 | grep lastStableSHA | cut -f 4 -d '"')
+  export PROXY_REPO_SHA
 fi
 
 # Normally set by the Makefile.
@@ -118,47 +117,47 @@ set_download_command
 # Save envoy in $ISTIO_ENVOY_DIR
 if [ ! -f "$ISTIO_ENVOY_DEBUG_PATH" ] || [ ! -f "$ISTIO_ENVOY_RELEASE_PATH" ] ; then
     # Clear out any old versions of Envoy.
-    rm -f ${ISTIO_OUT}/envoy ${ROOT}/pilot/pkg/proxy/envoy/envoy ${ISTIO_BIN}/envoy
+    rm -f "${ISTIO_OUT}/envoy" "${ROOT}/pilot/pkg/proxy/envoy/envoy" "${ISTIO_BIN}/envoy"
 
     # Download debug envoy binary.
-    mkdir -p $ISTIO_ENVOY_DEBUG_DIR
-    pushd $ISTIO_ENVOY_DEBUG_DIR
+    mkdir -p "$ISTIO_ENVOY_DEBUG_DIR"
+    pushd "$ISTIO_ENVOY_DEBUG_DIR"
     echo "Downloading envoy debug artifact: ${DOWNLOAD_COMMAND} ${ISTIO_ENVOY_DEBUG_URL}"
-    time ${DOWNLOAD_COMMAND} ${ISTIO_ENVOY_DEBUG_URL} | tar xz
-    cp usr/local/bin/envoy $ISTIO_ENVOY_DEBUG_PATH
+    time ${DOWNLOAD_COMMAND} "${ISTIO_ENVOY_DEBUG_URL}" | tar xz
+    cp usr/local/bin/envoy "$ISTIO_ENVOY_DEBUG_PATH"
     rm -rf usr
     popd
 
     # Download release envoy binary.
-    mkdir -p $ISTIO_ENVOY_RELEASE_DIR
-    pushd $ISTIO_ENVOY_RELEASE_DIR
+    mkdir -p "$ISTIO_ENVOY_RELEASE_DIR"
+    pushd "$ISTIO_ENVOY_RELEASE_DIR"
     echo "Downloading envoy release artifact: ${DOWNLOAD_COMMAND} ${ISTIO_ENVOY_RELEASE_URL}"
-    time ${DOWNLOAD_COMMAND} ${ISTIO_ENVOY_RELEASE_URL} | tar xz
-    cp usr/local/bin/envoy $ISTIO_ENVOY_RELEASE_PATH
+    time ${DOWNLOAD_COMMAND} "${ISTIO_ENVOY_RELEASE_URL}" | tar xz
+    cp usr/local/bin/envoy "$ISTIO_ENVOY_RELEASE_PATH"
     rm -rf usr
     popd
 fi
 
-mkdir -p ${ISTIO_OUT}
-mkdir -p ${ISTIO_BIN}
+mkdir -p "${ISTIO_OUT}"
+mkdir -p "${ISTIO_BIN}"
 
 # copy debug envoy binary used for local tests such as ones in mixer/test/clients
 if [ "$LOCAL_OS" == "darwin" ]; then
     # Download darwin envoy binary.
     DARWIN_ENVOY_DIR=$(mktemp -d)
-    pushd $DARWIN_ENVOY_DIR
+    pushd "$DARWIN_ENVOY_DIR"
     echo "Downloading envoy darwin binary: ${DOWNLOAD_COMMAND} ${ISTIO_ENVOY_MAC_RELEASE_URL}"
-    time ${DOWNLOAD_COMMAND} ${ISTIO_ENVOY_MAC_RELEASE_URL} | tar xz
-    cp usr/local/bin/envoy ${ISTIO_OUT}/envoy
-    cp usr/local/bin/envoy ${ISTIO_BIN}/envoy
+    time ${DOWNLOAD_COMMAND} "${ISTIO_ENVOY_MAC_RELEASE_URL}" | tar xz
+    cp usr/local/bin/envoy "${ISTIO_OUT}/envoy"
+    cp usr/local/bin/envoy "${ISTIO_BIN}/envoy"
     popd
-    rm -rf $DARWIN_ENVOY_DIR
+    rm -rf "$DARWIN_ENVOY_DIR"
 else
-    cp -f ${ISTIO_ENVOY_DEBUG_PATH} ${ISTIO_OUT}/envoy
+    cp -f "${ISTIO_ENVOY_DEBUG_PATH}" "${ISTIO_OUT}/envoy"
     # TODO(nmittler): Remove once tests no longer use the envoy binary directly.
     # circleCI expects this in the bin directory
     # Make sure the envoy binary exists. This is only used for tests, so use the debug binary.
-    cp ${ISTIO_ENVOY_DEBUG_PATH} ${ISTIO_BIN}/envoy
+    cp "${ISTIO_ENVOY_DEBUG_PATH}" "${ISTIO_BIN}/envoy"
 fi
 
-${ROOT}/bin/init_helm.sh
+"${ROOT}/bin/init_helm.sh"
