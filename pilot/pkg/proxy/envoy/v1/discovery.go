@@ -311,7 +311,8 @@ const (
 	ServiceNode     = "service-node"
 	RouteConfigName = "route-config-name"
 
-	v1Enable = false
+	// Some tests still use v1 - will gradually remove them. Waiting for mixer/simple
+	v1Enable = true
 )
 
 // DiscoveryServiceOptions contains options for create a new discovery
