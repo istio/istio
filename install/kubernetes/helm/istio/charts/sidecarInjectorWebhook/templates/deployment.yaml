@@ -16,7 +16,9 @@ spec:
       labels:
         istio: sidecar-injector
     spec:
+{{- if .Values.global.rbacEnabled }}
       serviceAccountName: istio-sidecar-injector-service-account
+{{- end }}
       containers:
         - name: sidecar-injector-webhook
           image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
