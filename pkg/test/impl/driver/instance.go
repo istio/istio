@@ -36,43 +36,39 @@ const (
 	maxTestIDLength = 30
 )
 
-var scope = log.RegisterScope("driver", "Logger for the test framework driver", 0)
+var scope = log.RegisterScope("testframework", "General scope for the test framework", 0)
 
 type driver struct {
 	lock sync.Mutex
 
-	args *Args
+	suiteDependencies []dependency.Instance
+	allowedLabels     map[label.Label]struct{}
+	m                 *testing.M
 
-	allowedLabels map[label.Label]struct{}
+	ctx *internal.TestContext
 
-	testID  string
-	runID   string
-	m       *testing.M
-	env     environment.Interface
+	// The names of the tests that we've encountered so far.
+	testNames map[string]struct{}
+
 	running bool
-
-	suiteDependencies []dependency.Dependency
-
-	initializedDependencies map[dependency.Dependency]interface{}
 }
 
 var _ Interface = &driver{}
-var _ internal.TestContext = &driver{}
 
 // New returns a new driver instance.
 func New() Interface {
 	return &driver{
-		initializedDependencies: make(map[dependency.Dependency]interface{}),
+		testNames: make(map[string]struct{}),
 	}
 }
 
 // Initialize implements same-named Interface method.
 func (d *driver) Initialize(a *Args) error {
-	scope.Debugf("Enter: driver.Initialize (%s)", d.testID)
+	scope.Debugf("Enter: driver.Initialize (%s)", a.TestID)
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
-	if d.testID != "" {
+	if d.ctx != nil {
 		return errors.New("test driver is already initialized")
 	}
 
@@ -81,20 +77,15 @@ func (d *driver) Initialize(a *Args) error {
 	if err := args.Validate(); err != nil {
 		return err
 	}
-	d.args = args
 
-	d.suiteDependencies = args.SuiteDependencies
-
-	var env environment.Interface
+	// Initialize the environment.
+	var env internal.Environment
 	var err error
-
 	switch a.Environment {
 	case EnvLocal:
-		env, err = local.NewEnvironment(d)
-
+		env, err = local.NewEnvironment()
 	case EnvKubernetes:
-		env, err = cluster.NewEnvironment(d, a.KubeConfig)
-
+		env, err = cluster.NewEnvironment(a.KubeConfig)
 	default:
 		return fmt.Errorf("unrecognized environment: %s", a.Environment)
 	}
@@ -102,10 +93,20 @@ func (d *driver) Initialize(a *Args) error {
 	if err != nil {
 		return fmt.Errorf("unable to initialize environment '%s': %v", a.Environment, err)
 	}
-	d.env = env
 
-	d.testID = args.TestID
-	d.runID = generateRunID(args.TestID)
+	// Create the context, but do not attach it to the member fields before initializing.
+	ctx := internal.NewTestContext(
+		args.TestID,
+		generateRunID(args.TestID),
+		a.WorkDir,
+		env)
+
+	if err = env.Initialize(ctx); err != nil {
+		return err
+	}
+
+	d.ctx = ctx
+	d.suiteDependencies = args.SuiteDependencies
 	d.m = args.M
 
 	if args.Labels != "" {
@@ -121,30 +122,13 @@ func (d *driver) Initialize(a *Args) error {
 	return nil
 }
 
-// TestID implements same-named Interface method.
-func (d *driver) TestID() string {
-	scope.Debugf("Enter: driver.TestID (%s)", d.testID)
-	d.lock.Lock()
-	defer d.lock.Unlock()
-
-	return d.testID
-}
-
-// RunID implements same-named Interface method.
-func (d *driver) RunID() string {
-	scope.Debugf("Enter: driver.RunID (%s)", d.testID)
-	d.lock.Lock()
-	defer d.lock.Unlock()
-
-	return d.runID
-}
-
 // Run implements same-named Interface method.
 func (d *driver) Run() int {
-	scope.Debugf("Enter: driver.Run (%s)", d.testID)
+	scope.Debugf("Enter: driver.Run (%s)", d.ctx.TestID())
 	d.lock.Lock()
 
-	if d.testID == "" {
+	// If context is not set, then we're not initialized.
+	if d.ctx == nil {
 		d.lock.Unlock()
 		scope.Error("test driver is not initialized yet")
 		return -1
@@ -157,8 +141,8 @@ func (d *driver) Run() int {
 	}
 
 	for _, dep := range d.suiteDependencies {
-		if err := d.initializeDependency(dep); err != nil {
-			log.Errorf("Failed initializing dependency '%s': %v", dep, err)
+		if err := d.ctx.Tracker().Initialize(d.ctx, d.ctx.Environment(), dep); err != nil {
+			log.Errorf("Failed to initialize dependency '%s': %v", dep, err)
 			return -3
 		}
 	}
@@ -177,32 +161,39 @@ func (d *driver) Run() int {
 
 	d.running = false
 
-	d.doCleanup()
+	d.ctx.Tracker().Cleanup()
+
 	return rt
 }
 
-// GetContext returns the internal test context.
-func (d *driver) GetContext() internal.TestContext {
-	return d
-}
-
-// Environment implements same-named Interface method.
-func (d *driver) Environment() environment.Interface {
-	scope.Debugf("Enter: driver.Environment (%s)", d.testID)
+func (d *driver) AcquireEnvironment(t testing.TB) environment.Interface {
+	t.Helper()
+	scope.Debugf("Enter: driver.AcquireEnvionment (%s)", d.ctx.TestID())
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
-	if d.running {
-		return d.env
+	if !d.running {
+		t.Fatalf("Test driver is not running.")
 	}
 
-	return nil
+	// Double check the test name to see if this is a singleton call for this test?
+	if _, ok := d.testNames[t.Name()]; ok {
+		t.Fatalf("AcquireEnvironment should be called only once during a test session. (test='%s')", t.Name())
+	}
+	d.testNames[t.Name()] = struct{}{}
+
+	// Reset all resettables, as we're going to be executing within the context of a new test.
+	if err := d.ctx.Tracker().Reset(d.ctx); err != nil {
+		t.Fatalf("AcquireEnvironment failed to reset the resource state: %v", err)
+	}
+
+	return d.ctx.Environment()
 }
 
 // InitializeTestDependencies implements same-named Interface method.
-func (d *driver) InitializeTestDependencies(t testing.TB, dependencies []dependency.Dependency) {
+func (d *driver) InitializeTestDependencies(t testing.TB, dependencies []dependency.Instance) {
 	t.Helper()
-	scope.Debugf("Enter: driver.InitializeTestDependencies (%s)", d.testID)
+	scope.Debugf("Enter: driver.InitializeTestDependencies (%s)", d.ctx.TestID())
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
@@ -212,7 +203,8 @@ func (d *driver) InitializeTestDependencies(t testing.TB, dependencies []depende
 
 	// Initialize dependencies only once.
 	for _, dep := range dependencies {
-		if err := d.initializeDependency(dep); err != nil {
+		if err := d.ctx.Tracker().Initialize(d.ctx, d.ctx.Environment(), dep); err != nil {
+			log.Errorf("Failed to initialize dependency '%s': %v", dep, err)
 			t.Fatalf("unable to satisfy dependency '%v': %v", dep, err)
 		}
 	}
@@ -221,7 +213,7 @@ func (d *driver) InitializeTestDependencies(t testing.TB, dependencies []depende
 // CheckLabels implements same-named Interface method.
 func (d *driver) CheckLabels(t testing.TB, labels []label.Label) {
 	t.Helper()
-	scope.Debugf("Enter: driver.CheckLabels (%s)", d.testID)
+	scope.Debugf("Enter: driver.CheckLabels (%s)", d.ctx.TestID())
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
@@ -244,46 +236,6 @@ func (d *driver) CheckLabels(t testing.TB, labels []label.Label) {
 	if skip && !t.Skipped() {
 		t.Skip("Skipping(Filtered): No matching label found")
 	}
-}
-
-// CreateTmpDirectory implementation.
-func (d *driver) CreateTmpDirectory(name string) (string, error) {
-	return createTmpDirectory(d.args.WorkDir, d.runID, name)
-}
-
-func (d *driver) doCleanup() {
-	// should be already locked.
-
-	for k, v := range d.initializedDependencies {
-		if s, ok := k.(internal.Stateful); ok {
-			s.Cleanup(d.env, v)
-		}
-	}
-}
-
-func (d *driver) initializeDependency(dep dependency.Dependency) error {
-	scope.Debugf("initializing dependency: %v", dep)
-	s, ok := dep.(internal.Stateful)
-	if !ok {
-		return nil
-	}
-
-	instance, ok := d.initializedDependencies[dep]
-	if ok {
-		// If they are already satisfied, then signal a "reset", to ensure a clean, well-known driverState.
-		if err := s.Reset(d.env, instance); err != nil {
-			return fmt.Errorf("unable to reset: %v", err)
-		}
-		return nil
-	}
-
-	var err error
-	if instance, err = s.Initialize(d.env); err != nil {
-		return fmt.Errorf("dependency init error: %v", err)
-	}
-
-	d.initializedDependencies[dep] = instance
-	return nil
 }
 
 func generateRunID(testID string) string {

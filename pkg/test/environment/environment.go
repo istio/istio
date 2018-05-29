@@ -19,7 +19,7 @@ import (
 	"net/url"
 	"testing"
 
-	"k8s.io/client-go/rest"
+	"github.com/gogo/protobuf/proto"
 
 	"istio.io/istio/pilot/pkg/model"
 )
@@ -83,11 +83,21 @@ type DeployedApp interface {
 type DeployedPolicyBackend interface {
 	Deployed
 
-	// DenyCheck indicates that the policy backend should deny all incoming check requests.
-	DenyCheck(deny bool)
+	// DenyCheck indicates that the policy backend should deny all incoming check requests when deny is
+	// set to true.
+	DenyCheck(t testing.TB, deny bool)
 
-	// ExpectReport checks that the backend has received the given report request.
-	ExpectReport(t testing.TB, expected string)
+	// ExpectReport checks that the backend has received the given report requests. The requests are consumed
+	// after the call completes.
+	ExpectReport(t testing.TB, expected ...proto.Message)
+
+	// ExpectReportJSON checks that the backend has received the given report request.  The requests are
+	// consumed after the call completes.
+	ExpectReportJSON(t testing.TB, expected ...string)
+
+	// CreateConfigSnippet for the Mixer adapter to talk to this policy backend.
+	// The supplied name will be the name of the handler.
+	CreateConfigSnippet(name string) string
 }
 
 // DeployedAppEndpoint represents a single endpoint in a DeployedApp.
@@ -123,8 +133,9 @@ func (r *AppCallResult) IsSuccess() bool {
 // DeployedMixer represents a deployed Mixer instance.
 type DeployedMixer interface {
 	Deployed
-	Report(attributes map[string]interface{}) error
-	Expect(str string) error
+
+	// Report is called directly with the given attributes.
+	Report(t testing.TB, attributes map[string]interface{})
 }
 
 // DeployedPilot represents a deployed Pilot instance.
@@ -142,10 +153,4 @@ type DeployedFortioApp interface {
 type FortioAppCallResult struct {
 	// The raw content of the response
 	Raw string
-}
-
-// DeployedAPIServer the configuration for a deployed k8s server
-type DeployedAPIServer interface {
-	Deployed
-	Config() *rest.Config
 }
