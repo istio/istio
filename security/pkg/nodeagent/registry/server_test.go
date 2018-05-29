@@ -26,12 +26,12 @@ import (
 
 	"github.com/gogo/googleapis/google/rpc"
 	"golang.org/x/net/context"
-	nvm "istio.io/istio/security/pkg/nodeagent/vm"
 
-"istio.io/istio/security/cmd/node_agent_k8s/workload/handler"
+	"istio.io/istio/security/cmd/node_agent_k8s/workload/handler"
 	wapi "istio.io/istio/security/cmd/node_agent_k8s/workloadapi"
 	"istio.io/istio/security/pkg/caclient"
 	"istio.io/istio/security/pkg/nodeagent/secrets"
+	nvm "istio.io/istio/security/pkg/nodeagent/vm"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	pb "istio.io/istio/security/proto"
 )

@@ -23,13 +23,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	nvm "istio.io/istio/security/pkg/nodeagent/vm"
-
-"istio.io/istio/security/cmd/node_agent_k8s/workload/handler"
+	"istio.io/istio/security/cmd/node_agent_k8s/workload/handler"
 	wlapi "istio.io/istio/security/cmd/node_agent_k8s/workloadapi"
 	"istio.io/istio/security/pkg/caclient"
 	"istio.io/istio/security/pkg/caclient/protocol"
 	"istio.io/istio/security/pkg/nodeagent/registry"
+	nvm "istio.io/istio/security/pkg/nodeagent/vm"
 	"istio.io/istio/security/pkg/platform"
 )
 
