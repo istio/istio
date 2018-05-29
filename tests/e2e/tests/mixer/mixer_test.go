@@ -737,6 +737,57 @@ func testCheckCache(t *testing.T, visit func() error) {
 	}
 }
 
+func fetchRequestCount(t *testing.T, promAPI v1.API, service string) (prior429s float64, prior200s float64, value model.Value) {
+	var err error
+	t.Log("Establishing metrics baseline for test...")
+	query := fmt.Sprintf("istio_request_count{%s=\"%s\"}", destLabel, fqdn(service))
+	t.Logf("prometheus query: %s", query)
+	value, err = promAPI.Query(context.Background(), query, time.Now())
+	if err != nil {
+		fatalf(t, "Could not get metrics from prometheus: %v", err)
+	}
+
+	prior429s, err = vectorValue(value, map[string]string{responseCodeLabel: "429"})
+	if err != nil {
+		t.Logf("error getting prior 429s, using 0 as value (msg: %v)", err)
+		prior429s = 0
+	}
+
+	prior200s, err = vectorValue(value, map[string]string{responseCodeLabel: "200"})
+	if err != nil {
+		t.Logf("error getting prior 200s, using 0 as value (msg: %v)", err)
+		prior200s = 0
+	}
+	t.Logf("Baseline established: prior200s = %f, prior429s = %f", prior200s, prior429s)
+
+	return prior429s, prior200s, value
+}
+
+func sendTraffic(t *testing.T, msg string) *fhttp.HTTPRunnerResults {
+	t.Log(msg)
+	url := fmt.Sprintf("%s/productpage", getIngressOrGatewayOrFail(t))
+
+	// run at a high enough QPS (here 10) to ensure that enough
+	// traffic is generated to trigger 429s from the 1 QPS rate limit rule
+	opts := fhttp.HTTPRunnerOptions{
+		RunnerOptions: periodic.RunnerOptions{
+			QPS:        10,
+			Exactly:    300,       // will make exactly 300 calls, so run for about 30 seconds
+			NumThreads: 5,         // get the same number of calls per connection (300/5=60)
+			Out:        os.Stderr, // Only needed because of log capture issue
+		},
+		HTTPOptions: fhttp.HTTPOptions{
+			URL: url,
+		},
+	}
+	// productpage should still return 200s when ratings is rate-limited.
+	res, err := fhttp.RunHTTPTest(&opts)
+	if err != nil {
+		fatalf(t, "Generating traffic via fortio failed: %v", err)
+	}
+	return res
+}
+
 func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
 	if err := replaceRouteRule(routeReviewsV3Rule); err != nil {
 		fatalf(t, "Could not create replace reviews routing rule: %v", err)
@@ -761,51 +812,18 @@ func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
 	}
 
 	// establish baseline
-	t.Log("Establishing metrics baseline for test...")
-	query := fmt.Sprintf("istio_request_count{%s=\"%s\"}", destLabel, fqdn("ratings"))
-	t.Logf("prometheus query: %s", query)
-	value, err := promAPI.Query(context.Background(), query, time.Now())
-	if err != nil {
-		fatalf(t, "Could not get metrics from prometheus: %v", err)
+
+	initPrior429s, _, _ := fetchRequestCount(t, promAPI, "ratings")
+
+	res := sendTraffic(t, "Warming traffic...")
+	allowPrometheusSync()
+	prior429s, prior200s, _ := fetchRequestCount(t, promAPI, "ratings")
+	// check if at least one more prior429 was reported
+	if prior429s-initPrior429s < 1 {
+		fatalf(t, "no 429 is alloted time: initPrior429s:%v prior429s:5v", initPrior429s, prior429s)
 	}
 
-	prior429s, err := vectorValue(value, map[string]string{responseCodeLabel: "429"})
-	if err != nil {
-		t.Logf("error getting prior 429s, using 0 as value (msg: %v)", err)
-		prior429s = 0
-	}
-
-	prior200s, err := vectorValue(value, map[string]string{responseCodeLabel: "200"})
-	if err != nil {
-		t.Logf("error getting prior 200s, using 0 as value (msg: %v)", err)
-		prior200s = 0
-	}
-	t.Logf("Baseline established: prior200s = %f, prior429s = %f", prior200s, prior429s)
-
-	t.Log("Sending traffic...")
-
-	url := fmt.Sprintf("%s/productpage", getIngressOrGatewayOrFail(t))
-
-	// run at a high enough QPS (here 10) to ensure that enough
-	// traffic is generated to trigger 429s from the 1 QPS rate limit rule
-	opts := fhttp.HTTPRunnerOptions{
-		RunnerOptions: periodic.RunnerOptions{
-			QPS:        10,
-			Exactly:    300,       // will make exactly 200 calls, so run for about 30 seconds
-			NumThreads: 5,         // get the same number of calls per connection (300/5=60)
-			Out:        os.Stderr, // Only needed because of log capture issue
-		},
-		HTTPOptions: fhttp.HTTPOptions{
-			URL: url,
-		},
-	}
-
-	// productpage should still return 200s when ratings is rate-limited.
-	res, err := fhttp.RunHTTPTest(&opts)
-	if err != nil {
-		fatalf(t, "Generating traffic via fortio failed: %v", err)
-	}
-
+	res = sendTraffic(t, "Sending traffic...")
 	allowPrometheusSync()
 
 	totalReqs := res.DurationHistogram.Count
@@ -836,12 +854,7 @@ func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
 		fatalf(t, "Not enough traffic generated to exercise rate limit: ratings_reqs=%f, want200s=%f", callsToRatings, want200s)
 	}
 
-	query = fmt.Sprintf("istio_request_count{%s=\"%s\"}", destLabel, fqdn("ratings"))
-	t.Logf("prometheus query: %s", query)
-	value, err = promAPI.Query(context.Background(), query, time.Now())
-	if err != nil {
-		fatalf(t, "Could not get metrics from prometheus: %v", err)
-	}
+	_, _, value := fetchRequestCount(t, promAPI, "ratings")
 	log.Infof("promvalue := %s", value.String())
 
 	got, err := vectorValue(value, map[string]string{responseCodeLabel: "429", "destination_version": "v1"})
