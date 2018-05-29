@@ -49,7 +49,7 @@ type Args struct {
 	M *testing.M
 
 	// SuiteDependencies is the set of dependencies the suite needs.
-	SuiteDependencies []dependency.Dependency
+	SuiteDependencies []dependency.Instance
 
 	// SuiteLabels is the set of labels that is attached to the suite.
 	SuiteLabels []label.Label
