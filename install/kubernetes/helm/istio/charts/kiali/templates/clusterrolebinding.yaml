@@ -16,4 +16,4 @@ subjects:
 - kind: ServiceAccount
   name: kiali-service-account
   namespace: {{ .Release.Namespace }}
-{{- end }
+{{- end }}
