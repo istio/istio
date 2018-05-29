@@ -12,34 +12,9 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package dependency
+package internal
 
-import (
-	"istio.io/istio/pkg/test/environment"
-	"istio.io/istio/pkg/test/internal"
-)
-
-// Pilot indicates a dependency on Pilot.
-var Pilot Dependency = &pilot{}
-
-type pilot struct {
-}
-
-var _ Dependency = &pilot{}
-var _ internal.Stateful = &pilot{}
-
-func (a *pilot) String() string {
-	return ""
-}
-
-func (a *pilot) Initialize(env environment.Interface) (interface{}, error) {
-	return nil, nil
-}
-
-func (a *pilot) Reset(env environment.Interface, state interface{}) error {
-	return nil
-}
-
-func (a *pilot) Cleanup(env environment.Interface, state interface{}) {
-
+// Configurable interface is implemented by resources that needs to be updated when configuration changes.
+type Configurable interface {
+	ApplyConfig(cfg string) error
 }
