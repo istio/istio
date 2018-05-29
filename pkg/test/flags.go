@@ -76,7 +76,7 @@ func processFlags() error {
 }
 
 func attachFlags(stringVar func(*string, string, string, string), boolVar func(*bool, string, bool, string)) {
-	stringVar(&arguments.WorkDir, "work_dir", "",
+	stringVar(&arguments.WorkDir, "work_dir", os.TempDir(),
 		"Local working directory for creating logs/temp files. If left empty, os.TempDir() is used.")
 
 	stringVar(&arguments.Labels, "labels", arguments.Labels,
@@ -96,7 +96,7 @@ func attachFlags(stringVar func(*string, string, string, string), boolVar func(*
 func doShowHelp() {
 	var lines []string
 	cmdForLog.PersistentFlags().VisitAll(func(f *pflag.Flag) {
-		line := fmt.Sprintf("  -%s\t%s", f.Name, f.Usage)
+		line := fmt.Sprintf("  -%-24s %s", f.Name, f.Usage)
 		lines = append(lines, line)
 	})
 

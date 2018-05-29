@@ -28,7 +28,7 @@ func TestSvcLoading(t *testing.T) {
 	// This Requires statement should ensure that all elements are in runnig states
 	test.Requires(t, dependency.FortioApps, dependency.Pilot)
 
-	env := test.GetEnvironment(t)
+	env := test.AcquireEnvironment(t)
 	env.Configure(t, svcCfg)
 
 	apps := env.GetFortioApps("app=echosrv", t)

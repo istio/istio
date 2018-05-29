@@ -70,7 +70,7 @@ func TestFull(t *testing.T) {
 	// Environment is the main way to interact with Istio components and the testing apparatus. Environment
 	// encapsulates the specifics (i.e. whether it is based on local processes, or cluster) but exposes a
 	// uniform an API.
-	env := test.GetEnvironment(t)
+	env := test.AcquireEnvironment(t)
 
 	// Configure the environment for this particular test.
 	cfg := `
@@ -88,7 +88,7 @@ kind: VirtualService
 	policyBe := env.GetPolicyBackendOrFail(t)
 
 	// Prime the policy backend's behavior. It should deny all check requests.
-	policyBe.DenyCheck(true)
+	policyBe.DenyCheck(t, true)
 
 	// Send requests to all of the HTTP endpoints. We expect the deny check to cause the HTTP requests to fail.
 	endpoints := appt.EndpointsForProtocol(model.ProtocolHTTP)

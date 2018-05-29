@@ -12,13 +12,11 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package dependency
+package test
 
-import (
-	"fmt"
-)
+import "strings"
 
-// Dependency represents an external dependency that a test might need.
-type Dependency interface {
-	fmt.Stringer
+// JoinConfigs merges the given config snippets together
+func JoinConfigs(parts ...string) string {
+	return strings.Join(parts, "\n---\n")
 }

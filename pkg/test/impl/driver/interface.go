@@ -18,7 +18,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/dependency"
-	"istio.io/istio/pkg/test/internal"
+	"istio.io/istio/pkg/test/environment"
 	"istio.io/istio/pkg/test/label"
 )
 
@@ -30,11 +30,12 @@ type Interface interface {
 	// Run the tests by calling into testing.M. This must be called exactly once, after Initialize().
 	Run() int
 
-	// GetContext returns the internal test context.
-	GetContext() internal.TestContext
+	// AcquireEnvironment resets and returns the environment. Once AcquireEnvironment should be called exactly
+	// once per test.
+	AcquireEnvironment(t testing.TB) environment.Interface
 
 	// InitializeTestDependencies checks and initializes the supplied dependencies appropriately.
-	InitializeTestDependencies(t testing.TB, dependencies []dependency.Dependency)
+	InitializeTestDependencies(t testing.TB, dependencies []dependency.Instance)
 
 	// CheckLabels checks the labels against the user supplied filter, and skips the test if the labels
 	// do not match user supplied labels.

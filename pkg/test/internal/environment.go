@@ -12,34 +12,21 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package dependency
+package internal
 
 import (
+	"istio.io/istio/pkg/test/dependency"
 	"istio.io/istio/pkg/test/environment"
-	"istio.io/istio/pkg/test/internal"
 )
 
-// MTLS indicates a dependency on MTLS being enabled.
-var MTLS Dependency = &mtls{}
+// Environment is the internal interface that should be implemented by Environments. This is used by the
+// driver to communicate with the environments in a standard way.
+type Environment interface {
+	environment.Interface
 
-type mtls struct {
-}
+	// Initialize the environment. This is called once during the lifetime of the suite.
+	Initialize(ctx *TestContext) error
 
-var _ Dependency = &mtls{}
-var _ internal.Stateful = &mtls{}
-
-func (r *mtls) String() string {
-	return ""
-}
-
-func (r *mtls) Initialize(env environment.Interface) (interface{}, error) {
-	return nil, nil
-}
-
-func (r *mtls) Reset(env environment.Interface, state interface{}) error {
-	return nil
-}
-
-func (r *mtls) Cleanup(env environment.Interface, state interface{}) {
-
+	// InitializeDependency is called when a new dependency is encountered during test run.
+	InitializeDependency(ctx *TestContext, d dependency.Instance) (interface{}, error)
 }

@@ -12,12 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package cluster
+package dependency
 
-// Internal interface defines internal implementation details of the environment that is used by the
-// test framework *only*. It should never be used directly in a test, or a test utility that resides with the
-// tests themselves.
-type Internal interface {
-	// DoFoo is a dummy method to distinguish between clusters.
-	DoFoo()
-}
+// Instance represents an external dependency that a test might need.
+type Instance string

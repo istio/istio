@@ -25,7 +25,7 @@ import (
 func TestMixer_Report(t *testing.T) {
 	test.Requires(t, dependency.PolicyBackend)
 
-	env := test.GetEnvironment(t)
+	env := test.AcquireEnvironment(t)
 	env.Configure(t, testConfig)
 
 	be := env.GetPolicyBackendOrFail(t)
@@ -44,7 +44,7 @@ func TestMixer_Report(t *testing.T) {
 	}
 
 	// TODO: Define how we can query the mock backend.
-	be.ExpectReport(t, `
+	be.ExpectReportJSON(t, `
 Name: reportInstance.samplereport.istio-system,
 Value: 2,
 Dimensions:
