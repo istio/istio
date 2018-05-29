@@ -691,7 +691,7 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	setValue := "--set global.mtls.enabled=" + strconv.FormatBool(isSecurityOn)
 	// side car injector
 	if *useAutomaticInjection {
-		setValue += " --set sidecar-injector.enabled=true"
+		setValue += " --set sidecarInjectorWebhook.enabled=true"
 	}
 	// hubs and tags replacement.
 	// Helm chart assumes hub and tag are the same among multiple istio components.

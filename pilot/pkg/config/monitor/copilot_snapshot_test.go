@@ -31,24 +31,25 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
-const (
-	routeHashOne = "13c6cf41252f79cff042e4cf812f055c"
-	routeHashTwo = "52ef1929b781773628c530351c90b608"
-)
-
 func TestCloudFoundrySnapshot(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	routes := []*copilotapi.RouteWithBackends{
 		{
-			Hostname: "some-external-route.example.com",
-			Path:     "/some/path",
-			Backends: nil,
+			Hostname:        "some-external-route.example.com",
+			Path:            "/some/path",
+			Backends:        nil,
+			CapiProcessGuid: "some-guid-a",
 		},
 		{
-			Hostname: "some-external-route.example.com",
-			Path:     "/other/path",
-			Backends: nil,
+			Hostname:        "some-external-route.example.com",
+			Backends:        nil,
+			CapiProcessGuid: "some-guid-z",
+		},
+		{
+			Hostname:        "other.example.com",
+			Backends:        nil,
+			CapiProcessGuid: "some-guid-x",
 		},
 	}
 
@@ -60,142 +61,40 @@ func TestCloudFoundrySnapshot(t *testing.T) {
 	configs, _ := copilotSnapshot.ReadConfigFiles()
 	g.Expect(configs).To(gomega.HaveLen(4))
 
-	var virtualServices []*networking.VirtualService
-	var destinationRules []*networking.DestinationRule
-	for _, untypedConfig := range configs {
-		if virtualService, ok := untypedConfig.Spec.(*networking.VirtualService); ok {
-			virtualServices = append(virtualServices, virtualService)
-		} else {
-			destinationRules = append(destinationRules, untypedConfig.Spec.(*networking.DestinationRule))
-		}
-	}
+	splitConfigs := split(configs)
+	var virtualServices = splitConfigs.virtualServices
+	var destinationRules = splitConfigs.destinationRules
 
-	for _, virtualService := range virtualServices {
-		g.Expect(virtualService.Hosts).To(gomega.HaveLen(1))
-		matchHostname := virtualService.Hosts[0]
+	virtualService := virtualServices[1]
+	g.Expect(virtualService.Hosts[0]).To(gomega.Equal("some-external-route.example.com"))
+	g.Expect(virtualService.Gateways).To(gomega.ConsistOf([]string{"some-gateway", "some-other-gateway"}))
 
-		g.Expect(virtualService.Gateways).To(gomega.ConsistOf([]string{"some-gateway", "some-other-gateway"}))
-
-		g.Expect(virtualService.Http).To(gomega.HaveLen(1))
-		g.Expect(virtualService.Http[0].Match).To(gomega.HaveLen(1))
-
-		g.Expect(virtualService.Http[0].Match[0].Uri.GetPrefix()).To(gomega.SatisfyAny(
-			gomega.Equal("/some/path"),
-			gomega.Equal("/other/path"),
-		))
-		g.Expect(virtualService.Http[0].Route).To(gomega.HaveLen(1))
-		destination := virtualService.Http[0].Route[0].Destination
-		g.Expect(destination.Host).To(gomega.Equal(matchHostname))
-		g.Expect(destination.Port).To(gomega.Equal(&networking.PortSelector{
-			Port: &networking.PortSelector_Number{
-				Number: 8080,
-			},
-		}))
-		g.Expect(destination.Subset).To(gomega.SatisfyAny(
-			gomega.Equal(routeHashOne),
-			gomega.Equal(routeHashTwo),
-		))
-	}
-
-	g.Expect(destinationRules).To(gomega.HaveLen(2))
-
-	for _, rule := range destinationRules {
-		g.Expect(rule.Host).To(gomega.Equal("some-external-route.example.com"))
-		g.Expect(rule.Subsets).To(gomega.HaveLen(1))
-		g.Expect(rule.Subsets[0].Name).To(gomega.SatisfyAny(
-			gomega.Equal(routeHashOne),
-			gomega.Equal(routeHashTwo),
-		))
-		g.Expect(rule.Subsets[0].Labels).To(gomega.SatisfyAny(
-			gomega.Equal(map[string]string{"cf-service-instance": routeHashOne}),
-			gomega.Equal(map[string]string{"cf-service-instance": routeHashTwo}),
-		))
-	}
-}
-
-func TestCloudFoundrySnapshotDestinationRuleCache(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	routesResponses := []*copilotapi.RoutesResponse{
+	g.Expect(virtualService.Http).To(gomega.HaveLen(2))
+	g.Expect(virtualService.Http).To(gomega.ConsistOf([]*networking.HTTPRoute{
 		{
-			Routes: []*copilotapi.RouteWithBackends{
+			Match: []*networking.HTTPMatchRequest{
 				{
-					Hostname: "some-external-route.example.com",
-					Path:     "/some/path",
-					Backends: nil,
+					Uri: &networking.StringMatch{
+						MatchType: &networking.StringMatch_Prefix{
+							Prefix: "/some/path",
+						},
+					},
 				},
+			},
+			Route: []*networking.DestinationWeight{
 				{
-					Hostname: "some-other-external-route.example.com",
-					Path:     "/other/path",
-					Backends: nil,
+					Destination: &networking.Destination{
+						Host: "some-external-route.example.com",
+						Port: &networking.PortSelector{
+							Port: &networking.PortSelector_Number{
+								Number: 8080,
+							},
+						},
+						Subset: "some-guid-a",
+					},
 				},
 			},
 		},
-		{
-			Routes: []*copilotapi.RouteWithBackends{
-				{
-					Hostname: "some-external-route.example.com",
-					Path:     "/some/path",
-					Backends: nil,
-				},
-			},
-		},
-	}
-	copilotSnapshot, err := bootstrap(routesResponses)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	configs, _ := copilotSnapshot.ReadConfigFiles()
-	g.Expect(configs).To(gomega.HaveLen(4))
-
-	configs, _ = copilotSnapshot.ReadConfigFiles()
-	g.Expect(configs).To(gomega.HaveLen(2))
-
-	for _, config := range configs {
-		if destinationRule, ok := config.Spec.(*networking.DestinationRule); ok {
-			g.Expect(destinationRule.GetHost()).To(gomega.Equal("some-external-route.example.com"))
-			g.Expect(destinationRule.GetSubsets()[0].Labels).To(
-				gomega.Equal(map[string]string{"cf-service-instance": routeHashOne}))
-		}
-	}
-}
-
-func TestCloudFoundrySnapshotVirtualServiceCache(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	routesResponses := []*copilotapi.RoutesResponse{
-		{
-			Routes: []*copilotapi.RouteWithBackends{
-				{
-					Hostname: "some-external-route.example.com",
-					Backends: nil,
-				},
-				{
-					Hostname: "some-other-external-route.example.com",
-					Backends: nil,
-				},
-			},
-		},
-		{
-			Routes: []*copilotapi.RouteWithBackends{
-				{
-					Hostname: "some-external-route.example.com",
-					Backends: nil,
-				},
-			},
-		},
-	}
-
-	copilotSnapshot, err := bootstrap(routesResponses)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	virtualServices, _ := copilotSnapshot.ReadConfigFiles()
-	g.Expect(virtualServices).To(gomega.HaveLen(2))
-
-	virtualServices, _ = copilotSnapshot.ReadConfigFiles()
-	g.Expect(virtualServices).To(gomega.HaveLen(1))
-
-	c := virtualServices[0].Spec.(*networking.VirtualService)
-	g.Expect(c.Http).To(gomega.Equal([]*networking.HTTPRoute{
 		{
 			Route: []*networking.DestinationWeight{
 				{
@@ -206,9 +105,27 @@ func TestCloudFoundrySnapshotVirtualServiceCache(t *testing.T) {
 								Number: 8080,
 							},
 						},
+						Subset: "some-guid-z",
 					},
 				},
 			},
+		},
+	}))
+
+	g.Expect(destinationRules).To(gomega.HaveLen(2))
+
+	rule := destinationRules[1]
+
+	g.Expect(rule.Host).To(gomega.Equal("some-external-route.example.com"))
+	g.Expect(rule.Subsets).To(gomega.HaveLen(2))
+	g.Expect(rule.Subsets).To(gomega.ConsistOf([]*networking.Subset{
+		{
+			Name:   "some-guid-a",
+			Labels: map[string]string{"cfapp": "some-guid-a"},
+		},
+		{
+			Name:   "some-guid-z",
+			Labels: map[string]string{"cfapp": "some-guid-z"},
 		},
 	}))
 }
@@ -308,4 +225,21 @@ func bootstrap(routeResponses []*copilotapi.RoutesResponse) (*monitor.CopilotSna
 	}
 
 	return copilotSnapshot, nil
+}
+
+type splitConfigs struct {
+	virtualServices  []*networking.VirtualService
+	destinationRules []*networking.DestinationRule
+}
+
+func split(configs []*model.Config) splitConfigs {
+	var sc splitConfigs
+	for _, untypedConfig := range configs {
+		if virtualService, ok := untypedConfig.Spec.(*networking.VirtualService); ok {
+			sc.virtualServices = append(sc.virtualServices, virtualService)
+		} else {
+			sc.destinationRules = append(sc.destinationRules, untypedConfig.Spec.(*networking.DestinationRule))
+		}
+	}
+	return sc
 }

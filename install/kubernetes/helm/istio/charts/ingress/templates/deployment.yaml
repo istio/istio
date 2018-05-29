@@ -21,7 +21,7 @@ spec:
       serviceAccountName: istio-ingress-service-account
       containers:
         - name: {{ template "istio.name" . }}
-          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
+          image: "{{ .Values.global.hub }}/proxy:{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
             - containerPort: 80

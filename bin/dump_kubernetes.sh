@@ -124,11 +124,12 @@ dump_resources() {
       -o yaml > "${RESOURCES_FILE}"
 
   local istio_resources
-  # Join CRDs by comma. awk adds comma and sed removes the last.
-  # https://stackoverflow.com/questions/8714355/bash-turning-multi-line-string-into-single-comma-separated
+  # Trim to only first field; join by comma; remove last comma.
   istio_resources=$(kubectl get crd --no-headers \
-      | awk -vORS=, '{ print $1 }' | sed 's/,$/\n/')
-  kubectl get "${istio_resources}" -o yaml > "${ISTIO_RESOURCES_FILE}"
+      | cut -d ' ' -f 1 \
+      | tr '\n' ',' \
+      | sed 's/,$//')
+  kubectl get "${istio_resources}" --all-namespaces -o yaml > "${ISTIO_RESOURCES_FILE}"
 
   kubectl cluster-info dump > ${OUT_DIR}/logs/cluster-info.dump.txt
   kubectl describe pods -n istio-system > ${OUT_DIR}/logs/pods-system.txt
