@@ -1,14 +1,10 @@
 #!/bin/bash
 set -ex
 
-SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
+SCRIPTPATH=$(cd "$(dirname "$0")" && pwd)
+WORKSPACE=$(cd "$(dirname "${SCRIPTPATH}")" && pwd)
 
-WORKSPACE=$SCRIPTPATH/..
-
-cd ${WORKSPACE}
-
-GOOS=
-GOARCH=
+cd "${WORKSPACE}"
 
 if [[ -z $SKIP_INIT ]];then
   bin/init.sh
