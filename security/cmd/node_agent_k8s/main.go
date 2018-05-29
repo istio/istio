@@ -23,8 +23,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"istio.io/istio/security/cmd/node_agent/na"
-	"istio.io/istio/security/cmd/node_agent_k8s/workload/handler"
+	nvm "istio.io/istio/security/pkg/nodeagent/vm"
+
+"istio.io/istio/security/cmd/node_agent_k8s/workload/handler"
 	wlapi "istio.io/istio/security/cmd/node_agent_k8s/workloadapi"
 	"istio.io/istio/security/pkg/caclient"
 	"istio.io/istio/security/pkg/caclient/protocol"
@@ -60,7 +61,7 @@ var (
 		Long:  "Node agent with both mgmt and workload api interfaces.",
 	}
 
-	naConfig na.Config
+	naConfig nvm.Config
 )
 
 func init() {

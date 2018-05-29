@@ -26,9 +26,9 @@ import (
 
 	"github.com/gogo/googleapis/google/rpc"
 	"golang.org/x/net/context"
+	nvm "istio.io/istio/security/pkg/nodeagent/vm"
 
-	"istio.io/istio/security/cmd/node_agent/na"
-	"istio.io/istio/security/cmd/node_agent_k8s/workload/handler"
+"istio.io/istio/security/cmd/node_agent_k8s/workload/handler"
 	wapi "istio.io/istio/security/cmd/node_agent_k8s/workloadapi"
 	"istio.io/istio/security/pkg/caclient"
 	"istio.io/istio/security/pkg/nodeagent/secrets"
@@ -144,7 +144,7 @@ func TestWorkloadAddedService(t *testing.T) {
 	if err := fake.setupWorkload("spiffe://cluster.local/ns/ns1/sa/sa1"); err != nil {
 		t.Error(err)
 	}
-	server, err := New(&na.Config{
+	server, err := New(&nvm.Config{
 		WorkloadOpts: handler.Options{
 			SockFile: "path",
 			RegAPI:   wapi.RegisterGrpc,
@@ -193,7 +193,7 @@ func TestWorkloadDeletedService(t *testing.T) {
 	server := &Server{
 		handlerMap: map[string]handler.WorkloadHandler{},
 		done:       make(chan bool),
-		config: &na.Config{
+		config: &nvm.Config{
 			WorkloadOpts: handler.Options{
 				SockFile: "path",
 				RegAPI:   wapi.RegisterGrpc,
