@@ -71,7 +71,7 @@ var httpStatic = &networking.ServiceEntry{
 }
 
 var httpDNSnoEndpoints = &networking.ServiceEntry{
-	Hosts: []string{"google.com"},
+	Hosts: []string{"google.com", "www.wikipedia.org"},
 	Ports: []*networking.Port{
 		{Number: 80, Name: "http-port", Protocol: "http"},
 		{Number: 8080, Name: "http-alt-port", Protocol: "http"},
@@ -169,6 +169,17 @@ var multiAddrInternal = &networking.ServiceEntry{
 	Resolution: networking.ServiceEntry_NONE,
 }
 
+var udsLocal = &networking.ServiceEntry{
+	Hosts: []string{"uds.cluster.local"},
+	Ports: []*networking.Port{
+		{Number: 6553, Name: "grpc-1", Protocol: "grpc"},
+	},
+	Endpoints: []*networking.ServiceEntry_Endpoint{
+		{Address: "unix:///test/sock"},
+	},
+	Resolution: networking.ServiceEntry_STATIC,
+}
+
 func convertPortNameToProtocol(name string) model.Protocol {
 	prefix := name
 	i := strings.Index(name, "-")
@@ -205,9 +216,23 @@ func makeService(hostname model.Hostname, address string, ports map[string]int, 
 
 func makeInstance(serviceEntry *networking.ServiceEntry, address string, port int,
 	svcPort *networking.Port, labels map[string]string) *model.ServiceInstance {
+	family := model.AddressFamilyTCP
+	if port == 0 {
+		family = model.AddressFamilyUnix
+	}
+
+	services := convertServices(serviceEntry)
+	svc := services[0] // default
+	for _, s := range services {
+		if s.Hostname.String() == address {
+			svc = s
+			break
+		}
+	}
 	return &model.ServiceInstance{
-		Service: convertServices(serviceEntry)[0],
+		Service: svc,
 		Endpoint: model.NetworkEndpoint{
+			Family:  family,
 			Address: address,
 			Port:    port,
 			ServicePort: &model.Port{
@@ -229,7 +254,7 @@ func TestConvertService(t *testing.T) {
 		{
 			// service entry http
 			externalSvc: httpNone,
-			services: []*model.Service{makeService("*.google.com", "",
+			services: []*model.Service{makeService("*.google.com", model.UnspecifiedIP,
 				map[string]int{"http-number": 80, "http2-number": 8080}, true, model.Passthrough),
 			},
 		},
@@ -243,28 +268,31 @@ func TestConvertService(t *testing.T) {
 		{
 			// service entry http  static
 			externalSvc: httpStatic,
-			services: []*model.Service{makeService("*.google.com", "",
+			services: []*model.Service{makeService("*.google.com", model.UnspecifiedIP,
 				map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.ClientSideLB),
 			},
 		},
 		{
 			// service entry DNS with no endpoints
 			externalSvc: httpDNSnoEndpoints,
-			services: []*model.Service{makeService("google.com", "",
-				map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB),
+			services: []*model.Service{
+				makeService("google.com", model.UnspecifiedIP,
+					map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB),
+				makeService("www.wikipedia.org", model.UnspecifiedIP,
+					map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB),
 			},
 		},
 		{
 			// service entry dns
 			externalSvc: httpDNS,
-			services: []*model.Service{makeService("*.google.com", "",
+			services: []*model.Service{makeService("*.google.com", model.UnspecifiedIP,
 				map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB),
 			},
 		},
 		{
 			// service entry tcp DNS
 			externalSvc: tcpDNS,
-			services: []*model.Service{makeService("tcpdns.com", "",
+			services: []*model.Service{makeService("tcpdns.com", model.UnspecifiedIP,
 				map[string]int{"tcp-444": 444}, true, model.DNSLB),
 			},
 		},
@@ -278,7 +306,7 @@ func TestConvertService(t *testing.T) {
 		{
 			// service entry http internal
 			externalSvc: httpNoneInternal,
-			services: []*model.Service{makeService("*.google.com", "",
+			services: []*model.Service{makeService("*.google.com", model.UnspecifiedIP,
 				map[string]int{"http-number": 80, "http2-number": 8080}, false, model.Passthrough),
 			},
 		},
@@ -348,6 +376,8 @@ func TestConvertInstances(t *testing.T) {
 			out: []*model.ServiceInstance{
 				makeInstance(httpDNSnoEndpoints, "google.com", 80, httpDNSnoEndpoints.Ports[0], nil),
 				makeInstance(httpDNSnoEndpoints, "google.com", 8080, httpDNSnoEndpoints.Ports[1], nil),
+				makeInstance(httpDNSnoEndpoints, "www.wikipedia.org", 80, httpDNSnoEndpoints.Ports[0], nil),
+				makeInstance(httpDNSnoEndpoints, "www.wikipedia.org", 8080, httpDNSnoEndpoints.Ports[1], nil),
 			},
 		},
 		{
@@ -376,6 +406,13 @@ func TestConvertInstances(t *testing.T) {
 			out: []*model.ServiceInstance{
 				makeInstance(tcpStatic, "1.1.1.1", 444, tcpStatic.Ports[0], nil),
 				makeInstance(tcpStatic, "2.2.2.2", 444, tcpStatic.Ports[0], nil),
+			},
+		},
+		{
+			// service entry unix domain socket static
+			externalSvc: udsLocal,
+			out: []*model.ServiceInstance{
+				makeInstance(udsLocal, "/test/sock", 0, udsLocal.Ports[0], nil),
 			},
 		},
 	}

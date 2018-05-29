@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"path"
 	"regexp"
 	"strconv"
 	"strings"
@@ -61,6 +62,10 @@ const (
 	drainTimeMax          = time.Hour
 	parentShutdownTimeMax = time.Hour
 )
+
+// UnixAddressPrefix is the prefix used to indicate an address is for a Unix Domain socket. It is used in
+// ServiceEntry.Endpoint.Address message.
+const UnixAddressPrefix = "unix://"
 
 var (
 	dns1123LabelRegexp   = regexp.MustCompile("^" + dns1123LabelFmt + "$")
@@ -555,6 +560,19 @@ func ValidateIPv4Address(addr string) error {
 		return fmt.Errorf("%v is not a valid IPv4 address", addr)
 	}
 
+	return nil
+}
+
+// ValidateUnixAddress validates that the string is a valid unix domain socket path.
+func ValidateUnixAddress(addr string) error {
+	if len(addr) == 0 {
+		return errors.New("unix address must not be empty")
+	}
+	// Note that we use path, not path/filepath even though a domain socket path is a file path.  We don't want the
+	// Pilot output to depend on which OS Pilot is run on, so we always use Unix-style forward slashes.
+	if !path.IsAbs(addr) {
+		return fmt.Errorf("%s is not an absolute path", addr)
+	}
 	return nil
 }
 
@@ -1816,7 +1834,7 @@ func validateAuthNPolicyTarget(target *authn.TargetSelector) (errs error) {
 
 	// AuthN policy target (host)name must be a shortname
 	if !IsDNS1123Label(target.Name) {
-		errs = multierror.Append(errs, fmt.Errorf("taget name %q must be a valid label", target.Name))
+		errs = multierror.Append(errs, fmt.Errorf("target name %q must be a valid label", target.Name))
 	}
 
 	if target.Subset != "" {
@@ -1836,17 +1854,48 @@ func ValidateVirtualService(msg proto.Message) (errs error) {
 		return errors.New("cannot cast to virtual service")
 	}
 
+	appliesToMesh := false
+	if len(virtualService.Gateways) == 0 {
+		appliesToMesh = true
+	}
+
 	for _, gateway := range virtualService.Gateways {
 		if !IsDNS1123Label(gateway) {
 			errs = appendErrors(errs, fmt.Errorf("gateway is not a valid DNS1123 label: %v", gateway))
+		}
+		if gateway == IstioMeshGateway {
+			appliesToMesh = true
 		}
 	}
 
 	if len(virtualService.Hosts) == 0 {
 		errs = appendErrors(errs, fmt.Errorf("virtual service must have at least one host"))
 	}
+
+	allHostsValid := true
 	for _, host := range virtualService.Hosts {
-		errs = appendErrors(errs, validateHost(host))
+		if err := validateHost(host); err != nil {
+			errs = appendErrors(errs, validateHost(host))
+			allHostsValid = false
+		} else if appliesToMesh && host == "*" {
+			errs = appendErrors(errs, fmt.Errorf("wildcard host * is not allowed for virtual services bound to the mesh gateway"))
+			allHostsValid = false
+		}
+	}
+
+	// Check for duplicate hosts
+	// Duplicates include literal duplicates as well as wildcard duplicates
+	// E.g., *.foo.com, and *.com are duplicates in the same virtual service
+	if allHostsValid {
+		for i := 0; i < len(virtualService.Hosts); i++ {
+			hostI := Hostname(virtualService.Hosts[i])
+			for j := i + 1; j < len(virtualService.Hosts); j++ {
+				hostJ := Hostname(virtualService.Hosts[j])
+				if hostI.Matches(hostJ) {
+					errs = appendErrors(errs, fmt.Errorf("duplicate hosts in virtual service: %s & %s", hostI, hostJ))
+				}
+			}
+		}
 	}
 
 	if len(virtualService.Http) == 0 && len(virtualService.Tcp) == 0 {
@@ -2126,7 +2175,12 @@ func ValidateServiceEntry(config proto.Message) (errs error) {
 		errs = appendErrors(errs, fmt.Errorf("service entry must have at least one host"))
 	}
 	for _, host := range serviceEntry.Hosts {
-		errs = appendErrors(errs, ValidateWildcardDomain(host))
+		// Full wildcard or short names are not allowed in the service entry.
+		if host == "*" || !strings.Contains(host, ".") {
+			errs = appendErrors(errs, fmt.Errorf("invalid host %s", host))
+		} else {
+			errs = appendErrors(errs, ValidateWildcardDomain(host))
+		}
 	}
 	for _, address := range serviceEntry.Addresses {
 		errs = appendErrors(errs, validateCIDR(address))
@@ -2156,19 +2210,29 @@ func ValidateServiceEntry(config proto.Message) (errs error) {
 				fmt.Errorf("endpoints must be provided if service entry discovery mode is static"))
 		}
 
+		unixEndpoint := false
 		for _, endpoint := range serviceEntry.Endpoints {
-			errs = appendErrors(errs,
-				ValidateIPv4Address(endpoint.Address),
-				Labels(endpoint.Labels).Validate())
-
-			for name, port := range endpoint.Ports {
-				if !servicePorts[name] {
-					errs = appendErrors(errs, fmt.Errorf("endpoint port %v is not defined by the service entry", port))
+			addr := endpoint.GetAddress()
+			if strings.HasPrefix(addr, UnixAddressPrefix) {
+				unixEndpoint = true
+				errs = appendErrors(errs, ValidateUnixAddress(strings.TrimPrefix(addr, UnixAddressPrefix)))
+				if len(endpoint.Ports) != 0 {
+					errs = appendErrors(errs, fmt.Errorf("unix endpoint %s must not include ports", addr))
 				}
-				errs = appendErrors(errs,
-					validatePortName(name),
-					ValidatePort(int(port)))
+			} else {
+				errs = appendErrors(errs, ValidateIPv4Address(addr))
+
+				for name, port := range endpoint.Ports {
+					if !servicePorts[name] {
+						errs = appendErrors(errs, fmt.Errorf("endpoint port %v is not defined by the service entry", port))
+					}
+				}
 			}
+			errs = appendErrors(errs, Labels(endpoint.Labels).Validate())
+
+		}
+		if unixEndpoint && len(serviceEntry.Ports) != 1 {
+			errs = appendErrors(errs, errors.New("exactly 1 service port required for unix endpoints"))
 		}
 	case networking.ServiceEntry_DNS:
 		if len(serviceEntry.Endpoints) == 0 {
@@ -2176,12 +2240,6 @@ func ValidateServiceEntry(config proto.Message) (errs error) {
 				if err := ValidateFQDN(host); err != nil {
 					errs = appendErrors(errs,
 						fmt.Errorf("hosts must be FQDN if no endpoints are provided for discovery mode DNS"))
-				}
-			}
-			for _, port := range serviceEntry.Ports {
-				if !ParseProtocol(port.Protocol).IsHTTP() {
-					errs = appendErrors(errs,
-						fmt.Errorf("if discovery type is DNS and no endpoints are provided all ports must be HTTP based"))
 				}
 			}
 		}
@@ -2245,4 +2303,21 @@ func appendErrors(err error, errs ...error) error {
 		err = appendError(err, err2)
 	}
 	return err
+}
+
+// ValidateNetworkEndpointAddress checks the Address field of a NetworkEndpoint. If the family is TCP, it checks the
+// address is a valid IP address. If the family is Unix, it checks the address is a valid socket file path.
+func ValidateNetworkEndpointAddress(n *NetworkEndpoint) error {
+	switch n.Family {
+	case AddressFamilyTCP:
+		ipAddr := net.ParseIP(n.Address)
+		if ipAddr == nil {
+			return errors.New("invalid IP address " + n.Address)
+		}
+	case AddressFamilyUnix:
+		return ValidateUnixAddress(n.Address)
+	default:
+		panic(fmt.Sprintf("unhandled Family %v", n.Family))
+	}
+	return nil
 }

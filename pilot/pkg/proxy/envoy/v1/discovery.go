@@ -473,6 +473,12 @@ func (ds *DiscoveryService) ClearCacheStats(_ *restful.Request, _ *restful.Respo
 	ds.ldsCache.resetStats()
 }
 
+// ClearCache is wrapper for clearCache method, used when new controller gets
+// instantiated dynamically
+func (ds *DiscoveryService) ClearCache() {
+	ds.clearCache()
+}
+
 // clearCache will clear all envoy caches. Called by service, instance and config handlers.
 // This will impact the performance, since envoy will need to recalculate.
 func (ds *DiscoveryService) clearCache() {

@@ -9,3 +9,4 @@ spec:
     - number: 80
       protocol: HTTP2
       name: http2-port
+  resolution: NONE

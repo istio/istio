@@ -61,6 +61,9 @@ type TestSetup struct {
 
 	// IstioOut is the base output directory.
 	IstioOut string
+
+	// AccessLogPath is the access log path for Envoy
+	AccessLogPath string
 }
 
 // MixerFilterConfigV1 is version v1 for Mixer filter config.
@@ -78,6 +81,7 @@ func NewTestSetup(name uint16, t *testing.T) *TestSetup {
 		ports:         NewPorts(name),
 		testName:      name,
 		mfConfVersion: MixerFilterConfigV2,
+		AccessLogPath: "/tmp/envoy-access.log",
 	}
 }
 

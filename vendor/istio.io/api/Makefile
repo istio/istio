@@ -11,7 +11,7 @@ repo_dir = .
 docker_gen = /usr/bin/protoc -I/protobuf -I$(repo_dir)
 out_path = $(OUT_PATH)
 else
-gen_img := gcr.io/istio-testing/protoc:2018-05-10
+gen_img := gcr.io/istio-testing/protoc:2018-05-17
 pwd := $(shell pwd)
 mount_dir := /src
 repo_dir := istio.io/api
@@ -70,7 +70,7 @@ gogoslick_plugin := $(gogoslick_plugin_prefix)$(gogo_mapping):$(out_path)
 # protoc_gen_docs
 ########################
 
-protoc_gen_docs_plugin := --docs_out=warnings=true,mode=jekyll_html:$(repo_dir)/
+protoc_gen_docs_plugin := --docs_out=warnings=true,mode=html_fragment_with_front_matter:$(repo_dir)/
 
 #####################
 # Generation Rules
@@ -223,7 +223,7 @@ $(mixer_adapter_model_v1beta1_pb_pythons): $(mixer_adapter_model_v1beta1_protos)
 
 $(policy_v1beta1_pb_pythons): $(policy_v1beta1_protos)
 	## Generate python/istio_api/policy/v1beta1/*_pb2.py
-	@$(docker_gen) $(protoc_gen_python_plugin) $(policy_v1beta1_path) $^
+	@$(docker_gen) $(protoc_gen_python_plugin) $^
 	## Generate python/istio_api/policy/v1beta1/cfg_pb2.py
 	@$(docker_gen) $(protoc_gen_python_plugin) policy/v1beta1/cfg.proto
 

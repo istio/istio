@@ -13,7 +13,7 @@
     "use_all_default_tags": false
   },
   "admin": {
-    "access_log_path": "/dev/stdout",
+    "access_log_path": "{{.AccessLog}}",
     "address": {
       "socket_address": {
         "address": "0.0.0.0",
@@ -208,7 +208,7 @@
                 {
                   "name": "envoy.file_access_log",
                   "config": {
-                      "path":  "/dev/stdout"
+                      "path":  "{{.AccessLog}}"
                    }
                 }
               ]
@@ -251,7 +251,7 @@
                 {
                   "name": "envoy.file_access_log",
                   "config": {
-                      "path":  "/dev/stdout"
+                      "path":  "{{.AccessLog}}"
                    }
                 }
               ]

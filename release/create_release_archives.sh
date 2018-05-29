@@ -131,9 +131,14 @@ for unwanted_manifest in \
     istio-one-namespace-auth.yaml \
     istio-multicluster.yaml \
     istio-auth-multicluster.yaml \
+    istio.yaml \
+    addons/zipkin.yaml \
+    istio-auth.yaml \
     istio-remote.yaml; do
   rm -f "${COMMON_FILES_DIR}/install/kubernetes/${unwanted_manifest}"
 done
+
+ls -l  ${COMMON_FILES_DIR}/install/kubernetes/
 
 # Changing dir such that tar and zip files are
 # created with right hiereachy

@@ -58,7 +58,7 @@ func convertPort(port int, name string) *model.Port {
 }
 
 func convertService(endpoints []*api.CatalogService) *model.Service {
-	name, addr, externalName := "", "", ""
+	name, externalName := "", ""
 
 	meshExternal := false
 	resolution := model.ClientSideLB
@@ -92,7 +92,7 @@ func convertService(endpoints []*api.CatalogService) *model.Service {
 
 	out := &model.Service{
 		Hostname:     serviceHostname(name),
-		Address:      addr,
+		Address:      "0.0.0.0",
 		Ports:        svcPorts,
 		ExternalName: model.Hostname(externalName),
 		MeshExternal: meshExternal,

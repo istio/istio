@@ -286,6 +286,7 @@ func makeService(hostname model.Hostname, ports []int, protocols []model.Protoco
 
 	return &model.Service{
 		Hostname: hostname,
+		Address:  model.UnspecifiedIP,
 		Ports:    portList,
 	}
 }

@@ -33,6 +33,7 @@ import (
 const (
 	discoveryContainer = "discovery"
 	proxyContainer     = "istio-proxy"
+	mesh               = "all"
 )
 
 var (
@@ -89,7 +90,7 @@ istioctl proxy-config endpoint -n application productpage-v1-bb8d5cbc7-k7qbm sta
 			case "pilot":
 				var proxyID string
 				if podName == "mesh" {
-					proxyID = "all"
+					proxyID = mesh
 				} else {
 					proxyID = fmt.Sprintf("%v.%v", podName, ns)
 				}
@@ -100,7 +101,7 @@ istioctl proxy-config endpoint -n application productpage-v1-bb8d5cbc7-k7qbm sta
 				if len(pilots) == 0 {
 					return errors.New("unable to find any Pilot instances")
 				}
-				debug, pilotErr := callPilotDiscoveryDebug(pilots[0].Name, pilots[0].Namespace, proxyID, configType)
+				debug, pilotErr := callPilotDiscoveryDebug(pilots, proxyID, configType)
 				if pilotErr != nil {
 					fmt.Println(debug)
 					return err
@@ -144,15 +145,24 @@ func defaultRestConfig() (*rest.Config, error) {
 	return config, nil
 }
 
-func callPilotDiscoveryDebug(podName, podNamespace, proxyID, configType string) (string, error) {
+func callPilotDiscoveryDebug(pods []v1.Pod, proxyID, configType string) (string, error) {
 	cmd := []string{"/usr/local/bin/pilot-discovery", "debug", proxyID, configType}
-	stdout, stderr, err := podExec(podName, podNamespace, discoveryContainer, cmd)
-	if err != nil {
-		return stdout.String(), err
-	} else if stderr.String() != "" {
-		return "", fmt.Errorf("unable to call pilot-disocver debug: %v", stderr.String())
+	var err error
+	var stdout, stderr *bytes.Buffer
+	for _, pod := range pods {
+		fmt.Println(pod.Name, configType)
+		stdout, stderr, err = podExec(pod.Name, pod.Namespace, discoveryContainer, cmd)
+		if stdout.String() != "" {
+			if proxyID != mesh {
+				return stdout.String(), nil
+			}
+			fmt.Println(stdout.String())
+		}
 	}
-	return stdout.String(), nil
+	if stderr.String() != "" {
+		return "", fmt.Errorf("unable to call pilot-discover debug: %v", stderr.String())
+	}
+	return stdout.String(), err
 }
 
 func callPilotAgentDebug(podName, podNamespace, configType string) (string, error) {

@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/collateral"
+	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
 )
@@ -35,6 +36,8 @@ var (
 	serverArgs bootstrap.PilotArgs
 
 	loggingOptions = log.DefaultOptions()
+
+	ctrlzOptions = ctrlz.DefaultOptions()
 
 	rootCmd = &cobra.Command{
 		Use:   "pilot-discovery",
@@ -128,6 +131,10 @@ func init() {
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
+
+	// Attach the Istio Ctrlz options to the command.
+	ctrlzOptions.AttachCobraFlags(rootCmd)
+	serverArgs.CtrlZOptions = ctrlzOptions
 
 	cmd.AddFlags(rootCmd)
 
