@@ -82,7 +82,7 @@ func TestIngressGateway503DuringRuleChange(t *testing.T) {
 		t.Skipf("Skipping %s: v1alpha3=false", t.Name())
 	}
 	// TODO: re-enable for v2.
-	t.Skipf("Skipping %s: v1alpha3=false", t.Name())
+	//t.Skipf("Skipping %s: v1alpha3=false", t.Name())
 
 	istioNamespace := tc.Kube.IstioSystemNamespace()
 	ingressGatewayServiceName := tc.Kube.IstioIngressGatewayService()
