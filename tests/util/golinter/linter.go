@@ -178,16 +178,16 @@ func (lt *Linter) scanMandatoryFunctionCallInTest(af *ast.File) {
 // Currently we check the following calls.
 // case 1:
 // func Testxxx(t *testing.T) {
+// 	if !testing.Short() {
+// 	...
+// 	}
+// }
+// case 2:
+// func Testxxx(t *testing.T) {
 // 	if testing.Short() {
 //		t.Skip("xxx")
 //	}
 //	...
-// }
-// case 2:
-// func Testxxx(t *testing.T) {
-// 	if !testing.Short() {
-// 	...
-// 	}
 // }
 func (lt *Linter) hasMandatoryCall(stmts []ast.Stmt) bool {
 	if len(stmts) == 0 {
