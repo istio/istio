@@ -18,6 +18,19 @@ import (
 	"log"
 
 	"github.com/spf13/cobra"
+
+	nvm "istio.io/istio/security/pkg/nodeagent/vm"
+)
+
+const (
+	// MgmtAPIPath is the path to call mgmt.
+	MgmtAPIPath string = "/tmp/udsuspver/mgmt.sock"
+
+	// WorkloadAPIUdsHome is the uds file directory for workload api.
+	WorkloadAPIUdsHome string = "/tmp/nodeagent"
+
+	// WorkloadAPIUdsFile is the uds file name for workload api.
+	WorkloadAPIUdsFile string = "/server.sock"
 )
 
 var (
@@ -26,6 +39,8 @@ var (
 		Use:   "nodeagent",
 		Short: "Node agent",
 	}
+
+	naConfig nvm.Config
 )
 
 // Placeholder.
