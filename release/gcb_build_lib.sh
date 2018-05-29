@@ -20,7 +20,7 @@ set -o nounset
 set -o pipefail
 set -x
 
-SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
+SCRIPTPATH=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd --physical)
 source ${SCRIPTPATH}/json_parse_shared.sh
 
 # parse_result_file(): parses the result from a build query.

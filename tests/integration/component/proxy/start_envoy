@@ -17,8 +17,7 @@
 ################################################################################
 #
 
-WD=$(dirname $0)
-WD=$(cd $WD; pwd)
+WD=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd --physical)
 
 function usage() {
   [[ -n "${1}" ]] && echo "${1}"

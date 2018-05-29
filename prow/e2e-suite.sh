@@ -19,9 +19,8 @@
 # e2e-suite triggered after istio/presubmit succeeded #
 #######################################################
 
-WD=$(dirname $0)
-WD=$(cd $WD; pwd)
-ROOT=$(dirname $WD)
+WD=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd --physical)
+ROOT=$(cd "$(dirname "${WD}")" && pwd --physical)
 
 # Exit immediately for non zero status
 set -e
@@ -68,7 +67,7 @@ if [ "${CI:-}" == 'bootstrap' ]; then
   E2E_ARGS+=(--test_logs_path="${ARTIFACTS_DIR}")
 fi
 
-ISTIO_GO=$(cd $(dirname $0)/..; pwd)
+ISTIO_GO=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd --physical)
 
 export HUB=${HUB:-"gcr.io/istio-testing"}
 export TAG="${GIT_SHA}"

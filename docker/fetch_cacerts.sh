@@ -1,6 +1,5 @@
 #!/bin/bash
-WD=$(dirname $0)
-WD=$(cd $WD; pwd)
+WD=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd --physical)
 
 set -o errexit
 set -o nounset

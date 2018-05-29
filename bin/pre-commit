@@ -11,7 +11,7 @@ set -o errexit
 WD=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd --physical)
 ROOT=$(cd "$(dirname "${SCRIPTPATH}")" && pwd --physical)
 if [[ $ROOT == */.git ]]; then
-    ROOT=$ROOT/..
+    ROOT=$(cd "$(dirname "${ROOT}")" && pwd --physical)
 fi
 GOPATH=$(cd "$ROOT/../.." && pwd --physical)
 export GOPATH

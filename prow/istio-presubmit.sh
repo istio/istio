@@ -19,9 +19,8 @@
 
 # Separate (and parallel) jobs are doing lint, coverage, etc.
 
-WD=$(dirname $0)
-WD=$(cd $WD; pwd)
-ROOT=$(dirname $WD)
+WD=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd --physical)
+ROOT=$(cd "$(dirname "${WD}")" && pwd --physical)
 
 # No unset vars, print commands as they're executed, and exit on any non-zero
 # return code

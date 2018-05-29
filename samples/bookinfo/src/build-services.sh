@@ -23,7 +23,7 @@ if [ "$#" -ne 1 ]; then
 fi
 
 VERSION=$1
-SCRIPTDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+SCRIPTDIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd --physical)
 
 pushd $SCRIPTDIR/productpage
   docker build -t istio/examples-bookinfo-productpage-v1:${VERSION} .
