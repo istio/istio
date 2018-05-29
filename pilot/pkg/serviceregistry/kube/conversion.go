@@ -25,7 +25,6 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -67,10 +66,9 @@ func convertLabels(obj meta_v1.ObjectMeta) model.Labels {
 
 func convertPort(port v1.ServicePort, obj meta_v1.ObjectMeta) *model.Port {
 	return &model.Port{
-		Name:                 port.Name,
-		Port:                 int(port.Port),
-		Protocol:             ConvertProtocol(port.Name, port.Protocol),
-		AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+		Name:     port.Name,
+		Port:     int(port.Port),
+		Protocol: ConvertProtocol(port.Name, port.Protocol),
 	}
 }
 

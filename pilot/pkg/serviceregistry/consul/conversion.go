@@ -20,7 +20,6 @@ import (
 
 	"github.com/hashicorp/consul/api"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
@@ -50,10 +49,9 @@ func convertPort(port int, name string) *model.Port {
 	}
 
 	return &model.Port{
-		Name:                 name,
-		Port:                 port,
-		Protocol:             convertProtocol(name),
-		AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+		Name:     name,
+		Port:     port,
+		Protocol: convertProtocol(name),
 	}
 }
 

@@ -42,19 +42,14 @@ func GetConsolidateAuthenticationPolicy(mesh *meshconfig.MeshConfig, store Istio
 		}
 	}
 
-	legacyPolicy := consolidateAuthPolicy(mesh, port.AuthenticationPolicy)
+	legacyPolicy := meshAuthPolicy(mesh)
 	log.Debugf("No authentication policy found for  %s:%d. Fallback to legacy authentication mode %v\n",
 		hostname, port.Port, legacyPolicy)
 	return legacyAuthenticationPolicyToPolicy(legacyPolicy)
 }
 
-// consolidateAuthPolicy returns service auth policy, if it's not INHERIT. Else,
-// returns mesh policy.
-func consolidateAuthPolicy(mesh *meshconfig.MeshConfig,
-	serviceAuthPolicy meshconfig.AuthenticationPolicy) meshconfig.AuthenticationPolicy {
-	if serviceAuthPolicy != meshconfig.AuthenticationPolicy_INHERIT {
-		return serviceAuthPolicy
-	}
+// meshAuthPolicy returns mesh auth policy.
+func meshAuthPolicy(mesh *meshconfig.MeshConfig) meshconfig.AuthenticationPolicy {
 	// TODO: use AuthenticationPolicy for mesh policy and remove this conversion
 	switch mesh.AuthPolicy {
 	case meshconfig.MeshConfig_MUTUAL_TLS:
