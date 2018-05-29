@@ -27,7 +27,7 @@ var cfg = ""
 func TestHTTPWithMTLS(t *testing.T) {
 	test.Requires(t, dependency.Apps, dependency.Pilot, dependency.MTLS)
 
-	env := test.GetEnvironment(t)
+	env := test.AcquireEnvironment(t)
 	env.Configure(t, cfg)
 
 	appa := env.GetAppOrFail("a", t)
