@@ -1,0 +1,80 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: badhealth
+  labels:
+    app: badhealth
+spec:
+  ports:
+  - port: 80
+    targetPort: 8080
+  selector:
+    app: badhealth
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: badhealth
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: badhealth
+        version: v1
+    spec:
+      containers:
+      - name: app
+        image: {{.Values.testHub}}/app:{{.Values.testTag}}
+        imagePullPolicy: IfNotPresent
+        args:
+        - --port
+        - "8080"
+        - --port
+        - "3333"
+        - --version
+        - "v1"
+        ports:
+        - containerPort: 8080
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 3334
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          failureThreshold: 100
+
+---
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: badlive
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: badhealth
+        version: v1
+    spec:
+      containers:
+      - name: app
+        image: {{.Values.testHub}}/app:{{.Values.testTag}}
+        imagePullPolicy: IfNotPresent
+        args:
+        - --port
+        - "8080"
+        - --port
+        - "3333"
+        - --version
+        - "v1"
+        ports:
+        - containerPort: 8080
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 3334
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          failureThreshold: 100
