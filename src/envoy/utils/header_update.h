@@ -15,34 +15,42 @@
 
 #pragma once
 
+#include "common/common/base64.h"
 #include "common/common/logger.h"
 #include "envoy/http/header_map.h"
+
 #include "include/istio/control/http/controller.h"
-#include "src/envoy/http/mixer/check_data.h"
 
 namespace Envoy {
-namespace Http {
-namespace Mixer {
+namespace Utils {
+
+namespace {
+// The HTTP header to forward Istio attributes.
+const Http::LowerCaseString kIstioAttributeHeader("x-istio-attributes");
+};  // namespace
 
 class HeaderUpdate : public ::istio::control::http::HeaderUpdate,
                      public Logger::Loggable<Logger::Id::filter> {
-  HeaderMap* headers_;
+  Http::HeaderMap* headers_;
 
  public:
-  HeaderUpdate(HeaderMap* headers) : headers_(headers) {}
+  HeaderUpdate(Http::HeaderMap* headers) : headers_(headers) {}
 
   void RemoveIstioAttributes() override {
-    headers_->remove(CheckData::IstioAttributeHeader());
+    headers_->remove(kIstioAttributeHeader);
   }
 
   // base64 encode data, and add it to the HTTP header.
   void AddIstioAttributes(const std::string& data) override {
     std::string base64 = Base64::encode(data.c_str(), data.size());
     ENVOY_LOG(debug, "Mixer forward attributes set: {}", base64);
-    headers_->addReferenceKey(CheckData::IstioAttributeHeader(), base64);
+    headers_->setReferenceKey(kIstioAttributeHeader, base64);
+  }
+
+  static const Http::LowerCaseString& IstioAttributeHeader() {
+    return kIstioAttributeHeader;
   }
 };
 
-}  // namespace Mixer
-}  // namespace Http
+}  // namespace Utils
 }  // namespace Envoy

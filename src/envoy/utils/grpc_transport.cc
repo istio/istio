@@ -14,9 +14,11 @@
  */
 #include "src/envoy/utils/grpc_transport.h"
 #include "absl/types/optional.h"
+#include "src/envoy/utils/header_update.h"
 
 using ::google::protobuf::util::Status;
 using StatusCode = ::google::protobuf::util::error::Code;
+using ::istio::mixer::v1::Attributes;
 
 namespace Envoy {
 namespace Utils {
@@ -31,15 +33,32 @@ template <class RequestType, class ResponseType>
 GrpcTransport<RequestType, ResponseType>::GrpcTransport(
     Grpc::AsyncClientPtr async_client, const RequestType &request,
     ResponseType *response, Tracing::Span &parent_span,
-    istio::mixerclient::DoneFunc on_done)
+    const Attributes &forward_attributes, istio::mixerclient::DoneFunc on_done)
     : async_client_(std::move(async_client)),
       response_(response),
+      forward_attributes_(forward_attributes),
       on_done_(on_done),
       request_(async_client_->send(
           descriptor(), request, *this, parent_span,
           absl::optional<std::chrono::milliseconds>(kGrpcRequestTimeoutMs))) {
   ENVOY_LOG(debug, "Sending {} request: {}", descriptor().name(),
             request.DebugString());
+}
+
+template <class RequestType, class ResponseType>
+void GrpcTransport<RequestType, ResponseType>::onCreateInitialMetadata(
+    Http::HeaderMap &metadata) {
+  // We generate cluster name contains invalid characters, so override the
+  // authority header temorarily until it can be specified via CDS.
+  // See https://github.com/envoyproxy/envoy/issues/3297 for details.
+  metadata.Host()->value("mixer", 5);
+
+  if (!forward_attributes_.attributes().empty()) {
+    HeaderUpdate header_update_(&metadata);
+    std::string serialized_attributes;
+    forward_attributes_.SerializeToString(&serialized_attributes);
+    header_update_.AddIstioAttributes(serialized_attributes);
+  }
 }
 
 template <class RequestType, class ResponseType>
@@ -71,13 +90,15 @@ void GrpcTransport<RequestType, ResponseType>::Cancel() {
 template <class RequestType, class ResponseType>
 typename GrpcTransport<RequestType, ResponseType>::Func
 GrpcTransport<RequestType, ResponseType>::GetFunc(
-    Grpc::AsyncClientFactory &factory, Tracing::Span &parent_span) {
-  return [&factory, &parent_span](const RequestType &request,
-                                  ResponseType *response,
-                                  istio::mixerclient::DoneFunc on_done)
+    Grpc::AsyncClientFactory &factory, Tracing::Span &parent_span,
+    const Attributes &forward_attributes) {
+  return [&factory, &parent_span, &forward_attributes](
+             const RequestType &request, ResponseType *response,
+             istio::mixerclient::DoneFunc on_done)
              -> istio::mixerclient::CancelFunc {
     auto transport = new GrpcTransport<RequestType, ResponseType>(
-        factory.create(), request, response, parent_span, on_done);
+        factory.create(), request, response, parent_span, forward_attributes,
+        on_done);
     return [transport]() { transport->Cancel(); };
   };
 }
@@ -102,9 +123,11 @@ const google::protobuf::MethodDescriptor &ReportTransport::descriptor() {
 
 // explicitly instantiate CheckTransport and ReportTransport
 template CheckTransport::Func CheckTransport::GetFunc(
-    Grpc::AsyncClientFactory &factory, Tracing::Span &parent_span);
+    Grpc::AsyncClientFactory &factory, Tracing::Span &parent_span,
+    const Attributes &forward_attributes);
 template ReportTransport::Func ReportTransport::GetFunc(
-    Grpc::AsyncClientFactory &factory, Tracing::Span &parent_span);
+    Grpc::AsyncClientFactory &factory, Tracing::Span &parent_span,
+    const Attributes &forward_attributes);
 
 }  // namespace Utils
 }  // namespace Envoy

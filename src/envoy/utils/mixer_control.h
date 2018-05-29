@@ -21,6 +21,8 @@
 #include "include/istio/mixerclient/client.h"
 #include "src/envoy/utils/config.h"
 
+using ::istio::mixer::v1::Attributes;
+
 namespace Envoy {
 namespace Utils {
 
@@ -29,7 +31,8 @@ void CreateEnvironment(Event::Dispatcher &dispatcher,
                        Runtime::RandomGenerator &random,
                        Grpc::AsyncClientFactory &check_client_factory,
                        Grpc::AsyncClientFactory &report_client_factory,
-                       ::istio::mixerclient::Environment *env);
+                       ::istio::mixerclient::Environment *env,
+                       const Attributes &forward_attributes);
 
 Grpc::AsyncClientFactoryPtr GrpcClientFactoryForCluster(
     const std::string &cluster_name, Upstream::ClusterManager &cm,

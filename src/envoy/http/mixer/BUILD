@@ -33,7 +33,6 @@ envoy_cc_library(
         "filter.cc",
         "filter.h",
         "filter_factory.cc",
-        "header_update.h",
         "report_data.h",
     ],
     repository = "@envoy",

@@ -60,11 +60,12 @@ void CreateEnvironment(Event::Dispatcher &dispatcher,
                        Runtime::RandomGenerator &random,
                        Grpc::AsyncClientFactory &check_client_factory,
                        Grpc::AsyncClientFactory &report_client_factory,
-                       ::istio::mixerclient::Environment *env) {
-  env->check_transport = CheckTransport::GetFunc(check_client_factory,
-                                                 Tracing::NullSpan::instance());
+                       ::istio::mixerclient::Environment *env,
+                       const Attributes &forward_attributes) {
+  env->check_transport = CheckTransport::GetFunc(
+      check_client_factory, Tracing::NullSpan::instance(), forward_attributes);
   env->report_transport = ReportTransport::GetFunc(
-      report_client_factory, Tracing::NullSpan::instance());
+      report_client_factory, Tracing::NullSpan::instance(), forward_attributes);
 
   env->timer_create_func = [&dispatcher](std::function<void()> timer_cb)
       -> std::unique_ptr<::istio::mixerclient::Timer> {

@@ -18,6 +18,7 @@
 #include "src/envoy/http/jwt_auth/jwt.h"
 #include "src/envoy/http/jwt_auth/jwt_authenticator.h"
 #include "src/envoy/utils/authn.h"
+#include "src/envoy/utils/header_update.h"
 #include "src/envoy/utils/utils.h"
 
 using HttpCheckData = ::istio::control::http::CheckData;
@@ -26,15 +27,12 @@ namespace Envoy {
 namespace Http {
 namespace Mixer {
 namespace {
-// The HTTP header to forward Istio attributes.
-const LowerCaseString kIstioAttributeHeader("x-istio-attributes");
-
 // Referer header
 const LowerCaseString kRefererHeaderKey("referer");
 
 // Set of headers excluded from request.headers attribute.
 const std::set<std::string> RequestHeaderExclusives = {
-    kIstioAttributeHeader.get(),
+    Utils::HeaderUpdate::IstioAttributeHeader().get(),
 };
 
 }  // namespace
@@ -48,13 +46,10 @@ CheckData::CheckData(const HeaderMap& headers,
   }
 }
 
-const LowerCaseString& CheckData::IstioAttributeHeader() {
-  return kIstioAttributeHeader;
-}
-
 bool CheckData::ExtractIstioAttributes(std::string* data) const {
   // Extract attributes from x-istio-attributes header
-  const HeaderEntry* entry = headers_.get(kIstioAttributeHeader);
+  const HeaderEntry* entry =
+      headers_.get(Utils::HeaderUpdate::IstioAttributeHeader());
   if (entry) {
     *data = Base64::decode(
         std::string(entry->value().c_str(), entry->value().size()));

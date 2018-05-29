@@ -59,8 +59,6 @@ class CheckData : public ::istio::control::http::CheckData,
 
   bool GetAuthenticationResult(istio::authn::Result* result) const override;
 
-  static const LowerCaseString& IstioAttributeHeader();
-
  private:
   const HeaderMap& headers_;
   const Network::Connection* connection_;

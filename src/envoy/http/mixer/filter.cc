@@ -18,9 +18,9 @@
 #include "common/common/base64.h"
 #include "include/istio/utils/status.h"
 #include "src/envoy/http/mixer/check_data.h"
-#include "src/envoy/http/mixer/header_update.h"
 #include "src/envoy/http/mixer/report_data.h"
 #include "src/envoy/utils/authn.h"
+#include "src/envoy/utils/header_update.h"
 
 using ::google::protobuf::util::Status;
 using ::istio::mixer::v1::config::client::ServiceConfig;
@@ -130,7 +130,7 @@ FilterHeadersStatus Filter::decodeHeaders(HeaderMap& headers, bool) {
   state_ = Calling;
   initiating_call_ = true;
   CheckData check_data(headers, decoder_callbacks_->connection());
-  HeaderUpdate header_update(&headers);
+  Utils::HeaderUpdate header_update(&headers);
   headers_ = &headers;
   cancel_check_ = handler_->Check(
       &check_data, &header_update,

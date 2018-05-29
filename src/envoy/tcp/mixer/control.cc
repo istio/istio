@@ -38,8 +38,10 @@ Control::Control(const Config& config, Upstream::ClusterManager& cm,
       uuid_(uuid) {
   ::istio::control::tcp::Controller::Options options(config_.config_pb());
 
-  Utils::CreateEnvironment(dispatcher, random, *check_client_factory_,
-                           *report_client_factory_, &options.env);
+  Utils::CreateEnvironment(
+      dispatcher, random, *check_client_factory_, *report_client_factory_,
+      &options.env,
+      config_.config_pb().transport().attributes_for_mixer_proxy());
 
   controller_ = ::istio::control::tcp::Controller::Create(options);
 }

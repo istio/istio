@@ -49,6 +49,7 @@ envoy_cc_library(
     hdrs = [
         "config.h",
         "grpc_transport.h",
+        "header_update.h",
         "mixer_control.h",
         "stats.h",
         "utils.h",
@@ -58,6 +59,7 @@ envoy_cc_library(
     deps = [
         "//external:mixer_client_config_cc_proto",
         "//src/istio/mixerclient:mixerclient_lib",
+        "//src/istio/control/http:control_lib",
         "@envoy//source/exe:envoy_common_lib",
     ],
 )
