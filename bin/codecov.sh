@@ -2,8 +2,8 @@
 set -e
 set -u
 
-SCRIPTPATH=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-ROOTDIR=$(cd "$(dirname "${SCRIPTPATH}")" && pwd)
+SCRIPTPATH=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd --physical)
+ROOTDIR=$(cd "$(dirname "${SCRIPTPATH}")" && pwd --physical)
 DIR="./..."
 CODECOV_SKIP="${ROOTDIR}/codecov.skip"
 SKIPPED_TESTS_GREP_ARGS=

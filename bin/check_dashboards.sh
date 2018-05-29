@@ -1,7 +1,7 @@
 #!/bin/bash
 
-SCRIPTPATH=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-ROOTDIR=$(cd "$(dirname "${SCRIPTPATH}")" && pwd)
+SCRIPTPATH=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd --physical)
+ROOTDIR=$(cd "$(dirname "${SCRIPTPATH}")" && pwd --physical)
 pushd "$ROOTDIR"
 
 if ! git diff --quiet addons/grafana/dashboards; then

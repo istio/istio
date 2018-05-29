@@ -4,8 +4,8 @@
 
 set -ex
 
-SCRIPTPATH=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-ROOTDIR=$(cd "$(dirname "${SCRIPTPATH}")" && pwd)
+SCRIPTPATH=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd --physical)
+ROOTDIR=$(cd "$(dirname "${SCRIPTPATH}")" && pwd --physical)
 pushd "$ROOTDIR"
 
 expected='/tmp/types.go'

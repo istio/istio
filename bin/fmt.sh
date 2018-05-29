@@ -4,7 +4,7 @@
 # fmt.sh -c check only.
 
 set -e
-SCRIPTPATH=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+SCRIPTPATH=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd --physical)
 
 check=false
 
@@ -13,10 +13,10 @@ case $1 in
     check=true
 esac
 
-ROOTDIR=$(cd "$(dirname "${SCRIPTPATH}")" && pwd)
+ROOTDIR=$(cd "$(dirname "${SCRIPTPATH}")" && pwd --physical)
 cd "$ROOTDIR"
 
-GOPATH=$(cd "$ROOTDIR/../../.." && pwd)
+GOPATH=$(cd "$ROOTDIR/../../.." && pwd --physical)
 export GOPATH
 export PATH=$GOPATH/bin:$PATH
 
