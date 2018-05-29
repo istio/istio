@@ -25,9 +25,9 @@ import (
 	"google.golang.org/grpc"
 
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/security/cmd/node_agent/na"
 	"istio.io/istio/security/cmd/node_agent_k8s/workload/handler"
 	"istio.io/istio/security/pkg/nodeagent/secrets"
+	nvm "istio.io/istio/security/pkg/nodeagent/vm"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	pb "istio.io/istio/security/proto"
 )
@@ -39,7 +39,7 @@ type Server struct {
 	handlerMap map[string]handler.WorkloadHandler
 	// makes mgmt-api server to stop
 	done      chan bool
-	config    *na.Config
+	config    *nvm.Config
 	retriever Retriever
 	// the workload identity running together with the NodeAgent, only used for vm mode.
 	// TODO(incfly): uses this once Server supports vm mode.
@@ -54,7 +54,7 @@ type Retriever interface {
 }
 
 // New creates an NodeAgent server.
-func New(cfg *na.Config, retriever Retriever) (*Server, error) {
+func New(cfg *nvm.Config, retriever Retriever) (*Server, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("unablet to create when config is nil")
 	}
