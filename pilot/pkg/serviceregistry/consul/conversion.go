@@ -53,7 +53,7 @@ func convertPort(port int, name string) *model.Port {
 		Name:                 name,
 		Port:                 port,
 		Protocol:             convertProtocol(name),
-		AuthenticationPolicy: extractAuthenticationPolicy(port, name),
+		AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
 	}
 }
 
@@ -164,14 +164,4 @@ func convertProtocol(name string) model.Protocol {
 		return model.ProtocolTCP
 	}
 	return protocol
-}
-
-// Extracts security option for given port from labels. If there is no such
-// annotation, or the annotation value is not recognized, returns
-// meshconfig.AuthenticationPolicy_INHERIT
-func extractAuthenticationPolicy(port int, name string) meshconfig.AuthenticationPolicy {
-	// TODO: https://github.com/istio/istio/issues/3338
-	// Check for the label - auth.istio.io/<port> and return auth policy respectively
-
-	return meshconfig.AuthenticationPolicy_INHERIT
 }
