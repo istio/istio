@@ -27,12 +27,12 @@ import (
 const (
 	traceHeader         = "X-Client-Trace-Id"
 	numTraces           = 5
-	mixerCheckOperation = "mixer/check"
+	mixerCheckOperation = "\"name\":\"/istio.mixer.v1.mixer/check\""
+	checkOperation      = "\"name\":\"check\""
 	traceIDField        = "\"traceId\""
 )
 
-func TestZipkin(t *testing.T) {
-	t.Skipf("Skipping %s", t.Name())
+func TestTracing(t *testing.T) {
 	for i := 0; i < numTraces; i++ {
 		testName := fmt.Sprintf("index_%d", i)
 		traceSent := false
@@ -52,7 +52,7 @@ func TestZipkin(t *testing.T) {
 				traceSent = true
 			}
 
-			// Check the zipkin server to verify the trace was received.
+			// Check the tracing server to verify the trace was received.
 			response := ClientRequest(
 				primaryCluster,
 				"t",
@@ -73,13 +73,15 @@ func TestZipkin(t *testing.T) {
 
 			// If first invocation (due to mixer check result caching), then check that the mixer
 			// span is also included in the trace
-			// a) Count the number of spans - should be 2, one for the invocation of service b, and the other for the
-			//		server span associated with the mixer check
-			// b) Check that the trace data contains the mixer/check (part of the operation name for the server span)
-			// NOTE: We are also indirectly verifying that the mixer/check span is a child span of the service invocation, as
-			// the mixer/check span can only exist in this trace as a child span. If it wasn't a child span then it would be
+			// a) Count the number of spans - should be 4, one for the invocation of service b, and the other 3 for the
+			//		mixer check
+			// b) Check that the trace data contains the "check" operation name associated with the mixer check client span
+			// c) Check that the trace data contains the "/istio.mixer.v1.mixer/check" operation name for the server span
+			// NOTE: We are also indirectly verifying that the mixer check spans are child spans of the service invocation, as
+			// the mixer check spans can only exist in this trace as child spans. If they weren't child spans then they would be
 			// in a separate trace instance not retrieved by the query based on the single x-client-trace-id.
-			if i == 0 && (strings.Count(response.Body, traceIDField) != 2 ||
+			if i == 0 && (strings.Count(response.Body, traceIDField) != 4 ||
+				!strings.Contains(response.Body, checkOperation) ||
 				!strings.Contains(response.Body, mixerCheckOperation)) {
 				return errAgain
 			}
