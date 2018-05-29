@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/broker/pkg/model/config"
 	"istio.io/istio/broker/pkg/testing/mock"
 	"istio.io/istio/broker/pkg/testing/util"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/tests/k8s"
 )
 
@@ -47,7 +48,7 @@ func makeClient(t *testing.T) *Client {
 }
 
 func createInterface(kubeconfig string) (*rest.Config, kubernetes.Interface, error) {
-	kube, err := resolveConfig(kubeconfig)
+	kube, err := kube.ResolveConfig(kubeconfig)
 	if err != nil {
 		return nil, nil, err
 	}
