@@ -21,10 +21,8 @@ import envoy_api_v2_endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v
 import google_protobuf3 "github.com/gogo/protobuf/types"
 import _ "github.com/lyft/protoc-gen-validate/validate"
 
-import (
-	context "golang.org/x/net/context"
-	grpc "google.golang.org/grpc"
-)
+import context "golang.org/x/net/context"
+import grpc "google.golang.org/grpc"
 
 import io "io"
 
