@@ -207,5 +207,7 @@ var (
 		"destination.service.host",
 		"destination.container.name",
 		"destination.container.image",
+		"context.reporter.local",
+		"context.reporter.uid",
     }
 )

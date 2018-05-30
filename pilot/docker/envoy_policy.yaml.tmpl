@@ -14,9 +14,8 @@ static_resources:
         max_retries: 3
     connect_timeout: 1.000s
     hosts:
-    - socket_address:
-        address: 127.0.0.1
-        port_value: 9092
+    - pipe:
+        path: /sock/mixer.socket
     http2_protocol_options: {}
     name: in.9092
   - connect_timeout: 1.000s
@@ -85,6 +84,10 @@ static_resources:
                         string_value: istio-policy.{{ .PodNamespace }}.svc.cluster.local
                       destination.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
+                      destination.ip:
+                        bytes_value: {{ .PodIP }}
+                      destination.port:
+                        int64_value: 15004
               transport:
                 check_cluster: mixer_check_server
                 report_cluster: mixer_report_server
@@ -153,6 +156,10 @@ static_resources:
                         string_value: istio-policy.{{ .PodNamespace }}.svc.cluster.local
                       destination.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
+                      destination.ip:
+                        bytes_value: {{ .PodIP }}
+                      destination.port:
+                        int64_value: 9091
               transport:
                 check_cluster: mixer_check_server
                 report_cluster: mixer_report_server

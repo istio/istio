@@ -13,7 +13,7 @@ import _ "github.com/gogo/protobuf/gogoproto"
 
 import time "time"
 
-import github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
+import types "github.com/gogo/protobuf/types"
 
 import io "io"
 
@@ -173,10 +173,7 @@ func init() {
 }
 func (this *TcpProtocolOptions) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*TcpProtocolOptions)
@@ -189,10 +186,7 @@ func (this *TcpProtocolOptions) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -200,10 +194,7 @@ func (this *TcpProtocolOptions) Equal(that interface{}) bool {
 }
 func (this *HttpProtocolOptions) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*HttpProtocolOptions)
@@ -216,10 +207,7 @@ func (this *HttpProtocolOptions) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -236,10 +224,7 @@ func (this *HttpProtocolOptions) Equal(that interface{}) bool {
 }
 func (this *Http1ProtocolOptions) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Http1ProtocolOptions)
@@ -252,10 +237,7 @@ func (this *Http1ProtocolOptions) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -272,10 +254,7 @@ func (this *Http1ProtocolOptions) Equal(that interface{}) bool {
 }
 func (this *Http2ProtocolOptions) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Http2ProtocolOptions)
@@ -288,10 +267,7 @@ func (this *Http2ProtocolOptions) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -311,10 +287,7 @@ func (this *Http2ProtocolOptions) Equal(that interface{}) bool {
 }
 func (this *GrpcProtocolOptions) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*GrpcProtocolOptions)
@@ -327,10 +300,7 @@ func (this *GrpcProtocolOptions) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -375,8 +345,8 @@ func (m *HttpProtocolOptions) MarshalTo(dAtA []byte) (int, error) {
 	if m.IdleTimeout != nil {
 		dAtA[i] = 0xa
 		i++
-		i = encodeVarintProtocol(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.IdleTimeout)))
-		n1, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.IdleTimeout, dAtA[i:])
+		i = encodeVarintProtocol(dAtA, i, uint64(types.SizeOfStdDuration(*m.IdleTimeout)))
+		n1, err := types.StdDurationMarshalTo(*m.IdleTimeout, dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
@@ -534,7 +504,7 @@ func (m *HttpProtocolOptions) Size() (n int) {
 	var l int
 	_ = l
 	if m.IdleTimeout != nil {
-		l = github_com_gogo_protobuf_types.SizeOfStdDuration(*m.IdleTimeout)
+		l = types.SizeOfStdDuration(*m.IdleTimeout)
 		n += 1 + l + sovProtocol(uint64(l))
 	}
 	return n
@@ -710,7 +680,7 @@ func (m *HttpProtocolOptions) Unmarshal(dAtA []byte) error {
 			if m.IdleTimeout == nil {
 				m.IdleTimeout = new(time.Duration)
 			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(m.IdleTimeout, dAtA[iNdEx:postIndex]); err != nil {
+			if err := types.StdDurationUnmarshal(m.IdleTimeout, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex

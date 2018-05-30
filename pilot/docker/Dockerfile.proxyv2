@@ -10,9 +10,10 @@ ADD pilot-agent /usr/local/bin/pilot-agent
 # istio-proxy" will not match connections from those processes anymore.
 # Instead, rely on the process's effective gid being istio-proxy and create a
 # "-m owner --gid-owner istio-proxy" iptables rule in istio-iptables.sh.
-RUN \
-chgrp 1337 /usr/local/bin/envoy /usr/local/bin/pilot-agent && \
-chmod 2755 /usr/local/bin/envoy /usr/local/bin/pilot-agent
+# TODO: disabling due to https://github.com/istio/istio/issues/5745
+# RUN \
+# chgrp 1337 /usr/local/bin/envoy /usr/local/bin/pilot-agent && \
+# chmod 2755 /usr/local/bin/envoy /usr/local/bin/pilot-agent
 
 ADD envoy_pilot.yaml.tmpl /etc/istio/proxy/envoy_pilot.yaml.tmpl
 ADD envoy_policy.yaml.tmpl /etc/istio/proxy/envoy_policy.yaml.tmpl
