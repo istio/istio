@@ -38,8 +38,8 @@ done
 
 export OUTPUT=$(mktemp)
 echo "Application cleanup may take up to one minute"
+docker-compose -f $SCRIPTDIR/bookinfo.sidecars.yaml down > ${OUTPUT} 2>&1
 docker-compose -f $SCRIPTDIR/bookinfo.yaml down > ${OUTPUT} 2>&1
-docker-compose -f $SCRIPTDIR/bookinfo.sidecar.yaml down > ${OUTPUT} 2>&1
 ret=$?
 function cleanup() {
   rm -f ${OUTPUT}
