@@ -497,8 +497,6 @@ istioctl context-create --api-server http://127.0.0.1:8080
 	}
 )
 
-const defaultKubeConfigText = "$KUBECONFIG else $HOME/.kube/config"
-
 func istioPersistentPreRunE(c *cobra.Command, args []string) error {
 	if err := log.Configure(loggingOptions); err != nil {
 		return err
