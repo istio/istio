@@ -38,7 +38,6 @@ import (
 	"k8s.io/client-go/rest"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	kubecfg "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 )
@@ -163,11 +162,6 @@ func (rc *restClient) createRESTConfig(kubeconfig string) (config *rest.Config, 
 // Use an empty value for `kubeconfig` to use the in-cluster config.
 // If the kubeconfig file is empty, defaults to in-cluster config as well.
 func NewClient(config string, descriptor model.ConfigDescriptor, domainSuffix string) (*Client, error) {
-	kubeconfig, err := kube.ResolveConfig(config)
-	if err != nil {
-		return nil, err
-	}
-
 	cs, err := newClientSet(descriptor)
 	if err != nil {
 		return nil, err
@@ -179,7 +173,7 @@ func NewClient(config string, descriptor model.ConfigDescriptor, domainSuffix st
 	}
 
 	for _, v := range out.clientset {
-		if err := v.init(kubeconfig); err != nil {
+		if err := v.init(config); err != nil {
 			return nil, err
 		}
 	}

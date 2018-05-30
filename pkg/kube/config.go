@@ -15,22 +15,15 @@
 package kube
 
 import (
-	"path/filepath"
-
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
 // BuildClientConfig is a helper function that builds client config from a kubeconfig filepath.
-// If kubeconfig is empty:
-//   1. first try to get in-cluster config, if failed:
-//   2. get default config
 //
 // This is a modified version of k8s.io/client-go/tools/clientcmd/BuildConfigFromFlags with the
-// difference that the kubeconfig can also contain multiple paths representing precedences
-// of kubernetes config paths.
+// difference that it loads default configs if not running in-cluster and no explicit path.
 func BuildClientConfig(kubeconfig string) (*rest.Config, error) {
-	var loadingRules *clientcmd.ClientConfigLoadingRules
 	if kubeconfig == "" {
 		// Try using the inClusterConfig
 		config, err := rest.InClusterConfig()
@@ -38,16 +31,14 @@ func BuildClientConfig(kubeconfig string) (*rest.Config, error) {
 			// Using In-Cluster client config
 			return config, nil
 		}
-
-		//Using default config loading rules are:
-		// 1. get all files from the $KUBECONFIG environment variable and chain them
-		// 2. if the env is not set, use $HOME/.kube/config
-		loadingRules = clientcmd.NewDefaultClientConfigLoadingRules()
-	} else {
-		// The kubeconfig may have multiple paths, add them all
-		configs := filepath.SplitList(kubeconfig)
-		loadingRules = &clientcmd.ClientConfigLoadingRules{Precedence: configs}
 	}
+
+	//Config loading rules:
+	// 1. kubeconfig if it not empty string
+	// 2. Config(s) in KUBECONFIG environment variable
+	// 3. Use $HOME/.kube/config
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	loadingRules.ExplicitPath = kubeconfig
 	configOverrides := &clientcmd.ConfigOverrides{}
 	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides).ClientConfig()
 }

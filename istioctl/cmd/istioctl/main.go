@@ -21,7 +21,6 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
-	"path"
 	"strings"
 	"text/tabwriter"
 
@@ -41,7 +40,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"k8s.io/client-go/util/homedir"
 
 	"istio.io/istio/istioctl/cmd/istioctl/convert"
 	"istio.io/istio/istioctl/cmd/istioctl/gendeployment"
@@ -506,25 +504,14 @@ func istioPersistentPreRunE(c *cobra.Command, args []string) error {
 		return err
 	}
 	defaultNamespace = getDefaultNamespace(kubeconfig)
-	getRealKubeConfig()
 	return nil
-}
-
-func getRealKubeConfig() {
-	// if the user didn't supply a specific value for kubeconfig, derive it from the environment
-	if kubeconfig == defaultKubeConfigText {
-		kubeconfig = path.Join(homedir.HomeDir(), ".kube/config")
-		if v := os.Getenv("KUBECONFIG"); v != "" {
-			kubeconfig = v
-		}
-	}
 }
 
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&platform, "platform", "p", kubePlatform,
 		"Istio host platform")
 
-	rootCmd.PersistentFlags().StringVarP(&kubeconfig, "kubeconfig", "c", defaultKubeConfigText,
+	rootCmd.PersistentFlags().StringVarP(&kubeconfig, "kubeconfig", "c", "",
 		"Kubernetes configuration file")
 
 	rootCmd.PersistentFlags().StringVarP(&istioNamespace, "istioNamespace", "i", kube.IstioNamespace,

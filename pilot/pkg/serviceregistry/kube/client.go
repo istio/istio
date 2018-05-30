@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"os"
 	"os/user"
-	"path/filepath"
 
 	multierror "github.com/hashicorp/go-multierror"
 	"k8s.io/client-go/kubernetes"
@@ -50,13 +49,12 @@ func ResolveConfig(kubeconfig string) (string, error) {
 		}
 	}
 	if kubeconfig != "" {
-		configs := filepath.SplitList(kubeconfig)
-		info, err := os.Stat(configs[0])
+		info, err := os.Stat(kubeconfig)
 		if err != nil {
 			if os.IsNotExist(err) {
-				err = fmt.Errorf("kubernetes configuration file %q does not exist", configs[0])
+				err = fmt.Errorf("kubernetes configuration file %q does not exist", kubeconfig)
 			} else {
-				err = multierror.Append(err, fmt.Errorf("kubernetes configuration file %q", configs[0]))
+				err = multierror.Append(err, fmt.Errorf("kubernetes configuration file %q", kubeconfig))
 			}
 			return "", err
 		}
