@@ -22,7 +22,6 @@ import (
 	"net/url"
 	"os"
 	"path"
-	"path/filepath"
 	"strings"
 	"text/tabwriter"
 
@@ -53,6 +52,7 @@ import (
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
+	kubecfg "istio.io/istio/pkg/kube"
 )
 
 const (
@@ -707,7 +707,7 @@ func preprocMixerConfig(configs []crd.IstioKind) error {
 }
 
 func restConfig() (config *rest.Config, err error) {
-	config, err = BuildClientConfig("", kubeconfig)
+	config, err = kubecfg.BuildClientConfig(kubeconfig)
 
 	if err != nil {
 		return
@@ -812,24 +812,4 @@ func handleNamespaces(objectNamespace string) (string, error) {
 		return objectNamespace, nil
 	}
 	return defaultNamespace, nil
-}
-
-// BuildClientConfig is a helper function that builds client config from a master
-// url or a kubeconfig filepath.
-// This is a modified version of k8s.io/client-go/tools/clientcmd/BuildConfigFromFlags with the
-// difference that the kubeconfigPath can also contain multiple paths representing precedences
-// of kubernetes config paths.
-func BuildClientConfig(masterURL, kubeconfigPath string) (*rest.Config, error) {
-	if kubeconfigPath == "" && masterURL == "" {
-		log.Warn("Neither --kubeconfig nor --master was specified.  Using the inClusterConfig.  This might not work.")
-		kubeconfig, err := rest.InClusterConfig()
-		if err == nil {
-			return kubeconfig, nil
-		}
-		log.Warnf("error creating inClusterConfig, falling back to default config: ", err)
-	}
-	configs := filepath.SplitList(kubeconfigPath)
-	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		&clientcmd.ClientConfigLoadingRules{Precedence: configs},
-		&clientcmd.ConfigOverrides{ClusterInfo: clientcmdapi.Cluster{Server: ""}}).ClientConfig()
 }

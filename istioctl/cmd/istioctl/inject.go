@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
+	"istio.io/istio/pkg/kube"
 )
 
 const (
@@ -42,7 +43,7 @@ const (
 )
 
 func createInterface(kubeconfig string) (kubernetes.Interface, error) {
-	restConfig, err := BuildClientConfig("", kubeconfig)
+	restConfig, err := kube.BuildClientConfig(kubeconfig)
 
 	if err != nil {
 		return nil, err

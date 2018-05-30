@@ -27,6 +27,7 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/kube"
 )
 
 const (
@@ -134,7 +135,7 @@ func createCoreV1Client() (*rest.RESTClient, error) {
 }
 
 func defaultRestConfig() (*rest.Config, error) {
-	config, err := BuildClientConfig("", kubeconfig)
+	config, err := kube.BuildClientConfig(kubeconfig)
 	if err != nil {
 		return nil, err
 	}

@@ -36,11 +36,11 @@ import (
 	// import OIDC cluster authentication plugin, e.g. for Tectonic
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
+	kubecfg "istio.io/istio/pkg/kube"
 )
 
 // IstioObject is a k8s wrapper interface for config objects
@@ -134,7 +134,7 @@ func (rc *restClient) init(kubeconfig string) error {
 
 // createRESTConfig for cluster API server, pass empty config file for in-cluster
 func (rc *restClient) createRESTConfig(kubeconfig string) (config *rest.Config, err error) {
-	config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
+	config, err = kubecfg.BuildClientConfig(kubeconfig)
 
 	if err != nil {
 		return nil, err
