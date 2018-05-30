@@ -34,43 +34,56 @@ func TestBuildClientConfig(t *testing.T) {
 	}
 	defer os.RemoveAll(filepath.Dir(config2))
 
-	type args struct {
-		kubeconfigPath string
-	}
 	tests := []struct {
-		name    string
-		args    args
-		wantErr bool
-		host    string
+		name               string
+		explicitKubeconfig string
+		envKubeconfig      string
+		wantErr            bool
+		host               string
 	}{
 		{
-			name:    "MalformedKubeconfigPath",
-			args:    args{kubeconfigPath: "missing"},
-			wantErr: true,
-			host:    "",
+			name:               "DefaultSystemKubeconfig",
+			explicitKubeconfig: "",
+			envKubeconfig:      config1,
+			wantErr:            false,
+			host:               "https://1.1.1.1:8001",
 		},
 		{
-			name:    "SinglePath",
-			args:    args{kubeconfigPath: config1},
-			wantErr: false,
-			host:    "https://1.1.1.1:8001",
+			name:               "MalformedKubeconfigPath",
+			explicitKubeconfig: "missing",
+			envKubeconfig:      "",
+			wantErr:            true,
+			host:               "",
 		},
 		{
-			name:    "MultiplePathsFirst",
-			args:    args{kubeconfigPath: fmt.Sprintf("%s:%s", config1, config2)},
-			wantErr: false,
-			host:    "https://1.1.1.1:8001",
+			name:               "SinglePath",
+			explicitKubeconfig: config1,
+			wantErr:            false,
+			envKubeconfig:      "",
+			host:               "https://1.1.1.1:8001",
 		},
 		{
-			name:    "MultiplePathsSecond",
-			args:    args{kubeconfigPath: fmt.Sprintf("missing:%s", config2)},
-			wantErr: false,
-			host:    "https://2.2.2.2:8001",
+			name:               "MultiplePathsFirst",
+			explicitKubeconfig: "",
+			wantErr:            false,
+			envKubeconfig:      fmt.Sprintf("%s:%s", config1, config2),
+			host:               "https://1.1.1.1:8001",
+		},
+		{
+			name:               "MultiplePathsSecond",
+			explicitKubeconfig: "",
+			wantErr:            false,
+			envKubeconfig:      fmt.Sprintf("missing:%s", config2),
+			host:               "https://2.2.2.2:8001",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resp, err := BuildClientConfig(tt.args.kubeconfigPath)
+			currentEnv := os.Getenv("KUBECONFIG")
+			os.Setenv("KUBECONFIG", tt.envKubeconfig)
+			defer os.Setenv("KUBECONFIG", currentEnv)
+
+			resp, err := BuildClientConfig(tt.explicitKubeconfig)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("BuildClientConfig() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -79,32 +92,6 @@ func TestBuildClientConfig(t *testing.T) {
 			}
 		})
 	}
-
-	t.Run("DefaultSystemConfig", func(t *testing.T) {
-		defConfHost := "3.3.3.3"
-		defConfig, err := generateKubeConfig(defConfHost)
-		if err != nil {
-			t.Errorf("Failed to create a sample kubernetes config file. Err: %v", err)
-		}
-		defer os.RemoveAll(filepath.Dir(defConfig))
-
-		// Setup $KUBECONFIG for the tests and restore the system's after test is done
-		currentEnv := os.Getenv("KUBECONFIG")
-		os.Setenv("KUBECONFIG", defConfig)
-		defer os.Setenv("KUBECONFIG", currentEnv)
-
-		resp, err := BuildClientConfig("")
-		if err != nil {
-			t.Errorf("Got unexpected error = %v", err)
-		}
-		if resp == nil {
-			t.Error("Returned client config is nil")
-		}
-		wanted := fmt.Sprintf("https://%s:8001", defConfHost)
-		if resp != nil && resp.Host != wanted {
-			t.Errorf("Incorrect host. Got: %s, Want: %s", resp.Host, wanted)
-		}
-	})
 }
 
 func generateKubeConfig(host string) (string, error) {
