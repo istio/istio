@@ -772,7 +772,7 @@ func sendTraffic(t *testing.T, msg string, calls int64) *fhttp.HTTPRunnerResults
 	opts := fhttp.HTTPRunnerOptions{
 		RunnerOptions: periodic.RunnerOptions{
 			QPS:        10,
-			Exactly:    calls,       // will make exactly 300 calls, so run for about 30 seconds
+			Exactly:    calls,     // will make exactly 300 calls, so run for about 30 seconds
 			NumThreads: 5,         // get the same number of calls per connection (300/5=60)
 			Out:        os.Stderr, // Only needed because of log capture issue
 		},
