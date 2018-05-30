@@ -320,7 +320,7 @@ $(SECURITY_GO_BINS):
 
 .PHONY: build
 # Build will rebuild the go binaries.
-build: depend $(PILOT_GO_BINS_SHORT) mixc mixs node_agent istio_ca flexvolume istioctl gals
+build: depend $(PILOT_GO_BINS_SHORT) mixc mixs node_agent nodeagent_k8s istio_ca flexvolume istioctl gals
 
 # The following are convenience aliases for most of the go targets
 # The first block is for aliases that are the same as the actual binary,
@@ -335,6 +335,10 @@ citadel:
 .PHONY: node-agent
 node-agent:
 	bin/gobuild.sh ${ISTIO_OUT}/node-agent istio.io/istio/pkg/version ./security/cmd/node_agent
+
+.PHONY: nodeagent_k8s
+nodeagent_k8s:
+	bin/gobuild.sh ${ISTIO_OUT}/nodeagent_k8s istio.io/istio/pkg/version ./security/cmd/node_agent_k8s
 
 .PHONY: flexvolumedriver
 flexvolumedriver:
