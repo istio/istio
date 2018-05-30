@@ -314,14 +314,9 @@ message TargetSelector {
   // fully qualified domain name will be resolved in a platform specific manner.
   string name = 1;
 
-  // The name of a subset within the service. Applicable only to services
-  // within the mesh. The subset must be defined in a corresponding
-  // DestinationRule.
-  string subset = 2;
-
   // Specifies the ports on the destination. Leave empty to match all ports
   // that are exposed.
-  repeated PortSelector ports =3;
+  repeated PortSelector ports = 2;
 }
 
 // PortSelector specifies the name or number of a port to be used for
