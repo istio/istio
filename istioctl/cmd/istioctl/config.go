@@ -26,8 +26,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/log"
 )
 
 const (

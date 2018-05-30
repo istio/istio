@@ -39,8 +39,8 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pkg/log"
 	kubecfg "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/log"
 )
 
 // IstioObject is a k8s wrapper interface for config objects

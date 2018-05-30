@@ -50,9 +50,9 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/collateral"
+	kubecfg "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
-	kubecfg "istio.io/istio/pkg/kube"
 )
 
 const (
