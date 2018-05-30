@@ -81,7 +81,7 @@ func TestRoutes(t *testing.T) {
 			headerKey:     "",
 			headerVal:     "",
 			expectedCount: map[string]int{"v1": 100, "v2": 0},
-			operation:     "default-route",
+			operation:     "c.istio-system.svc.cluster.local:80/*",
 		},
 		{
 			testName:      "a->c[v1=75,v2=25]",
@@ -155,7 +155,7 @@ func TestRoutes(t *testing.T) {
 			headerKey:     "",
 			headerVal:     "",
 			expectedCount: map[string]int{"v1": 100, "v2": 0},
-			operation:     "default-route",
+			operation:     "c.istio-system.svc.cluster.local:80/*",
 		},
 		{
 			testName:      "a->c[v1=100]_CORS_policy",
@@ -167,7 +167,7 @@ func TestRoutes(t *testing.T) {
 			headerKey:     "",
 			headerVal:     "",
 			expectedCount: map[string]int{"v1": 100, "v2": 0},
-			operation:     "default-route",
+			operation:     "c.istio-system.svc.cluster.local:80/*",
 		},
 	}
 
