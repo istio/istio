@@ -38,25 +38,25 @@ type (
 		// Config store based information
 		Attributes ast.AttributeDescriptorFinder
 
+		HandlersLegacy  map[string]*HandlerLegacy
+		InstancesLegacy map[string]*InstanceLegacy
+		RulesLegacy     []*RuleLegacy
+
+		//  TemplateMetadatas contains template descriptors loaded from the store
+		TemplateMetadatas map[string]*TemplateMetadata
+		//  AdapterMetadatas contains adapter metadata loaded from the store
+		AdapterMetadatas map[string]*AdapterMetadata
+
 		Handlers  map[string]*Handler
 		Instances map[string]*Instance
 		Rules     []*Rule
-
-		//  Templates2 contains template descriptors loaded from the store
-		Templates2 map[string]*TemplateMetadata
-		//  Adapters2 contains adapter metadata loaded from the store
-		Adapters2 map[string]*AdapterMetadata
-
-		Handlers2  map[string]*Handler2
-		Instances2 map[string]*Instance2
-		Rules2     []*Rule2
 
 		// Perf Counters relevant to configuration.
 		Counters Counters
 	}
 
-	// Handler2 configuration. Fully resolved.
-	Handler2 struct {
+	// Handler configuration. Fully resolved.
+	Handler struct {
 		Name string
 
 		Adapter *Adapter
@@ -68,8 +68,8 @@ type (
 		Connection *v1beta1.Connection
 	}
 
-	// Handler configuration. Fully resolved.
-	Handler struct {
+	// HandlerLegacy configuration. Fully resolved.
+	HandlerLegacy struct {
 
 		// Name of the Handler. Fully qualified.
 		Name string
@@ -81,8 +81,8 @@ type (
 		Params proto.Message
 	}
 
-	// Instance2 configuration. Fully resolved.
-	Instance2 struct {
+	// Instance configuration. Fully resolved.
+	Instance struct {
 		Name string
 
 		Template *Template
@@ -91,8 +91,8 @@ type (
 		Encoder *dynamic.Encoder
 	}
 
-	// Instance configuration. Fully resolved.
-	Instance struct {
+	// InstanceLegacy configuration. Fully resolved.
+	InstanceLegacy struct {
 		// Name of the instance. Fully qualified.
 		Name string
 
@@ -103,17 +103,17 @@ type (
 		Params proto.Message
 	}
 
-	// Rule2 configuration. Fully resolved.
-	Rule2 struct {
+	// Rule configuration. Fully resolved.
+	Rule struct {
 		Name         string
 		Namespace    string
 		Match        string
-		Actions      []*Action2
+		Actions      []*Action
 		ResourceType ResourceType
 	}
 
-	// Rule configuration. Fully resolved.
-	Rule struct {
+	// RuleLegacy configuration. Fully resolved.
+	RuleLegacy struct {
 		// Name of the rule
 		Name string
 
@@ -123,26 +123,26 @@ type (
 		// Match condition
 		Match string
 
-		Actions []*Action
+		Actions []*ActionLegacy
 
 		ResourceType ResourceType
-	}
-
-	// Action2 configuration. Fully resolved.
-	Action2 struct {
-		// Handler that this action is resolved to.
-		Handler *Handler2
-		// Instances that should be generated as part of invoking action.
-		Instances []*Instance2
 	}
 
 	// Action configuration. Fully resolved.
 	Action struct {
 		// Handler that this action is resolved to.
 		Handler *Handler
-
 		// Instances that should be generated as part of invoking action.
 		Instances []*Instance
+	}
+
+	// ActionLegacy configuration. Fully resolved.
+	ActionLegacy struct {
+		// Handler that this action is resolved to.
+		Handler *HandlerLegacy
+
+		// Instances that should be generated as part of invoking action.
+		Instances []*InstanceLegacy
 	}
 
 	// Template contains info about a template
@@ -186,8 +186,8 @@ type (
 // Empty returns a new, empty configuration snapshot.
 func Empty() *Snapshot {
 	return &Snapshot{
-		ID:       -1,
-		Rules:    []*Rule{},
-		Counters: newCounters(-1),
+		ID:          -1,
+		RulesLegacy: []*RuleLegacy{},
+		Counters:    newCounters(-1),
 	}
 }
