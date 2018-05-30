@@ -1,0 +1,14 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: ServiceRoleBinding
+metadata:
+  name: test-binding-products
+spec:
+  subjects:
+  - user: "alice@yahoo.com"
+  - properties:
+      service: "reviews"
+      namespace: "abc"
+  roleRef:
+    kind: ServiceRole
+    name: "products-viewer"
+

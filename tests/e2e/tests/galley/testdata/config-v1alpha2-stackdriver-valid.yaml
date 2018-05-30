@@ -1,0 +1,46 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: stackdriver
+metadata:
+  name: valid-stackdriver
+spec:
+  project_id: "foo"
+  metricInfo:
+    stackdriverrequestcount.metric.istio-system:
+      kind: 2 # DELTA
+      value: 2 # INT64
+    stackdriverrequestduration.metric.istio-system:
+      kind: 2 # DELTA
+      value: 5 # DISTRIBUTION
+      buckets:
+        explicit_buckets:
+          bounds: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
+    stackdriverrequestsize.metric.istio-system:
+      kind: 2 # DELTA
+      value: 5 # DISTRIBUTION
+      buckets:
+        exponentialBuckets:
+          numFiniteBuckets: 8
+          scale: 1
+          growthFactor: 10
+    stackdriverresponsesize.metric.istio-system:
+      kind: 2 # DELTA
+      value: 5 # DISTRIBUTION
+      buckets:
+        exponentialBuckets:
+          numFiniteBuckets: 8
+          scale: 1
+          growthFactor: 10
+  logInfo:
+    stackdriverglobalmr.logentry.istio-system:
+      payloadTemplate: '{{or (.sourceIp) "-"}} - {{or (.sourceUser) "-"}} [{{or (.timestamp.Format "02/Jan/2006:15:04:05 -0700") "-"}}] "{{or (.method) "-"}} {{or (.url) "-"}} {{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}}'
+      httpMapping:
+        status: responseCode
+        requestSize: requestSize
+        responseSize: responseSize
+        latency: latency
+        localIp: sourceIp
+        remoteIp: destinationIp
+      sinkInfo:
+        id: '<sink_id>'
+        destination: '<sink_destination>'
+        filter: '<log_filter>'
