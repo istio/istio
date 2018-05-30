@@ -19,7 +19,9 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
+{{- if .Values.global.rbacEnabled }}
       serviceAccountName: istio-citadel-service-account
+{{- end }}
       containers:
         - name: citadel
           image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
