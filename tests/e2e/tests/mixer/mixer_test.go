@@ -820,7 +820,7 @@ func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
 	prior429s, prior200s, _ := fetchRequestCount(t, promAPI, "ratings")
 	// check if at least one more prior429 was reported
 	if prior429s-initPrior429s < 1 {
-		fatalf(t, "no 429 is alloted time: prior429s:%v", prior429s)
+		fatalf(t, "no 429 is allotted time: prior429s:%v", prior429s)
 	}
 
 	res := sendTraffic(t, "Sending traffic...", 300)
@@ -865,13 +865,13 @@ func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
 	}
 
 	// Lenient calculation TODO: tighten/simplify
-	want := math.Floor(want429s * .75)
+	want := math.Floor(want429s * .25)
 
 	got = got - prior429s
 
 	t.Logf("Actual 429s: %f (%f rps)", got, got/actualDuration)
 
-	// check resource exhausteds
+	// check resource exhausted
 	if got < want {
 		t.Logf("prometheus values for istio_request_count:\n%s", promDump(promAPI, "istio_request_count"))
 		errorf(t, "Bad metric value for rate-limited requests (429s): got %f, want at least %f", got, want)
@@ -891,7 +891,7 @@ func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
 	// establish some baseline to protect against flakiness due to randomness in routing
 	// and to allow for leniency in actual ceiling of enforcement (if 10 is the limit, but we allow slightly
 	// less than 10, don't fail this test).
-	want = math.Floor(want200s * .5)
+	want = math.Floor(want200s * .25)
 
 	// check successes
 	if got < want {
@@ -899,7 +899,7 @@ func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
 		errorf(t, "Bad metric value for successful requests (200s): got %f, want at least %f", got, want)
 	}
 	// TODO: until https://github.com/istio/istio/issues/3028 is fixed, use 25% - should be only 5% or so
-	want200s = math.Ceil(want200s * 1.25)
+	want200s = math.Ceil(want200s * 1.5)
 	if got > want200s {
 		t.Logf("prometheus values for istio_request_count:\n%s", promDump(promAPI, "istio_request_count"))
 		errorf(t, "Bad metric value for successful requests (200s): got %f, want at most %f", got, want200s)
