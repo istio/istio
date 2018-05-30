@@ -732,12 +732,12 @@ func CheckPodRunning(n, name string, kubeconfig string) error {
 }
 
 // CreateMultiClusterSecrets will create the secrets and configmap associated with the remote cluster
-func CreateMultiClusterSecrets(namespace string, KubeClient kubernetes.Interface, RemoteKubeConfig string) error {
+func CreateMultiClusterSecrets(namespace string, KubeClient kubernetes.Interface, RemoteKubeConfig string, localKubeConfig string) error {
 	const (
 		secretName    = "remote-cluster"
 		configMapName = "clusterregistry"
 	)
-	_, err := ShellMuteOutput("kubectl create secret generic %s --from-file %s -n %s", secretName, RemoteKubeConfig, namespace)
+	_, err := ShellMuteOutput("kubectl create secret generic %s --from-file %s -n %s --kubeconfig=%s", secretName, RemoteKubeConfig, namespace, localKubeConfig)
 	// The cluster name is derived from the filename used to create the secret we will need it for the configmap
 	filename := filepath.Base(RemoteKubeConfig)
 	if err != nil {
