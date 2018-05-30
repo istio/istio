@@ -16,7 +16,6 @@ package sds
 import (
 	"fmt"
 	"net"
-	"os/exec"
 	"reflect"
 	"testing"
 	"time"
@@ -28,6 +27,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"k8s.io/apimachinery/pkg/util/uuid"
 )
 
 var (
@@ -37,29 +37,19 @@ var (
 )
 
 func TestStreamSecrets(t *testing.T) {
-	guid, err := exec.Command("uuidgen").Output()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	socket = fmt.Sprintf("/tmp/gotest%q.sock", guid)
+	socket = fmt.Sprintf("/tmp/gotest%q.sock", string(uuid.NewUUID()))
 	testHelper(t, socket, sdsRequestStream)
 }
 
 func TestFetchSecrets(t *testing.T) {
-	guid, err := exec.Command("uuidgen").Output()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	socket = fmt.Sprintf("/tmp/gotest%q.sock", guid)
+	socket = fmt.Sprintf("/tmp/gotest%q.sock", string(uuid.NewUUID()))
 	testHelper(t, socket, sdsRequestFetch)
 }
 
 type secretCallback func(string, *api.DiscoveryRequest) (*api.DiscoveryResponse, error)
 
 func testHelper(t *testing.T, testSocket string, cb secretCallback) {
-	arg := SDSArgs{
+	arg := Args{
 		SDSUdsSocket: testSocket,
 	}
 	st := &mockSecretStore{}

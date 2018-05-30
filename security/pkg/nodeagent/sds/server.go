@@ -24,14 +24,14 @@ import (
 
 const maxStreams = 100000
 
-// SDSArgs provides all of the configuration parameters for secret discovery service.
-type SDSArgs struct {
+// Args provides all of the configuration parameters for secret discovery service.
+type Args struct {
 	SDSUdsSocket string
 }
 
 // Server is the grpc server that exposes SDS through UDS.
 type Server struct {
-	envoySds          *sdservice
+	envoySds          *sdsservice
 	grpcServer        *grpc.Server
 	grpcListeningAddr net.Addr
 
@@ -39,9 +39,9 @@ type Server struct {
 }
 
 // NewServer creates and starts the Grpc server for SDS.
-func NewServer(args SDSArgs, st secretStore) (*Server, error) {
+func NewServer(args Args, st secretStore) (*Server, error) {
 	s := &Server{
-		envoySds: newSDService(st),
+		envoySds: newSDSService(st),
 		closing:  make(chan bool, 1),
 	}
 	if err := s.initDiscoveryService(&args, st); err != nil {
@@ -59,7 +59,7 @@ func (s *Server) Close() {
 	s.closing <- true
 }
 
-func (s *Server) initDiscoveryService(args *SDSArgs, st secretStore) error {
+func (s *Server) initDiscoveryService(args *Args, st secretStore) error {
 	s.initGrpcServer()
 	s.envoySds.register(s.grpcServer)
 

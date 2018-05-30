@@ -38,7 +38,7 @@ import (
 const SecretType = "type.googleapis.com/envoy.api.v2.Secret"
 
 // TODO(quanlin): secret struct and secretStore interface are placeholders that used for initial check in.
-// will move them to seperated file or use existing structure.
+// will move them to separated file or use existing structure.
 type secret struct {
 	certificateChain []byte
 	privateKey       []byte
@@ -71,26 +71,26 @@ type sdsConnection struct {
 	stream discoveryStream
 }
 
-type sdservice struct {
+type sdsservice struct {
 	st secretStore
 	//TODO(quanlin), add below properties later:
 	//1. workloadRegistry(store proxies information).
 	//2. caClient(interact with CA for CSR).
 }
 
-// newSDService creates Secret Discovery Service which implements envoy v2 SDS API.
-func newSDService(st secretStore) *sdservice {
-	return &sdservice{
+// newSDSService creates Secret Discovery Service which implements envoy v2 SDS API.
+func newSDSService(st secretStore) *sdsservice {
+	return &sdsservice{
 		st: st,
 	}
 }
 
 // register adds the SDS handle to the grpc server
-func (s *sdservice) register(rpcs *grpc.Server) {
+func (s *sdsservice) register(rpcs *grpc.Server) {
 	sds.RegisterSecretDiscoveryServiceServer(rpcs, s)
 }
 
-func (s *sdservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecretsServer) error {
+func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecretsServer) error {
 	peerAddr := "Unknown peer address"
 	peerInfo, ok := peer.FromContext(stream.Context())
 	if ok {
@@ -136,7 +136,7 @@ func (s *sdservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecret
 	}
 }
 
-func (s *sdservice) FetchSecrets(ctx context.Context, discReq *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error) {
+func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error) {
 	if discReq.Node.Id == "" {
 		log.Warnf("SDS discovery request %+v missing node id", discReq)
 		return nil, fmt.Errorf("SDS discovery request %+v missing node id", discReq)
@@ -155,7 +155,7 @@ func (s *sdservice) FetchSecrets(ctx context.Context, discReq *xdsapi.DiscoveryR
 	return sdsDiscoveryResponse(s.st.getSecret(), proxy)
 }
 
-func (s *sdservice) pushSds(secret *secret, proxy model.Proxy, con *sdsConnection) error {
+func (s *sdsservice) pushSds(secret *secret, proxy model.Proxy, con *sdsConnection) error {
 	response, err := sdsDiscoveryResponse(secret, proxy)
 	if err != nil {
 		log.Errorf("SDS: Failed to construct response %v", err)
