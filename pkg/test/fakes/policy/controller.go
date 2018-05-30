@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package pb
+package policy
 
 import (
 	"context"
@@ -32,11 +32,7 @@ func (s settings) setBool(name string, value bool) settings {
 }
 
 func (s settings) setString(name string, value string) settings {
-	if s == nil {
-		s = newSettings()
-	}
 	s[name] = value
-
 	return s
 }
 

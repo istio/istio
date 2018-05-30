@@ -26,27 +26,27 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 
 	"istio.io/istio/pkg/test/environment"
-	"istio.io/istio/pkg/test/fakes/pb"
-	"istio.io/istio/pkg/test/internal"
+	"istio.io/istio/pkg/test/fakes/policy"
 )
 
 type policyBackend struct {
 	port       int
-	backend    *pb.PolicyBackend
-	controller *pb.Controller
+	backend    *policy.Backend
+	controller *policy.Controller
 }
 
 var _ environment.DeployedPolicyBackend = &policyBackend{}
 
-func newPolicyBackend(ctx *internal.TestContext) (*policyBackend, error) {
-	port := pb.DefaultControlPort
+func newPolicyBackend(port int) (*policyBackend, error) {
 
-	backend, err := pb.NewPolicyBackend(port)
+	backend := policy.NewPolicyBackend(port)
+
+	err := backend.Start()
 	if err != nil {
 		return nil, err
 	}
 
-	controller, err := pb.NewController(fmt.Sprintf(":%d", port))
+	controller, err := policy.NewController(fmt.Sprintf(":%d", port))
 	if err != nil {
 		_ = backend.Close()
 		return nil, err

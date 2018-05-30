@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package pb
+package policy
 
 //go:generate protoc --gogo_out=plugins=grpc:. controller.proto
 
@@ -33,14 +33,16 @@ import (
 )
 
 const (
-	// DefaultControlPort for the control service.
-	DefaultControlPort = 1071
+	// DefaultPort for the backend service.
+	DefaultPort = 1071
 )
 
 var scope = log.RegisterScope("fakes", "Scope for all fakes", 0)
 
-// PolicyBackend is the implementation of a Fake policy backend. It can be ran either in a cluster or locally.
-type PolicyBackend struct {
+// Backend is the implementation of a Fake policy backend. It can be ran either in a cluster or locally.
+type Backend struct {
+	port int
+
 	listener net.Listener
 	server   *grpc.Server
 
@@ -50,41 +52,45 @@ type PolicyBackend struct {
 	reports []proto.Message
 }
 
-var _ metric.HandleMetricServiceServer = &PolicyBackend{}
+var _ metric.HandleMetricServiceServer = &Backend{}
 
-var _ v1beta1.InfrastructureBackendServer = &PolicyBackend{}
+var _ v1beta1.InfrastructureBackendServer = &Backend{}
 
-var _ ControllerServiceServer = &PolicyBackend{}
+var _ ControllerServiceServer = &Backend{}
 
-// NewPolicyBackend returns a new instance of PolicyBackend.
-func NewPolicyBackend(port int) (*PolicyBackend, error) {
-	pb := &PolicyBackend{
+// NewPolicyBackend returns a new instance of Backend.
+func NewPolicyBackend(port int) *Backend {
+	return &Backend{
 		settings: make(map[string]string),
+		port:     port,
 	}
+}
 
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+// Start the gRPC service for the policy backend.
+func (b *Backend) Start() error {
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", b.port))
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	grpcServer := grpc.NewServer()
-	v1beta1.RegisterInfrastructureBackendServer(grpcServer, pb)
-	metric.RegisterHandleMetricServiceServer(grpcServer, pb)
-	RegisterControllerServiceServer(grpcServer, pb)
+	v1beta1.RegisterInfrastructureBackendServer(grpcServer, b)
+	metric.RegisterHandleMetricServiceServer(grpcServer, b)
+	RegisterControllerServiceServer(grpcServer, b)
 
 	go func() {
 		_ = grpcServer.Serve(listener)
 	}()
 
-	pb.listener = listener
-	pb.server = grpcServer
+	b.listener = listener
+	b.server = grpcServer
 
-	return pb, nil
+	return nil
 }
 
 // Set method of the control service.
-func (b *PolicyBackend) Set(ctx context.Context, req *SetRequest) (*SetResponse, error) {
-	scope.Debugf("PolicyBackend.Set %v", req)
+func (b *Backend) Set(ctx context.Context, req *SetRequest) (*SetResponse, error) {
+	scope.Debugf("Backend.Set %v", req)
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
@@ -96,8 +102,8 @@ func (b *PolicyBackend) Set(ctx context.Context, req *SetRequest) (*SetResponse,
 }
 
 // Reset the internal state of the service.
-func (b *PolicyBackend) Reset(ctx context.Context, req *ResetRequest) (*ResetResponse, error) {
-	scope.Debugf("PolicyBackend.Reset %v", req)
+func (b *Backend) Reset(ctx context.Context, req *ResetRequest) (*ResetResponse, error) {
+	scope.Debugf("Backend.Reset %v", req)
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
@@ -111,8 +117,8 @@ func (b *PolicyBackend) Reset(ctx context.Context, req *ResetRequest) (*ResetRes
 }
 
 // GetReports method of the control service.
-func (b *PolicyBackend) GetReports(ctx context.Context, req *GetReportsRequest) (*GetReportsResponse, error) {
-	scope.Debugf("PolicyBackend.GetReports %v", req)
+func (b *Backend) GetReports(ctx context.Context, req *GetReportsRequest) (*GetReportsResponse, error) {
+	scope.Debugf("Backend.GetReports %v", req)
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
@@ -131,14 +137,14 @@ func (b *PolicyBackend) GetReports(ctx context.Context, req *GetReportsRequest) 
 }
 
 // Close closes the gRPC backend and the associated listener.
-func (b *PolicyBackend) Close() error {
-	scope.Debug("PolicyBackend.Close")
+func (b *Backend) Close() error {
+	scope.Debug("Backend.Close")
 	b.server.Stop()
 	return b.listener.Close()
 }
 
 // Validate is an implementation InfrastructureBackendServer.Validate.
-func (b *PolicyBackend) Validate(context.Context, *v1beta1.ValidateRequest) (
+func (b *Backend) Validate(context.Context, *v1beta1.ValidateRequest) (
 	*v1beta1.ValidateResponse, error) {
 
 	return &v1beta1.ValidateResponse{
@@ -149,7 +155,7 @@ func (b *PolicyBackend) Validate(context.Context, *v1beta1.ValidateRequest) (
 }
 
 // CreateSession is an implementation InfrastructureBackendServer.CreateSession.
-func (b *PolicyBackend) CreateSession(context.Context, *v1beta1.CreateSessionRequest) (
+func (b *Backend) CreateSession(context.Context, *v1beta1.CreateSessionRequest) (
 	*v1beta1.CreateSessionResponse, error) {
 
 	return &v1beta1.CreateSessionResponse{
@@ -160,7 +166,7 @@ func (b *PolicyBackend) CreateSession(context.Context, *v1beta1.CreateSessionReq
 }
 
 // CloseSession is an implementation InfrastructureBackendServer.CloseSession.
-func (b *PolicyBackend) CloseSession(context.Context, *v1beta1.CloseSessionRequest) (
+func (b *Backend) CloseSession(context.Context, *v1beta1.CloseSessionRequest) (
 	*v1beta1.CloseSessionResponse, error) {
 
 	return &v1beta1.CloseSessionResponse{
@@ -171,9 +177,9 @@ func (b *PolicyBackend) CloseSession(context.Context, *v1beta1.CloseSessionReque
 }
 
 // HandleMetric is an implementation HandleMetricServiceServer.HandleMetric.
-func (b *PolicyBackend) HandleMetric(ctx context.Context, req *metric.HandleMetricRequest) (
+func (b *Backend) HandleMetric(ctx context.Context, req *metric.HandleMetricRequest) (
 	*istio_mixer_adapter_model_v1beta11.ReportResult, error) {
-	scope.Debugf("PolicyBackend.HandleMetric %v", req)
+	scope.Debugf("Backend.HandleMetric %v", req)
 
 	b.lock.Lock()
 	defer b.lock.Unlock()

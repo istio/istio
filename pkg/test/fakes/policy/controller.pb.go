@@ -15,7 +15,7 @@ It has these top-level messages:
 	GetReportsRequest
 	GetReportsResponse
 */
-package pb
+package policy
 
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"

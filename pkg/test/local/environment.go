@@ -20,6 +20,7 @@ import (
 
 	"istio.io/istio/pkg/test/dependency"
 	"istio.io/istio/pkg/test/environment"
+	"istio.io/istio/pkg/test/fakes/policy"
 	"istio.io/istio/pkg/test/internal"
 )
 
@@ -49,7 +50,7 @@ func (e *Environment) InitializeDependency(ctx *internal.TestContext, d dependen
 	case dependency.Mixer:
 		return newMixer(ctx)
 	case dependency.PolicyBackend:
-		return newPolicyBackend(ctx)
+		return newPolicyBackend(policy.DefaultPort)
 	default:
 		return nil, fmt.Errorf("unrecognized dependency: %v", d)
 	}
