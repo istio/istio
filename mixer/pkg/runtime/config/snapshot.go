@@ -16,9 +16,12 @@ package config
 
 import (
 	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
+	"google.golang.org/grpc"
 
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/lang/ast"
+	"istio.io/istio/mixer/pkg/protobuf/yaml/dynamic"
 	"istio.io/istio/mixer/pkg/template"
 )
 
@@ -44,8 +47,25 @@ type (
 		//  Adapters2 contains adapter metadata loaded from the store
 		Adapters2 map[string]*AdapterMetadata
 
+		Handlers2  map[string]*Handler2
+		Instances2 map[string]*Instance2
+		Rules2     []*Rule2
+
 		// Perf Counters relevant to configuration.
 		Counters Counters
+	}
+
+	// Handler2 configuration. Fully resolved.
+	Handler2 struct {
+		Name string
+
+		Adapter *Adapter
+
+		// parameters used to construct the Handler.
+		Params []byte
+
+		// Client to invoke calls into the associated adapter.
+		Client *Client
 	}
 
 	// Handler configuration. Fully resolved.
@@ -61,6 +81,16 @@ type (
 		Params proto.Message
 	}
 
+	// Instance2 configuration. Fully resolved.
+	Instance2 struct {
+		Name string
+
+		Template *Template
+
+		// Encoder to create request instance bytes from attributes
+		Encoder *dynamic.Encoder
+	}
+
 	// Instance configuration. Fully resolved.
 	Instance struct {
 		// Name of the instance. Fully qualified.
@@ -71,6 +101,15 @@ type (
 
 		// parameters used to construct the instance.
 		Params proto.Message
+	}
+
+	// Rule2 configuration. Fully resolved.
+	Rule2 struct {
+		Name         string
+		Namespace    string
+		Match        string
+		Actions      []*Action2
+		ResourceType ResourceType
 	}
 
 	// Rule configuration. Fully resolved.
@@ -89,6 +128,14 @@ type (
 		ResourceType ResourceType
 	}
 
+	// Action2 configuration. Fully resolved.
+	Action2 struct {
+		// Handler that this action is resolved to.
+		Handler *Handler2
+		// Instances that should be generated as part of invoking action.
+		Instances []*Instance2
+	}
+
 	// Action configuration. Fully resolved.
 	Action struct {
 		// Handler that this action is resolved to.
@@ -96,6 +143,49 @@ type (
 
 		// Instances that should be generated as part of invoking action.
 		Instances []*Instance
+	}
+
+	// Template contains info about a template
+	Template struct {
+		// Name of the template.
+		//
+		// Note this is the template's resource name and not the template's internal name that adapter developer
+		// uses to implement adapter service.
+		Name string
+
+		// InternalPackageDerivedName is the name of the template from adapter developer point of view.
+		// The service and functions implemented by the adapter is based on this name
+		// NOTE: This name derived from template proto package and not the resource name.
+		InternalPackageDerivedName string
+
+		// Template's file descriptor set.
+		FileDescSet *descriptor.FileDescriptorSet
+
+		// package name of the `Template` message
+		PackageName string
+	}
+
+	// Adapter contains info about an adapter
+	Adapter struct {
+		Name string
+
+		// Adapter's file descriptor set.
+		ConfigDescSet *descriptor.FileDescriptorSet
+
+		// package name of the `Params` message
+		PackageName string
+
+		SupportedTemplates []Template
+
+		SessionBased bool
+
+		Description string
+	}
+
+	// Client contains the connection data for the adapter
+	Client struct {
+		// gRPC connection to the adapter.
+		Connection *grpc.ClientConn
 	}
 )
 
