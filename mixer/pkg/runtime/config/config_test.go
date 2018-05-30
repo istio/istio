@@ -15,9 +15,13 @@
 package config
 
 import (
+	"context"
+	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	adapter_model "istio.io/api/mixer/adapter/model/v1beta1"
@@ -28,6 +32,18 @@ import (
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
 )
+
+type dummyHandlerBuilder struct{}
+
+func (d *dummyHandlerBuilder) SetAdapterConfig(cfg adapter.Config) {}
+
+func (d *dummyHandlerBuilder) Validate() *adapter.ConfigErrors {
+	return nil
+}
+
+func (d *dummyHandlerBuilder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
+	return nil, nil
+}
 
 // The tests in this package feeds incremental change events to the Ephemeral state and prints out a stable
 // view of the Snapshot constructed from these events. The author can specify an initial state, and two sets
@@ -60,7 +76,7 @@ var tests = []struct {
 		T:    noTemplates,
 		A:    noAdapters,
 		E: `
-ID: 1
+ID: 0
 Templates:
 Adapters:
 Handlers:
@@ -74,7 +90,7 @@ Attributes:
 		Name: "adapters only",
 		T:    noTemplates,
 		E: `
-ID: 1
+ID: 0
 Templates:
 Adapters:
   Name: adapter1
@@ -90,7 +106,7 @@ Attributes:
 		Name: "templates only",
 		A:    noAdapters,
 		E: `
-ID: 1
+ID: 0
 Templates:
   Name: apa
   Name: check
@@ -108,7 +124,7 @@ Attributes:
 	{
 		Name: "templates and adapters only",
 		E: `
-ID: 1
+ID: 0
 Templates:
   Name: apa
   Name: check
@@ -161,7 +177,7 @@ Attributes:
 			},
 		},
 		E: `
-ID: 1
+ID: 0
 Templates:
   Name: apa
   Name: check
@@ -218,7 +234,7 @@ Attributes:
 			},
 		},
 		E: `
-ID: 2
+ID: 1
 Templates:
   Name: apa
   Name: check
@@ -281,7 +297,7 @@ Attributes:
 			},
 		},
 		E: `
-ID: 3
+ID: 2
 Templates:
   Name: apa
   Name: check
@@ -333,7 +349,7 @@ Attributes:
 			},
 		},
 		E: `
-ID: 2
+ID: 1
 Templates:
   Name: apa
   Name: check
@@ -366,7 +382,7 @@ Attributes:
 			},
 		},
 		E: `
-ID: 1
+ID: 0
 Templates:
   Name: apa
   Name: check
@@ -402,7 +418,7 @@ Attributes:
 			},
 		},
 		E: `
-ID: 1
+ID: 0
 Templates:
   Name: apa
   Name: check
@@ -435,7 +451,7 @@ Attributes:
 			},
 		},
 		E: `
-ID: 1
+ID: 0
 Templates:
   Name: apa
   Name: check
@@ -471,7 +487,7 @@ Attributes:
 			},
 		},
 		E: `
-ID: 1
+ID: 0
 Templates:
   Name: apa
   Name: check
@@ -526,7 +542,7 @@ Attributes:
 			},
 		},
 		E: `
-ID: 1
+ID: 0
 Templates:
   Name: apa
   Name: check
@@ -593,7 +609,7 @@ Attributes:
 			},
 		},
 		E: `
-ID: 1
+ID: 0
 Templates:
   Name: apa
   Name: check
@@ -663,7 +679,7 @@ Attributes:
 			},
 		},
 		E: `
-ID: 1
+ID: 0
 Templates:
   Name: apa
   Name: check
@@ -823,7 +839,7 @@ Attributes:
 			},
 		},
 		E: `
-ID: 1
+ID: 0
 Templates:
   Name: apa
   Name: check
@@ -936,7 +952,7 @@ Attributes:
 			},
 		},
 		E: `
-ID: 1
+ID: 0
 Templates:
   Name: apa
   Name: check
@@ -1015,7 +1031,7 @@ Attributes:
 			},
 		},
 		E: `
-ID: 1
+ID: 0
 Templates:
   Name: apa
   Name: check
@@ -1092,7 +1108,7 @@ Rules:
 			},
 		},
 		E: `
-ID: 1
+ID: 0
 Templates:
   Name: apa
   Name: check
@@ -1163,7 +1179,7 @@ Attributes:
 			},
 		},
 		E: `
-ID: 1
+ID: 0
 Templates:
   Name: apa
   Name: check
@@ -1243,7 +1259,7 @@ Attributes:
 		},
 
 		E: `
-ID: 1
+ID: 0
 Templates:
   Name: apa
   Name: check
@@ -1324,7 +1340,7 @@ Attributes:
 		},
 
 		E: `
-ID: 1
+ID: 0
 Templates:
   Name: apa
   Name: check
@@ -1373,7 +1389,7 @@ Attributes:
 			},
 		},
 		E: `
-ID: 1
+ID: 0
 Templates:
   Name: apa
   Name: check
@@ -1413,7 +1429,7 @@ Attributes:
 			},
 		},
 		E: `
-ID: 1
+ID: 0
 Templates:
   Name: apa
   Name: check
@@ -1465,7 +1481,7 @@ Attributes:
 			},
 		},
 		E: `
-ID: 1
+ID: 0
 Templates:
   Name: apa
   Name: check
@@ -1504,7 +1520,7 @@ Attributes:
 			},
 		},
 		E: `
-ID: 1
+ID: 0
 Templates:
   Name: apa
   Name: check
@@ -1528,10 +1544,18 @@ var noAdapters = make(map[string]*adapter.Info)
 
 var stdAdapters = map[string]*adapter.Info{
 	"adapter1": {
-		Name: "adapter1",
+		Name:          "adapter1",
+		DefaultConfig: &types.Struct{},
+		NewBuilder: func() adapter.HandlerBuilder {
+			return &dummyHandlerBuilder{}
+		},
 	},
 	"adapter2": {
-		Name: "adapter2",
+		Name:          "adapter2",
+		DefaultConfig: &types.Struct{},
+		NewBuilder: func() adapter.HandlerBuilder {
+			return &dummyHandlerBuilder{}
+		},
 	},
 }
 
@@ -1539,14 +1563,23 @@ var stdTemplates = map[string]*template.Info{
 	"quota": {
 		Name:    "quota",
 		Variety: adapter_model.TEMPLATE_VARIETY_QUOTA,
+		InferType: func(cp proto.Message, tEvalFn template.TypeEvalFn) (proto.Message, error) {
+			return nil, nil
+		},
 	},
 	"check": {
 		Name:    "check",
 		Variety: adapter_model.TEMPLATE_VARIETY_CHECK,
+		InferType: func(cp proto.Message, tEvalFn template.TypeEvalFn) (proto.Message, error) {
+			return nil, nil
+		},
 	},
 	"report": {
 		Name:    "report",
 		Variety: adapter_model.TEMPLATE_VARIETY_REPORT,
+		InferType: func(cp proto.Message, tEvalFn template.TypeEvalFn) (proto.Message, error) {
+			return nil, nil
+		},
 	},
 	"apa": {
 		Name:    "apa",
@@ -1559,6 +1592,9 @@ var stdTemplates = map[string]*template.Info{
 					},
 				},
 			},
+		},
+		InferType: func(cp proto.Message, tEvalFn template.TypeEvalFn) (proto.Message, error) {
+			return nil, nil
 		},
 	},
 }
@@ -1598,33 +1634,63 @@ func runTests(t *testing.T) {
 
 			if test.Initial != nil {
 				e.SetState(test.Initial)
-				s = e.BuildSnapshot()
+				s, _ = e.BuildSnapshot()
 			}
 
 			if test.Events1 != nil {
 				for _, event := range test.Events1 {
-					e.ApplyEvent(event)
+					e.ApplyEvent([]*store.Event{event})
 				}
-				s = e.BuildSnapshot()
+				s, _ = e.BuildSnapshot()
 			}
 
 			if test.Events2 != nil {
 				for _, event := range test.Events2 {
-					e.ApplyEvent(event)
+					e.ApplyEvent([]*store.Event{event})
 				}
-				s = e.BuildSnapshot()
+				s, _ = e.BuildSnapshot()
 			}
 
 			if s == nil {
-				s = e.BuildSnapshot()
+				s, _ = e.BuildSnapshot()
 			}
 
 			str := s.String()
-
 			if normalize(str) != normalize(test.E) {
 				tt.Fatalf("config mismatch:\n%s\n != \n%s\n", str, test.E)
 			}
 		})
+	}
+}
+
+func TestGetEntry(t *testing.T) {
+	e := NewEphemeral(stdTemplates, stdAdapters)
+
+	res := &store.Resource{
+		Spec: &configpb.AttributeManifest{
+			Attributes: map[string]*configpb.AttributeManifest_AttributeInfo{
+				"foo": {
+					ValueType: descriptorpb.STRING,
+				},
+				"bar": {
+					ValueType: descriptorpb.INT64,
+				},
+			},
+		},
+	}
+
+	key := store.Key{
+		Name:      "attributes",
+		Namespace: "ns",
+		Kind:      "attributemanifest",
+	}
+
+	e.SetState(map[store.Key]*store.Resource{
+		key: res,
+	})
+	gotRes, _ := e.GetEntry(&store.Event{Key: key})
+	if !reflect.DeepEqual(res, gotRes) {
+		t.Errorf("got '%v'; want '%v'", gotRes, res)
 	}
 }
 

@@ -13,6 +13,8 @@ spec:
         valueType: STRING
       request.headers:
         valueType: STRING_MAP
+      request.total_size:
+        valueType: INT64
       request.id:
         valueType: STRING
       request.host:
@@ -39,6 +41,8 @@ spec:
         valueType: DURATION
       response.headers:
         valueType: STRING_MAP
+      response.total_size:
+        valueType: INT64
       response.size:
         valueType: INT64
       response.time:
@@ -65,6 +69,8 @@ spec:
         valueType: INT64
       connection.duration:
         valueType: DURATION
+      connection.mtls:
+        valueType: BOOL
       context.protocol:
         valueType: STRING
       context.timestamp:
