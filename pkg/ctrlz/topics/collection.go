@@ -149,12 +149,12 @@ func (c *collectionTopic) handleItem(w http.ResponseWriter, req *http.Request, c
 		case string:
 
 		default:
-			out, err := yaml.Marshal(v)
-			if err != nil {
+			var b []byte
+			if b, err = yaml.Marshal(v); err != nil {
 				context.Error = err.Error()
 				break
 			}
-			v = string(out)
+			v = string(b)
 		}
 
 		context.Collection = collection
@@ -208,7 +208,7 @@ func NewStaticCollection(name string, items map[string]interface{}) ReadableColl
 }
 
 // staticCollection is a ReadableCollection implementation that operates on static data that is supplied
-// during contstruction.
+// during construction.
 type staticCollection struct {
 	name  string
 	items map[string]interface{}
