@@ -245,7 +245,7 @@ type StatsdSink struct {
 	//	*StatsdSink_Address
 	//	*StatsdSink_TcpClusterName
 	StatsdSpecifier isStatsdSink_StatsdSpecifier `protobuf_oneof:"statsd_specifier"`
-	// [#not-implemented-hide:] Optional custom prefix for StatsdSink. If
+	// Optional custom prefix for StatsdSink. If
 	// specified, this will override the default prefix.
 	// For example:
 	//
