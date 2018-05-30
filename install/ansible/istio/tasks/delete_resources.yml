@@ -20,6 +20,10 @@
     {{ cmd_path }} delete svc jaeger --ignore-not-found=true
   ignore_errors: true
 
+- name: Delete Kiali info
+  shell: |
+    {{ cmd_path }} delete all,secrets,sa,templates,configmaps,deployments,clusterroles,clusterrolebindings,routerules --selector=app=kiali --selector=version=master --ignore-not-found=true -n istio-system
+  ignore_errors: true
 
 - name: Delete content from Istio Kubernetes file
   command: "{{ cmd_path }} delete -f {{ istio_copied_definition_file_full_path }} --ignore-not-found=true -n {{ istio.namespace }}"
