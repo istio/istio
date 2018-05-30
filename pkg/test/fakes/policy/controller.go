@@ -21,21 +21,6 @@ import (
 	"google.golang.org/grpc"
 )
 
-type settings map[string]string
-
-func newSettings() settings {
-	return settings(make(map[string]string))
-}
-
-func (s settings) setBool(name string, value bool) settings {
-	return s.setString(name, "true")
-}
-
-func (s settings) setString(name string, value string) settings {
-	s[name] = value
-	return s
-}
-
 // Controller is the control interface for the policy backend. The tests can use the interface to control the
 // fake.
 type Controller struct {
@@ -58,7 +43,7 @@ func NewController(address string) (*Controller, error) {
 
 // DenyCheck causes the policy backend to deny all check requests when set to true.
 func (c *Controller) DenyCheck(deny bool) error {
-	s := newSettings().setBool("denyCheck", deny)
+	s := newSettings().setDenyCheck(deny)
 	return c.send(s)
 }
 

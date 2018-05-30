@@ -46,7 +46,7 @@ type Backend struct {
 	listener net.Listener
 	server   *grpc.Server
 
-	settings map[string]string
+	settings settings
 
 	lock    sync.Mutex
 	reports []proto.Message
