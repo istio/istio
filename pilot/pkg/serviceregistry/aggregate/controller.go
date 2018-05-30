@@ -67,7 +67,7 @@ func (c *Controller) DeleteRegistry(clusterID string) {
 	defer c.storeLock.Unlock()
 
 	if len(c.registries) == 0 {
-		log.Warnf("Registry list is empty, nothing to delete")
+		log.Warnf("Registry list is empty, nothing to delete!!!")
 		return
 	}
 	index, ok := c.GetRegistryIndex(clusterID)
