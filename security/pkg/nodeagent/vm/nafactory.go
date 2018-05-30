@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package na
+// Package vm provides functionality when node agent is used on VM or bare metal machines.
+package vm
 
 import (
 	"fmt"

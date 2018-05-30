@@ -25,9 +25,9 @@ import (
 	"google.golang.org/grpc"
 
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/security/cmd/node_agent/na"
 	"istio.io/istio/security/cmd/node_agent_k8s/workload/handler"
 	"istio.io/istio/security/pkg/nodeagent/secrets"
+	na "istio.io/istio/security/pkg/nodeagent/vm"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	pb "istio.io/istio/security/proto"
 )
