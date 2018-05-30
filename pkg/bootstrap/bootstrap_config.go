@@ -333,7 +333,8 @@ func Checkin(secure bool, addr, cluster, node string, delay time.Duration, retri
 
 		resp, err := client.Get(fmt.Sprintf("%v%v/v1/az/%v/%v", protocol, addr, cluster, node))
 		if err != nil || resp.StatusCode != 200 {
-			log.Infof("Unable to retrieve availability zone from pilot: %v %d", err, attempts)
+			// TODO: turn back on when fully implemented, commented out to avoid confusing users
+			// log.Infof("Unable to retrieve availability zone from pilot: %v %d", err, attempts)
 			if attempts >= retries {
 				if err != nil {
 					return nil, err
@@ -343,14 +344,18 @@ func Checkin(secure bool, addr, cluster, node string, delay time.Duration, retri
 		} else {
 			body, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
-				log.Infof("Unable to read availability zone response from pilot: %v", err)
+				// TODO: turn back on when fully implemented, commented out to avoid confusing users
+				// log.Infof("Unable to read availability zone response from pilot: %v", err)
 			}
 			if resp.StatusCode != http.StatusOK {
-				log.Infof("Received %v status from pilot when retrieving availability zone: %v", resp.StatusCode, string(body))
+				// TODO: turn back on when fully implemented, commented out to avoid confusing users
+				// log.Infof("Received %v status from pilot when retrieving availability zone: %v", resp.StatusCode, string(body))
 			} else {
 				// TODO: replace with json containing Checkin data.
 				w.AvailabilityZone = string(body)
-				log.Infof("Proxy availability zone: %v", w.AvailabilityZone)
+
+				// TODO: turn back on when fully implemented, commented out to avoid confusing users
+				// log.Infof("Proxy availability zone: %v", w.AvailabilityZone)
 				return w, nil
 			}
 			_ = resp.Body.Close()

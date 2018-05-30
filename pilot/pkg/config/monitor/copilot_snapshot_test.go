@@ -34,23 +34,151 @@ import (
 func TestCloudFoundrySnapshot(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
+	routes := []*copilotapi.RouteWithBackends{
+		{
+			Hostname:        "some-external-route.example.com",
+			Path:            "/some/path",
+			Backends:        nil,
+			CapiProcessGuid: "some-guid-a",
+		},
+		{
+			Hostname:        "some-external-route.example.com",
+			Backends:        nil,
+			CapiProcessGuid: "some-guid-z",
+		},
+		{
+			Hostname:        "other.example.com",
+			Backends:        nil,
+			CapiProcessGuid: "some-guid-x",
+		},
+	}
+
+	routesResponses := []*copilotapi.RoutesResponse{{Routes: routes}}
+
+	copilotSnapshot, err := bootstrap(routesResponses)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	configs, _ := copilotSnapshot.ReadConfigFiles()
+	g.Expect(configs).To(gomega.HaveLen(4))
+
+	splitConfigs := split(configs)
+	var virtualServices = splitConfigs.virtualServices
+	var destinationRules = splitConfigs.destinationRules
+
+	virtualService := virtualServices[1]
+	g.Expect(virtualService.Hosts[0]).To(gomega.Equal("some-external-route.example.com"))
+	g.Expect(virtualService.Gateways).To(gomega.ConsistOf([]string{"some-gateway", "some-other-gateway"}))
+
+	g.Expect(virtualService.Http).To(gomega.HaveLen(2))
+	g.Expect(virtualService.Http).To(gomega.ConsistOf([]*networking.HTTPRoute{
+		{
+			Match: []*networking.HTTPMatchRequest{
+				{
+					Uri: &networking.StringMatch{
+						MatchType: &networking.StringMatch_Prefix{
+							Prefix: "/some/path",
+						},
+					},
+				},
+			},
+			Route: []*networking.DestinationWeight{
+				{
+					Destination: &networking.Destination{
+						Host: "some-external-route.example.com",
+						Port: &networking.PortSelector{
+							Port: &networking.PortSelector_Number{
+								Number: 8080,
+							},
+						},
+						Subset: "some-guid-a",
+					},
+				},
+			},
+		},
+		{
+			Route: []*networking.DestinationWeight{
+				{
+					Destination: &networking.Destination{
+						Host: "some-external-route.example.com",
+						Port: &networking.PortSelector{
+							Port: &networking.PortSelector_Number{
+								Number: 8080,
+							},
+						},
+						Subset: "some-guid-z",
+					},
+				},
+			},
+		},
+	}))
+
+	g.Expect(destinationRules).To(gomega.HaveLen(2))
+
+	rule := destinationRules[1]
+
+	g.Expect(rule.Host).To(gomega.Equal("some-external-route.example.com"))
+	g.Expect(rule.Subsets).To(gomega.HaveLen(2))
+	g.Expect(rule.Subsets).To(gomega.ConsistOf([]*networking.Subset{
+		{
+			Name:   "some-guid-a",
+			Labels: map[string]string{"cfapp": "some-guid-a"},
+		},
+		{
+			Name:   "some-guid-z",
+			Labels: map[string]string{"cfapp": "some-guid-z"},
+		},
+	}))
+}
+
+func TestCloudFoundrySnapshotConnectionError(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	mockCopilotClient := &fakes.CopilotClient{}
+	mockCopilotClient.RoutesReturns(&copilotapi.RoutesResponse{}, errors.New("Copilot Connection Error"))
+
+	configDescriptor := model.ConfigDescriptor{}
+	store := memory.Make(configDescriptor)
+	timeout := 4 * time.Millisecond
+	copilotSnapshot := monitor.NewCopilotSnapshot(store, mockCopilotClient, timeout)
+
+	virtualServices, err := copilotSnapshot.ReadConfigFiles()
+	g.Expect(err).To(gomega.HaveOccurred())
+	g.Expect(virtualServices).To(gomega.BeNil())
+}
+
+func TestCloudFoundrySnapshotTimeoutError(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	mockCopilotClient := &fakes.CopilotClient{}
+	mockCopilotClient.RoutesStub = func(ctx context.Context, in *copilotapi.RoutesRequest, opts ...grpc.CallOption) (*copilotapi.RoutesResponse, error) {
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
+
+	configDescriptor := model.ConfigDescriptor{}
+	store := memory.Make(configDescriptor)
+	timeout := 1 * time.Millisecond
+	copilotSnapshot := monitor.NewCopilotSnapshot(store, mockCopilotClient, timeout)
+
+	virtualServices, err := copilotSnapshot.ReadConfigFiles()
+	g.Expect(err).To(gomega.BeAssignableToTypeOf(context.DeadlineExceeded))
+	g.Expect(virtualServices).To(gomega.BeNil())
+}
+
+func bootstrap(routeResponses []*copilotapi.RoutesResponse) (*monitor.CopilotSnapshot, error) {
 	mockCopilotClient := &fakes.CopilotClient{}
 
-	mockCopilotClient.RoutesReturns(&copilotapi.RoutesResponse{
-		Backends: map[string]*copilotapi.BackendSet{
-			"some-external-route.example.com":       nil,
-			"some-other-external-route.example.com": nil,
-			"some-internal-route.apps.internal":     nil,
-		},
-	}, nil)
+	for idx, response := range routeResponses {
+		mockCopilotClient.RoutesReturnsOnCall(idx, response, nil)
+	}
 
 	configDescriptor := model.ConfigDescriptor{
-		model.VirtualService,
+		model.DestinationRule,
 		model.Gateway,
 	}
 	store := memory.Make(configDescriptor)
 	timeout := 20 * time.Millisecond
-	copilotSnapshot := monitor.NewCopilotSnapshot(store, mockCopilotClient, []string{".internal"}, timeout)
+	copilotSnapshot := monitor.NewCopilotSnapshot(store, mockCopilotClient, timeout)
 
 	gatewayConfigs := []model.Config{
 		{
@@ -91,146 +219,27 @@ func TestCloudFoundrySnapshot(t *testing.T) {
 
 	for _, gatewayConfig := range gatewayConfigs {
 		_, err := store.Create(gatewayConfig)
-		g.Expect(err).NotTo(gomega.HaveOccurred())
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	virtualServices, _ := copilotSnapshot.ReadConfigFiles()
-	g.Expect(virtualServices).To(gomega.HaveLen(2))
-
-	for _, untypedConfig := range virtualServices {
-		c := untypedConfig.Spec.(*networking.VirtualService)
-
-		g.Expect(c.Hosts).To(gomega.HaveLen(1))
-		matchHostname := c.Hosts[0]
-
-		g.Expect(c.Gateways).To(gomega.ConsistOf([]string{"some-gateway", "some-other-gateway"}))
-
-		g.Expect(c.Http).To(gomega.Equal([]*networking.HTTPRoute{
-			{
-				Route: []*networking.DestinationWeight{
-					{
-						Destination: &networking.Destination{
-							Host: matchHostname,
-							Port: &networking.PortSelector{
-								Port: &networking.PortSelector_Name{
-									Name: "http",
-								},
-							},
-						},
-					},
-				},
-			},
-		}))
-	}
+	return copilotSnapshot, nil
 }
 
-func TestCloudFoundrySnapshotVirtualServiceCache(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	mockCopilotClient := &fakes.CopilotClient{}
-
-	mockCopilotClient.RoutesReturnsOnCall(0, &copilotapi.RoutesResponse{
-		Backends: map[string]*copilotapi.BackendSet{
-			"some-external-route.example.com":                 nil,
-			"some-other-external-route-to-delete.example.com": nil,
-		},
-	}, nil)
-
-	mockCopilotClient.RoutesReturnsOnCall(1, &copilotapi.RoutesResponse{
-		Backends: map[string]*copilotapi.BackendSet{
-			"some-external-route.example.com": nil,
-		},
-	}, nil)
-
-	configDescriptor := model.ConfigDescriptor{
-		model.VirtualService,
-		model.Gateway,
-	}
-	store := memory.Make(configDescriptor)
-	timeout := 20 * time.Millisecond
-	copilotSnapshot := monitor.NewCopilotSnapshot(store, mockCopilotClient, []string{".internal"}, timeout)
-
-	gatewayConfigs := []model.Config{
-		{
-			ConfigMeta: model.ConfigMeta{
-				Name: "some-gateway",
-				Type: "gateway",
-			},
-			Spec: &networking.Gateway{
-				Servers: []*networking.Server{
-					{
-						Port: &networking.Port{
-							Number:   80,
-							Protocol: "HTTP",
-						},
-						Hosts: []string{"*.example.com"},
-					},
-				},
-			},
-		},
-	}
-
-	for _, gatewayConfig := range gatewayConfigs {
-		_, err := store.Create(gatewayConfig)
-		g.Expect(err).NotTo(gomega.HaveOccurred())
-	}
-
-	virtualServices, _ := copilotSnapshot.ReadConfigFiles()
-	g.Expect(virtualServices).To(gomega.HaveLen(2))
-
-	virtualServices, _ = copilotSnapshot.ReadConfigFiles()
-	g.Expect(virtualServices).To(gomega.HaveLen(1))
-
-	c := virtualServices[0].Spec.(*networking.VirtualService)
-	g.Expect(c.Http).To(gomega.Equal([]*networking.HTTPRoute{
-		{
-			Route: []*networking.DestinationWeight{
-				{
-					Destination: &networking.Destination{
-						Host: "some-external-route.example.com",
-						Port: &networking.PortSelector{
-							Port: &networking.PortSelector_Name{
-								Name: "http",
-							},
-						},
-					},
-				},
-			},
-		},
-	}))
+type splitConfigs struct {
+	virtualServices  []*networking.VirtualService
+	destinationRules []*networking.DestinationRule
 }
 
-func TestCloudFoundrySnapshotConnectionError(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	mockCopilotClient := &fakes.CopilotClient{}
-	mockCopilotClient.RoutesReturns(&copilotapi.RoutesResponse{}, errors.New("Copilot Connection Error"))
-
-	configDescriptor := model.ConfigDescriptor{}
-	store := memory.Make(configDescriptor)
-	timeout := 4 * time.Millisecond
-	copilotSnapshot := monitor.NewCopilotSnapshot(store, mockCopilotClient, []string{".internal"}, timeout)
-
-	virtualServices, err := copilotSnapshot.ReadConfigFiles()
-	g.Expect(err).To(gomega.HaveOccurred())
-	g.Expect(virtualServices).To(gomega.BeNil())
-}
-
-func TestCloudFoundrySnapshotTimeoutError(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	mockCopilotClient := &fakes.CopilotClient{}
-	mockCopilotClient.RoutesStub = func(ctx context.Context, in *copilotapi.RoutesRequest, opts ...grpc.CallOption) (*copilotapi.RoutesResponse, error) {
-		<-ctx.Done()
-		return nil, ctx.Err()
+func split(configs []*model.Config) splitConfigs {
+	var sc splitConfigs
+	for _, untypedConfig := range configs {
+		if virtualService, ok := untypedConfig.Spec.(*networking.VirtualService); ok {
+			sc.virtualServices = append(sc.virtualServices, virtualService)
+		} else {
+			sc.destinationRules = append(sc.destinationRules, untypedConfig.Spec.(*networking.DestinationRule))
+		}
 	}
-
-	configDescriptor := model.ConfigDescriptor{}
-	store := memory.Make(configDescriptor)
-	timeout := 1 * time.Millisecond
-	copilotSnapshot := monitor.NewCopilotSnapshot(store, mockCopilotClient, []string{".internal"}, timeout)
-
-	virtualServices, err := copilotSnapshot.ReadConfigFiles()
-	g.Expect(err).To(gomega.BeAssignableToTypeOf(context.DeadlineExceeded))
-	g.Expect(virtualServices).To(gomega.BeNil())
+	return sc
 }

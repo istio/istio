@@ -50,9 +50,3 @@ type (
 		Amount int64
 	}
 )
-
-// GetStatus gets status embedded in the result.
-func (r QuotaResult) GetStatus() rpc.Status { return r.Status }
-
-// SetStatus embeds status in result.
-func (r *QuotaResult) SetStatus(s rpc.Status) { r.Status = s }

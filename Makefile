@@ -20,7 +20,7 @@ export ISTIO_GO
 SHELL := /bin/bash
 
 # Current version, updated after a release.
-VERSION ?= 0.5.0
+VERSION ?= 0.8-dev
 
 # locations where artifacts are stored
 ISTIO_DOCKER_HUB ?= docker.io/istio
@@ -109,6 +109,9 @@ export ISTIO_BIN=$(GO_TOP)/bin
 export OUT_DIR=$(GO_TOP)/out
 export ISTIO_OUT:=$(GO_TOP)/out/$(GOOS)_$(GOARCH)/$(BUILDTYPE_DIR)
 export HELM=$(ISTIO_OUT)/helm
+
+# istioctl kube-inject uses builtin config only if this env var is set.
+export ISTIOCTL_USE_BUILTIN_DEFAULTS=1
 
 # scratch dir: this shouldn't be simply 'docker' since that's used for docker.save to store tar.gz files
 ISTIO_DOCKER:=${ISTIO_OUT}/docker_temp
@@ -199,22 +202,15 @@ ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED):
 .PHONY: check-tree
 check-tree:
 	@if [ "$(ISTIO_GO)" != "$(GO_TOP)/src/istio.io/istio" ]; then \
-       echo Istio not found in GOPATH/src/istio.io. Make sure to clone Istio on that path. $(ISTIO_GO) not under $(GO_TOP) ; \
-       exit 1; fi
+		echo Istio not found in GOPATH/src/istio.io. Make sure to clone Istio on that path. $(ISTIO_GO) not under $(GO_TOP) ; \
+		exit 1; fi
 
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
 init: check-tree check-go-version $(ISTIO_OUT)/istio_is_init
 
-# Merge master. To be used in CI or by developers, assumes the
-# remote is called 'origin' (git default). Will fail on conflicts
-# Note: in a branch, this will get the latest from master. In master it has no effect.
-# This should be run after a 'git fetch' (typically done in the checkout step in CI)
-git.pullmaster:
-	git merge master
-
 # Sync target will pull from master and sync the modules. It is the first step of the
 # circleCI build, developers should call it periodically.
-sync: git.pullmaster init
+sync: init
 	mkdir -p ${OUT_DIR}/logs
 
 # I tried to make this dependent on what I thought was the appropriate
@@ -321,13 +317,13 @@ servicegraph:
 ${ISTIO_OUT}/servicegraph:
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./addons/$(@F)/cmd/server
 
-SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca ${ISTIO_OUT}/flexvolume
+SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent_k8s ${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca ${ISTIO_OUT}/flexvolume
 $(SECURITY_GO_BINS):
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
 .PHONY: build
 # Build will rebuild the go binaries.
-build: depend $(PILOT_GO_BINS_SHORT) mixc mixs node_agent istio_ca flexvolume istioctl gals
+build: depend $(PILOT_GO_BINS_SHORT) mixc mixs node_agent nodeagent_k8s istio_ca flexvolume istioctl gals
 
 # The following are convenience aliases for most of the go targets
 # The first block is for aliases that are the same as the actual binary,
@@ -342,6 +338,10 @@ citadel:
 .PHONY: node-agent
 node-agent:
 	bin/gobuild.sh ${ISTIO_OUT}/node-agent istio.io/istio/pkg/version ./security/cmd/node_agent
+
+.PHONY: nodeagent_k8s
+node_agent_k8s:
+	bin/gobuild.sh ${ISTIO_OUT}/node_agent_k8s istio.io/istio/pkg/version ./security/cmd/node_agent_k8s
 
 .PHONY: flexvolumedriver
 flexvolumedriver:
@@ -370,9 +370,10 @@ ${ISTIO_OUT}/archive: istioctl-all LICENSE README.md install/updateVersion.sh re
 	cp LICENSE ${ISTIO_OUT}/archive
 	cp README.md ${ISTIO_OUT}/archive
 	cp -r tools ${ISTIO_OUT}/archive
-	install/updateVersion.sh -a "$(ISTIO_DOCKER_HUB),$(VERSION)" \
-                                 -P "$(ISTIO_URL)/deb" \
-                                 -d "${ISTIO_OUT}/archive"
+	cp bin/dump_kubernetes.sh ${ISTIO_OUT}/archive
+	ISTIO_RELEASE=1 install/updateVersion.sh -a "$(ISTIO_DOCKER_HUB),$(VERSION)" \
+		-P "$(ISTIO_URL)/deb" \
+		-d "${ISTIO_OUT}/archive"
 	release/create_release_archives.sh -v "$(VERSION)" -o "${ISTIO_OUT}/archive"
 
 # istioctl-install builds then installs istioctl into $GOPATH/BIN
@@ -411,6 +412,9 @@ PILOT_TEST_BINS:=${ISTIO_OUT}/pilot-test-server ${ISTIO_OUT}/pilot-test-client $
 
 $(PILOT_TEST_BINS):
 	CGO_ENABLED=0 go build ${GOSTATIC} -o $@ istio.io/istio/$(subst -,/,$(@F))
+
+hyperistio:
+	CGO_ENABLED=0 go build ${GOSTATIC} -o ${ISTIO_OUT}/hyperistio istio.io/istio/tools/hyperistio
 
 test-bins: $(PILOT_TEST_BINS)
 
@@ -582,17 +586,17 @@ $(HELM):
 istio-remote.yaml: $(HELM)
 	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/$@
 	$(HELM) template --namespace=istio-system \
-		  install/kubernetes/helm/istio-remote >> install/kubernetes/$@
+		install/kubernetes/helm/istio-remote >> install/kubernetes/$@
 
 # creates istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml
 # Ensure that values-$filename is present in install/kubernetes/helm/istio
 isti%.yaml: $(HELM)
 	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/$@
 	$(HELM) template --set global.tag=${TAG} \
-		  --namespace=istio-system \
-                  --set global.hub=${HUB} \
-		  --values install/kubernetes/helm/istio/values-$@ \
-		  install/kubernetes/helm/istio >> install/kubernetes/$@
+		--namespace=istio-system \
+		--set global.hub=${HUB} \
+		--values install/kubernetes/helm/istio/values-$@ \
+		install/kubernetes/helm/istio >> install/kubernetes/$@
 
 # This is temporary. REMOVE ME after Envoy v2 transition
 # creates istio.yaml using values-envoyv2-transition.yaml
@@ -600,10 +604,19 @@ generate_yaml-envoyv2_transition: $(HELM)
 	./install/updateVersion_orig.sh -a ${HUB},${TAG} >/dev/null 2>&1
 	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/istio.yaml
 	$(HELM) template --set global.tag=${TAG} \
-		  --namespace=istio-system \
-                  --set global.hub=${HUB} \
-		  --values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
-		  install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
+		--namespace=istio-system \
+		--set global.hub=${HUB} \
+		--values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
+		install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
+
+	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/istio-auth.yaml
+	$(HELM) template --set global.tag=${TAG} \
+		--namespace=istio-system \
+		--set global.hub=${HUB} \
+		--values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
+		--set global.mtls.enabled=true \
+		--set global.controlPlaneSecurityEnabled=true \
+		install/kubernetes/helm/istio >> install/kubernetes/istio-auth.yaml
 
 # This is temporary. REMOVE ME after Envoy v2 transition
 # creates istio.yaml using values-envoyv2-transition.yaml
@@ -611,15 +624,21 @@ generate_yaml-envoyv2_transition_loadbalancer_ingressgateway: $(HELM)
 	./install/updateVersion_orig.sh -a ${HUB},${TAG} >/dev/null 2>&1
 	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/istio.yaml
 	$(HELM) template --set global.tag=${TAG} \
-		  --namespace=istio-system \
-                  --set global.hub=${HUB} \
-		  --values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
-                  --set ingressgateway.service.type=LoadBalancer \
-		  --set ingress.enabled=false \
-		  install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
-
-deploy/all: $(HELM) istio-all.yaml
-	kubectl apply -n istio-system -f install/kubernetes/istio-all.yaml
+		--namespace=istio-system \
+		--set global.hub=${HUB} \
+		--values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
+		--set ingressgateway.service.type=LoadBalancer \
+		--set ingress.enabled=false \
+		install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
+	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/istio-auth.yaml
+	$(HELM) template --set global.tag=${TAG} \
+		--namespace=istio-system \
+		--set global.hub=${HUB} \
+		--values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
+		--set ingressgateway.service.type=LoadBalancer \
+		--set ingress.enabled=false \
+		--set global.mtls.enabled=true \
+		install/kubernetes/helm/istio >> install/kubernetes/istio-auth.yaml
 
 # Generate the install files, using istioctl.
 # TODO: make sure they match, pass all tests.

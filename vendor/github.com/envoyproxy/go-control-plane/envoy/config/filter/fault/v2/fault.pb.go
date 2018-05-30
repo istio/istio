@@ -22,6 +22,8 @@ import _ "github.com/gogo/protobuf/gogoproto"
 import time "time"
 import github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
 
+import types "github.com/gogo/protobuf/types"
+
 import io "io"
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -225,8 +227,8 @@ func (m *FaultDelay_FixedDelay) MarshalTo(dAtA []byte) (int, error) {
 	if m.FixedDelay != nil {
 		dAtA[i] = 0x1a
 		i++
-		i = encodeVarintFault(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.FixedDelay)))
-		n2, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.FixedDelay, dAtA[i:])
+		i = encodeVarintFault(dAtA, i, uint64(types.SizeOfStdDuration(*m.FixedDelay)))
+		n2, err := types.StdDurationMarshalTo(*m.FixedDelay, dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
@@ -262,7 +264,7 @@ func (m *FaultDelay_FixedDelay) Size() (n int) {
 	var l int
 	_ = l
 	if m.FixedDelay != nil {
-		l = github_com_gogo_protobuf_types.SizeOfStdDuration(*m.FixedDelay)
+		l = types.SizeOfStdDuration(*m.FixedDelay)
 		n += 1 + l + sovFault(uint64(l))
 	}
 	return n
@@ -375,7 +377,7 @@ func (m *FaultDelay) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			v := new(time.Duration)
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(v, dAtA[iNdEx:postIndex]); err != nil {
+			if err := types.StdDurationUnmarshal(v, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			m.FaultDelaySecifier = &FaultDelay_FixedDelay{v}

@@ -126,7 +126,7 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 	localIp = getLocalIP()
 
 	// Service and endpoints for hello.default - used in v1 pilot tests
-	hostname := "hello.default.svc.cluster.local"
+	hostname := model.Hostname("hello.default.svc.cluster.local")
 	server.EnvoyXdsServer.MemRegistry.AddService(hostname, &model.Service{
 		Hostname: hostname,
 		Address:  "10.10.0.3",
@@ -316,6 +316,12 @@ func testPorts(base int) []*model.Port {
 
 // Test XDS with real envoy and with mixer.
 func TestEnvoy(t *testing.T) {
+	defer func() {
+		if testEnv != nil {
+			testEnv.TearDown()
+		}
+	}()
+
 	initLocalPilotTestEnv(t)
 	startEnvoy(t)
 	// Make sure tcp port is ready before starting the test.
@@ -344,9 +350,11 @@ func envoyInit(t *testing.T) {
 	}
 	// Other interesting values for CDS: cluster_added: 19, active_clusters
 	// cds.update_attempt: 2, cds.update_rejected, cds.version
-
-	if statsMap["cluster.outbound|custom||service3.default.svc.cluster.local.update_success"] < 1 {
-		t.Error("Failed sds updates")
+	for _, port := range testPorts(0) {
+		stat := fmt.Sprintf("cluster.outbound|%d||service3.default.svc.cluster.local.update_success", port.Port)
+		if statsMap[stat] < 1 {
+			t.Error("Failed sds updates")
+		}
 	}
 
 	if statsMap["cluster.xds-grpc.update_failure"] > 0 {
@@ -359,7 +367,6 @@ func envoyInit(t *testing.T) {
 	if statsMap["listener_manager.lds.update_success"] < 1 {
 		t.Error("LDS update failure")
 	}
-
 }
 
 // Example of using a local test connecting to the in-process test service, using Envoy http proxy
@@ -370,11 +377,12 @@ func testService(t *testing.T) {
 	client := &http.Client{Transport: &http.Transport{Proxy: http.ProxyURL(proxyUrl)}}
 
 	res, err := client.Get("http://local.default.svc.cluster.local")
-	resdmp, _ := httputil.DumpResponse(res, true)
-	t.Log(string(resdmp))
 	if err != nil {
 		t.Error("Failed to access proxy", err)
+		return
 	}
+	resdmp, _ := httputil.DumpResponse(res, true)
+	t.Log(string(resdmp))
 	if res.Status != "200 OK" {
 		t.Error("Proxy failed ", res.Status)
 	}
@@ -416,12 +424,6 @@ func getLocalIP() string {
 }
 func TestMain(m *testing.M) {
 	flag.Parse()
-	defer func() {
-		if testEnv != nil {
-			testEnv.TearDown()
-		}
-	}()
-
 	// Run all tests.
 	os.Exit(m.Run())
 }

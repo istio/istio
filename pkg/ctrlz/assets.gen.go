@@ -88,7 +88,8 @@ var _assetsStaticCssAllCss = []byte(`@media screen {
         padding-top: 3.7rem;
         font-family: "Roboto", "Helvetica Neue", Helvetica, Arial, sans-serif;
         color: #ddd;
-        background-color: #5a5a5a
+        background-color: #5a5a5a;
+        font-weight: 300
     }
 }
 

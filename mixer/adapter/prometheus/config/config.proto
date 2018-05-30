@@ -15,11 +15,14 @@
 syntax = "proto3";
 
 // $title: Prometheus
-// $overview: Adapter that exposes Istio metrics for ingestion by a Prometheus harvester.
-// $location: https://istio.io/docs/reference/config/adapters/prometheus.html
+// $description: Adapter that exposes Istio metrics for ingestion by a Prometheus harvester.
+// $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/prometheus.html
+// $front_matter: redirect_from: /docs/reference/config/adapters/prometheus.html
 
 // The `prometheus` adapter collects Istio metrics and makes them available to
 // [Prometheus](https://prometheus.io).
+//
+// This adapter supports the [metric template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric.html).
 package adapter.prometheus.config;
 
 import "gogoproto/gogo.proto";

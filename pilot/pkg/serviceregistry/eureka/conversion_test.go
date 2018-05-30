@@ -123,7 +123,7 @@ func TestConvertService(t *testing.T) {
 		}
 	}
 
-	hostnameTests := []map[string]bool{
+	hostnameTests := []map[model.Hostname]bool{
 		{"foo.bar.local": true},
 		{"foo.biz.local": true},
 		{"foo.bar.local": true, "foo.biz.local": true},
@@ -144,12 +144,12 @@ func TestConvertServiceInstances(t *testing.T) {
 	foobarService := makeService("foo.bar.local", []int{5000, 5443}, nil)
 
 	serviceInstanceTests := []struct {
-		services map[string]*model.Service
+		services map[model.Hostname]*model.Service
 		apps     []*application
 		out      []*model.ServiceInstance
 	}{
 		{
-			services: map[string]*model.Service{
+			services: map[model.Hostname]*model.Service{
 				"foo.bar.local": foobarService,
 			},
 			apps: []*application{
@@ -269,7 +269,7 @@ func makeInstance(hostname, ip string, portNum, securePort int, md metadata) *in
 	return inst
 }
 
-func makeService(hostname string, ports []int, protocols []model.Protocol) *model.Service {
+func makeService(hostname model.Hostname, ports []int, protocols []model.Protocol) *model.Service {
 	portList := make(model.PortList, 0, len(ports))
 	for i, port := range ports {
 		protocol := model.ProtocolTCP
@@ -286,6 +286,7 @@ func makeService(hostname string, ports []int, protocols []model.Protocol) *mode
 
 	return &model.Service{
 		Hostname: hostname,
+		Address:  model.UnspecifiedIP,
 		Ports:    portList,
 	}
 }

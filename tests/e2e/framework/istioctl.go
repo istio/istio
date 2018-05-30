@@ -140,6 +140,9 @@ func (i *Istioctl) run(format string, args ...interface{}) error {
 }
 
 // KubeInject use istio kube-inject to create new yaml with a proxy as sidecar.
+// TODO The commands below could be generalized so that istioctl doesn't default to
+// using the in cluster kubeconfig this is useful in multicluster cases to perform
+// injection on remote clusters.
 func (i *Istioctl) KubeInject(src, dest string) error {
 	if i.defaultProxy {
 		return i.run(`kube-inject -f %s -o %s -n %s -i %s --meshConfigMapName=istio`,
