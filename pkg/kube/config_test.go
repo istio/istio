@@ -43,12 +43,6 @@ func TestBuildClientConfig(t *testing.T) {
 		wantErr bool
 		host    string
 	}{
-		// {
-		// 	name:    "EmptyStringsArgs",
-		// 	args:    args{kubeconfigPath: ""},
-		// 	wantErr: false,
-		// 	host:    "",
-		// },
 		{
 			name:    "MalformedKubeconfigPath",
 			args:    args{kubeconfigPath: "missing"},
@@ -85,6 +79,32 @@ func TestBuildClientConfig(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("DefaultSystemConfig", func(t *testing.T) {
+		defConfHost := "3.3.3.3"
+		defConfig, err := generateKubeConfig(defConfHost)
+		if err != nil {
+			t.Errorf("Failed to create a sample kubernetes config file. Err: %v", err)
+		}
+		defer os.RemoveAll(filepath.Dir(defConfig))
+
+		// Setup $KUBECONFIG for the tests and restore the system's after test is done
+		currentEnv := os.Getenv("KUBECONFIG")
+		os.Setenv("KUBECONFIG", defConfig)
+		defer os.Setenv("KUBECONFIG", currentEnv)
+
+		resp, err := BuildClientConfig("")
+		if err != nil {
+			t.Errorf("Got unexpected error = %v", err)
+		}
+		if resp == nil {
+			t.Error("Returned client config is nil")
+		}
+		wanted := fmt.Sprintf("https://%s:8001", defConfHost)
+		if resp != nil && resp.Host != wanted {
+			t.Errorf("Incorrect host. Got: %s, Want: %s", resp.Host, wanted)
+		}
+	})
 }
 
 func generateKubeConfig(host string) (string, error) {
