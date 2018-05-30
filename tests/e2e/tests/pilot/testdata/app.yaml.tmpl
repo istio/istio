@@ -5,13 +5,6 @@ metadata:
   name: {{.service}}
   labels:
     app: {{.service}}
-{{if eq .perServiceAuth "true"}}
-  annotations:
-    auth.istio.io/80: MUTUAL_TLS
-    auth.istio.io/8080: NONE
-    auth.istio.io/7070: MUTUAL_TLS
-    auth.istio.io/9090: MUTUAL_TLS
-{{end}}
 spec:
   ports:
   - port: 80
@@ -35,6 +28,32 @@ spec:
   selector:
     app: {{.service}}
 ---
+{{if eq .perServiceAuth "true"}}
+apiVersion: authentication.istio.io/v1alpha1
+kind: Policy
+metadata:
+  name: {{.service}}-ports-mtls-enabled
+spec:
+  targets:
+  - name: {{.service}}
+    ports:
+    - number: 80
+    - number: 7070
+    - number: 9090
+  peers:
+    - mtls:
+---
+apiVersion: authentication.istio.io/v1alpha1
+kind: Policy
+metadata:
+  name: {{.service}}-ports-mtls-disabled
+spec:
+  targets:
+  - name: {{.service}}
+    ports:
+    - number: 8080
+---
+{{end}}
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
