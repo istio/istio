@@ -252,8 +252,8 @@ func NewProxy(config meshconfig.ProxyConfig, node string, logLevel string) proxy
 
 // NewV2Proxy creates an instance of the proxy using v2 bootstrap
 func NewV2Proxy(config meshconfig.ProxyConfig, node string, logLevel string, pilotSAN []string) proxy.Proxy {
-	proxy := NewProxy(config, node, logLevel)
-	e := proxy.(envoy)
+	p := NewProxy(config, node, logLevel)
+	e := p.(envoy)
 	e.v2 = true
 	e.pilotSAN = pilotSAN
 	return e

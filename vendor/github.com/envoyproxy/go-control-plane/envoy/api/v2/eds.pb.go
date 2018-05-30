@@ -11,12 +11,10 @@ import _ "github.com/gogo/googleapis/google/api"
 import _ "github.com/lyft/protoc-gen-validate/validate"
 import _ "github.com/gogo/protobuf/gogoproto"
 
-import (
-	context "golang.org/x/net/context"
-	grpc "google.golang.org/grpc"
-)
+import context "golang.org/x/net/context"
+import grpc "google.golang.org/grpc"
 
-import encoding_binary "encoding/binary"
+import binary "encoding/binary"
 
 import io "io"
 
@@ -101,10 +99,7 @@ func init() {
 }
 func (this *ClusterLoadAssignment) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*ClusterLoadAssignment)
@@ -117,10 +112,7 @@ func (this *ClusterLoadAssignment) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -142,10 +134,7 @@ func (this *ClusterLoadAssignment) Equal(that interface{}) bool {
 }
 func (this *ClusterLoadAssignment_Policy) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*ClusterLoadAssignment_Policy)
@@ -158,10 +147,7 @@ func (this *ClusterLoadAssignment_Policy) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -377,7 +363,7 @@ func (m *ClusterLoadAssignment_Policy) MarshalTo(dAtA []byte) (int, error) {
 	if m.DropOverload != 0 {
 		dAtA[i] = 0x9
 		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.DropOverload))))
+		binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.DropOverload))))
 		i += 8
 	}
 	return i, nil
@@ -614,7 +600,7 @@ func (m *ClusterLoadAssignment_Policy) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
 			m.DropOverload = float64(math.Float64frombits(v))
 		default:

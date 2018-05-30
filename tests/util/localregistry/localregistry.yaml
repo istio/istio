@@ -29,7 +29,7 @@ spec:
         resources:
           limits:
             cpu: 100m
-            memory: 100Mi
+            memory: 5000Mi
         env:
         - name: REGISTRY_HTTP_ADDR
           value: :5000
@@ -73,11 +73,11 @@ spec:
     image: gcr.io/google_containers/kube-registry-proxy:0.3
     resources:
       limits:
-        cpu: 100m
-        memory: 50Mi
+        cpu: 1000m
+        memory: 2500Mi
     env:
     - name: REGISTRY_HOST
-      value: kube-registry.kube-system.svc.cluster.local
+      value: kube-registry
     - name: REGISTRY_PORT
       value: "5000"
     - name: FORWARD_PORT

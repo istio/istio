@@ -22,7 +22,7 @@ import _ "github.com/gogo/protobuf/gogoproto"
 
 import time "time"
 
-import github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
+import types "github.com/gogo/protobuf/types"
 
 import io "io"
 
@@ -124,8 +124,8 @@ func (m *ClientSSLAuth) MarshalTo(dAtA []byte) (int, error) {
 	if m.RefreshDelay != nil {
 		dAtA[i] = 0x1a
 		i++
-		i = encodeVarintClientSslAuth(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.RefreshDelay)))
-		n1, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.RefreshDelay, dAtA[i:])
+		i = encodeVarintClientSslAuth(dAtA, i, uint64(types.SizeOfStdDuration(*m.RefreshDelay)))
+		n1, err := types.StdDurationMarshalTo(*m.RefreshDelay, dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
@@ -167,7 +167,7 @@ func (m *ClientSSLAuth) Size() (n int) {
 		n += 1 + l + sovClientSslAuth(uint64(l))
 	}
 	if m.RefreshDelay != nil {
-		l = github_com_gogo_protobuf_types.SizeOfStdDuration(*m.RefreshDelay)
+		l = types.SizeOfStdDuration(*m.RefreshDelay)
 		n += 1 + l + sovClientSslAuth(uint64(l))
 	}
 	if len(m.IpWhiteList) > 0 {
@@ -308,7 +308,7 @@ func (m *ClientSSLAuth) Unmarshal(dAtA []byte) error {
 			if m.RefreshDelay == nil {
 				m.RefreshDelay = new(time.Duration)
 			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(m.RefreshDelay, dAtA[iNdEx:postIndex]); err != nil {
+			if err := types.StdDurationUnmarshal(m.RefreshDelay, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex

@@ -2452,6 +2452,23 @@ func TestValidateVirtualService(t *testing.T) {
 				}},
 			}},
 		}, valid: false},
+		{name: "wildcard for mesh gateway", in: &networking.VirtualService{
+			Hosts: []string{"*"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.DestinationWeight{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: false},
+		{name: "wildcard for non-mesh gateway", in: &networking.VirtualService{
+			Hosts:    []string{"*"},
+			Gateways: []string{"somegateway"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.DestinationWeight{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: true},
 	}
 
 	for _, tc := range testCases {
@@ -2849,7 +2866,28 @@ func TestValidateServiceEntries(t *testing.T) {
 			Resolution: networking.ServiceEntry_DNS,
 		},
 			valid: false},
-
+		{name: "full wildcard host", in: networking.ServiceEntry{
+			Hosts: []string{"foo.com", "*"},
+			Ports: []*networking.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+			},
+			Endpoints: []*networking.ServiceEntry_Endpoint{
+				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
+			},
+			Resolution: networking.ServiceEntry_DNS,
+		},
+			valid: false},
+		{name: "short name host", in: networking.ServiceEntry{
+			Hosts: []string{"foo", "bar.com"},
+			Ports: []*networking.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+			},
+			Endpoints: []*networking.ServiceEntry_Endpoint{
+				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
+			},
+			Resolution: networking.ServiceEntry_DNS,
+		},
+			valid: false},
 		{name: "undefined endpoint port", in: networking.ServiceEntry{
 			Hosts: []string{"google.com"},
 			Ports: []*networking.Port{

@@ -35,10 +35,11 @@ type GrpcJsonTranscoder struct {
 	//	*GrpcJsonTranscoder_ProtoDescriptor
 	//	*GrpcJsonTranscoder_ProtoDescriptorBin
 	DescriptorSet isGrpcJsonTranscoder_DescriptorSet `protobuf_oneof:"descriptor_set"`
-	// A list of strings that supplies the service names that the
-	// transcoder will translate. If the service name doesn't exist in ``proto_descriptor``, Envoy
-	// will fail at startup. The ``proto_descriptor`` may contain more services than the service names
-	// specified here, but they won't be translated.
+	// A list of strings that
+	// supplies the fully qualified service names (i.e. "package_name.service_name") that
+	// the transcoder will translate. If the service name doesn't exist in ``proto_descriptor``,
+	// Envoy will fail at startup. The ``proto_descriptor`` may contain more services than
+	// the service names specified here, but they won't be translated.
 	Services []string `protobuf:"bytes,2,rep,name=services" json:"services,omitempty"`
 	// Control options for response JSON. These options are passed directly to
 	// `JsonPrintOptions <https://developers.google.com/protocol-buffers/docs/reference/cpp/

@@ -33,7 +33,7 @@ type OutlierDetection struct {
 	// Defaults to 30000ms or 30s.
 	BaseEjectionTime *google_protobuf3.Duration `protobuf:"bytes,3,opt,name=base_ejection_time,json=baseEjectionTime" json:"base_ejection_time,omitempty"`
 	// The maximum % of an upstream cluster that can be ejected due to outlier
-	// detection. Defaults to 10%.
+	// detection. Defaults to 10% but will eject at least one host regardless of the value.
 	MaxEjectionPercent *google_protobuf1.UInt32Value `protobuf:"bytes,4,opt,name=max_ejection_percent,json=maxEjectionPercent" json:"max_ejection_percent,omitempty"`
 	// The % chance that a host will be actually ejected when an outlier status
 	// is detected through consecutive 5xx. This setting can be used to disable
@@ -159,10 +159,7 @@ func init() {
 }
 func (this *OutlierDetection) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*OutlierDetection)
@@ -175,10 +172,7 @@ func (this *OutlierDetection) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
