@@ -17,8 +17,8 @@ package config
 import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
-	"google.golang.org/grpc"
 
+	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/protobuf/yaml/dynamic"
@@ -64,8 +64,8 @@ type (
 		// parameters used to construct the Handler.
 		Params []byte
 
-		// Client to invoke calls into the associated adapter.
-		Client *Client
+		// Connection information for the handler.
+		Connection *v1beta1.Connection
 	}
 
 	// Handler configuration. Fully resolved.
@@ -180,12 +180,6 @@ type (
 		SessionBased bool
 
 		Description string
-	}
-
-	// Client contains the connection data for the adapter
-	Client struct {
-		// gRPC connection to the adapter.
-		Connection *grpc.ClientConn
 	}
 )
 
