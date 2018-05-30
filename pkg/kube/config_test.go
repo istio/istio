@@ -80,7 +80,10 @@ func TestBuildClientConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			currentEnv := os.Getenv("KUBECONFIG")
-			os.Setenv("KUBECONFIG", tt.envKubeconfig)
+			err := os.Setenv("KUBECONFIG", tt.envKubeconfig)
+			if err != nil {
+				t.Error("Failed to set KUBECONFIG environment variable")
+			}
 			defer os.Setenv("KUBECONFIG", currentEnv)
 
 			resp, err := BuildClientConfig(tt.explicitKubeconfig)
