@@ -1,0 +1,4 @@
+# TODO(incfly): change to smaller base image before release.
+FROM ubuntu:16.04
+ADD nodeagent_k8s /
+CMD ["/nodeagent_k8s"]
