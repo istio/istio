@@ -643,7 +643,7 @@
   branch = "master"
   name = "github.com/istio/tools"
   packages = ["protoc-gen-docs"]
-  revision = "9c791034d4da535b3e19df1f2421a98d484825ad"
+  revision = "d7fdf1b48501371ede946114e69ac2d73d8e4206"
 
 [[projects]]
   name = "github.com/jmespath/go-jmespath"
@@ -1301,7 +1301,7 @@
     "rbac/v1alpha1",
     "routing/v1alpha1"
   ]
-  revision = "e01d1410438cb9003b02252a1aad0b718a0f2811"
+  revision = "9fb97f846d92471786cc737c53ddc63c68a29c23"
 
 [[projects]]
   name = "istio.io/fortio"
