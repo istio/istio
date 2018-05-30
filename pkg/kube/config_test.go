@@ -25,12 +25,12 @@ import (
 func TestBuildClientConfig(t *testing.T) {
 	config1, err := generateKubeConfig("1.1.1.1")
 	if err != nil {
-		t.Errorf("Failed to create a sample kubernetes config file. Err: %v", err)
+		t.Fatalf("Failed to create a sample kubernetes config file. Err: %v", err)
 	}
 	defer os.RemoveAll(filepath.Dir(config1))
 	config2, err := generateKubeConfig("2.2.2.2")
 	if err != nil {
-		t.Errorf("Failed to create a sample kubernetes config file. Err: %v", err)
+		t.Fatalf("Failed to create a sample kubernetes config file. Err: %v", err)
 	}
 	defer os.RemoveAll(filepath.Dir(config2))
 
@@ -82,16 +82,16 @@ func TestBuildClientConfig(t *testing.T) {
 			currentEnv := os.Getenv("KUBECONFIG")
 			err := os.Setenv("KUBECONFIG", tt.envKubeconfig)
 			if err != nil {
-				t.Error("Failed to set KUBECONFIG environment variable")
+				t.Fatalf("Failed to set KUBECONFIG environment variable")
 			}
 			defer os.Setenv("KUBECONFIG", currentEnv)
 
 			resp, err := BuildClientConfig(tt.explicitKubeconfig)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("BuildClientConfig() error = %v, wantErr %v", err, tt.wantErr)
+				t.Fatalf("BuildClientConfig() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if resp != nil && resp.Host != tt.host {
-				t.Errorf("Incorrect host. Got: %s, Want: %s", resp.Host, tt.host)
+				t.Fatalf("Incorrect host. Got: %s, Want: %s", resp.Host, tt.host)
 			}
 		})
 	}
