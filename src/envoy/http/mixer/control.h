@@ -49,13 +49,13 @@ class Control final : public ThreadLocal::ThreadLocalObject {
 
   // The mixer config.
   const Config& config_;
-  // The mixer control
-  std::unique_ptr<::istio::control::http::Controller> controller_;
   // async client factories
   Grpc::AsyncClientFactoryPtr check_client_factory_;
   Grpc::AsyncClientFactoryPtr report_client_factory_;
   // The stats object.
   Utils::MixerStatsObject stats_obj_;
+  // The mixer control
+  std::unique_ptr<::istio::control::http::Controller> controller_;
 };
 
 }  // namespace Mixer

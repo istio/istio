@@ -49,8 +49,6 @@ class Control final : public ThreadLocal::ThreadLocalObject {
 
   // The mixer config.
   const Config& config_;
-  // The mixer control
-  std::unique_ptr<::istio::control::tcp::Controller> controller_;
 
   // dispatcher.
   Event::Dispatcher& dispatcher_;
@@ -63,6 +61,8 @@ class Control final : public ThreadLocal::ThreadLocalObject {
   Utils::MixerStatsObject stats_obj_;
   // UUID of the Envoy TCP mixer filter.
   const std::string& uuid_;
+  // The mixer control
+  std::unique_ptr<::istio::control::tcp::Controller> controller_;
 };
 
 }  // namespace Mixer
