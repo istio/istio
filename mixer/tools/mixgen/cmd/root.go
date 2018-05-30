@@ -26,7 +26,7 @@ import (
 func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "mixgen",
-		Short: "Mixer generator is a tool to generate artifacts used by the adapter developer.",
+		Short: "Mixer generator is a tool to generate artifacts used by adapter developers.",
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
 				return fmt.Errorf("'%s' is an invalid argument", args[0])
