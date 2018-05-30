@@ -500,6 +500,7 @@ func buildDefaultCluster(env model.Environment, name string, discoveryType v2.Cl
 	defaultTrafficPolicy := buildDefaultTrafficPolicy(env, discoveryType)
 	applyTrafficPolicy(cluster, defaultTrafficPolicy, nil)
 	return cluster
+
 }
 
 func buildDefaultTrafficPolicy(env model.Environment, discoveryType v2.Cluster_DiscoveryType) *networking.TrafficPolicy {
