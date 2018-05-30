@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"time"
 
+	multierror "github.com/hashicorp/go-multierror"
 	opentracing "github.com/opentracing/opentracing-go"
 	otlog "github.com/opentracing/opentracing-go/log"
 	legacyContext "golang.org/x/net/context"
@@ -219,40 +220,41 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 	reportSpan, reportCtx := opentracing.StartSpanFromContext(legacyCtx, "Report")
 	reporter := s.dispatcher.GetReporter(reportCtx)
 
-	var err error
+	var errors *multierror.Error
 	for i := 0; i < len(req.Attributes); i++ {
 		span, newctx := opentracing.StartSpanFromContext(reportCtx, fmt.Sprintf("attribute bag %d", i))
 
 		// the first attribute block is handled by the protoBag as a foundation,
 		// deltas are applied to the child bag (i.e. requestBag)
 		if i > 0 {
-			err = accumBag.UpdateBagFromProto(&req.Attributes[i], s.globalWordList)
-			if err != nil {
+			if err := accumBag.UpdateBagFromProto(&req.Attributes[i], s.globalWordList); err != nil {
 				err = fmt.Errorf("request could not be processed due to invalid attributes: %v", err)
 				span.LogFields(otlog.String("error", err.Error()))
 				span.Finish()
+				errors = multierror.Append(errors, err)
 				break
 			}
 		}
 
 		lg.Debug("Dispatching Preprocess")
 
-		if err = s.dispatcher.Preprocess(newctx, accumBag, reportBag); err != nil {
+		if err := s.dispatcher.Preprocess(newctx, accumBag, reportBag); err != nil {
 			err = fmt.Errorf("preprocessing attributes failed: %v", err)
 			span.LogFields(otlog.String("error", err.Error()))
 			span.Finish()
-			break
+			errors = multierror.Append(errors, err)
+			continue
 		}
 
 		lg.Debug("Dispatching to main adapters after running preprocessors")
 		lg.Debuga("Attribute Bag: \n", reportBag)
 		lg.Debugf("Dispatching Report %d out of %d", i+1, len(req.Attributes))
 
-		err = reporter.Report(reportBag)
-		if err != nil {
+		if err := reporter.Report(reportBag); err != nil {
 			span.LogFields(otlog.String("error", err.Error()))
 			span.Finish()
-			break
+			errors = multierror.Append(errors, err)
+			continue
 		}
 
 		span.Finish()
@@ -265,19 +267,19 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 	accumBag.Done()
 	protoBag.Done()
 
-	if err == nil {
-		err = reporter.Flush()
+	if err := reporter.Flush(); err != nil {
+		errors = multierror.Append(errors, err)
 	}
 	reporter.Done()
 
-	if err != nil {
-		reportSpan.LogFields(otlog.String("error", err.Error()))
+	if errors != nil {
+		reportSpan.LogFields(otlog.String("error", errors.Error()))
 	}
 	reportSpan.Finish()
 
-	if err != nil {
-		lg.Errora("Report failed:", err.Error())
-		return nil, grpc.Errorf(codes.InvalidArgument, err.Error())
+	if errors != nil {
+		lg.Errora("Report failed:", errors.Error())
+		return nil, grpc.Errorf(codes.Unknown, errors.Error())
 	}
 
 	return reportResp, nil
