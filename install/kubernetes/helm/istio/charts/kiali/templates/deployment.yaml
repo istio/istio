@@ -43,4 +43,3 @@ spec:
       - name: kiali-configuration
         configMap:
           name: kiali
-

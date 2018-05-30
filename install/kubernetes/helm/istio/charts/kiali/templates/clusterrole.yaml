@@ -62,6 +62,7 @@ rules:
   resources:
   - virtualservices
   - destinationrules
+  - gateways
   verbs:
   - get
   - list

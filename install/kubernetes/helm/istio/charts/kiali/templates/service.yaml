@@ -6,7 +6,6 @@ metadata:
   labels:
     app: kiali
 spec:
-  type: NodePort
   ports:
   - name: tcp
     protocol: TCP
