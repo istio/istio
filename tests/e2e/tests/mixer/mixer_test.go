@@ -763,7 +763,7 @@ func fetchRequestCount(t *testing.T, promAPI v1.API, service string) (prior429s 
 	return prior429s, prior200s, value
 }
 
-func sendTraffic(t *testing.T, msg string) *fhttp.HTTPRunnerResults {
+func sendTraffic(t *testing.T, msg string, calls int64) *fhttp.HTTPRunnerResults {
 	t.Log(msg)
 	url := fmt.Sprintf("%s/productpage", getIngressOrGatewayOrFail(t))
 
@@ -772,7 +772,7 @@ func sendTraffic(t *testing.T, msg string) *fhttp.HTTPRunnerResults {
 	opts := fhttp.HTTPRunnerOptions{
 		RunnerOptions: periodic.RunnerOptions{
 			QPS:        10,
-			Exactly:    300,       // will make exactly 300 calls, so run for about 30 seconds
+			Exactly:    calls,       // will make exactly 300 calls, so run for about 30 seconds
 			NumThreads: 5,         // get the same number of calls per connection (300/5=60)
 			Out:        os.Stderr, // Only needed because of log capture issue
 		},
@@ -815,15 +815,15 @@ func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
 
 	initPrior429s, _, _ := fetchRequestCount(t, promAPI, "ratings")
 
-	res := sendTraffic(t, "Warming traffic...")
+	_ = sendTraffic(t, "Warming traffic...", 150)
 	allowPrometheusSync()
 	prior429s, prior200s, _ := fetchRequestCount(t, promAPI, "ratings")
 	// check if at least one more prior429 was reported
 	if prior429s-initPrior429s < 1 {
-		fatalf(t, "no 429 is alloted time: initPrior429s:%v prior429s:5v", initPrior429s, prior429s)
+		fatalf(t, "no 429 is alloted time: prior429s:%v", prior429s)
 	}
 
-	res = sendTraffic(t, "Sending traffic...")
+	res := sendTraffic(t, "Sending traffic...", 300)
 	allowPrometheusSync()
 
 	totalReqs := res.DurationHistogram.Count
@@ -1181,11 +1181,6 @@ func getCheckCacheHits(promAPI v1.API) (float64, error) {
 
 func fqdn(service string) string {
 	return fmt.Sprintf("%s.%s.svc.cluster.local", service, tc.Kube.Namespace)
-}
-
-func createRouteRule(ruleName string) error {
-	rule := filepath.Join(tc.rulesDir, ruleName+"."+yamlExtension)
-	return util.KubeApply(tc.Kube.Namespace, rule, tc.Kube.KubeConfig)
 }
 
 func replaceRouteRule(ruleName string) error {
