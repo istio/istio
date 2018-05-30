@@ -50,11 +50,11 @@ type secretCallback func(string, *api.DiscoveryRequest) (*api.DiscoveryResponse,
 
 func testHelper(t *testing.T, testSocket string, cb secretCallback) {
 	arg := Args{
-		SDSUdsSocket: testSocket,
+		UDSPath: testSocket,
 	}
 	st := &mockSecretStore{}
 	server, err := NewServer(arg, st)
-	defer server.Close()
+	defer server.Stop()
 
 	if err != nil {
 		t.Fatalf("failed to start grpc server for sds: %v", err)
@@ -108,7 +108,7 @@ func testHelper(t *testing.T, testSocket string, cb secretCallback) {
 	t.Fatalf("failed to start grpc server for SDS")
 }
 
-// unixDialer connect a target with specified timeout.
+// unixDialer connects a target with specified timeout.
 func unixDialer(socket string, timeout time.Duration) (net.Conn, error) {
 	return net.DialTimeout("unix", socket, timeout)
 }

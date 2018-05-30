@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package sds implements secret discovery service in NodeAgent.
 package sds
 
 import (
@@ -38,7 +39,7 @@ import (
 const SecretType = "type.googleapis.com/envoy.api.v2.Secret"
 
 // TODO(quanlin): secret struct and secretStore interface are placeholders that used for initial check in.
-// will move them to separated file or use existing structure.
+// will move them to separated file or use existing KeyCertBundle structure.
 type secret struct {
 	certificateChain []byte
 	privateKey       []byte
@@ -107,7 +108,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 	go receiveThread(con, reqChannel, &receiveError)
 
 	for {
-		// Block until either a request is received.
+		// Block until a request is received.
 		select {
 		case discReq, ok = <-reqChannel:
 			if !ok {
@@ -128,7 +129,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			con.modelNode = &nt
 
 			secret := s.st.getSecret()
-			if err := s.pushSds(secret, *con.modelNode, con); err != nil {
+			if err := s.pushSDS(secret, *con.modelNode, con); err != nil {
 				log.Errorf("SDS failed to push: %v", err)
 				return err
 			}
@@ -155,7 +156,7 @@ func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.Discovery
 	return sdsDiscoveryResponse(s.st.getSecret(), proxy)
 }
 
-func (s *sdsservice) pushSds(secret *secret, proxy model.Proxy, con *sdsConnection) error {
+func (s *sdsservice) pushSDS(secret *secret, proxy model.Proxy, con *sdsConnection) error {
 	response, err := sdsDiscoveryResponse(secret, proxy)
 	if err != nil {
 		log.Errorf("SDS: Failed to construct response %v", err)

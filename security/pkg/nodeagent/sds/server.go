@@ -26,10 +26,11 @@ const maxStreams = 100000
 
 // Args provides all of the configuration parameters for secret discovery service.
 type Args struct {
-	SDSUdsSocket string
+	// UDSPath is the unix domain socket through which SDS server communicates with proxies.
+	UDSPath string
 }
 
-// Server is the grpc server that exposes SDS through UDS.
+// Server is the gPRC server that exposes SDS through UDS.
 type Server struct {
 	envoySds          *sdsservice
 	grpcServer        *grpc.Server
@@ -51,8 +52,8 @@ func NewServer(args Args, st secretStore) (*Server, error) {
 	return s, nil
 }
 
-// Close closes the Grpc server.
-func (s *Server) Close() {
+// Stop closes the gRPC server.
+func (s *Server) Stop() {
 	if s == nil {
 		return
 	}
@@ -63,9 +64,9 @@ func (s *Server) initDiscoveryService(args *Args, st secretStore) error {
 	s.initGrpcServer()
 	s.envoySds.register(s.grpcServer)
 
-	grpcListener, err := net.Listen("unix", args.SDSUdsSocket)
+	grpcListener, err := net.Listen("unix", args.UDSPath)
 	if err != nil {
-		log.Errorf("Failed to listen on unix socket %q: %v", args.SDSUdsSocket, err)
+		log.Errorf("Failed to listen on unix socket %q: %v", args.UDSPath, err)
 		return err
 	}
 	s.grpcListeningAddr = grpcListener.Addr()
