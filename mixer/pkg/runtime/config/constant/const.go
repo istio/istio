@@ -12,12 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package config is designed to listen to the config changes through the store and create a fully-resolved configuration
-// state that can be used by the rest of the runtime code.
-//
-// The main purpose of this library is to create an object-model that simplifies queries and correctness checks that
-// the client code needs to deal with. This is accomplished by making sure the config state is fully resolved, and
-// incorporating otherwise complex queries within this package.
 package constant
 
 // TODO merge all the mixer wide constants in this file.
