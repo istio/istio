@@ -521,10 +521,7 @@ func init() {
 }
 func (this *Locality) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Locality)
@@ -537,10 +534,7 @@ func (this *Locality) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -557,10 +551,7 @@ func (this *Locality) Equal(that interface{}) bool {
 }
 func (this *Node) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Node)
@@ -573,10 +564,7 @@ func (this *Node) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -599,10 +587,7 @@ func (this *Node) Equal(that interface{}) bool {
 }
 func (this *Metadata) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Metadata)
@@ -615,10 +600,7 @@ func (this *Metadata) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -634,10 +616,7 @@ func (this *Metadata) Equal(that interface{}) bool {
 }
 func (this *RuntimeUInt32) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*RuntimeUInt32)
@@ -650,10 +629,7 @@ func (this *RuntimeUInt32) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -667,10 +643,7 @@ func (this *RuntimeUInt32) Equal(that interface{}) bool {
 }
 func (this *HeaderValue) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*HeaderValue)
@@ -683,10 +656,7 @@ func (this *HeaderValue) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -700,10 +670,7 @@ func (this *HeaderValue) Equal(that interface{}) bool {
 }
 func (this *HeaderValueOption) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*HeaderValueOption)
@@ -716,10 +683,7 @@ func (this *HeaderValueOption) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -733,10 +697,7 @@ func (this *HeaderValueOption) Equal(that interface{}) bool {
 }
 func (this *DataSource) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*DataSource)
@@ -749,10 +710,7 @@ func (this *DataSource) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -769,10 +727,7 @@ func (this *DataSource) Equal(that interface{}) bool {
 }
 func (this *DataSource_Filename) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*DataSource_Filename)
@@ -785,10 +740,7 @@ func (this *DataSource_Filename) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -799,10 +751,7 @@ func (this *DataSource_Filename) Equal(that interface{}) bool {
 }
 func (this *DataSource_InlineBytes) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*DataSource_InlineBytes)
@@ -815,10 +764,7 @@ func (this *DataSource_InlineBytes) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -829,10 +775,7 @@ func (this *DataSource_InlineBytes) Equal(that interface{}) bool {
 }
 func (this *DataSource_InlineString) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*DataSource_InlineString)
@@ -845,10 +788,7 @@ func (this *DataSource_InlineString) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -859,10 +799,7 @@ func (this *DataSource_InlineString) Equal(that interface{}) bool {
 }
 func (this *TransportSocket) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*TransportSocket)
@@ -875,10 +812,7 @@ func (this *TransportSocket) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
