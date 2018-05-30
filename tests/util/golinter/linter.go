@@ -93,7 +93,6 @@ func (lt *Linter) Run() {
 }
 
 func (lt *Linter) scanForbiddenFunctionCallInTest(af ast.Node) {
-	// use as an ast.Node
 	ast.Walk(lt, af)
 }
 
