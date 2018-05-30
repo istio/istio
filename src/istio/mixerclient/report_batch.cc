@@ -36,10 +36,7 @@ ReportBatch::ReportBatch(const ReportOptions& options,
       total_report_calls_(0),
       total_remote_report_calls_(0) {}
 
-ReportBatch::~ReportBatch() {
-  // No to flush batched report in the destructor. At this time
-  // Transport may be gone, should not be used.
-}
+ReportBatch::~ReportBatch() { Flush(); }
 
 void ReportBatch::Report(const Attributes& request) {
   std::lock_guard<std::mutex> lock(mutex_);
