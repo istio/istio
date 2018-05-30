@@ -917,7 +917,11 @@ func (store *istioConfigStore) HTTPAPISpecByDestination(instance *ServiceInstanc
 			hostname := ResolveHostname(binding.ConfigMeta, mixerToProxyIstioService(service))
 			if hostname == instance.Service.Hostname {
 				for _, spec := range b.ApiSpecs {
-					refs[key(spec.Name, spec.Namespace)] = struct{}{}
+					namespace := spec.Namespace
+					if namespace == "" {
+						namespace = binding.Namespace
+					}
+					refs[key(spec.Name, namespace)] = struct{}{}
 				}
 			}
 		}
@@ -957,7 +961,11 @@ func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance)
 			hostname := ResolveHostname(binding.ConfigMeta, mixerToProxyIstioService(service))
 			if hostname == instance.Service.Hostname {
 				for _, spec := range b.QuotaSpecs {
-					refs[key(spec.Name, spec.Namespace)] = struct{}{}
+					namespace := spec.Namespace
+					if namespace == "" {
+						namespace = binding.Namespace
+					}
+					refs[key(spec.Name, namespace)] = struct{}{}
 				}
 			}
 		}
