@@ -33,9 +33,9 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	pilotbootstrap "istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	pilotbootstrap "istio.io/istio/pilot/pkg/server"
 	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/tests/util"
 )

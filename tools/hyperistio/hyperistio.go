@@ -27,9 +27,9 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/mixer/test/client/env"
-	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v1"
+	"istio.io/istio/pilot/pkg/server"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	agent "istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/tests/util"
@@ -145,7 +145,7 @@ func startPilot() error {
 	mcfg.ProxyHttpPort = 15002
 
 	// Create a test pilot discovery service configured to watch the tempDir.
-	args := bootstrap.PilotArgs{
+	args := server.PilotArgs{
 		Namespace: "testing",
 		DiscoveryOptions: envoy.DiscoveryServiceOptions{
 			Port:            15007,
@@ -155,23 +155,23 @@ func startPilot() error {
 			EnableProfiling: true,
 		},
 
-		Mesh: bootstrap.MeshArgs{
+		Mesh: server.MeshArgs{
 			MixerAddress:    "localhost:9091",
 			RdsRefreshDelay: ptypes.DurationProto(10 * time.Millisecond),
 		},
-		Config: bootstrap.ConfigArgs{
+		Config: server.ConfigArgs{
 			KubeConfig: util.IstioSrc + "/.circleci/config",
 		},
-		Service: bootstrap.ServiceArgs{
+		Service: server.ServiceArgs{
 			// Using the Mock service registry, which provides the hello and world services.
 			Registries: []string{
 				string(serviceregistry.MockRegistry)},
 		},
 		MeshConfig: &mcfg,
 	}
-	bootstrap.PilotCertDir = util.IstioSrc + "/tests/testdata/certs/pilot"
+	server.PilotCertDir = util.IstioSrc + "/tests/testdata/certs/pilot"
 
-	bootstrap.FilepathWalkInterval = 5 * time.Second
+	server.FilepathWalkInterval = 5 * time.Second
 	// Static testdata, should include all configs we want to test.
 	args.Config.FileDir = os.Getenv("ISTIO_CONFIG")
 	if args.Config.FileDir == "" {
@@ -179,7 +179,7 @@ func startPilot() error {
 	}
 	log.Println("Using mock configs: ", args.Config.FileDir)
 	// Create and setup the controller.
-	s, err := bootstrap.NewServer(args)
+	s, err := server.NewServer(args)
 	if err != nil {
 		return err
 	}

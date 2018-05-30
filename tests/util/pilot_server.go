@@ -26,15 +26,15 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 
-	"istio.io/istio/pilot/pkg/bootstrap"
 	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v1"
+	"istio.io/istio/pilot/pkg/server"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 )
 
 var (
 	// MockTestServer is used for the unit tests. Will be started once, terminated at the
 	// end of the suite.
-	MockTestServer *bootstrap.Server
+	MockTestServer *server.Server
 
 	// MockPilotURL is the URL for the pilot http endpoint
 	MockPilotURL string
@@ -104,7 +104,7 @@ func init() {
 
 // EnsureTestServer will ensure a pilot server is running in process and initializes
 // the MockPilotUrl and MockPilotGrpcAddr to allow connections to the test pilot.
-func EnsureTestServer() *bootstrap.Server {
+func EnsureTestServer() *server.Server {
 	if MockTestServer == nil {
 		err := setup()
 		if err != nil {
@@ -131,7 +131,7 @@ func setup() error {
 	pilotHTTPPort, _ := strconv.Atoi(pilotHTTP)
 
 	// Create a test pilot discovery service configured to watch the tempDir.
-	args := bootstrap.PilotArgs{
+	args := server.PilotArgs{
 		Namespace: "testing",
 		DiscoveryOptions: envoy.DiscoveryServiceOptions{
 			Port:            pilotHTTPPort,
@@ -141,14 +141,14 @@ func setup() error {
 			EnableProfiling: true,
 		},
 		//TODO: start mixer first, get its address
-		Mesh: bootstrap.MeshArgs{
+		Mesh: server.MeshArgs{
 			MixerAddress:    "istio-mixer.istio-system:9091",
 			RdsRefreshDelay: ptypes.DurationProto(10 * time.Millisecond),
 		},
-		Config: bootstrap.ConfigArgs{
+		Config: server.ConfigArgs{
 			KubeConfig: IstioSrc + "/.circleci/config",
 		},
-		Service: bootstrap.ServiceArgs{
+		Service: server.ServiceArgs{
 			// Using the Mock service registry, which provides the hello and world services.
 			Registries: []string{
 				string(serviceregistry.MockRegistry)},
@@ -157,10 +157,10 @@ func setup() error {
 	// Static testdata, should include all configs we want to test.
 	args.Config.FileDir = IstioSrc + "/tests/testdata/config"
 
-	bootstrap.PilotCertDir = IstioSrc + "/tests/testdata/certs/pilot"
+	server.PilotCertDir = IstioSrc + "/tests/testdata/certs/pilot"
 
 	// Create and setup the controller.
-	s, err := bootstrap.NewServer(args)
+	s, err := server.NewServer(args)
 	if err != nil {
 		return err
 	}

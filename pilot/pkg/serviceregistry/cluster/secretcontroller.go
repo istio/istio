@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package clusterregistry
+package cluster
 
 import (
 	"fmt"
@@ -52,7 +52,7 @@ var (
 type Controller struct {
 	kubeclientset     kubernetes.Interface
 	namespace         string
-	cs                *ClusterStore
+	cs                *Store
 	queue             workqueue.RateLimitingInterface
 	informer          cache.SharedIndexInformer
 	watchedNamespace  string
@@ -66,7 +66,7 @@ type Controller struct {
 func NewController(
 	kubeclientset kubernetes.Interface,
 	namespace string,
-	cs *ClusterStore,
+	cs *Store,
 	serviceController *aggregate.Controller,
 	discoveryService *envoy.DiscoveryService,
 	resyncInterval time.Duration,
@@ -145,7 +145,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 // StartSecretController start k8s controller which will be watching Secret object
 // in a specified namesapce
 func StartSecretController(k8s kubernetes.Interface,
-	cs *ClusterStore,
+	cs *Store,
 	serviceController *aggregate.Controller,
 	discoveryService *envoy.DiscoveryService,
 	namespace string,

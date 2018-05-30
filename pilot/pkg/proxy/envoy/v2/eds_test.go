@@ -31,9 +31,9 @@ import (
 	"google.golang.org/grpc"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	"istio.io/istio/pilot/pkg/server"
 	"istio.io/istio/tests/util"
 )
 
@@ -133,7 +133,7 @@ func TestReconnect(t *testing.T) {
 }
 
 // Make a direct EDS grpc request to pilot, verify the result is as expected.
-func directRequest(server *bootstrap.Server, t *testing.T) {
+func directRequest(server *server.Server, t *testing.T) {
 	edsstr, cla := connectAndSend(1, t)
 	defer edsstr.CloseSend()
 	// TODO: validate VersionInfo and nonce once we settle on a scheme
@@ -214,7 +214,7 @@ func connectAndSend(id uint32, t *testing.T) (xdsapi.EndpointDiscoveryService_St
 }
 
 // Make a direct EDS grpc request to pilot, verify the result is as expected.
-func multipleRequest(server *bootstrap.Server, t *testing.T) {
+func multipleRequest(server *server.Server, t *testing.T) {
 	wgConnect := &sync.WaitGroup{}
 	wg := &sync.WaitGroup{}
 
@@ -305,7 +305,7 @@ func waitTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
 	}
 }
 
-func udsRequest(server *bootstrap.Server, t *testing.T) {
+func udsRequest(server *server.Server, t *testing.T) {
 	udsPath := "/var/run/test/socket"
 	server.EnvoyXdsServer.MemRegistry.AddService("localuds.cluster.local", &model.Service{
 		Hostname: "localuds.cluster.local",

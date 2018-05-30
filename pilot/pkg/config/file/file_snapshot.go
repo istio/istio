@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package monitor
+package file
 
 import (
 	"io/ioutil"
@@ -32,17 +32,17 @@ var (
 	}
 )
 
-// FileSnapshot holds a reference to a file directory that contains crd
+// Snapshot holds a reference to a file directory that contains crd
 // config and filter criteria for which of those configs will be parsed.
-type FileSnapshot struct {
+type Snapshot struct {
 	root             string
 	configTypeFilter map[string]bool
 }
 
-// NewFileSnapshot returns a snapshotter.
+// NewSnapshot returns a snapshotter.
 // If no types are provided in the descriptor, all IstioConfigTypes will be allowed.
-func NewFileSnapshot(root string, descriptor model.ConfigDescriptor) *FileSnapshot {
-	snapshot := &FileSnapshot{
+func NewSnapshot(root string, descriptor model.ConfigDescriptor) *Snapshot {
+	snapshot := &Snapshot{
 		root:             root,
 		configTypeFilter: make(map[string]bool),
 	}
@@ -63,7 +63,7 @@ func NewFileSnapshot(root string, descriptor model.ConfigDescriptor) *FileSnapsh
 
 // ReadConfigFiles parses files in the root directory and returns a sorted slice of
 // eligible model.Config. This can be used as a configFunc when creating a Monitor.
-func (f *FileSnapshot) ReadConfigFiles() ([]*model.Config, error) {
+func (f *Snapshot) ReadConfigFiles() ([]*model.Config, error) {
 	var result []*model.Config
 
 	err := filepath.Walk(f.root, func(path string, info os.FileInfo, err error) error {

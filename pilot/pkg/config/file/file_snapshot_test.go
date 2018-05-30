@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package monitor_test
+package file_test
 
 import (
 	"io/ioutil"
@@ -23,7 +23,7 @@ import (
 	"github.com/onsi/gomega"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/config/monitor"
+	"istio.io/istio/pilot/pkg/config/file"
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -67,7 +67,7 @@ func TestFileSnapshotNoFilter(t *testing.T) {
 	ts.testSetup(t)
 	defer ts.testTeardown(t)
 
-	fileWatcher := monitor.NewFileSnapshot(ts.rootPath, nil)
+	fileWatcher := file.NewSnapshot(ts.rootPath, nil)
 	configs, err := fileWatcher.ReadConfigFiles()
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(configs).To(gomega.HaveLen(1))
@@ -91,7 +91,7 @@ func TestFileSnapshotWithFilter(t *testing.T) {
 	ts.testSetup(t)
 	defer ts.testTeardown(t)
 
-	fileWatcher := monitor.NewFileSnapshot(ts.rootPath, model.ConfigDescriptor{model.VirtualService})
+	fileWatcher := file.NewSnapshot(ts.rootPath, model.ConfigDescriptor{model.VirtualService})
 	configs, err := fileWatcher.ReadConfigFiles()
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(configs).To(gomega.HaveLen(1))
@@ -113,7 +113,7 @@ func TestFileSnapshotSorting(t *testing.T) {
 	ts.testSetup(t)
 	defer ts.testTeardown(t)
 
-	fileWatcher := monitor.NewFileSnapshot(ts.rootPath, nil)
+	fileWatcher := file.NewSnapshot(ts.rootPath, nil)
 
 	configs, err := fileWatcher.ReadConfigFiles()
 	g.Expect(err).NotTo(gomega.HaveOccurred())
