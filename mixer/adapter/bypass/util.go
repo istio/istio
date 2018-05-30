@@ -22,7 +22,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/google/uuid"
 
-	"istio.io/api/mixer/adapter/model/v1beta1"
+	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 )
 
