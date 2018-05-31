@@ -454,13 +454,15 @@ jobs:
   shellcheck:
     docker:
       - image: koalaman/shellcheck-alpine
+    environment:
+      SHELLCHECK_OPTS: -e 1090 -e 1091
     steps:
       - checkout
       - run:
           name: Check Scripts
           command: |
             find . -type f -name '*.sh' | wc -l
-            find . -type f -name '*.sh' | xargs shellcheck --external-sources
+            find . -type f -name '*.sh' | xargs shellcheck
 
   lint:
     <<: *defaults
