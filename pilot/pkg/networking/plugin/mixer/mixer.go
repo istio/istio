@@ -230,7 +230,7 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 	mxConfig := &mccpb.HttpClientConfig{
 		MixerAttributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
-				"context.reporter.uid": &mpb.Attributes_AttributeValue{
+				"context.reporter.uid": {
 					Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: "kubernetes://" + role.ID},
 				},
 			},
