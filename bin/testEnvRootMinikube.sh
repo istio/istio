@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 export K8S_VER=${K8S_VER:-v1.9.2}
 export MINIKUBE_VER=${MINIKUBE_VER:-v0.25.0}

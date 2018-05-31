@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 set -e
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 source $SCRIPTPATH/use_bazel_go.sh

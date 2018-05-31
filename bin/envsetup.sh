@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 # Setup and document common environment variables used for building and testing Istio
 # User-specific settings can be added to .istiorc in the project workspace or $HOME/.istiorc
 # This may include dockerhub settings or other customizations.
