@@ -6,9 +6,7 @@
 # --set global.nodePort=true
 # --set ingressgateway.service.type=NodePort
 global:
-  #nodePort: true
-  proxy:
-    image: proxyv2
+  nodePort: false
 
 ingress:
   # Ingress is used for migration, for alpha3 we expect ingressgateway
@@ -17,17 +15,14 @@ ingress:
 prometheus:
   enabled: true
 
-sidecar-injector:
+sidecarInjectorWebhook:
   enabled: true
 
 grafana:
   enabled: true
 
-zipkin:
+tracing:
   enabled: true
 
 servicegraph:
-  enabled: true
-
-prometheus:
   enabled: true

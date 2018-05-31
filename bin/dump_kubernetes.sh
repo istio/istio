@@ -55,6 +55,7 @@ parse_args() {
   readonly QUIET="${quiet:-false}"
   readonly LOG_DIR="${OUT_DIR}/logs"
   readonly RESOURCES_FILE="${OUT_DIR}/resources.yaml"
+  readonly ISTIO_RESOURCES_FILE="${OUT_DIR}/istio-resources.yaml"
 }
 
 check_prerequisites() {
@@ -121,6 +122,14 @@ dump_resources() {
   kubectl get --all-namespaces --export \
       all,ingresses,endpoints,customresourcedefinitions,configmaps,secrets,events \
       -o yaml > "${RESOURCES_FILE}"
+
+  local istio_resources
+  # Trim to only first field; join by comma; remove last comma.
+  istio_resources=$(kubectl get crd --no-headers \
+      | cut -d ' ' -f 1 \
+      | tr '\n' ',' \
+      | sed 's/,$//')
+  kubectl get "${istio_resources}" --all-namespaces -o yaml > "${ISTIO_RESOURCES_FILE}"
 
   kubectl cluster-info dump > ${OUT_DIR}/logs/cluster-info.dump.txt
   kubectl describe pods -n istio-system > ${OUT_DIR}/logs/pods-system.txt

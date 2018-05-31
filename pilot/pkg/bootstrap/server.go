@@ -532,7 +532,7 @@ func (s *Server) makeCopilotMonitor(args *PilotArgs, configController model.Conf
 		return multierror.Prefix(err, "creating cloud foundry client")
 	}
 
-	copilotSnapshot := configmonitor.NewCopilotSnapshot(configController, client, []string{".internal"}, CopilotTimeout)
+	copilotSnapshot := configmonitor.NewCopilotSnapshot(configController, client, CopilotTimeout)
 	copilotMonitor := configmonitor.NewMonitor(configController, 1*time.Second, copilotSnapshot.ReadConfigFiles)
 
 	s.addStartFunc(func(stop chan struct{}) error {
@@ -556,30 +556,6 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 			ServiceAccounts:  kubectl,
 			Controller:       kubectl,
 		})
-
-	// Add clusters under the same pilot
-	if s.clusterStore != nil {
-		clusters := s.clusterStore.GetPilotClusters()
-		clientAccessConfigs := s.clusterStore.GetClientAccessConfigs()
-		for _, cluster := range clusters {
-			log.Infof("Cluster name: %s", clusterregistry.GetClusterID(cluster))
-			clusterClient := clientAccessConfigs[cluster.ObjectMeta.Name]
-			client, kuberr := kube.CreateInterfaceFromClusterConfig(&clusterClient)
-			if kuberr != nil {
-				err = multierror.Append(err, multierror.Prefix(kuberr, fmt.Sprintf("failed to connect to Access API with access config: %s", cluster.ObjectMeta.Name)))
-			}
-
-			kubectl := kube.NewController(client, args.Config.ControllerOptions)
-			serviceControllers.AddRegistry(
-				aggregate.Registry{
-					Name:             serviceregistry.KubernetesRegistry,
-					ClusterID:        clusterregistry.GetClusterID(cluster),
-					ServiceDiscovery: kubectl,
-					ServiceAccounts:  kubectl,
-					Controller:       kubectl,
-				})
-		}
-	}
 
 	return
 }
@@ -617,7 +593,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		case serviceregistry.MockRegistry:
 			initMemoryRegistry(s, serviceControllers)
 		case serviceregistry.KubernetesRegistry:
-			// TODO Since controllers are built dynamically, createK8sServiceControllers can be removed
+
 			if err := s.createK8sServiceControllers(serviceControllers, args); err != nil {
 				return err
 			}

@@ -35,11 +35,7 @@ import (
 )
 
 var (
-	// TODO: extract these two into istio.io/pkg/proto/{bool.go or types.go or values.go}
-	boolTrue = &types.BoolValue{
-		Value: true,
-	}
-
+	// TODO: extract this into istio.io/pkg/proto/{bool.go or types.go or values.go}
 	boolFalse = &types.BoolValue{
 		Value: false,
 	}
@@ -63,7 +59,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 
 	gateways := env.Gateways(workloadLabels)
 	if len(gateways) == 0 {
-		log.Debuga("no gateways for router", node.ID)
+		log.Debuga("buildGatewayListeners: no gateways for router", node.ID)
 		return []*xdsapi.Listener{}, nil
 	}
 
@@ -77,6 +73,20 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 		// When Envoy supports filter chain matching, we'll have to group the ports by number and protocol, so this logic will
 		// no longer work.
 		protocol := model.ParseProtocol(servers[0].Port.Protocol)
+		if protocol == model.ProtocolHTTPS {
+			// Gateway terminates TLS connection if TLS mode is not Passthrough So, its effectively a H2 listener.
+			// This is complicated. We have multiple servers. One of these servers could have passthrough HTTPS while
+			// others could be a simple/mutual TLS.
+			// The code as it is, is not capable of handling this mixed listener type and set up the proper SNI chains
+			// such that the passthrough ones go through a TCP proxy while others get terminated and go through http connection
+			// manager. Ideally, the merge gateway function should take care of this and intelligently create multiple
+			// groups of servers based on their TLS types as well. For now, we simply assume that if HTTPS,
+			// and the first server in the group is not a passthrough, then this is a HTTP connection manager.
+			if servers[0].Tls != nil && servers[0].Tls.Mode != networking.Server_TLSOptions_PASSTHROUGH {
+				protocol = model.ProtocolHTTP2
+			}
+		}
+
 		opts := buildListenerOpts{
 			env:        env,
 			proxy:      node,
@@ -92,12 +102,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 		case plugin.ListenerTypeTCP:
 			opts.filterChainOpts = createGatewayTCPFilterChainOpts(env, servers, merged.Names)
 		default:
-			log.Warnf("unknown listener type %v in buildGatewayListeners", listenerType)
-		}
-
-		// one filter chain => 0 or 1 certs => SNI not required
-		if len(opts.filterChainOpts) == 1 && opts.filterChainOpts[0].tlsContext != nil {
-			opts.filterChainOpts[0].tlsContext.RequireSni = boolFalse
+			log.Warnf("buildGatewayListeners: unknown listener type %v", listenerType)
+			continue
 		}
 
 		l := buildListener(opts)
@@ -115,15 +121,21 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 				ProxyInstances: workloadInstances,
 			}
 			if err = p.OnOutboundListener(params, mutable); err != nil {
-				log.Warna("failed to build listener for gateway: ", err.Error())
+				log.Warna("buildGatewayListeners: failed to build listener for gateway: ", err.Error())
 			}
 		}
 
 		// Filters are serialized one time into an opaque struct once we have the complete list.
 		if err = marshalFilters(mutable.Listener, opts, mutable.FilterChains); err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("omitting listener %q due to: %v", mutable.Listener.Name, err.Error()))
+			errs = multierror.Append(errs, fmt.Errorf("gateway omitting listener %q due to: %v", mutable.Listener.Name, err.Error()))
 			continue
 		}
+
+		if err = mutable.Listener.Validate(); err != nil {
+			errs = multierror.Append(errs, fmt.Errorf("gateway listener %s validation failed: %v", mutable.Listener.Name, err.Error()))
+			continue
+		}
+
 		if log.DebugEnabled() {
 			log.Debugf("buildGatewayListeners: constructed listener with %d filter chains:\n%v",
 				len(mutable.Listener.FilterChains), mutable.Listener)
@@ -133,7 +145,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 	// We'll try to return any listeners we successfully marshaled; if we have none, we'll emit the error we built up
 	err = errs.ErrorOrNil()
 	if len(listeners) == 0 {
-		return []*xdsapi.Listener{}, err
+		log.Errorf("buildGatewayListeners: Have zero listeners: %v", err.Error())
+		return []*xdsapi.Listener{}, nil
 	}
 
 	if err != nil {
@@ -172,7 +185,7 @@ func createGatewayHTTPFilterChainOpts(
 			}
 		}
 		o := &filterChainOpts{
-			sniHosts:   server.Hosts,
+			sniHosts:   getSNIHosts(server),
 			tlsContext: buildGatewayListenerTLSContext(server),
 			httpOpts: &httpListenerOpts{
 				routeConfig:      routeCfg,
@@ -187,9 +200,27 @@ func createGatewayHTTPFilterChainOpts(
 }
 
 func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamTlsContext {
-	if server.Tls == nil {
-		return nil
+	if server.Tls == nil || server.Tls.Mode == networking.Server_TLSOptions_PASSTHROUGH {
+		return nil // We don't need to setup TLS context for passthrough mode
 	}
+
+	var certValidationContext *auth.CertificateValidationContext
+	var trustedCa *core.DataSource
+	if len(server.Tls.CaCertificates) != 0 {
+		trustedCa = &core.DataSource{
+			Specifier: &core.DataSource_Filename{
+				Filename: server.Tls.CaCertificates,
+			},
+		}
+	}
+	if trustedCa != nil || len(server.Tls.SubjectAltNames) > 0 {
+		certValidationContext = &auth.CertificateValidationContext{
+			TrustedCa:            trustedCa,
+			VerifySubjectAltName: server.Tls.SubjectAltNames,
+		}
+	}
+
+	requireClientCert := server.Tls.Mode == networking.Server_TLSOptions_MUTUAL
 
 	return &auth.DownstreamTlsContext{
 		CommonTlsContext: &auth.CommonTlsContext{
@@ -207,34 +238,13 @@ func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamT
 					},
 				},
 			},
-			ValidationContext: buildGatewayListnerTLSValidationContext(server.Tls),
+			ValidationContext: certValidationContext,
 			AlpnProtocols:     ListenersALPNProtocols,
 		},
-		RequireSni: boolTrue,
+		RequireClientCertificate: &types.BoolValue{
+			Value: requireClientCert,
+		},
 	}
-}
-
-func buildGatewayListnerTLSValidationContext(tls *networking.Server_TLSOptions) *auth.CertificateValidationContext {
-	if tls == nil {
-		return nil
-	}
-
-	var trustedCa *core.DataSource
-	if len(tls.CaCertificates) != 0 {
-		trustedCa = &core.DataSource{
-			Specifier: &core.DataSource_Filename{
-				Filename: tls.CaCertificates,
-			},
-		}
-	}
-
-	if trustedCa != nil || len(tls.SubjectAltNames) != 0 {
-		return &auth.CertificateValidationContext{
-			TrustedCa:            trustedCa,
-			VerifySubjectAltName: tls.SubjectAltNames,
-		}
-	}
-	return nil
 }
 
 func buildGatewayInboundHTTPRouteConfig(
@@ -275,8 +285,23 @@ func buildGatewayInboundHTTPRouteConfig(
 	}
 
 	if len(virtualHosts) == 0 {
-		log.Debugf("constructed http route config for port %d with no vhosts; omitting", port)
-		return nil
+		log.Debugf("constructed http route config for port %d with no vhosts; Setting up a default 404 vhost", port)
+		virtualHosts = append(virtualHosts, route.VirtualHost{
+			Name:    fmt.Sprintf("blackhole:%d", port),
+			Domains: []string{"*"},
+			Routes: []route.Route{
+				{
+					Match: route.RouteMatch{
+						PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
+					},
+					Action: &route.Route_DirectResponse{
+						DirectResponse: &route.DirectResponseAction{
+							Status: 404,
+						},
+					},
+				},
+			},
+		})
 	}
 	util.SortVirtualHosts(virtualHosts)
 	return &xdsapi.RouteConfiguration{
@@ -292,7 +317,7 @@ func createGatewayTCPFilterChainOpts(
 	opts := make([]*filterChainOpts, 0, len(servers))
 	for _, server := range servers {
 		opts = append(opts, &filterChainOpts{
-			sniHosts:       server.Hosts,
+			sniHosts:       getSNIHosts(server),
 			tlsContext:     buildGatewayListenerTLSContext(server),
 			networkFilters: buildGatewayNetworkFilters(env, server, gatewayNames),
 		})
@@ -309,7 +334,7 @@ func buildGatewayNetworkFilters(env model.Environment, server *networking.Server
 		Protocol: model.ParseProtocol(server.Port.Protocol),
 	}
 
-	dests := filterTCPDownstreams(env, server, gatewayNames)
+	dests := getVirtualServiceTCPDestinations(env, server, gatewayNames)
 	// de-dupe destinations by hostname; we'll take a random destination if multiple claim the same host
 	byHost := make(map[model.Hostname]*networking.Destination, len(dests))
 	for _, dest := range dests {
@@ -330,9 +355,9 @@ func buildGatewayNetworkFilters(env model.Environment, server *networking.Server
 	return filters
 }
 
-// filterTCPDownstreams filters virtual services by gateway names, then determines if any match the (TCP) server
+// getVirtualServiceTCPDestinations filters virtual services by gateway names, then determines if any match the (TCP) server
 // TODO: move up to more general location so this can be re-used in sidecars
-func filterTCPDownstreams(env model.Environment, server *networking.Server, gateways map[string]bool) []*networking.Destination {
+func getVirtualServiceTCPDestinations(env model.Environment, server *networking.Server, gateways map[string]bool) []*networking.Destination {
 	hosts := make(map[model.Hostname]bool, len(server.Hosts))
 	for _, host := range server.Hosts {
 		hosts[model.Hostname(host)] = true
@@ -403,4 +428,11 @@ func gatherDestinations(weights []*networking.DestinationWeight) []*networking.D
 		dests = append(dests, w.Destination)
 	}
 	return dests
+}
+
+func getSNIHosts(server *networking.Server) []string {
+	if server.Tls == nil {
+		return nil
+	}
+	return server.Hosts
 }

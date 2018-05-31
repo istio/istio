@@ -15,6 +15,7 @@
 package v1alpha3
 
 import (
+	"path"
 	"time"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -23,6 +24,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -89,13 +91,16 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environmen
 
 			// create default cluster
 			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
+			upstreamServiceAccounts := env.ServiceAccounts.GetIstioServiceAccounts(service.Hostname, []string{port.Name})
 			defaultCluster := buildDefaultCluster(env, clusterName, convertResolution(service.Resolution), hosts)
+
 			updateEds(env, defaultCluster, service.Hostname)
 			setUpstreamProtocol(defaultCluster, port)
 			clusters = append(clusters, defaultCluster)
 
 			if config != nil {
 				destinationRule := config.Spec.(*networking.DestinationRule)
+				convertIstioMutual(destinationRule, upstreamServiceAccounts)
 				applyTrafficPolicy(defaultCluster, destinationRule.TrafficPolicy, port)
 
 				for _, subset := range destinationRule.Subsets {
@@ -110,6 +115,11 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environmen
 						p.OnOutboundCluster(env, proxy, service, port, subsetCluster)
 					}
 					clusters = append(clusters, subsetCluster)
+				}
+			} else {
+				// set TLSSettings if configmap global settings specifies MUTUAL_TLS, and we skip external destination.
+				if env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS && !service.MeshExternal {
+					applyUpstreamTLSSettings(defaultCluster, buildIstioMutualTLS(upstreamServiceAccounts))
 				}
 			}
 
@@ -213,11 +223,45 @@ func convertResolution(resolution model.Resolution) v2.Cluster_DiscoveryType {
 	}
 }
 
+// convertIstioMutual fills key cert fields for all TLSSettings when the mode is `ISTIO_MUTUAL`.
+func convertIstioMutual(destinationRule *networking.DestinationRule, upstreamServiceAccount []string) {
+	converter := func(tls *networking.TLSSettings) {
+		if tls == nil {
+			return
+		}
+		if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
+			*tls = *buildIstioMutualTLS(upstreamServiceAccount)
+		}
+	}
+
+	if destinationRule.TrafficPolicy != nil {
+		converter(destinationRule.TrafficPolicy.Tls)
+		for _, portTLS := range destinationRule.TrafficPolicy.PortLevelSettings {
+			converter(portTLS.Tls)
+		}
+	}
+	for _, subset := range destinationRule.Subsets {
+		if subset.TrafficPolicy != nil {
+			converter(subset.TrafficPolicy.Tls)
+		}
+	}
+}
+
+// buildIstioMutualTLS returns a `TLSSettings` for ISTIO_MUTUAL mode.
+func buildIstioMutualTLS(upstreamServiceAccount []string) *networking.TLSSettings {
+	return &networking.TLSSettings{
+		Mode:              networking.TLSSettings_ISTIO_MUTUAL,
+		CaCertificates:    path.Join(model.AuthCertsPath, model.RootCertFilename),
+		ClientCertificate: path.Join(model.AuthCertsPath, model.CertChainFilename),
+		PrivateKey:        path.Join(model.AuthCertsPath, model.KeyFilename),
+		SubjectAltNames:   upstreamServiceAccount,
+	}
+}
+
 func applyTrafficPolicy(cluster *v2.Cluster, policy *networking.TrafficPolicy, port *model.Port) {
 	if policy == nil {
 		return
 	}
-
 	connectionPool := policy.ConnectionPool
 	outlierDetection := policy.OutlierDetection
 	loadBalancer := policy.LoadBalancer
@@ -247,7 +291,6 @@ func applyTrafficPolicy(cluster *v2.Cluster, policy *networking.TrafficPolicy, p
 			}
 		}
 	}
-
 	applyConnectionPool(cluster, connectionPool)
 	applyOutlierDetection(cluster, outlierDetection)
 	applyLoadBalancer(cluster, loadBalancer)
@@ -339,13 +382,17 @@ func applyLoadBalancer(cluster *v2.Cluster, lb *networking.LoadBalancerSettings)
 	// DO not do if else here. since lb.GetSimple returns a enum value (not pointer).
 }
 
-// InMeshALPNProtocols - try istio first and then h2
-// After envoy supports client side ALPN negotiation, this should be "istio", "h2", "http/1.1"
-// "istio" alpn value indicates in-mesh traffic at the TLS layer.
-var InMeshALPNProtocols = []string{"istio", "h2"}
-
-// ALPNH2Only specifies that the cluster only supports h2 via alpn.
+// ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
 var ALPNH2Only = []string{"h2"}
+
+// ALPNInMeshH2 advertises that Proxy is going to use HTTP/2 when talking to the in-mesh cluster.
+// The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.
+// Once Envoy supports client-side ALPN negotiation, this should be {"istio", "h2", "http/1.1"}.
+var ALPNInMeshH2 = []string{"istio", "h2"}
+
+// ALPNInMesh advertises that Proxy is going to talk to the in-mesh cluster.
+// The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.
+var ALPNInMesh = []string{"istio"}
 
 func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) {
 	if tls == nil {
@@ -371,6 +418,8 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 	switch tls.Mode {
 	case networking.TLSSettings_DISABLE:
 		// TODO: Need to make sure that authN does not override this setting
+		// We remove the TlsContext because it can be written because of configmap.MTLS settings.
+		cluster.TlsContext = nil
 	case networking.TLSSettings_SIMPLE:
 		cluster.TlsContext = &auth.UpstreamTlsContext{
 			CommonTlsContext: &auth.CommonTlsContext{
@@ -378,13 +427,11 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 			},
 			Sni: tls.Sni,
 		}
-		// This is already an h2 cluster, advertise it with alpn.
 		if cluster.Http2ProtocolOptions != nil {
-			// advertising h2 ensures that h2 is used and it is not downgraded to http/1.1
-			// empty alpn usually defaults to http/1.1
+			// This is HTTP/2 cluster, advertise it with ALPN.
 			cluster.TlsContext.CommonTlsContext.AlpnProtocols = ALPNH2Only
 		}
-	case networking.TLSSettings_MUTUAL:
+	case networking.TLSSettings_MUTUAL, networking.TLSSettings_ISTIO_MUTUAL:
 		cluster.TlsContext = &auth.UpstreamTlsContext{
 			CommonTlsContext: &auth.CommonTlsContext{
 				TlsCertificates: []*auth.TlsCertificate{
@@ -402,30 +449,27 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 					},
 				},
 				ValidationContext: certValidationContext,
-				AlpnProtocols:     InMeshALPNProtocols,
 			},
 			Sni: tls.Sni,
 		}
-		addHTTP2Options(cluster)
+		if cluster.Http2ProtocolOptions != nil {
+			// This is HTTP/2 in-mesh cluster, advertise it with ALPN.
+			cluster.TlsContext.CommonTlsContext.AlpnProtocols = ALPNInMeshH2
+		} else {
+			// This is in-mesh cluster, advertise it with ALPN.
+			cluster.TlsContext.CommonTlsContext.AlpnProtocols = ALPNInMesh
+		}
 	}
 }
 
 func setUpstreamProtocol(cluster *v2.Cluster, port *model.Port) {
 	if port.Protocol.IsHTTP2() {
-		addHTTP2Options(cluster)
-	}
-}
-
-// addHTTP2Options makes cluster of type http2
-func addHTTP2Options(cluster *v2.Cluster) {
-	if cluster.Http2ProtocolOptions == nil {
-		// do not squash other h2 options if already present.
-		cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{}
-	}
-
-	cluster.Http2ProtocolOptions.MaxConcurrentStreams = &types.UInt32Value{
-		// Envoy default value of 100 is too low for data path.
-		Value: 1073741824,
+		cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{
+			// Envoy default value of 100 is too low for data path.
+			MaxConcurrentStreams: &types.UInt32Value{
+				Value: 1073741824,
+			},
+		}
 	}
 }
 
@@ -463,7 +507,6 @@ func buildDefaultTrafficPolicy(env model.Environment, discoveryType v2.Cluster_D
 	if discoveryType == v2.Cluster_ORIGINAL_DST {
 		lbPolicy = networking.LoadBalancerSettings_PASSTHROUGH
 	}
-
 	return &networking.TrafficPolicy{
 		LoadBalancer: &networking.LoadBalancerSettings{
 			LbPolicy: &networking.LoadBalancerSettings_Simple{

@@ -9,9 +9,6 @@ global:
     # destination rules or service annotations.
     enabled: true
 
-  proxy:
-    image: proxyv2
-
 ingress:
   # Ingress is used for migration, for alpha3 we expect ingressgateway
   enabled: false
@@ -19,17 +16,14 @@ ingress:
 prometheus:
   enabled: true
 
-sidecar-injector:
+sidecarInjectorWebhook:
   enabled: true
 
 grafana:
   enabled: true
 
-zipkin:
+tracing:
   enabled: true
 
 servicegraph:
-  enabled: true
-
-prometheus:
   enabled: true

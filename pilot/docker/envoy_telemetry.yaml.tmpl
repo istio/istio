@@ -57,6 +57,10 @@ static_resources:
                         string_value: istio-telemetry.{{ .PodNamespace }}.svc.cluster.local
                       destination.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
+                      destination.ip:
+                        bytes_value: {{ .PodIP }}
+                      destination.port:
+                        int64_value: 15004
               transport:
                 check_cluster: mixer_check_server
                 report_cluster: in.9092
@@ -125,6 +129,10 @@ static_resources:
                         string_value: istio-telemetry.{{ .PodNamespace }}.svc.cluster.local
                       destination.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
+                      destination.ip:
+                        bytes_value: {{ .PodIP }}
+                      destination.port:
+                        int64_value: 9091
               transport:
                 check_cluster: mixer_check_server
                 report_cluster: in.9092

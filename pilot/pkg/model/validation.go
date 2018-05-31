@@ -1834,7 +1834,7 @@ func validateAuthNPolicyTarget(target *authn.TargetSelector) (errs error) {
 
 	// AuthN policy target (host)name must be a shortname
 	if !IsDNS1123Label(target.Name) {
-		errs = multierror.Append(errs, fmt.Errorf("taget name %q must be a valid label", target.Name))
+		errs = multierror.Append(errs, fmt.Errorf("target name %q must be a valid label", target.Name))
 	}
 
 	if target.Subset != "" {
@@ -1854,17 +1854,48 @@ func ValidateVirtualService(msg proto.Message) (errs error) {
 		return errors.New("cannot cast to virtual service")
 	}
 
+	appliesToMesh := false
+	if len(virtualService.Gateways) == 0 {
+		appliesToMesh = true
+	}
+
 	for _, gateway := range virtualService.Gateways {
 		if !IsDNS1123Label(gateway) {
 			errs = appendErrors(errs, fmt.Errorf("gateway is not a valid DNS1123 label: %v", gateway))
+		}
+		if gateway == IstioMeshGateway {
+			appliesToMesh = true
 		}
 	}
 
 	if len(virtualService.Hosts) == 0 {
 		errs = appendErrors(errs, fmt.Errorf("virtual service must have at least one host"))
 	}
+
+	allHostsValid := true
 	for _, host := range virtualService.Hosts {
-		errs = appendErrors(errs, validateHost(host))
+		if err := validateHost(host); err != nil {
+			errs = appendErrors(errs, validateHost(host))
+			allHostsValid = false
+		} else if appliesToMesh && host == "*" {
+			errs = appendErrors(errs, fmt.Errorf("wildcard host * is not allowed for virtual services bound to the mesh gateway"))
+			allHostsValid = false
+		}
+	}
+
+	// Check for duplicate hosts
+	// Duplicates include literal duplicates as well as wildcard duplicates
+	// E.g., *.foo.com, and *.com are duplicates in the same virtual service
+	if allHostsValid {
+		for i := 0; i < len(virtualService.Hosts); i++ {
+			hostI := Hostname(virtualService.Hosts[i])
+			for j := i + 1; j < len(virtualService.Hosts); j++ {
+				hostJ := Hostname(virtualService.Hosts[j])
+				if hostI.Matches(hostJ) {
+					errs = appendErrors(errs, fmt.Errorf("duplicate hosts in virtual service: %s & %s", hostI, hostJ))
+				}
+			}
+		}
 	}
 
 	if len(virtualService.Http) == 0 && len(virtualService.Tcp) == 0 {
@@ -2144,7 +2175,12 @@ func ValidateServiceEntry(config proto.Message) (errs error) {
 		errs = appendErrors(errs, fmt.Errorf("service entry must have at least one host"))
 	}
 	for _, host := range serviceEntry.Hosts {
-		errs = appendErrors(errs, ValidateWildcardDomain(host))
+		// Full wildcard or short names are not allowed in the service entry.
+		if host == "*" || !strings.Contains(host, ".") {
+			errs = appendErrors(errs, fmt.Errorf("invalid host %s", host))
+		} else {
+			errs = appendErrors(errs, ValidateWildcardDomain(host))
+		}
 	}
 	for _, address := range serviceEntry.Addresses {
 		errs = appendErrors(errs, validateCIDR(address))
@@ -2204,12 +2240,6 @@ func ValidateServiceEntry(config proto.Message) (errs error) {
 				if err := ValidateFQDN(host); err != nil {
 					errs = appendErrors(errs,
 						fmt.Errorf("hosts must be FQDN if no endpoints are provided for discovery mode DNS"))
-				}
-			}
-			for _, port := range serviceEntry.Ports {
-				if !ParseProtocol(port.Protocol).IsHTTP() {
-					errs = appendErrors(errs,
-						fmt.Errorf("if discovery type is DNS and no endpoints are provided all ports must be HTTP based"))
 				}
 			}
 		}

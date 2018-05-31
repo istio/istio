@@ -100,6 +100,9 @@ const (
 	Passthrough
 )
 
+// UnspecifiedIP constant for empty IP address
+const UnspecifiedIP = "0.0.0.0"
+
 // Port represents a network port where a service is listening for
 // connections. The port should be annotated with the type of protocol
 // used by the port.
@@ -231,7 +234,7 @@ func (p Protocol) IsHTTP() bool {
 // IsTCP is true for protocols that use TCP as transport protocol
 func (p Protocol) IsTCP() bool {
 	switch p {
-	case ProtocolTCP, ProtocolHTTPS, ProtocolMongo, ProtocolRedis, ProtocolHTTP, ProtocolHTTP2, ProtocolGRPC:
+	case ProtocolTCP, ProtocolHTTPS, ProtocolMongo, ProtocolRedis:
 		return true
 	default:
 		return false

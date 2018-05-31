@@ -23,7 +23,7 @@
     "api",
     "testhelpers"
   ]
-  revision = "94d9a77d88daf011a4991bf982d16ebd34ecf2c8"
+  revision = "1e7e324f8366ded261140272c9e44d0ee681bdbf"
 
 [[projects]]
   name = "github.com/Azure/go-autorest"
@@ -410,8 +410,8 @@
     "ptypes/timestamp",
     "ptypes/wrappers"
   ]
-  revision = "925541529c1fa6821df4e44ce2723319eb2be768"
-  version = "v1.0.0"
+  revision = "b4deda0973fb4c70b50d226b1af49f3da59f5265"
+  version = "v1.1.0"
 
 [[projects]]
   branch = "master"
@@ -1301,7 +1301,7 @@
     "rbac/v1alpha1",
     "routing/v1alpha1"
   ]
-  revision = "7d7710a0533b543527897badc342c50eb169c83e"
+  revision = "8d67e57e3612dae1a3423795bce93a372cfe4fa4"
 
 [[projects]]
   name = "istio.io/fortio"
