@@ -40,7 +40,7 @@ ExecStart=/usr/bin/dockerd -H fd:// --insecure-registry <registry service ip>:50
 Reload the daemon and restart the docker service
 ```bash
 systemctl daemon-reload
-systemctl status docker
+systemctl restart docker
 ```
 
 Now you should exit the node. Restart all the nodes by 
