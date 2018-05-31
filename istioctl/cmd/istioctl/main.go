@@ -72,7 +72,8 @@ var (
 	file string
 
 	// output format (yaml or short)
-	outputFormat string
+	outputFormat     string
+	getAllNamespaces bool
 
 	loggingOptions = log.DefaultOptions()
 
@@ -300,9 +301,20 @@ istioctl get virtualservice bookinfo
 				return err
 			}
 
-			ns, _ := handleNamespaces(v1.NamespaceAll)
+			getByName := len(args) > 1
+			if getAllNamespaces && getByName {
+				return errors.New("a resource cannot be retrieved by name across all namespaces")
+			}
+
+			var ns string
+			if getAllNamespaces {
+				ns = v1.NamespaceAll
+			} else {
+				ns, _ = handleNamespaces(v1.NamespaceAll)
+			}
+
 			var configs []model.Config
-			if len(args) > 1 {
+			if getByName > 1 {
 				config, exists := configClient.Get(typ.Type, args[1], ns)
 				if exists {
 					configs = append(configs, *config)
@@ -545,6 +557,9 @@ func init() {
 
 	getCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "short",
 		"Output format. One of:yaml|short")
+	getCmd.PersistentFlags().BoolVar(&getAllNamespaces, "all-namespaces", false,
+		"If present, list the requested object(s) across all namespaces. Namespace in current "+
+			"context is ignored even if specified with --namespace.")
 
 	experimentalCmd.AddCommand(convert.Command())
 	experimentalCmd.AddCommand(Rbac())
