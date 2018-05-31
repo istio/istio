@@ -314,7 +314,7 @@ istioctl get virtualservice bookinfo
 			}
 
 			var configs []model.Config
-			if getByName > 1 {
+			if getByName {
 				config, exists := configClient.Get(typ.Type, args[1], ns)
 				if exists {
 					configs = append(configs, *config)
