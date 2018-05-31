@@ -69,13 +69,12 @@ export ISTIO_OUT=${ISTIO_OUT:-${ISTIO_BIN}}
 # Gets the download command supported by the system (currently either curl or wget)
 DOWNLOAD_COMMAND=""
 set_download_command () {
+  DOWNLOAD_COMMAND="${ROOT}/bin/s3_download.sh"
   # Aspenmesh uses s3.
-  if aws s3 help > /dev/null 2>&1; then
-    DOWNLOAD_COMMAND='aws s3 cp'
-  else
+  if ! aws s3 help > /dev/null 2>&1; then
     if [ "$CIRCLECI" == "true" ]; then
       sudo apt update && sudo apt install awscli
-      DOWNLOAD_COMMAND='aws s3 cp'
+      DOWNLOAD_COMMAND="${ROOT}/bin/s3_download.sh"
     else
       echo "aws cli tools are required"
       exit 1
@@ -115,7 +114,7 @@ if [ ! -f "$ISTIO_ENVOY_DEBUG_PATH" ] || [ ! -f "$ISTIO_ENVOY_RELEASE_PATH" ] ; 
     mkdir -p $ISTIO_ENVOY_DEBUG_DIR
     pushd $ISTIO_ENVOY_DEBUG_DIR
     echo "Downloading envoy debug artifact: ${DOWNLOAD_COMMAND} ${ISTIO_ENVOY_DEBUG_URL}"
-    time ${DOWNLOAD_COMMAND} ${ISTIO_ENVOY_DEBUG_URL} - | tar xz
+    time ${DOWNLOAD_COMMAND} ${ISTIO_ENVOY_DEBUG_URL} | tar xz
     cp usr/local/bin/envoy $ISTIO_ENVOY_DEBUG_PATH
     rm -rf usr
     popd
@@ -124,7 +123,7 @@ if [ ! -f "$ISTIO_ENVOY_DEBUG_PATH" ] || [ ! -f "$ISTIO_ENVOY_RELEASE_PATH" ] ; 
     mkdir -p $ISTIO_ENVOY_RELEASE_DIR
     pushd $ISTIO_ENVOY_RELEASE_DIR
     echo "Downloading envoy release artifact: ${DOWNLOAD_COMMAND} ${ISTIO_ENVOY_RELEASE_URL}"
-    time ${DOWNLOAD_COMMAND} ${ISTIO_ENVOY_RELEASE_URL} - | tar xz
+    time ${DOWNLOAD_COMMAND} ${ISTIO_ENVOY_RELEASE_URL} | tar xz
     cp usr/local/bin/envoy $ISTIO_ENVOY_RELEASE_PATH
     rm -rf usr
     popd
@@ -153,6 +152,8 @@ else
 fi
 
 sha256sum ${ISTIO_OUT}/envoy || true
-${ISTIO_OUT}/envoy --version
+if [ "$GOOS" == "$LOCAL_OS" ]; then
+  ${ISTIO_OUT}/envoy --version
+fi
 
 ${ROOT}/bin/init_helm.sh
