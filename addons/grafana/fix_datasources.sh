@@ -7,8 +7,8 @@ UX=$(uname)
 
 for db in ${THIS_DIR}/dashboards/*.json; do
     if [[ ${UX} == "Darwin" ]]; then
-      sed -i '' 's/${DS_PROMETHEUS}/Prometheus/g' $db
+      sed -i '' 's/${DS_PROMETHEUS}/Prometheus/g' "$db"
     else
-      sed -i 's/${DS_PROMETHEUS}/Prometheus/g' $db
+      sed -i 's/${DS_PROMETHEUS}/Prometheus/g' "$db"
     fi
 done

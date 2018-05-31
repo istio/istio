@@ -28,7 +28,7 @@ function process_result() {
     fi
 }
 
-echo ${GOPATH}
+echo "${GOPATH}"
 
 # Build mixer binary
 make mixs
@@ -46,13 +46,13 @@ TOTAL_FAILURE=0
 SUMMARY='Tests Summary'
 
 printf "Envoy date:"
-ls -l ${ENVOY_BINARY}
+ls -l "${ENVOY_BINARY}"
 
 printf "Mixer date:"
-ls -l ${MIXER_BINARY}
+ls -l "${MIXER_BINARY}"
 
 printf "Envoy hash:"
-md5sum ${ENVOY_BINARY}
+md5sum "${ENVOY_BINARY}"
 
 TESTARG=(-envoy_binary ${ENVOY_BINARY} -envoy_start_script ${START_ENVOY} -mixer_binary ${MIXER_BINARY} -fortio_binary fortio)
 

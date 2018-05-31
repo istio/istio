@@ -28,10 +28,10 @@ set -u
 # Print commands
 set -x
 
-source ${ROOT}/prow/lib.sh
+source "${ROOT}/prow/lib.sh"
 setup_and_export_git_sha
 
-cd $ROOT
+cd "$ROOT"
 make init
 
 echo 'Running Unit Tests'

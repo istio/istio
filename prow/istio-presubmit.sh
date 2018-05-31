@@ -28,11 +28,11 @@ set -u
 set -x
 set -e
 
-source ${ROOT}/prow/lib.sh
+source "${ROOT}/prow/lib.sh"
 setup_and_export_git_sha
 
 echo 'Build'
-(cd ${ROOT}; make build)
+(cd "${ROOT}"; make build)
 
 if [[ -n $(git diff) ]]; then
   echo "Uncommitted changes found:"
@@ -46,4 +46,4 @@ time ISTIO_DOCKER_HUB="gcr.io/istio-testing" make push HUB="gcr.io/istio-testing
 ./tests/integration/example/integration.sh
 
 # Run security e2e test
-CERT_DIR=$(make where-is-docker-temp) ${ROOT}/security/bin/e2e.sh --hub "gcr.io/istio-testing" --tag "${GIT_SHA}"
+CERT_DIR=$(make where-is-docker-temp) "${ROOT}/security/bin/e2e.sh" --hub "gcr.io/istio-testing" --tag "${GIT_SHA}"

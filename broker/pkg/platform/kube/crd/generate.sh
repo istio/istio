@@ -101,6 +101,6 @@ cat <<EOF
 EOF
 
 for crd in $CRDS $TEST; do
-  sed -e "1,23d;s/IstioKind/$crd/g" $1
+  sed -e "1,23d;s/IstioKind/$crd/g" "$1"
 done
 
