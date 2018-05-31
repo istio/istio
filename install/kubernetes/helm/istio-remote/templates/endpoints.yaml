@@ -37,15 +37,6 @@ subsets:
     port: 15004
   - name: http-monitoring
     port: 9093
-  - name: configapi
-    port: 9094
-  - name: statsd-prom
-    port: 9102
-  - name: statsd-udp
-    port: 9125
-    protocol: UDP
-  - name: prometheus
-    port: 42422
 ---
 apiVersion: v1
 kind: Endpoints
