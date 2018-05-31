@@ -3,7 +3,7 @@ syntax = "proto3";
 package istio.mixer.adapter.sample.check;
 
 import "mixer/adapter/model/v1beta1/extensions.proto";
-import "mixer/adapter/model/v1beta1/type.proto";
+import "policy/v1beta1/type.proto";
 
 option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_CHECK;
 
@@ -14,8 +14,8 @@ message Template {
 }
 
 message Res1 {
-    istio.mixer.adapter.model.v1beta1.Value value = 1;
-    map<string, istio.mixer.adapter.model.v1beta1.Value> dimensions = 2;
+    istio.policy.v1beta1.Value value = 1;
+    map<string, istio.policy.v1beta1.Value> dimensions = 2;
 
     int64 int64Primitive = 3;
 
@@ -27,9 +27,9 @@ message Res1 {
 
     map<string, int64> int64Map = 7;
 
-    istio.mixer.adapter.model.v1beta1.TimeStamp timeStamp = 9;
+    istio.policy.v1beta1.TimeStamp timeStamp = 9;
 
-    istio.mixer.adapter.model.v1beta1.Duration duration = 10;
+    istio.policy.v1beta1.Duration duration = 10;
 
     Res2 res2 = 11;
 
@@ -37,8 +37,8 @@ message Res1 {
 }
 
 message Res2 {
-    istio.mixer.adapter.model.v1beta1.Value value = 1;
-    map<string, istio.mixer.adapter.model.v1beta1.Value> dimensions = 2;
+    istio.policy.v1beta1.Value value = 1;
+    map<string, istio.policy.v1beta1.Value> dimensions = 2;
 
     int64 int64Primitive = 3;
 }
