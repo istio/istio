@@ -115,16 +115,16 @@ func (e *Ephemeral) BuildSnapshot() *Snapshot {
 	rules := e.processRuleConfigs(handlers, instances, counters)
 
 	s := &Snapshot{
-		ID:         id,
-		Templates:  e.templates,
-		Adapters:   e.adapters,
-		Templates2: adapterInfos.templates,
-		Adapters2:  adapterInfos.adapters,
-		Attributes: ast.NewFinder(attributes),
-		Handlers:   handlers,
-		Instances:  instances,
-		Rules:      rules,
-		Counters:   counters,
+		ID:                id,
+		Templates:         e.templates,
+		Adapters:          e.adapters,
+		TemplateMetadatas: adapterInfos.templates,
+		AdapterMetadatas:  adapterInfos.adapters,
+		Attributes:        ast.NewFinder(attributes),
+		HandlersLegacy:    handlers,
+		InstancesLegacy:   instances,
+		RulesLegacy:       rules,
+		Counters:          counters,
 	}
 
 	e.cachedAttributes = attributes
@@ -178,8 +178,8 @@ func (e *Ephemeral) processAttributeManifests(counters Counters) map[string]*con
 	return attrs
 }
 
-func (e *Ephemeral) processHandlerConfigs(counters Counters) map[string]*Handler {
-	handlers := make(map[string]*Handler, len(e.adapters))
+func (e *Ephemeral) processHandlerConfigs(counters Counters) map[string]*HandlerLegacy {
+	handlers := make(map[string]*HandlerLegacy, len(e.adapters))
 
 	for key, resource := range e.entries {
 		var info *adapter.Info
@@ -193,7 +193,7 @@ func (e *Ephemeral) processHandlerConfigs(counters Counters) map[string]*Handler
 
 		log.Debugf("Processing incoming handler config: name='%s'\n%s", adapterName, resource.Spec)
 
-		cfg := &Handler{
+		cfg := &HandlerLegacy{
 			Name:    adapterName,
 			Adapter: info,
 			Params:  resource.Spec,
@@ -206,8 +206,8 @@ func (e *Ephemeral) processHandlerConfigs(counters Counters) map[string]*Handler
 	return handlers
 }
 
-func (e *Ephemeral) processInstanceConfigs(counters Counters) map[string]*Instance {
-	instances := make(map[string]*Instance, len(e.templates))
+func (e *Ephemeral) processInstanceConfigs(counters Counters) map[string]*InstanceLegacy {
+	instances := make(map[string]*InstanceLegacy, len(e.templates))
 
 	for key, resource := range e.entries {
 		var info *template.Info
@@ -221,7 +221,7 @@ func (e *Ephemeral) processInstanceConfigs(counters Counters) map[string]*Instan
 
 		log.Debugf("Processing incoming instance config: name='%s'\n%s", instanceName, resource.Spec)
 
-		cfg := &Instance{
+		cfg := &InstanceLegacy{
 			Name:     instanceName,
 			Template: info,
 			Params:   resource.Spec,
@@ -262,13 +262,13 @@ func (e *Ephemeral) processAdapterInfoConfigs(counters Counters) *adapterInfoReg
 }
 
 func (e *Ephemeral) processRuleConfigs(
-	handlers map[string]*Handler,
-	instances map[string]*Instance,
-	counters Counters) []*Rule {
+	handlers map[string]*HandlerLegacy,
+	instances map[string]*InstanceLegacy,
+	counters Counters) []*RuleLegacy {
 
 	log.Debug("Begin processing rule configurations.")
 
-	var rules []*Rule
+	var rules []*RuleLegacy
 
 	for ruleKey, resource := range e.entries {
 		if ruleKey.Kind != RulesKind {
@@ -299,12 +299,12 @@ func (e *Ephemeral) processRuleConfigs(
 		}
 
 		// extract the set of actions from the rule, and the handlers they reference.
-		actions := make([]*Action, 0, len(cfg.Actions))
+		actions := make([]*ActionLegacy, 0, len(cfg.Actions))
 		for i, a := range cfg.Actions {
 			log.Debugf("Processing action: %s[%d]", ruleName, i)
 
 			var found bool
-			var handler *Handler
+			var handler *HandlerLegacy
 			handlerName := canonicalize(a.Handler, ruleKey.Namespace)
 			if handler, found = handlers[handlerName]; !found {
 				log.Errorf("Handler not found: handler='%s', action='%s[%d]'",
@@ -317,7 +317,7 @@ func (e *Ephemeral) processRuleConfigs(
 			// action
 			uniqueInstances := make(map[string]bool, len(a.Instances))
 
-			actionInstances := make([]*Instance, 0, len(a.Instances))
+			actionInstances := make([]*InstanceLegacy, 0, len(a.Instances))
 			for _, instanceName := range a.Instances {
 				instanceName = canonicalize(instanceName, ruleKey.Namespace)
 				if _, found = uniqueInstances[instanceName]; found {
@@ -328,7 +328,7 @@ func (e *Ephemeral) processRuleConfigs(
 				}
 				uniqueInstances[instanceName] = true
 
-				var instance *Instance
+				var instance *InstanceLegacy
 				if instance, found = instances[instanceName]; !found {
 					log.Errorf("Instance not found: instance='%s', action='%s[%d]'",
 						instanceName, ruleName, i)
@@ -346,7 +346,7 @@ func (e *Ephemeral) processRuleConfigs(
 				continue
 			}
 
-			action := &Action{
+			action := &ActionLegacy{
 				Handler:   handler,
 				Instances: actionInstances,
 			}
@@ -361,7 +361,7 @@ func (e *Ephemeral) processRuleConfigs(
 			continue
 		}
 
-		rule := &Rule{
+		rule := &RuleLegacy{
 			Name:         ruleName,
 			Namespace:    ruleKey.Namespace,
 			Actions:      actions,

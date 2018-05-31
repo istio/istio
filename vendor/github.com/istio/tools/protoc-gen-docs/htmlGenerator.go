@@ -34,9 +34,9 @@ import (
 type outputMode int
 
 const (
-	htmlPage outputMode = iota
-	htmlFragment
-	jekyllHTML
+	htmlPage                    outputMode = iota // stand-alone HTML page
+	htmlFragment                                  // core portion of an HTML body, no head section or other wrappers
+	htmlFragmentWithFrontMatter                   // like a fragment, but with YAML front-matter
 )
 
 type htmlGenerator struct {
@@ -288,7 +288,7 @@ func (g *htmlGenerator) generateFile(name string, top *fileDescriptor, messages 
 
 func (g *htmlGenerator) generateFileHeader(top *fileDescriptor, numEntries int) {
 	name := g.currentPackage.name
-	if g.mode == jekyllHTML {
+	if g.mode == htmlFragmentWithFrontMatter {
 		g.emit("---")
 
 		if top != nil && top.title() != "" {
@@ -310,8 +310,9 @@ func (g *htmlGenerator) generateFileHeader(top *fileDescriptor, numEntries int) 
 		}
 
 		g.emit("layout: protoc-gen-docs")
+		g.emit("generator: protoc-gen-docs")
 
-		// emit additional custom Jekyll front-matter fields
+		// emit additional custom front-matter fields
 		if g.perFile {
 			if top != nil {
 				for _, fm := range top.frontMatter() {
@@ -370,10 +371,9 @@ func (g *htmlGenerator) generateFileHeader(top *fileDescriptor, numEntries int) 
 	}
 
 	if g.perFile {
-		if top == nil {
-			croak("PANIC: null file %v", name)
+		if top != nil {
+			g.generateComment(newLocationDescriptor(top.topMatter.location, top), name)
 		}
-		g.generateComment(newLocationDescriptor(top.topMatter.location, top), name)
 	} else {
 		g.generateComment(g.currentPackage.location(), name)
 	}
@@ -705,6 +705,7 @@ var wellKnownTypes = map[string]string{
 	"google.protobuf.EnumValue":   "https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#enumvalue",
 	"google.protobuf.ListValue":   "https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#listvalue",
 	"google.protobuf.NullValue":   "https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#nullvalue",
+	"google.protobuf.Struct":      "https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#struct",
 }
 
 func (g *htmlGenerator) linkify(o coreDesc, name string) string {
@@ -740,10 +741,10 @@ func (g *htmlGenerator) warn(loc locationDescriptor, format string, args ...inte
 	if g.genWarnings {
 		place := ""
 		if loc.SourceCodeInfo_Location != nil && len(loc.Span) >= 2 {
-			place = fmt.Sprintf("%s:%d:%d:", loc.file.GetName(), loc.Span[0], loc.Span[1])
+			place = fmt.Sprintf("%s:%d:%d: ", loc.file.GetName(), loc.Span[0], loc.Span[1])
 		}
 
-		fmt.Fprintf(os.Stderr, place+" "+format+"\n", args...)
+		fmt.Fprintf(os.Stderr, place+format+"\n", args...)
 	}
 }
 
