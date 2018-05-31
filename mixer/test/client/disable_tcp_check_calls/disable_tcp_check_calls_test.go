@@ -27,8 +27,6 @@ const reportAttributesOkPost = `
   "context.protocol": "tcp",
   "context.time": "*",
   "mesh1.ip": "[1 1 1 1]",
-  "source.ip": "[127 0 0 1]",
-  "source.port": "*",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "destination.ip": "[127 0 0 1]",
