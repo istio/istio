@@ -45,8 +45,9 @@ type Controller struct {
 
 // NewController creates a new Aggregate controller
 func NewController() *Controller {
+
 	return &Controller{
-		registries: make([]Registry, 0),
+		registries: []Registry{},
 	}
 }
 
@@ -54,23 +55,30 @@ func NewController() *Controller {
 func (c *Controller) AddRegistry(registry Registry) {
 	c.storeLock.Lock()
 	defer c.storeLock.Unlock()
-	c.registries = append(c.registries, registry)
+
+	registries := c.registries
+	registries = append(registries, registry)
+	c.registries = registries
 }
 
 // DeleteRegistry deletes specified registry from the aggregated controller
-func (c *Controller) DeleteRegistry(registry Registry) {
+func (c *Controller) DeleteRegistry(clusterID string) {
 	c.storeLock.Lock()
 	defer c.storeLock.Unlock()
+
 	if len(c.registries) == 0 {
 		log.Warnf("Registry list is empty, nothing to delete")
 		return
 	}
-	index, ok := c.GetRegistryIndex(registry)
+	index, ok := c.GetRegistryIndex(clusterID)
 	if !ok {
 		log.Warnf("Registry is not found in the registries list, nothing to delete")
 		return
 	}
-	c.registries = append(c.registries[:index], c.registries[index+1:]...)
+	registries := c.registries
+	registries = append(registries[:index], registries[index+1:]...)
+	c.registries = registries
+	log.Infof("Registry for the cluster %s has been deleted.", clusterID)
 }
 
 // GetRegistries returns a copy of all registries
@@ -78,15 +86,13 @@ func (c *Controller) GetRegistries() []Registry {
 	c.storeLock.Lock()
 	defer c.storeLock.Unlock()
 
-	registries := make([]Registry, len(c.registries))
-	copy(registries, c.registries)
-	return registries
+	return c.registries
 }
 
 // GetRegistryIndex returns the index of a registry
-func (c *Controller) GetRegistryIndex(registry Registry) (int, bool) {
+func (c *Controller) GetRegistryIndex(clusterID string) (int, bool) {
 	for i, r := range c.registries {
-		if r.ClusterID == registry.ClusterID {
+		if r.ClusterID == clusterID {
 			return i, true
 		}
 	}

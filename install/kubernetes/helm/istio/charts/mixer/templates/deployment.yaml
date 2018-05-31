@@ -1,6 +1,8 @@
 {{- define "policy_container" }}
     spec:
+{{- if .Values.global.rbacEnabled }}
       serviceAccountName: istio-mixer-service-account
+{{- end }}
       volumes:
       - name: istio-certs
         secret:
@@ -25,7 +27,7 @@
         resources:
 {{ toYaml $.Values.resources | indent 12 }}
       - name: istio-proxy
-        image: "{{ $.Values.global.hub }}/{{ $.Values.global.proxyv2.image }}:{{ $.Values.global.tag }}"
+        image: "{{ $.Values.global.hub }}/proxyv2:{{ $.Values.global.tag }}"
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
         - containerPort: 9091
@@ -69,7 +71,9 @@
 
 {{- define "telemetry_container" }}
     spec:
+{{- if .Values.global.rbacEnabled }}
       serviceAccountName: istio-mixer-service-account
+{{- end }}
       volumes:
       - name: istio-certs
         secret:

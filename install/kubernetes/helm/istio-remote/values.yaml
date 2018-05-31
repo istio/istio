@@ -20,7 +20,7 @@ global:
   # Currently using nightly build, for testing
   tag: circleci-nightly
   proxy:
-    image: proxy
+    image: proxyv2
 
   # imagePullPolicy is applied to istio control plane components.
   imagePullPolicy: IfNotPresent

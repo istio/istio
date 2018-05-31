@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"os"
 	"sort"
-	"strings"
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -76,10 +75,15 @@ var (
 		Name: "pilot_conf_out_listeners",
 		Help: "Number of conflicting listeners.",
 	})
+	invalidOutboundListeners = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "pilot_invalid_out_listeners",
+		Help: "Number of invalid outbound listeners.",
+	})
 )
 
 func init() {
 	prometheus.MustRegister(conflictingOutbound)
+	prometheus.MustRegister(invalidOutboundListeners)
 }
 
 // ListenersALPNProtocols denotes the the list of ALPN protocols that the listener
@@ -326,6 +330,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 
 	var tcpListeners, httpListeners []*xdsapi.Listener
 	var currentListener *xdsapi.Listener
+	listenerTypeMap := make(map[string]model.Protocol)
 	listenerMap := make(map[string]*xdsapi.Listener)
 	for _, service := range services {
 		for _, servicePort := range service.Ports {
@@ -344,13 +349,16 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				protocol:       servicePort.Protocol,
 			}
 
+			currentListener = nil
+
 			switch plugin.ModelProtocolToListenerType(servicePort.Protocol) {
 			case plugin.ListenerTypeHTTP:
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
 				if l, exists := listenerMap[listenerMapKey]; exists {
-					if !strings.HasPrefix(l.Name, "http") {
+					if !listenerTypeMap[listenerMapKey].IsHTTP() {
 						conflictingOutbound.Add(1)
-						log.Warnf("Conflicting outbound listeners on %s: previous listener %s (%s %v)", listenerMapKey, clusterName, l.Name, l)
+						log.Warnf("buildSidecarOutboundListeners: listener conflict (%v current and new %v) on %s, destination:%s, current Listener: (%s %v)",
+							servicePort.Protocol, listenerTypeMap[listenerMapKey], listenerMapKey, clusterName, l.Name, l)
 					}
 					// Skip building listener for the same http port
 					continue
@@ -365,7 +373,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 					operation = http_conn.INGRESS
 				}
 
-				listenerOpts.protocol = model.ProtocolHTTP
+				listenerOpts.protocol = servicePort.Protocol
 				listenerOpts.filterChainOpts = []*filterChainOpts{{
 					httpOpts: &httpListenerOpts{
 						//rds:              fmt.Sprintf("%d", servicePort.Port),
@@ -384,9 +392,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
 				var exists bool
 				if currentListener, exists = listenerMap[listenerMapKey]; exists {
-					// Check if this is HTTPS port collision. If so, we can use SNI to differentiate
-					if servicePort.Protocol != model.ProtocolHTTPS {
-						log.Warnf("Multiple TCP listener definitions for %s %v %s", listenerMapKey, currentListener, service.Hostname)
+					// Check if this is HTTPS port collision for external service. If so, we can use SNI to differentiate
+					// Internal TCP services will never hit this issue because they are bound by specific IP_port, while
+					// external service listeners are typically bound to 0.0.0.0
+					if !listenerTypeMap[listenerMapKey].IsTCP() || servicePort.Protocol != model.ProtocolHTTPS || !service.MeshExternal {
+						conflictingOutbound.Add(1)
+						log.Warnf("buildSidecarOutboundListeners: listener conflict (%v current and new %v) on %s, destination:%s, current Listener: (%s %v)",
+							servicePort.Protocol, listenerTypeMap[listenerMapKey], listenerMapKey, clusterName, currentListener.Name, currentListener)
 						continue
 					}
 				}
@@ -395,7 +407,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				}
 
 				// TODO (@rshriram): This is not sufficient. There are other TCP protocols that use SNI, that need to be tackled.
-				if servicePort.Protocol == model.ProtocolHTTPS {
+				// Set SNI hosts for External services only. It may or may not work for internal services.
+				// TODO (@rshriram): We need an explicit option to enable/disable SNI for a given service
+				if servicePort.Protocol == model.ProtocolHTTPS && service.MeshExternal {
 					filterChainOption.sniHosts = []string{service.Hostname.String()}
 				}
 
@@ -436,16 +450,15 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				continue
 			}
 
-			// By default we require SNI; if there's only one filter chain then we know there's either 0 or 1 cert,
-			// therefore SNI is not required.
-			// This won't be true for HTTPS outbound listeners that are simply getting forwarded
-			if len(mutable.Listener.FilterChains) == 1 && mutable.Listener.FilterChains[0].TlsContext != nil {
-				mutable.Listener.FilterChains[0].TlsContext.RequireSni = boolFalse
-			}
-
 			if currentListener != nil {
 				// merge the newly built listener with the existing listener
-				currentListener.FilterChains = append(currentListener.FilterChains, mutable.Listener.FilterChains...)
+				newFilterChains := make([]listener.FilterChain, 0, len(currentListener.FilterChains)+len(mutable.Listener.FilterChains))
+				newFilterChains = append(newFilterChains, currentListener.FilterChains...)
+				newFilterChains = append(newFilterChains, mutable.Listener.FilterChains...)
+				currentListener.FilterChains = newFilterChains
+			} else {
+				listenerMap[listenerMapKey] = mutable.Listener
+				listenerTypeMap[listenerMapKey] = servicePort.Protocol
 			}
 
 			if log.DebugEnabled() && len(mutable.Listener.FilterChains) > 1 || currentListener != nil {
@@ -457,13 +470,17 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				}
 				log.Debugf("buildSidecarOutboundListeners: multiple filter chain listener %s with %d chains", mutable.Listener.Name, numChains)
 			}
-
-			listenerMap[listenerMapKey] = mutable.Listener
 		}
 	}
 
 	for name, l := range listenerMap {
-		if strings.HasPrefix(name, "tcp") {
+		ltype := listenerTypeMap[name]
+		if err := l.Validate(); err != nil {
+			log.Warnf("buildSidecarOutboundListeners: error validating listener %s (type %v): %v", name, ltype, err)
+			invalidOutboundListeners.Add(1)
+			continue
+		}
+		if ltype.IsTCP() {
 			tcpListeners = append(tcpListeners, l)
 		} else {
 			httpListeners = append(httpListeners, l)

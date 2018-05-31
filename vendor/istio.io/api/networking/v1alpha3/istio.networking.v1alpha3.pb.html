@@ -440,15 +440,9 @@ DestinationRule.</p>
 <td><code>port</code></td>
 <td><code><a href="#PortSelector">PortSelector</a></code></td>
 <td>
-<p>Specifies the port on the host that is being addressed. Many services
-only expose a single port or label ports with the protocols they support,
-in these cases it is not required to explicitly select the port. Note that
-selection priority is to first match by name and then match by number.</p>
-
-<p>Names must comply with DNS label syntax (rfc1035) and therefore cannot
-collide with numbers. If there are multiple ports on a service with
-the same protocol the names should be of the form <protocol-name>-<DNS
-label>.</p>
+<p>Specifies the port on the host that is being addressed. If a service
+exposes only a single port it is not required to explicitly select the
+port.</p>
 
 </td>
 </tr>
@@ -724,13 +718,13 @@ spec:
       name: http-wildcard
       protocol: HTTP
     hosts:
-    - &quot;*&quot;
+    - &quot;*.bookinfo.com&quot;
   - port:
       number: 2379 # to expose internal service via external port 2379
       name: mongo
       protocol: MONGO
     hosts:
-    - &quot;*&quot;
+    - &quot;*.bookinfo.com&quot;
 </code></pre>
 
 <p>The Gateway specification above describes the L4-L6 properties of a load
@@ -744,7 +738,7 @@ the forwarding of traffic arriving at a particular host or gateway port.</p>
 an internal reviews service on port 9080. In addition, requests
 containing the cookie &ldquo;user: dev-123&rdquo; will be sent to special port 7777
 in the qa version. The same rule is also applicable inside the mesh for
-requests to the r&rdquo;eviews.prod.svc.cluster.local&rdquo; service. This rule is
+requests to the &ldquo;reviews.prod.svc.cluster.local&rdquo; service. This rule is
 applicable across ports 443, 9080. Note that &ldquo;http://uk.bookinfo.com&rdquo;
 gets redirected to &ldquo;https://uk.bookinfo.com&rdquo; (i.e. 80 redirects to 443).</p>
 
@@ -935,22 +929,6 @@ not specified, all requests are aborted.</p>
 
 </td>
 </tr>
-<tr id="HTTPFaultInjection.Abort.grpc_status" class="oneof">
-<td><code>grpcStatus</code></td>
-<td><code>string (oneof)</code></td>
-<td>
-<p>(&ndash; NOT IMPLEMENTED &ndash;)</p>
-
-</td>
-</tr>
-<tr id="HTTPFaultInjection.Abort.http2_error" class="oneof">
-<td><code>http2Error</code></td>
-<td><code>string (oneof)</code></td>
-<td>
-<p>(&ndash; NOT IMPLEMENTED &ndash;)</p>
-
-</td>
-</tr>
 </tbody>
 </table>
 </section>
@@ -1010,16 +988,6 @@ unspecified, all request will be delayed.</p>
 <td>
 <p>REQUIRED. Add a fixed delay before forwarding the request. Format:
 1h/1m/1s/1ms. MUST be &gt;=1ms.</p>
-
-</td>
-</tr>
-<tr id="HTTPFaultInjection.Delay.exponential_delay" class="oneof">
-<td><code>exponentialDelay</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration (oneof)</a></code></td>
-<td>
-<p>(&ndash; Add a delay (based on an exponential function) before forwarding
-the request. mean delay needed to derive the exponential delay
-values &ndash;)</p>
 
 </td>
 </tr>
@@ -1860,7 +1828,7 @@ TCP-TLS is used to indicate secure connections to non HTTP services.</p>
 </section>
 <h2 id="PortSelector">PortSelector</h2>
 <section>
-<p>PortSelector specifies the name or number of a port to be used for
+<p>PortSelector specifies the number of a port to be used for
 matching or selection for final routing.</p>
 
 <table class="message-fields">
@@ -1877,14 +1845,6 @@ matching or selection for final routing.</p>
 <td><code>uint32 (oneof)</code></td>
 <td>
 <p>Valid port number</p>
-
-</td>
-</tr>
-<tr id="PortSelector.name" class="oneof">
-<td><code>name</code></td>
-<td><code>string (oneof)</code></td>
-<td>
-<p>Port name</p>
 
 </td>
 </tr>
@@ -1977,7 +1937,9 @@ connections</p>
 <p>REQUIRED. A list of hosts exposed by this gateway. At least one
 host is required. While typically applicable to
 HTTP services, it can also be used for TCP services using TLS with
-SNI. Standard DNS wildcard prefix syntax is permitted.</p>
+SNI. May contain a wildcard prefix for the bottom-level component of
+a domain name. For example <code>*.foo.com</code> matches <code>bar.foo.com</code>
+and <code>*.com</code> matches <code>bar.foo.com</code>, <code>example.com</code>, and so on.</p>
 
 <p><strong>Note</strong>: A <code>VirtualService</code> that is bound to a gateway must have one
 or more hosts that match the hosts specified in a server. The match
@@ -2131,7 +2093,7 @@ metadata:
   name: external-svc-mongocluster
 spec:
   hosts:
-  - mymongodb.somedomain # not used
+  - mymongodb.somedomain
   addresses:
   - 192.192.192.192/24 # VIPs
   ports:
@@ -2179,6 +2141,27 @@ spec:
     name: http
     protocol: HTTP
   resolution: NONE
+</code></pre>
+
+<p>The following example demonstrates a service that is available via a
+Unix Domain Socket on the host of the client. The resolution must be
+set to STATIC to use unix address endpoints.</p>
+
+<pre><code>apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: unix-domain-socket-example
+spec:
+  hosts:
+  - &quot;example.unix.local&quot;
+  location: MESH_EXTERNAL
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+  endpoints:
+  - address: unix:///var/run/example/socket
 </code></pre>
 
 <p>For HTTP based services, it is possible to create a VirtualService
@@ -2271,7 +2254,8 @@ solely based on the destination port. In such scenarios, the port on
 which the service is being accessed must not be shared by any other
 service in the mesh. In other words, the sidecar will behave as a
 simple TCP proxy, forwarding incoming traffic on a specified port to
-the specified destination endpoint IP/host.</p>
+the specified destination endpoint IP/host. Unix domain socket
+addresses are not supported in this field.</p>
 
 </td>
 </tr>
@@ -2279,7 +2263,9 @@ the specified destination endpoint IP/host.</p>
 <td><code>ports</code></td>
 <td><code><a href="#Port">Port[]</a></code></td>
 <td>
-<p>REQUIRED. The ports associated with the external service.</p>
+<p>REQUIRED. The ports associated with the external service. If the
+Endpoints are unix domain socket addresses, there must be exactly one
+port.</p>
 
 </td>
 </tr>
@@ -2331,8 +2317,9 @@ the mesh service.</p>
 <td><code>string</code></td>
 <td>
 <p>REQUIRED: Address associated with the network endpoint without the
-port ( IP or fully qualified domain name without wildcards). Domain
-names can be used if and only if the resolution is set to DNS.</p>
+port.  Domain names can be used if and only if the resolution is set
+to DNS, and must be fully-qualified without wildcards. Use the form
+unix:///absolute/path/to/socket for unix domain socket endpoints.</p>
 
 </td>
 </tr>
@@ -2342,7 +2329,7 @@ names can be used if and only if the resolution is set to DNS.</p>
 <td>
 <p>Set of ports associated with the endpoint. The ports must be
 associated with a port name that was declared as part of the
-service.</p>
+service. Do not use for unix:// addresses.</p>
 
 </td>
 </tr>
@@ -2443,7 +2430,8 @@ during request processing. If no endpoints are specified, the proxy
 will resolve the DNS address specified in the hosts field, if
 wildcards are not used. If endpoints are specified, the DNS
 addresses specified in the endpoints will be resolved to determine
-the destination IP address.</p>
+the destination IP address.  DNS resolution cannot be used with unix
+domain socket endpoints.</p>
 
 </td>
 </tr>
@@ -2660,6 +2648,18 @@ spec:
       mode: SIMPLE
 </code></pre>
 
+<p>The following rule configures a client to use Istio mutual TLS when talking
+to rating services.
+    apiVersion: networking.istio.io/v1alpha3
+    kind: DestinationRule
+    metadata:
+      name: ratings-istio-mtls
+    spec:
+      host: ratings.prod.svc.cluster.local
+      trafficPolicy:
+        tls:
+          mode: ISTIO_MUTUAL</p>
+
 <table class="message-fields">
 <thead>
 <tr>
@@ -2683,7 +2683,8 @@ using TLS. The value of this field determines how TLS is enforced.</p>
 <td><code>string</code></td>
 <td>
 <p>REQUIRED if mode is <code>MUTUAL</code>. The path to the file holding the
-client-side TLS certificate to use.</p>
+client-side TLS certificate to use.
+Should be empty if mode is <code>ISTIO_MUTUAL</code>.</p>
 
 </td>
 </tr>
@@ -2692,7 +2693,8 @@ client-side TLS certificate to use.</p>
 <td><code>string</code></td>
 <td>
 <p>REQUIRED if mode is <code>MUTUAL</code>. The path to the file holding the
-client&rsquo;s private key.</p>
+client&rsquo;s private key.
+Should be empty if mode is <code>ISTIO_MUTUAL</code>.</p>
 
 </td>
 </tr>
@@ -2702,7 +2704,8 @@ client&rsquo;s private key.</p>
 <td>
 <p>OPTIONAL: The path to the file containing certificate authority
 certificates to use in verifying a presented server certificate. If
-omitted, the proxy will not verify the server&rsquo;s certificate.</p>
+omitted, the proxy will not verify the server&rsquo;s certificate.
+Should be empty if mode is <code>ISTIO_MUTUAL</code>.</p>
 
 </td>
 </tr>
@@ -2712,7 +2715,8 @@ omitted, the proxy will not verify the server&rsquo;s certificate.</p>
 <td>
 <p>A list of alternate names to verify the subject identity in the
 certificate. If specified, the proxy will verify that the server
-certificate&rsquo;s subject alt name matches one of the specified values.</p>
+certificate&rsquo;s subject alt name matches one of the specified values.
+Should be empty if mode is <code>ISTIO_MUTUAL</code>.</p>
 
 </td>
 </tr>
@@ -2720,7 +2724,8 @@ certificate&rsquo;s subject alt name matches one of the specified values.</p>
 <td><code>sni</code></td>
 <td><code>string</code></td>
 <td>
-<p>SNI string to present to the server during TLS handshake.</p>
+<p>SNI string to present to the server during TLS handshake.
+Should be empty if mode is <code>ISTIO_MUTUAL</code>.</p>
 
 </td>
 </tr>
@@ -2758,6 +2763,17 @@ certificate&rsquo;s subject alt name matches one of the specified values.</p>
 <td>
 <p>Secure connections to the upstream using mutual TLS by presenting
 client certificates for authentication.</p>
+
+</td>
+</tr>
+<tr id="TLSSettings.TLSmode.ISTIO_MUTUAL">
+<td><code>ISTIO_MUTUAL</code></td>
+<td>
+<p>Secure connections to the upstream using mutual TLS by presenting
+client certificates for authentication.
+Compared to Mutual mode, this mode uses certificates generated
+automatically by Istio for mTLS authentication. When this mode is
+used, all other fields in <code>TLSSettings</code> should be empty.</p>
 
 </td>
 </tr>

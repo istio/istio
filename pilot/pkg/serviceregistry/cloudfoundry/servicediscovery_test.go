@@ -44,6 +44,19 @@ var routesResponse = &api.RoutesResponse{
 			CapiProcessGuid: "some-guid-a",
 		},
 		{
+			Hostname: "process-guid-a.cfapps.io",
+			Path:     "/another/path",
+			Backends: &api.BackendSet{
+				Backends: []*api.Backend{
+					{
+						Address: "10.10.1.2",
+						Port:    61006,
+					},
+				},
+			},
+			CapiProcessGuid: "some-guid-x",
+		},
+		{
 			Hostname: "process-guid-b.cfapps.io",
 			Backends: &api.BackendSet{
 				Backends: []*api.Backend{
@@ -124,8 +137,12 @@ func TestServiceDiscovery_Services(t *testing.T) {
 	g.Expect(err).To(gomega.BeNil())
 
 	// it returns an Istio service for each Diego process
-	g.Expect(serviceModels).To(gomega.HaveLen(4))
+	g.Expect(serviceModels).To(gomega.HaveLen(5))
 	g.Expect(serviceModels).To(gomega.ConsistOf([]*model.Service{
+		{
+			Hostname: "process-guid-a.cfapps.io",
+			Ports:    []*model.Port{{Port: defaultServicePort, Protocol: model.ProtocolHTTP, Name: "http"}},
+		},
 		{
 			Hostname: "process-guid-a.cfapps.io",
 			Ports:    []*model.Port{{Port: defaultServicePort, Protocol: model.ProtocolHTTP, Name: "http"}},
@@ -196,39 +213,13 @@ func TestServiceDiscovery_GetService_ClientError(t *testing.T) {
 	g.Expect(serviceModel).To(gomega.BeNil())
 }
 
-func TestServiceDiscovery_Instances_Filtering(t *testing.T) {
+func TestServiceDiscovery_Internal_Instances_Filtering_By_Hostname(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	state := newSDTestState()
 
-	state.mockClient.RoutesReturns(routesResponse, nil)
 	state.mockClient.InternalRoutesReturns(internalRoutesResponse, nil)
 
-	instances, err := state.serviceDiscovery.InstancesByPort("process-guid-a.cfapps.io", 0, nil)
-	g.Expect(err).To(gomega.BeNil())
-
-	servicePort := &model.Port{
-		Port:     defaultServicePort,
-		Protocol: model.ProtocolHTTP,
-		Name:     "http",
-	}
-	service := &model.Service{
-		Hostname: "process-guid-a.cfapps.io",
-		Ports:    []*model.Port{servicePort},
-	}
-
-	g.Expect(instances).To(gomega.ConsistOf([]*model.ServiceInstance{
-		{
-			Endpoint: model.NetworkEndpoint{
-				Address:     "10.10.1.5",
-				Port:        61005,
-				ServicePort: servicePort,
-			},
-			Service: service,
-			Labels:  model.Labels{"cfapp": "some-guid-a"},
-		},
-	}))
-
-	instances, err = state.serviceDiscovery.InstancesByPort("something.apps.internal", 0, nil)
+	instances, err := state.serviceDiscovery.InstancesByPort("something.apps.internal", 0, nil)
 	g.Expect(err).To(gomega.BeNil())
 
 	g.Expect(instances).To(gomega.ConsistOf([]*model.ServiceInstance{
@@ -253,6 +244,42 @@ func TestServiceDiscovery_Instances_Filtering(t *testing.T) {
 					},
 				},
 			},
+		},
+	}))
+}
+
+func TestServiceDiscovery_Instances_Filtering_By_Label(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	state := newSDTestState()
+
+	state.mockClient.RoutesReturns(routesResponse, nil)
+	state.mockClient.InternalRoutesReturns(internalRoutesResponse, nil)
+
+	labelFilter := []model.Labels{
+		map[string]string{"cfapp": "some-guid-a"},
+	}
+	instances, err := state.serviceDiscovery.InstancesByPort("process-guid-a.cfapps.io", 0, labelFilter)
+	g.Expect(err).To(gomega.BeNil())
+
+	servicePort := &model.Port{
+		Port:     defaultServicePort,
+		Protocol: model.ProtocolHTTP,
+		Name:     "http",
+	}
+	service := &model.Service{
+		Hostname: "process-guid-a.cfapps.io",
+		Ports:    []*model.Port{servicePort},
+	}
+
+	g.Expect(instances).To(gomega.Equal([]*model.ServiceInstance{
+		{
+			Endpoint: model.NetworkEndpoint{
+				Address:     "10.10.1.5",
+				Port:        61005,
+				ServicePort: servicePort,
+			},
+			Service: service,
+			Labels:  model.Labels{"cfapp": "some-guid-a"},
 		},
 	}))
 }
