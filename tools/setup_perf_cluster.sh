@@ -1,4 +1,4 @@
-#! /bin/bash
+#!/bin/bash
 #
 # Sets up a cluster for perf testing - GCP/GKE
 #   tools/setup_perf_cluster.sh
