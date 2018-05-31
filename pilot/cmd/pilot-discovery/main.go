@@ -111,7 +111,7 @@ func init() {
 		defaultID = fmt.Sprintf("kubernetes://%s.%s", podName, podNamespace)
 	}
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ControllerOptions.InstanceID, "id", defaultID,
-		"Unique ID of the discovery service. If not provided uses k8s://${POD_NAME}.${POD_NAMESPACE}")
+		"Unique ID of the discovery service. If not provided uses kubernetes://${POD_NAME}.${POD_NAMESPACE}")
 
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Service.Consul.ServerURL, "consulserverURL", "",
 		"URL for the Consul server")
