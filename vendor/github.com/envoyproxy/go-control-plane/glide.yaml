@@ -18,10 +18,6 @@ import:
 - package: istio.io/gogo-genproto
 - package: github.com/gogo/googleapis
 - package: github.com/envoyproxy/data-plane-api
-<<<<<<< HEAD
   version: 1478f3332d17213199d3fb332419a48d5261f198
-=======
-  version: 9bb42d225436bd392a1929a8ef8feb494fc0e27c
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 - package: github.com/sirupsen/logrus
   version: ^1.0.4

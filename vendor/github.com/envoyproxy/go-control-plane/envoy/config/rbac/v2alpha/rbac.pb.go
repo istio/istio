@@ -10,12 +10,6 @@
 	It has these top-level messages:
 		RBAC
 		Policy
-<<<<<<< HEAD
-=======
-		MapEntryMatch
-		IpMatch
-		PortMatch
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 		Permission
 		Principal
 */
@@ -26,11 +20,7 @@ import fmt "fmt"
 import math "math"
 import _ "github.com/lyft/protoc-gen-validate/validate"
 import envoy_api_v2_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-<<<<<<< HEAD
 import envoy_api_v2_route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-=======
-import envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 
 import io "io"
 
@@ -45,11 +35,7 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
-<<<<<<< HEAD
 // Should we do white-list or black-list style access control?
-=======
-// Should we do white-list or black-list style access control.
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 type RBAC_Action int32
 
 const (
@@ -75,7 +61,6 @@ func (x RBAC_Action) String() string {
 }
 func (RBAC_Action) EnumDescriptor() ([]byte, []int) { return fileDescriptorRbac, []int{0, 0} }
 
-<<<<<<< HEAD
 // Role Based Access Control (RBAC) provides service-level and method-level access control for a
 // service. The RBAC engine authorizes a request by evaluating the request context (expressed in the
 // form of :ref: `AttributeContext <envoy_api_msg_service.auth.v2alpha.AttributeContext>`) against
@@ -94,26 +79,11 @@ func (RBAC_Action) EnumDescriptor() ([]byte, []int) { return fileDescriptorRbac,
 //   "v2".
 //
 //  .. code-block:: yaml
-=======
-// Role Based Access Control (RBAC) provides service-level and method-level access control for a service.
-// The RBAC engine authorizes a request by evaluating the request context (expressed in the form of
-// :ref: `AttributeContext <envoy_api_msg_service.auth.v2alpha.AttributeContext>`) against the RBAC policies.
-//
-// RBAC policies are additive. The policies are examined in order. A request is allowed once a matching policy
-// is found (suppose the `action` is ALLOW).
-//
-// Here is an example of RBAC configuration. It has two policies:
-// * Service account "cluster.local/ns/default/sa/admin" has full access (empty permission entry means full access)
-//   to the service.
-// * Any user (empty principal entry means any user) can read ("GET") the service at paths with prefix "/products" or
-//   suffix "/reviews" when request header "version" set to either "v1" or "v2".
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 //
 //   action: ALLOW
 //   policies:
 //     "service-admin":
 //       permissions:
-<<<<<<< HEAD
 //         - any: true
 //       principals:
 //         - authenticated: { name: "cluster.local/ns/default/sa/admin" }
@@ -138,26 +108,6 @@ type RBAC struct {
 	//   * `action` is "DENY" and none of the policies match
 	Action RBAC_Action `protobuf:"varint,1,opt,name=action,proto3,enum=envoy.config.rbac.v2alpha.RBAC_Action" json:"action,omitempty"`
 	// Maps from policy name to policy. A match occurs when at least one policy matches the request.
-=======
-//       -
-//       principals:
-//         authenticated:
-//           name: "cluster.local/ns/default/sa/admin"
-//     "product-viewer":
-//       permissions:
-//       - paths: [prefix: "/products", suffix: "/reviews"]
-//         methods: ["GET"]
-//         conditions:
-//         - header:
-//             key: "version"
-//             values: [simple: "v1", simple: "v2"]
-//       principals:
-//       -
-//
-type RBAC struct {
-	Action RBAC_Action `protobuf:"varint,1,opt,name=action,proto3,enum=envoy.config.rbac.v2alpha.RBAC_Action" json:"action,omitempty"`
-	// Maps from policy name to policy.
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	Policies map[string]*Policy `protobuf:"bytes,2,rep,name=policies" json:"policies,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
 }
 
@@ -180,7 +130,6 @@ func (m *RBAC) GetPolicies() map[string]*Policy {
 	return nil
 }
 
-<<<<<<< HEAD
 // Policy specifies a role and the principals that are assigned/denied the role. A policy matches if
 // and only if at least one of its permissions match the action taking place AND at least one of its
 // principals match the downstream.
@@ -192,13 +141,6 @@ type Policy struct {
 	// Required. The set of principals that are assigned/denied the role based on “action”. Each
 	// principal is matched with OR semantics. To match all downstreams for this policy, a single
 	// Principal with the `any` field set to true should be used.
-=======
-// Policy specifies a role and the principals that are assigned/denied the role.
-type Policy struct {
-	// Required. The set of permissions that define a role.
-	Permissions []*Permission `protobuf:"bytes,1,rep,name=permissions" json:"permissions,omitempty"`
-	// Required. List of principals that are assigned/denied the role based on “action”.
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	Principals []*Principal `protobuf:"bytes,2,rep,name=principals" json:"principals,omitempty"`
 }
 
@@ -221,7 +163,6 @@ func (m *Policy) GetPrincipals() []*Principal {
 	return nil
 }
 
-<<<<<<< HEAD
 // Permission defines an action (or actions) that a principal can take.
 type Permission struct {
 	// Types that are valid to be assigned to Rule:
@@ -274,124 +215,24 @@ func (*Permission_DestinationPort) isPermission_Rule() {}
 func (m *Permission) GetRule() isPermission_Rule {
 	if m != nil {
 		return m.Rule
-=======
-// Specifies how to match an entry in a map.
-type MapEntryMatch struct {
-	// The key to select an entry from the map.
-	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	// A list of matched values.
-	Values []*envoy_type.StringMatch `protobuf:"bytes,2,rep,name=values" json:"values,omitempty"`
-}
-
-func (m *MapEntryMatch) Reset()                    { *m = MapEntryMatch{} }
-func (m *MapEntryMatch) String() string            { return proto.CompactTextString(m) }
-func (*MapEntryMatch) ProtoMessage()               {}
-func (*MapEntryMatch) Descriptor() ([]byte, []int) { return fileDescriptorRbac, []int{2} }
-
-func (m *MapEntryMatch) GetKey() string {
-	if m != nil {
-		return m.Key
-	}
-	return ""
-}
-
-func (m *MapEntryMatch) GetValues() []*envoy_type.StringMatch {
-	if m != nil {
-		return m.Values
 	}
 	return nil
 }
 
-// Specifies how to match IP addresses.
-type IpMatch struct {
-	// IP addresses in CIDR notation.
-	Cidrs []*envoy_api_v2_core.CidrRange `protobuf:"bytes,1,rep,name=cidrs" json:"cidrs,omitempty"`
-}
-
-func (m *IpMatch) Reset()                    { *m = IpMatch{} }
-func (m *IpMatch) String() string            { return proto.CompactTextString(m) }
-func (*IpMatch) ProtoMessage()               {}
-func (*IpMatch) Descriptor() ([]byte, []int) { return fileDescriptorRbac, []int{3} }
-
-func (m *IpMatch) GetCidrs() []*envoy_api_v2_core.CidrRange {
-	if m != nil {
-		return m.Cidrs
-	}
-	return nil
-}
-
-// Specifies how to match ports.
-type PortMatch struct {
-	// Port numbers.
-	Ports []uint32 `protobuf:"varint,1,rep,packed,name=ports" json:"ports,omitempty"`
-}
-
-func (m *PortMatch) Reset()                    { *m = PortMatch{} }
-func (m *PortMatch) String() string            { return proto.CompactTextString(m) }
-func (*PortMatch) ProtoMessage()               {}
-func (*PortMatch) Descriptor() ([]byte, []int) { return fileDescriptorRbac, []int{4} }
-
-func (m *PortMatch) GetPorts() []uint32 {
-	if m != nil {
-		return m.Ports
-	}
-	return nil
-}
-
-// Permission defines a permission to access the service.
-type Permission struct {
-	// Optional. A list of HTTP paths or gRPC methods.
-	// gRPC methods must be presented as fully-qualified name in the form of
-	// packageName.serviceName/methodName.
-	// If this field is unset, it applies to any path.
-	Paths []*envoy_type.StringMatch `protobuf:"bytes,1,rep,name=paths" json:"paths,omitempty"`
-	// Required. A list of HTTP methods (e.g., "GET", "POST").
-	// If this field is unset, it applies to any method.
-	Methods []string `protobuf:"bytes,2,rep,name=methods" json:"methods,omitempty"`
-	// Optional. Custom conditions.
-	Conditions []*Permission_Condition `protobuf:"bytes,3,rep,name=conditions" json:"conditions,omitempty"`
-}
-
-func (m *Permission) Reset()                    { *m = Permission{} }
-func (m *Permission) String() string            { return proto.CompactTextString(m) }
-func (*Permission) ProtoMessage()               {}
-func (*Permission) Descriptor() ([]byte, []int) { return fileDescriptorRbac, []int{5} }
-
-func (m *Permission) GetPaths() []*envoy_type.StringMatch {
-	if m != nil {
-		return m.Paths
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
-	}
-	return nil
-}
-
-<<<<<<< HEAD
 func (m *Permission) GetAndRules() *Permission_Set {
 	if x, ok := m.GetRule().(*Permission_AndRules); ok {
 		return x.AndRules
-=======
-func (m *Permission) GetMethods() []string {
-	if m != nil {
-		return m.Methods
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	}
 	return nil
 }
 
-<<<<<<< HEAD
 func (m *Permission) GetOrRules() *Permission_Set {
 	if x, ok := m.GetRule().(*Permission_OrRules); ok {
 		return x.OrRules
-=======
-func (m *Permission) GetConditions() []*Permission_Condition {
-	if m != nil {
-		return m.Conditions
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	}
 	return nil
 }
 
-<<<<<<< HEAD
 func (m *Permission) GetAny() bool {
 	if x, ok := m.GetRule().(*Permission_Any); ok {
 		return x.Any
@@ -401,70 +242,18 @@ func (m *Permission) GetAny() bool {
 
 func (m *Permission) GetHeader() *envoy_api_v2_route.HeaderMatcher {
 	if x, ok := m.GetRule().(*Permission_Header); ok {
-=======
-// Definition of a custom condition.
-type Permission_Condition struct {
-	// Types that are valid to be assigned to ConditionSpec:
-	//	*Permission_Condition_Header
-	//	*Permission_Condition_DestinationIps
-	//	*Permission_Condition_DestinationPorts
-	ConditionSpec isPermission_Condition_ConditionSpec `protobuf_oneof:"condition_spec"`
-}
-
-func (m *Permission_Condition) Reset()                    { *m = Permission_Condition{} }
-func (m *Permission_Condition) String() string            { return proto.CompactTextString(m) }
-func (*Permission_Condition) ProtoMessage()               {}
-func (*Permission_Condition) Descriptor() ([]byte, []int) { return fileDescriptorRbac, []int{5, 0} }
-
-type isPermission_Condition_ConditionSpec interface {
-	isPermission_Condition_ConditionSpec()
-	MarshalTo([]byte) (int, error)
-	Size() int
-}
-
-type Permission_Condition_Header struct {
-	Header *MapEntryMatch `protobuf:"bytes,1,opt,name=header,oneof"`
-}
-type Permission_Condition_DestinationIps struct {
-	DestinationIps *IpMatch `protobuf:"bytes,2,opt,name=destination_ips,json=destinationIps,oneof"`
-}
-type Permission_Condition_DestinationPorts struct {
-	DestinationPorts *PortMatch `protobuf:"bytes,3,opt,name=destination_ports,json=destinationPorts,oneof"`
-}
-
-func (*Permission_Condition_Header) isPermission_Condition_ConditionSpec()           {}
-func (*Permission_Condition_DestinationIps) isPermission_Condition_ConditionSpec()   {}
-func (*Permission_Condition_DestinationPorts) isPermission_Condition_ConditionSpec() {}
-
-func (m *Permission_Condition) GetConditionSpec() isPermission_Condition_ConditionSpec {
-	if m != nil {
-		return m.ConditionSpec
-	}
-	return nil
-}
-
-func (m *Permission_Condition) GetHeader() *MapEntryMatch {
-	if x, ok := m.GetConditionSpec().(*Permission_Condition_Header); ok {
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 		return x.Header
 	}
 	return nil
 }
 
-<<<<<<< HEAD
 func (m *Permission) GetDestinationIp() *envoy_api_v2_core.CidrRange {
 	if x, ok := m.GetRule().(*Permission_DestinationIp); ok {
 		return x.DestinationIp
-=======
-func (m *Permission_Condition) GetDestinationIps() *IpMatch {
-	if x, ok := m.GetConditionSpec().(*Permission_Condition_DestinationIps); ok {
-		return x.DestinationIps
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	}
 	return nil
 }
 
-<<<<<<< HEAD
 func (m *Permission) GetDestinationPort() uint32 {
 	if x, ok := m.GetRule().(*Permission_DestinationPort); ok {
 		return x.DestinationPort
@@ -521,51 +310,10 @@ func _Permission_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
 	case nil:
 	default:
 		return fmt.Errorf("Permission.Rule has unexpected type %T", x)
-=======
-func (m *Permission_Condition) GetDestinationPorts() *PortMatch {
-	if x, ok := m.GetConditionSpec().(*Permission_Condition_DestinationPorts); ok {
-		return x.DestinationPorts
 	}
 	return nil
 }
 
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*Permission_Condition) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _Permission_Condition_OneofMarshaler, _Permission_Condition_OneofUnmarshaler, _Permission_Condition_OneofSizer, []interface{}{
-		(*Permission_Condition_Header)(nil),
-		(*Permission_Condition_DestinationIps)(nil),
-		(*Permission_Condition_DestinationPorts)(nil),
-	}
-}
-
-func _Permission_Condition_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*Permission_Condition)
-	// condition_spec
-	switch x := m.ConditionSpec.(type) {
-	case *Permission_Condition_Header:
-		_ = b.EncodeVarint(1<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Header); err != nil {
-			return err
-		}
-	case *Permission_Condition_DestinationIps:
-		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.DestinationIps); err != nil {
-			return err
-		}
-	case *Permission_Condition_DestinationPorts:
-		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.DestinationPorts); err != nil {
-			return err
-		}
-	case nil:
-	default:
-		return fmt.Errorf("Permission_Condition.ConditionSpec has unexpected type %T", x)
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
-	}
-	return nil
-}
-
-<<<<<<< HEAD
 func _Permission_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
 	m := msg.(*Permission)
 	switch tag {
@@ -614,41 +362,12 @@ func _Permission_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buf
 		}
 		x, err := b.DecodeVarint()
 		m.Rule = &Permission_DestinationPort{uint32(x)}
-=======
-func _Permission_Condition_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*Permission_Condition)
-	switch tag {
-	case 1: // condition_spec.header
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(MapEntryMatch)
-		err := b.DecodeMessage(msg)
-		m.ConditionSpec = &Permission_Condition_Header{msg}
-		return true, err
-	case 2: // condition_spec.destination_ips
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(IpMatch)
-		err := b.DecodeMessage(msg)
-		m.ConditionSpec = &Permission_Condition_DestinationIps{msg}
-		return true, err
-	case 3: // condition_spec.destination_ports
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(PortMatch)
-		err := b.DecodeMessage(msg)
-		m.ConditionSpec = &Permission_Condition_DestinationPorts{msg}
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 		return true, err
 	default:
 		return false, nil
 	}
 }
 
-<<<<<<< HEAD
 func _Permission_OneofSizer(msg proto.Message) (n int) {
 	m := msg.(*Permission)
 	// rule
@@ -679,27 +398,6 @@ func _Permission_OneofSizer(msg proto.Message) (n int) {
 	case *Permission_DestinationPort:
 		n += proto.SizeVarint(6<<3 | proto.WireVarint)
 		n += proto.SizeVarint(uint64(x.DestinationPort))
-=======
-func _Permission_Condition_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*Permission_Condition)
-	// condition_spec
-	switch x := m.ConditionSpec.(type) {
-	case *Permission_Condition_Header:
-		s := proto.Size(x.Header)
-		n += proto.SizeVarint(1<<3 | proto.WireBytes)
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *Permission_Condition_DestinationIps:
-		s := proto.Size(x.DestinationIps)
-		n += proto.SizeVarint(2<<3 | proto.WireBytes)
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *Permission_Condition_DestinationPorts:
-		s := proto.Size(x.DestinationPorts)
-		n += proto.SizeVarint(3<<3 | proto.WireBytes)
-		n += proto.SizeVarint(uint64(s))
-		n += s
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	case nil:
 	default:
 		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
@@ -707,7 +405,6 @@ func _Permission_Condition_OneofSizer(msg proto.Message) (n int) {
 	return n
 }
 
-<<<<<<< HEAD
 // Used in the `and_rules` and `or_rules` fields in the `rule` oneof. Depending on the context,
 // each are applied with the associated behavior.
 type Permission_Set struct {
@@ -722,29 +419,10 @@ func (*Permission_Set) Descriptor() ([]byte, []int) { return fileDescriptorRbac,
 func (m *Permission_Set) GetRules() []*Permission {
 	if m != nil {
 		return m.Rules
-=======
-// Principal defines an identity or a group of identities.
-type Principal struct {
-	// Optional. Authenticated attributes that identify the principal.
-	Authenticated *Principal_Authenticated `protobuf:"bytes,1,opt,name=authenticated" json:"authenticated,omitempty"`
-	// Optional. Custom attributes that identify the principal.
-	Attributes []*Principal_Attribute `protobuf:"bytes,2,rep,name=attributes" json:"attributes,omitempty"`
-}
-
-func (m *Principal) Reset()                    { *m = Principal{} }
-func (m *Principal) String() string            { return proto.CompactTextString(m) }
-func (*Principal) ProtoMessage()               {}
-func (*Principal) Descriptor() ([]byte, []int) { return fileDescriptorRbac, []int{6} }
-
-func (m *Principal) GetAuthenticated() *Principal_Authenticated {
-	if m != nil {
-		return m.Authenticated
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	}
 	return nil
 }
 
-<<<<<<< HEAD
 // Principal defines an identity or a group of identities for a downstream subject.
 type Principal struct {
 	// Types that are valid to be assigned to Identifier:
@@ -797,78 +475,10 @@ func (*Principal_Header) isPrincipal_Identifier()         {}
 func (m *Principal) GetIdentifier() isPrincipal_Identifier {
 	if m != nil {
 		return m.Identifier
-=======
-func (m *Principal) GetAttributes() []*Principal_Attribute {
-	if m != nil {
-		return m.Attributes
 	}
 	return nil
 }
 
-// Authentication attributes for principal. These could be filled out inside RBAC filter.
-// Or if an authentication filter is used, they can be provided by the authentication filter.
-type Principal_Authenticated struct {
-	// Optional. The name of the principal. This matches to the "source.principal" field in
-	// ":ref: `AttributeContext <envoy_api_msg_service.auth.v2alpha.AttributeContext>`.
-	// If unset, it applies to any user.
-	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-}
-
-func (m *Principal_Authenticated) Reset()                    { *m = Principal_Authenticated{} }
-func (m *Principal_Authenticated) String() string            { return proto.CompactTextString(m) }
-func (*Principal_Authenticated) ProtoMessage()               {}
-func (*Principal_Authenticated) Descriptor() ([]byte, []int) { return fileDescriptorRbac, []int{6, 0} }
-
-func (m *Principal_Authenticated) GetName() string {
-	if m != nil {
-		return m.Name
-	}
-	return ""
-}
-
-// Definition of a custom attribute to identify the principal.
-type Principal_Attribute struct {
-	// Types that are valid to be assigned to AttributeSpec:
-	//	*Principal_Attribute_Service
-	//	*Principal_Attribute_SourceIps
-	//	*Principal_Attribute_Header
-	AttributeSpec isPrincipal_Attribute_AttributeSpec `protobuf_oneof:"attribute_spec"`
-}
-
-func (m *Principal_Attribute) Reset()                    { *m = Principal_Attribute{} }
-func (m *Principal_Attribute) String() string            { return proto.CompactTextString(m) }
-func (*Principal_Attribute) ProtoMessage()               {}
-func (*Principal_Attribute) Descriptor() ([]byte, []int) { return fileDescriptorRbac, []int{6, 1} }
-
-type isPrincipal_Attribute_AttributeSpec interface {
-	isPrincipal_Attribute_AttributeSpec()
-	MarshalTo([]byte) (int, error)
-	Size() int
-}
-
-type Principal_Attribute_Service struct {
-	Service string `protobuf:"bytes,1,opt,name=service,proto3,oneof"`
-}
-type Principal_Attribute_SourceIps struct {
-	SourceIps *IpMatch `protobuf:"bytes,2,opt,name=source_ips,json=sourceIps,oneof"`
-}
-type Principal_Attribute_Header struct {
-	Header *MapEntryMatch `protobuf:"bytes,3,opt,name=header,oneof"`
-}
-
-func (*Principal_Attribute_Service) isPrincipal_Attribute_AttributeSpec()   {}
-func (*Principal_Attribute_SourceIps) isPrincipal_Attribute_AttributeSpec() {}
-func (*Principal_Attribute_Header) isPrincipal_Attribute_AttributeSpec()    {}
-
-func (m *Principal_Attribute) GetAttributeSpec() isPrincipal_Attribute_AttributeSpec {
-	if m != nil {
-		return m.AttributeSpec
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
-	}
-	return nil
-}
-
-<<<<<<< HEAD
 func (m *Principal) GetAndIds() *Principal_Set {
 	if x, ok := m.GetIdentifier().(*Principal_AndIds); ok {
 		return x.AndIds
@@ -893,36 +503,17 @@ func (m *Principal) GetAny() bool {
 func (m *Principal) GetAuthenticated() *Principal_Authenticated {
 	if x, ok := m.GetIdentifier().(*Principal_Authenticated_); ok {
 		return x.Authenticated
-=======
-func (m *Principal_Attribute) GetService() string {
-	if x, ok := m.GetAttributeSpec().(*Principal_Attribute_Service); ok {
-		return x.Service
-	}
-	return ""
-}
-
-func (m *Principal_Attribute) GetSourceIps() *IpMatch {
-	if x, ok := m.GetAttributeSpec().(*Principal_Attribute_SourceIps); ok {
-		return x.SourceIps
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	}
 	return nil
 }
 
-<<<<<<< HEAD
 func (m *Principal) GetSourceIp() *envoy_api_v2_core.CidrRange {
 	if x, ok := m.GetIdentifier().(*Principal_SourceIp); ok {
 		return x.SourceIp
-=======
-func (m *Principal_Attribute) GetHeader() *MapEntryMatch {
-	if x, ok := m.GetAttributeSpec().(*Principal_Attribute_Header); ok {
-		return x.Header
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	}
 	return nil
 }
 
-<<<<<<< HEAD
 func (m *Principal) GetHeader() *envoy_api_v2_route.HeaderMatcher {
 	if x, ok := m.GetIdentifier().(*Principal_Header); ok {
 		return x.Header
@@ -975,46 +566,16 @@ func _Principal_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
 		}
 	case *Principal_Header:
 		_ = b.EncodeVarint(6<<3 | proto.WireBytes)
-=======
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*Principal_Attribute) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _Principal_Attribute_OneofMarshaler, _Principal_Attribute_OneofUnmarshaler, _Principal_Attribute_OneofSizer, []interface{}{
-		(*Principal_Attribute_Service)(nil),
-		(*Principal_Attribute_SourceIps)(nil),
-		(*Principal_Attribute_Header)(nil),
-	}
-}
-
-func _Principal_Attribute_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*Principal_Attribute)
-	// attribute_spec
-	switch x := m.AttributeSpec.(type) {
-	case *Principal_Attribute_Service:
-		_ = b.EncodeVarint(1<<3 | proto.WireBytes)
-		_ = b.EncodeStringBytes(x.Service)
-	case *Principal_Attribute_SourceIps:
-		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.SourceIps); err != nil {
-			return err
-		}
-	case *Principal_Attribute_Header:
-		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 		if err := b.EncodeMessage(x.Header); err != nil {
 			return err
 		}
 	case nil:
 	default:
-<<<<<<< HEAD
 		return fmt.Errorf("Principal.Identifier has unexpected type %T", x)
-=======
-		return fmt.Errorf("Principal_Attribute.AttributeSpec has unexpected type %T", x)
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	}
 	return nil
 }
 
-<<<<<<< HEAD
 func _Principal_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
 	m := msg.(*Principal)
 	switch tag {
@@ -1064,40 +625,12 @@ func _Principal_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buff
 		msg := new(envoy_api_v2_route.HeaderMatcher)
 		err := b.DecodeMessage(msg)
 		m.Identifier = &Principal_Header{msg}
-=======
-func _Principal_Attribute_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*Principal_Attribute)
-	switch tag {
-	case 1: // attribute_spec.service
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		x, err := b.DecodeStringBytes()
-		m.AttributeSpec = &Principal_Attribute_Service{x}
-		return true, err
-	case 2: // attribute_spec.source_ips
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(IpMatch)
-		err := b.DecodeMessage(msg)
-		m.AttributeSpec = &Principal_Attribute_SourceIps{msg}
-		return true, err
-	case 3: // attribute_spec.header
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(MapEntryMatch)
-		err := b.DecodeMessage(msg)
-		m.AttributeSpec = &Principal_Attribute_Header{msg}
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 		return true, err
 	default:
 		return false, nil
 	}
 }
 
-<<<<<<< HEAD
 func _Principal_OneofSizer(msg proto.Message) (n int) {
 	m := msg.(*Principal)
 	// identifier
@@ -1128,24 +661,6 @@ func _Principal_OneofSizer(msg proto.Message) (n int) {
 	case *Principal_Header:
 		s := proto.Size(x.Header)
 		n += proto.SizeVarint(6<<3 | proto.WireBytes)
-=======
-func _Principal_Attribute_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*Principal_Attribute)
-	// attribute_spec
-	switch x := m.AttributeSpec.(type) {
-	case *Principal_Attribute_Service:
-		n += proto.SizeVarint(1<<3 | proto.WireBytes)
-		n += proto.SizeVarint(uint64(len(x.Service)))
-		n += len(x.Service)
-	case *Principal_Attribute_SourceIps:
-		s := proto.Size(x.SourceIps)
-		n += proto.SizeVarint(2<<3 | proto.WireBytes)
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *Principal_Attribute_Header:
-		s := proto.Size(x.Header)
-		n += proto.SizeVarint(3<<3 | proto.WireBytes)
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 		n += proto.SizeVarint(uint64(s))
 		n += s
 	case nil:
@@ -1155,7 +670,6 @@ func _Principal_Attribute_OneofSizer(msg proto.Message) (n int) {
 	return n
 }
 
-<<<<<<< HEAD
 // Used in the `and_ids` and `or_ids` fields in the `identifier` oneof. Depending on the context,
 // each are applied with the associated behavior.
 type Principal_Set struct {
@@ -1201,19 +715,6 @@ func init() {
 	proto.RegisterType((*Principal)(nil), "envoy.config.rbac.v2alpha.Principal")
 	proto.RegisterType((*Principal_Set)(nil), "envoy.config.rbac.v2alpha.Principal.Set")
 	proto.RegisterType((*Principal_Authenticated)(nil), "envoy.config.rbac.v2alpha.Principal.Authenticated")
-=======
-func init() {
-	proto.RegisterType((*RBAC)(nil), "envoy.config.rbac.v2alpha.RBAC")
-	proto.RegisterType((*Policy)(nil), "envoy.config.rbac.v2alpha.Policy")
-	proto.RegisterType((*MapEntryMatch)(nil), "envoy.config.rbac.v2alpha.MapEntryMatch")
-	proto.RegisterType((*IpMatch)(nil), "envoy.config.rbac.v2alpha.IpMatch")
-	proto.RegisterType((*PortMatch)(nil), "envoy.config.rbac.v2alpha.PortMatch")
-	proto.RegisterType((*Permission)(nil), "envoy.config.rbac.v2alpha.Permission")
-	proto.RegisterType((*Permission_Condition)(nil), "envoy.config.rbac.v2alpha.Permission.Condition")
-	proto.RegisterType((*Principal)(nil), "envoy.config.rbac.v2alpha.Principal")
-	proto.RegisterType((*Principal_Authenticated)(nil), "envoy.config.rbac.v2alpha.Principal.Authenticated")
-	proto.RegisterType((*Principal_Attribute)(nil), "envoy.config.rbac.v2alpha.Principal.Attribute")
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	proto.RegisterEnum("envoy.config.rbac.v2alpha.RBAC_Action", RBAC_Action_name, RBAC_Action_value)
 }
 func (m *RBAC) Marshal() (dAtA []byte, err error) {
@@ -1309,11 +810,7 @@ func (m *Policy) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
-<<<<<<< HEAD
 func (m *Permission) Marshal() (dAtA []byte, err error) {
-=======
-func (m *MapEntryMatch) Marshal() (dAtA []byte, err error) {
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalTo(dAtA)
@@ -1323,46 +820,21 @@ func (m *MapEntryMatch) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-<<<<<<< HEAD
 func (m *Permission) MarshalTo(dAtA []byte) (int, error) {
-=======
-func (m *MapEntryMatch) MarshalTo(dAtA []byte) (int, error) {
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	var i int
 	_ = i
 	var l int
 	_ = l
-<<<<<<< HEAD
 	if m.Rule != nil {
 		nn2, err := m.Rule.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
 		i += nn2
-=======
-	if len(m.Key) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintRbac(dAtA, i, uint64(len(m.Key)))
-		i += copy(dAtA[i:], m.Key)
-	}
-	if len(m.Values) > 0 {
-		for _, msg := range m.Values {
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintRbac(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	}
 	return i, nil
 }
 
-<<<<<<< HEAD
 func (m *Permission_AndRules) MarshalTo(dAtA []byte) (int, error) {
 	i := 0
 	if m.AndRules != nil {
@@ -1439,8 +911,6 @@ func (m *Permission_DestinationPort) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 func (m *Permission_Set) Marshal() (dAtA []byte, err error) {
-=======
-func (m *IpMatch) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalTo(dAtA)
@@ -1450,88 +920,13 @@ func (m *IpMatch) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *IpMatch) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if len(m.Cidrs) > 0 {
-		for _, msg := range m.Cidrs {
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintRbac(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	return i, nil
-}
-
-func (m *PortMatch) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *PortMatch) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if len(m.Ports) > 0 {
-		dAtA3 := make([]byte, len(m.Ports)*10)
-		var j2 int
-		for _, num := range m.Ports {
-			for num >= 1<<7 {
-				dAtA3[j2] = uint8(uint64(num)&0x7f | 0x80)
-				num >>= 7
-				j2++
-			}
-			dAtA3[j2] = uint8(num)
-			j2++
-		}
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintRbac(dAtA, i, uint64(j2))
-		i += copy(dAtA[i:], dAtA3[:j2])
-	}
-	return i, nil
-}
-
-func (m *Permission) Marshal() (dAtA []byte, err error) {
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-<<<<<<< HEAD
 func (m *Permission_Set) MarshalTo(dAtA []byte) (int, error) {
-=======
-func (m *Permission) MarshalTo(dAtA []byte) (int, error) {
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	var i int
 	_ = i
 	var l int
 	_ = l
-<<<<<<< HEAD
 	if len(m.Rules) > 0 {
 		for _, msg := range m.Rules {
-=======
-	if len(m.Paths) > 0 {
-		for _, msg := range m.Paths {
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 			dAtA[i] = 0xa
 			i++
 			i = encodeVarintRbac(dAtA, i, uint64(msg.Size()))
@@ -1542,44 +937,10 @@ func (m *Permission) MarshalTo(dAtA []byte) (int, error) {
 			i += n
 		}
 	}
-<<<<<<< HEAD
 	return i, nil
 }
 
 func (m *Principal) Marshal() (dAtA []byte, err error) {
-=======
-	if len(m.Methods) > 0 {
-		for _, s := range m.Methods {
-			dAtA[i] = 0x12
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
-		}
-	}
-	if len(m.Conditions) > 0 {
-		for _, msg := range m.Conditions {
-			dAtA[i] = 0x1a
-			i++
-			i = encodeVarintRbac(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	return i, nil
-}
-
-func (m *Permission_Condition) Marshal() (dAtA []byte, err error) {
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalTo(dAtA)
@@ -1589,35 +950,21 @@ func (m *Permission_Condition) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-<<<<<<< HEAD
 func (m *Principal) MarshalTo(dAtA []byte) (int, error) {
-=======
-func (m *Permission_Condition) MarshalTo(dAtA []byte) (int, error) {
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	var i int
 	_ = i
 	var l int
 	_ = l
-<<<<<<< HEAD
 	if m.Identifier != nil {
 		nn7, err := m.Identifier.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
 		i += nn7
-=======
-	if m.ConditionSpec != nil {
-		nn4, err := m.ConditionSpec.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += nn4
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	}
 	return i, nil
 }
 
-<<<<<<< HEAD
 func (m *Principal_AndIds) MarshalTo(dAtA []byte) (int, error) {
 	i := 0
 	if m.AndIds != nil {
@@ -1701,51 +1048,6 @@ func (m *Principal_Header) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 func (m *Principal_Set) Marshal() (dAtA []byte, err error) {
-=======
-func (m *Permission_Condition_Header) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
-	if m.Header != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintRbac(dAtA, i, uint64(m.Header.Size()))
-		n5, err := m.Header.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n5
-	}
-	return i, nil
-}
-func (m *Permission_Condition_DestinationIps) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
-	if m.DestinationIps != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintRbac(dAtA, i, uint64(m.DestinationIps.Size()))
-		n6, err := m.DestinationIps.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n6
-	}
-	return i, nil
-}
-func (m *Permission_Condition_DestinationPorts) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
-	if m.DestinationPorts != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintRbac(dAtA, i, uint64(m.DestinationPorts.Size()))
-		n7, err := m.DestinationPorts.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n7
-	}
-	return i, nil
-}
-func (m *Principal) Marshal() (dAtA []byte, err error) {
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalTo(dAtA)
@@ -1755,34 +1057,14 @@ func (m *Principal) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-<<<<<<< HEAD
 func (m *Principal_Set) MarshalTo(dAtA []byte) (int, error) {
-=======
-func (m *Principal) MarshalTo(dAtA []byte) (int, error) {
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	var i int
 	_ = i
 	var l int
 	_ = l
-<<<<<<< HEAD
 	if len(m.Ids) > 0 {
 		for _, msg := range m.Ids {
 			dAtA[i] = 0xa
-=======
-	if m.Authenticated != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintRbac(dAtA, i, uint64(m.Authenticated.Size()))
-		n8, err := m.Authenticated.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n8
-	}
-	if len(m.Attributes) > 0 {
-		for _, msg := range m.Attributes {
-			dAtA[i] = 0x12
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 			i++
 			i = encodeVarintRbac(dAtA, i, uint64(msg.Size()))
 			n, err := msg.MarshalTo(dAtA[i:])
@@ -1802,7 +1084,6 @@ func (m *Principal_Authenticated) Marshal() (dAtA []byte, err error) {
 	if err != nil {
 		return nil, err
 	}
-<<<<<<< HEAD
 	return dAtA[:n], nil
 }
 
@@ -1820,86 +1101,6 @@ func (m *Principal_Authenticated) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
-=======
-	return dAtA[:n], nil
-}
-
-func (m *Principal_Authenticated) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintRbac(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
-	}
-	return i, nil
-}
-
-func (m *Principal_Attribute) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *Principal_Attribute) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if m.AttributeSpec != nil {
-		nn9, err := m.AttributeSpec.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += nn9
-	}
-	return i, nil
-}
-
-func (m *Principal_Attribute_Service) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
-	dAtA[i] = 0xa
-	i++
-	i = encodeVarintRbac(dAtA, i, uint64(len(m.Service)))
-	i += copy(dAtA[i:], m.Service)
-	return i, nil
-}
-func (m *Principal_Attribute_SourceIps) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
-	if m.SourceIps != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintRbac(dAtA, i, uint64(m.SourceIps.Size()))
-		n10, err := m.SourceIps.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n10
-	}
-	return i, nil
-}
-func (m *Principal_Attribute_Header) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
-	if m.Header != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintRbac(dAtA, i, uint64(m.Header.Size()))
-		n11, err := m.Header.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n11
-	}
-	return i, nil
-}
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 func encodeVarintRbac(dAtA []byte, offset int, v uint64) int {
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
@@ -1949,31 +1150,15 @@ func (m *Policy) Size() (n int) {
 	return n
 }
 
-<<<<<<< HEAD
 func (m *Permission) Size() (n int) {
 	var l int
 	_ = l
 	if m.Rule != nil {
 		n += m.Rule.Size()
-=======
-func (m *MapEntryMatch) Size() (n int) {
-	var l int
-	_ = l
-	l = len(m.Key)
-	if l > 0 {
-		n += 1 + l + sovRbac(uint64(l))
-	}
-	if len(m.Values) > 0 {
-		for _, e := range m.Values {
-			l = e.Size()
-			n += 1 + l + sovRbac(uint64(l))
-		}
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	}
 	return n
 }
 
-<<<<<<< HEAD
 func (m *Permission_AndRules) Size() (n int) {
 	var l int
 	_ = l
@@ -2027,12 +1212,6 @@ func (m *Permission_Set) Size() (n int) {
 	_ = l
 	if len(m.Rules) > 0 {
 		for _, e := range m.Rules {
-=======
-func (m *IpMatch) Size() (n int) {
-	var l int
-	_ = l
-	if len(m.Cidrs) > 0 {
-		for _, e := range m.Cidrs {
 			l = e.Size()
 			n += 1 + l + sovRbac(uint64(l))
 		}
@@ -2040,96 +1219,33 @@ func (m *IpMatch) Size() (n int) {
 	return n
 }
 
-func (m *PortMatch) Size() (n int) {
-	var l int
-	_ = l
-	if len(m.Ports) > 0 {
-		l = 0
-		for _, e := range m.Ports {
-			l += sovRbac(uint64(e))
-		}
-		n += 1 + sovRbac(uint64(l)) + l
-	}
-	return n
-}
-
-func (m *Permission) Size() (n int) {
-	var l int
-	_ = l
-	if len(m.Paths) > 0 {
-		for _, e := range m.Paths {
-			l = e.Size()
-			n += 1 + l + sovRbac(uint64(l))
-		}
-	}
-	if len(m.Methods) > 0 {
-		for _, s := range m.Methods {
-			l = len(s)
-			n += 1 + l + sovRbac(uint64(l))
-		}
-	}
-	if len(m.Conditions) > 0 {
-		for _, e := range m.Conditions {
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
-			l = e.Size()
-			n += 1 + l + sovRbac(uint64(l))
-		}
-	}
-	return n
-}
-
-<<<<<<< HEAD
 func (m *Principal) Size() (n int) {
 	var l int
 	_ = l
 	if m.Identifier != nil {
 		n += m.Identifier.Size()
-=======
-func (m *Permission_Condition) Size() (n int) {
-	var l int
-	_ = l
-	if m.ConditionSpec != nil {
-		n += m.ConditionSpec.Size()
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	}
 	return n
 }
 
-<<<<<<< HEAD
 func (m *Principal_AndIds) Size() (n int) {
 	var l int
 	_ = l
 	if m.AndIds != nil {
 		l = m.AndIds.Size()
-=======
-func (m *Permission_Condition_Header) Size() (n int) {
-	var l int
-	_ = l
-	if m.Header != nil {
-		l = m.Header.Size()
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 		n += 1 + l + sovRbac(uint64(l))
 	}
 	return n
 }
-<<<<<<< HEAD
 func (m *Principal_OrIds) Size() (n int) {
 	var l int
 	_ = l
 	if m.OrIds != nil {
 		l = m.OrIds.Size()
-=======
-func (m *Permission_Condition_DestinationIps) Size() (n int) {
-	var l int
-	_ = l
-	if m.DestinationIps != nil {
-		l = m.DestinationIps.Size()
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 		n += 1 + l + sovRbac(uint64(l))
 	}
 	return n
 }
-<<<<<<< HEAD
 func (m *Principal_Any) Size() (n int) {
 	var l int
 	_ = l
@@ -2137,25 +1253,12 @@ func (m *Principal_Any) Size() (n int) {
 	return n
 }
 func (m *Principal_Authenticated_) Size() (n int) {
-=======
-func (m *Permission_Condition_DestinationPorts) Size() (n int) {
-	var l int
-	_ = l
-	if m.DestinationPorts != nil {
-		l = m.DestinationPorts.Size()
-		n += 1 + l + sovRbac(uint64(l))
-	}
-	return n
-}
-func (m *Principal) Size() (n int) {
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	var l int
 	_ = l
 	if m.Authenticated != nil {
 		l = m.Authenticated.Size()
 		n += 1 + l + sovRbac(uint64(l))
 	}
-<<<<<<< HEAD
 	return n
 }
 func (m *Principal_SourceIp) Size() (n int) {
@@ -2163,27 +1266,10 @@ func (m *Principal_SourceIp) Size() (n int) {
 	_ = l
 	if m.SourceIp != nil {
 		l = m.SourceIp.Size()
-=======
-	if len(m.Attributes) > 0 {
-		for _, e := range m.Attributes {
-			l = e.Size()
-			n += 1 + l + sovRbac(uint64(l))
-		}
-	}
-	return n
-}
-
-func (m *Principal_Authenticated) Size() (n int) {
-	var l int
-	_ = l
-	l = len(m.Name)
-	if l > 0 {
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 		n += 1 + l + sovRbac(uint64(l))
 	}
 	return n
 }
-<<<<<<< HEAD
 func (m *Principal_Header) Size() (n int) {
 	var l int
 	_ = l
@@ -2210,39 +1296,6 @@ func (m *Principal_Authenticated) Size() (n int) {
 	_ = l
 	l = len(m.Name)
 	if l > 0 {
-=======
-
-func (m *Principal_Attribute) Size() (n int) {
-	var l int
-	_ = l
-	if m.AttributeSpec != nil {
-		n += m.AttributeSpec.Size()
-	}
-	return n
-}
-
-func (m *Principal_Attribute_Service) Size() (n int) {
-	var l int
-	_ = l
-	l = len(m.Service)
-	n += 1 + l + sovRbac(uint64(l))
-	return n
-}
-func (m *Principal_Attribute_SourceIps) Size() (n int) {
-	var l int
-	_ = l
-	if m.SourceIps != nil {
-		l = m.SourceIps.Size()
-		n += 1 + l + sovRbac(uint64(l))
-	}
-	return n
-}
-func (m *Principal_Attribute_Header) Size() (n int) {
-	var l int
-	_ = l
-	if m.Header != nil {
-		l = m.Header.Size()
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 		n += 1 + l + sovRbac(uint64(l))
 	}
 	return n
@@ -2565,11 +1618,7 @@ func (m *Policy) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-<<<<<<< HEAD
 func (m *Permission) Unmarshal(dAtA []byte) error {
-=======
-func (m *MapEntryMatch) Unmarshal(dAtA []byte) error {
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -2592,30 +1641,17 @@ func (m *MapEntryMatch) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-<<<<<<< HEAD
 			return fmt.Errorf("proto: Permission: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
 			return fmt.Errorf("proto: Permission: illegal tag %d (wire type %d)", fieldNum, wire)
-=======
-			return fmt.Errorf("proto: MapEntryMatch: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: MapEntryMatch: illegal tag %d (wire type %d)", fieldNum, wire)
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 		}
 		switch fieldNum {
 		case 1:
 			if wireType != 2 {
-<<<<<<< HEAD
 				return fmt.Errorf("proto: wrong wireType = %d for field AndRules", wireType)
 			}
 			var msglen int
-=======
-				return fmt.Errorf("proto: wrong wireType = %d for field Key", wireType)
-			}
-			var stringLen uint64
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowRbac
@@ -2625,16 +1661,11 @@ func (m *MapEntryMatch) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-<<<<<<< HEAD
 				msglen |= (int(b) & 0x7F) << shift
-=======
-				stringLen |= (uint64(b) & 0x7F) << shift
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 				if b < 0x80 {
 					break
 				}
 			}
-<<<<<<< HEAD
 			if msglen < 0 {
 				return ErrInvalidLengthRbac
 			}
@@ -2651,21 +1682,6 @@ func (m *MapEntryMatch) Unmarshal(dAtA []byte) error {
 		case 2:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field OrRules", wireType)
-=======
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthRbac
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Key = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Values", wireType)
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -2689,7 +1705,6 @@ func (m *MapEntryMatch) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-<<<<<<< HEAD
 			v := &Permission_Set{}
 			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -2720,66 +1735,6 @@ func (m *MapEntryMatch) Unmarshal(dAtA []byte) error {
 		case 4:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Header", wireType)
-=======
-			m.Values = append(m.Values, &envoy_type.StringMatch{})
-			if err := m.Values[len(m.Values)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipRbac(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthRbac
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *IpMatch) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowRbac
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: IpMatch: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: IpMatch: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Cidrs", wireType)
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -2803,7 +1758,6 @@ func (m *IpMatch) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-<<<<<<< HEAD
 			v := &envoy_api_v2_route.HeaderMatcher{}
 			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -2862,12 +1816,6 @@ func (m *IpMatch) Unmarshal(dAtA []byte) error {
 				}
 			}
 			m.Rule = &Permission_DestinationPort{v}
-=======
-			m.Cidrs = append(m.Cidrs, &envoy_api_v2_core.CidrRange{})
-			if err := m.Cidrs[len(m.Cidrs)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipRbac(dAtA[iNdEx:])
@@ -2889,124 +1837,7 @@ func (m *IpMatch) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *PortMatch) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowRbac
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: PortMatch: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: PortMatch: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType == 0 {
-				var v uint32
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return ErrIntOverflowRbac
-					}
-					if iNdEx >= l {
-						return io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					v |= (uint32(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
-					}
-				}
-				m.Ports = append(m.Ports, v)
-			} else if wireType == 2 {
-				var packedLen int
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return ErrIntOverflowRbac
-					}
-					if iNdEx >= l {
-						return io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					packedLen |= (int(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
-					}
-				}
-				if packedLen < 0 {
-					return ErrInvalidLengthRbac
-				}
-				postIndex := iNdEx + packedLen
-				if postIndex > l {
-					return io.ErrUnexpectedEOF
-				}
-				for iNdEx < postIndex {
-					var v uint32
-					for shift := uint(0); ; shift += 7 {
-						if shift >= 64 {
-							return ErrIntOverflowRbac
-						}
-						if iNdEx >= l {
-							return io.ErrUnexpectedEOF
-						}
-						b := dAtA[iNdEx]
-						iNdEx++
-						v |= (uint32(b) & 0x7F) << shift
-						if b < 0x80 {
-							break
-						}
-					}
-					m.Ports = append(m.Ports, v)
-				}
-			} else {
-				return fmt.Errorf("proto: wrong wireType = %d for field Ports", wireType)
-			}
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
-		default:
-			iNdEx = preIndex
-			skippy, err := skipRbac(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthRbac
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-<<<<<<< HEAD
 func (m *Permission_Set) Unmarshal(dAtA []byte) error {
-=======
-func (m *Permission) Unmarshal(dAtA []byte) error {
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -3029,25 +1860,15 @@ func (m *Permission) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-<<<<<<< HEAD
 			return fmt.Errorf("proto: Set: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
 			return fmt.Errorf("proto: Set: illegal tag %d (wire type %d)", fieldNum, wire)
-=======
-			return fmt.Errorf("proto: Permission: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: Permission: illegal tag %d (wire type %d)", fieldNum, wire)
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 		}
 		switch fieldNum {
 		case 1:
 			if wireType != 2 {
-<<<<<<< HEAD
 				return fmt.Errorf("proto: wrong wireType = %d for field Rules", wireType)
-=======
-				return fmt.Errorf("proto: wrong wireType = %d for field Paths", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -3071,74 +1892,8 @@ func (m *Permission) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Paths = append(m.Paths, &envoy_type.StringMatch{})
-			if err := m.Paths[len(m.Paths)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Methods", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowRbac
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthRbac
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Methods = append(m.Methods, string(dAtA[iNdEx:postIndex]))
-			iNdEx = postIndex
-		case 3:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Conditions", wireType)
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowRbac
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthRbac
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-<<<<<<< HEAD
 			m.Rules = append(m.Rules, &Permission{})
 			if err := m.Rules[len(m.Rules)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-=======
-			m.Conditions = append(m.Conditions, &Permission_Condition{})
-			if err := m.Conditions[len(m.Conditions)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 				return err
 			}
 			iNdEx = postIndex
@@ -3163,11 +1918,7 @@ func (m *Permission) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-<<<<<<< HEAD
 func (m *Principal) Unmarshal(dAtA []byte) error {
-=======
-func (m *Permission_Condition) Unmarshal(dAtA []byte) error {
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -3190,26 +1941,15 @@ func (m *Permission_Condition) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-<<<<<<< HEAD
 			return fmt.Errorf("proto: Principal: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
 			return fmt.Errorf("proto: Principal: illegal tag %d (wire type %d)", fieldNum, wire)
-=======
-			return fmt.Errorf("proto: Condition: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: Condition: illegal tag %d (wire type %d)", fieldNum, wire)
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 		}
 		switch fieldNum {
 		case 1:
 			if wireType != 2 {
-<<<<<<< HEAD
 				return fmt.Errorf("proto: wrong wireType = %d for field AndIds", wireType)
-=======
-				return fmt.Errorf("proto: wrong wireType = %d for field Header", wireType)
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -3233,7 +1973,6 @@ func (m *Permission_Condition) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-<<<<<<< HEAD
 			v := &Principal_Set{}
 			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -3243,17 +1982,6 @@ func (m *Permission_Condition) Unmarshal(dAtA []byte) error {
 		case 2:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field OrIds", wireType)
-=======
-			v := &MapEntryMatch{}
-			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			m.ConditionSpec = &Permission_Condition_Header{v}
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field DestinationIps", wireType)
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -3277,7 +2005,6 @@ func (m *Permission_Condition) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-<<<<<<< HEAD
 			v := &Principal_Set{}
 			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -3308,17 +2035,6 @@ func (m *Permission_Condition) Unmarshal(dAtA []byte) error {
 		case 4:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Authenticated", wireType)
-=======
-			v := &IpMatch{}
-			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			m.ConditionSpec = &Permission_Condition_DestinationIps{v}
-			iNdEx = postIndex
-		case 3:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field DestinationPorts", wireType)
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -3342,7 +2058,6 @@ func (m *Permission_Condition) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-<<<<<<< HEAD
 			v := &Principal_Authenticated{}
 			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -3352,67 +2067,6 @@ func (m *Permission_Condition) Unmarshal(dAtA []byte) error {
 		case 5:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field SourceIp", wireType)
-=======
-			v := &PortMatch{}
-			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			m.ConditionSpec = &Permission_Condition_DestinationPorts{v}
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipRbac(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthRbac
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *Principal) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowRbac
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: Principal: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: Principal: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Authenticated", wireType)
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -3436,7 +2090,6 @@ func (m *Principal) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-<<<<<<< HEAD
 			v := &envoy_api_v2_core.CidrRange{}
 			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -3446,18 +2099,6 @@ func (m *Principal) Unmarshal(dAtA []byte) error {
 		case 6:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Header", wireType)
-=======
-			if m.Authenticated == nil {
-				m.Authenticated = &Principal_Authenticated{}
-			}
-			if err := m.Authenticated.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Attributes", wireType)
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -3481,18 +2122,11 @@ func (m *Principal) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-<<<<<<< HEAD
 			v := &envoy_api_v2_route.HeaderMatcher{}
 			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			m.Identifier = &Principal_Header{v}
-=======
-			m.Attributes = append(m.Attributes, &Principal_Attribute{})
-			if err := m.Attributes[len(m.Attributes)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -3515,11 +2149,7 @@ func (m *Principal) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-<<<<<<< HEAD
 func (m *Principal_Set) Unmarshal(dAtA []byte) error {
-=======
-func (m *Principal_Authenticated) Unmarshal(dAtA []byte) error {
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -3542,30 +2172,17 @@ func (m *Principal_Authenticated) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-<<<<<<< HEAD
 			return fmt.Errorf("proto: Set: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
 			return fmt.Errorf("proto: Set: illegal tag %d (wire type %d)", fieldNum, wire)
-=======
-			return fmt.Errorf("proto: Authenticated: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: Authenticated: illegal tag %d (wire type %d)", fieldNum, wire)
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 		}
 		switch fieldNum {
 		case 1:
 			if wireType != 2 {
-<<<<<<< HEAD
 				return fmt.Errorf("proto: wrong wireType = %d for field Ids", wireType)
 			}
 			var msglen int
-=======
-				return fmt.Errorf("proto: wrong wireType = %d for field Name", wireType)
-			}
-			var stringLen uint64
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowRbac
@@ -3575,16 +2192,11 @@ func (m *Principal_Authenticated) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-<<<<<<< HEAD
 				msglen |= (int(b) & 0x7F) << shift
-=======
-				stringLen |= (uint64(b) & 0x7F) << shift
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 				if b < 0x80 {
 					break
 				}
 			}
-<<<<<<< HEAD
 			if msglen < 0 {
 				return ErrInvalidLengthRbac
 			}
@@ -3596,17 +2208,6 @@ func (m *Principal_Authenticated) Unmarshal(dAtA []byte) error {
 			if err := m.Ids[len(m.Ids)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
-=======
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthRbac
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Name = string(dAtA[iNdEx:postIndex])
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -3629,11 +2230,7 @@ func (m *Principal_Authenticated) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-<<<<<<< HEAD
 func (m *Principal_Authenticated) Unmarshal(dAtA []byte) error {
-=======
-func (m *Principal_Attribute) Unmarshal(dAtA []byte) error {
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -3656,26 +2253,15 @@ func (m *Principal_Attribute) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-<<<<<<< HEAD
 			return fmt.Errorf("proto: Authenticated: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
 			return fmt.Errorf("proto: Authenticated: illegal tag %d (wire type %d)", fieldNum, wire)
-=======
-			return fmt.Errorf("proto: Attribute: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: Attribute: illegal tag %d (wire type %d)", fieldNum, wire)
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 		}
 		switch fieldNum {
 		case 1:
 			if wireType != 2 {
-<<<<<<< HEAD
 				return fmt.Errorf("proto: wrong wireType = %d for field Name", wireType)
-=======
-				return fmt.Errorf("proto: wrong wireType = %d for field Service", wireType)
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 			}
 			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {
@@ -3700,75 +2286,7 @@ func (m *Principal_Attribute) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-<<<<<<< HEAD
 			m.Name = string(dAtA[iNdEx:postIndex])
-=======
-			m.AttributeSpec = &Principal_Attribute_Service{string(dAtA[iNdEx:postIndex])}
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field SourceIps", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowRbac
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthRbac
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			v := &IpMatch{}
-			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			m.AttributeSpec = &Principal_Attribute_SourceIps{v}
-			iNdEx = postIndex
-		case 3:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Header", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowRbac
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthRbac
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			v := &MapEntryMatch{}
-			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			m.AttributeSpec = &Principal_Attribute_Header{v}
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -3899,7 +2417,6 @@ var (
 func init() { proto.RegisterFile("envoy/config/rbac/v2alpha/rbac.proto", fileDescriptorRbac) }
 
 var fileDescriptorRbac = []byte{
-<<<<<<< HEAD
 	// 701 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x94, 0xc1, 0x6e, 0xd3, 0x4a,
 	0x14, 0x86, 0x33, 0xb6, 0xe3, 0x3a, 0x27, 0x4a, 0x6f, 0x34, 0x57, 0x57, 0xd7, 0x37, 0xba, 0x0d,
@@ -3945,52 +2462,4 @@ var fileDescriptorRbac = []byte{
 	0x00, 0x16, 0x4a, 0xc9, 0x21, 0xa3, 0x22, 0x9f, 0x07, 0xef, 0x9f, 0x6f, 0xa7, 0x4d, 0xf4, 0xfd,
 	0xb4, 0x89, 0x7e, 0x9e, 0x36, 0xd1, 0xde, 0x52, 0x5e, 0xeb, 0xc0, 0xcc, 0xbe, 0xe7, 0x8f, 0x7e,
 	0x05, 0x00, 0x00, 0xff, 0xff, 0x8c, 0x9f, 0x99, 0x7a, 0x6c, 0x06, 0x00, 0x00,
-=======
-	// 717 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x94, 0x4f, 0x6f, 0xd3, 0x30,
-	0x18, 0xc6, 0x9b, 0x66, 0x6d, 0x97, 0xb7, 0xea, 0x28, 0x16, 0x68, 0xa5, 0x62, 0x63, 0x0b, 0x03,
-	0xf5, 0xb2, 0x44, 0x0a, 0x07, 0x10, 0x12, 0x48, 0x6d, 0x99, 0xd4, 0x49, 0xfb, 0x27, 0xef, 0xc0,
-	0x9f, 0x03, 0x93, 0x97, 0x98, 0xd5, 0xa2, 0x4d, 0x2c, 0xc7, 0xad, 0xd4, 0x0f, 0xc0, 0x1d, 0xf1,
-	0x05, 0xf8, 0x06, 0x70, 0xe7, 0x84, 0x38, 0x71, 0xe4, 0x23, 0xa0, 0xdd, 0xf8, 0x16, 0x28, 0x76,
-	0x92, 0xa5, 0x12, 0x2b, 0x83, 0x9b, 0x1d, 0x3f, 0xcf, 0xef, 0xb5, 0xdf, 0xf7, 0x69, 0x61, 0x8b,
-	0x86, 0xd3, 0x68, 0xe6, 0xfa, 0x51, 0xf8, 0x86, 0x9d, 0xb9, 0xe2, 0x94, 0xf8, 0xee, 0xd4, 0x23,
-	0x23, 0x3e, 0x24, 0x6a, 0xe3, 0x70, 0x11, 0xc9, 0x08, 0xdd, 0x52, 0x2a, 0x47, 0xab, 0x1c, 0x75,
-	0x90, 0xaa, 0xda, 0xab, 0x53, 0x32, 0x62, 0x01, 0x91, 0xd4, 0xcd, 0x16, 0xda, 0xd3, 0xbe, 0xa3,
-	0xc9, 0x84, 0x33, 0x77, 0xea, 0xb9, 0x7e, 0x24, 0xa8, 0x4b, 0x82, 0x40, 0xd0, 0x38, 0x4e, 0x05,
-	0x6b, 0x5a, 0x20, 0x67, 0x9c, 0xba, 0xb1, 0x14, 0x2c, 0x3c, 0x3b, 0x19, 0x13, 0xe9, 0x0f, 0xf5,
-	0xb1, 0xfd, 0xbe, 0x0c, 0x4b, 0xb8, 0xd7, 0xed, 0xa3, 0xa7, 0x50, 0x25, 0xbe, 0x64, 0x51, 0xd8,
-	0x32, 0x36, 0x8c, 0xce, 0x8a, 0x77, 0xdf, 0xb9, 0xf4, 0x36, 0x4e, 0x62, 0x70, 0xba, 0x4a, 0x8d,
-	0x53, 0x17, 0xda, 0x85, 0x65, 0x1e, 0x8d, 0x98, 0xcf, 0x68, 0xdc, 0x2a, 0x6f, 0x98, 0x9d, 0xba,
-	0xb7, 0xfd, 0x37, 0xc2, 0x51, 0xaa, 0xdf, 0x09, 0xa5, 0x98, 0xe1, 0xdc, 0xde, 0x7e, 0x0d, 0x8d,
-	0xb9, 0x23, 0xd4, 0x04, 0xf3, 0x2d, 0x9d, 0xa9, 0x8b, 0x59, 0x38, 0x59, 0xa2, 0x87, 0x50, 0x99,
-	0x92, 0xd1, 0x84, 0xb6, 0xca, 0x1b, 0x46, 0xa7, 0xee, 0x6d, 0x2e, 0x28, 0xa5, 0x50, 0x33, 0xac,
-	0xf5, 0x8f, 0xcb, 0x8f, 0x0c, 0x7b, 0x0d, 0xaa, 0xfa, 0xf2, 0xc8, 0x82, 0x4a, 0x77, 0x6f, 0xef,
-	0xf0, 0x79, 0xb3, 0x84, 0x96, 0x61, 0xe9, 0xd9, 0xce, 0xc1, 0xcb, 0xa6, 0x61, 0x7f, 0x36, 0xa0,
-	0xaa, 0x4d, 0xe8, 0x18, 0xea, 0x9c, 0x8a, 0x31, 0x8b, 0x63, 0x16, 0x85, 0x71, 0xcb, 0x50, 0xef,
-	0xba, 0xb7, 0xa8, 0x58, 0xae, 0xee, 0xc1, 0x97, 0x5f, 0x5f, 0xcd, 0xca, 0x07, 0xa3, 0xbc, 0x6c,
-	0xe0, 0x22, 0x05, 0x1d, 0x01, 0x70, 0xc1, 0x42, 0x9f, 0x71, 0x32, 0xca, 0x7a, 0xb5, 0xb5, 0x88,
-	0x99, 0x89, 0xe7, 0x90, 0x05, 0x86, 0x8d, 0xa1, 0xb1, 0x4f, 0xb8, 0xea, 0xd5, 0x7e, 0x32, 0xdb,
-	0x3f, 0x34, 0xcc, 0x85, 0xaa, 0x6a, 0x40, 0x56, 0x70, 0x35, 0x2d, 0x98, 0xe4, 0xc2, 0x39, 0x56,
-	0xb9, 0x50, 0x56, 0x9c, 0xca, 0xec, 0x27, 0x50, 0xdb, 0xe5, 0x9a, 0xe6, 0x41, 0xc5, 0x67, 0x81,
-	0xc8, 0xde, 0x7f, 0x3b, 0xb5, 0x12, 0xce, 0x9c, 0xa9, 0xe7, 0x24, 0x99, 0x73, 0xfa, 0x2c, 0x10,
-	0x98, 0x84, 0x67, 0x14, 0x6b, 0xa9, 0xbd, 0x09, 0xd6, 0x51, 0x24, 0xa4, 0x06, 0xdc, 0x80, 0x0a,
-	0x8f, 0x84, 0xd4, 0x80, 0x06, 0xd6, 0x1b, 0xfb, 0x93, 0x09, 0x70, 0xd1, 0x2f, 0xb4, 0x0d, 0x15,
-	0x4e, 0xe4, 0x30, 0xab, 0x72, 0xe9, 0x05, 0xb5, 0x0a, 0xb5, 0xa0, 0x36, 0xa6, 0x72, 0x18, 0x05,
-	0xfa, 0x45, 0x16, 0xce, 0xb6, 0xe8, 0x10, 0xc0, 0x8f, 0xc2, 0x80, 0x49, 0x35, 0x33, 0x53, 0xd1,
-	0xdc, 0x2b, 0xcd, 0xcc, 0xe9, 0x67, 0x3e, 0x5c, 0x40, 0xb4, 0xdf, 0x95, 0xc1, 0xca, 0x4f, 0x50,
-	0x0f, 0xaa, 0x43, 0x4a, 0x02, 0x2a, 0x54, 0x7b, 0xeb, 0x5e, 0x67, 0x01, 0x7a, 0x6e, 0x2a, 0x83,
-	0x12, 0x4e, 0x9d, 0x68, 0x1f, 0xae, 0x05, 0x34, 0x96, 0x2c, 0x24, 0x09, 0xf2, 0x84, 0xf1, 0x38,
-	0x0d, 0xb2, 0xbd, 0x00, 0x96, 0x8e, 0x63, 0x50, 0xc2, 0x2b, 0x05, 0xf3, 0x2e, 0x8f, 0xd1, 0x31,
-	0x5c, 0x2f, 0xe2, 0x74, 0xaf, 0x4d, 0x05, 0x5c, 0x18, 0xac, 0x6c, 0x40, 0x83, 0x12, 0x6e, 0x16,
-	0x00, 0xc9, 0xf7, 0xb8, 0xd7, 0x84, 0x95, 0xbc, 0x07, 0x27, 0x31, 0xa7, 0xbe, 0xfd, 0xd1, 0x04,
-	0x2b, 0x0f, 0x23, 0x7a, 0x01, 0x0d, 0x32, 0x91, 0x43, 0x1a, 0x4a, 0xe6, 0x13, 0x49, 0x83, 0xb4,
-	0x1d, 0xde, 0x55, 0x92, 0xec, 0x74, 0x8b, 0x4e, 0x3c, 0x0f, 0x42, 0x07, 0x00, 0x44, 0x4a, 0xc1,
-	0x4e, 0x27, 0x32, 0xcf, 0xab, 0x73, 0x35, 0x6c, 0x66, 0xc3, 0x05, 0x42, 0xfb, 0x2e, 0x34, 0xe6,
-	0xea, 0x21, 0x04, 0x4b, 0x21, 0x19, 0xd3, 0xf4, 0xf7, 0xa1, 0xd6, 0xed, 0x6f, 0x06, 0x58, 0xb9,
-	0x1d, 0xb5, 0xa1, 0x16, 0x53, 0x31, 0x65, 0x7e, 0x2a, 0x1a, 0x94, 0x70, 0xf6, 0x01, 0xf5, 0x01,
-	0xe2, 0x68, 0x22, 0x7c, 0xfa, 0xcf, 0x73, 0xb3, 0xb4, 0x2f, 0x19, 0xd9, 0x45, 0x8a, 0xcc, 0xff,
-	0x4d, 0x51, 0x32, 0xa1, 0xfc, 0x95, 0x6a, 0x42, 0xbd, 0x9b, 0xdf, 0xcf, 0xd7, 0x8d, 0x1f, 0xe7,
-	0xeb, 0xc6, 0xcf, 0xf3, 0x75, 0xe3, 0x55, 0x2d, 0x05, 0x9c, 0x56, 0xd5, 0x7f, 0xfd, 0x83, 0xdf,
-	0x01, 0x00, 0x00, 0xff, 0xff, 0x08, 0xd1, 0x8c, 0x42, 0x87, 0x06, 0x00, 0x00,
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 }

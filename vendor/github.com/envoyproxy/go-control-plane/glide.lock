@@ -1,16 +1,8 @@
-<<<<<<< HEAD
 hash: 7fb1225b44f0934f95eb673b6783717afa24e9f878530d95fb03c78d73c38b98
 updated: 2018-05-24T11:24:39.922619527-07:00
 imports:
 - name: github.com/envoyproxy/data-plane-api
   version: 1478f3332d17213199d3fb332419a48d5261f198
-=======
-hash: ae8c5d810578490e88f990d2933312955e8532507479e9014119d93da12c8de1
-updated: 2018-05-07T14:24:19.67912507-07:00
-imports:
-- name: github.com/envoyproxy/data-plane-api
-  version: 9bb42d225436bd392a1929a8ef8feb494fc0e27c
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 - name: github.com/gogo/googleapis
   version: 0cd9801be74a10d5ac39d69626eac8255ffcd502
   subpackages:

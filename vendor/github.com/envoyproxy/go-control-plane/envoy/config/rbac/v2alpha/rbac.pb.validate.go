@@ -164,21 +164,13 @@ func (e PolicyValidationError) Error() string {
 
 var _ error = PolicyValidationError{}
 
-<<<<<<< HEAD
 // Validate checks the field values on Permission with the rules defined in the
 // proto definition for this message. If any rules are violated, an error is returned.
 func (m *Permission) Validate() error {
-=======
-// Validate checks the field values on MapEntryMatch with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
-func (m *MapEntryMatch) Validate() error {
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	if m == nil {
 		return nil
 	}
 
-<<<<<<< HEAD
 	switch m.Rule.(type) {
 
 	case *Permission_AndRules:
@@ -187,24 +179,12 @@ func (m *MapEntryMatch) Validate() error {
 			if err := v.Validate(); err != nil {
 				return PermissionValidationError{
 					Field:  "AndRules",
-=======
-	// no validation rules for Key
-
-	for idx, item := range m.GetValues() {
-		_, _ = idx, item
-
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return MapEntryMatchValidationError{
-					Field:  fmt.Sprintf("Values[%v]", idx),
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 					Reason: "embedded message failed validation",
 					Cause:  err,
 				}
 			}
 		}
 
-<<<<<<< HEAD
 	case *Permission_OrRules:
 
 		if v, ok := interface{}(m.GetOrRules()).(interface{ Validate() error }); ok {
@@ -244,65 +224,12 @@ func (m *MapEntryMatch) Validate() error {
 			if err := v.Validate(); err != nil {
 				return PermissionValidationError{
 					Field:  "DestinationIp",
-=======
-	}
-
-	return nil
-}
-
-// MapEntryMatchValidationError is the validation error returned by
-// MapEntryMatch.Validate if the designated constraints aren't met.
-type MapEntryMatchValidationError struct {
-	Field  string
-	Reason string
-	Cause  error
-	Key    bool
-}
-
-// Error satisfies the builtin error interface
-func (e MapEntryMatchValidationError) Error() string {
-	cause := ""
-	if e.Cause != nil {
-		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
-	}
-
-	key := ""
-	if e.Key {
-		key = "key for "
-	}
-
-	return fmt.Sprintf(
-		"invalid %sMapEntryMatch.%s: %s%s",
-		key,
-		e.Field,
-		e.Reason,
-		cause)
-}
-
-var _ error = MapEntryMatchValidationError{}
-
-// Validate checks the field values on IpMatch with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
-func (m *IpMatch) Validate() error {
-	if m == nil {
-		return nil
-	}
-
-	for idx, item := range m.GetCidrs() {
-		_, _ = idx, item
-
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return IpMatchValidationError{
-					Field:  fmt.Sprintf("Cidrs[%v]", idx),
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 					Reason: "embedded message failed validation",
 					Cause:  err,
 				}
 			}
 		}
 
-<<<<<<< HEAD
 	case *Permission_DestinationPort:
 
 		if m.GetDestinationPort() > 65535 {
@@ -318,22 +245,14 @@ func (m *IpMatch) Validate() error {
 			Reason: "value is required",
 		}
 
-=======
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	}
 
 	return nil
 }
 
-<<<<<<< HEAD
 // PermissionValidationError is the validation error returned by
 // Permission.Validate if the designated constraints aren't met.
 type PermissionValidationError struct {
-=======
-// IpMatchValidationError is the validation error returned by IpMatch.Validate
-// if the designated constraints aren't met.
-type IpMatchValidationError struct {
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	Field  string
 	Reason string
 	Cause  error
@@ -341,11 +260,7 @@ type IpMatchValidationError struct {
 }
 
 // Error satisfies the builtin error interface
-<<<<<<< HEAD
 func (e PermissionValidationError) Error() string {
-=======
-func (e IpMatchValidationError) Error() string {
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	cause := ""
 	if e.Cause != nil {
 		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
@@ -357,35 +272,22 @@ func (e IpMatchValidationError) Error() string {
 	}
 
 	return fmt.Sprintf(
-<<<<<<< HEAD
 		"invalid %sPermission.%s: %s%s",
-=======
-		"invalid %sIpMatch.%s: %s%s",
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 		key,
 		e.Field,
 		e.Reason,
 		cause)
 }
 
-<<<<<<< HEAD
 var _ error = PermissionValidationError{}
 
 // Validate checks the field values on Principal with the rules defined in the
 // proto definition for this message. If any rules are violated, an error is returned.
 func (m *Principal) Validate() error {
-=======
-var _ error = IpMatchValidationError{}
-
-// Validate checks the field values on PortMatch with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
-func (m *PortMatch) Validate() error {
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	if m == nil {
 		return nil
 	}
 
-<<<<<<< HEAD
 	switch m.Identifier.(type) {
 
 	case *Principal_AndIds:
@@ -427,63 +329,12 @@ func (m *PortMatch) Validate() error {
 			if err := v.Validate(); err != nil {
 				return PrincipalValidationError{
 					Field:  "Authenticated",
-=======
-	return nil
-}
-
-// PortMatchValidationError is the validation error returned by
-// PortMatch.Validate if the designated constraints aren't met.
-type PortMatchValidationError struct {
-	Field  string
-	Reason string
-	Cause  error
-	Key    bool
-}
-
-// Error satisfies the builtin error interface
-func (e PortMatchValidationError) Error() string {
-	cause := ""
-	if e.Cause != nil {
-		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
-	}
-
-	key := ""
-	if e.Key {
-		key = "key for "
-	}
-
-	return fmt.Sprintf(
-		"invalid %sPortMatch.%s: %s%s",
-		key,
-		e.Field,
-		e.Reason,
-		cause)
-}
-
-var _ error = PortMatchValidationError{}
-
-// Validate checks the field values on Permission with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
-func (m *Permission) Validate() error {
-	if m == nil {
-		return nil
-	}
-
-	for idx, item := range m.GetPaths() {
-		_, _ = idx, item
-
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return PermissionValidationError{
-					Field:  fmt.Sprintf("Paths[%v]", idx),
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 					Reason: "embedded message failed validation",
 					Cause:  err,
 				}
 			}
 		}
 
-<<<<<<< HEAD
 	case *Principal_SourceIp:
 
 		if v, ok := interface{}(m.GetSourceIp()).(interface{ Validate() error }); ok {
@@ -502,46 +353,26 @@ func (m *Permission) Validate() error {
 			if err := v.Validate(); err != nil {
 				return PrincipalValidationError{
 					Field:  "Header",
-=======
-	}
-
-	for idx, item := range m.GetConditions() {
-		_, _ = idx, item
-
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return PermissionValidationError{
-					Field:  fmt.Sprintf("Conditions[%v]", idx),
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 					Reason: "embedded message failed validation",
 					Cause:  err,
 				}
 			}
 		}
 
-<<<<<<< HEAD
 	default:
 		return PrincipalValidationError{
 			Field:  "Identifier",
 			Reason: "value is required",
 		}
 
-=======
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	}
 
 	return nil
 }
 
-<<<<<<< HEAD
 // PrincipalValidationError is the validation error returned by
 // Principal.Validate if the designated constraints aren't met.
 type PrincipalValidationError struct {
-=======
-// PermissionValidationError is the validation error returned by
-// Permission.Validate if the designated constraints aren't met.
-type PermissionValidationError struct {
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	Field  string
 	Reason string
 	Cause  error
@@ -549,11 +380,7 @@ type PermissionValidationError struct {
 }
 
 // Error satisfies the builtin error interface
-<<<<<<< HEAD
 func (e PrincipalValidationError) Error() string {
-=======
-func (e PermissionValidationError) Error() string {
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	cause := ""
 	if e.Cause != nil {
 		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
@@ -565,36 +392,23 @@ func (e PermissionValidationError) Error() string {
 	}
 
 	return fmt.Sprintf(
-<<<<<<< HEAD
 		"invalid %sPrincipal.%s: %s%s",
-=======
-		"invalid %sPermission.%s: %s%s",
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 		key,
 		e.Field,
 		e.Reason,
 		cause)
 }
 
-<<<<<<< HEAD
 var _ error = PrincipalValidationError{}
 
 // Validate checks the field values on Permission_Set with the rules defined in
 // the proto definition for this message. If any rules are violated, an error
 // is returned.
 func (m *Permission_Set) Validate() error {
-=======
-var _ error = PermissionValidationError{}
-
-// Validate checks the field values on Principal with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
-func (m *Principal) Validate() error {
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	if m == nil {
 		return nil
 	}
 
-<<<<<<< HEAD
 	if len(m.GetRules()) < 1 {
 		return Permission_SetValidationError{
 			Field:  "Rules",
@@ -603,30 +417,12 @@ func (m *Principal) Validate() error {
 	}
 
 	for idx, item := range m.GetRules() {
-=======
-	if v, ok := interface{}(m.GetAuthenticated()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return PrincipalValidationError{
-				Field:  "Authenticated",
-				Reason: "embedded message failed validation",
-				Cause:  err,
-			}
-		}
-	}
-
-	for idx, item := range m.GetAttributes() {
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 		_, _ = idx, item
 
 		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
-<<<<<<< HEAD
 				return Permission_SetValidationError{
 					Field:  fmt.Sprintf("Rules[%v]", idx),
-=======
-				return PrincipalValidationError{
-					Field:  fmt.Sprintf("Attributes[%v]", idx),
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 					Reason: "embedded message failed validation",
 					Cause:  err,
 				}
@@ -638,15 +434,9 @@ func (m *Principal) Validate() error {
 	return nil
 }
 
-<<<<<<< HEAD
 // Permission_SetValidationError is the validation error returned by
 // Permission_Set.Validate if the designated constraints aren't met.
 type Permission_SetValidationError struct {
-=======
-// PrincipalValidationError is the validation error returned by
-// Principal.Validate if the designated constraints aren't met.
-type PrincipalValidationError struct {
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	Field  string
 	Reason string
 	Cause  error
@@ -654,11 +444,7 @@ type PrincipalValidationError struct {
 }
 
 // Error satisfies the builtin error interface
-<<<<<<< HEAD
 func (e Permission_SetValidationError) Error() string {
-=======
-func (e PrincipalValidationError) Error() string {
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	cause := ""
 	if e.Cause != nil {
 		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
@@ -670,37 +456,23 @@ func (e PrincipalValidationError) Error() string {
 	}
 
 	return fmt.Sprintf(
-<<<<<<< HEAD
 		"invalid %sPermission_Set.%s: %s%s",
-=======
-		"invalid %sPrincipal.%s: %s%s",
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 		key,
 		e.Field,
 		e.Reason,
 		cause)
 }
 
-<<<<<<< HEAD
 var _ error = Permission_SetValidationError{}
 
 // Validate checks the field values on Principal_Set with the rules defined in
 // the proto definition for this message. If any rules are violated, an error
 // is returned.
 func (m *Principal_Set) Validate() error {
-=======
-var _ error = PrincipalValidationError{}
-
-// Validate checks the field values on Permission_Condition with the rules
-// defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
-func (m *Permission_Condition) Validate() error {
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	if m == nil {
 		return nil
 	}
 
-<<<<<<< HEAD
 	if len(m.GetIds()) < 1 {
 		return Principal_SetValidationError{
 			Field:  "Ids",
@@ -715,40 +487,6 @@ func (m *Permission_Condition) Validate() error {
 			if err := v.Validate(); err != nil {
 				return Principal_SetValidationError{
 					Field:  fmt.Sprintf("Ids[%v]", idx),
-=======
-	switch m.ConditionSpec.(type) {
-
-	case *Permission_Condition_Header:
-
-		if v, ok := interface{}(m.GetHeader()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return Permission_ConditionValidationError{
-					Field:  "Header",
-					Reason: "embedded message failed validation",
-					Cause:  err,
-				}
-			}
-		}
-
-	case *Permission_Condition_DestinationIps:
-
-		if v, ok := interface{}(m.GetDestinationIps()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return Permission_ConditionValidationError{
-					Field:  "DestinationIps",
-					Reason: "embedded message failed validation",
-					Cause:  err,
-				}
-			}
-		}
-
-	case *Permission_Condition_DestinationPorts:
-
-		if v, ok := interface{}(m.GetDestinationPorts()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return Permission_ConditionValidationError{
-					Field:  "DestinationPorts",
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 					Reason: "embedded message failed validation",
 					Cause:  err,
 				}
@@ -760,15 +498,9 @@ func (m *Permission_Condition) Validate() error {
 	return nil
 }
 
-<<<<<<< HEAD
 // Principal_SetValidationError is the validation error returned by
 // Principal_Set.Validate if the designated constraints aren't met.
 type Principal_SetValidationError struct {
-=======
-// Permission_ConditionValidationError is the validation error returned by
-// Permission_Condition.Validate if the designated constraints aren't met.
-type Permission_ConditionValidationError struct {
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	Field  string
 	Reason string
 	Cause  error
@@ -776,11 +508,7 @@ type Permission_ConditionValidationError struct {
 }
 
 // Error satisfies the builtin error interface
-<<<<<<< HEAD
 func (e Principal_SetValidationError) Error() string {
-=======
-func (e Permission_ConditionValidationError) Error() string {
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 	cause := ""
 	if e.Cause != nil {
 		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
@@ -792,22 +520,14 @@ func (e Permission_ConditionValidationError) Error() string {
 	}
 
 	return fmt.Sprintf(
-<<<<<<< HEAD
 		"invalid %sPrincipal_Set.%s: %s%s",
-=======
-		"invalid %sPermission_Condition.%s: %s%s",
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 		key,
 		e.Field,
 		e.Reason,
 		cause)
 }
 
-<<<<<<< HEAD
 var _ error = Principal_SetValidationError{}
-=======
-var _ error = Permission_ConditionValidationError{}
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
 
 // Validate checks the field values on Principal_Authenticated with the rules
 // defined in the proto definition for this message. If any rules are
@@ -852,79 +572,3 @@ func (e Principal_AuthenticatedValidationError) Error() string {
 }
 
 var _ error = Principal_AuthenticatedValidationError{}
-<<<<<<< HEAD
-=======
-
-// Validate checks the field values on Principal_Attribute with the rules
-// defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
-func (m *Principal_Attribute) Validate() error {
-	if m == nil {
-		return nil
-	}
-
-	switch m.AttributeSpec.(type) {
-
-	case *Principal_Attribute_Service:
-		// no validation rules for Service
-
-	case *Principal_Attribute_SourceIps:
-
-		if v, ok := interface{}(m.GetSourceIps()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return Principal_AttributeValidationError{
-					Field:  "SourceIps",
-					Reason: "embedded message failed validation",
-					Cause:  err,
-				}
-			}
-		}
-
-	case *Principal_Attribute_Header:
-
-		if v, ok := interface{}(m.GetHeader()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return Principal_AttributeValidationError{
-					Field:  "Header",
-					Reason: "embedded message failed validation",
-					Cause:  err,
-				}
-			}
-		}
-
-	}
-
-	return nil
-}
-
-// Principal_AttributeValidationError is the validation error returned by
-// Principal_Attribute.Validate if the designated constraints aren't met.
-type Principal_AttributeValidationError struct {
-	Field  string
-	Reason string
-	Cause  error
-	Key    bool
-}
-
-// Error satisfies the builtin error interface
-func (e Principal_AttributeValidationError) Error() string {
-	cause := ""
-	if e.Cause != nil {
-		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
-	}
-
-	key := ""
-	if e.Key {
-		key = "key for "
-	}
-
-	return fmt.Sprintf(
-		"invalid %sPrincipal_Attribute.%s: %s%s",
-		key,
-		e.Field,
-		e.Reason,
-		cause)
-}
-
-var _ error = Principal_AttributeValidationError{}
->>>>>>> 472bfbfcc... Use the real policy proto from the go-control-plane repo.
