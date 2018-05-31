@@ -28,32 +28,6 @@ spec:
   selector:
     app: {{.service}}
 ---
-{{if eq .perServiceAuth "true"}}
-apiVersion: authentication.istio.io/v1alpha1
-kind: Policy
-metadata:
-  name: {{.service}}-ports-mtls-enabled
-spec:
-  targets:
-  - name: {{.service}}
-    ports:
-    - number: 80
-    - number: 7070
-    - number: 9090
-  peers:
-    - mtls:
----
-apiVersion: authentication.istio.io/v1alpha1
-kind: Policy
-metadata:
-  name: {{.service}}-ports-mtls-disabled
-spec:
-  targets:
-  - name: {{.service}}
-    ports:
-    - number: 8080
----
-{{end}}
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
