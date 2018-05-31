@@ -1,7 +1,7 @@
 apiVersion: networking.istio.io/v1alpha3
-kind: ExternalService
+kind: ServiceEntry
 metadata:
-  name: invalid-external-service
+  name: invalid-service-entry
 spec:
   ports:
   - number: 80

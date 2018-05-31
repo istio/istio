@@ -240,7 +240,7 @@ func TestServiceSecurityAnnotation(t *testing.T) {
 
 }
 
-func TestExternalServiceConversion(t *testing.T) {
+func TestServiceEntryConversion(t *testing.T) {
 	serviceName := "service1"
 	namespace := "default"
 
