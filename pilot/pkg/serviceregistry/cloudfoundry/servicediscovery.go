@@ -24,6 +24,10 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
+const (
+	cfLabel = "cfapp"
+)
+
 //go:generate counterfeiter -o ./fakes/copilot_client.go --fake-name CopilotClient . copilotClient
 // CopilotClient defines a local interface for interacting with Cloud Foundry Copilot
 type copilotClient interface {
@@ -101,8 +105,7 @@ func (sd *ServiceDiscovery) Instances(hostname model.Hostname, _ []string, _ mod
 }
 
 // InstancesByPort implements a service catalog operation
-// TODO: this is likely broken, since port is ignored  ! May still work for simple cases.
-func (sd *ServiceDiscovery) InstancesByPort(hostname model.Hostname, _ int, _ model.LabelsCollection) ([]*model.ServiceInstance, error) {
+func (sd *ServiceDiscovery) InstancesByPort(hostname model.Hostname, _ int, labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	resp, err := sd.Client.Routes(context.Background(), new(copilotapi.RoutesRequest))
 	if err != nil {
 		return nil, fmt.Errorf("getting routes: %s", err)
@@ -115,6 +118,7 @@ func (sd *ServiceDiscovery) InstancesByPort(hostname model.Hostname, _ int, _ mo
 			matchedRoutes = append(matchedRoutes, route)
 		}
 	}
+
 	for _, matchedRoute := range matchedRoutes {
 		backends := matchedRoute.GetBackends()
 		if backends == nil {
@@ -138,9 +142,15 @@ func (sd *ServiceDiscovery) InstancesByPort(hostname model.Hostname, _ int, _ mo
 				},
 			}
 
-			inst.Labels = model.Labels{"cfapp": matchedRoute.GetCapiProcessGuid()}
+			inst.Labels = model.Labels{cfLabel: matchedRoute.GetCapiProcessGuid()}
 
-			instances = append(instances, inst)
+			for _, label := range labels {
+				if v, ok := label[cfLabel]; ok {
+					if v == matchedRoute.GetCapiProcessGuid() {
+						instances = append(instances, inst)
+					}
+				}
+			}
 		}
 	}
 

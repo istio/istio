@@ -449,7 +449,7 @@ func writeAllADS(w io.Writer) {
 		fmt.Fprintf(w, "\n\n  {\"node\": \"%s\",\n \"addr\": \"%s\",\n \"connect\": \"%v\",\n \"listeners\":[\n", c.ConID, c.PeerAddr, c.Connect)
 		printListeners(w, c)
 		fmt.Fprint(w, "],\n")
-		fmt.Fprintf(w, ",\"clusters\":[\n")
+		fmt.Fprintf(w, "\"clusters\":[\n")
 		printClusters(w, c)
 		fmt.Fprint(w, "]}\n")
 	}
