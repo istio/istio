@@ -101,7 +101,7 @@ echo "Copying ${BINARY_NAME} ${SHA256_NAME} to ${DST}/"
 gsutil cp "${BINARY_NAME}" "${SHA256_NAME}" "${DST}/"
 
 BINARY_NAME="istio-proxy-debug-${SHA}.deb"
-SHA256_NAME="istio-proxy-debug${SHA}.sha256"
+SHA256_NAME="istio-proxy-debug-${SHA}.sha256"
 bazel --batch build -c dbg //tools/deb:istio-proxy
 BAZEL_TARGET="bazel-bin/tools/deb/istio-proxy.deb"
 cp -f "${BAZEL_TARGET}" "${BINARY_NAME}"
