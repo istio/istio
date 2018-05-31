@@ -239,6 +239,8 @@ galley:
   # requests:
   #  cpu: 100m
   #  memory: 128Mi
+  service:
+    type: ClusterIP #change to NodePort, ClusterIP or LoadBalancer if need be
 
 #
 # mixer configuration
@@ -260,6 +262,14 @@ mixer:
     repository: prom/statsd-exporter
     tag: latest
     resources: {}
+    # limits:
+    #  cpu: 100m
+    #  memory: 128Mi
+    # requests:
+    #  cpu: 100m
+    #  memory: 128Mi
+  service:
+    type: ClusterIP #change to NodePort, ClusterIP or LoadBalancer if need be
 
 #
 # pilot configuration
@@ -276,6 +286,8 @@ pilot:
   # requests:
   #  cpu: 100m
   #  memory: 128Mi
+  service:
+    type: ClusterIP #change to NodePort, ClusterIP or LoadBalancer if need be
 
 #
 # security configuration
@@ -293,6 +305,8 @@ security:
   #  cpu: 100m
   #  memory: 128Mi
   cleanUpOldCA: true
+  service:
+    type: ClusterIP #change to NodePort, ClusterIP or LoadBalancer if need be
 
 #
 # addons configuration
@@ -319,7 +333,6 @@ grafana:
       # - secretName: grafana-tls
       #   hosts:
       #     - grafana.local
-
   resources: {}
     # limits:
     #  cpu: 100m
@@ -327,6 +340,8 @@ grafana:
     # requests:
     #  cpu: 100m
     #  memory: 128Mi
+  service:
+    type: ClusterIP #change to NodePort, ClusterIP or LoadBalancer if need be
 
 prometheus:
   enabled: true
@@ -358,6 +373,7 @@ prometheus:
     nodePort:
       enabled: false
       port: 32090
+    type: ClusterIP #change to NodePort, ClusterIP or LoadBalancer if need be
 
 servicegraph:
   enabled: false
@@ -365,7 +381,7 @@ servicegraph:
   image: servicegraph
   service:
     name: http
-    type: ClusterIP
+    type: ClusterIP #change to NodePort, ClusterIP or LoadBalancer if need be
     externalPort: 8088
     internalPort: 8088
   ingress:
@@ -403,7 +419,7 @@ tracing:
     tag: 1.5
   service:
     name: http
-    type: ClusterIP
+    type: ClusterIP #change to NodePort, ClusterIP or LoadBalancer if need be
     externalPort: 9411
     internalPort: 9411
     uiPort: 16686

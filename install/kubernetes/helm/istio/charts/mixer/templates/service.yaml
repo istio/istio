@@ -10,6 +10,7 @@ metadata:
     release: {{ $.Release.Name }}
     istio: mixer
 spec:
+  type: {{ $.Values.service.type }}
   ports:
   - name: grpc-mixer
     port: 9091
