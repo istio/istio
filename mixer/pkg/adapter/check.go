@@ -23,8 +23,6 @@ import (
 	"istio.io/istio/mixer/pkg/status"
 )
 
-// TODO revisit the comment on this adapter struct.
-
 // CheckResult provides return value from check request call on the handler.
 type CheckResult struct {
 	// The outcome status of the operation.
@@ -33,33 +31,6 @@ type CheckResult struct {
 	ValidDuration time.Duration
 	// ValidUseCount represents the number of uses for which this result can be considered valid.
 	ValidUseCount int32
-}
-
-// GetStatus gets status embedded in the result.
-func (r *CheckResult) GetStatus() rpc.Status { return r.Status }
-
-// SetStatus embeds status in result.
-func (r *CheckResult) SetStatus(s rpc.Status) { r.Status = s }
-
-// Combine combines other result with self. It does not handle
-// Status.
-func (r *CheckResult) Combine(otherPtr interface{}) interface{} {
-	if otherPtr == nil {
-		return r
-	}
-	other := otherPtr.(*CheckResult)
-	r.CombineCheckResult(other)
-	return r
-}
-
-// CombineCheckResult combines other result with self. It does not handle Status.
-func (r *CheckResult) CombineCheckResult(other *CheckResult) {
-	if r.ValidDuration > other.ValidDuration {
-		r.ValidDuration = other.ValidDuration
-	}
-	if r.ValidUseCount > other.ValidUseCount {
-		r.ValidUseCount = other.ValidUseCount
-	}
 }
 
 func (r *CheckResult) String() string {

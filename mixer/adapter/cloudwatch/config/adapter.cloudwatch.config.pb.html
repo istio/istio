@@ -1,8 +1,10 @@
 ---
 title: CloudWatch
-overview: Adapter for cloudwatch metrics.
-location: https://istio.io/docs/reference/config/adapters/cloudwatch.html
+description: Adapter for cloudwatch metrics.
+location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/cloudwatch.html
 layout: protoc-gen-docs
+generator: protoc-gen-docs
+redirect_from: /docs/reference/config/adapters/cloudwatch.html
 number_of_entries: 3
 ---
 <p>The CloudWatch adapter enables Istio to deliver metrics to
@@ -16,6 +18,8 @@ number_of_entries: 3
 
 <p>The handler configuration must contain the same metrics as the instance configuration.
 The metrics specified in both instance and handler configurations will be sent to CloudWatch.</p>
+
+<p>This adapter supports the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric.html">metric template</a>.</p>
 
 <h2 id="Params">Params</h2>
 <section>

@@ -12,7 +12,7 @@ import _ "github.com/gogo/protobuf/gogoproto"
 
 import time "time"
 
-import github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
+import types "github.com/gogo/protobuf/types"
 
 import io "io"
 
@@ -290,10 +290,7 @@ func init() {
 }
 func (this *ApiConfigSource) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*ApiConfigSource)
@@ -306,10 +303,7 @@ func (this *ApiConfigSource) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -345,10 +339,7 @@ func (this *ApiConfigSource) Equal(that interface{}) bool {
 }
 func (this *AggregatedConfigSource) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*AggregatedConfigSource)
@@ -361,10 +352,7 @@ func (this *AggregatedConfigSource) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -372,10 +360,7 @@ func (this *AggregatedConfigSource) Equal(that interface{}) bool {
 }
 func (this *ConfigSource) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*ConfigSource)
@@ -388,10 +373,7 @@ func (this *ConfigSource) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -408,10 +390,7 @@ func (this *ConfigSource) Equal(that interface{}) bool {
 }
 func (this *ConfigSource_Path) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*ConfigSource_Path)
@@ -424,10 +403,7 @@ func (this *ConfigSource_Path) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -438,10 +414,7 @@ func (this *ConfigSource_Path) Equal(that interface{}) bool {
 }
 func (this *ConfigSource_ApiConfigSource) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*ConfigSource_ApiConfigSource)
@@ -454,10 +427,7 @@ func (this *ConfigSource_ApiConfigSource) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -468,10 +438,7 @@ func (this *ConfigSource_ApiConfigSource) Equal(that interface{}) bool {
 }
 func (this *ConfigSource_Ads) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*ConfigSource_Ads)
@@ -484,10 +451,7 @@ func (this *ConfigSource_Ads) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -534,8 +498,8 @@ func (m *ApiConfigSource) MarshalTo(dAtA []byte) (int, error) {
 	if m.RefreshDelay != nil {
 		dAtA[i] = 0x1a
 		i++
-		i = encodeVarintConfigSource(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.RefreshDelay)))
-		n1, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.RefreshDelay, dAtA[i:])
+		i = encodeVarintConfigSource(dAtA, i, uint64(types.SizeOfStdDuration(*m.RefreshDelay)))
+		n1, err := types.StdDurationMarshalTo(*m.RefreshDelay, dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
@@ -657,7 +621,7 @@ func (m *ApiConfigSource) Size() (n int) {
 		}
 	}
 	if m.RefreshDelay != nil {
-		l = github_com_gogo_protobuf_types.SizeOfStdDuration(*m.RefreshDelay)
+		l = types.SizeOfStdDuration(*m.RefreshDelay)
 		n += 1 + l + sovConfigSource(uint64(l))
 	}
 	if len(m.GrpcServices) > 0 {
@@ -829,7 +793,7 @@ func (m *ApiConfigSource) Unmarshal(dAtA []byte) error {
 			if m.RefreshDelay == nil {
 				m.RefreshDelay = new(time.Duration)
 			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(m.RefreshDelay, dAtA[iNdEx:postIndex]); err != nil {
+			if err := types.StdDurationUnmarshal(m.RefreshDelay, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex

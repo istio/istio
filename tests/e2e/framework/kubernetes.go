@@ -61,6 +61,10 @@ const (
 	mtlsExcludedServicesPattern      = "mtlsExcludedServices:\\s*\\[(.*)\\]"
 	helmServiceAccountFile           = "helm-service-account.yaml"
 	istioHelmInstallDir              = istioInstallDir + "/helm/istio"
+	caCertFileName                   = "samples/certs/ca-cert.pem"
+	caKeyFileName                    = "samples/certs/ca-key.pem"
+	rootCertFileName                 = "samples/certs/root-cert.pem"
+	certChainFileName                = "samples/certs/cert-chain.pem"
 )
 
 var (
@@ -171,15 +175,15 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		releaseDir = util.GetResourcePath("")
 	}
 	// Note the kubectl commands used by the test will default to use the local
-	// environments kubeconfig if an empty string is provided.  Therefore in the
+	// environment's kubeconfig if an empty string is provided.  Therefore in the
 	// default case kubeConfig will not be set.
 	var kubeConfig, remoteKubeConfig string
 	var kubeClient, remoteKubeClient kubernetes.Interface
 	var aRemote *AppManager
 	if *multiClusterDir != "" {
 		// multiClusterDir indicates the Kubernetes cluster config should come from files versus
-		// the environmental. The test config can be defined to use either a single cluster or
-		// 2 clusters
+		// the in cluster config. At the current time only the remote kubeconfig is read from a
+		// file.
 		tmpfile := *namespace + "_kubeconfig"
 		tmpfile = path.Join(tmpDir, tmpfile)
 		if err = util.GetKubeConfig(tmpfile); err != nil {
@@ -188,6 +192,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		kubeConfig = tmpfile
 		remoteKubeConfig, err = getKubeConfigFromFile(*multiClusterDir)
 		if err != nil {
+			// TODO could change this to continue tests if only a single cluster is in play
 			return nil, err
 		}
 		if kubeClient, err = kube.CreateInterface(kubeConfig); err != nil {
@@ -591,6 +596,11 @@ func (k *KubeInfo) deployIstio() error {
 		return err
 	}
 
+	if *multiClusterDir != "" {
+		if err := k.createCacerts(false); err != nil {
+			log.Infof("Failed to create Cacerts with namespace %s in primary cluster", k.Namespace)
+		}
+	}
 	if err := util.KubeApply(k.Namespace, testIstioYaml, k.KubeConfig); err != nil {
 		log.Errorf("Istio core %s deployment failed", testIstioYaml)
 		return err
@@ -603,9 +613,13 @@ func (k *KubeInfo) deployIstio() error {
 			return err
 		}
 		// Create the local secrets and configmap to start pilot
-		if err := util.CreateMultiClusterSecrets(k.Namespace, k.KubeClient, k.RemoteKubeConfig); err != nil {
+		if err := util.CreateMultiClusterSecrets(k.Namespace, k.KubeClient, k.RemoteKubeConfig, k.KubeConfig); err != nil {
 			log.Errorf("Unable to create secrets on local cluster %s", err.Error())
 			return err
+		}
+
+		if err := k.createCacerts(true); err != nil {
+			log.Infof("Failed to create Cacerts with namespace %s in remote cluster", k.Namespace)
 		}
 
 		yamlDir := filepath.Join(istioInstallDir, mcRemoteInstallFile)

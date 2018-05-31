@@ -15,7 +15,7 @@
 syntax = "proto3";
 
 // $title: RBAC
-// $overview: Configuration for Role Based Access Control
+// $description: Configuration for Role Based Access Control
 // $location: https://istio.io/docs/reference/config/istio.rbac.v1alpha1.html
 
 // Istio RBAC (Role Based Access Control) defines ServiceRole and ServiceRoleBinding
@@ -34,42 +34,46 @@ syntax = "proto3";
 //
 // For example, suppose we define an instance of the "authorization" template, named "requestcontext".
 //
-//     apiVersion: "config.istio.io/v1alpha1"
-//     kind: authorization
-//     metadata:
-//       name: requestcontext
-//       namespace: istio-system
-//     spec:
-//       subject:
-//         user: source.user | ""
-//         groups: ""
-//         properties:
-//           service: source.service | ""
-//           namespace: source.namespace | ""
-//       action:
-//         namespace: destination.namespace | ""
-//         service: destination.service | ""
-//         method: request.method | ""
-//         path: request.path | ""
-//         properties:
-//           version: request.headers["version"] | ""
+// ```yaml
+// apiVersion: "config.istio.io/v1alpha1"
+// kind: authorization
+// metadata:
+//   name: requestcontext
+//   namespace: istio-system
+// spec:
+//   subject:
+//     user: source.user | ""
+//     groups: ""
+//     properties:
+//       service: source.service | ""
+//       namespace: source.namespace | ""
+//   action:
+//     namespace: destination.namespace | ""
+//     service: destination.service | ""
+//     method: request.method | ""
+//     path: request.path | ""
+//     properties:
+//       version: request.headers["version"] | ""
+// ```
 //
 // Below is an example of ServiceRole object "product-viewer", which has "read" ("GET" and "HEAD")
 // access to "products.svc.cluster.local" service at versions "v1" and "v2". "path" is not specified,
 // so it applies to any path in the service.
 //
-//     apiVersion: "config.istio.io/v1alpha1"
-//     kind: ServiceRole
-//     metadata:
-//       name: products-viewer
-//       namespace: default
-//     spec:
-//       rules:
-//       - services: ["products.svc.cluster.local"]
-//         methods: ["GET", "HEAD"]
-//         constraints:
-//         - key: "version"
-//           value: ["v1", "v2"]
+// ```yaml
+// apiVersion: "config.istio.io/v1alpha1"
+// kind: ServiceRole
+// metadata:
+//   name: products-viewer
+//   namespace: default
+// spec:
+//   rules:
+//   - services: ["products.svc.cluster.local"]
+//     methods: ["GET", "HEAD"]
+//     constraints:
+//     - key: "version"
+//       value: ["v1", "v2"]
+// ```
 //
 // A ServiceRoleBinding specification includes two parts:
 // * "roleRef" refers to a ServiceRole object in the same namespace.
@@ -84,20 +88,22 @@ syntax = "proto3";
 // * User "alice@yahoo.com"
 // * "reviews" service in "abc" namespace.
 //
-//     apiVersion: "config.istio.io/v1alpha1"
-//     kind: ServiceRoleBinding
-//     metadata:
-//       name: test-binding-products
-//       namespace: default
-//     spec:
-//       subjects:
-//       - user: alice@yahoo.com
-//       - properties:
-//           service: "reviews"
-//           namespace: "abc"
-//       roleRef:
-//         kind: ServiceRole
-//         name: "products-viewer"
+// ```yaml
+// apiVersion: "config.istio.io/v1alpha1"
+// kind: ServiceRoleBinding
+// metadata:
+//   name: test-binding-products
+//   namespace: default
+// spec:
+//   subjects:
+//   - user: alice@yahoo.com
+//   - properties:
+//       service: "reviews"
+//       namespace: "abc"
+//   roleRef:
+//     kind: ServiceRole
+//     name: "products-viewer"
+// ```
 package istio.rbac.v1alpha1;
 
 option go_package="istio.io/api/rbac/v1alpha1";
@@ -206,16 +212,17 @@ message RoleRef {
 // Below is an example of RbacConfig object "istio-rbac-config" which enables Istio RBAC for all
 // services in the default namespace.
 //
-//     apiVersion: "config.istio.io/v1alpha1"
-//     kind: RbacConfig
-//     metadata:
-//       name: istio-rbac-config
-//       namespace: istio-system
-//     spec:
-//       mode: ON_WITH_INCLUSION
-//       inclusion:
-//         namespaces: [ "default" ]
-//
+// ```yaml
+// apiVersion: "config.istio.io/v1alpha1"
+// kind: RbacConfig
+// metadata:
+//   name: istio-rbac-config
+//   namespace: istio-system
+// spec:
+//   mode: ON_WITH_INCLUSION
+//   inclusion:
+//     namespaces: [ "default" ]
+// ```
 message RbacConfig {
   enum Mode {
     // Disable Istio RBAC completely, any other config in RbacConfig will be ignored and Istio RBAC policies

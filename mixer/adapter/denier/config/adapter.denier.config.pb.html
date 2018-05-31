@@ -1,12 +1,18 @@
 ---
 title: Denier
-overview: Adapter that always returns a precondition denial.
-location: https://istio.io/docs/reference/config/adapters/denier.html
+description: Adapter that always returns a precondition denial.
+location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/denier.html
 layout: protoc-gen-docs
+generator: protoc-gen-docs
+redirect_from: /docs/reference/config/adapters/denier.html
 number_of_entries: 2
 ---
 <p>The <code>denier</code> adapter is designed to always return a denial to precondition
 checks. You can specify the exact error to return for these denials.</p>
+
+<p>This adapter supports the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/checknothing.html">checknothing template</a>,
+the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/listentry.html">listentry template</a>,
+and the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/quota.html">quota template</a>.</p>
 
 <h2 id="Params">Params</h2>
 <section>

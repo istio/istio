@@ -1,12 +1,16 @@
 ---
 title: Datadog
-overview: Adapter to deliver metrics to a dogstatsd agent for delivery to DataDog
-location: https://istio.io/docs/reference/config/adapters/datadog.html
+description: Adapter to deliver metrics to a dogstatsd agent for delivery to DataDog
+location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/datadog.html
 layout: protoc-gen-docs
+generator: protoc-gen-docs
+redirect_from: /docs/reference/config/adapters/datadog.html
 number_of_entries: 3
 ---
 <p>The <code>dogstatsd</code> adapter is designed to deliver Istio metric instances to a
 listening <a href="https://www.datadoghq.com/">DataDog</a> agent.</p>
+
+<p>This adapter supports the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric.html">metric template</a>.</p>
 
 <h2 id="Params">Params</h2>
 <section>
@@ -37,8 +41,8 @@ Default: localhost:8125</p>
 <td><code>prefix</code></td>
 <td><code>string</code></td>
 <td>
-<p>Prefix to prepend to all metrics handled by the adapter. Metric &ldquo;bar&rdquo; with prefix &ldquo;foo.&rdquo; becomes &ldquo;foo.bar&rdquo; in DataDog.
-Default: &ldquo;&rdquo;</p>
+<p>Prefix to prepend to all metrics handled by the adapter. Metric &ldquo;bar&rdquo; with prefix &ldquo;foo.&rdquo; becomes &ldquo;foo.bar&rdquo; in DataDog. In order to make sure the metrics get populated into Datadog properly and avoid any billing issues, it&rsquo;s important to leave the metric prefix to its default value of &lsquo;istio.&rsquo;
+Default: &ldquo;istio.&rdquo;</p>
 
 </td>
 </tr>

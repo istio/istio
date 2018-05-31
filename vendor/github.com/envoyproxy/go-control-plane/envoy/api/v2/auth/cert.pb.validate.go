@@ -269,6 +269,18 @@ func (m *CertificateValidationContext) Validate() error {
 		}
 	}
 
+	for idx, item := range m.GetVerifyCertificateHash() {
+		_, _ = idx, item
+
+		if l := len(item); l < 64 || l > 95 {
+			return CertificateValidationContextValidationError{
+				Field:  fmt.Sprintf("VerifyCertificateHash[%v]", idx),
+				Reason: "value length must be between 64 and 95 bytes, inclusive",
+			}
+		}
+
+	}
+
 	if v, ok := interface{}(m.GetRequireOcspStaple()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return CertificateValidationContextValidationError{
@@ -461,7 +473,12 @@ func (m *UpstreamTlsContext) Validate() error {
 		}
 	}
 
-	// no validation rules for Sni
+	if len(m.GetSni()) > 255 {
+		return UpstreamTlsContextValidationError{
+			Field:  "Sni",
+			Reason: "value length must be at most 255 bytes",
+		}
+	}
 
 	return nil
 }
