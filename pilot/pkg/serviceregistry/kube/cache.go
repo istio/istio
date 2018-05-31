@@ -15,10 +15,12 @@
 package kube
 
 import (
+	"fmt"
 	"log"
 	"sync"
 
 	"k8s.io/api/core/v1"
+	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
 )
@@ -45,7 +47,19 @@ func newPodCache(ch cacheHandler) *PodCache {
 		out.rwMu.Lock()
 		defer out.rwMu.Unlock()
 
-		pod := *obj.(*v1.Pod)
+		// When a pod is deleted obj could be an *v1.Pod or a DeletionFinalStateUnknown marker item.
+		pod, ok := obj.(*v1.Pod)
+		if !ok {
+			tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+			if !ok {
+				return fmt.Errorf("couldn't get object from tombstone %+v", obj)
+			}
+			pod, ok = tombstone.Obj.(*v1.Pod)
+			if !ok {
+				return fmt.Errorf("tombstone contained object that is not a pod %#v", obj)
+			}
+		}
+
 		ip := pod.Status.PodIP
 
 		log.Printf("Handling event %s for pod %s in namespace %s -> %v", ev, pod.Name, pod.Namespace, ip)
