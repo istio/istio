@@ -18,7 +18,7 @@ global:
     image: proxyv2
     resources:
       requests:
-        cpu: 100m
+        cpu: 500m
         memory: 128Mi
 
     # istio-sidecar-injector configmap stores configuration for sidecar injection.
