@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package monitor_test
+package file_test
 
 import (
 	"errors"
@@ -22,8 +22,8 @@ import (
 	"github.com/onsi/gomega"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/config/file"
 	"istio.io/istio/pilot/pkg/config/memory"
-	"istio.io/istio/pilot/pkg/config/monitor"
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -96,7 +96,7 @@ func TestMonitorForChange(t *testing.T) {
 		callCount++
 		return configs, err
 	}
-	mon := monitor.NewMonitor(store, checkInterval, someConfigFunc)
+	mon := file.NewMonitor(store, checkInterval, someConfigFunc)
 	stop := make(chan struct{})
 	defer func() { stop <- struct{}{} }() // shut it down
 	mon.Start(stop)
@@ -163,7 +163,7 @@ func TestMonitorForError(t *testing.T) {
 		callCount++
 		return configs, err
 	}
-	mon := monitor.NewMonitor(store, checkInterval, someConfigFunc)
+	mon := file.NewMonitor(store, checkInterval, someConfigFunc)
 	stop := make(chan struct{})
 	defer func() { stop <- struct{}{} }() // shut it down
 	mon.Start(stop)

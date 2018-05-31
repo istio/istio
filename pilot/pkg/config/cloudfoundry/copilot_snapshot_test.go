@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package monitor_test
+package cloudfoundry_test
 
 import (
 	"context"
@@ -25,9 +25,9 @@ import (
 	"google.golang.org/grpc"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/config/cloudfoundry"
+	"istio.io/istio/pilot/pkg/config/cloudfoundry/fakes"
 	"istio.io/istio/pilot/pkg/config/memory"
-	"istio.io/istio/pilot/pkg/config/monitor"
-	"istio.io/istio/pilot/pkg/config/monitor/fakes"
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -134,12 +134,12 @@ func TestCloudFoundrySnapshotConnectionError(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	mockCopilotClient := &fakes.CopilotClient{}
-	mockCopilotClient.RoutesReturns(&copilotapi.RoutesResponse{}, errors.New("Copilot Connection Error"))
+	mockCopilotClient.RoutesReturns(&copilotapi.RoutesResponse{}, errors.New("copilot Connection Error"))
 
 	configDescriptor := model.ConfigDescriptor{}
 	store := memory.Make(configDescriptor)
 	timeout := 4 * time.Millisecond
-	copilotSnapshot := monitor.NewCopilotSnapshot(store, mockCopilotClient, timeout)
+	copilotSnapshot := cloudfoundry.NewCopilotSnapshot(store, mockCopilotClient, timeout)
 
 	virtualServices, err := copilotSnapshot.ReadConfigFiles()
 	g.Expect(err).To(gomega.HaveOccurred())
@@ -158,14 +158,14 @@ func TestCloudFoundrySnapshotTimeoutError(t *testing.T) {
 	configDescriptor := model.ConfigDescriptor{}
 	store := memory.Make(configDescriptor)
 	timeout := 1 * time.Millisecond
-	copilotSnapshot := monitor.NewCopilotSnapshot(store, mockCopilotClient, timeout)
+	copilotSnapshot := cloudfoundry.NewCopilotSnapshot(store, mockCopilotClient, timeout)
 
 	virtualServices, err := copilotSnapshot.ReadConfigFiles()
 	g.Expect(err).To(gomega.BeAssignableToTypeOf(context.DeadlineExceeded))
 	g.Expect(virtualServices).To(gomega.BeNil())
 }
 
-func bootstrap(routeResponses []*copilotapi.RoutesResponse) (*monitor.CopilotSnapshot, error) {
+func bootstrap(routeResponses []*copilotapi.RoutesResponse) (*cloudfoundry.CopilotSnapshot, error) {
 	mockCopilotClient := &fakes.CopilotClient{}
 
 	for idx, response := range routeResponses {
@@ -178,7 +178,7 @@ func bootstrap(routeResponses []*copilotapi.RoutesResponse) (*monitor.CopilotSna
 	}
 	store := memory.Make(configDescriptor)
 	timeout := 20 * time.Millisecond
-	copilotSnapshot := monitor.NewCopilotSnapshot(store, mockCopilotClient, timeout)
+	copilotSnapshot := cloudfoundry.NewCopilotSnapshot(store, mockCopilotClient, timeout)
 
 	gatewayConfigs := []model.Config{
 		{

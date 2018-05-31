@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package bootstrap
+package server
 
 import (
 	"crypto/tls"
@@ -42,11 +42,11 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
-	"istio.io/istio/pilot/pkg/config/clusterregistry"
+	configcloudfoundry "istio.io/istio/pilot/pkg/config/cloudfoundry"
+	configfile "istio.io/istio/pilot/pkg/config/file"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pilot/pkg/config/memory"
-	configmonitor "istio.io/istio/pilot/pkg/config/monitor"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/plugin/registry"
@@ -56,6 +56,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/cloudfoundry"
+	"istio.io/istio/pilot/pkg/serviceregistry/cluster"
 	"istio.io/istio/pilot/pkg/serviceregistry/consul"
 	"istio.io/istio/pilot/pkg/serviceregistry/eureka"
 	"istio.io/istio/pilot/pkg/serviceregistry/external"
@@ -165,7 +166,7 @@ type Server struct {
 	HTTPListeningAddr       net.Addr
 	GRPCListeningAddr       net.Addr
 	SecureGRPCListeningAddr net.Addr
-	clusterStore            *clusterregistry.ClusterStore
+	clusterStore            *cluster.Store
 
 	EnvoyXdsServer   *envoyv2.DiscoveryServer
 	HTTPServer       *http.Server
@@ -277,7 +278,7 @@ func (s *Server) initMonitor(args *PilotArgs) error {
 }
 
 func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
-	s.clusterStore = clusterregistry.NewClustersStore()
+	s.clusterStore = cluster.NewStore()
 
 	if s.kubeClient == nil {
 		log.Infof("skipping cluster registries, no kube-client created")
@@ -289,7 +290,7 @@ func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 		return nil
 	}
 	if args.Config.ClusterRegistriesConfigmap != "" {
-		if err = clusterregistry.ReadClusters(s.kubeClient,
+		if err = cluster.ReadClusters(s.kubeClient,
 			args.Config.ClusterRegistriesConfigmap,
 			args.Config.ClusterRegistriesNamespace,
 			s.clusterStore); err != nil {
@@ -506,8 +507,8 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCac
 }
 
 func (s *Server) makeFileMonitor(args *PilotArgs, configController model.ConfigStore) error {
-	fileSnapshot := configmonitor.NewFileSnapshot(args.Config.FileDir, ConfigDescriptor)
-	fileMonitor := configmonitor.NewMonitor(configController, FilepathWalkInterval, fileSnapshot.ReadConfigFiles)
+	fileSnapshot := configfile.NewSnapshot(args.Config.FileDir, ConfigDescriptor)
+	fileMonitor := configfile.NewMonitor(configController, FilepathWalkInterval, fileSnapshot.ReadConfigFiles)
 
 	// Defer starting the file monitor until after the service is created.
 	s.addStartFunc(func(stop chan struct{}) error {
@@ -532,8 +533,8 @@ func (s *Server) makeCopilotMonitor(args *PilotArgs, configController model.Conf
 		return multierror.Prefix(err, "creating cloud foundry client")
 	}
 
-	copilotSnapshot := configmonitor.NewCopilotSnapshot(configController, client, CopilotTimeout)
-	copilotMonitor := configmonitor.NewMonitor(configController, 1*time.Second, copilotSnapshot.ReadConfigFiles)
+	copilotSnapshot := configcloudfoundry.NewCopilotSnapshot(configController, client, CopilotTimeout)
+	copilotMonitor := configfile.NewMonitor(configController, 1*time.Second, copilotSnapshot.ReadConfigFiles)
 
 	s.addStartFunc(func(stop chan struct{}) error {
 		copilotMonitor.Start(stop)
@@ -565,7 +566,7 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 func (s *Server) initMultiClusterController(args *PilotArgs) (err error) {
 	if checkForKubernetes(args.Service.Registries) {
 		// Start secret controller which watches for runtime secret Object changes and adds secrets dynamically
-		err = clusterregistry.StartSecretController(s.kubeClient,
+		err = cluster.StartSecretController(s.kubeClient,
 			s.clusterStore,
 			s.ServiceController,
 			s.DiscoveryService,

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package clusterregistry
+package cluster
 
 import (
 	"bytes"
@@ -38,7 +38,7 @@ type env struct {
 var tmpl *template.Template
 
 func init() {
-	tmpl = template.Must(template.ParseFiles("clusterregistry.gotmpl", "clusterconfig.gotmpl"))
+	tmpl = template.Must(template.ParseFiles("testdata/clusterregistry.gotmpl", "testdata/clusterconfig.gotmpl"))
 }
 
 func (e *env) setup() error {
@@ -81,17 +81,17 @@ type clusterConfig struct {
 func TestGetPilotClusters(t *testing.T) {
 	tests := []struct {
 		testName       string
-		cs             *ClusterStore
+		cs             *Store
 		numberOfPilots int
 	}{
 		{
 			testName:       "No pilots in the store",
-			cs:             &ClusterStore{},
+			cs:             &Store{},
 			numberOfPilots: 0,
 		},
 		{
 			testName: "3 out of 3 Pilot in the store",
-			cs: &ClusterStore{
+			cs: &Store{
 				rc: map[Metadata]*RemoteCluster{
 					{
 						Name:      "cluster1",
@@ -181,7 +181,7 @@ func TestGetClusterConfig(t *testing.T) {
 	}
 	defer e.teardown()
 
-	cs := NewClustersStore()
+	cs := NewStore()
 	client := fake.NewSimpleClientset()
 
 	for _, test := range tests {

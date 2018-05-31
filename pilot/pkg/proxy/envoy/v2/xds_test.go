@@ -28,15 +28,15 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	testenv "istio.io/istio/mixer/test/client/env"
-	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/server"
 	"istio.io/istio/tests/util"
 )
 
 var (
 	// mixer-style test environment, includes mixer and envoy configs.
 	testEnv        *testenv.TestSetup
-	pilotServer    *bootstrap.Server
+	pilotServer    *server.Server
 	initMutex      sync.Mutex
 	initEnvoyMutex sync.Mutex
 
@@ -108,7 +108,7 @@ func ingressId(ip string) string {
 //
 // The server will have a set of pre-defined instances and services, and read CRDs from the
 // common tests/testdata directory.
-func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
+func initLocalPilotTestEnv(t *testing.T) *server.Server {
 	initMutex.Lock()
 	defer initMutex.Unlock()
 	if pilotServer != nil {

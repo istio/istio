@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package clusterregistry
+package cluster
 
 import (
 	"fmt"
@@ -57,27 +57,27 @@ type RemoteCluster struct {
 	ControlChannel chan struct{}
 }
 
-// ClusterStore is a collection of clusters
-type ClusterStore struct {
+// Store is a collection of clusters
+type Store struct {
 	rc        map[Metadata]*RemoteCluster
 	storeLock sync.RWMutex
 }
 
-// NewClustersStore initializes data struct to store clusters information
-func NewClustersStore() *ClusterStore {
+// NewStore initializes data struct to store clusters information
+func NewStore() *Store {
 	rc := make(map[Metadata]*RemoteCluster)
-	return &ClusterStore{
+	return &Store{
 		rc: rc,
 	}
 }
 
 // GetClientAccessConfigs returns map of collected client configs
-//func (cs *ClusterStore) GetClientAccessConfigs() map[string]clientcmdapi.Config {
+//func (cs *Store) GetClientAccessConfigs() map[string]clientcmdapi.Config {
 //	return cs.clientConfigs
 //}
 
 // GetClusterAccessConfig returns the access config file of a cluster
-func (cs *ClusterStore) GetClusterAccessConfig(cluster *k8s_cr.Cluster) *clientcmdapi.Config {
+func (cs *Store) GetClusterAccessConfig(cluster *k8s_cr.Cluster) *clientcmdapi.Config {
 	if cluster == nil {
 		return nil
 	}
@@ -96,7 +96,7 @@ func GetClusterID(cluster *k8s_cr.Cluster) string {
 
 // ReadClusters reads multiple clusters from a ConfigMap
 func ReadClusters(k8s kubernetes.Interface, configMapName string,
-	configMapNamespace string, cs *ClusterStore) error {
+	configMapNamespace string, cs *Store) error {
 
 	// getClustersConfigs populates Cluster Store with valid entries found in
 	// the configmap. Partial success is possible when some entries in the configmap
@@ -115,7 +115,7 @@ func ReadClusters(k8s kubernetes.Interface, configMapName string,
 }
 
 // getClustersConfigs(configMapName,configMapNamespace)
-func getClustersConfigs(k8s kubernetes.Interface, configMapName, configMapNamespace string, cs *ClusterStore) (errList error) {
+func getClustersConfigs(k8s kubernetes.Interface, configMapName, configMapNamespace string, cs *Store) (errList error) {
 
 	clusterRegistry, err := k8s.CoreV1().ConfigMaps(configMapNamespace).Get(configMapName, metav1.GetOptions{})
 	if err != nil {

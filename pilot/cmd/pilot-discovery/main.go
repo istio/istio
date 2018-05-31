@@ -23,7 +23,7 @@ import (
 	"github.com/spf13/cobra/doc"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/istio/pilot/pkg/bootstrap"
+	"istio.io/istio/pilot/pkg/server"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/collateral"
@@ -33,7 +33,7 @@ import (
 )
 
 var (
-	serverArgs bootstrap.PilotArgs
+	serverArgs server.PilotArgs
 
 	loggingOptions = log.DefaultOptions()
 
@@ -57,7 +57,7 @@ var (
 			stop := make(chan struct{})
 
 			// Create the server for the discovery service.
-			discoveryServer, err := bootstrap.NewServer(serverArgs)
+			discoveryServer, err := server.NewServer(serverArgs)
 			if err != nil {
 				return fmt.Errorf("failed to create discovery service: %v", err)
 			}

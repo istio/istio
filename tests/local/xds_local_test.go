@@ -26,8 +26,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"istio.io/istio/pilot/pkg/bootstrap"
 	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v1"
+	"istio.io/istio/pilot/pkg/server"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 )
 
@@ -156,9 +156,9 @@ func deleteTestService(apiServerURL string, svcName, svcNamespace string) error 
 	return nil
 }
 
-func initLocalPilot(IstioSrc string) (*bootstrap.Server, error) {
+func initLocalPilot(IstioSrc string) (*server.Server, error) {
 
-	serverAgrs := bootstrap.PilotArgs{
+	serverAgrs := server.PilotArgs{
 		Namespace: "istio-system",
 		DiscoveryOptions: envoy.DiscoveryServiceOptions{
 			Port:            18080, // An unused port will be chosen
@@ -167,20 +167,20 @@ func initLocalPilot(IstioSrc string) (*bootstrap.Server, error) {
 			EnableProfiling: true,
 		},
 		//TODO: start mixer first, get its address
-		Mesh: bootstrap.MeshArgs{
+		Mesh: server.MeshArgs{
 			MixerAddress:    "istio-mixer.istio-system:9091",
 			RdsRefreshDelay: ptypes.DurationProto(10 * time.Millisecond),
 		},
-		Config: bootstrap.ConfigArgs{
+		Config: server.ConfigArgs{
 			KubeConfig: IstioSrc + "/.circleci/config",
 		},
-		Service: bootstrap.ServiceArgs{
+		Service: server.ServiceArgs{
 			Registries: []string{
 				string(serviceregistry.KubernetesRegistry)},
 		},
 	}
 	// Create the server for the discovery service.
-	discoveryServer, err := bootstrap.NewServer(serverAgrs)
+	discoveryServer, err := server.NewServer(serverAgrs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create discovery service: %v", err)
 	}
@@ -188,7 +188,7 @@ func initLocalPilot(IstioSrc string) (*bootstrap.Server, error) {
 	return discoveryServer, nil
 }
 
-func startLocalPilot(s *bootstrap.Server, stop chan struct{}) {
+func startLocalPilot(s *server.Server, stop chan struct{}) {
 	// Start the server
 	_, _ = s.Start(stop)
 }
