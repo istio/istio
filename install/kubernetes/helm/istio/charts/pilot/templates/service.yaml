@@ -9,6 +9,7 @@ metadata:
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
 spec:
+  type: {{ .Values.service.type }}
   ports:
   - port: 15003
     name: http-old-discovery # mTLS or non-mTLS depending on auth setting

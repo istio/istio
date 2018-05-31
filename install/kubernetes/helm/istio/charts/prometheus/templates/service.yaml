@@ -8,6 +8,7 @@ metadata:
   labels:
     name: prometheus
 spec:
+  type: {{ .Values.service.type }}
   selector:
     app: prometheus
   ports:

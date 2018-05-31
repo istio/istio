@@ -6,6 +6,7 @@ metadata:
   labels:
     istio: galley
 spec:
+  type: {{ .Values.service.type }}
   ports:
   - port: 443
   selector:

@@ -8,6 +8,7 @@ metadata:
   labels:
     app: istio-citadel
 spec:
+  type: {{ .Values.service.type }}
   ports:
     - name: grpc-citadel
       port: 8060
