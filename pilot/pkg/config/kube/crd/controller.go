@@ -63,9 +63,9 @@ var (
 	}, []string{"name"})
 
 	k8sResourceVersions = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "pilot_k8s_resource_versions",
+		Name: "pilot_k8s_resources",
 		Help: "Applied CRD resource versions",
-	}, []string{"gvk", "name", "namespace", "resourceVersion", "instanceID"})
+	}, []string{"apiVersion", "kind", "name", "namespace", "version", "discovery_uid"})
 	k8sResourceVersionsDisabled, _ = strconv.ParseBool(os.Getenv("K8S_RESOURCE_VERSIONS_METRIC_DISABLED"))
 
 	// InvalidCRDs contains a sync.Map keyed by the namespace/name of the entry, and has the error as value.
@@ -157,20 +157,15 @@ func (c *controller) updateResourceVersionMetric(otype string, obj interface{}, 
 	if !ok {
 		return
 	}
-	gvk := schema.GroupVersionKind{
-		Group:   typ.Group,
-		Version: typ.Version,
-		Kind:    KabobCaseToCamelCase(typ.Type),
-	}
-
 	item, _ := obj.(IstioObject)
 	metadata := item.GetObjectMeta()
 	labels := prometheus.Labels{
-		"gvk":             gvk.String(),
-		"name":            metadata.GetName(),
-		"namespace":       metadata.GetNamespace(),
-		"resourceVersion": metadata.GetResourceVersion(),
-		"instanceID":      c.instanceID,
+		"apiVersion":    schema.GroupVersion{Group: typ.Group, Version: typ.Version}.String(),
+		"kind":          KabobCaseToCamelCase(typ.Type),
+		"name":          metadata.GetName(),
+		"namespace":     metadata.GetNamespace(),
+		"version":       metadata.GetResourceVersion(),
+		"discovery_uid": c.instanceID,
 	}
 	if add {
 		k8sResourceVersions.With(labels).Set(1)

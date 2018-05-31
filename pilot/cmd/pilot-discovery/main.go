@@ -108,7 +108,7 @@ func init() {
 	podName := os.Getenv("POD_NAME")
 	podNamespace := os.Getenv("POD_NAMESPACE")
 	if podName != "" && podNamespace != "" {
-		defaultID = fmt.Sprintf("k8s://%s.%s", podName, podNamespace)
+		defaultID = fmt.Sprintf("kubernetes://%s.%s", podName, podNamespace)
 	}
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ControllerOptions.InstanceID, "id", defaultID,
 		"Unique ID of the discovery service. If not provided uses k8s://${POD_NAME}.${POD_NAMESPACE}")
