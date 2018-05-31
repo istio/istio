@@ -1,0 +1,8 @@
+#
+# This helm values file is used to override the defaults to enable istio-like testing
+# They revert the changes to the default values made for aspenmesh
+global:
+  hub_img_delim: "/"
+  img_tag_delim: ":"
+  aspenMeshCloud:
+    enabled: false

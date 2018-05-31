@@ -581,6 +581,17 @@ istio-remote.yaml: $(HELM)
 	$(HELM) template --namespace=istio-system \
 		install/kubernetes/helm/istio-remote >> install/kubernetes/$@
 
+# TODO: plum this through
+# creates aspenmesh.yaml aspenmesh-auth.yaml
+# Ensure that values-$filename is present in install/kubernetes/helm/istio
+aspenmes%.yaml: $(HELM)
+	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
+	$(HELM) template --set global.tag=${TAG} \
+		--namespace=istio-system \
+		--set global.hub=${HUB} \
+		--values install/kubernetes/helm/istio/values-$@ \
+		install/kubernetes/helm/istio >> install/kubernetes/$@
+
 # creates istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml
 # Ensure that values-$filename is present in install/kubernetes/helm/istio
 isti%.yaml: $(HELM)
@@ -589,6 +600,7 @@ isti%.yaml: $(HELM)
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
 		--values install/kubernetes/helm/istio/values-$@ \
+		--values aspenmesh/helm-test-values-override.yaml \
 		install/kubernetes/helm/istio >> install/kubernetes/$@
 
 generate_yaml: $(HELM)
@@ -598,13 +610,15 @@ generate_yaml: $(HELM)
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
 		--values install/kubernetes/helm/istio/values.yaml \
+		--values aspenmesh/helm-test-values-override.yaml \
 		install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
-
+	
 	cat install/kubernetes/namespace.yaml > install/kubernetes/istio-auth.yaml
 	$(HELM) template --set global.tag=${TAG} \
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
 		--values install/kubernetes/helm/istio/values.yaml \
+		--values aspenmesh/helm-test-values-override.yaml \
 		--set global.mtls.enabled=true \
 		--set global.controlPlaneSecurityEnabled=true \
 		install/kubernetes/helm/istio >> install/kubernetes/istio-auth.yaml
