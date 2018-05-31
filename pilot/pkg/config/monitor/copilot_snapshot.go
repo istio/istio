@@ -16,9 +16,7 @@ package monitor
 
 import (
 	"context"
-	"crypto/md5"
 	"fmt"
-	"io"
 	"sort"
 	"time"
 
@@ -36,24 +34,19 @@ type CopilotClient interface {
 
 // CopilotSnapshot provides a snapshot of configuration from the Cloud Foundry Copilot component.
 type CopilotSnapshot struct {
-	store            model.ConfigStore
-	client           CopilotClient
-	timeout          time.Duration
-	virtualServices  map[string]*model.Config
-	destinationRules map[string]*model.Config
+	store   model.ConfigStore
+	client  CopilotClient
+	timeout time.Duration
 }
 
 // NewCopilotSnapshot returns a CopilotSnapshot used for integration with Cloud Foundry.
 // The store is required to discover any existing gateways: the generated config will reference those gateways
 // The client is used to discover Cloud Foundry Routes from Copilot
-// The snapshot will not return routes for any hostnames which end with strings on the hostnameBlacklist
 func NewCopilotSnapshot(store model.ConfigStore, client CopilotClient, timeout time.Duration) *CopilotSnapshot {
 	return &CopilotSnapshot{
-		store:            store,
-		client:           client,
-		timeout:          timeout,
-		virtualServices:  make(map[string]*model.Config),
-		destinationRules: make(map[string]*model.Config),
+		store:   store,
+		client:  client,
+		timeout: timeout,
 	}
 }
 
@@ -73,130 +66,115 @@ func (c *CopilotSnapshot) ReadConfigFiles() ([]*model.Config, error) {
 		return nil, err
 	}
 
+	virtualServices := make(map[string]*model.Config)
+	destinationRules := make(map[string]*model.Config)
+
 	var gatewayNames []string
 	for _, gwConfig := range gateways {
 		gatewayNames = append(gatewayNames, gwConfig.Name)
 	}
 
 	for _, route := range resp.GetRoutes() {
-		cfHash := hashRoute(route)
-
-		if _, ok := c.virtualServices[cfHash]; ok {
-			continue
+		cr := createRoute(route)
+		cr.Route[0].Destination.Subset = route.GetCapiProcessGuid()
+		if route.GetPath() != "" {
+			cr.Match = createMatchRequest(route)
 		}
 
-		config := &model.Config{
+		var dr *networking.DestinationRule
+		if config, ok := destinationRules[route.GetHostname()]; ok {
+			dr = config.Spec.(*networking.DestinationRule)
+		} else {
+			dr = createDestinationRule(route)
+		}
+		dr.Subsets = append(dr.Subsets, createSubset(route.GetCapiProcessGuid()))
+
+		var vs *networking.VirtualService
+		if config, ok := virtualServices[route.GetHostname()]; ok {
+			vs = config.Spec.(*networking.VirtualService)
+		} else {
+			vs = createVirtualService(gatewayNames, route)
+		}
+
+		vs.Http = append(vs.Http, cr)
+
+		virtualServices[route.GetHostname()] = &model.Config{
 			ConfigMeta: model.ConfigMeta{
 				Type:    model.VirtualService.Type,
 				Version: model.VirtualService.Version,
-				Name:    fmt.Sprintf("route-for-%s", route.GetHostname()),
+				Name:    fmt.Sprintf("virtual-service-for-%s", route.GetHostname()),
 			},
-			Spec: &networking.VirtualService{
-				Gateways: gatewayNames,
-				Hosts:    []string{route.GetHostname()},
-				Http: []*networking.HTTPRoute{
-					{
-						Route: []*networking.DestinationWeight{
-							{
-								Destination: &networking.Destination{
-									Host: route.GetHostname(),
-									Port: &networking.PortSelector{
-										Port: &networking.PortSelector_Number{
-											Number: 8080,
-										},
-									},
-								},
-							},
-						},
-					},
-				},
+			Spec: vs,
+		}
+		destinationRules[route.GetHostname()] = &model.Config{
+			ConfigMeta: model.ConfigMeta{
+				Type:    model.DestinationRule.Type,
+				Version: model.DestinationRule.Version,
+				Name:    fmt.Sprintf("dest-rule-for-%s", route.GetHostname()),
 			},
+			Spec: dr,
 		}
-
-		if route.GetPath() != "" {
-			vs := config.Spec.(*networking.VirtualService)
-
-			vs.Http[0].Match = []*networking.HTTPMatchRequest{
-				{
-					Uri: &networking.StringMatch{
-						MatchType: &networking.StringMatch_Prefix{
-							Prefix: route.GetPath(),
-						},
-					},
-				},
-			}
-			vs.Http[0].Route[0].Destination.Subset = cfHash
-
-			rule := &model.Config{
-				ConfigMeta: model.ConfigMeta{
-					Type:    model.DestinationRule.Type,
-					Version: model.DestinationRule.Version,
-					Name:    fmt.Sprintf("rule-for-%s", route.GetHostname()),
-				},
-				Spec: &networking.DestinationRule{
-					Host: route.GetHostname(),
-					Subsets: []*networking.Subset{
-						{
-							Name:   cfHash,
-							Labels: map[string]string{"cf-service-instance": cfHash},
-						},
-					},
-				},
-			}
-
-			c.destinationRules[cfHash] = rule
-		}
-
-		c.virtualServices[cfHash] = config
 	}
-
-	var cachedHashedRoutes sort.StringSlice
-	for hashedRoute := range c.virtualServices {
-		cachedHashedRoutes = append(cachedHashedRoutes, hashedRoute)
-	}
-	cachedHashedRoutes.Sort()
-
-	var ruleHashes sort.StringSlice
-	for hash := range c.destinationRules {
-		ruleHashes = append(ruleHashes, hash)
-	}
-	ruleHashes.Sort()
 
 	var configs []*model.Config
-	vs := collectConfigs(c.virtualServices, cachedHashedRoutes, resp)
-	dr := collectConfigs(c.destinationRules, ruleHashes, resp)
+	for _, service := range virtualServices {
+		configs = append(configs, service)
+	}
 
-	configs = append(configs, vs...)
-	configs = append(configs, dr...)
+	for _, rule := range destinationRules {
+		configs = append(configs, rule)
+	}
+
+	sort.Slice(configs, func(i, j int) bool { return configs[i].Key() < configs[j].Key() })
 
 	return configs, nil
 }
 
-func collectConfigs(cachedConfigs map[string]*model.Config, cachedHashedRoutes sort.StringSlice, resp *copilotapi.RoutesResponse) []*model.Config {
-	var configs []*model.Config
-
-	backends := make(map[string]bool)
-
-	for _, route := range resp.GetRoutes() {
-		h := hashRoute(route)
-		backends[h] = true
+func createVirtualService(gatewayNames []string, route *copilotapi.RouteWithBackends) *networking.VirtualService {
+	return &networking.VirtualService{
+		Gateways: gatewayNames,
+		Hosts:    []string{route.GetHostname()},
 	}
-
-	for _, hashedRoute := range cachedHashedRoutes {
-		if _, ok := backends[hashedRoute]; !ok {
-			delete(cachedConfigs, hashedRoute)
-			continue
-		}
-
-		configs = append(configs, cachedConfigs[hashedRoute])
-	}
-
-	return configs
 }
 
-func hashRoute(route *copilotapi.RouteWithBackends) string {
-	h := md5.New()
-	io.WriteString(h, fmt.Sprintf("%s%s", route.GetHostname(), route.GetPath()))
+func createRoute(route *copilotapi.RouteWithBackends) *networking.HTTPRoute {
+	return &networking.HTTPRoute{
+		Route: []*networking.DestinationWeight{
+			{
+				Destination: &networking.Destination{
+					Host: route.GetHostname(),
+					Port: &networking.PortSelector{
+						Port: &networking.PortSelector_Number{
+							Number: 8080,
+						},
+					},
+				},
+			},
+		},
+	}
+}
 
-	return fmt.Sprintf("%x", h.Sum(nil))
+func createMatchRequest(route *copilotapi.RouteWithBackends) []*networking.HTTPMatchRequest {
+	return []*networking.HTTPMatchRequest{
+		{
+			Uri: &networking.StringMatch{
+				MatchType: &networking.StringMatch_Prefix{
+					Prefix: route.GetPath(),
+				},
+			},
+		},
+	}
+}
+
+func createSubset(capiProcessGUID string) *networking.Subset {
+	return &networking.Subset{
+		Name:   capiProcessGUID,
+		Labels: map[string]string{"cfapp": capiProcessGUID},
+	}
+}
+
+func createDestinationRule(route *copilotapi.RouteWithBackends) *networking.DestinationRule {
+	return &networking.DestinationRule{
+		Host: route.GetHostname(),
+	}
 }

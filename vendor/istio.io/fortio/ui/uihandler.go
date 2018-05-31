@@ -256,7 +256,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 				i++
 			}
 			uiRunMapMutex.Unlock()
-			log.Infof("Interrupted %d runs", i)
+			log.Infof("Interrupted all %d runs", i)
 		} else { // Stop one
 			uiRunMapMutex.Lock()
 			v, found := runs[runid]
@@ -293,9 +293,11 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 			o := fgrpc.GRPCRunnerOptions{
 				RunnerOptions: ro,
 				Destination:   url,
-				Secure:        grpcSecure,
 				UsePing:       grpcPing,
 				Delay:         grpcPingDelay,
+			}
+			if grpcSecure {
+				o.Destination = addHTTPS(url)
 			}
 			res, err = fgrpc.RunGRPCTest(&o)
 		} else {
@@ -343,6 +345,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 			res.Result().ActualQPS)))
 		ResultToJsData(w, json)
 		w.Write([]byte("</script><p>Go to <a href='./'>Top</a>.</p></body></html>\n")) // nolint: gas
+		delete(runs, runid)
 	}
 }
 
@@ -374,6 +377,33 @@ func SaveJSON(name string, json []byte) string {
 	return "data/" + name
 }
 
+// SelectableValue represets an entry in the <select> of results.
+type SelectableValue struct {
+	Value    string
+	Selected bool
+}
+
+// SelectValues maps the list of values (from DataList) to a list of SelectableValues.
+// Each returned SelectableValue is selected if its value is contained in selectedValues.
+// It is assumed that values does not contain duplicates.
+func SelectValues(values []string, selectedValues []string) (selectableValues []SelectableValue, numSelected int) {
+	set := make(map[string]bool, len(selectedValues))
+	for _, selectedValue := range selectedValues {
+		set[selectedValue] = true
+	}
+
+	for _, value := range values {
+		_, selected := set[value]
+		if selected {
+			numSelected++
+			delete(set, value)
+		}
+		selectableValue := SelectableValue{Value: value, Selected: selected}
+		selectableValues = append(selectableValues, selectableValue)
+	}
+	return selectableValues, numSelected
+}
+
 // DataList returns the .json files/entries in data dir.
 func DataList() (dataList []string) {
 	files, err := ioutil.ReadDir(dataDir)
@@ -395,6 +425,14 @@ func DataList() (dataList []string) {
 	return dataList
 }
 
+// ChartOptions describes the user-configurable options for a chart
+type ChartOptions struct {
+	XMin   string
+	XMax   string
+	XIsLog bool
+	YIsLog bool
+}
+
 // BrowseHandler handles listing and rendering the JSON results.
 func BrowseHandler(w http.ResponseWriter, r *http.Request) {
 	fhttp.LogRequest(r, "Browse")
@@ -411,23 +449,43 @@ func BrowseHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	url := r.FormValue("url")
 	search := r.FormValue("s")
-	doRender := (url != "")
+	xMin := r.FormValue("xMin")
+	xMax := r.FormValue("xMax")
+	// Ignore error, xLog == nil is the same as xLog being unspecified.
+	xLog, _ := strconv.ParseBool(r.FormValue("xLog"))
+	yLog, _ := strconv.ParseBool(r.FormValue("yLog"))
 	dataList := DataList()
+	selectedValues := r.URL.Query()["sel"]
+	preselectedDataList, numSelected := SelectValues(dataList, selectedValues)
+
+	doRender := url != ""
+	doSearch := search != ""
+	doLoadSelected := doSearch || numSelected > 0
 	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
+
+	chartOptions := ChartOptions{
+		XMin:   xMin,
+		XMax:   xMax,
+		XIsLog: xLog,
+		YIsLog: yLog,
+	}
 	err := browseTemplate.Execute(w, &struct {
-		R           *http.Request
-		Extra       string
-		Version     string
-		LogoPath    string
-		ChartJSPath string
-		URL         string
-		Search      string
-		DataList    []string
-		URLHostPort string
-		DoRender    bool
-		DoSearch    bool
+		R                   *http.Request
+		Extra               string
+		Version             string
+		LogoPath            string
+		ChartJSPath         string
+		URL                 string
+		Search              string
+		ChartOptions        ChartOptions
+		PreselectedDataList []SelectableValue
+		URLHostPort         string
+		DoRender            bool
+		DoSearch            bool
+		DoLoadSelected      bool
 	}{r, extraBrowseLabel, version.Short(), logoPath, chartJSPath,
-		url, search, dataList, urlHostPort, doRender, (search != "")})
+		url, search, chartOptions, preselectedDataList, urlHostPort,
+		doRender, doSearch, doLoadSelected})
 	if err != nil {
 		log.Critf("Template execution failed: %v", err)
 	}
@@ -919,4 +977,22 @@ func setHostAndPort(inputPort string, addr *net.TCPAddr) {
 	if strings.HasPrefix(inputPort, ":") {
 		urlHostPort = "localhost" + portStr
 	}
+}
+
+// addHTTPS replaces "http://" in url with "https://" or prepends "https://"
+// if url does not contain prefix "http://".
+func addHTTPS(url string) (pURL string) {
+	if strings.HasPrefix(url, "http://") {
+		log.Infof("Replacing http scheme with https for url: %s", url)
+		pURL = strings.TrimPrefix(url, "http://")
+		return "https://" + pURL
+	}
+	// return url unchanged since it already has "https://"
+	if strings.HasPrefix(url, "https://") {
+		return url
+	}
+	// url must not contain any prefix, so add https prefix
+	log.Infof("Prepending https:// to url: %s", url)
+	pURL = "https://" + url
+	return pURL
 }

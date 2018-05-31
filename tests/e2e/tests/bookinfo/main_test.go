@@ -71,8 +71,8 @@ var (
 		Egress:   true,
 	}
 	testRetryTimes = 5
-	defaultRules   = []string{bookinfoGateway, allRule}
-	allRules       = []string{allRule, delayRule, tenRule, twentyRule, fiftyRule, testRule,
+	defaultRules   = []string{bookinfoGateway}
+	allRules       = []string{delayRule, tenRule, twentyRule, fiftyRule, testRule,
 		testDbRule, testMysqlRule, detailsExternalServiceRouteRule,
 		detailsExternalServiceEgressRule, bookinfoGateway}
 )
@@ -156,6 +156,13 @@ func preprocessRule(t *testConfig, version, rule string) error {
 
 func (t *testConfig) Setup() error {
 	//generate rule yaml files, replace "jason" with actual user
+	if tc.Kube.AuthEnabled {
+		allRules = append(allRules, routeRulesDir+"/"+"route-rule-all-v1-mtls")
+		defaultRules = append(defaultRules, routeRulesDir+"/"+"route-rule-all-v1-mtls")
+	} else {
+		allRules = append(allRules, routeRulesDir+"/"+"route-rule-all-v1")
+		defaultRules = append(defaultRules, routeRulesDir+"/"+"route-rule-all-v1")
+	}
 	for _, rule := range allRules {
 		for _, configVersion := range tf.ConfigVersions() {
 			err := preprocessRule(t, configVersion, rule)
