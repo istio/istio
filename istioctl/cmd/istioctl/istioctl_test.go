@@ -233,7 +233,9 @@ bookinfo   VirtualService.networking.v1alpha3   default
 	}
 
 	for i, c := range cases {
-		verifyOutput(t, fmt.Sprintf("TestGet case %d", i), c)
+		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
+			verifyOutput(t, c)
+		})
 	}
 }
 
@@ -256,7 +258,9 @@ func TestCreate(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		verifyOutput(t, fmt.Sprintf("TestGet case %d", i), c)
+		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
+			verifyOutput(t, c)
+		})
 	}
 }
 
@@ -272,7 +276,9 @@ func TestReplace(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		verifyOutput(t, fmt.Sprintf("TestGet case %d", i), c)
+		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
+			verifyOutput(t, c)
+		})
 	}
 }
 
@@ -312,7 +318,9 @@ Deleted config: routerule b
 	}
 
 	for i, c := range cases {
-		verifyOutput(t, fmt.Sprintf("TestGet case %d", i), c)
+		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
+			verifyOutput(t, c)
+		})
 	}
 }
 
@@ -379,7 +387,9 @@ func (cs sortedConfigStore) List(typ, namespace string) ([]model.Config, error) 
 	return out, nil
 }
 
-func verifyOutput(t *testing.T, label string, c testCase) {
+func verifyOutput(t *testing.T, c testCase) {
+	t.Helper()
+
 	// Override the client factory used by main.go
 	clientFactory = mockClientFactoryGenerator(c.configs)
 
@@ -393,24 +403,25 @@ func verifyOutput(t *testing.T, label string, c testCase) {
 	output := out.String()
 
 	if c.expectedOutput != "" && c.expectedOutput != output {
-		t.Errorf("Unexpected output for %s %s: Expected\n%q,got\n%q",
-			label, strings.Join(c.args, " "),
+		t.Fatalf("Unexpected output for 'istioctl %s': Expected\n%q,got\n%q",
+			strings.Join(c.args, " "),
 			c.expectedOutput, output)
 	}
 
 	if c.expectedRegexp != nil && !c.expectedRegexp.MatchString(output) {
-		t.Errorf("Output didn't match for %s %s: Expected\n%v,got\n%q",
-			label, strings.Join(c.args, " "),
+		t.Fatalf("Output didn't match for 'istioctl %s': Expected\n%v,got\n%q",
+			strings.Join(c.args, " "),
 			c.expectedRegexp, output)
 	}
 
 	if c.wantException {
 		if fErr == nil {
-			t.Errorf("Wanted an exception for %s %s, didn't get one, output was %q", label, c.args, output)
+			t.Fatalf("Wanted an exception for 'istioctl %s', didn't get one, output was %q",
+				strings.Join(c.args, " "), output)
 		}
 	} else {
 		if fErr != nil {
-			t.Errorf("Unwanted exception for %s %s: %v", label, c.args, fErr)
+			t.Fatalf("Unwanted exception for 'istioctl %s': %v", strings.Join(c.args, " "), fErr)
 		}
 	}
 }
