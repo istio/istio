@@ -7,6 +7,8 @@
 	The `prometheus` adapter collects Istio metrics and makes them available to
 	[Prometheus](https://prometheus.io).
 
+	This adapter supports the [metric template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric.html).
+
 	It is generated from these files:
 		mixer/adapter/prometheus/config/config.proto
 

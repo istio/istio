@@ -241,10 +241,7 @@ func init() {
 }
 func (this *Endpoint) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Endpoint)
@@ -257,10 +254,7 @@ func (this *Endpoint) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -274,10 +268,7 @@ func (this *Endpoint) Equal(that interface{}) bool {
 }
 func (this *Endpoint_HealthCheckConfig) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Endpoint_HealthCheckConfig)
@@ -290,10 +281,7 @@ func (this *Endpoint_HealthCheckConfig) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -304,10 +292,7 @@ func (this *Endpoint_HealthCheckConfig) Equal(that interface{}) bool {
 }
 func (this *LbEndpoint) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*LbEndpoint)
@@ -320,10 +305,7 @@ func (this *LbEndpoint) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -343,10 +325,7 @@ func (this *LbEndpoint) Equal(that interface{}) bool {
 }
 func (this *LocalityLbEndpoints) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*LocalityLbEndpoints)
@@ -359,10 +338,7 @@ func (this *LocalityLbEndpoints) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}

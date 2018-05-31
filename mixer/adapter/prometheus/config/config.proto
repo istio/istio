@@ -23,7 +23,7 @@ syntax = "proto3";
 // [Prometheus](https://prometheus.io).
 //
 // This adapter supports the [metric template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric.html).
-package adapter.prometheus.config;\
+package adapter.prometheus.config;
 
 import "gogoproto/gogo.proto";
 
