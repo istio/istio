@@ -128,8 +128,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			nt.Metadata = model.ParseMetadata(discReq.Node.Metadata)
 			con.modelNode = &nt
 
-			secret := s.st.getSecret()
-			if err := s.pushSDS(secret, *con.modelNode, con); err != nil {
+			if err := s.pushSDS(s.st.getSecret(), *con.modelNode, con); err != nil {
 				log.Errorf("SDS failed to push: %v", err)
 				return err
 			}

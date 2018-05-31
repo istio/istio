@@ -31,25 +31,24 @@ import (
 )
 
 var (
-	socket               string
 	fakeCertificateChain = []byte{01}
 	fakePrivateKey       = []byte{02}
 )
 
 func TestStreamSecrets(t *testing.T) {
-	socket = fmt.Sprintf("/tmp/gotest%q.sock", string(uuid.NewUUID()))
+	socket := fmt.Sprintf("/tmp/gotest%q.sock", string(uuid.NewUUID()))
 	testHelper(t, socket, sdsRequestStream)
 }
 
 func TestFetchSecrets(t *testing.T) {
-	socket = fmt.Sprintf("/tmp/gotest%q.sock", string(uuid.NewUUID()))
+	socket := fmt.Sprintf("/tmp/gotest%s.sock", string(uuid.NewUUID()))
 	testHelper(t, socket, sdsRequestFetch)
 }
 
 type secretCallback func(string, *api.DiscoveryRequest) (*api.DiscoveryResponse, error)
 
 func testHelper(t *testing.T, testSocket string, cb secretCallback) {
-	arg := Args{
+	arg := Options{
 		UDSPath: testSocket,
 	}
 	st := &mockSecretStore{}
@@ -108,13 +107,8 @@ func testHelper(t *testing.T, testSocket string, cb secretCallback) {
 	t.Fatalf("failed to start grpc server for SDS")
 }
 
-// unixDialer connects a target with specified timeout.
-func unixDialer(socket string, timeout time.Duration) (net.Conn, error) {
-	return net.DialTimeout("unix", socket, timeout)
-}
-
 func sdsRequestStream(socket string, req *api.DiscoveryRequest) (*api.DiscoveryResponse, error) {
-	conn, err := setupConnection()
+	conn, err := setupConnection(socket)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +131,7 @@ func sdsRequestStream(socket string, req *api.DiscoveryRequest) (*api.DiscoveryR
 }
 
 func sdsRequestFetch(socket string, req *api.DiscoveryRequest) (*api.DiscoveryResponse, error) {
-	conn, err := setupConnection()
+	conn, err := setupConnection(socket)
 	if err != nil {
 		return nil, err
 	}
@@ -152,11 +146,13 @@ func sdsRequestFetch(socket string, req *api.DiscoveryRequest) (*api.DiscoveryRe
 	return resp, nil
 }
 
-func setupConnection() (*grpc.ClientConn, error) {
+func setupConnection(socket string) (*grpc.ClientConn, error) {
 	var opts []grpc.DialOption
 
 	opts = append(opts, grpc.WithInsecure())
-	opts = append(opts, grpc.WithDialer(unixDialer))
+	opts = append(opts, grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
+		return net.DialTimeout("unix", socket, timeout)
+	}))
 
 	conn, err := grpc.Dial(socket, opts...)
 	if err != nil {

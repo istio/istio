@@ -24,8 +24,8 @@ import (
 
 const maxStreams = 100000
 
-// Args provides all of the configuration parameters for secret discovery service.
-type Args struct {
+// Options provides all of the configuration parameters for secret discovery service.
+type Options struct {
 	// UDSPath is the unix domain socket through which SDS server communicates with proxies.
 	UDSPath string
 }
@@ -40,12 +40,12 @@ type Server struct {
 }
 
 // NewServer creates and starts the Grpc server for SDS.
-func NewServer(args Args, st secretStore) (*Server, error) {
+func NewServer(options Options, st secretStore) (*Server, error) {
 	s := &Server{
 		envoySds: newSDSService(st),
 		closing:  make(chan bool, 1),
 	}
-	if err := s.initDiscoveryService(&args, st); err != nil {
+	if err := s.initDiscoveryService(&options, st); err != nil {
 		log.Errorf("Failed to initialize secret discovery service: %v", err)
 		return nil, err
 	}
@@ -60,13 +60,13 @@ func (s *Server) Stop() {
 	s.closing <- true
 }
 
-func (s *Server) initDiscoveryService(args *Args, st secretStore) error {
+func (s *Server) initDiscoveryService(options *Options, st secretStore) error {
 	s.initGrpcServer()
 	s.envoySds.register(s.grpcServer)
 
-	grpcListener, err := net.Listen("unix", args.UDSPath)
+	grpcListener, err := net.Listen("unix", options.UDSPath)
 	if err != nil {
-		log.Errorf("Failed to listen on unix socket %q: %v", args.UDSPath, err)
+		log.Errorf("Failed to listen on unix socket %q: %v", options.UDSPath, err)
 		return err
 	}
 	s.grpcListeningAddr = grpcListener.Addr()
