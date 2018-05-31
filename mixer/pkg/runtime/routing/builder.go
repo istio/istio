@@ -113,12 +113,12 @@ func BuildTable(
 		defaultConfigNamespace: defaultConfigNamespace,
 		nextIDCounter:          1,
 
-		matchesByID:       make(map[uint32]string, len(config.Rules)),
-		instanceNamesByID: make(map[uint32][]string, len(config.Instances)),
+		matchesByID:       make(map[uint32]string, len(config.RulesLegacy)),
+		instanceNamesByID: make(map[uint32][]string, len(config.InstancesLegacy)),
 
-		builders:    make(map[string]template.InstanceBuilderFn, len(config.Instances)),
-		mappers:     make(map[string]template.OutputMapperFn, len(config.Instances)),
-		expressions: make(map[string]compiled.Expression, len(config.Rules)),
+		builders:    make(map[string]template.InstanceBuilderFn, len(config.InstancesLegacy)),
+		mappers:     make(map[string]template.OutputMapperFn, len(config.InstancesLegacy)),
+		expressions: make(map[string]compiled.Expression, len(config.RulesLegacy)),
 	}
 
 	b.build(config)
@@ -141,7 +141,7 @@ func (b *builder) nextID() uint32 {
 
 func (b *builder) build(config *config.Snapshot) {
 
-	for _, rule := range config.Rules {
+	for _, rule := range config.RulesLegacy {
 
 		// Create a compiled expression for the rule condition first.
 		condition, err := b.getConditionExpression(rule)
@@ -213,7 +213,7 @@ func (b *builder) build(config *config.Snapshot) {
 // is an attribute generator.
 func (b *builder) getBuilderAndMapper(
 	finder ast.AttributeDescriptorFinder,
-	instance *config.Instance) (template.InstanceBuilderFn, template.OutputMapperFn, error) {
+	instance *config.InstanceLegacy) (template.InstanceBuilderFn, template.OutputMapperFn, error) {
 	var err error
 
 	t := instance.Template
@@ -244,7 +244,7 @@ func (b *builder) getBuilderAndMapper(
 }
 
 // get or create a compiled.Expression for the rule's match clause, if necessary.
-func (b *builder) getConditionExpression(rule *config.Rule) (compiled.Expression, error) {
+func (b *builder) getConditionExpression(rule *config.RuleLegacy) (compiled.Expression, error) {
 	text := strings.TrimSpace(rule.Match)
 
 	if text == "" {
