@@ -1,5 +1,6 @@
 name: galley
 version: 0.8.0
+tillerVersion: ">=2.7.2"
 description: Helm chart for galley deployment
 keywords:
   - istio
