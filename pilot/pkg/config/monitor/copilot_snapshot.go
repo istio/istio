@@ -75,12 +75,6 @@ func (c *CopilotSnapshot) ReadConfigFiles() ([]*model.Config, error) {
 	}
 
 	for _, route := range resp.GetRoutes() {
-		cr := createRoute(route)
-		cr.Route[0].Destination.Subset = route.GetCapiProcessGuid()
-		if route.GetPath() != "" {
-			cr.Match = createMatchRequest(route)
-		}
-
 		var dr *networking.DestinationRule
 		if config, ok := destinationRules[route.GetHostname()]; ok {
 			dr = config.Spec.(*networking.DestinationRule)
@@ -96,7 +90,18 @@ func (c *CopilotSnapshot) ReadConfigFiles() ([]*model.Config, error) {
 			vs = createVirtualService(gatewayNames, route)
 		}
 
-		vs.Http = append(vs.Http, cr)
+		r := createRoute(route)
+		r.Route[0].Destination.Subset = route.GetCapiProcessGuid()
+
+		// TODO: Extract this sorting logic into a custom sorter
+		// The route matches need to be first before the root routes;
+		// they will otherwise not be enumerated past the root route
+		if route.GetPath() != "" {
+			r.Match = createMatchRequest(route)
+			vs.Http = append([]*networking.HTTPRoute{r}, vs.Http...)
+		} else {
+			vs.Http = append(vs.Http, r)
+		}
 
 		virtualServices[route.GetHostname()] = &model.Config{
 			ConfigMeta: model.ConfigMeta{
