@@ -129,7 +129,8 @@ dump_istio_custom_resource_definitions() {
 
   local istio_resources
   # Trim to only first field; join by comma; remove last comma.
-  istio_resources=$(kubectl get customresourcedefinitions --no-headers \
+  istio_resources=$(kubectl get customresourcedefinitions \
+      --no-headers 2> /dev/null \
       | cut -d ' ' -f 1 \
       | tr '\n' ',' \
       | sed 's/,$//')
