@@ -84,7 +84,8 @@ func TestAuthNJwt(t *testing.T) {
 		kubeconfig: tc.Kube.KubeConfig,
 	}
 	if tc.Kube.AuthEnabled {
-		cfgs.YamlFiles = append(cfgs.YamlFiles, "testdata/authn/destination-rule-authjwt.yaml.tmpl")
+		cfgs.YamlFiles = append(cfgs.YamlFiles, "testdata/authn/destination-rule-authjwt.yaml.tmpl",
+			"testdata/authn/service-d-mtls-policy.yaml.tmpl")
 	}
 	if err := cfgs.Setup(); err != nil {
 		t.Fatal(err)
