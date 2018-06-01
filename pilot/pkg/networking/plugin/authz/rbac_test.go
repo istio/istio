@@ -16,6 +16,7 @@ package authz
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -24,8 +25,148 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	rbacproto "istio.io/api/rbac/v1alpha1"
+	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 )
+
+func newIstioStoreWithConfigs(configs []model.Config, t *testing.T) model.IstioConfigStore {
+	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
+	for _, cfg := range configs {
+		_, err := store.Create(cfg)
+		if err != nil {
+			t.Fatalf("failed to add config %v to istio store: %v", cfg, err)
+		}
+	}
+	return store
+}
+
+func newRbacConfig(name, ns string, mode rbacproto.RbacConfig_Mode) model.Config {
+	return model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type: model.RbacConfig.Type, Name: name, Namespace: ns},
+		Spec: &rbacproto.RbacConfig{
+			Mode: mode,
+		},
+	}
+}
+
+func TestIsRbacEnabled(t *testing.T) {
+	cfg1 := newRbacConfig("cfg1", "default", rbacproto.RbacConfig_ON)
+	cfg2 := newRbacConfig("cfg2", kube.IstioNamespace, rbacproto.RbacConfig_ON)
+	cfg3 := newRbacConfig("cfg3", kube.IstioNamespace, rbacproto.RbacConfig_ON)
+	cfg4 := newRbacConfig("cfg4", kube.IstioNamespace, rbacproto.RbacConfig_OFF)
+	testCases := []struct {
+		Name  string
+		Store model.IstioConfigStore
+		Ret   bool
+		Err   string
+	}{
+		{
+			Name:  "zero rbacConfig",
+			Store: newIstioStoreWithConfigs([]model.Config{cfg1}, t),
+			Err:   "found 0 rbacConfigs, expecting only 1 at most",
+		},
+		{
+			Name:  "more than 1 rbacConfigs",
+			Store: newIstioStoreWithConfigs([]model.Config{cfg2, cfg3}, t),
+			Err:   "found 2 rbacConfigs, expecting only 1 at most",
+		},
+		{
+			Name:  "rbac plugin disabled",
+			Store: newIstioStoreWithConfigs([]model.Config{cfg4}, t),
+		},
+		{
+			Name:  "valid filter",
+			Store: newIstioStoreWithConfigs([]model.Config{cfg1, cfg2}, t),
+			Ret:   true,
+		},
+	}
+
+	for _, tc := range testCases {
+		ret, err := isRbacEnabled(tc.Store)
+		if err != nil {
+			if !strings.HasPrefix(err.Error(), tc.Err) {
+				t.Errorf("%s: expecting error %q, but got %q", tc.Name, tc.Err, err.Error())
+			}
+		} else if tc.Ret != ret {
+			t.Errorf("%s: expecting %v but got %v", tc.Name, tc.Ret, ret)
+		}
+	}
+}
+
+func TestBuildHTTPFilter(t *testing.T) {
+	roleCfg := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type: model.ServiceRole.Type, Name: "test-role-1", Namespace: "default"},
+		Spec: &rbacproto.ServiceRole{
+			Rules: []*rbacproto.AccessRule{
+				{Services: []string{"product.default"}, Methods: []string{"GET-method"}},
+			},
+		},
+	}
+	bindingCfg := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type: model.ServiceRoleBinding.Type, Name: "test-binding-1", Namespace: "default"},
+		Spec: &rbacproto.ServiceRoleBinding{
+			Subjects: []*rbacproto.Subject{{User: "test-user-1"}},
+			RoleRef:  &rbacproto.RoleRef{Kind: "ServiceRole", Name: "test-role-1"},
+		},
+	}
+	store := newIstioStoreWithConfigs([]model.Config{roleCfg, bindingCfg}, t)
+
+	testCases := []struct {
+		Name          string
+		Host          string
+		Store         model.IstioConfigStore
+		Err           string
+		ExpectContain bool
+		Strings       []string
+	}{
+		{
+			Name: "incorrect hostname",
+			Host: "abc",
+			Err:  "failed to extract namespace from service: abc",
+		},
+		{
+			Name:          "empty filter",
+			Host:          "abc.xyz",
+			Store:         store,
+			ExpectContain: false,
+			Strings:       []string{"test-role-1", "GET-method", "test-user-1"},
+		},
+		{
+			Name:          "valid filter",
+			Host:          "product.default",
+			Store:         store,
+			ExpectContain: true,
+			Strings:       []string{"test-role-1", "GET-method", "test-user-1"},
+		},
+	}
+
+	for _, tc := range testCases {
+		filter, err := buildHTTPFilter(model.Hostname(tc.Host), tc.Store)
+		if err != nil {
+			if !strings.HasPrefix(err.Error(), tc.Err) {
+				t.Errorf("%s: expecting error %q, but got %q", tc.Name, tc.Err, err.Error())
+			}
+		} else {
+			if fn := "envoy.filters.http.rbac"; filter.Name != fn {
+				t.Errorf("%s: expecting filter name %s, but got %s", tc.Name, fn, filter.Name)
+			}
+			for _, expect := range tc.Strings {
+				if r := strings.Contains(filter.Config.String(), expect); r != tc.ExpectContain {
+					not := " not"
+					if tc.ExpectContain {
+						not = ""
+					}
+					t.Errorf("%s: expecting filter config to%s contain %s, but got %v",
+						tc.Name, not, expect, filter.Config.String())
+				}
+			}
+		}
+	}
+}
 
 func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 	roles := []model.Config{
@@ -385,8 +526,8 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 		if rbac == nil || err != nil {
 			t.Errorf("failed to convert rbac rules to filter config: %v", err)
 		}
-		if !reflect.DeepEqual(*tc.rbac, *rbac) {
-			t.Errorf("%s want:\n%v\nbut got:\n%v", tc.name, *tc.rbac, *rbac)
+		if !reflect.DeepEqual(*tc.rbac, *rbac.Rules) {
+			t.Errorf("%s want:\n%v\nbut got:\n%v", tc.name, *tc.rbac, *rbac.Rules)
 		}
 	}
 }

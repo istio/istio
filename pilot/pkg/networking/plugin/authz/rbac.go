@@ -12,6 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// package authz converts Istio RBAC (role-based-access-control) policies (ServiceRole and ServiceRoleBinding)
+// to corresponding filter config that is used by the envoy RBAC filter to enforce access control to
+// the service co-located with envoy.
+// Currently the config is only generated for sidecar node on inbound HTTP listener. The generation
+// is controlled by RbacConfig (a singleton custom resource defined in istio-system namespace). User
+// could disable this by either deleting the RbacConfig or set the RbacConfig.mode to OFF.
+// Note: This is still working in progress and by default no RbacConfig is created in the deployment
+// of Istio which means this plugin doesn't generate any RBAC config by default.
 package authz
 
 import (
@@ -20,6 +28,7 @@ import (
 	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	rbacconfig "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	policyproto "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha"
 
@@ -32,8 +41,7 @@ import (
 )
 
 const (
-	// RbacFilterName is the name for the Rbac filter.
-	// TODO(yangminzhu): Update once the final name is decided.
+	// RbacFilterName is the name of the RBAC filter in envoy.
 	RbacFilterName = "envoy.filters.http.rbac"
 
 	sourceIP        = "source.ip"
@@ -80,8 +88,8 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 	if err != nil {
 		return err
 	}
-	for _, chain := range mutable.FilterChains {
-		chain.HTTP = append(chain.HTTP, filter)
+	for cnum := range mutable.FilterChains {
+		mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, filter)
 	}
 
 	return nil
@@ -123,8 +131,8 @@ func isRbacEnabled(store model.IstioConfigStore) (bool, error) {
 	return true, nil
 }
 
-// buildHTTPFilter builds a http filter that enforces the rbac rules for the specified service in
-// the sidecar proxy.
+// buildHTTPFilter builds the RBAC http filter that enforces the access control to the specified
+// service which is co-located with the sidecar proxy.
 func buildHTTPFilter(hostName model.Hostname, store model.IstioConfigStore) (*http_conn.HttpFilter, error) {
 	service := string(hostName)
 	split := strings.Split(service, ".")
@@ -155,9 +163,10 @@ func buildHTTPFilter(hostName model.Hostname, store model.IstioConfigStore) (*ht
 	}, nil
 }
 
-// convertRbacRulesToFilterConfig converts the current RBAC rules in service mesh to proxy config
-// for the specified service.
-func convertRbacRulesToFilterConfig(service string, roles []model.Config, bindings []model.Config) (*policyproto.RBAC, error) {
+// convertRbacRulesToFilterConfig converts the current RBAC rules (ServiceRole and ServiceRoleBindings)
+// in service mesh to the corresponding proxy config for the specified service. The generated proxy config
+// will be consumed by envoy RBAC filter to enforce access control on the specified service.
+func convertRbacRulesToFilterConfig(service string, roles []model.Config, bindings []model.Config) (*rbacconfig.RBAC, error) {
 	// roleToBinding maps ServiceRole name to a list of ServiceRoleBindings.
 	roleToBinding := map[string][]*rbacproto.ServiceRoleBinding{}
 	for _, binding := range bindings {
@@ -171,7 +180,6 @@ func convertRbacRulesToFilterConfig(service string, roles []model.Config, bindin
 	}
 
 	rbac := &policyproto.RBAC{
-		// TODO(yangminzhu): Supports RBAC_DENY based on RbacConfig.
 		Action:   policyproto.RBAC_ALLOW,
 		Policies: map[string]*policyproto.Policy{},
 	}
@@ -202,7 +210,7 @@ func convertRbacRulesToFilterConfig(service string, roles []model.Config, bindin
 		}
 	}
 
-	return rbac, nil
+	return &rbacconfig.RBAC{Rules: rbac}, nil
 }
 
 // convertToPermission converts a single AccessRule to a Permission.
