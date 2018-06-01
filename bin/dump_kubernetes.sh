@@ -114,14 +114,18 @@ dump_logs() {
   done
 }
 
-dump_resources() {
-  log "Retrieving resource configurations"
+dump_kubernetes_resources() {
+  log "Retrieving kubernetes resource configurations"
 
   mkdir -p "${OUT_DIR}"
   # Only works in Kubernetes 1.8.0 and above.
   kubectl get --all-namespaces --export \
       all,ingresses,endpoints,customresourcedefinitions,configmaps,secrets,events \
       -o yaml > "${RESOURCES_FILE}"
+}
+
+dump_istio_custom_resource_definitions() {
+  log "Retrieving istio resource configurations"
 
   local istio_resources
   # Trim to only first field; join by comma; remove last comma.
@@ -134,6 +138,11 @@ dump_resources() {
     kubectl get "${istio_resources}" --all-namespaces -o yaml \
         > "${ISTIO_RESOURCES_FILE}"
   fi
+}
+
+dump_resources() {
+  dump_kubernetes_resources
+  dump_istio_custom_resource_definitions
 
   mkdir -p "${OUT_DIR}"
   kubectl cluster-info dump > "${OUT_DIR}/cluster-info.dump.txt"
