@@ -25,6 +25,7 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/tests/util"
 )
 
 func getKubeConfigFromFile(dirname string) (string, error) {
@@ -55,13 +56,13 @@ func getKubeConfigFromFile(dirname string) (string, error) {
 func (k *KubeInfo) generateRemoteIstio(src, dst string) error {
 	content, err := ioutil.ReadFile(src)
 	if err != nil {
-		log.Errorf("cannot read remote yaml file %s", src)
-		return err
+		return fmt.Errorf("cannot read remote yaml file %s", src)
 	}
 	getOpt := meta_v1.GetOptions{IncludeUninitialized: true}
 	var statsdEPS, pilotEPS, mixerEPS *v1.Endpoints
+	var i int
 
-	for i := 0; i <= 200; i++ {
+	for i = 0; i <= 200; i++ {
 		pilotEPS, err = k.KubeClient.CoreV1().Endpoints(k.Namespace).Get("istio-pilot", getOpt)
 		if (len(pilotEPS.Subsets) != 0) && (err == nil) {
 			mixerEPS, err = k.KubeClient.CoreV1().Endpoints(k.Namespace).Get("istio-policy", getOpt)
@@ -74,9 +75,8 @@ func (k *KubeInfo) generateRemoteIstio(src, dst string) error {
 		}
 		time.Sleep(time.Second * 1)
 	}
-	if err != nil {
-		err = fmt.Errorf("could not get endpoints from local cluster")
-		return err
+	if (err != nil) || (i >= 200) {
+		return fmt.Errorf("could not get endpoints from local cluster")
 	}
 
 	var statsdIP, pilotIP, mixerIP string
@@ -85,24 +85,21 @@ func (k *KubeInfo) generateRemoteIstio(src, dst string) error {
 	} else if len(pilotEPS.Subsets[0].NotReadyAddresses) != 0 {
 		pilotIP = pilotEPS.Subsets[0].NotReadyAddresses[0].IP
 	} else {
-		err = fmt.Errorf("could not get endpoint addresses")
-		return err
+		return fmt.Errorf("could not get endpoint addresses")
 	}
 	if len(mixerEPS.Subsets[0].Addresses) != 0 {
 		mixerIP = mixerEPS.Subsets[0].Addresses[0].IP
 	} else if len(mixerEPS.Subsets[0].NotReadyAddresses) != 0 {
 		mixerIP = mixerEPS.Subsets[0].NotReadyAddresses[0].IP
 	} else {
-		err = fmt.Errorf("could not get endpoint addresses")
-		return err
+		return fmt.Errorf("could not get endpoint addresses")
 	}
 	if len(statsdEPS.Subsets[0].Addresses) != 0 {
 		statsdIP = statsdEPS.Subsets[0].Addresses[0].IP
 	} else if len(statsdEPS.Subsets[0].NotReadyAddresses) != 0 {
 		statsdIP = statsdEPS.Subsets[0].NotReadyAddresses[0].IP
 	} else {
-		err = fmt.Errorf("could not get endpoint addresses")
-		return err
+		return fmt.Errorf("could not get endpoint addresses")
 	}
 	log.Infof("istio-pilot IP = %s istio-policy IP = %s istio-statsd-prom-bridge IP = %s", pilotIP, mixerIP, statsdIP)
 	content = replacePattern(content, "istio-policy.istio-system", mixerIP)
@@ -111,7 +108,26 @@ func (k *KubeInfo) generateRemoteIstio(src, dst string) error {
 	content = replacePattern(content, istioSystem, k.Namespace)
 	err = ioutil.WriteFile(dst, content, 0600)
 	if err != nil {
-		log.Errorf("cannot write remote into generated yaml file %s", dst)
+		return fmt.Errorf("cannot write remote into generated yaml file %s", dst)
 	}
 	return nil
+}
+
+func (k *KubeInfo) createCacerts(remoteCluster bool) (err error) {
+	kc := k.KubeConfig
+	cluster := "primary"
+	if remoteCluster {
+		kc = k.RemoteKubeConfig
+		cluster = "remote"
+	}
+	caCertFile := filepath.Join(k.ReleaseDir, caCertFileName)
+	caKeyFile := filepath.Join(k.ReleaseDir, caKeyFileName)
+	rootCertFile := filepath.Join(k.ReleaseDir, rootCertFileName)
+	certChainFile := filepath.Join(k.ReleaseDir, certChainFileName)
+	if _, err = util.Shell("kubectl create secret generic cacerts --kubeconfig=%s -n %s "+
+		"--from-file=%s --from-file=%s --from-file=%s --from-file=%s",
+		kc, k.Namespace, caCertFile, caKeyFile, rootCertFile, certChainFile); err == nil {
+		log.Infof("Created Cacerts with namespace %s in %s cluster", k.Namespace, cluster)
+	}
+	return err
 }

@@ -20,7 +20,6 @@ import (
 
 	"github.com/hashicorp/consul/api"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
@@ -50,15 +49,14 @@ func convertPort(port int, name string) *model.Port {
 	}
 
 	return &model.Port{
-		Name:                 name,
-		Port:                 port,
-		Protocol:             convertProtocol(name),
-		AuthenticationPolicy: extractAuthenticationPolicy(port, name),
+		Name:     name,
+		Port:     port,
+		Protocol: convertProtocol(name),
 	}
 }
 
 func convertService(endpoints []*api.CatalogService) *model.Service {
-	name, addr, externalName := "", "", ""
+	name, externalName := "", ""
 
 	meshExternal := false
 	resolution := model.ClientSideLB
@@ -92,9 +90,9 @@ func convertService(endpoints []*api.CatalogService) *model.Service {
 
 	out := &model.Service{
 		Hostname:     serviceHostname(name),
-		Address:      addr,
+		Address:      "0.0.0.0",
 		Ports:        svcPorts,
-		ExternalName: externalName,
+		ExternalName: model.Hostname(externalName),
 		MeshExternal: meshExternal,
 		Resolution:   resolution,
 	}
@@ -131,7 +129,7 @@ func convertInstance(instance *api.CatalogService) *model.ServiceInstance {
 			Address:  instance.ServiceAddress,
 			Ports:    model.PortList{port},
 			// TODO ExternalName come from metadata?
-			ExternalName: externalName,
+			ExternalName: model.Hostname(externalName),
 			MeshExternal: meshExternal,
 			Resolution:   resolution,
 		},
@@ -140,15 +138,15 @@ func convertInstance(instance *api.CatalogService) *model.ServiceInstance {
 }
 
 // serviceHostname produces FQDN for a consul service
-func serviceHostname(name string) string {
+func serviceHostname(name string) model.Hostname {
 	// TODO include datacenter in Hostname?
 	// consul DNS uses "redis.service.us-east-1.consul" -> "[<optional_tag>].<svc>.service.[<optional_datacenter>].consul"
-	return fmt.Sprintf("%s.service.consul", name)
+	return model.Hostname(fmt.Sprintf("%s.service.consul", name))
 }
 
 // parseHostname extracts service name from the service hostname
-func parseHostname(hostname string) (name string, err error) {
-	parts := strings.Split(hostname, ".")
+func parseHostname(hostname model.Hostname) (name string, err error) {
+	parts := strings.Split(hostname.String(), ".")
 	if len(parts) < 1 || parts[0] == "" {
 		err = fmt.Errorf("missing service name from the service hostname %q", hostname)
 		return
@@ -164,14 +162,4 @@ func convertProtocol(name string) model.Protocol {
 		return model.ProtocolTCP
 	}
 	return protocol
-}
-
-// Extracts security option for given port from labels. If there is no such
-// annotation, or the annotation value is not recognized, returns
-// meshconfig.AuthenticationPolicy_INHERIT
-func extractAuthenticationPolicy(port int, name string) meshconfig.AuthenticationPolicy {
-	// TODO: https://github.com/istio/istio/issues/3338
-	// Check for the label - auth.istio.io/<port> and return auth policy respectively
-
-	return meshconfig.AuthenticationPolicy_INHERIT
 }

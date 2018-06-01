@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"strings"
 	"time"
 
 	copilotapi "code.cloudfoundry.org/copilot/api"
@@ -35,24 +34,19 @@ type CopilotClient interface {
 
 // CopilotSnapshot provides a snapshot of configuration from the Cloud Foundry Copilot component.
 type CopilotSnapshot struct {
-	store             model.ConfigStore
-	client            CopilotClient
-	hostnameBlacklist []string
-	timeout           time.Duration
-	virtualServices   map[string]*model.Config
+	store   model.ConfigStore
+	client  CopilotClient
+	timeout time.Duration
 }
 
 // NewCopilotSnapshot returns a CopilotSnapshot used for integration with Cloud Foundry.
 // The store is required to discover any existing gateways: the generated config will reference those gateways
 // The client is used to discover Cloud Foundry Routes from Copilot
-// The snapshot will not return routes for any hostnames which end with strings on the hostnameBlacklist
-func NewCopilotSnapshot(store model.ConfigStore, client CopilotClient, hostnameBlacklist []string, timeout time.Duration) *CopilotSnapshot {
+func NewCopilotSnapshot(store model.ConfigStore, client CopilotClient, timeout time.Duration) *CopilotSnapshot {
 	return &CopilotSnapshot{
-		store:             store,
-		client:            client,
-		hostnameBlacklist: hostnameBlacklist,
-		timeout:           timeout,
-		virtualServices:   make(map[string]*model.Config),
+		store:   store,
+		client:  client,
+		timeout: timeout,
 	}
 }
 
@@ -72,89 +66,120 @@ func (c *CopilotSnapshot) ReadConfigFiles() ([]*model.Config, error) {
 		return nil, err
 	}
 
+	virtualServices := make(map[string]*model.Config)
+	destinationRules := make(map[string]*model.Config)
+
 	var gatewayNames []string
 	for _, gwConfig := range gateways {
 		gatewayNames = append(gatewayNames, gwConfig.Name)
 	}
 
-	filteredCopilotHostnames := c.removeBlacklistedHostnames(resp)
+	for _, route := range resp.GetRoutes() {
+		var dr *networking.DestinationRule
+		if config, ok := destinationRules[route.GetHostname()]; ok {
+			dr = config.Spec.(*networking.DestinationRule)
+		} else {
+			dr = createDestinationRule(route)
+		}
+		dr.Subsets = append(dr.Subsets, createSubset(route.GetCapiProcessGuid()))
 
-	for _, hostname := range filteredCopilotHostnames {
-		if _, ok := c.virtualServices[hostname]; ok {
-			continue
+		var vs *networking.VirtualService
+		if config, ok := virtualServices[route.GetHostname()]; ok {
+			vs = config.Spec.(*networking.VirtualService)
+		} else {
+			vs = createVirtualService(gatewayNames, route)
 		}
 
-		c.virtualServices[hostname] = &model.Config{
+		r := createRoute(route)
+		r.Route[0].Destination.Subset = route.GetCapiProcessGuid()
+
+		// TODO: Extract this sorting logic into a custom sorter
+		// The route matches need to be first before the root routes;
+		// they will otherwise not be enumerated past the root route
+		if route.GetPath() != "" {
+			r.Match = createMatchRequest(route)
+			vs.Http = append([]*networking.HTTPRoute{r}, vs.Http...)
+		} else {
+			vs.Http = append(vs.Http, r)
+		}
+
+		virtualServices[route.GetHostname()] = &model.Config{
 			ConfigMeta: model.ConfigMeta{
 				Type:    model.VirtualService.Type,
 				Version: model.VirtualService.Version,
-				Name:    fmt.Sprintf("route-for-%s", hostname),
+				Name:    fmt.Sprintf("virtual-service-for-%s", route.GetHostname()),
 			},
-			Spec: &networking.VirtualService{
-				Gateways: gatewayNames,
-				Hosts:    []string{hostname},
-				Http: []*networking.HTTPRoute{
-					{
-						Route: []*networking.DestinationWeight{
-							{
-								Destination: &networking.Destination{
-									Host: hostname,
-									Port: &networking.PortSelector{
-										Port: &networking.PortSelector_Name{
-											Name: "http",
-										},
-									},
-								},
-							},
+			Spec: vs,
+		}
+		destinationRules[route.GetHostname()] = &model.Config{
+			ConfigMeta: model.ConfigMeta{
+				Type:    model.DestinationRule.Type,
+				Version: model.DestinationRule.Version,
+				Name:    fmt.Sprintf("dest-rule-for-%s", route.GetHostname()),
+			},
+			Spec: dr,
+		}
+	}
+
+	var configs []*model.Config
+	for _, service := range virtualServices {
+		configs = append(configs, service)
+	}
+
+	for _, rule := range destinationRules {
+		configs = append(configs, rule)
+	}
+
+	sort.Slice(configs, func(i, j int) bool { return configs[i].Key() < configs[j].Key() })
+
+	return configs, nil
+}
+
+func createVirtualService(gatewayNames []string, route *copilotapi.RouteWithBackends) *networking.VirtualService {
+	return &networking.VirtualService{
+		Gateways: gatewayNames,
+		Hosts:    []string{route.GetHostname()},
+	}
+}
+
+func createRoute(route *copilotapi.RouteWithBackends) *networking.HTTPRoute {
+	return &networking.HTTPRoute{
+		Route: []*networking.DestinationWeight{
+			{
+				Destination: &networking.Destination{
+					Host: route.GetHostname(),
+					Port: &networking.PortSelector{
+						Port: &networking.PortSelector_Number{
+							Number: 8080,
 						},
 					},
 				},
 			},
-		}
+		},
 	}
-
-	var cachedHostnames sort.StringSlice
-	for hostname := range c.virtualServices {
-		cachedHostnames = append(cachedHostnames, hostname)
-	}
-
-	cachedHostnames.Sort()
-
-	return c.collectVirtualServices(cachedHostnames, resp), nil
 }
 
-func (c *CopilotSnapshot) removeBlacklistedHostnames(resp *copilotapi.RoutesResponse) []string {
-	var filteredHostnames []string
-	for hostname := range resp.Backends {
-		var blacklisted bool
-
-		for _, blacklistedItem := range c.hostnameBlacklist {
-			if strings.HasSuffix(hostname, blacklistedItem) {
-				blacklisted = true
-				break
-			}
-		}
-
-		if blacklisted {
-			continue
-		}
-
-		filteredHostnames = append(filteredHostnames, hostname)
+func createMatchRequest(route *copilotapi.RouteWithBackends) []*networking.HTTPMatchRequest {
+	return []*networking.HTTPMatchRequest{
+		{
+			Uri: &networking.StringMatch{
+				MatchType: &networking.StringMatch_Prefix{
+					Prefix: route.GetPath(),
+				},
+			},
+		},
 	}
-
-	return filteredHostnames
 }
 
-func (c *CopilotSnapshot) collectVirtualServices(cachedHostnames sort.StringSlice, resp *copilotapi.RoutesResponse) []*model.Config {
-	var virtualServices []*model.Config
-	for _, hostname := range cachedHostnames {
-		if _, ok := resp.Backends[hostname]; !ok {
-			delete(c.virtualServices, hostname)
-			continue
-		}
-
-		virtualServices = append(virtualServices, c.virtualServices[hostname])
+func createSubset(capiProcessGUID string) *networking.Subset {
+	return &networking.Subset{
+		Name:   capiProcessGUID,
+		Labels: map[string]string{"cfapp": capiProcessGUID},
 	}
+}
 
-	return virtualServices
+func createDestinationRule(route *copilotapi.RouteWithBackends) *networking.DestinationRule {
+	return &networking.DestinationRule{
+		Host: route.GetHostname(),
+	}
 }

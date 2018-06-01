@@ -24,11 +24,9 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
-	"istio.io/istio/pkg/log"
 )
 
 // memregistry is based on mock/discovery - it is used for testing and debugging v2.
@@ -38,7 +36,7 @@ import (
 func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller) {
 	// For debugging and load testing v2 we add an memory registry.
 	s.MemRegistry = NewMemServiceDiscovery(
-		map[string]*model.Service{ // mock.HelloService.Hostname: mock.HelloService,
+		map[model.Hostname]*model.Service{ // mock.HelloService.Hostname: mock.HelloService,
 		}, 2)
 
 	sctl.AddRegistry(aggregate.Registry{
@@ -59,13 +57,14 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 }
 
 // NewMemServiceDiscovery builds an in-memory MemServiceDiscovery
-func NewMemServiceDiscovery(services map[string]*model.Service, versions int) *MemServiceDiscovery {
+func NewMemServiceDiscovery(services map[model.Hostname]*model.Service, versions int) *MemServiceDiscovery {
 	return &MemServiceDiscovery{
-		services:    services,
-		versions:    versions,
-		controller:  &memServiceController{},
-		instances:   map[string][]*model.ServiceInstance{},
-		ip2instance: map[string][]*model.ServiceInstance{},
+		services:            services,
+		versions:            versions,
+		controller:          &memServiceController{},
+		instancesByPortNum:  map[string][]*model.ServiceInstance{},
+		instancesByPortName: map[string][]*model.ServiceInstance{},
+		ip2instance:         map[string][]*model.ServiceInstance{},
 	}
 }
 
@@ -91,9 +90,10 @@ func (c *memServiceController) Run(<-chan struct{}) {}
 
 // MemServiceDiscovery is a mock discovery interface
 type MemServiceDiscovery struct {
-	services map[string]*model.Service
+	services map[model.Hostname]*model.Service
 	// Endpoints table. Key is the fqdn of the service, ':', port
-	instances                     map[string][]*model.ServiceInstance
+	instancesByPortNum            map[string][]*model.ServiceInstance
+	instancesByPortName           map[string][]*model.ServiceInstance
 	ip2instance                   map[string][]*model.ServiceInstance
 	versions                      int
 	WantGetProxyServiceInstances  []*model.ServiceInstance
@@ -116,7 +116,7 @@ func (sd *MemServiceDiscovery) ClearErrors() {
 }
 
 // AddService adds an in-memory service.
-func (sd *MemServiceDiscovery) AddService(name string, svc *model.Service) {
+func (sd *MemServiceDiscovery) AddService(name model.Hostname, svc *model.Service) {
 	sd.mutex.Lock()
 	sd.services[name] = svc
 	sd.mutex.Unlock()
@@ -124,7 +124,7 @@ func (sd *MemServiceDiscovery) AddService(name string, svc *model.Service) {
 }
 
 // AddInstance adds an in-memory instance.
-func (sd *MemServiceDiscovery) AddInstance(service string, instance *model.ServiceInstance) {
+func (sd *MemServiceDiscovery) AddInstance(service model.Hostname, instance *model.ServiceInstance) {
 	// WIP: add enough code to allow tests and load tests to work
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
@@ -135,27 +135,25 @@ func (sd *MemServiceDiscovery) AddInstance(service string, instance *model.Servi
 	instance.Service = svc
 	sd.ip2instance[instance.Endpoint.Address] = []*model.ServiceInstance{instance}
 
-	key := fmt.Sprintf("%s:%s", service, instance.Endpoint.ServicePort.Name)
-	instanceList := sd.instances[key]
-	if instanceList == nil {
-		instanceList = []*model.ServiceInstance{instance}
-		sd.instances[key] = instanceList
-		return
-	}
-	sd.instances[key] = append(instanceList, instance)
+	key := fmt.Sprintf("%s:%d", service, instance.Endpoint.ServicePort.Port)
+	instanceList := sd.instancesByPortNum[key]
+	sd.instancesByPortNum[key] = append(instanceList, instance)
+
+	key = fmt.Sprintf("%s:%s", service, instance.Endpoint.ServicePort.Name)
+	instanceList = sd.instancesByPortName[key]
+	sd.instancesByPortName[key] = append(instanceList, instance)
 }
 
 // AddEndpoint adds an endpoint to a service.
-func (sd *MemServiceDiscovery) AddEndpoint(service, servicePortName string, servicePort int, address string, port int) *model.ServiceInstance {
+func (sd *MemServiceDiscovery) AddEndpoint(service model.Hostname, servicePortName string, servicePort int, address string, port int) *model.ServiceInstance {
 	instance := &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
 			Address: address,
 			Port:    port,
 			ServicePort: &model.Port{
-				Name:                 servicePortName,
-				Port:                 servicePort,
-				Protocol:             model.ProtocolHTTP,
-				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+				Name:     servicePortName,
+				Port:     servicePort,
+				Protocol: model.ProtocolHTTP,
 			},
 		},
 	}
@@ -178,7 +176,7 @@ func (sd *MemServiceDiscovery) Services() ([]*model.Service, error) {
 }
 
 // GetService implements discovery interface
-func (sd *MemServiceDiscovery) GetService(hostname string) (*model.Service, error) {
+func (sd *MemServiceDiscovery) GetService(hostname model.Hostname) (*model.Service, error) {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
 	if sd.GetServiceError != nil {
@@ -190,7 +188,7 @@ func (sd *MemServiceDiscovery) GetService(hostname string) (*model.Service, erro
 
 // Instances filters the service instances by labels. This assumes single port, as is
 // used by EDS/ADS.
-func (sd *MemServiceDiscovery) Instances(hostname string, ports []string,
+func (sd *MemServiceDiscovery) Instances(hostname model.Hostname, ports []string,
 	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
@@ -198,11 +196,28 @@ func (sd *MemServiceDiscovery) Instances(hostname string, ports []string,
 		return nil, sd.InstancesError
 	}
 	if len(ports) != 1 {
-		log.Warna("Unexpected ports ", ports)
+		adsLog.Warna("Unexpected ports ", ports)
 		return nil, nil
 	}
-	key := hostname + ":" + ports[0]
-	instances, ok := sd.instances[key]
+	key := hostname.String() + ":" + ports[0]
+	instances, ok := sd.instancesByPortName[key]
+	if !ok {
+		return nil, nil
+	}
+	return instances, nil
+}
+
+// InstancesByPort filters the service instances by labels. This assumes single port, as is
+// used by EDS/ADS.
+func (sd *MemServiceDiscovery) InstancesByPort(hostname model.Hostname, port int,
+	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
+	sd.mutex.Lock()
+	defer sd.mutex.Unlock()
+	if sd.InstancesError != nil {
+		return nil, sd.InstancesError
+	}
+	key := fmt.Sprintf("%s:%d", hostname.String(), port)
+	instances, ok := sd.instancesByPortNum[key]
 	if !ok {
 		return nil, nil
 	}
@@ -244,7 +259,7 @@ func (sd *MemServiceDiscovery) ManagementPorts(addr string) model.PortList {
 }
 
 // GetIstioServiceAccounts gets the Istio service accounts for a service hostname.
-func (sd *MemServiceDiscovery) GetIstioServiceAccounts(hostname string, ports []string) []string {
+func (sd *MemServiceDiscovery) GetIstioServiceAccounts(hostname model.Hostname, ports []string) []string {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
 	if hostname == "world.default.svc.cluster.local" {
@@ -272,7 +287,7 @@ func (s *DiscoveryServer) registryz(w http.ResponseWriter, req *http.Request) {
 		if err != nil {
 			return
 		}
-		s.MemRegistry.AddService(svcName, svc)
+		s.MemRegistry.AddService(model.Hostname(svcName), svc)
 	}
 
 	all, err := s.env.ServiceDiscovery.Services()
@@ -306,21 +321,21 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 		if err != nil {
 			return
 		}
-		s.MemRegistry.AddInstance(svcName, svc)
+		s.MemRegistry.AddInstance(model.Hostname(svcName), svc)
 	}
 	brief := req.Form.Get("brief")
 	if brief != "" {
 		svc, _ := s.env.ServiceDiscovery.Services()
 		for _, ss := range svc {
 			for _, p := range ss.Ports {
-				all, err := s.env.ServiceDiscovery.Instances(ss.Hostname, []string{p.Name}, nil)
+				all, err := s.env.ServiceDiscovery.InstancesByPort(ss.Hostname, p.Port, nil)
 				if err != nil {
 					return
 				}
 				for _, svc := range all {
-					fmt.Fprintf(w, "%s:%s %s:%d %v %v %s\n", ss.Hostname,
-						p.Name, svc.Endpoint.Address, svc.Endpoint.Port, svc.Labels,
-						svc.AvailabilityZone, svc.ServiceAccount)
+					fmt.Fprintf(w, "%s:%s %v %s:%d %v %v %s\n", ss.Hostname,
+						p.Name, svc.Endpoint.Family, svc.Endpoint.Address, svc.Endpoint.Port, svc.Labels,
+						svc.GetAZ(), svc.ServiceAccount)
 				}
 			}
 		}
@@ -331,7 +346,7 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprint(w, "[\n")
 	for _, ss := range svc {
 		for _, p := range ss.Ports {
-			all, err := s.env.ServiceDiscovery.Instances(ss.Hostname, []string{p.Name}, nil)
+			all, err := s.env.ServiceDiscovery.InstancesByPort(ss.Hostname, p.Port, nil)
 			if err != nil {
 				return
 			}
@@ -373,10 +388,6 @@ func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 func adsz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
 	w.Header().Add("Content-Type", "application/json")
-	if req.Form.Get("debug") != "" {
-		adsDebug = req.Form.Get("debug") == "1"
-		return
-	}
 	if req.Form.Get("push") != "" {
 		adsPushAll()
 		fmt.Fprintf(w, "Pushed to %d servers", len(adsClients))
@@ -390,10 +401,14 @@ func adsz(w http.ResponseWriter, req *http.Request) {
 	writeAllADS(w)
 }
 
-func writeADSForSidecar(w io.Writer, proxyID string) {
+func writeADSForSidecar(w http.ResponseWriter, proxyID string) {
 	adsClientsMutex.RLock()
 	defer adsClientsMutex.RUnlock()
-	connections := adsSidecarIDConnectionsMap[proxyID]
+	connections, ok := adsSidecarIDConnectionsMap[proxyID]
+	if !ok {
+		w.WriteHeader(404)
+		return
+	}
 	for _, conn := range connections {
 		for _, ls := range conn.HTTPListeners {
 			jsonm := &jsonpb.Marshaler{Indent: "  "}
@@ -432,7 +447,7 @@ func writeAllADS(w io.Writer) {
 		fmt.Fprintf(w, "\n\n  {\"node\": \"%s\",\n \"addr\": \"%s\",\n \"connect\": \"%v\",\n \"listeners\":[\n", c.ConID, c.PeerAddr, c.Connect)
 		printListeners(w, c)
 		fmt.Fprint(w, "],\n")
-		fmt.Fprintf(w, ",\"clusters\":[\n")
+		fmt.Fprintf(w, "\"clusters\":[\n")
 		printClusters(w, c)
 		fmt.Fprint(w, "]}\n")
 	}
@@ -443,32 +458,32 @@ func writeAllADS(w io.Writer) {
 // It is mapped to /debug/edsz on the monitor port (9093).
 func edsz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
-	if req.Form.Get("debug") != "" {
-		edsDebug = req.Form.Get("debug") == "1"
-		return
-	}
 	w.Header().Add("Content-Type", "application/json")
 
 	if req.Form.Get("push") != "" {
-		edsPushAll()
+		PushAll()
 	}
 
 	edsClusterMutex.Lock()
 	comma := false
-	fmt.Fprintln(w, "[")
-	for _, eds := range edsClusters {
-		if comma {
-			fmt.Fprint(w, ",\n")
-		} else {
-			comma = true
+	if len(edsClusters) > 0 {
+		fmt.Fprintln(w, "[")
+		for _, eds := range edsClusters {
+			if comma {
+				fmt.Fprint(w, ",\n")
+			} else {
+				comma = true
+			}
+			jsonm := &jsonpb.Marshaler{Indent: "  "}
+			dbgString, _ := jsonm.MarshalToString(eds.LoadAssignment)
+			if _, err := w.Write([]byte(dbgString)); err != nil {
+				return
+			}
 		}
-		jsonm := &jsonpb.Marshaler{Indent: "  "}
-		dbgString, _ := jsonm.MarshalToString(eds.LoadAssignment)
-		if _, err := w.Write([]byte(dbgString)); err != nil {
-			return
-		}
+		fmt.Fprintln(w, "]")
+	} else {
+		w.WriteHeader(404)
 	}
-	fmt.Fprintln(w, "]")
 	edsClusterMutex.Unlock()
 }
 
@@ -501,7 +516,7 @@ func printListeners(w io.Writer, c *XdsConnection) {
 	comma := false
 	for _, ls := range c.HTTPListeners {
 		if ls == nil {
-			log.Errorf("INVALID LISTENER NIL")
+			adsLog.Errorf("INVALID LISTENER NIL")
 			continue
 		}
 		if comma {
@@ -521,7 +536,7 @@ func printClusters(w io.Writer, c *XdsConnection) {
 	comma := false
 	for _, cl := range c.HTTPClusters {
 		if cl == nil {
-			log.Errorf("INVALID Cluster NIL")
+			adsLog.Errorf("INVALID Cluster NIL")
 			continue
 		}
 		if comma {

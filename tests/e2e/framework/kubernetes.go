@@ -61,6 +61,10 @@ const (
 	mtlsExcludedServicesPattern      = "mtlsExcludedServices:\\s*\\[(.*)\\]"
 	helmServiceAccountFile           = "helm-service-account.yaml"
 	istioHelmInstallDir              = istioInstallDir + "/helm/istio"
+	caCertFileName                   = "samples/certs/ca-cert.pem"
+	caKeyFileName                    = "samples/certs/ca-key.pem"
+	rootCertFileName                 = "samples/certs/root-cert.pem"
+	certChainFileName                = "samples/certs/cert-chain.pem"
 )
 
 var (
@@ -149,7 +153,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		}
 	}
 	yamlDir := filepath.Join(tmpDir, "yaml")
-	i, err := NewIstioctl(yamlDir, *namespace, *namespace, *proxyHub, *proxyTag)
+	i, err := NewIstioctl(yamlDir, *namespace, *namespace, *proxyHub, *proxyTag, *imagePullPolicy)
 	if err != nil {
 		return nil, err
 	}
@@ -171,15 +175,15 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		releaseDir = util.GetResourcePath("")
 	}
 	// Note the kubectl commands used by the test will default to use the local
-	// environments kubeconfig if an empty string is provided.  Therefore in the
+	// environment's kubeconfig if an empty string is provided.  Therefore in the
 	// default case kubeConfig will not be set.
 	var kubeConfig, remoteKubeConfig string
 	var kubeClient, remoteKubeClient kubernetes.Interface
 	var aRemote *AppManager
 	if *multiClusterDir != "" {
 		// multiClusterDir indicates the Kubernetes cluster config should come from files versus
-		// the environmental. The test config can be defined to use either a single cluster or
-		// 2 clusters
+		// the in cluster config. At the current time only the remote kubeconfig is read from a
+		// file.
 		tmpfile := *namespace + "_kubeconfig"
 		tmpfile = path.Join(tmpDir, tmpfile)
 		if err = util.GetKubeConfig(tmpfile); err != nil {
@@ -188,12 +192,13 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		kubeConfig = tmpfile
 		remoteKubeConfig, err = getKubeConfigFromFile(*multiClusterDir)
 		if err != nil {
+			// TODO could change this to continue tests if only a single cluster is in play
 			return nil, err
 		}
-		if _, kubeClient, err = kube.CreateInterface(kubeConfig); err != nil {
+		if kubeClient, err = kube.CreateInterface(kubeConfig); err != nil {
 			return nil, err
 		}
-		if _, remoteKubeClient, err = kube.CreateInterface(remoteKubeConfig); err != nil {
+		if remoteKubeClient, err = kube.CreateInterface(remoteKubeConfig); err != nil {
 			return nil, err
 		}
 
@@ -382,7 +387,7 @@ func (k *KubeInfo) Teardown() error {
 	}
 	if *installer == "helm" {
 		// clean up using helm
-		err := util.HelmDelete("istio")
+		err := util.HelmDelete(k.Namespace)
 		if err != nil {
 			return nil
 		}
@@ -591,6 +596,11 @@ func (k *KubeInfo) deployIstio() error {
 		return err
 	}
 
+	if *multiClusterDir != "" {
+		if err := k.createCacerts(false); err != nil {
+			log.Infof("Failed to create Cacerts with namespace %s in primary cluster", k.Namespace)
+		}
+	}
 	if err := util.KubeApply(k.Namespace, testIstioYaml, k.KubeConfig); err != nil {
 		log.Errorf("Istio core %s deployment failed", testIstioYaml)
 		return err
@@ -603,9 +613,13 @@ func (k *KubeInfo) deployIstio() error {
 			return err
 		}
 		// Create the local secrets and configmap to start pilot
-		if err := util.CreateMultiClusterSecrets(k.Namespace, k.KubeClient, k.RemoteKubeConfig); err != nil {
+		if err := util.CreateMultiClusterSecrets(k.Namespace, k.KubeClient, k.RemoteKubeConfig, k.KubeConfig); err != nil {
 			log.Errorf("Unable to create secrets on local cluster %s", err.Error())
 			return err
+		}
+
+		if err := k.createCacerts(true); err != nil {
+			log.Infof("Failed to create Cacerts with namespace %s in remote cluster", k.Namespace)
 		}
 
 		yamlDir := filepath.Join(istioInstallDir, mcRemoteInstallFile)
@@ -675,10 +689,10 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 
 	// construct setValue to pass into helm install
 	// mTLS
-	setValue := "--set global.securityEnabled=" + strconv.FormatBool(isSecurityOn)
+	setValue := "--set global.mtls.enabled=" + strconv.FormatBool(isSecurityOn)
 	// side car injector
 	if *useAutomaticInjection {
-		setValue += " --set sidecar-injector.enabled=true"
+		setValue += " --set sidecarInjectorWebhook.enabled=true"
 	}
 	// hubs and tags replacement.
 	// Helm chart assumes hub and tag are the same among multiple istio components.
@@ -698,7 +712,7 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 
 	// helm install dry run
 	workDir := filepath.Join(k.ReleaseDir, istioHelmInstallDir)
-	err := util.HelmInstallDryRun(workDir, "istio", k.Namespace, setValue)
+	err := util.HelmInstallDryRun(workDir, k.Namespace, k.Namespace, setValue)
 	if err != nil {
 		// dry run fail, let's fail early
 		log.Errorf("Helm dry run of istio install failed %s, setValue=%s", istioHelmInstallDir, setValue)
@@ -706,7 +720,7 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	}
 
 	// helm install
-	err = util.HelmInstall(workDir, "istio", k.Namespace, setValue)
+	err = util.HelmInstall(workDir, k.Namespace, k.Namespace, setValue)
 	if err != nil {
 		log.Errorf("Helm install istio install failed %s, setValue=%s", istioHelmInstallDir, setValue)
 		return err

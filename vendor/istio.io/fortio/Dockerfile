@@ -11,8 +11,8 @@ RUN echo "$(date +'%Y-%m-%d %H:%M') $(cd fortio; git rev-parse HEAD)" > /build-i
 # + rest of build time/git/version magic.
 RUN echo "-s -X istio.io/fortio/ui.resourcesDir=/usr/local/lib/fortio -X main.defaultDataDir=/var/lib/istio/fortio \
   -X \"istio.io/fortio/version.buildInfo=$(cat /build-info.txt)\" \
-  -X istio.io/fortio/version.tag=$(cd fortio; git describe --tags) \
-  -X istio.io/fortio/version.gitstatus=$(cd fortio; git status --porcelain | wc -l)" > /link-flags.txt
+  -X istio.io/fortio/version.tag=$(cd fortio; git describe --tags --match 'v*') \
+  -X istio.io/fortio/version.gitstatus=$(cd fortio; git status --porcelain | wc -l)" | tee /link-flags.txt
 RUN go version
 RUN CGO_ENABLED=0 GOOS=linux go build -a -ldflags "$(cat /link-flags.txt)" -o fortio_go1.10.bin istio.io/fortio
 RUN ./fortio_go1.10.bin version

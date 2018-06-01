@@ -31,6 +31,11 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	k8s_cr "k8s.io/cluster-registry/pkg/apis/clusterregistry/v1alpha1"
 
+	"istio.io/istio/pilot/pkg/model"
+	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v1"
+	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
 )
 
@@ -45,37 +50,56 @@ var (
 
 // Controller is the controller implementation for Secret resources
 type Controller struct {
-	kubeclientset kubernetes.Interface
-	namespace     string
-	cs            *ClusterStore
-	queue         workqueue.RateLimitingInterface
-	informer      cache.SharedIndexInformer
+	kubeclientset     kubernetes.Interface
+	namespace         string
+	cs                *ClusterStore
+	queue             workqueue.RateLimitingInterface
+	informer          cache.SharedIndexInformer
+	watchedNamespace  string
+	domainSufix       string
+	resyncInterval    time.Duration
+	serviceController *aggregate.Controller
+	discoveryService  *envoy.DiscoveryService
 }
 
 // NewController returns a new secret controller
 func NewController(
 	kubeclientset kubernetes.Interface,
 	namespace string,
-	cs *ClusterStore) *Controller {
+	cs *ClusterStore,
+	serviceController *aggregate.Controller,
+	discoveryService *envoy.DiscoveryService,
+	resyncInterval time.Duration,
+	watchedNamespace string,
+	domainSufix string) *Controller {
 
 	secretsInformer := cache.NewSharedIndexInformer(&cache.ListWatch{
 		ListFunc: func(opts meta_v1.ListOptions) (runtime.Object, error) {
+			opts.LabelSelector = mcLabel + "=true"
 			return kubeclientset.CoreV1().Secrets(namespace).List(opts)
 		},
 		WatchFunc: func(opts meta_v1.ListOptions) (watch.Interface, error) {
+			opts.LabelSelector = mcLabel + "=true"
 			return kubeclientset.CoreV1().Secrets(namespace).Watch(opts)
-		}},
+		},
+	},
 		&corev1.Secret{},
 		0,
 		cache.Indexers{})
+
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
 	controller := &Controller{
-		kubeclientset: kubeclientset,
-		namespace:     namespace,
-		cs:            cs,
-		informer:      secretsInformer,
-		queue:         queue,
+		kubeclientset:     kubeclientset,
+		namespace:         namespace,
+		cs:                cs,
+		informer:          secretsInformer,
+		queue:             queue,
+		watchedNamespace:  watchedNamespace,
+		domainSufix:       domainSufix,
+		resyncInterval:    resyncInterval,
+		serviceController: serviceController,
+		discoveryService:  discoveryService,
 	}
 
 	log.Info("Setting up event handlers")
@@ -86,14 +110,6 @@ func NewController(
 			if err == nil {
 				queue.Add(key)
 			}
-		},
-		UpdateFunc: func(old, new interface{}) {
-			key, _ := cache.MetaNamespaceKeyFunc(new)
-			log.Infof("Processing update: %s", key)
-			// TODO Add Secret Update handler, it will allow detect Secret key rotation
-			//			if err == nil {
-			//				queue.Add(key)
-			//			}
 		},
 		DeleteFunc: func(obj interface{}) {
 			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
@@ -128,9 +144,16 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 
 // StartSecretController start k8s controller which will be watching Secret object
 // in a specified namesapce
-func StartSecretController(k8s kubernetes.Interface, cs *ClusterStore, namespace string) error {
+func StartSecretController(k8s kubernetes.Interface,
+	cs *ClusterStore,
+	serviceController *aggregate.Controller,
+	discoveryService *envoy.DiscoveryService,
+	namespace string,
+	resyncInterval time.Duration,
+	watchedNamespace,
+	domainSufix string) error {
 	stopCh := make(chan struct{})
-	controller := NewController(k8s, namespace, cs)
+	controller := NewController(k8s, namespace, cs, serviceController, discoveryService, resyncInterval, watchedNamespace, domainSufix)
 
 	go controller.Run(stopCh)
 
@@ -177,32 +200,17 @@ func (c *Controller) processItem(key string) error {
 		c.secretDelete(key)
 		return nil
 	}
-	secret := obj.(*corev1.Secret)
-	if secret.ObjectMeta.CreationTimestamp.Sub(serverStartTime).Seconds() > 0 {
-		c.secretAdd(obj)
-		return nil
-	}
+	c.secretAdd(obj)
 
 	return nil
 }
 
-func checkSecret(s *corev1.Secret) bool {
-	lv, ok := s.Labels[mcLabel]
-	if !ok {
-		return false
-	}
-	if strings.ToLower(lv) != "true" {
-		return false
-	}
-
-	return ok
-}
-
-func addMemberCluster(s *corev1.Secret, cs *ClusterStore) {
-	cs.storeLock.Lock()
-	defer cs.storeLock.Unlock()
+func addMemberCluster(s *corev1.Secret, c *Controller) {
+	c.cs.storeLock.Lock()
+	defer c.cs.storeLock.Unlock()
 	// Check if there is already a cluster member with the specified
-	if _, ok := cs.clientConfigs[s.ObjectMeta.Name]; !ok {
+	key := Metadata{Name: s.ObjectMeta.Name, Namespace: s.ObjectMeta.Namespace}
+	if _, ok := c.cs.rc[key]; !ok {
 		log.Infof("Adding new cluster member: %s", s.ObjectMeta.Name)
 		clientConfig, err := clientcmd.Load(s.Data[s.ObjectMeta.Name])
 		if err != nil {
@@ -219,37 +227,59 @@ func addMemberCluster(s *corev1.Secret, cs *ClusterStore) {
 				Namespace: s.ObjectMeta.Namespace,
 			},
 		}
-		cs.clientConfigs[s.ObjectMeta.Name] = *clientConfig
-		cs.clusters = append(cs.clusters, &cluster)
+		c.cs.rc[key] = &RemoteCluster{}
+		c.cs.rc[key].Client = clientConfig
+		c.cs.rc[key].Cluster = &cluster
+		client, _ := kube.CreateInterfaceFromClusterConfig(clientConfig)
+		kubectl := kube.NewController(client, kube.ControllerOptions{
+			WatchedNamespace: c.watchedNamespace,
+			ResyncPeriod:     c.resyncInterval,
+			DomainSuffix:     c.domainSufix,
+		})
+		c.cs.rc[key].Controller = kubectl
+		c.serviceController.AddRegistry(
+			aggregate.Registry{
+				Name:             serviceregistry.KubernetesRegistry,
+				ClusterID:        GetClusterID(&cluster),
+				ServiceDiscovery: kubectl,
+				ServiceAccounts:  kubectl,
+				Controller:       kubectl,
+			})
+		stopCh := make(chan struct{})
+		c.cs.rc[key].ControlChannel = stopCh
+		_ = kubectl.AppendServiceHandler(func(*model.Service, model.Event) { c.discoveryService.ClearCache() })
+		_ = kubectl.AppendInstanceHandler(func(*model.ServiceInstance, model.Event) { c.discoveryService.ClearCache() })
+
+		go kubectl.Run(stopCh)
 	}
 	// TODO Add exporting a number of cluster to Prometheus
 	// for now for debbuging purposes, print it to the log.
-	log.Infof("Number of clusters in the cluster store: %d", len(cs.clientConfigs))
+	log.Infof("Number of clusters in the cluster store: %d", len(c.cs.rc))
 }
 
-func deleteMemberCluster(s string, cs *ClusterStore) {
-	cs.storeLock.Lock()
-	defer cs.storeLock.Unlock()
+func deleteMemberCluster(s Metadata, c *Controller) {
+	c.cs.storeLock.Lock()
+	defer c.cs.storeLock.Unlock()
 	// Check if there is a cluster member with the specified name
-	if _, ok := cs.clientConfigs[s]; ok {
+	if _, ok := c.cs.rc[s]; ok {
 		log.Infof("Deleting cluster member: %s", s)
-		delete(cs.clientConfigs, s)
-		// TODO add deleting corresponding k8s_cr.Cluster object from the slice
+		// Deleting Service registry associated with controller
+		c.serviceController.DeleteRegistry(GetClusterID(c.cs.rc[s].Cluster))
+		// Stop controller
+		close(c.cs.rc[s].ControlChannel)
+		<-c.cs.rc[s].ControlChannel
+		// Deleting remote cluster entry from clusters store
+		delete(c.cs.rc, s)
 	}
-	log.Infof("Number of clusters in the cluster store: %d", len(cs.clientConfigs))
+	log.Infof("Number of clusters in the cluster store: %d", len(c.cs.rc))
 }
 
 func (c *Controller) secretAdd(obj interface{}) {
 	s := obj.(*corev1.Secret)
-	if checkSecret(s) {
-		addMemberCluster(s, c.cs)
-	}
+	addMemberCluster(s, c)
 }
 
 func (c *Controller) secretDelete(key string) {
-	s := key
-	if strings.Contains(key, "/") {
-		s = strings.Split(key, "/")[1]
-	}
-	deleteMemberCluster(s, c.cs)
+	s := Metadata{Name: strings.Split(key, "/")[1], Namespace: strings.Split(key, "/")[0]}
+	deleteMemberCluster(s, c)
 }

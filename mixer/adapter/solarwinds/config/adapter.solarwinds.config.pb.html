@@ -1,13 +1,18 @@
 ---
 title: SolarWinds
-overview: Adapter to deliver logs and metrics to Papertrail and AppOptics backends
-location: https://istio.io/docs/reference/config/adapters/solarwinds.html
+description: Adapter to deliver logs and metrics to Papertrail and AppOptics backends
+location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/solarwinds.html
 layout: protoc-gen-docs
+generator: protoc-gen-docs
+redirect_from: /docs/reference/config/adapters/solarwinds.html
 number_of_entries: 3
 ---
 <p>The <code>solarwinds</code> adapter enables Istio to deliver log and metric data to the
 <a href="https://www.papertrailapp.com">Papertrail</a> logging backend and the
 <a href="https://www.appoptics.com">AppOptics</a> monitoring backend.</p>
+
+<p>This adapter supports the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric.html">metric template</a>
+and the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric.html">logentry template</a>.</p>
 
 <h2 id="Params">Params</h2>
 <section>

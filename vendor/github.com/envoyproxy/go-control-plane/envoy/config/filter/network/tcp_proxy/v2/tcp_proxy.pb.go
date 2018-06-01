@@ -25,7 +25,7 @@ import _ "github.com/gogo/protobuf/gogoproto"
 
 import time "time"
 
-import github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
+import types "github.com/gogo/protobuf/types"
 
 import io "io"
 
@@ -354,8 +354,8 @@ func (m *TcpProxy) MarshalTo(dAtA []byte) (int, error) {
 	if m.IdleTimeout != nil {
 		dAtA[i] = 0x42
 		i++
-		i = encodeVarintTcpProxy(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.IdleTimeout)))
-		n5, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.IdleTimeout, dAtA[i:])
+		i = encodeVarintTcpProxy(dAtA, i, uint64(types.SizeOfStdDuration(*m.IdleTimeout)))
+		n5, err := types.StdDurationMarshalTo(*m.IdleTimeout, dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
@@ -507,7 +507,7 @@ func (m *TcpProxy) Size() (n int) {
 		n += 1 + l + sovTcpProxy(uint64(l))
 	}
 	if m.IdleTimeout != nil {
-		l = github_com_gogo_protobuf_types.SizeOfStdDuration(*m.IdleTimeout)
+		l = types.SizeOfStdDuration(*m.IdleTimeout)
 		n += 1 + l + sovTcpProxy(uint64(l))
 	}
 	if m.MetadataMatch != nil {
@@ -851,7 +851,7 @@ func (m *TcpProxy) Unmarshal(dAtA []byte) error {
 			if m.IdleTimeout == nil {
 				m.IdleTimeout = new(time.Duration)
 			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(m.IdleTimeout, dAtA[iNdEx:postIndex]); err != nil {
+			if err := types.StdDurationUnmarshal(m.IdleTimeout, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex

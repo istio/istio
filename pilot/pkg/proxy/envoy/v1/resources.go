@@ -774,7 +774,7 @@ type Cluster struct {
 	MaxRequestsPerConnection int               `json:"max_requests_per_connection,omitempty"`
 	Hosts                    []Host            `json:"hosts,omitempty"`
 	SSLContext               interface{}       `json:"ssl_context,omitempty"`
-	Features                 string            `json:"features,omitempty"`
+	HTTP2Settings            *HTTP2Settings    `json:"http2_settings,omitempty"`
 	CircuitBreaker           *CircuitBreaker   `json:"circuit_breakers,omitempty"`
 	OutlierDetection         *OutlierDetection `json:"outlier_detection,omitempty"`
 
@@ -783,6 +783,19 @@ type Cluster struct {
 	Hostname string      `json:"-"`
 	Port     *model.Port `json:"-"`
 	labels   model.Labels
+}
+
+// MakeHTTP2 marks the cluster as http2
+func (c *Cluster) MakeHTTP2() {
+	c.HTTP2Settings = &HTTP2Settings{
+		// Envoy default value of 100 is too low for data path.
+		MaxConcurrentStreams: 1073741824,
+	}
+}
+
+// HTTP2Settings is used to denote a cluster as http2
+type HTTP2Settings struct {
+	MaxConcurrentStreams int `json:"max_concurrent_streams,omitempty"`
 }
 
 // CircuitBreaker definition

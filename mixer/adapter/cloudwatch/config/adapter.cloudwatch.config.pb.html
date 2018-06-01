@@ -1,16 +1,16 @@
 ---
 title: CloudWatch
-overview: Adapter for cloudwatch metrics.
-location: https://istio.io/docs/reference/config/adapters/cloudwatch.html
+description: Adapter for cloudwatch metrics.
+location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/cloudwatch.html
 layout: protoc-gen-docs
+generator: protoc-gen-docs
+redirect_from: /docs/reference/config/adapters/cloudwatch.html
 number_of_entries: 3
 ---
 <p>The CloudWatch adapter enables Istio to deliver metrics to
 <a href="https://aws.amazon.com/cloudwatch/">Amazon CloudWatch</a>.</p>
 
-<p>To push metrics to CloudWatch using this adapter you need create an IAM user
-that has permissions to call cloudwatch APIs. The credentials for the user
-need to be available on the instance the adapter is running on
+<p>To push metrics to CloudWatch using this adapter you must provide AWS credentials the AWS SDK.
 (see <a href="https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/setup-credentials.html">AWS docs</a>).</p>
 
 <p>To activate the CloudWatch adapter, operators need to provide configuration for the
@@ -18,6 +18,8 @@ need to be available on the instance the adapter is running on
 
 <p>The handler configuration must contain the same metrics as the instance configuration.
 The metrics specified in both instance and handler configurations will be sent to CloudWatch.</p>
+
+<p>This adapter supports the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric.html">metric template</a>.</p>
 
 <h2 id="Params">Params</h2>
 <section>

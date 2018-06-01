@@ -15,11 +15,15 @@
 syntax = "proto3";
 
 // $title: Stackdriver
-// $overview: Adapter to deliver logs and metrics to Stackdriver
-// $location: https://istio.io/docs/reference/config/adapters/stackdriver.html
+// $description: Adapter to deliver logs and metrics to Stackdriver
+// $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/stackdriver.html
+// $front_matter: redirect_from: /docs/reference/config/adapters/stackdriver.html
 
 // The `stackdriver` adapter enables Istio to deliver log and metric data to the
 // [Stackdriver](https://cloud.google.com/stackdriver/) logging and monitoring backend.
+//
+// This adapter supports the [metric template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric.html),
+// and the [logentry template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/logentry.html).
 package adapter.stackdriver.config;
 
 import "gogoproto/gogo.proto";
@@ -188,6 +192,14 @@ message Params {
             string local_ip = 5;
             // template variable name to map into HTTPRequest.RemoteIP
             string remote_ip = 6;
+            // template variable name to map into HTTPRequest.Request.Url
+            string url = 7;
+            // template variable name to map into HTTPRequest.RequestMethod
+            string method = 8;
+            // template variable name to map into HTTPRequest.UserAgent
+            string user_agent = 9;
+            // template variable name to map into HTTPRequest.Referer
+            string referer = 10;
         }
         // If an HttpRequestMapping is provided, a HttpRequest object will be filled out for this log entry using the
         // variables named in the mapping to populate the fields of the request struct from the instance's variables.

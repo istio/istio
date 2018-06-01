@@ -17,9 +17,9 @@ package v2
 import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/gogo/protobuf/types"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
 )
 
 // clusters aggregate a DiscoveryResponse for pushing.
@@ -45,20 +45,25 @@ func (con *XdsConnection) clusters(response []*xdsapi.Cluster) *xdsapi.Discovery
 }
 
 func (s *DiscoveryServer) pushCds(node model.Proxy, con *XdsConnection) error {
-	rawClusters, _ := s.ConfigGenerator.BuildClusters(s.env, *con.modelNode)
-
-	con.HTTPClusters = rawClusters
-	response := con.clusters(rawClusters)
-	err := con.stream.Send(response)
+	rawClusters, err := s.ConfigGenerator.BuildClusters(s.env, *con.modelNode)
 	if err != nil {
-		log.Warnf("CDS: Send failure, closing grpc %v", err)
+		adsLog.Warnf("CDS: Failed to generate clusters %v", err)
+		pushes.With(prometheus.Labels{"type": "cds_builderr"}).Add(1)
 		return err
 	}
 
-	if adsDebug {
-		// The response can't be easily read due to 'any' marshalling.
-		log.Infof("CDS: PUSH for %s %q, Response: %d",
-			node, con.PeerAddr, len(rawClusters))
+	con.HTTPClusters = rawClusters
+	response := con.clusters(rawClusters)
+	err = con.send(response)
+	if err != nil {
+		adsLog.Warnf("CDS: Send failure, closing grpc %s %v", node.ID, err)
+		pushes.With(prometheus.Labels{"type": "cds_senderr"}).Add(1)
+		return err
 	}
+	pushes.With(prometheus.Labels{"type": "cds"}).Add(1)
+
+	// The response can't be easily read due to 'any' marshalling.
+	adsLog.Infof("CDS: PUSH for %s %q, Response: %d",
+		node, con.PeerAddr, len(rawClusters))
 	return nil
 }

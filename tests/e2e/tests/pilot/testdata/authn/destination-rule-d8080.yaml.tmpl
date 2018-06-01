@@ -1,0 +1,14 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: d-dr-mtls
+spec:
+  host: d
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+    portLevelSettings:
+    - port:
+        number: 8080
+      tls:
+        mode: DISABLE

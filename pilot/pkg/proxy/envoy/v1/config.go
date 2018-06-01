@@ -164,7 +164,7 @@ func buildListeners(env model.Environment, node model.Proxy) (Listeners, error) 
 			// check that the ingress service name is the left-most label of the hostname
 			// hence the dot is contatenated. This way istio-ingress.istio-system will match,
 			// while istio-ingressgateway.istio-system will not match the if condition.
-			if strings.HasPrefix(s.Hostname, env.Mesh.IngressService+".") {
+			if strings.HasPrefix(s.Hostname.String(), env.Mesh.IngressService+".") {
 				svc = s
 				break
 			}
@@ -595,7 +595,7 @@ func buildDestinationHTTPRoutes(service *model.Service,
 
 		// collect route rules
 		useDefaultRoute := true
-		configs := store.RouteRules(proxyInstances, service.Hostname)
+		configs := store.RouteRules(proxyInstances, service.Hostname.String())
 		// sort for output uniqueness
 		model.SortRouteRules(configs)
 
@@ -620,7 +620,7 @@ func buildDestinationHTTPRoutes(service *model.Service,
 			// default route for the destination is always the lowest priority route
 			cluster := BuildOutboundCluster(service.Hostname, servicePort, nil, service.External())
 			if envoyv2 {
-				cluster.Name = model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, servicePort)
+				cluster.Name = model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, servicePort.Port)
 			}
 			routes = append(routes, BuildDefaultRoute(cluster))
 		}
@@ -893,7 +893,7 @@ func TruncateClusterName(name string) string {
 	return name
 }
 
-func buildEgressVirtualHost(serviceName string, destination string,
+func buildEgressVirtualHost(serviceName string, destination model.Hostname,
 	mesh *meshconfig.MeshConfig, node model.Proxy, port *model.Port, proxyInstances []*model.ServiceInstance,
 	config model.IstioConfigStore) *VirtualHost {
 	var externalTrafficCluster *Cluster
@@ -909,14 +909,14 @@ func buildEgressVirtualHost(serviceName string, destination string,
 	key := svc.Key(port, nil)
 	externalTrafficCluster = BuildOriginalDSTCluster(key, mesh.ConnectTimeout)
 	externalTrafficCluster.ServiceName = key
-	externalTrafficCluster.Hostname = destination
+	externalTrafficCluster.Hostname = destination.String()
 	externalTrafficCluster.Port = port
 	if protocolToHandle == model.ProtocolHTTPS {
 		externalTrafficCluster.SSLContext = &SSLContextExternal{}
 	}
 
 	if protocolToHandle == model.ProtocolHTTP2 {
-		externalTrafficCluster.Features = ClusterFeatureHTTP2
+		externalTrafficCluster.MakeHTTP2()
 	}
 
 	if protocolToHandle == model.ProtocolHTTPS {
@@ -952,7 +952,7 @@ func buildEgressVirtualHost(serviceName string, destination string,
 	virtualHostName := fmt.Sprintf("%s:%d", destination, port.Port)
 	return &VirtualHost{
 		Name:    virtualHostName,
-		Domains: appendPortToDomains([]string{destination}, port.Port),
+		Domains: appendPortToDomains([]string{destination.String()}, port.Port),
 		Routes:  routes,
 	}
 }
@@ -986,7 +986,7 @@ func BuildEgressHTTPRoutes(mesh *meshconfig.MeshConfig, node model.Proxy,
 				Port: intPort, Protocol: protocol}
 			httpConfig := httpConfigs.EnsurePort(intPort)
 			httpConfig.VirtualHosts = append(httpConfig.VirtualHosts,
-				buildEgressVirtualHost(meshName, rule.Destination.Service, mesh, node, modelPort, proxyInstances, config))
+				buildEgressVirtualHost(meshName, model.Hostname(rule.Destination.Service), mesh, node, modelPort, proxyInstances, config))
 		}
 	}
 
@@ -1054,7 +1054,7 @@ func buildEgressTCPRoute(destination string,
 
 	// Create a unique orig dst cluster for each service defined by egress rule
 	// So that we can apply circuit breakers, outlier detections, etc., later.
-	svc := model.Service{Hostname: destination}
+	svc := model.Service{Hostname: model.Hostname(destination)}
 	key := svc.Key(port, nil)
 	externalTrafficCluster := BuildOriginalDSTCluster(key, mesh.ConnectTimeout)
 	externalTrafficCluster.Port = port
