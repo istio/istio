@@ -156,18 +156,18 @@ dump_pilot_url(){
 
 dump_pilot() {
   local pilot_pod
-  local pilot_dir
-
-  pilot_dir="${OUT_DIR}/pilot"
-  mkdir -p "${pilot_dir}"
-
   pilot_pod=$(kubectl -n istio-system get pods -l istio=pilot \
       -o jsonpath='{.items[*].metadata.name}')
 
-  dump_pilot_url "${pilot_pod}" debug/configz "${pilot_dir}"
-  dump_pilot_url "${pilot_pod}" debug/endpointz "${pilot_dir}"
-  dump_pilot_url "${pilot_pod}" debug/adsz "${pilot_dir}"
-  dump_pilot_url "${pilot_pod}" metrics "${pilot_dir}"
+  if [ ! -z "${pilot_pod}" ]; then
+    local pilot_dir="${OUT_DIR}/pilot"
+    mkdir -p "${pilot_dir}"
+
+    dump_pilot_url "${pilot_pod}" debug/configz "${pilot_dir}"
+    dump_pilot_url "${pilot_pod}" debug/endpointz "${pilot_dir}"
+    dump_pilot_url "${pilot_pod}" debug/adsz "${pilot_dir}"
+    dump_pilot_url "${pilot_pod}" metrics "${pilot_dir}"
+  fi
 }
 
 archive() {
