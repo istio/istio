@@ -103,6 +103,29 @@ dump_logs_for_container() {
   fi
 }
 
+copy_core_dumps_if_istio_proxy() {
+  local namespace="${1}"
+  local pod="${2}"
+  local container="${3}"
+
+  if [ "istio-proxy" = "${container}" ]; then
+    local out_dir="${LOG_DIR}/${namespace}/${pod}"
+    mkdir -p "${out_dir}"
+    local core_dumps
+    core_dumps=$(kubectl exec -n "${namespace}" "${pod}" -c "${container}" -- \
+        find /etc/istio/proxy -name 'core.*')
+    for f in ${core_dumps}; do
+      local out_file
+      out_file="${out_dir}/$(basename "${f}")"
+
+      kubectl exec -n "${namespace}" "${pod}" -c "${container}" -- \
+          cat "${f}" > "${out_file}"
+
+      log "Copied ${namespace}/${pod}/${container}:${f} to ${out_file}"
+    done
+  fi
+}
+
 # Run functions on each container. Each argument should be a function which
 # takes 3 args: ${namespace} ${pod} ${container}.
 tap_containers() {
@@ -215,7 +238,7 @@ main() {
   dump_time
   dump_pilot
   dump_resources
-  tap_containers dump_logs_for_container
+  tap_containers dump_logs_for_container copy_core_dumps_if_istio_proxy
 
   if [ "${SHOULD_ARCHIVE}" = true ] ; then
     archive
