@@ -1,0 +1,6 @@
+targets:
+- name: hello
+  ports:
+  - name: "http"
+peers:
+  - mtls:
