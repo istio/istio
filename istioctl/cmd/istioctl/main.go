@@ -795,8 +795,12 @@ func prepareClientForOthers(configs []crd.IstioKind) (*rest.RESTClient, map[stri
 
 func getDefaultNamespace(kubeconfig string) string {
 	configAccess := clientcmd.NewDefaultPathOptions()
-	// use specified kubeconfig file for the location of the config to read
-	configAccess.GlobalFile = kubeconfig
+
+	if kubeconfig != defaultKubeConfigText {
+		// use specified kubeconfig file for the location of the
+		// config to read
+		configAccess.GlobalFile = kubeconfig
+	}
 
 	// gets existing kubeconfig or returns new empty config
 	config, err := configAccess.GetStartingConfig()
