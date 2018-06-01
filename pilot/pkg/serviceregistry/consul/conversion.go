@@ -20,7 +20,6 @@ import (
 
 	"github.com/hashicorp/consul/api"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
@@ -50,10 +49,9 @@ func convertPort(port int, name string) *model.Port {
 	}
 
 	return &model.Port{
-		Name:                 name,
-		Port:                 port,
-		Protocol:             convertProtocol(name),
-		AuthenticationPolicy: extractAuthenticationPolicy(port, name),
+		Name:     name,
+		Port:     port,
+		Protocol: convertProtocol(name),
 	}
 }
 
@@ -164,14 +162,4 @@ func convertProtocol(name string) model.Protocol {
 		return model.ProtocolTCP
 	}
 	return protocol
-}
-
-// Extracts security option for given port from labels. If there is no such
-// annotation, or the annotation value is not recognized, returns
-// meshconfig.AuthenticationPolicy_INHERIT
-func extractAuthenticationPolicy(port int, name string) meshconfig.AuthenticationPolicy {
-	// TODO: https://github.com/istio/istio/issues/3338
-	// Check for the label - auth.istio.io/<port> and return auth policy respectively
-
-	return meshconfig.AuthenticationPolicy_INHERIT
 }
