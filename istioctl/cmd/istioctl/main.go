@@ -82,16 +82,16 @@ var (
 	loggingOptions = log.DefaultOptions()
 
 	// This defines the output order for "get all".  We show the V3 types first.
-	sortWeight = map[string]int {
-		model.Gateway.Type: -10,
-		model.VirtualService.Type: -5,
-		model.DestinationRule.Type: -3,
-		model.ServiceEntry.Type: -1,
-		model.IngressRule.Type: 1,
-		model.RouteRule.Type: 5,
+	sortWeight = map[string]int{
+		model.Gateway.Type:           -10,
+		model.VirtualService.Type:    -5,
+		model.DestinationRule.Type:   -3,
+		model.ServiceEntry.Type:      -1,
+		model.IngressRule.Type:       1,
+		model.RouteRule.Type:         5,
 		model.DestinationPolicy.Type: 10,
-		model.EgressRule.Type: 20,
-	} 
+		model.EgressRule.Type:        20,
+	}
 
 	// all resources will be migrated out of config.istio.io to their own api group mapping to package path.
 	// TODO(xiaolanz) legacy group exists until we find out a client for mixer/broker.
@@ -627,7 +627,7 @@ func protoSchema(configClient model.ConfigStore, typ string, allowAll bool) ([]m
 	for _, desc := range configClient.ConfigDescriptor() {
 		switch typ {
 		case crd.ResourceName(desc.Type), crd.ResourceName(desc.Plural):
-			return []model.ProtoSchema{ desc }, nil
+			return []model.ProtoSchema{desc}, nil
 		case desc.Type, desc.Plural: // legacy hyphenated resources names
 			return []model.ProtoSchema{}, fmt.Errorf("%q not recognized. Please use non-hyphenated resource name %q",
 				typ, crd.ResourceName(typ))
@@ -668,7 +668,7 @@ func readInputs() ([]model.Config, []crd.IstioKind, error) {
 // Print a simple list of names
 func printShortOutput(writer io.Writer, _ model.ConfigStore, configList []model.Config) {
 	// Sort configList by Type
-	sort.Slice(configList, func(i, j int) bool {return sortWeight[configList[i].Type] < sortWeight[configList[j].Type]})
+	sort.Slice(configList, func(i, j int) bool { return sortWeight[configList[i].Type] < sortWeight[configList[j].Type] })
 
 	var w tabwriter.Writer
 	w.Init(writer, 10, 4, 3, ' ', 0)
