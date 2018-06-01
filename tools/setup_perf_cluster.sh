@@ -126,7 +126,7 @@ function get_vm_ip() {
 }
 
 function generate_istio_yaml() {
-  Execute sh -c 'helm template --namespace $ISTIO_SYSTEM_NAMESPACE --set sidecarInjectorWebhook.enabled=false --set global.proxy.image=proxy   --values install/kubernetes/helm/istio/values-istio-auth.yaml install/kubernetes/helm/istio > install/kubernetes/istio-auth.yaml'
+  Execute sh -c "helm template --namespace $ISTIO_SYSTEM_NAMESPACE --set sidecarInjectorWebhook.enabled=false --set global.proxy.image=proxy   --values install/kubernetes/helm/istio/values-istio-auth.yaml install/kubernetes/helm/istio > install/kubernetes/istio-auth.yaml"
 }
 
 # assumes run from istio/ (or release) directory
