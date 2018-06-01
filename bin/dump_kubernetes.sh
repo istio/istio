@@ -133,7 +133,7 @@ dump_resources() {
 
   mkdir -p "${LOG_DIR}"
   kubectl cluster-info dump > "${LOG_DIR}/cluster-info.dump.txt"
-  kubectl describe pods -n istio-system > "${LOG_DIR}/pods-system.txt"
+  kubectl describe pods -n istio-system > "${LOG_DIR}/istio-system-pods.txt"
   kubectl get event --all-namespaces -o wide > "${LOG_DIR}/events.txt"
 }
 
