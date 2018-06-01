@@ -39,7 +39,7 @@ The chart deploys pods that consume minimum resources as specified in the resour
 
 1. If a service account has not already been installed for Tiller, install one:
 ```
-$ kubectl create -f install/kubernetes/helm/helm-service-account.yaml
+$ kubectl apply -f install/kubernetes/helm/helm-service-account.yaml
 ```
 
 2. Install Tiller on your cluster with the service account:
