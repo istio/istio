@@ -318,7 +318,13 @@ func (d *Impl) dispatch(session *session) error {
 				r := state.checkResult
 				session.checkResult = &r
 			} else {
-				session.checkResult.CombineCheckResult(&state.checkResult)
+				// clamp duration & use count to the minimum of current and new results
+				if session.checkResult.ValidDuration > state.checkResult.ValidDuration {
+					session.checkResult.ValidDuration = state.checkResult.ValidDuration
+				}
+				if session.checkResult.ValidUseCount > state.checkResult.ValidUseCount {
+					session.checkResult.ValidUseCount = state.checkResult.ValidUseCount
+				}
 			}
 			st = state.checkResult.Status
 
@@ -356,9 +362,9 @@ func (d *Impl) dispatch(session *session) error {
 	if buf != nil {
 		switch session.variety {
 		case tpb.TEMPLATE_VARIETY_CHECK:
-			session.checkResult.SetStatus(status.WithMessage(code, buf.String()))
+			session.checkResult.Status = status.WithMessage(code, buf.String())
 		case tpb.TEMPLATE_VARIETY_QUOTA:
-			session.quotaResult.SetStatus(status.WithMessage(code, buf.String()))
+			session.quotaResult.Status = status.WithMessage(code, buf.String())
 		}
 		pool.PutBuffer(buf)
 	}

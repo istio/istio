@@ -3,11 +3,11 @@ syntax = "proto3";
 package foo.bar;
 
 import "mixer/adapter/model/v1beta1/extensions.proto";
-import "mixer/adapter/model/v1beta1/type.proto";
+import "policy/v1beta1/type.proto";
 
 option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR;
 
-// NOT SUPPORTED field type 'istio.mixer.adapter.model.v1beta1.Value' for 'o' because APAs cannot have ValueType
+// NOT SUPPORTED field type 'istio.policy.v1beta1.Value' for 'o' because APAs cannot have ValueType
 message Template {
     string o = 1;
 }

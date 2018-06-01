@@ -18,7 +18,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"sync"
 	"testing"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -27,9 +26,7 @@ import (
 )
 
 // MockController specifies a mock Controller for testing
-type MockController struct {
-	storeLock sync.RWMutex
-}
+type MockController struct{}
 
 func (c *MockController) AppendServiceHandler(f func(*model.Service, model.Event)) error {
 	return nil
@@ -151,8 +148,8 @@ func TestServicesForMultiCluster(t *testing.T) {
 		t.Fatalf("Service map expected size %d, actual %v", svcCount, serviceMap)
 	}
 
-	//Now verify Addresses for each service
-	Addresses := map[model.Hostname]map[string]string{
+	//Now verify ClusterVIPs for each service
+	ClusterVIPs := map[model.Hostname]map[string]string{
 		mock.HelloService.Hostname: {
 			"cluster-1": "10.1.1.0",
 			"cluster-2": "10.1.2.0",
@@ -162,11 +159,11 @@ func TestServicesForMultiCluster(t *testing.T) {
 		},
 	}
 	for _, svc := range services {
-		if !reflect.DeepEqual(svc.Addresses, Addresses[svc.Hostname]) {
-			t.Fatalf("Service %s addresses actual %v, expected %v", svc.Hostname, svc.Addresses, Addresses[svc.Hostname])
+		if !reflect.DeepEqual(svc.ClusterVIPs, ClusterVIPs[svc.Hostname]) {
+			t.Fatalf("Service %s ClusterVIPs actual %v, expected %v", svc.Hostname, svc.ClusterVIPs, ClusterVIPs[svc.Hostname])
 		}
 	}
-	t.Logf("Return service Addresses match ground truth")
+	t.Logf("Return service ClusterVIPs match ground truth")
 }
 
 func TestServices(t *testing.T) {
@@ -466,6 +463,75 @@ func TestManagementPorts(t *testing.T) {
 		if ports[i].Name != expected[i].Name || ports[i].Port != expected[i].Port ||
 			ports[i].Protocol != expected[i].Protocol {
 			t.Fatal("Returned management ports result does not match expected one")
+		}
+	}
+}
+
+func TestAddRegistry(t *testing.T) {
+
+	registries := []Registry{
+		{
+			Name:      "registry1",
+			ClusterID: "cluster1",
+		},
+		{
+			Name:      "registry2",
+			ClusterID: "cluster2",
+		},
+	}
+	ctrl := NewController()
+	for _, r := range registries {
+		ctrl.AddRegistry(r)
+	}
+	if l := len(ctrl.registries); l != 2 {
+		t.Fatalf("Expected length of the registries slice should be 2, got %d", l)
+	}
+}
+
+func TestDeleteRegistry(t *testing.T) {
+	registries := []Registry{
+		{
+			Name:      "registry1",
+			ClusterID: "cluster1",
+		},
+		{
+			Name:      "registry2",
+			ClusterID: "cluster2",
+		},
+	}
+	ctrl := NewController()
+	for _, r := range registries {
+		ctrl.AddRegistry(r)
+	}
+	ctrl.DeleteRegistry(registries[0].ClusterID)
+	if l := len(ctrl.registries); l != 1 {
+		t.Fatalf("Expected length of the registries slice should be 1, got %d", l)
+	}
+}
+
+func TestGetRegistries(t *testing.T) {
+	registries := []Registry{
+		{
+			Name:      "registry1",
+			ClusterID: "cluster1",
+		},
+		{
+			Name:      "registry2",
+			ClusterID: "cluster2",
+		},
+	}
+	ctrl := NewController()
+	for _, r := range registries {
+		ctrl.AddRegistry(r)
+	}
+	result := ctrl.GetRegistries()
+	if len(ctrl.registries) != len(result) {
+		t.Fatal("Length of the original registries slice does not match to returned by GetRegistries.")
+	}
+
+	for i := range result {
+		if !reflect.DeepEqual(result[i], ctrl.registries[i]) {
+			t.Fatal("The original registries slice and resulting slice supposed to be identical.")
 		}
 	}
 }

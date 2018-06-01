@@ -23,7 +23,7 @@
     "api",
     "testhelpers"
   ]
-  revision = "fb28eb02defe910369ffcd34a6f5c9235d983cf0"
+  revision = "1e7e324f8366ded261140272c9e44d0ee681bdbf"
 
 [[projects]]
   name = "github.com/Azure/go-autorest"
@@ -272,7 +272,7 @@
     "envoy/type",
     "pkg/util"
   ]
-  revision = "5f52d064b948cc3a39451b20055e173597d3885e"
+  revision = "39c73ae5ba014b648d4164a24340a78b6b761978"
 
 [[projects]]
   name = "github.com/evanphx/json-patch"
@@ -643,7 +643,7 @@
   branch = "master"
   name = "github.com/istio/tools"
   packages = ["protoc-gen-docs"]
-  revision = "9c791034d4da535b3e19df1f2421a98d484825ad"
+  revision = "d7fdf1b48501371ede946114e69ac2d73d8e4206"
 
 [[projects]]
   name = "github.com/jmespath/go-jmespath"
@@ -1301,7 +1301,7 @@
     "rbac/v1alpha1",
     "routing/v1alpha1"
   ]
-  revision = "19931a466ebb486cd3d0af42704ff7665a4c3c7f"
+  revision = "9fb97f846d92471786cc737c53ddc63c68a29c23"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1317,8 +1317,8 @@
     "ui",
     "version"
   ]
-  revision = "e50943e8e525197f36f9b4f81464615c063a0a65"
-  version = "v0.9.0"
+  revision = "d17e45b4f794ac1722747d7cfbcbe0479722868a"
+  version = "v0.11.0"
 
 [[projects]]
   name = "k8s.io/api"

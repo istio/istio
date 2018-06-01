@@ -18,6 +18,3 @@ global:
 
   multicluster:
     enabled: true
-
-prometheus:
-  enabled: true

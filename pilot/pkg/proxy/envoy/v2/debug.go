@@ -24,7 +24,6 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
@@ -152,10 +151,9 @@ func (sd *MemServiceDiscovery) AddEndpoint(service model.Hostname, servicePortNa
 			Address: address,
 			Port:    port,
 			ServicePort: &model.Port{
-				Name:                 servicePortName,
-				Port:                 servicePort,
-				Protocol:             model.ProtocolHTTP,
-				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+				Name:     servicePortName,
+				Port:     servicePort,
+				Protocol: model.ProtocolHTTP,
 			},
 		},
 	}
@@ -449,7 +447,7 @@ func writeAllADS(w io.Writer) {
 		fmt.Fprintf(w, "\n\n  {\"node\": \"%s\",\n \"addr\": \"%s\",\n \"connect\": \"%v\",\n \"listeners\":[\n", c.ConID, c.PeerAddr, c.Connect)
 		printListeners(w, c)
 		fmt.Fprint(w, "],\n")
-		fmt.Fprintf(w, ",\"clusters\":[\n")
+		fmt.Fprintf(w, "\"clusters\":[\n")
 		printClusters(w, c)
 		fmt.Fprint(w, "]}\n")
 	}
