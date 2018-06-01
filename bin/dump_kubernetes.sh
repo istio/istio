@@ -12,13 +12,17 @@ error() {
 }
 
 usage() {
-  error "usage: dump_kubernetes.sh [options]"
-  error ""
-  error "  -d, --output-directory   directory to output files; defaults to"
-  error "                               \"istio-dump\""
-  error "  -z, --archive            if present, archives and removes the output"
-  error "                               directory"
-  error "  -q, --quiet              if present, do not log"
+  error 'Collect all possible data from a Kubernetes cluster using kubectl.'
+  error ''
+  error 'Usage:'
+  error '  dump_kubernetes.sh [options]'
+  error ''
+  error 'Options:'
+  error '  -d, --output-directory   directory to output files; defaults to'
+  error '                               "istio-dump"'
+  error '  -z, --archive            if present, archives and removes the output'
+  error '                               directory'
+  error '  -q, --quiet              if present, do not log'
   exit 1
 }
 
