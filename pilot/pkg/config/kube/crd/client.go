@@ -70,7 +70,7 @@ type Client struct {
 type restClient struct {
 	apiVersion schema.GroupVersion
 
-	// descriptor from the same apiVerion.
+	// descriptor from the same apiVersion.
 	descriptor model.ConfigDescriptor
 
 	// types of the schema and objects in the descriptor.
