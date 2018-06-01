@@ -59,7 +59,9 @@ const (
 
 	// JwtPubKeyRefreshInterval is the running interval of JWT pubKey refresh job.
 	JwtPubKeyRefreshInterval = time.Minute * 20
+)
 
+var (
 	// PublicRootCABundlePath is the path of public root CA bundle in pilot container.
 	publicRootCABundlePath = "/cacert.pem"
 )
