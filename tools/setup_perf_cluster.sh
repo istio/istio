@@ -24,6 +24,7 @@ VM_NAME=${VM_NAME:-fortio-vm}
 ISTIOCTL=${ISTIOCTL:-istioctl} # to override istioctl from outside of the path
 FORTIO_NAMESPACE=${FORTIO_NAMESPACE:-fortio} # Namespace for non istio app
 ISTIO_NAMESPACE=${ISTIO_NAMESPACE:-istio} # Namespace for istio injected app
+ISTIO_SYSTEM_NAMESPACE=${ISTIO_SYSTEM_NAMESPACE:-istio-system} # control plane namespace
 # Should not be set to true for perf measurement but to troubleshoot the setup
 DEBUG=false
 
@@ -124,10 +125,15 @@ function get_vm_ip() {
   echo "+++ VM Ip is $VM_IP - visit (http on port 443 is not a typo:) $VM_URL"
 }
 
+function generate_istio_yaml() {
+  Execute sh -c 'helm template --namespace $ISTIO_SYSTEM_NAMESPACE --set sidecarInjectorWebhook.enabled=false --set global.proxy.image=proxy   --values install/kubernetes/helm/istio/values-istio-auth.yaml install/kubernetes/helm/istio > install/kubernetes/istio-auth.yaml'
+}
+
 # assumes run from istio/ (or release) directory
 function install_istio() {
   # You need these permissions to create the necessary RBAC rules for Istio
   Execute sh -c 'kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user="$(gcloud config get-value core/account)"'
+  Execute kubectl create namespace $ISTIO_SYSTEM_NAMESPACE || echo "Error assumed to be ns $ISTIO_SYSTEM_NAMESPACE already created"
   # Use the non debug ingress and remove the -v "2"
   Execute sh -c 'sed -e "s/_debug//g" install/kubernetes/istio-auth.yaml | egrep -v -e "- (-v|\"2\")" | kubectl apply -f -'
 }
@@ -444,6 +450,7 @@ function setup_vm_all() {
 
 function setup_istio_all() {
   update_gcp_opts
+  generate_istio_yaml
   install_istio
   install_istio_svc
   install_istio_ingress_rules
