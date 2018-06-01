@@ -1,12 +1,18 @@
 ---
 title: Service Control
-overview: Adapter that delivers logs and metrics to Google Service Control
-location: https://istio.io/docs/reference/config/adapters/servicecontrol.html
+description: Adapter that delivers logs and metrics to Google Service Control
+location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/servicecontrol.html
 layout: protoc-gen-docs
+generator: protoc-gen-docs
+redirect_from: /docs/reference/config/adapters/servicecontrol.html
 number_of_entries: 4
 ---
 <p>The <code>servicecontrol</code> adapter delivers logs and metrics to
 <a href="https://cloud.google.com/service-control">Google Service Control</a>.</p>
+
+<p>This adapter supports the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/servicecontrolreport.html">servicecontrolreport template</a>,
+the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/quota.html">quota template</a>,
+and the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/apikey.html">apikey template</a>.</p>
 
 <h2 id="GcpServiceSetting">GcpServiceSetting</h2>
 <section>

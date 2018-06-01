@@ -21,7 +21,7 @@ import _ "github.com/gogo/protobuf/gogoproto"
 
 import time "time"
 
-import github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
+import types "github.com/gogo/protobuf/types"
 
 import io "io"
 
@@ -161,8 +161,8 @@ func (m *RedisProxy_ConnPoolSettings) MarshalTo(dAtA []byte) (int, error) {
 	if m.OpTimeout != nil {
 		dAtA[i] = 0xa
 		i++
-		i = encodeVarintRedisProxy(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.OpTimeout)))
-		n2, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.OpTimeout, dAtA[i:])
+		i = encodeVarintRedisProxy(dAtA, i, uint64(types.SizeOfStdDuration(*m.OpTimeout)))
+		n2, err := types.StdDurationMarshalTo(*m.OpTimeout, dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
@@ -202,7 +202,7 @@ func (m *RedisProxy_ConnPoolSettings) Size() (n int) {
 	var l int
 	_ = l
 	if m.OpTimeout != nil {
-		l = github_com_gogo_protobuf_types.SizeOfStdDuration(*m.OpTimeout)
+		l = types.SizeOfStdDuration(*m.OpTimeout)
 		n += 1 + l + sovRedisProxy(uint64(l))
 	}
 	return n
@@ -420,7 +420,7 @@ func (m *RedisProxy_ConnPoolSettings) Unmarshal(dAtA []byte) error {
 			if m.OpTimeout == nil {
 				m.OpTimeout = new(time.Duration)
 			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(m.OpTimeout, dAtA[iNdEx:postIndex]); err != nil {
+			if err := types.StdDurationUnmarshal(m.OpTimeout, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex

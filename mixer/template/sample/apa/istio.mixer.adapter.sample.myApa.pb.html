@@ -1,6 +1,7 @@
 ---
 title: istio.mixer.adapter.sample.myApa
 layout: protoc-gen-docs
+generator: protoc-gen-docs
 number_of_entries: 9
 ---
 <h2 id="OutputTemplate">OutputTemplate</h2>
@@ -40,25 +41,25 @@ number_of_entries: 9
 </tr>
 <tr id="OutputTemplate.timeStamp">
 <td><code>timeStamp</code></td>
-<td><code><a href="#istio.mixer.adapter.model.v1beta1.TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</a></code></td>
+<td><code><a href="#istio.policy.v1beta1.TimeStamp">istio.policy.v1beta1.TimeStamp</a></code></td>
 <td>
 </td>
 </tr>
 <tr id="OutputTemplate.duration">
 <td><code>duration</code></td>
-<td><code><a href="#istio.mixer.adapter.model.v1beta1.Duration">istio.mixer.adapter.model.v1beta1.Duration</a></code></td>
+<td><code><a href="#istio.policy.v1beta1.Duration">istio.policy.v1beta1.Duration</a></code></td>
 <td>
 </td>
 </tr>
 <tr id="OutputTemplate.email">
 <td><code>email</code></td>
-<td><code><a href="#istio.mixer.adapter.model.v1beta1.EmailAddress">istio.mixer.adapter.model.v1beta1.EmailAddress</a></code></td>
+<td><code><a href="#istio.policy.v1beta1.EmailAddress">istio.policy.v1beta1.EmailAddress</a></code></td>
 <td>
 </td>
 </tr>
 <tr id="OutputTemplate.out_ip">
 <td><code>outIp</code></td>
-<td><code><a href="#istio.mixer.adapter.model.v1beta1.IPAddress">istio.mixer.adapter.model.v1beta1.IPAddress</a></code></td>
+<td><code><a href="#istio.policy.v1beta1.IPAddress">istio.policy.v1beta1.IPAddress</a></code></td>
 <td>
 </td>
 </tr>
@@ -180,13 +181,13 @@ number_of_entries: 9
 </tr>
 <tr id="Resource3.timeStamp">
 <td><code>timeStamp</code></td>
-<td><code><a href="#istio.mixer.adapter.model.v1beta1.TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</a></code></td>
+<td><code><a href="#istio.policy.v1beta1.TimeStamp">istio.policy.v1beta1.TimeStamp</a></code></td>
 <td>
 </td>
 </tr>
 <tr id="Resource3.duration">
 <td><code>duration</code></td>
-<td><code><a href="#istio.mixer.adapter.model.v1beta1.Duration">istio.mixer.adapter.model.v1beta1.Duration</a></code></td>
+<td><code><a href="#istio.policy.v1beta1.Duration">istio.policy.v1beta1.Duration</a></code></td>
 <td>
 </td>
 </tr>
@@ -238,13 +239,13 @@ number_of_entries: 9
 </tr>
 <tr id="Template.timeStamp">
 <td><code>timeStamp</code></td>
-<td><code><a href="#istio.mixer.adapter.model.v1beta1.TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</a></code></td>
+<td><code><a href="#istio.policy.v1beta1.TimeStamp">istio.policy.v1beta1.TimeStamp</a></code></td>
 <td>
 </td>
 </tr>
 <tr id="Template.duration">
 <td><code>duration</code></td>
-<td><code><a href="#istio.mixer.adapter.model.v1beta1.Duration">istio.mixer.adapter.model.v1beta1.Duration</a></code></td>
+<td><code><a href="#istio.policy.v1beta1.Duration">istio.policy.v1beta1.Duration</a></code></td>
 <td>
 </td>
 </tr>
@@ -256,22 +257,26 @@ number_of_entries: 9
 </tr>
 <tr id="Template.optionalIP">
 <td><code>optionalIP</code></td>
-<td><code><a href="#istio.mixer.adapter.model.v1beta1.IPAddress">istio.mixer.adapter.model.v1beta1.IPAddress</a></code></td>
+<td><code><a href="#istio.policy.v1beta1.IPAddress">istio.policy.v1beta1.IPAddress</a></code></td>
 <td>
 </td>
 </tr>
 <tr id="Template.email">
 <td><code>email</code></td>
-<td><code><a href="#istio.mixer.adapter.model.v1beta1.EmailAddress">istio.mixer.adapter.model.v1beta1.EmailAddress</a></code></td>
+<td><code><a href="#istio.policy.v1beta1.EmailAddress">istio.policy.v1beta1.EmailAddress</a></code></td>
 <td>
 </td>
 </tr>
 </tbody>
 </table>
 </section>
-<h2 id="istio.mixer.adapter.model.v1beta1.Duration">istio.mixer.adapter.model.v1beta1.Duration</h2>
+<h2 id="istio.policy.v1beta1.Duration">istio.policy.v1beta1.Duration</h2>
 <section>
-<p>Duration is used inside templates for fields that are of ValueType &ldquo;DURATION&rdquo;</p>
+<p>An instance field of type Duration denotes that the expression for the field must evalaute to
+<em>ValueType.DURATION</em></p>
+
+<p>Objects of type Duration are also passed to the adapters during request-time for the instance fields of
+type Duration</p>
 
 <table class="message-fields">
 <thead>
@@ -282,7 +287,7 @@ number_of_entries: 9
 </tr>
 </thead>
 <tbody>
-<tr id="istio.mixer.adapter.model.v1beta1.Duration.value">
+<tr id="istio.policy.v1beta1.Duration.value">
 <td><code>value</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -293,10 +298,14 @@ number_of_entries: 9
 </tbody>
 </table>
 </section>
-<h2 id="istio.mixer.adapter.model.v1beta1.EmailAddress">istio.mixer.adapter.model.v1beta1.EmailAddress</h2>
+<h2 id="istio.policy.v1beta1.EmailAddress">istio.policy.v1beta1.EmailAddress</h2>
 <section>
-<p>EmailAddress is used inside templates for fields that are of ValueType &ldquo;EMAIL_ADDRESS&rdquo;
-DO NOT USE !! Under Development</p>
+<p>DO NOT USE !! Under Development
+An instance field of type EmailAddress denotes that the expression for the field must evalaute to
+<em>ValueType.EMAIL_ADDRESS</em></p>
+
+<p>Objects of type EmailAddress are also passed to the adapters during request-time for the instance fields of
+type EmailAddress</p>
 
 <table class="message-fields">
 <thead>
@@ -307,7 +316,7 @@ DO NOT USE !! Under Development</p>
 </tr>
 </thead>
 <tbody>
-<tr id="istio.mixer.adapter.model.v1beta1.EmailAddress.value">
+<tr id="istio.policy.v1beta1.EmailAddress.value">
 <td><code>value</code></td>
 <td><code>string</code></td>
 <td>
@@ -318,9 +327,13 @@ DO NOT USE !! Under Development</p>
 </tbody>
 </table>
 </section>
-<h2 id="istio.mixer.adapter.model.v1beta1.IPAddress">istio.mixer.adapter.model.v1beta1.IPAddress</h2>
+<h2 id="istio.policy.v1beta1.IPAddress">istio.policy.v1beta1.IPAddress</h2>
 <section>
-<p>IPAddress is used inside templates for fields that are of ValueType &ldquo;IP_ADDRESS&rdquo;</p>
+<p>An instance field of type IPAddress denotes that the expression for the field must evalaute to
+<em>ValueType.IP_ADDRESS</em></p>
+
+<p>Objects of type IPAddress are also passed to the adapters during request-time for the instance fields of
+type IPAddress</p>
 
 <table class="message-fields">
 <thead>
@@ -331,7 +344,7 @@ DO NOT USE !! Under Development</p>
 </tr>
 </thead>
 <tbody>
-<tr id="istio.mixer.adapter.model.v1beta1.IPAddress.value">
+<tr id="istio.policy.v1beta1.IPAddress.value">
 <td><code>value</code></td>
 <td><code>bytes</code></td>
 <td>
@@ -342,9 +355,13 @@ DO NOT USE !! Under Development</p>
 </tbody>
 </table>
 </section>
-<h2 id="istio.mixer.adapter.model.v1beta1.TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</h2>
+<h2 id="istio.policy.v1beta1.TimeStamp">istio.policy.v1beta1.TimeStamp</h2>
 <section>
-<p>TimeStamp is used inside templates for fields that are of ValueType &ldquo;TIMESTAMP&rdquo;</p>
+<p>An instance field of type TimeStamp denotes that the expression for the field must evalaute to
+<em>ValueType.TIMESTAMP</em></p>
+
+<p>Objects of type TimeStamp are also passed to the adapters during request-time for the instance fields of
+type TimeStamp</p>
 
 <table class="message-fields">
 <thead>
@@ -355,7 +372,7 @@ DO NOT USE !! Under Development</p>
 </tr>
 </thead>
 <tbody>
-<tr id="istio.mixer.adapter.model.v1beta1.TimeStamp.value">
+<tr id="istio.policy.v1beta1.TimeStamp.value">
 <td><code>value</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#timestamp">google.protobuf.Timestamp</a></code></td>
 <td>

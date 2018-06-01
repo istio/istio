@@ -25,9 +25,9 @@ import bytes "bytes"
 
 import strings "strings"
 import reflect "reflect"
-import github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
+import sortkeys "github.com/gogo/protobuf/sortkeys"
 
-import encoding_binary "encoding/binary"
+import binary "encoding/binary"
 
 import io "io"
 
@@ -761,10 +761,7 @@ func (x OtherInnerenum) String() string {
 }
 func (this *Empty) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Empty)
@@ -777,10 +774,7 @@ func (this *Empty) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -788,10 +782,7 @@ func (this *Empty) Equal(that interface{}) bool {
 }
 func (this *Simple) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Simple)
@@ -804,10 +795,7 @@ func (this *Simple) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -1226,10 +1214,7 @@ func (this *Simple) Equal(that interface{}) bool {
 }
 func (this *Other) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Other)
@@ -1242,10 +1227,7 @@ func (this *Other) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -1271,10 +1253,7 @@ func (this *Other) Equal(that interface{}) bool {
 }
 func (this *OtherInnerMsg) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*OtherInnerMsg)
@@ -1287,10 +1266,7 @@ func (this *OtherInnerMsg) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -1307,10 +1283,7 @@ func (this *OtherInnerMsg) Equal(that interface{}) bool {
 }
 func (this *Outer) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Outer)
@@ -1323,10 +1296,7 @@ func (this *Outer) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -1337,10 +1307,7 @@ func (this *Outer) Equal(that interface{}) bool {
 }
 func (this *Outer_Inner) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Outer_Inner)
@@ -1353,10 +1320,7 @@ func (this *Outer_Inner) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -1394,7 +1358,7 @@ func (this *Simple) GoString() string {
 	for k, _ := range this.MapStrStr {
 		keysForMapStrStr = append(keysForMapStrStr, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForMapStrStr)
+	sortkeys.Strings(keysForMapStrStr)
 	mapStringForMapStrStr := "map[string]string{"
 	for _, k := range keysForMapStrStr {
 		mapStringForMapStrStr += fmt.Sprintf("%#v: %#v,", k, this.MapStrStr[k])
@@ -1407,7 +1371,7 @@ func (this *Simple) GoString() string {
 	for k, _ := range this.MapStrMsg {
 		keysForMapStrMsg = append(keysForMapStrMsg, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForMapStrMsg)
+	sortkeys.Strings(keysForMapStrMsg)
 	mapStringForMapStrMsg := "map[string]*Other{"
 	for _, k := range keysForMapStrMsg {
 		mapStringForMapStrMsg += fmt.Sprintf("%#v: %#v,", k, this.MapStrMsg[k])
@@ -1420,7 +1384,7 @@ func (this *Simple) GoString() string {
 	for k, _ := range this.MapI32Msg {
 		keysForMapI32Msg = append(keysForMapI32Msg, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Int32s(keysForMapI32Msg)
+	sortkeys.Int32s(keysForMapI32Msg)
 	mapStringForMapI32Msg := "map[int32]*Other{"
 	for _, k := range keysForMapI32Msg {
 		mapStringForMapI32Msg += fmt.Sprintf("%#v: %#v,", k, this.MapI32Msg[k])
@@ -1433,7 +1397,7 @@ func (this *Simple) GoString() string {
 	for k, _ := range this.MapStrEnum {
 		keysForMapStrEnum = append(keysForMapStrEnum, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForMapStrEnum)
+	sortkeys.Strings(keysForMapStrEnum)
 	mapStringForMapStrEnum := "map[string]Myenum{"
 	for _, k := range keysForMapStrEnum {
 		mapStringForMapStrEnum += fmt.Sprintf("%#v: %#v,", k, this.MapStrEnum[k])
@@ -1446,7 +1410,7 @@ func (this *Simple) GoString() string {
 	for k, _ := range this.MapInt64Double {
 		keysForMapInt64Double = append(keysForMapInt64Double, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Int64s(keysForMapInt64Double)
+	sortkeys.Int64s(keysForMapInt64Double)
 	mapStringForMapInt64Double := "map[int64]float64{"
 	for _, k := range keysForMapInt64Double {
 		mapStringForMapInt64Double += fmt.Sprintf("%#v: %#v,", k, this.MapInt64Double[k])
@@ -1459,7 +1423,7 @@ func (this *Simple) GoString() string {
 	for k, _ := range this.MapFixed32Enum {
 		keysForMapFixed32Enum = append(keysForMapFixed32Enum, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Uint32s(keysForMapFixed32Enum)
+	sortkeys.Uint32s(keysForMapFixed32Enum)
 	mapStringForMapFixed32Enum := "map[uint32]Myenum{"
 	for _, k := range keysForMapFixed32Enum {
 		mapStringForMapFixed32Enum += fmt.Sprintf("%#v: %#v,", k, this.MapFixed32Enum[k])
@@ -1472,7 +1436,7 @@ func (this *Simple) GoString() string {
 	for k, _ := range this.MapStrFloat {
 		keysForMapStrFloat = append(keysForMapStrFloat, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForMapStrFloat)
+	sortkeys.Strings(keysForMapStrFloat)
 	mapStringForMapStrFloat := "map[string]float32{"
 	for _, k := range keysForMapStrFloat {
 		mapStringForMapStrFloat += fmt.Sprintf("%#v: %#v,", k, this.MapStrFloat[k])
@@ -1485,7 +1449,7 @@ func (this *Simple) GoString() string {
 	for k, _ := range this.MapStrUint64 {
 		keysForMapStrUint64 = append(keysForMapStrUint64, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForMapStrUint64)
+	sortkeys.Strings(keysForMapStrUint64)
 	mapStringForMapStrUint64 := "map[string]uint64{"
 	for _, k := range keysForMapStrUint64 {
 		mapStringForMapStrUint64 += fmt.Sprintf("%#v: %#v,", k, this.MapStrUint64[k])
@@ -1498,7 +1462,7 @@ func (this *Simple) GoString() string {
 	for k, _ := range this.MapStrUint32 {
 		keysForMapStrUint32 = append(keysForMapStrUint32, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForMapStrUint32)
+	sortkeys.Strings(keysForMapStrUint32)
 	mapStringForMapStrUint32 := "map[string]uint32{"
 	for _, k := range keysForMapStrUint32 {
 		mapStringForMapStrUint32 += fmt.Sprintf("%#v: %#v,", k, this.MapStrUint32[k])
@@ -1511,7 +1475,7 @@ func (this *Simple) GoString() string {
 	for k, _ := range this.MapStrFixed64 {
 		keysForMapStrFixed64 = append(keysForMapStrFixed64, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForMapStrFixed64)
+	sortkeys.Strings(keysForMapStrFixed64)
 	mapStringForMapStrFixed64 := "map[string]uint64{"
 	for _, k := range keysForMapStrFixed64 {
 		mapStringForMapStrFixed64 += fmt.Sprintf("%#v: %#v,", k, this.MapStrFixed64[k])
@@ -1524,7 +1488,7 @@ func (this *Simple) GoString() string {
 	for k, _ := range this.MapStrBool {
 		keysForMapStrBool = append(keysForMapStrBool, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForMapStrBool)
+	sortkeys.Strings(keysForMapStrBool)
 	mapStringForMapStrBool := "map[string]bool{"
 	for _, k := range keysForMapStrBool {
 		mapStringForMapStrBool += fmt.Sprintf("%#v: %#v,", k, this.MapStrBool[k])
@@ -1537,7 +1501,7 @@ func (this *Simple) GoString() string {
 	for k, _ := range this.MapStrSfixed32 {
 		keysForMapStrSfixed32 = append(keysForMapStrSfixed32, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForMapStrSfixed32)
+	sortkeys.Strings(keysForMapStrSfixed32)
 	mapStringForMapStrSfixed32 := "map[string]int32{"
 	for _, k := range keysForMapStrSfixed32 {
 		mapStringForMapStrSfixed32 += fmt.Sprintf("%#v: %#v,", k, this.MapStrSfixed32[k])
@@ -1550,7 +1514,7 @@ func (this *Simple) GoString() string {
 	for k, _ := range this.MapStrSfixed64 {
 		keysForMapStrSfixed64 = append(keysForMapStrSfixed64, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForMapStrSfixed64)
+	sortkeys.Strings(keysForMapStrSfixed64)
 	mapStringForMapStrSfixed64 := "map[string]int64{"
 	for _, k := range keysForMapStrSfixed64 {
 		mapStringForMapStrSfixed64 += fmt.Sprintf("%#v: %#v,", k, this.MapStrSfixed64[k])
@@ -1563,7 +1527,7 @@ func (this *Simple) GoString() string {
 	for k, _ := range this.MapStrSint32 {
 		keysForMapStrSint32 = append(keysForMapStrSint32, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForMapStrSint32)
+	sortkeys.Strings(keysForMapStrSint32)
 	mapStringForMapStrSint32 := "map[string]int32{"
 	for _, k := range keysForMapStrSint32 {
 		mapStringForMapStrSint32 += fmt.Sprintf("%#v: %#v,", k, this.MapStrSint32[k])
@@ -1576,7 +1540,7 @@ func (this *Simple) GoString() string {
 	for k, _ := range this.MapStrSint64 {
 		keysForMapStrSint64 = append(keysForMapStrSint64, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForMapStrSint64)
+	sortkeys.Strings(keysForMapStrSint64)
 	mapStringForMapStrSint64 := "map[string]int64{"
 	for _, k := range keysForMapStrSint64 {
 		mapStringForMapStrSint64 += fmt.Sprintf("%#v: %#v,", k, this.MapStrSint64[k])
@@ -1742,7 +1706,7 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 	if m.Dbl != 0 {
 		dAtA[i] = 0x11
 		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Dbl))))
+		binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Dbl))))
 		i += 8
 	}
 	if m.B {
@@ -1880,7 +1844,7 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintTypes(dAtA, i, uint64(len(m.RDbl)*8))
 		for _, num := range m.RDbl {
 			f4 := math.Float64bits(float64(num))
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(f4))
+			binary.LittleEndian.PutUint64(dAtA[i:], uint64(f4))
 			i += 8
 		}
 	}
@@ -1891,7 +1855,7 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 			dAtA[i] = 0x1
 			i++
 			f5 := math.Float64bits(float64(num))
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(f5))
+			binary.LittleEndian.PutUint64(dAtA[i:], uint64(f5))
 			i += 8
 		}
 	}
@@ -1933,7 +1897,7 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		dAtA[i] = 0x1
 		i++
-		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(m.Flt))))
+		binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(m.Flt))))
 		i += 4
 	}
 	if len(m.RFlt) > 0 {
@@ -1944,7 +1908,7 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintTypes(dAtA, i, uint64(len(m.RFlt)*4))
 		for _, num := range m.RFlt {
 			f8 := math.Float32bits(float32(num))
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(f8))
+			binary.LittleEndian.PutUint32(dAtA[i:], uint32(f8))
 			i += 4
 		}
 	}
@@ -1955,7 +1919,7 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 			dAtA[i] = 0x1
 			i++
 			f9 := math.Float32bits(float32(num))
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(f9))
+			binary.LittleEndian.PutUint32(dAtA[i:], uint32(f9))
 			i += 4
 		}
 	}
@@ -2106,7 +2070,7 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		dAtA[i] = 0x2
 		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.F64))
+		binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.F64))
 		i += 8
 	}
 	if len(m.RF64) > 0 {
@@ -2116,7 +2080,7 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		i = encodeVarintTypes(dAtA, i, uint64(len(m.RF64)*8))
 		for _, num := range m.RF64 {
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(num))
+			binary.LittleEndian.PutUint64(dAtA[i:], uint64(num))
 			i += 8
 		}
 	}
@@ -2126,7 +2090,7 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 			i++
 			dAtA[i] = 0x2
 			i++
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(num))
+			binary.LittleEndian.PutUint64(dAtA[i:], uint64(num))
 			i += 8
 		}
 	}
@@ -2135,7 +2099,7 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		dAtA[i] = 0x2
 		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.Sf64))
+		binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.Sf64))
 		i += 8
 	}
 	if len(m.RSf64) > 0 {
@@ -2145,7 +2109,7 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		i = encodeVarintTypes(dAtA, i, uint64(len(m.RSf64)*8))
 		for _, num := range m.RSf64 {
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(num))
+			binary.LittleEndian.PutUint64(dAtA[i:], uint64(num))
 			i += 8
 		}
 	}
@@ -2155,7 +2119,7 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 			i++
 			dAtA[i] = 0x3
 			i++
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(num))
+			binary.LittleEndian.PutUint64(dAtA[i:], uint64(num))
 			i += 8
 		}
 	}
@@ -2164,7 +2128,7 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		dAtA[i] = 0x3
 		i++
-		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(m.F32))
+		binary.LittleEndian.PutUint32(dAtA[i:], uint32(m.F32))
 		i += 4
 	}
 	if len(m.RF32) > 0 {
@@ -2174,7 +2138,7 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		i = encodeVarintTypes(dAtA, i, uint64(len(m.RF32)*4))
 		for _, num := range m.RF32 {
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(num))
+			binary.LittleEndian.PutUint32(dAtA[i:], uint32(num))
 			i += 4
 		}
 	}
@@ -2184,7 +2148,7 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 			i++
 			dAtA[i] = 0x3
 			i++
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(num))
+			binary.LittleEndian.PutUint32(dAtA[i:], uint32(num))
 			i += 4
 		}
 	}
@@ -2193,7 +2157,7 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		dAtA[i] = 0x3
 		i++
-		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(m.Sf32))
+		binary.LittleEndian.PutUint32(dAtA[i:], uint32(m.Sf32))
 		i += 4
 	}
 	if len(m.RSf32) > 0 {
@@ -2203,7 +2167,7 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		i = encodeVarintTypes(dAtA, i, uint64(len(m.RSf32)*4))
 		for _, num := range m.RSf32 {
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(num))
+			binary.LittleEndian.PutUint32(dAtA[i:], uint32(num))
 			i += 4
 		}
 	}
@@ -2213,7 +2177,7 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 			i++
 			dAtA[i] = 0x3
 			i++
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(num))
+			binary.LittleEndian.PutUint32(dAtA[i:], uint32(num))
 			i += 4
 		}
 	}
@@ -2363,7 +2327,7 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 			i = encodeVarintTypes(dAtA, i, uint64(k))
 			dAtA[i] = 0x11
 			i++
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(v))))
+			binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(v))))
 			i += 8
 		}
 	}
@@ -2378,7 +2342,7 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 			i = encodeVarintTypes(dAtA, i, uint64(mapSize))
 			dAtA[i] = 0xd
 			i++
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(k))
+			binary.LittleEndian.PutUint32(dAtA[i:], uint32(k))
 			i += 4
 			dAtA[i] = 0x10
 			i++
@@ -2400,7 +2364,7 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 			i += copy(dAtA[i:], k)
 			dAtA[i] = 0x15
 			i++
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(v))))
+			binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(v))))
 			i += 4
 		}
 	}
@@ -2437,7 +2401,7 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 			i += copy(dAtA[i:], k)
 			dAtA[i] = 0x15
 			i++
-			encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(v))
+			binary.LittleEndian.PutUint32(dAtA[i:], uint32(v))
 			i += 4
 		}
 	}
@@ -2456,7 +2420,7 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 			i += copy(dAtA[i:], k)
 			dAtA[i] = 0x11
 			i++
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(v))
+			binary.LittleEndian.PutUint64(dAtA[i:], uint64(v))
 			i += 8
 		}
 	}
@@ -2529,7 +2493,7 @@ func (m *Simple) MarshalTo(dAtA []byte) (int, error) {
 			i += copy(dAtA[i:], k)
 			dAtA[i] = 0x11
 			i++
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(v))
+			binary.LittleEndian.PutUint64(dAtA[i:], uint64(v))
 			i += 8
 		}
 	}
@@ -2592,7 +2556,7 @@ func (m *Other) MarshalTo(dAtA []byte) (int, error) {
 	if m.Dbl != 0 {
 		dAtA[i] = 0x11
 		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Dbl))))
+		binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Dbl))))
 		i += 8
 	}
 	if m.I64 != 0 {
@@ -2652,7 +2616,7 @@ func (m *OtherInnerMsg) MarshalTo(dAtA []byte) (int, error) {
 	if m.Dbl != 0 {
 		dAtA[i] = 0x11
 		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Dbl))))
+		binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Dbl))))
 		i += 8
 	}
 	if m.I64 != 0 {
@@ -2715,7 +2679,7 @@ func (m *Outer_Inner) MarshalTo(dAtA []byte) (int, error) {
 	if m.Dbl != 0 {
 		dAtA[i] = 0x11
 		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Dbl))))
+		binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Dbl))))
 		i += 8
 	}
 	if m.I64 != 0 {
@@ -3180,7 +3144,7 @@ func (this *Simple) String() string {
 	for k, _ := range this.MapStrStr {
 		keysForMapStrStr = append(keysForMapStrStr, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForMapStrStr)
+	sortkeys.Strings(keysForMapStrStr)
 	mapStringForMapStrStr := "map[string]string{"
 	for _, k := range keysForMapStrStr {
 		mapStringForMapStrStr += fmt.Sprintf("%v: %v,", k, this.MapStrStr[k])
@@ -3190,7 +3154,7 @@ func (this *Simple) String() string {
 	for k, _ := range this.MapStrMsg {
 		keysForMapStrMsg = append(keysForMapStrMsg, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForMapStrMsg)
+	sortkeys.Strings(keysForMapStrMsg)
 	mapStringForMapStrMsg := "map[string]*Other{"
 	for _, k := range keysForMapStrMsg {
 		mapStringForMapStrMsg += fmt.Sprintf("%v: %v,", k, this.MapStrMsg[k])
@@ -3200,7 +3164,7 @@ func (this *Simple) String() string {
 	for k, _ := range this.MapI32Msg {
 		keysForMapI32Msg = append(keysForMapI32Msg, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Int32s(keysForMapI32Msg)
+	sortkeys.Int32s(keysForMapI32Msg)
 	mapStringForMapI32Msg := "map[int32]*Other{"
 	for _, k := range keysForMapI32Msg {
 		mapStringForMapI32Msg += fmt.Sprintf("%v: %v,", k, this.MapI32Msg[k])
@@ -3210,7 +3174,7 @@ func (this *Simple) String() string {
 	for k, _ := range this.MapStrEnum {
 		keysForMapStrEnum = append(keysForMapStrEnum, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForMapStrEnum)
+	sortkeys.Strings(keysForMapStrEnum)
 	mapStringForMapStrEnum := "map[string]Myenum{"
 	for _, k := range keysForMapStrEnum {
 		mapStringForMapStrEnum += fmt.Sprintf("%v: %v,", k, this.MapStrEnum[k])
@@ -3220,7 +3184,7 @@ func (this *Simple) String() string {
 	for k, _ := range this.MapInt64Double {
 		keysForMapInt64Double = append(keysForMapInt64Double, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Int64s(keysForMapInt64Double)
+	sortkeys.Int64s(keysForMapInt64Double)
 	mapStringForMapInt64Double := "map[int64]float64{"
 	for _, k := range keysForMapInt64Double {
 		mapStringForMapInt64Double += fmt.Sprintf("%v: %v,", k, this.MapInt64Double[k])
@@ -3230,7 +3194,7 @@ func (this *Simple) String() string {
 	for k, _ := range this.MapFixed32Enum {
 		keysForMapFixed32Enum = append(keysForMapFixed32Enum, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Uint32s(keysForMapFixed32Enum)
+	sortkeys.Uint32s(keysForMapFixed32Enum)
 	mapStringForMapFixed32Enum := "map[uint32]Myenum{"
 	for _, k := range keysForMapFixed32Enum {
 		mapStringForMapFixed32Enum += fmt.Sprintf("%v: %v,", k, this.MapFixed32Enum[k])
@@ -3240,7 +3204,7 @@ func (this *Simple) String() string {
 	for k, _ := range this.MapStrFloat {
 		keysForMapStrFloat = append(keysForMapStrFloat, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForMapStrFloat)
+	sortkeys.Strings(keysForMapStrFloat)
 	mapStringForMapStrFloat := "map[string]float32{"
 	for _, k := range keysForMapStrFloat {
 		mapStringForMapStrFloat += fmt.Sprintf("%v: %v,", k, this.MapStrFloat[k])
@@ -3250,7 +3214,7 @@ func (this *Simple) String() string {
 	for k, _ := range this.MapStrUint64 {
 		keysForMapStrUint64 = append(keysForMapStrUint64, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForMapStrUint64)
+	sortkeys.Strings(keysForMapStrUint64)
 	mapStringForMapStrUint64 := "map[string]uint64{"
 	for _, k := range keysForMapStrUint64 {
 		mapStringForMapStrUint64 += fmt.Sprintf("%v: %v,", k, this.MapStrUint64[k])
@@ -3260,7 +3224,7 @@ func (this *Simple) String() string {
 	for k, _ := range this.MapStrSfixed32 {
 		keysForMapStrSfixed32 = append(keysForMapStrSfixed32, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForMapStrSfixed32)
+	sortkeys.Strings(keysForMapStrSfixed32)
 	mapStringForMapStrSfixed32 := "map[string]int32{"
 	for _, k := range keysForMapStrSfixed32 {
 		mapStringForMapStrSfixed32 += fmt.Sprintf("%v: %v,", k, this.MapStrSfixed32[k])
@@ -3270,7 +3234,7 @@ func (this *Simple) String() string {
 	for k, _ := range this.MapStrSfixed64 {
 		keysForMapStrSfixed64 = append(keysForMapStrSfixed64, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForMapStrSfixed64)
+	sortkeys.Strings(keysForMapStrSfixed64)
 	mapStringForMapStrSfixed64 := "map[string]int64{"
 	for _, k := range keysForMapStrSfixed64 {
 		mapStringForMapStrSfixed64 += fmt.Sprintf("%v: %v,", k, this.MapStrSfixed64[k])
@@ -3280,7 +3244,7 @@ func (this *Simple) String() string {
 	for k, _ := range this.MapStrSint32 {
 		keysForMapStrSint32 = append(keysForMapStrSint32, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForMapStrSint32)
+	sortkeys.Strings(keysForMapStrSint32)
 	mapStringForMapStrSint32 := "map[string]int32{"
 	for _, k := range keysForMapStrSint32 {
 		mapStringForMapStrSint32 += fmt.Sprintf("%v: %v,", k, this.MapStrSint32[k])
@@ -3290,7 +3254,7 @@ func (this *Simple) String() string {
 	for k, _ := range this.MapStrSint64 {
 		keysForMapStrSint64 = append(keysForMapStrSint64, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForMapStrSint64)
+	sortkeys.Strings(keysForMapStrSint64)
 	mapStringForMapStrSint64 := "map[string]int64{"
 	for _, k := range keysForMapStrSint64 {
 		mapStringForMapStrSint64 += fmt.Sprintf("%v: %v,", k, this.MapStrSint64[k])
@@ -3300,7 +3264,7 @@ func (this *Simple) String() string {
 	for k, _ := range this.MapStrUint32 {
 		keysForMapStrUint32 = append(keysForMapStrUint32, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForMapStrUint32)
+	sortkeys.Strings(keysForMapStrUint32)
 	mapStringForMapStrUint32 := "map[string]uint32{"
 	for _, k := range keysForMapStrUint32 {
 		mapStringForMapStrUint32 += fmt.Sprintf("%v: %v,", k, this.MapStrUint32[k])
@@ -3310,7 +3274,7 @@ func (this *Simple) String() string {
 	for k, _ := range this.MapStrFixed64 {
 		keysForMapStrFixed64 = append(keysForMapStrFixed64, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForMapStrFixed64)
+	sortkeys.Strings(keysForMapStrFixed64)
 	mapStringForMapStrFixed64 := "map[string]uint64{"
 	for _, k := range keysForMapStrFixed64 {
 		mapStringForMapStrFixed64 += fmt.Sprintf("%v: %v,", k, this.MapStrFixed64[k])
@@ -3320,7 +3284,7 @@ func (this *Simple) String() string {
 	for k, _ := range this.MapStrBool {
 		keysForMapStrBool = append(keysForMapStrBool, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForMapStrBool)
+	sortkeys.Strings(keysForMapStrBool)
 	mapStringForMapStrBool := "map[string]bool{"
 	for _, k := range keysForMapStrBool {
 		mapStringForMapStrBool += fmt.Sprintf("%v: %v,", k, this.MapStrBool[k])
@@ -3567,7 +3531,7 @@ func (m *Simple) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
 			m.Dbl = float64(math.Float64frombits(v))
 		case 4:
@@ -4139,7 +4103,7 @@ func (m *Simple) Unmarshal(dAtA []byte) error {
 				if (iNdEx + 8) > l {
 					return io.ErrUnexpectedEOF
 				}
-				v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+				v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 				iNdEx += 8
 				v2 := float64(math.Float64frombits(v))
 				m.RDbl = append(m.RDbl, v2)
@@ -4171,7 +4135,7 @@ func (m *Simple) Unmarshal(dAtA []byte) error {
 					if (iNdEx + 8) > l {
 						return io.ErrUnexpectedEOF
 					}
-					v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+					v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 					iNdEx += 8
 					v2 := float64(math.Float64frombits(v))
 					m.RDbl = append(m.RDbl, v2)
@@ -4185,7 +4149,7 @@ func (m *Simple) Unmarshal(dAtA []byte) error {
 				if (iNdEx + 8) > l {
 					return io.ErrUnexpectedEOF
 				}
-				v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+				v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 				iNdEx += 8
 				v2 := float64(math.Float64frombits(v))
 				m.RDblUnpacked = append(m.RDblUnpacked, v2)
@@ -4217,7 +4181,7 @@ func (m *Simple) Unmarshal(dAtA []byte) error {
 					if (iNdEx + 8) > l {
 						return io.ErrUnexpectedEOF
 					}
-					v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+					v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 					iNdEx += 8
 					v2 := float64(math.Float64frombits(v))
 					m.RDblUnpacked = append(m.RDblUnpacked, v2)
@@ -4326,7 +4290,7 @@ func (m *Simple) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 4) > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint32(encoding_binary.LittleEndian.Uint32(dAtA[iNdEx:]))
+			v = uint32(binary.LittleEndian.Uint32(dAtA[iNdEx:]))
 			iNdEx += 4
 			m.Flt = float32(math.Float32frombits(v))
 		case 30:
@@ -4335,7 +4299,7 @@ func (m *Simple) Unmarshal(dAtA []byte) error {
 				if (iNdEx + 4) > l {
 					return io.ErrUnexpectedEOF
 				}
-				v = uint32(encoding_binary.LittleEndian.Uint32(dAtA[iNdEx:]))
+				v = uint32(binary.LittleEndian.Uint32(dAtA[iNdEx:]))
 				iNdEx += 4
 				v2 := float32(math.Float32frombits(v))
 				m.RFlt = append(m.RFlt, v2)
@@ -4367,7 +4331,7 @@ func (m *Simple) Unmarshal(dAtA []byte) error {
 					if (iNdEx + 4) > l {
 						return io.ErrUnexpectedEOF
 					}
-					v = uint32(encoding_binary.LittleEndian.Uint32(dAtA[iNdEx:]))
+					v = uint32(binary.LittleEndian.Uint32(dAtA[iNdEx:]))
 					iNdEx += 4
 					v2 := float32(math.Float32frombits(v))
 					m.RFlt = append(m.RFlt, v2)
@@ -4381,7 +4345,7 @@ func (m *Simple) Unmarshal(dAtA []byte) error {
 				if (iNdEx + 4) > l {
 					return io.ErrUnexpectedEOF
 				}
-				v = uint32(encoding_binary.LittleEndian.Uint32(dAtA[iNdEx:]))
+				v = uint32(binary.LittleEndian.Uint32(dAtA[iNdEx:]))
 				iNdEx += 4
 				v2 := float32(math.Float32frombits(v))
 				m.RFltUnpacked = append(m.RFltUnpacked, v2)
@@ -4413,7 +4377,7 @@ func (m *Simple) Unmarshal(dAtA []byte) error {
 					if (iNdEx + 4) > l {
 						return io.ErrUnexpectedEOF
 					}
-					v = uint32(encoding_binary.LittleEndian.Uint32(dAtA[iNdEx:]))
+					v = uint32(binary.LittleEndian.Uint32(dAtA[iNdEx:]))
 					iNdEx += 4
 					v2 := float32(math.Float32frombits(v))
 					m.RFltUnpacked = append(m.RFltUnpacked, v2)
@@ -5001,7 +4965,7 @@ func (m *Simple) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.F64 = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			m.F64 = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
 		case 45:
 			if wireType == 1 {
@@ -5009,7 +4973,7 @@ func (m *Simple) Unmarshal(dAtA []byte) error {
 				if (iNdEx + 8) > l {
 					return io.ErrUnexpectedEOF
 				}
-				v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+				v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 				iNdEx += 8
 				m.RF64 = append(m.RF64, v)
 			} else if wireType == 2 {
@@ -5040,7 +5004,7 @@ func (m *Simple) Unmarshal(dAtA []byte) error {
 					if (iNdEx + 8) > l {
 						return io.ErrUnexpectedEOF
 					}
-					v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+					v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 					iNdEx += 8
 					m.RF64 = append(m.RF64, v)
 				}
@@ -5053,7 +5017,7 @@ func (m *Simple) Unmarshal(dAtA []byte) error {
 				if (iNdEx + 8) > l {
 					return io.ErrUnexpectedEOF
 				}
-				v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+				v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 				iNdEx += 8
 				m.RF64Unpacked = append(m.RF64Unpacked, v)
 			} else if wireType == 2 {
@@ -5084,7 +5048,7 @@ func (m *Simple) Unmarshal(dAtA []byte) error {
 					if (iNdEx + 8) > l {
 						return io.ErrUnexpectedEOF
 					}
-					v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+					v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 					iNdEx += 8
 					m.RF64Unpacked = append(m.RF64Unpacked, v)
 				}
@@ -5099,7 +5063,7 @@ func (m *Simple) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Sf64 = int64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			m.Sf64 = int64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
 		case 48:
 			if wireType == 1 {
@@ -5107,7 +5071,7 @@ func (m *Simple) Unmarshal(dAtA []byte) error {
 				if (iNdEx + 8) > l {
 					return io.ErrUnexpectedEOF
 				}
-				v = int64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+				v = int64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 				iNdEx += 8
 				m.RSf64 = append(m.RSf64, v)
 			} else if wireType == 2 {
@@ -5138,7 +5102,7 @@ func (m *Simple) Unmarshal(dAtA []byte) error {
 					if (iNdEx + 8) > l {
 						return io.ErrUnexpectedEOF
 					}
-					v = int64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+					v = int64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 					iNdEx += 8
 					m.RSf64 = append(m.RSf64, v)
 				}
@@ -5151,7 +5115,7 @@ func (m *Simple) Unmarshal(dAtA []byte) error {
 				if (iNdEx + 8) > l {
 					return io.ErrUnexpectedEOF
 				}
-				v = int64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+				v = int64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 				iNdEx += 8
 				m.RSf64Unpacked = append(m.RSf64Unpacked, v)
 			} else if wireType == 2 {
@@ -5182,7 +5146,7 @@ func (m *Simple) Unmarshal(dAtA []byte) error {
 					if (iNdEx + 8) > l {
 						return io.ErrUnexpectedEOF
 					}
-					v = int64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+					v = int64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 					iNdEx += 8
 					m.RSf64Unpacked = append(m.RSf64Unpacked, v)
 				}
@@ -5197,7 +5161,7 @@ func (m *Simple) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 4) > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.F32 = uint32(encoding_binary.LittleEndian.Uint32(dAtA[iNdEx:]))
+			m.F32 = uint32(binary.LittleEndian.Uint32(dAtA[iNdEx:]))
 			iNdEx += 4
 		case 51:
 			if wireType == 5 {
@@ -5205,7 +5169,7 @@ func (m *Simple) Unmarshal(dAtA []byte) error {
 				if (iNdEx + 4) > l {
 					return io.ErrUnexpectedEOF
 				}
-				v = uint32(encoding_binary.LittleEndian.Uint32(dAtA[iNdEx:]))
+				v = uint32(binary.LittleEndian.Uint32(dAtA[iNdEx:]))
 				iNdEx += 4
 				m.RF32 = append(m.RF32, v)
 			} else if wireType == 2 {
@@ -5236,7 +5200,7 @@ func (m *Simple) Unmarshal(dAtA []byte) error {
 					if (iNdEx + 4) > l {
 						return io.ErrUnexpectedEOF
 					}
-					v = uint32(encoding_binary.LittleEndian.Uint32(dAtA[iNdEx:]))
+					v = uint32(binary.LittleEndian.Uint32(dAtA[iNdEx:]))
 					iNdEx += 4
 					m.RF32 = append(m.RF32, v)
 				}
@@ -5249,7 +5213,7 @@ func (m *Simple) Unmarshal(dAtA []byte) error {
 				if (iNdEx + 4) > l {
 					return io.ErrUnexpectedEOF
 				}
-				v = uint32(encoding_binary.LittleEndian.Uint32(dAtA[iNdEx:]))
+				v = uint32(binary.LittleEndian.Uint32(dAtA[iNdEx:]))
 				iNdEx += 4
 				m.RF32Unpacked = append(m.RF32Unpacked, v)
 			} else if wireType == 2 {
@@ -5280,7 +5244,7 @@ func (m *Simple) Unmarshal(dAtA []byte) error {
 					if (iNdEx + 4) > l {
 						return io.ErrUnexpectedEOF
 					}
-					v = uint32(encoding_binary.LittleEndian.Uint32(dAtA[iNdEx:]))
+					v = uint32(binary.LittleEndian.Uint32(dAtA[iNdEx:]))
 					iNdEx += 4
 					m.RF32Unpacked = append(m.RF32Unpacked, v)
 				}
@@ -5295,7 +5259,7 @@ func (m *Simple) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 4) > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Sf32 = int32(encoding_binary.LittleEndian.Uint32(dAtA[iNdEx:]))
+			m.Sf32 = int32(binary.LittleEndian.Uint32(dAtA[iNdEx:]))
 			iNdEx += 4
 		case 54:
 			if wireType == 5 {
@@ -5303,7 +5267,7 @@ func (m *Simple) Unmarshal(dAtA []byte) error {
 				if (iNdEx + 4) > l {
 					return io.ErrUnexpectedEOF
 				}
-				v = int32(encoding_binary.LittleEndian.Uint32(dAtA[iNdEx:]))
+				v = int32(binary.LittleEndian.Uint32(dAtA[iNdEx:]))
 				iNdEx += 4
 				m.RSf32 = append(m.RSf32, v)
 			} else if wireType == 2 {
@@ -5334,7 +5298,7 @@ func (m *Simple) Unmarshal(dAtA []byte) error {
 					if (iNdEx + 4) > l {
 						return io.ErrUnexpectedEOF
 					}
-					v = int32(encoding_binary.LittleEndian.Uint32(dAtA[iNdEx:]))
+					v = int32(binary.LittleEndian.Uint32(dAtA[iNdEx:]))
 					iNdEx += 4
 					m.RSf32 = append(m.RSf32, v)
 				}
@@ -5347,7 +5311,7 @@ func (m *Simple) Unmarshal(dAtA []byte) error {
 				if (iNdEx + 4) > l {
 					return io.ErrUnexpectedEOF
 				}
-				v = int32(encoding_binary.LittleEndian.Uint32(dAtA[iNdEx:]))
+				v = int32(binary.LittleEndian.Uint32(dAtA[iNdEx:]))
 				iNdEx += 4
 				m.RSf32Unpacked = append(m.RSf32Unpacked, v)
 			} else if wireType == 2 {
@@ -5378,7 +5342,7 @@ func (m *Simple) Unmarshal(dAtA []byte) error {
 					if (iNdEx + 4) > l {
 						return io.ErrUnexpectedEOF
 					}
-					v = int32(encoding_binary.LittleEndian.Uint32(dAtA[iNdEx:]))
+					v = int32(binary.LittleEndian.Uint32(dAtA[iNdEx:]))
 					iNdEx += 4
 					m.RSf32Unpacked = append(m.RSf32Unpacked, v)
 				}
@@ -5905,7 +5869,7 @@ func (m *Simple) Unmarshal(dAtA []byte) error {
 					if (iNdEx + 8) > l {
 						return io.ErrUnexpectedEOF
 					}
-					mapvaluetemp = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+					mapvaluetemp = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 					iNdEx += 8
 					mapvalue = math.Float64frombits(mapvaluetemp)
 				} else {
@@ -5978,7 +5942,7 @@ func (m *Simple) Unmarshal(dAtA []byte) error {
 					if (iNdEx + 4) > l {
 						return io.ErrUnexpectedEOF
 					}
-					mapkey = uint32(encoding_binary.LittleEndian.Uint32(dAtA[iNdEx:]))
+					mapkey = uint32(binary.LittleEndian.Uint32(dAtA[iNdEx:]))
 					iNdEx += 4
 				} else if fieldNum == 2 {
 					for shift := uint(0); ; shift += 7 {
@@ -6092,7 +6056,7 @@ func (m *Simple) Unmarshal(dAtA []byte) error {
 					if (iNdEx + 4) > l {
 						return io.ErrUnexpectedEOF
 					}
-					mapvaluetemp = uint32(encoding_binary.LittleEndian.Uint32(dAtA[iNdEx:]))
+					mapvaluetemp = uint32(binary.LittleEndian.Uint32(dAtA[iNdEx:]))
 					iNdEx += 4
 					mapvalue = math.Float32frombits(mapvaluetemp)
 				} else {
@@ -6298,7 +6262,7 @@ func (m *Simple) Unmarshal(dAtA []byte) error {
 					if (iNdEx + 4) > l {
 						return io.ErrUnexpectedEOF
 					}
-					mapvalue = int32(encoding_binary.LittleEndian.Uint32(dAtA[iNdEx:]))
+					mapvalue = int32(binary.LittleEndian.Uint32(dAtA[iNdEx:]))
 					iNdEx += 4
 				} else {
 					iNdEx = entryPreIndex
@@ -6396,7 +6360,7 @@ func (m *Simple) Unmarshal(dAtA []byte) error {
 					if (iNdEx + 8) > l {
 						return io.ErrUnexpectedEOF
 					}
-					mapvalue = int64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+					mapvalue = int64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 					iNdEx += 8
 				} else {
 					iNdEx = entryPreIndex
@@ -6821,7 +6785,7 @@ func (m *Simple) Unmarshal(dAtA []byte) error {
 					if (iNdEx + 8) > l {
 						return io.ErrUnexpectedEOF
 					}
-					mapvalue = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+					mapvalue = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 					iNdEx += 8
 				} else {
 					iNdEx = entryPreIndex
@@ -7098,7 +7062,7 @@ func (m *Other) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
 			m.Dbl = float64(math.Float64frombits(v))
 		case 3:
@@ -7279,7 +7243,7 @@ func (m *OtherInnerMsg) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
 			m.Dbl = float64(math.Float64frombits(v))
 		case 3:
@@ -7471,7 +7435,7 @@ func (m *Outer_Inner) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
 			m.Dbl = float64(math.Float64frombits(v))
 		case 3:

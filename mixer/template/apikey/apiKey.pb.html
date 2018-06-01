@@ -1,17 +1,15 @@
 ---
 title: API Key
-overview: A template that represents a single API key.
-location: https://istio.io/docs/reference/config/template/apikey.html
+description: A template that represents a single API key.
+location: https://istio.io/docs/reference/config/policy-and-telemetry/templates/apikey.html
 layout: protoc-gen-docs
+generator: protoc-gen-docs
+redirect_from: /docs/reference/config/template/apikey.html
 number_of_entries: 2
 ---
 <p>The <code>apikey</code> template represents a single API key, which is used for authorization checks.</p>
 
-<h2 id="Template">Template</h2>
-<section>
-<p>The <code>apikey</code> template represents a single API key, used to authorize API calls.</p>
-
-<p>Sample config:</p>
+<p>Example config:</p>
 
 <pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha2&quot;
 kind: apikey
@@ -25,6 +23,10 @@ spec:
   api_key: api.key | &quot;&quot;
   timestamp: request.time
 </code></pre>
+
+<h2 id="Template">Template</h2>
+<section>
+<p>The <code>apikey</code> template represents a single API key, used to authorize API calls.</p>
 
 <table class="message-fields">
 <thead>
@@ -69,7 +71,7 @@ spec:
 </tr>
 <tr id="Template.timestamp">
 <td><code>timestamp</code></td>
-<td><code><a href="#istio.mixer.adapter.model.v1beta1.TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</a></code></td>
+<td><code><a href="#istio.policy.v1beta1.TimeStamp">istio.policy.v1beta1.TimeStamp</a></code></td>
 <td>
 <p>Timestamp of API call.</p>
 
@@ -78,9 +80,13 @@ spec:
 </tbody>
 </table>
 </section>
-<h2 id="istio.mixer.adapter.model.v1beta1.TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</h2>
+<h2 id="istio.policy.v1beta1.TimeStamp">istio.policy.v1beta1.TimeStamp</h2>
 <section>
-<p>TimeStamp is used inside templates for fields that are of ValueType &ldquo;TIMESTAMP&rdquo;</p>
+<p>An instance field of type TimeStamp denotes that the expression for the field must evalaute to
+<em>ValueType.TIMESTAMP</em></p>
+
+<p>Objects of type TimeStamp are also passed to the adapters during request-time for the instance fields of
+type TimeStamp</p>
 
 <table class="message-fields">
 <thead>
@@ -91,7 +97,7 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="istio.mixer.adapter.model.v1beta1.TimeStamp.value">
+<tr id="istio.policy.v1beta1.TimeStamp.value">
 <td><code>value</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#timestamp">google.protobuf.Timestamp</a></code></td>
 <td>

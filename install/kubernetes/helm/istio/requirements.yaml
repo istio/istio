@@ -46,3 +46,6 @@ dependencies:
     version: 0.8.0
     # repository: file://../galley
     condition: galley.enabled
+  - name: kiali
+    version: 0.3.0.Alpha
+    condition: kiali.enabled
