@@ -10,7 +10,7 @@ import envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/c
 import _ "github.com/lyft/protoc-gen-validate/validate"
 import _ "github.com/gogo/protobuf/gogoproto"
 
-import encoding_binary "encoding/binary"
+import binary "encoding/binary"
 
 import io "io"
 
@@ -292,7 +292,7 @@ func (m *EndpointLoadMetricStats) MarshalTo(dAtA []byte) (int, error) {
 	if m.TotalMetricValue != 0 {
 		dAtA[i] = 0x19
 		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.TotalMetricValue))))
+		binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.TotalMetricValue))))
 		i += 8
 	}
 	return i, nil
@@ -699,7 +699,7 @@ func (m *EndpointLoadMetricStats) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
 			m.TotalMetricValue = float64(math.Float64frombits(v))
 		default:

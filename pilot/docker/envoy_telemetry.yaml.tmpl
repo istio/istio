@@ -14,9 +14,8 @@ static_resources:
         max_retries: 3
     connect_timeout: 1.000s
     hosts:
-    - socket_address:
-        address: 127.0.0.1
-        port_value: 9092
+    - pipe:
+        path: /sock/mixer.socket
     http2_protocol_options: {}
     name: in.9092
   - connect_timeout: 1.000s
