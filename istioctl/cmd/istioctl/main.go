@@ -22,6 +22,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"sort"
 	"strings"
 	"text/tabwriter"
 
@@ -79,6 +80,18 @@ var (
 	clientFactory = newClient
 
 	loggingOptions = log.DefaultOptions()
+
+	// This defines the output order for "get all".  We show the V3 types first.
+	sortWeight = map[string]int {
+		model.Gateway.Type: -10,
+		model.VirtualService.Type: -5,
+		model.DestinationRule.Type: -3,
+		model.ServiceEntry.Type: -1,
+		model.IngressRule.Type: 1,
+		model.RouteRule.Type: 5,
+		model.DestinationPolicy.Type: 10,
+		model.EgressRule.Type: 20,
+	} 
 
 	// all resources will be migrated out of config.istio.io to their own api group mapping to package path.
 	// TODO(xiaolanz) legacy group exists until we find out a client for mixer/broker.
@@ -298,8 +311,8 @@ istioctl get virtualservice bookinfo
 					strings.Join(supportedTypes(configClient), ", "))
 			}
 
-			typ, err := protoSchema(configClient, strings.ToLower(args[0]))
-			if err != nil {
+			typs, err := protoSchema(configClient, args[0], len(args) == 1)
+			if err != nil || len(typs) == 0 {
 				c.Println(c.UsageString())
 				return err
 			}
@@ -318,14 +331,17 @@ istioctl get virtualservice bookinfo
 
 			var configs []model.Config
 			if getByName {
-				config, exists := configClient.Get(typ.Type, args[1], ns)
+				config, exists := configClient.Get(typs[0].Type, args[1], ns)
 				if exists {
 					configs = append(configs, *config)
 				}
 			} else {
-				configs, err = configClient.List(typ.Type, ns)
-				if err != nil {
-					return err
+				for _, typ := range typs {
+					typeConfigs, err := configClient.List(typ.Type, ns)
+					if err != nil {
+						return err
+					}
+					configs = append(configs, typeConfigs...)
 				}
 			}
 
@@ -369,7 +385,7 @@ istioctl delete virtualservice bookinfo
 					c.Println(c.UsageString())
 					return fmt.Errorf("provide configuration type and name or -f option")
 				}
-				typ, err := protoSchema(configClient, strings.ToLower(args[0]))
+				typs, err := protoSchema(configClient, strings.ToLower(args[0]), false)
 				if err != nil {
 					return err
 				}
@@ -378,7 +394,7 @@ istioctl delete virtualservice bookinfo
 					return err
 				}
 				for i := 1; i < len(args); i++ {
-					if err := configClient.Delete(typ.Type, args[i], ns); err != nil {
+					if err := configClient.Delete(typs[0].Type, args[i], ns); err != nil {
 						errs = multierror.Append(errs,
 							fmt.Errorf("cannot delete %s: %v", args[i], err))
 					} else {
@@ -598,18 +614,26 @@ func main() {
 	}
 }
 
-// The protoSchema is based on the kind (for example "routerule" or "destinationpolicy")
-func protoSchema(configClient model.ConfigStore, typ string) (model.ProtoSchema, error) {
+// The protoSchema is based on the kind (for example "routerule" or "destinationpolicy") or "all"
+func protoSchema(configClient model.ConfigStore, typ string, allowAll bool) ([]model.ProtoSchema, error) {
+	if typ == "all" {
+		if !allowAll {
+			return []model.ProtoSchema{}, fmt.Errorf("error: 'all' not allowed")
+
+		}
+		return configClient.ConfigDescriptor(), nil
+	}
+
 	for _, desc := range configClient.ConfigDescriptor() {
 		switch typ {
 		case crd.ResourceName(desc.Type), crd.ResourceName(desc.Plural):
-			return desc, nil
+			return []model.ProtoSchema{ desc }, nil
 		case desc.Type, desc.Plural: // legacy hyphenated resources names
-			return model.ProtoSchema{}, fmt.Errorf("%q not recognized. Please use non-hyphenated resource name %q",
+			return []model.ProtoSchema{}, fmt.Errorf("%q not recognized. Please use non-hyphenated resource name %q",
 				typ, crd.ResourceName(typ))
 		}
 	}
-	return model.ProtoSchema{}, fmt.Errorf("configuration type %s not found, the types are %v",
+	return []model.ProtoSchema{}, fmt.Errorf("configuration type %s not found, the types are %v",
 		typ, strings.Join(supportedTypes(configClient), ", "))
 }
 
@@ -643,6 +667,9 @@ func readInputs() ([]model.Config, []crd.IstioKind, error) {
 
 // Print a simple list of names
 func printShortOutput(writer io.Writer, _ model.ConfigStore, configList []model.Config) {
+	// Sort configList by Type
+	sort.Slice(configList, func(i, j int) bool {return sortWeight[configList[i].Type] < sortWeight[configList[j].Type]})
+
 	var w tabwriter.Writer
 	w.Init(writer, 10, 4, 3, ' ', 0)
 	fmt.Fprintf(&w, "NAME\tKIND\tNAMESPACE\n")
