@@ -3,8 +3,6 @@ kind: Service
 metadata:
   name: grafana
   namespace: {{ .Release.Namespace }}
-  annotations:
-    auth.istio.io/{{ .Values.service.externalPort }}: NONE
   labels:
     app: {{ template "grafana.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
@@ -19,3 +17,15 @@ spec:
       name: {{ .Values.service.name }}
   selector:
     app: grafana
+---
+apiVersion: authentication.istio.io/v1alpha1
+kind: Policy
+metadata:
+  name: grafana-ports-mtls-disabled
+  namespace: {{ .Release.Namespace }}
+spec:
+  targets:
+  - name: grafana
+    ports:
+    - number: {{ .Values.service.externalPort }}
+---

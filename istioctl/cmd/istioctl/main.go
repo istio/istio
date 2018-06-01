@@ -75,6 +75,9 @@ var (
 	outputFormat     string
 	getAllNamespaces bool
 
+	// Create a model.ConfigStore (or mockCrdClient)
+	clientFactory = newClient
+
 	loggingOptions = log.DefaultOptions()
 
 	// all resources will be migrated out of config.istio.io to their own api group mapping to package path.
@@ -130,15 +133,15 @@ See https://istio.io/docs/reference/ for an overview of Istio routing.
 					return err
 				}
 
-				var configClient *crd.Client
-				if configClient, err = newClient(); err != nil {
+				var configClient model.ConfigStore
+				if configClient, err = clientFactory(); err != nil {
 					return err
 				}
 				var rev string
 				if rev, err = configClient.Create(config); err != nil {
 					return err
 				}
-				fmt.Printf("Created config %v at revision %v\n", config.Key(), rev)
+				c.Printf("Created config %v at revision %v\n", config.Key(), rev)
 			}
 
 			if len(others) > 0 {
@@ -200,8 +203,8 @@ See https://istio.io/docs/reference/ for an overview of Istio routing.
 					return err
 				}
 
-				var configClient *crd.Client
-				if configClient, err = newClient(); err != nil {
+				var configClient model.ConfigStore
+				if configClient, err = clientFactory(); err != nil {
 					return err
 				}
 				// fill up revision
@@ -285,7 +288,7 @@ istioctl get destinationrules
 istioctl get virtualservice bookinfo
 `,
 		RunE: func(c *cobra.Command, args []string) error {
-			configClient, err := newClient()
+			configClient, err := clientFactory()
 			if err != nil {
 				return err
 			}
@@ -327,17 +330,17 @@ istioctl get virtualservice bookinfo
 			}
 
 			if len(configs) == 0 {
-				fmt.Println("No resources found.")
+				c.Println("No resources found.")
 				return nil
 			}
 
-			var outputters = map[string](func(*crd.Client, []model.Config)){
+			var outputters = map[string](func(io.Writer, model.ConfigStore, []model.Config)){
 				"yaml":  printYamlOutput,
 				"short": printShortOutput,
 			}
 
 			if outputFunc, ok := outputters[outputFormat]; ok {
-				outputFunc(configClient, configs)
+				outputFunc(c.OutOrStdout(), configClient, configs)
 			} else {
 				return fmt.Errorf("unknown output format %v. Types are yaml|short", outputFormat)
 			}
@@ -356,7 +359,7 @@ istioctl delete -f example-routing.yaml
 istioctl delete virtualservice bookinfo
 `,
 		RunE: func(c *cobra.Command, args []string) error {
-			configClient, errs := newClient()
+			configClient, errs := clientFactory()
 			if errs != nil {
 				return errs
 			}
@@ -379,7 +382,7 @@ istioctl delete virtualservice bookinfo
 						errs = multierror.Append(errs,
 							fmt.Errorf("cannot delete %s: %v", args[i], err))
 					} else {
-						fmt.Printf("Deleted config: %v %v\n", args[0], args[i])
+						c.Printf("Deleted config: %v %v\n", args[0], args[i])
 					}
 				}
 				return errs
@@ -406,7 +409,7 @@ istioctl delete virtualservice bookinfo
 				if err = configClient.Delete(config.Type, config.Name, config.Namespace); err != nil {
 					errs = multierror.Append(errs, fmt.Errorf("cannot delete %s: %v", config.Key(), err))
 				} else {
-					fmt.Printf("Deleted config: %v\n", config.Key())
+					c.Printf("Deleted config: %v\n", config.Key())
 				}
 			}
 			if errs != nil {
@@ -596,7 +599,7 @@ func main() {
 }
 
 // The protoSchema is based on the kind (for example "routerule" or "destinationpolicy")
-func protoSchema(configClient *crd.Client, typ string) (model.ProtoSchema, error) {
+func protoSchema(configClient model.ConfigStore, typ string) (model.ProtoSchema, error) {
 	for _, desc := range configClient.ConfigDescriptor() {
 		switch typ {
 		case crd.ResourceName(desc.Type), crd.ResourceName(desc.Plural):
@@ -639,9 +642,9 @@ func readInputs() ([]model.Config, []crd.IstioKind, error) {
 }
 
 // Print a simple list of names
-func printShortOutput(_ *crd.Client, configList []model.Config) {
+func printShortOutput(writer io.Writer, _ model.ConfigStore, configList []model.Config) {
 	var w tabwriter.Writer
-	w.Init(os.Stdout, 10, 4, 3, ' ', 0)
+	w.Init(writer, 10, 4, 3, ' ', 0)
 	fmt.Fprintf(&w, "NAME\tKIND\tNAMESPACE\n")
 	for _, c := range configList {
 		kind := fmt.Sprintf("%s.%s.%s",
@@ -655,7 +658,7 @@ func printShortOutput(_ *crd.Client, configList []model.Config) {
 }
 
 // Print as YAML
-func printYamlOutput(configClient *crd.Client, configList []model.Config) {
+func printYamlOutput(writer io.Writer, configClient model.ConfigStore, configList []model.Config) {
 	descriptor := configClient.ConfigDescriptor()
 	for _, config := range configList {
 		schema, exists := descriptor.GetByType(config.Type)
@@ -673,12 +676,12 @@ func printYamlOutput(configClient *crd.Client, configList []model.Config) {
 			log.Errorf("Could not convert %v to YAML: %v", config, err)
 			continue
 		}
-		fmt.Print(string(bytes))
-		fmt.Println("---")
+		fmt.Fprint(writer, string(bytes))
+		fmt.Fprintln(writer, "---")
 	}
 }
 
-func newClient() (*crd.Client, error) {
+func newClient() (model.ConfigStore, error) {
 	// TODO: use model.IstioConfigTypes once model.IngressRule is deprecated
 	return crd.NewClient(kubeconfig, model.ConfigDescriptor{
 		model.RouteRule,
@@ -698,7 +701,7 @@ func newClient() (*crd.Client, error) {
 	}, "")
 }
 
-func supportedTypes(configClient *crd.Client) []string {
+func supportedTypes(configClient model.ConfigStore) []string {
 	types := configClient.ConfigDescriptor().Types()
 	for i := range types {
 		types[i] = crd.ResourceName(types[i])

@@ -4,8 +4,6 @@ kind: Service
 metadata:
   name: grafana
   namespace: {ISTIO_NAMESPACE}
-  annotations:
-    auth.istio.io/3000: NONE
 spec:
   ports:
   - port: 3000
@@ -13,6 +11,17 @@ spec:
     name: http
   selector:
     app: grafana
+---
+apiVersion: authentication.istio.io/v1alpha1
+kind: Policy
+metadata:
+  name: grafana-ports-mtls-disabled
+  namespace: {ISTIO_NAMESPACE}
+spec:
+  targets:
+  - name: grafana
+    ports:
+    - number: 3000
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
