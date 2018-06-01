@@ -39,48 +39,49 @@ type ActionArgs struct {
 	Properties []string
 }
 
-type customLogger struct{}
+// istioctlLogger is used redirect the mixer adapter log to standard log in istioctl.
+type istioctlLogger struct{}
 
 // Infof from adapter.Logger.
-func (l customLogger) Infof(format string, args ...interface{}) {
+func (l istioctlLogger) Infof(format string, args ...interface{}) {
 	// Redirect info to debug for istioctl.
 	log.Debugf(format, args...)
 }
 
 // Warningf from adapter.Logger.
-func (l customLogger) Warningf(format string, args ...interface{}) {
+func (l istioctlLogger) Warningf(format string, args ...interface{}) {
 	log.Warnf(format, args...)
 }
 
 // Errorf from adapter.Logger.
-func (l customLogger) Errorf(format string, args ...interface{}) error {
+func (l istioctlLogger) Errorf(format string, args ...interface{}) error {
 	s := fmt.Sprintf(format, args...)
 	log.Errorf(s)
 	return errors.New(s)
 }
 
 // Debugf from adapter.Logger.
-func (l customLogger) Debugf(format string, args ...interface{}) {
+func (l istioctlLogger) Debugf(format string, args ...interface{}) {
 	log.Debugf(format, args...)
 }
 
 // InfoEnabled from adapter.Logger.
-func (l customLogger) InfoEnabled() bool {
+func (l istioctlLogger) InfoEnabled() bool {
 	return false
 }
 
 // WarnEnabled from adapter.Logger.
-func (l customLogger) WarnEnabled() bool {
+func (l istioctlLogger) WarnEnabled() bool {
 	return false
 }
 
 // ErrorEnabled from adapter.Logger.
-func (l customLogger) ErrorEnabled() bool {
+func (l istioctlLogger) ErrorEnabled() bool {
 	return false
 }
 
 // DebugEnabled from adapter.Logger.
-func (l customLogger) DebugEnabled() bool {
+func (l istioctlLogger) DebugEnabled() bool {
 	return false
 }
 
@@ -90,7 +91,7 @@ func (rs *ConfigStore) Check(subject SubjectArgs, action ActionArgs) (bool, erro
 	if err != nil {
 		return false, err
 	}
-	return rs.CheckPermission(instance, customLogger{})
+	return rs.CheckPermission(instance, istioctlLogger{})
 }
 
 func createInstance(subject SubjectArgs, action ActionArgs) (*authorization.Instance, error) {
