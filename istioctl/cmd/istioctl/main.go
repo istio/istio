@@ -313,7 +313,7 @@ istioctl get virtualservice bookinfo
 			if getAllNamespaces {
 				ns = v1.NamespaceAll
 			} else {
-				ns, _ = handleNamespaces(v1.NamespaceAll)
+				ns, _ = handleNamespaces(namespace)
 			}
 
 			var configs []model.Config
