@@ -73,7 +73,41 @@ dump_time() {
   date -u > "${OUT_DIR}/DUMP_TIME"
 }
 
-dump_logs() {
+dump_logs_for_container() {
+  local namespace="${1}"
+  local pod="${2}"
+  local container="${3}"
+
+  log "Retrieving logs for ${namespace}/${pod}/${container}"
+
+  mkdir -p "${LOG_DIR}/${namespace}/${pod}"
+  local log_file_head="${LOG_DIR}/${namespace}/${pod}/${container}"
+
+  local log_file="${log_file_head}.log"
+  kubectl logs --namespace="${namespace}" "${pod}" "${container}" \
+      > "${log_file}"
+
+  local filter="?(@.name == \"${container}\")"
+  local json_path='{.status.containerStatuses['${filter}'].restartCount}'
+  local restart_count
+  restart_count=$(kubectl get --namespace="${namespace}" \
+      pod "${pod}" -o=jsonpath="${json_path}")
+  if [ "${restart_count}" -gt 0 ]; then
+    log "Retrieving previous logs for ${namespace}/${pod}/${container}"
+
+    local log_previous_file
+    log_previous_file="${log_file_head}_previous.log"
+    kubectl logs --namespace="${namespace}" \
+        --previous "${pod}" "${container}" \
+        > "${log_previous_file}"
+  fi
+}
+
+# Run functions on each container. Each argument should be a function which
+# takes 3 args: ${namespace} ${pod} ${container}.
+tap_containers() {
+  local functions=( "$@" )
+
   local namespaces
   namespaces=$(kubectl get \
       namespaces -o=jsonpath="{.items[*].metadata.name}")
@@ -86,29 +120,11 @@ dump_logs() {
       containers=$(kubectl get --namespace="${namespace}" \
           pod "${pod}" -o=jsonpath='{.spec.containers[*].name}')
       for container in ${containers}; do
-        log "Retrieving logs for ${namespace}/${pod}/${container}"
 
-        mkdir -p "${LOG_DIR}/${namespace}/${pod}"
-        local log_file_head="${LOG_DIR}/${namespace}/${pod}/${container}"
+        for f in "${functions[@]}"; do
+          "${f}" "${namespace}" "${pod}" "${container}"
+        done
 
-        local log_file="${log_file_head}.log"
-        kubectl logs --namespace="${namespace}" "${pod}" "${container}" \
-            > "${log_file}"
-
-        local filter="?(@.name == \"${container}\")"
-        local json_path='{.status.containerStatuses['${filter}'].restartCount}'
-        local restart_count
-        restart_count=$(kubectl get --namespace="${namespace}" \
-            pod "${pod}" -o=jsonpath="${json_path}")
-        if [ "${restart_count}" -gt 0 ]; then
-          log "Retrieving previous logs for ${namespace}/${pod}/${container}"
-
-          local log_previous_file
-          log_previous_file="${log_file_head}_previous.log"
-          kubectl logs --namespace="${namespace}" \
-              --previous "${pod}" "${container}" \
-              > "${log_previous_file}"
-        fi
       done
     done
   done
@@ -198,8 +214,8 @@ main() {
   check_prerequisites kubectl
   dump_time
   dump_pilot
-  dump_logs
   dump_resources
+  tap_containers dump_logs_for_container
 
   if [ "${SHOULD_ARCHIVE}" = true ] ; then
     archive
