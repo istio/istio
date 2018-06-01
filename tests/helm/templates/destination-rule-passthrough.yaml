@@ -1,9 +1,0 @@
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: drpassthrough
-spec:
-  name: "*.foo.com"
-  trafficPolicy:
-    loadBalancer:
-      simple: PASSTHROUGH
