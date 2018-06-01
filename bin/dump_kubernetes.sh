@@ -134,7 +134,7 @@ dump_resources() {
   mkdir -p "${LOG_DIR}"
   kubectl cluster-info dump > "${LOG_DIR}/cluster-info.dump.txt"
   kubectl describe pods -n istio-system > "${LOG_DIR}/istio-system-pods.txt"
-  kubectl get event --all-namespaces -o wide > "${LOG_DIR}/events.txt"
+  kubectl get events --all-namespaces -o wide > "${LOG_DIR}/events.txt"
 }
 
 dump_pilot_url(){
@@ -156,7 +156,7 @@ dump_pilot() {
   pilot_dir="${OUT_DIR}/pilot"
   mkdir -p "${pilot_dir}"
 
-  pilot_pod=$(kubectl --namespace istio-system get pods -listio=pilot -o=jsonpath='{.items[0].metadata.name}')
+  pilot_pod=$(kubectl --namespace istio-system get pods -l istio=pilot -o jsonpath='{.items[*].metadata.name}')
 
   dump_pilot_url "${pilot_pod}" debug/configz "${pilot_dir}"
   dump_pilot_url "${pilot_pod}" debug/endpointz "${pilot_dir}"
