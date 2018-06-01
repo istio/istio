@@ -131,9 +131,10 @@ dump_resources() {
       | sed 's/,$//')
   kubectl get "${istio_resources}" --all-namespaces -o yaml > "${ISTIO_RESOURCES_FILE}"
 
-  kubectl cluster-info dump > ${OUT_DIR}/logs/cluster-info.dump.txt
-  kubectl describe pods -n istio-system > ${OUT_DIR}/logs/pods-system.txt
-  kubectl get event --all-namespaces -o wide > ${OUT_DIR}/logs/events.txt
+  mkdir -p "${LOG_DIR}"
+  kubectl cluster-info dump > "${LOG_DIR}/cluster-info.dump.txt"
+  kubectl describe pods -n istio-system > "${LOG_DIR}/pods-system.txt"
+  kubectl get event --all-namespaces -o wide > "${LOG_DIR}/events.txt"
 }
 
 dump_pilot_url(){
