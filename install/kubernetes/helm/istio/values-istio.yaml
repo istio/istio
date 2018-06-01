@@ -7,6 +7,5 @@ global:
 
   # Default is 10s second
   refreshInterval: 1s
-
-prometheus:
-  enabled: true
+  proxy:
+    image: proxy

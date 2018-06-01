@@ -738,12 +738,6 @@ func testCheckCache(t *testing.T, visit func() error) {
 }
 
 func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
-	// TODO: enable this for v2
-	if testFlags.V1alpha3 {
-		log.Info("Skipping this test for v1alpha3")
-		return
-	}
-
 	if err := replaceRouteRule(routeReviewsV3Rule); err != nil {
 		fatalf(t, "Could not create replace reviews routing rule: %v", err)
 	}
