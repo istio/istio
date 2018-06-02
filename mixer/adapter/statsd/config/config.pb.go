@@ -7,7 +7,7 @@
 	The `statsd` adapter enables Istio to deliver metric data to a
 	[StatsD](https://github.com/etsy/statsd) monitoring backend.
 
-	This adapter supports the [metric template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric.html).
+	This adapter supports the [metric template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric/).
 
 	It is generated from these files:
 		mixer/adapter/statsd/config/config.proto
