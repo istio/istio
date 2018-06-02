@@ -37,14 +37,14 @@ func TestCloudFoundrySnapshot(t *testing.T) {
 	routes := []*copilotapi.RouteWithBackends{
 		{
 			Hostname:        "some-external-route.example.com",
-			Path:            "/some/path",
 			Backends:        nil,
-			CapiProcessGuid: "some-guid-a",
+			CapiProcessGuid: "some-guid-z",
 		},
 		{
 			Hostname:        "some-external-route.example.com",
+			Path:            "/some/path",
 			Backends:        nil,
-			CapiProcessGuid: "some-guid-z",
+			CapiProcessGuid: "some-guid-a",
 		},
 		{
 			Hostname:        "other.example.com",
@@ -70,7 +70,7 @@ func TestCloudFoundrySnapshot(t *testing.T) {
 	g.Expect(virtualService.Gateways).To(gomega.ConsistOf([]string{"some-gateway", "some-other-gateway"}))
 
 	g.Expect(virtualService.Http).To(gomega.HaveLen(2))
-	g.Expect(virtualService.Http).To(gomega.ConsistOf([]*networking.HTTPRoute{
+	g.Expect(virtualService.Http).To(gomega.Equal([]*networking.HTTPRoute{
 		{
 			Match: []*networking.HTTPMatchRequest{
 				{

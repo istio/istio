@@ -22,7 +22,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -174,70 +173,6 @@ func TestServiceConversionWithEmptyServiceAccountsAnnotation(t *testing.T) {
 	if len(sa) != 0 {
 		t.Errorf("number of service accounts is incorrect: %d, expected 0", len(sa))
 	}
-}
-
-func TestServiceSecurityAnnotation(t *testing.T) {
-	serviceName := "service1"
-	namespace := "default"
-
-	ip := "10.0.0.1"
-
-	testCases := []struct {
-		port            int
-		annotationValue string
-		want            meshconfig.AuthenticationPolicy
-	}{
-		{8080, "MUTUAL_TLS", meshconfig.AuthenticationPolicy_MUTUAL_TLS},
-		{8080, "NONE", meshconfig.AuthenticationPolicy_NONE},
-		{8080, "invalid-option", meshconfig.AuthenticationPolicy_INHERIT},
-		{8080, "", meshconfig.AuthenticationPolicy_INHERIT},
-		// Annotation is not for the testing port (8080), default policy (INHERIT)
-		// should be set.
-		{9999, "MUTUAL_TLS", meshconfig.AuthenticationPolicy_INHERIT},
-		// No annotation
-		{0, "", meshconfig.AuthenticationPolicy_INHERIT},
-	}
-	for _, test := range testCases {
-		localSvc := v1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      serviceName,
-				Namespace: namespace,
-				Annotations: func() map[string]string {
-					if test.port > 0 {
-						return map[string]string{portAuthenticationAnnotationKey(test.port): test.annotationValue}
-					}
-					return nil
-				}(),
-			},
-			Spec: v1.ServiceSpec{
-				ClusterIP: ip,
-				Ports: []v1.ServicePort{
-					{
-						Name:     "http",
-						Port:     8080,
-						Protocol: v1.ProtocolTCP,
-					},
-				},
-			},
-		}
-
-		service := convertService(localSvc, domainSuffix)
-		if service == nil {
-			t.Errorf("could not convert service")
-		}
-
-		if len(service.Ports) != 1 {
-			t.Errorf("incorrect number of ports => %v, want 1\n",
-				len(service.Ports))
-		}
-
-		if service.Ports[0].AuthenticationPolicy != test.want {
-			t.Errorf("incorrect authentication policy => %v, want %v\n",
-				service.Ports[0].AuthenticationPolicy,
-				test.want)
-		}
-	}
-
 }
 
 func TestExternalServiceConversion(t *testing.T) {

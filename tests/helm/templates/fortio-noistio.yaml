@@ -1,0 +1,110 @@
+# 2 fortio servers, not istio injected (to baseline service-to-service without istio)
+# 0.8 CPU each.
+apiVersion: v1
+kind: Service
+metadata:
+  name: fortio-noistio1
+spec:
+  ports:
+  - port: 8080
+    name: http-echo
+  - port: 8079
+    name: grpc-ping
+  selector:
+    name: fortio-noistio1
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fortio-noistio2
+spec:
+  ports:
+  - port: 8080
+    name: http-echo
+  - port: 8079
+    name: grpc-ping
+  selector:
+    name: fortio-noistio2
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fortio-noistio
+spec:
+  ports:
+  - port: 8080
+    name: http-echo
+  - port: 8079
+    name: grpc-ping
+  selector:
+    app: fortio-noistio
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fortio-noistio-headless
+spec:
+  clusterIP: None
+  ports:
+  - port: 8080
+    name: http-echo
+  - port: 8079
+    name: grpc-ping
+  selector:
+    app: fortio-noistio
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: fortio-noistio1
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: fortio-noistio
+        name: fortio-noistio1
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      containers:
+      - name: echosrv
+        image: istio/fortio:latest
+        imagePullPolicy: Always
+        args:
+          - server
+        resources:
+          requests:
+            cpu: 800m
+            memory: "1G"
+          limits:
+            cpu: 1000m
+            memory: "1G"
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: fortio-noistio2
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: fortio-noistio
+        name: fortio-noistio2
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      containers:
+      - name: echosrv
+        image: istio/fortio:latest
+        imagePullPolicy: Always
+        args:
+          - server
+        resources:
+          requests:
+            cpu: 800m
+            memory: "1G"
+          limits:
+            cpu: 1000m
+            memory: "1G"
