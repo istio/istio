@@ -16,7 +16,6 @@ package spybackend
 
 import (
 	"context"
-
 	"fmt"
 	"net"
 

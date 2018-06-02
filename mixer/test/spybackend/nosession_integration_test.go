@@ -15,12 +15,11 @@
 package spybackend
 
 import (
+	"context"
+	"fmt"
 	"testing"
 
 	"google.golang.org/grpc"
-
-	"context"
-	"fmt"
 
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	adapter_integration "istio.io/istio/mixer/pkg/adapter/test"

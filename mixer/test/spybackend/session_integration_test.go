@@ -15,11 +15,10 @@
 package spybackend
 
 import (
-	"testing"
-
 	"context"
 	"fmt"
 	"io"
+	"testing"
 
 	"github.com/gogo/googleapis/google/rpc"
 	"google.golang.org/grpc"
