@@ -23,6 +23,8 @@ usage() {
   error '  -z, --archive            if present, archives and removes the output'
   error '                               directory'
   error '  -q, --quiet              if present, do not log'
+  error '  --error-if-nasty-logs    if present, exit with 255 if any logs'
+  error '                               contain errors'
   exit 1
 }
 
@@ -48,6 +50,10 @@ parse_args() {
         local quiet=true
         shift # Shift past flag.
         ;;
+      --error-if-nasty-logs)
+        local should_check_logs_for_errors=true
+        shift # Shift past flag.
+        ;;
       *)
         usage
         ;;
@@ -57,6 +63,7 @@ parse_args() {
   readonly OUT_DIR="${out_dir:-istio-dump}"
   readonly SHOULD_ARCHIVE="${should_archive:-false}"
   readonly QUIET="${quiet:-false}"
+  readonly SHOULD_CHECK_LOGS_FOR_ERRORS="${should_check_logs_for_errors:-false}"
   readonly LOG_DIR="${OUT_DIR}/logs"
   readonly RESOURCES_FILE="${OUT_DIR}/resources.yaml"
   readonly ISTIO_RESOURCES_FILE="${OUT_DIR}/istio-resources.yaml"
@@ -236,6 +243,11 @@ archive() {
   log "Wrote ${parent_dir}/${dir}.tar.gz"
 }
 
+check_logs_for_errors() {
+  log "Searching logs for errors."
+  grep -R --include "${LOG_DIR}/*.log" --ignore-case -e 'segmentation fault'
+}
+
 main() {
   parse_args "$@"
   check_prerequisites kubectl
@@ -244,11 +256,20 @@ main() {
   dump_resources
   tap_containers dump_logs_for_container copy_core_dumps_if_istio_proxy
 
+  local exit_code=0
+  if [ "${SHOULD_CHECK_LOGS_FOR_ERRORS}" = true ]; then
+    if ! check_logs_for_errors; then
+      exit_code=255
+    fi
+  fi
+
   if [ "${SHOULD_ARCHIVE}" = true ] ; then
     archive
     rm -r "${OUT_DIR}"
   fi
   log "Wrote to ${OUT_DIR}"
+
+  return ${exit_code}
 }
 
 main "$@"
