@@ -8,8 +8,8 @@
 	[Papertrail](https://www.papertrailapp.com) logging backend and the
 	[AppOptics](https://www.appoptics.com) monitoring backend.
 
-	This adapter supports the [metric template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric.html)
-	and the [logentry template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric.html).
+	This adapter supports the [metric template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric/)
+	and the [logentry template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric/).
 
 	It is generated from these files:
 		mixer/adapter/solarwinds/config/config.proto

@@ -17,7 +17,8 @@ syntax = "proto3";
 // $title: Check Nothing
 // $description: A template that carries no data, useful for testing.
 // $location: https://istio.io/docs/reference/config/policy-and-telemetry/templates/checknothing.html
-// $front_matter: redirect_from: /docs/reference/config/template/checknothing.html
+// $front_matter: aliases:
+// $front_matter:   - /docs/reference/config/template/checknothing.html
 
 // The `checknothing` template represents an empty block of data, which can useful
 // in different testing scenarios.
