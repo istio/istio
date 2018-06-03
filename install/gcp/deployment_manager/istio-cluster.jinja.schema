@@ -43,10 +43,9 @@ properties:
   installIstioRelease:
     type: string
     description: Install Istio Release version.
-    default: 0.6.0
+    default: 0.8.0
     enum:
-      - 0.6.0
-      - 0.5.1
+      - 0.8.0
 
   enableBookInfoSample:
     type: boolean
