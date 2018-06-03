@@ -195,7 +195,7 @@ func TestGet(t *testing.T) {
 		},
 		{ // case 1
 			testRouteRules,
-			strings.Split("get routerules", " "),
+			strings.Split("get routerules --all-namespaces", " "),
 			`NAME      KIND                        NAMESPACE
 a         RouteRule.config.v1alpha2   default
 b         RouteRule.config.v1alpha2   default
@@ -207,7 +207,7 @@ d         RouteRule.config.v1alpha2   default
 		},
 		{ // case 2
 			testGateways,
-			strings.Split("get gateways", " "),
+			strings.Split("get gateways -n default", " "),
 			`NAME               KIND                          NAMESPACE
 bookinfo-gateway   Gateway.networking.v1alpha3   default
 `,
@@ -216,7 +216,7 @@ bookinfo-gateway   Gateway.networking.v1alpha3   default
 		},
 		{ // case 3
 			testVirtualServices,
-			strings.Split("get virtualservices", " "),
+			strings.Split("get virtualservices -n default", " "),
 			`NAME       KIND                                 NAMESPACE
 bookinfo   VirtualService.networking.v1alpha3   default
 `,
@@ -403,15 +403,13 @@ func verifyOutput(t *testing.T, c testCase) {
 	output := out.String()
 
 	if c.expectedOutput != "" && c.expectedOutput != output {
-		t.Fatalf("Unexpected output for 'istioctl %s': Expected\n%q,got\n%q",
-			strings.Join(c.args, " "),
-			c.expectedOutput, output)
+		t.Fatalf("Unexpected output for 'istioctl %s'\n got: %q\nwant: %q",
+			strings.Join(c.args, " "), output, c.expectedOutput)
 	}
 
 	if c.expectedRegexp != nil && !c.expectedRegexp.MatchString(output) {
-		t.Fatalf("Output didn't match for 'istioctl %s': Expected\n%v,got\n%q",
-			strings.Join(c.args, " "),
-			c.expectedRegexp, output)
+		t.Fatalf("Output didn't match for 'istioctl %s'\n got %v\nwant: %v",
+			strings.Join(c.args, " "), output, c.expectedRegexp)
 	}
 
 	if c.wantException {

@@ -72,7 +72,8 @@ var (
 	file string
 
 	// output format (yaml or short)
-	outputFormat string
+	outputFormat     string
+	getAllNamespaces bool
 
 	// Create a model.ConfigStore (or mockCrdClient)
 	clientFactory = newClient
@@ -303,15 +304,26 @@ istioctl get virtualservice bookinfo
 				return err
 			}
 
+			getByName := len(args) > 1
+			if getAllNamespaces && getByName {
+				return errors.New("a resource cannot be retrieved by name across all namespaces")
+			}
+
+			var ns string
+			if getAllNamespaces {
+				ns = v1.NamespaceAll
+			} else {
+				ns, _ = handleNamespaces(namespace)
+			}
+
 			var configs []model.Config
-			if len(args) > 1 {
-				ns, _ := handleNamespaces(v1.NamespaceAll)
+			if getByName {
 				config, exists := configClient.Get(typ.Type, args[1], ns)
 				if exists {
 					configs = append(configs, *config)
 				}
 			} else {
-				configs, err = configClient.List(typ.Type, namespace)
+				configs, err = configClient.List(typ.Type, ns)
 				if err != nil {
 					return err
 				}
@@ -548,6 +560,9 @@ func init() {
 
 	getCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "short",
 		"Output format. One of:yaml|short")
+	getCmd.PersistentFlags().BoolVar(&getAllNamespaces, "all-namespaces", false,
+		"If present, list the requested object(s) across all namespaces. Namespace in current "+
+			"context is ignored even if specified with --namespace.")
 
 	experimentalCmd.AddCommand(convert.Command())
 	experimentalCmd.AddCommand(Rbac())
@@ -780,8 +795,12 @@ func prepareClientForOthers(configs []crd.IstioKind) (*rest.RESTClient, map[stri
 
 func getDefaultNamespace(kubeconfig string) string {
 	configAccess := clientcmd.NewDefaultPathOptions()
-	// use specified kubeconfig file for the location of the config to read
-	configAccess.GlobalFile = kubeconfig
+
+	if kubeconfig != defaultKubeConfigText {
+		// use specified kubeconfig file for the location of the
+		// config to read
+		configAccess.GlobalFile = kubeconfig
+	}
 
 	// gets existing kubeconfig or returns new empty config
 	config, err := configAccess.GetStartingConfig()
