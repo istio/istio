@@ -64,6 +64,6 @@ with open(sys.argv[1]) as src_file:
         if line.startswith("-"):
             all_words += "    \"" + line[1:].strip() + "\",\n"
 
-print TOP + all_words + BOTTOM
+print (TOP + all_words + BOTTOM)
 
 
