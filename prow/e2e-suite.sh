@@ -77,7 +77,7 @@ make init
 
 trap cleanup EXIT
 get_resource "${RESOURCE_TYPE}" "${OWNER}" "${INFO_PATH}" "${FILE_LOG}"
-test_cluster
+check_cluster
 setup_cluster
 
 # getopts only handles single character flags

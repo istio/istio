@@ -28,7 +28,7 @@ function setup_cluster() {
     --user="${KUBE_USER}"
 }
 
-function test_cluster() {
+function check_cluster() {
   for i in {1..10}
   do
     status=$(kubectl get namespace || echo "Unreachable")
