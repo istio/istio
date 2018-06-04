@@ -17,6 +17,7 @@ package mixer
 import (
 	"fmt"
 	"net"
+	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
@@ -271,7 +272,7 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 	disableReport := outboundRoute && role.Type != model.Router
 
 	for _, instance := range nodeInstances {
-		mxConfig.ServiceConfigs[instance.Service.Hostname.String()] = v1.ServiceConfig(instance.Service.Hostname.String(), instance, config,
+		mxConfig.ServiceConfigs[instance.Service.Hostname.String()] = serviceConfig(instance.Service.Hostname.String(), instance, config,
 			disablePolicy, disableReport)
 	}
 
@@ -281,10 +282,14 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 // buildTCPMixerFilterConfig builds a TCP filter config for inbound requests.
 func buildTCPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, instance *model.ServiceInstance) *mccpb.TcpClientConfig {
 	attrs := v1.StandardNodeAttributes(v1.AttrDestinationPrefix, role.IPAddress, role.ID, nil)
-	attrs[v1.AttrDestinationService] = &mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_StringValue{instance.Service.Hostname.String()}}
-	attrs["context.reporter.uid"] = &mpb.Attributes_AttributeValue{
-		Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: "kubernetes://" + role.ID},
-	}
+
+	name, ns := nameAndNamespace(instance.Service.Hostname.String())
+	attrs[v1.AttrDestinationService] = attrStringValue(instance.Service.Hostname.String())
+	attrs["destination.service.host"] = attrStringValue(instance.Service.Hostname.String())
+	attrs["destination.service.uid"] = attrStringValue(fmt.Sprintf("istio://%s/services/%s", ns, name))
+	attrs["destination.service.name"] = attrStringValue(name)
+	attrs["destination.service.namespace"] = attrStringValue(ns)
+	attrs["context.reporter.uid"] = attrStringValue("kubernetes://" + role.ID)
 	attrs["context.reporter.local"] = &mpb.Attributes_AttributeValue{
 		Value: &mpb.Attributes_AttributeValue_BoolValue{BoolValue: true},
 	}
@@ -332,4 +337,29 @@ func addStandardNodeAttributes(attr map[string]*mpb.Attributes_AttributeValue, p
 			},
 		}
 	}
+}
+
+func serviceConfig(serviceHostname string, dest *model.ServiceInstance, config model.IstioConfigStore, disableCheck, disableReport bool) *mccpb.ServiceConfig {
+	sc := v1.ServiceConfig(serviceHostname, dest, config, disableCheck, disableReport)
+
+	name, ns := nameAndNamespace(serviceHostname)
+	sc.MixerAttributes.Attributes["destination.service.host"] = attrStringValue(serviceHostname)
+	sc.MixerAttributes.Attributes["destination.service.uid"] = attrStringValue(fmt.Sprintf("istio://%s/services/%s", ns, name))
+	sc.MixerAttributes.Attributes["destination.service.name"] = attrStringValue(name)
+	sc.MixerAttributes.Attributes["destination.service.namespace"] = attrStringValue(ns)
+
+	return sc
+}
+
+func nameAndNamespace(serviceHostname string) (name, namespace string) {
+	if !strings.HasSuffix(serviceHostname, "svc.cluster.local") {
+		return serviceHostname, ""
+	}
+
+	parts := strings.Split(serviceHostname, ".")
+	return parts[0], parts[1]
+}
+
+func attrStringValue(value string) *mpb.Attributes_AttributeValue {
+	return &mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: value}}
 }
