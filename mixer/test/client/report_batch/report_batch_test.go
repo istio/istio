@@ -65,7 +65,9 @@ const reportAttributesOkGet = `
      "content-length": "0",
      ":status": "200",
      "server": "envoy"
-  }
+  },
+  "response.total_size": "*",
+  "request.total_size": 306
 }
 `
 
@@ -114,7 +116,9 @@ const reportAttributesOkPost1 = `
      "content-length": "12",
      ":status": "200",
      "server": "envoy"
-  }
+  },
+  "response.total_size": "*",
+  "request.total_size": 342
 }
 `
 
@@ -163,7 +167,9 @@ const reportAttributesOkPost2 = `
      "content-length": "18",
      ":status": "200",
      "server": "envoy"
-  }
+  },
+  "response.total_size": "*",
+  "request.total_size": 348
 }
 `
 

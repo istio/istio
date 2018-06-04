@@ -3,14 +3,14 @@
 
 package attribute
 
-func GlobalList() ([]string) { 
-    tmp := make([]string, len(globalList))
-    copy(tmp, globalList)
-    return tmp
+func GlobalList() []string {
+	tmp := make([]string, len(globalList))
+	copy(tmp, globalList)
+	return tmp
 }
 
-var ( 
-    globalList = []string{
+var (
+	globalList = []string{
 		"source.ip",
 		"source.port",
 		"source.name",
@@ -180,5 +180,34 @@ var (
 		"request.api_key",
 		"check.error_code",
 		"check.error_message",
-    }
+		"request.total_size",
+		"response.total_size",
+		"connection.event",
+		"check.cache_hit",
+		"quota.cache_hit",
+		"source.principal",
+		"request.auth.claims",
+		"request.auth.raw_claims",
+		"connection.mtls",
+		"source.metadata",
+		"source.owner",
+		"source.services",
+		"source.workload.uid",
+		"source.workload.name",
+		"source.workload.namespace",
+		"destination.metadata",
+		"destination.owner",
+		"destination.principal",
+		"destination.workload.uid",
+		"destination.workload.name",
+		"destination.workload.namespace",
+		"destination.service.uid",
+		"destination.service.name",
+		"destination.service.namespace",
+		"destination.service.host",
+		"destination.container.name",
+		"destination.container.image",
+		"context.reporter.local",
+		"context.reporter.uid",
+	}
 )

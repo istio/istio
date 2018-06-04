@@ -34,14 +34,17 @@ type TestSetup struct {
 	mfConf *MixerFilterConf
 	ports  *Ports
 
-	envoy         *Envoy
-	mixer         *MixerServer
-	backend       *HTTPServer
-	testName      uint16
-	stress        bool
-	faultInject   bool
-	noMixer       bool
-	mfConfVersion string
+	envoy              *Envoy
+	mixer              *MixerServer
+	backend            *HTTPServer
+	testName           uint16
+	stress             bool
+	filtersBeforeMixer string
+	noMixer            bool
+	noProxy            bool
+	noBackend          bool
+	mfConfVersion      string
+	disableHotRestart  bool
 
 	// EnvoyTemplate is the bootstrap config used by envoy.
 	EnvoyTemplate string
@@ -58,6 +61,9 @@ type TestSetup struct {
 
 	// IstioOut is the base output directory.
 	IstioOut string
+
+	// AccessLogPath is the access log path for Envoy
+	AccessLogPath string
 }
 
 // MixerFilterConfigV1 is version v1 for Mixer filter config.
@@ -75,6 +81,7 @@ func NewTestSetup(name uint16, t *testing.T) *TestSetup {
 		ports:         NewPorts(name),
 		testName:      name,
 		mfConfVersion: MixerFilterConfigV2,
+		AccessLogPath: "/tmp/envoy-access.log",
 	}
 }
 
@@ -143,19 +150,43 @@ func (s *TestSetup) SetNoMixer(no bool) {
 	s.noMixer = no
 }
 
-// SetFaultInject set FaultInject flag
-func (s *TestSetup) SetFaultInject(f bool) {
-	s.faultInject = f
+// SetFiltersBeforeMixer sets the configurations of the filters before the Mixer filter
+func (s *TestSetup) SetFiltersBeforeMixer(filters string) {
+	s.filtersBeforeMixer = filters
+}
+
+// SetDisableHotRestart sets whether disable the HotRestart feature of Envoy
+func (s *TestSetup) SetDisableHotRestart(disable bool) {
+	s.disableHotRestart = disable
+}
+
+// SetNoProxy set NoProxy flag
+func (s *TestSetup) SetNoProxy(no bool) {
+	s.noProxy = no
+}
+
+// SetNoBackend set NoMixer flag
+func (s *TestSetup) SetNoBackend(no bool) {
+	s.noBackend = no
 }
 
 // SetUp setups Envoy, Mixer, and Backend server for test.
 func (s *TestSetup) SetUp() error {
 	var err error
-	s.envoy, err = s.NewEnvoy(s.stress, s.faultInject, s.mfConf, s.ports, s.epoch, s.mfConfVersion)
+	s.envoy, err = s.NewEnvoy(s.stress, s.filtersBeforeMixer, s.mfConf, s.ports, s.epoch, s.mfConfVersion, s.disableHotRestart)
 	if err != nil {
 		log.Printf("unable to create Envoy %v", err)
-	} else {
-		_ = s.envoy.Start()
+		return err
+	}
+
+	err = s.envoy.Start()
+	if err != nil {
+		return err
+	}
+
+	if !s.noProxy {
+		WaitForPort(s.ports.ClientProxyPort)
+		WaitForPort(s.ports.ServerProxyPort)
 	}
 
 	if !s.noMixer {
@@ -167,13 +198,16 @@ func (s *TestSetup) SetUp() error {
 		}
 	}
 
-	s.backend, err = NewHTTPServer(s.ports.BackendPort)
-	if err != nil {
-		log.Printf("unable to create HTTP server %v", err)
-	} else {
-		s.backend.Start()
+	if !s.noBackend {
+		s.backend, err = NewHTTPServer(s.ports.BackendPort)
+		if err != nil {
+			log.Printf("unable to create HTTP server %v", err)
+		} else {
+			s.backend.Start()
+		}
 	}
-	return err
+
+	return nil
 }
 
 // TearDown shutdown the servers.
@@ -182,7 +216,10 @@ func (s *TestSetup) TearDown() {
 	if s.mixer != nil {
 		s.mixer.Stop()
 	}
-	s.backend.Stop()
+
+	if s.backend != nil {
+		s.backend.Stop()
+	}
 }
 
 // ReStartEnvoy restarts Envoy
@@ -192,11 +229,16 @@ func (s *TestSetup) ReStartEnvoy() {
 	log.Printf("new allocated ports are %v:", s.ports)
 	var err error
 	s.epoch++
-	s.envoy, err = s.NewEnvoy(s.stress, s.faultInject, s.mfConf, s.ports, s.epoch, s.mfConfVersion)
+	s.envoy, err = s.NewEnvoy(s.stress, s.filtersBeforeMixer, s.mfConf, s.ports, s.epoch, s.mfConfVersion, s.disableHotRestart)
 	if err != nil {
 		s.t.Errorf("unable to re-start Envoy %v", err)
 	} else {
 		_ = s.envoy.Start()
+
+		if !s.noProxy {
+			WaitForPort(s.ports.ClientProxyPort)
+			WaitForPort(s.ports.ServerProxyPort)
+		}
 	}
 }
 

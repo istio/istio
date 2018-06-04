@@ -7,12 +7,8 @@
 	The `kubernetes` template holds data that controls the production of Kubernetes-specific
 	attributes.
 
-	The `kubernetes` template represents data used to generate kubernetes-derived attributes.
-
-	The values provided controls the manner in which the kubernetesenv adapter discovers and
-	generates values related to pod information.
-
 	Example config:
+
 	```yaml
 	apiVersion: "config.istio.io/v1alpha2"
 	kind: kubernetes
@@ -40,6 +36,11 @@
 	    destination.serviceAccount: $out.destination_service_account_name
 	```
 
+	The `kubernetes` template represents data used to generate kubernetes-derived attributes.
+
+	The values provided controls the manner in which the kubernetesenv adapter discovers and
+	generates values related to pod information.
+
 	It is generated from these files:
 		mixer/adapter/kubernetesenv/template/template_handler_service.proto
 
@@ -56,7 +57,7 @@ import _ "istio.io/api/mixer/adapter/model/v1beta1"
 
 import strings "strings"
 import reflect "reflect"
-import github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
+import sortkeys "github.com/gogo/protobuf/sortkeys"
 
 import io "io"
 
@@ -249,7 +250,7 @@ func (this *InstanceParam) String() string {
 	for k, _ := range this.AttributeBindings {
 		keysForAttributeBindings = append(keysForAttributeBindings, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForAttributeBindings)
+	sortkeys.Strings(keysForAttributeBindings)
 	mapStringForAttributeBindings := "map[string]string{"
 	for _, k := range keysForAttributeBindings {
 		mapStringForAttributeBindings += fmt.Sprintf("%v: %v,", k, this.AttributeBindings[k])

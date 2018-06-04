@@ -86,6 +86,10 @@ static_resources:
                         string_value: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
                       destination.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
+                      destination.ip:
+                        bytes_value: {{ .PodIP }}
+                      destination.port:
+                        int64_value: 15003
               transport:
                 check_cluster: mixer_check_server
                 report_cluster: mixer_report_server
@@ -135,6 +139,8 @@ static_resources:
               path: /dev/stdout
             name: envoy.file_access_log
           codec_type: HTTP2
+          http2_protocol_options:
+            max_concurrent_streams: 1073741824
           http_filters:
           - config:
               default_destination_service: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
@@ -150,6 +156,10 @@ static_resources:
                         string_value: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
                       destination.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
+                      destination.ip:
+                        bytes_value: {{ .PodIP }}
+                      destination.port:
+                        int64_value: 15011
               transport:
                 check_cluster: mixer_check_server
                 report_cluster: mixer_report_server
@@ -171,7 +181,6 @@ static_resources:
                   timeout: 0.000s
           stat_prefix: "15011"
         name: envoy.http_connection_manager
-{{- if .ControlPlaneAuth }}
       tls_context:
         common_tls_context:
           alpn_protocols:
@@ -185,7 +194,6 @@ static_resources:
             trusted_ca:
               filename: /etc/certs/root-cert.pem
         require_client_certificate: true
-{{- end }}
     name: "15011"
   - address:
       socket_address:
@@ -213,6 +221,10 @@ static_resources:
                         string_value: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
                       destination.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
+                      destination.ip:
+                        bytes_value: {{ .PodIP }}
+                      destination.port:
+                        int64_value: 15005
               transport:
                 check_cluster: mixer_check_server
                 report_cluster: mixer_report_server
@@ -274,6 +286,10 @@ static_resources:
                         string_value: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
                       destination.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
+                      destination.ip:
+                        bytes_value: {{ .PodIP }}
+                      destination.port:
+                        int64_value: 15007
               transport:
                 check_cluster: mixer_check_server
                 report_cluster: mixer_report_server

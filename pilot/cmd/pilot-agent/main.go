@@ -17,8 +17,10 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"strings"
 	"text/template"
@@ -70,7 +72,7 @@ var (
 	rootCmd = &cobra.Command{
 		Use:   "pilot-agent",
 		Short: "Istio Pilot agent",
-		Long:  "Istio Pilot provides management plane functionality to the Istio service mesh and Istio Mixer.",
+		Long:  "Istio Pilot agent runs in the side car or gateway container and bootstraps envoy.",
 	}
 
 	proxyCmd = &cobra.Command{
@@ -87,7 +89,7 @@ var (
 			}
 
 			// set values from registry platform
-			if role.IPAddress == "" {
+			if len(role.IPAddress) == 0 {
 				if registry == serviceregistry.KubernetesRegistry {
 					role.IPAddress = os.Getenv("INSTANCE_IP")
 				} else {
@@ -100,7 +102,7 @@ var (
 					role.IPAddress = ipAddr
 				}
 			}
-			if role.ID == "" {
+			if len(role.ID) == 0 {
 				if registry == serviceregistry.KubernetesRegistry {
 					role.ID = os.Getenv("POD_NAME") + "." + os.Getenv("POD_NAMESPACE")
 				} else if registry == serviceregistry.ConsulRegistry {
@@ -110,7 +112,7 @@ var (
 				}
 			}
 			pilotDomain := role.Domain
-			if role.Domain == "" {
+			if len(role.Domain) == 0 {
 				if registry == serviceregistry.KubernetesRegistry {
 					role.Domain = os.Getenv("POD_NAMESPACE") + ".svc.cluster.local"
 					pilotDomain = "cluster.local"
@@ -205,6 +207,10 @@ var (
 				opts := make(map[string]string)
 				opts["PodName"] = os.Getenv("POD_NAME")
 				opts["PodNamespace"] = os.Getenv("POD_NAMESPACE")
+
+				// protobuf encoding of IP_ADDRESS type
+				opts["PodIP"] = base64.StdEncoding.EncodeToString(net.ParseIP(os.Getenv("INSTANCE_IP")))
+
 				if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
 					opts["ControlPlaneAuth"] = "enable"
 				}
@@ -307,7 +313,7 @@ func init() {
 	proxyCmd.PersistentFlags().StringVar(&customConfigFile, "customConfigFile", values.CustomConfigFile,
 		"Path to the custom configuration file")
 	// Log levels are provided by the library https://github.com/gabime/spdlog, used by Envoy.
-	proxyCmd.PersistentFlags().StringVar(&proxyLogLevel, "proxyLogLevel", "info",
+	proxyCmd.PersistentFlags().StringVar(&proxyLogLevel, "proxyLogLevel", "warn",
 		fmt.Sprintf("The log level used to start the Envoy proxy (choose from {%s, %s, %s, %s, %s, %s, %s})",
 			"trace", "debug", "info", "warn", "err", "critical", "off"))
 	proxyCmd.PersistentFlags().IntVar(&concurrency, "concurrency", int(values.Concurrency),

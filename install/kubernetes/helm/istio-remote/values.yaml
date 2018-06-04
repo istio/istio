@@ -20,7 +20,7 @@ global:
   # Currently using nightly build, for testing
   tag: circleci-nightly
   proxy:
-    image: proxy
+    image: proxyv2
 
   # imagePullPolicy is applied to istio control plane components.
   imagePullPolicy: IfNotPresent
@@ -29,9 +29,6 @@ global:
   hyperkube:
     repository: quay.io/coreos/hyperkube
     tag: v1.7.6_coreos.0
-
-  # Install istio CA.
-  securityEnabled: true
 
   # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
   # propagated, not recommended for tests.
@@ -73,6 +70,7 @@ global:
 security:
   serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
+  image: citadel
   imagePullPolicy: IfNotPresent
   resources: {}
   # limits:

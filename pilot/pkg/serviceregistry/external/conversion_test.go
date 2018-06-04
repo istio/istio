@@ -19,36 +19,38 @@ import (
 	"strings"
 	"testing"
 
-	mesh "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
 )
 
-var httpNone = &networking.ExternalService{
+var httpNone = &networking.ServiceEntry{
 	Hosts: []string{"*.google.com"},
 	Ports: []*networking.Port{
 		{Number: 80, Name: "http-number", Protocol: "http"},
 		{Number: 8080, Name: "http2-number", Protocol: "http2"},
 	},
-	Discovery: networking.ExternalService_NONE,
+	Location:   networking.ServiceEntry_MESH_EXTERNAL,
+	Resolution: networking.ServiceEntry_NONE,
 }
 
-var tcpNone = &networking.ExternalService{
-	Hosts: []string{"172.217.0.0/16"},
+var tcpNone = &networking.ServiceEntry{
+	Hosts:     []string{"tcpnone.com"},
+	Addresses: []string{"172.217.0.0/16"},
 	Ports: []*networking.Port{
 		{Number: 444, Name: "tcp-444", Protocol: "tcp"},
 	},
-	Discovery: networking.ExternalService_NONE,
+	Location:   networking.ServiceEntry_MESH_EXTERNAL,
+	Resolution: networking.ServiceEntry_NONE,
 }
 
-var httpStatic = &networking.ExternalService{
+var httpStatic = &networking.ServiceEntry{
 	Hosts: []string{"*.google.com"},
 	Ports: []*networking.Port{
 		{Number: 80, Name: "http-port", Protocol: "http"},
 		{Number: 8080, Name: "http-alt-port", Protocol: "http"},
 	},
-	Endpoints: []*networking.ExternalService_Endpoint{
+	Endpoints: []*networking.ServiceEntry_Endpoint{
 		{
 			Address: "2.2.2.2",
 			Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
@@ -63,26 +65,27 @@ var httpStatic = &networking.ExternalService{
 			Labels:  map[string]string{"foo": "bar"},
 		},
 	},
-	Discovery: networking.ExternalService_STATIC,
+	Location:   networking.ServiceEntry_MESH_EXTERNAL,
+	Resolution: networking.ServiceEntry_STATIC,
 }
 
-var httpDNSnoEndpoints = &networking.ExternalService{
-	Hosts: []string{"google.com"},
+var httpDNSnoEndpoints = &networking.ServiceEntry{
+	Hosts: []string{"google.com", "www.wikipedia.org"},
 	Ports: []*networking.Port{
 		{Number: 80, Name: "http-port", Protocol: "http"},
 		{Number: 8080, Name: "http-alt-port", Protocol: "http"},
 	},
-
-	Discovery: networking.ExternalService_DNS,
+	Location:   networking.ServiceEntry_MESH_EXTERNAL,
+	Resolution: networking.ServiceEntry_DNS,
 }
 
-var httpDNS = &networking.ExternalService{
+var httpDNS = &networking.ServiceEntry{
 	Hosts: []string{"*.google.com"},
 	Ports: []*networking.Port{
 		{Number: 80, Name: "http-port", Protocol: "http"},
 		{Number: 8080, Name: "http-alt-port", Protocol: "http"},
 	},
-	Endpoints: []*networking.ExternalService_Endpoint{
+	Endpoints: []*networking.ServiceEntry_Endpoint{
 		{
 			Address: "us.google.com",
 			Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
@@ -96,15 +99,16 @@ var httpDNS = &networking.ExternalService{
 			Labels:  map[string]string{"foo": "bar"},
 		},
 	},
-	Discovery: networking.ExternalService_DNS,
+	Location:   networking.ServiceEntry_MESH_EXTERNAL,
+	Resolution: networking.ServiceEntry_DNS,
 }
 
-var tcpDNS = &networking.ExternalService{
-	Hosts: []string{"172.217.0.0/16"},
+var tcpDNS = &networking.ServiceEntry{
+	Hosts: []string{"tcpdns.com"},
 	Ports: []*networking.Port{
 		{Number: 444, Name: "tcp-444", Protocol: "tcp"},
 	},
-	Endpoints: []*networking.ExternalService_Endpoint{
+	Endpoints: []*networking.ServiceEntry_Endpoint{
 		{
 			Address: "lon.google.com",
 		},
@@ -112,15 +116,17 @@ var tcpDNS = &networking.ExternalService{
 			Address: "in.google.com",
 		},
 	},
-	Discovery: networking.ExternalService_DNS,
+	Location:   networking.ServiceEntry_MESH_EXTERNAL,
+	Resolution: networking.ServiceEntry_DNS,
 }
 
-var tcpStatic = &networking.ExternalService{
-	Hosts: []string{"172.217.0.0/16"},
+var tcpStatic = &networking.ServiceEntry{
+	Hosts:     []string{"tcpstatic.com"},
+	Addresses: []string{"172.217.0.0/16"},
 	Ports: []*networking.Port{
 		{Number: 444, Name: "tcp-444", Protocol: "tcp"},
 	},
-	Endpoints: []*networking.ExternalService_Endpoint{
+	Endpoints: []*networking.ServiceEntry_Endpoint{
 		{
 			Address: "1.1.1.1",
 		},
@@ -128,7 +134,49 @@ var tcpStatic = &networking.ExternalService{
 			Address: "2.2.2.2",
 		},
 	},
-	Discovery: networking.ExternalService_STATIC,
+	Location:   networking.ServiceEntry_MESH_EXTERNAL,
+	Resolution: networking.ServiceEntry_STATIC,
+}
+
+var httpNoneInternal = &networking.ServiceEntry{
+	Hosts: []string{"*.google.com"},
+	Ports: []*networking.Port{
+		{Number: 80, Name: "http-number", Protocol: "http"},
+		{Number: 8080, Name: "http2-number", Protocol: "http2"},
+	},
+	Location:   networking.ServiceEntry_MESH_INTERNAL,
+	Resolution: networking.ServiceEntry_NONE,
+}
+
+var tcpNoneInternal = &networking.ServiceEntry{
+	Hosts:     []string{"tcpinternal.com"},
+	Addresses: []string{"172.217.0.0/16"},
+	Ports: []*networking.Port{
+		{Number: 444, Name: "tcp-444", Protocol: "tcp"},
+	},
+	Location:   networking.ServiceEntry_MESH_INTERNAL,
+	Resolution: networking.ServiceEntry_NONE,
+}
+
+var multiAddrInternal = &networking.ServiceEntry{
+	Hosts:     []string{"tcp1.com", "tcp2.com"},
+	Addresses: []string{"1.1.1.0/16", "2.2.2.0/16"},
+	Ports: []*networking.Port{
+		{Number: 444, Name: "tcp-444", Protocol: "tcp"},
+	},
+	Location:   networking.ServiceEntry_MESH_INTERNAL,
+	Resolution: networking.ServiceEntry_NONE,
+}
+
+var udsLocal = &networking.ServiceEntry{
+	Hosts: []string{"uds.cluster.local"},
+	Ports: []*networking.Port{
+		{Number: 6553, Name: "grpc-1", Protocol: "grpc"},
+	},
+	Endpoints: []*networking.ServiceEntry_Endpoint{
+		{Address: "unix:///test/sock"},
+	},
+	Resolution: networking.ServiceEntry_STATIC,
 }
 
 func convertPortNameToProtocol(name string) model.Protocol {
@@ -140,21 +188,20 @@ func convertPortNameToProtocol(name string) model.Protocol {
 	return model.ParseProtocol(prefix)
 }
 
-func makeService(hostname, address string, ports map[string]int, resolution model.Resolution) *model.Service {
+func makeService(hostname model.Hostname, address string, ports map[string]int, external bool, resolution model.Resolution) *model.Service {
 	svc := &model.Service{
 		Hostname:     hostname,
 		Address:      address,
-		MeshExternal: true,
+		MeshExternal: external,
 		Resolution:   resolution,
 	}
 
 	svcPorts := make(model.PortList, 0, len(ports))
 	for name, port := range ports {
 		svcPort := &model.Port{
-			Name:                 name,
-			Port:                 port,
-			Protocol:             convertPortNameToProtocol(name),
-			AuthenticationPolicy: mesh.AuthenticationPolicy_NONE,
+			Name:     name,
+			Port:     port,
+			Protocol: convertPortNameToProtocol(name),
 		}
 		svcPorts = append(svcPorts, svcPort)
 	}
@@ -165,18 +212,31 @@ func makeService(hostname, address string, ports map[string]int, resolution mode
 	return svc
 }
 
-func makeInstance(externalSvc *networking.ExternalService, address string, port int,
+func makeInstance(serviceEntry *networking.ServiceEntry, address string, port int,
 	svcPort *networking.Port, labels map[string]string) *model.ServiceInstance {
+	family := model.AddressFamilyTCP
+	if port == 0 {
+		family = model.AddressFamilyUnix
+	}
+
+	services := convertServices(serviceEntry)
+	svc := services[0] // default
+	for _, s := range services {
+		if s.Hostname.String() == address {
+			svc = s
+			break
+		}
+	}
 	return &model.ServiceInstance{
-		Service: convertServices(externalSvc)[0],
+		Service: svc,
 		Endpoint: model.NetworkEndpoint{
+			Family:  family,
 			Address: address,
 			Port:    port,
 			ServicePort: &model.Port{
-				Name:                 svcPort.Name,
-				Port:                 int(svcPort.Number),
-				Protocol:             model.ParseProtocol(svcPort.Protocol),
-				AuthenticationPolicy: mesh.AuthenticationPolicy_NONE,
+				Name:     svcPort.Name,
+				Port:     int(svcPort.Number),
+				Protocol: model.ParseProtocol(svcPort.Protocol),
 			},
 		},
 		Labels: model.Labels(labels),
@@ -185,56 +245,87 @@ func makeInstance(externalSvc *networking.ExternalService, address string, port 
 
 func TestConvertService(t *testing.T) {
 	serviceTests := []struct {
-		externalSvc *networking.ExternalService
+		externalSvc *networking.ServiceEntry
 		services    []*model.Service
 	}{
 		{
-			// external service http
+			// service entry http
 			externalSvc: httpNone,
-			services: []*model.Service{makeService("*.google.com", "",
-				map[string]int{"http-number": 80, "http2-number": 8080}, model.Passthrough),
+			services: []*model.Service{makeService("*.google.com", model.UnspecifiedIP,
+				map[string]int{"http-number": 80, "http2-number": 8080}, true, model.Passthrough),
 			},
 		},
 		{
-			// external service tcp
+			// service entry tcp
 			externalSvc: tcpNone,
-			services: []*model.Service{makeService("172.217.0.0_16", "172.217.0.0/16",
-				map[string]int{"tcp-444": 444}, model.Passthrough),
+			services: []*model.Service{makeService("tcpnone.com", "172.217.0.0/16",
+				map[string]int{"tcp-444": 444}, true, model.Passthrough),
 			},
 		},
 		{
-			// external service http  static
+			// service entry http  static
 			externalSvc: httpStatic,
-			services: []*model.Service{makeService("*.google.com", "",
-				map[string]int{"http-port": 80, "http-alt-port": 8080}, model.ClientSideLB),
+			services: []*model.Service{makeService("*.google.com", model.UnspecifiedIP,
+				map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.ClientSideLB),
 			},
 		},
 		{
-			// external service DNS with no endpoints
+			// service entry DNS with no endpoints
 			externalSvc: httpDNSnoEndpoints,
-			services: []*model.Service{makeService("google.com", "",
-				map[string]int{"http-port": 80, "http-alt-port": 8080}, model.DNSLB),
+			services: []*model.Service{
+				makeService("google.com", model.UnspecifiedIP,
+					map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB),
+				makeService("www.wikipedia.org", model.UnspecifiedIP,
+					map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB),
 			},
 		},
 		{
-			// external service dns
+			// service entry dns
 			externalSvc: httpDNS,
-			services: []*model.Service{makeService("*.google.com", "",
-				map[string]int{"http-port": 80, "http-alt-port": 8080}, model.DNSLB),
+			services: []*model.Service{makeService("*.google.com", model.UnspecifiedIP,
+				map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB),
 			},
 		},
 		{
-			// external service tcp DNS
+			// service entry tcp DNS
 			externalSvc: tcpDNS,
-			services: []*model.Service{makeService("172.217.0.0_16", "172.217.0.0/16",
-				map[string]int{"tcp-444": 444}, model.DNSLB),
+			services: []*model.Service{makeService("tcpdns.com", model.UnspecifiedIP,
+				map[string]int{"tcp-444": 444}, true, model.DNSLB),
 			},
 		},
 		{
-			// external service tcp static
+			// service entry tcp static
 			externalSvc: tcpStatic,
-			services: []*model.Service{makeService("172.217.0.0_16", "172.217.0.0/16",
-				map[string]int{"tcp-444": 444}, model.ClientSideLB),
+			services: []*model.Service{makeService("tcpstatic.com", "172.217.0.0/16",
+				map[string]int{"tcp-444": 444}, true, model.ClientSideLB),
+			},
+		},
+		{
+			// service entry http internal
+			externalSvc: httpNoneInternal,
+			services: []*model.Service{makeService("*.google.com", model.UnspecifiedIP,
+				map[string]int{"http-number": 80, "http2-number": 8080}, false, model.Passthrough),
+			},
+		},
+		{
+			// service entry tcp internal
+			externalSvc: tcpNoneInternal,
+			services: []*model.Service{makeService("tcpinternal.com", "172.217.0.0/16",
+				map[string]int{"tcp-444": 444}, false, model.Passthrough),
+			},
+		},
+		{
+			// service entry multiAddrInternal
+			externalSvc: multiAddrInternal,
+			services: []*model.Service{
+				makeService("tcp1.com", "1.1.1.0/16",
+					map[string]int{"tcp-444": 444}, false, model.Passthrough),
+				makeService("tcp1.com", "2.2.2.0/16",
+					map[string]int{"tcp-444": 444}, false, model.Passthrough),
+				makeService("tcp2.com", "1.1.1.0/16",
+					map[string]int{"tcp-444": 444}, false, model.Passthrough),
+				makeService("tcp2.com", "2.2.2.0/16",
+					map[string]int{"tcp-444": 444}, false, model.Passthrough),
 			},
 		},
 	}
@@ -249,7 +340,7 @@ func TestConvertService(t *testing.T) {
 
 func TestConvertInstances(t *testing.T) {
 	serviceInstanceTests := []struct {
-		externalSvc *networking.ExternalService
+		externalSvc *networking.ServiceEntry
 		out         []*model.ServiceInstance
 	}{
 		{
@@ -259,13 +350,13 @@ func TestConvertInstances(t *testing.T) {
 			out: []*model.ServiceInstance{},
 		},
 		{
-			// external service tcp
+			// service entry tcp
 			externalSvc: tcpNone,
 			// DNS type none means service should not have a registered instance
 			out: []*model.ServiceInstance{},
 		},
 		{
-			// external service static
+			// service entry static
 			externalSvc: httpStatic,
 			out: []*model.ServiceInstance{
 				makeInstance(httpStatic, "2.2.2.2", 7080, httpStatic.Ports[0], nil),
@@ -277,15 +368,17 @@ func TestConvertInstances(t *testing.T) {
 			},
 		},
 		{
-			// external service DNS with no endpoints
+			// service entry DNS with no endpoints
 			externalSvc: httpDNSnoEndpoints,
 			out: []*model.ServiceInstance{
 				makeInstance(httpDNSnoEndpoints, "google.com", 80, httpDNSnoEndpoints.Ports[0], nil),
 				makeInstance(httpDNSnoEndpoints, "google.com", 8080, httpDNSnoEndpoints.Ports[1], nil),
+				makeInstance(httpDNSnoEndpoints, "www.wikipedia.org", 80, httpDNSnoEndpoints.Ports[0], nil),
+				makeInstance(httpDNSnoEndpoints, "www.wikipedia.org", 8080, httpDNSnoEndpoints.Ports[1], nil),
 			},
 		},
 		{
-			// external service dns
+			// service entry dns
 			externalSvc: httpDNS,
 			out: []*model.ServiceInstance{
 				makeInstance(httpDNS, "us.google.com", 7080, httpDNS.Ports[0], nil),
@@ -297,7 +390,7 @@ func TestConvertInstances(t *testing.T) {
 			},
 		},
 		{
-			// external service tcp DNS
+			// service entry tcp DNS
 			externalSvc: tcpDNS,
 			out: []*model.ServiceInstance{
 				makeInstance(tcpDNS, "lon.google.com", 444, tcpDNS.Ports[0], nil),
@@ -305,11 +398,18 @@ func TestConvertInstances(t *testing.T) {
 			},
 		},
 		{
-			// external service tcp static
+			// service entry tcp static
 			externalSvc: tcpStatic,
 			out: []*model.ServiceInstance{
 				makeInstance(tcpStatic, "1.1.1.1", 444, tcpStatic.Ports[0], nil),
 				makeInstance(tcpStatic, "2.2.2.2", 444, tcpStatic.Ports[0], nil),
+			},
+		},
+		{
+			// service entry unix domain socket static
+			externalSvc: udsLocal,
+			out: []*model.ServiceInstance{
+				makeInstance(udsLocal, "/test/sock", 0, udsLocal.Ports[0], nil),
 			},
 		},
 	}

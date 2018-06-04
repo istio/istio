@@ -49,7 +49,8 @@ func (r *resolver) ResolveEnum(name string) *descriptor.EnumDescriptorProto {
 	return r.enums[name]
 }
 
-func findFieldByName(descriptor *descriptor.DescriptorProto, name string) *descriptor.FieldDescriptorProto {
+// FindFieldByName finds a field descriptor by its name.
+func FindFieldByName(descriptor *descriptor.DescriptorProto, name string) *descriptor.FieldDescriptorProto {
 	for _, f := range descriptor.Field {
 		if f.GetJsonName() == name || f.GetName() == name {
 			return f

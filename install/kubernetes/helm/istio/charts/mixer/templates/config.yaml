@@ -28,6 +28,8 @@ spec:
       valueType: STRING
     request.scheme:
       valueType: STRING
+    request.total_size:
+          valueType: INT64
     request.size:
       valueType: INT64
     request.time:
@@ -40,15 +42,21 @@ spec:
       valueType: DURATION
     response.headers:
       valueType: STRING_MAP
+    response.total_size:
+          valueType: INT64
     response.size:
       valueType: INT64
     response.time:
       valueType: TIMESTAMP
     source.uid:
       valueType: STRING
-    source.user:
+    source.user: # DEPRECATED
+      valueType: STRING
+    source.principal:
       valueType: STRING
     destination.uid:
+      valueType: STRING
+    destination.principal:
       valueType: STRING
     connection.id:
       valueType: STRING
@@ -84,6 +92,10 @@ spec:
       valueType: STRING
     request.auth.presenter:
       valueType: STRING
+    request.auth.claims:
+      valueType: STRING_MAP
+    request.auth.raw_claims:
+      valueType: STRING
     request.api_key:
       valueType: STRING
 
@@ -99,25 +111,55 @@ spec:
       valueType: IP_ADDRESS
     source.labels:
       valueType: STRING_MAP
+    source.metadata:
+      valueType: STRING_MAP
     source.name:
       valueType: STRING
     source.namespace:
       valueType: STRING
-    source.service:
+    source.owner:
+      valueType: STRING      
+    source.service:  # DEPRECATED
       valueType: STRING
     source.serviceAccount:
+      valueType: STRING
+    source.services:
+      valueType: STRING
+    source.workload.uid:
+      valueType: STRING
+    source.workload.name:
+      valueType: STRING
+    source.workload.namespace:
       valueType: STRING
     destination.ip:
       valueType: IP_ADDRESS
     destination.labels:
       valueType: STRING_MAP
+    destination.metadata:
+      valueType: STRING_MAP
+    destination.owner:
+      valueType: STRING
     destination.name:
       valueType: STRING
     destination.namespace:
       valueType: STRING
-    destination.service:
+    destination.service: # DEPRECATED
+      valueType: STRING
+    destination.service.uid:
+      valueType: STRING
+    destination.service.name:
+      valueType: STRING
+    destination.service.namespace:
+      valueType: STRING
+    destination.service.host:
       valueType: STRING
     destination.serviceAccount:
+      valueType: STRING
+    destination.workload.uid:
+      valueType: STRING
+    destination.workload.name:
+      valueType: STRING
+    destination.workload.namespace:
       valueType: STRING
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -134,20 +176,35 @@ metadata:
   name: accesslog
   namespace: {{ .Release.Namespace }}
 spec:
-  severity: '"Default"'
+  severity: '"Info"'
   timestamp: request.time
   variables:
+    originIp: origin.ip | ip("0.0.0.0")
     sourceIp: source.ip | ip("0.0.0.0")
+    sourceService: source.service | ""
+    sourceUser: source.user | source.uid | ""
+    sourceNamespace: source.namespace | ""
     destinationIp: destination.ip | ip("0.0.0.0")
-    sourceUser: source.user | ""
+    destinationService: destination.service | ""
+    destinationNamespace: destination.namespace | ""
+    apiName: api.service | ""
+    apiVersion: api.version | ""
+    apiClaims: request.headers["sec-istio-auth-userinfo"]| ""
+    apiKey: request.api_key | request.headers["x-api-key"] | ""
+    requestOperation: api.operation | ""
+    protocol: request.scheme | "http"
     method: request.method | ""
     url: request.path | ""
-    protocol: request.scheme | "http"
     responseCode: response.code | 0
     responseSize: response.size | 0
     requestSize: request.size | 0
     latency: response.duration | "0ms"
     connectionMtls: connection.mtls | false
+    userAgent: request.useragent | ""
+    responseTimestamp: response.time
+    receivedBytes: request.total_size | connection.received.bytes | 0
+    sentBytes: response.total_size | connection.sent.bytes | 0
+    referer: request.referer | ""
   monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -432,5 +489,48 @@ spec:
     destination.namespace: $out.destination_namespace | "default"
     destination.service: $out.destination_service | "unknown"
     destination.serviceAccount: $out.destination_service_account_name | "unknown"
+---
+# Configuration needed by Mixer.
+# Mixer cluster is delivered via CDS
+# Specify mixer cluster settings
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: istio-policy
+  namespace: {{ .Release.Namespace }}
+spec:
+  host: istio-policy.{{ .Release.Namespace }}.svc.cluster.local
+  trafficPolicy:
+    {{- if .Values.global.controlPlaneSecurityEnabled }}
+    portLevelSettings:
+    - port:
+        name: grpc-mixer-mtls
+      tls:
+        mode: ISTIO_MUTUAL
+    {{- end}}
+    connectionPool:
+      http:
+        http2MaxRequests: 10000
+        maxRequestsPerConnection: 10000
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: istio-telemetry
+  namespace: {{ .Release.Namespace }}
+spec:
+  host: istio-telemetry.{{ .Release.Namespace }}.svc.cluster.local
+  trafficPolicy:
+    {{- if .Values.global.controlPlaneSecurityEnabled }}
+    portLevelSettings:
+    - port:
+        name: grpc-mixer-mtls
+      tls:
+        mode: ISTIO_MUTUAL
+    {{- end}}
+    connectionPool:
+      http:
+        http2MaxRequests: 10000
+        maxRequestsPerConnection: 10000
 ---
 {{ end }}

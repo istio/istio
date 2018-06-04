@@ -1,8 +1,8 @@
 apiVersion: networking.istio.io/v1alpha3
-kind: ExternalService
+kind: ServiceEntry
 metadata:
   creationTimestamp: null
-  name: '*google.com'
+  name: google
   namespace: default
 spec:
   hosts:

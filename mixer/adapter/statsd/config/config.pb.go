@@ -7,6 +7,8 @@
 	The `statsd` adapter enables Istio to deliver metric data to a
 	[StatsD](https://github.com/etsy/statsd) monitoring backend.
 
+	This adapter supports the [metric template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric/).
+
 	It is generated from these files:
 		mixer/adapter/statsd/config/config.proto
 
@@ -25,12 +27,12 @@ import time "time"
 
 import strconv "strconv"
 
-import encoding_binary "encoding/binary"
-import github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
+import binary "encoding/binary"
+import types "github.com/gogo/protobuf/types"
 
 import strings "strings"
 import reflect "reflect"
-import github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
+import sortkeys "github.com/gogo/protobuf/sortkeys"
 
 import io "io"
 
@@ -153,8 +155,8 @@ func (m *Params) MarshalTo(dAtA []byte) (int, error) {
 	}
 	dAtA[i] = 0x1a
 	i++
-	i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.FlushDuration)))
-	n1, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.FlushDuration, dAtA[i:])
+	i = encodeVarintConfig(dAtA, i, uint64(types.SizeOfStdDuration(m.FlushDuration)))
+	n1, err := types.StdDurationMarshalTo(m.FlushDuration, dAtA[i:])
 	if err != nil {
 		return 0, err
 	}
@@ -167,7 +169,7 @@ func (m *Params) MarshalTo(dAtA []byte) (int, error) {
 	if m.SamplingRate != 0 {
 		dAtA[i] = 0x2d
 		i++
-		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(m.SamplingRate))))
+		binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(m.SamplingRate))))
 		i += 4
 	}
 	if len(m.Metrics) > 0 {
@@ -250,7 +252,7 @@ func (m *Params) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovConfig(uint64(l))
 	}
-	l = github_com_gogo_protobuf_types.SizeOfStdDuration(m.FlushDuration)
+	l = types.SizeOfStdDuration(m.FlushDuration)
 	n += 1 + l + sovConfig(uint64(l))
 	if m.FlushBytes != 0 {
 		n += 1 + sovConfig(uint64(m.FlushBytes))
@@ -308,7 +310,7 @@ func (this *Params) String() string {
 	for k, _ := range this.Metrics {
 		keysForMetrics = append(keysForMetrics, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForMetrics)
+	sortkeys.Strings(keysForMetrics)
 	mapStringForMetrics := "map[string]*Params_MetricInfo{"
 	for _, k := range keysForMetrics {
 		mapStringForMetrics += fmt.Sprintf("%v: %v,", k, this.Metrics[k])
@@ -457,7 +459,7 @@ func (m *Params) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(&m.FlushDuration, dAtA[iNdEx:postIndex]); err != nil {
+			if err := types.StdDurationUnmarshal(&m.FlushDuration, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -488,7 +490,7 @@ func (m *Params) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 4) > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint32(encoding_binary.LittleEndian.Uint32(dAtA[iNdEx:]))
+			v = uint32(binary.LittleEndian.Uint32(dAtA[iNdEx:]))
 			iNdEx += 4
 			m.SamplingRate = float32(math.Float32frombits(v))
 		case 6:

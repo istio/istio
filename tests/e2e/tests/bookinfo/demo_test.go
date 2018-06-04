@@ -65,11 +65,6 @@ func TestVersionRouting(t *testing.T) {
 }
 
 func testVersionRoutingRules(t *testing.T, configVersion string, rules []versionRoutingRule) {
-	inspect(applyRules(configVersion, defaultRules), "failed to apply default rules", "", t)
-	defer func() {
-		inspect(deleteRules(configVersion, defaultRules), "failed to delete default rules", "", t)
-	}()
-
 	for _, rule := range rules {
 		testVersionRoutingRule(t, configVersion, rule)
 	}
@@ -80,11 +75,12 @@ func testVersionRoutingRule(t *testing.T, configVersion string, rule versionRout
 	defer func() {
 		inspect(deleteRules(configVersion, []string{rule.key}),
 			fmt.Sprintf("failed to delete rules"), "", t)
+		inspect(applyRules(configVersion, defaultRules), "failed to apply rules", "", t)
 	}()
 
 	for _, userVersion := range rule.userVersions {
-		_, err := checkRoutingResponse(userVersion.user, userVersion.version, tc.Kube.IngressOrFail(t),
-			userVersion.model)
+		_, err := checkRoutingResponse(userVersion.user, userVersion.version,
+			getIngressOrFail(t, configVersion), userVersion.model)
 		inspect(
 			err, fmt.Sprintf("Failed version routing! %s in %s", userVersion.user, userVersion.version),
 			fmt.Sprintf("Success! Response matches with expected! %s in %s", userVersion.user,
@@ -93,8 +89,7 @@ func testVersionRoutingRule(t *testing.T, configVersion string, rule versionRout
 }
 
 func TestFaultDelay(t *testing.T) {
-
-	var rules = append([]string{testRule, delayRule}, defaultRules...)
+	var rules = []string{testRule, delayRule}
 	for _, configVersion := range tf.ConfigVersions() {
 		doTestFaultDelay(t, configVersion, rules)
 	}
@@ -104,6 +99,7 @@ func doTestFaultDelay(t *testing.T, configVersion string, rules []string) {
 	inspect(applyRules(configVersion, rules), "failed to apply rules", "", t)
 	defer func() {
 		inspect(deleteRules(configVersion, rules), "failed to delete rules", "", t)
+		inspect(applyRules(configVersion, defaultRules), "failed to apply rules", "", t)
 	}()
 	minDuration := 5
 	maxDuration := 8
@@ -112,7 +108,7 @@ func doTestFaultDelay(t *testing.T, configVersion string, rules []string) {
 		filepath.Join(modelDir, "productpage-test-user-v1-review-timeout.html"))
 	for i := 0; i < testRetryTimes; i++ {
 		duration, err := checkRoutingResponse(
-			u2, "v1-timeout", tc.Kube.IngressOrFail(t),
+			u2, "v1-timeout", getIngressOrFail(t, configVersion),
 			testModel)
 		log.Infof("Get response in %d second", duration)
 		if err == nil && duration >= minDuration && duration <= maxDuration {
@@ -144,13 +140,6 @@ func TestVersionMigration(t *testing.T) {
 }
 
 func doTestVersionMigration(t *testing.T, configVersion string) {
-	inspect(applyRules(configVersion, defaultRules), "failed to apply default rules", "", t)
-	defer func() {
-		// ignore the error that will happen since the fifty rule redefines
-		// "reviews-default" rule and is deleted
-		_ = deleteRules(configVersion, defaultRules)
-	}()
-
 	modelV2 := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v2.html"))
 	modelV3 := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v3.html"))
 
@@ -182,6 +171,7 @@ func testVersionMigrationRule(t *testing.T, configVersion string, rule migration
 	defer func() {
 		inspect(deleteRules(configVersion, []string{rule.key}),
 			fmt.Sprintf("failed to delete rules"), "", t)
+		inspect(applyRules(configVersion, defaultRules), "failed to apply rules", "", t)
 	}()
 	modelV1 := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v1.html"))
 	tolerance := 0.05
@@ -200,7 +190,8 @@ func testVersionMigrationRule(t *testing.T, configVersion string, rule migration
 	for i := 0; i < testRetryTimes; i++ {
 		c1, cVersionToMigrate := 0, 0
 		for c := 0; c < totalShot; c++ {
-			resp, err := getWithCookie(fmt.Sprintf("%s/productpage", tc.Kube.IngressOrFail(t)), cookies)
+			resp, err := getWithCookie(fmt.Sprintf("%s/productpage",
+				getIngressOrFail(t, configVersion)), cookies)
 			inspect(err, "Failed to record", "", t)
 			if resp.StatusCode != http.StatusOK {
 				log.Errorf("unexpected response status %d", resp.StatusCode)
@@ -211,10 +202,16 @@ func testVersionMigrationRule(t *testing.T, configVersion string, rule migration
 				log.Errora(err)
 				continue
 			}
-			if err = util.CompareToFile(body, modelV1); err == nil {
+
+			var c1CompareError, cVersionToMigrateError error
+			if c1CompareError = util.CompareToFile(body, modelV1); c1CompareError == nil {
 				c1++
-			} else if err = util.CompareToFile(body, rule.modelToMigrate); err == nil {
+			} else if cVersionToMigrateError = util.CompareToFile(body, rule.modelToMigrate); cVersionToMigrateError == nil {
 				cVersionToMigrate++
+			} else {
+				log.Error("received unexpected version: %s")
+				log.Infof("comparing to the original version: %v", c1CompareError)
+				log.Infof("comparing to the version to migrate to: %v", cVersionToMigrateError)
 			}
 			closeResponseBody(resp)
 		}
@@ -252,13 +249,14 @@ func doTestDbRoutingMongo(t *testing.T, configVersion string, rules []string) {
 	inspect(applyRules(configVersion, rules), "failed to apply rules", "", t)
 	defer func() {
 		inspect(deleteRules(configVersion, rules), "failed to delete rules", "", t)
+		inspect(applyRules(configVersion, defaultRules), "failed to apply rules", "", t)
 	}()
 
 	// TODO: update the rating in the db and check the value on page
 
 	respExpr := "glyphicon-star" // not great test for v2 or v3 being alive
 
-	_, err = checkHTTPResponse(u1, tc.Kube.IngressOrFail(t), respExpr, 10)
+	_, err = checkHTTPResponse(u1, getIngressOrFail(t, configVersion), respExpr, 10)
 	inspect(
 		err, fmt.Sprintf("Failed database routing! %s in v1", u1),
 		fmt.Sprintf("Success! Response matches with expected! %s", respExpr), t)
@@ -277,13 +275,14 @@ func doTestDbRoutingMysql(t *testing.T, configVersion string, rules []string) {
 	inspect(applyRules(configVersion, rules), "failed to apply rules", "", t)
 	defer func() {
 		inspect(deleteRules(configVersion, rules), "failed to delete rules", "", t)
+		inspect(applyRules(configVersion, defaultRules), "failed to apply rules", "", t)
 	}()
 
 	// TODO: update the rating in the db and check the value on page
 
 	respExpr := "glyphicon-star" // not great test for v2 or v3 being alive
 
-	_, err = checkHTTPResponse(u1, tc.Kube.IngressOrFail(t), respExpr, 10)
+	_, err = checkHTTPResponse(u1, getIngressOrFail(t, configVersion), respExpr, 10)
 	inspect(
 		err, fmt.Sprintf("Failed database routing! %s in v1", u1),
 		fmt.Sprintf("Success! Response matches with expected! %s", respExpr), t)
@@ -326,11 +325,12 @@ func doTestExternalDetailsService(t *testing.T, configVersion string, rules []st
 	inspect(applyRules(configVersion, rules), "failed to apply rules", "", t)
 	defer func() {
 		inspect(deleteRules(configVersion, rules), "failed to delete rules", "", t)
+		inspect(applyRules(configVersion, defaultRules), "failed to apply rules", "", t)
 	}()
 
 	isbnFetchedFromExternalService := "0486424618"
 
-	_, err = checkHTTPResponse(u1, tc.Kube.IngressOrFail(t), isbnFetchedFromExternalService, 1)
+	_, err = checkHTTPResponse(u1, getIngressOrFail(t, configVersion), isbnFetchedFromExternalService, 1)
 	inspect(
 		err, fmt.Sprintf("Failed external details routing! %s in v1", u1),
 		fmt.Sprintf("Success! Response matches with expected! %s", isbnFetchedFromExternalService), t)

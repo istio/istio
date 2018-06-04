@@ -72,7 +72,11 @@ var (
 	file string
 
 	// output format (yaml or short)
-	outputFormat string
+	outputFormat     string
+	getAllNamespaces bool
+
+	// Create a model.ConfigStore (or mockCrdClient)
+	clientFactory = newClient
 
 	loggingOptions = log.DefaultOptions()
 
@@ -96,10 +100,13 @@ system.
 
 Available routing and traffic management configuration types:
 
-	[routerule ingressrule egressrule destinationpolicy]
+	[virtualservice gateway destinationrule serviceentry httpapispec httpapispecbinding quotaspec quotaspecbinding servicerole servicerolebinding policy]
 
-See https://istio.io/docs/reference/ for an overview of routing rules
-and destination policies.
+Legacy routing and traffic management configuration types:
+
+	[routerule egressrule destinationpolicy]
+
+See https://istio.io/docs/reference/ for an overview of Istio routing.
 
 `,
 		PersistentPreRunE: istioPersistentPreRunE,
@@ -126,15 +133,15 @@ and destination policies.
 					return err
 				}
 
-				var configClient *crd.Client
-				if configClient, err = newClient(); err != nil {
+				var configClient model.ConfigStore
+				if configClient, err = clientFactory(); err != nil {
 					return err
 				}
 				var rev string
 				if rev, err = configClient.Create(config); err != nil {
 					return err
 				}
-				fmt.Printf("Created config %v at revision %v\n", config.Key(), rev)
+				c.Printf("Created config %v at revision %v\n", config.Key(), rev)
 			}
 
 			if len(others) > 0 {
@@ -196,8 +203,8 @@ and destination policies.
 					return err
 				}
 
-				var configClient *crd.Client
-				if configClient, err = newClient(); err != nil {
+				var configClient model.ConfigStore
+				if configClient, err = clientFactory(); err != nil {
 					return err
 				}
 				// fill up revision
@@ -271,17 +278,17 @@ and destination policies.
 	getCmd = &cobra.Command{
 		Use:   "get <type> [<name>]",
 		Short: "Retrieve policies and rules",
-		Example: `# List all route rules
-istioctl get routerules
+		Example: `# List all virtual services
+istioctl get virtualservices
 
-# List all destination policies
-istioctl get destinationpolicies
+# List all destination rules
+istioctl get destinationrules
 
-# Get a specific rule named productpage-default
-istioctl get routerule productpage-default
+# Get a specific virtual service named bookinfo
+istioctl get virtualservice bookinfo
 `,
 		RunE: func(c *cobra.Command, args []string) error {
-			configClient, err := newClient()
+			configClient, err := clientFactory()
 			if err != nil {
 				return err
 			}
@@ -291,38 +298,49 @@ istioctl get routerule productpage-default
 					strings.Join(supportedTypes(configClient), ", "))
 			}
 
-			typ, err := protoSchema(configClient, args[0])
+			typ, err := protoSchema(configClient, strings.ToLower(args[0]))
 			if err != nil {
 				c.Println(c.UsageString())
 				return err
 			}
 
+			getByName := len(args) > 1
+			if getAllNamespaces && getByName {
+				return errors.New("a resource cannot be retrieved by name across all namespaces")
+			}
+
+			var ns string
+			if getAllNamespaces {
+				ns = v1.NamespaceAll
+			} else {
+				ns, _ = handleNamespaces(namespace)
+			}
+
 			var configs []model.Config
-			if len(args) > 1 {
-				ns, _ := handleNamespaces(v1.NamespaceAll)
+			if getByName {
 				config, exists := configClient.Get(typ.Type, args[1], ns)
 				if exists {
 					configs = append(configs, *config)
 				}
 			} else {
-				configs, err = configClient.List(typ.Type, namespace)
+				configs, err = configClient.List(typ.Type, ns)
 				if err != nil {
 					return err
 				}
 			}
 
 			if len(configs) == 0 {
-				fmt.Println("No resources found.")
+				c.Println("No resources found.")
 				return nil
 			}
 
-			var outputters = map[string](func(*crd.Client, []model.Config)){
+			var outputters = map[string](func(io.Writer, model.ConfigStore, []model.Config)){
 				"yaml":  printYamlOutput,
 				"short": printShortOutput,
 			}
 
 			if outputFunc, ok := outputters[outputFormat]; ok {
-				outputFunc(configClient, configs)
+				outputFunc(c.OutOrStdout(), configClient, configs)
 			} else {
 				return fmt.Errorf("unknown output format %v. Types are yaml|short", outputFormat)
 			}
@@ -337,11 +355,11 @@ istioctl get routerule productpage-default
 		Example: `# Delete a rule using the definition in example-routing.yaml.
 istioctl delete -f example-routing.yaml
 
-# Delete the rule productpage-default
-istioctl delete routerule productpage-default
+# Delete the virtual service bookinfo
+istioctl delete virtualservice bookinfo
 `,
 		RunE: func(c *cobra.Command, args []string) error {
-			configClient, errs := newClient()
+			configClient, errs := clientFactory()
 			if errs != nil {
 				return errs
 			}
@@ -351,7 +369,7 @@ istioctl delete routerule productpage-default
 					c.Println(c.UsageString())
 					return fmt.Errorf("provide configuration type and name or -f option")
 				}
-				typ, err := protoSchema(configClient, args[0])
+				typ, err := protoSchema(configClient, strings.ToLower(args[0]))
 				if err != nil {
 					return err
 				}
@@ -364,7 +382,7 @@ istioctl delete routerule productpage-default
 						errs = multierror.Append(errs,
 							fmt.Errorf("cannot delete %s: %v", args[i], err))
 					} else {
-						fmt.Printf("Deleted config: %v %v\n", args[0], args[i])
+						c.Printf("Deleted config: %v %v\n", args[0], args[i])
 					}
 				}
 				return errs
@@ -391,7 +409,7 @@ istioctl delete routerule productpage-default
 				if err = configClient.Delete(config.Type, config.Name, config.Namespace); err != nil {
 					errs = multierror.Append(errs, fmt.Errorf("cannot delete %s: %v", config.Key(), err))
 				} else {
-					fmt.Printf("Deleted config: %v\n", config.Key())
+					c.Printf("Deleted config: %v\n", config.Key())
 				}
 			}
 			if errs != nil {
@@ -542,8 +560,12 @@ func init() {
 
 	getCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "short",
 		"Output format. One of:yaml|short")
+	getCmd.PersistentFlags().BoolVar(&getAllNamespaces, "all-namespaces", false,
+		"If present, list the requested object(s) across all namespaces. Namespace in current "+
+			"context is ignored even if specified with --namespace.")
 
 	experimentalCmd.AddCommand(convert.Command())
+	experimentalCmd.AddCommand(Rbac())
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
@@ -577,14 +599,14 @@ func main() {
 }
 
 // The protoSchema is based on the kind (for example "routerule" or "destinationpolicy")
-func protoSchema(configClient *crd.Client, typ string) (model.ProtoSchema, error) {
+func protoSchema(configClient model.ConfigStore, typ string) (model.ProtoSchema, error) {
 	for _, desc := range configClient.ConfigDescriptor() {
 		switch typ {
+		case crd.ResourceName(desc.Type), crd.ResourceName(desc.Plural):
+			return desc, nil
 		case desc.Type, desc.Plural: // legacy hyphenated resources names
 			return model.ProtoSchema{}, fmt.Errorf("%q not recognized. Please use non-hyphenated resource name %q",
 				typ, crd.ResourceName(typ))
-		case crd.ResourceName(desc.Type), crd.ResourceName(desc.Plural):
-			return desc, nil
 		}
 	}
 	return model.ProtoSchema{}, fmt.Errorf("configuration type %s not found, the types are %v",
@@ -620,9 +642,9 @@ func readInputs() ([]model.Config, []crd.IstioKind, error) {
 }
 
 // Print a simple list of names
-func printShortOutput(_ *crd.Client, configList []model.Config) {
+func printShortOutput(writer io.Writer, _ model.ConfigStore, configList []model.Config) {
 	var w tabwriter.Writer
-	w.Init(os.Stdout, 0, 8, 0, '\t', 0)
+	w.Init(writer, 10, 4, 3, ' ', 0)
 	fmt.Fprintf(&w, "NAME\tKIND\tNAMESPACE\n")
 	for _, c := range configList {
 		kind := fmt.Sprintf("%s.%s.%s",
@@ -636,7 +658,7 @@ func printShortOutput(_ *crd.Client, configList []model.Config) {
 }
 
 // Print as YAML
-func printYamlOutput(configClient *crd.Client, configList []model.Config) {
+func printYamlOutput(writer io.Writer, configClient model.ConfigStore, configList []model.Config) {
 	descriptor := configClient.ConfigDescriptor()
 	for _, config := range configList {
 		schema, exists := descriptor.GetByType(config.Type)
@@ -654,19 +676,19 @@ func printYamlOutput(configClient *crd.Client, configList []model.Config) {
 			log.Errorf("Could not convert %v to YAML: %v", config, err)
 			continue
 		}
-		fmt.Print(string(bytes))
-		fmt.Println("---")
+		fmt.Fprint(writer, string(bytes))
+		fmt.Fprintln(writer, "---")
 	}
 }
 
-func newClient() (*crd.Client, error) {
+func newClient() (model.ConfigStore, error) {
 	// TODO: use model.IstioConfigTypes once model.IngressRule is deprecated
 	return crd.NewClient(kubeconfig, model.ConfigDescriptor{
 		model.RouteRule,
 		model.VirtualService,
 		model.Gateway,
 		model.EgressRule,
-		model.ExternalService,
+		model.ServiceEntry,
 		model.DestinationPolicy,
 		model.DestinationRule,
 		model.HTTPAPISpec,
@@ -679,7 +701,7 @@ func newClient() (*crd.Client, error) {
 	}, "")
 }
 
-func supportedTypes(configClient *crd.Client) []string {
+func supportedTypes(configClient model.ConfigStore) []string {
 	types := configClient.ConfigDescriptor().Types()
 	for i := range types {
 		types[i] = crd.ResourceName(types[i])
@@ -702,11 +724,7 @@ func preprocMixerConfig(configs []crd.IstioKind) error {
 }
 
 func restConfig() (config *rest.Config, err error) {
-	if kubeconfig == "" {
-		config, err = rest.InClusterConfig()
-	} else {
-		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
-	}
+	config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
 
 	if err != nil {
 		return
@@ -777,8 +795,12 @@ func prepareClientForOthers(configs []crd.IstioKind) (*rest.RESTClient, map[stri
 
 func getDefaultNamespace(kubeconfig string) string {
 	configAccess := clientcmd.NewDefaultPathOptions()
-	// use specified kubeconfig file for the location of the config to read
-	configAccess.GlobalFile = kubeconfig
+
+	if kubeconfig != defaultKubeConfigText {
+		// use specified kubeconfig file for the location of the
+		// config to read
+		configAccess.GlobalFile = kubeconfig
+	}
 
 	// gets existing kubeconfig or returns new empty config
 	config, err := configAccess.GetStartingConfig()

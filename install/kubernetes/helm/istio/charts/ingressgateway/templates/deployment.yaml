@@ -25,7 +25,7 @@ spec:
       serviceAccountName: {{ .Values.serviceAccountName }}
       containers:
         - name: {{ template "istio.name" . }}
-          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
+          image: "{{ .Values.global.hub }}/proxyv2:{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
             {{- range $key, $val := .Values.deployment.ports }}
@@ -79,6 +79,7 @@ spec:
           - name: INSTANCE_IP
             valueFrom:
               fieldRef:
+                apiVersion: v1
                 fieldPath: status.podIP
           - name: ISTIO_META_POD_NAME
             valueFrom:
@@ -88,10 +89,21 @@ spec:
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
+          {{- range .Values.deployment.secretVolumes }}
+          - name: {{.name }}
+            mountPath: {{.mountPath | quote}}
+            readOnly: true
+          {{- end }}
       volumes:
       - name: istio-certs
         secret:
           secretName: "istio.default"
           optional: true
+      {{- range .Values.deployment.secretVolumes }}
+      - name: {{.name }}
+        secret:
+          secretName: {{.secretName | quote}}
+          optional: true
+      {{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}

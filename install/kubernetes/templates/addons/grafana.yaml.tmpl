@@ -12,6 +12,17 @@ spec:
   selector:
     app: grafana
 ---
+apiVersion: authentication.istio.io/v1alpha1
+kind: Policy
+metadata:
+  name: grafana-ports-mtls-disabled
+  namespace: {ISTIO_NAMESPACE}
+spec:
+  targets:
+  - name: grafana
+    ports:
+    - number: 3000
+---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:

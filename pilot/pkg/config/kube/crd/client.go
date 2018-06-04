@@ -70,7 +70,7 @@ type Client struct {
 type restClient struct {
 	apiVersion schema.GroupVersion
 
-	// descriptor from the same apiVerion.
+	// descriptor from the same apiVersion.
 	descriptor model.ConfigDescriptor
 
 	// types of the schema and objects in the descriptor.
@@ -134,14 +134,10 @@ func (rc *restClient) init(kubeconfig string) error {
 
 // createRESTConfig for cluster API server, pass empty config file for in-cluster
 func (rc *restClient) createRESTConfig(kubeconfig string) (config *rest.Config, err error) {
-	if kubeconfig == "" {
-		config, err = rest.InClusterConfig()
-	} else {
-		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
-	}
+	config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
 
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	config.GroupVersion = &rc.apiVersion

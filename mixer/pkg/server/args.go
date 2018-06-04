@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/mixer/pkg/template"
+	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
 	"istio.io/istio/pkg/tracing"
@@ -80,8 +81,14 @@ type Args struct {
 	// The path to the file for readiness probe, similar to LivenessProbePath.
 	ReadinessProbeOptions *probe.Options
 
+	// The introspection options to use
+	IntrospectionOptions *ctrlz.Options
+
 	// Port to use for Mixer's gRPC API
 	APIPort uint16
+
+	// Address to use for Mixer's gRPC API. This setting supercedes the API port setting.
+	APIAddress string
 
 	// Port to use for exposing mixer self-monitoring information
 	MonitoringPort uint16
@@ -112,6 +119,7 @@ func DefaultArgs() *Args {
 		TracingOptions:                tracing.DefaultOptions(),
 		LivenessProbeOptions:          &probe.Options{},
 		ReadinessProbeOptions:         &probe.Options{},
+		IntrospectionOptions:          ctrlz.DefaultOptions(),
 		EnableProfiling:               true,
 	}
 }
@@ -137,6 +145,7 @@ func (a *Args) String() string {
 	fmt.Fprint(buf, "APIWorkerPoolSize: ", a.APIWorkerPoolSize, "\n")
 	fmt.Fprint(buf, "AdapterWorkerPoolSize: ", a.AdapterWorkerPoolSize, "\n")
 	fmt.Fprint(buf, "APIPort: ", a.APIPort, "\n")
+	fmt.Fprint(buf, "APIAddress: ", a.APIAddress, "\n")
 	fmt.Fprint(buf, "MonitoringPort: ", a.MonitoringPort, "\n")
 	fmt.Fprint(buf, "EnableProfiling: ", a.EnableProfiling, "\n")
 	fmt.Fprint(buf, "SingleThreaded: ", a.SingleThreaded, "\n")
@@ -146,6 +155,7 @@ func (a *Args) String() string {
 	fmt.Fprint(buf, "ConfigIdentityAttributeDomain: ", a.ConfigIdentityAttributeDomain, "\n")
 	fmt.Fprintf(buf, "LoggingOptions: %#v\n", *a.LoggingOptions)
 	fmt.Fprintf(buf, "TracingOptions: %#v\n", *a.TracingOptions)
+	fmt.Fprintf(buf, "IntrospectionOptions: %#v\n", *a.IntrospectionOptions)
 
 	return buf.String()
 }

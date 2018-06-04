@@ -1,4 +1,4 @@
-# This is used to generate istio.yaml
+# This is used to generate istio.yaml used for deprecated CI/CD testing.
 global:
   # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
   # propagated, not recommended for tests.
@@ -8,6 +8,9 @@ global:
     # Default setting for service-to-service mtls. Can be set explicitly using
     # destination rules or service annotations.
     enabled: true
+
+  proxy:
+    image: proxy
 
   # create RBAC resources. Must be set for any cluster configured with rbac.
   rbacEnabled: true
@@ -21,6 +24,3 @@ global:
 
 istiotesting:
   oneNameSpace: true
-
-prometheus:
-  enabled: true

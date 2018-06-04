@@ -850,16 +850,37 @@ func TestValidateProxyAddress(t *testing.T) {
 }
 
 func TestValidateDuration(t *testing.T) {
-	durations := map[duration.Duration]bool{
-		{Seconds: 1}:              true,
-		{Seconds: 1, Nanos: -1}:   false,
-		{Seconds: -11, Nanos: -1}: false,
-		{Nanos: 1}:                false,
-		{Seconds: 1, Nanos: 1}:    false,
+	type durationCheck struct {
+		duration *duration.Duration
+		isValid  bool
 	}
-	for duration, valid := range durations {
-		if got := ValidateDuration(&duration); (got == nil) != valid {
-			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, valid, got, duration)
+
+	checks := []durationCheck{
+		{
+			duration: &duration.Duration{Seconds: 1},
+			isValid:  true,
+		},
+		{
+			duration: &duration.Duration{Seconds: 1, Nanos: -1},
+			isValid:  false,
+		},
+		{
+			duration: &duration.Duration{Seconds: -11, Nanos: -1},
+			isValid:  false,
+		},
+		{
+			duration: &duration.Duration{Nanos: 1},
+			isValid:  false,
+		},
+		{
+			duration: &duration.Duration{Seconds: 1, Nanos: 1},
+			isValid:  false,
+		},
+	}
+
+	for _, check := range checks {
+		if got := ValidateDuration(check.duration); (got == nil) != check.isValid {
+			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, check.isValid, got, check.duration)
 		}
 	}
 }
@@ -927,27 +948,57 @@ func TestValidateParentAndDrain(t *testing.T) {
 }
 
 func TestValidateRefreshDelay(t *testing.T) {
-	durations := map[duration.Duration]bool{
-		{Seconds: 1}:     true,
-		{Seconds: 36001}: false,
-		{Nanos: 1}:       false,
+	type durationCheck struct {
+		duration *duration.Duration
+		isValid  bool
 	}
-	for duration, valid := range durations {
-		if got := ValidateRefreshDelay(&duration); (got == nil) != valid {
-			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, valid, got, duration)
+
+	checks := []durationCheck{
+		{
+			duration: &duration.Duration{Seconds: 1},
+			isValid:  true,
+		},
+		{
+			duration: &duration.Duration{Seconds: 36001},
+			isValid:  false,
+		},
+		{
+			duration: &duration.Duration{Nanos: 1},
+			isValid:  false,
+		},
+	}
+
+	for _, check := range checks {
+		if got := ValidateRefreshDelay(check.duration); (got == nil) != check.isValid {
+			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, check.isValid, got, check.duration)
 		}
 	}
 }
 
 func TestValidateConnectTimeout(t *testing.T) {
-	durations := map[duration.Duration]bool{
-		{Seconds: 1}:   true,
-		{Seconds: 31}:  false,
-		{Nanos: 99999}: false,
+	type durationCheck struct {
+		duration *duration.Duration
+		isValid  bool
 	}
-	for duration, valid := range durations {
-		if got := ValidateConnectTimeout(&duration); (got == nil) != valid {
-			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, valid, got, duration)
+
+	checks := []durationCheck{
+		{
+			duration: &duration.Duration{Seconds: 1},
+			isValid:  true,
+		},
+		{
+			duration: &duration.Duration{Seconds: 31},
+			isValid:  false,
+		},
+		{
+			duration: &duration.Duration{Nanos: 99999},
+			isValid:  false,
+		},
+	}
+
+	for _, check := range checks {
+		if got := ValidateConnectTimeout(check.duration); (got == nil) != check.isValid {
+			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, check.isValid, got, check.duration)
 		}
 	}
 }
@@ -1070,7 +1121,7 @@ func TestValidateIstioService(t *testing.T) {
 
 	for _, svc := range services {
 		if got := ValidateIstioService(&svc.Service); (got == nil) != svc.Valid {
-			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %s",
+			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v",
 				got == nil, svc.Valid, got, svc.Service)
 		}
 	}
@@ -1113,6 +1164,7 @@ func TestValidateMatchCondition(t *testing.T) {
 
 func TestValidateEgressRuleDomain(t *testing.T) {
 	domains := map[string]bool{
+		"CNN.com":    true,
 		"cnn.com":    true,
 		"cnn..com":   false,
 		"10.0.0.100": true,
@@ -1142,6 +1194,7 @@ func TestValidateEgressRuleDomain(t *testing.T) {
 
 func TestValidateEgressRuleService(t *testing.T) {
 	services := map[string]bool{
+		"CNN.com":        true,
 		"cnn.com":        true,
 		"cnn..com":       false,
 		"10.0.0.100":     true,
@@ -2363,6 +2416,14 @@ func TestValidateVirtualService(t *testing.T) {
 				}},
 			}},
 		}, valid: true},
+		{name: "duplicate hosts", in: &networking.VirtualService{
+			Hosts: []string{"*.foo.bar", "*.bar"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.DestinationWeight{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: false},
 		{name: "no hosts", in: &networking.VirtualService{
 			Hosts: nil,
 			Http: []*networking.HTTPRoute{{
@@ -2391,6 +2452,23 @@ func TestValidateVirtualService(t *testing.T) {
 				}},
 			}},
 		}, valid: false},
+		{name: "wildcard for mesh gateway", in: &networking.VirtualService{
+			Hosts: []string{"*"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.DestinationWeight{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: false},
+		{name: "wildcard for non-mesh gateway", in: &networking.VirtualService{
+			Hosts:    []string{"*"},
+			Gateways: []string{"somegateway"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.DestinationWeight{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: true},
 	}
 
 	for _, tc := range testCases {
@@ -2732,224 +2810,299 @@ func TestValidateOutlierDetection(t *testing.T) {
 	}
 }
 
-func TestValidateExternalServices(t *testing.T) {
+func TestValidateServiceEntries(t *testing.T) {
 	cases := []struct {
 		name  string
-		in    networking.ExternalService
+		in    networking.ServiceEntry
 		valid bool
 	}{
-		{name: "discovery type DNS", in: networking.ExternalService{
+		{name: "discovery type DNS", in: networking.ServiceEntry{
 			Hosts: []string{"*.google.com"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ExternalService_Endpoint{
+			Endpoints: []*networking.ServiceEntry_Endpoint{
 				{Address: "lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
-			Discovery: networking.ExternalService_DNS,
+			Resolution: networking.ServiceEntry_DNS,
 		},
 			valid: true},
 
-		{name: "discovery type DNS, IP in endpoints", in: networking.ExternalService{
+		{name: "discovery type DNS, IP in endpoints", in: networking.ServiceEntry{
 			Hosts: []string{"*.google.com"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ExternalService_Endpoint{
+			Endpoints: []*networking.ServiceEntry_Endpoint{
 				{Address: "1.1.1.1", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
-			Discovery: networking.ExternalService_DNS,
+			Resolution: networking.ServiceEntry_DNS,
 		},
 			valid: true},
 
-		{name: "empty hosts", in: networking.ExternalService{
+		{name: "empty hosts", in: networking.ServiceEntry{
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 			},
-			Endpoints: []*networking.ExternalService_Endpoint{
+			Endpoints: []*networking.ServiceEntry_Endpoint{
 				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
-			Discovery: networking.ExternalService_DNS,
+			Resolution: networking.ServiceEntry_DNS,
 		},
 			valid: false},
 
-		{name: "bad hosts", in: networking.ExternalService{
+		{name: "bad hosts", in: networking.ServiceEntry{
 			Hosts: []string{"-"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 			},
-			Endpoints: []*networking.ExternalService_Endpoint{
+			Endpoints: []*networking.ServiceEntry_Endpoint{
 				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
-			Discovery: networking.ExternalService_DNS,
+			Resolution: networking.ServiceEntry_DNS,
 		},
 			valid: false},
-
-		{name: "undefined endpoint port", in: networking.ExternalService{
+		{name: "full wildcard host", in: networking.ServiceEntry{
+			Hosts: []string{"foo.com", "*"},
+			Ports: []*networking.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+			},
+			Endpoints: []*networking.ServiceEntry_Endpoint{
+				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
+			},
+			Resolution: networking.ServiceEntry_DNS,
+		},
+			valid: false},
+		{name: "short name host", in: networking.ServiceEntry{
+			Hosts: []string{"foo", "bar.com"},
+			Ports: []*networking.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+			},
+			Endpoints: []*networking.ServiceEntry_Endpoint{
+				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
+			},
+			Resolution: networking.ServiceEntry_DNS,
+		},
+			valid: false},
+		{name: "undefined endpoint port", in: networking.ServiceEntry{
 			Hosts: []string{"google.com"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 80, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ExternalService_Endpoint{
+			Endpoints: []*networking.ServiceEntry_Endpoint{
 				{Address: "lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "in.google.com", Ports: map[string]uint32{"http-dne": 9080}},
 			},
-			Discovery: networking.ExternalService_DNS,
+			Resolution: networking.ServiceEntry_DNS,
 		},
 			valid: false},
 
-		{name: "discovery type DNS, non-FQDN endpoint", in: networking.ExternalService{
+		{name: "discovery type DNS, non-FQDN endpoint", in: networking.ServiceEntry{
 			Hosts: []string{"*.google.com"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ExternalService_Endpoint{
+			Endpoints: []*networking.ServiceEntry_Endpoint{
 				{Address: "*.lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "in.google.com", Ports: map[string]uint32{"http-dne": 9080}},
 			},
-			Discovery: networking.ExternalService_DNS,
+			Resolution: networking.ServiceEntry_DNS,
 		},
 			valid: false},
 
-		{name: "discovery type DNS, non-FQDN host", in: networking.ExternalService{
+		{name: "discovery type DNS, non-FQDN host", in: networking.ServiceEntry{
 			Hosts: []string{"*.google.com"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
 
-			Discovery: networking.ExternalService_DNS,
+			Resolution: networking.ServiceEntry_DNS,
 		},
 			valid: false},
 
-		{name: "discovery type DNS, no endpoints", in: networking.ExternalService{
+		{name: "discovery type DNS, no endpoints", in: networking.ServiceEntry{
 			Hosts: []string{"google.com"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
 
-			Discovery: networking.ExternalService_DNS,
+			Resolution: networking.ServiceEntry_DNS,
 		},
 			valid: true},
 
-		{name: "discovery type none", in: networking.ExternalService{
+		{name: "discovery type DNS, unix endpoint", in: networking.ServiceEntry{
+			Hosts: []string{"*.google.com"},
+			Ports: []*networking.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+			},
+			Endpoints: []*networking.ServiceEntry_Endpoint{
+				{Address: "unix:///lon/google/com"},
+			},
+			Resolution: networking.ServiceEntry_DNS,
+		},
+			valid: false},
+
+		{name: "discovery type none", in: networking.ServiceEntry{
 			Hosts: []string{"google.com"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Discovery: networking.ExternalService_NONE,
+			Resolution: networking.ServiceEntry_NONE,
 		},
 			valid: true},
 
-		{name: "discovery type none, endpoints provided", in: networking.ExternalService{
+		{name: "discovery type none, endpoints provided", in: networking.ServiceEntry{
 			Hosts: []string{"google.com"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ExternalService_Endpoint{
+			Endpoints: []*networking.ServiceEntry_Endpoint{
 				{Address: "lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}},
 			},
-			Discovery: networking.ExternalService_NONE,
+			Resolution: networking.ServiceEntry_NONE,
 		},
 			valid: false},
 
-		{name: "discovery type DNS, non-FQDN host", in: networking.ExternalService{
-			Hosts: []string{"*.google.com"},
+		{name: "discovery type static", in: networking.ServiceEntry{
+			Hosts:     []string{"google.com"},
+			Addresses: []string{"172.1.2.16/16"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-
-			Discovery: networking.ExternalService_DNS,
-		},
-			valid: false},
-
-		{name: "discovery type static", in: networking.ExternalService{
-			Hosts: []string{"172.1.2.16/16"},
-			Ports: []*networking.Port{
-				{Number: 80, Protocol: "http", Name: "http-valid1"},
-				{Number: 8080, Protocol: "http", Name: "http-valid2"},
-			},
-			Endpoints: []*networking.ExternalService_Endpoint{
+			Endpoints: []*networking.ServiceEntry_Endpoint{
 				{Address: "1.1.1.1", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "2.2.2.2", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
-			Discovery: networking.ExternalService_STATIC,
+			Resolution: networking.ServiceEntry_STATIC,
 		},
 			valid: true},
 
-		{name: "discovery type static, FQDN in endpoints", in: networking.ExternalService{
-			Hosts: []string{"172.1.2.16/16"},
+		{name: "discovery type static, FQDN in endpoints", in: networking.ServiceEntry{
+			Hosts:     []string{"google.com"},
+			Addresses: []string{"172.1.2.16/16"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ExternalService_Endpoint{
+			Endpoints: []*networking.ServiceEntry_Endpoint{
 				{Address: "google.com", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "2.2.2.2", Ports: map[string]uint32{"http-valid2": 9080}},
 			},
-			Discovery: networking.ExternalService_STATIC,
+			Resolution: networking.ServiceEntry_STATIC,
 		},
 			valid: false},
 
-		{name: "discovery type static, missing endpoints", in: networking.ExternalService{
-			Hosts: []string{"172.1.2.16/16"},
+		{name: "discovery type static, missing endpoints", in: networking.ServiceEntry{
+			Hosts:     []string{"google.com"},
+			Addresses: []string{"172.1.2.16/16"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Discovery: networking.ExternalService_STATIC,
+			Resolution: networking.ServiceEntry_STATIC,
 		},
 			valid: false},
 
-		{name: "discovery type static, bad endpoint port name", in: networking.ExternalService{
-			Hosts: []string{"172.1.2.16/16"},
+		{name: "discovery type static, bad endpoint port name", in: networking.ServiceEntry{
+			Hosts:     []string{"google.com"},
+			Addresses: []string{"172.1.2.16/16"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ExternalService_Endpoint{
+			Endpoints: []*networking.ServiceEntry_Endpoint{
 				{Address: "1.1.1.1", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "2.2.2.2", Ports: map[string]uint32{"http-dne": 9080}},
 			},
-			Discovery: networking.ExternalService_STATIC,
+			Resolution: networking.ServiceEntry_STATIC,
 		},
 			valid: false},
 
-		{name: "discovery type none, conflicting port names", in: networking.ExternalService{
+		{name: "discovery type none, conflicting port names", in: networking.ServiceEntry{
 			Hosts: []string{"google.com"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-conflict"},
 				{Number: 8080, Protocol: "http", Name: "http-conflict"},
 			},
-			Discovery: networking.ExternalService_NONE,
+			Resolution: networking.ServiceEntry_NONE,
 		},
 			valid: false},
 
-		{name: "discovery type none, conflicting port numbers", in: networking.ExternalService{
+		{name: "discovery type none, conflicting port numbers", in: networking.ServiceEntry{
 			Hosts: []string{"google.com"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-conflict1"},
 				{Number: 80, Protocol: "http", Name: "http-conflict2"},
 			},
-			Discovery: networking.ExternalService_NONE,
+			Resolution: networking.ServiceEntry_NONE,
+		},
+			valid: false},
+
+		{name: "unix socket", in: networking.ServiceEntry{
+			Hosts: []string{"uds.cluster.local"},
+			Ports: []*networking.Port{
+				{Number: 6553, Protocol: "grpc", Name: "grpc-service1"},
+			},
+			Resolution: networking.ServiceEntry_STATIC,
+			Endpoints: []*networking.ServiceEntry_Endpoint{
+				{Address: "unix:///path/to/socket"},
+			},
+		},
+			valid: true},
+
+		{name: "unix socket, relative path", in: networking.ServiceEntry{
+			Hosts: []string{"uds.cluster.local"},
+			Ports: []*networking.Port{
+				{Number: 6553, Protocol: "grpc", Name: "grpc-service1"},
+			},
+			Resolution: networking.ServiceEntry_STATIC,
+			Endpoints: []*networking.ServiceEntry_Endpoint{
+				{Address: "unix://./relative/path.sock"},
+			},
+		},
+			valid: false},
+
+		{name: "unix socket, endpoint ports", in: networking.ServiceEntry{
+			Hosts: []string{"uds.cluster.local"},
+			Ports: []*networking.Port{
+				{Number: 6553, Protocol: "grpc", Name: "grpc-service1"},
+			},
+			Resolution: networking.ServiceEntry_STATIC,
+			Endpoints: []*networking.ServiceEntry_Endpoint{
+				{Address: "unix:///path/to/socket", Ports: map[string]uint32{"grpc-service1": 6553}},
+			},
+		},
+			valid: false},
+
+		{name: "unix socket, multiple service ports", in: networking.ServiceEntry{
+			Hosts: []string{"uds.cluster.local"},
+			Ports: []*networking.Port{
+				{Number: 6553, Protocol: "grpc", Name: "grpc-service1"},
+				{Number: 80, Protocol: "http", Name: "http-service2"},
+			},
+			Resolution: networking.ServiceEntry_STATIC,
+			Endpoints: []*networking.ServiceEntry_Endpoint{
+				{Address: "unix:///path/to/socket"},
+			},
 		},
 			valid: false},
 	}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := ValidateExternalService(&c.in); (got == nil) != c.valid {
-				t.Errorf("ValidateExternalService got valid=%v but wanted valid=%v: %v",
+			if got := ValidateServiceEntry(&c.in); (got == nil) != c.valid {
+				t.Errorf("ValidateServiceEntry got valid=%v but wanted valid=%v: %v",
 					got == nil, c.valid, got)
 			}
 		})
@@ -3324,5 +3477,44 @@ func TestValidateServiceRoleBinding(t *testing.T) {
 		} else if err.Error() != c.expectErrMsg {
 			t.Errorf("ValidateServiceRoleBinding(%v): got %q but want %q\n", c.name, err.Error(), c.expectErrMsg)
 		}
+	}
+}
+
+func TestValidateNetworkEndpointAddress(t *testing.T) {
+	testCases := []struct {
+		name  string
+		ne    *NetworkEndpoint
+		valid bool
+	}{
+		{
+			"Unix OK",
+			&NetworkEndpoint{Family: AddressFamilyUnix, Address: "/absolute/path"},
+			true,
+		},
+		{
+			"IP OK",
+			&NetworkEndpoint{Address: "12.3.4.5", Port: 76},
+			true,
+		},
+		{
+			"Unix not absolute",
+			&NetworkEndpoint{Family: AddressFamilyUnix, Address: "./socket"},
+			false,
+		},
+		{
+			"IP invalid",
+			&NetworkEndpoint{Address: "260.3.4.5", Port: 76},
+			false,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateNetworkEndpointAddress(tc.ne)
+			if tc.valid && err != nil {
+				t.Fatalf("ValidateAddress() => want error nil got %v", err)
+			} else if !tc.valid && err == nil {
+				t.Fatalf("ValidateAddress() => want error got nil")
+			}
+		})
 	}
 }

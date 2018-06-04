@@ -19,12 +19,10 @@ import (
 	"net"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/gogo/protobuf/types"
-	"github.com/prometheus/common/log"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
@@ -33,6 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
+	"istio.io/istio/pkg/log"
 )
 
 // Plugin is a mixer plugin.
@@ -45,10 +44,6 @@ func NewPlugin() plugin.Plugin {
 
 // OnOutboundListener implements the Callbacks interface method.
 func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
-	if in.Service == nil || !in.Service.MeshExternal {
-		return nil
-	}
-
 	env := in.Env
 	node := in.Node
 	proxyInstances := in.ProxyInstances
@@ -56,13 +51,13 @@ func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mutable
 	switch in.ListenerType {
 	case plugin.ListenerTypeHTTP:
 		for cnum := range mutable.FilterChains {
-			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, buildMixerHTTPFilter(env, node, proxyInstances, true))
+			m := buildMixerHTTPFilter(env, node, proxyInstances, true)
+			if m != nil {
+				mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, m)
+			}
 		}
 		return nil
 	case plugin.ListenerTypeTCP:
-		for cnum := range mutable.FilterChains {
-			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, buildMixerOutboundTCPFilter(env, node))
-		}
 		return nil
 	}
 
@@ -84,7 +79,10 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 		return nil
 	case plugin.ListenerTypeTCP:
 		for cnum := range mutable.FilterChains {
-			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, buildMixerInboundTCPFilter(env, node, instance))
+			m := buildMixerInboundTCPFilter(env, node, instance)
+			if m != nil {
+				mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, *m)
+			}
 		}
 		return nil
 	}
@@ -122,14 +120,11 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConfigura
 			var nrs []route.Route
 			for _, r := range vh.Routes {
 				nr := r
-				if nr.Metadata == nil {
-					nr.Metadata = &core.Metadata{}
+				if nr.PerFilterConfig == nil {
+					nr.PerFilterConfig = make(map[string]*types.Struct)
 				}
-				if nr.Metadata.FilterMetadata == nil {
-					nr.Metadata.FilterMetadata = make(map[string]*types.Struct)
-				}
-				nr.Metadata.FilterMetadata[v1.MixerFilter] =
-					util.BuildProtoStruct(v1.BuildMixerOpaqueConfig(!in.Env.Mesh.DisablePolicyChecks, forward, in.ServiceInstance.Service.Hostname))
+				nr.PerFilterConfig[v1.MixerFilter] = util.MessageToStruct(
+					buildMixerPerRouteConfig(in, false, forward, in.ServiceInstance.Service.Hostname.String()))
 				nrs = append(nrs, nr)
 			}
 			nvh.Routes = nrs
@@ -142,7 +137,39 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConfigura
 	default:
 		log.Warn("Unknown listener type in mixer#OnOutboundRouteConfiguration")
 	}
+}
 
+func buildMixerPerRouteConfig(in *plugin.InputParams, outboundRoute bool, _ /*disableForward*/ bool, destinationService string) *mccpb.ServiceConfig {
+	role := in.Node
+	nodeInstances := in.ProxyInstances
+	disableCheck := in.Env.Mesh.DisablePolicyChecks
+	config := in.Env.IstioConfigStore
+
+	out := v1.ServiceConfig(in.Service.Hostname.String(), in.ServiceInstance, config, disableCheck, false)
+	// Report calls are never disabled. Disable forward is currently not in the proto.
+	out.DisableCheckCalls = disableCheck
+
+	if destinationService != "" {
+		out.MixerAttributes = &mpb.Attributes{}
+		out.MixerAttributes.Attributes = map[string]*mpb.Attributes_AttributeValue{
+			v1.AttrDestinationService: {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: destinationService}},
+		}
+	}
+
+	var labels map[string]string
+	// Note: instances are all running on mode.Node named 'role'
+	// So instance labels are the workload / Node labels.
+	if len(nodeInstances) > 0 {
+		labels = nodeInstances[0].Labels
+	}
+
+	if !outboundRoute || role.Type == model.Router {
+		// for outboundRoutes there are no default MixerAttributes except for gateway.
+		// specific MixerAttributes are in per route configuration.
+		v1.AddStandardNodeAttributes(out.MixerAttributes.Attributes, v1.AttrDestinationPrefix, role.IPAddress, role.ID, labels)
+	}
+
+	return out
 }
 
 // buildMixerHTTPFilter builds a filter with a v1 mixer config encapsulated as JSON in a proto.Struct for v2 consumption.
@@ -151,7 +178,7 @@ func buildMixerHTTPFilter(env *model.Environment, node *model.Proxy,
 	mesh := env.Mesh
 	config := env.IstioConfigStore
 	if mesh.MixerCheckServer == "" && mesh.MixerReportServer == "" {
-		return &http_conn.HttpFilter{}
+		return nil
 	}
 
 	c := buildHTTPMixerFilterConfig(mesh, *node, proxyInstances, outbound, config)
@@ -162,24 +189,26 @@ func buildMixerHTTPFilter(env *model.Environment, node *model.Proxy,
 }
 
 // buildMixerInboundTCPFilter builds a filter with a v1 mixer config encapsulated as JSON in a proto.Struct for v2 consumption.
-func buildMixerInboundTCPFilter(env *model.Environment, node *model.Proxy, instance *model.ServiceInstance) listener.Filter {
+func buildMixerInboundTCPFilter(env *model.Environment, node *model.Proxy, instance *model.ServiceInstance) *listener.Filter {
 	mesh := env.Mesh
 	if mesh.MixerCheckServer == "" && mesh.MixerReportServer == "" {
-		return listener.Filter{}
+		return nil
 	}
 
 	c := buildTCPMixerFilterConfig(mesh, *node, instance)
-	return listener.Filter{
+	return &listener.Filter{
 		Name:   v1.MixerFilter,
 		Config: util.MessageToStruct(c),
 	}
 }
 
-// buildMixerOutboundTCPFilter builds a filter with a v1 mixer config encapsulated as JSON in a proto.Struct for v2 consumption.
-func buildMixerOutboundTCPFilter(env *model.Environment, node *model.Proxy) listener.Filter {
-	// TODO(mostrowski): implementation
-	return listener.Filter{}
-}
+// defined in install/kubernetes/helm/istio/charts/mixer/templates/service.yaml
+const (
+	//mixerPortName       = "grpc-mixer"
+	mixerPortNumber = 9091
+	//mixerMTLSPortName   = "grpc-mixer-mtls"
+	mixerMTLSPortNumber = 15004
+)
 
 // buildHTTPMixerFilterConfig builds a mixer HTTP filter config. Mixer filter uses outbound configuration by default
 // (forward attributes, but not invoke check calls)  ServiceInstances belong to the Node.
@@ -187,10 +216,15 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 	mcs, _, _ := net.SplitHostPort(mesh.MixerCheckServer)
 	mrs, _, _ := net.SplitHostPort(mesh.MixerReportServer)
 
+	port := mixerPortNumber
+	if mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS {
+		port = mixerMTLSPortNumber
+	}
+
 	// TODO: derive these port types.
 	transport := &mccpb.TransportConfig{
-		CheckCluster:  model.BuildSubsetKey(model.TrafficDirectionOutbound, "", mcs, &model.Port{Name: "http2-mixer"}),
-		ReportCluster: model.BuildSubsetKey(model.TrafficDirectionOutbound, "", mrs, &model.Port{Name: "http2-mixer"}),
+		CheckCluster:  model.BuildSubsetKey(model.TrafficDirectionOutbound, "", model.Hostname(mcs), port),
+		ReportCluster: model.BuildSubsetKey(model.TrafficDirectionOutbound, "", model.Hostname(mrs), port),
 	}
 
 	mxConfig := &mccpb.HttpClientConfig{
@@ -206,11 +240,11 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 	// So instance labels are the workload / Node labels.
 	if len(nodeInstances) > 0 {
 		labels = nodeInstances[0].Labels
-		mxConfig.DefaultDestinationService = nodeInstances[0].Service.Hostname
+		mxConfig.DefaultDestinationService = nodeInstances[0].Service.Hostname.String()
 	}
 
-	if !outboundRoute {
-		// for outboundRoutes there are no default MixerAttributes
+	if !outboundRoute || role.Type == model.Router {
+		// for outboundRoutes there are no default MixerAttributes except for gateway.
 		// specific MixerAttributes are in per route configuration.
 		v1.AddStandardNodeAttributes(mxConfig.MixerAttributes.Attributes, v1.AttrDestinationPrefix, role.IPAddress, role.ID, labels)
 	}
@@ -224,9 +258,14 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 		addStandardNodeAttributes(mxConfig.ForwardAttributes.Attributes, v1.AttrSourcePrefix, role.IPAddress, role.ID, labels)
 	}
 
+	// gateway case is special because upstream listeners are considered outbound, however we don't want to
+	// automatically disable policy / report.
+	disablePolicy := (outboundRoute && role.Type != model.Router) || mesh.DisablePolicyChecks
+	disableReport := outboundRoute && role.Type != model.Router
+
 	for _, instance := range nodeInstances {
-		mxConfig.ServiceConfigs[instance.Service.Hostname] = v1.ServiceConfig(instance.Service.Hostname, instance, config,
-			outboundRoute || mesh.DisablePolicyChecks, outboundRoute)
+		mxConfig.ServiceConfigs[instance.Service.Hostname.String()] = v1.ServiceConfig(instance.Service.Hostname.String(), instance, config,
+			disablePolicy, disableReport)
 	}
 
 	return mxConfig
@@ -235,16 +274,26 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 // buildTCPMixerFilterConfig builds a TCP filter config for inbound requests.
 func buildTCPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, instance *model.ServiceInstance) *mccpb.TcpClientConfig {
 	attrs := v1.StandardNodeAttributes(v1.AttrDestinationPrefix, role.IPAddress, role.ID, nil)
-	attrs[v1.AttrDestinationService] = &mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_StringValue{instance.Service.Hostname}}
+	attrs[v1.AttrDestinationService] = &mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_StringValue{instance.Service.Hostname.String()}}
+
+	mcs, _, _ := net.SplitHostPort(mesh.MixerCheckServer)
+	mrs, _, _ := net.SplitHostPort(mesh.MixerReportServer)
+
+	port := mixerPortNumber
+	if mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS {
+		port = mixerMTLSPortNumber
+	}
+
+	transport := &mccpb.TransportConfig{
+		CheckCluster:  model.BuildSubsetKey(model.TrafficDirectionOutbound, "", model.Hostname(mcs), port),
+		ReportCluster: model.BuildSubsetKey(model.TrafficDirectionOutbound, "", model.Hostname(mrs), port),
+	}
 
 	mxConfig := &mccpb.TcpClientConfig{
 		MixerAttributes: &mpb.Attributes{
 			Attributes: attrs,
 		},
-		Transport: &mccpb.TransportConfig{
-			CheckCluster:  v1.MixerCheckClusterName,
-			ReportCluster: v1.MixerReportClusterName,
-		},
+		Transport:         transport,
 		DisableCheckCalls: mesh.DisablePolicyChecks,
 	}
 

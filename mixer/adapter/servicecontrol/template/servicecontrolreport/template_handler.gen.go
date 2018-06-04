@@ -23,19 +23,11 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 )
 
-// The `servicecontrolreport` template is used by the [Google Service Control](https://istio.io/docs/reference/config/adapters/servicecontrol.html)
+// The `servicecontrolreport` template is used by the [Google Service Control](https://istio.io/docs/reference/config/policy-and-telemetry/adapters/servicecontrol/)
 // adapter.
-
-// Fully qualified name of the template
-const TemplateName = "servicecontrolreport"
-
-// Instance is constructed by Mixer for the 'servicecontrolreport' template.
 //
-// A template used by Google Service Control (servicecontrol) adapter. The adapter
-// generates metrics and logentry for each request based on the data point
-// defined by this template.
+// Example config:
 //
-// Config example:
 // ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
 // kind: servicecontrolreport
@@ -57,6 +49,15 @@ const TemplateName = "servicecontrolreport"
 //   response_bytes : response.size | 0
 //   response_latency : response.duration | "0ms"
 // ```
+
+// Fully qualified name of the template
+const TemplateName = "servicecontrolreport"
+
+// Instance is constructed by Mixer for the 'servicecontrolreport' template.
+//
+// A template used by Google Service Control (servicecontrol) adapter. The adapter
+// generates metrics and logentry for each request based on the data point
+// defined by this template.
 type Instance struct {
 	// Name of the instance as specified in configuration.
 	Name string

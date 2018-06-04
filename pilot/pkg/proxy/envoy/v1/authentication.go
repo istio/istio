@@ -28,7 +28,7 @@ import (
 
 // buildJwtFilter returns a Jwt filter for all Jwt specs in the policy.
 func buildJwtFilter(policy *authn.Policy) *HTTPFilter {
-	filterConfigProto := authn_plugin.ConvertPolicyToJwtConfig(policy)
+	filterConfigProto := authn_plugin.ConvertPolicyToJwtConfig(policy, false /*useInlinePublicKey*/)
 	if filterConfigProto == nil {
 		return nil
 	}
@@ -102,7 +102,7 @@ func buildJwksURIClusters(jwtSpecs []*authn.Jwt, timeout *duration.Duration) Clu
 
 	var clusters Clusters
 	for _, auth := range jwksClusters {
-		cluster := BuildOutboundCluster(auth.hostname, auth.port, nil /* labels */, true /* external */)
+		cluster := BuildOutboundCluster(model.Hostname(auth.hostname), auth.port, nil /* labels */, true /* external */)
 		cluster.Name = authn_plugin.JwksURIClusterName(auth.hostname, auth.port)
 		cluster.CircuitBreaker = &CircuitBreaker{
 			Default: DefaultCBPriority{

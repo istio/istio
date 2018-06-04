@@ -119,7 +119,7 @@ func OutputLocationForJwtIssuer(issuer string) string {
 }
 
 // ConvertPolicyToJwtConfig converts policy into Jwt filter config for envoy.
-func ConvertPolicyToJwtConfig(policy *authn.Policy) *jwtfilter.JwtAuthentication {
+func ConvertPolicyToJwtConfig(policy *authn.Policy, useInlinePublicKey bool) *jwtfilter.JwtAuthentication {
 	policyJwts := CollectJwtSpecs(policy)
 	if len(policyJwts) == 0 {
 		return nil
@@ -128,16 +128,41 @@ func ConvertPolicyToJwtConfig(policy *authn.Policy) *jwtfilter.JwtAuthentication
 		AllowMissingOrFailed: true,
 	}
 	for _, policyJwt := range policyJwts {
-		hostname, port, _, err := model.ParseJwksURI(policyJwt.JwksUri)
-		if err != nil {
-			log.Errorf("Cannot parse jwks_uri %q: %v", policyJwt.JwksUri, err)
-			continue
+		jwt := &jwtfilter.JwtRule{
+			Issuer:               policyJwt.Issuer,
+			Audiences:            policyJwt.Audiences,
+			ForwardPayloadHeader: OutputLocationForJwtIssuer(policyJwt.Issuer),
+			Forward:              true,
 		}
 
-		jwt := &jwtfilter.JwtRule{
-			Issuer:    policyJwt.Issuer,
-			Audiences: policyJwt.Audiences,
-			JwksSourceSpecifier: &jwtfilter.JwtRule_RemoteJwks{
+		for _, location := range policyJwt.JwtHeaders {
+			jwt.FromHeaders = append(jwt.FromHeaders, &jwtfilter.JwtHeader{
+				Name: location,
+			})
+		}
+		jwt.FromParams = policyJwt.JwtParams
+
+		if useInlinePublicKey {
+			jwtPubKey, err := model.JwtKeyResolver.GetPublicKey(policyJwt.JwksUri)
+			if err != nil {
+				log.Warnf("Failed to fetch jwt public key from %q", policyJwt.JwksUri)
+			}
+
+			// Put empty string in config even if above ResolveJwtPubKey fails.
+			jwt.JwksSourceSpecifier = &jwtfilter.JwtRule_LocalJwks{
+				LocalJwks: &core.DataSource{
+					Specifier: &core.DataSource_InlineString{
+						InlineString: jwtPubKey,
+					},
+				},
+			}
+		} else {
+			hostname, port, _, err := model.ParseJwksURI(policyJwt.JwksUri)
+			if err != nil {
+				log.Warnf("Cannot parse jwks_uri %q: %v", policyJwt.JwksUri, err)
+			}
+
+			jwt.JwksSourceSpecifier = &jwtfilter.JwtRule_RemoteJwks{
 				RemoteJwks: &jwtfilter.RemoteJwks{
 					HttpUri: &core.HttpUri{
 						Uri: policyJwt.JwksUri,
@@ -147,16 +172,9 @@ func ConvertPolicyToJwtConfig(policy *authn.Policy) *jwtfilter.JwtAuthentication
 					},
 					CacheDuration: &types.Duration{Seconds: jwtPublicKeyCacheSeconds},
 				},
-			},
-			ForwardPayloadHeader: OutputLocationForJwtIssuer(policyJwt.Issuer),
-			Forward:              true,
+			}
 		}
-		for _, location := range policyJwt.JwtHeaders {
-			jwt.FromHeaders = append(jwt.FromHeaders, &jwtfilter.JwtHeader{
-				Name: location,
-			})
-		}
-		jwt.FromParams = policyJwt.JwtParams
+
 		ret.Rules = append(ret.Rules, jwt)
 	}
 	return ret
@@ -194,7 +212,8 @@ func ConvertPolicyToAuthNFilterConfig(policy *authn.Policy) *authn_filter.Filter
 
 // BuildJwtFilter returns a Jwt filter for all Jwt specs in the policy.
 func BuildJwtFilter(policy *authn.Policy) *http_conn.HttpFilter {
-	filterConfigProto := ConvertPolicyToJwtConfig(policy)
+	// v2 api will use inline public key.
+	filterConfigProto := ConvertPolicyToJwtConfig(policy, true /*useInlinePublicKey*/)
 	if filterConfigProto == nil {
 		return nil
 	}
@@ -214,15 +233,6 @@ func BuildAuthNFilter(policy *authn.Policy) *http_conn.HttpFilter {
 		Name:   AuthnFilterName,
 		Config: util.MessageToStruct(filterConfigProto),
 	}
-}
-
-func isDestinationExcludedForMTLS(destService string, mtlsExcludedServices []string) bool {
-	for _, serviceName := range mtlsExcludedServices {
-		if destService == serviceName {
-			return true
-		}
-	}
-	return false
 }
 
 // buildSidecarListenerTLSContext adds TLS to the listener if the policy requires one.
@@ -315,47 +325,4 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, route *xdsapi.
 // OnOutboundCluster implements the Plugin interface method.
 func (Plugin) OnOutboundCluster(env model.Environment, node model.Proxy, service *model.Service,
 	servicePort *model.Port, cluster *xdsapi.Cluster) {
-	mesh := env.Mesh
-	config := env.IstioConfigStore
-
-	// Original DST cluster are used to route to services outside the mesh
-	// where Istio auth does not apply.
-	if cluster.Type == xdsapi.Cluster_ORIGINAL_DST {
-		return
-	}
-
-	required, _ := RequireTLS(model.GetConsolidateAuthenticationPolicy(mesh, config, service.Hostname, servicePort))
-	if isDestinationExcludedForMTLS(service.Hostname, mesh.MtlsExcludedServices) || !required {
-		return
-	}
-
-	// apply auth policies
-	serviceAccounts := env.ServiceAccounts.GetIstioServiceAccounts(service.Hostname, []string{servicePort.Name})
-
-	cluster.TlsContext = &auth.UpstreamTlsContext{
-		CommonTlsContext: &auth.CommonTlsContext{
-			TlsCertificates: []*auth.TlsCertificate{
-				{
-					CertificateChain: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: model.AuthCertsPath + model.CertChainFilename,
-						},
-					},
-					PrivateKey: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: model.AuthCertsPath + model.KeyFilename,
-						},
-					},
-				},
-			},
-			ValidationContext: &auth.CertificateValidationContext{
-				TrustedCa: &core.DataSource{
-					Specifier: &core.DataSource_Filename{
-						Filename: model.AuthCertsPath + model.RootCertFilename,
-					},
-				},
-				VerifySubjectAltName: serviceAccounts,
-			},
-		},
-	}
 }

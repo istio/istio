@@ -41,7 +41,7 @@ const deltaReportAttributesOkPost = `
   "connection.sent.bytes": 0,
   "connection.sent.bytes_total": 0,
   "connection.id": "*",
-	"connection.event": "continue"
+  "connection.event": "continue"
 }
 `
 const finalReportAttributesOkPost = `
@@ -64,7 +64,7 @@ const finalReportAttributesOkPost = `
   "connection.sent.bytes_total": 138,
   "connection.duration": "*",
   "connection.id": "*",
-	"connection.event": "continue"
+  "connection.event": "close"
 }
 `
 
@@ -81,6 +81,9 @@ var expectedStats = map[string]int{
 }
 
 func TestTCPMixerFilterPeriodicalReport(t *testing.T) {
+	// https://github.com/istio/istio/issues/5696 skip all TCP tests.
+	t.Skip("issue https://github.com/istio/istio/issues/5696")
+
 	s := env.NewTestSetup(env.TCPMixerFilterPeriodicalReportTest, t)
 	env.SetTCPReportInterval(s.MfConfig().TCPServerConf, 2)
 	env.SetStatsUpdateInterval(s.MfConfig(), 1)

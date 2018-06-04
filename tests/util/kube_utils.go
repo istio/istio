@@ -46,6 +46,12 @@ const (
 	// The index of STATUS field in kubectl CLI output.
 	statusField          = 2
 	defaultClusterSubnet = "24"
+
+	// NodePortServiceType NodePort type of Kubernetes Service
+	NodePortServiceType = "NodePort"
+
+	// LoadBalancerServiceType LoadBalancer type of Kubernetes Service
+	LoadBalancerServiceType = "LoadBalancer"
 )
 
 var (
@@ -142,6 +148,31 @@ func KubeApply(namespace, yamlFileName string, kubeconfig string) error {
 	return err
 }
 
+// HelmInit init helm with a service account
+func HelmInit(serviceAccount string) error {
+	_, err := Shell("helm init --upgrade --service-account %s", serviceAccount)
+	return err
+}
+
+// HelmInstallDryRun helm install dry run from a chart for a given namespace
+func HelmInstallDryRun(chartDir, chartName, namespace, setValue string) error {
+	_, err := Shell("helm install --dry-run --debug %s --name %s --namespace %s %s", chartDir, chartName, namespace, setValue)
+	return err
+}
+
+// HelmInstall helm install from a chart for a given namespace
+//       --set stringArray        set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
+func HelmInstall(chartDir, chartName, namespace, setValue string) error {
+	_, err := Shell("helm install %s --name %s --namespace %s %s", chartDir, chartName, namespace, setValue)
+	return err
+}
+
+// HelmDelete helm del --purge a chart
+func HelmDelete(chartName string) error {
+	_, err := Shell("helm del --purge %s", chartName)
+	return err
+}
+
 // KubeDeleteContents kubectl apply from contents
 func KubeDeleteContents(namespace, yamlContents string, kubeconfig string) error {
 	tmpfile, err := WriteTempfile(os.TempDir(), "kubedelete", ".yaml", yamlContents)
@@ -187,48 +218,52 @@ func GetClusterSubnet() (string, error) {
 	return parts[1], nil
 }
 
-// GetIngress get istio ingress ip
-func GetIngress(n string, kubeconfig string) (string, error) {
-	retry := Retrier{
-		BaseDelay: 1 * time.Second,
-		MaxDelay:  1 * time.Second,
-		Retries:   300, // ~5 minutes
+func getRetrier(serviceType string) Retrier {
+	baseDelay := 1 * time.Second
+	maxDelay := 1 * time.Second
+	retries := 300 // ~5 minutes
+
+	if serviceType == NodePortServiceType {
+		baseDelay = 5 * time.Second
+		maxDelay = 5 * time.Second
+		retries = 20
 	}
-	ri := regexp.MustCompile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
-	//rp := regexp.MustCompile(`^[0-9]{1,5}$`) # Uncomment for minikube
+
+	return Retrier{
+		BaseDelay: baseDelay,
+		MaxDelay:  maxDelay,
+		Retries:   retries,
+	}
+}
+
+// GetIngress get istio ingress ip and port. Could relate to either Istio Ingress or to
+// Istio Ingress Gateway, by serviceName and podLabel. Handles two cases: when the Ingress/Ingress Gateway
+// Kubernetes Service is a LoadBalancer or NodePort (for tests within the  cluster, including for minikube)
+func GetIngress(serviceName, podLabel, namespace, kubeconfig string, serviceType string) (string, error) {
+
+	retry := getRetrier(serviceType)
 	var ingress string
 	retryFn := func(_ context.Context, i int) error {
-		ip, err := ShellSilent("kubectl get svc istio-ingress -n %s -o jsonpath='{.status.loadBalancer.ingress[*].ip}' --kubeconfig=%s", n, kubeconfig)
-		// For minikube, comment out the previous line and uncomment the following line
-		//ip, err := Shell("kubectl get po -l istio=ingress -n %s -o jsonpath='{.items[0].status.hostIP}' --kubeconfig=%s", n, kubeconfig)
+		var err error
+
+		if serviceType == NodePortServiceType {
+			ingress, err = getServiceNodePort(serviceName, podLabel, namespace, kubeconfig)
+		} else if serviceType == LoadBalancerServiceType {
+			ingress, err = getServiceLoadBalancer(serviceName, namespace, kubeconfig)
+		} else {
+			return fmt.Errorf("unknown service type: %s", serviceType)
+		}
+
 		if err != nil {
 			return err
 		}
-		ip = strings.Trim(ip, "'")
-		if ri.FindString(ip) == "" {
-			return errors.New("ingress ip not available yet")
-		}
-		ingress = ip
-		// For minikube, comment out the previous line and uncomment the following lines
-		//port, e := Shell("kubectl get svc istio-ingress -n %s -o jsonpath='{.spec.ports[0].nodePort}' --kubeconfig=%s", n, kubeconfig)
-		//if e != nil {
-		//	return e
-		//}
-		//port = strings.Trim(port, "'")
-		//if rp.FindString(port) == "" {
-		//	err = fmt.Errorf("unable to find ingress port")
-		//	log.Warn(err)
-		//	return err
-		//}
-		//ingress = ip + ":" + port
 		log.Infof("Istio ingress: %s", ingress)
-
 		return nil
 	}
 
 	ctx := context.Background()
 
-	log.Info("Waiting for istio-ingress to get external IP")
+	log.Infof("Waiting for %s to get external IP", serviceName)
 	if _, err := retry.Retry(ctx, retryFn); err != nil {
 		return "", err
 	}
@@ -242,7 +277,7 @@ func GetIngress(n string, kubeconfig string) (string, error) {
 	for {
 		select {
 		case <-ctx.Done():
-			return "", errors.New("istio-ingress readiness check timed out")
+			return "", fmt.Errorf("%s readiness check timed out", serviceName)
 		default:
 			response, err := ctxhttp.Get(ctx, client, ingressURL)
 			if err == nil {
@@ -253,45 +288,64 @@ func GetIngress(n string, kubeconfig string) (string, error) {
 	}
 }
 
-// GetIngressPod get istio ingress ip
-func GetIngressPod(n string, kubeconfig string) (string, error) {
-	retry := Retrier{
-		BaseDelay: 5 * time.Second,
-		MaxDelay:  5 * time.Minute,
-		Retries:   20,
+func getServiceLoadBalancer(name, namespace, kubeconfig string) (string, error) {
+	ip, err := ShellSilent(
+		"kubectl get svc %s -n %s -o jsonpath='{.status.loadBalancer.ingress[*].ip}' --kubeconfig=%s",
+		name, namespace, kubeconfig)
+
+	if err != nil {
+		return "", err
 	}
-	ipRegex := regexp.MustCompile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
-	portRegex := regexp.MustCompile(`^[0-9]+$`)
-	var ingress string
-	retryFn := func(_ context.Context, i int) error {
-		podIP, err := Shell("kubectl get pod -l istio=ingress "+
-			"-n %s -o jsonpath='{.items[0].status.hostIP}' --kubeconfig=%s", n, kubeconfig)
-		if err != nil {
-			return err
-		}
-		podPort, err := Shell("kubectl get svc istio-ingress "+
-			"-n %s -o jsonpath='{.spec.ports[0].nodePort}' --kubeconfig=%s", n, kubeconfig)
-		if err != nil {
-			return err
-		}
-		podIP = strings.Trim(podIP, "'")
-		podPort = strings.Trim(podPort, "'")
-		if ipRegex.FindString(podIP) == "" {
-			err = errors.New("unable to find ingress pod ip")
-			log.Warna(err)
-			return err
-		}
-		if portRegex.FindString(podPort) == "" {
-			err = errors.New("unable to find ingress pod port")
-			log.Warna(err)
-			return err
-		}
-		ingress = fmt.Sprintf("%s:%s", podIP, podPort)
-		log.Infof("Istio ingress: %s\n", ingress)
-		return nil
+
+	ip = strings.Trim(ip, "'")
+	ri := regexp.MustCompile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
+	if ri.FindString(ip) == "" {
+		return "", errors.New("ingress ip not available yet")
 	}
-	_, err := retry.Retry(context.Background(), retryFn)
-	return ingress, err
+
+	return ip, nil
+}
+
+func getServiceNodePort(serviceName, podLabel, namespace, kubeconfig string) (string, error) {
+	ip, err := Shell(
+		"kubectl get po -l istio=%s -n %s -o jsonpath='{.items[0].status.hostIP}' --kubeconfig=%s",
+		podLabel, namespace, kubeconfig)
+
+	if err != nil {
+		return "", err
+	}
+
+	ip = strings.Trim(ip, "'")
+	ri := regexp.MustCompile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
+	if ri.FindString(ip) == "" {
+		return "", fmt.Errorf("the ip of %s is not available yet", serviceName)
+	}
+
+	port, err := getServicePort(serviceName, namespace, kubeconfig)
+	if err != nil {
+		return "", err
+	}
+
+	return ip + ":" + port, nil
+}
+
+func getServicePort(serviceName, namespace, kubeconfig string) (string, error) {
+	port, err := Shell(
+		"kubectl get svc %s -n %s -o jsonpath='{.spec.ports[0].nodePort}' --kubeconfig=%s",
+		serviceName, namespace, kubeconfig)
+
+	if err != nil {
+		return "", err
+	}
+
+	port = strings.Trim(port, "'")
+	rp := regexp.MustCompile(`^[0-9]{1,5}$`)
+	if rp.FindString(port) == "" {
+		err = fmt.Errorf("unable to find the port of %s", serviceName)
+		log.Warna(err)
+		return "", err
+	}
+	return port, nil
 }
 
 // GetIngressPodNames get the pod names for the Istio ingress deployment.
@@ -644,13 +698,46 @@ func GetKubeConfig(filename string) error {
 	return nil
 }
 
+// CheckPodRunning return if a given pod with labeled name in a namespace are in "Running" status
+func CheckPodRunning(n, name string, kubeconfig string) error {
+	retry := Retrier{
+		BaseDelay: 30 * time.Second,
+		MaxDelay:  30 * time.Second,
+		Retries:   6,
+	}
+
+	retryFn := func(_ context.Context, i int) error {
+		pod, err := GetPodName(n, name, kubeconfig)
+		if err != nil {
+			return err
+		}
+		ready := true
+		if status := GetPodStatus(n, pod, kubeconfig); status != "Running" {
+			log.Infof("%s in namespace %s is not running: %s", pod, n, status)
+			ready = false
+		}
+
+		if !ready {
+			return fmt.Errorf("pod %s is not ready", pod)
+		}
+		return nil
+	}
+	ctx := context.Background()
+	_, err := retry.Retry(ctx, retryFn)
+	if err != nil {
+		return err
+	}
+	log.Infof("Got the pod name=%s running!", name)
+	return nil
+}
+
 // CreateMultiClusterSecrets will create the secrets and configmap associated with the remote cluster
-func CreateMultiClusterSecrets(namespace string, KubeClient kubernetes.Interface, RemoteKubeConfig string) error {
+func CreateMultiClusterSecrets(namespace string, KubeClient kubernetes.Interface, RemoteKubeConfig string, localKubeConfig string) error {
 	const (
 		secretName    = "remote-cluster"
 		configMapName = "clusterregistry"
 	)
-	_, err := ShellMuteOutput("kubectl create secret generic %s --from-file %s -n %s", secretName, RemoteKubeConfig, namespace)
+	_, err := ShellMuteOutput("kubectl create secret generic %s --from-file %s -n %s --kubeconfig=%s", secretName, RemoteKubeConfig, namespace, localKubeConfig)
 	// The cluster name is derived from the filename used to create the secret we will need it for the configmap
 	filename := filepath.Base(RemoteKubeConfig)
 	if err != nil {

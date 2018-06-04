@@ -40,7 +40,7 @@ const reportAttributesOkPost = `
   "connection.sent.bytes_total": 133,
   "connection.duration": "*",
   "connection.id": "*",
-	"connection.event": "open"
+  "connection.event": "close"
 }
 `
 
@@ -57,6 +57,9 @@ var expectedStats = map[string]int{
 }
 
 func TestDisableTCPCheckCalls(t *testing.T) {
+	// https://github.com/istio/istio/issues/5696 skip all TCP tests.
+	t.Skip("issue https://github.com/istio/istio/issues/5696")
+
 	s := env.NewTestSetup(env.DisableTCPCheckCallsTest, t)
 	env.SetStatsUpdateInterval(s.MfConfig(), 1)
 	// Disable Check

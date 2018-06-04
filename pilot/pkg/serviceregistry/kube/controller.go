@@ -21,6 +21,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -44,8 +45,31 @@ const (
 )
 
 var (
+	// experiment on getting some monitoring on config errors.
+	k8sEvents = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "pilot_k8s_reg_events",
+		Help: "Events from k8s registry.",
+	}, []string{"type", "event"})
+)
+
+func init() {
+	prometheus.MustRegister(k8sEvents)
+}
+
+var (
 	azDebug = os.Getenv("VERBOSE_AZ_DEBUG") == "1"
 )
+
+var (
+	ipNotFound = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "pilot_no_ip",
+		Help: "Pods not found in the endpoint table, possibly invalid.",
+	}, []string{"node"})
+)
+
+func init() {
+	prometheus.MustRegister(ipNotFound)
+}
 
 // ControllerOptions stores the configurable attributes of a Controller.
 type ControllerOptions struct {
@@ -76,7 +100,8 @@ type cacheHandler struct {
 
 // NewController creates a new Kubernetes controller
 func NewController(client kubernetes.Interface, options ControllerOptions) *Controller {
-	log.Infof("Service controller watching namespace %q", options.WatchedNamespace)
+	log.Infof("Service controller watching namespace %q for service, endpoint, nodes and pods, refresh %d",
+		options.WatchedNamespace, options.ResyncPeriod)
 
 	// Queue requires a time duration for a retry delay after a handler error
 	out := &Controller{
@@ -85,7 +110,7 @@ func NewController(client kubernetes.Interface, options ControllerOptions) *Cont
 		queue:        NewQueue(1 * time.Second),
 	}
 
-	out.services = out.createInformer(&v1.Service{}, options.ResyncPeriod,
+	out.services = out.createInformer(&v1.Service{}, "Service", options.ResyncPeriod,
 		func(opts meta_v1.ListOptions) (runtime.Object, error) {
 			return client.CoreV1().Services(options.WatchedNamespace).List(opts)
 		},
@@ -93,7 +118,7 @@ func NewController(client kubernetes.Interface, options ControllerOptions) *Cont
 			return client.CoreV1().Services(options.WatchedNamespace).Watch(opts)
 		})
 
-	out.endpoints = out.createInformer(&v1.Endpoints{}, options.ResyncPeriod,
+	out.endpoints = out.createInformer(&v1.Endpoints{}, "Endpoints", options.ResyncPeriod,
 		func(opts meta_v1.ListOptions) (runtime.Object, error) {
 			return client.CoreV1().Endpoints(options.WatchedNamespace).List(opts)
 		},
@@ -101,7 +126,7 @@ func NewController(client kubernetes.Interface, options ControllerOptions) *Cont
 			return client.CoreV1().Endpoints(options.WatchedNamespace).Watch(opts)
 		})
 
-	out.nodes = out.createInformer(&v1.Node{}, options.ResyncPeriod,
+	out.nodes = out.createInformer(&v1.Node{}, "Node", options.ResyncPeriod,
 		func(opts meta_v1.ListOptions) (runtime.Object, error) {
 			return client.CoreV1().Nodes().List(opts)
 		},
@@ -109,7 +134,7 @@ func NewController(client kubernetes.Interface, options ControllerOptions) *Cont
 			return client.CoreV1().Nodes().Watch(opts)
 		})
 
-	out.pods = newPodCache(out.createInformer(&v1.Pod{}, options.ResyncPeriod,
+	out.pods = newPodCache(out.createInformer(&v1.Pod{}, "Pod", options.ResyncPeriod,
 		func(opts meta_v1.ListOptions) (runtime.Object, error) {
 			return client.CoreV1().Pods(options.WatchedNamespace).List(opts)
 		},
@@ -126,12 +151,6 @@ func (c *Controller) notify(obj interface{}, event model.Event) error {
 	if !c.HasSynced() {
 		return errors.New("waiting till full synchronization")
 	}
-	k, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
-	if err != nil {
-		log.Infof("Error retrieving key: %v", err)
-	} else {
-		log.Debugf("Event %s: key %#v", event, k)
-	}
 	return nil
 }
 
@@ -143,6 +162,7 @@ func (c *Controller) notify(obj interface{}, event model.Event) error {
 // See config/ingress for Ingress objects
 func (c *Controller) createInformer(
 	o runtime.Object,
+	otype string,
 	resyncPeriod time.Duration,
 	lf cache.ListFunc,
 	wf cache.WatchFunc) cacheHandler {
@@ -157,14 +177,19 @@ func (c *Controller) createInformer(
 		cache.ResourceEventHandlerFuncs{
 			// TODO: filtering functions to skip over un-referenced resources (perf)
 			AddFunc: func(obj interface{}) {
+				k8sEvents.With(prometheus.Labels{"type": otype, "event": "add"}).Add(1)
 				c.queue.Push(Task{handler: handler.Apply, obj: obj, event: model.EventAdd})
 			},
 			UpdateFunc: func(old, cur interface{}) {
 				if !reflect.DeepEqual(old, cur) {
+					k8sEvents.With(prometheus.Labels{"type": otype, "event": "update"}).Add(1)
 					c.queue.Push(Task{handler: handler.Apply, obj: cur, event: model.EventUpdate})
+				} else {
+					k8sEvents.With(prometheus.Labels{"type": otype, "event": "updateSame"}).Add(1)
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
+				k8sEvents.With(prometheus.Labels{"type": otype, "event": "add"}).Add(1)
 				c.queue.Push(Task{handler: handler.Apply, obj: obj, event: model.EventDelete})
 			},
 		})
@@ -209,7 +234,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 }
 
 // GetService implements a service catalog operation
-func (c *Controller) GetService(hostname string) (*model.Service, error) {
+func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error) {
 	name, namespace, err := parseHostname(hostname)
 	if err != nil {
 		log.Infof("GetService(%s) => error %v", hostname, err)
@@ -282,7 +307,7 @@ func (c *Controller) ManagementPorts(addr string) model.PortList {
 }
 
 // Instances implements a service catalog operation
-func (c *Controller) Instances(hostname string, ports []string,
+func (c *Controller) Instances(hostname model.Hostname, ports []string,
 	labelsList model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	// Get actual service by name
 	name, namespace, err := parseHostname(hostname)
@@ -352,6 +377,78 @@ func (c *Controller) Instances(hostname string, ports []string,
 	return nil, nil
 }
 
+// InstancesByPort implements a service catalog operation
+func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
+	labelsList model.LabelsCollection) ([]*model.ServiceInstance, error) {
+	// Get actual service by name
+	name, namespace, err := parseHostname(hostname)
+	if err != nil {
+		log.Infof("parseHostname(%s) => error %v", hostname, err)
+		return nil, err
+	}
+
+	item, exists := c.serviceByKey(name, namespace)
+	if !exists {
+		return nil, nil
+	}
+
+	// Locate all ports in the actual service
+
+	svc := convertService(*item, c.domainSuffix)
+	if svc == nil {
+		return nil, nil
+	}
+
+	svcPortEntry, exists := svc.Ports.GetByPort(reqSvcPort)
+	if !exists && reqSvcPort != 0 {
+		return nil, nil
+	}
+
+	for _, item := range c.endpoints.informer.GetStore().List() {
+		ep := *item.(*v1.Endpoints)
+		if ep.Name == name && ep.Namespace == namespace {
+			var out []*model.ServiceInstance
+			for _, ss := range ep.Subsets {
+				for _, ea := range ss.Addresses {
+					labels, _ := c.pods.labelsByIP(ea.IP)
+					// check that one of the input labels is a subset of the labels
+					if !labelsList.HasSubsetOf(labels) {
+						continue
+					}
+
+					pod, exists := c.pods.getPodByIP(ea.IP)
+					az, sa := "", ""
+					if exists {
+						az, _ = c.GetPodAZ(pod)
+						sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
+					}
+
+					// identify the port by name. K8S EndpointPort uses the service port name
+					for _, port := range ss.Ports {
+						if port.Name == "" || // 'name optional if single port is defined'
+							reqSvcPort == 0 || // return all ports (mostly used by tests/debug)
+							svcPortEntry.Name == port.Name {
+							out = append(out, &model.ServiceInstance{
+								Endpoint: model.NetworkEndpoint{
+									Address:     ea.IP,
+									Port:        int(port.Port),
+									ServicePort: svcPortEntry,
+								},
+								Service:          svc,
+								Labels:           labels,
+								AvailabilityZone: az,
+								ServiceAccount:   sa,
+							})
+						}
+					}
+				}
+			}
+			return out, nil
+		}
+	}
+	return nil, nil
+}
+
 // GetProxyServiceInstances returns service instances co-located with a given proxy
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
 	var out []*model.ServiceInstance
@@ -364,6 +461,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 					if kubeNodes[ea.IP] == nil {
 						err := parseKubeServiceNode(ea.IP, proxy, kubeNodes)
 						if err != nil {
+							log.Errorf("invalid service node %v %v %v", proxy.IPAddress, proxy.ID, err)
 							return out, err
 						}
 					}
@@ -410,6 +508,10 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 			}
 		}
 	}
+	if len(out) == 0 {
+		log.Errorf("ip not found, listeners will be broken %v %v", proxy.IPAddress, proxy.ID)
+		ipNotFound.With(prometheus.Labels{"node": proxy.ID}).Add(1)
+	}
 	return out, nil
 }
 
@@ -417,7 +519,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 // hostname. Each service account is encoded according to the SPIFFE VSID spec.
 // For example, a service account named "bar" in namespace "foo" is encoded as
 // "spiffe://cluster.local/ns/foo/sa/bar".
-func (c *Controller) GetIstioServiceAccounts(hostname string, ports []string) []string {
+func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []string) []string {
 	saSet := make(map[string]bool)
 
 	// Get the service accounts running service within Kubernetes. This is reflected by the pods that

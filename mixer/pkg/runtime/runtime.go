@@ -16,7 +16,6 @@ package runtime
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
@@ -183,37 +182,32 @@ func (c *Runtime) processNewConfig() {
 
 	log.Debugf("New routes in effect:\n%s", newRoutes)
 
-	if err := cleanupHandlers(oldContext, oldHandlers, newHandlers, maxCleanupDuration); err != nil {
-		log.Errorf("Failed to cleanup handlers: %v", err)
-	}
+	cleanupHandlers(oldContext, oldHandlers, newHandlers, maxCleanupDuration)
 }
 
 // maxCleanupDuration is the maximum amount of time cleanup operation will wait
 // before resolver ref count goes to 0. It will return after this duration without
 // calling Close() on handlers.
-var maxCleanupDuration = 10 * time.Second
+const maxCleanupDuration = 10 * time.Second
 
-var cleanupSleepTime = 500 * time.Millisecond
+const cleanupSleepTime = 500 * time.Millisecond
 
-func cleanupHandlers(oldContext *dispatcher.RoutingContext, oldHandlers *handler.Table, currentHandlers *handler.Table, timeout time.Duration) error {
+func cleanupHandlers(oldContext *dispatcher.RoutingContext, oldHandlers *handler.Table, currentHandlers *handler.Table, timeout time.Duration) {
 	start := time.Now()
 	for {
 		rc := oldContext.GetRefs()
-		if rc > 0 {
-			if time.Since(start) > timeout {
-				return fmt.Errorf("unable to cleanup handlers(config id:%d) in %v time: %d requests remain", oldContext.Routes.ID(), timeout, rc)
-			}
-
-			log.Warnf("Waiting for dispatches using routes with config ID '%d' to finish: %d remaining requests", oldContext.Routes.ID(), rc)
-
-			time.Sleep(cleanupSleepTime)
-			continue
+		if rc <= 0 {
+			log.Infof("Cleaning up handler table, with config ID:%d", oldContext.Routes.ID())
+			oldHandlers.Cleanup(currentHandlers)
+			return
 		}
-		break
+
+		if time.Since(start) > timeout {
+			log.Errorf("unable to cleanup handlers(config id:%d) in %v, %d requests remain", oldContext.Routes.ID(), timeout, rc)
+			return
+		}
+
+		log.Debugf("Waiting for dispatches using routes with config ID '%d' to finish: %d remaining requests", oldContext.Routes.ID(), rc)
+		time.Sleep(cleanupSleepTime)
 	}
-
-	log.Infof("Cleaning up handler table, with config ID:%d", oldContext.Routes.ID())
-
-	oldHandlers.Cleanup(currentHandlers)
-	return nil
 }

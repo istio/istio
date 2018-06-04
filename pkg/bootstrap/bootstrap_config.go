@@ -65,7 +65,7 @@ func convertDuration(d *duration.Duration) time.Duration {
 	return dur
 }
 
-func args(config *meshconfig.ProxyConfig, node, fname string, epoch int) []string {
+func args(config *meshconfig.ProxyConfig, node, fname string, epoch int, cliarg []string) []string {
 	startupArgs := []string{"-c", fname,
 		"--restart-epoch", fmt.Sprint(epoch),
 		"--drain-time-s", fmt.Sprint(int(convertDuration(config.DrainDuration) / time.Second)),
@@ -73,6 +73,10 @@ func args(config *meshconfig.ProxyConfig, node, fname string, epoch int) []strin
 		"--service-cluster", config.ServiceCluster,
 		"--service-node", node,
 		"--max-obj-name-len", fmt.Sprint(MaxClusterNameLength), // TODO: use MeshConfig.StatNameLength instead
+	}
+
+	for _, v := range cliarg {
+		startupArgs = append(startupArgs, v)
 	}
 
 	//startupArgs = append(startupArgs, proxy.extraArgs...)
@@ -92,10 +96,10 @@ func args(config *meshconfig.ProxyConfig, node, fname string, epoch int) []strin
 // The doneChan will be notified if the envoy process dies.
 // The returned process can be killed by the caller to terminate the proxy.
 func RunProxy(config *meshconfig.ProxyConfig, node string, epoch int, configFname string, doneChan chan error,
-	outWriter io.Writer, errWriter io.Writer) (*os.Process, error) {
+	outWriter io.Writer, errWriter io.Writer, cliarg []string) (*os.Process, error) {
 
 	// spin up a new Envoy process
-	args := args(config, node, configFname, epoch)
+	args := args(config, node, configFname, epoch, cliarg)
 	args = append(args, "--v2-config-only")
 
 	/* #nosec */
@@ -329,7 +333,8 @@ func Checkin(secure bool, addr, cluster, node string, delay time.Duration, retri
 
 		resp, err := client.Get(fmt.Sprintf("%v%v/v1/az/%v/%v", protocol, addr, cluster, node))
 		if err != nil || resp.StatusCode != 200 {
-			log.Infof("Unable to retrieve availability zone from pilot: %v %d", err, attempts)
+			// TODO: turn back on when fully implemented, commented out to avoid confusing users
+			// log.Infof("Unable to retrieve availability zone from pilot: %v %d", err, attempts)
 			if attempts >= retries {
 				if err != nil {
 					return nil, err
@@ -339,14 +344,18 @@ func Checkin(secure bool, addr, cluster, node string, delay time.Duration, retri
 		} else {
 			body, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
-				log.Infof("Unable to read availability zone response from pilot: %v", err)
+				// TODO: turn back on when fully implemented, commented out to avoid confusing users
+				// log.Infof("Unable to read availability zone response from pilot: %v", err)
 			}
 			if resp.StatusCode != http.StatusOK {
-				log.Infof("Received %v status from pilot when retrieving availability zone: %v", resp.StatusCode, string(body))
+				// TODO: turn back on when fully implemented, commented out to avoid confusing users
+				// log.Infof("Received %v status from pilot when retrieving availability zone: %v", resp.StatusCode, string(body))
 			} else {
 				// TODO: replace with json containing Checkin data.
 				w.AvailabilityZone = string(body)
-				log.Infof("Proxy availability zone: %v", w.AvailabilityZone)
+
+				// TODO: turn back on when fully implemented, commented out to avoid confusing users
+				// log.Infof("Proxy availability zone: %v", w.AvailabilityZone)
 				return w, nil
 			}
 			_ = resp.Body.Close()

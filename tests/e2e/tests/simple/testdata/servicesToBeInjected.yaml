@@ -58,7 +58,7 @@ spec:
         app: echosrv
         version: v1
         test: a
-        extrap: "no"
+        extrap: non # can't use "no" as that's a boolean...
     spec:
       containers:
       - name: echosrv
@@ -72,7 +72,7 @@ spec:
 #          - -echo-debug-path=/fortio/debug # can be changed
 ---
 # 2nd deployment, 1 pod for service inside the cluster, will get istio injected
-# same as above (copy pasta ftw) except for the version
+# same as above except for the version and extra port
 apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
@@ -86,7 +86,7 @@ spec:
         app: echosrv
         version: v2
         test: b
-        extrap: x # can't seem to be able to use "yes" here and in selector...
+        extrap: oui # can't seem to be able to use "yes" here and in selector...
     spec:
       containers:
       - name: echosrv
@@ -105,7 +105,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: echosrv2
+  name: echosrv-extrap
 spec:
   ports:
   - port: 8080
@@ -116,4 +116,8 @@ spec:
     name: http-echo2
   selector:
     app: echosrv
-    extrap: x
+    extrap: oui
+---
+# We can't use a third service for the security open proxy issue as the issue
+# is only triggered using pod ip (service cluster ip + non existant port is not
+# routed)

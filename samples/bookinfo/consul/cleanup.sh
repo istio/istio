@@ -28,15 +28,18 @@ fi
 
 echo "using NAMESPACE=${NAMESPACE}"
 
-for rule in $(istioctl get -n ${NAMESPACE} routerules | grep -v 'No resources found' | awk '{print $1}'); do
-  istioctl delete routerule $rule;
+protos=( routerules destinationrules virtualservices gateways )
+for proto in "${protos[@]}"; do
+  for resource in $(istioctl get -n ${NAMESPACE} $proto | awk 'NR>1{print $1}'); do
+    istioctl delete -n ${NAMESPACE} $proto $resource;
+  done
 done
 #istioctl delete mixer-rule ratings-ratelimit
 
 export OUTPUT=$(mktemp)
 echo "Application cleanup may take up to one minute"
+docker-compose -f $SCRIPTDIR/bookinfo.sidecars.yaml down > ${OUTPUT} 2>&1
 docker-compose -f $SCRIPTDIR/bookinfo.yaml down > ${OUTPUT} 2>&1
-docker-compose -f $SCRIPTDIR/bookinfo.sidecar.yaml down > ${OUTPUT} 2>&1
 ret=$?
 function cleanup() {
   rm -f ${OUTPUT}

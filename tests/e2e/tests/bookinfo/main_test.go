@@ -48,6 +48,7 @@ const (
 	bookinfoMysqlYaml                  = "bookinfo-mysql"
 	bookinfoDetailsExternalServiceYaml = "bookinfo-details-v2"
 	modelDir                           = "tests/apps/bookinfo/output"
+	bookinfoGateway                    = routeRulesDir + "/" + "bookinfo-gateway"
 	allRule                            = routeRulesDir + "/" + "route-rule-all-v1"
 	delayRule                          = routeRulesDir + "/" + "route-rule-ratings-test-delay"
 	tenRule                            = routeRulesDir + "/" + "/route-rule-reviews-90-10"
@@ -70,15 +71,19 @@ var (
 		Egress:   true,
 	}
 	testRetryTimes = 5
-	defaultRules   = []string{allRule}
-	allRules       = []string{allRule, delayRule, tenRule, twentyRule, fiftyRule, testRule,
+	defaultRules   = []string{bookinfoGateway}
+	allRules       = []string{delayRule, tenRule, twentyRule, fiftyRule, testRule,
 		testDbRule, testMysqlRule, detailsExternalServiceRouteRule,
-		detailsExternalServiceEgressRule}
+		detailsExternalServiceEgressRule, bookinfoGateway}
 )
 
 type testConfig struct {
 	*framework.CommonConfig
 	rulesDir string
+}
+
+func init() {
+	tf.Init()
 }
 
 func getWithCookie(url string, cookies []http.Cookie) (*http.Response, error) {
@@ -151,6 +156,13 @@ func preprocessRule(t *testConfig, version, rule string) error {
 
 func (t *testConfig) Setup() error {
 	//generate rule yaml files, replace "jason" with actual user
+	if tc.Kube.AuthEnabled {
+		allRules = append(allRules, routeRulesDir+"/"+"route-rule-all-v1-mtls")
+		defaultRules = append(defaultRules, routeRulesDir+"/"+"route-rule-all-v1-mtls")
+	} else {
+		allRules = append(allRules, routeRulesDir+"/"+"route-rule-all-v1")
+		defaultRules = append(defaultRules, routeRulesDir+"/"+"route-rule-all-v1")
+	}
 	for _, rule := range allRules {
 		for _, configVersion := range tf.ConfigVersions() {
 			err := preprocessRule(t, configVersion, rule)
@@ -188,31 +200,47 @@ func inspect(err error, fMsg, sMsg string, t *testing.T) {
 }
 
 func setUpDefaultRouting() error {
-	standby := 0
-	for i := 0; i <= testRetryTimes; i++ {
-		time.Sleep(time.Duration(standby) * time.Second)
-		gateway, errGw := tc.Kube.Ingress()
-		if errGw != nil {
-			return errGw
+	for _, configVersion := range tf.ConfigVersions() { // should be only one version applied, checked in TestMain
+		if err := applyRules(configVersion, defaultRules); err != nil {
+			return fmt.Errorf("could not apply rules '%s': %v", defaultRules, err)
 		}
-		resp, err := http.Get(fmt.Sprintf("%s/productpage", gateway))
-		if err != nil {
-			log.Infof("Error talking to productpage: %s", err)
-		} else {
-			log.Infof("Get from page: %d", resp.StatusCode)
-			if resp.StatusCode == http.StatusOK {
-				log.Info("Get response from product page!")
-				break
+		standby := 0
+		for i := 0; i <= testRetryTimes; i++ {
+			time.Sleep(time.Duration(standby) * time.Second)
+			var gateway string
+			var errGw error
+
+			if configVersion == "v1alpha3" {
+				gateway, errGw = tc.Kube.IngressGateway()
+			} else {
+				gateway, errGw = tc.Kube.Ingress()
 			}
-			closeResponseBody(resp)
+
+			if errGw != nil {
+				return errGw
+			}
+
+			resp, err := http.Get(fmt.Sprintf("%s/productpage", gateway))
+			if err != nil {
+				log.Infof("Error talking to productpage: %s", err)
+			} else {
+				log.Infof("Get from page: %d", resp.StatusCode)
+				if resp.StatusCode == http.StatusOK {
+					log.Info("Get response from product page!")
+					break
+				}
+				closeResponseBody(resp)
+			}
+			if i == testRetryTimes {
+				return errors.New("unable to set default route")
+			}
+			standby += 5
+			log.Errorf("Couldn't get to the bookinfo product page, trying again in %d second", standby)
 		}
-		if i == testRetryTimes {
-			return errors.New("unable to set default route")
-		}
-		standby += 5
-		log.Errorf("Couldn't get to the bookinfo product page, trying again in %d second", standby)
+
+		log.Info("Success! Default route got expected response")
+		return nil
 	}
-	log.Info("Success! Default route got expected response")
 	return nil
 }
 
@@ -359,9 +387,9 @@ func TestMain(m *testing.M) {
 	flag.Parse()
 	check(framework.InitLogging(), "cannot setup logging")
 
-	if tf.V1alpha3 {
-		allRules = append(allRules, reviewsDestinationRule)
-		defaultRules = append(defaultRules, reviewsDestinationRule)
+	if tf.V1alpha1 && tf.V1alpha3 {
+		check(errors.New("both v1alpha1 and v1alpha3 are requested"),
+			"cannot test both v1alpha1 and alpha3 simultaneously")
 	}
 
 	check(setTestConfig(), "could not create TestConfig")
@@ -369,6 +397,9 @@ func TestMain(m *testing.M) {
 	os.Exit(tc.RunTest(m))
 }
 
-func init() {
-	tf.Init()
+func getIngressOrFail(t *testing.T, configVersion string) string {
+	if configVersion == "v1alpha3" {
+		return tc.Kube.IngressGatewayOrFail(t)
+	}
+	return tc.Kube.IngressOrFail(t)
 }

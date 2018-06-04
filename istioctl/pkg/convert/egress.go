@@ -23,21 +23,48 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-// EgressRules converts v1alpha1 egress rules to v1alpha3 external services
+type egressConfig struct {
+	name       string
+	namespace  string
+	domain     string
+	egressRule *v1alpha1.EgressRule
+}
+
+// EgressRules converts v1alpha1 egress rules to v1alpha3 service entries
 func EgressRules(configs []model.Config) []model.Config {
-	egressRules := make([]*v1alpha1.EgressRule, 0)
+
+	egressConfigs := make([]egressConfig, 0)
+	out := make([]model.Config, 0)
 	for _, config := range configs {
 		if config.Type == model.EgressRule.Type {
-			egressRules = append(egressRules, config.Spec.(*v1alpha1.EgressRule))
+			rule := egressConfig{
+				name:       config.Name,
+				namespace:  config.Namespace,
+				domain:     config.Domain,
+				egressRule: config.Spec.(*v1alpha1.EgressRule)}
+			if len(rule.namespace) == 0 {
+				rule.namespace = "default"
+			}
+
+			if len(rule.domain) == 0 {
+				rule.domain = "cluster.local"
+			}
+
+			egressConfigs = append(egressConfigs, rule)
 		}
 	}
 
-	externalServices := make([]*v1alpha3.ExternalService, 0)
-	for _, egressRule := range egressRules {
-		host := convertIstioService(egressRule.Destination)
+	for _, config := range egressConfigs {
+		host := convertIstioService(config.egressRule.Destination)
+		var addresses []string
+		if model.ValidateIPv4Subnet(host) == nil {
+			addresses = []string{host}
+			// hosts cannot have short names
+			host = fmt.Sprintf("%s.%s.svc.%s", config.name, config.namespace, config.domain)
+		}
 
 		ports := make([]*v1alpha3.Port, 0)
-		for _, egressPort := range egressRule.Ports {
+		for _, egressPort := range config.egressRule.Ports {
 			ports = append(ports, &v1alpha3.Port{
 				Name:     fmt.Sprintf("%s-%d", egressPort.Protocol, egressPort.Port),
 				Protocol: egressPort.Protocol,
@@ -45,27 +72,23 @@ func EgressRules(configs []model.Config) []model.Config {
 			})
 		}
 
-		if egressRule.UseEgressProxy {
+		if config.egressRule.UseEgressProxy {
 			log.Warnf("Use egress proxy field not supported")
 		}
 
-		externalServices = append(externalServices, &v1alpha3.ExternalService{
-			Hosts:     []string{host},
-			Ports:     ports,
-			Discovery: v1alpha3.ExternalService_NONE,
-		})
-	}
-
-	out := make([]model.Config, 0)
-	for _, externalService := range externalServices {
 		out = append(out, model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:      model.ExternalService.Type,
-				Name:      externalService.Hosts[0],
-				Namespace: configs[0].Namespace,
-				Domain:    configs[0].Domain,
+				Type:      model.ServiceEntry.Type,
+				Name:      config.name,
+				Namespace: config.namespace,
+				Domain:    config.domain,
 			},
-			Spec: externalService,
+			Spec: &v1alpha3.ServiceEntry{
+				Hosts:      []string{host},
+				Addresses:  addresses,
+				Ports:      ports,
+				Resolution: v1alpha3.ServiceEntry_NONE,
+			},
 		})
 	}
 

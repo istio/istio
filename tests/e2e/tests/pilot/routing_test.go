@@ -121,7 +121,7 @@ func TestRoutes(t *testing.T) {
 				op, err := tc.Kube.GetRoutes("a")
 				log.Infof("error: %v\n%s", err, op)
 				cfg, err := util.GetConfigs("destinationrules.networking.istio.io",
-					"virtualservices.networking.istio.io", "externalservices.networking.istio.io",
+					"virtualservices.networking.istio.io", "serviceentries.networking.istio.io",
 					"policies.authentication.istio.io")
 
 				log.Infof("config: %v\n%s", err, cfg)
@@ -174,7 +174,7 @@ func TestRoutes(t *testing.T) {
 	for _, version := range configVersions() {
 		t.Run(version, func(t *testing.T) {
 			if version == "v1alpha3" {
-				destRule := "testdata/v1alpha3/destination-rule-c.yaml"
+				destRule := maybeAddTLSForDestinationRule(tc, "testdata/v1alpha3/destination-rule-c.yaml")
 				cfgs := &deployableConfig{
 					Namespace:  tc.Kube.Namespace,
 					YamlFiles:  []string{destRule},
@@ -229,7 +229,7 @@ func TestRoutes(t *testing.T) {
 
 							text := fmt.Sprintf("\"name\":\"%s\"", c.operation)
 							if strings.Count(response.Body, text) != 10 {
-								return fmt.Errorf("could not find operation %q in zipkin traces", c.operation)
+								t.Logf("could not find operation %q in zipkin traces: %v", c.operation, response.Body)
 							}
 						}
 
@@ -242,12 +242,24 @@ func TestRoutes(t *testing.T) {
 }
 
 func TestRouteFaultInjection(t *testing.T) {
-	if tc.V1alpha3 {
-		t.Skipf("Skipping %s in v1alpha3+v2", t.Name())
-	}
 	for _, version := range configVersions() {
 		// Invoke a function to scope the lifecycle of the deployed configs.
 		func() {
+			if version == "v1alpha3" {
+				destRule := maybeAddTLSForDestinationRule(tc, "testdata/v1alpha3/destination-rule-c.yaml")
+				dRule := &deployableConfig{
+					Namespace:  tc.Kube.Namespace,
+					YamlFiles:  []string{destRule},
+					kubeconfig: tc.Kube.KubeConfig,
+				}
+				if err := dRule.Setup(); err != nil {
+					t.Fatal(err)
+				}
+				// Teardown after, but no need to wait, since a delay will be applied by either the next rule's
+				// Setup() or the Teardown() for the final rule.
+				defer dRule.TeardownNoDelay()
+			}
+
 			ruleYaml := fmt.Sprintf("testdata/%s/rule-fault-injection.yaml", version)
 			cfgs := &deployableConfig{
 				Namespace:  tc.Kube.Namespace,

@@ -64,11 +64,11 @@ func Test_debug_run(t *testing.T) {
 		wantError         bool
 	}{
 		{
-			name: "all configType no error",
+			name: "all configType no error with 200 or 404",
 			args: []string{"proxyID", "all"},
 			pilotStates: []pilotStubState{
 				{StatusCode: 200, Response: "fine", wantProxyID: "proxyID"},
-				{StatusCode: 200, Response: "fine", wantProxyID: "proxyID"},
+				{StatusCode: 404, Response: "fine", wantProxyID: "proxyID"},
 			},
 		},
 		{
@@ -90,15 +90,22 @@ func Test_debug_run(t *testing.T) {
 			args: []string{"proxyID", "all"},
 			pilotStates: []pilotStubState{
 				{StatusCode: 200, Response: "fine", wantProxyID: "proxyID"},
-				{StatusCode: 404, Response: "not fine", wantProxyID: "proxyID"},
+				{StatusCode: 500, Response: "not fine", wantProxyID: "proxyID"},
 			},
 			wantError: true,
 		},
 		{
-			name: "ads configType does not error",
+			name: "ads configType does not error with 200",
 			args: []string{"proxyID", "ads"},
 			pilotStates: []pilotStubState{
 				{StatusCode: 200, Response: "fine", wantProxyID: "proxyID"},
+			},
+		},
+		{
+			name: "ads configType does not error with 404",
+			args: []string{"proxyID", "ads"},
+			pilotStates: []pilotStubState{
+				{StatusCode: 404, Response: "fine", wantProxyID: "proxyID"},
 			},
 		},
 		{
@@ -108,10 +115,17 @@ func Test_debug_run(t *testing.T) {
 			wantError:         true,
 		},
 		{
-			name: "eds configType does not error",
+			name: "eds configType does not error with 200",
 			args: []string{"proxyID", "eds"},
 			pilotStates: []pilotStubState{
 				{StatusCode: 200, Response: "fine", wantProxyID: "proxyID"},
+			},
+		},
+		{
+			name: "eds configType does not error with 404",
+			args: []string{"proxyID", "eds"},
+			pilotStates: []pilotStubState{
+				{StatusCode: 404, Response: "fine", wantProxyID: "proxyID"},
 			},
 		},
 		{

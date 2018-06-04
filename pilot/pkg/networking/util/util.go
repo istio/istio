@@ -14,23 +14,28 @@
 
 package util
 
-// TODO(mostrowski): move most of these functions to a lower level util pkg, they are not Pilot specific.
-
 import (
-	"bytes"
+	base_json "encoding/json"
+	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"github.com/envoyproxy/go-control-plane/pkg/util"
-	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"k8s.io/apimachinery/pkg/util/json"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
+)
+
+const (
+	// BlackHoleCluster to catch traffic from routes with unresolved clusters. Traffic arriving here goes nowhere.
+	BlackHoleCluster = "BlackHoleCluster"
 )
 
 //// convertAddressListToCidrList converts a list of IP addresses with cidr prefixes into envoy CIDR proto
@@ -99,6 +104,23 @@ func BuildAddress(ip string, port uint32) core.Address {
 	}
 }
 
+// BuildPipeAddress returns a Pipe address with the given path.
+func BuildPipeAddress(path string) core.Address {
+	return core.Address{Address: &core.Address_Pipe{Pipe: &core.Pipe{Path: path}}}
+}
+
+// GetNetworkEndpointAddress returns an Envoy v2 API `Address` that represents this NetworkEndpoint
+func GetNetworkEndpointAddress(n *model.NetworkEndpoint) core.Address {
+	switch n.Family {
+	case model.AddressFamilyTCP:
+		return BuildAddress(n.Address, uint32(n.Port))
+	case model.AddressFamilyUnix:
+		return BuildPipeAddress(n.Address)
+	default:
+		panic(fmt.Sprintf("unhandled Family %v", n.Family))
+	}
+}
+
 // GetByAddress returns a listener by its address
 // TODO(mostrowski): consider passing map around to save iteration.
 func GetByAddress(listeners []*xdsapi.Listener, addr string) *xdsapi.Listener {
@@ -138,28 +160,6 @@ func GetByAddress(listeners []*xdsapi.Listener, addr string) *xdsapi.Listener {
 //	}
 //}
 
-// BuildProtoStruct builds a proto.Struct with the given value JSON encoded into a field called "value" in the struct.
-func BuildProtoStruct(value interface{}) *types.Struct {
-	data, err := json.Marshal(value)
-	if err != nil {
-		return &types.Struct{}
-	}
-	pbs := &types.Struct{}
-	if err := jsonpb.Unmarshal(bytes.NewReader(data), pbs); err != nil {
-		return &types.Struct{}
-	}
-
-	return &types.Struct{
-		Fields: map[string]*types.Value{
-			"value": {
-				Kind: &types.Value_StructValue{
-					StructValue: pbs,
-				},
-			},
-		},
-	}
-}
-
 // MessageToStruct converts from proto message to proto Struct
 func MessageToStruct(msg proto.Message) *types.Struct {
 	s, err := util.MessageToStruct(msg)
@@ -182,4 +182,23 @@ func GogoDurationToDuration(d *types.Duration) time.Duration {
 		return 0
 	}
 	return dur
+}
+
+// SortVirtualHosts sorts a slice of virtual hosts by name.
+//
+// Envoy computes a hash of the listener which is affected by order of elements in the filter. Therefore
+// we sort virtual hosts by name before handing them back so the ordering is stable across HTTP Route Configs.
+func SortVirtualHosts(hosts []route.VirtualHost) {
+	sort.SliceStable(hosts, func(i, j int) bool {
+		return hosts[i].Name < hosts[j].Name
+	})
+}
+
+// PrettySprint pretty sprints v.
+func PrettySprint(v interface{}) string {
+	j, err := base_json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return err.Error()
+	}
+	return string(j)
 }
