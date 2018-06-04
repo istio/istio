@@ -17,36 +17,34 @@ package v2
 import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/gogo/protobuf/types"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
 )
 
 func (s *DiscoveryServer) pushLds(node model.Proxy, con *XdsConnection) error {
 	ls, err := s.ConfigGenerator.BuildListeners(s.env, node)
 	if err != nil {
-		log.Warnf("ADS: config failure, closing grpc %v", err)
+		adsLog.Warnf("ADS: config failure, closing grpc %v", err)
+		pushes.With(prometheus.Labels{"type": "lds_builderr"}).Add(1)
 		return err
 	}
 	con.HTTPListeners = ls
-	response, err := ldsDiscoveryResponse(ls, node)
+	response := ldsDiscoveryResponse(ls, node)
+	err = con.send(response)
 	if err != nil {
-		log.Warnf("LDS: config failure, closing grpc %v", err)
+		adsLog.Warnf("LDS: Send failure, closing grpc %v", err)
+		pushes.With(prometheus.Labels{"type": "lds_senderr"}).Add(1)
 		return err
 	}
-	err = con.stream.Send(response)
-	if err != nil {
-		log.Warnf("LDS: Send failure, closing grpc %v", err)
-		return err
-	}
-	if adsDebug {
-		log.Infof("LDS: PUSH for node:%s addr:%q listeners:%d", node, con.PeerAddr, len(ls))
-	}
+	pushes.With(prometheus.Labels{"type": "lds"}).Add(1)
+
+	adsLog.Infof("LDS: PUSH for node:%s addr:%q listeners:%d", node, con.PeerAddr, len(ls))
 	return nil
 }
 
 // LdsDiscoveryResponse returns a list of listeners for the given environment and source node.
-func ldsDiscoveryResponse(ls []*xdsapi.Listener, node model.Proxy) (*xdsapi.DiscoveryResponse, error) {
+func ldsDiscoveryResponse(ls []*xdsapi.Listener, node model.Proxy) *xdsapi.DiscoveryResponse {
 	resp := &xdsapi.DiscoveryResponse{
 		TypeUrl:     ListenerType,
 		VersionInfo: versionInfo(),
@@ -54,12 +52,12 @@ func ldsDiscoveryResponse(ls []*xdsapi.Listener, node model.Proxy) (*xdsapi.Disc
 	}
 	for _, ll := range ls {
 		if ll == nil {
-			log.Errora("Nil listener ", ll)
+			adsLog.Errora("Nil listener ", ll)
 			continue
 		}
 		lr, _ := types.MarshalAny(ll)
 		resp.Resources = append(resp.Resources, *lr)
 	}
 
-	return resp, nil
+	return resp
 }

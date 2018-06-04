@@ -1,8 +1,9 @@
 ---
 title: RBAC
-overview: Configuration for Role Based Access Control
+description: Configuration for Role Based Access Control
 location: https://istio.io/docs/reference/config/istio.rbac.v1alpha1.html
 layout: protoc-gen-docs
+generator: protoc-gen-docs
 number_of_entries: 9
 ---
 <p>Istio RBAC (Role Based Access Control) defines ServiceRole and ServiceRoleBinding
@@ -21,7 +22,7 @@ of the &ldquo;authorization&rdquo; template (https://github.com/istio/istio/blob
 
 <p>For example, suppose we define an instance of the &ldquo;authorization&rdquo; template, named &ldquo;requestcontext&rdquo;.</p>
 
-<pre><code>apiVersion: &quot;config.istio.io/v1alpha1&quot;
+<pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha1&quot;
 kind: authorization
 metadata:
   name: requestcontext
@@ -46,7 +47,7 @@ spec:
 access to &ldquo;products.svc.cluster.local&rdquo; service at versions &ldquo;v1&rdquo; and &ldquo;v2&rdquo;. &ldquo;path&rdquo; is not specified,
 so it applies to any path in the service.</p>
 
-<pre><code>apiVersion: &quot;config.istio.io/v1alpha1&quot;
+<pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha1&quot;
 kind: ServiceRole
 metadata:
   name: products-viewer
@@ -73,7 +74,7 @@ to ServiceRole &ldquo;product-viewer&rdquo;:
 * User &ldquo;alice@yahoo.com&rdquo;
 * &ldquo;reviews&rdquo; service in &ldquo;abc&rdquo; namespace.</p>
 
-<pre><code>apiVersion: &quot;config.istio.io/v1alpha1&quot;
+<pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha1&quot;
 kind: ServiceRoleBinding
 metadata:
   name: test-binding-products
@@ -201,7 +202,7 @@ existing one, the user should either delete the existing one or change the exist
 <p>Below is an example of RbacConfig object &ldquo;istio-rbac-config&rdquo; which enables Istio RBAC for all
 services in the default namespace.</p>
 
-<pre><code>apiVersion: &quot;config.istio.io/v1alpha1&quot;
+<pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha1&quot;
 kind: RbacConfig
 metadata:
   name: istio-rbac-config

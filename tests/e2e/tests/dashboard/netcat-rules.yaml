@@ -24,7 +24,7 @@ spec:
       - image: subfuzion/netcat
         name: netcat
         ports:
-         - containerPort: 4444
+         - containerPort: 44444
         args:
           - "-vl"
           - "44444"

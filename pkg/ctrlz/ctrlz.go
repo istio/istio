@@ -128,8 +128,13 @@ func Run(o *Options, customTopics []fw.Topic) {
 
 	registerHome(router, mainLayout)
 
+	addr := o.Address
+	if addr == "*" {
+		addr = ""
+	}
+
 	s := &http.Server{
-		Addr:           fmt.Sprintf("127.0.0.1:%d", o.Port),
+		Addr:           fmt.Sprintf("%s:%d", addr, o.Port),
 		Handler:        router,
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,

@@ -16,8 +16,6 @@ package mock
 
 import (
 	"testing"
-
-	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 func TestMockServices(t *testing.T) {
@@ -28,11 +26,6 @@ func TestMockServices(t *testing.T) {
 	for _, svc := range svcs {
 		if err := svc.Validate(); err != nil {
 			t.Errorf("%v.Validate() => Got %v", svc, err)
-		}
-		for _, port := range svc.Ports {
-			if port.AuthenticationPolicy != meshconfig.AuthenticationPolicy_INHERIT {
-				t.Errorf("Default port authentication policy must be INHERIT. Got %v", *port)
-			}
 		}
 		instances, err := Discovery.Instances(svc.Hostname, svc.Ports.GetNames(), nil)
 		if err != nil {

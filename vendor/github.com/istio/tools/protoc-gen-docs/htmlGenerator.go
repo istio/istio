@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"path"
 	"regexp"
 	"sort"
 	"strconv"
@@ -33,9 +34,9 @@ import (
 type outputMode int
 
 const (
-	htmlPage outputMode = iota
-	htmlFragment
-	jekyllHTML
+	htmlPage                    outputMode = iota // stand-alone HTML page
+	htmlFragment                                  // core portion of an HTML body, no head section or other wrappers
+	htmlFragmentWithFrontMatter                   // like a fragment, but with YAML front-matter
 )
 
 type htmlGenerator struct {
@@ -44,24 +45,91 @@ type htmlGenerator struct {
 	mode   outputMode
 
 	// transient state as individual files are processed
-	currentPackage *packageDescriptor
-	grouping       bool
+	currentPackage       *packageDescriptor
+	currentTopMatterFile *fileDescriptor
+	grouping             bool
 
-	genWarnings bool
-	emitYAML    bool
+	genWarnings      bool
+	emitYAML         bool
+	camelCaseFields  bool
+	customStyleSheet string
+	perFile          bool
 }
 
 const (
 	deprecated = "deprecated "
 )
 
-func newHTMLGenerator(model *model, mode outputMode, genWarnings bool, emitYAML bool) *htmlGenerator {
+func newHTMLGenerator(model *model, mode outputMode, genWarnings bool, emitYAML bool, camelCaseFields bool, customStyleSheet string, perFile bool) *htmlGenerator {
 	return &htmlGenerator{
-		model:       model,
-		mode:        mode,
-		genWarnings: genWarnings,
-		emitYAML:    emitYAML,
+		model:            model,
+		mode:             mode,
+		genWarnings:      genWarnings,
+		emitYAML:         emitYAML,
+		camelCaseFields:  camelCaseFields,
+		customStyleSheet: customStyleSheet,
+		perFile:          perFile,
 	}
+}
+
+func (g *htmlGenerator) getFileContents(file *fileDescriptor, messages map[string]*messageDescriptor, enums map[string]*enumDescriptor, services map[string]*serviceDescriptor) {
+	for _, m := range file.allMessages {
+		messages[g.relativeName(m)] = m
+		g.includeUnsituatedDependencies(messages, enums, m)
+	}
+
+	for _, e := range file.allEnums {
+		enums[g.relativeName(e)] = e
+	}
+
+	for _, s := range file.services {
+		services[g.relativeName(s)] = s
+	}
+}
+
+func (g *htmlGenerator) generatePerFileOutput(filesToGen map[*fileDescriptor]bool, pkg *packageDescriptor, response *plugin.CodeGeneratorResponse) {
+	// We need to produce a file for each non-hidden file in this package.
+
+	// Decide which types need to be included in the generated file.
+	// This will be all the types in the fileToGen input files, along with any
+	// dependent types which are located in files that don't have
+	// a known location on the web.
+
+	for _, file := range pkg.files {
+		if _, ok := filesToGen[file]; ok {
+			g.currentTopMatterFile = file
+			messages := make(map[string]*messageDescriptor)
+			enums := make(map[string]*enumDescriptor)
+			services := make(map[string]*serviceDescriptor)
+			g.getFileContents(file, messages, enums, services)
+			var filename = path.Base(file.GetName())
+			var extension = path.Ext(filename)
+			var name = filename[0 : len(filename)-len(extension)]
+			rf := g.generateFile(name, file, messages, enums, services)
+			response.File = append(response.File, &rf)
+		}
+	}
+}
+
+func (g *htmlGenerator) generatePerPackageOutput(filesToGen map[*fileDescriptor]bool, pkg *packageDescriptor, response *plugin.CodeGeneratorResponse) {
+	// We need to produce a file for this package.
+
+	// Decide which types need to be included in the generated file.
+	// This will be all the types in the fileToGen input files, along with any
+	// dependent types which are located in packages that don't have
+	// a known location on the web.
+	messages := make(map[string]*messageDescriptor)
+	enums := make(map[string]*enumDescriptor)
+	services := make(map[string]*serviceDescriptor)
+
+	for _, file := range pkg.files {
+		if _, ok := filesToGen[file]; ok {
+			g.getFileContents(file, messages, enums, services)
+		}
+	}
+
+	rf := g.generateFile(pkg.name, pkg.file, messages, enums, services)
+	response.File = append(response.File, &rf)
 }
 
 func (g *htmlGenerator) generateOutput(filesToGen map[*fileDescriptor]bool) *plugin.CodeGeneratorResponse {
@@ -70,6 +138,7 @@ func (g *htmlGenerator) generateOutput(filesToGen map[*fileDescriptor]bool) *plu
 
 	for _, pkg := range g.model.packages {
 		g.currentPackage = pkg
+		g.currentTopMatterFile = pkg.file
 
 		// anything to output for this package?
 		count := 0
@@ -80,45 +149,32 @@ func (g *htmlGenerator) generateOutput(filesToGen map[*fileDescriptor]bool) *plu
 		}
 
 		if count > 0 {
-			// We need to produce a file for this package.
-
-			// Decide which types need to be included in the generated file.
-			// This will be all the types in the fileToGen input files, along with any
-			// dependent types which are located in packages that don't have
-			// a known location on the web.
-			messages := make(map[string]*messageDescriptor)
-			enums := make(map[string]*enumDescriptor)
-			services := make(map[string]*serviceDescriptor)
-
-			for _, file := range pkg.files {
-				if _, ok := filesToGen[file]; ok {
-					for _, m := range file.allMessages {
-						messages[g.relativeName(m)] = m
-						g.includeUnsituatedDependencies(messages, enums, m)
-					}
-
-					for _, e := range file.allEnums {
-						enums[g.relativeName(e)] = e
-					}
-
-					for _, s := range file.services {
-						services[g.relativeName(s)] = s
-					}
-				}
+			if g.perFile {
+				g.generatePerFileOutput(filesToGen, pkg, &response)
+			} else {
+				g.generatePerPackageOutput(filesToGen, pkg, &response)
 			}
-
-			rf := g.generateFile(pkg, messages, enums, services)
-			response.File = append(response.File, &rf)
 		}
 	}
 
 	return &response
 }
 
+func (g *htmlGenerator) descLocation(desc coreDesc) string {
+	if g.perFile {
+		return desc.fileDesc().homeLocation()
+	}
+	if desc.packageDesc().file != nil {
+		return desc.packageDesc().file.homeLocation()
+	}
+	return ""
+}
+
 func (g *htmlGenerator) includeUnsituatedDependencies(messages map[string]*messageDescriptor, enums map[string]*enumDescriptor, msg *messageDescriptor) {
 	for _, field := range msg.fields {
 		if m, ok := field.typ.(*messageDescriptor); ok {
-			if field.typ.packageDesc().homeLocation == "" {
+			// A package without a known documentation location is included in the output.
+			if g.descLocation(field.typ) == "" {
 				name := g.relativeName(m)
 				if _, ok := messages[name]; !ok {
 					messages[name] = m
@@ -126,14 +182,15 @@ func (g *htmlGenerator) includeUnsituatedDependencies(messages map[string]*messa
 				}
 			}
 		} else if e, ok := field.typ.(*enumDescriptor); ok {
-			if field.typ.packageDesc().homeLocation == "" {
+			if g.descLocation(field.typ) == "" {
 				enums[g.relativeName(e)] = e
 			}
 		}
 	}
 }
 
-func (g *htmlGenerator) generateFile(pkg *packageDescriptor, messages map[string]*messageDescriptor,
+// Generate a package documentation file or a collection of cross-linked files.
+func (g *htmlGenerator) generateFile(name string, top *fileDescriptor, messages map[string]*messageDescriptor,
 	enums map[string]*enumDescriptor, services map[string]*serviceDescriptor) plugin.CodeGeneratorResponse_File {
 	g.buffer.Reset()
 
@@ -194,7 +251,7 @@ func (g *htmlGenerator) generateFile(pkg *packageDescriptor, messages map[string
 	// if there's more than one kind of thing, divide the output in groups
 	g.grouping = numKinds > 1
 
-	g.generateFileHeader(pkg, len(typeList)+len(serviceList))
+	g.generateFileHeader(top, len(typeList)+len(serviceList))
 
 	if len(serviceList) > 0 {
 		if g.grouping {
@@ -224,34 +281,51 @@ func (g *htmlGenerator) generateFile(pkg *packageDescriptor, messages map[string
 	g.generateFileFooter()
 
 	return plugin.CodeGeneratorResponse_File{
-		Name:    proto.String(pkg.name + ".pb.html"),
+		Name:    proto.String(name + ".pb.html"),
 		Content: proto.String(g.buffer.String()),
 	}
 }
 
-func (g *htmlGenerator) generateFileHeader(pkg *packageDescriptor, numEntries int) {
-	if g.mode == jekyllHTML {
+func (g *htmlGenerator) generateFileHeader(top *fileDescriptor, numEntries int) {
+	name := g.currentPackage.name
+	if g.mode == htmlFragmentWithFrontMatter {
 		g.emit("---")
 
-		if pkg.title != "" {
-			g.emit("title: ", pkg.title)
+		if top != nil && top.title() != "" {
+			g.emit("title: ", top.title())
 		} else {
-			g.emit("title: ", pkg.name)
+			g.emit("title: ", name)
 		}
 
-		if pkg.overview != "" {
-			g.emit("overview: ", pkg.overview)
+		if top != nil && top.overview() != "" {
+			g.emit("overview: ", top.overview())
 		}
 
-		if pkg.homeLocation != "" {
-			g.emit("location: ", pkg.homeLocation)
+		if top != nil && top.description() != "" {
+			g.emit("description: ", top.description())
+		}
+
+		if top != nil && top.homeLocation() != "" {
+			g.emit("location: ", top.homeLocation())
 		}
 
 		g.emit("layout: protoc-gen-docs")
+		g.emit("generator: protoc-gen-docs")
 
-		// emit additional custom Jekyll front-matter fields
-		for _, fm := range pkg.frontMatter {
-			g.emit(fm)
+		// emit additional custom front-matter fields
+		if g.perFile {
+			if top != nil {
+				for _, fm := range top.frontMatter() {
+					g.emit(fm)
+				}
+			}
+		} else {
+			// Front matter may be in any of the package's files.
+			for _, file := range g.currentPackage.files {
+				for _, fm := range file.frontMatter() {
+					g.emit(fm)
+				}
+			}
 		}
 
 		g.emit("number_of_entries: ", strconv.Itoa(numEntries))
@@ -264,32 +338,45 @@ func (g *htmlGenerator) generateFileHeader(pkg *packageDescriptor, numEntries in
 		g.emit("<meta charset=\"utf-8'>")
 		g.emit("<meta name=\"viewport' content=\"width=device-width, initial-scale=1, shrink-to-fit=no\">")
 
-		if pkg.title != "" {
-			g.emit("<meta name=\"title\" content=\"", pkg.title, "\">")
-			g.emit("<meta name=\"og:title\" content=\"", pkg.title, "\">")
-			g.emit("<title>", pkg.title, "</title>")
+		if top != nil && top.title() != "" {
+			g.emit("<meta name=\"title\" content=\"", top.title(), "\">")
+			g.emit("<meta name=\"og:title\" content=\"", top.title(), "\">")
+			g.emit("<title>", top.title(), "</title>")
 		}
 
-		if pkg.overview != "" {
-			g.emit("<meta name=\"description\" content=\"", pkg.overview, "\">")
-			g.emit("<meta name=\"og:description\" content=\"", pkg.overview, "\">")
+		if top != nil && top.overview() != "" {
+			g.emit("<meta name=\"description\" content=\"", top.overview(), "\">")
+			g.emit("<meta name=\"og:description\" content=\"", top.overview(), "\">")
+		} else if top != nil && top.description() != "" {
+			g.emit("<meta name=\"description\" content=\"", top.description(), "\">")
+			g.emit("<meta name=\"og:description\" content=\"", top.description(), "\">")
 		}
 
-		g.emit(htmlStyle)
+		if g.customStyleSheet != "" {
+			g.emit("<link rel=\"stylesheet\" href=\"" + g.customStyleSheet + "\">")
+		} else {
+			g.emit(htmlStyle)
+		}
 
 		g.emit("</head>")
 		g.emit("<body>")
-		if pkg.title != "" {
-			g.emit("<h1>", pkg.title, "</h1>")
+		if top != nil && top.title() != "" {
+			g.emit("<h1>", top.title(), "</h1>")
 		}
 	} else if g.mode == htmlFragment {
 		g.emit("<!-- Generated by protoc-gen-docs -->")
-		if pkg.title != "" {
-			g.emit("<h1>", pkg.title, "</h1>")
+		if top != nil && top.title() != "" {
+			g.emit("<h1>", top.title(), "</h1>")
 		}
 	}
 
-	g.generateComment(pkg.location(), pkg.name)
+	if g.perFile {
+		if top != nil {
+			g.generateComment(newLocationDescriptor(top.topMatter.location, top), name)
+		}
+	} else {
+		g.generateComment(g.currentPackage.location(), name)
+	}
 }
 
 func (g *htmlGenerator) generateFileFooter() {
@@ -346,7 +433,11 @@ func (g *htmlGenerator) generateMessage(message *messageDescriptor) {
 				continue
 			}
 
-			fieldName := camelCase(*field.Name)
+			fieldName := *field.Name
+			if g.camelCaseFields {
+				fieldName = camelCase(*field.Name)
+			}
+
 			fieldTypeName := g.fieldTypeName(field)
 
 			class := ""
@@ -501,7 +592,7 @@ func (g *htmlGenerator) emit(str ...string) {
 	g.buffer.WriteByte('\n')
 }
 
-var typeLinkPattern = regexp.MustCompile(`\[.*\]\[.*\]`)
+var typeLinkPattern = regexp.MustCompile(`\[[^\]]*\]\[[^\]]*\]`)
 
 func (g *htmlGenerator) generateComment(loc locationDescriptor, name string) {
 	com := loc.GetLeadingComments()
@@ -614,6 +705,7 @@ var wellKnownTypes = map[string]string{
 	"google.protobuf.EnumValue":   "https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#enumvalue",
 	"google.protobuf.ListValue":   "https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#listvalue",
 	"google.protobuf.NullValue":   "https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#nullvalue",
+	"google.protobuf.Struct":      "https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#struct",
 }
 
 func (g *htmlGenerator) linkify(o coreDesc, name string) string {
@@ -631,8 +723,13 @@ func (g *htmlGenerator) linkify(o coreDesc, name string) string {
 	}
 
 	if !o.isHidden() {
-		loc := o.packageDesc().homeLocation
-		if loc != "" && loc != g.currentPackage.homeLocation {
+		var loc string
+		if g.perFile {
+			loc = o.fileDesc().homeLocation()
+		} else if o.packageDesc().file != nil {
+			loc = o.packageDesc().file.homeLocation()
+		}
+		if loc != "" && (g.currentTopMatterFile == nil || loc != g.currentTopMatterFile.homeLocation()) {
 			return "<a href=\"" + loc + "#" + dottedName(o) + "\">" + name + "</a>"
 		}
 	}
@@ -644,10 +741,10 @@ func (g *htmlGenerator) warn(loc locationDescriptor, format string, args ...inte
 	if g.genWarnings {
 		place := ""
 		if loc.SourceCodeInfo_Location != nil && len(loc.Span) >= 2 {
-			place = fmt.Sprintf("%s:%d:%d:", loc.file.GetName(), loc.Span[0], loc.Span[1])
+			place = fmt.Sprintf("%s:%d:%d: ", loc.file.GetName(), loc.Span[0], loc.Span[1])
 		}
 
-		fmt.Fprintf(os.Stderr, place+" "+format+"\n", args...)
+		fmt.Fprintf(os.Stderr, place+format+"\n", args...)
 	}
 }
 

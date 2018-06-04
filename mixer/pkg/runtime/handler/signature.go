@@ -37,10 +37,10 @@ func (s signature) equals(other signature) bool {
 	return !bytes.Equal(s[:], zeroSignature[:]) && bytes.Equal(s[:], other[:])
 }
 
-func calculateSignature(handler *config.Handler, instances []*config.Instance) signature {
+func calculateSignature(handler *config.HandlerLegacy, instances []*config.InstanceLegacy) signature {
 
 	// sort the instances by name
-	instanceMap := make(map[string]*config.Instance)
+	instanceMap := make(map[string]*config.InstanceLegacy)
 	instanceNames := make([]string, len(instances))
 	for i, instance := range instances {
 		instanceMap[instance.Name] = instance

@@ -191,7 +191,6 @@ func TestAuth(t *testing.T) {
 }
 
 func TestAuthWithHeaders(t *testing.T) {
-	t.Skip("Skipping TestAuthWithHeaders until bug is fixed") // TODO: fix me !
 	ns := tc.Kube.Namespace
 	// Get the non istio pod
 	podList, err := getPodList(ns, "app=fortio-noistio")

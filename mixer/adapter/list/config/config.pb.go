@@ -9,6 +9,8 @@
 	it to a URL from where the list should be fetched. Lists can be simple strings,
 	IP addresses, or regex patterns.
 
+	 This adapter supports the [listentry template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/listentry/).
+
 	It is generated from these files:
 		mixer/adapter/list/config/config.proto
 
@@ -27,7 +29,7 @@ import time "time"
 
 import strconv "strconv"
 
-import github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
+import types "github.com/gogo/protobuf/types"
 
 import strings "strings"
 import reflect "reflect"
@@ -139,24 +141,24 @@ func (m *Params) MarshalTo(dAtA []byte) (int, error) {
 	}
 	dAtA[i] = 0x12
 	i++
-	i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.RefreshInterval)))
-	n1, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.RefreshInterval, dAtA[i:])
+	i = encodeVarintConfig(dAtA, i, uint64(types.SizeOfStdDuration(m.RefreshInterval)))
+	n1, err := types.StdDurationMarshalTo(m.RefreshInterval, dAtA[i:])
 	if err != nil {
 		return 0, err
 	}
 	i += n1
 	dAtA[i] = 0x1a
 	i++
-	i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.Ttl)))
-	n2, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.Ttl, dAtA[i:])
+	i = encodeVarintConfig(dAtA, i, uint64(types.SizeOfStdDuration(m.Ttl)))
+	n2, err := types.StdDurationMarshalTo(m.Ttl, dAtA[i:])
 	if err != nil {
 		return 0, err
 	}
 	i += n2
 	dAtA[i] = 0x22
 	i++
-	i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.CachingInterval)))
-	n3, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.CachingInterval, dAtA[i:])
+	i = encodeVarintConfig(dAtA, i, uint64(types.SizeOfStdDuration(m.CachingInterval)))
+	n3, err := types.StdDurationMarshalTo(m.CachingInterval, dAtA[i:])
 	if err != nil {
 		return 0, err
 	}
@@ -215,11 +217,11 @@ func (m *Params) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovConfig(uint64(l))
 	}
-	l = github_com_gogo_protobuf_types.SizeOfStdDuration(m.RefreshInterval)
+	l = types.SizeOfStdDuration(m.RefreshInterval)
 	n += 1 + l + sovConfig(uint64(l))
-	l = github_com_gogo_protobuf_types.SizeOfStdDuration(m.Ttl)
+	l = types.SizeOfStdDuration(m.Ttl)
 	n += 1 + l + sovConfig(uint64(l))
-	l = github_com_gogo_protobuf_types.SizeOfStdDuration(m.CachingInterval)
+	l = types.SizeOfStdDuration(m.CachingInterval)
 	n += 1 + l + sovConfig(uint64(l))
 	if m.CachingUseCount != 0 {
 		n += 1 + sovConfig(uint64(m.CachingUseCount))
@@ -361,7 +363,7 @@ func (m *Params) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(&m.RefreshInterval, dAtA[iNdEx:postIndex]); err != nil {
+			if err := types.StdDurationUnmarshal(&m.RefreshInterval, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -391,7 +393,7 @@ func (m *Params) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(&m.Ttl, dAtA[iNdEx:postIndex]); err != nil {
+			if err := types.StdDurationUnmarshal(&m.Ttl, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -421,7 +423,7 @@ func (m *Params) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(&m.CachingInterval, dAtA[iNdEx:postIndex]); err != nil {
+			if err := types.StdDurationUnmarshal(&m.CachingInterval, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex

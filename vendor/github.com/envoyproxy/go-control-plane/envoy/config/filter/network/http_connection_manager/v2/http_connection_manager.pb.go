@@ -30,7 +30,7 @@ import _ "github.com/gogo/protobuf/gogoproto"
 
 import time "time"
 
-import github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
+import types "github.com/gogo/protobuf/types"
 
 import io "io"
 
@@ -215,7 +215,6 @@ type HttpConnectionManager struct {
 	// is not specified. See the documentation for
 	// :ref:`config_http_conn_man_headers_x-forwarded-for` for more information.
 	XffNumTrustedHops uint32 `protobuf:"varint,19,opt,name=xff_num_trusted_hops,json=xffNumTrustedHops,proto3" json:"xff_num_trusted_hops,omitempty"`
-	// of the client connection as the origin client address if *use_remote_address* is true
 	// Whether the connection manager will generate the :ref:`x-request-id
 	// <config_http_conn_man_headers_x-request-id>` header if it does not exist. This defaults to
 	// true. Generating a random UUID4 is expensive so in high throughput scenarios where this feature
@@ -503,6 +502,7 @@ type HttpConnectionManager_Tracing struct {
 	// populate the tag name, and the header value is used to populate the tag value. The tag is
 	// created if the specified header name is present in the request's headers.
 	RequestHeadersForTags []string `protobuf:"bytes,2,rep,name=request_headers_for_tags,json=requestHeadersForTags" json:"request_headers_for_tags,omitempty"`
+	// [#not-implemented-hide:]
 	// Target percentage of requests managed by this HTTP connection manager that will be force
 	// traced if the :ref:`x-client-trace-id <config_http_conn_man_headers_x-client-trace-id>`
 	// header is set. This field is a direct analog for the runtime variable
@@ -510,12 +510,14 @@ type HttpConnectionManager_Tracing struct {
 	// <config_http_conn_man_runtime>`.
 	// Default: 100%
 	ClientSampling *envoy_type1.Percent `protobuf:"bytes,3,opt,name=client_sampling,json=clientSampling" json:"client_sampling,omitempty"`
+	// [#not-implemented-hide:]
 	// Target percentage of requests managed by this HTTP connection manager that will be randomly
 	// selected for trace generation, if not requested by the client or not forced. This field is
 	// a direct analog for the runtime variable 'tracing.random_sampling' in the
 	// :ref:`HTTP Connection Manager <config_http_conn_man_runtime>`.
 	// Default: 100%
 	RandomSampling *envoy_type1.Percent `protobuf:"bytes,4,opt,name=random_sampling,json=randomSampling" json:"random_sampling,omitempty"`
+	// [#not-implemented-hide:]
 	// Target percentage of requests managed by this HTTP connection manager that will be traced
 	// after all other sampling checks have been applied (client-directed, force tracing, random
 	// sampling). This field functions as an upper limit on the total configured sampling rate. For
@@ -841,8 +843,8 @@ func (m *HttpConnectionManager) MarshalTo(dAtA []byte) (int, error) {
 	if m.IdleTimeout != nil {
 		dAtA[i] = 0x5a
 		i++
-		i = encodeVarintHttpConnectionManager(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.IdleTimeout)))
-		n6, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.IdleTimeout, dAtA[i:])
+		i = encodeVarintHttpConnectionManager(dAtA, i, uint64(types.SizeOfStdDuration(*m.IdleTimeout)))
+		n6, err := types.StdDurationMarshalTo(*m.IdleTimeout, dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
@@ -851,8 +853,8 @@ func (m *HttpConnectionManager) MarshalTo(dAtA []byte) (int, error) {
 	if m.DrainTimeout != nil {
 		dAtA[i] = 0x62
 		i++
-		i = encodeVarintHttpConnectionManager(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.DrainTimeout)))
-		n7, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.DrainTimeout, dAtA[i:])
+		i = encodeVarintHttpConnectionManager(dAtA, i, uint64(types.SizeOfStdDuration(*m.DrainTimeout)))
+		n7, err := types.StdDurationMarshalTo(*m.DrainTimeout, dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
@@ -1256,11 +1258,11 @@ func (m *HttpConnectionManager) Size() (n int) {
 		n += 1 + l + sovHttpConnectionManager(uint64(l))
 	}
 	if m.IdleTimeout != nil {
-		l = github_com_gogo_protobuf_types.SizeOfStdDuration(*m.IdleTimeout)
+		l = types.SizeOfStdDuration(*m.IdleTimeout)
 		n += 1 + l + sovHttpConnectionManager(uint64(l))
 	}
 	if m.DrainTimeout != nil {
-		l = github_com_gogo_protobuf_types.SizeOfStdDuration(*m.DrainTimeout)
+		l = types.SizeOfStdDuration(*m.DrainTimeout)
 		n += 1 + l + sovHttpConnectionManager(uint64(l))
 	}
 	if len(m.AccessLog) > 0 {
@@ -1779,7 +1781,7 @@ func (m *HttpConnectionManager) Unmarshal(dAtA []byte) error {
 			if m.IdleTimeout == nil {
 				m.IdleTimeout = new(time.Duration)
 			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(m.IdleTimeout, dAtA[iNdEx:postIndex]); err != nil {
+			if err := types.StdDurationUnmarshal(m.IdleTimeout, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -1812,7 +1814,7 @@ func (m *HttpConnectionManager) Unmarshal(dAtA []byte) error {
 			if m.DrainTimeout == nil {
 				m.DrainTimeout = new(time.Duration)
 			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(m.DrainTimeout, dAtA[iNdEx:postIndex]); err != nil {
+			if err := types.StdDurationUnmarshal(m.DrainTimeout, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex

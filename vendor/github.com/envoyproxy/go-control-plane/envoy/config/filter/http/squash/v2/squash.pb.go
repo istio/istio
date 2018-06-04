@@ -22,7 +22,7 @@ import _ "github.com/gogo/protobuf/gogoproto"
 
 import time "time"
 
-import github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
+import types "github.com/gogo/protobuf/types"
 
 import io "io"
 
@@ -149,8 +149,8 @@ func (m *Squash) MarshalTo(dAtA []byte) (int, error) {
 	if m.RequestTimeout != nil {
 		dAtA[i] = 0x1a
 		i++
-		i = encodeVarintSquash(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.RequestTimeout)))
-		n2, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.RequestTimeout, dAtA[i:])
+		i = encodeVarintSquash(dAtA, i, uint64(types.SizeOfStdDuration(*m.RequestTimeout)))
+		n2, err := types.StdDurationMarshalTo(*m.RequestTimeout, dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
@@ -159,8 +159,8 @@ func (m *Squash) MarshalTo(dAtA []byte) (int, error) {
 	if m.AttachmentTimeout != nil {
 		dAtA[i] = 0x22
 		i++
-		i = encodeVarintSquash(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.AttachmentTimeout)))
-		n3, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.AttachmentTimeout, dAtA[i:])
+		i = encodeVarintSquash(dAtA, i, uint64(types.SizeOfStdDuration(*m.AttachmentTimeout)))
+		n3, err := types.StdDurationMarshalTo(*m.AttachmentTimeout, dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
@@ -169,8 +169,8 @@ func (m *Squash) MarshalTo(dAtA []byte) (int, error) {
 	if m.AttachmentPollPeriod != nil {
 		dAtA[i] = 0x2a
 		i++
-		i = encodeVarintSquash(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.AttachmentPollPeriod)))
-		n4, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.AttachmentPollPeriod, dAtA[i:])
+		i = encodeVarintSquash(dAtA, i, uint64(types.SizeOfStdDuration(*m.AttachmentPollPeriod)))
+		n4, err := types.StdDurationMarshalTo(*m.AttachmentPollPeriod, dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
@@ -200,15 +200,15 @@ func (m *Squash) Size() (n int) {
 		n += 1 + l + sovSquash(uint64(l))
 	}
 	if m.RequestTimeout != nil {
-		l = github_com_gogo_protobuf_types.SizeOfStdDuration(*m.RequestTimeout)
+		l = types.SizeOfStdDuration(*m.RequestTimeout)
 		n += 1 + l + sovSquash(uint64(l))
 	}
 	if m.AttachmentTimeout != nil {
-		l = github_com_gogo_protobuf_types.SizeOfStdDuration(*m.AttachmentTimeout)
+		l = types.SizeOfStdDuration(*m.AttachmentTimeout)
 		n += 1 + l + sovSquash(uint64(l))
 	}
 	if m.AttachmentPollPeriod != nil {
-		l = github_com_gogo_protobuf_types.SizeOfStdDuration(*m.AttachmentPollPeriod)
+		l = types.SizeOfStdDuration(*m.AttachmentPollPeriod)
 		n += 1 + l + sovSquash(uint64(l))
 	}
 	return n
@@ -347,7 +347,7 @@ func (m *Squash) Unmarshal(dAtA []byte) error {
 			if m.RequestTimeout == nil {
 				m.RequestTimeout = new(time.Duration)
 			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(m.RequestTimeout, dAtA[iNdEx:postIndex]); err != nil {
+			if err := types.StdDurationUnmarshal(m.RequestTimeout, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -380,7 +380,7 @@ func (m *Squash) Unmarshal(dAtA []byte) error {
 			if m.AttachmentTimeout == nil {
 				m.AttachmentTimeout = new(time.Duration)
 			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(m.AttachmentTimeout, dAtA[iNdEx:postIndex]); err != nil {
+			if err := types.StdDurationUnmarshal(m.AttachmentTimeout, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -413,7 +413,7 @@ func (m *Squash) Unmarshal(dAtA []byte) error {
 			if m.AttachmentPollPeriod == nil {
 				m.AttachmentPollPeriod = new(time.Duration)
 			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(m.AttachmentPollPeriod, dAtA[iNdEx:postIndex]); err != nil {
+			if err := types.StdDurationUnmarshal(m.AttachmentPollPeriod, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex

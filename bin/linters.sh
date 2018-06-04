@@ -44,6 +44,10 @@ popd
 $gometalinter --config=./mixer/tools/adapterlinter/gometalinter.json ./mixer/adapter/...
 echo 'gometalinter on adapters OK'
 
+echo 'Running helm lint on istio & istio-remote ....'
+helm lint ./install/kubernetes/helm/{istio,istio-remote}
+echo 'helm lint on istio & istio-remote OK'
+
 echo 'Checking Grafana dashboards'
 bin/check_dashboards.sh
 echo 'dashboards OK'

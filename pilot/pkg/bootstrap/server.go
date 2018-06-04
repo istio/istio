@@ -37,6 +37,7 @@ import (
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd"
@@ -59,6 +60,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/eureka"
 	"istio.io/istio/pilot/pkg/serviceregistry/external"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
 )
@@ -68,6 +70,9 @@ const (
 	ConfigMapKey = "mesh"
 	// CopilotTimeout when to cancel remote gRPC call to copilot
 	CopilotTimeout = 5 * time.Second
+)
+
+var (
 	// FilepathWalkInterval dictates how often the file system is walked for config
 	FilepathWalkInterval = 100 * time.Millisecond
 )
@@ -146,6 +151,7 @@ type PilotArgs struct {
 	Service          ServiceArgs
 	RDSv2            bool
 	MeshConfig       *meshconfig.MeshConfig
+	CtrlZOptions     *ctrlz.Options
 }
 
 // Server contains the runtime configuration for the Pilot discovery service.
@@ -166,12 +172,22 @@ type Server struct {
 	GRPCServer       *grpc.Server
 	secureGRPCServer *grpc.Server
 	DiscoveryService *envoy.DiscoveryService
+	istioConfigStore model.IstioConfigStore
 
 	// An in-memory service discovery, enabled if 'mock' registry is added.
 	// Currently used for tests.
 	MemoryServiceDiscovery *mock.ServiceDiscovery
 
 	mux *http.ServeMux
+}
+
+func createInterface(kubeconfig string) (kubernetes.Interface, error) {
+	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+
+	if err != nil {
+		return nil, err
+	}
+	return kubernetes.NewForConfig(restConfig)
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
@@ -212,6 +228,13 @@ func NewServer(args PilotArgs) (*Server, error) {
 	}
 	if err := s.initMonitor(&args); err != nil {
 		return nil, err
+	}
+	if err := s.initMultiClusterController(&args); err != nil {
+		return nil, err
+	}
+
+	if args.CtrlZOptions != nil {
+		go ctrlz.Run(args.CtrlZOptions, nil)
 	}
 
 	return s, nil
@@ -272,15 +295,10 @@ func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 			s.clusterStore); err != nil {
 			return err
 		}
-	} else if err = clusterregistry.ReadClustersV2(s.kubeClient,
-		s.clusterStore, args.Namespace); err != nil {
-		return err
 	}
 	if s.clusterStore != nil {
 		log.Infof("clusters configuration %s", spew.Sdump(s.clusterStore))
 	}
-	// Start secret controller which watches for runtime secret Object changes and adds secrets dynamically
-	err = clusterregistry.StartSecretController(s.kubeClient, s.clusterStore, args.Config.ClusterRegistriesNamespace)
 
 	return err
 }
@@ -289,6 +307,17 @@ func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 func checkForMock(registries []string) bool {
 	for _, r := range registries {
 		if strings.ToLower(r) == "mock" {
+			return true
+		}
+	}
+
+	return false
+}
+
+// Check if Kubernetes registry exists in PilotArgs's Registries
+func checkForKubernetes(registries []string) bool {
+	for _, r := range registries {
+		if strings.ToLower(r) == "kubernetes" {
 			return true
 		}
 	}
@@ -403,7 +432,8 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 		var kuberr error
 
 		kubeCfgFile := s.getKubeCfgFile(args)
-		_, client, kuberr = kube.CreateInterface(kubeCfgFile)
+		client, kuberr = createInterface(kubeCfgFile)
+
 		if kuberr != nil {
 			return multierror.Prefix(kuberr, "failed to connect to Kubernetes API.")
 		}
@@ -502,7 +532,7 @@ func (s *Server) makeCopilotMonitor(args *PilotArgs, configController model.Conf
 		return multierror.Prefix(err, "creating cloud foundry client")
 	}
 
-	copilotSnapshot := configmonitor.NewCopilotSnapshot(configController, client, []string{".internal"}, CopilotTimeout)
+	copilotSnapshot := configmonitor.NewCopilotSnapshot(configController, client, CopilotTimeout)
 	copilotMonitor := configmonitor.NewMonitor(configController, 1*time.Second, copilotSnapshot.ReadConfigFiles)
 
 	s.addStartFunc(func(stop chan struct{}) error {
@@ -527,28 +557,22 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 			Controller:       kubectl,
 		})
 
-	// Add clusters under the same pilot
-	if s.clusterStore != nil {
-		clusters := s.clusterStore.GetPilotClusters()
-		clientAccessConfigs := s.clusterStore.GetClientAccessConfigs()
-		for _, cluster := range clusters {
-			log.Infof("Cluster name: %s", clusterregistry.GetClusterID(cluster))
-			clusterClient := clientAccessConfigs[cluster.ObjectMeta.Name]
-			_, client, kuberr := kube.CreateInterfaceFromClusterConfig(&clusterClient)
-			if kuberr != nil {
-				err = multierror.Append(err, multierror.Prefix(kuberr, fmt.Sprintf("failed to connect to Access API with access config: %s", cluster.ObjectMeta.Name)))
-			}
+	return
+}
 
-			kubectl := kube.NewController(client, args.Config.ControllerOptions)
-			serviceControllers.AddRegistry(
-				aggregate.Registry{
-					Name:             serviceregistry.KubernetesRegistry,
-					ClusterID:        clusterregistry.GetClusterID(cluster),
-					ServiceDiscovery: kubectl,
-					ServiceAccounts:  kubectl,
-					Controller:       kubectl,
-				})
-		}
+// initMultiClusterController initializes multi cluster controller
+// currently implemented only for kubernetes registries
+func (s *Server) initMultiClusterController(args *PilotArgs) (err error) {
+	if checkForKubernetes(args.Service.Registries) {
+		// Start secret controller which watches for runtime secret Object changes and adds secrets dynamically
+		err = clusterregistry.StartSecretController(s.kubeClient,
+			s.clusterStore,
+			s.ServiceController,
+			s.DiscoveryService,
+			args.Config.ClusterRegistriesNamespace,
+			args.Config.ControllerOptions.ResyncPeriod,
+			args.Config.ControllerOptions.WatchedNamespace,
+			args.Config.ControllerOptions.DomainSuffix)
 	}
 	return
 }
@@ -569,6 +593,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		case serviceregistry.MockRegistry:
 			initMemoryRegistry(s, serviceControllers)
 		case serviceregistry.KubernetesRegistry:
+
 			if err := s.createK8sServiceControllers(serviceControllers, args); err != nil {
 				return err
 			}
@@ -653,17 +678,19 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			return multierror.Prefix(nil, "Service registry "+r+" is not supported.")
 		}
 	}
-	configStore := model.MakeIstioStore(s.configController)
+	// TODO: use the existing one !
+	s.istioConfigStore = model.MakeIstioStore(s.configController)
+	serviceEntryStore := external.NewServiceDiscovery(s.configController, s.istioConfigStore)
 
 	// add service entry registry to aggregator by default
-	serviceControllers.AddRegistry(
-		aggregate.Registry{
-			Name:             "ServiceEntries",
-			ClusterID:        "ServiceEntries",
-			Controller:       external.NewController(s.configController),
-			ServiceDiscovery: external.NewServiceDiscovery(configStore),
-			ServiceAccounts:  external.NewServiceAccounts(),
-		})
+	serviceEntryRegistry := aggregate.Registry{
+		Name:             "ServiceEntries",
+		ClusterID:        "ServiceEntries",
+		Controller:       serviceEntryStore,
+		ServiceDiscovery: serviceEntryStore,
+		ServiceAccounts:  serviceEntryStore,
+	}
+	serviceControllers.AddRegistry(serviceEntryRegistry)
 
 	s.ServiceController = serviceControllers
 
@@ -678,13 +705,13 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 func initMemoryRegistry(s *Server, serviceControllers *aggregate.Controller) {
 	// MemServiceDiscovery implementation
 	discovery1 := mock.NewDiscovery(
-		map[string]*model.Service{ // mock.HelloService.Hostname: mock.HelloService,
+		map[model.Hostname]*model.Service{ // mock.HelloService.Hostname: mock.HelloService,
 		}, 2)
 
 	s.MemoryServiceDiscovery = discovery1
 
 	discovery2 := mock.NewDiscovery(
-		map[string]*model.Service{ // mock.WorldService.Hostname: mock.WorldService,
+		map[model.Hostname]*model.Service{ // mock.WorldService.Hostname: mock.WorldService,
 		}, 2)
 
 	registry1 := aggregate.Registry{
@@ -709,7 +736,7 @@ func initMemoryRegistry(s *Server, serviceControllers *aggregate.Controller) {
 func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	environment := model.Environment{
 		Mesh:             s.mesh,
-		IstioConfigStore: model.MakeIstioStore(s.configController),
+		IstioConfigStore: s.istioConfigStore,
 		ServiceDiscovery: s.ServiceController,
 		ServiceAccounts:  s.ServiceController,
 		MixerSAN:         s.mixerSAN,
@@ -856,9 +883,11 @@ func (s *Server) secureGrpcStart(listener net.Listener) {
 				VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 					// For now accept any certs - pilot is not authenticating the caller, TLS used for
 					// privacy
-					//log.Infof("Certificate received %V", verifiedChains)
+					log.Infof("Certificate received %V", verifiedChains)
 					return nil
 				},
+				NextProtos: []string{"h2", "http/1.1"},
+				//ClientAuth: tls.NoClientCert,
 				//ClientAuth: tls.RequestClientCert,
 				ClientAuth: tls.RequireAndVerifyClientCert,
 				ClientCAs:  caCertPool,

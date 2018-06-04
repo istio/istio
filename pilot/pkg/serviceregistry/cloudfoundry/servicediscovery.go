@@ -15,6 +15,7 @@
 package cloudfoundry
 
 import (
+	"errors"
 	"fmt"
 
 	copilotapi "code.cloudfoundry.org/copilot/api"
@@ -23,14 +24,19 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
+const (
+	cfLabel = "cfapp"
+)
+
+//go:generate counterfeiter -o ./fakes/copilot_client.go --fake-name CopilotClient . copilotClient
 // CopilotClient defines a local interface for interacting with Cloud Foundry Copilot
-type CopilotClient interface {
+type copilotClient interface {
 	copilotapi.IstioCopilotClient
 }
 
 // ServiceDiscovery implements the model.ServiceDiscovery interface for Cloud Foundry
 type ServiceDiscovery struct {
-	Client CopilotClient
+	Client copilotClient
 
 	// Cloud Foundry currently only supports applications exposing a single HTTP or TCP port
 	// It is typically 8080
@@ -43,13 +49,34 @@ func (sd *ServiceDiscovery) Services() ([]*model.Service, error) {
 	if err != nil {
 		return nil, fmt.Errorf("getting services: %s", err)
 	}
-	services := make([]*model.Service, 0, len(resp.GetBackends()))
+	services := make([]*model.Service, 0, len(resp.GetRoutes()))
 
 	port := sd.servicePort()
-	for hostname := range resp.Backends {
+	for _, route := range resp.GetRoutes() {
 		services = append(services, &model.Service{
-			Hostname:     hostname,
+			Hostname:     model.Hostname(route.Hostname),
 			Ports:        []*model.Port{port},
+			MeshExternal: false,
+			Resolution:   model.ClientSideLB,
+		})
+	}
+
+	internalRoutesResp, err := sd.Client.InternalRoutes(context.Background(), new(copilotapi.InternalRoutesRequest))
+	if err != nil {
+		return nil, fmt.Errorf("getting services: %s", err)
+	}
+
+	internalRouteServicePort := &model.Port{
+		Port:     sd.ServicePort,
+		Protocol: model.ProtocolTCP,
+		Name:     "tcp",
+	}
+
+	for _, internalRoute := range internalRoutesResp.GetInternalRoutes() {
+		services = append(services, &model.Service{
+			Hostname:     model.Hostname(internalRoute.Hostname),
+			Address:      internalRoute.Vip,
+			Ports:        []*model.Port{internalRouteServicePort},
 			MeshExternal: false,
 			Resolution:   model.ClientSideLB,
 		})
@@ -59,7 +86,7 @@ func (sd *ServiceDiscovery) Services() ([]*model.Service, error) {
 }
 
 // GetService implements a service catalog operation
-func (sd *ServiceDiscovery) GetService(hostname string) (*model.Service, error) {
+func (sd *ServiceDiscovery) GetService(hostname model.Hostname) (*model.Service, error) {
 	services, err := sd.Services()
 	if err != nil {
 		return nil, err
@@ -73,32 +100,90 @@ func (sd *ServiceDiscovery) GetService(hostname string) (*model.Service, error) 
 }
 
 // Instances implements a service catalog operation
-func (sd *ServiceDiscovery) Instances(hostname string, ports []string, tagsList model.LabelsCollection) ([]*model.ServiceInstance, error) {
+func (sd *ServiceDiscovery) Instances(hostname model.Hostname, _ []string, _ model.LabelsCollection) ([]*model.ServiceInstance, error) {
+	return nil, errors.New("not implemented. use InstancesByPort instead")
+}
+
+// InstancesByPort implements a service catalog operation
+func (sd *ServiceDiscovery) InstancesByPort(hostname model.Hostname, _ int, labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	resp, err := sd.Client.Routes(context.Background(), new(copilotapi.RoutesRequest))
 	if err != nil {
-		return nil, fmt.Errorf("getting instances: %s", err)
+		return nil, fmt.Errorf("getting routes: %s", err)
 	}
-	instances := make([]*model.ServiceInstance, 0, len(resp.GetBackends()))
-	backendSet, ok := resp.Backends[hostname]
-	if !ok {
-		return nil, nil
-	}
-	for _, backend := range backendSet.GetBackends() {
-		port := sd.servicePort()
 
-		instances = append(instances, &model.ServiceInstance{
-			Endpoint: model.NetworkEndpoint{
-				Address:     backend.Address,
-				Port:        int(backend.Port),
-				ServicePort: port,
-			},
-			Service: &model.Service{
-				Hostname:     hostname,
-				Ports:        []*model.Port{port},
-				MeshExternal: false,
-				Resolution:   model.ClientSideLB,
-			},
-		})
+	instances := make([]*model.ServiceInstance, 0)
+	var matchedRoutes []*copilotapi.RouteWithBackends
+	for _, route := range resp.GetRoutes() {
+		if route.Hostname == hostname.String() {
+			matchedRoutes = append(matchedRoutes, route)
+		}
+	}
+
+	for _, matchedRoute := range matchedRoutes {
+		backends := matchedRoute.GetBackends()
+		if backends == nil {
+			continue
+		}
+
+		for _, backend := range backends.GetBackends() {
+			port := sd.servicePort()
+
+			inst := &model.ServiceInstance{
+				Endpoint: model.NetworkEndpoint{
+					Address:     backend.Address,
+					Port:        int(backend.Port),
+					ServicePort: port,
+				},
+				Service: &model.Service{
+					Hostname:     hostname,
+					Ports:        []*model.Port{port},
+					MeshExternal: false,
+					Resolution:   model.ClientSideLB,
+				},
+			}
+
+			inst.Labels = model.Labels{cfLabel: matchedRoute.GetCapiProcessGuid()}
+
+			for _, label := range labels {
+				if v, ok := label[cfLabel]; ok {
+					if v == matchedRoute.GetCapiProcessGuid() {
+						instances = append(instances, inst)
+					}
+				}
+			}
+		}
+	}
+
+	internalRoutesResp, err := sd.Client.InternalRoutes(context.Background(), new(copilotapi.InternalRoutesRequest))
+	if err != nil {
+		return nil, fmt.Errorf("getting internal routes: %s", err)
+	}
+
+	internalRouteServicePort := &model.Port{
+		Port:     sd.ServicePort,
+		Protocol: model.ProtocolTCP,
+		Name:     "tcp",
+	}
+
+	for _, internalRoute := range internalRoutesResp.GetInternalRoutes() {
+		for _, backend := range internalRoute.GetBackends().Backends {
+			if internalRoute.Hostname == hostname.String() {
+				instances = append(instances, &model.ServiceInstance{
+					Endpoint: model.NetworkEndpoint{
+						Address:     backend.Address,
+						Port:        int(backend.Port),
+						ServicePort: internalRouteServicePort,
+					},
+					Service: &model.Service{
+						Hostname:     hostname,
+						Address:      internalRoute.Vip,
+						Ports:        []*model.Port{internalRouteServicePort},
+						MeshExternal: false,
+						Resolution:   model.ClientSideLB,
+					},
+				})
+			}
+		}
 	}
 
 	return instances, nil

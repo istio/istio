@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"time"
 
+	multierror "github.com/hashicorp/go-multierror"
 	opentracing "github.com/opentracing/opentracing-go"
 	otlog "github.com/opentracing/opentracing-go/log"
 	legacyContext "golang.org/x/net/context"
@@ -57,6 +58,8 @@ const (
 	defaultValidUseCount = 200
 )
 
+var lg = log.RegisterScope("api", "API dispatcher messages.", 0)
+
 // NewGRPCServer creates a gRPC serving stack.
 func NewGRPCServer(dispatcher dispatcher.Dispatcher, gp *pool.GoroutinePool) mixerpb.MixerServer {
 	list := attribute.GlobalList()
@@ -75,27 +78,37 @@ func NewGRPCServer(dispatcher dispatcher.Dispatcher, gp *pool.GoroutinePool) mix
 
 // Check is the entry point for the external Check method
 func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRequest) (*mixerpb.CheckResponse, error) {
-	log.Debug("Dispatching Preprocess Check")
-
-	globalWordCount := int(req.GlobalWordCount)
+	lg.Debugf("Check (GlobalWordCount:%d, DeduplicationID:%s, Quota:%v)", req.GlobalWordCount, req.DeduplicationId, req.Quotas)
+	lg.Debug("Dispatching Preprocess Check")
 
 	// bag around the input proto that keeps track of reference attributes
 	protoBag := attribute.NewProtoBag(&req.Attributes, s.globalDict, s.globalWordList)
-	defer protoBag.Done()
 
 	// This holds the output state of preprocess operations
 	checkBag := attribute.GetMutableBag(protoBag)
-	defer checkBag.Done()
+
+	resp, err := s.check(legacyCtx, req, protoBag, checkBag)
+
+	protoBag.Done()
+	checkBag.Done()
+
+	return resp, err
+}
+
+func (s *grpcServer) check(legacyCtx legacyContext.Context, req *mixerpb.CheckRequest,
+	protoBag *attribute.ProtoBag, checkBag *attribute.MutableBag) (*mixerpb.CheckResponse, error) {
+
+	globalWordCount := int(req.GlobalWordCount)
 
 	if err := s.dispatcher.Preprocess(legacyCtx, protoBag, checkBag); err != nil {
 		err = fmt.Errorf("preprocessing attributes failed: %v", err)
-		log.Errora("Check failed:", err.Error())
+		lg.Errora("Check failed:", err.Error())
 		return nil, grpc.Errorf(codes.Internal, err.Error())
 	}
 
-	log.Debug("Dispatching to main adapters after running processors")
-	log.Debuga("Attribute Bag: \n", checkBag)
-	log.Debug("Dispatching Check")
+	lg.Debug("Dispatching to main adapters after running processors")
+	lg.Debuga("Attribute Bag: \n", checkBag)
+	lg.Debug("Dispatching Check")
 
 	// snapshot the state after we've called the APAs so that we can reuse it
 	// for every check + quota call.
@@ -104,7 +117,7 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 	cr, err := s.dispatcher.Check(legacyCtx, checkBag)
 	if err != nil {
 		err = fmt.Errorf("performing check operation failed: %v", err)
-		log.Errora("Check failed:", err.Error())
+		lg.Errora("Check failed:", err.Error())
 		return nil, grpc.Errorf(codes.Internal, err.Error())
 	}
 
@@ -116,9 +129,9 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 	}
 
 	if status.IsOK(cr.Status) {
-		log.Debug("Check approved")
+		lg.Debug("Check approved")
 	} else {
-		log.Debugf("Check denied: %v", cr.Status)
+		lg.Debugf("Check denied: %v", cr.Status)
 	}
 
 	resp := &mixerpb.CheckResponse{
@@ -144,7 +157,7 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 			// restore to the post-APA state
 			protoBag.RestoreReferencedAttributes(snapApa)
 
-			log.Debuga("Dispatching Quota: ", qma.Quota)
+			lg.Debuga("Dispatching Quota: ", qma.Quota)
 
 			crqr := mixerpb.CheckResponse_QuotaResult{}
 
@@ -152,7 +165,7 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 			qr, err = s.dispatcher.Quota(legacyCtx, checkBag, qma)
 			if err != nil {
 				err = fmt.Errorf("performing quota alloc failed: %v", err)
-				log.Errora("Quota failure:", err.Error())
+				lg.Errora("Quota failure:", err.Error())
 				// we continue the quota loop even after this error
 			} else if qr == nil {
 				// If qma.Quota does not apply to this request give the client what it asked for.
@@ -161,13 +174,13 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 				crqr.GrantedAmount = qma.Amount
 			} else {
 				if !status.IsOK(qr.Status) {
-					log.Debugf("Quota denied: %v", qr.Status)
+					lg.Debugf("Quota denied: %v", qr.Status)
 				}
 				crqr.ValidDuration = qr.ValidDuration
 				crqr.GrantedAmount = qr.Amount
 			}
 
-			log.Debugf("Quota '%s' result: %#v", qma.Quota, crqr)
+			lg.Debugf("Quota '%s' result: %#v", qma.Quota, crqr)
 
 			crqr.ReferencedAttributes = protoBag.GetReferencedAttributes(s.globalDict, globalWordCount)
 			resp.Quotas[name] = crqr
@@ -181,6 +194,8 @@ var reportResp = &mixerpb.ReportResponse{}
 
 // Report is the entry point for the external Report method
 func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.ReportRequest) (*mixerpb.ReportResponse, error) {
+	lg.Debugf("Report (Count: %d)", len(req.Attributes))
+
 	if len(req.Attributes) == 0 {
 		// early out
 		return reportResp, nil
@@ -202,43 +217,46 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 	// This holds the output state of preprocess operations, which ends up as a delta over the current accumBag.
 	reportBag := attribute.GetMutableBag(accumBag)
 
-	var err error
+	reportSpan, reportCtx := opentracing.StartSpanFromContext(legacyCtx, "Report")
+	reporter := s.dispatcher.GetReporter(reportCtx)
+
+	var errors *multierror.Error
 	for i := 0; i < len(req.Attributes); i++ {
-		span, newctx := opentracing.StartSpanFromContext(legacyCtx, fmt.Sprintf("Attributes %d", i))
+		span, newctx := opentracing.StartSpanFromContext(reportCtx, fmt.Sprintf("attribute bag %d", i))
 
 		// the first attribute block is handled by the protoBag as a foundation,
 		// deltas are applied to the child bag (i.e. requestBag)
 		if i > 0 {
-			err = accumBag.UpdateBagFromProto(&req.Attributes[i], s.globalWordList)
-			if err != nil {
+			if err := accumBag.UpdateBagFromProto(&req.Attributes[i], s.globalWordList); err != nil {
 				err = fmt.Errorf("request could not be processed due to invalid attributes: %v", err)
 				span.LogFields(otlog.String("error", err.Error()))
 				span.Finish()
+				errors = multierror.Append(errors, err)
 				break
 			}
 		}
 
-		log.Debug("Dispatching Preprocess")
+		lg.Debug("Dispatching Preprocess")
 
-		if err = s.dispatcher.Preprocess(newctx, accumBag, reportBag); err != nil {
+		if err := s.dispatcher.Preprocess(newctx, accumBag, reportBag); err != nil {
 			err = fmt.Errorf("preprocessing attributes failed: %v", err)
 			span.LogFields(otlog.String("error", err.Error()))
 			span.Finish()
-			break
+			errors = multierror.Append(errors, err)
+			continue
 		}
 
-		log.Debug("Dispatching to main adapters after running preprocessors")
-		log.Debuga("Attribute Bag: \n", reportBag)
-		log.Debugf("Dispatching Report %d out of %d", i, len(req.Attributes))
+		lg.Debug("Dispatching to main adapters after running preprocessors")
+		lg.Debuga("Attribute Bag: \n", reportBag)
+		lg.Debugf("Dispatching Report %d out of %d", i+1, len(req.Attributes))
 
-		err = s.dispatcher.Report(legacyCtx, reportBag)
-		if err != nil {
+		if err := reporter.Report(reportBag); err != nil {
 			span.LogFields(otlog.String("error", err.Error()))
 			span.Finish()
-			break
+			errors = multierror.Append(errors, err)
+			continue
 		}
 
-		span.LogFields(otlog.String("success", "finished Report for attribute bag "+string(i)))
 		span.Finish()
 
 		// purge the effect of the Preprocess call so that the next time through everything is clean
@@ -249,9 +267,19 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 	accumBag.Done()
 	protoBag.Done()
 
-	if err != nil {
-		log.Errora("Report failed:", err.Error())
-		return nil, grpc.Errorf(codes.InvalidArgument, err.Error())
+	if err := reporter.Flush(); err != nil {
+		errors = multierror.Append(errors, err)
+	}
+	reporter.Done()
+
+	if errors != nil {
+		reportSpan.LogFields(otlog.String("error", errors.Error()))
+	}
+	reportSpan.Finish()
+
+	if errors != nil {
+		lg.Errora("Report failed:", errors.Error())
+		return nil, grpc.Errorf(codes.Unknown, errors.Error())
 	}
 
 	return reportResp, nil

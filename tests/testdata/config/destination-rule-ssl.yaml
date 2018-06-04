@@ -1,0 +1,33 @@
+# Fails if a service with the name exists: trusted_ca required !
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: ssl-simple
+spec:
+  host: ssl1.webinf.info
+  trafficPolicy:
+    loadBalancer:
+      simple: LEAST_CONN
+    tls:
+      mode: SIMPLE
+---
+# This will not work: myCA not found, results in rejecting all clusters if the
+# service exists.
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: drprefix
+spec:
+  host: "ssl.webinf.info"
+  trafficPolicy:
+    loadBalancer:
+      simple: RANDOM
+    tls:
+      mode: MUTUAL
+      clientCertificate: myCertFile.pem
+      privateKey: myPrivateKey.pem
+      # If omitted, no verification !!! ( can still be verified by receiver ??)
+      caCertificates: myCA.pem
+      sni: my.sni.com
+      subjectAltNames:
+      - foo.alt.name

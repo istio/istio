@@ -28,6 +28,7 @@ import (
 	k8s_cr "k8s.io/cluster-registry/pkg/apis/clusterregistry/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
 )
 
@@ -42,33 +43,47 @@ const (
 	ClusterAccessConfigSecretNamespace = "config.istio.io/accessConfigSecretNamespace"
 )
 
+// Metadata defines a struct used as a key
+type Metadata struct {
+	Name, Namespace string
+}
+
+// RemoteCluster defines cluster struct
+type RemoteCluster struct {
+	Cluster        *k8s_cr.Cluster
+	Client         *clientcmdapi.Config
+	ClusterStatus  string
+	Controller     *kube.Controller
+	ControlChannel chan struct{}
+}
+
 // ClusterStore is a collection of clusters
 type ClusterStore struct {
-	clusters      []*k8s_cr.Cluster
-	clientConfigs map[string]clientcmdapi.Config
-	storeLock     sync.RWMutex
+	rc        map[Metadata]*RemoteCluster
+	storeLock sync.RWMutex
 }
 
 // NewClustersStore initializes data struct to store clusters information
 func NewClustersStore() *ClusterStore {
+	rc := make(map[Metadata]*RemoteCluster)
 	return &ClusterStore{
-		clusters:      []*k8s_cr.Cluster{},
-		clientConfigs: map[string]clientcmdapi.Config{},
+		rc: rc,
 	}
 }
 
 // GetClientAccessConfigs returns map of collected client configs
-func (cs *ClusterStore) GetClientAccessConfigs() map[string]clientcmdapi.Config {
-	return cs.clientConfigs
-}
+//func (cs *ClusterStore) GetClientAccessConfigs() map[string]clientcmdapi.Config {
+//	return cs.clientConfigs
+//}
 
 // GetClusterAccessConfig returns the access config file of a cluster
 func (cs *ClusterStore) GetClusterAccessConfig(cluster *k8s_cr.Cluster) *clientcmdapi.Config {
 	if cluster == nil {
 		return nil
 	}
-	clusterAccessConfig := cs.clientConfigs[cluster.ObjectMeta.Name]
-	return &clusterAccessConfig
+	key := Metadata{Name: cluster.ObjectMeta.Name, Namespace: cluster.ObjectMeta.Namespace}
+	clusterAccessConfig := cs.rc[key].Client
+	return clusterAccessConfig
 }
 
 // GetClusterID returns a cluster's ID
@@ -77,53 +92,6 @@ func GetClusterID(cluster *k8s_cr.Cluster) string {
 		return ""
 	}
 	return cluster.ObjectMeta.Name
-}
-
-// GetPilotClusters return a list of clusters under this pilot, exclude PilotCfgStore
-func (cs *ClusterStore) GetPilotClusters() []*k8s_cr.Cluster {
-	return cs.clusters
-}
-
-// ReadClustersV2 reads multiple clusters based upon the label istio/multiCluster
-func ReadClustersV2(k8s kubernetes.Interface, cs *ClusterStore, podNameSpace string) (errList error) {
-	err := getClustersConfigsV2(k8s, cs, podNameSpace)
-	if err != nil {
-		// Errors were encountered, but cluster store was populated
-		log.Errorf("The following errors were encountered during multicluster label processing: [ %v ]",
-			err)
-	}
-
-	return nil
-}
-
-// getClustersConfigsV2 reads mutiple clusters from secrets with labels
-func getClustersConfigsV2(k8s kubernetes.Interface, cs *ClusterStore, podNameSpace string) (errList error) {
-	clusterSecrets, err := k8s.CoreV1().Secrets(podNameSpace).List(metav1.ListOptions{
-		LabelSelector: mcLabel,
-	})
-
-	if err != nil {
-		return err
-	}
-	for _, secret := range clusterSecrets.Items {
-		cluster := k8s_cr.Cluster{}
-		kubeconfig, ok := secret.Data[secret.ObjectMeta.Name]
-		if !ok {
-			errList = multierror.Append(errList, fmt.Errorf("could not read secret %s error %v", secret.ObjectMeta.Name, err))
-			continue
-		}
-		clientConfig, err := clientcmd.Load(kubeconfig)
-		if err != nil {
-			errList = multierror.Append(errList, fmt.Errorf("could not load kubeconfig for secret %s error %v", secret.ObjectMeta.Name, err))
-			continue
-		}
-
-		cs.clientConfigs[secret.ObjectMeta.Name] = *clientConfig
-		cluster.ObjectMeta.Name = secret.ObjectMeta.Name
-		cs.clusters = append(cs.clusters, &cluster)
-	}
-
-	return
 }
 
 // ReadClusters reads multiple clusters from a ConfigMap
@@ -187,8 +155,10 @@ func getClustersConfigs(k8s kubernetes.Interface, configMapName, configMapNamesp
 				secretName, secretNamespace, key, err))
 			continue
 		}
-		cs.clientConfigs[cluster.ObjectMeta.Name] = *clientConfig
-		cs.clusters = append(cs.clusters, &cluster)
+		s := Metadata{Name: cluster.ObjectMeta.Name, Namespace: cluster.ObjectMeta.Namespace}
+		cs.rc[s] = &RemoteCluster{}
+		cs.rc[s].Client = clientConfig
+		cs.rc[s].Cluster = &cluster
 	}
 
 	return

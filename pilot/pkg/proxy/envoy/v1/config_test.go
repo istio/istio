@@ -343,13 +343,23 @@ var (
 		file: "testdata/authn-namespace-mtls-on.yaml.golden",
 	}
 
+	authnPolicyHelloMTlsOn = fileConfig{
+		meta: model.ConfigMeta{Type: model.AuthenticationPolicy.Type, Name: "authn-hello-mtls-on"},
+		file: "testdata/authn-hello-mtls-on.yaml.golden",
+	}
+
 	authnPolicyHelloMTlsOff = fileConfig{
 		meta: model.ConfigMeta{Type: model.AuthenticationPolicy.Type, Name: "authn-hello-mtls-off"},
 		file: "testdata/authn-hello-mtls-off.yaml.golden",
 	}
 
-	authnPolicyWorldMTlsOff = fileConfig{
+	authnPolicyWorldMTlsOn = fileConfig{
 		meta: model.ConfigMeta{Type: model.AuthenticationPolicy.Type, Name: "authn-world-mtls-on"},
+		file: "testdata/authn-world-mtls-on.yaml.golden",
+	}
+
+	authnPolicyWorldMTlsOff = fileConfig{
+		meta: model.ConfigMeta{Type: model.AuthenticationPolicy.Type, Name: "authn-world-mtls-off"},
 		file: "testdata/authn-world-mtls-off.yaml.golden",
 	}
 
@@ -412,6 +422,7 @@ func makeMeshConfig() meshconfig.MeshConfig {
 	mesh.MixerCheckServer = "istio-mixer.istio-system:9091"
 	mesh.MixerReportServer = mesh.MixerCheckServer
 	mesh.RdsRefreshDelay = ptypes.DurationProto(10 * time.Millisecond)
+	mesh.IngressService = "istio-ingress"
 	return mesh
 }
 

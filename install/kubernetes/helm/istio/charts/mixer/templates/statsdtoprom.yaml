@@ -51,7 +51,7 @@ spec:
       containers:
       - name: {{ $statsdname }}
         image: "{{ $.Values.prometheusStatsdExporter.repository }}:{{ $.Values.prometheusStatsdExporter.tag}}"
-        imagePullPolicy: {{ $.Values.prometheusStatsdExporter.imagePullPolicy }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         ports:
         - containerPort: 9102
         - containerPort: 9125

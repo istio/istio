@@ -13,4 +13,4 @@ spec:
     - destination:
         host: a
         port:
-          name: tcp
+          number: 90

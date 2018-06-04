@@ -132,14 +132,13 @@ func (c *checkImpl) responseToCheckResult(response *sc.CheckResponse) (adapter.C
 
 	if response.ServerResponse.HTTPStatusCode != 200 {
 		code := toRPCCode(response.ServerResponse.HTTPStatusCode)
-		result.SetStatus(status.New(code))
+		result.Status = status.New(code)
 	}
 
 	if len(response.CheckErrors) > 0 {
 		checkError := response.CheckErrors[0]
-		result.SetStatus(
-			status.WithMessage(serviceControlErrorToRPCCode(checkError.Code),
-				fmt.Sprintf("%s: %s", checkError.Code, checkError.Detail)))
+		result.Status = status.WithMessage(serviceControlErrorToRPCCode(checkError.Code),
+			fmt.Sprintf("%s: %s", checkError.Code, checkError.Detail))
 	}
 
 	return result, nil

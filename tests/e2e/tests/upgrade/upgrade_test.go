@@ -34,21 +34,22 @@ import (
 )
 
 const (
-	u1             = "normal-user"
-	u2             = "test-user"
-	bookinfoYaml   = "samples/bookinfo/kube/bookinfo.yaml"
-	modelDir       = "tests/apps/bookinfo/output"
-	rulesDir       = "samples/bookinfo/kube"
-	allRule        = "route-rule-all-v1.yaml"
-	testRule       = "route-rule-reviews-test-v2.yaml"
-	testRetryTimes = 10
+	u1              = "normal-user"
+	u2              = "test-user"
+	bookinfoYaml    = "samples/bookinfo/kube/bookinfo.yaml"
+	bookinfoGateway = "bookinfo-gateway.yaml"
+	modelDir        = "tests/apps/bookinfo/output"
+	rulesDir        = "samples/bookinfo/kube"
+	allRule         = "route-rule-all-v1.yaml"
+	testRule        = "route-rule-reviews-test-v2.yaml"
+	testRetryTimes  = 10
 )
 
 var (
 	tc                *testConfig
 	baseConfig        *framework.CommonConfig
 	targetConfig      *framework.CommonConfig
-	defaultRules      = []string{allRule, testRule}
+	defaultRules      = []string{allRule, testRule, bookinfoGateway}
 	flagBaseVersion   = flag.String("base_version", "0.4.0", "Base version to upgrade from.")
 	flagTargetVersion = flag.String("target_version", "0.5.1", "Target version to upgrade to.")
 	flagSmoothCheck   = flag.Bool("smooth_check", false, "Whether to check the upgrade is smooth.")
@@ -284,6 +285,8 @@ func upgradeSidecars() error {
 }
 
 func TestUpgrade(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/4937")
+
 	err := upgradeControlPlane()
 	inspect(err, "Failed to upgrade control plane", "Control plane upgraded.", t)
 	if err != nil {
