@@ -15,15 +15,17 @@
 package cloudfoundry
 
 import (
-	"crypto/md5"
 	"errors"
 	"fmt"
-	"io"
 
 	copilotapi "code.cloudfoundry.org/copilot/api"
 	"golang.org/x/net/context"
 
 	"istio.io/istio/pilot/pkg/model"
+)
+
+const (
+	cfLabel = "cfapp"
 )
 
 //go:generate counterfeiter -o ./fakes/copilot_client.go --fake-name CopilotClient . copilotClient
@@ -103,8 +105,7 @@ func (sd *ServiceDiscovery) Instances(hostname model.Hostname, _ []string, _ mod
 }
 
 // InstancesByPort implements a service catalog operation
-// TODO: this is likely broken, since port is ignored  ! May still work for simple cases.
-func (sd *ServiceDiscovery) InstancesByPort(hostname model.Hostname, _ int, _ model.LabelsCollection) ([]*model.ServiceInstance, error) {
+func (sd *ServiceDiscovery) InstancesByPort(hostname model.Hostname, _ int, labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	resp, err := sd.Client.Routes(context.Background(), new(copilotapi.RoutesRequest))
 	if err != nil {
 		return nil, fmt.Errorf("getting routes: %s", err)
@@ -117,6 +118,7 @@ func (sd *ServiceDiscovery) InstancesByPort(hostname model.Hostname, _ int, _ mo
 			matchedRoutes = append(matchedRoutes, route)
 		}
 	}
+
 	for _, matchedRoute := range matchedRoutes {
 		backends := matchedRoute.GetBackends()
 		if backends == nil {
@@ -140,13 +142,15 @@ func (sd *ServiceDiscovery) InstancesByPort(hostname model.Hostname, _ int, _ mo
 				},
 			}
 
-			if matchedRoute.GetPath() != "" {
-				h := md5.New()
-				io.WriteString(h, fmt.Sprintf("%s%s", matchedRoute.GetHostname(), matchedRoute.GetPath()))
-				inst.Labels = model.Labels{"cf-service-instance": fmt.Sprintf("%x", h.Sum(nil))}
-			}
+			inst.Labels = model.Labels{cfLabel: matchedRoute.GetCapiProcessGuid()}
 
-			instances = append(instances, inst)
+			for _, label := range labels {
+				if v, ok := label[cfLabel]; ok {
+					if v == matchedRoute.GetCapiProcessGuid() {
+						instances = append(instances, inst)
+					}
+				}
+			}
 		}
 	}
 

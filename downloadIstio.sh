@@ -11,7 +11,7 @@
 # and is updated more often.
 
 # DO NOT UPDATE THIS VERSION OR SCRIPT LIGHTLY - THIS IS THE "STABLE" VERSION
-ISTIO_VERSION="0.2.12"
+ISTIO_VERSION="0.8.0"
 
 NAME="istio-$ISTIO_VERSION"
 OS="$(uname)"
@@ -24,7 +24,6 @@ fi
 URL="https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-${OSEXT}.tar.gz"
 echo "Downloading $NAME from $URL ..."
 curl -L "$URL" | tar xz
-# TODO: change this so the version is in the tgz/directory name (users trying multiple versions)
 echo "Downloaded into $NAME:"
 ls $NAME
 BINDIR="$(cd $NAME/bin; pwd)"

@@ -50,9 +50,13 @@ spec:
       valueType: TIMESTAMP
     source.uid:
       valueType: STRING
-    source.user:
+    source.user: # DEPRECATED
+      valueType: STRING
+    source.principal:
       valueType: STRING
     destination.uid:
+      valueType: STRING
+    destination.principal:
       valueType: STRING
     connection.id:
       valueType: STRING
@@ -74,6 +78,10 @@ spec:
       valueType: TIMESTAMP
     context.time:
       valueType: TIMESTAMP
+    context.reporter.local:
+      valueType: BOOL
+    context.reporter.uid:
+      valueType: STRING
     api.service:
       valueType: STRING
     api.version:
@@ -107,25 +115,55 @@ spec:
       valueType: IP_ADDRESS
     source.labels:
       valueType: STRING_MAP
+    source.metadata:
+      valueType: STRING_MAP
     source.name:
       valueType: STRING
     source.namespace:
       valueType: STRING
-    source.service:
+    source.owner:
+      valueType: STRING      
+    source.service:  # DEPRECATED
       valueType: STRING
     source.serviceAccount:
+      valueType: STRING
+    source.services:
+      valueType: STRING
+    source.workload.uid:
+      valueType: STRING
+    source.workload.name:
+      valueType: STRING
+    source.workload.namespace:
       valueType: STRING
     destination.ip:
       valueType: IP_ADDRESS
     destination.labels:
       valueType: STRING_MAP
+    destination.metadata:
+      valueType: STRING_MAP
+    destination.owner:
+      valueType: STRING
     destination.name:
       valueType: STRING
     destination.namespace:
       valueType: STRING
-    destination.service:
+    destination.service: # DEPRECATED
+      valueType: STRING
+    destination.service.uid:
+      valueType: STRING
+    destination.service.name:
+      valueType: STRING
+    destination.service.namespace:
+      valueType: STRING
+    destination.service.host:
       valueType: STRING
     destination.serviceAccount:
+      valueType: STRING
+    destination.workload.uid:
+      valueType: STRING
+    destination.workload.name:
+      valueType: STRING
+    destination.workload.namespace:
       valueType: STRING
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -455,5 +493,48 @@ spec:
     destination.namespace: $out.destination_namespace | "default"
     destination.service: $out.destination_service | "unknown"
     destination.serviceAccount: $out.destination_service_account_name | "unknown"
+---
+# Configuration needed by Mixer.
+# Mixer cluster is delivered via CDS
+# Specify mixer cluster settings
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: istio-policy
+  namespace: {{ .Release.Namespace }}
+spec:
+  host: istio-policy.{{ .Release.Namespace }}.svc.cluster.local
+  trafficPolicy:
+    {{- if .Values.global.controlPlaneSecurityEnabled }}
+    portLevelSettings:
+    - port:
+        name: grpc-mixer-mtls
+      tls:
+        mode: ISTIO_MUTUAL
+    {{- end}}
+    connectionPool:
+      http:
+        http2MaxRequests: 10000
+        maxRequestsPerConnection: 10000
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: istio-telemetry
+  namespace: {{ .Release.Namespace }}
+spec:
+  host: istio-telemetry.{{ .Release.Namespace }}.svc.cluster.local
+  trafficPolicy:
+    {{- if .Values.global.controlPlaneSecurityEnabled }}
+    portLevelSettings:
+    - port:
+        name: grpc-mixer-mtls
+      tls:
+        mode: ISTIO_MUTUAL
+    {{- end}}
+    connectionPool:
+      http:
+        http2MaxRequests: 10000
+        maxRequestsPerConnection: 10000
 ---
 {{ end }}

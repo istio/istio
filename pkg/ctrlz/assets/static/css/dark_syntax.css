@@ -1,0 +1,96 @@
+/* // Copyright 2018 Istio Authors */
+/* // */
+/* // Licensed under the Apache License, Version 2.0 (the "License"); */
+/* // you may not use this file except in compliance with the License. */
+/* // You may obtain a copy of the License at */
+/* // */
+/* //     http://www.apache.org/licenses/LICENSE-2.0 */
+/* // */
+/* // Unless required by applicable law or agreed to in writing, software */
+/* // distributed under the License is distributed on an "AS IS" BASIS, */
+/* // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. */
+/* // See the License for the specific language governing permissions and */
+/* // limitations under the License. */
+
+/* PrismJS 1.14.0
+http://prismjs.com/download.html#themes=prism-tomorrow&languages=clike+javascript+bash+docker+go+java+protobuf+python+yaml */
+/**
+ * prism.js tomorrow night eighties for JavaScript, CoffeeScript, CSS and HTML
+ * Based on https://github.com/chriskempson/tomorrow-theme
+ * @author Rose Pritchard
+ */
+
+.token.comment,
+.token.block-comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+    color: #999;
+}
+
+.token.punctuation {
+    color: #ccc;
+}
+
+.token.tag,
+.token.attr-name,
+.token.namespace,
+.token.deleted {
+    color: #e2777a;
+}
+
+.token.function-name {
+    color: #6196cc;
+}
+
+.token.boolean,
+.token.number,
+.token.function {
+    color: #f08d49;
+}
+
+.token.property,
+.token.class-name,
+.token.constant,
+.token.symbol {
+    color: #f8c555;
+}
+
+.token.selector,
+.token.important,
+.token.atrule,
+.token.keyword,
+.token.builtin {
+    color: #cc99cd;
+}
+
+.token.string,
+.token.char,
+.token.attr-value,
+.token.regex,
+.token.variable {
+    color: #7ec699;
+}
+
+.token.operator,
+.token.entity,
+.token.url {
+    color: #67cdcc;
+}
+
+.token.important,
+.token.bold {
+    font-weight: bold;
+}
+.token.italic {
+    font-style: italic;
+}
+
+.token.entity {
+    cursor: help;
+}
+
+.token.inserted {
+    color: green;
+}
+

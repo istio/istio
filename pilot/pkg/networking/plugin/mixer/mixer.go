@@ -44,11 +44,6 @@ func NewPlugin() plugin.Plugin {
 
 // OnOutboundListener implements the Callbacks interface method.
 func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
-	// TODO: remove this bypass when https://github.com/istio/istio/issues/5694 is closed.
-	if in.Node.Type == model.Router {
-		return nil
-	}
-
 	env := in.Env
 	node := in.Node
 	proxyInstances := in.ProxyInstances
@@ -71,11 +66,6 @@ func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mutable
 
 // OnInboundListener implements the Callbacks interface method.
 func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
-	// TODO: remove this bypass when https://github.com/istio/istio/issues/5694 is closed.
-	if in.Node.Type == model.Router {
-		return nil
-	}
-
 	env := in.Env
 	node := in.Node
 	proxyInstances := in.ProxyInstances
@@ -134,7 +124,7 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConfigura
 					nr.PerFilterConfig = make(map[string]*types.Struct)
 				}
 				nr.PerFilterConfig[v1.MixerFilter] = util.MessageToStruct(
-					buildMixerPerRouteConfig(in.Env.Mesh.DisablePolicyChecks, forward, in.ServiceInstance.Service.Hostname.String()))
+					buildMixerPerRouteConfig(in, false, forward, in.ServiceInstance.Service.Hostname.String()))
 				nrs = append(nrs, nr)
 			}
 			nvh.Routes = nrs
@@ -149,16 +139,34 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConfigura
 	}
 }
 
-func buildMixerPerRouteConfig(disableCheck, _ /*disableForward*/ bool, destinationService string) *mccpb.ServiceConfig {
-	out := &mccpb.ServiceConfig{
-		// Report calls are never disabled. Disable forward is currently not in the proto.
-		DisableCheckCalls: disableCheck,
-	}
+func buildMixerPerRouteConfig(in *plugin.InputParams, outboundRoute bool, _ /*disableForward*/ bool, destinationService string) *mccpb.ServiceConfig {
+	role := in.Node
+	nodeInstances := in.ProxyInstances
+	disableCheck := in.Env.Mesh.DisablePolicyChecks
+	config := in.Env.IstioConfigStore
+
+	out := v1.ServiceConfig(in.Service.Hostname.String(), in.ServiceInstance, config, disableCheck, false)
+	// Report calls are never disabled. Disable forward is currently not in the proto.
+	out.DisableCheckCalls = disableCheck
+
 	if destinationService != "" {
 		out.MixerAttributes = &mpb.Attributes{}
 		out.MixerAttributes.Attributes = map[string]*mpb.Attributes_AttributeValue{
 			v1.AttrDestinationService: {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: destinationService}},
 		}
+	}
+
+	var labels map[string]string
+	// Note: instances are all running on mode.Node named 'role'
+	// So instance labels are the workload / Node labels.
+	if len(nodeInstances) > 0 {
+		labels = nodeInstances[0].Labels
+	}
+
+	if !outboundRoute || role.Type == model.Router {
+		// for outboundRoutes there are no default MixerAttributes except for gateway.
+		// specific MixerAttributes are in per route configuration.
+		v1.AddStandardNodeAttributes(out.MixerAttributes.Attributes, v1.AttrDestinationPrefix, role.IPAddress, role.ID, labels)
 	}
 
 	return out
@@ -221,7 +229,11 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 
 	mxConfig := &mccpb.HttpClientConfig{
 		MixerAttributes: &mpb.Attributes{
-			Attributes: map[string]*mpb.Attributes_AttributeValue{},
+			Attributes: map[string]*mpb.Attributes_AttributeValue{
+				"context.reporter.uid": {
+					Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: "kubernetes://" + role.ID},
+				},
+			},
 		},
 		ServiceConfigs: map[string]*mccpb.ServiceConfig{},
 		Transport:      transport,
@@ -239,6 +251,9 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 		// for outboundRoutes there are no default MixerAttributes except for gateway.
 		// specific MixerAttributes are in per route configuration.
 		v1.AddStandardNodeAttributes(mxConfig.MixerAttributes.Attributes, v1.AttrDestinationPrefix, role.IPAddress, role.ID, labels)
+		mxConfig.MixerAttributes.Attributes["context.reporter.local"] = &mpb.Attributes_AttributeValue{
+			Value: &mpb.Attributes_AttributeValue_BoolValue{BoolValue: true},
+		}
 	}
 
 	if role.Type == model.Sidecar && !outboundRoute {
@@ -267,6 +282,12 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 func buildTCPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, instance *model.ServiceInstance) *mccpb.TcpClientConfig {
 	attrs := v1.StandardNodeAttributes(v1.AttrDestinationPrefix, role.IPAddress, role.ID, nil)
 	attrs[v1.AttrDestinationService] = &mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_StringValue{instance.Service.Hostname.String()}}
+	attrs["context.reporter.uid"] = &mpb.Attributes_AttributeValue{
+		Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: "kubernetes://" + role.ID},
+	}
+	attrs["context.reporter.local"] = &mpb.Attributes_AttributeValue{
+		Value: &mpb.Attributes_AttributeValue_BoolValue{BoolValue: true},
+	}
 
 	mcs, _, _ := net.SplitHostPort(mesh.MixerCheckServer)
 	mrs, _, _ := net.SplitHostPort(mesh.MixerReportServer)

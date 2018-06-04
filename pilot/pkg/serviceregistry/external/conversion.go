@@ -18,17 +18,15 @@ import (
 	"net"
 	"strings"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 )
 
 func convertPort(port *networking.Port) *model.Port {
 	return &model.Port{
-		Name:                 port.Name,
-		Port:                 int(port.Number),
-		Protocol:             model.ParseProtocol(port.Protocol),
-		AuthenticationPolicy: meshconfig.AuthenticationPolicy_NONE,
+		Name:     port.Name,
+		Port:     int(port.Number),
+		Protocol: model.ParseProtocol(port.Protocol),
 	}
 }
 
@@ -110,26 +108,27 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 func convertInstances(serviceEntry *networking.ServiceEntry) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	for _, service := range convertServices(serviceEntry) {
-		for _, servicePort := range serviceEntry.Ports {
+		for _, serviceEntryPort := range serviceEntry.Ports {
 			if len(serviceEntry.Endpoints) == 0 &&
 				serviceEntry.Resolution == networking.ServiceEntry_DNS {
 				// when service entry has discovery type DNS and no endpoints
-				// we create endpoints from service entry hosts field
-				for _, host := range serviceEntry.Hosts {
-					out = append(out, &model.ServiceInstance{
-						Endpoint: model.NetworkEndpoint{
-							Address:     host,
-							Port:        int(servicePort.Number),
-							ServicePort: convertPort(servicePort),
-						},
-						// TODO AvailabilityZone, ServiceAccount
-						Service: service,
-						Labels:  nil,
-					})
+				// we create endpoints from service's host
+				// Do not use serviceentry.hosts as a service entry is converted into
+				// multiple services (one for each host)
+				out = append(out, &model.ServiceInstance{
+					Endpoint: model.NetworkEndpoint{
+						Address:     service.Hostname.String(),
+						Port:        int(serviceEntryPort.Number),
+						ServicePort: convertPort(serviceEntryPort),
+					},
+					// TODO AvailabilityZone, ServiceAccount
+					Service: service,
+					Labels:  nil,
+				})
+			} else {
+				for _, endpoint := range serviceEntry.Endpoints {
+					out = append(out, convertEndpoint(service, serviceEntryPort, endpoint))
 				}
-			}
-			for _, endpoint := range serviceEntry.Endpoints {
-				out = append(out, convertEndpoint(service, servicePort, endpoint))
 			}
 		}
 	}

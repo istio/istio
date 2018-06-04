@@ -53,8 +53,8 @@ func newFactory(snapshot *config.Snapshot) *factory {
 
 // build instantiates a handler object using the passed in handler and instances configuration.
 func (f *factory) build(
-	handler *config.Handler,
-	instances []*config.Instance,
+	handler *config.HandlerLegacy,
+	instances []*config.InstanceLegacy,
 	env adapter.Env) (h adapter.Handler, err error) {
 
 	// Do not assign the error to err directly, as this would overwrite the err returned by the inner function.
@@ -166,7 +166,7 @@ func (f *factory) buildHandler(
 	return builder.Build(context.Background(), env)
 }
 
-func (f *factory) inferTypes(instances []*config.Instance) (map[string]inferredTypesMap, error) {
+func (f *factory) inferTypes(instances []*config.InstanceLegacy) (map[string]inferredTypesMap, error) {
 
 	typesByTemplate := make(map[string]inferredTypesMap)
 	for _, instance := range instances {
@@ -185,7 +185,7 @@ func (f *factory) inferTypes(instances []*config.Instance) (map[string]inferredT
 	return typesByTemplate, nil
 }
 
-func (f *factory) inferType(instance *config.Instance) (proto.Message, error) {
+func (f *factory) inferType(instance *config.InstanceLegacy) (proto.Message, error) {
 
 	var inferredType proto.Message
 	var err error

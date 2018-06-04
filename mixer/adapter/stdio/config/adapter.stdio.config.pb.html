@@ -3,7 +3,9 @@ title: Stdio
 description: Adapter for outputting logs and metrics locally.
 location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/stdio.html
 layout: protoc-gen-docs
-redirect_from: /docs/reference/config/adapters/stdio.html
+generator: protoc-gen-docs
+aliases:
+  - /docs/reference/config/adapters/stdio.html
 number_of_entries: 3
 ---
 <p>The <code>stdio</code> adapter enables Istio to output logs and metrics to
@@ -13,8 +15,8 @@ reachable file. When outputting to files, you can enable file rotation
 such that the adapter will automatically manage a set of file backups
 as data is generated.</p>
 
-<p>This adapter supports the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/logentry.html">logentry template</a>.
-and the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric.html">metric template</a>.</p>
+<p>This adapter supports the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/logentry/">logentry template</a>.
+and the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric/">metric template</a>.</p>
 
 <h2 id="Params">Params</h2>
 <section>

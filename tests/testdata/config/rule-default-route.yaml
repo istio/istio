@@ -4,7 +4,7 @@ metadata:
   name: c
 spec:
    hosts:
-   - c
+   - c.foo
    ports:
    - number: 80
      name: http
@@ -21,9 +21,9 @@ metadata:
   name: default-route
 spec:
   hosts:
-    - c
+    - c.foo
   http:
     - route:
       - destination:
-          host: c
+          host: c.foo
         weight: 100

@@ -38,6 +38,7 @@ export GOPATH
 
 # If GOPATH is made up of several paths, use the first one for our targets in this Makefile
 GO_TOP := $(shell echo ${GOPATH} | cut -d ':' -f1)
+export GO_TOP
 
 # Note that disabling cgo here adversely affects go get.  Instead we'll rely on this
 # to be handled in bin/gobuild.sh
@@ -109,6 +110,9 @@ export ISTIO_BIN=$(GO_TOP)/bin
 export OUT_DIR=$(GO_TOP)/out
 export ISTIO_OUT:=$(GO_TOP)/out/$(GOOS)_$(GOARCH)/$(BUILDTYPE_DIR)
 export HELM=$(ISTIO_OUT)/helm
+
+# istioctl kube-inject uses builtin config only if this env var is set.
+export ISTIOCTL_USE_BUILTIN_DEFAULTS=1
 
 # scratch dir: this shouldn't be simply 'docker' since that's used for docker.save to store tar.gz files
 ISTIO_DOCKER:=${ISTIO_OUT}/docker_temp
@@ -207,8 +211,15 @@ init: check-tree check-go-version $(ISTIO_OUT)/istio_is_init
 
 # Sync target will pull from master and sync the modules. It is the first step of the
 # circleCI build, developers should call it periodically.
-sync: init
+sync: init git.pullmaster
 	mkdir -p ${OUT_DIR}/logs
+
+# Merge master. To be used in CI or by developers, assumes the
+# remote is called 'origin' (git default). Will fail on conflicts
+# Note: in a branch, this will get the latest from master. In master it has no effect.
+# This should be run after a 'git fetch' (typically done in the checkout step in CI)
+git.pullmaster:
+	git merge master
 
 # I tried to make this dependent on what I thought was the appropriate
 # lock file, but it caused the rule for that file to get run (which

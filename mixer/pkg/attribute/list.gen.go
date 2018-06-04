@@ -3,14 +3,14 @@
 
 package attribute
 
-func GlobalList() ([]string) { 
-    tmp := make([]string, len(globalList))
-    copy(tmp, globalList)
-    return tmp
+func GlobalList() []string {
+	tmp := make([]string, len(globalList))
+	copy(tmp, globalList)
+	return tmp
 }
 
-var ( 
-    globalList = []string{
+var (
+	globalList = []string{
 		"source.ip",
 		"source.port",
 		"source.name",
@@ -207,5 +207,7 @@ var (
 		"destination.service.host",
 		"destination.container.name",
 		"destination.container.image",
-    }
+		"context.reporter.local",
+		"context.reporter.uid",
+	}
 )

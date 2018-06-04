@@ -17,7 +17,8 @@ syntax = "proto3";
 // $title: API Key
 // $description: A template that represents a single API key.
 // $location: https://istio.io/docs/reference/config/policy-and-telemetry/templates/apikey.html
-// $front_matter: redirect_from: /docs/reference/config/template/apikey.html
+// $front_matter: aliases:
+// $front_matter:   - /docs/reference/config/template/apikey.html
 
 // The `apikey` template represents a single API key, which is used for authorization checks.
 //
@@ -38,7 +39,7 @@ syntax = "proto3";
 // ```
 package apiKey;
 
-import "mixer/adapter/model/v1beta1/type.proto";
+import "policy/v1beta1/type.proto";
 import "mixer/adapter/model/v1beta1/extensions.proto";
 
 option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_CHECK;
@@ -58,5 +59,5 @@ message Template {
     string api_key = 4;
 
     // Timestamp of API call.
-    istio.mixer.adapter.model.v1beta1.TimeStamp timestamp = 5;
+    istio.policy.v1beta1.TimeStamp timestamp = 5;
 }
