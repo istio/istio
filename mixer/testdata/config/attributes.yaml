@@ -71,6 +71,10 @@ spec:
         valueType: TIMESTAMP
       context.time:
         valueType: TIMESTAMP
+      context.reporter.local:
+        valueType: BOOL
+      context.reporter.uid:
+        valueType: STRING
       api.service:
         valueType: STRING
       api.version:
