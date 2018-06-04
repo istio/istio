@@ -163,6 +163,18 @@ test/minikube/noauth/e2e_simple: out_dir generate_yaml
 		--skip_cleanup  -use_local_cluster -cluster_wide -test.v \
 		${E2E_ARGS} ${EXTRA_E2E_ARGS} ${T} ${TESTOPTS} ${CAPTURE_LOG}
 
+test/minikube/auth/e2e_simple_envoyv2: out_dir  generate_yaml-envoyv2_transition_loadbalancer_ingressgateway
+	@mkdir -p ${OUT_DIR}/logs
+	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 20m ./tests/e2e/tests/simple -args --auth_enable=true \
+	--skip_cleanup --v1alpha1=false --v1alpha3=true --egress=false --ingress=false \
+	--rbac_enable=false --use_local_cluster --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
+
+test/minikube/noauth/e2e_simple_envoyv2: out_dir generate_yaml-envoyv2_transition_loadbalancer_ingressgateway
+	@mkdir -p ${OUT_DIR}/logs
+	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 20m ./tests/e2e/tests/simple -args --auth_enable=false \
+	--skip_cleanup --v1alpha1=false --v1alpha3=true --egress=false --ingress=false \
+	--rbac_enable=false --use_local_cluster --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
+
 # v1alpha1+envoy v1 test with MTLS
 # Test runs in istio-system, using istio-auth.yaml generated config.
 # This will only (re)run the test - call "make docker istio.yaml" (or "make pilot docker.pilot" if
@@ -209,6 +221,12 @@ test/local/noauth/e2e_mixer_envoyv2: generate_yaml-envoyv2_transition_loadbalanc
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 20m ./tests/e2e/tests/mixer \
 	--skip_cleanup --auth_enable=false --v1alpha3=true --egress=false --ingress=false --rbac_enable=false \
 	--v1alpha1=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
+
+test/local/auth/e2e_simple_envoyv2: generate_yaml-envoyv2_transition_loadbalancer_ingressgateway
+	@mkdir -p ${OUT_DIR}/logs
+	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 20m ./tests/e2e/tests/simple \
+	--skip_cleanup --v1alpha1=false --v1alpha3=true --egress=false --ingress=false \
+	--rbac_enable=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 # v1alpha3+envoyv2 test without MTLS (not implemented yet). Still in progress, for tracking
 test/local/noauth/e2e_simple_pilotv2: out_dir generate_yaml-envoyv2_transition
