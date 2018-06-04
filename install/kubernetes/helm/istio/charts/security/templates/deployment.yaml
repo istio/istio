@@ -41,6 +41,7 @@ spec:
             - --self-signed-ca=true
           {{- end }}
           resources:
+{{ toYaml .Values.resources | indent 12 }}
 {{- if .Values.global.multicluster.enabled }}
           volumeMounts:
           - name: cacerts
