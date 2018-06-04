@@ -4,13 +4,14 @@ description: Adapter that exposes Istio metrics for ingestion by a Prometheus ha
 location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/prometheus.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-redirect_from: /docs/reference/config/adapters/prometheus.html
+aliases:
+  - /docs/reference/config/adapters/prometheus.html
 number_of_entries: 7
 ---
 <p>The <code>prometheus</code> adapter collects Istio metrics and makes them available to
 <a href="https://prometheus.io">Prometheus</a>.</p>
 
-<p>This adapter supports the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric.html">metric template</a>.</p>
+<p>This adapter supports the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric/">metric template</a>.</p>
 
 <h2 id="Params">Params</h2>
 <section>
@@ -60,7 +61,7 @@ the full metric name becomes &ldquo;istio</em>request_count&rdquo;.
 NOTE: The specificed namespace should be a prometheus-safe name. If not, the adapter
 will attempt to convert the namespace to a prometheus-safe name.
 NOTE: Changing the value for this will potentially impact downstream integrations
-and should be used with caution.<br />
+and should be used with caution.
 Default value: &ldquo;istio&rdquo;.</p>
 
 </td>

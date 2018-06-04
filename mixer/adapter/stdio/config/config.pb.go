@@ -11,8 +11,8 @@
 	such that the adapter will automatically manage a set of file backups
 	as data is generated.
 
-	This adapter supports the [logentry template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/logentry.html).
-	and the [metric template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric.html).
+	This adapter supports the [logentry template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/logentry/).
+	and the [metric template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric/).
 
 	It is generated from these files:
 		mixer/adapter/stdio/config/config.proto

@@ -22,6 +22,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"sort"
 	"strings"
 	"text/tabwriter"
 
@@ -72,12 +73,25 @@ var (
 	file string
 
 	// output format (yaml or short)
-	outputFormat string
+	outputFormat     string
+	getAllNamespaces bool
 
 	// Create a model.ConfigStore (or mockCrdClient)
 	clientFactory = newClient
 
 	loggingOptions = log.DefaultOptions()
+
+	// This defines the output order for "get all".  We show the V3 types first.
+	sortWeight = map[string]int{
+		model.Gateway.Type:           -10,
+		model.VirtualService.Type:    -5,
+		model.DestinationRule.Type:   -3,
+		model.ServiceEntry.Type:      -1,
+		model.IngressRule.Type:       1,
+		model.RouteRule.Type:         5,
+		model.DestinationPolicy.Type: 10,
+		model.EgressRule.Type:        20,
+	}
 
 	// all resources will be migrated out of config.istio.io to their own api group mapping to package path.
 	// TODO(xiaolanz) legacy group exists until we find out a client for mixer/broker.
@@ -297,23 +311,43 @@ istioctl get virtualservice bookinfo
 					strings.Join(supportedTypes(configClient), ", "))
 			}
 
-			typ, err := protoSchema(configClient, strings.ToLower(args[0]))
-			if err != nil {
-				c.Println(c.UsageString())
-				return err
+			getByName := len(args) > 1
+			if getAllNamespaces && getByName {
+				return errors.New("a resource cannot be retrieved by name across all namespaces")
+			}
+
+			var typs []model.ProtoSchema
+			if !getByName && strings.ToLower(args[0]) == "all" {
+				typs = configClient.ConfigDescriptor()
+			} else {
+				typ, err := protoSchema(configClient, args[0])
+				if err != nil {
+					c.Println(c.UsageString())
+					return err
+				}
+				typs = []model.ProtoSchema{typ}
+			}
+
+			var ns string
+			if getAllNamespaces {
+				ns = v1.NamespaceAll
+			} else {
+				ns, _ = handleNamespaces(namespace)
 			}
 
 			var configs []model.Config
-			if len(args) > 1 {
-				ns, _ := handleNamespaces(v1.NamespaceAll)
-				config, exists := configClient.Get(typ.Type, args[1], ns)
+			if getByName {
+				config, exists := configClient.Get(typs[0].Type, args[1], ns)
 				if exists {
 					configs = append(configs, *config)
 				}
 			} else {
-				configs, err = configClient.List(typ.Type, namespace)
-				if err != nil {
-					return err
+				for _, typ := range typs {
+					typeConfigs, err := configClient.List(typ.Type, ns)
+					if err != nil {
+						return multierror.Prefix(err, fmt.Sprintf("Can't list %v:", typ.Type))
+					}
+					configs = append(configs, typeConfigs...)
 				}
 			}
 
@@ -357,7 +391,7 @@ istioctl delete virtualservice bookinfo
 					c.Println(c.UsageString())
 					return fmt.Errorf("provide configuration type and name or -f option")
 				}
-				typ, err := protoSchema(configClient, strings.ToLower(args[0]))
+				typ, err := protoSchema(configClient, args[0])
 				if err != nil {
 					return err
 				}
@@ -548,6 +582,9 @@ func init() {
 
 	getCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "short",
 		"Output format. One of:yaml|short")
+	getCmd.PersistentFlags().BoolVar(&getAllNamespaces, "all-namespaces", false,
+		"If present, list the requested object(s) across all namespaces. Namespace in current "+
+			"context is ignored even if specified with --namespace.")
 
 	experimentalCmd.AddCommand(convert.Command())
 	experimentalCmd.AddCommand(Rbac())
@@ -586,7 +623,7 @@ func main() {
 // The protoSchema is based on the kind (for example "routerule" or "destinationpolicy")
 func protoSchema(configClient model.ConfigStore, typ string) (model.ProtoSchema, error) {
 	for _, desc := range configClient.ConfigDescriptor() {
-		switch typ {
+		switch strings.ToLower(typ) {
 		case crd.ResourceName(desc.Type), crd.ResourceName(desc.Plural):
 			return desc, nil
 		case desc.Type, desc.Plural: // legacy hyphenated resources names
@@ -628,6 +665,9 @@ func readInputs() ([]model.Config, []crd.IstioKind, error) {
 
 // Print a simple list of names
 func printShortOutput(writer io.Writer, _ model.ConfigStore, configList []model.Config) {
+	// Sort configList by Type
+	sort.Slice(configList, func(i, j int) bool { return sortWeight[configList[i].Type] < sortWeight[configList[j].Type] })
+
 	var w tabwriter.Writer
 	w.Init(writer, 10, 4, 3, ' ', 0)
 	fmt.Fprintf(&w, "NAME\tKIND\tNAMESPACE\n")
@@ -780,8 +820,12 @@ func prepareClientForOthers(configs []crd.IstioKind) (*rest.RESTClient, map[stri
 
 func getDefaultNamespace(kubeconfig string) string {
 	configAccess := clientcmd.NewDefaultPathOptions()
-	// use specified kubeconfig file for the location of the config to read
-	configAccess.GlobalFile = kubeconfig
+
+	if kubeconfig != defaultKubeConfigText {
+		// use specified kubeconfig file for the location of the
+		// config to read
+		configAccess.GlobalFile = kubeconfig
+	}
 
 	// gets existing kubeconfig or returns new empty config
 	config, err := configAccess.GetStartingConfig()

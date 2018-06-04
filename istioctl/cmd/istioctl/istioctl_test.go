@@ -195,7 +195,7 @@ func TestGet(t *testing.T) {
 		},
 		{ // case 1
 			testRouteRules,
-			strings.Split("get routerules", " "),
+			strings.Split("get routerules --all-namespaces", " "),
 			`NAME      KIND                        NAMESPACE
 a         RouteRule.config.v1alpha2   default
 b         RouteRule.config.v1alpha2   default
@@ -207,7 +207,7 @@ d         RouteRule.config.v1alpha2   default
 		},
 		{ // case 2
 			testGateways,
-			strings.Split("get gateways", " "),
+			strings.Split("get gateways -n default", " "),
 			`NAME               KIND                          NAMESPACE
 bookinfo-gateway   Gateway.networking.v1alpha3   default
 `,
@@ -216,19 +216,39 @@ bookinfo-gateway   Gateway.networking.v1alpha3   default
 		},
 		{ // case 3
 			testVirtualServices,
-			strings.Split("get virtualservices", " "),
+			strings.Split("get virtualservices -n default", " "),
 			`NAME       KIND                                 NAMESPACE
 bookinfo   VirtualService.networking.v1alpha3   default
 `,
 			nil,
 			false,
 		},
-		{
+		{ // case 4 invalid type
 			[]model.Config{},
 			strings.Split("get invalid", " "),
 			"",
 			regexp.MustCompile("^Usage:.*"),
 			true, // "istioctl get invalid" should fail
+		},
+		{ // case 5 all
+			append(testRouteRules, testVirtualServices...),
+			strings.Split("get all", " "),
+			`NAME       KIND                                 NAMESPACE
+bookinfo   VirtualService.networking.v1alpha3   default
+a          RouteRule.config.v1alpha2            default
+b          RouteRule.config.v1alpha2            default
+c          RouteRule.config.v1alpha2            istio-system
+d          RouteRule.config.v1alpha2            default
+`,
+			nil,
+			false,
+		},
+		{ // case 6 all with no data
+			[]model.Config{},
+			strings.Split("get all", " "),
+			"No resources found.\n",
+			nil,
+			false,
 		},
 	}
 
@@ -299,7 +319,7 @@ func TestDelete(t *testing.T) {
 			nil,
 			false,
 		},
-		{ // case 1
+		{ // case 2
 			testRouteRules,
 			strings.Split("delete routerule a b", " "),
 			`Deleted config: routerule a
@@ -313,6 +333,13 @@ Deleted config: routerule b
 			strings.Split("delete -f convert/testdata/v1alpha1/route-rule-80-20.yaml", " "),
 			"",
 			regexp.MustCompile("^Error: 1 error occurred:\n\n\\* cannot delete route-rule/default/route-rule-80-20: item not found\n$"),
+			true,
+		},
+		{ // case 4 - "all" not valid for delete
+			[]model.Config{},
+			strings.Split("delete all foo", " "),
+			"",
+			regexp.MustCompile("^Error: configuration type all not found"),
 			true,
 		},
 	}
@@ -403,15 +430,13 @@ func verifyOutput(t *testing.T, c testCase) {
 	output := out.String()
 
 	if c.expectedOutput != "" && c.expectedOutput != output {
-		t.Fatalf("Unexpected output for 'istioctl %s': Expected\n%q,got\n%q",
-			strings.Join(c.args, " "),
-			c.expectedOutput, output)
+		t.Fatalf("Unexpected output for 'istioctl %s'\n got: %q\nwant: %q",
+			strings.Join(c.args, " "), output, c.expectedOutput)
 	}
 
 	if c.expectedRegexp != nil && !c.expectedRegexp.MatchString(output) {
-		t.Fatalf("Output didn't match for 'istioctl %s': Expected\n%v,got\n%q",
-			strings.Join(c.args, " "),
-			c.expectedRegexp, output)
+		t.Fatalf("Output didn't match for 'istioctl %s'\n got %v\nwant: %v",
+			strings.Join(c.args, " "), output, c.expectedRegexp)
 	}
 
 	if c.wantException {
