@@ -39,6 +39,8 @@ spec:
         volumeMounts:
         - name: kiali-configuration
           mountPath: "/kiali-configuration"
+        resources:
+{{ toYaml .Values.resources | indent 12 }}
       volumes:
       - name: kiali-configuration
         configMap:
