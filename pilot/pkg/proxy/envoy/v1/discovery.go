@@ -310,6 +310,9 @@ const (
 	ServiceCluster  = "service-cluster"
 	ServiceNode     = "service-node"
 	RouteConfigName = "route-config-name"
+
+	// Some tests still use v1 - will gradually remove them. Waiting for mixer/simple
+	v1Enable = true
 )
 
 // DiscoveryServiceOptions contains options for create a new discovery
@@ -383,41 +386,43 @@ func (ds *DiscoveryService) Register(container *restful.Container) {
 		To(ds.ListAllEndpoints).
 		Doc("Services in SDS"))
 
-	// This route makes discovery act as an Envoy Service discovery service (SDS).
-	// See https://www.envoyproxy.io/docs/envoy/latest/api-v1/cluster_manager/sds
-	ws.Route(ws.
-		GET(fmt.Sprintf("/v1/registration/{%s}", ServiceKey)).
-		To(ds.ListEndpoints).
-		Doc("SDS registration").
-		Param(ws.PathParameter(ServiceKey, "tuple of service name and tag name").DataType("string")))
+	if v1Enable {
+		// This route makes discovery act as an Envoy Service discovery service (SDS).
+		// See https://www.envoyproxy.io/docs/envoy/latest/api-v1/cluster_manager/sds
+		ws.Route(ws.
+			GET(fmt.Sprintf("/v1/registration/{%s}", ServiceKey)).
+			To(ds.ListEndpoints).
+			Doc("SDS registration").
+			Param(ws.PathParameter(ServiceKey, "tuple of service name and tag name").DataType("string")))
 
-	// This route makes discovery act as an Envoy Cluster discovery service (CDS).
-	// See https://www.envoyproxy.io/docs/envoy/latest/api-v1/cluster_manager/cds
-	ws.Route(ws.
-		GET(fmt.Sprintf("/v1/clusters/{%s}/{%s}", ServiceCluster, ServiceNode)).
-		To(ds.ListClusters).
-		Doc("CDS registration").
-		Param(ws.PathParameter(ServiceCluster, "client proxy service cluster").DataType("string")).
-		Param(ws.PathParameter(ServiceNode, "client proxy service node").DataType("string")))
+		// This route makes discovery act as an Envoy Cluster discovery service (CDS).
+		// See https://www.envoyproxy.io/docs/envoy/latest/api-v1/cluster_manager/cds
+		ws.Route(ws.
+			GET(fmt.Sprintf("/v1/clusters/{%s}/{%s}", ServiceCluster, ServiceNode)).
+			To(ds.ListClusters).
+			Doc("CDS registration").
+			Param(ws.PathParameter(ServiceCluster, "client proxy service cluster").DataType("string")).
+			Param(ws.PathParameter(ServiceNode, "client proxy service node").DataType("string")))
 
-	// This route makes discovery act as an Envoy Route discovery service (RDS).
-	// See https://www.envoyproxy.io/docs/envoy/latest/api-v1/route_config/rds
-	ws.Route(ws.
-		GET(fmt.Sprintf("/v1/routes/{%s}/{%s}/{%s}", RouteConfigName, ServiceCluster, ServiceNode)).
-		To(ds.ListRoutes).
-		Doc("RDS registration").
-		Param(ws.PathParameter(RouteConfigName, "route configuration name").DataType("string")).
-		Param(ws.PathParameter(ServiceCluster, "client proxy service cluster").DataType("string")).
-		Param(ws.PathParameter(ServiceNode, "client proxy service node").DataType("string")))
+		// This route makes discovery act as an Envoy Route discovery service (RDS).
+		// See https://www.envoyproxy.io/docs/envoy/latest/api-v1/route_config/rds
+		ws.Route(ws.
+			GET(fmt.Sprintf("/v1/routes/{%s}/{%s}/{%s}", RouteConfigName, ServiceCluster, ServiceNode)).
+			To(ds.ListRoutes).
+			Doc("RDS registration").
+			Param(ws.PathParameter(RouteConfigName, "route configuration name").DataType("string")).
+			Param(ws.PathParameter(ServiceCluster, "client proxy service cluster").DataType("string")).
+			Param(ws.PathParameter(ServiceNode, "client proxy service node").DataType("string")))
 
-	// This route responds to LDS requests
-	// See https://www.envoyproxy.io/docs/envoy/latest/api-v1/listeners/lds
-	ws.Route(ws.
-		GET(fmt.Sprintf("/v1/listeners/{%s}/{%s}", ServiceCluster, ServiceNode)).
-		To(ds.ListListeners).
-		Doc("LDS registration").
-		Param(ws.PathParameter(ServiceCluster, "client proxy service cluster").DataType("string")).
-		Param(ws.PathParameter(ServiceNode, "client proxy service node").DataType("string")))
+		// This route responds to LDS requests
+		// See https://www.envoyproxy.io/docs/envoy/latest/api-v1/listeners/lds
+		ws.Route(ws.
+			GET(fmt.Sprintf("/v1/listeners/{%s}/{%s}", ServiceCluster, ServiceNode)).
+			To(ds.ListListeners).
+			Doc("LDS registration").
+			Param(ws.PathParameter(ServiceCluster, "client proxy service cluster").DataType("string")).
+			Param(ws.PathParameter(ServiceNode, "client proxy service node").DataType("string")))
+	}
 
 	// This route retrieves the Availability Zone of the service node requested
 	ws.Route(ws.
@@ -467,6 +472,12 @@ func (ds *DiscoveryService) ClearCacheStats(_ *restful.Request, _ *restful.Respo
 	ds.cdsCache.resetStats()
 	ds.rdsCache.resetStats()
 	ds.ldsCache.resetStats()
+}
+
+// ClearCache is wrapper for clearCache method, used when new controller gets
+// instantiated dynamically
+func (ds *DiscoveryService) ClearCache() {
+	ds.clearCache()
 }
 
 // clearCache will clear all envoy caches. Called by service, instance and config handlers.
@@ -629,7 +640,7 @@ func (ds *DiscoveryService) AvailabilityZone(request *restful.Request, response 
 		return
 	}
 	// All instances are going to have the same IP addr therefore will all be in the same AZ
-	writeResponse(response, []byte(proxyInstances[0].AvailabilityZone))
+	writeResponse(response, []byte(proxyInstances[0].GetAZ()))
 }
 
 // ListClusters responds to CDS requests for all outbound clusters

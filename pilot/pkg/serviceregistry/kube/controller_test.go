@@ -35,7 +35,7 @@ import (
 
 func makeClient(t *testing.T) kubernetes.Interface {
 	kubeconfig := k8s.Kubeconfig("/config")
-	_, cl, err := CreateInterface(kubeconfig)
+	cl, err := CreateInterface(kubeconfig)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,6 +48,8 @@ const (
 	resync      = 1 * time.Second
 )
 
+// Uses local or remote k8s cluster - requires KUBECONFIG or ~/.kube/config
+// Will create a temp namespace
 func TestServices(t *testing.T) {
 	cl := makeClient(t)
 	t.Parallel()
@@ -71,6 +73,8 @@ func TestServices(t *testing.T) {
 
 	var sds model.ServiceDiscovery = ctl
 	makeService(testService, ns, cl, t)
+	createEndpoints(ctl, testService, ns, []string{"http-example", "foo"}, []string{"10.1.1.1", "10.1.1.2"}, t)
+
 	test.Eventually(t, "successfully list services", func() bool {
 		out, clientErr := sds.Services()
 		if clientErr != nil {
@@ -85,6 +89,10 @@ func TestServices(t *testing.T) {
 				return true
 			}
 		}
+		ep, anotherErr := sds.InstancesByPort(hostname, 80, nil)
+		if anotherErr != nil || len(ep) > 0 {
+			return true
+		}
 		return false
 	})
 
@@ -97,6 +105,14 @@ func TestServices(t *testing.T) {
 	}
 	if svc.Hostname != hostname {
 		t.Errorf("GetService(%q) => %q", hostname, svc.Hostname)
+	}
+
+	ep, err := sds.InstancesByPort(hostname, 80, nil)
+	if err != nil {
+		t.Errorf("GetInstancesByPort() encountered unexpected error: %v", err)
+	}
+	if len(ep) != 2 {
+		t.Errorf("Invalid response for GetInstanesByPort %v", ep)
 	}
 
 	missing := serviceHostname("does-not-exist", ns, domainSuffix)
@@ -345,7 +361,7 @@ func createEndpoints(controller *Controller, name, namespace string, portNames, 
 
 	eps := []v1.EndpointPort{}
 	for _, name := range portNames {
-		eps = append(eps, v1.EndpointPort{Name: name})
+		eps = append(eps, v1.EndpointPort{Name: name, Port: 1001})
 	}
 
 	endpoint := &v1.Endpoints{

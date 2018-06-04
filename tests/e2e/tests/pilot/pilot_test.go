@@ -247,21 +247,21 @@ func configVersions() []string {
 func getApps(tc *testConfig) []framework.App {
 	return []framework.App{
 		// deploy a healthy mix of apps, with and without proxy
-		getApp("t", "t", 8080, 80, 9090, 90, 7070, 70, "unversioned", false, false),
-		getApp("a", "a", 8080, 80, 9090, 90, 7070, 70, "v1", true, false),
-		getApp("b", "b", 80, 8080, 90, 9090, 70, 7070, "unversioned", true, false),
-		getApp("c-v1", "c", 80, 8080, 90, 9090, 70, 7070, "v1", true, false),
-		getApp("c-v2", "c", 80, 8080, 90, 9090, 70, 7070, "v2", true, false),
-		getApp("d", "d", 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true, tc.Kube.AuthEnabled),
+		getApp("t", "t", 8080, 80, 9090, 90, 7070, 70, "unversioned", false),
+		getApp("a", "a", 8080, 80, 9090, 90, 7070, 70, "v1", true),
+		getApp("b", "b", 80, 8080, 90, 9090, 70, 7070, "unversioned", true),
+		getApp("c-v1", "c", 80, 8080, 90, 9090, 70, 7070, "v1", true),
+		getApp("c-v2", "c", 80, 8080, 90, 9090, 70, 7070, "v2", true),
+		getApp("d", "d", 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true),
 		// Add another service without sidecar to test mTLS blacklisting (as in the e2e test
 		// environment, pilot can see only services in the test namespaces). This service
 		// will be listed in mtlsExcludedServices in the mesh config.
-		getApp("e", "fake-control", 80, 8080, 90, 9090, 70, 7070, "fake-control", false, false),
+		getApp("e", "fake-control", 80, 8080, 90, 9090, 70, 7070, "fake-control", false),
 	}
 }
 
 func getApp(deploymentName, serviceName string, port1, port2, port3, port4, port5, port6 int,
-	version string, injectProxy, perServiceAuth bool) framework.App {
+	version string, injectProxy bool) framework.App {
 	// TODO(nmittler): Eureka does not support management ports ... should we support other registries?
 	healthPort := "true"
 
@@ -272,7 +272,6 @@ func getApp(deploymentName, serviceName string, port1, port2, port3, port4, port
 			"Hub":             tc.Kube.PilotHub(),
 			"Tag":             tc.Kube.PilotTag(),
 			"service":         serviceName,
-			"perServiceAuth":  strconv.FormatBool(perServiceAuth),
 			"deployment":      deploymentName,
 			"port1":           strconv.Itoa(port1),
 			"port2":           strconv.Itoa(port2),

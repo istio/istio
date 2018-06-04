@@ -177,6 +177,8 @@ func (m *FilterChainMatch) Validate() error {
 		}
 	}
 
+	// no validation rules for TransportProtocol
+
 	return nil
 }
 

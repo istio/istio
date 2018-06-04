@@ -19,7 +19,7 @@ spec:
   - port: 15010
     name: grpc-xds # direct
   - port: 15011
-    name: https-xds # mTLS or non-mTLS depending on auth setting
+    name: https-xds # mTLS
   - port: 8080
     name: http-legacy-discovery # direct
   - port: 9093

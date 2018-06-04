@@ -14,5 +14,5 @@ spec:
       name: http
       protocol: HTTP
     hosts:
-    - eu.bookinfo.com
+    - "*.bookinfo.com"
 

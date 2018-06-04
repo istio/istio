@@ -1,0 +1,134 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: iperf3-raw
+spec:
+  ports:
+  - name: tcp
+    port: 5202
+    targetPort: 5201
+  selector:
+    app: iperf3-raw
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: iperf3
+spec:
+  ports:
+  - name: tcp
+    port: 5203
+    targetPort: 5201
+  selector:
+    app: iperf3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: iperf3-tls
+spec:
+  ports:
+  - name: tcp
+    port: 5204
+    targetPort: 5201
+  selector:
+    app: iperf3-tls
+---
+apiVersion: "authentication.istio.io/v1alpha1"
+kind: Policy
+metadata:
+  name: iperf3-tls
+spec:
+  peers:
+  - mtls:
+  peer_is_optional: true
+  targets:
+  - name: "iperf3-tls"
+    ports:
+    - number: 5201
+
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: iperf3-raw
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: iperf3-raw
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      containers:
+      - image: docker.io/networkstatic/iperf3
+        imagePullPolicy: IfNotPresent
+        name: iperf3-raw
+        ports:
+        - containerPort: 5201
+        args:
+        - '-s'
+        resources:
+          requests:
+            cpu: 1000m
+            memory: "1G"
+          limits:
+            cpu: 1000m
+            memory: "2G"
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: iperf3
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: iperf3
+    spec:
+      containers:
+      - image: docker.io/networkstatic/iperf3
+        imagePullPolicy: IfNotPresent
+        name: iperf3
+        ports:
+        - containerPort: 5201
+        args:
+        - '-s'
+        resources:
+          requests:
+            cpu: 1000m
+            memory: "1G"
+          limits:
+            cpu: 1000m
+            memory: "2G"
+
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: iperf3-tls
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: iperf3-tls
+    spec:
+      containers:
+      - image: docker.io/networkstatic/iperf3
+        imagePullPolicy: IfNotPresent
+        name: iperf3
+        ports:
+        - containerPort: 5201
+        args:
+        - '-s'
+        resources:
+          requests:
+            cpu: 1000m
+            memory: "1G"
+          limits:
+            cpu: 1000m
+            memory: "2G"

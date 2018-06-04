@@ -55,6 +55,7 @@
 {{ if eq .config.ControlPlaneAuthPolicy 1 }}
       "tls_context": {
         "common_tls_context": {
+          "alpn_protocols": "h2",
           "tls_certificates": {
             "certificate_chain": {
               "filename": "/etc/certs/cert-chain.pem"

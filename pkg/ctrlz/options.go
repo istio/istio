@@ -22,12 +22,16 @@ import (
 type Options struct {
 	// The IP port to use for ctrlz.
 	Port uint16
+
+	// The IP address to listen on for ctrlz.
+	Address string
 }
 
 // DefaultOptions returns a new set of options, initialized to the defaults
 func DefaultOptions() *Options {
 	return &Options{
-		Port: 9876,
+		Port:    9876,
+		Address: "127.0.0.1",
 	}
 }
 
@@ -39,4 +43,6 @@ func DefaultOptions() *Options {
 func (o *Options) AttachCobraFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().Uint16Var(&o.Port, "ctrlz_port", o.Port,
 		"The IP port to use for the ControlZ introspection facility")
+	cmd.PersistentFlags().StringVar(&o.Address, "ctrlz_address", o.Address,
+		"The IP Address to listen on for the ControlZ introspection facility. Use '*' to indicate all addresses.")
 }

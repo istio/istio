@@ -44,24 +44,26 @@ option (gogoproto.gostring_all) = false;
 // * write_count of 1 amount
 // * request_count of 5 amount.
 //
-//   QuotaSpec:
-//     - rules:
-//       - match:
-//           clause:
-//             request.path:
-//               string_prefix: /books
-//             request.http_method:
-//               string_exact: POST
-//       - match:
-//           clause:
-//             api.operation:
-//               string_exact: create_books
-//       - quotas:
-//           quota: write_count
-//           charge: 1
-//       - quotas:
-//           quota: request_count
-//           charge: 5
+// ```yaml
+// QuotaSpec:
+//   - rules:
+//     - match:
+//         clause:
+//           request.path:
+//             string_prefix: /books
+//           request.http_method:
+//             string_exact: POST
+//     - match:
+//         clause:
+//           api.operation:
+//             string_exact: create_books
+//     - quotas:
+//         quota: write_count
+//         charge: 1
+//     - quotas:
+//         quota: request_count
+//         charge: 5
+// ```
 
 // Determines the quotas used for individual requests.
 message QuotaSpec {

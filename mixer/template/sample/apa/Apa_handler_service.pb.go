@@ -26,7 +26,7 @@ import _ "istio.io/api/mixer/adapter/model/v1beta1"
 
 import strings "strings"
 import reflect "reflect"
-import github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
+import sortkeys "github.com/gogo/protobuf/sortkeys"
 
 import io "io"
 
@@ -605,7 +605,7 @@ func (this *InstanceParam) String() string {
 	for k, _ := range this.DimensionsFixedInt64ValueDType {
 		keysForDimensionsFixedInt64ValueDType = append(keysForDimensionsFixedInt64ValueDType, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForDimensionsFixedInt64ValueDType)
+	sortkeys.Strings(keysForDimensionsFixedInt64ValueDType)
 	mapStringForDimensionsFixedInt64ValueDType := "map[string]string{"
 	for _, k := range keysForDimensionsFixedInt64ValueDType {
 		mapStringForDimensionsFixedInt64ValueDType += fmt.Sprintf("%v: %v,", k, this.DimensionsFixedInt64ValueDType[k])
@@ -615,7 +615,7 @@ func (this *InstanceParam) String() string {
 	for k, _ := range this.Res3Map {
 		keysForRes3Map = append(keysForRes3Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForRes3Map)
+	sortkeys.Strings(keysForRes3Map)
 	mapStringForRes3Map := "map[string]*Resource3InstanceParam{"
 	for _, k := range keysForRes3Map {
 		mapStringForRes3Map += fmt.Sprintf("%v: %v,", k, this.Res3Map[k])
@@ -625,7 +625,7 @@ func (this *InstanceParam) String() string {
 	for k, _ := range this.AttributeBindings {
 		keysForAttributeBindings = append(keysForAttributeBindings, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForAttributeBindings)
+	sortkeys.Strings(keysForAttributeBindings)
 	mapStringForAttributeBindings := "map[string]string{"
 	for _, k := range keysForAttributeBindings {
 		mapStringForAttributeBindings += fmt.Sprintf("%v: %v,", k, this.AttributeBindings[k])
@@ -667,7 +667,7 @@ func (this *Resource2InstanceParam) String() string {
 	for k, _ := range this.Res3Map {
 		keysForRes3Map = append(keysForRes3Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForRes3Map)
+	sortkeys.Strings(keysForRes3Map)
 	mapStringForRes3Map := "map[string]*Resource3InstanceParam{"
 	for _, k := range keysForRes3Map {
 		mapStringForRes3Map += fmt.Sprintf("%v: %v,", k, this.Res3Map[k])
@@ -689,7 +689,7 @@ func (this *Resource3InstanceParam) String() string {
 	for k, _ := range this.DimensionsFixedInt64ValueDType {
 		keysForDimensionsFixedInt64ValueDType = append(keysForDimensionsFixedInt64ValueDType, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForDimensionsFixedInt64ValueDType)
+	sortkeys.Strings(keysForDimensionsFixedInt64ValueDType)
 	mapStringForDimensionsFixedInt64ValueDType := "map[string]string{"
 	for _, k := range keysForDimensionsFixedInt64ValueDType {
 		mapStringForDimensionsFixedInt64ValueDType += fmt.Sprintf("%v: %v,", k, this.DimensionsFixedInt64ValueDType[k])

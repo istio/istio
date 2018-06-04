@@ -143,16 +143,6 @@ func (m *VirtualHost) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetAuth()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return VirtualHostValidationError{
-				Field:  "Auth",
-				Reason: "embedded message failed validation",
-				Cause:  err,
-			}
-		}
-	}
-
 	// no validation rules for PerFilterConfig
 
 	return nil
@@ -220,16 +210,6 @@ func (m *Route) Validate() error {
 		if err := v.Validate(); err != nil {
 			return RouteValidationError{
 				Field:  "Decorator",
-				Reason: "embedded message failed validation",
-				Cause:  err,
-			}
-		}
-	}
-
-	if v, ok := interface{}(m.GetAuth()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return RouteValidationError{
-				Field:  "Auth",
 				Reason: "embedded message failed validation",
 				Cause:  err,
 			}
@@ -707,6 +687,16 @@ func (m *RouteAction) Validate() error {
 		if err := v.Validate(); err != nil {
 			return RouteActionValidationError{
 				Field:  "UseWebsocket",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	if v, ok := interface{}(m.GetWebsocketConfig()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return RouteActionValidationError{
+				Field:  "WebsocketConfig",
 				Reason: "embedded message failed validation",
 				Cause:  err,
 			}
@@ -1559,6 +1549,76 @@ func (e RouteAction_HashPolicyValidationError) Error() string {
 }
 
 var _ error = RouteAction_HashPolicyValidationError{}
+
+// Validate checks the field values on RouteAction_WebSocketProxyConfig with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, an error is returned.
+func (m *RouteAction_WebSocketProxyConfig) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	// no validation rules for StatPrefix
+
+	if d := m.GetIdleTimeout(); d != nil {
+		dur := *d
+
+		gt := time.Duration(0*time.Second + 0*time.Nanosecond)
+
+		if dur <= gt {
+			return RouteAction_WebSocketProxyConfigValidationError{
+				Field:  "IdleTimeout",
+				Reason: "value must be greater than 0s",
+			}
+		}
+
+	}
+
+	if wrapper := m.GetMaxConnectAttempts(); wrapper != nil {
+
+		if wrapper.GetValue() < 1 {
+			return RouteAction_WebSocketProxyConfigValidationError{
+				Field:  "MaxConnectAttempts",
+				Reason: "value must be greater than or equal to 1",
+			}
+		}
+
+	}
+
+	return nil
+}
+
+// RouteAction_WebSocketProxyConfigValidationError is the validation error
+// returned by RouteAction_WebSocketProxyConfig.Validate if the designated
+// constraints aren't met.
+type RouteAction_WebSocketProxyConfigValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e RouteAction_WebSocketProxyConfigValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sRouteAction_WebSocketProxyConfig.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = RouteAction_WebSocketProxyConfigValidationError{}
 
 // Validate checks the field values on RouteAction_HashPolicy_Header with the
 // rules defined in the proto definition for this message. If any rules are

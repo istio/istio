@@ -732,6 +732,7 @@ func TestDispatcher(t *testing.T) {
 			switch tst.variety {
 			case tpb.TEMPLATE_VARIETY_CHECK:
 				cres, e := dispatcher.Check(context.TODO(), bag)
+
 				if e == nil {
 					if !reflect.DeepEqual(cres, tst.expectedCheckResult) {
 						tt.Fatalf("check result mismatch: '%v' != '%v'", cres, tst.expectedCheckResult)
@@ -741,7 +742,14 @@ func TestDispatcher(t *testing.T) {
 				}
 
 			case tpb.TEMPLATE_VARIETY_REPORT:
-				err = dispatcher.Report(context.TODO(), bag)
+				reporter := dispatcher.GetReporter(context.TODO())
+				err = reporter.Report(bag)
+				if err != nil {
+					tt.Fatalf("unexpected failure from Buffer: %v", err)
+				}
+
+				err = reporter.Flush()
+				reporter.Done()
 
 			case tpb.TEMPLATE_VARIETY_QUOTA:
 				qma := tst.qma
@@ -749,6 +757,7 @@ func TestDispatcher(t *testing.T) {
 					qma = &QuotaMethodArgs{BestEffort: true}
 				}
 				qres, e := dispatcher.Quota(context.TODO(), bag, qma)
+
 				if e == nil {
 					if !reflect.DeepEqual(qres, tst.expectedQuotaResult) {
 						tt.Fatalf("quota result mismatch: '%v' != '%v'", qres, tst.expectedQuotaResult)
@@ -759,6 +768,7 @@ func TestDispatcher(t *testing.T) {
 
 			case tpb.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR:
 				err = dispatcher.Preprocess(context.TODO(), bag, responseBag)
+
 				expectedBag := attribute.GetFakeMutableBagForTesting(tst.responseAttrs)
 				if strings.TrimSpace(responseBag.String()) != strings.TrimSpace(expectedBag.String()) {
 					tt.Fatalf("Output attributes mismatch: \n%s\n!=\n%s\n", responseBag.String(), expectedBag.String())
@@ -792,11 +802,11 @@ func TestRefCount(t *testing.T) {
 	if old.GetRefs() != 0 {
 		t.Fatalf("%d != 0", old.GetRefs())
 	}
-	old.IncRef()
+	old.incRef()
 	if old.GetRefs() != 1 {
 		t.Fatalf("%d != 1", old.GetRefs())
 	}
-	old.DecRef()
+	old.decRef()
 	if old.GetRefs() != 0 {
 		t.Fatalf("%d != -", old.GetRefs())
 	}
