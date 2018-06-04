@@ -160,8 +160,8 @@ func TestValidation(t *testing.T) {
 		{"config-v1alpha2-tracespan-invalid", false},
 		{"config-v1alpha2-tracespan-valid", true},
 
-		{"config-v1alpha2-attributemanifest-invalid", false},
-		{"config-v1alpha2-attributemanifest-valid", true},
+		// {"config-v1alpha2-attributemanifest-invalid", false},
+		// {"config-v1alpha2-attributemanifest-valid", true},
 
 		{"config-v1alpha2-rule-invalid", false},
 		{"config-v1alpha2-rule-valid", true},

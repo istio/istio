@@ -4,12 +4,12 @@ metadata:
   name: valid-service-entry
 spec:
   hosts:
-    - eu.bookinfo.com
+  - eu.bookinfo.com
   ports:
   - number: 80
     name: http
     protocol: HTTP
-  discovery: DNS
+  resolution: DNS
   endpoints:
   # Rather than relying on an external host that might become unreachable (causing test failures)
   # we can mock the external endpoint using service t which has no sidecar.
