@@ -196,11 +196,11 @@ func TestGet(t *testing.T) {
 		{ // case 1
 			testRouteRules,
 			strings.Split("get routerules --all-namespaces", " "),
-			`NAME      KIND                        NAMESPACE
-a         RouteRule.config.v1alpha2   default
-b         RouteRule.config.v1alpha2   default
-c         RouteRule.config.v1alpha2   istio-system
-d         RouteRule.config.v1alpha2   default
+			`NAME      KIND                        NAMESPACE      AGE
+a         RouteRule.config.v1alpha2   default        <unknown>
+b         RouteRule.config.v1alpha2   default        <unknown>
+c         RouteRule.config.v1alpha2   istio-system   <unknown>
+d         RouteRule.config.v1alpha2   default        <unknown>
 `,
 			nil,
 			false,
@@ -208,8 +208,8 @@ d         RouteRule.config.v1alpha2   default
 		{ // case 2
 			testGateways,
 			strings.Split("get gateways -n default", " "),
-			`NAME               KIND                          NAMESPACE
-bookinfo-gateway   Gateway.networking.v1alpha3   default
+			`NAME               KIND                          NAMESPACE   AGE
+bookinfo-gateway   Gateway.networking.v1alpha3   default     <unknown>
 `,
 			nil,
 			false,
@@ -217,8 +217,8 @@ bookinfo-gateway   Gateway.networking.v1alpha3   default
 		{ // case 3
 			testVirtualServices,
 			strings.Split("get virtualservices -n default", " "),
-			`NAME       KIND                                 NAMESPACE
-bookinfo   VirtualService.networking.v1alpha3   default
+			`NAME       KIND                                 NAMESPACE   AGE
+bookinfo   VirtualService.networking.v1alpha3   default     <unknown>
 `,
 			nil,
 			false,
