@@ -338,8 +338,8 @@ Deleted config: routerule b
 		{ // case 4 - "all" not valid for delete
 			[]model.Config{},
 			strings.Split("delete all foo", " "),
-			"Error: error: 'all' not allowed\n",
-			nil,
+			"",
+			regexp.MustCompile("^Error: configuration type all not found"),
 			true,
 		},
 	}

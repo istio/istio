@@ -311,10 +311,16 @@ istioctl get virtualservice bookinfo
 					strings.Join(supportedTypes(configClient), ", "))
 			}
 
-			typs, err := protoSchema(configClient, args[0], len(args) == 1)
-			if err != nil || len(typs) == 0 {
-				c.Println(c.UsageString())
-				return err
+			var typs []model.ProtoSchema
+			if len(args) == 1 && strings.ToLower(args[0]) == "all" {
+				typs = configClient.ConfigDescriptor()
+			} else {
+				typ, err := protoSchema(configClient, args[0])
+				if err != nil {
+					c.Println(c.UsageString())
+					return err
+				}
+				typs = []model.ProtoSchema{typ}
 			}
 
 			getByName := len(args) > 1
@@ -385,7 +391,7 @@ istioctl delete virtualservice bookinfo
 					c.Println(c.UsageString())
 					return fmt.Errorf("provide configuration type and name or -f option")
 				}
-				typs, err := protoSchema(configClient, args[0], false)
+				typ, err := protoSchema(configClient, args[0])
 				if err != nil {
 					return err
 				}
@@ -394,7 +400,7 @@ istioctl delete virtualservice bookinfo
 					return err
 				}
 				for i := 1; i < len(args); i++ {
-					if err := configClient.Delete(typs[0].Type, args[i], ns); err != nil {
+					if err := configClient.Delete(typ.Type, args[i], ns); err != nil {
 						errs = multierror.Append(errs,
 							fmt.Errorf("cannot delete %s: %v", args[i], err))
 					} else {
@@ -614,26 +620,18 @@ func main() {
 	}
 }
 
-// The protoSchema is based on the kind (for example "routerule" or "destinationpolicy") or "all"
-func protoSchema(configClient model.ConfigStore, typ string, allowAll bool) ([]model.ProtoSchema, error) {
-	if typ == "all" {
-		if !allowAll {
-			return []model.ProtoSchema{}, fmt.Errorf("error: 'all' not allowed")
-
-		}
-		return configClient.ConfigDescriptor(), nil
-	}
-
+// The protoSchema is based on the kind (for example "routerule" or "destinationpolicy")
+func protoSchema(configClient model.ConfigStore, typ string) (model.ProtoSchema, error) {
 	for _, desc := range configClient.ConfigDescriptor() {
-		switch typ {
+		switch strings.ToLower(typ) {
 		case crd.ResourceName(desc.Type), crd.ResourceName(desc.Plural):
-			return []model.ProtoSchema{desc}, nil
+			return desc, nil
 		case desc.Type, desc.Plural: // legacy hyphenated resources names
-			return []model.ProtoSchema{}, fmt.Errorf("%q not recognized. Please use non-hyphenated resource name %q",
+			return model.ProtoSchema{}, fmt.Errorf("%q not recognized. Please use non-hyphenated resource name %q",
 				typ, crd.ResourceName(typ))
 		}
 	}
-	return []model.ProtoSchema{}, fmt.Errorf("configuration type %s not found, the types are %v",
+	return model.ProtoSchema{}, fmt.Errorf("configuration type %s not found, the types are %v",
 		typ, strings.Join(supportedTypes(configClient), ", "))
 }
 
