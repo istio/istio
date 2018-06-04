@@ -19,7 +19,9 @@ package v1
 import (
 	"crypto/sha256"
 	"encoding/base64"
+	"fmt"
 	"net"
+	"strings"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
@@ -294,13 +296,37 @@ func StandardNodeAttributes(prefix string, IPAddress string, ID string, labels m
 	return attrs
 }
 
+func nameAndNamespace(serviceHostname string) (name, namespace string) {
+	if !strings.HasSuffix(serviceHostname, "svc.cluster.local") {
+		return serviceHostname, ""
+	}
+
+	parts := strings.Split(serviceHostname, ".")
+	return parts[0], parts[1]
+}
+
 // ServiceConfig generates a ServiceConfig for a given instance
 func ServiceConfig(serviceName string, dest *model.ServiceInstance, config model.IstioConfigStore, disableCheck, disableReport bool) *mccpb.ServiceConfig {
+
+	name, ns := nameAndNamespace(serviceName)
+
 	sc := &mccpb.ServiceConfig{
 		MixerAttributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
 				AttrDestinationService: {
 					Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: serviceName},
+				},
+				"destination.service.host": {
+					Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: serviceName},
+				},
+				"destination.service.uid": {
+					Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: fmt.Sprintf("istio://%s/services/%s", ns, name)},
+				},
+				"destination.service.name": {
+					Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: name},
+				},
+				"destination.service.namespace": {
+					Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: ns},
 				},
 			},
 		},
