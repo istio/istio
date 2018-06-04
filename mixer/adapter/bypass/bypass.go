@@ -298,7 +298,7 @@ func (h *handler) HandleMetric(ctx context.Context, instances []*metric.Instance
 func (h *handler) HandleQuota(ctx context.Context, instance *quota.Instance, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
 	request := quota.HandleQuotaRequest{}
 
-	request.DedupId = newDedupID()
+	request.DedupId = args.DeduplicationID
 	if !h.params.SessionBased {
 		request.AdapterConfig = h.params.Params
 	}
@@ -332,14 +332,19 @@ func (h *handler) HandleQuota(ctx context.Context, instance *quota.Instance, arg
 	return result, err
 }
 
-func (h *handler) Close() error {
+func (h *handler) Close() (err error) {
 	req := v1beta1.CloseSessionRequest{
 		SessionId: h.session,
 	}
 
-	_, err := h.infraClient.CloseSession(context.TODO(), &req)
+	if h.infraClient != nil {
+		_, err = h.infraClient.CloseSession(context.TODO(), &req)
+	}
 
-	err2 := h.conn.Close()
+	if h.conn != nil {
+		err2 := h.conn.Close()
+		err = multierr.Append(err, err2)
+	}
 
-	return multierr.Append(err, err2)
+	return
 }

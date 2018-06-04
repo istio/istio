@@ -1,9 +1,9 @@
 ---
 title: Bypass
 description: Adapter for connecting to gRPC based remote adapters via the inline adapter model for a
-location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/bypass.html
 layout: protoc-gen-docs
-redirect_from: /docs/reference/config/adapters/bypass.html
+generator: protoc-gen-docs
+ - /docs/reference/config/adapters/bypass.html
 number_of_entries: 1
 ---
 <p>The <code>bypass</code> adapter makes it possible to connect to gRPC based remote adapters using the inline adapter
@@ -14,6 +14,20 @@ model.</p>
 <a href="https://istio.io/docs/reference/config/template/checknothing.html">checknothing</a>.
 <a href="https://istio.io/docs/reference/config/template/reportnothing.html">reportnothing</a>.
 <a href="https://istio.io/docs/reference/config/template/quota.html">quota</a>.</p>
+
+<p>Example configuration:</p>
+
+<pre><code>### sessionBased indicates whether the client should use the Infrastructure API of the backend
+### to create sessions. If set to true, the bypass adapter will first create a session.
+sessionBased: false
+
+### backendAddress is the remote adapter service backend address.
+backendAddress: localhost:4567
+
+### params is base64 encoded Any proto that should be passed to the remote backend as
+### configuration.
+params: RGFuJ3MgVG9vbHMgYXJlIGNvb2wh...
+</code></pre>
 
 <h2 id="Params">Params</h2>
 <section>

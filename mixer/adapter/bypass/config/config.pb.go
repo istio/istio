@@ -13,6 +13,20 @@
 	[reportnothing](https://istio.io/docs/reference/config/template/reportnothing.html).
 	[quota](https://istio.io/docs/reference/config/template/quota.html).
 
+	Example configuration:
+	```
+	# sessionBased indicates whether the client should use the Infrastructure API of the backend
+	# to create sessions. If set to true, the bypass adapter will first create a session.
+	sessionBased: false
+
+	# backendAddress is the remote adapter service backend address.
+	backendAddress: localhost:4567
+
+	# params is base64 encoded Any proto that should be passed to the remote backend as
+	# configuration.
+	params: RGFuJ3MgVG9vbHMgYXJlIGNvb2wh...
+	```
+
 
 	It is generated from these files:
 		mixer/adapter/bypass/config/config.proto
