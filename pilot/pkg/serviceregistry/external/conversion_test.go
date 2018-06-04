@@ -19,7 +19,6 @@ import (
 	"strings"
 	"testing"
 
-	mesh "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
@@ -200,10 +199,9 @@ func makeService(hostname model.Hostname, address string, ports map[string]int, 
 	svcPorts := make(model.PortList, 0, len(ports))
 	for name, port := range ports {
 		svcPort := &model.Port{
-			Name:                 name,
-			Port:                 port,
-			Protocol:             convertPortNameToProtocol(name),
-			AuthenticationPolicy: mesh.AuthenticationPolicy_NONE,
+			Name:     name,
+			Port:     port,
+			Protocol: convertPortNameToProtocol(name),
 		}
 		svcPorts = append(svcPorts, svcPort)
 	}
@@ -236,10 +234,9 @@ func makeInstance(serviceEntry *networking.ServiceEntry, address string, port in
 			Address: address,
 			Port:    port,
 			ServicePort: &model.Port{
-				Name:                 svcPort.Name,
-				Port:                 int(svcPort.Number),
-				Protocol:             model.ParseProtocol(svcPort.Protocol),
-				AuthenticationPolicy: mesh.AuthenticationPolicy_NONE,
+				Name:     svcPort.Name,
+				Port:     int(svcPort.Number),
+				Protocol: model.ParseProtocol(svcPort.Protocol),
 			},
 		},
 		Labels: model.Labels(labels),

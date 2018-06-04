@@ -7,7 +7,7 @@
 	The `redisquota` adapter can be used to support Istio's quota management
 	system. It depends on a Redis server to store quota values.
 
-	This adapter supports the [quota template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/quota.html).
+	This adapter supports the [quota template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/quota/).
 
 	It is generated from these files:
 		mixer/adapter/redisquota/config/config.proto

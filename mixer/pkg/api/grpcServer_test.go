@@ -46,6 +46,7 @@ type testState struct {
 	gs         *grpc.Server
 	gp         *pool.GoroutinePool
 	s          *grpcServer
+	ctx        context.Context
 
 	check   checkCallback
 	report  reportCallback
@@ -133,8 +134,20 @@ func (ts *testState) Check(ctx context.Context, bag attribute.Bag) (*adapter.Che
 	return ts.check(ctx, bag)
 }
 
-func (ts *testState) Report(ctx context.Context, bag attribute.Bag) error {
-	return ts.report(ctx, bag)
+func (ts *testState) GetReporter(ctx context.Context) dispatcher.Reporter {
+	ts.ctx = ctx
+	return ts
+}
+
+func (ts *testState) Report(bag attribute.Bag) error {
+	return ts.report(ts.ctx, bag)
+}
+
+func (ts *testState) Flush() error {
+	return nil
+}
+
+func (ts *testState) Done() {
 }
 
 func (ts *testState) Quota(ctx context.Context, bag attribute.Bag,

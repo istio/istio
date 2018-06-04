@@ -160,7 +160,7 @@ func (g *generator) genFileHeader(root *cobra.Command, numEntries int) {
 	g.emit("---")
 	g.emit("title: ", root.Name())
 	g.emit("description: ", html.EscapeString(root.Short))
-	g.emit("layout: pkg-collateral-docs")
+	g.emit("generator: pkg-collateral-docs")
 	g.emit("number_of_entries: ", strconv.Itoa(numEntries))
 	g.emit("---")
 }
