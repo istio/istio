@@ -1,8 +1,5 @@
 # Running E2E tests on your own kubernets cluster
 
-NOTE: the e2e tests might not run on a Mac because istioctl-osx, needed for test execution, is only built for release
-builds and not for normal presubmits jobs, see [examples](#examples) for solutions.
-
 * [Step 1: Create a kubernetes cluster](#step-1-create-and-setup-a-kubernetes-cluster)
 * [Step 2: Get cluster credentials](#step-2-get-cluster-credentials)
 * [Step 3: Create Clusterrolebinding](#step-3-create-clusterrolebinding)
@@ -70,8 +67,6 @@ TAG=mybranch
 make docker
 
 # Push images to docker registry
-# If you use minikube and its docker environment, images will be  available in minikube for use,
-# you can skip this step.
 make push
 
 # the hub/tag set in your .istiorc.mk will be used by the test.
@@ -162,12 +157,4 @@ Please see golang testing options for more information.
   # Subsequent runs if only the TestSimpleIngress (for instance) changes:
   make e2e_simple E2E_ARGS="--skip_setup --skip_cleanup --namespace=e2e -istioctl ~/istioctl-osx --auth_enable --test.run TestSimpleIngress"
   ```
-
-* Running pilot e2e tests locally on minikube:
-
-```bash
-go test -v ./tests/e2e/tests/pilot \
-  --use_local_cluster \
-  --istioctl="${GOPATH}/out/linux_amd64/release/istioctl"
-```
 

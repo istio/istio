@@ -10,15 +10,13 @@ Developers, on the other hand, are recommended to run the tests locally before s
 # Running E2E Tests
 
 ## Using a local VM
-E2E tests can be run on your local machines. It helps local testing and debuging.
+E2E tests can be run on your local machines. It helps local testing and debuging. You can use one of the following to set up a local testing environment.
 
 1. See [vagrant/README](local/vagrant/README.md) for instructions to set up a local Vagrant VM environment to run E2E tests.
 
 2. See [minikube/README](local/minikube/README.md) for instructions to set up a Minikube VM environment to run E2E tests.
 
-You can use either one of the above to set up a local testing environment. 
-
-You must be the `--use-local-cluster` flag so the framework will not create a LoadBalancer and talk directly to the Pod running istio-ingress.
+All lcoal testing options requires the `--use-local-cluster` flag so the framework will not create a LoadBalancer and talk directly to the Pod running istio-ingress.
 
 
 ## Using GKE
@@ -37,7 +35,7 @@ By default, CI does not run all GKE based E2E tests in pre-submit, but they are 
 `/test e2e-cluster_wide-auth`
 
 
-# Debugging
+## Debugging
 The requests from the containers deployed in tests are performed by `client` program.
 For example, to perform a call from a deployed test container to https://console.bluemix.net/, run:
 
