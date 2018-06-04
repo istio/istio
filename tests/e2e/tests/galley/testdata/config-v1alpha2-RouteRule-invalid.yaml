@@ -1,0 +1,9 @@
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: valid-route-rule
+spec:
+  precedence: 2
+  route:
+  - labels:
+      version: v2
