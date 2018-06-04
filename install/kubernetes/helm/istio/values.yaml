@@ -157,7 +157,9 @@ gateways:
     loadBalancerIP: ""
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
     ports:
+      ## You can add custom gateway ports
     - port: 80
+      targetPort: 80
       name: http
       nodePort: 31380
     - port: 443
@@ -393,6 +395,7 @@ tracing:
     externalPort: 9411
     internalPort: 9411
     uiPort: 16686
+    jaegerLoadBalancerPort: 12346
   ingress:
     enabled: false
     # Used to create an Ingress record.

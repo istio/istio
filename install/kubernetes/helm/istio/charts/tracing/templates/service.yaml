@@ -33,7 +33,7 @@ items:
   spec:
     ports:
       - name: query-http
-        port: 80
+        port: {{ .Values.service.jaegerLoadBalancerPort }}
         protocol: TCP
         targetPort: {{ .Values.service.uiPort }}
     selector:
