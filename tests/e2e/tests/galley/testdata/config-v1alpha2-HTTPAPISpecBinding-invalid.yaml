@@ -1,0 +1,5 @@
+apiVersion: config.istio.io/v1alpha2
+kind: HTTPAPISpecBinding
+metadata:
+  name: invalid-http-api-spec-binding
+spec:
