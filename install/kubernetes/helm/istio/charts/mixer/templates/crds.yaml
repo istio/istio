@@ -38,6 +38,24 @@ spec:
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
+  name: bypasses.config.istio.io
+  labels:
+    app: {{ template "mixer.name" . }}
+    package: bypass
+    istio: mixer-adapter
+spec:
+  group: config.istio.io
+  names:
+    kind: bypass
+    plural: bypasses
+    singular: bypass
+  scope: Namespaced
+  version: v1alpha2
+---
+
+kind: CustomResourceDefinition
+apiVersion: apiextensions.k8s.io/v1beta1
+metadata:
   name: circonuses.config.istio.io
   labels:
     app: {{ template "mixer.name" . }}
