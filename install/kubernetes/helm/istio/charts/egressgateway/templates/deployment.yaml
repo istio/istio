@@ -12,6 +12,7 @@ metadata:
     {{ $key }}: {{ $val }}
     {{- end }}
 spec:
+  replicas: {{ .Values.replicaCount }}
   template:
     metadata:
       labels:

@@ -113,6 +113,7 @@ istiotesting:
 ingress:
   enabled: true
   serviceAccountName: default
+  replicaCount: 1
   autoscaleMin: 1
   autoscaleMax: 1
   resources: {}
@@ -139,6 +140,7 @@ ingress:
 ingressgateway:
   enabled: true
   serviceAccountName: istio-ingressgateway-service-account
+  replicaCount: 1
   autoscaleMin: 1
   autoscaleMax: 1
   resources: {}
@@ -184,6 +186,7 @@ ingressgateway:
 egressgateway:
   enabled: true
   serviceAccountName: istio-egressgateway-service-account
+  replicaCount: 1
   autoscaleMin: 1
   autoscaleMax: 1
   resources: {}
