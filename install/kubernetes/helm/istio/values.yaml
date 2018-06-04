@@ -394,8 +394,8 @@ tracing:
     type: ClusterIP
     externalPort: 9411
     internalPort: 9411
-    uiPort: 16686
-    jaegerLoadBalancerPort: 12346
+    internalUiPort: 16686
+    externalUiPort: 12346
   ingress:
     enabled: false
     # Used to create an Ingress record.

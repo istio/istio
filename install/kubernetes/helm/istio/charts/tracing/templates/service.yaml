@@ -33,9 +33,9 @@ items:
   spec:
     ports:
       - name: query-http
-        port: {{ .Values.service.jaegerLoadBalancerPort }}
+        port: {{ .Values.service.externalUiPort }}
         protocol: TCP
-        targetPort: {{ .Values.service.uiPort }}
+        targetPort: {{ .Values.service.internalUiPort }}
     selector:
       app: jaeger
 
