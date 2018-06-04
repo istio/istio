@@ -19,7 +19,12 @@ for fn in $(find ${ROOTDIR} -name '*.go' | grep -v vendor | grep -v testdata); d
           continue
   fi
 
-  head -20 $fn | grep "Apache License, Version 2" > /dev/null
+  licensepat="Apache License, Version 2"
+  if head -20 $fn | grep -q -i "Aspen *Mesh"; then
+    licensepat="No part of this software may be reproduced or transmitted"
+  fi
+
+  head -20 $fn | grep "$licensepat" > /dev/null
   if [[ $? -ne 0 ]]; then
     echo "${fn} missing license"
     ret=$(($ret+1))
