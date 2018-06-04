@@ -339,7 +339,7 @@ istioctl get virtualservice bookinfo
 				for _, typ := range typs {
 					typeConfigs, err := configClient.List(typ.Type, ns)
 					if err != nil {
-						return err
+						return multierror.Prefix(err, fmt.Sprintf("Can't list %v:", typ.Type))
 					}
 					configs = append(configs, typeConfigs...)
 				}
@@ -385,7 +385,7 @@ istioctl delete virtualservice bookinfo
 					c.Println(c.UsageString())
 					return fmt.Errorf("provide configuration type and name or -f option")
 				}
-				typs, err := protoSchema(configClient, strings.ToLower(args[0]), false)
+				typs, err := protoSchema(configClient, args[0], false)
 				if err != nil {
 					return err
 				}
