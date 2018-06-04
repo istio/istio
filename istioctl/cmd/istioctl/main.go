@@ -311,8 +311,13 @@ istioctl get virtualservice bookinfo
 					strings.Join(supportedTypes(configClient), ", "))
 			}
 
+			getByName := len(args) > 1
+			if getAllNamespaces && getByName {
+				return errors.New("a resource cannot be retrieved by name across all namespaces")
+			}
+
 			var typs []model.ProtoSchema
-			if len(args) == 1 && strings.ToLower(args[0]) == "all" {
+			if !getByName && strings.ToLower(args[0]) == "all" {
 				typs = configClient.ConfigDescriptor()
 			} else {
 				typ, err := protoSchema(configClient, args[0])
@@ -321,11 +326,6 @@ istioctl get virtualservice bookinfo
 					return err
 				}
 				typs = []model.ProtoSchema{typ}
-			}
-
-			getByName := len(args) > 1
-			if getAllNamespaces && getByName {
-				return errors.New("a resource cannot be retrieved by name across all namespaces")
 			}
 
 			var ns string
