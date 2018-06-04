@@ -35,6 +35,7 @@ spec:
             - --root-cert=/etc/cacerts/root-cert.pem
             - --cert-chain=/etc/cacerts/cert-chain.pem
           resources:
+{{ toYaml .Values.resources | indent 12 }}
           volumeMounts:
           - name: cacerts
             mountPath: /etc/cacerts
