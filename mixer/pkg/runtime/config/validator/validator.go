@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 
 	cpb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
