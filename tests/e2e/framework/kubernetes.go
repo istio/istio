@@ -64,6 +64,10 @@ const (
 	caKeyFileName                  = "samples/certs/ca-key.pem"
 	rootCertFileName               = "samples/certs/root-cert.pem"
 	certChainFileName              = "samples/certs/cert-chain.pem"
+	// PrimaryCluster identifies the primary cluster
+	PrimaryCluster = "primary"
+	// RemoteCluster identifies the remote cluster
+	RemoteCluster = "remote"
 )
 
 var (
@@ -94,6 +98,12 @@ var (
 		"zipkin",
 	}
 )
+
+type appPodsInfo struct {
+	// A map of app label values to the pods for that app
+	Pods      map[string][]string
+	PodsMutex sync.Mutex
+}
 
 // KubeInfo gathers information for kubectl
 type KubeInfo struct {
@@ -129,9 +139,8 @@ type KubeInfo struct {
 	// Use baseversion if not empty.
 	BaseVersion string
 
-	// A map of app label values to the pods for that app
-	appPods      map[string][]string
-	appPodsMutex sync.Mutex
+	appPods  map[string]*appPodsInfo
+	Clusters map[string]string
 
 	KubeConfig       string
 	KubeClient       kubernetes.Interface
@@ -229,6 +238,15 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 
 	a := NewAppManager(tmpDir, *namespace, i, kubeConfig)
 
+	clusters := make(map[string]string)
+	appPods := make(map[string]*appPodsInfo)
+	clusters[PrimaryCluster] = kubeConfig
+	appPods[PrimaryCluster] = &appPodsInfo{}
+	if remoteKubeConfig != "" {
+		clusters[RemoteCluster] = remoteKubeConfig
+		appPods[RemoteCluster] = &appPodsInfo{}
+	}
+
 	log.Infof("Using release dir: %s", releaseDir)
 	return &KubeInfo{
 		Namespace:        *namespace,
@@ -247,6 +265,8 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		KubeClient:       kubeClient,
 		RemoteKubeConfig: remoteKubeConfig,
 		RemoteKubeClient: remoteKubeClient,
+		appPods:          appPods,
+		Clusters:         clusters,
 	}, nil
 }
 
@@ -484,55 +504,59 @@ func (k *KubeInfo) Teardown() error {
 }
 
 // GetAppPods gets a map of app name to pods for that app. If pods are found, the results are cached.
-func (k *KubeInfo) GetAppPods() map[string][]string {
+func (k *KubeInfo) GetAppPods(cluster string) map[string][]string {
 	// Get a copy of the internal map.
-	newMap := k.getAppPods()
+	newMap := k.getAppPods(cluster)
 
 	if len(newMap) == 0 {
 		var err error
-		if newMap, err = util.GetAppPods(k.Namespace, k.KubeConfig); err != nil {
+		if newMap, err = util.GetAppPods(k.Namespace, k.Clusters[cluster]); err != nil {
 			log.Errorf("Failed to get retrieve the app pods for namespace %s", k.Namespace)
 		} else {
 			// Copy the new results to the internal map.
 			log.Infof("Fetched pods with the `app` label: %v", newMap)
-			k.setAppPods(newMap)
+			k.setAppPods(cluster, newMap)
 		}
 	}
 	return newMap
 }
 
 // GetRoutes gets routes from the pod or returns error
-func (k *KubeInfo) GetRoutes(app string) (string, error) {
-	appPods := k.GetAppPods()
-	if len(appPods[app]) == 0 {
-		return "", errors.Errorf("missing pod names for app %q", app)
-	}
-
-	pod := appPods[app][0]
-
+func (k *KubeInfo) GetRoutes(app string) (routes string, err error) {
 	routesURL := "http://localhost:15000/config_dump"
-	routes, err := util.PodExec(k.Namespace, pod, "app", fmt.Sprintf("client -url %s", routesURL), true, k.KubeConfig)
-	if err != nil {
-		return "", errors.WithMessage(err, "failed to get routes")
+	for cluster := range k.Clusters {
+		appPods := k.GetAppPods(cluster)
+		if len(appPods[app]) == 0 {
+			return "", errors.Errorf("missing pod names for app %q", app)
+		}
+
+		pod := appPods[app][0]
+
+		r, e := util.PodExec(k.Namespace, pod, "app", fmt.Sprintf("client -url %s", routesURL), true, k.Clusters[cluster])
+		if e != nil {
+			return "", errors.WithMessage(err, "failed to get routes")
+		}
+		routes += fmt.Sprintf("Routes From %s Cluster: \n", cluster)
+		routes += r
 	}
 
 	return routes, nil
 }
 
 // getAppPods returns a copy of the appPods map. Should only be called by GetAppPods.
-func (k *KubeInfo) getAppPods() map[string][]string {
-	k.appPodsMutex.Lock()
-	defer k.appPodsMutex.Unlock()
+func (k *KubeInfo) getAppPods(cluster string) map[string][]string {
+	k.appPods[cluster].PodsMutex.Lock()
+	defer k.appPods[cluster].PodsMutex.Unlock()
 
-	return k.deepCopy(k.appPods)
+	return k.deepCopy(k.appPods[cluster].Pods)
 }
 
 // setAppPods sets the app pods with a copy of the given map. Should only be called by GetAppPods.
-func (k *KubeInfo) setAppPods(newMap map[string][]string) {
-	k.appPodsMutex.Lock()
-	defer k.appPodsMutex.Unlock()
+func (k *KubeInfo) setAppPods(cluster string, newMap map[string][]string) {
+	k.appPods[cluster].PodsMutex.Lock()
+	defer k.appPods[cluster].PodsMutex.Unlock()
 
-	k.appPods = k.deepCopy(newMap)
+	k.appPods[cluster].Pods = k.deepCopy(newMap)
 }
 
 func (k *KubeInfo) deepCopy(src map[string][]string) map[string][]string {

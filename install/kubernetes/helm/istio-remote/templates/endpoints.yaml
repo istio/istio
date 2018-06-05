@@ -62,3 +62,41 @@ subsets:
     port: 9125
     protocol: UDP
 ---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: istio-telemetry
+  namespace: istio-system
+subsets:
+- addresses:
+  - ip: {{ .Values.global.telemetryEndpoint }}
+  ports:
+  - name: prometheus
+    port: 42422
+    protocol: TCP
+  - name: http-monitoring
+    port: 9093
+    protocol: TCP
+  - name: http2-mixer
+    port: 9091
+    protocol: TCP
+  - name: tcp-mtls
+    port: 15004
+    protocol: TCP
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: istio-ingress
+  namespace: istio-system
+subsets:
+- addresses:
+  - ip: {{ .Values.global.ingressEndpoint }}
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+  - name: https
+    port: 443
+    protocol: TCP
+---

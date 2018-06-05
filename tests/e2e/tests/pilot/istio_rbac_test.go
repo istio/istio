@@ -92,13 +92,15 @@ func TestRBAC(t *testing.T) {
 	}
 
 	for _, req := range cases {
-		testName := fmt.Sprintf("%s->%s%s[%s]", req.src, req.dst, req.path, req.expect)
-		runRetriableTest(t, testName, defaultRetryBudget, func() error {
-			resp := ClientRequest(req.src, fmt.Sprintf("http://%s%s", req.dst, req.path), 1, "")
-			if len(resp.Code) > 0 && resp.Code[0] == req.expect {
-				return nil
-			}
-			return errAgain
-		})
+		for cluster := range tc.Kube.Clusters {
+			testName := fmt.Sprintf("%s from %s cluster->%s%s[%s]", req.src, cluster, req.dst, req.path, req.expect)
+			runRetriableTest(t, cluster, testName, defaultRetryBudget, func() error {
+				resp := ClientRequest(cluster, req.src, fmt.Sprintf("http://%s%s", req.dst, req.path), 1, "")
+				if len(resp.Code) > 0 && resp.Code[0] == req.expect {
+					return nil
+				}
+				return errAgain
+			})
+		}
 	}
 }
