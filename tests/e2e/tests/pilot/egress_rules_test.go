@@ -124,21 +124,23 @@ func TestEgress(t *testing.T) {
 			// Apply the rule
 			applyRuleFunc(t, cs.config)
 
-			// Make the requests and verify the reachability
-			for _, src := range []string{"a", "b"} {
-				runRetriableTest(t, src, 3, func() error {
-					trace := fmt.Sprint(time.Now().UnixNano())
-					resp := ClientRequest(src, cs.url, 1, fmt.Sprintf("-key Trace-Id -val %q", trace))
-					reachable := resp.IsHTTPOk() && strings.Contains(resp.Body, trace)
-					if reachable && !cs.shouldBeReachable {
-						return fmt.Errorf("%s is reachable from %s (should be unreachable)", cs.url, src)
-					}
-					if !reachable && cs.shouldBeReachable {
-						return errAgain
-					}
+			for cluster := range tc.Kube.Clusters {
+				// Make the requests and verify the reachability
+				for _, src := range []string{"a", "b"} {
+					runRetriableTest(t, cluster, src, 3, func() error {
+						trace := fmt.Sprint(time.Now().UnixNano())
+						resp := ClientRequest(cluster, src, cs.url, 1, fmt.Sprintf("-key Trace-Id -val %q", trace))
+						reachable := resp.IsHTTPOk() && strings.Contains(resp.Body, trace)
+						if reachable && !cs.shouldBeReachable {
+							return fmt.Errorf("%s is reachable from %s in %s cluster (should be unreachable)", cs.url, src, cluster)
+						}
+						if !reachable && cs.shouldBeReachable {
+							return errAgain
+						}
 
-					return nil
-				})
+						return nil
+					})
+				}
 			}
 		})
 	}

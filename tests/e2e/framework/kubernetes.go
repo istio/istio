@@ -38,33 +38,36 @@ import (
 )
 
 const (
-	yamlSuffix                       = ".yaml"
-	istioInstallDir                  = "install/kubernetes"
-	istioAddonsDir                   = "install/kubernetes/addons"
-	nonAuthInstallFile               = "istio.yaml"
-	authInstallFile                  = "istio-auth.yaml"
-	nonAuthInstallFileNamespace      = "istio-one-namespace.yaml"
-	authInstallFileNamespace         = "istio-one-namespace-auth.yaml"
-	mcNonAuthInstallFileNamespace    = "istio-multicluster.yaml"
-	mcAuthInstallFileNamespace       = "istio-auth-multicluster.yaml"
-	mcRemoteInstallFile              = "istio-remote.yaml"
-	istioSystem                      = "istio-system"
-	istioIngressServiceName          = "istio-ingress"
-	istioIngressLabel                = "ingress"
-	istioIngressGatewayServiceName   = "istio-ingressgateway"
-	istioIngressGatewayLabel         = "ingressgateway"
-	istioEgressGatewayServiceName    = "istio-egressgateway"
-	defaultSidecarInjectorFile       = "istio-sidecar-injector.yaml"
-	ingressCertsName                 = "istio-ingress-certs"
-	defaultGalleyConfigValidatorFile = "istio-galley-config-validator.yaml"
-	maxDeploymentRolloutTime         = 480 * time.Second
-	mtlsExcludedServicesPattern      = "mtlsExcludedServices:\\s*\\[(.*)\\]"
-	helmServiceAccountFile           = "helm-service-account.yaml"
-	istioHelmInstallDir              = istioInstallDir + "/helm/istio"
-	caCertFileName                   = "samples/certs/ca-cert.pem"
-	caKeyFileName                    = "samples/certs/ca-key.pem"
-	rootCertFileName                 = "samples/certs/root-cert.pem"
-	certChainFileName                = "samples/certs/cert-chain.pem"
+	yamlSuffix                     = ".yaml"
+	istioInstallDir                = "install/kubernetes"
+	istioAddonsDir                 = "install/kubernetes/addons"
+	nonAuthInstallFile             = "istio.yaml"
+	authInstallFile                = "istio-auth.yaml"
+	nonAuthInstallFileNamespace    = "istio-one-namespace.yaml"
+	authInstallFileNamespace       = "istio-one-namespace-auth.yaml"
+	mcNonAuthInstallFileNamespace  = "istio-multicluster.yaml"
+	mcAuthInstallFileNamespace     = "istio-auth-multicluster.yaml"
+	mcRemoteInstallFile            = "istio-remote.yaml"
+	istioSystem                    = "istio-system"
+	istioIngressServiceName        = "istio-ingress"
+	istioIngressLabel              = "ingress"
+	istioIngressGatewayServiceName = "istio-ingressgateway"
+	istioIngressGatewayLabel       = "ingressgateway"
+	istioEgressGatewayServiceName  = "istio-egressgateway"
+	defaultSidecarInjectorFile     = "istio-sidecar-injector.yaml"
+	ingressCertsName               = "istio-ingress-certs"
+	maxDeploymentRolloutTime       = 480 * time.Second
+	mtlsExcludedServicesPattern    = "mtlsExcludedServices:\\s*\\[(.*)\\]"
+	helmServiceAccountFile         = "helm-service-account.yaml"
+	istioHelmInstallDir            = istioInstallDir + "/helm/istio"
+	caCertFileName                 = "samples/certs/ca-cert.pem"
+	caKeyFileName                  = "samples/certs/ca-key.pem"
+	rootCertFileName               = "samples/certs/root-cert.pem"
+	certChainFileName              = "samples/certs/cert-chain.pem"
+	// PrimaryCluster identifies the primary cluster
+	PrimaryCluster = "primary"
+	// RemoteCluster identifies the remote cluster
+	RemoteCluster = "remote"
 )
 
 var (
@@ -83,19 +86,24 @@ var (
 	rbacEnable   = flag.Bool("rbac_enable", true, "Enable rbac")
 	localCluster = flag.Bool("use_local_cluster", false,
 		"Whether the cluster is local or not (i.e. the test is running within the cluster). If running on minikube, this should be set to true.")
-	skipSetup                 = flag.Bool("skip_setup", false, "Skip namespace creation and istio cluster setup")
-	sidecarInjectorFile       = flag.String("sidecar_injector_file", defaultSidecarInjectorFile, "Sidecar injector yaml file")
-	clusterWide               = flag.Bool("cluster_wide", false, "Run cluster wide tests")
-	imagePullPolicy           = flag.String("image_pull_policy", "", "Specifies an override for the Docker image pull policy to be used")
-	multiClusterDir           = flag.String("cluster_registry_dir", "", "Directory name for the cluster registry config")
-	galleyConfigValidatorFile = flag.String("galley_config_validator_file", defaultGalleyConfigValidatorFile, "Galley config validator yaml file")
-	useGalleyConfigValidator  = flag.Bool("use_galley_config_validator", false, "Use galley configuration validation webhook")
-	installer                 = flag.String("installer", "kubectl", "Istio installer, default to kubectl, or helm ")
+	skipSetup                = flag.Bool("skip_setup", false, "Skip namespace creation and istio cluster setup")
+	sidecarInjectorFile      = flag.String("sidecar_injector_file", defaultSidecarInjectorFile, "Sidecar injector yaml file")
+	clusterWide              = flag.Bool("cluster_wide", false, "Run cluster wide tests")
+	imagePullPolicy          = flag.String("image_pull_policy", "", "Specifies an override for the Docker image pull policy to be used")
+	multiClusterDir          = flag.String("cluster_registry_dir", "", "Directory name for the cluster registry config")
+	useGalleyConfigValidator = flag.Bool("use_galley_config_validator", false, "Use galley configuration validation webhook")
+	installer                = flag.String("installer", "kubectl", "Istio installer, default to kubectl, or helm ")
 
 	addons = []string{
 		"zipkin",
 	}
 )
+
+type appPodsInfo struct {
+	// A map of app label values to the pods for that app
+	Pods      map[string][]string
+	PodsMutex sync.Mutex
+}
 
 // KubeInfo gathers information for kubectl
 type KubeInfo struct {
@@ -131,15 +139,38 @@ type KubeInfo struct {
 	// Use baseversion if not empty.
 	BaseVersion string
 
-	// A map of app label values to the pods for that app
-	appPods      map[string][]string
-	appPodsMutex sync.Mutex
+	appPods  map[string]*appPodsInfo
+	Clusters map[string]string
 
 	KubeConfig       string
 	KubeClient       kubernetes.Interface
 	RemoteKubeConfig string
 	RemoteKubeClient kubernetes.Interface
 	RemoteAppManager *AppManager
+}
+
+func getClusterWideInstallFile() string {
+	const (
+		nonAuthInstallFile           = "istio.yaml"
+		authInstallFile              = "istio-auth.yaml"
+		nonAuthWithGalleyInstallFile = "istio-galley.yaml"
+		authWithGalleyInstallFile    = "istio-auth-galley.yaml"
+	)
+	var istioYaml string
+	if *authEnable {
+		if *useGalleyConfigValidator {
+			istioYaml = authWithGalleyInstallFile
+		} else {
+			istioYaml = authInstallFile
+		}
+	} else {
+		if *useGalleyConfigValidator {
+			istioYaml = nonAuthWithGalleyInstallFile
+		} else {
+			istioYaml = nonAuthInstallFile
+		}
+	}
+	return istioYaml
 }
 
 // newKubeInfo create a new KubeInfo by given temp dir and runID
@@ -207,6 +238,15 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 
 	a := NewAppManager(tmpDir, *namespace, i, kubeConfig)
 
+	clusters := make(map[string]string)
+	appPods := make(map[string]*appPodsInfo)
+	clusters[PrimaryCluster] = kubeConfig
+	appPods[PrimaryCluster] = &appPodsInfo{}
+	if remoteKubeConfig != "" {
+		clusters[RemoteCluster] = remoteKubeConfig
+		appPods[RemoteCluster] = &appPodsInfo{}
+	}
+
 	log.Infof("Using release dir: %s", releaseDir)
 	return &KubeInfo{
 		Namespace:        *namespace,
@@ -225,6 +265,8 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		KubeClient:       kubeClient,
 		RemoteKubeConfig: remoteKubeConfig,
 		RemoteKubeClient: remoteKubeClient,
+		appPods:          appPods,
+		Clusters:         clusters,
 	}, nil
 }
 
@@ -401,21 +443,8 @@ func (k *KubeInfo) Teardown() error {
 			}
 		}
 
-		if *useGalleyConfigValidator {
-			testGalleyConfigValidatorYAML := filepath.Join(k.TmpDir, "yaml", *galleyConfigValidatorFile)
-
-			if err := util.KubeDelete(k.Namespace, testGalleyConfigValidatorYAML, k.KubeConfig); err != nil {
-				log.Errorf("Istio galley config validator %s deletion failed", testGalleyConfigValidatorYAML)
-				return err
-			}
-		}
-
 		if *clusterWide {
-			// for cluster-wide, we can verify the uninstall
-			istioYaml := nonAuthInstallFile
-			if *authEnable {
-				istioYaml = authInstallFile
-			}
+			istioYaml := getClusterWideInstallFile()
 
 			testIstioYaml := filepath.Join(k.TmpDir, "yaml", istioYaml)
 
@@ -475,55 +504,59 @@ func (k *KubeInfo) Teardown() error {
 }
 
 // GetAppPods gets a map of app name to pods for that app. If pods are found, the results are cached.
-func (k *KubeInfo) GetAppPods() map[string][]string {
+func (k *KubeInfo) GetAppPods(cluster string) map[string][]string {
 	// Get a copy of the internal map.
-	newMap := k.getAppPods()
+	newMap := k.getAppPods(cluster)
 
 	if len(newMap) == 0 {
 		var err error
-		if newMap, err = util.GetAppPods(k.Namespace, k.KubeConfig); err != nil {
+		if newMap, err = util.GetAppPods(k.Namespace, k.Clusters[cluster]); err != nil {
 			log.Errorf("Failed to get retrieve the app pods for namespace %s", k.Namespace)
 		} else {
 			// Copy the new results to the internal map.
 			log.Infof("Fetched pods with the `app` label: %v", newMap)
-			k.setAppPods(newMap)
+			k.setAppPods(cluster, newMap)
 		}
 	}
 	return newMap
 }
 
 // GetRoutes gets routes from the pod or returns error
-func (k *KubeInfo) GetRoutes(app string) (string, error) {
-	appPods := k.GetAppPods()
-	if len(appPods[app]) == 0 {
-		return "", errors.Errorf("missing pod names for app %q", app)
-	}
-
-	pod := appPods[app][0]
-
+func (k *KubeInfo) GetRoutes(app string) (routes string, err error) {
 	routesURL := "http://localhost:15000/config_dump"
-	routes, err := util.PodExec(k.Namespace, pod, "app", fmt.Sprintf("client -url %s", routesURL), true, k.KubeConfig)
-	if err != nil {
-		return "", errors.WithMessage(err, "failed to get routes")
+	for cluster := range k.Clusters {
+		appPods := k.GetAppPods(cluster)
+		if len(appPods[app]) == 0 {
+			return "", errors.Errorf("missing pod names for app %q", app)
+		}
+
+		pod := appPods[app][0]
+
+		r, e := util.PodExec(k.Namespace, pod, "app", fmt.Sprintf("client -url %s", routesURL), true, k.Clusters[cluster])
+		if e != nil {
+			return "", errors.WithMessage(err, "failed to get routes")
+		}
+		routes += fmt.Sprintf("Routes From %s Cluster: \n", cluster)
+		routes += r
 	}
 
 	return routes, nil
 }
 
 // getAppPods returns a copy of the appPods map. Should only be called by GetAppPods.
-func (k *KubeInfo) getAppPods() map[string][]string {
-	k.appPodsMutex.Lock()
-	defer k.appPodsMutex.Unlock()
+func (k *KubeInfo) getAppPods(cluster string) map[string][]string {
+	k.appPods[cluster].PodsMutex.Lock()
+	defer k.appPods[cluster].PodsMutex.Unlock()
 
-	return k.deepCopy(k.appPods)
+	return k.deepCopy(k.appPods[cluster].Pods)
 }
 
 // setAppPods sets the app pods with a copy of the given map. Should only be called by GetAppPods.
-func (k *KubeInfo) setAppPods(newMap map[string][]string) {
-	k.appPodsMutex.Lock()
-	defer k.appPodsMutex.Unlock()
+func (k *KubeInfo) setAppPods(cluster string, newMap map[string][]string) {
+	k.appPods[cluster].PodsMutex.Lock()
+	defer k.appPods[cluster].PodsMutex.Unlock()
 
-	k.appPods = k.deepCopy(newMap)
+	k.appPods[cluster].Pods = k.deepCopy(newMap)
 }
 
 func (k *KubeInfo) deepCopy(src map[string][]string) map[string][]string {
@@ -568,17 +601,16 @@ func (k *KubeInfo) deployIstio() error {
 		istioYaml = mcNonAuthInstallFileNamespace
 	}
 	if *clusterWide {
-		if *authEnable {
-			istioYaml = authInstallFile
-		} else {
-			istioYaml = nonAuthInstallFile
-		}
+		istioYaml = getClusterWideInstallFile()
 	} else {
 		if *authEnable {
 			istioYaml = authInstallFileNamespace
 			if *multiClusterDir != "" {
 				istioYaml = mcAuthInstallFileNamespace
 			}
+		}
+		if *useGalleyConfigValidator {
+			return errors.New("cannot enable useGalleyConfigValidator in one namespace tests")
 		}
 	}
 
@@ -648,18 +680,6 @@ func (k *KubeInfo) deployIstio() error {
 		}
 	}
 
-	if *useGalleyConfigValidator {
-		baseConfigValidatorYAML := util.GetResourcePath(filepath.Join(istioInstallDir, *galleyConfigValidatorFile))
-		testConfigValidatorYAML := filepath.Join(k.TmpDir, "yaml", *galleyConfigValidatorFile)
-		if err := k.generateGalleyConfigValidator(baseConfigValidatorYAML, testConfigValidatorYAML); err != nil {
-			log.Errorf("Generating galley config validator yaml failed")
-			return err
-		}
-		if err := util.KubeApply(k.Namespace, testConfigValidatorYAML, k.KubeConfig); err != nil {
-			log.Errorf("Istio galley config validator %s deployment failed", testConfigValidatorYAML)
-			return err
-		}
-	}
 	return util.CheckDeployments(k.Namespace, maxDeploymentRolloutTime, k.KubeConfig)
 }
 
