@@ -17,5 +17,6 @@ package main
 // whitelistPair defines path to file in regex, and list of rules which should not apply to the
 // file.
 type whitelistPair struct {
-
+	filePath    string   // file path in regex
+	skippedRule []RuleID // list of rules to skip
 }

@@ -15,7 +15,6 @@
 package main
 
 import (
-	"fmt"
 	"go/ast"
 	"go/token"
 	"regexp"
@@ -28,12 +27,12 @@ type RuleID int
 // only in whitelist, which prevent linter from applying any rule to file path.
 const (
 	SkipByIssue RuleID = iota // SkipByIssue == 0
-	NoSleep 		RuleID = iota // DoNotSleep == 1
+	NoSleep     RuleID = iota // DoNotSleep == 1
 	NoGoroutine RuleID = iota // NoGoroutine == 2
 	SkipByShort RuleID = iota // SkipByShort == 3
 
 	// Please leave AllRules to be the last one.
-	AllRules   	RuleID = iota // AllRules == 4
+	AllRules RuleID = iota // AllRules == 4
 )
 
 type LintRule interface {
@@ -44,7 +43,7 @@ type LintRule interface {
 	// OnlyCheckTestFunc returns true if lint rule only applies to test function with prefix Test.
 	OnlyCheckTestFunc() bool
 	// Check returns true if aNode passes rule check, or false with no-empty error report if check fails.
-	Check(aNode ast.Node) (bool, string)
+	Check(aNode ast.Node, fs *token.FileSet) (bool, string)
 	// createLintReport returns lint error report for function call at position pos.
 	createLintReport(pos token.Pos, fs *token.FileSet) string
 }

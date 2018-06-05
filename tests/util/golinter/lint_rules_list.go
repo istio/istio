@@ -14,18 +14,18 @@
 
 package main
 
-var UnitTestRules []LintRule = {
+var UnitTestRules = []LintRule{
 	newSkipByIssueRule(),
 	newNoGoroutineRule(),
 	newNoSleepRule(),
 }
 
-var IntegTestRules []LintRule{} = {
+var IntegTestRules = []LintRule{
 	newSkipByIssueRule(),
 	newSkipByShortRule(),
 }
 
-var E2eTestRules []LintRule{} = {
+var E2eTestRules = []LintRule{
 	newSkipByIssueRule(),
 	newSkipByShortRule(),
 }

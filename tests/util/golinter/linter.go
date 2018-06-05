@@ -19,7 +19,6 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"log"
 	"strings"
 )
 
@@ -28,9 +27,9 @@ type LintReports []string
 
 // Linter applies linting rules to a file.
 type Linter struct {
-	fpath   string                 // file path that takes linting process
-	lreport LintReports            // report for linting process
-	tType   TestType               // test type of file path
+	fpath   string      // file path that takes linting process
+	lreport LintReports // report for linting process
+	tType   TestType    // test type of file path
 	fs      *token.FileSet
 }
 
@@ -82,7 +81,14 @@ func (lt *Linter) Run() {
 }
 
 // ApplyRulesToFile applies rules to node and generate lint report.
-func (lt *Linter) ApplyRules(node ast.Node, rules []LintRule, testFunc bool) {
+func (lt *Linter) ApplyRules(node ast.Node, rules []LintRule, testFuncOnly bool) {
+	for _, rule := range rules {
+		if testFuncOnly == rule.OnlyCheckTestFunc() {
+			if ok, report := rule.Check(node); !ok {
+				append(lt.lreport, report)
+			}
+		}
+	}
 }
 
 // Visit checks each function call and report if a forbidden function call is detected.

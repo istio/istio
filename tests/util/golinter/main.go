@@ -64,11 +64,7 @@ func doAllDirs(args []string) []string {
 			reportErr(fmt.Sprintf("error visiting the path %q: %v", path, err))
 		}
 	}
-	reports := make([]string, 0)
-	for _, r := range rpts {
-		reports = append(reports, r.msg)
-	}
-	return reports
+	return rpts
 }
 
 func reportErr(msg string) {
