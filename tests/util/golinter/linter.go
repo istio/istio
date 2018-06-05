@@ -31,13 +31,15 @@ type Linter struct {
 	lreport LintReports // report for linting process
 	tType   TestType    // test type of file path
 	fs      *token.FileSet
+	sRuleMap map[string]bool
 }
 
-func newLinter(fileP string, t TestType) Linter {
+func newLinter(fileP string, t TestType, rMap map[string]bool) Linter {
 	return Linter{
 		fpath: fileP,
 		tType: t,
 		fs:    token.NewFileSet(),
+		sRuleMap: rMap,
 	}
 }
 
@@ -53,6 +55,10 @@ func (lt *Linter) Fs() *token.FileSet {
 
 // Run applies linting rule to file in fpath.
 func (lt *Linter) Run() {
+	if _, skipAll := lt.sRuleMap[AllRules]; skipAll {
+		return
+	}
+
 	astFile, err := parser.ParseFile(lt.Fs(), lt.fpath, nil, parser.Mode(0))
 	if err != nil {
 		lt.lreport = append(lt.lreport, fmt.Sprintf("%v", err))
@@ -84,8 +90,10 @@ func (lt *Linter) Run() {
 func (lt *Linter) ApplyRules(node ast.Node, rules []LintRule, testFuncOnly bool) {
 	for _, rule := range rules {
 		if testFuncOnly == rule.OnlyCheckTestFunc() {
-			if ok, report := rule.Check(node); !ok {
-				append(lt.lreport, report)
+			if _, skip := lt.sRuleMap[rule.GetID()]; !skip {
+				if ok, report := rule.Check(node, lt.fs); !ok {
+					lt.lreport = append(lt.lreport, report)
+				}
 			}
 		}
 	}

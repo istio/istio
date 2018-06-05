@@ -26,19 +26,14 @@ func newSkipByShortRule() *SkipByShortRule {
 	return &SkipByShortRule{}
 }
 
-// GetID returns ID SkipByShort.
-func (lr *SkipByShortRule) GetID() RuleID {
-	return SkipByShort
-}
-
 // OnlyCheckTestFunc returns true as SkipByIssueRule only applies to test function with prefix Test.
 func (lr *SkipByShortRule) OnlyCheckTestFunc() bool	{
 	return true
 }
 
-// GetName returns SkipByIssue.
-func (lr *SkipByShortRule) GetName() string	{
-	return "SkipByIssue"
+// GetID returns SkipByShort.
+func (lr *SkipByShortRule) GetID() string	{
+	return SkipByShort
 }
 
 // Check returns true if aNode is a valid t.Skip(). Otherwise, returns false.

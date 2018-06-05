@@ -14,9 +14,9 @@
 
 package main
 
-// whitelistPair defines path to file in regex, and list of rules which should not apply to the
-// file.
-type whitelistPair struct {
-	filePath    string   // file path in regex
-	skippedRule []RuleID // list of rules to skip
+// whitelist contains pairs of file and rule IDs. Each pair specifies which rules should not apply
+// to the file path in that pair. rule IDs are separated by comma.
+// Rule ID is defined in lint_rules.go
+var WhitelistPath = map[string]string{
+	"../../counter/..": "SkipByIssue,NoSleep",
 }

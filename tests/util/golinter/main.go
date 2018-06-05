@@ -53,8 +53,8 @@ func doAllDirs(args []string) []string {
 				reportErr(fmt.Sprintf("pervent panic by handling failure accessing a path %q: %v", fpath, err))
 				return err
 			}
-			if ok, testType := pFilter.IsTestFile(fpath, info); ok {
-				lt := newLinter(fpath, testType)
+			if ok, testType, sRuleMaps := pFilter.IsTestFile(fpath, info); ok {
+				lt := newLinter(fpath, testType, sRuleMaps)
 				lt.Run()
 				rpts = append(rpts, lt.LReport()...)
 			}

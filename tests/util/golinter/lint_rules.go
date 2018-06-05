@@ -20,26 +20,21 @@ import (
 	"regexp"
 )
 
-// RuleID is type ID of a lint rule.
-type RuleID int
-
-// Defines ID for each lint rule. Each rule is assigned a RuleID. AllRules is a special ID used
-// only in whitelist, which prevent linter from applying any rule to file path.
+// Defines ID for each lint rule. Each rule is assigned a unique ID. AllRules is a special name
+// used only in whitelist, which skips all rules for a file path.
 const (
-	SkipByIssue RuleID = iota // SkipByIssue == 0
-	NoSleep     RuleID = iota // DoNotSleep == 1
-	NoGoroutine RuleID = iota // NoGoroutine == 2
-	SkipByShort RuleID = iota // SkipByShort == 3
+	SkipByIssue = "SkipByIssue" // SkipByIssue == 0
+	NoSleep     = "NoSleep" // DoNotSleep == 1
+	NoGoroutine = "NoGoroutine" // NoGoroutine == 2
+	SkipByShort = "SkipByShort" // SkipByShort == 3
 
 	// Please leave AllRules to be the last one.
-	AllRules RuleID = iota // AllRules == 4
+	AllRules = "AllRules" // AllRules == 4
 )
 
 type LintRule interface {
-	// GetID returns ID of the lint rule.
-	GetID() RuleID
-	// GetName returns name of the rule
-	GetName() string
+	// GetID returns ID of the rule in string.
+	GetID() string
 	// OnlyCheckTestFunc returns true if lint rule only applies to test function with prefix Test.
 	OnlyCheckTestFunc() bool
 	// Check returns true if aNode passes rule check, or false with no-empty error report if check fails.
