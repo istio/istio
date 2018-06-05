@@ -807,7 +807,7 @@ func prepareClientForOthers(configs []crd.IstioKind) (*rest.RESTClient, map[stri
 func getDefaultNamespace(kubeconfig string) string {
 	configAccess := clientcmd.NewDefaultPathOptions()
 
-	if kubeconfig != defaultKubeConfigText {
+	if kubeconfig != "" {
 		// use specified kubeconfig file for the location of the
 		// config to read
 		configAccess.GlobalFile = kubeconfig
