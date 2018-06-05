@@ -15,9 +15,12 @@
 package validator
 
 import (
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/hashicorp/go-multierror"
 
 	cpb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -79,7 +82,11 @@ func (v *Validator) Validate(ev *store.Event) error {
 	oldEntryVal, exists := v.e.GetEntry(ev)
 
 	v.e.ApplyEvent([]*store.Event{ev})
-	_, err := v.e.BuildSnapshot()
+	s, err := v.e.BuildSnapshot()
+	// now validate snapshot as a whole
+	if err == nil {
+		err = validateHandlers(s)
+	}
 
 	if err != nil {
 		reverseEvent := *ev
@@ -93,4 +100,20 @@ func (v *Validator) Validate(ev *store.Event) error {
 	}
 
 	return err
+}
+
+func validateHandlers(s *config.Snapshot) error {
+	var errs error
+	instancesByHandler := config.GetInstancesGroupedByHandlers(s)
+	for handler, instances := range instancesByHandler {
+		if _, err := config.ValidateBuilder(handler, instances, s.Templates); err != nil {
+			insts := make([]string, 0)
+			for _, inst := range instances {
+				insts = append(insts, inst.Name)
+			}
+			errs = multierror.Append(errs, fmt.Errorf("error handler[%s]/instances[%s]: %v",
+				handler.Name, strings.Join(insts, ","), err))
+		}
+	}
+	return errs
 }

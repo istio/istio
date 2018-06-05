@@ -172,12 +172,6 @@ func TestCleanup_Basic(t *testing.T) {
 [acheck] HandlerBuilder.SetAdapterConfig <=
 [acheck] HandlerBuilder.Validate =>
 [acheck] HandlerBuilder.Validate <= (SUCCESS)
-[acheck] NewBuilder =>
-[acheck] NewBuilder <=
-[acheck] HandlerBuilder.SetAdapterConfig => '&Struct{Fields:map[string]*Value{},}'
-[acheck] HandlerBuilder.SetAdapterConfig <=
-[acheck] HandlerBuilder.Validate =>
-[acheck] HandlerBuilder.Validate <= (SUCCESS)
 [acheck] HandlerBuilder.Build =>
 [acheck] HandlerBuilder.Build <= (SUCCESS)
 [acheck] Handler.Close =>
@@ -289,12 +283,6 @@ func TestCleanup_NoChange(t *testing.T) {
 [acheck] HandlerBuilder.SetAdapterConfig <=
 [acheck] HandlerBuilder.Validate =>
 [acheck] HandlerBuilder.Validate <= (SUCCESS)
-[acheck] NewBuilder =>
-[acheck] NewBuilder <=
-[acheck] HandlerBuilder.SetAdapterConfig => '&Struct{Fields:map[string]*Value{},}'
-[acheck] HandlerBuilder.SetAdapterConfig <=
-[acheck] HandlerBuilder.Validate =>
-[acheck] HandlerBuilder.Validate <= (SUCCESS)
 [acheck] HandlerBuilder.Build =>
 [acheck] HandlerBuilder.Build <= (SUCCESS)
 `
@@ -363,12 +351,6 @@ func TestCleanup_CloseError(t *testing.T) {
 [acheck] HandlerBuilder.SetAdapterConfig <=
 [acheck] HandlerBuilder.Validate =>
 [acheck] HandlerBuilder.Validate <= (SUCCESS)
-[acheck] NewBuilder =>
-[acheck] NewBuilder <=
-[acheck] HandlerBuilder.SetAdapterConfig => '&Struct{Fields:map[string]*Value{},}'
-[acheck] HandlerBuilder.SetAdapterConfig <=
-[acheck] HandlerBuilder.Validate =>
-[acheck] HandlerBuilder.Validate <= (SUCCESS)
 [acheck] HandlerBuilder.Build =>
 [acheck] HandlerBuilder.Build <= (SUCCESS)
 [acheck] Handler.Close =>
@@ -398,12 +380,6 @@ func TestCleanup_ClosePanic(t *testing.T) {
 
 	// Close is called, error is returned.
 	expected := `
-[acheck] NewBuilder =>
-[acheck] NewBuilder <=
-[acheck] HandlerBuilder.SetAdapterConfig => '&Struct{Fields:map[string]*Value{},}'
-[acheck] HandlerBuilder.SetAdapterConfig <=
-[acheck] HandlerBuilder.Validate =>
-[acheck] HandlerBuilder.Validate <= (SUCCESS)
 [acheck] NewBuilder =>
 [acheck] NewBuilder <=
 [acheck] HandlerBuilder.SetAdapterConfig => '&Struct{Fields:map[string]*Value{},}'

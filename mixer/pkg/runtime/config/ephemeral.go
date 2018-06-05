@@ -16,7 +16,6 @@ package config
 
 import (
 	"fmt"
-	"strings"
 	"sync"
 
 	multierror "github.com/hashicorp/go-multierror"
@@ -147,26 +146,9 @@ func (e *Ephemeral) BuildSnapshot() (*Snapshot, error) {
 	}
 	e.lock.RUnlock()
 
-	// validate all handlers.
-	validateHandlers(s, errs, counters)
-
 	log.Infof("Built new config.Snapshot: id='%d'", id)
 	log.Debugf("config.Snapshot creation error=%v, contents:\n%s", errs.ErrorOrNil(), s)
 	return s, errs.ErrorOrNil()
-}
-
-func validateHandlers(s *Snapshot, errs *multierror.Error, counters Counters) {
-	instancesByHandler := GetInstancesGroupedByHandlers(s)
-	for handler, instances := range instancesByHandler {
-		if _, err := ValidateBuilder(handler, instances, s.Templates); err != nil {
-			insts := make([]string, 0)
-			for _, inst := range instances {
-				insts = append(insts, inst.Name)
-			}
-			appendErr(errs, fmt.Sprintf("handler[%s]/instances[%s]",
-				handler.Name, strings.Join(insts, ",")), counters.HandlerValidationError, err.Error())
-		}
-	}
 }
 
 func (e *Ephemeral) processAttributeManifests(counters Counters, errs *multierror.Error) map[string]*config.AttributeManifest_AttributeInfo {
