@@ -20,8 +20,9 @@ follows required patterns, and applies a list of linting rules to each file.
 [lint_rules_list.go](lint_rules_list.go) defines three lists of rules which apply to unit test file,
 integration test file, and e2e test file. These lists are extensible. Each rule has an unique ID,
 which is defined in [lint_rules.go](lint_rules.go).
-1. SkipByIssue rule requires that a `t.Skip()` call should contain url to a issue. This helps to keep
-tracking of the issue that causes a test to be skipped. For example, this is a valid call, 
+1. SkipByIssue rule requires that a `t.Skip()` call in test function should contain url to a issue. 
+This helps to keep tracking of the issue that causes a test to be skipped. 
+For example, this is a valid call, 
     ```bash
     t.Skip("https://github.com/istio/istio/issues/6012")
     ```
