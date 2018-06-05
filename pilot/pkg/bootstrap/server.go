@@ -550,7 +550,7 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 	kubectl := kube.NewController(s.kubeClient, args.Config.ControllerOptions)
 	serviceControllers.AddRegistry(
 		aggregate.Registry{
-			Name:             serviceregistry.ServiceRegistry(serviceregistry.KubernetesRegistry),
+			Name:             serviceregistry.KubernetesRegistry,
 			ClusterID:        clusterID,
 			ServiceDiscovery: kubectl,
 			ServiceAccounts:  kubectl,
