@@ -44,7 +44,6 @@ func getReport(args []string) []string {
 func doAllDirs(args []string) []string {
 	rpts := make(LintReports, 0)
 	pFilter := newPathFilter()
-	ffl := newForbiddenFunctionList()
 	for _, path := range args {
 		if !filepath.IsAbs(path) {
 			path, _ = filepath.Abs(path)
@@ -55,7 +54,7 @@ func doAllDirs(args []string) []string {
 				return err
 			}
 			if ok, testType := pFilter.IsTestFile(fpath, info); ok {
-				lt := newLinter(fpath, testType, &ffl)
+				lt := newLinter(fpath, testType)
 				lt.Run()
 				rpts = append(rpts, lt.LReport()...)
 			}
