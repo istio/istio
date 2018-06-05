@@ -235,7 +235,7 @@ sidecarInjectorWebhook:
 # galley configuration
 #
 galley:
-  enabled: false
+  enabled: true
   serviceAccountName: default
   replicaCount: 1
   image: galley
