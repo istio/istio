@@ -376,20 +376,23 @@ func addDestinationServiceAttributes(attrs map[string]*mpb.Attributes_AttributeV
 	attrs["destination.service.host"] = attrStringValue(destinationHostname)
 	attrs["destination.service.uid"] = attrStringValue(fmt.Sprintf("istio://%s/services/%s", svcNamespace, svcName))
 	attrs["destination.service.name"] = attrStringValue(svcName)
-	attrs["destination.service.namespace"] = attrStringValue(svcNamespace)
+	if len(svcNamespace) > 0 {
+		attrs["destination.service.namespace"] = attrStringValue(svcNamespace)
+	}
 }
 
 func nameAndNamespace(serviceHostname, domain string) (name, namespace string) {
-
 	domainParts := strings.SplitN(domain, ".", 2)
-
 	if !strings.HasSuffix(serviceHostname, domainParts[1]) {
 		return serviceHostname, ""
 	}
 
-	// What happens for domains like: foo.com ?  This will map namespace to foo, I believe
 	parts := strings.Split(serviceHostname, ".")
-	return parts[0], parts[1]
+	if len(parts) > 1 {
+		return parts[0], parts[1]
+	}
+
+	return serviceHostname, ""
 }
 
 func attrStringValue(value string) *mpb.Attributes_AttributeValue {
