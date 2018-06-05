@@ -1,33 +1,4 @@
-# Normal unversioned services, with a headless service
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: b
-  labels:
-    app: b
-spec:
-  ports:
-  - port: 80
-    targetPort: 80
-    name: http
-  - port: 8080
-    targetPort: 8080
-    name: http-two
-  - port: 90
-    targetPort: 90
-    name: tcp
-  - port: 9090
-    targetPort: 9090
-    name: https
-  - port: 70
-    targetPort: 70
-    name: http2-example
-  - port: 7070
-    targetPort: 7070
-    name: grpc
-  selector:
-    app: b
+# headless service
 ---
 apiVersion: v1
 kind: Service

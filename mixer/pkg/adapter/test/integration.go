@@ -163,7 +163,11 @@ func RunTest(
 	// Start Mixer
 	var args *server.Args
 	var env *server.Server
-	if args, err = getServerArgs(scenario.Templates, []adapter.InfoFn{adapterInfo}, scenario.Configs); err != nil {
+	adapterInfos := []adapter.InfoFn{}
+	if adapterInfo != nil {
+		adapterInfos = append(adapterInfos, adapterInfo)
+	}
+	if args, err = getServerArgs(scenario.Templates, adapterInfos, scenario.Configs); err != nil {
 		t.Fatalf("fail to create mixer args: %v", err)
 	}
 
@@ -201,7 +205,11 @@ func RunTest(
 	// the baseline json. Without this, deep equality on un-marshalled baseline AdapterState would defer
 	// from the rich object returned by getState function.
 	if scenario.GetState != nil {
-		adptState, _ := scenario.GetState(ctx)
+		var adptState interface{}
+		adptState, err = scenario.GetState(ctx)
+		if err != nil {
+			t.Fatalf("getting state from adapter failed; %v", err)
+		}
 		var adptStateBytes []byte
 		if adptStateBytes, err = json.Marshal(adptState); err != nil {
 			t.Fatalf("Unable to convert %v into json: %v", adptState, err)

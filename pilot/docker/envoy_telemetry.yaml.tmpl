@@ -33,10 +33,6 @@ static_resources:
     filter_chains:
     - filters:
       - config:
-          access_log:
-          - config:
-              path: /dev/stdout
-            name: envoy.file_access_log
           codec_type: HTTP2
           http2_protocol_options:
             max_concurrent_streams: 1073741824
@@ -60,6 +56,10 @@ static_resources:
                         bytes_value: {{ .PodIP }}
                       destination.port:
                         int64_value: 15004
+                      context.reporter.local:
+                        bool_value: true
+                      context.reporter.uid:
+                        string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
               transport:
                 check_cluster: mixer_check_server
                 report_cluster: in.9092
@@ -105,10 +105,6 @@ static_resources:
     filter_chains:
     - filters:
       - config:
-          access_log:
-          - config:
-              path: /dev/stdout
-            name: envoy.file_access_log
           codec_type: HTTP2
           http2_protocol_options:
             max_concurrent_streams: 1073741824
@@ -132,6 +128,10 @@ static_resources:
                         bytes_value: {{ .PodIP }}
                       destination.port:
                         int64_value: 9091
+                      context.reporter.local:
+                        bool_value: true
+                      context.reporter.uid:
+                        string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
               transport:
                 check_cluster: mixer_check_server
                 report_cluster: in.9092

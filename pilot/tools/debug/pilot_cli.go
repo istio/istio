@@ -76,9 +76,10 @@ type PodInfo struct {
 	Name      string
 	Namespace string
 	IP        string
+	ProxyType string
 }
 
-func NewPodInfo(nameOrAppLabel string, kubeconfig string) *PodInfo {
+func NewPodInfo(nameOrAppLabel, kubeconfig, proxyType string) *PodInfo {
 	log.Infof("Using kube config at %s", kubeconfig)
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
@@ -104,6 +105,7 @@ func NewPodInfo(nameOrAppLabel string, kubeconfig string) *PodInfo {
 				Name:      pod.Name,
 				Namespace: pod.Namespace,
 				IP:        pod.Status.PodIP,
+				ProxyType: proxyType,
 			}
 		}
 		if app, ok := pod.ObjectMeta.Labels["app"]; ok && app == nameOrAppLabel {
@@ -112,6 +114,7 @@ func NewPodInfo(nameOrAppLabel string, kubeconfig string) *PodInfo {
 				Name:      pod.Name,
 				Namespace: pod.Namespace,
 				IP:        pod.Status.PodIP,
+				ProxyType: proxyType,
 			}
 		}
 	}
@@ -120,7 +123,7 @@ func NewPodInfo(nameOrAppLabel string, kubeconfig string) *PodInfo {
 }
 
 func (p PodInfo) makeNodeID() string {
-	return fmt.Sprintf("sidecar~%s~%s.%s~%s.svc.cluster.local", p.IP, p.Name, p.Namespace, p.Namespace)
+	return fmt.Sprintf("%s~%s~%s.%s~%s.svc.cluster.local", p.ProxyType, p.IP, p.Name, p.Namespace, p.Namespace)
 }
 
 func configTypeToTypeURL(configType string) string {
@@ -146,7 +149,7 @@ func (p PodInfo) makeRequest(configType string) *xdsapi.DiscoveryRequest {
 		TypeUrl: configTypeToTypeURL(configType)}
 }
 
-func (p PodInfo) getResource(pilotURL string, configType string) *xdsapi.DiscoveryResponse {
+func (p PodInfo) getResource(pilotURL, configType string) *xdsapi.DiscoveryResponse {
 	conn, err := grpc.Dial(pilotURL, grpc.WithInsecure())
 	if err != nil {
 		panic(err.Error())
@@ -211,13 +214,14 @@ func main() {
 	kubeConfig := flag.String("kubeconfig", "~/.kube/config", "path to the kubeconfig file. Default is ~/.kube/config")
 	pilotURL := flag.String("pilot", "localhost:15010", "pilot address")
 	configType := flag.String("type", "lds", "lds, cds, or eds. Default lds.")
+	proxyType := flag.String("proxytype", "sidecar", "sidecar, ingress, router. Default sidecar.")
 	resources := flag.String("res", "", "Resource(s) to get config for. Should be pod name or app label for lds and cds type. For eds, it is comma separated list of cluster name.")
 	outputFile := flag.String("out", "", "output file. Leave blank to go to stdout")
 	flag.Parse()
 
 	var resp *xdsapi.DiscoveryResponse
 	if *configType == "lds" || *configType == "cds" {
-		pod := NewPodInfo(*resources, resolveKubeConfigPath(*kubeConfig))
+		pod := NewPodInfo(*resources, resolveKubeConfigPath(*kubeConfig), *proxyType)
 		resp = pod.getResource(*pilotURL, *configType)
 	} else if *configType == "eds" {
 		resp = edsRequest(*pilotURL, makeEDSRequest(*resources))

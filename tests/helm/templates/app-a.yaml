@@ -1,5 +1,4 @@
 # Normal app, with service using targetPort different than service port.
-#
 apiVersion: v1
 kind: Service
 metadata:

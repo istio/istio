@@ -27,12 +27,12 @@ import (
 	"go.uber.org/multierr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/pkg/kube/inject"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
 )
@@ -43,7 +43,7 @@ const (
 )
 
 func createInterface(kubeconfig string) (kubernetes.Interface, error) {
-	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	restConfig, err := kube.BuildClientConfig(kubeconfig)
 	if err != nil {
 		return nil, err
 	}
@@ -112,9 +112,7 @@ func validateFlags() error {
 	if meshConfigFile == "" && meshConfigMapName == "" {
 		err = multierr.Append(err, errors.New("--meshConfigFile or --meshConfigMapName must be set"))
 	}
-	if injectConfigFile != "" && injectConfigMapName != "" {
-		err = multierr.Append(err, errors.New("--injectConfigFile and --injectConfigMapName are mutually exclusive"))
-	}
+
 	err = multierr.Append(err, inject.ValidateIncludeIPRanges(includeIPRanges))
 	err = multierr.Append(err, inject.ValidateExcludeIPRanges(excludeIPRanges))
 	err = multierr.Append(err, inject.ValidateIncludeInboundPorts(includeInboundPorts))

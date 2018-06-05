@@ -18,7 +18,9 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
+{{- if .Values.global.rbacEnabled }}
       serviceAccountName: istio-ingress-service-account
+{{- end }}
       containers:
         - name: {{ template "istio.name" . }}
           image: "{{ .Values.global.hub }}/proxy:{{ .Values.global.tag }}"
