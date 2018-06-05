@@ -380,7 +380,10 @@ func addDestinationServiceAttributes(attrs map[string]*mpb.Attributes_AttributeV
 }
 
 func nameAndNamespace(serviceHostname, domain string) (name, namespace string) {
-	if !strings.HasSuffix(serviceHostname, domain) {
+
+	domainParts := strings.SplitN(domain, ".", 2)
+
+	if !strings.HasSuffix(serviceHostname, domainParts[1]) {
 		return serviceHostname, ""
 	}
 
