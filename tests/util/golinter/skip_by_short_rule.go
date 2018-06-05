@@ -20,19 +20,20 @@ import (
 	"go/token"
 )
 
-type SkipByShortRule struct {}
+// SkipByShortRule defines rule for SkipByShort
+type SkipByShortRule struct{}
 
 func newSkipByShortRule() *SkipByShortRule {
 	return &SkipByShortRule{}
 }
 
 // OnlyCheckTestFunc returns true as SkipByIssueRule only applies to test function with prefix Test.
-func (lr *SkipByShortRule) OnlyCheckTestFunc() bool	{
+func (lr *SkipByShortRule) OnlyCheckTestFunc() bool {
 	return true
 }
 
 // GetID returns SkipByShort.
-func (lr *SkipByShortRule) GetID() string	{
+func (lr *SkipByShortRule) GetID() string {
 	return SkipByShort
 }
 
@@ -51,7 +52,7 @@ func (lr *SkipByShortRule) GetID() string	{
 //	}
 //	...
 // }
-func (lr *SkipByShortRule) Check(aNode ast.Node, fs *token.FileSet) (bool, string)	{
+func (lr *SkipByShortRule) Check(aNode ast.Node, fs *token.FileSet) (bool, string) {
 	if fn, isFn := aNode.(*ast.FuncDecl); isFn {
 		if len(fn.Body.List) == 0 {
 			return false, lr.createLintReport(aNode.Pos(), fs)
@@ -85,7 +86,7 @@ func (lr *SkipByShortRule) Check(aNode ast.Node, fs *token.FileSet) (bool, strin
 }
 
 // CreateLintReport returns a message reporting invalid skip call at pos that violates rule rn.
-func (lr *SkipByShortRule)createLintReport(pos token.Pos, fs *token.FileSet) string {
+func (lr *SkipByShortRule) createLintReport(pos token.Pos, fs *token.FileSet) string {
 	return fmt.Sprintf("%v:%v:%v:%s",
 		fs.Position(pos).Filename,
 		fs.Position(pos).Line,

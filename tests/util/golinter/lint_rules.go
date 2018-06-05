@@ -24,7 +24,7 @@ import (
 // used only in whitelist, which skips all rules for a file path.
 const (
 	SkipByIssue = "SkipByIssue" // SkipByIssue
-	NoSleep     = "NoSleep" // NoSleep
+	NoSleep     = "NoSleep"     // NoSleep
 	NoGoroutine = "NoGoroutine" // NoGoroutine
 	SkipByShort = "SkipByShort" // SkipByShort
 
@@ -32,6 +32,7 @@ const (
 	SkipAllRules = "SkipAllRules" // SkipAllRules
 )
 
+// LintRule is interface for defining lint rules.
 type LintRule interface {
 	// GetID returns ID of the rule in string.
 	GetID() string

@@ -20,24 +20,25 @@ import (
 	"go/token"
 )
 
-type NoSleepRule struct {}
+// NoSleepRule defines rule for NoSleep
+type NoSleepRule struct{}
 
 func newNoSleepRule() *NoSleepRule {
 	return &NoSleepRule{}
 }
 
 // OnlyCheckTestFunc returns false as NoSleepRuleRule applies to whole file.
-func (lr *NoSleepRule) OnlyCheckTestFunc() bool	{
+func (lr *NoSleepRule) OnlyCheckTestFunc() bool {
 	return false
 }
 
 // GetID returns NoSleep.
-func (lr *NoSleepRule) GetID() string	{
+func (lr *NoSleepRule) GetID() string {
 	return NoSleep
 }
 
 // Check returns true if aNode is not time.Sleep. Otherwise it returns false and error report.
-func (lr *NoSleepRule) Check(aNode ast.Node, fs *token.FileSet) (bool, string)	{
+func (lr *NoSleepRule) Check(aNode ast.Node, fs *token.FileSet) (bool, string) {
 	if ce, ok := aNode.(*ast.CallExpr); ok {
 		if matchCallExpr(ce, "time", "Sleep") {
 			return false, lr.createLintReport(ce.Pos(), fs)

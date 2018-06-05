@@ -20,24 +20,25 @@ import (
 	"go/token"
 )
 
-type NoGoroutineRule struct {}
+// NoGoroutineRule defines rule for NoGoroutine.
+type NoGoroutineRule struct{}
 
 func newNoGoroutineRule() *NoGoroutineRule {
 	return &NoGoroutineRule{}
 }
 
 // OnlyCheckTestFunc returns true as SkipByIssueRule only applies to test function with prefix Test.
-func (lr *NoGoroutineRule) OnlyCheckTestFunc() bool	{
+func (lr *NoGoroutineRule) OnlyCheckTestFunc() bool {
 	return false
 }
 
 // GetID returns NoGoroutine.
-func (lr *NoGoroutineRule) GetID() string	{
+func (lr *NoGoroutineRule) GetID() string {
 	return NoGoroutine
 }
 
 // Check returns true if aNode is not goroutine, or false otherwise.
-func (lr *NoGoroutineRule) Check(aNode ast.Node, fs *token.FileSet) (bool, string)	{
+func (lr *NoGoroutineRule) Check(aNode ast.Node, fs *token.FileSet) (bool, string) {
 	if gs, ok := aNode.(*ast.GoStmt); ok {
 		return false, lr.createLintReport(gs.Pos(), fs)
 	}

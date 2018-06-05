@@ -20,6 +20,7 @@ import (
 	"go/token"
 )
 
+// SkipByIssueRule defines rule for SkipByIssue.
 type SkipByIssueRule struct {
 	skipArgsRegex string // Defines arg in t.Skip() that should match.
 }
@@ -31,12 +32,12 @@ func newSkipByIssueRule() *SkipByIssueRule {
 }
 
 // OnlyCheckTestFunc returns true as SkipByIssueRule only applies to test function with prefix Test.
-func (lr *SkipByIssueRule) OnlyCheckTestFunc() bool	{
+func (lr *SkipByIssueRule) OnlyCheckTestFunc() bool {
 	return true
 }
 
 // GetID returns SkipByIssue.
-func (lr *SkipByIssueRule) GetID() string	{
+func (lr *SkipByIssueRule) GetID() string {
 	return SkipByIssue
 }
 
@@ -47,20 +48,19 @@ func (lr *SkipByIssueRule) GetID() string	{
 // t.Skip("https://istio.io/"),
 // t.SkipNow(),
 // t.Skipf("https://istio.io/%d", x).
-func (lr *SkipByIssueRule) Check(aNode ast.Node, fs *token.FileSet) (bool, string)	{
+func (lr *SkipByIssueRule) Check(aNode ast.Node, fs *token.FileSet) (bool, string) {
 	if fn, isFn := aNode.(*ast.FuncDecl); isFn {
 		for _, bd := range fn.Body.List {
 			if ok, _ := matchFunc(bd, "t", "SkipNow"); ok {
 				return false, lr.createLintReport(bd.Pos(), fs)
 			} else if ok, _ := matchFunc(bd, "t", "Skipf"); ok {
 				return false, lr.createLintReport(bd.Pos(), fs)
-			} else if ok, fcall := matchFunc(bd, "t", "Skip");
-			ok && !matchFuncArgs(fcall, lr.skipArgsRegex) {
+			} else if ok, fcall := matchFunc(bd, "t", "Skip"); ok && !matchFuncArgs(fcall, lr.skipArgsRegex) {
 				return false, lr.createLintReport(bd.Pos(), fs)
 			}
 		}
 	}
-	return true, "";
+	return true, ""
 }
 
 // CreateLintReport returns a message reporting invalid skip call at pos.

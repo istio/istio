@@ -27,18 +27,18 @@ type LintReports []string
 
 // Linter applies linting rules to a file.
 type Linter struct {
-	fpath   string      // file path that takes linting process
-	lreport LintReports // report for linting process
-	tType   TestType    // test type of file path
-	fs      *token.FileSet
+	fpath    string      // file path that takes linting process
+	lreport  LintReports // report for linting process
+	tType    TestType    // test type of file path
+	fs       *token.FileSet
 	sRuleMap map[string]bool
 }
 
 func newLinter(fileP string, t TestType, rMap map[string]bool) Linter {
 	return Linter{
-		fpath: fileP,
-		tType: t,
-		fs:    token.NewFileSet(),
+		fpath:    fileP,
+		tType:    t,
+		fs:       token.NewFileSet(),
 		sRuleMap: rMap,
 	}
 }
@@ -86,7 +86,7 @@ func (lt *Linter) Run() {
 	}
 }
 
-// ApplyRulesToFile applies rules to node and generate lint report.
+// ApplyRules applies rules to node and generate lint report.
 func (lt *Linter) ApplyRules(node ast.Node, rules []LintRule, testFuncOnly bool) {
 	for _, rule := range rules {
 		if testFuncOnly == rule.OnlyCheckTestFunc() {

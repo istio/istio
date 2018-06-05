@@ -14,20 +14,20 @@
 
 package main
 
-// Lint rules which should apply to unit test file
+// UnitTestRules are rules which should apply to unit test file
 var UnitTestRules = []LintRule{
 	newSkipByIssueRule(),
 	newNoGoroutineRule(),
 	newNoSleepRule(),
 }
 
-// Lint rules which should apply to integration test file
+// IntegTestRules are rules which should apply to integration test file
 var IntegTestRules = []LintRule{
 	newSkipByIssueRule(),
 	newSkipByShortRule(),
 }
 
-// Lint rules which should apply to e2e test file
+// E2eTestRules are rules which should apply to e2e test file
 var E2eTestRules = []LintRule{
 	newSkipByIssueRule(),
 	newSkipByShortRule(),

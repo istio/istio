@@ -32,7 +32,6 @@ const (
 	NonTest   TestType = iota // NonTest == 3
 )
 
-
 type pathFilter struct {
 	WPaths map[string]map[string]bool // absolute paths that are whitelisted.
 }
