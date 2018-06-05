@@ -7,7 +7,7 @@
 	The `circonus` adapter enables Istio to deliver metric data to the
 	[Circonus](https://www.circonus.com) monitoring backend.
 
-	This adapter supports the [metric template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric.html).
+	This adapter supports the [metric template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric/).
 
 	It is generated from these files:
 		mixer/adapter/circonus/config/config.proto

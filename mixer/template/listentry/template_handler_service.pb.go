@@ -5,7 +5,7 @@
 	Package listentry is a generated protocol buffer package.
 
 	The `listentry` template is designed to let you perform list check operations
-	with the [list](https://istio.io/docs/reference/config/adapters/list.html) adapter.
+	with the [list](https://istio.io/docs/reference/config/policy-and-telemetry/adapters/list/) adapter.
 
 	Example config:
 
@@ -23,8 +23,8 @@
 	within a list.
 
 	When writing the configuration, the value for the fields associated with this template can either be a
-	literal or an [expression](https://istio.io/docs//reference/config/policy-and-telemetry/expression-language.html). Please note that if the datatype of a field is not istio.policy.v1beta1.Value,
-	then the expression's [inferred type](https://istio.io/docs//reference/config/policy-and-telemetry/expression-language.html#type-checking) must match the datatype of the field.
+	literal or an [expression](https://istio.io/docs/reference//config/policy-and-telemetry/expression-language/). Please note that if the datatype of a field is not istio.policy.v1beta1.Value,
+	then the expression's [inferred type](https://istio.io/docs/reference//config/policy-and-telemetry/expression-language/#type-checking) must match the datatype of the field.
 
 	It is generated from these files:
 		mixer/template/listentry/template_handler_service.proto

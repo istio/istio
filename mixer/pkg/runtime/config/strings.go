@@ -44,23 +44,23 @@ func (s *Snapshot) String() string {
 	writeAdapters(b, s.Adapters)
 
 	fmt.Fprintln(b, "Handlers:")
-	writeHandlers(b, s.Handlers)
+	writeHandlers(b, s.HandlersLegacy)
 
 	fmt.Fprintln(b, "Instances:")
-	writeInstances(b, s.Instances)
+	writeInstances(b, s.InstancesLegacy)
 
 	fmt.Fprintln(b, "Rules:")
-	writeRules(b, s.Rules)
+	writeRules(b, s.RulesLegacy)
 
-	if len(s.Adapters2) != 0 {
+	if len(s.AdapterMetadatas) != 0 {
 		fmt.Fprintln(b, "AdapterMetadata:")
-		writeAdapterMetadatas(b, s.Adapters2)
+		writeAdapterMetadatas(b, s.AdapterMetadatas)
 
 	}
 
-	if len(s.Templates2) != 0 {
+	if len(s.TemplateMetadatas) != 0 {
 		fmt.Fprintln(b, "TemplateMetadata:")
-		writeTemplateMetadatas(b, s.Templates2)
+		writeTemplateMetadatas(b, s.TemplateMetadatas)
 	}
 
 	fmt.Fprintf(b, "%v", s.Attributes)
@@ -100,7 +100,7 @@ func writeAdapters(w io.Writer, adapters map[string]*adapter.Info) {
 	}
 }
 
-func writeHandlers(w io.Writer, handlers map[string]*Handler) {
+func writeHandlers(w io.Writer, handlers map[string]*HandlerLegacy) {
 	i := 0
 	names := make([]string, len(handlers))
 	for n := range handlers {
@@ -122,7 +122,7 @@ func writeHandlers(w io.Writer, handlers map[string]*Handler) {
 	}
 }
 
-func writeInstances(w io.Writer, instances map[string]*Instance) {
+func writeInstances(w io.Writer, instances map[string]*InstanceLegacy) {
 	i := 0
 	names := make([]string, len(instances))
 	for n := range instances {
@@ -144,9 +144,9 @@ func writeInstances(w io.Writer, instances map[string]*Instance) {
 	}
 }
 
-func writeRules(w io.Writer, rules []*Rule) {
+func writeRules(w io.Writer, rules []*RuleLegacy) {
 	names := make([]string, len(rules))
-	m := make(map[string]*Rule, len(rules))
+	m := make(map[string]*RuleLegacy, len(rules))
 	for i, r := range rules {
 		names[i] = r.Name
 		m[r.Name] = r
@@ -206,7 +206,7 @@ func writeTemplateMetadatas(w io.Writer, templates map[string]*TemplateMetadata)
 	}
 }
 
-func writeActions(w io.Writer, actions []*Action) {
+func writeActions(w io.Writer, actions []*ActionLegacy) {
 	// write actions without sorting. This should be acceptable, as the action order within an order is
 	// based on the order on the original content. This is stricter than simple-equality, but should be good enough
 	// for testing purposes.

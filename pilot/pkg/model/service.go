@@ -30,7 +30,6 @@ import (
 	"strings"
 
 	authn "istio.io/api/authentication/v1alpha1"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 // Hostname describes a (possibly wildcarded) hostname
@@ -118,11 +117,6 @@ type Port struct {
 
 	// Protocol to be used for the port.
 	Protocol Protocol `json:"protocol,omitempty"`
-
-	// In combine with the mesh's AuthPolicy, controls authentication for
-	// Envoy-to-Envoy communication.
-	// This value is extracted from service annotation.
-	AuthenticationPolicy meshconfig.AuthenticationPolicy `json:"authentication_policy"`
 }
 
 // PortList is a set of ports

@@ -19,7 +19,9 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
+{{- if .Values.global.rbacEnabled }}
       serviceAccountName: istio-citadel-service-account
+{{- end }}
       containers:
         - name: citadel
           image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
@@ -39,6 +41,7 @@ spec:
             - --self-signed-ca=true
           {{- end }}
           resources:
+{{ toYaml .Values.resources | indent 12 }}
 {{- if .Values.global.multicluster.enabled }}
           volumeMounts:
           - name: cacerts

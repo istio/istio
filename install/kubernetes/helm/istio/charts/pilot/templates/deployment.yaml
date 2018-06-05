@@ -21,7 +21,9 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
+{{- if .Values.global.rbacEnabled }}
       serviceAccountName: istio-pilot-service-account
+{{- end }}
       containers:
         - name: discovery
           image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"

@@ -229,7 +229,11 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 
 	mxConfig := &mccpb.HttpClientConfig{
 		MixerAttributes: &mpb.Attributes{
-			Attributes: map[string]*mpb.Attributes_AttributeValue{},
+			Attributes: map[string]*mpb.Attributes_AttributeValue{
+				"context.reporter.uid": {
+					Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: "kubernetes://" + role.ID},
+				},
+			},
 		},
 		ServiceConfigs: map[string]*mccpb.ServiceConfig{},
 		Transport:      transport,
@@ -247,6 +251,9 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 		// for outboundRoutes there are no default MixerAttributes except for gateway.
 		// specific MixerAttributes are in per route configuration.
 		v1.AddStandardNodeAttributes(mxConfig.MixerAttributes.Attributes, v1.AttrDestinationPrefix, role.IPAddress, role.ID, labels)
+		mxConfig.MixerAttributes.Attributes["context.reporter.local"] = &mpb.Attributes_AttributeValue{
+			Value: &mpb.Attributes_AttributeValue_BoolValue{BoolValue: true},
+		}
 	}
 
 	if role.Type == model.Sidecar && !outboundRoute {
@@ -275,6 +282,12 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 func buildTCPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, instance *model.ServiceInstance) *mccpb.TcpClientConfig {
 	attrs := v1.StandardNodeAttributes(v1.AttrDestinationPrefix, role.IPAddress, role.ID, nil)
 	attrs[v1.AttrDestinationService] = &mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_StringValue{instance.Service.Hostname.String()}}
+	attrs["context.reporter.uid"] = &mpb.Attributes_AttributeValue{
+		Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: "kubernetes://" + role.ID},
+	}
+	attrs["context.reporter.local"] = &mpb.Attributes_AttributeValue{
+		Value: &mpb.Attributes_AttributeValue_BoolValue{BoolValue: true},
+	}
 
 	mcs, _, _ := net.SplitHostPort(mesh.MixerCheckServer)
 	mrs, _, _ := net.SplitHostPort(mesh.MixerReportServer)

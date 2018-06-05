@@ -24,7 +24,6 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
@@ -152,10 +151,9 @@ func (sd *MemServiceDiscovery) AddEndpoint(service model.Hostname, servicePortNa
 			Address: address,
 			Port:    port,
 			ServicePort: &model.Port{
-				Name:                 servicePortName,
-				Port:                 servicePort,
-				Protocol:             model.ProtocolHTTP,
-				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+				Name:     servicePortName,
+				Port:     servicePort,
+				Protocol: model.ProtocolHTTP,
 			},
 		},
 	}

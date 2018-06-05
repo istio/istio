@@ -112,9 +112,7 @@ func validateFlags() error {
 	if meshConfigFile == "" && meshConfigMapName == "" {
 		err = multierr.Append(err, errors.New("--meshConfigFile or --meshConfigMapName must be set"))
 	}
-	if injectConfigFile != "" && injectConfigMapName != "" {
-		err = multierr.Append(err, errors.New("--injectConfigFile and --injectConfigMapName are mutually exclusive"))
-	}
+
 	err = multierr.Append(err, inject.ValidateIncludeIPRanges(includeIPRanges))
 	err = multierr.Append(err, inject.ValidateExcludeIPRanges(excludeIPRanges))
 	err = multierr.Append(err, inject.ValidateIncludeInboundPorts(includeInboundPorts))

@@ -4,7 +4,8 @@ description: A template that represents a single runtime metric.
 location: https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-redirect_from: /docs/reference/config/template/metric.html
+aliases:
+  - /docs/reference/config/template/metric.html
 number_of_entries: 2
 ---
 <p>The <code>metric</code> template is designed to let you describe runtime metric to dispatch to
@@ -33,8 +34,8 @@ spec:
 <p>The <code>metric</code> template represents a single piece of data to report.</p>
 
 <p>When writing the configuration, the value for the fields associated with this template can either be a
-literal or an <a href="https://istio.io/docs//reference/config/policy-and-telemetry/expression-language.html">expression</a>. Please note that if the datatype of a field is not istio.policy.v1beta1.Value,
-then the expression&rsquo;s <a href="https://istio.io/docs//reference/config/policy-and-telemetry/expression-language.html#type-checking">inferred type</a> must match the datatype of the field.</p>
+literal or an <a href="https://istio.io/docs/reference//config/policy-and-telemetry/expression-language/">expression</a>. Please note that if the datatype of a field is not istio.policy.v1beta1.Value,
+then the expression&rsquo;s <a href="https://istio.io/docs/reference//config/policy-and-telemetry/expression-language/#type-checking">inferred type</a> must match the datatype of the field.</p>
 
 <table class="message-fields">
 <thead>

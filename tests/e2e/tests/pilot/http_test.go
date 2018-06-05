@@ -32,19 +32,19 @@ func TestHttp(t *testing.T) {
 		// Auth is enabled for d:80, and disabled for d:8080 using per-service policy.
 		// We expect request from non-envoy client ("t") to d:80 should always fail,
 		// while to d:8080 should always success.
-		dstPods = append(dstPods, "d")
-
-		if tc.V1alpha3 {
-			cfgs := &deployableConfig{
-				Namespace:  tc.Kube.Namespace,
-				YamlFiles:  []string{"testdata/authn/destination-rule-d8080.yaml.tmpl"},
-				kubeconfig: tc.Kube.KubeConfig,
-			}
-			if err := cfgs.Setup(); err != nil {
-				t.Fatal(err)
-			}
-			defer cfgs.Teardown()
+		cfgs := &deployableConfig{
+			Namespace:  tc.Kube.Namespace,
+			YamlFiles:  []string{"testdata/authn/service-d-mtls-policy.yaml.tmpl"},
+			kubeconfig: tc.Kube.KubeConfig,
 		}
+		if tc.V1alpha3 {
+			cfgs.YamlFiles = append(cfgs.YamlFiles, "testdata/authn/destination-rule-d8080.yaml.tmpl")
+		}
+		if err := cfgs.Setup(); err != nil {
+			t.Fatal(err)
+		}
+		defer cfgs.Teardown()
+		dstPods = append(dstPods, "d")
 	}
 
 	logs := newAccessLogs()

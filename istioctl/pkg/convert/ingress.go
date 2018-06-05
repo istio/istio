@@ -34,6 +34,9 @@ func IstioIngresses(ingresses []*v1beta1.Ingress, domainSuffix string) ([]model.
 
 	for _, ingrezz := range ingresses {
 		gateway, virtualService := ingress.ConvertIngressV1alpha3(*ingrezz, domainSuffix)
+		// Override the generated namespace; the supplied one is needed to resolve non-fully qualified hosts
+		gateway.Namespace = ingrezz.Namespace
+		virtualService.Namespace = ingrezz.Namespace
 		gateways = append(gateways, gateway)
 		virtualServices = append(virtualServices, virtualService)
 	}

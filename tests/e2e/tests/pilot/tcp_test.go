@@ -29,6 +29,15 @@ func TestTcp(t *testing.T) {
 	} else {
 		// Auth is enabled for d:9090 using per-service policy. We expect request
 		// from non-envoy client ("t") should fail all the time.
+		cfgs := &deployableConfig{
+			Namespace:  tc.Kube.Namespace,
+			YamlFiles:  []string{"testdata/authn/service-d-mtls-policy.yaml.tmpl"},
+			kubeconfig: tc.Kube.KubeConfig,
+		}
+		if err := cfgs.Setup(); err != nil {
+			t.Fatal(err)
+		}
+		defer cfgs.Teardown()
 		dstPods = append(dstPods, "d")
 	}
 
