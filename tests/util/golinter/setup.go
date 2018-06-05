@@ -81,7 +81,11 @@ func (pf *pathFilter) IsTestFile(absp string, info os.FileInfo) (bool, TestType,
 
 	// Check whether path is whitelisted
 	for wp, ruleMap := range pf.WPaths {
-		if matched, _ := filepath.Match(wp, absp); matched {
+		matched, err := filepath.Match(wp, absp)
+		if err != nil {
+			log.Printf("file match returns error: %v", err)
+		}
+		if matched {
 			sRules = ruleMap
 		}
 	}
@@ -94,7 +98,6 @@ func (pf *pathFilter) IsTestFile(absp string, info os.FileInfo) (bool, TestType,
 			isUnderIntegDir = true
 		}
 	}
-
 	if isUnderE2eDir && isUnderIntegDir {
 		log.Printf("Invalid path %q under both e2e directory and integ directory", absp)
 		return false, NonTest, sRules
