@@ -55,7 +55,7 @@ function istioDnsmasq() {
     MIXER_IP=$(kubectl get -n "$NS" service mixer-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
     CITADEL_IP=$(kubectl get -n "$NS" service citadel-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 
-    if [ "${PILOT_IP}" == "" -o  "${ISTIO_DNS}" == "" -o "${MIXER_IP}" == "" -o "${CITADEL_IP}" == "" ] ; then
+    if [ "${PILOT_IP}" == "" ] || [  "${ISTIO_DNS}" == "" ] || [ "${MIXER_IP}" == "" ] || [ "${CITADEL_IP}" == "" ] ; then
       echo "Waiting for ILBs, pilot=$PILOT_IP, MIXER_IP=$MIXER_IP, CITADEL_IP=$CITADEL_IP, DNS=$ISTIO_DNS - kubectl get -n $NS service: $(kubectl get -n "$NS" service)"
       sleep 30
     else
@@ -63,25 +63,27 @@ function istioDnsmasq() {
     fi
   done
 
-  if [ "${PILOT_IP}" == "" -o  "${ISTIO_DNS}" == "" -o "${MIXER_IP}" == "" -o "${CITADEL_IP}" == "" ] ; then
+  if [ "${PILOT_IP}" == "" ] || [ "${ISTIO_DNS}" == "" ] || [ "${MIXER_IP}" == "" ] || [ "${CITADEL_IP}" == "" ] ; then
     echo "Failed to create ILBs"
     exit 1
   fi
 
   #/etc/dnsmasq.d/kubedns
-  echo "server=/svc.cluster.local/$ISTIO_DNS" > kubedns
-  echo "address=/istio-policy/$MIXER_IP" >> kubedns
-  echo "address=/istio-telemetry/$MIXER_IP" >> kubedns
-  echo "address=/istio-pilot/$PILOT_IP" >> kubedns
-  echo "address=/istio-citadel/$CITADEL_IP" >> kubedns
-  echo "address=/istio-ca/$CITADEL_IP" >> kubedns # Deprecated. For backward compatibility
-  # Also generate host entries for the istio-system. The generated config will work with both
-  # 'cluster-wide' and 'per-namespace'.
-  echo "address=/istio-policy.$NS/$MIXER_IP" >> kubedns
-  echo "address=/istio-telemetry.$NS/$MIXER_IP" >> kubedns
-  echo "address=/istio-pilot.$NS/$PILOT_IP" >> kubedns
-  echo "address=/istio-citadel.$NS/$CITADEL_IP" >> kubedns
-  echo "address=/istio-ca.$NS/$CITADEL_IP" >> kubedns # Deprecated. For backward compatibility
+  {
+    echo "server=/svc.cluster.local/$ISTIO_DNS"
+    echo "address=/istio-policy/$MIXER_IP"
+    echo "address=/istio-telemetry/$MIXER_IP"
+    echo "address=/istio-pilot/$PILOT_IP"
+    echo "address=/istio-citadel/$CITADEL_IP"
+    echo "address=/istio-ca/$CITADEL_IP" # Deprecated. For backward compatibility
+    # Also generate host entries for the istio-system. The generated config will work with both
+    # 'cluster-wide' and 'per-namespace'.
+    echo "address=/istio-policy.$NS/$MIXER_IP"
+    echo "address=/istio-telemetry.$NS/$MIXER_IP"
+    echo "address=/istio-pilot.$NS/$PILOT_IP"
+    echo "address=/istio-citadel.$NS/$CITADEL_IP"
+    echo "address=/istio-ca.$NS/$CITADEL_IP" # Deprecated. For backward compatibility
+  } > kubedns
 
   echo "Generated Dnsmaq config file 'kubedns'. Install it in /etc/dnsmasq.d and restart dnsmasq."
   echo "$0 machineSetup does this for you."
@@ -97,9 +99,11 @@ function istioClusterEnv() {
 
   # TODO: parse it all from $(kubectl config current-context)
   CIDR=$(gcloud container clusters describe "${K8S_CLUSTER}" "${GCP_OPTS:-}" --format "value(servicesIpv4Cidr)")
-  echo "ISTIO_SERVICE_CIDR=$CIDR" > cluster.env
-  echo "ISTIO_SYSTEM_NAMESPACE=$ISTIO_NS" >> cluster.env
-  echo "ISTIO_CP_AUTH=$CP_AUTH_POLICY" >> cluster.env
+  {
+    echo "ISTIO_SERVICE_CIDR=$CIDR"
+    echo "ISTIO_SYSTEM_NAMESPACE=$ISTIO_NS"
+    echo "ISTIO_CP_AUTH=$CP_AUTH_POLICY"
+  } > cluster.env
 
   echo "Generated cluster.env, needs to be installed in each VM as /var/lib/istio/envoy/cluster.env"
   echo "the /var/lib/istio/envoy/ directory and files must be readable by 'istio-proxy' user"
@@ -133,6 +137,15 @@ function istio_provision_certs() {
   echo "$0 machineSetup does this for you."
 }
 
+copyDebFilesAndHelperFilesAndConfigFiles() {
+  istioCopy "$DESTINATION" \
+      kubedns \
+      ./*.pem \
+      cluster.env \
+      istio.VERSION \
+      "${SETUP_ISTIO_VM_SCRIPT}"
+}
+
 # Install required files on a VM and run the setup script.
 # This is an example to help integrating the steps into the admin automation tools.
 #
@@ -155,15 +168,7 @@ function istioBootstrapGCE() {
   istio_provision_certs "$SA" "$NS" "root-cert-only"
 
   for _ in {1..10}; do
-    # Copy deb, helper and config files
-    istioCopy "$DESTINATION" \
-      kubedns \
-      ./*.pem \
-      cluster.env \
-      istio.VERSION \
-      "${SETUP_ISTIO_VM_SCRIPT}"
-
-    if [[ $? -ne 0 ]]; then
+    if ! copyDebFilesAndHelperFilesAndConfigFiles; then
       echo "scp failed, retry in 10 sec"
       sleep 10
     else
@@ -200,15 +205,7 @@ function istioBootstrapVM() {
   istio_provision_certs "$SA" "$NS" "all"
 
   for _ in {1..10}; do
-    # Copy deb, helper and config files
-    istioCopy "$DESTINATION" \
-      kubedns \
-      ./*.pem \
-      cluster.env \
-      istio.VERSION \
-      "${SETUP_ISTIO_VM_SCRIPT}"
-
-    if [[ $? -ne 0 ]]; then
+    if ! copyDebFilesAndHelperFilesAndConfigFiles; then
       echo "scp failed, retry in 10 sec"
       sleep 10
     else
