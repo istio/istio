@@ -20,7 +20,7 @@ items:
       - name: query-http
         port: 80
         protocol: TCP
-        targetPort: {{ .Values.service.uiPort }}
+        targetPort: {{ .Values.service.internalUiPort }}
     selector:
       app: jaeger
     type: LoadBalancer
