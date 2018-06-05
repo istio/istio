@@ -17,27 +17,22 @@ package distributor
 import (
 	"fmt"
 
-	"istio.io/istio/galley/pkg/api/distrib"
 	"istio.io/istio/galley/pkg/model/component"
+	"istio.io/istio/galley/pkg/model/resource"
 )
 
-// Bundle represents a self-contained bundle of configuration, from which distributable fragments and manifest
-// can be generated from. The distributors should try to reduce the number of calls to Generate* methods, to
-// avoid causing excessive processing.
+// Bundle represents a self-contained bundle of configuration, from which distributable configuration
+// can be obtained from.
+//
+// The contents of a bundle can be considered immutable, for config distribution purposes: Its method
+// calls will always yield the same output.
 type Bundle interface {
 	fmt.Stringer
 
 	// The Destination component that this config bundle is intended for.
 	Destination() component.InstanceID
 
-	// GenerateManifest generates a distribution manifest for this bundle.
-	GenerateManifest() *distrib.Manifest
-
-	// GenerateFragments generates the fragments for this bundle.
-	GenerateFragments() []*distrib.Fragment
+	// List the set of resources for distribution purposes.
+	// TODO: Expand the method signature to accommodate various needs (i.e. version-leveling etc.)
+	List(kind resource.Kind) []*resource.Entry
 }
-
-// BundleVersion is a unique version number for the bundle. As Bundle changes, the version number is
-// incremented.
-// TODO: This is not directly used in the internal API. We can move this to runtime.
-type BundleVersion int64
