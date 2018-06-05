@@ -17,13 +17,14 @@ syntax = "proto3";
 // $title: Prometheus
 // $description: Adapter that exposes Istio metrics for ingestion by a Prometheus harvester.
 // $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/prometheus.html
-// $front_matter: redirect_from: /docs/reference/config/adapters/prometheus.html
+// $front_matter: aliases:
+// $front_matter:   - /docs/reference/config/adapters/prometheus.html
 
 // The `prometheus` adapter collects Istio metrics and makes them available to
 // [Prometheus](https://prometheus.io).
 //
-// This adapter supports the [metric template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric.html).
-package adapter.prometheus.config;\
+// This adapter supports the [metric template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric/).
+package adapter.prometheus.config;
 
 import "gogoproto/gogo.proto";
 
@@ -44,7 +45,7 @@ message Params {
         // NOTE: The specificed namespace should be a prometheus-safe name. If not, the adapter
         // will attempt to convert the namespace to a prometheus-safe name.
         // NOTE: Changing the value for this will potentially impact downstream integrations
-        // and should be used with caution.  
+        // and should be used with caution.
         // Default value: "istio".
         string namespace = 7;
 

@@ -4,7 +4,7 @@ description: Describes the rules used to configure Mixer's policy and telemetry 
 location: https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 8
+number_of_entries: 15
 ---
 <p>Describes the rules used to configure Mixer&rsquo;s policy and telemetry features.</p>
 
@@ -205,6 +205,91 @@ Connection is part of the handler custom resource and is specified alongside ada
 </tbody>
 </table>
 </section>
+<h2 id="DNSName">DNSName</h2>
+<section>
+<p>An instance field of type DNSName denotes that the expression for the field must evalaute to
+<a href="#ValueType.DNS_NAME">ValueType.DNS_NAME</a></p>
+
+<p>Objects of type DNSName are also passed to the adapters during request-time for the instance fields of
+type DNSName</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="DNSName.value">
+<td><code>value</code></td>
+<td><code>string</code></td>
+<td>
+<p>DNSName encoded as string.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Duration">Duration</h2>
+<section>
+<p>An instance field of type Duration denotes that the expression for the field must evalaute to
+<a href="#ValueType.DURATION">ValueType.DURATION</a></p>
+
+<p>Objects of type Duration are also passed to the adapters during request-time for the instance fields of
+type Duration</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Duration.value">
+<td><code>value</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>Duration encoded as google.protobuf.Duration.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="EmailAddress">EmailAddress</h2>
+<section>
+<p>DO NOT USE !! Under Development
+An instance field of type EmailAddress denotes that the expression for the field must evalaute to
+<a href="#ValueType.EMAIL_ADDRESS">ValueType.EMAIL_ADDRESS</a></p>
+
+<p>Objects of type EmailAddress are also passed to the adapters during request-time for the instance fields of
+type EmailAddress</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="EmailAddress.value">
+<td><code>value</code></td>
+<td><code>string</code></td>
+<td>
+<p>EmailAddress encoded as string.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
 <h2 id="Handler">Handler</h2>
 <section>
 <p>Handler allows the operator to configure a specific adapter implementation.
@@ -300,6 +385,34 @@ proto defined by the adapter implementation; this varies depending on the value 
 <td>
 <p>Optional. Information on how to connect to the out-of-process adapter.
 This is used if the adapter is not compiled into Mixer binary and is running as a separate process.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="IPAddress">IPAddress</h2>
+<section>
+<p>An instance field of type IPAddress denotes that the expression for the field must evalaute to
+<a href="#ValueType.IP_ADDRESS">ValueType.IP_ADDRESS</a></p>
+
+<p>Objects of type IPAddress are also passed to the adapters during request-time for the instance fields of
+type IPAddress</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="IPAddress.value">
+<td><code>value</code></td>
+<td><code>bytes</code></td>
+<td>
+<p>IPAddress encoded as bytes.</p>
 
 </td>
 </tr>
@@ -418,6 +531,167 @@ name starts with &ldquo;ratings&rdquo;</li>
 <td><code><a href="#Action">Action[]</a></code></td>
 <td>
 <p>Optional. The actions that will be executed when match evaluates to <code>true</code>.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TimeStamp">TimeStamp</h2>
+<section>
+<p>An instance field of type TimeStamp denotes that the expression for the field must evalaute to
+<a href="#ValueType.TIMESTAMP">ValueType.TIMESTAMP</a></p>
+
+<p>Objects of type TimeStamp are also passed to the adapters during request-time for the instance fields of
+type TimeStamp</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TimeStamp.value">
+<td><code>value</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#timestamp">google.protobuf.Timestamp</a></code></td>
+<td>
+<p>TimeStamp encoded as google.protobuf.Timestamp.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Uri">Uri</h2>
+<section>
+<p>DO NOT USE !! Under Development
+An instance field of type Uri denotes that the expression for the field must evalaute to
+<a href="#ValueType.URI">ValueType.URI</a></p>
+
+<p>Objects of type Uri are also passed to the adapters during request-time for the instance fields of
+type Uri</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Uri.value">
+<td><code>value</code></td>
+<td><code>string</code></td>
+<td>
+<p>Uri encoded as string.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Value">Value</h2>
+<section>
+<p>An instance field of type Value denotes that the expression for the field is of dynamic type and can evalaute to any
+<a href="#ValueType">ValueType</a> enum values. For example, when
+authoring an instance configuration for a template that has a field <code>data</code> of type <code>istio.policy.v1beta1.Value</code>,
+both of the following expressions are valid <code>data: source.ip | ip(&quot;0.0.0.0&quot;)</code>, <code>data: request.id | &quot;&quot;</code>;
+the resulting type is either ValueType.IP_ADDRESS or ValueType.STRING for the two cases respectively.</p>
+
+<p>Objects of type Value are also passed to the adapters during request-time. There is a 1:1 mapping between
+oneof fields in <code>Value</code> and enum values inside <code>ValueType</code>. Depending on the expression&rsquo;s evaluated <code>ValueType</code>,
+the equivalent oneof field in <code>Value</code> is populated by Mixer and passed to the adapters.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Value.string_value" class="oneof oneof-start">
+<td><code>stringValue</code></td>
+<td><code>string (oneof)</code></td>
+<td>
+<p>Used for values of type STRING</p>
+
+</td>
+</tr>
+<tr id="Value.int64_value" class="oneof">
+<td><code>int64Value</code></td>
+<td><code>int64 (oneof)</code></td>
+<td>
+<p>Used for values of type INT64</p>
+
+</td>
+</tr>
+<tr id="Value.double_value" class="oneof">
+<td><code>doubleValue</code></td>
+<td><code>double (oneof)</code></td>
+<td>
+<p>Used for values of type DOUBLE</p>
+
+</td>
+</tr>
+<tr id="Value.bool_value" class="oneof">
+<td><code>boolValue</code></td>
+<td><code>bool (oneof)</code></td>
+<td>
+<p>Used for values of type BOOL</p>
+
+</td>
+</tr>
+<tr id="Value.ip_address_value" class="oneof">
+<td><code>ipAddressValue</code></td>
+<td><code><a href="#IPAddress">IPAddress (oneof)</a></code></td>
+<td>
+<p>Used for values of type IPAddress</p>
+
+</td>
+</tr>
+<tr id="Value.timestamp_value" class="oneof">
+<td><code>timestampValue</code></td>
+<td><code><a href="#TimeStamp">TimeStamp (oneof)</a></code></td>
+<td>
+<p>Used for values of type TIMESTAMP</p>
+
+</td>
+</tr>
+<tr id="Value.duration_value" class="oneof">
+<td><code>durationValue</code></td>
+<td><code><a href="#Duration">Duration (oneof)</a></code></td>
+<td>
+<p>Used for values of type DURATION</p>
+
+</td>
+</tr>
+<tr id="Value.email_address_value" class="oneof">
+<td><code>emailAddressValue</code></td>
+<td><code><a href="#EmailAddress">EmailAddress (oneof)</a></code></td>
+<td>
+<p>Used for values of type EmailAddress</p>
+
+</td>
+</tr>
+<tr id="Value.dns_name_value" class="oneof">
+<td><code>dnsNameValue</code></td>
+<td><code><a href="#DNSName">DNSName (oneof)</a></code></td>
+<td>
+<p>Used for values of type DNSName</p>
+
+</td>
+</tr>
+<tr id="Value.uri_value" class="oneof">
+<td><code>uriValue</code></td>
+<td><code><a href="#Uri">Uri (oneof)</a></code></td>
+<td>
+<p>Used for values of type Uri</p>
 
 </td>
 </tr>

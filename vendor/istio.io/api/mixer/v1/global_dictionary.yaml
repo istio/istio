@@ -219,10 +219,10 @@
 - destination.namespace
 - destination.labels
 # destination.user is deprecated, please refer to destination.principal
-- destination.user 
+- destination.user
 
 # source.service is deprecated. please do not use moving forward.
-- source.service 
+- source.service
 
 # api attributes
 - api.service
@@ -276,3 +276,6 @@
 - destination.service.host
 - destination.container.name
 - destination.container.image
+
+- context.reporter.local
+- context.reporter.uid

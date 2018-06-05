@@ -25,7 +25,7 @@ spec:
       serviceAccountName: {{ .Values.serviceAccountName }}
       containers:
         - name: {{ template "istio.name" . }}
-          image: "{{ .Values.global.hub }}/{{ .Values.global.proxyv2.image }}:{{ .Values.global.tag }}"
+          image: "{{ .Values.global.hub }}/proxyv2:{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
             {{- range $key, $val := .Values.deployment.ports }}

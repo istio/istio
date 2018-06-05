@@ -87,7 +87,7 @@ func (configgen *ConfigGeneratorImpl) BuildSidecarOutboundHTTPRouteConfig(env mo
 				nameToServiceMap[svc.Hostname] = &model.Service{
 					Hostname:     svc.Hostname,
 					Address:      svc.Address,
-					Addresses:    svc.Addresses,
+					ClusterVIPs:  svc.ClusterVIPs,
 					MeshExternal: svc.MeshExternal,
 					Ports:        []*model.Port{svcPort},
 				}

@@ -1,0 +1,17 @@
+{{ define "content" }}
+
+{{ with $context := . }}
+    {{ if ne $context.Error "" }}
+        <b>{{$context.Error}}</b>
+    {{else}}
+        <p> Item {{ $context.Collection }}/{{ $context.Key }}</p>
+        <div class="language-yaml highlighter-rouge">
+            <div class="highlight">
+                <pre class="highlight"><code>{{ $context.Value }}</code></pre>
+            </div>
+        </div>
+    {{end}}
+{{end}}
+{{ template "last-refresh" .}}
+
+{{ end }}

@@ -1,0 +1,13 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: metric
+metadata:
+  name: valid-metric
+spec:
+  value: "1"
+  dimensions:
+    source_service: source.service | "unknown"
+    source_version: source.labels["version"] | "unknown"
+    destination_service: destination.service | "unknown"
+    destination_version: destination.labels["version"] | "unknown"
+    response_code: response.code | 200
+  monitored_resource_type: '"UNSPECIFIED"'

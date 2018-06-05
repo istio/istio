@@ -9,6 +9,9 @@ global:
     # destination rules or service annotations.
     enabled: false
 
+  proxy:
+    image: proxy
+
   # create RBAC resources. Must be set for any cluster configured with rbac.
   rbacEnabled: true
 
@@ -21,6 +24,3 @@ global:
 
 istiotesting:
   oneNameSpace: true
-
-prometheus:
-  enabled: true

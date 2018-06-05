@@ -25,6 +25,8 @@ import (
 
 type egressConfig struct {
 	name       string
+	namespace  string
+	domain     string
 	egressRule *v1alpha1.EgressRule
 }
 
@@ -32,21 +34,33 @@ type egressConfig struct {
 func EgressRules(configs []model.Config) []model.Config {
 
 	egressConfigs := make([]egressConfig, 0)
+	out := make([]model.Config, 0)
 	for _, config := range configs {
 		if config.Type == model.EgressRule.Type {
-			egressConfigs = append(egressConfigs, egressConfig{
+			rule := egressConfig{
 				name:       config.Name,
-				egressRule: config.Spec.(*v1alpha1.EgressRule)})
+				namespace:  config.Namespace,
+				domain:     config.Domain,
+				egressRule: config.Spec.(*v1alpha1.EgressRule)}
+			if len(rule.namespace) == 0 {
+				rule.namespace = "default"
+			}
+
+			if len(rule.domain) == 0 {
+				rule.domain = "cluster.local"
+			}
+
+			egressConfigs = append(egressConfigs, rule)
 		}
 	}
 
-	serviceEntries := make([]*v1alpha3.ServiceEntry, 0)
 	for _, config := range egressConfigs {
 		host := convertIstioService(config.egressRule.Destination)
 		var addresses []string
 		if model.ValidateIPv4Subnet(host) == nil {
 			addresses = []string{host}
-			host = config.name
+			// hosts cannot have short names
+			host = fmt.Sprintf("%s.%s.svc.%s", config.name, config.namespace, config.domain)
 		}
 
 		ports := make([]*v1alpha3.Port, 0)
@@ -62,24 +76,19 @@ func EgressRules(configs []model.Config) []model.Config {
 			log.Warnf("Use egress proxy field not supported")
 		}
 
-		serviceEntries = append(serviceEntries, &v1alpha3.ServiceEntry{
-			Hosts:      []string{host},
-			Addresses:  addresses,
-			Ports:      ports,
-			Resolution: v1alpha3.ServiceEntry_NONE,
-		})
-	}
-
-	out := make([]model.Config, 0)
-	for _, serviceEntry := range serviceEntries {
 		out = append(out, model.Config{
 			ConfigMeta: model.ConfigMeta{
 				Type:      model.ServiceEntry.Type,
-				Name:      serviceEntry.Hosts[0],
-				Namespace: configs[0].Namespace,
-				Domain:    configs[0].Domain,
+				Name:      config.name,
+				Namespace: config.namespace,
+				Domain:    config.domain,
 			},
-			Spec: serviceEntry,
+			Spec: &v1alpha3.ServiceEntry{
+				Hosts:      []string{host},
+				Addresses:  addresses,
+				Ports:      ports,
+				Resolution: v1alpha3.ServiceEntry_NONE,
+			},
 		})
 	}
 

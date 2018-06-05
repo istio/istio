@@ -235,15 +235,6 @@ func BuildAuthNFilter(policy *authn.Policy) *http_conn.HttpFilter {
 	}
 }
 
-func isDestinationExcludedForMTLS(destService string, mtlsExcludedServices []string) bool {
-	for _, serviceName := range mtlsExcludedServices {
-		if destService == serviceName {
-			return true
-		}
-	}
-	return false
-}
-
 // buildSidecarListenerTLSContext adds TLS to the listener if the policy requires one.
 func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy) *auth.DownstreamTlsContext {
 	if requireTLS, mTLSParams := RequireTLS(authenticationPolicy); requireTLS {
@@ -334,50 +325,4 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, route *xdsapi.
 // OnOutboundCluster implements the Plugin interface method.
 func (Plugin) OnOutboundCluster(env model.Environment, node model.Proxy, service *model.Service,
 	servicePort *model.Port, cluster *xdsapi.Cluster) {
-	mesh := env.Mesh
-	config := env.IstioConfigStore
-
-	// Original DST cluster are used to route to services outside the mesh
-	// where Istio auth does not apply.
-	if cluster.Type == xdsapi.Cluster_ORIGINAL_DST {
-		return
-	}
-
-	required, _ := RequireTLS(model.GetConsolidateAuthenticationPolicy(mesh, config, service.Hostname, servicePort))
-	if isDestinationExcludedForMTLS(service.Hostname.String(), mesh.MtlsExcludedServices) || !required {
-		return
-	}
-
-	// apply auth policies
-	serviceAccounts := env.ServiceAccounts.GetIstioServiceAccounts(service.Hostname, []string{servicePort.Name})
-
-	cluster.TlsContext = &auth.UpstreamTlsContext{
-		CommonTlsContext: &auth.CommonTlsContext{
-			TlsCertificates: []*auth.TlsCertificate{
-				{
-					CertificateChain: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: model.AuthCertsPath + model.CertChainFilename,
-						},
-					},
-					PrivateKey: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: model.AuthCertsPath + model.KeyFilename,
-						},
-					},
-				},
-			},
-			ValidationContext: &auth.CertificateValidationContext{
-				TrustedCa: &core.DataSource{
-					Specifier: &core.DataSource_Filename{
-						Filename: model.AuthCertsPath + model.RootCertFilename,
-					},
-				},
-			},
-		},
-	}
-	// TODO: what happens if it's an empty list ?
-	if serviceAccounts != nil {
-		cluster.TlsContext.CommonTlsContext.ValidationContext.VerifySubjectAltName = serviceAccounts
-	}
 }

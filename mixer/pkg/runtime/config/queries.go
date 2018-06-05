@@ -16,17 +16,17 @@ package config
 
 // GetInstancesGroupedByHandlers queries the snapshot and returns all used instances, grouped by the handlers that will
 // receive them.
-func GetInstancesGroupedByHandlers(s *Snapshot) map[*Handler][]*Instance {
+func GetInstancesGroupedByHandlers(s *Snapshot) map[*HandlerLegacy][]*InstanceLegacy {
 	// There is no set in Go? map[<item>]bool to the rescue!
-	m := make(map[*Handler]map[*Instance]bool)
+	m := make(map[*HandlerLegacy]map[*InstanceLegacy]bool)
 
 	// Grovel over rules/actions and for each handler create a map entry and place all the instances in that action
 	// as values.
-	for _, r := range s.Rules {
+	for _, r := range s.RulesLegacy {
 		for _, a := range r.Actions {
 			instances, found := m[a.Handler]
 			if !found {
-				instances = make(map[*Instance]bool)
+				instances = make(map[*InstanceLegacy]bool)
 				m[a.Handler] = instances
 			}
 
@@ -36,10 +36,10 @@ func GetInstancesGroupedByHandlers(s *Snapshot) map[*Handler][]*Instance {
 		}
 	}
 
-	result := make(map[*Handler][]*Instance, len(m))
+	result := make(map[*HandlerLegacy][]*InstanceLegacy, len(m))
 	for k, v := range m {
 		i := 0
-		instances := make([]*Instance, len(v))
+		instances := make([]*InstanceLegacy, len(v))
 		for instance := range v {
 			instances[i] = instance
 			i++

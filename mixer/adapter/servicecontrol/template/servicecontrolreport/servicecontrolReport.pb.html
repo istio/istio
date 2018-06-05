@@ -3,10 +3,12 @@ title: Service Control Report
 description: A template used by the Google Service Control adapter.
 location: https://istio.io/docs/reference/config/policy-and-telemetry/templates/servicecontrolreport.html
 layout: protoc-gen-docs
-redirect_from: /docs/reference/config/adapters/servicecontrolreport.html
+generator: protoc-gen-docs
+aliases:
+  - /docs/reference/config/adapters/servicecontrolreport.html
 number_of_entries: 3
 ---
-<p>The <code>servicecontrolreport</code> template is used by the <a href="https://istio.io/docs/reference/config/adapters/servicecontrol.html">Google Service Control</a>
+<p>The <code>servicecontrolreport</code> template is used by the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/adapters/servicecontrol/">Google Service Control</a>
 adapter.</p>
 
 <p>Example config:</p>
@@ -79,7 +81,7 @@ defined by this template.</p>
 </tr>
 <tr id="Template.request_time">
 <td><code>requestTime</code></td>
-<td><code><a href="#istio.mixer.adapter.model.v1beta1.TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</a></code></td>
+<td><code><a href="#istio.policy.v1beta1.TimeStamp">istio.policy.v1beta1.TimeStamp</a></code></td>
 <td>
 </td>
 </tr>
@@ -103,7 +105,7 @@ defined by this template.</p>
 </tr>
 <tr id="Template.response_time">
 <td><code>responseTime</code></td>
-<td><code><a href="#istio.mixer.adapter.model.v1beta1.TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</a></code></td>
+<td><code><a href="#istio.policy.v1beta1.TimeStamp">istio.policy.v1beta1.TimeStamp</a></code></td>
 <td>
 </td>
 </tr>
@@ -121,16 +123,20 @@ defined by this template.</p>
 </tr>
 <tr id="Template.response_latency">
 <td><code>responseLatency</code></td>
-<td><code><a href="#istio.mixer.adapter.model.v1beta1.Duration">istio.mixer.adapter.model.v1beta1.Duration</a></code></td>
+<td><code><a href="#istio.policy.v1beta1.Duration">istio.policy.v1beta1.Duration</a></code></td>
 <td>
 </td>
 </tr>
 </tbody>
 </table>
 </section>
-<h2 id="istio.mixer.adapter.model.v1beta1.Duration">istio.mixer.adapter.model.v1beta1.Duration</h2>
+<h2 id="istio.policy.v1beta1.Duration">istio.policy.v1beta1.Duration</h2>
 <section>
-<p>Duration is used inside templates for fields that are of ValueType &ldquo;DURATION&rdquo;</p>
+<p>An instance field of type Duration denotes that the expression for the field must evalaute to
+<em>ValueType.DURATION</em></p>
+
+<p>Objects of type Duration are also passed to the adapters during request-time for the instance fields of
+type Duration</p>
 
 <table class="message-fields">
 <thead>
@@ -141,7 +147,7 @@ defined by this template.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="istio.mixer.adapter.model.v1beta1.Duration.value">
+<tr id="istio.policy.v1beta1.Duration.value">
 <td><code>value</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -152,9 +158,13 @@ defined by this template.</p>
 </tbody>
 </table>
 </section>
-<h2 id="istio.mixer.adapter.model.v1beta1.TimeStamp">istio.mixer.adapter.model.v1beta1.TimeStamp</h2>
+<h2 id="istio.policy.v1beta1.TimeStamp">istio.policy.v1beta1.TimeStamp</h2>
 <section>
-<p>TimeStamp is used inside templates for fields that are of ValueType &ldquo;TIMESTAMP&rdquo;</p>
+<p>An instance field of type TimeStamp denotes that the expression for the field must evalaute to
+<em>ValueType.TIMESTAMP</em></p>
+
+<p>Objects of type TimeStamp are also passed to the adapters during request-time for the instance fields of
+type TimeStamp</p>
 
 <table class="message-fields">
 <thead>
@@ -165,7 +175,7 @@ defined by this template.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="istio.mixer.adapter.model.v1beta1.TimeStamp.value">
+<tr id="istio.policy.v1beta1.TimeStamp.value">
 <td><code>value</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#timestamp">google.protobuf.Timestamp</a></code></td>
 <td>

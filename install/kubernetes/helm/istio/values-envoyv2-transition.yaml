@@ -1,9 +1,6 @@
 # Configuration overrides for deploying istio for testing using proxyv2 image
 global:
   nodePort: true
-  proxy:
-    image: proxyv2
-
   mtls:
     enabled: false
 
@@ -20,7 +17,4 @@ zipkin:
   enabled: true
 
 sidecarInjectorWebhook:
-  enabled: true
-
-prometheus:
   enabled: true

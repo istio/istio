@@ -79,7 +79,11 @@ e2e_mixer: istioctl generate_yaml localregistry_setup e2e_mixer_run
 
 e2e_dashboard: istioctl generate_yaml localregistry_setup e2e_dashboard_run
 
+e2e_galley: istioctl generate_yaml localregistry_setup e2e_galley_run
+
 e2e_bookinfo: istioctl generate_yaml localregistry_setup e2e_bookinfo_run
+
+e2e_dashboard: istioctl generate_yaml localregistry_setup e2e_dashboard_run
 
 e2e_upgrade: istioctl generate_yaml localregistry_setup e2e_upgrade_run
 
@@ -103,6 +107,9 @@ e2e_simple_run:
 
 e2e_mixer_run:
 	go test -v -timeout 20m ./tests/e2e/tests/mixer -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
+
+e2e_galley_run:
+	go test -v -timeout 20m ./tests/e2e/tests/galley -args ${E2E_ARGS} ${EXTRA_E2E_ARGS} -use_galley_config_validator -cluster_wide
 
 e2e_dashboard_run:
 	go test -v -timeout 20m ./tests/e2e/tests/dashboard -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
@@ -156,6 +163,10 @@ test/local/e2e_mixer: out_dir istioctl generate_yaml
 		--skip_cleanup  -use_local_cluster -cluster_wide -test.v ${E2E_ARGS} ${EXTRA_E2E_ARGS} \
 		${CAPTURE_LOG}
 
+test/local/e2e_galley: istioctl generate_yaml
+	set -o pipefail; go test -v -timeout 20m ./tests/e2e/tests/galley -args \
+	--skip_cleanup  -use_local_cluster -cluster_wide --use_galley_config_validator -test.v ${E2E_ARGS} ${EXTRA_E2E_ARGS} \
+	${CAPTURE_LOG}
 
 test/minikube/auth/e2e_simple: out_dir  generate_yaml
 	set -o pipefail; go test -v -timeout 20m ./tests/e2e/tests/simple -args --auth_enable=true \
@@ -212,8 +223,7 @@ test/local/noauth/e2e_mixer_envoyv2: generate_yaml-envoyv2_transition_loadbalanc
 	@mkdir -p ${OUT_DIR}/logs
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 20m ./tests/e2e/tests/mixer \
 	--skip_cleanup --auth_enable=false --v1alpha3=true --egress=false --ingress=false --rbac_enable=false \
-	--v1alpha1=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} \
-                | tee ${OUT_DIR}/logs/test-report.raw
+	--v1alpha1=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 # v1alpha3+envoyv2 test without MTLS (not implemented yet). Still in progress, for tracking
 test/local/noauth/e2e_simple_pilotv2: out_dir generate_yaml-envoyv2_transition

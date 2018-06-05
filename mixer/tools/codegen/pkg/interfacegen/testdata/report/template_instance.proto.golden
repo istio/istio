@@ -31,7 +31,7 @@ import "mixer/adapter/model/v1beta1/extensions.proto";
 import "google/protobuf/any.proto";
 import "mixer/adapter/model/v1beta1/report.proto";
 import "policy/v1beta1/value_type.proto";
-import "mixer/adapter/model/v1beta1/type.proto";
+import "policy/v1beta1/type.proto";
 
 option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_REPORT;
 option (istio.mixer.adapter.model.v1beta1.template_name) = "metricentry";
@@ -73,10 +73,10 @@ message InstanceMsg {
     string name = 72295727;
     
     // value is ...
-    istio.mixer.adapter.model.v1beta1.Value value = 1;
+    istio.policy.v1beta1.Value value = 1;
     
     // dimensions are ...
-    map<string, istio.mixer.adapter.model.v1beta1.Value> dimensions = 2;
+    map<string, istio.policy.v1beta1.Value> dimensions = 2;
     
     
     int64 int64Primitive = 3;
@@ -91,28 +91,28 @@ message InstanceMsg {
     string stringPrimitive = 6;
     
     
-    istio.mixer.adapter.model.v1beta1.Value anotherValueType = 7;
+    istio.policy.v1beta1.Value anotherValueType = 7;
     
     
     map<string, int64> dimensionsFixedInt64ValueDType = 8;
     
     
-    istio.mixer.adapter.model.v1beta1.TimeStamp timeStamp = 9;
+    istio.policy.v1beta1.TimeStamp timeStamp = 9;
     
     
-    istio.mixer.adapter.model.v1beta1.Duration duration = 10;
+    istio.policy.v1beta1.Duration duration = 10;
     
     
-    istio.mixer.adapter.model.v1beta1.IPAddress ip_addr = 11;
+    istio.policy.v1beta1.IPAddress ip_addr = 11;
     
     
-    istio.mixer.adapter.model.v1beta1.DNSName dns_name = 12;
+    istio.policy.v1beta1.DNSName dns_name = 12;
     
     
-    istio.mixer.adapter.model.v1beta1.EmailAddress email_addr = 13;
+    istio.policy.v1beta1.EmailAddress email_addr = 13;
     
     
-    istio.mixer.adapter.model.v1beta1.Uri uri = 14;
+    istio.policy.v1beta1.Uri uri = 14;
     
     
     repeated Resource3Msg res3_list = 15;
@@ -157,10 +157,10 @@ message Resource2Msg {
 message Resource3Msg {
     
     // value is ...
-    istio.mixer.adapter.model.v1beta1.Value value = 1;
+    istio.policy.v1beta1.Value value = 1;
     
     // dimensions are ...
-    map<string, istio.mixer.adapter.model.v1beta1.Value> dimensions = 2;
+    map<string, istio.policy.v1beta1.Value> dimensions = 2;
     
     
     int64 int64Primitive = 3;
@@ -175,16 +175,16 @@ message Resource3Msg {
     string stringPrimitive = 6;
     
     
-    istio.mixer.adapter.model.v1beta1.Value anotherValueType = 7;
+    istio.policy.v1beta1.Value anotherValueType = 7;
     
     
     map<string, int64> dimensionsFixedInt64ValueDType = 8;
     
     
-    istio.mixer.adapter.model.v1beta1.TimeStamp timeStamp = 9;
+    istio.policy.v1beta1.TimeStamp timeStamp = 9;
     
     
-    istio.mixer.adapter.model.v1beta1.Duration duration = 10;
+    istio.policy.v1beta1.Duration duration = 10;
     
 }
 

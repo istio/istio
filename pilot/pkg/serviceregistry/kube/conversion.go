@@ -25,7 +25,6 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -55,10 +54,6 @@ const (
 
 	// IstioURIPrefix is the URI prefix in the Istio service account scheme
 	IstioURIPrefix = "spiffe"
-
-	// PortAuthenticationAnnotationKeyPrefix is the annotation key prefix that used to define
-	// authentication policy.
-	PortAuthenticationAnnotationKeyPrefix = "auth.istio.io"
 )
 
 func convertLabels(obj meta_v1.ObjectMeta) model.Labels {
@@ -69,25 +64,11 @@ func convertLabels(obj meta_v1.ObjectMeta) model.Labels {
 	return out
 }
 
-// Extracts security option for given port from annotation. If there is no such
-// annotation, or the annotation value is not recognized, returns
-// meshconfig.AuthenticationPolicy_INHERIT
-func extractAuthenticationPolicy(port v1.ServicePort, obj meta_v1.ObjectMeta) meshconfig.AuthenticationPolicy {
-	if obj.Annotations == nil {
-		return meshconfig.AuthenticationPolicy_INHERIT
-	}
-	if val, ok := meshconfig.AuthenticationPolicy_value[obj.Annotations[portAuthenticationAnnotationKey(int(port.Port))]]; ok {
-		return meshconfig.AuthenticationPolicy(val)
-	}
-	return meshconfig.AuthenticationPolicy_INHERIT
-}
-
 func convertPort(port v1.ServicePort, obj meta_v1.ObjectMeta) *model.Port {
 	return &model.Port{
-		Name:                 port.Name,
-		Port:                 int(port.Port),
-		Protocol:             ConvertProtocol(port.Name, port.Protocol),
-		AuthenticationPolicy: extractAuthenticationPolicy(port, obj),
+		Name:     port.Name,
+		Port:     int(port.Port),
+		Protocol: ConvertProtocol(port.Name, port.Protocol),
 	}
 }
 
@@ -153,10 +134,6 @@ func serviceHostname(name, namespace, domainSuffix string) model.Hostname {
 // canonicalToIstioServiceAccount converts a Canonical service account to an Istio service account
 func canonicalToIstioServiceAccount(saname string) string {
 	return fmt.Sprintf("%v://%v", IstioURIPrefix, saname)
-}
-
-func portAuthenticationAnnotationKey(port int) string {
-	return fmt.Sprintf("%s/%d", PortAuthenticationAnnotationKeyPrefix, port)
 }
 
 // kubeToIstioServiceAccount converts a K8s service account to an Istio service account

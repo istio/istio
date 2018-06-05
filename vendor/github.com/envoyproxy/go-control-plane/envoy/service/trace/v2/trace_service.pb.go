@@ -21,10 +21,8 @@ import opencensus_proto_trace "istio.io/gogo-genproto/opencensus/proto/trace"
 import _ "github.com/gogo/googleapis/google/api"
 import _ "github.com/lyft/protoc-gen-validate/validate"
 
-import (
-	context "golang.org/x/net/context"
-	grpc "google.golang.org/grpc"
-)
+import context "golang.org/x/net/context"
+import grpc "google.golang.org/grpc"
 
 import io "io"
 

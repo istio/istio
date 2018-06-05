@@ -3,7 +3,9 @@ title: Memory quota
 description: Adapter for a simple in-memory quota management system.
 location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/memquota.html
 layout: protoc-gen-docs
-redirect_from: /docs/reference/config/adapters/memquota.html
+generator: protoc-gen-docs
+aliases:
+  - /docs/reference/config/adapters/memquota.html
 number_of_entries: 3
 ---
 <p>The <code>memquota</code> adapter can be used to support Istio&rsquo;s quota management
@@ -14,7 +16,7 @@ instance of Mixer running for the whole mesh (i.e. non-HA configuration)
 and if that single instance crashes, all outstanding quota values will
 be lost.</p>
 
-<p>This adapter supports the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/quota.html">quota template</a>.</p>
+<p>This adapter supports the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/quota/">quota template</a>.</p>
 
 <h2 id="Params">Params</h2>
 <section>

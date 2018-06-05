@@ -21,7 +21,7 @@ import (
 
 func TestHeadless(t *testing.T) {
 	if tc.Kube.AuthEnabled {
-		t.Skipf("Skipping %s: auth_enabled=false", t.Name())
+		t.Skipf("Skipping %s: auth_enabled=true", t.Name())
 	}
 
 	srcPods := []string{"a", "b", "t"}
@@ -30,19 +30,21 @@ func TestHeadless(t *testing.T) {
 
 	// Run all request tests.
 	t.Run("request", func(t *testing.T) {
-		for _, src := range srcPods {
-			for _, dst := range dstPods {
-				for _, port := range ports {
-					for _, domain := range []string{"", "." + tc.Kube.Namespace} {
-						testName := fmt.Sprintf("%s->%s%s_%s", src, dst, domain, port)
-						runRetriableTest(t, testName, defaultRetryBudget, func() error {
-							reqURL := fmt.Sprintf("http://%s%s:%s/%s", dst, domain, port, src)
-							resp := ClientRequest(src, reqURL, 1, "")
-							if resp.IsHTTPOk() {
-								return nil
-							}
-							return errAgain
-						})
+		for cluster := range tc.Kube.Clusters {
+			for _, src := range srcPods {
+				for _, dst := range dstPods {
+					for _, port := range ports {
+						for _, domain := range []string{"", "." + tc.Kube.Namespace} {
+							testName := fmt.Sprintf("%s from %s cluster->%s%s_%s", src, cluster, dst, domain, port)
+							runRetriableTest(t, cluster, testName, defaultRetryBudget, func() error {
+								reqURL := fmt.Sprintf("http://%s%s:%s/%s", dst, domain, port, src)
+								resp := ClientRequest(cluster, src, reqURL, 1, "")
+								if resp.IsHTTPOk() {
+									return nil
+								}
+								return errAgain
+							})
+						}
 					}
 				}
 			}

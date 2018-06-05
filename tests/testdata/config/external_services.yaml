@@ -37,8 +37,8 @@ spec:
 #   - *.ports2.extsvc.com
    ports:
    - number: 443
-     name: extsvc-http
-     protocol: HTTP # not HTTPS.
+     name: extsvc-https
+     protocol: HTTPS # not HTTPS.
    - number: 8443
      name: https-ports2
      protocol: HTTP
