@@ -14,6 +14,7 @@
 #
 # The script must be run/sourced from the parent of the tools/ directory
 #
+# shellcheck disable=SC2016
 
 PROJECT=${PROJECT:-$(gcloud config list --format 'value(core.project)' 2>/dev/null)}
 ZONE=${ZONE:-us-east4-b}

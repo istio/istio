@@ -17,6 +17,8 @@
 ################################################################################
 #
 # Initialization script responsible for setting up port forwarding for Istio sidecar.
+#
+# shellcheck disable=SC2016
 
 function usage() {
   echo "${0} -p PORT -u UID [-m mode] [-b ports] [-d ports] [-i CIDR] [-x CIDR] [-h]"

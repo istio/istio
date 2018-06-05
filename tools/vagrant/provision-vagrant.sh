@@ -1,8 +1,9 @@
 #!/bin/bash
+# shellcheck disable=SC2016
 set -e
 VERSION="1.9.2"
 
-# Update, get python-software-properties in order to get add-apt-repository, 
+# Update, get python-software-properties in order to get add-apt-repository,
 # then update (for latest git version):
 apt-get update
 apt-get install -y python-software-properties
@@ -10,11 +11,11 @@ add-apt-repository -y ppa:git-core/ppa
 apt-get update
 apt-get install -y git
 apt-get install -y make
-apt-get install -y docker 
+apt-get install -y docker
 # Vim & Curl:
 apt-get install -y vim curl
 
-# Install golang 
+# Install golang
 shell_profile="bashrc"
 DFILE="go$VERSION.linux-amd64.tar.gz"
 HOME="/home/vagrant"
@@ -68,7 +69,7 @@ cp /tmp/easy-rsa-master/easyrsa3/pki/issued/server.crt /tmp/apiserver/server.crt
 cp /tmp/easy-rsa-master/easyrsa3/pki/private/server.key /tmp/apiserver/server.key && \
 cd /tmp && \
 rm -rf /tmp/easy-rsa-master/
-  
+
 # Include minikube and kubectl in the image
 curl -Lo /tmp/kubectl https://storage.googleapis.com/kubernetes-release/release/v1.7.4/bin/linux/amd64/kubectl && \
 chmod +x /tmp/kubectl && sudo mv /tmp/kubectl /usr/local/bin/
