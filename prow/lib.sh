@@ -41,7 +41,8 @@ function setup_and_export_git_sha() {
     export ARTIFACTS_DIR="${GOPATH}/src/istio.io/istio/_artifacts"
   else
     # Use the current commit.
-    export GIT_SHA="$(git rev-parse --verify HEAD)"
+    GIT_SHA="$(git rev-parse --verify HEAD)"
+    export GIT_SHA
   fi
   gcloud auth configure-docker -q
 }

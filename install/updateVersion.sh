@@ -39,8 +39,10 @@ while getopts ":P:d:a:" arg; do
 done
 
 if [[ ! -z ${ALL_HUB_TAG} ]]; then
-    export HUB="$(echo "${ALL_HUB_TAG}"|cut -f1 -d,)"
-    export TAG="$(echo "${ALL_HUB_TAG}"|cut -f2 -d,)"
+    HUB="$(echo "${ALL_HUB_TAG}"|cut -f1 -d,)"
+    export HUB
+    TAG="$(echo "${ALL_HUB_TAG}"|cut -f2 -d,)"
+    export TAG
 fi
 
 function gen_file() {
