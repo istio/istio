@@ -155,6 +155,7 @@ func buildMixerPerRouteConfig(in *plugin.InputParams, outboundRoute bool, _ /*di
 		out.MixerAttributes.Attributes = map[string]*mpb.Attributes_AttributeValue{
 			v1.AttrDestinationService: {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: destinationService}},
 		}
+		addDestinationServiceAttributes(out.MixerAttributes.Attributes, destinationService)
 	}
 
 	var labels map[string]string
