@@ -32,7 +32,7 @@ tar -xf data.tar.xz ./usr/share/doc/ca-certificates/copyright
 
 # Concat all the certs.
 CERT_FILE=./etc/ssl/certs/ca-certificates.crt
-mkdir -p $(dirname $CERT_FILE)
+mkdir -p "$(dirname $CERT_FILE)"
 
 CERTS=$(find usr/share/ca-certificates -type f | sort)
 for cert in $CERTS; do
