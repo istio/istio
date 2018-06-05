@@ -189,7 +189,12 @@ func runDispatcherOnly(b benchmark, setup *Setup, settings *Settings) {
 
 		switch r.(type) {
 		case *istio_mixer_v1.ReportRequest:
-			err = dispatcher.Report(context.Background(), bag)
+			r := dispatcher.GetReporter(context.Background())
+			err = r.Report(bag)
+			if err == nil {
+				err = r.Flush()
+			}
+			r.Done()
 
 		case *istio_mixer_v1.CheckRequest:
 			_, err = dispatcher.Check(context.Background(), bag)
@@ -207,7 +212,10 @@ func runDispatcherOnly(b benchmark, setup *Setup, settings *Settings) {
 
 				switch r.(type) {
 				case *istio_mixer_v1.ReportRequest:
-					_ = dispatcher.Report(context.Background(), bag)
+					r := dispatcher.GetReporter(context.Background())
+					_ = r.Report(bag)
+					_ = r.Flush()
+					r.Done()
 
 				case *istio_mixer_v1.CheckRequest:
 					_, _ = dispatcher.Check(context.Background(), bag)

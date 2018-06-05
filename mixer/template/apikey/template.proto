@@ -17,7 +17,8 @@ syntax = "proto3";
 // $title: API Key
 // $description: A template that represents a single API key.
 // $location: https://istio.io/docs/reference/config/policy-and-telemetry/templates/apikey.html
-// $front_matter: redirect_from: /docs/reference/config/template/apikey.html
+// $front_matter: aliases:
+// $front_matter:   - /docs/reference/config/template/apikey.html
 
 // The `apikey` template represents a single API key, which is used for authorization checks.
 //

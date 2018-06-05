@@ -38,6 +38,8 @@ spec:
                 fieldPath: metadata.namespace
           - name: COLLECTOR_ZIPKIN_HTTP_PORT
             value: "{{ .Values.service.internalPort }}"
+          - name: MEMORY_MAX_TRACES
+            value: "{{ .Values.jaeger.memory.max_traces }}"
           livenessProbe:
             httpGet:
               path: /

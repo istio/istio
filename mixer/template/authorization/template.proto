@@ -17,7 +17,8 @@ syntax = "proto3";
 // $title: Authorization
 // $description: A template used to represent an access control query.
 // $location: https://istio.io/docs/reference/config/policy-and-telemetry/templates/authorization.html
-// $front_matter: redirect_from: /docs/reference/config/template/authorization.html
+// $front_matter: aliases:
+// $front_matter:   - /docs/reference/config/template/authorization.html
 
 // The `authorization` template defines parameters for performing policy
 // enforcement within Istio. It is primarily concerned with enabling Mixer

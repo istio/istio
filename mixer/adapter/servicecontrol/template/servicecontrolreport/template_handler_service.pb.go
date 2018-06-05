@@ -4,7 +4,7 @@
 /*
 	Package servicecontrolreport is a generated protocol buffer package.
 
-	The `servicecontrolreport` template is used by the [Google Service Control](https://istio.io/docs/reference/config/adapters/servicecontrol.html)
+	The `servicecontrolreport` template is used by the [Google Service Control](https://istio.io/docs/reference/config/policy-and-telemetry/adapters/servicecontrol/)
 	adapter.
 
 	Example config:

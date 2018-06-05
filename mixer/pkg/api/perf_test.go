@@ -117,8 +117,19 @@ func (bs *benchState) Check(ctx context.Context, bag attribute.Bag) (*adapter.Ch
 	return result, nil
 }
 
-func (bs *benchState) Report(_ context.Context, _ attribute.Bag) error {
+func (bs *benchState) GetReporter(ctx context.Context) dispatcher.Reporter {
+	return bs
+}
+
+func (bs *benchState) Report(bag attribute.Bag) error {
 	return nil
+}
+
+func (bs *benchState) Flush() error {
+	return nil
+}
+
+func (bs *benchState) Done() {
 }
 
 func (bs *benchState) Quota(ctx context.Context, requestBag attribute.Bag,
