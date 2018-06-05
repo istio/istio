@@ -295,12 +295,12 @@ func StandardNodeAttributes(prefix string, IPAddress string, ID string, labels m
 }
 
 // ServiceConfig generates a ServiceConfig for a given instance
-func ServiceConfig(serviceHostname string, dest *model.ServiceInstance, config model.IstioConfigStore, disableCheck, disableReport bool) *mccpb.ServiceConfig {
+func ServiceConfig(serviceName string, dest *model.ServiceInstance, config model.IstioConfigStore, disableCheck, disableReport bool) *mccpb.ServiceConfig {
 	sc := &mccpb.ServiceConfig{
 		MixerAttributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
 				AttrDestinationService: {
-					Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: serviceHostname},
+					Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: serviceName},
 				},
 			},
 		},
