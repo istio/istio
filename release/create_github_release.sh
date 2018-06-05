@@ -177,10 +177,11 @@ if [[ -n "${UPLOAD_DIR}" ]]; then
     cat "${RESPONSE_FILE}"
     exit 1
   fi
-  
+
   echo "UPLOAD_URL for release is \"${UPLOAD_URL}\""
 
   # chop off the trailing {} part of the URL
+  # shellcheck disable=SC2001
   UPLOAD_URL_BASE=$(echo "$UPLOAD_URL" | sed "s/\(.*\){.*}/\1/")
   if [[ -z "${UPLOAD_URL_BASE}" ]]; then
     echo "Could not parse Upload URL ${UPLOAD_URL} for created release ID ${RELEASE_ID}"
