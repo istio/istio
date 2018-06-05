@@ -60,3 +60,43 @@ spec:
     protocol: UDP
   clusterIP: None
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-telemetry
+  namespace: istio-system
+spec:
+  ports:
+  - name: http2-mixer
+    port: 9091
+    protocol: TCP
+    targetPort: 9091
+  - name: tcp-mtls
+    port: 15004
+    protocol: TCP
+    targetPort: 15004
+  - name: http-monitoring
+    port: 9093
+    protocol: TCP
+    targetPort: 9093
+  - name: prometheus
+    port: 42422
+    protocol: TCP
+    targetPort: 42422
+  clusterIP: None
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-ingress
+  namespace: istio-system
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+  - name: https
+    port: 443
+    protocol: TCP
+  clusterIP: None
+---
