@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/mixer/pkg/runtime/handler"
 	"istio.io/istio/mixer/pkg/runtime/routing"
 	"istio.io/istio/mixer/pkg/runtime/testing/data"
+	"istio.io/istio/mixer/pkg/status"
 	"istio.io/istio/pkg/log"
 )
 
@@ -62,9 +63,9 @@ var tests = []struct {
 	// Attributes to expect in the response bag
 	responseAttrs map[string]interface{}
 
-	expectedQuotaResult *adapter.QuotaResult
+	expectedQuotaResult adapter.QuotaResult
 
-	expectedCheckResult *adapter.CheckResult
+	expectedCheckResult adapter.CheckResult
 
 	// expected error, if specified
 	err string
@@ -82,8 +83,7 @@ var tests = []struct {
 			data.InstanceCheck1,
 			data.RuleCheck1,
 		},
-		variety:             tpb.TEMPLATE_VARIETY_CHECK,
-		expectedCheckResult: &adapter.CheckResult{},
+		variety: tpb.TEMPLATE_VARIETY_CHECK,
 		log: `
 [tcheck] InstanceBuilderFn() => name: 'tcheck', bag: '---
 ident                         : dest.istio-system
@@ -141,7 +141,7 @@ ident                         : dest.istio-system
 			data.RuleCheck1WithInstance1And2,
 		},
 		variety: tpb.TEMPLATE_VARIETY_CHECK,
-		expectedCheckResult: &adapter.CheckResult{
+		expectedCheckResult: adapter.CheckResult{
 			ValidUseCount: 10,
 			ValidDuration: time.Millisecond,
 		},
@@ -196,7 +196,7 @@ ident                         : dest.istio-system
 			data.RuleCheck1WithInstance1And2,
 		},
 		variety: tpb.TEMPLATE_VARIETY_CHECK,
-		expectedCheckResult: &adapter.CheckResult{
+		expectedCheckResult: adapter.CheckResult{
 			Status: rpc.Status{
 				Code:    int32(rpc.DATA_LOSS),
 				Message: "hcheck1.acheck.istio-system:data loss details, hcheck1.acheck.istio-system:deadline exceeded details",
@@ -236,7 +236,7 @@ ident                         : dest.istio-system
 			"attr.string": "bar",
 			"ident":       "dest.istio-system",
 		},
-		expectedCheckResult: &adapter.CheckResult{},
+		expectedCheckResult: adapter.CheckResult{},
 		log: `
 [tcheck] InstanceBuilderFn() => name: 'tcheck', bag: '---
 attr.string                   : bar
@@ -334,11 +334,11 @@ ident                         : dest.istio-system
 		},
 		variety: tpb.TEMPLATE_VARIETY_QUOTA,
 		qma: &QuotaMethodArgs{
+			Quota:           "iquota1",
 			BestEffort:      true,
 			DeduplicationID: "42",
 			Amount:          64,
 		},
-		expectedQuotaResult: &adapter.QuotaResult{},
 		log: `
 [tquota] InstanceBuilderFn() => name: 'tquota', bag: '---
 ident                         : dest.istio-system
@@ -380,6 +380,25 @@ ident                         : dest.istio-system
 	},
 
 	{
+		name: "BasicQuotaError2",
+		config: []string{
+			data.HandlerAQuota1,
+			data.InstanceQuota1,
+			data.RuleQuota1,
+		},
+		variety: tpb.TEMPLATE_VARIETY_QUOTA,
+		qma: &QuotaMethodArgs{
+			Quota:           "XXX",
+			BestEffort:      true,
+			DeduplicationID: "42",
+			Amount:          64,
+		},
+		expectedQuotaResult: adapter.QuotaResult{
+			Status: status.WithInvalidArgument("Requested quota `XXX` is invalid"),
+		},
+	},
+
+	{
 		name: "QuotaResultCombination",
 		templates: []data.FakeTemplateSettings{{
 			Name: "tquota",
@@ -402,19 +421,11 @@ ident                         : dest.istio-system
 			data.RuleQuota2,
 		},
 		variety: tpb.TEMPLATE_VARIETY_QUOTA,
-		expectedQuotaResult: &adapter.QuotaResult{
+		expectedQuotaResult: adapter.QuotaResult{
 			Amount:        55,
 			ValidDuration: time.Second,
 		},
 		log: `
-[tquota] InstanceBuilderFn() => name: 'tquota', bag: '---
-ident                         : dest.istio-system
-'
-[tquota] InstanceBuilderFn() <= (SUCCESS)
-[tquota] DispatchQuota => context exists: 'true'
-[tquota] DispatchQuota => handler exists: 'true'
-[tquota] DispatchQuota => instance: '&Struct{Fields:map[string]*Value{},}' qArgs:{dedup:'', amount:'0', best:'true'}
-[tquota] DispatchQuota <= (SUCCESS)
 [tquota] InstanceBuilderFn() => name: 'tquota', bag: '---
 ident                         : dest.istio-system
 '
@@ -457,28 +468,21 @@ ident                         : dest.istio-system
 			data.RuleQuota2,
 		},
 		qma: &QuotaMethodArgs{
+			Quota:           "iquota1",
 			DeduplicationID: "dedup-id",
 			BestEffort:      true,
 			Amount:          42,
 		},
 		variety: tpb.TEMPLATE_VARIETY_QUOTA,
-		expectedQuotaResult: &adapter.QuotaResult{
+		expectedQuotaResult: adapter.QuotaResult{
 			Status: rpc.Status{
 				Code:    int32(rpc.CANCELLED),
-				Message: "hquota1.aquota.istio-system:cancelled details, hquota1.aquota.istio-system:aborted details",
+				Message: "hquota1.aquota.istio-system:cancelled details",
 			},
 			Amount:        55,
 			ValidDuration: time.Second,
 		},
 		log: `
-[tquota] InstanceBuilderFn() => name: 'tquota', bag: '---
-ident                         : dest.istio-system
-'
-[tquota] InstanceBuilderFn() <= (SUCCESS)
-[tquota] DispatchQuota => context exists: 'true'
-[tquota] DispatchQuota => handler exists: 'true'
-[tquota] DispatchQuota => instance: '&Struct{Fields:map[string]*Value{},}' qArgs:{dedup:'dedup-id', amount:'42', best:'true'}
-[tquota] DispatchQuota <= (SUCCESS)
 [tquota] InstanceBuilderFn() => name: 'tquota', bag: '---
 ident                         : dest.istio-system
 '
@@ -503,11 +507,11 @@ ident                         : dest.istio-system
 			"ident":       "dest.istio-system",
 		},
 		qma: &QuotaMethodArgs{
+			Quota:           "iquota1",
 			BestEffort:      true,
 			DeduplicationID: "42",
 			Amount:          64,
 		},
-		expectedQuotaResult: &adapter.QuotaResult{},
 		log: `
 [tquota] InstanceBuilderFn() => name: 'tquota', bag: '---
 attr.string                   : bar
@@ -734,7 +738,7 @@ func TestDispatcher(t *testing.T) {
 				cres, e := dispatcher.Check(context.TODO(), bag)
 
 				if e == nil {
-					if !reflect.DeepEqual(cres, tst.expectedCheckResult) {
+					if !reflect.DeepEqual(&cres, &tst.expectedCheckResult) {
 						tt.Fatalf("check result mismatch: '%v' != '%v'", cres, tst.expectedCheckResult)
 					}
 				} else {
@@ -754,12 +758,12 @@ func TestDispatcher(t *testing.T) {
 			case tpb.TEMPLATE_VARIETY_QUOTA:
 				qma := tst.qma
 				if qma == nil {
-					qma = &QuotaMethodArgs{BestEffort: true}
+					qma = &QuotaMethodArgs{BestEffort: true, Quota: "iquota1"}
 				}
-				qres, e := dispatcher.Quota(context.TODO(), bag, qma)
+				qres, e := dispatcher.Quota(context.TODO(), bag, *qma)
 
 				if e == nil {
-					if !reflect.DeepEqual(qres, tst.expectedQuotaResult) {
+					if !reflect.DeepEqual(&qres, &tst.expectedQuotaResult) {
 						tt.Fatalf("quota result mismatch: '%v' != '%v'", qres, tst.expectedQuotaResult)
 					}
 				} else {

@@ -14,6 +14,8 @@
 
 package config
 
+import "strings"
+
 // isFQN returns true if the name is fully qualified.
 // every resource name is defined by Key.String()
 // shortname.kind.namespace
@@ -39,4 +41,13 @@ func canonicalize(name string, namespace string) string {
 	}
 
 	return name + "." + namespace
+}
+
+// ExtractShortName extracts the 'name' portion of the FQN.
+func ExtractShortName(name string) string {
+	if isFQN(name) {
+		return name[0:strings.Index(name, ".")]
+	}
+
+	return name
 }
