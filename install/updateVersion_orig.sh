@@ -24,8 +24,6 @@ set -o errexit
 set -o pipefail
 
 function usage() {
-  [[ -n "${1}" ]] && echo "${1}"
-
   cat <<EOF
 usage: ${BASH_SOURCE[0]} [options ...]"
   options:
@@ -157,17 +155,20 @@ function merge_files() {
       cat $SRC/istio-ingress.yaml.tmpl >> "$COMPONENT_DIR/istio-ingress.yaml"
   fi
 
-  echo "# GENERATED FILE. Use with Kubernetes 1.7+" > "$ISTIO"
-  echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> "$ISTIO"
-  cat $SRC/istio-ns.yaml.tmpl >> "$ISTIO"
-  cat $SRC/istio-rbac-beta.yaml.tmpl >> "$ISTIO"
-  cat $SRC/istio-mixer.yaml.tmpl >> "$ISTIO"
-  cat $SRC/istio-config.yaml.tmpl >> "$ISTIO"
-  cat $SRC/istio-pilot.yaml.tmpl >> "$ISTIO"
-  cat $SRC/istio-ingress.yaml.tmpl >> "$ISTIO"
+  {
+    echo "# GENERATED FILE. Use with Kubernetes 1.7+"
+    echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh"
+
+    cat $SRC/istio-ns.yaml.tmpl
+    cat $SRC/istio-rbac-beta.yaml.tmpl
+    cat $SRC/istio-mixer.yaml.tmpl
+    cat $SRC/istio-config.yaml.tmpl
+    cat $SRC/istio-pilot.yaml.tmpl
+    cat $SRC/istio-ingress.yaml.tmpl
+  } > "$ISTIO"
 
   cp "$ISTIO" "$ISTIO_ONE_NAMESPACE"
-  cat $SRC/istio-citadel.yaml.tmpl >> "$ISTIO"
+  cat $SRC/istio-citadel.yaml.tmpl
 
   cp "$ISTIO" "$ISTIO_AUTH"
   execute_sed "s/discoveryAddress: istio-pilot.${ISTIO_NAMESPACE}:15007/discoveryAddress: istio-pilot.${ISTIO_NAMESPACE}:15005/" "$ISTIO_AUTH"
@@ -319,7 +320,7 @@ if [[ "$DEST_DIR" != "$ROOT" ]]; then
 fi
 
 mkdir -p $TEMP_DIR/templates
-cp -R "$ROOT/install/kubernetes/templates/*" $TEMP_DIR/templates/
+cp -R "$ROOT"/install/kubernetes/templates/* $TEMP_DIR/templates/
 update_version_file
 update_helm_version
 update_istio_install
