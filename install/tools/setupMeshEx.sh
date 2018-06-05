@@ -158,7 +158,7 @@ function istioBootstrapGCE() {
     # Copy deb, helper and config files
     istioCopy "$DESTINATION" \
       kubedns \
-      *.pem \
+      ./*.pem \
       cluster.env \
       istio.VERSION \
       "${SETUP_ISTIO_VM_SCRIPT}"
@@ -203,7 +203,7 @@ function istioBootstrapVM() {
     # Copy deb, helper and config files
     istioCopy "$DESTINATION" \
       kubedns \
-      *.pem \
+      ./*.pem \
       cluster.env \
       istio.VERSION \
       "${SETUP_ISTIO_VM_SCRIPT}"

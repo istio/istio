@@ -35,5 +35,5 @@ cat int-cert.pem >> int-cert-chain.pem
 cp int-cert-chain.pem int2-cert-chain.pem
 cat int2-cert.pem >> int2-cert-chain.pem
 
-rm *csr
-rm *srl
+rm ./*csr
+rm ./*srl
