@@ -24,7 +24,7 @@ gcloud container clusters \
  ```
 
  - `CLUSTER_NAME`: Whatever suits your fancy, 'istio-e2e' is a good choice.
- - `ZONE`: 'us-central-f' is a good value to use.
+ - `ZONE`: 'us-central1-f' is a good value to use.
  - `PROJECT_NAME`: is the name of the GCP project that will house the cluster. You get a project by visiting [GCP](https://console.cloud.google.com).
  - `CLUSTER_VERSION`: 1.7.3 or later.
  - `MACHINE_TYPE`: Use 'n1-standard-4'
@@ -47,7 +47,7 @@ gcloud container clusters get-credentials ${CLUSTER_NAME} --zone ${ZONE} --proje
 
 ## Step 3: Create Clusterrolebinding
 ```
-kubectl create clusterrolebinding myname-cluster-admin-binding    --clusterrole=cluster-admin    --user="<user_email>"
+kubectl create clusterrolebinding myname-cluster-admin-binding  --clusterrole=cluster-admin  --user=$(gcloud config get-value core/account)
 ```
 * user_email should be the one you use to log in gcloud command. You can do `gcloud info` to find out current user info.
 
