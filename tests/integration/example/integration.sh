@@ -38,7 +38,7 @@ ENVOY_BINARY=$(make where-is-out)/envoy
 START_ENVOY=${WD}/../component/proxy/start_envoy
 
 # Install Fortio
-( cd vendor/istio.io/fortio ; go install . )
+( cd vendor/istio.io/fortio && go install . )
 
 # Run Tests
 SUMMARY='Tests Summary'
@@ -54,11 +54,11 @@ md5sum "${ENVOY_BINARY}"
 
 TESTARG=(-envoy_binary ${ENVOY_BINARY} -envoy_start_script ${START_ENVOY} -mixer_binary ${MIXER_BINARY} -fortio_binary fortio)
 
-go test -v ./tests/integration/example/tests/sample1 ${TESTARG[@]} $@
+go test -v ./tests/integration/example/tests/sample1 "${TESTARG[@]}" "$@"
 process_result $? sample1
 
-go test -v ./tests/integration/example/tests/sample2 ${TESTARG[@]} $@
+go test -v ./tests/integration/example/tests/sample2 "${TESTARG[@]}" "$@"
 process_result $? sample2
 
-printf "${SUMMARY}\n"
+printf "%s\n" "${SUMMARY}"
 exit ${FAILURE_COUNT}
