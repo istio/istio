@@ -16,7 +16,6 @@ package pilot
 
 import (
 	"fmt"
-	"io/ioutil"
 	"testing"
 )
 
@@ -47,14 +46,15 @@ func TestTLSMultiplexing(t *testing.T) {
 
 	// Run all request tests.
 	t.Run("request", func(t *testing.T) {
+		for cluster := range tc.Kube.Clusters {
 		for _, src := range srcPods {
 			for _, dst := range dstPods {
 				for _, port := range ports {
 					for _, domain := range []string{"", "." + tc.Kube.Namespace} {
 						testName := fmt.Sprintf("%s->%s%s_%s", src, dst, domain, port)
-						runRetriableTest(t, testName, 15, func() error {
+						runRetriableTest(t, cluster, testName, 15, func() error {
 							reqURL := fmt.Sprintf("http://%s%s:%s/%s", dst, domain, port, src)
-							resp := ClientRequest(src, reqURL, 1, "")
+							resp := ClientRequest(cluster, src, reqURL, 1, "")
 							//if src == "t" && (dst == "b" || (dst == "d" && port == "8080")) {
 							//	if len(resp.ID) == 0 {
 							//		// t cannot talk to b nor d:8080
@@ -72,5 +72,5 @@ func TestTLSMultiplexing(t *testing.T) {
 				}
 			}
 		}
-	})
+	}})
 }
