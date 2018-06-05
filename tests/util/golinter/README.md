@@ -56,7 +56,7 @@ If, for some reason, you want to disable lint rule for a file, you can add file 
 [whitelist.go](whitelist.go). Rule ID is defined in [lint_rules.go](lint_rules.go).
 multiple rule IDs are delimited by comma. You could also specify file path in regex.
 
-If you don't want to apply any rule to a file path, you can choose `AllRules`.
+If you don't want to apply any rule to a file path, you can choose `SkipAllRules`.
 
 # Run golinter
 There are two ways to run this linter.

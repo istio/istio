@@ -18,5 +18,5 @@ package main
 // to the file path in that pair. rule IDs are separated by comma.
 // Rule ID is defined in lint_rules.go
 var WhitelistPath = map[string]string{
-	"../../counter/..": "SkipByIssue,NoSleep",
+	`/\([^/]*\)$/counter/`: "SkipAllRules",
 }

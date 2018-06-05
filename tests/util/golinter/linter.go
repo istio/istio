@@ -55,7 +55,7 @@ func (lt *Linter) Fs() *token.FileSet {
 
 // Run applies linting rule to file in fpath.
 func (lt *Linter) Run() {
-	if _, skipAll := lt.sRuleMap[AllRules]; skipAll {
+	if _, skipAll := lt.sRuleMap[SkipAllRules]; skipAll {
 		return
 	}
 

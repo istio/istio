@@ -23,13 +23,13 @@ import (
 // Defines ID for each lint rule. Each rule is assigned a unique ID. AllRules is a special name
 // used only in whitelist, which skips all rules for a file path.
 const (
-	SkipByIssue = "SkipByIssue" // SkipByIssue == 0
-	NoSleep     = "NoSleep" // DoNotSleep == 1
-	NoGoroutine = "NoGoroutine" // NoGoroutine == 2
-	SkipByShort = "SkipByShort" // SkipByShort == 3
+	SkipByIssue = "SkipByIssue" // SkipByIssue
+	NoSleep     = "NoSleep" // NoSleep
+	NoGoroutine = "NoGoroutine" // NoGoroutine
+	SkipByShort = "SkipByShort" // SkipByShort
 
-	// Please leave AllRules to be the last one.
-	AllRules = "AllRules" // AllRules == 4
+	// Please leave SkipAllRules to be the last one.
+	SkipAllRules = "SkipAllRules" // SkipAllRules
 )
 
 type LintRule interface {
