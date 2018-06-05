@@ -49,13 +49,6 @@ func TestBuildClientConfig(t *testing.T) {
 			host:               "https://1.1.1.1:8001",
 		},
 		{
-			name:               "MalformedKubeconfigPath",
-			explicitKubeconfig: "missing",
-			envKubeconfig:      "",
-			wantErr:            true,
-			host:               "",
-		},
-		{
 			name:               "SinglePath",
 			explicitKubeconfig: config1,
 			wantErr:            false,
