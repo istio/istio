@@ -124,10 +124,11 @@ iptables -t nat -D OUTPUT -p tcp -j ISTIO_OUTPUT 2>/dev/null
 # Flush and delete the istio chains.
 iptables -t nat -F ISTIO_OUTPUT 2>/dev/null
 iptables -t nat -X ISTIO_OUTPUT 2>/dev/null
-iptables -t nat -F ISTIO_REDIRECT 2>/dev/null
-iptables -t nat -X ISTIO_REDIRECT 2>/dev/null
 iptables -t nat -F ISTIO_INBOUND 2>/dev/null
 iptables -t nat -X ISTIO_INBOUND 2>/dev/null
+# Must be last, the others refer to it
+iptables -t nat -F ISTIO_REDIRECT 2>/dev/null
+iptables -t nat -X ISTIO_REDIRECT 2>/dev/null
 iptables -t mangle -F ISTIO_INBOUND 2>/dev/null
 iptables -t mangle -X ISTIO_INBOUND 2>/dev/null
 iptables -t mangle -F ISTIO_DIVERT 2>/dev/null
@@ -287,4 +288,14 @@ if [ -n "${OUTBOUND_IP_RANGES_INCLUDE}" ]; then
     # All other traffic is not redirected.
     iptables -t nat -A ISTIO_OUTPUT -j RETURN
   fi
+fi
+
+# If ENABLE_INBOUND_IPV6 is unset (default unset), restrict IPv6 traffic.
+set +o nounset
+if [ -z "${ENABLE_INBOUND_IPV6}" ]; then
+  # Drop all inbound traffic except established connections.
+  # TODO: support receiving IPv6 traffic in the same way as IPv4.
+  ip6tables -F INPUT || true
+  ip6tables -A INPUT -m state --state ESTABLISHED -j ACCEPT || true
+  ip6tables -A INPUT -j REJECT || true
 fi

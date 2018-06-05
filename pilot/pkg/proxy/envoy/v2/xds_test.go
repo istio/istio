@@ -26,7 +26,6 @@ import (
 	"sync"
 	"testing"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	testenv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
@@ -126,7 +125,7 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 	localIp = getLocalIP()
 
 	// Service and endpoints for hello.default - used in v1 pilot tests
-	hostname := "hello.default.svc.cluster.local"
+	hostname := model.Hostname("hello.default.svc.cluster.local")
 	server.EnvoyXdsServer.MemRegistry.AddService(hostname, &model.Service{
 		Hostname: hostname,
 		Address:  "10.10.0.3",
@@ -137,10 +136,9 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 			Address: "127.0.0.1",
 			Port:    int(testEnv.Ports().BackendPort),
 			ServicePort: &model.Port{
-				Name:                 "http",
-				Port:                 80,
-				Protocol:             model.ProtocolHTTP,
-				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+				Name:     "http",
+				Port:     80,
+				Protocol: model.ProtocolHTTP,
 			},
 		},
 		AvailabilityZone: "az",
@@ -152,10 +150,9 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 		Address:  "10.10.0.4",
 		Ports: []*model.Port{
 			{
-				Name:                 "http",
-				Port:                 80,
-				Protocol:             model.ProtocolHTTP,
-				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+				Name:     "http",
+				Port:     80,
+				Protocol: model.ProtocolHTTP,
 			}},
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("local.default.svc.cluster.local", &model.ServiceInstance{
@@ -163,10 +160,9 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 			Address: localIp,
 			Port:    int(testEnv.Ports().BackendPort),
 			ServicePort: &model.Port{
-				Name:                 "http",
-				Port:                 80,
-				Protocol:             model.ProtocolHTTP,
-				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+				Name:     "http",
+				Port:     80,
+				Protocol: model.ProtocolHTTP,
 			},
 		},
 		AvailabilityZone: "az",
@@ -185,10 +181,9 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 			Address: app3Ip,
 			Port:    2080,
 			ServicePort: &model.Port{
-				Name:                 "http-main",
-				Port:                 1080,
-				Protocol:             model.ProtocolHTTP,
-				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+				Name:     "http-main",
+				Port:     1080,
+				Protocol: model.ProtocolHTTP,
 			},
 		},
 		Labels:           map[string]string{"version": "v1"},
@@ -199,10 +194,9 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 			Address: gatewayIP,
 			Port:    2080,
 			ServicePort: &model.Port{
-				Name:                 "http-main",
-				Port:                 1080,
-				Protocol:             model.ProtocolHTTP,
-				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+				Name:     "http-main",
+				Port:     1080,
+				Protocol: model.ProtocolHTTP,
 			},
 		},
 		Labels:           map[string]string{"version": "v2", "app": "my-gateway-controller"},
@@ -215,16 +209,14 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 		Address:  "10.10.0.2",
 		Ports: []*model.Port{
 			{
-				Name:                 "http",
-				Port:                 80,
-				Protocol:             model.ProtocolHTTP,
-				AuthenticationPolicy: meshconfig.AuthenticationPolicy_NONE,
+				Name:     "http",
+				Port:     80,
+				Protocol: model.ProtocolHTTP,
 			},
 			{
-				Name:                 "https",
-				Port:                 443,
-				Protocol:             model.ProtocolHTTPS,
-				AuthenticationPolicy: meshconfig.AuthenticationPolicy_NONE,
+				Name:     "https",
+				Port:     443,
+				Protocol: model.ProtocolHTTPS,
 			},
 		},
 	})
@@ -233,10 +225,9 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 			Address: ingressIP,
 			Port:    80,
 			ServicePort: &model.Port{
-				Name:                 "http",
-				Port:                 80,
-				Protocol:             model.ProtocolHTTP,
-				AuthenticationPolicy: meshconfig.AuthenticationPolicy_NONE,
+				Name:     "http",
+				Port:     80,
+				Protocol: model.ProtocolHTTP,
 			},
 		},
 		Labels:           model.IstioIngressWorkloadLabels,
@@ -247,10 +238,9 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 			Address: ingressIP,
 			Port:    443,
 			ServicePort: &model.Port{
-				Name:                 "https",
-				Port:                 443,
-				Protocol:             model.ProtocolHTTPS,
-				AuthenticationPolicy: meshconfig.AuthenticationPolicy_NONE,
+				Name:     "https",
+				Port:     443,
+				Protocol: model.ProtocolHTTPS,
 			},
 		},
 		Labels:           model.IstioIngressWorkloadLabels,
@@ -264,10 +254,9 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 		Address:  "10.1.0.4",
 		Ports: []*model.Port{
 			{
-				Name:                 "http-main",
-				Port:                 80,
-				Protocol:             model.ProtocolHTTP,
-				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+				Name:     "http-main",
+				Port:     80,
+				Protocol: model.ProtocolHTTP,
 			},
 		},
 	})
@@ -281,41 +270,41 @@ func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 func testPorts(base int) []*model.Port {
 	return []*model.Port{
 		{
-			Name:                 "http",
-			Port:                 base + 80,
-			Protocol:             model.ProtocolHTTP,
-			AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+			Name:     "http",
+			Port:     base + 80,
+			Protocol: model.ProtocolHTTP,
 		}, {
-			Name:                 "http-status",
-			Port:                 base + 81,
-			Protocol:             model.ProtocolHTTP,
-			AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+			Name:     "http-status",
+			Port:     base + 81,
+			Protocol: model.ProtocolHTTP,
 		}, {
-			Name:                 "custom",
-			Port:                 base + 90,
-			Protocol:             model.ProtocolTCP,
-			AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+			Name:     "custom",
+			Port:     base + 90,
+			Protocol: model.ProtocolTCP,
 		}, {
-			Name:                 "mongo",
-			Port:                 base + 100,
-			Protocol:             model.ProtocolMongo,
-			AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+			Name:     "mongo",
+			Port:     base + 100,
+			Protocol: model.ProtocolMongo,
 		},
 		{
-			Name:                 "redis",
-			Port:                 base + 110,
-			Protocol:             model.ProtocolRedis,
-			AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+			Name:     "redis",
+			Port:     base + 110,
+			Protocol: model.ProtocolRedis,
 		}, {
-			Name:                 "h2port",
-			Port:                 base + 66,
-			Protocol:             model.ProtocolGRPC,
-			AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+			Name:     "h2port",
+			Port:     base + 66,
+			Protocol: model.ProtocolGRPC,
 		}}
 }
 
 // Test XDS with real envoy and with mixer.
 func TestEnvoy(t *testing.T) {
+	defer func() {
+		if testEnv != nil {
+			testEnv.TearDown()
+		}
+	}()
+
 	initLocalPilotTestEnv(t)
 	startEnvoy(t)
 	// Make sure tcp port is ready before starting the test.
@@ -344,9 +333,11 @@ func envoyInit(t *testing.T) {
 	}
 	// Other interesting values for CDS: cluster_added: 19, active_clusters
 	// cds.update_attempt: 2, cds.update_rejected, cds.version
-
-	if statsMap["cluster.outbound|custom||service3.default.svc.cluster.local.update_success"] < 1 {
-		t.Error("Failed sds updates")
+	for _, port := range testPorts(0) {
+		stat := fmt.Sprintf("cluster.outbound|%d||service3.default.svc.cluster.local.update_success", port.Port)
+		if statsMap[stat] < 1 {
+			t.Error("Failed sds updates")
+		}
 	}
 
 	if statsMap["cluster.xds-grpc.update_failure"] > 0 {
@@ -359,7 +350,6 @@ func envoyInit(t *testing.T) {
 	if statsMap["listener_manager.lds.update_success"] < 1 {
 		t.Error("LDS update failure")
 	}
-
 }
 
 // Example of using a local test connecting to the in-process test service, using Envoy http proxy
@@ -370,11 +360,12 @@ func testService(t *testing.T) {
 	client := &http.Client{Transport: &http.Transport{Proxy: http.ProxyURL(proxyUrl)}}
 
 	res, err := client.Get("http://local.default.svc.cluster.local")
-	resdmp, _ := httputil.DumpResponse(res, true)
-	t.Log(string(resdmp))
 	if err != nil {
 		t.Error("Failed to access proxy", err)
+		return
 	}
+	resdmp, _ := httputil.DumpResponse(res, true)
+	t.Log(string(resdmp))
 	if res.Status != "200 OK" {
 		t.Error("Proxy failed ", res.Status)
 	}
@@ -416,12 +407,6 @@ func getLocalIP() string {
 }
 func TestMain(m *testing.M) {
 	flag.Parse()
-	defer func() {
-		if testEnv != nil {
-			testEnv.TearDown()
-		}
-	}()
-
 	// Run all tests.
 	os.Exit(m.Run())
 }

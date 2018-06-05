@@ -42,6 +42,21 @@ type CopilotClient struct {
 		result1 *api.RoutesResponse
 		result2 error
 	}
+	InternalRoutesStub        func(ctx context.Context, in *api.InternalRoutesRequest, opts ...grpc.CallOption) (*api.InternalRoutesResponse, error)
+	internalRoutesMutex       sync.RWMutex
+	internalRoutesArgsForCall []struct {
+		ctx  context.Context
+		in   *api.InternalRoutesRequest
+		opts []grpc.CallOption
+	}
+	internalRoutesReturns struct {
+		result1 *api.InternalRoutesResponse
+		result2 error
+	}
+	internalRoutesReturnsOnCall map[int]struct {
+		result1 *api.InternalRoutesResponse
+		result2 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -152,6 +167,59 @@ func (fake *CopilotClient) RoutesReturnsOnCall(i int, result1 *api.RoutesRespons
 	}{result1, result2}
 }
 
+func (fake *CopilotClient) InternalRoutes(ctx context.Context, in *api.InternalRoutesRequest, opts ...grpc.CallOption) (*api.InternalRoutesResponse, error) {
+	fake.internalRoutesMutex.Lock()
+	ret, specificReturn := fake.internalRoutesReturnsOnCall[len(fake.internalRoutesArgsForCall)]
+	fake.internalRoutesArgsForCall = append(fake.internalRoutesArgsForCall, struct {
+		ctx  context.Context
+		in   *api.InternalRoutesRequest
+		opts []grpc.CallOption
+	}{ctx, in, opts})
+	fake.recordInvocation("InternalRoutes", []interface{}{ctx, in, opts})
+	fake.internalRoutesMutex.Unlock()
+	if fake.InternalRoutesStub != nil {
+		return fake.InternalRoutesStub(ctx, in, opts...)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fake.internalRoutesReturns.result1, fake.internalRoutesReturns.result2
+}
+
+func (fake *CopilotClient) InternalRoutesCallCount() int {
+	fake.internalRoutesMutex.RLock()
+	defer fake.internalRoutesMutex.RUnlock()
+	return len(fake.internalRoutesArgsForCall)
+}
+
+func (fake *CopilotClient) InternalRoutesArgsForCall(i int) (context.Context, *api.InternalRoutesRequest, []grpc.CallOption) {
+	fake.internalRoutesMutex.RLock()
+	defer fake.internalRoutesMutex.RUnlock()
+	return fake.internalRoutesArgsForCall[i].ctx, fake.internalRoutesArgsForCall[i].in, fake.internalRoutesArgsForCall[i].opts
+}
+
+func (fake *CopilotClient) InternalRoutesReturns(result1 *api.InternalRoutesResponse, result2 error) {
+	fake.InternalRoutesStub = nil
+	fake.internalRoutesReturns = struct {
+		result1 *api.InternalRoutesResponse
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CopilotClient) InternalRoutesReturnsOnCall(i int, result1 *api.InternalRoutesResponse, result2 error) {
+	fake.InternalRoutesStub = nil
+	if fake.internalRoutesReturnsOnCall == nil {
+		fake.internalRoutesReturnsOnCall = make(map[int]struct {
+			result1 *api.InternalRoutesResponse
+			result2 error
+		})
+	}
+	fake.internalRoutesReturnsOnCall[i] = struct {
+		result1 *api.InternalRoutesResponse
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *CopilotClient) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -159,6 +227,8 @@ func (fake *CopilotClient) Invocations() map[string][][]interface{} {
 	defer fake.healthMutex.RUnlock()
 	fake.routesMutex.RLock()
 	defer fake.routesMutex.RUnlock()
+	fake.internalRoutesMutex.RLock()
+	defer fake.internalRoutesMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

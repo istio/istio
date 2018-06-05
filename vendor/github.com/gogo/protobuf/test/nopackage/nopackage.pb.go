@@ -16,7 +16,7 @@ import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
 
-import encoding_binary "encoding/binary"
+import binary "encoding/binary"
 
 import io "io"
 
@@ -78,7 +78,7 @@ func (m *M) MarshalTo(dAtA []byte) (int, error) {
 			i += copy(dAtA[i:], k)
 			dAtA[i] = 0x11
 			i++
-			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(v))))
+			binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(v))))
 			i += 8
 		}
 	}
@@ -230,7 +230,7 @@ func (m *M) Unmarshal(dAtA []byte) error {
 					if (iNdEx + 8) > l {
 						return io.ErrUnexpectedEOF
 					}
-					mapvaluetemp = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+					mapvaluetemp = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 					iNdEx += 8
 					mapvalue = math.Float64frombits(mapvaluetemp)
 				} else {

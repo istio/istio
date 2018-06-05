@@ -138,7 +138,8 @@ func buildMixerCluster(mesh *meshconfig.MeshConfig, mixerSAN []string, server, c
 		},
 	}
 
-	cluster.Features = ClusterFeatureHTTP2
+	cluster.MakeHTTP2()
+
 	// apply auth policies
 	switch mesh.DefaultConfig.ControlPlaneAuthPolicy {
 	case meshconfig.AuthenticationPolicy_NONE:
@@ -198,7 +199,7 @@ func BuildMixerConfig(source model.Proxy, destName string, dest *model.Service, 
 }
 
 // BuildMixerOpaqueConfig builds a mixer opaque config.
-func BuildMixerOpaqueConfig(check, forward bool, destinationService string) map[string]string {
+func BuildMixerOpaqueConfig(check, forward bool, destinationService model.Hostname) map[string]string {
 	keys := map[bool]string{true: "on", false: "off"}
 	m := map[string]string{
 		MixerReport:  "on",
@@ -206,7 +207,7 @@ func BuildMixerOpaqueConfig(check, forward bool, destinationService string) map[
 		MixerForward: keys[forward],
 	}
 	if destinationService != "" {
-		m[AttrDestinationService] = destinationService
+		m[AttrDestinationService] = destinationService.String()
 	}
 	return m
 }
@@ -234,7 +235,7 @@ func BuildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 	// So instance labels are the workload / Node labels.
 	if len(nodeInstances) > 0 {
 		labels = nodeInstances[0].Labels
-		v2.DefaultDestinationService = nodeInstances[0].Service.Hostname
+		v2.DefaultDestinationService = nodeInstances[0].Service.Hostname.String()
 	}
 
 	if !outboundRoute {
@@ -253,7 +254,7 @@ func BuildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 	}
 
 	for _, instance := range nodeInstances {
-		v2.ServiceConfigs[instance.Service.Hostname] = ServiceConfig(instance.Service.Hostname, instance, config,
+		v2.ServiceConfigs[instance.Service.Hostname.String()] = ServiceConfig(instance.Service.Hostname.String(), instance, config,
 			outboundRoute || mesh.DisablePolicyChecks, outboundRoute)
 	}
 
@@ -340,7 +341,7 @@ func BuildTCPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, in
 	}
 
 	attrs := StandardNodeAttributes(AttrDestinationPrefix, role.IPAddress, role.ID, nil)
-	attrs[AttrDestinationService] = &mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_StringValue{instance.Service.Hostname}}
+	attrs[AttrDestinationService] = &mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_StringValue{instance.Service.Hostname.String()}}
 
 	v2 := &mccpb.TcpClientConfig{
 		MixerAttributes: &mpb.Attributes{

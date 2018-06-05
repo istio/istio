@@ -14,6 +14,10 @@ spec:
       abort:
         percent: 100
         httpStatus: 500
+    route:
+    - destination:
+        host: ratings
+        subset: v1
   - route:
     - destination:
         host: ratings

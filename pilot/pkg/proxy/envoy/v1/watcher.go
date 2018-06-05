@@ -125,7 +125,8 @@ func (w *watcher) retrieveAZ(ctx context.Context, delay time.Duration, retries i
 	checkin, err := bootstrap.Checkin(w.config.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS,
 		w.config.DiscoveryAddress, w.config.ServiceCluster, w.role.ServiceNode(), delay, retries)
 	if err != nil {
-		log.Errorf("Failed to connect to pilot. Fallback to starting with defaults and no AZ %v", err)
+		// TODO: turn back on when fully implemented, commented out to avoid confusing users
+		// log.Errorf("Failed to connect to pilot. Fallback to starting with defaults and no AZ %v", err)
 		// TODO: should we exit ? Envoy is unlikely to start without pilot.
 	} else {
 		w.config.AvailabilityZone = checkin.AvailabilityZone
@@ -251,8 +252,8 @@ func NewProxy(config meshconfig.ProxyConfig, node string, logLevel string) proxy
 
 // NewV2Proxy creates an instance of the proxy using v2 bootstrap
 func NewV2Proxy(config meshconfig.ProxyConfig, node string, logLevel string, pilotSAN []string) proxy.Proxy {
-	proxy := NewProxy(config, node, logLevel)
-	e := proxy.(envoy)
+	p := NewProxy(config, node, logLevel)
+	e := p.(envoy)
 	e.v2 = true
 	e.pilotSAN = pilotSAN
 	return e

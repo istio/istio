@@ -1539,7 +1539,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(irate(envoy_cluster_manager_cds_update_failure[1m]))",
+          "expr": "round(sum(rate(envoy_cluster_manager_cds_update_attempt[1m])) - sum(rate(envoy_cluster_manager_cds_update_success[1m])))",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "CDS",
@@ -1547,7 +1547,7 @@
           "step": 2
         },
         {
-          "expr": "sum(irate(envoy_listener_manager_lds_update_failure[1m]))",
+          "expr": "round(sum(rate(envoy_listener_manager_lds_update_attempt[1m])) - sum(rate(envoy_listener_manager_lds_update_success[1m])))",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "LDS",
@@ -1555,7 +1555,7 @@
           "step": 2
         },
         {
-          "expr": "sum(irate(envoy_cluster_rds_update_attempt[1m])) - sum(irate(envoy_cluster_rds_update_success[1m]))",
+          "expr": "round(sum(rate(envoy_cluster_rds_update_attempt[1m])) - sum(rate(envoy_cluster_rds_update_success[1m])))",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "RDS",

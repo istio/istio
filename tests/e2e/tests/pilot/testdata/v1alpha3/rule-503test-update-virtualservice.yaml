@@ -13,11 +13,11 @@ spec:
           host: c
           subset: v3
           port:
-            name: http
+            number: 80
         weight: 50
       - destination:
           host: c
           subset: v4
           port:
-            name: http
+            number: 80
         weight: 50

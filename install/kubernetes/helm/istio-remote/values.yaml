@@ -12,6 +12,12 @@ global:
   # The Istio control plane statsd endpoint
   statsdEndpoint: istio-statsd-prom-bridge.istio-system
 
+  # The Istio control plane ingress endpoint
+  ingressEndpoint: istio-ingress.istio-system
+
+  # The Istio control plane telemetry endpoint
+  telemetryEndpoint: istio-telemetry.istio-system
+
   # Default tag for Istio images.
   hub: docker.io/istionightly
 
@@ -20,7 +26,7 @@ global:
   # Currently using nightly build, for testing
   tag: circleci-nightly
   proxy:
-    image: proxy
+    image: proxyv2
 
   # imagePullPolicy is applied to istio control plane components.
   imagePullPolicy: IfNotPresent
@@ -29,9 +35,6 @@ global:
   hyperkube:
     repository: quay.io/coreos/hyperkube
     tag: v1.7.6_coreos.0
-
-  # Install istio CA.
-  securityEnabled: true
 
   # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
   # propagated, not recommended for tests.

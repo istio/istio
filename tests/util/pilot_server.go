@@ -87,6 +87,8 @@ func init() {
 		idx := strings.Index(current, "/src/istio.io/istio")
 		if idx > 0 {
 			IstioTop = current[0:idx]
+		} else {
+			IstioTop = current // launching from GOTOP (for example in goland)
 		}
 	}
 	if IstioSrc == "" {
@@ -153,7 +155,7 @@ func setup() error {
 		},
 	}
 	// Static testdata, should include all configs we want to test.
-	args.Config.FileDir = IstioSrc + "/tests/testdata"
+	args.Config.FileDir = IstioSrc + "/tests/testdata/config"
 
 	bootstrap.PilotCertDir = IstioSrc + "/tests/testdata/certs/pilot"
 

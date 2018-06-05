@@ -115,7 +115,7 @@ func (m *Monitor) checkAndUpdate() {
 
 func (m *Monitor) createConfig(c *model.Config) {
 	if _, err := m.store.Create(*c); err != nil {
-		log.Warnf("Failed to create config (%m): %v ", *c, err)
+		log.Warnf("Failed to create config %s %s/%s: %v (%m)", c.Type, c.Namespace, c.Name, err, *c)
 	}
 }
 

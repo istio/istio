@@ -27,8 +27,6 @@ const reportAttributesOkPost = `
   "context.protocol": "tcp",
   "context.time": "*",
   "mesh1.ip": "[1 1 1 1]",
-  "source.ip": "[127 0 0 1]",
-  "source.port": "*",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "destination.ip": "[127 0 0 1]",
@@ -57,6 +55,9 @@ var expectedStats = map[string]int{
 }
 
 func TestDisableTCPCheckCalls(t *testing.T) {
+	// https://github.com/istio/istio/issues/5696 skip all TCP tests.
+	t.Skip("issue https://github.com/istio/istio/issues/5696")
+
 	s := env.NewTestSetup(env.DisableTCPCheckCallsTest, t)
 	env.SetStatsUpdateInterval(s.MfConfig(), 1)
 	// Disable Check

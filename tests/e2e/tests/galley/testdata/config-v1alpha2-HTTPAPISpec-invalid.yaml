@@ -1,0 +1,13 @@
+apiVersion: config.istio.io/v1alpha2
+kind: HTTPAPISpec
+metadata:
+  name: invalid-http-api-spec
+spec:
+  apiKeys:
+  - query: key
+  attributes:
+    attributes:
+      api.service:
+        stringValue: bookinfo.endpoints.istio-manlinl.cloud.goog
+      api.version:
+        stringValue: v1

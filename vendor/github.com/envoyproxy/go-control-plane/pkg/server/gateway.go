@@ -89,8 +89,7 @@ func (h *HTTPGateway) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		http.Error(resp, "marshal error: "+err.Error(), http.StatusInternalServerError)
 	}
 
-	_, err = resp.Write(buf.Bytes())
-	if h.Log != nil {
+	if _, err = resp.Write(buf.Bytes()); err != nil && h.Log != nil {
 		h.Log.Errorf("gateway error: %v", err)
 	}
 }

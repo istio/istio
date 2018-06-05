@@ -40,7 +40,7 @@ mkdir -p /var/log/istio
 touch /var/lib/istio/config/mesh
 
 chown istio-proxy.istio-proxy /var/lib/istio/envoy /var/lib/istio/config /var/log/istio /var/lib/istio/config/mesh /var/lib/istio/proxy
-chmod o+rx /usr/local/bin/{envoy,istioctl,pilot-agent,node_agent,mixs,pilot-discovery}
+chmod o+rx /usr/local/bin/{envoy,pilot-agent,node_agent}
 
 # pilot-agent and envoy may run with effective uid 0 in order to run envoy with
 # CAP_NET_ADMIN, so any iptables rule matching on "-m owner --uid-owner

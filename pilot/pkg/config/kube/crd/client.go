@@ -36,10 +36,9 @@ import (
 	// import OIDC cluster authentication plugin, e.g. for Tectonic
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	kubecfg "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 )
 
@@ -70,7 +69,7 @@ type Client struct {
 type restClient struct {
 	apiVersion schema.GroupVersion
 
-	// descriptor from the same apiVerion.
+	// descriptor from the same apiVersion.
 	descriptor model.ConfigDescriptor
 
 	// types of the schema and objects in the descriptor.
@@ -134,14 +133,10 @@ func (rc *restClient) init(kubeconfig string) error {
 
 // createRESTConfig for cluster API server, pass empty config file for in-cluster
 func (rc *restClient) createRESTConfig(kubeconfig string) (config *rest.Config, err error) {
-	if kubeconfig == "" {
-		config, err = rest.InClusterConfig()
-	} else {
-		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
-	}
+	config, err = kubecfg.BuildClientConfig(kubeconfig)
 
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	config.GroupVersion = &rc.apiVersion
@@ -167,11 +162,6 @@ func (rc *restClient) createRESTConfig(kubeconfig string) (config *rest.Config, 
 // Use an empty value for `kubeconfig` to use the in-cluster config.
 // If the kubeconfig file is empty, defaults to in-cluster config as well.
 func NewClient(config string, descriptor model.ConfigDescriptor, domainSuffix string) (*Client, error) {
-	kubeconfig, err := kube.ResolveConfig(config)
-	if err != nil {
-		return nil, err
-	}
-
 	cs, err := newClientSet(descriptor)
 	if err != nil {
 		return nil, err
@@ -183,7 +173,7 @@ func NewClient(config string, descriptor model.ConfigDescriptor, domainSuffix st
 	}
 
 	for _, v := range out.clientset {
-		if err := v.init(kubeconfig); err != nil {
+		if err := v.init(config); err != nil {
 			return nil, err
 		}
 	}

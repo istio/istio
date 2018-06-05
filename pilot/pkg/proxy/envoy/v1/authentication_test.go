@@ -116,7 +116,6 @@ func makeGoldenCluster(mode int) *Cluster {
 			{URL: host},
 		},
 		SSLContext: ssl,
-		Features:   "",
 		CircuitBreaker: &CircuitBreaker{
 			Default: DefaultCBPriority{
 				MaxConnections:     0,

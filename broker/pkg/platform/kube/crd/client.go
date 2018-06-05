@@ -101,11 +101,7 @@ func resolveConfig(kubeconfig string) (string, error) {
 
 // CreateRESTConfig for cluster API server, pass empty config file for in-cluster
 func CreateRESTConfig(kubeconfig string) (restconfig *rest.Config, err error) {
-	if kubeconfig == "" {
-		restconfig, err = rest.InClusterConfig()
-	} else {
-		restconfig, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
-	}
+	restconfig, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
 
 	if err != nil {
 		return

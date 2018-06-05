@@ -24,19 +24,9 @@ import (
 )
 
 // The `logentry` template represents an individual entry within a log.
-
-// Fully qualified name of the template
-const TemplateName = "logentry"
-
-// Instance is constructed by Mixer for the 'logentry' template.
-//
-// The `logentry` template represents an individual entry within a log.
-//
-// When writing the configuration, the value for the fields associated with this template can either be a
-// literal or an [expression](https://istio.io/docs/reference/config/mixer/expression-language.html). Please note that if the datatype of a field is not istio.mixer.adapter.model.v1beta1.Value,
-// then the expression's [inferred type](https://istio.io/docs/reference/config/mixer/expression-language.html#type-checking) must match the datatype of the field.
 //
 // Example config:
+//
 // ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
 // kind: logentry
@@ -59,6 +49,17 @@ const TemplateName = "logentry"
 //     latency: response.duration | "0ms"
 //   monitored_resource_type: '"UNSPECIFIED"'
 // ```
+
+// Fully qualified name of the template
+const TemplateName = "logentry"
+
+// Instance is constructed by Mixer for the 'logentry' template.
+//
+// The `logentry` template represents an individual entry within a log.
+//
+// When writing the configuration, the value for the fields associated with this template can either be a
+// literal or an [expression](https://istio.io/docs/reference//config/policy-and-telemetry/expression-language/). Please note that if the datatype of a field is not istio.policy.v1beta1.Value,
+// then the expression's [inferred type](https://istio.io/docs/reference//config/policy-and-telemetry/expression-language/#type-checking) must match the datatype of the field.
 type Instance struct {
 	// Name of the instance as specified in configuration.
 	Name string

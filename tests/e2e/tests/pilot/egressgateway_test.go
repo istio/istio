@@ -16,6 +16,7 @@ package pilot
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"istio.io/istio/pkg/log"
@@ -33,9 +34,13 @@ func TestEgressGateway(t *testing.T) {
 		t.Skipf("Skipping %s: v1alpha3=false", t.Name())
 	}
 
+	// In authn enable test, mTLS is enabled globally, which mean all clients will use TLS
+	// to talk to egress-gateway. We need to explicitly specify the TLSMode to DISABLE in the
+	// DestinationRule to the gateway.
 	cfgs := &deployableConfig{
 		Namespace: tc.Kube.Namespace,
 		YamlFiles: []string{
+			"testdata/v1alpha3/disable-mtls-egressgateway.yaml",
 			"testdata/v1alpha3/egressgateway.yaml",
 			"testdata/v1alpha3/service-entry.yaml",
 			"testdata/v1alpha3/rule-route-via-egressgateway.yaml"},
@@ -45,21 +50,24 @@ func TestEgressGateway(t *testing.T) {
 	}
 	defer cfgs.Teardown()
 
-	runRetriableTest(t, "RouteViaEgressGateway", defaultRetryBudget, func() error {
-		// We use an arbitrary IP to ensure that the test fails if networking logic is implemented incorrectly
-		reqURL := fmt.Sprintf("http://1.1.1.1/bookinfo")
-		resp := ClientRequest("a", reqURL, 100, "-key Host -val eu.bookinfo.com")
-		count := make(map[string]int)
-		for _, elt := range resp.Host {
-			count[elt] = count[elt] + 1
-		}
-		for _, elt := range resp.Code {
-			count[elt] = count[elt] + 1
-		}
-		log.Infof("request counts %v", count)
-		if count["eu.bookinfo.com"] >= 95 && count[httpOK] >= 95 {
-			return nil
-		}
-		return errAgain
-	})
+	for cluster := range tc.Kube.Clusters {
+		runRetriableTest(t, cluster, "RouteViaEgressGateway", defaultRetryBudget, func() error {
+			// We use an arbitrary IP to ensure that the test fails if networking logic is implemented incorrectly
+			reqURL := fmt.Sprintf("http://1.1.1.1/bookinfo")
+			resp := ClientRequest(cluster, "a", reqURL, 100, "-key Host -val scooby.eu.bookinfo.com")
+			count := make(map[string]int)
+			for _, elt := range resp.Host {
+				count[elt]++
+			}
+			for _, elt := range resp.Code {
+				count[elt]++
+			}
+			handledByEgress := strings.Count(resp.Body, "Handled-By-Egress-Gateway=true")
+			log.Infof("request counts %v", count)
+			if count["scooby.eu.bookinfo.com"] >= 95 && count[httpOK] >= 95 && handledByEgress >= 95 {
+				return nil
+			}
+			return errAgain
+		})
+	}
 }

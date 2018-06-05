@@ -37,7 +37,7 @@ import (
 func buildInboundNetworkFilters(instance *model.ServiceInstance) []listener.Filter {
 	config := &tcp_proxy.TcpProxy{
 		StatPrefix: fmt.Sprintf("%s|tcp|%d", model.TrafficDirectionInbound, instance.Endpoint.ServicePort.Port),
-		Cluster:    model.BuildSubsetKey(model.TrafficDirectionInbound, "", instance.Service.Hostname, instance.Endpoint.ServicePort),
+		Cluster:    model.BuildSubsetKey(model.TrafficDirectionInbound, "", instance.Service.Hostname, instance.Endpoint.ServicePort.Port),
 	}
 	return []listener.Filter{
 		{
@@ -53,6 +53,9 @@ func buildDeprecatedTCPRouteConfig(clusterName string, addresses []string) *Depr
 	}
 	sort.Sort(sort.StringSlice(addresses))
 	for _, addr := range addresses {
+		if addr == model.UnspecifiedIP {
+			continue
+		}
 		tcpRouteAddr := addr
 		if !strings.Contains(addr, "/") {
 			tcpRouteAddr = addr + "/32"
@@ -116,9 +119,6 @@ func buildOutboundNetworkFilters(clusterName string, addresses []string, port *m
 			"deprecated_v1": &trueValue,
 			"value":         &structValue,
 		}},
-		//DeprecatedV1: &listener.Filter_DeprecatedV1{
-		//	Type: "",
-		//},
 	}
 
 	filterstack := make([]listener.Filter, 0)

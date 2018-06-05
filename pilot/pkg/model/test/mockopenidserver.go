@@ -58,6 +58,7 @@ type MockOpenIDDiscoveryServer struct {
 func NewServer() (*MockOpenIDDiscoveryServer, error) {
 	port, err := allocPort()
 	if err != nil {
+		log.Errorf("Server failed to pick an available port: %v", err)
 		return nil, err
 	}
 
@@ -81,11 +82,13 @@ func (ms *MockOpenIDDiscoveryServer) Start() error {
 	// Starts the HTTP and waits for it to begin receiving requests.
 	// Returns an error if the server doesn't serve traffic within about 2 seconds.
 	go func() {
-		server.ListenAndServe()
+		if err := server.ListenAndServe(); err != nil {
+			log.Errorf("Server failed to serve in %q: %v", ms.URL, err)
+		}
 	}()
 
 	wait := 300 * time.Millisecond
-	for try := 0; try < 3; try++ {
+	for try := 0; try < 5; try++ {
 		time.Sleep(wait)
 		// Try to call the server
 		if _, err := http.Get(fmt.Sprintf("%s/.well-known/openid-configuration", ms.URL)); err != nil {

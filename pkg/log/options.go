@@ -16,6 +16,7 @@ package log
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -327,13 +328,12 @@ func (o *Options) AttachCobraFlags(cmd *cobra.Command) {
 
 	allScopes := Scopes()
 	if len(allScopes) > 1 {
-		s := ""
+		keys := make([]string, 0, len(allScopes))
 		for name := range allScopes {
-			if s != "" {
-				s = s + ", "
-			}
-			s = s + name
+			keys = append(keys, name)
 		}
+		sort.Strings(keys)
+		s := strings.Join(keys, ", ")
 
 		cmd.PersistentFlags().StringVar(&o.outputLevels, "log_output_level", o.outputLevels,
 			fmt.Sprintf("Comma-separated minimum per-scope logging level of messages to output, in the form of "+

@@ -3,7 +3,7 @@ syntax = "proto3";
 package foo.bar;
 
 import "mixer/adapter/model/v1beta1/extensions.proto";
-import "mixer/adapter/model/v1beta1/type.proto";
+import "policy/v1beta1/type.proto";
 
 message Resource3 {
     /*
@@ -16,10 +16,10 @@ message Resource3 {
     double fieldDouble = 4;
 
     /*single line block comment*/
-    istio.mixer.adapter.model.v1beta1.Value val = 5;
+    istio.policy.v1beta1.Value val = 5;
 
     // single line comment
-    map<string, istio.mixer.adapter.model.v1beta1.Value> dimensions = 6;
+    map<string, istio.policy.v1beta1.Value> dimensions = 6;
 
     map<string, int64> dimensionsConstInt64Val = 7;
     map<string, string> dimensionsConstStringVal = 8;

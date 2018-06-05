@@ -24,6 +24,17 @@ import (
 
 // The `reportnothing` template represents an empty block of data, which can useful
 // in different testing scenarios.
+//
+// Example config:
+//
+// ```yaml
+// apiVersion: "config.istio.io/v1alpha2"
+// kind: reportnothing
+// metadata:
+//   name: reportrequest
+//   namespace: istio-system
+// spec:
+// ```\
 
 // Fully qualified name of the template
 const TemplateName = "reportnothing"
@@ -33,16 +44,6 @@ const TemplateName = "reportnothing"
 // ReportNothing represents an empty block of data that is used for Report-capable
 // adapters which don't require any parameters. This is primarily intended for testing
 // scenarios.
-//
-// Example config:
-// ```yaml
-// apiVersion: "config.istio.io/v1alpha2"
-// kind: reportnothing
-// metadata:
-//   name: reportrequest
-//   namespace: istio-system
-// spec:
-// ```
 type Instance struct {
 	// Name of the instance as specified in configuration.
 	Name string

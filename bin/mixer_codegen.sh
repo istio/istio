@@ -133,7 +133,7 @@ done
 PLUGIN="--plugin=$ROOT/bin/protoc-gen-gogoslick-$GOGO_VERSION --gogoslick-${GOGO_VERSION}_out=plugins=grpc,$MAPPINGS:"
 PLUGIN+=$outdir
 
-GENDOCS_PLUGIN="--plugin=$ROOT/bin/$GENDOCS-$GENDOCS_VERSION --docs-${GENDOCS_VERSION}_out=warnings=true,mode=jekyll_html:"
+GENDOCS_PLUGIN="--plugin=$ROOT/bin/$GENDOCS-$GENDOCS_VERSION --docs-${GENDOCS_VERSION}_out=warnings=true,mode=html_fragment_with_front_matter:"
 GENDOCS_PLUGIN_FILE=$GENDOCS_PLUGIN$(dirname "${file}")
 GENDOCS_PLUGIN_TEMPLATE=$GENDOCS_PLUGIN$(dirname "${template}")
 

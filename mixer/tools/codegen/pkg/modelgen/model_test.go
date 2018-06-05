@@ -64,7 +64,7 @@ func TestErrorInTemplate(t *testing.T) {
 			"must not contain the reserved field name 'Name'"}},
 		{"testdata/Proto2BadSyntax.descriptor", []string{"Proto2BadSyntax.proto:3: Only proto3 template files are allowed."}},
 		{"testdata/UnsupportedFieldTypePrimitive.descriptor", []string{"unsupported type for field 'o'. " +
-			"Supported types are 'istio.mixer.adapter.model.v1beta1.Value, string, int64, double, bool, other messages " +
+			"Supported types are 'istio.policy.v1beta1.Value, string, int64, double, bool, other messages " +
 			"defined within the same package, map<string, any of the listed supported types>"}},
 		{"testdata/UnsupportedMapKey.descriptor", []string{"unsupported type for field 'o'."}},
 		{"testdata/UnsupportedMapVal.descriptor", []string{"unsupported type for field 'o'."}},
@@ -225,15 +225,15 @@ func testSimpleTemplateFields(msgInfo MessageInfo, t *testing.T) {
 		"FieldDouble", TypeInfo{Name: "float64"}, "")
 	testField(t, testFileName, msgInfo,
 		"val",
-		TypeInfo{Name: "istio.mixer.adapter.model.v1beta1.Value", IsValueType: true, Import: "mixer/adapter/model/v1beta1/type.proto"}, "Val",
+		TypeInfo{Name: "istio.policy.v1beta1.Value", IsValueType: true, Import: "policy/v1beta1/type.proto"}, "Val",
 		TypeInfo{Name: "interface{}", IsValueType: true}, "single line block comment")
 	testField(t, testFileName, msgInfo,
 		"dimensions",
-		TypeInfo{Name: "map<string, istio.mixer.adapter.model.v1beta1.Value>",
+		TypeInfo{Name: "map<string, istio.policy.v1beta1.Value>",
 			IsMap:    true,
-			Import:   "mixer/adapter/model/v1beta1/type.proto",
+			Import:   "policy/v1beta1/type.proto",
 			MapKey:   &TypeInfo{Name: "string"},
-			MapValue: &TypeInfo{Name: "istio.mixer.adapter.model.v1beta1.Value", IsValueType: true, Import: "mixer/adapter/model/v1beta1/type.proto"},
+			MapValue: &TypeInfo{Name: "istio.policy.v1beta1.Value", IsValueType: true, Import: "policy/v1beta1/type.proto"},
 		},
 		"Dimensions",
 		TypeInfo{

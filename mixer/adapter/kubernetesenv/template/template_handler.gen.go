@@ -25,18 +25,9 @@ import (
 
 // The `kubernetes` template holds data that controls the production of Kubernetes-specific
 // attributes.
-
-// Fully qualified name of the template
-const TemplateName = "kubernetes"
-
-// Instance is constructed by Mixer for the 'kubernetes' template.
-//
-// The `kubernetes` template represents data used to generate kubernetes-derived attributes.
-//
-// The values provided controls the manner in which the kubernetesenv adapter discovers and
-// generates values related to pod information.
 //
 // Example config:
+//
 // ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
 // kind: kubernetes
@@ -63,6 +54,16 @@ const TemplateName = "kubernetes"
 //     destination.service: $out.destination_service
 //     destination.serviceAccount: $out.destination_service_account_name
 // ```
+
+// Fully qualified name of the template
+const TemplateName = "kubernetes"
+
+// Instance is constructed by Mixer for the 'kubernetes' template.
+//
+// The `kubernetes` template represents data used to generate kubernetes-derived attributes.
+//
+// The values provided controls the manner in which the kubernetesenv adapter discovers and
+// generates values related to pod information.
 type Instance struct {
 	// Name of the instance as specified in configuration.
 	Name string

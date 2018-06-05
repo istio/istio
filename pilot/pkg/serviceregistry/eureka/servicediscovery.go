@@ -15,6 +15,8 @@
 package eureka
 
 import (
+	"fmt"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
@@ -47,20 +49,26 @@ func (sd *serviceDiscovery) Services() ([]*model.Service, error) {
 }
 
 // GetService implements a service catalog operation
-func (sd *serviceDiscovery) GetService(hostname string) (*model.Service, error) {
+func (sd *serviceDiscovery) GetService(hostname model.Hostname) (*model.Service, error) {
 	apps, err := sd.client.Applications()
 	if err != nil {
 		log.Warnf("could not list Eureka instances: %v", err)
 		return nil, err
 	}
 
-	services := convertServices(apps, map[string]bool{hostname: true})
+	services := convertServices(apps, map[model.Hostname]bool{hostname: true})
 	service := services[hostname]
 	return service, nil
 }
 
 // Instances implements a service catalog operation
-func (sd *serviceDiscovery) Instances(hostname string, ports []string,
+func (sd *serviceDiscovery) Instances(hostname model.Hostname, ports []string,
+	tagsList model.LabelsCollection) ([]*model.ServiceInstance, error) {
+	return nil, fmt.Errorf("NOT IMPLEMENTED")
+}
+
+// InstancesByPort implements a service catalog operation
+func (sd *serviceDiscovery) InstancesByPort(hostname model.Hostname, port int,
 	tagsList model.LabelsCollection) ([]*model.ServiceInstance, error) {
 
 	apps, err := sd.client.Applications()
@@ -68,11 +76,7 @@ func (sd *serviceDiscovery) Instances(hostname string, ports []string,
 		log.Warnf("could not list Eureka instances: %v", err)
 		return nil, err
 	}
-	portSet := make(map[string]bool)
-	for _, port := range ports {
-		portSet[port] = true
-	}
-	services := convertServices(apps, map[string]bool{hostname: true})
+	services := convertServices(apps, map[model.Hostname]bool{hostname: true})
 
 	out := make([]*model.ServiceInstance, 0)
 	for _, instance := range convertServiceInstances(services, apps) {
@@ -80,7 +84,7 @@ func (sd *serviceDiscovery) Instances(hostname string, ports []string,
 			continue
 		}
 
-		if len(portSet) > 0 && !portSet[instance.Endpoint.ServicePort.Name] {
+		if port != 0 && port != instance.Endpoint.ServicePort.Port {
 			continue
 		}
 
