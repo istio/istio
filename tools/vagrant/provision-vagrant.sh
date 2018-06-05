@@ -20,9 +20,8 @@ shell_profile="bashrc"
 DFILE="go$VERSION.linux-amd64.tar.gz"
 HOME="/home/vagrant"
 echo "Downloading $DFILE ..."
-wget https://dl.google.com/go/$DFILE -O /tmp/go.tar.gz
 
-if [ $? -ne 0 ]; then
+if ! wget https://dl.google.com/go/$DFILE -O /tmp/go.tar.gz; then
     echo "Download failed! Exiting."
     exit 1
 fi
