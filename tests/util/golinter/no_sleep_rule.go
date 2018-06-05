@@ -26,19 +26,14 @@ func newNoSleepRule() *NoSleepRule {
 	return &NoSleepRule{}
 }
 
-// GetID returns ID NoSleep.
-func (lr *NoSleepRule) GetID() RuleID {
-	return NoSleep
-}
-
 // OnlyCheckTestFunc returns false as NoSleepRuleRule applies to whole file.
 func (lr *NoSleepRule) OnlyCheckTestFunc() bool	{
 	return false
 }
 
-// GetName returns NoSleep.
-func (lr *NoSleepRule) GetName() string	{
-	return "NoSleep"
+// GetID returns NoSleep.
+func (lr *NoSleepRule) GetID() string	{
+	return NoSleep
 }
 
 // Check returns true if aNode is not time.Sleep. Otherwise it returns false and error report.

@@ -21,19 +21,6 @@ import (
 	"strings"
 )
 
-// whitelistedPaths contains paths of files and directories that skip linting.
-// Paths could be relevant paths or absolute paths.
-// For example,
-// ../../../mixer/test/client/check_cache/check_cache_test.go
-// ../../../mixer/test/client/check_cache_hit/
-var whitelistedPaths = []string{}
-
-// forbiddenFunctionCall lists all the forbidden functions in <package name>.<method name> format.
-var forbiddenFunctionCalls = []string{
-	"time.Sleep",
-	"testing.Short",
-}
-
 // TestType is type ID of tests
 type TestType int
 
@@ -45,26 +32,25 @@ const (
 	NonTest   TestType = iota // NonTest == 3
 )
 
-// TestTypeToString contains test types in string. The order should be in line with enum above.
-var TestTypeToString = []string{"unit test", "integration test", "e2e test", "None"}
 
 type pathFilter struct {
-	absWPaths map[string]bool // absolute paths that are whitelisted.
+	WPaths map[string]map[string]bool // absolute paths that are whitelisted.
 }
 
 func newPathFilter() pathFilter {
-	p := pathFilter{make(map[string]bool)}
-	p.getAbsWhitelistedPaths()
+	p := pathFilter{map[string]map[string]bool{}}
+	p.getWhitelistedPathsMap()
 	return p
 }
 
-// getAbsWhitelistedPaths converts paths from whitelistedPaths to absolute paths.
-func (pf *pathFilter) getAbsWhitelistedPaths() {
-	for _, path := range whitelistedPaths {
-		if !filepath.IsAbs(path) {
-			path, _ = filepath.Abs(path)
+// getWhitelistedPathsMap converts whitelistedPaths to a map that maps path to rules
+func (pf *pathFilter) getWhitelistedPathsMap() {
+	for path, rules := range WhitelistPath {
+		pf.WPaths[path] = map[string]bool{}
+		ruleList := strings.Split(rules, ",")
+		for _, rule := range ruleList {
+			pf.WPaths[path][rule] = true
 		}
-		pf.absWPaths[path] = true
 	}
 }
 
@@ -79,20 +65,25 @@ func (pf *pathFilter) getAbsWhitelistedPaths() {
 // .../*_integ_test.go
 // (3) unit test file
 // .../*_test.go
-func (pf *pathFilter) IsTestFile(absp string, info os.FileInfo) (bool, TestType) {
-	// Skip path that is whitelisted.
-	if _, ok := pf.absWPaths[absp]; ok {
-		return false, NonTest
+func (pf *pathFilter) IsTestFile(absp string, info os.FileInfo) (bool, TestType, map[string]bool) {
+	// sRules stores skipped rules for file path absp.
+	var sRules = map[string]bool{}
+
+	paths := strings.Split(absp, "/")
+	if len(paths) == 0 {
+		return false, NonTest, sRules
 	}
 
 	// Skip path which is not go file.
 	if info.IsDir() || !strings.HasSuffix(absp, ".go") {
-		return false, NonTest
+		return false, NonTest, sRules
 	}
 
-	paths := strings.Split(absp, "/")
-	if len(paths) == 0 {
-		return false, NonTest
+	// Check whether path is whitelisted
+	for wp, ruleMap := range pf.WPaths {
+		if matched, _ := filepath.Match(wp, absp); matched {
+			sRules = ruleMap
+		}
 	}
 
 	var isUnderE2eDir, isUnderIntegDir = false, false
@@ -106,15 +97,15 @@ func (pf *pathFilter) IsTestFile(absp string, info os.FileInfo) (bool, TestType)
 
 	if isUnderE2eDir && isUnderIntegDir {
 		log.Printf("Invalid path %q under both e2e directory and integ directory", absp)
-		return false, NonTest
+		return false, NonTest, sRules
 	} else if isUnderE2eDir && strings.HasSuffix(paths[len(paths)-1], "_test.go") {
-		return true, E2eTest
+		return true, E2eTest, sRules
 	} else if (isUnderIntegDir && strings.HasSuffix(paths[len(paths)-1], "_test.go")) ||
 		strings.HasSuffix(paths[len(paths)-1], "_integ_test.go") {
-		return true, IntegTest
+		return true, IntegTest, sRules
 	} else if strings.HasSuffix(paths[len(paths)-1], "_test.go") &&
 		!strings.HasSuffix(paths[len(paths)-1], "_integ_test.go") {
-		return true, UnitTest
+		return true, UnitTest, sRules
 	}
-	return false, NonTest
+	return false, NonTest, sRules
 }

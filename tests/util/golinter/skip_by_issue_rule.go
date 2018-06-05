@@ -27,12 +27,7 @@ type SkipByIssueRule struct {
 func newSkipByIssueRule() *SkipByIssueRule {
 	return &SkipByIssueRule{
 		skipArgsRegex: `https:\/\/github\.com\/istio\/istio\/issues\/[0-9]+`,
-}
-}
-
-// GetID returns ID SkipByIssue.
-func (lr *SkipByIssueRule) GetID() RuleID {
-	return SkipByIssue
+	}
 }
 
 // OnlyCheckTestFunc returns true as SkipByIssueRule only applies to test function with prefix Test.
@@ -40,9 +35,9 @@ func (lr *SkipByIssueRule) OnlyCheckTestFunc() bool	{
 	return true
 }
 
-// GetName returns SkipByIssue.
-func (lr *SkipByIssueRule) GetName() string	{
-	return "SkipByIssue"
+// GetID returns SkipByIssue.
+func (lr *SkipByIssueRule) GetID() string	{
+	return SkipByIssue
 }
 
 // Check returns true if aNode is a valid t.Skip(), or aNode is not t.Skip(), t.SkipNow(),

@@ -26,19 +26,14 @@ func newNoGoroutineRule() *NoGoroutineRule {
 	return &NoGoroutineRule{}
 }
 
-// GetID returns ID NoGoroutine.
-func (lr *NoGoroutineRule) GetID() RuleID {
-	return NoGoroutine
-}
-
 // OnlyCheckTestFunc returns true as SkipByIssueRule only applies to test function with prefix Test.
 func (lr *NoGoroutineRule) OnlyCheckTestFunc() bool	{
 	return false
 }
 
-// GetName returns NoGoroutine.
-func (lr *NoGoroutineRule) GetName() string	{
-	return "NoGoroutine"
+// GetID returns NoGoroutine.
+func (lr *NoGoroutineRule) GetID() string	{
+	return NoGoroutine
 }
 
 // Check returns true if aNode is not goroutine, or false otherwise.
