@@ -83,7 +83,7 @@ webhooks:
         - apikeys
         - authorizations
         - checknothings
-        - kuberneteses
+        # - kuberneteses
         - listentries
         - logentries
         - metrics
