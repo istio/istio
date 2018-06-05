@@ -21,6 +21,7 @@ sh install_prereqs.sh
 
 # Steps
 ## 1. Set up Vagrant Environment
+*Noted that an [in-cluster registry](../localregistry) is the default option and is automatically setup in this script.* 
 ```bash
 sh setup_vm.sh
 ```

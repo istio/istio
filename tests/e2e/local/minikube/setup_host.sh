@@ -18,7 +18,7 @@ while [ $? -ne 0 ]; do
 done
 
 #Setup LocalRegistry
-kubectl apply -f $ISTIO/istio/tests/util/localregistry/localregistry.yaml
+kubectl apply -f $ISTIO/istio/tests/e2e/local/localregistry/localregistry.yaml
 echo "local registry started"
 
 kubectl get pods -n kube-system | grep kube-registry-v0 | grep Running > /dev/null
