@@ -1,0 +1,12 @@
+apiVersion: "authentication.istio.io/v1alpha1"
+kind: "Policy"
+metadata:
+  name: "c-permissive-authn-80"
+spec:
+  targets:
+  - name: "c"
+    ports:
+    - number: 80
+  peers:
+    - mtls:
+        mode: PERMISSIVE
