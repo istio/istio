@@ -282,13 +282,7 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 // buildTCPMixerFilterConfig builds a TCP filter config for inbound requests.
 func buildTCPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, instance *model.ServiceInstance) *mccpb.TcpClientConfig {
 	attrs := v1.StandardNodeAttributes(v1.AttrDestinationPrefix, role.IPAddress, role.ID, nil)
-
-	name, ns := nameAndNamespace(instance.Service.Hostname.String())
-	attrs[v1.AttrDestinationService] = attrStringValue(instance.Service.Hostname.String())
-	attrs["destination.service.host"] = attrStringValue(instance.Service.Hostname.String())
-	attrs["destination.service.uid"] = attrStringValue(fmt.Sprintf("istio://%s/services/%s", ns, name))
-	attrs["destination.service.name"] = attrStringValue(name)
-	attrs["destination.service.namespace"] = attrStringValue(ns)
+	addDestinationServiceAttributes(attrs, instance.Service.Hostname.String())
 	attrs["context.reporter.uid"] = attrStringValue("kubernetes://" + role.ID)
 	attrs["context.reporter.local"] = &mpb.Attributes_AttributeValue{
 		Value: &mpb.Attributes_AttributeValue_BoolValue{BoolValue: true},
@@ -341,14 +335,17 @@ func addStandardNodeAttributes(attr map[string]*mpb.Attributes_AttributeValue, p
 
 func serviceConfig(serviceHostname string, dest *model.ServiceInstance, config model.IstioConfigStore, disableCheck, disableReport bool) *mccpb.ServiceConfig {
 	sc := v1.ServiceConfig(serviceHostname, dest, config, disableCheck, disableReport)
-
-	name, ns := nameAndNamespace(serviceHostname)
-	sc.MixerAttributes.Attributes["destination.service.host"] = attrStringValue(serviceHostname)
-	sc.MixerAttributes.Attributes["destination.service.uid"] = attrStringValue(fmt.Sprintf("istio://%s/services/%s", ns, name))
-	sc.MixerAttributes.Attributes["destination.service.name"] = attrStringValue(name)
-	sc.MixerAttributes.Attributes["destination.service.namespace"] = attrStringValue(ns)
-
+	addDestinationServiceAttributes(sc.MixerAttributes.Attributes, serviceHostname)
 	return sc
+}
+
+func addDestinationServiceAttributes(attrs map[string]*mpb.Attributes_AttributeValue, destinationHostname string) {
+	svcName, svcNamespace := nameAndNamespace(destinationHostname)
+	attrs[v1.AttrDestinationService] = attrStringValue(destinationHostname)
+	attrs["destination.service.host"] = attrStringValue(destinationHostname)
+	attrs["destination.service.uid"] = attrStringValue(fmt.Sprintf("istio://%s/services/%s", svcNamespace, svcName))
+	attrs["destination.service.name"] = attrStringValue(svcName)
+	attrs["destination.service.namespace"] = attrStringValue(svcNamespace)
 }
 
 func nameAndNamespace(serviceHostname string) (name, namespace string) {
