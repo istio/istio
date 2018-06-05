@@ -21,7 +21,9 @@ type Interface interface {
 	// distributing bundles of configuration.
 	Initialize() error
 
-	// Distribute the given bundle.
+	// Distribute the given bundle. The bundle is self identifying. The distributor implementation should
+	// check the component id on the bundle to update its in-memory representation, and possibly replace
+	// an older/stale version.
 	Distribute(b Bundle)
 
 	// Shutdown the distribution interface.  The distribution system should stop distributing configuration,
