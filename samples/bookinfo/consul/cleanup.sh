@@ -19,7 +19,7 @@ SCRIPTDIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd --physical)
 # only ask if in interactive mode
 if [[ -t 0 ]];then
   echo -n "namespace ? [default] "
-  read NAMESPACE
+  read -r NAMESPACE
 fi
 
 if [[ -z ${NAMESPACE} ]];then
