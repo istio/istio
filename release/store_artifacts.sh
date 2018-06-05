@@ -33,7 +33,6 @@ GCR_PREFIX=""
 
 VER_STRING="0.0.0"
 OUTPUT_PATH=""
-BUILD_ID=""
 PUSH_DOCKER="true"
 
 function usage() {
@@ -49,7 +48,6 @@ function usage() {
 
 while getopts abi:no:p:q:v: arg ; do
   case "${arg}" in
-    i) BUILD_ID="${OPTARG}";;
     n) PUSH_DOCKER="false";;
     o) OUTPUT_PATH="${OPTARG}";;
     p) GCS_PREFIX="${OPTARG}";;

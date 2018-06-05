@@ -9,7 +9,7 @@
 set -o errexit
 
 WD=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd --physical)
-ROOT=$(cd "$(dirname "${SCRIPTPATH}")" && pwd --physical)
+ROOT=$(cd "$(dirname "${WD}")" && pwd --physical)
 if [[ $ROOT == */.git ]]; then
     ROOT=$(cd "$(dirname "${ROOT}")" && pwd --physical)
 fi

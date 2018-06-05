@@ -67,8 +67,6 @@ if [ "${CI:-}" == 'bootstrap' ]; then
   E2E_ARGS+=(--test_logs_path="${ARTIFACTS_DIR}")
 fi
 
-ISTIO_GO=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd --physical)
-
 export HUB=${HUB:-"gcr.io/istio-testing"}
 export TAG="${GIT_SHA}"
 

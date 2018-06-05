@@ -28,7 +28,5 @@ set -u
 # Print commands
 set -x
 
-ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd --physical)
-
 echo 'Running e2e with rbac, no auth Tests'
 ./prow/e2e-suite.sh "$@"
