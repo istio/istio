@@ -525,8 +525,8 @@ func _HealthCheck_Payload_OneofSizer(msg proto.Message) (n int) {
 
 type HealthCheck_HttpHealthCheck struct {
 	// The value of the host header in the HTTP health check request. If
-	// left empty (default value), the IP on behalf of which this health check is performed will be
-	// used.
+	// left empty (default value), the name of the cluster this health check is associated
+	// with will be used.
 	Host string `protobuf:"bytes,1,opt,name=host,proto3" json:"host,omitempty"`
 	// Specifies the HTTP path that will be requested during health checking. For example
 	// */healthcheck*.
@@ -714,10 +714,7 @@ func init() {
 }
 func (this *HealthCheck) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*HealthCheck)
@@ -730,10 +727,7 @@ func (this *HealthCheck) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -783,10 +777,7 @@ func (this *HealthCheck) Equal(that interface{}) bool {
 }
 func (this *HealthCheck_HttpHealthCheck_) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*HealthCheck_HttpHealthCheck_)
@@ -799,10 +790,7 @@ func (this *HealthCheck_HttpHealthCheck_) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -813,10 +801,7 @@ func (this *HealthCheck_HttpHealthCheck_) Equal(that interface{}) bool {
 }
 func (this *HealthCheck_TcpHealthCheck_) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*HealthCheck_TcpHealthCheck_)
@@ -829,10 +814,7 @@ func (this *HealthCheck_TcpHealthCheck_) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -843,10 +825,7 @@ func (this *HealthCheck_TcpHealthCheck_) Equal(that interface{}) bool {
 }
 func (this *HealthCheck_RedisHealthCheck_) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*HealthCheck_RedisHealthCheck_)
@@ -859,10 +838,7 @@ func (this *HealthCheck_RedisHealthCheck_) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -873,10 +849,7 @@ func (this *HealthCheck_RedisHealthCheck_) Equal(that interface{}) bool {
 }
 func (this *HealthCheck_GrpcHealthCheck_) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*HealthCheck_GrpcHealthCheck_)
@@ -889,10 +862,7 @@ func (this *HealthCheck_GrpcHealthCheck_) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -903,10 +873,7 @@ func (this *HealthCheck_GrpcHealthCheck_) Equal(that interface{}) bool {
 }
 func (this *HealthCheck_CustomHealthCheck_) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*HealthCheck_CustomHealthCheck_)
@@ -919,10 +886,7 @@ func (this *HealthCheck_CustomHealthCheck_) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -933,10 +897,7 @@ func (this *HealthCheck_CustomHealthCheck_) Equal(that interface{}) bool {
 }
 func (this *HealthCheck_Payload) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*HealthCheck_Payload)
@@ -949,10 +910,7 @@ func (this *HealthCheck_Payload) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -969,10 +927,7 @@ func (this *HealthCheck_Payload) Equal(that interface{}) bool {
 }
 func (this *HealthCheck_Payload_Text) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*HealthCheck_Payload_Text)
@@ -985,10 +940,7 @@ func (this *HealthCheck_Payload_Text) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -999,10 +951,7 @@ func (this *HealthCheck_Payload_Text) Equal(that interface{}) bool {
 }
 func (this *HealthCheck_Payload_Binary) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*HealthCheck_Payload_Binary)
@@ -1015,10 +964,7 @@ func (this *HealthCheck_Payload_Binary) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -1029,10 +975,7 @@ func (this *HealthCheck_Payload_Binary) Equal(that interface{}) bool {
 }
 func (this *HealthCheck_HttpHealthCheck) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*HealthCheck_HttpHealthCheck)
@@ -1045,10 +988,7 @@ func (this *HealthCheck_HttpHealthCheck) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -1079,10 +1019,7 @@ func (this *HealthCheck_HttpHealthCheck) Equal(that interface{}) bool {
 }
 func (this *HealthCheck_TcpHealthCheck) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*HealthCheck_TcpHealthCheck)
@@ -1095,10 +1032,7 @@ func (this *HealthCheck_TcpHealthCheck) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -1117,10 +1051,7 @@ func (this *HealthCheck_TcpHealthCheck) Equal(that interface{}) bool {
 }
 func (this *HealthCheck_RedisHealthCheck) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*HealthCheck_RedisHealthCheck)
@@ -1133,10 +1064,7 @@ func (this *HealthCheck_RedisHealthCheck) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -1147,10 +1075,7 @@ func (this *HealthCheck_RedisHealthCheck) Equal(that interface{}) bool {
 }
 func (this *HealthCheck_GrpcHealthCheck) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*HealthCheck_GrpcHealthCheck)
@@ -1163,10 +1088,7 @@ func (this *HealthCheck_GrpcHealthCheck) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -1177,10 +1099,7 @@ func (this *HealthCheck_GrpcHealthCheck) Equal(that interface{}) bool {
 }
 func (this *HealthCheck_CustomHealthCheck) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*HealthCheck_CustomHealthCheck)
@@ -1193,10 +1112,7 @@ func (this *HealthCheck_CustomHealthCheck) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}

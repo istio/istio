@@ -34,7 +34,7 @@ import _ "github.com/gogo/protobuf/gogoproto"
 
 import time "time"
 
-import github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
+import types "github.com/gogo/protobuf/types"
 
 import io "io"
 
@@ -610,8 +610,8 @@ func (m *Bootstrap) MarshalTo(dAtA []byte) (int, error) {
 	if m.StatsFlushInterval != nil {
 		dAtA[i] = 0x3a
 		i++
-		i = encodeVarintBootstrap(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.StatsFlushInterval)))
-		n5, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.StatsFlushInterval, dAtA[i:])
+		i = encodeVarintBootstrap(dAtA, i, uint64(types.SizeOfStdDuration(*m.StatsFlushInterval)))
+		n5, err := types.StdDurationMarshalTo(*m.StatsFlushInterval, dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
@@ -1067,7 +1067,7 @@ func (m *Bootstrap) Size() (n int) {
 		}
 	}
 	if m.StatsFlushInterval != nil {
-		l = github_com_gogo_protobuf_types.SizeOfStdDuration(*m.StatsFlushInterval)
+		l = types.SizeOfStdDuration(*m.StatsFlushInterval)
 		n += 1 + l + sovBootstrap(uint64(l))
 	}
 	if m.Watchdog != nil {
@@ -1502,7 +1502,7 @@ func (m *Bootstrap) Unmarshal(dAtA []byte) error {
 			if m.StatsFlushInterval == nil {
 				m.StatsFlushInterval = new(time.Duration)
 			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(m.StatsFlushInterval, dAtA[iNdEx:postIndex]); err != nil {
+			if err := types.StdDurationUnmarshal(m.StatsFlushInterval, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex

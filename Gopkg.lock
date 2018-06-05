@@ -272,7 +272,7 @@
     "envoy/type",
     "pkg/util"
   ]
-  revision = "5f52d064b948cc3a39451b20055e173597d3885e"
+  revision = "39c73ae5ba014b648d4164a24340a78b6b761978"
 
 [[projects]]
   name = "github.com/evanphx/json-patch"
