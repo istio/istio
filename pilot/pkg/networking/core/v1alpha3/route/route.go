@@ -501,7 +501,7 @@ func BuildDefaultHTTPRoute(clusterName string) *route.Route {
 		Action: &route.Route_Route{
 			Route: &route.RouteAction{
 				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
-				Timeout: &notimeout,
+				Timeout:          &notimeout,
 			},
 		},
 	}
