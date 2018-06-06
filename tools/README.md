@@ -6,7 +6,7 @@ on the VM, 2 pods within the cluster (non-Istio) and 2 pods within the Istio mes
 
 It should not be too difficult to adapt the script to other cloud providers or environments and contributions for additional automated setup are welcome.
 
-The following diagram provides additional details of the deployment:
+The following diagram provides additional details of the deployment and the main 4 istio-ified scenarios (which are ran twice each, once at max qps and once at fixed 400qps):
 <!-- Source of this picture is https://docs.google.com/drawings/d/1mhwDtcDXYxj0O8DuSce_d0tBuyH1PZqnaMtPRTC-CyM/edit -->
 ![Deployment Diagram](perf_setup.svg)
 
