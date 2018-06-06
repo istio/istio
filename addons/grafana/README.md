@@ -3,8 +3,14 @@
 This image is Grafana configured to work with Istio, and a few
 pre-loaded dashboards:
 
-### Istio Dashboard
+### Istio Mesh Dashboard
 This is the primary dashboard with an overview of the whole mesh.
+
+### Istio HTTP/GRPC Service Dashboard
+Provides a dashboard for an individual HTTP or GRPC service in the mesh.
+
+### Istio TCP Service Dashboard
+Provides a dashboard for an individual TCP service in the mesh.
 
 ### Mixer Dashboard
 This dashboard focuses on

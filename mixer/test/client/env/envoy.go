@@ -62,6 +62,9 @@ func (s *TestSetup) NewEnvoy(stress bool, filtersBeforeMixer string, mfConf *Mix
 	}
 	/* #nosec */
 	envoyPath := filepath.Join(util.IstioBin, "envoy")
+	if path, exists := os.LookupEnv("ENVOY_PATH"); exists {
+		envoyPath = path
+	}
 	cmd := exec.Command(envoyPath, args...)
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
