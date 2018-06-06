@@ -22,7 +22,7 @@ export PATH
 # install handler
 if [[ -z ${GIT_AUTHOR_DATE} ]];then
     cd "$ROOT/.git/hooks/"
-    if ! ([[ -e pre-commit ]] || [[ -h pre-commit ]]); then
+    if ! { [[ -e pre-commit ]] || [[ -h pre-commit ]]; }; then
         echo "Installing pre-commit hook"
         ln -s "$ROOT/bin/pre-commit" .
     else
