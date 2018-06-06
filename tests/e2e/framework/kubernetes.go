@@ -63,6 +63,7 @@ const (
 	caKeyFileName                  = "samples/certs/ca-key.pem"
 	rootCertFileName               = "samples/certs/root-cert.pem"
 	certChainFileName              = "samples/certs/cert-chain.pem"
+	globalAuthEnableCrdlFile       = "testdata/authn/v1alpha1/global-auth-enable.yaml.tmpl"
 	// PrimaryCluster identifies the primary cluster
 	PrimaryCluster = "primary"
 	// RemoteCluster identifies the remote cluster
@@ -663,6 +664,16 @@ func (k *KubeInfo) deployIstio() error {
 		}
 	}
 
+	if *authEnable {
+		// Add authentication policy and destination rule that equivalent to enable mTLS for all services
+		// (in the testing namespace). This CRDs will be destroy when testing namespace tear down.
+		// In future, we may move this setup to individual tests that need to run in mTLS mode.
+		if err := util.KubeApply(k.Namespace, globalAuthEnableCrdlFile, k.KubeConfig); err != nil {
+			log.Errorf("Enable mTLS via CRD %q failed", globalAuthEnableCrdlFile)
+			return err
+		}
+	}
+
 	if *useAutomaticInjection {
 		baseSidecarInjectorYAML := util.GetResourcePath(filepath.Join(istioInstallDir, *sidecarInjectorFile))
 		testSidecarInjectorYAML := filepath.Join(k.TmpDir, "yaml", *sidecarInjectorFile)
@@ -743,6 +754,16 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	if err != nil {
 		log.Errorf("Helm install istio install failed %s, setValue=%s", istioHelmInstallDir, setValue)
 		return err
+	}
+
+	if *authEnable {
+		// Add authentication policy and destination rule that equivalent to enable mTLS for all services
+		// (in the testing namespace). This CRDs will be destroy when testing namespace tear down.
+		// In future, we may move this setup to individual tests that need to run in mTLS mode.
+		if err := util.KubeApply(k.Namespace, globalAuthEnableCrdlFile, k.KubeConfig); err != nil {
+			log.Errorf("Enable mTLS via CRD %q failed", globalAuthEnableCrdlFile)
+			return err
+		}
 	}
 
 	return nil

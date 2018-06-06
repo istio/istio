@@ -4,11 +4,6 @@
 global:
   controlPlaneSecurityEnabled: true
 
-  mtls:
-    # Default setting for service-to-service mtls. Can be set explicitly using
-    # destination rules or service annotations.
-    enabled: true
-
 ingress:
   # Ingress is used for migration, for alpha3 we expect ingressgateway
   enabled: false

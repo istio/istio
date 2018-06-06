@@ -1,0 +1,23 @@
+# These authentication policy will enable mutual TLS (server side) for all services (in the testing
+# namespace, provided at runtime via kubectl command). The DestinationRule enable mutual TLS (client
+# side) for all services. Combined, they have the similar effect of having mesh config flag
+# `auth_policy` set to `MUTUAL_TLS`. Thus, these CRDs will be added during istio install for e2e test to
+# replace the mesh config `auth_policy` flag.
+apiVersion: "authentication.istio.io/v1alpha1"
+kind: "Policy"
+metadata:
+  name: "default-mtls-enabled"
+spec:
+  peers:
+    - mtls: {}
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: "default-mtls-enabled"
+spec:
+  # For simplicity, this rule that matches all services (in any namespace/domain).
+  host: "*"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL

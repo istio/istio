@@ -4,11 +4,6 @@ global:
   # propagated, not recommended for tests.
   controlPlaneSecurityEnabled: false
 
-  mtls:
-    # Default setting for service-to-service mtls. Can be set explicitly using
-    # destination rules or service annotations.
-    enabled: false
-
   # create RBAC resources. Must be set for any cluster configured with rbac.
   rbacEnabled: true
 
