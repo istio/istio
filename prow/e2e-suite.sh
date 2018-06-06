@@ -89,7 +89,7 @@ for ((i=1; i<=$#; i++)); do
         TEST_TARGETS+=(e2e_galley)
         ;;
     esac
-    E2E_ARGS+=( ${!i} )
+    E2E_ARGS+=( "${!i}" )
 done
 
 echo 'Running ISTIO E2E Test(s)'
