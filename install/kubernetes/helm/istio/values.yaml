@@ -394,8 +394,7 @@ tracing:
     type: ClusterIP
     externalPort: 9411
     internalPort: 9411
-    internalUiPort: 16686
-    externalUiPort: 12346
+    uiPort: 16686
   ingress:
     enabled: false
     # Used to create an Ingress record.
