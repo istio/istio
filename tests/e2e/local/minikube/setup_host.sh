@@ -18,7 +18,7 @@ while [ $? -ne 0 ]; do
 done
 
 #Setup LocalRegistry
-kubectl apply -f $ISTIO/istio/tests/util/localregistry/localregistry.yaml
+kubectl apply -f "$ISTIO/istio/tests/util/localregistry/localregistry.yaml"
 echo "local registry started"
 
 kubectl get pods -n kube-system | grep kube-registry-v0 | grep Running > /dev/null
@@ -28,10 +28,10 @@ done
 
 #Setup port forwarding
 POD=`kubectl get po -n kube-system | grep kube-registry-v0 | awk '{print $1;}'`
-kubectl port-forward --namespace kube-system $POD 5000:5000 &
+kubectl port-forward --namespace kube-system "$POD" 5000:5000 &
 
 # Set up env ISTIO if not done yet
 if [[ -z "${ISTIO// }" ]]; then
     export ISTIO=$GOPATH/src/istio.io
-    echo 'Set ISTIO to' $ISTIO
+    echo 'Set ISTIO to' "$ISTIO"
 fi

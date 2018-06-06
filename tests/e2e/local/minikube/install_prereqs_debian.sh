@@ -38,8 +38,8 @@ if [ $? -ne 0 ]; then
           echo "kvm could not be installed. Please install it and run this script again."
           exit 1
     fi
-    adduser $USER kvm
-    adduser $USER libvirt
+    adduser "$USER" kvm
+    adduser "$USER" libvirt
     sudo usermod -aG libvirt myuser
     sudo usermod -aG kvm myuser
 fi
