@@ -47,27 +47,6 @@ func buildInboundNetworkFilters(instance *model.ServiceInstance) []listener.Filt
 	}
 }
 
-func buildDeprecatedTCPRouteConfig(clusterName string, addresses []string) *DeprecatedTCPRouteConfig {
-	route := &DeprecatedTCPRoute{
-		Cluster: clusterName,
-	}
-	sort.Sort(sort.StringSlice(addresses))
-	for _, addr := range addresses {
-		if addr == model.UnspecifiedIP {
-			continue
-		}
-		tcpRouteAddr := addr
-		if !strings.Contains(addr, "/") {
-			tcpRouteAddr = addr + "/32"
-		}
-		route.DestinationIPList = append(route.DestinationIPList, tcpRouteAddr)
-	}
-
-	routeConfig := &DeprecatedTCPRouteConfig{Routes: []*DeprecatedTCPRoute{route}}
-
-	return routeConfig
-}
-
 func buildDeprecatedTCPProxyFilter(clusterName string, addresses []string, port *model.Port) (*listener.Filter, error) {
 	route := &DeprecatedTCPRoute{
 		Cluster: clusterName,
