@@ -20,8 +20,8 @@ GOPATH=$(cd "$ROOTDIR/../../.." && pwd -P)
 export GOPATH
 export PATH=$GOPATH/bin:$PATH
 
-if which goimports; then
-  goimports=$(which goimports)
+if command -v goimports; then
+  goimports=$(command -v goimports)
 else
   go get golang.org/x/tools/cmd/goimports
   goimports=${GOPATH}/bin/goimports
