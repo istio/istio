@@ -67,10 +67,10 @@ mkdir -p "${BIN_DIR}"
 # and set CP=gcp TAR=gtar
 
 if [[ -z "${CP}" ]] ; then
-  CP=cp
+  CP="cp"
 fi
 if [[ -z "${TAR}" ]] ; then
-  TAR=tar
+  TAR="tar"
 fi
 
 function create_linux_archive() {
