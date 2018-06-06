@@ -415,7 +415,6 @@ tracing:
     externalPort: 9411
     internalPort: 9411
     uiPort: 16686
-    loadBalancerIP: ""
   ingress:
     enabled: false
     # Used to create an Ingress record.
