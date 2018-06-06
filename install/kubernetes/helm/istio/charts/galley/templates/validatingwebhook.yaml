@@ -56,7 +56,6 @@ webhooks:
       - operations:
         - CREATE
         - UPDATE
-        - DELETE
         apiGroups:
         - config.istio.io
         apiVersions:
