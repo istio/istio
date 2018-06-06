@@ -33,11 +33,11 @@ If you don't want to apply any rule to a file path, you can choose `SkipAllRules
 # Run golinter
 There are two ways to run this linter.
 ```bash
-go build main.go setup.go linter.go
-./main <target path>
+go install 
+golinter <target path>
 ```
 
 ```bash
-go install .
+go install
 gometalinter --config=gometalinter.json <target path>
 ```
