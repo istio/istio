@@ -12,7 +12,7 @@ if [[ -z ${GIT_AUTHOR_DATE} ]];then
   cd "$ROOT/.git/hooks/" || exit
   if [[ ! -e pre-commit ]]; then
     echo "Installing pre-commit hook"
-    ln -s ../../bin/pre-commit
+    ln -s ../../bin/pre-commit .
   fi
   exit 0
 fi
