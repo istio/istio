@@ -31,8 +31,8 @@ BUILDPATH=${3:?"path to build"}
 
 set -e
 
-GOOS=${GOOS:-linux}
-GOARCH=${GOARCH:-amd64}
+BUILD_GOOS=${GOOS:-linux}
+BUILD_GOARCH=${GOARCH:-amd64}
 GOBINARY=${GOBINARY:-go}
 GOPKG="$GOPATH/pkg"
 BUILDINFO=${BUILDINFO:-""}
@@ -51,16 +51,20 @@ fi
 # at the beginning of the build and used throughout
 if [[ -z ${BUILDINFO} ]];then
     BUILDINFO=$(mktemp)
-    ${ROOT}/bin/get_workspace_status > ${BUILDINFO}
+    "${ROOT}/bin/get_workspace_status" > "${BUILDINFO}"
 fi
 
 # BUILD LD_VERSIONFLAGS
 LD_VERSIONFLAGS=""
-while read line; do
-    read SYMBOL VALUE < <(echo $line)
+while read -r line; do
+    read -r SYMBOL VALUE < <(echo "$line")
     LD_VERSIONFLAGS=${LD_VERSIONFLAGS}" -X ${VERSION_PACKAGE}.${SYMBOL}=${VALUE}"
 done < "${BUILDINFO}"
 
-# forgoing -i (incremental build) because it will be deprecated by tool chain. 
-time GOOS=${GOOS} GOARCH=${GOARCH} ${GOBINARY} build ${V} ${GOBUILDFLAGS} ${GCFLAGS:+-gcflags "${GCFLAGS}"} -o ${OUT} \
-       -pkgdir=${GOPKG}/${GOOS}_${GOARCH} -ldflags "${LDFLAGS} ${LD_VERSIONFLAGS}" "${BUILDPATH}"
+# forgoing -i (incremental build) because it will be deprecated by tool chain.
+# shellcheck disable=SC2086
+time GOOS=${BUILD_GOOS} GOARCH=${BUILD_GOARCH} ${GOBINARY} build \
+        ${V} ${GOBUILDFLAGS} ${GCFLAGS:+-gcflags "${GCFLAGS}"} \
+        -o "${OUT}" \
+        -pkgdir="${GOPKG}/${BUILD_GOOS}_${BUILD_GOARCH}" \
+        -ldflags "${LDFLAGS} ${LD_VERSIONFLAGS}" "${BUILDPATH}"
