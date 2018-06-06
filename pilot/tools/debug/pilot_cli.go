@@ -222,6 +222,7 @@ func main() {
 	var resp *xdsapi.DiscoveryResponse
 	if *configType == "lds" || *configType == "cds" {
 		pod := NewPodInfo(*resources, resolveKubeConfigPath(*kubeConfig), *proxyType)
+		fmt.Println("jianfeih debug ", pod == nil, pilotURL == nil, configType == nil)
 		resp = pod.getResource(*pilotURL, *configType)
 	} else if *configType == "eds" {
 		resp = edsRequest(*pilotURL, makeEDSRequest(*resources))

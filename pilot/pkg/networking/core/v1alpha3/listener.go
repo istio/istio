@@ -266,6 +266,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 		case plugin.ListenerTypeHTTP:
 			listenerOpts.filterChainOpts = []*filterChainOpts{{
 				httpOpts: &httpListenerOpts{
+					tlsMultiplexed:   true,
 					routeConfig:      configgen.buildSidecarInboundHTTPRouteConfig(env, node, instance),
 					rds:              "",
 					useRemoteAddress: false,
@@ -553,6 +554,8 @@ func buildMgmtPortListeners(managementPorts model.PortList, managementIP string)
 // httpListenerOpts are options for an HTTP listener
 type httpListenerOpts struct {
 	//nolint: maligned
+	// Whether this listener uses TLS multiplexing.
+	tlsMultiplexed   bool
 	routeConfig      *xdsapi.RouteConfiguration
 	rds              string
 	useRemoteAddress bool
@@ -664,30 +667,62 @@ func buildHTTPConnectionManager(mesh *meshconfig.MeshConfig, httpOpts *httpListe
 	return connectionManager
 }
 
+func setSNIFilterChainMatch(chain *listener.FilterChain, sniHosts []string) {
+	if chain == nil {
+		return
+	}
+	if len(sniHosts) == 0 {
+		return
+	}
+	fullWildcardFound := false
+	for _, h := range sniHosts {
+		if h == "*" {
+			fullWildcardFound = true
+			// If we have a host with *, it effectively means match anything, i.e.
+			// no SNI based matching for this host.
+			break
+		}
+	}
+	// We set FilterChainMatch if not present to avoid null pointer reference.
+	if chain.FilterChainMatch == nil {
+		chain.FilterChainMatch = &listener.FilterChainMatch{}
+	}
+	if !fullWildcardFound {
+		chain.FilterChainMatch.SniDomains = sniHosts
+	}
+}
+
 // buildListener builds and initializes a Listener proto based on the provided opts. It does not set any filters.
 func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	filterChains := make([]listener.FilterChain, 0, len(opts.filterChainOpts))
-	for _, chain := range opts.filterChainOpts {
-		var match *listener.FilterChainMatch
-
-		if len(chain.sniHosts) > 0 {
-			fullWildcardFound := false
-			for _, h := range chain.sniHosts {
-				if h == "*" {
-					fullWildcardFound = true
-					// If we have a host with *, it effectively means match anything, i.e.
-					// no SNI based matching for this host.
-					break
-				}
+	var listenerFilters []listener.ListenerFilter
+	var tlsChain listener.FilterChain
+	for _, chainOpts := range opts.filterChainOpts {
+		// We set up tls sniffing listener filter and two filter chains if tls multiplexing is required.
+		if chainOpts.httpOpts != nil && chainOpts.httpOpts.tlsMultiplexed {
+			// We need tls sniffing listener filters.
+			listenerFilters = []listener.ListenerFilter{
+				{Name: "envoy.listener.tls_inspector"},
 			}
-			if !fullWildcardFound {
-				match = &listener.FilterChainMatch{SniDomains: chain.sniHosts}
+			tlsChain = listener.FilterChain{
+				FilterChainMatch: &listener.FilterChainMatch{
+					TransportProtocol: "tls",
+				},
+				TlsContext: chainOpts.tlsContext,
 			}
+			plainChain := listener.FilterChain{
+				FilterChainMatch: &listener.FilterChainMatch{
+					TransportProtocol: "raw_buffer",
+				},
+			}
+			filterChains = append(filterChains, tlsChain, plainChain)
+		} else {
+			tlsChain = listener.FilterChain{
+				TlsContext: chainOpts.tlsContext,
+			}
+			filterChains = append(filterChains, tlsChain)
 		}
-		filterChains = append(filterChains, listener.FilterChain{
-			FilterChainMatch: match,
-			TlsContext:       chain.tlsContext,
-		})
+		setSNIFilterChainMatch(&tlsChain, chainOpts.sniHosts)
 	}
 
 	var deprecatedV1 *xdsapi.Listener_DeprecatedV1
@@ -698,10 +733,11 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	}
 
 	return &xdsapi.Listener{
-		Name:         fmt.Sprintf("%s_%d", opts.ip, opts.port),
-		Address:      util.BuildAddress(opts.ip, uint32(opts.port)),
-		FilterChains: filterChains,
-		DeprecatedV1: deprecatedV1,
+		Name:              fmt.Sprintf("%s_%d", opts.ip, opts.port),
+		Address:           util.BuildAddress(opts.ip, uint32(opts.port)),
+		ListenerFilters:   listenerFilters,
+		FilterChains:      filterChains,
+		DeprecatedV1:      deprecatedV1,
 	}
 }
 
