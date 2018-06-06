@@ -323,6 +323,28 @@ func (c *Controller) ManagementPorts(addr string) model.PortList {
 	return managementPorts
 }
 
+func getReadinessProbe(podSpec *v1.PodSpec) *model.Probe {
+	for _, container := range podSpec.Containers {
+		if container.ReadinessProbe != nil && container.ReadinessProbe.Handler.HTTPGet != nil {
+			return &model.Probe{
+				Path: container.ReadinessProbe.Handler.HTTPGet.Path,
+			}
+		}
+	}
+	return nil
+}
+
+func getLivenessProbe(podSpec *v1.PodSpec) *model.Probe {
+	for _, container := range podSpec.Containers {
+		if container.LivenessProbe != nil && container.LivenessProbe.Handler.HTTPGet != nil {
+			return &model.Probe{
+				Path: container.LivenessProbe.Handler.HTTPGet.Path,
+			}
+		}
+	}
+	return nil
+}
+
 // Instances implements a service catalog operation
 func (c *Controller) Instances(hostname model.Hostname, ports []string,
 	labelsList model.LabelsCollection) ([]*model.ServiceInstance, error) {
@@ -385,6 +407,8 @@ func (c *Controller) Instances(hostname model.Hostname, ports []string,
 								Labels:           labels,
 								AvailabilityZone: az,
 								ServiceAccount:   sa,
+								ReadinessProbe:   readiness,
+								LivenessProbe:    liveness,
 							})
 						}
 					}
@@ -459,6 +483,8 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 								Labels:           labels,
 								AvailabilityZone: az,
 								ServiceAccount:   sa,
+								ReadinessProbe:   readiness,
+								LivenessProbe:    liveness,
 							})
 						}
 					}
@@ -494,6 +520,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 						labels, _ := c.pods.labelsByIP(ea.IP)
 						pod, exists := c.pods.getPodByIP(ea.IP)
 						az, sa := "", ""
+						var readiness, liveness *model.Probe
 						if exists {
 							az, _ = c.GetPodAZ(pod)
 							sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
@@ -508,6 +535,8 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 							Labels:           labels,
 							AvailabilityZone: az,
 							ServiceAccount:   sa,
+							ReadinessProbe:   readiness,
+							LivenessProbe:    liveness,
 						})
 					}
 				}

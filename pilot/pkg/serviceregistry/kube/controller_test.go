@@ -149,7 +149,6 @@ func makeService(n, ns string, cl kubernetes.Interface, t *testing.T) {
 }
 
 func TestController_getPodAZ(t *testing.T) {
-
 	pod1 := generatePod("pod1", "nsA", "", "node1", map[string]string{"app": "prod-app"})
 	pod2 := generatePod("pod2", "nsB", "", "node2", map[string]string{"app": "prod-app"})
 	testCases := []struct {
@@ -343,6 +342,20 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 	}
 }
 
+func TestReadinessProbe(t *testing.T) {
+	podSpec := generatePodSpecWithProbes("", "node1", "/ready", "/live")
+	if probe := getReadinessProbe(podSpec); probe != nil && probe.Path != "/ready" {
+		t.Error("Failure: Expected '/ready' readiness path")
+	}
+}
+
+func TestLivenessProbe(t *testing.T) {
+	podSpec := generatePodSpecWithProbes("", "node1", "/ready", "/live")
+	if probe := getLivenessProbe(podSpec); probe != nil && probe.Path != "/live" {
+		t.Error("Failure: Expected '/live' liveness path")
+	}
+}
+
 func makeFakeKubeAPIController() *Controller {
 	clientSet := fake.NewSimpleClientset()
 	return NewController(clientSet, ControllerOptions{
@@ -426,6 +439,29 @@ func generatePod(name, namespace, saName, node string, labels map[string]string)
 			ServiceAccountName: saName,
 			NodeName:           node,
 		},
+	}
+}
+
+func generatePodSpecWithProbes(saName, node string, readiness string, liveness string) *v1.PodSpec {
+	return &v1.PodSpec{
+		ServiceAccountName: saName,
+		NodeName:           node,
+		Containers: []v1.Container{{
+			ReadinessProbe: &v1.Probe{
+				Handler: v1.Handler{
+					HTTPGet: &v1.HTTPGetAction{
+						Path: readiness,
+					},
+				},
+			},
+			LivenessProbe: &v1.Probe{
+				Handler: v1.Handler{
+					HTTPGet: &v1.HTTPGetAction{
+						Path: liveness,
+					},
+				},
+			},
+		}},
 	}
 }
 

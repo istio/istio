@@ -308,6 +308,11 @@ type Labels map[string]string
 // collection of labels
 type LabelsCollection []Labels
 
+// Probe represents a health probe associated with an instance of service.
+type Probe struct {
+	Path string `json:"path,omitempty"`
+}
+
 // ServiceInstance represents an individual instance of a specific version
 // of a service. It binds a network endpoint (ip:port), the service
 // description (which is oblivious to various versions) and a set of labels
@@ -332,6 +337,8 @@ type ServiceInstance struct {
 	Labels           Labels          `json:"labels,omitempty"`
 	AvailabilityZone string          `json:"az,omitempty"`
 	ServiceAccount   string          `json:"serviceaccount,omitempty"`
+	ReadinessProbe   *Probe          `json:"readinessprobe,omitempty"`
+	LivenessProbe    *Probe          `json:"livenessprobe,omitempty"`
 }
 
 const (
