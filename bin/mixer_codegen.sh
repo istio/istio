@@ -34,12 +34,13 @@ template=$ROOT
 
 optproto=false
 opttemplate=false
+gendoc=true
 
-while getopts ':f:o:p:i:t:' flag; do
+while getopts ':f:o:p:i:t:d:' flag; do
   case "${flag}" in
     f) $opttemplate && die "Cannot use proto file option (-f) with template file option (-t)"
        optproto=true
-       file+="/${OPTARG}" 
+       file+="/${OPTARG}"
        ;;
     o) outdir="${OPTARG}" ;;
     p) protoc="${OPTARG}" ;;
@@ -48,6 +49,7 @@ while getopts ':f:o:p:i:t:' flag; do
        opttemplate=true
        template+="/${OPTARG}"
        ;;
+    d) gendoc="${OPTARG}" ;;
     *) die "Unexpected option ${flag}" ;;
   esac
 done
@@ -169,7 +171,11 @@ if [ "$opttemplate" = true ]; then
   templatePG=${template/.proto/$pb_go}
   # generate the descriptor set for the intermediate artifacts
   DESCRIPTOR="--include_imports --include_source_info --descriptor_set_out=$templateDS"
-  err=`$protoc $DESCRIPTOR $IMPORTS $PLUGIN $GENDOCS_PLUGIN_TEMPLATE $template`
+  if [ "$gendoc" = true ]; then
+    err=`$protoc $DESCRIPTOR $IMPORTS $PLUGIN $GENDOCS_PLUGIN_TEMPLATE $template`
+  else
+    err=`$protoc $DESCRIPTOR $IMPORTS $PLUGIN $template`
+  fi
   if [ ! -z "$err" ]; then
     die "template generation failure: $err";
   fi
@@ -194,7 +200,11 @@ if [ "$opttemplate" = true ]; then
 fi
 
 # handle simple protoc-based generation
-err=`$protoc $IMPORTS $PLUGIN $GENDOCS_PLUGIN_FILE $file`
+if [ "$gendoc" = true ]; then
+  err=`$protoc $IMPORTS $PLUGIN $GENDOCS_PLUGIN_FILE $file`
+else
+  err=`$protoc $IMPORTS $PLUGIN $file`
+fi
 if [ ! -z "$err" ]; then 
   die "generation failure: $err"; 
 fi
