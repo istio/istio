@@ -23,6 +23,7 @@ var UnitTestRules = []rules.LintRule{
 	rules.NewSkipByIssueRule(),
 	rules.NewNoGoroutineRule(),
 	rules.NewNoSleepRule(),
+	rules.NewNoShortRule(),
 }
 
 // IntegTestRules are rules which should apply to integration test file

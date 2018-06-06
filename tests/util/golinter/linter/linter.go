@@ -19,16 +19,13 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"strings"
+	"istio.io/istio/tests/util/golinter/rules"
 )
-
-// LintReports stores a group of lint processing reports.
-type LintReports []string
 
 // Linter applies linting rules to a file.
 type Linter struct {
 	fpath    string      // file path that takes linting process
-	lreport  LintReports // report for linting process
+	lreport  []string // report for linting process
 	tType    TestType    // test type of file path
 	fs       *token.FileSet
 	sRuleMap map[string]bool
@@ -44,7 +41,7 @@ func NewLinter(fileP string, t TestType, rMap map[string]bool) Linter {
 }
 
 // LReport returns report from Linter
-func (lt *Linter) LReport() LintReports {
+func (lt *Linter) LReport() []string {
 	return lt.lreport
 }
 
@@ -66,31 +63,13 @@ func (lt *Linter) Run() {
 	}
 	// Walk through the files
 	ast.Walk(lt, astFile)
-
-	// Collect all test functions with prefix "Test".
-	testFuncs := []*ast.FuncDecl{}
-	for _, d := range astFile.Decls {
-		if fn, isFn := d.(*ast.FuncDecl); isFn && strings.HasPrefix(fn.Name.Name, "Test") {
-			testFuncs = append(testFuncs, fn)
-		}
-	}
-	// Checks each test function with prefix "Test".
-	for _, function := range testFuncs {
-		if lt.tType == UnitTest {
-			lt.ApplyRules(function, UnitTestRules, true)
-		} else if lt.tType == IntegTest {
-			lt.ApplyRules(function, IntegTestRules, true)
-		} else if lt.tType == E2eTest {
-			lt.ApplyRules(function, E2eTestRules, true)
-		}
-	}
 }
 
 // ApplyRules applies rules to node and generate lint report.
 func (lt *Linter) ApplyRules(node ast.Node, rules []rules.LintRule, testFuncOnly bool) {
 	for _, rule := range rules {
 		if _, skip := lt.sRuleMap[rule.GetID()]; !skip {
-			rule.Check(node, lt)
+			rule.Check(node, lt.fs, &lt.lreport)
 		}
 	}
 }

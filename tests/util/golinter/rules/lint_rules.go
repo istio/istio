@@ -16,22 +16,13 @@ package rules
 
 import (
 	"go/ast"
-	"istio.io/istio/tests/util/golinter/linter"
-)
-
-// Defines ID for each lint rule. Each rule is assigned a unique ID. AllRules is a special name
-// used only in whitelist, which skips all rules for a file path.
-const (
-	SkipByIssue = "SkipByIssue" // SkipByIssue
-	NoSleep     = "NoSleep"     // NoSleep
-	NoGoroutine = "NoGoroutine" // NoGoroutine
-	SkipByShort = "SkipByShort" // SkipByShort
+	"go/token"
 )
 
 // LintRule is interface for defining lint rules.
 type LintRule interface {
-	// GetID returns ID of the rule in string.
+	// GetID returns ID of the rule in string, ID is equal to the file name of that rule.
 	GetID() string
-	// Check verifies if aNode passes rule check, and add report into linter lt.
-	Check(aNode ast.Node, lt *linter.Linter)
+	// Check verifies if aNode passes rule check. If verification fails it adds report into rpt.
+	Check(aNode ast.Node, fs *token.FileSet, rpt *[]string)
 }

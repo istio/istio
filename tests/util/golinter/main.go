@@ -43,7 +43,7 @@ func getReport(args []string) []string {
 }
 
 func doAllDirs(args []string) []string {
-	rpts := make(linter.LintReports, 0)
+	rpts := make([]string, 0)
 	pFilter := linter.NewPathFilter()
 	for _, path := range args {
 		if !filepath.IsAbs(path) {

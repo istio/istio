@@ -15,10 +15,8 @@
 package rules
 
 import (
-	"fmt"
 	"go/ast"
 	"go/token"
-	"istio.io/istio/tests/util/golinter/linter"
 )
 
 // SkipByIssueRule requires that a `t.Skip()` call in test function should contain url to a issue.
@@ -36,31 +34,30 @@ func NewSkipByIssueRule() *SkipByIssueRule {
 	}
 }
 
-// GetID returns SkipByIssue.
+// GetID returns skip_by_issue_rule.
 func (lr *SkipByIssueRule) GetID() string {
-	getCallerFileName()
-	return SkipByIssue
+	return getCallerFileName()
 }
 
 // Check returns verifies if aNode is a valid t.Skip(), or aNode is not t.Skip(), t.SkipNow(),
-// and t.Skipf(). If verification fails it reports to linter.
+// and t.Skipf(). If verification fails it adds report into rpt.
 // This is an example for valid call t.Skip("https://github.com/istio/istio/issues/6012")
 // These calls are not valid:
 // t.Skip("https://istio.io/"),
 // t.SkipNow(),
 // t.Skipf("https://istio.io/%d", x).
-func (lr *SkipByIssueRule) Check(aNode ast.Node, lt *linter.Linter) {
+func (lr *SkipByIssueRule) Check(aNode ast.Node, fs *token.FileSet, rpt *[]string) {
 	if fn, isFn := aNode.(*ast.FuncDecl); isFn {
 		for _, bd := range fn.Body.List {
 			if ok, _ := matchFunc(bd, "t", "SkipNow"); ok {
-				rpt := createLintReport(bd.Pos(), lt.Fs(), "Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue.")
-				lt.LReport() = append(lt.LReport(), rpt)
+				report := createLintReport(bd.Pos(), fs, "Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue.")
+				*rpt = append(*rpt, report)
 			} else if ok, _ := matchFunc(bd, "t", "Skipf"); ok {
-				rpt := createLintReport(bd.Pos(), lt.Fs(), "Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue.")
-				lt.LReport() = append(lt.LReport(), rpt)
+				report := createLintReport(bd.Pos(), fs, "Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue.")
+				*rpt = append(*rpt, report)
 			} else if ok, fcall := matchFunc(bd, "t", "Skip"); ok && !matchFuncArgs(fcall, lr.skipArgsRegex) {
-				rpt := createLintReport(bd.Pos(), lt.Fs(), "Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue.")
-				lt.LReport() = append(lt.LReport(), rpt)
+				report := createLintReport(bd.Pos(), fs, "Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue.")
+				*rpt = append(*rpt, report)
 			}
 		}
 	}

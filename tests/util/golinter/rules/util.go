@@ -31,7 +31,6 @@ func getCallerFileName() string {
 		filename := filepath.Base(filename)
 		fn := strings.Split(filename, ".")
 		if len(fn)>0 {
-			log.Printf("get filename for caller: %s", fn[0])
 			return fn[0]
 		}
 	} else {

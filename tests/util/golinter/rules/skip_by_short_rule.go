@@ -18,7 +18,6 @@ import (
 	"go/ast"
 	"go/token"
 	"strings"
-	"istio.io/istio/tests/util/golinter/linter"
 )
 
 // SkipByShortRule requires that a test function should have one of these pattern.
@@ -42,12 +41,12 @@ func NewSkipByShortRule() *SkipByShortRule {
 	return &SkipByShortRule{}
 }
 
-// GetID returns SkipByShort.
+// GetID returns skip_by_short_rule.
 func (lr *SkipByShortRule) GetID() string {
-	return SkipByShort
+	return getCallerFileName()
 }
 
-// Check verifies if aNode is a valid t.Skip(). If verification fails it reports to linter.
+// Check verifies if aNode is a valid t.Skip(). If verification fails it adds report into rpt.
 // There are two examples for valid t.Skip().
 // case 1:
 // func Testxxx(t *testing.T) {
@@ -62,11 +61,11 @@ func (lr *SkipByShortRule) GetID() string {
 //	}
 //	...
 // }
-func (lr *SkipByShortRule) Check(aNode ast.Node, lt *linter.Linter) {
+func (lr *SkipByShortRule) Check(aNode ast.Node, fs *token.FileSet, rpt *[]string) {
 	if fn, isFn := aNode.(*ast.FuncDecl); isFn && strings.HasPrefix(fn.Name.Name, "Test") {
 		if len(fn.Body.List) == 0 {
-			rpt := createLintReport(aNode.Pos(), lt.Fs(), "Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'")
-			lt.LReport() = append(lt.LReport(), rpt)
+			report := createLintReport(aNode.Pos(), fs, "Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'")
+			*rpt = append(*rpt, report)
 		} else if len(fn.Body.List) == 1 {
 			if ifStmt, ok := fn.Body.List[0].(*ast.IfStmt); ok {
 				if uExpr, ok := ifStmt.Cond.(*ast.UnaryExpr); ok {
@@ -92,7 +91,7 @@ func (lr *SkipByShortRule) Check(aNode ast.Node, lt *linter.Linter) {
 				}
 			}
 		}
-		rpt := createLintReport(aNode.Pos(), lt.Fs(), "Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'")
-		lt.LReport() = append(lt.LReport(), rpt)
+		report := createLintReport(aNode.Pos(), fs, "Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'")
+		*rpt = append(*rpt, report)
 	}
 }

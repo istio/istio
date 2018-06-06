@@ -15,10 +15,8 @@
 package rules
 
 import (
-	"fmt"
 	"go/ast"
 	"go/token"
-	"istio.io/istio/tests/util/golinter/linter"
 )
 
 // NoGoroutineRule requires that go f(x, y, z) is not allowed.
@@ -28,15 +26,15 @@ func NewNoGoroutineRule() *NoGoroutineRule {
 	return &NoGoroutineRule{}
 }
 
-// GetID returns NoGoroutine.
+// GetID returns no_goroutine_rule.
 func (lr *NoGoroutineRule) GetID() string {
-	return NoGoroutine
+	return getCallerFileName()
 }
 
-// Check verifies if aNode is not goroutine. If verification fails it reports to linter.
-func (lr *NoGoroutineRule) Check(aNode ast.Node, lt *linter.Linter) {
+// Check verifies if aNode is not goroutine. If verification fails it adds report into rpt.
+func (lr *NoGoroutineRule) Check(aNode ast.Node, fs *token.FileSet, rpt *[]string) {
 	if gs, ok := aNode.(*ast.GoStmt); ok {
-		rpt := createLintReport(gs.Pos(), lt.Fs(), "goroutine is disallowed.")
-		lt.LReport() = append(lt.LReport(), rpt)
+		report := createLintReport(gs.Pos(), fs, "goroutine is disallowed.")
+		*rpt = append(*rpt, report)
 	}
 }
