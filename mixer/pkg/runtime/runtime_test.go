@@ -139,12 +139,12 @@ func TestRuntime_OnConfigChange(t *testing.T) {
 	}
 	rt.onConfigChange(events)
 
-	snapshot := rt.ephemeral.BuildSnapshot()
+	snapshot, _ := rt.ephemeral.BuildSnapshot()
 
 	// expect the newly declared attribute to be received by the ephemeral state of the runtime, as part
 	// of listening.
 	expected := `
-ID: 4
+ID: 3
 Templates:
   Name: tapa
   Name: tcheck
