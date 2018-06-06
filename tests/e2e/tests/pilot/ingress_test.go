@@ -44,20 +44,22 @@ func TestIngress(t *testing.T) {
 	defer cfgs.Teardown()
 
 	if !tc.V1alpha3 {
-		// First, verify that version splitting is applied to ingress paths.
-		runRetriableTest(t, "VersionSplitting", defaultRetryBudget, func() error {
-			reqURL := fmt.Sprintf("http://%s.%s/c", ingressServiceName, istioNamespace)
-			resp := ClientRequest("t", reqURL, 100, "")
-			count := make(map[string]int)
-			for _, elt := range resp.Version {
-				count[elt] = count[elt] + 1
-			}
-			log.Infof("request counts %v", count)
-			if count["v1"] >= 95 {
-				return nil
-			}
-			return errAgain
-		})
+		for cluster := range tc.Kube.Clusters {
+			// First, verify that version splitting is applied to ingress paths.
+			runRetriableTest(t, cluster, "VersionSplitting", defaultRetryBudget, func() error {
+				reqURL := fmt.Sprintf("http://%s.%s/c", ingressServiceName, istioNamespace)
+				resp := ClientRequest(cluster, "t", reqURL, 100, "")
+				count := make(map[string]int)
+				for _, elt := range resp.Version {
+					count[elt] = count[elt] + 1
+				}
+				log.Infof("request counts %v", count)
+				if count["v1"] >= 95 {
+					return nil
+				}
+				return errAgain
+			})
+		}
 	}
 
 	cases := []struct {
@@ -147,28 +149,30 @@ func TestIngress(t *testing.T) {
 			}
 
 			logEntry := fmt.Sprintf("Ingress request to %+v", c)
-			runRetriableTest(t, testName, retryBudget, func() error {
-				resp := ClientRequest("t", c.url, 1, extra)
-				if !expectReachable {
-					if len(resp.Code) > 0 && resp.Code[0] == "404" {
+			for cluster := range tc.Kube.Clusters {
+				runRetriableTest(t, cluster, testName, retryBudget, func() error {
+					resp := ClientRequest(cluster, "t", c.url, 1, extra)
+					if !expectReachable {
+						if len(resp.Code) > 0 && resp.Code[0] == "404" {
+							return nil
+						}
+						return errAgain
+					}
+					if len(resp.ID) > 0 {
+						if !strings.Contains(resp.Body, "X-Forwarded-For") &&
+							!strings.Contains(resp.Body, "x-forwarded-for") {
+							log.Warnf("Missing X-Forwarded-For in the body: %s", resp.Body)
+							return errAgain
+						}
+
+						id := resp.ID[0]
+						logs.add(cluster, c.dst, id, logEntry)
+						logs.add(cluster, ingressAppName, id, logEntry)
 						return nil
 					}
 					return errAgain
-				}
-				if len(resp.ID) > 0 {
-					if !strings.Contains(resp.Body, "X-Forwarded-For") &&
-						!strings.Contains(resp.Body, "x-forwarded-for") {
-						log.Warnf("Missing X-Forwarded-For in the body: %s", resp.Body)
-						return errAgain
-					}
-
-					id := resp.ID[0]
-					logs.add(c.dst, id, logEntry)
-					logs.add(ingressAppName, id, logEntry)
-					return nil
-				}
-				return errAgain
-			})
+				})
+			}
 		}
 	})
 

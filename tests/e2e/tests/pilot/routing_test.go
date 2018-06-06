@@ -199,42 +199,47 @@ func TestRoutes(t *testing.T) {
 					ruleYaml := fmt.Sprintf("testdata/%s/%s", version, c.config)
 					applyRuleFunc(t, ruleYaml)
 
-					runRetriableTest(t, c.testName, 5, func() error {
-						reqURL := fmt.Sprintf("%s://%s/%s", c.scheme, c.dst, c.src)
-						resp := ClientRequest(c.src, reqURL, samples, fmt.Sprintf("-key %s -val %s", c.headerKey, c.headerVal))
-						count := make(map[string]int)
-						for _, elt := range resp.Version {
-							count[elt] = count[elt] + 1
-						}
-						log.Infof("request counts %v", count)
-						epsilon := 10
-
-						for version, expected := range c.expectedCount {
-							if count[version] > expected+epsilon || count[version] < expected-epsilon {
-								return fmt.Errorf("expected %v requests (+/-%v) to reach %s => Got %v",
-									expected, epsilon, version, count[version])
+					for cluster := range tc.Kube.Clusters {
+						testName := fmt.Sprintf("%s from %s cluster", c.testName, cluster)
+						runRetriableTest(t, cluster, testName, 5, func() error {
+							reqURL := fmt.Sprintf("%s://%s/%s", c.scheme, c.dst, c.src)
+							resp := ClientRequest(cluster, c.src, reqURL, samples, fmt.Sprintf("-key %s -val %s", c.headerKey, c.headerVal))
+							count := make(map[string]int)
+							for _, elt := range resp.Version {
+								count[elt] = count[elt] + 1
 							}
-						}
+							log.Infof("request counts %v", count)
+							epsilon := 10
 
-						if c.operation != "" {
-							response := ClientRequest(
-								"t",
-								fmt.Sprintf("http://zipkin.%s:9411/api/v1/traces", tc.Kube.Namespace),
-								1, "",
-							)
-
-							if !response.IsHTTPOk() {
-								return fmt.Errorf("could not retrieve traces from zipkin")
+							for version, expected := range c.expectedCount {
+								if count[version] > expected+epsilon || count[version] < expected-epsilon {
+									return fmt.Errorf("expected %v requests (+/-%v) to reach %s => Got %v",
+										expected, epsilon, version, count[version])
+								}
 							}
 
-							text := fmt.Sprintf("\"name\":\"%s\"", c.operation)
-							if strings.Count(response.Body, text) != 10 {
-								t.Logf("could not find operation %q in zipkin traces: %v", c.operation, response.Body)
-							}
-						}
+							// Only test this on the primary cluster since zipkin is not available on the remote
+							if c.operation != "" && cluster == primaryCluster {
+								response := ClientRequest(
+									cluster,
+									"t",
+									fmt.Sprintf("http://zipkin.%s:9411/api/v1/traces", tc.Kube.Namespace),
+									1, "",
+								)
 
-						return nil
-					}, c.onFailure)
+								if !response.IsHTTPOk() {
+									return fmt.Errorf("could not retrieve traces from zipkin")
+								}
+
+								text := fmt.Sprintf("\"name\":\"%s\"", c.operation)
+								if strings.Count(response.Body, text) != 10 {
+									t.Logf("could not find operation %q in zipkin traces: %v", c.operation, response.Body)
+								}
+							}
+
+							return nil
+						}, c.onFailure)
+					}
 				}()
 			}
 		})
@@ -271,28 +276,30 @@ func TestRouteFaultInjection(t *testing.T) {
 			}
 			defer cfgs.Teardown()
 
-			runRetriableTest(t, version, 5, func() error {
-				reqURL := "http://c/a"
+			for cluster := range tc.Kube.Clusters {
+				runRetriableTest(t, cluster, version, 5, func() error {
+					reqURL := "http://c/a"
 
-				start := time.Now()
-				resp := ClientRequest("a", reqURL, 1, "-key version -val v2")
-				elapsed := time.Since(start)
+					start := time.Now()
+					resp := ClientRequest(cluster, "a", reqURL, 1, "-key version -val v2")
+					elapsed := time.Since(start)
 
-				statusCode := ""
-				if len(resp.Code) > 0 {
-					statusCode = resp.Code[0]
-				}
+					statusCode := ""
+					if len(resp.Code) > 0 {
+						statusCode = resp.Code[0]
+					}
 
-				respCode := 503
-				respTime := time.Second * 5
-				epsilon := time.Second * 2 // +/- 2s variance
-				if elapsed > respTime+epsilon || elapsed < respTime-epsilon || strconv.Itoa(respCode) != statusCode {
-					return fmt.Errorf("fault injection verification failed: "+
-						"response time is %s with status code %s, "+
-						"expected response time is %s +/- %s with status code %d", elapsed, statusCode, respTime, epsilon, respCode)
-				}
-				return nil
-			})
+					respCode := 503
+					respTime := time.Second * 5
+					epsilon := time.Second * 2 // +/- 2s variance
+					if elapsed > respTime+epsilon || elapsed < respTime-epsilon || strconv.Itoa(respCode) != statusCode {
+						return fmt.Errorf("fault injection verification failed: "+
+							"response time is %s with status code %s, "+
+							"expected response time is %s +/- %s with status code %d", elapsed, statusCode, respTime, epsilon, respCode)
+					}
+					return nil
+				})
+			}
 		}()
 	}
 }
@@ -313,36 +320,38 @@ func TestRouteRedirectInjection(t *testing.T) {
 			}
 			defer cfgs.Teardown()
 
-			runRetriableTest(t, version, 5, func() error {
-				targetHost := "b"
-				targetPath := "/new/path"
+			for cluster := range tc.Kube.Clusters {
+				runRetriableTest(t, cluster, version, 5, func() error {
+					targetHost := "b"
+					targetPath := "/new/path"
 
-				reqURL := "http://c/a"
-				resp := ClientRequest("a", reqURL, 1, "-key testredirect -val enabled")
-				if !resp.IsHTTPOk() {
-					return fmt.Errorf("redirect failed: response status code: %v, expected 200", resp.Code)
-				}
+					reqURL := "http://c/a"
+					resp := ClientRequest(cluster, "a", reqURL, 1, "-key testredirect -val enabled")
+					if !resp.IsHTTPOk() {
+						return fmt.Errorf("redirect failed: response status code: %v, expected 200", resp.Code)
+					}
 
-				var host string
-				if matches := regexp.MustCompile("(?i)Host=(.*)").FindStringSubmatch(resp.Body); len(matches) >= 2 {
-					host = matches[1]
-				}
-				if host != targetHost {
-					return fmt.Errorf("redirect failed: response body contains Host=%v, expected Host=%v", host, targetHost)
-				}
+					var host string
+					if matches := regexp.MustCompile("(?i)Host=(.*)").FindStringSubmatch(resp.Body); len(matches) >= 2 {
+						host = matches[1]
+					}
+					if host != targetHost {
+						return fmt.Errorf("redirect failed: response body contains Host=%v, expected Host=%v", host, targetHost)
+					}
 
-				exp := regexp.MustCompile("(?i)URL=(.*)")
-				paths := exp.FindAllStringSubmatch(resp.Body, -1)
-				var path string
-				if len(paths) > 1 {
-					path = paths[1][1]
-				}
-				if path != targetPath {
-					return fmt.Errorf("redirect failed: response body contains URL=%v, expected URL=%v", path, targetPath)
-				}
+					exp := regexp.MustCompile("(?i)URL=(.*)")
+					paths := exp.FindAllStringSubmatch(resp.Body, -1)
+					var path string
+					if len(paths) > 1 {
+						path = paths[1][1]
+					}
+					if path != targetPath {
+						return fmt.Errorf("redirect failed: response body contains URL=%v, expected URL=%v", path, targetPath)
+					}
 
-				return nil
-			})
+					return nil
+				})
+			}
 		}()
 	}
 }
@@ -367,12 +376,14 @@ func TestRouteMirroring(t *testing.T) {
 			defer cfgs.Teardown()
 
 			reqURL := "http://c/a"
-			for i := 1; i <= 100; i++ {
-				resp := ClientRequest("a", reqURL, 1, fmt.Sprintf("-key X-Request-Id -val %d", i))
-				logEntry := fmt.Sprintf("HTTP request from a to c.istio-system.svc.cluster.local:80")
-				if len(resp.ID) > 0 {
-					id := resp.ID[0]
-					logs.add("b", id, logEntry)
+			for cluster := range tc.Kube.Clusters {
+				for i := 1; i <= 100; i++ {
+					resp := ClientRequest(cluster, "a", reqURL, 1, fmt.Sprintf("-key X-Request-Id -val %d", i))
+					logEntry := fmt.Sprintf("HTTP request from a in %s cluster to c.istio-system.svc.cluster.local:80", cluster)
+					if len(resp.ID) > 0 {
+						id := resp.ID[0]
+						logs.add(cluster, "b", id, logEntry)
+					}
 				}
 			}
 

@@ -293,6 +293,7 @@ security:
   replicaCount: 1
   image: citadel
   resources: {}
+  selfSigned: true # indicate if self-signed CA is used.
   # limits:
   #  cpu: 100m
   #  memory: 128Mi

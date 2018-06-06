@@ -72,8 +72,11 @@ var checkAttributesOkGet = `
   "request.scheme": "http",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
+<<<<<<< HEAD
   "source.ip": "[127 0 0 1]",
   "source.port": "*",
+=======
+>>>>>>> upstream/master
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
@@ -114,8 +117,11 @@ var reportAttributesOkGet = `
   "request.scheme": "http",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
+<<<<<<< HEAD
   "source.ip": "[127 0 0 1]",
   "source.port": "*",
+=======
+>>>>>>> upstream/master
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
   "target.name": "target-name",

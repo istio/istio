@@ -550,7 +550,7 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 	kubectl := kube.NewController(s.kubeClient, args.Config.ControllerOptions)
 	serviceControllers.AddRegistry(
 		aggregate.Registry{
-			Name:             serviceregistry.ServiceRegistry(serviceregistry.KubernetesRegistry),
+			Name:             serviceregistry.KubernetesRegistry,
 			ClusterID:        clusterID,
 			ServiceDiscovery: kubectl,
 			ServiceAccounts:  kubectl,
@@ -590,8 +590,10 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		registered[serviceRegistry] = true
 		log.Infof("Adding %s registry adapter", serviceRegistry)
 		switch serviceRegistry {
+		case serviceregistry.ConfigRegistry:
+			s.initConfigRegistry(serviceControllers)
 		case serviceregistry.MockRegistry:
-			initMemoryRegistry(s, serviceControllers)
+			s.initMemoryRegistry(serviceControllers)
 		case serviceregistry.KubernetesRegistry:
 
 			if err := s.createK8sServiceControllers(serviceControllers, args); err != nil {
@@ -702,7 +704,8 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 
 	return nil
 }
-func initMemoryRegistry(s *Server, serviceControllers *aggregate.Controller) {
+
+func (s *Server) initMemoryRegistry(serviceControllers *aggregate.Controller) {
 	// MemServiceDiscovery implementation
 	discovery1 := mock.NewDiscovery(
 		map[model.Hostname]*model.Service{ // mock.HelloService.Hostname: mock.HelloService,
@@ -731,6 +734,17 @@ func initMemoryRegistry(s *Server, serviceControllers *aggregate.Controller) {
 	}
 	serviceControllers.AddRegistry(registry1)
 	serviceControllers.AddRegistry(registry2)
+}
+
+func (s *Server) initConfigRegistry(serviceControllers *aggregate.Controller) {
+	serviceEntryStore := external.NewServiceDiscovery(s.configController, s.istioConfigStore)
+	serviceControllers.AddRegistry(aggregate.Registry{
+		Name:             serviceregistry.ConfigRegistry,
+		ClusterID:        string(serviceregistry.ConfigRegistry),
+		ServiceDiscovery: serviceEntryStore,
+		ServiceAccounts:  serviceEntryStore,
+		Controller:       serviceEntryStore,
+	})
 }
 
 func (s *Server) initDiscoveryService(args *PilotArgs) error {

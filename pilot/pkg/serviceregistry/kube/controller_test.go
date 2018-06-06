@@ -112,7 +112,7 @@ func TestServices(t *testing.T) {
 		t.Errorf("GetInstancesByPort() encountered unexpected error: %v", err)
 	}
 	if len(ep) != 2 {
-		t.Errorf("Invalid response for GetInstanesByPort %v", ep)
+		t.Errorf("Invalid response for GetInstancesByPort %v", ep)
 	}
 
 	missing := serviceHostname("does-not-exist", ns, domainSuffix)

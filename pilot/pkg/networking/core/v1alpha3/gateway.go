@@ -350,7 +350,7 @@ func buildGatewayNetworkFilters(env model.Environment, server *networking.Server
 		}
 		filters = append(filters, buildOutboundNetworkFilters(
 			istio_route.GetDestinationCluster(dest, upstream, int(server.Port.Number)),
-			[]string{upstream.Address}, port)...)
+			nil, port)...)
 	}
 	return filters
 }
