@@ -28,6 +28,7 @@ type SkipByIssueRule struct {
 	skipArgsRegex string // Defines arg in t.Skip() that should match.
 }
 
+// NewSkipByIssueRule creates and returns a SkipByIssueRule object.
 func NewSkipByIssueRule() *SkipByIssueRule {
 	return &SkipByIssueRule{
 		skipArgsRegex: `https:\/\/github\.com\/istio\/istio\/issues\/[0-9]+`,

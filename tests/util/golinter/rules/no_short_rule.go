@@ -22,6 +22,7 @@ import (
 // NoShortRule requires that testing.Short() is not allowed.
 type NoShortRule struct{}
 
+// NewNoShortRule creates and returns a NoShortRule object.
 func NewNoShortRule() *NoShortRule {
 	return &NoShortRule{}
 }

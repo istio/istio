@@ -22,6 +22,7 @@ import (
 // NoSleepRule requires that time.Sleep() is not allowed.
 type NoSleepRule struct{}
 
+// NewNoSleepRule creates and returns a NoSleepRule object.
 func NewNoSleepRule() *NoSleepRule {
 	return &NoSleepRule{}
 }

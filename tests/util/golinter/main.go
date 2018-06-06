@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
 	"istio.io/istio/tests/util/golinter/linter"
 )
 

@@ -37,6 +37,7 @@ import (
 // }
 type SkipByShortRule struct{}
 
+// NewSkipByShortRule creates and returns a SkipByShortRule object.
 func NewSkipByShortRule() *SkipByShortRule {
 	return &SkipByShortRule{}
 }

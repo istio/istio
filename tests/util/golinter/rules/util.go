@@ -19,18 +19,18 @@ import (
 	"go/ast"
 	"go/token"
 	"log"
+	"path/filepath"
 	"regexp"
 	"runtime"
-	"path/filepath"
 	"strings"
 )
 
 // getCallerFileName returns filename of caller without file extension.
 func getCallerFileName() string {
 	if _, filename, _, ok := runtime.Caller(1); ok {
-		filename := filepath.Base(filename)
-		fn := strings.Split(filename, ".")
-		if len(fn)>0 {
+		fnBase := filepath.Base(filename)
+		fn := strings.Split(fnBase, ".")
+		if len(fn) > 0 {
 			return fn[0]
 		}
 	} else {

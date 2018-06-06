@@ -32,19 +32,20 @@ const (
 	NonTest   TestType = iota // NonTest == 3
 )
 
-type pathFilter struct {
+// PathFilter filters out test files and detects test type.
+type PathFilter struct {
 	WPaths map[string]map[string]bool // absolute paths that are whitelisted.
 }
 
-// NewPathFilter creates a new pathFilter object.
-func NewPathFilter() pathFilter {
-	p := pathFilter{map[string]map[string]bool{}}
+// NewPathFilter creates a new PathFilter object.
+func NewPathFilter() PathFilter {
+	p := PathFilter{map[string]map[string]bool{}}
 	p.getWhitelistedPathsMap()
 	return p
 }
 
 // getWhitelistedPathsMap converts whitelistedPaths to a map that maps path to rules
-func (pf *pathFilter) getWhitelistedPathsMap() {
+func (pf *PathFilter) getWhitelistedPathsMap() {
 	for path, rules := range WhitelistPath {
 		pf.WPaths[path] = map[string]bool{}
 		ruleList := strings.Split(rules, ",")
@@ -65,7 +66,7 @@ func (pf *pathFilter) getWhitelistedPathsMap() {
 // .../*_integ_test.go
 // (3) unit test file
 // .../*_test.go
-func (pf *pathFilter) GetTestType(absp string, info os.FileInfo) (bool, TestType, map[string]bool) {
+func (pf *PathFilter) GetTestType(absp string, info os.FileInfo) (bool, TestType, map[string]bool) {
 	// sRules stores skipped rules for file path absp.
 	var sRules = map[string]bool{}
 

@@ -22,6 +22,7 @@ import (
 // NoGoroutineRule requires that go f(x, y, z) is not allowed.
 type NoGoroutineRule struct{}
 
+// NewNoGoroutineRule creates and returns a NoGoroutineRule object.
 func NewNoGoroutineRule() *NoGoroutineRule {
 	return &NoGoroutineRule{}
 }

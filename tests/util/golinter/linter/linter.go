@@ -19,18 +19,20 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+
 	"istio.io/istio/tests/util/golinter/rules"
 )
 
 // Linter applies linting rules to a file.
 type Linter struct {
-	fpath    string      // file path that takes linting process
+	fpath    string   // file path that takes linting process
 	lreport  []string // report for linting process
-	tType    TestType    // test type of file path
+	tType    TestType // test type of file path
 	fs       *token.FileSet
 	sRuleMap map[string]bool
 }
 
+// NewLinter creates a new Linter object and returns the object.
 func NewLinter(fileP string, t TestType, rMap map[string]bool) Linter {
 	return Linter{
 		fpath:    fileP,
