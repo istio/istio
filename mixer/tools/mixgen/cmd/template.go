@@ -72,6 +72,11 @@ spec:
 		fatalf("unable to read file %s. %v", inPath, err)
 	}
 
+	// validate if the file is a file descriptor set with imports.
+	if err := validateIfFds(byts); err != nil {
+		fatalf("template in invalid: %v", err)
+	}
+
 	tmplObj := &templateCRVar{
 		Name:       name,
 		Namespace:  ns,

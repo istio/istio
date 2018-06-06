@@ -17,11 +17,14 @@ package cmd
 import (
 	"bytes"
 	"encoding/base64"
+	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"strings"
 	gotemplate "text/template"
 
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/mixer/cmd/shared"
@@ -93,6 +96,11 @@ spec:
 		fatalf("unable to read file %s. %v", inPath, err)
 	}
 
+	// validate if the file is a file descriptor set with imports.
+	if err := validateIfFds(byts); err != nil {
+		fatalf("config in invalid: %v", err)
+	}
+
 	adapterObj := &adapterCRVar{
 		RawCommand:   rawCommand,
 		Name:         name,
@@ -110,4 +118,20 @@ spec:
 		fatalf("could not create adapter custom resource" + err.Error())
 	}
 	printf(w.String())
+}
+
+func validateIfFds(byts []byte) error {
+
+	fds := &descriptor.FileDescriptorSet{}
+	err := proto.Unmarshal(byts, fds)
+	if err != nil {
+		return err
+	}
+
+	if len(fds.File) == 1 && len(fds.File[0].Dependency) > 0 {
+		// fds is created without --include_imports.
+		return fmt.Errorf("the file descriptor set was created without including imports" +
+			". Please run protoc with `--include_imports` flag")
+	}
+	return nil
 }
