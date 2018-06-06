@@ -13,7 +13,7 @@ else
         sudo cp /lib/systemd/system/docker.service /lib/systemd/system/docker.service_old
     fi
 fi
-echo "sudo sed -i 's/ExecStart=\/usr\/bin\/dockerd -H fd:\/\//ExecStart=\/usr\/bin\/dockerd -H fd:\/\/ --insecure-registry 10.10.0.2:5000/' /lib/systemd/system/docker.service"
+echo "sudo sed -i 's/ExecStart=\\/usr\\/bin\\/dockerd -H fd:\\/\\//ExecStart=\\/usr\\/bin\\/dockerd -H fd:\\/\\/ --insecure-registry 10.10.0.2:5000/' /lib/systemd/system/docker.service"
 sudo sed -i 's/ExecStart=\/usr\/bin\/dockerd -H fd:\/\//ExecStart=\/usr\/bin\/dockerd -H fd:\/\/ --insecure-registry 10.10.0.2:5000/' /lib/systemd/system/docker.service
 sudo systemctl daemon-reload
 sudo systemctl restart docker

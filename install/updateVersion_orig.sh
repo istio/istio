@@ -181,7 +181,7 @@ function merge_files() {
   execute_sed "s/envoy_pilot.json/envoy_pilot_auth.json/" "$ISTIO_AUTH"
 
   # restrict pilot controllers to a single namespace in the test file
-  execute_sed "s|args: \[\"discovery\"|args: \[\"discovery\", \"-a\", \"${ISTIO_NAMESPACE}\"|" "$ISTIO_ONE_NAMESPACE"
+  execute_sed "s|args: \\[\"discovery\"|args: \\[\"discovery\", \"-a\", \"${ISTIO_NAMESPACE}\"|" "$ISTIO_ONE_NAMESPACE"
   cat $SRC/istio-citadel-one-namespace.yaml.tmpl >> "$ISTIO_ONE_NAMESPACE"
 
   cp "$ISTIO_ONE_NAMESPACE" "$ISTIO_ONE_NAMESPACE_AUTH"
@@ -256,15 +256,15 @@ function update_istio_install() {
   execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-citadel-with-health-check.yaml.tmpl
   execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-citadel-standalone.yaml.tmpl
 
-  execute_sed "s|image: {PILOT_HUB}/\(.*\):{PILOT_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-pilot.yaml.tmpl
+  execute_sed "s|image: {PILOT_HUB}/\\(.*\\):{PILOT_TAG}|image: ${PILOT_HUB}/\\1:${PILOT_TAG}|" istio-pilot.yaml.tmpl
   execute_sed "s|image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}|image: ${PROXY_HUB}/${PROXY_IMAGE}:${PROXY_TAG}|" istio-pilot.yaml.tmpl
-  execute_sed "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" istio-mixer.yaml.tmpl
+  execute_sed "s|image: {MIXER_HUB}/\\(.*\\):{MIXER_TAG}|image: ${MIXER_HUB}/\\1:${MIXER_TAG}|" istio-mixer.yaml.tmpl
   execute_sed "s|image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}|image: ${PROXY_HUB}/${PROXY_IMAGE}:${PROXY_TAG}|" istio-mixer.yaml.tmpl
-  execute_sed "s|image: {CITADEL_HUB}/\(.*\):{CITADEL_TAG}|image: ${CITADEL_HUB}/\1:${CITADEL_TAG}|" istio-citadel.yaml.tmpl
-  execute_sed "s|image: {CITADEL_HUB}/\(.*\):{CITADEL_TAG}|image: ${CITADEL_HUB}/\1:${CITADEL_TAG}|" istio-citadel-one-namespace.yaml.tmpl
-  execute_sed "s|image: {CITADEL_HUB}/\(.*\):{CITADEL_TAG}|image: ${CITADEL_HUB}/\1:${CITADEL_TAG}|" istio-citadel-plugin-certs.yaml.tmpl
-  execute_sed "s|image: {CITADEL_HUB}/\(.*\):{CITADEL_TAG}|image: ${CITADEL_HUB}/\1:${CITADEL_TAG}|" istio-citadel-with-health-check.yaml.tmpl
-  execute_sed "s|image: {CITADEL_HUB}/\(.*\):{CITADEL_TAG}|image: ${CITADEL_HUB}/\1:${CITADEL_TAG}|" istio-citadel-standalone.yaml.tmpl
+  execute_sed "s|image: {CITADEL_HUB}/\\(.*\\):{CITADEL_TAG}|image: ${CITADEL_HUB}/\\1:${CITADEL_TAG}|" istio-citadel.yaml.tmpl
+  execute_sed "s|image: {CITADEL_HUB}/\\(.*\\):{CITADEL_TAG}|image: ${CITADEL_HUB}/\\1:${CITADEL_TAG}|" istio-citadel-one-namespace.yaml.tmpl
+  execute_sed "s|image: {CITADEL_HUB}/\\(.*\\):{CITADEL_TAG}|image: ${CITADEL_HUB}/\\1:${CITADEL_TAG}|" istio-citadel-plugin-certs.yaml.tmpl
+  execute_sed "s|image: {CITADEL_HUB}/\\(.*\\):{CITADEL_TAG}|image: ${CITADEL_HUB}/\\1:${CITADEL_TAG}|" istio-citadel-with-health-check.yaml.tmpl
+  execute_sed "s|image: {CITADEL_HUB}/\\(.*\\):{CITADEL_TAG}|image: ${CITADEL_HUB}/\\1:${CITADEL_TAG}|" istio-citadel-standalone.yaml.tmpl
 
   execute_sed "s|image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}|image: ${PROXY_HUB}/${PROXY_IMAGE}:${PROXY_TAG}|" istio-ingress.yaml.tmpl
   popd
@@ -274,7 +274,7 @@ function update_istio_addons() {
   DEST=$DEST_DIR/install/kubernetes/addons
   mkdir -p "$DEST"
   pushd $TEMP_DIR/templates/addons
-  execute_sed "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" grafana.yaml.tmpl
+  execute_sed "s|image: {MIXER_HUB}/\\(.*\\):{MIXER_TAG}|image: ${MIXER_HUB}/\\1:${MIXER_TAG}|" grafana.yaml.tmpl
   sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" grafana.yaml.tmpl  > "$DEST/grafana.yaml"
   sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" zipkin.yaml.tmpl > "$DEST/zipkin.yaml"
   popd
@@ -282,8 +282,8 @@ function update_istio_addons() {
 
 function update_istio_install_docker() {
   pushd $TEMP_DIR/templates
-  execute_sed "s|image: {PILOT_HUB}/\(.*\):{PILOT_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio.yaml.tmpl
-  execute_sed "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PROXY_HUB}/\1:${PROXY_TAG}|" bookinfo.sidecars.yaml.tmpl
+  execute_sed "s|image: {PILOT_HUB}/\\(.*\\):{PILOT_TAG}|image: ${PILOT_HUB}/\\1:${PILOT_TAG}|" istio.yaml.tmpl
+  execute_sed "s|image: {PROXY_HUB}/\\(.*\\):{PROXY_TAG}|image: ${PROXY_HUB}/\\1:${PROXY_TAG}|" bookinfo.sidecars.yaml.tmpl
   popd
 }
 

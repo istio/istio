@@ -182,7 +182,7 @@ if [[ -n "${UPLOAD_DIR}" ]]; then
 
   # chop off the trailing {} part of the URL
   # shellcheck disable=SC2001
-  UPLOAD_URL_BASE=$(echo "$UPLOAD_URL" | sed "s/\(.*\){.*}/\1/")
+  UPLOAD_URL_BASE=$(echo "$UPLOAD_URL" | sed "s/\\(.*\\){.*}/\\1/")
   if [[ -z "${UPLOAD_URL_BASE}" ]]; then
     echo "Could not parse Upload URL ${UPLOAD_URL} for created release ID ${RELEASE_ID}"
     cat "${REQUEST_FILE}"

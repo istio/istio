@@ -63,7 +63,7 @@ function parse_skipped_tests() {
     if [[ "${SKIPPED_TESTS_GREP_ARGS}" != '' ]]; then
       SKIPPED_TESTS_GREP_ARGS+='\|'
     fi
-    SKIPPED_TESTS_GREP_ARGS+="\(${entry}\)"
+    SKIPPED_TESTS_GREP_ARGS+="\\(${entry}\\)"
   done < "${CODECOV_SKIP}"
 }
 

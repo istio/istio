@@ -10,7 +10,7 @@ for fn in $(find "${ROOTDIR}" -name '*.go' | grep -v vendor | grep -v testdata);
     continue
   fi
 
-  if head -20 "$fn" | grep "auto\-generated" > /dev/null; then
+  if head -20 "$fn" | grep "auto\\-generated" > /dev/null; then
     continue
   fi
 

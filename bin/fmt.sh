@@ -38,9 +38,9 @@ if [ $check = false ]; then
   #remove blank lines so gofmt / goimports can do their job
   for fl in ${GO_FILES}; do
     if [[ ${UX} == "Darwin" ]]; then
-      sed -i '' -e "/^import[[:space:]]*(/,/)/{ /^\s*$/d;}" "$fl"
+      sed -i '' -e "/^import[[:space:]]*(/,/)/{ /^\\s*$/d;}" "$fl"
     else
-      sed -i -e "/^import[[:space:]]*(/,/)/{ /^\s*$/d;}" "$fl"
+      sed -i -e "/^import[[:space:]]*(/,/)/{ /^\\s*$/d;}" "$fl"
     fi
   done
 
@@ -55,9 +55,9 @@ tf="/tmp/~output.go"
 ec=0
 for fl in ${GO_FILES}; do
   if [[ ${UX} == "Darwin" ]]; then
-    sed -e "/^import[[:space:]]*(/,/)/{ /^\s*$/d;}" "$fl" > $tf
+    sed -e "/^import[[:space:]]*(/,/)/{ /^\\s*$/d;}" "$fl" > $tf
   else
-    sed -e "/^import[[:space:]]*(/,/)/{ /^\s*$/d;}" "$fl" > $tf
+    sed -e "/^import[[:space:]]*(/,/)/{ /^\\s*$/d;}" "$fl" > $tf
   fi
 
   gofmt -s -w $tf

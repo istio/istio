@@ -23,7 +23,7 @@ fi
 
 if [ "x${ISTIO_VERSION}" = "x" ] ; then
   ISTIO_VERSION=$(curl -L -s https://api.github.com/repos/istio/istio/releases/latest | \
-                  grep tag_name | sed "s/ *\"tag_name\": *\"\(.*\)\",*/\1/")
+                  grep tag_name | sed "s/ *\"tag_name\": *\"\\(.*\\)\",*/\\1/")
 fi
 
 NAME="istio-$ISTIO_VERSION"

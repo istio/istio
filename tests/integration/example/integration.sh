@@ -21,9 +21,9 @@ set -x
 
 function process_result() {
     if [[ $1 -eq 0 ]]; then
-        SUMMARY+="\nPASSED: $2 "
+        SUMMARY+="\\nPASSED: $2 "
     else
-        SUMMARY+="\nFAILED: $2 "
+        SUMMARY+="\\nFAILED: $2 "
         ((FAILURE_COUNT++))
     fi
 }
@@ -60,5 +60,5 @@ process_result $? sample1
 go test -v ./tests/integration/example/tests/sample2 "${TESTARG[@]}" "$@"
 process_result $? sample2
 
-printf "%s\n" "${SUMMARY}"
+printf "%s\\n" "${SUMMARY}"
 exit ${FAILURE_COUNT}
