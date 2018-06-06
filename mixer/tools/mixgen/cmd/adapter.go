@@ -97,7 +97,7 @@ spec:
 	}
 
 	// validate if the file is a file descriptor set with imports.
-	if err := validateIfFds(byts); err != nil {
+	if err := isFds(byts); err != nil {
 		fatalf("config in invalid: %v", err)
 	}
 
@@ -120,8 +120,7 @@ spec:
 	printf(w.String())
 }
 
-func validateIfFds(byts []byte) error {
-
+func isFds(byts []byte) error {
 	fds := &descriptor.FileDescriptorSet{}
 	err := proto.Unmarshal(byts, fds)
 	if err != nil {
