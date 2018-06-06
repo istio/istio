@@ -61,10 +61,10 @@ TOLERANCE_PERCENT_BYTES_PER_OP=1
 TOLERANCE_PERCENT_ALLOCS_PER_OP=0
 
 # the location of this script
-SCRIPTPATH=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd --physical)
+SCRIPTPATH=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
 
 # the root folder for the project
-ROOT=$(cd "$(dirname "${SCRIPTPATH}")" && pwd --physical)
+ROOT=$(cd "$(dirname "${SCRIPTPATH}")" && pwd -P)
 
 # Search and find the baseline files within the project
 function findBaselineFiles() {

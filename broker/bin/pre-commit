@@ -3,8 +3,8 @@
 #
 # If called directly install pre-commit hook
 
-WD=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd --physical)
-ROOT=$(cd "$(dirname "${WD}")" && pwd --physical)
+WD=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
+ROOT=$(cd "$(dirname "${WD}")" && pwd -P)
 
 # Not running under git commit
 # install handler

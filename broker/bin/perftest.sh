@@ -1,9 +1,9 @@
 #!/bin/bash
 set -e
-SCRIPTPATH=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd --physical)
+SCRIPTPATH=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
 source "$SCRIPTPATH/use_bazel_go.sh"
 
-ROOT=$(cd "$(dirname "${SCRIPTPATH}")" && pwd --physical)
+ROOT=$(cd "$(dirname "${SCRIPTPATH}")" && pwd -P)
 cd "$ROOT"
 
 

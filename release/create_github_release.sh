@@ -33,7 +33,7 @@ set -o nounset
 set -o pipefail
 set -x
 
-SCRIPTPATH=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd --physical)
+SCRIPTPATH=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
 ORG="istio"
 REPO="istio"
 KEYFILE=""

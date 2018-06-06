@@ -31,7 +31,7 @@ set -o nounset
 set -o pipefail
 set -x
 
-SCRIPTPATH=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd --physical)
+SCRIPTPATH=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
 source "${SCRIPTPATH}/gcb_build_lib.sh"
 
 PROJECT_ID=""
@@ -59,7 +59,7 @@ function usage() {
     -u <url>  URL to git repo with manifest file                (required)
     -m <file> name of manifest file in repo specified by -u     (optional, defaults to $REPO_FILE )
     -t <tag>  commit tag or branch for manifest repo in -u      (optional, defaults to $REPO_FILE_VER )
-    -w        specify that script should wait until build done  (optional)  
+    -w        specify that script should wait until build done  (optional)
 
     -s <name> GCS bucket to read build artifacts                (required)
     -g <path> GCS bucket&path to file with github secret        (optional, detaults to $GCS_GITHUB_SECRET )

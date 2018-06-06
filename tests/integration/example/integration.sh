@@ -14,7 +14,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-WD=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd --physical)
+WD=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
 
 # Print commands
 set -x

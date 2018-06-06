@@ -5,8 +5,8 @@ die () {
   exit 1
 }
 
-WD=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd --physical)
-ROOT=$(cd "$(dirname "${WD}")" && pwd --physical)
+WD=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
+ROOT=$(cd "$(dirname "${WD}")" && pwd -P)
 
 if [ ! -e "$ROOT/Gopkg.lock" ]; then
   echo "Please run 'dep ensure' first"

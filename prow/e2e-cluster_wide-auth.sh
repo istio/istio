@@ -28,7 +28,7 @@ set -u
 # Print commands
 set -x
 
-ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd --physical)
+ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
 
 echo 'Running cluster-wide e2e rbac, auth Tests'
 "${ROOT}/prow/e2e-suite.sh" --test_vm --auth_enable --cluster_wide --use_galley_config_validator "$@"

@@ -3,7 +3,7 @@
 
 set -e
 
-THIS_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd --physical)
+THIS_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
 UX=$(uname)
 
 for db in ${THIS_DIR}/dashboards/*.json; do

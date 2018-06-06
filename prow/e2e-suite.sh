@@ -19,8 +19,8 @@
 # e2e-suite triggered after istio/presubmit succeeded #
 #######################################################
 
-WD=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd --physical)
-ROOT=$(cd "$(dirname "${WD}")" && pwd --physical)
+WD=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
+ROOT=$(cd "$(dirname "${WD}")" && pwd -P)
 
 # Exit immediately for non zero status
 set -e

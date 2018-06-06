@@ -23,7 +23,7 @@ if [[ "${VERBOSE}" == "1" ]];then
     set -x
 fi
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd --physical)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 
 OUT=${1:?"output path"}
 VERSION_PACKAGE=${2:?"version go package"} # istio.io/istio/pkg/version

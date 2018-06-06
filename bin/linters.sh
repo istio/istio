@@ -1,8 +1,8 @@
 #!/bin/bash
 set -ex
 
-SCRIPTPATH=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd --physical)
-WORKSPACE=$(cd "$(dirname "${SCRIPTPATH}")" && pwd --physical)
+SCRIPTPATH=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
+WORKSPACE=$(cd "$(dirname "${SCRIPTPATH}")" && pwd -P)
 
 cd "${WORKSPACE}"
 

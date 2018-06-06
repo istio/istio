@@ -5,7 +5,7 @@
 
 # Source the file with: ". envsetup.sh"
 
-TOP=$(cd ../../.. && pwd --physical)
+TOP=$(cd ../../.. && pwd -P)
 export TOP
 
 # Used in the shell scripts.

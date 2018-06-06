@@ -1,11 +1,11 @@
 #!/bin/bash
-WD=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd --physical)
+WD=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
 
 set -o errexit
 set -o nounset
 set -o pipefail
 
-# based on the following 
+# based on the following
 # https://github.com/GoogleCloudPlatform/distroless/blob/master/cacerts/extract.sh
 
 # https://packages.debian.org/buster/ca-certificates
@@ -16,7 +16,7 @@ DEB=ca-certs.deb
 DEB_DIR=$(mktemp -d)
 
 # outputs
-# These files are packaged 
+# These files are packaged
 CA_CERTS=${WD}/ca-certificates.tgz
 
 

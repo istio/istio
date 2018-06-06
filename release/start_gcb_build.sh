@@ -24,7 +24,7 @@ set -o nounset
 set -o pipefail
 set -x
 
-SCRIPTPATH=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd --physical)
+SCRIPTPATH=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
 source "${SCRIPTPATH}/gcb_build_lib.sh"
 
 PROJECT_ID=""

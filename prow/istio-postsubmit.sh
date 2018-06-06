@@ -14,8 +14,8 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-WD=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd --physical)
-ROOT=$(cd "$(dirname "${WD}")" && pwd --physical)
+WD=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
+ROOT=$(cd "$(dirname "${WD}")" && pwd -P)
 
 # Runs after a submit is merged to master:
 # - run the unit tests, in local environment

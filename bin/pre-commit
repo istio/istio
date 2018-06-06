@@ -8,12 +8,12 @@
 
 set -o errexit
 
-WD=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd --physical)
-ROOT=$(cd "$(dirname "${WD}")" && pwd --physical)
+WD=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
+ROOT=$(cd "$(dirname "${WD}")" && pwd -P)
 if [[ $ROOT == */.git ]]; then
-    ROOT=$(cd "$(dirname "${ROOT}")" && pwd --physical)
+    ROOT=$(cd "$(dirname "${ROOT}")" && pwd -P)
 fi
-GOPATH=$(cd "$ROOT/../.." && pwd --physical)
+GOPATH=$(cd "$ROOT/../.." && pwd -P)
 export GOPATH
 PATH=$GOPATH/bin:$PATH
 export PATH

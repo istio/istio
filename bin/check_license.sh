@@ -1,7 +1,7 @@
 #!/bin/bash
 
-SCRIPTPATH=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd --physical)
-ROOTDIR=$(cd "$(dirname "${SCRIPTPATH}")" && pwd --physical)
+SCRIPTPATH=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
+ROOTDIR=$(cd "$(dirname "${SCRIPTPATH}")" && pwd -P)
 pushd "$ROOTDIR"
 
 ret=0

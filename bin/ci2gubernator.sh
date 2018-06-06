@@ -3,8 +3,8 @@
 # Exit immediately for non zero status
 set -e
 
-SCRIPTPATH=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd --physical)
-ROOTDIR=$(cd "$(dirname "${SCRIPTPATH}")" && pwd --physical)
+SCRIPTPATH=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
+ROOTDIR=$(cd "$(dirname "${SCRIPTPATH}")" && pwd -P)
 
 REQUIRED_ENVS=(
 	GCS_BUCKET_TOKEN
