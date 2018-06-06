@@ -39,21 +39,20 @@ import (
 )
 
 const (
-	istioDashboard = "addons/grafana/dashboards/istio-dashboard.json"
-	mixerDashboard = "addons/grafana/dashboards/mixer-dashboard.json"
-	pilotDashboard = "addons/grafana/dashboards/pilot-dashboard.json"
-	fortioYaml     = "tests/e2e/tests/dashboard/fortio-rules.yaml"
-	netcatYaml     = "tests/e2e/tests/dashboard/netcat-rules.yaml"
+	istioMeshDashboard   = "addons/grafana/dashboards/istio-mesh-dashboard.json"
+	httpServiceDashboard = "addons/grafana/dashboards/istio-http-grpc-service-dashboard.json"
+	tcpServiceDashboard  = "addons/grafana/dashboards/istio-tcp-service-dashboard.json"
+	mixerDashboard       = "addons/grafana/dashboards/mixer-dashboard.json"
+	pilotDashboard       = "addons/grafana/dashboards/pilot-dashboard.json"
+	fortioYaml           = "tests/e2e/tests/dashboard/fortio-rules.yaml"
+	netcatYaml           = "tests/e2e/tests/dashboard/netcat-rules.yaml"
 
 	prometheusPort = "9090"
 )
 
 var (
 	replacer = strings.NewReplacer(
-		"$source_version", "unknown",
-		"$source", "istio-ingress.*",
-		"$http_destination", "echosrv.*",
-		"$destination_version", "v1.*",
+		"$service", "echosrv.*",
 		"$adapter", "kubernetesenv",
 		`connection_mtls=\"true\"`, "",
 		`connection_mtls=\"false\"`, "",
@@ -61,9 +60,7 @@ var (
 	)
 
 	tcpReplacer = strings.NewReplacer(
-		"$tcp_destination", "netcat-srv.*",
-		"istio-ingress", "netcat-client",
-		"unknown", "v1.*",
+		"echosrv", "netcat-srv",
 	)
 
 	tc *testConfig
@@ -92,7 +89,9 @@ func TestDashboards(t *testing.T) {
 		metricHost string
 		metricPort int
 	}{
-		{"Istio", istioDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
+		{"Istio", istioMeshDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
+		{"HTTP Service", httpServiceDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
+		{"TCP Service", httpServiceDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
 		{"Mixer", mixerDashboard, mixerQueryFilterFn, "istio-telemetry", 9093},
 		{"Pilot", pilotDashboard, pilotQueryFilterFn, "istio-pilot", 9093},
 	}
