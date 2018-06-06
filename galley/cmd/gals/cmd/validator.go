@@ -26,9 +26,7 @@ import (
 	"istio.io/istio/mixer/adapter"
 	"istio.io/istio/mixer/pkg/config"
 	"istio.io/istio/mixer/pkg/config/store"
-	"istio.io/istio/mixer/pkg/lang/checker"
 	runtimeConfig "istio.io/istio/mixer/pkg/runtime/config"
-	"istio.io/istio/mixer/pkg/runtime/config/validator"
 	"istio.io/istio/mixer/pkg/template"
 	generatedTmplRepo "istio.io/istio/mixer/template"
 	"istio.io/istio/pilot/pkg/bootstrap"
@@ -56,11 +54,7 @@ func createMixerValidator(kubeconfig string) (store.BackendValidator, error) {
 	if err != nil {
 		return nil, err
 	}
-	rv, err := validator.NewValidator(checker.NewTypeChecker(), "", s, adapters, templates)
-	if err != nil {
-		return nil, err
-	}
-	return store.NewValidator(rv, runtimeConfig.KindMap(adapters, templates)), nil
+	return store.NewValidator(nil, runtimeConfig.KindMap(adapters, templates)), nil
 }
 
 func validatorCmd(printf, fatalf shared.FormatFn) *cobra.Command {
