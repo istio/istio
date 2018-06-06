@@ -29,7 +29,7 @@ type Linter struct {
 	lreport  []string // report for linting process
 	tType    TestType // test type of file path
 	fs       *token.FileSet
-	sRuleMap map[string]bool
+	sRuleMap map[string]bool // map of rules to be skipped.
 }
 
 // NewLinter creates a new Linter object and returns the object.
@@ -68,7 +68,7 @@ func (lt *Linter) Run() {
 }
 
 // ApplyRules applies rules to node and generate lint report.
-func (lt *Linter) ApplyRules(node ast.Node, rules []rules.LintRule, testFuncOnly bool) {
+func (lt *Linter) ApplyRules(node ast.Node, rules []rules.LintRule) {
 	for _, rule := range rules {
 		if _, skip := lt.sRuleMap[rule.GetID()]; !skip {
 			rule.Check(node, lt.fs, &lt.lreport)
@@ -82,12 +82,8 @@ func (lt *Linter) Visit(node ast.Node) ast.Visitor {
 		return nil
 	}
 
-	if lt.tType == UnitTest {
-		lt.ApplyRules(node, UnitTestRules, false)
-	} else if lt.tType == IntegTest {
-		lt.ApplyRules(node, IntegTestRules, false)
-	} else if lt.tType == E2eTest {
-		lt.ApplyRules(node, E2eTestRules, false)
+	if lt.tType != NonTest {
+		lt.ApplyRules(node, LintRulesList[lt.tType])
 	}
 	return lt
 }

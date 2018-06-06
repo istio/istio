@@ -18,14 +18,14 @@ configured for that test type, and applies linting rules to each file.
   
 
 # Lint rules.
-[lint_rules_list.go](lint_rules_list.go) defines three lists of lint rules which apply to unit test 
-files, integration test files, and e2e test files. These lists are extensible. For example, to 
-configure rules for checking unit tests, you can add any rule creator into `UnitTestRules`, or remove
-any rule creator out of `UnitTestRules`.  
+[lint_rules_list.go](linter/lint_rules_list.go) defines a map `LintRulesList` which maps each test
+type to a list of lint rules. For example, **UnitTest** maps to a list of rules, which apply to unit 
+test files, and **IntegTest** maps to a list of rules that apply to integration test files. These 
+lists are extensible. You can add or remove any rule creator from them.  
 
 # Whitelist
 If, for some reason, you want to disable lint rule for a file, you can add file path and rule ID into 
-[whitelist.go](whitelist.go). Rule ID is the name of that rule file without `.go` extension.
+[whitelist.go](linter/whitelist.go). Rule ID is the name of that rule file without `.go` extension.
 multiple rule IDs are delimited by comma. You could also specify file path in regex.
 
 If you don't want to apply any rule to a file path, you can choose `SkipAllRules`.

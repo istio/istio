@@ -18,22 +18,21 @@ import (
 	"istio.io/istio/tests/util/golinter/rules"
 )
 
-// UnitTestRules are rules which should apply to unit test file
-var UnitTestRules = []rules.LintRule{
-	rules.NewSkipByIssueRule(),
-	rules.NewNoGoroutineRule(),
-	rules.NewNoSleepRule(),
-	rules.NewNoShortRule(),
-}
-
-// IntegTestRules are rules which should apply to integration test file
-var IntegTestRules = []rules.LintRule{
-	rules.NewSkipByIssueRule(),
-	rules.NewSkipByShortRule(),
-}
-
-// E2eTestRules are rules which should apply to e2e test file
-var E2eTestRules = []rules.LintRule{
-	rules.NewSkipByIssueRule(),
-	rules.NewSkipByShortRule(),
+// LintRulesList is a map that maps test type to list of lint rules. Linter applies corresponding
+// list of lint rules to each type of tests.
+var LintRulesList = map[TestType][]rules.LintRule{
+	UnitTest: { // list of rules which should apply to unit test file
+		rules.NewSkipByIssueRule(),
+		rules.NewNoGoroutineRule(),
+		rules.NewNoSleepRule(),
+		rules.NewNoShortRule(),
+	},
+	IntegTest: { // list of rules which should apply to integration test file
+		rules.NewSkipByIssueRule(),
+		rules.NewSkipByShortRule(),
+	},
+	E2eTest: { // list of rules which should apply to e2e test file
+		rules.NewSkipByIssueRule(),
+		rules.NewSkipByShortRule(),
+	},
 }
