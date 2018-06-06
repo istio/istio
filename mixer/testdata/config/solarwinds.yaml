@@ -4,9 +4,9 @@ metadata:
   name: handler
   namespace: istio-system
 spec:
-  appoptics_access_token: <APPOPTICS SAMPLE TOKEN>
-  papertrail_url: <PAPERTRAIL URL>
-  papertrail_local_retention_duration: <RETENTION PERIOD FOR LOGS LOCALLY, Optional>
+  appoptics_access_token: "" # <APPOPTICS SAMPLE TOKEN>
+  papertrail_url: "" # <PAPERTRAIL URL>
+  papertrail_local_retention_duration: 1h # <RETENTION PERIOD FOR LOGS LOCALLY, Optional>
   metrics:
     requestcount.metric.istio-system:
       label_names:

@@ -24,13 +24,16 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	multierror "github.com/hashicorp/go-multierror"
 
 	cpb "istio.io/api/policy/v1beta1"
+	adapter2 "istio.io/istio/mixer/adapter"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/lang/checker"
 	"istio.io/istio/mixer/pkg/template"
+	template2 "istio.io/istio/mixer/template"
 )
 
 // testAdapterConfig is a types.Struct instance which represents the
@@ -50,16 +53,16 @@ var testAdapterConfig = &types.Struct{
 	},
 }
 
-type dummyHandlerBuilder struct {
+type dummyHandlerBldr struct {
 	want proto.Message
 	got  proto.Message
 }
 
-func (d *dummyHandlerBuilder) SetAdapterConfig(cfg adapter.Config) {
+func (d *dummyHandlerBldr) SetAdapterConfig(cfg adapter.Config) {
 	d.got = cfg
 }
 
-func (d *dummyHandlerBuilder) Validate() *adapter.ConfigErrors {
+func (d *dummyHandlerBldr) Validate() *adapter.ConfigErrors {
 	var err *adapter.ConfigErrors
 	if !reflect.DeepEqual(d.want, d.got) {
 		err = err.Appendf("", "Got %v, Want %v", d.got, d.want)
@@ -67,12 +70,12 @@ func (d *dummyHandlerBuilder) Validate() *adapter.ConfigErrors {
 	return err
 }
 
-func (d *dummyHandlerBuilder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
+func (d *dummyHandlerBldr) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
 	return nil, errors.New("dummy can't build")
 }
 
 func getValidatorForTest() (*Validator, error) {
-	path, err := filepath.Abs("../../../testdata/config")
+	path, err := filepath.Abs("../../../../testdata/config")
 	if err != nil {
 		return nil, err
 	}
@@ -81,33 +84,47 @@ func getValidatorForTest() (*Validator, error) {
 		return nil, err
 	}
 	tc := checker.NewTypeChecker()
-	adapterInfo := map[string]*adapter.Info{
-		"listchecker": {
-			DefaultConfig: &types.Struct{},
-			NewBuilder: func() adapter.HandlerBuilder {
-				return &dummyHandlerBuilder{want: testAdapterConfig}
-			},
+	adapterInfo := make(map[string]*adapter.Info)
+	for _, y := range adapter2.Inventory() {
+		i := y()
+		adapterInfo[i.Name] = &i
+	}
+
+	adapterInfo["listchecker"] = &adapter.Info{
+		DefaultConfig: &types.Struct{},
+		NewBuilder: func() adapter.HandlerBuilder {
+			return &dummyHandlerBldr{want: testAdapterConfig}
 		},
 	}
-	templateInfo := map[string]*template.Info{
-		"listentry": {
-			CtrCfg: &types.Struct{},
-			InferType: func(msg proto.Message, fn template.TypeEvalFn) (proto.Message, error) {
-				st := msg.(*types.Struct)
-				v, ok := st.Fields["value"]
-				if !ok {
-					return nil, errors.New("no value field")
-				}
-				value := v.GetStringValue()
-				if value == "" {
-					return nil, errors.New("not string value")
-				}
-				_, ierr := fn(value)
-				return nil, ierr
-			},
+
+	templateInfo := make(map[string]*template.Info)
+	for x, y := range template2.SupportedTmplInfo {
+		tmp := y
+		templateInfo[x] = &tmp
+	}
+
+	templateInfo["listentry"] = &template.Info{
+		Name:   "listentry",
+		CtrCfg: &types.Struct{},
+		InferType: func(msg proto.Message, fn template.TypeEvalFn) (proto.Message, error) {
+			st := msg.(*types.Struct)
+			v, ok := st.Fields["value"]
+			if !ok {
+				return nil, errors.New("no value field")
+			}
+			value := v.GetStringValue()
+			if value == "" {
+				return nil, errors.New("not string value")
+			}
+			_, ierr := fn(value)
+			return nil, ierr
+		},
+		BuilderSupportsTemplate: func(builder adapter.HandlerBuilder) bool {
+			return true
 		},
 	}
-	v, err := New(tc, "destination.service", s, adapterInfo, templateInfo)
+
+	v, err := NewValidator(tc, "destination.service", s, adapterInfo, templateInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -130,89 +147,114 @@ func deleteEvent(keystr string) *store.Event {
 
 func TestValidator(t *testing.T) {
 	for _, cc := range []struct {
-		title string
-		ev    *store.Event
-		ok    bool
+		title   string
+		evs     []*store.Event
+		ok      bool
+		wantErr string
 	}{
 		{
 			"new rule",
-			updateEvent("test.rule.default", &cpb.Rule{
+			[]*store.Event{updateEvent("test.rule.default", &cpb.Rule{
 				Actions: []*cpb.Action{
 					{Handler: "staticversion.listchecker.istio-system", Instances: []string{"appversion.listentry.istio-system"}},
-				}}),
+				}})},
 			true,
+			"",
 		},
+
 		{
 			"update rule",
-			updateEvent("checkwl.rule.istio-system", &cpb.Rule{
+			[]*store.Event{updateEvent("checkwl.rule.istio-system", &cpb.Rule{
 				Actions: []*cpb.Action{
 					{Handler: "staticversion.listchecker", Instances: []string{"appversion.listentry"}},
-				}}),
+				}})},
 			true,
+			"",
 		},
 		{
 			"delete rule",
-			deleteEvent("checkwl.rule.istio-system"),
+			[]*store.Event{deleteEvent("checkwl.rule.istio-system")},
 			true,
+			"",
 		},
 		{
 			"invalid updating rule: match syntax error",
-			updateEvent("test.rule.default", &cpb.Rule{Match: "foo"}),
+			[]*store.Event{updateEvent("test.rule.default", &cpb.Rule{Match: "foo"})},
 			false,
+			"rule='test.rule.default'.Match: unknown attribute foo",
 		},
 		{
 			"invalid updating rule: match type error",
-			updateEvent("test.rule.default", &cpb.Rule{Match: "1"}),
+			[]*store.Event{updateEvent("test.rule.default", &cpb.Rule{Match: "1"})},
 			false,
+			"rule='test.rule.default'.Match: expression '1' evaluated to type INT64, expected type BOOL",
 		},
 		{
 			"invalid updating rule: reference not found",
-			updateEvent("test.rule.default", &cpb.Rule{Actions: []*cpb.Action{{Handler: "nonexistent.listchecker.istio-system"}}}),
+			[]*store.Event{updateEvent("test.rule.default", &cpb.Rule{Actions: []*cpb.Action{{Handler: "nonexistent.listchecker.istio-system"}}})},
 			false,
+			"action='test.rule.default[0]': Handler not found: handler='nonexistent.listchecker.istio-system'",
 		},
 		{
 			"adding adapter",
-			updateEvent("test.listchecker.default", testAdapterConfig),
+			[]*store.Event{updateEvent("test.listchecker.default", testAdapterConfig)},
 			true,
+			"",
 		},
 		{
 			"adding instance",
-			updateEvent("test.listentry.default", &types.Struct{Fields: map[string]*types.Value{
+			[]*store.Event{updateEvent("test.listentry.default", &types.Struct{Fields: map[string]*types.Value{
 				"value": {Kind: &types.Value_StringValue{StringValue: "0"}},
-			}}),
+			}})},
 			true,
+			"",
 		},
 		{
 			"adapter validation failure",
-			updateEvent("test.listchecker.default", &types.Struct{}),
+			[]*store.Event{
+				updateEvent("test.listchecker.default", &types.Struct{}),
+				updateEvent("testInst.listentry.default", &types.Struct{Fields: map[string]*types.Value{
+					"value": {Kind: &types.Value_StringValue{StringValue: "0"}},
+				}}),
+				updateEvent("r1.rule.default", &cpb.Rule{
+					Actions: []*cpb.Action{
+						{Handler: "test.listchecker.default", Instances: []string{"testInst.listentry.default"}},
+					}}),
+			},
 			false,
+			"handler[test.listchecker.default]/instances[testInst.listentry.default]: adapter validation failed",
 		},
 		{
 			"invalid instance",
-			updateEvent("test.listentry.default", &types.Struct{}),
+			[]*store.Event{updateEvent("test.listentry.default", &types.Struct{})},
 			false,
+			"instance='test.listentry.default': no value field",
 		},
 		{
 			"invalid instance syntax",
-			updateEvent("test.listentry.default", &types.Struct{Fields: map[string]*types.Value{
+			[]*store.Event{updateEvent("test.listentry.default", &types.Struct{Fields: map[string]*types.Value{
 				"value": {Kind: &types.Value_StringValue{StringValue: ""}},
-			}}),
+			}})},
 			false,
+			"instance='test.listentry.default': not string value",
 		},
 		{
 			"invalid delete handler",
-			deleteEvent("staticversion.listchecker.istio-system"),
+			[]*store.Event{deleteEvent("staticversion.listchecker.istio-system")},
 			false,
+			"action='checkwl.rule.istio-system[0]': Handler not found: handler='staticversion.listchecker.istio-system'",
 		},
 		{
 			"invalid delete instance",
-			deleteEvent("appversion.listentry.istio-system"),
+			[]*store.Event{deleteEvent("appversion.listentry.istio-system")},
 			false,
+			"action='checkwl.rule.istio-system[0]': Instance not found: instance='appversion.listentry.istio-system'",
 		},
 		{
 			"invalid removal of attributemanifest",
-			deleteEvent("kubernetes.attributemanifest.istio-system"),
+			[]*store.Event{deleteEvent("kubernetes.attributemanifest.istio-system")},
 			false,
+			"",
 		},
 	} {
 		t.Run(cc.title, func(tt *testing.T) {
@@ -221,10 +263,19 @@ func TestValidator(t *testing.T) {
 				tt.Fatal(err)
 			}
 			defer v.Stop()
-			err = v.Validate(cc.ev)
-			ok := (err == nil)
+			var result *multierror.Error
+			for _, ev := range cc.evs {
+				e := v.Validate(ev)
+				result = multierror.Append(result, e)
+			}
+			ok := result.ErrorOrNil() == nil
 			if cc.ok != ok {
-				tt.Errorf("Got %v, Want %v", err, cc.ok)
+				tt.Errorf("Got %v, Want %v", result.ErrorOrNil(), cc.ok)
+			}
+			if cc.wantErr != "" {
+				if !strings.Contains(result.Error(), cc.wantErr) {
+					tt.Errorf("Got error %s, Want err %s", result.Error(), cc.wantErr)
+				}
 			}
 		})
 	}
