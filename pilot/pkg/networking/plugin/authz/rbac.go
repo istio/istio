@@ -44,6 +44,9 @@ const (
 	// RbacFilterName is the name of the RBAC filter in envoy.
 	RbacFilterName = "envoy.filters.http.rbac"
 
+	// RbacConfigName is the name of the RbacConfig custom resource that controls the RBAC behavior.
+	RbacConfigName = "rbac-config"
+
 	sourceIP        = "source.ip"
 	sourceService   = "source.service"
 	destinationIP   = "destination.ip"
@@ -114,14 +117,15 @@ func (Plugin) OnOutboundCluster(env model.Environment, node model.Proxy, service
 }
 
 func isRbacEnabled(store model.IstioConfigStore) (bool, error) {
-	rbacConfigs, err := store.List(model.RbacConfig.Type, kube.IstioNamespace)
-	if err != nil {
-		return false, fmt.Errorf("failed to get rbacConfig: %v", err)
+	var configProto *rbacproto.RbacConfig
+	config := store.RbacConfig(RbacConfigName, kube.IstioNamespace)
+	if config != nil {
+		configProto = config.Spec.(*rbacproto.RbacConfig)
 	}
-	if len(rbacConfigs) != 1 {
-		return false, fmt.Errorf("found %d rbacConfigs, expecting only 1 at most", len(rbacConfigs))
+	if configProto == nil {
+		return false, fmt.Errorf("couldn't find RbacConfig %s in namespace %s",
+			RbacConfigName, kube.IstioNamespace)
 	}
-	configProto := rbacConfigs[0].Spec.(*rbacproto.RbacConfig)
 	// TODO(yangminzhu): Supports ON_WITH_INCLUSION and ON_WITH_EXCLUSION.
 	if configProto.Mode != rbacproto.RbacConfig_ON {
 		log.Debugf("rbac plugin disabled by rbacConfig: %v", *configProto)
@@ -141,14 +145,14 @@ func buildHTTPFilter(hostName model.Hostname, store model.IstioConfigStore) (*ht
 	}
 	namespace := split[1]
 
-	roles, err := store.List(model.ServiceRole.Type, namespace)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get ServiceRoles in namespace %s: %v", namespace, err)
+	roles := store.ServiceRoles(namespace)
+	if roles == nil {
+		return nil, fmt.Errorf("failed to get ServiceRoles in namespace %s", namespace)
 	}
 
-	bindings, err := store.List(model.ServiceRoleBinding.Type, namespace)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get ServiceRoleBinding in namespace %s: %v", namespace, err)
+	bindings := store.ServiceRoleBindings(namespace)
+	if bindings == nil {
+		return nil, fmt.Errorf("failed to get ServiceRoleBinding in namespace %s", namespace)
 	}
 
 	log.Debugf("%s: converting RBAC rules to proxy config", RbacFilterName)

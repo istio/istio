@@ -28,6 +28,6 @@ import (
 func NewPlugins() []plugin.Plugin {
 	return []plugin.Plugin{
 		authn.NewPlugin(),
-		mixer.NewPlugin(),
-		authz.NewPlugin()}
+		authz.NewPlugin(),
+		mixer.NewPlugin()}
 }

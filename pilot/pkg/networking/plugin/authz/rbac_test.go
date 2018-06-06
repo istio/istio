@@ -52,10 +52,10 @@ func newRbacConfig(name, ns string, mode rbacproto.RbacConfig_Mode) model.Config
 }
 
 func TestIsRbacEnabled(t *testing.T) {
-	cfg1 := newRbacConfig("cfg1", "default", rbacproto.RbacConfig_ON)
+	cfg1 := newRbacConfig("rbac-config", "default", rbacproto.RbacConfig_ON)
 	cfg2 := newRbacConfig("cfg2", kube.IstioNamespace, rbacproto.RbacConfig_ON)
-	cfg3 := newRbacConfig("cfg3", kube.IstioNamespace, rbacproto.RbacConfig_ON)
-	cfg4 := newRbacConfig("cfg4", kube.IstioNamespace, rbacproto.RbacConfig_OFF)
+	cfg3 := newRbacConfig("rbac-config", kube.IstioNamespace, rbacproto.RbacConfig_ON)
+	cfg4 := newRbacConfig("rbac-config", kube.IstioNamespace, rbacproto.RbacConfig_OFF)
 	testCases := []struct {
 		Name  string
 		Store model.IstioConfigStore
@@ -65,12 +65,12 @@ func TestIsRbacEnabled(t *testing.T) {
 		{
 			Name:  "zero rbacConfig",
 			Store: newIstioStoreWithConfigs([]model.Config{cfg1}, t),
-			Err:   "found 0 rbacConfigs, expecting only 1 at most",
+			Err:   "couldn't find RbacConfig rbac-config in namespace istio-system",
 		},
 		{
-			Name:  "more than 1 rbacConfigs",
-			Store: newIstioStoreWithConfigs([]model.Config{cfg2, cfg3}, t),
-			Err:   "found 2 rbacConfigs, expecting only 1 at most",
+			Name:  "wrong rbacConfig name",
+			Store: newIstioStoreWithConfigs([]model.Config{cfg1, cfg2}, t),
+			Err:   "couldn't find RbacConfig rbac-config in namespace istio-system",
 		},
 		{
 			Name:  "rbac plugin disabled",
@@ -78,7 +78,7 @@ func TestIsRbacEnabled(t *testing.T) {
 		},
 		{
 			Name:  "valid filter",
-			Store: newIstioStoreWithConfigs([]model.Config{cfg1, cfg2}, t),
+			Store: newIstioStoreWithConfigs([]model.Config{cfg1, cfg3}, t),
 			Ret:   true,
 		},
 	}
