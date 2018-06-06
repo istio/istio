@@ -70,9 +70,10 @@ var (
 	loggingOptions = log.DefaultOptions()
 
 	rootCmd = &cobra.Command{
-		Use:   "pilot-agent",
-		Short: "Istio Pilot agent",
-		Long:  "Istio Pilot agent runs in the side car or gateway container and bootstraps envoy.",
+		Use:          "pilot-agent",
+		Short:        "Istio Pilot agent",
+		Long:         "Istio Pilot agent runs in the side car or gateway container and bootstraps envoy.",
+		SilenceUsage: true,
 	}
 
 	proxyCmd = &cobra.Command{
