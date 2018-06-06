@@ -101,6 +101,9 @@ type (
 
 		// parameters used to construct the instance.
 		Params proto.Message
+
+		// inferred type for the instance.
+		InferredType proto.Message
 	}
 
 	// Rule configuration. Fully resolved.

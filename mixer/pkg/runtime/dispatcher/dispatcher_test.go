@@ -28,10 +28,10 @@ import (
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/compiled"
 	"istio.io/istio/mixer/pkg/pool"
+	"istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/runtime/handler"
 	"istio.io/istio/mixer/pkg/runtime/routing"
 	"istio.io/istio/mixer/pkg/runtime/testing/data"
-	"istio.io/istio/mixer/pkg/runtime/testing/util"
 	"istio.io/istio/pkg/log"
 )
 
@@ -704,9 +704,9 @@ func TestDispatcher(t *testing.T) {
 
 			templates := data.BuildTemplates(l, tst.templates...)
 			adapters := data.BuildAdapters(l, tst.adapters...)
-			config := data.JoinConfigs(tst.config...)
+			cfg := data.JoinConfigs(tst.config...)
 
-			s := util.GetSnapshot(templates, adapters, data.ServiceConfig, config)
+			s, _ := config.GetSnapshotForTest(templates, adapters, data.ServiceConfig, cfg)
 			h := handler.NewTable(handler.Empty(), s, pool.NewGoroutinePool(1, false))
 
 			expb := compiled.NewBuilder(s.Attributes)
