@@ -2,7 +2,7 @@
 
 SCRIPTPATH=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
 ROOTDIR=$(cd "$(dirname "${SCRIPTPATH}")" && pwd -P)
-pushd "$ROOTDIR"
+pushd "$ROOTDIR" || return
 
 ret=0
 for fn in $(find "${ROOTDIR}" -name '*.go' | grep -v vendor | grep -v testdata); do
@@ -29,5 +29,5 @@ for fn in $(find "${ROOTDIR}" -name '*.go' | grep -v vendor | grep -v testdata);
   fi
 done
 
-popd
+popd || return
 exit "$ret"

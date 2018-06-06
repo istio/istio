@@ -31,9 +31,9 @@ fi
 
 # Runs make at the top of the tree.
 function m() {
-    pushd "$TOP"
+    pushd "$TOP" || return
     make "$*"
-    popd
+    popd || return
 }
 
 # Image used by the circleci, including all tools
