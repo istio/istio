@@ -28,7 +28,6 @@ webhooks:
         - destinationpolicies
         - egressrules
         - routerules
-        - ingressrules
         - httpapispecs
         - httpapispecbindings
         - quotaspecs
