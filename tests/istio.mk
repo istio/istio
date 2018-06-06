@@ -69,9 +69,6 @@ DEFAULT_UPGRADE_E2E_ARGS += --base_version=${LAST_RELEASE}
 DEFAULT_UPGRADE_E2E_ARGS += --target_version=""
 UPGRADE_E2E_ARGS ?= ${DEFAULT_UPGRADE_E2E_ARGS}
 
-# Simple e2e test using fortio, approx 2 min
-e2e_simple: istioctl generate_yaml e2e_simple_run
-
 e2e_mixer: istioctl generate_yaml e2e_mixer_run
 
 e2e_galley: istioctl generate_yaml e2e_galley_run
