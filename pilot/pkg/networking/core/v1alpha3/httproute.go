@@ -30,7 +30,7 @@ import (
 )
 
 // buildSidecarInboundHTTPRouteConfig builds the route config with a single wildcard virtual host on the inbound path
-// TODO: enable websockets, trace decorators
+// TODO: enable websockets, trace decorators, inbound timeouts
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env model.Environment,
 	node model.Proxy, instance *model.ServiceInstance) *xdsapi.RouteConfiguration {
 

@@ -1837,9 +1837,6 @@ func validateAuthNPolicyTarget(target *authn.TargetSelector) (errs error) {
 		errs = multierror.Append(errs, fmt.Errorf("target name %q must be a valid label", target.Name))
 	}
 
-	if target.Subset != "" {
-		errs = appendErrors(errs, validateSubsetName(target.Subset))
-	}
 	for _, port := range target.Ports {
 		errs = appendErrors(errs, validateAuthNPortSelector(port))
 	}

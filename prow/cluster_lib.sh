@@ -20,30 +20,7 @@
 #             e2e-suite               #
 #                                     #
 #######################################
-
-PROJECT_NAME=istio-testing
-ZONE=us-central1-f
-MACHINE_TYPE=n1-standard-4
-NUM_NODES=${NUM_NODES:-1}
-CLUSTER_NAME=
-
-IFS=';'
-VERSIONS=($(gcloud container get-server-config --project=${PROJECT_NAME} --zone=${ZONE} --format='value(validMasterVersions)'))
-unset IFS
-CLUSTER_VERSION="${VERSIONS[0]}"
-
 KUBE_USER="istio-prow-test-job@istio-testing.iam.gserviceaccount.com"
-CLUSTER_CREATED=false
-
-function delete_cluster () {
-  if [ "${CLUSTER_CREATED}" = true ]; then
-    gcloud container clusters delete ${CLUSTER_NAME}\
-      --zone ${ZONE}\
-      --project ${PROJECT_NAME}\
-      --quiet\
-      || echo "Failed to delete cluster ${CLUSTER_NAME}"
-  fi
-}
 
 function setup_cluster() {
   kubectl create clusterrolebinding prow-cluster-admin-binding\
@@ -51,23 +28,7 @@ function setup_cluster() {
     --user="${KUBE_USER}"
 }
 
-function create_cluster() {
-  local prefix="${1}"
-
-  CLUSTER_NAME="${prefix}-$(uuidgen | cut -c1-8 | tr "[A-Z]" "[a-z]")"
-
-  echo "Default cluster version: ${CLUSTER_VERSION}"
-  gcloud container clusters create ${CLUSTER_NAME}\
-    --zone ${ZONE}\
-    --project ${PROJECT_NAME}\
-    --cluster-version ${CLUSTER_VERSION}\
-    --machine-type ${MACHINE_TYPE}\
-    --num-nodes ${NUM_NODES}\
-    --no-enable-legacy-authorization\
-    --enable-kubernetes-alpha --quiet\
-    || { echo "Failed to create a new cluster"; exit 1; }
-  CLUSTER_CREATED=true
-
+function check_cluster() {
   for i in {1..10}
   do
     status=$(kubectl get namespace || echo "Unreachable")
@@ -77,7 +38,5 @@ function create_cluster() {
     fi
     sleep 5
   done
-
-  setup_cluster
 }
 

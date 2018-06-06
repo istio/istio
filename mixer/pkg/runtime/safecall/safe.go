@@ -12,43 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package handler
+package safecall
 
 import (
-	"testing"
+	"fmt"
 )
 
-func TestSafeCall(t *testing.T) {
-	worked := false
-	err := safeCall("m", func() {
-		worked = true
-	})
+// Execute run the fn and in case of any panic, will be return it as an error.
+func Execute(name string, fn func()) (err error) {
+	// Try to detect panic, even if panic was called with nil.
+	reachedEnd := false
+	defer func() {
+		if reachedEnd {
+			return
+		}
 
-	if !worked {
-		t.Fail()
-	}
+		r := recover()
+		err = fmt.Errorf("panic during %v: '%v' ", name, r)
+	}()
 
-	if err != nil {
-		t.Fail()
-	}
-}
+	fn()
 
-func TestSafeCall_Panic(t *testing.T) {
-	err := safeCall("m", func() {
-		panic("panic")
-	})
-
-	if err == nil {
-		t.Fail()
-	}
-}
-
-func TestSafeCall_Panic_Nil(t *testing.T) {
-	err := safeCall("m", func() {
-		panic(nil)
-	})
-
-	if err == nil {
-		t.Fail()
-	}
+	reachedEnd = true
+	return
 }

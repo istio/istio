@@ -21,7 +21,6 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
-	"path"
 	"sort"
 	"strings"
 	"text/tabwriter"
@@ -42,7 +41,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"k8s.io/client-go/util/homedir"
 
 	"istio.io/istio/istioctl/cmd/istioctl/convert"
 	"istio.io/istio/istioctl/cmd/istioctl/gendeployment"
@@ -51,6 +49,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/collateral"
+	kubecfg "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
 )
@@ -535,32 +534,19 @@ istioctl context-create --api-server http://127.0.0.1:8080
 	}
 )
 
-const defaultKubeConfigText = "$KUBECONFIG else $HOME/.kube/config"
-
 func istioPersistentPreRunE(c *cobra.Command, args []string) error {
 	if err := log.Configure(loggingOptions); err != nil {
 		return err
 	}
 	defaultNamespace = getDefaultNamespace(kubeconfig)
-	getRealKubeConfig()
 	return nil
-}
-
-func getRealKubeConfig() {
-	// if the user didn't supply a specific value for kubeconfig, derive it from the environment
-	if kubeconfig == defaultKubeConfigText {
-		kubeconfig = path.Join(homedir.HomeDir(), ".kube/config")
-		if v := os.Getenv("KUBECONFIG"); v != "" {
-			kubeconfig = v
-		}
-	}
 }
 
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&platform, "platform", "p", kubePlatform,
 		"Istio host platform")
 
-	rootCmd.PersistentFlags().StringVarP(&kubeconfig, "kubeconfig", "c", defaultKubeConfigText,
+	rootCmd.PersistentFlags().StringVarP(&kubeconfig, "kubeconfig", "c", "",
 		"Kubernetes configuration file")
 
 	rootCmd.PersistentFlags().StringVarP(&istioNamespace, "istioNamespace", "i", kube.IstioNamespace,
@@ -749,7 +735,7 @@ func preprocMixerConfig(configs []crd.IstioKind) error {
 }
 
 func restConfig() (config *rest.Config, err error) {
-	config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
+	config, err = kubecfg.BuildClientConfig(kubeconfig)
 
 	if err != nil {
 		return
@@ -821,7 +807,7 @@ func prepareClientForOthers(configs []crd.IstioKind) (*rest.RESTClient, map[stri
 func getDefaultNamespace(kubeconfig string) string {
 	configAccess := clientcmd.NewDefaultPathOptions()
 
-	if kubeconfig != defaultKubeConfigText {
+	if kubeconfig != "" {
 		// use specified kubeconfig file for the location of the
 		// config to read
 		configAccess.GlobalFile = kubeconfig

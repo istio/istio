@@ -73,8 +73,11 @@ var checkAttributesOkGet = `
   "request.scheme": "http",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
+<<<<<<< HEAD
   "source.ip": "[127 0 0 1]",
   "source.port": "*",
+=======
+>>>>>>> upstream/master
   "source.principal": "issuer@foo.com/sub@foo.com",
   "source.user": "issuer@foo.com/sub@foo.com",
   "target.name": "target-name",
@@ -118,8 +121,11 @@ var reportAttributesOkGet = `
   "request.scheme": "http",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
+<<<<<<< HEAD
   "source.ip": "[127 0 0 1]",
   "source.port": "*",
+=======
+>>>>>>> upstream/master
   "source.principal": "issuer@foo.com/sub@foo.com",
   "source.user": "issuer@foo.com/sub@foo.com",
   "destination.ip": "[127 0 0 1]",

@@ -39,7 +39,12 @@ type (
 		resolver    yaml.Resolver
 		compiler    Compiler
 		skipUnknown bool
+		namedTypes  map[string]NamedEncoderBuilderFunc
 	}
+
+	// NamedEncoderBuilderFunc funcs have a special way to process input for encoding specific types
+	// for example istio...Value field accepts user input in a specific way
+	NamedEncoderBuilderFunc func(m *descriptor.DescriptorProto, fd *descriptor.FieldDescriptorProto, v interface{}, compiler Compiler) (Encoder, error)
 )
 
 // NewEncoderBuilder creates an EncoderBuilder.
@@ -47,7 +52,11 @@ func NewEncoderBuilder(resolver yaml.Resolver, compiler Compiler, skipUnknown bo
 	return &Builder{
 		resolver:    resolver,
 		compiler:    compiler,
-		skipUnknown: skipUnknown}
+		skipUnknown: skipUnknown,
+		namedTypes: map[string]NamedEncoderBuilderFunc{
+			valueTypeName: valueTypeEncoderBuilder,
+		},
+	}
 }
 
 // Build builds an Encoder
@@ -170,7 +179,7 @@ func (c Builder) buildMessage(md *descriptor.DescriptorProto, data map[string]in
 	}
 
 	// sorting fields is recommended
-	sort.Slice(me.fields, func(i, j int) bool {
+	sort.SliceStable(me.fields, func(i, j int) bool {
 		return me.fields[i].number < me.fields[j].number
 	})
 
@@ -262,24 +271,32 @@ func (c Builder) buildPrimitiveField(v interface{}, fd *descriptor.FieldDescript
 func (c Builder) buildMessageField(ma []interface{}, m *descriptor.DescriptorProto,
 	fd *descriptor.FieldDescriptorProto, me *messageEncoder) error {
 
+	namedBuilder := c.namedTypes[fd.GetTypeName()]
+
 	for _, vv := range ma {
-		var ok bool
-
-		var vq map[string]interface{}
-		if vq, ok = vv.(map[string]interface{}); !ok {
-			return fmt.Errorf("unable to process: %v, got %T, want: map[string]interface{}", fd, vv)
-		}
-
 		var de Encoder
 		var err error
-		if de, err = c.buildMessage(m, vq, false); err != nil {
+
+		if namedBuilder != nil {
+			de, err = namedBuilder(m, fd, vv, c.compiler)
+		} else {
+			var ok bool
+			var vq map[string]interface{}
+			if vq, ok = vv.(map[string]interface{}); !ok {
+				return fmt.Errorf("unable to process: %v, got %T, want: map[string]interface{}", fd, vv)
+			}
+
+			de, err = c.buildMessage(m, vq, false)
+		}
+
+		if err != nil {
 			return fmt.Errorf("unable to build message field: %v, %v", fd.GetName(), err)
 		}
+
 		fld := makeField(fd)
 		fld.encoder = []Encoder{de}
 		me.fields = append(me.fields, fld)
 	}
-
 	return nil
 }
 

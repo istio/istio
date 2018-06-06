@@ -25,6 +25,7 @@ import (
 )
 
 func createServiceEntries(serviceEntries []*networking.ServiceEntry, store model.IstioConfigStore, t *testing.T) {
+	t.Helper()
 	for _, svc := range serviceEntries {
 		config := model.Config{
 			ConfigMeta: model.ConfigMeta{
@@ -43,18 +44,27 @@ func createServiceEntries(serviceEntries []*networking.ServiceEntry, store model
 	}
 }
 
-func initConfigStore() model.IstioConfigStore {
-	configDescriptor := model.ConfigDescriptor{
-		model.ServiceEntry,
-	}
-	store := memory.Make(configDescriptor)
+type channelTerminal struct {
+}
+
+func initServiceDiscovery() (model.IstioConfigStore, *ServiceEntryStore, func()) {
+	store := memory.Make(model.IstioConfigTypes)
 	configController := memory.NewController(store)
-	return model.MakeIstioStore(configController)
+
+	stop := make(chan struct{})
+	go configController.Run(stop)
+
+	istioStore := model.MakeIstioStore(configController)
+	serviceController := NewServiceDiscovery(configController, istioStore)
+	return istioStore, serviceController, func() {
+		stop <- channelTerminal{}
+	}
 }
 
 func TestServiceDiscoveryServices(t *testing.T) {
-	store := initConfigStore()
-	sd := NewServiceDiscovery(nil, store)
+	store, sd, stopFn := initServiceDiscovery()
+	defer stopFn()
+
 	expectedServices := []*model.Service{
 		makeService("*.google.com", model.UnspecifiedIP, map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB),
 		makeService("tcpstatic.com", "172.217.0.0/16", map[string]int{"tcp-444": 444}, true, model.ClientSideLB),
@@ -77,8 +87,8 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 	host := "*.google.com"
 	hostDNE := "does.not.exist.local"
 
-	store := initConfigStore()
-	sd := NewServiceDiscovery(nil, store)
+	store, sd, stopFn := initServiceDiscovery()
+	defer stopFn()
 
 	createServiceEntries([]*networking.ServiceEntry{httpDNS, tcpStatic}, store, t)
 
@@ -103,8 +113,8 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 }
 
 func TestServiceDiscoveryGetProxyServiceInstances(t *testing.T) {
-	store := initConfigStore()
-	sd := NewServiceDiscovery(nil, store)
+	store, sd, stopFn := initServiceDiscovery()
+	defer stopFn()
 
 	createServiceEntries([]*networking.ServiceEntry{httpStatic, tcpStatic}, store, t)
 
@@ -116,8 +126,8 @@ func TestServiceDiscoveryGetProxyServiceInstances(t *testing.T) {
 
 // Keeping this test for legacy - but it never happens in real life.
 func TestServiceDiscoveryInstances(t *testing.T) {
-	store := initConfigStore()
-	sd := NewServiceDiscovery(nil, store)
+	store, sd, stopFn := initServiceDiscovery()
+	defer stopFn()
 
 	createServiceEntries([]*networking.ServiceEntry{httpDNS, tcpStatic}, store, t)
 
@@ -143,8 +153,8 @@ func TestServiceDiscoveryInstances(t *testing.T) {
 
 // Keeping this test for legacy - but it never happens in real life.
 func TestServiceDiscoveryInstances1Port(t *testing.T) {
-	store := initConfigStore()
-	sd := NewServiceDiscovery(nil, store)
+	store, sd, stopFn := initServiceDiscovery()
+	defer stopFn()
 
 	createServiceEntries([]*networking.ServiceEntry{httpDNS, tcpStatic}, store, t)
 
@@ -154,6 +164,45 @@ func TestServiceDiscoveryInstances1Port(t *testing.T) {
 		makeInstance(httpDNS, "de.google.com", 80, httpDNS.Ports[0], map[string]string{"foo": "bar"}),
 	}
 
+	instances, err := sd.InstancesByPort("*.google.com", 80, nil)
+	if err != nil {
+		t.Errorf("Instances() encountered unexpected error: %v", err)
+	}
+	sortServiceInstances(instances)
+	sortServiceInstances(expectedInstances)
+	if err := compare(t, instances, expectedInstances); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestNonServiceConfig(t *testing.T) {
+	store, sd, stopFn := initServiceDiscovery()
+	defer stopFn()
+
+	// Create a non-service configuration element. This should not affect the service registry at all.
+	config := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      model.DestinationRule.Type,
+			Name:      "fakeDestinationRule",
+			Namespace: "default",
+			Domain:    "cluster.local",
+		},
+		Spec: &networking.DestinationRule{
+			Host: "fakehost",
+		},
+	}
+	_, err := store.Create(config)
+	if err != nil {
+		t.Errorf("error occurred crearting ServiceEntry config: %v", err)
+	}
+
+	// Now create some service entries and verify that it's added to the registry.
+	createServiceEntries([]*networking.ServiceEntry{httpDNS, tcpStatic}, store, t)
+	expectedInstances := []*model.ServiceInstance{
+		makeInstance(httpDNS, "us.google.com", 7080, httpDNS.Ports[0], nil),
+		makeInstance(httpDNS, "uk.google.com", 1080, httpDNS.Ports[0], nil),
+		makeInstance(httpDNS, "de.google.com", 80, httpDNS.Ports[0], map[string]string{"foo": "bar"}),
+	}
 	instances, err := sd.InstancesByPort("*.google.com", 80, nil)
 	if err != nil {
 		t.Errorf("Instances() encountered unexpected error: %v", err)
