@@ -9,7 +9,7 @@ minikube start \
     --vm-driver=kvm2 
 
 #Setup docker to talk to minikube
-eval $(minikube docker-env)
+eval "$(minikube docker-env)"
 
 
 kubectl get pods -n kube-system | grep Running > /dev/null
@@ -27,7 +27,7 @@ while [ $? -ne 0 ]; do
 done
 
 #Setup port forwarding
-POD=`kubectl get po -n kube-system | grep kube-registry-v0 | awk '{print $1;}'`
+POD=$(kubectl get po -n kube-system | grep kube-registry-v0 | awk '{print $1;}')
 kubectl port-forward --namespace kube-system "$POD" 5000:5000 &
 
 # Set up env ISTIO if not done yet

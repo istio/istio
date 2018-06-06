@@ -4,6 +4,6 @@
 eval "$(docker-machine env -u)"
 
 # Removing port forwarding that was setup.
-kill `ps -eaf | grep "kubectl port-forward" | awk '{print $2;}'`
+kill "$(ps -eaf | grep "kubectl port-forward" | awk '{print $2;}')"
 
 
