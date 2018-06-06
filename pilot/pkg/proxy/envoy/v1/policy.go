@@ -24,16 +24,6 @@ import (
 	authn_plugin "istio.io/istio/pilot/pkg/networking/plugin/authn"
 )
 
-func isDestinationExcludedForMTLS(serviceName string, mtlsExcludedServices []string) bool {
-	hostname, _, _ := model.ParseServiceKey(serviceName)
-	for _, serviceName := range mtlsExcludedServices {
-		if hostname.String() == serviceName {
-			return true
-		}
-	}
-	return false
-}
-
 // ApplyClusterPolicy assumes an outbound cluster and inserts custom configuration for the cluster
 func ApplyClusterPolicy(cluster *Cluster,
 	proxyInstances []*model.ServiceInstance,
@@ -52,7 +42,7 @@ func ApplyClusterPolicy(cluster *Cluster,
 	// where Istio auth does not apply.
 	if cluster.Type != ClusterTypeOriginalDST {
 		requireTLS, _ := authn_plugin.RequireTLS(model.GetConsolidateAuthenticationPolicy(mesh, config, model.Hostname(cluster.Hostname), cluster.Port))
-		if !isDestinationExcludedForMTLS(cluster.ServiceName, mesh.MtlsExcludedServices) && requireTLS {
+		if requireTLS {
 			// apply auth policies
 			ports := model.PortList{cluster.Port}.GetNames()
 			serviceAccounts := accounts.GetIstioServiceAccounts(model.Hostname(cluster.Hostname), ports)
