@@ -19,6 +19,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
@@ -319,8 +320,11 @@ func translateRoute(in *networking.HTTPRoute,
 		if in.Timeout != nil {
 			d := util.GogoDurationToDuration(in.Timeout)
 			// timeout
-			//(Duration) Specifies the timeout for the route. If not specified, the default is 15s.
-			// Having it set to 0 may work as well.
+			action.Timeout = &d
+		} else {
+			// if no timeout is specified, disable timeouts. This is easier
+			// to reason about than assuming some defaults.
+			d := 0 * time.Second
 			action.Timeout = &d
 		}
 
@@ -488,6 +492,7 @@ func translateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 
 // BuildDefaultHTTPRoute builds a default route.
 func BuildDefaultHTTPRoute(clusterName string) *route.Route {
+	notimeout := 0 * time.Second
 	return &route.Route{
 		Match: translateRouteMatch(nil),
 		Decorator: &route.Decorator{
@@ -496,6 +501,7 @@ func BuildDefaultHTTPRoute(clusterName string) *route.Route {
 		Action: &route.Route_Route{
 			Route: &route.RouteAction{
 				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
+				Timeout:          &notimeout,
 			},
 		},
 	}
