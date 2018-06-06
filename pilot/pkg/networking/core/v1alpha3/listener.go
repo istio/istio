@@ -253,6 +253,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 			ip:             endpoint.Address,
 			port:           endpoint.Port,
 			protocol:       protocol,
+			tlsMultiplexed: true,
 		}
 
 		listenerMapKey := fmt.Sprintf("%s:%d", endpoint.Address, endpoint.Port)
@@ -264,14 +265,28 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 		listenerType = plugin.ModelProtocolToListenerType(protocol)
 		switch listenerType {
 		case plugin.ListenerTypeHTTP:
-			listenerOpts.filterChainOpts = []*filterChainOpts{{
-				httpOpts: &httpListenerOpts{
-					tlsMultiplexed:   true,
+			httpOpts := &httpListenerOpts{
 					routeConfig:      configgen.buildSidecarInboundHTTPRouteConfig(env, node, instance),
 					rds:              "",
 					useRemoteAddress: false,
 					direction:        http_conn.INGRESS,
-				}},
+			}
+			if listenerOpts.tlsMultiplexed {
+				listenerOpts.filterChainOpts = []*filterChainOpts{
+					{
+					httpOpts: httpOpts,
+					transportProtocol: "raw_buffer",
+					}, {
+						httpOpts: httpOpts,
+						transportProtocol: "tls",
+					},
+				}
+				} else {
+					listenerOpts.filterChainOpts = [] *filterChainOpts {
+						{
+							httpOpts: httpOpts,
+						},
+					}
 			}
 		case plugin.ListenerTypeTCP:
 			listenerOpts.filterChainOpts = []*filterChainOpts{{
@@ -554,8 +569,6 @@ func buildMgmtPortListeners(managementPorts model.PortList, managementIP string)
 // httpListenerOpts are options for an HTTP listener
 type httpListenerOpts struct {
 	//nolint: maligned
-	// Whether this listener uses TLS multiplexing.
-	tlsMultiplexed   bool
 	routeConfig      *xdsapi.RouteConfiguration
 	rds              string
 	useRemoteAddress bool
@@ -566,10 +579,11 @@ type httpListenerOpts struct {
 
 // filterChainOpts describes a filter chain: a set of filters with the same TLS context
 type filterChainOpts struct {
-	sniHosts       []string
-	tlsContext     *auth.DownstreamTlsContext
-	httpOpts       *httpListenerOpts
-	networkFilters []listener.Filter
+	sniHosts          []string
+	transportProtocol string
+	tlsContext        *auth.DownstreamTlsContext
+	httpOpts           *httpListenerOpts
+	networkFilters    []listener.Filter
 }
 
 // buildListenerOpts are the options required to build a Listener
@@ -583,6 +597,7 @@ type buildListenerOpts struct {
 	protocol        model.Protocol
 	bindToPort      bool
 	filterChainOpts []*filterChainOpts
+	tlsMultiplexed  bool
 }
 
 func buildHTTPConnectionManager(mesh *meshconfig.MeshConfig, httpOpts *httpListenerOpts, httpFilters []*http_conn.HttpFilter) *http_conn.HttpConnectionManager {
@@ -695,34 +710,37 @@ func setSNIFilterChainMatch(chain *listener.FilterChain, sniHosts []string) {
 // buildListener builds and initializes a Listener proto based on the provided opts. It does not set any filters.
 func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	filterChains := make([]listener.FilterChain, 0, len(opts.filterChainOpts))
+
 	var listenerFilters []listener.ListenerFilter
-	var tlsChain listener.FilterChain
-	for _, chainOpts := range opts.filterChainOpts {
-		// We set up tls sniffing listener filter and two filter chains if tls multiplexing is required.
-		if chainOpts.httpOpts != nil && chainOpts.httpOpts.tlsMultiplexed {
-			// We need tls sniffing listener filters.
-			listenerFilters = []listener.ListenerFilter{
-				{Name: "envoy.listener.tls_inspector"},
-			}
-			tlsChain = listener.FilterChain{
-				FilterChainMatch: &listener.FilterChainMatch{
-					TransportProtocol: "tls",
-				},
-				TlsContext: chainOpts.tlsContext,
-			}
-			plainChain := listener.FilterChain{
-				FilterChainMatch: &listener.FilterChainMatch{
-					TransportProtocol: "raw_buffer",
-				},
-			}
-			filterChains = append(filterChains, tlsChain, plainChain)
-		} else {
-			tlsChain = listener.FilterChain{
-				TlsContext: chainOpts.tlsContext,
-			}
-			filterChains = append(filterChains, tlsChain)
+	if opts.tlsMultiplexed {
+		listenerFilters = []listener.ListenerFilter{
+			{Name: "envoy.listener.tls_inspector"},
 		}
-		setSNIFilterChainMatch(&tlsChain, chainOpts.sniHosts)
+	}
+
+	for _, chain := range opts.filterChainOpts {
+		//var match *listener.FilterChainMatch
+		match := &listener.FilterChainMatch{
+			TransportProtocol: chain.transportProtocol,
+		}
+		if len(chain.sniHosts) > 0 {
+			fullWildcardFound := false
+			for _, h := range chain.sniHosts {
+				if h == "*" {
+					fullWildcardFound = true
+					// If we have a host with *, it effectively means match anything, i.e.
+					// no SNI based matching for this host.
+					break
+				}
+			}
+			if !fullWildcardFound {
+				match.SniDomains = chain.sniHosts
+			}
+		}
+		filterChains = append(filterChains, listener.FilterChain{
+			FilterChainMatch: match,
+			TlsContext:       chain.tlsContext,
+		})
 	}
 
 	var deprecatedV1 *xdsapi.Listener_DeprecatedV1
