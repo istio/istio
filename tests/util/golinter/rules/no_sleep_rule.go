@@ -12,24 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package rules
 
 import (
-	"fmt"
 	"go/ast"
-	"go/token"
+	"istio.io/istio/tests/util/golinter/linter"
 )
 
-// NoSleepRule defines rule for NoSleep
+// NoSleepRule requires that time.Sleep() is not allowed.
 type NoSleepRule struct{}
 
-func newNoSleepRule() *NoSleepRule {
+func NewNoSleepRule() *NoSleepRule {
 	return &NoSleepRule{}
-}
-
-// OnlyCheckTestFunc returns false as NoSleepRuleRule applies to whole file.
-func (lr *NoSleepRule) OnlyCheckTestFunc() bool {
-	return false
 }
 
 // GetID returns NoSleep.
@@ -37,21 +31,13 @@ func (lr *NoSleepRule) GetID() string {
 	return NoSleep
 }
 
-// Check returns true if aNode is not time.Sleep. Otherwise it returns false and error report.
-func (lr *NoSleepRule) Check(aNode ast.Node, fs *token.FileSet) (bool, string) {
+// Check verifies if aNode is not time.Sleep. If verification fails it reports to linter.
+func (lr *NoSleepRule) Check(aNode ast.Node, lt *linter.Linter) {
 	if ce, ok := aNode.(*ast.CallExpr); ok {
 		if matchCallExpr(ce, "time", "Sleep") {
-			return false, lr.createLintReport(ce.Pos(), fs)
+
+			rpt := createLintReport(ce.Pos(), lt.Fs(), "time.Sleep() is disallowed.")
+			lt.LReport() = append(lt.LReport(), rpt)
 		}
 	}
-	return true, ""
-}
-
-// CreateLintReport returns a message reporting invalid skip call at pos.
-func (lr *NoSleepRule) createLintReport(pos token.Pos, fs *token.FileSet) string {
-	return fmt.Sprintf("%v:%v:%v:%s",
-		fs.Position(pos).Filename,
-		fs.Position(pos).Line,
-		fs.Position(pos).Column,
-		"time.Sleep() is disallowed.")
 }

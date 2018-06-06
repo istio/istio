@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package linter
 
 import (
 	"log"
@@ -36,7 +36,8 @@ type pathFilter struct {
 	WPaths map[string]map[string]bool // absolute paths that are whitelisted.
 }
 
-func newPathFilter() pathFilter {
+// NewPathFilter creates a new pathFilter object.
+func NewPathFilter() pathFilter {
 	p := pathFilter{map[string]map[string]bool{}}
 	p.getWhitelistedPathsMap()
 	return p
@@ -53,7 +54,7 @@ func (pf *pathFilter) getWhitelistedPathsMap() {
 	}
 }
 
-// IsTestFile checks path absp and desides whether absp is a test file. It returns true and test type
+// GetTestType checks path absp and desides whether absp is a test file. It returns true and test type
 // for a test file. If path absp should be skipped, it returns false.
 // If one of the following cases meet, path absp is a valid path to test file.
 // (1) e2e test file
@@ -64,7 +65,7 @@ func (pf *pathFilter) getWhitelistedPathsMap() {
 // .../*_integ_test.go
 // (3) unit test file
 // .../*_test.go
-func (pf *pathFilter) IsTestFile(absp string, info os.FileInfo) (bool, TestType, map[string]bool) {
+func (pf *pathFilter) GetTestType(absp string, info os.FileInfo) (bool, TestType, map[string]bool) {
 	// sRules stores skipped rules for file path absp.
 	var sRules = map[string]bool{}
 

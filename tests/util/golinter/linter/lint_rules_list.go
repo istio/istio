@@ -12,23 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package linter
+
+import (
+	"istio.io/istio/tests/util/golinter/rules"
+)
 
 // UnitTestRules are rules which should apply to unit test file
-var UnitTestRules = []LintRule{
-	newSkipByIssueRule(),
-	newNoGoroutineRule(),
-	newNoSleepRule(),
+var UnitTestRules = []rules.LintRule{
+	rules.NewSkipByIssueRule(),
+	rules.NewNoGoroutineRule(),
+	rules.NewNoSleepRule(),
 }
 
 // IntegTestRules are rules which should apply to integration test file
-var IntegTestRules = []LintRule{
-	newSkipByIssueRule(),
-	newSkipByShortRule(),
+var IntegTestRules = []rules.LintRule{
+	rules.NewSkipByIssueRule(),
+	rules.NewSkipByShortRule(),
 }
 
 // E2eTestRules are rules which should apply to e2e test file
-var E2eTestRules = []LintRule{
-	newSkipByIssueRule(),
-	newSkipByShortRule(),
+var E2eTestRules = []rules.LintRule{
+	rules.NewSkipByIssueRule(),
+	rules.NewSkipByShortRule(),
 }

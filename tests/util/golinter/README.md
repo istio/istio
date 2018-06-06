@@ -18,41 +18,10 @@ follows required patterns, and applies a list of linting rules to each file.
 
 # Lint rules.
 [lint_rules_list.go](lint_rules_list.go) defines three lists of rules which apply to unit test file,
-integration test file, and e2e test file. These lists are extensible. Each rule has an unique ID,
-which is defined in [lint_rules.go](lint_rules.go).
+integration test file, and e2e test file. These lists are extensible. For example, to configure 
+rules for unit tests check, you can add any rule creator into `UnitTestRules`, or remove
+any rule creator out of `UnitTestRules`.  
 
-1. SkipByIssue rule requires that a `t.Skip()` call in test function should contain url to a issue. 
-This helps to keep tracking of the issue that causes a test to be skipped. 
-For example, this is a valid call, 
-
-    ```bash
-    t.Skip("https://github.com/istio/istio/issues/6012")
-    ```
-    `t.SkipNow()` and `t.Skipf()` are not allowed.
-
-2. NoSleep rule requires that `time.Sleep()` is not allowed. This rule is useful for checking unit
-tests.
-
-3. NoGoroutine rule requires that `go f(x, y, z)` is not allowed.
-
-4. SkipByShort rule requires that a test function should have one of these pattern. This is needed
-by large test such as an integration test or e2e test, so that we can specify a type of tests to run.
-    ```bash
-    Pattern 1
-    func TestA(t *testing.T) {
-      if !testing.Short() {
-      ...
-      }
-    }
-    
-    Pattern 2
-    func TestB(t *testing.T) {
-      if testing.Short() {
-        t.Skip("xxx")
-      }
-      ...
-    }
-    ``` 
 # Whitelist
 If, for some reason, you want to disable lint rule for a file, you can add file path and rule ID into 
 [whitelist.go](whitelist.go). Rule ID is defined in [lint_rules.go](lint_rules.go).

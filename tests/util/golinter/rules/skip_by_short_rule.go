@@ -12,24 +12,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package rules
 
 import (
-	"fmt"
 	"go/ast"
 	"go/token"
+	"strings"
+	"istio.io/istio/tests/util/golinter/linter"
 )
 
-// SkipByShortRule defines rule for SkipByShort
+// SkipByShortRule requires that a test function should have one of these pattern.
+// Pattern 1
+// func TestA(t *testing.T) {
+//   if !testing.Short() {
+//    ...
+//   }
+// }
+//
+// Pattern 2
+// func TestB(t *testing.T) {
+//   if testing.Short() {
+//     t.Skip("xxx")
+//   }
+//   ...
+// }
 type SkipByShortRule struct{}
 
-func newSkipByShortRule() *SkipByShortRule {
+func NewSkipByShortRule() *SkipByShortRule {
 	return &SkipByShortRule{}
-}
-
-// OnlyCheckTestFunc returns true as SkipByIssueRule only applies to test function with prefix Test.
-func (lr *SkipByShortRule) OnlyCheckTestFunc() bool {
-	return true
 }
 
 // GetID returns SkipByShort.
@@ -37,7 +47,7 @@ func (lr *SkipByShortRule) GetID() string {
 	return SkipByShort
 }
 
-// Check returns true if aNode is a valid t.Skip(). Otherwise, returns false.
+// Check verifies if aNode is a valid t.Skip(). If verification fails it reports to linter.
 // There are two examples for valid t.Skip().
 // case 1:
 // func Testxxx(t *testing.T) {
@@ -52,16 +62,17 @@ func (lr *SkipByShortRule) GetID() string {
 //	}
 //	...
 // }
-func (lr *SkipByShortRule) Check(aNode ast.Node, fs *token.FileSet) (bool, string) {
-	if fn, isFn := aNode.(*ast.FuncDecl); isFn {
+func (lr *SkipByShortRule) Check(aNode ast.Node, lt *linter.Linter) {
+	if fn, isFn := aNode.(*ast.FuncDecl); isFn && strings.HasPrefix(fn.Name.Name, "Test") {
 		if len(fn.Body.List) == 0 {
-			return false, lr.createLintReport(aNode.Pos(), fs)
+			rpt := createLintReport(aNode.Pos(), lt.Fs(), "Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'")
+			lt.LReport() = append(lt.LReport(), rpt)
 		} else if len(fn.Body.List) == 1 {
 			if ifStmt, ok := fn.Body.List[0].(*ast.IfStmt); ok {
 				if uExpr, ok := ifStmt.Cond.(*ast.UnaryExpr); ok {
 					if call, ok := uExpr.X.(*ast.CallExpr); ok && uExpr.Op == token.NOT {
 						if matchCallExpr(call, "testing", "Short") {
-							return true, ""
+							return
 						}
 					}
 				}
@@ -73,7 +84,7 @@ func (lr *SkipByShortRule) Check(aNode ast.Node, fs *token.FileSet) (bool, strin
 						if exprStmt, ok := ifStmt.Body.List[0].(*ast.ExprStmt); ok {
 							if call, ok := exprStmt.X.(*ast.CallExpr); ok {
 								if matchCallExpr(call, "t", "Skip") {
-									return true, ""
+									return
 								}
 							}
 						}
@@ -81,15 +92,7 @@ func (lr *SkipByShortRule) Check(aNode ast.Node, fs *token.FileSet) (bool, strin
 				}
 			}
 		}
+		rpt := createLintReport(aNode.Pos(), lt.Fs(), "Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'")
+		lt.LReport() = append(lt.LReport(), rpt)
 	}
-	return false, lr.createLintReport(aNode.Pos(), fs)
-}
-
-// CreateLintReport returns a message reporting invalid skip call at pos that violates rule rn.
-func (lr *SkipByShortRule) createLintReport(pos token.Pos, fs *token.FileSet) string {
-	return fmt.Sprintf("%v:%v:%v:%s",
-		fs.Position(pos).Filename,
-		fs.Position(pos).Line,
-		fs.Position(pos).Column,
-		"Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'")
 }

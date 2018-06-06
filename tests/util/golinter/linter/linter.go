@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package linter
 
 import (
 	"fmt"
@@ -34,7 +34,7 @@ type Linter struct {
 	sRuleMap map[string]bool
 }
 
-func newLinter(fileP string, t TestType, rMap map[string]bool) Linter {
+func NewLinter(fileP string, t TestType, rMap map[string]bool) Linter {
 	return Linter{
 		fpath:    fileP,
 		tType:    t,
@@ -87,14 +87,10 @@ func (lt *Linter) Run() {
 }
 
 // ApplyRules applies rules to node and generate lint report.
-func (lt *Linter) ApplyRules(node ast.Node, rules []LintRule, testFuncOnly bool) {
+func (lt *Linter) ApplyRules(node ast.Node, rules []rules.LintRule, testFuncOnly bool) {
 	for _, rule := range rules {
-		if testFuncOnly == rule.OnlyCheckTestFunc() {
-			if _, skip := lt.sRuleMap[rule.GetID()]; !skip {
-				if ok, report := rule.Check(node, lt.fs); !ok {
-					lt.lreport = append(lt.lreport, report)
-				}
-			}
+		if _, skip := lt.sRuleMap[rule.GetID()]; !skip {
+			rule.Check(node, lt)
 		}
 	}
 }

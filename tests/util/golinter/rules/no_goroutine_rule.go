@@ -12,24 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package rules
 
 import (
 	"fmt"
 	"go/ast"
 	"go/token"
+	"istio.io/istio/tests/util/golinter/linter"
 )
 
-// NoGoroutineRule defines rule for NoGoroutine.
+// NoGoroutineRule requires that go f(x, y, z) is not allowed.
 type NoGoroutineRule struct{}
 
-func newNoGoroutineRule() *NoGoroutineRule {
+func NewNoGoroutineRule() *NoGoroutineRule {
 	return &NoGoroutineRule{}
-}
-
-// OnlyCheckTestFunc returns true as SkipByIssueRule only applies to test function with prefix Test.
-func (lr *NoGoroutineRule) OnlyCheckTestFunc() bool {
-	return false
 }
 
 // GetID returns NoGoroutine.
@@ -37,20 +33,10 @@ func (lr *NoGoroutineRule) GetID() string {
 	return NoGoroutine
 }
 
-// Check returns true if aNode is not goroutine, or false otherwise.
-func (lr *NoGoroutineRule) Check(aNode ast.Node, fs *token.FileSet) (bool, string) {
+// Check verifies if aNode is not goroutine. If verification fails it reports to linter.
+func (lr *NoGoroutineRule) Check(aNode ast.Node, lt *linter.Linter) {
 	if gs, ok := aNode.(*ast.GoStmt); ok {
-		return false, lr.createLintReport(gs.Pos(), fs)
+		rpt := createLintReport(gs.Pos(), lt.Fs(), "goroutine is disallowed.")
+		lt.LReport() = append(lt.LReport(), rpt)
 	}
-
-	return true, ""
-}
-
-// CreateLintReport returns a message reporting invalid skip call at pos.
-func (lr *NoGoroutineRule) createLintReport(pos token.Pos, fs *token.FileSet) string {
-	return fmt.Sprintf("%v:%v:%v:%s",
-		fs.Position(pos).Filename,
-		fs.Position(pos).Line,
-		fs.Position(pos).Column,
-		"goroutine is disallowed.")
 }

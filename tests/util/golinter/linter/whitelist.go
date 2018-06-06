@@ -12,9 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package linter
 
 // WhitelistPath contains pairs of file and rule IDs. Each pair specifies which rules should not apply
 // to the file path in that pair. rule IDs are separated by comma.
 // Rule ID is defined in lint_rules.go
+
+const (
+	// SkipAllRules could be used to skip all rules for a file path in WhitelistPath.
+	SkipAllRules = "SkipAllRules"
+)
+
 var WhitelistPath = map[string]string{}

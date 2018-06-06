@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"istio.io/istio/tests/util/golinter/linter"
 )
 
 var exitCode int
@@ -42,8 +43,8 @@ func getReport(args []string) []string {
 }
 
 func doAllDirs(args []string) []string {
-	rpts := make(LintReports, 0)
-	pFilter := newPathFilter()
+	rpts := make(linter.LintReports, 0)
+	pFilter := linter.NewPathFilter()
 	for _, path := range args {
 		if !filepath.IsAbs(path) {
 			path, _ = filepath.Abs(path)
@@ -53,8 +54,8 @@ func doAllDirs(args []string) []string {
 				reportErr(fmt.Sprintf("pervent panic by handling failure accessing a path %q: %v", fpath, err))
 				return err
 			}
-			if ok, testType, sRuleMaps := pFilter.IsTestFile(fpath, info); ok {
-				lt := newLinter(fpath, testType, sRuleMaps)
+			if ok, testType, sRuleMaps := pFilter.GetTestType(fpath, info); ok {
+				lt := linter.NewLinter(fpath, testType, sRuleMaps)
 				lt.Run()
 				rpts = append(rpts, lt.LReport()...)
 			}

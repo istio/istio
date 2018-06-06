@@ -12,62 +12,56 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package rules
 
 import (
 	"fmt"
 	"go/ast"
 	"go/token"
+	"istio.io/istio/tests/util/golinter/linter"
 )
 
-// SkipByIssueRule defines rule for SkipByIssue.
+// SkipByIssueRule requires that a `t.Skip()` call in test function should contain url to a issue.
+// This helps to keep tracking of the issue that causes a test to be skipped.
+// For example, this is a valid call,
+// t.Skip("https://github.com/istio/istio/issues/6012")
+// t.SkipNow() and t.Skipf() are not allowed.
 type SkipByIssueRule struct {
 	skipArgsRegex string // Defines arg in t.Skip() that should match.
 }
 
-func newSkipByIssueRule() *SkipByIssueRule {
+func NewSkipByIssueRule() *SkipByIssueRule {
 	return &SkipByIssueRule{
 		skipArgsRegex: `https:\/\/github\.com\/istio\/istio\/issues\/[0-9]+`,
 	}
 }
 
-// OnlyCheckTestFunc returns true as SkipByIssueRule only applies to test function with prefix Test.
-func (lr *SkipByIssueRule) OnlyCheckTestFunc() bool {
-	return true
-}
-
 // GetID returns SkipByIssue.
 func (lr *SkipByIssueRule) GetID() string {
+	getCallerFileName()
 	return SkipByIssue
 }
 
-// Check returns true if aNode is a valid t.Skip(), or aNode is not t.Skip(), t.SkipNow(),
-// and t.Skipf().
+// Check returns verifies if aNode is a valid t.Skip(), or aNode is not t.Skip(), t.SkipNow(),
+// and t.Skipf(). If verification fails it reports to linter.
 // This is an example for valid call t.Skip("https://github.com/istio/istio/issues/6012")
 // These calls are not valid:
 // t.Skip("https://istio.io/"),
 // t.SkipNow(),
 // t.Skipf("https://istio.io/%d", x).
-func (lr *SkipByIssueRule) Check(aNode ast.Node, fs *token.FileSet) (bool, string) {
+func (lr *SkipByIssueRule) Check(aNode ast.Node, lt *linter.Linter) {
 	if fn, isFn := aNode.(*ast.FuncDecl); isFn {
 		for _, bd := range fn.Body.List {
 			if ok, _ := matchFunc(bd, "t", "SkipNow"); ok {
-				return false, lr.createLintReport(bd.Pos(), fs)
+				rpt := createLintReport(bd.Pos(), lt.Fs(), "Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue.")
+				lt.LReport() = append(lt.LReport(), rpt)
 			} else if ok, _ := matchFunc(bd, "t", "Skipf"); ok {
-				return false, lr.createLintReport(bd.Pos(), fs)
+				rpt := createLintReport(bd.Pos(), lt.Fs(), "Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue.")
+				lt.LReport() = append(lt.LReport(), rpt)
 			} else if ok, fcall := matchFunc(bd, "t", "Skip"); ok && !matchFuncArgs(fcall, lr.skipArgsRegex) {
-				return false, lr.createLintReport(bd.Pos(), fs)
+				rpt := createLintReport(bd.Pos(), lt.Fs(), "Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue.")
+				lt.LReport() = append(lt.LReport(), rpt)
 			}
 		}
 	}
-	return true, ""
-}
-
-// CreateLintReport returns a message reporting invalid skip call at pos.
-func (lr *SkipByIssueRule) createLintReport(pos token.Pos, fs *token.FileSet) string {
-	return fmt.Sprintf("%v:%v:%v:%s",
-		fs.Position(pos).Filename,
-		fs.Position(pos).Line,
-		fs.Position(pos).Column,
-		"Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue.")
 }
