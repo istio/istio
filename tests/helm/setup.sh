@@ -1,6 +1,4 @@
-#/bin/bash
-
-
+#!/bin/bash
 
 function testIstioSystem() {
    pushd "$TOP/src/istio.io/istio"
