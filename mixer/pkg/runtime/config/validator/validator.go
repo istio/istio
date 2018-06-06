@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/lang/checker"
 	"istio.io/istio/mixer/pkg/runtime/config"
+	"istio.io/istio/mixer/pkg/runtime/config/constant"
 	"istio.io/istio/mixer/pkg/template"
 )
 
@@ -54,7 +55,7 @@ func NewValidator(tc checker.TypeChecker, identityAttribute string, s store.Stor
 	configData := make(map[store.Key]proto.Message, len(data))
 	manifests := map[store.Key]*cpb.AttributeManifest{}
 	for k, obj := range data {
-		if k.Kind == config.AttributeManifestKind {
+		if k.Kind == constant.AttributeManifestKind {
 			manifests[k] = obj.Spec.(*cpb.AttributeManifest)
 		}
 		configData[k] = obj.Spec

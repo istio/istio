@@ -34,17 +34,6 @@ import (
 
 var errNotListening = errors.New("runtime is not listening to the store")
 
-const (
-	// DefaultConfigNamespace holds istio wide configuration.
-	DefaultConfigNamespace = "istio-system"
-
-	// RulesKind defines the config kind name of mixer rules.
-	RulesKind = "rule"
-
-	// AttributeManifestKind define the config kind name of attribute manifests.
-	AttributeManifestKind = "attributemanifest"
-)
-
 const watchFlushDuration = time.Second
 
 // Runtime is the main entry point to the Mixer runtime environment. It listens to configuration, instantiates handler

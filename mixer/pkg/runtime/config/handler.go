@@ -36,8 +36,7 @@ func ValidateBuilder(
 
 	// Do not assign the error to err directly, as this would overwrite the err returned by the inner function.
 	panicErr := safecall.Execute("factory.build", func() {
-		var inferredTypesByTemplates map[string]inferredTypesMap
-		inferredTypesByTemplates = groupInferTypesByTmpl(instances)
+		inferredTypesByTemplates := groupInferTypesByTmpl(instances)
 
 		// Adapter should always be present for a valid configuration (reference integrity should already be checked).
 		info := handler.Adapter

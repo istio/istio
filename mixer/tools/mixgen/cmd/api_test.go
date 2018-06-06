@@ -18,7 +18,7 @@
 //go:generate protoc --include_imports --include_source_info testdata/report/template.proto -otestdata/report/template.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api  -I.
 //go:generate protoc --include_imports --include_source_info testdata/quota/template.proto -otestdata/quota/template.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api  -I.
 //go:generate protoc --include_imports --include_source_info testdata/error/template.proto -otestdata/error/template.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api  -I.
-package interfacegen
+package cmd
 
 import (
 	"bytes"
@@ -29,8 +29,6 @@ import (
 	"path"
 	"strings"
 	"testing"
-
-	tmpl "istio.io/istio/mixer/tools/codegen/pkg/interfacegen/template"
 )
 
 type logFn func(string, ...interface{})
@@ -38,13 +36,6 @@ type logFn func(string, ...interface{})
 // TestGenerator_Generate uses the outputs file descriptors generated via bazel
 // and compares them against the golden files.
 func TestGenerator_Generate(t *testing.T) {
-	importmap := map[string]string{
-		"policy/v1beta1/value_type.proto":              "istio.io/api/policy/v1beta1",
-		"mixer/adapter/model/v1beta1/extensions.proto": "istio.io/api/mixer/adapter/model/v1beta1",
-		"gogoproto/gogo.proto":                         "github.com/gogo/protobuf/gogoproto",
-		"google/protobuf/duration.proto":               "github.com/gogo/protobuf/types",
-	}
-
 	tests := []struct {
 		name, descriptor, wantIntFace, wantProto string
 	}{
@@ -62,41 +53,52 @@ func TestGenerator_Generate(t *testing.T) {
 			"testdata/apa/template_instance.proto.golden"},
 	}
 	for _, v := range tests {
-		t.Run(v.name, func(t *testing.T) {
+		t.Run(v.name, func(tt *testing.T) {
 			tmpDir := path.Join(os.TempDir(), v.name)
 			_ = os.MkdirAll(tmpDir, os.ModeDir|os.ModePerm)
 			oIntface, err := os.Create(path.Join(tmpDir, path.Base(v.wantIntFace)))
 			if err != nil {
-				t.Fatal(err)
+				tt.Fatal(err)
 			}
 			oTmpl, err := os.Create(path.Join(tmpDir, path.Base(v.wantProto)))
 			if err != nil {
-				t.Fatal(err)
+				tt.Fatal(err)
 			}
 
 			defer func() {
-				if !t.Failed() {
+				if !tt.Failed() {
 					if removeErr := os.Remove(oIntface.Name()); removeErr != nil {
-						t.Logf("Could not remove temporary file %s: %v", oIntface.Name(), removeErr)
+						tt.Logf("Could not remove temporary file %s: %v", oIntface.Name(), removeErr)
 					}
 					if removeErr := os.Remove(oTmpl.Name()); removeErr != nil {
-						t.Logf("Could not remove temporary file %s: %v", oTmpl.Name(), removeErr)
+						tt.Logf("Could not remove temporary file %s: %v", oTmpl.Name(), removeErr)
 					}
 				}
 			}()
 
-			g := Generator{OutInterfacePath: oIntface.Name(), OAugmentedTmplPath: oTmpl.Name(), ImptMap: importmap}
+			args := []string{"api", "-t", v.descriptor, "--go_out", oIntface.Name(), "--proto_out", oTmpl.Name()}
 
-			if err := g.Generate(v.descriptor); err != nil {
-				t.Fatalf("Generate(%s) produced an error: %v", v.descriptor, err)
+			args = append(args, "-m", "policy/v1beta1/value_type.proto:istio.io/api/policy/v1beta1",
+				"-m", "gogoproto/gogo.proto:github.com/gogo/protobuf/gogoproto",
+				"-m", "mixer/adapter/model/v1beta1/extensions.proto:istio.io/api/mixer/adapter/model/v1beta1",
+				"-m", "google/protobuf/duration.proto:github.com/gogo/protobuf/types",
+			)
+
+			root := GetRootCmd(args,
+				func(format string, a ...interface{}) {
+				},
+				func(format string, a ...interface{}) {
+					tt.Fatalf("want error 'nil'; got '%s'", fmt.Sprintf(format, a...))
+				})
+
+			_ = root.Execute()
+
+			if same := fileCompare(oIntface.Name(), v.wantIntFace, tt.Errorf, false); !same {
+				tt.Errorf("File %s does not match baseline %s.", oIntface.Name(), v.wantIntFace)
 			}
 
-			if same := fileCompare(oIntface.Name(), v.wantIntFace, t.Errorf, false); !same {
-				t.Errorf("File %s does not match baseline %s.", oIntface.Name(), v.wantIntFace)
-			}
-
-			if same := fileCompare(oTmpl.Name(), v.wantProto, t.Errorf, true); !same {
-				t.Errorf("File %s does not match baseline %s.", oTmpl.Name(), v.wantProto)
+			if same := fileCompare(oTmpl.Name(), v.wantProto, tt.Errorf, true); !same {
+				tt.Errorf("File %s does not match baseline %s.", oTmpl.Name(), v.wantProto)
 			}
 		})
 	}
@@ -143,13 +145,13 @@ func TestGeneratorWithBadFds(t *testing.T) {
 
 func TestGeneratorBadInterfaceTmpl(t *testing.T) {
 	g := Generator{}
-	err := g.generateInternal("testdata/report/template.descriptor", "{{foo}} bad tmpl", tmpl.AugmentedProtoTmpl)
+	err := g.generateInternal("testdata/report/template.descriptor", "{{foo}} bad tmpl", augmentedProtoTmpl)
 	validateHasError(t, err, "cannot load template")
 }
 
 func TestGeneratorBadAugmentedProtoTmpl(t *testing.T) {
 	g := Generator{}
-	err := g.generateInternal("testdata/report/template.descriptor", tmpl.InterfaceTemplate, "{{foo}} bad tmpl")
+	err := g.generateInternal("testdata/report/template.descriptor", interfaceTemplate, "{{foo}} bad tmpl")
 	validateHasError(t, err, "cannot load template")
 }
 
@@ -169,25 +171,25 @@ func TestGeneratorBadOutputInstanceInterface(t *testing.T) {
 
 func TestGeneratorHandlerInterfaceBadModel(t *testing.T) {
 	g := Generator{}
-	_, err := g.getInterfaceGoContent(nil, tmpl.InterfaceTemplate)
+	_, err := g.getInterfaceGoContent(nil, interfaceTemplate)
 	validateHasError(t, err, "cannot execute the template")
 }
 
 func TestGeneratorAugmentedProtoBadModel(t *testing.T) {
 	g := Generator{}
-	_, err := g.getAugmentedProtoContent(nil, "", tmpl.AugmentedProtoTmpl)
+	_, err := g.getAugmentedProtoContent(nil, "", augmentedProtoTmpl)
 	validateHasError(t, err, "cannot execute the template")
 }
 
 func TestGeneratorCannotFormat(t *testing.T) {
 	g := Generator{}
-	err := g.generateInternal("testdata/report/template.descriptor", ".. bad format", tmpl.AugmentedProtoTmpl)
+	err := g.generateInternal("testdata/report/template.descriptor", ".. bad format", augmentedProtoTmpl)
 	validateHasError(t, err, "could not format")
 }
 
 func TestGeneratorCannotFixImport(t *testing.T) {
 	g := Generator{}
-	err := g.generateInternal("testdata/report/template.descriptor", "badtmpl_cannot_fix_import", tmpl.AugmentedProtoTmpl)
+	err := g.generateInternal("testdata/report/template.descriptor", "badtmpl_cannot_fix_import", augmentedProtoTmpl)
 	validateHasError(t, err, "could not fix imports")
 }
 

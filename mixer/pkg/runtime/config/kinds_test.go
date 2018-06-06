@@ -23,6 +23,7 @@ import (
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	cpb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/runtime/config/constant"
 	"istio.io/istio/mixer/pkg/template"
 )
 
@@ -41,11 +42,11 @@ func TestKindMap(t *testing.T) {
 	km := KindMap(ai, ti)
 
 	want := map[string]proto.Message{
-		"t1":                  &cpb.Instance{},
-		"a1":                  &cpb.Handler{},
-		RulesKind:             &cpb.Rule{},
-		AttributeManifestKind: &cpb.AttributeManifest{},
-		AdapterKind:           &v1beta1.Info{},
+		"t1":                           &cpb.Instance{},
+		"a1":                           &cpb.Handler{},
+		constant.RulesKind:             &cpb.Rule{},
+		constant.AttributeManifestKind: &cpb.AttributeManifest{},
+		constant.AdapterKind:           &v1beta1.Info{},
 	}
 
 	if !reflect.DeepEqual(km, want) {
