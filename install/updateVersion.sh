@@ -35,6 +35,7 @@ while getopts ":P:d:a:" arg; do
   case ${arg} in
     d) DEST_DIR="${OPTARG}";;
     a) ALL_HUB_TAG="${OPTARG}";;       # Format: "<hub>,<tag>"
+    *) exit 1;;
   esac
 done
 
