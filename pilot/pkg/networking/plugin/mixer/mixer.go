@@ -335,7 +335,7 @@ func addStandardNodeAttributes(attr map[string]*mpb.Attributes_AttributeValue, p
 }
 
 // borrows heavily from v1.ServiceConfig (which this replaces)
-func serviceConfig(serviceHostname string, dest *model.ServiceInstance, config model.IstioConfigStore, disableCheck, disableReport bool, proxyDomain string) *mccpb.ServiceConfig {
+func serviceConfig(serviceHostname string, dest *model.ServiceInstance, config model.IstioConfigStore, disableCheck, disableReport bool, proxyDomain string) *mccpb.ServiceConfig { // nolint: lll
 	sc := &mccpb.ServiceConfig{
 		MixerAttributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
