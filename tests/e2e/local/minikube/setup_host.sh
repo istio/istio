@@ -6,14 +6,13 @@ minikube start \
     --extra-config=controller-manager.cluster-signing-key-file="/var/lib/localkube/certs/ca.key" \
     --extra-config=apiserver.admission-control="NamespaceLifecycle,LimitRanger,ServiceAccount,PersistentVolumeLabel,DefaultStorageClass,DefaultTolerationSeconds,MutatingAdmissionWebhook,ValidatingAdmissionWebhook,ResourceQuota" \
     --kubernetes-version=v1.10.0 \
-    --vm-driver=kvm2 
+    --vm-driver=kvm2
 
 #Setup docker to talk to minikube
 eval "$(minikube docker-env)"
 
 
-kubectl get pods -n kube-system | grep Running > /dev/null
-while [ $? -ne 0 ]; do
+while ! kubectl get pods -n kube-system | grep Running > /dev/null; do
   kubectl get pods -n kube-system | grep Running > /dev/null
 done
 
@@ -21,8 +20,7 @@ done
 kubectl apply -f "$ISTIO/istio/tests/util/localregistry/localregistry.yaml"
 echo "local registry started"
 
-kubectl get pods -n kube-system | grep kube-registry-v0 | grep Running > /dev/null
-while [ $? -ne 0 ]; do
+while ! kubectl get pods -n kube-system | grep kube-registry-v0 | grep Running > /dev/null; do
   kubectl get pods -n kube-system | grep kube-registry-v0 | grep Running > /dev/null
 done
 
