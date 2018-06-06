@@ -460,9 +460,7 @@ jobs:
       - checkout
       - run:
           name: Check Scripts
-          command: |
-            find . -type f -name '*.sh' | wc -l
-            find . -type f -name '*.sh' | xargs shellcheck
+          command: /root/project/tools/run_shellcheck.sh
 
   lint:
     <<: *defaults
