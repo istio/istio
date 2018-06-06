@@ -29,6 +29,7 @@ import (
 	descriptorpb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
+	"istio.io/istio/mixer/pkg/runtime/config/constant"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
 )
@@ -936,7 +937,7 @@ Attributes:
 				Type: store.Update,
 				Value: &store.Resource{
 					Metadata: store.ResourceMeta{
-						Labels: map[string]string{istioProtocol: ContextProtocolTCP},
+						Labels: map[string]string{constant.IstioProtocol: constant.ContextProtocolTCP},
 					},
 					Spec: &configpb.Rule{
 						Actions: []*configpb.Action{

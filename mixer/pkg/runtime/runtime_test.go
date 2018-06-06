@@ -30,7 +30,7 @@ import (
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/pool"
-	"istio.io/istio/mixer/pkg/runtime/config"
+	"istio.io/istio/mixer/pkg/runtime/config/constant"
 	"istio.io/istio/mixer/pkg/runtime/testing/data"
 	"istio.io/istio/pkg/probe"
 )
@@ -124,7 +124,7 @@ func TestRuntime_OnConfigChange(t *testing.T) {
 	events := []*store.Event{
 		{
 			Type: store.Update,
-			Key:  store.Key{Kind: config.AttributeManifestKind, Name: "attrs"},
+			Key:  store.Key{Kind: constant.AttributeManifestKind, Name: "attrs"},
 			Value: &store.Resource{
 				Spec: &configpb.AttributeManifest{
 					Name: "attrs",
@@ -198,7 +198,7 @@ func TestRuntime_InFlightRequestsDuringConfigChange(t *testing.T) {
 	events := []*store.Event{
 		{
 			Type: store.Update,
-			Key:  store.Key{Kind: config.AttributeManifestKind, Name: "attrs"},
+			Key:  store.Key{Kind: constant.AttributeManifestKind, Name: "attrs"},
 			Value: &store.Resource{
 				Spec: &configpb.AttributeManifest{
 					Attributes: map[string]*configpb.AttributeManifest_AttributeInfo{
