@@ -69,17 +69,21 @@ func TestTracingMixer(t *testing.T) {
 		}
 
 		// Check that the mixer spans are also included in the trace:
-		// a) Count the number of spans - should be 4, one for the invocation of service b, and the other 3 for the
+		// a) Check that the trace data contains the "check" operation name associated with the mixer check client span
+		// b) Check that the trace data contains the "/istio.mixer.v1.mixer/check" operation name for the server span
+		// c) Count the number of spans - should be 4, one for the invocation of service b, and the other 3 for the
 		//		mixer check
-		// b) Check that the trace data contains the "check" operation name associated with the mixer check client span
-		// c) Check that the trace data contains the "/istio.mixer.v1.mixer/check" operation name for the server span
 		// NOTE: We are also indirectly verifying that the mixer check spans are child spans of the service invocation, as
 		// the mixer check spans can only exist in this trace as child spans. If they weren't child spans then they would be
 		// in a separate trace instance not retrieved by the query based on the single x-client-trace-id.
-		if strings.Count(response.Body, traceIDField) != 4 ||
-			!strings.Contains(response.Body, checkOperation) ||
-			!strings.Contains(response.Body, mixerCheckOperation) {
-			return errAgain
+		if !strings.Contains(response.Body, checkOperation) {
+			return fmt.Errorf("Check operation (%s) not found in response body: %s", checkOperation, response.Body)
+		}
+		if !strings.Contains(response.Body, mixerCheckOperation) {
+			return fmt.Errorf("Mixer Check operation (%s) not found in response body: %s", mixerCheckOperation, response.Body)
+		}
+		if spanCount := strings.Count(response.Body, traceIDField); spanCount != 4 {
+			return fmt.Errorf("Number of spans for trace (expected 4) is: %d", spanCount)
 		}
 
 		return nil
@@ -119,8 +123,8 @@ func TestTracingEnabled(t *testing.T) {
 
 		// Check that the trace contains the id value (must occur more than once, as the
 		// response also contains the request URL with query parameter).
-		if strings.Count(response.Body, id) == 1 {
-			return errAgain
+		if idCount := strings.Count(response.Body, id); idCount <= 1 {
+			return fmt.Errorf("Id should occur more than once: %d", idCount)
 		}
 
 		return nil
