@@ -157,6 +157,9 @@ func (c *controller) updateResourceVersionMetric(otype string, obj interface{}, 
 	if !ok {
 		return
 	}
+	if typ.Type == model.ServiceEntry.Type {
+		return
+	}
 	item, _ := obj.(IstioObject)
 	metadata := item.GetObjectMeta()
 	labels := prometheus.Labels{
