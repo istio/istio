@@ -17,6 +17,7 @@ package dispatcher
 import (
 	"bytes"
 	"context"
+	"fmt"
 
 	"github.com/gogo/googleapis/google/rpc"
 	multierror "github.com/hashicorp/go-multierror"
@@ -49,7 +50,7 @@ type session struct {
 	responseBag  *attribute.MutableBag
 	reportStates map[*routing.Destination]*dispatchState
 
-	// output parameters that gets collected / accumulated as result.
+	// output parameters that get collected / accumulated as results.
 	checkResult adapter.CheckResult
 	quotaResult adapter.QuotaResult
 	err         error
@@ -155,7 +156,8 @@ func (s *session) dispatch() error {
 
 				var instance interface{}
 				if instance, err = input.Builder(s.bag); err != nil {
-					log.Warnf("error creating instance: destination='%v', error='%v'", destination.FriendlyName, err)
+					log.Errorf("error creating instance: destination='%v', error='%v'", destination.FriendlyName, err)
+					s.err = multierror.Append(s.err, err)
 					continue
 				}
 				ninputs++
@@ -187,8 +189,8 @@ func (s *session) dispatch() error {
 	s.waitForDispatched()
 
 	if s.variety == tpb.TEMPLATE_VARIETY_QUOTA && !foundQuota {
-		log.Warnf("Requested quota '%s' is invalid", s.quotaArgs.Quota)
-		s.quotaResult = adapter.QuotaResult{Status: status.WithInvalidArgument("Requested quota `" + s.quotaArgs.Quota + "` is invalid")}
+		log.Errorf("Requested quota '%s' is invalid", s.quotaArgs.Quota)
+		s.err = multierror.Append(s.err, fmt.Errorf("requested quota '%s' is invalid", s.quotaArgs.Quota))
 	}
 
 	return nil
