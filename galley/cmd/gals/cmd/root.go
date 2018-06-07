@@ -51,9 +51,10 @@ func createInterface(kubeconfig string) (kubernetes.Interface, error) {
 // GetRootCmd returns the root of the cobra command-tree.
 func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 	rootCmd := &cobra.Command{
-		Use:   "gals",
-		Short: "Galley provides configuration management services for Istio.",
-		Long:  "Galley provides configuration management services for Istio.",
+		Use:          "gals",
+		Short:        "Galley provides configuration management services for Istio.",
+		Long:         "Galley provides configuration management services for Istio.",
+		SilenceUsage: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
 				return fmt.Errorf("%q is an invalid argument", args[0])
