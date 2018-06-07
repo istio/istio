@@ -53,7 +53,7 @@ envoy_cc_library(
     repository = "@envoy",
     deps = [
         ":jwt_lib",
-        "@envoy_api//envoy/config/filter/http/jwt_authn/v2alpha:jwt_authn_cc",
+        "//external:jwt_auth_config_cc_proto",
         "@envoy//source/exe:envoy_common_lib",
     ],
 )

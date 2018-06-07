@@ -17,7 +17,8 @@
 #include "gtest/gtest.h"
 #include "test/test_common/utility.h"
 
-using ::envoy::config::filter::http::jwt_authn::v2alpha::JwtAuthentication;
+using ::istio::envoy::config::filter::http::jwt_auth::v2alpha1::
+    JwtAuthentication;
 using ::testing::Invoke;
 using ::testing::NiceMock;
 using ::testing::_;

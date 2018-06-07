@@ -113,7 +113,7 @@ cc_library(
             actual = "@googletest_git//:googletest_prod",
         )
 
-ISTIO_API = "ecef45ec0f0ef17c4b383ee84dcbcdba4fcc0c8d"
+ISTIO_API = "c747495e9419606fa1febe210a7626e177b1935c"
 
 def mixerapi_repositories(bind=True):
     BUILD = """
@@ -178,6 +178,19 @@ cc_proto_library(
     ],
 )
 
+cc_proto_library(
+    name = "jwt_auth_config_cc_proto",
+    srcs = glob(
+        ["envoy/config/filter/http/jwt_auth/v2alpha1/*.proto", ],
+    ),
+    default_runtime = "//external:protobuf",
+    protoc = "//external:protoc",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//external:cc_gogoproto",
+    ],
+)
+
 filegroup(
     name = "global_dictionary_file",
     srcs = ["mixer/v1/global_dictionary.yaml"],
@@ -203,6 +216,10 @@ filegroup(
         native.bind(
             name = "authentication_policy_config_cc_proto",
             actual = "@mixerapi_git//:authentication_policy_config_cc_proto",
+        )
+        native.bind(
+            name = "jwt_auth_config_cc_proto",
+            actual = "@mixerapi_git//:jwt_auth_config_cc_proto",
         )
 
 load(":protobuf.bzl", "protobuf_repositories")

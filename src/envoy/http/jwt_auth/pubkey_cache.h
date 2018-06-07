@@ -20,7 +20,7 @@
 
 #include "common/common/logger.h"
 #include "common/config/datasource.h"
-#include "envoy/config/filter/http/jwt_authn/v2alpha/config.pb.h"
+#include "envoy/config/filter/http/jwt_auth/v2alpha1/config.pb.h"
 #include "src/envoy/http/jwt_auth/jwt.h"
 
 namespace Envoy {
@@ -35,13 +35,38 @@ const std::string kHTTPSchemePrefix("http://");
 
 // HTTPS Protocol scheme prefix in JWT aud claim.
 const std::string kHTTPSSchemePrefix("https://");
+
+// Coped from @envoy/source/common/config/datasource.cc
+// changed to use
+// ::istio::envoy::config::filter::http::jwt_auth::v2alpha1::DataSource
+std::string ReadDataStore(
+    const ::istio::envoy::config::filter::http::jwt_auth::v2alpha1::DataSource&
+        source,
+    bool allow_empty) {
+  switch (source.specifier_case()) {
+    case ::istio::envoy::config::filter::http::jwt_auth::v2alpha1::DataSource::
+        kInlineBytes:
+      return source.inline_bytes();
+    case ::istio::envoy::config::filter::http::jwt_auth::v2alpha1::DataSource::
+        kInlineString:
+      return source.inline_string();
+    default:
+      if (!allow_empty) {
+        throw EnvoyException(
+            fmt::format("Unexpected DataSource::specifier_case(): {}",
+                        source.specifier_case()));
+      }
+      return "";
+  }
+}
+
 }  // namespace
 
 // Struct to hold an issuer cache item.
 class PubkeyCacheItem : public Logger::Loggable<Logger::Id::filter> {
  public:
   PubkeyCacheItem(
-      const ::envoy::config::filter::http::jwt_authn::v2alpha::JwtRule&
+      const ::istio::envoy::config::filter::http::jwt_auth::v2alpha1::JwtRule&
           jwt_config)
       : jwt_config_(jwt_config) {
     // Convert proto repeated fields to std::set.
@@ -49,7 +74,7 @@ class PubkeyCacheItem : public Logger::Loggable<Logger::Id::filter> {
       audiences_.insert(SanitizeAudience(aud));
     }
 
-    auto inline_jwks = Config::DataSource::read(jwt_config_.local_jwks(), true);
+    auto inline_jwks = ReadDataStore(jwt_config_.local_jwks(), true);
     if (!inline_jwks.empty()) {
       Status status = SetKey(inline_jwks,
                              // inline jwks never expires.
@@ -67,8 +92,8 @@ class PubkeyCacheItem : public Logger::Loggable<Logger::Id::filter> {
   }
 
   // Get the JWT config.
-  const ::envoy::config::filter::http::jwt_authn::v2alpha::JwtRule& jwt_config()
-      const {
+  const ::istio::envoy::config::filter::http::jwt_auth::v2alpha1::JwtRule&
+  jwt_config() const {
     return jwt_config_;
   }
 
@@ -146,7 +171,8 @@ class PubkeyCacheItem : public Logger::Loggable<Logger::Id::filter> {
   }
 
   // The issuer config
-  const ::envoy::config::filter::http::jwt_authn::v2alpha::JwtRule& jwt_config_;
+  const ::istio::envoy::config::filter::http::jwt_auth::v2alpha1::JwtRule&
+      jwt_config_;
   // Use set for fast lookup
   std::set<std::string> audiences_;
   // The generated pubkey object.
@@ -159,7 +185,7 @@ class PubkeyCacheItem : public Logger::Loggable<Logger::Id::filter> {
 class PubkeyCache {
  public:
   // Load the config from envoy config.
-  PubkeyCache(const ::envoy::config::filter::http::jwt_authn::v2alpha::
+  PubkeyCache(const ::istio::envoy::config::filter::http::jwt_auth::v2alpha1::
                   JwtAuthentication& config) {
     for (const auto& jwt : config.rules()) {
       pubkey_cache_map_.emplace(jwt.issuer(), jwt);

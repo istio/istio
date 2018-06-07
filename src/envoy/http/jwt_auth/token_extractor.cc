@@ -17,7 +17,8 @@
 #include "common/common/utility.h"
 #include "common/http/utility.h"
 
-using ::envoy::config::filter::http::jwt_authn::v2alpha::JwtAuthentication;
+using ::istio::envoy::config::filter::http::jwt_auth::v2alpha1::
+    JwtAuthentication;
 
 namespace Envoy {
 namespace Http {

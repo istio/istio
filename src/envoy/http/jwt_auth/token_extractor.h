@@ -16,7 +16,7 @@
 #pragma once
 
 #include "common/common/logger.h"
-#include "envoy/config/filter/http/jwt_authn/v2alpha/config.pb.h"
+#include "envoy/config/filter/http/jwt_auth/v2alpha1/config.pb.h"
 #include "envoy/http/header_map.h"
 
 namespace Envoy {
@@ -36,8 +36,8 @@ namespace JwtAuth {
 //
 class JwtTokenExtractor : public Logger::Loggable<Logger::Id::filter> {
  public:
-  JwtTokenExtractor(const ::envoy::config::filter::http::jwt_authn::v2alpha::
-                        JwtAuthentication& config);
+  JwtTokenExtractor(const ::istio::envoy::config::filter::http::jwt_auth::
+                        v2alpha1::JwtAuthentication& config);
 
   // The object to store extracted token.
   // Based on the location the token is extracted from, it also

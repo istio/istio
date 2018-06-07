@@ -16,7 +16,7 @@
 #pragma once
 
 #include "common/common/logger.h"
-#include "envoy/config/filter/http/jwt_authn/v2alpha/config.pb.h"
+#include "envoy/config/filter/http/jwt_auth/v2alpha1/config.pb.h"
 #include "envoy/server/filter_config.h"
 #include "envoy/thread_local/thread_local.h"
 #include "src/envoy/http/jwt_auth/pubkey_cache.h"
@@ -32,13 +32,14 @@ namespace JwtAuth {
 class JwtAuthStore : public ThreadLocal::ThreadLocalObject {
  public:
   // Load the config from envoy config.
-  JwtAuthStore(const ::envoy::config::filter::http::jwt_authn::v2alpha::
+  JwtAuthStore(const ::istio::envoy::config::filter::http::jwt_auth::v2alpha1::
                    JwtAuthentication& config)
       : config_(config), pubkey_cache_(config_), token_extractor_(config_) {}
 
   // Get the Config.
-  const ::envoy::config::filter::http::jwt_authn::v2alpha::JwtAuthentication&
-  config() const {
+  const ::istio::envoy::config::filter::http::jwt_auth::v2alpha1::
+      JwtAuthentication&
+      config() const {
     return config_;
   }
 
@@ -50,8 +51,8 @@ class JwtAuthStore : public ThreadLocal::ThreadLocalObject {
 
  private:
   // Store the config.
-  const ::envoy::config::filter::http::jwt_authn::v2alpha::JwtAuthentication&
-      config_;
+  const ::istio::envoy::config::filter::http::jwt_auth::v2alpha1::
+      JwtAuthentication& config_;
   // The public key cache, indexed by issuer.
   PubkeyCache pubkey_cache_;
   // The object to extract token.
@@ -61,8 +62,8 @@ class JwtAuthStore : public ThreadLocal::ThreadLocalObject {
 // The factory to create per-thread auth store object.
 class JwtAuthStoreFactory : public Logger::Loggable<Logger::Id::config> {
  public:
-  JwtAuthStoreFactory(const ::envoy::config::filter::http::jwt_authn::v2alpha::
-                          JwtAuthentication& config,
+  JwtAuthStoreFactory(const ::istio::envoy::config::filter::http::jwt_auth::
+                          v2alpha1::JwtAuthentication& config,
                       Server::Configuration::FactoryContext& context)
       : config_(config), tls_(context.threadLocal().allocateSlot()) {
     tls_->set(
@@ -77,7 +78,8 @@ class JwtAuthStoreFactory : public Logger::Loggable<Logger::Id::config> {
 
  private:
   // The auth config.
-  ::envoy::config::filter::http::jwt_authn::v2alpha::JwtAuthentication config_;
+  ::istio::envoy::config::filter::http::jwt_auth::v2alpha1::JwtAuthentication
+      config_;
   // Thread local slot to store per-thread auth store
   ThreadLocal::SlotPtr tls_;
 };

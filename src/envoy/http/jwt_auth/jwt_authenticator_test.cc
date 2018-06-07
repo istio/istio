@@ -20,7 +20,8 @@
 #include "test/mocks/upstream/mocks.h"
 #include "test/test_common/utility.h"
 
-using ::envoy::config::filter::http::jwt_authn::v2alpha::JwtAuthentication;
+using ::istio::envoy::config::filter::http::jwt_auth::v2alpha1::
+    JwtAuthentication;
 using ::testing::Invoke;
 using ::testing::NiceMock;
 using ::testing::_;
@@ -173,14 +174,6 @@ const char kOtherIssuerConfig[] = R"(
          "issuer": "other_issuer"
       }
    ]
-}
-)";
-
-// A config with bypass
-const char kBypassConfig[] = R"(
-{
-  "bypass": [
-  ]
 }
 )";
 
@@ -538,39 +531,6 @@ TEST_F(JwtAuthenticatorTest, TestInValidJwtWhenAllowMissingOrFailedIsTrue) {
   std::string token = "invalidToken";
   auto headers = TestHeaderMapImpl{{"Authorization", "Bearer " + token}};
   auth_->Verify(headers, &mock_cb_);
-}
-
-TEST_F(JwtAuthenticatorTest, TestBypassJWT) {
-  SetupConfig(kBypassConfig);
-
-  // TODO: enable Bypass test
-  return;
-
-  EXPECT_CALL(mock_cm_, httpAsyncClientForCluster(_)).Times(0);
-  EXPECT_CALL(mock_cb_, onDone(_))
-      .WillOnce(Invoke(
-          // Empty header, rejected.
-          [](const Status &status) { ASSERT_EQ(status, Status::JWT_MISSED); }))
-      .WillOnce(Invoke(
-          // CORS header, OK
-          [](const Status &status) { ASSERT_EQ(status, Status::OK); }))
-      .WillOnce(Invoke(
-          // healthz header, OK
-          [](const Status &status) { ASSERT_EQ(status, Status::OK); }));
-
-  // Empty headers.
-  auto empty_headers = TestHeaderMapImpl{};
-  auth_->Verify(empty_headers, &mock_cb_);
-
-  // CORS headers
-  auto cors_headers =
-      TestHeaderMapImpl{{":method", "OPTIONS"}, {":path", "/any/path"}};
-  auth_->Verify(cors_headers, &mock_cb_);
-
-  // healthz headers
-  auto healthz_headers =
-      TestHeaderMapImpl{{":method", "GET"}, {":path", "/healthz"}};
-  auth_->Verify(healthz_headers, &mock_cb_);
 }
 
 TEST_F(JwtAuthenticatorTest, TestInvalidJWT) {
