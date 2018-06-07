@@ -43,7 +43,7 @@ while getopts ':f:o:p:i:t:d:' flag; do
        ;;
     o) outdir="${OPTARG}" ;;
     p) protoc="${OPTARG}" ;;
-    i) optimport+=/"${OPTARG}" ;;
+    i) optimport+="/${OPTARG}" ;;
     t) $optproto && die "Cannot use template file option (-t) with proto file option (-f)"
        opttemplate=true
        template+="/${OPTARG}"
@@ -106,14 +106,14 @@ imports=(
  "${ROOT}/vendor/github.com/gogo/protobuf/protobuf"
 )
 
-IMPORTS=""
+IMPORTS=()
 
 for i in "${imports[@]}"
 do
-  IMPORTS+="--proto_path=$i "
+  IMPORTS+=("--proto_path=$i")
 done
 
-IMPORTS+="--proto_path=$optimport "
+IMPORTS+=("--proto_path=$optimport")
 
 mappings=(
   "gogoproto/gogo.proto=github.com/gogo/protobuf/gogoproto"
@@ -131,12 +131,13 @@ do
   MAPPINGS+="M$i,"
 done
 
-PLUGIN="--plugin=$ROOT/bin/protoc-gen-gogoslick-$GOGO_VERSION --gogoslick-${GOGO_VERSION}_out=plugins=grpc,$MAPPINGS:"
-PLUGIN+=$outdir
+PLUGIN=("--plugin=$ROOT/bin/protoc-gen-gogoslick-$GOGO_VERSION" "--gogoslick-${GOGO_VERSION}_out=plugins=grpc,$MAPPINGS:")
+PLUGIN+=("$outdir")
 
-GENDOCS_PLUGIN="--plugin=$ROOT/bin/$GENDOCS-$GENDOCS_VERSION --docs-${GENDOCS_VERSION}_out=warnings=true,mode=html_fragment_with_front_matter:"
-GENDOCS_PLUGIN_FILE=$GENDOCS_PLUGIN$(dirname "${file}")
-GENDOCS_PLUGIN_TEMPLATE=$GENDOCS_PLUGIN$(dirname "${template}")
+GENDOCS_PLUGIN=("--plugin=$ROOT/bin/$GENDOCS-$GENDOCS_VERSION")
+GENDOCS_DEST_PREFIX="--docs-${GENDOCS_VERSION}_out=warnings=true,mode=html_fragment_with_front_matter"
+GENDOCS_PLUGIN_FILE=("${GENDOCS_PLUGIN[@]}" "${GENDOCS_DEST_PREFIX}:$(dirname "${file}")")
+GENDOCS_PLUGIN_FILE=("${GENDOCS_PLUGIN[@]}" "${GENDOCS_DEST_PREFIX}:$(dirname "${template}")")
 
 # handle template code generation
 if [ "$opttemplate" = true ]; then
@@ -147,17 +148,17 @@ if [ "$opttemplate" = true ]; then
     "google/protobuf/duration.proto:github.com/gogo/protobuf/types"
   )
 
-  TMPL_GEN_MAP=""
+  TMPL_GEN_MAP=()
   TMPL_PROTOC_MAPPING=""
 
   for i in "${template_mappings[@]}"
   do
-    TMPL_GEN_MAP+="-m $i "
+    TMPL_GEN_MAP+=(-m "$i")
     TMPL_PROTOC_MAPPING+="M${i/:/=},"
   done
 
-  TMPL_PLUGIN="--plugin=$ROOT/bin/protoc-gen-gogoslick-$GOGO_VERSION --gogoslick-${GOGO_VERSION}_out=plugins=grpc,$TMPL_PROTOC_MAPPING:"
-  TMPL_PLUGIN+=$outdir
+  TMPL_PLUGIN=("--plugin=$ROOT/bin/protoc-gen-gogoslick-$GOGO_VERSION" "--gogoslick-${GOGO_VERSION}_out=plugins=grpc,${TMPL_PROTOC_MAPPING}:")
+  TMPL_PLUGIN+=("$outdir")
 
   descriptor_set="_proto.descriptor_set"
   handler_gen_go="_handler.gen.go"
@@ -169,34 +170,26 @@ if [ "$opttemplate" = true ]; then
   templateHSP=${template/.proto/$handler_service}
   templatePG=${template/.proto/$pb_go}
   # generate the descriptor set for the intermediate artifacts
-  DESCRIPTOR="--include_imports --include_source_info --descriptor_set_out=$templateDS"
+  DESCRIPTOR=(--include_imports --include_source_info "--descriptor_set_out=$templateDS")
   if [ "$gendoc" = true ]; then
-    # TODO: Use array instead of depending on space splitting.
-    # shellcheck disable=SC2086
-    err=$($protoc $DESCRIPTOR $IMPORTS $PLUGIN $GENDOCS_PLUGIN_TEMPLATE "$template")
+    err=$($protoc "${DESCRIPTOR[@]}" "${IMPORTS[@]}" "${PLUGIN[@]}" "${GENDOCS_PLUGIN_TEMPLATE[@]}" "$template")
   else
-    # TODO: Use array instead of depending on space splitting.
-    # shellcheck disable=SC2086
-    err=$($protoc $DESCRIPTOR $IMPORTS $PLUGIN "$template")
+    err=$($protoc "${DESCRIPTOR[@]}" "${IMPORTS[@]}" "${PLUGIN[@]}" "$template")
   fi
   if [ ! -z "$err" ]; then
     die "template generation failure: $err";
   fi
 
-  go run "$GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go" api -t "$templateDS" --out_go "$templateHG" --out_proto "$templateHSP" "$TMPL_GEN_MAP"
+  go run "$GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go" api -t "$templateDS" --out_go "$templateHG" --out_proto "$templateHSP" "${TMPL_GEN_MAP[@]}"
 
-  # TODO: Use array instead of depending on space splitting.
-  # shellcheck disable=SC2086
-  err=$($protoc $IMPORTS $TMPL_PLUGIN "$templateHSP")
+  err=$($protoc "${IMPORTS[@]}" "${TMPL_PLUGIN[@]}" "$templateHSP")
   if [ ! -z "$err" ]; then
     die "template generation failure: $err";
   fi
 
   templateSDS=${template/.proto/_handler_service.descriptor_set}
-  SDESCRIPTOR="--include_imports --include_source_info --descriptor_set_out=$templateSDS"
-  # TODO: Use array instead of depending on space splitting.
-  # shellcheck disable=SC2086
-  err=$($protoc $SDESCRIPTOR $IMPORTS $PLUGIN "$templateHSP")
+  SDESCRIPTOR=(--include_imports --include_source_info "--descriptor_set_out=$templateSDS")
+  err=$($protoc "${SDESCRIPTOR[@]}" "${IMPORTS[@]}" "${PLUGIN[@]}" "$templateHSP")
   if [ ! -z "$err" ]; then
     die "template generation failure: $err";
   fi
@@ -208,13 +201,9 @@ fi
 
 # handle simple protoc-based generation
 if [ "$gendoc" = true ]; then
-  # TODO: Use array instead of depending on space splitting.
-  # shellcheck disable=SC2086
-  err=$($protoc $IMPORTS $PLUGIN $GENDOCS_PLUGIN_FILE "$file")
+  err=$($protoc "${IMPORTS[@]}" "${PLUGIN[@]}" "${GENDOCS_PLUGIN_FILE[@]}" "$file")
 else
-  # TODO: Use array instead of depending on space splitting.
-  # shellcheck disable=SC2086
-  err=$($protoc $IMPORTS $PLUGIN "$file")
+  err=$($protoc "${IMPORTS[@]}" "${PLUGIN[@]}" "$file")
 fi
 if [ ! -z "$err" ]; then
   die "generation failure: $err";
