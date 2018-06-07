@@ -1,6 +1,10 @@
 #!/bin/bash
 
+# Check and setup Minikube environment
+. ./setup_minikube_env.sh
+
 # Remove old imges.
+echo "Removing Old Images tagged localhost:5000/*:latest"
 docker images localhost:5000/*:latest -q | xargs docker rmi -f
 
 # Make and Push images to insecure local registry on VM.
