@@ -283,7 +283,7 @@ func (e *Ephemeral) processAdapterInfoConfigs(availableTmpls map[string]*Templat
 		fds, desc, err := GetAdapterCfgDescriptor(cfg.Config)
 		if err != nil {
 			appendErr(errs, fmt.Sprintf("adapter='%s'", adapterName), counters.adapterInfoConfigError,
-				"unable to parse adapter configuration")
+				"unable to parse adapter configuration: %v", err)
 			continue
 		}
 		supportedTmpls := make([]*Template, 0)
@@ -441,7 +441,7 @@ func (e *Ephemeral) processTemplateConfigs(counters Counters, errs *multierror.E
 		fds, desc, name, err := GetTmplDescriptor(cfg.Descriptor_)
 		if err != nil {
 			appendErr(errs, fmt.Sprintf("template='%s'", templateName), counters.templateConfigError,
-				"unable to parse descriptor")
+				"unable to parse descriptor: %v", err)
 			continue
 		}
 
