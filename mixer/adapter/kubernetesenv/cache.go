@@ -209,8 +209,8 @@ func (c *controllerImpl) rootController(obj *metav1.ObjectMeta) (metav1.OwnerRef
 	return metav1.OwnerReference{}, false
 }
 
-func (c *controllerImpl) objectMeta(indexer cache.Indexer, key string) (*metav1.ObjectMeta, bool) {
-	item, exists, err := indexer.GetByKey(key)
+func (c *controllerImpl) objectMeta(keyGetter cache.KeyGetter, key string) (*metav1.ObjectMeta, bool) {
+	item, exists, err := keyGetter.GetByKey(key)
 	if !exists || err != nil {
 		return nil, false
 	}
