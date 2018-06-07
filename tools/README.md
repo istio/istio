@@ -51,7 +51,7 @@ __Option B:__ (Advanced users, not recommended, from source) Build the deploymen
 ```
 $ ./install/updateVersion.sh # This step is only needed when using Istio from source and may or may not work/need additional hub/tags/...
 ```
-Follow the steps in the [Developer Guide](https://github.com/istio/istio/blob/master/DEV-GUIDE.md) to build the `istioctl` binary.
+Follow the steps in the [Developer Guide](https://github.com/istio/istio/wiki/Dev-Guide) to build the `istioctl` binary.
 Make sure the binary is first in to your PATH.
 Make sure it does `istioctl kube-inject` producing the HUB/TAG you expect.
 
