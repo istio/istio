@@ -112,6 +112,10 @@ type Instance struct {
 	//
 	// Optional.
 	SpanTags map[string]interface{}
+
+	// HTTP status code used to set the span status. If unset or set to 0, the
+	// span status will be assumed to be successful.
+	HttpStatusCode int64
 }
 
 // HandlerBuilder must be implemented by adapters if they want to

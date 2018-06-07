@@ -101,4 +101,8 @@ message Template {
     //
     // Optional.
     map<string, istio.policy.v1beta1.Value> span_tags = 7;
+
+    // HTTP status code used to set the span status. If unset or set to 0, the
+    // span status will be assumed to be successful.
+    int64 httpStatusCode = 8;
 }

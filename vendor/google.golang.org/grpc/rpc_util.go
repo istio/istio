@@ -26,6 +26,7 @@ import (
 	"io"
 	"io/ioutil"
 	"math"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -43,6 +44,8 @@ import (
 )
 
 // Compressor defines the interface gRPC uses to compress a message.
+//
+// Deprecated: use package encoding.
 type Compressor interface {
 	// Do compresses p into w.
 	Do(w io.Writer, p []byte) error
@@ -55,6 +58,8 @@ type gzipCompressor struct {
 }
 
 // NewGZIPCompressor creates a Compressor based on GZIP.
+//
+// Deprecated: use package encoding/gzip.
 func NewGZIPCompressor() Compressor {
 	c, _ := NewGZIPCompressorWithLevel(gzip.DefaultCompression)
 	return c
@@ -64,6 +69,8 @@ func NewGZIPCompressor() Compressor {
 // of assuming DefaultCompression.
 //
 // The error returned will be nil if the level is valid.
+//
+// Deprecated: use package encoding/gzip.
 func NewGZIPCompressorWithLevel(level int) (Compressor, error) {
 	if level < gzip.DefaultCompression || level > gzip.BestCompression {
 		return nil, fmt.Errorf("grpc: invalid compression level: %d", level)
@@ -96,6 +103,8 @@ func (c *gzipCompressor) Type() string {
 }
 
 // Decompressor defines the interface gRPC uses to decompress a message.
+//
+// Deprecated: use package encoding.
 type Decompressor interface {
 	// Do reads the data from r and uncompress them.
 	Do(r io.Reader) ([]byte, error)
@@ -108,6 +117,8 @@ type gzipDecompressor struct {
 }
 
 // NewGZIPDecompressor creates a Decompressor based on GZIP.
+//
+// Deprecated: use package encoding/gzip.
 func NewGZIPDecompressor() Decompressor {
 	return &gzipDecompressor{}
 }
@@ -217,8 +228,8 @@ func (o TrailerCallOption) after(c *callInfo) {
 	}
 }
 
-// Peer returns a CallOption that retrieves peer information for a
-// unary RPC.
+// Peer returns a CallOption that retrieves peer information for a unary RPC.
+// The peer field will be populated *after* the RPC completes.
 func Peer(p *peer.Peer) CallOption {
 	return PeerCallOption{PeerAddr: p}
 }
@@ -264,7 +275,7 @@ func (o FailFastCallOption) before(c *callInfo) error {
 	c.failFast = o.FailFast
 	return nil
 }
-func (o FailFastCallOption) after(c *callInfo) { return }
+func (o FailFastCallOption) after(c *callInfo) {}
 
 // MaxCallRecvMsgSize returns a CallOption which sets the maximum message size the client can receive.
 func MaxCallRecvMsgSize(s int) CallOption {
@@ -282,7 +293,7 @@ func (o MaxRecvMsgSizeCallOption) before(c *callInfo) error {
 	c.maxReceiveMessageSize = &o.MaxRecvMsgSize
 	return nil
 }
-func (o MaxRecvMsgSizeCallOption) after(c *callInfo) { return }
+func (o MaxRecvMsgSizeCallOption) after(c *callInfo) {}
 
 // MaxCallSendMsgSize returns a CallOption which sets the maximum message size the client can send.
 func MaxCallSendMsgSize(s int) CallOption {
@@ -300,7 +311,7 @@ func (o MaxSendMsgSizeCallOption) before(c *callInfo) error {
 	c.maxSendMessageSize = &o.MaxSendMsgSize
 	return nil
 }
-func (o MaxSendMsgSizeCallOption) after(c *callInfo) { return }
+func (o MaxSendMsgSizeCallOption) after(c *callInfo) {}
 
 // PerRPCCredentials returns a CallOption that sets credentials.PerRPCCredentials
 // for a call.
@@ -319,7 +330,7 @@ func (o PerRPCCredsCallOption) before(c *callInfo) error {
 	c.creds = o.Creds
 	return nil
 }
-func (o PerRPCCredsCallOption) after(c *callInfo) { return }
+func (o PerRPCCredsCallOption) after(c *callInfo) {}
 
 // UseCompressor returns a CallOption which sets the compressor used when
 // sending the request.  If WithCompressor is also set, UseCompressor has
@@ -340,7 +351,7 @@ func (o CompressorCallOption) before(c *callInfo) error {
 	c.compressorType = o.CompressorType
 	return nil
 }
-func (o CompressorCallOption) after(c *callInfo) { return }
+func (o CompressorCallOption) after(c *callInfo) {}
 
 // CallContentSubtype returns a CallOption that will set the content-subtype
 // for a call. For example, if content-subtype is "json", the Content-Type over
@@ -351,7 +362,7 @@ func (o CompressorCallOption) after(c *callInfo) { return }
 //
 // If CallCustomCodec is not also used, the content-subtype will be used to
 // look up the Codec to use in the registry controlled by RegisterCodec. See
-// the documention on RegisterCodec for details on registration. The lookup
+// the documentation on RegisterCodec for details on registration. The lookup
 // of content-subtype is case-insensitive. If no such Codec is found, the call
 // will result in an error with code codes.Internal.
 //
@@ -373,7 +384,7 @@ func (o ContentSubtypeCallOption) before(c *callInfo) error {
 	c.contentSubtype = o.ContentSubtype
 	return nil
 }
-func (o ContentSubtypeCallOption) after(c *callInfo) { return }
+func (o ContentSubtypeCallOption) after(c *callInfo) {}
 
 // CallCustomCodec returns a CallOption that will set the given Codec to be
 // used for all request and response messages for a call. The result of calling
@@ -402,7 +413,7 @@ func (o CustomCodecCallOption) before(c *callInfo) error {
 	c.codec = o.Codec
 	return nil
 }
-func (o CustomCodecCallOption) after(c *callInfo) { return }
+func (o CustomCodecCallOption) after(c *callInfo) {}
 
 // The format of the payload: compressed or not?
 type payloadFormat uint8
@@ -662,6 +673,40 @@ func setCallInfoCodec(c *callInfo) error {
 	return nil
 }
 
+// parseDialTarget returns the network and address to pass to dialer
+func parseDialTarget(target string) (net string, addr string) {
+	net = "tcp"
+
+	m1 := strings.Index(target, ":")
+	m2 := strings.Index(target, ":/")
+
+	// handle unix:addr which will fail with url.Parse
+	if m1 >= 0 && m2 < 0 {
+		if n := target[0:m1]; n == "unix" {
+			net = n
+			addr = target[m1+1:]
+			return net, addr
+		}
+	}
+	if m2 >= 0 {
+		t, err := url.Parse(target)
+		if err != nil {
+			return net, target
+		}
+		scheme := t.Scheme
+		addr = t.Path
+		if scheme == "unix" {
+			net = scheme
+			if addr == "" {
+				addr = t.Host
+			}
+			return net, addr
+		}
+	}
+
+	return net, target
+}
+
 // The SupportPackageIsVersion variables are referenced from generated protocol
 // buffer files to ensure compatibility with the gRPC version used.  The latest
 // support package version is 5.
@@ -677,6 +722,6 @@ const (
 )
 
 // Version is the current grpc version.
-const Version = "1.11.1"
+const Version = "1.12.0"
 
 const grpcUA = "grpc-go/" + Version
