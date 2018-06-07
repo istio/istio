@@ -20,7 +20,6 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/mixer/pkg/adapter"
 	appsv1 "k8s.io/api/apps/v1"
 	appsv1beta2 "k8s.io/api/apps/v1beta2"
 	"k8s.io/api/core/v1"
@@ -30,6 +29,8 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+
+	"istio.io/istio/mixer/pkg/adapter"
 )
 
 type (
