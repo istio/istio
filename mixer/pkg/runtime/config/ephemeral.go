@@ -136,15 +136,18 @@ func (e *Ephemeral) BuildSnapshot() (*Snapshot, error) {
 
 	af := ast.NewFinder(attributes)
 	instances := e.processInstanceConfigs(af, counters, errs)
-	adapterInfos := e.processAdapterInfoConfigs(counters, errs)
+
+	templates := e.processTemplateConfigs(counters, errs)
+
+	adapterInfos := e.processAdapterInfoConfigs(templates, counters, errs)
 
 	rules := e.processRuleConfigs(handlers, instances, af, counters, errs)
 	s := &Snapshot{
 		ID:                id,
 		Templates:         e.templates,
 		Adapters:          e.adapters,
-		TemplateMetadatas: adapterInfos.templates,
-		AdapterMetadatas:  adapterInfos.adapters,
+		TemplateMetadatas: templates,
+		AdapterMetadatas:  adapterInfos,
 		Attributes:        ast.NewFinder(attributes),
 		HandlersLegacy:    handlers,
 		InstancesLegacy:   instances,
@@ -262,31 +265,50 @@ func (e *Ephemeral) processInstanceConfigs(attributes ast.AttributeDescriptorFin
 	return instances
 }
 
-func (e *Ephemeral) processAdapterInfoConfigs(counters Counters, errs *multierror.Error) *adapterInfoRegistry {
-
+func (e *Ephemeral) processAdapterInfoConfigs(availableTmpls map[string]*Template, counters Counters, errs *multierror.Error) map[string]*Adapter {
+	result := map[string]*Adapter{}
 	log.Debug("Begin processing adapter info configurations.")
-
-	var adapterInfos []*v1beta1.Info
-
 	for adapterInfoKey, resource := range e.entries {
 		if adapterInfoKey.Kind != constant.AdapterKind {
 			continue
 		}
+
+		adapterName := adapterInfoKey.String()
+
 		counters.adapterInfoConfig.Add(1)
 		cfg := resource.Spec.(*v1beta1.Info)
-		log.Debugf("Processing incoming adapter info: name='%s'\n%s", adapterInfoKey.String(), cfg)
-		adapterInfos = append(adapterInfos, cfg)
-	}
 
-	log.Debugf("Total received adapter info: count=%d, value='%v'", len(adapterInfos), adapterInfos)
-	reg, err := newAdapterInfoRegistry(adapterInfos)
-	if err != nil {
-		log.Errorf("Error when reading adapter info='%v'", err)
-		counters.adapterInfoConfigError.Inc()
+		log.Debugf("Processing incoming adapter info: name='%s'\n%v", adapterName, cfg)
+
+		fds, desc, err := GetAdapterCfgDescriptor(cfg.Config)
+		if err != nil {
+			appendErr(errs, fmt.Sprintf("adapter='%s'", adapterName), counters.adapterInfoConfigError,
+				"unable to parse adapter configuration")
+			continue
+		}
+		supportedTmpls := make([]*Template, 0)
+		for _, tmplN := range cfg.Templates {
+			tmplFullName := canonicalize(tmplN, adapterInfoKey.Namespace)
+			if _, ok := availableTmpls[tmplFullName]; !ok {
+				appendErr(errs, fmt.Sprintf("adapter='%s'", adapterName), counters.adapterInfoConfigError,
+					"unable to find template '%s'", tmplN)
+				continue
+			}
+			supportedTmpls = append(supportedTmpls, availableTmpls[tmplFullName])
+		}
+		if len(cfg.Templates) == len(supportedTmpls) {
+			// only record adapter if all templates are valid
+			result[adapterName] = &Adapter{
+				Name:               adapterName,
+				ConfigDescSet:      fds,
+				PackageName:        desc.GetPackage(),
+				SupportedTemplates: supportedTmpls,
+				SessionBased:       cfg.SessionBased,
+				Description:        cfg.Description,
+			}
+		}
 	}
-	log.Debugf("Total successfully ingested templates: count=%d, value='%v'", len(reg.templates), reg.templates)
-	log.Debugf("Total successfully ingested adapters: count=%d, value='%v'", len(reg.adapters), reg.adapters)
-	return reg
+	return result
 }
 
 func (e *Ephemeral) processRuleConfigs(
@@ -401,6 +423,37 @@ func (e *Ephemeral) processRuleConfigs(
 	}
 
 	return rules
+}
+
+func (e *Ephemeral) processTemplateConfigs(counters Counters, errs *multierror.Error) map[string]*Template {
+	result := map[string]*Template{}
+	log.Debug("Begin processing templates.")
+	for templateKey, resource := range e.entries {
+		if templateKey.Kind != constant.TemplateKind {
+			continue
+		}
+		counters.templateConfig.Add(1)
+
+		templateName := templateKey.String()
+		cfg := resource.Spec.(*v1beta1.Template)
+		log.Debugf("Processing incoming template: name='%s'\n%v", templateName, cfg)
+
+		fds, desc, name, err := GetTmplDescriptor(cfg.Descriptor_)
+		if err != nil {
+			appendErr(errs, fmt.Sprintf("template='%s'", templateName), counters.templateConfigError,
+				"unable to parse descriptor")
+			continue
+		}
+
+		tmplMetadata := Template{
+			Name: templateName,
+			InternalPackageDerivedName: name,
+			FileDescSet:                fds,
+			PackageName:                desc.GetPackage(),
+		}
+		result[templateName] = &tmplMetadata
+	}
+	return result
 }
 
 func appendErr(errs *multierror.Error, field string, counter prometheus.Counter, format string, a ...interface{}) {

@@ -43,9 +43,9 @@ type (
 		RulesLegacy     []*RuleLegacy
 
 		//  TemplateMetadatas contains template descriptors loaded from the store
-		TemplateMetadatas map[string]*TemplateMetadata
+		TemplateMetadatas map[string]*Template
 		//  AdapterMetadatas contains adapter metadata loaded from the store
-		AdapterMetadatas map[string]*AdapterMetadata
+		AdapterMetadatas map[string]*Adapter
 
 		Handlers  map[string]*Handler
 		Instances map[string]*Instance
@@ -178,7 +178,7 @@ type (
 		// package name of the `Params` message
 		PackageName string
 
-		SupportedTemplates []Template
+		SupportedTemplates []*Template
 
 		SessionBased bool
 
