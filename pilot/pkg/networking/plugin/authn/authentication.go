@@ -356,7 +356,13 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 	//	setupMultiplexing(mutable)
 	//}
 	for i := range mutable.Listener.FilterChains {
-		mutable.Listener.FilterChains[i].TlsContext = buildSidecarListenerTLSContext(authnPolicy)
+		chain := &mutable.Listener.FilterChains[i]
+		if chain.FilterChainMatch != nil && chain.FilterChainMatch.TransportProtocol != "raw_buffer" {
+			log.Infof("jianfeih degbug, yes we apply tlscontext")
+			chain.TlsContext = buildSidecarListenerTLSContext(authnPolicy)
+		} else {
+			log.Infof("jianfeih degbug, yes we do skip for the raw buffer")
+		}
 		if in.ListenerType == plugin.ListenerTypeHTTP {
 			// Adding Jwt filter and authn filter, if needed.
 			if filter := BuildJwtFilter(authnPolicy); filter != nil {
@@ -368,6 +374,11 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 		}
 	}
 	return nil
+}
+
+
+func RequireTLSMultiplexing() bool {
+	return false
 }
 
 // OnInboundCluster implements the Plugin interface method.

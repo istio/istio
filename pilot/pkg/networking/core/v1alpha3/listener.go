@@ -253,7 +253,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 			ip:             endpoint.Address,
 			port:           endpoint.Port,
 			protocol:       protocol,
-			tlsMultiplexed: true,
+			// TODO(incfly): get this consulted from authn policy.
+			//tlsMultiplexed: true,
+		}
+		if listenerOpts.port == 80 {
+			listenerOpts.tlsMultiplexed = true
 		}
 
 		listenerMapKey := fmt.Sprintf("%s:%d", endpoint.Address, endpoint.Port)
@@ -714,8 +718,12 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	var listenerFilters []listener.ListenerFilter
 	if opts.tlsMultiplexed {
 		listenerFilters = []listener.ListenerFilter{
-			{Name: "envoy.listener.tls_inspector"},
+			{
+				Name: "envoy.listener.tls_inspector",
+				Config: &google_protobuf.Struct{},
+			},
 		}
+		log.Infof("jianfeih debug the tls is multiplexed %v %v\n", opts.port, opts.ip)
 	}
 
 	for _, chain := range opts.filterChainOpts {
@@ -736,6 +744,11 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 			if !fullWildcardFound {
 				match.SniDomains = chain.sniHosts
 			}
+		}
+		if chain.tlsContext != nil {
+			log.Infof("jianfeih debug from listeners.go, yes, the chain.tlsContext is %v\n", *chain.tlsContext)
+		} else {
+			log.Infof("jianfeih debug from listeners.go, yes, the chain.tlsContext is nil\n")
 		}
 		filterChains = append(filterChains, listener.FilterChain{
 			FilterChainMatch: match,
