@@ -59,13 +59,13 @@ func BuildHealthCheckFilter(probe model.Probe) *http_conn.HttpFilter {
 func buildHealthCheckFilters(filterChain *plugin.FilterChain, probes []model.Probe) {
 	for _, probe := range probes {
 		filter := BuildHealthCheckFilter(probe)
-		if !containsHttpFilter(filterChain.HTTP, filter) {
+		if !containsHTTPFilter(filterChain.HTTP, filter) {
 			filterChain.HTTP = append(filterChain.HTTP, filter)
 		}
 	}
 }
 
-func containsHttpFilter(array []*http_conn.HttpFilter, elem *http_conn.HttpFilter) bool {
+func containsHTTPFilter(array []*http_conn.HttpFilter, elem *http_conn.HttpFilter) bool {
 	for _, item := range array {
 		if reflect.DeepEqual(item, elem) {
 			return true
