@@ -106,6 +106,8 @@ func initializeArgs(settings *Settings, setup *Setup) (*testEnv.Args, error) {
 		args.LoggingOptions = o
 	}
 
+	args.LoggingOptions.LogGrpc = false // prevent race in grpclog.SetLogger
+
 	return args, nil
 }
 

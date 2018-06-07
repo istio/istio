@@ -85,6 +85,12 @@ type Destination struct {
 	Counters DestinationCounters
 }
 
+// NamedBuilder holds a builder function and the short name of the associated instance.
+type NamedBuilder struct {
+	InstanceShortName string
+	Builder           template.InstanceBuilderFn
+}
+
 // InstanceGroup is a set of instances that needs to be sent to a handler, grouped by a condition expression.
 type InstanceGroup struct {
 	// id of the InstanceGroup. IDs are reused every time a table is recreated. Used for debugging.
@@ -98,7 +104,7 @@ type InstanceGroup struct {
 	ResourceType config.ResourceType
 
 	// Builders for the instances in this group for each instance that should be applied.
-	Builders []template.InstanceBuilderFn
+	Builders []NamedBuilder
 
 	// Mappers for attribute-generating adapters that map output attributes into the main attribute set.
 	Mappers []template.OutputMapperFn
