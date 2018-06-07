@@ -13,7 +13,7 @@ set -ex
 
 SECURITY_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
 
-ARGS=""
+ARGS=()
 HUB=""
 TAG=""
 
@@ -28,7 +28,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     *)
-      ARGS="$ARGS $1"
+      ARGS+=("$1")
   esac
 
   shift
@@ -37,26 +37,22 @@ done
 if [[ -z $TAG ]]; then
   TAG=$(whoami)_$(date +%Y%m%d_%H%M%S)
 fi
-ARGS="$ARGS --tag $TAG"
+ARGS+=(--tag "$TAG")
 
 if [[ -z $HUB ]]; then
   HUB="gcr.io/istio-testing"
 fi
-ARGS="$ARGS --hub $HUB"
+ARGS+=(--hub "$HUB")
 
 if [[ -z $CERT_DIR ]]; then
   CERT_DIR=${SECURITY_ROOT}/docker
 fi
 
 # Run integration tests
-# TODO: Use array instead of depending on space splitting.
-# shellcheck disable=SC2086
-go test -v istio.io/istio/security/tests/integration/certificateRotationTest $ARGS  \
+go test -v istio.io/istio/security/tests/integration/certificateRotationTest "${ARGS[@]}"  \
 -kube-config="$HOME/.kube/config"
 
-# TODO: Use array instead of depending on space splitting.
-# shellcheck disable=SC2086
-go test -v istio.io/istio/security/tests/integration/secretCreationTest $ARGS  \
+go test -v istio.io/istio/security/tests/integration/secretCreationTest "${ARGS[@]}"  \
 -kube-config="$HOME/.kube/config"
 
 #See issue #3181 test below fails automated tests
