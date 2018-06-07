@@ -45,7 +45,7 @@ spec:
     source.serviceAccount: $out.source_service_account_name | "unknown"
     source.workload.uid: $out.source_workload_uid | "unknown"
     source.workload.name: $out.source_workload_name | "unknown"
-    source.workload.namespace: $out.source_workload_namespace | "unknown
+    source.workload.namespace: $out.source_workload_namespace | "unknown"
     destination.ip: $out.destination_pod_ip | ip("0.0.0.0")
     destination.labels: $out.destination_labels | emptyStringMap()
     destination.name: $out.destination_pod_name | "unknown"
