@@ -24,6 +24,9 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
+	"github.com/gogo/protobuf/types"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -34,6 +37,9 @@ import (
 	"istio.io/istio/mixer/pkg/config/storetest"
 	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/lang/checker"
+	"istio.io/istio/mixer/pkg/lang/compiled"
+	"istio.io/istio/mixer/pkg/protobuf/yaml"
+	"istio.io/istio/mixer/pkg/protobuf/yaml/dynamic"
 	"istio.io/istio/mixer/pkg/runtime/config/constant"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
@@ -132,24 +138,34 @@ func (e *Ephemeral) BuildSnapshot() (*Snapshot, error) {
 
 	attributes := e.processAttributeManifests(counters, errs)
 
-	handlers := e.processHandlerConfigs(counters, errs)
+	shandlers := e.processStaticAdapterHandlerConfigs(counters, errs)
 
 	af := ast.NewFinder(attributes)
 	instances := e.processInstanceConfigs(af, counters, errs)
-	adapterInfos := e.processAdapterInfoConfigs(counters, errs)
 
-	rules := e.processRuleConfigs(handlers, instances, af, counters, errs)
+	// New dynamic configurations
+	dTemplates := e.processDynamicTemplateConfigs(counters, errs)
+	dAdapters := e.processDynamicAdapterConfigs(dTemplates, counters, errs)
+	dhandlers := e.processDynamicHandlerConfigs(dAdapters, counters, errs)
+	dInstances := e.processDynamicInstanceConfigs(dTemplates, af, counters, errs)
+
+	rules := e.processRuleConfigs(shandlers, instances, dhandlers, dInstances, af, counters, errs)
+
 	s := &Snapshot{
 		ID:                id,
 		Templates:         e.templates,
 		Adapters:          e.adapters,
-		TemplateMetadatas: adapterInfos.templates,
-		AdapterMetadatas:  adapterInfos.adapters,
+		TemplateMetadatas: dTemplates,
+		AdapterMetadatas:  dAdapters,
 		Attributes:        ast.NewFinder(attributes),
-		HandlersStatic:    handlers,
+		HandlersStatic:    shandlers,
 		InstancesStatic:   instances,
 		Rules:             rules,
-		Counters:          counters,
+
+		HandlersDynamic:  dhandlers,
+		InstancesDynamic: dInstances,
+
+		Counters: counters,
 	}
 	e.lock.RUnlock()
 
@@ -198,7 +214,7 @@ func (e *Ephemeral) processAttributeManifests(counters Counters, errs *multierro
 	return attrs
 }
 
-func (e *Ephemeral) processHandlerConfigs(counters Counters, errs *multierror.Error) map[string]*HandlerStatic {
+func (e *Ephemeral) processStaticAdapterHandlerConfigs(counters Counters, errs *multierror.Error) map[string]*HandlerStatic {
 	handlers := make(map[string]*HandlerStatic, len(e.adapters))
 
 	for key, resource := range e.entries {
@@ -224,6 +240,160 @@ func (e *Ephemeral) processHandlerConfigs(counters Counters, errs *multierror.Er
 
 	counters.handlerConfig.Add(float64(len(handlers)))
 	return handlers
+}
+
+func (e *Ephemeral) processDynamicHandlerConfigs(adapters map[string]*Adapter, counters Counters, errs *multierror.Error) map[string]*HandlerDynamic {
+	handlers := make(map[string]*HandlerDynamic, len(e.adapters))
+
+	for key, resource := range e.entries {
+		isHandler, hasStaticAdapter := e.isHandler(key, resource.Spec)
+		if !isHandler || hasStaticAdapter {
+			// static adapter based handlers are processed elsewhere
+			continue
+		}
+
+		hdl := resource.Spec.(*config.Handler)
+		an1, an2 := canonicalize(hdl.Adapter, constant.AdapterKind, key.Namespace)
+		handlerName := key.String()
+		log.Debugf("Processing incoming handler config: name='%s'\n%s", handlerName, resource.Spec)
+
+		adapter := adapters[an1]
+		if adapter == nil {
+			adapter = adapters[an2]
+		}
+
+		if adapter == nil {
+			appendErr(errs, fmt.Sprintf("handler='%s'.adapter", handlerName),
+				counters.HandlerValidationError, "adapter '%s' not found", hdl.Adapter)
+			continue
+		}
+		// validate if the param is valid
+		bytes, err := validateEncodeBytes(hdl.Params, adapter.ConfigDescSet, getParamsMsgFullName(adapter.PackageName))
+		if err != nil {
+			appendErr(errs, fmt.Sprintf("handler='%s'.params", handlerName),
+				counters.HandlerValidationError, err.Error())
+			continue
+		}
+
+		adapterCfg := &types.Any{
+			TypeUrl: adapter.PackageName + ".Params",
+			Value:   bytes,
+		}
+
+		cfg := &HandlerDynamic{
+			Name:          handlerName,
+			Adapter:       adapter,
+			Connection:    hdl.Connection,
+			AdapterConfig: adapterCfg,
+		}
+
+		handlers[cfg.Name] = cfg
+	}
+
+	counters.handlerConfig.Add(float64(len(handlers)))
+	return handlers
+}
+
+func (e *Ephemeral) processDynamicInstanceConfigs(templates map[string]*Template,
+	attributes ast.AttributeDescriptorFinder, counters Counters, errs *multierror.Error) map[string]*InstanceDynamic {
+	instances := make(map[string]*InstanceDynamic, len(e.templates))
+
+	for key, resource := range e.entries {
+		isInstance, hasStaticTemplate := e.isInstance(key, resource.Spec)
+		if !isInstance || hasStaticTemplate {
+			// static template based instances are processed elsewhere
+			continue
+		}
+
+		inst := resource.Spec.(*config.Instance)
+		tn1, tn2 := canonicalize(inst.Template, constant.TemplateKind, key.Namespace)
+		instanceName := key.String()
+		log.Debugf("Processing incoming instance config: name='%s'\n%s", instanceName, resource.Spec)
+
+		template := templates[tn1]
+		if template == nil {
+			template = templates[tn2]
+		}
+
+		if template == nil {
+			appendErr(errs, fmt.Sprintf("instance='%s'.template", instanceName),
+				counters.instanceConfigError, "template '%s' not found", inst.Template)
+			continue
+		}
+
+		// validate if the param is valid
+		compiler := compiled.NewBuilder(attributes)
+		resolver := yaml.NewResolver(template.FileDescSet)
+		b := dynamic.NewEncoderBuilder(
+			resolver,
+			compiler,
+			false)
+		var enc dynamic.Encoder
+		var params map[string]interface{}
+		var err error
+		if inst.Params != nil {
+			params = inst.Params.(map[string]interface{})
+			params["name"] = fmt.Sprintf("\"%s\"", instanceName)
+			enc, err = b.Build(getTemplatesMsgFullName(template.PackageName), params)
+			if err != nil {
+				appendErr(errs, fmt.Sprintf("instance='%s'.params", instanceName),
+					counters.instanceConfigError, "config does not conforms to schema of template '%s': %v",
+					inst.Template, err.Error())
+				continue
+			}
+		}
+
+		cfg := &InstanceDynamic{
+			Name:     instanceName,
+			Template: template,
+			Encoder:  enc,
+			Params:   params,
+		}
+
+		instances[cfg.Name] = cfg
+	}
+
+	counters.instanceConfig.Add(float64(len(instances)))
+	return instances
+}
+
+func getTemplatesMsgFullName(pkgName string) string {
+	return "." + pkgName + ".InstanceMsg"
+}
+
+func getParamsMsgFullName(pkgName string) string {
+	return "." + pkgName + ".Params"
+}
+
+func (e *Ephemeral) isHandler(key store.Key, spec proto.Message) (isHandler bool, hasStaticAdapter bool) {
+	if key.Kind != constant.HandlerKind {
+		return
+	}
+	isHandler = true
+	hdl := spec.(*config.Handler)
+	if _, found := e.adapters[hdl.Adapter]; found {
+		hasStaticAdapter = true
+	}
+	return
+}
+
+func (e *Ephemeral) isInstance(key store.Key, spec proto.Message) (isInstance bool, hasStaticTemplate bool) {
+	if key.Kind != constant.InstanceKind {
+		return
+	}
+	isInstance = true
+	inst := spec.(*config.Instance)
+	if _, found := e.templates[inst.Template]; found {
+		hasStaticTemplate = true
+	}
+	return
+}
+
+func validateEncodeBytes(params interface{}, fds *descriptor.FileDescriptorSet, msgName string) ([]byte, error) {
+	if params == nil {
+		return []byte{}, nil
+	}
+	return yaml.NewEncoder(fds).EncodeBytes(params.(map[string]interface{}), msgName, false)
 }
 
 func (e *Ephemeral) processInstanceConfigs(attributes ast.AttributeDescriptorFinder, counters Counters,
@@ -262,37 +432,70 @@ func (e *Ephemeral) processInstanceConfigs(attributes ast.AttributeDescriptorFin
 	return instances
 }
 
-func (e *Ephemeral) processAdapterInfoConfigs(counters Counters, errs *multierror.Error) *adapterInfoRegistry {
-
+func (e *Ephemeral) processDynamicAdapterConfigs(availableTmpls map[string]*Template, counters Counters, errs *multierror.Error) map[string]*Adapter {
+	result := map[string]*Adapter{}
 	log.Debug("Begin processing adapter info configurations.")
-
-	var adapterInfos []*v1beta1.Info
-
 	for adapterInfoKey, resource := range e.entries {
 		if adapterInfoKey.Kind != constant.AdapterKind {
 			continue
 		}
+
+		adapterName := adapterInfoKey.String()
+
 		counters.adapterInfoConfig.Add(1)
 		cfg := resource.Spec.(*v1beta1.Info)
-		log.Debugf("Processing incoming adapter info: name='%s'\n%s", adapterInfoKey.String(), cfg)
-		adapterInfos = append(adapterInfos, cfg)
-	}
 
-	log.Debugf("Total received adapter info: count=%d, value='%v'", len(adapterInfos), adapterInfos)
-	reg, err := newAdapterInfoRegistry(adapterInfos)
-	if err != nil {
-		log.Errorf("Error when reading adapter info='%v'", err)
-		counters.adapterInfoConfigError.Inc()
+		log.Debugf("Processing incoming adapter info: name='%s'\n%v", adapterName, cfg)
+
+		if _, ok := e.adapters[adapterInfoKey.Name]; ok {
+			// compiled in adapter already contains a same named adapter as key.Name.
+			// This will cause confusion to operator referencing the adapter, so we should disallow this
+			// and let operator rename their adapter's CR name to disambiguate.
+			appendErr(errs, fmt.Sprintf("adapter='%s'", adapterInfoKey.Name), counters.adapterInfoConfigError,
+				"same named adapter already exists inside mixer; please rename to disambiguate")
+			continue
+		}
+
+		fds, desc, err := GetAdapterCfgDescriptor(cfg.Config)
+		if err != nil {
+			appendErr(errs, fmt.Sprintf("adapter='%s'", adapterName), counters.adapterInfoConfigError,
+				"unable to parse adapter configuration: %v", err)
+			continue
+		}
+		supportedTmpls := make([]*Template, 0)
+		for _, tmplN := range cfg.Templates {
+			tn1, tn2 := canonicalize(tmplN, constant.TemplateKind, adapterInfoKey.Namespace)
+			tmplFullName := tn1
+			if _, ok := availableTmpls[tn1]; !ok {
+				tmplFullName = tn2
+				if _, ok := availableTmpls[tn2]; !ok {
+					appendErr(errs, fmt.Sprintf("adapter='%s'", adapterName), counters.adapterInfoConfigError,
+						"unable to find template '%s'", tmplN)
+					continue
+				}
+			}
+			supportedTmpls = append(supportedTmpls, availableTmpls[tmplFullName])
+		}
+		if len(cfg.Templates) == len(supportedTmpls) {
+			// only record adapter if all templates are valid
+			result[adapterName] = &Adapter{
+				Name:               adapterName,
+				ConfigDescSet:      fds,
+				PackageName:        desc.GetPackage(),
+				SupportedTemplates: supportedTmpls,
+				SessionBased:       cfg.SessionBased,
+				Description:        cfg.Description,
+			}
+		}
 	}
-	log.Debugf("Total successfully ingested templates: count=%d, value='%v'", len(reg.templates), reg.templates)
-	log.Debugf("Total successfully ingested adapters: count=%d, value='%v'", len(reg.adapters), reg.adapters)
-	return reg
+	return result
 }
 
 func (e *Ephemeral) processRuleConfigs(
-
-	handlers map[string]*HandlerStatic,
-	instances map[string]*InstanceStatic,
+	sHandlers map[string]*HandlerStatic,
+	sInstances map[string]*InstanceStatic,
+	dHandlers map[string]*HandlerDynamic,
+	dInstances map[string]*InstanceDynamic,
 	attributes ast.AttributeDescriptorFinder,
 	counters Counters, errs *multierror.Error) []*Rule {
 
@@ -333,74 +536,215 @@ func (e *Ephemeral) processRuleConfigs(
 		}
 
 		// extract the set of actions from the rule, and the handlers they reference.
-		actions := make([]*ActionStatic, 0, len(cfg.Actions))
+		// A rule can have both static and dynamic actions.
+
+		actionsStat := make([]*ActionStatic, 0, len(cfg.Actions))
+		actionsDynamic := make([]*ActionDynamic, 0, len(cfg.Actions))
 		for i, a := range cfg.Actions {
 			log.Debugf("Processing action: %s[%d]", ruleName, i)
+			var isHandlerStat bool
+			var isHandlerDynamic bool
+			var sahandler *HandlerStatic
+			var dahandler *HandlerDynamic
+			hn1, hn2 := canonicalize(a.Handler, constant.HandlerKind, ruleKey.Namespace)
 
-			var found bool
-			var handler *HandlerStatic
-			handlerName := canonicalize(a.Handler, ruleKey.Namespace)
-			if handler, found = handlers[handlerName]; !found {
-				appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), counters.ruleConfigError, "Handler not found: handler='%s'",
-					handlerName)
+			handlerName := hn1
+			if sahandler, isHandlerStat = sHandlers[hn1]; !isHandlerStat {
+				handlerName = hn2
+				sahandler, isHandlerStat = sHandlers[hn2]
+			}
+
+			if !isHandlerStat {
+				handlerName = hn1
+				if dahandler, isHandlerDynamic = dHandlers[hn1]; !isHandlerDynamic {
+					handlerName = hn2
+					dahandler, isHandlerDynamic = dHandlers[hn2]
+				}
+			}
+
+			if !isHandlerStat && !isHandlerDynamic {
+				appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), counters.ruleConfigError,
+					"Handler not found: handler='%s'", a.Handler)
 				continue
 			}
 
-			// Keep track of unique instances, to avoid using the same instance multiple times within the same
-			// action
-			uniqueInstances := make(map[string]bool, len(a.Instances))
+			if isHandlerStat {
+				// Keep track of unique instances, to avoid using the same instance multiple times within the same
+				// action
+				uniqueInstances := make(map[string]bool, len(a.Instances))
 
-			actionInstances := make([]*InstanceStatic, 0, len(a.Instances))
-			for _, instanceName := range a.Instances {
-				instanceName = canonicalize(instanceName, ruleKey.Namespace)
-				if _, found = uniqueInstances[instanceName]; found {
-					appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), counters.ruleConfigError,
-						"action specified the same instance multiple times: instance='%s',", instanceName)
+				actionInstances := make([]*InstanceStatic, 0, len(a.Instances))
+				for _, instanceNameRef := range a.Instances {
+					in1, in2 := canonicalize(instanceNameRef, constant.InstanceKind, ruleKey.Namespace)
+
+					var instance *InstanceStatic
+					var found bool
+					instName := in1
+					if instance, found = sInstances[in1]; !found {
+						instName = in2
+						if instance, found = sInstances[in2]; !found {
+							appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), counters.ruleConfigError,
+								"Instance not found: instance='%s'", instanceNameRef)
+							continue
+						}
+					}
+
+					if _, ok := uniqueInstances[instName]; ok {
+						appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), counters.ruleConfigError,
+							"action specified the same instance multiple times: instance='%s',", instName)
+						continue
+					}
+					uniqueInstances[instName] = true
+
+					if !contains(sahandler.Adapter.SupportedTemplates, instance.Template.Name) {
+						appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), counters.ruleConfigError,
+							"instance '%s' is of template '%s' which is not supported by handler '%s'",
+							instName, instance.Template.Name, handlerName)
+						continue
+					}
+
+					actionInstances = append(actionInstances, instance)
+				}
+
+				// If there are no valid instances found for this action, then elide the action.
+				if len(actionInstances) == 0 {
+					appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), counters.ruleConfigError, "No valid instances found")
 					continue
 				}
-				uniqueInstances[instanceName] = true
 
-				var instance *InstanceStatic
-				if instance, found = instances[instanceName]; !found {
-					appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), counters.ruleConfigError, "Instance not found: instance='%s'", instanceName)
+				action := &ActionStatic{
+					Handler:   sahandler,
+					Instances: actionInstances,
+				}
+
+				actionsStat = append(actionsStat, action)
+			} else {
+				// Keep track of unique instances, to avoid using the same instance multiple times within the same
+				// action
+				uniqueInstances := make(map[string]bool, len(a.Instances))
+
+				actionInstances := make([]*InstanceDynamic, 0, len(a.Instances))
+				for _, instanceNameRef := range a.Instances {
+					in1, in2 := canonicalize(instanceNameRef, constant.InstanceKind, ruleKey.Namespace)
+
+					var instance *InstanceDynamic
+					var instfound bool
+					instName := in1
+					if instance, instfound = dInstances[in1]; !instfound {
+						instName = in2
+						if instance, instfound = dInstances[in2]; !instfound {
+							appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), counters.ruleConfigError, "Instance not found: instance='%s'", instanceNameRef)
+							continue
+						}
+					}
+
+					if _, ok := uniqueInstances[instName]; ok {
+						appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), counters.ruleConfigError,
+							"action specified the same instance multiple times: instance='%s',", instName)
+						continue
+					}
+					uniqueInstances[instName] = true
+
+					found := false
+					for _, supTmpl := range dahandler.Adapter.SupportedTemplates {
+						if supTmpl.Name == instance.Template.Name {
+							found = true
+							break
+						}
+					}
+
+					if !found {
+						appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), counters.ruleConfigError,
+							"instance '%s' is of template '%s' which is not supported by handler '%s'",
+							instName, instance.Template.Name, handlerName)
+						continue
+					}
+
+					actionInstances = append(actionInstances, instance)
+				}
+
+				// If there are no valid instances found for this action, then elide the action.
+				if len(actionInstances) == 0 {
+					appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), counters.ruleConfigError, "No valid instances found")
 					continue
 				}
 
-				actionInstances = append(actionInstances, instance)
-			}
+				action := &ActionDynamic{
+					Handler:   dahandler,
+					Instances: actionInstances,
+				}
 
-			// If there are no valid instances found for this action, then elide the action.
-			if len(actionInstances) == 0 {
-				appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), counters.ruleConfigError, "No valid instances found")
-				continue
+				actionsDynamic = append(actionsDynamic, action)
 			}
-
-			action := &ActionStatic{
-				Handler:   handler,
-				Instances: actionInstances,
-			}
-
-			actions = append(actions, action)
 		}
 
 		// If there are no valid actions found for this rule, then elide the rule.
-		if len(actions) == 0 {
+		if len(actionsStat) == 0 && len(actionsDynamic) == 0 {
 			appendErr(errs, fmt.Sprintf("rule=%s", ruleName), counters.ruleConfigError, "No valid actions found in rule")
 			continue
 		}
 
 		rule := &Rule{
-			Name:          ruleName,
-			Namespace:     ruleKey.Namespace,
-			ActionsStatic: actions,
-			ResourceType:  rt,
-			Match:         cfg.Match,
+			Name:           ruleName,
+			Namespace:      ruleKey.Namespace,
+			ActionsStatic:  actionsStat,
+			ActionsDynamic: actionsDynamic,
+			ResourceType:   rt,
+			Match:          cfg.Match,
 		}
 
 		rules = append(rules, rule)
 	}
 
 	return rules
+}
+
+func contains(strs []string, w string) bool {
+	for _, v := range strs {
+		if v == w {
+			return true
+		}
+	}
+	return false
+}
+
+func (e *Ephemeral) processDynamicTemplateConfigs(counters Counters, errs *multierror.Error) map[string]*Template {
+	result := map[string]*Template{}
+	log.Debug("Begin processing templates.")
+	for templateKey, resource := range e.entries {
+		if templateKey.Kind != constant.TemplateKind {
+			continue
+		}
+		counters.templateConfig.Add(1)
+
+		templateName := templateKey.String()
+		cfg := resource.Spec.(*v1beta1.Template)
+		log.Debugf("Processing incoming template: name='%s'\n%v", templateName, cfg)
+
+		if _, ok := e.templates[templateKey.Name]; ok {
+			// compiled in templates already contains a same named template as templateKey.Name.
+			// This will cause confusion to operator referencing the template, so we should disallow this
+			// and let operator rename their template's CR name to disambiguate.
+			appendErr(errs, fmt.Sprintf("template='%s'", templateKey.Name), counters.templateConfigError,
+				"same named template already exists inside mixer; please rename to disambiguate")
+			continue
+		}
+		fds, desc, name, variety, err := GetTmplDescriptor(cfg.Descriptor_)
+		if err != nil {
+			appendErr(errs, fmt.Sprintf("template='%s'", templateName), counters.templateConfigError,
+				"unable to parse descriptor: %v", err)
+			continue
+		}
+
+		result[templateName] = &Template{
+			Name: templateName,
+			InternalPackageDerivedName: name,
+			FileDescSet:                fds,
+			PackageName:                desc.GetPackage(),
+			Variety:                    variety,
+		}
+	}
+	return result
 }
 
 func appendErr(errs *multierror.Error, field string, counter prometheus.Counter, format string, a ...interface{}) {
