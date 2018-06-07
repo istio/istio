@@ -17,6 +17,7 @@ package kubernetesenv
 import (
 	"testing"
 
+	"istio.io/istio/mixer/pkg/adapter/test"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
@@ -46,7 +47,7 @@ func TestClusterInfoCache_Pod(t *testing.T) {
 
 	for _, v := range tests {
 		t.Run(v.name, func(tt *testing.T) {
-			c := newCacheController(clientset, 0)
+			c := newCacheController(clientset, 0, test.NewEnv(t))
 			stopCh := make(chan struct{})
 			defer close(stopCh)
 			go c.Run(stopCh)

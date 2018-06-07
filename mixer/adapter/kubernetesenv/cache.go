@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/mixer/pkg/adapter"
 	appsv1 "k8s.io/api/apps/v1"
 	appsv1beta2 "k8s.io/api/apps/v1beta2"
 	"k8s.io/api/core/v1"
@@ -41,6 +42,7 @@ type (
 	}
 
 	controllerImpl struct {
+		env           adapter.Env
 		pods          cache.SharedIndexInformer
 		appsv1RS      cache.SharedIndexInformer
 		appsv1beta2RS cache.SharedIndexInformer
@@ -68,10 +70,11 @@ func podIP(obj interface{}) ([]string, error) {
 // Responsible for setting up the cacheController, based on the supplied client.
 // It configures the index informer to list/watch k8sCache and send update events
 // to a mutations channel for processing (in this case, logging).
-func newCacheController(clientset kubernetes.Interface, refreshDuration time.Duration) cacheController {
+func newCacheController(clientset kubernetes.Interface, refreshDuration time.Duration, env adapter.Env) cacheController {
 	namespace := "" // todo: address unparam linter issue
 
 	return &controllerImpl{
+		env: env,
 		pods: cache.NewSharedIndexInformer(
 			&cache.ListWatch{
 				ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
@@ -138,10 +141,10 @@ func (c *controllerImpl) HasSynced() bool {
 
 func (c *controllerImpl) Run(stop <-chan struct{}) {
 	// TODO: scheduledaemon
-	go c.pods.Run(stop)
-	go c.appsv1beta2RS.Run(stop)
-	go c.appsv1RS.Run(stop)
-	go c.extv1beta1RS.Run(stop)
+	c.env.ScheduleDaemon(func() { c.pods.Run(stop) })
+	c.env.ScheduleDaemon(func() { c.appsv1beta2RS.Run(stop) })
+	c.env.ScheduleDaemon(func() { c.appsv1RS.Run(stop) })
+	c.env.ScheduleDaemon(func() { c.extv1beta1RS.Run(stop) })
 	<-stop
 	// TODO: logging?
 }
