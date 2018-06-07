@@ -310,6 +310,7 @@ func getServerArgs(
 
 	var err error
 	args.ConfigStore, err = storetest.SetupStoreForTest(data...)
+	args.LoggingOptions.LogGrpc = false // prevent race in grpclog.SetLogger
 	return args, err
 }
 
