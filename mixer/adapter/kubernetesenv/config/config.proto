@@ -67,37 +67,4 @@ message Params {
     //
     // Default: 5 minutes
     google.protobuf.Duration cache_refresh_duration = 2 [(gogoproto.nullable)=false,(gogoproto.stdduration) = true];
-<<<<<<< HEAD
-
-    // Configures the cluster domain name to use for service name normalization.
-    //
-    // Default: svc.cluster.local
-    string cluster_domain_name = 3;
-
-    // In order to extract the service associated with a source, destination, or
-    // origin, this adapter relies on pod labels. In particular, it looks for
-    // the value of a specific label, as specified by this parameter.
-    //
-    // Default: app
-    string pod_label_for_service = 4;
-
-    // In order to extract the service associated with a source, destination, or
-    // origin, this adapter relies on pod labels. In particular, it looks for
-    // the value of a specific label for istio component services, as specified
-    // by this parameter.
-    //
-    // Default: istio
-    string pod_label_for_istio_component_service = 5;
-
-    //
-    // Default: false
-    bool lookup_ingress_source_and_origin_values = 6;
-
-    // Istio ingress service string. This is used to identify the
-    // ingress service in requests.
-    //
-    // Default: "ingress.istio-system.svc.cluster.local"
-    string fully_qualified_istio_ingress_service_name = 7;
-=======
->>>>>>> Refactor k8senv adapter to generate workload info.
 }
