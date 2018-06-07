@@ -16,7 +16,7 @@ E2E tests can be run on your local machines. It helps local testing and debuging
 
 2. See [minikube/README](local/minikube/README.md) for instructions to set up a Minikube VM environment to run E2E tests.
 
-All lcoal testing options requires the `--use_local_cluster` flag so the framework will not create a LoadBalancer and talk directly to the Pod running istio-ingress.
+All local testing options requires the `--use_local_cluster` flag so the framework will not create a LoadBalancer and talk directly to the Pod running istio-ingress.
 
 
 ## Using GKE
