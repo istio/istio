@@ -12,6 +12,12 @@ global:
   # The Istio control plane statsd endpoint
   statsdEndpoint: istio-statsd-prom-bridge.istio-system
 
+  # The Istio control plane ingress endpoint
+  ingressEndpoint: istio-ingress.istio-system
+
+  # The Istio control plane telemetry endpoint
+  telemetryEndpoint: istio-telemetry.istio-system
+
   # Default tag for Istio images.
   hub: docker.io/istionightly
 

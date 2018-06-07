@@ -18,6 +18,7 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime/config"
+	"istio.io/istio/mixer/pkg/runtime/safecall"
 	"istio.io/istio/pkg/log"
 )
 
@@ -49,8 +50,6 @@ type Entry struct {
 // NewTable returns a new table, based on the given config snapshot. The table will re-use existing handlers as much as
 // possible from the old table.
 func NewTable(old *Table, snapshot *config.Snapshot, gp *pool.GoroutinePool) *Table {
-	var f *factory
-
 	// Find all handlers, as referenced by instances, and associate to handlers.
 	instancesByHandler := config.GetInstancesGroupedByHandlers(snapshot)
 
@@ -70,13 +69,8 @@ func NewTable(old *Table, snapshot *config.Snapshot, gp *pool.GoroutinePool) *Ta
 			continue
 		}
 
-		// instantiate the new Handler
-		if f == nil {
-			f = newFactory(snapshot)
-		}
-
 		e := newEnv(snapshot.ID, handler.Name, gp)
-		instantiatedHandler, err := f.build(handler, instances, e)
+		instantiatedHandler, err := config.BuildHandler(handler, instances, e, snapshot.Templates)
 
 		if err != nil {
 			t.counters.buildFailure.Inc()
@@ -125,7 +119,7 @@ func (t *Table) Cleanup(current *Table) {
 		log.Debugf("Closing adapter %s/%v", entry.Name, entry.Handler)
 		t.counters.closedHandlers.Inc()
 		var err error
-		panicErr := safeCall("handler.Close", func() {
+		panicErr := safecall.Execute("handler.Close", func() {
 			err = entry.Handler.Close()
 		})
 

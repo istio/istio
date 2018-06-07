@@ -22,11 +22,11 @@ import (
 	"istio.io/istio/mixer/template/authorization"
 )
 
-func setupRBACStore() *configStore {
-	s := &configStore{}
-	roles := make(rolesMapByNamespace)
-	s.roles = roles
-	roles["ns1"] = make(rolesByName)
+func setupRBACStore() *ConfigStore {
+	s := &ConfigStore{}
+	roles := make(RolesMapByNamespace)
+	s.Roles = roles
+	roles["ns1"] = make(RolesByName)
 	rn := roles["ns1"]
 
 	role1Spec := &rbacproto.ServiceRole{

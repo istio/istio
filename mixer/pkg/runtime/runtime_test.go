@@ -30,7 +30,7 @@ import (
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/pool"
-	"istio.io/istio/mixer/pkg/runtime/config"
+	"istio.io/istio/mixer/pkg/runtime/config/constant"
 	"istio.io/istio/mixer/pkg/runtime/testing/data"
 	"istio.io/istio/pkg/probe"
 )
@@ -124,7 +124,7 @@ func TestRuntime_OnConfigChange(t *testing.T) {
 	events := []*store.Event{
 		{
 			Type: store.Update,
-			Key:  store.Key{Kind: config.AttributeManifestKind, Name: "attrs"},
+			Key:  store.Key{Kind: constant.AttributeManifestKind, Name: "attrs"},
 			Value: &store.Resource{
 				Spec: &configpb.AttributeManifest{
 					Name: "attrs",
@@ -139,12 +139,12 @@ func TestRuntime_OnConfigChange(t *testing.T) {
 	}
 	rt.onConfigChange(events)
 
-	snapshot := rt.ephemeral.BuildSnapshot()
+	snapshot, _ := rt.ephemeral.BuildSnapshot()
 
 	// expect the newly declared attribute to be received by the ephemeral state of the runtime, as part
 	// of listening.
 	expected := `
-ID: 4
+ID: 3
 Templates:
   Name: tapa
   Name: tcheck
@@ -198,7 +198,7 @@ func TestRuntime_InFlightRequestsDuringConfigChange(t *testing.T) {
 	events := []*store.Event{
 		{
 			Type: store.Update,
-			Key:  store.Key{Kind: config.AttributeManifestKind, Name: "attrs"},
+			Key:  store.Key{Kind: constant.AttributeManifestKind, Name: "attrs"},
 			Value: &store.Resource{
 				Spec: &configpb.AttributeManifest{
 					Attributes: map[string]*configpb.AttributeManifest_AttributeInfo{

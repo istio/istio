@@ -28,13 +28,13 @@ type Tag struct {
 	Value string
 }
 
-// Map is a map of tags. Use NewMap to build tag maps.
+// Map is a map of tags. Use New to create a context containing
+// a new Map.
 type Map struct {
 	m map[Key]string
 }
 
-// Value returns the value for the key if a value
-// for the key exists.
+// Value returns the value for the key if a value for the key exists.
 func (m *Map) Value(k Key) (string, bool) {
 	if m == nil {
 		return "", false
@@ -47,7 +47,7 @@ func (m *Map) String() string {
 	if m == nil {
 		return "nil"
 	}
-	var keys []Key
+	keys := make([]Key, 0, len(m.m))
 	for k := range m.m {
 		keys = append(keys, k)
 	}
@@ -83,8 +83,8 @@ func (m *Map) delete(k Key) {
 	delete(m.m, k)
 }
 
-func newMap(sizeHint int) *Map {
-	return &Map{m: make(map[Key]string, sizeHint)}
+func newMap() *Map {
+	return &Map{m: make(map[Key]string)}
 }
 
 // Mutator modifies a tag map.
@@ -153,7 +153,7 @@ func Delete(k Key) Mutator {
 // originated from the incoming context and modified
 // with the provided mutators.
 func New(ctx context.Context, mutator ...Mutator) (context.Context, error) {
-	m := newMap(0)
+	m := newMap()
 	orig := FromContext(ctx)
 	if orig != nil {
 		for k, v := range orig.m {

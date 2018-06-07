@@ -345,7 +345,7 @@ func (b *builder) add(
 			id:           b.nextID(),
 			Condition:    condition,
 			ResourceType: resourceType,
-			Builders:     []template.InstanceBuilderFn{},
+			Builders:     []NamedBuilder{},
 			Mappers:      []template.OutputMapperFn{},
 		}
 		byHandler.InstanceGroups = append(byHandler.InstanceGroups, instanceGroup)
@@ -363,7 +363,7 @@ func (b *builder) add(
 	}
 
 	// Append the builder & mapper.
-	instanceGroup.Builders = append(instanceGroup.Builders, builder)
+	instanceGroup.Builders = append(instanceGroup.Builders, NamedBuilder{InstanceShortName: config.ExtractShortName(instanceName), Builder: builder})
 
 	if mapper != nil {
 		instanceGroup.Mappers = append(instanceGroup.Mappers, mapper)

@@ -16,6 +16,8 @@ package pilot
 
 import (
 	"fmt"
+	"os"
+	"strings"
 	"testing"
 )
 
@@ -41,31 +43,39 @@ func TestTcp(t *testing.T) {
 		dstPods = append(dstPods, "d")
 	}
 
+	image := os.Getenv("ISTIO_PROXY_IMAGE")
+
 	// Run all request tests.
 	t.Run("request", func(t *testing.T) {
-		for _, src := range srcPods {
-			for _, dst := range dstPods {
-				if src == "t" && dst == "t" {
-					// this is flaky in minikube
-					continue
-				}
-				for _, port := range ports {
-					for _, domain := range []string{"", "." + tc.Kube.Namespace} {
-						testName := fmt.Sprintf("%s->%s%s_%s", src, dst, domain, port)
-						runRetriableTest(t, testName, defaultRetryBudget, func() error {
-							reqURL := fmt.Sprintf("http://%s%s:%s/%s", dst, domain, port, src)
-							resp := ClientRequest(src, reqURL, 1, "")
-							if src == "t" && (tc.Kube.AuthEnabled || (dst == "d" && port == "9090")) {
-								// t cannot talk to envoy (a or b) when mTLS enabled,
-								// nor with d:9090 (which always has mTLS enabled).
-								if !resp.IsHTTPOk() {
+		for cluster := range tc.Kube.Clusters {
+			// TCP is not supported on remote cluster with envoy v1 proxy
+			if !strings.Contains(image, "v2") && cluster != primaryCluster {
+				continue
+			}
+			for _, src := range srcPods {
+				for _, dst := range dstPods {
+					if src == "t" && dst == "t" {
+						// this is flaky in minikube
+						continue
+					}
+					for _, port := range ports {
+						for _, domain := range []string{"", "." + tc.Kube.Namespace} {
+							testName := fmt.Sprintf("%s from %s cluster->%s%s_%s", src, cluster, dst, domain, port)
+							runRetriableTest(t, cluster, testName, defaultRetryBudget, func() error {
+								reqURL := fmt.Sprintf("http://%s%s:%s/%s", dst, domain, port, src)
+								resp := ClientRequest(cluster, src, reqURL, 1, "")
+								if src == "t" && (tc.Kube.AuthEnabled || (dst == "d" && port == "9090")) {
+									// t cannot talk to envoy (a or b) when mTLS enabled,
+									// nor with d:9090 (which always has mTLS enabled).
+									if !resp.IsHTTPOk() {
+										return nil
+									}
+								} else if resp.IsHTTPOk() {
 									return nil
 								}
-							} else if resp.IsHTTPOk() {
-								return nil
-							}
-							return errAgain
-						})
+								return errAgain
+							})
+						}
 					}
 				}
 			}

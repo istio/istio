@@ -258,7 +258,7 @@ oth:
     dbl: 99.99
 r_oth:
   - str: "mystring2"
-    i64: 33333
+    i64: 66666
     dbl: 333.333
     b: true
     inenum: INNERTHREE
@@ -267,7 +267,7 @@ r_oth:
       i64: 99
       dbl: 99.99
   - str: "mystring3"
-    i64: 123
+    i64: 77777
     dbl: 333.333
     b: true
     inenum: INNERTHREE
@@ -276,7 +276,7 @@ r_oth:
       i64: 99
       dbl: 99.99
   - str: "mystring3"
-    i64: 123
+    i64: 88888
     dbl: 333.333
     b: true
     inenum: INNERTHREE
@@ -449,7 +449,7 @@ oth:
     dbl: 99.99
 r_oth:
   - str: "'mystring2'"
-    i64: 33333
+    i64: 66666
     dbl: 333.333
     b: true
     inenum: "'INNERTHREE'"
@@ -458,7 +458,7 @@ r_oth:
       i64: 99
       dbl: 99.99
   - str: "'mystring3'"
-    i64: 123
+    i64: 77777
     dbl: 333.333
     b: true
     inenum: request.path
@@ -467,7 +467,7 @@ r_oth:
       i64: 99
       dbl: 99.99
   - str: "'mystring3'"
-    i64: 123
+    i64: 88888
     dbl: 333.333
     b: true
     inenum: "'INNERTHREE'"
@@ -542,6 +542,26 @@ map_str_sint64:
     key1: 123
 `
 
+const valueStrIn = `
+istio_value: test.i64
+map_str_istio_value:
+    test.i64: test.i64
+    float: 5.5
+    str: request.path
+`
+
+const valueStr = `
+istio_value:
+    int64_value: -123
+map_str_istio_value:
+    test.i64: 
+        int64_value: -123
+    float:
+         double_value: 5.5
+    str:
+         string_value: "INNERTHREE"
+`
+
 type testdata struct {
 	desc        string
 	input       string
@@ -556,7 +576,7 @@ func TestDynamicEncoder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	compiler := compiled.NewBuilder(statdardVocabulary())
+	compiler := compiled.NewBuilder(StatdardVocabulary())
 	res := protoyaml.NewResolver(fds)
 	for _, td := range []testdata{
 		{
@@ -569,8 +589,8 @@ func TestDynamicEncoder(t *testing.T) {
 		{
 			desc:     "metrics",
 			msg:      ".foo.Simple",
-			input:    everythingIn,
-			output:   everything,
+			input:    everythingIn + valueStrIn,
+			output:   everything + valueStr,
 			compiler: compiler,
 		},
 	} {
@@ -630,14 +650,10 @@ func TestStaticEncoder(t *testing.T) {
 
 func testMsg(t *testing.T, input string, output string, res protoyaml.Resolver,
 	compiler Compiler, msgName string, skipUnknown bool) {
-	//data := map[interface{}]interface{}{}
 	data := map[string]interface{}{}
 	var err error
 	var ba []byte
 
-	//if err = yaml2.Unmarshal([]byte(input), data); err != nil {
-	//	t.Fatalf("unable to unmarshal: %v\n%s", err, input)
-	//}
 	if ba, err = yaml.YAMLToJSON([]byte(input)); err != nil {
 		t.Fatalf("failed to marshal: %v", err)
 	}
@@ -702,6 +718,7 @@ func testMsg(t *testing.T, input string, output string, res protoyaml.Resolver,
 	if err != nil {
 		t.Fatalf("unable to decode: %v", err)
 	}
+	t.Logf("ff2 = %v", ff2)
 
 	// confirm that codegen'd code direct unmarshal and unmarhal thru bytes yields the same result.
 
@@ -709,10 +726,9 @@ func testMsg(t *testing.T, input string, output string, res protoyaml.Resolver,
 		s, _ := diff.PrettyDiff(ff2, ff1)
 		t.Logf("difference: %s", s)
 		t.Fatalf("\n got: %v\nwant: %v", ff2, ff1)
+	} else {
+		t.Logf("\n got: %v\nwant: %v", ff2, ff1)
 	}
-
-	t.Logf("ff2 = %v", ff2)
-
 }
 
 func Test_transFormQuotedString(t *testing.T) {
@@ -741,7 +757,8 @@ func Test_transFormQuotedString(t *testing.T) {
 	}
 }
 
-func statdardVocabulary() ast.AttributeDescriptorFinder {
+// StatdardVocabulary returns Istio standard vocabulary
+func StatdardVocabulary() ast.AttributeDescriptorFinder {
 	attrs := map[string]*v1beta1.AttributeManifest_AttributeInfo{
 		"api.operation":                   {ValueType: v1beta1.STRING},
 		"api.protocol":                    {ValueType: v1beta1.STRING},
@@ -818,7 +835,7 @@ func Test_Int64(t *testing.T) {
 	} {
 		name := fmt.Sprintf("%v-%v", tst.input, tst.found)
 		t.Run(name, func(t *testing.T) {
-			op, ok := Int64(tst.input)
+			op, ok := protoyaml.ToInt64(tst.input)
 			if ok != tst.found {
 				t.Fatalf("error in ok got:%v, want:%v", ok, tst.found)
 			}

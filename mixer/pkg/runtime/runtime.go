@@ -34,17 +34,6 @@ import (
 
 var errNotListening = errors.New("runtime is not listening to the store")
 
-const (
-	// DefaultConfigNamespace holds istio wide configuration.
-	DefaultConfigNamespace = "istio-system"
-
-	// RulesKind defines the config kind name of mixer rules.
-	RulesKind = "rule"
-
-	// AttributeManifestKind define the config kind name of attribute manifests.
-	AttributeManifestKind = "attributemanifest"
-)
-
 const watchFlushDuration = time.Second
 
 // Runtime is the main entry point to the Mixer runtime environment. It listens to configuration, instantiates handler
@@ -84,10 +73,13 @@ func New(
 	handlerPool *pool.GoroutinePool,
 	enableTracing bool) *Runtime {
 
+	// Ignoring the errors for bad configuration that has already made it to the store.
+	// during snapshot creation the bad configuration errors are already logged.
+	e := config.NewEphemeral(templates, adapters)
 	rt := &Runtime{
 		identityAttribute:      identityAttribute,
 		defaultConfigNamespace: defaultConfigNamespace,
-		ephemeral:              config.NewEphemeral(templates, adapters),
+		ephemeral:              e,
 		snapshot:               config.Empty(),
 		handlers:               handler.Empty(),
 		dispatcher:             dispatcher.New(identityAttribute, executorPool, enableTracing),
@@ -158,14 +150,12 @@ func (c *Runtime) StopListening() {
 }
 
 func (c *Runtime) onConfigChange(events []*store.Event) {
-	for _, e := range events {
-		c.ephemeral.ApplyEvent(e)
-	}
+	c.ephemeral.ApplyEvent(events)
 	c.processNewConfig()
 }
 
 func (c *Runtime) processNewConfig() {
-	newSnapshot := c.ephemeral.BuildSnapshot()
+	newSnapshot, _ := c.ephemeral.BuildSnapshot()
 
 	oldHandlers := c.handlers
 
