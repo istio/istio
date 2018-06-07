@@ -125,11 +125,17 @@ function istio_provision_certs() {
     NS="-n $NS"
   fi
   local B64_DECODE=${BASE64_DECODE:-base64 --decode}
-  kubectl get "$NS" secret "$CERT_NAME" -o jsonpath='{.data.root-cert\.pem}' | $B64_DECODE   > root-cert.pem
+  # TODO: Use array instead of depending on space splitting.
+  # shellcheck disable=SC2086
+  kubectl get $NS secret "$CERT_NAME" -o jsonpath='{.data.root-cert\.pem}' | $B64_DECODE   > root-cert.pem
   echo "Generated root-cert.pem. It should be installed on /etc/certs"
   if [ "$ALL" == "all" ] ; then
-    kubectl get "$NS" secret "$CERT_NAME" -o jsonpath='{.data.cert-chain\.pem}' | $B64_DECODE  > cert-chain.pem
-    kubectl get "$NS" secret "$CERT_NAME" -o jsonpath='{.data.key\.pem}' | $B64_DECODE   > key.pem
+    # TODO: Use array instead of depending on space splitting.
+    # shellcheck disable=SC2086
+    kubectl get $NS secret "$CERT_NAME" -o jsonpath='{.data.cert-chain\.pem}' | $B64_DECODE  > cert-chain.pem
+    # TODO: Use array instead of depending on space splitting.
+    # shellcheck disable=SC2086
+    kubectl get $NS secret "$CERT_NAME" -o jsonpath='{.data.key\.pem}' | $B64_DECODE   > key.pem
     echo "Generated cert-chain.pem and key.pem. It should be installed on /etc/certs"
   fi
 

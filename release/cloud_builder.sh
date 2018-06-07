@@ -95,7 +95,9 @@ if [[ -n "${TEST_DOCKER_HUB}" ]]; then
   cp "${ISTIO_OUT}/archive/istio-*z*" "${OUTPUT_PATH}/gcr.io/"
 fi
 
-VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} HUB=${REL_DOCKER_HUB} VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION make "${MAKE_TARGETS}"
+# TODO: Use array instead of depending on space splitting.
+# shellcheck disable=SC2086
+VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} HUB=${REL_DOCKER_HUB} VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION make ${MAKE_TARGETS}
 cp "${ISTIO_OUT}/archive/istio-*z*" "${OUTPUT_PATH}/"
 mkdir -p "${OUTPUT_PATH}/docker.io"
 cp "${ISTIO_OUT}/archive/istio-*z*" "${OUTPUT_PATH}/docker.io/"

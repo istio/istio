@@ -171,9 +171,13 @@ if [ "$opttemplate" = true ]; then
   # generate the descriptor set for the intermediate artifacts
   DESCRIPTOR="--include_imports --include_source_info --descriptor_set_out=$templateDS"
   if [ "$gendoc" = true ]; then
-    err=$($protoc "$DESCRIPTOR" "$IMPORTS" "$PLUGIN" "$GENDOCS_PLUGIN_TEMPLATE" "$template")
+    # TODO: Use array instead of depending on space splitting.
+    # shellcheck disable=SC2086
+    err=$($protoc $DESCRIPTOR $IMPORTS $PLUGIN $GENDOCS_PLUGIN_TEMPLATE "$template")
   else
-    err=$($protoc "$DESCRIPTOR" "$IMPORTS" "$PLUGIN" "$template")
+    # TODO: Use array instead of depending on space splitting.
+    # shellcheck disable=SC2086
+    err=$($protoc $DESCRIPTOR $IMPORTS $PLUGIN "$template")
   fi
   if [ ! -z "$err" ]; then
     die "template generation failure: $err";
@@ -181,14 +185,18 @@ if [ "$opttemplate" = true ]; then
 
   go run "$GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go" api -t "$templateDS" --out_go "$templateHG" --out_proto "$templateHSP" "$TMPL_GEN_MAP"
 
-  err=$($protoc "$IMPORTS" "$TMPL_PLUGIN" "$templateHSP")
+  # TODO: Use array instead of depending on space splitting.
+  # shellcheck disable=SC2086
+  err=$($protoc $IMPORTS $TMPL_PLUGIN "$templateHSP")
   if [ ! -z "$err" ]; then
     die "template generation failure: $err";
   fi
 
   templateSDS=${template/.proto/_handler_service.descriptor_set}
   SDESCRIPTOR="--include_imports --include_source_info --descriptor_set_out=$templateSDS"
-  err=$($protoc "$SDESCRIPTOR" "$IMPORTS" "$PLUGIN" "$templateHSP")
+  # TODO: Use array instead of depending on space splitting.
+  # shellcheck disable=SC2086
+  err=$($protoc $SDESCRIPTOR $IMPORTS $PLUGIN "$templateHSP")
   if [ ! -z "$err" ]; then
     die "template generation failure: $err";
   fi
@@ -200,9 +208,13 @@ fi
 
 # handle simple protoc-based generation
 if [ "$gendoc" = true ]; then
-  err=$($protoc "$IMPORTS" "$PLUGIN" "$GENDOCS_PLUGIN_FILE" "$file")
+  # TODO: Use array instead of depending on space splitting.
+  # shellcheck disable=SC2086
+  err=$($protoc $IMPORTS $PLUGIN $GENDOCS_PLUGIN_FILE "$file")
 else
-  err=$($protoc "$IMPORTS" "$PLUGIN" "$file")
+  # TODO: Use array instead of depending on space splitting.
+  # shellcheck disable=SC2086
+  err=$($protoc $IMPORTS $PLUGIN "$file")
 fi
 if [ ! -z "$err" ]; then
   die "generation failure: $err";

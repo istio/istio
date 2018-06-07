@@ -49,10 +49,14 @@ if [[ -z $CERT_DIR ]]; then
 fi
 
 # Run integration tests
-go test -v istio.io/istio/security/tests/integration/certificateRotationTest "$ARGS"  \
+# TODO: Use array instead of depending on space splitting.
+# shellcheck disable=SC2086
+go test -v istio.io/istio/security/tests/integration/certificateRotationTest $ARGS  \
 -kube-config="$HOME/.kube/config"
 
-go test -v istio.io/istio/security/tests/integration/secretCreationTest "$ARGS"  \
+# TODO: Use array instead of depending on space splitting.
+# shellcheck disable=SC2086
+go test -v istio.io/istio/security/tests/integration/secretCreationTest $ARGS  \
 -kube-config="$HOME/.kube/config"
 
 #See issue #3181 test below fails automated tests
