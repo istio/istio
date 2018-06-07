@@ -26,7 +26,13 @@ type MergedGateway struct {
 	Names map[string]bool
 
 	// maps from physical port to virtual servers
+	// Typical value length is always 1 (one server per port)
+	// For value length is >1 for HTTPS ports only
 	Servers map[uint32][]*networking.Server
+
+	// maps from port names to virtual servers
+	// Used for RDS. No two port names share same port except for HTTPS
+	ServersWithPortNames map[string]*networking.Server
 }
 
 // MergeGateways combines multiple gateways targeting the same workload into a single logical Gateway.
@@ -35,6 +41,7 @@ type MergedGateway struct {
 func MergeGateways(gateways ...Config) *MergedGateway {
 	names := make(map[string]bool, len(gateways))
 	servers := make(map[uint32][]*networking.Server, len(gateways))
+	serversWithPortNames := make(map[string]*networking.Server, len(gateways))
 
 	log.Debugf("MergeGateways: merging %d gateways", len(gateways))
 	for _, spec := range gateways {
@@ -46,23 +53,43 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 		for _, s := range gateway.Servers {
 			log.Debugf("MergeGateways: gateway %q processing server %v", name, s.Hosts)
 			if ss, ok := servers[s.Port.Number]; ok {
-				// TODO: remove this check when Envoy supports filter chain matching so we can expose multiple protocols on the same physical port
 				// ss must have at least one element because the key exists in the map, otherwise we'd be in the else case below.
 				if ss[0].Port.Protocol != s.Port.Protocol {
-					log.Debugf("skipping server: attempting to merge servers for gateway %q into %v but servers have different protocols: want %v have %v",
+					log.Debugf("skipping server: attempting to merge servers for gateway %q into %v but servers have non-HTTPS protocols: want %v have %v",
 						spec.Name, names, ss[0].Port.Protocol, s.Port.Protocol)
 					continue
+				} else if ParseProtocol(s.Port.Protocol) != ProtocolHTTPS {
+					// Merge only HTTPS servers with different port names
+					log.Debugf("skipping server: attempting to merge non-HTTPS servers (%v protocol) for gateway %q into %v",
+						s.Port.Protocol, spec.Name, names)
+					continue
+				} else {
+					// both servers are HTTPS servers. Make sure the port names are different so that RDS can pick out individual servers
+					if _, exists := serversWithPortNames[s.Port.Name]; exists {
+						log.Debugf("skipping server: attempting to merge HTTPS servers for gateway %q into %v - port name %v already taken",
+							spec.Name, names, s.Port.Name)
+						continue
+					}
 				}
 				servers[s.Port.Number] = append(ss, s)
+				serversWithPortNames[s.Port.Name] = s
 			} else {
+				if _, exists := serversWithPortNames[s.Port.Name]; exists {
+					log.Debugf("skipping server: attempting to merge servers for gateway %q into %v - port name %v already taken",
+						spec.Name, names, s.Port.Name)
+					continue
+				}
+
 				servers[s.Port.Number] = []*networking.Server{s}
+				serversWithPortNames[s.Port.Name] = s
 			}
 			log.Debugf("MergeGateways: gateway %q merged server %v", name, s.Hosts)
 		}
 	}
 
 	return &MergedGateway{
-		Names:   names,
-		Servers: servers,
+		Names:                names,
+		Servers:              servers,
+		ServersWithPortNames: serversWithPortNames,
 	}
 }

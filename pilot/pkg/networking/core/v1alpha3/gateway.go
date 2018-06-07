@@ -156,40 +156,87 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 	return listeners, nil
 }
 
-func createGatewayHTTPFilterChainOpts(
-	env model.Environment, servers []*networking.Server, gatewayNames map[string]bool) []*filterChainOpts {
+func (configgen *ConfigGeneratorImpl) buildGatewayRoutes(env model.Environment, node model.Proxy,
+	proxyInstances []*model.ServiceInstance, services []*model.Service, routeName string) (*xdsapi.RouteConfiguration, error) {
 
-	services, err := env.Services() // cannot panic here because gateways do not rely on services necessarily
-	if err != nil {
-		log.Errora("Failed to get services from registry")
-		return []*filterChainOpts{}
+	// collect workload labels
+	var workloadLabels model.LabelsCollection
+	for _, w := range proxyInstances {
+		workloadLabels = append(workloadLabels, w.Labels)
 	}
+
+	gateways := env.Gateways(workloadLabels)
+	if len(gateways) == 0 {
+		log.Debuga("buildGatewayRoutes: no gateways for router", node.ID)
+		return nil, nil
+	}
+
+	merged := model.MergeGateways(gateways...)
+	log.Debugf("buildGatewayRoutes: gateways after merging: %v", merged)
+
+	// make sure that there is some server listening on this port
+	if _, ok := merged.ServersWithPortNames[routeName]; !ok {
+		err := fmt.Errorf("buildGatewayRoutes: could not find server for routeName %s", routeName)
+		log.Errora(err)
+		return nil, err
+	}
+
+	server := merged.ServersWithPortNames[routeName]
 
 	nameToServiceMap := make(map[model.Hostname]*model.Service, len(services))
 	for _, svc := range services {
 		nameToServiceMap[svc.Hostname] = svc
 	}
 
+	routeCfg := buildGatewayInboundHTTPRouteConfig(env, nameToServiceMap, merged.Names, server)
+	// if https redirect is set, we need to enable requireTls field in all the virtual hosts
+	if server.Tls != nil && server.Tls.HttpsRedirect {
+		for i := range routeCfg.VirtualHosts {
+			// TODO: should this be set to ALL ?
+			routeCfg.VirtualHosts[i].RequireTls = route.VirtualHost_EXTERNAL_ONLY
+		}
+	}
+
+	return routeCfg, nil
+}
+
+func createGatewayHTTPFilterChainOpts(
+	_ model.Environment, servers []*networking.Server, _ map[string]bool) []*filterChainOpts {
+
+	//services, err := env.Services() // cannot panic here because gateways do not rely on services necessarily
+	//if err != nil {
+	//	log.Errora("Failed to get services from registry")
+	//	return []*filterChainOpts{}
+	//}
+	//
+	//nameToServiceMap := make(map[model.Hostname]*model.Service, len(services))
+	//for _, svc := range services {
+	//	nameToServiceMap[svc.Hostname] = svc
+	//}
+
 	httpListeners := make([]*filterChainOpts, 0, len(servers))
-	for i, server := range servers {
-		routeCfg := buildGatewayInboundHTTPRouteConfig(env, nameToServiceMap, gatewayNames, server)
-		if routeCfg == nil {
-			log.Debugf("omitting HTTP listeners for port %d filter chain %d due to no routes", server.Port, i)
-			continue
-		}
+	for _, server := range servers {
+		//routeCfg := buildGatewayInboundHTTPRouteConfig(env, nameToServiceMap, gatewayNames, server)
+		//if routeCfg == nil {
+		//	log.Debugf("omitting HTTP listeners for port %d filter chain %d due to no routes", server.Port, i)
+		//	continue
+		//}
 		// if https redirect is set, we need to enable requireTls field in all the virtual hosts
-		if server.Tls != nil && server.Tls.HttpsRedirect {
-			for i := range routeCfg.VirtualHosts {
-				// TODO: should this be set to ALL ?
-				routeCfg.VirtualHosts[i].RequireTls = route.VirtualHost_EXTERNAL_ONLY
-			}
-		}
+		//if server.Tls != nil && server.Tls.HttpsRedirect {
+		//	for i := range routeCfg.VirtualHosts {
+		//		// TODO: should this be set to ALL ?
+		//		routeCfg.VirtualHosts[i].RequireTls = route.VirtualHost_EXTERNAL_ONLY
+		//	}
+		//}
 		o := &filterChainOpts{
+			// This works because we validate that only HTTPS servers can have same port but still different port names
+			// and that no two non-HTTPS servers can be on same port or share port names.
+			// Validation is done per gateway and also during merging
 			sniHosts:   getSNIHosts(server),
 			tlsContext: buildGatewayListenerTLSContext(server),
 			httpOpts: &httpListenerOpts{
-				routeConfig:      routeCfg,
-				rds:              "",
+				//routeConfig:      routeCfg,
+				rds:              fmt.Sprintf("%s", server.Port.Name),
 				useRemoteAddress: true,
 				direction:        http_conn.EGRESS, // viewed as from gateway to internal
 			},

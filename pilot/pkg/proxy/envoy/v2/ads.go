@@ -522,39 +522,44 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 
 // getServicesForEndpoint returns the list of services associated with a node.
 // Currently using the node endpoint IP.
-func (s *DiscoveryServer) getServicesForEndpoint(node *model.Proxy) ([]*model.ServiceInstance, error) {
-	// TODO: cache the results, this is a pretty slow operation and called few times per
-	// push
-	proxyInstances, err := s.env.GetProxyServiceInstances(node)
-	return proxyInstances, err
-}
+//func (s *DiscoveryServer) getServicesForEndpoint(node *model.Proxy) ([]*model.ServiceInstance, error) {
+//	// TODO: cache the results, this is a pretty slow operation and called few times per
+//	// push
+//	proxyInstances, err := s.env.GetProxyServiceInstances(node)
+//	return proxyInstances, err
+//}
 
 func (s *DiscoveryServer) pushRoute(con *XdsConnection) error {
 	rc := []*xdsapi.RouteConfiguration{}
 
-	var services []*model.Service
-	s.modelMutex.RLock()
-	services = s.services
-	s.modelMutex.RUnlock()
-
-	proxyInstances, err := s.getServicesForEndpoint(con.modelNode)
-	if err != nil {
-		adsLog.Warnf("ADS: RDS: Failed to retrieve proxy service instances %v", err)
-		pushes.With(prometheus.Labels{"type": "rds_conferr"}).Add(1)
-		return err
-	}
+	// TODO: Follow this logic for other xDS resources as well
+	// And cache/retrieve this info on-demand, not for every request from every proxy
+	//var services []*model.Service
+	//s.modelMutex.RLock()
+	//services = s.services
+	//s.modelMutex.RUnlock()
+	//
+	//proxyInstances, err := s.getServicesForEndpoint(con.modelNode)
+	//if err != nil {
+	//	adsLog.Warnf("ADS: RDS: Failed to retrieve proxy service instances %v", err)
+	//	pushes.With(prometheus.Labels{"type": "rds_conferr"}).Add(1)
+	//	return err
+	//}
 
 	// TODO: once per config update
 	for _, routeName := range con.Routes {
-		// TODO: for ingress/gateway use the other method
-		r := s.ConfigGenerator.BuildSidecarOutboundHTTPRouteConfig(s.env, *con.modelNode, proxyInstances,
-			services, routeName)
+		r, err := s.ConfigGenerator.BuildRoutes(s.env, *con.modelNode, routeName)
+		if err != nil {
+			adsLog.Warnf("RDS: Failed to generate routes for route %s: %v", routeName, err)
+			pushes.With(prometheus.Labels{"type": "rds_builderr"}).Add(1)
+			continue // Not sure if we should error just because one of the routes failed.
+		}
 
 		rc = append(rc, r)
 		con.RouteConfigs[routeName] = r
 	}
 	response := routeDiscoveryResponse(rc, *con.modelNode)
-	err = con.send(response)
+	err := con.send(response)
 	if err != nil {
 		adsLog.Warnf("ADS: RDS: Send failure, closing grpc %v", err)
 		pushes.With(prometheus.Labels{"type": "rds_senderr"}).Add(1)

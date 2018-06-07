@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -28,6 +29,31 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 )
+
+// BuildRoutes produces a list of listeners and referenced clusters for all proxies
+func (configgen *ConfigGeneratorImpl) BuildRoutes(env model.Environment, node model.Proxy, routeName string) (*xdsapi.RouteConfiguration, error) {
+	// TODO: Move all this out
+	proxyInstances, err := env.GetProxyServiceInstances(&node)
+	if err != nil {
+		return nil, err
+	}
+
+	services, err := env.Services()
+	if err != nil {
+		return nil, err
+	}
+
+	// ensure services are ordered to simplify generation logic
+	sort.Slice(services, func(i, j int) bool { return services[i].Hostname < services[j].Hostname })
+
+	switch node.Type {
+	case model.Sidecar:
+		return configgen.buildSidecarOutboundHTTPRouteConfig(env, node, proxyInstances, services, routeName), nil
+	case model.Router, model.Ingress:
+		return configgen.buildGatewayRoutes(env, node, proxyInstances, services, routeName)
+	}
+	return nil, nil
+}
 
 // buildSidecarInboundHTTPRouteConfig builds the route config with a single wildcard virtual host on the inbound path
 // TODO: enable websockets, trace decorators, inbound timeouts
@@ -64,9 +90,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env mod
 	return r
 }
 
-// BuildSidecarOutboundHTTPRouteConfig builds an outbound HTTP Route for sidecar.
+// buildSidecarOutboundHTTPRouteConfig builds an outbound HTTP Route for sidecar.
 // Based on port, will determine all virtual hosts that listen on the port.
-func (configgen *ConfigGeneratorImpl) BuildSidecarOutboundHTTPRouteConfig(env model.Environment, node model.Proxy,
+func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env model.Environment, node model.Proxy,
 	proxyInstances []*model.ServiceInstance, services []*model.Service, routeName string) *xdsapi.RouteConfiguration {
 
 	port := 0

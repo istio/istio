@@ -24,7 +24,7 @@ import (
 
 // ConfigGenerator represents the interfaces to be implemented by code that generates xDS responses
 type ConfigGenerator interface {
-	// BuildListeners returns the list of listeners for the given proxy. This is the LDS output
+	// BuildListeners returns the list of inbound/outbound listeners for the given proxy. This is the LDS output
 	// Internally, the computation will be optimized to ensure that listeners are computed only
 	// once and shared across multiple invocations of this function.
 	BuildListeners(env model.Environment, node model.Proxy) ([]*v2.Listener, error)
@@ -33,7 +33,7 @@ type ConfigGenerator interface {
 	BuildClusters(env model.Environment, node model.Proxy) ([]*v2.Cluster, error)
 
 	// BuildRoutes returns the list of routes for the given proxy. This is the RDS output
-	BuildRoutes(env model.Environment, node model.Proxy, routeName string) ([]*v2.RouteConfiguration, error)
+	BuildRoutes(env model.Environment, node model.Proxy, routeName string) (*v2.RouteConfiguration, error)
 }
 
 // NewConfigGenerator creates a new instance of the dataplane configuration generator

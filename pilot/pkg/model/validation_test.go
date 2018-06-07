@@ -1804,7 +1804,7 @@ func TestValidateGateway(t *testing.T) {
 			&networking.Gateway{
 				Servers: []*networking.Server{{
 					Hosts: []string{"foo.bar.com"},
-					Port:  &networking.Port{Number: 7, Protocol: "http"},
+					Port:  &networking.Port{Name: "name1", Number: 7, Protocol: "http"},
 				}},
 			},
 			""},
@@ -1812,7 +1812,7 @@ func TestValidateGateway(t *testing.T) {
 			&networking.Gateway{
 				Servers: []*networking.Server{{
 					Hosts: []string{"192.168.0.1"},
-					Port:  &networking.Port{Number: 7, Protocol: "http"},
+					Port:  &networking.Port{Name: "name1", Number: 7, Protocol: "http"},
 				}},
 			},
 			""},
@@ -1820,7 +1820,7 @@ func TestValidateGateway(t *testing.T) {
 			&networking.Gateway{
 				Servers: []*networking.Server{{
 					Hosts: []string{"192.168.0.0/16"},
-					Port:  &networking.Port{Number: 7, Protocol: "http"},
+					Port:  &networking.Port{Name: "name1", Number: 7, Protocol: "http"},
 				}},
 			},
 			""},
@@ -1829,11 +1829,11 @@ func TestValidateGateway(t *testing.T) {
 				Servers: []*networking.Server{
 					{
 						Hosts: []string{"foo.bar.com"},
-						Port:  &networking.Port{Number: 7, Protocol: "http"},
+						Port:  &networking.Port{Name: "name1", Number: 7, Protocol: "http"},
 					},
 					{
 						Hosts: []string{"192.168.0.0/16"},
-						Port:  &networking.Port{Number: 18, Protocol: "redis"},
+						Port:  &networking.Port{Name: "name2", Number: 18, Protocol: "redis"},
 					}},
 			},
 			""},
@@ -1842,14 +1842,53 @@ func TestValidateGateway(t *testing.T) {
 				Servers: []*networking.Server{
 					{
 						Hosts: []string{"foo.bar.com"},
-						Port:  &networking.Port{Number: 7, Protocol: "http"},
+						Port:  &networking.Port{Name: "name1", Number: 7, Protocol: "http"},
 					},
 					{
 						Hosts: []string{"192.168.0.0/16"},
-						Port:  &networking.Port{Number: 66000, Protocol: "redis"},
+						Port:  &networking.Port{Name: "name2", Number: 66000, Protocol: "redis"},
 					}},
 			},
 			"port"},
+		{"duplicate port names",
+			&networking.Gateway{
+				Servers: []*networking.Server{
+					{
+						Hosts: []string{"foo.bar.com"},
+						Port:  &networking.Port{Name: "foo", Number: 80, Protocol: "http"},
+					},
+					{
+						Hosts: []string{"scooby.doo.com"},
+						Port:  &networking.Port{Name: "foo", Number: 8080, Protocol: "http"},
+					}},
+			},
+			"port names"},
+		{"duplicate port numbers for non-https",
+			&networking.Gateway{
+				Servers: []*networking.Server{
+					{
+						Hosts: []string{"foo.bar.com"},
+						Port:  &networking.Port{Name: "foo1", Number: 80, Protocol: "http"},
+					},
+					{
+						Hosts: []string{"scooby.doo.com"},
+						Port:  &networking.Port{Name: "scooby", Number: 80, Protocol: "http"},
+					}},
+			},
+			"port numbers"},
+		{"happy duplicate port numbers for https",
+			&networking.Gateway{
+				Servers: []*networking.Server{
+					{
+						Hosts: []string{"foo.bar.com"},
+						Port:  &networking.Port{Name: "https-secret1", Number: 443, Protocol: "https"},
+					},
+					{
+						Hosts: []string{"scooby.doo.com"},
+						Port:  &networking.Port{Name: "https-secret2", Number: 443, Protocol: "https"},
+					}},
+			},
+			""},
 		{"invalid domain",
 			&networking.Gateway{
 				Servers: []*networking.Server{
