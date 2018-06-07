@@ -16,7 +16,6 @@ package api
 
 import (
 	"fmt"
-	"time"
 
 	multierror "github.com/hashicorp/go-multierror"
 	opentracing "github.com/opentracing/opentracing-go"
@@ -49,13 +48,6 @@ type (
 		globalWordList []string
 		globalDict     map[string]int32
 	}
-)
-
-const (
-	// defaultValidDuration is the default duration for which a check or quota result is valid.
-	defaultValidDuration = 10 * time.Second
-	// defaultValidUseCount is the default number of calls for which a check or quota result is valid.
-	defaultValidUseCount = 200
 )
 
 var lg = log.RegisterScope("api", "API dispatcher messages.", 0)
@@ -121,13 +113,6 @@ func (s *grpcServer) check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 		return nil, grpc.Errorf(codes.Internal, err.Error())
 	}
 
-	if cr == nil {
-		cr = &adapter.CheckResult{
-			ValidDuration: defaultValidDuration,
-			ValidUseCount: defaultValidUseCount,
-		}
-	}
-
 	if status.IsOK(cr.Status) {
 		lg.Debug("Check approved")
 	} else {
@@ -147,7 +132,7 @@ func (s *grpcServer) check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 		resp.Quotas = make(map[string]mixerpb.CheckResponse_QuotaResult, len(req.Quotas))
 
 		for name, param := range req.Quotas {
-			qma := &dispatcher.QuotaMethodArgs{
+			qma := dispatcher.QuotaMethodArgs{
 				Quota:           name,
 				Amount:          param.Amount,
 				DeduplicationID: req.DeduplicationId + name,
@@ -161,17 +146,12 @@ func (s *grpcServer) check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 
 			crqr := mixerpb.CheckResponse_QuotaResult{}
 
-			var qr *adapter.QuotaResult
+			var qr adapter.QuotaResult
 			qr, err = s.dispatcher.Quota(legacyCtx, checkBag, qma)
 			if err != nil {
 				err = fmt.Errorf("performing quota alloc failed: %v", err)
 				lg.Errora("Quota failure:", err.Error())
 				// we continue the quota loop even after this error
-			} else if qr == nil {
-				// If qma.Quota does not apply to this request give the client what it asked for.
-				// Effectively the quota is unlimited.
-				crqr.ValidDuration = defaultValidDuration
-				crqr.GrantedAmount = qma.Amount
 			} else {
 				if !status.IsOK(qr.Status) {
 					lg.Debugf("Quota denied: %v", qr.Status)

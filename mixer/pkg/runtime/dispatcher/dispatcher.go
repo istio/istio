@@ -38,14 +38,14 @@ type Dispatcher interface {
 	Preprocess(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag) error
 
 	// Check dispatches to the set of adapters associated with the Check API method
-	Check(ctx context.Context, requestBag attribute.Bag) (*adapter.CheckResult, error)
+	Check(ctx context.Context, requestBag attribute.Bag) (adapter.CheckResult, error)
 
 	// GetReporter get an interface where reports are buffered.
 	GetReporter(ctx context.Context) Reporter
 
 	// Quota dispatches to the set of adapters associated with the Quota API method
 	Quota(ctx context.Context, requestBag attribute.Bag,
-		qma *QuotaMethodArgs) (*adapter.QuotaResult, error)
+		qma QuotaMethodArgs) (adapter.QuotaResult, error)
 }
 
 // QuotaMethodArgs is supplied by invocations of the Quota method.
@@ -113,10 +113,10 @@ func New(identityAttribute string, handlerGP *pool.GoroutinePool, enableTracing 
 }
 
 // Check implementation of runtime.Impl.
-func (d *Impl) Check(ctx context.Context, bag attribute.Bag) (*adapter.CheckResult, error) {
+func (d *Impl) Check(ctx context.Context, bag attribute.Bag) (adapter.CheckResult, error) {
 	s := d.getSession(ctx, tpb.TEMPLATE_VARIETY_CHECK, bag)
 
-	var r *adapter.CheckResult
+	var r adapter.CheckResult
 	err := s.dispatch()
 	if err == nil {
 		r = s.checkResult
@@ -133,11 +133,9 @@ func (d *Impl) GetReporter(ctx context.Context) Reporter {
 }
 
 // Quota implementation of runtime.Impl.
-func (d *Impl) Quota(ctx context.Context, bag attribute.Bag, qma *QuotaMethodArgs) (*adapter.QuotaResult, error) {
+func (d *Impl) Quota(ctx context.Context, bag attribute.Bag, qma QuotaMethodArgs) (adapter.QuotaResult, error) {
 	s := d.getSession(ctx, tpb.TEMPLATE_VARIETY_QUOTA, bag)
-	s.quotaArgs.QuotaAmount = qma.Amount
-	s.quotaArgs.DeduplicationID = qma.DeduplicationID
-	s.quotaArgs.BestEffort = qma.BestEffort
+	s.quotaArgs = qma
 
 	err := s.dispatch()
 	if err == nil {

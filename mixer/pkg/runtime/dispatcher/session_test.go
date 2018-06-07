@@ -71,9 +71,9 @@ func TestSession_Clear(t *testing.T) {
 		completed:        make(chan *dispatchState, 10),
 		err:              errors.New("some error"),
 		ctx:              context.TODO(),
-		checkResult:      &adapter.CheckResult{ValidUseCount: 53},
-		quotaResult:      &adapter.QuotaResult{Amount: 23},
-		quotaArgs:        adapter.QuotaArgs{BestEffort: true},
+		checkResult:      adapter.CheckResult{ValidUseCount: 53},
+		quotaResult:      adapter.QuotaResult{Amount: 23},
+		quotaArgs:        QuotaMethodArgs{BestEffort: true},
 		variety:          tpb.TEMPLATE_VARIETY_CHECK,
 		responseBag:      attribute.GetMutableBag(nil),
 	}
