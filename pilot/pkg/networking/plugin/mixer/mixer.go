@@ -17,6 +17,7 @@ package mixer
 import (
 	"fmt"
 	"net"
+	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
@@ -145,7 +146,7 @@ func buildMixerPerRouteConfig(in *plugin.InputParams, outboundRoute bool, _ /*di
 	disableCheck := in.Env.Mesh.DisablePolicyChecks
 	config := in.Env.IstioConfigStore
 
-	out := v1.ServiceConfig(in.Service.Hostname.String(), in.ServiceInstance, config, disableCheck, false)
+	out := serviceConfig(in.Service.Hostname.String(), in.ServiceInstance, config, disableCheck, false, role.Domain)
 	// Report calls are never disabled. Disable forward is currently not in the proto.
 	out.DisableCheckCalls = disableCheck
 
@@ -154,6 +155,7 @@ func buildMixerPerRouteConfig(in *plugin.InputParams, outboundRoute bool, _ /*di
 		out.MixerAttributes.Attributes = map[string]*mpb.Attributes_AttributeValue{
 			v1.AttrDestinationService: {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: destinationService}},
 		}
+		addDestinationServiceAttributes(out.MixerAttributes.Attributes, destinationService, role.Domain)
 	}
 
 	var labels map[string]string
@@ -271,8 +273,8 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 	disableReport := outboundRoute && role.Type != model.Router
 
 	for _, instance := range nodeInstances {
-		mxConfig.ServiceConfigs[instance.Service.Hostname.String()] = v1.ServiceConfig(instance.Service.Hostname.String(), instance, config,
-			disablePolicy, disableReport)
+		mxConfig.ServiceConfigs[instance.Service.Hostname.String()] =
+			serviceConfig(instance.Service.Hostname.String(), instance, config, disablePolicy, disableReport, role.Domain)
 	}
 
 	return mxConfig
@@ -281,10 +283,8 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 // buildTCPMixerFilterConfig builds a TCP filter config for inbound requests.
 func buildTCPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, instance *model.ServiceInstance) *mccpb.TcpClientConfig {
 	attrs := v1.StandardNodeAttributes(v1.AttrDestinationPrefix, role.IPAddress, role.ID, nil)
-	attrs[v1.AttrDestinationService] = &mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_StringValue{instance.Service.Hostname.String()}}
-	attrs["context.reporter.uid"] = &mpb.Attributes_AttributeValue{
-		Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: "kubernetes://" + role.ID},
-	}
+	addDestinationServiceAttributes(attrs, instance.Service.Hostname.String(), role.Domain)
+	attrs["context.reporter.uid"] = attrStringValue("kubernetes://" + role.ID)
 	attrs["context.reporter.local"] = &mpb.Attributes_AttributeValue{
 		Value: &mpb.Attributes_AttributeValue_BoolValue{BoolValue: true},
 	}
@@ -332,4 +332,69 @@ func addStandardNodeAttributes(attr map[string]*mpb.Attributes_AttributeValue, p
 			},
 		}
 	}
+}
+
+// borrows heavily from v1.ServiceConfig (which this replaces)
+func serviceConfig(serviceHostname string, dest *model.ServiceInstance, config model.IstioConfigStore, disableCheck, disableReport bool, proxyDomain string) *mccpb.ServiceConfig { // nolint: lll
+	sc := &mccpb.ServiceConfig{
+		MixerAttributes: &mpb.Attributes{
+			Attributes: map[string]*mpb.Attributes_AttributeValue{
+				"destination.service": attrStringValue(serviceHostname),
+			},
+		},
+		DisableCheckCalls:  disableCheck,
+		DisableReportCalls: disableReport,
+	}
+
+	if len(dest.Labels) > 0 {
+		sc.MixerAttributes.Attributes["destination.labels"] = &mpb.Attributes_AttributeValue{
+			Value: &mpb.Attributes_AttributeValue_StringMapValue{
+				StringMapValue: &mpb.Attributes_StringMap{Entries: dest.Labels},
+			},
+		}
+	}
+
+	apiSpecs := config.HTTPAPISpecByDestination(dest)
+	model.SortHTTPAPISpec(apiSpecs)
+	for _, config := range apiSpecs {
+		sc.HttpApiSpec = append(sc.HttpApiSpec, config.Spec.(*mccpb.HTTPAPISpec))
+	}
+
+	quotaSpecs := config.QuotaSpecByDestination(dest)
+	model.SortQuotaSpec(quotaSpecs)
+	for _, config := range quotaSpecs {
+		sc.QuotaSpec = append(sc.QuotaSpec, config.Spec.(*mccpb.QuotaSpec))
+	}
+
+	addDestinationServiceAttributes(sc.MixerAttributes.Attributes, serviceHostname, proxyDomain)
+	return sc
+}
+
+func addDestinationServiceAttributes(attrs map[string]*mpb.Attributes_AttributeValue, destinationHostname, domain string) {
+	svcName, svcNamespace := nameAndNamespace(destinationHostname, domain)
+	attrs["destination.service"] = attrStringValue(destinationHostname) // DEPRECATED. Remove when fully out of use.
+	attrs["destination.service.host"] = attrStringValue(destinationHostname)
+	attrs["destination.service.uid"] = attrStringValue(fmt.Sprintf("istio://%s/services/%s", svcNamespace, svcName))
+	attrs["destination.service.name"] = attrStringValue(svcName)
+	if len(svcNamespace) > 0 {
+		attrs["destination.service.namespace"] = attrStringValue(svcNamespace)
+	}
+}
+
+func nameAndNamespace(serviceHostname, domain string) (name, namespace string) {
+	domainParts := strings.SplitN(domain, ".", 2)
+	if !strings.HasSuffix(serviceHostname, domainParts[1]) {
+		return serviceHostname, ""
+	}
+
+	parts := strings.Split(serviceHostname, ".")
+	if len(parts) > 1 {
+		return parts[0], parts[1]
+	}
+
+	return serviceHostname, ""
+}
+
+func attrStringValue(value string) *mpb.Attributes_AttributeValue {
+	return &mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: value}}
 }
