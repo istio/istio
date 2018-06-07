@@ -118,6 +118,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			fmt.Printf("%v: %v\n", name, h)
 		}
 	}
+	fmt.Printf("Host: %v\n", r.Host)
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

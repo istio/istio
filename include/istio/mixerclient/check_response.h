@@ -17,6 +17,7 @@
 #define ISTIO_MIXERCLIENT_CHECK_RESPONSE_H
 
 #include "google/protobuf/stubs/status.h"
+#include "mixer/v1/check.pb.h"
 
 namespace istio {
 namespace mixerclient {
@@ -32,6 +33,10 @@ struct CheckResponseInfo {
   // The check and quota response status.
   ::google::protobuf::util::Status response_status{
       ::google::protobuf::util::Status::UNKNOWN};
+
+  // Routing directive (applicable if the status is OK)
+  ::istio::mixer::v1::RouteDirective route_directive{
+      ::istio::mixer::v1::RouteDirective::default_instance()};
 };
 
 }  // namespace mixerclient

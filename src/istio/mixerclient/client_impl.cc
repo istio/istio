@@ -64,6 +64,7 @@ CancelFunc MixerClientImpl::Check(
   CheckResponseInfo check_response_info;
   check_response_info.is_check_cache_hit = check_result->IsCacheHit();
   check_response_info.response_status = check_result->status();
+  check_response_info.route_directive = check_result->route_directive();
 
   if (check_result->IsCacheHit() && !check_result->status().ok()) {
     on_done(check_response_info);
@@ -132,6 +133,8 @@ CancelFunc MixerClientImpl::Check(
           } else {
             check_response_info.response_status = raw_quota_result->status();
           }
+          check_response_info.route_directive =
+              raw_check_result->route_directive();
           on_done(check_response_info);
         }
         delete raw_check_result;

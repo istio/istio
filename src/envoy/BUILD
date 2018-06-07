@@ -40,4 +40,5 @@ pkg_tar(
     files = [":envoy"],
     mode = "0755",
     package_dir = "/usr/local/bin/",
+    tags = ["manual"],
 )

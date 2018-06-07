@@ -38,6 +38,7 @@ void CheckCache::CacheElem::CacheElem::SetResponse(
       expire_time_ = time_point<system_clock>::max();
     }
     use_count_ = response.precondition().valid_use_count();
+    route_directive_ = response.precondition().route_directive();
   } else {
     status_ = Status(Code::INVALID_ARGUMENT,
                      "CheckResponse doesn't have PreconditionResult");
@@ -75,7 +76,7 @@ CheckCache::~CheckCache() {
 }
 
 void CheckCache::Check(const Attributes &attributes, CheckResult *result) {
-  Status status = Check(attributes, system_clock::now());
+  Status status = Check(attributes, system_clock::now(), result);
   if (status.error_code() != Code::NOT_FOUND) {
     result->status_ = status;
   }
@@ -95,7 +96,8 @@ void CheckCache::Check(const Attributes &attributes, CheckResult *result) {
   };
 }
 
-Status CheckCache::Check(const Attributes &attributes, Tick time_now) {
+Status CheckCache::Check(const Attributes &attributes, Tick time_now,
+                         CheckResult *result) {
   if (!cache_) {
     // By returning NOT_FOUND, caller will send request to server.
     return Status(Code::NOT_FOUND, "");
@@ -115,6 +117,9 @@ Status CheckCache::Check(const Attributes &attributes, Tick time_now) {
       if (elem->IsExpired(time_now)) {
         cache_->Remove(signature);
         return Status(Code::NOT_FOUND, "");
+      }
+      if (result) {
+        result->route_directive_ = elem->route_directive();
       }
       return elem->status();
     }

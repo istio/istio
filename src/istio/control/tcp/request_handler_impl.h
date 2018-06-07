@@ -31,7 +31,8 @@ class RequestHandlerImpl : public RequestHandler {
 
   // Make a Check call.
   ::istio::mixerclient::CancelFunc Check(
-      CheckData* check_data, ::istio::mixerclient::DoneFunc on_done) override;
+      CheckData* check_data,
+      ::istio::mixerclient::CheckDoneFunc on_done) override;
 
   // Make a Report call.
   // TODO(JimmyCYJ): Let TCP filter use

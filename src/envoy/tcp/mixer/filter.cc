@@ -18,6 +18,7 @@
 #include "src/envoy/utils/utils.h"
 
 using ::google::protobuf::util::Status;
+using ::istio::mixerclient::CheckResponseInfo;
 
 namespace Envoy {
 namespace Tcp {
@@ -59,8 +60,9 @@ void Filter::callCheck() {
   state_ = State::Calling;
   filter_callbacks_->connection().readDisable(true);
   calling_check_ = true;
-  cancel_check_ = handler_->Check(
-      this, [this](const Status& status) { completeCheck(status); });
+  cancel_check_ = handler_->Check(this, [this](const CheckResponseInfo& info) {
+    completeCheck(info.response_status);
+  });
   calling_check_ = false;
 }
 

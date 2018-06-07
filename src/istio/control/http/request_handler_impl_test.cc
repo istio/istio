@@ -29,6 +29,7 @@ using ::istio::mixer::v1::config::client::HttpClientConfig;
 using ::istio::mixer::v1::config::client::ServiceConfig;
 using ::istio::mixerclient::CancelFunc;
 using ::istio::mixerclient::CheckDoneFunc;
+using ::istio::mixerclient::CheckResponseInfo;
 using ::istio::mixerclient::DoneFunc;
 using ::istio::mixerclient::MixerClient;
 using ::istio::mixerclient::TransportCheckFunc;
@@ -162,7 +163,9 @@ TEST_F(RequestHandlerImplTest, TestHandlerDisabledCheckReport) {
 
   auto handler = controller_->CreateRequestHandler(per_route);
   handler->Check(&mock_data, &mock_header, nullptr,
-                 [](const Status& status) { EXPECT_TRUE(status.ok()); });
+                 [](const CheckResponseInfo& info) {
+                   EXPECT_TRUE(info.response_status.ok());
+                 });
 }
 
 TEST_F(RequestHandlerImplTest, TestHandlerDisabledCheck) {
@@ -182,7 +185,9 @@ TEST_F(RequestHandlerImplTest, TestHandlerDisabledCheck) {
 
   auto handler = controller_->CreateRequestHandler(per_route);
   handler->Check(&mock_data, &mock_header, nullptr,
-                 [](const Status& status) { EXPECT_TRUE(status.ok()); });
+                 [](const CheckResponseInfo& info) {
+                   EXPECT_TRUE(info.response_status.ok());
+                 });
 }
 
 TEST_F(RequestHandlerImplTest, TestPerRouteAttributes) {
@@ -473,7 +478,9 @@ TEST_F(RequestHandlerImplTest, TestEmptyConfig) {
   Controller::PerRouteConfig config;
   auto handler = controller_->CreateRequestHandler(config);
   handler->Check(&mock_check, &mock_header, nullptr,
-                 [](const Status& status) { EXPECT_TRUE(status.ok()); });
+                 [](const CheckResponseInfo& info) {
+                   EXPECT_TRUE(info.response_status.ok());
+                 });
   handler->Report(&mock_report);
 }
 

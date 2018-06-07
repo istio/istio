@@ -41,7 +41,7 @@ class ClientContextBase {
   // Use mixer client object to make a Check call.
   ::istio::mixerclient::CancelFunc SendCheck(
       ::istio::mixerclient::TransportCheckFunc transport,
-      ::istio::mixerclient::DoneFunc on_done, RequestContext* request);
+      ::istio::mixerclient::CheckDoneFunc on_done, RequestContext* request);
 
   // Use mixer client object to make a Report call.
   void SendReport(const RequestContext& request);

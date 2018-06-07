@@ -25,6 +25,7 @@ using ::istio::mixer::v1::Attributes;
 using ::istio::mixer::v1::config::client::TcpClientConfig;
 using ::istio::mixerclient::CancelFunc;
 using ::istio::mixerclient::CheckDoneFunc;
+using ::istio::mixerclient::CheckResponseInfo;
 using ::istio::mixerclient::DoneFunc;
 using ::istio::mixerclient::MixerClient;
 using ::istio::mixerclient::TransportCheckFunc;
@@ -72,8 +73,9 @@ TEST_F(RequestHandlerImplTest, TestHandlerDisabledCheck) {
 
   client_config_.set_disable_check_calls(true);
   auto handler = controller_->CreateRequestHandler();
-  handler->Check(&mock_data,
-                 [](const Status& status) { EXPECT_TRUE(status.ok()); });
+  handler->Check(&mock_data, [](const CheckResponseInfo& info) {
+    EXPECT_TRUE(info.response_status.ok());
+  });
 }
 
 TEST_F(RequestHandlerImplTest, TestHandlerCheck) {

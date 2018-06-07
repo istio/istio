@@ -56,11 +56,18 @@ class CheckCache {
 
     ::google::protobuf::util::Status status() const { return status_; }
 
+    ::istio::mixer::v1::RouteDirective route_directive() const {
+      return route_directive_;
+    }
+
     void SetResponse(const ::google::protobuf::util::Status& status,
                      const ::istio::mixer::v1::Attributes& attributes,
                      const ::istio::mixer::v1::CheckResponse& response) {
       if (on_response_) {
         status_ = on_response_(status, attributes, response);
+      }
+      if (response.has_precondition()) {
+        route_directive_ = response.precondition().route_directive();
       }
     }
 
@@ -68,6 +75,9 @@ class CheckCache {
     friend class CheckCache;
     // Check status.
     ::google::protobuf::util::Status status_;
+
+    // Route directive (if status is OK).
+    ::istio::mixer::v1::RouteDirective route_directive_;
 
     // The function to set check response.
     using OnResponseFunc = std::function<::google::protobuf::util::Status(
@@ -87,7 +97,8 @@ class CheckCache {
   // If the check could not be handled by the cache, returns NOT_FOUND,
   // caller has to send the request to mixer.
   ::google::protobuf::util::Status Check(
-      const ::istio::mixer::v1::Attributes& request, Tick time_now);
+      const ::istio::mixer::v1::Attributes& request, Tick time_now,
+      CheckResult* result);
 
   // Caches a response from a remote mixer call.
   // Return the converted status from response.
@@ -121,11 +132,18 @@ class CheckCache {
     // getter for converted status from response.
     ::google::protobuf::util::Status status() const { return status_; }
 
+    // getter for the route directive
+    ::istio::mixer::v1::RouteDirective route_directive() const {
+      return route_directive_;
+    }
+
    private:
     // To the parent cache object.
     const CheckCache& parent_;
     // The check status for the last check request.
     ::google::protobuf::util::Status status_;
+    // Route directive
+    ::istio::mixer::v1::RouteDirective route_directive_;
     // Cache item should not be used after it is expired.
     std::chrono::time_point<std::chrono::system_clock> expire_time_;
     // if -1, not to check use_count.

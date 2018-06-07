@@ -38,7 +38,7 @@ class RequestHandler {
   virtual ::istio::mixerclient::CancelFunc Check(
       CheckData* check_data, HeaderUpdate* header_update,
       ::istio::mixerclient::TransportCheckFunc transport,
-      ::istio::mixerclient::DoneFunc on_done) = 0;
+      ::istio::mixerclient::CheckDoneFunc on_done) = 0;
 
   // Make a Report call. It will:
   // * check service config to see if Report is required

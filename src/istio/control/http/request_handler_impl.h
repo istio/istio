@@ -34,7 +34,7 @@ class RequestHandlerImpl : public RequestHandler {
   ::istio::mixerclient::CancelFunc Check(
       CheckData* check_data, HeaderUpdate* header_update,
       ::istio::mixerclient::TransportCheckFunc transport,
-      ::istio::mixerclient::DoneFunc on_done) override;
+      ::istio::mixerclient::CheckDoneFunc on_done) override;
 
   // Make a Report call.
   void Report(ReportData* report_data) override;

@@ -33,7 +33,7 @@ class RequestHandler {
   // * extract downstream tcp connection attributes
   // * check config, make a Check call if necessary.
   virtual ::istio::mixerclient::CancelFunc Check(
-      CheckData* check_data, ::istio::mixerclient::DoneFunc on_done) = 0;
+      CheckData* check_data, ::istio::mixerclient::CheckDoneFunc on_done) = 0;
 
   // Make report call.
   // This can be called multiple times for long connection.

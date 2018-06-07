@@ -22,9 +22,9 @@ using ::google::protobuf::util::Status;
 using ::istio::mixer::v1::config::client::NetworkFailPolicy;
 using ::istio::mixer::v1::config::client::TransportConfig;
 using ::istio::mixerclient::CancelFunc;
+using ::istio::mixerclient::CheckDoneFunc;
 using ::istio::mixerclient::CheckOptions;
 using ::istio::mixerclient::CheckResponseInfo;
-using ::istio::mixerclient::DoneFunc;
 using ::istio::mixerclient::Environment;
 using ::istio::mixerclient::MixerClientOptions;
 using ::istio::mixerclient::QuotaOptions;
@@ -77,7 +77,7 @@ ClientContextBase::ClientContextBase(const TransportConfig& config,
 }
 
 CancelFunc ClientContextBase::SendCheck(TransportCheckFunc transport,
-                                        DoneFunc on_done,
+                                        CheckDoneFunc on_done,
                                         RequestContext* request) {
   // Intercept the callback to save check status in request_context
   auto local_on_done = [request,
@@ -90,7 +90,7 @@ CancelFunc ClientContextBase::SendCheck(TransportCheckFunc transport,
                     check_response_info.is_check_cache_hit);
     builder.AddBool(AttributeName::kQuotaCacheHit,
                     check_response_info.is_quota_cache_hit);
-    on_done(check_response_info.response_status);
+    on_done(check_response_info);
   };
 
   // TODO: add debug message

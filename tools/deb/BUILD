@@ -45,6 +45,7 @@ pkg_tar(
         ":envoy-bin",
         ":istio-conf",
     ],
+    tags = ["manual"],
 )
 
 pkg_deb(
