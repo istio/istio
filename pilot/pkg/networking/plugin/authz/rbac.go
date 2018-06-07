@@ -78,10 +78,7 @@ func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mutable
 // Can be used to add additional filters (e.g., mixer filter) or add more stuff to the HTTP connection manager
 // on the inbound path
 func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
-	enabled, err := isRbacEnabled(in.Env.IstioConfigStore)
-	if err != nil {
-		return fmt.Errorf("rbac plugin failed to enable: %v", err)
-	}
+	enabled := isRbacEnabled(in.Env.IstioConfigStore)
 	// Only supports sidecar proxy of HTTP listener for now.
 	if !enabled || in.Node.Type != model.Sidecar || in.ListenerType != plugin.ListenerTypeHTTP {
 		return nil
@@ -116,35 +113,29 @@ func (Plugin) OnOutboundCluster(env model.Environment, node model.Proxy, service
 	servicePort *model.Port, cluster *xdsapi.Cluster) {
 }
 
-func isRbacEnabled(store model.IstioConfigStore) (bool, error) {
+func isRbacEnabled(store model.IstioConfigStore) bool {
 	var configProto *rbacproto.RbacConfig
 	config := store.RbacConfig(RbacConfigName, kube.IstioNamespace)
 	if config != nil {
 		configProto = config.Spec.(*rbacproto.RbacConfig)
 	}
 	if configProto == nil {
-		return false, fmt.Errorf("couldn't find RbacConfig %s in namespace %s",
-			RbacConfigName, kube.IstioNamespace)
+		log.Debugf("rbac plugin disabled: No RbacConfig")
+		return false
 	}
 	// TODO(yangminzhu): Supports ON_WITH_INCLUSION and ON_WITH_EXCLUSION.
-	if configProto.Mode != rbacproto.RbacConfig_ON {
-		log.Debugf("rbac plugin disabled by rbacConfig: %v", *configProto)
-		return false, nil
+	if configProto.Mode == rbacproto.RbacConfig_ON {
+		return true
 	}
 
-	return true, nil
+	log.Debugf("rbac plugin disabled by RbacConfig: %v", *configProto)
+	return false
 }
 
 // buildHTTPFilter builds the RBAC http filter that enforces the access control to the specified
 // service which is co-located with the sidecar proxy.
 func buildHTTPFilter(hostName model.Hostname, store model.IstioConfigStore) (*http_conn.HttpFilter, error) {
-	service := string(hostName)
-	split := strings.Split(service, ".")
-	if len(split) < 2 {
-		return nil, fmt.Errorf("failed to extract namespace from service: %s", service)
-	}
-	namespace := split[1]
-
+	namespace := hostName.Namespace()
 	roles := store.ServiceRoles(namespace)
 	if roles == nil {
 		return nil, fmt.Errorf("failed to get ServiceRoles in namespace %s", namespace)
@@ -155,12 +146,7 @@ func buildHTTPFilter(hostName model.Hostname, store model.IstioConfigStore) (*ht
 		return nil, fmt.Errorf("failed to get ServiceRoleBinding in namespace %s", namespace)
 	}
 
-	log.Debugf("%s: converting RBAC rules to proxy config", RbacFilterName)
-	config, err := convertRbacRulesToFilterConfig(service, roles, bindings)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert RBAC rules to filter config: %v", err)
-	}
-
+	config := convertRbacRulesToFilterConfig(hostName.String(), roles, bindings)
 	return &http_conn.HttpFilter{
 		Name:   RbacFilterName,
 		Config: util.MessageToStruct(config),
@@ -170,7 +156,7 @@ func buildHTTPFilter(hostName model.Hostname, store model.IstioConfigStore) (*ht
 // convertRbacRulesToFilterConfig converts the current RBAC rules (ServiceRole and ServiceRoleBindings)
 // in service mesh to the corresponding proxy config for the specified service. The generated proxy config
 // will be consumed by envoy RBAC filter to enforce access control on the specified service.
-func convertRbacRulesToFilterConfig(service string, roles []model.Config, bindings []model.Config) (*rbacconfig.RBAC, error) {
+func convertRbacRulesToFilterConfig(service string, roles []model.Config, bindings []model.Config) *rbacconfig.RBAC {
 	// roleToBinding maps ServiceRole name to a list of ServiceRoleBindings.
 	roleToBinding := map[string][]*rbacproto.ServiceRoleBinding{}
 	for _, binding := range bindings {
@@ -194,17 +180,17 @@ func convertRbacRulesToFilterConfig(service string, roles []model.Config, bindin
 		principals := convertToPrincipals(roleToBinding[role.Name])
 		log.Debugf("checking role %v for service %v", role.Name, service)
 		for i, rule := range role.Spec.(*rbacproto.ServiceRole).Rules {
+			//TODO(yangminzhu): Also check the destination related properties.
 			if stringMatch(service, rule.Services) {
-				log.Debugf("role %v (access rule index %d) matched", role.Name, i)
+				// Generate the policy if the service is matched to the services specified in ServiceRole.
+				log.Debugf("role %v matched by AccessRule %d", role.Name, i)
 				if policy == nil {
 					policy = &policyproto.Policy{
 						Permissions: []*policyproto.Permission{},
-						Principals:  []*policyproto.Principal{},
+						Principals:  principals,
 					}
 				}
-				// Generates the policy if the service is matched to the services specified in ServiceRole.
 				policy.Permissions = append(policy.Permissions, convertToPermission(rule))
-				policy.Principals = principals
 			}
 		}
 
@@ -214,7 +200,7 @@ func convertRbacRulesToFilterConfig(service string, roles []model.Config, bindin
 		}
 	}
 
-	return &rbacconfig.RBAC{Rules: rbac}, nil
+	return &rbacconfig.RBAC{Rules: rbac}
 }
 
 // convertToPermission converts a single AccessRule to a Permission.

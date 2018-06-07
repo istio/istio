@@ -312,3 +312,18 @@ func TestHostnamesSortOrder(t *testing.T) {
 		})
 	}
 }
+
+func TestHostnameNamespace(t *testing.T) {
+	tests := []struct {
+		in   Hostname
+		want string
+	}{
+		{"productpage", ""},
+		{"productpage.default.svc.cluster.local", "default"},
+	}
+	for _, tt := range tests {
+		if ns := tt.in.Namespace(); ns != tt.want {
+			t.Errorf("%v.Namespace() == %s but wanted %s", tt.in, ns, tt.want)
+		}
+	}
+}

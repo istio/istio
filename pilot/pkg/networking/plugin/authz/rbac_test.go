@@ -60,17 +60,14 @@ func TestIsRbacEnabled(t *testing.T) {
 		Name  string
 		Store model.IstioConfigStore
 		Ret   bool
-		Err   string
 	}{
 		{
 			Name:  "zero rbacConfig",
 			Store: newIstioStoreWithConfigs([]model.Config{cfg1}, t),
-			Err:   "couldn't find RbacConfig rbac-config in namespace istio-system",
 		},
 		{
 			Name:  "wrong rbacConfig name",
 			Store: newIstioStoreWithConfigs([]model.Config{cfg1, cfg2}, t),
-			Err:   "couldn't find RbacConfig rbac-config in namespace istio-system",
 		},
 		{
 			Name:  "rbac plugin disabled",
@@ -84,12 +81,8 @@ func TestIsRbacEnabled(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		ret, err := isRbacEnabled(tc.Store)
-		if err != nil {
-			if !strings.HasPrefix(err.Error(), tc.Err) {
-				t.Errorf("%s: expecting error %q, but got %q", tc.Name, tc.Err, err.Error())
-			}
-		} else if tc.Ret != ret {
+		ret := isRbacEnabled(tc.Store)
+		if tc.Ret != ret {
 			t.Errorf("%s: expecting %v but got %v", tc.Name, tc.Ret, ret)
 		}
 	}
@@ -123,11 +116,6 @@ func TestBuildHTTPFilter(t *testing.T) {
 		ExpectContain bool
 		Strings       []string
 	}{
-		{
-			Name: "incorrect hostname",
-			Host: "abc",
-			Err:  "failed to extract namespace from service: abc",
-		},
 		{
 			Name:          "empty filter",
 			Host:          "abc.xyz",
@@ -522,10 +510,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		rbac, err := convertRbacRulesToFilterConfig(tc.service, roles, bindings)
-		if rbac == nil || err != nil {
-			t.Errorf("failed to convert rbac rules to filter config: %v", err)
-		}
+		rbac := convertRbacRulesToFilterConfig(tc.service, roles, bindings)
 		if !reflect.DeepEqual(*tc.rbac, *rbac.Rules) {
 			t.Errorf("%s want:\n%v\nbut got:\n%v", tc.name, *tc.rbac, *rbac.Rules)
 		}
