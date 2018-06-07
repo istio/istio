@@ -713,9 +713,9 @@ func TestMostSpecificHostMatch(t *testing.T) {
 
 func TestServiceRoles(t *testing.T) {
 	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
-	addConfigToStore(model.ServiceRole.Type, "role1", "istio-system", store, t)
-	addConfigToStore(model.ServiceRole.Type, "role2", "default", store, t)
-	addConfigToStore(model.ServiceRole.Type, "role3", "istio-system", store, t)
+	addRbacConfigToStore(model.ServiceRole.Type, "role1", "istio-system", store, t)
+	addRbacConfigToStore(model.ServiceRole.Type, "role2", "default", store, t)
+	addRbacConfigToStore(model.ServiceRole.Type, "role3", "istio-system", store, t)
 	tests := []struct {
 		namespace  string
 		expectName map[string]bool
@@ -741,9 +741,9 @@ func TestServiceRoles(t *testing.T) {
 
 func TestServiceRoleBindings(t *testing.T) {
 	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
-	addConfigToStore(model.ServiceRoleBinding.Type, "binding1", "istio-system", store, t)
-	addConfigToStore(model.ServiceRoleBinding.Type, "binding2", "default", store, t)
-	addConfigToStore(model.ServiceRoleBinding.Type, "binding3", "istio-system", store, t)
+	addRbacConfigToStore(model.ServiceRoleBinding.Type, "binding1", "istio-system", store, t)
+	addRbacConfigToStore(model.ServiceRoleBinding.Type, "binding2", "default", store, t)
+	addRbacConfigToStore(model.ServiceRoleBinding.Type, "binding3", "istio-system", store, t)
 	tests := []struct {
 		namespace  string
 		expectName map[string]bool
@@ -769,7 +769,7 @@ func TestServiceRoleBindings(t *testing.T) {
 
 func TestRbacConfig(t *testing.T) {
 	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
-	addConfigToStore(model.RbacConfig.Type, "rbac-config", "istio-system", store, t)
+	addRbacConfigToStore(model.RbacConfig.Type, "rbac-config", "istio-system", store, t)
 	tests := []struct {
 		name      string
 		namespace string
@@ -793,7 +793,7 @@ func TestRbacConfig(t *testing.T) {
 	}
 }
 
-func addConfigToStore(configType, name, namespace string, store model.IstioConfigStore, t *testing.T) {
+func addRbacConfigToStore(configType, name, namespace string, store model.IstioConfigStore, t *testing.T) {
 	var value proto.Message
 	switch configType {
 	case model.ServiceRole.Type:

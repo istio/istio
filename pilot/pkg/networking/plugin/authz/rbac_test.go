@@ -109,47 +109,38 @@ func TestBuildHTTPFilter(t *testing.T) {
 	store := newIstioStoreWithConfigs([]model.Config{roleCfg, bindingCfg}, t)
 
 	testCases := []struct {
-		Name          string
-		Host          string
-		Store         model.IstioConfigStore
-		Err           string
-		ExpectContain bool
-		Strings       []string
+		Name   string
+		Host   string
+		Store  model.IstioConfigStore
+		Expect []string
 	}{
 		{
-			Name:          "empty filter",
-			Host:          "abc.xyz",
-			Store:         store,
-			ExpectContain: false,
-			Strings:       []string{"test-role-1", "GET-method", "test-user-1"},
+			Name:  "empty filter",
+			Host:  "abc.xyz",
+			Store: store,
 		},
 		{
-			Name:          "valid filter",
-			Host:          "product.default",
-			Store:         store,
-			ExpectContain: true,
-			Strings:       []string{"test-role-1", "GET-method", "test-user-1"},
+			Name:   "valid filter",
+			Host:   "product.default",
+			Store:  store,
+			Expect: []string{"test-role-1", "GET-method", "test-user-1"},
 		},
 	}
 
 	for _, tc := range testCases {
-		filter, err := buildHTTPFilter(model.Hostname(tc.Host), tc.Store)
-		if err != nil {
-			if !strings.HasPrefix(err.Error(), tc.Err) {
-				t.Errorf("%s: expecting error %q, but got %q", tc.Name, tc.Err, err.Error())
+		filter := buildHTTPFilter(model.Hostname(tc.Host), tc.Store)
+		if tc.Expect == nil {
+			if filter != nil {
+				t.Errorf("%s: expecting nil, but got %v", tc.Name, *filter)
 			}
 		} else {
 			if fn := "envoy.filters.http.rbac"; filter.Name != fn {
 				t.Errorf("%s: expecting filter name %s, but got %s", tc.Name, fn, filter.Name)
 			}
-			for _, expect := range tc.Strings {
-				if r := strings.Contains(filter.Config.String(), expect); r != tc.ExpectContain {
-					not := " not"
-					if tc.ExpectContain {
-						not = ""
-					}
-					t.Errorf("%s: expecting filter config to%s contain %s, but got %v",
-						tc.Name, not, expect, filter.Config.String())
+			for _, expect := range tc.Expect {
+				if !strings.Contains(filter.Config.String(), expect) {
+					t.Errorf("%s: expecting filter config to contain %s, but got %v",
+						tc.Name, expect, filter.Config.String())
 				}
 			}
 		}

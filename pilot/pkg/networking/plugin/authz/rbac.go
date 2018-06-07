@@ -23,7 +23,6 @@
 package authz
 
 import (
-	"fmt"
 	"sort"
 	"strings"
 
@@ -78,18 +77,19 @@ func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mutable
 // Can be used to add additional filters (e.g., mixer filter) or add more stuff to the HTTP connection manager
 // on the inbound path
 func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
-	enabled := isRbacEnabled(in.Env.IstioConfigStore)
 	// Only supports sidecar proxy of HTTP listener for now.
-	if !enabled || in.Node.Type != model.Sidecar || in.ListenerType != plugin.ListenerTypeHTTP {
+	if in.Node.Type != model.Sidecar || in.ListenerType != plugin.ListenerTypeHTTP {
+		return nil
+	}
+	if !isRbacEnabled(in.Env.IstioConfigStore) {
 		return nil
 	}
 
-	filter, err := buildHTTPFilter(in.ServiceInstance.Service.Hostname, in.Env.IstioConfigStore)
-	if err != nil {
-		return err
-	}
-	for cnum := range mutable.FilterChains {
-		mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, filter)
+	filter := buildHTTPFilter(in.ServiceInstance.Service.Hostname, in.Env.IstioConfigStore)
+	if filter != nil {
+		for cnum := range mutable.FilterChains {
+			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, filter)
+		}
 	}
 
 	return nil
@@ -134,23 +134,19 @@ func isRbacEnabled(store model.IstioConfigStore) bool {
 
 // buildHTTPFilter builds the RBAC http filter that enforces the access control to the specified
 // service which is co-located with the sidecar proxy.
-func buildHTTPFilter(hostName model.Hostname, store model.IstioConfigStore) (*http_conn.HttpFilter, error) {
+func buildHTTPFilter(hostName model.Hostname, store model.IstioConfigStore) *http_conn.HttpFilter {
 	namespace := hostName.Namespace()
 	roles := store.ServiceRoles(namespace)
 	if roles == nil {
-		return nil, fmt.Errorf("failed to get ServiceRoles in namespace %s", namespace)
+		log.Debugf("no service roles found for %s in namespace %s", hostName, namespace)
+		return nil
 	}
-
 	bindings := store.ServiceRoleBindings(namespace)
-	if bindings == nil {
-		return nil, fmt.Errorf("failed to get ServiceRoleBinding in namespace %s", namespace)
-	}
-
 	config := convertRbacRulesToFilterConfig(hostName.String(), roles, bindings)
 	return &http_conn.HttpFilter{
 		Name:   RbacFilterName,
 		Config: util.MessageToStruct(config),
-	}, nil
+	}
 }
 
 // convertRbacRulesToFilterConfig converts the current RBAC rules (ServiceRole and ServiceRoleBindings)
