@@ -37,7 +37,7 @@ type CAClient interface {
 type SecretItem struct {
 	CertificateChain []byte
 	PrivateKey       []byte
-	jwtToken         string
+	token            string
 	lastUsedTime     time.Time
 	createdTime      time.Time
 }
@@ -75,26 +75,26 @@ func NewSecretCache(cl CAClient, secretTTL, rotationInterval, evictionDuration t
 	}
 
 	atomic.StoreUint64(&ret.secretChangedCount, 0)
-	go ret.keyRotationJob()
+	go ret.keyCertRotationJob()
 	return ret
 }
 
 // GetSecret gets secret from cache.
-func (sc *SecretCache) GetSecret(proxyID, jwtToken string) (*SecretItem, error) {
+func (sc *SecretCache) GetSecret(proxyID, token string) (*SecretItem, error) {
 	now := time.Now()
 
 	// Return directly if secret could be found from cache and not expired.
 	val, found := sc.secrets.Load(proxyID)
 	if found {
 		s := val.(SecretItem)
-		if s.jwtToken == jwtToken && !sc.checkExpired(&s) {
+		if s.token == token && !sc.checkExpired(&s) {
 			// Update cached secret's lastUsedTime.
 			s.lastUsedTime = now
 			return &s, nil
 		}
 	}
 
-	ns, err := sc.generateSecret(jwtToken, now)
+	ns, err := sc.generateSecret(token, now)
 	if err != nil {
 		log.Errorf("Failed to generate secret for proxy %q: %v", proxyID, err)
 		return nil, err
@@ -109,7 +109,7 @@ func (sc *SecretCache) Close() {
 	sc.closing <- true
 }
 
-func (sc *SecretCache) keyRotationJob() {
+func (sc *SecretCache) keyCertRotationJob() {
 	// Wake up once in a while and refresh stale items.
 	sc.rotationTicker = time.NewTicker(sc.rotationInterval)
 	for {
@@ -139,7 +139,7 @@ func (sc *SecretCache) rotate(t time.Time) {
 		// Re-generate secret if it's expired.
 		if sc.checkExpired(&e) {
 			go func() {
-				ns, err := sc.generateSecret(e.jwtToken, now)
+				ns, err := sc.generateSecret(e.token, now)
 				if err != nil {
 					log.Errorf("Failed to generate secret for proxy %q: %v", proxyID, err)
 					return
@@ -157,9 +157,9 @@ func (sc *SecretCache) rotate(t time.Time) {
 	})
 }
 
-func (sc *SecretCache) generateSecret(jwtToken string, t time.Time) (*SecretItem, error) {
+func (sc *SecretCache) generateSecret(token string, t time.Time) (*SecretItem, error) {
 	options := util.CertOptions{
-		Host:       jwtToken,
+		Host:       "", //TODO(quanlin): figure out what to use here.
 		RSAKeySize: keySize,
 	}
 
@@ -169,7 +169,7 @@ func (sc *SecretCache) generateSecret(jwtToken string, t time.Time) (*SecretItem
 		return nil, err
 	}
 
-	certChainPER, err := sc.caClient.Sign(csrPEM, jwtToken, int64(sc.secretTTL.Seconds()))
+	certChainPER, err := sc.caClient.Sign(csrPEM, token, int64(sc.secretTTL.Seconds()))
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +177,7 @@ func (sc *SecretCache) generateSecret(jwtToken string, t time.Time) (*SecretItem
 	return &SecretItem{
 		CertificateChain: certChainPER,
 		PrivateKey:       keyPEM,
-		jwtToken:         jwtToken,
+		token:            token,
 		lastUsedTime:     t,
 		createdTime:      t,
 	}, nil
