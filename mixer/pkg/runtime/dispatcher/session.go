@@ -25,7 +25,7 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/pool"
-	"istio.io/istio/mixer/pkg/runtime/config"
+	"istio.io/istio/mixer/pkg/runtime/config/constant"
 	"istio.io/istio/mixer/pkg/runtime/routing"
 	"istio.io/istio/mixer/pkg/status"
 	"istio.io/istio/pkg/log"
@@ -115,8 +115,8 @@ func (s *session) dispatch() error {
 	ctx := adapter.NewContextWithRequestData(s.ctx, &adapter.RequestData{adapter.Service{identityAttributeValue}})
 
 	// TODO(Issue #2139): This is for old-style metadata based policy decisions. This should be eventually removed.
-	ctxProtocol, _ := s.bag.Get(config.ContextProtocolAttributeName)
-	tcp := ctxProtocol == config.ContextProtocolTCP
+	ctxProtocol, _ := s.bag.Get(constant.ContextProtocolAttributeName)
+	tcp := ctxProtocol == constant.ContextProtocolTCP
 
 	// Ensure that we can run dispatches to all destinations in parallel.
 	s.ensureParallelism(destinations.Count())
