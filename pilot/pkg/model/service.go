@@ -337,8 +337,8 @@ type ServiceInstance struct {
 	Labels           Labels          `json:"labels,omitempty"`
 	AvailabilityZone string          `json:"az,omitempty"`
 	ServiceAccount   string          `json:"serviceaccount,omitempty"`
-	ReadinessProbe   *Probe          `json:"readinessprobe,omitempty"`
-	LivenessProbe    *Probe          `json:"livenessprobe,omitempty"`
+	ReadinessProbes  []Probe         `json:"readinessprobes,omitempty"`
+	LivenessProbes   []Probe         `json:"livenessprobes,omitempty"`
 }
 
 const (

@@ -344,14 +344,14 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 
 func TestReadinessProbe(t *testing.T) {
 	podSpec := generatePodSpecWithProbes("", "node1", "/ready", "/live")
-	if probe := getReadinessProbe(podSpec); probe != nil && probe.Path != "/ready" {
+	if probes := getReadinessProbes(podSpec); len(probes) != 1 || probes[0].Path != "/ready" {
 		t.Error("Failure: Expected '/ready' readiness path")
 	}
 }
 
 func TestLivenessProbe(t *testing.T) {
 	podSpec := generatePodSpecWithProbes("", "node1", "/ready", "/live")
-	if probe := getLivenessProbe(podSpec); probe != nil && probe.Path != "/live" {
+	if probes := getLivenessProbes(podSpec); len(probes) != 1 || probes[0].Path != "/live" {
 		t.Error("Failure: Expected '/live' liveness path")
 	}
 }

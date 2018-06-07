@@ -323,26 +323,28 @@ func (c *Controller) ManagementPorts(addr string) model.PortList {
 	return managementPorts
 }
 
-func getReadinessProbe(podSpec *v1.PodSpec) *model.Probe {
+func getReadinessProbes(podSpec *v1.PodSpec) []model.Probe {
+	probes := make([]model.Probe, 0)
 	for _, container := range podSpec.Containers {
 		if container.ReadinessProbe != nil && container.ReadinessProbe.Handler.HTTPGet != nil {
-			return &model.Probe{
+			probes = append(probes, model.Probe{
 				Path: container.ReadinessProbe.Handler.HTTPGet.Path,
-			}
+			})
 		}
 	}
-	return nil
+	return probes
 }
 
-func getLivenessProbe(podSpec *v1.PodSpec) *model.Probe {
+func getLivenessProbes(podSpec *v1.PodSpec) []model.Probe {
+	probes := make([]model.Probe, 0)
 	for _, container := range podSpec.Containers {
 		if container.LivenessProbe != nil && container.LivenessProbe.Handler.HTTPGet != nil {
-			return &model.Probe{
+			probes = append(probes, model.Probe{
 				Path: container.LivenessProbe.Handler.HTTPGet.Path,
-			}
+			})
 		}
 	}
-	return nil
+	return probes
 }
 
 // Instances implements a service catalog operation
@@ -407,8 +409,8 @@ func (c *Controller) Instances(hostname model.Hostname, ports []string,
 								Labels:           labels,
 								AvailabilityZone: az,
 								ServiceAccount:   sa,
-								ReadinessProbe:   readiness,
-								LivenessProbe:    liveness,
+								ReadinessProbes:  readiness,
+								LivenessProbes:   liveness,
 							})
 						}
 					}
@@ -483,8 +485,8 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 								Labels:           labels,
 								AvailabilityZone: az,
 								ServiceAccount:   sa,
-								ReadinessProbe:   readiness,
-								LivenessProbe:    liveness,
+								ReadinessProbes:  readiness,
+								LivenessProbes:   liveness,
 							})
 						}
 					}
@@ -520,7 +522,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 						labels, _ := c.pods.labelsByIP(ea.IP)
 						pod, exists := c.pods.getPodByIP(ea.IP)
 						az, sa := "", ""
-						var readiness, liveness *model.Probe
+						var readiness, liveness []model.Probe
 						if exists {
 							az, _ = c.GetPodAZ(pod)
 							sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
@@ -535,8 +537,8 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 							Labels:           labels,
 							AvailabilityZone: az,
 							ServiceAccount:   sa,
-							ReadinessProbe:   readiness,
-							LivenessProbe:    liveness,
+							ReadinessProbes:  readiness,
+							LivenessProbes:   liveness,
 						})
 					}
 				}

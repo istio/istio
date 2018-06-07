@@ -32,11 +32,11 @@ import (
 
 func TestBuildHealthCheckFilter(t *testing.T) {
 	cases := []struct {
-		in       *model.Probe
+		in       model.Probe
 		expected *http_conn.HttpFilter
 	}{
 		{
-			in: &model.Probe{
+			in: model.Probe{
 				Path: "/health",
 			},
 			expected: &http_conn.HttpFilter{
@@ -92,9 +92,9 @@ func TestOnInboundListener(t *testing.T) {
 					Type: model.Sidecar,
 				},
 				ServiceInstance: &model.ServiceInstance{
-					LivenessProbe: &model.Probe{
+					LivenessProbes: []model.Probe{{
 						Path: "/alive",
-					},
+					}},
 				},
 			},
 			expected: &plugin.MutableObjects{
@@ -128,9 +128,9 @@ func TestOnInboundListener(t *testing.T) {
 					Type: model.Sidecar,
 				},
 				ServiceInstance: &model.ServiceInstance{
-					ReadinessProbe: &model.Probe{
+					ReadinessProbes: []model.Probe{{
 						Path: "/ready",
-					},
+					}},
 				},
 			},
 			expected: &plugin.MutableObjects{
@@ -165,12 +165,12 @@ func TestOnInboundListener(t *testing.T) {
 					Type: model.Sidecar,
 				},
 				ServiceInstance: &model.ServiceInstance{
-					ReadinessProbe: &model.Probe{
+					ReadinessProbes: []model.Probe{{
 						Path: "/ready",
-					},
-					LivenessProbe: &model.Probe{
+					}},
+					LivenessProbes: []model.Probe{{
 						Path: "/alive",
-					},
+					}},
 				},
 			},
 			expected: &plugin.MutableObjects{
@@ -220,12 +220,12 @@ func TestOnInboundListener(t *testing.T) {
 					Type: model.Sidecar,
 				},
 				ServiceInstance: &model.ServiceInstance{
-					ReadinessProbe: &model.Probe{
+					ReadinessProbes: []model.Probe{{
 						Path: "/health",
-					},
-					LivenessProbe: &model.Probe{
+					}},
+					LivenessProbes: []model.Probe{{
 						Path: "/health",
-					},
+					}},
 				},
 			},
 			expected: &plugin.MutableObjects{

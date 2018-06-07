@@ -39,11 +39,7 @@ func NewPlugin() plugin.Plugin {
 }
 
 // BuildHealthCheckFilter returns a HealthCheck filter.
-func BuildHealthCheckFilter(probe *model.Probe) *http_conn.HttpFilter {
-	// Check if filter should be built
-	if probe == nil {
-		return nil
-	}
+func BuildHealthCheckFilter(probe model.Probe) *http_conn.HttpFilter {
 	return &http_conn.HttpFilter{
 		Name: xdsutil.HealthCheck,
 		Config: util.MessageToStruct(&hcfilter.HealthCheck{
@@ -58,6 +54,24 @@ func BuildHealthCheckFilter(probe *model.Probe) *http_conn.HttpFilter {
 			},
 		}),
 	}
+}
+
+func buildHealthCheckFilters(filterChain *plugin.FilterChain, probes []model.Probe) {
+	for _, probe := range probes {
+		filter := BuildHealthCheckFilter(probe)
+		if !containsHttpFilter(filterChain.HTTP, filter) {
+			filterChain.HTTP = append(filterChain.HTTP, filter)
+		}
+	}
+}
+
+func containsHttpFilter(array []*http_conn.HttpFilter, elem *http_conn.HttpFilter) bool {
+	for _, item := range array {
+		if reflect.DeepEqual(item, elem) {
+			return true
+		}
+	}
+	return false
 }
 
 // OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service
@@ -76,6 +90,10 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 		return nil
 	}
 
+	if in.ServiceInstance == nil {
+		return nil
+	}
+
 	if mutable.Listener == nil {
 		return fmt.Errorf("listener not defined in mutable %v", mutable)
 	}
@@ -84,21 +102,11 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 		return fmt.Errorf("expected same number of filter chains in listener (%d) and mutable (%d)", len(mutable.Listener.FilterChains), len(mutable.FilterChains))
 	}
 
-	if in.ServiceInstance != nil {
-		for i := range mutable.Listener.FilterChains {
-			if in.ListenerType == plugin.ListenerTypeHTTP {
-				// Build health check filters
-				readinessFilter := BuildHealthCheckFilter(in.ServiceInstance.ReadinessProbe)
-				livenessFilter := BuildHealthCheckFilter(in.ServiceInstance.LivenessProbe)
-				if readinessFilter != nil {
-					mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, readinessFilter)
-				}
-				// If both readiness and liveness filters are provided, then make sure they are different
-				// before also adding the liveness filter
-				if livenessFilter != nil && (readinessFilter == nil || !reflect.DeepEqual(livenessFilter, readinessFilter)) {
-					mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, livenessFilter)
-				}
-			}
+	for i := range mutable.Listener.FilterChains {
+		if in.ListenerType == plugin.ListenerTypeHTTP {
+			// Build health check filters
+			buildHealthCheckFilters(&mutable.FilterChains[i], in.ServiceInstance.ReadinessProbes)
+			buildHealthCheckFilters(&mutable.FilterChains[i], in.ServiceInstance.LivenessProbes)
 		}
 	}
 
