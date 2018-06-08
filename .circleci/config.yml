@@ -63,41 +63,41 @@ markJobFinishesOnGCS: &markJobFinishesOnGCS
       bin/ci2gubernator.sh --exit_code=$(cat exit_code) --junit_xml=/go/out/tests/junit.xml
 
 jobs:
-  e2e-simple-v1alpha3-v2:
-     <<: *integrationDefaults
-     environment:
-             - KUBECONFIG: /go/out/minikube.conf
-             - TEST_ENV: minikube-none
-             - GOPATH: /go
-     steps:
-       - <<: *initWorkingDir
-       - checkout
-       - attach_workspace:
-           at:  /go
-       - <<: *markJobStartsOnGCS
-       - run: make sync
-       - run: bin/testEnvRootMinikube.sh start
-       - run:
-           command: |
-             if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
-               # Should only happen when re-running a job, and the workspace is gone
-               time make build test-bins
-             fi
-             make docker.all generate_yaml-envoyv2_transition_loadbalancer_ingressgateway
-       - run: bin/testEnvRootMinikube.sh wait
-       - run: docker images
-       - run: make test/minikube/auth/e2e_simple_envoyv2
-       - <<: *recordZeroExitCodeIfTestPassed
-       - <<: *recordNonzeroExitCodeIfTestFailed
-       - <<: *markJobFinishesOnGCS
-       - store_artifacts:
-           path: /home/circleci/logs
-       - store_artifacts:
-           path: /tmp
-       - store_artifacts:
-           path: /var/lib/localkube/
-       - store_test_results:
-           path: /go/out/tests
+  e2e-simple:
+    <<: *integrationDefaults
+    environment:
+            - KUBECONFIG: /go/out/minikube.conf
+            - TEST_ENV: minikube-none
+            - GOPATH: /go
+    steps:
+      - <<: *initWorkingDir
+      - checkout
+      - attach_workspace:
+          at:  /go
+      - <<: *markJobStartsOnGCS
+      - run: make sync
+      - run: bin/testEnvRootMinikube.sh start
+      - run:
+          command: |
+            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
+              # Should only happen when re-running a job, and the workspace is gone
+              time make build test-bins
+            fi
+            make docker.all
+      - run: bin/testEnvRootMinikube.sh wait
+      - run: docker images
+      - run: make test/local/auth/e2e_simple
+      - <<: *recordZeroExitCodeIfTestPassed
+      - <<: *recordNonzeroExitCodeIfTestFailed
+      - <<: *markJobFinishesOnGCS
+      - store_artifacts:
+          path: /home/circleci/logs
+      - store_artifacts:
+          path: /tmp
+      - store_artifacts:
+          path: /var/lib/localkube/
+      - store_test_results:
+          path: /go/out/tests
 
   e2e-dashboard:
     <<: *integrationDefaults
@@ -523,7 +523,7 @@ workflows:
       - depupdate
       - build
       - test
-      - e2e-simple-v1alpha3-v2:
+      - e2e-simple:
           requires:
             - test
             - build
@@ -556,7 +556,7 @@ workflows:
       - depupdate
       - build
       - test
-      - e2e-simple-v1alpha3-v2:
+      - e2e-simple:
           requires:
             - build
       - e2e-dashboard:
@@ -597,7 +597,7 @@ workflows:
       - e2e-galley:
           requires:
             - build
-      - e2e-simple-v1alpha3-v2:
+      - e2e-simple:
           requires:
             - build
       - racetest:
