@@ -179,24 +179,6 @@ var (
 						}
 					}
 
-					if param.OriginUid != "" {
-						if t, e := tEvalFn(param.OriginUid); e != nil || t != istio_policy_v1beta1.STRING {
-							if e != nil {
-								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"OriginUid", e)
-							}
-							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"OriginUid", t, istio_policy_v1beta1.STRING)
-						}
-					}
-
-					if param.OriginIp != "" {
-						if t, e := tEvalFn(param.OriginIp); e != nil || t != istio_policy_v1beta1.IP_ADDRESS {
-							if e != nil {
-								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"OriginIp", e)
-							}
-							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"OriginIp", t, istio_policy_v1beta1.IP_ADDRESS)
-						}
-					}
-
 					return nil, err
 
 				}
@@ -244,16 +226,28 @@ var (
 							ValueType: istio_policy_v1beta1.STRING,
 						},
 
-						"adapter_template_kubernetes.output.source_service": {
-							ValueType: istio_policy_v1beta1.STRING,
-						},
-
 						"adapter_template_kubernetes.output.source_service_account_name": {
 							ValueType: istio_policy_v1beta1.STRING,
 						},
 
 						"adapter_template_kubernetes.output.source_host_ip": {
 							ValueType: istio_policy_v1beta1.IP_ADDRESS,
+						},
+
+						"adapter_template_kubernetes.output.source_workload_uid": {
+							ValueType: istio_policy_v1beta1.STRING,
+						},
+
+						"adapter_template_kubernetes.output.source_workload_name": {
+							ValueType: istio_policy_v1beta1.STRING,
+						},
+
+						"adapter_template_kubernetes.output.source_workload_namespace": {
+							ValueType: istio_policy_v1beta1.STRING,
+						},
+
+						"adapter_template_kubernetes.output.source_owner": {
+							ValueType: istio_policy_v1beta1.STRING,
 						},
 
 						"adapter_template_kubernetes.output.destination_pod_ip": {
@@ -272,10 +266,6 @@ var (
 							ValueType: istio_policy_v1beta1.STRING,
 						},
 
-						"adapter_template_kubernetes.output.destination_service": {
-							ValueType: istio_policy_v1beta1.STRING,
-						},
-
 						"adapter_template_kubernetes.output.destination_service_account_name": {
 							ValueType: istio_policy_v1beta1.STRING,
 						},
@@ -284,32 +274,20 @@ var (
 							ValueType: istio_policy_v1beta1.IP_ADDRESS,
 						},
 
-						"adapter_template_kubernetes.output.origin_pod_ip": {
-							ValueType: istio_policy_v1beta1.IP_ADDRESS,
-						},
-
-						"adapter_template_kubernetes.output.origin_pod_name": {
+						"adapter_template_kubernetes.output.destination_owner": {
 							ValueType: istio_policy_v1beta1.STRING,
 						},
 
-						"adapter_template_kubernetes.output.origin_labels": {
-							ValueType: istio_policy_v1beta1.STRING_MAP,
-						},
-
-						"adapter_template_kubernetes.output.origin_namespace": {
+						"adapter_template_kubernetes.output.destination_workload_uid": {
 							ValueType: istio_policy_v1beta1.STRING,
 						},
 
-						"adapter_template_kubernetes.output.origin_service": {
+						"adapter_template_kubernetes.output.destination_workload_name": {
 							ValueType: istio_policy_v1beta1.STRING,
 						},
 
-						"adapter_template_kubernetes.output.origin_service_account_name": {
+						"adapter_template_kubernetes.output.destination_workload_namespace": {
 							ValueType: istio_policy_v1beta1.STRING,
-						},
-
-						"adapter_template_kubernetes.output.origin_host_ip": {
-							ValueType: istio_policy_v1beta1.IP_ADDRESS,
 						},
 					},
 				},
@@ -353,10 +331,6 @@ var (
 
 								return out.SourceNamespace, true
 
-							case "source_service":
-
-								return out.SourceService, true
-
 							case "source_service_account_name":
 
 								return out.SourceServiceAccountName, true
@@ -364,6 +338,22 @@ var (
 							case "source_host_ip":
 
 								return []uint8(out.SourceHostIp), true
+
+							case "source_workload_uid":
+
+								return out.SourceWorkloadUid, true
+
+							case "source_workload_name":
+
+								return out.SourceWorkloadName, true
+
+							case "source_workload_namespace":
+
+								return out.SourceWorkloadNamespace, true
+
+							case "source_owner":
+
+								return out.SourceOwner, true
 
 							case "destination_pod_ip":
 
@@ -381,10 +371,6 @@ var (
 
 								return out.DestinationNamespace, true
 
-							case "destination_service":
-
-								return out.DestinationService, true
-
 							case "destination_service_account_name":
 
 								return out.DestinationServiceAccountName, true
@@ -393,33 +379,21 @@ var (
 
 								return []uint8(out.DestinationHostIp), true
 
-							case "origin_pod_ip":
+							case "destination_owner":
 
-								return []uint8(out.OriginPodIp), true
+								return out.DestinationOwner, true
 
-							case "origin_pod_name":
+							case "destination_workload_uid":
 
-								return out.OriginPodName, true
+								return out.DestinationWorkloadUid, true
 
-							case "origin_labels":
+							case "destination_workload_name":
 
-								return out.OriginLabels, true
+								return out.DestinationWorkloadName, true
 
-							case "origin_namespace":
+							case "destination_workload_namespace":
 
-								return out.OriginNamespace, true
-
-							case "origin_service":
-
-								return out.OriginService, true
-
-							case "origin_service_account_name":
-
-								return out.OriginServiceAccountName, true
-
-							case "origin_host_ip":
-
-								return []uint8(out.OriginHostIp), true
+								return out.DestinationWorkloadNamespace, true
 
 							default:
 								return nil, false
@@ -2028,14 +2002,6 @@ type builder_adapter_template_kubernetes_Template struct {
 	// builder for field destination_ip: net.IP.
 
 	bldDestinationIp compiled.Expression
-
-	// builder for field origin_uid: string.
-
-	bldOriginUid compiled.Expression
-
-	// builder for field origin_ip: net.IP.
-
-	bldOriginIp compiled.Expression
 } // builder_adapter_template_kubernetes_Template
 
 // Instantiates and returns a new builder for Template, based on the provided instance parameter.
@@ -2109,31 +2075,6 @@ func newBuilder_adapter_template_kubernetes_Template(
 
 	}
 
-	if param.OriginUid == "" {
-		b.bldOriginUid = nil
-	} else {
-		b.bldOriginUid, expType, err = expb.Compile(param.OriginUid)
-		if err != nil {
-			return nil, template.NewErrorPath("OriginUid", err)
-		}
-
-		if expType != istio_policy_v1beta1.STRING {
-			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_policy_v1beta1.STRING, expType, param.OriginUid)
-			return nil, template.NewErrorPath("OriginUid", err)
-		}
-
-	}
-
-	if param.OriginIp == "" {
-		b.bldOriginIp = nil
-	} else {
-		b.bldOriginIp, expType, err = expb.Compile(param.OriginIp)
-		if err != nil {
-			return nil, template.NewErrorPath("OriginIp", err)
-		}
-
-	}
-
 	return b, template.ErrorPath{}
 }
 
@@ -2199,26 +2140,6 @@ func (b *builder_adapter_template_kubernetes_Template) build(
 		}
 
 		r.DestinationIp = vIface.(net.IP)
-
-	}
-
-	if b.bldOriginUid != nil {
-
-		vString, err = b.bldOriginUid.EvaluateString(attrs)
-		if err != nil {
-			return nil, template.NewErrorPath("OriginUid", err)
-		}
-		r.OriginUid = vString
-
-	}
-
-	if b.bldOriginIp != nil {
-
-		if vIface, err = b.bldOriginIp.Evaluate(attrs); err != nil {
-			return nil, template.NewErrorPath("OriginIp", err)
-		}
-
-		r.OriginIp = vIface.(net.IP)
 
 	}
 
