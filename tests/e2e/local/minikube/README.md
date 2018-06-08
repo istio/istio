@@ -9,7 +9,7 @@
   * [kvm2 for linux](https://www.linux-kvm.org/page/Main_Page) 
   * [hyperkit for mac](https://github.com/kubernetes/minikube/blob/master/docs/drivers.md#hyperkit-driver)
   * [docker](https://docs.docker.com/) - Verify `docker version` returns version >= 18.03.0-ce
-  * [minikube](https://www.vagrantup.com/downloads.html) - Verify `minikube version` returns version >= Vagrant 0.25.0
+  * [minikube](https://www.vagrantup.com/downloads.html) - Verify `minikube version` returns version >= minikube 0.27.0
   * [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl) - Verify `kubectl version` returns both server and client versions
   * [curl](https://curl.haxx.se/) - Verify `curl --help` prints the help information.
 
