@@ -1,5 +1,5 @@
 # Builder version
-CI_VERSION ?= go1.10-k8s1.9-helm2.7.2-minikube0.25-05232018
+CI_VERSION ?= go1.10-k8s1.9-helm2.7.2-minikube0.25-06072018
 CI_HUB ?= istio
 
 ci.image:
