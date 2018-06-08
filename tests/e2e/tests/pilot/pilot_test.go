@@ -47,8 +47,8 @@ const (
 
 var (
 	tc = &testConfig{
-		// TODO(inclfy) figure out why --v1laph1=false not working.listener
-		V1alpha1: false, //implies envoyv1
+		// TODO(inclfy) figure out why --v1alpha1=false not working. We requires proxyv2 api.
+		V1alpha1: true, //implies envoyv1
 		V1alpha3: true,  //implies envoyv2
 		Ingress:  true,
 		Egress:   true,
@@ -67,9 +67,6 @@ func init() {
 	flag.BoolVar(&tc.V1alpha3, "v1alpha3", tc.V1alpha3, "Enable / disable v1alpha3 routing rules.")
 	flag.BoolVar(&tc.Ingress, "ingress", tc.Ingress, "Enable / disable Ingress tests.")
 	flag.BoolVar(&tc.Egress, "egress", tc.Egress, "Enable / disable Egress tests.")
-
-	fmt.Println("jianfeih debug --v1alpha1", tc.V1alpha1)
-	fmt.Println("jianfeih debug --v1alpha3", tc.V1alpha3)
 }
 
 func TestMain(m *testing.M) {
