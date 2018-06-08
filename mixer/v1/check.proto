@@ -76,7 +76,7 @@ message CheckResponse {
 
     // The total set of attributes that were used in producing the result
     // along with matching conditions.
-    ReferencedAttributes referenced_attributes = 5 [(gogoproto.nullable) = false];
+    ReferencedAttributes referenced_attributes = 5;
 
     // An optional routing directive, used to manipulate the traffic metadata
     // whenever all preconditions are satisfied.
