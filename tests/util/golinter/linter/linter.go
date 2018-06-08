@@ -68,10 +68,11 @@ func (lt *Linter) Run() {
 }
 
 // ApplyRules applies rules to node and generate lint report.
-func (lt *Linter) ApplyRules(node ast.Node, rules []rules.LintRule) {
-	for _, rule := range rules {
+func (lt *Linter) ApplyRules(node ast.Node, lintrules []rules.LintRule) {
+	for _, rule := range lintrules {
 		if _, skip := lt.sRuleMap[rule.GetID()]; !skip {
-			rule.Check(node, lt.fs, &lt.lreport)
+			reporter := rules.NewLintReport(&lt.lreport)
+			rule.Check(node, lt.fs, reporter)
 		}
 	}
 }

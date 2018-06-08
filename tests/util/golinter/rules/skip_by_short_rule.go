@@ -47,7 +47,7 @@ func (lr *SkipByShortRule) GetID() string {
 	return getCallerFileName()
 }
 
-// Check verifies if aNode is a valid t.Skip(). If verification fails it adds report into rpt.
+// Check verifies if aNode is a valid t.Skip(). If verification fails lrp creates a new report.
 // There are two examples for valid t.Skip().
 // case 1:
 // func Testxxx(t *testing.T) {
@@ -62,11 +62,10 @@ func (lr *SkipByShortRule) GetID() string {
 //	}
 //	...
 // }
-func (lr *SkipByShortRule) Check(aNode ast.Node, fs *token.FileSet, rpt *[]string) {
+func (lr *SkipByShortRule) Check(aNode ast.Node, fs *token.FileSet, lrp *LintReporter) {
 	if fn, isFn := aNode.(*ast.FuncDecl); isFn && strings.HasPrefix(fn.Name.Name, "Test") {
 		if len(fn.Body.List) == 0 {
-			report := createLintReport(aNode.Pos(), fs, "Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'")
-			*rpt = append(*rpt, report)
+			lrp.AddReport(aNode.Pos(), fs, "Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'")
 		} else if len(fn.Body.List) == 1 {
 			if ifStmt, ok := fn.Body.List[0].(*ast.IfStmt); ok {
 				if uExpr, ok := ifStmt.Cond.(*ast.UnaryExpr); ok {
@@ -92,7 +91,6 @@ func (lr *SkipByShortRule) Check(aNode ast.Node, fs *token.FileSet, rpt *[]strin
 				}
 			}
 		}
-		report := createLintReport(aNode.Pos(), fs, "Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'")
-		*rpt = append(*rpt, report)
+		lrp.AddReport(aNode.Pos(), fs, "Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'")
 	}
 }

@@ -55,7 +55,7 @@ func doAllDirs(args []string) []string {
 				reportErr(fmt.Sprintf("pervent panic by handling failure accessing a path %q: %v", fpath, err))
 				return err
 			}
-			if ok, testType, sRuleMaps := pFilter.GetTestType(fpath, info); ok {
+			if testType, sRuleMaps := pFilter.GetTestType(fpath, info); testType != linter.NonTest {
 				lt := linter.NewLinter(fpath, testType, sRuleMaps)
 				lt.Run()
 				rpts = append(rpts, lt.LReport()...)

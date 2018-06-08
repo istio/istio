@@ -32,10 +32,9 @@ func (lr *NoGoroutineRule) GetID() string {
 	return getCallerFileName()
 }
 
-// Check verifies if aNode is not goroutine. If verification fails it adds report into rpt.
-func (lr *NoGoroutineRule) Check(aNode ast.Node, fs *token.FileSet, rpt *[]string) {
+// Check verifies if aNode is not goroutine. If verification fails lrp creates new report.
+func (lr *NoGoroutineRule) Check(aNode ast.Node, fs *token.FileSet, lrp *LintReporter) {
 	if gs, ok := aNode.(*ast.GoStmt); ok {
-		report := createLintReport(gs.Pos(), fs, "goroutine is disallowed.")
-		*rpt = append(*rpt, report)
+		lrp.AddReport(gs.Pos(), fs, "goroutine is disallowed.")
 	}
 }

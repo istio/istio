@@ -48,8 +48,7 @@ func NewPathFilter() PathFilter {
 func (pf *PathFilter) getWhitelistedPathsMap() {
 	for path, rules := range WhitelistPath {
 		pf.WPaths[path] = map[string]bool{}
-		ruleList := strings.Split(rules, ",")
-		for _, rule := range ruleList {
+		for _, rule := range rules {
 			pf.WPaths[path][rule] = true
 		}
 	}
@@ -66,18 +65,18 @@ func (pf *PathFilter) getWhitelistedPathsMap() {
 // .../*_integ_test.go
 // (3) unit test file
 // .../*_test.go
-func (pf *PathFilter) GetTestType(absp string, info os.FileInfo) (bool, TestType, map[string]bool) {
+func (pf *PathFilter) GetTestType(absp string, info os.FileInfo) (TestType, map[string]bool) {
 	// sRules stores skipped rules for file path absp.
 	var sRules = map[string]bool{}
 
 	paths := strings.Split(absp, "/")
 	if len(paths) == 0 {
-		return false, NonTest, sRules
+		return NonTest, sRules
 	}
 
 	// Skip path which is not go file.
 	if info.IsDir() || !strings.HasSuffix(absp, ".go") {
-		return false, NonTest, sRules
+		return NonTest, sRules
 	}
 
 	// Check whether path is whitelisted
@@ -99,17 +98,18 @@ func (pf *PathFilter) GetTestType(absp string, info os.FileInfo) (bool, TestType
 			isUnderIntegDir = true
 		}
 	}
+
 	if isUnderE2eDir && isUnderIntegDir {
 		log.Printf("Invalid path %q under both e2e directory and integ directory", absp)
-		return false, NonTest, sRules
+		return NonTest, sRules
 	} else if isUnderE2eDir && strings.HasSuffix(paths[len(paths)-1], "_test.go") {
-		return true, E2eTest, sRules
+		return E2eTest, sRules
 	} else if (isUnderIntegDir && strings.HasSuffix(paths[len(paths)-1], "_test.go")) ||
 		strings.HasSuffix(paths[len(paths)-1], "_integ_test.go") {
-		return true, IntegTest, sRules
+		return IntegTest, sRules
 	} else if strings.HasSuffix(paths[len(paths)-1], "_test.go") &&
 		!strings.HasSuffix(paths[len(paths)-1], "_integ_test.go") {
-		return true, UnitTest, sRules
+		return UnitTest, sRules
 	}
-	return false, NonTest, sRules
+	return NonTest, sRules
 }

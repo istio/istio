@@ -32,13 +32,11 @@ func (lr *NoShortRule) GetID() string {
 	return getCallerFileName()
 }
 
-// Check verifies if aNode is not testing.Short(). If verification fails it adds report into rpt.
-func (lr *NoShortRule) Check(aNode ast.Node, fs *token.FileSet, rpt *[]string) {
+// Check verifies if aNode is not testing.Short(). If verification lrp creates new report.
+func (lr *NoShortRule) Check(aNode ast.Node, fs *token.FileSet, lrp *LintReporter) {
 	if ce, ok := aNode.(*ast.CallExpr); ok {
 		if matchCallExpr(ce, "testing", "Short") {
-
-			report := createLintReport(ce.Pos(), fs, "testing.Short() is disallowed.")
-			*rpt = append(*rpt, report)
+			lrp.AddReport(ce.Pos(), fs, "testing.Short() is disallowed.")
 		}
 	}
 }

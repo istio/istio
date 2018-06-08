@@ -23,6 +23,24 @@ import (
 type LintRule interface {
 	// GetID returns ID of the rule in string, ID is equal to the file name of that rule.
 	GetID() string
-	// Check verifies if aNode passes rule check. If verification fails it adds report into rpt.
-	Check(aNode ast.Node, fs *token.FileSet, rpt *[]string)
+	// Check verifies if aNode passes rule check. If verification fails lrp creates a report.
+	Check(aNode ast.Node, fs *token.FileSet, lrp *LintReporter)
+}
+
+// LintReporter populates lint report.
+type LintReporter struct{
+	reports *[]string
+}
+
+// NewLintReport creates and returns a LintReporter object.
+func NewLintReport(rpts *[]string) *LintReporter {
+	return &LintReporter{
+		reports: rpts,
+	}
+}
+
+// AddReport creates a new lint error report.
+func (lr *LintReporter) AddReport(pos token.Pos, fs *token.FileSet, msg string) {
+	report := createLintReport(pos, fs, msg)
+	*lr.reports = append(*lr.reports, report)
 }

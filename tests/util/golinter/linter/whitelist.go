@@ -19,7 +19,7 @@ const (
 	SkipAllRules = "SkipAllRules"
 )
 
-// WhitelistPath contains pairs of file and rule IDs. Each pair specifies which rules should not apply
-// to the file path in that pair. rule IDs are separated by comma.
-// Rule ID is the file name of each rule without ".go" extension.
-var WhitelistPath = map[string]string{}
+// WhitelistPath contains pairs of file and rule IDs. Each file maps to an array of rules which
+// should not apply to that file. Each rule is represented by its unique rule ID, which is the
+// file name of that rule without ".go" extension.
+var WhitelistPath = map[string][]string{}

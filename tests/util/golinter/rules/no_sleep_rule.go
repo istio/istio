@@ -32,13 +32,11 @@ func (lr *NoSleepRule) GetID() string {
 	return getCallerFileName()
 }
 
-// Check verifies if aNode is not time.Sleep. If verification fails it adds report into rpt.
-func (lr *NoSleepRule) Check(aNode ast.Node, fs *token.FileSet, rpt *[]string) {
+// Check verifies if aNode is not time.Sleep. If verification fails lrp creates a new report.
+func (lr *NoSleepRule) Check(aNode ast.Node, fs *token.FileSet, lrp *LintReporter) {
 	if ce, ok := aNode.(*ast.CallExpr); ok {
 		if matchCallExpr(ce, "time", "Sleep") {
-
-			report := createLintReport(ce.Pos(), fs, "time.Sleep() is disallowed.")
-			*rpt = append(*rpt, report)
+			lrp.AddReport(ce.Pos(), fs, "time.Sleep() is disallowed.")
 		}
 	}
 }

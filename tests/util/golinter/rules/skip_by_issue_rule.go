@@ -41,24 +41,21 @@ func (lr *SkipByIssueRule) GetID() string {
 }
 
 // Check returns verifies if aNode is a valid t.Skip(), or aNode is not t.Skip(), t.SkipNow(),
-// and t.Skipf(). If verification fails it adds report into rpt.
+// and t.Skipf(). If verification fails lrp creates a new report.
 // This is an example for valid call t.Skip("https://github.com/istio/istio/issues/6012")
 // These calls are not valid:
 // t.Skip("https://istio.io/"),
 // t.SkipNow(),
 // t.Skipf("https://istio.io/%d", x).
-func (lr *SkipByIssueRule) Check(aNode ast.Node, fs *token.FileSet, rpt *[]string) {
+func (lr *SkipByIssueRule) Check(aNode ast.Node, fs *token.FileSet, lrp *LintReporter) {
 	if fn, isFn := aNode.(*ast.FuncDecl); isFn {
 		for _, bd := range fn.Body.List {
 			if ok, _ := matchFunc(bd, "t", "SkipNow"); ok {
-				report := createLintReport(bd.Pos(), fs, "Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue.")
-				*rpt = append(*rpt, report)
+				lrp.AddReport(bd.Pos(), fs, "Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue.")
 			} else if ok, _ := matchFunc(bd, "t", "Skipf"); ok {
-				report := createLintReport(bd.Pos(), fs, "Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue.")
-				*rpt = append(*rpt, report)
+				lrp.AddReport(bd.Pos(), fs, "Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue.")
 			} else if ok, fcall := matchFunc(bd, "t", "Skip"); ok && !matchFuncArgs(fcall, lr.skipArgsRegex) {
-				report := createLintReport(bd.Pos(), fs, "Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue.")
-				*rpt = append(*rpt, report)
+				lrp.AddReport(bd.Pos(), fs, "Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue.")
 			}
 		}
 	}
