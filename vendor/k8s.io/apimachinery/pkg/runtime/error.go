@@ -41,9 +41,17 @@ func NewNotRegisteredErrForTarget(t reflect.Type, target GroupVersioner) error {
 	return &notRegisteredErr{t: t, target: target}
 }
 
+func NewNotRegisteredGVKErrForTarget(gvk schema.GroupVersionKind, target GroupVersioner) error {
+	return &notRegisteredErr{gvk: gvk, target: target}
+}
+
 func (k *notRegisteredErr) Error() string {
 	if k.t != nil && k.target != nil {
 		return fmt.Sprintf("%v is not suitable for converting to %q", k.t, k.target)
+	}
+	nullGVK := schema.GroupVersionKind{}
+	if k.gvk != nullGVK && k.target != nil {
+		return fmt.Sprintf("%q is not suitable for converting to %q", k.gvk.GroupVersion(), k.target)
 	}
 	if k.t != nil {
 		return fmt.Sprintf("no kind is registered for the type %v", k.t)
@@ -94,8 +102,6 @@ type missingVersionErr struct {
 	data string
 }
 
-// IsMissingVersion returns true if the error indicates that the provided object
-// is missing a 'Version' field.
 func NewMissingVersionErr(data string) error {
 	return &missingVersionErr{data}
 }
@@ -104,6 +110,8 @@ func (k *missingVersionErr) Error() string {
 	return fmt.Sprintf("Object 'apiVersion' is missing in '%s'", k.data)
 }
 
+// IsMissingVersion returns true if the error indicates that the provided object
+// is missing a 'Version' field.
 func IsMissingVersion(err error) bool {
 	if err == nil {
 		return false
