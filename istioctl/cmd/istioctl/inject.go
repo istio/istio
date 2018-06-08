@@ -43,7 +43,8 @@ const (
 )
 
 func createInterface(kubeconfig string) (kubernetes.Interface, error) {
-	restConfig, err := kube.BuildClientConfig(kubeconfig)
+	restConfig, err := kube.BuildClientConfig(kubeconfig, configContext)
+
 	if err != nil {
 		return nil, err
 	}
