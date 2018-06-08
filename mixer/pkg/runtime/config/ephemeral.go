@@ -27,6 +27,8 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	config "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -34,6 +36,9 @@ import (
 	"istio.io/istio/mixer/pkg/config/storetest"
 	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/lang/checker"
+	"istio.io/istio/mixer/pkg/lang/compiled"
+	"istio.io/istio/mixer/pkg/protobuf/yaml"
+	"istio.io/istio/mixer/pkg/protobuf/yaml/dynamic"
 	"istio.io/istio/mixer/pkg/runtime/config/constant"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
@@ -132,27 +137,34 @@ func (e *Ephemeral) BuildSnapshot() (*Snapshot, error) {
 
 	attributes := e.processAttributeManifests(counters, errs)
 
-	handlers := e.processHandlerConfigs(counters, errs)
+	staticAdapterhandlers := e.processStaticAdapterHandlerConfigs(counters, errs)
 
 	af := ast.NewFinder(attributes)
 	instances := e.processInstanceConfigs(af, counters, errs)
 
-	templates := e.processTemplateConfigs(counters, errs)
+	// New dynamic configurations
+	dynamicTemplates := e.processTemplateConfigs(counters, errs)
+	dynamicAdapters := e.processAdapterInfoConfigs(dynamicTemplates, counters, errs)
+	dynamicAdapterhandlers := e.processDynamicAdapterHandlerConfigs(dynamicAdapters, counters, errs)
+	dynamicTemplateInstances := e.processDynamicTemplateInstanceConfigs(dynamicTemplates, af, counters, errs)
 
-	adapterInfos := e.processAdapterInfoConfigs(templates, counters, errs)
+	rules := e.processRuleConfigs(staticAdapterhandlers, instances, af, counters, errs)
 
-	rules := e.processRuleConfigs(handlers, instances, af, counters, errs)
 	s := &Snapshot{
 		ID:                id,
 		Templates:         e.templates,
 		Adapters:          e.adapters,
-		TemplateMetadatas: templates,
-		AdapterMetadatas:  adapterInfos,
+		TemplateMetadatas: dynamicTemplates,
+		AdapterMetadatas:  dynamicAdapters,
 		Attributes:        ast.NewFinder(attributes),
-		HandlersLegacy:    handlers,
+		HandlersLegacy:    staticAdapterhandlers,
 		InstancesLegacy:   instances,
 		RulesLegacy:       rules,
-		Counters:          counters,
+
+		Handlers:  dynamicAdapterhandlers,
+		Instances: dynamicTemplateInstances,
+
+		Counters: counters,
 	}
 	e.lock.RUnlock()
 
@@ -201,7 +213,7 @@ func (e *Ephemeral) processAttributeManifests(counters Counters, errs *multierro
 	return attrs
 }
 
-func (e *Ephemeral) processHandlerConfigs(counters Counters, errs *multierror.Error) map[string]*HandlerLegacy {
+func (e *Ephemeral) processStaticAdapterHandlerConfigs(counters Counters, errs *multierror.Error) map[string]*HandlerLegacy {
 	handlers := make(map[string]*HandlerLegacy, len(e.adapters))
 
 	for key, resource := range e.entries {
@@ -227,6 +239,140 @@ func (e *Ephemeral) processHandlerConfigs(counters Counters, errs *multierror.Er
 
 	counters.handlerConfig.Add(float64(len(handlers)))
 	return handlers
+}
+
+func (e *Ephemeral) processDynamicAdapterHandlerConfigs(adapters map[string]*Adapter, counters Counters, errs *multierror.Error) map[string]*Handler {
+	handlers := make(map[string]*Handler, len(e.adapters))
+
+	for key, resource := range e.entries {
+		isHandler, hasStaticAdapter := e.isHandler(key, resource.Spec)
+		if !isHandler || hasStaticAdapter {
+			// static adapter based handlers are processed elsewhere
+			continue
+		}
+
+		hdl := resource.Spec.(*config.Handler)
+		adapterName := canonicalize(hdl.Adapter, key.Namespace)
+		handlerName := key.String()
+		log.Debugf("Processing incoming handler config: name='%s'\n%s", handlerName, resource.Spec)
+
+		var adapter *Adapter
+		var ok bool
+		if adapter, ok = adapters[adapterName]; !ok {
+			appendErr(errs, fmt.Sprintf("handler='%s'.adapter", handlerName),
+				counters.HandlerValidationError, "adapter '%s' not found", adapterName)
+		}
+
+		// validate if the param is valid
+		bytes, err := validateEncodeBytes(hdl.Params, adapter.ConfigDescSet, getParamsMsgFullName(adapter.PackageName))
+		if err != nil {
+			appendErr(errs, fmt.Sprintf("handler='%s'.params", handlerName),
+				counters.HandlerValidationError, err.Error())
+			continue
+		}
+
+		cfg := &Handler{
+			Name:       handlerName,
+			Adapter:    adapter,
+			Connection: hdl.Connection,
+			Params:     bytes,
+		}
+
+		handlers[cfg.Name] = cfg
+	}
+
+	counters.handlerConfig.Add(float64(len(handlers)))
+	return handlers
+}
+
+func (e *Ephemeral) processDynamicTemplateInstanceConfigs(templates map[string]*Template, attributes ast.AttributeDescriptorFinder, counters Counters, errs *multierror.Error) map[string]*Instance {
+	instances := make(map[string]*Instance, len(e.templates))
+
+	for key, resource := range e.entries {
+		isInstance, hasStaticTemplate := e.isInstance(key, resource.Spec)
+		if !isInstance || hasStaticTemplate {
+			// static template based instances are processed elsewhere
+			continue
+		}
+
+		inst := resource.Spec.(*config.Instance)
+		tmplName := canonicalize(inst.Template, key.Namespace)
+		instanceName := key.String()
+		log.Debugf("Processing incoming instance config: name='%s'\n%s", instanceName, resource.Spec)
+
+		var template *Template
+		var ok bool
+		if template, ok = templates[tmplName]; !ok {
+			appendErr(errs, fmt.Sprintf("instance='%s'.template", instanceName),
+				counters.instanceConfigError, "template '%s' not found", tmplName)
+		}
+
+		// validate if the param is valid
+		compiler := compiled.NewBuilder(attributes)
+		resolver := yaml.NewResolver(template.FileDescSet)
+		b := dynamic.NewEncoderBuilder(
+			resolver,
+			compiler,
+			false)
+		enc, err := b.Build(getTemplatesMsgFullName(template.PackageName), inst.Params.(map[string]interface{}))
+
+		if err != nil {
+			appendErr(errs, fmt.Sprintf("instance='%s'.params", instanceName),
+				counters.instanceConfigError, "config does not conforms to schema of template '%s': %v", tmplName, err.Error())
+			continue
+		}
+
+		cfg := &Instance{
+			Name:     instanceName,
+			Template: template,
+			Encoder:  &enc, //
+		}
+
+		instances[cfg.Name] = cfg
+	}
+
+	counters.instanceConfig.Add(float64(len(instances)))
+	return instances
+}
+
+func getTemplatesMsgFullName(pkgName string) string {
+	return "." + pkgName + ".Template"
+}
+
+func getParamsMsgFullName(pkgName string) string {
+	return "." + pkgName + ".Params"
+}
+
+func (e *Ephemeral) isHandler(key store.Key, spec proto.Message) (isHandler bool, hasStaticAdapter bool) {
+	if key.Kind != constant.HandlerKind {
+		return
+	}
+	isHandler = true
+	hdl := spec.(*config.Handler)
+	if _, found := e.adapters[hdl.Adapter]; found {
+		hasStaticAdapter = true
+	}
+	return
+}
+
+func (e *Ephemeral) isInstance(key store.Key, spec proto.Message) (isInstance bool, hasStaticTemplate bool) {
+	if key.Kind != constant.InstanceKind {
+		return
+	}
+	isInstance = true
+	inst := spec.(*config.Instance)
+	if _, found := e.templates[inst.Template]; found {
+		hasStaticTemplate = true
+	}
+	return
+}
+
+func validateEncodeBytes(params interface{}, fds *descriptor.FileDescriptorSet, msgName string) ([]byte, error) {
+	if params == nil {
+		return nil, nil
+	}
+	bytes, err := yaml.NewEncoder(fds).EncodeBytes(params.(map[string]interface{}), msgName, false)
+	return bytes, err
 }
 
 func (e *Ephemeral) processInstanceConfigs(attributes ast.AttributeDescriptorFinder, counters Counters,
@@ -312,15 +458,17 @@ func (e *Ephemeral) processAdapterInfoConfigs(availableTmpls map[string]*Templat
 }
 
 func (e *Ephemeral) processRuleConfigs(
-
-	handlers map[string]*HandlerLegacy,
-	instances map[string]*InstanceLegacy,
+	saHandlers map[string]*HandlerLegacy,
+	stInstances map[string]*InstanceLegacy,
+	daHandlers map[string]*Handler,
+	dtInstances map[string]*Instance,
 	attributes ast.AttributeDescriptorFinder,
-	counters Counters, errs *multierror.Error) []*RuleLegacy {
+	counters Counters, errs *multierror.Error) ([]*RuleLegacy,[]*Rule){
 
 	log.Debug("Begin processing rule configurations.")
 
-	var rules []*RuleLegacy
+	var rules1 []*RuleLegacy
+	var rules2 []*Rule
 
 	for ruleKey, resource := range e.entries {
 		if ruleKey.Kind != constant.RulesKind {
@@ -355,14 +503,19 @@ func (e *Ephemeral) processRuleConfigs(
 		}
 
 		// extract the set of actions from the rule, and the handlers they reference.
+		var foundSaHandler bool
+		var foundDaHandler bool
+		var sahandler *HandlerLegacy
+		var dahandler *Handler
 		actions := make([]*ActionLegacy, 0, len(cfg.Actions))
 		for i, a := range cfg.Actions {
 			log.Debugf("Processing action: %s[%d]", ruleName, i)
 
-			var found bool
-			var handler *HandlerLegacy
 			handlerName := canonicalize(a.Handler, ruleKey.Namespace)
-			if handler, found = handlers[handlerName]; !found {
+			sahandler, foundSaHandler = saHandlers[handlerName]
+			dahandler, foundDaHandler = daHandlers[handlerName]
+
+			if !foundSaHandler && !foundDaHandler {
 				appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), counters.ruleConfigError, "Handler not found: handler='%s'",
 					handlerName)
 				continue
@@ -375,7 +528,7 @@ func (e *Ephemeral) processRuleConfigs(
 			actionInstances := make([]*InstanceLegacy, 0, len(a.Instances))
 			for _, instanceName := range a.Instances {
 				instanceName = canonicalize(instanceName, ruleKey.Namespace)
-				if _, found = uniqueInstances[instanceName]; found {
+				if _, foundSaHandler = uniqueInstances[instanceName]; foundSaHandler {
 					appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), counters.ruleConfigError,
 						"action specified the same instance multiple times: instance='%s',", instanceName)
 					continue
@@ -383,7 +536,7 @@ func (e *Ephemeral) processRuleConfigs(
 				uniqueInstances[instanceName] = true
 
 				var instance *InstanceLegacy
-				if instance, found = instances[instanceName]; !found {
+				if instance, foundSaHandler = stInstances[instanceName]; !foundSaHandler {
 					appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), counters.ruleConfigError, "Instance not found: instance='%s'", instanceName)
 					continue
 				}
@@ -398,7 +551,7 @@ func (e *Ephemeral) processRuleConfigs(
 			}
 
 			action := &ActionLegacy{
-				Handler:   handler,
+				Handler:   sahandler,
 				Instances: actionInstances,
 			}
 
@@ -419,10 +572,10 @@ func (e *Ephemeral) processRuleConfigs(
 			Match:        cfg.Match,
 		}
 
-		rules = append(rules, rule)
+		rules1 = append(rules1, rule)
 	}
 
-	return rules
+	return rules1
 }
 
 func (e *Ephemeral) processTemplateConfigs(counters Counters, errs *multierror.Error) map[string]*Template {
