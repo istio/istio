@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"reflect"
 	"sort"
 	"time"
 
@@ -270,27 +271,27 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 		switch listenerType {
 		case plugin.ListenerTypeHTTP:
 			httpOpts := &httpListenerOpts{
-					routeConfig:      configgen.buildSidecarInboundHTTPRouteConfig(env, node, instance),
-					rds:              "",
-					useRemoteAddress: false,
-					direction:        http_conn.INGRESS,
+				routeConfig:      configgen.buildSidecarInboundHTTPRouteConfig(env, node, instance),
+				rds:              "",
+				useRemoteAddress: false,
+				direction:        http_conn.INGRESS,
 			}
 			if listenerOpts.tlsMultiplexed {
 				listenerOpts.filterChainOpts = []*filterChainOpts{
 					{
-					httpOpts: httpOpts,
-					transportProtocol: "raw_buffer",
+						httpOpts:          httpOpts,
+						transportProtocol: "raw_buffer",
 					}, {
-						httpOpts: httpOpts,
+						httpOpts:          httpOpts,
 						transportProtocol: "tls",
 					},
 				}
-				} else {
-					listenerOpts.filterChainOpts = [] *filterChainOpts {
-						{
-							httpOpts: httpOpts,
-						},
-					}
+			} else {
+				listenerOpts.filterChainOpts = []*filterChainOpts{
+					{
+						httpOpts: httpOpts,
+					},
+				}
 			}
 		case plugin.ListenerTypeTCP:
 			listenerOpts.filterChainOpts = []*filterChainOpts{{
@@ -586,7 +587,7 @@ type filterChainOpts struct {
 	sniHosts          []string
 	transportProtocol string
 	tlsContext        *auth.DownstreamTlsContext
-	httpOpts           *httpListenerOpts
+	httpOpts          *httpListenerOpts
 	networkFilters    []listener.Filter
 }
 
@@ -686,31 +687,6 @@ func buildHTTPConnectionManager(mesh *meshconfig.MeshConfig, httpOpts *httpListe
 	return connectionManager
 }
 
-func setSNIFilterChainMatch(chain *listener.FilterChain, sniHosts []string) {
-	if chain == nil {
-		return
-	}
-	if len(sniHosts) == 0 {
-		return
-	}
-	fullWildcardFound := false
-	for _, h := range sniHosts {
-		if h == "*" {
-			fullWildcardFound = true
-			// If we have a host with *, it effectively means match anything, i.e.
-			// no SNI based matching for this host.
-			break
-		}
-	}
-	// We set FilterChainMatch if not present to avoid null pointer reference.
-	if chain.FilterChainMatch == nil {
-		chain.FilterChainMatch = &listener.FilterChainMatch{}
-	}
-	if !fullWildcardFound {
-		chain.FilterChainMatch.SniDomains = sniHosts
-	}
-}
-
 // buildListener builds and initializes a Listener proto based on the provided opts. It does not set any filters.
 func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	filterChains := make([]listener.FilterChain, 0, len(opts.filterChainOpts))
@@ -719,15 +695,13 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	if opts.tlsMultiplexed {
 		listenerFilters = []listener.ListenerFilter{
 			{
-				Name: "envoy.listener.tls_inspector",
+				Name:   "envoy.listener.tls_inspector",
 				Config: &google_protobuf.Struct{},
 			},
 		}
-		log.Infof("jianfeih debug the tls is multiplexed %v %v\n", opts.port, opts.ip)
 	}
 
 	for _, chain := range opts.filterChainOpts {
-		//var match *listener.FilterChainMatch
 		match := &listener.FilterChainMatch{
 			TransportProtocol: chain.transportProtocol,
 		}
@@ -745,10 +719,8 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 				match.SniDomains = chain.sniHosts
 			}
 		}
-		if chain.tlsContext != nil {
-			log.Infof("jianfeih debug from listeners.go, yes, the chain.tlsContext is %v\n", *chain.tlsContext)
-		} else {
-			log.Infof("jianfeih debug from listeners.go, yes, the chain.tlsContext is nil\n")
+		if reflect.DeepEqual(*match, listener.FilterChainMatch{}) {
+			match = nil
 		}
 		filterChains = append(filterChains, listener.FilterChain{
 			FilterChainMatch: match,
@@ -764,11 +736,11 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	}
 
 	return &xdsapi.Listener{
-		Name:              fmt.Sprintf("%s_%d", opts.ip, opts.port),
-		Address:           util.BuildAddress(opts.ip, uint32(opts.port)),
-		ListenerFilters:   listenerFilters,
-		FilterChains:      filterChains,
-		DeprecatedV1:      deprecatedV1,
+		Name:            fmt.Sprintf("%s_%d", opts.ip, opts.port),
+		Address:         util.BuildAddress(opts.ip, uint32(opts.port)),
+		ListenerFilters: listenerFilters,
+		FilterChains:    filterChains,
+		DeprecatedV1:    deprecatedV1,
 	}
 }
 

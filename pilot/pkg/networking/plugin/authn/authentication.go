@@ -283,61 +283,6 @@ func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mutable
 	return nil
 }
 
-//
-//func requireTLSMultiplexing(authnPolicy *authn.Policy) bool {
-//	if authnPolicy == nil {
-//		return false
-//	}
-//	for _, peer := range authnPolicy.Peers {
-//		mtls := peer.GetMtls()
-//		if mtls != nil && mtls.Mode == authn.MutualTls_PERMISSIVE {
-//			return true
-//		}
-//	}
-//	return false
-//}
-//
-//// setupMultiplexing sets up listener filters and two filter chains for tls multiplexing.
-//func setupMultiplexing(mutable *plugin.MutableObjects) error {
-//	if mutable == nil {
-//		return fmt.Errorf("mutable is required non-nil for multiplexing setup")
-//	}
-//	found := false
-//	listener := mutable.Listener
-//	for _, l := range listener.ListenerFilters {
-//		if l.GetName() == "envoy.listener.tls_inspector" {
-//			found = true
-//			break
-//		}
-//	}
-//	if !found {
-//		listener.ListenerFilters = append(listener.ListenerFilters, ldsv2.ListenerFilter{
-//			Name: TLSInspectorFilterName,
-//		})
-//	}
-//	log.Infof("Setting up multiplexing filter chains for %s", listener.Name)
-//	// We apply TLS multiplexing for all filter chains.
-//	newChains := []ldsv2.FilterChain{}
-//	newAppendedChains := []plugin.FilterChain{}
-//	matchProtocol := func(chain *ldsv2.FilterChain, protocol string) {
-//		if chain.FilterChainMatch == nil {
-//			chain.FilterChainMatch = &ldsv2.FilterChainMatch{}
-//		}
-//		chain.FilterChainMatch.TransportProtocol = protocol
-//	}
-//	for i := range listener.FilterChains {
-//		chain := listener.FilterChains[i]
-//		tlsChain := proto.Clone(&chain).(*ldsv2.FilterChain)
-//		matchProtocol(tlsChain, "tls")
-//		matchProtocol(&chain, "raw_buffer")
-//		newChains = append(newChains, chain, *tlsChain)
-//		newAppendedChains = append(newAppendedChains, mutable.FilterChains[i], mutable.FilterChains[i])
-//	}
-//	listener.FilterChains = newChains
-//	mutable.FilterChains = newAppendedChains
-//	return nil
-//}
-
 // OnInboundListener is called whenever a new listener is added to the LDS output for a given service
 // Can be used to add additional filters (e.g., mixer filter) or add more stuff to the HTTP connection manager
 // on the inbound path
@@ -352,16 +297,10 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 	if mutable.Listener == nil || (len(mutable.Listener.FilterChains) != len(mutable.FilterChains)) {
 		return fmt.Errorf("expected same number of filter chains in listener (%d) and mutable (%d)", len(mutable.Listener.FilterChains), len(mutable.FilterChains))
 	}
-	//if requireTLSMultiplexing(authnPolicy) {
-	//	setupMultiplexing(mutable)
-	//}
 	for i := range mutable.Listener.FilterChains {
 		chain := &mutable.Listener.FilterChains[i]
 		if chain.FilterChainMatch != nil && chain.FilterChainMatch.TransportProtocol != "raw_buffer" {
-			log.Infof("jianfeih degbug, yes we apply tlscontext")
 			chain.TlsContext = buildSidecarListenerTLSContext(authnPolicy)
-		} else {
-			log.Infof("jianfeih degbug, yes we do skip for the raw buffer")
 		}
 		if in.ListenerType == plugin.ListenerTypeHTTP {
 			// Adding Jwt filter and authn filter, if needed.
@@ -375,7 +314,6 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 	}
 	return nil
 }
-
 
 func RequireTLSMultiplexing() bool {
 	return false
