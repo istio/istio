@@ -26,7 +26,7 @@ lists are extensible. You can add or remove any rule creator from them.
 # Whitelist
 If, for some reason, you want to disable lint rule for a file, you can add file path and rule ID into 
 [whitelist.go](linter/whitelist.go). Rule ID is the name of that rule file without `.go` extension.
-multiple rule IDs are delimited by comma. You could also specify file path in regex.
+You could also specify file path in regex.
 
 If you don't want to apply any rule to a file path, you can choose `SkipAllRules`.
 
