@@ -1,6 +1,3 @@
-# File path to local registry for e2e tests
-export LOCALREG_FILE=${ISTIO}/tests/util/localregistry/localregistry.yaml
-
 # Test-specific targets, included from top Makefile
 ifeq (${TEST_ENV},minikube)
 
@@ -46,6 +43,19 @@ e2e_docker: push
 
 endif
 
+ifeq ($(REMOTEREG),)
+REG_HUB=$(shell kubectl get service kube-registry -n kube-system -o jsonpath='{.spec.clusterIP}'):5000
+else
+REG_HUB=${HUB}
+endif
+
+LOCAL_OS := $(shell uname)
+ifeq ($(LOCAL_OS),Linux)
+REG_LOCAL = localhost:5000
+else ifeq ($(LOCAL_OS),Darwin)
+REG_LOCAL = docker.for.mac.localhost:5000
+endif
+
 # If set outside, it appears it is not possible to modify the variable.
 E2E_ARGS ?=
 
@@ -56,11 +66,11 @@ DEFAULT_EXTRA_E2E_ARGS += --pilot_tag=${TAG}
 DEFAULT_EXTRA_E2E_ARGS += --proxy_tag=${TAG}
 DEFAULT_EXTRA_E2E_ARGS += --ca_tag=${TAG}
 DEFAULT_EXTRA_E2E_ARGS += --galley_tag=${TAG}
-DEFAULT_EXTRA_E2E_ARGS += --mixer_hub=${HUB}
-DEFAULT_EXTRA_E2E_ARGS += --pilot_hub=${HUB}
-DEFAULT_EXTRA_E2E_ARGS += --proxy_hub=${HUB}
-DEFAULT_EXTRA_E2E_ARGS += --ca_hub=${HUB}
-DEFAULT_EXTRA_E2E_ARGS += --galley_hub=${HUB}
+DEFAULT_EXTRA_E2E_ARGS += --mixer_hub=${REG_HUB}
+DEFAULT_EXTRA_E2E_ARGS += --pilot_hub=${REG_HUB}
+DEFAULT_EXTRA_E2E_ARGS += --proxy_hub=${REG_HUB}
+DEFAULT_EXTRA_E2E_ARGS += --ca_hub=${REG_HUB}
+DEFAULT_EXTRA_E2E_ARGS += --galley_hub=${REG_HUB}
 
 EXTRA_E2E_ARGS ?= ${DEFAULT_EXTRA_E2E_ARGS}
 
@@ -73,32 +83,32 @@ DEFAULT_UPGRADE_E2E_ARGS += --target_version=""
 UPGRADE_E2E_ARGS ?= ${DEFAULT_UPGRADE_E2E_ARGS}
 
 # Simple e2e test using fortio, approx 2 min
-e2e_simple: istioctl generate_yaml localregistry_setup e2e_simple_run
+e2e_simple: test_setup e2e_simple_run
 
-e2e_mixer: istioctl generate_yaml localregistry_setup e2e_mixer_run
+e2e_mixer: test_setup e2e_mixer_run
 
-e2e_dashboard: istioctl generate_yaml localregistry_setup e2e_dashboard_run
+e2e_dashboard: test_setup e2e_dashboard_run
 
-e2e_galley: istioctl generate_yaml localregistry_setup e2e_galley_run
+e2e_galley: test_setup e2e_galley_run
 
-e2e_bookinfo: istioctl generate_yaml localregistry_setup e2e_bookinfo_run
+e2e_bookinfo: test_setup e2e_bookinfo_run
 
-e2e_dashboard: istioctl generate_yaml localregistry_setup e2e_dashboard_run
+e2e_dashboard: test_setup e2e_dashboard_run
 
-e2e_upgrade: istioctl generate_yaml localregistry_setup e2e_upgrade_run
+e2e_upgrade: test_setup e2e_upgrade_run
 
-e2e_version_skew: istioctl generate_yaml localregistry_setup e2e_version_skew_run
+e2e_version_skew: test_setup e2e_version_skew_run
 
-e2e_all: istioctl generate_yaml localregistry_setup e2e_all_run
+e2e_all: test_setup e2e_all_run
+
+test_setup: istioctl generate_yaml localregistry_setup
 
 # deploy local registry pod, build and push images
 localregistry_setup:
-ifeq ($(LOCALREG),true)
-	echo "Deploying local registry onto cluster..."
-	kubectl apply -f ${LOCALREG_FILE}
-	sh ${ISTIO}/tests/check_localregistry.sh
-	GOOS=linux make docker
-	GOOS=linux make docker.push
+ifeq ($(REMOTEREG),)
+	. ${ISTIO}/istio/tests/e2e/local/setup_localregistry.sh
+	GOOS=linux HUB=${REG_LOCAL} make docker push
+	ps aux | grep -q "[p]ort-forward.*5000" | awk '{ print $$2 }' | xargs kill
 endif
 
 # *_run targets do not rebuild the artifacts and test with whatever is given

@@ -9,7 +9,20 @@ Developers, on the other hand, are recommended to run the tests locally before s
 
 # Running E2E Tests
 
-### Using a local VM
+Image registry option:
+
+1. [In-cluster registry](/local/localregistry) 
+This is the default setup for e2e tests.
+*MacOS ONLY*
+Add `docker.for.mac.localhost:5000` to insecure registries in the docker daemon setting.
+
+2. Remote registry
+Set the REMOTEREG var to disable the local registry.
+```shell
+export REMOTEREG=true
+```
+
+## Using a local VM
 E2E tests can be run on your local machines. It helps local testing and debuging. You can use one of the following to set up a local testing environment.
 
 1. See [vagrant/README](local/vagrant/README.md) for instructions to set up a local Vagrant VM environment to run E2E tests.
@@ -19,13 +32,11 @@ E2E tests can be run on your local machines. It helps local testing and debuging
 All lcoal testing options requires the `--use-local-cluster` flag so the framework will not create a LoadBalancer and talk directly to the Pod running istio-ingress.
 
 
-### Using GKE
+## Using GKE
 Optionally, you can set up a GKE environment to run the E2E tests. See [instructions](UsingGKE.md).
 
-### Using Bluemix
 
-
-### Using CI (PR pre-submit stage)
+## Using CI (PR pre-submit stage)
 You can send a PR to trigger all E2E tests in CI, but you should run these tests locally before sending it out to avoid wasting valuable and shared CI resources.
 
 By default, CI does not run all GKE based E2E tests in pre-submit, but they are be triggered manually using the following commands after "prow/istio-presubmit" completes and has generated the required artifacts for testing.

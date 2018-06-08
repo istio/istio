@@ -242,7 +242,10 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 	}
 
 	a := NewAppManager(tmpDir, *namespace, i, kubeConfig)
-	l := NewLocalRegistry(localRegistryNamespace, i, localRegistryFile, kubeConfig, *localRegistryHub, *localRegistryTag)
+	var l *LocalRegistry
+	if os.Getenv("REMOTEREG") != "true" {
+		l = NewLocalRegistry(localRegistryNamespace, i, localRegistryFile, kubeConfig, os.Getenv("HUB"), os.Getenv("TAG"))
+	}
 
 	clusters := make(map[string]string)
 	appPods := make(map[string]*appPodsInfo)
