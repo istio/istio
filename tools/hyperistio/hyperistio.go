@@ -148,7 +148,7 @@ func startPilot() error {
 	args := bootstrap.PilotArgs{
 		Namespace: "testing",
 		DiscoveryOptions: envoy.DiscoveryServiceOptions{
-			Port:            15007,
+			HTTPAddr:        ":15007",
 			GrpcAddr:        ":15010",
 			SecureGrpcAddr:  ":15011",
 			EnableCaching:   true,

@@ -46,7 +46,7 @@ func addMonitor(mux *http.ServeMux) {
 
 // Deprecated: we shouldn't have 2 http ports. Will be removed after code using
 // this port is removed.
-func startMonitor(port int, mux *http.ServeMux) (*monitor, error) {
+func startMonitor(addr string, mux *http.ServeMux) (*monitor, net.Addr, error) {
 	m := &monitor{
 		shutdown: make(chan struct{}),
 	}
@@ -54,8 +54,8 @@ func startMonitor(port int, mux *http.ServeMux) (*monitor, error) {
 	// get the network stuff setup
 	var listener net.Listener
 	var err error
-	if listener, err = net.Listen("tcp", fmt.Sprintf(":%d", port)); err != nil {
-		return nil, fmt.Errorf("unable to listen on socket: %v", err)
+	if listener, err = net.Listen("tcp", addr); err != nil {
+		return nil, nil, fmt.Errorf("unable to listen on socket: %v", err)
 	}
 
 	// NOTE: this is a temporary solution to provide bare-bones debug functionality
@@ -78,7 +78,7 @@ func startMonitor(port int, mux *http.ServeMux) (*monitor, error) {
 	// Serve, the call may be ignored and Serve never returns.
 	<-m.shutdown
 
-	return m, nil
+	return m, listener.Addr(), nil
 }
 
 func (m *monitor) Close() error {
