@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/golang/protobuf/proto"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	mccpb "istio.io/api/mixer/v1/config/client"
@@ -76,6 +77,9 @@ type ConfigMeta struct {
 	// An empty revision carries a special meaning that the associated object has
 	// not been stored and assigned a revision.
 	ResourceVersion string `json:"resourceVersion,omitempty"`
+
+	// CreationTimestamp is the time the configuration resource was first created
+	CreationTimestamp meta_v1.Time `json:"resourceVersion,omitempty"`
 }
 
 // Config is a configuration unit consisting of the type of configuration, the

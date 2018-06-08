@@ -24,6 +24,7 @@ import (
 	"sort"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/ghodss/yaml"
 	multierror "github.com/hashicorp/go-multierror"
@@ -34,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/util/duration"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	// import all known client auth plugins
@@ -656,14 +658,14 @@ func printShortOutput(writer io.Writer, _ model.ConfigStore, configList []model.
 
 	var w tabwriter.Writer
 	w.Init(writer, 10, 4, 3, ' ', 0)
-	fmt.Fprintf(&w, "NAME\tKIND\tNAMESPACE\n")
+	fmt.Fprintf(&w, "NAME\tKIND\tNAMESPACE\tAGE\n")
 	for _, c := range configList {
 		kind := fmt.Sprintf("%s.%s.%s",
 			crd.KabobCaseToCamelCase(c.Type),
 			c.Group,
 			c.Version,
 		)
-		fmt.Fprintf(&w, "%s\t%s\t%s\n", c.Name, kind, c.Namespace)
+		fmt.Fprintf(&w, "%s\t%s\t%s\t%s\n", c.Name, kind, c.Namespace, renderTime(c.CreationTimestamp))
 	}
 	w.Flush() // nolint: errcheck
 }
@@ -844,4 +846,12 @@ func handleNamespaces(objectNamespace string) (string, error) {
 		return objectNamespace, nil
 	}
 	return defaultNamespace, nil
+}
+
+func renderTime(ts metav1.Time) string {
+	if ts.IsZero() {
+		return "<unknown>"
+	}
+
+	return duration.ShortHumanDuration(time.Since(ts.Time))
 }
