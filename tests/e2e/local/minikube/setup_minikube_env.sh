@@ -11,9 +11,10 @@ if [ $? -ne 0 ]; then
         exit 1
     fi
 fi
+echo "Port Forwarding is Setup"
 
 # Check if minikube docker environment is setup.
-docker info | grep "localhost:5000"
+docker info | grep "localhost:5000" > /dev/null
 if [ $? -ne 0 ]; then
     echo "Minikube docker environment not setup. Trying to set it up."
     eval $(minikube docker-env)
@@ -22,3 +23,4 @@ if [ $? -ne 0 ]; then
         exit 1
     fi
 fi
+echo "Minikube docker environment is setup for this shell"
