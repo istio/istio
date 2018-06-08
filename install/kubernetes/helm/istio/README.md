@@ -73,7 +73,6 @@ Helm charts expose configuration options which are currently in alpha.  The curr
 | `global.imagePullPolicy` | Specifies the image pull policy | valid image pull policy | `IfNotPresent` |
 | `global.controlPlaneSecurityEnabled` | Specifies whether control plane mTLS is enabled | true/false | `false` |
 | `global.mtls.enabled` | Specifies whether mTLS is enabled by default between services | true/false | `false` |
-| `global.mtls.mtlsExcludedServices` | List of FQDNs to exclude from mTLS | a list of FQDNs | `- kubernetes.default.svc.cluster.local` |
 | `global.rbacEnabled` | Specifies whether to create Istio RBAC rules or not | true/false | `true` |
 | `global.refreshInterval` | Specifies the mesh discovery refresh interval | integer followed by s | `10s` |
 | `global.arch.amd64` | Specifies the scheduling policy for `amd64` architectures | 0 = never, 1 = least preferred, 2 = no preference, 3 = most preferred | `2` |
