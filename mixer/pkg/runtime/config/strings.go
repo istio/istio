@@ -44,13 +44,13 @@ func (s *Snapshot) String() string {
 	writeAdapters(b, s.Adapters)
 
 	fmt.Fprintln(b, "Handlers:")
-	writeHandlers(b, s.HandlersLegacy)
+	writeHandlers(b, s.HandlersStatic)
 
 	fmt.Fprintln(b, "Instances:")
-	writeInstances(b, s.InstancesLegacy)
+	writeInstances(b, s.InstancesStatic)
 
 	fmt.Fprintln(b, "Rules:")
-	writeRules(b, s.RulesLegacy)
+	writeRules(b, s.Rules)
 
 	if len(s.AdapterMetadatas) != 0 {
 		fmt.Fprintln(b, "AdapterMetadata:")
@@ -100,7 +100,7 @@ func writeAdapters(w io.Writer, adapters map[string]*adapter.Info) {
 	}
 }
 
-func writeHandlers(w io.Writer, handlers map[string]*HandlerLegacy) {
+func writeHandlers(w io.Writer, handlers map[string]*HandlerStatic) {
 	i := 0
 	names := make([]string, len(handlers))
 	for n := range handlers {
@@ -122,7 +122,7 @@ func writeHandlers(w io.Writer, handlers map[string]*HandlerLegacy) {
 	}
 }
 
-func writeInstances(w io.Writer, instances map[string]*InstanceLegacy) {
+func writeInstances(w io.Writer, instances map[string]*InstanceStatic) {
 	i := 0
 	names := make([]string, len(instances))
 	for n := range instances {
@@ -144,9 +144,9 @@ func writeInstances(w io.Writer, instances map[string]*InstanceLegacy) {
 	}
 }
 
-func writeRules(w io.Writer, rules []*RuleLegacy) {
+func writeRules(w io.Writer, rules []*Rule) {
 	names := make([]string, len(rules))
-	m := make(map[string]*RuleLegacy, len(rules))
+	m := make(map[string]*Rule, len(rules))
 	for i, r := range rules {
 		names[i] = r.Name
 		m[r.Name] = r
@@ -169,7 +169,7 @@ func writeRules(w io.Writer, rules []*RuleLegacy) {
 		fmt.Fprintln(w)
 
 		fmt.Fprintln(w, "  Actions:")
-		writeActions(w, r.Actions)
+		writeActions(w, r.ActionsStatic)
 	}
 }
 
@@ -206,7 +206,7 @@ func writeTemplateMetadatas(w io.Writer, templates map[string]*TemplateMetadata)
 	}
 }
 
-func writeActions(w io.Writer, actions []*ActionLegacy) {
+func writeActions(w io.Writer, actions []*ActionStatic) {
 	// write actions without sorting. This should be acceptable, as the action order within an order is
 	// based on the order on the original content. This is stricter than simple-equality, but should be good enough
 	// for testing purposes.
