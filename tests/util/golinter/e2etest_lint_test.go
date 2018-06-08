@@ -24,11 +24,11 @@ import (
 
 func TestE2eTestSkipByIssueRule(t *testing.T) {
 	clearLintRulesList()
-	linter.LintRulesList[linter.E2eTest] = []rules.LintRule{rules.NewSkipByIssueRule()}
+	linter.LintRulesList[linter.E2eTest] = []rules.LintRule{rules.NewSkipByIssue()}
 
 	rpts := getReport([]string{"testdata/"})
 	expectedRpts := []string{
-		getAbsPath("testdata/e2e/e2e_test.go") + ":9:2:Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue.",
+		getAbsPath("testdata/e2e/e2e_test.go") + ":11:2:Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue.",
 	}
 
 	if !reflect.DeepEqual(rpts, expectedRpts) {
@@ -38,13 +38,13 @@ func TestE2eTestSkipByIssueRule(t *testing.T) {
 
 func TestE2eTestSkipByShortRule(t *testing.T) {
 	clearLintRulesList()
-	linter.LintRulesList[linter.E2eTest] = []rules.LintRule{rules.NewSkipByShortRule()}
+	linter.LintRulesList[linter.E2eTest] = []rules.LintRule{rules.NewSkipByShort()}
 
 	rpts := getReport([]string{"testdata/"})
 	expectedRpts := []string{getAbsPath("testdata/e2e/e2e_test.go") +
-		":8:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'",
+		":10:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'",
 		getAbsPath("testdata/e2e/e2e_test.go") +
-			":23:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'"}
+			":25:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'"}
 
 	if !reflect.DeepEqual(rpts, expectedRpts) {
 		t.Errorf("lint reports don't match\nReceived: %v\nExpected: %v", rpts, expectedRpts)

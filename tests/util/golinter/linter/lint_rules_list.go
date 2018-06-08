@@ -22,17 +22,17 @@ import (
 // list of lint rules to each type of tests.
 var LintRulesList = map[TestType][]rules.LintRule{
 	UnitTest: { // list of rules which should apply to unit test file
-		rules.NewSkipByIssueRule(),
-		rules.NewNoGoroutineRule(),
-		rules.NewNoSleepRule(),
-		rules.NewNoShortRule(),
+		rules.NewSkipByIssue(),
+		rules.NewNoGoroutine(),
+		rules.NewNoSleep(),
+		rules.NewNoShort(),
 	},
 	IntegTest: { // list of rules which should apply to integration test file
-		rules.NewSkipByIssueRule(),
-		rules.NewSkipByShortRule(),
+		rules.NewSkipByIssue(),
+		rules.NewSkipByShort(),
 	},
 	E2eTest: { // list of rules which should apply to e2e test file
-		rules.NewSkipByIssueRule(),
-		rules.NewSkipByShortRule(),
+		rules.NewSkipByIssue(),
+		rules.NewSkipByShort(),
 	},
 }

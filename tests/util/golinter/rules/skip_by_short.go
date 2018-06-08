@@ -20,7 +20,7 @@ import (
 	"strings"
 )
 
-// SkipByShortRule requires that a test function should have one of these pattern.
+// SkipByShort requires that a test function should have one of these pattern.
 // Pattern 1
 // func TestA(t *testing.T) {
 //   if !testing.Short() {
@@ -35,15 +35,15 @@ import (
 //   }
 //   ...
 // }
-type SkipByShortRule struct{}
+type SkipByShort struct{}
 
-// NewSkipByShortRule creates and returns a SkipByShortRule object.
-func NewSkipByShortRule() *SkipByShortRule {
-	return &SkipByShortRule{}
+// NewSkipByShort creates and returns a SkipByShort object.
+func NewSkipByShort() *SkipByShort {
+	return &SkipByShort{}
 }
 
 // GetID returns skip_by_short_rule.
-func (lr *SkipByShortRule) GetID() string {
+func (lr *SkipByShort) GetID() string {
 	return getCallerFileName()
 }
 
@@ -62,7 +62,7 @@ func (lr *SkipByShortRule) GetID() string {
 //	}
 //	...
 // }
-func (lr *SkipByShortRule) Check(aNode ast.Node, fs *token.FileSet, lrp *LintReporter) {
+func (lr *SkipByShort) Check(aNode ast.Node, fs *token.FileSet, lrp *LintReporter) {
 	if fn, isFn := aNode.(*ast.FuncDecl); isFn && strings.HasPrefix(fn.Name.Name, "Test") {
 		if len(fn.Body.List) == 0 {
 			lrp.AddReport(aNode.Pos(), fs, "Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'")

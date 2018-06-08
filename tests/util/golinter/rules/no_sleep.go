@@ -19,21 +19,21 @@ import (
 	"go/token"
 )
 
-// NoSleepRule requires that time.Sleep() is not allowed.
-type NoSleepRule struct{}
+// NoSleep requires that time.Sleep() is not allowed.
+type NoSleep struct{}
 
-// NewNoSleepRule creates and returns a NoSleepRule object.
-func NewNoSleepRule() *NoSleepRule {
-	return &NoSleepRule{}
+// NewNoSleep creates and returns a NoSleep object.
+func NewNoSleep() *NoSleep {
+	return &NoSleep{}
 }
 
 // GetID returns no_sleep_rule.
-func (lr *NoSleepRule) GetID() string {
+func (lr *NoSleep) GetID() string {
 	return getCallerFileName()
 }
 
 // Check verifies if aNode is not time.Sleep. If verification fails lrp creates a new report.
-func (lr *NoSleepRule) Check(aNode ast.Node, fs *token.FileSet, lrp *LintReporter) {
+func (lr *NoSleep) Check(aNode ast.Node, fs *token.FileSet, lrp *LintReporter) {
 	if ce, ok := aNode.(*ast.CallExpr); ok {
 		if matchCallExpr(ce, "time", "Sleep") {
 			lrp.AddReport(ce.Pos(), fs, "time.Sleep() is disallowed.")

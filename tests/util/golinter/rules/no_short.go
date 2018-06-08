@@ -19,22 +19,24 @@ import (
 	"go/token"
 )
 
-// NoGoroutineRule requires that go f(x, y, z) is not allowed.
-type NoGoroutineRule struct{}
+// NoShort requires that testing.Short() is not allowed.
+type NoShort struct{}
 
-// NewNoGoroutineRule creates and returns a NoGoroutineRule object.
-func NewNoGoroutineRule() *NoGoroutineRule {
-	return &NoGoroutineRule{}
+// NewNoShort creates and returns a NoShort object.
+func NewNoShort() *NoShort {
+	return &NoShort{}
 }
 
-// GetID returns no_goroutine_rule.
-func (lr *NoGoroutineRule) GetID() string {
+// GetID returns no_short_rule.
+func (lr *NoShort) GetID() string {
 	return getCallerFileName()
 }
 
-// Check verifies if aNode is not goroutine. If verification fails lrp creates new report.
-func (lr *NoGoroutineRule) Check(aNode ast.Node, fs *token.FileSet, lrp *LintReporter) {
-	if gs, ok := aNode.(*ast.GoStmt); ok {
-		lrp.AddReport(gs.Pos(), fs, "goroutine is disallowed.")
+// Check verifies if aNode is not testing.Short(). If verification lrp creates new report.
+func (lr *NoShort) Check(aNode ast.Node, fs *token.FileSet, lrp *LintReporter) {
+	if ce, ok := aNode.(*ast.CallExpr); ok {
+		if matchCallExpr(ce, "testing", "Short") {
+			lrp.AddReport(ce.Pos(), fs, "testing.Short() is disallowed.")
+		}
 	}
 }

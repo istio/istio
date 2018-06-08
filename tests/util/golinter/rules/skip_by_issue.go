@@ -19,24 +19,24 @@ import (
 	"go/token"
 )
 
-// SkipByIssueRule requires that a `t.Skip()` call in test function should contain url to a issue.
+// SkipByIssue requires that a `t.Skip()` call in test function should contain url to a issue.
 // This helps to keep tracking of the issue that causes a test to be skipped.
 // For example, this is a valid call,
 // t.Skip("https://github.com/istio/istio/issues/6012")
 // t.SkipNow() and t.Skipf() are not allowed.
-type SkipByIssueRule struct {
+type SkipByIssue struct {
 	skipArgsRegex string // Defines arg in t.Skip() that should match.
 }
 
-// NewSkipByIssueRule creates and returns a SkipByIssueRule object.
-func NewSkipByIssueRule() *SkipByIssueRule {
-	return &SkipByIssueRule{
+// NewSkipByIssue creates and returns a SkipByIssue object.
+func NewSkipByIssue() *SkipByIssue {
+	return &SkipByIssue{
 		skipArgsRegex: `https:\/\/github\.com\/istio\/istio\/issues\/[0-9]+`,
 	}
 }
 
 // GetID returns skip_by_issue_rule.
-func (lr *SkipByIssueRule) GetID() string {
+func (lr *SkipByIssue) GetID() string {
 	return getCallerFileName()
 }
 
@@ -47,7 +47,7 @@ func (lr *SkipByIssueRule) GetID() string {
 // t.Skip("https://istio.io/"),
 // t.SkipNow(),
 // t.Skipf("https://istio.io/%d", x).
-func (lr *SkipByIssueRule) Check(aNode ast.Node, fs *token.FileSet, lrp *LintReporter) {
+func (lr *SkipByIssue) Check(aNode ast.Node, fs *token.FileSet, lrp *LintReporter) {
 	if fn, isFn := aNode.(*ast.FuncDecl); isFn {
 		for _, bd := range fn.Body.List {
 			if ok, _ := matchFunc(bd, "t", "SkipNow"); ok {

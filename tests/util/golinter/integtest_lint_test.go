@@ -24,12 +24,12 @@ import (
 
 func TestIntegTestSkipByIssueRule(t *testing.T) {
 	clearLintRulesList()
-	linter.LintRulesList[linter.IntegTest] = []rules.LintRule{rules.NewSkipByIssueRule()}
+	linter.LintRulesList[linter.IntegTest] = []rules.LintRule{rules.NewSkipByIssue()}
 
 	rpts := getReport([]string{"testdata/"})
 	expectedRpts := []string{
-		getAbsPath("testdata/integ/integtest_test.go") + ":9:2:Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue.",
-		getAbsPath("testdata/integtest_integ_test.go") + ":9:2:Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue."}
+		getAbsPath("testdata/integ/integtest_test.go") + ":11:2:Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue.",
+		getAbsPath("testdata/integtest_integ_test.go") + ":11:2:Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue."}
 
 	if !reflect.DeepEqual(rpts, expectedRpts) {
 		t.Errorf("lint reports don't match\nReceived: %v\nExpected: %v", rpts, expectedRpts)
@@ -38,17 +38,17 @@ func TestIntegTestSkipByIssueRule(t *testing.T) {
 
 func TestIntegTestSkipByShortRule(t *testing.T) {
 	clearLintRulesList()
-	linter.LintRulesList[linter.IntegTest] = []rules.LintRule{rules.NewSkipByShortRule()}
+	linter.LintRulesList[linter.IntegTest] = []rules.LintRule{rules.NewSkipByShort()}
 
 	rpts := getReport([]string{"testdata/"})
 	expectedRpts := []string{getAbsPath("testdata/integ/integtest_test.go") +
-		":8:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'",
+		":10:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'",
 		getAbsPath("testdata/integ/integtest_test.go") +
-			":23:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'",
+			":25:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'",
 		getAbsPath("testdata/integtest_integ_test.go") +
-			":8:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'",
+			":10:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'",
 		getAbsPath("testdata/integtest_integ_test.go") +
-			":23:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'"}
+			":25:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'"}
 
 	if !reflect.DeepEqual(rpts, expectedRpts) {
 		t.Errorf("lint reports don't match\nReceived: %v\nExpected: %v", rpts, expectedRpts)
