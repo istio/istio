@@ -39,7 +39,7 @@ const (
 )
 
 func makeClient(t *testing.T, desc model.ConfigDescriptor) (*crd.Client, error) {
-	cl, err := crd.NewClient("", desc, "")
+	cl, err := crd.NewClient("", "", desc, "")
 	if err != nil {
 		return nil, err
 	}

@@ -17,7 +17,9 @@ package config
 import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
+	"github.com/gogo/protobuf/types"
 
+	adptTmpl "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/lang/ast"
@@ -38,38 +40,37 @@ type (
 		// Config store based information
 		Attributes ast.AttributeDescriptorFinder
 
-		HandlersLegacy  map[string]*HandlerLegacy
-		InstancesLegacy map[string]*InstanceLegacy
-		RulesLegacy     []*RuleLegacy
+		HandlersStatic  map[string]*HandlerStatic
+		InstancesStatic map[string]*InstanceStatic
 
 		//  TemplateMetadatas contains template descriptors loaded from the store
 		TemplateMetadatas map[string]*TemplateMetadata
 		//  AdapterMetadatas contains adapter metadata loaded from the store
 		AdapterMetadatas map[string]*AdapterMetadata
 
-		Handlers  map[string]*Handler
-		Instances map[string]*Instance
-		Rules     []*Rule
+		HandlersDynamic  map[string]*HandlerDynamic
+		InstancesDynamic map[string]*InstanceDynamic
+		Rules            []*Rule
 
 		// Perf Counters relevant to configuration.
 		Counters Counters
 	}
 
-	// Handler configuration. Fully resolved.
-	Handler struct {
+	// HandlerDynamic configuration for dynamically loaded, grpc adapters. Fully resolved.
+	HandlerDynamic struct {
 		Name string
 
 		Adapter *Adapter
 
-		// parameters used to construct the Handler.
-		Params []byte
+		// AdapterConfig used to construct the Handler. This is passed in verbatim to the remote adapter.
+		AdapterConfig *types.Any
 
 		// Connection information for the handler.
 		Connection *v1beta1.Connection
 	}
 
-	// HandlerLegacy configuration. Fully resolved.
-	HandlerLegacy struct {
+	// HandlerStatic configuration for compiled in adapters. Fully resolved.
+	HandlerStatic struct {
 
 		// Name of the Handler. Fully qualified.
 		Name string
@@ -81,18 +82,18 @@ type (
 		Params proto.Message
 	}
 
-	// Instance configuration. Fully resolved.
-	Instance struct {
+	// InstanceDynamic configuration for dynamically loaded templates. Fully resolved.
+	InstanceDynamic struct {
 		Name string
 
 		Template *Template
 
 		// Encoder to create request instance bytes from attributes
-		Encoder *dynamic.Encoder
+		Encoder dynamic.Encoder
 	}
 
-	// InstanceLegacy configuration. Fully resolved.
-	InstanceLegacy struct {
+	// InstanceStatic configuration for compiled templates. Fully resolved.
+	InstanceStatic struct {
 		// Name of the instance. Fully qualified.
 		Name string
 
@@ -108,15 +109,6 @@ type (
 
 	// Rule configuration. Fully resolved.
 	Rule struct {
-		Name         string
-		Namespace    string
-		Match        string
-		Actions      []*Action
-		ResourceType ResourceType
-	}
-
-	// RuleLegacy configuration. Fully resolved.
-	RuleLegacy struct {
 		// Name of the rule
 		Name string
 
@@ -126,26 +118,28 @@ type (
 		// Match condition
 		Match string
 
-		Actions []*ActionLegacy
+		ActionsDynamic []*ActionDynamic
+
+		ActionsStatic []*ActionStatic
 
 		ResourceType ResourceType
 	}
 
-	// Action configuration. Fully resolved.
-	Action struct {
+	// ActionDynamic configuration. Fully resolved.
+	ActionDynamic struct {
 		// Handler that this action is resolved to.
-		Handler *Handler
+		Handler *HandlerDynamic
 		// Instances that should be generated as part of invoking action.
-		Instances []*Instance
+		Instances []*InstanceDynamic
 	}
 
-	// ActionLegacy configuration. Fully resolved.
-	ActionLegacy struct {
+	// ActionStatic configuration. Fully resolved.
+	ActionStatic struct {
 		// Handler that this action is resolved to.
-		Handler *HandlerLegacy
+		Handler *HandlerStatic
 
 		// Instances that should be generated as part of invoking action.
-		Instances []*InstanceLegacy
+		Instances []*InstanceStatic
 	}
 
 	// Template contains info about a template
@@ -155,6 +149,9 @@ type (
 		// Note this is the template's resource name and not the template's internal name that adapter developer
 		// uses to implement adapter service.
 		Name string
+
+		// Variety of this template
+		Variety adptTmpl.TemplateVariety
 
 		// InternalPackageDerivedName is the name of the template from adapter developer point of view.
 		// The service and functions implemented by the adapter is based on this name
@@ -178,7 +175,7 @@ type (
 		// package name of the `Params` message
 		PackageName string
 
-		SupportedTemplates []Template
+		SupportedTemplates []*Template
 
 		SessionBased bool
 
@@ -189,8 +186,8 @@ type (
 // Empty returns a new, empty configuration snapshot.
 func Empty() *Snapshot {
 	return &Snapshot{
-		ID:          -1,
-		RulesLegacy: []*RuleLegacy{},
-		Counters:    newCounters(-1),
+		ID:       -1,
+		Rules:    []*Rule{},
+		Counters: newCounters(-1),
 	}
 }

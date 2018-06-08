@@ -36,12 +36,12 @@ var a2 = &adapter.Info{Name: "a2"}
 
 var t1 = &template.Info{Name: "t1"}
 
-var h1 = &HandlerLegacy{Name: "h1", Adapter: a1}
-var h2 = &HandlerLegacy{Name: "h2", Adapter: a2}
+var h1 = &HandlerStatic{Name: "h1", Adapter: a1}
+var h2 = &HandlerStatic{Name: "h2", Adapter: a2}
 
-var i1 = &InstanceLegacy{Name: "i1", Template: t1}
-var i2 = &InstanceLegacy{Name: "i2", Template: t1}
-var i3 = &InstanceLegacy{Name: "i3", Template: t1}
+var i1 = &InstanceStatic{Name: "i1", Template: t1}
+var i2 = &InstanceStatic{Name: "i2", Template: t1}
+var i3 = &InstanceStatic{Name: "i3", Template: t1}
 
 // builds a base configuration with no rules.
 func buildBaseConfig() *Snapshot {
@@ -54,19 +54,19 @@ func buildBaseConfig() *Snapshot {
 		t1.Name: t1,
 	}
 
-	s.HandlersLegacy = make(map[string]*HandlerLegacy, 2)
-	s.HandlersLegacy[h1.Name] = h1
-	s.HandlersLegacy[h2.Name] = h2
+	s.HandlersStatic = make(map[string]*HandlerStatic, 2)
+	s.HandlersStatic[h1.Name] = h1
+	s.HandlersStatic[h2.Name] = h2
 
-	s.InstancesLegacy = make(map[string]*InstanceLegacy, 3)
-	s.InstancesLegacy[i1.Name] = i1
-	s.InstancesLegacy[i2.Name] = i2
-	s.InstancesLegacy[i3.Name] = i3
+	s.InstancesStatic = make(map[string]*InstanceStatic, 3)
+	s.InstancesStatic[i1.Name] = i1
+	s.InstancesStatic[i2.Name] = i2
+	s.InstancesStatic[i3.Name] = i3
 
 	return s
 }
 
-func assertEqualGrouping(t *testing.T, expected map[*HandlerLegacy][]*InstanceLegacy, actual map[*HandlerLegacy][]*InstanceLegacy) {
+func assertEqualGrouping(t *testing.T, expected map[*HandlerStatic][]*InstanceStatic, actual map[*HandlerStatic][]*InstanceStatic) {
 	// sort the instances, so that they have stable ordering matches.
 	sortInstances(expected)
 	sortInstances(actual)
@@ -76,10 +76,10 @@ func assertEqualGrouping(t *testing.T, expected map[*HandlerLegacy][]*InstanceLe
 	}
 }
 
-func sortInstances(m map[*HandlerLegacy][]*InstanceLegacy) {
+func sortInstances(m map[*HandlerStatic][]*InstanceStatic) {
 	for _, v := range m {
 		names := make([]string, 0, len(v))
-		instancesByName := make(map[string]*InstanceLegacy)
+		instancesByName := make(map[string]*InstanceStatic)
 		for _, s := range v {
 			names = append(names, s.Name)
 			instancesByName[s.Name] = s
@@ -107,19 +107,19 @@ func TestGetInstancesGroupedByHandlers_SingleRuleRef(t *testing.T) {
 	s := buildBaseConfig()
 
 	// single rule referencing the instance.
-	s.RulesLegacy = append(s.RulesLegacy,
-		&RuleLegacy{
+	s.Rules = append(s.Rules,
+		&Rule{
 			Name: "r1",
-			Actions: []*ActionLegacy{
+			ActionsStatic: []*ActionStatic{
 				{
 					Handler:   h1,
-					Instances: []*InstanceLegacy{i1},
+					Instances: []*InstanceStatic{i1},
 				},
 			},
 		})
 
 	// The adapter should be referenced by the single instance
-	expected := map[*HandlerLegacy][]*InstanceLegacy{
+	expected := map[*HandlerStatic][]*InstanceStatic{
 		h1: {i1},
 	}
 
@@ -130,28 +130,28 @@ func TestGetInstancesGroupedByHandlers_SingleRuleRef(t *testing.T) {
 func TestGetInstancesGroupedByHandlers_MultiRuleRef(t *testing.T) {
 	s := buildBaseConfig()
 
-	s.RulesLegacy = append(s.RulesLegacy,
-		&RuleLegacy{
+	s.Rules = append(s.Rules,
+		&Rule{
 			Name: "r1",
-			Actions: []*ActionLegacy{
+			ActionsStatic: []*ActionStatic{
 				{
 					Handler:   h1,
-					Instances: []*InstanceLegacy{i1},
+					Instances: []*InstanceStatic{i1},
 				},
 			},
 		},
-		&RuleLegacy{
+		&Rule{
 			Name: "r2",
-			Actions: []*ActionLegacy{
+			ActionsStatic: []*ActionStatic{
 				{
 					Handler:   h1,
-					Instances: []*InstanceLegacy{i1},
+					Instances: []*InstanceStatic{i1},
 				},
 			},
 		})
 
 	// Multiple rules referencing the same handler using the same instance.
-	expected := map[*HandlerLegacy][]*InstanceLegacy{
+	expected := map[*HandlerStatic][]*InstanceStatic{
 		h1: {i1},
 	}
 
@@ -162,28 +162,28 @@ func TestGetInstancesGroupedByHandlers_MultiRuleRef(t *testing.T) {
 func TestGetInstancesGroupedByHandlers_MultipleInstances_SingleHandler(t *testing.T) {
 	s := buildBaseConfig()
 
-	s.RulesLegacy = append(s.RulesLegacy,
-		&RuleLegacy{
+	s.Rules = append(s.Rules,
+		&Rule{
 			Name: "r1",
-			Actions: []*ActionLegacy{
+			ActionsStatic: []*ActionStatic{
 				{
 					Handler:   h1,
-					Instances: []*InstanceLegacy{i1, i2},
+					Instances: []*InstanceStatic{i1, i2},
 				},
 			},
 		},
-		&RuleLegacy{
+		&Rule{
 			Name: "r2",
-			Actions: []*ActionLegacy{
+			ActionsStatic: []*ActionStatic{
 				{
 					Handler:   h1,
-					Instances: []*InstanceLegacy{i2, i3},
+					Instances: []*InstanceStatic{i2, i3},
 				},
 			},
 		})
 
 	// Multiple instances in multiple rules referencing the same handler.
-	expected := map[*HandlerLegacy][]*InstanceLegacy{
+	expected := map[*HandlerStatic][]*InstanceStatic{
 		h1: {i1, i2, i3},
 	}
 
@@ -195,28 +195,28 @@ func TestGetInstancesGroupedByHandlers_Multiple(t *testing.T) {
 	s := buildBaseConfig()
 
 	// Multiple instances in multiple rules referencing different handlers.
-	s.RulesLegacy = append(s.RulesLegacy,
-		&RuleLegacy{
+	s.Rules = append(s.Rules,
+		&Rule{
 			Name: "r1",
-			Actions: []*ActionLegacy{
+			ActionsStatic: []*ActionStatic{
 				{
 					Handler:   h1,
-					Instances: []*InstanceLegacy{i1, i2},
+					Instances: []*InstanceStatic{i1, i2},
 				},
 			},
 		},
-		&RuleLegacy{
+		&Rule{
 			Name: "r2",
-			Actions: []*ActionLegacy{
+			ActionsStatic: []*ActionStatic{
 				{
 					Handler:   h2,
-					Instances: []*InstanceLegacy{i2, i3},
+					Instances: []*InstanceStatic{i2, i3},
 				},
 			},
 		})
 
 	// Multiple instances in multiple rules referencing different handlers.
-	expected := map[*HandlerLegacy][]*InstanceLegacy{
+	expected := map[*HandlerStatic][]*InstanceStatic{
 		h1: {i1, i2},
 		h2: {i2, i3},
 	}

@@ -58,8 +58,9 @@ var (
 	}
 
 	rootCmd = &cobra.Command{
-		Use:   "sidecar-injector",
-		Short: "Kubernetes webhook for automatic Istio sidecar injection",
+		Use:          "sidecar-injector",
+		Short:        "Kubernetes webhook for automatic Istio sidecar injection",
+		SilenceUsage: true,
 		RunE: func(*cobra.Command, []string) error {
 			if err := log.Configure(flags.loggingOptions); err != nil {
 				return err

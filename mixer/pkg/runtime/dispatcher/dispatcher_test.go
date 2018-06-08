@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	rpc "github.com/gogo/googleapis/google/rpc"
+	"github.com/gogo/googleapis/google/rpc"
 
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/mixer/pkg/runtime/handler"
 	"istio.io/istio/mixer/pkg/runtime/routing"
 	"istio.io/istio/mixer/pkg/runtime/testing/data"
-	"istio.io/istio/mixer/pkg/status"
 	"istio.io/istio/pkg/log"
 )
 
@@ -393,9 +392,7 @@ ident                         : dest.istio-system
 			DeduplicationID: "42",
 			Amount:          64,
 		},
-		expectedQuotaResult: adapter.QuotaResult{
-			Status: status.WithInvalidArgument("Requested quota `XXX` is invalid"),
-		},
+		err: `requested quota 'XXX' is invalid`,
 	},
 
 	{
@@ -784,7 +781,7 @@ func TestDispatcher(t *testing.T) {
 			if tst.err != "" {
 				if err == nil {
 					tt.Fatalf("expected error was not thrown")
-				} else if strings.TrimSpace(tst.err) != strings.TrimSpace(err.Error()) {
+				} else if strings.TrimSpace(tst.err) != strings.TrimSpace(err.Error()) && !strings.Contains(err.Error(), tst.err) {
 					tt.Fatalf("error mismatch: '%v' != '%v'", err, tst.err)
 				}
 			} else {

@@ -65,60 +65,6 @@ This controls how frequently the complete resync occurs.</p>
 
 </td>
 </tr>
-<tr id="Params.cluster_domain_name">
-<td><code>clusterDomainName</code></td>
-<td><code>string</code></td>
-<td>
-<p>Configures the cluster domain name to use for service name normalization.</p>
-
-<p>Default: svc.cluster.local</p>
-
-</td>
-</tr>
-<tr id="Params.pod_label_for_service">
-<td><code>podLabelForService</code></td>
-<td><code>string</code></td>
-<td>
-<p>In order to extract the service associated with a source, destination, or
-origin, this adapter relies on pod labels. In particular, it looks for
-the value of a specific label, as specified by this parameter.</p>
-
-<p>Default: app</p>
-
-</td>
-</tr>
-<tr id="Params.pod_label_for_istio_component_service">
-<td><code>podLabelForIstioComponentService</code></td>
-<td><code>string</code></td>
-<td>
-<p>In order to extract the service associated with a source, destination, or
-origin, this adapter relies on pod labels. In particular, it looks for
-the value of a specific label for istio component services, as specified
-by this parameter.</p>
-
-<p>Default: istio</p>
-
-</td>
-</tr>
-<tr id="Params.lookup_ingress_source_and_origin_values">
-<td><code>lookupIngressSourceAndOriginValues</code></td>
-<td><code>bool</code></td>
-<td>
-<p>Default: false</p>
-
-</td>
-</tr>
-<tr id="Params.fully_qualified_istio_ingress_service_name">
-<td><code>fullyQualifiedIstioIngressServiceName</code></td>
-<td><code>string</code></td>
-<td>
-<p>Istio ingress service string. This is used to identify the
-ingress service in requests.</p>
-
-<p>Default: &ldquo;ingress.istio-system.svc.cluster.local&rdquo;</p>
-
-</td>
-</tr>
 </tbody>
 </table>
 </section>

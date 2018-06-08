@@ -115,8 +115,8 @@ func newClientSet(descriptor model.ConfigDescriptor) (map[string]*restClient, er
 	return cs, nil
 }
 
-func (rc *restClient) init(kubeconfig string) error {
-	cfg, err := rc.createRESTConfig(kubeconfig)
+func (rc *restClient) init(kubeconfig string, context string) error {
+	cfg, err := rc.createRESTConfig(kubeconfig, context)
 	if err != nil {
 		return err
 	}
@@ -132,8 +132,8 @@ func (rc *restClient) init(kubeconfig string) error {
 }
 
 // createRESTConfig for cluster API server, pass empty config file for in-cluster
-func (rc *restClient) createRESTConfig(kubeconfig string) (config *rest.Config, err error) {
-	config, err = kubecfg.BuildClientConfig(kubeconfig)
+func (rc *restClient) createRESTConfig(kubeconfig string, context string) (config *rest.Config, err error) {
+	config, err = kubecfg.BuildClientConfig(kubeconfig, context)
 
 	if err != nil {
 		return nil, err
@@ -161,7 +161,8 @@ func (rc *restClient) createRESTConfig(kubeconfig string) (config *rest.Config, 
 // NewClient creates a client to Kubernetes API using a kubeconfig file.
 // Use an empty value for `kubeconfig` to use the in-cluster config.
 // If the kubeconfig file is empty, defaults to in-cluster config as well.
-func NewClient(config string, descriptor model.ConfigDescriptor, domainSuffix string) (*Client, error) {
+// You can also choose a config context by providing the desired context name.
+func NewClient(config string, context string, descriptor model.ConfigDescriptor, domainSuffix string) (*Client, error) {
 	cs, err := newClientSet(descriptor)
 	if err != nil {
 		return nil, err
@@ -173,7 +174,7 @@ func NewClient(config string, descriptor model.ConfigDescriptor, domainSuffix st
 	}
 
 	for _, v := range out.clientset {
-		if err := v.init(config); err != nil {
+		if err := v.init(config, context); err != nil {
 			return nil, err
 		}
 	}

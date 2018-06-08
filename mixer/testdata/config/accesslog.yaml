@@ -16,6 +16,7 @@ spec:
   timestamp: request.time
   variables:
     sourceIp: source.ip | ip("0.0.0.0")
+    destinationService: destination.service | "unknown"
     destinationIp: destination.ip | ip("0.0.0.0")
     sourceUser: source.user | ""
     method: request.method | ""
