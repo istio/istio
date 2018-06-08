@@ -43,12 +43,6 @@ e2e_docker: push
 
 endif
 
-ifeq ($(HUB),istio)
-REG_HUB=$(shell kubectl get service kube-registry -n kube-system -o jsonpath='{.spec.clusterIP}'):5000
-else
-REG_HUB=${HUB}
-endif
-
 LOCAL_OS := $(shell uname)
 ifeq ($(LOCAL_OS),Linux)
 REG_LOCAL = localhost:5000
@@ -66,11 +60,11 @@ DEFAULT_EXTRA_E2E_ARGS += --pilot_tag=${TAG}
 DEFAULT_EXTRA_E2E_ARGS += --proxy_tag=${TAG}
 DEFAULT_EXTRA_E2E_ARGS += --ca_tag=${TAG}
 DEFAULT_EXTRA_E2E_ARGS += --galley_tag=${TAG}
-DEFAULT_EXTRA_E2E_ARGS += --mixer_hub=${REG_HUB}
-DEFAULT_EXTRA_E2E_ARGS += --pilot_hub=${REG_HUB}
-DEFAULT_EXTRA_E2E_ARGS += --proxy_hub=${REG_HUB}
-DEFAULT_EXTRA_E2E_ARGS += --ca_hub=${REG_HUB}
-DEFAULT_EXTRA_E2E_ARGS += --galley_hub=${REG_HUB}
+DEFAULT_EXTRA_E2E_ARGS += --mixer_hub=${HUB}
+DEFAULT_EXTRA_E2E_ARGS += --pilot_hub=${HUB}
+DEFAULT_EXTRA_E2E_ARGS += --proxy_hub=${HUB}
+DEFAULT_EXTRA_E2E_ARGS += --ca_hub=${HUB}
+DEFAULT_EXTRA_E2E_ARGS += --galley_hub=${HUB}
 
 EXTRA_E2E_ARGS ?= ${DEFAULT_EXTRA_E2E_ARGS}
 
@@ -101,7 +95,7 @@ e2e_version_skew: test_setup e2e_version_skew_run
 
 e2e_all: test_setup e2e_all_run
 
-test_setup: istioctl generate_yaml localregistry_setup
+test_setup: localregistry_setup istioctl generate_yaml 
 
 # deploy local registry pod, build and push images
 localregistry_setup:
@@ -109,6 +103,10 @@ ifeq ($(HUB),istio)
 	. ${ISTIO}/istio/tests/e2e/local/setup_localregistry.sh
 	GOOS=linux HUB=${REG_LOCAL} make push
 	ps aux | grep "[p]ort-forward.*5000" | awk '{ print $$2 }' | xargs kill
+endif
+localregistry_setup:
+ifeq ($(HUB),istio)
+override HUB=$(shell kubectl get service kube-registry -n kube-system -o jsonpath='{.spec.clusterIP}'):5000
 endif
 
 # *_run targets do not rebuild the artifacts and test with whatever is given
