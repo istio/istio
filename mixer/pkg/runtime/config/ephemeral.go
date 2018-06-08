@@ -148,7 +148,7 @@ func (e *Ephemeral) BuildSnapshot() (*Snapshot, error) {
 	dynamicAdapterhandlers := e.processDynamicAdapterHandlerConfigs(dynamicAdapters, counters, errs)
 	dynamicTemplateInstances := e.processDynamicTemplateInstanceConfigs(dynamicTemplates, af, counters, errs)
 
-	rules := e.processRuleConfigs(staticAdapterhandlers, instances, af, counters, errs)
+	rules, _ := e.processRuleConfigs(staticAdapterhandlers, instances, dynamicAdapterhandlers, dynamicTemplateInstances, af, counters, errs)
 
 	s := &Snapshot{
 		ID:                id,
@@ -463,7 +463,7 @@ func (e *Ephemeral) processRuleConfigs(
 	daHandlers map[string]*Handler,
 	dtInstances map[string]*Instance,
 	attributes ast.AttributeDescriptorFinder,
-	counters Counters, errs *multierror.Error) ([]*RuleLegacy,[]*Rule){
+	counters Counters, errs *multierror.Error) ([]*RuleLegacy, []*Rule) {
 
 	log.Debug("Begin processing rule configurations.")
 
@@ -520,7 +520,7 @@ func (e *Ephemeral) processRuleConfigs(
 					handlerName)
 				continue
 			}
-
+			_ = dahandler
 			// Keep track of unique instances, to avoid using the same instance multiple times within the same
 			// action
 			uniqueInstances := make(map[string]bool, len(a.Instances))
