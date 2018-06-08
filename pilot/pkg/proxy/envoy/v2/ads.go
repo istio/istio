@@ -16,6 +16,7 @@ package v2
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"sync"
 	"time"
@@ -549,14 +550,17 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection) error {
 	// TODO: once per config update
 	for _, routeName := range con.Routes {
 		r, err := s.ConfigGenerator.BuildRoutes(s.env, *con.modelNode, routeName)
-		if err != nil {
+		if err != nil || r == nil {
+			retErr := fmt.Errorf("RDS: Failed to generate routes for route %s: %v", routeName, err)
 			adsLog.Warnf("RDS: Failed to generate routes for route %s: %v", routeName, err)
 			pushes.With(prometheus.Labels{"type": "rds_builderr"}).Add(1)
-			continue // Not sure if we should error just because one of the routes failed.
+			return retErr
 		}
 
 		rc = append(rc, r)
 		con.RouteConfigs[routeName] = r
+		resp, _ := model.ToJSONWithIndent(r, " ")
+		adsLog.Debugf("RDS: Adding route %s", resp)
 	}
 	response := routeDiscoveryResponse(rc, *con.modelNode)
 	err := con.send(response)

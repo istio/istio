@@ -67,7 +67,7 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 
 				if p, exists := plaintextServers[s.Port.Number]; exists {
 					currentProto := ParseProtocol(p[0].Port.Protocol)
-					if currentProto != protocol || protocol != ProtocolHTTP {
+					if currentProto != protocol || !protocol.IsHTTP() {
 						log.Debugf("skipping server on gateway %s port %s.%d.%s: conflict with existing server %s.%d.%s",
 							spec.Name, s.Port.Name, s.Port.Number, s.Port.Protocol, p[0].Port.Name, p[0].Port.Number, p[0].Port.Protocol)
 						continue
@@ -123,7 +123,7 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 }
 
 func isTLSServer(server *networking.Server) bool {
-	if server.Tls == nil || ParseProtocol(server.Port.Protocol) == ProtocolHTTP {
+	if server.Tls == nil || ParseProtocol(server.Port.Protocol).IsHTTP() {
 		return false
 	}
 	return true
@@ -131,7 +131,7 @@ func isTLSServer(server *networking.Server) bool {
 
 func isHTTPServer(server *networking.Server) bool {
 	protocol := ParseProtocol(server.Port.Protocol)
-	if protocol == ProtocolHTTP {
+	if protocol.IsHTTP() {
 		return true
 	}
 
@@ -144,12 +144,12 @@ func isHTTPServer(server *networking.Server) bool {
 
 func getRDSRouteName(server *networking.Server) string {
 	protocol := ParseProtocol(server.Port.Protocol)
-	if protocol == ProtocolHTTP {
-		return fmt.Sprintf("%s.%d", protocol, server.Port.Number)
+	if protocol.IsHTTP() {
+		return fmt.Sprintf("http.%d", server.Port.Number)
 	}
 
 	if protocol == ProtocolHTTPS && server.Tls != nil && server.Tls.Mode != networking.Server_TLSOptions_PASSTHROUGH {
-		return fmt.Sprintf("%s.%d.%s", protocol, server.Port.Number, server.Port.Name)
+		return fmt.Sprintf("https.%d.%s", server.Port.Number, server.Port.Name)
 	}
 
 	return ""

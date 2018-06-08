@@ -170,7 +170,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayRoutes(env model.Environment, 
 
 	// make sure that there is some server listening on this port
 	if _, ok := merged.RDSRouteConfigNames[routeName]; !ok {
-		err := fmt.Errorf("buildGatewayRoutes: could not find server for routeName %s", routeName)
+		err := fmt.Errorf("buildGatewayRoutes: could not find server for routeName %s, have %v", routeName, merged.RDSRouteConfigNames)
 		log.Errora(err)
 		return nil, err
 	}
@@ -304,12 +304,12 @@ func buildGatewayInboundHTTPRouteConfig(
 	gateways map[string]bool,
 	servers []*networking.Server) *xdsapi.RouteConfiguration {
 
-	hosts := make(map[model.Hostname]bool)
+	gatewayHosts := make(map[model.Hostname]bool)
 	tlsRedirect := make(map[model.Hostname]bool)
 
 	for _, server := range servers {
 		for _, host := range server.Hosts {
-			hosts[model.Hostname(host)] = true
+			gatewayHosts[model.Hostname(host)] = true
 			if server.Tls != nil && server.Tls.HttpsRedirect {
 				tlsRedirect[model.Hostname(host)] = true
 			}
@@ -322,7 +322,8 @@ func buildGatewayInboundHTTPRouteConfig(
 	virtualHosts := make([]route.VirtualHost, 0, len(virtualServices))
 	for _, v := range virtualServices {
 		vs := v.Spec.(*networking.VirtualService)
-		if !hostMatch(vs.Hosts, hosts) {
+		matchingHosts := pickMatchingGatewayHosts(gatewayHosts, vs.Hosts)
+		if len(matchingHosts) == 0 {
 			log.Debugf("omitting virtual service %q because its hosts don't match gateways %v server %d", v.Name, gateways, port)
 			continue
 		}
@@ -331,22 +332,18 @@ func buildGatewayInboundHTTPRouteConfig(
 			log.Debugf("omitting routes for service %v due to error: %v", v, err)
 			continue
 		}
-		domains := make([]string, 0)
-		// Only use the hosts exposed by the gateway and not all hosts in the virtual service
-		for _, d := range vs.Hosts {
-			for h := range hosts {
-				if model.Hostname(d).Matches(h) {
-					host := route.VirtualHost{
-						Name:    fmt.Sprintf("%s:%d", v.Name, port),
-						Domains: domains,
-						Routes:  routes,
-					}
-					if tlsRedirect[h] {
-						host.RequireTls = route.VirtualHost_ALL
-					}
-					virtualHosts = append(virtualHosts, host)
-				}
+
+		for vsvcHost, gatewayHost := range matchingHosts {
+			host := route.VirtualHost{
+				Name:    fmt.Sprintf("%s:%d", v.Name, port),
+				Domains: []string{vsvcHost},
+				Routes:  routes,
 			}
+
+			if tlsRedirect[gatewayHost] {
+				host.RequireTls = route.VirtualHost_ALL
+			}
+			virtualHosts = append(virtualHosts, host)
 		}
 	}
 
@@ -424,16 +421,17 @@ func buildGatewayNetworkFilters(env model.Environment, server *networking.Server
 // getVirtualServiceTCPDestinations filters virtual services by gateway names, then determines if any match the (TCP) server
 // TODO: move up to more general location so this can be re-used in sidecars
 func getVirtualServiceTCPDestinations(env model.Environment, server *networking.Server, gateways map[string]bool) []*networking.Destination {
-	hosts := make(map[model.Hostname]bool, len(server.Hosts))
+	gatewayHosts := make(map[model.Hostname]bool, len(server.Hosts))
 	for _, host := range server.Hosts {
-		hosts[model.Hostname(host)] = true
+		gatewayHosts[model.Hostname(host)] = true
 	}
 
 	virtualServices := env.VirtualServices(gateways)
 	downstreams := make([]*networking.Destination, 0, len(virtualServices))
 	for _, spec := range virtualServices {
 		vsvc := spec.Spec.(*networking.VirtualService)
-		if !hostMatch(vsvc.Hosts, hosts) {
+		matchingHosts := pickMatchingGatewayHosts(gatewayHosts, vsvc.Hosts)
+		if len(matchingHosts) == 0 {
 			// the VirtualService's hosts don't include hosts advertised by server
 			continue
 		}
@@ -448,15 +446,16 @@ func getVirtualServiceTCPDestinations(env model.Environment, server *networking.
 	return downstreams
 }
 
-func hostMatch(hosts []string, serviceHosts map[model.Hostname]bool) bool {
-	for _, host := range hosts {
-		for h := range serviceHosts {
-			if h.Matches(model.Hostname(host)) {
-				return true
+func pickMatchingGatewayHosts(gatewayHosts map[model.Hostname]bool, virtualServiceHosts []string) map[string]model.Hostname {
+	matchingHosts := make(map[string]model.Hostname, 0)
+	for _, vsvcHost := range virtualServiceHosts {
+		for gatewayHost := range gatewayHosts {
+			if gatewayHost.Matches(model.Hostname(vsvcHost)) {
+				matchingHosts[vsvcHost] = gatewayHost
 			}
 		}
 	}
-	return false
+	return matchingHosts
 }
 
 // TODO: move up to more general location so this can be re-used in other service matching
