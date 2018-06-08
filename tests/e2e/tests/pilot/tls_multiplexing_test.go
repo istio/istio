@@ -17,6 +17,8 @@ package pilot
 import (
 	"fmt"
 	"testing"
+
+	"istio.io/istio/pkg/log"
 )
 
 func TestTLSMultiplexing(t *testing.T) {
@@ -29,8 +31,8 @@ func TestTLSMultiplexing(t *testing.T) {
 	}
 	// This policy will enable mTLS for all namespace, and disable mTLS for c and d:80.
 	cfgs := &deployableConfig{
-		Namespace:  tc.Kube.Namespace,
-		YamlFiles:  []string{
+		Namespace: tc.Kube.Namespace,
+		YamlFiles: []string{
 			"testdata/authn/v1alpha1/multiplexing/authn-policy-permissive.yaml",
 			"testdata/authn/v1alpha1/multiplexing/destination-rule.yaml",
 		},
@@ -46,35 +48,45 @@ func TestTLSMultiplexing(t *testing.T) {
 	srcPods := []string{"a", "t"}
 	dstPods := []string{"c"}
 	ports := []string{"80"}
-	//ports := []string{"", "80", "8080"}
+	shouldFails := []struct {
+		src  string
+		dest string
+		port string
+	}{
+		{"t", "c", "8080"},
+	}
 
 	// Run all request tests.
 	t.Run("request", func(t *testing.T) {
 		for cluster := range tc.Kube.Clusters {
-		for _, src := range srcPods {
-			for _, dst := range dstPods {
-				for _, port := range ports {
-					for _, domain := range []string{"", "." + tc.Kube.Namespace} {
-						testName := fmt.Sprintf("%s->%s%s_%s", src, dst, domain, port)
-						runRetriableTest(t, cluster, testName, 15, func() error {
-							reqURL := fmt.Sprintf("http://%s%s:%s/%s", dst, domain, port, src)
-							resp := ClientRequest(cluster, src, reqURL, 1, "")
-							//if src == "t" && (dst == "b" || (dst == "d" && port == "8080")) {
-							//	if len(resp.ID) == 0 {
-							//		// t cannot talk to b nor d:8080
-							//		return nil
-							//	}
-							//	return errAgain
-							//}
-							// Request should return successfully (status 200)
-							if resp.IsHTTPOk() {
-								return nil
-							}
-							return errAgain
-						})
+			for _, src := range srcPods {
+				for _, dst := range dstPods {
+					for _, port := range ports {
+						for _, domain := range []string{"", "." + tc.Kube.Namespace} {
+							testName := fmt.Sprintf("%s->%s%s_%s", src, dst, domain, port)
+							runRetriableTest(t, cluster, testName, 15, func() error {
+								reqURL := fmt.Sprintf("http://%s%s:%s/%s", dst, domain, port, src)
+								resp := ClientRequest(cluster, src, reqURL, 1, "")
+								expectOK := true
+								for _, f := range shouldFails {
+									if f.src == src && f.dest == dst && f.port == port {
+										expectOK = false
+										break
+									}
+								}
+								if resp.IsHTTPOk() && expectOK {
+									return nil
+								}
+								if !resp.IsHTTPOk() && !expectOK {
+									return nil
+								}
+								log.Errorf("expect %v, returned http %v", expectOK, resp.IsHTTPOk())
+								return errAgain
+							})
+						}
 					}
 				}
 			}
 		}
-	}})
+	})
 }

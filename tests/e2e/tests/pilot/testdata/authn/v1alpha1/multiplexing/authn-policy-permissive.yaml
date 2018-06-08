@@ -10,3 +10,17 @@ spec:
   peers:
     - mtls:
         mode: PERMISSIVE
+---
+apiVersion: "authentication.istio.io/v1alpha1"
+kind: "Policy"
+metadata:
+  name: "c-strict-authn-8080"
+spec:
+  targets:
+  - name: "c"
+    ports:
+    - number: 8080
+  peers:
+    - mtls:
+        mode: STRICT
+
