@@ -422,18 +422,6 @@ func (h Hostname) String() string {
 	return string(h)
 }
 
-// Namespace returns the namespace extracted from hostname.
-// - k8s: the second part of the "." separated hostname. e.g. "default" for hostname
-//        "productpage.default.svc.cluster.local"
-// - other or if invalid format: an empty string
-func (h Hostname) Namespace() string {
-	split := strings.Split(h.String(), ".")
-	if len(split) >= 2 {
-		return split[1]
-	}
-	return ""
-}
-
 // Matches returns true if this Hostname "matches" the other hostname. Hostnames match if:
 // - they're fully resolved (i.e. not wildcarded) and match exactly (i.e. an exact string match)
 // - one or both are wildcarded (e.g. "*.foo.com"), in which case we use wildcard resolution rules

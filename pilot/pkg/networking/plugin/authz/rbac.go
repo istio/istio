@@ -135,7 +135,15 @@ func isRbacEnabled(store model.IstioConfigStore) bool {
 // buildHTTPFilter builds the RBAC http filter that enforces the access control to the specified
 // service which is co-located with the sidecar proxy.
 func buildHTTPFilter(hostName model.Hostname, store model.IstioConfigStore) *http_conn.HttpFilter {
-	namespace := hostName.Namespace()
+	namespace := ""
+	split := strings.Split(hostName.String(), ".")
+	if len(split) >= 2 {
+		namespace = split[1]
+	} else {
+		log.Errorf("could not find namespace for host %v", hostName)
+		return nil
+	}
+
 	roles := store.ServiceRoles(namespace)
 	if roles == nil {
 		log.Debugf("no service role found for %s in namespace %s", hostName, namespace)
