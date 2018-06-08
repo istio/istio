@@ -66,7 +66,7 @@ spec:
           - "10090"
           - --port
           - "19090"
-{{if eq .healthPort "nevertrueokay"}}
+{{if eq .healthPort "true"}}
           - --port
           - "3333"
 {{end}}
@@ -81,7 +81,7 @@ spec:
         - containerPort: {{.port6}}
         - containerPort: 10090
         - containerPort: 19090
-{{if eq .healthPort "nevertrueokay"}}
+{{if eq .healthPort "true"}}
         - name: tcp-health-port
           containerPort: 3333
         livenessProbe:
