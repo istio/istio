@@ -40,7 +40,7 @@ bx cs reboot-workers <cluster name> <node name>
 
 After all nodes are ready, you can check the status of docker service in each node:
 ```bash
-./runon <node ip> bash
+./tool/runon <node name> bash
 systemctl status docker
 ```
 

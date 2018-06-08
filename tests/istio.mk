@@ -43,7 +43,7 @@ e2e_docker: push
 
 endif
 
-ifeq ($(REMOTEREG),)
+ifeq ($(HUB),istio)
 REG_HUB=$(shell kubectl get service kube-registry -n kube-system -o jsonpath='{.spec.clusterIP}'):5000
 else
 REG_HUB=${HUB}
@@ -105,10 +105,10 @@ test_setup: istioctl generate_yaml localregistry_setup
 
 # deploy local registry pod, build and push images
 localregistry_setup:
-ifeq ($(REMOTEREG),)
+ifeq ($(HUB),istio)
 	. ${ISTIO}/istio/tests/e2e/local/setup_localregistry.sh
-	GOOS=linux HUB=${REG_LOCAL} make docker push
-	ps aux | grep -q "[p]ort-forward.*5000" | awk '{ print $$2 }' | xargs kill
+	GOOS=linux HUB=${REG_LOCAL} make push
+	ps aux | grep "[p]ort-forward.*5000" | awk '{ print $$2 }' | xargs kill
 endif
 
 # *_run targets do not rebuild the artifacts and test with whatever is given

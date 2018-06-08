@@ -243,7 +243,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 
 	a := NewAppManager(tmpDir, *namespace, i, kubeConfig)
 	var l *LocalRegistry
-	if os.Getenv("REMOTEREG") != "true" {
+	if os.Getenv("HUB") == "" {
 		l = NewLocalRegistry(localRegistryNamespace, i, localRegistryFile, kubeConfig, os.Getenv("HUB"), os.Getenv("TAG"))
 	}
 

@@ -12,15 +12,12 @@ Developers, on the other hand, are recommended to run the tests locally before s
 Image registry option:
 
 1. [In-cluster registry](/local/localregistry) 
-This is the default setup for e2e tests.
+If environment variable `HUB` is not set, local registry will be setup and used automatically.
 *MacOS ONLY*
-Add `docker.for.mac.localhost:5000` to insecure registries in the docker daemon setting.
+Add `docker.for.mac.localhost:5000` to insecure registries in the docker daemon setting before running the tests.
 
 2. Remote registry
-Set the REMOTEREG var to disable the local registry.
-```shell
-export REMOTEREG=true
-```
+By setting `HUB` to your remote registry, the tests will push and pull images from the remote.
 
 ## Using a local VM
 E2E tests can be run on your local machines. It helps local testing and debuging. You can use one of the following to set up a local testing environment.
