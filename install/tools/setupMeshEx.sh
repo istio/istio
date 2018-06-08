@@ -118,24 +118,16 @@ function istioClusterEnv() {
 function istio_provision_certs() {
   local SA=${1:-${SERVICE_ACCOUNT:-default}}
   local NS=${2:-${SERVICE_NAMESPACE:-}}
+  local NS_ARG=${NS:+"--namespace=$NS"}
   local ALL=${3}
   local CERT_NAME=${ISTIO_SECRET_PREFIX:-istio.}${SA}
 
-  if [[ -n "$NS" ]] ; then
-    NS="-n $NS"
-  fi
   local B64_DECODE=${BASE64_DECODE:-base64 --decode}
-  # TODO: Use array instead of depending on space splitting.
-  # shellcheck disable=SC2086
-  kubectl get $NS secret "$CERT_NAME" -o jsonpath='{.data.root-cert\.pem}' | $B64_DECODE   > root-cert.pem
+  kubectl get "${NS_ARG}" secret "$CERT_NAME" -o jsonpath='{.data.root-cert\.pem}' | $B64_DECODE   > root-cert.pem
   echo "Generated root-cert.pem. It should be installed on /etc/certs"
   if [ "$ALL" == "all" ] ; then
-    # TODO: Use array instead of depending on space splitting.
-    # shellcheck disable=SC2086
-    kubectl get $NS secret "$CERT_NAME" -o jsonpath='{.data.cert-chain\.pem}' | $B64_DECODE  > cert-chain.pem
-    # TODO: Use array instead of depending on space splitting.
-    # shellcheck disable=SC2086
-    kubectl get $NS secret "$CERT_NAME" -o jsonpath='{.data.key\.pem}' | $B64_DECODE   > key.pem
+    kubectl get "${NS_ARG}" secret "$CERT_NAME" -o jsonpath='{.data.cert-chain\.pem}' | $B64_DECODE  > cert-chain.pem
+    kubectl get "${NS_ARG}" secret "$CERT_NAME" -o jsonpath='{.data.key\.pem}' | $B64_DECODE   > key.pem
     echo "Generated cert-chain.pem and key.pem. It should be installed on /etc/certs"
   fi
 
