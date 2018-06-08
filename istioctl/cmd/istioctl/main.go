@@ -62,6 +62,7 @@ var (
 	platform string
 
 	kubeconfig       string
+	configContext    string
 	namespace        string
 	istioNamespace   string
 	istioContext     string
@@ -549,6 +550,9 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&kubeconfig, "kubeconfig", "c", "",
 		"Kubernetes configuration file")
 
+	rootCmd.PersistentFlags().StringVar(&configContext, "context", "",
+		"The name of the kubeconfig context to use")
+
 	rootCmd.PersistentFlags().StringVarP(&istioNamespace, "istioNamespace", "i", kube.IstioNamespace,
 		"Istio system namespace")
 
@@ -694,7 +698,7 @@ func printYamlOutput(writer io.Writer, configClient model.ConfigStore, configLis
 
 func newClient() (model.ConfigStore, error) {
 	// TODO: use model.IstioConfigTypes once model.IngressRule is deprecated
-	return crd.NewClient(kubeconfig, model.ConfigDescriptor{
+	return crd.NewClient(kubeconfig, configContext, model.ConfigDescriptor{
 		model.RouteRule,
 		model.VirtualService,
 		model.Gateway,
@@ -735,7 +739,7 @@ func preprocMixerConfig(configs []crd.IstioKind) error {
 }
 
 func restConfig() (config *rest.Config, err error) {
-	config, err = kubecfg.BuildClientConfig(kubeconfig)
+	config, err = kubecfg.BuildClientConfig(kubeconfig, configContext)
 
 	if err != nil {
 		return
