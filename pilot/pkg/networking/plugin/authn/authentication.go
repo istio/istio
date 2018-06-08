@@ -21,6 +21,7 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	ldsv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 
 	jwtfilter "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha"
@@ -66,8 +67,11 @@ func NewPlugin() plugin.Plugin {
 
 // RequireTLS returns true and pointer to mTLS params if the policy use mTLS for (peer) authentication.
 // (note that mTLS params can still be nil). Otherwise, return (false, nil).
-func RequireTLS(policy *authn.Policy) (bool, *authn.MutualTls) {
+func RequireTLS(policy *authn.Policy, match *ldsv2.FilterChainMatch) (bool, *authn.MutualTls) {
 	if policy == nil {
+		return false, nil
+	}
+	if match != nil && match.TransportProtocol == EnvoyRawBufferMatch {
 		return false, nil
 	}
 	if len(policy.Peers) > 0 {
@@ -243,8 +247,8 @@ func BuildAuthNFilter(policy *authn.Policy) *http_conn.HttpFilter {
 }
 
 // buildSidecarListenerTLSContext adds TLS to the listener if the policy requires one.
-func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy) *auth.DownstreamTlsContext {
-	if requireTLS, mTLSParams := RequireTLS(authenticationPolicy); requireTLS {
+func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy, match *ldsv2.FilterChainMatch) *auth.DownstreamTlsContext {
+	if requireTLS, mTLSParams := RequireTLS(authenticationPolicy, match); requireTLS {
 		return &auth.DownstreamTlsContext{
 			CommonTlsContext: &auth.CommonTlsContext{
 				TlsCertificates: []*auth.TlsCertificate{
@@ -302,9 +306,7 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 	}
 	for i := range mutable.Listener.FilterChains {
 		chain := &mutable.Listener.FilterChains[i]
-		if chain.FilterChainMatch != nil && chain.FilterChainMatch.TransportProtocol != EnvoyTLSMatch {
-			chain.TlsContext = buildSidecarListenerTLSContext(authnPolicy)
-		}
+		chain.TlsContext = buildSidecarListenerTLSContext(authnPolicy, chain.FilterChainMatch)
 		if in.ListenerType == plugin.ListenerTypeHTTP {
 			// Adding Jwt filter and authn filter, if needed.
 			if filter := BuildJwtFilter(authnPolicy); filter != nil {

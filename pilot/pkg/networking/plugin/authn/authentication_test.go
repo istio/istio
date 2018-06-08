@@ -94,7 +94,7 @@ func TestRequireTls(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		if got, params := RequireTLS(c.in); got != c.expected || !reflect.DeepEqual(c.expectedParams, params) {
+		if got, params := RequireTLS(c.in, nil); got != c.expected || !reflect.DeepEqual(c.expectedParams, params) {
 			t.Errorf("%s: requireTLS(%v): got(%v, %v) != want(%v, %v)\n", c.name, c.in, got, params, c.expected, c.expectedParams)
 		}
 	}
@@ -896,7 +896,7 @@ func TestBuildSidecarListenerTLSContex(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		if got := buildSidecarListenerTLSContext(c.in); !reflect.DeepEqual(c.expected, got) {
+		if got := buildSidecarListenerTLSContext(c.in, nil); !reflect.DeepEqual(c.expected, got) {
 			t.Errorf("Test case %s: expected\n%#v\n, got\n%#v", c.name, c.expected.String(), got.String())
 		}
 	}
