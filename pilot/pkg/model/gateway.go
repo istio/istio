@@ -75,7 +75,8 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 					rdsName := getRDSRouteName(s)
 					rdsRouteConfigNames[rdsName] = append(rdsRouteConfigNames[rdsName], s)
 				} else {
-					// This has to be a TLS server
+					// We have duplicate port. Its not in plaintext servers. So, this has to be in TLS servers
+					// Check if this is also a HTTP server and if so, ensure uniqueness of port name
 					if isHTTPServer(s) {
 						rdsName := getRDSRouteName(s)
 						// both servers are HTTPS servers. Make sure the port names are different so that RDS can pick out individual servers
@@ -89,6 +90,8 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 						}
 						rdsRouteConfigNames[rdsName] = []*networking.Server{s}
 					}
+
+					// We have another TLS server on the same port. Can differentiate servers using SNI
 					tlsServers[s.Port.Number] = append(tlsServers[s.Port.Number], s)
 				}
 			} else {
@@ -123,10 +126,10 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 }
 
 func isTLSServer(server *networking.Server) bool {
-	if server.Tls == nil || ParseProtocol(server.Port.Protocol).IsHTTP() {
-		return false
+	if server.Tls != nil && !ParseProtocol(server.Port.Protocol).IsHTTP() {
+		return true
 	}
-	return true
+	return false
 }
 
 func isHTTPServer(server *networking.Server) bool {
