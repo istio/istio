@@ -44,6 +44,9 @@ const (
 	fileAccessLog = "envoy.file_access_log"
 
 	envoyHTTPConnectionManager = "envoy.http_connection_manager"
+	envoyTLSInspectorName      = "envoy.listener.tls_inspector"
+	EnvoyRawBufferMatch        = "raw_buffer"
+	EnvoyTLSMatch              = "tls"
 
 	// HTTPStatPrefix indicates envoy stat prefix for http listeners
 	HTTPStatPrefix = "http"
@@ -280,10 +283,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 				listenerOpts.filterChainOpts = []*filterChainOpts{
 					{
 						httpOpts:          httpOpts,
-						transportProtocol: "raw_buffer",
+						transportProtocol: EnvoyRawBufferMatch,
 					}, {
 						httpOpts:          httpOpts,
-						transportProtocol: "tls",
+						transportProtocol: EnvoyTLSMatch,
 					},
 				}
 			} else {
@@ -695,7 +698,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	if opts.tlsMultiplexed {
 		listenerFilters = []listener.ListenerFilter{
 			{
-				Name:   "envoy.listener.tls_inspector",
+				Name:   envoyTLSInspectorName,
 				Config: &google_protobuf.Struct{},
 			},
 		}

@@ -30,6 +30,7 @@ import (
 	authn "istio.io/api/authentication/v1alpha1"
 	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
 	"istio.io/istio/pilot/pkg/model"
+	pilot_v1alpha3 "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
@@ -299,7 +300,7 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 	}
 	for i := range mutable.Listener.FilterChains {
 		chain := &mutable.Listener.FilterChains[i]
-		if chain.FilterChainMatch != nil && chain.FilterChainMatch.TransportProtocol != "raw_buffer" {
+		if chain.FilterChainMatch != nil && chain.FilterChainMatch.TransportProtocol != pilot_v1alpha3.EnvoyTLSMatch {
 			chain.TlsContext = buildSidecarListenerTLSContext(authnPolicy)
 		}
 		if in.ListenerType == plugin.ListenerTypeHTTP {
