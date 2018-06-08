@@ -40,7 +40,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env mod
 
 	// Enable websocket on default route
 	actionRoute, ok := defaultRoute.Action.(*route.Route_Route)
-	if ok && actionRoute != nil {
+	if ok {
 		actionRoute.Route.UseWebsocket = &types.BoolValue{Value: true}
 	}
 
