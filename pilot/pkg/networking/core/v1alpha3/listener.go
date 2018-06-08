@@ -259,10 +259,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 
 		for _, p := range configgen.Plugins {
 			if authnPolicy, ok := p.(authn.Plugin); ok {
-				log.Infof("jianfeih debug found authn policy")
 				if authnPolicy.RequireTLSMultiplexing(env.Mesh, env.IstioConfigStore, instance.Service.Hostname, instance.Endpoint.ServicePort) {
 					listenerOpts.tlsMultiplexed = true
-					log.Infof("jianfeih debug multiplexing needed %v %v\n", instance.Service.Hostname.String(), *instance.Endpoint.ServicePort)
+					log.Infof("Uses TLS multiplexing for %v %v\n", instance.Service.Hostname.String(), *instance.Endpoint.ServicePort)
 				}
 			}
 		}

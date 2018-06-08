@@ -1,10 +1,5 @@
 #!/bin/bash
 
-
-export GOPATH="/usr/local/google/home/jianfeih/workspace/golang"
-export HUB="gcr.io/jianfeih-test"
-export ISTIO=$GOPATH/src/istio.io 
-
 # Start minikube
 minikube start \
     --extra-config=controller-manager.cluster-signing-cert-file="/var/lib/localkube/certs/ca.crt" \
