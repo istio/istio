@@ -221,6 +221,7 @@ gateways:
     - port: 31400
       name: tcp
       nodePort: 31400
+<<<<<<< HEAD
     # Pilot and Citadel MTLS ports are enabled in gateway - but will only redirect
     # to pilot/citadel if global.meshExpansion settings are enabled.
     - port: 15011
@@ -238,6 +239,11 @@ gateways:
     - port: 15031
       targetPort: 15031
       name: http2-grafana
+=======
+  deployment:
+    labels:
+      istio: ingressgateway #will be added to pods and service
+>>>>>>> remove container port from exposed list.
     secretVolumes:
     - name: ingressgateway-certs
       secretName: istio-ingressgateway-certs

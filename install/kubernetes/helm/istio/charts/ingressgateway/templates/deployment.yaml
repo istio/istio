@@ -1,0 +1,109 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ .Values.service.name }}
+  namespace: {{ .Values.service.namespace | default .Release.Namespace }}
+  labels:
+    app: {{ template "istio.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    {{- range $key, $val := .Values.service.labels }}
+    {{ $key }}: {{ $val }}
+    {{- end }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  template:
+    metadata:
+      labels:
+        {{- range $key, $val := .Values.deployment.labels }}
+        {{ $key }}: {{ $val }}
+        {{- end }}
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: {{ .Values.serviceAccountName }}
+      containers:
+        - name: {{ template "istio.name" . }}
+          image: "{{ .Values.global.hub }}/proxyv2:{{ .Values.global.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+          - containerPort: 80
+          - containerPort: 443
+          - containerPort: 31400
+          args:
+          - proxy
+          - router
+          - -v
+          - "2"
+          - --discoveryRefreshDelay
+          - '1s' #discoveryRefreshDelay
+          - --drainDuration
+          - '45s' #drainDuration
+          - --parentShutdownDuration
+          - '1m0s' #parentShutdownDuration
+          - --connectTimeout
+          - '10s' #connectTimeout
+          - --serviceCluster
+          - {{ .Values.service.name }}
+          - --zipkinAddress
+          - zipkin:9411
+          - --statsdUdpAddress
+          - istio-statsd-prom-bridge:9125
+          - --proxyAdminPort
+          - "15000"
+        {{- if .Values.global.controlPlaneSecurityEnabled }}
+          - --controlPlaneAuthPolicy
+          - MUTUAL_TLS
+          - --discoveryAddress
+          - istio-pilot:15005
+        {{- else }}
+          - --controlPlaneAuthPolicy
+          - NONE
+          - --discoveryAddress
+          - istio-pilot:8080
+        {{- end }}
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+          env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: INSTANCE_IP
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: status.podIP
+          - name: ISTIO_META_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          volumeMounts:
+          - name: istio-certs
+            mountPath: /etc/certs
+            readOnly: true
+          {{- range .Values.deployment.secretVolumes }}
+          - name: {{.name }}
+            mountPath: {{.mountPath | quote}}
+            readOnly: true
+          {{- end }}
+      volumes:
+      - name: istio-certs
+        secret:
+          secretName: "istio.default"
+          optional: true
+      {{- range .Values.deployment.secretVolumes }}
+      - name: {{.name }}
+        secret:
+          secretName: {{.secretName | quote}}
+          optional: true
+      {{- end }}
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}
