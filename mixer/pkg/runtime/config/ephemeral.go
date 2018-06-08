@@ -24,11 +24,11 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	config "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -148,7 +148,7 @@ func (e *Ephemeral) BuildSnapshot() (*Snapshot, error) {
 	dynamicAdapterhandlers := e.processDynamicAdapterHandlerConfigs(dynamicAdapters, counters, errs)
 	dynamicTemplateInstances := e.processDynamicTemplateInstanceConfigs(dynamicTemplates, af, counters, errs)
 
-	rules, _ := e.processRuleConfigs(staticAdapterhandlers, instances, dynamicAdapterhandlers, dynamicTemplateInstances, af, counters, errs)
+	rules := e.processRuleConfigs(staticAdapterhandlers, instances, dynamicAdapterhandlers, dynamicTemplateInstances, af, counters, errs)
 
 	s := &Snapshot{
 		ID:                id,
@@ -463,7 +463,7 @@ func (e *Ephemeral) processRuleConfigs(
 	daHandlers map[string]*Handler,
 	dtInstances map[string]*Instance,
 	attributes ast.AttributeDescriptorFinder,
-	counters Counters, errs *multierror.Error) ([]*RuleLegacy, []*Rule) {
+	counters Counters, errs *multierror.Error) []*RuleLegacy {
 
 	log.Debug("Begin processing rule configurations.")
 
@@ -502,14 +502,14 @@ func (e *Ephemeral) processRuleConfigs(
 		}
 
 		// extract the set of actions from the rule, and the handlers they reference.
-		var foundSaHandler bool
-		var foundDaHandler bool
-		var sahandler *HandlerLegacy
-		var dahandler *Handler
 		actions := make([]*ActionLegacy, 0, len(cfg.Actions))
+		actionsDynamic := make([]*Action, 0, len(cfg.Actions))
 		for i, a := range cfg.Actions {
 			log.Debugf("Processing action: %s[%d]", ruleName, i)
-
+			var foundSaHandler bool
+			var foundDaHandler bool
+			var sahandler *HandlerLegacy
+			var dahandler *Handler
 			handlerName := canonicalize(a.Handler, ruleKey.Namespace)
 			sahandler, foundSaHandler = saHandlers[handlerName]
 			dahandler, foundDaHandler = daHandlers[handlerName]
@@ -519,42 +519,81 @@ func (e *Ephemeral) processRuleConfigs(
 					handlerName)
 				continue
 			}
-			_ = dahandler
-			// Keep track of unique instances, to avoid using the same instance multiple times within the same
-			// action
-			uniqueInstances := make(map[string]bool, len(a.Instances))
+			if foundSaHandler {
+				// Keep track of unique instances, to avoid using the same instance multiple times within the same
+				// action
+				uniqueInstances := make(map[string]bool, len(a.Instances))
 
-			actionInstances := make([]*InstanceLegacy, 0, len(a.Instances))
-			for _, instanceName := range a.Instances {
-				instanceName = canonicalize(instanceName, ruleKey.Namespace)
-				if _, foundSaHandler = uniqueInstances[instanceName]; foundSaHandler {
-					appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), counters.ruleConfigError,
-						"action specified the same instance multiple times: instance='%s',", instanceName)
+				actionInstances := make([]*InstanceLegacy, 0, len(a.Instances))
+				for _, instanceName := range a.Instances {
+					instanceName = canonicalize(instanceName, ruleKey.Namespace)
+					if _, ok := uniqueInstances[instanceName]; ok {
+						appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), counters.ruleConfigError,
+							"action specified the same instance multiple times: instance='%s',", instanceName)
+						continue
+					}
+					uniqueInstances[instanceName] = true
+
+					var instance *InstanceLegacy
+					var foundSaInstance bool
+					if instance, foundSaInstance = stInstances[instanceName]; !foundSaInstance {
+						appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), counters.ruleConfigError, "Instance not found: instance='%s'", instanceName)
+						continue
+					}
+
+					actionInstances = append(actionInstances, instance)
+				}
+
+				// If there are no valid instances found for this action, then elide the action.
+				if len(actionInstances) == 0 {
+					appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), counters.ruleConfigError, "No valid instances found")
 					continue
 				}
-				uniqueInstances[instanceName] = true
 
-				var instance *InstanceLegacy
-				if instance, foundSaHandler = stInstances[instanceName]; !foundSaHandler {
-					appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), counters.ruleConfigError, "Instance not found: instance='%s'", instanceName)
+				action := &ActionLegacy{
+					Handler:   sahandler,
+					Instances: actionInstances,
+				}
+
+				actions = append(actions, action)
+			} else {
+				// Keep track of unique instances, to avoid using the same instance multiple times within the same
+				// action
+				uniqueInstances := make(map[string]bool, len(a.Instances))
+
+				actionInstances := make([]*Instance, 0, len(a.Instances))
+				for _, instanceName := range a.Instances {
+					instanceName = canonicalize(instanceName, ruleKey.Namespace)
+					if _, ok := uniqueInstances[instanceName]; ok {
+						appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), counters.ruleConfigError,
+							"action specified the same instance multiple times: instance='%s',", instanceName)
+						continue
+					}
+					uniqueInstances[instanceName] = true
+
+					var instance *Instance
+					var foundSaInstance bool
+					if instance, foundSaInstance = dtInstances[instanceName]; !foundSaInstance {
+						appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), counters.ruleConfigError, "Instance not found: instance='%s'", instanceName)
+						continue
+					}
+
+					actionInstances = append(actionInstances, instance)
+				}
+
+				// If there are no valid instances found for this action, then elide the action.
+				if len(actionInstances) == 0 {
+					appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), counters.ruleConfigError, "No valid instances found")
 					continue
 				}
 
-				actionInstances = append(actionInstances, instance)
-			}
+				action := &Action{
+					Handler:   dahandler,
+					Instances: actionInstances,
+				}
 
-			// If there are no valid instances found for this action, then elide the action.
-			if len(actionInstances) == 0 {
-				appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), counters.ruleConfigError, "No valid instances found")
-				continue
+				actionsDynamic = append(actionsDynamic, action)
 			}
-
-			action := &ActionLegacy{
-				Handler:   sahandler,
-				Instances: actionInstances,
-			}
-
-			actions = append(actions, action)
 		}
 
 		// If there are no valid actions found for this rule, then elide the rule.
