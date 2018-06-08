@@ -57,6 +57,7 @@ func TestGateway_HTTPIngress(t *testing.T) {
 			"testdata/v1alpha3/ingressgateway.yaml",
 			maybeAddTLSForDestinationRule(tc, "testdata/v1alpha3/destination-rule-c.yaml"),
 			"testdata/v1alpha3/rule-ingressgateway.yaml"},
+		kubeconfig: tc.Kube.KubeConfig,
 	}
 	if err := cfgs.Setup(); err != nil {
 		t.Fatal(err)
@@ -90,33 +91,39 @@ func TestIngressGateway503DuringRuleChange(t *testing.T) {
 	gateway := &deployableConfig{
 		Namespace: tc.Kube.Namespace,
 		YamlFiles: []string{"testdata/v1alpha3/ingressgateway.yaml"},
+		kubeconfig: tc.Kube.KubeConfig,
 	}
 
 	// Add subsets
 	newDestRule := &deployableConfig{
 		Namespace: tc.Kube.Namespace,
 		YamlFiles: []string{maybeAddTLSForDestinationRule(tc, "testdata/v1alpha3/rule-503test-destinationrule-c.yaml")},
+		kubeconfig: tc.Kube.KubeConfig,
 	}
 
 	// route to subsets
 	newVirtService := &deployableConfig{
 		Namespace: tc.Kube.Namespace,
 		YamlFiles: []string{"testdata/v1alpha3/rule-503test-virtualservice.yaml"},
+		kubeconfig: tc.Kube.KubeConfig,
 	}
 
 	addMoreSubsets := &deployableConfig{
 		Namespace: tc.Kube.Namespace,
 		YamlFiles: []string{maybeAddTLSForDestinationRule(tc, "testdata/v1alpha3/rule-503test-destinationrule-c-add-subset.yaml")},
+		kubeconfig: tc.Kube.KubeConfig,
 	}
 
 	routeToNewSubsets := &deployableConfig{
 		Namespace: tc.Kube.Namespace,
 		YamlFiles: []string{"testdata/v1alpha3/rule-503test-update-virtualservice.yaml"},
+		kubeconfig: tc.Kube.KubeConfig,
 	}
 
 	deleteOldSubsets := &deployableConfig{
 		Namespace: tc.Kube.Namespace,
 		YamlFiles: []string{maybeAddTLSForDestinationRule(tc, "testdata/v1alpha3/rule-503test-destinationrule-c-del-subset.yaml")},
+		kubeconfig: tc.Kube.KubeConfig,
 	}
 
 	var resp ClientResponse
@@ -212,6 +219,7 @@ func TestGateway_TCP(t *testing.T) {
 			"testdata/v1alpha3/rule-gateway-a.yaml",
 			"testdata/v1alpha3/gateway-tcp-a.yaml",
 		},
+		kubeconfig: tc.Kube.KubeConfig,
 	}
 	if err := cfgs.Setup(); err != nil {
 		t.Fatal(err)
