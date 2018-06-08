@@ -332,11 +332,10 @@ func setTestConfig() error {
 }
 
 func TestMain(m *testing.M) {
-	t.Skip("https://github.com/istio/istio/issues/4937")
-
-	flag.Parse()
-	check(framework.InitLogging(), "cannot setup logging")
-	check(setTestConfig(), "could not create TestConfig")
-	tc.Cleanup.RegisterCleanable(tc)
-	os.Exit(tc.RunTest(m))
+	// https://github.com/istio/istio/issues/4937
+	// flag.Parse()
+	// check(framework.InitLogging(), "cannot setup logging")
+	// check(setTestConfig(), "could not create TestConfig")
+	// tc.Cleanup.RegisterCleanable(tc)
+	// os.Exit(tc.RunTest(m))
 }
