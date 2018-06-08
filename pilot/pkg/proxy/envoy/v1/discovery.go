@@ -318,10 +318,22 @@ const (
 // DiscoveryServiceOptions contains options for create a new discovery
 // service instance.
 type DiscoveryServiceOptions struct {
-	Port            int
-	GrpcAddr        string
-	SecureGrpcAddr  string
-	MonitoringPort  int
+	// The listening address for HTTP. If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
+	// a port number is automatically chosen.
+	HTTPAddr string
+
+	// The listening address for GRPC. If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
+	// a port number is automatically chosen.
+	GrpcAddr string
+
+	// The listening address for secure GRPC. If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
+	// a port number is automatically chosen.
+	SecureGrpcAddr string
+
+	// The listening address for the monitoring port. If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
+	// a port number is automatically chosen.
+	MonitoringAddr string
+
 	EnableProfiling bool
 	EnableCaching   bool
 	WebhookEndpoint string
