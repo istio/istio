@@ -20,7 +20,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='authentication/v1alpha1/policy.proto',
   package='istio.authentication.v1alpha1',
   syntax='proto3',
-  serialized_pb=_b('\n$authentication/v1alpha1/policy.proto\x12\x1distio.authentication.v1alpha1\"\x93\x01\n\tMutualTls\x12\x11\n\tallow_tls\x18\x01 \x01(\x08\x12;\n\x04mode\x18\x02 \x01(\x0e\x32-.istio.authentication.v1alpha1.MutualTls.Mode\"6\n\x04Mode\x12\n\n\x06STRICT\x10\x00\x12\x12\n\x0eTLS_PERMISSIVE\x10\x01\x12\x0e\n\nPERMISSIVE\x10\x02\"c\n\x03Jwt\x12\x0e\n\x06issuer\x18\x01 \x01(\t\x12\x11\n\taudiences\x18\x02 \x03(\t\x12\x10\n\x08jwks_uri\x18\x03 \x01(\t\x12\x13\n\x0bjwt_headers\x18\x06 \x03(\t\x12\x12\n\njwt_params\x18\x07 \x03(\t\"\x91\x01\n\x18PeerAuthenticationMethod\x12\x38\n\x04mtls\x18\x01 \x01(\x0b\x32(.istio.authentication.v1alpha1.MutualTlsH\x00\x12\x31\n\x03jwt\x18\x02 \x01(\x0b\x32\".istio.authentication.v1alpha1.JwtH\x00\x42\x08\n\x06params\"M\n\x1aOriginAuthenticationMethod\x12/\n\x03jwt\x18\x01 \x01(\x0b\x32\".istio.authentication.v1alpha1.Jwt\"\xde\x02\n\x06Policy\x12>\n\x07targets\x18\x01 \x03(\x0b\x32-.istio.authentication.v1alpha1.TargetSelector\x12\x46\n\x05peers\x18\x02 \x03(\x0b\x32\x37.istio.authentication.v1alpha1.PeerAuthenticationMethod\x12\x18\n\x10peer_is_optional\x18\x03 \x01(\x08\x12J\n\x07origins\x18\x04 \x03(\x0b\x32\x39.istio.authentication.v1alpha1.OriginAuthenticationMethod\x12\x1a\n\x12origin_is_optional\x18\x05 \x01(\x08\x12J\n\x11principal_binding\x18\x06 \x01(\x0e\x32/.istio.authentication.v1alpha1.PrincipalBinding\"j\n\x0eTargetSelector\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0e\n\x06subset\x18\x02 \x01(\t\x12:\n\x05ports\x18\x03 \x03(\x0b\x32+.istio.authentication.v1alpha1.PortSelector\"8\n\x0cPortSelector\x12\x10\n\x06number\x18\x01 \x01(\rH\x00\x12\x0e\n\x04name\x18\x02 \x01(\tH\x00\x42\x06\n\x04port*0\n\x10PrincipalBinding\x12\x0c\n\x08USE_PEER\x10\x00\x12\x0e\n\nUSE_ORIGIN\x10\x01\x42&Z$istio.io/api/authentication/v1alpha1b\x06proto3')
+  serialized_pb=_b('\n$authentication/v1alpha1/policy.proto\x12\x1distio.authentication.v1alpha1\"\x93\x01\n\tMutualTls\x12\x11\n\tallow_tls\x18\x01 \x01(\x08\x12;\n\x04mode\x18\x02 \x01(\x0e\x32-.istio.authentication.v1alpha1.MutualTls.Mode\"6\n\x04Mode\x12\n\n\x06STRICT\x10\x00\x12\x12\n\x0eTLS_PERMISSIVE\x10\x01\x12\x0e\n\nPERMISSIVE\x10\x02\"c\n\x03Jwt\x12\x0e\n\x06issuer\x18\x01 \x01(\t\x12\x11\n\taudiences\x18\x02 \x03(\t\x12\x10\n\x08jwks_uri\x18\x03 \x01(\t\x12\x13\n\x0bjwt_headers\x18\x06 \x03(\t\x12\x12\n\njwt_params\x18\x07 \x03(\t\"\x91\x01\n\x18PeerAuthenticationMethod\x12\x38\n\x04mtls\x18\x01 \x01(\x0b\x32(.istio.authentication.v1alpha1.MutualTlsH\x00\x12\x31\n\x03jwt\x18\x02 \x01(\x0b\x32\".istio.authentication.v1alpha1.JwtH\x00\x42\x08\n\x06params\"M\n\x1aOriginAuthenticationMethod\x12/\n\x03jwt\x18\x01 \x01(\x0b\x32\".istio.authentication.v1alpha1.Jwt\"\xde\x02\n\x06Policy\x12>\n\x07targets\x18\x01 \x03(\x0b\x32-.istio.authentication.v1alpha1.TargetSelector\x12\x46\n\x05peers\x18\x02 \x03(\x0b\x32\x37.istio.authentication.v1alpha1.PeerAuthenticationMethod\x12\x18\n\x10peer_is_optional\x18\x03 \x01(\x08\x12J\n\x07origins\x18\x04 \x03(\x0b\x32\x39.istio.authentication.v1alpha1.OriginAuthenticationMethod\x12\x1a\n\x12origin_is_optional\x18\x05 \x01(\x08\x12J\n\x11principal_binding\x18\x06 \x01(\x0e\x32/.istio.authentication.v1alpha1.PrincipalBinding\"Z\n\x0eTargetSelector\x12\x0c\n\x04name\x18\x01 \x01(\t\x12:\n\x05ports\x18\x02 \x03(\x0b\x32+.istio.authentication.v1alpha1.PortSelector\"8\n\x0cPortSelector\x12\x10\n\x06number\x18\x01 \x01(\rH\x00\x12\x0e\n\x04name\x18\x02 \x01(\tH\x00\x42\x06\n\x04port*0\n\x10PrincipalBinding\x12\x0c\n\x08USE_PEER\x10\x00\x12\x0e\n\nUSE_ORIGIN\x10\x01\x42&Z$istio.io/api/authentication/v1alpha1b\x06proto3')
 )
 
 _PRINCIPALBINDING = _descriptor.EnumDescriptor(
@@ -40,8 +40,8 @@ _PRINCIPALBINDING = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   options=None,
-  serialized_start=1068,
-  serialized_end=1116,
+  serialized_start=1052,
+  serialized_end=1100,
 )
 _sym_db.RegisterEnumDescriptor(_PRINCIPALBINDING)
 
@@ -328,15 +328,8 @@ _TARGETSELECTOR = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='subset', full_name='istio.authentication.v1alpha1.TargetSelector.subset', index=1,
-      number=2, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=_b("").decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
-    _descriptor.FieldDescriptor(
-      name='ports', full_name='istio.authentication.v1alpha1.TargetSelector.ports', index=2,
-      number=3, type=11, cpp_type=10, label=3,
+      name='ports', full_name='istio.authentication.v1alpha1.TargetSelector.ports', index=1,
+      number=2, type=11, cpp_type=10, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -354,7 +347,7 @@ _TARGETSELECTOR = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=902,
-  serialized_end=1008,
+  serialized_end=992,
 )
 
 
@@ -394,8 +387,8 @@ _PORTSELECTOR = _descriptor.Descriptor(
       name='port', full_name='istio.authentication.v1alpha1.PortSelector.port',
       index=0, containing_type=None, fields=[]),
   ],
-  serialized_start=1010,
-  serialized_end=1066,
+  serialized_start=994,
+  serialized_end=1050,
 )
 
 _MUTUALTLS.fields_by_name['mode'].enum_type = _MUTUALTLS_MODE

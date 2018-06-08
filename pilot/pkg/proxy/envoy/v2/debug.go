@@ -24,7 +24,6 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
@@ -152,10 +151,9 @@ func (sd *MemServiceDiscovery) AddEndpoint(service model.Hostname, servicePortNa
 			Address: address,
 			Port:    port,
 			ServicePort: &model.Port{
-				Name:                 servicePortName,
-				Port:                 servicePort,
-				Protocol:             model.ProtocolHTTP,
-				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+				Name:     servicePortName,
+				Port:     servicePort,
+				Protocol: model.ProtocolHTTP,
 			},
 		},
 	}
@@ -164,6 +162,7 @@ func (sd *MemServiceDiscovery) AddEndpoint(service model.Hostname, servicePortNa
 }
 
 // Services implements discovery interface
+// Each call to Services() should return a list of new *model.Service
 func (sd *MemServiceDiscovery) Services() ([]*model.Service, error) {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
@@ -172,12 +171,15 @@ func (sd *MemServiceDiscovery) Services() ([]*model.Service, error) {
 	}
 	out := make([]*model.Service, 0, len(sd.services))
 	for _, service := range sd.services {
-		out = append(out, service)
+		// Make a new service out of the existing one
+		newSvc := *service
+		out = append(out, &newSvc)
 	}
 	return out, sd.ServicesError
 }
 
 // GetService implements discovery interface
+// Each call to GetService() should return a new *model.Service
 func (sd *MemServiceDiscovery) GetService(hostname model.Hostname) (*model.Service, error) {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
@@ -185,7 +187,9 @@ func (sd *MemServiceDiscovery) GetService(hostname model.Hostname) (*model.Servi
 		return nil, sd.GetServiceError
 	}
 	val := sd.services[hostname]
-	return val, sd.GetServiceError
+	// Make a new service out of the existing one
+	newSvc := *val
+	return &newSvc, sd.GetServiceError
 }
 
 // Instances filters the service instances by labels. This assumes single port, as is

@@ -1,10 +1,8 @@
 ---
-title: Mixer
-overview: API definitions to interact with Mixer
-location: https://istio.io/docs/reference/api/istio.mixer.v1.html
+title: istio.mixer.v1
 layout: protoc-gen-docs
-redirect_from: /docs/reference/api/mixer/mixer.html
-number_of_entries: 17
+generator: protoc-gen-docs
+number_of_entries: 20
 ---
 <p>This package defines the Mixer API that the sidecar proxy uses to perform
 precondition checks, manage quotas, and report telemetry.</p>
@@ -361,25 +359,21 @@ all preconditions were satisfied and details describe why.</p>
 
 </td>
 </tr>
-<tr id="CheckResponse.PreconditionResult.attributes">
-<td><code>attributes</code></td>
-<td><code><a href="#CompressedAttributes">CompressedAttributes</a></code></td>
-<td>
-<p>The attributes returned by Mixer.</p>
-
-<p>The exact set of attributes returned is determined by the set of
-adapters Mixer is configured with. These attributes are used to
-ferry new attributes that Mixer derived based on the input set of
-attributes and its configuration.</p>
-
-</td>
-</tr>
 <tr id="CheckResponse.PreconditionResult.referenced_attributes">
 <td><code>referencedAttributes</code></td>
 <td><code><a href="#ReferencedAttributes">ReferencedAttributes</a></code></td>
 <td>
 <p>The total set of attributes that were used in producing the result
 along with matching conditions.</p>
+
+</td>
+</tr>
+<tr id="CheckResponse.PreconditionResult.route_directive">
+<td><code>routeDirective</code></td>
+<td><code><a href="#RouteDirective">RouteDirective</a></code></td>
+<td>
+<p>An optional routing directive, used to manipulate the traffic metadata
+whenever all preconditions are satisfied.</p>
 
 </td>
 </tr>
@@ -516,6 +510,85 @@ configuration.</p>
 <td><code>map&lt;int32,&nbsp;<a href="#StringMap">StringMap</a>&gt;</code></td>
 <td>
 <p>Holds attributes of type STRING_MAP</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="HeaderOperation">HeaderOperation</h3>
+<section>
+<p>Operation on HTTP headers to replace, append, or remove a header. Header
+names are normalized to lower-case with dashes, e.g.  &ldquo;x-request-id&rdquo;.
+Pseudo-headers &ldquo;:path&rdquo;, &ldquo;:authority&rdquo;, and &ldquo;:method&rdquo; are supported to modify
+the request headers.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="HeaderOperation.name">
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>
+<p>Header name.</p>
+
+</td>
+</tr>
+<tr id="HeaderOperation.value">
+<td><code>value</code></td>
+<td><code>string</code></td>
+<td>
+<p>Header value.</p>
+
+</td>
+</tr>
+<tr id="HeaderOperation.operation">
+<td><code>operation</code></td>
+<td><code><a href="#HeaderOperation.Operation">HeaderOperation.Operation</a></code></td>
+<td>
+<p>Header operation.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="HeaderOperation.Operation">HeaderOperation.Operation</h3>
+<section>
+<p>Operation type.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="HeaderOperation.Operation.REPLACE">
+<td><code>REPLACE</code></td>
+<td>
+<p>replaces the header with the given name</p>
+
+</td>
+</tr>
+<tr id="HeaderOperation.Operation.REMOVE">
+<td><code>REMOVE</code></td>
+<td>
+<p>removes the header with the given name (the value is ignored)</p>
+
+</td>
+</tr>
+<tr id="HeaderOperation.Operation.APPEND">
+<td><code>APPEND</code></td>
+<td>
+<p>appends the value to the header value, or sets it if not present</p>
 
 </td>
 </tr>
@@ -723,6 +796,57 @@ To detect global dictionary out of sync between client and server.</p>
 <section>
 <p>Used to carry responses to telemetry reports</p>
 
+</section>
+<h3 id="RouteDirective">RouteDirective</h3>
+<section>
+<p>Expresses the routing manipulation actions to be performed on behalf of
+Mixer in response to a successful precondition check.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="RouteDirective.request_header_operations">
+<td><code>requestHeaderOperations</code></td>
+<td><code><a href="#HeaderOperation">HeaderOperation[]</a></code></td>
+<td>
+<p>Operations on the request headers.</p>
+
+</td>
+</tr>
+<tr id="RouteDirective.response_header_operations">
+<td><code>responseHeaderOperations</code></td>
+<td><code><a href="#HeaderOperation">HeaderOperation[]</a></code></td>
+<td>
+<p>Operations on the response headers.</p>
+
+</td>
+</tr>
+<tr id="RouteDirective.direct_response_code">
+<td><code>directResponseCode</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>If set, enables a direct response without proxying the request to the routing
+destination. Required to be a value in the 2xx or 3xx range.</p>
+
+</td>
+</tr>
+<tr id="RouteDirective.direct_response_body">
+<td><code>directResponseBody</code></td>
+<td><code>string</code></td>
+<td>
+<p>Supplies the response body for the direct response.
+If this setting is omitted, no body is included in the generated response.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
 </section>
 <h3 id="StringMap">StringMap</h3>
 <section>

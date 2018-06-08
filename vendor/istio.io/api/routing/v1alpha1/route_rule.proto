@@ -21,7 +21,7 @@ import "routing/v1alpha1/http_fault.proto";
 import "routing/v1alpha1/l4_fault.proto";
 
 // $title: Route Rules v1alpha1 (deprecated)
-// $overview: Configuration affecting traffic routing
+// $description: Configuration affecting traffic routing
 // $location: https://istio.io/docs/reference/config/istio.routing.v1alpha1.html
 // $front_matter: redirect_from: /docs/reference/config/traffic-rules/routing-rules.html
 

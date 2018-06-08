@@ -38,29 +38,35 @@ import (
 )
 
 const (
-	yamlSuffix                       = ".yaml"
-	istioInstallDir                  = "install/kubernetes"
-	istioAddonsDir                   = "install/kubernetes/addons"
-	nonAuthInstallFile               = "istio.yaml"
-	authInstallFile                  = "istio-auth.yaml"
-	nonAuthInstallFileNamespace      = "istio-one-namespace.yaml"
-	authInstallFileNamespace         = "istio-one-namespace-auth.yaml"
-	mcNonAuthInstallFileNamespace    = "istio-multicluster.yaml"
-	mcAuthInstallFileNamespace       = "istio-auth-multicluster.yaml"
-	mcRemoteInstallFile              = "istio-remote.yaml"
-	istioSystem                      = "istio-system"
-	istioIngressServiceName          = "istio-ingress"
-	istioIngressLabel                = "ingress"
-	istioIngressGatewayServiceName   = "istio-ingressgateway"
-	istioIngressGatewayLabel         = "ingressgateway"
-	istioEgressGatewayServiceName    = "istio-egressgateway"
-	defaultSidecarInjectorFile       = "istio-sidecar-injector.yaml"
-	ingressCertsName                 = "istio-ingress-certs"
-	defaultGalleyConfigValidatorFile = "istio-galley-config-validator.yaml"
-	maxDeploymentRolloutTime         = 480 * time.Second
-	mtlsExcludedServicesPattern      = "mtlsExcludedServices:\\s*\\[(.*)\\]"
-	helmServiceAccountFile           = "helm-service-account.yaml"
-	istioHelmInstallDir              = istioInstallDir + "/helm/istio"
+	yamlSuffix                     = ".yaml"
+	istioInstallDir                = "install/kubernetes"
+	istioAddonsDir                 = "install/kubernetes/addons"
+	nonAuthInstallFile             = "istio.yaml"
+	authInstallFile                = "istio-auth.yaml"
+	nonAuthInstallFileNamespace    = "istio-one-namespace.yaml"
+	authInstallFileNamespace       = "istio-one-namespace-auth.yaml"
+	mcNonAuthInstallFileNamespace  = "istio-multicluster.yaml"
+	mcAuthInstallFileNamespace     = "istio-auth-multicluster.yaml"
+	mcRemoteInstallFile            = "istio-remote.yaml"
+	istioSystem                    = "istio-system"
+	istioIngressServiceName        = "istio-ingress"
+	istioIngressLabel              = "ingress"
+	istioIngressGatewayServiceName = "istio-ingressgateway"
+	istioIngressGatewayLabel       = "ingressgateway"
+	istioEgressGatewayServiceName  = "istio-egressgateway"
+	defaultSidecarInjectorFile     = "istio-sidecar-injector.yaml"
+	ingressCertsName               = "istio-ingress-certs"
+	maxDeploymentRolloutTime       = 480 * time.Second
+	helmServiceAccountFile         = "helm-service-account.yaml"
+	istioHelmInstallDir            = istioInstallDir + "/helm/istio"
+	caCertFileName                 = "samples/certs/ca-cert.pem"
+	caKeyFileName                  = "samples/certs/ca-key.pem"
+	rootCertFileName               = "samples/certs/root-cert.pem"
+	certChainFileName              = "samples/certs/cert-chain.pem"
+	// PrimaryCluster identifies the primary cluster
+	PrimaryCluster = "primary"
+	// RemoteCluster identifies the remote cluster
+	RemoteCluster = "remote"
 )
 
 var (
@@ -79,19 +85,24 @@ var (
 	rbacEnable   = flag.Bool("rbac_enable", true, "Enable rbac")
 	localCluster = flag.Bool("use_local_cluster", false,
 		"Whether the cluster is local or not (i.e. the test is running within the cluster). If running on minikube, this should be set to true.")
-	skipSetup                 = flag.Bool("skip_setup", false, "Skip namespace creation and istio cluster setup")
-	sidecarInjectorFile       = flag.String("sidecar_injector_file", defaultSidecarInjectorFile, "Sidecar injector yaml file")
-	clusterWide               = flag.Bool("cluster_wide", false, "Run cluster wide tests")
-	imagePullPolicy           = flag.String("image_pull_policy", "", "Specifies an override for the Docker image pull policy to be used")
-	multiClusterDir           = flag.String("cluster_registry_dir", "", "Directory name for the cluster registry config")
-	galleyConfigValidatorFile = flag.String("galley_config_validator_file", defaultGalleyConfigValidatorFile, "Galley config validator yaml file")
-	useGalleyConfigValidator  = flag.Bool("use_galley_config_validator", false, "Use galley configuration validation webhook")
-	installer                 = flag.String("installer", "kubectl", "Istio installer, default to kubectl, or helm ")
+	skipSetup                = flag.Bool("skip_setup", false, "Skip namespace creation and istio cluster setup")
+	sidecarInjectorFile      = flag.String("sidecar_injector_file", defaultSidecarInjectorFile, "Sidecar injector yaml file")
+	clusterWide              = flag.Bool("cluster_wide", false, "Run cluster wide tests")
+	imagePullPolicy          = flag.String("image_pull_policy", "", "Specifies an override for the Docker image pull policy to be used")
+	multiClusterDir          = flag.String("cluster_registry_dir", "", "Directory name for the cluster registry config")
+	useGalleyConfigValidator = flag.Bool("use_galley_config_validator", false, "Use galley configuration validation webhook")
+	installer                = flag.String("installer", "kubectl", "Istio installer, default to kubectl, or helm ")
 
 	addons = []string{
 		"zipkin",
 	}
 )
+
+type appPodsInfo struct {
+	// A map of app label values to the pods for that app
+	Pods      map[string][]string
+	PodsMutex sync.Mutex
+}
 
 // KubeInfo gathers information for kubectl
 type KubeInfo struct {
@@ -114,9 +125,6 @@ type KubeInfo struct {
 	RBACEnabled      bool
 	InstallAddons    bool
 
-	// Extra services to be excluded from MTLS
-	MTLSExcludedServices []string
-
 	// Istioctl installation
 	Istioctl *Istioctl
 	// App Manager
@@ -127,15 +135,38 @@ type KubeInfo struct {
 	// Use baseversion if not empty.
 	BaseVersion string
 
-	// A map of app label values to the pods for that app
-	appPods      map[string][]string
-	appPodsMutex sync.Mutex
+	appPods  map[string]*appPodsInfo
+	Clusters map[string]string
 
 	KubeConfig       string
 	KubeClient       kubernetes.Interface
 	RemoteKubeConfig string
 	RemoteKubeClient kubernetes.Interface
 	RemoteAppManager *AppManager
+}
+
+func getClusterWideInstallFile() string {
+	const (
+		nonAuthInstallFile           = "istio.yaml"
+		authInstallFile              = "istio-auth.yaml"
+		nonAuthWithGalleyInstallFile = "istio-galley.yaml"
+		authWithGalleyInstallFile    = "istio-auth-galley.yaml"
+	)
+	var istioYaml string
+	if *authEnable {
+		if *useGalleyConfigValidator {
+			istioYaml = authWithGalleyInstallFile
+		} else {
+			istioYaml = authInstallFile
+		}
+	} else {
+		if *useGalleyConfigValidator {
+			istioYaml = nonAuthWithGalleyInstallFile
+		} else {
+			istioYaml = nonAuthInstallFile
+		}
+	}
+	return istioYaml
 }
 
 // newKubeInfo create a new KubeInfo by given temp dir and runID
@@ -149,7 +180,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		}
 	}
 	yamlDir := filepath.Join(tmpDir, "yaml")
-	i, err := NewIstioctl(yamlDir, *namespace, *namespace, *proxyHub, *proxyTag)
+	i, err := NewIstioctl(yamlDir, *namespace, *namespace, *proxyHub, *proxyTag, *imagePullPolicy)
 	if err != nil {
 		return nil, err
 	}
@@ -171,15 +202,15 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		releaseDir = util.GetResourcePath("")
 	}
 	// Note the kubectl commands used by the test will default to use the local
-	// environments kubeconfig if an empty string is provided.  Therefore in the
+	// environment's kubeconfig if an empty string is provided.  Therefore in the
 	// default case kubeConfig will not be set.
 	var kubeConfig, remoteKubeConfig string
 	var kubeClient, remoteKubeClient kubernetes.Interface
 	var aRemote *AppManager
 	if *multiClusterDir != "" {
 		// multiClusterDir indicates the Kubernetes cluster config should come from files versus
-		// the environmental. The test config can be defined to use either a single cluster or
-		// 2 clusters
+		// the in cluster config. At the current time only the remote kubeconfig is read from a
+		// file.
 		tmpfile := *namespace + "_kubeconfig"
 		tmpfile = path.Join(tmpDir, tmpfile)
 		if err = util.GetKubeConfig(tmpfile); err != nil {
@@ -188,6 +219,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		kubeConfig = tmpfile
 		remoteKubeConfig, err = getKubeConfigFromFile(*multiClusterDir)
 		if err != nil {
+			// TODO could change this to continue tests if only a single cluster is in play
 			return nil, err
 		}
 		if kubeClient, err = kube.CreateInterface(kubeConfig); err != nil {
@@ -201,6 +233,15 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 	}
 
 	a := NewAppManager(tmpDir, *namespace, i, kubeConfig)
+
+	clusters := make(map[string]string)
+	appPods := make(map[string]*appPodsInfo)
+	clusters[PrimaryCluster] = kubeConfig
+	appPods[PrimaryCluster] = &appPodsInfo{}
+	if remoteKubeConfig != "" {
+		clusters[RemoteCluster] = remoteKubeConfig
+		appPods[RemoteCluster] = &appPodsInfo{}
+	}
 
 	log.Infof("Using release dir: %s", releaseDir)
 	return &KubeInfo{
@@ -220,6 +261,8 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		KubeClient:       kubeClient,
 		RemoteKubeConfig: remoteKubeConfig,
 		RemoteKubeClient: remoteKubeClient,
+		appPods:          appPods,
+		Clusters:         clusters,
 	}, nil
 }
 
@@ -396,21 +439,8 @@ func (k *KubeInfo) Teardown() error {
 			}
 		}
 
-		if *useGalleyConfigValidator {
-			testGalleyConfigValidatorYAML := filepath.Join(k.TmpDir, "yaml", *galleyConfigValidatorFile)
-
-			if err := util.KubeDelete(k.Namespace, testGalleyConfigValidatorYAML, k.KubeConfig); err != nil {
-				log.Errorf("Istio galley config validator %s deletion failed", testGalleyConfigValidatorYAML)
-				return err
-			}
-		}
-
 		if *clusterWide {
-			// for cluster-wide, we can verify the uninstall
-			istioYaml := nonAuthInstallFile
-			if *authEnable {
-				istioYaml = authInstallFile
-			}
+			istioYaml := getClusterWideInstallFile()
 
 			testIstioYaml := filepath.Join(k.TmpDir, "yaml", istioYaml)
 
@@ -470,55 +500,59 @@ func (k *KubeInfo) Teardown() error {
 }
 
 // GetAppPods gets a map of app name to pods for that app. If pods are found, the results are cached.
-func (k *KubeInfo) GetAppPods() map[string][]string {
+func (k *KubeInfo) GetAppPods(cluster string) map[string][]string {
 	// Get a copy of the internal map.
-	newMap := k.getAppPods()
+	newMap := k.getAppPods(cluster)
 
 	if len(newMap) == 0 {
 		var err error
-		if newMap, err = util.GetAppPods(k.Namespace, k.KubeConfig); err != nil {
+		if newMap, err = util.GetAppPods(k.Namespace, k.Clusters[cluster]); err != nil {
 			log.Errorf("Failed to get retrieve the app pods for namespace %s", k.Namespace)
 		} else {
 			// Copy the new results to the internal map.
 			log.Infof("Fetched pods with the `app` label: %v", newMap)
-			k.setAppPods(newMap)
+			k.setAppPods(cluster, newMap)
 		}
 	}
 	return newMap
 }
 
 // GetRoutes gets routes from the pod or returns error
-func (k *KubeInfo) GetRoutes(app string) (string, error) {
-	appPods := k.GetAppPods()
-	if len(appPods[app]) == 0 {
-		return "", errors.Errorf("missing pod names for app %q", app)
-	}
-
-	pod := appPods[app][0]
-
+func (k *KubeInfo) GetRoutes(app string) (routes string, err error) {
 	routesURL := "http://localhost:15000/config_dump"
-	routes, err := util.PodExec(k.Namespace, pod, "app", fmt.Sprintf("client -url %s", routesURL), true, k.KubeConfig)
-	if err != nil {
-		return "", errors.WithMessage(err, "failed to get routes")
+	for cluster := range k.Clusters {
+		appPods := k.GetAppPods(cluster)
+		if len(appPods[app]) == 0 {
+			return "", errors.Errorf("missing pod names for app %q", app)
+		}
+
+		pod := appPods[app][0]
+
+		r, e := util.PodExec(k.Namespace, pod, "app", fmt.Sprintf("client -url %s", routesURL), true, k.Clusters[cluster])
+		if e != nil {
+			return "", errors.WithMessage(err, "failed to get routes")
+		}
+		routes += fmt.Sprintf("Routes From %s Cluster: \n", cluster)
+		routes += r
 	}
 
 	return routes, nil
 }
 
 // getAppPods returns a copy of the appPods map. Should only be called by GetAppPods.
-func (k *KubeInfo) getAppPods() map[string][]string {
-	k.appPodsMutex.Lock()
-	defer k.appPodsMutex.Unlock()
+func (k *KubeInfo) getAppPods(cluster string) map[string][]string {
+	k.appPods[cluster].PodsMutex.Lock()
+	defer k.appPods[cluster].PodsMutex.Unlock()
 
-	return k.deepCopy(k.appPods)
+	return k.deepCopy(k.appPods[cluster].Pods)
 }
 
 // setAppPods sets the app pods with a copy of the given map. Should only be called by GetAppPods.
-func (k *KubeInfo) setAppPods(newMap map[string][]string) {
-	k.appPodsMutex.Lock()
-	defer k.appPodsMutex.Unlock()
+func (k *KubeInfo) setAppPods(cluster string, newMap map[string][]string) {
+	k.appPods[cluster].PodsMutex.Lock()
+	defer k.appPods[cluster].PodsMutex.Unlock()
 
-	k.appPods = k.deepCopy(newMap)
+	k.appPods[cluster].Pods = k.deepCopy(newMap)
 }
 
 func (k *KubeInfo) deepCopy(src map[string][]string) map[string][]string {
@@ -563,17 +597,16 @@ func (k *KubeInfo) deployIstio() error {
 		istioYaml = mcNonAuthInstallFileNamespace
 	}
 	if *clusterWide {
-		if *authEnable {
-			istioYaml = authInstallFile
-		} else {
-			istioYaml = nonAuthInstallFile
-		}
+		istioYaml = getClusterWideInstallFile()
 	} else {
 		if *authEnable {
 			istioYaml = authInstallFileNamespace
 			if *multiClusterDir != "" {
 				istioYaml = mcAuthInstallFileNamespace
 			}
+		}
+		if *useGalleyConfigValidator {
+			return errors.New("cannot enable useGalleyConfigValidator in one namespace tests")
 		}
 	}
 
@@ -591,6 +624,11 @@ func (k *KubeInfo) deployIstio() error {
 		return err
 	}
 
+	if *multiClusterDir != "" {
+		if err := k.createCacerts(false); err != nil {
+			log.Infof("Failed to create Cacerts with namespace %s in primary cluster", k.Namespace)
+		}
+	}
 	if err := util.KubeApply(k.Namespace, testIstioYaml, k.KubeConfig); err != nil {
 		log.Errorf("Istio core %s deployment failed", testIstioYaml)
 		return err
@@ -603,9 +641,13 @@ func (k *KubeInfo) deployIstio() error {
 			return err
 		}
 		// Create the local secrets and configmap to start pilot
-		if err := util.CreateMultiClusterSecrets(k.Namespace, k.KubeClient, k.RemoteKubeConfig); err != nil {
+		if err := util.CreateMultiClusterSecrets(k.Namespace, k.KubeClient, k.RemoteKubeConfig, k.KubeConfig); err != nil {
 			log.Errorf("Unable to create secrets on local cluster %s", err.Error())
 			return err
+		}
+
+		if err := k.createCacerts(true); err != nil {
+			log.Infof("Failed to create Cacerts with namespace %s in remote cluster", k.Namespace)
 		}
 
 		yamlDir := filepath.Join(istioInstallDir, mcRemoteInstallFile)
@@ -634,18 +676,6 @@ func (k *KubeInfo) deployIstio() error {
 		}
 	}
 
-	if *useGalleyConfigValidator {
-		baseConfigValidatorYAML := util.GetResourcePath(filepath.Join(istioInstallDir, *galleyConfigValidatorFile))
-		testConfigValidatorYAML := filepath.Join(k.TmpDir, "yaml", *galleyConfigValidatorFile)
-		if err := k.generateGalleyConfigValidator(baseConfigValidatorYAML, testConfigValidatorYAML); err != nil {
-			log.Errorf("Generating galley config validator yaml failed")
-			return err
-		}
-		if err := util.KubeApply(k.Namespace, testConfigValidatorYAML, k.KubeConfig); err != nil {
-			log.Errorf("Istio galley config validator %s deployment failed", testConfigValidatorYAML)
-			return err
-		}
-	}
 	return util.CheckDeployments(k.Namespace, maxDeploymentRolloutTime, k.KubeConfig)
 }
 
@@ -781,27 +811,6 @@ func replacePattern(content []byte, src, dest string) []byte {
 	return content
 }
 
-func (k *KubeInfo) appendMtlsExcludedServices(content []byte) ([]byte, error) {
-	if !k.AuthEnabled || len(k.MTLSExcludedServices) == 0 {
-		// Nothing to do.
-		return content, nil
-	}
-
-	re := regexp.MustCompile(mtlsExcludedServicesPattern)
-	match := re.FindStringSubmatch(string(content))
-	if len(match) == 0 {
-		return nil, fmt.Errorf("failed to locate the mtlsExcludedServices section of the mesh config")
-	}
-
-	values := strings.Split(match[1], ",")
-	for _, v := range k.MTLSExcludedServices {
-		// Add surrounding quotes to the values.
-		values = append(values, fmt.Sprintf("\"%s\"", v))
-	}
-	newValue := fmt.Sprintf("mtlsExcludedServices: [%s]", strings.Join(values, ","))
-	return re.ReplaceAll(content, []byte(newValue)), nil
-}
-
 func (k *KubeInfo) generateIstio(src, dst string) error {
 	content, err := ioutil.ReadFile(src)
 	if err != nil {
@@ -815,13 +824,6 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 		vs := url.Values{}
 		vs.Add("ns", *namespace)
 		content = replacePattern(content, "--configStoreURL=k8s://", "--configStoreURL=k8s://?"+vs.Encode())
-	}
-
-	// If mtlsExcludedServices is specified, replace it with the updated value
-	content, err = k.appendMtlsExcludedServices(content)
-	if err != nil {
-		log.Errorf("Failed to replace mtlsExcludedServices: %v", err)
-		return err
 	}
 
 	// Replace long refresh delays with short ones for the sake of tests.

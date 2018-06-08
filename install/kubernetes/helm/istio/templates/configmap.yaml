@@ -13,13 +13,7 @@ data:
   {{- if .Values.global.mtls.enabled }}
     # Mutual TLS between proxies
     authPolicy: MUTUAL_TLS
-    mtlsExcludedServices: ["kubernetes.default.svc.cluster.local"]
   {{- end }}
-    #
-    # Edit this list to avoid using mTLS to connect to these services.
-    # Typically, these are control services (e.g kubernetes API server) that don't have istio sidecar
-    # to transparently terminate mTLS authentication.
-    # mtlsExcludedServices: ["kubernetes.default.svc.cluster.local"]
 
     # Set the following variable to true to disable policy checks by the Mixer.
     # Note that metrics will still be reported to the Mixer.
@@ -86,7 +80,10 @@ data:
       zipkinAddress: zipkin.{{ .Release.Namespace }}:9411
       #
       # Statsd metrics collector converts statsd metrics into Prometheus metrics.
+    {{- if .Values.mixer.enabled }}
       statsdUdpAddress: istio-statsd-prom-bridge.{{ .Release.Namespace }}:9125
+    {{- end }}
+    
     {{- if .Values.global.controlPlaneSecurityEnabled }}
       #
       # Mutual TLS authentication between sidecars and istio control plane.

@@ -28,7 +28,7 @@ import (
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/lang/checker"
 	runtimeConfig "istio.io/istio/mixer/pkg/runtime/config"
-	"istio.io/istio/mixer/pkg/runtime/validator"
+	"istio.io/istio/mixer/pkg/runtime/config/validator"
 	"istio.io/istio/mixer/pkg/template"
 	generatedTmplRepo "istio.io/istio/mixer/template"
 	"istio.io/istio/pilot/pkg/bootstrap"
@@ -56,7 +56,7 @@ func createMixerValidator(kubeconfig string) (store.BackendValidator, error) {
 	if err != nil {
 		return nil, err
 	}
-	rv, err := validator.New(checker.NewTypeChecker(), "", s, adapters, templates)
+	rv, err := validator.NewValidator(checker.NewTypeChecker(), "", s, adapters, templates)
 	if err != nil {
 		return nil, err
 	}

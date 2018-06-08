@@ -90,6 +90,10 @@ static_resources:
                         bytes_value: {{ .PodIP }}
                       destination.port:
                         int64_value: 15003
+                      context.reporter.local:
+                        bool_value: true
+                      context.reporter.uid:
+                        string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
               transport:
                 check_cluster: mixer_check_server
                 report_cluster: mixer_report_server
@@ -160,6 +164,10 @@ static_resources:
                         bytes_value: {{ .PodIP }}
                       destination.port:
                         int64_value: 15011
+                      context.reporter.local:
+                        bool_value: true
+                      context.reporter.uid:
+                        string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
               transport:
                 check_cluster: mixer_check_server
                 report_cluster: mixer_report_server
@@ -225,6 +233,10 @@ static_resources:
                         bytes_value: {{ .PodIP }}
                       destination.port:
                         int64_value: 15005
+                      context.reporter.local:
+                        bool_value: true
+                      context.reporter.uid:
+                        string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
               transport:
                 check_cluster: mixer_check_server
                 report_cluster: mixer_report_server
@@ -290,6 +302,10 @@ static_resources:
                         bytes_value: {{ .PodIP }}
                       destination.port:
                         int64_value: 15007
+                      context.reporter.local:
+                        bool_value: true
+                      context.reporter.uid:
+                        string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
               transport:
                 check_cluster: mixer_check_server
                 report_cluster: mixer_report_server

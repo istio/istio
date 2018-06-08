@@ -1,0 +1,77 @@
+# This is used to generate istio.yaml for a stress/load test cluster.
+
+global:
+  imagePullPolicy: Always
+  hub: docker.io/istionightly
+  tag: nightly-release-0.8
+
+  proxy:
+    image: proxyv2
+    resources:
+      requests:
+        cpu: 900m
+        memory: 1024Mi
+
+ingressgateway:
+  enabled: true
+  autoscaleMin: 1
+  autoscaleMax: 4
+  resources:
+     limits:
+      cpu: 1000m
+      memory: 128Mi
+     requests:
+      cpu: 1000m
+      memory: 128Mi
+  service:
+    name: istio-ingressgateway
+    labels:
+      istio: ingressgateway
+    type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
+    ports:
+    - port: 80
+      name: http
+    - port: 443
+      name: https
+    - port: 31400
+      name: tcp
+    - port: 5201
+      name: tcp-iperf-cont
+    - port: 5202
+      name: tcp-iperfraw
+    - port: 5203
+      name: tcp-iperf
+    - port: 5204
+      name: tcp-iperf-tls
+  deployment:
+    labels:
+      istio: ingressgateway #will be added to pods and service
+    ports:
+    - containerPort: 80
+    - containerPort: 443
+    - containerPort: 31400
+    - containerPort: 5201
+    - containerPort: 5202
+    - containerPort: 5203
+    - containerPort: 5204
+
+ingress:
+  enabled: false
+
+prometheus:
+  enabled: true
+
+sidecar-injector:
+  enabled: true
+
+grafana:
+  enabled: true
+
+zipkin:
+  enabled: true
+
+servicegraph:
+  enabled: true
+
+prometheus:
+  enabled: true

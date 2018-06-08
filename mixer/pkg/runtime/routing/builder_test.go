@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/runtime/handler"
 	"istio.io/istio/mixer/pkg/runtime/testing/data"
-	"istio.io/istio/mixer/pkg/runtime/testing/util"
 	"istio.io/istio/mixer/pkg/template"
 )
 
@@ -59,7 +58,7 @@ var tests = []struct {
 
 		ExpectedTable: `
 [Routing ExpectedTable]
-ID: 1
+ID: 0
 [#0] TEMPLATE_VARIETY_CHECK {V}
   [#0] istio-system {NS}
     [#0] hcheck1.acheck.istio-system {H}
@@ -80,7 +79,7 @@ ID: 1
 		},
 		ExpectedTable: `
 [Routing ExpectedTable]
-ID: 1
+ID: 0
 [#0] TEMPLATE_VARIETY_CHECK {V}
   [#0] istio-system {NS}
     [#0] hcheck1.acheck.istio-system {H}
@@ -102,7 +101,7 @@ ID: 1
 		},
 		ExpectedTable: `
 [Routing ExpectedTable]
-ID: 1
+ID: 0
 [#0] TEMPLATE_VARIETY_REPORT {V}
   [#0] istio-system {NS}
     [#0] hreport1.areport.istio-system {H}
@@ -123,7 +122,7 @@ ID: 1
 		},
 		ExpectedTable: `
 [Routing ExpectedTable]
-ID: 1
+ID: 0
 [#0] TEMPLATE_VARIETY_CHECK {V}
   [#0] istio-system {NS}
     [#0] hcheck1.acheck.istio-system {H}
@@ -143,7 +142,7 @@ ID: 1
 		},
 		ExpectedTable: `
 [Routing ExpectedTable]
-ID: 1
+ID: 0
 [#0] TEMPLATE_VARIETY_CHECK {V}
   [#0] istio-system {NS}
     [#0] hcheck1.acheck.istio-system {H}
@@ -164,7 +163,7 @@ ID: 1
 		},
 		ExpectedTable: `
 [Routing ExpectedTable]
-ID: 1
+ID: 0
 [#0] TEMPLATE_VARIETY_CHECK {V}
   [#0] istio-system {NS}
     [#0] hcheck1.acheck.istio-system {H}
@@ -188,7 +187,7 @@ ID: 1
 		},
 		ExpectedTable: `
 [Routing ExpectedTable]
-ID: 1
+ID: 0
 [#0] TEMPLATE_VARIETY_CHECK {V}
   [#0] istio-system {NS}
     [#0] hcheck1.acheck.istio-system {H}
@@ -217,7 +216,7 @@ ID: 1
 		// TODO(Issue #2690): We should dedupe instances that are being dispatched to a particular handler.
 		ExpectedTable: `
 [Routing ExpectedTable]
-ID: 1
+ID: 0
 [#0] TEMPLATE_VARIETY_CHECK {V}
   [#0] istio-system {NS}
     [#0] hcheck1.acheck.istio-system {H}
@@ -243,7 +242,7 @@ ID: 1
 		},
 		ExpectedTable: `
 [Routing ExpectedTable]
-ID: 1
+ID: 0
 [#0] TEMPLATE_VARIETY_CHECK {V}
   [#0] istio-system {NS}
     [#0] hcheck1.acheck.istio-system {H}
@@ -270,7 +269,7 @@ ID: 1
 		},
 		ExpectedTable: `
 [Routing ExpectedTable]
-ID: 1
+ID: 0
 [#0] TEMPLATE_VARIETY_CHECK {V}
   [#0] istio-system {NS}
     [#0] hcheck1.acheck.istio-system {H}
@@ -295,7 +294,7 @@ ID: 1
 		// No routes are set, as the only rule is bad.
 		ExpectedTable: `
 [Routing ExpectedTable]
-ID: 1
+ID: 0
 `,
 	},
 
@@ -310,7 +309,7 @@ ID: 1
 		// No routes are set, as the only rule is bad.
 		ExpectedTable: `
 [Routing ExpectedTable]
-ID: 1
+ID: 0
 `,
 	},
 
@@ -326,7 +325,7 @@ ID: 1
 		// No routes are set, as the only rule is bad.
 		ExpectedTable: `
 [Routing ExpectedTable]
-ID: 1
+ID: 0
 `,
 	},
 
@@ -341,7 +340,7 @@ ID: 1
 		Templates: data.BuildTemplates(nil, data.FakeTemplateSettings{Name: "tcheck", HandlerDoesNotSupportTemplate: true}),
 		ExpectedTable: `
 [Routing ExpectedTable]
-ID: 1
+ID: 0
 `,
 	},
 
@@ -355,7 +354,7 @@ ID: 1
 		},
 		ExpectedTable: `
 [Routing ExpectedTable]
-ID: 1
+ID: 0
 [#0] TEMPLATE_VARIETY_CHECK {V}
   [#0] ns2 {NS}
     [#0] hcheck3.acheck.ns2 {H}
@@ -383,7 +382,7 @@ ID: 1
 		// ns2 ruleset is a superset of the default set.
 		ExpectedTable: `
 [Routing ExpectedTable]
-ID: 1
+ID: 0
 [#0] TEMPLATE_VARIETY_CHECK {V}
   [#0] istio-system {NS}
     [#0] hcheck1.acheck.istio-system {H}
@@ -413,7 +412,7 @@ ID: 1
 		Templates: data.BuildTemplates(nil, data.FakeTemplateSettings{Name: "tcheck", ErrorAtCreateInstanceBuilder: true}),
 		ExpectedTable: `
 [Routing ExpectedTable]
-ID: 1
+ID: 0
 `},
 
 	{
@@ -427,7 +426,7 @@ ID: 1
 
 		ExpectedTable: `
 [Routing ExpectedTable]
-ID: 1
+ID: 0
 `},
 
 	{
@@ -441,7 +440,7 @@ ID: 1
 
 		ExpectedTable: `
 [Routing ExpectedTable]
-ID: 1
+ID: 0
 [#0] TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR {V}
   [#0] istio-system {NS}
     [#0] hapa1.apa.istio-system {H}
@@ -462,7 +461,7 @@ ID: 1
 
 		ExpectedTable: `
 [Routing ExpectedTable]
-ID: 1
+ID: 0
 `,
 	},
 
@@ -478,7 +477,7 @@ ID: 1
 
 		ExpectedTable: `
 [Routing ExpectedTable]
-ID: 1
+ID: 0
 [#0] TEMPLATE_VARIETY_CHECK {V}
   [#0] istio-system {NS}
     [#0] hcheck1.acheck.istio-system {H}
@@ -561,7 +560,7 @@ func buildTableWithTemplatesAndAdapters(templates map[string]*template.Info, ada
 
 	globalConfig := data.JoinConfigs(globalConfigs...)
 
-	s := util.GetSnapshot(templates, adapters, serviceConfig, globalConfig)
+	s, _ := config.GetSnapshotForTest(templates, adapters, serviceConfig, globalConfig)
 	ht := handler.NewTable(handler.Empty(), s, nil)
 	expb := compiled.NewBuilder(s.Attributes)
 
@@ -592,7 +591,7 @@ func TestNonPointerAdapter(t *testing.T) {
 
 	expected := `
 [Routing ExpectedTable]
-ID: 1
+ID: 0
 [#0] TEMPLATE_VARIETY_CHECK {V}
   [#0] istio-system {NS}
     [#0] hcheck1.acheck.istio-system {H}

@@ -114,10 +114,10 @@ func BuildTable(
 		nextIDCounter:          1,
 
 		matchesByID:       make(map[uint32]string, len(config.Rules)),
-		instanceNamesByID: make(map[uint32][]string, len(config.Instances)),
+		instanceNamesByID: make(map[uint32][]string, len(config.InstancesStatic)),
 
-		builders:    make(map[string]template.InstanceBuilderFn, len(config.Instances)),
-		mappers:     make(map[string]template.OutputMapperFn, len(config.Instances)),
+		builders:    make(map[string]template.InstanceBuilderFn, len(config.InstancesStatic)),
+		mappers:     make(map[string]template.OutputMapperFn, len(config.InstancesStatic)),
 		expressions: make(map[string]compiled.Expression, len(config.Rules)),
 	}
 
@@ -154,7 +154,7 @@ func (b *builder) build(config *config.Snapshot) {
 		}
 
 		// For each action, find unique instances to use, and add entries to the map.
-		for i, action := range rule.Actions {
+		for i, action := range rule.ActionsStatic {
 
 			// Find the matching handler.
 			handlerName := action.Handler.Name
@@ -213,7 +213,7 @@ func (b *builder) build(config *config.Snapshot) {
 // is an attribute generator.
 func (b *builder) getBuilderAndMapper(
 	finder ast.AttributeDescriptorFinder,
-	instance *config.Instance) (template.InstanceBuilderFn, template.OutputMapperFn, error) {
+	instance *config.InstanceStatic) (template.InstanceBuilderFn, template.OutputMapperFn, error) {
 	var err error
 
 	t := instance.Template
@@ -345,7 +345,7 @@ func (b *builder) add(
 			id:           b.nextID(),
 			Condition:    condition,
 			ResourceType: resourceType,
-			Builders:     []template.InstanceBuilderFn{},
+			Builders:     []NamedBuilder{},
 			Mappers:      []template.OutputMapperFn{},
 		}
 		byHandler.InstanceGroups = append(byHandler.InstanceGroups, instanceGroup)
@@ -363,7 +363,7 @@ func (b *builder) add(
 	}
 
 	// Append the builder & mapper.
-	instanceGroup.Builders = append(instanceGroup.Builders, builder)
+	instanceGroup.Builders = append(instanceGroup.Builders, NamedBuilder{InstanceShortName: config.ExtractShortName(instanceName), Builder: builder})
 
 	if mapper != nil {
 		instanceGroup.Mappers = append(instanceGroup.Mappers, mapper)

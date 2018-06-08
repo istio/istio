@@ -13,13 +13,14 @@
 // limitations under the License.
 
 // nolint
-//go:generate protoc testdata/all/types.proto -otestdata/all/types.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -f mixer/pkg/protobuf/yaml/testdata/all/types.proto
+//go:generate protoc testdata/all/types.proto  --include_imports  -otestdata/all/types.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh  -d false -f mixer/pkg/protobuf/yaml/testdata/all/types.proto
 
 package yaml
 
 import (
 	"bytes"
+	"encoding/json"
 	"reflect"
 	"strings"
 	"testing"
@@ -27,7 +28,6 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
-	yaml2 "gopkg.in/yaml.v2"
 
 	"istio.io/istio/mixer/pkg/protobuf/yaml/testdata/all"
 )
@@ -226,13 +226,13 @@ map_str_msg:
 
 #### map[int32]message ####
 map_i32_msg:
-  123:
+  "123":
     str: "mystring2"
     inmsg:
       str: "myinnerstring"
       i64: 99
       dbl: 99.99
-  456:
+  "456":
     str: "mystring2"
 
 ### map[int64]double ####
@@ -426,7 +426,7 @@ func TestEncodeBytes(t *testing.T) {
 			msg:         ".foo.Simple",
 			input:       `str: 12345`,
 			skipUnknown: false,
-			err:         "field 'str' is of type 'int' instead of expected type 'string'",
+			err:         "field 'str' is of type 'float64' instead of expected type 'string'",
 		},
 		{
 			n:     "[]string type mismatch",
@@ -441,7 +441,7 @@ func TestEncodeBytes(t *testing.T) {
 r_str:
 - 123
 `,
-			err:      "field 'r_str[0]' is of type 'int' instead of expected type 'string'",
+			err:      "field 'r_str[0]' is of type 'float64' instead of expected type 'string'",
 			expected: &foo.Simple{},
 		},
 
@@ -778,7 +778,7 @@ r_si64_unpacked:
 			n:     "enum type mismatch",
 			msg:   ".foo.Simple",
 			input: `enm: 12345`,
-			err:   "field 'enm' is of type 'int' instead of expected type 'enum(foo.myenum)'",
+			err:   "field 'enm' is of type 'float64' instead of expected type 'enum(foo.myenum)'",
 		},
 		{
 			n:     "wrong enum value",
@@ -790,7 +790,7 @@ r_si64_unpacked:
 			n:     "[]enum type mismatch",
 			msg:   ".foo.Simple",
 			input: `r_enm: 123`,
-			err:   "field 'r_enm' is of type 'int' instead of expected type '[]enum(foo.myenum)'",
+			err:   "field 'r_enm' is of type 'float64' instead of expected type '[]enum(foo.myenum)'",
 		},
 		{
 			n:   "[]enum entry type mismatch",
@@ -799,7 +799,7 @@ r_si64_unpacked:
 r_enm:
 - 123
 `,
-			err:      "field 'r_enm[0]' is of type 'int' instead of expected type 'enum(foo.myenum)'",
+			err:      "field 'r_enm[0]' is of type 'float64' instead of expected type 'enum(foo.myenum)'",
 			expected: &foo.Simple{},
 		},
 		{
@@ -825,7 +825,7 @@ r_enm_unpacked:
 - 123
 `,
 			skipUnknown: false,
-			err:         "field 'r_enm_unpacked[0]' is of type 'int' instead of expected type 'enum(foo.myenum)'",
+			err:         "field 'r_enm_unpacked[0]' is of type 'float64' instead of expected type 'enum(foo.myenum)'",
 		},
 		{
 			n:   "[]enum unpacked wrong enum value",
@@ -907,7 +907,7 @@ b: true
 map_str_str:
   key: 1234
 `,
-			err: "/map_str_str[key]: 'field 'value' is of type 'int' instead of expected type 'string''",
+			err: "/map_str_str[key]: 'field 'value' is of type 'float64' instead of expected type 'string''",
 		},
 
 		////////// Wrong input //////////
@@ -934,8 +934,9 @@ map_str_str:
 		},
 	} {
 		t.Run(td.n, func(tt *testing.T) {
-			in := make(map[interface{}]interface{})
-			if err := yaml2.Unmarshal([]byte(td.input), &in); err != nil {
+			var in map[string]interface{}
+			jsonBytes, _ := yaml.YAMLToJSON([]byte(td.input))
+			if err := json.Unmarshal(jsonBytes, &in); err != nil {
 				tt.Fatal("bad yaml2")
 			}
 
@@ -1000,8 +1001,9 @@ map_fixed32_enum:
 		input:    mapValAsEnum,
 		expected: &foo.Simple{},
 	}
-	in := make(map[interface{}]interface{})
-	if err := yaml2.Unmarshal([]byte(td.input), &in); err != nil {
+	var in map[string]interface{}
+	jsonBytes, _ := yaml.YAMLToJSON([]byte(td.input))
+	if err := json.Unmarshal(jsonBytes, &in); err != nil {
 		t.Fatal("bad yaml2")
 	}
 

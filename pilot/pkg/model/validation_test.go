@@ -1121,7 +1121,7 @@ func TestValidateIstioService(t *testing.T) {
 
 	for _, svc := range services {
 		if got := ValidateIstioService(&svc.Service); (got == nil) != svc.Valid {
-			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %s",
+			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v",
 				got == nil, svc.Valid, got, svc.Service)
 		}
 	}

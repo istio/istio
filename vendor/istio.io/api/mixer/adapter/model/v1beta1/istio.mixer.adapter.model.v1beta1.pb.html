@@ -1,9 +1,10 @@
 ---
 title: Mixer Adapter Model
-overview: Definitions used to create adapters and templates
+description: Definitions used to create adapters and templates
 location: https://istio.io/docs/reference/api/mixer/istio.mixer.adapter.model.v1beta1.html
 layout: protoc-gen-docs
-number_of_entries: 23
+generator: protoc-gen-docs
+number_of_entries: 17
 ---
 <p>This package defines the service and types used by adapter code to serve requests from Mixer.
 This package also defines the types that are used to create Mixer templates.</p>
@@ -213,103 +214,6 @@ satisfied and details describe why.</p>
 </tbody>
 </table>
 </section>
-<h3 id="DNSName">DNSName</h3>
-<section>
-<p>DNSName is used inside templates for fields that are of ValueType &ldquo;DNS_NAME&rdquo;</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="DNSName.value">
-<td><code>value</code></td>
-<td><code>string</code></td>
-<td>
-<p>DNSName encoded as string.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h3 id="Duration">Duration</h3>
-<section>
-<p>Duration is used inside templates for fields that are of ValueType &ldquo;DURATION&rdquo;</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="Duration.value">
-<td><code>value</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
-<td>
-<p>Duration encoded as google.protobuf.Duration.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h3 id="EmailAddress">EmailAddress</h3>
-<section>
-<p>EmailAddress is used inside templates for fields that are of ValueType &ldquo;EMAIL_ADDRESS&rdquo;
-DO NOT USE !! Under Development</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="EmailAddress.value">
-<td><code>value</code></td>
-<td><code>string</code></td>
-<td>
-<p>EmailAddress encoded as string.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h3 id="IPAddress">IPAddress</h3>
-<section>
-<p>IPAddress is used inside templates for fields that are of ValueType &ldquo;IP_ADDRESS&rdquo;</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="IPAddress.value">
-<td><code>value</code></td>
-<td><code>bytes</code></td>
-<td>
-<p>IPAddress encoded as bytes.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
 <h3 id="Info">Info</h3>
 <section>
 <p>Info describes an adapter or a backend that wants to provide telemetry and policy functionality to Mixer as an
@@ -349,7 +253,7 @@ example: mycompany-denier</p>
 <td><code>templates</code></td>
 <td><code>string[]</code></td>
 <td>
-<p>Base64 encoded proto descriptor of all the templates the adapter wants to serve.</p>
+<p>Names of the templates the adapter supports.</p>
 
 </td>
 </tr>
@@ -502,6 +406,30 @@ If <code>QuotaParams.best_effort</code> is false, this will be either 0 or &gt;=
 <p>Expresses the result of a report call.</p>
 
 </section>
+<h3 id="Template">Template</h3>
+<section>
+<p>Template provides the details of a mixer template.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Template.descriptor">
+<td><code>descriptor</code></td>
+<td><code>string</code></td>
+<td>
+<p>Base64 encoded proto descriptor of the template.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
 <h3 id="TemplateVariety">TemplateVariety</h3>
 <section>
 <p>The available varieties of templates, controlling the semantics of what an adapter does with each instance.</p>
@@ -517,77 +445,32 @@ If <code>QuotaParams.best_effort</code> is false, this will be either 0 or &gt;=
 <tr id="TemplateVariety.TEMPLATE_VARIETY_CHECK">
 <td><code>TEMPLATE_VARIETY_CHECK</code></td>
 <td>
-<p>Makes the template applicable for Mixer&rsquo;s check calls.</p>
+<p>Makes the template applicable for Mixer&rsquo;s check calls. Instances of such template are created during
+report calls in Mixer and passed to the handlers based on the rule configurations.</p>
 
 </td>
 </tr>
 <tr id="TemplateVariety.TEMPLATE_VARIETY_REPORT">
 <td><code>TEMPLATE_VARIETY_REPORT</code></td>
 <td>
-<p>Makes the template applicable for Mixer&rsquo;s report calls.</p>
+<p>Makes the template applicable for Mixer&rsquo;s report calls. Instances of such template are created during
+check calls in Mixer and passed to the handlers based on the rule configurations.</p>
 
 </td>
 </tr>
 <tr id="TemplateVariety.TEMPLATE_VARIETY_QUOTA">
 <td><code>TEMPLATE_VARIETY_QUOTA</code></td>
 <td>
-<p>Makes the template applicable for Mixer&rsquo;s quota calls.</p>
+<p>Makes the template applicable for Mixer&rsquo;s quota calls. Instances of such template are created during
+quota check calls in Mixer and passed to the handlers based on the rule configurations.</p>
 
 </td>
 </tr>
 <tr id="TemplateVariety.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR">
 <td><code>TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR</code></td>
 <td>
-<p>Makes the template applicable for Mixer&rsquo;s quota calls.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h3 id="TimeStamp">TimeStamp</h3>
-<section>
-<p>TimeStamp is used inside templates for fields that are of ValueType &ldquo;TIMESTAMP&rdquo;</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="TimeStamp.value">
-<td><code>value</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#timestamp">google.protobuf.Timestamp</a></code></td>
-<td>
-<p>TimeStamp encoded as google.protobuf.Timestamp.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h3 id="Uri">Uri</h3>
-<section>
-<p>Uri is used inside templates for fields that are of ValueType &ldquo;URI&rdquo;
-DO NOT USE ! Under Development</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="Uri.value">
-<td><code>value</code></td>
-<td><code>string</code></td>
-<td>
-<p>Uri encoded as string.</p>
+<p>Makes the template applicable for Mixer&rsquo;s attribute generation phase. Instances of such template are created during
+pre-processing attribute generation phase and passed to the handlers based on the rule configurations.</p>
 
 </td>
 </tr>
@@ -644,103 +527,6 @@ DO NOT USE ! Under Development</p>
 <td><code><a href="#google.rpc.Status">google.rpc.Status</a></code></td>
 <td>
 <p>The success/failure status of validation call.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h3 id="Value">Value</h3>
-<section>
-<p>Value is used inside templates for fields that have dynamic types. The actual datatype
-of the field depends on the datatype of the expression used in the operator configuration.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="Value.string_value" class="oneof oneof-start">
-<td><code>stringValue</code></td>
-<td><code>string (oneof)</code></td>
-<td>
-<p>Used for values of type STRING</p>
-
-</td>
-</tr>
-<tr id="Value.int64_value" class="oneof">
-<td><code>int64Value</code></td>
-<td><code>int64 (oneof)</code></td>
-<td>
-<p>Used for values of type INT64</p>
-
-</td>
-</tr>
-<tr id="Value.double_value" class="oneof">
-<td><code>doubleValue</code></td>
-<td><code>double (oneof)</code></td>
-<td>
-<p>Used for values of type DOUBLE</p>
-
-</td>
-</tr>
-<tr id="Value.bool_value" class="oneof">
-<td><code>boolValue</code></td>
-<td><code>bool (oneof)</code></td>
-<td>
-<p>Used for values of type BOOL</p>
-
-</td>
-</tr>
-<tr id="Value.ip_address_value" class="oneof">
-<td><code>ipAddressValue</code></td>
-<td><code><a href="#IPAddress">IPAddress (oneof)</a></code></td>
-<td>
-<p>Used for values of type IPAddress</p>
-
-</td>
-</tr>
-<tr id="Value.timestamp_value" class="oneof">
-<td><code>timestampValue</code></td>
-<td><code><a href="#TimeStamp">TimeStamp (oneof)</a></code></td>
-<td>
-<p>Used for values of type TIMESTAMP</p>
-
-</td>
-</tr>
-<tr id="Value.duration_value" class="oneof">
-<td><code>durationValue</code></td>
-<td><code><a href="#Duration">Duration (oneof)</a></code></td>
-<td>
-<p>Used for values of type DURATION</p>
-
-</td>
-</tr>
-<tr id="Value.email_address_value" class="oneof">
-<td><code>emailAddressValue</code></td>
-<td><code><a href="#EmailAddress">EmailAddress (oneof)</a></code></td>
-<td>
-<p>Used for values of type EmailAddress</p>
-
-</td>
-</tr>
-<tr id="Value.dns_name_value" class="oneof">
-<td><code>dnsNameValue</code></td>
-<td><code><a href="#DNSName">DNSName (oneof)</a></code></td>
-<td>
-<p>Used for values of type DNSName</p>
-
-</td>
-</tr>
-<tr id="Value.uri_value" class="oneof">
-<td><code>uriValue</code></td>
-<td><code><a href="#Uri">Uri (oneof)</a></code></td>
-<td>
-<p>Used for values of type Uri</p>
 
 </td>
 </tr>

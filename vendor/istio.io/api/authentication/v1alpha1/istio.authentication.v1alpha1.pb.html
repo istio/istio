@@ -1,7 +1,8 @@
 ---
 title: Authentication Policy
-overview: Authentication policy for Istio services.
+description: Authentication policy for Istio services.
 layout: protoc-gen-docs
+generator: protoc-gen-docs
 number_of_entries: 9
 ---
 <p>This package defines user-facing authentication policy.</p>
@@ -506,16 +507,6 @@ networking API to avoid dependency.</p>
 <td>
 <p>REQUIRED. The name must be a short name from the service registry. The
 fully qualified domain name will be resolved in a platform specific manner.</p>
-
-</td>
-</tr>
-<tr id="TargetSelector.subset">
-<td><code>subset</code></td>
-<td><code>string</code></td>
-<td>
-<p>The name of a subset within the service. Applicable only to services
-within the mesh. The subset must be defined in a corresponding
-DestinationRule.</p>
 
 </td>
 </tr>

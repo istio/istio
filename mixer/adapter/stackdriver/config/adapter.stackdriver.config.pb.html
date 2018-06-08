@@ -1,12 +1,19 @@
 ---
 title: Stackdriver
-overview: Adapter to deliver logs and metrics to Stackdriver
-location: https://istio.io/docs/reference/config/adapters/stackdriver.html
+description: Adapter to deliver logs, metrics, and traces to Stackdriver
+location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/stackdriver.html
 layout: protoc-gen-docs
-number_of_entries: 11
+generator: protoc-gen-docs
+aliases:
+  - /docs/reference/config/adapters/stackdriver.html
+number_of_entries: 12
 ---
-<p>The <code>stackdriver</code> adapter enables Istio to deliver log and metric data to the
-<a href="https://cloud.google.com/stackdriver/">Stackdriver</a> logging and monitoring backend.</p>
+<p>The <code>stackdriver</code> adapter enables Istio to deliver log, metric and traces to the
+<a href="https://cloud.google.com/stackdriver/">Stackdriver</a> backend.</p>
+
+<p>This adapter supports the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric/">metric template</a>,
+the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/logentry/">logentry template</a>,
+and the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/tracespan/">tracespan template</a>.</p>
 
 <h2 id="Params">Params</h2>
 <section>
@@ -89,6 +96,14 @@ or <code>./testdata/my-test-account-creds.json</code>.</p>
 <td><code>map&lt;string,&nbsp;<a href="#Params.LogInfo">Params.LogInfo</a>&gt;</code></td>
 <td>
 <p>A map of Istio LogEntry name to Stackdriver log info.</p>
+
+</td>
+</tr>
+<tr id="Params.trace">
+<td><code>trace</code></td>
+<td><code><a href="#Params.Trace">Params.Trace</a></code></td>
+<td>
+<p>Stackdriver Trace configuration.</p>
 
 </td>
 </tr>
@@ -517,6 +532,30 @@ buckets are the underflow and overflow buckets.</p>
 <td><code>double</code></td>
 <td>
 <p>Lower bound of the first bucket.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params.Trace">Params.Trace</h2>
+<section>
+<p>Details of Stackdriver Trace configuration for tracespan template.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params.Trace.sample_probability">
+<td><code>sampleProbability</code></td>
+<td><code>double</code></td>
+<td>
+<p>Proability that a particular trace ID will be sampled.</p>
 
 </td>
 </tr>

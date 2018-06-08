@@ -18,17 +18,15 @@ import (
 	"net"
 	"strings"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 )
 
 func convertPort(port *networking.Port) *model.Port {
 	return &model.Port{
-		Name:                 port.Name,
-		Port:                 int(port.Number),
-		Protocol:             model.ParseProtocol(port.Protocol),
-		AuthenticationPolicy: meshconfig.AuthenticationPolicy_NONE,
+		Name:     port.Name,
+		Port:     int(port.Number),
+		Protocol: model.ParseProtocol(port.Protocol),
 	}
 }
 

@@ -20,10 +20,8 @@ import envoy_api_v2_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/co
 import envoy_config_filter_accesslog_v2 "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
 import _ "github.com/lyft/protoc-gen-validate/validate"
 
-import (
-	context "golang.org/x/net/context"
-	grpc "google.golang.org/grpc"
-)
+import context "golang.org/x/net/context"
+import grpc "google.golang.org/grpc"
 
 import io "io"
 

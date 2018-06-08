@@ -35,10 +35,10 @@ import (
 )
 
 type preprocCallback func(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag) error
-type checkCallback func(ctx context.Context, requestBag attribute.Bag) (*adapter.CheckResult, error)
+type checkCallback func(ctx context.Context, requestBag attribute.Bag) (adapter.CheckResult, error)
 type reportCallback func(ctx context.Context, requestBag attribute.Bag) error
 type quotaCallback func(ctx context.Context, requestBag attribute.Bag,
-	qma *dispatcher.QuotaMethodArgs) (*adapter.QuotaResult, error)
+	qma dispatcher.QuotaMethodArgs) (adapter.QuotaResult, error)
 
 type testState struct {
 	client     mixerpb.MixerClient
@@ -46,6 +46,7 @@ type testState struct {
 	gs         *grpc.Server
 	gp         *pool.GoroutinePool
 	s          *grpcServer
+	ctx        context.Context
 
 	check   checkCallback
 	report  reportCallback
@@ -129,16 +130,28 @@ func (ts *testState) cleanupTestState() {
 	ts.deleteGRPCServer()
 }
 
-func (ts *testState) Check(ctx context.Context, bag attribute.Bag) (*adapter.CheckResult, error) {
+func (ts *testState) Check(ctx context.Context, bag attribute.Bag) (adapter.CheckResult, error) {
 	return ts.check(ctx, bag)
 }
 
-func (ts *testState) Report(ctx context.Context, bag attribute.Bag) error {
-	return ts.report(ctx, bag)
+func (ts *testState) GetReporter(ctx context.Context) dispatcher.Reporter {
+	ts.ctx = ctx
+	return ts
+}
+
+func (ts *testState) Report(bag attribute.Bag) error {
+	return ts.report(ts.ctx, bag)
+}
+
+func (ts *testState) Flush() error {
+	return nil
+}
+
+func (ts *testState) Done() {
 }
 
 func (ts *testState) Quota(ctx context.Context, bag attribute.Bag,
-	qma *dispatcher.QuotaMethodArgs) (*adapter.QuotaResult, error) {
+	qma dispatcher.QuotaMethodArgs) (adapter.QuotaResult, error) {
 
 	return ts.quota(ctx, bag, qma)
 }
@@ -154,14 +167,14 @@ func TestCheck(t *testing.T) {
 	}
 	defer ts.cleanupTestState()
 
-	ts.check = func(ctx context.Context, requestBag attribute.Bag) (*adapter.CheckResult, error) {
-		return &adapter.CheckResult{
+	ts.check = func(ctx context.Context, requestBag attribute.Bag) (adapter.CheckResult, error) {
+		return adapter.CheckResult{
 			Status: status.WithPermissionDenied("Not Implemented"),
 		}, nil
 	}
 
-	ts.quota = func(ctx context.Context, requestBag attribute.Bag, qma *dispatcher.QuotaMethodArgs) (*adapter.QuotaResult, error) {
-		return &adapter.QuotaResult{
+	ts.quota = func(ctx context.Context, requestBag attribute.Bag, qma dispatcher.QuotaMethodArgs) (adapter.QuotaResult, error) {
+		return adapter.QuotaResult{
 			Amount: 42,
 		}, nil
 	}
@@ -192,9 +205,9 @@ func TestCheck(t *testing.T) {
 		t.Errorf("Got %v granted amount, expecting 0", response.Quotas["RequestCount"].GrantedAmount)
 	}
 
-	ts.check = func(ctx context.Context, requestBag attribute.Bag) (*adapter.CheckResult, error) {
+	ts.check = func(ctx context.Context, requestBag attribute.Bag) (adapter.CheckResult, error) {
 		// simulate an error condition
-		return nil, errors.New("BAD")
+		return adapter.CheckResult{}, errors.New("BAD")
 	}
 
 	_, err = ts.client.Check(context.Background(), &request)
@@ -202,9 +215,9 @@ func TestCheck(t *testing.T) {
 		t.Error("Got success, expecting failure")
 	}
 
-	ts.check = func(ctx context.Context, requestBag attribute.Bag) (*adapter.CheckResult, error) {
+	ts.check = func(ctx context.Context, requestBag attribute.Bag) (adapter.CheckResult, error) {
 		// simulate a "no check performed" condition
-		return nil, nil
+		return adapter.CheckResult{}, nil
 	}
 
 	response, err = ts.client.Check(context.Background(), &request)
@@ -218,14 +231,14 @@ func TestCheck(t *testing.T) {
 		t.Errorf("Got %v, expecting success", err)
 	}
 
-	ts.check = func(ctx context.Context, requestBag attribute.Bag) (*adapter.CheckResult, error) {
-		return &adapter.CheckResult{
+	ts.check = func(ctx context.Context, requestBag attribute.Bag) (adapter.CheckResult, error) {
+		return adapter.CheckResult{
 			Status: status.WithPermissionDenied("Not Implemented"),
 		}, nil
 	}
 
-	ts.quota = func(ctx context.Context, requestBag attribute.Bag, qma *dispatcher.QuotaMethodArgs) (*adapter.QuotaResult, error) {
-		return &adapter.QuotaResult{
+	ts.quota = func(ctx context.Context, requestBag attribute.Bag, qma dispatcher.QuotaMethodArgs) (adapter.QuotaResult, error) {
+		return adapter.QuotaResult{
 			Status: status.WithPermissionDenied("Not Implemented"),
 		}, nil
 	}
@@ -241,11 +254,11 @@ func TestCheck(t *testing.T) {
 		return nil
 	}
 
-	ts.check = func(ctx context.Context, requestBag attribute.Bag) (*adapter.CheckResult, error) {
+	ts.check = func(ctx context.Context, requestBag attribute.Bag) (adapter.CheckResult, error) {
 		if val, _ := requestBag.Get("genAttrGen"); val != "genAttrGenValue" {
-			return nil, errors.New("generated attribute via preproc not part of check attributes")
+			return adapter.CheckResult{}, errors.New("generated attribute via preproc not part of check attributes")
 		}
-		return &adapter.CheckResult{}, nil
+		return adapter.CheckResult{}, nil
 	}
 
 	chkRes, err := ts.client.Check(context.Background(), &request)
@@ -261,14 +274,14 @@ func TestCheckQuota(t *testing.T) {
 	}
 	defer ts.cleanupTestState()
 
-	ts.check = func(ctx context.Context, requestBag attribute.Bag) (*adapter.CheckResult, error) {
-		return &adapter.CheckResult{
+	ts.check = func(ctx context.Context, requestBag attribute.Bag) (adapter.CheckResult, error) {
+		return adapter.CheckResult{
 			Status: status.OK,
 		}, nil
 	}
 
-	ts.quota = func(ctx context.Context, requestBag attribute.Bag, qma *dispatcher.QuotaMethodArgs) (*adapter.QuotaResult, error) {
-		return &adapter.QuotaResult{
+	ts.quota = func(ctx context.Context, requestBag attribute.Bag, qma dispatcher.QuotaMethodArgs) (adapter.QuotaResult, error) {
+		return adapter.QuotaResult{
 			Amount: 42,
 		}, nil
 	}
@@ -296,8 +309,8 @@ func TestCheckQuota(t *testing.T) {
 		t.Errorf("Got %v granted amount, expecting 42", response.Quotas["RequestCount"].GrantedAmount)
 	}
 
-	ts.quota = func(ctx context.Context, requestBag attribute.Bag, qma *dispatcher.QuotaMethodArgs) (*adapter.QuotaResult, error) {
-		return &adapter.QuotaResult{
+	ts.quota = func(ctx context.Context, requestBag attribute.Bag, qma dispatcher.QuotaMethodArgs) (adapter.QuotaResult, error) {
+		return adapter.QuotaResult{
 			Status: status.WithPermissionDenied("Not Implemented"),
 		}, nil
 	}
@@ -308,9 +321,9 @@ func TestCheckQuota(t *testing.T) {
 		t.Errorf("Got %v, expected success", err)
 	}
 
-	ts.quota = func(ctx context.Context, requestBag attribute.Bag, qma *dispatcher.QuotaMethodArgs) (*adapter.QuotaResult, error) {
+	ts.quota = func(ctx context.Context, requestBag attribute.Bag, qma dispatcher.QuotaMethodArgs) (adapter.QuotaResult, error) {
 		// simulate an error condition
-		return nil, errors.New("BAD")
+		return adapter.QuotaResult{}, errors.New("BAD")
 	}
 
 	_, err = ts.client.Check(context.Background(), &request)
@@ -319,9 +332,9 @@ func TestCheckQuota(t *testing.T) {
 		t.Errorf("Got %v, expecting success", err)
 	}
 
-	ts.quota = func(ctx context.Context, requestBag attribute.Bag, qma *dispatcher.QuotaMethodArgs) (*adapter.QuotaResult, error) {
+	ts.quota = func(ctx context.Context, requestBag attribute.Bag, qma dispatcher.QuotaMethodArgs) (adapter.QuotaResult, error) {
 		// simulate an "no quotas applied" condition
-		return nil, nil
+		return adapter.QuotaResult{}, nil
 	}
 
 	response, err = ts.client.Check(context.Background(), &request)
@@ -467,8 +480,8 @@ func TestUnknownStatus(t *testing.T) {
 	}
 	defer ts.cleanupTestState()
 
-	ts.check = func(ctx context.Context, requestBag attribute.Bag) (*adapter.CheckResult, error) {
-		return &adapter.CheckResult{
+	ts.check = func(ctx context.Context, requestBag attribute.Bag) (adapter.CheckResult, error) {
+		return adapter.CheckResult{
 			Status: rpc.Status{
 				Code:    12345678,
 				Message: "DEADBEEF!",

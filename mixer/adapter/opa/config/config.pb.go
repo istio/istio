@@ -7,6 +7,8 @@
 	The `opa` adapter exposes an [Open Policy Agent](http://www.openpolicyagent.org) engine
 	that provides sophisticated access control mechanisms.
 
+	This adapter supports the [authorization template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/authorization/).
+
 	It is generated from these files:
 		mixer/adapter/opa/config/config.proto
 

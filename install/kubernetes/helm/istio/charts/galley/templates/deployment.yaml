@@ -58,10 +58,8 @@ spec:
                 - --interval=2s
             initialDelaySeconds: 4
             periodSeconds: 4
-    {{- if .Values.nodeSelector }}
           resources:
 {{ toYaml .Values.resources | indent 12 }}
-    {{- end }}
       volumes:
       - name: certs
         secret:

@@ -229,12 +229,12 @@ func TestSendMetricsToCloudWatch(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		h, ok := h.(*handler)
+		hdr, ok := h.(*handler)
 		if !ok {
 			t.Error("Test case has the wrong type of handler.")
 		}
 
-		count, err := h.sendMetricsToCloudWatch(c.metricData)
+		count, err := hdr.sendMetricsToCloudWatch(c.metricData)
 		if err != nil {
 			t.Errorf("Unexpected error: \"%v\"", err)
 		}
