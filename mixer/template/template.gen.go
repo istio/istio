@@ -1924,6 +1924,15 @@ var (
 						}
 					}
 
+					if param.HttpStatusCode != "" {
+						if t, e := tEvalFn(param.HttpStatusCode); e != nil || t != istio_policy_v1beta1.INT64 {
+							if e != nil {
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"HttpStatusCode", e)
+							}
+							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"HttpStatusCode", t, istio_policy_v1beta1.INT64)
+						}
+					}
+
 					return infrdType, err
 
 				}
@@ -3916,6 +3925,10 @@ type builder_tracespan_Template struct {
 	// builder for field span_tags: map[string]interface{}.
 
 	bldSpanTags map[string]compiled.Expression
+
+	// builder for field httpStatusCode: int64.
+
+	bldHttpStatusCode compiled.Expression
 } // builder_tracespan_Template
 
 // Instantiates and returns a new builder for Template, based on the provided instance parameter.
@@ -4029,6 +4042,21 @@ func newBuilder_tracespan_Template(
 		b.bldSpanTags[k] = exp
 	}
 
+	if param.HttpStatusCode == "" {
+		b.bldHttpStatusCode = nil
+	} else {
+		b.bldHttpStatusCode, expType, err = expb.Compile(param.HttpStatusCode)
+		if err != nil {
+			return nil, template.NewErrorPath("HttpStatusCode", err)
+		}
+
+		if expType != istio_policy_v1beta1.INT64 {
+			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_policy_v1beta1.INT64, expType, param.HttpStatusCode)
+			return nil, template.NewErrorPath("HttpStatusCode", err)
+		}
+
+	}
+
 	return b, template.ErrorPath{}
 }
 
@@ -4126,6 +4154,16 @@ func (b *builder_tracespan_Template) build(
 		}
 
 		r.SpanTags[k] = vIface
+
+	}
+
+	if b.bldHttpStatusCode != nil {
+
+		vInt, err = b.bldHttpStatusCode.EvaluateInteger(attrs)
+		if err != nil {
+			return nil, template.NewErrorPath("HttpStatusCode", err)
+		}
+		r.HttpStatusCode = vInt
 
 	}
 

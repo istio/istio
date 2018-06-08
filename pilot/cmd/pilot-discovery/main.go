@@ -40,9 +40,10 @@ var (
 	ctrlzOptions = ctrlz.DefaultOptions()
 
 	rootCmd = &cobra.Command{
-		Use:   "pilot-discovery",
-		Short: "Istio Pilot",
-		Long:  "Istio Pilot provides fleet-wide traffic management capabilities in the Istio Service Mesh.",
+		Use:          "pilot-discovery",
+		Short:        "Istio Pilot",
+		Long:         "Istio Pilot provides fleet-wide traffic management capabilities in the Istio Service Mesh.",
+		SilenceUsage: true,
 	}
 
 	discoveryCmd = &cobra.Command{

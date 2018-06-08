@@ -57,7 +57,6 @@ const (
 	defaultSidecarInjectorFile     = "istio-sidecar-injector.yaml"
 	ingressCertsName               = "istio-ingress-certs"
 	maxDeploymentRolloutTime       = 480 * time.Second
-	mtlsExcludedServicesPattern    = "mtlsExcludedServices:\\s*\\[(.*)\\]"
 	helmServiceAccountFile         = "helm-service-account.yaml"
 	istioHelmInstallDir            = istioInstallDir + "/helm/istio"
 	caCertFileName                 = "samples/certs/ca-cert.pem"
@@ -125,9 +124,6 @@ type KubeInfo struct {
 	AuthEnabled      bool
 	RBACEnabled      bool
 	InstallAddons    bool
-
-	// Extra services to be excluded from MTLS
-	MTLSExcludedServices []string
 
 	// Istioctl installation
 	Istioctl *Istioctl
@@ -815,27 +811,6 @@ func replacePattern(content []byte, src, dest string) []byte {
 	return content
 }
 
-func (k *KubeInfo) appendMtlsExcludedServices(content []byte) ([]byte, error) {
-	if !k.AuthEnabled || len(k.MTLSExcludedServices) == 0 {
-		// Nothing to do.
-		return content, nil
-	}
-
-	re := regexp.MustCompile(mtlsExcludedServicesPattern)
-	match := re.FindStringSubmatch(string(content))
-	if len(match) == 0 {
-		return nil, fmt.Errorf("failed to locate the mtlsExcludedServices section of the mesh config")
-	}
-
-	values := strings.Split(match[1], ",")
-	for _, v := range k.MTLSExcludedServices {
-		// Add surrounding quotes to the values.
-		values = append(values, fmt.Sprintf("\"%s\"", v))
-	}
-	newValue := fmt.Sprintf("mtlsExcludedServices: [%s]", strings.Join(values, ","))
-	return re.ReplaceAll(content, []byte(newValue)), nil
-}
-
 func (k *KubeInfo) generateIstio(src, dst string) error {
 	content, err := ioutil.ReadFile(src)
 	if err != nil {
@@ -849,13 +824,6 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 		vs := url.Values{}
 		vs.Add("ns", *namespace)
 		content = replacePattern(content, "--configStoreURL=k8s://", "--configStoreURL=k8s://?"+vs.Encode())
-	}
-
-	// If mtlsExcludedServices is specified, replace it with the updated value
-	content, err = k.appendMtlsExcludedServices(content)
-	if err != nil {
-		log.Errorf("Failed to replace mtlsExcludedServices: %v", err)
-		return err
 	}
 
 	// Replace long refresh delays with short ones for the sake of tests.
