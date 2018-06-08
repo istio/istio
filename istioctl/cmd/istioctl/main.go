@@ -290,11 +290,18 @@ See https://istio.io/docs/reference/ for an overview of Istio routing.
 	getCmd = &cobra.Command{
 		Use:   "get <type> [<name>]",
 		Short: "Retrieve policies and rules",
+		Long: `
+Retrieve policies and rules.
+
+Some types allow usage of a short name, in order to ease the typing.
+For instance, you can use "istioctl get drule" instead of "istioctl get destinationrule".
+
+To see all valid types and their short aliases, type "istioctl get".`,
 		Example: `# List all virtual services
-istioctl get virtualservices
+istioctl get virtualservices # or, using the short name: istioctl get vsvc
 
 # List all destination rules
-istioctl get destinationrules
+istioctl get destinationrules # or, using the short name: istioctl get drule
 
 # Get a specific virtual service named bookinfo
 istioctl get virtualservice bookinfo
@@ -610,7 +617,7 @@ func main() {
 func protoSchema(configClient model.ConfigStore, typ string) (model.ProtoSchema, error) {
 	for _, desc := range configClient.ConfigDescriptor() {
 		switch strings.ToLower(typ) {
-		case crd.ResourceName(desc.Type), crd.ResourceName(desc.Plural):
+		case crd.ResourceName(desc.Type), crd.ResourceName(desc.Plural), desc.ShortName:
 			return desc, nil
 		case desc.Type, desc.Plural: // legacy hyphenated resources names
 			return model.ProtoSchema{}, fmt.Errorf("%q not recognized. Please use non-hyphenated resource name %q",
@@ -713,9 +720,14 @@ func newClient() (model.ConfigStore, error) {
 }
 
 func supportedTypes(configClient model.ConfigStore) []string {
-	types := configClient.ConfigDescriptor().Types()
-	for i := range types {
-		types[i] = crd.ResourceName(types[i])
+	cd := configClient.ConfigDescriptor()
+	types := make([]string, 0, len(cd))
+	for _, ps := range cd {
+		entry := crd.ResourceName(ps.Type)
+		if len(ps.ShortName) > 0 {
+			entry += fmt.Sprintf("(%s)", ps.ShortName)
+		}
+		types = append(types, entry)
 	}
 	return types
 }

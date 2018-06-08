@@ -59,6 +59,7 @@ spec:
     listKind: VirtualServiceList
     plural: virtualservices
     singular: virtualservice
+    shortNames: ["vsvc"]
   scope: Namespaced
   version: v1alpha3
 ---
@@ -75,6 +76,7 @@ spec:
     listKind: DestinationRuleList
     plural: destinationrules
     singular: destinationrule
+    shortNames: ["drule"]
   scope: Namespaced
   version: v1alpha3
 ---
@@ -91,6 +93,7 @@ spec:
     listKind: ServiceEntryList
     plural: serviceentries
     singular: serviceentry
+    shortNames: ["sent"]
   scope: Namespaced
   version: v1alpha3
 ---
@@ -106,6 +109,7 @@ spec:
     kind: Gateway
     plural: gateways
     singular: gateway
+    shortNames: ["gw"]
   scope: Namespaced
   version: v1alpha3
 ---

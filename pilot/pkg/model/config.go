@@ -202,6 +202,9 @@ type ProtoSchema struct {
 	// MessageName refers to the protobuf message type name corresponding to the type
 	MessageName string
 
+	// ShortName refers to the short name (alias) for this resource
+	ShortName string
+
 	// Gogo is true for gogo protobuf messages
 	Gogo bool
 
@@ -223,6 +226,16 @@ func (descriptor ConfigDescriptor) Types() []string {
 func (descriptor ConfigDescriptor) GetByMessageName(name string) (ProtoSchema, bool) {
 	for _, schema := range descriptor {
 		if schema.MessageName == name {
+			return schema, true
+		}
+	}
+	return ProtoSchema{}, false
+}
+
+// GetByShortName finds a schema by short name if it is available
+func (descriptor ConfigDescriptor) GetByShortName(name string) (ProtoSchema, bool) {
+	for _, schema := range descriptor {
+		if schema.ShortName == name {
 			return schema, true
 		}
 	}
@@ -366,6 +379,7 @@ var (
 		Group:       "networking",
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.VirtualService",
+		ShortName:   "vsvc",
 		Gogo:        true,
 		Validate:    ValidateVirtualService,
 	}
@@ -377,6 +391,7 @@ var (
 		Group:       "networking",
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.Gateway",
+		ShortName:   "gw",
 		Gogo:        true,
 		Validate:    ValidateGateway,
 	}
@@ -408,6 +423,7 @@ var (
 		Group:       "networking",
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.ServiceEntry",
+		ShortName:   "sent",
 		Gogo:        true,
 		Validate:    ValidateServiceEntry,
 	}
@@ -429,6 +445,7 @@ var (
 		Group:       "networking",
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.DestinationRule",
+		ShortName:   "drule",
 		Validate:    ValidateDestinationRule,
 	}
 
