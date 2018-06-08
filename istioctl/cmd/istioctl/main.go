@@ -105,7 +105,7 @@ var (
 	}
 
 	// Formatters for short format listing specific to type
-	shortOutputters = map[string]func(model.Config, *tabwriter.Writer){
+	shortOutputters = map[string]func(model.Config, io.Writer){
 		"gateway":          printShortGateway,
 		"virtual-service":  printShortVirtualService,
 		"destination-rule": printShortDestinationRule,
@@ -677,7 +677,7 @@ func printShortOutput(writer io.Writer, _ model.ConfigStore, configList []model.
 	var w tabwriter.Writer
 	w.Init(writer, 10, 4, 3, ' ', 0)
 	prevType := ""
-	var outputter func(model.Config, *tabwriter.Writer)
+	var outputter func(model.Config, io.Writer)
 	for _, c := range configList {
 		if prevType != c.Type {
 			if prevType != "" {
@@ -709,14 +709,14 @@ func kindAsString(config model.Config) string {
 	)
 }
 
-func printShortConfig(config model.Config, w *tabwriter.Writer) {
+func printShortConfig(config model.Config, w io.Writer) {
 	fmt.Fprintf(w, "%s\t%s\t%s\n",
 		config.Name,
 		kindAsString(config),
 		config.Namespace)
 }
 
-func printShortVirtualService(config model.Config, w *tabwriter.Writer) {
+func printShortVirtualService(config model.Config, w io.Writer) {
 	virtualService, ok := config.Spec.(*v1alpha3.VirtualService)
 	if !ok {
 		fmt.Fprintf(w, "Not a virtualservice: %v", config)
@@ -732,7 +732,7 @@ func printShortVirtualService(config model.Config, w *tabwriter.Writer) {
 		config.Namespace)
 }
 
-func printShortDestinationRule(config model.Config, w *tabwriter.Writer) {
+func printShortDestinationRule(config model.Config, w io.Writer) {
 	destinationRule, ok := config.Spec.(*v1alpha3.DestinationRule)
 	if !ok {
 		fmt.Fprintf(w, "Not a destinationrule: %v", config)
@@ -751,7 +751,7 @@ func printShortDestinationRule(config model.Config, w *tabwriter.Writer) {
 		config.Namespace)
 }
 
-func printShortServiceEntry(config model.Config, w *tabwriter.Writer) {
+func printShortServiceEntry(config model.Config, w io.Writer) {
 	serviceEntry, ok := config.Spec.(*v1alpha3.ServiceEntry)
 	if !ok {
 		fmt.Fprintf(w, "Not a serviceentry: %v", config)
@@ -770,7 +770,7 @@ func printShortServiceEntry(config model.Config, w *tabwriter.Writer) {
 		config.Namespace)
 }
 
-func printShortGateway(config model.Config, w *tabwriter.Writer) {
+func printShortGateway(config model.Config, w io.Writer) {
 	gateway, ok := config.Spec.(*v1alpha3.Gateway)
 	if !ok {
 		fmt.Fprintf(w, "Not a gateway: %v", config)
