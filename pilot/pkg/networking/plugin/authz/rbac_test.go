@@ -16,12 +16,13 @@ package authz
 
 import (
 	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	rbacconfig "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
 	policy "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha"
+	"github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/types"
 
 	rbacproto "istio.io/api/rbac/v1alpha1"
@@ -98,6 +99,15 @@ func TestBuildHTTPFilter(t *testing.T) {
 			},
 		},
 	}
+	roleCfgWithoutBinding := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type: model.ServiceRole.Type, Name: "test-role-2", Namespace: "default"},
+		Spec: &rbacproto.ServiceRole{
+			Rules: []*rbacproto.AccessRule{
+				{Services: []string{"review.default"}, Methods: []string{"GET-method"}},
+			},
+		},
+	}
 	bindingCfg := model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type: model.ServiceRoleBinding.Type, Name: "test-binding-1", Namespace: "default"},
@@ -106,29 +116,28 @@ func TestBuildHTTPFilter(t *testing.T) {
 			RoleRef:  &rbacproto.RoleRef{Kind: "ServiceRole", Name: "test-role-1"},
 		},
 	}
-	store := newIstioStoreWithConfigs([]model.Config{roleCfg, bindingCfg}, t)
-
-	emptyConfig := policy.RBAC{
-		Action:   policy.RBAC_ALLOW,
-		Policies: map[string]*policy.Policy{},
-	}
+	store := newIstioStoreWithConfigs([]model.Config{roleCfg, roleCfgWithoutBinding, bindingCfg}, t)
 	testCases := []struct {
 		Name   string
 		Host   string
 		Store  model.IstioConfigStore
-		Expect []string
+		Policy string
 	}{
 		{
-			Name:   "empty filter",
-			Host:   "abc.xyz",
-			Store:  store,
-			Expect: []string{emptyConfig.String()},
+			Name:  "no matched role",
+			Host:  "abc.xyz",
+			Store: store,
 		},
 		{
-			Name:   "valid filter",
+			Name:  "no matched binding",
+			Host:  "review.default",
+			Store: store,
+		},
+		{
+			Name:   "role with binding",
 			Host:   "product.default",
 			Store:  store,
-			Expect: []string{"test-role-1", "GET-method", "test-user-1"},
+			Policy: "test-role-1",
 		},
 	}
 
@@ -140,10 +149,20 @@ func TestBuildHTTPFilter(t *testing.T) {
 		if filter == nil {
 			t.Errorf("%s: expecting valid config, but got nil", tc.Name)
 		} else {
-			for _, expect := range tc.Expect {
-				if !strings.Contains(filter.Config.String(), expect) {
-					t.Errorf("%s: expecting filter config to contain %s, but got %v",
-						tc.Name, expect, filter.Config.String())
+			rbacConfig := &rbacconfig.RBAC{}
+			if err := util.StructToMessage(filter.Config, rbacConfig); err != nil {
+				t.Errorf("%s: bad rbac config: %v", tc.Name, err)
+			} else {
+				rbac := rbacConfig.Rules
+				if rbac.Action != policy.RBAC_ALLOW {
+					t.Errorf("%s: expecting allow action but got %v", tc.Name, rbac.Action.String())
+				}
+				if tc.Policy == "" {
+					if len(rbac.Policies) != 0 {
+						t.Errorf("%s: expecting empty policies but got %v", tc.Name, rbac.Policies)
+					}
+				} else if _, ok := rbac.Policies[tc.Policy]; !ok {
+					t.Errorf("%s: expecting policy %s but got %v", tc.Name, tc.Policy, rbac.Policies)
 				}
 			}
 		}

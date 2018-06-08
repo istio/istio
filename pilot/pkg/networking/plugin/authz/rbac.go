@@ -172,6 +172,7 @@ func convertRbacRulesToFilterConfig(service string, roles []model.Config, bindin
 		Policies: map[string]*policyproto.Policy{},
 	}
 
+start:
 	for _, role := range roles {
 		// Constructs the policy for each ServiceRole.
 		var policy *policyproto.Policy
@@ -185,6 +186,12 @@ func convertRbacRulesToFilterConfig(service string, roles []model.Config, bindin
 				if policy == nil {
 					if principals == nil {
 						principals = convertToPrincipals(roleToBinding[role.Name])
+						if len(principals) == 0 {
+							log.Debugf("role %v skipped for no bindings found", role.Name)
+							// Skip to next role if found no bindings for current role. This means nobody could
+							// access the current role, so we don't need to check the remaining rules anymore.
+							continue start
+						}
 					}
 					policy = &policyproto.Policy{
 						Permissions: []*policyproto.Permission{},
