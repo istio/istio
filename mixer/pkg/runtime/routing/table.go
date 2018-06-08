@@ -70,7 +70,7 @@ type Destination struct {
 	AdapterName string
 
 	// Template of the handler.
-	Template *template.Info
+	Template *TemplateInfo
 
 	// InstanceGroups that should be (conditionally) applied to the handler.
 	InstanceGroups []*InstanceGroup
@@ -89,6 +89,27 @@ type Destination struct {
 type NamedBuilder struct {
 	InstanceShortName string
 	Builder           template.InstanceBuilderFn
+}
+
+// TemplateInfo is the common data that is needed from a template
+type TemplateInfo struct {
+	Name string
+	Variety tpb.TemplateVariety
+	DispatchReport   template.DispatchReportFn
+	DispatchCheck    template.DispatchCheckFn
+	DispatchQuota    template.DispatchQuotaFn
+	DispatchGenAttrs template.DispatchGenerateAttributesFn
+}
+
+func BuildTemplateInfo(info *template.Info) *TemplateInfo {
+	return &TemplateInfo{
+		Name: info.Name,
+		Variety: info.Variety,
+		DispatchReport: info.DispatchReport,
+		DispatchCheck: info.DispatchCheck,
+		DispatchQuota: info.DispatchQuota,
+		DispatchGenAttrs: info.DispatchGenAttrs,
+	}
 }
 
 // InstanceGroup is a set of instances that needs to be sent to a handler, grouped by a condition expression.

@@ -11,6 +11,8 @@ error() {
   echo "$*" >&2
 }
 
+SYSTEM_NS=${SYSTEM_NS:-"istio-system"}
+
 usage() {
   error "usage: dump_kubernetes.sh [options]"
   error ""
@@ -132,7 +134,7 @@ dump_resources() {
   kubectl get "${istio_resources}" --all-namespaces -o yaml > "${ISTIO_RESOURCES_FILE}"
 
   kubectl cluster-info dump > ${OUT_DIR}/logs/cluster-info.dump.txt
-  kubectl describe pods -n istio-system > ${OUT_DIR}/logs/pods-system.txt
+  kubectl describe pods -n ${SYSTEM_NS} > ${OUT_DIR}/logs/pods-system.txt
   kubectl get event --all-namespaces -o wide > ${OUT_DIR}/logs/events.txt
 }
 
@@ -145,7 +147,7 @@ dump_pilot_url(){
   outfile="${dname}/$(basename "${url}")"
 
   log "Fetching ${url} from pilot"
-  kubectl --namespace istio-system exec -i -t "${pilot_pod}" -c istio-proxy -- curl "http://localhost:8080/${url}" > "${outfile}"
+  kubectl --namespace ${SYSTEM_NS} exec -i -t "${pilot_pod}" -c istio-proxy -- curl "http://localhost:8080/${url}" > "${outfile}"
 }
 
 dump_pilot() {
@@ -155,7 +157,7 @@ dump_pilot() {
   pilot_dir="${OUT_DIR}/pilot"
   mkdir -p "${pilot_dir}"
 
-  pilot_pod=$(kubectl --namespace istio-system get pods -listio=pilot -o=jsonpath='{.items[0].metadata.name}')
+  pilot_pod=$(kubectl --namespace ${SYSTEM_NS} get pods -listio=pilot -o=jsonpath='{.items[0].metadata.name}')
 
   dump_pilot_url "${pilot_pod}" debug/configz "${pilot_dir}"
   dump_pilot_url "${pilot_pod}" debug/endpointz "${pilot_dir}"

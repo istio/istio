@@ -72,6 +72,7 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 	proxyInstances := in.ProxyInstances
 	instance := in.ServiceInstance
 
+	mutable.Listener.GetAddress().GetAddress()
 	switch in.ListenerType {
 	case plugin.ListenerTypeHTTP:
 		for cnum := range mutable.FilterChains {

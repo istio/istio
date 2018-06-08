@@ -60,6 +60,7 @@ import (
 	"istio.io/istio/mixer/pkg/runtime/handler"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/mixer/pkg/attribute"
 )
 
 // builder keeps the ephemeral state while the routing table is built.
@@ -139,12 +140,63 @@ func (b *builder) nextID() uint32 {
 	return id
 }
 
+// templateInfo build method needed dispatch this template
+func (b *builder) templateInfo(tmpl *config.Template) *TemplateInfo {
+	//tmpl.
+
+	//FIXME
+	return nil
+}
+
 func (b *builder) build(config *config.Snapshot) {
 
 	for _, rule := range config.Rules {
 
 		// Create a compiled expression for the rule condition first.
-		condition, err := b.getConditionExpression(rule)
+		condition, err := b.getConditionExpression(rule.Match)
+		if err != nil {
+			log.Warnf("Unable to compile match condition expression: '%v', rule='%s', expression='%s'",
+				err, rule.Name, rule.Match)
+			config.Counters.MatchErrors.Inc()
+			// Skip the rule
+			continue
+		}
+
+		// For each action, find unique instances to use, and add entries to the map.
+		for i, action := range rule.ActionsDynamic {
+
+			// Find the matching handler.
+			handlerName := action.Handler.Name
+			entry, found := b.handlers.Get(handlerName)
+			if !found {
+				// This can happen if we cannot initialize a handler, even if the config itself self-consistent.
+				log.Warnf("Unable to find a handler for action. rule[action]='%s[%d]', handler='%s'",
+					rule.Name, i, handlerName)
+
+				config.Counters.UnsatisfiedActionHandlers.Inc()
+				// Skip the rule
+				continue
+			}
+
+			for _, instance := range action.Instances {
+				// get the instance mapper and builder for this instance. Mapper is used by APA instances
+				// to map the instance result back to attributes.
+				builder, mapper, err := b.getBuilderAndMapperDynamic(config.Attributes, instance)
+				if err != nil {
+					log.Warnf("Unable to create builder/mapper for instance: instance='%s', err='%v'", instance.Name, err)
+					continue
+				}
+
+				b.add(rule.Namespace, b.templateInfo(instance.Template), entry, condition, builder, mapper,
+					entry.Name, instance.Name, rule.Match, rule.ResourceType)
+			}
+		}
+	}
+
+	for _, rule := range config.Rules {
+
+		// Create a compiled expression for the rule condition first.
+		condition, err := b.getConditionExpression(rule.Match)
 		if err != nil {
 			log.Warnf("Unable to compile match condition expression: '%v', rule='%s', expression='%s'",
 				err, rule.Name, rule.Match)
@@ -172,13 +224,13 @@ func (b *builder) build(config *config.Snapshot) {
 			for _, instance := range action.Instances {
 				// get the instance mapper and builder for this instance. Mapper is used by APA instances
 				// to map the instance result back to attributes.
-				builder, mapper, err := b.getBuilderAndMapper(config.Attributes, instance)
+				builder, mapper, err := b.getBuilderAndMapperStatic(config.Attributes, instance)
 				if err != nil {
 					log.Warnf("Unable to create builder/mapper for instance: instance='%s', err='%v'", instance.Name, err)
 					continue
 				}
 
-				b.add(rule.Namespace, instance.Template, entry, condition, builder, mapper,
+				b.add(rule.Namespace, BuildTemplateInfo(instance.Template), entry, condition, builder, mapper,
 					entry.Name, instance.Name, rule.Match, rule.ResourceType)
 			}
 		}
@@ -209,9 +261,27 @@ func (b *builder) build(config *config.Snapshot) {
 	}
 }
 
+const defaultInstanceSize = 128
+
 // get or create a builder and a mapper for the given instance. The mapper is created only if the template
+// is an attribute generator. At present this function never returns an error.
+func (b *builder) getBuilderAndMapperDynamic(
+	finder ast.AttributeDescriptorFinder,
+	instance *config.InstanceDynamic) (template.InstanceBuilderFn, template.OutputMapperFn, error) {
+	_ = finder   // only needed for APA.
+	
+	var instBuilder template.InstanceBuilderFn = func(attrs attribute.Bag) (interface{}, error) {
+		ba := make([]byte, 0, defaultInstanceSize)
+		// The encoder produces
+		return instance.Encoder.Encode(attrs, ba)
+	}
+
+	return instBuilder, nil, nil
+}
+
+// get or create a builder and a mapper for the given legacy instance. The mapper is created only if the template
 // is an attribute generator.
-func (b *builder) getBuilderAndMapper(
+func (b *builder) getBuilderAndMapperStatic(
 	finder ast.AttributeDescriptorFinder,
 	instance *config.InstanceStatic) (template.InstanceBuilderFn, template.OutputMapperFn, error) {
 	var err error
@@ -244,8 +314,8 @@ func (b *builder) getBuilderAndMapper(
 }
 
 // get or create a compiled.Expression for the rule's match clause, if necessary.
-func (b *builder) getConditionExpression(rule *config.Rule) (compiled.Expression, error) {
-	text := strings.TrimSpace(rule.Match)
+func (b *builder) getConditionExpression(matchCondition string) (compiled.Expression, error) {
+	text := strings.TrimSpace(matchCondition)
 
 	if text == "" {
 		return nil, nil
@@ -275,7 +345,7 @@ func (b *builder) getConditionExpression(rule *config.Rule) (compiled.Expression
 
 func (b *builder) add(
 	namespace string,
-	t *template.Info,
+	t *TemplateInfo,
 	entry handler.Entry,
 	condition compiled.Expression,
 	builder template.InstanceBuilderFn,
