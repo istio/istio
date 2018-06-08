@@ -44,3 +44,13 @@ func TestCanonicalize(t *testing.T) {
 		t.Fail()
 	}
 }
+
+func TestExtractShortName(t *testing.T) {
+	if ExtractShortName("foo") != "foo" {
+		t.Fail()
+	}
+
+	if ExtractShortName("foo.bar.baz") != "foo" {
+		t.Fail()
+	}
+}
