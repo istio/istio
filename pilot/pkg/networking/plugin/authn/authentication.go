@@ -21,6 +21,7 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 
 	jwtfilter "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
@@ -30,7 +31,6 @@ import (
 	authn "istio.io/api/authentication/v1alpha1"
 	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	pilot_v1alpha3 "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
@@ -50,8 +50,10 @@ const (
 	// Defautl cache duration for JWT public key. This should be moved to a global config.
 	jwtPublicKeyCacheSeconds = 60 * 5
 
-	// TLSInspectorFilterName is the name for Envoy TLS sniffing listener filter.
-	TLSInspectorFilterName = "envoy.listener.tls_inspector"
+	// EnvoyTLSInspectorFIlterName is the name for Envoy TLS sniffing listener filter.
+	EnvoyTLSInspectorFilterName = "envoy.listener.tls_inspector"
+	EnvoyRawBufferMatch         = "raw_buffer"
+	EnvoyTLSMatch               = "tls"
 )
 
 // Plugin implements Istio mTLS auth
@@ -300,7 +302,7 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 	}
 	for i := range mutable.Listener.FilterChains {
 		chain := &mutable.Listener.FilterChains[i]
-		if chain.FilterChainMatch != nil && chain.FilterChainMatch.TransportProtocol != pilot_v1alpha3.EnvoyTLSMatch {
+		if chain.FilterChainMatch != nil && chain.FilterChainMatch.TransportProtocol != EnvoyTLSMatch {
 			chain.TlsContext = buildSidecarListenerTLSContext(authnPolicy)
 		}
 		if in.ListenerType == plugin.ListenerTypeHTTP {
@@ -316,7 +318,22 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 	return nil
 }
 
-func RequireTLSMultiplexing() bool {
+// RequireTLSMultiplexing returns true if any one of MTLS mode is `PERMISSIVE`.
+func (Plugin) RequireTLSMultiplexing(mesh *meshconfig.MeshConfig, store model.IstioConfigStore, hostname model.Hostname, port *model.Port) bool {
+	authnPolicy := model.GetConsolidateAuthenticationPolicy(mesh, store, hostname, port)
+	if authnPolicy == nil || len(authnPolicy.Peers) == 0 {
+		return false
+	}
+	for _, method := range authnPolicy.Peers {
+		switch method.GetParams().(type) {
+		case *authn.PeerAuthenticationMethod_Mtls:
+			if method.GetMtls().GetMode() == authn.MutualTls_PERMISSIVE {
+				return true
+			}
+		default:
+			continue
+		}
+	}
 	return false
 }
 

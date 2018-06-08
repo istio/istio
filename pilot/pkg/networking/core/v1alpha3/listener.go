@@ -36,6 +36,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
 )
@@ -44,9 +45,6 @@ const (
 	fileAccessLog = "envoy.file_access_log"
 
 	envoyHTTPConnectionManager = "envoy.http_connection_manager"
-	envoyTLSInspectorName      = "envoy.listener.tls_inspector"
-	EnvoyRawBufferMatch        = "raw_buffer"
-	EnvoyTLSMatch              = "tls"
 
 	// HTTPStatPrefix indicates envoy stat prefix for http listeners
 	HTTPStatPrefix = "http"
@@ -257,9 +255,18 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 			ip:             endpoint.Address,
 			port:           endpoint.Port,
 			protocol:       protocol,
-			// TODO(incfly): get this consulted from authn policy.
-			//tlsMultiplexed: true,
 		}
+
+		for _, p := range configgen.Plugins {
+			if authnPolicy, ok := p.(authn.Plugin); ok {
+				log.Infof("jianfeih debug found authn policy")
+				if authnPolicy.RequireTLSMultiplexing(env.Mesh, env.IstioConfigStore, instance.Service.Hostname, instance.Endpoint.ServicePort) {
+					listenerOpts.tlsMultiplexed = true
+					log.Infof("jianfeih debug multiplexing needed %v %v\n", instance.Service.Hostname.String(), *instance.Endpoint.ServicePort)
+				}
+			}
+		}
+
 		if listenerOpts.port == 80 {
 			listenerOpts.tlsMultiplexed = true
 		}
@@ -283,10 +290,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 				listenerOpts.filterChainOpts = []*filterChainOpts{
 					{
 						httpOpts:          httpOpts,
-						transportProtocol: EnvoyRawBufferMatch,
+						transportProtocol: authn.EnvoyRawBufferMatch,
 					}, {
 						httpOpts:          httpOpts,
-						transportProtocol: EnvoyTLSMatch,
+						transportProtocol: authn.EnvoyTLSMatch,
 					},
 				}
 			} else {
@@ -698,7 +705,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	if opts.tlsMultiplexed {
 		listenerFilters = []listener.ListenerFilter{
 			{
-				Name:   envoyTLSInspectorName,
+				Name:   authn.EnvoyTLSInspectorFilterName,
 				Config: &google_protobuf.Struct{},
 			},
 		}
