@@ -28,9 +28,9 @@ func TestBasic(t *testing.T) {
 	attributes := data.BuildAdapters(nil)
 	s, _ := GetSnapshotForTest(templates, attributes, data.ServiceConfig, globalCfg)
 
-	i1 := s.InstancesLegacy[data.FqnI1]
-	h1 := s.HandlersLegacy[data.FqnACheck1]
-	h, err := BuildHandler(h1, []*InstanceLegacy{i1}, nil, s.Templates)
+	i1 := s.InstancesStatic[data.FqnI1]
+	h1 := s.HandlersStatic[data.FqnACheck1]
+	h, err := BuildHandler(h1, []*InstanceStatic{i1}, nil, s.Templates)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,10 +45,10 @@ func TestAdapterSupportsAdditionalTemplates(t *testing.T) {
 	attributes := data.BuildAdapters(nil, data.FakeAdapterSettings{Name: "acheck", SupportedTemplates: []string{"additional-template"}})
 
 	s, _ := GetSnapshotForTest(templates, attributes, data.ServiceConfig, globalCfg)
-	i1 := s.InstancesLegacy[data.FqnI1]
-	h1 := s.HandlersLegacy[data.FqnACheck1]
+	i1 := s.InstancesStatic[data.FqnI1]
+	h1 := s.HandlersStatic[data.FqnACheck1]
 
-	h, err := BuildHandler(h1, []*InstanceLegacy{i1}, nil, s.Templates)
+	h, err := BuildHandler(h1, []*InstanceStatic{i1}, nil, s.Templates)
 	if err != nil {
 		t.Fatal()
 	}
@@ -73,10 +73,10 @@ func TestNilBuilder(t *testing.T) {
 	attributes := data.BuildAdapters(nil, data.FakeAdapterSettings{Name: "acheck", NilBuilder: true})
 
 	s, _ := GetSnapshotForTest(templates, attributes, data.ServiceConfig, globalCfg)
-	i1 := s.InstancesLegacy[data.FqnI1]
-	h1 := s.HandlersLegacy[data.FqnACheck1]
+	i1 := s.InstancesStatic[data.FqnI1]
+	h1 := s.HandlersStatic[data.FqnACheck1]
 
-	_, err := BuildHandler(h1, []*InstanceLegacy{i1}, nil, s.Templates)
+	_, err := BuildHandler(h1, []*InstanceStatic{i1}, nil, s.Templates)
 	if err == nil {
 		t.Fatal()
 	}
@@ -87,10 +87,10 @@ func TestBuilderDoesNotSupportTemplate(t *testing.T) {
 	attributes := data.BuildAdapters(nil)
 
 	s, _ := GetSnapshotForTest(templates, attributes, data.ServiceConfig, globalCfg)
-	i1 := s.InstancesLegacy[data.FqnI1]
-	h1 := s.HandlersLegacy[data.FqnACheck1]
+	i1 := s.InstancesStatic[data.FqnI1]
+	h1 := s.HandlersStatic[data.FqnACheck1]
 
-	_, err := BuildHandler(h1, []*InstanceLegacy{i1}, nil, s.Templates)
+	_, err := BuildHandler(h1, []*InstanceStatic{i1}, nil, s.Templates)
 	if err == nil {
 		t.Fatal()
 	}
@@ -101,10 +101,10 @@ func TestHandlerDoesNotSupportTemplate(t *testing.T) {
 	attributes := data.BuildAdapters(nil)
 
 	s, _ := GetSnapshotForTest(templates, attributes, data.ServiceConfig, globalCfg)
-	i1 := s.InstancesLegacy[data.FqnI1]
-	h1 := s.HandlersLegacy[data.FqnACheck1]
+	i1 := s.InstancesStatic[data.FqnI1]
+	h1 := s.HandlersStatic[data.FqnACheck1]
 
-	_, err := BuildHandler(h1, []*InstanceLegacy{i1}, nil, s.Templates)
+	_, err := BuildHandler(h1, []*InstanceStatic{i1}, nil, s.Templates)
 	if err == nil {
 		t.Fatal()
 	}
@@ -116,10 +116,10 @@ func TestHandlerDoesNotSupportTemplate_ErrorDuringClose(t *testing.T) {
 	attributes := data.BuildAdapters(nil, data.FakeAdapterSettings{Name: "acheck", ErrorAtHandlerClose: true})
 
 	s, _ := GetSnapshotForTest(templates, attributes, data.ServiceConfig, globalCfg)
-	i1 := s.InstancesLegacy[data.FqnI1]
-	h1 := s.HandlersLegacy[data.FqnACheck1]
+	i1 := s.InstancesStatic[data.FqnI1]
+	h1 := s.HandlersStatic[data.FqnACheck1]
 
-	_, err := BuildHandler(h1, []*InstanceLegacy{i1}, nil, s.Templates)
+	_, err := BuildHandler(h1, []*InstanceStatic{i1}, nil, s.Templates)
 	if err == nil {
 		t.Fatal()
 	}
@@ -131,10 +131,10 @@ func TestHandlerDoesNotSupportTemplate_PanicDuringClose(t *testing.T) {
 	attributes := data.BuildAdapters(nil, data.FakeAdapterSettings{Name: "acheck", PanicAtHandlerClose: true})
 
 	s, _ := GetSnapshotForTest(templates, attributes, data.ServiceConfig, globalCfg)
-	i1 := s.InstancesLegacy[data.FqnI1]
-	h1 := s.HandlersLegacy[data.FqnACheck1]
+	i1 := s.InstancesStatic[data.FqnI1]
+	h1 := s.HandlersStatic[data.FqnACheck1]
 
-	_, err := BuildHandler(h1, []*InstanceLegacy{i1}, nil, s.Templates)
+	_, err := BuildHandler(h1, []*InstanceStatic{i1}, nil, s.Templates)
 	if err == nil {
 		t.Fatal()
 	}
@@ -145,10 +145,10 @@ func TestPanicAtSetAdapterConfig(t *testing.T) {
 	attributes := data.BuildAdapters(nil, data.FakeAdapterSettings{Name: "acheck", PanicAtSetAdapterConfig: true})
 
 	s, _ := GetSnapshotForTest(templates, attributes, data.ServiceConfig, globalCfg)
-	i1 := s.InstancesLegacy[data.FqnI1]
-	h1 := s.HandlersLegacy[data.FqnACheck1]
+	i1 := s.InstancesStatic[data.FqnI1]
+	h1 := s.HandlersStatic[data.FqnACheck1]
 
-	_, err := BuildHandler(h1, []*InstanceLegacy{i1}, nil, s.Templates)
+	_, err := BuildHandler(h1, []*InstanceStatic{i1}, nil, s.Templates)
 	if err == nil {
 		t.Fatal()
 	}
@@ -160,10 +160,10 @@ func TestFailedValidation(t *testing.T) {
 
 	s, _ := GetSnapshotForTest(templates, attributes, data.ServiceConfig, globalCfg)
 
-	i1 := s.InstancesLegacy[data.FqnI1]
-	h1 := s.HandlersLegacy[data.FqnACheck1]
+	i1 := s.InstancesStatic[data.FqnI1]
+	h1 := s.HandlersStatic[data.FqnACheck1]
 
-	_, err := BuildHandler(h1, []*InstanceLegacy{i1}, nil, s.Templates)
+	_, err := BuildHandler(h1, []*InstanceStatic{i1}, nil, s.Templates)
 	if err == nil {
 		t.Fatal()
 	}
@@ -175,10 +175,10 @@ func TestPanicAtValidation(t *testing.T) {
 
 	s, _ := GetSnapshotForTest(templates, attributes, data.ServiceConfig, globalCfg)
 
-	i1 := s.InstancesLegacy[data.FqnI1]
-	h1 := s.HandlersLegacy[data.FqnACheck1]
+	i1 := s.InstancesStatic[data.FqnI1]
+	h1 := s.HandlersStatic[data.FqnACheck1]
 
-	_, err := BuildHandler(h1, []*InstanceLegacy{i1}, nil, s.Templates)
+	_, err := BuildHandler(h1, []*InstanceStatic{i1}, nil, s.Templates)
 	if err == nil {
 		t.Fatal()
 	}
@@ -190,10 +190,10 @@ func TestFailedBuild(t *testing.T) {
 
 	s, _ := GetSnapshotForTest(templates, attributes, data.ServiceConfig, globalCfg)
 
-	i1 := s.InstancesLegacy[data.FqnI1]
-	h1 := s.HandlersLegacy[data.FqnACheck1]
+	i1 := s.InstancesStatic[data.FqnI1]
+	h1 := s.HandlersStatic[data.FqnACheck1]
 
-	_, err := BuildHandler(h1, []*InstanceLegacy{i1}, nil, s.Templates)
+	_, err := BuildHandler(h1, []*InstanceStatic{i1}, nil, s.Templates)
 	if err == nil {
 		t.Fatal()
 	}

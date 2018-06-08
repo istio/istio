@@ -119,6 +119,9 @@ type ConfigArgs struct {
 	CFConfig                   string
 	ControllerOptions          kube.ControllerOptions
 	FileDir                    string
+
+	// Controller if specified, this controller overrides the other config settings.
+	Controller model.ConfigStoreCache
 }
 
 // ConsulArgs provides configuration for the Consul service registry.
@@ -455,7 +458,9 @@ func (c *mockController) Run(<-chan struct{}) {}
 
 // initConfigController creates the config controller in the pilotConfig.
 func (s *Server) initConfigController(args *PilotArgs) error {
-	if args.Config.FileDir != "" {
+	if args.Config.Controller != nil {
+		s.configController = args.Config.Controller
+	} else if args.Config.FileDir != "" {
 		store := memory.Make(ConfigDescriptor)
 		configController := memory.NewController(store)
 
@@ -486,6 +491,34 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		go s.configController.Run(stop)
 		return nil
 	})
+
+	// If running in ingress mode (requires k8s), wrap the config controller.
+	if hasKubeRegistry(args) && s.mesh.IngressControllerMode != meshconfig.MeshConfig_OFF {
+		// Wrap the config controller with a cache.
+		configController, err := configaggregate.MakeCache([]model.ConfigStoreCache{
+			s.configController,
+			ingress.NewController(s.kubeClient, s.mesh, args.Config.ControllerOptions),
+		})
+		if err != nil {
+			return err
+		}
+
+		// Update the config controller
+		s.configController = configController
+
+		if ingressSyncer, errSyncer := ingress.NewStatusSyncer(s.mesh, s.kubeClient,
+			args.Namespace, args.Config.ControllerOptions); errSyncer != nil {
+			log.Warnf("Disabled ingress status syncer due to %v", errSyncer)
+		} else {
+			s.addStartFunc(func(stop chan struct{}) error {
+				go ingressSyncer.Run(stop)
+				return nil
+			})
+		}
+	}
+
+	// Create the config store.
+	s.istioConfigStore = model.MakeIstioStore(s.configController)
 
 	return nil
 }
@@ -576,6 +609,15 @@ func (s *Server) initMultiClusterController(args *PilotArgs) (err error) {
 	return
 }
 
+func hasKubeRegistry(args *PilotArgs) bool {
+	for _, r := range args.Service.Registries {
+		if serviceregistry.ServiceRegistry(r) == serviceregistry.KubernetesRegistry {
+			return true
+		}
+	}
+	return false
+}
+
 // initServiceControllers creates and initializes the service controllers
 func (s *Server) initServiceControllers(args *PilotArgs) error {
 	serviceControllers := aggregate.NewController()
@@ -594,32 +636,8 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		case serviceregistry.MockRegistry:
 			s.initMemoryRegistry(serviceControllers)
 		case serviceregistry.KubernetesRegistry:
-
 			if err := s.createK8sServiceControllers(serviceControllers, args); err != nil {
 				return err
-			}
-			if s.mesh.IngressControllerMode != meshconfig.MeshConfig_OFF {
-				// Wrap the config controller with a cache.
-				configController, err := configaggregate.MakeCache([]model.ConfigStoreCache{
-					s.configController,
-					ingress.NewController(s.kubeClient, s.mesh, args.Config.ControllerOptions),
-				})
-				if err != nil {
-					return err
-				}
-
-				// Update the config controller
-				s.configController = configController
-
-				if ingressSyncer, errSyncer := ingress.NewStatusSyncer(s.mesh, s.kubeClient,
-					args.Namespace, args.Config.ControllerOptions); errSyncer != nil {
-					log.Warnf("Disabled ingress status syncer due to %v", errSyncer)
-				} else {
-					s.addStartFunc(func(stop chan struct{}) error {
-						go ingressSyncer.Run(stop)
-						return nil
-					})
-				}
 			}
 		case serviceregistry.ConsulRegistry:
 			log.Infof("Consul url: %v", args.Service.Consul.ServerURL)
@@ -679,8 +697,6 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			return multierror.Prefix(nil, "Service registry "+r+" is not supported.")
 		}
 	}
-	// TODO: use the existing one !
-	s.istioConfigStore = model.MakeIstioStore(s.configController)
 	serviceEntryStore := external.NewServiceDiscovery(s.configController, s.istioConfigStore)
 
 	// add service entry registry to aggregator by default

@@ -10,10 +10,11 @@
     "logging/apiv2",
     "logging/internal",
     "logging/logadmin",
-    "monitoring/apiv3"
+    "monitoring/apiv3",
+    "trace/apiv2"
   ]
-  revision = "4b98a6370e36d7a85192e7bad08a4ebd82eac2a8"
-  version = "v0.20.0"
+  revision = "0fd7230b2a7505833d5f69b75cbd6c9582401479"
+  version = "v0.23.0"
 
 [[projects]]
   branch = "master"
@@ -24,6 +25,12 @@
     "testhelpers"
   ]
   revision = "1e7e324f8366ded261140272c9e44d0ee681bdbf"
+
+[[projects]]
+  name = "contrib.go.opencensus.io/exporter/stackdriver"
+  packages = ["."]
+  revision = "b98abe41e381c878749ef1aa9eb0798616afbb43"
+  version = "v0.2.0"
 
 [[projects]]
   name = "github.com/Azure/go-autorest"
@@ -1007,10 +1014,11 @@
     "stats/view",
     "tag",
     "trace",
+    "trace/internal",
     "trace/propagation"
   ]
-  revision = "6e3f034057826b530038d93267906ec3c012183f"
-  version = "v0.6.0"
+  revision = "c3ed530f775d85e577ca652cb052a52c078aad26"
+  version = "v0.11.0"
 
 [[projects]]
   name = "go.uber.org/atomic"
@@ -1195,6 +1203,7 @@
     "googleapis/api/monitoredres",
     "googleapis/appengine/logging/v1",
     "googleapis/cloud/audit",
+    "googleapis/devtools/cloudtrace/v2",
     "googleapis/logging/type",
     "googleapis/logging/v2",
     "googleapis/monitoring/v3",
@@ -1210,6 +1219,7 @@
     "balancer",
     "balancer/base",
     "balancer/roundrobin",
+    "channelz",
     "codes",
     "connectivity",
     "credentials",
@@ -1236,8 +1246,8 @@
     "tap",
     "transport"
   ]
-  revision = "1e2570b1b19ade82d8dbb31bba4e65e9f9ef5b34"
-  version = "v1.11.1"
+  revision = "41344da2231b913fa3d983840a57a6b1b7b631a1"
+  version = "v1.12.0"
 
 [[projects]]
   name = "gopkg.in/alecthomas/kingpin.v2"
@@ -1301,7 +1311,7 @@
     "rbac/v1alpha1",
     "routing/v1alpha1"
   ]
-  revision = "9fb97f846d92471786cc737c53ddc63c68a29c23"
+  revision = "a29d69c48fdc7587835ed174262dea39491cc120"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1599,6 +1609,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "127b58311fc9cae4feb0ce3967bd20a7fb17aed42a8de88d96ef566d58ec0646"
+  inputs-digest = "8464b70a2fd1459c3de6b9e195be5e83f1498a4db020f4214f69da73565ec6b5"
   solver-name = "gps-cdcl"
   solver-version = 1
