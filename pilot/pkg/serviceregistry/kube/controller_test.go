@@ -23,6 +23,7 @@ import (
 
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 
@@ -342,17 +343,74 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 	}
 }
 
-func TestReadinessProbe(t *testing.T) {
-	podSpec := generatePodSpecWithProbes("", "node1", "/ready", "/live")
-	if probes := getReadinessProbes(podSpec); len(probes) != 1 || probes[0].Path != "/ready" {
+func TestProbes(t *testing.T) {
+	podSpec := generatePodSpecWithProbes("", "node1", "/ready", intstr.Parse("0"), "/live", intstr.Parse("0"))
+	endpoint := &model.NetworkEndpoint{
+		Port: 80,
+	}
+	if probes := getReadinessProbes(podSpec, endpoint); len(probes) != 1 || probes[0].Path != "/ready" {
 		t.Error("Failure: Expected '/ready' readiness path")
+	}
+	if probes := getLivenessProbes(podSpec, endpoint); len(probes) != 1 || probes[0].Path != "/live" {
+		t.Error("Failure: Expected '/live' liveness path")
 	}
 }
 
-func TestLivenessProbe(t *testing.T) {
-	podSpec := generatePodSpecWithProbes("", "node1", "/ready", "/live")
-	if probes := getLivenessProbes(podSpec); len(probes) != 1 || probes[0].Path != "/live" {
+func TestProbesMatchPort(t *testing.T) {
+	podSpec := generatePodSpecWithProbes("", "node1", "/ready", intstr.Parse("80"), "/live", intstr.Parse("80"))
+	endpoint := &model.NetworkEndpoint{
+		Port: 80,
+	}
+	if probes := getReadinessProbes(podSpec, endpoint); len(probes) != 1 || probes[0].Path != "/ready" {
+		t.Error("Failure: Expected '/ready' readiness path")
+	}
+	if probes := getLivenessProbes(podSpec, endpoint); len(probes) != 1 || probes[0].Path != "/live" {
 		t.Error("Failure: Expected '/live' liveness path")
+	}
+}
+
+func TestProbesMatchPortName(t *testing.T) {
+	podSpec := generatePodSpecWithProbes("", "node1", "/ready", intstr.Parse("MyPort"), "/live", intstr.Parse("MyPort"))
+	endpoint := &model.NetworkEndpoint{
+		Port: 80,
+		ServicePort: &model.Port{
+			Name: "MyPort",
+		},
+	}
+	if probes := getReadinessProbes(podSpec, endpoint); len(probes) != 1 || probes[0].Path != "/ready" {
+		t.Error("Failure: Expected '/ready' readiness path")
+	}
+	if probes := getLivenessProbes(podSpec, endpoint); len(probes) != 1 || probes[0].Path != "/live" {
+		t.Error("Failure: Expected '/live' liveness path")
+	}
+}
+
+func TestProbesMismatchPort(t *testing.T) {
+	podSpec := generatePodSpecWithProbes("", "node1", "/ready", intstr.Parse("8080"), "/live", intstr.Parse("8080"))
+	endpoint := &model.NetworkEndpoint{
+		Port: 80,
+	}
+	if probes := getReadinessProbes(podSpec, endpoint); len(probes) != 0 {
+		t.Error("Failure: Readiness port did not match so should be no probe")
+	}
+	if probes := getLivenessProbes(podSpec, endpoint); len(probes) != 0 {
+		t.Error("Failure: Liveness port did not match so should be no probe")
+	}
+}
+
+func TestProbesMismatchPortName(t *testing.T) {
+	podSpec := generatePodSpecWithProbes("", "node1", "/ready", intstr.Parse("NotMyPort"), "/live", intstr.Parse("NotMyPort"))
+	endpoint := &model.NetworkEndpoint{
+		Port: 80,
+		ServicePort: &model.Port{
+			Name: "MyPort",
+		},
+	}
+	if probes := getReadinessProbes(podSpec, endpoint); len(probes) != 0 {
+		t.Error("Failure: Readiness port did not match so should be no probe")
+	}
+	if probes := getLivenessProbes(podSpec, endpoint); len(probes) != 0 {
+		t.Error("Failure: Livenesss port did not match so should be no probe")
 	}
 }
 
@@ -442,7 +500,8 @@ func generatePod(name, namespace, saName, node string, labels map[string]string)
 	}
 }
 
-func generatePodSpecWithProbes(saName, node string, readiness string, liveness string) *v1.PodSpec {
+func generatePodSpecWithProbes(saName, node string, readinessPath string, readinessPort intstr.IntOrString,
+	livenessPath string, livenessPort intstr.IntOrString) *v1.PodSpec {
 	return &v1.PodSpec{
 		ServiceAccountName: saName,
 		NodeName:           node,
@@ -450,14 +509,16 @@ func generatePodSpecWithProbes(saName, node string, readiness string, liveness s
 			ReadinessProbe: &v1.Probe{
 				Handler: v1.Handler{
 					HTTPGet: &v1.HTTPGetAction{
-						Path: readiness,
+						Path: readinessPath,
+						Port: readinessPort,
 					},
 				},
 			},
 			LivenessProbe: &v1.Probe{
 				Handler: v1.Handler{
 					HTTPGet: &v1.HTTPGetAction{
-						Path: liveness,
+						Path: livenessPath,
+						Port: livenessPort,
 					},
 				},
 			},
