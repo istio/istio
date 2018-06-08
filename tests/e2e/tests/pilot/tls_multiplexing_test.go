@@ -21,7 +21,11 @@ import (
 
 func TestTLSMultiplexing(t *testing.T) {
 	if tc.Kube.AuthEnabled {
-		t.Skip("multiplexing is used when mesh config auth_enabled is turned off...")
+		t.Skip("Skipping because multiplexing is used when mesh config auth_enabled is turned off...")
+	}
+	if tc.V1alpha1 {
+		fmt.Println("jianfeih debug skipping should!!")
+		//t.Skip("Skipping because multiplexing requires v1alpha3/v2 api...")
 	}
 	// This policy will enable mTLS for all namespace, and disable mTLS for c and d:80.
 	cfgs := &deployableConfig{
