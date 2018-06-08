@@ -423,7 +423,7 @@ var (
 		Group:       "networking",
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.ServiceEntry",
-		ShortName:   "sent",
+		ShortName:   "svcent",
 		Gogo:        true,
 		Validate:    ValidateServiceEntry,
 	}
@@ -445,7 +445,7 @@ var (
 		Group:       "networking",
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.DestinationRule",
-		ShortName:   "drule",
+		ShortName:   "dstrule",
 		Validate:    ValidateDestinationRule,
 	}
 

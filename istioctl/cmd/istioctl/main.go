@@ -301,7 +301,7 @@ To see all valid types and their short aliases, type "istioctl get".`,
 istioctl get virtualservices # or, using the short name: istioctl get vsvc
 
 # List all destination rules
-istioctl get destinationrules # or, using the short name: istioctl get drule
+istioctl get destinationrules # or, using the short name: istioctl get dstrule
 
 # Get a specific virtual service named bookinfo
 istioctl get virtualservice bookinfo
