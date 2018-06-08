@@ -189,24 +189,14 @@ void Filter::UpdateHeaders(
 
 FilterHeadersStatus Filter::encodeHeaders(HeaderMap& headers, bool) {
   ENVOY_LOG(debug, "Called Mixer::Filter : {} {}", __func__, state_);
-  ASSERT(state_ == Complete || state_ == Responded);
+  // Init state is possible if a filter prior to mixerfilter interrupts the
+  // filter chain
+  ASSERT(state_ == NotStarted || state_ == Complete || state_ == Responded);
   if (state_ == Complete) {
     // handle response header operations
     UpdateHeaders(headers, route_directive_.response_header_operations());
   }
   return FilterHeadersStatus::Continue;
-}
-
-FilterDataStatus Filter::encodeData(Buffer::Instance&, bool) {
-  ENVOY_LOG(debug, "Called Mixer::Filter : {}", __func__);
-  ASSERT(state_ == Complete || state_ == Responded);
-  return FilterDataStatus::Continue;
-}
-
-FilterTrailersStatus Filter::encodeTrailers(HeaderMap&) {
-  ENVOY_LOG(debug, "Called Mixer::Filter : {}", __func__);
-  ASSERT(state_ == Complete || state_ == Responded);
-  return FilterTrailersStatus::Continue;
 }
 
 void Filter::setDecoderFilterCallbacks(

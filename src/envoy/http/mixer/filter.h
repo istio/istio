@@ -54,8 +54,12 @@ class Filter : public StreamFilter,
     return FilterHeadersStatus::Continue;
   }
   FilterHeadersStatus encodeHeaders(HeaderMap& headers, bool) override;
-  FilterDataStatus encodeData(Buffer::Instance&, bool) override;
-  FilterTrailersStatus encodeTrailers(HeaderMap&) override;
+  FilterDataStatus encodeData(Buffer::Instance&, bool) override {
+    return FilterDataStatus::Continue;
+  }
+  FilterTrailersStatus encodeTrailers(HeaderMap&) override {
+    return FilterTrailersStatus::Continue;
+  }
   void setEncoderFilterCallbacks(StreamEncoderFilterCallbacks&) override {}
 
   // This is the callback function when Check is done.
