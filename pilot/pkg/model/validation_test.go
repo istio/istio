@@ -1902,25 +1902,25 @@ func TestValidateServer(t *testing.T) {
 		{"happy",
 			&networking.Server{
 				Hosts: []string{"foo.bar.com"},
-				Port:  &networking.Port{Number: 7, Protocol: "http"},
+				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
 			},
 			""},
 		{"invalid domain",
 			&networking.Server{
 				Hosts: []string{"foo.*.bar.com"},
-				Port:  &networking.Port{Number: 7, Protocol: "http"},
+				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
 			},
 			"domain"},
 		{"invalid port",
 			&networking.Server{
 				Hosts: []string{"foo.bar.com"},
-				Port:  &networking.Port{Number: 66000, Protocol: "http"},
+				Port:  &networking.Port{Number: 66000, Name: "http", Protocol: "http"},
 			},
 			"port"},
 		{"invalid tls options",
 			&networking.Server{
 				Hosts: []string{"foo.bar.com"},
-				Port:  &networking.Port{Number: 1, Protocol: "http"},
+				Port:  &networking.Port{Number: 1, Name: "http", Protocol: "http"},
 				Tls:   &networking.Server_TLSOptions{Mode: networking.Server_TLSOptions_SIMPLE},
 			},
 			"TLS"},
@@ -1946,7 +1946,7 @@ func TestValidateServerPort(t *testing.T) {
 		out  string
 	}{
 		{"empty", &networking.Port{}, "invalid protocol"},
-		{"empty", &networking.Port{}, "port number"},
+		{"empty", &networking.Port{}, "port name"},
 		{"happy",
 			&networking.Port{
 				Protocol: "http",
@@ -1961,18 +1961,11 @@ func TestValidateServerPort(t *testing.T) {
 				Name:     "Henry",
 			},
 			"invalid protocol"},
-		{"no port name/number",
-			&networking.Port{
-				Protocol: "http",
-				Number:   0,
-				Name:     "",
-			},
-			"either port number or name"},
 		{"invalid number",
 			&networking.Port{
 				Protocol: "http",
 				Number:   uint32(1 << 30),
-				Name:     "",
+				Name:     "http",
 			},
 			"port number"},
 		{"name, no number",

@@ -121,6 +121,7 @@ var (
 					{
 						Port: &networking.Port{
 							Number:   80,
+							Name:     "http",
 							Protocol: "HTTP",
 						},
 						Hosts: []string{"*"},
