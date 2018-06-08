@@ -26,7 +26,7 @@
 
 - assert:
     that:
-      - "vo.stdout >= minimum_cluster_version"
+      - "vo.stdout is version_compare(minimum_cluster_version,'>=')"
     msg: "Cluster version must be at least {{ minimum_cluster_version }}"
 
 - include_tasks: assert_oc_admin.yml
