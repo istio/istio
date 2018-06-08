@@ -1,6 +1,6 @@
 - name: Define var containg Istio definition file name
   set_fact:
-    istio_definition_file_name: "{{'istio-auth.yaml' if istio.auth == true else 'istio.yaml'}}"
+    istio_definition_file_name: "{{'istio-demo-auth.yaml' if istio.auth == true else 'istio-demo.yaml'}}"
 
 - name: Define var containg Istio definition file full path
   set_fact:
