@@ -1,8 +1,8 @@
 package testdata
 
 import (
-	"testing"
 	"counter"
+	"testing"
 )
 
 func TestE2eInvalidSkip(t *testing.T) {
@@ -66,5 +66,3 @@ func TestE2eSkipAtTop2(t *testing.T) {
 		}
 	}
 }
-
-

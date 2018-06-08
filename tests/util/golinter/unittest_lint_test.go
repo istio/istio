@@ -15,9 +15,10 @@
 package main
 
 import (
-	"testing"
-	"reflect"
 	"path/filepath"
+	"reflect"
+	"testing"
+
 	"istio.io/istio/tests/util/golinter/linter"
 	"istio.io/istio/tests/util/golinter/rules"
 )
@@ -37,7 +38,7 @@ func clearLintRulesList() {
 
 func TestUnitTestSkipByIssueRule(t *testing.T) {
 	clearLintRulesList()
-	linter.LintRulesList[linter.UnitTest] = []rules.LintRule{rules.NewSkipByIssueRule(),}
+	linter.LintRulesList[linter.UnitTest] = []rules.LintRule{rules.NewSkipByIssueRule()}
 
 	rpts := getReport([]string{"testdata/"})
 	expectedRpts := []string{getAbsPath("testdata/unit_test.go") + ":10:2:Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue."}
@@ -49,7 +50,7 @@ func TestUnitTestSkipByIssueRule(t *testing.T) {
 
 func TestUnitTestNoShortRule(t *testing.T) {
 	clearLintRulesList()
-	linter.LintRulesList[linter.UnitTest] = []rules.LintRule{rules.NewNoShortRule(),}
+	linter.LintRulesList[linter.UnitTest] = []rules.LintRule{rules.NewNoShortRule()}
 
 	rpts := getReport([]string{"testdata/"})
 	expectedRpts := []string{getAbsPath("testdata/unit_test.go") + ":33:5:testing.Short() is disallowed."}
@@ -61,7 +62,7 @@ func TestUnitTestNoShortRule(t *testing.T) {
 
 func TestUnitTestNoSleepRule(t *testing.T) {
 	clearLintRulesList()
-	linter.LintRulesList[linter.UnitTest] = []rules.LintRule{rules.NewNoSleepRule(),}
+	linter.LintRulesList[linter.UnitTest] = []rules.LintRule{rules.NewNoSleepRule()}
 
 	rpts := getReport([]string{"testdata/"})
 	expectedRpts := []string{getAbsPath("testdata/unit_test.go") + ":50:2:time.Sleep() is disallowed."}
@@ -73,7 +74,7 @@ func TestUnitTestNoSleepRule(t *testing.T) {
 
 func TestUnitTestNoGoroutineRule(t *testing.T) {
 	clearLintRulesList()
-	linter.LintRulesList[linter.UnitTest] = []rules.LintRule{rules.NewNoGoroutineRule(),}
+	linter.LintRulesList[linter.UnitTest] = []rules.LintRule{rules.NewNoGoroutineRule()}
 
 	rpts := getReport([]string{"testdata/"})
 	expectedRpts := []string{getAbsPath("testdata/unit_test.go") + ":58:2:goroutine is disallowed."}
@@ -86,12 +87,12 @@ func TestUnitTestNoGoroutineRule(t *testing.T) {
 func TestUnitTestWhitelist(t *testing.T) {
 	clearLintRulesList()
 	linter.LintRulesList[linter.UnitTest] = []rules.LintRule{rules.NewSkipByIssueRule(),
-	rules.NewNoShortRule(),
-	rules.NewNoSleepRule(),
-	rules.NewNoGoroutineRule(),}
+		rules.NewNoShortRule(),
+		rules.NewNoSleepRule(),
+		rules.NewNoGoroutineRule()}
 	linter.WhitelistPath = make(map[string][]string)
 	linter.WhitelistPath["testdata/unit_test.go"] = []string{"skip_by_issue_rule", "no_short_rule",
-	"no_sleep_rule", "no_goroutine_rule",}
+		"no_sleep_rule", "no_goroutine_rule"}
 
 	rpts := getReport([]string{"testdata/*"})
 	expectedRpts := []string{}

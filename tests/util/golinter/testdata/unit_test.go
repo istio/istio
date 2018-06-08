@@ -1,8 +1,8 @@
 package testdata
 
 import (
-	"testing"
 	"counter"
+	"testing"
 	"time"
 )
 
@@ -66,5 +66,3 @@ func TestInvalidGoroutine(t *testing.T) {
 		t.Error("expected 9")
 	}
 }
-
-

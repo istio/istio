@@ -15,15 +15,16 @@
 package main
 
 import (
-	"testing"
 	"reflect"
+	"testing"
+
 	"istio.io/istio/tests/util/golinter/linter"
 	"istio.io/istio/tests/util/golinter/rules"
 )
 
 func TestE2eTestSkipByIssueRule(t *testing.T) {
 	clearLintRulesList()
-	linter.LintRulesList[linter.E2eTest] = []rules.LintRule{rules.NewSkipByIssueRule(),}
+	linter.LintRulesList[linter.E2eTest] = []rules.LintRule{rules.NewSkipByIssueRule()}
 
 	rpts := getReport([]string{"testdata/"})
 	expectedRpts := []string{
@@ -37,13 +38,13 @@ func TestE2eTestSkipByIssueRule(t *testing.T) {
 
 func TestE2eTestSkipByShortRule(t *testing.T) {
 	clearLintRulesList()
-	linter.LintRulesList[linter.E2eTest] = []rules.LintRule{rules.NewSkipByShortRule(),}
+	linter.LintRulesList[linter.E2eTest] = []rules.LintRule{rules.NewSkipByShortRule()}
 
 	rpts := getReport([]string{"testdata/"})
 	expectedRpts := []string{getAbsPath("testdata/e2e/e2e_test.go") +
-			":8:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'",
+		":8:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'",
 		getAbsPath("testdata/e2e/e2e_test.go") +
-				":23:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'",}
+			":23:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'"}
 
 	if !reflect.DeepEqual(rpts, expectedRpts) {
 		t.Errorf("lint reports don't match\nReceived: %v\nExpected: %v", rpts, expectedRpts)

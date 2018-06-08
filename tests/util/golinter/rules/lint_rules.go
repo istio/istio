@@ -28,7 +28,7 @@ type LintRule interface {
 }
 
 // LintReporter populates lint report.
-type LintReporter struct{
+type LintReporter struct {
 	reports *[]string
 }
 

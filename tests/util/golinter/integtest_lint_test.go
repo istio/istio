@@ -15,15 +15,16 @@
 package main
 
 import (
-	"testing"
 	"reflect"
+	"testing"
+
 	"istio.io/istio/tests/util/golinter/linter"
 	"istio.io/istio/tests/util/golinter/rules"
 )
 
 func TestIntegTestSkipByIssueRule(t *testing.T) {
 	clearLintRulesList()
-	linter.LintRulesList[linter.IntegTest] = []rules.LintRule{rules.NewSkipByIssueRule(),}
+	linter.LintRulesList[linter.IntegTest] = []rules.LintRule{rules.NewSkipByIssueRule()}
 
 	rpts := getReport([]string{"testdata/"})
 	expectedRpts := []string{
@@ -37,17 +38,17 @@ func TestIntegTestSkipByIssueRule(t *testing.T) {
 
 func TestIntegTestSkipByShortRule(t *testing.T) {
 	clearLintRulesList()
-	linter.LintRulesList[linter.IntegTest] = []rules.LintRule{rules.NewSkipByShortRule(),}
+	linter.LintRulesList[linter.IntegTest] = []rules.LintRule{rules.NewSkipByShortRule()}
 
 	rpts := getReport([]string{"testdata/"})
 	expectedRpts := []string{getAbsPath("testdata/integ/integtest_test.go") +
-			":8:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'",
-		getAbsPath("testdata/integ/integtest_test.go") +
-				":23:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'",
-		getAbsPath("testdata/integtest_integ_test.go") +
 		":8:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'",
+		getAbsPath("testdata/integ/integtest_test.go") +
+			":23:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'",
 		getAbsPath("testdata/integtest_integ_test.go") +
-			":23:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'",}
+			":8:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'",
+		getAbsPath("testdata/integtest_integ_test.go") +
+			":23:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'"}
 
 	if !reflect.DeepEqual(rpts, expectedRpts) {
 		t.Errorf("lint reports don't match\nReceived: %v\nExpected: %v", rpts, expectedRpts)
