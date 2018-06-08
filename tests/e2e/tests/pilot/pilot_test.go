@@ -49,7 +49,7 @@ var (
 	tc = &testConfig{
 		// TODO(inclfy) figure out why --v1laph1=false not working.
 		V1alpha1: false, //implies envoyv1
-		V1alpha3: true, //implies envoyv2
+		V1alpha3: true,  //implies envoyv2
 		Ingress:  true,
 		Egress:   true,
 	}
