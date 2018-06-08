@@ -426,6 +426,15 @@ func (e *Ephemeral) processAdapterInfoConfigs(availableTmpls map[string]*Templat
 
 		log.Debugf("Processing incoming adapter info: name='%s'\n%v", adapterName, cfg)
 
+		if _, ok := e.adapters[adapterInfoKey.Name]; ok {
+			// compiled in adapter already contains a same named adapter as key.Name.
+			// This will cause confusion to operator referencing the adapter, so we should disallow this
+			// and let operator rename their adapter's CR name to disambiguate.
+			appendErr(errs, fmt.Sprintf("adapter='%s'", adapterInfoKey.Name), counters.adapterInfoConfigError,
+				"same named adapter already exists inside mixer; please rename to disambiguate")
+			continue
+		}
+
 		fds, desc, err := GetAdapterCfgDescriptor(cfg.Config)
 		if err != nil {
 			appendErr(errs, fmt.Sprintf("adapter='%s'", adapterName), counters.adapterInfoConfigError,
@@ -629,6 +638,14 @@ func (e *Ephemeral) processTemplateConfigs(counters Counters, errs *multierror.E
 		cfg := resource.Spec.(*v1beta1.Template)
 		log.Debugf("Processing incoming template: name='%s'\n%v", templateName, cfg)
 
+		if _, ok := e.templates[templateKey.Name]; ok {
+			// compiled in templates already contains a same named template as templateKey.Name.
+			// This will cause confusion to operator referencing the template, so we should disallow this
+			// and let operator rename their template's CR name to disambiguate.
+			appendErr(errs, fmt.Sprintf("template='%s'", templateKey.Name), counters.templateConfigError,
+				"same named template already exists inside mixer; please rename to disambiguate")
+			continue
+		}
 		fds, desc, name, err := GetTmplDescriptor(cfg.Descriptor_)
 		if err != nil {
 			appendErr(errs, fmt.Sprintf("template='%s'", templateName), counters.templateConfigError,
