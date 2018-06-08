@@ -1,12 +1,11 @@
 #!/bin/bash
-WD=$(dirname $0)
-WD=$(cd $WD; pwd)
+WD=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
 
 set -o errexit
 set -o nounset
 set -o pipefail
 
-# based on the following 
+# based on the following
 # https://github.com/GoogleCloudPlatform/distroless/blob/master/cacerts/extract.sh
 
 # https://packages.debian.org/buster/ca-certificates
@@ -17,7 +16,7 @@ DEB=ca-certs.deb
 DEB_DIR=$(mktemp -d)
 
 # outputs
-# These files are packaged 
+# These files are packaged
 CA_CERTS=${WD}/ca-certificates.tgz
 
 
@@ -27,7 +26,7 @@ function cleanup {
 
 trap cleanup exit
 
-cd ${DEB_DIR}
+cd "${DEB_DIR}"
 curl -s ${DEB_CACAERTS} --output ${DEB}
 
 
@@ -37,11 +36,11 @@ tar -xf data.tar.xz ./usr/share/doc/ca-certificates/copyright
 
 # Concat all the certs.
 CERT_FILE=./etc/ssl/certs/ca-certificates.crt
-mkdir -p $(dirname $CERT_FILE)
+mkdir -p "$(dirname $CERT_FILE)"
 
 # concat all certs
 for cert in $(find usr/share/ca-certificates -type f | sort); do
-  cat $cert >> ${CERT_FILE}
+  cat "$cert" >> ${CERT_FILE}
 done
 
-tar -czf ${CA_CERTS} etc/ssl/certs/ca-certificates.crt usr/share/doc/ca-certificates/copyright
+tar -czf "${CA_CERTS}" etc/ssl/certs/ca-certificates.crt usr/share/doc/ca-certificates/copyright

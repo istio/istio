@@ -1,21 +1,20 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 die () {
   echo "ERROR: $*. Aborting." >&2
   exit 1
 }
 
-WD=$(dirname $0)
-WD=$(cd $WD; pwd)
-ROOT=$(dirname $WD)
+WD=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
+ROOT=$(cd "$(dirname "${WD}")" && pwd -P)
 
-if [ ! -e $ROOT/Gopkg.lock ]; then
+if [ ! -e "$ROOT/Gopkg.lock" ]; then
   echo "Please run 'dep ensure' first"
   exit 1
 fi
 
-GOGO_VERSION=$(sed -n '/gogo\/protobuf/,/\[\[projects/p' $ROOT/Gopkg.lock | grep 'version =' | sed -e 's/^[^\"]*\"//g' -e 's/\"//g')
-GENDOCS_VERSION=$(sed -n '/protoc-gen-docs/,/\[\[projects/p' $ROOT/Gopkg.lock | grep revision | sed -e 's/^[^\"]*\"//g' -e 's/\"//g')
+GOGO_VERSION=$(sed -n '/gogo\/protobuf/,/\[\[projects/p' "$ROOT/Gopkg.lock" | grep 'version =' | sed -e 's/^[^\"]*\"//g' -e 's/\"//g')
+GENDOCS_VERSION=$(sed -n '/protoc-gen-docs/,/\[\[projects/p' "$ROOT/Gopkg.lock" | grep revision | sed -e 's/^[^\"]*\"//g' -e 's/\"//g')
 
 set -e
 
@@ -44,7 +43,7 @@ while getopts ':f:o:p:i:t:d:' flag; do
        ;;
     o) outdir="${OPTARG}" ;;
     p) protoc="${OPTARG}" ;;
-    i) optimport+=/"${OPTARG}" ;;
+    i) optimport+="/${OPTARG}" ;;
     t) $optproto && die "Cannot use template file option (-t) with proto file option (-f)"
        opttemplate=true
        template+="/${OPTARG}"
@@ -57,44 +56,44 @@ done
 # echo "outdir: ${outdir}"
 
 # Ensure expected GOPATH setup
-if [ $ROOT != "${GOPATH-$HOME/go}/src/istio.io/istio" ]; then
+if [ "$ROOT" != "${GOPATH-$HOME/go}/src/istio.io/istio" ]; then
   die "Istio not found in GOPATH/src/istio.io/"
 fi
 
-PROTOC_PATH=$(which protoc)
+PROTOC_PATH=$(command -v protoc)
  if [ -z "$PROTOC_PATH" ] ; then
     die "protoc was not found, please install it first"
  fi
 
 GOGOPROTO_PATH=vendor/github.com/gogo/protobuf
-GOGOSLICK=protoc-gen-gogoslick
+GOGOSLICK="protoc-gen-gogoslick"
 GOGOSLICK_PATH=$ROOT/$GOGOPROTO_PATH/$GOGOSLICK
-GENDOCS=protoc-gen-docs
+GENDOCS="protoc-gen-docs"
 GENDOCS_PATH=vendor/github.com/istio/tools/$GENDOCS
 
-if [ ! -e $ROOT/bin/$GOGOSLICK-$GOGO_VERSION ]; then
+if [ ! -e "$ROOT/bin/$GOGOSLICK-$GOGO_VERSION" ]; then
 echo "Building protoc-gen-gogoslick..."
-pushd $ROOT
-go build --pkgdir $GOGOSLICK_PATH -o $ROOT/bin/$GOGOSLICK-$GOGO_VERSION ./$GOGOPROTO_PATH/$GOGOSLICK
+pushd "$ROOT"
+go build --pkgdir "$GOGOSLICK_PATH" -o "$ROOT/bin/$GOGOSLICK-$GOGO_VERSION" ./$GOGOPROTO_PATH/$GOGOSLICK
 popd
 echo "Done."
 fi
 
-if [ ! -e $ROOT/bin/$GENDOCS-$GENDOCS_VERSION ]; then
+if [ ! -e "$ROOT/bin/$GENDOCS-$GENDOCS_VERSION" ]; then
 echo "Building protoc-gen-docs..."
-pushd $ROOT/$GENDOCS_PATH
-go build --pkgdir $GENDOCS_PATH -o $ROOT/bin/$GENDOCS-$GENDOCS_VERSION
+pushd "$ROOT/$GENDOCS_PATH"
+go build --pkgdir "$GENDOCS_PATH" -o "$ROOT/bin/$GENDOCS-$GENDOCS_VERSION"
 popd
 echo "Done."
 fi
 
-PROTOC_MIN_VERSION=protoc-min-version
+PROTOC_MIN_VERSION="protoc-min-version"
 MIN_VERSION_PATH=$ROOT/$GOGOPROTO_PATH/$PROTOC_MIN_VERSION
 
-if [ ! -e $ROOT/bin/$PROTOC_MIN_VERSION-$GOGO_VERSION ]; then
+if [ ! -e "$ROOT/bin/$PROTOC_MIN_VERSION-$GOGO_VERSION" ]; then
 echo "Building protoc-min-version..."
-pushd $ROOT
-go build --pkgdir $MIN_VERSION_PATH -o $ROOT/bin/$PROTOC_MIN_VERSION-$GOGO_VERSION ./$GOGOPROTO_PATH/$PROTOC_MIN_VERSION
+pushd "$ROOT"
+go build --pkgdir "$MIN_VERSION_PATH" -o "$ROOT/bin/$PROTOC_MIN_VERSION-$GOGO_VERSION" ./$GOGOPROTO_PATH/$PROTOC_MIN_VERSION
 popd
 echo "Done."
 fi
@@ -107,14 +106,14 @@ imports=(
  "${ROOT}/vendor/github.com/gogo/protobuf/protobuf"
 )
 
-IMPORTS=""
+IMPORTS=()
 
 for i in "${imports[@]}"
 do
-  IMPORTS+="--proto_path=$i "
+  IMPORTS+=("--proto_path=$i")
 done
 
-IMPORTS+="--proto_path=$optimport "
+IMPORTS+=("--proto_path=$optimport")
 
 mappings=(
   "gogoproto/gogo.proto=github.com/gogo/protobuf/gogoproto"
@@ -132,12 +131,13 @@ do
   MAPPINGS+="M$i,"
 done
 
-PLUGIN="--plugin=$ROOT/bin/protoc-gen-gogoslick-$GOGO_VERSION --gogoslick-${GOGO_VERSION}_out=plugins=grpc,$MAPPINGS:"
-PLUGIN+=$outdir
+PLUGIN=("--plugin=$ROOT/bin/protoc-gen-gogoslick-$GOGO_VERSION" "--gogoslick-${GOGO_VERSION}_out=plugins=grpc,$MAPPINGS:")
+PLUGIN+=("$outdir")
 
-GENDOCS_PLUGIN="--plugin=$ROOT/bin/$GENDOCS-$GENDOCS_VERSION --docs-${GENDOCS_VERSION}_out=warnings=true,mode=html_fragment_with_front_matter:"
-GENDOCS_PLUGIN_FILE=$GENDOCS_PLUGIN$(dirname "${file}")
-GENDOCS_PLUGIN_TEMPLATE=$GENDOCS_PLUGIN$(dirname "${template}")
+GENDOCS_PLUGIN=("--plugin=$ROOT/bin/$GENDOCS-$GENDOCS_VERSION")
+GENDOCS_DEST_PREFIX="--docs-${GENDOCS_VERSION}_out=warnings=true,mode=html_fragment_with_front_matter"
+GENDOCS_PLUGIN_FILE=("${GENDOCS_PLUGIN[@]}" "${GENDOCS_DEST_PREFIX}:$(dirname "${file}")")
+GENDOCS_PLUGIN_FILE=("${GENDOCS_PLUGIN[@]}" "${GENDOCS_DEST_PREFIX}:$(dirname "${template}")")
 
 # handle template code generation
 if [ "$opttemplate" = true ]; then
@@ -148,17 +148,17 @@ if [ "$opttemplate" = true ]; then
     "google/protobuf/duration.proto:github.com/gogo/protobuf/types"
   )
 
-  TMPL_GEN_MAP=""
+  TMPL_GEN_MAP=()
   TMPL_PROTOC_MAPPING=""
 
   for i in "${template_mappings[@]}"
   do
-    TMPL_GEN_MAP+="-m $i "
+    TMPL_GEN_MAP+=(-m "$i")
     TMPL_PROTOC_MAPPING+="M${i/:/=},"
   done
 
-  TMPL_PLUGIN="--plugin=$ROOT/bin/protoc-gen-gogoslick-$GOGO_VERSION --gogoslick-${GOGO_VERSION}_out=plugins=grpc,$TMPL_PROTOC_MAPPING:"
-  TMPL_PLUGIN+=$outdir
+  TMPL_PLUGIN=("--plugin=$ROOT/bin/protoc-gen-gogoslick-$GOGO_VERSION" "--gogoslick-${GOGO_VERSION}_out=plugins=grpc,${TMPL_PROTOC_MAPPING}:")
+  TMPL_PLUGIN+=("$outdir")
 
   descriptor_set="_proto.descriptor_set"
   handler_gen_go="_handler.gen.go"
@@ -170,41 +170,41 @@ if [ "$opttemplate" = true ]; then
   templateHSP=${template/.proto/$handler_service}
   templatePG=${template/.proto/$pb_go}
   # generate the descriptor set for the intermediate artifacts
-  DESCRIPTOR="--include_imports --include_source_info --descriptor_set_out=$templateDS"
+  DESCRIPTOR=(--include_imports --include_source_info "--descriptor_set_out=$templateDS")
   if [ "$gendoc" = true ]; then
-    err=`$protoc $DESCRIPTOR $IMPORTS $PLUGIN $GENDOCS_PLUGIN_TEMPLATE $template`
+    err=$($protoc "${DESCRIPTOR[@]}" "${IMPORTS[@]}" "${PLUGIN[@]}" "${GENDOCS_PLUGIN_TEMPLATE[@]}" "$template")
   else
-    err=`$protoc $DESCRIPTOR $IMPORTS $PLUGIN $template`
+    err=$($protoc "${DESCRIPTOR[@]}" "${IMPORTS[@]}" "${PLUGIN[@]}" "$template")
   fi
   if [ ! -z "$err" ]; then
     die "template generation failure: $err";
   fi
 
-  go run $GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go api -t $templateDS --out_go $templateHG --out_proto $templateHSP $TMPL_GEN_MAP
+  go run "$GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go" api -t "$templateDS" --out_go "$templateHG" --out_proto "$templateHSP" "${TMPL_GEN_MAP[@]}"
 
-  err=`$protoc $IMPORTS $TMPL_PLUGIN $templateHSP`
+  err=$($protoc "${IMPORTS[@]}" "${TMPL_PLUGIN[@]}" "$templateHSP")
   if [ ! -z "$err" ]; then
     die "template generation failure: $err";
   fi
 
   templateSDS=${template/.proto/_handler_service.descriptor_set}
-  SDESCRIPTOR="--include_imports --include_source_info --descriptor_set_out=$templateSDS"
-  err=`$protoc $SDESCRIPTOR $IMPORTS $PLUGIN $templateHSP`
+  SDESCRIPTOR=(--include_imports --include_source_info "--descriptor_set_out=$templateSDS")
+  err=$($protoc "${SDESCRIPTOR[@]}" "${IMPORTS[@]}" "${PLUGIN[@]}" "$templateHSP")
   if [ ! -z "$err" ]; then
     die "template generation failure: $err";
   fi
 
-  rm $templatePG
+  rm "$templatePG"
 
   exit 0
 fi
 
 # handle simple protoc-based generation
 if [ "$gendoc" = true ]; then
-  err=`$protoc $IMPORTS $PLUGIN $GENDOCS_PLUGIN_FILE $file`
+  err=$($protoc "${IMPORTS[@]}" "${PLUGIN[@]}" "${GENDOCS_PLUGIN_FILE[@]}" "$file")
 else
-  err=`$protoc $IMPORTS $PLUGIN $file`
+  err=$($protoc "${IMPORTS[@]}" "${PLUGIN[@]}" "$file")
 fi
-if [ ! -z "$err" ]; then 
-  die "generation failure: $err"; 
+if [ ! -z "$err" ]; then
+  die "generation failure: $err";
 fi

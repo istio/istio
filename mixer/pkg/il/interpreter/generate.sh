@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
 
 BANNER=$(cat <<-END
 // =================================================================================================
@@ -23,6 +23,6 @@ BANNER=$(cat <<-END
 END
 )
 
-printf "%s\n\n" "${BANNER}" >${SCRIPT_DIR}/interpreterRun.go
-clang -x c -E -P ${SCRIPT_DIR}/interpreterRun.got >>${SCRIPT_DIR}/interpreterRun.go
-gofmt -w ${SCRIPT_DIR}/interpreterRun.go
+printf "%s\\n\\n" "${BANNER}" >"${SCRIPT_DIR}/interpreterRun.go"
+clang -x c -E -P "${SCRIPT_DIR}/interpreterRun.got" >>"${SCRIPT_DIR}/interpreterRun.go"
+gofmt -w "${SCRIPT_DIR}/interpreterRun.go"

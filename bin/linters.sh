@@ -1,14 +1,10 @@
 #!/bin/bash
 set -ex
 
-SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
+SCRIPTPATH=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
+WORKSPACE=$(cd "$(dirname "${SCRIPTPATH}")" && pwd -P)
 
-WORKSPACE=$SCRIPTPATH/..
-
-cd ${WORKSPACE}
-
-GOOS=
-GOARCH=
+cd "${WORKSPACE}"
 
 if [[ -z $SKIP_INIT ]];then
   bin/init.sh
@@ -28,7 +24,7 @@ echo 'licenses OK'
 
 echo 'Installing gometalinter ....'
 go get -u gopkg.in/alecthomas/gometalinter.v2
-gometalinter=$(which gometalinter.v2 2> /dev/null || echo "${ISTIO_BIN}/gometalinter.v2")
+gometalinter=$(command -v gometalinter.v2 2> /dev/null || echo "${ISTIO_BIN}/gometalinter.v2")
 $gometalinter --install
 echo 'Gometalinter installed successfully ....'
 

@@ -451,6 +451,17 @@ jobs:
       - store_artifacts:
           path: /go/out/istio-sidecar.deb
 
+  shellcheck:
+    docker:
+      - image: koalaman/shellcheck-alpine
+    environment:
+      SHELLCHECK_OPTS: -e 1090 -e 1091
+    steps:
+      - checkout
+      - run:
+          name: Check Scripts
+          command: /root/project/tools/run_shellcheck.sh
+
   lint:
     <<: *defaults
     environment:
@@ -585,6 +596,7 @@ workflows:
   all:
     jobs:
       - dependencies
+      - shellcheck
       - lint
       - build
       - test

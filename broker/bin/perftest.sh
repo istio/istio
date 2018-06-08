@@ -1,16 +1,16 @@
-#!/usr/bin/env bash
+#!/bin/bash
 set -e
-SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
-source $SCRIPTPATH/use_bazel_go.sh
+SCRIPTPATH=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
+source "$SCRIPTPATH/use_bazel_go.sh"
 
-ROOT=$SCRIPTPATH/..
-cd $ROOT
+ROOT=$(cd "$(dirname "${SCRIPTPATH}")" && pwd -P)
+cd "$ROOT"
 
 
 echo "Perf test"
 DIRS=""
-cd $ROOT
+cd "$ROOT"
 for pkgdir in ${DIRS}; do
-  cd ${ROOT}/${pkgdir}
+  cd "${ROOT}/${pkgdir}"
   go test -run=^$  -bench=.  -benchmem
 done

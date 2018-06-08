@@ -8,7 +8,7 @@ docker images 10.10.0.2:5000/*:latest -q | xargs docker rmi
 
 # Make and Push images to insecure local registry on VM.
 # Set GOOS=linux to make sure linux binaries are built on macOS
-cd $ISTIO/istio
+cd "$ISTIO/istio" || exit
 GOOS=linux make docker HUB=10.10.0.2:5000 TAG=latest
 GOOS=linux make push HUB=10.10.0.2:5000 TAG=latest
 

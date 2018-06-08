@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 source "${DIR}/setup_perf_cluster.sh"
 
 LABEL="${1}"
