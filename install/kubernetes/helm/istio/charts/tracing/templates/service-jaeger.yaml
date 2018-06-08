@@ -23,7 +23,7 @@ items:
       - name: query-http
         port: {{ .Values.jaeger.ui.port }}
         protocol: TCP
-        targetPort: {{ .Values.jaeger.ui.port }}
+        targetPort: 16686
     selector:
       app: jaeger
 - apiVersion: v1

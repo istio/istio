@@ -30,17 +30,17 @@ spec:
           image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
-            - containerPort: {{ .Values.service.internalPort }}
+            - containerPort: 8088
           args:
           - --prometheusAddr=http://prometheus:9090
           livenessProbe:
             httpGet:
               path: /graph
-              port: {{ .Values.service.internalPort }}
+              port: 8088
           readinessProbe:
             httpGet:
               path: /graph
-              port: {{ .Values.service.internalPort }}
+              port: 8088
           resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
