@@ -66,11 +66,8 @@ func NewPlugin() plugin.Plugin {
 
 // RequireTLS returns true and pointer to mTLS params if the policy use mTLS for (peer) authentication.
 // (note that mTLS params can still be nil). Otherwise, return (false, nil).
-func RequireTLS(policy *authn.Policy, match *ldsv2.FilterChainMatch) (bool, *authn.MutualTls) {
+func RequireTLS(policy *authn.Policy) (bool, *authn.MutualTls) {
 	if policy == nil {
-		return false, nil
-	}
-	if match != nil && match.TransportProtocol == EnvoyRawBufferMatch {
 		return false, nil
 	}
 	if len(policy.Peers) > 0 {
@@ -247,7 +244,10 @@ func BuildAuthNFilter(policy *authn.Policy) *http_conn.HttpFilter {
 
 // buildSidecarListenerTLSContext adds TLS to the listener if the policy requires one.
 func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy, match *ldsv2.FilterChainMatch) *auth.DownstreamTlsContext {
-	if requireTLS, mTLSParams := RequireTLS(authenticationPolicy, match); requireTLS {
+	if match != nil && match.TransportProtocol == EnvoyRawBufferMatch {
+		return nil
+	}
+	if requireTLS, mTLSParams := RequireTLS(authenticationPolicy); requireTLS {
 		return &auth.DownstreamTlsContext{
 			CommonTlsContext: &auth.CommonTlsContext{
 				TlsCertificates: []*auth.TlsCertificate{

@@ -266,10 +266,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 			}
 		}
 
-		if listenerOpts.port == 80 {
-			listenerOpts.tlsMultiplexed = true
-		}
-
 		listenerMapKey := fmt.Sprintf("%s:%d", endpoint.Address, endpoint.Port)
 		if l, exists := listenerMap[listenerMapKey]; exists {
 			log.Warnf("Conflicting inbound listeners on %s: previous listener %s", listenerMapKey, l.Name)

@@ -457,7 +457,7 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *Listener {
 
 // mayApplyInboundAuth adds ssl_context to the listener if the given authN policy require TLS.
 func mayApplyInboundAuth(listener *Listener, authenticationPolicy *authn.Policy) {
-	if ok, mltsParams := authn_plugin.RequireTLS(authenticationPolicy, nil); ok {
+	if ok, mltsParams := authn_plugin.RequireTLS(authenticationPolicy); ok {
 		listener.SSLContext = buildListenerSSLContext(model.AuthCertsPath, mltsParams)
 	}
 }
