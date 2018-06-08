@@ -24,7 +24,11 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 
+	authn "istio.io/api/authentication/v1alpha1"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	authn_plugin "istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 )
@@ -54,6 +58,8 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	mux.HandleFunc("/debug/registryz", s.registryz)
 	mux.HandleFunc("/debug/endpointz", s.endpointz)
 	mux.HandleFunc("/debug/configz", s.configz)
+
+	mux.HandleFunc("/debug/authenticationz", s.authenticationz)
 }
 
 // NewMemServiceDiscovery builds an in-memory MemServiceDiscovery
@@ -384,6 +390,117 @@ func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 			}
 			_, _ = w.Write(b)
 			fmt.Fprint(w, ",\n")
+		}
+	}
+	fmt.Fprint(w, "\n{}]")
+}
+
+// Returns whether the given destination rule use (Istio) mutual TLS setting for given port.
+// TODO: check subsets possibly conflicts between subsets.
+func isMTlsOn(mesh *meshconfig.MeshConfig, rule *networking.DestinationRule, port *model.Port) bool {
+	if rule == nil {
+		return mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS
+	}
+	if rule.TrafficPolicy == nil {
+		return false
+	}
+	for _, prule := range rule.TrafficPolicy.PortLevelSettings {
+		switch selector := prule.Port.Port.(type) {
+		case *networking.PortSelector_Name:
+			if port.Name == selector.Name {
+				return prule.Tls != nil && prule.Tls.Mode == networking.TLSSettings_ISTIO_MUTUAL
+			}
+		case *networking.PortSelector_Number:
+			if uint32(port.Port) == selector.Number {
+				return prule.Tls != nil && prule.Tls.Mode == networking.TLSSettings_ISTIO_MUTUAL
+			}
+		}
+	}
+
+	return rule.TrafficPolicy.Tls != nil && rule.TrafficPolicy.Tls.Mode == networking.TLSSettings_ISTIO_MUTUAL
+}
+
+// AuthenticationDebug holds debug information for service authentication policy.
+type AuthenticationDebug struct {
+	Host                     string
+	Port                     int
+	AuthenticationPolicyName string
+	DestinationRuleName      string
+	ServerProtocol           string
+	ClientProtocol           string
+	TLSConflictStatus        string
+}
+
+// Authentication debugging
+// This handler lists what authentication policy and destination rules is used for a service, and
+// whether or not they have TLS setting conflicts (i.e authentication policy use mutual TLS, but
+// destination rule doesn't use ISTIO_MUTUAL TLS mode). If service is not provided, (via request
+// paramerter `svc`), it lists result for all services.
+func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Request) {
+	_ = req.ParseForm()
+	w.Header().Add("Content-Type", "application/json")
+	interestedSvc := req.Form.Get("svc")
+
+	fmt.Fprintf(w, "\n[\n")
+	svc, _ := s.env.ServiceDiscovery.Services()
+	for _, ss := range svc {
+		if interestedSvc != "" && interestedSvc != ss.Hostname.String() {
+			continue
+		}
+		for _, p := range ss.Ports {
+			info := AuthenticationDebug{
+				Host: string(ss.Hostname),
+				Port: p.Port,
+			}
+			serverSideTLS := false
+			if config := s.env.IstioConfigStore.AuthenticationPolicyByDestination(ss.Hostname, p); config != nil {
+				policy := config.Spec.(*authn.Policy)
+				serverSideTLS, _ = authn_plugin.RequireTLS(policy)
+				info.AuthenticationPolicyName = fmt.Sprintf("%s/%s", config.Name, config.Namespace)
+				if serverSideTLS {
+					info.ServerProtocol = "TLS"
+				} else {
+					info.ServerProtocol = "HTTP"
+				}
+			} else {
+				info.AuthenticationPolicyName = "N/A"
+				if s.env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS {
+					serverSideTLS = true
+					info.ServerProtocol = "TLS"
+				} else {
+					serverSideTLS = false
+					info.ServerProtocol = "HTTP"
+				}
+			}
+			clientSideTLS := false
+			if config := s.env.IstioConfigStore.DestinationRule(ss.Hostname); config != nil {
+				rule := config.Spec.(*networking.DestinationRule)
+				clientSideTLS = isMTlsOn(s.env.Mesh, rule, p)
+				info.DestinationRuleName = fmt.Sprintf("%s/%s", config.Name, config.Namespace)
+				if clientSideTLS {
+					info.ClientProtocol = "TLS"
+				} else {
+					info.ClientProtocol = "HTTP"
+				}
+			} else {
+				info.DestinationRuleName = "N/A"
+				if s.env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS {
+					clientSideTLS = true
+					info.ClientProtocol = "TLS"
+				} else {
+					clientSideTLS = false
+					info.ClientProtocol = "HTTP"
+				}
+			}
+			if serverSideTLS != clientSideTLS {
+				info.TLSConflictStatus = "CONFLICT"
+			} else {
+				info.TLSConflictStatus = "OK"
+			}
+			if b, err := json.MarshalIndent(info, "  ", "  "); err == nil {
+				_, _ = w.Write(b)
+			}
+			fmt.Fprintf(w, ",\n")
 		}
 	}
 	fmt.Fprint(w, "\n{}]")
