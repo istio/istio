@@ -65,6 +65,8 @@ Now you can run e2e tests. For example, to run the e2e simple test:
 $ make e2e_simple HUB=$REG_SVC_IP:5000 TAG=latest
 ```
 
+For more details on how to run e2e test, please refer to [link](../../README.md)
+
 #### Hard-coding the Image URL
 
 You can also modify the image URLs in your deployment yaml files directly:

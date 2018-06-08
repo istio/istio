@@ -1,4 +1,4 @@
-# Setup Local Registry in IBM Bluemix Container Service(Armada)
+# Setup Local Registry in IBM Bluemix Container Service
 
 Get the registry service cluster ip
 ```shell
@@ -10,9 +10,9 @@ Get all nodes' name by
 kubectl get nodes
 ```
 
-Use [runon](https://github.ibm.com/kubernetes-tools/runon/blob/master/runon) to get a bash shell into the node:
+Use runon(thanks to [Nick Stott](github.com/nstott) built this script) to get a bash shell into the node:
 ```bash
-./runon <node name> bash
+./tools/runon <node name> bash
 ```
 
 Edit the docker service
