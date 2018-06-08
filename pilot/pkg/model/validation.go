@@ -920,23 +920,12 @@ func ValidateGateway(msg proto.Message) (errs error) {
 
 	// Ensure unique port names
 	portNames := make(map[string]bool)
-	// Everything other than HTTPS must have unique port numbers for each server.
-	portNumbers := make(map[uint32]Protocol)
 
 	for _, s := range value.Servers {
 		if portNames[s.Port.Name] {
 			errs = appendErrors(errs, fmt.Errorf("port names in servers must be unique: duplicate name %s", s.Port.Name))
 		}
 		portNames[s.Port.Name] = true
-
-		protocol := ParseProtocol(s.Port.Protocol)
-		if _, ok := portNumbers[s.Port.Number]; ok {
-			if portNumbers[s.Port.Number] == protocol && protocol != ProtocolHTTPS {
-				errs = appendErrors(errs, fmt.Errorf("port numbers must be unique for non-HTTPS servers: duplicate port %d", s.Port.Number))
-			}
-		} else {
-			portNumbers[s.Port.Number] = protocol
-		}
 	}
 
 	return errs

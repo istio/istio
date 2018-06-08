@@ -15,6 +15,8 @@
 package model
 
 import (
+	"fmt"
+
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/log"
 )
@@ -26,13 +28,12 @@ type MergedGateway struct {
 	Names map[string]bool
 
 	// maps from physical port to virtual servers
-	// Typical value length is always 1 (one server per port)
-	// For value length is >1 for HTTPS ports only
 	Servers map[uint32][]*networking.Server
 
-	// maps from port names to virtual servers
+	// maps from port names to virtual hosts
 	// Used for RDS. No two port names share same port except for HTTPS
-	ServersWithPortNames map[string]*networking.Server
+	// The typical length of the value is always 1, except for HTTP (not HTTPS),
+	RDSRouteConfigNames map[string][]*networking.Server
 }
 
 // MergeGateways combines multiple gateways targeting the same workload into a single logical Gateway.
@@ -40,8 +41,11 @@ type MergedGateway struct {
 // If servers with different protocols attempt to listen on the same port, one of the protocols will be chosen at random.
 func MergeGateways(gateways ...Config) *MergedGateway {
 	names := make(map[string]bool, len(gateways))
-	servers := make(map[uint32][]*networking.Server, len(gateways))
-	serversWithPortNames := make(map[string]*networking.Server, len(gateways))
+	gatewayPorts := make(map[uint32]bool)
+	servers := make(map[uint32][]*networking.Server)
+	tlsServers := make(map[uint32][]*networking.Server)
+	plaintextServers := make(map[uint32][]*networking.Server)
+	rdsRouteConfigNames := make(map[string][]*networking.Server)
 
 	log.Debugf("MergeGateways: merging %d gateways", len(gateways))
 	for _, spec := range gateways {
@@ -52,44 +56,101 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 		log.Debugf("MergeGateways: merging gateway %q into %v:\n%v", name, names, gateway)
 		for _, s := range gateway.Servers {
 			log.Debugf("MergeGateways: gateway %q processing server %v", name, s.Hosts)
-			if ss, ok := servers[s.Port.Number]; ok {
-				// ss must have at least one element because the key exists in the map, otherwise we'd be in the else case below.
-				if ss[0].Port.Protocol != s.Port.Protocol {
-					log.Debugf("skipping server: attempting to merge servers for gateway %q into %v but servers have non-HTTPS protocols: want %v have %v",
-						spec.Name, names, ss[0].Port.Protocol, s.Port.Protocol)
-					continue
-				} else if ParseProtocol(s.Port.Protocol) != ProtocolHTTPS {
-					// Merge only HTTPS servers with different port names
-					log.Debugf("skipping server: attempting to merge non-HTTPS servers (%v protocol) for gateway %q into %v",
-						s.Port.Protocol, spec.Name, names)
-					continue
-				} else {
-					// both servers are HTTPS servers. Make sure the port names are different so that RDS can pick out individual servers
-					if _, exists := serversWithPortNames[s.Port.Name]; exists {
-						log.Debugf("skipping server: attempting to merge HTTPS servers for gateway %q into %v - port name %v already taken",
-							spec.Name, names, s.Port.Name)
+			protocol := ParseProtocol(s.Port.Protocol)
+			if gatewayPorts[s.Port.Number] {
+				// We have two servers on the same port. Should we merge?
+				// 1. Yes if both servers are plain text and HTTP
+				// 2. Yes if both servers are using TLS
+				//    if using HTTPS ensure that port name is distinct so that we can setup separate RDS
+				//    for each server (as each server ends up as a separate http connection manager due to filter chain match
+				// 3. No for everything else.
+
+				if p, exists := plaintextServers[s.Port.Number]; exists {
+					currentProto := ParseProtocol(p[0].Port.Protocol)
+					if currentProto != protocol || protocol != ProtocolHTTP {
+						log.Debugf("skipping server on gateway %s port %s.%d.%s: conflict with existing server %s.%d.%s",
+							spec.Name, s.Port.Name, s.Port.Number, s.Port.Protocol, p[0].Port.Name, p[0].Port.Number, p[0].Port.Protocol)
 						continue
 					}
+					rdsName := getRDSRouteName(s)
+					rdsRouteConfigNames[rdsName] = append(rdsRouteConfigNames[rdsName], s)
+				} else {
+					// This has to be a TLS server
+					if isHTTPServer(s) {
+						rdsName := getRDSRouteName(s)
+						// both servers are HTTPS servers. Make sure the port names are different so that RDS can pick out individual servers
+						// WE cannot have two servers with same port name because we need the port name to distinguish one HTTPS server from another
+						// WE cannot merge two HTTPS servers even if their TLS settings have same path to the keys, because we don't know if the contents
+						// of the keys are same. So we treat them as effectively different TLS settings.
+						if _, exists := rdsRouteConfigNames[rdsName]; exists {
+							log.Debugf("skipping server on gateway %s port %s.%d.%s: non unique port name for HTTPS port",
+								spec.Name, s.Port.Name, s.Port.Number, s.Port.Protocol)
+							continue
+						}
+						rdsRouteConfigNames[rdsName] = []*networking.Server{s}
+					}
+					tlsServers[s.Port.Number] = append(tlsServers[s.Port.Number], s)
 				}
-				servers[s.Port.Number] = append(ss, s)
-				serversWithPortNames[s.Port.Name] = s
 			} else {
-				if _, exists := serversWithPortNames[s.Port.Name]; exists {
-					log.Debugf("skipping server: attempting to merge servers for gateway %q into %v - port name %v already taken",
-						spec.Name, names, s.Port.Name)
-					continue
+				gatewayPorts[s.Port.Number] = true
+				if isTLSServer(s) {
+					tlsServers[s.Port.Number] = []*networking.Server{s}
+				} else {
+					plaintextServers[s.Port.Number] = []*networking.Server{s}
 				}
 
-				servers[s.Port.Number] = []*networking.Server{s}
-				serversWithPortNames[s.Port.Name] = s
+				if isHTTPServer(s) {
+					rdsRouteConfigNames[getRDSRouteName(s)] = []*networking.Server{s}
+				}
 			}
 			log.Debugf("MergeGateways: gateway %q merged server %v", name, s.Hosts)
 		}
 	}
 
-	return &MergedGateway{
-		Names:                names,
-		Servers:              servers,
-		ServersWithPortNames: serversWithPortNames,
+	// Concatenate both sets of servers
+	for p, v := range tlsServers {
+		servers[p] = v
 	}
+	for p, v := range plaintextServers {
+		servers[p] = v
+	}
+
+	return &MergedGateway{
+		Names:               names,
+		Servers:             servers,
+		RDSRouteConfigNames: rdsRouteConfigNames,
+	}
+}
+
+func isTLSServer(server *networking.Server) bool {
+	if server.Tls == nil || ParseProtocol(server.Port.Protocol) == ProtocolHTTP {
+		return false
+	}
+	return true
+}
+
+func isHTTPServer(server *networking.Server) bool {
+	protocol := ParseProtocol(server.Port.Protocol)
+	if protocol == ProtocolHTTP {
+		return true
+	}
+
+	if protocol == ProtocolHTTPS && server.Tls != nil && server.Tls.Mode != networking.Server_TLSOptions_PASSTHROUGH {
+		return true
+	}
+
+	return false
+}
+
+func getRDSRouteName(server *networking.Server) string {
+	protocol := ParseProtocol(server.Port.Protocol)
+	if protocol == ProtocolHTTP {
+		return fmt.Sprintf("%s.%d", protocol, server.Port.Number)
+	}
+
+	if protocol == ProtocolHTTPS && server.Tls != nil && server.Tls.Mode != networking.Server_TLSOptions_PASSTHROUGH {
+		return fmt.Sprintf("%s.%d.%s", protocol, server.Port.Number, server.Port.Name)
+	}
+
+	return ""
 }

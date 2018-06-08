@@ -755,6 +755,10 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		MixerSAN:         s.mixerSAN,
 	}
 
+	environment.UseRDS = os.Getenv("USE_RDS") == "true"
+	// HAck to see if tests pass
+	environment.UseRDS = true
+
 	// Set up discovery service
 	discovery, err := envoy.NewDiscoveryService(
 		s.ServiceController,

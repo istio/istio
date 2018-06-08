@@ -31,7 +31,6 @@ import (
 	google_protobuf "github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -195,8 +194,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env model.Environmen
 			protocol:       model.ProtocolHTTP,
 			filterChainOpts: []*filterChainOpts{{
 				httpOpts: &httpListenerOpts{
-					//routeConfig: configgen.BuildSidecarOutboundHTTPRouteConfig(env, node, proxyInstances,
-					//	services, RDSHttpProxy),
+					routeConfig: configgen.buildSidecarOutboundHTTPRouteConfig(env, node, proxyInstances,
+						services, RDSHttpProxy),
 					rds:              RDSHttpProxy,
 					useRemoteAddress: useRemoteAddress,
 					direction:        traceOperation,
@@ -375,8 +374,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				listenerOpts.filterChainOpts = []*filterChainOpts{{
 					httpOpts: &httpListenerOpts{
 						rds: fmt.Sprintf("%d", servicePort.Port),
-						//routeConfig: configgen.BuildSidecarOutboundHTTPRouteConfig(
-						//	env, node, proxyInstances, services, fmt.Sprintf("%d", servicePort.Port)),
+						routeConfig: configgen.buildSidecarOutboundHTTPRouteConfig(
+							env, node, proxyInstances, services, fmt.Sprintf("%d", servicePort.Port)),
 						useRemoteAddress: useRemoteAddress,
 						direction:        operation,
 					},
@@ -580,7 +579,7 @@ type buildListenerOpts struct {
 	filterChainOpts []*filterChainOpts
 }
 
-func buildHTTPConnectionManager(mesh *meshconfig.MeshConfig, httpOpts *httpListenerOpts, httpFilters []*http_conn.HttpFilter) *http_conn.HttpConnectionManager {
+func buildHTTPConnectionManager(env model.Environment, httpOpts *httpListenerOpts, httpFilters []*http_conn.HttpFilter) *http_conn.HttpConnectionManager {
 	filters := append(httpFilters,
 		&http_conn.HttpFilter{Name: xdsutil.CORS},
 		&http_conn.HttpFilter{Name: xdsutil.Fault},
@@ -602,8 +601,7 @@ func buildHTTPConnectionManager(mesh *meshconfig.MeshConfig, httpOpts *httpListe
 	connectionManager.StatPrefix = HTTPStatPrefix
 	connectionManager.UseRemoteAddress = &google_protobuf.BoolValue{httpOpts.useRemoteAddress}
 
-	// not enabled yet
-	if httpOpts.rds != "" {
+	if httpOpts.rds != "" && env.UseRDS {
 		rds := &http_conn.HttpConnectionManager_Rds{
 			Rds: &http_conn.Rds{
 				ConfigSource: core.ConfigSource{
@@ -625,9 +623,9 @@ func buildHTTPConnectionManager(mesh *meshconfig.MeshConfig, httpOpts *httpListe
 		}
 	}
 
-	if mesh.AccessLogFile != "" {
+	if env.Mesh.AccessLogFile != "" {
 		fl := &accesslog.FileAccessLog{
-			Path: mesh.AccessLogFile,
+			Path: env.Mesh.AccessLogFile,
 		}
 
 		connectionManager.AccessLog = []*accesslog.AccessLog{
@@ -638,7 +636,7 @@ func buildHTTPConnectionManager(mesh *meshconfig.MeshConfig, httpOpts *httpListe
 		}
 	}
 
-	if mesh.EnableTracing {
+	if env.Mesh.EnableTracing {
 		connectionManager.Tracing = &http_conn.HttpConnectionManager_Tracing{
 			OperationName: httpOpts.direction,
 		}
@@ -720,7 +718,7 @@ func marshalFilters(l *xdsapi.Listener, opts buildListenerOpts, chains []plugin.
 		}
 
 		if opt.httpOpts != nil {
-			connectionManager := buildHTTPConnectionManager(opts.env.Mesh, opt.httpOpts, chain.HTTP)
+			connectionManager := buildHTTPConnectionManager(opts.env, opt.httpOpts, chain.HTTP)
 			l.FilterChains[i].Filters = append(l.FilterChains[i].Filters, listener.Filter{
 				Name:   envoyHTTPConnectionManager,
 				Config: util.MessageToStruct(connectionManager),

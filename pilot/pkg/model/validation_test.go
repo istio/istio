@@ -1863,32 +1863,6 @@ func TestValidateGateway(t *testing.T) {
 					}},
 			},
 			"port names"},
-		{"duplicate port numbers for non-https",
-			&networking.Gateway{
-				Servers: []*networking.Server{
-					{
-						Hosts: []string{"foo.bar.com"},
-						Port:  &networking.Port{Name: "foo1", Number: 80, Protocol: "http"},
-					},
-					{
-						Hosts: []string{"scooby.doo.com"},
-						Port:  &networking.Port{Name: "scooby", Number: 80, Protocol: "http"},
-					}},
-			},
-			"port numbers"},
-		{"happy duplicate port numbers for https",
-			&networking.Gateway{
-				Servers: []*networking.Server{
-					{
-						Hosts: []string{"foo.bar.com"},
-						Port:  &networking.Port{Name: "https-secret1", Number: 443, Protocol: "https"},
-					},
-					{
-						Hosts: []string{"scooby.doo.com"},
-						Port:  &networking.Port{Name: "https-secret2", Number: 443, Protocol: "https"},
-					}},
-			},
-			""},
 		{"invalid domain",
 			&networking.Gateway{
 				Servers: []*networking.Server{
