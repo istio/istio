@@ -16,6 +16,7 @@
 #include "src/envoy/http/mixer/filter.h"
 
 #include "common/common/base64.h"
+#include "common/protobuf/utility.h"
 #include "include/istio/utils/status.h"
 #include "src/envoy/http/mixer/check_data.h"
 #include "src/envoy/http/mixer/report_data.h"
@@ -114,7 +115,7 @@ void Filter::ReadPerRouteConfig(
   control_.controller()->AddServiceConfig(config->service_config_id, config_pb);
   ENVOY_LOG(info, "Service {}, config_id {}, config: {}",
             config->destination_service, config->service_config_id,
-            config_pb.DebugString());
+            MessageUtil::getJsonStringFromMessage(config_pb, true));
 }
 
 FilterHeadersStatus Filter::decodeHeaders(HeaderMap& headers, bool) {

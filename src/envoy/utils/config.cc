@@ -47,7 +47,7 @@ bool ReadConfig(const Json::Object &json, const std::string &config_version,
   auto &logger = Logger::Registry::getLog(Logger::Id::config);
   if (status.ok()) {
     ENVOY_LOG_TO_LOGGER(logger, info, "{} mixer client config: {}",
-                        config_version, message->DebugString());
+                        config_version, config_str);
     return true;
   }
   ENVOY_LOG_TO_LOGGER(

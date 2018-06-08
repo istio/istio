@@ -16,6 +16,7 @@
 #pragma once
 
 #include "common/common/logger.h"
+#include "common/protobuf/utility.h"
 #include "envoy/config/filter/http/jwt_auth/v2alpha1/config.pb.h"
 #include "envoy/server/filter_config.h"
 #include "envoy/thread_local/thread_local.h"
@@ -70,7 +71,8 @@ class JwtAuthStoreFactory : public Logger::Loggable<Logger::Id::config> {
         [this](Event::Dispatcher&) -> ThreadLocal::ThreadLocalObjectSharedPtr {
           return std::make_shared<JwtAuthStore>(config_);
         });
-    ENVOY_LOG(info, "Loaded JwtAuthConfig: {}", config_.DebugString());
+    ENVOY_LOG(info, "Loaded JwtAuthConfig: {}",
+              MessageUtil::getJsonStringFromMessage(config_, true));
   }
 
   // Get per-thread auth store object.
