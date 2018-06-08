@@ -26,8 +26,8 @@ func TestTLSMultiplexing(t *testing.T) {
 		t.Skip("Skipping because multiplexing is used when mesh config auth_enabled is turned off...")
 	}
 	//if tc.V1alpha1 {
-		//fmt.Println("jianfeih debug skipping should!!")
-		//t.Skip("Skipping because multiplexing requires v1alpha3/v2 api...")
+	//fmt.Println("jianfeih debug skipping should!!")
+	//t.Skip("Skipping because multiplexing requires v1alpha3/v2 api...")
 	//}
 
 	cfgs := &deployableConfig{
