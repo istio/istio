@@ -147,21 +147,27 @@ type KubeInfo struct {
 
 func getClusterWideInstallFile() string {
 	const (
-		nonAuthInstallFile           = "istio.yaml"
-		authInstallFile              = "istio-auth.yaml"
-		nonAuthWithGalleyInstallFile = "istio-galley.yaml"
-		authWithGalleyInstallFile    = "istio-auth-galley.yaml"
+		nonAuthInstallFile                    = "istio.yaml"
+		authInstallFile                       = "istio-auth.yaml"
+		nonAuthWithGalleyInstallFile          = "istio-galley.yaml"
+		authWithGalleyInstallFile             = "istio-auth-galley.yaml"
+		nonAuthWithSidecarInjectorInstallFile = "istio-sidecar-injector.yaml"
+		authWithSidecarInjectorInstallFile    = "istio-auth-sidecar-injector.yaml"
 	)
 	var istioYaml string
 	if *authEnable {
 		if *useGalleyConfigValidator {
 			istioYaml = authWithGalleyInstallFile
+		} else if *useAutomaticInjection {
+			istioYaml = authWithSidecarInjectorInstallFile
 		} else {
 			istioYaml = authInstallFile
 		}
 	} else {
 		if *useGalleyConfigValidator {
 			istioYaml = nonAuthWithGalleyInstallFile
+		} else if *useAutomaticInjection {
+			istioYaml = nonAuthWithSidecarInjectorInstallFile
 		} else {
 			istioYaml = nonAuthInstallFile
 		}
@@ -441,9 +447,7 @@ func (k *KubeInfo) Teardown() error {
 
 		if *clusterWide {
 			istioYaml := getClusterWideInstallFile()
-
 			testIstioYaml := filepath.Join(k.TmpDir, "yaml", istioYaml)
-
 			if err := util.KubeDelete(k.Namespace, testIstioYaml, k.KubeConfig); err != nil {
 				log.Infof("Safe to ignore resource not found errors in kubectl delete -f %s", testIstioYaml)
 			}
@@ -605,6 +609,9 @@ func (k *KubeInfo) deployIstio() error {
 				istioYaml = mcAuthInstallFileNamespace
 			}
 		}
+		if *useAutomaticInjection {
+			return errors.New("cannot enable useAutomaticInjection in one namespace tests")
+		}
 		if *useGalleyConfigValidator {
 			return errors.New("cannot enable useGalleyConfigValidator in one namespace tests")
 		}
@@ -663,20 +670,21 @@ func (k *KubeInfo) deployIstio() error {
 		}
 	}
 
+	if err := util.CheckDeployments(k.Namespace, maxDeploymentRolloutTime, k.KubeConfig); err != nil {
+		log.Errorf("Fail to check deployment in %s within %d seconds: %s",
+			k.Namespace, maxDeploymentRolloutTime/time.Second, err)
+		return err
+	}
+
 	if *useAutomaticInjection {
-		baseSidecarInjectorYAML := util.GetResourcePath(filepath.Join(istioInstallDir, *sidecarInjectorFile))
-		testSidecarInjectorYAML := filepath.Join(k.TmpDir, "yaml", *sidecarInjectorFile)
-		if err := k.generateSidecarInjector(baseSidecarInjectorYAML, testSidecarInjectorYAML); err != nil {
-			log.Errorf("Generating sidecar injector yaml failed")
-			return err
-		}
-		if err := util.KubeApply(k.Namespace, testSidecarInjectorYAML, k.KubeConfig); err != nil {
-			log.Errorf("Istio sidecar injector %s deployment failed", testSidecarInjectorYAML)
+		_, err := util.ShellMuteOutput("kubectl label namespace %s istio-injection=enabled", k.Namespace)
+		if err != nil {
+			log.Errorf("Error when applying the label to namespace %s: %s", k.Namespace, err)
 			return err
 		}
 	}
 
-	return util.CheckDeployments(k.Namespace, maxDeploymentRolloutTime, k.KubeConfig)
+	return nil
 }
 
 func (k *KubeInfo) deployTiller(yamlFileName string) error {
