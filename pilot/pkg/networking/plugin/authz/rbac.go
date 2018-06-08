@@ -138,10 +138,12 @@ func buildHTTPFilter(hostName model.Hostname, store model.IstioConfigStore) *htt
 	namespace := hostName.Namespace()
 	roles := store.ServiceRoles(namespace)
 	if roles == nil {
-		log.Debugf("no service roles found for %s in namespace %s", hostName, namespace)
-		return nil
+		log.Debugf("no service role found for %s in namespace %s", hostName, namespace)
 	}
 	bindings := store.ServiceRoleBindings(namespace)
+	if bindings == nil {
+		log.Debugf("no service role binding found for %s in namespace %s", hostName, namespace)
+	}
 	config := convertRbacRulesToFilterConfig(hostName.String(), roles, bindings)
 	return &http_conn.HttpFilter{
 		Name:   RbacFilterName,
@@ -173,7 +175,7 @@ func convertRbacRulesToFilterConfig(service string, roles []model.Config, bindin
 	for _, role := range roles {
 		// Constructs the policy for each ServiceRole.
 		var policy *policyproto.Policy
-		principals := convertToPrincipals(roleToBinding[role.Name])
+		var principals []*policyproto.Principal
 		log.Debugf("checking role %v for service %v", role.Name, service)
 		for i, rule := range role.Spec.(*rbacproto.ServiceRole).Rules {
 			//TODO(yangminzhu): Also check the destination related properties.
@@ -181,6 +183,9 @@ func convertRbacRulesToFilterConfig(service string, roles []model.Config, bindin
 				// Generate the policy if the service is matched to the services specified in ServiceRole.
 				log.Debugf("role %v matched by AccessRule %d", role.Name, i)
 				if policy == nil {
+					if principals == nil {
+						principals = convertToPrincipals(roleToBinding[role.Name])
+					}
 					policy = &policyproto.Policy{
 						Permissions: []*policyproto.Permission{},
 						Principals:  principals,
@@ -208,14 +213,14 @@ func convertToPermission(rule *rbacproto.AccessRule) *policyproto.Permission {
 	}
 
 	if len(rule.Methods) > 0 {
-		methodRule := permissionForKeyValues(":method", rule.Methods)
+		methodRule := permissionForKeyValues(methodHeader, rule.Methods)
 		if methodRule != nil {
 			rules.AndRules.Rules = append(rules.AndRules.Rules, methodRule)
 		}
 	}
 
 	if len(rule.Paths) > 0 {
-		pathRule := permissionForKeyValues(":path", rule.Paths)
+		pathRule := permissionForKeyValues(pathHeader, rule.Paths)
 		if pathRule != nil {
 			rules.AndRules.Rules = append(rules.AndRules.Rules, pathRule)
 		}

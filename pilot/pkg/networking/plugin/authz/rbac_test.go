@@ -108,6 +108,10 @@ func TestBuildHTTPFilter(t *testing.T) {
 	}
 	store := newIstioStoreWithConfigs([]model.Config{roleCfg, bindingCfg}, t)
 
+	emptyConfig := policy.RBAC{
+		Action:   policy.RBAC_ALLOW,
+		Policies: map[string]*policy.Policy{},
+	}
 	testCases := []struct {
 		Name   string
 		Host   string
@@ -115,9 +119,10 @@ func TestBuildHTTPFilter(t *testing.T) {
 		Expect []string
 	}{
 		{
-			Name:  "empty filter",
-			Host:  "abc.xyz",
-			Store: store,
+			Name:   "empty filter",
+			Host:   "abc.xyz",
+			Store:  store,
+			Expect: []string{emptyConfig.String()},
 		},
 		{
 			Name:   "valid filter",
@@ -129,14 +134,12 @@ func TestBuildHTTPFilter(t *testing.T) {
 
 	for _, tc := range testCases {
 		filter := buildHTTPFilter(model.Hostname(tc.Host), tc.Store)
-		if tc.Expect == nil {
-			if filter != nil {
-				t.Errorf("%s: expecting nil, but got %v", tc.Name, *filter)
-			}
+		if fn := "envoy.filters.http.rbac"; filter.Name != fn {
+			t.Errorf("%s: expecting filter name %s, but got %s", tc.Name, fn, filter.Name)
+		}
+		if filter == nil {
+			t.Errorf("%s: expecting valid config, but got nil", tc.Name)
 		} else {
-			if fn := "envoy.filters.http.rbac"; filter.Name != fn {
-				t.Errorf("%s: expecting filter name %s, but got %s", tc.Name, fn, filter.Name)
-			}
 			for _, expect := range tc.Expect {
 				if !strings.Contains(filter.Config.String(), expect) {
 					t.Errorf("%s: expecting filter config to contain %s, but got %v",
