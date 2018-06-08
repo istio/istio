@@ -1,0 +1,911 @@
+{
+    "@type": "type.googleapis.com/envoy.admin.v2alpha.ClustersConfigDump",
+    "versionInfo": "2018-05-29 20:35:10.051043472 +0000 UTC m=+615.036247510",
+    "staticClusters": [
+        {
+            "name": "xds-grpc",
+            "type": "STRICT_DNS",
+            "connectTimeout": "10.000s",
+            "hosts": [
+                {
+                    "socketAddress": {
+                        "address": "istio-pilot.istio-system",
+                        "portValue": 15010
+                    }
+                }
+            ],
+            "circuitBreakers": {
+                "thresholds": [
+                    {
+                        "maxConnections": 100000,
+                        "maxPendingRequests": 100000,
+                        "maxRequests": 100000
+                    },
+                    {
+                        "priority": "HIGH",
+                        "maxConnections": 100000,
+                        "maxPendingRequests": 100000,
+                        "maxRequests": 100000
+                    }
+                ]
+            },
+            "http2ProtocolOptions": {
+
+            }
+        },
+        {
+            "name": "zipkin",
+            "type": "STRICT_DNS",
+            "connectTimeout": "1.000s",
+            "hosts": [
+                {
+                    "socketAddress": {
+                        "address": "zipkin.istio-system",
+                        "portValue": 9411
+                    }
+                }
+            ]
+        }
+    ],
+    "dynamicActiveClusters": [
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "cluster": {
+                "name": "BlackHoleCluster",
+                "connectTimeout": "5.000s"
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:55.438944238 +0000 UTC m=+600.424148258",
+            "cluster": {
+                "name": "inbound|9080||details.default.svc.cluster.local",
+                "connectTimeout": "1.000s",
+                "hosts": [
+                    {
+                        "socketAddress": {
+                            "address": "127.0.0.1",
+                            "portValue": 9080
+                        }
+                    }
+                ],
+                "circuitBreakers": {
+                    "thresholds": [
+                        {
+
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "cluster": {
+                "name": "outbound|15003||istio-pilot.istio-system.svc.cluster.local",
+                "type": "EDS",
+                "edsClusterConfig": {
+                    "edsConfig": {
+                        "ads": {
+
+                        }
+                    },
+                    "serviceName": "outbound|15003||istio-pilot.istio-system.svc.cluster.local"
+                },
+                "connectTimeout": "1.000s",
+                "circuitBreakers": {
+                    "thresholds": [
+                        {
+
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "cluster": {
+                "name": "outbound|15004||istio-policy.istio-system.svc.cluster.local",
+                "type": "EDS",
+                "edsClusterConfig": {
+                    "edsConfig": {
+                        "ads": {
+
+                        }
+                    },
+                    "serviceName": "outbound|15004||istio-policy.istio-system.svc.cluster.local"
+                },
+                "connectTimeout": "1.000s",
+                "maxRequestsPerConnection": 10000,
+                "circuitBreakers": {
+                    "thresholds": [
+                        {
+                            "maxRequests": 10000
+                        }
+                    ]
+                },
+                "http2ProtocolOptions": {
+                    "maxConcurrentStreams": 1073741824
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "cluster": {
+                "name": "outbound|15004||istio-telemetry.istio-system.svc.cluster.local",
+                "type": "EDS",
+                "edsClusterConfig": {
+                    "edsConfig": {
+                        "ads": {
+
+                        }
+                    },
+                    "serviceName": "outbound|15004||istio-telemetry.istio-system.svc.cluster.local"
+                },
+                "connectTimeout": "1.000s",
+                "maxRequestsPerConnection": 10000,
+                "circuitBreakers": {
+                    "thresholds": [
+                        {
+                            "maxRequests": 10000
+                        }
+                    ]
+                },
+                "http2ProtocolOptions": {
+                    "maxConcurrentStreams": 1073741824
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "cluster": {
+                "name": "outbound|15005||istio-pilot.istio-system.svc.cluster.local",
+                "type": "EDS",
+                "edsClusterConfig": {
+                    "edsConfig": {
+                        "ads": {
+
+                        }
+                    },
+                    "serviceName": "outbound|15005||istio-pilot.istio-system.svc.cluster.local"
+                },
+                "connectTimeout": "1.000s",
+                "circuitBreakers": {
+                    "thresholds": [
+                        {
+
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "cluster": {
+                "name": "outbound|15007||istio-pilot.istio-system.svc.cluster.local",
+                "type": "EDS",
+                "edsClusterConfig": {
+                    "edsConfig": {
+                        "ads": {
+
+                        }
+                    },
+                    "serviceName": "outbound|15007||istio-pilot.istio-system.svc.cluster.local"
+                },
+                "connectTimeout": "1.000s",
+                "circuitBreakers": {
+                    "thresholds": [
+                        {
+
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "cluster": {
+                "name": "outbound|15010||istio-pilot.istio-system.svc.cluster.local",
+                "type": "EDS",
+                "edsClusterConfig": {
+                    "edsConfig": {
+                        "ads": {
+
+                        }
+                    },
+                    "serviceName": "outbound|15010||istio-pilot.istio-system.svc.cluster.local"
+                },
+                "connectTimeout": "1.000s",
+                "circuitBreakers": {
+                    "thresholds": [
+                        {
+
+                        }
+                    ]
+                },
+                "http2ProtocolOptions": {
+                    "maxConcurrentStreams": 1073741824
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "cluster": {
+                "name": "outbound|15011||istio-pilot.istio-system.svc.cluster.local",
+                "type": "EDS",
+                "edsClusterConfig": {
+                    "edsConfig": {
+                        "ads": {
+
+                        }
+                    },
+                    "serviceName": "outbound|15011||istio-pilot.istio-system.svc.cluster.local"
+                },
+                "connectTimeout": "1.000s",
+                "circuitBreakers": {
+                    "thresholds": [
+                        {
+
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "cluster": {
+                "name": "outbound|31400||istio-ingressgateway.istio-system.svc.cluster.local",
+                "type": "EDS",
+                "edsClusterConfig": {
+                    "edsConfig": {
+                        "ads": {
+
+                        }
+                    },
+                    "serviceName": "outbound|31400||istio-ingressgateway.istio-system.svc.cluster.local"
+                },
+                "connectTimeout": "1.000s",
+                "circuitBreakers": {
+                    "thresholds": [
+                        {
+
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "cluster": {
+                "name": "outbound|42422||istio-telemetry.istio-system.svc.cluster.local",
+                "type": "EDS",
+                "edsClusterConfig": {
+                    "edsConfig": {
+                        "ads": {
+
+                        }
+                    },
+                    "serviceName": "outbound|42422||istio-telemetry.istio-system.svc.cluster.local"
+                },
+                "connectTimeout": "1.000s",
+                "maxRequestsPerConnection": 10000,
+                "circuitBreakers": {
+                    "thresholds": [
+                        {
+                            "maxRequests": 10000
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "cluster": {
+                "name": "outbound|443||istio-egressgateway.istio-system.svc.cluster.local",
+                "type": "EDS",
+                "edsClusterConfig": {
+                    "edsConfig": {
+                        "ads": {
+
+                        }
+                    },
+                    "serviceName": "outbound|443||istio-egressgateway.istio-system.svc.cluster.local"
+                },
+                "connectTimeout": "1.000s",
+                "circuitBreakers": {
+                    "thresholds": [
+                        {
+
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "cluster": {
+                "name": "outbound|443||istio-ingress.istio-system.svc.cluster.local",
+                "type": "EDS",
+                "edsClusterConfig": {
+                    "edsConfig": {
+                        "ads": {
+
+                        }
+                    },
+                    "serviceName": "outbound|443||istio-ingress.istio-system.svc.cluster.local"
+                },
+                "connectTimeout": "1.000s",
+                "circuitBreakers": {
+                    "thresholds": [
+                        {
+
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "cluster": {
+                "name": "outbound|443||istio-ingressgateway.istio-system.svc.cluster.local",
+                "type": "EDS",
+                "edsClusterConfig": {
+                    "edsConfig": {
+                        "ads": {
+
+                        }
+                    },
+                    "serviceName": "outbound|443||istio-ingressgateway.istio-system.svc.cluster.local"
+                },
+                "connectTimeout": "1.000s",
+                "circuitBreakers": {
+                    "thresholds": [
+                        {
+
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "cluster": {
+                "name": "outbound|443||istio-sidecar-injector.istio-system.svc.cluster.local",
+                "type": "EDS",
+                "edsClusterConfig": {
+                    "edsConfig": {
+                        "ads": {
+
+                        }
+                    },
+                    "serviceName": "outbound|443||istio-sidecar-injector.istio-system.svc.cluster.local"
+                },
+                "connectTimeout": "1.000s",
+                "circuitBreakers": {
+                    "thresholds": [
+                        {
+
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "cluster": {
+                "name": "outbound|443||kubernetes-dashboard.kube-system.svc.cluster.local",
+                "type": "EDS",
+                "edsClusterConfig": {
+                    "edsConfig": {
+                        "ads": {
+
+                        }
+                    },
+                    "serviceName": "outbound|443||kubernetes-dashboard.kube-system.svc.cluster.local"
+                },
+                "connectTimeout": "1.000s",
+                "circuitBreakers": {
+                    "thresholds": [
+                        {
+
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "cluster": {
+                "name": "outbound|443||kubernetes.default.svc.cluster.local",
+                "type": "EDS",
+                "edsClusterConfig": {
+                    "edsConfig": {
+                        "ads": {
+
+                        }
+                    },
+                    "serviceName": "outbound|443||kubernetes.default.svc.cluster.local"
+                },
+                "connectTimeout": "1.000s",
+                "circuitBreakers": {
+                    "thresholds": [
+                        {
+
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "cluster": {
+                "name": "outbound|53||kube-dns.kube-system.svc.cluster.local",
+                "type": "EDS",
+                "edsClusterConfig": {
+                    "edsConfig": {
+                        "ads": {
+
+                        }
+                    },
+                    "serviceName": "outbound|53||kube-dns.kube-system.svc.cluster.local"
+                },
+                "connectTimeout": "1.000s",
+                "circuitBreakers": {
+                    "thresholds": [
+                        {
+
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "cluster": {
+                "name": "outbound|8060||istio-citadel.istio-system.svc.cluster.local",
+                "type": "EDS",
+                "edsClusterConfig": {
+                    "edsConfig": {
+                        "ads": {
+
+                        }
+                    },
+                    "serviceName": "outbound|8060||istio-citadel.istio-system.svc.cluster.local"
+                },
+                "connectTimeout": "1.000s",
+                "circuitBreakers": {
+                    "thresholds": [
+                        {
+
+                        }
+                    ]
+                },
+                "http2ProtocolOptions": {
+                    "maxConcurrentStreams": 1073741824
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "cluster": {
+                "name": "outbound|8080||istio-pilot.istio-system.svc.cluster.local",
+                "type": "EDS",
+                "edsClusterConfig": {
+                    "edsConfig": {
+                        "ads": {
+
+                        }
+                    },
+                    "serviceName": "outbound|8080||istio-pilot.istio-system.svc.cluster.local"
+                },
+                "connectTimeout": "1.000s",
+                "circuitBreakers": {
+                    "thresholds": [
+                        {
+
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "cluster": {
+                "name": "outbound|80||heapster.kube-system.svc.cluster.local",
+                "type": "EDS",
+                "edsClusterConfig": {
+                    "edsConfig": {
+                        "ads": {
+
+                        }
+                    },
+                    "serviceName": "outbound|80||heapster.kube-system.svc.cluster.local"
+                },
+                "connectTimeout": "1.000s",
+                "circuitBreakers": {
+                    "thresholds": [
+                        {
+
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "cluster": {
+                "name": "outbound|80||istio-egressgateway.istio-system.svc.cluster.local",
+                "type": "EDS",
+                "edsClusterConfig": {
+                    "edsConfig": {
+                        "ads": {
+
+                        }
+                    },
+                    "serviceName": "outbound|80||istio-egressgateway.istio-system.svc.cluster.local"
+                },
+                "connectTimeout": "1.000s",
+                "circuitBreakers": {
+                    "thresholds": [
+                        {
+
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "cluster": {
+                "name": "outbound|80||istio-ingress.istio-system.svc.cluster.local",
+                "type": "EDS",
+                "edsClusterConfig": {
+                    "edsConfig": {
+                        "ads": {
+
+                        }
+                    },
+                    "serviceName": "outbound|80||istio-ingress.istio-system.svc.cluster.local"
+                },
+                "connectTimeout": "1.000s",
+                "circuitBreakers": {
+                    "thresholds": [
+                        {
+
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "cluster": {
+                "name": "outbound|80||istio-ingressgateway.istio-system.svc.cluster.local",
+                "type": "EDS",
+                "edsClusterConfig": {
+                    "edsConfig": {
+                        "ads": {
+
+                        }
+                    },
+                    "serviceName": "outbound|80||istio-ingressgateway.istio-system.svc.cluster.local"
+                },
+                "connectTimeout": "1.000s",
+                "circuitBreakers": {
+                    "thresholds": [
+                        {
+
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "cluster": {
+                "name": "outbound|9080||details.default.svc.cluster.local",
+                "type": "EDS",
+                "edsClusterConfig": {
+                    "edsConfig": {
+                        "ads": {
+
+                        }
+                    },
+                    "serviceName": "outbound|9080||details.default.svc.cluster.local"
+                },
+                "connectTimeout": "1.000s",
+                "circuitBreakers": {
+                    "thresholds": [
+                        {
+
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "cluster": {
+                "name": "outbound|9080||productpage.default.svc.cluster.local",
+                "type": "EDS",
+                "edsClusterConfig": {
+                    "edsConfig": {
+                        "ads": {
+
+                        }
+                    },
+                    "serviceName": "outbound|9080||productpage.default.svc.cluster.local"
+                },
+                "connectTimeout": "1.000s",
+                "circuitBreakers": {
+                    "thresholds": [
+                        {
+
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "cluster": {
+                "name": "outbound|9080||ratings.default.svc.cluster.local",
+                "type": "EDS",
+                "edsClusterConfig": {
+                    "edsConfig": {
+                        "ads": {
+
+                        }
+                    },
+                    "serviceName": "outbound|9080||ratings.default.svc.cluster.local"
+                },
+                "connectTimeout": "1.000s",
+                "circuitBreakers": {
+                    "thresholds": [
+                        {
+
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "cluster": {
+                "name": "outbound|9080||reviews.default.svc.cluster.local",
+                "type": "EDS",
+                "edsClusterConfig": {
+                    "edsConfig": {
+                        "ads": {
+
+                        }
+                    },
+                    "serviceName": "outbound|9080||reviews.default.svc.cluster.local"
+                },
+                "connectTimeout": "1.000s",
+                "circuitBreakers": {
+                    "thresholds": [
+                        {
+
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "cluster": {
+                "name": "outbound|9090||prometheus.istio-system.svc.cluster.local",
+                "type": "EDS",
+                "edsClusterConfig": {
+                    "edsConfig": {
+                        "ads": {
+
+                        }
+                    },
+                    "serviceName": "outbound|9090||prometheus.istio-system.svc.cluster.local"
+                },
+                "connectTimeout": "1.000s",
+                "circuitBreakers": {
+                    "thresholds": [
+                        {
+
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "cluster": {
+                "name": "outbound|9091||istio-policy.istio-system.svc.cluster.local",
+                "type": "EDS",
+                "edsClusterConfig": {
+                    "edsConfig": {
+                        "ads": {
+
+                        }
+                    },
+                    "serviceName": "outbound|9091||istio-policy.istio-system.svc.cluster.local"
+                },
+                "connectTimeout": "1.000s",
+                "maxRequestsPerConnection": 10000,
+                "circuitBreakers": {
+                    "thresholds": [
+                        {
+                            "maxRequests": 10000
+                        }
+                    ]
+                },
+                "http2ProtocolOptions": {
+                    "maxConcurrentStreams": 1073741824
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "cluster": {
+                "name": "outbound|9091||istio-telemetry.istio-system.svc.cluster.local",
+                "type": "EDS",
+                "edsClusterConfig": {
+                    "edsConfig": {
+                        "ads": {
+
+                        }
+                    },
+                    "serviceName": "outbound|9091||istio-telemetry.istio-system.svc.cluster.local"
+                },
+                "connectTimeout": "1.000s",
+                "maxRequestsPerConnection": 10000,
+                "circuitBreakers": {
+                    "thresholds": [
+                        {
+                            "maxRequests": 10000
+                        }
+                    ]
+                },
+                "http2ProtocolOptions": {
+                    "maxConcurrentStreams": 1073741824
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "cluster": {
+                "name": "outbound|9093||istio-citadel.istio-system.svc.cluster.local",
+                "type": "EDS",
+                "edsClusterConfig": {
+                    "edsConfig": {
+                        "ads": {
+
+                        }
+                    },
+                    "serviceName": "outbound|9093||istio-citadel.istio-system.svc.cluster.local"
+                },
+                "connectTimeout": "1.000s",
+                "circuitBreakers": {
+                    "thresholds": [
+                        {
+
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "cluster": {
+                "name": "outbound|9093||istio-pilot.istio-system.svc.cluster.local",
+                "type": "EDS",
+                "edsClusterConfig": {
+                    "edsConfig": {
+                        "ads": {
+
+                        }
+                    },
+                    "serviceName": "outbound|9093||istio-pilot.istio-system.svc.cluster.local"
+                },
+                "connectTimeout": "1.000s",
+                "circuitBreakers": {
+                    "thresholds": [
+                        {
+
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "cluster": {
+                "name": "outbound|9093||istio-policy.istio-system.svc.cluster.local",
+                "type": "EDS",
+                "edsClusterConfig": {
+                    "edsConfig": {
+                        "ads": {
+
+                        }
+                    },
+                    "serviceName": "outbound|9093||istio-policy.istio-system.svc.cluster.local"
+                },
+                "connectTimeout": "1.000s",
+                "maxRequestsPerConnection": 10000,
+                "circuitBreakers": {
+                    "thresholds": [
+                        {
+                            "maxRequests": 10000
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "cluster": {
+                "name": "outbound|9093||istio-telemetry.istio-system.svc.cluster.local",
+                "type": "EDS",
+                "edsClusterConfig": {
+                    "edsConfig": {
+                        "ads": {
+
+                        }
+                    },
+                    "serviceName": "outbound|9093||istio-telemetry.istio-system.svc.cluster.local"
+                },
+                "connectTimeout": "1.000s",
+                "maxRequestsPerConnection": 10000,
+                "circuitBreakers": {
+                    "thresholds": [
+                        {
+                            "maxRequests": 10000
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "cluster": {
+                "name": "outbound|9102||istio-statsd-prom-bridge.istio-system.svc.cluster.local",
+                "type": "EDS",
+                "edsClusterConfig": {
+                    "edsConfig": {
+                        "ads": {
+
+                        }
+                    },
+                    "serviceName": "outbound|9102||istio-statsd-prom-bridge.istio-system.svc.cluster.local"
+                },
+                "connectTimeout": "1.000s",
+                "circuitBreakers": {
+                    "thresholds": [
+                        {
+
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "cluster": {
+                "name": "outbound|9125||istio-statsd-prom-bridge.istio-system.svc.cluster.local",
+                "type": "EDS",
+                "edsClusterConfig": {
+                    "edsConfig": {
+                        "ads": {
+
+                        }
+                    },
+                    "serviceName": "outbound|9125||istio-statsd-prom-bridge.istio-system.svc.cluster.local"
+                },
+                "connectTimeout": "1.000s",
+                "circuitBreakers": {
+                    "thresholds": [
+                        {
+
+                        }
+                    ]
+                }
+            }
+        }
+    ]
+}

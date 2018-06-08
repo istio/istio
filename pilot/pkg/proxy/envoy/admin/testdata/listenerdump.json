@@ -1,0 +1,2509 @@
+{
+    "@type": "type.googleapis.com/envoy.admin.v2alpha.ListenersConfigDump",
+    "versionInfo": "2018-05-29 20:35:10.051043472 +0000 UTC m=+615.036247510",
+    "dynamicActiveListeners": [
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "listener": {
+                "name": "172.21.199.101_80",
+                "address": {
+                    "socketAddress": {
+                        "address": "172.21.199.101",
+                        "portValue": 80
+                    }
+                },
+                "filterChains": [
+                    {
+                        "filters": [
+                            {
+                                "name": "envoy.tcp_proxy",
+                                "config": {
+                                    "value": {
+                                        "stat_prefix": "outbound|tcp|80",
+                                        "route_config": {
+                                            "routes": [
+                                                {
+                                                    "destination_ip_list": [
+                                                        "172.21.199.101/32"
+                                                    ],
+                                                    "cluster": "outbound|80||heapster.kube-system.svc.cluster.local"
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    "deprecated_v1": true
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "deprecatedV1": {
+                    "bindToPort": false
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "listener": {
+                "name": "172.21.103.212_443",
+                "address": {
+                    "socketAddress": {
+                        "address": "172.21.103.212",
+                        "portValue": 443
+                    }
+                },
+                "filterChains": [
+                    {
+                        "filters": [
+                            {
+                                "name": "envoy.tcp_proxy",
+                                "config": {
+                                    "value": {
+                                        "route_config": {
+                                            "routes": [
+                                                {
+                                                    "destination_ip_list": [
+                                                        "172.21.103.212/32"
+                                                    ],
+                                                    "cluster": "outbound|443||istio-egressgateway.istio-system.svc.cluster.local"
+                                                }
+                                            ]
+                                        },
+                                        "stat_prefix": "outbound|tcp|443"
+                                    },
+                                    "deprecated_v1": true
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "deprecatedV1": {
+                    "bindToPort": false
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "listener": {
+                "name": "172.21.171.210_443",
+                "address": {
+                    "socketAddress": {
+                        "address": "172.21.171.210",
+                        "portValue": 443
+                    }
+                },
+                "filterChains": [
+                    {
+                        "filters": [
+                            {
+                                "name": "envoy.tcp_proxy",
+                                "config": {
+                                    "value": {
+                                        "stat_prefix": "outbound|tcp|443",
+                                        "route_config": {
+                                            "routes": [
+                                                {
+                                                    "cluster": "outbound|443||istio-ingress.istio-system.svc.cluster.local",
+                                                    "destination_ip_list": [
+                                                        "172.21.171.210/32"
+                                                    ]
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    "deprecated_v1": true
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "deprecatedV1": {
+                    "bindToPort": false
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "listener": {
+                "name": "172.21.245.9_15011",
+                "address": {
+                    "socketAddress": {
+                        "address": "172.21.245.9",
+                        "portValue": 15011
+                    }
+                },
+                "filterChains": [
+                    {
+                        "filters": [
+                            {
+                                "name": "envoy.tcp_proxy",
+                                "config": {
+                                    "value": {
+                                        "stat_prefix": "outbound|tcp|15011",
+                                        "route_config": {
+                                            "routes": [
+                                                {
+                                                    "destination_ip_list": [
+                                                        "172.21.245.9/32"
+                                                    ],
+                                                    "cluster": "outbound|15011||istio-pilot.istio-system.svc.cluster.local"
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    "deprecated_v1": true
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "deprecatedV1": {
+                    "bindToPort": false
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "listener": {
+                "name": "172.21.0.10_53",
+                "address": {
+                    "socketAddress": {
+                        "address": "172.21.0.10",
+                        "portValue": 53
+                    }
+                },
+                "filterChains": [
+                    {
+                        "filters": [
+                            {
+                                "name": "envoy.tcp_proxy",
+                                "config": {
+                                    "value": {
+                                        "route_config": {
+                                            "routes": [
+                                                {
+                                                    "destination_ip_list": [
+                                                        "172.21.0.10/32"
+                                                    ],
+                                                    "cluster": "outbound|53||kube-dns.kube-system.svc.cluster.local"
+                                                }
+                                            ]
+                                        },
+                                        "stat_prefix": "outbound|tcp|53"
+                                    },
+                                    "deprecated_v1": true
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "deprecatedV1": {
+                    "bindToPort": false
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "listener": {
+                "name": "172.21.39.206_42422",
+                "address": {
+                    "socketAddress": {
+                        "address": "172.21.39.206",
+                        "portValue": 42422
+                    }
+                },
+                "filterChains": [
+                    {
+                        "filters": [
+                            {
+                                "name": "envoy.tcp_proxy",
+                                "config": {
+                                    "value": {
+                                        "stat_prefix": "outbound|tcp|42422",
+                                        "route_config": {
+                                            "routes": [
+                                                {
+                                                    "destination_ip_list": [
+                                                        "172.21.39.206/32"
+                                                    ],
+                                                    "cluster": "outbound|42422||istio-telemetry.istio-system.svc.cluster.local"
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    "deprecated_v1": true
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "deprecatedV1": {
+                    "bindToPort": false
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "listener": {
+                "name": "172.21.245.9_15005",
+                "address": {
+                    "socketAddress": {
+                        "address": "172.21.245.9",
+                        "portValue": 15005
+                    }
+                },
+                "filterChains": [
+                    {
+                        "filters": [
+                            {
+                                "name": "envoy.tcp_proxy",
+                                "config": {
+                                    "value": {
+                                        "stat_prefix": "outbound|tcp|15005",
+                                        "route_config": {
+                                            "routes": [
+                                                {
+                                                    "destination_ip_list": [
+                                                        "172.21.245.9/32"
+                                                    ],
+                                                    "cluster": "outbound|15005||istio-pilot.istio-system.svc.cluster.local"
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    "deprecated_v1": true
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "deprecatedV1": {
+                    "bindToPort": false
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "listener": {
+                "name": "172.21.181.106_443",
+                "address": {
+                    "socketAddress": {
+                        "address": "172.21.181.106",
+                        "portValue": 443
+                    }
+                },
+                "filterChains": [
+                    {
+                        "filters": [
+                            {
+                                "name": "envoy.tcp_proxy",
+                                "config": {
+                                    "value": {
+                                        "stat_prefix": "outbound|tcp|443",
+                                        "route_config": {
+                                            "routes": [
+                                                {
+                                                    "cluster": "outbound|443||istio-sidecar-injector.istio-system.svc.cluster.local",
+                                                    "destination_ip_list": [
+                                                        "172.21.181.106/32"
+                                                    ]
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    "deprecated_v1": true
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "deprecatedV1": {
+                    "bindToPort": false
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "listener": {
+                "name": "172.21.250.115_9102",
+                "address": {
+                    "socketAddress": {
+                        "address": "172.21.250.115",
+                        "portValue": 9102
+                    }
+                },
+                "filterChains": [
+                    {
+                        "filters": [
+                            {
+                                "name": "envoy.tcp_proxy",
+                                "config": {
+                                    "value": {
+                                        "route_config": {
+                                            "routes": [
+                                                {
+                                                    "cluster": "outbound|9102||istio-statsd-prom-bridge.istio-system.svc.cluster.local",
+                                                    "destination_ip_list": [
+                                                        "172.21.250.115/32"
+                                                    ]
+                                                }
+                                            ]
+                                        },
+                                        "stat_prefix": "outbound|tcp|9102"
+                                    },
+                                    "deprecated_v1": true
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "deprecatedV1": {
+                    "bindToPort": false
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "listener": {
+                "name": "172.21.132.193_443",
+                "address": {
+                    "socketAddress": {
+                        "address": "172.21.132.193",
+                        "portValue": 443
+                    }
+                },
+                "filterChains": [
+                    {
+                        "filters": [
+                            {
+                                "name": "envoy.tcp_proxy",
+                                "config": {
+                                    "value": {
+                                        "stat_prefix": "outbound|tcp|443",
+                                        "route_config": {
+                                            "routes": [
+                                                {
+                                                    "destination_ip_list": [
+                                                        "172.21.132.193/32"
+                                                    ],
+                                                    "cluster": "outbound|443||kubernetes-dashboard.kube-system.svc.cluster.local"
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    "deprecated_v1": true
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "deprecatedV1": {
+                    "bindToPort": false
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "listener": {
+                "name": "172.21.0.1_443",
+                "address": {
+                    "socketAddress": {
+                        "address": "172.21.0.1",
+                        "portValue": 443
+                    }
+                },
+                "filterChains": [
+                    {
+                        "filters": [
+                            {
+                                "name": "envoy.tcp_proxy",
+                                "config": {
+                                    "value": {
+                                        "route_config": {
+                                            "routes": [
+                                                {
+                                                    "destination_ip_list": [
+                                                        "172.21.0.1/32"
+                                                    ],
+                                                    "cluster": "outbound|443||kubernetes.default.svc.cluster.local"
+                                                }
+                                            ]
+                                        },
+                                        "stat_prefix": "outbound|tcp|443"
+                                    },
+                                    "deprecated_v1": true
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "deprecatedV1": {
+                    "bindToPort": false
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "listener": {
+                "name": "172.21.58.135_443",
+                "address": {
+                    "socketAddress": {
+                        "address": "172.21.58.135",
+                        "portValue": 443
+                    }
+                },
+                "filterChains": [
+                    {
+                        "filters": [
+                            {
+                                "name": "envoy.tcp_proxy",
+                                "config": {
+                                    "value": {
+                                        "route_config": {
+                                            "routes": [
+                                                {
+                                                    "destination_ip_list": [
+                                                        "172.21.58.135/32"
+                                                    ],
+                                                    "cluster": "outbound|443||istio-ingressgateway.istio-system.svc.cluster.local"
+                                                }
+                                            ]
+                                        },
+                                        "stat_prefix": "outbound|tcp|443"
+                                    },
+                                    "deprecated_v1": true
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "deprecatedV1": {
+                    "bindToPort": false
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "listener": {
+                "name": "172.21.58.135_31400",
+                "address": {
+                    "socketAddress": {
+                        "address": "172.21.58.135",
+                        "portValue": 31400
+                    }
+                },
+                "filterChains": [
+                    {
+                        "filters": [
+                            {
+                                "name": "envoy.tcp_proxy",
+                                "config": {
+                                    "value": {
+                                        "route_config": {
+                                            "routes": [
+                                                {
+                                                    "cluster": "outbound|31400||istio-ingressgateway.istio-system.svc.cluster.local",
+                                                    "destination_ip_list": [
+                                                        "172.21.58.135/32"
+                                                    ]
+                                                }
+                                            ]
+                                        },
+                                        "stat_prefix": "outbound|tcp|31400"
+                                    },
+                                    "deprecated_v1": true
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "deprecatedV1": {
+                    "bindToPort": false
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:55.438944238 +0000 UTC m=+600.424148258",
+            "listener": {
+                "name": "0.0.0.0_9093",
+                "address": {
+                    "socketAddress": {
+                        "address": "0.0.0.0",
+                        "portValue": 9093
+                    }
+                },
+                "filterChains": [
+                    {
+                        "filters": [
+                            {
+                                "name": "envoy.http_connection_manager",
+                                "config": {
+                                    "http_filters": [
+                                        {
+                                            "name": "mixer",
+                                            "config": {
+                                                "transport": {
+                                                    "report_cluster": "outbound|9091||istio-telemetry.istio-system.svc.cluster.local",
+                                                    "check_cluster": "outbound|9091||istio-policy.istio-system.svc.cluster.local"
+                                                },
+                                                "service_configs": {
+                                                    "details.default.svc.cluster.local": {
+                                                        "disable_report_calls": true,
+                                                        "mixer_attributes": {
+                                                            "attributes": {
+                                                                "destination.service": {
+                                                                    "string_value": "details.default.svc.cluster.local"
+                                                                },
+                                                                "destination.labels": {
+                                                                    "string_map_value": {
+                                                                        "entries": {
+                                                                            "app": "details",
+                                                                            "version": "v1",
+                                                                            "pod-template-hash": "57643725"
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        },
+                                                        "disable_check_calls": true
+                                                    }
+                                                },
+                                                "default_destination_service": "details.default.svc.cluster.local",
+                                                "mixer_attributes": {
+                                                    "attributes": {}
+                                                },
+                                                "forward_attributes": {
+                                                    "attributes": {
+                                                        "source.uid": {
+                                                            "string_value": "kubernetes://details-v1-9cb87c69-t2fdz.default"
+                                                        },
+                                                        "source.labels": {
+                                                            "string_map_value": {
+                                                                "entries": {
+                                                                    "pod-template-hash": "57643725",
+                                                                    "app": "details",
+                                                                    "version": "v1"
+                                                                }
+                                                            }
+                                                        },
+                                                        "source.ip": {
+                                                            "bytes_value": "AAAAAAAAAAAAAP//rB5N8w=="
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        {
+                                            "name": "envoy.cors"
+                                        },
+                                        {
+                                            "name": "envoy.fault"
+                                        },
+                                        {
+                                            "name": "envoy.router"
+                                        }
+                                    ],
+                                    "tracing": {
+                                        "operation_name": "EGRESS"
+                                    },
+                                    "route_config": {
+                                        "name": "9093",
+                                        "validate_clusters": false,
+                                        "virtual_hosts": [
+                                            {
+                                                "routes": [
+                                                    {
+                                                        "match": {
+                                                            "prefix": "/"
+                                                        },
+                                                        "decorator": {
+                                                            "operation": "default-route"
+                                                        },
+                                                        "route": {
+                                                            "cluster": "outbound|9093||istio-citadel.istio-system.svc.cluster.local"
+                                                        }
+                                                    }
+                                                ],
+                                                "domains": [
+                                                    "istio-citadel.istio-system.svc.cluster.local",
+                                                    "istio-citadel.istio-system.svc.cluster.local:9093",
+                                                    "istio-citadel.istio-system",
+                                                    "istio-citadel.istio-system:9093",
+                                                    "istio-citadel.istio-system.svc.cluster",
+                                                    "istio-citadel.istio-system.svc.cluster:9093",
+                                                    "istio-citadel.istio-system.svc",
+                                                    "istio-citadel.istio-system.svc:9093",
+                                                    "172.21.253.193",
+                                                    "172.21.253.193:9093"
+                                                ],
+                                                "name": "istio-citadel.istio-system.svc.cluster.local:9093"
+                                            },
+                                            {
+                                                "routes": [
+                                                    {
+                                                        "match": {
+                                                            "prefix": "/"
+                                                        },
+                                                        "decorator": {
+                                                            "operation": "default-route"
+                                                        },
+                                                        "route": {
+                                                            "cluster": "outbound|9093||istio-pilot.istio-system.svc.cluster.local"
+                                                        }
+                                                    }
+                                                ],
+                                                "domains": [
+                                                    "istio-pilot.istio-system.svc.cluster.local",
+                                                    "istio-pilot.istio-system.svc.cluster.local:9093",
+                                                    "istio-pilot.istio-system",
+                                                    "istio-pilot.istio-system:9093",
+                                                    "istio-pilot.istio-system.svc.cluster",
+                                                    "istio-pilot.istio-system.svc.cluster:9093",
+                                                    "istio-pilot.istio-system.svc",
+                                                    "istio-pilot.istio-system.svc:9093",
+                                                    "172.21.245.9",
+                                                    "172.21.245.9:9093"
+                                                ],
+                                                "name": "istio-pilot.istio-system.svc.cluster.local:9093"
+                                            },
+                                            {
+                                                "name": "istio-policy.istio-system.svc.cluster.local:9093",
+                                                "routes": [
+                                                    {
+                                                        "route": {
+                                                            "cluster": "outbound|9093||istio-policy.istio-system.svc.cluster.local"
+                                                        },
+                                                        "decorator": {
+                                                            "operation": "default-route"
+                                                        },
+                                                        "match": {
+                                                            "prefix": "/"
+                                                        }
+                                                    }
+                                                ],
+                                                "domains": [
+                                                    "istio-policy.istio-system.svc.cluster.local",
+                                                    "istio-policy.istio-system.svc.cluster.local:9093",
+                                                    "istio-policy.istio-system",
+                                                    "istio-policy.istio-system:9093",
+                                                    "istio-policy.istio-system.svc.cluster",
+                                                    "istio-policy.istio-system.svc.cluster:9093",
+                                                    "istio-policy.istio-system.svc",
+                                                    "istio-policy.istio-system.svc:9093",
+                                                    "172.21.198.176",
+                                                    "172.21.198.176:9093"
+                                                ]
+                                            },
+                                            {
+                                                "name": "istio-telemetry.istio-system.svc.cluster.local:9093",
+                                                "routes": [
+                                                    {
+                                                        "match": {
+                                                            "prefix": "/"
+                                                        },
+                                                        "decorator": {
+                                                            "operation": "default-route"
+                                                        },
+                                                        "route": {
+                                                            "cluster": "outbound|9093||istio-telemetry.istio-system.svc.cluster.local"
+                                                        }
+                                                    }
+                                                ],
+                                                "domains": [
+                                                    "istio-telemetry.istio-system.svc.cluster.local",
+                                                    "istio-telemetry.istio-system.svc.cluster.local:9093",
+                                                    "istio-telemetry.istio-system",
+                                                    "istio-telemetry.istio-system:9093",
+                                                    "istio-telemetry.istio-system.svc.cluster",
+                                                    "istio-telemetry.istio-system.svc.cluster:9093",
+                                                    "istio-telemetry.istio-system.svc",
+                                                    "istio-telemetry.istio-system.svc:9093",
+                                                    "172.21.39.206",
+                                                    "172.21.39.206:9093"
+                                                ]
+                                            }
+                                        ]
+                                    },
+                                    "use_remote_address": false,
+                                    "stat_prefix": "http",
+                                    "generate_request_id": true,
+                                    "access_log": [
+                                        {
+                                            "name": "envoy.file_access_log",
+                                            "config": {
+                                                "path": "/dev/stdout"
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "deprecatedV1": {
+                    "bindToPort": false
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:55.438944238 +0000 UTC m=+600.424148258",
+            "listener": {
+                "name": "0.0.0.0_9080",
+                "address": {
+                    "socketAddress": {
+                        "address": "0.0.0.0",
+                        "portValue": 9080
+                    }
+                },
+                "filterChains": [
+                    {
+                        "filters": [
+                            {
+                                "name": "envoy.http_connection_manager",
+                                "config": {
+                                    "use_remote_address": false,
+                                    "stat_prefix": "http",
+                                    "generate_request_id": true,
+                                    "access_log": [
+                                        {
+                                            "name": "envoy.file_access_log",
+                                            "config": {
+                                                "path": "/dev/stdout"
+                                            }
+                                        }
+                                    ],
+                                    "http_filters": [
+                                        {
+                                            "name": "mixer",
+                                            "config": {
+                                                "service_configs": {
+                                                    "details.default.svc.cluster.local": {
+                                                        "disable_report_calls": true,
+                                                        "disable_check_calls": true,
+                                                        "mixer_attributes": {
+                                                            "attributes": {
+                                                                "destination.service": {
+                                                                    "string_value": "details.default.svc.cluster.local"
+                                                                },
+                                                                "destination.labels": {
+                                                                    "string_map_value": {
+                                                                        "entries": {
+                                                                            "pod-template-hash": "57643725",
+                                                                            "app": "details",
+                                                                            "version": "v1"
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                "transport": {
+                                                    "report_cluster": "outbound|9091||istio-telemetry.istio-system.svc.cluster.local",
+                                                    "check_cluster": "outbound|9091||istio-policy.istio-system.svc.cluster.local"
+                                                },
+                                                "default_destination_service": "details.default.svc.cluster.local",
+                                                "mixer_attributes": {
+                                                    "attributes": {}
+                                                },
+                                                "forward_attributes": {
+                                                    "attributes": {
+                                                        "source.ip": {
+                                                            "bytes_value": "AAAAAAAAAAAAAP//rB5N8w=="
+                                                        },
+                                                        "source.uid": {
+                                                            "string_value": "kubernetes://details-v1-9cb87c69-t2fdz.default"
+                                                        },
+                                                        "source.labels": {
+                                                            "string_map_value": {
+                                                                "entries": {
+                                                                    "app": "details",
+                                                                    "version": "v1",
+                                                                    "pod-template-hash": "57643725"
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        {
+                                            "name": "envoy.cors"
+                                        },
+                                        {
+                                            "name": "envoy.fault"
+                                        },
+                                        {
+                                            "name": "envoy.router"
+                                        }
+                                    ],
+                                    "route_config": {
+                                        "name": "9080",
+                                        "validate_clusters": false,
+                                        "virtual_hosts": [
+                                            {
+                                                "routes": [
+                                                    {
+                                                        "match": {
+                                                            "prefix": "/"
+                                                        },
+                                                        "decorator": {
+                                                            "operation": "default-route"
+                                                        },
+                                                        "route": {
+                                                            "cluster": "outbound|9080||details.default.svc.cluster.local"
+                                                        }
+                                                    }
+                                                ],
+                                                "domains": [
+                                                    "details.default.svc.cluster.local",
+                                                    "details.default.svc.cluster.local:9080",
+                                                    "details",
+                                                    "details:9080",
+                                                    "details.default.svc.cluster",
+                                                    "details.default.svc.cluster:9080",
+                                                    "details.default.svc",
+                                                    "details.default.svc:9080",
+                                                    "details.default",
+                                                    "details.default:9080",
+                                                    "172.21.104.58",
+                                                    "172.21.104.58:9080"
+                                                ],
+                                                "name": "details.default.svc.cluster.local:9080"
+                                            },
+                                            {
+                                                "routes": [
+                                                    {
+                                                        "decorator": {
+                                                            "operation": "default-route"
+                                                        },
+                                                        "route": {
+                                                            "cluster": "outbound|9080||productpage.default.svc.cluster.local"
+                                                        },
+                                                        "match": {
+                                                            "prefix": "/"
+                                                        }
+                                                    }
+                                                ],
+                                                "domains": [
+                                                    "productpage.default.svc.cluster.local",
+                                                    "productpage.default.svc.cluster.local:9080",
+                                                    "productpage",
+                                                    "productpage:9080",
+                                                    "productpage.default.svc.cluster",
+                                                    "productpage.default.svc.cluster:9080",
+                                                    "productpage.default.svc",
+                                                    "productpage.default.svc:9080",
+                                                    "productpage.default",
+                                                    "productpage.default:9080",
+                                                    "172.21.164.120",
+                                                    "172.21.164.120:9080"
+                                                ],
+                                                "name": "productpage.default.svc.cluster.local:9080"
+                                            },
+                                            {
+                                                "name": "ratings.default.svc.cluster.local:9080",
+                                                "routes": [
+                                                    {
+                                                        "match": {
+                                                            "prefix": "/"
+                                                        },
+                                                        "decorator": {
+                                                            "operation": "default-route"
+                                                        },
+                                                        "route": {
+                                                            "cluster": "outbound|9080||ratings.default.svc.cluster.local"
+                                                        }
+                                                    }
+                                                ],
+                                                "domains": [
+                                                    "ratings.default.svc.cluster.local",
+                                                    "ratings.default.svc.cluster.local:9080",
+                                                    "ratings",
+                                                    "ratings:9080",
+                                                    "ratings.default.svc.cluster",
+                                                    "ratings.default.svc.cluster:9080",
+                                                    "ratings.default.svc",
+                                                    "ratings.default.svc:9080",
+                                                    "ratings.default",
+                                                    "ratings.default:9080",
+                                                    "172.21.243.149",
+                                                    "172.21.243.149:9080"
+                                                ]
+                                            },
+                                            {
+                                                "name": "reviews.default.svc.cluster.local:9080",
+                                                "routes": [
+                                                    {
+                                                        "match": {
+                                                            "prefix": "/"
+                                                        },
+                                                        "decorator": {
+                                                            "operation": "default-route"
+                                                        },
+                                                        "route": {
+                                                            "cluster": "outbound|9080||reviews.default.svc.cluster.local"
+                                                        }
+                                                    }
+                                                ],
+                                                "domains": [
+                                                    "reviews.default.svc.cluster.local",
+                                                    "reviews.default.svc.cluster.local:9080",
+                                                    "reviews",
+                                                    "reviews:9080",
+                                                    "reviews.default.svc.cluster",
+                                                    "reviews.default.svc.cluster:9080",
+                                                    "reviews.default.svc",
+                                                    "reviews.default.svc:9080",
+                                                    "reviews.default",
+                                                    "reviews.default:9080",
+                                                    "172.21.56.133",
+                                                    "172.21.56.133:9080"
+                                                ]
+                                            }
+                                        ]
+                                    },
+                                    "tracing": {
+                                        "operation_name": "EGRESS"
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "deprecatedV1": {
+                    "bindToPort": false
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:55.438944238 +0000 UTC m=+600.424148258",
+            "listener": {
+                "name": "0.0.0.0_15003",
+                "address": {
+                    "socketAddress": {
+                        "address": "0.0.0.0",
+                        "portValue": 15003
+                    }
+                },
+                "filterChains": [
+                    {
+                        "filters": [
+                            {
+                                "name": "envoy.http_connection_manager",
+                                "config": {
+                                    "use_remote_address": false,
+                                    "stat_prefix": "http",
+                                    "generate_request_id": true,
+                                    "access_log": [
+                                        {
+                                            "name": "envoy.file_access_log",
+                                            "config": {
+                                                "path": "/dev/stdout"
+                                            }
+                                        }
+                                    ],
+                                    "http_filters": [
+                                        {
+                                            "name": "mixer",
+                                            "config": {
+                                                "transport": {
+                                                    "report_cluster": "outbound|9091||istio-telemetry.istio-system.svc.cluster.local",
+                                                    "check_cluster": "outbound|9091||istio-policy.istio-system.svc.cluster.local"
+                                                },
+                                                "service_configs": {
+                                                    "details.default.svc.cluster.local": {
+                                                        "disable_report_calls": true,
+                                                        "disable_check_calls": true,
+                                                        "mixer_attributes": {
+                                                            "attributes": {
+                                                                "destination.service": {
+                                                                    "string_value": "details.default.svc.cluster.local"
+                                                                },
+                                                                "destination.labels": {
+                                                                    "string_map_value": {
+                                                                        "entries": {
+                                                                            "pod-template-hash": "57643725",
+                                                                            "app": "details",
+                                                                            "version": "v1"
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                "default_destination_service": "details.default.svc.cluster.local",
+                                                "forward_attributes": {
+                                                    "attributes": {
+                                                        "source.uid": {
+                                                            "string_value": "kubernetes://details-v1-9cb87c69-t2fdz.default"
+                                                        },
+                                                        "source.labels": {
+                                                            "string_map_value": {
+                                                                "entries": {
+                                                                    "pod-template-hash": "57643725",
+                                                                    "app": "details",
+                                                                    "version": "v1"
+                                                                }
+                                                            }
+                                                        },
+                                                        "source.ip": {
+                                                            "bytes_value": "AAAAAAAAAAAAAP//rB5N8w=="
+                                                        }
+                                                    }
+                                                },
+                                                "mixer_attributes": {
+                                                    "attributes": {}
+                                                }
+                                            }
+                                        },
+                                        {
+                                            "name": "envoy.cors"
+                                        },
+                                        {
+                                            "name": "envoy.fault"
+                                        },
+                                        {
+                                            "name": "envoy.router"
+                                        }
+                                    ],
+                                    "route_config": {
+                                        "name": "15003",
+                                        "validate_clusters": false,
+                                        "virtual_hosts": [
+                                            {
+                                                "routes": [
+                                                    {
+                                                        "match": {
+                                                            "prefix": "/"
+                                                        },
+                                                        "route": {
+                                                            "cluster": "outbound|15003||istio-pilot.istio-system.svc.cluster.local"
+                                                        },
+                                                        "decorator": {
+                                                            "operation": "default-route"
+                                                        }
+                                                    }
+                                                ],
+                                                "domains": [
+                                                    "istio-pilot.istio-system.svc.cluster.local",
+                                                    "istio-pilot.istio-system.svc.cluster.local:15003",
+                                                    "istio-pilot.istio-system",
+                                                    "istio-pilot.istio-system:15003",
+                                                    "istio-pilot.istio-system.svc.cluster",
+                                                    "istio-pilot.istio-system.svc.cluster:15003",
+                                                    "istio-pilot.istio-system.svc",
+                                                    "istio-pilot.istio-system.svc:15003",
+                                                    "172.21.245.9",
+                                                    "172.21.245.9:15003"
+                                                ],
+                                                "name": "istio-pilot.istio-system.svc.cluster.local:15003"
+                                            }
+                                        ]
+                                    },
+                                    "tracing": {
+                                        "operation_name": "EGRESS"
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "deprecatedV1": {
+                    "bindToPort": false
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:55.438944238 +0000 UTC m=+600.424148258",
+            "listener": {
+                "name": "0.0.0.0_9090",
+                "address": {
+                    "socketAddress": {
+                        "address": "0.0.0.0",
+                        "portValue": 9090
+                    }
+                },
+                "filterChains": [
+                    {
+                        "filters": [
+                            {
+                                "name": "envoy.http_connection_manager",
+                                "config": {
+                                    "stat_prefix": "http",
+                                    "use_remote_address": false,
+                                    "generate_request_id": true,
+                                    "access_log": [
+                                        {
+                                            "name": "envoy.file_access_log",
+                                            "config": {
+                                                "path": "/dev/stdout"
+                                            }
+                                        }
+                                    ],
+                                    "http_filters": [
+                                        {
+                                            "name": "mixer",
+                                            "config": {
+                                                "service_configs": {
+                                                    "details.default.svc.cluster.local": {
+                                                        "disable_report_calls": true,
+                                                        "mixer_attributes": {
+                                                            "attributes": {
+                                                                "destination.service": {
+                                                                    "string_value": "details.default.svc.cluster.local"
+                                                                },
+                                                                "destination.labels": {
+                                                                    "string_map_value": {
+                                                                        "entries": {
+                                                                            "app": "details",
+                                                                            "version": "v1",
+                                                                            "pod-template-hash": "57643725"
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        },
+                                                        "disable_check_calls": true
+                                                    }
+                                                },
+                                                "transport": {
+                                                    "report_cluster": "outbound|9091||istio-telemetry.istio-system.svc.cluster.local",
+                                                    "check_cluster": "outbound|9091||istio-policy.istio-system.svc.cluster.local"
+                                                },
+                                                "default_destination_service": "details.default.svc.cluster.local",
+                                                "mixer_attributes": {
+                                                    "attributes": {}
+                                                },
+                                                "forward_attributes": {
+                                                    "attributes": {
+                                                        "source.ip": {
+                                                            "bytes_value": "AAAAAAAAAAAAAP//rB5N8w=="
+                                                        },
+                                                        "source.uid": {
+                                                            "string_value": "kubernetes://details-v1-9cb87c69-t2fdz.default"
+                                                        },
+                                                        "source.labels": {
+                                                            "string_map_value": {
+                                                                "entries": {
+                                                                    "app": "details",
+                                                                    "version": "v1",
+                                                                    "pod-template-hash": "57643725"
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        {
+                                            "name": "envoy.cors"
+                                        },
+                                        {
+                                            "name": "envoy.fault"
+                                        },
+                                        {
+                                            "name": "envoy.router"
+                                        }
+                                    ],
+                                    "tracing": {
+                                        "operation_name": "EGRESS"
+                                    },
+                                    "route_config": {
+                                        "name": "9090",
+                                        "validate_clusters": false,
+                                        "virtual_hosts": [
+                                            {
+                                                "name": "prometheus.istio-system.svc.cluster.local:9090",
+                                                "routes": [
+                                                    {
+                                                        "decorator": {
+                                                            "operation": "default-route"
+                                                        },
+                                                        "route": {
+                                                            "cluster": "outbound|9090||prometheus.istio-system.svc.cluster.local"
+                                                        },
+                                                        "match": {
+                                                            "prefix": "/"
+                                                        }
+                                                    }
+                                                ],
+                                                "domains": [
+                                                    "prometheus.istio-system.svc.cluster.local",
+                                                    "prometheus.istio-system.svc.cluster.local:9090",
+                                                    "prometheus.istio-system",
+                                                    "prometheus.istio-system:9090",
+                                                    "prometheus.istio-system.svc.cluster",
+                                                    "prometheus.istio-system.svc.cluster:9090",
+                                                    "prometheus.istio-system.svc",
+                                                    "prometheus.istio-system.svc:9090",
+                                                    "172.21.197.110",
+                                                    "172.21.197.110:9090"
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "deprecatedV1": {
+                    "bindToPort": false
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:55.438944238 +0000 UTC m=+600.424148258",
+            "listener": {
+                "name": "0.0.0.0_8080",
+                "address": {
+                    "socketAddress": {
+                        "address": "0.0.0.0",
+                        "portValue": 8080
+                    }
+                },
+                "filterChains": [
+                    {
+                        "filters": [
+                            {
+                                "name": "envoy.http_connection_manager",
+                                "config": {
+                                    "stat_prefix": "http",
+                                    "use_remote_address": false,
+                                    "generate_request_id": true,
+                                    "access_log": [
+                                        {
+                                            "name": "envoy.file_access_log",
+                                            "config": {
+                                                "path": "/dev/stdout"
+                                            }
+                                        }
+                                    ],
+                                    "http_filters": [
+                                        {
+                                            "name": "mixer",
+                                            "config": {
+                                                "transport": {
+                                                    "report_cluster": "outbound|9091||istio-telemetry.istio-system.svc.cluster.local",
+                                                    "check_cluster": "outbound|9091||istio-policy.istio-system.svc.cluster.local"
+                                                },
+                                                "service_configs": {
+                                                    "details.default.svc.cluster.local": {
+                                                        "disable_report_calls": true,
+                                                        "disable_check_calls": true,
+                                                        "mixer_attributes": {
+                                                            "attributes": {
+                                                                "destination.service": {
+                                                                    "string_value": "details.default.svc.cluster.local"
+                                                                },
+                                                                "destination.labels": {
+                                                                    "string_map_value": {
+                                                                        "entries": {
+                                                                            "pod-template-hash": "57643725",
+                                                                            "app": "details",
+                                                                            "version": "v1"
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                "default_destination_service": "details.default.svc.cluster.local",
+                                                "forward_attributes": {
+                                                    "attributes": {
+                                                        "source.ip": {
+                                                            "bytes_value": "AAAAAAAAAAAAAP//rB5N8w=="
+                                                        },
+                                                        "source.uid": {
+                                                            "string_value": "kubernetes://details-v1-9cb87c69-t2fdz.default"
+                                                        },
+                                                        "source.labels": {
+                                                            "string_map_value": {
+                                                                "entries": {
+                                                                    "pod-template-hash": "57643725",
+                                                                    "app": "details",
+                                                                    "version": "v1"
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                "mixer_attributes": {
+                                                    "attributes": {}
+                                                }
+                                            }
+                                        },
+                                        {
+                                            "name": "envoy.cors"
+                                        },
+                                        {
+                                            "name": "envoy.fault"
+                                        },
+                                        {
+                                            "name": "envoy.router"
+                                        }
+                                    ],
+                                    "route_config": {
+                                        "name": "8080",
+                                        "validate_clusters": false,
+                                        "virtual_hosts": [
+                                            {
+                                                "routes": [
+                                                    {
+                                                        "match": {
+                                                            "prefix": "/"
+                                                        },
+                                                        "decorator": {
+                                                            "operation": "default-route"
+                                                        },
+                                                        "route": {
+                                                            "cluster": "outbound|8080||istio-pilot.istio-system.svc.cluster.local"
+                                                        }
+                                                    }
+                                                ],
+                                                "domains": [
+                                                    "istio-pilot.istio-system.svc.cluster.local",
+                                                    "istio-pilot.istio-system.svc.cluster.local:8080",
+                                                    "istio-pilot.istio-system",
+                                                    "istio-pilot.istio-system:8080",
+                                                    "istio-pilot.istio-system.svc.cluster",
+                                                    "istio-pilot.istio-system.svc.cluster:8080",
+                                                    "istio-pilot.istio-system.svc",
+                                                    "istio-pilot.istio-system.svc:8080",
+                                                    "172.21.245.9",
+                                                    "172.21.245.9:8080"
+                                                ],
+                                                "name": "istio-pilot.istio-system.svc.cluster.local:8080"
+                                            }
+                                        ]
+                                    },
+                                    "tracing": {
+                                        "operation_name": "EGRESS"
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "deprecatedV1": {
+                    "bindToPort": false
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:55.438944238 +0000 UTC m=+600.424148258",
+            "listener": {
+                "name": "0.0.0.0_9091",
+                "address": {
+                    "socketAddress": {
+                        "address": "0.0.0.0",
+                        "portValue": 9091
+                    }
+                },
+                "filterChains": [
+                    {
+                        "filters": [
+                            {
+                                "name": "envoy.http_connection_manager",
+                                "config": {
+                                    "http_filters": [
+                                        {
+                                            "name": "mixer",
+                                            "config": {
+                                                "transport": {
+                                                    "report_cluster": "outbound|9091||istio-telemetry.istio-system.svc.cluster.local",
+                                                    "check_cluster": "outbound|9091||istio-policy.istio-system.svc.cluster.local"
+                                                },
+                                                "service_configs": {
+                                                    "details.default.svc.cluster.local": {
+                                                        "disable_report_calls": true,
+                                                        "mixer_attributes": {
+                                                            "attributes": {
+                                                                "destination.service": {
+                                                                    "string_value": "details.default.svc.cluster.local"
+                                                                },
+                                                                "destination.labels": {
+                                                                    "string_map_value": {
+                                                                        "entries": {
+                                                                            "app": "details",
+                                                                            "version": "v1",
+                                                                            "pod-template-hash": "57643725"
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        },
+                                                        "disable_check_calls": true
+                                                    }
+                                                },
+                                                "default_destination_service": "details.default.svc.cluster.local",
+                                                "mixer_attributes": {
+                                                    "attributes": {}
+                                                },
+                                                "forward_attributes": {
+                                                    "attributes": {
+                                                        "source.uid": {
+                                                            "string_value": "kubernetes://details-v1-9cb87c69-t2fdz.default"
+                                                        },
+                                                        "source.labels": {
+                                                            "string_map_value": {
+                                                                "entries": {
+                                                                    "pod-template-hash": "57643725",
+                                                                    "app": "details",
+                                                                    "version": "v1"
+                                                                }
+                                                            }
+                                                        },
+                                                        "source.ip": {
+                                                            "bytes_value": "AAAAAAAAAAAAAP//rB5N8w=="
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        {
+                                            "name": "envoy.cors"
+                                        },
+                                        {
+                                            "name": "envoy.fault"
+                                        },
+                                        {
+                                            "name": "envoy.router"
+                                        }
+                                    ],
+                                    "route_config": {
+                                        "name": "9091",
+                                        "validate_clusters": false,
+                                        "virtual_hosts": [
+                                            {
+                                                "name": "istio-policy.istio-system.svc.cluster.local:9091",
+                                                "routes": [
+                                                    {
+                                                        "decorator": {
+                                                            "operation": "default-route"
+                                                        },
+                                                        "route": {
+                                                            "cluster": "outbound|9091||istio-policy.istio-system.svc.cluster.local"
+                                                        },
+                                                        "match": {
+                                                            "prefix": "/"
+                                                        }
+                                                    }
+                                                ],
+                                                "domains": [
+                                                    "istio-policy.istio-system.svc.cluster.local",
+                                                    "istio-policy.istio-system.svc.cluster.local:9091",
+                                                    "istio-policy.istio-system",
+                                                    "istio-policy.istio-system:9091",
+                                                    "istio-policy.istio-system.svc.cluster",
+                                                    "istio-policy.istio-system.svc.cluster:9091",
+                                                    "istio-policy.istio-system.svc",
+                                                    "istio-policy.istio-system.svc:9091",
+                                                    "172.21.198.176",
+                                                    "172.21.198.176:9091"
+                                                ]
+                                            },
+                                            {
+                                                "routes": [
+                                                    {
+                                                        "match": {
+                                                            "prefix": "/"
+                                                        },
+                                                        "route": {
+                                                            "cluster": "outbound|9091||istio-telemetry.istio-system.svc.cluster.local"
+                                                        },
+                                                        "decorator": {
+                                                            "operation": "default-route"
+                                                        }
+                                                    }
+                                                ],
+                                                "domains": [
+                                                    "istio-telemetry.istio-system.svc.cluster.local",
+                                                    "istio-telemetry.istio-system.svc.cluster.local:9091",
+                                                    "istio-telemetry.istio-system",
+                                                    "istio-telemetry.istio-system:9091",
+                                                    "istio-telemetry.istio-system.svc.cluster",
+                                                    "istio-telemetry.istio-system.svc.cluster:9091",
+                                                    "istio-telemetry.istio-system.svc",
+                                                    "istio-telemetry.istio-system.svc:9091",
+                                                    "172.21.39.206",
+                                                    "172.21.39.206:9091"
+                                                ],
+                                                "name": "istio-telemetry.istio-system.svc.cluster.local:9091"
+                                            }
+                                        ]
+                                    },
+                                    "tracing": {
+                                        "operation_name": "EGRESS"
+                                    },
+                                    "use_remote_address": false,
+                                    "stat_prefix": "http",
+                                    "generate_request_id": true,
+                                    "access_log": [
+                                        {
+                                            "name": "envoy.file_access_log",
+                                            "config": {
+                                                "path": "/dev/stdout"
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "deprecatedV1": {
+                    "bindToPort": false
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:55.438944238 +0000 UTC m=+600.424148258",
+            "listener": {
+                "name": "0.0.0.0_15004",
+                "address": {
+                    "socketAddress": {
+                        "address": "0.0.0.0",
+                        "portValue": 15004
+                    }
+                },
+                "filterChains": [
+                    {
+                        "filters": [
+                            {
+                                "name": "envoy.http_connection_manager",
+                                "config": {
+                                    "http_filters": [
+                                        {
+                                            "name": "mixer",
+                                            "config": {
+                                                "transport": {
+                                                    "check_cluster": "outbound|9091||istio-policy.istio-system.svc.cluster.local",
+                                                    "report_cluster": "outbound|9091||istio-telemetry.istio-system.svc.cluster.local"
+                                                },
+                                                "service_configs": {
+                                                    "details.default.svc.cluster.local": {
+                                                        "disable_report_calls": true,
+                                                        "mixer_attributes": {
+                                                            "attributes": {
+                                                                "destination.service": {
+                                                                    "string_value": "details.default.svc.cluster.local"
+                                                                },
+                                                                "destination.labels": {
+                                                                    "string_map_value": {
+                                                                        "entries": {
+                                                                            "app": "details",
+                                                                            "version": "v1",
+                                                                            "pod-template-hash": "57643725"
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        },
+                                                        "disable_check_calls": true
+                                                    }
+                                                },
+                                                "default_destination_service": "details.default.svc.cluster.local",
+                                                "mixer_attributes": {
+                                                    "attributes": {}
+                                                },
+                                                "forward_attributes": {
+                                                    "attributes": {
+                                                        "source.ip": {
+                                                            "bytes_value": "AAAAAAAAAAAAAP//rB5N8w=="
+                                                        },
+                                                        "source.uid": {
+                                                            "string_value": "kubernetes://details-v1-9cb87c69-t2fdz.default"
+                                                        },
+                                                        "source.labels": {
+                                                            "string_map_value": {
+                                                                "entries": {
+                                                                    "pod-template-hash": "57643725",
+                                                                    "app": "details",
+                                                                    "version": "v1"
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        {
+                                            "name": "envoy.cors"
+                                        },
+                                        {
+                                            "name": "envoy.fault"
+                                        },
+                                        {
+                                            "name": "envoy.router"
+                                        }
+                                    ],
+                                    "tracing": {
+                                        "operation_name": "EGRESS"
+                                    },
+                                    "route_config": {
+                                        "name": "15004",
+                                        "validate_clusters": false,
+                                        "virtual_hosts": [
+                                            {
+                                                "name": "istio-policy.istio-system.svc.cluster.local:15004",
+                                                "routes": [
+                                                    {
+                                                        "decorator": {
+                                                            "operation": "default-route"
+                                                        },
+                                                        "route": {
+                                                            "cluster": "outbound|15004||istio-policy.istio-system.svc.cluster.local"
+                                                        },
+                                                        "match": {
+                                                            "prefix": "/"
+                                                        }
+                                                    }
+                                                ],
+                                                "domains": [
+                                                    "istio-policy.istio-system.svc.cluster.local",
+                                                    "istio-policy.istio-system.svc.cluster.local:15004",
+                                                    "istio-policy.istio-system",
+                                                    "istio-policy.istio-system:15004",
+                                                    "istio-policy.istio-system.svc.cluster",
+                                                    "istio-policy.istio-system.svc.cluster:15004",
+                                                    "istio-policy.istio-system.svc",
+                                                    "istio-policy.istio-system.svc:15004",
+                                                    "172.21.198.176",
+                                                    "172.21.198.176:15004"
+                                                ]
+                                            },
+                                            {
+                                                "name": "istio-telemetry.istio-system.svc.cluster.local:15004",
+                                                "routes": [
+                                                    {
+                                                        "route": {
+                                                            "cluster": "outbound|15004||istio-telemetry.istio-system.svc.cluster.local"
+                                                        },
+                                                        "decorator": {
+                                                            "operation": "default-route"
+                                                        },
+                                                        "match": {
+                                                            "prefix": "/"
+                                                        }
+                                                    }
+                                                ],
+                                                "domains": [
+                                                    "istio-telemetry.istio-system.svc.cluster.local",
+                                                    "istio-telemetry.istio-system.svc.cluster.local:15004",
+                                                    "istio-telemetry.istio-system",
+                                                    "istio-telemetry.istio-system:15004",
+                                                    "istio-telemetry.istio-system.svc.cluster",
+                                                    "istio-telemetry.istio-system.svc.cluster:15004",
+                                                    "istio-telemetry.istio-system.svc",
+                                                    "istio-telemetry.istio-system.svc:15004",
+                                                    "172.21.39.206",
+                                                    "172.21.39.206:15004"
+                                                ]
+                                            }
+                                        ]
+                                    },
+                                    "use_remote_address": false,
+                                    "stat_prefix": "http",
+                                    "generate_request_id": true,
+                                    "access_log": [
+                                        {
+                                            "name": "envoy.file_access_log",
+                                            "config": {
+                                                "path": "/dev/stdout"
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "deprecatedV1": {
+                    "bindToPort": false
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:55.438944238 +0000 UTC m=+600.424148258",
+            "listener": {
+                "name": "0.0.0.0_8060",
+                "address": {
+                    "socketAddress": {
+                        "address": "0.0.0.0",
+                        "portValue": 8060
+                    }
+                },
+                "filterChains": [
+                    {
+                        "filters": [
+                            {
+                                "name": "envoy.http_connection_manager",
+                                "config": {
+                                    "route_config": {
+                                        "name": "8060",
+                                        "validate_clusters": false,
+                                        "virtual_hosts": [
+                                            {
+                                                "name": "istio-citadel.istio-system.svc.cluster.local:8060",
+                                                "routes": [
+                                                    {
+                                                        "decorator": {
+                                                            "operation": "default-route"
+                                                        },
+                                                        "route": {
+                                                            "cluster": "outbound|8060||istio-citadel.istio-system.svc.cluster.local"
+                                                        },
+                                                        "match": {
+                                                            "prefix": "/"
+                                                        }
+                                                    }
+                                                ],
+                                                "domains": [
+                                                    "istio-citadel.istio-system.svc.cluster.local",
+                                                    "istio-citadel.istio-system.svc.cluster.local:8060",
+                                                    "istio-citadel.istio-system",
+                                                    "istio-citadel.istio-system:8060",
+                                                    "istio-citadel.istio-system.svc.cluster",
+                                                    "istio-citadel.istio-system.svc.cluster:8060",
+                                                    "istio-citadel.istio-system.svc",
+                                                    "istio-citadel.istio-system.svc:8060",
+                                                    "172.21.253.193",
+                                                    "172.21.253.193:8060"
+                                                ]
+                                            }
+                                        ]
+                                    },
+                                    "tracing": {
+                                        "operation_name": "EGRESS"
+                                    },
+                                    "use_remote_address": false,
+                                    "stat_prefix": "http",
+                                    "generate_request_id": true,
+                                    "access_log": [
+                                        {
+                                            "name": "envoy.file_access_log",
+                                            "config": {
+                                                "path": "/dev/stdout"
+                                            }
+                                        }
+                                    ],
+                                    "http_filters": [
+                                        {
+                                            "name": "mixer",
+                                            "config": {
+                                                "transport": {
+                                                    "report_cluster": "outbound|9091||istio-telemetry.istio-system.svc.cluster.local",
+                                                    "check_cluster": "outbound|9091||istio-policy.istio-system.svc.cluster.local"
+                                                },
+                                                "service_configs": {
+                                                    "details.default.svc.cluster.local": {
+                                                        "disable_report_calls": true,
+                                                        "disable_check_calls": true,
+                                                        "mixer_attributes": {
+                                                            "attributes": {
+                                                                "destination.service": {
+                                                                    "string_value": "details.default.svc.cluster.local"
+                                                                },
+                                                                "destination.labels": {
+                                                                    "string_map_value": {
+                                                                        "entries": {
+                                                                            "pod-template-hash": "57643725",
+                                                                            "app": "details",
+                                                                            "version": "v1"
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                "default_destination_service": "details.default.svc.cluster.local",
+                                                "mixer_attributes": {
+                                                    "attributes": {}
+                                                },
+                                                "forward_attributes": {
+                                                    "attributes": {
+                                                        "source.uid": {
+                                                            "string_value": "kubernetes://details-v1-9cb87c69-t2fdz.default"
+                                                        },
+                                                        "source.labels": {
+                                                            "string_map_value": {
+                                                                "entries": {
+                                                                    "pod-template-hash": "57643725",
+                                                                    "app": "details",
+                                                                    "version": "v1"
+                                                                }
+                                                            }
+                                                        },
+                                                        "source.ip": {
+                                                            "bytes_value": "AAAAAAAAAAAAAP//rB5N8w=="
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        {
+                                            "name": "envoy.cors"
+                                        },
+                                        {
+                                            "name": "envoy.fault"
+                                        },
+                                        {
+                                            "name": "envoy.router"
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "deprecatedV1": {
+                    "bindToPort": false
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:55.438944238 +0000 UTC m=+600.424148258",
+            "listener": {
+                "name": "0.0.0.0_80",
+                "address": {
+                    "socketAddress": {
+                        "address": "0.0.0.0",
+                        "portValue": 80
+                    }
+                },
+                "filterChains": [
+                    {
+                        "filters": [
+                            {
+                                "name": "envoy.http_connection_manager",
+                                "config": {
+                                    "access_log": [
+                                        {
+                                            "name": "envoy.file_access_log",
+                                            "config": {
+                                                "path": "/dev/stdout"
+                                            }
+                                        }
+                                    ],
+                                    "http_filters": [
+                                        {
+                                            "name": "mixer",
+                                            "config": {
+                                                "transport": {
+                                                    "report_cluster": "outbound|9091||istio-telemetry.istio-system.svc.cluster.local",
+                                                    "check_cluster": "outbound|9091||istio-policy.istio-system.svc.cluster.local"
+                                                },
+                                                "service_configs": {
+                                                    "details.default.svc.cluster.local": {
+                                                        "disable_report_calls": true,
+                                                        "mixer_attributes": {
+                                                            "attributes": {
+                                                                "destination.service": {
+                                                                    "string_value": "details.default.svc.cluster.local"
+                                                                },
+                                                                "destination.labels": {
+                                                                    "string_map_value": {
+                                                                        "entries": {
+                                                                            "app": "details",
+                                                                            "version": "v1",
+                                                                            "pod-template-hash": "57643725"
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        },
+                                                        "disable_check_calls": true
+                                                    }
+                                                },
+                                                "default_destination_service": "details.default.svc.cluster.local",
+                                                "mixer_attributes": {
+                                                    "attributes": {}
+                                                },
+                                                "forward_attributes": {
+                                                    "attributes": {
+                                                        "source.uid": {
+                                                            "string_value": "kubernetes://details-v1-9cb87c69-t2fdz.default"
+                                                        },
+                                                        "source.labels": {
+                                                            "string_map_value": {
+                                                                "entries": {
+                                                                    "app": "details",
+                                                                    "version": "v1",
+                                                                    "pod-template-hash": "57643725"
+                                                                }
+                                                            }
+                                                        },
+                                                        "source.ip": {
+                                                            "bytes_value": "AAAAAAAAAAAAAP//rB5N8w=="
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        {
+                                            "name": "envoy.cors"
+                                        },
+                                        {
+                                            "name": "envoy.fault"
+                                        },
+                                        {
+                                            "name": "envoy.router"
+                                        }
+                                    ],
+                                    "tracing": {
+                                        "operation_name": "EGRESS"
+                                    },
+                                    "route_config": {
+                                        "name": "80",
+                                        "validate_clusters": false,
+                                        "virtual_hosts": [
+                                            {
+                                                "name": "istio-egressgateway.istio-system.svc.cluster.local:80",
+                                                "routes": [
+                                                    {
+                                                        "decorator": {
+                                                            "operation": "default-route"
+                                                        },
+                                                        "route": {
+                                                            "cluster": "outbound|80||istio-egressgateway.istio-system.svc.cluster.local"
+                                                        },
+                                                        "match": {
+                                                            "prefix": "/"
+                                                        }
+                                                    }
+                                                ],
+                                                "domains": [
+                                                    "istio-egressgateway.istio-system.svc.cluster.local",
+                                                    "istio-egressgateway.istio-system.svc.cluster.local:80",
+                                                    "istio-egressgateway.istio-system",
+                                                    "istio-egressgateway.istio-system:80",
+                                                    "istio-egressgateway.istio-system.svc.cluster",
+                                                    "istio-egressgateway.istio-system.svc.cluster:80",
+                                                    "istio-egressgateway.istio-system.svc",
+                                                    "istio-egressgateway.istio-system.svc:80",
+                                                    "172.21.103.212",
+                                                    "172.21.103.212:80"
+                                                ]
+                                            },
+                                            {
+                                                "name": "istio-ingress.istio-system.svc.cluster.local:80",
+                                                "routes": [
+                                                    {
+                                                        "match": {
+                                                            "prefix": "/"
+                                                        },
+                                                        "decorator": {
+                                                            "operation": "default-route"
+                                                        },
+                                                        "route": {
+                                                            "cluster": "outbound|80||istio-ingress.istio-system.svc.cluster.local"
+                                                        }
+                                                    }
+                                                ],
+                                                "domains": [
+                                                    "istio-ingress.istio-system.svc.cluster.local",
+                                                    "istio-ingress.istio-system.svc.cluster.local:80",
+                                                    "istio-ingress.istio-system",
+                                                    "istio-ingress.istio-system:80",
+                                                    "istio-ingress.istio-system.svc.cluster",
+                                                    "istio-ingress.istio-system.svc.cluster:80",
+                                                    "istio-ingress.istio-system.svc",
+                                                    "istio-ingress.istio-system.svc:80",
+                                                    "172.21.171.210",
+                                                    "172.21.171.210:80"
+                                                ]
+                                            },
+                                            {
+                                                "routes": [
+                                                    {
+                                                        "decorator": {
+                                                            "operation": "default-route"
+                                                        },
+                                                        "route": {
+                                                            "cluster": "outbound|80||istio-ingressgateway.istio-system.svc.cluster.local"
+                                                        },
+                                                        "match": {
+                                                            "prefix": "/"
+                                                        }
+                                                    }
+                                                ],
+                                                "domains": [
+                                                    "istio-ingressgateway.istio-system.svc.cluster.local",
+                                                    "istio-ingressgateway.istio-system.svc.cluster.local:80",
+                                                    "istio-ingressgateway.istio-system",
+                                                    "istio-ingressgateway.istio-system:80",
+                                                    "istio-ingressgateway.istio-system.svc.cluster",
+                                                    "istio-ingressgateway.istio-system.svc.cluster:80",
+                                                    "istio-ingressgateway.istio-system.svc",
+                                                    "istio-ingressgateway.istio-system.svc:80",
+                                                    "172.21.58.135",
+                                                    "172.21.58.135:80"
+                                                ],
+                                                "name": "istio-ingressgateway.istio-system.svc.cluster.local:80"
+                                            }
+                                        ]
+                                    },
+                                    "stat_prefix": "http",
+                                    "use_remote_address": false,
+                                    "generate_request_id": true
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "deprecatedV1": {
+                    "bindToPort": false
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:55.438944238 +0000 UTC m=+600.424148258",
+            "listener": {
+                "name": "0.0.0.0_15007",
+                "address": {
+                    "socketAddress": {
+                        "address": "0.0.0.0",
+                        "portValue": 15007
+                    }
+                },
+                "filterChains": [
+                    {
+                        "filters": [
+                            {
+                                "name": "envoy.http_connection_manager",
+                                "config": {
+                                    "tracing": {
+                                        "operation_name": "EGRESS"
+                                    },
+                                    "route_config": {
+                                        "name": "15007",
+                                        "validate_clusters": false,
+                                        "virtual_hosts": [
+                                            {
+                                                "routes": [
+                                                    {
+                                                        "match": {
+                                                            "prefix": "/"
+                                                        },
+                                                        "decorator": {
+                                                            "operation": "default-route"
+                                                        },
+                                                        "route": {
+                                                            "cluster": "outbound|15007||istio-pilot.istio-system.svc.cluster.local"
+                                                        }
+                                                    }
+                                                ],
+                                                "domains": [
+                                                    "istio-pilot.istio-system.svc.cluster.local",
+                                                    "istio-pilot.istio-system.svc.cluster.local:15007",
+                                                    "istio-pilot.istio-system",
+                                                    "istio-pilot.istio-system:15007",
+                                                    "istio-pilot.istio-system.svc.cluster",
+                                                    "istio-pilot.istio-system.svc.cluster:15007",
+                                                    "istio-pilot.istio-system.svc",
+                                                    "istio-pilot.istio-system.svc:15007",
+                                                    "172.21.245.9",
+                                                    "172.21.245.9:15007"
+                                                ],
+                                                "name": "istio-pilot.istio-system.svc.cluster.local:15007"
+                                            }
+                                        ]
+                                    },
+                                    "use_remote_address": false,
+                                    "stat_prefix": "http",
+                                    "generate_request_id": true,
+                                    "access_log": [
+                                        {
+                                            "name": "envoy.file_access_log",
+                                            "config": {
+                                                "path": "/dev/stdout"
+                                            }
+                                        }
+                                    ],
+                                    "http_filters": [
+                                        {
+                                            "name": "mixer",
+                                            "config": {
+                                                "transport": {
+                                                    "check_cluster": "outbound|9091||istio-policy.istio-system.svc.cluster.local",
+                                                    "report_cluster": "outbound|9091||istio-telemetry.istio-system.svc.cluster.local"
+                                                },
+                                                "service_configs": {
+                                                    "details.default.svc.cluster.local": {
+                                                        "disable_report_calls": true,
+                                                        "disable_check_calls": true,
+                                                        "mixer_attributes": {
+                                                            "attributes": {
+                                                                "destination.service": {
+                                                                    "string_value": "details.default.svc.cluster.local"
+                                                                },
+                                                                "destination.labels": {
+                                                                    "string_map_value": {
+                                                                        "entries": {
+                                                                            "app": "details",
+                                                                            "version": "v1",
+                                                                            "pod-template-hash": "57643725"
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                "default_destination_service": "details.default.svc.cluster.local",
+                                                "mixer_attributes": {
+                                                    "attributes": {}
+                                                },
+                                                "forward_attributes": {
+                                                    "attributes": {
+                                                        "source.ip": {
+                                                            "bytes_value": "AAAAAAAAAAAAAP//rB5N8w=="
+                                                        },
+                                                        "source.uid": {
+                                                            "string_value": "kubernetes://details-v1-9cb87c69-t2fdz.default"
+                                                        },
+                                                        "source.labels": {
+                                                            "string_map_value": {
+                                                                "entries": {
+                                                                    "app": "details",
+                                                                    "version": "v1",
+                                                                    "pod-template-hash": "57643725"
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        {
+                                            "name": "envoy.cors"
+                                        },
+                                        {
+                                            "name": "envoy.fault"
+                                        },
+                                        {
+                                            "name": "envoy.router"
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "deprecatedV1": {
+                    "bindToPort": false
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:55.438944238 +0000 UTC m=+600.424148258",
+            "listener": {
+                "name": "0.0.0.0_15010",
+                "address": {
+                    "socketAddress": {
+                        "address": "0.0.0.0",
+                        "portValue": 15010
+                    }
+                },
+                "filterChains": [
+                    {
+                        "filters": [
+                            {
+                                "name": "envoy.http_connection_manager",
+                                "config": {
+                                    "use_remote_address": false,
+                                    "stat_prefix": "http",
+                                    "generate_request_id": true,
+                                    "access_log": [
+                                        {
+                                            "name": "envoy.file_access_log",
+                                            "config": {
+                                                "path": "/dev/stdout"
+                                            }
+                                        }
+                                    ],
+                                    "http_filters": [
+                                        {
+                                            "name": "mixer",
+                                            "config": {
+                                                "transport": {
+                                                    "report_cluster": "outbound|9091||istio-telemetry.istio-system.svc.cluster.local",
+                                                    "check_cluster": "outbound|9091||istio-policy.istio-system.svc.cluster.local"
+                                                },
+                                                "service_configs": {
+                                                    "details.default.svc.cluster.local": {
+                                                        "disable_report_calls": true,
+                                                        "mixer_attributes": {
+                                                            "attributes": {
+                                                                "destination.service": {
+                                                                    "string_value": "details.default.svc.cluster.local"
+                                                                },
+                                                                "destination.labels": {
+                                                                    "string_map_value": {
+                                                                        "entries": {
+                                                                            "app": "details",
+                                                                            "version": "v1",
+                                                                            "pod-template-hash": "57643725"
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        },
+                                                        "disable_check_calls": true
+                                                    }
+                                                },
+                                                "default_destination_service": "details.default.svc.cluster.local",
+                                                "mixer_attributes": {
+                                                    "attributes": {}
+                                                },
+                                                "forward_attributes": {
+                                                    "attributes": {
+                                                        "source.uid": {
+                                                            "string_value": "kubernetes://details-v1-9cb87c69-t2fdz.default"
+                                                        },
+                                                        "source.labels": {
+                                                            "string_map_value": {
+                                                                "entries": {
+                                                                    "app": "details",
+                                                                    "version": "v1",
+                                                                    "pod-template-hash": "57643725"
+                                                                }
+                                                            }
+                                                        },
+                                                        "source.ip": {
+                                                            "bytes_value": "AAAAAAAAAAAAAP//rB5N8w=="
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        {
+                                            "name": "envoy.cors"
+                                        },
+                                        {
+                                            "name": "envoy.fault"
+                                        },
+                                        {
+                                            "name": "envoy.router"
+                                        }
+                                    ],
+                                    "tracing": {
+                                        "operation_name": "EGRESS"
+                                    },
+                                    "route_config": {
+                                        "name": "15010",
+                                        "validate_clusters": false,
+                                        "virtual_hosts": [
+                                            {
+                                                "routes": [
+                                                    {
+                                                        "decorator": {
+                                                            "operation": "default-route"
+                                                        },
+                                                        "route": {
+                                                            "cluster": "outbound|15010||istio-pilot.istio-system.svc.cluster.local"
+                                                        },
+                                                        "match": {
+                                                            "prefix": "/"
+                                                        }
+                                                    }
+                                                ],
+                                                "domains": [
+                                                    "istio-pilot.istio-system.svc.cluster.local",
+                                                    "istio-pilot.istio-system.svc.cluster.local:15010",
+                                                    "istio-pilot.istio-system",
+                                                    "istio-pilot.istio-system:15010",
+                                                    "istio-pilot.istio-system.svc.cluster",
+                                                    "istio-pilot.istio-system.svc.cluster:15010",
+                                                    "istio-pilot.istio-system.svc",
+                                                    "istio-pilot.istio-system.svc:15010",
+                                                    "172.21.245.9",
+                                                    "172.21.245.9:15010"
+                                                ],
+                                                "name": "istio-pilot.istio-system.svc.cluster.local:15010"
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "deprecatedV1": {
+                    "bindToPort": false
+                }
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:37.15936519 +0000 UTC m=+582.144569116",
+            "listener": {
+                "name": "virtual",
+                "address": {
+                    "socketAddress": {
+                        "address": "0.0.0.0",
+                        "portValue": 15001
+                    }
+                },
+                "filterChains": [
+                    {
+                        "filters": [
+                            {
+                                "name": "envoy.tcp_proxy",
+                                "config": {
+                                    "stat_prefix": "BlackHoleCluster",
+                                    "cluster": "BlackHoleCluster"
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "useOriginalDst": true
+            }
+        },
+        {
+            "versionInfo": "2018-05-29 20:34:55.438944238 +0000 UTC m=+600.424148258",
+            "listener": {
+                "name": "172.30.77.243_9080",
+                "address": {
+                    "socketAddress": {
+                        "address": "172.30.77.243",
+                        "portValue": 9080
+                    }
+                },
+                "filterChains": [
+                    {
+                        "filters": [
+                            {
+                                "name": "envoy.http_connection_manager",
+                                "config": {
+                                    "access_log": [
+                                        {
+                                            "name": "envoy.file_access_log",
+                                            "config": {
+                                                "path": "/dev/stdout"
+                                            }
+                                        }
+                                    ],
+                                    "http_filters": [
+                                        {
+                                            "name": "mixer",
+                                            "config": {
+                                                "transport": {
+                                                    "report_cluster": "outbound|9091||istio-telemetry.istio-system.svc.cluster.local",
+                                                    "check_cluster": "outbound|9091||istio-policy.istio-system.svc.cluster.local"
+                                                },
+                                                "service_configs": {
+                                                    "details.default.svc.cluster.local": {
+                                                        "mixer_attributes": {
+                                                            "attributes": {
+                                                                "destination.service": {
+                                                                    "string_value": "details.default.svc.cluster.local"
+                                                                },
+                                                                "destination.labels": {
+                                                                    "string_map_value": {
+                                                                        "entries": {
+                                                                            "app": "details",
+                                                                            "version": "v1",
+                                                                            "pod-template-hash": "57643725"
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                "default_destination_service": "details.default.svc.cluster.local",
+                                                "mixer_attributes": {
+                                                    "attributes": {
+                                                        "destination.ip": {
+                                                            "bytes_value": "AAAAAAAAAAAAAP//rB5N8w=="
+                                                        },
+                                                        "destination.uid": {
+                                                            "string_value": "kubernetes://details-v1-9cb87c69-t2fdz.default"
+                                                        },
+                                                        "destination.labels": {
+                                                            "string_map_value": {
+                                                                "entries": {
+                                                                    "pod-template-hash": "57643725",
+                                                                    "app": "details",
+                                                                    "version": "v1"
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        {
+                                            "name": "envoy.cors"
+                                        },
+                                        {
+                                            "name": "envoy.fault"
+                                        },
+                                        {
+                                            "name": "envoy.router"
+                                        }
+                                    ],
+                                    "route_config": {
+                                        "name": "inbound|9080||details.default.svc.cluster.local",
+                                        "validate_clusters": false,
+                                        "virtual_hosts": [
+                                            {
+                                                "routes": [
+                                                    {
+                                                        "route": {
+                                                            "cluster": "inbound|9080||details.default.svc.cluster.local"
+                                                        },
+                                                        "decorator": {
+                                                            "operation": "default-route"
+                                                        },
+                                                        "match": {
+                                                            "prefix": "/"
+                                                        },
+                                                        "per_filter_config": {
+                                                            "mixer": {
+                                                                "mixer_attributes": {
+                                                                    "attributes": {
+                                                                        "destination.service": {
+                                                                            "string_value": "details.default.svc.cluster.local"
+                                                                        },
+                                                                        "destination.ip": {
+                                                                            "bytes_value": "AAAAAAAAAAAAAP//rB5N8w=="
+                                                                        },
+                                                                        "destination.uid": {
+                                                                            "string_value": "kubernetes://details-v1-9cb87c69-t2fdz.default"
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                ],
+                                                "domains": [
+                                                    "*"
+                                                ],
+                                                "name": "inbound|http|9080"
+                                            }
+                                        ]
+                                    },
+                                    "tracing": {},
+                                    "stat_prefix": "http",
+                                    "use_remote_address": false,
+                                    "generate_request_id": true
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "deprecatedV1": {
+                    "bindToPort": false
+                }
+            }
+        }
+    ]
+}
