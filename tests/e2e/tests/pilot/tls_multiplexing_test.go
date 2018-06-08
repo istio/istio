@@ -29,11 +29,13 @@ func TestTLSMultiplexing(t *testing.T) {
 		//fmt.Println("jianfeih debug skipping should!!")
 		//t.Skip("Skipping because multiplexing requires v1alpha3/v2 api...")
 	//}
-	// This policy will enable mTLS for all namespace, and disable mTLS for c and d:80.
+
 	cfgs := &deployableConfig{
 		Namespace: tc.Kube.Namespace,
 		YamlFiles: []string{
+			// This policy configures c to use PERMISSIVE for port 80 and STRICT for port 8080.
 			"testdata/authn/v1alpha1/multiplexing/authn-policy-permissive.yaml",
+			// This configure serivce c's client to use ISTIO_MUTUAL mTLS when talking to service c.
 			"testdata/authn/v1alpha1/multiplexing/destination-rule.yaml",
 		},
 		kubeconfig: tc.Kube.KubeConfig,
@@ -43,8 +45,8 @@ func TestTLSMultiplexing(t *testing.T) {
 	}
 	defer cfgs.Teardown()
 
-	// pod a has sidecar, will use DestinationRule `ISTIO_MUTUAL` to send TLS traffic.
-	// pod t does not have sidecar, will send plain text traffic.
+	// Pod a has sidecar, will use DestinationRule `ISTIO_MUTUAL` to send TLS traffic.
+	// Pod t does not have sidecar, will send plain text traffic.
 	srcPods := []string{"a", "t"}
 	dstPods := []string{"c"}
 	// TODO(incfly): add 8080 once auth filter works.
