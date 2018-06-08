@@ -128,13 +128,13 @@ func setup() error {
 	if len(pilotHTTP) == 0 {
 		pilotHTTP = "0"
 	}
-	pilotHTTPPort, _ := strconv.Atoi(pilotHTTP)
+	httpAddr := ":" + pilotHTTP
 
 	// Create a test pilot discovery service configured to watch the tempDir.
 	args := bootstrap.PilotArgs{
 		Namespace: "testing",
 		DiscoveryOptions: envoy.DiscoveryServiceOptions{
-			Port:            pilotHTTPPort,
+			HTTPAddr:        httpAddr,
 			GrpcAddr:        ":0",
 			SecureGrpcAddr:  ":0",
 			EnableCaching:   true,
