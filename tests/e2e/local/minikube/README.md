@@ -47,13 +47,6 @@ To save the minikube status:
 ```bash
 minikube stop
 ```
-Note: This will stop the port forwarding to local registry too. This when you
-start minikube again, please run following steps to enable port forwarding to 
-local registry again:
-```bash
-POD=`kubectl get po -n kube-system | grep kube-registry-v0 | awk '{print $1;}'`
-kubectl port-forward --namespace kube-system $POD 5000:5000 &
-```
 
 To destroy the minikube:
 ```bash
