@@ -468,7 +468,6 @@ func (e *Ephemeral) processRuleConfigs(
 	log.Debug("Begin processing rule configurations.")
 
 	var rules1 []*RuleLegacy
-	var rules2 []*Rule
 
 	for ruleKey, resource := range e.entries {
 		if ruleKey.Kind != constant.RulesKind {
