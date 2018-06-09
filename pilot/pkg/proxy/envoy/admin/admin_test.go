@@ -97,7 +97,7 @@ func TestAPI_PrintListenerDump(t *testing.T) {
 		wantOutputFile string
 		wantStdErr     bool
 	}{
-		// TODO: Turn on when protobuf bug is resolved
+		// TODO: Turn on when protobuf bug is resolved - https://github.com/golang/protobuf/issues/632
 		// {
 		// 	name:           "returns expected listener dump from Envoy onto Stdout",
 		// 	wantOutputFile: "testdata/listenerdump.json",
@@ -162,7 +162,7 @@ func TestAPI_PrintRoutesDump(t *testing.T) {
 		wantOutputFile string
 		wantStdErr     bool
 	}{
-		// TODO: Turn on when protobuf bug is resolved
+		// TODO: Turn on when protobuf bug is resolved - https://github.com/golang/protobuf/issues/632
 		// {
 		// 	name:           "returns expected routes dump from Envoy onto Stdout",
 		// 	wantOutputFile: "testdata/routesdump.json",
@@ -227,7 +227,7 @@ func TestAPI_PrintBootstrapDump(t *testing.T) {
 		wantOutputFile string
 		wantStdErr     bool
 	}{
-		// TODO: Turn on when protobuf bug is resolved
+		// TODO: Turn on when protobuf bug is resolved - https://github.com/golang/protobuf/issues/632
 		// {
 		// 	name:           "returns expected bootstrap dump from Envoy onto Stdout",
 		// 	wantOutputFile: "testdata/bootstrapdump.json",
