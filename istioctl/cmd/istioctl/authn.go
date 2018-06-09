@@ -53,7 +53,6 @@ func check() *cobra.Command {
 				return errors.New("unable to find any Pilot instances")
 			}
 			if debug, pilotErr := callPilotDiscoveryDebug(pilots, "", "authn"); pilotErr == nil {
-				// fmt.Println(debug)
 				var dat []AuthenticationDebug
 				if err := json.Unmarshal([]byte(debug), &dat); err != nil {
 					panic(err)
@@ -66,7 +65,7 @@ func check() *cobra.Command {
 				})
 				w := new(tabwriter.Writer)
 				w.Init(os.Stdout, 0, 0, 4, ' ', 0)
-				fmt.Fprintln(w, "Host\tStatus\tServer\tClient\tAuthN Policy Name/Namespace\tDst Rule Name/Namespace")
+				fmt.Fprintln(w, "Host:Port\tStatus\tServer\tClient\tAuthN Policy Name/Namespace\tDst Rule Name/Namespace")
 				for _, entry := range dat {
 					if entry.Host == "" {
 						continue

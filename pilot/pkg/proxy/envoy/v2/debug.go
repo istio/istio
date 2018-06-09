@@ -29,6 +29,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	authn_plugin "istio.io/istio/pilot/pkg/networking/plugin/authn"
+	networking_core "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 )
@@ -404,6 +405,7 @@ func isMTlsOn(mesh *meshconfig.MeshConfig, rule *networking.DestinationRule, por
 	if rule.TrafficPolicy == nil {
 		return false
 	}
+	/*
 	for _, prule := range rule.TrafficPolicy.PortLevelSettings {
 		switch selector := prule.Port.Port.(type) {
 		case *networking.PortSelector_Name:
@@ -416,8 +418,10 @@ func isMTlsOn(mesh *meshconfig.MeshConfig, rule *networking.DestinationRule, por
 			}
 		}
 	}
+	*/
+	_, _, _, tls :=  networking_core.SelectTrafficPolicyComponents(rule.TrafficPolicy, port)
 
-	return rule.TrafficPolicy.Tls != nil && rule.TrafficPolicy.Tls.Mode == networking.TLSSettings_ISTIO_MUTUAL
+	return tls != nil && tls.Mode == networking.TLSSettings_ISTIO_MUTUAL
 }
 
 // AuthenticationDebug holds debug information for service authentication policy.
