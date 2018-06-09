@@ -27,8 +27,10 @@ package simple
 import (
 	"bytes"
 	"flag"
+	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -41,11 +43,14 @@ import (
 )
 
 const (
-	servicesYaml         = "tests/e2e/tests/simple/testdata/servicesToBeInjected.yaml"
-	nonInjectedYaml      = "tests/e2e/tests/simple/testdata/servicesNotInjected.yaml"
-	routingR1Yaml        = "tests/e2e/tests/simple/testdata/routingrule1.yaml"
-	routingR2Yaml        = "tests/e2e/tests/simple/testdata/routingrule2.yaml"
-	routingRNPYaml       = "tests/e2e/tests/simple/testdata/routingruleNoPods.yaml"
+	baseDir        = "tests/e2e/tests/simple/testdata/"
+	v1alpha3Subdir = "v1alpha3"
+
+	servicesYaml         = "servicesToBeInjected.yaml"
+	nonInjectedYaml      = "servicesNotInjected.yaml"
+	routingR1Yaml        = "routingrule1.yaml"
+	routingR2Yaml        = "routingrule2.yaml"
+	routingRNPYaml       = "routingruleNoPods.yaml"
 	timeToWaitForPods    = 20 * time.Second
 	timeToWaitForIngress = 100 * time.Second
 )
@@ -55,11 +60,30 @@ type testConfig struct {
 }
 
 var (
-	tc *testConfig
+	tc        *testConfig
+	testFlags = &framework.TestFlags{
+		V1alpha1: true,  //implies envoyv1
+		V1alpha3: false, //implies envoyv2
+		Ingress:  true,
+		Egress:   true,
+	}
+	configVersion = ""
+	versionSubdir = ""
 )
 
-func TestMain(m *testing.M) {
+func init() {
+	testFlags.Init()
 	flag.Parse()
+	if len(testFlags.ConfigVersions()) != 1 {
+		panic(fmt.Sprintf("must set exactly one of v1alpha1 or v1alpha3, have %v", testFlags.ConfigVersions()))
+	}
+	configVersion = testFlags.ConfigVersions()[0]
+	if testFlags.V1alpha3 {
+		versionSubdir = v1alpha3Subdir
+	}
+}
+
+func TestMain(m *testing.M) {
 	if err := framework.InitLogging(); err != nil {
 		panic("cannot setup logging")
 	}
@@ -73,7 +97,7 @@ func TestMain(m *testing.M) {
 func TestSimpleIngress(t *testing.T) {
 	// Tests that a simple ingress with rewrite/dropping of the /fortio/ prefix
 	// works, as fortio only replies with "echo debug server ..." on the /debug uri.
-	url := tc.Kube.IngressOrFail(t) + "/fortio/debug"
+	url := getIngressOrGatewayOrFail(t) + "/fortio/debug"
 	// Make sure the pods are running:
 	if !util.CheckPodsRunning(tc.Kube.Namespace, tc.Kube.KubeConfig) {
 		t.Fatalf("Pods not ready!")
@@ -235,19 +259,19 @@ func TestAuthWithHeaders(t *testing.T) {
 func Test503sDuringChanges(t *testing.T) {
 	t.Skip("Skipping Test503sDuringChanges until bug #1038 is fixed") // TODO fix me!
 	url := tc.Kube.IngressOrFail(t) + "/fortio/debug"
-	rulePath1 := util.GetResourcePath(routingR1Yaml)
-	rulePath2 := util.GetResourcePath(routingR2Yaml)
+	rulePath1 := util.GetResourcePath(yamlPath(routingR1Yaml))
+	rulePath2 := util.GetResourcePath(yamlPath(routingR2Yaml))
 	go func() {
 		time.Sleep(9 * time.Second)
 		log.Infof("Changing rules mid run to v1/v2")
 		if err := tc.Kube.Istioctl.CreateRule(rulePath1); err != nil {
-			t.Errorf("istioctl rule create %s failed", routingR1Yaml)
+			t.Errorf("istioctl rule create %s failed", yamlPath(routingR1Yaml))
 			return
 		}
 		time.Sleep(4 * time.Second)
 		log.Infof("Changing rules mid run to a/b")
 		if err := tc.Kube.Istioctl.CreateRule(rulePath2); err != nil {
-			t.Errorf("istioctl rule create %s failed", routingR1Yaml)
+			t.Errorf("istioctl rule create %s failed", yamlPath(routingR1Yaml))
 			return
 		}
 		time.Sleep(4 * time.Second)
@@ -280,12 +304,12 @@ func Test503sDuringChanges(t *testing.T) {
 func Test503sWithBadClusters(t *testing.T) {
 	t.Skip("Skipping Test503sWithBadClusters until bug #1038 is fixed") // TODO fix me!
 	url := tc.Kube.IngressOrFail(t) + "/fortio/debug"
-	rulePath := util.GetResourcePath(routingRNPYaml)
+	rulePath := util.GetResourcePath(yamlPath(routingRNPYaml))
 	go func() {
 		time.Sleep(9 * time.Second)
 		log.Infof("Changing rules with some non existent destination, mid run")
 		if err := tc.Kube.Istioctl.CreateRule(rulePath); err != nil {
-			t.Errorf("istioctl create rule %s failed", routingRNPYaml)
+			t.Errorf("istioctl create rule %s failed", yamlPath(routingRNPYaml))
 			return
 		}
 	}()
@@ -351,14 +375,14 @@ func setTestConfig() error {
 	services := []framework.App{
 		{
 			KubeInject:      true,
-			AppYamlTemplate: util.GetResourcePath(servicesYaml),
+			AppYamlTemplate: util.GetResourcePath(yamlPath(servicesYaml)),
 			Template: &fortioTemplate{
 				FortioImage: image,
 			},
 		},
 		{
 			KubeInject:      false,
-			AppYamlTemplate: util.GetResourcePath(nonInjectedYaml),
+			AppYamlTemplate: util.GetResourcePath(yamlPath(nonInjectedYaml)),
 			Template: &fortioTemplate{
 				FortioImage: image,
 			},
@@ -368,4 +392,17 @@ func setTestConfig() error {
 		tc.Kube.AppManager.AddApp(&services[i])
 	}
 	return nil
+}
+
+func getIngressOrGatewayOrFail(t *testing.T) string {
+	if testFlags.V1alpha3 {
+		log.Infof("vialpha3 getting Gateway")
+		return tc.Kube.IngressGatewayOrFail(t)
+	}
+	return tc.Kube.IngressOrFail(t)
+}
+
+// yamlPath returns the appropriate yaml path depending on whether v1alpha1 or 3 is set.
+func yamlPath(filename string) string {
+	return filepath.Join(baseDir, versionSubdir, filename)
 }

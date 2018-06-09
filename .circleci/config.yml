@@ -83,10 +83,10 @@ jobs:
               # Should only happen when re-running a job, and the workspace is gone
               time make build test-bins
             fi
-            make docker.all generate_yaml
+            make docker.all
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: make test/minikube/auth/e2e_simple
+      - run: make test/local/auth/e2e_simple
       - <<: *recordZeroExitCodeIfTestPassed
       - <<: *recordNonzeroExitCodeIfTestFailed
       - <<: *markJobFinishesOnGCS
