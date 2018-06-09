@@ -100,3 +100,14 @@ subsets:
     port: 443
     protocol: TCP
 ---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: zipkin
+  namespace: istio-system
+subsets:
+- addresses:
+  - ip: {{ .Values.global.zipkinEndpoint }}
+  ports:
+  - name: http-zipkin
+    port: 9411

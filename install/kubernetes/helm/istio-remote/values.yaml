@@ -18,6 +18,9 @@ global:
   # The Istio control plane telemetry endpoint
   telemetryEndpoint: istio-telemetry.istio-system
 
+  # The Istio control plane zipkin endpoint
+  zipkinEndpoint: zipkin.istio-system
+
   # Default tag for Istio images.
   hub: docker.io/istionightly
 
