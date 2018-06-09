@@ -89,40 +89,40 @@ func TestIngressGateway503DuringRuleChange(t *testing.T) {
 	ingressGatewayServiceName := tc.Kube.IstioIngressGatewayService()
 
 	gateway := &deployableConfig{
-		Namespace: tc.Kube.Namespace,
-		YamlFiles: []string{"testdata/v1alpha3/ingressgateway.yaml"},
+		Namespace:  tc.Kube.Namespace,
+		YamlFiles:  []string{"testdata/v1alpha3/ingressgateway.yaml"},
 		kubeconfig: tc.Kube.KubeConfig,
 	}
 
 	// Add subsets
 	newDestRule := &deployableConfig{
-		Namespace: tc.Kube.Namespace,
-		YamlFiles: []string{maybeAddTLSForDestinationRule(tc, "testdata/v1alpha3/rule-503test-destinationrule-c.yaml")},
+		Namespace:  tc.Kube.Namespace,
+		YamlFiles:  []string{maybeAddTLSForDestinationRule(tc, "testdata/v1alpha3/rule-503test-destinationrule-c.yaml")},
 		kubeconfig: tc.Kube.KubeConfig,
 	}
 
 	// route to subsets
 	newVirtService := &deployableConfig{
-		Namespace: tc.Kube.Namespace,
-		YamlFiles: []string{"testdata/v1alpha3/rule-503test-virtualservice.yaml"},
+		Namespace:  tc.Kube.Namespace,
+		YamlFiles:  []string{"testdata/v1alpha3/rule-503test-virtualservice.yaml"},
 		kubeconfig: tc.Kube.KubeConfig,
 	}
 
 	addMoreSubsets := &deployableConfig{
-		Namespace: tc.Kube.Namespace,
-		YamlFiles: []string{maybeAddTLSForDestinationRule(tc, "testdata/v1alpha3/rule-503test-destinationrule-c-add-subset.yaml")},
+		Namespace:  tc.Kube.Namespace,
+		YamlFiles:  []string{maybeAddTLSForDestinationRule(tc, "testdata/v1alpha3/rule-503test-destinationrule-c-add-subset.yaml")},
 		kubeconfig: tc.Kube.KubeConfig,
 	}
 
 	routeToNewSubsets := &deployableConfig{
-		Namespace: tc.Kube.Namespace,
-		YamlFiles: []string{"testdata/v1alpha3/rule-503test-update-virtualservice.yaml"},
+		Namespace:  tc.Kube.Namespace,
+		YamlFiles:  []string{"testdata/v1alpha3/rule-503test-update-virtualservice.yaml"},
 		kubeconfig: tc.Kube.KubeConfig,
 	}
 
 	deleteOldSubsets := &deployableConfig{
-		Namespace: tc.Kube.Namespace,
-		YamlFiles: []string{maybeAddTLSForDestinationRule(tc, "testdata/v1alpha3/rule-503test-destinationrule-c-del-subset.yaml")},
+		Namespace:  tc.Kube.Namespace,
+		YamlFiles:  []string{maybeAddTLSForDestinationRule(tc, "testdata/v1alpha3/rule-503test-destinationrule-c-del-subset.yaml")},
 		kubeconfig: tc.Kube.KubeConfig,
 	}
 
