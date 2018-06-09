@@ -34,6 +34,8 @@ eval $(minikube docker-env)
 
 kubectl get pods -n kube-system | grep kube-proxy |  grep Running > /dev/null
 while [ $? -ne 0 ]; do
+  echo "kube-proxy not ready, will check again in 5 sec"
+  sleep 5
   kubectl get pods -n kube-system |  grep kube-proxy | grep Running > /dev/null
 done
 
@@ -49,6 +51,8 @@ echo "local registry started"
 
 kubectl get pods -n kube-system | grep kube-registry-v0 | grep Running > /dev/null
 while [ $? -ne 0 ]; do
+  echo "kube-registry-v0 not ready, will check again in 5 sec"
+  sleep 5
   kubectl get pods -n kube-system | grep kube-registry-v0 | grep Running > /dev/null
 done
 
