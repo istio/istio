@@ -180,39 +180,33 @@ func convertRbacRulesToFilterConfig(service string, roles []model.Config, bindin
 		Policies: map[string]*policyproto.Policy{},
 	}
 
-start:
 	for _, role := range roles {
-		// Constructs the policy for each ServiceRole.
-		var policy *policyproto.Policy
-		var principals []*policyproto.Principal
 		log.Debugf("checking role %v for service %v", role.Name, service)
+		principals := convertToPrincipals(roleToBinding[role.Name])
+		if len(principals) == 0 {
+			// Skip to next role if found no bindings for current role. This means nobody could
+			// access the current role, so we don't need to check the remaining rules anymore.
+			log.Debugf("role %v skipped for no bindings found", role.Name)
+			continue
+		}
+
+		permissions := make([]*policyproto.Permission, 0)
 		for i, rule := range role.Spec.(*rbacproto.ServiceRole).Rules {
 			//TODO(yangminzhu): Also check the destination related properties.
 			if stringMatch(service, rule.Services) {
 				// Generate the policy if the service is matched to the services specified in ServiceRole.
 				log.Debugf("role %v matched by AccessRule %d", role.Name, i)
-				if policy == nil {
-					if principals == nil {
-						principals = convertToPrincipals(roleToBinding[role.Name])
-						if len(principals) == 0 {
-							log.Debugf("role %v skipped for no bindings found", role.Name)
-							// Skip to next role if found no bindings for current role. This means nobody could
-							// access the current role, so we don't need to check the remaining rules anymore.
-							continue start
-						}
-					}
-					policy = &policyproto.Policy{
-						Permissions: []*policyproto.Permission{},
-						Principals:  principals,
-					}
-				}
-				policy.Permissions = append(policy.Permissions, convertToPermission(rule))
+				permissions = append(permissions, convertToPermission(rule))
 			}
 		}
 
-		if policy != nil {
-			log.Debugf("role %v generated policy %v", role.Name, *policy)
-			rbac.Policies[role.Name] = policy
+		if len(permissions) != 0 {
+			// Constructs the policy for a role with both permissions and bindings.
+			rbac.Policies[role.Name] = &policyproto.Policy{
+				Permissions: permissions,
+				Principals:  principals,
+			}
+			log.Debugf("role %v generated policy: %v", role.Name, *rbac.Policies[role.Name])
 		}
 	}
 
