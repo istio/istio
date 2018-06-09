@@ -15,7 +15,6 @@
 package rules
 
 import (
-	"fmt"
 	"go/ast"
 	"go/token"
 	"log"
@@ -60,15 +59,6 @@ func matchFuncArgs(fcall *ast.CallExpr, argsR string) bool {
 		}
 	}
 	return false
-}
-
-// createLintReport returns a message reporting invalid skip call at pos.
-func createLintReport(pos token.Pos, fs *token.FileSet, msg string) string {
-	return fmt.Sprintf("%v:%v:%v:%s",
-		fs.Position(pos).Filename,
-		fs.Position(pos).Line,
-		fs.Position(pos).Column,
-		msg)
 }
 
 // matchFunc returns true if bd matches packageName and methodName, and returns CallExpr

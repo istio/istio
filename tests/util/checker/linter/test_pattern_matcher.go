@@ -19,6 +19,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"istio.io/istio/tests/util/checker"
 )
 
 // TestType is type ID of tests
@@ -65,18 +67,18 @@ func (pf *PathFilter) getWhitelistedPathsMap() {
 // .../*_integ_test.go
 // (3) unit test file
 // .../*_test.go
-func (pf *PathFilter) GetTestType(absp string, info os.FileInfo) (TestType, map[string]bool) {
+func (pf *PathFilter) GetRules(absp string, info os.FileInfo) []checker.Rule {
 	// sRules stores skipped rules for file path absp.
 	var sRules = map[string]bool{}
 
 	paths := strings.Split(absp, "/")
 	if len(paths) == 0 {
-		return NonTest, sRules
+		return []checker.Rule{}
 	}
 
 	// Skip path which is not go file.
 	if info.IsDir() || !strings.HasSuffix(absp, ".go") {
-		return NonTest, sRules
+		return []checker.Rule{}
 	}
 
 	// Check whether path is whitelisted
@@ -99,17 +101,23 @@ func (pf *PathFilter) GetTestType(absp string, info os.FileInfo) (TestType, map[
 		}
 	}
 
+	testType := NonTest
 	if isUnderE2eDir && isUnderIntegDir {
-		log.Printf("Invalid path %q under both e2e directory and integ directory", absp)
-		return NonTest, sRules
+		// TODO(Jimmy) this should probably be a lint error instesd...
 	} else if isUnderE2eDir && strings.HasSuffix(paths[len(paths)-1], "_test.go") {
-		return E2eTest, sRules
+		testType = E2eTest
 	} else if (isUnderIntegDir && strings.HasSuffix(paths[len(paths)-1], "_test.go")) ||
 		strings.HasSuffix(paths[len(paths)-1], "_integ_test.go") {
-		return IntegTest, sRules
+		testType = IntegTest
 	} else if strings.HasSuffix(paths[len(paths)-1], "_test.go") &&
 		!strings.HasSuffix(paths[len(paths)-1], "_integ_test.go") {
-		return UnitTest, sRules
+		testType = UnitTest
 	}
-	return NonTest, sRules
+	rules := []checker.Rule{}
+	for _, rule := range LintRulesList[testType] {
+		if _, skip := sRules[rule.GetID()]; !skip {
+			rules = append(rules, rule)
+		}
+	}
+	return rules
 }

@@ -17,6 +17,8 @@ package rules
 import (
 	"go/ast"
 	"go/token"
+
+	"istio.io/istio/tests/util/checker"
 )
 
 // NoSleep requires that time.Sleep() is not allowed.
@@ -33,10 +35,10 @@ func (lr *NoSleep) GetID() string {
 }
 
 // Check verifies if aNode is not time.Sleep. If verification fails lrp creates a new report.
-func (lr *NoSleep) Check(aNode ast.Node, fs *token.FileSet, lrp *LintReporter) {
+func (lr *NoSleep) Check(aNode ast.Node, fs *token.FileSet, lrp *checker.Report) {
 	if ce, ok := aNode.(*ast.CallExpr); ok {
 		if matchCallExpr(ce, "time", "Sleep") {
-			lrp.AddReport(ce.Pos(), fs, "time.Sleep() is disallowed.")
+			lrp.AddItem(ce.Pos(), fs, "time.Sleep() is disallowed.")
 		}
 	}
 }

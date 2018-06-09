@@ -17,26 +17,26 @@ package rules
 import (
 	"go/ast"
 	"go/token"
+
+	"istio.io/istio/tests/util/checker"
 )
 
-// NoShort requires that testing.Short() is not allowed.
-type NoShort struct{}
+// NoGoroutine requires that go f(x, y, z) is not allowed.
+type NoGoroutine struct{}
 
-// NewNoShort creates and returns a NoShort object.
-func NewNoShort() *NoShort {
-	return &NoShort{}
+// NewNoGoroutine creates and returns a NoGoroutine object.
+func NewNoGoroutine() *NoGoroutine {
+	return &NoGoroutine{}
 }
 
-// GetID returns no_short_rule.
-func (lr *NoShort) GetID() string {
+// GetID returns no_goroutine_rule.
+func (lr *NoGoroutine) GetID() string {
 	return getCallerFileName()
 }
 
-// Check verifies if aNode is not testing.Short(). If verification lrp creates new report.
-func (lr *NoShort) Check(aNode ast.Node, fs *token.FileSet, lrp *LintReporter) {
-	if ce, ok := aNode.(*ast.CallExpr); ok {
-		if matchCallExpr(ce, "testing", "Short") {
-			lrp.AddReport(ce.Pos(), fs, "testing.Short() is disallowed.")
-		}
+// Check verifies if aNode is not goroutine. If verification fails lrp creates new report.
+func (lr *NoGoroutine) Check(aNode ast.Node, fs *token.FileSet, lrp *checker.Report) {
+	if gs, ok := aNode.(*ast.GoStmt); ok {
+		lrp.AddItem(gs.Pos(), fs, "goroutine is disallowed.")
 	}
 }
