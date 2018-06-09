@@ -25,7 +25,7 @@ import (
 )
 
 // Check checks the list of files, and write to the given Report.
-func Check(paths []string, factory RulesFactory, report *Report) error {
+func Check(paths []string, factory RulesFactory, whitelist *Whitelist, report *Report) error {
 	// Empty paths means current dir.
 	if len(paths) == 0 {
 		paths = []string{"."}
@@ -41,7 +41,7 @@ func Check(paths []string, factory RulesFactory, report *Report) error {
 			}
 			rules := factory.GetRules(fpath, info)
 			if len(rules) > 0 {
-				fileCheck(fpath, rules, report)
+				fileCheck(fpath, rules, whitelist, report)
 			}
 			return nil
 		})
@@ -53,17 +53,19 @@ func Check(paths []string, factory RulesFactory, report *Report) error {
 }
 
 // fileCheck checks a file using the given rules, and write to the given Report.
-func fileCheck(filePath string, rules []Rule, report *Report) {
+func fileCheck(path string, rules []Rule, whitelist *Whitelist, report *Report) {
 	fs := token.NewFileSet()
-	astFile, err := parser.ParseFile(fs, filePath, nil, parser.Mode(0))
+	astFile, err := parser.ParseFile(fs, path, nil, parser.Mode(0))
 	if err != nil {
 		report.AddString(fmt.Sprintf("%v", err))
 		return
 	}
 	v := FileVisitor{
-		rules:   rules,
-		fileset: fs,
-		report:  report,
+		path:      path,
+		rules:     rules,
+		whitelist: whitelist,
+		fileset:   fs,
+		report:    report,
 	}
 	// Walk through the files
 	ast.Walk(&v, astFile)
@@ -71,9 +73,11 @@ func fileCheck(filePath string, rules []Rule, report *Report) {
 
 // Linter applies linting rules to a file.
 type FileVisitor struct {
-	rules   []Rule // rules to check
-	fileset *token.FileSet
-	report  *Report // report for linting process
+	path      string
+	rules     []Rule     // rules to check
+	whitelist *Whitelist // rules to skip
+	fileset   *token.FileSet
+	report    *Report // report for linting process
 }
 
 // Visit checks each function call and report if a forbidden function call is detected.
@@ -84,7 +88,9 @@ func (fv *FileVisitor) Visit(node ast.Node) ast.Visitor {
 
 	// ApplyRules applies rules to node and generate lint report.
 	for _, rule := range fv.rules {
-		rule.Check(node, fv.fileset, fv.report)
+		if !fv.whitelist.Apply(fv.path, rule) {
+			rule.Check(node, fv.fileset, fv.report)
+		}
 	}
 	return fv
 }

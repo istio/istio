@@ -15,9 +15,7 @@
 package linter
 
 import (
-	"log"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"istio.io/istio/tests/util/checker"
@@ -31,7 +29,6 @@ const (
 	UnitTest  TestType = iota // UnitTest == 0
 	IntegTest TestType = iota // IntegTest == 1
 	E2eTest   TestType = iota // E2eTest == 2
-	NonTest   TestType = iota // NonTest == 3
 )
 
 // RulesMatcher filters out test files and detects test type.
@@ -56,57 +53,17 @@ func (rf *RulesMatcher) GetRules(absp string, info os.FileInfo) []checker.Rule {
 		return []checker.Rule{}
 	}
 
-	testType := NonTest
 	for _, path := range paths {
 		if path == "e2e" {
-			testType = E2eTest
+			return LintRulesList[E2eTest]
 		} else if path == "integ" {
-			testType = IntegTest
+			return LintRulesList[IntegTest]
 		}
 	}
 	if strings.HasSuffix(paths[len(paths)-1], "_integ_test.go") {
 		// Integration tests can be in non integ directories.
-		testType = IntegTest
-	} else if testType == NonTest {
-		testType = UnitTest
+		return LintRulesList[IntegTest]
+	} else {
+		return LintRulesList[UnitTest]
 	}
-
-	skipRules := getWhitelistedRules(absp)
-	rules := []checker.Rule{}
-	for _, rule := range LintRulesList[testType] {
-		if !shouldSkip(rule, skipRules) {
-			rules = append(rules, rule)
-		}
-	}
-	return rules
-}
-
-// getWhitelistedRules returns the whitelisted rule given the path
-func getWhitelistedRules(absp string) []string {
-	// skipRules stores skipped rules for file path absp.
-	skipRules := []string{}
-
-	// Check whether path is whitelisted
-	for wp, whitelistedRules := range PathWhitelist {
-		// filepath.Match is needed for canonical matching
-		matched, err := filepath.Match(wp, absp)
-		if err != nil {
-			log.Printf("file match returns error: %v", err)
-		}
-		if matched {
-			skipRules = whitelistedRules
-		}
-	}
-	return skipRules
-}
-
-// shouldSkip checks if the given rule should be skipped
-func shouldSkip(rule checker.Rule, skipeRules []string) bool {
-	shouldSkip := false
-	for _, skipRule := range skipeRules {
-		if skipRule == rule.GetID() {
-			shouldSkip = true
-		}
-	}
-	return shouldSkip
 }

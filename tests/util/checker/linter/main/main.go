@@ -41,9 +41,11 @@ func main() {
 }
 
 func getReport(args []string) ([]string, error) {
+	matcher := linter.RulesMatcher{}
+	whitelist := checker.NewWhitelist(linter.Whitelist)
 	report := checker.NewLintReport()
-	filter := linter.RulesMatcher{}
-	err := checker.Check(args, &filter, report)
+
+	err := checker.Check(args, &matcher, whitelist, report)
 	if err != nil {
 		return []string{}, err
 	}

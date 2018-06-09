@@ -91,8 +91,8 @@ func TestUnitTestWhitelist(t *testing.T) {
 		rules.NewNoShort(),
 		rules.NewNoSleep(),
 		rules.NewNoGoroutine()}
-	linter.PathWhitelist = make(map[string][]string)
-	linter.PathWhitelist["testdata/unit_test.go"] = []string{"skip_by_issue_rule", "no_short_rule",
+	linter.Whitelist = make(map[string][]string)
+	linter.Whitelist["testdata/unit_test.go"] = []string{"skip_by_issue_rule", "no_short_rule",
 		"no_sleep_rule", "no_goroutine_rule"}
 
 	rpts, _ := getReport([]string{"testdata/*"})
