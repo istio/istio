@@ -28,21 +28,12 @@ if [ $? -ne 0 ]; then
     fi
 fi
 
-#Install Kvm
-echo "Checking and Installing KVM as required"
-kvm --help > /dev/null
-if [ $? -ne 0 ]; then
-    sudo apt-get -y --quiet install xvnc4viewer qemu-kvm libvirt0 libvirt-bin virtinst virt-manager bridge-utils cpu-checker libvert-dev
-    kvm --help > /dev/null
-    if [ $? -ne 0 ]; then
-          echo "kvm could not be installed. Please install it and run this script again."
-          exit 1
-    fi
-    adduser $USER kvm
-    adduser $USER libvirt
-    sudo usermod -aG libvirt myuser
-    sudo usermod -aG kvm myuser
-fi
+#Install Kvm2
+echo "Installing KVM2 as required"
+sudo apt install libvirt-bin qemu-kvm
+sudo usermod -a -G libvirtd $(whoami)
+newgrp libvirtd
+curl -LO https://storage.googleapis.com/minikube/releases/latest/docker-machine-driver-kvm2 && chmod +x docker-machine-driver-kvm2 && sudo mv docker-machine-driver-kvm2 /usr/local/bin/
 
 # Install kubectl
 echo "Checking and Installing Kubectl as required"
@@ -67,9 +58,9 @@ if [ $? -ne 0 ]; then
 fi
 
 # Install minikube.
-echo "Checking and Installing Minikube as required"
+echo "Checking and Installing Minikube version 0.27.0 as required"
 minikube --help > /dev/null
-if [ $? -ne 0 ]; then
+if [[ $? -ne 0 || (`minikube version` != *"minikube version: v0.27.0"*) ]]; then
   curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.27.0/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
   if [ $? -ne 0 ]; then
       echo "Looks like minikube installation failed."
