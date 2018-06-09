@@ -14,7 +14,7 @@
 
 package linter
 
-// WhitelistPath contains pairs of file and rule IDs. Each file maps to an array of rules which
+// PathWhitelist contains pairs of file and rule IDs. Each file maps to an array of rules which
 // should not apply to that file. Each rule is represented by its unique rule ID, which is the
-// file name of that rule without ".go" extension.
-var WhitelistPath = map[string][]string{}
+// file name of that rule without ".go" extension in the rules package.
+var PathWhitelist = map[string][]string{}

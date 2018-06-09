@@ -42,7 +42,7 @@ func main() {
 
 func getReport(args []string) ([]string, error) {
 	report := checker.NewLintReport()
-	filter := linter.NewPathFilter()
+	filter := linter.RulesMatcher{}
 	err := checker.Check(args, &filter, report)
 	if err != nil {
 		return []string{}, err
