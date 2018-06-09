@@ -61,6 +61,8 @@ import (
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/adapter"
+	"context"
 )
 
 // builder keeps the ephemeral state while the routing table is built.
@@ -142,57 +144,68 @@ func (b *builder) nextID() uint32 {
 
 // templateInfo build method needed dispatch this template
 func (b *builder) templateInfo(tmpl *config.Template) *TemplateInfo {
-	//tmpl.
+	ti :=  &TemplateInfo{
+		Name: tmpl.Name,
+		Variety: tmpl.Variety,
+	}
 
-	//FIXME
-	return nil
+	// Make a call to check
+	ti.DispatchCheck = func(ctx context.Context, handler adapter.Handler, instance interface{}) (adapter.CheckResult, error) {
+		var h adapter.RemoteCheckHandler
+		var ok bool
+		var encodedInstance []byte
+
+		if h, ok = handler.(adapter.RemoteCheckHandler); !ok {
+			return adapter.CheckResult{}, fmt.Errorf("internal: handler of incorrect type. got %T, want: RemoteCheckHandler", handler)
+		}
+
+		if encodedInstance, ok = instance.([]byte); !ok {
+			return adapter.CheckResult{}, fmt.Errorf("internal: instance of incorrect type. got %T, want: []byte", instance)
+		}
+
+		return h.HandleRemoteCheck(ctx, encodedInstance, tmpl.Name)
+	}
+
+	ti.DispatchReport = func(ctx context.Context, handler adapter.Handler, instances []interface{}) error {
+		var h adapter.RemoteReportHandler
+		var ok bool
+		var encodedInstance []byte
+
+		if h, ok = handler.(adapter.RemoteReportHandler); !ok {
+			return fmt.Errorf("internal: handler of incorrect type. got %T, want: RemoteReportHandler", handler)
+		}
+
+		encodedInstances := make([][]byte,len(instances))
+
+		for i := range instances{
+			instance := instances[i]
+			if encodedInstance, ok = instance.([]byte); !ok {
+				return fmt.Errorf("internal: instance of incorrect type. got %T, want: []byte", instance)
+			}
+			encodedInstances[i] = encodedInstance
+		}
+		return h.HandleRemoteReport(ctx, encodedInstances, tmpl.Name)
+	}
+
+	ti.DispatchQuota = func(ctx context.Context, handler adapter.Handler, instance interface{}, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
+		var h adapter.RemoteQuotaHandler
+		var ok bool
+		var encodedInstance []byte
+
+		if h, ok = handler.(adapter.RemoteQuotaHandler); !ok {
+			return adapter.QuotaResult{}, fmt.Errorf("internal: handler of incorrect type. got %T, want: RemoteQuotaHandler", handler)
+		}
+
+		if encodedInstance, ok = instance.([]byte); !ok {
+			return adapter.QuotaResult{}, fmt.Errorf("internal: instance of incorrect type. got %T, want: []byte", instance)
+		}
+
+		return h.HandleRemoteQuota(ctx, encodedInstance, args, tmpl.Name)
+	}
+	return ti
 }
 
 func (b *builder) build(config *config.Snapshot) {
-
-	for _, rule := range config.Rules {
-
-		// Create a compiled expression for the rule condition first.
-		condition, err := b.getConditionExpression(rule.Match)
-		if err != nil {
-			log.Warnf("Unable to compile match condition expression: '%v', rule='%s', expression='%s'",
-				err, rule.Name, rule.Match)
-			config.Counters.MatchErrors.Inc()
-			// Skip the rule
-			continue
-		}
-
-		// For each action, find unique instances to use, and add entries to the map.
-		for i, action := range rule.ActionsDynamic {
-
-			// Find the matching handler.
-			handlerName := action.Handler.Name
-			entry, found := b.handlers.Get(handlerName)
-			if !found {
-				// This can happen if we cannot initialize a handler, even if the config itself self-consistent.
-				log.Warnf("Unable to find a handler for action. rule[action]='%s[%d]', handler='%s'",
-					rule.Name, i, handlerName)
-
-				config.Counters.UnsatisfiedActionHandlers.Inc()
-				// Skip the rule
-				continue
-			}
-
-			for _, instance := range action.Instances {
-				// get the instance mapper and builder for this instance. Mapper is used by APA instances
-				// to map the instance result back to attributes.
-				builder, mapper, err := b.getBuilderAndMapperDynamic(config.Attributes, instance)
-				if err != nil {
-					log.Warnf("Unable to create builder/mapper for instance: instance='%s', err='%v'", instance.Name, err)
-					continue
-				}
-
-				b.add(rule.Namespace, b.templateInfo(instance.Template), entry, condition, builder, mapper,
-					entry.Name, instance.Name, rule.Match, rule.ResourceType)
-			}
-		}
-	}
-
 	for _, rule := range config.Rules {
 
 		// Create a compiled expression for the rule condition first.
@@ -231,6 +244,36 @@ func (b *builder) build(config *config.Snapshot) {
 				}
 
 				b.add(rule.Namespace, BuildTemplateInfo(instance.Template), entry, condition, builder, mapper,
+					entry.Name, instance.Name, rule.Match, rule.ResourceType)
+			}
+		}
+
+		// process dynamic actions
+		for i, action := range rule.ActionsDynamic {
+
+			// Find the matching handler.
+			handlerName := action.Handler.Name
+			entry, found := b.handlers.Get(handlerName)
+			if !found {
+				// This can happen if we cannot initialize a handler, even if the config itself self-consistent.
+				log.Warnf("Unable to find a handler for action. rule[action]='%s[%d]', handler='%s'",
+					rule.Name, i, handlerName)
+
+				config.Counters.UnsatisfiedActionHandlers.Inc()
+				// Skip the rule
+				continue
+			}
+
+			for _, instance := range action.Instances {
+				// get the instance mapper and builder for this instance. Mapper is used by APA instances
+				// to map the instance result back to attributes.
+				builder, mapper, err := b.getBuilderAndMapperDynamic(config.Attributes, instance)
+				if err != nil {
+					log.Warnf("Unable to create builder/mapper for instance: instance='%s', err='%v'", instance.Name, err)
+					continue
+				}
+
+				b.add(rule.Namespace, b.templateInfo(instance.Template), entry, condition, builder, mapper,
 					entry.Name, instance.Name, rule.Match, rule.ResourceType)
 			}
 		}

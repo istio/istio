@@ -24,6 +24,7 @@ import (
 
 	"istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/pkg/log"
+	"encoding/json"
 )
 
 type signature [sha1.Size]byte
@@ -35,6 +36,37 @@ func (s signature) equals(other signature) bool {
 	// equality to zeroSignature always returns false. This ensures that we don't accidentally create
 	// signatures with missing configuration data due to serialization errors.
 	return !bytes.Equal(s[:], zeroSignature[:]) && bytes.Equal(s[:], other[:])
+}
+
+func calculateSignatureDynamic(handler *config.HandlerDynamic, instances []*config.InstanceDynamic) signature {
+
+	// sort the instances by name
+	instanceMap := make(map[string]*config.InstanceDynamic)
+	instanceNames := make([]string, len(instances))
+	for i, instance := range instances {
+		instanceMap[instance.Name] = instance
+		instanceNames[i] = instance.Name
+	}
+	sort.Strings(instanceNames)
+
+	buf := new(bytes.Buffer)
+	encoded := true
+
+	encoded = encoded && encode(buf, handler.Adapter.Name)
+	encoded = encoded && encode(buf, handler.AdapterConfig)
+	for _, name := range instanceNames {
+		instance := instanceMap[name]
+		encoded = encoded && encode(buf, instance.Template.Name)
+		encoded = encoded && encode(buf, instance.Params)
+	}
+
+	if encoded {
+		sha := sha1.Sum(buf.Bytes())
+		buf.Reset()
+		return sha
+	}
+
+	return zeroSignature
 }
 
 func calculateSignature(handler *config.HandlerStatic, instances []*config.InstanceStatic) signature {
@@ -79,7 +111,15 @@ func encode(w io.Writer, v interface{}) bool {
 		// TODO (Issue #2539): This is likely to yield poor results, as proto serialization is not guaranteed
 		// to be stable, especially when maps are involved... We should probably have a better model here.
 		if b, err = proto.Marshal(t); err != nil {
-			log.Warnf("Failed to marshal %v into a proto: %v", t, err)
+			log.Warnf("Failed to marshal proto %T %v: %v", t, t, err)
+			b = nil
+		}
+	case []byte:
+		b = t
+	default: // attempt json marshaling
+		// for map[string]interface{} the encoding *is* stable
+		if b, err = json.Marshal(t); err != nil {
+			log.Warnf("Failed to marshal as json %T %v: %v", t, t, err)
 			b = nil
 		}
 	}

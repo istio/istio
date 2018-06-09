@@ -53,8 +53,11 @@ func NewTable(old *Table, snapshot *config.Snapshot, gp *pool.GoroutinePool) *Ta
 	// Find all handlers, as referenced by instances, and associate to handlers.
 	instancesByHandler := config.GetInstancesGroupedByHandlers(snapshot)
 
+	instancesByHandlerDynamic := config.GetInstancesGroupedByHandlersDynamic(snapshot)
+
+
 	t := &Table{
-		entries:  make(map[string]Entry, len(instancesByHandler)),
+		entries:  make(map[string]Entry, len(instancesByHandler) + len(instancesByHandlerDynamic)),
 		counters: newTableCounters(snapshot.ID),
 	}
 
@@ -93,6 +96,44 @@ func NewTable(old *Table, snapshot *config.Snapshot, gp *pool.GoroutinePool) *Ta
 			env:       e,
 		}
 	}
+
+	for handler, instances := range instancesByHandlerDynamic {
+		sig := calculateSignatureDynamic(handler, instances)
+
+		currentEntry, found := old.entries[handler.Name]
+		if found && currentEntry.Signature.equals(sig) {
+			// reuse the Handler
+			t.entries[handler.Name] = currentEntry
+			t.counters.reusedHandlers.Inc()
+			continue
+		}
+
+		e := newEnv(snapshot.ID, handler.Name, gp)
+		instantiatedHandler, err := config.BuildHandler(handler, instances, e, snapshot.Templates)
+
+		if err != nil {
+			t.counters.buildFailure.Inc()
+
+			log.Errorf(
+				"Unable to initialize adapter: snapshot='%d', handler='%s', adapter='%s', err='%s'.\n"+
+					"Please remove the handler or fix the configuration.",
+				snapshot.ID, handler.Name, handler.Adapter.Name, err.Error())
+
+			continue
+		}
+
+		t.counters.newHandlers.Inc()
+
+		t.entries[handler.Name] = Entry{
+			Name:      handler.Name,
+			Handler:   instantiatedHandler,
+			Adapter:   handler.Adapter,
+			Signature: sig,
+			env:       e,
+		}
+	}
+
+
 
 	return t
 }

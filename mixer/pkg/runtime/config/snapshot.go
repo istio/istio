@@ -90,6 +90,9 @@ type (
 
 		// Encoder to create request instance bytes from attributes
 		Encoder dynamic.Encoder
+
+		// Params used to create the Encoder.
+		Params map[string]interface{}
 	}
 
 	// InstanceStatic configuration for compiled templates. Fully resolved.
@@ -159,6 +162,8 @@ type (
 		InternalPackageDerivedName string
 
 		// Template's file descriptor set.
+		// This is the descriptor set that is produced from the *_service proto.
+		// It includes grpc service and template protos.
 		FileDescSet *descriptor.FileDescriptorSet
 
 		// package name of the `Template` message
