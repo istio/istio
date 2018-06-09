@@ -14,11 +14,6 @@
 
 package linter
 
-const (
-	// SkipAllRules could be used to skip all rules for a file path in WhitelistPath.
-	SkipAllRules = "SkipAllRules"
-)
-
 // WhitelistPath contains pairs of file and rule IDs. Each file maps to an array of rules which
 // should not apply to that file. Each rule is represented by its unique rule ID, which is the
 // file name of that rule without ".go" extension.

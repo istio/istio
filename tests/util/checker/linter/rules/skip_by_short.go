@@ -18,6 +18,8 @@ import (
 	"go/ast"
 	"go/token"
 	"strings"
+
+	"istio.io/istio/tests/util/checker"
 )
 
 // SkipByShort requires that a test function should have one of these pattern.
@@ -62,10 +64,10 @@ func (lr *SkipByShort) GetID() string {
 //	}
 //	...
 // }
-func (lr *SkipByShort) Check(aNode ast.Node, fs *token.FileSet, lrp *LintReporter) {
+func (lr *SkipByShort) Check(aNode ast.Node, fs *token.FileSet, lrp *checker.Report) {
 	if fn, isFn := aNode.(*ast.FuncDecl); isFn && strings.HasPrefix(fn.Name.Name, "Test") {
 		if len(fn.Body.List) == 0 {
-			lrp.AddReport(aNode.Pos(), fs, "Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'")
+			lrp.AddItem(aNode.Pos(), fs, "Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'")
 		} else if len(fn.Body.List) == 1 {
 			if ifStmt, ok := fn.Body.List[0].(*ast.IfStmt); ok {
 				if uExpr, ok := ifStmt.Cond.(*ast.UnaryExpr); ok {
@@ -91,6 +93,6 @@ func (lr *SkipByShort) Check(aNode ast.Node, fs *token.FileSet, lrp *LintReporte
 				}
 			}
 		}
-		lrp.AddReport(aNode.Pos(), fs, "Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'")
+		lrp.AddItem(aNode.Pos(), fs, "Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'")
 	}
 }

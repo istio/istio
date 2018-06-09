@@ -19,8 +19,9 @@ import (
 	"reflect"
 	"testing"
 
-	"istio.io/istio/tests/util/golinter/linter"
-	"istio.io/istio/tests/util/golinter/rules"
+	"istio.io/istio/tests/util/checker"
+	"istio.io/istio/tests/util/checker/linter"
+	"istio.io/istio/tests/util/checker/linter/rules"
 )
 
 func getAbsPath(path string) string {
@@ -38,9 +39,9 @@ func clearLintRulesList() {
 
 func TestUnitTestSkipByIssueRule(t *testing.T) {
 	clearLintRulesList()
-	linter.LintRulesList[linter.UnitTest] = []rules.LintRule{rules.NewSkipByIssue()}
+	linter.LintRulesList[linter.UnitTest] = []checker.Rule{rules.NewSkipByIssue()}
 
-	rpts := getReport([]string{"testdata/"})
+	rpts, _ := getReport([]string{"testdata/"})
 	expectedRpts := []string{getAbsPath("testdata/unit_test.go") + ":9:2:Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue."}
 
 	if !reflect.DeepEqual(rpts, expectedRpts) {
@@ -50,9 +51,9 @@ func TestUnitTestSkipByIssueRule(t *testing.T) {
 
 func TestUnitTestNoShortRule(t *testing.T) {
 	clearLintRulesList()
-	linter.LintRulesList[linter.UnitTest] = []rules.LintRule{rules.NewNoShort()}
+	linter.LintRulesList[linter.UnitTest] = []checker.Rule{rules.NewNoShort()}
 
-	rpts := getReport([]string{"testdata/"})
+	rpts, _ := getReport([]string{"testdata/"})
 	expectedRpts := []string{getAbsPath("testdata/unit_test.go") + ":32:5:testing.Short() is disallowed."}
 
 	if !reflect.DeepEqual(rpts, expectedRpts) {
@@ -62,9 +63,9 @@ func TestUnitTestNoShortRule(t *testing.T) {
 
 func TestUnitTestNoSleepRule(t *testing.T) {
 	clearLintRulesList()
-	linter.LintRulesList[linter.UnitTest] = []rules.LintRule{rules.NewNoSleep()}
+	linter.LintRulesList[linter.UnitTest] = []checker.Rule{rules.NewNoSleep()}
 
-	rpts := getReport([]string{"testdata/"})
+	rpts, _ := getReport([]string{"testdata/"})
 	expectedRpts := []string{getAbsPath("testdata/unit_test.go") + ":49:2:time.Sleep() is disallowed."}
 
 	if !reflect.DeepEqual(rpts, expectedRpts) {
@@ -74,9 +75,9 @@ func TestUnitTestNoSleepRule(t *testing.T) {
 
 func TestUnitTestNoGoroutineRule(t *testing.T) {
 	clearLintRulesList()
-	linter.LintRulesList[linter.UnitTest] = []rules.LintRule{rules.NewNoGoroutine()}
+	linter.LintRulesList[linter.UnitTest] = []checker.Rule{rules.NewNoGoroutine()}
 
-	rpts := getReport([]string{"testdata/"})
+	rpts, _ := getReport([]string{"testdata/"})
 	expectedRpts := []string{getAbsPath("testdata/unit_test.go") + ":57:2:goroutine is disallowed."}
 
 	if !reflect.DeepEqual(rpts, expectedRpts) {
@@ -86,7 +87,7 @@ func TestUnitTestNoGoroutineRule(t *testing.T) {
 
 func TestUnitTestWhitelist(t *testing.T) {
 	clearLintRulesList()
-	linter.LintRulesList[linter.UnitTest] = []rules.LintRule{rules.NewSkipByIssue(),
+	linter.LintRulesList[linter.UnitTest] = []checker.Rule{rules.NewSkipByIssue(),
 		rules.NewNoShort(),
 		rules.NewNoSleep(),
 		rules.NewNoGoroutine()}
@@ -94,10 +95,10 @@ func TestUnitTestWhitelist(t *testing.T) {
 	linter.WhitelistPath["testdata/unit_test.go"] = []string{"skip_by_issue_rule", "no_short_rule",
 		"no_sleep_rule", "no_goroutine_rule"}
 
-	rpts := getReport([]string{"testdata/*"})
+	rpts, _ := getReport([]string{"testdata/*"})
 	expectedRpts := []string{}
 
-	if !reflect.DeepEqual(rpts, expectedRpts) {
+	if (len(rpts) > 0 || len(expectedRpts) > 0) && !reflect.DeepEqual(rpts, expectedRpts) {
 		t.Errorf("lint reports don't match\nReceived: %v\nExpected: %v", rpts, expectedRpts)
 	}
 }
